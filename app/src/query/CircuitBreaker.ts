@@ -32,13 +32,13 @@
  *   HALF_OPEN → 试探调用失败 → OPEN（重新计时）
  */
 
-import { Logger } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import {
   LOOP_OBSERVE_ONLY,
   LOOP_GLOBAL_BREAKER_THRESHOLD,
 } from './loop-config.js';
 
-const logger = new Logger({ module: 'query:circuitBreaker' });
+const logger = getLogger('query:circuitBreaker');
 
 /** 断路器状态 */
 type BreakerState = 'closed' | 'open' | 'half_open';

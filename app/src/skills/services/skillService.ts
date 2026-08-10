@@ -9,9 +9,8 @@ import { constants as fsConstants } from 'fs';
 import { mkdir, open, readdir, readFile, stat } from 'fs/promises';
 import { dirname, isAbsolute, join, normalize, sep as pathSep } from 'path';
 import { getConfigHomeDir } from '@modules/utils/envUtils';
-import { Logger } from '@modules/monitoring';
-
-const logger = new Logger({ module: 'skills:service' });
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('skills:service');
 
 import type {
   SkillDefinition,

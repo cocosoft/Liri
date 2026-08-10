@@ -19,14 +19,11 @@ import {
   OperationType,
 } from './Permission.js';
 import { createFilePermissionStorage } from './FilePermissionStorage.js';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { TTLCache } from '../utils/cache';
 
-const logger = new Logger({
-  module: 'permission:fineGrainedPermissionManager',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('permission:fineGrainedPermissionManager');
 
 /**
  * 细粒度权限管理器类

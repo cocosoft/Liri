@@ -6,9 +6,8 @@
 import { join } from 'path';
 import { existsSync, readFileSync, readdirSync } from 'fs';
 import { resolvePyappHome } from '@modules/core';
-import { Logger } from '../../../monitoring/logs/Logger.js';
-
-const logger = new Logger({ module: 'MDMSettings' });
+import { getLogger } from '../../../monitoring/logs/Logger.js';
+const logger = getLogger('MDMSettings');
 import {
   WINDOWS_REGISTRY_KEY_PATH_HKCU,
   WINDOWS_REGISTRY_KEY_PATH_HKLM,

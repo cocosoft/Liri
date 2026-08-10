@@ -4,16 +4,13 @@
  */
 
 import type { SecurityAuditFinding, AuditSeverity } from './AuditTypes';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { resolveProjectRoot } from '@modules/core';
 
-const logger = new Logger({
-  module: 'security:auditPlugins',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('security:auditPlugins');
 
 interface PluginMeta {
   name: string;

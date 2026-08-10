@@ -1,10 +1,7 @@
 import { EventEmitter } from 'events';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'security\services\SensitiveDataService',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('security\services\SensitiveDataService');
 
 const SENSITIVE_PATTERNS = [
   /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g,

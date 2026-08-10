@@ -12,12 +12,8 @@ import {
 } from '@modules/skills/utils/skillParser';
 import { validateSkillFrontmatter } from '@modules/skills/utils/skillValidator';
 import { join } from 'path';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'skills:fileLoader',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('skills:fileLoader');
 
 /** 文件系统加载器配置 */
 export interface FileSkillLoaderConfig {

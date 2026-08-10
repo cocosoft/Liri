@@ -15,11 +15,8 @@ import {
 } from '@modules/plugins/utils/pluginConfigSchema.js';
 import type { PluginConfigSchema } from '@modules/plugins/utils/pluginConfigSchema.js';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'commands:plugin-settings:pluginSettings',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('commands:plugin-settings:pluginSettings');
 
 const pluginRegistry = new PluginRegistry();
 

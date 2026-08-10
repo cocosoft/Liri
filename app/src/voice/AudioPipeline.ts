@@ -4,12 +4,8 @@
  * 支持 PCM 16kHz mono 格式，与 Gemini Live API 默认输入格式一致
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'voice:audioPipeline',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('voice:audioPipeline');
 
 /** 音频格式常量 */
 export const AUDIO_FORMAT = {

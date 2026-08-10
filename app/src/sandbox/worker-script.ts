@@ -7,12 +7,9 @@ import { parentPort, workerData } from 'worker_threads';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
-const logger = new Logger({
-  module: 'sandbox:worker-script',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('sandbox:worker-script');
 
 const execAsync = promisify(exec);
 

@@ -28,8 +28,7 @@ import * as os from 'os';
 // MonitoringService/BackupManager 等（它们静态 import @modules/core barrel），
 // 在循环 import（paths→monitoring→core→paths）期间触发 paths 的 TDZ。
 // Logger.ts 自身仅依赖 monitoring/logs 内部文件，不依赖 core。
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger.js';
-
+import { getLogger } from '@modules/monitoring/logs/Logger.js';
 // ─── 环境变量键名 ─────────────────────────────
 
 const ENV_LIRI_HOME = 'LIRI_HOME';
@@ -993,7 +992,7 @@ export const PROJECT_SETTINGS_PATH = resolveProjectSettingsPath();
  *
  * 仅打印 warning 不抛异常——路径错误不应阻塞启动。
  */
-const pathsLogger = new Logger({ module: 'core:paths' });
+const pathsLogger = getLogger('core:paths');
 
 export function validatePathConsistency(logger?: {
   warn: (msg: string) => void;

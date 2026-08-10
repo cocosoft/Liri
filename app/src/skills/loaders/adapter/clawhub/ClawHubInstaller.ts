@@ -33,16 +33,13 @@ import {
   readdirSync,
   statSync,
 } from 'fs';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import type { LocalSkillStore } from '../LocalSkillStore';
 import type { ClawHubSkillMeta, InstalledClawHubSkill } from './ClawHubMeta';
 import { ClawHubAPIClient } from './ClawHubAPIClient';
 import { validateSkillId } from '../safeSkillId';
 
-const logger = new Logger({
-  module: 'skills:clawHubInstaller',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('skills:clawHubInstaller');
 
 const MANIFEST_JSON = 'claw.json';
 

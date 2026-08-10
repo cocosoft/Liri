@@ -10,11 +10,8 @@ import type { SkillDB } from './persistence/SkillDB';
 
 import { handleError } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'skills:SkillCurator',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('skills:SkillCurator');
 
 /**
  * 策展操作类型

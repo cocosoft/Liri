@@ -3,7 +3,7 @@
  * 负责缓存权限检查结果和验证权限规则
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import type { PermissionDecision } from './PermissionResult';
 import type { PermissionRuleEntry } from './PermissionRule';
@@ -15,10 +15,7 @@ import {
   permissionRuleValueFromString,
 } from './types/PermissionRule';
 
-const logger = new Logger({
-  module: 'permission:permissionCache',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('permission:permissionCache');
 
 /**
  * 权限缓存键

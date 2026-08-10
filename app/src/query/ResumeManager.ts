@@ -5,7 +5,7 @@
  * 检测未完成的会话并提供断点恢复能力。
  */
 
-import { Logger } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { isCheckpointLogEnabled } from '../config/settings/CheckpointLogConfig';
 import { EventEmitter } from 'events';
@@ -19,7 +19,7 @@ import {
 } from './types.js';
 import type { TAORLoop, TAORLoopConfig } from './TAORLoop.js';
 
-const logger = new Logger({ module: 'query:resumeManager' });
+const logger = getLogger('query:resumeManager');
 
 /** 恢复候选 */
 export interface ResumeCandidate {

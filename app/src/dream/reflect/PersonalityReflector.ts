@@ -32,12 +32,8 @@ import {
   resolvePyappHome,
 } from '@modules/core';
 import { join } from 'path';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'dream:reflect:personality',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('dream:reflect:personality');
 
 export interface SoulAlignmentResult {
   needsUpdate: boolean;

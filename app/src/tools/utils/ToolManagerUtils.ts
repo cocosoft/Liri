@@ -6,13 +6,10 @@ import type { Tool } from '../types/Tool';
 import { ToolFactory } from '../ToolFactory';
 import { feature as coreFeature } from '@modules/core';
 import { isAntUser } from '@modules/utils/features.js';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({
-  module: 'tools:managerUtils',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('tools:managerUtils');
 
 /**
  * 工具加载器类型

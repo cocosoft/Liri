@@ -10,16 +10,13 @@
 import { spawn, type ChildProcess } from 'child_process';
 import type { MCPRequest, MCPResponse } from '../types';
 import { MCPTransport } from './MCPTransport';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { trackProcess, untrackProcess } from './ChildProcessTracker';
 import { buildSafeEnv, stripCredentials } from '../MCPSecurityFilter';
 
-const logger = new Logger({
-  module: 'services:mcp:stdio',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('services:mcp:stdio');
 
 /** 两阶段清理的优雅等待时间（毫秒） */
 const GRACE_PERIOD_MS = 2000;

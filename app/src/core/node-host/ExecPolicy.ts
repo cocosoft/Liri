@@ -1,10 +1,7 @@
 import { ExecPolicyConfig } from './types.js';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'core:node-host:ExecPolicy',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('core:node-host:ExecPolicy');
 
 const DEFAULT_POLICY: ExecPolicyConfig = {
   maxRetries: 3,

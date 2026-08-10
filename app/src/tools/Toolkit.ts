@@ -8,8 +8,8 @@ import { BaseTool } from './BaseTool';
 import { ToolGroup } from './ToolGroup';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'tools\Toolkit', level: LogLevel.INFO });
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('tools\Toolkit');
 
 const TOOLKIT_MODULE = 'Toolkit';
 

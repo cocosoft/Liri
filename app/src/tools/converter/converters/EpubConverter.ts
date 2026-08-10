@@ -4,11 +4,8 @@ import { PRIORITY_SPECIFIC_FILE_FORMAT } from '../engine/types';
 import { AppError, handleError } from '@modules/error';
 import { ErrorCodes } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'tools:converter:converters:EpubConverter',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('tools:converter:converters:EpubConverter');
 
 let _depError: Error | null = null;
 let _AdmZip: any = null;

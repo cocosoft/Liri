@@ -4,11 +4,8 @@
  */
 import type { CommandContext, CommandResult } from '@modules/commands';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'commands:builtin:uninstall:Uninstall',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('commands:builtin:uninstall:Uninstall');
 
 interface UninstallTarget {
   type: 'plugin' | 'skill' | 'tool' | 'theme' | 'agent';

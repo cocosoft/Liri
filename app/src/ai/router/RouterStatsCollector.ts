@@ -30,9 +30,8 @@
 import type { RouterTier, RouteDecision, RouterConfig } from './types.js';
 import { CostTracker } from '@modules/cost/CostTracker.js';
 import { CostRecordRepository } from '@modules/cost/CostRecordRepository.js';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({ level: LogLevel.INFO, module: 'ai:stats' });
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('ai:stats');
 
 export interface RouterCostRecord {
   /** 会话 ID */

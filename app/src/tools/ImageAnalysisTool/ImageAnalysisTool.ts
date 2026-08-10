@@ -9,7 +9,7 @@
  * L2 在 Python 进程不可用时自动降级到 L1+L3
  */
 
-import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
+import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error/handleError';
 import * as fs from 'fs';
@@ -164,10 +164,7 @@ export interface SimilarityResult {
 }
 
 const processor = new ImageProcessor();
-const logger = new Logger({
-  level: LogLevel.INFO,
-  module: 'tools:imageAnalysis',
-});
+const logger = getLogger('tools:imageAnalysis');
 
 /** L2 分析 WorkerGuard（懒加载单例） */
 let l2WorkerGuard: WorkerGuard | null = null;

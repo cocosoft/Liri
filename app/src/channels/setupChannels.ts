@@ -3,7 +3,7 @@
  * 将 channels/ 各平台实现自动注册到 ChannelRegistry
  * 优化：先检查环境变量配置，仅导入已启用的通道模块
  */
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { channelBootstrapper } from './bootstrap/ChannelBootstrapper';
 import type { ChannelBootstrapConfig } from './bootstrap/ChannelBootstrapper';
 import { channelRegistry } from './registry/ChannelRegistry';
@@ -19,7 +19,7 @@ import { configManager } from '@modules/config';
 import { handleError } from '@modules/error';
 import { getDeliveryRouter } from './DeliveryRouter';
 
-const logger = new Logger({ level: LogLevel.INFO, module: 'channels:setup' });
+const logger = getLogger('channels:setup');
 
 // ─── Feature Flag: Inbox ↔ 渠道桥接开关 ───
 /** 渠道 ↔ Inbox 桥接总开关（默认开启，显式设为 'false' 时关闭） */

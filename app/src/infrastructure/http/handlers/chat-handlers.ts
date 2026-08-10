@@ -26,7 +26,7 @@
 import type http from 'http';
 import { randomUUID } from 'crypto';
 import type { HandlerCtx } from './handler-utils';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError, AppError } from '@modules/error';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
@@ -38,7 +38,7 @@ import type {
 import { eventNotificationService } from '@modules/chat/services/EventNotificationService';
 import { DEFAULT_MODEL_SENTINEL } from '@modules/constants/common.js';
 
-const logger = new Logger({ module: 'http:chat', level: LogLevel.INFO });
+const logger = getLogger('http:chat');
 
 // ── 模块级辅助函数 ────────────────────────────────────────────────
 
@@ -62,6 +62,8 @@ interface ChatCompletionRequest {
   top_p?: number;
   stream?: boolean;
   session_id?: string;
+  /** 前端写前落盘的用户消息 id（幂等去重用） */
+  message_id?: string;
   workspace_path?: string;
   images?: Array<{ path: string; url: string; filename: string; size: number }>;
   system_prompt?: string;
@@ -170,6 +172,7 @@ async function handleNormalChat(
       content: userMessage.content,
       stream: false,
       sessionId: request.session_id,
+      messageId: request.message_id,
       metadata: request.workspace_path
         ? { workspacePath: request.workspace_path }
         : undefined,
@@ -433,6 +436,7 @@ async function handleStreamingChat(
       content: userMessage.content,
       stream: true,
       sessionId: request.session_id,
+      messageId: request.message_id,
       metadata: request.workspace_path
         ? { workspacePath: request.workspace_path }
         : undefined,

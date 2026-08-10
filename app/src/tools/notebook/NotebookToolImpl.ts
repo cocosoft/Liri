@@ -19,11 +19,8 @@ import type { REPLSession } from '../repl/types/index.js';
 import { replSessionManager } from '../repl/REPLSessionManager';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'tools\notebook\NotebookToolImpl',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('tools\notebook\NotebookToolImpl');
 
 /**
  * Notebook工具实现

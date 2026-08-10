@@ -26,9 +26,8 @@
  * 外部通过 check() 检测超时模块，发现后触发告警。
  */
 
-import { Logger } from '@modules/monitoring';
-
-const logger = new Logger({ module: 'monitoring:heartbeat' });
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('monitoring:heartbeat');
 
 export interface HeartbeatEntry {
   module: string;

@@ -5,12 +5,8 @@ import type {
   PruningContext,
   PruningConfig,
 } from './PruningStrategy';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'session:softTrimmer',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('session:softTrimmer');
 
 export class SoftTrimmer implements PruningStrategy {
   readonly name = 'SoftTrimmer';

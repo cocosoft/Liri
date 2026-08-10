@@ -5,7 +5,7 @@
  * 对标 Hermes vision_tools.py 的 _download_image() + _ssrf_redirect_guard()
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 import { resolveCacheDir } from '@modules/core/paths';
 import { withRetry } from '@modules/utils/withRetry';
@@ -17,10 +17,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { createHash } from 'crypto';
 
-const logger = new Logger({
-  module: 'chat:services:ImageDownloader',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('chat:services:ImageDownloader');
 
 /** 从环境变量读取配置，不存在时使用默认值 */
 function envInt(key: string, fallback: number): number {

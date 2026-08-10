@@ -26,11 +26,11 @@ import {
   statSync,
 } from 'fs';
 import { dirname } from 'path';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import type { EmbeddingManager } from '../../ai/embedding/EmbeddingManager';
 import type { ChatMessage } from '../../ai/models/types';
 
-const logger = new Logger({ level: LogLevel.INFO, module: 'session:memory' });
+const logger = getLogger('session:memory');
 
 /**
  * 向量索引条目

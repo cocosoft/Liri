@@ -6,14 +6,11 @@
 
 import { resolve, normalize, sep } from 'path';
 import { existsSync, statSync } from 'fs';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 import { configManager } from '@modules/config';
 
-const logger = new Logger({
-  module: 'sandbox:isolationManager',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('sandbox:isolationManager');
 
 /**
  * 文件系统操作类型

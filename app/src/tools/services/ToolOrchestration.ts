@@ -8,11 +8,8 @@ import type { ToolUseContext } from '../types/ToolUseContext';
 import { createToolResult } from '../types/ToolResult';
 import { ModuleError } from '@modules/errors';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'tools\services\ToolOrchestration',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('tools\services\ToolOrchestration');
 
 export interface ToolOrchestrationConfig {
   maxConcurrency: number;

@@ -10,11 +10,8 @@ import { existsSync } from 'fs';
 import { join } from 'path';
 import { resolvePyappHome } from '@modules/core';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'commands:memory:memory',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('commands:memory:memory');
 
 /**
  * 获取记忆文件目录

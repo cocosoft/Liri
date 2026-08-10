@@ -30,10 +30,10 @@
  *   - 环境变量 LOOP_PATH_DENY_LIST（JSON 数组，追加到默认列表）
  */
 
-import { Logger } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { LOOP_OBSERVE_ONLY } from './loop-config.js';
 
-const logger = new Logger({ module: 'query:pathGuard' });
+const logger = getLogger('query:pathGuard');
 
 /** 默认拒绝的路径模式（glob） */
 const DEFAULT_DENY_PATTERNS: string[] = [

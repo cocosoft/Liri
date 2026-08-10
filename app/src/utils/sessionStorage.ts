@@ -10,11 +10,8 @@ import { existsSync } from 'fs';
 import { resolvePyappHome } from '@modules/core';
 
 import { handleError } from '@modules/error';
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'utils:sessionStorage',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('utils:sessionStorage');
 
 export interface SessionData<T = unknown> {
   id: string;

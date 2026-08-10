@@ -1,8 +1,7 @@
 import { BaseConverter } from '../engine/BaseConverter';
 import type { ConversionResult, ConversionContext } from '../engine/types';
-import { Logger } from '@modules/monitoring';
-
-const logger = new Logger({ module: 'tools:converter:csv' });
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('tools:converter:csv');
 
 export class CsvConverter extends BaseConverter {
   override readonly name = 'csv';

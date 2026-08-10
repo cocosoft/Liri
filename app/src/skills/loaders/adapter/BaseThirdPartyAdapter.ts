@@ -34,7 +34,7 @@
 
 import { EventEmitter } from 'events';
 import { existsSync, renameSync, rmSync } from 'fs';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { SkillSource, SkillLoadMethod } from '@modules/skills/types';
 import type { Skill } from '@modules/skills/types';
 import type { SkillRegistry } from '@modules/skills/SkillRegistry';
@@ -51,10 +51,7 @@ import type {
 } from './ThirdPartySkillAdapter';
 import type { InstalledThirdPartySkill } from './types';
 
-const logger = new Logger({
-  module: 'skills:baseAdapter',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('skills:baseAdapter');
 
 /**
  * 第三方技能适配器抽象基类

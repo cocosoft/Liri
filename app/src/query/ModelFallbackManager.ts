@@ -28,12 +28,9 @@
  */
 
 /** 故障转移配置 */
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { resolveContextWindowAsync } from '@modules/context/window/ContextWindowResolver';
-const logger = new Logger({
-  module: 'query:ModelFallbackManager',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('query:ModelFallbackManager');
 
 interface FallbackConfig {
   enabled: boolean;

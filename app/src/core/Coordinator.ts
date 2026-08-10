@@ -5,10 +5,10 @@
 
 import { randomUUID } from 'crypto';
 import { lazySingleton } from '../utils/common';
-import { Logger } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({ module: 'Coordinator' });
+const logger = getLogger('Coordinator');
 
 export interface CoordinatorTask {
   id: string;

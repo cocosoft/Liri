@@ -7,11 +7,8 @@
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import type { Memory, MemoryStats } from './types/Memory';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'memory:MemoryProvider',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('memory:MemoryProvider');
 
 /**
  * 记忆查询条件

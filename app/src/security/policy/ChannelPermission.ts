@@ -8,12 +8,8 @@
  * 对标 CC 源码 cc_code/backend/services/mcp/channelPermissions.ts
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'security:channelPermission',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('security:channelPermission');
 
 export type PermissionBehavior =
   | 'always_allow'

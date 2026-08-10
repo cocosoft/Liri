@@ -15,11 +15,8 @@ import {
 } from '@modules/lsp';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'tools\lsp\LSPToolIntegration',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('tools\lsp\LSPToolIntegration');
 
 /**
  * LSP工具集成类

@@ -6,13 +6,10 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { resolvePyappHome, resolveProjectRoot } from '@modules/core';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 
-const logger = new Logger({
-  module: 'services:mcp:config',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('services:mcp:config');
 import {
   McpServerConfigSchema,
   McpJsonConfigSchema,

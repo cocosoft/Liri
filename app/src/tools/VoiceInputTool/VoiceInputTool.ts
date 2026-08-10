@@ -2,7 +2,7 @@
  * 语音输入工具
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { Tool, ToolInfo, ToolTag, ValidationResult } from '../types/Tool';
 import { ToolResult, ToolExecutionStatus } from '../types/ToolResult';
@@ -10,7 +10,7 @@ import { ToolUseContext } from '../types/ToolUseContext';
 import { VOICE_INPUT_TOOL_NAME } from './constants';
 import voiceService from '@modules/services/voice';
 
-const logger = new Logger({ module: 'tools:voiceInput', level: LogLevel.INFO });
+const logger = getLogger('tools:voiceInput');
 
 const VOICE_INPUT_PARAMS = [
   {

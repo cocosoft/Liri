@@ -4,11 +4,8 @@
  * 简化版本 - 不直接依赖 Skills 模块
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'ai:localAgent:SkillProvider',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('ai:localAgent:SkillProvider');
 
 export interface SkillContext {
   input: string;

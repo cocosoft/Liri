@@ -10,11 +10,8 @@ import type { ProviderCredentials } from './ProviderAuth.js';
 
 import { handleError } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'plugins:provider:ProviderRuntime',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('plugins:provider:ProviderRuntime');
 
 /**
  * 运行时状态

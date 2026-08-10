@@ -6,11 +6,8 @@ import type {
   ParsedProviderModelRef,
 } from './types.js';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'core:media-generation:runtime-shared',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('core:media-generation:runtime-shared');
 
 export type {
   MediaGenerationNormalizationMetadataInput,

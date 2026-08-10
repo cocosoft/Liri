@@ -6,9 +6,8 @@ import type { Tool, ToolParam } from '../../../tools/types/Tool';
 import type { ToolResult } from '../../../tools/types/ToolResult';
 import { ToolExecutionStatus } from '../../../tools/types/ToolResult';
 import type { ToolUseContext } from '../../../tools/types/ToolUseContext';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({ module: 'calendar:tool', level: LogLevel.INFO });
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('calendar:tool');
 
 /** 公共参数 */
 const ADD_PARAMS: ToolParam[] = [

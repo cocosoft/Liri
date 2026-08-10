@@ -25,10 +25,10 @@ import {
   utimesSync,
 } from 'fs';
 import { resolveDataSubDir } from '@modules/core';
-import { Logger } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({ module: 'tasks:crossProcessLock' });
+const logger = getLogger('tasks:crossProcessLock');
 
 /** 锁文件存放目录 */
 const LOCK_DIR = resolveDataSubDir('locks');

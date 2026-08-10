@@ -7,13 +7,10 @@
 import { EventEmitter } from 'events';
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { resolveGovernanceDir } from '@modules/core';
 
-const logger = new Logger({
-  module: 'governance:managers:governanceStrategyManager',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('governance:managers:governanceStrategyManager');
 
 /**
  * 治理策略类型

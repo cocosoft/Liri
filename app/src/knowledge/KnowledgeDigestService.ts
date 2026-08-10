@@ -11,13 +11,10 @@
 import { readdir, readFile, writeFile, mkdir, stat } from 'fs/promises';
 import { join, relative } from 'path';
 import { existsSync } from 'fs';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { resolvePyappHome } from '@modules/core';
 
-const logger = new Logger({
-  module: 'knowledge:knowledgeDigestService',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('knowledge:knowledgeDigestService');
 
 export interface DocDigest {
   path: string;

@@ -40,11 +40,8 @@ import {
   hashCommandForExecution,
 } from '@modules/permission/ApprovedCommandRegistry';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'tools\bash\BashTool',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('tools\bash\BashTool');
 
 const execAsync = promisify(exec);
 

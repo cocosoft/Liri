@@ -26,11 +26,8 @@ import { promisify } from 'util';
 import * as fs from 'fs';
 
 import { handleError } from '@modules/error';
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'utils:computerUse:LinuxAdapter',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('utils:computerUse:LinuxAdapter');
 
 const execAsync = promisify(execFile);
 

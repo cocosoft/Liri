@@ -5,7 +5,7 @@
  * 负责唤醒词配置持久化、唤醒词检测、触发路由
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 import { join } from 'path';
 import { mkdir, readFile, writeFile } from 'fs/promises';
@@ -16,10 +16,7 @@ import type { WakeWordResult } from './WakeWordEngine';
 import type { WakeDetectionResult } from './types';
 import { broadcastWakeEvent } from './WakeWebSocketServer';
 
-const logger = new Logger({
-  module: 'voice:wakemanager',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('voice:wakemanager');
 
 /** 唤醒词配置 */
 export interface VoiceWakeConfig {

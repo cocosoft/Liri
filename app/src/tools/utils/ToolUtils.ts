@@ -13,11 +13,8 @@ import { configManager } from '@modules/config';
 import { resolveOutputDir } from '@modules/core';
 import { handleError } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'tools:utils:ToolUtils',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('tools:utils:ToolUtils');
 
 /**
  * 归一化工具路径，确保跨平台兼容

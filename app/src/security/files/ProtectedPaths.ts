@@ -6,11 +6,8 @@ import path from 'path';
 import { configManager } from '@modules/config';
 import { handleError } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'security:files:ProtectedPaths',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('security:files:ProtectedPaths');
 
 /**
  * 获取用户主目录

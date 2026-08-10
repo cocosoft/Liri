@@ -22,11 +22,8 @@ import { modelManager } from './models/ModelManager.js';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { configManager } from '@modules/config';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'ai\AIModelManager',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('ai\AIModelManager');
 
 export const MODEL_ALIASES = ['best', 'pro', 'flash', 'fast'] as const;
 

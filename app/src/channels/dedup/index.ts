@@ -44,11 +44,8 @@
  */
 
 /** 默认去重 TTL：24 小时 */
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'channels:dedup:index',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('channels:dedup:index');
 
 const DEFAULT_DEDUP_TTL_MS = 24 * 60 * 60 * 1000;
 

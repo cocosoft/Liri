@@ -1,4 +1,4 @@
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error';
@@ -6,10 +6,7 @@ import type { SqliteTaskStore } from './db/SqliteTaskStore';
 import type { TaskState } from './types';
 import { TaskStatus } from './types';
 
-const logger = new Logger({
-  module: 'tasks:persistentQueue',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('tasks:persistentQueue');
 
 /** 饥饿保护：等待超过此时间（ms）的任务自动提升优先级 */
 const AGING_THRESHOLD_MS = 30 * 60 * 1000; // 30 分钟

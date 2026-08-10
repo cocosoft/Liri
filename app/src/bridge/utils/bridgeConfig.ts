@@ -6,12 +6,9 @@
 import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { BridgeConfig, PollConfig, BackoffConfig } from '../types';
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-const logger = new Logger({
-  module: 'bridge:utils:bridgeConfig',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('bridge:utils:bridgeConfig');
 
 /**
  * 环境变量配置键名

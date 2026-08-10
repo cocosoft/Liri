@@ -31,13 +31,10 @@ import { createHash, randomBytes } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { resolveDataSubDir } from '@modules/core/paths';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({
-  module: 'http:authUserStore',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('http:authUserStore');
 
 /** auth 用户角色 */
 export type AuthUserRole = 'admin' | 'user';

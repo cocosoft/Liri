@@ -7,11 +7,8 @@ import { ToolUseContext } from '../types/ToolUseContext';
 import { ToolUtils } from '../utils/ToolUtils';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'tools\ChronosTool\CronDeleteTool',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('tools\ChronosTool\CronDeleteTool');
 
 export class CronDeleteTool {
   static create(): Tool {

@@ -5,15 +5,12 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { handleError } from '@modules/error';
 import { resolveDataSubDir } from '@modules/core';
 
-const logger = new Logger({
-  module: 'tools:compatibilityValidator',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('tools:compatibilityValidator');
 
 /**
  * 兼容性验证结果

@@ -1,4 +1,4 @@
-import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
+import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error';
 import { SessionStore } from './SessionStore';
@@ -35,7 +35,7 @@ import type {
 import { MessageRole, ContentBlockType } from './types/Message';
 import type { UnifiedMessage } from './types/Message';
 
-const logger = new Logger({ module: 'session:manager', level: LogLevel.INFO });
+const logger = getLogger('session:manager');
 
 export interface SessionManagerConfig {
   storageRootDir?: string;

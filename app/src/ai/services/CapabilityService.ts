@@ -28,14 +28,14 @@
 
 import { Database } from '@modules/core/external/sqlite3';
 import { resolveDbPath, resolveProjectRoot } from '@modules/core';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { handleError } from '@modules/error';
 import yaml from 'js-yaml';
 import fs from 'fs';
 import path from 'path';
 
-const logger = new Logger({ module: 'ai:capabilities', level: LogLevel.INFO });
+const logger = getLogger('ai:capabilities');
 
 /** 数据库表名 */
 const CAPABILITIES_TABLE = 'model_capabilities';

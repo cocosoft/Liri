@@ -4,9 +4,8 @@
  * 包括：Token缓存、自动刷新、过期缓冲、重试机制
  */
 
-import { Logger } from '@modules/monitoring';
-
-const logger = new Logger({ module: 'TokenManager' });
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('TokenManager');
 import { OAuthStorage, createOAuthStorage } from './OAuthStorage.js';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 

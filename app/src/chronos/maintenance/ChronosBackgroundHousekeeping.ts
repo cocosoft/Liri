@@ -16,13 +16,10 @@ import {
 } from './cleanup';
 import { cleanupOldVersions } from './nativeInstaller';
 import { transcriptArchiver } from '../../core/delivery/archiver/TranscriptArchiver';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 
-const logger = new Logger({
-  module: 'chronos:housekeeping',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('chronos:housekeeping');
 
 const RECURRING_CLEANUP_INTERVAL_MS = 24 * 60 * 60 * 1000;
 const BALANCE_REFRESH_INTERVAL_MS = 10 * 60 * 1000;

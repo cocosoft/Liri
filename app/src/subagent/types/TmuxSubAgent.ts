@@ -11,10 +11,10 @@ import {
   TmuxSubAgentConfig,
 } from './SubAgent';
 import { execSync, exec } from 'child_process';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
-const logger = new Logger({ module: 'subagent:tmux', level: LogLevel.INFO });
+const logger = getLogger('subagent:tmux');
 
 /**
  * Tmux子agent

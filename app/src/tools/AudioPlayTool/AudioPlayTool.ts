@@ -5,17 +5,14 @@
  * 参数: audios (string[]) — 音频路径或 URL 列表
  * 输出: { audios: DisplayAudio[] } — 前端渲染音频播放器
  */
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { BaseTool } from '../BaseTool';
 import { ToolResult, ToolUseContext, ToolParam, ToolTag } from '../types/index';
 import { AudioUrlHelper } from '../AudioUrlHelper';
 import { existsSync, statSync } from 'fs';
 import { resolve } from 'path';
 
-const logger = new Logger({
-  level: LogLevel.INFO,
-  module: 'tools:audioPlay',
-});
+const logger = getLogger('tools:audioPlay');
 
 export interface DisplayAudio {
   url: string;

@@ -7,11 +7,8 @@
 import { BaseTool } from '../BaseTool';
 import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'tools:UpdatePlanTool:UpdatePlanTool',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('tools:UpdatePlanTool:UpdatePlanTool');
 
 export interface UpdatePlanParams {
   target: string;

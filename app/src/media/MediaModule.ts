@@ -7,7 +7,7 @@
  * 在应用启动时注册 16 个 media 工具到 ToolManager。
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { globalToolManager } from '@modules/tools';
 import { handleError } from '@modules/error';
 import { createImageConvertTool } from './tools/ImageConvertTool';
@@ -26,7 +26,7 @@ import { createQRGenerateTool } from './tools/QRGenerateTool';
 import { createQRDecodeTool } from './tools/QRDecodeTool';
 import { createPdfExtractTool } from './tools/PdfExtractTool';
 
-const logger = new Logger({ module: 'media:module', level: LogLevel.INFO });
+const logger = getLogger('media:module');
 
 export enum MediaModuleStatus {
   UNINITIALIZED = 'uninitialized',

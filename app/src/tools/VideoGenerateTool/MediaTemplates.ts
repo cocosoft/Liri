@@ -10,12 +10,8 @@
 // @ts-ignore — bun:sqlite 是 Bun 内置模块
 import { Database } from 'bun:sqlite';
 import { resolveDbPath } from '@modules/core/paths';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  level: LogLevel.INFO,
-  module: 'media:templates',
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('media:templates');
 
 /** 模板记录 */
 export interface MediaTemplateRecord {

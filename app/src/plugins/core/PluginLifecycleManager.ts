@@ -3,7 +3,7 @@
  */
 
 import { EventEmitter } from 'events';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import {
   PluginState,
   LoadedPlugin,
@@ -12,10 +12,7 @@ import {
 } from '../types/PluginTypes';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
-const logger = new Logger({
-  module: 'plugins:core:pluginLifecycleManager',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('plugins:core:pluginLifecycleManager');
 
 /**
  * 生命周期事件类型

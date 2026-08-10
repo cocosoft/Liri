@@ -8,12 +8,12 @@
  * 类型统一: 使用 types/OAuthDiscoveryTypes.ts 中的 OAuthServerMetadata（唯一来源）
  */
 
-import { Logger } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { TTLCache } from '@modules/utils/cache';
 import type { OAuthServerMetadata } from '../types/OAuthDiscoveryTypes';
 
-const logger = new Logger({ module: 'OAuthDiscovery' });
+const logger = getLogger('OAuthDiscovery');
 
 /**
  * OAuth Discovery 服务

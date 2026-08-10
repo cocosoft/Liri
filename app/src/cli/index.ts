@@ -41,7 +41,7 @@ import { getToolGuideSystem } from '../docs/ToolGuide';
 import { getPluginDevGuideSystem } from '../docs/PluginDevGuide';
 import { getApiDocSystem } from '../docs/ApiDocs';
 import { getPerformanceAnalyzer } from '../monitoring/performance';
-import { flush, getLogger } from '../monitoring/logs/Logger';
+import { getLogger, flush } from '../monitoring/logs/Logger';
 import { handleError } from '@modules/error';
 
 import { getThemeManager } from '@modules/system/theme';
@@ -55,8 +55,7 @@ import { UpdateHandler } from './update';
 import * as print from './print';
 import type { CommandImplementation, CommandContext } from '@modules/commands';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'cli\index', level: LogLevel.INFO });
+const logger = getLogger('cli\index');
 
 // 初始化退出处理器和自动更新器
 const exitHandler = createExitHandler({ verbose: true });

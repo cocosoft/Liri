@@ -4,11 +4,8 @@
  * 用于监控内存使用情况，识别内存泄漏，并提供内存优化建议
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'utils:memoryManager',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('utils:memoryManager');
 
 /**
  * 内存使用阈值

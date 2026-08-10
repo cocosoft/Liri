@@ -26,12 +26,8 @@
  */
 
 import { globalEventBus, SystemEvents } from '@modules/core';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'dream:dreamIdleDetector',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('dream:dreamIdleDetector');
 
 export class DreamIdleDetector {
   private lastActivity = Date.now();

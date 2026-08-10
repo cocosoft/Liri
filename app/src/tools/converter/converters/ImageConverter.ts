@@ -7,11 +7,8 @@ import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { createRequire } from 'module';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'tools:converter:converters:ImageConverter',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('tools:converter:converters:ImageConverter');
 
 const __filename = fileURLToPath(import.meta.url);
 

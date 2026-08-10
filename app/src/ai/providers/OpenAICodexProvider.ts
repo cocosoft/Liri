@@ -40,13 +40,10 @@ import type {
   ImageGenerationParams,
   ImageGenerationResult,
 } from './AIProvider';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
-const logger = new Logger({
-  level: LogLevel.INFO,
-  module: 'ai:codex-provider',
-});
+const logger = getLogger('ai:codex-provider');
 
 export class OpenAICodexProvider extends BaseAIProvider {
   private accessToken: string | null = null;

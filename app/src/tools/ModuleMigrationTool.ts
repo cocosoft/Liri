@@ -5,7 +5,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import {
   AppError,
   ErrorCategory,
@@ -14,10 +14,7 @@ import {
 } from '@modules/error';
 import { resolveDataSubDir } from '@modules/core';
 
-const logger = new Logger({
-  module: 'tools:moduleMigration',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('tools:moduleMigration');
 
 /**
  * 模块迁移分析结果

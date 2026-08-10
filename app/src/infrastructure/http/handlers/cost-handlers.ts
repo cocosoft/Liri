@@ -9,11 +9,11 @@
 import type http from 'http';
 import type { HandlerCtx } from './handler-utils';
 import { handleError } from '@modules/error';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { resolveWorkspacePath } from './workspaces-handlers';
 import type { CostReport } from '@modules/workspace/types';
 
-const logger = new Logger({ module: 'http:cost', level: LogLevel.INFO });
+const logger = getLogger('http:cost');
 
 /**
  * 获取成本报告

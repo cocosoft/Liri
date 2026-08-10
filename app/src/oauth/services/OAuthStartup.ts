@@ -7,11 +7,8 @@
 import { createOAuthStorage } from '@modules/oauth';
 import { configManager } from '@modules/config';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'oauth:services:OAuthStartup',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('oauth:services:OAuthStartup');
 
 /**
  * OAuth启动预加载配置

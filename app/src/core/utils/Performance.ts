@@ -1,8 +1,8 @@
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { configManager } from '@modules/config';
 import { TTLCache } from '@modules/utils/cache';
 
-const logger = new Logger({ module: 'core:performance', level: LogLevel.INFO });
+const logger = getLogger('core:performance');
 
 /**
  * 性能指标类型

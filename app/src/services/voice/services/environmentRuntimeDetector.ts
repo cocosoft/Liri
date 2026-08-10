@@ -6,13 +6,10 @@
  */
 
 import { readFileSync, existsSync } from 'fs';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { configManager } from '@modules/config';
 
-const logger = new Logger({
-  module: 'voice:envRuntimeDetector',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('voice:envRuntimeDetector');
 
 /** 运行时环境类型 */
 export type RuntimeEnvironment =

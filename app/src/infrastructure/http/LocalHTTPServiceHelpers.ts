@@ -6,15 +6,12 @@
 
 import http from 'http';
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import type { IChannelPlugin } from '@modules/channels/types/IChannel';
 
-const logger = new Logger({
-  module: 'infrastructure:http:localHTTPServiceHelpers',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('infrastructure:http:localHTTPServiceHelpers');
 
 // ── 通道动态注册元信息表（26 通道全覆盖）──────────────────────────
 

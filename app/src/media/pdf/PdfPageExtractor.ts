@@ -28,17 +28,14 @@
  * 参照 cc_code backend/utils/pdf.ts
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { execSync } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs';
 import { randomUUID } from 'crypto';
 import { resolveTempDir } from '@modules/core/paths';
 
-const logger = new Logger({
-  level: LogLevel.INFO,
-  module: 'media:pdf-extractor',
-});
+const logger = getLogger('media:pdf-extractor');
 
 /** 提取的单页图片 */
 export interface ExtractedPage {

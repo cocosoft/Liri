@@ -1,4 +1,4 @@
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import {
   getAllEvents,
   getMetrics,
@@ -6,10 +6,7 @@ import {
   type ChronosMetrics,
 } from '../maintenance/ChronosMonitor';
 
-const logger = new Logger({
-  module: 'chronos:reporting:cronReportGenerator',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('chronos:reporting:cronReportGenerator');
 
 export interface CronExecutionSummary {
   periodStart: number;

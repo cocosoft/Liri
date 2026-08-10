@@ -15,11 +15,8 @@ import { getConverterEngine } from '../../tools/converter/engine/ConverterEngine
 import { FileTypeDetector } from '../../tools/converter/engine/FileTypeDetector';
 import { truncateToolResult } from '../../query/ToolResultTruncator';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'tools:FileConvertTool:FileConvertTool',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('tools:FileConvertTool:FileConvertTool');
 
 export class FileConvertTool extends BaseTool {
   override readonly name = 'file_convert';

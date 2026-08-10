@@ -9,7 +9,7 @@
 import path from 'path';
 import fs from 'fs';
 import os from 'os';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 import { resolveOutputDir, resolvePyappHome } from '@modules/core/paths';
 import { BaseTool } from '../BaseTool';
@@ -17,7 +17,7 @@ import type { ToolResult, ToolUseContext, ToolParam } from '../types';
 import { CanvasInstance } from './CanvasInstance';
 import type { CanvasElement, ExportOptions } from './CanvasInstance';
 
-const logger = new Logger({ level: LogLevel.INFO, module: 'tools:canvas' });
+const logger = getLogger('tools:canvas');
 
 /** 画布实例自动清理间隔 (ms) */
 const CLEANUP_INTERVAL_MS = 5 * 60 * 1000;

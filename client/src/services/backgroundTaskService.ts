@@ -98,3 +98,29 @@ export const backgroundStatusService = {
     return http.get<BackgroundStatus>("/v1/background/status");
   },
 };
+
+// ========== §十 阶段 D：状态机聚合（/v1/state/all） ==========
+
+export interface StateMachineInfo {
+  id: string;
+  state: string;
+  isTerminal: boolean;
+  isActive: boolean;
+  history: Array<{
+    from: string;
+    to: string;
+    reason?: string;
+    timestamp: number;
+  }>;
+}
+
+export interface StateAllResponse {
+  generatedAt: number;
+  machines: StateMachineInfo[];
+}
+
+export const stateMachineService = {
+  getStateAll: async (): Promise<StateAllResponse> => {
+    return http.get<StateAllResponse>("/v1/state/all");
+  },
+};

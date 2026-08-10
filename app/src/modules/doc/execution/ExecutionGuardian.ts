@@ -6,12 +6,8 @@
 
 import * as fs from 'fs';
 import { AppError } from '@modules/error';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'doc:execution',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('doc:execution');
 
 /**
  * 执行守护者

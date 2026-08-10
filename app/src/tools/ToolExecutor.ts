@@ -13,7 +13,7 @@ import { GovernanceManager } from '../governance/managers/GovernanceManager';
 import { ToolHookManager } from '../hooks/managers/ToolHookManager';
 import { ToolHookContext } from '../hooks/types/ToolHooks';
 import { v4 as uuidv4 } from 'uuid';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { tryCoerceToolArgs } from './ToolArgCoercer.js';
 import type { ToolSchema } from './ToolArgCoercer.js';
@@ -22,7 +22,7 @@ import {
   createSandboxManager,
 } from '../sandbox/SandboxImpl';
 
-const logger = new Logger({ module: 'tools:executor', level: LogLevel.INFO });
+const logger = getLogger('tools:executor');
 import {
   SandboxPlatform,
   createDefaultSandboxConfig,

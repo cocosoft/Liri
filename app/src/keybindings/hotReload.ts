@@ -9,11 +9,8 @@ import type { KeybindingConfig } from './validation';
 import { validateConfig } from './validation';
 import { handleError } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'keybindings:hotReload',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('keybindings:hotReload');
 
 export interface HotReloadOptions {
   configPath?: string;

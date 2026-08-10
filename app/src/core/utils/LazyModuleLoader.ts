@@ -5,11 +5,8 @@
 
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'core:utils:LazyModuleLoader',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('core:utils:LazyModuleLoader');
 
 /**
  * 懒加载模块加载器

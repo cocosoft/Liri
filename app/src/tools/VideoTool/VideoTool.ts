@@ -14,11 +14,8 @@ import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';
 import { VideoProcessor } from '../../media/video/VideoProcessor';
 import { FFmpegWrapper } from '../../media/ffmpeg/FFmpegWrapper';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'tools:VideoTool:VideoTool',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('tools:VideoTool:VideoTool');
 
 /**
  * 视频编辑操作参数

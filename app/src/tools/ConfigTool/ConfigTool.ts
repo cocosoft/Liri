@@ -16,11 +16,8 @@ import { ToolTag } from '../types/Tool';
 import type { ToolUseContext } from '../types/ToolUseContext';
 import type { ToolResult } from '../types/ToolResult';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'tools:ConfigTool:ConfigTool',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('tools:ConfigTool:ConfigTool');
 
 export interface ConfigToolInput {
   action: 'get' | 'set' | 'delete' | 'list';

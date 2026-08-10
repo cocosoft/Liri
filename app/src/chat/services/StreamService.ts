@@ -6,11 +6,8 @@ import type { StreamChunk, ChatResponse, Message } from '../types/message';
 import { createAssistantMessage } from '../types/message';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'chat\services\StreamService',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('chat\services\StreamService');
 
 /**
  * 流服务接口

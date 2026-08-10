@@ -7,15 +7,12 @@
 import { readFile, access } from 'fs/promises';
 import { join } from 'path';
 import { constants } from 'fs';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { TTLCache } from '@modules/utils/cache';
 import { configManager } from '@modules/config';
 
-const logger = new Logger({
-  module: 'context:userContext',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('context:userContext');
 
 /**
  * 用户上下文信息

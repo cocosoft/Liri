@@ -4,13 +4,10 @@
  * 动态启用或禁用特定的按键绑定
  */
 import type { KeybindingContextName, ParsedBinding } from './types.js';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import React from 'react';
 
-const logger = new Logger({
-  module: 'keybindings:featureToggle',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('keybindings:featureToggle');
 
 /**
  * 特性开关配置

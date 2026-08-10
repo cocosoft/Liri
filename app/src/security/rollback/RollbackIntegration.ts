@@ -46,7 +46,7 @@
  *   await integration.onRoundEnd(messageSummary);
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { FileOperationTracker } from './FileOperationTracker';
 import {
   createRoundSnapshot,
@@ -69,7 +69,7 @@ import type {
 } from './types';
 import type { RedoResult } from './RedoManager';
 
-const logger = new Logger({ module: 'RollbackIntegration' });
+const logger = getLogger('RollbackIntegration');
 
 /**
  * 撤消/重做权限检查函数类型

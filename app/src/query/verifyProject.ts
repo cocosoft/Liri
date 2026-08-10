@@ -13,12 +13,12 @@
 
 import { existsSync } from 'fs';
 import { join } from 'path';
-import { Logger } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({ module: 'query:verifyProject' });
+const logger = getLogger('query:verifyProject');
 
 type ProjectType = 'bun' | 'npm' | 'pnpm' | 'yarn' | 'cargo' | 'python' | null;
 

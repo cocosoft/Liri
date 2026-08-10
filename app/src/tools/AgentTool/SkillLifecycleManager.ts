@@ -11,15 +11,12 @@
  *   3. Pinned 技能跳过所有自动转换
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { resolvePyappHome } from '@modules/core';
 
-const logger = new Logger({
-  module: 'tools:skillLifecycle',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('tools:skillLifecycle');
 
 export enum SkillLifecycleState {
   ACTIVE = 'active',

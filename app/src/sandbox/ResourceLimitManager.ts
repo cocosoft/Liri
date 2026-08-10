@@ -4,12 +4,8 @@
  * 基于纯 Node.js 实现，无第三方依赖
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'sandbox:resourceLimitManager',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('sandbox:resourceLimitManager');
 
 /**
  * 插件资源限制配置

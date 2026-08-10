@@ -4,11 +4,8 @@ import { PRIORITY_SPECIFIC_FILE_FORMAT } from '../engine/types';
 import { AppError } from '@modules/error';
 import { ErrorCodes } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'tools\converter\converters\AudioConverter',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('tools\converter\converters\AudioConverter');
 
 let _depError: Error | null = null;
 let _ffprobe: any = null;

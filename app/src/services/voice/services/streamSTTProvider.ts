@@ -14,7 +14,7 @@
  * ```
  */
 
-import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
+import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import type { STTProvider, STTStreamConnection } from './sttProvider';
 import type {
@@ -24,7 +24,7 @@ import type {
   STTStreamOptions,
 } from '../models/types';
 
-const logger = new Logger({ module: 'voice:stt:stream' });
+const logger = getLogger('voice:stt:stream');
 
 /** KeepAlive 消息间隔（毫秒） */
 const KEEPALIVE_INTERVAL_MS = 8_000;

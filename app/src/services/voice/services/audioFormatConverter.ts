@@ -10,11 +10,8 @@ import { execSync } from 'child_process';
 import { existsSync } from 'fs';
 import { dirname, basename, extname, join } from 'path';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'services:voice:services:audioFormatConverter',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('services:voice:services:audioFormatConverter');
 
 /**
  * 支持的音频格式

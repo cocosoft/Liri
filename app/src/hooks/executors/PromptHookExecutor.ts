@@ -10,12 +10,9 @@ import {
   HookExecutionContext,
 } from '../types';
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
-const logger = new Logger({
-  module: 'hooks:executors:PromptHookExecutor',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('hooks:executors:PromptHookExecutor');
 
 /**
  * 提示Hook执行器

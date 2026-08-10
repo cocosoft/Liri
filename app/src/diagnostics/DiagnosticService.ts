@@ -9,12 +9,8 @@ import { homedir } from 'os';
 import { execSync } from 'child_process';
 import { realpath } from 'fs/promises';
 import { configManager } from '@modules/config';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'diagnostics:service',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('diagnostics:service');
 
 /**
  * 安装类型

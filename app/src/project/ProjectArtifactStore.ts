@@ -7,14 +7,11 @@
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
-import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
+import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({
-  module: 'project:ArtifactStore',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('project:ArtifactStore');
 
 export type ArtifactKind = 'input' | 'output';
 

@@ -49,9 +49,8 @@
 // SOFTWARE.
 
 import type { RouterConfig, RouterTier, RouteDecision } from './types.js';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({ level: LogLevel.INFO, module: 'ai:adaptive' });
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('ai:adaptive');
 
 /**
  * (model, tier) 组合的执行统计

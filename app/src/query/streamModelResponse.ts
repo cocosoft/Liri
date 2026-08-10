@@ -25,10 +25,10 @@
  * 处理 LLM 流式响应的工具调用增量检测与就绪判定。
  */
 
-import { Logger } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({ module: 'query:streamModel' });
+const logger = getLogger('query:streamModel');
 
 // ─── 类型定义 ────────────────────────────────────────────────────────────────
 

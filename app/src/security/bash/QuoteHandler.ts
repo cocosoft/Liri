@@ -1,10 +1,7 @@
 ﻿import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'security:bash:QuoteHandler',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('security:bash:QuoteHandler');
 
 export type QuoteResult = {
   quoted: string;

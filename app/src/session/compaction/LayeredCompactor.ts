@@ -3,12 +3,8 @@ import type {
   CompactionEngine,
   AutoCompactServiceRef,
 } from './CompactionTypes';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'session:layeredCompactor',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('session:layeredCompactor');
 
 const DEFAULT_THRESHOLD = 80;
 const DEFAULT_RECENT_WINDOW = 20;

@@ -6,11 +6,8 @@
 import { basename } from 'path';
 import { handleError } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'services:voice:voiceKeyterms',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('services:voice:voiceKeyterms');
 
 const GLOBAL_KEYTERMS: readonly string[] = [
   'MCP',

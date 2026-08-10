@@ -12,7 +12,7 @@
  *   AgentIsolation（隔离）、toolsets（角色权限）
  */
 
-import { Logger } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
 import { Span, SpanStatusCode } from '@opentelemetry/api';
 import { configManager } from '@modules/config';
@@ -51,7 +51,7 @@ import { syncPdcaWorkItemStatus } from './PdcaWorkItemBridge';
 import { globalToolManager } from '../tools/index.js';
 import type { ToolUseContext } from '../tools/types/Tool.js';
 
-const logger = new Logger({ module: 'tasks:longRunning' });
+const logger = getLogger('tasks:longRunning');
 
 /** PDCA 阶段 */
 export type PdcaPhase =

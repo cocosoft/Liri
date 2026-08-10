@@ -36,12 +36,8 @@ import {
 import type { AIService } from '@modules/ai';
 import { AIMessageRole } from '@modules/ai';
 import { KnowledgeBaseWriter } from '../KnowledgeBaseWriter';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'knowledge:tools:knowledgeSearchTool',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('knowledge:tools:knowledgeSearchTool');
 
 export class KnowledgeSearchTool implements Tool {
   public name: string = 'knowledge_search';

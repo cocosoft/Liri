@@ -1,11 +1,8 @@
 ﻿import { z } from 'zod';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'tools\FileEditTool\schemas',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('tools\FileEditTool\schemas');
 
 /**
  * FileEditTool 输入模式

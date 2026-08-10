@@ -17,11 +17,8 @@ import { configManager } from '@modules/config';
 import { basename } from 'path';
 
 import { handleError } from '@modules/error';
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'utils:deepLink:TerminalLauncher',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('utils:deepLink:TerminalLauncher');
 
 export type TerminalInfo = {
   name: string;

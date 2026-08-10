@@ -1,5 +1,5 @@
 import chalk from 'chalk';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import type {
   BridgeConfig,
   BridgeLogger,
@@ -7,10 +7,7 @@ import type {
   SpawnMode,
 } from '../types/index';
 
-const logger = new Logger({
-  module: 'bridge:logger:bridgeLogger',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('bridge:logger:bridgeLogger');
 
 const STATE_LABELS: Record<string, string> = {
   idle: '待命',

@@ -5,9 +5,8 @@
  * 防止"组件有了但无人调用"的问题复发。
  */
 
-import { Logger } from '@modules/monitoring';
-
-const logger = new Logger({ module: 'core:connections' });
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('core:connections');
 
 export interface ConnectionDef {
   /** 连接唯一标识 */

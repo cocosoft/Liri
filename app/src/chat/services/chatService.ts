@@ -21,14 +21,11 @@ import {
   unlinkSync,
 } from 'fs';
 import { AIModelType } from '@modules/ai';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { resolveDataSubDir } from '@modules/core';
 
-const logger = new Logger({
-  module: 'chat:services:chatService',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('chat:services:chatService');
 
 /**
  * 聊天服务类

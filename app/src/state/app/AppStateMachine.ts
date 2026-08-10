@@ -9,6 +9,7 @@
  */
 
 import { StateMachine } from '../engine/StateMachine';
+import type { StateMachineConfig } from '../engine/types';
 import { AppState, APP_TRANSITIONS } from './types';
 
 export { AppState, APP_TRANSITIONS };
@@ -16,12 +17,19 @@ export { AppState, APP_TRANSITIONS };
 export class AppStateMachine extends StateMachine<AppState> {
   /**
    * @param appId 应用标识，作为 contextId 用于日志溯源
+   * @param extra 额外引擎配置（§十 阶段 B：onTransition 发布钩子等），与默认配置合并
    */
-  constructor(appId: string = 'app') {
+  constructor(
+    appId: string = 'app',
+    extra?: Partial<StateMachineConfig<AppState>>
+  ) {
     super({
       initialState: AppState.IDLE,
       rules: APP_TRANSITIONS,
       contextId: appId,
+      // ERROR/PAUSED 为关键状态：转移进入时日志 ≥ warn（§十 阶段 B）
+      criticalStates: [AppState.ERROR, AppState.PAUSED],
+      ...extra,
     });
   }
 

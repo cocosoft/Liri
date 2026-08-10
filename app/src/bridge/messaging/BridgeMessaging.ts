@@ -11,11 +11,8 @@ import {
   handleError,
 } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'bridge\messaging\BridgeMessaging',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('bridge\messaging\BridgeMessaging');
 
 /**
  * 消息类型

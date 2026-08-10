@@ -54,13 +54,10 @@
  */
 import { estimateMessagesTokens } from '../../ai/tokenizer/TokenEstimator';
 import { resolveContextWindow } from '../window/ContextWindowResolver';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '../../error/handleError';
 
-const logger = new Logger({
-  module: 'context:compaction:policy',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('context:compaction:policy');
 
 export type CompactionDecision = 'skip' | 'warn' | 'trigger';
 

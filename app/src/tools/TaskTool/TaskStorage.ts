@@ -12,11 +12,8 @@ import { randomUUID } from 'crypto';
 import type { Task, TaskStorage, TaskStatus } from './types';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'tools\TaskTool\TaskStorage',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('tools\TaskTool\TaskStorage');
 
 /**
  * @deprecated 使用 TaskRegistry 替代

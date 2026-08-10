@@ -6,11 +6,8 @@ import fs from 'fs';
 import { EventEmitter } from 'events';
 import { handleError } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'monitoring\logs\tail\LogTail',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('monitoring\logs\tail\LogTail');
 
 /**
  * 追踪选项

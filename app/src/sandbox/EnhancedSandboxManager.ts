@@ -11,13 +11,10 @@ import {
   SandboxPermission,
   SandboxExecuteResult,
 } from './SandboxTypes.js';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 
-const logger = new Logger({
-  module: 'sandbox:enhancedSandboxManager',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('sandbox:enhancedSandboxManager');
 
 /**
  * 沙箱安全评估

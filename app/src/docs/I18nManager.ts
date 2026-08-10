@@ -4,8 +4,8 @@
  */
 
 import { LanguagePack } from './types.js';
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'docs:I18nManager', level: LogLevel.INFO });
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('docs:I18nManager');
 
 /**
  * 默认中文语言包

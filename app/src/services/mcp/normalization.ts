@@ -3,12 +3,8 @@
  * 负责MCP工具/服务器名称的标准化处理
  * */
 
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'mcp:normalization',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('mcp:normalization');
 
 const CLAUDEAI_SERVER_PREFIX = 'claude.ai ';
 const NON_ALPHANUMERIC = /[^a-zA-Z0-9_-]/g;

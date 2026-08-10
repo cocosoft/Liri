@@ -12,10 +12,10 @@ import path from 'path';
 import { FileRegistry } from './FileRegistry';
 import { FileSource } from './types';
 import type { MediaType } from './types';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({ module: 'services:file', level: LogLevel.INFO });
+const logger = getLogger('services:file');
 
 /**
  * 下载远程媒体文件并注册到 FileRegistry

@@ -10,7 +10,7 @@
  */
 import { ToolCallPartitioner } from '../tools/orchestration/Partitioner.js';
 import type { ToolUseBlock } from '../chat/types/ToolUseBlock.js';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 import {
   CascadeAbortManager,
@@ -18,10 +18,7 @@ import {
 } from './CascadeAbortManager.js';
 import type { CascadeAbortConfig } from './CascadeAbortManager.js';
 
-const logger = new Logger({
-  module: 'query:parallelToolExecutor',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('query:parallelToolExecutor');
 
 /**
  * 单个工具执行结果

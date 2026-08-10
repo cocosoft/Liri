@@ -21,11 +21,8 @@ import type {
 import { handleError } from '@modules/error';
 import { createReadStream } from 'node:fs';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'channels:telegram:TelegramChannel',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('channels:telegram:TelegramChannel');
 
 const TELEGRAM_META: ChannelMeta = {
   id: 'telegram',

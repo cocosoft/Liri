@@ -28,13 +28,10 @@ import { resolveDataSubDir } from '@modules/core';
 import { join } from 'path';
 import { readFile, writeFile, mkdir } from 'fs/promises';
 import type { DreamRecord, DreamCycleRecord, DreamCycleSummary } from './types';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({
-  module: 'dream:dreamPersistence',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('dream:dreamPersistence');
 
 const DREAM_RECORDS_FILE = 'dream_records.json';
 const MAX_RECORDS = 50;

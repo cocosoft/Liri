@@ -1,4 +1,4 @@
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import type { SqliteTaskStore } from './db/SqliteTaskStore';
 import type { TaskRegistry } from './TaskRegistry';
 import type {
@@ -9,7 +9,7 @@ import type {
 } from './types';
 import { TaskStatus, isTerminalTaskStatus } from './types';
 
-const logger = new Logger({ module: 'tasks:audit', level: LogLevel.INFO });
+const logger = getLogger('tasks:audit');
 
 /** 审计选项 */
 export interface AuditOptions {

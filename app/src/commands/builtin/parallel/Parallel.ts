@@ -4,11 +4,8 @@ import { createToolScheduler } from '@modules/tools/scheduler/ToolScheduler.js';
 import { getEmptyToolUseContext } from '@modules/tools/types/ToolUseContext.js';
 import type { ToolUseContext } from '@modules/tools/types/ToolUseContext.js';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'commands:builtin:parallel:Parallel',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('commands:builtin:parallel:Parallel');
 
 const toolManager = createToolManager();
 

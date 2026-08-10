@@ -19,12 +19,8 @@ import {
   detectChainedCommand,
 } from './types/RiskClass';
 import { configManager } from '@modules/config';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'permission:checker',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('permission:checker');
 
 /**
  * P1-2: 命令内容级黑白名单决策（「设置→自定义规则」B 体系）。

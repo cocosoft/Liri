@@ -6,7 +6,7 @@
 import fs from 'fs';
 import path from 'path';
 import { resolvePermissionsDir } from '@modules/core';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import type {
   PermissionStorage,
   PermissionRule,
@@ -16,10 +16,7 @@ import type {
 } from './Permission.js';
 import { RoleType, ResourceType } from './Permission.js';
 
-const logger = new Logger({
-  module: 'permission:fileStorage',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('permission:fileStorage');
 
 /**
  * 文件权限存储类

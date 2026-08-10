@@ -8,11 +8,8 @@ import {
 } from '@modules/error';
 import { resolvePyappHome } from '@modules/core';
 
-import { Logger, LogLevel } from '../../monitoring/logs/Logger.js';
-const logger = new Logger({
-  module: 'config:loader:ConfigLoader',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '../../monitoring/logs/Logger.js';
+const logger = getLogger('config:loader:ConfigLoader');
 
 export type ConfigFormat = 'json' | 'yaml' | 'env';
 

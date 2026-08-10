@@ -15,7 +15,7 @@
 import { join } from 'path';
 import { existsSync } from 'fs';
 import { resolveOutputDir } from '@modules/core/paths';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { getOTelTracing } from '@modules/monitoring/otel';
 import { trackUsage } from '@modules/ai';
@@ -44,7 +44,7 @@ import type {
 import type { ChatStreamChunk } from '@modules/runtime/api/CoreAPI.js';
 import type { ImageContextService } from '../services/ImageContextService.js';
 
-const logger = new Logger({ level: LogLevel.INFO, module: 'chat:pipeline' });
+const logger = getLogger('chat:pipeline');
 
 /* ===================================================================
  *  PipelineContext — 管线共享上下文

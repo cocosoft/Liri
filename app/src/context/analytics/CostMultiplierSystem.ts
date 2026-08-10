@@ -7,12 +7,8 @@
  *   - 发布端价格更新自动回填历史成本（update_model_pricing）
  *   - 估算 vs 实际值偏差告警
  */
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'context:cost:multiplier',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('context:cost:multiplier');
 
 export interface CostMultiplierConfig {
   modelId: string;

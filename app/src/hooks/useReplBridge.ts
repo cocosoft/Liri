@@ -8,11 +8,8 @@ import { BridgeMain } from '@modules/bridge/BridgeMain';
 import { type BridgeSession } from '@modules/bridge/sessions/MultiSessionManager';
 import { type BridgeMessage } from '@modules/bridge/messaging/BridgeMessaging';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'hooks:useReplBridge',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('hooks:useReplBridge');
 
 /**
  * REPL状态

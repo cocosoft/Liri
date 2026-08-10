@@ -1,11 +1,8 @@
 ﻿import { z } from 'zod';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'tools\GrepTool\schemas',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('tools\GrepTool\schemas');
 
 /**
  * GrepTool 输出模式枚举

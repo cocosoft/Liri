@@ -21,9 +21,8 @@
  *   LOOP_NO_TOOL_CALL_CRITICAL — no_tool_call 阻断阈值，默认 5
  */
 
-import { Logger } from '@modules/monitoring';
-
-const logger = new Logger({ module: 'query:loopConfig' });
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('query:loopConfig');
 
 // ─── 全局 observeOnly 模式 ─────────────────────────────
 

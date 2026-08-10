@@ -3,12 +3,8 @@
  * 管理记忆之间的关联关系，支持递归检索关联记忆
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'memory:utils:memoryRelationGraph',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('memory:utils:memoryRelationGraph');
 
 /**
  * 关联类型

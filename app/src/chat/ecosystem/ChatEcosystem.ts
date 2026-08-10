@@ -5,11 +5,8 @@ import {
   handleError,
 } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'chat:ecosystem:ChatEcosystem',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('chat:ecosystem:ChatEcosystem');
 
 export interface ExtensionPoint {
   name: string;

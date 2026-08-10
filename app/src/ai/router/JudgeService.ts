@@ -31,13 +31,13 @@
 
 import type { AIProvider } from '../providers/AIProvider.js';
 import type { JudgeResult, JudgeCloudConfig, RouterTier } from './types.js';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error';
 import { trackUsage } from '@modules/ai';
 
-const logger = new Logger({ level: LogLevel.INFO, module: 'ai:judge' });
+const logger = getLogger('ai:judge');
 
 /** 四级分类的 prompt 模板（极简，单次生成，非流式） */
 const CLASSIFY_PROMPT_TEMPLATE = `You are a query complexity classifier. Classify the user's message into one of four tiers:

@@ -1,12 +1,9 @@
 import type { RemoteSetting, RemoteSettingsPayload } from './types';
 import { RemoteSettingsClient } from './RemoteSettingsClient';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({
-  module: 'services:settingsPoller',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('services:settingsPoller');
 
 export class SettingsPoller {
   private client: RemoteSettingsClient;

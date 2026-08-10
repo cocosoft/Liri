@@ -5,14 +5,11 @@
  */
 
 import { execSync } from 'child_process';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 import type { DockerNetworkConfig } from './DockerNetworkPolicy';
 
-const logger = new Logger({
-  module: 'sandbox:docker:networkPolicyEngine',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('sandbox:docker:networkPolicyEngine');
 
 /**
  * 网络策略应用结果

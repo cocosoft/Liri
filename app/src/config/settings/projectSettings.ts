@@ -5,10 +5,10 @@
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
-import { Logger } from '../../monitoring/logs/Logger.js';
+import { getLogger } from '../../monitoring/logs/Logger.js';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({ module: 'ProjectSettings' });
+const logger = getLogger('ProjectSettings');
 import { deepMerge } from '@modules/utils/common.js';
 import { resolveProjectSettingsPath } from '@modules/core';
 

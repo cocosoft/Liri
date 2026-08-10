@@ -8,7 +8,7 @@
  * - 消息队列与批量发送
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import type {
   PlatformAdapter,
   PlatformConfig,
@@ -18,10 +18,7 @@ import type {
 } from './PlatformAdapter';
 import type { UnifiedMessage } from '../types/Message';
 
-const logger = new Logger({
-  module: 'session:webhookPlatform',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('session:webhookPlatform');
 
 export interface WebhookPlatformConfig extends PlatformConfig {
   settings: {

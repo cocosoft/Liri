@@ -7,12 +7,12 @@
 import { appendFile, mkdir } from 'fs/promises';
 import { join, dirname } from 'path';
 import { existsSync } from 'fs';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 import { resolvePyappHome } from '@modules/core';
 import { configManager } from '@modules/config';
 
-const logger = new Logger({ module: 'agent:trajectory', level: LogLevel.INFO });
+const logger = getLogger('agent:trajectory');
 
 const DEFAULT_TRAJECTORY_DIR = join(resolvePyappHome(), 'trajectories');
 

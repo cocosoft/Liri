@@ -28,13 +28,13 @@
  * 借鉴: DeepSeek-Reasonix src/context-manager.ts
  */
 
-import { Logger } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import type { ChatMessage } from '../tools/repair/types';
 import { healLoadedMessages } from './healing';
 import { looksLikeCompleteJson } from './shrink';
 import { estimateMessagesTokens } from '../ai/tokenizer/TokenEstimator';
 
-const logger = new Logger({ module: 'query:contextFolder' });
+const logger = getLogger('query:contextFolder');
 
 // ─── 折叠阈值常量 ────────────────────────────────────────────────────────────
 

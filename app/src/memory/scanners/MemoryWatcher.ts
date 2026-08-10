@@ -7,13 +7,10 @@
 import { watch, FSWatcher } from 'fs';
 import { readdir, stat } from 'fs/promises';
 import { join, basename } from 'path';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({
-  module: 'memory:scanners:memoryWatcher',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('memory:scanners:memoryWatcher');
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 /**

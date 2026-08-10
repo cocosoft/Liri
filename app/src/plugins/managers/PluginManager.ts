@@ -7,11 +7,8 @@
 import type { LoadedPlugin } from '../types';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'plugins\managers\PluginManager',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('plugins\managers\PluginManager');
 
 /**
  * 插件系统单例引用（DI 方式注入，避免循环依赖）

@@ -29,11 +29,8 @@ import { ThemeManager } from '../ThemeManager';
 import type { ThemeUIColorPalette } from './ThemeSchema';
 import { handleError } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'ui:theme:ThemeContext',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('ui:theme:ThemeContext');
 
 export interface ThemeContextValue {
   /** UI 组件配色 */

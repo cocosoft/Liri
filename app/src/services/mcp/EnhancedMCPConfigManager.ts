@@ -10,14 +10,11 @@ import {
   resolveDataDir,
   resolveProjectRoot,
 } from '@modules/core';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { configManager } from '@modules/config';
 
-const logger = new Logger({
-  module: 'services:mcp:configManager',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('services:mcp:configManager');
 import {
   McpServerConfigSchema,
   McpJsonConfigSchema,

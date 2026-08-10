@@ -3,13 +3,10 @@
  * 用于生成和展示性能报告
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { getPerformanceConfig } from './PerformanceConfig.js';
 
-const logger = new Logger({
-  module: 'performance:reporter',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('performance:reporter');
 import { analyzePerformance } from './PerformanceAnalyzer.js';
 import { generateMemoryReport } from './MemoryManager.js';
 import { getSlowOperations } from '../bootstrap/state.js';

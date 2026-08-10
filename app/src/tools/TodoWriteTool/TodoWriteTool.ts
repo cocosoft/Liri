@@ -13,11 +13,11 @@ import { VERIFICATION_AGENT_TYPE } from '../AgentTool/constants';
 import { Database } from '@modules/core/external/sqlite3';
 import { resolveDbPath, ensureDir } from '@modules/core';
 import { dirname } from 'path';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { SimpleMutex } from '@modules/core';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({ module: 'tools:todoWrite', level: LogLevel.INFO });
+const logger = getLogger('tools:todoWrite');
 
 /**
  * Todo 项状态

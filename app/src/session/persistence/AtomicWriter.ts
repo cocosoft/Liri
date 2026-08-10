@@ -9,11 +9,8 @@ import path from 'path';
 import crypto from 'crypto';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'session:persistence:AtomicWriter',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('session:persistence:AtomicWriter');
 
 export class AtomicWriteError extends AppError {
   public readonly path: string;

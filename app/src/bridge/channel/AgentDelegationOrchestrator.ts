@@ -4,7 +4,7 @@
  * 完整闭环：用户 → Channel → Agent → 子任务 → Bridge 分发 → 远程执行 → 回传 → Agent 汇总 → Channel 回复
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import type {
   ChannelId,
@@ -15,10 +15,7 @@ import { channelRegistry } from '@modules/channels/registry/ChannelRegistry';
 import { ChannelBridgeAdapter } from './ChannelBridgeAdapter';
 import type { Coordinator, CoordinatorTask } from '@modules/core';
 
-const logger = new Logger({
-  module: 'bridge:channel:agentDelegationOrchestrator',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('bridge:channel:agentDelegationOrchestrator');
 
 /**
  * 子任务定义（由 Agent 拆分生成）

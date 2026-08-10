@@ -10,9 +10,8 @@ import {
   ErrorSeverity,
   handleError,
 } from '@modules/error';
-import { Logger } from '@modules/monitoring';
-
-const logger = new Logger({ module: 'LazyService' });
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('LazyService');
 
 /**
  * 延迟加载状态

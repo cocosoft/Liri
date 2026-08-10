@@ -13,14 +13,11 @@ import {
 } from 'fs';
 import { join } from 'path';
 import { randomUUID } from 'crypto';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 import { resolvePyappHome } from '@modules/core';
 
-const logger = new Logger({
-  module: 'agent:utils:teammateMailbox',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('agent:utils:teammateMailbox');
 
 /**
  * Mailbox消息类型

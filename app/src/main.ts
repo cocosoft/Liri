@@ -38,6 +38,11 @@ import {
   ensureMdmPrefetchCompleted,
 } from './infrastructure/startup/MdmPrefetch';
 import {
+  installExitRecorder,
+  logStartupContext,
+} from './core/exit/ExitRecorder.js';
+import { initAppStateMachine } from './state/app/AppLifecycle.js';
+import {
   startKeychainPrefetch,
   ensureKeychainPrefetchCompleted,
 } from './infrastructure/startup/KeychainPrefetch';
@@ -74,9 +79,9 @@ import {
 } from './context/persistence/ContextPersistenceLifecycle.js';
 import { contextManager } from './context/ContextManager.js';
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger, Logger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-const logger = new Logger({ module: 'main', level: LogLevel.INFO });
+const logger = getLogger('main');
 
 /** 最大首次引导重试次数 */
 const MAX_ONBOARD_RETRIES = 3;
@@ -992,6 +997,15 @@ export async function launch(options: LaunchOptions): Promise<void> {
 
   // 单实例锁检查（PID 文件锁），防止多实例启动导致通道双回复
   checkSingletonInstance();
+
+  // 根因 C：退出信息记录 — 启动时输出上次退出信息（区分手动 vs 崩溃），
+  // 并注册退出监听（beforeExit/信号/异常），记录到 ~/.pyapp/data/last-exit.json
+  installExitRecorder();
+  logStartupContext();
+
+  // §十 阶段 A：AppStateMachine 接线（注册 + 快照恢复 + 状态变更落盘）
+  // 崩溃恢复/后台任务等关键节点通过 AppLifecycle 驱动全局状态
+  initAppStateMachine();
 
   // 全局未捕获异常兜底（handleError 标准化处理）
   // 在模块系统初始化之前注册，确保早期启动阶段的错误也能被捕获

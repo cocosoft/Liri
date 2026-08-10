@@ -7,11 +7,8 @@
 import type { CommandContext, CommandResult } from '@modules/commands';
 import { configManager } from '@modules/config';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'commands:logout:logout',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('commands:logout:logout');
 
 /**
  * 执行登出

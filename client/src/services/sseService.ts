@@ -176,6 +176,8 @@ class SSEService {
         "plan:task_card",
         "plan:step_progress",
         "plan:completed",
+        // 根因 C：后端崩溃恢复把会话标记 PAUSED 后的主动通知
+        "session:paused",
       ];
       logger.info(`[connect] 注册进度事件监听 count=${progressEvents.length}`);
       for (const evt of progressEvents) {

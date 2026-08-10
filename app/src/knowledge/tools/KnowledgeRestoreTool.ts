@@ -12,12 +12,8 @@ import { ToolResult, ToolExecutionStatus } from '../../tools/types/ToolResult';
 import { ToolUseContext } from '../../tools/types/ToolUseContext';
 import { KnowledgeBaseWriter } from '../KnowledgeBaseWriter';
 import { globalEventBus } from '@modules/core';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'knowledge:tools:knowledgeRestoreTool',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('knowledge:tools:knowledgeRestoreTool');
 
 export class KnowledgeRestoreTool implements Tool {
   public name: string = 'knowledge_restore';

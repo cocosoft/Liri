@@ -8,7 +8,7 @@
  * 极小化侵入：不修改 ChatManager 构造器，仅通过 initialize() 注册。
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { resolveSessionsDir } from '@modules/core/paths';
 import { SessionMemoryManager } from '../memory/SessionMemoryManager';
 import { globalEmbeddingManager } from '../../ai/embedding/EmbeddingManager';
@@ -16,10 +16,7 @@ import { SessionActivityTracker } from '../activity/SessionActivityTracker';
 import { SessionStateHydrator } from '../hydration/SessionStateHydrator';
 import type { ChatSession } from '../../chat/types/session';
 
-const logger = new Logger({
-  level: LogLevel.INFO,
-  module: 'session:bootstrap',
-});
+const logger = getLogger('session:bootstrap');
 
 /** 全局单例，跨会话共享 */
 let memoryManager: SessionMemoryManager | null = null;

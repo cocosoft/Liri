@@ -108,7 +108,7 @@ export type {
   CostReportData,
 } from './CostReportEndpoint';
 
-import { Logger } from '../monitoring/logs/Logger.js';
+import { getLogger } from '../monitoring/logs/Logger.js';
 import { globalEventBus, SystemEvents } from '@modules/core';
 import type { CostRecordedEvent } from '@modules/core';
 import { handleError } from '@modules/error';
@@ -117,7 +117,7 @@ import {
   AnalyticsSeverity,
 } from '../analytics/AnalyticsSchema.js';
 
-const logger = new Logger({ module: 'cost:index' });
+const logger = getLogger('cost:index');
 
 /**
  * 初始化成本跟踪系统

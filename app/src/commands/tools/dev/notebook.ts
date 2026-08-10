@@ -9,11 +9,8 @@ import { getToolManager } from '@modules/tools/ToolManager.js';
 import { feature } from '@modules/core/featureFlags.js';
 import { notebookManager } from '@modules/tools/notebook/NotebookManager.js';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'commands:tools:dev:notebook',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('commands:tools:dev:notebook');
 
 const SUBCOMMANDS = new Set([
   'create',

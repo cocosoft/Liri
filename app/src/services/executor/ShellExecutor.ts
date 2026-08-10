@@ -97,11 +97,8 @@ import {
   COMPOSITE_COMMAND_RULES,
 } from '../../security/patterns/dangerousCommands';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'services:executor:ShellExecutor',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('services:executor:ShellExecutor');
 
 /** P1: ShellExecutor 的 SecurityPattern（内部使用，保持与 int 签名一致） */
 interface SecurityPattern {

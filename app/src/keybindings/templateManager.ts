@@ -10,11 +10,8 @@ import { templates, getTemplate, getTemplateObject } from './templates';
 
 import { handleError } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'keybindings:templateManager',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('keybindings:templateManager');
 
 export interface TemplateManagerOptions {
   defaultMode?: 'vi' | 'emacs' | 'default';

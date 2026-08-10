@@ -15,11 +15,8 @@ import {
   getAutoMemPath,
 } from '@modules/memory/AutoMemory';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'commands:builtin:memory:memoryCmd',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('commands:builtin:memory:memoryCmd');
 
 export interface MemoryCommandResult {
   success: boolean;

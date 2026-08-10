@@ -24,7 +24,7 @@ import { Database } from '@modules/core/external/sqlite3';
 import { v4 as uuidv4 } from 'uuid';
 import { writeFile, unlink, stat, mkdir } from 'fs/promises';
 import { join, dirname } from 'path';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { SimpleMutex } from '@modules/core';
@@ -51,10 +51,7 @@ import {
   rowToFileRecord,
 } from './types';
 
-const logger = new Logger({
-  module: 'services:file:registry',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('services:file:registry');
 
 /** 大文件阈值：超过此大小的文件跳过 MD5 去重（100MB） */
 const LARGE_FILE_THRESHOLD = 100 * 1024 * 1024;

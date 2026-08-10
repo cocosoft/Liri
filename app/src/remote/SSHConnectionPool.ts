@@ -7,11 +7,8 @@
 import { SSHConnection, SSHConfig, SSHConnectionStatus } from './SSHConnection';
 import { handleError } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'remote:SSHConnectionPool',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('remote:SSHConnectionPool');
 
 /**
  * 连接池配置

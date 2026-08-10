@@ -4,12 +4,8 @@
  */
 
 import { EventBusImpl } from '@modules/core/events/EventBus';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'calendar:eventBus',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('calendar:eventBus');
 
 /** 日历事件类型 */
 export const CalendarEvents = {

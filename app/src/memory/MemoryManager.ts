@@ -37,7 +37,7 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import type { MemoryProvider } from './MemoryProvider';
 import { memoryRelationGraph } from './utils/MemoryRelationGraph';
 import { MemoryConsolidator } from './consolidation/MemoryConsolidator';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { trackUsage } from '@modules/ai';
 import { createHash } from 'crypto';
@@ -50,10 +50,7 @@ import {
   type MemoryItem,
 } from './MemoryLLMSelector';
 
-const logger = new Logger({
-  module: 'memory:memoryManager',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('memory:memoryManager');
 
 /**
  * 记忆管理器接口

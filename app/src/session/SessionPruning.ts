@@ -5,11 +5,11 @@
  */
 
 import { handleError } from '@modules/error';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { existsSync, unlinkSync, readdirSync, statSync } from 'fs';
 import { join } from 'path';
 
-const logger = new Logger({ module: 'session:pruning', level: LogLevel.INFO });
+const logger = getLogger('session:pruning');
 
 export interface PruningConfig {
   sessionsDir: string;

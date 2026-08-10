@@ -5,13 +5,10 @@
  * 在服务器连接时自动引导用户完成配置
  * */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 
-const logger = new Logger({
-  module: 'services:mcp:elicitation',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('services:mcp:elicitation');
 import type { ScopedMcpServerConfig } from './types';
 import type {
   ElicitRequestFormParams,

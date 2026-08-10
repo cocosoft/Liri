@@ -14,12 +14,9 @@ import { TTLCache } from '@modules/utils/cache';
 import { ALL_MODEL_CONFIGS } from '@modules/ai';
 import { priceManager } from './PriceManager';
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-const logger = new Logger({
-  module: 'core:tokenBudget:ModelContextCache',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('core:tokenBudget:ModelContextCache');
 
 /** TTL 默认值: 5 分钟 */
 const CACHE_TTL_MS = 5 * 60 * 1000;

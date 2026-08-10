@@ -9,12 +9,9 @@ import { BaseTask } from './BaseTask';
 import { TaskType, TaskStatus, isTerminalTaskStatus } from './types';
 import type { AgentDefinition, AgentProgress, ToolActivity } from './types';
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-const logger = new Logger({
-  module: 'tasks:InProcessTeammateTask',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('tasks:InProcessTeammateTask');
 
 /**
  * Teammate身份标识

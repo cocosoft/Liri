@@ -616,6 +616,12 @@ export interface SendMessageOptions {
   stream?: boolean;
 
   /**
+   * 前端写前落盘的消息 id（POST /v1/sessions/:id/messages 已持久化）
+   * 存在时后端按 id 查重，避免流式路径重复持久化用户消息
+   */
+  messageId?: string;
+
+  /**
    * 模型名称
    */
   model?: string;

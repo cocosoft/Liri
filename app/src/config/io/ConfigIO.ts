@@ -4,14 +4,11 @@
  */
 import fs from 'fs';
 import path from 'path';
-import { Logger, LogLevel } from '../../monitoring/logs/Logger.js';
+import { getLogger } from '../../monitoring/logs/Logger.js';
 import { resolvePyappHome, resolveProjectRoot } from '@modules/core';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({
-  module: 'config:io:configIO',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('config:io:configIO');
 
 /**
  * 配置格式

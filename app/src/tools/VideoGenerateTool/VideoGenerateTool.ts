@@ -14,7 +14,7 @@
 import { BaseTool } from '../BaseTool';
 import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';
 import { registerGeneratedMedia } from '@modules/services/file/registerMediaFile';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { providerRegistry } from '../../ai/providers/ProviderRegistry';
@@ -36,10 +36,7 @@ import { writeFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { resolveTempDir } from '@modules/core/paths';
 
-const logger = new Logger({
-  level: LogLevel.INFO,
-  module: 'tools:videoGenerate',
-});
+const logger = getLogger('tools:videoGenerate');
 
 export interface VideoGenerateParams {
   prompt: string;

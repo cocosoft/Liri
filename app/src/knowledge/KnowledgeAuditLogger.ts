@@ -29,12 +29,8 @@ import { appendFile, mkdir } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { resolveDataSubDir } from '@modules/core';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'knowledge:auditLogger',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('knowledge:auditLogger');
 
 /** 审计日志条目 */
 export interface AuditLogEntry {

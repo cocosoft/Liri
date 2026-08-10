@@ -3,17 +3,14 @@
  * 复用现有 MCPMarketplace 基础设施
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import {
   TemplateEngine,
   BUILTIN_TEMPLATES,
   type TemplateMeta,
 } from './TemplateEngine';
 
-const logger = new Logger({
-  module: 'doc:template',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('doc:template');
 
 /**
  * 模板市场

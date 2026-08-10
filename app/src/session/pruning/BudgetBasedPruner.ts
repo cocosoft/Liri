@@ -5,12 +5,8 @@ import type {
   PruningContext,
   PruningConfig,
 } from './PruningStrategy';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'session:budgetPruner',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('session:budgetPruner');
 
 const DEFAULT_TOKEN_BUDGET = 50_000;
 

@@ -7,7 +7,7 @@
  * 零第三方依赖
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 import type { IncomingMessage, ServerResponse } from 'http';
 import type { Socket } from 'net';
@@ -15,7 +15,7 @@ import { createHash, randomUUID } from 'crypto';
 import type { WakeDetectionResult } from './types';
 import { withTraceContextFromRequest } from '../monitoring/tracing/traceContextExtractor';
 
-const logger = new Logger({ level: LogLevel.INFO, module: 'voice:wakews' });
+const logger = getLogger('voice:wakews');
 
 /** WebSocket 魔术 GUID (RFC 6455) */
 const MAGIC_GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';

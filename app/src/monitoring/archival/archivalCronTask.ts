@@ -18,14 +18,11 @@ import {
   removeCronTasks,
   updateCronTask,
 } from '../../chronos/CronTasks.js';
-import { Logger, LogLevel } from '../logs/Logger.js';
+import { getLogger } from '../logs/Logger.js';
 import { handleError } from '@modules/error';
 import { IncidentManager } from '../incidents/IncidentManager.js';
 
-const logger = new Logger({
-  level: LogLevel.INFO,
-  module: 'monitoring:archival_cron',
-});
+const logger = getLogger('monitoring:archival_cron');
 
 /** 默认归档 cron 表达式：每日凌晨 3 点 */
 export const DEFAULT_ARCHIVAL_CRON = '0 3 * * *';

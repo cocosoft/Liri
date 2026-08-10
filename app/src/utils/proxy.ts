@@ -4,10 +4,10 @@
 
 import { isEnvTruthy } from './envUtils.js';
 import { configManager } from '@modules/config';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 
-const logger = new Logger({ module: 'utils:proxy', level: LogLevel.INFO });
+const logger = getLogger('utils:proxy');
 
 /**
  * 获取代理URL

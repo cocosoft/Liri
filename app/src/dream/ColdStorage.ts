@@ -28,13 +28,10 @@
 import { resolveDataSubDir } from '@modules/core';
 import { join } from 'path';
 import { readFile, writeFile, mkdir } from 'fs/promises';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({
-  module: 'dream:coldStorage',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('dream:coldStorage');
 
 /** 冷存储阈值：60 天无更新 */
 const COLD_THRESHOLD_MS = 60 * 24 * 60 * 60 * 1000;

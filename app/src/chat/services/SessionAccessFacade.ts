@@ -12,7 +12,7 @@
  *
  * ChatManager 通过此门面与 session 子系统交互，减少直接依赖。
  */
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { resolveSessionsDir } from '@modules/core/paths';
 import { SessionMemoryManager } from '../../session/memory/SessionMemoryManager';
 import { globalEmbeddingManager } from '../../ai/embedding/EmbeddingManager';
@@ -23,10 +23,7 @@ import type { MemoryExtractionLLM } from '../../session/memory/SessionMemoryExtr
 import { MEMORY_TEMPLATE } from '../../session/memory/memoryTemplate';
 import type { ChatSession } from '../types/session';
 
-const logger = new Logger({
-  level: LogLevel.INFO,
-  module: 'chat:session-facade',
-});
+const logger = getLogger('chat:session-facade');
 
 export class SessionAccessFacade {
   private memoryManager: SessionMemoryManager | null = null;

@@ -37,13 +37,10 @@ import type { InstalledClawHubSkill } from './ClawHubMeta';
 import { ClawHubConverter } from './ClawHubConverter';
 import { ClawHubAPIClient } from './ClawHubAPIClient';
 import { ClawHubInstaller } from './ClawHubInstaller';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import type { PluginRegistry } from '@modules/plugins/core/PluginRegistry';
 
-const logger = new Logger({
-  module: 'skills:clawHubAdapter',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('skills:clawHubAdapter');
 
 /**
  * ClawHubAdapter 配置

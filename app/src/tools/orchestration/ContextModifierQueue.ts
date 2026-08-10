@@ -4,13 +4,10 @@
  */
 
 import type { ContextModifier } from './types';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({
-  module: 'tools:contextModifier',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('tools:contextModifier');
 
 /**
  * 上下文修改器队列

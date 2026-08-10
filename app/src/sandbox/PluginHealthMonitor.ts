@@ -4,13 +4,10 @@
  * 监控每个插件的运行状态，检测无响应或崩溃后进行自动恢复
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 
-const logger = new Logger({
-  module: 'sandbox:pluginHealthMonitor',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('sandbox:pluginHealthMonitor');
 
 /**
  * 插件健康状态

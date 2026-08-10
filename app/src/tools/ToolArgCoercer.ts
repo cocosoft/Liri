@@ -17,10 +17,10 @@
  *       PilotDeck validateToolInput.ts
  */
 
-import { Logger } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({ module: 'tools:argCoercer' });
+const logger = getLogger('tools:argCoercer');
 
 // ==========================================
 // Types

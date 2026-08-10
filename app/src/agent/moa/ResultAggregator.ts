@@ -6,10 +6,10 @@
  * - 当关键词重叠率在 0.3-0.6 模糊区间时，可配置 LLM 判断器做二次确认
  */
 
-import { Logger } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import type { ScheduledTaskResult } from './ParallelAgentScheduler';
 
-const logger = new Logger({ module: 'agent:moa:resultAggregator' });
+const logger = getLogger('agent:moa:resultAggregator');
 
 /**
  * 聚合策略枚举

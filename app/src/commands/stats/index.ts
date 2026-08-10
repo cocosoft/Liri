@@ -28,11 +28,8 @@ import type { Command, CommandContext, CommandResult } from '@modules/commands';
 import { getCommandManager } from '@modules/commands';
 
 import { handleError } from '@modules/error';
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'commands:stats:index',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('commands:stats:index');
 
 /**
  * 统计数据类型

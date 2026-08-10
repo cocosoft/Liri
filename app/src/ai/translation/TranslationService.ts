@@ -9,7 +9,7 @@
  */
 
 import { randomUUID } from 'crypto';
-import { Logger, LogLevel } from '../../monitoring/logs/Logger';
+import { getLogger } from '../../monitoring/logs/Logger';
 import { AppError, ErrorCategory, ErrorSeverity } from '../../error/types';
 import { handleError } from '../../error/handleError';
 import { modelRouter } from '../modelRouter';
@@ -31,7 +31,7 @@ import type {
 } from './types';
 import type { ChatMessage, ChatResponse } from '../models/types';
 
-const logger = new Logger({ level: LogLevel.INFO, module: 'ai:translation' });
+const logger = getLogger('ai:translation');
 
 export class TranslationService {
   private languageDetector: LanguageDetector;

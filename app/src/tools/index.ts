@@ -27,10 +27,10 @@
 export type { ToolDefinition, ToolExecutionContext } from './types/ToolTypes';
 
 import { feature } from '@modules/core';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 
-const logger = new Logger({ module: 'tools:index', level: LogLevel.INFO });
+const logger = getLogger('tools:index');
 import { ToolManager, globalToolManager } from './core/ToolManager';
 import { ToolRegistry, setToolRegistry, getToolRegistry } from './ToolRegistry';
 import { ToolExecutor, globalToolExecutor } from './executor/ToolExecutor';

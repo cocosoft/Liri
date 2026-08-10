@@ -6,11 +6,8 @@
 import type { Command, CommandImplementation } from '@modules/commands';
 import { getToolManager } from '@modules/tools/ToolManager.js';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'commands:tools:system:bash',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('commands:tools:system:bash');
 
 /**
  * 解析后的Bash命令选项

@@ -27,13 +27,13 @@
  * Phase 3 增强：收益递减检测、优雅最后一调、持久化恢复。
  */
 
-import { Logger } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import {
   LOOP_MIN_TOKEN_DELTA,
   LOOP_DIMINISH_TURNS_THRESHOLD,
 } from './loop-config.js';
 
-const logger = new Logger({ module: 'query:dailyBudgetManager' });
+const logger = getLogger('query:dailyBudgetManager');
 
 type BudgetMode = 'normal' | 'report_only' | 'locked';
 

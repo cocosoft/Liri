@@ -5,12 +5,8 @@
 
 import os from 'os';
 import { analyticsService } from './AnalyticsService';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'analytics:performance',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('analytics:performance');
 
 /**
  * 性能监控服务类

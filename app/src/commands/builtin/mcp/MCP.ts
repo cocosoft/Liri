@@ -5,11 +5,8 @@
  */
 import type { CommandContext } from '@modules/commands';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'commands:builtin:mcp:MCP',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('commands:builtin:mcp:MCP');
 
 /**
  * 简易服务器信息（展示用）

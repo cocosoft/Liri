@@ -10,7 +10,7 @@
 import type { Tool } from '../types/Tool';
 import { createToolResult } from '../types/ToolResult';
 import type { ToolUseContext } from '../types/ToolUseContext';
-import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
+import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error';
 import { resolveDataDir } from '@modules/core/paths';
@@ -19,10 +19,7 @@ import { WorkItemStore } from '../../workspace/WorkItemStore.js';
 import { writeFileSync, existsSync, mkdirSync, realpathSync } from 'fs';
 import { resolve, normalize, dirname, basename, extname, join } from 'path';
 
-const logger = new Logger({
-  module: 'tools:write_project_file',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('tools:write_project_file');
 
 // P0-1 方案一 1b：交付类扩展名 —— 落盘后自动登记为项目「成果」
 const DELIVERABLE_EXTENSIONS = new Set([

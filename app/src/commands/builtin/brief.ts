@@ -5,9 +5,8 @@
  */
 
 import type { Command, CommandContext, CommandResult } from '@modules/commands';
-import { Logger } from '@modules/monitoring';
-
-const logger = new Logger({ module: 'BriefCommand' });
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('BriefCommand');
 
 let isBriefOnly = false;
 

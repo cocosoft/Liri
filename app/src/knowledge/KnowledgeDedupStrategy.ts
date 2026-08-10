@@ -13,12 +13,8 @@ import { createHash } from 'crypto';
 import { readFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join } from 'path';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'knowledge:dedup',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('knowledge:dedup');
 
 interface DedupEntry {
   contentHash: string;

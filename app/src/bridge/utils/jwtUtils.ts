@@ -4,7 +4,7 @@
  */
 
 import { decode, JwtPayload, verify } from 'jsonwebtoken';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import {
   AppError,
   ErrorCategory,
@@ -12,10 +12,7 @@ import {
   handleError,
 } from '@modules/error';
 
-const logger = new Logger({
-  module: 'bridge:utils:jwtUtils',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('bridge:utils:jwtUtils');
 
 /**
  * 令牌刷新调度器选项

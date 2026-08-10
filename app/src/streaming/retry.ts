@@ -7,8 +7,8 @@
 
 import { ApiError } from '../services/api';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'streaming:retry', level: LogLevel.INFO });
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('streaming:retry');
 export { StreamingCircuitBreaker } from '../utils/withRetry';
 
 /**

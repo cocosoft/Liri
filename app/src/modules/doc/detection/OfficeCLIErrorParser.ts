@@ -4,12 +4,8 @@
  */
 
 import { AppError } from '@modules/error';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'doc:detection',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('doc:detection');
 
 /** 错误解析规则 */
 interface ErrorParseRule {

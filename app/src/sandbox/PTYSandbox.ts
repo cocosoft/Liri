@@ -8,13 +8,10 @@ import type {
   SandboxExecuteOptions,
   SandboxExecuteResult,
 } from './SandboxTypes';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { spawn, type ChildProcess } from 'child_process';
 
-const logger = new Logger({
-  module: 'sandbox:pTYSandbox',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('sandbox:pTYSandbox');
 
 export interface PTYSandboxConfig {
   shell: string;

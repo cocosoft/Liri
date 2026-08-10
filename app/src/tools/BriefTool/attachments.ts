@@ -6,11 +6,8 @@ import { existsSync } from 'fs';
 import { stat } from 'fs/promises';
 import { extname, isAbsolute, resolve } from 'path';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'tools:BriefTool:attachments',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('tools:BriefTool:attachments');
 
 const IMAGE_EXTENSIONS = new Set([
   '.png',

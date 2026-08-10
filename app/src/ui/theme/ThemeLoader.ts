@@ -15,7 +15,7 @@ import {
   unlinkSync,
 } from 'fs';
 import { join, basename, extname, dirname } from 'path';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import {
   ThemeDefinition,
   ThemeMetadata,
@@ -23,7 +23,7 @@ import {
 } from './ThemeSchema';
 import { resolvePyappHome } from '@modules/core';
 
-const logger = new Logger({ module: 'ui:themeLoader', level: LogLevel.INFO });
+const logger = getLogger('ui:themeLoader');
 
 /**
  * 内置主题目录（基于当前文件位置解析，独立于 CWD）

@@ -7,12 +7,9 @@ import type {
   SendResult,
 } from '@modules/channels/types';
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-const logger = new Logger({
-  module: 'channels:claude:ClaudeChannel',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('channels:claude:ClaudeChannel');
 
 export interface ClaudeConfig {
   enabled: boolean;

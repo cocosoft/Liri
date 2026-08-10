@@ -5,16 +5,13 @@
 import type { Plugin, PluginMetadata } from '../types';
 import { PluginStatus } from '../types/Plugin.js';
 import type { IPluginAPI } from '../api/PluginAPI.js';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import {
   MonitoringService,
   getMonitoringService,
 } from '../../monitoring/MonitoringService.js';
 
-const logger = new Logger({
-  module: 'plugins:bundled:monitoringPlugin',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('plugins:bundled:monitoringPlugin');
 
 /**
  * MonitoringPlugin 元数据

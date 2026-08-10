@@ -37,13 +37,10 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { resolvePyappHome } from '@modules/core';
 import { configManager } from '@modules/config';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
-const logger = new Logger({
-  module: 'oauth:providerStore',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('oauth:providerStore');
 
 const ALGORITHM = 'aes-256-gcm';
 const IV_LENGTH = 16;

@@ -1,12 +1,9 @@
 import { AgentMemory, AgentMemoryScope } from '../models/types';
 import { AgentMemoryImpl, MemoryItem } from './agentMemory';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 
-const logger = new Logger({
-  module: 'agent:memory:advancedMemorySystem',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('agent:memory:advancedMemorySystem');
 
 interface MemoryVector {
   id: string;

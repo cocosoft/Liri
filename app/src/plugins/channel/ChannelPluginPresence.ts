@@ -5,12 +5,8 @@
  */
 import fs from 'fs';
 import path from 'path';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'plugins:channel:channelPluginPresence',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('plugins:channel:channelPluginPresence');
 
 /**
  * 存在检测结果

@@ -6,12 +6,8 @@ import {
   AgentTask,
   AgentResponse,
 } from '../models/types';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'agent:ui:agentUIManager',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('agent:ui:agentUIManager');
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { handleError } from '@modules/error/handleError';
 

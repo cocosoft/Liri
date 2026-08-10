@@ -5,7 +5,7 @@
  */
 
 import { EventEmitter } from 'events';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import {
   governanceAuditService,
   type AuditEvent,
@@ -16,10 +16,7 @@ import {
   type GovernanceStrategy,
 } from './managers/GovernanceStrategyManager';
 
-const logger = new Logger({
-  module: 'governance:ruleSuggestionEngine',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('governance:ruleSuggestionEngine');
 
 /**
  * 建议来源模式类型

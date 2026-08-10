@@ -34,14 +34,11 @@
  *   - 404 + session header 表示会话过期
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
-const logger = new Logger({
-  module: 'services:mcp:streamableHttp',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('services:mcp:streamableHttp');
 
 // ─── 类型 ────────────────────────────────────────────────────────────────────
 

@@ -32,11 +32,8 @@ import {
 } from '@modules/components/attachments';
 import { handleError } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'infrastructure:http:handlers:files-handlers',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('infrastructure:http:handlers:files-handlers');
 
 // 已注册的存储分区别名 → 绝对路径解析函数（延迟动态 import）
 function resolveStorePath(rawPath: string): string {

@@ -15,10 +15,10 @@
  * VerifierAgent 本身不持有模型客户端。
  */
 
-import { Logger } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({ module: 'query:verifierAgent' });
+const logger = getLogger('query:verifierAgent');
 
 // ─── 类型定义 ──────────────────────────────────────────
 

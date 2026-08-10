@@ -1,16 +1,13 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { resolvePyappHome, resolveDataDir } from '@modules/core';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { PermissionRuleSource } from './types/PermissionRule';
 import type { ToolPermissionContext } from './permissions';
 import { getEmptyToolPermissionContext } from './permissions';
 
-const logger = new Logger({
-  module: 'permissionsLoader',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('permissionsLoader');
 
 export function loadPermissionsFromSettings(
   settingsPath: string,

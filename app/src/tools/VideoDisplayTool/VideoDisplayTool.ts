@@ -5,17 +5,14 @@
  * 参数: videos (string[]) — 视频路径或 URL 列表
  * 输出: { videos: DisplayVideo[] } — 前端渲染视频播放器
  */
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { BaseTool } from '../BaseTool';
 import { ToolResult, ToolUseContext, ToolParam, ToolTag } from '../types/index';
 import { VideoUrlHelper } from '../VideoUrlHelper';
 import { existsSync, statSync } from 'fs';
 import { resolve } from 'path';
 
-const logger = new Logger({
-  level: LogLevel.INFO,
-  module: 'tools:videoDisplay',
-});
+const logger = getLogger('tools:videoDisplay');
 
 export interface DisplayVideo {
   url: string;

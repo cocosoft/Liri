@@ -12,12 +12,9 @@ import { configManager } from '@modules/config';
 import type { PermissionConfig } from '@modules/config/types';
 import { SecurityAudit } from './SecurityAudit';
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-const logger = new Logger({
-  module: 'security:SecurityIntegration',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('security:SecurityIntegration');
 
 /**
  * 安全决策结果

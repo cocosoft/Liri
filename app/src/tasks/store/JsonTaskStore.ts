@@ -1,11 +1,11 @@
 import { promises as fs } from 'fs';
 import { join } from 'path';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import type { ITaskStore } from './ITaskStore';
 import type { TaskState } from '../types';
 
-const logger = new Logger({ module: 'tasks:jsonStore', level: LogLevel.INFO });
+const logger = getLogger('tasks:jsonStore');
 
 export class JsonTaskStore implements ITaskStore {
   private readonly filePath: string;

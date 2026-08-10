@@ -4,12 +4,8 @@
  * 对齐 OpenClaw agents/harness/result-classification.ts
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'agent:resultClassifier',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('agent:resultClassifier');
 
 export type AgentResultClassification =
   | 'ok'

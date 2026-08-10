@@ -1,11 +1,8 @@
 ﻿import { z } from 'zod';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'tools\TodoWriteTool\schemas',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('tools\TodoWriteTool\schemas');
 
 /**
  * Todo 项状态枚举

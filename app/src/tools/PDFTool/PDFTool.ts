@@ -8,17 +8,14 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { deflateSync } from 'zlib';
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import {
   LANG_PROFILES,
   canUseStandardPdfFont,
   resolveLanguage,
   type LangKey,
 } from '@modules/system/i18n/languageProfiles';
-const logger = new Logger({
-  module: 'tools:PDFTool:PDFTool',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('tools:PDFTool:PDFTool');
 
 interface PDFInput {
   action: 'generate' | 'extract' | 'info';

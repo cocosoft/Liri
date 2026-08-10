@@ -8,11 +8,8 @@ import path from 'path';
 import { resolveSecurityDir } from '@modules/core';
 import { EventEmitter } from 'events';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'security:config:SecurityConfigManager',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('security:config:SecurityConfigManager');
 
 /**
  * 安全验证规则定义

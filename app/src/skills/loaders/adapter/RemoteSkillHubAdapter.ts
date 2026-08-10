@@ -14,7 +14,7 @@
 
 import { join } from 'path';
 import { existsSync, mkdirSync, writeFileSync } from 'fs';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { SkillSource, SkillLoadMethod } from '@modules/skills/types';
 import type { Skill } from '@modules/skills/types';
 import { BaseThirdPartyAdapter } from './BaseThirdPartyAdapter';
@@ -22,10 +22,7 @@ import type { ThirdPartySkillSearchResult } from './ThirdPartySkillAdapter';
 import type { InstalledThirdPartySkill, ThirdPartySkillMeta } from './types';
 import { checkSsrf } from '../../../tools/WebFetchTool/ssrf';
 
-const logger = new Logger({
-  module: 'skills:remoteHubAdapter',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('skills:remoteHubAdapter');
 
 /** 目录下存储的元数据文件名 */
 const SKILL_MD_FILENAME = 'SKILL.md';

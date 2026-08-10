@@ -27,14 +27,11 @@
 import { Database } from '@modules/core/external/sqlite3';
 import { randomUUID } from 'crypto';
 import { resolveDbPath } from '@modules/core';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
-const logger = new Logger({
-  level: LogLevel.INFO,
-  module: 'ai:provider-manager',
-});
+const logger = getLogger('ai:provider-manager');
 
 /** 供应商类型 */
 export type ProviderType =

@@ -6,12 +6,8 @@
 import type { SessionMessage } from '@modules/session/models/SessionMessage';
 import type { CompactionResult } from './types';
 import { roughTokenCountEstimationForMessages } from './utils';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'services:compact:reactive',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('services:compact:reactive');
 
 /**
  * 反应式压缩状态（来自CC源码）

@@ -14,11 +14,8 @@ import { createSecurityScanner } from '@modules/security/scanners/SecurityScanne
 import { inputValidator } from '@modules/security/validators/InputValidator.js';
 
 import { handleError } from '@modules/error';
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'commands:builtin:security:Security',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('commands:builtin:security:Security');
 
 const securityCommand = {
   async execute(args: string, context: CommandContext) {

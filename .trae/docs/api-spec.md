@@ -195,6 +195,7 @@
 - `statusType` 联合类型已含 `tool_retry`（后端 CoreAPI.ts 与前端 chatService.ts 同步，改动需双端一致）
 - 审批等待态通过 `tool_completed` + `result_data.pendingApproval === true` 传递，非 error 语义
 - 事件总线 `/v1/events`（`broadcastEvent` → 前端 `sseService.on`）与对话流内转发**并存**：长程任务等无活跃 chatStream 的场景走事件总线
+- `session:paused`（根因 C）：崩溃恢复把会话标记 PAUSED 后主动推送 `{ sessionId, reason: 'crash_recovery', crashedAt }`，前端展示"会话已暂停"提示（[chat store index.ts](client/src/stores/chat/index.ts)）
 
 ### §3.6 会话
 
@@ -209,6 +210,7 @@
 | DELETE | `/v1/sessions/{id}` | ✅ | `sessionService.delete` |
 | POST | `/v1/sessions/{id}/switch` | ✅ | `sessionService.switch` |
 | GET | `/v1/sessions/{id}/messages` | ✅ | `sessionService.getMessages` |
+| POST | `/v1/sessions/{id}/messages` | ✅ 写前持久化 | `chatService.addMessage`（断网 outbox 补发） |
 | POST | `/v1/sessions/{id}/title` | ✅ | `sessionService.generateTitle` |
 | PUT | `/api/session/{id}/message/{msgId}/blocks` | ✅ | `chatService.updateMessageBlocks` |
 | GET | `/v1/sessions/{id}/streaming` | ✅ P1-5 | `chat-message.slice.ts` ghostCheckTimer |
@@ -318,6 +320,7 @@
 | GET | `/v1/buddy/stats` | ✅ | 无前端调用方 |
 | GET | `/v1/buddy/dreams` | ✅ | `dreamService.getDreamLogs` |
 | GET | `/v1/background/status` | ✅ | `backgroundStatusService.getStatus`（运行状况面板） |
+| GET | `/v1/state/all` | ✅ | `backgroundStatusService.getStateAll`（运行状况面板 · 应用状态区，§十 阶段 D） |
 
 ### §3.13 定时任务 (Cron)
 

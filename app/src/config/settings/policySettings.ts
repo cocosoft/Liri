@@ -7,9 +7,8 @@
 import { readFileSync, existsSync, readdirSync } from 'fs';
 import { join } from 'path';
 import { resolvePyappHome } from '@modules/core';
-import { Logger } from '../../monitoring/logs/Logger.js';
-
-const logger = new Logger({ module: 'PolicySettings' });
+import { getLogger } from '../../monitoring/logs/Logger.js';
+const logger = getLogger('PolicySettings');
 import { deepMerge } from '@modules/utils/common.js';
 
 /**

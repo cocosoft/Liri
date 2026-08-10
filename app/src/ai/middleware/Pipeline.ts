@@ -19,14 +19,11 @@ import type {
   ThinkingProviderChunk,
 } from '../providers/AIProvider';
 import type { ChatMessage, ChatResponse } from '../models/types';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { trackUsage } from '@modules/ai';
 
-const logger = new Logger({
-  module: 'ai:middleware:pipeline',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('ai:middleware:pipeline');
 
 export interface AIMiddlewareContext {
   readonly providerId: string;

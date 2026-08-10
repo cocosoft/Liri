@@ -4,15 +4,12 @@
  * 对齐 OpenClaw agents/harness/v2.ts cleanup
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 import { existsSync, unlinkSync } from 'fs';
 import { join } from 'path';
 
-const logger = new Logger({
-  module: 'agent:agentCleanup',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('agent:agentCleanup');
 
 export interface CleanupParams {
   sessionId: string;

@@ -27,12 +27,12 @@
  */
 
 import type { RouterModelRef, RouteDecision, RouterTier } from './types.js';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({ level: LogLevel.INFO, module: 'ai:fallback' });
+const logger = getLogger('ai:fallback');
 
 export interface FallbackChainOptions {
   /** 回退链配置列表 */

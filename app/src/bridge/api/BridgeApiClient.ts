@@ -536,8 +536,5 @@ export type {
 } from '../types/BridgeApiTypes';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'bridge\api\BridgeApiClient',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('bridge\api\BridgeApiClient');

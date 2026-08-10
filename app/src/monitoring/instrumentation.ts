@@ -41,11 +41,8 @@ import { logForDebugging } from '../utils/debug.js';
 import { AppError, ErrorCategory, ErrorSeverity } from '../error/types.js';
 import { configManager } from '@modules/config';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'monitoring:instrumentation',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('monitoring:instrumentation');
 
 const DEFAULT_METRICS_EXPORT_INTERVAL_MS = 60000;
 const DEFAULT_TRACES_EXPORT_INTERVAL_MS = 5000;

@@ -1,12 +1,9 @@
 import { join } from 'path';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { TaskPriority } from './types';
 import type { Task, TaskResult } from './types';
 
-const logger = new Logger({
-  module: 'daemon:queueBackend',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('daemon:queueBackend');
 
 export interface QueuedTaskEntry {
   task: Task;

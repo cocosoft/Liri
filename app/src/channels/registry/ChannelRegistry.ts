@@ -16,13 +16,10 @@ import { Database } from '@modules/core/external/sqlite3';
 import { resolveDbPath } from '@modules/core';
 import type { IChannelPlugin } from '../types/IChannel';
 import { channelEventBus, ChannelEvents } from '../events/ChannelEventBus';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({
-  level: LogLevel.INFO,
-  module: 'channels:registry',
-});
+const logger = getLogger('channels:registry');
 
 /**
  * 通道出站适配器接口

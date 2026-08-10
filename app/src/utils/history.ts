@@ -4,11 +4,11 @@
 
 import fs from 'fs/promises';
 import path from 'path';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 import { resolvePyappHome } from '@modules/core';
 
-const logger = new Logger({ module: 'utils:history', level: LogLevel.INFO });
+const logger = getLogger('utils:history');
 
 /**
  * 历史记录项

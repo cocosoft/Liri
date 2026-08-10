@@ -25,17 +25,14 @@
  */
 import * as fs from 'fs';
 import * as path from 'path';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { getPromptInjectionDetector } from '../security/injection/PromptInjectionDetector';
 import type { WorkspaceFile, WorkspaceFiles } from './types';
 
 export type { WorkspaceFile, WorkspaceFiles };
 
-const logger = new Logger({
-  module: 'workspaces:scanner',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('workspaces:scanner');
 
 const MAX_FILE_CHARS = 12_000;
 const MAX_TOTAL_CHARS = 60_000;

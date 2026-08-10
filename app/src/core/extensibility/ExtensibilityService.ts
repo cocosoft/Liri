@@ -25,17 +25,14 @@
  * 整合 ModuleManager、ConfigManager、EventBus，提供统一的可扩展性入口。
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { PluginType, ModuleType, ModuleState, EventType } from './types.js';
 import type { Config } from './types.js';
 import { ModuleManager, createModuleManager } from './ModuleManager.js';
 import { ConfigManager, createConfigManager } from './ConfigManager.js';
 import { EventBus, createEventBus } from '../events/EventBus.js';
 
-const logger = new Logger({
-  module: 'core:extensibility:extensibilityService',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('core:extensibility:extensibilityService');
 
 /**
  * 可扩展性工具函数

@@ -33,14 +33,14 @@
  */
 
 import { READ_TOOLS, WRITE_TOOLS } from './tool-constants.js';
-import { Logger } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import {
   LOOP_OBSERVE_ONLY,
   LOOP_FILE_IO_WARNING,
   LOOP_FILE_IO_BLOCK,
 } from './loop-config.js';
 
-const logger = new Logger({ module: 'query:fileIOLoopDetector' });
+const logger = getLogger('query:fileIOLoopDetector');
 
 export interface FileIOConfig {
   enabled: boolean;

@@ -1,6 +1,6 @@
 import { join } from 'path';
 import { Database } from '@modules/core/external/sqlite3';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { DatabaseError, handleError } from '@modules/error';
 import { resolveDbPath } from '@modules/core';
 import { SCHEMA, FTS5_SCHEMA, KANBAN_SCHEMA, TABLE_NAMES } from './schema';
@@ -31,10 +31,7 @@ export interface SearchResult {
   score: number;
 }
 
-const logger = new Logger({
-  module: 'tasks:sqliteStore',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('tasks:sqliteStore');
 
 function rowToTaskState(row: any): TaskState {
   return {

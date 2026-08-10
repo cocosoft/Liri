@@ -16,9 +16,8 @@ import {
   ErrorSeverity,
   handleError,
 } from '@modules/error';
-import { Logger } from '@modules/monitoring';
-
-const logger = new Logger({ module: 'SecureStorage' });
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('SecureStorage');
 import { resolvePyappHome } from '@modules/core';
 import { configManager } from '@modules/config';
 

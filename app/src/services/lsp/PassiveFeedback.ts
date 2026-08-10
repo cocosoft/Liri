@@ -8,11 +8,8 @@ import {
 
 import { handleError } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'services:lsp:PassiveFeedback',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('services:lsp:PassiveFeedback');
 
 export type FeedbackEvent = 'diagnostics_changed' | 'diagnostics_cleared';
 

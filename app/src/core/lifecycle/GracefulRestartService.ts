@@ -6,11 +6,8 @@
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { EventEmitter } from 'events';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'core\lifecycle\GracefulRestartService',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('core\lifecycle\GracefulRestartService');
 
 /**
  * 重启阶段

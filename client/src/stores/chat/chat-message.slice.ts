@@ -8,7 +8,7 @@ import type { StateCreator } from "zustand";
 import { Message, MessageBlock, AttachedImage } from "@/types";
 import type { FilePreview } from "@/types";
 import type { FileSlice } from "./chat-file.slice";
-import { chatService } from "@/services/chatService";
+import { chatService, enqueueOutbox, clearOutboxForSession } from "@/services/chatService";
 import { sessionService } from "@/services/sessionService";
 import { useFeatureFlagStore } from "@/stores/featureFlags";
 import { playWarningSound, playCompletionSound } from "@/services/SoundService";
@@ -253,8 +253,25 @@ export const createMessageSlice: StateCreator<
 
     set({ messages: [...get().messages, userMessage] });
 
+    // 根因 B：写前持久化 — 发送前先落盘用户消息（防断网丢失）
+    // 成功 → 后端按 messageId 幂等去重；失败 → 进 outbox，网络恢复后自动补发
+    let writeAheadOk = false;
+    let outboxed = false;
     try {
-      const response = await chatService.sendMessage(content, sessionId);
+      await chatService.addMessage(userMessage.session_id, userMessage);
+      writeAheadOk = true;
+    } catch {
+      // 落盘失败（断网/后端不可达）→ 暂存 outbox，不阻塞发送流程
+      outboxed = true;
+      enqueueOutbox(userMessage, userMessage.session_id);
+    }
+
+    try {
+      const response = await chatService.sendMessage(content, sessionId, undefined, {
+        messageId: writeAheadOk ? userMessage.id : undefined,
+      });
+      // 发送成功 → 后端已持久化该轮用户消息，清除该会话待补发消息（避免重复补发）
+      if (outboxed) clearOutboxForSession(userMessage.session_id);
 
       // 检测非流式路径的待处理交互
       if (
@@ -468,6 +485,19 @@ export const createMessageSlice: StateCreator<
 
     set({ messages: [...get().messages, userMessage, assistantMessage] });
 
+    // 根因 B：写前持久化 — 发送前先落盘用户消息（防断网丢失）
+    // 成功 → 后端按 messageId 幂等去重；失败 → 进 outbox，网络恢复后自动补发
+    let writeAheadOk = false;
+    let outboxed = false;
+    try {
+      await chatService.addMessage(userMessage.session_id, userMessage);
+      writeAheadOk = true;
+    } catch {
+      // 落盘失败（断网/后端不可达）→ 暂存 outbox，不阻塞发送流程
+      outboxed = true;
+      enqueueOutbox(userMessage, userMessage.session_id);
+    }
+
     // J3: 用 SaveQueue 管理防抖持久化
     const saveQueue = new SaveQueue();
 
@@ -518,11 +548,16 @@ export const createMessageSlice: StateCreator<
             content,
             sessionId,
             controller.signal,
-            { workMode, images: attachedImages },
+            {
+              workMode,
+              images: attachedImages,
+              messageId: writeAheadOk ? userMessage.id : undefined,
+            },
           )
         : chatService.streamMessage(content, sessionId, controller.signal, {
             workMode,
             images: attachedImages,
+            messageId: writeAheadOk ? userMessage.id : undefined,
           });
       const blockBuilder = new ChronologicalBlockBuilder();
       const extractor = createThinkExtractor();
@@ -579,6 +614,11 @@ export const createMessageSlice: StateCreator<
         for (const chunk of extractor.flush()) {
           await processChunk(chunk);
         }
+      }
+
+      // 根因 B：流式发送正常结束 → 后端已持久化该轮用户消息，清除该会话待补发消息（避免重复补发）
+      if (outboxed && !controller.signal.aborted) {
+        clearOutboxForSession(userMessage.session_id);
       }
 
       async function processChunk(
@@ -1112,7 +1152,12 @@ export const createMessageSlice: StateCreator<
       });
       handleClientError(
         error,
-        { module: "stores:chat:message", action: "streamMessage" },
+        {
+          module: "stores:chat:message",
+          action: "streamMessage",
+          // 根因 D：记录本次请求 payload 的 key 集合（只记键名不记值，便于定位请求结构）
+          payloadKeys: ["content", "sessionId", "workMode", "attachedImages"],
+        },
         "warn",
       );
       // P2-2: 断线重连 — 非用户取消的中断尝试从检查点恢复消息

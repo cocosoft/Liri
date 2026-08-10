@@ -363,6 +363,137 @@ async function pollHealth(
   return false;
 }
 
+// ── 写前持久化 outbox（根因 B：断网消息暂存与恢复补发）─────────────
+const CHAT_OUTBOX_KEY = "pyapp.chat.outbox.v1";
+
+interface ChatOutboxEntry {
+  id: string;
+  sessionId: string;
+  message: {
+    id: string;
+    role: string;
+    content: string;
+    timestamp: number;
+    session_id: string;
+    replyToId?: string;
+  };
+  queuedAt: number;
+}
+
+function readOutbox(): ChatOutboxEntry[] {
+  try {
+    const raw = localStorage.getItem(CHAT_OUTBOX_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as unknown;
+    return Array.isArray(parsed) ? (parsed as ChatOutboxEntry[]) : [];
+  } catch (e) {
+    handleClientError(e, { module: "services:chat", action: "readOutbox" });
+    return [];
+  }
+}
+
+function writeOutbox(entries: ChatOutboxEntry[]): void {
+  try {
+    if (entries.length === 0) {
+      localStorage.removeItem(CHAT_OUTBOX_KEY);
+    } else {
+      localStorage.setItem(CHAT_OUTBOX_KEY, JSON.stringify(entries));
+    }
+  } catch (e) {
+    handleClientError(e, { module: "services:chat", action: "writeOutbox" });
+  }
+}
+
+/**
+ * 构建"连接已断开且无可用检查点"的报错文案（§13.9 报错语义拆分）
+ *
+ * @param messagePersisted 用户消息是否已落盘（前端写前落盘成功 → 后端已持久化；
+ *   失败 → 已入 outbox 待网络恢复后自动补发）
+ * @param progressInfo 断线前已生成的内容统计（无内容时为"尚未产生内容"）
+ */
+export function buildStreamFailureMessage(
+  messagePersisted: boolean,
+  progressInfo: string,
+): string {
+  const actionHint = messagePersisted
+    ? "您的消息已保存，可直接重新发送以继续（将从当前进度重新生成）"
+    : "您的消息暂存在本地，网络恢复后将自动补发，无需重复发送";
+  return `连接已断开，且无可用检查点。${progressInfo}。${actionHint}`;
+}
+
+/** 断网时暂存待补发的用户消息（幂等：同 id 不重复入队） */
+export function enqueueOutbox(
+  message: ChatOutboxEntry["message"],
+  sessionId: string,
+): void {
+  const entries = readOutbox();
+  if (entries.some((en) => en.id === message.id)) return;
+  entries.push({ id: message.id, sessionId, message, queuedAt: Date.now() });
+  writeOutbox(entries);
+  logger.info("用户消息进入 outbox，待网络恢复后补发", {
+    messageId: message.id,
+    sessionId,
+  });
+}
+
+/** 发送成功后清除该会话待补发消息（后端已持久化该轮用户消息，避免重复） */
+export function clearOutboxForSession(sessionId: string): void {
+  const entries = readOutbox().filter((en) => en.sessionId !== sessionId);
+  writeOutbox(entries);
+}
+
+/** POST 落盘用户消息（3s 超时保护，符合写前持久化规范） */
+async function addMessageRequest(
+  sessionId: string,
+  message: ChatOutboxEntry["message"],
+): Promise<{ success: boolean; idempotent: boolean; messageId: string }> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 3000);
+  try {
+    return await fetchJSON<{
+      success: boolean;
+      idempotent: boolean;
+      messageId: string;
+    }>(
+      `${getBackendBaseUrl()}/v1/sessions/${encodeURIComponent(sessionId)}/messages`,
+      {
+        method: "POST",
+        body: JSON.stringify(message),
+        signal: controller.signal,
+      },
+    );
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** 网络恢复后补发 outbox 中所有消息；成功/幂等命中则移除 */
+export async function flushOutbox(): Promise<void> {
+  const entries = readOutbox();
+  if (entries.length === 0) return;
+  logger.info("网络恢复，补发 outbox 消息", { count: entries.length });
+  let remaining = entries;
+  for (const entry of entries) {
+    try {
+      await addMessageRequest(entry.sessionId, entry.message);
+      remaining = remaining.filter((en) => en.id !== entry.id);
+    } catch (e) {
+      // 补发失败保留，等待下次连接恢复
+      handleClientError(e, {
+        module: "services:chat",
+        action: "flushOutbox",
+      });
+    }
+  }
+  writeOutbox(remaining);
+}
+
+if (typeof window !== "undefined") {
+  window.addEventListener("online", () => {
+    void flushOutbox();
+  });
+}
+
 export const chatService = {
   startBackend: async (): Promise<BackendStatus> => {
     const core = await getTauriCore();
@@ -416,10 +547,18 @@ export const chatService = {
     return { running: healthy, port: healthy ? getBackendPort() : null };
   },
 
+  /** 写前落盘用户消息（发送前先持久化，断网时由 outbox 补发） */
+  addMessage: (
+    sessionId: string,
+    message: unknown,
+  ): Promise<{ success: boolean; idempotent: boolean; messageId: string }> =>
+    addMessageRequest(sessionId, message as ChatOutboxEntry["message"]),
+
   sendMessage: (
     content: string,
     sessionId?: string,
     images?: AttachedImage[],
+    opts?: { messageId?: string },
   ): Promise<Message & { pendingInteraction?: QuestionData }> => {
     return getOTelTracing().asyncWrap("services:chat:sendMessage", async () => {
       // 发消息前确保会话绑定的模型与后端一致
@@ -440,6 +579,7 @@ export const chatService = {
         system_prompt: chatParams.systemPrompt || undefined,
       };
       if (sessionId) body.session_id = sessionId;
+      if (opts?.messageId) body.message_id = opts.messageId;
       if (workspacePath) body.workspace_path = workspacePath;
       if (images && images.length > 0) body.images = images;
 
@@ -487,7 +627,11 @@ export const chatService = {
     content: string,
     sessionId?: string,
     signal?: AbortSignal,
-    options?: { workMode?: "plan" | "do"; images?: AttachedImage[] },
+    options?: {
+      workMode?: "plan" | "do";
+      images?: AttachedImage[];
+      messageId?: string;
+    },
   ): AsyncGenerator<StreamChunk, void, unknown> {
     const otel = getOTelTracing();
     const span = otel.startSpan("services:chat:streamMessage");
@@ -511,6 +655,7 @@ export const chatService = {
         stream: true,
       };
       if (sessionId) body.session_id = sessionId;
+      if (options?.messageId) body.message_id = options.messageId;
       if (workspacePath) body.workspace_path = workspacePath;
       if (options?.workMode) body.work_mode = options.workMode;
       if (options?.images && options.images.length > 0)
@@ -788,7 +933,11 @@ export const chatService = {
     content: string,
     sessionId: string,
     signal?: AbortSignal,
-    options?: { workMode?: "plan" | "do"; images?: AttachedImage[] },
+    options?: {
+      workMode?: "plan" | "do";
+      images?: AttachedImage[];
+      messageId?: string;
+    },
   ): AsyncGenerator<StreamChunk, void, unknown> {
     let checkpointId: string | null = null;
     let retryCount = 0;
@@ -877,7 +1026,26 @@ export const chatService = {
 
       // 重试逻辑
       retryCount++;
+      // 根因 D：streamMessage-outer 记录重试次数与 reconnect state
+      logger.warn(
+        `[streamMessage-outer] 连接断开进入重试 ${retryCount}/${maxRetries}`,
+        {
+          sessionId,
+          retryCount,
+          maxRetries,
+          reconnectState: checkpointId ? "resume" : "restart",
+          checkpointId,
+          receivedTextChars,
+          receivedToolCalls,
+          receivedThinkingBlocks,
+        },
+      );
       if (retryCount > maxRetries) {
+        logger.error("[streamMessage-outer] 重试次数耗尽，放弃重连", {
+          sessionId,
+          retryCount,
+          checkpointId,
+        });
         yield { type: "error", content: "重连失败，请手动重试" } as StreamChunk;
         return;
       }
@@ -895,6 +1063,12 @@ export const chatService = {
         };
         if (cpData.checkpointAvailable && cpData.checkpointId) {
           checkpointId = cpData.checkpointId;
+          logger.info("[streamMessage-outer] 已获取检查点，将从检查点恢复", {
+            sessionId,
+            retryCount,
+            checkpointId: cpData.checkpointId,
+            stepIndex: cpData.stepIndex,
+          });
           yield {
             type: "reconnect_status",
             content: `连接已断开，正在从第 ${cpData.stepIndex ?? "?"} 步恢复...`,
@@ -903,8 +1077,16 @@ export const chatService = {
           await new Promise((r) => setTimeout(r, delay));
           continue;
         }
+        logger.warn("[streamMessage-outer] 后端无可用检查点", {
+          sessionId,
+          retryCount,
+        });
       } catch {
         // 检查点查询失败
+        logger.warn("[streamMessage-outer] 检查点查询失败", {
+          sessionId,
+          retryCount,
+        });
       }
 
       // 无可用检查点：保留已生成内容并给出进度提示，而不是简单报错
@@ -920,9 +1102,14 @@ export const chatService = {
       }
       const progressInfo =
         progressParts.length > 0 ? progressParts.join("、") : "尚未产生内容";
+      // 报错语义拆分（§13.9 建议）：按"消息是否已落盘"区分后续动作，
+      // 避免一律"请重新发送"——已落盘可直接重发；未落盘将由 outbox 在恢复后自动补发。
       yield {
         type: "error",
-        content: `连接已断开，且无可用检查点。${progressInfo}，请重新发送以继续任务（将从当前进度重新生成）`,
+        content: buildStreamFailureMessage(
+          Boolean(options?.messageId),
+          progressInfo,
+        ),
       } as StreamChunk;
       return;
     }

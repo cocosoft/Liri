@@ -4,9 +4,8 @@
  * 参考CC源码的多环境配置模式
  */
 
-import { Logger } from '@modules/monitoring';
-
-const logger = new Logger({ module: 'EnhancedOAuthClient' });
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('EnhancedOAuthClient');
 import { OAuthDiscovery } from '../services/OAuthDiscovery.js';
 import type { OAuthServerMetadata } from '../types/OAuthDiscoveryTypes';
 import { TokenManager, type CachedToken } from '../services/TokenManager.js';

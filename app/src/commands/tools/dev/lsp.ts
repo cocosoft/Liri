@@ -10,11 +10,8 @@ import type { Command } from '@modules/commands';
 import { getToolManager } from '@modules/tools/ToolManager.js';
 import { feature } from '@modules/core/featureFlags.js';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'commands:tools:dev:lsp',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('commands:tools:dev:lsp');
 
 /**
  * 文件扩展名到语言的映射

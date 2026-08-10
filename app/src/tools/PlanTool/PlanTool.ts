@@ -18,11 +18,8 @@ import { ToolTag } from '../types/Tool';
 import { createToolResult } from '../types/ToolResult';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'tools\PlanTool\PlanTool',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('tools\PlanTool\PlanTool');
 
 /**
  * 计划工具输入类型

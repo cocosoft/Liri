@@ -18,11 +18,8 @@ import {
   markSpanCovered,
 } from '@modules/monitoring/tracing/SpanCoverageRegistry';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'monitoring\tracing\SessionTracing',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('monitoring\tracing\SessionTracing');
 
 /**
  * Span类型

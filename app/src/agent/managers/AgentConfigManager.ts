@@ -3,7 +3,7 @@
  * 负责Agent配置的持久化存储和管理
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 import {
   readFileSync,
@@ -17,10 +17,7 @@ import { AgentConfig } from '../models/types';
 import { AIModelType } from '@modules/ai';
 import { resolvePyappHome } from '@modules/core';
 
-const logger = new Logger({
-  module: 'agent:managers:agentConfigManager',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('agent:managers:agentConfigManager');
 
 /**
  * Agent配置管理器

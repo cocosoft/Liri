@@ -76,11 +76,11 @@ import {
 } from './StopHooks.js';
 import { ToolCallPartitioner } from '../tools/orchestration/Partitioner.js';
 import { ToolCallTracker } from '../utils/ToolCallTracker.js';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { QueryLogStore, getQueryLogStore } from './QueryLogStore.js';
 
-const logger = new Logger({ module: 'query:engine', level: LogLevel.INFO });
+const logger = getLogger('query:engine');
 
 /**
  * 查询状态枚举

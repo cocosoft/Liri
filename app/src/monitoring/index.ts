@@ -81,6 +81,10 @@ export type { LoggerConfig } from './logs/Logger.js';
 export { StructuredLogger } from './logs/StructuredLogger.js';
 export type { StructuredLogEntry } from './logs/LogMemory.js';
 
+// 可观测性模块门面
+export { createModule } from './module.js';
+export type { ModuleScope } from './module.js';
+
 export { logConfigManager, LogConfigManager } from './logs/config/LogConfig.js';
 export type { LogTarget, LogConfiguration } from './logs/config/LogConfig.js';
 

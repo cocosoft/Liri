@@ -31,14 +31,11 @@
  * 不再依赖 registerDefaultProviders。
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import type { ProviderType } from '@modules/ai/providers/ProviderManager.js';
 
-const logger = new Logger({
-  module: 'ai:modelManagementBootstrap',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('ai:modelManagementBootstrap');
 
 /** 环境变量 → Provider 映射 */
 interface EnvPreset {

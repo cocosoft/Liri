@@ -12,11 +12,8 @@ import { join, extname } from 'path';
 import { getCommandManager as getCmdMgr } from '@modules/commands';
 
 import { handleError } from '@modules/error';
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'commands:builtin:activity:ActivityStats',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('commands:builtin:activity:ActivityStats');
 
 /**
  * 语言扩展名映射

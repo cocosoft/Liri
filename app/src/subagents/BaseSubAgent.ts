@@ -16,9 +16,8 @@ import {
 import { Tool } from '../tools/types/Tool';
 import { ToolRegistry, createToolRegistry } from '../tools/ToolRegistry';
 import { v4 as uuidv4 } from 'uuid';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({ module: 'subagents:base', level: LogLevel.INFO });
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('subagents:base');
 
 /**
  * 子代理基类

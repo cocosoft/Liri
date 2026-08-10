@@ -14,12 +14,8 @@
 
 import { getDefaultDigestService } from '@modules/knowledge/KnowledgeDigestService';
 import type { DocDigest } from '@modules/knowledge/KnowledgeDigestService';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'knowledge:digestInjector',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('knowledge:digestInjector');
 
 export type DigestSelectionStrategy = 'freshness' | 'importance' | 'combined';
 

@@ -38,7 +38,7 @@ import {
 } from './api/index.js';
 import type { IPluginAPI } from './api/index.js';
 import { BundledPluginManager } from './bundled/BundledPluginManager';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import {
   PluginState,
@@ -53,7 +53,7 @@ import {
 } from './types/PluginTypes';
 import type { PluginInfo, SkillInfo } from './types/PluginDisplay.js';
 import type { Plugin, SkillContext } from '@modules/plugin-sdk';
-const logger = new Logger({ module: 'plugins:index', level: LogLevel.INFO });
+const logger = getLogger('plugins:index');
 
 /**
  * 热加载管理器实例缓存（惰性加载，避免模块加载时的循环依赖）

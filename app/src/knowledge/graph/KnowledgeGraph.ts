@@ -35,16 +35,13 @@
 
 import { Database } from '@modules/core/external/sqlite3';
 import { randomUUID } from 'crypto';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { resolveDbPath } from '@modules/core';
 import { SimpleMutex } from '@modules/core';
 import type { EdgeSchema } from '@modules/knowledge/schema/SchemaLoader';
 
-const logger = new Logger({
-  module: 'knowledge:graph:knowledgeGraph',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('knowledge:graph:knowledgeGraph');
 
 /** kg_edges 表名 */
 export const KG_EDGES_TABLE = 'kg_edges';

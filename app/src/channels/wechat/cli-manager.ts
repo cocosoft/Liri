@@ -17,12 +17,9 @@ import { createHash } from 'crypto';
 import path from 'path';
 import fs from 'fs';
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-const logger = new Logger({
-  module: 'channels:wechat:cli-manager',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('channels:wechat:cli-manager');
 
 // ─── 日志工具（独立轻量，不依赖外部 logger） ─────────────
 

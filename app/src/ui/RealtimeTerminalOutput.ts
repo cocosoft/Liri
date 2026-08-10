@@ -9,11 +9,8 @@ import {
   type TableColumn,
   type TableRow,
 } from '../ui/TerminalComponents.js';
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'ui:RealtimeTerminalOutput',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('ui:RealtimeTerminalOutput');
 
 /**
  * 终端输出配置

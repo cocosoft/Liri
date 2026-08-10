@@ -25,16 +25,13 @@
  * 支持 claw.json（主流）、skill.yaml 两种清单格式的解析与生成。
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { SkillSource, SkillLoadMethod } from '@modules/skills/types';
 import type { Skill } from '@modules/skills/types';
 import type { ThirdPartySkillSearchResult } from '../ThirdPartySkillAdapter';
 import type { ClawHubSkillMeta, InstalledClawHubSkill } from './ClawHubMeta';
 
-const logger = new Logger({
-  module: 'skills:clawHubConverter',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('skills:clawHubConverter');
 
 /**
  * claw.json 清单文件结构

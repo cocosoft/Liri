@@ -14,11 +14,8 @@ import { promisify } from 'util';
 
 import { handleError } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'hooks:executors:CommandHookExecutor',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('hooks:executors:CommandHookExecutor');
 
 const execPromise = promisify(exec);
 

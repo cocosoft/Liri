@@ -9,11 +9,8 @@
  */
 
 /** 默认节流间隔（毫秒） */
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'channels:feishu:streaming-card',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('channels:feishu:streaming-card');
 
 const STREAMING_UPDATE_THROTTLE_MS = 160;
 

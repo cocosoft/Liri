@@ -14,10 +14,10 @@
  * 这是一个已知的权衡：保持泛型签名可以在调用方减少断言代码。
  */
 
-import { Logger } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import type { StateMachine } from './StateMachine';
 
-const logger = new Logger({ module: 'state:registry' });
+const logger = getLogger('state:registry');
 
 /**
  * 注册中心配置

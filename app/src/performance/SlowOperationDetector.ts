@@ -4,16 +4,13 @@
  * 用于检测和记录执行时间超过阈值的操作
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { resolveLogsDir } from '@modules/core';
 import { configManager } from '@modules/config';
 import path from 'path';
 import fs from 'fs';
 
-const logger = new Logger({
-  module: 'performance:slowOp',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('performance:slowOp');
 
 /**
  * 慢操作配置

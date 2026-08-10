@@ -26,10 +26,10 @@
  * 系统会独立回答该问题而不干扰主任务的进行。
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 
-const logger = new Logger({ module: 'agent:btw:index', level: LogLevel.INFO });
+const logger = getLogger('agent:btw:index');
 
 /**
  * BTW 侧问题的检测结果

@@ -21,13 +21,10 @@
 
 import type http from 'http';
 import { sendError, readRequestBody } from './handler-utils';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { resolvePyappHome } from '@modules/core';
 
-const logger = new Logger({
-  module: 'http:semanticIndex',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('http:semanticIndex');
 
 // ========== SemanticIndex Handlers ==========
 

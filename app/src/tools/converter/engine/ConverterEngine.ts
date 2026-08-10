@@ -1,4 +1,4 @@
-import { Logger } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import type {
   ConversionResult,
@@ -27,7 +27,7 @@ import { IpynbConverter } from '../converters/IpynbConverter';
 import { RssConverter } from '../converters/RssConverter';
 import { OutlookMsgConverter } from '../converters/OutlookMsgConverter';
 
-const logger = new Logger({ module: 'tools:converter:engine' });
+const logger = getLogger('tools:converter:engine');
 
 /** 文件转换大小上限：超过则拒绝转换，避免大文件解析导致内存/CPU 耗尽（死机） */
 const MAX_CONVERT_FILE_SIZE = 50 * 1024 * 1024;

@@ -12,14 +12,11 @@ import {
   type ContextSnapshot,
 } from '../persistence/ContextPersistence';
 import { resolveDataSubDir } from '@modules/core/paths';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { join } from 'path';
 
-const logger = new Logger({
-  module: 'context:persist:lifecycle',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('context:persist:lifecycle');
 
 const SNAPSHOT_FILENAME = 'context-snapshot.jsonl';
 

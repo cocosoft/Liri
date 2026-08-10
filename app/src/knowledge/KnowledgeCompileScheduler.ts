@@ -7,14 +7,11 @@
  *   2. 调用 KnowledgeCompiler 执行编译
  *   3. 提供手动触发和自动调度两种模式
  */
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import type { CompileResult } from './KnowledgeCompiler';
 
-const logger = new Logger({
-  module: 'knowledge:knowledgeCompileScheduler',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('knowledge:knowledgeCompileScheduler');
 
 export interface SchedulerConfig {
   /** 定时检查间隔（毫秒），默认 5 分钟 */

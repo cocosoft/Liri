@@ -33,7 +33,7 @@ import { Database } from '@modules/core/external/sqlite3';
 import { resolveDataDir } from '@modules/core/paths';
 import { join } from 'path';
 import { existsSync, mkdirSync, readFileSync, renameSync } from 'fs';
-import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
+import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
 import {
   AppError,
@@ -42,10 +42,7 @@ import {
   handleError,
 } from '@modules/error';
 
-const logger = new Logger({
-  module: 'workspace:ProjectItemStore',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('workspace:ProjectItemStore');
 
 // ─── 类型定义 ───
 

@@ -28,15 +28,14 @@
  *   await initializeSkillLifecycle(registry, skillDB);
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
-
+import { getLogger } from '@modules/monitoring';
 import type { SkillDB } from './SkillDB';
 import type { SkillRegistry } from '../SkillRegistry';
 import type { SkillUsageTracker } from '../SkillUsageTracker';
 import type { SkillCurator } from '../SkillCurator';
 import type { SkillProvenanceTracker } from '../SkillProvenanceTracker';
 
-const logger = new Logger({ module: 'skills:lifecycle', level: LogLevel.INFO });
+const logger = getLogger('skills:lifecycle');
 
 /**
  * 技能生命周期配置

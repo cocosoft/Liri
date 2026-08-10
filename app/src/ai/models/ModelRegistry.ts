@@ -20,12 +20,12 @@ import {
   loadModelsConfig,
   type ProviderConfig,
 } from '../config/ConfigLoader.js';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({ level: LogLevel.INFO, module: 'ai:registry' });
+const logger = getLogger('ai:registry');
 
 /** 将 YAML 格式的 providers 映射转换为平面字段 */
 function yamlEntryToModelConfig(

@@ -4,12 +4,8 @@
  * 对齐 OpenClaw gateway graceful shutdown
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'daemon:gracefulShutdown',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('daemon:gracefulShutdown');
 
 export interface ShutdownHook {
   name: string;

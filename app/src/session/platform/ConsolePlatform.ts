@@ -5,7 +5,7 @@
  * 是最简平台实现，作为其他平台适配器的参考。
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import type {
   PlatformAdapter,
   PlatformConfig,
@@ -16,10 +16,7 @@ import type {
 } from './PlatformAdapter';
 import type { UnifiedMessage } from '../types/Message';
 
-const logger = new Logger({
-  module: 'session:consolePlatform',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('session:consolePlatform');
 
 export class ConsolePlatform implements PlatformAdapter {
   readonly platformName: string;

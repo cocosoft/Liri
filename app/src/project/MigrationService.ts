@@ -17,12 +17,8 @@ import { homedir } from 'os';
 import { resolveDataDir } from '@modules/core/paths';
 import { createProjectStore } from '../workspace/ProjectStore.js';
 import { WorkItemStore } from '../workspace/WorkItemStore.js';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'project:Migration',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('project:Migration');
 
 /** 迁移标记文件 — 存在即表示已完成 */
 const MIGRATION_MARKER = join(resolveDataDir(), 'projects', '.migrated_v8');

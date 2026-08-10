@@ -8,11 +8,8 @@ import { isPathWithin, containsPathTraversal } from '@modules/core/paths';
 // 重新导出，供 permission/index.ts 使用
 export { containsPathTraversal };
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'permission:filesystem',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('permission:filesystem');
 
 export const DANGEROUS_FILES = [
   '.gitconfig',

@@ -12,12 +12,8 @@
  *   KNOWLEDGE_LLM_HOURLY_BUDGET=20000
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'knowledge:llmBudget',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('knowledge:llmBudget');
 
 interface HourlyTracker {
   hour: number; // Unix hour (floor)

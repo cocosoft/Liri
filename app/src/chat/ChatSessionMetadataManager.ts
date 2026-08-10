@@ -3,15 +3,12 @@
  * 实现会话元数据的存储和变更通知
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import type { PermissionMode } from '../permission/PermissionMode';
 import type { RequiresActionDetails } from '../state/session/types.js';
 
-const logger = new Logger({
-  module: 'chat:chatSessionMetadataManager',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('chat:chatSessionMetadataManager');
 
 /**
  * 会话外部元数据

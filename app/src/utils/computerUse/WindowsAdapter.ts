@@ -19,11 +19,8 @@ import type {
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'utils:computerUse:WindowsAdapter',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('utils:computerUse:WindowsAdapter');
 
 const execAsync = promisify(execFile);
 

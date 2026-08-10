@@ -4,9 +4,8 @@
  * 对标 openclaw src/cron/service/timer.ts
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({ module: 'tasks:cron:timer', level: LogLevel.INFO });
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('tasks:cron:timer');
 
 const MAX_TIMER_DELAY_MS = 60_000; // 最大休眠时长 60s，防止长时间无 tick
 

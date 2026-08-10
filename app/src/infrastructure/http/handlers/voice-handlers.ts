@@ -13,11 +13,11 @@ import {
   readRawBody,
   parseMultipartBody,
 } from './handler-utils';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { configManager } from '@modules/config';
 
-const logger = new Logger({ module: 'http:voice', level: LogLevel.INFO });
+const logger = getLogger('http:voice');
 
 // ========== 语音会话内存存储 ==========
 

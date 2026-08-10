@@ -22,13 +22,12 @@
 import type http from 'http';
 import type { HandlerCtx } from './handler-utils';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
+import type { Message } from '@modules/chat/types/message';
+import { MessageRole } from '@modules/chat/types/message';
 
-const logger = new Logger({
-  module: 'infra:http:session-handlers',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('infra:http:session-handlers');
 
 // ========== Session Handlers ==========
 
@@ -188,6 +187,109 @@ export async function handleGetSessionMessages(
     const messages = await coreAPI.getSessionMessages(sessionId);
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(messages));
+  } catch (err) {
+    await handleError(err, { module: 'infra:http', action: 'handler_error' });
+    if (!res.headersSent) {
+      try {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({ error: { message: 'Internal server error' } })
+        );
+      } catch (err) {
+        handleError(err, {
+          module: 'infrastructure:http:handlers:session-handlers',
+          action: 'responseAlreadyEnded',
+        });
+      } /* res可能已结束, 忽略 */
+    }
+  }
+}
+
+/**
+ * 处理添加会话消息请求（写前持久化：前端发送前先落盘用户消息，断网时失败由前端 outbox 补发）
+ * body: { id, role, content, timestamp, session_id, replyToId, metadata }
+ * 幂等：按消息 id 查重，已存在则直接返回 idempotent: true
+ */
+export async function handleAddSessionMessage(
+  ctx: HandlerCtx,
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  sessionId: string
+): Promise<void> {
+  try {
+    const body = await ctx.readRequestBody(req);
+    const data = JSON.parse(body);
+
+    if (!data.id || typeof data.id !== 'string') {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          error: { message: 'message id is required', type: 'invalid_request_error' },
+        })
+      );
+      return;
+    }
+    if (typeof data.content !== 'string' || data.content.length === 0) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          error: { message: 'message content is required', type: 'invalid_request_error' },
+        })
+      );
+      return;
+    }
+
+    const coreAPI = getCoreAPI();
+    await coreAPI.ensureSessionsLoaded();
+
+    const chatManager = coreAPI.getChatManager();
+    // 幂等：按消息 id 查重（内存优先；miss 时读盘兜底，覆盖后端重启后 outbox 补发场景）
+    const inMemory = chatManager
+      .getSessionMessages(sessionId)
+      .find((m) => m.id === data.id);
+    if (inMemory) {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({ success: true, idempotent: true, messageId: data.id })
+      );
+      return;
+    }
+    const fromDisk = await coreAPI.getSessionMessages(sessionId);
+    const existing = fromDisk.find((m) => m.id === data.id);
+    if (existing) {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({ success: true, idempotent: true, messageId: data.id })
+      );
+      return;
+    }
+
+    const createdAt = new Date(data.timestamp ?? Date.now());
+    const message: Message = {
+      id: data.id,
+      role: data.role === 'assistant' ? MessageRole.ASSISTANT : MessageRole.USER,
+      content: data.content,
+      createdAt,
+      updatedAt: createdAt,
+      sessionId,
+      metadata: {
+        ...(data.metadata && typeof data.metadata === 'object'
+          ? (data.metadata as Record<string, unknown>)
+          : {}),
+        replyToId: data.replyToId || undefined,
+        persistedBy: 'frontend-write-ahead',
+      },
+    };
+    chatManager.addMessage(sessionId, message);
+    logger.info('写前落盘用户消息', {
+      sessionId,
+      messageId: data.id,
+    });
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(
+      JSON.stringify({ success: true, idempotent: false, messageId: data.id })
+    );
   } catch (err) {
     await handleError(err, { module: 'infra:http', action: 'handler_error' });
     if (!res.headersSent) {

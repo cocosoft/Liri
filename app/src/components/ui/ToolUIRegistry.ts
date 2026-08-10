@@ -9,11 +9,8 @@
 import type React from 'react';
 import { handleError } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'components:ui:ToolUIRegistry',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('components:ui:ToolUIRegistry');
 
 export interface ToolUIRenderer {
   renderToolUseMessage?: (

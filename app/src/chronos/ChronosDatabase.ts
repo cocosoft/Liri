@@ -10,11 +10,8 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { resolveDbPath } from '@modules/core';
 import { SimpleMutex } from '@modules/core';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'chronos\ChronosDatabase',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('chronos\ChronosDatabase');
 
 /**
  * Chronos数据库存储实现

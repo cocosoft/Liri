@@ -33,7 +33,7 @@
 
 import { readdirSync, readFileSync, existsSync } from 'fs';
 import { join, basename } from 'path';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 import {
   resolveDomainDir,
@@ -45,10 +45,7 @@ import { KnowledgeGraph } from '@modules/knowledge/graph/KnowledgeGraph';
 import { SchemaLoader } from '@modules/knowledge/schema/SchemaLoader';
 import { DomainManager } from '@modules/knowledge/domain/DomainManager';
 
-const logger = new Logger({
-  module: 'chronos:graph',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('chronos:graph');
 
 /** [[link]] 双链正则 */
 const WIKI_LINK_RE = /\[\[([^\]]+)\]\]/g;

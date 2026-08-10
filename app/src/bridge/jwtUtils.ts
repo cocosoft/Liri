@@ -2,10 +2,10 @@
  * Token刷新调度、验证、过期检测
  */
 import { randomUUID } from 'crypto';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({ module: 'bridge:jwtutil', level: LogLevel.INFO });
+const logger = getLogger('bridge:jwtutil');
 
 export interface JWTConfig {
   secret: string;

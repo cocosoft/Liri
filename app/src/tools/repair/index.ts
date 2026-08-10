@@ -31,7 +31,7 @@
  * 借鉴: DeepSeek-Reasonix src/repair/index.ts
  */
 
-import { Logger } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { analyzeSchema, flattenSchema, nestArguments } from './flatten';
 import { scavengeToolCalls } from './scavenge';
 import { repairTruncatedJson } from './truncation';
@@ -44,7 +44,7 @@ import type {
   RepairResult,
 } from './types';
 
-const logger = new Logger({ module: 'tools:repair' });
+const logger = getLogger('tools:repair');
 
 /**
  * 工具调用修复管道

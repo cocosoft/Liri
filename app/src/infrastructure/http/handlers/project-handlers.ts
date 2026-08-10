@@ -9,7 +9,7 @@ import type http from 'http';
 import { resolveDataDir } from '@modules/core';
 import { createProjectStore } from '../../../workspace/ProjectStore.js';
 import { WorkItemStore } from '../../../workspace/WorkItemStore.js';
-import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
+import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error';
 import {
@@ -18,7 +18,7 @@ import {
 } from '../../../project/MigrationService';
 import { readBody, json } from './handler-utils';
 
-const logger = new Logger({ module: 'project:handlers', level: LogLevel.INFO });
+const logger = getLogger('project:handlers');
 
 let _workItemStore: WorkItemStore | null = null;
 let _projectStore: ReturnType<typeof createProjectStore> | null = null;

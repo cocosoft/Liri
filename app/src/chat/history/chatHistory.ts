@@ -5,13 +5,10 @@
 import { ChatMessage, ChatHistoryOptions } from '../models/types';
 import { writeFileSync, readFileSync, existsSync } from 'fs';
 import { join } from 'path';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({
-  module: 'chat:history:chatHistory',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('chat:history:chatHistory');
 
 /**
  * 聊天历史类

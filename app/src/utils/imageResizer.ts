@@ -20,11 +20,8 @@ const execAsync = promisify(exec);
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 import { handleError } from '@modules/error';
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'utils:imageResizer',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('utils:imageResizer');
 
 /**
  * 图片缩放错误

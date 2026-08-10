@@ -11,12 +11,9 @@
 
 import type { SSERawEvent } from '../types';
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-const logger = new Logger({
-  module: 'trace-recording:sse:SSEReassembler',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('trace-recording:sse:SSEReassembler');
 
 /**
  * SSE 重组器

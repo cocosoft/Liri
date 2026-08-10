@@ -2,9 +2,8 @@
  * @owner chat/ChatManager（自 2026-07-13，原属于 query/TAORLoop）
  */
 
-import { Logger } from '@modules/monitoring';
-
-const ctxLogger = new Logger({ module: 'context:tracker' });
+import { getLogger } from '@modules/monitoring';
+const ctxLogger = getLogger('context:tracker');
 
 export interface CompressionRecord {
   timestamp: number;

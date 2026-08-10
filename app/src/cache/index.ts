@@ -69,10 +69,10 @@ export type {
 
 export type { ICache } from './types.js';
 export { CacheFactory, CacheNames } from './CacheFactory.js';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({ module: 'cache:index', level: LogLevel.INFO });
+const logger = getLogger('cache:index');
 
 export async function initializeCacheSystem(): Promise<void> {
   try {

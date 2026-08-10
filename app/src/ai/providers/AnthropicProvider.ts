@@ -18,13 +18,13 @@ import type {
 } from './AIProvider';
 import { BaseAIProvider, type BaseProviderOptions } from './BaseAIProvider';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { configManager } from '@modules/config';
 import { MessagesApiTransport } from '../transports/AnthropicMessagesTransport';
 import { TransportProviderAdapter } from '../transports/TransportProviderAdapter';
 import { ALL_MODEL_CONFIGS, getModelsByProvider } from '../models/ModelConfigs';
 
-const logger = new Logger({ module: 'ai:anthropic', level: LogLevel.INFO });
+const logger = getLogger('ai:anthropic');
 
 const BETA_HEADERS = {
   PROMPT_CACHING: 'prompt-caching-2024-07-24',

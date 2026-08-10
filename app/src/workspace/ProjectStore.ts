@@ -26,14 +26,11 @@ import type {
 } from './types';
 import { WorkItemStore } from './WorkItemStore';
 import { resolveDataDir } from '@modules/core/paths';
-import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
+import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({
-  module: 'workspace:ProjectStore',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('workspace:ProjectStore');
 
 /** 项目存储子目录 */
 const PROJECTS_DIR = 'projects';

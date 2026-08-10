@@ -16,12 +16,12 @@
  *   - 流中断时清理未完成的工具执行
  */
 
-import { Logger } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 import { TrackedTool, TrackedToolState } from './TrackedTool';
 import type { TrackedToolResult } from './TrackedTool';
 
-const logger = new Logger({ module: 'query:streamingToolExecutor' });
+const logger = getLogger('query:streamingToolExecutor');
 
 // ─── 类型定义 ──────────────────────────────────────────
 

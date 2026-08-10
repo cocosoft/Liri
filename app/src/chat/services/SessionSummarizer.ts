@@ -1,7 +1,7 @@
 // MIT License
 // Copyright (c) 2026 190615273@qq.com
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { getOTelTracing } from '@modules/monitoring/otel';
 import { resolveDataDir } from '@modules/core/paths';
@@ -10,7 +10,7 @@ import type { ChatSession } from '../types/session.js';
 import type { Message } from '../types/message.js';
 import type { ToolAwareClient } from '@modules/ai';
 
-const logger = new Logger({ level: LogLevel.INFO, module: 'chat:summarizer' });
+const logger = getLogger('chat:summarizer');
 
 interface SummaryEntry {
   sessionId: string;

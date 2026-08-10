@@ -1,11 +1,8 @@
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { ForkedDreamExecutor } from './ForkedDreamExecutor';
 import type { ForkedDreamResult } from './ForkedDreamExecutor';
 
-const logger = new Logger({
-  module: 'tasks:dreamPhases',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('tasks:dreamPhases');
 
 export type DreamPhase = 'light' | 'deep' | 'rem';
 

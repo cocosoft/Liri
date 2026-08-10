@@ -37,12 +37,8 @@ import {
   writeFileSync,
 } from 'fs';
 import { resolveUserSkillsDir } from '@modules/core';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'skills:builtinEnabled',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('skills:builtinEnabled');
 
 const FILE_NAME = 'builtin-enabled.json';
 

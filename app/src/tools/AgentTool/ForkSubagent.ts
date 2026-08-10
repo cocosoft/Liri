@@ -15,11 +15,8 @@ import type {
   SubAgentResult,
 } from './SubAgentEngine';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'tools:AgentTool:ForkSubagent',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('tools:AgentTool:ForkSubagent');
 
 export const FORK_SUBAGENT_TYPE = 'fork';
 export const FORK_DIRECTIVE_PREFIX = 'FORK:';

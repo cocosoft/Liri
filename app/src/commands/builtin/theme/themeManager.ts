@@ -1,10 +1,7 @@
 ﻿import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'commands\builtin\theme\themeManager',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('commands\builtin\theme\themeManager');
 
 /**
  * /theme 命令 - 主题管理

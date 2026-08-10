@@ -7,11 +7,8 @@
 import { resetMicrocompactState } from './microCompact';
 import { handleError } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'services:compact:postCompactCleanup',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('services:compact:postCompactCleanup');
 
 export function runPostCompactCleanup(querySource?: string): void {
   const isMainThreadCompact =

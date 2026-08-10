@@ -26,7 +26,7 @@
  * 纯函数，无实例状态，通过 channelRegistry 获取对应通道的 OutboundAdapter。
  */
 
-import { Logger } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error';
@@ -35,7 +35,7 @@ import { channelRegistry } from '../registry/ChannelRegistry';
 import { channelBootstrapper } from '../bootstrap/ChannelBootstrapper';
 import { isReplyEnabled } from '../setupChannels';
 
-const logger = new Logger({ module: 'channels:inboxReply' });
+const logger = getLogger('channels:inboxReply');
 
 /**
  * 将 Inbox 回复结果回传给渠道

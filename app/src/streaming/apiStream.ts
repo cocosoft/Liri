@@ -11,11 +11,8 @@ import { SSEParser } from './SSEParser';
 import type { StreamChunk, StreamEvent } from './types';
 import { ApiError, ApiConnectionError } from '../services/api';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'streaming:apiStream',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('streaming:apiStream');
 
 export class ApiStream {
   private client: ApiClient;

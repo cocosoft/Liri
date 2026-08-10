@@ -11,11 +11,8 @@ import { writeFileSync } from 'fs';
 import { resolveDataDir } from '@modules/core';
 import type { CommandContext } from '@modules/commands';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'commands:builtin:export:Export',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('commands:builtin:export:Export');
 
 interface MsgLike {
   type?: string;

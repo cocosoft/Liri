@@ -8,12 +8,8 @@ import { join } from 'path';
 import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { resolveUserSettingsPath } from '@modules/core';
 import { PluginConfig, PluginRepository } from '../types';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'plugins:utils:pluginSettings',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('plugins:utils:pluginSettings');
 
 /**
  * 读取插件配置

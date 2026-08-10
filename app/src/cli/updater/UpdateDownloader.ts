@@ -3,15 +3,12 @@
  * 下载 GitHub Release 资源包到本地临时目录
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { createWriteStream, mkdirSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
 
-const logger = new Logger({
-  module: 'cli:updater:updateDownloader',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('cli:updater:updateDownloader');
 
 /**
  * 下载结果

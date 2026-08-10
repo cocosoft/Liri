@@ -2,7 +2,7 @@
  * Speculation 超前执行模块
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { configManager } from '@modules/config';
 import { randomUUID } from 'crypto';
 import { join } from 'path';
@@ -16,10 +16,7 @@ import {
   MAX_SPECULATION_MESSAGES,
 } from './types';
 
-const logger = new Logger({
-  module: 'promptSuggestion:speculation',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('promptSuggestion:speculation');
 
 let currentState: SpeculationState = { ...IDLE_SPECULATION_STATE };
 

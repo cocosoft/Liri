@@ -16,15 +16,12 @@ import { writeFileSync, unlinkSync, mkdtempSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { randomUUID } from 'crypto';
-import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
+import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { getPlatform } from '@modules/utils/platform';
 import type { AudioDevice } from './audioDeviceManager';
 
-const logger = new Logger({
-  module: 'voice:audioPlayer',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('voice:audioPlayer');
 
 /** PCM 音频播放器状态 */
 export type AudioPlayerState = 'idle' | 'playing' | 'paused' | 'stopped';

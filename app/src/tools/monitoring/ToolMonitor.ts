@@ -11,9 +11,8 @@ import {
   ToolEventType,
   ToolEventData,
 } from '../types/ToolTypes';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({ module: 'tools:monitor', level: LogLevel.INFO });
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('tools:monitor');
 
 /**
  * 监控指标

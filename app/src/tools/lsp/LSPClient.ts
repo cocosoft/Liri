@@ -11,10 +11,10 @@ import {
   TextEdit,
   Diagnostic,
 } from './types/index.js';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({ module: 'tools:lspClient', level: LogLevel.INFO });
+const logger = getLogger('tools:lspClient');
 
 /**
  * LSP客户端

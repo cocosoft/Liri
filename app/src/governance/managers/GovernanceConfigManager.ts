@@ -9,13 +9,10 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import type { GovernanceConfig } from '../types/GovernanceTypes';
 import { createDefaultGovernanceConfig } from '../types/GovernanceTypes';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { resolveGovernanceDir } from '@modules/core';
 
-const logger = new Logger({
-  module: 'governance:managers:governanceConfigManager',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('governance:managers:governanceConfigManager');
 
 /**
  * 配置版本

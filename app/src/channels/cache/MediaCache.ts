@@ -8,10 +8,10 @@ import { resolveDataSubDir } from '@modules/core';
 import { mkdir, readFile, writeFile, unlink, readdir, stat } from 'fs/promises';
 import { join, extname } from 'path';
 import { createHash } from 'crypto';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({ level: LogLevel.INFO, module: 'channels:media' });
+const logger = getLogger('channels:media');
 
 /** 媒体类型枚举 */
 export type MediaType = 'image' | 'audio' | 'video' | 'document' | 'other';

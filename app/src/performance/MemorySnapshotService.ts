@@ -8,12 +8,8 @@ import fs from 'fs';
 import os from 'node:os';
 import { resolveDataSubDir } from '@modules/core';
 import { configManager } from '@modules/config';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'performance:memory',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('performance:memory');
 
 /**
  * 内存快照配置

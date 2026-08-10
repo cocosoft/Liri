@@ -20,11 +20,8 @@ import {
 
 import { handleError } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'hooks:executors:ScriptHookExecutor',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('hooks:executors:ScriptHookExecutor');
 
 const execPromise = promisify(exec);
 

@@ -6,7 +6,7 @@
 
 import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { resolve, normalize } from 'path';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import {
   KernelServiceRegistry,
@@ -15,10 +15,7 @@ import {
 } from './KernelServiceRegistry';
 import type { PluginEvent, PluginEventType } from '../types/PluginTypes';
 
-const logger = new Logger({
-  module: 'plugins:api:pluginAPI',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('plugins:api:pluginAPI');
 
 /**
  * 插件工具类型定义，替代 any

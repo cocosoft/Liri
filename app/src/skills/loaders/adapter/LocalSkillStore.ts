@@ -29,13 +29,10 @@
 import { join } from 'path';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { resolveVendorSkillsDir } from '@modules/core';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import type { InstalledThirdPartySkill, LocalSkillSearchResult } from './types';
 
-const logger = new Logger({
-  module: 'skills:localStore',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('skills:localStore');
 
 /**
  * 技能索引文件结构

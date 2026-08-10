@@ -10,17 +10,14 @@ import { join } from 'path';
 import { readFile, writeFile, mkdir, readdir } from 'fs/promises';
 import { existsSync } from 'fs';
 import { load, dump } from 'js-yaml';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import {
   resolveDomainsRoot,
   resolveDomainDir,
   resolveDomainSchemaDir,
 } from '@modules/core';
 
-const logger = new Logger({
-  module: 'knowledge:domain:domainManager',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('knowledge:domain:domainManager');
 
 /** 域描述信息 */
 export interface DomainInfo {

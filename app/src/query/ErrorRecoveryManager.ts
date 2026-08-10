@@ -26,9 +26,8 @@
  * 在 LLM API 调用失败时判断恢复策略：retry / abort / compact_and_retry。
  */
 
-import { Logger } from '@modules/monitoring';
-
-const logger = new Logger({ module: 'query:errorRecovery' });
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('query:errorRecovery');
 
 /** 恢复类型 */
 type RecoveryType =

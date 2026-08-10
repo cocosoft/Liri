@@ -3,7 +3,7 @@
  * 从 GitHub Releases API 获取最新版本信息
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import {
   getGitHubReleasesUrl,
   type UpdateChannel,
@@ -23,10 +23,7 @@ export interface UpdateInfo {
   releaseChannel?: UpdateChannel;
 }
 
-const logger = new Logger({
-  module: 'cli:updater:gitHubReleaseFetcher',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('cli:updater:gitHubReleaseFetcher');
 
 /**
  * GitHub API 返回的 Release 结构

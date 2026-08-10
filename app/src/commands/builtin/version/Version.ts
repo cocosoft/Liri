@@ -13,11 +13,8 @@ import { join } from 'path';
 import type { CommandContext } from '@modules/commands';
 
 import { handleError } from '@modules/error';
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'commands:builtin:version:Version',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('commands:builtin:version:Version');
 
 /**
  * 包信息缓存

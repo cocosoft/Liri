@@ -11,11 +11,8 @@ import { join, resolve } from 'path';
 import { existsSync, type Dirent } from 'fs';
 
 import { handleError } from '@modules/error';
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'utils:git:GitFilesystem',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('utils:git:GitFilesystem');
 
 const resolveGitDirCache = new Map<string, string | null>();
 

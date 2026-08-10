@@ -32,15 +32,12 @@ import { knowledgeDocsProvider } from '../../docs/FileDocsProvider';
 import { knowledgeRouter } from '../KnowledgeRouter';
 import { unlink } from 'fs/promises';
 import { join } from 'path';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { globalEventBus } from '@modules/core';
 import { writeAuditLog } from '../KnowledgeAuditLogger';
 
-const logger = new Logger({
-  module: 'knowledge:tools:knowledgeDeleteTool',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('knowledge:tools:knowledgeDeleteTool');
 
 export class KnowledgeDeleteTool implements Tool {
   public name: string = 'knowledge_delete';

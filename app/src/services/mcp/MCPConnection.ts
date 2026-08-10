@@ -5,13 +5,10 @@
  */
 
 import { randomUUID } from 'crypto';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({
-  module: 'services:mcp:connection',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('services:mcp:connection');
 import { MCPServerConfig, MCPToolDefinition, MCPServerStatus } from './types';
 import { TransportFactory } from './TransportFactory';
 import { MCPTransport } from './transports/MCPTransport';

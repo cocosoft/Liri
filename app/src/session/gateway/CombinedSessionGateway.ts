@@ -13,7 +13,7 @@
  * - 按 updatedAt 最新胜出
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { SessionGateway } from '../SessionGateway';
 import type { SessionGatewayConfig } from '../SessionGateway';
@@ -27,10 +27,7 @@ import type {
 import type { UnifiedMessage } from '../types/Message';
 import type { Transcript } from '../types/Transcript';
 
-const logger = new Logger({
-  module: 'session:combinedGateway',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('session:combinedGateway');
 
 export const DEFAULT_AGENT_ID = 'default';
 

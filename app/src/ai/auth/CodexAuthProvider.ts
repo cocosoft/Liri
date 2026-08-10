@@ -13,10 +13,10 @@
  * 3. OAuth 回调获取 access_token
  * 4. 通过 TokenManager 持久化到加密磁盘存储
  */
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { TokenManager } from '@modules/oauth';
 
-const logger = new Logger({ level: LogLevel.INFO, module: 'ai:codex-auth' });
+const logger = getLogger('ai:codex-auth');
 
 /** TokenManager 中使用的服务器标识 */
 const TOKEN_SERVER_KEY = 'codex';

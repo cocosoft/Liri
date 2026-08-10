@@ -43,7 +43,7 @@ import {
 import { existsSync } from 'fs';
 import { join } from 'path';
 import { createHash } from 'crypto';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { loadSnapshot, getSnapshotsRoot } from './SnapshotStorage';
 import { xxHash } from './xxHash';
@@ -54,7 +54,7 @@ import type {
   WalEntry,
 } from './types';
 
-const logger = new Logger({ module: 'RedoManager' });
+const logger = getLogger('RedoManager');
 
 // ==================== WAL 管理（与 UndoManager 共享 WAL 目录） ====================
 

@@ -17,11 +17,8 @@ import {
 import type { BaseTask } from '@modules/tasks/BaseTask.js';
 
 import { handleError } from '@modules/error';
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'commands:tasks:tasks',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('commands:tasks:tasks');
 
 /**
  * 解析参数

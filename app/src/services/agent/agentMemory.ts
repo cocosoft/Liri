@@ -11,11 +11,8 @@ import { getCwd } from '@modules/utils/cwd';
 
 import { configManager } from '@modules/config';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'services:agent:agentMemory',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('services:agent:agentMemory');
 
 /**
  * 查找规范的Git根目录

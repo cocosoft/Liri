@@ -10,10 +10,10 @@ import {
   SubAgentResult,
   ITermSubAgentConfig,
 } from './SubAgent';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
-const logger = new Logger({ module: 'subagent:iTerm', level: LogLevel.INFO });
+const logger = getLogger('subagent:iTerm');
 
 /**
  * iTerm子agent

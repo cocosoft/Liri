@@ -8,11 +8,8 @@ import path from 'path';
 import { SkillLoader } from '../loaders/SkillLoader.js';
 import type { Skill } from '../types/index.js';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'skills:source:SkillSourceManager',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('skills:source:SkillSourceManager');
 
 /**
  * 技能源定义

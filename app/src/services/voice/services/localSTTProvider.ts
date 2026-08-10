@@ -32,7 +32,7 @@ import {
   unlinkSync,
   readFileSync,
 } from 'fs';
-import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
+import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { getPlatform } from '@modules/utils/platform';
 import { resolveModelsDir } from '@modules/core/paths';
@@ -46,7 +46,7 @@ import type {
   STTStreamOptions,
 } from '../models/types';
 
-const logger = new Logger({ module: 'voice:stt:local' });
+const logger = getLogger('voice:stt:local');
 
 /** 本地 STT 提供者标识 */
 const PROVIDER_ID = 'local';

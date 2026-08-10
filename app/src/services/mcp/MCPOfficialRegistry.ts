@@ -9,12 +9,8 @@
  * 仅含活跃服务器，安装命令与官方 README 完全一致。
  * */
 
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'services:mcp:officialRegistry',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('services:mcp:officialRegistry');
 
 interface RegistryServer {
   name: string;

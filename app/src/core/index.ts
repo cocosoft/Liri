@@ -54,9 +54,7 @@ export {
   type ServiceDescriptor,
   type CycleDetectionResult,
 } from './DIContainer';
-/** @deprecated 由 pluginSystem 统一替代。保留用于 --use-legacy-module-system */
-export { PluginEcosystem, type EcosystemConfig } from './PluginEcosystem';
-/** @deprecated 由 pluginSystem 统一替代。保留用于 --use-legacy-module-system */
+/** @deprecated 由 pluginSystem 统一替代 */
 export { PluginSDK, type PluginSDKConfig } from './PluginSDK';
 export type { Plugin } from '@modules/plugin-sdk';
 export {

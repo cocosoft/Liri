@@ -19,11 +19,8 @@ import { TaskStatus, isTerminalTaskStatus } from '@modules/tasks/types';
 import type { BaseTask } from '@modules/tasks/BaseTask';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'tools\TaskOutputTool\TaskOutputTool',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('tools\TaskOutputTool\TaskOutputTool');
 
 /**
  * 任务输出数据类型

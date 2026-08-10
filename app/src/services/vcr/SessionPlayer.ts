@@ -4,11 +4,8 @@ import { resolveDataSubDir } from '@modules/core';
 import type { RecordedSession, RecordedMessage } from './SessionRecorder';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'services\vcr\SessionPlayer',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('services\vcr\SessionPlayer');
 
 export type ReactionOptions = {
   speedMultiplier?: number;

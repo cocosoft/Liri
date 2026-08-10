@@ -5,11 +5,8 @@ import { AppError } from '@modules/error';
 import { ErrorCodes } from '@modules/error';
 import { htmlToMarkdown } from '../utils/HtmlMarkdownify';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'tools\converter\converters\RssConverter',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('tools\converter\converters\RssConverter');
 
 let _depError: Error | null = null;
 let _XMLParser: any = null;

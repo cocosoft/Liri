@@ -6,10 +6,10 @@
  * 支持同步和异步钩子，支持优先级排序
  */
 
-import { Logger } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({ module: 'query:stopHooks' });
+const logger = getLogger('query:stopHooks');
 
 export type StopHookReason =
   | 'completed'

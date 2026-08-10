@@ -3,10 +3,10 @@
  * 对标CC源码的SessionsWebSocket.ts
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({ module: 'session:ws', level: LogLevel.INFO });
+const logger = getLogger('session:ws');
 
 type WebSocketState = 'connecting' | 'connected' | 'closed';
 

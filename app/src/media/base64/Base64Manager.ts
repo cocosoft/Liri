@@ -4,10 +4,10 @@
  */
 import fs from 'fs';
 import path from 'path';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 
-const logger = new Logger({ level: LogLevel.INFO, module: 'media:base64' });
+const logger = getLogger('media:base64');
 
 export interface Base64EncodeOptions {
   includeDataUri: boolean;

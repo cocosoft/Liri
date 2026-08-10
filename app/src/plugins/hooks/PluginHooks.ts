@@ -6,11 +6,8 @@
 /**
  * 钩子阶段
  */
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'plugins:hooks:PluginHooks',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('plugins:hooks:PluginHooks');
 
 export type HookStage = 'before' | 'after' | 'around' | 'onError';
 

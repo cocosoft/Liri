@@ -5,11 +5,8 @@
 import type { CommandContext, CommandResult } from '@modules/commands';
 import { handleError } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'commands:builtin:tokens:Tokens',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('commands:builtin:tokens:Tokens');
 
 /**
  * 构建 Token 明细展示内容

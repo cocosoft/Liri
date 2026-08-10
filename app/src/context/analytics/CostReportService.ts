@@ -7,16 +7,13 @@
  *
  * v2.1: buildTierStats 修复 — 从 CompactionHistoryEntry 计算真实的 tokens/cost 节省量
  */
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import {
   compactionMetricsTracker,
   type CompactionHistoryEntry,
 } from '../compaction/CompactionMetrics';
 
-const logger = new Logger({
-  module: 'context:cost:report',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('context:cost:report');
 
 /** 估算每 token 成本（$/token），用于计算节省金额 */
 const AVG_COST_PER_INPUT_TOKEN = 0.000001; // ~$1/M input tokens

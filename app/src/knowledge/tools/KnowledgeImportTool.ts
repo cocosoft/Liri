@@ -32,14 +32,11 @@ import { KnowledgeBaseWriter } from '../KnowledgeBaseWriter';
 import { readdir, readFile } from 'fs/promises';
 import { join } from 'path';
 import { existsSync, statSync } from 'fs';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { globalEventBus } from '@modules/core';
 
-const logger = new Logger({
-  module: 'knowledge:tools:knowledgeImportTool',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('knowledge:tools:knowledgeImportTool');
 
 export class KnowledgeImportTool implements Tool {
   public name: string = 'knowledge_import';

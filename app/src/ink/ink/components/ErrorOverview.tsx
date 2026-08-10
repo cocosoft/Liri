@@ -7,11 +7,8 @@ import Text from './Text.js';
 
 import { handleError } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'ink:ink:components:ErrorOverview',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('ink:ink:components:ErrorOverview');
 
 // 使用 require 避免类型问题
 

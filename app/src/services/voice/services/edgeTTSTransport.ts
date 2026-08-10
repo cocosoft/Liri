@@ -11,12 +11,8 @@
 
 import { connect as tlsConnect, TLSSocket } from 'tls';
 import { createHash, randomUUID } from 'crypto';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  level: LogLevel.INFO,
-  module: 'voice:edgeTTS:transport',
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('voice:edgeTTS:transport');
 
 /** WebSocket GUID（RFC 6455） */
 const WS_GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';

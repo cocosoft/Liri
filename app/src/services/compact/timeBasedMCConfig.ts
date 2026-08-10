@@ -8,11 +8,8 @@
 import { configManager } from '@modules/config';
 import { handleError } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'services:compact:timeBasedMCConfig',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('services:compact:timeBasedMCConfig');
 
 export interface TimeBasedMCConfig {
   enabled: boolean;

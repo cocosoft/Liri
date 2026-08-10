@@ -4,13 +4,10 @@
  * 实现 API Key 多凭证轮换和失败切换
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({
-  module: 'ai:credentials:credentialPool',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('ai:credentials:credentialPool');
 
 /**
  * 凭证条目

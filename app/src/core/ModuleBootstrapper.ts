@@ -95,7 +95,6 @@ export interface BootstrapProgress {
  * - 管理模块的注册、加载、就绪和销毁生命周期
  * - 支持 CRITICAL → NORMAL → DEFERRED 优先级调度
  * - 提供进度报告和错误处理
- * - 兼容 --use-legacy-module-system 回退标志
  */
 export interface ModuleBootstrapper {
   /** 当前引导阶段 */

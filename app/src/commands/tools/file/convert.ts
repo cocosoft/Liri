@@ -4,11 +4,8 @@ import { FileTypeDetector } from '@modules/tools/converter/engine/FileTypeDetect
 import * as fs from 'fs';
 import * as path from 'path';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'commands:tools:file:convert',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('commands:tools:file:convert');
 
 function buildHelpText(): string {
   return [

@@ -9,11 +9,8 @@
  */
 
 /** 默认节流间隔（毫秒） */
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'channels:matrix:streaming-message',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('channels:matrix:streaming-message');
 
 const DEFAULT_THROTTLE_MS = 1000;
 

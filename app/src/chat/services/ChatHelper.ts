@@ -5,7 +5,7 @@
  * 聊天辅助工具类
  * 从 ChatManager 拆分出的纯函数和轻量依赖方法，不依赖 ChatManager 的 this 上下文
  */
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import type { SessionConfirmedPaths } from './SessionConfirmedPaths';
 import type { Message } from '../types/message.js';
 import { MessageRole } from '../types/message.js';
@@ -24,7 +24,7 @@ import type { SessionGateway } from '@modules/session/SessionGateway';
 import { SessionStateMachine } from '../../state/session/SessionStateMachine.js';
 import { getAIModelManager } from '@modules/ai';
 
-const logger = new Logger({ module: 'chat:helper', level: LogLevel.INFO });
+const logger = getLogger('chat:helper');
 
 /** 工具结果默认最大字符数（Bug Fix: 从 2000 提升至 8000，防止截断丢失关键上下文导致 LLM 误判任务完成） */
 export const TOOL_RESULT_MAX_LENGTH = 8000;

@@ -42,11 +42,11 @@ interface SqliteRunContext {
   changes: number;
   lastID: number;
 }
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
-const logger = new Logger({ level: LogLevel.INFO, module: 'ai:pricing' });
+const logger = getLogger('ai:pricing');
 
 const REGISTRY_TABLE = 'model_registry';
 const OLD_PRICING_TABLE = 'model_pricing';

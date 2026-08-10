@@ -11,15 +11,14 @@
  * - OpenClaw main-session-restart-recovery.ts
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
+import { broadcastEvent } from '@modules/infrastructure/http/LocalHTTPServiceSSE.js';
+import { markAppError } from '../../state/app/AppLifecycle.js';
 import { SessionStatus } from '../types/Session';
 import type { UnifiedSession } from '../types/Session';
 import type { UnifiedSessionStorage } from '../storage/UnifiedStorage';
 
-const logger = new Logger({
-  module: 'session:crashRecovery',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('session:crashRecovery');
 
 export const DEFAULT_STALE_THRESHOLD_MS = 30 * 60 * 1000;
 export const DEFAULT_RECOVERY_DELAY_MS = 5_000;
@@ -159,6 +158,8 @@ export class CrashRecoveryManager {
         lastActivityBeforeCrash: String(session.lastActivityAt),
       };
       await this.storage.updateSession(session);
+      // §十 阶段 A：崩溃恢复失败 → 应用全局 ERROR 状态
+      markAppError(new Error(`会话崩溃恢复失败（stale）: ${session.id}`));
 
       return {
         sessionId: session.id,
@@ -180,6 +181,14 @@ export class CrashRecoveryManager {
     logger.info('会话已暂停（崩溃恢复）', {
       sessionId: session.id,
       idleMs: duration,
+    });
+    // §十 阶段 A：崩溃恢复（PAUSED）→ 应用全局 ERROR 状态（快照落盘）
+    markAppError(new Error(`会话崩溃恢复（PAUSED）: ${session.id}`));
+    // 根因 C：PAUSED 后主动推送 SSE，前端可即时提示"会话已暂停，可恢复"
+    broadcastEvent('session:paused', {
+      sessionId: session.id,
+      reason: 'crash_recovery',
+      crashedAt: now,
     });
 
     return {

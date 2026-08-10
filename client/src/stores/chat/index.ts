@@ -90,6 +90,16 @@ sseService.on("task:completed", (data: Record<string, unknown>) => {
   useChatStore.setState({ streamingStatus: "" });
 });
 
+// 根因 C：后端崩溃恢复把当前会话标记 PAUSED 后的主动通知（SSE 推送）
+sseService.on("session:paused", (data: Record<string, unknown>) => {
+  const sid = data.sessionId as string | undefined;
+  const msg = useChatStore.getState().messages[0];
+  if (!sid || msg?.session_id !== sid) return;
+  useChatStore.setState({
+    streamingStatus: "会话已暂停（检测到异常退出），可恢复后继续对话",
+  });
+});
+
 // ── P2（08-09）：PlanDrivenLoop TaskCard 实时进度 ──────────────────────────
 
 /** 检查计划事件是否属于当前会话 */

@@ -7,12 +7,8 @@ import type { Tool } from '../types/Tool';
 import type { ToolPolicy, PolicyContext, PolicyResult } from './ToolPolicy';
 import { allowResult, denyResult } from './ToolPolicy';
 import { filterToolsByProfile, ToolClassifier } from './ToolCatalog';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'tools:profilePolicy',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('tools:profilePolicy');
 
 export class ProfileBasedToolPolicy implements ToolPolicy {
   readonly name = 'ProfileBasedToolPolicy';

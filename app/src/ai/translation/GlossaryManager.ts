@@ -11,10 +11,10 @@
 import { writeFileSync, readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { resolveDataSubDir } from '../../core/paths';
-import { Logger, LogLevel } from '../../monitoring/logs/Logger';
+import { getLogger } from '../../monitoring/logs/Logger';
 import { handleError } from '../../error/handleError';
 
-const logger = new Logger({ level: LogLevel.INFO, module: 'ai:glossary' });
+const logger = getLogger('ai:glossary');
 const MAX_GLOSSARY_ENTRIES = 200;
 
 /** 术语条目 */

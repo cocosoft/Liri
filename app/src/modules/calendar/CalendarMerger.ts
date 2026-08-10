@@ -8,7 +8,7 @@
  * - 降级策略（单源失败返回部分数据 + errors[]，不阻塞全景）
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { CronJobStore } from '@modules/tasks/cron/CronJobStore';
 import { resolveDbPath } from '@modules/core';
 import { computeNextCronRunMs } from '@modules/tasks/cron/CronParser';
@@ -16,10 +16,7 @@ import { AIScheduleIndex, type AIScheduleEvent } from './AIScheduleIndex';
 import { EventStatus } from './types';
 import type { CalendarEvent } from './types';
 
-const logger = new Logger({
-  module: 'calendar:merger',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('calendar:merger');
 
 const MAX_OCCURRENCES = 200;
 

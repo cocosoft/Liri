@@ -10,9 +10,8 @@
  *   - 回调通知
  */
 
-import { Logger } from '@modules/monitoring';
-
-const logger = new Logger({ module: 'daemon:watchdog' });
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('daemon:watchdog');
 
 // ==========================================
 // Types

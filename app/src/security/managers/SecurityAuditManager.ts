@@ -7,7 +7,7 @@ import * as fs from 'fs/promises';
 import * as fsSync from 'fs';
 import * as path from 'path';
 import { v4 as uuidv4 } from 'uuid';
-import { Logger } from '../../monitoring/logs/Logger';
+import { getLogger } from '../../monitoring/logs/Logger';
 import {
   AppError,
   ErrorCategory,
@@ -15,7 +15,7 @@ import {
   handleError,
 } from '@modules/error';
 
-const logger = new Logger({ module: 'security:auditManager' });
+const logger = getLogger('security:auditManager');
 
 /**
  * 审计事件类型

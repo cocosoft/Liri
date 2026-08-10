@@ -44,7 +44,7 @@ import { existsSync } from 'fs';
 import { join } from 'path';
 import { createHash } from 'crypto';
 import { homedir } from 'os';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import {
   loadSnapshot,
@@ -63,7 +63,7 @@ import type {
 } from './types';
 import type { FileOperationTracker } from './FileOperationTracker';
 
-const logger = new Logger({ module: 'UndoManager' });
+const logger = getLogger('UndoManager');
 
 // ==================== WAL（Write-Ahead Log）管理 ====================
 

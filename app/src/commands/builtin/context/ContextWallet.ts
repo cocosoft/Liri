@@ -10,9 +10,8 @@
  * 帮助用户了解上下文消费情况并做出优化决策。
  */
 
-import { Logger } from '@modules/monitoring';
-
-const logger = new Logger({ module: 'commands:builtin:context:wallet' });
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('commands:builtin:context:wallet');
 
 // ============================================================
 // Types

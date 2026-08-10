@@ -5,15 +5,12 @@
 
 import type { MCPRequest, MCPResponse } from '../types';
 import { MCPTransport } from './MCPTransport';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import type { McpTlsConfig } from './McpTlsManager';
 
-const logger = new Logger({
-  module: 'services:mcp:wsTransport',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('services:mcp:wsTransport');
 
 interface WebSocketTransportOptions {
   url: string;

@@ -7,11 +7,8 @@ import type { ChannelId, MessageContext } from './types/IChannel';
 import { getDeliveryRouter } from './DeliveryRouter';
 import { DeliveryTarget } from './DeliveryTarget';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'channels:MessageMirrorService',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('channels:MessageMirrorService');
 
 /**
  * 镜像规则

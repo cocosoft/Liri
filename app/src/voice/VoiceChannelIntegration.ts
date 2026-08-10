@@ -10,13 +10,10 @@ import {
   detectRuntimeEnvironment,
   isVoiceAvailable,
 } from '../services/voice/services/environmentRuntimeDetector';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 
-const logger = new Logger({
-  module: 'voice:channelIntegration',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('voice:channelIntegration');
 
 /** 通道语音配置 */
 export interface VoiceChannelConfig {

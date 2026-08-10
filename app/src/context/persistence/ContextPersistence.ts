@@ -1,15 +1,12 @@
 // MIT License
 // Copyright (c) 2026 190615273@qq.com
 import type { Context } from '../types/Context';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { Database } from '@modules/core/external/sqlite3';
 import { resolveDbPath } from '@modules/core';
 
-const logger = new Logger({
-  module: 'context:persistence',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('context:persistence');
 
 /** Context 快照 schema 版本 */
 

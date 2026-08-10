@@ -8,7 +8,7 @@
  * ACP 客户端可以通过网络连接进行任务管理和模块查询。
  */
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger.js';
+import { getLogger } from '@modules/monitoring/logs/Logger.js';
 import { handleError } from '@modules/error/handleError';
 import { initModuleBridge } from './ModuleBridgeInit.js';
 import { createAcpWebSocketServer } from '@modules/acp/server.js';
@@ -17,10 +17,7 @@ import type { AcpWebSocketServerConfig } from '@modules/acp/types.js';
 import { configManager } from '@modules/config';
 import type { AcpRuntime } from '@modules/acp/runtime/types.js';
 
-const logger = new Logger({
-  module: 'bridge:moduleSetup',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('bridge:moduleSetup');
 
 /**
  * 从环境变量中读取 ACP WebSocket 服务器配置

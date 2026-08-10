@@ -5,16 +5,13 @@
  */
 
 import type { SecurityAuditFinding, AuditSeverity } from './AuditTypes';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { resolveProjectRoot } from '@modules/core';
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 
-const logger = new Logger({
-  module: 'security:auditModelHygiene',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('security:auditModelHygiene');
 
 const API_KEY_PATTERNS: Array<{
   provider: string;

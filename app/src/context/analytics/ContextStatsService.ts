@@ -9,12 +9,8 @@ import {
   resolveContextWindow,
   getEffectiveContextWindow,
 } from '../window/ContextWindowResolver';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'context:analytics:stats',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('context:analytics:stats');
 
 export interface ContextStats {
   sessionId: string;

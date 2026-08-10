@@ -6,15 +6,12 @@
 
 import { exec } from 'child_process';
 import { promisify } from 'util';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { TTLCache } from '@modules/utils/cache';
 import { configManager } from '@modules/config';
 
-const logger = new Logger({
-  module: 'context:systemContext',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('context:systemContext');
 
 const execAsync = promisify(exec);
 

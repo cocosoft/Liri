@@ -10,12 +10,8 @@ import type {
   SecurityAuditReport,
   AuditCategory,
 } from './AuditTypes';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'security:auditReport',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('security:auditReport');
 
 /**
  * 生成审计摘要

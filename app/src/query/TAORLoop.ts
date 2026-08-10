@@ -8,7 +8,7 @@
  * 支持中断恢复（checkpoint/resume）机制。
  */
 
-import { Logger } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error';
@@ -48,7 +48,7 @@ import { DBTAORCheckpointStorage } from './DBTAORCheckpointStorage.js';
 import { estimateMessagesTokens } from '../ai/tokenizer/TokenEstimator';
 import type { ChatMessage } from '../ai/models/types';
 
-const logger = new Logger({ module: 'query:taorLoop' });
+const logger = getLogger('query:taorLoop');
 
 /** trace 持久化用：将值安全截断为 JSON 摘要（默认 500 字符） */
 function truncateForTrace(value: unknown, maxLen = 500): string {

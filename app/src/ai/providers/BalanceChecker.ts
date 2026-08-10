@@ -29,12 +29,8 @@
  * - OpenRouter: GET /api/v1/credits
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'ai:providers:balanceChecker',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('ai:providers:balanceChecker');
 
 /** 余额查询结果 */
 export interface BalanceResult {

@@ -9,11 +9,8 @@ import { OAuthService } from '@modules/oauth';
 import { executePostLogin } from '@modules/system/auth/post-login.js';
 import { configManager } from '@modules/config';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'commands:login:login',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('commands:login:login');
 
 /**
  * 登录结果

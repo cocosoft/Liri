@@ -14,11 +14,8 @@ import {
 } from './MetricsCollector.js';
 import { createSkillProvider, type SkillProvider } from './SkillProvider.js';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'ai:localAgent:QueryEngineIntegrationAdapter',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('ai:localAgent:QueryEngineIntegrationAdapter');
 
 export interface QueryEngineIntegrationConfig {
   enabled: boolean;

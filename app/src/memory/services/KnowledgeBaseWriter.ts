@@ -2,7 +2,7 @@ import { join } from 'path';
 import { writeFile, mkdir, readFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import type { Memory } from '../types/Memory';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger, Logger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { resolvePyappHome } from '@modules/core';
 
@@ -27,10 +27,7 @@ export class KnowledgeBaseWriter {
 
   constructor(baseDir?: string) {
     this.baseDir = baseDir || join(resolvePyappHome(), 'knowledge');
-    this.logger = new Logger({
-      module: 'memory:services:knowledgeBase',
-      level: LogLevel.INFO,
-    });
+    this.logger = getLogger('memory:services:knowledgeBase');
   }
 
   async writeFromMemory(memory: Memory): Promise<WriteResult> {

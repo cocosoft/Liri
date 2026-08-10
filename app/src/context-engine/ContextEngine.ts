@@ -4,13 +4,10 @@
  * Phase 5: 接入 Logger + handleError + scope-aware KV 存储
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger, Logger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({
-  module: 'context:engine',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('context:engine');
 
 /**
  * 上下文条目

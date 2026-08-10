@@ -7,7 +7,7 @@
  * 此位置具有误导性，后续应考虑迁移至 modules/ 下的合适位置。
  */
 import http from 'http';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import type { ServerResponse } from 'http';
 import { costTracker } from '@modules/cost/CostTracker';
@@ -29,7 +29,7 @@ import {
 } from './LocalHTTPServiceHelpers';
 import { broadcastEvent, stopSSE } from './LocalHTTPServiceSSE';
 
-const logger = new Logger({ module: 'http:local', level: LogLevel.INFO });
+const logger = getLogger('http:local');
 
 /**
  * LocalHTTPService 配置

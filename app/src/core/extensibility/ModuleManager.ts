@@ -35,13 +35,10 @@ import {
   ErrorSeverity,
   handleError,
 } from '@modules/error';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { Module, ModuleState } from './types.js';
 
-const logger = new Logger({
-  module: 'core:extensibility:moduleManager',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('core:extensibility:moduleManager');
 
 /**
  * 模块管理器

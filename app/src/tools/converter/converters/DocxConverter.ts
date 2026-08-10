@@ -4,11 +4,8 @@ import { PRIORITY_SPECIFIC_FILE_FORMAT } from '../engine/types';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { ErrorCodes } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'tools\converter\converters\DocxConverter',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('tools\converter\converters\DocxConverter');
 
 let _depError: Error | null = null;
 let _mammoth: any = null;

@@ -1,4 +1,4 @@
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import {
   AppError,
   ErrorCategory,
@@ -6,10 +6,7 @@ import {
   handleError,
 } from '@modules/error';
 
-const logger = new Logger({
-  module: 'bridge:error:bridgeErrorHandler',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('bridge:error:bridgeErrorHandler');
 
 /**
  * 桥接错误处理和重试机制

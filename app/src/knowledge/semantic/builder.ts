@@ -28,7 +28,7 @@
  * 借鉴: DeepSeek-Reasonix src/index/semantic/builder.ts
  */
 
-import { Logger } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { chunkDirectory } from './chunker';
 import type { ChunkOptions } from './chunker';
 import { globalEmbeddingManager } from '@modules/ai';
@@ -36,7 +36,7 @@ import { SemanticStore, readIndexMeta, wipeStoreFiles } from './store';
 import type { IndexEntry } from './store';
 import { resolveDataSubDir, resolvePyappHome } from '@modules/core';
 
-const logger = new Logger({ module: 'knowledge:semantic:builder' });
+const logger = getLogger('knowledge:semantic:builder');
 
 /** 构建器配置 */
 export interface BuildConfig {

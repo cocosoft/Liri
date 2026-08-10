@@ -28,11 +28,11 @@
  */
 
 import type { RouterConfig, RouteDecision } from './types.js';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
 import { SpanStatusCode } from '@opentelemetry/api';
 
-const logger = new Logger({ level: LogLevel.INFO, module: 'ai:retry' });
+const logger = getLogger('ai:retry');
 
 export interface RetryPolicyOptions {
   /** 路由配置（含重试设置） */

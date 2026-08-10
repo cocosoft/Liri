@@ -293,7 +293,6 @@ class ArchitectureLinter {
                 'streaming\\IncrementalRetry.ts', 'streaming/IncrementalRetry.ts',
                 // 第二组：2026-Q3 前计划迁移
                 'core\\utils\\ErrorHandler.ts', 'core/utils/ErrorHandler.ts',
-                'core\\StartupOptimizer.ts', 'core/StartupOptimizer.ts',
                 'ai\\providers\\BaseAIProvider.ts', 'ai/providers/BaseAIProvider.ts',
                 'agent\\cli-runner\\index.ts', 'agent/cli-runner/index.ts',
                 'performance\\CodeOptimizer.ts', 'performance/CodeOptimizer.ts',
@@ -2108,6 +2107,163 @@ class ArchitectureLinter {
         console.log(`[后台事件检查 R08-002] ${silentLoops} 个后台任务循环无日志记录`);
     }
 
+    /**
+     * R11-001: 检查直接构造 Logger 实例（§十一 零样板门面防回潮）
+     * 新代码应使用 getLogger(module) 或 createModule(module).logger；
+     * 存量自定义配置（非默认 INFO/json）作为迁移回退清单，warning 级不阻断 CI。
+     */
+    async checkLoggerFacade(): Promise<void> {
+        const newLoggerRe = /new Logger\(/g;
+        // Logger 唯一实现本身（getLogger/createLogger 内构造）
+        const skipFile = (file: string): boolean => {
+            const norm = file.replace(/\\/g, '/');
+            return norm.includes('/monitoring/logs/Logger.ts');
+        };
+
+        let directCtor = 0;
+        for (const file of this.allFiles) {
+            if (skipFile(file)) continue;
+            const content = readFileSync(file, 'utf-8');
+            newLoggerRe.lastIndex = 0;
+            let m: RegExpExecArray | null;
+            let reported = 0;
+            while ((m = newLoggerRe.exec(content)) !== null) {
+                const line = content.slice(0, m.index).split('\n').length;
+                directCtor++;
+                this.violations.push({
+                    ruleId: 'R11-001',
+                    severity: 'warning',
+                    file: relative(process.cwd(), file),
+                    line,
+                    message: '直接构造 Logger 实例（new Logger(...)）',
+                    suggestion: '改用 getLogger(module)（默认 INFO/json 形态）或 createModule(module).logger；自定义 level/redact 形态属存量回退清单，需人工确认',
+                });
+                if (++reported >= 5) break; // 每文件最多报 5 条，避免刷屏
+            }
+        }
+        console.log(`[Logger 门面检查 R11-001] ${directCtor} 处直接构造 Logger`);
+    }
+
+    /**
+     * R10-004: ModuleDefinitions 初始化顺序 与 LazyModuleStrategy 优先级对齐（§十二 步骤 4）
+     * 文档规则（ModuleDefinitions.ts 注释）：
+     *   1. CRITICAL 模块必须集中在 Phase 1-4（DEFERRED 标记之前）
+     *   2. DEFERRED 模块必须在 Phase 5-8（DEFERRED 标记之后）
+     *   3. 新增模块时同步更新 LAZY_MODULE_STRATEGY 的优先级
+     */
+    async checkModulePhaseAlignment(): Promise<void> {
+        const norm = (f: string) => f.replace(/\\/g, '/');
+        const defFile = this.allFiles.find(f => norm(f).includes('/modules/ModuleDefinitions.ts'));
+        const stratFile = this.allFiles.find(f => norm(f).includes('/modules/LazyModuleStrategy.ts'));
+        if (!defFile || !stratFile) return;
+
+        const defContent = readFileSync(defFile, 'utf-8');
+        const stratContent = readFileSync(stratFile, 'utf-8');
+
+        // 解析 MODULE_INITIALIZATION_ORDER：按 "DEFERRED 阶段" 注释切成 critical / deferred 两段
+        const orderStart = defContent.indexOf('MODULE_INITIALIZATION_ORDER');
+        const arrStart = defContent.indexOf('[', orderStart);
+        const arrEnd = defContent.indexOf('];', arrStart);
+        const body = defContent.slice(arrStart, arrEnd);
+        const defIdx = body.indexOf('DEFERRED 阶段');
+        const idRe = /'([^']+)'/g;
+        const critical = [...(defIdx >= 0 ? body.slice(0, defIdx) : body).matchAll(idRe)].map(m => m[1]);
+        const deferred = [...(defIdx >= 0 ? body.slice(defIdx) : '').matchAll(idRe)].map(m => m[1]);
+        const criticalSet = new Set(critical);
+        const orderAll = new Set([...critical, ...deferred]);
+
+        // 解析 LAZY_MODULE_STRATEGY
+        const stratStart = stratContent.indexOf('LAZY_MODULE_STRATEGY');
+        const sArrStart = stratContent.indexOf('{', stratStart);
+        const sArrEnd = stratContent.indexOf('};', sArrStart);
+        const sBody = stratContent.slice(sArrStart, sArrEnd);
+        // 块级解析：支持单行与多行条目（key: { priority: ..., trigger: '...' }）
+        const entryStartRe = /^\s*'?([\w-]+)'?\s*:\s*\{/gm;
+        const strategy = new Map<string, { priority: string; loadMode?: string }>();
+        let m: RegExpExecArray | null;
+        while ((m = entryStartRe.exec(sBody)) !== null) {
+            const endRel = sBody.indexOf('},', m.index);
+            if (endRel < 0) continue;
+            const entryBody = sBody.slice(m.index, endRel);
+            const prio = /priority:\s*ModuleLoadPriority\.(\w+)/.exec(entryBody);
+            const loadMode = /loadMode:\s*DynamicLoadMode\.(\w+)/.exec(entryBody);
+            if (prio) strategy.set(m[1], { priority: prio[1], loadMode: loadMode?.[1] });
+            entryStartRe.lastIndex = endRel;
+        }
+
+        let errors = 0;
+        let warnings = 0;
+        for (const [id, cfg] of strategy) {
+            if (!orderAll.has(id)) {
+                errors++;
+                this.violations.push({
+                    ruleId: 'R10-004',
+                    severity: 'error',
+                    file: relative(process.cwd(), stratFile),
+                    message: `LAZY_MODULE_STRATEGY 声明了 '${id}'（${cfg.priority}），但 MODULE_INITIALIZATION_ORDER 中不存在`,
+                    suggestion: '在 ModuleDefinitions.ts 的 MODULE_INITIALIZATION_ORDER 中按优先级阶段补充该模块',
+                });
+                continue;
+            }
+            const inCritical = criticalSet.has(id);
+            const isCritical = cfg.priority === 'CRITICAL';
+            if (isCritical !== inCritical) {
+                errors++;
+                this.violations.push({
+                    ruleId: 'R10-004',
+                    severity: 'error',
+                    file: relative(process.cwd(), defFile),
+                    message: `模块 '${id}' 优先级 ${cfg.priority}，但位于 ${inCritical ? 'CRITICAL 段（Phase 1-4）' : 'DEFERRED 段（Phase 5-8）'}——与 LazyModuleStrategy 不对齐`,
+                    suggestion: `按对齐规则调整：${isCritical ? '移到 DEFERRED 标记之前（Phase 1-4）' : '移到 DEFERRED 标记之后（Phase 5-8）'}`,
+                });
+            }
+        }
+        // 反向：初始化顺序中缺少 strategy 优先级声明的模块（新增模块未同步）
+        for (const id of orderAll) {
+            if (!strategy.has(id)) {
+                warnings++;
+                this.violations.push({
+                    ruleId: 'R10-004',
+                    severity: 'warning',
+                    file: relative(process.cwd(), defFile),
+                    message: `MODULE_INITIALIZATION_ORDER 包含 '${id}'，但 LAZY_MODULE_STRATEGY 未声明其优先级`,
+                    suggestion: '在 LazyModuleStrategy.ts 中补充 ' + `'${id}': { priority: ModuleLoadPriority.X, ... }`,
+                });
+            }
+        }
+        console.log(`[模块阶段对齐 R10-004] ${errors} 处错误 / ${warnings} 处缺失优先级声明: ${[...orderAll].filter(id => !strategy.has(id)).join(', ')}`);
+    }
+
+    /**
+     * R10-003: 模块生命周期契约检查（§十二 步骤 5）
+     * 实现任一生命周期钩子（onLoad/onReady/onDestroy）的模块必须实现完整三件套，
+     * 禁止"部分契约"（如只有 onLoad 没有 onDestroy）。
+     */
+    async checkModuleLifecycle(): Promise<void> {
+        const hookNames = ['onLoad', 'onReady', 'onDestroy'];
+        let partialModules = 0;
+        for (const file of this.allFiles) {
+            const relPath = relative(process.cwd(), file);
+            if (/\.test\.ts$/.test(relPath) || /\.test\.tsx$/.test(relPath)) continue;
+            const content = readFileSync(file, 'utf-8');
+            // 只匹配"方法定义"（空参 + 函数体），排除 onDestroy(context) 等调用与 void onReady(); 语句
+            const present = hookNames.filter(h =>
+                new RegExp(`(?:async\\s+)?\\b${h}\\s*\\(\\)\\s*(?::[^{]*)?\\{`).test(content)
+            );
+            if (present.length === 0 || present.length === 3) continue;
+
+            partialModules++;
+            this.violations.push({
+                ruleId: 'R10-003',
+                severity: 'warning',
+                file: relPath,
+                message: `模块生命周期钩子不完整（仅 ${present.join('/')}，缺 ${hookNames.filter(h => !present.includes(h)).join('/')}）`,
+                suggestion: '实现完整生命周期契约 onLoad/onReady/onDestroy（ModuleBootstrapper 四阶段：REGISTER→LOAD→READY→DESTROY）',
+            });
+        }
+        console.log(`[模块生命周期 R10-003] ${partialModules} 个模块存在部分生命周期钩子`);
+    }
+
     /** 运行所有检查 */
     async runAll(): Promise<RuleViolation[]> {
         await this.loadFiles();
@@ -2152,6 +2308,11 @@ class ArchitectureLinter {
             // R08 后台任务可观测性（P1/P2 反模式防回潮）
             this.checkBackgroundPersistence(),
             this.checkBackgroundEventLogging(),
+            // R11 可观测性零样板门面（§十一，getLogger/createModule 防回潮）
+            this.checkLoggerFacade(),
+            // R10 模块统一管理（§十二，阶段对齐 + 生命周期契约）
+            this.checkModulePhaseAlignment(),
+            this.checkModuleLifecycle(),
         ]);
 
         // 分层合规检查（需按顺序在 loadFiles 之后执行）

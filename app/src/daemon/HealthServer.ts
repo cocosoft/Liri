@@ -4,12 +4,8 @@
  */
 import http from 'http';
 import os from 'os';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'daemon:healthServer',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('daemon:healthServer');
 
 export interface HealthCheckConfig {
   port: number;

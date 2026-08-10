@@ -26,11 +26,8 @@ import type { GrepInputType, GrepOutputType } from './schemas';
 import { validateGrepInput } from './schemas';
 import { getDescription } from './prompt';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'tools:GrepTool:GrepTool',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('tools:GrepTool:GrepTool');
 
 /**
  * 代码/文件内容搜索工具

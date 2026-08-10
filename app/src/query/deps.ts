@@ -12,8 +12,8 @@ import type { StopHookManager } from './StopHooks';
 import type { QueryConfigManager } from './config';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'query\deps', level: LogLevel.INFO });
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('query\deps');
 
 export interface QueryDependencies {
   chatManager: ChatManager;

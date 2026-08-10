@@ -1,11 +1,7 @@
 import { join } from 'path';
 import { getFsImplementation } from '@modules/utils/fsOperations.js';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'memory:fileService',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('memory:fileService');
 import {
   ENTRYPOINT_NAME,
   MAX_ENTRYPOINT_LINES,

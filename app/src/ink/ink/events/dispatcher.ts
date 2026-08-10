@@ -5,11 +5,8 @@ import {
   DiscreteEventPriority,
   NoEventPriority,
 } from 'react-reconciler/constants.js';
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'ink:events:dispatcher',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('ink:events:dispatcher');
 import { HANDLER_FOR_EVENT } from './event-handlers.js';
 import type { EventTarget, TerminalEvent } from './terminal-event.js';
 

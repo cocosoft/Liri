@@ -9,13 +9,10 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import type { Team, TeamMember, TeamRole } from '@modules/workspace/types';
 
-const logger = new Logger({
-  module: 'workspace:teamStore',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('workspace:teamStore');
 
 /** 团队角色权限映射 */
 const ROLE_PERMISSIONS: Record<TeamRole, string[]> = {

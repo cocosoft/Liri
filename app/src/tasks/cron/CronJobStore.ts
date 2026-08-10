@@ -4,7 +4,7 @@
  */
 
 import { Database } from '@modules/core/external/sqlite3';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import type {
   CronJob,
@@ -16,10 +16,7 @@ import type {
 } from './types';
 import { validateCronTransition, isTerminalCronState } from './types';
 
-const logger = new Logger({
-  module: 'tasks:cron:jobStore',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('tasks:cron:jobStore');
 
 const TABLE_CRON_JOBS = 'cron_jobs';
 

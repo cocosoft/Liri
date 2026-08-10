@@ -4,14 +4,11 @@
 
 import type { Message } from '@modules/chat/types/message';
 import { MessageRole, ContentBlockType } from '@modules/chat/types/message';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
-const logger = new Logger({
-  module: 'services:toolUseSummary',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('services:toolUseSummary');
 
 export interface ToolInfo {
   name: string;

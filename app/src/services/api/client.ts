@@ -7,11 +7,8 @@
 import { ApiError, ApiConnectionError, ApiTimeoutError } from './errors';
 import { configManager } from '@modules/config';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'services:api:client',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('services:api:client');
 
 export interface ApiClientConfig {
   baseUrl: string;

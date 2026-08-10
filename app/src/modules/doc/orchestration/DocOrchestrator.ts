@@ -3,12 +3,8 @@
  * 预定义工作流：send-report, reply-with-doc, meeting-to-all
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'doc:orchestration',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('doc:orchestration');
 
 /** 工作流步骤 */
 interface WorkflowStep {

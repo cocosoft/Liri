@@ -11,12 +11,9 @@ import fs from 'fs';
 import path from 'path';
 import type { TraceRecord } from '../types';
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-const logger = new Logger({
-  module: 'trace-recording:engine:TraceWriter',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('trace-recording:engine:TraceWriter');
 
 /** TraceWriter 统计 */
 export interface WriterStats {

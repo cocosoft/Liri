@@ -11,8 +11,8 @@ import { randomUUID } from 'crypto';
 import { resolvePyappHome } from '@modules/core';
 
 import { handleError } from '@modules/error';
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'utils:telemetry', level: LogLevel.INFO });
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('utils:telemetry');
 
 export type TelemetryLevel = 'off' | 'basic' | 'full';
 

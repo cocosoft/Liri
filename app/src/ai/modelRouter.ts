@@ -42,14 +42,14 @@
  */
 
 import { handleError } from '@modules/error';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { ModelRegistry } from '@modules/ai';
 import type { APIProvider } from '@modules/ai';
 import type { AppModelConfigService } from './models/AppModelConfigService';
 
-const logger = new Logger({ level: LogLevel.INFO, module: 'ai:model-router' });
+const logger = getLogger('ai:model-router');
 
 // ============================================================
 // 任务类型枚举

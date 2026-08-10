@@ -39,12 +39,12 @@ import type {
   VideoGenerationParams,
   VideoGenerationResult,
 } from './AIProvider';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { randomUUID } from 'crypto';
 import { normalizeByCaps } from '../../core/media-generation/index.js';
 
-const logger = new Logger({ level: LogLevel.INFO, module: 'ai:fal-provider' });
+const logger = getLogger('ai:fal-provider');
 
 /** FAL 模型配置（参照 hermes FAL_MODELS） */
 interface FALModelConfig {

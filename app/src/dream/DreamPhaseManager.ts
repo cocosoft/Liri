@@ -25,12 +25,8 @@
  */
 
 import type { DreamPhase } from './types';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'dream:dreamPhaseManager',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('dream:dreamPhaseManager');
 
 export interface PhaseResult {
   phase: DreamPhase;

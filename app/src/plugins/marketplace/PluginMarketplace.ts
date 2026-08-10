@@ -8,11 +8,8 @@ import { join, dirname } from 'path';
 import { resolvePluginsCacheDir } from '@modules/core';
 import { handleError } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'plugins:marketplace:PluginMarketplace',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('plugins:marketplace:PluginMarketplace');
 
 /**
  * 市场插件信息

@@ -39,16 +39,13 @@ import {
 } from '../chronos/autoDream/AutoDream';
 import { resolveDataSubDir } from '@modules/core';
 import { globalEventBus, SystemEvents } from '@modules/core';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { broadcastEvent } from '@modules/infrastructure/http/LocalHTTPServiceSSE.js';
 import { join } from 'path';
 import { mkdir, writeFile, unlink } from 'fs/promises';
 
-const logger = new Logger({
-  module: 'dream:unifiedDreamCycle',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('dream:unifiedDreamCycle');
 
 /** 首次运行回溯天数 */
 const INITIAL_BACKTRACK_DAYS = 7;

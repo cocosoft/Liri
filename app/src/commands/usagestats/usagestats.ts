@@ -28,11 +28,8 @@ import type { CommandContext, CommandResult } from '@modules/commands';
 import { usageStatsService } from '@modules/ai';
 import { handleError } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'commands:usagestats:usagestats',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('commands:usagestats:usagestats');
 
 /** 格式化货币显示 */
 function fmtUSD(amount: number): string {

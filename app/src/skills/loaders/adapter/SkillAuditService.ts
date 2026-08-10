@@ -27,12 +27,8 @@
 
 import { join } from 'path';
 import { existsSync, mkdirSync, appendFileSync, readFileSync } from 'fs';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'skills:auditService',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('skills:auditService');
 
 /**
  * 审计操作类型

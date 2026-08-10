@@ -12,9 +12,8 @@
  *   - 支持外部监听（subscribe pattern）
  */
 
-import { Logger } from '@modules/monitoring';
-
-const logger = new Logger({ module: 'query:messageQueue' });
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('query:messageQueue');
 
 export type QueuePriority = 'now' | 'next' | 'later';
 

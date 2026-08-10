@@ -18,11 +18,8 @@ import {
 import { PermissionMode } from './PermissionMode';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'permission\EnhancedPermissionEngine',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('permission\EnhancedPermissionEngine');
 
 /**
  * 规则条件类型

@@ -12,11 +12,8 @@ import {
 import type { Tool } from './types/Tool';
 import { ToolTag as TT } from './types/Tool';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'tools:utility-data-tools',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('tools:utility-data-tools');
 
 export function collectDataTools(tools: Tool[]): void {
   // ========== 编码/解码工具 (7) ==========

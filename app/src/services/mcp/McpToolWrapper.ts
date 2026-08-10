@@ -11,11 +11,8 @@ import { ToolExecutionStatus } from '@modules/tools/types/ToolResult';
 import type { SerializedTool } from './types';
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'services:mcp:McpToolWrapper',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('services:mcp:McpToolWrapper');
 
 /**
  * MCP工具包装器

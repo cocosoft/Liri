@@ -6,12 +6,12 @@
 import { join } from 'path';
 import { randomUUID } from 'crypto';
 import { Database } from '@modules/core/external/sqlite3';
-import { Logger } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { resolveDbPath } from '@modules/core';
 import { SimpleMutex } from '@modules/core';
 
-const logger = new Logger({ module: 'cost:recordRepository' });
+const logger = getLogger('cost:recordRepository');
 
 export const COST_RECORDS_TABLE = 'cost_records';
 export const COST_SESSION_SUMMARY_TABLE = 'session_cost_summaries';

@@ -14,15 +14,12 @@
  *   适用场景：复杂流程图执行
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { TaskFlowStatus } from './types';
 import type { TaskFlowRecord, TaskFlowSyncMode } from './types';
 import type { SqliteTaskStore } from './db/SqliteTaskStore';
 
-const logger = new Logger({
-  module: 'tasks:flowRegistry',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('tasks:flowRegistry');
 
 export class TaskFlowRegistry {
   private flows: Map<string, TaskFlowRecord> = new Map();

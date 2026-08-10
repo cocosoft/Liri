@@ -44,12 +44,8 @@ import type {
   TokenUsage,
 } from './types';
 import { estimateTokens } from '../../ai/tokenizer/TokenEstimator';
-import { Logger, LogLevel } from '../../monitoring/logs/Logger';
-
-const logger = new Logger({
-  level: LogLevel.INFO,
-  module: 'tokenBudget:controller',
-});
+import { getLogger } from '../../monitoring/logs/Logger';
+const logger = getLogger('tokenBudget:controller');
 
 // === Phase 1a: 统一阈值常量 — 所有方法共享 ===
 export const UNIFIED_THRESHOLDS = {

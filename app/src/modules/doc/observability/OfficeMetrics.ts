@@ -4,12 +4,8 @@
  * 接入现有 MonitorTool 接口
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'doc:observability',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('doc:observability');
 
 /** 轻量级 Counter（不依赖外部 metrics 库） */
 class Counter {

@@ -3,12 +3,8 @@
  * 负责 OfficeCLI 安装引导和 OAuth2 邮箱配置引导
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'doc:lifecycle',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('doc:lifecycle');
 
 /**
  * 注册 OfficeCLI 安装引导提示

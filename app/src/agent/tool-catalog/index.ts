@@ -25,12 +25,8 @@
  * 提供工具的分类、分组、Profile 映射和查询功能
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'agent:toolCatalog',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('agent:toolCatalog');
 
 /**
  * 工具 Profile 类型

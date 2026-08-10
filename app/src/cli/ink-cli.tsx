@@ -10,7 +10,7 @@ import {
   ScrollBox,
   AlternateScreen,
 } from '@modules/ink';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { SkillRegistry } from '@modules/skills/SkillRegistry';
 import { BundledSkillLoader } from '@modules/skills/loaders/sources/BundledSkillLoader';
 import { getToolManager } from '@modules/tools/ToolManager';
@@ -20,7 +20,7 @@ import { useBuddyNotification } from '@modules/buddy/useBuddyNotification';
 import { TaskListV2 } from '@modules/components/TaskListV2';
 import type { TaskGroup, TaskItem } from '@modules/components/TaskListV2';
 
-const logger = new Logger({ module: 'cli:ink', level: LogLevel.INFO });
+const logger = getLogger('cli:ink');
 
 /**
  * 主菜单组件

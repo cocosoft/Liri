@@ -9,9 +9,8 @@
  *   2. _build_safe_env — 仅允许安全基线的环境变量传递给 MCP 子进程
  */
 
-import { Logger } from '@modules/monitoring';
-
-const logger = new Logger({ module: 'mcp:securityFilter' });
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('mcp:securityFilter');
 
 // ==========================================
 // P2-4: 凭据剥离

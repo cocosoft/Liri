@@ -1,12 +1,12 @@
 //
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { ErrorCodes } from '@modules/error';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { appendFileSync } from 'fs';
 import createReconciler from 'react-reconciler';
 import { configManager } from '@modules/config';
 
-const logger = new Logger({ module: 'ink:reconciler', level: LogLevel.INFO });
+const logger = getLogger('ink:reconciler');
 // 替换缺失的 getYogaCounters 导入
 const getYogaCounters = () => ({
   ms: 0,

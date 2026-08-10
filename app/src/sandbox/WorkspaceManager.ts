@@ -17,11 +17,8 @@ import type { SSHSandboxConfig } from './SSHSandbox';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { configManager } from '@modules/config';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'sandbox\WorkspaceManager',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('sandbox\WorkspaceManager');
 
 const WORKSPACE_MODULE = 'WorkspaceManager';
 

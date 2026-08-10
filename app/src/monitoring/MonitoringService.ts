@@ -10,7 +10,7 @@ import { getPerformanceProfiler } from '../core/utils/Performance.js';
 import { performanceUtils } from '../core/utils/Performance.js';
 import { configManager } from '@modules/config';
 import { profileCheckpoint } from '../performance/StartupProfiler.js';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger, Logger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import {
   AlertPresetLoader,
@@ -21,10 +21,7 @@ import {
   createDefaultBackupManager,
 } from './backup/BackupManager.js';
 
-const logger = new Logger({
-  level: LogLevel.INFO,
-  module: 'monitoring:service',
-});
+const logger = getLogger('monitoring:service');
 
 /**
  * 监控配置

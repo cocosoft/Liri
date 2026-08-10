@@ -16,7 +16,7 @@ import type {
   SandboxPermission,
   SandboxPlatform,
 } from '../SandboxTypes';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { DockerImageManager } from './DockerImageManager';
 import { validateDockerNetworkConfig } from './DockerNetworkPolicy';
 import type {
@@ -26,10 +26,7 @@ import type {
 import { NetworkPolicyEngine, needsNetAdmin } from './NetworkPolicyEngine';
 
 const execAsync = promisify(exec);
-const logger = new Logger({
-  module: 'sandbox:docker:dockerSandbox',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('sandbox:docker:dockerSandbox');
 
 /**
  * Docker 沙箱专有配置键名（存放在 SandboxConfig.customConfig 中）

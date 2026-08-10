@@ -4,13 +4,10 @@
  */
 import { EventEmitter } from 'events';
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 
-const logger = new Logger({
-  module: 'chronos:stagger',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('chronos:stagger');
 
 /**
  * 交错策略

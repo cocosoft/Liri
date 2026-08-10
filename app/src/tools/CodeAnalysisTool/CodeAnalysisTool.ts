@@ -13,11 +13,8 @@ import { createFailureResult } from '../utils/ToolUtils';
 import * as fs from 'fs';
 import * as path from 'path';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'tools:CodeAnalysisTool:CodeAnalysisTool',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('tools:CodeAnalysisTool:CodeAnalysisTool');
 
 /**
  * 代码分析工具输入

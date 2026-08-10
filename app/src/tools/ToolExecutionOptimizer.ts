@@ -10,11 +10,8 @@ import { ToolExecutor, createToolExecutor } from './ToolExecutor';
 import { ParallelExecutor } from './executor/ParallelExecutor';
 import { v4 as uuidv4 } from 'uuid';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'tools:ToolExecutionOptimizer',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('tools:ToolExecutionOptimizer');
 
 /**
  * 工具执行缓存项

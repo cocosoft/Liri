@@ -7,11 +7,8 @@ import { MetricsService } from '../metrics/MetricsService.js';
 import { OTelMetrics } from './OTelMetrics.js';
 import { errorMessage } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'monitoring\otel\MetricsBridge',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('monitoring\otel\MetricsBridge');
 
 export interface MetricsBridgeConfig {
   syncIntervalMs: number;

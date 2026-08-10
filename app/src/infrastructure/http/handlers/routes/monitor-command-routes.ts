@@ -48,6 +48,7 @@ import {
   handleClientErrorReport,
   handleGetErrorStats,
 } from '../error-report-handlers';
+import { handleStateAll } from '../state-handlers';
 import { handleTraceStats } from '../trace-handlers';
 import {
   handleAnalyticsDashboard,
@@ -170,6 +171,11 @@ export async function dispatchMonitorCommandRoutes(
   // P3-2.11: 后端错误统计
   if (method === 'GET' && url === '/v1/monitoring/errors') {
     handleGetErrorStats(req, res);
+    return true;
+  }
+  // §十 阶段 D: 状态机聚合（R09-005）
+  if (method === 'GET' && url === '/v1/state/all') {
+    await handleStateAll(handlerCtx, req, res);
     return true;
   }
   // Trace 统计（必选项 — 暴露真实 API token 消耗数据）

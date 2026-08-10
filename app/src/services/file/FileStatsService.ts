@@ -14,15 +14,12 @@
  *   const bySource = await svc.getStatsBySource();
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { FileRegistry } from './FileRegistry';
 import { FILES_TABLE } from './fileSchema';
 import type { FileStats } from './types';
 
-const logger = new Logger({
-  module: 'services:file:stats',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('services:file:stats');
 
 /** 缓存默认 TTL（毫秒） */
 const DEFAULT_TTL_MS = 60_000; // 1 分钟

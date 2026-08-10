@@ -14,8 +14,8 @@
 
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'query\withRetry', level: LogLevel.INFO });
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('query\withRetry');
 
 const INITIAL_RETRY_DELAY_MS = 500;
 const MAX_RETRY_DELAY_MS = 60000;

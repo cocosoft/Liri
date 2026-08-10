@@ -27,12 +27,9 @@ import {
 import { join, dirname } from 'path';
 import { resolvePyappHome } from '@modules/core/paths';
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-const logger = new Logger({
-  module: 'session:activity:SessionActivityTracker',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('session:activity:SessionActivityTracker');
 
 // ============================================================================
 // 类型定义

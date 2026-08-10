@@ -12,11 +12,8 @@ import {
   type UnifiedRulePlatform,
 } from '../security/patterns/dangerousCommands';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'permission:PermissionPolicies',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('permission:PermissionPolicies');
 
 const PROTECTED_PATHS = [
   '/etc',

@@ -23,11 +23,8 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { handleError } from '@modules/error';
 import { setEmailRuntime, clearEmailRuntime } from './runtime';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'channels:email:EmailChannel',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('channels:email:EmailChannel');
 
 /**
  * Email 配置

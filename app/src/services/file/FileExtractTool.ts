@@ -22,16 +22,13 @@ import { execFile } from 'child_process';
 import { readdir, stat, mkdir, readFile } from 'fs/promises';
 import { join, basename, extname } from 'path';
 import { existsSync } from 'fs';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { resolveInboundDir } from '@modules/core';
 import { FileRegistry } from './FileRegistry';
 import { FileSource } from './types';
 
-const logger = new Logger({
-  module: 'services:file:extract',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('services:file:extract');
 
 /** 最大解压文件数（zip bomb 防护） */
 const MAX_EXTRACTED_FILES = 10000;

@@ -11,13 +11,10 @@ import type { ToolUseContext } from '../../tools/types/ToolUseContext';
 import { resolveSafePath } from './MediaPathGuard';
 import { MediaErrorCode } from './MediaErrorCodes';
 import type { MediaToolResult } from './MediaToolResult';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({
-  module: 'media:tool:deleteBatch',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('media:tool:deleteBatch');
 
 export function createMediaDeleteBatchTool(): Tool {
   return {

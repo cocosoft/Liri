@@ -3,16 +3,13 @@
  * 负责从不同来源加载Agent定义，支持热加载
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 import { AgentDefinition } from '../models/types';
 import { getBuiltInAgents } from '../strategies/agentStrategy';
 import { loadPluginAgents as loadPluginAgentsFromPlugins } from '@modules/utils/plugins/loadPluginAgents';
 
-const logger = new Logger({
-  module: 'agent:managers:agentSourceManager',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('agent:managers:agentSourceManager');
 import {
   loadUserAgents,
   loadProjectAgents,

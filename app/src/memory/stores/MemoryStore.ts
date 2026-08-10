@@ -7,15 +7,12 @@ import type { Memory } from '../types/Memory';
 import { createMemoryMetadata } from '../types/MemoryMetadata';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { handleError } from '@modules/error';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { resolveMemoryDir, resolveDbPath } from '@modules/core';
 import { Database } from '@modules/core/external/sqlite3';
 import { getMemoryDriftDetector } from '../MemoryDriftDetector';
 
-const storeLogger = new Logger({
-  module: 'memory:stores',
-  level: LogLevel.INFO,
-});
+const storeLogger = getLogger('memory:stores');
 
 /** memory_vectors 表名 */
 const MEMORY_VECTORS_TABLE = 'memory_vectors';

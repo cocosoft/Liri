@@ -3,11 +3,8 @@ import fs from 'fs/promises';
 import path from 'path';
 import type { CommandMatch, CommandExecutor } from './types.js';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'ai:localAgent:CommandExecutor',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('ai:localAgent:CommandExecutor');
 
 export class LocalCommandExecutor implements CommandExecutor {
   private allowedCommands: Set<string>;

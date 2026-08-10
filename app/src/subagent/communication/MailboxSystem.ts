@@ -10,10 +10,10 @@ import {
   existsSync,
   mkdirSync,
 } from 'fs';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { resolveDataSubDir } from '@modules/core';
 
-const logger = new Logger({ module: 'subagent:mailbox', level: LogLevel.INFO });
+const logger = getLogger('subagent:mailbox');
 
 /**
  * 邮箱系统

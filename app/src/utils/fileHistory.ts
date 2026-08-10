@@ -11,11 +11,8 @@ import { createHash, randomUUID } from 'crypto';
 import { resolvePyappHome } from '@modules/core';
 
 import { handleError } from '@modules/error';
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'utils:fileHistory',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('utils:fileHistory');
 
 /**
  * 文件历史备份信息

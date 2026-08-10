@@ -10,9 +10,8 @@
  * 目标：Bash 错误触发后，所有兄弟调用在 ≤500ms 内中止，0 个漏网工具。
  */
 
-import { Logger } from '@modules/monitoring';
-
-const logger = new Logger({ module: 'query:cascadeAbort' });
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('query:cascadeAbort');
 
 // ==========================================
 // Types

@@ -8,14 +8,11 @@
  */
 
 import type http from 'http';
-import { Logger, LogLevel } from '../../../monitoring/logs/Logger';
+import { getLogger } from '../../../monitoring/logs/Logger';
 import { handleError } from '../../../error/handleError';
 import { getErrorStats } from '../../../error/handleError';
 
-const logger = new Logger({
-  module: 'http:error-report',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('http:error-report');
 
 interface ErrorBatchItem {
   message: string;
@@ -24,6 +21,10 @@ interface ErrorBatchItem {
   code?: string;
   module: string;
   action?: string;
+  /** 请求 payload key 集合（根因 D：只记键名不记值） */
+  payloadKeys?: string[];
+  /** React 组件栈（根因 D：定位 UI 层出错组件） */
+  componentStack?: string;
   timestamp: number;
   stack?: string;
 }
@@ -75,6 +76,8 @@ export async function handleClientErrorReport(
         severity: entry.severity,
         code: entry.code,
         action: entry.action,
+        payloadKeys: entry.payloadKeys,
+        componentStack: entry.componentStack,
       });
     }
 

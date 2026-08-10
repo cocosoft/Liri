@@ -11,11 +11,8 @@ import { MemoryStorage } from './storage/MemoryStorage';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import type { SessionSource } from './key/SessionSource';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'session\SessionFactory',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('session\SessionFactory');
 
 /**
  * 会话工厂

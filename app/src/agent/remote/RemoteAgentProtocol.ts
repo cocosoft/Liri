@@ -12,11 +12,8 @@ import {
 } from './types';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'agent\remote\RemoteAgentProtocol',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('agent\remote\RemoteAgentProtocol');
 
 const DEFAULT_OPTIONS: ProtocolOptions = {
   timeout: 30000,

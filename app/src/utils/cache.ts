@@ -6,11 +6,11 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 
 import { jsonStringify } from './json.js';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 import type { ICache, CacheStats } from '@modules/cache/types';
 
-const logger = new Logger({ module: 'utils:cache', level: LogLevel.INFO });
+const logger = getLogger('utils:cache');
 
 /**
  * LRU缓存条目

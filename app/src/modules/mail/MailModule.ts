@@ -3,7 +3,7 @@
  * 负责邮件模块生命周期管理、Feature Flag 路由、EmailTool 初始化与 ToolManager 注册
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { feature } from '@modules/core';
 import { globalToolManager } from '@modules/tools';
 
@@ -11,10 +11,7 @@ import { MailModuleStatus as Status } from './types';
 import type { MailModuleStatus } from './types';
 import { createMailSendTool } from './tools/MailSendTool';
 
-const logger = new Logger({
-  module: 'mail:lifecycle',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('mail:lifecycle');
 
 /** MailModule 单例 */
 let mailModuleInstance: MailModule | null = null;

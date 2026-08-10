@@ -14,11 +14,8 @@ import type {
 } from '../types';
 import { createToolResult } from '../types/ToolResult';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'tools:BrowserTool:BrowserTool',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('tools:BrowserTool:BrowserTool');
 
 /**
  * 浏览器工具输入类型

@@ -17,11 +17,8 @@ import { permissionModeIntegrationService } from '@modules/chat/services/Permiss
 import { completeSecuritySystem } from '@modules/security';
 
 import { handleError } from '@modules/error';
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'commands:builtin:permissions:Permissions',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('commands:builtin:permissions:Permissions');
 
 const COMMON_PERMISSIONS: Record<
   string,

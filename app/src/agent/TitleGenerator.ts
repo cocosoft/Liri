@@ -4,12 +4,8 @@
  * 在首轮对话完成后异步生成简短标题
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'agent:titleGenerator',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('agent:titleGenerator');
 
 const TITLE_PROMPT =
   'Generate a short, descriptive title (3-7 words) for a conversation that starts with the ' +

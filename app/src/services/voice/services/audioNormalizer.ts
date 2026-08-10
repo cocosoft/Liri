@@ -10,13 +10,10 @@
 
 import { spawn } from 'child_process';
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { isFFmpegAvailable } from './audioFormatConverter.js';
 
-const logger = new Logger({
-  module: 'services:voice:services:audioNormalizer',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('services:voice:services:audioNormalizer');
 
 /** 音频容器类型 */
 export type AudioContainer = 'wav' | 'webm' | 'ogg' | 'mp4' | 'pcm' | 'unknown';

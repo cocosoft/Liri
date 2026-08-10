@@ -20,15 +20,12 @@ import { ProjectContextService } from '../../../project/ProjectContextService';
 import { ImplicitEngineHook } from '../../../project/ImplicitEngineHook';
 import { ProjectItemStore } from '../../../workspace/ProjectItemStore';
 import type { ProjectContext } from '@modules/workspace/types';
-import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
+import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error';
 import { readBody, json } from './handler-utils';
 
-const logger = new Logger({
-  module: 'project:artifactHandlers',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('project:artifactHandlers');
 
 /** P0-3: 存储路径收敛到 resolveDataDir()/projects/ */
 const LIRI_PROJECTS_DIR = join(resolveDataDir(), 'projects');

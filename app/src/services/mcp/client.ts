@@ -5,13 +5,10 @@
 
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import type { ServerCapabilities } from '@modelcontextprotocol/sdk/types.js';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 
-const logger = new Logger({
-  module: 'services:mcp:client',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('services:mcp:client');
 import type {
   MCPServerConnection,
   ScopedMcpServerConfig,

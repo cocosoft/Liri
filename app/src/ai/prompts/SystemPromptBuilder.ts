@@ -9,11 +9,8 @@ import {
 import { getPromptInjectionDetector } from '../../security/injection/PromptInjectionDetector';
 import { getUnicodeSanitizer } from '../../security/injection/UnicodeSanitizer';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'ai\prompts\SystemPromptBuilder',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('ai\prompts\SystemPromptBuilder');
 
 export interface SystemPromptContext {
   platform?: string;

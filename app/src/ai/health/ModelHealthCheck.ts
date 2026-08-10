@@ -4,13 +4,10 @@
  * 对齐 OpenClaw agents/auth-health.ts
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({
-  module: 'ai:health:modelHealthCheck',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('ai:health:modelHealthCheck');
 
 export type ProviderHealthStatus =
   | 'healthy'

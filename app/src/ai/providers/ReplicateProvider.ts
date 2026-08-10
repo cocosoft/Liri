@@ -39,13 +39,10 @@ import type {
   ImageGenerationParams,
   ImageGenerationResult,
 } from './AIProvider';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
-const logger = new Logger({
-  level: LogLevel.INFO,
-  module: 'ai:replicate-provider',
-});
+const logger = getLogger('ai:replicate-provider');
 
 /** Replicate 轮询配置 */
 const POLL_INTERVAL_MS = 2000;

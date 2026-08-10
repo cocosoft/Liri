@@ -12,9 +12,8 @@ import {
 } from '@modules/remote/RemoteSessionManager.js';
 import { SSHConfig } from '@modules/remote/SSHConnection.js';
 import { TerminalComponents } from '@modules/ui/TerminalComponents.js';
-import { Logger } from '@modules/monitoring';
-
-const logger = new Logger({ module: 'RemoteSession' });
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('RemoteSession');
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 /**

@@ -10,9 +10,8 @@
  *   - openclaw prompt-cache.ts（TTL 检查 + 失效策略）
  */
 
-import { Logger } from '@modules/monitoring';
-
-const logger = new Logger({ module: 'ai:promptCache' });
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('ai:promptCache');
 
 /** 缓存命中的统计 */
 export interface CacheStats {

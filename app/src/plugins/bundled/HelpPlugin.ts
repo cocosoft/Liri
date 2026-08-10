@@ -5,12 +5,8 @@
 
 import type { Plugin, PluginMetadata } from '../types';
 import { PluginStatus } from '../types/Plugin.js';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'plugins:bundled:helpPlugin',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('plugins:bundled:helpPlugin');
 
 export const HelpPluginMetadata: PluginMetadata = {
   id: 'help',

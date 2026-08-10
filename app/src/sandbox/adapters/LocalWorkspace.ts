@@ -21,11 +21,8 @@ import {
 
 import { handleError } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'sandbox:adapters:LocalWorkspace',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('sandbox:adapters:LocalWorkspace');
 
 const execAsync = promisify(exec);
 

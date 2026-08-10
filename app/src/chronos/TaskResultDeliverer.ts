@@ -2,15 +2,12 @@
  * F-10: 任务结果投递模块
  * 监听 Chronos 定时任务执行结果，通过 ChannelRegistry 广播到所有已启用的通道
  */
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 import { globalEventBus, SystemEvents } from '@modules/core';
 import { channelRegistry } from '@modules/channels/registry/ChannelRegistry';
 
-const logger = new Logger({
-  module: 'chronos:taskResultDeliverer',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('chronos:taskResultDeliverer');
 
 let initialized = false;
 

@@ -11,11 +11,8 @@ import type { ToolCallProgress } from '../types/Tool';
 import { execSync } from 'child_process';
 import { enterWorktree } from '@modules/workspaces/commands/session';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'tools:EnterWorktreeTool:EnterWorktreeTool',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('tools:EnterWorktreeTool:EnterWorktreeTool');
 
 /**
  * 进入Worktree输入

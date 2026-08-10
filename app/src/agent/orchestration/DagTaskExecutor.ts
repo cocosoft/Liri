@@ -11,8 +11,7 @@
  * 子任务间的依赖关系，执行器自动并行执行独立子任务。
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
-
+import { getLogger } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 import { globalEventBus } from '../../core/events/EventBus.js';
@@ -23,10 +22,7 @@ import type {
   OrchStepCompletedData,
 } from '../events/OrchestrationEvents.js';
 
-const logger = new Logger({
-  module: 'agent:dagExecutor',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('agent:dagExecutor');
 
 /**
  * 超时错误

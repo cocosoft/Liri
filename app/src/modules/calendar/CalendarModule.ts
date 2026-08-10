@@ -3,7 +3,7 @@
  * 负责日历模块生命周期、CalendarTool 集成与 ToolManager 注册
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { feature } from '@modules/core';
 import { globalToolManager } from '@modules/tools';
 
@@ -17,10 +17,7 @@ import {
 } from './tools/CalendarToolWrap';
 import { ScheduleHook } from './ScheduleHook';
 
-const logger = new Logger({
-  module: 'calendar:lifecycle',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('calendar:lifecycle');
 
 /** CalendarModule 单例 */
 let calendarModuleInstance: CalendarModule | null = null;

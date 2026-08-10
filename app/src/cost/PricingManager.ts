@@ -9,11 +9,8 @@ import { ModelPricing } from './ModelPricing.js';
 import { ModelRegistry } from '@modules/ai';
 import { handleError } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'cost:PricingManager',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('cost:PricingManager');
 
 /**
  * 定价版本信息

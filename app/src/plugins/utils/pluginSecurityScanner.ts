@@ -6,12 +6,8 @@
 
 import { readFile, readdir } from 'fs/promises';
 import { join, relative } from 'path';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'plugins:utils:pluginSecurityScanner',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('plugins:utils:pluginSecurityScanner');
 
 /**
  * 危险模式类型

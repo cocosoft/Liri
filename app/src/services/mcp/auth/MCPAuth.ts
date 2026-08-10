@@ -9,12 +9,9 @@ import { feature } from '@modules/featureflags';
 import { OAuthDiscovery, createOAuthStorage } from '@modules/oauth';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
-const logger = new Logger({
-  module: 'services:mcp:auth:MCPAuth',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('services:mcp:auth:MCPAuth');
 
 export class MCPAuthManager {
   private tokens: Map<string, MCPOAuthToken> = new Map();

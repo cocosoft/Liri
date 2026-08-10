@@ -2,10 +2,10 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { randomUUID } from 'crypto';
 import { resolvePyappHome } from '@modules/core';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({ module: 'bridge:device', level: LogLevel.INFO });
+const logger = getLogger('bridge:device');
 
 export interface TrustedDevice {
   deviceId: string;

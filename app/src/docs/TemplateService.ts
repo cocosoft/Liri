@@ -6,11 +6,8 @@
 /**
  * 模板变量类型
  */
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'docs:TemplateService',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('docs:TemplateService');
 
 export type TemplateVariableType =
   | 'string'

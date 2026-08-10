@@ -39,7 +39,7 @@ const { gracefulShutdown, setupGracefulShutdown, registerShutdownHandler } =
     registerShutdownHandler: (handler: () => void) => void;
   };
 import { getMonitoringService } from '@modules/monitoring/index.js';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import {
   resolvePyappHome,
   ensureDataDirectories,
@@ -52,7 +52,7 @@ import {
 } from '@modules/bootstrap/StartupYamlLoader.js';
 import type { StartupConfig } from '@modules/bootstrap/StartupConfig.js';
 
-const logger = new Logger({ module: 'entrypoints:init', level: LogLevel.INFO });
+const logger = getLogger('entrypoints:init');
 
 /** 全局 startup 配置引用 */
 let _startupConfig: StartupConfig | null = null;

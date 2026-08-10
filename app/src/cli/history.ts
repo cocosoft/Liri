@@ -8,8 +8,8 @@ import { join } from 'path';
 import { resolvePyappHome } from '@modules/core';
 import { handleError } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'cli:history', level: LogLevel.INFO });
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('cli:history');
 
 export interface HistoryOptions {
   maxItems?: number;

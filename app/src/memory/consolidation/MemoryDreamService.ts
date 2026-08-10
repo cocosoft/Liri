@@ -9,7 +9,7 @@
  * 后者是"梦境机制产生的数据进入记忆系统"的关键桥接。
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { providerRegistry, modelRouter } from '@modules/ai';
 import { ToolAwareClient } from '@modules/ai';
@@ -26,7 +26,7 @@ import {
 import { createMemoryMetadata } from '../types/MemoryMetadata';
 import type { MemoryManagerImpl } from '../MemoryManager';
 
-const logger = new Logger({ module: 'memory:dream', level: LogLevel.INFO });
+const logger = getLogger('memory:dream');
 
 export interface DreamResult {
   groupsProcessed: number;

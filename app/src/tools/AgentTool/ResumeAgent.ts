@@ -1,9 +1,9 @@
 import { join } from 'path';
 import { resolvePyappHome } from '@modules/core';
-import { Logger } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({ module: 'tools:AgentTool:resumeAgent' });
+const logger = getLogger('tools:AgentTool:resumeAgent');
 
 export type ResumeAgentInput = {
   agentId: string;

@@ -24,12 +24,8 @@
  * 提供性能分析、监控和优化功能
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'performance:index',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('performance:index');
 
 // 导出启动性能分析
 export * from './StartupProfiler.js';

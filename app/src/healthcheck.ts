@@ -3,12 +3,12 @@
  * 用于检查应用的健康状态
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { getMonitoringService } from './monitoring/index.js';
 import { getExtensibilityService } from './core/extensibility/index.js';
 import { pluginSystem } from './plugins/index.js';
 
-const logger = new Logger({ module: 'healthcheck', level: LogLevel.INFO });
+const logger = getLogger('healthcheck');
 
 async function healthCheck() {
   console.log('=== Liri 健康检查 ===');

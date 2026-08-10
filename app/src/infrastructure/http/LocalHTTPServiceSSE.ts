@@ -3,12 +3,8 @@
  */
 
 import http from 'http';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'infrastructure:http:sse',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('infrastructure:http:sse');
 
 /** SSE 客户端集合 */
 const clients = new Set<http.ServerResponse>();

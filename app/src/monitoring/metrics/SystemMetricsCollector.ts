@@ -8,11 +8,8 @@
 import os from 'os';
 import { execFileSync } from 'child_process';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'monitoring:metrics:SystemMetricsCollector',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('monitoring:metrics:SystemMetricsCollector');
 
 // ── CPU 计算器（进程级） ──────────────────────────────────────────
 

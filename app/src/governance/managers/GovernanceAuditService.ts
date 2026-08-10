@@ -13,13 +13,10 @@ import type {
   GovernanceExecutionResult,
   GovernanceEventType,
 } from '../types/GovernanceTypes';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { resolveGovernanceDir } from '@modules/core';
 
-const logger = new Logger({
-  module: 'governance:managers:governanceAuditService',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('governance:managers:governanceAuditService');
 
 /**
  * 审计事件

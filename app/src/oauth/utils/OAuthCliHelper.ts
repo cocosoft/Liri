@@ -11,9 +11,8 @@ import type { AuthorizationCodeFlow } from '../flows/AuthorizationCodeFlow';
 import type { OAuthAuthResult } from '../types/OAuthTypes';
 import type { AuthorizationCodeFlowOptions } from '../flows/AuthorizationCodeFlow';
 import { readLineFromStdin } from './OAuthIo';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({ module: 'oauth:utils:cli', level: LogLevel.INFO });
+import { getLogger, Logger } from '@modules/monitoring';
+const logger = getLogger('oauth:utils:cli');
 
 /**
  * 通过 CLI 交互完成完整授权流程

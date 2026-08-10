@@ -35,7 +35,7 @@ import { createHash } from 'crypto';
 import { existsSync, mkdirSync, readdirSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import AdmZip from 'adm-zip';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import {
   AppError,
   ErrorCategory,
@@ -48,7 +48,7 @@ import {
   resolveLlamaModelsDir,
 } from '@modules/core/paths';
 
-const logger = new Logger({ module: 'ai:llama', level: LogLevel.INFO });
+const logger = getLogger('ai:llama');
 
 /** 锁定 llama.cpp Release 版本（不追 latest，升级需显式更新；格式 b<5位数字>） */
 export const LLAMA_VERSION = 'b10225';

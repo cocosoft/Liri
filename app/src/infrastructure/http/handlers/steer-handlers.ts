@@ -5,9 +5,8 @@
  */
 import type http from 'http';
 import { sendError, readRequestBody, type HandlerCtx } from './handler-utils';
-import { Logger } from '@modules/monitoring';
-
-const logger = new Logger({ module: 'http:steer' });
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('http:steer');
 
 /** Steering 安全过滤器 */
 const STEERING_FILTER = {

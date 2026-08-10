@@ -10,9 +10,8 @@
  */
 
 import { randomUUID } from 'crypto';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({ module: 'OrchIntelligence', level: LogLevel.INFO });
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('OrchIntelligence');
 
 // ==================== 类型定义 ====================
 

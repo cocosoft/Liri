@@ -15,13 +15,13 @@
 import { readdir, unlink } from 'fs/promises';
 import { join } from 'path';
 import { existsSync } from 'fs';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { resolveInboundBaseDir } from '@modules/core';
 import { FileRegistry } from './FileRegistry';
 import { FILES_TABLE } from './fileSchema';
 
-const logger = new Logger({ module: 'services:file:gc', level: LogLevel.INFO });
+const logger = getLogger('services:file:gc');
 
 export interface GCResult {
   /** 扫描的文件总数 */

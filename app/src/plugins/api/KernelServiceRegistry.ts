@@ -5,13 +5,10 @@
  * 支持基于插件 ID 的访问控制（白名单模式）
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
-const logger = new Logger({
-  module: 'plugins:api:kernelServiceRegistry',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('plugins:api:kernelServiceRegistry');
 
 /**
  * 内核服务标识符枚举

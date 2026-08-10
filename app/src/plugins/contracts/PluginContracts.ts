@@ -4,17 +4,14 @@
  * 对齐 OpenClaw plugins/contracts/ 设计
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import {
   PLUGIN_CATEGORIES,
   validatePluginInterfaces,
 } from '@modules/plugins/categories/PluginCategories';
 import type { PluginCapability } from '@modules/plugins/categories/PluginCategories';
 
-const logger = new Logger({
-  module: 'plugins:contracts:pluginContracts',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('plugins:contracts:pluginContracts');
 
 export interface PluginContract {
   capability: PluginCapability;

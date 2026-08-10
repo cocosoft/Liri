@@ -7,7 +7,7 @@
 
 import { Database } from '@modules/core/external/sqlite3';
 import { resolveDbPath } from '@modules/core/paths';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import {
   AppError,
   ErrorCategory,
@@ -16,10 +16,7 @@ import {
 } from '@modules/error';
 import type { TaskNode, TaskStatus, TaskType } from './types';
 
-const logger = new Logger({
-  module: 'workspace:TaskStore',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('workspace:TaskStore');
 
 const TABLE_NAME = 'tasks';
 

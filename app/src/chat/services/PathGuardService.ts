@@ -17,12 +17,12 @@ import * as path from 'path';
 import * as fs from 'fs/promises';
 import { existsSync } from 'fs';
 import { homedir } from 'os';
-import { Logger, getOTelTracing } from '@modules/monitoring';
+import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { PROJECT_ROOT, LIRI_HOME } from '@modules/core/paths';
 import type { SessionConfirmedPaths } from './SessionConfirmedPaths';
 import { defaultWhitelist } from './PathWhitelist';
 
-const guardLogger = new Logger({ module: 'ai:path-guard' });
+const guardLogger = getLogger('ai:path-guard');
 
 // ============================================================
 // 路径正则（模块级常量）

@@ -15,11 +15,8 @@ import * as os from 'os';
 import * as fs from 'fs';
 import { configManager } from '@modules/config';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'tools:ExpansionTools',
-  level: LogLevel.INFO,
-});
+import { getLogger, Logger } from '@modules/monitoring';
+const logger = getLogger('tools:ExpansionTools');
 
 // ─── 决策工具 ─────────────────────────────────────────────────────────────────
 

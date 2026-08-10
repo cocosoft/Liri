@@ -9,11 +9,8 @@ import { resolveLogsDir } from '@modules/core';
 import { logForDebugging } from '@modules/utils/debug.js';
 import { errorMessage, handleError } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'monitoring:exporters:FileExporter',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('monitoring:exporters:FileExporter');
 
 /**
  * 导出数据

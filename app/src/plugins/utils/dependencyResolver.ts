@@ -10,11 +10,8 @@ import { parsePluginIdentifier } from './pluginIdentifier.js';
 import type { PluginId } from './schemas.js';
 import { PluginError } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'plugins:utils:dependencyResolver',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('plugins:utils:dependencyResolver');
 
 /**
  * 依赖查找结果

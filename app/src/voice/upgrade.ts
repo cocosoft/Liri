@@ -3,7 +3,7 @@
  * 使用 Node.js 内置 http + crypto + net 模块实现 RFC 6455
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 import type { IncomingMessage, ServerResponse } from 'http';
 import type { Socket } from 'net';
@@ -14,7 +14,7 @@ import type {
   VoiceServerEvent,
 } from './types';
 
-const logger = new Logger({ module: 'voice:upgrade', level: LogLevel.INFO });
+const logger = getLogger('voice:upgrade');
 
 /** WebSocket 魔术 GUID (RFC 6455) */
 const MAGIC_GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';

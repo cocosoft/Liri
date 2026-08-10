@@ -17,12 +17,9 @@ import type { TaskState } from './types';
 import type { BashTaskOptions } from './types';
 import { taskRegistry } from './TaskRegistry';
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-const logger = new Logger({
-  module: 'tasks:LocalBashTask',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('tasks:LocalBashTask');
 
 /** 卡死检测间隔（毫秒） */
 const STALL_CHECK_INTERVAL_MS = 5_000;

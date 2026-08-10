@@ -3,7 +3,7 @@
  */
 
 import { EventEmitter } from 'events';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import {
   PluginDependency,
   PluginDependencyResolution,
@@ -11,10 +11,7 @@ import {
 } from '../types/PluginTypes';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
-const logger = new Logger({
-  module: 'plugins:management:pluginDependencyManager',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('plugins:management:pluginDependencyManager');
 
 /**
  * 依赖解析结果

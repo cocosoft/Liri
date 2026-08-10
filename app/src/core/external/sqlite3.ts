@@ -30,12 +30,9 @@
 import { mkdirSync } from 'fs';
 import { dirname } from 'path';
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-const logger = new Logger({
-  module: 'core:external:sqlite3',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('core:external:sqlite3');
 
 // 使用 Bun 内置的 sqlite
 const { Database: BunDB } = require('bun:sqlite') as {

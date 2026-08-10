@@ -27,15 +27,12 @@
 
 import https from 'https';
 import http from 'http';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import type { ThirdPartySkillSearchResult } from '../ThirdPartySkillAdapter';
 import type { ClawHubSkillMeta } from './ClawHubMeta';
 import { checkSsrf } from '../../../../tools/WebFetchTool/ssrf';
 
-const logger = new Logger({
-  module: 'skills:clawHubApi',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('skills:clawHubApi');
 
 /** 重定向最大跳数（S1-4） */
 const MAX_REDIRECTS = 3;

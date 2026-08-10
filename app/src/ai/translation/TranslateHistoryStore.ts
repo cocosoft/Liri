@@ -11,7 +11,7 @@
 import { Database } from '../../core/external/sqlite3';
 import { randomUUID } from 'crypto';
 import { resolveDbPath } from '../../core/paths';
-import { Logger, LogLevel } from '../../monitoring/logs/Logger';
+import { getLogger } from '../../monitoring/logs/Logger';
 import { handleError } from '../../error/handleError';
 import type {
   TranslateHistoryRecord,
@@ -20,10 +20,7 @@ import type {
 } from './types';
 
 const TABLE_NAME = 'translate_history';
-const logger = new Logger({
-  level: LogLevel.INFO,
-  module: 'ai:translation:history',
-});
+const logger = getLogger('ai:translation:history');
 
 export class TranslateHistoryStore {
   private static instance: TranslateHistoryStore;

@@ -12,11 +12,8 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import type { MCPServerConfig } from './types';
 import type { McpTlsConfig } from './transports/McpTlsManager';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'services\mcp\TransportFactory',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('services\mcp\TransportFactory');
 
 /**
  * 传输层配置

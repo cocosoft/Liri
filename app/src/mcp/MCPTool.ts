@@ -9,8 +9,8 @@ import { MCPServerConfig, MCPToolDefinition } from './types';
 import { getMCPServerManager } from '../services/mcp/MCPServerManager.js';
 import { configManager } from '@modules/config';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'mcp:MCPTool', level: LogLevel.INFO });
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('mcp:MCPTool');
 
 /** 自动审批白名单缓存 */
 let _autoApproveCache: Map<string, string[]> | null = null;

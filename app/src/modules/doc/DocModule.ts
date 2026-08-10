@@ -3,7 +3,7 @@
  * 负责模块生命周期管理、Feature Flag 路由、MCP 集成协调
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { feature, resolveOutputDir } from '@modules/core';
 import { join } from 'path';
 import { readdirSync, statSync } from 'fs';
@@ -36,10 +36,7 @@ import { DocOrchestrator } from './orchestration/DocOrchestrator';
 import { TemplateEngine } from './template/TemplateEngine';
 import { TemplateMarketplace } from './template/TemplateMarketplace';
 
-const logger = new Logger({
-  module: 'doc:lifecycle',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('doc:lifecycle');
 
 /** doc 模块单例 */
 let docModuleInstance: DocModule | null = null;

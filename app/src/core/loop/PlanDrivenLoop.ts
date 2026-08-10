@@ -15,7 +15,7 @@
  *   4. 分解失败降级为单步执行（不阻塞主流程）
  */
 
-import { Logger } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { getOTelTracing } from '@modules/monitoring/otel';
 import { TAORLoop } from '../../query/TAORLoop.js';
@@ -26,7 +26,7 @@ import { taskOrchestrator } from '../../tasks/TaskOrchestrator.js';
 import type { Plan, PlanProgress } from '../../tasks/TaskOrchestrator.js';
 import type { AIProvider } from '../../ai/providers/AIProvider.js';
 
-const logger = new Logger({ module: 'core:planDrivenLoop' });
+const logger = getLogger('core:planDrivenLoop');
 
 // ─── 类型定义 ──────────────────────────────────────────
 

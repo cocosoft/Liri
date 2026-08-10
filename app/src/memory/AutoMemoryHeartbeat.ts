@@ -9,10 +9,10 @@
  *   - case trace 可观测（记录每次心跳的检索/提取结果）
  *   - 优雅降级（心跳失败不阻断主流程）
  */
-import { Logger } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({ module: 'memory:heartbeat' });
+const logger = getLogger('memory:heartbeat');
 
 export interface HeartbeatConfig {
   /** 心跳间隔（ms），默认 30 分钟 */

@@ -9,9 +9,8 @@
 import { spawn, type ChildProcess } from 'child_process';
 import path from 'path';
 import { createInterface } from 'readline';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({ level: LogLevel.INFO, module: 'ai:python:bridge' });
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('ai:python:bridge');
 
 /** 启动超时 (ms) */
 const STARTUP_TIMEOUT_MS = 3000;

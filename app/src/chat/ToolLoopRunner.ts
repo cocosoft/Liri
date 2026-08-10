@@ -51,14 +51,11 @@ import {
 import { StreamingToolCallScrubber } from '../streaming/scrubbers/StreamingToolCallScrubber';
 import { repairImageUrls } from './services/ChatHelper';
 import { handleError } from '@modules/error';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { getOTelTracing } from '@modules/monitoring/otel';
 import { trackUsage } from '@modules/ai';
 
-const logger = new Logger({
-  module: 'chat:toolLoopRunner',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('chat:toolLoopRunner');
 
 /* ===================================================================
  *  ToolLoopContext — 工具循环所需的全部外部依赖

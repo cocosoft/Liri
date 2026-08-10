@@ -4,11 +4,8 @@
  */
 
 import { ReleaseNote } from './types.js';
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'docs:ReleaseNotes',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('docs:ReleaseNotes');
 
 /**
  * 默认释放说明

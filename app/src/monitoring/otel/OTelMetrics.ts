@@ -24,11 +24,8 @@ import { logForDebugging } from '@modules/utils/debug.js';
 import { errorMessage } from '@modules/error';
 import { getPlatform, getWslVersion } from '@modules/utils/platform.js';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'monitoring\otel\OTelMetrics',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('monitoring\otel\OTelMetrics');
 
 /**
  * 指标配置

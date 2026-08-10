@@ -27,12 +27,8 @@
  * 支持本地供应商（Ollama、LM Studio、LocalAI）的特殊处理。
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'ai:providers:modelFetcher',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('ai:providers:modelFetcher');
 
 const FETCH_TIMEOUT_MS = 15000;
 

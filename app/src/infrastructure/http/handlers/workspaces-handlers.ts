@@ -23,7 +23,7 @@ import type http from 'http';
 import type { HandlerCtx } from './handler-utils';
 import type { SessionInfo } from '@modules/runtime/api/CoreAPI';
 import { handleError } from '@modules/error';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import {
   createLiriConfigManager,
@@ -33,7 +33,7 @@ import { createWorkItemStore } from '@modules/workspace/WorkItemStore';
 import { createChangeSetStore } from '@modules/workspace/ChangeSetStore';
 import { createProjectStore } from '@modules/workspace/ProjectStore';
 
-const logger = new Logger({ module: 'http:workspaces', level: LogLevel.INFO });
+const logger = getLogger('http:workspaces');
 
 // ========== Workspaces Handlers ==========
 

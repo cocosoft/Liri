@@ -5,12 +5,8 @@ import type {
   PruningContext,
   PruningConfig,
 } from './PruningStrategy';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'session:countPruner',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('session:countPruner');
 
 const DEFAULT_MAX_MESSAGES = 500;
 

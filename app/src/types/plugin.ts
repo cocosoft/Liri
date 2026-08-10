@@ -8,8 +8,8 @@ export type { LoadedPlugin };
 
 import { PluginError } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'types\plugin', level: LogLevel.INFO });
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('types\plugin');
 export { PluginError };
 
 // ====================================

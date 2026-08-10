@@ -3,13 +3,10 @@
  * 负责处理MCP服务器的资源功能（集合管理 + 资源类型处理）
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 
-const logger = new Logger({
-  module: 'services:mcp:resourceManager',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('services:mcp:resourceManager');
 import type { ServerResource } from './types';
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js';
 

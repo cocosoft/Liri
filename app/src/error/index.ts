@@ -83,9 +83,8 @@ export * from './context';
 export { handleError } from './handleError';
 export type { HandleErrorOptions } from './handleError';
 
-import { Logger } from '@modules/monitoring';
-
-const logger = new Logger({ module: 'error:system' });
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('error:system');
 
 // 高级错误分析（预留）
 

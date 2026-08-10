@@ -5,11 +5,8 @@ import {
   handleError,
 } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'chat:streaming:AdvancedStreamingProcessor',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('chat:streaming:AdvancedStreamingProcessor');
 
 export enum StreamState {
   IDLE = 'idle',

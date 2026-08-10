@@ -30,12 +30,8 @@ import { DreamPersistence } from './DreamPersistence';
 import { computeNextCronRunMs } from '@modules/tasks/cron/CronParser';
 import type { DreamSchedulerConfig, DreamTriggerSource } from './types';
 import { DEFAULT_DREAM_SCHEDULER_CONFIG } from './types';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'dream:dreamScheduler',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('dream:dreamScheduler');
 
 export type DreamTriggerCallback = (
   source: DreamTriggerSource

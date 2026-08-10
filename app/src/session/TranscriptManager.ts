@@ -25,12 +25,8 @@ import type {
 } from './types/Transcript.js';
 import { isTranscriptMessage, isChainParticipant } from './types/Transcript.js';
 import { handleError } from '@modules/error';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'session:transcriptManager',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('session:transcriptManager');
 
 import type { UnifiedSessionStorage } from './storage/UnifiedStorage.js';
 

@@ -36,9 +36,8 @@ import {
   type EventListener,
   type EventSubscription,
 } from '../../core/events/EventBus';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({ level: LogLevel.INFO, module: 'channels:events' });
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('channels:events');
 
 /** 通道域事件总线单例 */
 export const channelEventBus: EventBus = new EventBusImpl((message: string) => {

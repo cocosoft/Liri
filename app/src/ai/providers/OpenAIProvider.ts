@@ -42,7 +42,7 @@ import type {
   VideoGenerationResult,
 } from './AIProvider';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { configManager } from '@modules/config';
 import { ChatCompletionsTransport } from '../transports/ChatCompletionsTransport';
 import { TransportProviderAdapter } from '../transports/TransportProviderAdapter';
@@ -50,7 +50,7 @@ import { ALL_MODEL_CONFIGS, getModelsByProvider } from '../models/ModelConfigs';
 import { BaseAIProvider, type BaseProviderOptions } from './BaseAIProvider';
 import { randomUUID } from 'crypto';
 
-const logger = new Logger({ module: 'ai:openai', level: LogLevel.INFO });
+const logger = getLogger('ai:openai');
 
 const DEFAULT_BASE_URL = 'https://api.openai.com/v1';
 

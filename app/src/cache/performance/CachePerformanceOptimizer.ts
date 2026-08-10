@@ -1,9 +1,6 @@
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
-const logger = new Logger({
-  module: 'cache:performance:CachePerformanceOptimizer',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('cache:performance:CachePerformanceOptimizer');
 
 export interface MemoryPool {
   id: string;

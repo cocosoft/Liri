@@ -1,8 +1,8 @@
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { configManager } from '@modules/config';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'constants\oauth', level: LogLevel.INFO });
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('constants\oauth');
 
 /**
  * OAuth 配置常量

@@ -253,11 +253,8 @@ export function hasRedirects(commands: SimpleCommand[]): boolean {
 import type { IParsedCommand } from './ParsedCommand';
 
 import { handleError } from '@modules/error';
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'security:bash:BashAST',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('security:bash:BashAST');
 export type CommandArg = string;
 export type RedirectInfo = Redirect;
 export type EnvAssignment = { name: string; value: string };

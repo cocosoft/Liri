@@ -1,4 +1,4 @@
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import {
   DeliveryAdapter,
@@ -7,10 +7,7 @@ import {
   type DeliveryMessage,
 } from '../adapter/DeliveryAdapter';
 
-const logger = new Logger({
-  module: 'core:delivery:notifier:failureNotifier',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('core:delivery:notifier:failureNotifier');
 
 export interface FailureContext {
   taskId: string;

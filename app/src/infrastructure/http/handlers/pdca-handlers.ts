@@ -32,14 +32,14 @@ import { resolveDataSubDir, resolvePyappHome } from '@modules/core';
 import { sendError, readRequestBody, broadcastEvent } from './handler-utils';
 
 import { handleError } from '@modules/error';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import {
   readPdcaCheckpoint,
   writePdcaCheckpoint,
   syncPdcaWorkItemStatus,
 } from '@modules/tasks/PdcaWorkItemBridge';
 
-const logger = new Logger({ module: 'pdca:handlers', level: LogLevel.INFO });
+const logger = getLogger('pdca:handlers');
 
 /** PDCA 检查点目录 */
 const PDCA_CHECKPOINT_DIR = join(resolveDataSubDir('pdca'));

@@ -4,12 +4,8 @@
  *
  * 结构化收集工具执行过程中的错误信息，支持按轮次查询和汇总统计。
  */
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'query:toolErrorCollector',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('query:toolErrorCollector');
 
 /**
  * 结构化工具错误（对标 Hermes ToolError）

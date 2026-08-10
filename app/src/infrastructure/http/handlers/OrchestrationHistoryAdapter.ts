@@ -15,9 +15,8 @@ import { randomUUID } from 'crypto';
 import { globalEventBus } from '../../../core/events/EventBus.js';
 import { OrchestrationEventType } from '../../../agent/events/OrchestrationEvents.js';
 import { AgentEventType } from '../../../agent/events/types.js';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({ module: 'http:orchHistory', level: LogLevel.INFO });
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('http:orchHistory');
 
 /** 编排历史事件记录 */
 export interface OrchestrationHistoryRecord {

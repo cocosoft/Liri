@@ -27,7 +27,7 @@
  * 编排顺序由 runStreamMessage 控制，各阶段为纯函数。
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { SimpleMutex } from '@modules/core/SimpleMutex';
 import { PlainTextCheckpoint } from '../services/PlainTextCheckpoint.js';
@@ -58,7 +58,7 @@ import type { ToolDefinition, ParsedToolCall } from '@modules/ai';
 import type { ChatMessage, ThinkingProviderChunk } from '@modules/ai';
 import type { ChatStreamChunk } from '@modules/runtime/api/CoreAPI.js';
 
-const logger = new Logger({ module: 'chat:streamFlow', level: LogLevel.INFO });
+const logger = getLogger('chat:streamFlow');
 
 /**
  * 流式编排入口 — 由 ChatOrchestrator.streamMessage 委托

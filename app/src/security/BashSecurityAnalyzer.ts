@@ -82,12 +82,8 @@ import {
 import { configManager } from '@modules/config';
 import type { PermissionConfig } from '@modules/config/types';
 import { loadRules } from '@modules/config/types';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'security:bashAnalyzer',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('security:bashAnalyzer');
 
 /** 标记原生分析器是否已降级 */
 let nativeDegraded = false;

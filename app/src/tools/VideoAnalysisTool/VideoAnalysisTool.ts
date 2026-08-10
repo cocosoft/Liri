@@ -31,17 +31,14 @@
 
 import { BaseTool } from '../BaseTool';
 import type { ToolUseContext, ToolResult, ToolParam } from '../types';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { execSync } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs';
 import { randomUUID } from 'crypto';
 import { resolveTempDir } from '@modules/core/paths';
 
-const logger = new Logger({
-  level: LogLevel.INFO,
-  module: 'tools:video-analysis',
-});
+const logger = getLogger('tools:video-analysis');
 
 /** 支持的视频格式 */
 const SUPPORTED_VIDEO_FORMATS = ['mp4', 'webm', 'mov', 'avi', 'mkv', 'mpeg'];

@@ -8,11 +8,8 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { handleError } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'context:gitDetector',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('context:gitDetector');
 
 const MAX_STATUS_CHARS = 2000;
 

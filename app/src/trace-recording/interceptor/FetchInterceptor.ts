@@ -15,12 +15,9 @@ import type { TraceRecord, SSERawEvent } from '../types';
 import { extractModelName } from './URLMatcher';
 import crypto from 'crypto';
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-const logger = new Logger({
-  module: 'trace-recording:interceptor:FetchInterceptor',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('trace-recording:interceptor:FetchInterceptor');
 
 /** 拦截器回调 - 当有流量被录制时触发 */
 export type InterceptorCallback = (record: TraceRecord) => void | Promise<void>;

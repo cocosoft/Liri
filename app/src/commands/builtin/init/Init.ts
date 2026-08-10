@@ -3,11 +3,8 @@
  */
 import type { CommandContext, CommandResult } from '@modules/commands';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'commands:builtin:init:Init',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('commands:builtin:init:Init');
 
 export default {
   /**

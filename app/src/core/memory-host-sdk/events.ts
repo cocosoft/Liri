@@ -1,12 +1,9 @@
 import path from 'path';
 import fs from 'fs/promises';
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-const logger = new Logger({
-  module: 'core:memory-host-sdk:events',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('core:memory-host-sdk:events');
 
 export const MEMORY_HOST_EVENT_LOG_RELATIVE_PATH = path.join(
   'memory',

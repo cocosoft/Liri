@@ -4,9 +4,8 @@
  * 对齐 OpenClaw config/sessions/reset-policy.ts
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({ module: 'sandbox:policy', level: LogLevel.INFO });
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('sandbox:policy');
 
 export interface SandboxToolPolicy {
   allowedTools: Set<string>;

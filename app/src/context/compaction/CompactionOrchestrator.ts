@@ -21,13 +21,10 @@ import { applyMicroCompaction } from './MicroCompactionEngine';
 import { snipMessages } from './SnipEngine';
 import { hookRegistry } from '../hooks/CompactionHooks';
 import { compactionMetricsTracker } from './CompactionMetrics';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({
-  module: 'context:compaction:orchestrator',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('context:compaction:orchestrator');
 
 // 缓存动态 import 避免每次 Tier 3 压缩重复解析模块
 let cachedAiModule: {

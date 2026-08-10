@@ -17,9 +17,8 @@
  * 非法状态转换会触发 logger.warning 但不抛异常（非关键路径）。
  */
 
-import { Logger } from '@modules/monitoring';
-
-const logger = new Logger({ module: 'query:trackedTool' });
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('query:trackedTool');
 
 // ============================================================
 // State Enum

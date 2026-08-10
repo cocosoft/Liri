@@ -6,9 +6,8 @@
 
 import sharp from 'sharp';
 import { resolveOutputDir } from '@modules/core/paths';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({ level: LogLevel.INFO, module: 'tools:canvas' });
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('tools:canvas');
 
 /** 支持的画布元素类型 */
 export interface CanvasElement {

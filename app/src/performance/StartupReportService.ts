@@ -7,12 +7,9 @@ import path from 'path';
 import fs from 'fs';
 import { resolveDataSubDir, resolveProjectRoot } from '@modules/core';
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-const logger = new Logger({
-  module: 'performance:StartupReportService',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('performance:StartupReportService');
 
 /**
  * 启动报告配置

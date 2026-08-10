@@ -11,9 +11,8 @@
  *   4. 辅助 LLM 二次确认（成本 < $0.001/次）
  */
 
-import { Logger } from '@modules/monitoring';
-
-const logger = new Logger({ module: 'tools:smartApproval' });
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('tools:smartApproval');
 
 export type ApprovalDecision = 'auto_allow' | 'auto_deny' | 'needs_review';
 

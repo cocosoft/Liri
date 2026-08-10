@@ -11,12 +11,8 @@ import {
   UserInfo,
 } from '@modules/oauth';
 import { OAuthClient } from '@modules/oauth';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'mcp:auth:oauthProvider',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('mcp:auth:oauthProvider');
 
 export class MCPOAuthProvider implements OAuthProvider {
   id: string;

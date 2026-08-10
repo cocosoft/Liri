@@ -8,9 +8,8 @@
  */
 import { existsSync, readFileSync, writeFileSync, unlinkSync } from 'fs';
 import { createHash } from 'crypto';
-import { Logger } from '@modules/monitoring';
-
-const logger = new Logger({ module: 'memory:driftDetector' });
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('memory:driftDetector');
 
 export interface DriftSnapshot {
   filePath: string;

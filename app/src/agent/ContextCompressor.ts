@@ -5,12 +5,8 @@
 import aiService from '@modules/ai';
 import { AIMessageRole } from '@modules/ai';
 import type { AIModelType } from '@modules/ai';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'agent:contextCompressor',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('agent:contextCompressor');
 
 export interface CompressibleMessage {
   role: 'system' | 'user' | 'assistant' | 'tool';

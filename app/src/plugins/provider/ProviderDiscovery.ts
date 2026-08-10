@@ -11,11 +11,8 @@ import { configManager } from '@modules/config';
 import { handleError } from '@modules/error';
 import { existsSync, readFileSync } from 'fs';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'plugins:provider:ProviderDiscovery',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('plugins:provider:ProviderDiscovery');
 
 /**
  * 发现策略

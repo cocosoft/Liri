@@ -11,12 +11,9 @@ import type {
   SendResult,
 } from '@modules/channels/types';
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-const logger = new Logger({
-  module: 'channels:sms:SmsChannel',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('channels:sms:SmsChannel');
 
 /**
  * SMS 配置

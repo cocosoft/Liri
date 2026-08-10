@@ -16,12 +16,9 @@ import { getConfigHomeDir, isEnvTruthy } from '../utils/envUtils.js';
 import fs from 'fs';
 import { getPerformanceConfig } from './PerformanceConfig.js';
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-const logger = new Logger({
-  module: 'performance:StartupProfiler',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('performance:StartupProfiler');
 
 // 模块级状态 - 延迟初始化避免循环依赖
 let DETAILED_PROFILING: boolean | undefined;

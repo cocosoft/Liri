@@ -5,12 +5,8 @@ import type {
   PruningContext,
   PruningConfig,
 } from './PruningStrategy';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'session:agePruner',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('session:agePruner');
 
 const DEFAULT_MAX_MESSAGE_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 

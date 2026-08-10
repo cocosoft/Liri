@@ -12,7 +12,7 @@ import { deflateRawSync } from 'zlib';
 import { BaseTool } from '../BaseTool';
 import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import {
   DEFAULT_CN_FONT,
@@ -21,10 +21,7 @@ import {
   resolveLanguage,
   type LangKey,
 } from '@modules/system/i18n/languageProfiles';
-const logger = new Logger({
-  module: 'tools:DocGenerateTool',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('tools:DocGenerateTool');
 
 /** 支持的文档类型（html 为原生生成，不依赖 officecli） */
 const VALID_TYPES = ['docx', 'xlsx', 'pptx', 'html'] as const;

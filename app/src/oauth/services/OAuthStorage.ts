@@ -13,12 +13,12 @@
 import { createCipheriv, createDecipheriv, randomBytes } from 'crypto';
 import { readFile, writeFile, mkdir, access } from 'fs/promises';
 import { join } from 'path';
-import { Logger } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { resolvePyappHome } from '@modules/core';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { configManager } from '@modules/config';
 
-const logger = new Logger({ module: 'OAuthStorage' });
+const logger = getLogger('OAuthStorage');
 
 const ALGORITHM = 'aes-256-gcm';
 const IV_LENGTH = 16;

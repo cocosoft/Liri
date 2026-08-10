@@ -9,11 +9,11 @@
  *   3. 默认 200K
  * 说明：context_window 为模型注册数据（DB model_registry），代码不维护硬编码模型名表。
  */
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { Database } from '@modules/core/external/sqlite3';
 import { resolveDbPath } from '@modules/core';
 
-const logger = new Logger({ module: 'context:window', level: LogLevel.INFO });
+const logger = getLogger('context:window');
 
 /** 默认 fallback 上下文窗口（tokens） */
 const DEFAULT_CONTEXT_WINDOW = 200_000;

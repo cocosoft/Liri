@@ -25,8 +25,8 @@ import {
   handleError,
 } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'lsp:LSPClient', level: LogLevel.INFO });
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('lsp:LSPClient');
 
 interface PendingRequest {
   resolve: (value: unknown) => void;

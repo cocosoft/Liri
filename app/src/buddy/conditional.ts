@@ -1,10 +1,7 @@
 ﻿import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'buddy\conditional',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('buddy\conditional');
 
 /**
  * Buddy条件编译支持

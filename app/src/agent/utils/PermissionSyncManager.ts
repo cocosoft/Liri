@@ -5,13 +5,10 @@
  * 参考CC源码 cc_code/backend/utils/swarm/permissionSync.ts 实现
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 
-const logger = new Logger({
-  module: 'agent:utils:permissionSyncManager',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('agent:utils:permissionSyncManager');
 
 /**
  * 权限更新类型

@@ -13,7 +13,7 @@ import type {
   AIProvider,
 } from '../../../ai/providers/AIProvider';
 import type { ImageGenerationProvider, CostEstimate } from '../types';
-import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
+import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 import { SpanStatusCode } from '@opentelemetry/api';
 import {
@@ -21,10 +21,7 @@ import {
   RouteKey,
 } from '../../../ai/router/resolveModelRoute.js';
 
-const logger = new Logger({
-  level: LogLevel.INFO,
-  module: 'tools:imageGenerate',
-});
+const logger = getLogger('tools:imageGenerate');
 
 export class RegistryImageProvider implements ImageGenerationProvider {
   readonly name: string;

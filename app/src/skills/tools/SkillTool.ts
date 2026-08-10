@@ -5,9 +5,8 @@
 import { resolve, relative, isAbsolute } from 'path';
 import type { SkillDefinition } from '../utils/skillParser';
 import { SkillParser } from '../utils/skillParser';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({ module: 'skills:tool', level: LogLevel.INFO });
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('skills:tool');
 
 /**
  * 技能执行上下文

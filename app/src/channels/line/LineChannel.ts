@@ -14,11 +14,8 @@ import type {
 import { TTLCache } from '@modules/utils/cache';
 import { handleError } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'channels:line:LineChannel',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('channels:line:LineChannel');
 
 const LINE_API_BASE = 'https://api.line.me/v2/bot';
 

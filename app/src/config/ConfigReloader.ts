@@ -4,16 +4,13 @@
  * 对齐 OpenClaw config/config-reload.ts
  */
 
-import { Logger, LogLevel } from '../monitoring/logs/Logger.js';
+import { getLogger } from '../monitoring/logs/Logger.js';
 import { handleError } from '@modules/error';
 import { watch, type FSWatcher } from 'fs';
 import { join } from 'path';
 import { EventEmitter } from 'events';
 
-const logger = new Logger({
-  module: 'config:configReloader',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('config:configReloader');
 
 export interface ConfigChangeEvent {
   filePath: string;

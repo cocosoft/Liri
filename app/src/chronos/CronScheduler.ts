@@ -33,7 +33,7 @@ import {
   jitteredNextCronRunMs,
 } from './cronJitterConfig';
 import { cronToHuman } from './cron';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 import { CronFileWatcher, cronFileWatcher } from './watcher/CronFileWatcher';
 import { taskRegistry } from '@modules/tasks/TaskRegistry';
@@ -41,10 +41,7 @@ import { BaseTask } from '@modules/tasks/BaseTask';
 import { TaskType, TaskStatus } from '@modules/tasks/types';
 import { globalEventBus, SystemEvents } from '@modules/core';
 
-const logger = new Logger({
-  module: 'chronos:cronScheduler',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('chronos:cronScheduler');
 
 const CHECK_INTERVAL_MS = 1000;
 const LOCK_PROBE_INTERVAL_MS = 5000;

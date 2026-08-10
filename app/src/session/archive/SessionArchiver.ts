@@ -1,5 +1,5 @@
 import { handleError } from '@modules/error';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { ArchiveStorage } from './ArchiveStorage';
 import type {
   ArchiveConfig,
@@ -12,7 +12,7 @@ import { DEFAULT_ARCHIVE_CONFIG } from './ArchiveTypes';
 import type { UnifiedSession } from '../types/Session';
 import type { UnifiedMessage } from '../types/Message';
 
-const logger = new Logger({ module: 'session:archiver', level: LogLevel.INFO });
+const logger = getLogger('session:archiver');
 
 export interface ArchivableSession {
   id: string;

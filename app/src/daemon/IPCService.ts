@@ -1,14 +1,11 @@
 import http from 'http';
 import fs from 'fs';
 import path from 'path';
-import { Logger, LogLevel } from '../monitoring/logs/Logger';
+import { getLogger } from '../monitoring/logs/Logger';
 import { getMonitoringService } from '../monitoring/MonitoringService';
 import { resolveDataDir } from '@modules/core';
 
-const logger = new Logger({
-  level: LogLevel.INFO,
-  module: 'daemon:ipcService',
-});
+const logger = getLogger('daemon:ipcService');
 
 export interface IPCMessage {
   type: string;

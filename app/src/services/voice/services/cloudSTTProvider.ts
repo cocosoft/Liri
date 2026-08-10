@@ -11,7 +11,7 @@
  */
 
 import { request as httpsRequest, RequestOptions } from 'https';
-import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
+import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import type { STTProvider, STTStreamConnection } from './sttProvider';
 import type {
@@ -21,7 +21,7 @@ import type {
   STTStreamOptions,
 } from '../models/types';
 
-const logger = new Logger({ module: 'voice:stt:cloud' });
+const logger = getLogger('voice:stt:cloud');
 
 /** OpenAI Whisper API 端点 */
 const OPENAI_STT_ENDPOINT = 'api.openai.com';

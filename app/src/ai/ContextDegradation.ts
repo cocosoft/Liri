@@ -13,10 +13,10 @@
  * parse_context_limit_from_error: 从 API 错误消息中提取实际的上下文限制值。
  */
 
-import { Logger } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({ module: 'ai:contextDegradation' });
+const logger = getLogger('ai:contextDegradation');
 
 /** 降级链（从高到低） */
 const DEGRADATION_CHAIN: number[] = [

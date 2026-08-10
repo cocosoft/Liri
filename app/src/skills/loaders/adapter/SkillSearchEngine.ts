@@ -34,12 +34,8 @@ import { join } from 'path';
 import { existsSync, readFileSync, writeFileSync, renameSync } from 'fs';
 import type { LocalSkillSearchResult } from './types';
 import type { ThirdPartySkillSearchResult } from './ThirdPartySkillAdapter';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'skills:searchEngine',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('skills:searchEngine');
 
 /** 自定义源条目 */
 export interface SkillSourceEntry {

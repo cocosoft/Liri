@@ -14,11 +14,8 @@ import {
 } from '@modules/error';
 import { resolvePyappHome, resolveProjectRoot } from '@modules/core';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'commands:agents:Subagent',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('commands:agents:Subagent');
 
 /**
  * Agent 源类型

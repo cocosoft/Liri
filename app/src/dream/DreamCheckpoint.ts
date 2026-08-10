@@ -28,15 +28,12 @@
 import { resolveDataSubDir } from '@modules/core';
 import { join } from 'path';
 import { readdir, readFile, unlink } from 'fs/promises';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { isCheckpointLogEnabled } from '../config/settings/CheckpointLogConfig';
 import type { DreamCycleRecord } from './types';
 
-const logger = new Logger({
-  module: 'dream:checkpoint',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('dream:checkpoint');
 
 interface CheckpointData {
   cycleId: string;

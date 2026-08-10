@@ -63,7 +63,7 @@ import type { ToolManager } from '@modules/tools/core/ToolManager';
 import { globalToolManager } from '@modules/tools/core/ToolManager';
 import type { Coordinator } from '@modules/core';
 import { coordinator as defaultCoordinator } from '@modules/core';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error';
@@ -84,10 +84,7 @@ import { getTitleGenerator } from '@modules/agent/TitleGenerator';
 // [v1.2] costTracker.addCost / recordCost / getCostMetricsBridge 已迁移到 COST_RECORDED 事件订阅者（cost/index.ts）
 import { eventNotificationService } from '@modules/chat/services/EventNotificationService';
 
-const logger = new Logger({
-  module: 'runtime:api:CoreAPIImpl',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('runtime:api:CoreAPIImpl');
 
 let _coreApiInstance: CoreAPIImpl | null = null;
 
@@ -403,6 +400,7 @@ export class CoreAPIImpl implements CoreAPI {
       );
       const message = await this.chatManager.sendMessage(request.content, {
         sessionId: request.sessionId,
+        messageId: request.messageId,
         metadata: { ...request.metadata, routerTier: tier },
         stream: request.stream,
         model,
@@ -539,6 +537,7 @@ export class CoreAPIImpl implements CoreAPI {
       };
       const generator = this.chatManager.streamMessage(request.content, {
         sessionId: request.sessionId,
+        messageId: request.messageId,
         metadata: enrichedMetadata,
         model,
         images: request.images,

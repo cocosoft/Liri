@@ -1,14 +1,11 @@
 import { fork, ChildProcess } from 'child_process';
 import path from 'path';
 import { EventEmitter } from 'events';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { resolveProjectRoot } from '@modules/core';
 import type { ManagedProcess } from '@modules/daemon';
 
-const logger = new Logger({
-  module: 'chronos:autoDream:dreamAgentExecutor',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('chronos:autoDream:dreamAgentExecutor');
 
 export interface DreamExecutionConfig {
   prompt: string;

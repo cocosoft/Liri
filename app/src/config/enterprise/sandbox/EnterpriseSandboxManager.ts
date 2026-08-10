@@ -11,7 +11,7 @@
 
 import { randomUUID } from 'crypto';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-import { Logger, LogLevel } from '../../../monitoring/logs/Logger.js';
+import { getLogger } from '../../../monitoring/logs/Logger.js';
 import { ErrorCodes } from '@modules/error';
 import {
   EnterpriseAuditService,
@@ -29,10 +29,7 @@ import type {
   SandboxExecuteResult,
 } from '../../../sandbox/SandboxTypes.js';
 
-const logger = new Logger({
-  module: 'config:enterprise:sandbox:enterpriseSandboxManager',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('config:enterprise:sandbox:enterpriseSandboxManager');
 
 /** 沙箱实例状态 */
 export type SandboxStatus =

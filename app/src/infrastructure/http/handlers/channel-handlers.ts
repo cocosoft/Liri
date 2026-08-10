@@ -23,14 +23,11 @@
 
 import type http from 'http';
 import { sendError, readRequestBody, type HandlerCtx } from './handler-utils';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 
-const logger = new Logger({
-  module: 'infrastructure:http:handlers:channel-handlers',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('infrastructure:http:handlers:channel-handlers');
 
 /**
  * 获取渠道解密后的配置（P0-4：DB 中敏感字段为密文，回显/恢复/合并前统一解密）

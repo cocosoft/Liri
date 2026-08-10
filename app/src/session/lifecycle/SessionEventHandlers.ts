@@ -10,7 +10,7 @@
  * 在 ChatManager.initialize() 中调用 connect()，极轻量集成。
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import type { SessionLifecycleEventBus } from '../lifecycle/SessionLifecycleEventBus';
 import type { SessionLifecycleEvent } from '../lifecycle/SessionLifecycleEvent';
 import {
@@ -18,7 +18,7 @@ import {
   getSessionActivityTracker,
 } from '../bootstrap/SessionSystemBootstrap';
 
-const logger = new Logger({ level: LogLevel.INFO, module: 'session:handlers' });
+const logger = getLogger('session:handlers');
 
 let connected = false;
 

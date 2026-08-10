@@ -16,12 +16,8 @@ import type {
   ProjectContext,
   ProjectContextType,
 } from '@modules/workspace/types';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'project:ContextService',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('project:ContextService');
 
 /** type 标记正则：匹配 ### [xxx] 的内容 */
 const TYPE_MARKER_RE =

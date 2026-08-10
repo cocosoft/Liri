@@ -6,9 +6,8 @@
  */
 
 import { TaskStatus } from './types';
-import { Logger } from '@modules/monitoring';
-
-const logger = new Logger({ module: 'tasks:lifecycle' });
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('tasks:lifecycle');
 
 /** 生命周期阶段 */
 export type LifecyclePhase =

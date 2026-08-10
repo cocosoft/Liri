@@ -46,7 +46,7 @@ import {
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { BackgroundAgentTask } from '@modules/tasks/BackgroundAgentTask';
 import type { BackgroundTaskInfo } from '@modules/tasks/types';
-import { Logger } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { trackUsage } from '../../ai/UsageTracker';
 import { subAgentTokenListeners } from '../../core/tokenBudget/SubAgentTokenBridge';
@@ -66,7 +66,7 @@ function getAllTools(): Tool[] {
   return _getAllTools();
 }
 
-const logger = new Logger({ module: 'tools:agentTool' });
+const logger = getLogger('tools:agentTool');
 
 /**
  * AgentTool参数定义

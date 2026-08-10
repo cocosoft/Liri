@@ -27,12 +27,12 @@ import type http from 'http';
 import fs from 'fs';
 import path from 'path';
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { broadcastEvent, readRequestBody, sendError } from './handler-utils';
 import type { SkillSearchEngine } from '@modules/skills/loaders/adapter/SkillSearchEngine';
 import type { LocalSkillStore } from '@modules/skills/loaders/adapter/LocalSkillStore';
 
-const logger = new Logger({ module: 'http:skills', level: LogLevel.INFO });
+const logger = getLogger('http:skills');
 
 /** SkillRegistry 最小接口（5.6：system 列表 status 反映真实启用状态） */
 interface SkillRegistryLike {

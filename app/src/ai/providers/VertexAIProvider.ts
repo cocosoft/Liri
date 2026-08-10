@@ -16,12 +16,12 @@ import type {
 import type { ProviderConfig, ProviderValidationResult } from './AIProvider';
 import { BaseAIProvider, type BaseProviderOptions } from './BaseAIProvider';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { GeminiTransport } from '../transports/GeminiTransport';
 import { TransportProviderAdapter } from '../transports/TransportProviderAdapter';
 import { ALL_MODEL_CONFIGS, getModelsByProvider } from '../models/ModelConfigs';
 
-const logger = new Logger({ module: 'ai:vertexAI', level: LogLevel.INFO });
+const logger = getLogger('ai:vertexAI');
 
 const DEFAULT_REGION = 'us-central1';
 const TOKEN_URI = 'https://oauth2.googleapis.com/token';

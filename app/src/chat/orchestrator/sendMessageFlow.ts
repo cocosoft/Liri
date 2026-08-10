@@ -29,7 +29,7 @@
 
 import { join, isAbsolute, resolve } from 'path';
 import { existsSync } from 'fs';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { createSystemMessage } from '../types/message.js';
 import { estimateMessagesTokens } from '../../ai/tokenizer/TokenEstimator';
@@ -55,7 +55,7 @@ import type { Message, SendMessageOptions } from '../types/message.js';
 import type { ChatSession } from '../types/session.js';
 import type { ChatOrchestratorHost } from './ChatOrchestrator.js';
 
-const logger = new Logger({ module: 'chat:sendFlow', level: LogLevel.INFO });
+const logger = getLogger('chat:sendFlow');
 
 /* ===================================================================
  *  编排上下文 — sendMessage 全流程共享

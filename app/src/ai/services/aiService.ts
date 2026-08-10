@@ -22,13 +22,13 @@ import type {
 import { AppError } from '@modules/error';
 import { ErrorCodes } from '@modules/error';
 import { handleError } from '@modules/error';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import type { ScrubberPipeline } from '@modules/streaming/scrubbers';
 import { createDefaultScrubberPipeline } from '@modules/streaming/scrubbers';
 import { trackUsage, extractModelFromResponse } from '../UsageTracker.js';
 import { configManager } from '../../config/index.js';
 
-const logger = new Logger({ module: 'ai:service', level: LogLevel.INFO });
+const logger = getLogger('ai:service');
 
 export class AIServiceImpl implements AIService {
   private config: AIServiceConfig;

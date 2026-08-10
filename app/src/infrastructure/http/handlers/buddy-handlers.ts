@@ -159,10 +159,11 @@ export async function handleGetBackgroundStatus(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const [{ getDreamStats, getDreamLogs }, { loadGrowthState }] =
+    const [{ getDreamStats, getDreamLogs }, { loadGrowthState }, { getBackgroundTaskLog }] =
       await Promise.all([
         import('@modules/buddy/dreamLogStore'),
         import('@modules/buddy/growthPersistence'),
+        import('@modules/monitoring/BackgroundTaskEvent'),
       ]);
 
     const dreamStats = await getDreamStats();
@@ -170,6 +171,8 @@ export async function handleGetBackgroundStatus(
 
     // 成长统计从持久化层读取（与 DreamGrowthTracker 共享同一文件）
     const growth = await loadGrowthState();
+    // §9.3 统一后台任务事件日志（R08-002 配套，各后台模块四态事件）
+    const recentTasks = await getBackgroundTaskLog(20);
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(
@@ -187,6 +190,7 @@ export async function handleGetBackgroundStatus(
           totalTaskExp: growth.totalTaskExp,
           unlockedAchievements: growth.unlockedAchievements,
         },
+        tasks: recentTasks,
         generatedAt: Date.now(),
       })
     );

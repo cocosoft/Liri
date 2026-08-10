@@ -6,7 +6,7 @@
  * 保留策略: 默认保留最近 7 个备份
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import {
   copyFileSync,
@@ -20,10 +20,7 @@ import { join, basename, dirname, resolve, extname } from 'path';
 
 import { resolveDataDir, resolveDbPath } from '@modules/core';
 
-const logger = new Logger({
-  level: LogLevel.INFO,
-  module: 'monitoring:backup',
-});
+const logger = getLogger('monitoring:backup');
 
 /**
  * 数据库注册信息

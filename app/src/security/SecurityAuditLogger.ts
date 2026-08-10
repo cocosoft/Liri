@@ -16,13 +16,10 @@ import {
 } from 'fs';
 import { join, dirname } from 'path';
 import { homedir, tmpdir } from 'os';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({
-  module: 'security:auditLogger',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('security:auditLogger');
 
 /** 会话上下文信息 */
 export interface AuditSessionContext {

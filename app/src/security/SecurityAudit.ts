@@ -3,12 +3,9 @@
  * 记录安全事件和操作，便于后续分析和追�?
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-const logger = new Logger({
-  module: 'security:SecurityAudit',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('security:SecurityAudit');
 import { join, dirname } from 'path';
 import { homedir, tmpdir } from 'os';
 import {

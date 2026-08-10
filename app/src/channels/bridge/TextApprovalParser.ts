@@ -28,12 +28,12 @@
  * 仅当会话有 pending Inbox 项时启用，防止误触发。
  */
 
-import { Logger } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({ module: 'channels:textApproval' });
+const logger = getLogger('channels:textApproval');
 
 /** 审批意图 */
 export type ApprovalIntent = 'approve' | 'reject' | null;

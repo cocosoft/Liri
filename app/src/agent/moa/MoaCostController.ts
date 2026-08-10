@@ -3,13 +3,13 @@
  * 控制最大 Agent 数、每 Agent 最大 Token、预算上限
  */
 
-import { Logger } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import type {
   ScheduledAgentTask,
   ScheduledTaskResult,
 } from './ParallelAgentScheduler';
 
-const logger = new Logger({ module: 'agent:moa:costController' });
+const logger = getLogger('agent:moa:costController');
 
 /**
  * 成本控制预算

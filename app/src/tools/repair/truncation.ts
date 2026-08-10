@@ -30,12 +30,9 @@
 
 import type { TruncationRepairResult } from './types';
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-const logger = new Logger({
-  module: 'tools:repair:truncation',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('tools:repair:truncation');
 
 /**
  * 修复被截断的 JSON 字符串

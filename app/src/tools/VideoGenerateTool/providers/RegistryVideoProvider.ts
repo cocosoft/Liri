@@ -11,12 +11,8 @@ import type {
   VideoGenerationResult,
   AIProvider,
 } from '../../../ai/providers/AIProvider';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  level: LogLevel.INFO,
-  module: 'tools:videoGenerate',
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('tools:videoGenerate');
 
 export class RegistryVideoProvider {
   private aiProvider: AIProvider;

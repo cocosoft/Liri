@@ -1,10 +1,7 @@
 import { handleError } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'services:compact:compactHooks',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('services:compact:compactHooks');
 /**
  * Compact Hooks（Pre/Post压缩钩子集成）
  */

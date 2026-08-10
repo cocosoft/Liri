@@ -2,7 +2,7 @@
  * 代理服务
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 import { AgentService, AgentConfig, AIAgent } from '../models/types';
 import { AIAgentImpl } from '../agent';
@@ -19,10 +19,7 @@ import {
 } from 'fs';
 import { AIModelType } from '@modules/ai';
 
-const logger = new Logger({
-  module: 'agent:services:agentService',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('agent:services:agentService');
 
 /**
  * 代理服务类

@@ -9,7 +9,7 @@
 
 import { Database } from '@modules/core/external/sqlite3';
 import { resolveDbPath } from '@modules/core';
-import { Logger } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { isCheckpointLogEnabled } from '../config/settings/CheckpointLogConfig';
 import {
   AppError,
@@ -19,7 +19,7 @@ import {
 } from '@modules/error';
 import type { TAORCheckpoint, CheckpointStorage } from './types.js';
 
-const logger = new Logger({ module: 'query:dbTAORCheckpoint' });
+const logger = getLogger('query:dbTAORCheckpoint');
 
 const TABLE_NAME = 'taor_checkpoints';
 

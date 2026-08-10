@@ -21,11 +21,8 @@ import {
   executePostCompactHooks,
 } from './compactHooks';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'services:compact:CompactService',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('services:compact:CompactService');
 
 export const AUTOCOMPACT_THRESHOLDS = {
   BUFFER: 13_000,

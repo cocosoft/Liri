@@ -17,8 +17,8 @@ import type { CostRecordRepository } from './CostRecordRepository.js';
 import { globalEventBus, SystemEvents } from '@modules/core';
 import type { CostRecordedEvent } from '@modules/core';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'cost:CostTracker', level: LogLevel.INFO });
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('cost:CostTracker');
 
 /**
  * 模型使用信息

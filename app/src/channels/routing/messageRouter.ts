@@ -31,7 +31,7 @@
  *   → ④ 会话创建/复用 → ⑤ CoreAPI.chat() → ⑥ 出站回调 + 追踪完成
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { getOTelTracing } from '../../monitoring/otel/OTelTracing.js';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '../../error/handleError';
@@ -50,7 +50,7 @@ import type { DmPolicyConfig } from '../policy/DmPolicy';
 // 2026-08-06 接入（P1-5）：渠道入站限流（按渠道+sender 令牌桶）
 import { checkRateLimit } from './rateLimiter';
 
-const logger = new Logger({ level: LogLevel.INFO, module: 'channels:routing' });
+const logger = getLogger('channels:routing');
 
 /** 消息大小上限（默认 1MB） */
 const MAX_MESSAGE_SIZE = 1 * 1024 * 1024;

@@ -12,7 +12,7 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 import { randomUUID } from 'crypto';
 import { unlinkSync, writeFileSync } from 'fs';
-import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
+import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { getPlatform } from '@modules/utils/platform';
 import type {
@@ -22,10 +22,7 @@ import type {
   TTSSpeakResult,
 } from './ttsProvider';
 
-const logger = new Logger({
-  module: 'services:voice:services:commandTTSProvider',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('services:voice:services:commandTTSProvider');
 
 /** 平台特定语音列表 */
 const PLATFORM_VOICES: Record<string, TTSVoice[]> = {

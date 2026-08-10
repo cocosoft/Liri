@@ -6,9 +6,8 @@
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
-import { Logger } from '../../monitoring/logs/Logger';
-
-const logger = new Logger({ module: 'security:scanner' });
+import { getLogger } from '../../monitoring/logs/Logger';
+const logger = getLogger('security:scanner');
 
 /**
  * 安全漏洞类型

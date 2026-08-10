@@ -11,9 +11,8 @@
  *   - cron_stop:   暂停/恢复任务
  */
 
-import { Logger } from '@modules/monitoring';
-
-const logger = new Logger({ module: 'agent:cronToolkit' });
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('agent:cronToolkit');
 
 // ==========================================
 // Types

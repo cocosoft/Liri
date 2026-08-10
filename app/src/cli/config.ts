@@ -9,14 +9,14 @@
  */
 
 import { z } from 'zod';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import {
   loadUserSettings,
   saveUserSettings,
   getUserSettingsPath,
 } from '@modules/config/settings/userSettings';
 
-const logger = new Logger({ module: 'cli:config', level: LogLevel.INFO });
+const logger = getLogger('cli:config');
 
 export interface ConfigOptions {
   configDir?: string;

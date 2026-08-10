@@ -26,12 +26,12 @@
  * 不绕过体系手动注册。llama-server 就绪后由启动链调用。
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { basename, extname } from 'path';
 import { llamaCppServerManager } from './LlamaCppServerManager.js';
 
-const logger = new Logger({ module: 'ai:llama', level: LogLevel.INFO });
+const logger = getLogger('ai:llama');
 
 const LLAMACPP_PROVIDER_TYPE = 'llamacpp' as const;
 

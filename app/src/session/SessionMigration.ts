@@ -4,17 +4,14 @@
  * 对齐 OpenClaw config/sessions/store-migrations.ts
  */
 
-import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
+import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { resolveDataDir, resolveSessionsDir } from '@modules/core';
 
-const logger = new Logger({
-  module: 'session:migration',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('session:migration');
 
 export interface MigrationVersion {
   from: string;

@@ -51,6 +51,8 @@ export interface ProgressEvent {
 export interface ChatRequest {
   content: string;
   sessionId?: string;
+  /** 前端写前落盘的用户消息 id（幂等去重用） */
+  messageId?: string;
   stream?: boolean;
   metadata?: Record<string, unknown>;
   /** 用户消息附带的图片信息 */

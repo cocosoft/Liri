@@ -4,15 +4,12 @@
  * 管线：用户数据 → Handlebars 渲染 → Markdown → OfficeCLI → DOCX
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { readFileSync, existsSync } from 'fs';
 import { resolve, dirname } from 'path';
 import Handlebars from 'handlebars';
 
-const logger = new Logger({
-  module: 'doc:template',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('doc:template');
 
 /** 模板元数据 */
 export interface TemplateMeta {

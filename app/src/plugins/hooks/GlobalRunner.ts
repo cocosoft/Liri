@@ -10,11 +10,8 @@ import {
   type HookResult,
 } from './PluginHooks.js';
 
-import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'plugins:hooks:GlobalRunner',
-  level: LogLevel.INFO,
-});
+import { getLogger, getOTelTracing } from '@modules/monitoring';
+const logger = getLogger('plugins:hooks:GlobalRunner');
 
 /**
  * 全局运行策略

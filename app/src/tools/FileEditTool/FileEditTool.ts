@@ -160,11 +160,8 @@ import {
   handleError,
 } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'tools:FileEditTool:FileEditTool',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('tools:FileEditTool:FileEditTool');
 
 function normalizeQuotes(str: string): string {
   return str.replace(/\u2018|\u2019/g, "'").replace(/\u201c|\u201d/g, '"');

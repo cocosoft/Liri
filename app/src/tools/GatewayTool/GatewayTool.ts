@@ -10,11 +10,8 @@ import { BaseTool } from '../BaseTool';
 import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';
 import { channelRegistry } from '../../channels/registry/ChannelRegistry';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'tools:GatewayTool:GatewayTool',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('tools:GatewayTool:GatewayTool');
 
 export interface GatewayOperation {
   action: 'status' | 'start' | 'stop' | 'restart' | 'config' | 'logs';

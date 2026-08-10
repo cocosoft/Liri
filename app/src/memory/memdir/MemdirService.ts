@@ -6,14 +6,11 @@
 import { join } from 'path';
 import { mkdir, readFile, writeFile, stat, readdir } from 'fs/promises';
 import { existsSync } from 'fs';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { resolvePyappHome, resolveProjectRoot } from '@modules/core';
 
-const logger = new Logger({
-  module: 'memory:memdir:memdirService',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('memory:memdir:memdirService');
 
 /**
  * 记忆类型（来自CC源码）

@@ -5,17 +5,14 @@
 
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { ErrorCodes } from '@modules/error';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import {
   ModuleCategory,
   type ModuleDefinition,
   initRegistry,
 } from './moduleTypes';
 
-const logger = new Logger({
-  module: 'modules:moduleRegistry',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('modules:moduleRegistry');
 
 export { ModuleCategory, type ModuleDefinition };
 
@@ -33,11 +30,10 @@ interface DIContainerLike {
 /**
  * 模块注册表类
  *
- * @deprecated 模块管理已统一到 DIContainer。
- *   外部代码应使用 getDIContainer() 替代直接操作 ModuleRegistry。
- *   ModuleRegistry 内部仍被 DIContainer.bootstrap() 使用作为实现细节，
- *   但外部导入方应迁移到 DIContainer API。
- *   后续版本将把 ModuleRegistry 改为 DIContainer 的内部模块，不再作为公共 API 导出。
+ * @internal DIContainer.bootstrap() 的实现细节，外部不应直接操作。
+ *   外部代码统一使用 getDIContainer() API；ModuleRegistry 仅作为
+ *   DIContainer 的模块元数据 + 实例注册载体存在（见 core/di/DIContainer.ts）。
+ *   @deprecated 语义已移除：该模块并非"废弃"，而是明确降级为内部实现。
  */
 export class ModuleRegistry {
   private static instance: ModuleRegistry;
@@ -366,7 +362,6 @@ export interface BootstrapOptions {
 /**
  * 全局模块注册表实例
  *
- * @deprecated 使用 getDIContainer() 替代。
- *   DIContainer.bootstrap() 内部会处理 ModuleRegistry，外部无需直接引用。
+ * @internal DIContainer.bootstrap() 内部使用；外部统一走 getDIContainer()。
  */
 export const moduleRegistry = ModuleRegistry.getInstance();

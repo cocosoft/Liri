@@ -3,11 +3,8 @@ import { DEFAULT_POLICY_CONFIG, LimitType } from './types';
 
 import { handleError } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'services:policyLimits:PolicyLimitsClient',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('services:policyLimits:PolicyLimitsClient');
 
 export class PolicyLimitsClient {
   private config: PolicyLimitConfig;

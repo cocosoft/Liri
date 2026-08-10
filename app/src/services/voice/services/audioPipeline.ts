@@ -13,11 +13,11 @@
  */
 
 import { handleError } from '@modules/error';
-import { Logger, getOTelTracing } from '@modules/monitoring';
+import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { isFFmpegAvailable } from './audioFormatConverter';
 import { ffmpegPipeConvert } from './audioNormalizer';
 
-const logger = new Logger({ module: 'voice:audio:pipeline' });
+const logger = getLogger('voice:audio:pipeline');
 
 /** 支持的音频格式类型 */
 export type PipelineFormat = 'wav' | 'pcm_s16le' | 'mp3' | 'opus';

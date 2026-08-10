@@ -15,13 +15,13 @@
  * 主任务上下文仅作为背景信息传入，不影响侧问的独立性。
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 import type { ChatMessage } from '@modules/ai';
 import type { AIProvider } from '@modules/ai';
 import { trackUsage } from '@modules/ai';
 
-const logger = new Logger({ module: 'agent:btwHandler', level: LogLevel.INFO });
+const logger = getLogger('agent:btwHandler');
 
 /**
  * BtwHandler 配置

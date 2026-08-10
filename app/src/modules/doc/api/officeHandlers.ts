@@ -5,13 +5,10 @@
 
 import type http from 'http';
 import type { EmailAccount } from '../../mail/types';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({
-  module: 'doc:api',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('doc:api');
 
 /**
  * 读取 HTTP 请求体

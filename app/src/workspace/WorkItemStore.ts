@@ -18,7 +18,7 @@ import type { WorkItem, WorkItemStatus, WorkItemType } from './types';
 import type { LiriConfigManager } from './LiriConfigManager';
 
 import { handleError } from '@modules/error';
-import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
+import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
 
 /** .liri/workitems/ 子目录 */
@@ -27,10 +27,7 @@ const WORKITEMS_DIR = 'workitems';
 /** 记忆条目标签 */
 const MEMORY_TAG = 'auto:workitem';
 
-const logger = new Logger({
-  module: 'workspace:WorkItemStore',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('workspace:WorkItemStore');
 
 /**
  * 工作项文件存储

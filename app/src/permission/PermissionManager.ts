@@ -55,7 +55,7 @@ import {
   SandboxIntegrationService,
   sandboxIntegrationService,
 } from './SandboxIntegration';
-import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
+import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { configManager } from '@modules/config';
 import { SpanStatusCode, metrics } from '@opentelemetry/api';
@@ -64,10 +64,7 @@ import { PermissionAction, OperationType, RoleType } from './Permission';
 import { createFineGrainedPermissionManager } from './FineGrainedPermissionManager';
 import { permissionMetrics } from './metrics/PermissionMetricsStore';
 
-const logger = new Logger({
-  module: 'permission:manager',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('permission:manager');
 
 /**
  * 权限管理器类

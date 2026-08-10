@@ -1,10 +1,7 @@
 ﻿import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'commands\pipeline\CommandPipeline',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('commands\pipeline\CommandPipeline');
 
 export enum PipelineStage {
   PRE_VALIDATE = 'pre_validate',

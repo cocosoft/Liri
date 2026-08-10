@@ -2,13 +2,10 @@
  * CronTaskTimer 定时器管理
  * 对标 OpenClaw 的 timer 机制
  */
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 
-const logger = new Logger({
-  module: 'chronos:timer',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('chronos:timer');
 
 /**
  * 定时器状态

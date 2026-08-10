@@ -2,12 +2,8 @@ import React, { useEffect } from 'react';
 import { Text } from '../components/ink.js';
 import { getRainbowColor } from '../utils/thinking';
 import { getGlobalConfig } from '@modules/config';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'buddy:notification',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('buddy:notification');
 
 export function isBuddyTeaserWindow(): boolean {
   const d = new Date();

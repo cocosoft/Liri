@@ -11,12 +11,8 @@
 import { OrchestrationEventType } from '@modules/agent/events/OrchestrationEvents';
 import { globalEventBus, type EventSubscription } from './EventBus';
 import type { OTelMetrics } from '@modules/monitoring/otel/OTelMetrics';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'core:events:OrchestrationMetrics',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('core:events:OrchestrationMetrics');
 
 /** 滑动窗口大小（记录最近 N 条延迟） */
 const SLIDING_WINDOW_SIZE = 100;

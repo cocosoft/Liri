@@ -11,13 +11,10 @@
  * - 所有查询操作改为委托 getMCPServerManager()
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({
-  module: 'services:mcp:connManager',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('services:mcp:connManager');
 import {
   getMcpToolsCommandsAndResources,
   reconnectMcpServerImpl,

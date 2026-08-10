@@ -16,12 +16,9 @@ import { SandboxConfigBuilder } from './SandboxConfigBuilder';
 import { execSync, exec } from 'child_process';
 import { promisify } from 'util';
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
-const logger = new Logger({
-  module: 'sandbox:SandboxImpl',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('sandbox:SandboxImpl');
 
 const execAsync = promisify(exec);
 

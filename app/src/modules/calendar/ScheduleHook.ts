@@ -9,7 +9,7 @@
  *   calendar:cron:state_changed → 通过事件总线通知前端
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { CronJobStore } from '@modules/tasks/cron/CronJobStore';
 import { resolveDbPath } from '@modules/core';
 import {
@@ -22,10 +22,7 @@ import {
 } from './CalendarEventBus';
 import { AIScheduleIndex } from './AIScheduleIndex';
 
-const logger = new Logger({
-  module: 'calendar:scheduleHook',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('calendar:scheduleHook');
 
 /**
  * ScheduleHook

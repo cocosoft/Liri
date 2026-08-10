@@ -5,12 +5,8 @@
 
 import { Database } from '@modules/core/external/sqlite3';
 import { resolveDbPath } from '@modules/core';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'calendar:aiScheduleIndex',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('calendar:aiScheduleIndex');
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS ai_schedules (

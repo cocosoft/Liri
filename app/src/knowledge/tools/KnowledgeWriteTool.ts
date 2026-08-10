@@ -30,7 +30,7 @@ import { ToolResult, ToolExecutionStatus } from '../../tools/types/ToolResult';
 import { ToolUseContext } from '../../tools/types/ToolUseContext';
 import { KnowledgeBaseWriter } from '../KnowledgeBaseWriter';
 import { knowledgeDocsProvider } from '../../docs/FileDocsProvider';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { globalEventBus } from '@modules/core';
 import { writeAuditLog } from '../KnowledgeAuditLogger';
@@ -38,10 +38,7 @@ import { existsSync } from 'fs';
 import { join } from 'path';
 import { resolvePyappHome } from '@modules/core';
 
-const logger = new Logger({
-  module: 'knowledge:tools:knowledgeWriteTool',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('knowledge:tools:knowledgeWriteTool');
 
 export class KnowledgeWriteTool implements Tool {
   public name: string = 'knowledge_write';

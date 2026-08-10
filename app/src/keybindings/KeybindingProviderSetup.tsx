@@ -14,12 +14,8 @@ import type {
   ParsedKeystroke,
   KeybindingWarning,
 } from './types.js';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'keybindings:keybindingProviderSetup.tsx',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('keybindings:keybindingProviderSetup.tsx');
 import {
   KeybindingProvider,
   useHandlerRegistryRef,

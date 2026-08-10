@@ -17,11 +17,8 @@ import { ModelRegistry } from '@modules/ai';
 import { calculateCost } from '@modules/cost/calculateCost.js';
 import type { ModelPricing } from '@modules/cost/ModelPricing.js';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'core:tokenBudget:PriceManager',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('core:tokenBudget:PriceManager');
 
 export interface CostCalculationResult {
   cost: number;

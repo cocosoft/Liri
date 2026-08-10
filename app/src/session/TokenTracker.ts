@@ -16,17 +16,14 @@ import {
   createEmptyTokenUsage,
   accumulateTokenUsage,
 } from './models/SessionTokenUsage';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { globalEventBus, SystemEvents } from '../core/events/EventBus';
 import type { CostRecordedEvent } from '../core/events/EventBus';
 // eslint-disable-next-line module-registry/no-direct-module-import
 import { calculateTotalCost } from '@modules/cost/calculateCost.js';
 import type { ModelPricing } from '@modules/cost/ModelPricing.js';
 
-const logger = new Logger({
-  module: 'session:tokenTracker',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('session:tokenTracker');
 
 export interface TokenUsageInput {
   inputTokens: number;

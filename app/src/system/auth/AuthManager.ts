@@ -13,11 +13,8 @@ import type {
   OAuthServiceOptions,
 } from './oauth-types.js';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'system:auth:AuthManager',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('system:auth:AuthManager');
 
 export type OAuthTokens = OAuthTokenData;
 

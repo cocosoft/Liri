@@ -24,6 +24,7 @@ import {
   OfficeIcon,
   CalendarIcon,
   BellIcon,
+  TaskIcon,
 } from "../../assets/icons";
 
 interface MenuItem {
@@ -61,6 +62,7 @@ const MENU_LABEL_KEYS: Record<string, string> = {
   plugins: "pluginMarket.title",
   channels: "channels.title",
   "council-roles": "agent.title",
+  "background-status": "nav.backgroundStatus",
   theme: "settings.theme",
   settings: "nav.settings",
 };
@@ -78,6 +80,13 @@ const MANAGEMENT_ITEMS: MenuItem[] = [
     label: "理事会",
     icon: CouncilIcon,
     path: "/agent/roles",
+  },
+  // 后台任务运行状况（§9.3 P3：Dream 记忆整理 + Buddy 成长执行状态）
+  {
+    id: "background-status",
+    label: "后台任务",
+    icon: TaskIcon,
+    path: "/background-status",
   },
 ];
 

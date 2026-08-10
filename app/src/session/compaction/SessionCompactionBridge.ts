@@ -17,16 +17,13 @@ import type {
   CompactionEngine,
   AutoCompactServiceRef,
 } from './CompactionTypes';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { SummaryCompactor } from './SummaryCompactor';
 import { LayeredCompactor } from './LayeredCompactor';
 import { KeyInfoExtractor } from './KeyInfoExtractor';
 
-const logger = new Logger({
-  module: 'session:compactionBridge',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('session:compactionBridge');
 
 export interface CompactionBridgeConfig {
   enabled: boolean;

@@ -18,13 +18,13 @@
  */
 
 import type { IncomingMessage, ServerResponse } from 'http';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { STTRegistry } from '@modules/services/voice/services/sttRegistry';
 import { upgradeToVoiceConnection } from './upgrade';
 import type { VoiceConnection } from './types';
 
-const logger = new Logger({ module: 'voice:sttStream', level: LogLevel.INFO });
+const logger = getLogger('voice:sttStream');
 
 /** interim 转写节流：音频达到该时长（秒）即触发 */
 const INTERIM_MIN_SECONDS = 2.5;

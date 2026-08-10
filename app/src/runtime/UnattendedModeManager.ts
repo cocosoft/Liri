@@ -7,12 +7,12 @@
  * - 与 CronScheduler 结合实现自主运行
  */
 
-import { Logger } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { FEATURE_FLAGS } from '@modules/core/featureFlags.js';
 import { inboxManager } from '@modules/runtime/InboxManager.js';
 import type { InboxItemType } from '@modules/runtime/InboxManager.js';
 
-const logger = new Logger({ module: 'runtime:unattended' });
+const logger = getLogger('runtime:unattended');
 
 export class UnattendedModeManager {
   /** 检查是否处于无人值守模式 */

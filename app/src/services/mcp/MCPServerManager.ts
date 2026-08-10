@@ -3,13 +3,10 @@
  * 标准层实现，负责管理多个MCP服务器连接
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({
-  module: 'services:mcp:serverManager',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('services:mcp:serverManager');
 import {
   type MCPServerConfig,
   type MCPServerConnectionInfo,

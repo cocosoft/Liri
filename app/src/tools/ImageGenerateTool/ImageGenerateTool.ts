@@ -12,7 +12,7 @@
  * 缓存：prompt 精确匹配 + 归一化，TTL 默认 1 小时
  */
 
-import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
+import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error/handleError';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
@@ -32,10 +32,7 @@ import {
   RouteKey,
 } from '../../ai/router/resolveModelRoute.js';
 
-const logger = new Logger({
-  level: LogLevel.INFO,
-  module: 'tools:imageGenerate',
-});
+const logger = getLogger('tools:imageGenerate');
 
 export interface ImageGenerateParams {
   prompt: string;

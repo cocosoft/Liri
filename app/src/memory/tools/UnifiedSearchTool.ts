@@ -6,11 +6,8 @@ import {
   UnifiedSearchResult,
 } from '../services/UnifiedSearchService';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'memory:tools:UnifiedSearchTool',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('memory:tools:UnifiedSearchTool');
 
 export class UnifiedSearchTool implements Tool {
   public name: string = 'unified_search';

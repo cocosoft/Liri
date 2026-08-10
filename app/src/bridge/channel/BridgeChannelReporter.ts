@@ -8,15 +8,12 @@
  *   Bridge Worker 执行 → 结果聚合 → BridgeChannelReporter → Channel → 用户
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { channelRegistry } from '@modules/channels/registry/ChannelRegistry';
 import type { ChannelId } from '@modules/channels/types';
 
-const logger = new Logger({
-  module: 'bridge:channel:bridgeChannelReporter',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('bridge:channel:bridgeChannelReporter');
 
 export type TaskReportStatus =
   | 'submitted'

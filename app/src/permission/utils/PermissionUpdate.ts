@@ -4,13 +4,10 @@
  * 参考CC源码 cc_code/backend/utils/permissions/permissionUpdate.ts 实现
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({
-  module: 'permission:utils:permissionUpdate',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('permission:utils:permissionUpdate');
 import type { PermissionRule } from '../types/PermissionRule.js';
 
 /**

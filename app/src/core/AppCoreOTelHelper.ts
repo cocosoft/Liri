@@ -13,10 +13,10 @@
  * - 启动 HeartbeatMonitor 监控自检
  */
 
-import { Logger } from '@modules/monitoring';
+import { getLogger, Logger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({ module: 'AppCore' });
+const logger = getLogger('AppCore');
 
 /**
  * 初始化 OpenTelemetry 观测系统
@@ -160,7 +160,7 @@ async function startAITracePlugin(
       traceDir: resolveDataSubDir('traces'),
       deps: {
         otel: otelTracing,
-        logger: new Logger({ module: 'trace-recording' }),
+        logger: getLogger('trace-recording'),
       },
     });
     heartbeat.register('trace-recording');

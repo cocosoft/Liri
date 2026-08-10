@@ -2,16 +2,13 @@
  * 代理内存
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 import { AgentMemory, AgentMemoryScope } from '../models/types';
 import { writeFileSync, readFileSync, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
 
-const logger = new Logger({
-  module: 'agent:memory:agentMemory',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('agent:memory:agentMemory');
 
 /**
  * 内存项接口

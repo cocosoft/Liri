@@ -17,7 +17,7 @@ import { join, resolve, basename } from 'path';
 import { createGzip, createGunzip } from 'zlib';
 import { pipeline } from 'stream/promises';
 import { createReadStream, createWriteStream } from 'fs';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { StructuredLogger } from '../logs/StructuredLogger';
 import type { StructuredLogEntry } from '../logs/LogMemory';
@@ -28,10 +28,7 @@ import { IncidentManager } from '../incidents/IncidentManager';
 import type { Incident } from '../incidents/IncidentManager';
 import { getPerformanceAnalyzer } from '../performance/PerformanceAnalyzer';
 
-const logger = new Logger({
-  level: LogLevel.INFO,
-  module: 'monitoring:archival',
-});
+const logger = getLogger('monitoring:archival');
 
 /**
  * 可归档的监控数据类型

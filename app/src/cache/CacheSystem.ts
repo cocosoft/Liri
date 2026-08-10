@@ -28,11 +28,8 @@ import {
   type CacheVersion,
 } from './types.js';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'cache:CacheSystem',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('cache:CacheSystem');
 
 /**
  * 缓存版本常量

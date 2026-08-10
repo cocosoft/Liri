@@ -21,11 +21,8 @@ import type {
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { handleError } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'channels:qq:QQChannel',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('channels:qq:QQChannel');
 
 const QQ_META: ChannelMeta = {
   id: 'qq',

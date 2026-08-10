@@ -12,13 +12,10 @@
 import { appendFile, mkdir } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join } from 'path';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { resolveDataSubDir } from '@modules/core';
 
-const logger = new Logger({
-  module: 'knowledge:monitor',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('knowledge:monitor');
 
 interface MetricEvent {
   ts: string;

@@ -15,14 +15,14 @@
  *   pm.destroy();
  */
 
-import { Logger, getOTelTracing } from '@modules/monitoring';
+import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { PCMAudioPlayer } from './audioPlayer';
 import { isFFmpegAvailable } from './audioFormatConverter';
 import { transcodeToPcm16 } from './audioNormalizer';
 import { decodeWav } from './audioPipeline';
 
-const logger = new Logger({ module: 'voice:playback' });
+const logger = getLogger('voice:playback');
 
 /** PlaybackManager 配置 */
 export interface PlaybackConfig {

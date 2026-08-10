@@ -4,12 +4,8 @@
  */
 
 import { GovernanceManager } from './managers/GovernanceManager.js';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'governance:enhancedGovernanceManager',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('governance:enhancedGovernanceManager');
 
 /**
  * 治理风险评估

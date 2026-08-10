@@ -10,11 +10,11 @@
  * 高层级配置会覆盖低层级中的同名属性。
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import type { TTSSpeakOptions } from './ttsProvider';
 
-const logger = new Logger({ module: 'voice:ttsConfig', level: LogLevel.INFO });
+const logger = getLogger('voice:ttsConfig');
 
 /**
  * TTS 全局默认配置

@@ -10,16 +10,13 @@ import {
   RegisteredPermissionHook,
   PermissionHookMetadata,
 } from './types/PermissionHook';
-import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
+import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { SpanStatusCode, metrics } from '@opentelemetry/api';
 import type { Span, Counter } from '@opentelemetry/api';
 import { permissionMetrics } from './metrics/PermissionMetricsStore';
 
-const logger = new Logger({
-  module: 'permission:permissionHookService',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('permission:permissionHookService');
 
 /**
  * 权限钩子服务类

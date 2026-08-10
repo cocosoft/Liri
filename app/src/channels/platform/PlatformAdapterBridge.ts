@@ -31,11 +31,8 @@ import type {
 } from '@modules/channels/types';
 import type { PlatformAdapter } from './PlatformAdapter.js';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'channels:platform:PlatformAdapterBridge',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('channels:platform:PlatformAdapterBridge');
 
 /**
  * 平台类型 → ChannelId 映射表

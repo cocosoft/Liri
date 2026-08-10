@@ -11,11 +11,8 @@ import { exec, execSync, ExecOptions } from 'child_process';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { ToolSandboxRouter } from '../sandbox/ToolSandboxRouter';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'tools\BashTool\BashTool',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('tools\BashTool\BashTool');
 
 /**
  * Bash工具输入模式

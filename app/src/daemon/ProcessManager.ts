@@ -1,4 +1,4 @@
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { getMonitoringService } from '@modules/monitoring';
 import type { HealthStatus as HealthStatusValue } from '@modules/core/health/types.js';
 import type { IPCService } from './IPCService';
@@ -7,10 +7,7 @@ import { BaseTask } from '@modules/tasks/BaseTask';
 import { TaskType, TaskStatus } from '@modules/tasks/types';
 import { globalEventBus, SystemEvents } from '@modules/core';
 
-const logger = new Logger({
-  level: LogLevel.INFO,
-  module: 'daemon:processManager',
-});
+const logger = getLogger('daemon:processManager');
 
 export interface ProcessConfig {
   maxRestartsPerMinute: number;

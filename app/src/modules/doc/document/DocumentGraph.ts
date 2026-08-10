@@ -7,12 +7,8 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { resolvePyappHome } from '@modules/core';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'doc:document',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('doc:document');
 
 /** 持久化文件路径 */
 function getGraphPath(): string {

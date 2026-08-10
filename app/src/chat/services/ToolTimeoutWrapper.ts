@@ -9,7 +9,7 @@
  */
 
 import crypto from 'crypto';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { getOTelTracing } from '@modules/monitoring/otel';
 import {
   AppError,
@@ -19,7 +19,7 @@ import {
 } from '@modules/error';
 import type { ToolCall, ToolResult } from '../types/tool.js';
 
-const logger = new Logger({ level: LogLevel.INFO, module: 'chat:toolTimeout' });
+const logger = getLogger('chat:toolTimeout');
 
 /**
  * 带超时保护的工具执行包装器。

@@ -15,11 +15,8 @@ import { resolveOutputDir } from '@modules/core';
 import type { CommandContext, CommandResult } from '@modules/commands';
 
 import { handleError } from '@modules/error';
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'commands:builtin:trace-recording:TraceRecording',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('commands:builtin:trace-recording:TraceRecording');
 
 /**
  * 获取 AITracePlugin 实例

@@ -16,11 +16,8 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { handleError } from '@modules/error';
 import { TTLCache } from '@modules/utils/cache';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'channels:irc:IrcChannel',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('channels:irc:IrcChannel');
 
 const IRC_LINE_MAX = 480;
 const IRC_MSG_CHUNK_MAX = 350;

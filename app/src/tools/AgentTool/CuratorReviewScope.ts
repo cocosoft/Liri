@@ -12,9 +12,8 @@
 import { existsSync, statSync, readdirSync } from 'fs';
 import { join } from 'path';
 import { resolvePyappHome } from '@modules/core';
-import { Logger } from '@modules/monitoring';
-
-const logger = new Logger({ module: 'tools:curatorReview' });
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('tools:curatorReview');
 
 export interface FileReviewTarget {
   path: string;

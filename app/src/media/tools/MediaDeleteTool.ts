@@ -12,13 +12,10 @@ import { resolveSafePath } from './MediaPathGuard';
 import { MediaErrorCode } from './MediaErrorCodes';
 import type { MediaToolResult } from './MediaToolResult';
 import { mediaStore } from '../store/MediaStore';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({
-  module: 'media:tool:delete',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('media:tool:delete');
 
 export function createMediaDeleteTool(): Tool {
   return {

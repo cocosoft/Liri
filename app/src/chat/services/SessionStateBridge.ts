@@ -9,11 +9,8 @@ import type { EventSubscription } from '@modules/core';
 import { SessionStateMachine } from '../../state/session/SessionStateMachine.js';
 import { handleError } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'chat:services:SessionStateBridge',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('chat:services:SessionStateBridge');
 
 export class SessionStateBridge {
   private eventBus: SessionLifecycleEventBus;

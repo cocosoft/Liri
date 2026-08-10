@@ -11,9 +11,8 @@ import type { DreamEvent } from '../chronos/autoDream/AutoDream';
 import { readFile, writeFile, mkdir } from 'fs/promises';
 import { dirname } from 'path';
 import { resolveDataDir } from '@modules/core/paths';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({ module: 'buddy:dreamLog', level: LogLevel.INFO });
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('buddy:dreamLog');
 
 export interface DreamLogEntry {
   id: string;

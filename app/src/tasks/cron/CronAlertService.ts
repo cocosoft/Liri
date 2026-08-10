@@ -3,11 +3,11 @@
  * 对标 openclaw src/cron/types.ts CronFailureAlert
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import type { CronJob } from './types';
 
-const logger = new Logger({ module: 'tasks:cron:alert', level: LogLevel.INFO });
+const logger = getLogger('tasks:cron:alert');
 
 export interface CronAlertConfig {
   /** 连续失败多少次后触发告警（默认 2） */

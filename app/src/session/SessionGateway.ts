@@ -6,7 +6,7 @@
 import { randomUUID } from 'crypto';
 import path from 'path';
 
-import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
+import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error';
 import { resolveSessionsDir, resolveDataDir } from '@modules/core';
@@ -106,7 +106,7 @@ import type {
 } from './archive/ArchiveTypes.js';
 import { UnifiedStorageAdapter } from './storage/UnifiedStorageAdapter.js';
 
-const logger = new Logger({ module: 'session:gateway', level: LogLevel.INFO });
+const logger = getLogger('session:gateway');
 
 /**
  * 网关配置

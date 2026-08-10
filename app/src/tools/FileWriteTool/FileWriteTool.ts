@@ -122,11 +122,8 @@ import {
 } from '@modules/error';
 import { checkPathAccessibility } from '../utils/ToolUtils';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'tools:FileWriteTool:FileWriteTool',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('tools:FileWriteTool:FileWriteTool');
 
 export class FileWriteTool extends BaseTool {
   name = 'file_write';

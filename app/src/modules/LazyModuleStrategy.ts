@@ -17,12 +17,8 @@ import {
   profilePhaseStart,
   profilePhaseEnd,
 } from '../performance/StartupProfiler';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'modules:lazyModuleStrategy',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('modules:lazyModuleStrategy');
 
 /**
  * 模块加载优先级
@@ -83,6 +79,9 @@ const LAZY_MODULE_STRATEGY: Record<string, LazyModuleConfig> = {
   config: { priority: ModuleLoadPriority.CRITICAL, trigger: '配置管理' },
   context: { priority: ModuleLoadPriority.CRITICAL, trigger: '上下文管理' },
   error: { priority: ModuleLoadPriority.CRITICAL, trigger: '错误处理基础设施' },
+  logger: { priority: ModuleLoadPriority.CRITICAL, trigger: '日志基础设施' },
+  ecosystem: { priority: ModuleLoadPriority.CRITICAL, trigger: '生态基础设施' },
+  sdk: { priority: ModuleLoadPriority.CRITICAL, trigger: 'SDK 基础设施' },
   featureflags: {
     priority: ModuleLoadPriority.DEFERRED,
     trigger: '功能开关首次查询时加载',
@@ -159,6 +158,11 @@ const LAZY_MODULE_STRATEGY: Record<string, LazyModuleConfig> = {
     priority: ModuleLoadPriority.CRITICAL,
     trigger: '启动必需（doc 模块依赖 mcp 注册 MCP 工具）',
   },
+  doc: {
+    // 办公模块：CRITICAL 阶段初始化以注册 MCP 工具（与 MODULE_INITIALIZATION_ORDER 第四阶段一致）
+    priority: ModuleLoadPriority.CRITICAL,
+    trigger: '启动必需（注册 MCP 工具）',
+  },
   plugins: {
     priority: ModuleLoadPriority.CRITICAL,
     trigger: '可扩展性服务启动时初始化',
@@ -186,6 +190,10 @@ const LAZY_MODULE_STRATEGY: Record<string, LazyModuleConfig> = {
   cli: {
     priority: ModuleLoadPriority.DEFERRED,
     trigger: 'CLI 交互首次触发时加载',
+  },
+  terminal: {
+    priority: ModuleLoadPriority.DEFERRED,
+    trigger: '终端界面首次触发时加载',
   },
 
   // ========== 第六阶段：工具模块 ==========
@@ -312,6 +320,15 @@ const LAZY_MODULE_STRATEGY: Record<string, LazyModuleConfig> = {
   wizard: {
     priority: ModuleLoadPriority.DEFERRED,
     trigger: '设置向导首次触发时加载',
+  },
+  // 办公模块（mail/calendar 已在 eager 阶段加载，此处声明优先级保持与 MODULE_INITIALIZATION_ORDER 一致）
+  mail: {
+    priority: ModuleLoadPriority.DEFERRED,
+    trigger: '邮件功能首次触发时加载',
+  },
+  calendar: {
+    priority: ModuleLoadPriority.DEFERRED,
+    trigger: '日历功能首次触发时加载',
   },
 };
 

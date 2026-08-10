@@ -3,9 +3,8 @@
  * 在首屏渲染后启动后台预读取，减少用户等待时间
  */
 
-import { Logger } from '@modules/monitoring';
-
-const logger = new Logger({ module: 'StartupPrefetcher' });
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('StartupPrefetcher');
 import { profileCheckpoint } from '@modules/performance/StartupProfiler.js';
 import {
   getStartupState,

@@ -7,7 +7,7 @@
  * 通过 ENABLE_LOOP_V8_PHASE2 环境变量灰度切换。
  */
 
-import { Logger } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import type { ToolCall, ToolResult } from '../chat/types/tool.js';
 import type { ChatMessage, ToolDefinition } from '../ai/models/types';
@@ -15,7 +15,7 @@ import type { TAORLoopDeps, TAORLoopResult } from './TAORLoop.js';
 import { createTAORLoopDeps } from './TAORLoop.js';
 import { CascadeAbortManager } from './CascadeAbortManager.js';
 
-const logger = new Logger({ module: 'query:chatManagerTAORAdapter' });
+const logger = getLogger('query:chatManagerTAORAdapter');
 
 // ─── ChatManager 暴露给适配器的能力接口 ────────────────
 

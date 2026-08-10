@@ -16,11 +16,8 @@ import {
 
 import { handleError } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'permission:utils:RuleMatcher',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('permission:utils:RuleMatcher');
 
 /**
  * 通配符模式类型

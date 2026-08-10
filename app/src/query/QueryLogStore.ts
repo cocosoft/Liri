@@ -6,7 +6,7 @@
 import { join } from 'path';
 import { Database } from '@modules/core/external/sqlite3';
 import { v4 as uuidv4 } from 'uuid';
-import { Logger } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { resolveDbPath } from '@modules/core';
 import { SimpleMutex } from '@modules/core';
@@ -16,7 +16,7 @@ import type {
   QueryLogStats,
 } from './QueryLogTypes';
 
-const logger = new Logger({ module: 'query:logStore' });
+const logger = getLogger('query:logStore');
 
 const QUERY_LOG_TABLE = 'query_logs';
 

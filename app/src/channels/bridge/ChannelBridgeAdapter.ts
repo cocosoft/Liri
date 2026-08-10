@@ -35,17 +35,14 @@
  * - 销毁时机：ChannelManager 完全退役后移除
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { channelRegistry } from '../registry/ChannelRegistry';
 import { routeChannelMessage } from '../routing/messageRouter';
 import { handleError } from '../../error/handleError';
 import type { MessageContext, ChannelId } from '../types/IChannel';
 import type { ChannelInterface } from '../registry/ChannelRegistry';
 
-const logger = new Logger({
-  level: LogLevel.INFO,
-  module: 'channels:bridge:adapter',
-});
+const logger = getLogger('channels:bridge:adapter');
 
 /** 遗留通道信道的简化接口（来自 ChannelManager 的 ChannelRegistration） */
 export interface LegacyChannel {

@@ -5,14 +5,11 @@
 
 import fs from 'fs';
 import path from 'path';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { resolveProjectRoot } from '@modules/core';
 
-const logger = new Logger({
-  module: 'context:userContextService',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('context:userContextService');
 
 const MAX_CONTEXT_FILE_SIZE = 50000; // 50KB
 

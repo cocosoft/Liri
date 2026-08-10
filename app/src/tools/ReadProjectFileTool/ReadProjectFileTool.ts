@@ -10,7 +10,7 @@
 import type { Tool } from '../types/Tool';
 import { createToolResult } from '../types/ToolResult';
 import type { ToolUseContext } from '../types/ToolUseContext';
-import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
+import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error';
 import { resolveDataDir } from '@modules/core/paths';
@@ -19,10 +19,7 @@ import { WorkItemStore } from '../../workspace/WorkItemStore.js';
 import { readFileSync, existsSync, realpathSync } from 'fs';
 import { resolve, join, normalize } from 'path';
 
-const logger = new Logger({
-  module: 'tools:read_project_file',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('tools:read_project_file');
 
 // P4-1: Store 单例化
 let _workItemStore: WorkItemStore | null = null;

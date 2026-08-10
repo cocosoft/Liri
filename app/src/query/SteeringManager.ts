@@ -9,9 +9,8 @@
  *   B: 一轮所有 tool_calls 执行完毕后
  */
 
-import { Logger } from '@modules/monitoring';
-
-const logger = new Logger({ module: 'query:steering' });
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('query:steering');
 
 export interface SteeringMessage {
   text: string;

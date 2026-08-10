@@ -31,13 +31,13 @@
  * InjectStrategy 类型定义见 types.ts。
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { loadSnapshot, listSessionSnapshots } from './SnapshotStorage';
 import { findDependentRounds } from './UndoManager';
 import type { RoundSnapshot, InjectStrategy } from './types';
 
-const logger = new Logger({ module: 'AIContextInjector' });
+const logger = getLogger('AIContextInjector');
 
 /** 注入上下文的缓存（避免重复生成） */
 interface InjectionCache {

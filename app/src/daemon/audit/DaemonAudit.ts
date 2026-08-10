@@ -8,11 +8,8 @@ import { resolvePyappHome } from '@modules/core';
 import { globalEventBus, SystemEvents } from '@modules/core';
 import { handleError } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'daemon:audit:DaemonAudit',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('daemon:audit:DaemonAudit');
 
 /**
  * 审计事件类型

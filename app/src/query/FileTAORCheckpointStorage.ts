@@ -10,13 +10,13 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { resolveDataDir } from '@modules/core';
-import { Logger } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { isCheckpointLogEnabled } from '../config/settings/CheckpointLogConfig';
 import { randomUUID } from 'crypto';
 
 import type { TAORCheckpoint, CheckpointStorage } from './types.js';
 
-const logger = new Logger({ module: 'query:fileTAORCheckpoint' });
+const logger = getLogger('query:fileTAORCheckpoint');
 
 const STORAGE_DIR = 'taor-checkpoints';
 

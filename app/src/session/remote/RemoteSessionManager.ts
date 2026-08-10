@@ -17,11 +17,8 @@ import type {
 } from '../types/Message.js';
 import type { UnifiedSession } from '../types/Session.js';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'session\remote\RemoteSessionManager',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('session\remote\RemoteSessionManager');
 
 export interface RemoteSessionConfig {
   sessionId: string;

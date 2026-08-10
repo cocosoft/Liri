@@ -8,11 +8,8 @@ import { ToolResult, ToolExecutionStatus } from '../../tools/types/ToolResult';
 import type { ToolUseContext } from '../../tools/types/ToolUseContext';
 import { SearchTool, AdvancedSearchOptions } from './SearchTool';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'memory:tools:MemoryTool',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('memory:tools:MemoryTool');
 
 /**
  * 记忆工具类

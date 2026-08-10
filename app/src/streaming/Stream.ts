@@ -9,7 +9,7 @@
  */
 
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-import { Logger } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { StreamStateMachine } from './StreamStateMachine';
 import {
   StreamState,
@@ -18,7 +18,7 @@ import {
   type StreamChunk,
 } from './types';
 
-const logger = new Logger({ module: 'streaming:stream' });
+const logger = getLogger('streaming:stream');
 
 /**
  * 指标自动发射配置

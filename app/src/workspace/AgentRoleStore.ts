@@ -7,10 +7,10 @@
  */
 import { randomUUID } from 'crypto';
 import { Database } from '@modules/core/external/sqlite3';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { resolveDbPath } from '@modules/core';
 
-const logger = new Logger({ level: LogLevel.INFO, module: 'AgentRoleStore' });
+const logger = getLogger('AgentRoleStore');
 
 /** agent_roles 表名 */
 export const AGENT_ROLES_TABLE = 'agent_roles';

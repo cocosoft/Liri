@@ -7,13 +7,10 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { join, dirname } from 'path';
 import type { Plugin, PluginMetadata } from '../types';
 import { PluginStatus } from '../types/Plugin.js';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { resolveUserSettingsPath } from '@modules/core';
 
-const logger = new Logger({
-  module: 'plugins:bundled:settingsPlugin',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('plugins:bundled:settingsPlugin');
 // 2026-08-06 路径收敛：统一走注册表 resolveUserSettingsPath()（~/.pyapp/settings.json）
 const SETTINGS_FILE = resolveUserSettingsPath();
 

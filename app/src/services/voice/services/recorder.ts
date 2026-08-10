@@ -12,7 +12,7 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 import { randomUUID } from 'crypto';
 import { unlink } from 'fs/promises';
-import { Logger } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import {
@@ -23,7 +23,7 @@ import {
 } from './recordingDetector';
 import type { RecordingOptions, RecordingStateHandler } from '../models/types';
 
-const logger = new Logger({ module: 'voice:recorder' });
+const logger = getLogger('voice:recorder');
 
 /** 录音方法 */
 export type RecordingMethod = 'ffmpeg' | 'sox' | 'arecord' | 'powershell';

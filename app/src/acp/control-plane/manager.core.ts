@@ -11,10 +11,10 @@ import type {
   AcpSessionManagerEvents,
 } from './manager.types.js';
 import { getSessionActorQueue } from './session-actor-queue.js';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 
-const logger = new Logger({ module: 'acp:core', level: LogLevel.INFO });
+const logger = getLogger('acp:core');
 
 export class AcpSessionManagerCore {
   private config: AcpSessionManagerConfig;

@@ -28,7 +28,7 @@
 
 import fs from 'fs';
 import { join } from 'path';
-import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
+import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error';
 import { SimpleMutex } from '@modules/core/SimpleMutex';
@@ -44,10 +44,7 @@ import type { ChatSession, CreateSessionParams } from '../types/session.js';
 import { SessionState } from '../types/session.js';
 import type { Message } from '../types/message.js';
 
-const logger = new Logger({
-  module: 'chat:sessionLifecycle',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('chat:sessionLifecycle');
 
 /**
  * 当前会话 ID 访问端口（避免 ChatManager 直接引用被改动）

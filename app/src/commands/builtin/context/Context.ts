@@ -8,11 +8,8 @@ import { autoCompactionPolicy } from '../../../context/compaction/AutoCompaction
 import type { ContextSnapshot } from '../../../context/compaction/CompactionMetrics';
 import { analyzeContextUsage, formatWalletBreakdown } from './ContextWallet';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'commands:builtin:context:Context',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('commands:builtin:context:Context');
 
 interface ChatManagerLike {
   clearContext(): Promise<void>;

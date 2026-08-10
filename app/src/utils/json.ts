@@ -1,7 +1,7 @@
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 
-const logger = new Logger({ level: LogLevel.INFO, module: 'utils:json' });
+const logger = getLogger('utils:json');
 
 export function jsonStringify(value: unknown, space?: number): string {
   return JSON.stringify(value, null, space);

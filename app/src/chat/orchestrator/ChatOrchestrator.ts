@@ -27,7 +27,7 @@
  * 其余依赖通过委托回调注入（与 SessionLifecycleManager / ToolLoopRunner 同模式）。
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { SimpleMutex } from '@modules/core/SimpleMutex';
 import type { ToolAwareClient } from '@modules/ai';
@@ -65,10 +65,7 @@ import type { SessionCheckpointService } from '../services/SessionCheckpointServ
 import type { ChatManagerTAORContext } from '../../query/ChatManagerTAORAdapter.js';
 import type { LoopDetector } from '../../query/LoopDetector.js';
 
-const logger = new Logger({
-  module: 'chat:orchestrator',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('chat:orchestrator');
 
 /**
  * 编排所需的最小 ChatManager 端口（sendMessage/streamMessage 编排委托）
@@ -348,13 +345,23 @@ export class ChatOrchestrator {
         }
       }
 
-      // 用户消息 + 轮次计数 + 持久化
-      const userMessage = this.host.messageService.createUserMessage(
-        safeContent,
-        { sessionId: session.id, metadata: options?.metadata }
-      );
+      // 用户消息 + 轮次计数 + 持久化（前端写前落盘后按 id 复用，避免重复持久化）
+      let userMessage: Message;
+      const prePersisted = options?.messageId
+        ? (session.messages.find((m) => m.id === options.messageId) as
+            | Message
+            | undefined)
+        : undefined;
       session.metadata.roundCount = (session.metadata.roundCount ?? 0) + 1;
-      this.host.addAndPersistMessage(session.id, userMessage);
+      if (prePersisted) {
+        userMessage = prePersisted;
+      } else {
+        userMessage = this.host.messageService.createUserMessage(
+          safeContent,
+          { sessionId: session.id, metadata: options?.metadata }
+        );
+        this.host.addAndPersistMessage(session.id, userMessage);
+      }
       this.host.getSessionMachine(session.id).start('sendMessage');
 
       const { getOTelTracing } = await import('@modules/monitoring');

@@ -1,11 +1,8 @@
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import type { AIProvider, ProviderConfig } from './AIProvider';
 
-const logger = new Logger({
-  module: 'ai:providerRegistry',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('ai:providerRegistry');
 
 export class ProviderRegistry {
   private providers: Map<string, AIProvider> = new Map();

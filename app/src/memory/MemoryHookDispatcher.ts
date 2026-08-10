@@ -7,13 +7,10 @@
 
 import type { Memory } from './types/Memory';
 import { HookChainManager } from '@modules/hooks/core/HookChainManager';
-import { Logger, LogLevel } from '../monitoring/logs/Logger';
+import { getLogger } from '../monitoring/logs/Logger';
 import { handleError } from '../error/handleError';
 
-const logger = new Logger({
-  module: 'memory:memoryHookDispatcher',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('memory:memoryHookDispatcher');
 
 /**
  * Memory Hook 事件类型

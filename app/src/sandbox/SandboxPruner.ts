@@ -4,9 +4,8 @@
  * 对标 OpenClaw agents/sandbox/pruner.ts
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({ module: 'sandbox:pruner', level: LogLevel.INFO });
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('sandbox:pruner');
 
 /**
  * 沙箱实例信息

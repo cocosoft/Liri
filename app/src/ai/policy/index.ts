@@ -24,8 +24,8 @@
  * 故障转移策略管理
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'ai:policy:index', level: LogLevel.INFO });
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('ai:policy:index');
 
 export type FailoverReason =
   | 'rate_limited'

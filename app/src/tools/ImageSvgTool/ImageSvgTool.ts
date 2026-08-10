@@ -5,7 +5,7 @@
  * 比调用 DALL-E 等图片 API 更经济（仅消耗文本 token）
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 import { BaseTool } from '../BaseTool';
 import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';
@@ -16,7 +16,7 @@ import { modelManager } from '../../ai/models/ModelManager.js';
 import fs from 'fs';
 import path from 'path';
 
-const logger = new Logger({ level: LogLevel.INFO, module: 'tools:imageSvg' });
+const logger = getLogger('tools:imageSvg');
 
 export interface ImageSvgInput {
   /** SVG 内容描述 */

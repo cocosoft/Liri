@@ -4,12 +4,8 @@ import { resolveDataDir } from '@modules/core';
 import { createGzip } from 'zlib';
 import { createReadStream, createWriteStream, existsSync } from 'fs';
 import { pipeline } from 'stream/promises';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'core:delivery:archiver:transcriptArchiver',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('core:delivery:archiver:transcriptArchiver');
 
 export interface ArchiveResult {
   archivedCount: number;

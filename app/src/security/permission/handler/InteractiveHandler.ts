@@ -10,11 +10,8 @@ import type {
 } from '../PermissionContext.js';
 import { globalAuditLogger } from '../logging/PermissionAuditLogger.js';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'security:permission:handler:InteractiveHandler',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('security:permission:handler:InteractiveHandler');
 
 export type InteractiveResponse = 'allow' | 'deny' | 'allow_once' | 'deny_once';
 

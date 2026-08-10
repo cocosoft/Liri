@@ -8,13 +8,10 @@ import { resolveSafePath } from './MediaPathGuard';
 import { MediaErrorCode, MEDIA_ERROR_MESSAGES } from './MediaErrorCodes';
 import type { MediaToolResult } from './MediaToolResult';
 import { imageProcessor } from '../image/ImageProcessor';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({
-  module: 'media:tool:adjust',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('media:tool:adjust');
 
 export function createImageAdjustTool(): Tool {
   return {

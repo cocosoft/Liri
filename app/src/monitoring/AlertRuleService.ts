@@ -4,12 +4,8 @@
  */
 
 import { EventEmitter } from 'events';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  level: LogLevel.INFO,
-  module: 'monitoring:alert_rule',
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('monitoring:alert_rule');
 
 /**
  * 告警级别

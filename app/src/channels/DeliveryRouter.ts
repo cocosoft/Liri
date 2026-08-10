@@ -10,7 +10,7 @@ import { ChannelRegistry, channelRegistry } from './registry/ChannelRegistry';
 import type { ChannelInterface } from './registry/ChannelRegistry';
 import type { ChannelId } from './types/IChannel';
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error';
@@ -20,10 +20,7 @@ import {
   markdownToText,
 } from './deliveryFormatters';
 
-const logger = new Logger({
-  module: 'channels:DeliveryRouter',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('channels:DeliveryRouter');
 
 // ─── 类型定义 ──────────────────────────────────────────
 

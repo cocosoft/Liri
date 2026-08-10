@@ -1,5 +1,5 @@
 import { EventEmitter } from 'events';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
 // 2026-08-06（4.9/P1-6）：core/gateway 桥接层已删除，以下类型自该层内联至本地
@@ -40,7 +40,7 @@ export function getHealthMonitor(config?: HealthConfig): HealthMonitor {
   return _healthMonitor;
 }
 
-const logger = new Logger({ level: LogLevel.INFO, module: 'gateway:health' });
+const logger = getLogger('gateway:health');
 
 export interface HealthConfig {
   checkIntervalMs?: number;

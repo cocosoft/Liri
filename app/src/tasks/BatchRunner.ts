@@ -11,13 +11,13 @@
  *   - 结果聚合
  */
 
-import { Logger } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { resolveDataSubDir } from '@modules/core';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
 
-const logger = new Logger({ module: 'tasks:batchRunner' });
+const logger = getLogger('tasks:batchRunner');
 
 // ==========================================
 // Types

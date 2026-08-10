@@ -10,7 +10,7 @@ import {
   ErrorSeverity,
   handleError,
 } from '@modules/error';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import {
   existsSync,
   writeFileSync,
@@ -21,10 +21,7 @@ import {
 import { join } from 'path';
 import { randomUUID } from 'crypto';
 
-const logger = new Logger({
-  module: 'session:artifacts',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('session:artifacts');
 
 export type ArtifactType =
   | 'code'

@@ -6,7 +6,7 @@
 import { join } from 'path';
 import { mkdir, writeFile, readFile } from 'fs/promises';
 import { existsSync } from 'fs';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { resolvePyappHome } from '@modules/core';
 import {
@@ -18,10 +18,7 @@ import {
 import { MemdirMemoryScanner } from './MemoryScanner';
 import type { RelevantMemoryResult } from './MemoryScanner';
 
-const logger = new Logger({
-  module: 'memory:memdir:memoryCommands',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('memory:memdir:memoryCommands');
 
 /**
  * 记忆命令选项（来自CC源码）

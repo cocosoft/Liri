@@ -3,10 +3,10 @@
  * 每轮记录 turnCount/tokens/toolCalls/duration
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { getOTelMetrics } from '../monitoring/otel/OTelMetrics.js';
 
-const logger = new Logger({ module: 'agent:telemetry', level: LogLevel.INFO });
+const logger = getLogger('agent:telemetry');
 
 export interface TurnMetrics {
   turnNumber: number;

@@ -18,11 +18,8 @@ import { join } from 'path';
 import { resolvePyappHome } from '@modules/core';
 import { load, dump } from 'js-yaml';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'commands:builtin:pricing:Pricing',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('commands:builtin:pricing:Pricing');
 
 interface PricingEntry {
   model: string;

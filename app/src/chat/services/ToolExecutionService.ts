@@ -12,7 +12,7 @@
 
 import fs from 'fs';
 import { join } from 'path';
-import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
+import { getLogger, getOTelTracing } from '@modules/monitoring';
 import {
   AppError,
   ErrorCategory,
@@ -31,10 +31,7 @@ import type { ChatSession } from '../types/session.js';
 import type { ImageContextService } from '../services/ImageContextService.js';
 import type { RollbackIntegration, FileOperation } from '@modules/security';
 
-const logger = new Logger({
-  level: LogLevel.INFO,
-  module: 'chat:toolExecution',
-});
+const logger = getLogger('chat:toolExecution');
 
 /* ===================================================================
  *  ToolExecutionDeps — 服务依赖接口

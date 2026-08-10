@@ -33,13 +33,10 @@
  * - openclaw src/media-understanding/runner.ts（vision 原生跳过优化）
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 
-const logger = new Logger({
-  level: LogLevel.INFO,
-  module: 'tools:image-input-router',
-});
+const logger = getLogger('tools:image-input-router');
 
 // ============================================================
 // 类型定义

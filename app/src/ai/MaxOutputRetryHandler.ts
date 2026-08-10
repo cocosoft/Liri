@@ -12,9 +12,8 @@
  * 集成点：在 provider.chat() 返回后检查 response.stop_reason，
  *         如为 'length' 且未达上限，加倍重试。
  */
-import { Logger } from '@modules/monitoring';
-
-const logger = new Logger({ module: 'ai:maxOutputRetry' });
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('ai:maxOutputRetry');
 
 export interface MaxOutputRetryConfig {
   /** 最大重试次数，默认 3 */

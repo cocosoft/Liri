@@ -11,11 +11,8 @@ import {
   wrapForMultiplexer,
 } from './termio/osc.js';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'ink:ink:useTerminalNotification',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('ink:ink:useTerminalNotification');
 
 type WriteRaw = (data: string) => void;
 

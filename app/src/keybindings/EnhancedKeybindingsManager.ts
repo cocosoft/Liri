@@ -8,12 +8,8 @@ import {
   ParsedBinding,
   KeybindingWarning,
 } from './types.js';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'keybindings:enhancedKeybindingsManager',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('keybindings:enhancedKeybindingsManager');
 
 /**
  * 快捷键使用统计

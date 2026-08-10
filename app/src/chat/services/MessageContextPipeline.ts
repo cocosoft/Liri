@@ -12,7 +12,7 @@
  * - 当前会话目标提取（extract current goal）
  * - LLM 响应用量记录（record chat response usage）
  */
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import type { ChatSession } from '../types/session.js';
 import { toolResultRegistry } from '../../tool/ToolResultRegistry.js';
 import { estimateMessagesTokens } from '../../ai/tokenizer/TokenEstimator';
@@ -26,10 +26,7 @@ import type { ImageContextService } from './ImageContextService';
 import { skillInjectionService } from '@modules/constants/systemPromptSections';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({
-  module: 'chat:context-pipeline',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('chat:context-pipeline');
 
 /** 系统提示词中的上下文保持 + 行为约束规则 */
 const MEMORY_CONTEXT_RULES = `## 上下文保持规则

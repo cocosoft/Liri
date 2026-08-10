@@ -4,14 +4,10 @@
  */
 
 import { AppError } from '@modules/error';
-import { Logger, LogLevel } from '@modules/monitoring';
-
+import { getLogger } from '@modules/monitoring';
 import type { MCPRequest, MCPRequestType, MCPResponse } from '../types';
 
-const logger = new Logger({
-  module: 'doc:concurrency',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('doc:concurrency');
 
 /** 请求超时配置（毫秒） */
 const TIMEOUTS: Record<MCPRequestType, number> = {

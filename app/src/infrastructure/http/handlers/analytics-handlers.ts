@@ -27,14 +27,11 @@
 
 import type http from 'http';
 import type { HandlerCtx } from './handler-utils';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { getMonitoringService } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({
-  module: 'infrastructure:http:handlers:analytics-handlers',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('infrastructure:http:handlers:analytics-handlers');
 
 // ── 依赖注入（由 LocalHTTPService 在构造时注入） ─────────────────
 

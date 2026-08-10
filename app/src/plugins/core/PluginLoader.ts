@@ -6,7 +6,7 @@ import { EventEmitter } from 'events';
 import { join } from 'path';
 import { existsSync, mkdirSync, readdirSync, readFileSync } from 'fs';
 import { resolvePluginsInstalledDir } from '@modules/core';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import {
   PluginState,
   PluginType,
@@ -20,10 +20,7 @@ import {
   PluginEvent,
 } from '../types/PluginTypes';
 
-const logger = new Logger({
-  module: 'plugins:core:pluginLoader',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('plugins:core:pluginLoader');
 
 /**
  * 插件加载器

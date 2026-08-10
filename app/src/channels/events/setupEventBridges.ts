@@ -33,14 +33,11 @@
  * 同时通过 handleError 的内存追踪记录，将标准化错误 publish 到 globalEventBus。
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { channelEventBus, ChannelEvents } from './ChannelEventBus';
 import type { EventBus } from '../../core/events/EventBus';
 
-const logger = new Logger({
-  level: LogLevel.INFO,
-  module: 'channels:events:bridge',
-});
+const logger = getLogger('channels:events:bridge');
 
 /** 桥接状态 */
 let bridgesInitialized = false;

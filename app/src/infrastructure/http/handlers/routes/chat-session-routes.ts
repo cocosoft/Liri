@@ -37,6 +37,7 @@ import {
   handleSessionStreamingStatus,
 } from '../chat-handlers';
 import {
+  handleAddSessionMessage,
   handleClearAllSessions,
   handleCompactSession,
   handleCreateSession,
@@ -110,6 +111,15 @@ export async function dispatchChatSessionRoutes(
   }
   if (method === 'GET' && url.match(/^\/v1\/sessions\/(.+)\/messages$/)) {
     await handleGetSessionMessages(
+      handlerCtx,
+      req,
+      res,
+      url.match(/^\/v1\/sessions\/(.+)\/messages$/)![1]
+    );
+    return true;
+  }
+  if (method === 'POST' && url.match(/^\/v1\/sessions\/(.+)\/messages$/)) {
+    await handleAddSessionMessage(
       handlerCtx,
       req,
       res,

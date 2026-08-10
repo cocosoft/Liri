@@ -6,13 +6,10 @@
 import { MCPServerConfig, MCPToolDefinition } from '../types';
 import { getMCPServerManager } from '@modules/services/mcp/MCPServerManager';
 import type { MCPServerManager } from '@modules/services/mcp/MCPServerManager';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { globalEventBus } from '@modules/core/events/EventBus';
 
-const logger = new Logger({
-  module: 'mcp:managers:mCPManager',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('mcp:managers:mCPManager');
 
 /**
  * 通道通知监听器

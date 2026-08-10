@@ -37,9 +37,8 @@ import {
   LOOP_NO_TOOL_CALL_WARNING,
   LOOP_NO_TOOL_CALL_CRITICAL,
 } from './loop-config.js';
-import { Logger } from '@modules/monitoring';
-
-const logger = new Logger({ module: 'query:loopDetector' });
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('query:loopDetector');
 
 /** 检测器类型 */
 type DetectorKind =

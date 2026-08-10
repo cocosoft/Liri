@@ -29,7 +29,7 @@
 import http from 'http';
 import path from 'path';
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger, Logger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import {
   resolveOutputDir,
@@ -40,10 +40,7 @@ import {
 import { globalWorkspaceManager } from '@modules/sandbox/WorkspaceManager';
 import { SandboxPermission } from '@modules/sandbox/SandboxTypes';
 
-const logger = new Logger({
-  module: 'http:handlerUtils',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('http:handlerUtils');
 
 // ── broadcastEvent DI ────────────────────────────────────────────
 

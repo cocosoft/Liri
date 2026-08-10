@@ -1,11 +1,8 @@
 import { Skill, SkillExecutionContext } from '../types';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'skills:utils:skillExecution',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('skills:utils:skillExecution');
 
 /**
  * 执行技能

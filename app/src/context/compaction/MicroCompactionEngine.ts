@@ -6,12 +6,8 @@
  * 零 LLM 调用，O(n) 复杂度
  */
 import type { ChatMessage } from '../../ai/models/types';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'context:compaction:micro',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('context:compaction:micro');
 
 /** CC 源码 COMPACTABLE_TOOL_NAMES 对应项 */
 const COMPACTABLE_TOOL_NAMES = new Set([

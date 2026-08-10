@@ -12,11 +12,8 @@ import { LSPClient as BaseLSPClient } from './LSPClient.js';
 import type { LSPServerInstance } from './LSPServerInstance.js';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'lsp\EnhancedLSPManager',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('lsp\EnhancedLSPManager');
 
 export interface EnhancedLSPManagerConfig {
   enableAdvancedFeatures: boolean;

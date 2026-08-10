@@ -3,14 +3,11 @@
  * AI自动审批安全操作的分类器
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { TTLCache } from '@modules/utils/cache';
 
-const logger = new Logger({
-  module: 'permission:classifiers:yoloClassifier',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('permission:classifiers:yoloClassifier');
 
 /**
  * 分类结果

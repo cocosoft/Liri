@@ -9,12 +9,12 @@
 import { spawnSync, spawn } from 'child_process';
 import { readFile } from 'fs/promises';
 import { getPlatform } from '@modules/utils/platform';
-import { Logger } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { isEnvTruthy } from '@modules/utils/envUtils';
 import { configManager } from '@modules/config';
 import type { VoiceDependencies } from '../models/types';
 
-const logger = new Logger({ module: 'voice:recording:detector' });
+const logger = getLogger('voice:recording:detector');
 
 // ===========================================================
 // 常量

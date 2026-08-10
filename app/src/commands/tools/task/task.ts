@@ -9,11 +9,8 @@ import { TaskStatus } from '@modules/tasks/types.js';
 import { BaseTask } from '@modules/tasks/BaseTask.js';
 import { NoteTask } from '@modules/tasks/NoteTask.js';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'commands:tools:task:task',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('commands:tools:task:task');
 
 const VALID_STATUSES = [
   'pending',

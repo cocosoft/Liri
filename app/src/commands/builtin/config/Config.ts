@@ -3,11 +3,8 @@ import type { CommandContext } from '@modules/commands';
 import { getToolManager } from '@modules/tools/ToolManager';
 import { ConfigDocGenerator, configSchema } from '@modules/config/schema';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'commands:builtin:config:Config',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('commands:builtin:config:Config');
 
 const listConfig = async (): Promise<{ type: 'text'; value: string }> => {
   try {

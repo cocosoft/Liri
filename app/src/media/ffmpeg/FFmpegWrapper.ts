@@ -3,10 +3,10 @@
  * 对标 OpenClaw 的 FFmpeg 集成
  */
 import { spawn } from 'child_process';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 
-const logger = new Logger({ level: LogLevel.INFO, module: 'media:ffmpeg' });
+const logger = getLogger('media:ffmpeg');
 
 /**
  * FFmpeg 选项

@@ -14,9 +14,8 @@ import {
 } from '../ui/TerminalUIIntegration.js';
 import { RealtimeTerminalOutput } from '../ui/RealtimeTerminalOutput.js';
 import { resolveSessionsDir } from '@modules/core';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({ module: 'ui:remoteSession', level: LogLevel.INFO });
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('ui:remoteSession');
 
 /**
  * 会话历史记录

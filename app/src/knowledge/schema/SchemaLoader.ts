@@ -36,15 +36,12 @@
 import { readFileSync, existsSync, mkdirSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { load } from 'js-yaml';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { resolveKnowledgeDir, resolveDomainSchemaDir } from '@modules/core';
 import type { ValidationResult } from '@modules/common/types';
 
-const logger = new Logger({
-  module: 'knowledge:schema:schemaLoader',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('knowledge:schema:schemaLoader');
 
 /** 默认 schema 目录名（用户知识库根目录下的隐藏目录） */
 const SCHEMA_DIR_NAME = '.schema';

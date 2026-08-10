@@ -13,11 +13,8 @@ import {
 import { LSPClient } from './LSPClient';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'tools\lsp\LSPToolImpl',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('tools\lsp\LSPToolImpl');
 
 /**
  * LSP工具实现

@@ -154,11 +154,8 @@ import { getConverterEngine } from '../../tools/converter/engine/ConverterEngine
 import { FileTypeDetector } from '../../tools/converter/engine/FileTypeDetector';
 import { checkPathAccessibility } from '../utils/ToolUtils';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'tools:FileReadTool:FileReadTool',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('tools:FileReadTool:FileReadTool');
 
 /** 二进制文件转换结果最大字符数：超过则源头截断（保留头尾，中间省略提示） */
 const MAX_CONVERT_OUTPUT_CHARS = 30_000;

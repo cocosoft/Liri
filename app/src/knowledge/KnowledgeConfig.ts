@@ -13,13 +13,10 @@
 import { join } from 'path';
 import { readFile } from 'fs/promises';
 import { existsSync } from 'fs';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { resolvePyappHome } from '@modules/core';
 
-const logger = new Logger({
-  module: 'knowledge:config',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('knowledge:config');
 
 export interface KnowledgeSearchConfig {
   keywordWeight: number;

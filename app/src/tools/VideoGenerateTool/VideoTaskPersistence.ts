@@ -12,13 +12,10 @@
 // @ts-ignore — bun:sqlite 是 Bun 内置模块，tsc 无类型声明
 import { Database } from 'bun:sqlite';
 import { resolveDbPath } from '@modules/core/paths';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({
-  level: LogLevel.INFO,
-  module: 'tools:videoGenerate',
-});
+const logger = getLogger('tools:videoGenerate');
 
 /** 持久化的任务状态 */
 export interface VideoTaskRecord {

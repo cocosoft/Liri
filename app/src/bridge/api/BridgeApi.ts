@@ -13,11 +13,8 @@ import {
 import { debugBody, extractErrorDetail } from '../utils/debugUtils';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'bridge\api\BridgeApi',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('bridge\api\BridgeApi');
 
 /**
  * 指数退避配置

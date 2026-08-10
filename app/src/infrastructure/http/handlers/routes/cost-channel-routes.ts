@@ -28,7 +28,7 @@
 
 import type http from 'http';
 import type { HandlerCtx } from '../handler-utils';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import {
   handleCostReconcile,
   handleCostReport,
@@ -76,10 +76,7 @@ import {
   handleUninstallChannelPlugin,
 } from '../channel-plugin-handlers';
 
-const logger = new Logger({
-  module: 'http:cost-channel-routes',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('http:cost-channel-routes');
 
 /**
  * dispatchCostChannelRoutes — cost-channel-routes 领域路由分发

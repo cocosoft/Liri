@@ -38,15 +38,12 @@ import { StreamSTTProvider } from './streamSTTProvider';
 import { SenseVoiceSTTProvider } from './senseVoiceSTTProvider';
 // 2026-08-06 接入（3.1/P0-1）：STT 入口格式嗅探 + ffmpeg 转码兜底
 import { normalizeAudioForSTT } from './audioNormalizer';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { getMetricsService } from '@modules/monitoring';
 import type { HistogramMetric } from '@modules/monitoring';
 
-const logger = new Logger({
-  module: 'voice:sttRegistry',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('voice:sttRegistry');
 
 /**
  * 信号量队列统计

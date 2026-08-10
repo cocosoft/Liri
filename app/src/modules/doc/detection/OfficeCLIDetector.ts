@@ -4,14 +4,10 @@
  */
 
 import { execSync } from 'child_process';
-import { Logger, LogLevel } from '@modules/monitoring';
-
+import { getLogger } from '@modules/monitoring';
 import type { OfficeCLIInfo, OfficeCLIVersionConstraint } from '../types';
 
-const logger = new Logger({
-  module: 'doc:detection',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('doc:detection');
 
 /** OfficeCLI 版本兼容约束 */
 const OFFICECLI_CONSTRAINT: OfficeCLIVersionConstraint = {

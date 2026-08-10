@@ -32,14 +32,11 @@ import { globalEventBus } from '../core/events/EventBus.js';
 import { OrchestrationEventType as OrchEvent } from '../agent/events/OrchestrationEvents.js';
 import type { PlanProgressData } from '../agent/events/OrchestrationEvents.js';
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error';
-const logger = new Logger({
-  module: 'tasks:TaskOrchestrator',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('tasks:TaskOrchestrator');
 
 /**
  * 安全发布 EventBus 事件：失败时记录区分事件类型的日志，不阻塞主流程

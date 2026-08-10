@@ -47,14 +47,11 @@
 import { Database } from '@modules/core/external/sqlite3';
 import { resolveDbPath, ensureDir } from '@modules/core';
 import { dirname } from 'path';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
-const logger = new Logger({
-  module: 'ai:models:appModelConfigService',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('ai:models:appModelConfigService');
 
 const APP_CONFIG_TABLE = 'ai_app_model_configs';
 

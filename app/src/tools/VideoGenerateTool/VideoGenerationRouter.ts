@@ -5,7 +5,7 @@
  * 当前仅单 Provider，后续支持 fallback 链扩展。
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import type {
   VideoGenerationParams,
   VideoGenerationResult,
@@ -14,10 +14,7 @@ import { RegistryVideoProvider } from './providers/RegistryVideoProvider';
 import { handleError } from '@modules/error/handleError';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
-const logger = new Logger({
-  level: LogLevel.INFO,
-  module: 'tools:videoGenerate',
-});
+const logger = getLogger('tools:videoGenerate');
 
 export class VideoGenerationRouter {
   private providers: RegistryVideoProvider[] = [];

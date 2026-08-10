@@ -29,13 +29,10 @@ import { join, dirname } from 'path';
 import type { WorkspaceRegistryData } from './types';
 import { resolvePyappHome } from '@modules/core';
 import os from 'os';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({
-  module: 'workspaces:registry',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('workspaces:registry');
 
 /**
  * 获取注册表文件路径

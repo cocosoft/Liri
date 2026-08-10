@@ -5,9 +5,8 @@
  * 以减少整体启动时间
  */
 
-import { Logger } from '@modules/monitoring';
-
-const logger = new Logger({ module: 'StartupPreloader' });
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('StartupPreloader');
 
 /**
  * 预加载任务接口

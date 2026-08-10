@@ -4,14 +4,11 @@
  */
 
 import { Database } from '@modules/core/external/sqlite3';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import type { CronJob, CronJobResult } from './types';
 
-const logger = new Logger({
-  module: 'tasks:cron:deliveryQueue',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('tasks:cron:deliveryQueue');
 
 const TABLE_DELIVERY_QUEUE = 'delivery_queue';
 

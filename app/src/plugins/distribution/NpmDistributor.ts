@@ -4,7 +4,7 @@
  * 对齐 OpenClaw 插件分发机制
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { resolvePluginsInstalledDir } from '@modules/core';
 import { execSync } from 'child_process';
 import {
@@ -18,10 +18,7 @@ import {
 import { join } from 'path';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({
-  module: 'plugins:distribution:npmDistributor',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('plugins:distribution:npmDistributor');
 
 export interface NpmInstallResult {
   success: boolean;

@@ -12,11 +12,8 @@ import { promisify } from 'util';
 import type { CommandContext } from '@modules/commands';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'commands:builtin:commit:Commit',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('commands:builtin:commit:Commit');
 
 const execAsync = promisify(exec);
 

@@ -8,10 +8,10 @@
 export type Platform = 'win32' | 'darwin' | 'linux' | 'wsl' | 'unknown';
 
 import { existsSync, readFileSync } from 'node:fs';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 
-const logger = new Logger({ module: 'utils:platform', level: LogLevel.INFO });
+const logger = getLogger('utils:platform');
 
 /**
  * 获取当前平台

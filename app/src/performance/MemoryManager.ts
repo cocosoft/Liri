@@ -11,11 +11,8 @@ import {
   performanceConfigManager,
 } from './PerformanceConfig.js';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'performance:MemoryManager',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('performance:MemoryManager');
 
 /**
  * 内存快照

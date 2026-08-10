@@ -3,7 +3,7 @@
  * 实现文件系统存储和缓存机制，优化数据库访问
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 import {
   readFile,
@@ -17,10 +17,7 @@ import { join, dirname } from 'path';
 import { existsSync } from 'fs';
 import { resolveDataDir } from '@modules/core';
 
-const logger = new Logger({
-  module: 'chronos:storage',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('chronos:storage');
 
 /**
  * 缓存项

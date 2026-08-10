@@ -28,14 +28,11 @@
 import { resolveDataSubDir } from '@modules/core';
 import { join } from 'path';
 import { readFile, writeFile, mkdir } from 'fs/promises';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import type { DreamTriggerSource } from './types';
 
-const logger = new Logger({
-  module: 'dream:metrics',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('dream:metrics');
 
 export interface DreamMetricsData {
   /** 累计周期数（按触发源分组） */

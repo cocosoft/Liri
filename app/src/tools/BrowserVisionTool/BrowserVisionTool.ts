@@ -33,16 +33,13 @@ import {
   RouteKey,
 } from '../../ai/router/resolveModelRoute.js';
 import { providerRegistry } from '../../ai/providers/ProviderRegistry';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { resolveTempDir } from '@modules/core/paths';
 import * as path from 'path';
 import * as fs from 'fs';
 import { randomUUID } from 'crypto';
 
-const logger = new Logger({
-  level: LogLevel.INFO,
-  module: 'tools:browser-vision',
-});
+const logger = getLogger('tools:browser-vision');
 
 interface BrowserVisionInput {
   /** 分析提示词 */

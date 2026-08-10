@@ -1,10 +1,10 @@
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import type { SqliteTaskStore } from './db/SqliteTaskStore';
 import type { TaskRegistry } from './TaskRegistry';
 import type { TaskState, SnapshotOptions, TaskStatusSnapshot } from './types';
 import { TaskStatus, isTerminalTaskStatus } from './types';
 
-const logger = new Logger({ module: 'tasks:status', level: LogLevel.INFO });
+const logger = getLogger('tasks:status');
 
 const DEFAULT_OPTIONS: SnapshotOptions = {
   recentThresholdMs: 5 * 60 * 1000,

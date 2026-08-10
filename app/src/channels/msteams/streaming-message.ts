@@ -9,11 +9,8 @@
  */
 
 /** 默认流更新节流间隔（毫秒） */
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'channels:msteams:streaming-message',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('channels:msteams:streaming-message');
 
 const DEFAULT_THROTTLE_MS = 1500;
 

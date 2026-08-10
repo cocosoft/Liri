@@ -1,13 +1,10 @@
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { execSync } from 'child_process';
 import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { resolveProjectRoot } from '@modules/core';
 
-const logger = new Logger({
-  module: 'daemon:autoUpdater',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('daemon:autoUpdater');
 
 export interface UpdateInfo {
   currentVersion: string;

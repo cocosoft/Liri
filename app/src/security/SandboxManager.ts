@@ -3,11 +3,8 @@
  * 提供沙箱环境，限制代码执行的权限和资�?
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'security:SandboxManager',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('security:SandboxManager');
 import {
   AppError,
   ErrorCategory,

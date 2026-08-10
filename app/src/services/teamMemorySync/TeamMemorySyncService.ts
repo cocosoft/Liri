@@ -1,11 +1,8 @@
 import type { Memory } from '@modules/memory/types/Memory';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({
-  module: 'services:teamMemorySync',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('services:teamMemorySync');
 
 /**
  * 团队记忆同步状态

@@ -3,12 +3,8 @@
  * 注入 ChannelManager，支持渠道内创建文档和发送文件
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'doc:channel',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('doc:channel');
 
 /**
  * doc 模块渠道处理器

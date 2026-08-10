@@ -27,8 +27,8 @@
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import * as net from 'net';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'cli\ports\index', level: LogLevel.INFO });
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('cli\ports\index');
 
 export interface PortInfo {
   port: number;

@@ -20,15 +20,12 @@ interface MemoryManager {
 import * as fs from 'fs';
 import { join } from 'path';
 import { resolveDataDir } from '@modules/core';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import matter from 'gray-matter';
 
-const logger = new Logger({
-  module: 'memory:services:teamMemoryService',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('memory:services:teamMemoryService');
 
 /**
  * 记忆路径类型枚举

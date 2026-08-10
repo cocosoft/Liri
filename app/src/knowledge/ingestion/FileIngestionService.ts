@@ -19,17 +19,14 @@ import {
 import { join, extname, basename, resolve } from 'path';
 import { existsSync } from 'fs';
 import { createHash } from 'crypto';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import type { AIService, AIMessage } from '@modules/ai';
 import { AIMessageRole } from '@modules/ai';
 import { resolvePyappHome } from '@modules/core';
 import { configManager } from '@modules/config/ConfigManager';
 
-const logger = new Logger({
-  module: 'knowledge:ingestion:fileIngestionService',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('knowledge:ingestion:fileIngestionService');
 
 /**
  * 摄取来源

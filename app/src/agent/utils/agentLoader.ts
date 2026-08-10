@@ -14,11 +14,11 @@ import {
 import type { HooksSettings } from '@modules/types';
 import { parseFrontmatter } from '@modules/utils/frontmatterParser';
 import { parseYAML, parseJSON, AgentDefinitionFile } from './agentDefinition';
-import { Logger } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { handleError } from '@modules/error/handleError';
 
-const logger = new Logger({ module: 'agent:agentLoader' });
+const logger = getLogger('agent:agentLoader');
 
 /**
  * 将新格式的Agent定义转换为内部格式

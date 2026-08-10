@@ -7,11 +7,8 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'daemon:service:DaemonService',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('daemon:service:DaemonService');
 
 /**
  * 平台类型

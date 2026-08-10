@@ -7,11 +7,8 @@ import {
   handleError,
 } from '@modules/error';
 
-import { Logger, LogLevel } from '../../monitoring/logs/Logger.js';
-const logger = new Logger({
-  module: 'config:hotreload:HotReloader',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '../../monitoring/logs/Logger.js';
+const logger = getLogger('config:hotreload:HotReloader');
 
 export type ReloadStrategy = 'watch' | 'poll' | 'manual';
 

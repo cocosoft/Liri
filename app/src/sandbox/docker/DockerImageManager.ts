@@ -4,13 +4,10 @@
  */
 
 import { execSync } from 'child_process';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 
-const logger = new Logger({
-  module: 'sandbox:dockerManager',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('sandbox:dockerManager');
 
 export interface DockerImageInfo {
   repository: string;

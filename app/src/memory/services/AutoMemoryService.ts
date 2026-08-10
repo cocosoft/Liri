@@ -15,7 +15,7 @@ interface MemoryManager {
   getAllMemories(): Promise<Memory[]>;
 }
 import type { AIService } from '@modules/ai';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger, Logger } from '@modules/monitoring';
 import type { KnowledgeBaseWriter } from './KnowledgeBaseWriter';
 
 /**
@@ -90,10 +90,7 @@ export class AutoMemoryService {
       useLLM: false,
       ...config,
     };
-    this.logger = new Logger({
-      module: 'memory:services:autoMemory',
-      level: LogLevel.INFO,
-    });
+    this.logger = getLogger('memory:services:autoMemory');
   }
 
   /**

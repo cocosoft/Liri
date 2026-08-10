@@ -4,12 +4,8 @@
  * 分析对话内容，提取关键决策、重要变更、风险提示
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'agent:insightGenerator',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('agent:insightGenerator');
 
 export interface ConversationInsight {
   type: 'decision' | 'change' | 'risk' | 'summary';

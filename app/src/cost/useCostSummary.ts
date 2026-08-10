@@ -4,13 +4,10 @@
  */
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({
-  module: 'cost:useCostSummary',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('cost:useCostSummary');
 import {
   costTracker,
   type ModelUsage,

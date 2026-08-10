@@ -19,12 +19,8 @@
 
 import { Database } from '@modules/core/external/sqlite3';
 import { existsSync, readFileSync } from 'fs';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'services:file:attachmentMigration',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('services:file:attachmentMigration');
 
 /** attachments_sources 记录 */
 interface AttachmentSourceRow {

@@ -1,13 +1,10 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import type { InstalledMCPServer, MCPLocalStoreData } from './types';
 
-const logger = new Logger({
-  module: 'services:mcp:localServerStore',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('services:mcp:localServerStore');
 
 const STORE_VERSION = 1;
 

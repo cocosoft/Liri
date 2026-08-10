@@ -8,11 +8,11 @@
  * - 健康检查每 30 秒 ping 一次
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { StdioBridge } from './StdioBridge';
 
-const logger = new Logger({ level: LogLevel.INFO, module: 'ai:python:guard' });
+const logger = getLogger('ai:python:guard');
 
 /** 看护配置 */
 export interface WorkerGuardConfig {

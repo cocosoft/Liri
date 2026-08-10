@@ -8,7 +8,7 @@ import { buildSystemPrompt, type SystemPromptContext } from '@modules/ai';
 import { providerPromptRegistry } from './ProviderPromptPlugin';
 import { modelManager } from '@modules/ai';
 import { providerRegistry } from '@modules/ai';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { setCurrentSessionContext } from './MemoryPromptProvider';
 import type { SessionContext } from '@modules/memory/types/SessionContext';
 import { generatePromptReport, formatPromptReport } from './SystemPromptReport';
@@ -23,7 +23,7 @@ import {
 import type { PromptMode } from './types';
 export type { PromptMode };
 
-const logger = new Logger({ module: 'prompt:assembler', level: LogLevel.INFO });
+const logger = getLogger('prompt:assembler');
 
 /** P3-11: 最近一次诊断报告缓存 */
 let _lastDiagnosticsReport: DiagnosticsReport | null = null;

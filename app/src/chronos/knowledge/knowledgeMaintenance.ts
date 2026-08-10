@@ -5,14 +5,11 @@
  * 2. 更新知识库摘要缓存
  * 3. 执行健康检查（可选，默认仅在检查模式下执行）
  */
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 import { resolvePyappHome } from '@modules/core';
 
-const logger = new Logger({
-  module: 'chronos:knowledge',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('chronos:knowledge');
 
 /** 默认知识库维护 cron 表达式：每日凌晨 4 点 */
 export const DEFAULT_MAINTENANCE_CRON = '0 4 * * *';

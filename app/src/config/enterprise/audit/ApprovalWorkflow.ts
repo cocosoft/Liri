@@ -13,12 +13,8 @@ import {
   handleError,
 } from '@modules/error';
 import { ErrorCodes } from '@modules/error';
-import { Logger, LogLevel } from '../../../monitoring/logs/Logger.js';
-
-const logger = new Logger({
-  module: 'config:enterprise:audit:approvalWorkflow',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '../../../monitoring/logs/Logger.js';
+const logger = getLogger('config:enterprise:audit:approvalWorkflow');
 
 /** 审批状态 */
 export type ApprovalStatus =

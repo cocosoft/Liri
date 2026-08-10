@@ -24,7 +24,7 @@ import fs from 'fs';
 import path from 'path';
 import { homedir } from 'node:os';
 
-import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
+import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { repairModelJson } from '@modules/utils/json';
 import { containsComplexKeywords } from '@modules/workspace/CouncilOrchestrator';
@@ -67,7 +67,7 @@ import { TaskFacade } from './facades/TaskFacade';
 import { PdcaLauncher } from './launchers/PdcaLauncher';
 import { ChatOrchestrator } from './orchestrator/ChatOrchestrator.js';
 
-const logger = new Logger({ module: 'chat:manager', level: LogLevel.INFO });
+const logger = getLogger('chat:manager');
 import { SimpleMutex } from '@modules/core/SimpleMutex';
 import { ImplicitEngineHook } from '../project/ImplicitEngineHook';
 import { createProjectStore } from '../workspace/ProjectStore.js';
@@ -2169,14 +2169,23 @@ export class ChatManagerImpl implements ChatManager {
       }
     }
 
-    // 创建用户消息
-    const userMessage = this.messageService.createUserMessage(content, {
-      sessionId: session.id,
-      metadata: options?.metadata,
-    });
-
+    // 创建用户消息（前端写前落盘后按 id 复用，避免重复持久化）
+    let userMessage: Message;
+    const prePersisted = options?.messageId
+      ? (session.messages.find((m) => m.id === options.messageId) as
+          | Message
+          | undefined)
+      : undefined;
     session.metadata.roundCount = (session.metadata.roundCount ?? 0) + 1;
-    this._addAndPersistMessage(session.id, userMessage);
+    if (prePersisted) {
+      userMessage = prePersisted;
+    } else {
+      userMessage = this.messageService.createUserMessage(content, {
+        sessionId: session.id,
+        metadata: options?.metadata,
+      });
+      this._addAndPersistMessage(session.id, userMessage);
+    }
     this.getSessionMachine(session.id).start('processUserInput');
 
     // OTel span

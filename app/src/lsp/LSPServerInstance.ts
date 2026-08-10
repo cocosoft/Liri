@@ -10,11 +10,8 @@ import {
   handleError,
 } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'lsp:LSPServerInstance',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('lsp:LSPServerInstance');
 
 const LSP_ERROR_CONTENT_MODIFIED = -32801;
 const MAX_RETRIES_FOR_TRANSIENT_ERRORS = 3;

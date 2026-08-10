@@ -13,11 +13,8 @@ import {
   handleError,
 } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'tools:ChronosTool:CronCreateTool',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('tools:ChronosTool:CronCreateTool');
 
 const MAX_JOBS = 50;
 

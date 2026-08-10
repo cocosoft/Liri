@@ -8,11 +8,8 @@ import { existsSync, statSync } from 'fs';
 import { configManager } from '@modules/config';
 import { handleError } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'security:bash:DirectoryScopeRestriction',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('security:bash:DirectoryScopeRestriction');
 
 /**
  * 路径验证结果

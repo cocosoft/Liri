@@ -15,7 +15,7 @@
 
 import { createHash } from 'crypto';
 
-import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
+import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import type {
   TTSVoice,
@@ -35,10 +35,7 @@ export { TTSQueuePriority } from './ttsTypes';
 import { EdgeTTSProvider } from './edgeTTSProvider';
 export { EdgeTTSProvider };
 
-const logger = new Logger({
-  module: 'voice:ttsProvider',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('voice:ttsProvider');
 
 /**
  * TTS 缓存配置

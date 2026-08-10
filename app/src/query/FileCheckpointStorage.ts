@@ -14,9 +14,8 @@ import type {
   CheckpointStorage,
 } from '../chat/types/checkpoint.js';
 import { CHECKPOINT_MAX_AUTO } from '../chat/types/checkpoint.js';
-import { Logger } from '@modules/monitoring';
-
-const logger = new Logger({ module: 'query:fileCheckpointStorage' });
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('query:fileCheckpointStorage');
 
 const CHECKPOINT_DIR_DEFAULT = 'checkpoints';
 

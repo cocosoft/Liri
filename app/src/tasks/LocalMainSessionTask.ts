@@ -17,13 +17,10 @@ import type { AgentDefinition, TaskState } from './types';
 import { BaseTask } from './BaseTask';
 import { TaskType, TaskStatus } from './types';
 import { taskRegistry } from './TaskRegistry';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({
-  module: 'tasks:localMainSession',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('tasks:localMainSession');
 
 /**
  * 主会话任务 ID 前缀

@@ -1,4 +1,4 @@
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import fs from 'fs';
 import { handleError } from '@modules/error/handleError';
 import {
@@ -6,10 +6,7 @@ import {
   ImageFormatDetector,
 } from './ImageFormatDetector';
 
-const logger = new Logger({
-  module: 'media:imageSecurity',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('media:imageSecurity');
 
 /**
  * 安全检测配置

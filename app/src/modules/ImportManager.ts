@@ -7,12 +7,8 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { ErrorCodes } from '@modules/error';
 import type { ModuleDefinition } from './moduleTypes';
 import { getRegistry } from './moduleTypes';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'modules:importManager',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('modules:importManager');
 
 /**
  * 导入管理器配置

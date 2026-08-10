@@ -9,12 +9,8 @@
 
 import { HealthChecker } from '@modules/monitoring/health/HealthChecker.js';
 import { systemHealthChecker } from '@modules/diagnostics/SystemHealthChecker.js';
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger.js';
-
-const logger = new Logger({
-  module: 'diagnostics:infrastructure-diagnostics',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring/logs/Logger.js';
+const logger = getLogger('diagnostics:infrastructure-diagnostics');
 
 /** 全局 HealthChecker 实例 */
 export const infraHealthChecker = new HealthChecker();

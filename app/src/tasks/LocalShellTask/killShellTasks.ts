@@ -11,10 +11,10 @@ import { TaskStatus } from '../types';
 import { taskRegistry } from '../TaskRegistry';
 import { isLocalShellTask } from './guards';
 import type { LocalShellTaskState } from './guards';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({ module: 'tasks:killShell', level: LogLevel.INFO });
+const logger = getLogger('tasks:killShell');
 
 /**
  * 终止指定 ID 的 shell 任务

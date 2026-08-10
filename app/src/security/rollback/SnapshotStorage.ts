@@ -46,11 +46,11 @@ import { existsSync } from 'fs';
 import { join, dirname, resolve } from 'path';
 import { createHash } from 'crypto';
 import { homedir } from 'os';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { xxHash, encodeFilePath } from './xxHash';
 import type { RoundSnapshot, FileChange, SessionIndexEntry } from './types';
 
-const logger = new Logger({ module: 'SnapshotStorage' });
+const logger = getLogger('SnapshotStorage');
 
 /** 数据模型版本号 */
 const SCHEMA_VERSION = 1;

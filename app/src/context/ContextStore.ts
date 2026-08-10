@@ -12,11 +12,8 @@ import {
   type ContextSnapshot,
 } from './persistence/ContextPersistence';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'context:store',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('context:store');
 
 export interface IContextStore {
   create(data: ContextData): Promise<Context>;

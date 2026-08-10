@@ -4,13 +4,10 @@
  * 将MCP服务器的工具注册到主ToolManager中
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({
-  module: 'services:mcp:toolBridge',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('services:mcp:toolBridge');
 import { getToolManager } from '@modules/tools/ToolManager';
 import { mcpToolRegistry } from './MCPToolRegistry';
 import { McpToolWrapper } from './McpToolWrapper';

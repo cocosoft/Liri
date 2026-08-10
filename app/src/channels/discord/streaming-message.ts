@@ -9,11 +9,8 @@
  */
 
 /** 默认节流间隔（毫秒） */
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'channels:discord:streaming-message',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('channels:discord:streaming-message');
 
 const DEFAULT_THROTTLE_MS = 800;
 

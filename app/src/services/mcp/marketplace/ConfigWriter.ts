@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { resolvePyappHome } from '@modules/core';
 import { enhancedMcpConfigManager } from '@modules/services/mcp/EnhancedMCPConfigManager';
@@ -10,10 +10,7 @@ import type {
 } from '@modules/services/mcp/types';
 import type { ServerInstallConfig } from './types';
 
-const logger = new Logger({
-  module: 'services:mcp:configWriter',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('services:mcp:configWriter');
 
 export class ConfigWriter {
   /**

@@ -52,11 +52,11 @@ import type { AIProvider } from '../providers/AIProvider.js';
 import type { RouteDecision, RouterTier } from './types.js';
 import { TaskDecomposer } from './TaskDecomposer.js';
 import type { DecompositionResult, SubTask } from './TaskDecomposer.js';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { trackUsage } from '@modules/ai';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({ level: LogLevel.INFO, module: 'ai:orch' });
+const logger = getLogger('ai:orch');
 
 /**
  * 编排结果

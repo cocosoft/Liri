@@ -7,14 +7,11 @@ import type { CronJob, CronJobResult } from './types';
 import type { AIProvider, ChatOptions } from '@modules/ai';
 import type { ChatMessage } from '@modules/ai';
 import { trackUsage } from '@modules/ai';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { resolveModelRoute, RouteKey } from '@modules/ai';
 
-const logger = new Logger({
-  module: 'tasks:cronExecutor',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('tasks:cronExecutor');
 
 export interface CronExecutorConfig {
   /** 模型（默认从环境变量读取） */

@@ -7,8 +7,8 @@
 /**
  * Bridge接口定义
  */
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'cli:remoteIO', level: LogLevel.INFO });
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('cli:remoteIO');
 
 interface Bridge {
   requestInput(options: {

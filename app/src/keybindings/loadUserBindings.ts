@@ -14,12 +14,8 @@ import type {
 import { validateKeybindings } from './schema.js';
 import { parseChord, formatChord } from './parser.js';
 import type { KeybindingContextName } from './types.js';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'keybindings:loadUserBindings',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('keybindings:loadUserBindings');
 
 /**
  * 用户绑定文件路径

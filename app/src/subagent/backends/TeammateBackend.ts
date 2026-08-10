@@ -10,11 +10,8 @@ import type {
 } from '@modules/subagent/types/SubAgent';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'subagent\backends\TeammateBackend',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('subagent\backends\TeammateBackend');
 
 export interface TeammateConfig {
   name: string;

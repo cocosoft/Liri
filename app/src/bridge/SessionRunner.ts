@@ -11,11 +11,8 @@ import { spawn, type ChildProcess } from 'child_process';
 import { createWriteStream, type WriteStream } from 'fs';
 
 import { handleError } from '@modules/error';
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'bridge:SessionRunner',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('bridge:SessionRunner');
 
 export type SessionActivity = {
   type: string;

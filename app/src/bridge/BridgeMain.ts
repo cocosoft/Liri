@@ -20,12 +20,9 @@ import { createHeartbeatManager } from './managers/HeartbeatManager.js';
 import { createWorkspaceGit } from '@modules/workspaces/WorkspaceGit.js';
 import { bridgeStateStore } from './state/BridgeStateStore.js';
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-const logger = new Logger({
-  module: 'bridge:BridgeMain',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('bridge:BridgeMain');
 
 /**
  * 默认退避配置

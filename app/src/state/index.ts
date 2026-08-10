@@ -29,3 +29,20 @@ export type { RequiresActionDetails } from './session/types';
 // 应用状态机
 export { AppStateMachine } from './app/AppStateMachine';
 export { AppState, APP_TRANSITIONS } from './app/types';
+export {
+  initAppStateMachine,
+  getAppStateMachine,
+  getAppState,
+  markAppBusy,
+  markAppIdle,
+  markAppPaused,
+  markAppError,
+} from './app/AppLifecycle';
+
+// 后台任务状态机
+export {
+  BackgroundTaskStateMachine,
+  BackgroundTaskState,
+  BACKGROUND_TASK_TRANSITIONS,
+  getBackgroundTaskStateMachine,
+} from './background/BackgroundTaskStateMachine';

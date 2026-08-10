@@ -11,7 +11,7 @@
  * 通过 metadata.streamingAutoCheckpoint 标记区分手动/自动检查点。
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { isCheckpointLogEnabled } from '../../config/settings/CheckpointLogConfig';
 import { handleError } from '@modules/error';
 import type { SessionCheckpointService } from './SessionCheckpointService';
@@ -20,10 +20,7 @@ import type { Message } from '../types/message';
 import type { SessionMetadata, SessionState } from '../types/session';
 import type { ToolCallSpec } from '@modules/runtime/api/CoreAPI';
 
-const logger = new Logger({
-  module: 'chat:streamingAutoCheckpoint',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('chat:streamingAutoCheckpoint');
 
 // ── 类型 ──────────────────────────────────────────────────────────
 

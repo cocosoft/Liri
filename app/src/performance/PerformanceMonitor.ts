@@ -19,12 +19,8 @@ import {
   deferredLoader,
   DeferredLoadState,
 } from '@modules/modules/LazyModuleStrategy';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'performance:performanceMonitor',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('performance:performanceMonitor');
 
 /**
  * 延迟模块加载统计

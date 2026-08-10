@@ -7,11 +7,8 @@ import path from 'path';
 import { resolveMediaDir } from '@modules/core';
 import { handleError } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'media\store\MediaStore',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('media\store\MediaStore');
 
 /**
  * 存储配置

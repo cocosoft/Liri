@@ -40,13 +40,15 @@ import {
   isAutoDreamRunning,
 } from '../chronos/autoDream/AutoDream';
 import { globalEventBus, SystemEvents } from '@modules/core';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
+import { recordBackgroundTask } from '@modules/monitoring/BackgroundTaskEvent';
 import { handleError } from '@modules/error';
+import {
+  BackgroundTaskState,
+  getBackgroundTaskStateMachine,
+} from '../state/background/BackgroundTaskStateMachine';
 
-const logger = new Logger({
-  module: 'dream:dreamEngine',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('dream:dreamEngine');
 
 export class DreamEngine {
   private scheduler: DreamScheduler;
@@ -123,12 +125,30 @@ export class DreamEngine {
    * 通过 UnifiedDreamCycle 统一编排 Gather → Analyze → Generate → Write → Index。
    */
   private async executeDreamCycle(source: DreamTriggerSource): Promise<void> {
-    if (this.cycle.isRunning) {
+    // §十 阶段 C：以状态机表达后台任务运行态（替代手写 this.cycle.isRunning 布尔守卫）
+    const sm = getBackgroundTaskStateMachine('dream');
+    if (sm.getState() === BackgroundTaskState.RUNNING) {
       logger.info('[DreamEngine] 梦境周期正在进行中，跳过');
+      // §9.3 统一后台任务事件：skip（R08-002）
+      recordBackgroundTask({
+        task: 'dream',
+        phase: 'skip',
+        startedAt: Date.now(),
+        status: 'cycle already running',
+        metadata: { triggerSource: source },
+      });
       return;
     }
+    sm.transition(BackgroundTaskState.RUNNING, 'cycle start');
 
     const startTime = Date.now();
+    // §9.3 统一后台任务事件：start（R08-002）
+    recordBackgroundTask({
+      task: 'dream',
+      phase: 'start',
+      startedAt: startTime,
+      metadata: { triggerSource: source },
+    });
     let success = false;
     let record: DreamCycleRecord | undefined;
 
@@ -141,6 +161,7 @@ export class DreamEngine {
       // 409: 并发冲突
       if (errMsg === 'DREAM_CYCLE_BUSY') {
         logger.info('[DreamEngine] 梦境周期已在运行，拒绝触发');
+        // 保持 RUNNING：状态机由真正在跑的周期负责推进到终态，这里不抢占
         return;
       }
 
@@ -153,6 +174,27 @@ export class DreamEngine {
         action: 'executeDreamCycle',
       });
     }
+
+    // §十 阶段 C：记录周期终态（completed / failed）
+    sm.transition(
+      success ? BackgroundTaskState.COMPLETED : BackgroundTaskState.FAILED,
+      success ? 'cycle completed' : 'cycle failed'
+    );
+
+    // §9.3 统一后台任务事件：complete / fail（R08-002）
+    recordBackgroundTask({
+      task: 'dream',
+      phase: success ? 'complete' : 'fail',
+      startedAt: startTime,
+      endedAt: Date.now(),
+      durationMs: Date.now() - startTime,
+      status: success ? 'cycle completed' : 'cycle failed',
+      metadata: {
+        triggerSource: source,
+        sessionsProcessed: record?.sessionsProcessed,
+        memoriesCreated: record?.memoriesCreated,
+      },
+    });
 
     // 保存兼容 DreamRecord
     const legacyRecord = {

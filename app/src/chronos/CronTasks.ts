@@ -2,7 +2,7 @@
  * Cron任务持久化管理
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 import { randomUUID } from 'crypto';
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
@@ -16,10 +16,7 @@ import { resolveChronosDir } from '@modules/core';
 import type { ScheduledTask } from './types';
 import type { SqliteCronStore } from './service/SqliteCronStore';
 
-const logger = new Logger({
-  module: 'chronos:cronTasks',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('chronos:cronTasks');
 
 const CRON_FILE_NAME = 'scheduled_tasks.json';
 

@@ -5,11 +5,8 @@ import { configManager } from '@modules/config';
 
 import { handleError } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'chronos:autoDream:consolidationWorker',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('chronos:autoDream:consolidationWorker');
 
 const prompt = configManager.env('LIRI_DREAM_PROMPT') || '';
 const memoryRoot = configManager.env('LIRI_DREAM_MEMORY_ROOT') || '';

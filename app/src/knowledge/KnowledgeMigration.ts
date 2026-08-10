@@ -5,14 +5,11 @@
 import { join } from 'path';
 import { readFile, writeFile, mkdir, readdir, stat } from 'fs/promises';
 import { existsSync } from 'fs';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { resolvePyappHome, resolveKnowledgeBaseDir } from '@modules/core';
 
-const logger = new Logger({
-  module: 'knowledge:knowledgeMigration',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('knowledge:knowledgeMigration');
 
 export interface MigrationResult {
   migrated: number;

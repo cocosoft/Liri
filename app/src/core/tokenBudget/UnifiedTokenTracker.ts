@@ -15,7 +15,7 @@ import {
 } from '../../ai/tokenizer/TokenEstimator';
 import { getCachedTiktokenEncoder } from '../../ai/tokenizer/TiktokenEstimator';
 import { resolveContextWindow } from '../../context/window/ContextWindowResolver';
-import { Logger, LogLevel } from '../../monitoring/logs/Logger';
+import { getLogger } from '../../monitoring/logs/Logger';
 import { handleError } from '@modules/error';
 import {
   TokenBudgetController,
@@ -27,10 +27,7 @@ import { traceUsageListeners } from '../../trace-recording/AITracePlugin';
 // 订阅子 Agent token 消耗汇聚
 import { subAgentTokenListeners } from './SubAgentTokenBridge';
 
-const logger = new Logger({
-  level: LogLevel.INFO,
-  module: 'tokenBudget:unified',
-});
+const logger = getLogger('tokenBudget:unified');
 
 // ==========================================
 // Types

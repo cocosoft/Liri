@@ -20,11 +20,8 @@ import type {
 import { execFile, spawn } from 'child_process';
 import { promisify } from 'util';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'utils:computerUse:MacAdapter',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('utils:computerUse:MacAdapter');
 
 const execAsync = promisify(execFile);
 

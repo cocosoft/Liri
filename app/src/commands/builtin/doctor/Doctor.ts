@@ -13,11 +13,8 @@ import type { CommandContext, CommandResult } from '@modules/commands';
 import { DoctorCheck, runDoctorChecks } from './DoctorCheck.js';
 import { detectUnifiedProviders } from '@modules/ai';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'commands:builtin:doctor:Doctor',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('commands:builtin:doctor:Doctor');
 
 /**
  * 判断是否有任何 API 密钥已配置（通过环境变量）

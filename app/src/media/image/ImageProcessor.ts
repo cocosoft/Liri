@@ -3,7 +3,7 @@
  * 基于 Sharp 实现实际的图像处理操作（async）
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { handleError } from '@modules/error/handleError';
 import fs from 'fs';
@@ -11,7 +11,7 @@ import path from 'path';
 import sharp from 'sharp';
 import { imageFormatDetector } from './ImageFormatDetector';
 
-const logger = new Logger({ level: LogLevel.INFO, module: 'media:image' });
+const logger = getLogger('media:image');
 
 /** 图片格式 */
 export type ImageFormat =

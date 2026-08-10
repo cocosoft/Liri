@@ -8,11 +8,8 @@ import type { CommandContext, CommandResult } from '@modules/commands';
 import { getToolManager } from '@modules/tools/ToolManager.js';
 
 import { handleError } from '@modules/error';
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'commands:tools:file:write',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('commands:tools:file:write');
 
 interface FileWriteResult {
   type: 'create' | 'update';

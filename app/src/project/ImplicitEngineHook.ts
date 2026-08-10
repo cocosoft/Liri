@@ -13,14 +13,11 @@ import { resolveDataDir } from '@modules/core/paths';
 import { randomUUID } from 'crypto';
 import type { ProjectContextType } from '@modules/workspace/types';
 import { createProjectHistoryStore } from './ProjectHistoryStore';
-import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
+import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({
-  module: 'project:ImplicitEngine',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('project:ImplicitEngine');
 
 /** 意图分类 */
 export type ImplicitIntent = 'plan' | 'do' | 'check' | 'act' | 'none';

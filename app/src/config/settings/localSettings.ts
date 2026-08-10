@@ -5,10 +5,10 @@
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
-import { Logger } from '../../monitoring/logs/Logger.js';
+import { getLogger } from '../../monitoring/logs/Logger.js';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({ module: 'LocalSettings' });
+const logger = getLogger('LocalSettings');
 import { deepMerge } from '@modules/utils/common.js';
 import { resolvePyappHome } from '@modules/core';
 

@@ -5,13 +5,13 @@
  * 与 InboxManager 协作：Inbox 创建/回复时同步写入通知。
  */
 
-import { Logger } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { Database } from '@modules/core/external/sqlite3';
 import { resolveDbPath } from '@modules/core/paths';
 import { randomUUID } from 'crypto';
 import { broadcastEvent } from '../infrastructure/http/LocalHTTPServiceSSE.js';
 
-const logger = new Logger({ module: 'runtime:notification' });
+const logger = getLogger('runtime:notification');
 
 // ─── 类型定义 ──────────────────────────────────────────
 

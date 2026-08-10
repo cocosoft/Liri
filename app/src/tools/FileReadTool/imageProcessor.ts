@@ -4,11 +4,8 @@
  * 图片处理辅助模块
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'tools:FileReadTool:imageProcessor',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('tools:FileReadTool:imageProcessor');
 
 export type ImageFormat =
   | 'png'

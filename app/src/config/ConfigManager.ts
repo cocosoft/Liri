@@ -55,11 +55,8 @@ import {
   registerRuntimeConfigWriteListener,
 } from './RuntimeConfigSnapshot.js';
 
-import { Logger, LogLevel } from '../monitoring/logs/Logger.js';
-const logger = new Logger({
-  module: 'config:ConfigManager',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '../monitoring/logs/Logger.js';
+const logger = getLogger('config:ConfigManager');
 
 /**
  * 确定性 JSON 序列化，用于配置 Hash 计算

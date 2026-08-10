@@ -1,4 +1,4 @@
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { FileSystemStorage } from './storage/FileSystemStorage';
 import type { Session } from './models/Session';
 import type { SessionMessage } from './models/SessionMessage';
@@ -9,7 +9,7 @@ import type {
   SessionListOptions,
 } from './SessionStorage';
 
-const logger = new Logger({ module: 'session:store', level: LogLevel.INFO });
+const logger = getLogger('session:store');
 
 interface CacheEntry<T> {
   value: T;

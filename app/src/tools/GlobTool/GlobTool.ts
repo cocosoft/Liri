@@ -4,12 +4,9 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-const logger = new Logger({
-  module: 'tools:GlobTool:GlobTool',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('tools:GlobTool:GlobTool');
 
 export interface GlobResult {
   durationMs: number;

@@ -27,11 +27,8 @@
 import { execSync, spawn, type ChildProcess } from 'child_process';
 import { configManager } from '@modules/config';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'agent:cli-runner:index',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('agent:cli-runner:index');
 
 export type CliRunnerMode = 'direct' | 'bundle-mcp' | 'pipe';
 

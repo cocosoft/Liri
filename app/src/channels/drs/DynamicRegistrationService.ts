@@ -10,12 +10,12 @@
  */
 
 import { EventEmitter } from 'events';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '../../error/handleError';
 import { channelRegistry } from '../registry/ChannelRegistry';
 import type { IChannelPlugin } from '../types/IChannel';
 
-const logger = new Logger({ level: LogLevel.INFO, module: 'channels:drs' });
+const logger = getLogger('channels:drs');
 
 /** 通道注册来源类型 */
 export type RegistrationSource = 'config' | 'api' | 'plugin' | 'manual';

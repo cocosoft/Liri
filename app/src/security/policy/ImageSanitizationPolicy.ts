@@ -4,14 +4,11 @@
  * 使用内置模块实现，无第三方依赖
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { randomUUID } from 'crypto';
 import { createHash } from 'crypto';
 
-const logger = new Logger({
-  module: 'security:imageSanitization',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('security:imageSanitization');
 
 /**
  * 图片消毒结果

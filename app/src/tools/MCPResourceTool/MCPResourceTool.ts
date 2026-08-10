@@ -15,7 +15,7 @@ import type {
   ValidationResult,
 } from '../types';
 import { createToolResult } from '../types/ToolResult';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import {
   AppError,
   ErrorCategory,
@@ -23,10 +23,7 @@ import {
   handleError,
 } from '@modules/error';
 
-const logger = new Logger({
-  module: 'tools:mcpResource',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('tools:mcpResource');
 import { getMCPServerManager } from '@modules/services/mcp/MCPServerManager.js';
 
 /**

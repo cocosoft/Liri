@@ -8,7 +8,7 @@ import { ToolResult, createToolResult } from './types/ToolResult';
 import { ToolUseContext } from './types/ToolUseContext';
 import { ToolExecutor, createToolExecutor } from './ToolExecutor';
 import { v4 as uuidv4 } from 'uuid';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import {
   AppError,
   ErrorCategory,
@@ -16,10 +16,7 @@ import {
   handleError,
 } from '@modules/error';
 
-const logger = new Logger({
-  module: 'tools:orchestrator',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('tools:orchestrator');
 
 /**
  * 工具执行任务

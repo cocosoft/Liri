@@ -7,12 +7,9 @@ import { readFile, readdir, stat } from 'fs/promises';
 import { join, relative, basename, dirname } from 'path';
 import { resolvePyappHome } from '@modules/core';
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-const logger = new Logger({
-  module: 'docs:FileDocsProvider',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('docs:FileDocsProvider');
 
 export interface FileDocEntry {
   relativePath: string;

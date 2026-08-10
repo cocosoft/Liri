@@ -28,12 +28,9 @@ import {
   getSubAgentEngine,
 } from '../../tools/AgentTool/SubAgentEngine';
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-const logger = new Logger({
-  module: 'agent:swarms:AgentSwarmManager',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('agent:swarms:AgentSwarmManager');
 
 const DEFAULT_CONFIG: SwarmConfig = {
   maxAgents: 10,

@@ -9,13 +9,10 @@
  *
  * 超时保护：所有 hook 调用有 3 秒超时，不阻塞主压缩流程
  */
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({
-  module: 'context:compaction:hooks',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('context:compaction:hooks');
 
 const HOOK_TIMEOUT_MS = 3000;
 

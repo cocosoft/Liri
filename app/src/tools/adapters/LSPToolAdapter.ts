@@ -33,11 +33,8 @@ import type {
 import { SymbolContext as SymbolContextProvider } from '../lsp/SymbolContext.js';
 import type { SymbolContextResult } from '../lsp/SymbolContext.js';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'tools:adapters:LSPToolAdapter',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('tools:adapters:LSPToolAdapter');
 
 /**
  * LSP工具适配器

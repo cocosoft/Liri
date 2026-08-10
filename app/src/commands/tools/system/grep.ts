@@ -7,11 +7,8 @@
 import type { Command, CommandImplementation } from '@modules/commands';
 import { grep, type GrepOutputMode } from '@modules/tools/GrepTool/grep.js';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'commands:tools:system:grep',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('commands:tools:system:grep');
 
 /**
  * 构建帮助文本

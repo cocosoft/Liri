@@ -12,13 +12,10 @@
  *
  * 惰性初始化：首次调用时加载 wasm，后续调用零延迟。
  */
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({
-  module: 'ai:tokenizer:tiktoken',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('ai:tokenizer:tiktoken');
 
 type TiktokenModule = {
   encoding_for_model(model: string): TiktokenEncoding;

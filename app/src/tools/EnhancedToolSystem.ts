@@ -8,12 +8,8 @@ import { ChatManagerImpl } from '../chat/ChatManager.js';
 import { QueryEngine, type QueryEngineConfig } from '../query/QueryEngine.js';
 import { MessageServiceImpl } from '../chat/services/MessageService.js';
 import { ErrorHandler } from '../core/utils/ErrorHandler.js';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'tools:enhancedSystem',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('tools:enhancedSystem');
 import {
   PerformanceProfiler,
   createPerformanceProfiler,

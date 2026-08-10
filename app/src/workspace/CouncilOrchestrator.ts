@@ -20,7 +20,7 @@ import type {
 import type { CouncilConfig } from './CouncilEngine.js';
 import { globalEventBus } from '../core/events/EventBus.js';
 import { OrchestrationEventType } from '../agent/events/OrchestrationEvents.js';
-import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
+import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error/handleError';
 import aiService, { type AIMessage, AIMessageRole } from '@modules/ai';
@@ -28,10 +28,7 @@ import { getAgentRoleStore } from './AgentRoleStore.js';
 import { getAgentRegistry } from '../agent/registry/AgentRegistry.js';
 import type { AgentDefinition } from '../agent/registry/AgentRegistry.js';
 
-const logger = new Logger({
-  module: 'CouncilOrchestrator',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('CouncilOrchestrator');
 
 // ============================================================
 // 内置 5 个专家 Agent 角色

@@ -39,9 +39,8 @@ import { ToolUseContext } from '../tools/types/ToolUseContext';
 import { createToolManager } from '../tools/ToolManager';
 import { createAbortController } from '../utils/abortController';
 import { createFileStateCacheWithSizeLimit } from '../utils/fileStateCache';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({ module: 'entrypoints:mcp', level: LogLevel.INFO });
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('entrypoints:mcp');
 
 /**
  * 快速判断当前参数是否为 MCP 模式

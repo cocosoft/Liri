@@ -9,9 +9,8 @@ import {
   ErrorSeverity,
   handleError,
 } from '@modules/error';
-import { Logger } from '@modules/monitoring';
-
-const logger = new Logger({ module: 'RemoteConfigManager' });
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('RemoteConfigManager');
 
 /**
  * 配置定义

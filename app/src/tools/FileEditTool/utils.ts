@@ -24,11 +24,8 @@ import {
   validateEditCommand,
 } from './types';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'tools:FileEditTool:utils',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('tools:FileEditTool:utils');
 
 const DEFAULT_OPTIONS: Required<EditOptions> = {
   dryRun: false,

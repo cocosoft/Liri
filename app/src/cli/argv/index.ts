@@ -26,8 +26,8 @@
 
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'cli\argv\index', level: LogLevel.INFO });
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('cli\argv\index');
 
 export interface ParsedArgs {
   command: string;

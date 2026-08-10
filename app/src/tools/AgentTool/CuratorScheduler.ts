@@ -12,16 +12,13 @@
  *   4. Fork 后台代理进行技能质量审查
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { resolvePyappHome } from '@modules/core';
 
-const logger = new Logger({
-  module: 'tools:curatorScheduler',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('tools:curatorScheduler');
 
 /** 调度器配置 */
 export interface CuratorConfig {

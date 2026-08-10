@@ -5,10 +5,10 @@
 import fs from 'fs';
 import path from 'path';
 import { spawn } from 'child_process';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 
-const logger = new Logger({ level: LogLevel.INFO, module: 'media:video' });
+const logger = getLogger('media:video');
 
 /**
  * 视频信息

@@ -15,10 +15,10 @@ import {
   SandboxPermission,
   SandboxPlatform,
 } from './SandboxTypes';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 
-const logger = new Logger({ module: 'sandbox:worker', level: LogLevel.INFO });
+const logger = getLogger('sandbox:worker');
 
 /**
  * Worker 消息类型

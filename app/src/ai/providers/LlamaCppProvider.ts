@@ -29,11 +29,11 @@
  *  - 本地服务无需 API Key（validateConfig 不要求）
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { OpenAIProvider } from './OpenAIProvider';
 import type { ProviderConfig, ProviderValidationResult } from './AIProvider';
 
-const logger = new Logger({ module: 'ai:llama', level: LogLevel.INFO });
+const logger = getLogger('ai:llama');
 
 /** llama-server 默认 OpenAI 兼容端点（与 LlamaCppServerManager 默认端口对齐） */
 const DEFAULT_BASE_URL = 'http://127.0.0.1:11435/v1';

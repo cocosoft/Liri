@@ -7,11 +7,8 @@ import { homedir, userInfo } from 'os';
 import { join } from 'path';
 
 import { handleError } from '@modules/error';
-import { Logger, LogLevel } from '../../../monitoring/logs/Logger.js';
-const logger = new Logger({
-  module: 'config:settings:mdm:constants',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '../../../monitoring/logs/Logger.js';
+const logger = getLogger('config:settings:mdm:constants');
 
 /**
  * macOS偏好域

@@ -16,12 +16,9 @@
 import type { ChatSession } from '../../chat/types/session';
 import type { Message } from '../../chat/types/message';
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-const logger = new Logger({
-  module: 'session:hydration:SessionStateHydrator',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('session:hydration:SessionStateHydrator');
 
 // ============================================================================
 // 类型定义

@@ -12,12 +12,9 @@ import type { TraceRecord } from '../types';
 import { ViewerService } from '../viewer/ViewerService';
 import { TraceEngine } from '../engine/TraceEngine';
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-const logger = new Logger({
-  module: 'trace-recording:live:LiveViewServer',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('trace-recording:live:LiveViewServer');
 
 /** SSE 客户端连接 */
 interface SSEClient {

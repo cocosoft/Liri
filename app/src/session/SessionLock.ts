@@ -1,11 +1,11 @@
 import { promises as fs } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
-import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
+import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({ module: 'session:lock', level: LogLevel.INFO });
+const logger = getLogger('session:lock');
 
 export interface LockOptions {
   lockDir?: string;

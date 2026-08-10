@@ -8,15 +8,12 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { execSync } from 'child_process';
 import { AppError } from '@modules/error';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { resolvePyappHome } from '@modules/core';
 
 import type { ResourceLimits } from '../types';
 
-const logger = new Logger({
-  module: 'doc:execution',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('doc:execution');
 
 /** 默认资源限制 */
 const DEFAULT_LIMITS: ResourceLimits = {

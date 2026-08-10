@@ -9,11 +9,8 @@ import { logForDebugging } from '@modules/utils/debug.js';
 import { errorMessage } from '@modules/error';
 import { configManager } from '@modules/config';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'monitoring\otel\OTelLogger',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('monitoring\otel\OTelLogger');
 
 /**
  * OpenTelemetry诊断日志记录器

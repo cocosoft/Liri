@@ -5,13 +5,10 @@
  */
 
 import type { SecurityAuditFinding, AuditSeverity } from './AuditTypes';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({
-  module: 'security:contextVisibility',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('security:contextVisibility');
 
 const SENSITIVE_PATTERNS: Array<{
   name: string;

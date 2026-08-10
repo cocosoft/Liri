@@ -29,9 +29,8 @@
 
 import { ProviderRegistry } from '@modules/ai';
 import type { RouterConfig, RouterTier, RouteDecision } from './types.js';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({ level: LogLevel.INFO, module: 'ai:tier' });
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('ai:tier');
 
 export class TierResolver {
   constructor(

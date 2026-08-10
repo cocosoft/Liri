@@ -10,8 +10,8 @@ import { configManager } from '@modules/config';
 import type { CommandContext, CommandResult } from '@modules/commands';
 
 import { handleError } from '@modules/error';
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'commands:ide:ide', level: LogLevel.INFO });
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('commands:ide:ide');
 
 /**
  * IDE 定义接口

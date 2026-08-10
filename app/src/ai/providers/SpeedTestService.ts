@@ -26,13 +26,10 @@
  * 测试一组 API 端点的响应延迟，含热身请求以避免首包惩罚。
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({
-  module: 'ai:providers:speedTestService',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('ai:providers:speedTestService');
 
 const DEFAULT_TIMEOUT_MS = 8000;
 const MIN_TIMEOUT_MS = 2000;

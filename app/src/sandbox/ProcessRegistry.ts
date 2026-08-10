@@ -4,12 +4,8 @@
  * 对齐 OpenClaw agents/bash-process-registry.ts
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'sandbox:processRegistry',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('sandbox:processRegistry');
 
 export interface ProcessInfo {
   pid: number;

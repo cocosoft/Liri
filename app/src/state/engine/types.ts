@@ -84,4 +84,8 @@ export interface StateMachineConfig<S extends string> {
   maxHistorySize?: number;
   /** 上下文标识，用于日志追踪（可选） */
   contextId?: string;
+  /** 关键状态集合（可选）：转移进入这些状态时日志 ≥ warn 级（§十 阶段 B） */
+  criticalStates?: S[];
+  /** 转移事件发布钩子（可选）：每次成功转移后触发，与 listener 机制并存（§十 阶段 B） */
+  onTransition?: (record: TransitionRecord<S>) => void;
 }

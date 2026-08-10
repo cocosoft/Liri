@@ -4,13 +4,13 @@
  */
 
 import chalk from 'chalk';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import type { UpdateChannel } from '../constants/product';
 import { GitHubReleaseFetcher } from './updater/GitHubReleaseFetcher';
 import { UpdateDownloader } from './updater/UpdateDownloader';
 import { InstallManager } from './updater/InstallManager';
 
-const logger = new Logger({ module: 'cli:autoUpdater', level: LogLevel.INFO });
+const logger = getLogger('cli:autoUpdater');
 
 export interface AutoUpdaterOptions {
   verbose?: boolean;

@@ -3,12 +3,8 @@
  * 专门用于分类Bash命令的安全性
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'permission:classifiers:bashClassifier',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('permission:classifiers:bashClassifier');
 
 /**
  * Bash分类结果

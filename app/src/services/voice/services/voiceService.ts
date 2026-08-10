@@ -10,7 +10,7 @@ import { existsSync, readFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { randomUUID } from 'crypto';
-import { Logger, getOTelTracing } from '@modules/monitoring';
+import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
 import type {
@@ -58,7 +58,7 @@ import {
   SILENCE_THRESHOLD,
 } from './recordingDetector';
 
-const logger = new Logger({ module: 'voice:service' });
+const logger = getLogger('voice:service');
 
 /**
  * 文本归一化（STT 后处理）

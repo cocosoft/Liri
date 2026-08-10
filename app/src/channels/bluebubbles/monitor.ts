@@ -6,11 +6,8 @@
 import { EventEmitter } from 'events';
 import type { MessageContext } from '@modules/channels/types';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'channels:bluebubbles:monitor',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('channels:bluebubbles:monitor');
 
 export declare interface BlueBubblesMonitor {
   on(event: 'message', listener: (msg: MessageContext) => void): this;

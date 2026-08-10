@@ -4,12 +4,8 @@
  * 参考CC源码的记忆年龄管理思路实现
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'memory:utils:memoryForgetter',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('memory:utils:memoryForgetter');
 
 /**
  * 遗忘策略配置

@@ -5,7 +5,7 @@
  */
 
 import type { CostData, CostCategory, CostPeriod } from './types.js';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import {
   AppError,
   ErrorCategory,
@@ -13,10 +13,7 @@ import {
   handleError,
 } from '@modules/error';
 
-const logger = new Logger({
-  module: 'cost:costPredictor',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('cost:costPredictor');
 
 export interface CostPredictionResult {
   predictionId: string;

@@ -8,14 +8,11 @@
 import { mkdirSync, writeFileSync, readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { randomUUID } from 'crypto';
-import { Logger, LogLevel } from '../../../monitoring/logs/Logger.js';
+import { getLogger } from '../../../monitoring/logs/Logger.js';
 import { handleError } from '@modules/error';
 import { resolveLogsDir } from '@modules/core';
 
-const logger = new Logger({
-  module: 'config:enterprise:audit:enterpriseAuditService',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('config:enterprise:audit:enterpriseAuditService');
 
 /** 审计事件类型 */
 export enum AuditEventType {

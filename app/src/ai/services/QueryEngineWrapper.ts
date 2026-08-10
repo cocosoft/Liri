@@ -34,12 +34,9 @@ import {
 import { SmartRouter } from '../router/SmartRouter.js';
 import { RouteKey } from '../router/routes.js';
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { trackUsage } from '@modules/ai';
-const logger = new Logger({
-  module: 'ai:services:QueryEngineWrapper',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('ai:services:QueryEngineWrapper');
 
 export interface QueryEngineWrapperConfig {
   client: AIProvider;

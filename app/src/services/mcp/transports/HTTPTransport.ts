@@ -8,11 +8,8 @@ import { MCPTransport } from './MCPTransport';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import type { McpTlsConfig } from './McpTlsManager';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'services\mcp\transports\HTTPTransport',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('services\mcp\transports\HTTPTransport');
 
 interface HTTPTransportOptions {
   url: string;

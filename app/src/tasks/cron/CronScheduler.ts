@@ -3,7 +3,7 @@
  * 基于 SQLite 持久化实现跨进程安全的任务调度与执行
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import type {
   CronJob,
@@ -25,10 +25,7 @@ import { CronTimer } from './CronTimer';
 import { resolveCronStaggerMs, resolveStaggerOffsetMs } from './CronStagger';
 import { CronAlertService } from './CronAlertService';
 
-const logger = new Logger({
-  module: 'tasks:cron:scheduler',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('tasks:cron:scheduler');
 
 const DEFAULT_MAX_MISSED_JOBS_PER_RESTART = 5;
 const DEFAULT_MAX_PARALLEL_JOBS = 5;

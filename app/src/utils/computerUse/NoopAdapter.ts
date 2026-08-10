@@ -18,11 +18,8 @@ import type {
 } from './types';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'utils\computerUse\NoopAdapter',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('utils\computerUse\NoopAdapter');
 
 const NOOP_CAPABILITIES: ComputerUseCapabilities = {
   screenshot: false,

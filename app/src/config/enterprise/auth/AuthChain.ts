@@ -18,10 +18,10 @@ import {
   ErrorSeverity,
   handleError,
 } from '@modules/error';
-import { Logger, LogLevel } from '../../../monitoring/logs/Logger.js';
+import { getLogger } from '../../../monitoring/logs/Logger.js';
 import { configManager } from '../../ConfigManager.js';
 
-const logger = new Logger({ module: 'config:authChain', level: LogLevel.INFO });
+const logger = getLogger('config:authChain');
 
 /** 认证来源 */
 export type AuthSource = 'api_key' | 'oauth' | 'saml' | 'ldap' | 'jwt' | 'mtls';

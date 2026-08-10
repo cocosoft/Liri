@@ -2,15 +2,12 @@ import fs from 'fs';
 import path from 'path';
 import { resolvePyappHome } from '@modules/core';
 import crypto from 'crypto';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import type { ICache, CacheStats } from '@modules/cache/types';
 import { TTLCache } from '@modules/utils/cache';
 
-const logger = new Logger({
-  module: 'tools:cacheManager',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('tools:cacheManager');
 
 export interface ToolCacheItem {
   key: string;

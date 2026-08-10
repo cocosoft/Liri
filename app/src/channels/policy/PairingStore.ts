@@ -4,13 +4,13 @@
  * 对齐 OpenClaw device-auth store
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { randomBytes } from 'crypto';
 
-const logger = new Logger({ level: LogLevel.INFO, module: 'channels:pairing' });
+const logger = getLogger('channels:pairing');
 
 interface PairedUser {
   userId: string;

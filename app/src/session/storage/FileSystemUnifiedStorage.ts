@@ -20,11 +20,8 @@ import type { UnifiedMessage } from '../types/Message.js';
 import { AtomicWriter } from '../persistence/AtomicWriter.js';
 import { handleError } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'session:storage:FileSystemUnifiedStorage',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('session:storage:FileSystemUnifiedStorage');
 
 function matchesFilter(
   session: UnifiedSession,

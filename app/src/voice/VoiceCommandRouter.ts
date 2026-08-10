@@ -13,13 +13,10 @@ import type {
   ToolResultCallback,
   ToolProgressCallback,
 } from './VoiceToolBridge';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 
-const logger = new Logger({
-  module: 'voice:commandRouter',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('voice:commandRouter');
 
 /** 命令动作类型 */
 export type CommandActionType = 'tool_exec' | 'system_command' | 'custom';

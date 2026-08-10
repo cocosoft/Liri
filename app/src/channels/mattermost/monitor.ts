@@ -7,11 +7,8 @@ import { EventEmitter } from 'events';
 import type { MessageContext } from '@modules/channels/types';
 
 import { handleError } from '@modules/error';
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'channels:mattermost:monitor',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('channels:mattermost:monitor');
 
 export interface MattermostMonitorEvent {
   type:

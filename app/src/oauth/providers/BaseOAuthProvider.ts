@@ -18,12 +18,8 @@ import type { OAuthProviderConfig } from '../types/OAuthProvider';
 import { OAuthClient } from '../services/OAuthClient';
 import { AuthorizationCodeFlow } from '../flows/AuthorizationCodeFlow';
 import { OAuthError } from '../types/OAuthTypes';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'oauth:providers:base',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('oauth:providers:base');
 
 export abstract class BaseOAuthProvider implements OAuthProvider {
   abstract id: string;

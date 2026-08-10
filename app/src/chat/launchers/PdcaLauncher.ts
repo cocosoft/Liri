@@ -1,7 +1,7 @@
 // MIT License
 // Copyright (c) 2026 190615273@qq.com
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { getOTelTracing } from '@modules/monitoring/otel';
 import { resolveDataDir } from '@modules/core/paths';
@@ -14,10 +14,7 @@ import { MessageService } from '../services/MessageService.js';
 import { WorkItemStore } from '../../workspace/WorkItemStore.js';
 import { createProjectStore } from '../../workspace/ProjectStore.js';
 
-const logger = new Logger({
-  level: LogLevel.INFO,
-  module: 'chat:pdcaLauncher',
-});
+const logger = getLogger('chat:pdcaLauncher');
 
 export interface PdcaLauncherDeps {
   /** 是否启用 PlanDrivenLoop */

@@ -17,11 +17,8 @@ import {
 } from '@modules/security';
 
 import { handleError } from '@modules/error';
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'utils:secureStorage',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('utils:secureStorage');
 
 const STORAGE_DIR = join(resolvePyappHome(), 'secure');
 const MASTER_KEY_FILE = join(STORAGE_DIR, '.master_key');

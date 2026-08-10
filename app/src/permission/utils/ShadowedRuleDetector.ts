@@ -4,12 +4,8 @@
  * 参考CC源码 cc_code/backend/utils/permissions/shadowedRuleDetection.ts 实现
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'permission:utils:shadowedRuleDetector',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('permission:utils:shadowedRuleDetector');
 import { PermissionBehavior } from '../types/PermissionRule.js';
 import type { PermissionRule } from '../types/PermissionRule.js';
 

@@ -30,7 +30,7 @@
  * 若某市场后续开放公开搜索 API，应替换为真实 API 适配器（参照 SmitheryRegistryAdapter）。
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import type {
   RegistryAdapter,
   SearchParams,
@@ -40,10 +40,7 @@ import type {
   ThirdPartyRegistry,
 } from '../types';
 
-const logger = new Logger({
-  module: 'services:mcp:presetAdapter',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('services:mcp:presetAdapter');
 
 export class RegistryPresetAdapter implements RegistryAdapter {
   readonly id: string;

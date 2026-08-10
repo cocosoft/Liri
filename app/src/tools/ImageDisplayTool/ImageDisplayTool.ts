@@ -5,17 +5,14 @@
  * 参数: images (string[]) — 图片路径或 URL 列表
  * 输出: { images: DisplayImage[] } — 前端渲染缩略图网格
  */
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { BaseTool } from '../BaseTool';
 import { ToolResult, ToolUseContext, ToolParam, ToolTag } from '../types/index';
 import { ImageUrlHelper } from '../ImageUrlHelper';
 import { existsSync, statSync } from 'fs';
 import { resolve } from 'path';
 
-const logger = new Logger({
-  level: LogLevel.INFO,
-  module: 'tools:imageDisplay',
-});
+const logger = getLogger('tools:imageDisplay');
 
 export interface DisplayImage {
   /** 前端展示用的 URL */

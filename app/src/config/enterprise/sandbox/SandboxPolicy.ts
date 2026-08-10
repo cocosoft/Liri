@@ -5,12 +5,8 @@
  * 每条策略包含多个规则，规则按优先级排序。
  */
 
-import { Logger, LogLevel } from '../../../monitoring/logs/Logger.js';
-
-const logger = new Logger({
-  module: 'config:enterprise:sandbox:sandboxPolicy',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '../../../monitoring/logs/Logger.js';
+const logger = getLogger('config:enterprise:sandbox:sandboxPolicy');
 
 /** 策略规则条件操作符 */
 export type ConditionOperator =

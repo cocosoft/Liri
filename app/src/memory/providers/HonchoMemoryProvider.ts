@@ -17,9 +17,8 @@ import type {
   ExternalMemoryEntry,
   MemoryQuery,
 } from './ExternalMemoryProvider';
-import { Logger } from '@modules/monitoring';
-
-const logger = new Logger({ module: 'memory:providers:honcho' });
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('memory:providers:honcho');
 
 export interface HonchoConfig {
   apiKey: string;

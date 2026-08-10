@@ -14,14 +14,14 @@ import type {
   ThinkingProviderChunk,
 } from './AIProvider';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { configManager } from '@modules/config';
 import { OllamaTransport } from '../transports/OllamaTransport';
 import { TransportProviderAdapter } from '../transports/TransportProviderAdapter';
 import { ALL_MODEL_CONFIGS, getModelsByProvider } from '../models/ModelConfigs';
 import { BaseAIProvider, type BaseProviderOptions } from './BaseAIProvider';
 
-const logger = new Logger({ module: 'ai:ollama', level: LogLevel.INFO });
+const logger = getLogger('ai:ollama');
 
 const DEFAULT_BASE_URL = 'http://localhost:11434';
 

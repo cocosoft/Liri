@@ -8,8 +8,8 @@ import { logForDebugging } from '../utils/debug.js';
 import { formatCost } from './ModelPricing.js';
 import { handleError } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'cost:CostMonitor', level: LogLevel.INFO });
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('cost:CostMonitor');
 
 /**
  * 告警级别

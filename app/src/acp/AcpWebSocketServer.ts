@@ -35,7 +35,7 @@ import type {
 } from './runtime/types.js';
 import { getDefaultSessionStore } from './session.js';
 import type { AcpSessionStore } from './session.js';
-import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
+import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error';
 import * as http from 'http';
@@ -47,7 +47,7 @@ import { AcpWsClient } from './AcpWsClient.js';
 import type { AcpClientMessage } from './AcpWsClient.js';
 import { AcpGateway } from './AcpGateway.js';
 
-const logger = new Logger({ module: 'acp:ws', level: LogLevel.INFO });
+const logger = getLogger('acp:ws');
 
 /**
  * ACP WebSocket 远程桥接服务器

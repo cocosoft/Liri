@@ -14,11 +14,8 @@ import type {
 } from '@modules/commands';
 import type { CompactArtifact } from '@modules/services/compact/CompactService';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'commands:builtin:compact',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('commands:builtin:compact');
 
 export interface CompactCommandOptions {
   preserveRecentMessages?: number;

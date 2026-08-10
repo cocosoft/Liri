@@ -8,11 +8,11 @@ import type {
   SandboxExecuteOptions,
   SandboxExecuteResult,
 } from './SandboxTypes';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 import { spawn, type ChildProcess } from 'child_process';
 
-const logger = new Logger({ module: 'sandbox:ssh', level: LogLevel.INFO });
+const logger = getLogger('sandbox:ssh');
 
 /**
  * SSH 沙箱配置

@@ -28,11 +28,8 @@
 
 import type { ErrorRecoveryManager } from './ErrorRecoveryManager.js';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'query:ModelCallRecovery',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('query:ModelCallRecovery');
 
 interface RecoveryContext {
   turnCount: number;

@@ -10,7 +10,7 @@ import { createWriteStream, unlinkSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { randomUUID } from 'crypto';
-import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
+import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import type {
   TTSProvider,
@@ -19,7 +19,7 @@ import type {
   TTSSpeakResult,
 } from './ttsProvider';
 
-const logger = new Logger({ module: 'voice:openaiTTS', level: LogLevel.INFO });
+const logger = getLogger('voice:openaiTTS');
 
 /** OpenAI TTS API 端点 */
 const OPENAI_TTS_ENDPOINT = 'api.openai.com';

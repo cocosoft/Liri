@@ -7,11 +7,8 @@ import { dirname } from 'node:path';
 
 import { AgentTool } from '../models/types';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'agent:tools:agentTool',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('agent:tools:agentTool');
 
 /**
  * 代理工具基类

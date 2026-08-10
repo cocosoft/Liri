@@ -3,7 +3,7 @@
  */
 
 import { EventEmitter } from 'events';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import type {
   MCPClient,
@@ -20,10 +20,7 @@ import type {
   MCPTransport,
 } from '../types/MCPTypes';
 
-const logger = new Logger({
-  module: 'mcp:client:mCPClient',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('mcp:client:mCPClient');
 
 export class MCPClientImpl extends EventEmitter implements MCPClient {
   private transport: MCPTransport;

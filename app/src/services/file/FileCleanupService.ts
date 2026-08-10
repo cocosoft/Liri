@@ -13,15 +13,12 @@
 
 import { unlink } from 'fs/promises';
 import { existsSync } from 'fs';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { FileRegistry } from './FileRegistry';
 import { FILES_TABLE } from './fileSchema';
 
-const logger = new Logger({
-  module: 'services:file:cleanup',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('services:file:cleanup');
 
 /** 软删除保留天数 */
 const SOFT_DELETE_RETENTION_DAYS = 30;

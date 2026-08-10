@@ -1,16 +1,13 @@
 //
 import { AgentTool } from '../models/types';
 import { AgentStrategy } from '../models/types';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { handleError } from '@modules/error/handleError';
 import { pluginSystem } from '@modules/plugins';
 import { PluginState } from '@modules/plugins/types/PluginTypes';
 
-const logger = new Logger({
-  module: 'agent:managers:pluginLoader',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('agent:managers:pluginLoader');
 
 interface AgentPlugin {
   id: string;

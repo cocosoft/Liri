@@ -7,14 +7,10 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { resolvePyappHome } from '@modules/core';
-import { Logger, LogLevel } from '@modules/monitoring';
-
+import { getLogger } from '@modules/monitoring';
 import type { AuditEntry } from '../types';
 
-const logger = new Logger({
-  module: 'doc:audit',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('doc:audit');
 
 /** 审计目录 */
 function getAuditDir(): string {

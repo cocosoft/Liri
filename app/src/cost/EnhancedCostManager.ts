@@ -16,13 +16,10 @@ import { CostTracker } from './CostTracker.js';
 import { CostReporter } from './CostReporter.js';
 import { CostMonitor } from './CostMonitor.js';
 import { PricingManager } from './PricingManager.js';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({
-  module: 'cost:enhancedCostManager',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('cost:enhancedCostManager');
 
 export interface EnhancedCostManagerConfig {
   enableAdvancedAnalysis: boolean;

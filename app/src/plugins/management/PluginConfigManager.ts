@@ -7,12 +7,8 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { resolvePluginsConfigDir } from '@modules/core';
 import { PluginConfig } from '../types/PluginTypes';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'plugins:management:pluginConfigManager',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('plugins:management:pluginConfigManager');
 
 /**
  * 配置验证结果

@@ -7,12 +7,8 @@
  *   /context snapshot — 当前上下文快照
  *   /context debug    — 压缩决策树打印
  */
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'context:compaction:diag',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('context:compaction:diag');
 
 const MAX_HISTORY_ENTRIES = 50;
 

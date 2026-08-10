@@ -20,11 +20,8 @@ import { diagnosticManager } from '../utils/DiagnosticManager';
 import { securityManager } from '../utils/SecurityManager';
 import { performanceManager } from '../utils/PerformanceManager';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'hooks:executors:HookExecutor',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('hooks:executors:HookExecutor');
 
 /**
  * Hook执行器

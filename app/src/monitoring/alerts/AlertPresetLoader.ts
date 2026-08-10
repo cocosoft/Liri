@@ -12,14 +12,11 @@ import {
   AlertPresetLoaderConfig,
 } from './AlertSchema.js';
 import { alertRuleService } from '../AlertRuleService.js';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { configManager } from '@modules/config';
 
-const logger = new Logger({
-  level: LogLevel.INFO,
-  module: 'monitoring:alert_preset',
-});
+const logger = getLogger('monitoring:alert_preset');
 
 /**
  * 预置加载结果

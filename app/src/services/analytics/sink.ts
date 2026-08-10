@@ -8,13 +8,10 @@
 import { isAnalyticsDisabled } from './config';
 import { attachAnalyticsSink } from './index';
 import type { AnalyticsSink } from './index';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { configManager } from '@modules/config';
 
-const logger = new Logger({
-  module: 'services:analytics:sink',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('services:analytics:sink');
 
 type LogEventMetadata = Record<string, boolean | number | string | undefined>;
 

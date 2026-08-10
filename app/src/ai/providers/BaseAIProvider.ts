@@ -48,7 +48,7 @@ import type {
 import type { IToolExecutor, ToolRegistry } from '../interfaces/ToolExecutor';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { handleError } from '@modules/error';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { resolveModelRoute, RouteKey } from '../router/resolveModelRoute.js';
 import type { RouteKey as RouteKeyType } from '../router/routes.js';
 import type { TaskType } from '../modelRouter';
@@ -60,7 +60,7 @@ import { configManager } from '@modules/config';
 import { repairModelJson } from '@modules/utils/json';
 import { getCACertificates } from '@modules/utils/caCerts';
 
-const logger = new Logger({ module: 'ai:baseProvider', level: LogLevel.INFO });
+const logger = getLogger('ai:baseProvider');
 
 /**
  * readStreamChunkWithTimeout 的流读取诊断状态（按 reader 隔离，

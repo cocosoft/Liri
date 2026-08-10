@@ -30,11 +30,8 @@ import type { SkillRegistry } from './SkillRegistry';
 import { SkillSource } from './types/index';
 import { handleError } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'skills:SkillProvenanceTracker',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('skills:SkillProvenanceTracker');
 
 export type ProvenanceSource =
   | 'builtin'

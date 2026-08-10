@@ -17,11 +17,8 @@ import { TmuxSubAgent } from './types/TmuxSubAgent';
 import { ITermSubAgent } from './types/ITermSubAgent';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'subagent\SubAgentFactory',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('subagent\SubAgentFactory');
 
 /**
  * 子agent工厂

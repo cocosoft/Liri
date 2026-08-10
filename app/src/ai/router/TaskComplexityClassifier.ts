@@ -8,9 +8,8 @@
  * 复杂度级别：simple → medium → complex
  */
 
-import { Logger } from '@modules/monitoring';
-
-const logger = new Logger({ module: 'ai:complexity' });
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('ai:complexity');
 
 export type Complexity = 'simple' | 'medium' | 'complex';
 

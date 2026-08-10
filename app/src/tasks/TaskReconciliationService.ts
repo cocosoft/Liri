@@ -1,12 +1,9 @@
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { TaskStatus } from './types';
 import type { TaskState } from './types';
 import type { TaskRegistry } from './TaskRegistry';
 
-const logger = new Logger({
-  module: 'tasks:reconciliation',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('tasks:reconciliation');
 
 export interface ReconciliationIssue {
   taskId: string;

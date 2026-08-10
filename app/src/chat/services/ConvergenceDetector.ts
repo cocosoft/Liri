@@ -9,9 +9,8 @@
  * - image_generate + image_display 连续 3 次用户仍说"看不到" → 熔断
  * - 任何工具连续 3 次成功但用户追问 → 提示 AI 停止重复并排查
  */
-import { Logger } from '@modules/monitoring';
-
-const logger = new Logger({ module: 'chat:convergenceDetector' });
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('chat:convergenceDetector');
 
 interface ToolCallRecord {
   toolName: string;

@@ -19,11 +19,8 @@ import {
 } from '../utils/ToolUtils';
 import { glob } from '../GlobTool/GlobTool';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'tools:search:GlobTool',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('tools:search:GlobTool');
 
 export class GlobTool extends BaseTool {
   name = 'glob';

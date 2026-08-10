@@ -24,7 +24,7 @@
  * 整合所有MCP系统模块
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import {
   profilePhaseStart,
@@ -34,10 +34,7 @@ import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { resolvePyappHome } from '@modules/core/paths';
 
-const logger = new Logger({
-  module: 'services:mcp:index',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('services:mcp:index');
 import { enhancedMcpConfigManager } from './EnhancedMCPConfigManager';
 import { mcpConnectionManager } from './MCPConnectionManager';
 import { mcpToolBridge } from './MCPToolBridge';

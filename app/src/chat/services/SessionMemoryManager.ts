@@ -1,17 +1,14 @@
 // MIT License
 // Copyright (c) 2026 190615273@qq.com
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { getOTelTracing } from '@modules/monitoring/otel';
 import type { ToolAwareClient } from '@modules/ai';
 import type { ChatSession } from '../types/session.js';
 import type { SessionAccessFacade } from './SessionAccessFacade';
 
-const logger = new Logger({
-  level: LogLevel.INFO,
-  module: 'chat:memoryManager',
-});
+const logger = getLogger('chat:memoryManager');
 
 /**
  * Session Memory 管理器

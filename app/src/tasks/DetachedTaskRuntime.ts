@@ -1,12 +1,9 @@
 import { fork } from 'child_process';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { join } from 'path';
 import { resolveProjectRoot } from '@modules/core';
 
-const logger = new Logger({
-  module: 'tasks:detachedRuntime',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('tasks:detachedRuntime');
 
 export interface DetachedTaskConfig {
   taskId: string;

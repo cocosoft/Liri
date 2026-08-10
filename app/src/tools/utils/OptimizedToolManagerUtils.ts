@@ -7,13 +7,10 @@ import { Tool } from '../types/Tool';
 import { ToolFactory } from '../ToolFactory';
 import { profileCheckpoint } from '@modules/performance/StartupProfiler.js';
 import { loadBuiltinTools as loadBuiltinToolsFromUtils } from './ToolManagerUtils.js';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({
-  module: 'tools:optimizedUtils',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('tools:optimizedUtils');
 
 /**
  * 延迟加载工具模块

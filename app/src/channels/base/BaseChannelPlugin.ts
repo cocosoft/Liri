@@ -22,7 +22,7 @@ import type {
   RegisterFileInput,
   RegisterFileResult,
 } from '@modules/services/file/types';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger, Logger } from '@modules/monitoring';
 import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
@@ -170,7 +170,7 @@ export abstract class BaseChannelPlugin implements IChannelPlugin {
   }
 
   constructor() {
-    this.logger = new Logger({ level: LogLevel.INFO, module: 'channels:base' });
+    this.logger = getLogger('channels:base');
   }
 
   // ─── 子类必须实现的方法 ──────────────────────────────────

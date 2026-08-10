@@ -9,10 +9,10 @@
  *   - 2s 心跳检测超时子代理
  *   - 通过 globalEventBus 推送 subagent_status 事件
  */
-import { Logger } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({ module: 'subagents:eventPump' });
+const logger = getLogger('subagents:eventPump');
 
 export interface SubAgentHeartbeatState {
   subAgentId: string;

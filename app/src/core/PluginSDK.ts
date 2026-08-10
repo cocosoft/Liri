@@ -1,11 +1,10 @@
 /**
  * 插件开发SDK
  *
- * @deprecated 由 pluginSystem 统一替代。保留用于 --use-legacy-module-system 回退路径。
+ * @deprecated 由 pluginSystem 统一替代。
  * 为第三方插件开发者提供开发工具和接口
  *
  * 注意：内部已不再依赖 PluginEcosystem，直接使用 PluginSystem。
- * PluginEcosystem 将在后续版本中移除。
  */
 
 import {
@@ -17,14 +16,10 @@ import {
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { Logger } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { pluginSystem } from '@modules/plugins/index.js';
 import type { PluginState } from '@modules/plugins/types/PluginTypes';
 import type { SkillInfo } from '@modules/plugins/types/index.js';
-import {
-  ModuleDependencyManager,
-  ModuleDefinition,
-} from './ModuleDependencyManager.js';
 
 import type {
   PluginContext,
@@ -34,7 +29,7 @@ import type {
   SkillContext,
 } from '@modules/plugin-sdk';
 
-const logger = new Logger({ module: 'PluginSDK' });
+const logger = getLogger('PluginSDK');
 
 export type {
   PluginContext,
@@ -48,12 +43,6 @@ export type {
  * 插件SDK配置
  */
 export interface PluginSDKConfig {
-  /**
-   * 模块依赖管理器（可选）
-   * 旧版模块系统提供 ModuleDependencyManager 实例；
-   * 统一后的模块系统使用 ModuleRegistry，此字段可为 undefined
-   */
-  moduleManager?: ModuleDependencyManager;
   configPath?: string;
   /**
    * 是否使用旧版插件系统回退模式
@@ -67,7 +56,6 @@ export interface PluginSDKConfig {
  * 插件开发SDK
  */
 export class PluginSDK {
-  private moduleManager?: ModuleDependencyManager;
   private plugins: Map<string, Plugin> = new Map();
   private contexts: Map<string, PluginContext> = new Map();
   private skills: Map<string, SkillInfo> = new Map();
@@ -75,7 +63,6 @@ export class PluginSDK {
   private useLegacy: boolean;
 
   constructor(config: PluginSDKConfig) {
-    this.moduleManager = config.moduleManager;
     this.configPath = config.configPath || './plugin-configs';
     this.useLegacy = config.useLegacyPluginSystem ?? true;
   }
@@ -139,29 +126,6 @@ export class PluginSDK {
           pluginId: plugin.id,
         });
       }
-    }
-
-    // 注册为模块（旧版路径）
-    const moduleDef: ModuleDefinition = {
-      name: plugin.id,
-      version: plugin.version,
-      description: plugin.description,
-      dependencies: [],
-      init: async () => {
-        if (plugin.initialize) {
-          await plugin.initialize(context);
-        }
-      },
-      destroy: async () => {
-        if (plugin.destroy) {
-          await plugin.destroy(context);
-        }
-      },
-    };
-
-    // 非旧版模式下 ModuleDependencyManager 不存在，注册由 ModuleRegistry 统一处理
-    if (this.moduleManager) {
-      this.moduleManager.registerModule(moduleDef);
     }
 
     // 存储插件
@@ -331,9 +295,6 @@ export class PluginSDK {
       if (skill.pluginId === pluginId) this.skills.delete(id);
     }
 
-    if (this.moduleManager) {
-      this.moduleManager.unregisterModule(pluginId);
-    }
     this.contexts.delete(pluginId);
     this.plugins.delete(pluginId);
 

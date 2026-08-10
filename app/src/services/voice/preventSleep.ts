@@ -7,11 +7,8 @@ import { spawn } from 'child_process';
 
 import { handleError } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'services:voice:preventSleep',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('services:voice:preventSleep');
 
 const CAFFEINATE_TIMEOUT_SECONDS = 300;
 const RESTART_INTERVAL_MS = 4 * 60 * 1000;

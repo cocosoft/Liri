@@ -7,11 +7,11 @@ import type {
   CreateCheckpointParams,
 } from '../types/checkpoint';
 import type { CheckpointStorage } from '../types/checkpoint';
-import { Logger } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { isCheckpointLogEnabled } from '../../config/settings/CheckpointLogConfig';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
-const logger = new Logger({ module: 'chat:sessionCheckpoint' });
+const logger = getLogger('chat:sessionCheckpoint');
 
 export class SessionCheckpointService implements CheckpointService {
   private storage: CheckpointStorage;

@@ -4,7 +4,7 @@
  * 支持 resize / crop / rotate / flip / watermark / adjust / convert / grayscale / info / batch
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -19,7 +19,7 @@ import {
 } from '../../media/image/ImageProcessor';
 import { imageSanitizationPolicy } from '../../security/policy/ImageSanitizationPolicy';
 
-const logger = new Logger({ level: LogLevel.INFO, module: 'tools:imageTool' });
+const logger = getLogger('tools:imageTool');
 
 /**
  * 图片编辑操作参数

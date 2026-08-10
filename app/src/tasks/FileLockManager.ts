@@ -10,9 +10,8 @@
  *   - 多 session 相同文件 → 文件级锁
  */
 
-import { Logger } from '@modules/monitoring';
-
-const logger = new Logger({ module: 'tasks:fileLock' });
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('tasks:fileLock');
 
 interface LockEntry {
   goalId: string;

@@ -33,14 +33,11 @@
 import { readdir, readFile, writeFile, mkdir } from 'fs/promises';
 import { join, dirname, relative } from 'path';
 import { existsSync } from 'fs';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { resolveKnowledgeDir, resolveDomainDir } from '@modules/core';
 import type { EventBus } from '@modules/core';
 
-const logger = new Logger({
-  module: 'knowledge:indexManager',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('knowledge:indexManager');
 
 /** 单次活动记录 */
 export interface LogEntry {

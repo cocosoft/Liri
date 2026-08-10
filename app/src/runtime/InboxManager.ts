@@ -7,7 +7,7 @@
  * 对标 OpenWorker Inbox 抽象设计。
  */
 
-import { Logger } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error';
@@ -17,7 +17,7 @@ import { randomUUID } from 'crypto';
 import { broadcastEvent } from '../infrastructure/http/LocalHTTPServiceSSE.js';
 import type { FrontendMessageBlock } from '@modules/session/types/Message.js';
 
-const logger = new Logger({ module: 'runtime:inbox' });
+const logger = getLogger('runtime:inbox');
 
 // ─── 类型定义 ──────────────────────────────────────────
 

@@ -10,7 +10,7 @@ import { readFile, mkdir, writeFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join } from 'path';
 import { createHash } from 'crypto';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import type { Skill } from '../types';
 import { SkillSource, SkillLoadMethod } from '../types';
 import { SkillRegistry } from '../SkillRegistry';
@@ -28,10 +28,7 @@ function findLastIndex<T>(arr: T[], predicate: (item: T) => boolean): number {
   return -1;
 }
 
-const logger = new Logger({
-  module: 'skills:services:SkillInjectionService',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('skills:services:SkillInjectionService');
 
 /**
  * 技能注入配置

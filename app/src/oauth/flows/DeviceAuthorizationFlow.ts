@@ -8,13 +8,10 @@ import { request as httpRequest } from 'http';
 import { OAuthClient } from '../services/OAuthClient';
 import type { OAuthConfig, OAuthAuthResult } from '../types/OAuthTypes';
 import { OAuthError } from '../types/OAuthTypes';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 
-const logger = new Logger({
-  module: 'oauth:flows:deviceAuth',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('oauth:flows:deviceAuth');
 
 export interface DeviceAuthorizationResponse {
   deviceCode: string;

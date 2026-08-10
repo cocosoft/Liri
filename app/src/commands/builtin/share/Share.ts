@@ -10,11 +10,8 @@ import { join } from 'path';
 import { resolveDataDir } from '@modules/core';
 import type { CommandContext } from '@modules/commands';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'commands:builtin:share:Share',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('commands:builtin:share:Share');
 
 interface MsgLike {
   type?: string;

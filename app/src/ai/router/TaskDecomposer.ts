@@ -50,14 +50,11 @@
 
 import type { AIProvider } from '../providers/AIProvider.js';
 import type { RouterTier, JudgeResult } from './types.js';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { trackUsage } from '@modules/ai';
 
-const logger = new Logger({
-  level: LogLevel.INFO,
-  module: 'ai:task-decomposer',
-});
+const logger = getLogger('ai:task-decomposer');
 
 /**
  * 子任务定义

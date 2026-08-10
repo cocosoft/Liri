@@ -11,12 +11,9 @@ import { platform, homedir } from 'os';
 import { configManager } from '@modules/config';
 import { delimiter, join, sep } from 'path';
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-const logger = new Logger({
-  module: 'diagnostics:InstallationTypeDetector',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('diagnostics:InstallationTypeDetector');
 
 const execAsync = promisify(exec) as (
   command: string,

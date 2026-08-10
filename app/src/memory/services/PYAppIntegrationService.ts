@@ -1,12 +1,8 @@
 //
 import * as fs from 'fs';
 import * as path from 'path';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'memory:services:pYAppIntegrationService',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('memory:services:pYAppIntegrationService');
 
 /**
  * Liri.md规则类型

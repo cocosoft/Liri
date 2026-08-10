@@ -4,14 +4,11 @@
  */
 
 import { Database } from '@modules/core/external/sqlite3';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import type { CronJob, CronJobResult, CronRunStatus } from './types';
 
-const logger = new Logger({
-  module: 'tasks:cron:runLog',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('tasks:cron:runLog');
 
 export interface CronRunLogEntry {
   id: string;

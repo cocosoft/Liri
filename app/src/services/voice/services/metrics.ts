@@ -8,9 +8,8 @@
  * 埋点位置由 MetricsHook 枚举定义，统一管理。
  */
 
-import { Logger, getOTelMetrics } from '@modules/monitoring';
-
-const logger = new Logger({ module: 'voice:metrics' });
+import { getLogger, getOTelMetrics } from '@modules/monitoring';
+const logger = getLogger('voice:metrics');
 
 /** OTel 直方图：记录各埋点耗时分布 */
 const otelMetrics = getOTelMetrics();

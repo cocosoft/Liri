@@ -15,7 +15,7 @@ import { GlobTool } from './search/GlobTool';
 import { FileSearchTool } from './FileSearchTool/FileSearchTool'; //文件搜索工具（内部其实调用GlobTool）
 import { CronCreateTool } from './ChronosTool/CronCreateTool';
 import { CronDeleteTool } from './ChronosTool/CronDeleteTool';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { CronListTool } from './ChronosTool/CronListTool';
 import { CronStopTool } from './ChronosTool/CronStopTool';
@@ -35,7 +35,7 @@ import { SearchToolImpl } from '../memory/tools/SearchTool';
 import { createUnifiedSearchService } from '../memory/services/UnifiedSearchService';
 import { MemoryManagerImpl } from '../memory/MemoryManager';
 
-const logger = new Logger({ module: 'tools:factory', level: LogLevel.INFO });
+const logger = getLogger('tools:factory');
 import { PowerShellTool } from './PowerShellTool/PowerShellTool';
 import { WebFetchTool } from './WebFetchTool/WebFetchTool';
 import { WebSearchTool } from './WebSearchTool/WebSearchTool';

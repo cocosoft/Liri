@@ -7,11 +7,11 @@ import {
   readdirSync,
 } from 'fs';
 import { join } from 'path';
-import { Logger } from '../monitoring/logs/Logger.js';
+import { getLogger } from '../monitoring/logs/Logger.js';
 import { handleError } from '@modules/error';
 import { redactConfig } from './ConfigRedactor';
 
-const logger = new Logger({ module: 'config:snapshot' });
+const logger = getLogger('config:snapshot');
 
 export interface SnapshotMeta {
   timestamp: number;

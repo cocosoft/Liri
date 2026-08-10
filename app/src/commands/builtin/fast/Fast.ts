@@ -12,11 +12,8 @@
 import { configManager } from '@modules/config/ConfigManager.js';
 import type { CommandContext, CommandResult } from '@modules/commands';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'commands:builtin:fast:Fast',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('commands:builtin:fast:Fast');
 
 /**
  * 快速模式状态缓存键

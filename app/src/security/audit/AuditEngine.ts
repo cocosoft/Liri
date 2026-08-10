@@ -15,14 +15,11 @@ import { auditPlugins } from './AuditPlugins';
 import { auditFilesystem } from './AuditFilesystem';
 import { auditContextVisibility } from './ContextVisibility';
 import { buildAuditReport } from './AuditReport';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { resolveProjectRoot } from '@modules/core';
 
-const logger = new Logger({
-  module: 'security:auditEngine',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('security:auditEngine');
 
 const DEFAULT_DEEP_TIMEOUT_MS = 30000;
 

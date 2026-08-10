@@ -13,7 +13,7 @@ import type http from 'http';
 import { join } from 'path';
 import type { HandlerCtx } from './handler-utils';
 import { handleError } from '@modules/error';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { createWorkItemStore } from '@modules/workspace/WorkItemStore';
 import { createLiriConfigManager } from '@modules/workspace/LiriConfigManager';
 import { resolveWorkspacePath } from './workspaces-handlers';
@@ -24,10 +24,7 @@ import { globalEventBus } from '../../../core/events/EventBus.js';
 import type { EventSubscription } from '../../../core/events/EventBus.js';
 import { getOrchestrationHistoryAdapter } from './OrchestrationHistoryAdapter.js';
 
-const logger = new Logger({
-  module: 'http:orchestration',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('http:orchestration');
 
 /** SSE 响应头 */
 const SSE_HEADERS = {

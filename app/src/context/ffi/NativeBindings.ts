@@ -11,10 +11,10 @@
  *   const result = await compressMessages(messages, 'drop');
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({ module: 'context:ffi', level: LogLevel.INFO });
+const logger = getLogger('context:ffi');
 
 // ============================================================
 // RustString — RAII 内存管理（2.23）

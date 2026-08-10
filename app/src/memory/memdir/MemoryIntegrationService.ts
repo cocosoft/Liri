@@ -15,13 +15,10 @@ import type {
   MemoryCommandOptions,
   MemoryCommandResult,
 } from './MemoryCommands';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({
-  module: 'memory:memdir:memoryIntegrationService',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('memory:memdir:memoryIntegrationService');
 
 /**
  * 集成记忆接口（结合文件化和数据库记忆）

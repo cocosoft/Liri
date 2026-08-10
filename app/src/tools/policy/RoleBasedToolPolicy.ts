@@ -15,9 +15,8 @@ import type {
 } from './ToolPolicy';
 import { allowResult, denyResult } from './ToolPolicy';
 import { ToolClassifier, ToolCategory } from './ToolCatalog';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({ module: 'tools:rolePolicy', level: LogLevel.INFO });
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('tools:rolePolicy');
 
 /**
  * 按角色授权的分类白名单

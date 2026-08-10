@@ -7,11 +7,8 @@ import type {
   ProviderMetadata,
 } from './ProviderCatalog.js';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'plugins:provider:ProviderAuth',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('plugins:provider:ProviderAuth');
 
 /**
  * 认证凭据

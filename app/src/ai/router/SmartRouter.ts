@@ -66,12 +66,12 @@ import {
   CAPABILITY_ROUTES,
 } from './routes.js';
 import type { RouteKey as RouteKeyType } from './routes.js';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({ level: LogLevel.INFO, module: 'ai:smart-router' });
+const logger = getLogger('ai:smart-router');
 
 /**
  * 全局活跃路由层级（用于前端状态栏展示）

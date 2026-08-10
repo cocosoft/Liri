@@ -12,11 +12,11 @@ import { getTeammateManager } from '@modules/subagent/TeammateManager';
 import { join } from 'path';
 import { unlinkSync, existsSync, readFileSync } from 'fs';
 import { resolveDataSubDir } from '@modules/core';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { configManager } from '@modules/config';
 
-const logger = new Logger({ module: 'tools:teamDelete', level: LogLevel.INFO });
+const logger = getLogger('tools:teamDelete');
 
 /**
  * 团队删除输入

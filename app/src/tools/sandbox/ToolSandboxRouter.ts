@@ -8,7 +8,7 @@
  * - EXECUTION: 代码执行操作（shell 命令、脚本执行）
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 import {
   SandboxManagerImpl,
@@ -25,10 +25,7 @@ import type {
   SandboxExecuteResult,
 } from '@modules/sandbox/SandboxTypes';
 
-const logger = new Logger({
-  module: 'tools:sandboxRouter',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('tools:sandboxRouter');
 
 /**
  * 沙箱级别枚举

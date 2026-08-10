@@ -2,8 +2,8 @@ import { BaseTask } from './BaseTask';
 import { TaskType, TaskStatus } from './types';
 import { ForkedDreamExecutor } from './dream/ForkedDreamExecutor';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({ module: 'tasks:DreamTask', level: LogLevel.INFO });
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('tasks:DreamTask');
 
 export interface DreamTaskOptions {
   thinkingPrompt: string;

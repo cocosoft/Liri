@@ -3,12 +3,8 @@
  * 支持渠道内发送邮件通知
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'mail:channel',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('mail:channel');
 
 /**
  * MailChannelHandler

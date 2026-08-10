@@ -3,10 +3,10 @@
  * 同时调度多个 Agent 执行，收集结果，支持超时控制和并发限制
  */
 
-import { Logger } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
-const logger = new Logger({ module: 'agent:moa:parallelScheduler' });
+const logger = getLogger('agent:moa:parallelScheduler');
 
 /**
  * 信号量 — 控制最大并发数

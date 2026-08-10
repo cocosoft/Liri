@@ -46,11 +46,8 @@
 import { closeSync, constants as fsConstants, openSync, readSync } from 'fs';
 import { handleError } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'ink:ink:drain-stdin',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('ink:ink:drain-stdin');
 
 export function drainStdin(stdin: NodeJS.ReadStream = process.stdin): void {
   if (!stdin.isTTY) return;

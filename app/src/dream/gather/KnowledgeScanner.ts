@@ -30,13 +30,10 @@ import { join, relative } from 'path';
 import { createHash } from 'crypto';
 import { resolvePyappHome } from '@modules/core';
 import type { KnowledgeDelta } from '../types';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({
-  module: 'dream:gather:knowledgeScanner',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('dream:gather:knowledgeScanner');
 
 /** 大变更阈值：变更行数超过此比例视为全量变更 */
 const LARGE_CHANGE_RATIO = 0.5;

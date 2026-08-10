@@ -1,10 +1,7 @@
 ﻿import { handleError } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'chronos\heartbeat\HeartbeatMonitor',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('chronos\heartbeat\HeartbeatMonitor');
 /**
  * HeartbeatMonitor 心跳监控
  * 对标 OpenClaw 的心跳策略

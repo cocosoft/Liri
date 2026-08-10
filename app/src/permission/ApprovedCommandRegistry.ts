@@ -31,9 +31,8 @@
  * - hash 精确匹配：规范化命令（去空白/统一引号/小写）→ hash，
  *   防 LLM 重发时改文本导致匹配失败（防张冠李戴/防篡改）
  */
-import { Logger } from '@modules/monitoring';
-
-const logger = new Logger({ module: 'permission:approvedCommands' });
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('permission:approvedCommands');
 
 /** 批准记录默认 TTL（毫秒）— P0-1: 60s → 5min，匹配"批准→LLM 续跑"真实耗时（实测 75–131s） */
 const DEFAULT_TTL_MS = 300_000;

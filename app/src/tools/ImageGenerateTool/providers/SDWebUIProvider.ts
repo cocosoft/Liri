@@ -13,13 +13,10 @@ import type {
   CostEstimate,
   ProviderConfig,
 } from '../types';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 
-const logger = new Logger({
-  level: LogLevel.INFO,
-  module: 'tools:imageGenerate',
-});
+const logger = getLogger('tools:imageGenerate');
 
 export class SDWebUIProvider implements ImageGenerationProvider {
   readonly name = 'SD WebUI (Local)';

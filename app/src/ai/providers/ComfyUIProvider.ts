@@ -44,14 +44,11 @@ import type {
   VideoGenerationParams,
   VideoGenerationResult,
 } from './AIProvider';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({
-  level: LogLevel.INFO,
-  module: 'ai:comfy-provider',
-});
+const logger = getLogger('ai:comfy-provider');
 
 export class ComfyUIProvider extends BaseAIProvider {
   private baseUrl: string;

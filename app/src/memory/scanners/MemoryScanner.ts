@@ -4,13 +4,10 @@ import matter from 'gray-matter';
 import type { Memory } from '../types/Memory';
 import { createMemoryMetadata } from '../types/MemoryMetadata';
 import { isValidMemoryType } from '../types/MemoryType';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({
-  module: 'memory:scanners:memoryScanner',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('memory:scanners:memoryScanner');
 
 /**
  * 记忆扫描器接口

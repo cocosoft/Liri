@@ -5,10 +5,10 @@
  * 超限工具结果截断，防止大工具输出填满上下文窗口。
  * v2.1: 增加 token-aware 截断（在字符预算基础上增加 token 预算检查）。
  */
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { estimateTokens } from '../../ai/tokenizer/TokenEstimator';
 
-const logger = new Logger({ module: 'context:budget', level: LogLevel.INFO });
+const logger = getLogger('context:budget');
 
 const DEFAULT_MAX_RESULT_SIZE_CHARS = 50_000;
 /** token-aware: 工具结果最大 token 预算（防止 CJK 文本的 token 消耗远超字符数预期） */

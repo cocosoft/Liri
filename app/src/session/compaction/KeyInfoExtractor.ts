@@ -3,12 +3,8 @@ import type {
   CompactionEngine,
   AutoCompactServiceRef,
 } from './CompactionTypes';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'session:keyInfoExtractor',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('session:keyInfoExtractor');
 
 const DEFAULT_THRESHOLD = 60;
 

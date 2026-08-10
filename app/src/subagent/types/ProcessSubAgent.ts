@@ -13,10 +13,10 @@ import {
 import { spawn, ChildProcess } from 'child_process';
 import { join } from 'path';
 import { resolveProjectRoot } from '@modules/core';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
-const logger = new Logger({ module: 'subagent:process', level: LogLevel.INFO });
+const logger = getLogger('subagent:process');
 
 /**
  * 进程外子agent

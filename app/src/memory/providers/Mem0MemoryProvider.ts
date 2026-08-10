@@ -17,9 +17,8 @@ import type {
   ExternalMemoryEntry,
   MemoryQuery,
 } from './ExternalMemoryProvider';
-import { Logger } from '@modules/monitoring';
-
-const logger = new Logger({ module: 'memory:providers:mem0' });
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('memory:providers:mem0');
 
 export interface Mem0Config {
   apiKey: string;

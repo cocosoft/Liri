@@ -24,12 +24,8 @@ import {
   profilePhaseStart,
   profilePhaseEnd,
 } from '../performance/StartupProfiler';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'modules:moduleInitializer',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('modules:moduleInitializer');
 
 /**
  * 模块初始化状态

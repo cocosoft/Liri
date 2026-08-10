@@ -4,14 +4,11 @@
  * 对齐 OpenClaw agents/harness/types.ts reset 参数
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { existsSync, unlinkSync, renameSync } from 'fs';
 import { join } from 'path';
 
-const logger = new Logger({
-  module: 'agent:sessionReset',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('agent:sessionReset');
 
 export type ResetReason =
   | 'new'

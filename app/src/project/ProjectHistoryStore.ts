@@ -20,14 +20,11 @@ import {
   readdirSync,
 } from 'fs';
 import { resolveDataSubDir } from '@modules/core';
-import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
+import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({
-  module: 'project:HistoryStore',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('project:HistoryStore');
 
 const HISTORY_ROOT = join(resolveDataSubDir('history'));
 

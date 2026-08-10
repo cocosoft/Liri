@@ -5,12 +5,8 @@
  * 从 Provider API 响应中直接提取 usage/token 信息，避免估算。
  * 支持 OpenAI / Anthropic / Gemini 等多格式。
  */
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'context:token:extract',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('context:token:extract');
 
 export interface ExtractedUsage {
   inputTokens: number;

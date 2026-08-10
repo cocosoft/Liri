@@ -9,11 +9,8 @@ import type { SkillDB } from './persistence/SkillDB';
 
 import { handleError } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'skills:SkillUsageTracker',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('skills:SkillUsageTracker');
 
 /**
  * 技能使用记录

@@ -28,17 +28,14 @@
  * 对标 CC 源码 cc-switch/src-tauri/src/proxy/failover_switch.rs
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import type { AIProvider, ChatOptions } from './AIProvider';
 import { providerRegistry } from './ProviderRegistry';
 import type { ProviderRecord } from './ProviderManager';
 import { UsageTracker } from '../UsageTracker.js';
 
-const logger = new Logger({
-  module: 'ai:providers:priorityBasedFailover',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('ai:providers:priorityBasedFailover');
 
 /** 故障转移配置 */
 export interface FailoverConfig {

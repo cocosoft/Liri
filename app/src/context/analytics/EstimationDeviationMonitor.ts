@@ -7,12 +7,8 @@
  *   警告：偏差 15-30% → warn 日志
  *   告警：偏差 > 30% → alert 日志 + /cost 命令中标注
  */
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'context:cost:deviation',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('context:cost:deviation');
 
 export interface DeviationRecord {
   timestamp: string;

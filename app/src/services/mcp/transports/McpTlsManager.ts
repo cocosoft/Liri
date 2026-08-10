@@ -1,12 +1,9 @@
 import fs from 'fs';
 import tls from 'tls';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 
-const logger = new Logger({
-  module: 'services:mcp:tlsManager',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('services:mcp:tlsManager');
 
 /**
  * MCP TLS 配置

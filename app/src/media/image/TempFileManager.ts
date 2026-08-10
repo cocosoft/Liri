@@ -10,11 +10,11 @@
 
 import fs from 'fs';
 import path from 'path';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { resolveOutputDir } from '@modules/core/paths';
 import { handleError } from '@modules/error/handleError';
 
-const logger = new Logger({ level: LogLevel.INFO, module: 'media:tempFile' });
+const logger = getLogger('media:tempFile');
 
 /** 默认 TTL (ms)：30 分钟 */
 const DEFAULT_TTL_MS = 30 * 60 * 1000;

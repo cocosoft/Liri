@@ -1,14 +1,11 @@
 import { join } from 'path';
 import { Database } from '@modules/core/external/sqlite3';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { resolveDbPath } from '@modules/core';
 import { nextCronRunMs } from '../cron';
 import type { ScheduledTask } from '../types';
 
-const logger = new Logger({
-  module: 'chronos:service:sqliteCronStore',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('chronos:service:sqliteCronStore');
 
 const TABLE = 'scheduled_tasks';
 const RUNS_TABLE = 'cron_runs';

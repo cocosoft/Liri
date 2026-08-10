@@ -9,12 +9,9 @@ import type {
 import { registerPendingLSPDiagnostic } from './LSPDiagnosticRegistry.js';
 import type { LSPServerManager } from './LSPServerManager.js';
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-const logger = new Logger({
-  module: 'lsp:passiveFeedback',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('lsp:passiveFeedback');
 
 function mapLSPSeverity(lspSeverity: number | undefined): string {
   switch (lspSeverity) {

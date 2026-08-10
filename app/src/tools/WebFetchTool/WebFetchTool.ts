@@ -22,12 +22,9 @@ import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
 import { v4 as uuidv4 } from 'uuid';
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-const logger = new Logger({
-  module: 'tools:WebFetchTool:WebFetchTool',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('tools:WebFetchTool:WebFetchTool');
 
 /**
  * WebFetch 输入模式

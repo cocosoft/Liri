@@ -5,12 +5,8 @@
  * 包装权限检查函数，自动收集非 allow 行为的拒绝记录，
  * 用于审计追踪和 SDK 上报。
  */
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'security:permissionWrapper',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('security:permissionWrapper');
 
 /**
  * 权限检查行为类型

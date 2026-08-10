@@ -7,11 +7,8 @@ import { SpanStatusCode, Span } from '@opentelemetry/api';
 import { OTelTracing } from './OTelTracing.js';
 import { errorMessage } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'monitoring\otel\TraceBridge',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('monitoring\otel\TraceBridge');
 
 export interface TraceEvent {
   name: string;

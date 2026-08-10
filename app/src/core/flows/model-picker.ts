@@ -6,12 +6,9 @@ import type {
 } from './types.js';
 import { modelManager } from '@modules/ai';
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-const logger = new Logger({
-  module: 'core:flows:model-picker',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('core:flows:model-picker');
 
 export type ModelCatalogEntry = {
   id: string;

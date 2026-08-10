@@ -10,10 +10,10 @@
  *   3. Hook `deny` → 立即拒绝（无论 Settings 如何）
  *   4. 无 Hook → 按 Settings 规则正常判断
  */
-import { Logger } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({ module: 'hooks:guard' });
+const logger = getLogger('hooks:guard');
 
 export type HookDecision = 'allow' | 'deny' | 'ask' | 'passthrough';
 export type SettingsDecision = 'allow' | 'deny' | 'ask';

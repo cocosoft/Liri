@@ -9,7 +9,7 @@
 import { join } from 'path';
 import { readFile, writeFile, mkdir, readdir, rename, cp } from 'fs/promises';
 import { existsSync } from 'fs';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { resolvePyappHome } from '@modules/core';
 import { SimpleMutex } from '@modules/core/SimpleMutex';
 
@@ -39,10 +39,7 @@ interface RegistryData {
 const REGISTRY_VERSION = 1;
 const REGISTRY_FILENAME = '.pyapp-knowledge.json';
 
-const logger = new Logger({
-  module: 'knowledge:knowledgeBaseRegistry',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('knowledge:knowledgeBaseRegistry');
 
 export class KnowledgeBaseRegistry {
   private knowledgeRoot: string;

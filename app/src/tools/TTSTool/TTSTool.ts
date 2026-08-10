@@ -5,7 +5,7 @@
  * 实际调用 voiceService → TTS Provider → PCMAudioPlayer 完整链路。
  * 同步维护 speak 队列，避免多轮会话冲突。
  */
-import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
+import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { BaseTool } from '../BaseTool';
 import type { ToolParam, ToolResult, ToolUseContext } from '../types/index';
@@ -13,7 +13,7 @@ import voiceService from '@modules/services/voice';
 import { globalEventBus } from '@modules/core';
 import type { EventSubscription } from '@modules/core';
 
-const logger = new Logger({ module: 'tools:tts', level: LogLevel.INFO });
+const logger = getLogger('tools:tts');
 
 /**
  * 令牌桶限流

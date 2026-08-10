@@ -7,11 +7,8 @@
 import { BaseTool } from '../BaseTool';
 import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'tools:McpAuthTool:McpAuthTool',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('tools:McpAuthTool:McpAuthTool');
 
 export interface McpAuthParams {
   action: 'login' | 'logout' | 'status' | 'refresh' | 'list';

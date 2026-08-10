@@ -14,9 +14,8 @@
  *   7. 移除 patternProperties — 不可靠
  */
 
-import { Logger } from '@modules/monitoring';
-
-const logger = new Logger({ module: 'tools:schemaSanitizer' });
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('tools:schemaSanitizer');
 
 export interface SanitizeOptions {
   /** 目标提供商 */

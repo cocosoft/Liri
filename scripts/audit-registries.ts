@@ -108,19 +108,21 @@ async function auditAppCore(): Promise<void> {
     console.log(`  LazyModuleLoader 数量: ${lazyLoaders.length}`);
   }
 
-  // ModuleDependencyManager 中的所有注册
-  const mdContent = readFileSync(mdMgrPath, 'utf-8');
-  const registerCalls = mdContent.match(/registerModule\(\{[\s\S]*?name:\s*'([^']+)'/g);
-  if (registerCalls) {
-    for (const call of registerCalls) {
-      const name = call.match(/name:\s*'([^']+)'/)?.[1];
-      if (name) {
-        RESULTS.push({
-          source: 'AppCore',
-          name,
-          type: 'module',
-          details: 'ModuleDependencyManager.registerModule()',
-        });
+  // ModuleDependencyManager 中的所有注册（该文件已随 legacy 系统退役，存在性守卫）
+  if (existsSync(mdMgrPath)) {
+    const mdContent = readFileSync(mdMgrPath, 'utf-8');
+    const registerCalls = mdContent.match(/registerModule\(\{[\s\S]*?name:\s*'([^']+)'/g);
+    if (registerCalls) {
+      for (const call of registerCalls) {
+        const name = call.match(/name:\s*'([^']+)'/)?.[1];
+        if (name) {
+          RESULTS.push({
+            source: 'AppCore',
+            name,
+            type: 'module',
+            details: 'ModuleDependencyManager.registerModule()',
+          });
+        }
       }
     }
   }

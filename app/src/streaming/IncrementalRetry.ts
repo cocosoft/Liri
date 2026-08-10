@@ -8,12 +8,12 @@
  * - 与 StreamStateMachine 集成
  */
 
-import { Logger } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { StreamState } from './types';
 import type { StreamStateMachine } from './StreamStateMachine';
 
-const logger = new Logger({ module: 'streaming:incrementalRetry' });
+const logger = getLogger('streaming:incrementalRetry');
 
 /**
  * 流断点

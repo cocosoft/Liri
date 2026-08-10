@@ -29,16 +29,13 @@
 
 import { readdirSync, readFileSync, existsSync, statSync } from 'fs';
 import { join, basename, dirname } from 'path';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { resolveDomainDir, resolveKnowledgeDir } from '@modules/core';
 import type { FieldDef } from '@modules/knowledge/schema/SchemaLoader';
 import { load } from 'js-yaml';
 
-const logger = new Logger({
-  module: 'knowledge:lint:wikiLinter',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('knowledge:lint:wikiLinter');
 
 // ---------------------------------------------------------------------------
 // 类型定义

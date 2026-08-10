@@ -38,11 +38,11 @@
 import { stat, readdir, readFile } from 'fs/promises';
 import { join, resolve } from 'path';
 import { existsSync } from 'fs';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { xxHash, encodeFilePath } from './xxHash';
 import type { FileChange, FileChangeType, FileStat, ScanStatus } from './types';
 
-const logger = new Logger({ module: 'FileOperationTracker' });
+const logger = getLogger('FileOperationTracker');
 
 /**
  * 文件操作追踪器

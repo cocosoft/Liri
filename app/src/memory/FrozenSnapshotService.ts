@@ -18,9 +18,8 @@
  * 过期策略：1 小时 TTL，防止长时间会话使用过期记忆
  */
 
-import { Logger } from '@modules/monitoring';
-
-const logger = new Logger({ module: 'memory:frozenSnapshot' });
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('memory:frozenSnapshot');
 
 interface FrozenEntry {
   content: string;

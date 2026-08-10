@@ -4,9 +4,8 @@ import { PRIORITY_GENERIC_FILE_FORMAT } from '../engine/types';
 import { htmlToMarkdown } from '../utils/HtmlMarkdownify';
 import { AppError } from '@modules/error';
 import { ErrorCodes } from '@modules/error';
-import { Logger } from '@modules/monitoring';
-
-const logger = new Logger({ module: 'tools:converter:html' });
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('tools:converter:html');
 
 export class HtmlConverter extends BaseConverter {
   override readonly name: string = 'html';

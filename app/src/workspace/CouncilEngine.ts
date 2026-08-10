@@ -27,11 +27,11 @@ import type {
   CouncilAgentSpeakingData,
   CouncilAgentDeltaData,
 } from '../agent/events/OrchestrationEvents.js';
-import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
+import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error/handleError';
 
-const logger = new Logger({ module: 'CouncilEngine', level: LogLevel.INFO });
+const logger = getLogger('CouncilEngine');
 
 /** Council 配置 */
 export interface CouncilConfig {

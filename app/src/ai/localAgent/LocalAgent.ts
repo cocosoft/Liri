@@ -28,11 +28,8 @@ import { DateTimeHandler } from './handlers/DateTimeHandler.js';
 import { SystemInfoHandler } from './handlers/SystemInfoHandler.js';
 import { GreetingHandler } from './handlers/GreetingHandler.js';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'ai:localAgent:LocalAgent',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('ai:localAgent:LocalAgent');
 
 export class LocalAgent {
   private ruleEngine: IRuleEngine;

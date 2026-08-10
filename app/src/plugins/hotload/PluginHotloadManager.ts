@@ -20,7 +20,7 @@ import {
   readFileSync,
 } from 'fs';
 import { resolve, extname, basename, dirname } from 'path';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import type { PluginState } from '../types/PluginTypes';
 import { PluginManager } from '../managers/PluginManager';
 const pluginManager = PluginManager.getInstance();
@@ -29,7 +29,7 @@ import {
   type ActivationContext,
 } from '../lifecycle/ActivationContext';
 
-const logger = new Logger({ module: 'plugins:hotload', level: LogLevel.INFO });
+const logger = getLogger('plugins:hotload');
 
 /**
  * 插件热加载事件类型

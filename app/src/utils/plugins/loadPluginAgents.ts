@@ -5,12 +5,8 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'utils:loadPluginAgents',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('utils:loadPluginAgents');
 // 2026-08-06 修复（Q3）：移除模块级缓存。
 // 原 pluginAgentsCache 一旦缓存（可能缓存空数组）永不失效，且 clearPluginAgentCache 无调用方，
 // 导致插件加载后 Agent 列表不刷新。loadPluginAgents 由 Agent 源在加载时低频调用，实时读取成本可忽略。

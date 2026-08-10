@@ -11,11 +11,8 @@
 
 import { configManager } from '@modules/config/ConfigManager.js';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'commands:builtin:vim:Vim',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('commands:builtin:vim:Vim');
 
 /**
  * Vim命令实现

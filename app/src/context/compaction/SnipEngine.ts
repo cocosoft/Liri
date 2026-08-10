@@ -11,12 +11,8 @@ import {
   stripUnpairedToolCalls,
   stripUnpairedToolResults,
 } from './toolPairIntegrity';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'context:compaction:snip',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('context:compaction:snip');
 
 export interface SnipEngineOptions {
   keepHeadTurns?: number;

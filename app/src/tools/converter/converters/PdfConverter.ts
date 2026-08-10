@@ -7,11 +7,8 @@ import { resolve, dirname } from 'path';
 import { pathToFileURL } from 'url';
 import { createRequire } from 'module';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'tools:converter:converters:PdfConverter',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('tools:converter:converters:PdfConverter');
 
 let _depError: Error | null = null;
 let _pdfjsLib: any = null;

@@ -7,7 +7,7 @@
  * @typeParam S 状态枚举的字面量联合类型（如 'idle' | 'running' | 'completed'）
  */
 
-import { Logger } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { IllegalTransitionError, InvalidSnapshotError } from '../errors';
 import type {
   TransitionRules,
@@ -17,7 +17,7 @@ import type {
   StateMachineConfig,
 } from './types';
 
-const logger = new Logger({ module: 'state:machine' });
+const logger = getLogger('state:machine');
 
 /**
  * 从规则表自动推导终态集合
@@ -50,6 +50,8 @@ export class StateMachine<S extends string> {
   private readonly isActiveFn?: (state: S) => boolean;
   private readonly maxHistorySize?: number;
   private readonly contextId: string;
+  private readonly criticalStates: Set<S>;
+  private readonly onTransition?: (record: TransitionRecord<S>) => void;
 
   protected history: TransitionRecord<S>[] = [];
   private listeners: Set<StateChangeListener<S>> = new Set();
@@ -65,6 +67,8 @@ export class StateMachine<S extends string> {
     this.isActiveFn = config.isActive;
     this.maxHistorySize = config.maxHistorySize;
     this.contextId = config.contextId ?? 'unknown';
+    this.criticalStates = new Set(config.criticalStates ?? []);
+    this.onTransition = config.onTransition;
 
     // 校验初始状态是否在规则表中
     if (!(this.currentState in this.rules)) {
@@ -187,10 +191,29 @@ export class StateMachine<S extends string> {
       this.history = this.history.slice(-this.maxHistorySize);
     }
 
-    logger.debug(`状态转换: ${from} → ${to}`, {
-      contextId: this.contextId,
-      reason,
-    });
+    // §十 阶段 B 日志分级：进入关键状态（ERROR/PAUSED）至少 warn，常规转移 debug
+    const isCritical = this.criticalStates.has(to);
+    if (isCritical) {
+      logger.warn(`状态转换(关键): ${from} → ${to}`, {
+        contextId: this.contextId,
+        reason,
+      });
+    } else {
+      logger.debug(`状态转换: ${from} → ${to}`, {
+        contextId: this.contextId,
+        reason,
+      });
+    }
+
+    // §十 阶段 B：转移事件发布钩子（引擎级，与 listener 机制并存）
+    try {
+      this.onTransition?.(record);
+    } catch (err) {
+      logger.error('状态转换发布钩子执行异常', {
+        contextId: this.contextId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
 
     this.notifyListeners(prevState, to, reason);
     return true;

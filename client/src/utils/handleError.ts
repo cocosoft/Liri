@@ -52,6 +52,10 @@ export interface HandleErrorOptions {
   action?: string;
   /** 附加上下文 */
   meta?: Record<string, unknown>;
+  /** 请求 payload 的 key 集合（不记敏感值，只记键名，便于定位请求结构） */
+  payloadKeys?: string[];
+  /** React 组件栈（ErrorInfo.componentStack），定位 UI 层出错组件 */
+  componentStack?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -66,6 +70,8 @@ interface TrackedEntry {
   code?: string;
   module: string;
   action?: string;
+  payloadKeys?: string[];
+  componentStack?: string;
   timestamp: number;
   stack?: string;
 }
@@ -135,6 +141,8 @@ function scheduleReport(): void {
           code: e.code,
           module: e.module,
           action: e.action,
+          payloadKeys: e.payloadKeys,
+          componentStack: e.componentStack?.split("\n").slice(0, 10).join("\n"),
           timestamp: e.timestamp,
           stack: e.stack?.split("\n").slice(0, 3).join("\n"),
         })),
@@ -197,7 +205,7 @@ export function handleClientError(
           "UNHANDLED_ERROR",
         );
 
-  const { module, action, meta } = options;
+  const { module, action, meta, payloadKeys, componentStack } = options;
 
   // 2. OTEL Span 追踪
   const otel = getOTelTracing();
@@ -242,6 +250,8 @@ export function handleClientError(
     code: appError.code,
     module,
     action,
+    payloadKeys,
+    componentStack,
     timestamp: Date.now(),
     stack: (error as Error)?.stack,
   };

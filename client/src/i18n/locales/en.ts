@@ -65,6 +65,7 @@ const en = {
     cron: "Cron",
     dashboard: "Dashboard",
     files: "Files",
+    backgroundStatus: "Background Tasks",
     settings: "Settings",
   },
   // U1: plain vs technical term glossary (版本划分方案 §9; Base uses plain, Pro uses tech)

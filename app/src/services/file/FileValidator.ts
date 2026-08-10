@@ -13,12 +13,8 @@
  *   if (!result.valid) { console.warn(result.warning); }
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'services:file:validator',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('services:file:validator');
 
 export interface ValidationResult {
   /** 是否通过校验 */

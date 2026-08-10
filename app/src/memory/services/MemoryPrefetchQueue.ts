@@ -4,12 +4,8 @@
  * 支持优先级排序、并发限制、批量处理、自动重试
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'memory:services:memoryPrefetchQueue',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('memory:services:memoryPrefetchQueue');
 
 /**
  * 预取队列配置

@@ -4,7 +4,7 @@
  */
 
 import { EventEmitter } from 'events';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import {
   PluginRegistration,
   PluginState,
@@ -14,10 +14,7 @@ import {
 } from '../types/PluginTypes';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
-const logger = new Logger({
-  module: 'plugins:core:pluginRegistry',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('plugins:core:pluginRegistry');
 
 /**
  * 回退加载器类型

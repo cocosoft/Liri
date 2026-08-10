@@ -10,17 +10,14 @@
 import type { Tool } from '../types/Tool';
 import { createToolResult } from '../types/ToolResult';
 import type { ToolUseContext } from '../types/ToolUseContext';
-import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
+import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error';
 import { resolveDataDir } from '@modules/core/paths';
 import { createProjectStore } from '../../workspace/ProjectStore.js';
 import { WorkItemStore } from '../../workspace/WorkItemStore.js';
 
-const logger = new Logger({
-  module: 'tools:create_project',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('tools:create_project');
 
 // P4-1: Store 单例化 — 避免每次 execute 都 new
 let _workItemStore: WorkItemStore | null = null;

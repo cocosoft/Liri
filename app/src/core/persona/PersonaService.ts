@@ -16,10 +16,10 @@
 import { Database } from '@modules/core/external/sqlite3';
 import { resolveDbPath } from '@modules/core';
 import { SimpleMutex } from '@modules/core';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import type { PersonaBinding, CreatePersonaBindingInput } from './types';
 
-const logger = new Logger({ module: 'core:persona', level: LogLevel.INFO });
+const logger = getLogger('core:persona');
 
 /** 数据库表名 */
 const TABLE = 'persona_bindings';

@@ -35,11 +35,8 @@ import {
 } from 'fs';
 import { join, relative, resolve, basename } from 'path';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'agent:sandbox:index',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('agent:sandbox:index');
 
 export interface WorkspaceConfig {
   rootDir: string;

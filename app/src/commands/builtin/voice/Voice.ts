@@ -8,11 +8,11 @@
  */
 
 import { configManager } from '@modules/config/ConfigManager.js';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import type { CommandContext } from '@modules/commands';
 import { createVoiceServiceBridge } from '../../../voice/VoiceServiceBridge';
 
-const logger = new Logger({ module: 'commands:voice', level: LogLevel.INFO });
+const logger = getLogger('commands:voice');
 
 /**
  * 语音命令实现

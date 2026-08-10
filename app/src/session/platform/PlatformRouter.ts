@@ -7,7 +7,7 @@
  * - 平台健康状态监控
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import type {
   PlatformAdapter,
@@ -18,10 +18,7 @@ import type {
 } from './PlatformAdapter';
 import type { UnifiedMessage } from '../types/Message';
 
-const logger = new Logger({
-  module: 'session:platformRouter',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('session:platformRouter');
 
 export interface PlatformRouteEntry {
   adapter: PlatformAdapter;

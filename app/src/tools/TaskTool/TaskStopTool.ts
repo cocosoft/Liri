@@ -16,11 +16,8 @@ import { createToolResult } from '../types/ToolResult';
 import { taskRegistry } from '@modules/tasks/TaskRegistry';
 import { TaskStatus } from '@modules/tasks/types';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'tools:TaskTool:TaskStopTool',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('tools:TaskTool:TaskStopTool');
 
 /**
  * 任务停止工具输入类型

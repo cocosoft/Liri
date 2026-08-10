@@ -6,6 +6,7 @@ import { fileService } from "../services/fileService";
 import { knowledgeService } from "../services/knowledgeService";
 import { agentService } from "../services/agentService";
 import { statsService } from "../services/statsService";
+import { buildStreamFailureMessage } from "../services/chatService";
 
 /**
  * Mock httpLegacy 使其始终抛异常，
@@ -186,5 +187,31 @@ describe("StatsService (fallback)", () => {
     expect(stats.models).toBe(0);
     expect(stats.tools).toBe(0);
     expect(stats.sessions).toBe(0);
+  });
+});
+
+describe("buildStreamFailureMessage（§13.9 报错语义拆分）", () => {
+  it("消息已落盘：提示可直接重新发送", () => {
+    const msg = buildStreamFailureMessage(true, "尚未产生内容");
+    expect(msg).toContain("连接已断开，且无可用检查点");
+    expect(msg).toContain("您的消息已保存");
+    expect(msg).toContain("可直接重新发送");
+    expect(msg).not.toContain("自动补发");
+  });
+
+  it("消息未落盘：提示 outbox 网络恢复后自动补发", () => {
+    const msg = buildStreamFailureMessage(false, "尚未产生内容");
+    expect(msg).toContain("网络恢复后将自动补发");
+    expect(msg).toContain("无需重复发送");
+    expect(msg).not.toContain("重新发送以继续");
+  });
+
+  it("保留已生成内容进度统计", () => {
+    const msg = buildStreamFailureMessage(
+      true,
+      "已生成 123 字符内容、完成 1 次工具调用",
+    );
+    expect(msg).toContain("已生成 123 字符内容");
+    expect(msg).toContain("完成 1 次工具调用");
   });
 });

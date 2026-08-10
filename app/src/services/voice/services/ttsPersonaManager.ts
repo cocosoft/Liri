@@ -15,11 +15,11 @@
  * 工作区切换时自动加载对应上下文，工作区销毁时自动清理。
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { getDefaultConfigOverlay } from './ttsConfigOverlay';
 
-const logger = new Logger({ module: 'voice:ttsPersona', level: LogLevel.INFO });
+const logger = getLogger('voice:ttsPersona');
 
 /** TTS 上下文（方案 20：多工作区隔离） */
 export interface TTSContext {

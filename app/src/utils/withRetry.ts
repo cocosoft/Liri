@@ -14,11 +14,11 @@
  * - bridge/api/BridgeApi.ts — Bridge API 内部重试
  * */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { handleError } from '@modules/error/handleError';
 
-const logger = new Logger({ module: 'utils:withRetry', level: LogLevel.INFO });
+const logger = getLogger('utils:withRetry');
 
 export interface RetryConfig {
   maxRetries: number;

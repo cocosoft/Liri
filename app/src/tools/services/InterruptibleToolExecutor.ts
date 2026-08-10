@@ -8,11 +8,8 @@ import { ToolOrchestration } from './ToolOrchestration';
 import { toolResultBudgetManager } from './ToolResultBudget';
 import { ModuleError } from '@modules/errors';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'tools\services\InterruptibleToolExecutor',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('tools\services\InterruptibleToolExecutor');
 
 export interface InterruptibleExecutorConfig {
   toolRegistry: Map<string, Tool>;

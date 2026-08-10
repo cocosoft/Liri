@@ -36,7 +36,7 @@ import {
   ErrorSeverity,
   handleError,
 } from '@modules/error';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import {
   Plugin,
   PluginState,
@@ -44,10 +44,7 @@ import {
   PluginLoaderOptions,
 } from './types.js';
 
-const logger = new Logger({
-  module: 'core:extensibility:pluginLoader',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('core:extensibility:pluginLoader');
 
 /**
  * 插件加载器

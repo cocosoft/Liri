@@ -16,13 +16,10 @@ import {
   isRuleMatch,
   isToolNameMatch,
 } from './types/PermissionRule';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({
-  module: 'permission:ruleManager',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('permission:ruleManager');
 
 /**
  * 规则上下文接口

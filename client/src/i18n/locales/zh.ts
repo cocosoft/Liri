@@ -67,6 +67,7 @@ const zh = {
     cron: "定时任务",
     dashboard: "仪表盘",
     files: "文件管理",
+    backgroundStatus: "后台任务",
     settings: "设置",
   },
   // U1：白话 ↔ 技术名术语表（版本划分方案 §9，Base 用 plain，Pro 用 tech）

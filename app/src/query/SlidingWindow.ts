@@ -10,14 +10,11 @@
  * 避免因 Token 溢出导致的请求拒决。
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import type { ChatMessage } from '@modules/ai';
 import { extractKeyPaths } from '@modules/agent/compact/utils';
 
-const logger = new Logger({
-  module: 'query:slidingWindow',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('query:slidingWindow');
 
 /**
  * 滑动窗口配置

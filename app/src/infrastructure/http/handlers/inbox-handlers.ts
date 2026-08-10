@@ -12,7 +12,7 @@
 
 import type http from 'http';
 import { sendError, readRequestBody, type HandlerCtx } from './handler-utils';
-import { Logger } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error';
@@ -23,7 +23,7 @@ import {
 } from '@modules/runtime/InboxManager.js';
 import { getApprovedCommandRegistry } from '@modules/permission/ApprovedCommandRegistry';
 
-const logger = new Logger({ module: 'http:inbox' });
+const logger = getLogger('http:inbox');
 
 function sendJSON(
   res: http.ServerResponse,

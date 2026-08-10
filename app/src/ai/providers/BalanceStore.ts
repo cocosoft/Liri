@@ -26,14 +26,11 @@
 
 import { Database } from '@modules/core/external/sqlite3';
 import { resolveDbPath } from '@modules/core';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
-const logger = new Logger({
-  module: 'ai:providers:balanceStore',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('ai:providers:balanceStore');
 
 const BALANCES_TABLE = 'provider_balances';
 

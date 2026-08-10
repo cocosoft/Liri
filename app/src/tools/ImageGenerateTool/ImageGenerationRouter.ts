@@ -5,7 +5,7 @@
  * Provider 级别回退（fallback 链）已由 SmartRouter.execute() 接管。
  */
 
-import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
+import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error/handleError';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
@@ -28,10 +28,7 @@ import { SDWebUIProvider } from './providers/SDWebUIProvider';
 import { ImageGenerationCache } from './ImageGenerationCache';
 import { getImageSafetyFilter } from './ImageSafetyFilter';
 
-const logger = new Logger({
-  level: LogLevel.INFO,
-  module: 'tools:imageGenerate',
-});
+const logger = getLogger('tools:imageGenerate');
 
 export class ImageGenerationRouter {
   private providers: ImageGenerationProvider[] = [];

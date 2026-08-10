@@ -30,7 +30,7 @@ import {
   readdirSync,
   statSync,
 } from 'fs';
-import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
+import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import type {
   TTSProvider,
@@ -39,7 +39,7 @@ import type {
   TTSSpeakResult,
 } from './ttsProvider';
 
-const logger = new Logger({ module: 'voice:piperTTS', level: LogLevel.INFO });
+const logger = getLogger('voice:piperTTS');
 
 /** Piper 模型索引条目（方案 19） */
 export interface ModelIndexEntry {

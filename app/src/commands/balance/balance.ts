@@ -28,11 +28,8 @@ import type { CommandContext, CommandResult } from '@modules/commands';
 import { checkBalance, formatBalanceResult } from '@modules/ai';
 import { providerManager } from '@modules/ai';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'commands:balance:balance',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('commands:balance:balance');
 
 const balanceCommand = {
   async execute(

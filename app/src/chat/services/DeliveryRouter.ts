@@ -8,11 +8,8 @@ import { MessageStatus, MessagePriority } from '../types/message.js';
 import { MessageQueue } from './MessageQueue.js';
 import type { MessageQueueStats } from './MessageQueue.js';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'chat:services:DeliveryRouter',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('chat:services:DeliveryRouter');
 
 const BASE_RETRY_DELAY_MS = 1000;
 const MAX_RETRY_DELAY_MS = 60000;

@@ -4,16 +4,13 @@
  * 参考CC源码 cc_code/backend/utils/permissions/denialTracking.ts 实现
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { metrics } from '@opentelemetry/api';
 import type { Counter } from '@opentelemetry/api';
 import { permissionMetrics } from '../metrics/PermissionMetricsStore';
 
-const logger = new Logger({
-  module: 'permission:trackers:denialTracker',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('permission:trackers:denialTracker');
 
 /**
  * 拒绝记录

@@ -32,10 +32,10 @@ import { providerRegistry } from './ProviderRegistry';
 import { createProviderByType } from './ProviderFactory';
 import type { AIProvider, ProviderConfig } from './AIProvider';
 import type { ProviderRecord } from './ProviderManager';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({ level: LogLevel.INFO, module: 'ai:provider-sync' });
+const logger = getLogger('ai:provider-sync');
 
 /**
  * 将 DB ProviderRecord 转换为 ProviderConfig

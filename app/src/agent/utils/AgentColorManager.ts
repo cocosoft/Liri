@@ -4,12 +4,8 @@
  * 参考CC源码 cc_code/backend/tools/AgentTool/agentColorManager.ts 实现
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'agent:utils:agentColorManager',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('agent:utils:agentColorManager');
 
 /**
  * Agent颜色名称

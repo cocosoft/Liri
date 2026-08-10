@@ -10,13 +10,10 @@ import {
   DEFAULT_TOOL_SEARCH_CONFIG,
 } from './ToolSearchConfig';
 import { createToolRegistry } from '../ToolRegistry.js';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({
-  module: 'tools:discoveryService',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('tools:discoveryService');
 
 export interface DeferredTool {
   name: string;

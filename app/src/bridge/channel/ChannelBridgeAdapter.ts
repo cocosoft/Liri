@@ -11,7 +11,7 @@
  * 这是一个"1+1>2"的增值层 — Bridge 和 Channel 各自完整独立，此模块仅提供桥接编排。
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import {
   AppError,
   ErrorCategory,
@@ -26,7 +26,7 @@ import type {
   CoordinatorConfig,
 } from '@modules/core';
 
-const logger = new Logger({ level: LogLevel.INFO, module: 'channels:bridge' });
+const logger = getLogger('channels:bridge');
 
 /**
  * 通道消息转换为 Bridge 任务后的元数据

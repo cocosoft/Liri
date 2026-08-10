@@ -4,7 +4,7 @@
  * 对齐 OpenClaw channels/dm-policy-shared.ts
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import type {
   DmPolicy,
   MessageContext,
@@ -12,7 +12,7 @@ import type {
 } from '@modules/channels/types';
 import { PairingStore } from './PairingStore';
 
-const logger = new Logger({ level: LogLevel.INFO, module: 'channels:dm' });
+const logger = getLogger('channels:dm');
 
 export interface DmPolicyConfig {
   policy: DmPolicy;

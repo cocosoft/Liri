@@ -10,13 +10,10 @@ import { shouldAutoCompact, CompactCircuitBreaker } from './autoCompact';
 import { ReactiveCompactService } from './reactiveCompact';
 import { evaluateTimeBasedTrigger } from './microCompact';
 import { roughTokenCountEstimationForMessages } from './utils';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({
-  module: 'services:compact:orchestrator',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('services:compact:orchestrator');
 
 export interface CompactRecord {
   strategy: 'auto' | 'reactive' | 'micro' | 'none';

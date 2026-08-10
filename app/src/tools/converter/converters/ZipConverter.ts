@@ -4,11 +4,8 @@ import { PRIORITY_GENERIC_FILE_FORMAT } from '../engine/types';
 import { AppError } from '@modules/error';
 import { ErrorCodes } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'tools\converter\converters\ZipConverter',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('tools\converter\converters\ZipConverter');
 
 /**
  * 转换引擎引用（DI 注入，避免循环依赖）

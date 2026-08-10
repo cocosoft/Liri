@@ -1,10 +1,7 @@
 import { MockChannel, MockChannelConfig } from './MockChannel.js';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'testing:channels:ChannelTestHarness',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('testing:channels:ChannelTestHarness');
 
 export interface TestScenario {
   name: string;

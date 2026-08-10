@@ -7,11 +7,8 @@
 /**
  * 健康检查结果
  */
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'ai:credentials:CredentialHealth',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('ai:credentials:CredentialHealth');
 
 export interface CredentialHealthResult {
   healthy: boolean;

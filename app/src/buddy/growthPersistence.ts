@@ -9,12 +9,8 @@
 import { readFile, writeFile, mkdir } from 'fs/promises';
 import { dirname } from 'path';
 import { resolveDataDir } from '@modules/core/paths';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'buddy:growthPersistence',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('buddy:growthPersistence');
 
 /** 成长状态快照（可序列化） */
 export interface GrowthState {

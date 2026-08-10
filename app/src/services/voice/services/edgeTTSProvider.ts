@@ -10,7 +10,7 @@
 
 import { createHash, randomUUID, randomBytes } from 'crypto';
 import { writeFileSync } from 'fs';
-import { Logger, LogLevel, getOTelTracing } from '@modules/monitoring';
+import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import type {
   TTSProvider,
@@ -28,7 +28,7 @@ import {
   type WsConnection,
 } from './edgeTTSTransport';
 
-const logger = new Logger({ level: LogLevel.INFO, module: 'voice:edgeTTS' });
+const logger = getLogger('voice:edgeTTS');
 
 /** Edge TTS WebSocket 端点 */
 const EDGE_TTS_HOST = 'speech.platform.bing.com';

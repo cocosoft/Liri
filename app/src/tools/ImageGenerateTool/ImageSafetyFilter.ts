@@ -10,12 +10,8 @@
  * 可接第三方内容审核 API（如阿里云内容安全）
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  level: LogLevel.INFO,
-  module: 'tools:imageGenerate',
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('tools:imageGenerate');
 
 /** 安全过滤严格度 */
 export type SafetyStrictness = 'low' | 'medium' | 'high';

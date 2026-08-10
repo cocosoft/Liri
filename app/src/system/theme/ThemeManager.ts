@@ -4,10 +4,10 @@
  */
 
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import chalk from 'chalk';
 
-const logger = new Logger({ module: 'system:theme', level: LogLevel.INFO });
+const logger = getLogger('system:theme');
 
 export interface ThemeColors {
   primary: string;

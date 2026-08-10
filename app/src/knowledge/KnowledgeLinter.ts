@@ -11,15 +11,12 @@
 import { readdir, readFile, stat } from 'fs/promises';
 import { join, relative } from 'path';
 import { existsSync } from 'fs';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import type { AIService } from '@modules/ai';
 import { AIMessageRole } from '@modules/ai';
 import { resolvePyappHome } from '@modules/core';
 
-const logger = new Logger({
-  module: 'knowledge:knowledgeLinter',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('knowledge:knowledgeLinter');
 
 export interface LintResult {
   /** 文档总数 */

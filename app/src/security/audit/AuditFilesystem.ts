@@ -4,16 +4,13 @@
  */
 
 import type { SecurityAuditFinding, AuditSeverity } from './AuditTypes';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { existsSync, statSync } from 'fs';
 import { join } from 'path';
 import { resolveProjectRoot, resolveDataDir } from '@modules/core';
 
-const logger = new Logger({
-  module: 'security:auditFilesystem',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('security:auditFilesystem');
 
 /**
  * 敏感文件路径（相对于 resolveDataDir()）

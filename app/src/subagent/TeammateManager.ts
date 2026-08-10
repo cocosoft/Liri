@@ -13,13 +13,10 @@ import {
   MessageHandler,
 } from './backends/TeammateBackend';
 import { InProcessTeammateBackend } from './backends/InProcessTeammateBackend';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
-const logger = new Logger({
-  module: 'subagent:teammateManager',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('subagent:teammateManager');
 
 export interface TeamManagerConfig {
   maxTeammates?: number;

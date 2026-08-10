@@ -4,12 +4,8 @@
 
 import { EventEmitter } from 'events';
 import { PluginEvent, PluginEventType } from '../types/PluginTypes';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'plugins:core:pluginEventSystem',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('plugins:core:pluginEventSystem');
 
 /**
  * 事件处理器

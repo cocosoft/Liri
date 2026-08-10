@@ -8,14 +8,11 @@ import { readdir, stat, readFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import { type MemoryFile, MemoryType, MemoryLayer } from './MemdirService';
 import { parseFrontmatter } from '@modules/utils/frontmatterParser';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { resolveProjectRoot } from '@modules/core';
 
-const logger = new Logger({
-  module: 'memory:memdir:memoryScanner',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('memory:memdir:memoryScanner');
 
 /**
  * 记忆头信息（参考CC memoryScan.ts）

@@ -11,11 +11,8 @@ import { getModelConfigById } from '@modules/ai';
 
 import { handleError } from '@modules/error';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'cost:ModelPricing',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('cost:ModelPricing');
 
 export interface ModelPricing {
   inputPricePerMillion: number;

@@ -7,12 +7,8 @@
  */
 import React, { useEffect } from 'react';
 import { useKeybindingContext } from './KeybindingContext.js';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'keybindings:chordInterceptor.tsx',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('keybindings:chordInterceptor.tsx');
 
 /**
  * 和弦拦截器组件

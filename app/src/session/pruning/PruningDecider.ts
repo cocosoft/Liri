@@ -11,12 +11,8 @@ import { SoftTrimmer } from './SoftTrimmer';
 import { AgeBasedPruner } from './AgeBasedPruner';
 import { CountBasedPruner } from './CountBasedPruner';
 import { BudgetBasedPruner } from './BudgetBasedPruner';
-import { Logger, LogLevel } from '@modules/monitoring';
-
-const logger = new Logger({
-  module: 'session:pruningDecider',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('session:pruningDecider');
 
 export interface PruningDecision {
   action:

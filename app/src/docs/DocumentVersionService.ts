@@ -3,16 +3,13 @@
  * 提供文档版本控制、历史记录和回滚功能
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { resolveDataSubDir } from '@modules/core';
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 
-const logger = new Logger({
-  module: 'docs:documentVersionService',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('docs:documentVersionService');
 
 /**
  * 文档版本状态

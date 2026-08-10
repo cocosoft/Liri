@@ -9,12 +9,9 @@ import type { ModelPriceTable, TokenUsageDetail } from './types';
 import { calculateTotalCost } from '@modules/cost/calculateCost.js';
 import type { ModelPricing } from '@modules/cost/ModelPricing.js';
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-const logger = new Logger({
-  module: 'core:tokenBudget:CacheAwareBudget',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('core:tokenBudget:CacheAwareBudget');
 
 export interface CacheEfficiencyResult {
   efficiency: number;

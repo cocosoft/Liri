@@ -8,9 +8,8 @@
  *   strict:  用户提供的 cron prompt — 8 种威胁模式
  *   relaxed: 含 skill 内容的组装 prompt — 4 种模式（避免误报）
  */
-import { Logger } from '@modules/monitoring';
-
-const logger = new Logger({ module: 'chronos:injectionScan' });
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('chronos:injectionScan');
 
 export type ScanMode = 'strict' | 'relaxed';
 

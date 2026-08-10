@@ -7,13 +7,10 @@ import http from 'http';
 import https from 'https';
 import { EventEmitter } from 'events';
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 
-const logger = new Logger({
-  module: 'chronos:webhook',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('chronos:webhook');
 
 /**
  * Webhook 配置

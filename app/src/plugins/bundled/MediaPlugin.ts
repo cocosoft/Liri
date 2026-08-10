@@ -6,15 +6,12 @@
 import type { Plugin, PluginMetadata } from '../types';
 import { PluginStatus } from '../types/Plugin.js';
 import type { IPluginAPI } from '../api/PluginAPI.js';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { ImageGenerateTool } from '../../tools/ImageGenerateTool/ImageGenerateTool.js';
 import { ImageAnalysisTool } from '../../tools/ImageAnalysisTool/ImageAnalysisTool.js';
 import type { ToolUseContext } from '../../tools/types/ToolUseContext';
 
-const logger = new Logger({
-  module: 'plugins:bundled:mediaPlugin',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('plugins:bundled:mediaPlugin');
 
 /**
  * MediaPlugin 元数据

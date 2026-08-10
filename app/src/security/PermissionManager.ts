@@ -3,12 +3,12 @@
  * 管理用户权限，控制工具和功能的访�?
  */
 
-import { Logger } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { RuleManager } from '@modules/permission/RuleManager';
 import { PermissionBehavior } from '@modules/permission/types/PermissionRule';
 
-const logger = new Logger({ module: 'PermissionManager' });
+const logger = getLogger('PermissionManager');
 
 /**
  * 权限类型

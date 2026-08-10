@@ -33,7 +33,7 @@ import { readdir, unlink, stat, rm } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join, resolve } from 'path';
 import { homedir } from 'os';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import {
   getSnapshotsRoot,
   getManifestPath,
@@ -43,7 +43,7 @@ import {
 } from './SnapshotStorage';
 import type { RoundSnapshot } from './types';
 
-const logger = new Logger({ module: 'CleanupManager' });
+const logger = getLogger('CleanupManager');
 
 /** 默认快照配额上限（5GB） */
 const DEFAULT_QUOTA_BYTES = 5 * 1024 * 1024 * 1024;

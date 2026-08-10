@@ -13,7 +13,7 @@
  * const realtimeSession = bridge.realtime.createSession(connection);
  * ```
  */
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { getMetricsService } from '@modules/monitoring';
 import type { MetricsService } from '@modules/monitoring';
 import { SessionManager } from '@modules/session/SessionManager';
@@ -177,10 +177,7 @@ export interface VoiceBridgeStatus {
   };
 }
 
-const logger = new Logger({
-  module: 'voice:serviceBridge',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('voice:serviceBridge');
 
 /** 默认桥接配置 */
 const DEFAULT_BRIDGE_CONFIG: VoiceBridgeConfig = {

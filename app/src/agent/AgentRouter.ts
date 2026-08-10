@@ -3,14 +3,11 @@
  * 按工作区/任务类型路由到不同 Agent 配置
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { StrategySelector } from './StrategySelector';
 import type { TaskFeature, AgentRoute, RouteMatch } from './types';
 
-const logger = new Logger({
-  module: 'agent:agentRouter',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('agent:agentRouter');
 
 export interface RouteRules {
   patterns: Array<{

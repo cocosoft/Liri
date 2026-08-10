@@ -2,11 +2,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { CommandTrace, TraceExportFormat, TraceSession } from './types.js';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'core:trajectory:CommandExport',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('core:trajectory:CommandExport');
 
 export interface ExportOptions {
   format: TraceExportFormat;

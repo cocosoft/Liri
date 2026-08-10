@@ -11,9 +11,8 @@
  * 对标：cc_code formatZodValidationError + PilotDeck jsonSelfCorrect
  */
 
-import { Logger } from '@modules/monitoring';
-
-const logger = new Logger({ module: 'tools:selfCorrector' });
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('tools:selfCorrector');
 
 // ==========================================
 // Types

@@ -11,11 +11,8 @@ import { homedir, hostname } from 'os';
 import { randomUUID } from 'crypto';
 import { resolveDbPath, resolveProjectRoot } from '@modules/core';
 
-import { Logger, LogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'diagnostics:DiagnosticsService',
-  level: LogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('diagnostics:DiagnosticsService');
 
 const execAsync = promisify(exec);
 

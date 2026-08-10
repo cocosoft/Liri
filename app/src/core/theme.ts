@@ -3,13 +3,13 @@
  * 提供不同的视觉主题选项
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import chalk from 'chalk';
 import fs from 'fs';
 import path from 'path';
 import { resolveDataDir } from '@modules/core';
 
-const logger = new Logger({ module: 'core:theme', level: LogLevel.INFO });
+const logger = getLogger('core:theme');
 
 /**
  * 主题接口

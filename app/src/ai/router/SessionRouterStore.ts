@@ -46,10 +46,10 @@ interface SessionRouteRow {
   hit_count: number;
 }
 import { resolveDbPath } from '@modules/core';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import type { RouterTier, SessionRouteRecord } from './types.js';
 
-const logger = new Logger({ level: LogLevel.INFO, module: 'ai:session-store' });
+const logger = getLogger('ai:session-store');
 
 const TABLE_NAME = 'router_session_routes';
 

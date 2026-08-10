@@ -27,12 +27,9 @@ import type {
   AcpRuntimeDoctorReport,
 } from '@modules/acp/runtime/types.js';
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
-const logger = new Logger({
-  module: 'bridge:ModuleBridgeRuntime',
-  level: LogLevel.INFO,
-});
+const logger = getLogger('bridge:ModuleBridgeRuntime');
 
 export interface ModuleBridgeDependencies {
   taskRegistry?: {

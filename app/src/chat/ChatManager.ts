@@ -748,7 +748,8 @@ export class ChatManagerImpl implements ChatManager {
         getToolRegistry: () => this.toolRegistry,
         buildToolDefinitions: (schemas: unknown[]) =>
           this._buildToolDefinitions(schemas as ToolSchema[]),
-        loopDetector: this._loopDetector as import('../query/LoopDetector.js').LoopDetector,
+        loopDetector: this
+          ._loopDetector as import('../query/LoopDetector.js').LoopDetector,
         addAndPersistMessage: (sid, msg) =>
           this._addAndPersistMessage(sid, msg),
         getSessionMachine: (sid) => this.getSessionMachine(sid),

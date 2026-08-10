@@ -26,7 +26,8 @@ let coreBound = false;
 function getCoreService(): SensitiveDataService {
   if (!coreBound) {
     try {
-      const mod = require('@modules/security') as typeof import('@modules/security');
+      const mod =
+        require('@modules/security') as typeof import('@modules/security');
       if (mod?.sensitiveDataService) {
         coreServiceRef = mod.sensitiveDataService;
         coreServiceRef.on('securityError', (error: unknown) => {

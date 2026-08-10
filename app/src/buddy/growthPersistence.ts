@@ -11,7 +11,10 @@ import { dirname } from 'path';
 import { resolveDataDir } from '@modules/core/paths';
 import { Logger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({ module: 'buddy:growthPersistence', level: LogLevel.INFO });
+const logger = new Logger({
+  module: 'buddy:growthPersistence',
+  level: LogLevel.INFO,
+});
 
 /** 成长状态快照（可序列化） */
 export interface GrowthState {

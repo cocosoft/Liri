@@ -245,9 +245,13 @@ export class CoreAPIImpl implements CoreAPI {
         const registry = toolManager.getRegistry();
         if (registry) {
           this.chatManager.setToolRegistry(registry);
-          logger.info('ensureLLMClientInitialized: 已为已有 LLM client 补齐工具注册表');
+          logger.info(
+            'ensureLLMClientInitialized: 已为已有 LLM client 补齐工具注册表'
+          );
         } else {
-          logger.warning('ensureLLMClientInitialized: 工具注册表为空，本次会话将无法调用工具');
+          logger.warning(
+            'ensureLLMClientInitialized: 工具注册表为空，本次会话将无法调用工具'
+          );
         }
       }
       this._llmReady = true;

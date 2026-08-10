@@ -84,7 +84,7 @@ export async function handleGetBuddyStats(
 ): Promise<void> {
   try {
     const { getDreamStats } = await import('@modules/buddy/dreamLogStore');
-    const dreamStats = getDreamStats();
+    const dreamStats = await getDreamStats();
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(
@@ -124,10 +124,10 @@ export async function handleGetDreamLogs(
 
     const result = typeFilter
       ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        getDreamLogsByType(typeFilter as any, limit, offset)
-      : getDreamLogs(limit, offset);
+        await getDreamLogsByType(typeFilter as any, limit, offset)
+      : await getDreamLogs(limit, offset);
 
-    const stats = getDreamStats();
+    const stats = await getDreamStats();
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ ...result, stats }));
@@ -145,5 +145,52 @@ export async function handleGetDreamLogs(
         },
       })
     );
+  }
+}
+
+/**
+ * 处理获取后台任务运行状况请求
+ * 聚合：Dream（记忆整理）+ Buddy 成长统计 + 最近执行日志。
+ * 供前端"运行状况"面板展示，回答"功能承诺 vs 实际执行"。
+ */
+export async function handleGetBackgroundStatus(
+  ctx: HandlerCtx,
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const [{ getDreamStats, getDreamLogs }, { loadGrowthState }] =
+      await Promise.all([
+        import('@modules/buddy/dreamLogStore'),
+        import('@modules/buddy/growthPersistence'),
+      ]);
+
+    const dreamStats = await getDreamStats();
+    const recentLogs = await getDreamLogs(10);
+
+    // 成长统计从持久化层读取（与 DreamGrowthTracker 共享同一文件）
+    const growth = await loadGrowthState();
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(
+      JSON.stringify({
+        dream: {
+          stats: dreamStats,
+          recentLogs: recentLogs.logs,
+        },
+        buddyGrowth: {
+          totalCompleted: growth.totalCompleted,
+          totalSessions: growth.totalSessions,
+          totalInsights: growth.totalInsights,
+          consecutiveDays: growth.consecutiveDays,
+          taskCompletionCount: growth.taskCompletionCount,
+          totalTaskExp: growth.totalTaskExp,
+          unlockedAchievements: growth.unlockedAchievements,
+        },
+        generatedAt: Date.now(),
+      })
+    );
+  } catch (err) {
+    ctx.sendError(res, err);
   }
 }

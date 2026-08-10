@@ -251,26 +251,6 @@
       "owner": "@arch-lead"
     },
     {
-      "id": "FSZ-001",
-      "ruleId": "R04-001",
-      "file": "app/src/infrastructure/http/LocalHTTPService.ts",
-      "lines": 7013,
-      "targetLines": 800,
-      "plan": "按领域拆 Handler 模块 — 将 chat/session/tool/file/monitoring 等 60+ handler 拆分为独立 Handler 类，通过注册机制挂载",
-      "expiresAt": "2026-09-30",
-      "owner": "@arch-lead"
-    },
-    {
-      "id": "FSZ-004",
-      "ruleId": "R04-001",
-      "file": "app/src/ai/ModelManagementAPI.ts",
-      "lines": 2623,
-      "targetLines": 500,
-      "plan": "按子域拆分 — ProviderAPI / ModelAPI / PricingAPI / ConfigAPI / CapabilitiesAPI",
-      "expiresAt": "2026-10-31",
-      "owner": "@arch-lead"
-    },
-    {
       "id": "FSZ-005",
       "ruleId": "R04-001",
       "file": "app/src/chat/ChatManager.ts",
@@ -1235,16 +1215,6 @@
       "ruleId": "R04-001",
       "file": "app/src/constants/systemPromptSections.ts",
       "lines": 825,
-      "targetLines": 800,
-      "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
-      "expiresAt": "2026-11-30",
-      "owner": "@arch-lead"
-    },
-    {
-      "id": "FSZ-102",
-      "ruleId": "R04-001",
-      "file": "app/src/services/voice/services/audioPipeline.ts",
-      "lines": 820,
       "targetLines": 800,
       "plan": "存量超限文件批量登记（2026-08-09 治理盲区补录），按模块拆分或重构",
       "expiresAt": "2026-11-30",

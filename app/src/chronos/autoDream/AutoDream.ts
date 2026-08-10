@@ -248,17 +248,19 @@ export async function initAutoDream(): Promise<void> {
 
     const hoursSince = (Date.now() - lastAt) / 3_600_000;
     if (!force && hoursSince < cfg.minHours) {
-      logger.info('跳过自动整合（时间不足）', {
+      logger.warn('跳过自动整合（时间不足）', {
         hoursSince: hoursSince.toFixed(1),
         minHours: cfg.minHours,
+        reason: 'last_consolidation_too_recent',
       });
       return;
     }
 
     const sinceScanMs = Date.now() - lastSessionScanAt;
     if (!force && sinceScanMs < SESSION_SCAN_INTERVAL_MS) {
-      logger.info('扫描节流', {
+      logger.warn('扫描节流（跳过自动整合）', {
         sinceScanSec: Math.round(sinceScanMs / 1000),
+        reason: 'session_scan_throttled',
       });
       return;
     }
@@ -280,9 +282,10 @@ export async function initAutoDream(): Promise<void> {
     // 原逻辑: sessionIds.filter(id => id !== currentSession)
 
     if (!force && sessionIds.length < cfg.minSessions) {
-      logger.info('跳过自动整合（会话数不足）', {
+      logger.warn('跳过自动整合（会话数不足）', {
         sessionCount: sessionIds.length,
         minSessions: cfg.minSessions,
+        reason: 'not_enough_sessions',
       });
       return;
     }

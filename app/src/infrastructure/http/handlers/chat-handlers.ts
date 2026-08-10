@@ -812,12 +812,17 @@ export async function handleLatestCheckpoint(
 ): Promise<void> {
   try {
     const coreAPI = getCoreAPI();
-    const messages =
-      await coreAPI.chatManager?.getLatestCheckpointMessages(sessionId);
-    if (messages && messages.length > 0) {
+    const checkpoint =
+      await coreAPI.chatManager?.getLatestCheckpoint(sessionId);
+    if (checkpoint && checkpoint.messages && checkpoint.messages.length > 0) {
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(
-        JSON.stringify({ sessionId, checkpointAvailable: true, messages })
+        JSON.stringify({
+          sessionId,
+          checkpointAvailable: true,
+          checkpointId: checkpoint.id,
+          messages: checkpoint.messages,
+        })
       );
     } else {
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });

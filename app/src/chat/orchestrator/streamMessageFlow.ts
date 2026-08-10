@@ -109,9 +109,19 @@ export async function* runStreamMessage(
     host.sanitizeApiMessages(apiMessages);
 
     // 工具定义
-    const toolDefinitions: ToolDefinition[] = host.getToolRegistry()
-      ? host.buildToolDefinitions(host.getToolRegistry()!.getToolSchemas())
+    const toolRegistry = host.getToolRegistry();
+    const toolDefinitions: ToolDefinition[] = toolRegistry
+      ? host.buildToolDefinitions(toolRegistry.getToolSchemas())
       : [];
+    if (toolDefinitions.length === 0) {
+      // 诊断埋点：工具定义为空时明确记录，区分"注册表缺失" vs "注册表内无工具"，
+      // 避免"模型想调工具却无工具可用 → think-only"被静默掩盖
+      logger.warn('streamMessage: 工具定义为空，模型无法调用任何工具', {
+        sessionId: session.id,
+        registryPresent: !!toolRegistry,
+        schemaCount: toolRegistry?.getToolSchemas().length ?? 0,
+      });
+    }
 
     // 触发 ChatPreStream Hook
     await pipeline.preStreamHook();
@@ -340,6 +350,35 @@ export async function* runStreamMessage(
 
       if (!streamHadError) {
         finalResponse = result.value as unknown as ChatResponse;
+        // 推理结束诊断：打印最终 raw response，确认是否存在 tool_calls
+        // （排查"模型只输出 thinking 不调用工具"：contentLength=0 + toolCallCount=0 即为 think-only）
+        const rawResp = finalResponse as unknown as Record<string, unknown>;
+        const toolCallsArr = Array.isArray(rawResp.tool_calls)
+          ? (rawResp.tool_calls as Array<{ name?: string; id?: string }>)
+          : [];
+        logger.info('streamMessage:推理结束 raw response', {
+          sessionId: session.id,
+          hasToolCalls: toolCallsArr.length > 0,
+          toolCallCount: toolCallsArr.length,
+          toolCallNames: toolCallsArr.map((tc) => tc.name),
+          toolCallsRaw: rawResp.tool_calls ?? null,
+          finishReason:
+            rawResp.finishReason ??
+            rawResp.finish_reason ??
+            rawResp.stop_reason ??
+            null,
+          contentLength:
+            typeof rawResp.content === 'string'
+              ? rawResp.content.length
+              : Array.isArray(rawResp.content)
+                ? rawResp.content.length
+                : 0,
+          contentPreview:
+            typeof rawResp.content === 'string'
+              ? rawResp.content.slice(0, 300)
+              : null,
+          stopReason: rawResp.stop_reason ?? null,
+        });
       } else {
         finalResponse = { finishReason: 'error' } as unknown as ChatResponse;
         break;
@@ -546,6 +585,7 @@ export async function* runStreamMessage(
           toolResultRegistry,
           toolRegistry: host.getToolRegistry(),
           toolDefinitions,
+          loopDetector: host.loopDetector,
           buildToolRoundMessages: (
             msgs: Record<string, unknown>[],
             am: Message,

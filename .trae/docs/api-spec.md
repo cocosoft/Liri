@@ -316,7 +316,8 @@
 | GET | `/v1/buddy/companion` | ✅ | 无前端调用方 |
 | POST | `/v1/buddy/interact` | ✅ | 无前端调用方 |
 | GET | `/v1/buddy/stats` | ✅ | 无前端调用方 |
-| GET | `/v1/buddy/dreams` | ✅ | 无前端调用方 |
+| GET | `/v1/buddy/dreams` | ✅ | `dreamService.getDreamLogs` |
+| GET | `/v1/background/status` | ✅ | `backgroundStatusService.getStatus`（运行状况面板） |
 
 ### §3.13 定时任务 (Cron)
 

@@ -2029,6 +2029,85 @@ class ArchitectureLinter {
         console.log(`[license 头检查 R07-002] ${duplicates.length} 组重复文件头（>${MAX_HEADER_COUNT} 次）`);
     }
 
+    /**
+     * R08-001: 检查后台任务模块的跨重启状态持久化（P1 反模式防回潮）
+     * 检测后台模块中"纯内存计数器/状态变量 + 递增"且文件内无任何持久化手段的模式。
+     * 参考：buddy/growthPersistence.ts 落盘 JSON、buddy/dreamLogStore.ts 追加式 JSONL。
+     */
+    async checkBackgroundPersistence(): Promise<void> {
+        // 有状态的后台任务模块目录
+        const statefulDirRe = /[\\/](buddy|chronos|memory|knowledge|cost|usage|session)[\\/]/;
+        // 持久化关键词：文件含任一即视为已落盘，不判违规
+        const persistKeywords = /Persistence|persistence|LogStore|logStore|Storage|storage|writeFile|writeFileSync|readFile|saveTo|\.jsonl?|resolveDbPath|Database|database/i;
+        // 模块级计数器（行首无缩进）+ 类字段计数器（带 private/public 修饰符），排除函数体内局部变量
+        const counterRe = /^(?:let\s+(\w+)\s*=\s*0| {2,4}(?:private|protected|public)\s+(\w+)\s*=\s*0)\s*;/gm;
+
+        let counterFiles = 0;
+        for (const file of this.allFiles) {
+            const relPath = relative(process.cwd(), file);
+            if (/\.test\.ts$/.test(relPath) || /\.test\.tsx$/.test(relPath)) continue;
+            if (!statefulDirRe.test(relPath)) continue;
+
+            const content = readFileSync(file, 'utf-8');
+            if (persistKeywords.test(content)) continue;
+
+            // 收集计数器声明
+            const counters = new Set<string>();
+            for (const m of content.matchAll(counterRe)) counters.add(m[1]);
+            if (counters.size === 0) continue;
+
+            // 检查是否存在递增（++ 或 +=）
+            const hasIncrement = [...counters].some(name => {
+                const incRe = new RegExp(`\\b${name}\\s*(\\+\\+|\\+=)`, 'g');
+                return incRe.test(content);
+            });
+            if (!hasIncrement) continue;
+
+            counterFiles++;
+            this.violations.push({
+                ruleId: 'R08-001',
+                severity: 'warning',
+                file: relPath,
+                message: `后台模块存在纯内存计数器/状态（${[...counters].join(', ')}），文件内无任何持久化手段，进程重启后状态丢失`,
+                suggestion: '按 R08-001 将跨重启状态落盘到 ~/.pyapp/data/（参考 buddy/growthPersistence.ts），或确认该状态为一次性运行态',
+            });
+        }
+        console.log(`[后台状态检查 R08-001] ${counterFiles} 个后台模块存在疑似纯内存计数器/状态`);
+    }
+
+    /**
+     * R08-002: 检查后台任务循环是否有日志记录（P2 反模式防回潮）
+     * 检测 setInterval 回调体内无任何 logger.* 调用 → "跑了没跑、为什么没跑"无从得知。
+     */
+    async checkBackgroundEventLogging(): Promise<void> {
+        const intervalRe = /setInterval\(\s*(?:async\s+)?(?:\(\)\s*=>|function\s*\(\s*\)\s*)\s*\{([\s\S]*?)\}\s*,\s*\d+\s*\)/g;
+        const loggerRe = /logger\.\s*(info|warn|error|debug|trace)\s*\(/;
+
+        let silentLoops = 0;
+        for (const file of this.allFiles) {
+            const relPath = relative(process.cwd(), file);
+            if (/\.test\.ts$/.test(relPath) || /\.test\.tsx$/.test(relPath)) continue;
+
+            const content = readFileSync(file, 'utf-8');
+            let m: RegExpExecArray | null;
+            while ((m = intervalRe.exec(content)) !== null) {
+                const callbackBody = m[1];
+                if (loggerRe.test(callbackBody)) continue;
+
+                silentLoops++;
+                this.violations.push({
+                    ruleId: 'R08-002',
+                    severity: 'warning',
+                    file: relPath,
+                    message: '后台任务循环（setInterval）回调体内无任何日志记录',
+                    suggestion: '按 R08-002 记录 start/skip(带原因)/fail(带错误)/complete(带结果) 四类事件，skip 与 fail 至少 warn 级',
+                });
+                break; // 每文件最多报 1 条，避免刷屏
+            }
+        }
+        console.log(`[后台事件检查 R08-002] ${silentLoops} 个后台任务循环无日志记录`);
+    }
+
     /** 运行所有检查 */
     async runAll(): Promise<RuleViolation[]> {
         await this.loadFiles();
@@ -2070,6 +2149,9 @@ class ArchitectureLinter {
             this.checkThinBarrels(),
             this.checkTinyFiles(),
             this.checkLicenseHeaderDuplication(),
+            // R08 后台任务可观测性（P1/P2 反模式防回潮）
+            this.checkBackgroundPersistence(),
+            this.checkBackgroundEventLogging(),
         ]);
 
         // 分层合规检查（需按顺序在 loadFiles 之后执行）

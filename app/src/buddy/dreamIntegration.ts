@@ -1,4 +1,4 @@
-﻿/**
+/**
  * dreamIntegration.ts — Buddy 梦境集成模块
  *
  * 连接 AutoDream 后台事件与 Buddy 前端反馈。
@@ -19,6 +19,11 @@ import {
   createLevelUpNotification,
 } from './notifications';
 import { getLogger } from '@modules/monitoring';
+import {
+  type GrowthState,
+  loadGrowthState,
+  saveGrowthState,
+} from './growthPersistence';
 
 const logger = getLogger('BuddyDream');
 import { ifNotificationsEnabled } from './conditional';
@@ -34,6 +39,7 @@ export const DREAM_EVENT = 'buddy:dream';
 /**
  * 梦境成长追踪器
  * 记录梦境完成情况，检测里程碑并触发 Buddy 成长联动
+ * 状态持久化到 ~/.pyapp/data/buddy-growth.json（重启不丢失）
  */
 export class DreamGrowthTracker {
   private totalCompleted = 0;
@@ -47,6 +53,44 @@ export class DreamGrowthTracker {
   private taskCompletionCount = 0;
   /** 任务累计经验值 */
   private totalTaskExp = 0;
+
+  private initialized = false;
+
+  /** 从持久层加载状态（幂等，启动时调用一次） */
+  async init(): Promise<void> {
+    if (this.initialized) return;
+    this.initialized = true;
+    const state = await loadGrowthState();
+    this.totalCompleted = state.totalCompleted;
+    this.totalSessions = state.totalSessions;
+    this.totalInsights = state.totalInsights;
+    this.lastCompletedDate = state.lastCompletedDate;
+    this.consecutiveDays = state.consecutiveDays;
+    this.unlockedAchievements = new Set(state.unlockedAchievements);
+    this.taskCompletionCount = state.taskCompletionCount;
+    this.totalTaskExp = state.totalTaskExp;
+    logger.info('成长状态已加载', {
+      totalCompleted: this.totalCompleted,
+      totalSessions: this.totalSessions,
+      totalTaskExp: this.totalTaskExp,
+      achievements: this.unlockedAchievements.size,
+    });
+  }
+
+  /** 将当前状态落盘（fire-and-forget，失败仅记录） */
+  private async persist(): Promise<void> {
+    const state: GrowthState = {
+      totalCompleted: this.totalCompleted,
+      totalSessions: this.totalSessions,
+      totalInsights: this.totalInsights,
+      lastCompletedDate: this.lastCompletedDate,
+      consecutiveDays: this.consecutiveDays,
+      unlockedAchievements: [...this.unlockedAchievements],
+      taskCompletionCount: this.taskCompletionCount,
+      totalTaskExp: this.totalTaskExp,
+    };
+    await saveGrowthState(state);
+  }
 
   /**
    * 记录一次梦境完成，更新统计数据并检测里程碑
@@ -71,6 +115,7 @@ export class DreamGrowthTracker {
       this.consecutiveDays = 1;
     }
     this.lastCompletedDate = today;
+    void this.persist();
   }
 
   /**
@@ -94,6 +139,7 @@ export class DreamGrowthTracker {
   recordTaskCompletion(source: string, exp: number): void {
     this.taskCompletionCount++;
     this.totalTaskExp += exp;
+    void this.persist();
   }
 
   /**
@@ -329,6 +375,7 @@ function handleDreamEvent(event: DreamEvent): void {
  */
 export function initBuddyDreamIntegration(bus?: EventBus): void {
   const eventBus = bus || globalEventBus;
+  void growthTracker.init();
 
   /** 已处理的事件 ID 集合（用于新旧通道去重） */
   const recentDreamIds = new Set<string>();

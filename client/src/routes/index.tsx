@@ -48,6 +48,9 @@ const CronPage = lazy(() => import("../components/views/CronPage"));
 const DreamPage = lazy(() => import("../components/views/DreamPage"));
 const LiriPage = lazy(() => import("../components/views/LiriPage"));
 const LoopPanel = lazy(() => import("../components/views/LoopPanel"));
+const BackgroundStatusPage = lazy(
+  () => import("../components/views/BackgroundStatusPage"),
+);
 
 const ProjectsPage = lazy(() => import("../components/views/ProjectsPage"));
 const ProjectOutputPage = lazy(
@@ -352,6 +355,16 @@ export const routes: RouteObject[] = [
     element: (
       <AuthGuard>
         <LoopPanel />
+      </AuthGuard>
+    ),
+  },
+
+  // 后台任务运行状况（Dream 记忆整理 + Buddy 成长）
+  {
+    path: "/background-status",
+    element: (
+      <AuthGuard>
+        <BackgroundStatusPage />
       </AuthGuard>
     ),
   },

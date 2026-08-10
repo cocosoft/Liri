@@ -507,6 +507,9 @@ export const createMessageSlice: StateCreator<
 
     // P8: ghostCheckTimer 提升到 try 外，确保 catch 块中可清除
     let ghostCheckTimer: ReturnType<typeof setInterval> | undefined;
+    // 流诊断变量（提升到 try 外，catch 块中可读，用于异常路径埋点）
+    let streamStartTime = 0;
+    let chunkCount = 0;
 
     // P2-2: 有 sessionId 时使用带自动重连的流式发送
     try {
@@ -523,6 +526,9 @@ export const createMessageSlice: StateCreator<
           });
       const blockBuilder = new ChronologicalBlockBuilder();
       const extractor = createThinkExtractor();
+      // 流诊断埋点：记录流起始时间与 chunk 总数，供流结束/异常时定位"无回复/卡死"问题
+      streamStartTime = Date.now();
+      chunkCount = 0;
 
       // P1-5: 幽灵块检测 — 超过 30s 无 chunk 时 ping 后端确认任务是否仍在执行
       let lastChunkTime = Date.now();
@@ -563,6 +569,7 @@ export const createMessageSlice: StateCreator<
 
         const chunks = Array.from(extractor.extract(rawChunk));
         for (const chunk of chunks) {
+          chunkCount++;
           await processChunk(chunk);
         }
       }
@@ -617,27 +624,34 @@ export const createMessageSlice: StateCreator<
           set({ streamingStatus: chunk.content });
           updatedMsg = { ...msg, blocks: blockBuilder.getBlocks() };
         } else if (chunk.type === "context_state") {
-          // 上下文状态事件（压缩/召回等），使用 status 块渲染
-          blockBuilder.addStatus(chunk.content);
-          set({ streamingStatus: chunk.content });
-          updatedMsg = { ...msg, blocks: blockBuilder.getBlocks() };
-          // 结构化水位数据优先（缺陷 E 修复），回退到正则兼容旧格式
+          // 上下文状态事件：水位监控信息只更新进度条，不渲染进消息内容
+          // （修复：原实现把每 1.5s 的高频水位也 addStatus，导致"上下文水位: xx%"污染消息块）
+          const watermarkStore = useContextWatermarkStore.getState();
+          // 1) 结构化水位（后端首选通道）→ 更新进度条
           if (chunk.watermarkState) {
-            useContextWatermarkStore
-              .getState()
-              .updateWatermark(chunk.watermarkState);
+            watermarkStore.updateWatermark(chunk.watermarkState);
+            if (chunk.watermarkState.severity !== "normal") {
+              // 异常水位渲染为一次性提示块
+              blockBuilder.addStatus(chunk.content);
+              set({ streamingStatus: chunk.content });
+              updatedMsg = { ...msg, blocks: blockBuilder.getBlocks() };
+            } else {
+              // normal 水位每 1.5s 高频，仅更新进度条，消息内容不变
+              updatedMsg = msg;
+            }
           } else {
-            // 兼容旧格式: "上下文水位: 85% (170K/200K) | severity:compact | ratio:0.852 | tokens:170000/200000"
+            // 2) 兼容旧格式: "上下文水位: 85% (170K/200K) | severity:compact | ratio:0.852 | tokens:170000/200000"
             const structured = chunk.content.match(
               /上下文水位:\s*(\d+)%\s*\(?(\d+K?)\/(\d+K?)\)?\s*\|\s*severity:(compact|warn)\s*\|\s*ratio:([\d.]+)\s*\|\s*tokens:(\d+)\/(\d+)/,
             );
             if (structured) {
-              useContextWatermarkStore.getState().updateWatermark({
+              watermarkStore.updateWatermark({
                 currentTokens: parseInt(structured[6], 10),
                 contextLimit: parseInt(structured[7], 10),
                 ratio: parseFloat(structured[5]),
                 severity: structured[4] as "compact" | "warn",
               });
+              updatedMsg = msg;
             } else {
               // 兼容旧格式: "上下文水位: 85%"
               const legacy = chunk.content.match(/上下文水位:\s*(\d+)%/);
@@ -646,12 +660,18 @@ export const createMessageSlice: StateCreator<
                 const isCompact =
                   chunk.content.includes("压缩") ||
                   chunk.content.includes("临界");
-                useContextWatermarkStore.getState().updateWatermark({
+                watermarkStore.updateWatermark({
                   currentTokens: 0,
                   contextLimit: 0,
                   ratio: pct / 100,
                   severity: isCompact ? "compact" : "warn",
                 });
+                updatedMsg = msg;
+              } else {
+                // 3) 非水位提示（上下文压缩/召回/降级事件）→ status 块
+                blockBuilder.addStatus(chunk.content);
+                set({ streamingStatus: chunk.content });
+                updatedMsg = { ...msg, blocks: blockBuilder.getBlocks() };
               }
             }
           }
@@ -895,6 +915,72 @@ export const createMessageSlice: StateCreator<
       clearInterval(ghostCheckTimer);
       await saveQueue.flush();
 
+      // P3-2: 无内容兜底 — 流正常结束（非用户取消）但未生成任何用户可见成果时处理。
+      // 核心：模型可能只输出了 <think> 未生成 <response>（think-only 场景），
+      // 此时把思考内容转为用户可见 text，避免"思考中无回复"的卡死观感；
+      // 完全无内容的才提示重试。
+      let noVisibleResultTriggered = false;
+      if (!controller.signal.aborted) {
+        const preFreezeBlocks = blockBuilder.getBlocks();
+        const hasVisibleResult = preFreezeBlocks.some(
+          (b) =>
+            b.type === "text" ||
+            b.type === "tool_call" ||
+            b.type === "question" ||
+            b.type === "todo",
+        );
+        if (!hasVisibleResult) {
+          noVisibleResultTriggered = true;
+          // 1) 模型把内容写进了思考标签（think-only）→ 转为 text，保证沟通闭环
+          const thinkingText = preFreezeBlocks
+            .filter((b) => b.type === "thinking")
+            .map((b) => b.content)
+            .join("");
+          if (thinkingText.trim()) {
+            // 转 text：重建 blocks 仅保留 text 块。
+            // 修复：此前 addText 追加导致 thinking 块 + text 块并存，思考内容渲染两遍。
+            blockBuilder.reset();
+            blockBuilder.addText(stripStructuralTags(thinkingText), false);
+            logger.warn("streamMessage:think-only 转 text 兜底", {
+              sessionId: sid,
+              thinkingLen: thinkingText.length,
+              // 完整模型原始输出（清洗前），用于判断是否为工具调用失败 / 标签解析异常
+              thinkingText,
+              blockTypes: preFreezeBlocks.map((b) => b.type),
+            });
+          } else {
+            // 2) 完全无内容 → 提示重试
+            blockBuilder.addStatus(
+              "⚠️ 本次回复未生成内容，请重试或检查模型/网络状态。",
+            );
+            logger.warn("streamMessage:无内容兜底触发", {
+              sessionId: sid,
+              blockCount: preFreezeBlocks.length,
+              blockTypes: preFreezeBlocks.map((b) => b.type),
+            });
+          }
+        }
+      }
+
+      // ── 流结束诊断埋点：记录结束原因 / 触发条件 / 耗时 / 块统计，供排查"无回复/卡死"类问题 ──
+      {
+        const blockStats: Record<string, number> = {};
+        for (const b of blockBuilder.getBlocks()) {
+          blockStats[b.type] = (blockStats[b.type] ?? 0) + 1;
+        }
+        logger.info("streamMessage:流结束", {
+          sessionId: sid,
+          endReason: controller.signal.aborted
+            ? "user_abort"
+            : "generator_complete",
+          durationMs: Date.now() - streamStartTime,
+          chunkCount,
+          blockStats,
+          noVisibleResultTriggered,
+          streamingStatus: get().streamingStatus || undefined,
+        });
+      }
+
       // 流结束，冻结所有块
       blockBuilder.freezeAll();
 
@@ -1016,6 +1102,14 @@ export const createMessageSlice: StateCreator<
     } catch (error) {
       // P8: 清除幽灵检测定时器，防止网络断开后旧定时器泄露到新流式
       if (ghostCheckTimer) clearInterval(ghostCheckTimer);
+      // 流异常结束诊断埋点（与正常结束日志字段对齐，便于对照时间线）
+      logger.warn("streamMessage:流异常结束", {
+        sessionId: sid,
+        durationMs: Date.now() - streamStartTime,
+        chunkCount,
+        aborted: controller.signal.aborted,
+        error: error instanceof Error ? error.message : String(error),
+      });
       handleClientError(
         error,
         { module: "stores:chat:message", action: "streamMessage" },

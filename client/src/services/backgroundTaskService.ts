@@ -61,3 +61,40 @@ export const dreamService = {
     return http.get<DreamLogResponse>(`/v1/buddy/dreams?${params.toString()}`);
   },
 };
+
+/** 后台任务运行状况（Dream 记忆整理 + Buddy 成长） */
+export interface BackgroundStatus {
+  dream: {
+    stats: {
+      totalCompleted: number;
+      totalFailed: number;
+      totalSessions: number;
+      totalInsights: number;
+      lastDreamAt: number | null;
+    };
+    recentLogs: Array<{
+      id: string;
+      type: string;
+      summary: string;
+      sessionsCount: number;
+      insightsGenerated: number;
+      timestamp: number;
+    }>;
+  };
+  buddyGrowth: {
+    totalCompleted: number;
+    totalSessions: number;
+    totalInsights: number;
+    consecutiveDays: number;
+    taskCompletionCount: number;
+    totalTaskExp: number;
+    unlockedAchievements: string[];
+  };
+  generatedAt: number;
+}
+
+export const backgroundStatusService = {
+  getStatus: async (): Promise<BackgroundStatus> => {
+    return http.get<BackgroundStatus>("/v1/background/status");
+  },
+};

@@ -235,6 +235,21 @@ export class CoreAPIImpl implements CoreAPI {
     // 通过 try-catch 探测 ChatManager 是否已有 LLM 客户端
     try {
       this.chatManager.getLLMClient();
+      // 已有 LLM client：补齐工具注册表（若缺失）。
+      // 修复：此前此处直接 return，若 ChatManager 的 client 是未注入工具注册表的
+      // 路径创建的，工具定义将永远为 [] → LLM 收不到工具 → 模型"想调工具却无工具"
+      // → 只输出 think 无 response（think-only 卡死）。
+      if (!this.chatManager.getToolRegistry()) {
+        const toolManager = getToolManager();
+        toolManager.loadBuiltinTools();
+        const registry = toolManager.getRegistry();
+        if (registry) {
+          this.chatManager.setToolRegistry(registry);
+          logger.info('ensureLLMClientInitialized: 已为已有 LLM client 补齐工具注册表');
+        } else {
+          logger.warning('ensureLLMClientInitialized: 工具注册表为空，本次会话将无法调用工具');
+        }
+      }
       this._llmReady = true;
       return;
     } catch (_err) {
@@ -296,9 +311,9 @@ export class CoreAPIImpl implements CoreAPI {
       );
 
       this.chatManager.setLLMClient(llmClient);
-      if (registry) {
-        this.chatManager.setToolRegistry(registry);
-      }
+      // 无条件设置工具注册表（含 null）：保证 streamMessageFlow 能明确感知工具状态，
+      // 而非静默退化 —— 工具缺失时应能看到 warning 而非"模型想调工具却无工具"
+      this.chatManager.setToolRegistry(registry);
       // P0-1: 装配权限管理器 —— 激活 ChatManager 工具执行点权限检查（工具执行审批链路）
       this.chatManager.setPermissionManager(createPermissionManager());
 

@@ -27,16 +27,10 @@
  */
 
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-import { Logger, LogLevel } from '@modules/monitoring';
 import { createCheckpointService } from './SessionCheckpointService.js';
 import { getLocalSession } from './ChatHelper';
 import type { ChatSession, CreateSessionParams } from '../types/session.js';
 import { SessionState } from '../types/session.js';
-
-const logger = new Logger({
-  module: 'chat:resumeCoordinator',
-  level: LogLevel.INFO,
-});
 
 /**
  * ResumeCoordinator 门面依赖
@@ -74,24 +68,6 @@ export class ResumeCoordinator {
     sessionId: string | null | undefined
   ): ChatSession | undefined {
     return getLocalSession(this.chatSessions, sessionId);
-  }
-
-  public async getLatestCheckpointMessages(
-    sessionId: string
-  ): Promise<Array<Record<string, unknown>> | null> {
-    try {
-      const cp = await this.checkpointService.getLatestCheckpoint(sessionId);
-      if (cp && cp.messages && cp.messages.length > 0) {
-        return cp.messages as unknown as Array<Record<string, unknown>>;
-      }
-      return null;
-    } catch (e) {
-      logger.warn('获取最新检查点失败', {
-        sessionId,
-        error: String(e),
-      });
-      return null;
-    }
   }
 
   async createCheckpoint(sessionId: string, label?: string): Promise<string> {

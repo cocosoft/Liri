@@ -75,6 +75,8 @@
 | R06-005 | 文件命名规范（禁止 utils/helpers 垃圾桶） | architecture-compliance.md |
 | R06-006 | 文件职责单一（禁止薄转发僵尸方法） | architecture-compliance.md |
 | R06-008 | 分层架构（禁止反向依赖） | architecture-compliance.md |
+| R08-001 | 跨重启状态必须持久化（后台任务禁止纯内存计数） | architecture-compliance.md |
+| R08-002 | 后台任务必须记录 4 类事件（start/skip/fail/complete） | architecture-compliance.md |
 | TE01 | 单轮工具调用 ≤ 5 次 | task-execution.md |
 | TE08 | 工具结果完整性校验 | task-execution.md |
 | TE09 | 路径解析 2 次内收敛 | task-execution.md |

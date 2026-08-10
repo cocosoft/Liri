@@ -292,19 +292,6 @@ export class ChatManagerImpl implements ChatManager {
   }
 
   /**
-   * P2-1: 获取会话最近一次自动检查点的消息列表
-   * 用于断线重连时恢复任务状态
-   */
-  /**
-   * 获取最新检查点消息
-   */
-  public async getLatestCheckpointMessages(
-    sessionId: string
-  ): Promise<Array<Record<string, unknown>> | null> {
-    return this.resumeCoordinator.getLatestCheckpointMessages(sessionId);
-  }
-
-  /**
    * S1: 中止指定会话的流式请求
    * 用于 req.on('close') → 通知后端停止工具执行
    */
@@ -761,6 +748,7 @@ export class ChatManagerImpl implements ChatManager {
         getToolRegistry: () => this.toolRegistry,
         buildToolDefinitions: (schemas: unknown[]) =>
           this._buildToolDefinitions(schemas as ToolSchema[]),
+        loopDetector: this._loopDetector as import('../query/LoopDetector.js').LoopDetector,
         addAndPersistMessage: (sid, msg) =>
           this._addAndPersistMessage(sid, msg),
         getSessionMachine: (sid) => this.getSessionMachine(sid),

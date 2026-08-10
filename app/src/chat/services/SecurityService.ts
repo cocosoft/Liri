@@ -1,11 +1,9 @@
 import { EventEmitter } from 'events';
-import {
+import type {
   SensitiveDataService,
-  sensitiveDataService as coreService,
-  SensitiveErrorType,
-  SensitiveError,
+  SensitiveDataConfig,
 } from '@modules/security';
-import type { SensitiveDataConfig } from '@modules/security';
+import { SensitiveErrorType, SensitiveError } from '@modules/security';
 import { SecurityError } from '@modules/error/types';
 
 import { Logger, LogLevel } from '@modules/monitoring';
@@ -18,16 +16,43 @@ export const SecurityErrorType = SensitiveErrorType;
 export type SecurityErrorAlias = SecurityError;
 export type SecurityConfig = SensitiveDataConfig;
 
+// 惰性获取核心服务实例：规避 ESM 循环依赖导致模块加载时 sensitiveDataService 未就绪。
+// 此前在构造函数中立即绑定，若 security 模块尚未求值则单例永久持有 undefined，
+// 后续所有方法（validateInput 等）抛 TypeError，任何对话在安全校验层直接失败。
+// 项目惯例参考：LlamaCppServerManager / OllamaTransport 均用 require 按需加载防 barrel 循环。
+let coreServiceRef: SensitiveDataService | null = null;
+let coreBound = false;
+
+function getCoreService(): SensitiveDataService {
+  if (!coreBound) {
+    try {
+      const mod = require('@modules/security') as typeof import('@modules/security');
+      if (mod?.sensitiveDataService) {
+        coreServiceRef = mod.sensitiveDataService;
+        coreServiceRef.on('securityError', (error: unknown) => {
+          SecurityService.getInstance().emit('securityError', error);
+        });
+        coreBound = true;
+      }
+    } catch (err) {
+      logger.warn('SecurityService: 获取核心服务失败，将在下次调用时重试', {
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+  if (!coreServiceRef) {
+    throw new SecurityError(
+      'SensitiveDataService 未初始化（security 模块加载时序异常）'
+    );
+  }
+  return coreServiceRef;
+}
+
 export class SecurityService extends EventEmitter {
   private static instance: SecurityService;
-  private coreService: SensitiveDataService;
 
   private constructor() {
     super();
-    this.coreService = coreService;
-    this.coreService.on('securityError', (error: unknown) => {
-      this.emit('securityError', error);
-    });
   }
 
   static getInstance(): SecurityService {
@@ -38,76 +63,41 @@ export class SecurityService extends EventEmitter {
   }
 
   updateConfig(config: Partial<SecurityConfig>): void {
-    this.coreService.updateConfig(config);
+    getCoreService().updateConfig(config);
   }
 
   getConfig(): SecurityConfig {
-    return this.coreService.getConfig();
+    return getCoreService().getConfig();
   }
 
   detectSensitiveData(text: string): boolean {
-    return this.coreService.detectSensitiveData(text);
+    return getCoreService().detectSensitiveData(text);
   }
 
   sanitize(text: string): string {
-    return this.coreService.sanitize(text);
+    return getCoreService().sanitize(text);
   }
 
   validateInput(input: string): { valid: boolean; error?: string } {
-    return this.coreService.validateInput(input);
+    return getCoreService().validateInput(input);
   }
 
   validateFileExtension(filename: string): { valid: boolean; error?: string } {
-    return this.coreService.validateFileExtension(filename);
+    return getCoreService().validateFileExtension(filename);
   }
 
   logSecurityError(error: Omit<SensitiveError, 'timestamp'>): void {
-    this.coreService.logSecurityError(error);
+    getCoreService().logSecurityError(error);
   }
 
   getErrorHistory(): SensitiveError[] {
-    return this.coreService.getErrorHistory();
+    return getCoreService().getErrorHistory();
   }
 
   clearErrorHistory(): void {
-    this.coreService.clearErrorHistory();
-  }
-
-  getLastSecurityError(): SensitiveError | null {
-    return this.coreService.getLastSecurityError();
-  }
-
-  getErrorStats(): Record<string, number> {
-    return this.coreService.getErrorStats();
-  }
-
-  createFriendlyErrorMessage(error: SensitiveError): string {
-    return this.coreService.createFriendlyErrorMessage(error);
-  }
-
-  handleError(error: unknown): {
-    message: string;
-    details?: Record<string, unknown>;
-  } {
-    return this.coreService.handleError(error);
-  }
-
-  checkDataIntegrity(data: unknown): { valid: boolean; error?: string } {
-    return this.coreService.checkDataIntegrity(data);
-  }
-
-  safeSerialize(data: unknown): string {
-    return this.coreService.safeSerialize(data);
-  }
-
-  safeDeserialize<T>(text: string): T | null {
-    return this.coreService.safeDeserialize<T>(text);
-  }
-
-  reset(): void {
-    this.coreService.reset();
-    this.removeAllListeners();
+    getCoreService().clearErrorHistory();
   }
 }
 
+/** 单例导出（ChatOrchestrator / ChatManager 等消费方依赖此导出） */
 export const securityService = SecurityService.getInstance();

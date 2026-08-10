@@ -63,6 +63,7 @@ import { SensitiveErrorType } from '@modules/security';
 import { trajectoryRuntime } from '../../core/trajectory/TrajectoryRuntime.js';
 import type { SessionCheckpointService } from '../services/SessionCheckpointService.js';
 import type { ChatManagerTAORContext } from '../../query/ChatManagerTAORAdapter.js';
+import type { LoopDetector } from '../../query/LoopDetector.js';
 
 const logger = new Logger({
   module: 'chat:orchestrator',
@@ -103,6 +104,8 @@ export interface ChatOrchestratorHost {
   memoryManager: SessionMemoryManager | null;
   summarizer: SessionSummarizer | null;
   pdcaLauncher: PdcaLauncher | null;
+  /** 工具循环检测器（ToolLoopRunner 依赖，缺失会导致工具执行 TypeError） */
+  loopDetector: LoopDetector;
 
   // ── 委托回调（编排需要触达 ChatManager 的其他能力） ─────────
   getLLMClient(): ToolAwareClient;

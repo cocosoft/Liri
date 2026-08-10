@@ -44,6 +44,7 @@ import {
 } from '../workitem-search-handlers';
 import {
   handleBuddyInteract,
+  handleGetBackgroundStatus,
   handleGetBuddy,
   handleGetBuddyStats,
   handleGetDreamLogs,
@@ -196,6 +197,12 @@ export async function dispatchCostChannelRoutes(
   }
   if (method === 'GET' && url === '/v1/buddy/dreams') {
     await handleGetDreamLogs(handlerCtx, req, res);
+    return true;
+  }
+
+  // ---- 后台任务运行状况（Dream 记忆整理 + Buddy 成长） ----
+  if (method === 'GET' && url === '/v1/background/status') {
+    await handleGetBackgroundStatus(handlerCtx, req, res);
     return true;
   }
 

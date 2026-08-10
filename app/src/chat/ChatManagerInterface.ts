@@ -465,14 +465,6 @@ export interface ChatManager {
   isSessionStreaming(sessionId: string): boolean;
 
   /**
-   * P2-1: 获取会话最近一次自动检查点的消息列表
-   * 用于断线重连时恢复任务状态
-   */
-  getLatestCheckpointMessages(
-    sessionId: string
-  ): Promise<Array<Record<string, unknown>> | null>;
-
-  /**
    * S1: 中止指定会话的流式请求
    * 用于 req.on('close') 时通知后端停止工具执行
    */

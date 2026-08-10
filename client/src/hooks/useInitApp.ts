@@ -7,6 +7,7 @@ import { sseService } from "../services/sseService";
 import { appConfigService } from "../services/appConfigService";
 import { migrateLegacyData } from "../services/projectArtifactService";
 import { initBackendUrlFromConfig } from "../services/backendUrl";
+import { connectionMonitor } from "../services/connectionMonitor";
 import { createLogger } from "../utils/logger";
 
 const logger = createLogger("hooks:use-init-app");
@@ -181,6 +182,8 @@ export function useInitApp() {
       });
       sseService.connect();
       loadSessions();
+      // 连接/网络状态监测：记录后端掉线/恢复、网络断开/恢复事件
+      connectionMonitor.start();
       dispatch({ type: "PHASE3_DONE" });
     } catch (e) {
       dispatch({ type: "ERROR", error: String(e) });
@@ -190,6 +193,7 @@ export function useInitApp() {
       sseService.off("heartbeat", checkBackendStatus);
       sseService.off("project:auto_created", () => {});
       sseService.disconnect();
+      connectionMonitor.stop();
     };
   }, [initState.phase, checkBackendStatus, loadSessions]);
 

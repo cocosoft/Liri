@@ -549,16 +549,17 @@ export default function ProjectsPage() {
                 {highlightMatch(p.name, searchQuery)}
               </span>
               {/* ⋮ 按钮 */}
-              <button
+              <span
+                role="button"
                 onClick={(e) => {
                   e.stopPropagation();
                   setContextMenuId(contextMenuId === p.id ? null : p.id);
                 }}
-                className="opacity-0 group-hover:opacity-100 p-0.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded transition-opacity"
+                className="opacity-0 group-hover:opacity-100 p-0.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded transition-opacity cursor-pointer select-none"
                 title="更多操作"
               >
                 ⋮
-              </button>
+              </span>
             </div>
             <div className="flex items-center gap-2 mt-0.5 ml-6">
               <span className="text-xs text-gray-400 dark:text-gray-500">

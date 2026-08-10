@@ -102,6 +102,8 @@ export enum ModelCapability {
   IMAGE_INPUT = 'image_input',
   IMAGE_GENERATION = 'image_generation',
   VIDEO_GENERATION = 'video_generation',
+  TEXT_TO_VIDEO = 'text_to_video',
+  IMAGE_TO_VIDEO = 'image_to_video',
   PDF_INPUT = 'pdf_input',
   CODE_EXECUTION = 'code_execution',
   EMBEDDING = 'embedding',

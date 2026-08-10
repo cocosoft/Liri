@@ -379,6 +379,30 @@ export function resolveModelsDir(env: NodeJS.ProcessEnv = process.env): string {
   return join(resolveDataDir(env), 'models');
 }
 
+/** llama.cpp 集成目录（~/.pyapp/data/models/llama/）
+ *  存放 llama-server 二进制（llama-server(.exe)）与用户 GGUF 模型（models/*.gguf）
+ */
+export function resolveLlamaDir(env: NodeJS.ProcessEnv = process.env): string {
+  return join(resolveModelsDir(env), 'llama');
+}
+
+/** llama-server 二进制路径（Windows 平台带 .exe 后缀） */
+export function resolveLlamaBinaryPath(
+  env: NodeJS.ProcessEnv = process.env
+): string {
+  return join(
+    resolveLlamaDir(env),
+    `llama-server${process.platform === 'win32' ? '.exe' : ''}`
+  );
+}
+
+/** 用户 GGUF 模型存放目录（~/.pyapp/data/models/llama/models/） */
+export function resolveLlamaModelsDir(
+  env: NodeJS.ProcessEnv = process.env
+): string {
+  return join(resolveLlamaDir(env), 'models');
+}
+
 /** 配对存储目录（app/data/pairings/） */
 export function resolvePairingsDir(
   env: NodeJS.ProcessEnv = process.env

@@ -1223,6 +1223,23 @@ export async function launch(options: LaunchOptions): Promise<void> {
       await registry.loadDbPricing();
     });
 
+    // T1.25.1: llama.cpp 集成（非阻塞启动；二进制缺失时后台下载，就绪后注册 provider）
+    void (async () => {
+      try {
+        const { llamaCppServerManager } =
+          await import('@modules/ai/local/llama/LlamaCppServerManager.js');
+        await llamaCppServerManager.start();
+        const status = await llamaCppServerManager.getStatus();
+        if (status.running) {
+          const { ensureLlamaCppProviderRegistered } =
+            await import('@modules/ai/local/llama/registerLlamaCppProvider.js');
+          await ensureLlamaCppProviderRegistered();
+        }
+      } catch (err) {
+        await handleError(err, { module: 'ai:llama', action: 'startup' });
+      }
+    })();
+
     // T1.26: 初始化通知持久化（建表 + FTS5 + 过期调度）
     await wrapInit('NotificationPersistence', async () => {
       const { notificationPersistence } =

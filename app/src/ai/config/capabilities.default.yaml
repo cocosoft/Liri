@@ -178,6 +178,32 @@ capabilities:
     sinceVersion: "0.4.0"
     dependencies: []
 
+  - key: text_to_video
+    category: media
+    labelKey: capability.text_to_video
+    descriptionKey: capability.text_to_video.desc
+    labelFallback: "Text to Video"
+    descriptionFallback: "Supports generating videos from text descriptions"
+    isDefault: false
+    enabled: true
+    taskTypes: ["text_to_video"]
+    sortOrder: 4
+    sinceVersion: "0.4.0"
+    dependencies: []
+
+  - key: image_to_video
+    category: media
+    labelKey: capability.image_to_video
+    descriptionKey: capability.image_to_video.desc
+    labelFallback: "Image to Video"
+    descriptionFallback: "Supports generating videos from image inputs"
+    isDefault: false
+    enabled: true
+    taskTypes: ["image_to_video"]
+    sortOrder: 5
+    sinceVersion: "0.4.0"
+    dependencies: ["vision"]
+
   - key: text_to_speech
     category: media
     labelKey: capability.text_to_speech
@@ -186,8 +212,8 @@ capabilities:
     descriptionFallback: "Supports converting text to speech"
     isDefault: false
     enabled: true
-    taskTypes: ["voice"]
-    sortOrder: 4
+    taskTypes: ["tts"]
+    sortOrder: 6
     sinceVersion: "0.4.0"
     dependencies: []
 
@@ -199,8 +225,8 @@ capabilities:
     descriptionFallback: "Supports converting speech to text"
     isDefault: false
     enabled: true
-    taskTypes: ["voice"]
-    sortOrder: 5
+    taskTypes: ["stt"]
+    sortOrder: 7
     sinceVersion: "0.4.0"
     dependencies: []
 
@@ -373,27 +399,87 @@ taskMappings:
     optionalCapabilities: []
     sortOrder: 2
 
-  - taskType: image
-    requiredCapabilities: ["image_generation"]
-    optionalCapabilities: ["image_editing"]
+  - taskType: coding
+    requiredCapabilities: ["function_calling"]
+    optionalCapabilities: ["code_execution", "bash_sandbox"]
     sortOrder: 3
 
-  - taskType: video
-    requiredCapabilities: ["video_generation"]
+  - taskType: translation
+    requiredCapabilities: ["streaming", "function_calling"]
     optionalCapabilities: []
     sortOrder: 4
+
+  - taskType: quick
+    requiredCapabilities: ["streaming", "function_calling"]
+    optionalCapabilities: []
+    sortOrder: 5
+
+  - taskType: agent
+    requiredCapabilities: ["streaming", "function_calling", "tool_use"]
+    optionalCapabilities: []
+    sortOrder: 6
+
+  - taskType: scheduled
+    requiredCapabilities: ["streaming", "function_calling"]
+    optionalCapabilities: []
+    sortOrder: 7
+
+  - taskType: local
+    requiredCapabilities: ["streaming", "function_calling"]
+    optionalCapabilities: []
+    sortOrder: 8
 
   - taskType: embedding
     requiredCapabilities: ["embedding"]
     optionalCapabilities: []
-    sortOrder: 5
+    sortOrder: 9
 
-  - taskType: voice
+  - taskType: image
+    requiredCapabilities: ["image_generation"]
+    optionalCapabilities: ["image_editing"]
+    sortOrder: 10
+
+  - taskType: vision
+    requiredCapabilities: ["vision"]
+    optionalCapabilities: []
+    sortOrder: 11
+
+  - taskType: ocr
+    requiredCapabilities: ["vision"]
+    optionalCapabilities: []
+    sortOrder: 12
+
+  - taskType: text_to_video
+    requiredCapabilities: ["text_to_video"]
+    optionalCapabilities: []
+    sortOrder: 13
+
+  - taskType: image_to_video
+    requiredCapabilities: ["image_to_video"]
+    optionalCapabilities: []
+    sortOrder: 14
+
+  - taskType: video
+    requiredCapabilities: ["video_generation"]
+    optionalCapabilities: []
+    sortOrder: 15
+
+  - taskType: tts
+    requiredCapabilities: ["text_to_speech"]
+    optionalCapabilities: []
+    sortOrder: 16
+
+  - taskType: stt
+    requiredCapabilities: ["speech_recognition"]
+    optionalCapabilities: []
+    sortOrder: 17
+
+  - taskType: reranking
+    requiredCapabilities: ["reranking"]
+    optionalCapabilities: []
+    sortOrder: 18
+
+  - taskType: knowledge_compile
     requiredCapabilities: []
-    optionalCapabilities: ["text_to_speech", "speech_recognition"]
-    sortOrder: 6
-
-  - taskType: code
-    requiredCapabilities: ["function_calling"]
-    optionalCapabilities: ["code_execution", "bash_sandbox"]
-    sortOrder: 7
+    optionalCapabilities: []
+    sortOrder: 19

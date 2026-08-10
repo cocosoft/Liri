@@ -11,6 +11,7 @@ import AIConfigPanel from "../settings/AIConfigPanel";
 import AutoUpdatePanel from "../settings/AutoUpdatePanel";
 import FeatureFlagsPanel from "../settings/FeatureFlagsPanel";
 import LocalAgentPanel from "../settings/LocalAgentPanel";
+import LlamaConfigPanel from "../settings/LlamaConfigPanel";
 import NotificationsPanel from "../settings/NotificationsPanel";
 import TrustedWorkspacesPanel from "../settings/TrustedWorkspacesPanel";
 import CustomRulesPanel from "../settings/CustomRulesPanel";
@@ -49,6 +50,7 @@ import {
   FileIcon,
   PlayIcon,
   LinkIcon,
+  ModelIcon,
   SlidersIcon,
   WrenchIcon,
   BookOpenIcon,
@@ -184,6 +186,12 @@ const NAV_GROUPS: NavGroup[] = [
         icon: MicIcon,
         zone: "integration",
       },
+      {
+        id: "llama",
+        labelKey: "settings.llama",
+        icon: ModelIcon,
+        zone: "integration",
+      },
     ],
   },
   {
@@ -238,6 +246,7 @@ const PAGE_DESCRIPTIONS: Record<string, string> = {
   permissions: "管理权限策略和访问控制",
   oauth: "配置 OAuth 第三方登录认证",
   voice: "配置语音唤醒、识别和合成功能",
+  llama: "配置 llama.cpp 本地推理服务（内置 llama-server 生命周期）",
   "data-dir": "配置数据文件和附件的存储位置",
   ingest: "配置知识库摄入规则和来源",
   cost: "查看 API 调用成本和用量统计",
@@ -918,6 +927,8 @@ function SettingsPage() {
         return <OAuthManagementContent isDark={isDark} />;
       case "voice":
         return <VoiceSettings isDark={isDark} />;
+      case "llama":
+        return <LlamaConfigPanel isDark={isDark} />;
       case "data-dir":
         return (
           <DataStoragePanel

@@ -34,12 +34,18 @@ import { AnthropicProvider } from './AnthropicProvider';
 import { OpenAIProvider } from './OpenAIProvider';
 import { GoogleProvider } from './GoogleProvider';
 import { OllamaProvider } from './OllamaProvider';
+import { LlamaCppProvider } from './LlamaCppProvider';
 import { BedrockProvider } from './BedrockProvider';
 import { VertexAIProvider } from './VertexAIProvider';
 import { AzureOpenAIProvider } from './AzureOpenAIProvider';
 import { FALProvider } from './FALProvider';
 import { StabilityProvider } from './StabilityProvider';
 import { ReplicateProvider } from './ReplicateProvider';
+import { ViduProvider } from './ViduProvider';
+import { MiniMaxVideoProvider } from './MiniMaxVideoProvider';
+import { KlingProvider } from './KlingProvider';
+import { VolcengineProvider } from './VolcengineProvider';
+import { DashScopeVideoProvider } from './DashScopeVideoProvider';
 import type { AIProvider, ProviderConfig } from './AIProvider';
 import type { ProviderType } from './ProviderManager';
 
@@ -76,6 +82,12 @@ export function createProviderByType(
         providerId: 'ollama',
         displayName: 'Ollama (Local)',
       });
+    case 'llamacpp':
+      return new LlamaCppProvider({
+        providerId: 'llamacpp',
+        displayName: 'llama.cpp (Local)',
+        defaultBaseUrl: config?.baseUrl as string | undefined,
+      });
     case 'bedrock':
       return new BedrockProvider(
         { providerId: 'bedrock', displayName: 'AWS Bedrock' },
@@ -109,6 +121,16 @@ export function createProviderByType(
         displayName: 'Replicate',
         envApiKey: 'REPLICATE_API_TOKEN',
       });
+    case 'vidu':
+      return new ViduProvider();
+    case 'minimax':
+      return new MiniMaxVideoProvider();
+    case 'kling':
+      return new KlingProvider();
+    case 'volcengine':
+      return new VolcengineProvider();
+    case 'dashscope':
+      return new DashScopeVideoProvider();
     case 'comfy':
       return createComfyProvider(config);
     default:

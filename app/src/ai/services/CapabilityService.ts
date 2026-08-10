@@ -493,6 +493,24 @@ export class CapabilityService {
   }
 
   /**
+   * 删除任务-能力映射（YAML 已移除时清理 DB 残留）
+   */
+  private async deleteTaskMapping(taskType: string): Promise<void> {
+    if (!this.db) return;
+
+    await new Promise<void>((resolve, reject) => {
+      this.db?.run(
+        `DELETE FROM ${TASK_MAPPINGS_TABLE} WHERE task_type = ?`,
+        [taskType],
+        (err) => {
+          if (err) reject(err);
+          else resolve();
+        }
+      );
+    });
+  }
+
+  /**
    * 刷新内存缓存
    */
   private async refreshCache(): Promise<void> {

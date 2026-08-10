@@ -326,10 +326,10 @@ export interface ModelRouterOptions {
 }
 
 /**
- * 任务类型 → 所需能力映射
- * 用于启动自引导：从 DB 中查找具有对应能力的模型自动填充任务分工
- *
- * 优先从 CapabilityService 动态获取，回退到内置默认值
+ * 任务→能力映射的兜底值（仅 CapabilityService 不可用时生效）。
+ * 键名与 capabilities.default.yaml / types.ts CapabilityKey 标准集合一致
+ * （能力类任务）；运行时映射优先来自 CapabilityService（DB task_capability_mappings）。
+ * 用于启动自引导：从 DB 中查找具有对应能力的模型自动填充任务分工。
  */
 const DEFAULT_TASK_CAPABILITY: Partial<Record<TaskType, string[]>> = {
   embedding: ['embedding'],
@@ -527,6 +527,8 @@ export class ModelRouter {
       await refreshTaskCapabilityMapping();
 
       this.triggerAutoDiscover();
+      // 一次性迁移旧任务配置（模型名 → UUID），不阻塞启动
+      this.triggerLegacyMigration();
 
       this._dbReady = true;
       logger.info('ModelRouter: DB 初始化完成', {
@@ -695,9 +697,28 @@ export class ModelRouter {
    * 优先级：显式任务配置 > default 兜底 > 当前模型（旧格式） > 硬编码默认
    * UUID 解析：三级兜底（缓存 → 预加载重试 → 空字符串）
    *   返回空字符串（非 UUID 原文）防止下游 getByModel(UUID) 匹配失败
+   *
+   * 性能埋点：同步高频方法，仅当单次耗时 > 5ms 时输出 warning（正常微秒级路径零额外日志）
    */
   resolve(taskType: TaskType): string {
+    const t0 = performance.now();
+    const result = this.resolveInner(taskType);
+    const elapsedMs = performance.now() - t0;
+    if (elapsedMs > 5) {
+      logger.warning(
+        `ModelRouter.resolve: 性能埋点 单次耗时=${elapsedMs.toFixed(2)}ms task=${taskType} → ${result || '(空)'}（正常应 <1ms，检查是否频繁触发 UUID 预加载）`
+      );
+    }
+    return result;
+  }
+
+  /** resolve() 内部实现（独立方法以便统一出口计时） */
+  private resolveInner(taskType: TaskType): string {
     const tasks = this.readTasks();
+    const configured = tasks[taskType];
+    logger.debug(
+      `ModelRouter.resolve: 入口 task=${taskType} 配置=${configured || '(无)'} 标识=${configured && this.isUUID(configured) ? 'UUID' : '模型名'}`
+    );
 
     if (tasks[taskType]) {
       const value = tasks[taskType]!;
@@ -705,18 +726,20 @@ export class ModelRouter {
         const modelName = this.uuidToModelName.get(value);
         if (modelName) {
           logger.debug(
-            `ModelRouter: 任务 ${taskType} UUID ${value} → ${modelName}`
+            `ModelRouter.resolve: UUID缓存命中 task=${taskType} uuid=${value} → model=${modelName}`
           );
           return modelName;
         }
         // 缓存未命中 → 触发异步预加载（下次调用可用），当前次返回空
-        this.preloadUuidCache();
+        void this.preloadUuidCache();
         logger.warning(
-          `ModelRouter: 任务 ${taskType} UUID ${value} 缓存未命中，已触发预加载，本次返回空`
+          `ModelRouter.resolve: UUID缓存未命中 task=${taskType} uuid=${value} → 已触发异步预加载，本次返回空（resolveAsync 将走 DB 兜底）`
         );
         return '';
       }
-      logger.debug(`ModelRouter: 任务 ${taskType} → ${value}`);
+      logger.debug(
+        `ModelRouter.resolve: 直接模型名 task=${taskType} → model=${value}`
+      );
       return value;
     }
 
@@ -724,7 +747,7 @@ export class ModelRouter {
     // 对话模型如 deepseek-chat 不具备生图/生视频能力，fallback 会导致调用失败
     if (isCapabilityTask(taskType)) {
       logger.debug(
-        `ModelRouter: 能力路由 ${taskType} 未配置且不 fallback 到对话模型`
+        `ModelRouter.resolve: 能力路由 ${taskType} 未配置且不 fallback 到对话模型`
       );
       return '';
     }
@@ -733,20 +756,44 @@ export class ModelRouter {
       const defaultVal = tasks.default;
       if (this.isUUID(defaultVal)) {
         const modelName = this.uuidToModelName.get(defaultVal);
-        if (modelName) return modelName;
-        this.preloadUuidCache();
+        if (modelName) {
+          logger.debug(
+            `ModelRouter.resolve: 回退default UUID缓存命中 task=${taskType} uuid=${defaultVal} → model=${modelName}`
+          );
+          return modelName;
+        }
+        void this.preloadUuidCache();
         logger.warning(
-          `ModelRouter: 任务 ${taskType} 回退 default UUID ${defaultVal} 缓存未命中，返回空`
+          `ModelRouter.resolve: 回退default UUID缓存未命中 task=${taskType} uuid=${defaultVal} → 已触发异步预加载，本次返回空`
         );
         return '';
       }
-      logger.debug(`ModelRouter: 任务 ${taskType} 回退默认 → ${defaultVal}`);
+      logger.debug(
+        `ModelRouter.resolve: 回退default模型名 task=${taskType} → model=${defaultVal}`
+      );
       return defaultVal;
     }
 
     const current = this.readCurrentModel();
     if (current) {
-      logger.debug(`ModelRouter: 任务 ${taskType} 回退当前模型 → ${current}`);
+      // 与 tasks.default 同规则：config.current 可能存 UUID（setCurrentModel 写入），须转模型名
+      if (this.isUUID(current)) {
+        const modelName = this.uuidToModelName.get(current);
+        if (modelName) {
+          logger.debug(
+            `ModelRouter.resolve: 回退current UUID缓存命中 task=${taskType} uuid=${current} → model=${modelName}`
+          );
+          return modelName;
+        }
+        void this.preloadUuidCache();
+        logger.warning(
+          `ModelRouter.resolve: 回退current UUID缓存未命中 task=${taskType} uuid=${current} → 已触发异步预加载，本次返回空`
+        );
+        return '';
+      }
+      logger.debug(
+        `ModelRouter.resolve: 回退current模型名 task=${taskType} → model=${current}`
+      );
       return current;
     }
 
@@ -784,9 +831,20 @@ export class ModelRouter {
         }
       } else {
         // 模型直配：UUID → 模型名，或直接是模型名
-        const resolved =
-          (this.isUUID(phaseModel) && this.uuidToModelName.get(phaseModel)) ||
-          phaseModel;
+        // 与 resolve() 一致：UUID 缓存 miss 时返回空（触发预加载），
+        // 禁止把 UUID 原文泄漏到运行时（下游 getByModel(UUID) 会匹配失败）
+        let resolved: string | undefined;
+        if (this.isUUID(phaseModel)) {
+          resolved = this.uuidToModelName.get(phaseModel);
+          if (!resolved) {
+            void this.preloadUuidCache();
+            logger.warning(
+              `ModelRouter: 阶段直配 UUID ${phaseModel} 缓存未命中，已触发预加载，本次返回空`
+            );
+          }
+        } else {
+          resolved = phaseModel;
+        }
         if (resolved) {
           logger.debug(
             `ModelRouter: 阶段直配模型 ${phaseContext.phase}(${phaseContext.confidence}) → ${resolved}`
@@ -829,6 +887,9 @@ export class ModelRouter {
     try {
       const result = this.resolve(taskType);
       if (result) {
+        logger.debug(
+          `ModelRouter.resolveAsync: resolve() 直接命中 task=${taskType} → model=${result}（未走 DB 兜底）`
+        );
         otel.endSpan(span, SpanStatusCode.OK);
         return result;
       }
@@ -836,6 +897,9 @@ export class ModelRouter {
       // resolve() 返回空 → 可能是 UUID 缓存 miss → 查 DB 兜底
       const tasks = this.readTasks();
       const value = tasks[taskType] || tasks.default;
+      logger.debug(
+        `ModelRouter.resolveAsync: resolve() 返回空，进入 DB 兜底 task=${taskType} 待解析=${value || '(无)'} 标识=${value && this.isUUID(value) ? 'UUID' : '模型名/空'}`
+      );
       if (value && this.isUUID(value)) {
         try {
           const { modelPricingService } =
@@ -844,13 +908,13 @@ export class ModelRouter {
           const record = await modelPricingService.getPricingById(value);
           if (record?.modelId) {
             this.uuidToModelName.set(value, record.modelId);
-            logger.debug(
-              `ModelRouter.resolveAsync: UUID ${value} → DB 解析 → ${record.modelId}`
+            logger.info(
+              `ModelRouter.resolveAsync: UUID DB兜底命中 task=${taskType} uuid=${value} → model=${record.modelId}（缓存已填充，后续 resolve 直接命中）`
             );
             otel.endSpan(span, SpanStatusCode.OK);
             return record.modelId;
           }
-          logger.warning('ModelRouter.resolveAsync: UUID DB 查无此记录', {
+          logger.warning('ModelRouter.resolveAsync: UUID DB兜底查无此记录', {
             uuid: value,
             taskType,
           });
@@ -872,12 +936,19 @@ export class ModelRouter {
           const record = await modelPricingService.getPricingById(current);
           if (record?.modelId) {
             this.uuidToModelName.set(current, record.modelId);
-            logger.debug(
-              `ModelRouter.resolveAsync: current UUID ${current} → DB 解析 → ${record.modelId}`
+            logger.info(
+              `ModelRouter.resolveAsync: current UUID DB兜底命中 task=${taskType} uuid=${current} → model=${record.modelId}（缓存已填充）`
             );
             otel.endSpan(span, SpanStatusCode.OK);
             return record.modelId;
           }
+          logger.warning(
+            'ModelRouter.resolveAsync: current UUID DB兜底查无此记录',
+            {
+              uuid: current,
+              taskType,
+            }
+          );
         } catch (err) {
           await handleError(err, {
             module: 'ai:model-router',
@@ -888,11 +959,14 @@ export class ModelRouter {
       }
 
       const finalResult = current || this.defaultModel;
-      logger.warning('ModelRouter.resolveAsync: 所有路径均未解析到有效模型', {
-        taskType,
-        current,
-        defaultModel: this.defaultModel,
-      });
+      logger.warning(
+        `ModelRouter.resolveAsync: 所有路径均未解析到有效模型，返回兜底=${finalResult || '(空)'}`,
+        {
+          taskType,
+          current,
+          defaultModel: this.defaultModel,
+        }
+      );
       otel.endSpan(span, SpanStatusCode.ERROR, 'all paths exhausted');
       return finalResult;
     } catch (err) {
@@ -901,6 +975,11 @@ export class ModelRouter {
         err instanceof Error ? err : new Error(String(err))
       );
       otel.endSpan(span, SpanStatusCode.ERROR, String(err));
+      // §1.9: catch 统一走 handleError；随后重新抛出，保持调用方（resolveModelRoute 等）可感知
+      await handleError(err, {
+        module: 'ai:modelRouter',
+        action: 'resolveAsync',
+      });
       throw err;
     }
   }
@@ -1156,6 +1235,8 @@ export class ModelRouter {
         'embedding',
         'image_generation',
         'video_generation',
+        'text_to_video',
+        'image_to_video',
         'text_to_speech',
         'speech_recognition',
         'reranking',

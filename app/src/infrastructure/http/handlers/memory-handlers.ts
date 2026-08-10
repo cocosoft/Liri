@@ -400,15 +400,15 @@ export async function handleGetStats(
           withVectors,
           byType,
           recentCount,
-        },
-        aging: {
-          expiringCount: expiring.length,
-          oldestMemoryAge,
-          lastCleanupAt: mm.getLastCleanupAt(),
-        },
-        index: {
-          indexedCount,
-          vectorCacheSize,
+          aging: {
+            expiringCount: expiring.length,
+            oldestMemoryAge,
+            lastCleanupAt: mm.getLastCleanupAt(),
+          },
+          index: {
+            indexedCount,
+            vectorCacheSize,
+          },
         },
       })
     );

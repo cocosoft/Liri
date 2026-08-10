@@ -198,7 +198,7 @@ function MemoryList({
               </p>
               {memory.tags.length > 0 && (
                 <div className="flex flex-wrap gap-1 mt-2">
-                  {memory.tags.map((tag) => (
+                  {[...new Set(memory.tags)].map((tag) => (
                     <button
                       key={tag}
                       onClick={(e) => {

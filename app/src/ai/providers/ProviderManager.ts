@@ -43,6 +43,7 @@ export type ProviderType =
   | 'anthropic'
   | 'google'
   | 'ollama'
+  | 'llamacpp'
   | 'moonshot'
   | 'grok'
   | 'bedrock'
@@ -55,7 +56,13 @@ export type ProviderType =
   | 'fal'
   | 'stability'
   | 'replicate'
-  | 'comfy';
+  | 'comfy'
+  // 国内视频生成供应商（异步任务模式，官方直连）
+  | 'kling'
+  | 'volcengine'
+  | 'vidu'
+  | 'minimax'
+  | 'dashscope';
 
 /** 供应商分类 */
 export type ProviderCategory =

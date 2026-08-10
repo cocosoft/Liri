@@ -4,6 +4,12 @@
     "noUnusedLocals": false,
     "noUnusedParameters": false
   },
-  "include": ["src/**/*", "packages/**/*", "eslint.config.js", ".eslintrc.json"],
+  "include": [
+    "src/**/*",
+    "tests/**/*",
+    "packages/**/*",
+    "eslint.config.js",
+    ".eslintrc.json"
+  ],
   "exclude": ["node_modules", "dist"]
 }

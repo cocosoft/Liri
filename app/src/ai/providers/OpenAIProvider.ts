@@ -56,7 +56,8 @@ const DEFAULT_BASE_URL = 'https://api.openai.com/v1';
 
 export class OpenAIProvider extends BaseAIProvider {
   private apiKey: string;
-  private baseUrl: string;
+  /** baseUrl 供子类（如 LlamaCppProvider）访问 */
+  protected baseUrl: string;
 
   /**
    * 初始化 OpenAI Provider。

@@ -241,4 +241,17 @@ models:
     providers:
       firstParty: qwen-ollama
       ollama: qwen-ollama
+
+  # ==================== llama.cpp 本地模型 ====================
+  llama3.1-8b:
+    capabilities:
+      - streaming
+      - function_calling
+      - tool_use
+    contextWindow: 8192
+    displayName: Llama 3.1 8B (llama.cpp)
+    maxOutputTokens: 4096
+    providers:
+      firstParty: llama3.1-8b
+      llamacpp: llama3.1-8b
 version: 1.0.0

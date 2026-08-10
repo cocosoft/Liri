@@ -20,6 +20,7 @@ import { dispatchConfigSkillsRoutes } from './routes/config-skills-routes';
 import { dispatchMonitorCommandRoutes } from './routes/monitor-command-routes';
 import { dispatchMarketplaceMcpRoutes } from './routes/marketplace-mcp-routes';
 import { dispatchAuthAccessRoutes } from './routes/auth-access-routes';
+import { dispatchLlamaRoutes } from './routes/llama-routes';
 
 /**
  * 路由调度函数
@@ -112,6 +113,8 @@ export async function dispatchRoute(
   )
     return true;
   if (await dispatchAuthAccessRoutes(req, res, url, broadcastEvent, handlerCtx))
+    return true;
+  if (await dispatchLlamaRoutes(req, res, url, broadcastEvent, handlerCtx))
     return true;
 
   return false;

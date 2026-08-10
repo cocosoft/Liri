@@ -189,6 +189,8 @@ export class AppModelConfigService {
     const nonChatCaps = [
       'image_generation',
       'video_generation',
+      'text_to_video',
+      'image_to_video',
       'embedding',
       'text_to_speech',
       'speech_recognition',
@@ -235,6 +237,8 @@ export class AppModelConfigService {
     const nonChatCaps = [
       'image_generation',
       'video_generation',
+      'text_to_video',
+      'image_to_video',
       'embedding',
       'text_to_speech',
       'speech_recognition',

@@ -304,7 +304,9 @@ export const createSessionSlice: StateCreator<
         const { modelSwitchService } =
           await import("@/services/modelSwitchService");
         const current = await modelSwitchService.getCurrent();
-        modelId = current.modelId;
+        // 会话 modelId 统一存 UUID（model_registry.id），与切换/恢复接口对齐；
+        // 老后端无 modelUuid 时回退模型名
+        modelId = current.modelUuid || current.modelId;
       } catch (e) {
         const { handleClientError } = await import("@/utils/handleError");
         handleClientError(

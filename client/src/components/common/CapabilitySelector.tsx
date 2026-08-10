@@ -5,6 +5,7 @@
  */
 
 import { useState, useEffect, useMemo, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { capabilityService } from "../../services/capabilityService";
 import { handleClientError } from "../../utils/handleError";
 import type {
@@ -51,6 +52,7 @@ export default function CapabilitySelector({
   capabilities: presetCapabilities,
   categories: presetCategories,
 }: CapabilitySelectorProps) {
+  const { t } = useTranslation();
   const [capabilities, setCapabilities] = useState<ModelCapabilityDefinition[]>(
     [],
   );
@@ -346,7 +348,7 @@ export default function CapabilitySelector({
                       disabled={disabled}
                       className="rounded"
                     />
-                    {capabilityService.getDisplayName(cap)}
+                    {capabilityService.getDisplayName(cap, t)}
                   </label>
                 ))}
               </div>

@@ -134,6 +134,15 @@
 | PUT | `/v1/models/app-config/{appType}` | ✅ | 无前端调用方 |
 | DELETE | `/v1/models/app-config/{appType}` | ✅ | 无前端调用方 |
 
+### §3.3.1 llama.cpp 本地推理（2026-08-10 新增，llamacpp-integration）
+
+| 方法 | 路径 | 后端状态 | 前端调用方 |
+|------|------|----------|-----------|
+| GET | `/v1/llama/status` | ✅ | `llamaService.getStatus` |
+| GET | `/v1/llama/config` | ✅ | `llamaService.getConfig` |
+| PUT | `/v1/llama/config` | ✅ | `llamaService.saveConfig` |
+| POST | `/v1/llama/restart` | ✅ | `llamaService.restart` |
+
 ### §3.4 用量与计费（子路由: ModelManagementAPI）
 
 | 方法 | 路径 | 后端状态 | 前端调用方 |

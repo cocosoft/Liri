@@ -97,7 +97,7 @@ function NotificationsPanel({
           <TextConfig
             isDark={isDark}
             type="number"
-            value={String(notifications.idleThresholdMs)}
+            value={String(notifications.idleThresholdMs ?? 60000)}
             onChange={(value) =>
               onUpdate({ idleThresholdMs: parseInt(value, 10) || 60000 })
             }
@@ -175,7 +175,7 @@ function NotificationsPanel({
                 <TextConfig
                   isDark={isDark}
                   type="number"
-                  value={String(notifications.dndStartHour)}
+                  value={String(notifications.dndStartHour ?? 22)}
                   onChange={(value) =>
                     onUpdate({
                       dndStartHour: Math.max(
@@ -195,7 +195,7 @@ function NotificationsPanel({
                 <TextConfig
                   isDark={isDark}
                   type="number"
-                  value={String(notifications.dndEndHour)}
+                  value={String(notifications.dndEndHour ?? 8)}
                   onChange={(value) =>
                     onUpdate({
                       dndEndHour: Math.max(
@@ -225,7 +225,7 @@ function NotificationsPanel({
           <TextConfig
             isDark={isDark}
             type="number"
-            value={String(notifications.desktopNotifyMinUnread)}
+            value={String(notifications.desktopNotifyMinUnread ?? 1)}
             onChange={(value) =>
               onUpdate({
                 desktopNotifyMinUnread: Math.max(0, parseInt(value, 10) || 1),

@@ -64,6 +64,8 @@ const IGNORE_PATH_FRAGMENTS = [
   'services/prompt/PromptAssembler.ts',
   'tools/utils/toolSearch.ts',
   'transports/OllamaTransport.ts',
+  // 模型名子串匹配选择 prompt 指引（行为适配，与 parser/formatter 同类）
+  'ai/prompts/ModelGuidance.ts',
   // 模型属性阈值表（token budget，DB 无字段，白名单声明）
   'core/tokenBudget/UnifiedTokenTracker.ts',
   // D 层本地/固定能力
@@ -87,6 +89,7 @@ const IGNORE_PATH_FRAGMENTS = [
   'client/src/i18n/',
   'client/src/types/model.ts',
   'client/src/components/settings/AIConfigPanel.tsx',
+  'client/src/components/settings/LocalAgentPanel.tsx', // Ollama 本地模型候选（用户可配置项，非身份）
   'client/src/components/views/MessageBubble.tsx',
   'client/src/components/views/ModelPage.tsx',
 ];

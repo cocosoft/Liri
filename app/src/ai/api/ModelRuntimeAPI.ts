@@ -353,6 +353,8 @@ export async function handleGetCurrentModel(
     const nonChatCaps = [
       'image_generation',
       'video_generation',
+      'text_to_video',
+      'image_to_video',
       'embedding',
       'text_to_speech',
       'speech_recognition',
@@ -401,9 +403,13 @@ export async function handleSwitchModel(
 ): Promise<void> {
   try {
     const body = (await parseBody(req)) as Record<string, string>;
-    const { modelId } = body; // UUID
+    const { modelId } = body; // 可能是 UUID，也可能是模型名（会话 metadata.model 存模型名）
     await modelPricingService.initialize();
-    const record = await modelPricingService.getPricingById(modelId);
+    // 兼容两种标识：先按 UUID 查，查不到再按 model_id（模型名）查
+    let record = await modelPricingService.getPricingById(modelId);
+    if (!record?.modelId) {
+      record = await modelPricingService.getPricing(modelId);
+    }
     if (!record?.modelId) {
       sendError(res, '模型不存在', 404);
       return;
@@ -448,7 +454,8 @@ export async function handleSwitchModel(
     // 持久化到 DB（current + default），同时更新 UUID→模型名 缓存
     await modelRouter.setCurrentModel(modelId, modelName);
 
-    sendJson(res, { data: { modelId, modelName } });
+    // data.modelId 统一返回 UUID（model_registry.id），前端 currentModelId 恒为 UUID
+    sendJson(res, { data: { modelId: record.id, modelName } });
   } catch (err) {
     await handleError(err, {
       module: 'ai:modelManagement',

@@ -312,8 +312,11 @@ export const capabilityService = {
     t?: (key: string) => string,
   ): string {
     if (t) {
-      const translated = t(capability.descriptionKey);
-      if (translated !== capability.descriptionKey) {
+      // desc 用扁平键 labelKey+Desc（i18next 叶子字符串与 .desc 嵌套路径冲突，
+      // 统一以 labelKeyDesc 形态注册于 i18n 资源）
+      const flatKey = `${capability.labelKey}Desc`;
+      const translated = t(flatKey);
+      if (translated !== flatKey) {
         return translated;
       }
     }

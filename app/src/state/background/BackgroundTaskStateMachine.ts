@@ -28,9 +28,12 @@
  * 注册到 StateMachineRegistry，经 GET /v1/state/all（§十 阶段 D）前端可见。
  */
 
+import { getLogger } from '@modules/monitoring';
 import { StateMachine } from '../engine/StateMachine';
 import { StateMachineRegistry } from '../engine/StateMachineRegistry';
-import type { TransitionRules } from '../engine/types';
+import type { TransitionRecord, TransitionRules } from '../engine/types';
+
+const logger = getLogger('state:background-machine');
 
 /** 后台任务状态枚举 */
 export enum BackgroundTaskState {
@@ -83,12 +86,43 @@ export class BackgroundTaskStateMachine extends StateMachine<BackgroundTaskState
       contextId: `background:${taskId}`,
       // FAILED 为关键状态：转移进入时日志 ≥ warn
       criticalStates: [BackgroundTaskState.FAILED],
+      // §十 阶段 B：转移事件发布钩子 — 实时广播到前端
+      onTransition: createTransitionHook(taskId),
     });
   }
 }
 
 /** 注册表键前缀 */
 const REGISTRY_PREFIX = 'background';
+
+/**
+ * §十 阶段 B：转移事件发布钩子 — 桥接 SSE `background:state`，前端可实时感知后台任务状态。
+ * 与 AppLifecycle 的 app:state 钩子同构；惰性 require 规避 state → infrastructure 静态循环依赖。
+ */
+function createTransitionHook(
+  taskId: string
+): (record: TransitionRecord<BackgroundTaskState>) => void {
+  return (record) => {
+    logger.info(`后台任务状态转移事件: ${record.from} → ${record.to}`, {
+      taskId,
+      reason: record.reason,
+    });
+    try {
+      const { broadcastEvent } =
+        require('@modules/infrastructure/http/LocalHTTPServiceSSE') as typeof import('@modules/infrastructure/http/LocalHTTPServiceSSE');
+      broadcastEvent('background:state', {
+        taskId,
+        state: record.to,
+        from: record.from,
+        reason: record.reason,
+        timestamp: record.timestamp,
+      });
+    } catch (e) {
+      // @ignore-catch — 早期启动/非 HTTP 模式下 SSE 桥接不可用，不影响状态机
+      logger.debug('background:state SSE 桥接失败', { error: String(e) });
+    }
+  };
+}
 
 /**
  * 获取（并首次注册）指定后台任务的状态机实例。

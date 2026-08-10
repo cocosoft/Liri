@@ -25,6 +25,7 @@ import {
   TaskEvent,
   isTerminalTaskStatus,
 } from './types';
+import { getTaskStateMachine } from '../state/task/TaskStateMachine';
 
 const VALID_DISPLAY_STATUSES = [
   'pending',
@@ -316,11 +317,45 @@ export class TaskRegistry {
 
     this.updateIndexes(task, taskId);
 
+    // §十 阶段 C：任务状态机接入（R09-002 注册 + R09-003 转移日志 + R09-005 前端可见）
+    // 用任务当前状态初始化（恢复场景可能为 LOST 等终态）
+    const sm = getTaskStateMachine(taskId, task.status);
+    // 若任务初始已是终态（如重启恢复 LOST），将状态机同步到该状态
+    if (sm.getState() !== task.status) {
+      try {
+        sm.transition(task.status, 'task registered with persisted status');
+      } catch (e) {
+        // @ignore-catch — 观测层不阻断：非法初始转移仅记录 warn
+        logger.warn('任务状态机初始状态同步失败', {
+          taskId,
+          taskStatus: task.status,
+          error: e instanceof Error ? e.message : String(e),
+        });
+      }
+    }
+
     task.on('stateChanged', (state: TaskState) => {
       const prevStatus = this.taskCurrentStatus.get(taskId);
       this.lastProgressTime.set(taskId, Date.now());
       this.stateHistory.push(state);
       this.notifyListeners({ type: 'stateChanged', taskId, state });
+
+      // §十 阶段 C：状态变化驱动状态机转移（观测层，失败不阻断任务流转）
+      if (prevStatus !== undefined && prevStatus !== state.status) {
+        try {
+          sm.transition(state.status, 'task state changed', {
+            from: prevStatus,
+          });
+        } catch (e) {
+          // @ignore-catch — 观测层不阻断：非法转移仅记录 warn
+          logger.warn('任务状态机转移失败（观测层忽略）', {
+            taskId,
+            from: prevStatus,
+            to: state.status,
+            error: e instanceof Error ? e.message : String(e),
+          });
+        }
+      }
 
       // 审计日志：状态变更时写入
       if (prevStatus !== undefined && prevStatus !== state.status) {
@@ -417,6 +452,17 @@ export class TaskRegistry {
     }
     this.tasks.delete(taskId);
     this.removeFromIndexes(taskId);
+    // §十 阶段 C：任务移除时注销状态机（R09-002 生命周期闭环，防 Registry 泄漏）
+    try {
+      const { StateMachineRegistry } = await import('../state');
+      StateMachineRegistry.getInstance().unregister(`task:${taskId}`);
+    } catch (e) {
+      // @ignore-catch — 注销失败不影响任务移除
+      logger.debug('任务状态机注销失败（忽略）', {
+        taskId,
+        error: String(e),
+      });
+    }
     await this.saveTasks();
   }
 

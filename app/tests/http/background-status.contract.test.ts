@@ -157,6 +157,9 @@ describe('GET /v1/background/status 契约', () => {
     const tasks = data.tasks as Array<Record<string, unknown>>;
     expect(tasks[0].task).toBe('dream');
     expect(tasks[0].phase).toBe('complete');
+
+    // 关键任务失败提醒（§9.3 阶段 2）— 结构断言（detectTaskAlerts 读真实日志，值不在此断言）
+    expect(Array.isArray(data.alerts)).toBe(true);
   });
 
   test('依赖加载失败时返回 500 而非崩溃', async () => {

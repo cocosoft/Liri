@@ -17,6 +17,7 @@ import { SystemHealthStatus } from "../common/SystemHealthStatus";
 import { ClientErrorStats } from "../common/ClientErrorStats";
 import { OTELSpanViewer } from "../common/OTELSpanViewer";
 import { OTELTraceViewer } from "../common/OTELTraceViewer";
+import StateMachinePanel from "../common/StateMachinePanel";
 import type { Alert, SystemHealth } from "../../types";
 import { SkeletonCard } from "../common/Skeleton";
 import { SPECIES_MAP } from "../Buddy/buddySprites";
@@ -432,6 +433,9 @@ function DashboardPage() {
                     <OTELSpanViewer compact />
                   )}
                 </div>
+
+                {/* §十 阶段 D：状态机监控（App / background:* 等运行状态） */}
+                <StateMachinePanel />
 
                 <div className="flex items-center justify-between gap-4">
                   <div className="flex-1">

@@ -105,3 +105,54 @@ export function getBackgroundTaskLog(limit = 20): BackgroundTaskEvent[] {
     return [];
   }
 }
+
+/**
+ * 关键任务失败/持续跳过提醒（§9.3 阶段 2）
+ *
+ * 统计每个后台任务最近连续 fail / skip 次数（忽略中间穿插的 start/complete 重置计数），
+ * 连续次数 ≥ threshold 时返回告警条目，供运行状况面板顶部展示。
+ * 阈值默认 3：单次失败/跳过是常态（时间不足、扫描节流），连续 3 次才需用户关注。
+ */
+export function detectTaskAlerts(threshold = 3): TaskAlert[] {
+  const events = getBackgroundTaskLog(200);
+  const counts = new Map<
+    string,
+    { streak: number; last: BackgroundTaskEvent }
+  >();
+
+  for (const event of events) {
+    // fail / skip 递增连续计数；start / complete 视为中断重置
+    if (event.phase === 'fail' || event.phase === 'skip') {
+      const entry = counts.get(event.task) ?? { streak: 0, last: event };
+      entry.streak += 1;
+      entry.last = event;
+      counts.set(event.task, entry);
+    } else {
+      counts.delete(event.task);
+    }
+  }
+
+  const alerts: TaskAlert[] = [];
+  for (const [task, { streak, last }] of counts) {
+    if (streak < threshold) continue;
+    // last 只可能是 fail / skip（进入 counts 的分支已排除 start/complete）
+    const phase = last.phase as 'fail' | 'skip';
+    alerts.push({
+      task,
+      phase,
+      streak,
+      status: last.status ?? last.phase,
+      lastAt: last.endedAt ?? last.startedAt,
+    });
+  }
+  return alerts.sort((a, b) => b.lastAt - a.lastAt);
+}
+
+/** 任务失败提醒条目 */
+export interface TaskAlert {
+  task: string;
+  phase: 'fail' | 'skip';
+  streak: number;
+  status: string;
+  lastAt: number;
+}

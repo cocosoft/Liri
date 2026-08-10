@@ -46,3 +46,10 @@ export {
   BACKGROUND_TASK_TRANSITIONS,
   getBackgroundTaskStateMachine,
 } from './background/BackgroundTaskStateMachine';
+
+// 任务状态机（task-system 域）
+export {
+  TaskStateMachine,
+  TASK_TRANSITIONS,
+  getTaskStateMachine,
+} from './task/TaskStateMachine';

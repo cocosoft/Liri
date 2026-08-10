@@ -1,15 +1,13 @@
 import { useEffect, useState } from "react";
+import StateMachinePanel from "../common/StateMachinePanel";
 import {
   backgroundStatusService,
-  stateMachineService,
   type BackgroundStatus,
-  type StateMachineInfo,
 } from "../../services/backgroundTaskService";
 
 /** 后台任务运行状况面板 — 展示"功能承诺 vs 实际执行" */
 function BackgroundStatusPage() {
   const [data, setData] = useState<BackgroundStatus | null>(null);
-  const [stateMachines, setStateMachines] = useState<StateMachineInfo[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -17,12 +15,8 @@ function BackgroundStatusPage() {
     setIsLoading(true);
     setError(null);
     try {
-      const [status, states] = await Promise.all([
-        backgroundStatusService.getStatus(),
-        stateMachineService.getStateAll().catch(() => null),
-      ]);
+      const status = await backgroundStatusService.getStatus();
       setData(status);
-      setStateMachines(states?.machines ?? []);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -80,6 +74,29 @@ function BackgroundStatusPage() {
             >
               重试
             </button>
+          </div>
+        )}
+
+        {data && data.alerts.length > 0 && (
+          <div className="mb-6 space-y-2">
+            {data.alerts.map((alert) => (
+              <div
+                key={`${alert.task}-${alert.streak}`}
+                className="p-4 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 text-sm"
+              >
+                <div className="flex items-center gap-2 font-medium">
+                  <span>⚠️</span>
+                  <span>
+                    任务「{alert.task}」连续 {alert.streak} 次{" "}
+                    {alert.phase === "fail" ? "失败" : "被跳过"}
+                  </span>
+                </div>
+                <div className="mt-1 text-xs opacity-80">
+                  最近原因：{alert.status} · 最近发生于{" "}
+                  {formatTime(alert.lastAt)}（详见后端日志）
+                </div>
+              </div>
+            ))}
           </div>
         )}
 
@@ -208,57 +225,9 @@ function BackgroundStatusPage() {
               </div>
             </section>
 
-            {/* 应用状态（§十 阶段 D） */}
-            <section className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-5">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-                ⚙️ 应用状态（状态机）
-              </h3>
-              {stateMachines.length === 0 ? (
-                <div className="text-sm text-gray-400 dark:text-gray-500 py-4 text-center border border-dashed border-gray-200 dark:border-gray-700 rounded-lg">
-                  暂无已注册状态机（/v1/state/all 返回空）
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {stateMachines.map((m) => (
-                    <div
-                      key={m.id}
-                      className="px-3 py-2 rounded-lg bg-gray-50 dark:bg-gray-700/50"
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-sm font-medium text-gray-800 dark:text-gray-200">
-                          {m.id}
-                        </span>
-                        <span
-                          className={`px-2 py-0.5 text-xs rounded-full font-medium ${
-                            m.state === "error"
-                              ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300"
-                              : m.state === "busy"
-                                ? "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300"
-                                : m.state === "paused"
-                                  ? "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300"
-                                  : "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300"
-                          }`}
-                        >
-                          {m.state}
-                        </span>
-                      </div>
-                      {m.history.length > 0 && (
-                        <div className="mt-2 space-y-0.5">
-                          {m.history.slice(-3).map((h, i) => (
-                            <div
-                              key={i}
-                              className="text-xs text-gray-500 dark:text-gray-400"
-                            >
-                              {h.from} → {h.to}
-                              {h.reason ? `（${h.reason}）` : ""}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
+            {/* 应用状态（§十 阶段 D，复用 StateMachinePanel） */}
+            <section>
+              <StateMachinePanel />
             </section>
           </div>
         )}

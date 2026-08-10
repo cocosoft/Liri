@@ -162,7 +162,7 @@ export async function handleGetBackgroundStatus(
     const [
       { getDreamStats, getDreamLogs },
       { loadGrowthState },
-      { getBackgroundTaskLog },
+      { getBackgroundTaskLog, detectTaskAlerts },
     ] = await Promise.all([
       import('@modules/buddy/dreamLogStore'),
       import('@modules/buddy/growthPersistence'),
@@ -176,6 +176,8 @@ export async function handleGetBackgroundStatus(
     const growth = await loadGrowthState();
     // §9.3 统一后台任务事件日志（R08-002 配套，各后台模块四态事件）
     const recentTasks = await getBackgroundTaskLog(20);
+    // §9.3 阶段 2：连续失败/持续跳过提醒（阈值 3 次）
+    const alerts = detectTaskAlerts();
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(
@@ -194,6 +196,7 @@ export async function handleGetBackgroundStatus(
           unlockedAchievements: growth.unlockedAchievements,
         },
         tasks: recentTasks,
+        alerts,
         generatedAt: Date.now(),
       })
     );

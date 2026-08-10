@@ -62,6 +62,15 @@ export const dreamService = {
   },
 };
 
+/** 后台任务失败提醒条目（§9.3 阶段 2） */
+export interface TaskAlert {
+  task: string;
+  phase: "fail" | "skip";
+  streak: number;
+  status: string;
+  lastAt: number;
+}
+
 /** 后台任务运行状况（Dream 记忆整理 + Buddy 成长） */
 export interface BackgroundStatus {
   dream: {
@@ -90,6 +99,7 @@ export interface BackgroundStatus {
     totalTaskExp: number;
     unlockedAchievements: string[];
   };
+  alerts: TaskAlert[];
   generatedAt: number;
 }
 

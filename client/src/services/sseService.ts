@@ -178,6 +178,10 @@ class SSEService {
         "plan:completed",
         // 根因 C：后端崩溃恢复把会话标记 PAUSED 后的主动通知
         "session:paused",
+        // §十 阶段 B：后台任务状态机转移实时广播（background:{taskId}）
+        "background:state",
+        // §十 阶段 C：task-system 任务状态机转移实时广播（task:{taskId}）
+        "task:state",
       ];
       logger.info(`[connect] 注册进度事件监听 count=${progressEvents.length}`);
       for (const evt of progressEvents) {

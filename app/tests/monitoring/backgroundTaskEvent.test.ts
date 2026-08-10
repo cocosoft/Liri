@@ -24,6 +24,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import {
+  detectTaskAlerts,
   getBackgroundTaskLog,
   recordBackgroundTask,
 } from '../../src/monitoring/BackgroundTaskEvent';
@@ -73,5 +74,47 @@ describe('BackgroundTaskEvent — §9.3 统一后台任务事件', () => {
   test('无日志文件时返回空数组', () => {
     fs.rmSync(path.join(tmpDir, 'background', 'tasks.jsonl'), { force: true });
     expect(getBackgroundTaskLog()).toEqual([]);
+  });
+});
+
+describe('detectTaskAlerts — §9.3 阶段 2 关键任务失败提醒', () => {
+  test('连续 fail 达阈值返回告警（含连续次数与最近原因）', () => {
+    fs.rmSync(path.join(tmpDir, 'background', 'tasks.jsonl'), { force: true });
+    for (let i = 0; i < 3; i++) {
+      recordBackgroundTask({ task: 'dream', phase: 'fail', startedAt: 1000 + i, endedAt: 2000 + i, status: 'boom' });
+    }
+    const alerts = detectTaskAlerts();
+    expect(alerts.length).toBe(1);
+    expect(alerts[0].task).toBe('dream');
+    expect(alerts[0].phase).toBe('fail');
+    expect(alerts[0].streak).toBe(3);
+    expect(alerts[0].status).toBe('boom');
+  });
+
+  test('连续次数低于阈值不告警', () => {
+    fs.rmSync(path.join(tmpDir, 'background', 'tasks.jsonl'), { force: true });
+    recordBackgroundTask({ task: 'dream', phase: 'fail', startedAt: 1000, endedAt: 2000, status: 'once' });
+    expect(detectTaskAlerts()).toEqual([]);
+  });
+
+  test('穿插 complete 重置连续计数', () => {
+    fs.rmSync(path.join(tmpDir, 'background', 'tasks.jsonl'), { force: true });
+    recordBackgroundTask({ task: 'dream', phase: 'fail', startedAt: 1000, endedAt: 2000, status: 'boom' });
+    recordBackgroundTask({ task: 'dream', phase: 'complete', startedAt: 3000, endedAt: 4000, durationMs: 1000 });
+    recordBackgroundTask({ task: 'dream', phase: 'fail', startedAt: 5000, endedAt: 6000, status: 'boom' });
+    // 最新连续 1 次 fail，未达阈值
+    expect(detectTaskAlerts()).toEqual([]);
+  });
+
+  test('skip 与 fail 合并计数（持续跳过也告警）', () => {
+    fs.rmSync(path.join(tmpDir, 'background', 'tasks.jsonl'), { force: true });
+    recordBackgroundTask({ task: 'knowledge-compile', phase: 'skip', startedAt: 1000, status: 'no change' });
+    recordBackgroundTask({ task: 'knowledge-compile', phase: 'skip', startedAt: 2000, status: 'no change' });
+    recordBackgroundTask({ task: 'knowledge-compile', phase: 'skip', startedAt: 3000, status: 'no change' });
+    const alerts = detectTaskAlerts();
+    expect(alerts.length).toBe(1);
+    expect(alerts[0].task).toBe('knowledge-compile');
+    expect(alerts[0].phase).toBe('skip');
+    expect(alerts[0].streak).toBe(3);
   });
 });

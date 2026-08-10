@@ -7,7 +7,7 @@
  * @typeParam S 状态枚举的字面量联合类型（如 'idle' | 'running' | 'completed'）
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { IllegalTransitionError, InvalidSnapshotError } from '../errors';
 import type {
   TransitionRules,
@@ -18,6 +18,21 @@ import type {
 } from './types';
 
 const logger = getLogger('state:machine');
+
+/**
+ * 提取当前活跃 span 的 traceId/spanId（链路追踪埋点用）。
+ * 无活跃 span（如非 HTTP 上下文/OTel 未初始化）时返回空对象，不抛错。
+ */
+function getTraceContext(): { traceId?: string; spanId?: string } {
+  try {
+    const span = getOTelTracing().getActiveSpan();
+    if (!span) return {};
+    const { traceId, spanId } = span.spanContext();
+    return { traceId, spanId };
+  } catch {
+    return {};
+  }
+}
 
 /**
  * 从规则表自动推导终态集合
@@ -161,8 +176,21 @@ export class StateMachine<S extends string> {
   ): boolean {
     const from = this.currentState;
 
+    // 链路追踪埋点：转移前捕获当前活跃 span 的 traceId/spanId（断网场景排查用）
+    const trace = getTraceContext();
+    logger.debug('状态转移开始', {
+      contextId: this.contextId,
+      from,
+      to,
+      reason,
+      ...trace,
+    });
+
     if (from === to) {
-      logger.debug(`状态未变: ${from}`, { contextId: this.contextId });
+      logger.debug(`状态未变: ${from}`, {
+        contextId: this.contextId,
+        ...trace,
+      });
       return true;
     }
 
@@ -178,7 +206,7 @@ export class StateMachine<S extends string> {
       from: prevState,
       to,
       reason,
-      metadata,
+      metadata: metadata ?? trace,
       timestamp: Date.now(),
     };
     this.history.push(record);
@@ -197,11 +225,13 @@ export class StateMachine<S extends string> {
       logger.warn(`状态转换(关键): ${from} → ${to}`, {
         contextId: this.contextId,
         reason,
+        ...trace,
       });
     } else {
       logger.debug(`状态转换: ${from} → ${to}`, {
         contextId: this.contextId,
         reason,
+        ...trace,
       });
     }
 

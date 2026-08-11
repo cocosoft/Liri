@@ -189,7 +189,9 @@ export class LocalBashTask extends BaseTask {
         }
 
         this.stopStallWatchdog();
-        logger.warn('Bash 任务疑似卡死，发出 stalled 事件', { taskId: this.id });
+        logger.warn('Bash 任务疑似卡死，发出 stalled 事件', {
+          taskId: this.id,
+        });
         this.emit('stalled', {
           taskId: this.id,
           description: this.state.description,

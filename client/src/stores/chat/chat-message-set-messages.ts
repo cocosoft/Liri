@@ -1,0 +1,237 @@
+/**
+ * Chat Message Slice — setMessages 实现
+ *
+ * 从 chat-message.slice.ts 拆出（R04-001 文件行数限制治理）。
+ * setMessages：加载历史消息时重建 blocks 结构（tool 结果合并 / 连续 assistant 合并 / groupId 迁移）。
+ */
+import type { Message, FilePreview } from "@/types";
+import { addFilePathsFromBlocks } from "./chat-file.slice";
+import {
+  generateGroupId,
+  findLastToolCallId,
+  rebuildBlocksFromContent,
+} from "./chat-toolcall.slice";
+import { setSessionCache, enqueueSaveBlocks } from "./chat-history.slice";
+import { handleClientError } from "@/utils/handleError";
+import {
+  switchState,
+  clearToolResultCache,
+  cacheToolResult,
+  truncateResult,
+  MAX_INLINE_RESULT_LENGTH,
+} from "./chat-message-shared";
+import type { MessageSet, MessageGet } from "./chat-message.types";
+
+/**
+ * 加载历史消息时为 assistant 消息重建 blocks 结构
+ * 确保 AssistantMessage 组件能正确分组渲染（text / tool_call 等）
+ * 如果后端已保存 blocks，则直接使用，否则自动重建。
+ */
+export function setMessagesImpl(
+  set: MessageSet,
+  get: MessageGet,
+  messages: Message[],
+): void {
+  // BUG F2 修复: 每次加载新消息时清理旧缓存，防止内存无限增长
+  clearToolResultCache();
+
+  // 会话切换锁：挂起流式写入，防止 loadSessions 覆盖流式数据
+  switchState.lock = true;
+
+  try {
+    // 缓存写入：仅当传入完整消息列表时（非空且非增量更新）
+    // 使用第一条消息的 session_id 作为缓存 key
+    if (messages.length > 0 && messages[0].session_id) {
+      const cacheKey = messages[0].session_id;
+      setSessionCache(cacheKey, messages);
+    }
+
+    // Phase 1: 收集 tool 角色消息，建立 toolCallId → content 映射
+    // 这些工具结果在后端作为独立消息持久化，前端需合并回 assistant 消息的 blocks 中
+    // 同时缓存全量结果到缓存，block 中只存截断摘要
+    const toolResultsByCallId = new Map<string, string>();
+    const filteredMessages: Message[] = [];
+
+    for (const msg of messages) {
+      if (msg.role === "tool" && msg.toolCallId) {
+        const rawContent = typeof msg.content === "string" ? msg.content : "";
+        toolResultsByCallId.set(msg.toolCallId, rawContent);
+        // 全量结果存入独立缓存（LRU 淘汰），不在 block 中内联
+        cacheToolResult(msg.toolCallId, rawContent);
+      } else {
+        filteredMessages.push(msg);
+      }
+    }
+
+    // Phase 2: 合并连续的 assistant 消息
+    // 多轮工具调用时，后端将每轮 LLM 回复存为独立 assistant 消息，
+    // 导致加载历史后出现多个"🤖 Liri"气泡。此处合并为一条消息，与流式体验一致。
+    const mergedMessages: Message[] = [];
+    for (const msg of filteredMessages) {
+      if (msg.role !== "assistant") {
+        mergedMessages.push(msg);
+        continue;
+      }
+
+      const lastIdx = mergedMessages.length - 1;
+      const lastMsg = mergedMessages[lastIdx];
+      if (lastMsg && lastMsg.role === "assistant") {
+        mergedMessages[lastIdx] = {
+          ...lastMsg,
+          content: (lastMsg.content || "") + (msg.content || ""),
+          timestamp: lastMsg.timestamp || msg.timestamp,
+          blocks: [
+            ...(lastMsg.blocks || []),
+            ...(Array.isArray(msg.blocks) ? msg.blocks : []).map((b) => ({
+              ...b,
+              isStreaming: false,
+            })),
+          ],
+          tool_calls: [
+            ...(lastMsg.tool_calls || []),
+            ...(msg.tool_calls || []),
+          ],
+        };
+      } else {
+        mergedMessages.push({ ...msg });
+      }
+    }
+
+    // Phase 3: 处理合并后的消息，将工具结果合并到对应 assistant 消息的 tool_call 块中
+    const enhancedMessages = mergedMessages.map((msg) => {
+      if (msg.role !== "assistant") return msg;
+
+      if (Array.isArray(msg.blocks) && msg.blocks.length > 0) {
+        // 先处理已有 blocks：合并工具结果 + 迁移 groupId
+        let hasMergedResult = false;
+        const mergedBlocks = msg.blocks.map((b) => {
+          const block = { ...b, isStreaming: false };
+          if (
+            block.type === "tool_call" &&
+            block.toolCall?.id &&
+            toolResultsByCallId.has(block.toolCall.id)
+          ) {
+            const fullResult = toolResultsByCallId.get(block.toolCall.id)!;
+            hasMergedResult = true;
+            // 只注入截断摘要到 block，全量结果通过 getToolResultFull() 按需获取
+            block.toolCall = {
+              ...block.toolCall,
+              result: truncateResult(fullResult),
+              _hasFullResult:
+                fullResult.length > MAX_INLINE_RESULT_LENGTH || undefined,
+            };
+          }
+          return block;
+        });
+
+        if (hasMergedResult) {
+          return { ...msg, blocks: mergedBlocks };
+        }
+
+        // 无匹配工具结果时，执行 groupId 迁移（旧 blocks 兼容）
+        const oldBlocksHaveGroupId = msg.blocks.some((b) => b.groupId);
+        if (oldBlocksHaveGroupId) {
+          return {
+            ...msg,
+            blocks: msg.blocks.map((b) => ({ ...b, isStreaming: false })),
+          };
+        }
+        const lastToolCallId = findLastToolCallId(msg);
+        const enhancedBlocks = msg.blocks.map((b) => {
+          if (b.groupId) return { ...b, isStreaming: false };
+          const id =
+            b.toolCallId ||
+            b.toolCall?.id ||
+            lastToolCallId ||
+            generateGroupId();
+          return { ...b, isStreaming: false, groupId: "migrate_" + id }; // "migrate_" 前缀标记历史数据，与流式 "grp_" 区分
+        });
+        return { ...msg, blocks: enhancedBlocks };
+      }
+
+      const newBlocks = rebuildBlocksFromContent(msg);
+      return { ...msg, blocks: newBlocks, tool_calls: undefined };
+    });
+
+    // Phase 4: 从历史消息中的 tool_call 块中提取文件路径（仅同步收集，不做异步路径解析）
+    const sessionFilesList: FilePreview[] = [];
+    const addedPaths = new Set<string>();
+
+    for (const msg of enhancedMessages) {
+      if (msg.role === "assistant" && msg.blocks) {
+        addFilePathsFromBlocks(
+          msg.blocks,
+          (file) => {
+            if (!addedPaths.has(file.path)) {
+              addedPaths.add(file.path);
+              sessionFilesList.push(file);
+            }
+          },
+          () => get().sessionFiles,
+          // 不触发异步 setState：文件路径解析留到预览时按需执行
+          () => {},
+        );
+      }
+    }
+
+    // 检测是否有待用户回答的 question 块
+    const hasQuestion = enhancedMessages.some((m) =>
+      m.blocks?.some((b) => b.type === "question"),
+    );
+    // P2-3: 按会话记录 pending question（setMessages 作用于当前会话）
+    const questionSessionId = messages[0]?.session_id ?? "default";
+    const pendingQuestion = {
+      ...get().hasPendingQuestion,
+      [questionSessionId]: hasQuestion,
+    };
+
+    if (sessionFilesList.length > 0) {
+      const currentFiles = get().sessionFiles;
+      const merged = [...currentFiles];
+      for (const file of sessionFilesList) {
+        if (!merged.some((f) => f.path === file.path)) {
+          merged.push(file);
+        }
+      }
+      set({
+        messages: enhancedMessages,
+        sessionFiles: merged,
+        hasPendingQuestion: pendingQuestion,
+        streamingStatus: "",
+        executionPhase: null,
+      });
+    } else {
+      set({
+        messages: enhancedMessages,
+        hasPendingQuestion: pendingQuestion,
+        streamingStatus: "",
+        executionPhase: null,
+      });
+    }
+
+    // 释放会话切换锁后刷新暂存的流式 chunk
+    switchState.lock = false;
+    if (switchState.pending.length > 0) {
+      // 暂存 chunk 的 sessionId 可能与当前会话不一致（跨会话切换），入队到全局 SaveQueue
+      const lastChunk = switchState.pending[switchState.pending.length - 1];
+      enqueueSaveBlocks(
+        lastChunk.sessionId,
+        lastChunk.assistantId,
+        lastChunk.blocks,
+        true, // immediate 保存
+      );
+      switchState.pending = [];
+    }
+  } catch (e) {
+    // 确保会话切换锁一定释放，防止锁泄漏导致后续流式输出永久阻塞
+    switchState.lock = false;
+    switchState.pending = [];
+    handleClientError(
+      e,
+      { module: "stores:chat:message", action: "setMessages" },
+      "error",
+    );
+    // 设置空消息列表作为降级，避免界面卡在旧数据上
+    set({ messages: [], streamingStatus: "", executionPhase: null });
+  }
+}

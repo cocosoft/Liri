@@ -307,7 +307,10 @@ export class ConfigLoader implements IConfigLoader {
           logger.debug('配置文件轮询检查完成', { path: source.path });
         } catch (err) {
           // ignore read errors during watch
-          logger.warn('配置文件轮询检查失败', { path: source.path, error: err });
+          logger.warn('配置文件轮询检查失败', {
+            path: source.path,
+            error: err,
+          });
 
           handleError(err, {
             module: 'config:loader:ConfigLoader',

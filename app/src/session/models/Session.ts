@@ -2,6 +2,9 @@ import type { SessionMetadata } from './SessionMetadata';
 import type { SessionMessage } from './SessionMessage';
 import type { SessionState } from './SessionState';
 import type { SessionSource } from '../key/SessionSource';
+import { getLogger } from '@modules/monitoring';
+
+const logger = getLogger('session:models:session');
 
 /**
  * 会话模型接口
@@ -99,11 +102,20 @@ export class Session implements Session {
    * @param state 会话状态
    */
   updateState(state: Partial<SessionState>): void {
+    const from = this.state.currentState;
     if (state.currentState !== undefined)
       this.state.currentState = state.currentState;
     if (state.history !== undefined) this.state.history = state.history;
     if (state.config !== undefined) this.state.config = state.config;
     this.update();
+
+    if (state.currentState !== undefined && state.currentState !== from) {
+      logger.debug('会话状态切换（Session 层）', {
+        sessionId: this.id,
+        from,
+        to: state.currentState,
+      });
+    }
   }
 
   /**

@@ -1,3 +1,7 @@
+import { getLogger } from '@modules/monitoring';
+
+const logger = getLogger('session:models:state');
+
 /**
  * 状态历史记录
  */
@@ -71,8 +75,10 @@ export class SessionState implements SessionState {
    */
   updateState(state: string): void {
     if (state !== this.currentState) {
+      const from = this.currentState;
       this.currentState = state;
       this.addStateHistory(state);
+      logger.debug('会话状态切换', { from, to: state });
     }
   }
 

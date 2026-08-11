@@ -141,6 +141,15 @@ export class SessionManager {
 
     this.setSessionTimeout(sessionId);
 
+    logger.debug('会话创建', {
+      sessionId,
+      workId,
+      dir,
+      activeCount: this.sessions.size,
+      totalCreated: this.totalCreated,
+      timeoutMs: this.sessionTimeoutMs,
+    });
+
     return handle;
   }
 
@@ -227,11 +236,19 @@ export class SessionManager {
     const sessionInfo = this.sessions.get(sessionId);
     if (!sessionInfo) return;
 
+    const oldLastActivityTime = sessionInfo.lastActivityTime;
     sessionInfo.lastActivityTime = Date.now();
     sessionInfo.handle.activities.push(activity);
     sessionInfo.handle.currentActivity = activity;
 
     this.resetIdleTimer(sessionId);
+
+    logger.debug('会话活动刷新', {
+      sessionId,
+      activityType: activity.type,
+      idleTimeoutMs: this.idleTimeoutMs,
+      idleTimeMs: Date.now() - oldLastActivityTime,
+    });
   }
 
   /**
@@ -243,23 +260,31 @@ export class SessionManager {
 
     sessionInfo.ingressToken = newToken;
     sessionInfo.handle.updateAccessToken(newToken);
+
+    logger.debug('会话令牌更新', {
+      sessionId,
+      tokenLength: newToken.length,
+    });
   }
 
   /**
    * 停止会话
    */
-  async stopSession(sessionId: string): Promise<void> {
+  async stopSession(sessionId: string): Promise<string | undefined> {
     const sessionInfo = this.sessions.get(sessionId);
-    if (!sessionInfo) return;
+    if (!sessionInfo) return undefined;
+
+    const lifetimeMs = Date.now() - sessionInfo.startTime;
 
     this.clearSessionTimeout(sessionId);
     this.clearIdleTimer(sessionId);
 
+    let stopErrorCode: string | undefined;
     try {
       await sessionInfo.handle.stop();
     } catch (err) {
-      // 忽略停止时的错误
-
+      // 忽略停止时的错误，仅透出错误码供调用方排查
+      stopErrorCode = err instanceof AppError ? err.code : 'UNKNOWN_STOP_ERROR';
       handleError(err, {
         module: 'bridge:managers:SessionManager',
         action: 'ignoreStopError',
@@ -267,6 +292,17 @@ export class SessionManager {
     }
 
     this.sessions.delete(sessionId);
+
+    logger.debug('会话停止', {
+      sessionId,
+      workId: sessionInfo.workId,
+      lifetimeMs,
+      timedOut: sessionInfo.timedOut,
+      activeCount: this.sessions.size,
+      stopErrorCode,
+    });
+
+    return stopErrorCode;
   }
 
   /**
@@ -279,7 +315,8 @@ export class SessionManager {
     this.clearSessionTimeout(sessionId);
     this.clearIdleTimer(sessionId);
 
-    this.lifetimeTotalMs += Date.now() - sessionInfo.startTime;
+    const lifetimeMs = Date.now() - sessionInfo.startTime;
+    this.lifetimeTotalMs += lifetimeMs;
     this.sessions.delete(sessionId);
 
     switch (status) {
@@ -293,6 +330,17 @@ export class SessionManager {
         this.totalInterrupted++;
         break;
     }
+
+    logger.debug('会话状态切换完成', {
+      sessionId,
+      workId: sessionInfo.workId,
+      status,
+      lifetimeMs,
+      activeCount: this.sessions.size,
+      totalCompleted: this.totalCompleted,
+      totalFailed: this.totalFailed,
+      totalInterrupted: this.totalInterrupted,
+    });
 
     this.onSessionDone(sessionId, status);
   }
@@ -396,7 +444,20 @@ export class SessionManager {
     if (!sessionInfo) return;
 
     sessionInfo.timedOut = true;
-    await this.stopSession(sessionId);
+    logger.warn('会话超时，触发停止', {
+      sessionId,
+      workId: sessionInfo.workId,
+      sessionTimeoutMs: this.sessionTimeoutMs,
+      lifetimeMs: Date.now() - sessionInfo.startTime,
+    });
+    const errorCode = await this.stopSession(sessionId);
+    if (errorCode) {
+      logger.warn('会话超时停止失败，错误码排查', {
+        sessionId,
+        workId: sessionInfo.workId,
+        errorCode,
+      });
+    }
     this.totalFailed++;
     this.onSessionDone(sessionId, 'failed');
   }
@@ -411,6 +472,13 @@ export class SessionManager {
     const idleTime = Date.now() - sessionInfo.lastActivityTime;
     if (idleTime >= this.idleTimeoutMs) {
       sessionInfo.timedOut = true;
+      logger.warn('会话空闲超时，触发中断', {
+        sessionId,
+        workId: sessionInfo.workId,
+        idleTimeMs: idleTime,
+        idleTimeoutMs: this.idleTimeoutMs,
+        lifetimeMs: Date.now() - sessionInfo.startTime,
+      });
       await this.stopSession(sessionId);
       this.totalInterrupted++;
       this.onSessionDone(sessionId, 'interrupted');

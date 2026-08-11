@@ -189,7 +189,6 @@ output/
 
 client/app/
 client/data/
-client/e2e/
 .trae/rules/
 fixer.js
 security-architecture-analysis.md

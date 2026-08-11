@@ -497,6 +497,10 @@ export async function* runStreamMessage(
     );
 
     // 管线 — 内容修复 + 输出
+    // BUG 修复：repairContent/createAssistantMessage/postProcess 均从 ctx.accumulatedContent
+    // 读取内容，而流式循环累积的是本函数局部变量 accumulatedContent —— 此前从未同步，
+    // 导致 assistant 消息 content 恒为空（刷新会话后回复"消失"）。必须在此同步。
+    pipeline.ctx.accumulatedContent = accumulatedContent;
     const finalContent = pipeline.repairContent();
     options?.onStream?.(finalContent);
     yield finalContent;

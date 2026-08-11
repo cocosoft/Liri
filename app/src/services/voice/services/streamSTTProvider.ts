@@ -594,6 +594,7 @@ class StreamSTTConnectionImpl implements STTStreamConnection {
       ws.send(JSON.stringify({ type: 'KeepAlive' }));
 
       this.keepaliveTimer = setInterval(() => {
+        logger.debug('STT KeepAlive 心跳 tick', { readyState: ws.readyState });
         if (ws.readyState === WebSocket.OPEN) {
           ws.send(JSON.stringify({ type: 'KeepAlive' }));
         }

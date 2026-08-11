@@ -31,11 +31,13 @@ export async function handleEvents(
   if (!heartbeatTimer) {
     logger.debug('启动 SSE 心跳定时器', { intervalMs: 15000 });
     heartbeatTimer = setInterval(() => {
+      logger.debug('SSE 心跳广播 tick', { clients: clients.size });
       const payload = JSON.stringify({ type: 'heartbeat', ts: Date.now() });
       for (const client of clients) {
         try {
           client.write(`event: heartbeat\ndata: ${payload}\n\n`);
         } catch {
+          logger.warn('SSE 心跳发送失败，移除客户端');
           clients.delete(client);
         }
       }

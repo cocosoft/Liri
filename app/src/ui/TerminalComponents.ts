@@ -6,9 +6,6 @@
 
 import chalk from 'chalk';
 
-import { getLogger } from '@modules/monitoring';
-const logger = getLogger('ui:TerminalComponents');
-
 export interface TableColumn {
   header: string;
   width: number;

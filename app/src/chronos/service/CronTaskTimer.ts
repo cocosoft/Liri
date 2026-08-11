@@ -121,6 +121,11 @@ export class CronTaskTimer {
       }
 
       handle.nextRun = Date.now() + handle.interval;
+      // R08-002: 定时器 tick 记录（skip=未激活/已停止；start=触发回调）
+      logger.debug('Cron 定时器 tick', {
+        taskId,
+        nextRun: handle.nextRun,
+      });
       this.callback(taskId).catch((e) => {
         void handleError(e, {
           module: 'chronos:timer',

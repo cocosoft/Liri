@@ -167,6 +167,7 @@ export class LocalBashTask extends BaseTask {
     let lastGrowth = Date.now();
     this.stallWatchdogTimer = setInterval(async () => {
       try {
+        logger.debug('Bash 卡死检测 tick', { taskId: this.id });
         const filePath = this.state.outputFile;
         if (!filePath) return;
 
@@ -188,6 +189,7 @@ export class LocalBashTask extends BaseTask {
         }
 
         this.stopStallWatchdog();
+        logger.warn('Bash 任务疑似卡死，发出 stalled 事件', { taskId: this.id });
         this.emit('stalled', {
           taskId: this.id,
           description: this.state.description,
@@ -195,6 +197,7 @@ export class LocalBashTask extends BaseTask {
         });
       } catch (err) {
         // 输出文件可能还不存在
+        logger.debug('Bash 卡死检测失败（输出文件可能不存在）', { error: err });
 
         handleError(err, {
           module: 'tasks:bash',

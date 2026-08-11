@@ -202,6 +202,7 @@ export function usePrStatus(repo: string, prNumber: number): UsePrStatusResult {
     if (subscriptionRef.current) return;
 
     subscriptionRef.current = setInterval(() => {
+      logger.debug('PR 状态轮询刷新', { repo, prNumber });
       fetchPRStatus();
     }, 30000); // 每30秒刷新一次
   }, [fetchPRStatus]);

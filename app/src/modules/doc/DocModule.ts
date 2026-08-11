@@ -402,6 +402,7 @@ export class DocModule {
   private startHealthCheck(): void {
     if (this.healthCheckTimer) return;
     this.healthCheckTimer = setInterval(() => {
+      logger.debug('Doc 模块健康检查 tick', { status: this.status });
       // TODO: 检查 OfficeCLI MCP 连接状态
     }, 30000);
   }

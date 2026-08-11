@@ -6,6 +6,9 @@
 
 import { EventEmitter } from 'events';
 import { TTLCache } from '@modules/utils/cache';
+import { getLogger } from '@modules/monitoring';
+
+const logger = getLogger('chat:performance-optimization');
 
 /**
  * 性能指标
@@ -305,6 +308,8 @@ export class PerformanceOptimizationService extends EventEmitter {
   private startCacheCleanup(): void {
     setInterval(() => {
       this.cleanupExpiredCache();
+      // R08-002: 缓存清理循环记录
+      logger.debug('性能缓存清理 tick', { size: this.cache.size() });
     }, 60000);
   }
 

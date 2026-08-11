@@ -579,8 +579,10 @@ class IrcChannelPlugin extends BaseChannelPlugin {
     this.clearPing();
     this.pingTimer = setInterval(() => {
       try {
+        logger.debug('IRC 心跳保活 PING tick', { nick: this.currentNick });
         this.sendRaw('PING :pyapp-keepalive');
       } catch {
+        logger.warn('IRC 心跳保活 PING 发送失败，停止心跳');
         this.clearPing();
       }
     }, 60000);

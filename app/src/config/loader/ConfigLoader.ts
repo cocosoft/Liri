@@ -296,13 +296,18 @@ export class ConfigLoader implements IConfigLoader {
     if (source.type === 'file' && source.path) {
       const interval = setInterval(() => {
         try {
-          if (!existsSync(source.path!)) return;
+          if (!existsSync(source.path!)) {
+            logger.debug('配置文件不存在，跳过轮询检查', { path: source.path });
+            return;
+          }
           const content = readFileSync(source.path!, 'utf-8');
           const format = source.format || this.detectFormat(source.path!);
           const config = this.parse(content, format);
           callback(config);
+          logger.debug('配置文件轮询检查完成', { path: source.path });
         } catch (err) {
           // ignore read errors during watch
+          logger.warn('配置文件轮询检查失败', { path: source.path, error: err });
 
           handleError(err, {
             module: 'config:loader:ConfigLoader',

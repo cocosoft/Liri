@@ -331,6 +331,7 @@ export class ToolOrchestrator {
       const checkInterval = setInterval(() => {
         if (this.runningTasks === 0) {
           clearInterval(checkInterval);
+          logger.debug('工具执行任务全部完成，退出等待轮询');
           resolve();
         }
       }, 50);

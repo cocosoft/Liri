@@ -83,6 +83,7 @@ export async function handleOrchestrationStream(
 
     // 保持连接打开，心跳
     const heartbeat = setInterval(() => {
+      logger.debug('编排 SSE 心跳 tick', { workItemId: itemId });
       sendSSE(res, 'heartbeat', {
         timestamp: new Date().toISOString(),
       });

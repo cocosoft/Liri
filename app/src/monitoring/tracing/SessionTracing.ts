@@ -132,7 +132,12 @@ export class SessionTracing {
     }
 
     this.cleanupInterval = setInterval(() => {
+      const before = this.activeSpans.size;
       this.cleanupStaleSpans();
+      logger.debug('追踪 Span 清理完成', {
+        removed: before - this.activeSpans.size,
+        remaining: this.activeSpans.size,
+      });
     }, 60000); // 每分钟清理一次
 
     // 防止定时器阻止进程退出

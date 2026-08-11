@@ -175,6 +175,7 @@ const parallelCommand = {
 
         // 备选: 如果调度器已经完成但回调没触发
         const checkInterval = setInterval(() => {
+          logger.debug('并行任务完成轮询检查', { completedTasks, totalTasks });
           if (completedTasks >= totalTasks) {
             clearInterval(checkInterval);
             resolve();

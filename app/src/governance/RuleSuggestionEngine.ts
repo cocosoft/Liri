@@ -137,7 +137,12 @@ export class RuleSuggestionEngine extends EventEmitter {
     governanceAuditService.on('auditEvent', this.eventListener);
 
     this.cleanupTimer = setInterval(() => {
+      const before = this.eventBuffer.length;
       this.pruneExpiredEvents();
+      logger.debug('规则建议事件缓冲清理完成', {
+        removed: before - this.eventBuffer.length,
+        remaining: this.eventBuffer.length,
+      });
     }, 60000);
   }
 

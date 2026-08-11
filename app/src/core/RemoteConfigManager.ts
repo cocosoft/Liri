@@ -450,6 +450,10 @@ export class RemoteConfigManager {
           change.key === key && change.timestamp > new Date(Date.now() - 5000) // 最近5秒的变更
       );
 
+      logger.debug('远程配置变更轮询检查', {
+        key,
+        recentCount: recentChanges.length,
+      });
       recentChanges.forEach(callback);
     }, 1000);
 

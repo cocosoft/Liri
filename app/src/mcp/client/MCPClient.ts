@@ -438,14 +438,16 @@ export class MCPClientImpl extends EventEmitter implements MCPClient {
 
     this._heartbeatTimer = setInterval(async () => {
       if (this._state !== 'connected') {
+        logger.warn('MCP 心跳跳过（未连接），停止心跳', { state: this._state });
         this.stopHeartbeat();
         return;
       }
 
       try {
+        logger.debug('MCP 心跳 tick', { state: this._state });
         await this.getServerInfo();
       } catch (error) {
-        logger.warning('Heartbeat failed:', { error });
+        logger.warn('MCP 心跳检测失败', { error });
       }
     }, 30000);
   }

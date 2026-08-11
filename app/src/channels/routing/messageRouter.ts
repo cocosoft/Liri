@@ -76,10 +76,19 @@ const CHAT_TIMEOUT_MS = 120_000; // 2 分钟
 /** 定期清理过期去重缓存条目 */
 setInterval(() => {
   const now = Date.now();
+  let removed = 0;
   for (const [key, time] of contentDedupCache) {
     if (now - time > CONTENT_DEDUP_WINDOW_MS * 2) {
       contentDedupCache.delete(key);
+      removed++;
     }
+  }
+  // R08-002: 清理循环记录（skip=无需清理）
+  if (removed > 0) {
+    logger.debug('内容去重缓存清理', {
+      removed,
+      remaining: contentDedupCache.size,
+    });
   }
 }, 30000).unref();
 

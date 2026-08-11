@@ -23,7 +23,10 @@ import type http from 'http';
 import type { HandlerCtx } from './handler-utils';
 import { broadcastEvent } from './handler-utils';
 import { handleError } from '@modules/error';
+import { getLogger } from '@modules/monitoring';
 import { refreshCheckpointLogConfig } from '@modules/config/settings/CheckpointLogConfig';
+
+const logger = getLogger('http:config-handlers');
 
 // ========== Config Handlers ==========
 
@@ -265,6 +268,8 @@ export async function handleEvents(
   if (!_heartbeatTimer) {
     _heartbeatTimer = setInterval(() => {
       const payload = JSON.stringify({ type: 'heartbeat', ts: Date.now() });
+      // R08-002: SSE 心跳广播循环记录
+      logger.debug('SSE 心跳广播 tick', { clientCount: _clients.size });
       for (const client of _clients) {
         client.write(`event: heartbeat\ndata: ${payload}\n\n`);
       }

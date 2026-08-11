@@ -200,6 +200,10 @@ export class InteractiveHandler {
 
       const checkInterval = setInterval(() => {
         const current = this.pendingRequests.get(request.id);
+        logger.debug('权限请求响应轮询检查', {
+          requestId: request.id,
+          resolved: !!current?.resolved,
+        });
         if (current?.resolved) {
           clearTimeout(timer);
           clearInterval(checkInterval);

@@ -269,6 +269,7 @@ export class VideoGenerateTool extends BaseTool {
       const raw = Math.log(1 + (elapsed / estimatedMs) * 9) / Math.log(10);
       const progress = Math.min(Math.round(raw * 90), 90);
       persistence.update(taskId, { progress });
+      logger.debug('视频生成进度更新', { taskId, progress });
     }, 5000);
 
     // 确保 interval 不会无限运行（安全上限）

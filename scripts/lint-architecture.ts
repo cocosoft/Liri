@@ -2081,8 +2081,14 @@ class ArchitectureLinter {
     async checkBackgroundEventLogging(): Promise<void> {
         const intervalRe = /setInterval\(\s*(?:async\s+)?(?:\(\)\s*=>|function\s*\(\s*\)\s*)\s*\{([\s\S]*?)\}\s*,\s*\d+\s*\)/g;
         const loggerRe = /logger\.\s*(info|warn|error|debug|trace)\s*\(/;
+        // UI 动画循环豁免：回调体仅含 UI 状态更新（setXxx/setState/useState setter/光标闪烁等），
+        // 非后台任务，不适用 R08-002 四类事件日志（避免给 spinner/loading 动画强加日志）。
+        const uiAnimationRe = /^\s*(set[A-Z]\w*\([^;]*\);?|setState\([^;]*\);?|cursorBlink\.\w+\s*=\s*[^;]+;)\s*$/;
+        // 终端 spinner/进度动画豁免：帧绘制（process.stdout.write + 帧索引取模），高频 UI 输出，非后台任务
+        const terminalAnimationRe = /process\.stdout\.write[\s\S]*?%\s*(frames|FRAMES|\w+\.length)/;
 
         let silentLoops = 0;
+        let uiAnimationLoops = 0;
         for (const file of this.allFiles) {
             const relPath = relative(process.cwd(), file);
             if (/\.test\.ts$/.test(relPath) || /\.test\.tsx$/.test(relPath)) continue;
@@ -2092,6 +2098,13 @@ class ArchitectureLinter {
             while ((m = intervalRe.exec(content)) !== null) {
                 const callbackBody = m[1];
                 if (loggerRe.test(callbackBody)) continue;
+
+                // UI 动画循环豁免：纯状态更新（无分号外的逻辑、无调用链）
+                const trimmed = callbackBody.trim();
+                if (uiAnimationRe.test(trimmed) || terminalAnimationRe.test(trimmed)) {
+                    uiAnimationLoops++;
+                    continue;
+                }
 
                 silentLoops++;
                 this.violations.push({
@@ -2104,7 +2117,7 @@ class ArchitectureLinter {
                 break; // 每文件最多报 1 条，避免刷屏
             }
         }
-        console.log(`[后台事件检查 R08-002] ${silentLoops} 个后台任务循环无日志记录`);
+        console.log(`[后台事件检查 R08-002] ${silentLoops} 个后台任务循环无日志记录（豁免 UI 动画 ${uiAnimationLoops} 个）`);
     }
 
     /**

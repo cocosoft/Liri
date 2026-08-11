@@ -317,8 +317,10 @@ async function handleStreamingChat(
   // P0-fix: SSE 保活心跳，防止 NAT/代理静默断开 TCP 连接（每 15s 发送 SSE 注释行）
   const keepaliveInterval = setInterval(() => {
     try {
+      logger.debug('SSE 保活心跳 tick', { sessionId: request.session_id });
       res.write(': heartbeat\n\n');
     } catch {
+      logger.warn('SSE 心跳写入失败，停止保活');
       clearInterval(keepaliveInterval);
     }
   }, 15000);

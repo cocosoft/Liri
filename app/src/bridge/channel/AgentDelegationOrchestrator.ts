@@ -249,6 +249,7 @@ export class AgentDelegationOrchestrator {
     if (this.pollTimer) return;
 
     this.pollTimer = setInterval(async () => {
+      logger.debug('委托轮询 tick', { activeSessions: this.sessions.size });
       const count = await this.adapter.pollAndReport();
 
       // 检查所有会话是否完成

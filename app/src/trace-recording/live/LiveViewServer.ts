@@ -186,8 +186,12 @@ export class LiveViewServer {
     // 发送 keepalive
     const keepalive = setInterval(() => {
       try {
+        logger.debug('LiveView SSE keepalive tick', { clientId: id });
         res.write(':keepalive\n\n');
       } catch {
+        logger.warn('LiveView SSE keepalive 写入失败，移除客户端', {
+          clientId: id,
+        });
         clearInterval(keepalive);
         this.clients.delete(id);
       }

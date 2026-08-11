@@ -559,6 +559,9 @@ export class VoiceServiceBridge {
 
     // 使用轮询方式监听，每隔 1 秒从录音缓冲区检测一次
     this._wakeDetectionTimer = setInterval(async () => {
+      logger.debug('唤醒词监听轮询 tick', {
+        running: this._isWakeDetectionRunning,
+      });
       if (!this._isWakeDetectionRunning) {
         this.stopWakeWordDetection();
         return;

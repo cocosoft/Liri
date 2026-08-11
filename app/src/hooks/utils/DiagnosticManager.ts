@@ -97,7 +97,9 @@ export class DiagnosticManager extends EventEmitter {
   private setupBufferFlush(): void {
     // 每5秒刷新一次缓冲区
     this.bufferFlushInterval = setInterval(() => {
+      const bufferSize = this.eventBuffer.length;
       this.flushBuffer();
+      logger.debug('诊断缓冲区刷新完成', { bufferSize });
     }, 5000);
   }
 

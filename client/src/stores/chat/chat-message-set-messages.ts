@@ -4,7 +4,7 @@
  * 从 chat-message.slice.ts 拆出（R04-001 文件行数限制治理）。
  * setMessages：加载历史消息时重建 blocks 结构（tool 结果合并 / 连续 assistant 合并 / groupId 迁移）。
  */
-import type { Message, FilePreview } from "@/types";
+import type { Message, MessageBlock, FilePreview } from "@/types";
 import { addFilePathsFromBlocks } from "./chat-file.slice";
 import {
   generateGroupId,
@@ -21,6 +21,23 @@ import {
   MAX_INLINE_RESULT_LENGTH,
 } from "./chat-message-shared";
 import type { MessageSet, MessageGet } from "./chat-message.types";
+
+/**
+ * AB-7 修复：历史加载时归一化 tool_call 块。
+ * 流中断/异常退出时，后端落盘的 tool_call 块可能残留 "running" 状态，
+ * 若原样渲染，前端工具卡片会永久显示"执行中"。
+ * 历史数据代表已完成的一轮，一律归一化为最终态：running → failed。
+ */
+function normalizeLoadedBlock(block: MessageBlock): MessageBlock {
+  if (block.type === "tool_call" && block.toolCall?.status === "running") {
+    return {
+      ...block,
+      isStreaming: false,
+      toolCall: { ...block.toolCall, status: "failed" },
+    };
+  }
+  return { ...block, isStreaming: false };
+}
 
 /**
  * 加载历史消息时为 assistant 消息重建 blocks 结构
@@ -82,10 +99,9 @@ export function setMessagesImpl(
           timestamp: lastMsg.timestamp || msg.timestamp,
           blocks: [
             ...(lastMsg.blocks || []),
-            ...(Array.isArray(msg.blocks) ? msg.blocks : []).map((b) => ({
-              ...b,
-              isStreaming: false,
-            })),
+            ...(Array.isArray(msg.blocks) ? msg.blocks : []).map((b) =>
+              normalizeLoadedBlock(b),
+            ),
           ],
           tool_calls: [
             ...(lastMsg.tool_calls || []),
@@ -105,7 +121,7 @@ export function setMessagesImpl(
         // 先处理已有 blocks：合并工具结果 + 迁移 groupId
         let hasMergedResult = false;
         const mergedBlocks = msg.blocks.map((b) => {
-          const block = { ...b, isStreaming: false };
+          const block = normalizeLoadedBlock(b);
           if (
             block.type === "tool_call" &&
             block.toolCall?.id &&
@@ -133,18 +149,18 @@ export function setMessagesImpl(
         if (oldBlocksHaveGroupId) {
           return {
             ...msg,
-            blocks: msg.blocks.map((b) => ({ ...b, isStreaming: false })),
+            blocks: msg.blocks.map((b) => normalizeLoadedBlock(b)),
           };
         }
         const lastToolCallId = findLastToolCallId(msg);
         const enhancedBlocks = msg.blocks.map((b) => {
-          if (b.groupId) return { ...b, isStreaming: false };
+          if (b.groupId) return normalizeLoadedBlock(b);
           const id =
             b.toolCallId ||
             b.toolCall?.id ||
             lastToolCallId ||
             generateGroupId();
-          return { ...b, isStreaming: false, groupId: "migrate_" + id }; // "migrate_" 前缀标记历史数据，与流式 "grp_" 区分
+          return { ...normalizeLoadedBlock(b), groupId: "migrate_" + id }; // "migrate_" 前缀标记历史数据，与流式 "grp_" 区分
         });
         return { ...msg, blocks: enhancedBlocks };
       }

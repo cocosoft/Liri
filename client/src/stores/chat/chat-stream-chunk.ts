@@ -9,6 +9,7 @@ import type { Message } from "@/types";
 import { useContextWatermarkStore } from "@/stores/contextWatermarkStore";
 import { playWarningSound } from "@/services/SoundService";
 import { stripStructuralTags } from "./chat-toolcall.slice";
+import { friendlyErrorSummary } from "@/utils/friendlyError";
 import { switchState } from "./chat-message-shared";
 import { createLogger } from "@/utils/logger";
 import type { ChronologicalBlockBuilder } from "./chat-toolcall.slice";
@@ -63,7 +64,10 @@ export async function processChunk(
 
   // P1-5: 每次收到 chunk 时更新时间戳
   lastChunkTimeRef.current = Date.now();
-  const current = get().messages;
+  // AB-5 修复：以 batch.latestMessages 为累积基准（同帧内多个 chunk 连续累加），
+  // 而非每次从 store 取旧快照——否则同帧多 chunk 基于同一快照互相覆盖，
+  // msg.content 丢字（复制/自动重命名内容不完整）。
+  const current = batch.latestMessages ?? get().messages;
   const msgIdx = current.findIndex((m) => m.id === assistantId);
 
   if (msgIdx === -1) {
@@ -196,17 +200,28 @@ export async function processChunk(
     blockBuilder.addProgress(progressData);
     updatedMsg = { ...msg, blocks: blockBuilder.getBlocks() };
   } else if (chunk.type === "error") {
-    // 将错误信息显示在聊天界面中
-    blockBuilder.addStatus(`❌ ${chunk.content}`);
-    updatedMsg = {
-      ...msg,
-      content: msg.content + stripStructuralTags(chunk.content),
-      blocks: blockBuilder.getBlocks(),
-    };
-    set({
-      error: chunk.content,
-      errorCode: chunk.errorCode || "UNKNOWN",
-    });
+    // P1 修复（AB-3）：错误去重——后端 catch 会先发带真实消息的 error chunk，
+    // 随后 done 块 finish_reason:'error' 会再解析出一个 fallback error chunk
+    // （"流式响应出错"）。已有错误状态时仅补充 errorCode，不重复追加状态块/覆盖错误文本。
+    if (get().error) {
+      set({ errorCode: chunk.errorCode || "UNKNOWN" });
+      updatedMsg = msg;
+    } else {
+      // 将错误信息显示在聊天界面中
+      // P1 修复（1.5）：错误信息可读化——状态块显示映射后的可读提示
+      // （如 SSL 证书失败/连接失败/模型不存在 → 中文操作指引），
+      // msg.content 仍保留原始错误文本供排查
+      blockBuilder.addStatus(`❌ ${friendlyErrorSummary(chunk.content)}`);
+      updatedMsg = {
+        ...msg,
+        content: msg.content + stripStructuralTags(chunk.content),
+        blocks: blockBuilder.getBlocks(),
+      };
+      set({
+        error: chunk.content,
+        errorCode: chunk.errorCode || "UNKNOWN",
+      });
+    }
   } else if (chunk.type === "tool_call" && chunk.toolCall) {
     // 实时转换：todo_write 的 tool_call 直接转 todo block，不等流结束
     let skipDefault = false;

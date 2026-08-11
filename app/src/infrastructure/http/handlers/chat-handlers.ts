@@ -669,6 +669,30 @@ async function handleStreamingChat(
             streamUsage = chunk.usage;
           }
           break;
+        case 'execution_phase':
+          // AB-9 修复：ToolLoopRunner 心跳 execution_phase 此前无 SSE 分支被 switch 吞掉，
+          // 工具执行进度到不了前端。此处按结构化数据转发（__pyapp_execution_phase）。
+          if (chunk.executionPhase) {
+            res.write(
+              `data: ${JSON.stringify({
+                id: responseId,
+                object: 'chat.completion.chunk',
+                created,
+                model,
+                __pyapp_type: 'execution_phase',
+                __pyapp_execution_phase: chunk.executionPhase,
+                choices: [
+                  {
+                    index: 0,
+                    delta: { content: chunk.content || '' },
+                    finish_reason: null,
+                  },
+                ],
+              })}\n\n`
+            );
+            safeFlush(res);
+          }
+          break;
       }
 
       result = await generator.next();

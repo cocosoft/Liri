@@ -56,6 +56,7 @@ export interface MessageSlice {
     sessionId?: string,
     workMode?: "plan" | "do",
     attachedImages?: AttachedImage[],
+    existingUserMessageId?: string,
   ) => Promise<void>;
   /** 重新生成上一条 AI 消息 */
   regenerateMessage: (sessionId?: string) => Promise<void>;

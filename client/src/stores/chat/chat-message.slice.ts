@@ -111,6 +111,7 @@ export const createMessageSlice: StateCreator<
       sessionId?: string,
       workMode?: "plan" | "do",
       attachedImages?: import("@/types").AttachedImage[],
+      existingUserMessageId?: string,
     ) => {
       await streamMessageImpl(
         messageSet,
@@ -119,6 +120,7 @@ export const createMessageSlice: StateCreator<
         sessionId,
         workMode,
         attachedImages,
+        existingUserMessageId,
       );
     },
 

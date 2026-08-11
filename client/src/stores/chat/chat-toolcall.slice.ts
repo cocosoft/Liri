@@ -62,6 +62,17 @@ export class ChronologicalBlockBuilder {
     this.blocksDirty = true;
   }
 
+  /**
+   * AB-6 修复：原地修改块后替换为新对象并置脏。
+   * 若不替换对象引用，getBlocks() 返回同一缓存数组且元素引用不变，
+   * ChatMessage memo 比较器（prevBlocks===nextBlocks）会跳过重渲染，
+   * 导致 thinking/todo/progress 块流式期间内容不刷新。
+   */
+  private replaceBlockAt(idx: number, updated: MessageBlock): void {
+    this.blocks[idx] = updated;
+    this.markBlocksDirty();
+  }
+
   /** 追加文本块，工具调用后自动新建（同时分配新 groupId） */
   addText(content: string, isStreaming: boolean): void {
     if (this.hasToolCallSinceLastText || !this.activeTextBlock) {
@@ -97,8 +108,15 @@ export class ChronologicalBlockBuilder {
       this.markBlocksDirty();
       this.activeThinkingBlock = newBlock;
     } else {
-      this.activeThinkingBlock.content += content;
-      this.activeThinkingBlock.isStreaming = isStreaming;
+      // AB-6 修复：追加内容时替换为新块对象（含 dirty），使 memo 比较器感知变化并重渲染
+      const updated: MessageBlock = {
+        ...this.activeThinkingBlock,
+        content: this.activeThinkingBlock.content + content,
+        isStreaming,
+      };
+      const idx = this.blocks.indexOf(this.activeThinkingBlock);
+      if (idx !== -1) this.replaceBlockAt(idx, updated);
+      this.activeThinkingBlock = updated;
     }
   }
 
@@ -375,7 +393,8 @@ export class ChronologicalBlockBuilder {
       idx = this.blocks.findIndex((b) => b.type === "todo");
     }
     if (idx !== -1) {
-      this.blocks[idx].taskCard = normalized;
+      // AB-6 修复：替换为新块对象（含 dirty），流式任务状态实时刷新
+      this.replaceBlockAt(idx, { ...this.blocks[idx], taskCard: normalized });
       return;
     }
     this.blocks.push({
@@ -406,7 +425,11 @@ export class ChronologicalBlockBuilder {
       const tasks = this.blocks[idx].taskCard!.tasks.map((t) =>
         String(t.id) === String(taskId) ? { ...t, ...updates } : t,
       );
-      this.blocks[idx].taskCard = { ...this.blocks[idx].taskCard!, tasks };
+      // AB-6 修复：替换为新块对象（含 dirty），单任务状态实时刷新
+      this.replaceBlockAt(idx, {
+        ...this.blocks[idx],
+        taskCard: { ...this.blocks[idx].taskCard!, tasks },
+      });
     }
   }
 
@@ -421,8 +444,12 @@ export class ChronologicalBlockBuilder {
         b.type === "progress" && b.progressData?.phase === progressData.phase,
     );
     if (idx !== -1) {
-      this.blocks[idx].progressData = progressData;
-      this.blocks[idx].content = progressData.description;
+      // AB-6 修复：替换为新块对象（含 dirty），进度条实时刷新
+      this.replaceBlockAt(idx, {
+        ...this.blocks[idx],
+        progressData,
+        content: progressData.description,
+      });
       return;
     }
     this.blocks.push({
@@ -1016,4 +1043,105 @@ export function rebuildBlocksFromContent(
   }
 
   return newBlocks;
+}
+
+/* ===================================================================
+ *  裸探索段分离（P0 修复：探索文本与正文分离）
+ *  与后端 MessageContextPipeline.stripBareExploration 同语义。
+ *  模型把工具执行过程叙述（"先规划…改用 glob…继续定位…直接出报告"）
+ *  未走 thinking 通道、直接泄漏进正文 —— 收尾时抽离为 thinking 块。
+ * =================================================================== */
+
+/** 裸探索句信号正则（真实会话导出 chat-export-*.md 实证） */
+const EXPLORATION_SENTENCE_PATTERNS = [
+  /(?:^|[。！？；：])\s*(?:让我(?:先|再|看看|读读|查查|深入)?|我现在|接下来|下一步|继续(?:读|看|挖|深挖|定位|确认|搜索|探索|排查|把|补)|再(?:读|看|挖|深入|确认)|先(?:定位|规划|看看|系统|把|批量)|换个方式|改用|换成|逐一|逐个|批量)/,
+  /(?:被拦|被拦截|改用|重试|路径解析|输出被截断|读完了|看完了|确认了|发现了|找到了|拿到了|定位到|列出来了|搜一下|命令被|证据收集完毕|更新任务状态|出(?:正式)?报告|输出报告|链路基本成型|拼图|补上|补齐|汇总新增|这轮|本轮|盲区|还没(?:读|看|碰|覆盖)|找不到|没找到|不在)/,
+  /(?:真相大白|看起来|这说明|这表明|出现了|参考目录)/,
+];
+
+/** Markdown 结构行（标题/列表/引用/代码/图片）——正文标志，不作探索句处理 */
+const MARKDOWN_STRUCTURE_RE =
+  /^\s*(?:#{1,6}\s|\*\s|-\s|>\s|\d+\.\s|```|`|\[\[|!\[)/;
+
+/** 按句子拆分 content，fenced code block 整体占位保护，保留换行结构 */
+function splitSentencesPreservingFences(content: string): string[] {
+  const FENCE_RE = /```[\s\S]*?```/g;
+  const placeholders: string[] = [];
+  const masked = content.replace(FENCE_RE, (m) => {
+    placeholders.push(m);
+    return `\u0000FENCE${placeholders.length - 1}\u0000`;
+  });
+  const parts = masked.split(/(?<=[。！？；?!])|(?=\n)/);
+  return parts.map((p) =>
+    p.replace(/\u0000FENCE(\d+)\u0000/g, (_m, idx: string) => {
+      return placeholders[Number(idx)] ?? "";
+    }),
+  );
+}
+
+/** 判定单个句子是否为"裸探索句" */
+function isBareExplorationSentence(sentence: string): boolean {
+  if (!sentence?.trim()) return false;
+  if (MARKDOWN_STRUCTURE_RE.test(sentence)) return false;
+  return EXPLORATION_SENTENCE_PATTERNS.some((re) => re.test(sentence));
+}
+
+/**
+ * 从正文中分离"裸探索段"：探索句 → thinking，正文句 → text。
+ * 保护规则：正文为空 → 全部保留为正文（宁可漏过不可错杀，防止误吞整段）。
+ */
+export function splitBareExploration(content: string): {
+  thinking: string;
+  text: string;
+} {
+  if (!content?.trim()) return { thinking: "", text: content ?? "" };
+
+  const sentences = splitSentencesPreservingFences(content);
+  const thinkingParts: string[] = [];
+  const textParts: string[] = [];
+  for (const sentence of sentences) {
+    if (isBareExplorationSentence(sentence)) {
+      thinkingParts.push(sentence);
+    } else {
+      textParts.push(sentence);
+    }
+  }
+
+  const thinking = thinkingParts.join("").trim();
+  const text = textParts.join("").trim();
+  // 保护规则：正文为空时保留原文（不分离，避免把整段正文误判为思考）
+  if (text.length === 0) return { thinking: "", text: content };
+  return { thinking, text };
+}
+
+/**
+ * 流结束收尾：把 text 块中的裸探索段抽离为 thinking 块（插入原 text 块之前）。
+ * 使 UI 呈现"思考折叠 + 干净正文"，且落盘 blocks 与后端剥离后的 content 一致。
+ */
+export function reorderExplorationBlocks(
+  blocks: MessageBlock[],
+): MessageBlock[] {
+  const result: MessageBlock[] = [];
+  for (const block of blocks) {
+    if (
+      block.type === "text" &&
+      typeof block.content === "string" &&
+      block.content.length > 0
+    ) {
+      const { thinking, text } = splitBareExploration(block.content);
+      if (thinking.length > 0 && text.length > 0) {
+        result.push({
+          id: generateBlockId(),
+          type: "thinking" as const,
+          content: thinking,
+          isStreaming: false,
+          groupId: block.groupId,
+        });
+        result.push({ ...block, content: text });
+        continue;
+      }
+    }
+    result.push(block);
+  }
+  return result;
 }

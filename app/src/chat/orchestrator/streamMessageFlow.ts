@@ -43,13 +43,18 @@ import {
   getDegradationWarning,
   type DegradationState,
 } from '../../ai/ContextDegradation';
-import { resolveMaxContextTokens } from '../services/ChatHelper';
+import { resolveMaxContextTokens, toUsageInfo } from '../services/ChatHelper';
 import { estimateMessagesTokens } from '../../ai/tokenizer/TokenEstimator';
 import {
   logTokenSnapshot,
   applyPreSendProtection,
   applyErrorCalibration,
   logInferenceUsage,
+  createStreamLoopStats,
+  beginStreamLoop,
+  countStreamChunk,
+  logStreamLoopDone,
+  logFinalRawResponse,
 } from './preSendContextProtection.js';
 import { savePlainTextCheckpoint } from './plainTextCheckpointSave.js';
 import { getOTelTracing } from '@modules/monitoring';
@@ -262,6 +267,10 @@ export async function* runStreamMessage(
       createDegradationState(initialCtxLimit);
 
     let streamHadError = false;
+    // 流式统计（跨重试轮次，循环外声明供结束后日志使用）
+    const streamStats = createStreamLoopStats();
+    // P2 修复（AB-1）：mutex 仅首轮获取（重试轮重复 acquire 会因 release 未执行而 30s 超时）
+    let mutexHeld = false;
     while (true) {
       streamHadError = false;
       host.unifiedTracker.resetStreamTokens();
@@ -292,6 +301,7 @@ export async function* runStreamMessage(
         }
       );
 
+      beginStreamLoop(streamStats);
       let result = await gen.next();
 
       // Phase 1c: 流式水位监测
@@ -324,15 +334,21 @@ export async function* runStreamMessage(
         });
       });
 
-      // 获取会话互斥锁（保护工具执行循环）
-      await mutex.acquire();
+      // 获取会话互斥锁（保护工具执行循环）——仅首轮获取，重试轮不再重复 acquire
+      if (!mutexHeld) {
+        await mutex.acquire();
+        mutexHeld = true;
+      }
       try {
         while (!result.done) {
           const chunk = result.value as string | ThinkingProviderChunk;
           if (typeof chunk === 'string') {
+            countStreamChunk(streamStats, false);
             accumulatedContent += chunk;
             host.unifiedTracker.onStreamChunk(chunk);
+            yield { type: 'text', content: chunk, sessionId: session.id };
           } else if (chunk?.type === 'thinking') {
+            countStreamChunk(streamStats, true);
             if (chunk.content) {
               host.unifiedTracker.onStreamChunk(
                 typeof chunk.content === 'string'
@@ -411,35 +427,7 @@ export async function* runStreamMessage(
 
       if (!streamHadError) {
         finalResponse = result.value as unknown as ChatResponse;
-        // 推理结束诊断：打印最终 raw response，确认是否存在 tool_calls
-        // （排查"模型只输出 thinking 不调用工具"：contentLength=0 + toolCallCount=0 即为 think-only）
-        const rawResp = finalResponse as unknown as Record<string, unknown>;
-        const toolCallsArr = Array.isArray(rawResp.tool_calls)
-          ? (rawResp.tool_calls as Array<{ name?: string; id?: string }>)
-          : [];
-        logger.info('streamMessage:推理结束 raw response', {
-          sessionId: session.id,
-          hasToolCalls: toolCallsArr.length > 0,
-          toolCallCount: toolCallsArr.length,
-          toolCallNames: toolCallsArr.map((tc) => tc.name),
-          toolCallsRaw: rawResp.tool_calls ?? null,
-          finishReason:
-            rawResp.finishReason ??
-            rawResp.finish_reason ??
-            rawResp.stop_reason ??
-            null,
-          contentLength:
-            typeof rawResp.content === 'string'
-              ? rawResp.content.length
-              : Array.isArray(rawResp.content)
-                ? rawResp.content.length
-                : 0,
-          contentPreview:
-            typeof rawResp.content === 'string'
-              ? rawResp.content.slice(0, 300)
-              : null,
-          stopReason: rawResp.stop_reason ?? null,
-        });
+        logFinalRawResponse(session.id, finalResponse);
       } else {
         finalResponse = { finishReason: 'error' } as unknown as ChatResponse;
         break;
@@ -488,6 +476,18 @@ export async function* runStreamMessage(
           ?.outputTokens ?? 0,
     });
 
+    logStreamLoopDone(
+      streamStats,
+      session.id,
+      finalResponse?.finishReason ?? 'unknown',
+      finalResponse?.tool_calls?.length ?? 0,
+      {
+        model: options?.model ?? 'unknown',
+        retryCount: retryState.retryCount,
+        accumulatedContentLength: accumulatedContent.length,
+      }
+    );
+
     // 诊断日志：发送前估算 vs 发送后 API 返回真实 usage（闭环对比截断/压缩效果）
     logInferenceUsage(
       session.id,
@@ -496,15 +496,10 @@ export async function* runStreamMessage(
       apiMessages
     );
 
-    // 管线 — 内容修复 + 输出
-    // BUG 修复：repairContent/createAssistantMessage/postProcess 均从 ctx.accumulatedContent
-    // 读取内容，而流式循环累积的是本函数局部变量 accumulatedContent —— 此前从未同步，
-    // 导致 assistant 消息 content 恒为空（刷新会话后回复"消失"）。必须在此同步。
+    // 管线 — 内容修复 + 输出（repairContent 从 ctx.accumulatedContent 读取，须先同步局部累积）
     pipeline.ctx.accumulatedContent = accumulatedContent;
     const finalContent = pipeline.repairContent();
     options?.onStream?.(finalContent);
-    yield finalContent;
-
     // 管线 — 用量记录
     pipeline.recordUsage();
 
@@ -620,6 +615,10 @@ export async function* runStreamMessage(
             sid: string,
             usage: Record<string, number>
           ) => host.recordChatResponseUsage(sid, usage),
+          onToolUsage: (usage: Record<string, unknown>) => {
+            const u = toUsageInfo(usage);
+            if (u && options?.onUsage) options.onUsage(u);
+          },
           toolResultRegistry,
           toolRegistry: host.getToolRegistry(),
           toolDefinitions,
@@ -634,6 +633,9 @@ export async function* runStreamMessage(
             }>
           ) => host.buildToolRoundMessages(msgs, am, tcs, prs),
           maxToolTurns: host.MAX_TOOL_TURNS,
+          estimateMessagesTokens: estimateMessagesTokens as (
+            messages: unknown[]
+          ) => number,
         } as unknown as import('../ToolLoopRunner.js').ToolLoopContext;
 
         const runner = new ToolLoopRunner(toolLoopCtx, {
@@ -686,6 +688,9 @@ export async function* runStreamMessage(
       options
     );
   } finally {
+    // P2 修复（AB-2）：兜底释放会话互斥锁（内层被 return 遗弃时工具循环 finally 不执行，
+    // 锁永久泄漏致下一条消息 30s 超时）。release 幂等，正常路径双 release 无害。
+    mutex.release();
     // P2（08-09）：兜底检查点
     savePlainTextCheckpoint({
       checkpoint: plainTextCheckpoint,

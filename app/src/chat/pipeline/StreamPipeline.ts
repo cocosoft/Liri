@@ -26,6 +26,7 @@ import {
   stripThinkResponseTags,
   stripOrphanToolTags,
 } from '../services/MessageContextPipeline';
+import { stripBareExploration } from '../services/bareExplorationStripper';
 import { repairImageUrls } from '../services/ChatHelper';
 import { StreamingToolCallScrubber } from '../../streaming/scrubbers/StreamingToolCallScrubber';
 import { getModelPricing } from '../../cost/ModelPricing';
@@ -321,8 +322,13 @@ export class StreamPipeline {
       repairImageUrls(this.ctx.accumulatedContent)
     );
     const stripped = stripThinkResponseTags(repaired);
+    // P0 修复：剥离"裸探索段"（模型未走 thinking 通道、直接泄漏进正文的工具过程叙述）
+    const explorationStripped = stripBareExploration(stripped);
     const scrubber = new StreamingToolCallScrubber();
-    const scrubbed = scrubber.scrub({ content: stripped, isComplete: true });
+    const scrubbed = scrubber.scrub({
+      content: explorationStripped,
+      isComplete: true,
+    });
     const residual = scrubber.flush();
     return stripOrphanToolTags(scrubbed.content + residual);
   }
@@ -352,7 +358,14 @@ export class StreamPipeline {
       finalContent,
       { sessionId: session.id }
     );
-    assistantMessage.finishReason = finalResponse?.stop_reason || 'stop';
+    // P1 修复（AB-3）：优先用 finalResponse.finishReason（错误路径为 'error'），
+    // 再回退 stop_reason / 'stop'——否则内部流错误（genIteration catch）落盘消息
+    // 会被写成 'stop'，前端把失败流误判为成功
+    // @modules/ai 的 ChatResponse 无 finishReason 字段（错误路径由 streamMessageFlow 注入）
+    assistantMessage.finishReason =
+      (finalResponse as { finishReason?: string } | null)?.finishReason ||
+      finalResponse?.stop_reason ||
+      'stop';
 
     if (finalResponse?.tool_calls?.length) {
       assistantMessage.metadata = {

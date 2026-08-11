@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useSessionStore } from "../../stores/sessionStore";
 import { useChatStore } from "../../stores/chat";
+import { sessionService } from "../../services/sessionService";
 import type { Message } from "../../types";
 
 /** 格式化日期为 yyyy-MM-dd HH:mm */
@@ -19,11 +20,18 @@ function formatDateTime(dateStr: string): string {
 /** 从消息中提取可搜索文本 */
 function getMessageSearchText(message: Message): string {
   const parts: string[] = [];
+  // P0 修复（1.2）：thinking 块前置输出，导出顺序符合"思考在前、正文在后"的阅读习惯
+  if (message.blocks) {
+    for (const block of message.blocks) {
+      if (block.type !== "thinking" || !block.content) continue;
+      parts.push(`💭 [思考中]\n${String(block.content)}`);
+    }
+  }
   if (message.content)
     parts.push(typeof message.content === "string" ? message.content : "");
   if (message.blocks) {
     for (const block of message.blocks) {
-      if (!block.content) continue;
+      if (block.type === "thinking" || !block.content) continue;
       // P2-2: 与 ChatMessage/ChatMessageList 渲染去重逻辑一致——
       // content 已包含的文本块不重复导出，避免"流式累积文本 + 最终快照"双源重复
       if (
@@ -33,17 +41,15 @@ function getMessageSearchText(message: Message): string {
         continue;
       }
       const prefix =
-        block.type === "thinking"
-          ? "💭 [思考中]\n"
-          : block.type === "tool_call"
-            ? `🔧 [工具调用: ${block.toolCall?.name || "unknown"}]\n`
-            : block.type === "status" && (block.toolCallId || block.toolCall)
-              ? "📋 [工具结果]\n"
-              : block.type === "task_decomposition"
-                ? "📝 [任务分解]\n"
-                : block.type === "progress"
-                  ? "📊 [进度]\n"
-                  : "";
+        block.type === "tool_call"
+          ? `🔧 [工具调用: ${block.toolCall?.name || "unknown"}]\n`
+          : block.type === "status" && (block.toolCallId || block.toolCall)
+            ? "📋 [工具结果]\n"
+            : block.type === "task_decomposition"
+              ? "📝 [任务分解]\n"
+              : block.type === "progress"
+                ? "📊 [进度]\n"
+                : "";
       parts.push(prefix + String(block.content));
     }
   }
@@ -166,11 +172,24 @@ function SessionHeader() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [exportOpen]);
 
+  /** 导出前统一从持久层拉取最新消息（P0 修复 1.7：两次导出内容一致，不依赖内存快照） */
+  const resolveExportMessages = async (): Promise<Message[]> => {
+    if (!currentSession) return messages;
+    try {
+      const persisted = await sessionService.getMessages(currentSession.id);
+      // 持久层为空时回退内存（断网/未落盘兜底，避免导出空文件）
+      return persisted.length > 0 ? persisted : messages;
+    } catch {
+      return messages;
+    }
+  };
+
   /** 导出 Markdown */
-  const handleExportMarkdown = () => {
+  const handleExportMarkdown = async () => {
     setExporting(true);
     try {
-      const md = exportAsMarkdown(messages, {
+      const source = await resolveExportMessages();
+      const md = exportAsMarkdown(source, {
         user: t("chat.user"),
         assistant: t("chat.assistant"),
         system: t("chat.system"),
@@ -190,10 +209,11 @@ function SessionHeader() {
   };
 
   /** 导出 JSON */
-  const handleExportJson = () => {
+  const handleExportJson = async () => {
     setExporting(true);
     try {
-      const json = exportAsJson(messages);
+      const source = await resolveExportMessages();
+      const json = exportAsJson(source);
       const blob = new Blob([json], { type: "application/json;charset=utf-8" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");

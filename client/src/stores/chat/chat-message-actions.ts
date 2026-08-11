@@ -5,6 +5,7 @@
  * 均为围绕 messages 的轻量操作，通过 set/get 读写 store。
  */
 import { sessionService } from "@/services/sessionService";
+import { truncateMessages } from "@/services/chatService";
 import { useFeatureFlagStore } from "@/stores/featureFlags";
 import { handleClientError } from "@/utils/handleError";
 import { createLogger } from "@/utils/logger";
@@ -122,6 +123,17 @@ export async function regenerateMessageImpl(
     streamControllers: nextControllers,
   });
 
+  // AB-13 修复：同步截断后端持久化消息（regenerate 场景）。
+  // fire-and-forget 不阻塞重新生成；旧流刚 abort，后端流式标记可能未清，
+  // 若返回 409 仅记录日志，不影响本轮回显（下一轮编辑/重载时再截断）。
+  truncateMessages(sid, userMsg.id).catch((e) =>
+    handleClientError(
+      e,
+      { module: "stores:chat:message", action: "regenerateTruncate" },
+      "warn",
+    ),
+  );
+
   // 检测工作模式：若当前工作项活跃，传递 Plan/Do 模式到后端
   const workMode = await resolveWorkMode();
 
@@ -130,6 +142,8 @@ export async function regenerateMessageImpl(
       content,
       sessionId || userMsg.session_id,
       workMode,
+      undefined,
+      userMsg.id, // AB-4 修复：复用原用户消息 id，避免重复显示/双写
     );
   } catch (error) {
     handleClientError(
@@ -203,6 +217,15 @@ export async function retryFromErrorImpl(
     streamControllers: nextControllers,
   });
 
+  // AB-13 修复：同步截断后端持久化消息（retry 场景），同 regenerate 一致
+  truncateMessages(sid, userMsg.id).catch((e) =>
+    handleClientError(
+      e,
+      { module: "stores:chat:message", action: "retryTruncate" },
+      "warn",
+    ),
+  );
+
   try {
     // 修复 BUG F3: 检测工作模式，传递给 streamMessage
     const workMode = await resolveWorkMode();
@@ -210,6 +233,8 @@ export async function retryFromErrorImpl(
       content,
       sessionId || userMsg.session_id,
       workMode,
+      undefined,
+      userMsg.id, // AB-4 修复：复用原用户消息 id，避免重复显示/双写
     );
   } catch (error) {
     handleClientError(

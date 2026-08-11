@@ -146,6 +146,8 @@ export interface ToolLoopContext {
     updateBaselineForRound(messages: unknown[], model: string): void;
   };
   recordChatResponseUsage: (sessionId: string, usage: unknown) => void;
+  /** AB-10 修复：工具轮次 LLM 用量上报（区别于 recordChatResponseUsage 的内部记账，此回调转发给 streamMessage 的 onUsage → 前端 usage 事件） */
+  onToolUsage?: (usage: Record<string, unknown>) => void;
 
   // 工具结果注册表
   toolResultRegistry: {
@@ -307,6 +309,15 @@ export class ToolLoopRunner {
           llmCallCount: this.llmCallCount,
         });
 
+        const turnStartTime = Date.now();
+        logger.info('toolLoop:轮次开始', {
+          sessionId: session.id,
+          turn: this.toolTurnCount + 1,
+          remainingToolCalls: this.currentToolCalls.length,
+          toolNames: this.currentToolCalls.map((tc) => tc.name),
+          llmCallCount: this.llmCallCount,
+        });
+
         // P1-1: 客户端断开时立即中止
         if (!this.nonStreaming && abortSignal.aborted) {
           span.addEvent('toolLoop.aborted', { turn: this.toolTurnCount });
@@ -430,6 +441,15 @@ export class ToolLoopRunner {
 
         // LoopDetector 记录轮次
         this.ctx.loopDetector.recordTurn(this.currentToolCalls.length > 0);
+
+        logger.info('toolLoop:轮次完成', {
+          sessionId: session.id,
+          turn: this.toolTurnCount,
+          durationMs: Date.now() - turnStartTime,
+          remainingToolCalls: this.currentToolCalls.length,
+          llmCallCount: this.llmCallCount,
+          completedToolNames: this.completedToolNames,
+        });
 
         // 每 5 轮保存检查点（非流式模式跳过）
         if (!this.nonStreaming) {
@@ -858,6 +878,10 @@ export class ToolLoopRunner {
         this.ctx.session.id,
         toolGenResponse?.usage
       );
+      // AB-10：工具轮次流式 LLM 用量上报前端（累加到 usage 事件）
+      this.ctx.onToolUsage?.(
+        (toolGenResponse?.usage as Record<string, unknown>) ?? {}
+      );
 
       trackUsage(toolGenResponse ?? {}, {
         model: (this.ctx.options?.model as string) || 'unknown',
@@ -890,6 +914,13 @@ export class ToolLoopRunner {
       this.ctx.recordChatResponseUsage(
         this.ctx.session.id,
         (response as unknown as { usage?: unknown }).usage
+      );
+      // AB-10：工具轮次非流式 LLM 用量上报前端（累加到 usage 事件）
+      this.ctx.onToolUsage?.(
+        ((response as unknown as { usage?: unknown }).usage as Record<
+          string,
+          unknown
+        >) ?? {}
       );
 
       trackUsage(response as unknown as Record<string, unknown>, {

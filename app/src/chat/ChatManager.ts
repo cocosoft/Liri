@@ -300,6 +300,13 @@ export class ChatManagerImpl implements ChatManager {
     if (controller) {
       logger.info('req.on(close) 触发 — 中止会话流', { sessionId });
       controller.abort();
+      // P2 修复（AB-2）：中止后立即清理条目，防止 isSessionStreaming() 恒 true
+      // （幽灵块永久误报）。正常路径由 _finalizeStreamMessage（L2342-2346）删除，
+      // 此处兜底幂等；若内层生成器被遗弃、_finalizeStreamMessage 永不执行，
+      // 旧条目也会在此清理。
+      if (this._sessionAbortControllers.get(sessionId) === controller) {
+        this._sessionAbortControllers.delete(sessionId);
+      }
     }
   }
 
@@ -2226,6 +2233,12 @@ export class ChatManagerImpl implements ChatManager {
         sessionId: session.id,
         metadata: options?.metadata,
       });
+      // AB-14 修复：写前落盘可能失败（断网/后端重启），内存无该 id 时
+      // 创建用户消息强制沿用前端 messageId，避免前后端消息 id 漂移。
+      // 后端 addMessage 幂等查重会命中同 id，outbox 补发不产生重复。
+      if (options?.messageId) {
+        userMessage.id = options.messageId;
+      }
       this._addAndPersistMessage(session.id, userMessage);
     }
     this.getSessionMachine(session.id).start('processUserInput');
@@ -2253,6 +2266,16 @@ export class ChatManagerImpl implements ChatManager {
         });
       }
     }
+
+    logger.info('streamMessage:会话准备完成', {
+      sessionId: session.id,
+      model: options?.model ?? null,
+      messageCount: session.messages.length,
+      userMessageId: userMessage.id,
+      contentLength: content.length,
+      hasImages: Array.isArray(options?.images) && options.images.length > 0,
+      mutexLocked: false,
+    });
 
     return {
       content,

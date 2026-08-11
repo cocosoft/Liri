@@ -10,6 +10,7 @@ import {
   chatService,
   enqueueOutbox,
   clearOutboxForSession,
+  truncateMessages,
 } from "@/services/chatService";
 import { useFeatureFlagStore } from "@/stores/featureFlags";
 import { playCompletionSound } from "@/services/SoundService";
@@ -18,6 +19,7 @@ import {
   ChronologicalBlockBuilder,
   createThinkExtractor,
   stripStructuralTags,
+  reorderExplorationBlocks,
 } from "./chat-toolcall.slice";
 import { addFilePathsFromBlocks } from "./chat-file.slice";
 import { doAutoRename, SaveQueue } from "./chat-history.slice";
@@ -45,6 +47,7 @@ export async function streamMessageImpl(
   sessionId?: string,
   workMode?: "plan" | "do",
   attachedImages?: AttachedImage[],
+  existingUserMessageId?: string,
 ): Promise<void> {
   // P2-2: 只取消同会话的旧流（多会话并行——不再互相中止）
   const sid = sessionId || "default";
@@ -75,6 +78,20 @@ export async function streamMessageImpl(
       // 截断 editTarget 及其之后的所有消息
       const truncated = get().messages.slice(0, editIndex);
       set({ messages: truncated, editTarget: null });
+      // AB-13 修复：同步截断后端持久化消息，防止切会话/重载后旧消息回显。
+      // 编辑场景先等后端截断完成再发流（写前持久化语义），失败不阻断发送。
+      if (sessionId) {
+        await truncateMessages(sessionId, editTarget.id).catch((e) =>
+          handleClientError(
+            e,
+            {
+              module: "stores:chat:message",
+              action: "editTruncate",
+            },
+            "warn",
+          ),
+        );
+      }
     } else {
       set({ editTarget: null });
     }
@@ -98,15 +115,14 @@ export async function streamMessageImpl(
     }
   };
 
-  const userMessage: Message = {
-    id: crypto.randomUUID(),
-    role: "user",
-    content,
-    timestamp: Date.now(),
-    session_id: sessionId || "default",
-    attachedImages:
-      attachedImages && attachedImages.length > 0 ? attachedImages : undefined,
-  };
+  // AB-4 修复：regenerate/retry 复用原用户消息 id（existingUserMessageId）时，
+  // 不重复创建/追加/落盘用户消息——否则前端显示两条相同用户消息、后端双写。
+  let userMessage: Message | null = null;
+  if (existingUserMessageId) {
+    userMessage =
+      get().messages.find((m) => m.id === existingUserMessageId) ?? null;
+  }
+  const needCreateUserMessage = !userMessage;
 
   const assistantId = crypto.randomUUID();
   const assistantMessage: Message = {
@@ -118,20 +134,37 @@ export async function streamMessageImpl(
     blocks: [],
   };
 
-  set({ messages: [...get().messages, userMessage, assistantMessage] });
+  if (needCreateUserMessage) {
+    userMessage = {
+      id: crypto.randomUUID(),
+      role: "user",
+      content,
+      timestamp: Date.now(),
+      session_id: sessionId || "default",
+      attachedImages:
+        attachedImages && attachedImages.length > 0
+          ? attachedImages
+          : undefined,
+    };
+    set({ messages: [...get().messages, userMessage, assistantMessage] });
+  } else {
+    // 复用场景：用户消息已存在（截断后保留），仅追加 assistant 消息
+    set({ messages: [...get().messages, assistantMessage] });
+  }
 
   // 根因 B：写前持久化 — 发送前先落盘用户消息（防断网丢失）
   // 成功 → 后端按 messageId 幂等去重；失败 → 进 outbox，网络恢复后自动补发
-  let writeAheadOk = false;
   let outboxed = false;
-  try {
-    await chatService.addMessage(userMessage.session_id, userMessage);
-    writeAheadOk = true;
-  } catch {
-    // 落盘失败（断网/后端不可达）→ 暂存 outbox，不阻塞发送流程
-    outboxed = true;
-    enqueueOutbox(userMessage, userMessage.session_id);
+  if (needCreateUserMessage && userMessage) {
+    try {
+      await chatService.addMessage(userMessage.session_id, userMessage);
+    } catch {
+      // 落盘失败（断网/后端不可达）→ 暂存 outbox，不阻塞发送流程
+      outboxed = true;
+      enqueueOutbox(userMessage, userMessage.session_id);
+    }
   }
+  // 复用场景：用户消息已落盘，无需写前
 
   // J3: 用 SaveQueue 管理防抖持久化
   const saveQueue = new SaveQueue();
@@ -154,8 +187,23 @@ export async function streamMessageImpl(
       return;
     }
 
+    // AB-8 修复：会话切换守卫 — setMessages 重建消息列表后，
+    // 本流 assistant 消息已不在 store（用户已切到其他会话），
+    // 若用旧会话快照全量替换会覆盖新会话内容 → 直接丢弃本流快照。
+    if (!get().messages.some((m) => m.id === assistantId)) {
+      logger.debug("flushSet: 会话已切换，丢弃本流快照", {
+        currentVersion,
+        assistantId,
+        sid,
+      });
+      batch.pending = false;
+      batch.latestMessages = null;
+      return;
+    }
+
     if (batch.latestMessages) {
       const latest = batch.latestMessages;
+      const latestMsg = latest.find((m) => m.id === assistantId);
       const questionCount = latest.reduce((cnt, m) => {
         return (
           cnt + (m.blocks?.filter((b) => b.type === "question").length ?? 0)
@@ -167,7 +215,15 @@ export async function streamMessageImpl(
         msgCount: latest.length,
         questionBlocks: questionCount,
       });
-      set({ messages: latest });
+      // AB-8 修复：定向更新本流 assistant 消息，而非全量替换 store——
+      // 多会话并行流式下全量替换会删除其他会话（含并行流）的消息
+      if (latestMsg) {
+        set({
+          messages: get().messages.map((m) =>
+            m.id === assistantId ? latestMsg : m,
+          ),
+        });
+      }
       batch.latestMessages = null;
     }
     batch.pending = false;
@@ -191,13 +247,16 @@ export async function streamMessageImpl(
           {
             workMode,
             images: attachedImages,
-            messageId: writeAheadOk ? userMessage.id : undefined,
+            // AB-14 修复：写前落盘失败（outbox）也传前端消息 id，
+            // 后端创建用户消息时沿用该 id（ChatManager 兜底），保证前后端 id 一致
+            messageId: userMessage ? userMessage.id : undefined,
           },
         )
       : chatService.streamMessage(content, sessionId, controller.signal, {
           workMode,
           images: attachedImages,
-          messageId: writeAheadOk ? userMessage.id : undefined,
+          // AB-14 修复：写前落盘失败（outbox）也传前端消息 id
+          messageId: userMessage ? userMessage.id : undefined,
         });
     const blockBuilder = new ChronologicalBlockBuilder();
     const extractor = createThinkExtractor();
@@ -271,7 +330,7 @@ export async function streamMessageImpl(
     }
 
     // 根因 B：流式发送正常结束 → 后端已持久化该轮用户消息，清除该会话待补发消息（避免重复补发）
-    if (outboxed && !controller.signal.aborted) {
+    if (outboxed && userMessage && !controller.signal.aborted) {
       clearOutboxForSession(userMessage.session_id);
     }
 
@@ -368,7 +427,9 @@ export async function streamMessageImpl(
       });
     }
 
-    const finalBlocks = blockBuilder.getBlocks();
+    // P0 修复：抽离"裸探索段"（模型未走 thinking 通道泄漏进正文的工具过程叙述）
+    // 为 thinking 块 + 干净正文，保证落盘 blocks 与后端剥离后的 content 一致
+    const finalBlocks = reorderExplorationBlocks(blockBuilder.getBlocks());
 
     // 版本号递增：使 pending 的 rAF flushSet 全部失效，
     // 旧版本的回调被丢弃，不再覆盖最终状态
@@ -386,8 +447,10 @@ export async function streamMessageImpl(
       },
     });
 
-    // 流完成提示音（仅当无待回答 question 时播放）
-    if (!hasQuestion) {
+    // 流完成提示音（仅当无待回答 question 且无错误时播放）
+    // P1 修复（AB-3）：出错时禁止播放"完成"音，避免失败流被误判为成功
+    // AB-15 修复：abort（用户停止/幽灵块检测中断）也禁止播放，中断非成功
+    if (!controller.signal.aborted && !hasQuestion && !get().error) {
       playCompletionSound();
     }
 
@@ -424,7 +487,10 @@ export async function streamMessageImpl(
       );
 
       // 将 blocks 结构保存到后端
-      if (sessionId && finalBlocks.length > 0) {
+      // AB-15 修复：abort（用户停止/幽灵块检测中断）时不覆盖——
+      // 前端中断时的 finalBlocks 可能不完整（ghostCheck 场景后端内容更全），
+      // 覆盖会导致数据回退；后端在 abort 时已持久化权威内容，重载即恢复。
+      if (sessionId && finalBlocks.length > 0 && !controller.signal.aborted) {
         try {
           await chatService.updateMessageBlocks(
             sessionId,
@@ -506,6 +572,72 @@ export async function streamMessageImpl(
         }
       } catch {
         // 检查点恢复失败静默处理
+      }
+    }
+    // P1 修复（1.4/1.9）：异常路径兜底——流异常结束且无可见内容时：
+    //  - 仅有 thinking 块（模型只输出思考即中断）→ 转 text 让用户看到思考内容，避免"无回复"观感
+    //  - 完全无内容 → 添加可见提示块
+    // 注：blockBuilder 声明在内层作用域，此处直接操作 store 中 assistant 消息的 blocks。
+    {
+      const msgsNow = get().messages;
+      const aidxNow = msgsNow.findIndex((m) => m.id === assistantId);
+      if (aidxNow !== -1 && !get().error) {
+        const curMsg = msgsNow[aidxNow];
+        const blocksNow = curMsg.blocks ?? [];
+        const hasVisible = blocksNow.some(
+          (b) =>
+            b.type === "text" ||
+            b.type === "tool_call" ||
+            b.type === "question" ||
+            b.type === "todo",
+        );
+        if (!hasVisible) {
+          const nowStamp = Date.now();
+          // 1.9：纯 thinking 无正文 → 转 text（与正常路径 think-only 兜底行为一致）
+          const thinkingText = blocksNow
+            .filter((b) => b.type === "thinking")
+            .map((b) => b.content)
+            .join("");
+          if (thinkingText.trim()) {
+            const textBlock = {
+              id: `blk_thinkfallback_${nowStamp}`,
+              type: "text" as const,
+              content: stripStructuralTags(thinkingText),
+              isStreaming: false,
+              groupId: `grp_thinkfallback_${nowStamp}`,
+            };
+            set({
+              messages: msgsNow.map((m) =>
+                m.id === assistantId ? { ...m, blocks: [textBlock] } : m,
+              ),
+            });
+            logger.warn("streamMessage:异常路径 think-only 转 text 兜底", {
+              sessionId: sid,
+              thinkingLen: thinkingText.length,
+              error: error instanceof Error ? error.message : String(error),
+            });
+          } else {
+            // 完全无内容 → 可见提示块
+            const fallbackBlock = {
+              id: `blk_fallback_${nowStamp}`,
+              type: "status" as const,
+              content: "⚠️ 本次回复未生成内容，请重试或检查模型/网络状态。",
+              isStreaming: false,
+              groupId: `grp_fallback_${nowStamp}`,
+            };
+            set({
+              messages: msgsNow.map((m) =>
+                m.id === assistantId
+                  ? { ...m, blocks: [...blocksNow, fallbackBlock] }
+                  : m,
+              ),
+            });
+            logger.warn("streamMessage:异常路径无内容兜底", {
+              sessionId: sid,
+              error: error instanceof Error ? error.message : String(error),
+            });
+          }
+        }
       }
     }
     // P2-2: 错误/中止统一清理本会话控制器，其他会话流不受影响

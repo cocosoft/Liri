@@ -225,3 +225,100 @@ export async function applyErrorCalibration(
     await calibrateContextWindow(model, ctxLimit);
   }
 }
+
+/**
+ * 推理结束诊断：打印最终 raw response，确认是否存在 tool_calls
+ * （排查"模型只输出 thinking 不调用工具"：contentLength=0 + toolCallCount=0 即为 think-only）
+ */
+export function logFinalRawResponse(
+  sessionId: string,
+  finalResponse: unknown
+): void {
+  const rawResp = finalResponse as Record<string, unknown>;
+  const toolCallsArr = Array.isArray(rawResp.tool_calls)
+    ? (rawResp.tool_calls as Array<{ name?: string; id?: string }>)
+    : [];
+  logger.info('streamMessage:推理结束 raw response', {
+    sessionId,
+    hasToolCalls: toolCallsArr.length > 0,
+    toolCallCount: toolCallsArr.length,
+    toolCallNames: toolCallsArr.map((tc) => tc.name),
+    toolCallsRaw: rawResp.tool_calls ?? null,
+    finishReason:
+      rawResp.finishReason ??
+      rawResp.finish_reason ??
+      rawResp.stop_reason ??
+      null,
+    contentLength:
+      typeof rawResp.content === 'string'
+        ? rawResp.content.length
+        : Array.isArray(rawResp.content)
+          ? rawResp.content.length
+          : 0,
+    contentPreview:
+      typeof rawResp.content === 'string'
+        ? rawResp.content.slice(0, 300)
+        : null,
+    stopReason: rawResp.stop_reason ?? null,
+  });
+}
+
+/**
+ * 流式循环统计（streamMessageFlow 跨重试轮次统计，避免在主文件内散落计数变量）
+ */
+export interface StreamLoopStats {
+  llmStart: number;
+  chunks: number;
+  thinking: number;
+  firstLatency: number | null;
+}
+
+export function createStreamLoopStats(): StreamLoopStats {
+  return { llmStart: 0, chunks: 0, thinking: 0, firstLatency: null };
+}
+
+/** 每轮 LLM 调用前重置统计 */
+export function beginStreamLoop(stats: StreamLoopStats): void {
+  stats.llmStart = Date.now();
+  stats.chunks = 0;
+  stats.thinking = 0;
+  stats.firstLatency = null;
+}
+
+/** 每个 chunk 计数 + 首 chunk 延迟记录 */
+export function countStreamChunk(
+  stats: StreamLoopStats,
+  isThinking: boolean
+): void {
+  if (stats.firstLatency === null) {
+    stats.firstLatency = Date.now() - stats.llmStart;
+  }
+  if (isThinking) stats.thinking++;
+  else stats.chunks++;
+}
+
+/** 流式循环结束统计日志 */
+export function logStreamLoopDone(
+  stats: StreamLoopStats,
+  sessionId: string,
+  finishReason: string,
+  toolCallCount: number,
+  extra?: {
+    model?: string;
+    retryCount?: number;
+    accumulatedContentLength?: number;
+  }
+): void {
+  logger.info('streamMessage:流式循环完成', {
+    sessionId,
+    model: extra?.model ?? 'unknown',
+    retryCount: extra?.retryCount ?? 0,
+    textChunkCount: stats.chunks,
+    thinkingChunkCount: stats.thinking,
+    firstChunkLatencyMs: stats.firstLatency ?? -1,
+    totalLlmMs: Date.now() - stats.llmStart,
+    accumulatedContentLength: extra?.accumulatedContentLength ?? 0,
+    finishReason,
+    toolCallCount,
+  });
+}

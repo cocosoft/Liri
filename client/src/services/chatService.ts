@@ -293,6 +293,16 @@ function parseSseChunk(chunk: Record<string, unknown>): StreamChunk | null {
       todoData: chunk.__pyapp_todo as import("../types").TaskCardData,
     };
   }
+  // AB-9 修复：execution_phase 心跳此前无解析分支，工具执行进度全链路丢失。
+  // 后端经 __pyapp_execution_phase 结构化转发，此处还原为 StreamChunk 交给 processChunk。
+  if (pyappType === "execution_phase" && chunk.__pyapp_execution_phase) {
+    return {
+      type: "execution_phase",
+      content: deltaContent || "",
+      executionPhase:
+        chunk.__pyapp_execution_phase as StreamChunk["executionPhase"],
+    };
+  }
   if (deltaContent) {
     return { type: "text", content: deltaContent };
   }
@@ -440,6 +450,37 @@ export function enqueueOutbox(
 export function clearOutboxForSession(sessionId: string): void {
   const entries = readOutbox().filter((en) => en.sessionId !== sessionId);
   writeOutbox(entries);
+}
+
+/**
+ * AB-13 修复：同步截断后端持久化消息（编辑/regenerate 场景）。
+ * POST /v1/sessions/:sessionId/messages/truncate { beforeMessageId }
+ * 后端删除 beforeMessageId 及其之后的所有消息（含附件清理/审计），
+ * 防止前端已截断、切会话/重载后旧消息全部回显。
+ */
+export async function truncateMessages(
+  sessionId: string,
+  beforeMessageId: string,
+): Promise<{ success: boolean; deletedMessageIds?: string[] }> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 3000);
+  try {
+    return await fetchJSON<{
+      success: boolean;
+      deletedMessageIds?: string[];
+    }>(
+      `${getBackendBaseUrl()}/v1/sessions/${encodeURIComponent(
+        sessionId,
+      )}/messages/truncate`,
+      {
+        method: "POST",
+        body: JSON.stringify({ beforeMessageId }),
+        signal: controller.signal,
+      },
+    );
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 /** POST 落盘用户消息（3s 超时保护，符合写前持久化规范） */
@@ -919,7 +960,14 @@ export const chatService = {
         action: "streamMessage-outer",
       });
       otel.recordError(span, e);
-      throw e;
+      // P1 修复（1.4）：失败必有反馈兜底——外层异常（HTTP 非 200 / 无响应体）不再直接 throw。
+      // 直接 throw 会让前端 for await 抛异常、落到 store 外层 catch 仅设 error 状态，
+      // 聊天界面无任何可见反馈（用户"无回复"）。统一转为 error chunk 走正常错误渲染。
+      yield {
+        type: "error",
+        content: `请求失败: ${e instanceof Error ? e.message : String(e)}`,
+        errorCode: "BACKEND_UNREACHABLE",
+      };
     } finally {
       otel.endSpan(span);
     }

@@ -39,7 +39,13 @@ import {
   TOOL_RESULT_MAX_LENGTH,
   truncateToolResult,
 } from '../services/ChatHelper';
-import { stripThinkResponseTags } from '../services/MessageContextPipeline';
+import {
+  ensureThinkResponseTags,
+  stripThinkResponseTags,
+  stripOrphanToolTags,
+} from '../services/MessageContextPipeline';
+import { stripBareExploration } from '../services/bareExplorationStripper';
+import { StreamingToolCallScrubber } from '../../streaming/scrubbers/StreamingToolCallScrubber';
 import { validatePathsInOutput } from '../services/PathGuardService';
 import { trackUsage } from '@modules/ai';
 import { getModelPricing } from '@modules/cost/ModelPricing.js';
@@ -445,7 +451,20 @@ export function buildAssistantMessage(
       : JSON.stringify(response.content);
 
   let assistantMessageContent = repairImageUrls(rawContent);
-  assistantMessageContent = stripThinkResponseTags(assistantMessageContent);
+  // AB-12 修复：非流式与流式管线对齐（StreamPipeline.repairContent 同款 5 步）——
+  // 此前非流式缺 ensureThinkResponseTags/裸探索剥离/scrubber/orphan 清理，
+  // 同一模型输出走两条路径落盘内容不一致。
+  assistantMessageContent = stripThinkResponseTags(
+    ensureThinkResponseTags(assistantMessageContent)
+  );
+  const explorationStripped = stripBareExploration(assistantMessageContent);
+  const scrubber = new StreamingToolCallScrubber();
+  const scrubbed = scrubber.scrub({
+    content: explorationStripped,
+    isComplete: true,
+  });
+  const residual = scrubber.flush();
+  assistantMessageContent = stripOrphanToolTags(scrubbed.content + residual);
 
   const assistantMsg = host.messageService.createAssistantMessage(
     assistantMessageContent,

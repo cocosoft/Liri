@@ -38,6 +38,40 @@ const HTTP_STATUS_MAP: Record<number, string> = {
 };
 
 /**
+ * 业务/模型服务特定错误 → 中文提示（在 HTTP 状态码检查之前匹配）
+ *
+ * 实证来源：真实会话导出 chat-export-*.md（23:09/23:12）与云端模型实测——
+ * 模型服务错误常以文本形式出现（如 "OpenAI stream error (400): {...Model does not exist...}"），
+ * 若先匹配 HTTP 400 会误判为"请求参数有误"，需高优先级精确匹配。
+ */
+const SPECIFIC_ERROR_MAP: Array<[RegExp, string]> = [
+  [
+    /model does not exist|model not found|model_not_found|no such model|invalid model|model.*not available/i,
+    "模型不存在或已被移除，请在模型管理中选择可用模型",
+  ],
+  [
+    /certificate|ssl|tls/i,
+    "模型服务 SSL 证书校验失败，请检查 API 地址是否为 HTTPS 且证书有效",
+  ],
+  [
+    /unable to connect|is the computer able to access/i,
+    "无法连接到模型服务，请检查网络或 API 地址",
+  ],
+  [
+    /api[- ]?key|incorrect.*key|invalid.*key|unauthorized/i,
+    "模型服务认证失败，请检查 API Key 是否正确",
+  ],
+  [
+    /rate limit|quota|insufficient.*(quota|balance)|payment required/i,
+    "模型服务额度不足或触发限流，请检查账户余额或稍后重试",
+  ],
+  [
+    /context.*(length|limit|exceed)|n_ctx|context window.*(exceed|too (small|large))/i,
+    "上下文长度超出模型限制，请精简对话或切换更大上下文的模型",
+  ],
+];
+
+/**
  * 从异常对象中提取原始错误信息
  */
 export function getRawErrorMessage(error: unknown): string {
@@ -72,7 +106,14 @@ function extractHttpStatus(error: unknown): number | null {
 export function friendlyErrorMessage(error: unknown): string {
   const raw = getRawErrorMessage(error);
 
-  // 1. 先查 HTTP 状态码
+  // 0. 业务/模型服务特定错误优先（避免 HTTP 400 误判"参数有误"等）
+  for (const [pattern, friendly] of SPECIFIC_ERROR_MAP) {
+    if (pattern.test(raw)) {
+      return `${friendly}\n\n（原异常信息：${raw}）`;
+    }
+  }
+
+  // 1. 再查 HTTP 状态码
   const status = extractHttpStatus(error);
   if (status && HTTP_STATUS_MAP[status]) {
     return `${HTTP_STATUS_MAP[status]}\n\n（原异常信息：${raw}）`;

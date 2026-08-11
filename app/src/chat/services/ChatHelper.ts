@@ -7,7 +7,7 @@
  */
 import { getLogger } from '@modules/monitoring';
 import type { SessionConfirmedPaths } from './SessionConfirmedPaths';
-import type { Message } from '../types/message.js';
+import type { Message, UsageInfo } from '../types/message.js';
 import { MessageRole } from '../types/message.js';
 import { SessionState } from '../types/session.js';
 import type { ChatSession } from '../types/session.js';
@@ -28,6 +28,28 @@ const logger = getLogger('chat:helper');
 
 /** 工具结果默认最大字符数（Bug Fix: 从 2000 提升至 8000，防止截断丢失关键上下文导致 LLM 误判任务完成） */
 export const TOOL_RESULT_MAX_LENGTH = 8000;
+
+/**
+ * AB-10 修复：Provider 原始 usage（prompt_tokens 等）→ 标准 UsageInfo。
+ * 流式主回复（StreamPipeline）与工具轮次（streamMessageFlow onToolUsage）共用，
+ * 保证 usage SSE 事件的字段口径一致。
+ */
+export function toUsageInfo(
+  usage: Record<string, unknown>
+): UsageInfo | undefined {
+  const u = usage as Record<string, number>;
+  const inputTokens = u.prompt_tokens ?? u.inputTokens ?? 0;
+  const outputTokens = u.completion_tokens ?? u.outputTokens ?? 0;
+  if (inputTokens === 0 && outputTokens === 0) return undefined;
+  return {
+    inputTokens,
+    outputTokens,
+    totalTokens: inputTokens + outputTokens,
+    cacheReadInputTokens: u.cache_read_input_tokens ?? 0,
+    cacheCreationInputTokens: u.cache_creation_input_tokens ?? 0,
+    estimatedCostUsd: u.estimated_cost_usd ?? u.estimatedCostUsd,
+  };
+}
 
 /**
  * 将 Message 角色映射为 SessionMessageType
@@ -268,6 +290,8 @@ export async function persistChatMessage(
     timestamp: message.createdAt?.getTime() ?? Date.now(),
     metadata: metadataObj,
     blocks: message.blocks as unknown as FrontendMessageBlock[] | undefined,
+    // AB-11 修复：finishReason 随消息落盘，全量刷新后前端可区分截断/错误/正常
+    finishReason: message.finishReason,
   };
   try {
     await gateway.sendMessage(sessionId, unifiedMessage);

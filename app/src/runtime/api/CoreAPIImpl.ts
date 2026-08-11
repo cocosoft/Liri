@@ -474,6 +474,15 @@ export class CoreAPIImpl implements CoreAPI {
     const span = otel.startSpan('coreapi.chatStream', {
       'session.id': request.sessionId ?? '',
     });
+    const chatStreamStartTime = Date.now();
+    logger.info('chatStream:入口', {
+      sessionId: request.sessionId ?? '',
+      model: request.model ?? '',
+      contentLength: request.content?.length ?? 0,
+      messageId: request.messageId ?? '',
+      maxTokens: request.max_tokens ?? undefined,
+      temperature: request.temperature ?? undefined,
+    });
     await this.ensureLLMClientInitialized();
     let fullContent = '';
     let finalSessionId = request.sessionId || '';
@@ -489,6 +498,9 @@ export class CoreAPIImpl implements CoreAPI {
         }
       | undefined;
     let finalMessage: Message | undefined;
+    // P1 修复（AB-3）：流式出错标记。catch 中置 true，
+    // 结束时 finishReason 必须为 'error'，禁止用 'stop' 掩盖失败。
+    let streamFailed = false;
 
     yield {
       type: 'status',
@@ -547,13 +559,22 @@ export class CoreAPIImpl implements CoreAPI {
         top_p: request.top_p,
         systemPrompt: request.systemPrompt,
         onUsage: (usage) => {
+          // AB-10 修复：累加而非覆盖——主回复 + 各工具轮次 LLM 调用都会回调，
+          // 累加后 usage SSE 事件反映整轮消息的完整用量
+          const prev = capturedUsage;
           capturedUsage = {
-            inputTokens: usage.inputTokens,
-            outputTokens: usage.outputTokens,
-            totalTokens: usage.totalTokens,
-            estimatedCostUsd: usage.estimatedCostUsd,
-            cacheReadTokens: usage.cacheReadInputTokens ?? 0,
-            cacheCreationTokens: usage.cacheCreationInputTokens ?? 0,
+            inputTokens: (prev?.inputTokens ?? 0) + usage.inputTokens,
+            outputTokens: (prev?.outputTokens ?? 0) + usage.outputTokens,
+            totalTokens:
+              (prev?.totalTokens ?? 0) +
+              (usage.totalTokens ?? usage.inputTokens + usage.outputTokens),
+            estimatedCostUsd:
+              (prev?.estimatedCostUsd ?? 0) + (usage.estimatedCostUsd ?? 0),
+            cacheReadTokens:
+              (prev?.cacheReadTokens ?? 0) + (usage.cacheReadInputTokens ?? 0),
+            cacheCreationTokens:
+              (prev?.cacheCreationTokens ?? 0) +
+              (usage.cacheCreationInputTokens ?? 0),
           };
 
           // [v1.2] 成本统计已由 UsageTracker.trackUsage 统一处理（唯一入口 + 算法统一）
@@ -760,6 +781,8 @@ export class CoreAPIImpl implements CoreAPI {
         fullContent = finalContent || fullContent;
       }
     } catch (error) {
+      // P1 修复（AB-3）：标记失败，结束块 finishReason 用 'error'
+      streamFailed = true;
       // 普通对象（如 AI Provider 返回的 { message: "...", type: "..." }）可能不是 Error 实例
       const message =
         error instanceof Error
@@ -788,7 +811,10 @@ export class CoreAPIImpl implements CoreAPI {
     }
 
     // 从 finalMessage 提取实际的 finishReason，而非硬编码 'stop'
-    const actualFinishReason = finalMessage?.finishReason || 'stop';
+    // P1 修复（AB-3）：出错时强制 'error'，防止前端把失败流误判为成功
+    const actualFinishReason = streamFailed
+      ? 'error'
+      : finalMessage?.finishReason || 'stop';
 
     try {
       yield {
@@ -813,6 +839,23 @@ export class CoreAPIImpl implements CoreAPI {
     }
 
     otel.endSpan(span, SpanStatusCode.OK);
+    const chatStreamDurationMs = Date.now() - chatStreamStartTime;
+    logger.info('chatStream:完成', {
+      sessionId: finalSessionId,
+      messageId: finalMessageId,
+      contentLength: fullContent.length,
+      finishReason: actualFinishReason,
+      durationMs: chatStreamDurationMs,
+      usage: capturedUsage
+        ? {
+            inputTokens: capturedUsage.inputTokens,
+            outputTokens: capturedUsage.outputTokens,
+            totalTokens: capturedUsage.totalTokens,
+            cacheReadTokens: capturedUsage.cacheReadTokens,
+            cacheCreationTokens: capturedUsage.cacheCreationTokens,
+          }
+        : null,
+    });
     return {
       content: fullContent,
       sessionId: finalSessionId,
@@ -997,6 +1040,8 @@ export class CoreAPIImpl implements CoreAPI {
             content: typeof m.content === 'string' ? m.content : '',
             session_id: sessionId,
             timestamp: m.timestamp,
+            // AB-11：finishReason 随消息持久化后回传前端（区分截断/错误/正常）
+            finishReason: m.finishReason,
             tool_calls: m.metadata?.tool_calls as
               | Array<Record<string, unknown>>
               | undefined,
@@ -1053,6 +1098,8 @@ export class CoreAPIImpl implements CoreAPI {
         session_id: sessionId,
         timestamp:
           msg.createdAt instanceof Date ? msg.createdAt.getTime() : Date.now(),
+        // AB-11：内存 fallback 路径同样回传 finishReason
+        finishReason: msg.finishReason,
         tool_calls: msg.tool_calls as
           | Array<Record<string, unknown>>
           | undefined,

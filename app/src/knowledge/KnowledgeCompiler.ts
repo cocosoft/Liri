@@ -22,7 +22,11 @@ import { LLMPerformanceMonitor } from '@modules/ai/utils/LLMPerformanceMonitor';
 import { handleError } from '@modules/error';
 import type { AIService, AIMessage } from '@modules/ai';
 import { AIMessageRole } from '@modules/ai';
-import { resolvePyappHome, resolveDataSubDir } from '@modules/core';
+import {
+  resolvePyappHome,
+  resolveDataSubDir,
+  globalEventBus,
+} from '@modules/core';
 import { FileRegistry } from '@modules/services/file/FileRegistry';
 import { FileSource } from '@modules/services/file/types';
 import { IndexManager } from './IndexManager';
@@ -261,6 +265,12 @@ export class KnowledgeCompiler {
         source: 'KnowledgeCompiler',
         pages: [],
         detail: `many-to-many 编译: ${result.compiled} 个源文件 → ${result.pagesCreated} 个页面`,
+      });
+      // 发布知识变更事件，触发 KnowledgeRouter 倒排索引全量重建，
+      // 使编译入库的新文档可被搜索立即命中（而非等待下次重启）
+      globalEventBus.publish('knowledge:changed', {
+        action: 'updated',
+        filePath: this.knowledgeRoot,
       });
     }
 

@@ -6,6 +6,7 @@
 
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
+import { recordBackgroundTask } from '@modules/monitoring/BackgroundTaskEvent';
 
 const logger = getLogger('memory:utils:memoryAgeManager');
 
@@ -474,10 +475,26 @@ export class MemoryAgeManager {
     memories: Array<{ id: string; createdAt: number }>
   ): Promise<number> {
     logger.info('手动触发记忆归档');
+    const startedAt = Date.now();
+    // §9.3 统一后台任务事件：start（R08-002 配套，供运行状况面板聚合）
+    recordBackgroundTask({
+      task: 'memory-archive',
+      phase: 'start',
+      startedAt,
+    });
 
     const candidates = await this.findArchiveCandidates(memories);
 
     if (candidates.length === 0) {
+      recordBackgroundTask({
+        task: 'memory-archive',
+        phase: 'complete',
+        startedAt,
+        endedAt: Date.now(),
+        durationMs: Date.now() - startedAt,
+        status: 'no candidates',
+        metadata: { archived: 0 },
+      });
       return 0;
     }
 
@@ -486,6 +503,19 @@ export class MemoryAgeManager {
     if (this.autoArchiveConfig.onArchive) {
       await this.autoArchiveConfig.onArchive(batch);
     }
+
+    recordBackgroundTask({
+      task: 'memory-archive',
+      phase: 'complete',
+      startedAt,
+      endedAt: Date.now(),
+      durationMs: Date.now() - startedAt,
+      status: `archived:${batch.length}`,
+      metadata: {
+        archived: batch.length,
+        candidates: candidates.length,
+      },
+    });
 
     this.lastArchiveTime = Date.now();
     return batch.length;

@@ -499,7 +499,11 @@ export async function handleSendFileToAI(
     const chatManager = createChatManager();
 
     const message = `请分析以下文件内容（文件名: ${fileName}）:\n\n${content}`;
-    await chatManager.sendMessage(message);
+    // 上传文件自动分析为系统内部调用：不计入 Buddy 用户对话轮数
+    await chatManager.sendMessage(message, {
+      _fromInternal: true,
+      _fromInternalSource: 'fileSendToAI',
+    });
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ success: true, fileName, size: content.length }));

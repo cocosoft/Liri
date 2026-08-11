@@ -228,7 +228,7 @@ function LlamaConfigPanel({ isDark }: LlamaConfigPanelProps) {
         </ConfigItem>
         <ConfigItem
           label="上下文窗口 (-c)"
-          description="需与模型注册的 context_window 匹配"
+          description="保存并重启后自动同步到模型注册（无需手动匹配）"
           isDark={isDark}
         >
           <TextConfig

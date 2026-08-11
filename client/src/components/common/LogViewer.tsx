@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { LogEntry } from "../../types";
+import { extractInternalSource } from "./logSourceUtils";
 
 interface LogViewerProps {
   logs: LogEntry[];
@@ -18,6 +19,7 @@ interface LogDetailModalProps {
 function LogDetailModal({ log, isDark, onClose }: LogDetailModalProps) {
   const { t, i18n } = useTranslation();
   const locale = i18n.language === "en" ? "en-US" : "zh-CN";
+  const internalSource = extractInternalSource(log);
 
   const formatTime = (timestamp: number) => {
     return new Date(timestamp).toLocaleString(locale, {
@@ -109,6 +111,14 @@ function LogDetailModal({ log, isDark, onClose }: LogDetailModalProps) {
                 {t("settings.logViewerFieldMessage")}
               </label>
               <p className="text-sm whitespace-pre-wrap">{log.message}</p>
+              {internalSource && (
+                <div className="mt-2">
+                  <InternalSourceBadge
+                    source={internalSource}
+                    isDark={isDark}
+                  />
+                </div>
+              )}
             </div>
             {log.details && (
               <div>
@@ -191,6 +201,38 @@ const LEVEL_STYLES = {
   },
 };
 
+/** 内部调用来源 → 徽章颜色（快速区分不同调用来源） */
+const INTERNAL_SOURCE_COLORS: Record<string, string> = {
+  executeStepPrompt:
+    "bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300",
+  queryEngine:
+    "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300",
+  fileSendToAI:
+    "bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300",
+  unknown: "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300",
+};
+
+/** 内部调用来源徽章（来源未知或缺失时用灰色兜底） */
+function InternalSourceBadge({
+  source,
+  isDark,
+}: {
+  source: string;
+  isDark: boolean;
+}) {
+  const color =
+    INTERNAL_SOURCE_COLORS[source] ??
+    (isDark ? "bg-gray-700 text-gray-300" : "bg-gray-100 text-gray-600");
+  return (
+    <span
+      className={`shrink-0 px-1.5 py-0.5 rounded text-xs font-mono font-medium ${color}`}
+      title={source}
+    >
+      {source}
+    </span>
+  );
+}
+
 function LogViewer({
   logs,
   isDark = false,
@@ -228,6 +270,7 @@ function LogViewer({
           ) : (
             logs.map((log) => {
               const style = LEVEL_STYLES[log.level];
+              const internalSource = extractInternalSource(log);
               return (
                 <div
                   key={log.id}
@@ -244,12 +287,19 @@ function LogViewer({
                   >
                     {formatTime(log.timestamp)}
                   </span>
-                  {log.source && (
-                    <span
-                      className={`text-xs ${isDark ? "text-gray-500" : "text-gray-400"}`}
-                    >
-                      [{log.source}]
-                    </span>
+                  {internalSource ? (
+                    <InternalSourceBadge
+                      source={internalSource}
+                      isDark={isDark}
+                    />
+                  ) : (
+                    log.source && (
+                      <span
+                        className={`text-xs ${isDark ? "text-gray-500" : "text-gray-400"}`}
+                      >
+                        [{log.source}]
+                      </span>
+                    )
                   )}
                   <span
                     className={`flex-1 text-sm ${isDark ? "text-gray-300" : "text-gray-700"} truncate`}

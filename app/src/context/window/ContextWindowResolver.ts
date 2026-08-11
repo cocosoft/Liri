@@ -12,6 +12,7 @@
 import { getLogger } from '@modules/monitoring';
 import { Database } from '@modules/core/external/sqlite3';
 import { resolveDbPath } from '@modules/core';
+import { ModelRegistry } from '@modules/ai/models/ModelRegistry';
 
 const logger = getLogger('context:window');
 
@@ -77,9 +78,9 @@ export async function resolveContextWindowAsync(
 
 /**
  * 解析模型上下文窗口大小（同步，不含 DB 查询）
- * 优先级：config override → 1M 启发式 → default
+ * 优先级：config override → DB 运行时缓存（model_registry 事实来源） → 1M 启发式 → default
  * 注：模型级 context_window 以 DB model_registry 为事实来源（resolveContextWindowAsync）；
- * 同步路径仅用于预算估算，不再维护硬编码模型名表。
+ * 同步路径通过 ModelRegistry 内存缓存读取同一来源，避免本地 GGUF 等模型回落默认值导致请求超限。
  */
 export function resolveContextWindow(
   model: string,
@@ -90,7 +91,14 @@ export function resolveContextWindow(
     return { tokens: configOverride, source: 'config' };
   }
 
-  // 2. 1M context 启发式检测（模型名含 1m 关键词）
+  // 2. DB 运行时缓存（model_registry 唯一事实来源，同步读取不回源 DB）
+  const registryModel = ModelRegistry.getInstance().getModel(model);
+  const dbWindow = registryModel?.contextWindow;
+  if (dbWindow && dbWindow > 0) {
+    return { tokens: dbWindow, source: 'db' };
+  }
+
+  // 3. 1M context 启发式检测（模型名含 1m 关键词）
   const normalized = model.toLowerCase();
   if (ONE_M_CONTEXT_KEYWORDS.some((k) => normalized.includes(k))) {
     return { tokens: 1_000_000, source: 'known_model' };
@@ -129,14 +137,84 @@ export function parseContextLimitFromError(
   }
   const openaiMatch = /maximum context length is (\d+)/i.exec(errorMessage);
   if (openaiMatch) return parseInt(openaiMatch[1], 10);
+  // llama.cpp 本地服务错误：request (15408 tokens) exceeds the available context size (4096 tokens)
+  // 或 request exceeds the available context size (4096 tokens)
+  const llamacppMatch =
+    /exceeds the available context size \(?\s*(\d+)\s*tokens?\)?/i.exec(
+      errorMessage
+    );
+  if (llamacppMatch) return parseInt(llamacppMatch[1], 10);
   if (/context_length_exceeded|prompt_too_long/i.test(errorMessage)) {
     return -1; // signal: overflow occurred, no exact number
   }
   return null;
 }
 
+/**
+ * 从 llama.cpp 400 错误中提取真实输入 token 数（n_prompt_tokens）
+ * 格式: request (15408 tokens) exceeds the available context size (4096 tokens)
+ * 用于与发送前估算对比，量化 estimateMessagesTokens 偏差（校准 calibrationFactor 的依据）。
+ */
+export function parsePromptTokensFromError(
+  errorMessage: string
+): number | null {
+  if (!errorMessage) return null;
+  const match = /request\s*\(\s*(\d[\d,]*)\s*tokens?\)/i.exec(errorMessage);
+  if (match) return parseInt(match[1].replace(/,/g, ''), 10);
+  return null;
+}
+
 export function isOutputCapError(errorMessage: string): boolean {
   return /output.*(?:too|exceed|cap|maximum)/i.test(errorMessage);
+}
+
+/**
+ * 被动校准：API 返回 context 超限错误时，把服务端真实 n_ctx 回写 DB model_registry，
+ * 使应用侧 context_window 自动跟随模型真实能力（云端/Ollama/llama.cpp 通用）。
+ * 仅当值不同时更新；失败静默，不阻断请求错误处理链。
+ * DB 是唯一事实源，写 DB 后刷新 ModelRegistry 运行时缓存。
+ */
+export async function calibrateContextWindow(
+  model: string,
+  actualLimit: number
+): Promise<boolean> {
+  if (!model || !(actualLimit > 0)) return false;
+  try {
+    const registry = ModelRegistry.getInstance();
+    const existing = registry.getModel(model);
+    const current = existing?.contextWindow ?? 0;
+    if (current === actualLimit) return false; // 已一致
+
+    const { modelPricingService } =
+      await import('../../ai/models/ModelPricingService.js');
+    await modelPricingService.initialize();
+    const rec = await modelPricingService.getPricing(model);
+    if (!rec) return false; // 模型未注册，不校准
+    // upsertPricing 更新已有记录时仅 contextWindow 生效，但 input/output 价格必填且会被覆盖，
+    // 必须传回原值，避免校准把价格清零
+    await modelPricingService.upsertPricing({
+      modelId: model,
+      contextWindow: actualLimit,
+      inputCostPerMillion: rec.inputCostPerMillion,
+      outputCostPerMillion: rec.outputCostPerMillion,
+    });
+    registry.refreshDbPricing().catch(() => {
+      // @ignore-catch: 缓存刷新失败不影响 DB 事实源
+    });
+    logger.info('contextWindow 已自动校准（API 400 回写）', {
+      model,
+      from: current,
+      to: actualLimit,
+    });
+    return true;
+  } catch (err) {
+    logger.warn('contextWindow 自动校准失败', {
+      model,
+      actualLimit,
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return false;
+  }
 }
 
 export function getNextDegradationTier(currentTokens: number): number | null {

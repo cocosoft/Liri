@@ -68,12 +68,15 @@ const { Database: BunDB } = require('bun:sqlite') as {
  */
 class Database {
   private _db: InstanceType<typeof BunDB>;
+  /** 数据库文件路径（供诊断日志使用） */
+  private _path: string;
 
   constructor(
     path: string,
     mode?: number | ((err: Error | null) => void),
     openCallback?: (err: Error | null) => void
   ) {
+    this._path = path;
     try {
       mkdirSync(dirname(path), { recursive: true });
     } catch (err) {
@@ -325,6 +328,37 @@ class Database {
       callback?.(null);
     } catch (e) {
       callback?.(e as Error);
+    }
+    return this;
+  }
+
+  /**
+   * 执行 VACUUM（数据库空间回收/碎片整理）
+   * 前后记录耗时与文件大小变化，供清理过程排查。
+   * 注意：VACUUM 会重建整个数据库文件，大库耗时较长，执行期间独占数据库。
+   */
+  vacuum(callback?: (err: Error | null) => void): this {
+    const startedAt = Date.now();
+    logger.info('sqlite3:VACUUM 开始', {
+      dbPath: this._path,
+    });
+    try {
+      this._db.exec('VACUUM');
+      const elapsedMs = Date.now() - startedAt;
+      logger.info('sqlite3:VACUUM 完成', { elapsedMs });
+      callback?.(null);
+    } catch (e) {
+      const elapsedMs = Date.now() - startedAt;
+      const err = e instanceof Error ? e : new Error(String(e));
+      logger.warn('sqlite3:VACUUM 失败', {
+        elapsedMs,
+        error: err.message,
+      });
+      void handleError(err, {
+        module: 'core:external:sqlite3',
+        action: 'vacuum',
+      });
+      callback?.(err);
     }
     return this;
   }

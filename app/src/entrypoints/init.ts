@@ -516,16 +516,24 @@ async function startDeferredPrefetches(): Promise<void> {
             await import('../core/session/SessionSupervisor.js');
           const { createSupervisorStore } =
             await import('../core/session/SessionStoreAdapter.js');
+          const { FileCheckpointStorage } =
+            await import('../query/FileCheckpointStorage.js');
           const gateway = new SessionGateway();
           const adapter = new SessionManagerAdapter(gateway);
           const store = createSupervisorStore(adapter.store);
-          const supervisor = new SessionSupervisor(store, {
-            resetPolicy: {
-              mode: 'idle',
-              idleMinutes: 30,
-              preserveMetadata: true,
+          const supervisor = new SessionSupervisor(
+            store,
+            {
+              resetPolicy: {
+                mode: 'idle',
+                idleMinutes: 30,
+                preserveMetadata: true,
+              },
             },
-          });
+            // 联动清理被回收会话的检查点（按 sessionId 精确匹配，不匹配则无操作）
+            (id: string) =>
+              new FileCheckpointStorage().deleteSessionCheckpoints(id)
+          );
           supervisor.start();
           (globalThis as Record<string, unknown>)['__sessionSupervisor'] =
             supervisor;
@@ -747,6 +755,14 @@ async function startDeferredPrefetches(): Promise<void> {
               if (evt.action === 'deleted') {
                 (knowledgeRouter['removeFromIndex'] as (fp: string) => void)?.(
                   evt.filePath
+                );
+              } else if (evt.action === 'created' || evt.action === 'updated') {
+                // 新增/更新：全量重建倒排索引（保守方案确保一致性）。
+                // 编译入库（KnowledgeCompiler）发布 updated 事件后，新文档可被搜索立即命中。
+                void knowledgeRouter.buildIndex().catch((err) =>
+                  logger.warning('知识变更后倒排索引重建失败', {
+                    error: String(err),
+                  })
                 );
               }
             })

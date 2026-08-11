@@ -94,8 +94,21 @@ export function getBackgroundTaskLog(limit = 20): BackgroundTaskEvent[] {
     const events = lines
       .map((l) => {
         try {
-          return JSON.parse(l) as BackgroundTaskEvent;
-        } catch {
+          const parsed: unknown = JSON.parse(l);
+          // 仅接受普通对象（null/数组/原始值视为无效行，避免访问属性崩溃）
+          if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+            logger.info('后台任务事件行解析结果非对象，跳过', {
+              linePreview: l.slice(0, 200),
+              parsedType: parsed === null ? 'null' : typeof parsed,
+            });
+            return null;
+          }
+          return parsed as BackgroundTaskEvent;
+        } catch (err) {
+          logger.info('后台任务事件行解析失败', {
+            linePreview: l.slice(0, 200),
+            error: err instanceof Error ? err.message : String(err),
+          });
           return null;
         }
       })

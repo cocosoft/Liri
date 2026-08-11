@@ -11,6 +11,7 @@ import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error';
 import { resolveSessionsDir, resolveDataDir } from '@modules/core';
 import { asyncContextStorage } from '../context/AsyncContextStorage';
+import { FileCheckpointStorage } from '../query/FileCheckpointStorage.js';
 import type { SessionContext } from '../context/types/Context';
 import {
   createTranscriptManager,
@@ -364,7 +365,14 @@ export class SessionGateway {
       })
     );
 
-    this.setSessionPruner(new SessionPruner(adapter, options?.prunerOptions));
+    this.setSessionPruner(
+      new SessionPruner(
+        adapter,
+        options?.prunerOptions,
+        // 联动清理被剪枝会话的检查点（按 sessionId 精确匹配，不匹配则无操作）
+        (id: string) => new FileCheckpointStorage().deleteSessionCheckpoints(id)
+      )
+    );
     this.setSessionLock(new SessionLock());
     this.setPriorityManager(new PriorityManager());
     this.setQoSEnforcer(new QoSEnforcer());

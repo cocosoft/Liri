@@ -132,7 +132,8 @@ export interface ChatOrchestratorHost {
   truncateApiMessages(
     messages: Record<string, unknown>[],
     maxTokens: number,
-    sessionId: string
+    sessionId: string,
+    outputBudgetTokens?: number
   ): Promise<void>;
   persistTurnSummary(session: ChatSession): void;
   flushPendingPersists(): Promise<void>;
@@ -352,7 +353,40 @@ export class ChatOrchestrator {
             | Message
             | undefined)
         : undefined;
-      session.metadata.roundCount = (session.metadata.roundCount ?? 0) + 1;
+      const prevRoundCount = session.metadata.roundCount ?? 0;
+      session.metadata.roundCount = prevRoundCount + 1;
+      const fromInternal = options?._fromInternal === true;
+      if (!fromInternal) {
+        // Buddy 成长：用户发起对话才计数（内部调用不计入，精确"用户真实对话轮数"）
+        void import('@modules/buddy')
+          .then(({ recordUserSession }) => recordUserSession())
+          .catch((err) =>
+            logger.warn('Buddy 用户对话轮次埋点失败', { error: String(err) })
+          );
+      }
+      if (fromInternal) {
+        // 现场调试断点：内部调用触发时醒目提示（默认日志级别可见）
+        logger.info(
+          '[内部调用断点] _fromInternal=true，本轮不计入 userSessions',
+          {
+            sessionId: session.id,
+            roundCountFrom: prevRoundCount,
+            roundCountTo: session.metadata.roundCount,
+            source: options?._fromInternalSource ?? 'unknown',
+          }
+        );
+      }
+      logger[fromInternal ? 'debug' : 'info']('用户对话轮次+1（非流式）', {
+        sessionId: session.id,
+        roundCountFrom: prevRoundCount,
+        roundCountTo: session.metadata.roundCount,
+        model: options?.model ?? null,
+        contentLength: safeContent.length,
+        prePersisted: !!prePersisted,
+        messageId: options?.messageId ?? null,
+        _fromInternal: options?._fromInternal ?? false,
+        source: fromInternal ? 'internal' : 'user',
+      });
       if (prePersisted) {
         userMessage = prePersisted;
       } else {

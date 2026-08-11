@@ -7,6 +7,7 @@ import { metrics } from '@opentelemetry/api';
 import type { ObservableGauge } from '@opentelemetry/api';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
+import { recordBackgroundTask } from '@modules/monitoring/BackgroundTaskEvent';
 
 const logger = new Logger({
   module: 'cost:metrics-bridge',
@@ -346,15 +347,42 @@ export class CostMetricsBridge {
 
   /**
    * 启动定时刷新
+   * §9.3 统一后台任务事件：每次 flush 记录 start/complete/fail（R08-002 配套，供运行状况面板聚合）
    */
   startAutoFlush(): void {
     if (this.flushTimer) return;
 
     this.flushTimer = setInterval(() => {
-      const data = this.generateDashboard();
+      const startedAt = Date.now();
+      recordBackgroundTask({
+        task: 'cost-flush',
+        phase: 'start',
+        startedAt,
+      });
+      try {
+        const data = this.generateDashboard();
 
-      if (this.onFlushCallback) {
-        this.onFlushCallback(data);
+        if (this.onFlushCallback) {
+          this.onFlushCallback(data);
+        }
+        recordBackgroundTask({
+          task: 'cost-flush',
+          phase: 'complete',
+          startedAt,
+          endedAt: Date.now(),
+          durationMs: Date.now() - startedAt,
+          status: `records:${this.getRecordCount()}`,
+          metadata: { recordCount: this.getRecordCount() },
+        });
+      } catch (err) {
+        recordBackgroundTask({
+          task: 'cost-flush',
+          phase: 'fail',
+          startedAt,
+          endedAt: Date.now(),
+          durationMs: Date.now() - startedAt,
+          status: err instanceof Error ? err.message : String(err),
+        });
       }
     }, this.config.flushIntervalMs);
   }

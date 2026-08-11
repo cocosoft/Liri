@@ -56,6 +56,46 @@ export class FileCheckpointStorage implements CheckpointStorage {
     const fp = this.filePath(checkpoint);
     const data = JSON.stringify(checkpoint, null, 2);
     await fs.promises.writeFile(fp, data, 'utf-8');
+    await this.enforceMaxCheckpoints(checkpoint.sessionId);
+  }
+
+  /**
+   * 限制每会话自动检查点数量（对齐 CheckpointDatabase.enforceMaxCheckpoints），
+   * 防止文件检查点无限累积（曾造成 12GB 级堆积）。
+   * 仅清理自动创建的检查点（autoCreated），保留手动/显式检查点；最旧优先删除。
+   */
+  private async enforceMaxCheckpoints(sessionId: string): Promise<void> {
+    try {
+      const count = await this.getCheckpointCount(sessionId);
+      if (count <= CHECKPOINT_MAX_AUTO) {
+        return;
+      }
+
+      const checkpoints = await this.loadCheckpoints(sessionId);
+      const toDelete = count - CHECKPOINT_MAX_AUTO;
+      // loadCheckpoints 按 createdAt 倒序返回，这里取 autoCreated 的最旧 toDelete 个
+      const victims = checkpoints
+        .filter((cp) => cp.autoCreated)
+        .sort((a, b) => a.createdAt - b.createdAt)
+        .slice(0, toDelete);
+
+      for (const cp of victims) {
+        await this.deleteCheckpoint(cp.id);
+      }
+
+      if (victims.length > 0) {
+        logger.info('Enforced max checkpoints per session', {
+          sessionId,
+          limit: CHECKPOINT_MAX_AUTO,
+          removed: victims.length,
+        });
+      }
+    } catch (e) {
+      logger.warn('Failed to enforce max checkpoints', {
+        sessionId,
+        error: e instanceof Error ? e.message : String(e),
+      });
+    }
   }
 
   /** 按 ID 加载单个检查点 */

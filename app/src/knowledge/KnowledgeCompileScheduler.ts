@@ -9,6 +9,7 @@
  */
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
+import { recordBackgroundTask } from '@modules/monitoring/BackgroundTaskEvent';
 import type { CompileResult } from './KnowledgeCompiler';
 
 const logger = getLogger('knowledge:knowledgeCompileScheduler');
@@ -129,8 +130,29 @@ export class KnowledgeCompileScheduler {
     if (this.state === 'running') return;
 
     this.state = 'running';
+    const startedAt = Date.now();
+    // §9.3 统一后台任务事件：start（R08-002 配套，供运行状况面板聚合）
+    recordBackgroundTask({
+      task: 'knowledge-compile',
+      phase: 'start',
+      startedAt,
+    });
     try {
       const result = await this.compileFn(false);
+      recordBackgroundTask({
+        task: 'knowledge-compile',
+        phase: 'complete',
+        startedAt,
+        endedAt: Date.now(),
+        durationMs: Date.now() - startedAt,
+        status: `compiled:${result.compiled}, skipped:${result.skipped}, errors:${result.errors.length}`,
+        metadata: {
+          totalFound: result.totalFound,
+          compiled: result.compiled,
+          skipped: result.skipped,
+          errors: result.errors.length,
+        },
+      });
       logger.info('定时编译完成', {
         compiled: result.compiled,
         skipped: result.skipped,
@@ -138,6 +160,14 @@ export class KnowledgeCompileScheduler {
         totalFound: result.totalFound,
       });
     } catch (err) {
+      recordBackgroundTask({
+        task: 'knowledge-compile',
+        phase: 'fail',
+        startedAt,
+        endedAt: Date.now(),
+        durationMs: Date.now() - startedAt,
+        status: err instanceof Error ? err.message : String(err),
+      });
       await handleError(err, {
         module: 'knowledge:scheduler',
         action: 'compile',

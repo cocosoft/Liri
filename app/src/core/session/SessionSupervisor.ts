@@ -55,14 +55,22 @@ export class SessionSupervisor {
   private timer: ReturnType<typeof setInterval> | null = null;
   private disposed = false;
   private policyDecider: ResetPolicyDecider | null = null;
+  /** 按会话清理检查点的回调（联动清理，避免被回收会话留下孤儿检查点） */
+  private cleanupSessionCheckpoints?: (sessionId: string) => Promise<void>;
 
   /**
    * @param store - 会话存储适配器
    * @param config - 可选配置，不传则使用默认值
+   * @param cleanupSessionCheckpoints - 可选：删除会话后联动清理检查点
    */
-  constructor(store: SessionStore, config?: Partial<SessionSupervisorConfig>) {
+  constructor(
+    store: SessionStore,
+    config?: Partial<SessionSupervisorConfig>,
+    cleanupSessionCheckpoints?: (sessionId: string) => Promise<void>
+  ) {
     this.store = store;
     this.config = { ...DEFAULT_CONFIG, ...config };
+    this.cleanupSessionCheckpoints = cleanupSessionCheckpoints;
     if (this.config.resetPolicy) {
       this.policyDecider = new ResetPolicyDecider();
     }
@@ -142,6 +150,15 @@ export class SessionSupervisor {
         if (session.status === 'idle' || session.status === 'ended') {
           if (idleTime >= this.config.forceRecycleThreshold) {
             await this.store.deleteSession(session.id);
+            // 联动清理该会话检查点（不阻塞回收主流程，失败仅记录，避免孤儿检查点）
+            if (this.cleanupSessionCheckpoints) {
+              void this.cleanupSessionCheckpoints(session.id).catch((e) => {
+                handleError(e, {
+                  module: 'session:supervisor',
+                  action: '清理被回收会话检查点失败',
+                });
+              });
+            }
           }
           continue;
         }

@@ -30,14 +30,21 @@ export class SessionPruner {
   private maxAgeDays: number;
   private activeBufferMinutes: number;
   private excludeActive: boolean;
+  /** 按会话清理检查点的回调（联动清理，避免被剪枝会话留下孤儿检查点） */
+  private cleanupSessionCheckpoints?: (sessionId: string) => Promise<void>;
 
-  constructor(storage: SessionStorage, options: PrunerOptions = {}) {
+  constructor(
+    storage: SessionStorage,
+    options: PrunerOptions = {},
+    cleanupSessionCheckpoints?: (sessionId: string) => Promise<void>
+  ) {
     this.storage = storage;
     this.maxSessions = options.maxSessions ?? DEFAULT_MAX_SESSIONS;
     this.maxAgeDays = options.maxAgeDays ?? DEFAULT_MAX_AGE_DAYS;
     this.activeBufferMinutes =
       options.activeBufferMinutes ?? DEFAULT_ACTIVE_BUFFER_MINUTES;
     this.excludeActive = options.excludeActive ?? true;
+    this.cleanupSessionCheckpoints = cleanupSessionCheckpoints;
   }
 
   async prune(): Promise<PruneResult> {
@@ -110,6 +117,15 @@ export class SessionPruner {
         try {
           await this.storage.deleteSession(id);
           deletedIds.push(id);
+          // 联动清理该会话检查点（不阻塞剪枝主流程，失败仅记录，避免孤儿检查点）
+          if (this.cleanupSessionCheckpoints) {
+            void this.cleanupSessionCheckpoints(id).catch((err) => {
+              handleError(err, {
+                module: 'sessions:pruner',
+                action: '清理被剪枝会话检查点失败',
+              });
+            });
+          }
         } catch (err) {
           handleError(err, {
             module: 'sessions:pruner',

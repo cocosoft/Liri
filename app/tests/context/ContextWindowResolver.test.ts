@@ -5,6 +5,7 @@
 import { describe, it, expect } from 'bun:test';
 import {
   parseContextLimitFromError,
+  parsePromptTokensFromError,
   isOutputCapError,
   getNextDegradationTier,
   validateMinimumContext,
@@ -62,6 +63,20 @@ describe('P1-7: 渐进降级探测', () => {
       expect(result).toBe(128_000);
     });
 
+    it('extracts llama.cpp exceeds available context size', () => {
+      const result = parseContextLimitFromError(
+        'request (15408 tokens) exceeds the available context size (4096 tokens), try increasing it'
+      );
+      expect(result).toBe(4096);
+    });
+
+    it('extracts llama.cpp bare exceeds available context size', () => {
+      const result = parseContextLimitFromError(
+        'request exceeds the available context size (4096 tokens)'
+      );
+      expect(result).toBe(4096);
+    });
+
     it('returns -1 for generic overflow without exact number', () => {
       const result = parseContextLimitFromError(
         'context_length_exceeded: prompt is too long'
@@ -91,6 +106,32 @@ describe('P1-7: 渐进降级探测', () => {
         'MAXIMUM CONTEXT LENGTH IS 64000'
       );
       expect(result).toBe(64_000);
+    });
+  });
+
+  describe('parsePromptTokensFromError', () => {
+    it('extracts llama.cpp n_prompt_tokens from overflow error', () => {
+      const result = parsePromptTokensFromError(
+        'request (15408 tokens) exceeds the available context size (4096 tokens), try increasing it'
+      );
+      expect(result).toBe(15_408);
+    });
+
+    it('handles comma-separated numbers', () => {
+      const result = parsePromptTokensFromError(
+        'request (154,208 tokens) exceeds the available context size'
+      );
+      expect(result).toBe(154_208);
+    });
+
+    it('returns null for unrelated error', () => {
+      const result = parsePromptTokensFromError('API key is invalid');
+      expect(result).toBeNull();
+    });
+
+    it('returns null for empty string', () => {
+      const result = parsePromptTokensFromError('');
+      expect(result).toBeNull();
     });
   });
 

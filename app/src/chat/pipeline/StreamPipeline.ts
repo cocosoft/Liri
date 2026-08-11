@@ -232,6 +232,12 @@ export class StreamPipeline {
         span.addEvent('compaction.skipped', {
           reason: 'orchestrator_not_applied',
         });
+        logger.info('compaction:skipped — 未压缩，转入截断策略', {
+          sessionId: session.id,
+          beforeTokens: beforeCompact,
+          afterTokens: estimateMessagesTokens(this.ctx.apiMessages),
+          reason: 'orchestrator_not_applied',
+        });
         const maxCtx = resolveMaxContextTokens(options?.model);
         await this._truncateApiMessages(maxCtx, session.id);
       }

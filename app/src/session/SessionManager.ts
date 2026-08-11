@@ -4,6 +4,7 @@ import { handleError } from '@modules/error';
 import { SessionStore } from './SessionStore';
 import { SessionPruner } from './SessionPruner';
 import type { PrunerOptions } from './SessionPruner';
+import { FileCheckpointStorage } from '../query/FileCheckpointStorage.js';
 import { SessionLock } from './SessionLock';
 import type { LockOptions } from './SessionLock';
 import { SessionMigration } from './SessionMigration';
@@ -106,7 +107,12 @@ export class SessionManager {
       storage,
     });
 
-    this.pruner = new SessionPruner(storage, this.config.prunerOptions);
+    this.pruner = new SessionPruner(
+      storage,
+      this.config.prunerOptions,
+      // 联动清理被剪枝会话的检查点（按 sessionId 精确匹配，不匹配则无操作）
+      (id: string) => new FileCheckpointStorage().deleteSessionCheckpoints(id)
+    );
     this.lock = this.config.enableLock
       ? new SessionLock(this.config.lockOptions)
       : (null as unknown as SessionLock);

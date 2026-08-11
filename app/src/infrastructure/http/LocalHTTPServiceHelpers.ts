@@ -10,6 +10,7 @@ import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 import type { IChannelPlugin } from '@modules/channels/types/IChannel';
+import { setNotifyFileChangedHandler } from './handlers/handler-utils';
 
 const logger = getLogger('infrastructure:http:localHTTPServiceHelpers');
 
@@ -351,6 +352,8 @@ export async function startCompileScheduler(): Promise<{
       { runOnStart: !!defaultModel }
     );
     scheduler.start();
+    // 注册 notifyFileChanged DI：上传非 md 文件后延迟触发编译（handler-utils.notifyFileChanged 委托至此）
+    setNotifyFileChangedHandler(scheduler.notifyFileChanged.bind(scheduler));
     return scheduler;
   } catch (err) {
     void handleError(err, {

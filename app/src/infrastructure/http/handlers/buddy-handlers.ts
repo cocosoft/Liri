@@ -189,6 +189,7 @@ export async function handleGetBackgroundStatus(
         buddyGrowth: {
           totalCompleted: growth.totalCompleted,
           totalSessions: growth.totalSessions,
+          userSessions: growth.userSessions,
           totalInsights: growth.totalInsights,
           consecutiveDays: growth.consecutiveDays,
           taskCompletionCount: growth.taskCompletionCount,

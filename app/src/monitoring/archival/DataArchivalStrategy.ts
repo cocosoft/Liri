@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 监控数据归档策略
  * 将内存中的监控数据定期持久化到磁盘，支持压缩和保留策略
  * 归档目录: app/data/monitoring/archives/（第二层，不跟踪）
@@ -321,8 +321,19 @@ export class DataArchivalStrategy {
         data = readFileSync(filePath, 'utf-8');
       }
 
-      const parsed = JSON.parse(data);
-      return Array.isArray(parsed) ? parsed : [parsed];
+      const parsed: unknown = JSON.parse(data);
+      // 仅接受数组或普通对象（null/数组元素为原始值/对象被包裹为单元素数组，避免访问属性崩溃）
+      if (Array.isArray(parsed)) {
+        return parsed as T[];
+      }
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        return [parsed as T];
+      }
+      logger.info('归档文件解析结果非数组/对象，返回空', {
+        filePath,
+        parsedType: parsed === null ? 'null' : typeof parsed,
+      });
+      return [];
     } catch (error) {
       await handleError(error, {
         module: 'monitoring:archival',

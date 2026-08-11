@@ -44,7 +44,14 @@ import {
   type DegradationState,
 } from '../../ai/ContextDegradation';
 import { resolveMaxContextTokens } from '../services/ChatHelper';
-import { isCheckpointLogEnabled } from '../../config/settings/CheckpointLogConfig';
+import { estimateMessagesTokens } from '../../ai/tokenizer/TokenEstimator';
+import {
+  logTokenSnapshot,
+  applyPreSendProtection,
+  applyErrorCalibration,
+  logInferenceUsage,
+} from './preSendContextProtection.js';
+import { savePlainTextCheckpoint } from './plainTextCheckpointSave.js';
 import { getOTelTracing } from '@modules/monitoring';
 import { trajectoryRecorder } from '../../agent/trajectory/TrajectoryRecorder';
 import { trajectoryRuntime } from '../../core/trajectory/TrajectoryRuntime.js';
@@ -100,6 +107,13 @@ export async function* runStreamMessage(
 
     // 构建 API 格式消息列表
     let apiMessages = _buildApiMessagesForStream(session.messages);
+    // 诊断日志：压缩前 token 基线
+    logTokenSnapshot(
+      'API 消息构建后（压缩前）',
+      session.id,
+      options?.model ?? 'unknown',
+      apiMessages
+    );
 
     // 管线 — 图片路径注册 + 文件路径提取
     const pipeline = _createStreamPipeline(session, ctx.content, options);
@@ -146,9 +160,37 @@ export async function* runStreamMessage(
 
     // 管线 — 上下文压缩
     await pipeline.compactContext();
+    // BUG 修复：compactContext 内部可能替换 this.ctx.apiMessages 引用（压缩后新数组），
+    // 局部 apiMessages 变量仍是旧引用，必须重新同步，否则发送的仍是未压缩的完整历史
+    // （llama.cpp 等小上下文模型会因 15408 > n_ctx 4096 直接 400）。
+    apiMessages = pipeline.ctx.apiMessages;
+    // 诊断日志：压缩后 token 变化
+    logTokenSnapshot(
+      '上下文压缩后',
+      session.id,
+      options?.model ?? 'unknown',
+      apiMessages
+    );
     streamSpan.addEvent('streamMessage.pipeline.contextCompacted', {
       'message.count': apiMessages.length,
     });
+
+    // 发送前上下文保护（估算截断 + llama.cpp 精确截断 + 工具预算检查）
+    await applyPreSendProtection({
+      host,
+      apiMessages,
+      toolDefinitions,
+      activeClient,
+      options,
+      session,
+    });
+    // 诊断日志：发送前强制截断后的 token（兜底保护结果）
+    logTokenSnapshot(
+      '发送前兜底截断后',
+      session.id,
+      options?.model ?? 'unknown',
+      apiMessages
+    );
 
     // Phase 2: Telemetry + Trajectory THINK 开始
     const streamLlmStartTime = Date.now();
@@ -214,6 +256,8 @@ export async function* runStreamMessage(
 
     // P1-7: 上下文溢出渐进降级
     const initialCtxLimit = resolveMaxContextTokens(options?.model);
+    // 发送前截断上限（与 applyPreSendProtection 内部一致，用于重试轮次日志）
+    const sendCtxLimit = initialCtxLimit;
     let ctxDegradation: DegradationState =
       createDegradationState(initialCtxLimit);
 
@@ -225,6 +269,15 @@ export async function* runStreamMessage(
         'retry.count': retryState.retryCount,
         maxTokens: retryState.nextMaxTokens,
         'message.count': apiMessages.length,
+      });
+      // 诊断日志：实际发送前的 token 估算（含降级重试轮次，观察重试是否带上被截断后的消息）
+      logger.info('streamMessage:token — 实际发送前', {
+        sessionId: session.id,
+        model: options?.model ?? 'unknown',
+        retryCount: retryState.retryCount,
+        messageCount: apiMessages.length,
+        estimateTokens: estimateMessagesTokens(apiMessages),
+        sendCtxLimit,
       });
       const gen = activeClient.streamMessage(
         apiMessages as unknown as ChatMessage[],
@@ -297,6 +350,13 @@ export async function* runStreamMessage(
           result = await gen.next();
         }
       } catch (genErr) {
+        // 错误校准（估算 vs 真实对比 + 400 自动回写 DB）
+        await applyErrorCalibration(
+          genErr,
+          apiMessages,
+          session.id,
+          options?.model
+        );
         // P1-7: 上下文溢出降级
         const degradationResult = tryDegradeContext(ctxDegradation, genErr);
         if (degradationResult.shouldRetry) {
@@ -326,7 +386,8 @@ export async function* runStreamMessage(
           await host.truncateApiMessages(
             apiMessages,
             degradationResult.limit,
-            session.id
+            session.id,
+            options?.maxTokens
           );
           continue;
         }
@@ -427,6 +488,14 @@ export async function* runStreamMessage(
           ?.outputTokens ?? 0,
     });
 
+    // 诊断日志：发送前估算 vs 发送后 API 返回真实 usage（闭环对比截断/压缩效果）
+    logInferenceUsage(
+      session.id,
+      options?.model ?? 'unknown',
+      finalResponse,
+      apiMessages
+    );
+
     // 管线 — 内容修复 + 输出
     const finalContent = pipeline.repairContent();
     options?.onStream?.(finalContent);
@@ -480,49 +549,14 @@ export async function* runStreamMessage(
     await pipeline.postProcess(ctx.content);
 
     // P2（08-09）：普通对话轻量检查点
-    if (!finalResponse?.tool_calls?.length) {
-      const msgCount = session.messages.length;
-      if (isCheckpointLogEnabled()) {
-        logger.info('PlainTextCheckpoint: 主触发点 — 无工具调用的纯文本对话', {
-          sessionId: session.id,
-          messageCount: msgCount,
-          finishReason: finalResponse?.finishReason ?? 'unknown',
-          contentLength: accumulatedContent.length,
-        });
-      }
-      plainTextCheckpoint
-        .save(session.messages, session.metadata, session.state)
-        .then((cp) => {
-          if (isCheckpointLogEnabled()) {
-            if (cp) {
-              logger.info('PlainTextCheckpoint: 主触发点 — 检查点已保存', {
-                sessionId: session.id,
-                checkpointId: cp.id,
-                messageCount: msgCount,
-              });
-            } else {
-              logger.debug('PlainTextCheckpoint: 主触发点 — 消息数未变，跳过', {
-                sessionId: session.id,
-                messageCount: msgCount,
-              });
-            }
-          }
-        })
-        .catch((err) => {
-          logger.warn('PlainTextCheckpoint: 主触发点 — 保存失败（非关键）', {
-            sessionId: session.id,
-            error: String(err),
-          });
-        });
-    } else if (isCheckpointLogEnabled()) {
-      logger.debug('PlainTextCheckpoint: 主触发点 — 跳过（有工具调用）', {
-        sessionId: session.id,
-        toolCallCount: finalResponse.tool_calls.length,
-        toolNames: finalResponse.tool_calls.map(
-          (tc: ParsedToolCall) => tc.name
-        ),
-      });
-    }
+    savePlainTextCheckpoint({
+      checkpoint: plainTextCheckpoint,
+      session,
+      trigger: 'main',
+      finishReason: finalResponse?.finishReason ?? 'unknown',
+      contentLength: accumulatedContent.length,
+      toolCalls: finalResponse?.tool_calls,
+    });
 
     // 处理工具调用 — 流式工具执行循环
     try {
@@ -649,37 +683,11 @@ export async function* runStreamMessage(
     );
   } finally {
     // P2（08-09）：兜底检查点
-    const msgCount = session.messages.length;
-    if (isCheckpointLogEnabled()) {
-      logger.debug('PlainTextCheckpoint: 兜底触发点 — finally 块', {
-        sessionId: session.id,
-        messageCount: msgCount,
-      });
-    }
-    plainTextCheckpoint
-      .save(session.messages, session.metadata, session.state)
-      .then((cp) => {
-        if (isCheckpointLogEnabled()) {
-          if (cp) {
-            logger.info('PlainTextCheckpoint: 兜底触发点 — 检查点已保存', {
-              sessionId: session.id,
-              checkpointId: cp.id,
-              messageCount: msgCount,
-            });
-          } else {
-            logger.debug(
-              'PlainTextCheckpoint: 兜底触发点 — 消息数未变，跳过（主触发点已保存）',
-              { sessionId: session.id, messageCount: msgCount }
-            );
-          }
-        }
-      })
-      .catch((err) => {
-        logger.warn('PlainTextCheckpoint: 兜底触发点 — 保存失败（非关键）', {
-          sessionId: session.id,
-          error: String(err),
-        });
-      });
+    savePlainTextCheckpoint({
+      checkpoint: plainTextCheckpoint,
+      session,
+      trigger: 'fallback',
+    });
 
     try {
       getOTelTracing().endSpan(streamSpan);

@@ -22,6 +22,8 @@ export interface GrowthState {
   unlockedAchievements: string[];
   taskCompletionCount: number;
   totalTaskExp: number;
+  /** 用户对话轮数（每轮用户对话递增，与梦境整理会话数 totalSessions 双计数并存） */
+  userSessions: number;
 }
 
 export function createEmptyGrowthState(): GrowthState {
@@ -34,6 +36,7 @@ export function createEmptyGrowthState(): GrowthState {
     unlockedAchievements: [],
     taskCompletionCount: 0,
     totalTaskExp: 0,
+    userSessions: 0,
   };
 }
 
@@ -58,6 +61,7 @@ export async function loadGrowthState(): Promise<GrowthState> {
       consecutiveDays: Number(parsed.consecutiveDays) || 0,
       taskCompletionCount: Number(parsed.taskCompletionCount) || 0,
       totalTaskExp: Number(parsed.totalTaskExp) || 0,
+      userSessions: Number(parsed.userSessions) || 0,
     };
   } catch (e) {
     // 文件不存在或损坏 → 从空状态开始

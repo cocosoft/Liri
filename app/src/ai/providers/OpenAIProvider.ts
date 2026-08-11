@@ -59,6 +59,11 @@ export class OpenAIProvider extends BaseAIProvider {
   /** baseUrl 供子类（如 LlamaCppProvider）访问 */
   protected baseUrl: string;
 
+  /** 获取服务端 baseUrl（供精确 tokenize 等本地服务探测使用） */
+  getBaseUrl(): string {
+    return this.baseUrl;
+  }
+
   /**
    * 初始化 OpenAI Provider。
    * 构造函数回退链：DB 持久化 > 环境变量。

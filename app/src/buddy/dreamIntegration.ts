@@ -48,6 +48,8 @@ export class DreamGrowthTracker {
   private lastCompletedDate = '';
   private consecutiveDays = 0;
   private unlockedAchievements = new Set<string>();
+  /** 用户对话轮数（每轮用户对话递增，与 totalSessions 梦境整理会话数双计数并存） */
+  private userSessions = 0;
 
   /** 任务完成次数计数器 */
   private taskCompletionCount = 0;
@@ -69,9 +71,11 @@ export class DreamGrowthTracker {
     this.unlockedAchievements = new Set(state.unlockedAchievements);
     this.taskCompletionCount = state.taskCompletionCount;
     this.totalTaskExp = state.totalTaskExp;
+    this.userSessions = state.userSessions;
     logger.info('成长状态已加载', {
       totalCompleted: this.totalCompleted,
       totalSessions: this.totalSessions,
+      userSessions: this.userSessions,
       totalTaskExp: this.totalTaskExp,
       achievements: this.unlockedAchievements.size,
     });
@@ -88,6 +92,7 @@ export class DreamGrowthTracker {
       unlockedAchievements: [...this.unlockedAchievements],
       taskCompletionCount: this.taskCompletionCount,
       totalTaskExp: this.totalTaskExp,
+      userSessions: this.userSessions,
     };
     await saveGrowthState(state);
   }
@@ -119,6 +124,15 @@ export class DreamGrowthTracker {
   }
 
   /**
+   * 记录一轮用户对话（Buddy 成长"对话轮数"计数，双计数并存）
+   * 与 totalSessions（梦境整理会话数）相互独立；sessions_100 里程碑基于此值
+   */
+  recordUserSession(): void {
+    this.userSessions++;
+    void this.persist();
+  }
+
+  /**
    * 获取当前统计快照
    */
   getStats(): DreamGrowthStats {
@@ -127,6 +141,7 @@ export class DreamGrowthTracker {
       totalSessions: this.totalSessions,
       totalInsights: this.totalInsights,
       consecutiveDays: this.consecutiveDays,
+      userSessions: this.userSessions,
     };
   }
 
@@ -225,14 +240,14 @@ export class DreamGrowthTracker {
     }
 
     if (
-      this.totalSessions >= 100 &&
+      this.userSessions >= 100 &&
       !this.unlockedAchievements.has('sessions_100')
     ) {
       this.unlockedAchievements.add('sessions_100');
       return {
         id: 'sessions_100',
         title: '📚 记忆宝库',
-        description: '累计整理了 100+ 条会话记忆',
+        description: '累计完成了 100 轮对话',
         companion,
       };
     }
@@ -246,6 +261,7 @@ interface DreamGrowthStats {
   totalSessions: number;
   totalInsights: number;
   consecutiveDays: number;
+  userSessions: number;
 }
 
 interface AchievementMilestone {
@@ -460,6 +476,14 @@ export function stopDreamIntegration(): void {
   offDreamEvent((event: DreamEvent) => {
     globalEventBus.publish(DREAM_EVENT, event);
   });
+}
+
+/**
+ * 记录一轮用户对话（Buddy 成长"对话轮数"，供 ChatManager 用户消息入口埋点调用）
+ * 双计数并存：不修改梦境整理会话数 totalSessions
+ */
+export function recordUserSession(): void {
+  growthTracker.recordUserSession();
 }
 
 /**

@@ -61,4 +61,10 @@ export class ToolAwareClient {
   getProviderId(): string {
     return this.provider.id;
   }
+
+  /** 透传底层 provider 的 baseUrl（本地服务识别/精确 tokenize 用） */
+  getBaseUrl(): string {
+    const p = this.provider as unknown as { getBaseUrl?: () => string };
+    return typeof p.getBaseUrl === 'function' ? p.getBaseUrl() : '';
+  }
 }

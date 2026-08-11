@@ -622,6 +622,18 @@ export interface SendMessageOptions {
   messageId?: string;
 
   /**
+   * 内部调用标记（系统内部发起，非用户直接输入，如计划步骤 executeStepPrompt）
+   * 用于区分"用户发起 vs 系统内部"：内部调用不计入 Buddy 用户对话轮数（userSessions）
+   */
+  _fromInternal?: boolean;
+
+  /**
+   * 内部调用来源标识（配合 _fromInternal 调试定位）
+   * 取值示例：'executeStepPrompt' | 'queryEngine' | 'fileSendToAI'
+   */
+  _fromInternalSource?: string;
+
+  /**
    * 模型名称
    */
   model?: string;

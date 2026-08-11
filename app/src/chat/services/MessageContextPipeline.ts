@@ -254,7 +254,8 @@ export async function truncateApiMessages(
   apiMessages: Record<string, unknown>[],
   maxContextTokens: number,
   sessions: Map<string, ChatSession>,
-  sessionId?: string
+  sessionId?: string,
+  outputBudgetTokens?: number
 ): Promise<void> {
   // P1-3 fix: Skills 作为 User Message 注入 — 在最后一条 user message 前插入。
   // 注意：ensureFresh() 无外部调用点，cache.l1 恒为空；且原注入代码位于上下文超限路径尾部，
@@ -282,7 +283,13 @@ export async function truncateApiMessages(
 
   if (maxContextTokens <= 0) return;
 
-  const RESPONSE_BUFFER_TOKENS = Math.round(maxContextTokens * 0.15);
+  // 输出预算：显式扣除本次请求的输出 token 上限（maxTokens），保证"输入+输出"不超窗口。
+  // 上限封顶 40% 窗口，防止 maxTokens 异常大挤占输入空间（llama.cpp n_ctx=4096 场景
+  // 若只留 15% 缓冲，输入 3482 + 请求输出 4096 结构性必超）。
+  const RESPONSE_BUFFER_TOKENS =
+    outputBudgetTokens && outputBudgetTokens > 0
+      ? Math.min(outputBudgetTokens, Math.round(maxContextTokens * 0.4))
+      : Math.round(maxContextTokens * 0.15);
   const SAFE_LIMIT = maxContextTokens - RESPONSE_BUFFER_TOKENS;
 
   const estimatedTokens = estimateMessagesTokens(
@@ -291,7 +298,7 @@ export async function truncateApiMessages(
   if (estimatedTokens <= SAFE_LIMIT) return;
 
   logger.warn(
-    `上下文超限(兜底截断): 估算 ${estimatedTokens} tokens (上限 ${SAFE_LIMIT})，将截断旧消息`
+    `上下文超限(兜底截断): 估算 ${estimatedTokens} tokens (上限 ${SAFE_LIMIT}，输出预留 ${RESPONSE_BUFFER_TOKENS})，将截断旧消息`
   );
 
   const systemMessages = apiMessages.filter(
@@ -300,34 +307,63 @@ export async function truncateApiMessages(
   const nonSystemMessages = apiMessages.filter(
     (m: Record<string, unknown>) => m.role !== 'system'
   );
-  const protectedCount = Math.max(
-    20,
-    Math.min(100, Math.round(nonSystemMessages.length * 0.3))
-  );
+  // 小窗口模型（<64K，如 llama.cpp n_ctx=4096）按 token 预算反推保护条数：
+  // 保护最近消息直至约占 SAFE_LIMIT 的 50%，防止"至少 20 条"本身占满窗口导致截断压不下去；
+  // 大窗口保持原"条数比例"逻辑（下限 20 / 上限 100）。
+  const isSmallWindow = SAFE_LIMIT < 64_000;
+  const protectedCount = isSmallWindow
+    ? Math.max(
+        3,
+        Math.min(
+          20,
+          Math.round(
+            (SAFE_LIMIT * 0.5) /
+              Math.max(
+                estimatedTokens / Math.max(nonSystemMessages.length, 1),
+                1
+              )
+          )
+        )
+      )
+    : Math.max(20, Math.min(100, Math.round(nonSystemMessages.length * 0.3)));
 
   const SHORT_USER_MSG_THRESHOLD = 200;
   let currentTokens = estimatedTokens;
   let dropCount = 0;
   const toDrop = new Set<number>();
 
+  const isShortUserMsg = (msg: Record<string, unknown>): boolean =>
+    msg.role === 'user' &&
+    typeof msg.content === 'string' &&
+    msg.content.length < SHORT_USER_MSG_THRESHOLD;
+
+  // 第一遍：优先丢长消息（保护短 user 指令，如"继续""好的"）
   for (let i = 0; i < nonSystemMessages.length - protectedCount; i++) {
     if (currentTokens <= SAFE_LIMIT) break;
 
     const msg = nonSystemMessages[i] as Record<string, unknown>;
-    // 先计算 token（无论是否跳过，都要从 currentTokens 减去）
     const msgTokens = estimateMessagesTokens([
       msg as { content?: string | unknown; role?: string },
     ]);
+    if (isShortUserMsg(msg)) continue;
     currentTokens -= msgTokens;
-
-    const isShortUserMsg =
-      msg.role === 'user' &&
-      typeof msg.content === 'string' &&
-      msg.content.length < SHORT_USER_MSG_THRESHOLD;
-    if (isShortUserMsg) continue;
-
     toDrop.add(i);
     dropCount++;
+  }
+  // 第二遍：仍超限则也丢短 user 消息（修复 BUG：此前短消息 continue 导致 toDrop 恒空、截断零生效）
+  if (currentTokens > SAFE_LIMIT) {
+    for (let i = 0; i < nonSystemMessages.length - protectedCount; i++) {
+      if (currentTokens <= SAFE_LIMIT) break;
+      if (toDrop.has(i)) continue;
+      const msg = nonSystemMessages[i] as Record<string, unknown>;
+      if (!isShortUserMsg(msg)) continue;
+      const msgTokens = estimateMessagesTokens([
+        msg as { content?: string | unknown; role?: string },
+      ]);
+      currentTokens -= msgTokens;
+      toDrop.add(i);
+      dropCount++;
+    }
   }
 
   const keptNonSystem = nonSystemMessages.filter(
@@ -362,6 +398,186 @@ export async function truncateApiMessages(
         sessionId,
         summaryLength: summaryContent.length,
       });
+    }
+  }
+}
+
+// ============================================================
+// llama.cpp 精确 token 截断（2026-08-11 根治估算低估）
+// ============================================================
+
+/** 调 llama-server /tokenize 精确分词（优先 /v1/tokenize，失败回退 /tokenize） */
+async function fetchTokenizeCount(
+  baseUrl: string,
+  content: string
+): Promise<number | null> {
+  for (const path of ['/v1/tokenize', '/tokenize']) {
+    try {
+      const res = await fetch(`${baseUrl}${path}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content }),
+        signal: AbortSignal.timeout(5000),
+      });
+      if (!res.ok) continue;
+      const data = (await res.json()) as {
+        tokens?: unknown[];
+        count?: number;
+      };
+      if (Array.isArray(data.tokens)) return data.tokens.length;
+      if (typeof data.count === 'number') return data.count;
+    } catch {
+      // 尝试下一个端点
+    }
+  }
+  return null;
+}
+
+/**
+ * llama.cpp 场景发送前精确截断（根治：估算 4104 vs 真实 15843 低估 3.86 倍问题）。
+ * 用服务端 /tokenize 对每条消息真实分词，从最旧非 system 消息开始丢弃，
+ * 直到真实 token <= maxInputTokens（保护全部 system + 最后 2 条非 system）。
+ * 仍超限时 warn 输出 system 占比——system prompt（工具定义/记忆）过大时，
+ * 丢非 system 无法挽救，需精简 system prompt（另见日志提示）。
+ */
+export async function truncateByPreciseTokens(
+  apiMessages: Record<string, unknown>[],
+  baseUrl: string,
+  maxInputTokens: number
+): Promise<void> {
+  // llama-server 的 /tokenize 端点在根路径（不带 /v1），而 provider baseUrl 常带 /v1 后缀，
+  // 不规范化会拼出 /v1/tokenize → 404 → 探测失败 → 精确截断被跳过（本次 400 最终根因）
+  const normalizedBase = baseUrl.replace(/\/v1\/?$/, '');
+  // 端点可用性探测：远程 API（OpenAI/DeepSeek 等）无 /tokenize 端点 → 一次探测失败后直接跳过，
+  // 避免逐条消息发起无意义的请求（仅有 llama.cpp 等本地服务生效）
+  const probeResult = await fetchTokenizeCount(normalizedBase, 'ping');
+  if (probeResult === null) {
+    logger.warn('truncate:precise — 端点不可用，跳过精确截断', {
+      baseUrl: normalizedBase,
+    });
+    return;
+  }
+
+  const counts: number[] = [];
+  let total = 0;
+  for (const m of apiMessages) {
+    const content = m.content;
+    let n: number | null = null;
+    if (typeof content === 'string' && content.length > 0) {
+      n = await fetchTokenizeCount(normalizedBase, content);
+    }
+    if (n === null) {
+      // /tokenize 不可用或 content 非纯字符串（图片等）→ 估算兜底
+      n = estimateMessagesTokens([
+        m as { role?: string; content?: string | unknown },
+      ]);
+    }
+    counts.push(n);
+    total += n;
+  }
+  logger.info('truncate:precise — 计数结果', {
+    baseUrl: normalizedBase,
+    probeResult,
+    messageCount: apiMessages.length,
+    total,
+    maxInputTokens,
+    perMessage: apiMessages.map((m, i) => ({
+      role: (m as Record<string, unknown>).role ?? '?',
+      contentType:
+        typeof (m as Record<string, unknown>).content === 'string'
+          ? 'string'
+          : Array.isArray((m as Record<string, unknown>).content)
+            ? `array(${((m as Record<string, unknown>).content as unknown[]).length})`
+            : typeof (m as Record<string, unknown>).content,
+      tokens: counts[i],
+    })),
+  });
+  if (total <= maxInputTokens) return;
+
+  const PROTECT_TAIL = 2;
+  const nonSystemIdx: number[] = [];
+  for (let i = 0; i < apiMessages.length; i++) {
+    if (apiMessages[i].role !== 'system') nonSystemIdx.push(i);
+  }
+  const dropped = new Array<boolean>(apiMessages.length).fill(false);
+  let current = total;
+  let dropCount = 0;
+  for (let k = 0; k < nonSystemIdx.length - PROTECT_TAIL; k++) {
+    if (current <= maxInputTokens) break;
+    const idx = nonSystemIdx[k];
+    dropped[idx] = true;
+    current -= counts[idx];
+    dropCount++;
+  }
+
+  const systemTokens = apiMessages.reduce(
+    (acc, m, i) => acc + (m.role === 'system' ? counts[i] : 0),
+    0
+  );
+  if (current > maxInputTokens) {
+    logger.warn(
+      'truncate:precise — 精确截断后仍超限（system prompt 过大，丢非 system 无效）',
+      {
+        totalTokens: total,
+        remainingTokens: current,
+        maxInputTokens,
+        systemTokens,
+        systemPct: total > 0 ? Math.round((systemTokens / total) * 100) : 0,
+        droppedCount: dropCount,
+        baseUrl,
+      }
+    );
+  } else if (dropCount > 0) {
+    logger.warn('truncate:precise — 精确截断完成', {
+      beforeTokens: total,
+      afterTokens: current,
+      maxInputTokens,
+      systemTokens,
+      droppedCount: dropCount,
+    });
+  }
+
+  if (dropCount > 0) {
+    const kept = apiMessages.filter((_: unknown, i: number) => !dropped[i]);
+    apiMessages.length = 0;
+    apiMessages.push(...kept);
+  }
+
+  // system prompt 兜底：丢完非 system 仍超限 → 迭代截断 system 内容（真实 token 校验收敛）
+  // 场景：system prompt（工具定义/记忆）本身真实 > maxInputTokens，必须削减否则必 400
+  if (current > maxInputTokens) {
+    const keptNonSystemTokens = current - systemTokens;
+    const targetSystemTokens = Math.max(
+      Math.floor((maxInputTokens - keptNonSystemTokens) * 0.5),
+      64
+    );
+    for (let i = 0; i < apiMessages.length; i++) {
+      const m = apiMessages[i] as Record<string, unknown>;
+      if (m.role !== 'system' || typeof m.content !== 'string') continue;
+      const originalLen = (m.content as string).length;
+      let systemStr = m.content as string;
+      let guard = 0;
+      while (guard++ < 12) {
+        const n = await fetchTokenizeCount(normalizedBase, systemStr);
+        if (n === null || n <= targetSystemTokens) break;
+        const ratio = targetSystemTokens / n;
+        systemStr = systemStr.slice(
+          0,
+          Math.max(Math.floor(systemStr.length * ratio), 8)
+        );
+      }
+      if (systemStr.length < originalLen) {
+        logger.warn('truncate:precise — system prompt 已截断（超限兜底）', {
+          baseUrl,
+          maxInputTokens,
+          targetSystemTokens,
+          systemCharsBefore: originalLen,
+          systemCharsAfter: systemStr.length,
+          remainingTokens: current,
+        });
+        m.content = systemStr;
+      }
+      break;
     }
   }
 }

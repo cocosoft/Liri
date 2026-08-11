@@ -184,11 +184,24 @@ export class LogTail extends EventEmitter {
 
   /**
    * 尝试解析 JSON 日志
+   * 仅返回普通对象（含 null/数组/原始值时返回 undefined，避免调用方访问属性崩溃）
    */
   private tryParse(line: string): Record<string, unknown> | undefined {
     try {
-      return JSON.parse(line);
-    } catch {
+      const parsed: unknown = JSON.parse(line);
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        logger.info('LogTail JSON 行解析结果非对象，跳过', {
+          linePreview: line.slice(0, 200),
+          parsedType: parsed === null ? 'null' : typeof parsed,
+        });
+        return undefined;
+      }
+      return parsed as Record<string, unknown>;
+    } catch (err) {
+      logger.info('LogTail JSON 行解析失败', {
+        linePreview: line.slice(0, 200),
+        error: err instanceof Error ? err.message : String(err),
+      });
       return undefined;
     }
   }

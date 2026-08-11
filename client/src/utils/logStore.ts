@@ -29,10 +29,29 @@ function generateId(): string {
 }
 
 function getStoredLogs(): FrontendLogEntry[] {
+  let data: string | null = null;
   try {
-    const data = localStorage.getItem(STORAGE_KEY);
-    return data ? JSON.parse(data) : [];
-  } catch {
+    data = localStorage.getItem(STORAGE_KEY);
+    if (!data) return [];
+    const parsed: unknown = JSON.parse(data);
+    // 仅接受数组（null/对象/原始值视为损坏数据，避免遍历或 slice 崩溃）
+    if (Array.isArray(parsed)) {
+      return parsed as FrontendLogEntry[];
+    }
+    // 注：此处不可用 createLogger（logger.ts 依赖本模块，会循环依赖且无限递归），
+    // 参照后端 Logger.ts 内部用 console 打印的先例
+    // eslint-disable-next-line no-console
+    console.info("[logStore] 前端日志存储数据损坏，返回空", {
+      dataType: parsed === null ? "null" : typeof parsed,
+      dataPreview: String(data).slice(0, 200),
+    });
+    return [];
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.info("[logStore] 前端日志存储 JSON 解析失败，返回空", {
+      error: err instanceof Error ? err.message : String(err),
+      dataPreview: data ? String(data).slice(0, 200) : String(data),
+    });
     return [];
   }
 }

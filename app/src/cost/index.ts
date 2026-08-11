@@ -243,6 +243,8 @@ export async function initializeCostTrackingSystem(): Promise<void> {
     const { getCostMetricsBridge: getBridge } =
       await import('./CostMetricsBridge.js');
     getBridge().init();
+    // 成本 dashboard 定时推送（30s 周期；统一后台任务事件 cost-flush，供运行状况面板聚合）
+    getBridge().startAutoFlush();
 
     logger.info('成本跟踪系统初始化完成');
   } catch (error) {

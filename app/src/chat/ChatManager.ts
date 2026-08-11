@@ -761,8 +761,8 @@ export class ChatManagerImpl implements ChatManager {
         recordChatResponseUsage: (sid, usage) =>
           this.recordChatResponseUsage(sid, usage),
         sanitizeApiMessages: (msgs) => this._sanitizeApiMessages(msgs),
-        truncateApiMessages: (msgs, max, sid) =>
-          this._truncateApiMessages(msgs, max, sid),
+        truncateApiMessages: (msgs, max, sid, outputBudgetTokens) =>
+          this._truncateApiMessages(msgs, max, sid, outputBudgetTokens),
         persistTurnSummary: (session) => this._persistTurnSummary(session),
         flushPendingPersists: () => this.flushPendingPersists(),
         shouldUseTAORLoop: (sid) => this._shouldUseTAORLoop(sid),
@@ -1642,13 +1642,15 @@ export class ChatManagerImpl implements ChatManager {
   private async _truncateApiMessages(
     apiMessages: Record<string, unknown>[],
     maxContextTokens: number,
-    sessionId?: string
+    sessionId?: string,
+    outputBudgetTokens?: number
   ): Promise<void> {
     await truncateApiMessages(
       apiMessages,
       maxContextTokens,
       this._chatSessions,
-      sessionId
+      sessionId,
+      outputBudgetTokens
     );
   }
 
@@ -1903,9 +1905,16 @@ export class ChatManagerImpl implements ChatManager {
     // 委托给 sendMessage，复用统一的 LLM 调用 + 工具循环（含 TAORLoop 支持）
     // 计划步骤内通常不触发 ask_user_question 等交互工具，
     // 若触发则 sendMessage 的 pendingInteraction 机制会保存状态并提前返回。
+    // 验证日志：确认内部调用标记 _fromInternal 已传入（埋点据此不计入 Buddy 用户对话轮数）
+    logger.info('executeStepPrompt 内部调用 sendMessage', {
+      sessionId: session.id,
+      _fromInternal: true,
+    });
     await this.sendMessage(prompt, {
       ...options,
       sessionId: session.id,
+      _fromInternal: true, // 计划步骤为系统内部调用：不计入 Buddy 用户对话轮数
+      _fromInternalSource: 'executeStepPrompt',
     });
   }
 
@@ -2176,7 +2185,40 @@ export class ChatManagerImpl implements ChatManager {
           | Message
           | undefined)
       : undefined;
-    session.metadata.roundCount = (session.metadata.roundCount ?? 0) + 1;
+    const prevRoundCount = session.metadata.roundCount ?? 0;
+    session.metadata.roundCount = prevRoundCount + 1;
+    const fromInternal = options?._fromInternal === true;
+    if (!fromInternal) {
+      // Buddy 成长：用户发起对话才计数（内部调用不计入，精确"用户真实对话轮数"）
+      void import('@modules/buddy')
+        .then(({ recordUserSession }) => recordUserSession())
+        .catch((err) =>
+          logger.warn('Buddy 用户对话轮次埋点失败', { error: String(err) })
+        );
+    }
+    if (fromInternal) {
+      // 现场调试断点：内部调用触发时醒目提示（默认日志级别可见）
+      logger.info(
+        '[内部调用断点] _fromInternal=true，本轮不计入 userSessions',
+        {
+          sessionId: session.id,
+          roundCountFrom: prevRoundCount,
+          roundCountTo: session.metadata.roundCount,
+          source: options?._fromInternalSource ?? 'unknown',
+        }
+      );
+    }
+    logger[fromInternal ? 'debug' : 'info']('用户对话轮次+1（流式）', {
+      sessionId: session.id,
+      roundCountFrom: prevRoundCount,
+      roundCountTo: session.metadata.roundCount,
+      model: options?.model ?? null,
+      contentLength: content.length,
+      prePersisted: !!prePersisted,
+      messageId: options?.messageId ?? null,
+      _fromInternal: options?._fromInternal ?? false,
+      source: fromInternal ? 'internal' : 'user',
+    });
     if (prePersisted) {
       userMessage = prePersisted;
     } else {
@@ -3501,11 +3543,102 @@ export class ChatManagerImpl implements ChatManager {
   }
 
   deleteSession(sessionId: string): void {
-    this.sessionLifecycle.deleteSession(sessionId);
+    const startedAt = Date.now();
+    logger.info('deleteSession:开始删除会话', { sessionId });
+    try {
+      this.sessionLifecycle.deleteSession(sessionId);
+      logger.info('deleteSession:会话删除完成', {
+        sessionId,
+        elapsedMs: Date.now() - startedAt,
+      });
+    } catch (e) {
+      logger.warn('deleteSession:会话删除失败', {
+        sessionId,
+        elapsedMs: Date.now() - startedAt,
+        error: e instanceof Error ? e.message : String(e),
+      });
+      void handleError(e, {
+        module: 'chat:manager',
+        action: 'deleteSession:删除会话失败',
+        context: { sessionId },
+      });
+    }
+    // 联动清理该会话全部检查点（不阻塞删除主流程，记录执行情况，避免残留孤儿检查点）
+    void this._deleteSessionCheckpoints(sessionId);
+  }
+
+  /**
+   * 清理指定会话的检查点并记录执行情况（fire-and-forget，不阻塞删除主流程）
+   * 耗时日志：listMs（检查点列表查询）/ cleanupMs（删除）/ totalMs（总耗时），供性能分析
+   */
+  private async _deleteSessionCheckpoints(sessionId: string): Promise<void> {
+    let count = 0;
+    const startedAt = Date.now();
+    try {
+      const t0 = Date.now();
+      const before = await this._checkpointService.listCheckpoints(sessionId);
+      const listMs = Date.now() - t0;
+      count = before.length;
+      if (count === 0) {
+        logger.info('deleteSession:该会话无检查点，跳过清理', {
+          sessionId,
+          listMs,
+        });
+        return;
+      }
+      logger.info('deleteSession:开始清理会话检查点', {
+        sessionId,
+        count,
+        listMs,
+      });
+      const t1 = Date.now();
+      await this._checkpointService.deleteSessionCheckpoints(sessionId);
+      const cleanupMs = Date.now() - t1;
+      logger.info('deleteSession:会话检查点清理完成', {
+        sessionId,
+        removed: count,
+        listMs,
+        cleanupMs,
+        totalMs: Date.now() - startedAt,
+      });
+    } catch (e) {
+      logger.warn('deleteSession:会话检查点清理失败', {
+        sessionId,
+        count,
+        elapsedMs: Date.now() - startedAt,
+        error: e instanceof Error ? e.message : String(e),
+      });
+      await handleError(e, {
+        module: 'chat:manager',
+        action: 'deleteSession:清理检查点失败',
+      });
+    }
   }
 
   async clearAllSessions(): Promise<void> {
-    return this.sessionLifecycle.clearAllSessions();
+    const startedAt = Date.now();
+    logger.info('clearAllSessions:开始批量清空会话', {});
+    // 批量删除前先清理所有存储会话的检查点（失败不阻塞清空主流程）
+    const stored = await this.sessionGateway.listSessions();
+    logger.info('clearAllSessions:发现待清理存储会话', {
+      count: stored.length,
+    });
+    await Promise.all(
+      stored.map((s) =>
+        this._checkpointService.deleteSessionCheckpoints(s.id).catch((e) =>
+          handleError(e, {
+            module: 'chat:manager',
+            action: 'clearAllSessions:清理检查点失败',
+            context: { sessionId: s.id },
+          })
+        )
+      )
+    );
+    await this.sessionLifecycle.clearAllSessions();
+    logger.info('clearAllSessions:批量清空完成', {
+      sessions: stored.length,
+      elapsedMs: Date.now() - startedAt,
+    });
   }
 
   async saveSession(session: ChatSession): Promise<void> {

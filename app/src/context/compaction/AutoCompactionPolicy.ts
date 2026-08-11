@@ -131,6 +131,11 @@ export class AutoCompactionPolicy {
       // 用校准因子修正估算偏差，使 token 计数更接近真实值
       const tokens = Math.round(rawTokens * this.calibrationFactor);
       const { tokens: maxTokens } = resolveContextWindow(model, configOverride);
+      // 小窗口模型（<128K，如 llama.cpp n_ctx=4096 本地模型）用更保守的触发阈值：
+      // 85%/92% 的触发水位对小窗口几乎等于"压线才动手"，提前到 60%/70% 触发压缩。
+      const isSmallWindow = maxTokens < 128_000;
+      const warnRatio = isSmallWindow ? 0.6 : this.warningRatio;
+      const blockRatio = isSmallWindow ? 0.7 : this.blockingRatio;
       const ratio = maxTokens > 0 ? tokens / maxTokens : 0;
 
       const snapshot = { tokens, maxTokens, ratio };
@@ -150,26 +155,28 @@ export class AutoCompactionPolicy {
           tokens,
           maxTokens,
           model,
+          isSmallWindow,
         });
         return {
           decision: 'trigger',
           snapshot,
-          reason: `message count ${messages.length} > ${AutoCompactionPolicy.MESSAGE_COUNT_FALLBACK} (token ratio ${(ratio * 100).toFixed(1)}% still below ${(this.warningRatio * 100).toFixed(0)}%, estimation may be off — forcing trigger for safety)`,
+          reason: `message count ${messages.length} > ${AutoCompactionPolicy.MESSAGE_COUNT_FALLBACK} (token ratio ${(ratio * 100).toFixed(1)}% still below ${(warnRatio * 100).toFixed(0)}%, estimation may be off — forcing trigger for safety)`,
         };
       }
 
-      if (ratio < this.warningRatio) {
+      if (ratio < warnRatio) {
         logger.info('compaction:evaluate', {
           decision: 'skip',
           ratio: Math.round(ratio * 100) / 100,
           tokens,
           maxTokens,
           model,
+          isSmallWindow,
         });
         return { decision: 'skip', snapshot };
       }
 
-      if (ratio >= this.blockingRatio) {
+      if (ratio >= blockRatio) {
         // 反抖动检查
         if (this.shouldSkipDueToAntiFlapping()) {
           logger.info('compaction:evaluate anti-flapping skip', {
@@ -191,11 +198,12 @@ export class AutoCompactionPolicy {
           tokens,
           maxTokens,
           model,
+          isSmallWindow,
         });
         return {
           decision: 'trigger',
           snapshot,
-          reason: `token ratio ${(ratio * 100).toFixed(1)}% >= ${(this.blockingRatio * 100).toFixed(0)}%`,
+          reason: `token ratio ${(ratio * 100).toFixed(1)}% >= ${(blockRatio * 100).toFixed(0)}%`,
         };
       }
 
@@ -205,11 +213,12 @@ export class AutoCompactionPolicy {
         tokens,
         maxTokens,
         model,
+        isSmallWindow,
       });
       return {
         decision: 'warn',
         snapshot,
-        reason: `token ratio ${(ratio * 100).toFixed(1)}% >= ${(this.warningRatio * 100).toFixed(0)}%`,
+        reason: `token ratio ${(ratio * 100).toFixed(1)}% >= ${(warnRatio * 100).toFixed(0)}%`,
       };
     } catch (err) {
       void handleError(err, {

@@ -547,7 +547,10 @@ export class SessionsTool extends BaseTool {
       };
     }
 
-    await this.gateway.deleteSession(params.sessionId);
+    // 动态 import 断开工具→CoreAPI 循环依赖（静态 import 会导致启动期
+    // "Cannot access 'EnhancedToolManager' before initialization"）
+    const { getCoreAPI } = await import('../../runtime/api/CoreAPIImpl');
+    await getCoreAPI().deleteSession(params.sessionId);
 
     const data: SessionsOutput = {
       action: 'delete',

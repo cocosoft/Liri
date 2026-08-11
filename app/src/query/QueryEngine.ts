@@ -849,8 +849,11 @@ export class QueryEngine {
       };
     }> => {
       // 使用ChatManager发送消息，实现完整的聊天循环
+      // 查询引擎为系统内部 LLM 调用：标记 _fromInternal，不计入 Buddy 用户对话轮数
       const message = await this.chatManager.sendMessage(messageContent, {
         sessionId,
+        _fromInternal: true,
+        _fromInternalSource: 'queryEngine',
       });
 
       // 从消息中提取工具调用（如果有）

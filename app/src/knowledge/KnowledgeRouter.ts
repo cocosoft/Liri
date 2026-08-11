@@ -197,10 +197,12 @@ export class KnowledgeRouter implements IKnowledgeSearch {
       const evt = event as { action: string; filePath: string };
       if (evt.action === 'deleted') {
         this.removeFromIndex(evt.filePath);
+      } else {
+        // created/updated 通过 buildIndex 全量刷新（保守方案确保一致性）
+        void this.buildIndex();
       }
       // 清除搜索缓存（知识已变更）
       this.searchCache.clear();
-      // created/updated 通过 buildIndex 全量刷新（保守方案确保一致性）
     });
   }
 

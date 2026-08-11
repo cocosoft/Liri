@@ -1418,7 +1418,9 @@ export class CoreAPIImpl implements CoreAPI {
   }
 
   async deleteSession(sessionId: string): Promise<void> {
-    this.sessionManager.deleteSession(sessionId);
+    // 走 ChatManager 完整删除路径（持久化删除会话 + 联动清理检查点）；
+    // 原实现走 sessionManager(轻量 adapter) 仅删内存，导致磁盘会话与检查点残留
+    await this.chatManager.deleteSession(sessionId);
   }
 
   async clearAllSessions(): Promise<void> {

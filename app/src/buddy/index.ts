@@ -110,6 +110,7 @@ export {
   formatGrowthDialogue,
   DreamGrowthTracker,
   DREAM_EVENT,
+  recordUserSession,
 } from './dreamIntegration';
 export type {
   DreamEvent,

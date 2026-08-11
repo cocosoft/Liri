@@ -304,7 +304,12 @@ export async function compactContext(
     >[];
   } else {
     const maxCtx = resolveMaxContextTokens(options?.model);
-    await host.truncateApiMessages(ctx.apiMessages, maxCtx, session.id);
+    await host.truncateApiMessages(
+      ctx.apiMessages,
+      maxCtx,
+      session.id,
+      options?.maxTokens
+    );
   }
 
   const afterTokens = estimateMessagesTokens(ctx.apiMessages);

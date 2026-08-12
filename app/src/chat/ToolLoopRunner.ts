@@ -497,16 +497,16 @@ export class ToolLoopRunner {
     truncated: boolean;
   } {
     const full: { name: string; status: 'done' | 'in_progress' }[] = [
-      ...this.completedToolNames.map(
-        (name) => ({ name, status: 'done' as const })
-      ),
+      ...this.completedToolNames.map((name) => ({
+        name,
+        status: 'done' as const,
+      })),
       ...this.currentToolCalls.map((tc) => ({
         name: getToolCallName(tc),
         status: 'in_progress' as const,
       })),
     ];
-    const truncated =
-      full.length > ToolLoopRunner.MAX_HEARTBEAT_STEPS;
+    const truncated = full.length > ToolLoopRunner.MAX_HEARTBEAT_STEPS;
     const steps = truncated
       ? full.slice(-ToolLoopRunner.MAX_HEARTBEAT_STEPS)
       : full;

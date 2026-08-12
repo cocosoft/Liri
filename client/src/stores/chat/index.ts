@@ -179,15 +179,21 @@ sseService.on("plan:step_progress", (data: Record<string, unknown>) => {
 
   const store = usePlanTaskStore.getState();
   const current = store.tasks[planId];
-  if (!current) return;
 
   const newStatus: TaskCardTask["status"] =
     status === "completed" ? "completed" : "failed";
 
+  // T3 修复：删除"task_card 未到时直接 return"的短路——
+  // planTaskStore.updateTask 内部已有 pendingUpdates 竞态缓冲（#3），
+  // 原实现短路使缓冲形同虚设，step_progress 先于 task_card 到达时事件静默丢失。
   store.updateTask(planId, stepId, {
     status: newStatus,
     ...(durationMs !== undefined ? { durationMs } : {}),
   });
+
+  // 推进后续 pending 步骤需要 tasks 已就绪；task_card 未到时
+  // 更新已由 updateTask 缓存，upsert 补发，无需在此处理
+  if (!current) return;
 
   // #7 修复：不再依赖 progress 字段非空——step_progress 事件本身（completed/failed）
   // 即代表一步结束，直接推进下一个 pending 步骤；原实现 progress 为 null 时

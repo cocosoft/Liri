@@ -212,29 +212,16 @@ export function setMessagesImpl(
       [questionSessionId]: hasQuestion,
     };
 
-    if (sessionFilesList.length > 0) {
-      const currentFiles = get().sessionFiles;
-      const merged = [...currentFiles];
-      for (const file of sessionFilesList) {
-        if (!merged.some((f) => f.path === file.path)) {
-          merged.push(file);
-        }
-      }
-      set({
-        messages: enhancedMessages,
-        sessionFiles: merged,
-        hasPendingQuestion: pendingQuestion,
-        streamingStatus: "",
-        executionPhase: null,
-      });
-    } else {
-      set({
-        messages: enhancedMessages,
-        hasPendingQuestion: pendingQuestion,
-        streamingStatus: "",
-        executionPhase: null,
-      });
-    }
+    // BUG-4 修复：sessionFiles 完全替换为当前会话提取的文件列表。
+    // 原实现与 get().sessionFiles 合并，切换会话时旧会话文件残留，
+    // 导致 knownFilePaths 混入上一会话路径、代码被错误匹配成 FileLink。
+    set({
+      messages: enhancedMessages,
+      sessionFiles: sessionFilesList,
+      hasPendingQuestion: pendingQuestion,
+      streamingStatus: "",
+      executionPhase: null,
+    });
 
     // 释放会话切换锁后刷新暂存的流式 chunk
     switchState.lock = false;

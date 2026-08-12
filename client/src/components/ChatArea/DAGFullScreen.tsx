@@ -26,6 +26,7 @@ const STATUS_COLORS: Record<
   completed: { bg: "#dcfce7", border: "#22c55e", text: "#16a34a" },
   failed: { bg: "#fee2e2", border: "#ef4444", text: "#dc2626" },
   blocked: { bg: "#fff7ed", border: "#f97316", text: "#ea580c" },
+  skipped: { bg: "#f9fafb", border: "#9ca3af", text: "#6b7280" },
 };
 
 function layoutNodes(tasks: TaskCardTask[]): { nodes: Node[]; edges: Edge[] } {

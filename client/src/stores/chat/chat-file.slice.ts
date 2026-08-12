@@ -166,11 +166,21 @@ export function extractFilePathFromToolCall(toolCall: ToolCall): string | null {
   const args = toolCall.arguments as Record<string, unknown> | undefined;
   if (!args) return null;
 
-  const filePath =
-    (args.file_path as string) ||
-    (args.path as string) ||
-    (args.filePath as string);
-  if (filePath && typeof filePath === "string") return filePath;
+  // 语义明确的文件参数（file_path/filePath）直接信任
+  const explicit =
+    (args.file_path as string) || (args.filePath as string);
+  if (explicit && typeof explicit === "string") return explicit;
+
+  // 次要7 修复：泛化 path 参数可能是目录（如 outputDir），
+  // 仅当带文件扩展名时才视为文件，避免目录路径进入 sessionFiles 渲染成损坏链接
+  const pathArg = args.path as string;
+  if (
+    pathArg &&
+    typeof pathArg === "string" &&
+    /\.[a-zA-Z0-9]{1,10}$/.test(pathArg)
+  ) {
+    return pathArg;
+  }
 
   return null;
 }

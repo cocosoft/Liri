@@ -36,6 +36,13 @@ export const pathResolveCache = new Map<string, PathCacheEntry>();
 /** 进行中的请求去重集合 */
 export const pathResolvePending = new Set<string>();
 
+/**
+ * BUG-5 修复：别名候选索引 aliasKey → 规范化 key 集合
+ * 同一别名（如 main.ts）可能对应多个不同文件（client/src/main.ts vs app/src/main.ts），
+ * 用 Set 累积候选而非覆盖，避免"后写覆盖先写"导致的指向漂移。
+ */
+const pathAliasCandidates = new Map<string, Set<string>>();
+
 /** 生成带 sessionId 的缓存 key */
 export function getCacheKey(sessionId: string, filePath: string): string {
   return `${sessionId}${SESSION_KEY_SEPARATOR}${filePath}`;
@@ -47,16 +54,25 @@ export function getCacheKey(sessionId: string, filePath: string): string {
  */
 export function getCacheEntry(key: string): PathCacheEntry | null {
   const entry = pathResolveCache.get(key);
-  if (!entry) return null;
-  // BUG11 修复：使用 monotonic clock 防止 NTP/夏令时跳变导致缓存异常
-  const now = performance.now();
-  const ttl = entry.isNegative ? NEGATIVE_CACHE_TTL_MS : POSITIVE_CACHE_TTL_MS;
-  if (now - entry.createdAt > ttl) {
-    // 过期：删除并触发后台刷新
-    pathResolveCache.delete(key);
-    return null;
+  if (entry) {
+    // BUG11 修复：使用 monotonic clock 防止 NTP/夏令时跳变导致缓存异常
+    const now = performance.now();
+    const ttl = entry.isNegative ? NEGATIVE_CACHE_TTL_MS : POSITIVE_CACHE_TTL_MS;
+    if (now - entry.createdAt > ttl) {
+      // 过期：删除并触发后台刷新
+      pathResolveCache.delete(key);
+      return null;
+    }
+    return entry;
   }
-  return entry;
+  // BUG-5 修复：别名候选消歧 —— 仅当唯一候选时经规范化 key 命中；
+  // 多个候选（同名不同目录）视为歧义返回 null，交由异步 resolve 决定，不再漂移
+  const candidates = pathAliasCandidates.get(key);
+  if (candidates && candidates.size === 1) {
+    const [canonicalKey] = candidates;
+    if (canonicalKey !== key) return getCacheEntry(canonicalKey);
+  }
+  return null;
 }
 
 /**
@@ -93,10 +109,14 @@ export function matchFilePath(
   if (extMatch) return extMatch;
 
   // 4. 路径后缀匹配（处理 LLM 截断：提及 src/main.ts 但真实路径为 app/src/main.ts）
-  const tailMatch = knownPaths.find((p) =>
+  // BUG-3 修复：endsWith 命中多个候选（如 client/src/FileLink.tsx vs app/data/knowledge/raw/FileLink.tsx）时，
+  // find 返回数组第一个可能指错；改为取路径最短者（最接近完整提及）
+  const tailMatches = knownPaths.filter((p) =>
     p.toLowerCase().endsWith(mentionLower),
   );
-  if (tailMatch) return tailMatch;
+  if (tailMatches.length > 0) {
+    return tailMatches.reduce((best, p) => (p.length < best.length ? p : best));
+  }
 
   return null;
 }
@@ -107,6 +127,7 @@ export function matchFilePath(
 export function clearPathCache(): void {
   pathResolveCache.clear();
   pathResolvePending.clear();
+  pathAliasCandidates.clear();
 }
 
 /**
@@ -117,6 +138,11 @@ export function clearSessionPathCache(sessionId: string): void {
   for (const key of pathResolveCache.keys()) {
     if (key.startsWith(prefix)) {
       pathResolveCache.delete(key);
+    }
+  }
+  for (const key of pathAliasCandidates.keys()) {
+    if (key.startsWith(prefix)) {
+      pathAliasCandidates.delete(key);
     }
   }
 }
@@ -160,16 +186,25 @@ export function setPathCache(
   };
   pathResolveCache.set(sessionKey, entry);
 
-  // 同时用所有别名索引该条目，使后续查询能通过别名直接命中
   if (!isNegative) {
+    // 规范化 key 也建立映射：mention 与 canonical 不一致（如大小写变体）时，
+    // 后续可按 canonical 直接命中
+    const canonicalKey = getCacheKey(sessionId, canonical);
+    if (canonicalKey !== sessionKey) {
+      pathResolveCache.set(canonicalKey, entry);
+    }
+
+    // BUG-5 修复：别名索引冲突时不覆盖先写，改为累积候选（aliasKey → Set<canonicalKey>）。
+    // 原实现后写覆盖先写，同一消息中 main.ts 指向随网络时序漂移。
     for (const alias of aliases) {
       const aliasKey = getCacheKey(sessionId, alias);
-      if (
-        !pathResolveCache.has(aliasKey) ||
-        pathResolveCache.get(aliasKey)!.canonical !== canonical
-      ) {
-        pathResolveCache.set(aliasKey, entry);
+      if (aliasKey === sessionKey || aliasKey === canonicalKey) continue;
+      let candidates = pathAliasCandidates.get(aliasKey);
+      if (!candidates) {
+        candidates = new Set();
+        pathAliasCandidates.set(aliasKey, candidates);
       }
+      candidates.add(canonicalKey);
     }
   }
 }

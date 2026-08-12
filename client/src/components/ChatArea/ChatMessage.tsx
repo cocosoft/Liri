@@ -33,6 +33,15 @@ interface ChatMessageProps {
   onReply?: (message: Message) => void;
 }
 
+/** R-L 修复：字符求和哈希（用于头像颜色等按字符串取色的场景），替代 id.length 哈希 */
+function hashString(s: string): number {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) {
+    h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  }
+  return h;
+}
+
 /**
  * 从消息的 blocks 中提取完整文本内容（用于复制等操作）
  * 包含 text 块、thinking 块、tool_call 结果等所有可见文本
@@ -676,7 +685,9 @@ const ChatMessageMemo = memo(
           <div
             className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold text-white"
             style={{
-              background: `hsl(${(message.id.length * 7) % 360}, 70%, 60%)`,
+              // R-L 修复：前端 user 消息 id 是 crypto.randomUUID() 长度恒 36，
+              // 原 length 哈希导致所有用户头像同色；改用字符求和哈希。
+              background: `hsl(${hashString(message.id) % 360}, 70%, 60%)`,
             }}
             aria-hidden="true"
           >
@@ -829,8 +840,20 @@ const ChatMessageMemo = memo(
         }
       }
     }
-    // sessionUsage 引用变化时更新（仅显示用，不影响用户交互）
-    if (prevProps.sessionUsage !== nextProps.sessionUsage) return false;
+    // R-B 修复：sessionUsage 用数值比较而非引用——ChatMessageList 把同一个
+    // sessionUsage 传给每条消息，且 ChatArea 中 useMemo 依赖 messages，流式每来
+    // 一个 chunk 引用就变；引用比较会让所有历史消息判"需重渲染"，memo 形同虚设。
+    // 仅展示用的 Token/成本信息变化时更新，不影响用户交互。
+    const prevUsage = prevProps.sessionUsage;
+    const nextUsage = nextProps.sessionUsage;
+    if (
+      prevUsage?.totalTokens !== nextUsage?.totalTokens ||
+      prevUsage?.inputTokens !== nextUsage?.inputTokens ||
+      prevUsage?.outputTokens !== nextUsage?.outputTokens ||
+      prevUsage?.estimatedCostUsd !== nextUsage?.estimatedCostUsd
+    ) {
+      return false;
+    }
     return true;
   },
 );

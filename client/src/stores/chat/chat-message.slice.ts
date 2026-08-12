@@ -15,6 +15,8 @@ import type { StateCreator } from "zustand";
 import type { Message } from "@/types";
 import type { FileSlice } from "./chat-file.slice";
 import { createLogger } from "@/utils/logger";
+import { handleClientError } from "@/utils/handleError";
+import { truncateMessages } from "@/services/chatService";
 import type {
   MessageSlice,
   MessageSet,
@@ -142,6 +144,27 @@ export const createMessageSlice: StateCreator<
     },
 
     clearMessages: () => {
+      set({ messages: [], error: null, errorCode: null });
+    },
+
+    // R-A 修复：清空当前会话需同步后端，否则切走再切回"消息复活"。
+    // 后端无"清空单会话"端点，复用 truncateMessages(首条消息 id) 删除全部。
+    clearSessionMessages: async () => {
+      const messages = get().messages;
+      const first = messages[0];
+      const sessionId = first?.session_id;
+      if (sessionId && first?.id) {
+        await truncateMessages(sessionId, first.id).catch((e) => {
+          handleClientError(
+            e,
+            {
+              module: "stores:chat:message",
+              action: "clearSessionMessages",
+            },
+            "warn",
+          );
+        });
+      }
       set({ messages: [], error: null, errorCode: null });
     },
 

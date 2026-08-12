@@ -126,7 +126,7 @@ function ChatInput({ fluid = false }: { fluid?: boolean }) {
     isSending,
     isStreaming,
     isUploading,
-    clearMessages,
+    clearSessionMessages,
     messageQueue,
     stopMessage,
   } = useChatStore();
@@ -529,7 +529,8 @@ function ChatInput({ fluid = false }: { fluid?: boolean }) {
     if (matched) {
       // 命令由 ChatInput 执行（因为涉及 createSession、setActivePage 等 store 调用）
       if (matched.key === "/clear") {
-        clearMessages();
+        // R-A 修复：同步清空后端，避免切回会话"消息复活"
+        void clearSessionMessages();
         setInput("");
       } else if (matched.key === "/dashboard") {
         setActivePage("dashboard");

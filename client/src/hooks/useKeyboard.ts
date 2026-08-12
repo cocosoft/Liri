@@ -26,7 +26,7 @@ export type ShortcutAction =
   | "stop-generation";
 
 export function useKeyboard() {
-  const { clearMessages } = useChatStore();
+  const { clearSessionMessages } = useChatStore();
   const { createSession, sessions } = useSessionStore();
   const { activePage, setActivePage } = useNavigationStore();
 
@@ -55,7 +55,8 @@ export function useKeyboard() {
 
       if (isCtrl && !e.shiftKey && key === shortcutMap["clear-messages"].key) {
         e.preventDefault();
-        clearMessages();
+        // R-A 修复：同步清空后端，避免切回会话"消息复活"
+        void clearSessionMessages();
         return;
       }
 
@@ -96,7 +97,7 @@ export function useKeyboard() {
         return;
       }
     },
-    [clearMessages, createSession, sessions.length, activePage, setActivePage],
+    [clearSessionMessages, createSession, sessions.length, activePage, setActivePage],
   );
 
   useEffect(() => {

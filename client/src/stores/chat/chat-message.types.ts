@@ -67,6 +67,12 @@ export interface MessageSlice {
   /** 在出错后重试（传入出错的 assistant 消息 ID，内部找到前置用户消息重新发送） */
   retryFromError: (assistantMsgId: string, sessionId?: string) => Promise<void>;
   clearMessages: () => void;
+  /**
+   * R-A 修复：清空**当前会话**（前端 + 后端同步）。
+   * /clear 命令与 Ctrl+L 原只清前端、后端消息保留，切回会话"消息复活"。
+   * 通过 truncateMessages(首条消息 id) 删除后端全部消息后清空本地。
+   */
+  clearSessionMessages: () => Promise<void>;
   setMessages: (messages: Message[]) => void;
   setReplyMessage: (message: Message | null) => void;
   /** 设置待编辑消息 */

@@ -414,10 +414,6 @@ export async function handleFileResolvePath(
     const {
       resolveProjectRoot,
       resolvePyappHome,
-      resolveOutputDir,
-      resolveDownloadsDir,
-      resolveDataDir,
-      resolveDocsDir,
       containsPathTraversal,
     } = await import('@modules/core/paths');
 

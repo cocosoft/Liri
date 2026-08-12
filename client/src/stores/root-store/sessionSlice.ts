@@ -571,12 +571,32 @@ export const createSessionSlice: StateCreator<
       // 被误标为用户项目会话（导致 /chat 页侧栏过滤隐藏）。
       // 同时保留已有记录的模块类型，避免切换项目会话时被误标为 chat（projectId 由 workspaceId 兜底）。
       const existingHub = get().sessions[id];
-      get().createSession(
-        existingHub?.moduleType ?? "chat",
-        session.title,
-        id,
-        session.workspaceId ?? existingHub?.workspaceId ?? "",
-      );
+      // R-C 修复：合并更新而非 createSession 重建——createSession 全新构造
+      // 默认 context，切一次会话 projectId/context.modelId/context.agentId 等
+      // 原有字段就被覆盖丢失（loadChatSessions 从 metadata 同步的 Hub 数据被冲掉）。
+      // 合并仅更新后端权威字段（moduleType/title/workspaceId），保留已有 context。
+      const moduleType = existingHub?.moduleType ?? "chat";
+      set((state) => {
+        const prev = state.sessions[id];
+        return {
+          sessions: {
+            ...state.sessions,
+            [id]: {
+              ...(prev ?? { id }),
+              id,
+              moduleType,
+              title:
+                session.title ?? prev?.title ?? `新${getNameByModuleType(moduleType)}`,
+              workspaceId:
+                session.workspaceId ??
+                existingHub?.workspaceId ??
+                prev?.workspaceId ??
+                "",
+              updatedAt: Date.now(),
+            },
+          },
+        };
+      });
       if (import.meta.env.DEV)
         console.info("[Diag:switch] ⑤ store 更新 + SessionHub 同步", {
           ms: (performance.now() - t5).toFixed(1),
@@ -622,6 +642,12 @@ export const createSessionSlice: StateCreator<
     try {
       const { sessionService } = await import("@/services/sessionService");
       await sessionService.delete(id);
+
+      // R-K 修复：删除会话后清除其消息缓存，防止残留（切回时拉到幽灵数据）
+      const { staleSessionCache } = await import(
+        "@/stores/chat/chat-history.slice"
+      );
+      staleSessionCache(id);
 
       const sessions = get().chatSessions.filter((s) => s.id !== id);
 

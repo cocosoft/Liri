@@ -43,7 +43,16 @@ export function useSessionContextSync<T extends Partial<SessionContext>>(
   moduleType: string,
   config: ContextSyncConfig<T>,
 ): void {
-  const { save, restore, debounceMs = 500 } = config;
+  // R-D 修复：save/restore/debounceMs 用 ref 保存最新值，effect 不再依赖它们——
+  // 调用方（如 ChatArea）传入内联 save/restore，每次渲染都是新引用；
+  // 若 effect 依赖引用，组件每重渲染（流式期间极频繁）就 clearTimeout + 重设
+  // 500ms 定时器，防抖永不触发，context 保存被无限推迟。
+  const saveRef = useRef(config.save);
+  saveRef.current = config.save;
+  const restoreRef = useRef(config.restore);
+  restoreRef.current = config.restore;
+  const debounceMsRef = useRef(config.debounceMs ?? 500);
+  debounceMsRef.current = config.debounceMs ?? 500;
 
   // SessionSlice
   const sessions = useRootStore((s) => s.sessions);
@@ -69,7 +78,10 @@ export function useSessionContextSync<T extends Partial<SessionContext>>(
         sessionId: currentModuleSession.id,
       });
       lastSessionIdRef.current = currentModuleSession.id;
-      restore(currentModuleSession.context, currentModuleSession.id);
+      restoreRef.current(
+        currentModuleSession.context,
+        currentModuleSession.id,
+      );
     }
   }, [currentModuleSession?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -79,10 +91,10 @@ export function useSessionContextSync<T extends Partial<SessionContext>>(
   useEffect(() => {
     if (!currentModuleSession) return;
 
-    // 防抖保存
+    // 防抖保存（R-D：依赖稳定，仅会话切换/重建时重设）
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(() => {
-      const context = save();
+      const context = saveRef.current();
       if (!context) return;
 
       logger.debug("保存模块上下文到 SessionSlice", {
@@ -96,10 +108,10 @@ export function useSessionContextSync<T extends Partial<SessionContext>>(
         currentModuleSession.id,
         context as Partial<SessionContext>,
       );
-    }, debounceMs);
+    }, debounceMsRef.current);
 
     return () => {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     };
-  }, [currentModuleSession?.id, save, updateSessionContext, debounceMs]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [currentModuleSession?.id, updateSessionContext]); // eslint-disable-line react-hooks/exhaustive-deps
 }

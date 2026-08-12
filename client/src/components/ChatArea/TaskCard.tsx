@@ -95,7 +95,7 @@ export default function TaskCard({ data }: TaskCardProps) {
 
       {/* 任务列表 */}
       <div className="px-3 py-1.5 space-y-1">
-        {tasks.map((task) => {
+        {tasks.map((task, index) => {
           const cfg = STATUS_CONFIG[task.status] || STATUS_CONFIG.pending;
           const deps = renderDepends(task.dependsOn, tasks);
 
@@ -114,7 +114,7 @@ export default function TaskCard({ data }: TaskCardProps) {
             >
               {/* 序号 + 状态图标 */}
               <span className="text-xs text-gray-400 dark:text-gray-500 w-3 flex-shrink-0 text-right">
-                {task.id}.
+                {index + 1}.
               </span>
               <span className={`text-xs flex-shrink-0 ${cfg.color}`}>
                 {cfg.icon}

@@ -354,8 +354,15 @@ export class LocalHTTPService {
 
   /**
    * 广播事件到所有 SSE 客户端 — 委托给 LocalHTTPServiceSSE.broadcastEvent
+   * （J-1.6 修复：统一走 LocalHTTPServiceSSE 的 clients 集合，与前端 EventSource 同集合）
    */
   private broadcastEvent(event: string, data: Record<string, unknown>): void {
+    // 排查 SSE 送达：记录业务事件广播（inbox:new/inbox:update 等），确认与前端订阅同集合
+    logger.info('broadcastEvent: 广播 SSE 事件', {
+      event,
+      sessionId: (data as { sessionId?: string }).sessionId,
+      hasData: !!data && Object.keys(data).length > 0,
+    });
     return broadcastEvent(event, data);
   }
 

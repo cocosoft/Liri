@@ -59,6 +59,10 @@ import {
   handleTruncateMessages,
 } from '../message-handlers';
 import { handleSteerSession } from '../steer-handlers';
+import {
+  handleDeleteLatestCheckpoint,
+  handleSaveLatestCheckpoint,
+} from '../checkpoint-handlers';
 
 /**
  * dispatchChatSessionRoutes — chat-session-routes 领域路由分发
@@ -165,6 +169,31 @@ export async function dispatchChatSessionRoutes(
     url.match(/^\/v1\/sessions\/(.+)\/checkpoints\/latest$/)
   ) {
     await handleLatestCheckpoint(
+      handlerCtx,
+      req,
+      res,
+      url.match(/^\/v1\/sessions\/(.+)\/checkpoints\/latest$/)![1]
+    );
+    return true;
+  }
+  // P1 修复：abortRecovery 三段链路补全（此前仅 GET，POST/DELETE 均 404）
+  if (
+    method === 'POST' &&
+    url.match(/^\/v1\/sessions\/(.+)\/checkpoints\/latest$/)
+  ) {
+    await handleSaveLatestCheckpoint(
+      handlerCtx,
+      req,
+      res,
+      url.match(/^\/v1\/sessions\/(.+)\/checkpoints\/latest$/)![1]
+    );
+    return true;
+  }
+  if (
+    method === 'DELETE' &&
+    url.match(/^\/v1\/sessions\/(.+)\/checkpoints\/latest$/)
+  ) {
+    await handleDeleteLatestCheckpoint(
       handlerCtx,
       req,
       res,

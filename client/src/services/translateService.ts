@@ -7,6 +7,7 @@
 import { httpLegacy as http } from "./httpClient";
 import { getBackendBaseUrl, getApiSecret } from "./backendUrl";
 import { handleClientError } from "../utils/handleError";
+import { readWithIdleTimeout } from "../utils/readWithIdleTimeout";
 
 /** 翻译请求参数 */
 export interface TranslateParams {
@@ -133,7 +134,8 @@ export const translateService = {
         let buffer = "";
 
         while (true) {
-          const { done, value } = await reader.read();
+          // 无数据超时兜底：SSE 流中断时不永久挂起（超时抛 TimeoutError → 下方 catch 重试/降级）
+          const { done, value } = await readWithIdleTimeout(reader);
           if (done) break;
 
           buffer += decoder.decode(value, { stream: true });

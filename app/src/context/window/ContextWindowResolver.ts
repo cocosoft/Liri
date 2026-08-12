@@ -27,8 +27,10 @@ const CONTEXT_PROBE_TIERS = [
   256_000, 128_000, 64_000, 32_000, 16_000, 8_000,
 ] as const;
 
-/** 1M 上下文关键词（启发式，非供应商特定） */
-const ONE_M_CONTEXT_KEYWORDS = ['1m', '1.5-pro', '2.0'] as const;
+/** 1M 上下文关键词（启发式，非供应商特定）
+ * #12 修复：移除 '2.0'（子串过于宽泛，未来 qwen-2.0/claude-2.0 等都会被误判为 1M）；
+ * 保留带明确 1M 语义的 '1m' 与 '1.5-pro'。模型真实窗口以 DB model_registry 为准。 */
+const ONE_M_CONTEXT_KEYWORDS = ['1m', '1.5-pro'] as const;
 
 export interface ContextWindowInfo {
   tokens: number;

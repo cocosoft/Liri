@@ -372,9 +372,14 @@ export interface ChatManager {
    * 创建会话检查点
    * @param sessionId 会话ID
    * @param label 检查点标签（可选）
+   * @param metadata 附加 metadata（如 abortRecovery 标记，可选），与会话 metadata 合并
    * @returns 检查点ID
    */
-  createCheckpoint(sessionId: string, label?: string): Promise<string>;
+  createCheckpoint(
+    sessionId: string,
+    label?: string,
+    metadata?: Record<string, unknown>
+  ): Promise<string>;
 
   /**
    * 列出会话检查点

@@ -266,6 +266,13 @@ export class AppModelConfigService {
         const config = await this.getConfig(appType);
         if (!config?.model) continue;
 
+        // 排查 L-3：记录每个 chat 任务类型的配置模型（UUID/模型名），确认指向是否正常
+        logger.info('cleanNonChatModelEntries: 检查 chat 任务模型配置', {
+          appType,
+          configuredModel: config.model,
+          providerId: config.providerId,
+        });
+
         const isNonChat = allModels.some(
           (m) =>
             // 修复：config.model 存的是模型 UUID（如 0191cb75-...），

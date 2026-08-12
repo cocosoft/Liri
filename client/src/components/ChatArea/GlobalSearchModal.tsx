@@ -174,6 +174,14 @@ export default function GlobalSearchModal({
         // 修复：原用 workspaceId（worktree ID，形如 wt_xxx）查模块类型表必然 miss、
         // 永远 fallback "chat"——改用 SessionRecord 携带的 moduleType（chat/media/office/...）
         const page = MODULE_PAGE[session.moduleType ?? "chat"] ?? "chat";
+        // 排查跳转目标：记录 moduleType → page 解析结果，确认会话归属模块是否正确
+        logger.info("GlobalSearchModal: 切换会话并导航", {
+          sessionId: session.id,
+          sessionTitle: session.title,
+          workspaceId: session.workspaceId,
+          moduleType: session.moduleType,
+          targetPage: page,
+        });
 
         if (import.meta.env.DEV)
           console.info("[SessionSwitch] 全局搜索切换会话成功", {

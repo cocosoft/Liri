@@ -18,6 +18,9 @@ import type {
   QuestionOption,
 } from "../../services/chatService";
 import { handleClientError } from "@/utils/handleError";
+import { createLogger } from "@/utils/logger";
+
+const logger = createLogger("stores:chat:toolcall");
 
 /**
  * 生成 block ID（8 位短 UUID）
@@ -398,12 +401,30 @@ export class ChronologicalBlockBuilder {
           break;
         }
       }
+      if (idx !== -1) {
+        logger.info("addTodo: 标题未命中，回退更新最后一个 todo 块", {
+          title: todoData.title,
+          targetIdx: idx,
+          targetTitle: this.blocks[idx].content,
+          taskCount: normalized.tasks?.length ?? 0,
+        });
+      }
     }
     if (idx !== -1) {
       // AB-6 修复：替换为新块对象（含 dirty），流式任务状态实时刷新
+      logger.info("addTodo: 更新已有 todo 块", {
+        title: todoData.title,
+        idx,
+        taskCount: normalized.tasks?.length ?? 0,
+        status: normalized.status,
+      });
       this.replaceBlockAt(idx, { ...this.blocks[idx], taskCard: normalized });
       return;
     }
+    logger.info("addTodo: 新建 todo 块", {
+      title: todoData.title,
+      taskCount: normalized.tasks?.length ?? 0,
+    });
     this.blocks.push({
       id: generateBlockId(),
       type: "todo",
@@ -440,9 +461,21 @@ export class ChronologicalBlockBuilder {
         String(t.id) === String(taskId) ? { ...t, ...updates } : t,
       );
       // AB-6 修复：替换为新块对象（含 dirty），单任务状态实时刷新
+      logger.info("updateTodoTask: 更新任务状态", {
+        taskId,
+        idx,
+        updates,
+      });
       this.replaceBlockAt(idx, {
         ...this.blocks[idx],
         taskCard: { ...this.blocks[idx].taskCard!, tasks },
+      });
+    } else {
+      // 排查静默 no-op：taskId 在所有 todo 块中都找不到（多轮任务串块根因之一）
+      logger.warn("updateTodoTask: 未找到 taskId 所属 todo 块，更新被丢弃", {
+        taskId,
+        updates,
+        todoBlockCount: this.blocks.filter((b) => b.type === "todo").length,
       });
     }
   }
@@ -485,13 +518,20 @@ export class ChronologicalBlockBuilder {
    *   由调用方 P3-1 完整性检查（未完成 tool_call → ⚠️ 任务中断）补充标记。
    */
   freezeAll(completed = true): void {
+    const todoBlocks: string[] = [];
     for (const block of this.blocks) {
       block.isStreaming = false;
       // R1: 对 todo 块最终化其整体状态（修复 BUG #11）；仅正常完成时置 done
       if (completed && block.type === "todo" && block.taskCard) {
         block.taskCard.status = "done";
+        todoBlocks.push(block.content);
       }
     }
+    logger.info("freezeAll: 冻结所有块", {
+      completed,
+      blockCount: this.blocks.length,
+      finalizedTodoTitles: todoBlocks,
+    });
     this.activeTextBlock = null;
     this.activeThinkingBlock = null;
   }

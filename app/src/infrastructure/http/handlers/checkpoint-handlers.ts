@@ -59,7 +59,10 @@ function parsePathParams(
   url: string,
   pattern: string
 ): Record<string, string> | null {
-  const urlParts = url.split('/').filter(Boolean);
+  // P3 修复：先剥离 query string（/v1/checkpoints?x=1 → /v1/checkpoints），
+  // 原实现把带 ? 的尾段当作路径参数导致 400
+  const path = url.split('?')[0];
+  const urlParts = path.split('/').filter(Boolean);
   const patternParts = pattern.split('/').filter(Boolean);
   if (urlParts.length !== patternParts.length) return null;
 
@@ -278,6 +281,63 @@ export async function handleDeleteCheckpoint(
     const chatManager = createChatManager();
     await chatManager.deleteCheckpoint(cpId);
     sendJson(res, { success: true, checkpointId: cpId });
+  } catch (err) {
+    ctx.sendError(res, err);
+  }
+}
+
+/**
+ * 保存最新检查点 POST /v1/sessions/:id/checkpoints/latest
+ * P1 修复：前端 stopMessage 中止任务时调用，保存带 abortRecovery 标记的检查点。
+ * 此前仅 GET 路由存在，POST 直接 404，abortRecovery 链路第一节即断。
+ * Body: { label?, autoCreated?, metadata? }
+ */
+export async function handleSaveLatestCheckpoint(
+  ctx: HandlerCtx,
+  req: IncomingMessage,
+  res: ServerResponse,
+  sessionId: string
+): Promise<void> {
+  try {
+    const body = await ctx.readRequestBody(req);
+    const parsed = JSON.parse(body) as {
+      label?: string;
+      autoCreated?: boolean;
+      metadata?: Record<string, unknown>;
+    };
+    const chatManager = createChatManager();
+    const cpId = await chatManager.createCheckpoint(
+      sessionId,
+      parsed.label ?? `abort_${Date.now()}`,
+      parsed.metadata
+    );
+    sendJson(res, { success: true, checkpointId: cpId, sessionId });
+  } catch (err) {
+    ctx.sendError(res, err);
+  }
+}
+
+/**
+ * 删除最新 abortRecovery 检查点 DELETE /v1/sessions/:id/checkpoints/latest
+ * P1 修复：前端 dismissRecovery 放弃恢复时调用，清理 abortRecovery 标记。
+ * 此前无 DELETE 路由，请求 404，放弃恢复后标记残留导致每次进会话都弹恢复提示。
+ */
+export async function handleDeleteLatestCheckpoint(
+  ctx: HandlerCtx,
+  req: IncomingMessage,
+  res: ServerResponse,
+  sessionId: string
+): Promise<void> {
+  try {
+    const chatManager = createChatManager();
+    const latest = await chatManager.getLatestCheckpoint(sessionId);
+    if (latest) {
+      const meta = latest.metadata as unknown as Record<string, unknown>;
+      if (meta?.abortRecovery) {
+        await chatManager.deleteCheckpoint(latest.id);
+      }
+    }
+    sendJson(res, { success: true, sessionId });
   } catch (err) {
     ctx.sendError(res, err);
   }

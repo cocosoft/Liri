@@ -21,9 +21,21 @@ function hasJsonFlag(parts: string[]): boolean {
   return parts.includes('--json') || parts.includes('-j');
 }
 
-/** 去除 flags 后的参数列表 */
+/** 去除 flags 及其值的参数列表（如 --activeForm "xxx"，flag 值不以 - 开头会被残留进 content） */
 function stripFlags(parts: string[]): string[] {
-  return parts.filter((p) => !p.startsWith('--') && !p.startsWith('-'));
+  const result: string[] = [];
+  for (let i = 0; i < parts.length; i++) {
+    const p = parts[i];
+    if (p.startsWith('--') || p.startsWith('-')) {
+      // 带值 flag：跳过 flag 本身与其值（--activeForm <form>）
+      if ((p === '--activeForm' || p === '-f') && i + 1 < parts.length) {
+        i++;
+      }
+      continue;
+    }
+    result.push(p);
+  }
+  return result;
 }
 
 /**
@@ -201,7 +213,8 @@ async function handleList(parts: string[]): Promise<CommandResult> {
       for (const line of lines) {
         const idMatch = line.match(/ID:\s*(\S+)/);
         const statusMatch = line.match(/Status:\s*(\S+)/);
-        const contentMatch = line.match(/\[[✓◐○]\].+(.+)/);
+        // 修复 #2：非贪婪匹配——原 /\[[✓◐○]\].+(.+)/ 的 .+ 贪婪到行尾后 (.+) 只剩最后 1 字符
+        const contentMatch = line.match(/\[[✓◐○]\]\s*(.+)/);
 
         if (idMatch) currentTodo.id = idMatch[1];
         if (statusMatch) currentTodo.status = statusMatch[1] as TodoStatus;

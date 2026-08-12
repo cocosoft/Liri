@@ -10,6 +10,7 @@
  */
 import { useState, useEffect } from "react";
 import FileLink from "../FileLink";
+import { createLogger } from "@/utils/logger";
 import { getBackendBaseUrl, getApiSecret } from "../../../services/backendUrl";
 import {
   matchFilePath,
@@ -20,6 +21,8 @@ import {
   getCacheEntry,
 } from "./pathCache";
 import { useSessionStore } from "../../../stores/sessionStore";
+
+const logger = createLogger("components:inlineCodeLink");
 
 interface InlineCodeLinkProps {
   codeContent: string;
@@ -103,12 +106,19 @@ export function InlineCodeLink({
             });
           }
         })
-        .catch(() => {
+        .catch((err: unknown) => {
           // 修复：网络/后端不可达时**不写负缓存**——原实现把基础设施故障
           // 伪装成"文件不存在"（TTL 30s），后端临时不可达时所有代码路径
           // 都渲染成纯 <code> 且旧链接显示红字"文件不存在"，误导用户。
           // 三态语义：确认存在→正缓存；确认不存在（res.ok 且无 resolvedPath）
           // →负缓存；验证失败（网络错误）→不缓存，等待下次触发重试。
+          logger.warn(
+            "InlineCodeLink: 路径验证失败（网络/后端异常），不写缓存",
+            {
+              codeContent,
+              error: err instanceof Error ? err.message : String(err),
+            },
+          );
         })
         .finally(() => {
           pathResolvePending.delete(cacheKey);

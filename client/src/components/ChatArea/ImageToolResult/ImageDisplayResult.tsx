@@ -4,7 +4,10 @@
  */
 import { useState } from "react";
 import { useChatStore } from "../../../stores/chat";
+import { createLogger } from "@/utils/logger";
 import ImageViewer from "../ImageViewer/ImageViewer";
+
+const logger = createLogger("components:imageDisplayResult");
 
 interface DisplayImage {
   url: string;
@@ -51,14 +54,20 @@ export default function ImageDisplayResult({ data }: Props) {
 
   /** 引用图片 — 发送图片让 AI 分析（修复：原实现只发纯文本"请分析这张图片"，无图片附件，AI 看不到图） */
   const handleCite = (img: DisplayImage) => {
-    sendMessage("请分析这张图片", undefined, [
+    const attached = [
       {
         path: img.originalPath || img.url,
         url: img.url,
         filename: img.name,
         size: img.size ?? 0,
       },
-    ]);
+    ];
+    logger.info("ImageDisplayResult: 发送图片分析", {
+      filename: img.name,
+      path: attached[0].path,
+      url: img.url,
+    });
+    sendMessage("请分析这张图片", undefined, attached);
   };
 
   /** 复制图片引用到剪贴板 */
@@ -148,16 +157,16 @@ export default function ImageDisplayResult({ data }: Props) {
         <span>共 {images.length} 张图片</span>
         <button
           onClick={() => {
-            sendMessage(
-              "请分析以下图片",
-              undefined,
-              images.map((img) => ({
-                path: img.originalPath || img.url,
-                url: img.url,
-                filename: img.name,
-                size: img.size ?? 0,
-              })),
-            );
+            const attachedImages = images.map((img) => ({
+              path: img.originalPath || img.url,
+              url: img.url,
+              filename: img.name,
+              size: img.size ?? 0,
+            }));
+            logger.info("ImageDisplayResult: 发送全部图片分析", {
+              count: attachedImages.length,
+            });
+            sendMessage("请分析以下图片", undefined, attachedImages);
           }}
           className="text-blue-400 hover:text-blue-300 bg-transparent border-0 cursor-pointer"
         >

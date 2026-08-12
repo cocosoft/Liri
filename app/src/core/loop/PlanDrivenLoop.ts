@@ -233,7 +233,7 @@ export class PlanDrivenLoop {
         stepId: 'direct',
         description: userMessage.slice(0, 100),
         state: 'completed',
-        output: `直接执行完成（${result.turnCount} 轮）`,
+        output: '直接执行完成',
         durationMs: Date.now() - this.startTime,
         turnCount: result.turnCount,
         tokenCount: result.totalTokens,
@@ -286,17 +286,22 @@ export class PlanDrivenLoop {
         const result = await this.taorLoop.run(stepPrompt);
         const duration = Date.now() - stepStart;
 
-        taskOrchestrator.markStepCompleted(
-          stepId,
-          `完成（${result.turnCount} 轮，${result.totalTokens} tokens）`
-        );
+        taskOrchestrator.markStepCompleted(stepId, '完成');
         this.totalTokens += result.totalTokens;
 
+        // 轮数/token 为内部指标，仅记录日志与 StepResult 字段，不进入用户可见的 step result
+        logger.info('步骤完成（含内部指标）', {
+          sessionId: this.sessionId,
+          stepId,
+          turnCount: result.turnCount,
+          tokenCount: result.totalTokens,
+          durationMs: duration,
+        });
         this.stepResults.push({
           stepId,
           description: task.description,
           state: 'completed',
-          output: `步骤完成（${result.turnCount} 轮）`,
+          output: '步骤完成',
           durationMs: duration,
           turnCount: result.turnCount,
           tokenCount: result.totalTokens,
@@ -468,11 +473,11 @@ export class PlanDrivenLoop {
 
     let summary: string;
     if (decomposed) {
+      // 轮数/总 token 等内部指标不进入 summary（用户可见），仅留在 StepResult 字段与日志
       const parts = [
         `任务分解执行完成：${completed}/${stepResults.length} 步骤成功`,
         failed > 0 ? `，${failed} 步骤失败` : '',
-        `。总耗时 ${((Date.now() - this.startTime) / 1000).toFixed(1)}s，`,
-        `总 token ${this.totalTokens}`,
+        `。总耗时 ${((Date.now() - this.startTime) / 1000).toFixed(1)}s`,
       ];
       summary = parts.join('');
     } else {

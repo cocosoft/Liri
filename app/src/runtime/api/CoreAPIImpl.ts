@@ -1132,6 +1132,11 @@ export class CoreAPIImpl implements CoreAPI {
         type: 'approval',
       });
       const pending = items;
+      // 排查 J-1.3：记录读时合成的待审批项数量，确认审批卡片能注入会话消息
+      logger.info('attachPendingApprovalBlocks: 查询待审批项', {
+        sessionId,
+        pendingCount: pending.length,
+      });
       if (pending.length === 0) return;
 
       const lastAssistant = messages

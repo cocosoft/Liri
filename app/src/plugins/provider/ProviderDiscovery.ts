@@ -95,7 +95,7 @@ export class ProviderDiscovery {
           {
             type: 'llm',
             models: ['gpt-4', 'gpt-4-turbo', 'gpt-3.5-turbo'],
-            maxTokens: 128000,
+            maxTokens: 200000,
             supportsStreaming: true,
             supportsFunctions: true,
             supportsVision: true,
@@ -137,7 +137,7 @@ export class ProviderDiscovery {
           {
             type: 'llm',
             models: [],
-            maxTokens: 128000,
+            maxTokens: 200000,
             supportsStreaming: true,
             supportsFunctions: true,
           },
@@ -228,7 +228,7 @@ export class ProviderDiscovery {
             {
               type: 'llm',
               models: [],
-              maxTokens: 128000,
+              maxTokens: 200000,
               supportsStreaming: true,
               supportsFunctions: true,
             },

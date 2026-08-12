@@ -48,7 +48,8 @@ export class SessionCheckpointService implements CheckpointService {
       description: params.description,
       createdAt: Date.now(),
       messages: [],
-      metadata: {} as SessionMetadata,
+      // P1 修复：透传调用方提供的 metadata（如 abortRecovery 标记），此前固定空对象导致标记丢失
+      metadata: params.metadata ?? ({} as SessionMetadata),
       state: 'active' as SessionState,
       tokenCount: params.tokenCount,
       autoCreated: params.autoCreated ?? false,

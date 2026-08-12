@@ -47,7 +47,9 @@ export const DEFAULT_COMPRESSION_CONFIG: ContextCompressionConfig = {
     '去除冗余细节和已完成的中间步骤。请直接输出摘要，不需要开场白。\n' +
     '\n' +
     '【图片URL规则】显示图片时必须使用 displayUrl（以 /v1/images/static/ 开头），禁止从 filePath 自行拼接 URL。',
-  maxTokens: 128000,
+  // 与 ContextWindowResolver.DEFAULT_CONTEXT_WINDOW 对齐（200K），
+  // 此前硬编码 128000 与推理链路默认值不一致，1M 窗口模型在 10% 用量时即过早触发 AI 压缩
+  maxTokens: 200000,
   preserveSystemMessages: true,
   preserveRecentToolResults: true,
   recentMessageCount: 6,

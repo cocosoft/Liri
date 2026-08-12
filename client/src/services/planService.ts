@@ -69,8 +69,12 @@ export const planService = {
   /** 获取单个计划详情 */
   get: async (id: string): Promise<Plan | null> => {
     try {
-      const res = await http.get<Plan>(`/v1/plans/${encodeURIComponent(id)}`);
-      return res ?? (null as Plan | null);
+      // 后端 handleGetPlan 返回 { plan, progress } 包裹结构（此前未解包，
+      // 类型断言掩盖导致返回值无 id/steps，刷新恢复等消费方拿不到真实 Plan）
+      const res = await http.get<{ plan: Plan; progress?: unknown }>(
+        `/v1/plans/${encodeURIComponent(id)}`,
+      );
+      return res?.plan ?? null;
     } catch {
       return null;
     }

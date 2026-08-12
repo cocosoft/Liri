@@ -11,6 +11,8 @@
 import { getBackendBaseUrl, getApiSecret } from "./backendUrl";
 import { propagation, context as otelContext } from "@opentelemetry/api";
 import { handleClientError } from "../utils/handleError";
+import { createLogger } from "../utils/logger";
+import { readWithIdleTimeout } from "../utils/readWithIdleTimeout";
 import { getOTelTracing } from "../monitoring/otel";
 
 import type { ApiError, ApiResponse } from "../types/system";
@@ -22,6 +24,8 @@ export interface HttpClientConfig {
 }
 
 const DEFAULT_TIMEOUT = 30_000;
+
+const logger = createLogger("services:http");
 
 let globalConfig: HttpClientConfig = {
   timeout: DEFAULT_TIMEOUT,
@@ -342,9 +346,14 @@ export const http = {
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
+      // P3（第四份导出 #1）：SSE 按事件边界（空行）解析——onChunk 收到剥离
+      // `data:` 前缀的完整 payload（支持多行 data continuation），
+      // 原实现把含前缀的原始行直接回传，与"SSE 流式请求"语义不符。
+      const pendingData: string[] = [];
 
       while (true) {
-        const { done, value } = await reader.read();
+        // 无数据超时兜底：SSE 流中断时不永久挂起（超时抛 TimeoutError）
+        const { done, value } = await readWithIdleTimeout(reader);
         if (done) break;
 
         buffer += decoder.decode(value, { stream: true });
@@ -353,12 +362,36 @@ export const http = {
 
         for (const line of lines) {
           const trimmed = line.trim();
-          if (trimmed) onChunk(trimmed);
+          if (!trimmed) {
+            // 空行 = SSE 事件结束：处理累积的多行 data
+            if (pendingData.length === 0) continue;
+            const payload = pendingData.join("\n");
+            pendingData.length = 0;
+            if (payload !== "[DONE]") onChunk(payload);
+            continue;
+          }
+          // 兼容 `data:` 与 `data: ` 前缀
+          if (trimmed.startsWith("data:")) {
+            pendingData.push(trimmed.slice(5).trimStart());
+          }
+          // 其他 SSE 字段（event:/id:/retry:）忽略
         }
+      }
+      // 流结束：flush 未闭合的残留 data（最后一条无空行结尾）
+      if (pendingData.length > 0) {
+        const payload = pendingData.join("\n");
+        if (payload !== "[DONE]") onChunk(payload);
       }
     };
 
-    doFetch().catch(() => {
+    doFetch().catch((err: unknown) => {
+      if (err instanceof DOMException && err.name === "TimeoutError") {
+        // 排查网络超时：SSE 流 idle 超时（区别于用户 AbortController 关闭）
+        logger.warn("httpClient.stream: 流式读取超时（idle 60s 无数据）", {
+          path,
+        });
+        return;
+      }
       // 流中断是正常行为（AbortController 关闭）
     });
 

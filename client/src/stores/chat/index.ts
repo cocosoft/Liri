@@ -94,8 +94,12 @@ sseService.on("task:completed", (data: Record<string, unknown>) => {
 // 根因 C：后端崩溃恢复把当前会话标记 PAUSED 后的主动通知（SSE 推送）
 sseService.on("session:paused", (data: Record<string, unknown>) => {
   const sid = data.sessionId as string | undefined;
-  const msg = useChatStore.getState().messages[0];
-  if (!sid || msg?.session_id !== sid) return;
+  // AB-22 模式统一：some() 判断而非 messages[0]（新会话/首条非目标会话时不误判）
+  if (
+    !sid ||
+    !useChatStore.getState().messages.some((m) => m.session_id === sid)
+  )
+    return;
   useChatStore.setState({
     streamingStatus: "会话已暂停（检测到异常退出），可恢复后继续对话",
   });
@@ -109,8 +113,9 @@ const isPlanEventForCurrentSession = (
 ): boolean => {
   const sid = data.sessionId as string | undefined;
   if (!sid) return false;
-  const msg = useChatStore.getState().messages[0];
-  return msg?.session_id === sid;
+  // #4 修复：改用 some()（与 isTaskEventForCurrentSession/AB-22 一致），
+  // 原 messages[0] 判断在新会话（无消息）或首条消息非目标会话时误丢 TaskCard 事件
+  return useChatStore.getState().messages.some((m) => m.session_id === sid);
 };
 
 /** 生成唯一消息 ID */
@@ -132,9 +137,12 @@ sseService.on("plan:task_card", (data: Record<string, unknown>) => {
   const status = (data.status as TaskCardData["status"]) || "executing";
 
   const taskCard: TaskCardData = { title, tasks, status };
-  // 标记第一个任务为 in_progress（plan 创建后立即开始执行）
+  // #8 修复：拷贝数组再改首个任务状态，避免直接修改 SSE 事件原始数据（脏副作用）
   if (tasks.length > 0) {
-    tasks[0] = { ...tasks[0], status: "in_progress" };
+    taskCard.tasks = [
+      { ...tasks[0], status: "in_progress" },
+      ...tasks.slice(1),
+    ];
   }
   usePlanTaskStore.getState().upsert(planId, taskCard);
 
@@ -181,16 +189,16 @@ sseService.on("plan:step_progress", (data: Record<string, unknown>) => {
     ...(durationMs !== undefined ? { durationMs } : {}),
   });
 
-  // 更新进度信息
-  const progress = data.progress as
-    | { total: number; completed: number; failed: number; percent: number }
-    | undefined;
-  if (progress) {
-    // 更新尚未开始的下一个步骤为 in_progress
-    const nextPending = current.tasks.find((t) => t.status === "pending");
-    if (nextPending) {
-      store.updateTask(planId, nextPending.id, { status: "in_progress" });
-    }
+  // #7 修复：不再依赖 progress 字段非空——step_progress 事件本身（completed/failed）
+  // 即代表一步结束，直接推进下一个 pending 步骤；原实现 progress 为 null 时
+  // （步骤完成但 Plan 进度未同步）后续任务全部停在 pending，卡片链断裂。
+  // 用更新后的 tasks 查找（current 可能已被 updateTask 更新过）
+  const latest = usePlanTaskStore.getState().tasks[planId];
+  const nextPending = (latest?.tasks ?? current.tasks).find(
+    (t) => t.status === "pending",
+  );
+  if (nextPending) {
+    store.updateTask(planId, nextPending.id, { status: "in_progress" });
   }
 });
 
@@ -206,12 +214,24 @@ sseService.on("plan:completed", (data: Record<string, unknown>) => {
   const current = store.tasks[planId];
   if (!current) return;
 
-  store.upsert(planId, {
-    ...current,
-    status: "done",
-  });
+  const finalCard: TaskCardData = { ...current, status: "done" };
+  store.upsert(planId, finalCard);
 
-  useChatStore.setState({ streamingStatus: "" });
+  // #5/#12：先把最终状态同步进消息块快照，再移除 planTaskStore 条目——
+  // 移除后 TaskCard 回退到消息块（已是完成态，不会回退"执行中"）；
+  // 刷新后 restorePlanTasks 会从后端重新拉取真实状态，双保险且消除内存泄漏。
+  useChatStore.setState({
+    messages: useChatStore.getState().messages.map((m) => ({
+      ...m,
+      blocks: (m.blocks ?? []).map((b) =>
+        b.type === "task_decomposition" && b.taskCard?.planId === planId
+          ? { ...b, taskCard: { ...finalCard, planId } }
+          : b,
+      ),
+    })),
+    streamingStatus: "",
+  });
+  store.remove(planId);
 });
 
 // ── 状态变更日志（仅开发环境，忽略流式高频字段避免日志洪流） ──

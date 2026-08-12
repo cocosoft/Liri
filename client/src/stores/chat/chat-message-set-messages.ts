@@ -12,6 +12,7 @@ import {
   rebuildBlocksFromContent,
 } from "./chat-toolcall.slice";
 import { setSessionCache, enqueueSaveBlocks } from "./chat-history.slice";
+import { restorePlanTasks } from "@/utils/planRestore";
 import { handleClientError } from "@/utils/handleError";
 import {
   switchState,
@@ -238,6 +239,11 @@ export function setMessagesImpl(
       );
       switchState.pending = [];
     }
+
+    // #12：历史加载后从后端恢复 TaskCard 真实状态（fire-and-forget，不阻塞渲染）。
+    // 刷新/重连后 planTaskStore 已清空，回退静态快照会永久"执行中"；
+    // 后端 Plan 已持久化，扫描 task_decomposition blocks 的 planId 逐个拉取恢复。
+    void restorePlanTasks(enhancedMessages);
   } catch (e) {
     // 确保会话切换锁一定释放，防止锁泄漏导致后续流式输出永久阻塞
     switchState.lock = false;

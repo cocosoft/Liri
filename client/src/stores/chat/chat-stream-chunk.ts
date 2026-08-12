@@ -287,6 +287,14 @@ export async function processChunk(
       chunk.toolCall.status === "failed"
     ) {
       if (sessionId) {
+        // 排查写前持久化：tool_call 终态即时落盘，确认 blocks 不丢失
+        logger.info("processChunk: tool_call 终态即时落盘", {
+          sessionId,
+          toolName: chunk.toolCall.name,
+          toolCallId: chunk.toolCall.id,
+          status: chunk.toolCall.status,
+          blockCount: blockBuilder.getBlocks().length,
+        });
         saveQueue.enqueue(
           sessionId,
           assistantId,

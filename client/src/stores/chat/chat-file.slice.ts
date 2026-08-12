@@ -10,7 +10,10 @@ import type { FilePreview } from "@/types";
 import { httpLegacy as http } from "@/services/httpClient";
 import { resolveFilePath } from "@/services/filePathResolver";
 import { handleClientError } from "@/utils/handleError";
+import { createLogger } from "@/utils/logger";
 import { useChatInspectorStore } from "@/stores/chatInspectorStore";
+
+const logger = createLogger("stores:chat:file");
 
 /** 扩展名 → 文件类型映射表 */
 export type FileType =
@@ -336,7 +339,14 @@ export const createFileSlice: StateCreator<FileSlice, [], [], FileSlice> = (
     // 响应返回时校验 pendingPreview 仍等于本次 filePath 才写入 previewFile，
     // 已被更新请求取代的过期响应直接丢弃。
     const commitPreview = (file: FilePreview) => {
-      if (get().pendingPreview !== filePath) return;
+      if (get().pendingPreview !== filePath) {
+        // 排查交叉竞态：过期响应（用户已改看其他文件）被丢弃
+        logger.warn("readFileToPreview: 过期响应丢弃（交叉竞态防护）", {
+          staleFile: filePath,
+          currentPending: get().pendingPreview,
+        });
+        return;
+      }
       set({ previewFile: file, pendingPreview: undefined });
     };
 

@@ -309,6 +309,13 @@ export class ToolExecutionService {
       }
     }
 
+    // 排查 J-1.4：权限通过（含放行缓存命中）后继续执行——记录 sessionId 是否透传（BashTool 放行缓存依赖）
+    logger.info('executeTool: 权限通过，继续执行', {
+      toolName: normalizedToolCall.name,
+      toolCallId: toolCall.id,
+      sessionId: toolCall.sessionId,
+    });
+
     // ── 回滚：文件操作前追踪 ──
     if (
       normalizedToolCall.name === FILE_WRITE_TOOL_NAME ||

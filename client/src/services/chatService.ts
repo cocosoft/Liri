@@ -1,9 +1,18 @@
 import type { Message, BackendStatus, ToolCall, AttachedImage } from "../types";
-import { getBackendBaseUrl, getBackendPort, setApiSecret } from "./backendUrl";
+import {
+  getBackendBaseUrl,
+  getBackendPort,
+  getApiSecret,
+  setApiSecret,
+} from "./backendUrl";
 import { useModelSwitchStore } from "../stores/modelSwitchStore";
 import { useConfigStore } from "../stores/configStore";
 import { createLogger } from "../utils/logger";
 import { handleClientError } from "../utils/handleError";
+import {
+  readWithIdleTimeout,
+  STREAM_IDLE_TIMEOUT_MS,
+} from "../utils/readWithIdleTimeout";
 import { getOTelTracing } from "../monitoring/otel";
 import { staleSessionCache } from "../stores/chat/chat-history.slice";
 
@@ -155,7 +164,8 @@ export interface StreamChunk {
     | "AUTH_ERROR"
     | "QUOTA_EXCEEDED"
     | "CONNECTION_RESET"
-    | "BACKEND_UNREACHABLE";
+    | "BACKEND_UNREACHABLE"
+    | "TIMEOUT";
   /** 后端注入的前端导航/提示元数据（如 create_project 后建议跳转） */
   _meta?: Record<string, unknown>;
 }
@@ -329,13 +339,49 @@ async function getTauriCore() {
   }
 }
 
+/**
+ * 构建带鉴权的请求头（与 httpClient.buildHeaders 对齐）：
+ * 启用 LIRI_API_SECRET 时注入 X-API-Key，登录态注入 Bearer token。
+ * 裸 fetch 统一走此函数，避免配置 API Secret 后全部 401（P2 修复）。
+ */
+function buildAuthHeaders(
+  extra?: Record<string, string>,
+): Record<string, string> {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...extra,
+  };
+  const secret = getApiSecret();
+  if (secret) {
+    headers["X-API-Key"] = secret;
+  }
+  if (typeof localStorage !== "undefined") {
+    const authToken = localStorage.getItem("auth_token");
+    if (authToken) {
+      headers["Authorization"] = `Bearer ${authToken}`;
+    }
+  }
+  return headers;
+}
+
+/** 断线重连专用异常：streamMessage 在可恢复错误（CONNECTION_RESET）时向外抛出，
+ * streamMessageWithReconnect 捕获后进入检查点重试（修复 P0 自动重连死代码）。 */
+export class StreamConnectionError extends Error {
+  constructor(
+    public errorCode: string,
+    message: string,
+  ) {
+    super(message);
+    this.name = "StreamConnectionError";
+  }
+}
+
 async function fetchJSON<T>(url: string, options?: RequestInit): Promise<T> {
   const response = await fetch(url, {
     ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...options?.headers,
-    },
+    headers: buildAuthHeaders(
+      options?.headers as Record<string, string> | undefined,
+    ),
   });
 
   if (!response.ok) {
@@ -350,7 +396,11 @@ async function fetchJSON<T>(url: string, options?: RequestInit): Promise<T> {
 
 async function checkHealth(): Promise<boolean> {
   try {
-    const res = await fetch(`${getBackendBaseUrl()}/health`, { method: "GET" });
+    const res = await fetch(`${getBackendBaseUrl()}/health`, {
+      method: "GET",
+      // 后端对全部请求统一鉴权（含 /health），配置 LIRI_API_SECRET 时缺头会 401
+      headers: buildAuthHeaders(),
+    });
     return res.ok;
   } catch (e) {
     handleClientError(e, { module: "services:chat", action: "checkHealth" });
@@ -672,6 +722,9 @@ export const chatService = {
       workMode?: "plan" | "do";
       images?: AttachedImage[];
       messageId?: string;
+      /** P0: 可恢复错误（CONNECTION_RESET）时向外抛 StreamConnectionError，
+       *  供 streamMessageWithReconnect 捕获进入检查点重试。默认 false 保持原行为。 */
+      throwOnRecoverable?: boolean;
     },
   ): AsyncGenerator<StreamChunk, void, unknown> {
     const otel = getOTelTracing();
@@ -706,9 +759,7 @@ export const chatService = {
         `${getBackendBaseUrl()}/v1/chat/completions`,
         {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers: buildAuthHeaders(),
           body: JSON.stringify(body),
           signal,
         },
@@ -728,8 +779,192 @@ export const chatService = {
 
       try {
         let parseFailCount = 0;
+
+        // P3（第四份导出 #2）：SSE 按事件边界（空行）解析——支持多行 data
+        // continuation（多个 data: 行以 \n 连接成一条消息）与 `data:` 无空格前缀。
+        // 原实现逐行 JSON.parse，data 跨行时解析异常。parsePayload 为嵌套生成器，
+        // 可 yield chunk 并访问外层 parseFailCount（闭包）。
+        async function* parsePayload(
+          payload: string,
+        ): AsyncGenerator<StreamChunk, void, unknown> {
+          try {
+            const chunk = JSON.parse(payload);
+
+            const pyappType = chunk.__pyapp_type;
+            if (pyappType === "thinking") {
+              yield {
+                type: "thinking",
+                content: chunk.choices?.[0]?.delta?.content || "",
+              };
+            } else if (pyappType === "status") {
+              yield {
+                type: "status",
+                content: chunk.choices?.[0]?.delta?.content || "",
+                statusType: chunk.__pyapp_status_type || undefined,
+              };
+            } else if (pyappType === "context_state") {
+              yield {
+                type: "context_state",
+                content: chunk.choices?.[0]?.delta?.content || "",
+                watermarkState: (chunk as Record<string, unknown>)
+                  .watermarkState as
+                  | {
+                      currentTokens: number;
+                      contextLimit: number;
+                      ratio: number;
+                      severity: "normal" | "warn" | "compact";
+                    }
+                  | undefined,
+              };
+            } else if (pyappType === "tool_completed") {
+              // 生图完成事件 → 通知图库刷新 + 传递结构化数据给 chatStore 渲染
+              logger.debug("tool_completed SSE", {
+                tool_name: chunk.tool_name,
+                tool_call_id: (chunk as Record<string, unknown>).tool_call_id,
+                hasResultData: !!(chunk as Record<string, unknown>).result_data,
+                resultDataKeys: (chunk as Record<string, unknown>).result_data
+                  ? Object.keys(
+                      (chunk as Record<string, unknown>).result_data as Record<
+                        string,
+                        unknown
+                      >,
+                    )
+                  : "N/A",
+              });
+              if (chunk.tool_name === "image_generate") {
+                window.dispatchEvent(
+                  new CustomEvent("pyapp:image_generated", {
+                    detail: { images: chunk.images },
+                  }),
+                );
+              }
+              yield {
+                type: "tool_completed",
+                content: "",
+                tool_call_id: (chunk as Record<string, unknown>)
+                  .tool_call_id as string,
+                tool_name: (chunk as Record<string, unknown>)
+                  .tool_name as string,
+                result_data: (chunk as Record<string, unknown>)
+                  .result_data as Record<string, unknown>,
+              };
+            } else if (pyappType === "error") {
+              yield {
+                type: "error",
+                content: chunk.choices?.[0]?.delta?.content || "Unknown error",
+                errorCode: chunk.__pyapp_error_code || "UNKNOWN",
+              };
+            } else if (pyappType === "tool_call") {
+              const tc = chunk.choices?.[0]?.delta?.tool_calls?.[0];
+              if (tc) {
+                const rawArgs = tc.function?.arguments;
+                let parsedArgs: Record<string, unknown> = {};
+                try {
+                  parsedArgs =
+                    typeof rawArgs === "string"
+                      ? JSON.parse(rawArgs || "{}")
+                      : rawArgs || {};
+                } catch (e) {
+                  handleClientError(e, {
+                    module: "services:chat",
+                    action: "streamMessage-parseArgs",
+                  });
+                  // JSON 解析失败使用空对象，不阻塞流
+                }
+                yield {
+                  type: "tool_call",
+                  content: "",
+                  toolCall: {
+                    id: tc.id,
+                    name: tc.function?.name || "",
+                    arguments: parsedArgs,
+                    status: chunk.__pyapp_tool_status || "running",
+                  },
+                  // 转发后端 _meta（如 create_project 的导航建议）
+                  _meta: chunk.__pyapp_meta as
+                    Record<string, unknown> | undefined,
+                };
+              }
+            } else if (pyappType === "usage" && chunk.usage) {
+              yield {
+                type: "usage",
+                content: "",
+                usage: {
+                  inputTokens: chunk.usage.prompt_tokens || 0,
+                  outputTokens: chunk.usage.completion_tokens || 0,
+                  totalTokens: chunk.usage.total_tokens || 0,
+                  estimatedCostUsd: chunk.usage.estimated_cost_usd,
+                  cacheReadTokens: chunk.usage.cache_read_input_tokens,
+                  cacheCreationTokens: chunk.usage.cache_creation_input_tokens,
+                },
+                finishReason: chunk.choices?.[0]?.finish_reason || undefined,
+                // 转发后端 _meta（如自动建项目的导航建议）
+                _meta: chunk.__pyapp_meta as
+                  Record<string, unknown> | undefined,
+              };
+            } else if (chunk.choices?.[0]?.finish_reason === "error") {
+              // error 必须在通用 finish_reason 之前检测，否则被通用分支拦截
+              yield {
+                type: "error",
+                content: "AI 服务返回错误，请检查 API 密钥和模型配置",
+              };
+            } else if (chunk.choices?.[0]?.finish_reason) {
+              // 无 usage 时的独立 finish_reason 信号（修复 BUG #10）
+              yield {
+                type: "usage",
+                content: "",
+                finishReason: chunk.choices[0].finish_reason, // guarded by above ?
+                // 转发后端 _meta（如自动建项目的导航建议）
+                _meta: chunk.__pyapp_meta as
+                  Record<string, unknown> | undefined,
+              };
+            } else if (pyappType === "question" && chunk.__pyapp_question) {
+              logger.debug("解析到 question chunk", {
+                questionId: chunk.__pyapp_question.questionId,
+                question: chunk.__pyapp_question.question?.slice(0, 40),
+                options: chunk.__pyapp_question.options?.length,
+              });
+              yield {
+                type: "question",
+                content: "",
+                questionData: chunk.__pyapp_question,
+              };
+            } else if (pyappType === "todo" && chunk.__pyapp_todo) {
+              yield {
+                type: "todo",
+                content: "",
+                todoData: chunk.__pyapp_todo,
+              };
+            } else if (chunk.choices?.[0]?.delta?.content) {
+              yield {
+                type: "text",
+                content: chunk.choices[0].delta.content,
+              };
+            }
+          } catch (e) {
+            parseFailCount++;
+            handleClientError(e, {
+              module: "services:chat",
+              action: "streamMessage-parseChunk",
+            });
+            // 连续 5 次解析失败时向前端报告（低于阈值静默跳过）
+            if (parseFailCount >= 5) {
+              yield {
+                type: "error",
+                content: "SSE 数据流解析异常，部分内容可能丢失",
+              };
+              parseFailCount = 0; // 重置以免重复报告
+            }
+          }
+        }
+
+        const pendingData: string[] = [];
         while (true) {
-          const { done, value } = await reader.read();
+          // 无数据超时兜底（对齐后端 60s idle）：SSE 流中断时不永久挂起
+          const { done, value } = await readWithIdleTimeout(
+            reader,
+            STREAM_IDLE_TIMEOUT_MS,
+          );
           if (done) break;
 
           buffer += decoder.decode(value, { stream: true });
@@ -738,192 +973,53 @@ export const chatService = {
 
           for (const line of lines) {
             const trimmed = line.trim();
-            if (!trimmed || trimmed === "data: [DONE]") continue;
-
-            if (trimmed.startsWith("data: ")) {
-              const data = trimmed.slice(6);
-              try {
-                const chunk = JSON.parse(data);
-
-                const pyappType = chunk.__pyapp_type;
-                if (pyappType === "thinking") {
-                  yield {
-                    type: "thinking",
-                    content: chunk.choices?.[0]?.delta?.content || "",
-                  };
-                } else if (pyappType === "status") {
-                  yield {
-                    type: "status",
-                    content: chunk.choices?.[0]?.delta?.content || "",
-                    statusType: chunk.__pyapp_status_type || undefined,
-                  };
-                } else if (pyappType === "context_state") {
-                  yield {
-                    type: "context_state",
-                    content: chunk.choices?.[0]?.delta?.content || "",
-                    watermarkState: (chunk as Record<string, unknown>)
-                      .watermarkState as
-                      | {
-                          currentTokens: number;
-                          contextLimit: number;
-                          ratio: number;
-                          severity: "normal" | "warn" | "compact";
-                        }
-                      | undefined,
-                  };
-                } else if (pyappType === "tool_completed") {
-                  // 生图完成事件 → 通知图库刷新 + 传递结构化数据给 chatStore 渲染
-                  logger.debug("tool_completed SSE", {
-                    tool_name: chunk.tool_name,
-                    tool_call_id: (chunk as Record<string, unknown>)
-                      .tool_call_id,
-                    hasResultData: !!(chunk as Record<string, unknown>)
-                      .result_data,
-                    resultDataKeys: (chunk as Record<string, unknown>)
-                      .result_data
-                      ? Object.keys(
-                          (chunk as Record<string, unknown>)
-                            .result_data as Record<string, unknown>,
-                        )
-                      : "N/A",
-                  });
-                  if (chunk.tool_name === "image_generate") {
-                    window.dispatchEvent(
-                      new CustomEvent("pyapp:image_generated", {
-                        detail: { images: chunk.images },
-                      }),
-                    );
-                  }
-                  yield {
-                    type: "tool_completed",
-                    content: "",
-                    tool_call_id: (chunk as Record<string, unknown>)
-                      .tool_call_id as string,
-                    tool_name: (chunk as Record<string, unknown>)
-                      .tool_name as string,
-                    result_data: (chunk as Record<string, unknown>)
-                      .result_data as Record<string, unknown>,
-                  };
-                } else if (pyappType === "error") {
-                  yield {
-                    type: "error",
-                    content:
-                      chunk.choices?.[0]?.delta?.content || "Unknown error",
-                    errorCode: chunk.__pyapp_error_code || "UNKNOWN",
-                  };
-                } else if (pyappType === "tool_call") {
-                  const tc = chunk.choices?.[0]?.delta?.tool_calls?.[0];
-                  if (tc) {
-                    const rawArgs = tc.function?.arguments;
-                    let parsedArgs: Record<string, unknown> = {};
-                    try {
-                      parsedArgs =
-                        typeof rawArgs === "string"
-                          ? JSON.parse(rawArgs || "{}")
-                          : rawArgs || {};
-                    } catch (e) {
-                      handleClientError(e, {
-                        module: "services:chat",
-                        action: "streamMessage-parseArgs",
-                      });
-                      // JSON 解析失败使用空对象，不阻塞流
-                    }
-                    yield {
-                      type: "tool_call",
-                      content: "",
-                      toolCall: {
-                        id: tc.id,
-                        name: tc.function?.name || "",
-                        arguments: parsedArgs,
-                        status: chunk.__pyapp_tool_status || "running",
-                      },
-                      // 转发后端 _meta（如 create_project 的导航建议）
-                      _meta: chunk.__pyapp_meta as
-                        Record<string, unknown> | undefined,
-                    };
-                  }
-                } else if (pyappType === "usage" && chunk.usage) {
-                  yield {
-                    type: "usage",
-                    content: "",
-                    usage: {
-                      inputTokens: chunk.usage.prompt_tokens || 0,
-                      outputTokens: chunk.usage.completion_tokens || 0,
-                      totalTokens: chunk.usage.total_tokens || 0,
-                      estimatedCostUsd: chunk.usage.estimated_cost_usd,
-                      cacheReadTokens: chunk.usage.cache_read_input_tokens,
-                      cacheCreationTokens:
-                        chunk.usage.cache_creation_input_tokens,
-                    },
-                    finishReason:
-                      chunk.choices?.[0]?.finish_reason || undefined,
-                    // 转发后端 _meta（如自动建项目的导航建议）
-                    _meta: chunk.__pyapp_meta as
-                      Record<string, unknown> | undefined,
-                  };
-                } else if (chunk.choices?.[0]?.finish_reason === "error") {
-                  // error 必须在通用 finish_reason 之前检测，否则被通用分支拦截
-                  yield {
-                    type: "error",
-                    content: "AI 服务返回错误，请检查 API 密钥和模型配置",
-                  };
-                } else if (chunk.choices?.[0]?.finish_reason) {
-                  // 无 usage 时的独立 finish_reason 信号（修复 BUG #10）
-                  yield {
-                    type: "usage",
-                    content: "",
-                    finishReason: chunk.choices[0].finish_reason, // guarded by above ?
-                    // 转发后端 _meta（如自动建项目的导航建议）
-                    _meta: chunk.__pyapp_meta as
-                      Record<string, unknown> | undefined,
-                  };
-                } else if (pyappType === "question" && chunk.__pyapp_question) {
-                  logger.debug("解析到 question chunk", {
-                    questionId: chunk.__pyapp_question.questionId,
-                    question: chunk.__pyapp_question.question?.slice(0, 40),
-                    options: chunk.__pyapp_question.options?.length,
-                  });
-                  yield {
-                    type: "question",
-                    content: "",
-                    questionData: chunk.__pyapp_question,
-                  };
-                } else if (pyappType === "todo" && chunk.__pyapp_todo) {
-                  yield {
-                    type: "todo",
-                    content: "",
-                    todoData: chunk.__pyapp_todo,
-                  };
-                } else if (chunk.choices?.[0]?.delta?.content) {
-                  yield {
-                    type: "text",
-                    content: chunk.choices[0].delta.content,
-                  };
-                }
-              } catch (e) {
-                parseFailCount++;
-                handleClientError(e, {
-                  module: "services:chat",
-                  action: "streamMessage-parseChunk",
-                });
-                // 连续 5 次解析失败时向前端报告（低于阈值静默跳过）
-                if (parseFailCount >= 5) {
-                  yield {
-                    type: "error",
-                    content: "SSE 数据流解析异常，部分内容可能丢失",
-                  };
-                  parseFailCount = 0; // 重置以免重复报告
-                }
-              }
+            if (!trimmed) {
+              // 空行 = SSE 事件结束：处理累积的多行 data
+              if (pendingData.length === 0) continue;
+              const payload = pendingData.join("\n");
+              pendingData.length = 0;
+              if (payload !== "[DONE]") yield* parsePayload(payload);
+              continue;
             }
+            // 兼容 `data:` 与 `data: ` 前缀（SSE 规范允许无空格）
+            if (trimmed.startsWith("data:")) {
+              pendingData.push(trimmed.slice(5).trimStart());
+            }
+            // 其他 SSE 字段（event:/id:/retry:）忽略
           }
+        }
+        // 流结束：flush 未闭合的残留 data（最后一条无空行结尾）
+        if (pendingData.length > 0) {
+          const payload = pendingData.join("\n");
+          if (payload !== "[DONE]") yield* parsePayload(payload);
         }
       } catch (e) {
         handleClientError(e, {
           module: "services:chat",
           action: "streamMessage-readerLoop",
         });
+        // 无数据超时（readWithIdleTimeout 抛 TimeoutError）——与用户取消（AbortError）区分，
+        // 便于日志定位"网络超时"环节：超时需 cancel reader 释放挂起的 read
+        if (e instanceof DOMException && e.name === "TimeoutError") {
+          logger.warn("[streamMessage] 流式读取超时（idle 60s 无数据）", {
+            sessionId,
+            error: e.message,
+          });
+          try {
+            await reader.cancel();
+          } catch {
+            // cancel 失败不影响主流程（releaseLock 仍会执行）
+          }
+          yield {
+            type: "error",
+            content: "流式响应超时，请重试（连接可能已中断）",
+            errorCode: "TIMEOUT",
+          };
+          return;
+        }
         if (e instanceof DOMException && e.name === "AbortError") {
+          // 用户主动取消（AbortController.abort()）——正常路径，非超时
+          logger.info("[streamMessage] 用户取消流式请求", { sessionId });
           yield { type: "error", content: "请求已取消", errorCode: "UNKNOWN" };
           return;
         }
@@ -943,6 +1039,11 @@ export const chatService = {
             content: "连接已断开，请刷新页面重试（中断前的消息已保存）",
             errorCode: "CONNECTION_RESET",
           };
+          // P0: 断线可恢复场景向外抛专用异常，让 streamMessageWithReconnect
+          // 捕获后进入检查点重试（此前所有异常路径只 yield 不 throw，重连机制是死代码）
+          if (options?.throwOnRecoverable) {
+            throw new StreamConnectionError("CONNECTION_RESET", errorMessage);
+          }
           return;
         }
         // 其他网络错误
@@ -1003,7 +1104,7 @@ export const chatService = {
             `${getBackendBaseUrl()}/v1/sessions/${sessionId}/resume`,
             {
               method: "POST",
-              headers: { "Content-Type": "application/json" },
+              headers: buildAuthHeaders(),
               body: JSON.stringify({
                 session_id: sessionId,
                 checkpoint_id: checkpointId,
@@ -1015,12 +1116,15 @@ export const chatService = {
             throw new Error(`Resume HTTP ${resumeResp.status}`);
           if (!resumeResp.body) throw new Error("No resume response body");
 
-          // 复用内联 SSE 解析逻辑（与 streamMessage 一致）
+          // 复用内联 SSE 解析逻辑（与 streamMessage 一致）；无数据超时兜底防止挂起
           const reader = resumeResp.body.getReader();
           const decoder = new TextDecoder();
           let buffer = "";
           while (true) {
-            const { done, value } = await reader.read();
+            const { done, value } = await readWithIdleTimeout(
+              reader,
+              STREAM_IDLE_TIMEOUT_MS,
+            );
             if (done) break;
             buffer += decoder.decode(value, { stream: true });
             const lines = buffer.split("\n");
@@ -1053,7 +1157,11 @@ export const chatService = {
             content,
             sessionId,
             signal,
-            options,
+            {
+              ...options,
+              // P0: 断线时向外抛 StreamConnectionError 进入本函数 catch 重试
+              throwOnRecoverable: true,
+            },
           )) {
             if (chunk.type === "text" && chunk.content) {
               receivedTextChars += chunk.content.length;
@@ -1102,7 +1210,7 @@ export const chatService = {
       try {
         const cpResp = await fetch(
           `${getBackendBaseUrl()}/v1/sessions/${sessionId}/checkpoints/latest`,
-          { signal: AbortSignal.timeout(5000) },
+          { headers: buildAuthHeaders(), signal: AbortSignal.timeout(5000) },
         );
         const cpData = (await cpResp.json()) as {
           checkpointAvailable?: boolean;

@@ -18,12 +18,18 @@ const logger = createLogger("stores:chat:message");
 /** 保存中止恢复检查点（fire-and-forget，供 stopMessage 使用） */
 function saveAbortCheckpoint(sessionId: string): void {
   import("../../services/backendUrl")
-    .then(({ getBackendBaseUrl }) => {
+    .then(({ getBackendBaseUrl, getApiSecret }) => {
+      // P2: 裸 fetch 需注入 X-API-Key，配置 LIRI_API_SECRET 后缺头会 401
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+      const secret = getApiSecret();
+      if (secret) headers["X-API-Key"] = secret;
       fetch(
         `${getBackendBaseUrl()}/v1/sessions/${sessionId}/checkpoints/latest`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers,
           body: JSON.stringify({
             label: `abort_${Date.now()}`,
             autoCreated: true,
@@ -437,11 +443,15 @@ export async function checkAbortRecoveryImpl(
   sessionId: string,
 ): Promise<boolean> {
   try {
-    const base = await import("../../services/backendUrl").then((m) =>
-      m.getBackendBaseUrl(),
-    );
+    const { getBackendBaseUrl, getApiSecret } =
+      await import("../../services/backendUrl");
+    // P2: 裸 fetch 需注入 X-API-Key，配置 LIRI_API_SECRET 后缺头会 401
+    const headers: Record<string, string> = {};
+    const secret = getApiSecret();
+    if (secret) headers["X-API-Key"] = secret;
     const resp = await fetch(
-      `${base}/v1/sessions/${sessionId}/checkpoints/latest`,
+      `${getBackendBaseUrl()}/v1/sessions/${sessionId}/checkpoints/latest`,
+      { headers },
     );
     if (!resp.ok) return false;
     const data = await resp.json();
@@ -461,9 +471,14 @@ export function dismissRecoveryImpl(set: MessageSet, get: MessageGet): void {
   set({ recoverySessionId: null });
   if (sid) {
     import("../../services/backendUrl")
-      .then(({ getBackendBaseUrl }) => {
+      .then(({ getBackendBaseUrl, getApiSecret }) => {
+        // P2: 裸 fetch 需注入 X-API-Key，配置 LIRI_API_SECRET 后缺头会 401
+        const headers: Record<string, string> = {};
+        const secret = getApiSecret();
+        if (secret) headers["X-API-Key"] = secret;
         fetch(`${getBackendBaseUrl()}/v1/sessions/${sid}/checkpoints/latest`, {
           method: "DELETE",
+          headers,
         }).catch(() => {});
       })
       .catch(() => {

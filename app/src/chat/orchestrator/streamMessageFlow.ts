@@ -336,8 +336,8 @@ export async function* runStreamMessage(
         });
       });
 
-      // 获取会话互斥锁（保护工具执行循环）——仅首轮获取，重试轮不再重复 acquire
       if (!mutexHeld) {
+        logger.info('获取互斥锁(首轮)', { sessionId: session.id });
         await mutex.acquire();
         mutexHeld = true;
       }

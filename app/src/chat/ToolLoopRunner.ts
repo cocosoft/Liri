@@ -50,6 +50,9 @@ import {
 } from './services/MessageContextPipeline';
 import { StreamingToolCallScrubber } from '../streaming/scrubbers/StreamingToolCallScrubber';
 import { repairImageUrls } from './services/ChatHelper';
+// 与主链路 StreamPipeline.repairContent 对齐：工具轮叙述落盘前剥离裸探索段，
+// 消除"工具轮中间叙述以独立助手消息落盘、历史加载合并后拼进回复"的重复观感
+import { stripBareExploration } from './services/bareExplorationStripper';
 import { handleError } from '@modules/error';
 import { getLogger } from '@modules/monitoring';
 import { getOTelTracing } from '@modules/monitoring/otel';
@@ -276,13 +279,18 @@ export class ToolLoopRunner {
         );
         if (!initialResponse) return;
 
+        // 与主链路一致：非流式 LLM 回复落盘前剥离裸探索段（工具轮叙述不进历史）
+        const initialContent =
+          typeof initialResponse.content === 'string'
+            ? initialResponse.content
+            : JSON.stringify(initialResponse.content);
+        const cleanedInitialContent = stripBareExploration(initialContent);
+
         if (initialResponse.tool_calls?.length) {
           this.currentToolCalls = [...initialResponse.tool_calls];
           this.currentAssistantMsg =
             this.ctx.messageService.createAssistantMessage(
-              typeof initialResponse.content === 'string'
-                ? initialResponse.content
-                : JSON.stringify(initialResponse.content),
+              cleanedInitialContent,
               { sessionId: session.id }
             );
           this.ctx.addAndPersistMessage(session.id, this.currentAssistantMsg);
@@ -291,9 +299,7 @@ export class ToolLoopRunner {
           // 无更多工具调用，直接返回
           this.assistantMessage =
             this.ctx.messageService.createAssistantMessage(
-              typeof initialResponse.content === 'string'
-                ? initialResponse.content
-                : JSON.stringify(initialResponse.content),
+              cleanedInitialContent,
               { sessionId: session.id }
             );
           this.ctx.addAndPersistMessage(session.id, this.assistantMessage);
@@ -481,12 +487,14 @@ export class ToolLoopRunner {
 
     yield {
       type: 'execution_phase',
-      content: `已执行 ${this.completedToolNames.length} 个工具，第 ${this.toolTurnCount} 轮`,
+      // 轮数/工具次数为内部指标：不再写入用户可见的 content/description，
+      // 仅保留在结构化 steps 与 logger（toolLoop:轮次开始）中
+      content: '正在执行工具',
       sessionId: this.ctx.session.id,
       executionPhase: {
         phase: 'implementing' as const,
         progress: this.completedToolNames.length,
-        description: `第 ${this.toolTurnCount} 轮工具调用`,
+        description: '正在执行工具调用',
         steps: [
           ...this.completedToolNames.map((name) => ({
             name,
@@ -957,9 +965,14 @@ export class ToolLoopRunner {
     cleanContent: string
   ): void {
     const toolResultAssistantMsg =
-      this.ctx.messageService.createAssistantMessage(cleanContent, {
-        sessionId: this.ctx.session.id,
-      });
+      this.ctx.messageService.createAssistantMessage(
+        // 重复修复：工具轮叙述落盘前剥离裸探索段（与主链路 repairContent 一致），
+        // 流式实时显示保留原文，但持久化内容干净，避免历史加载合并后探索叙述重复出现
+        stripBareExploration(cleanContent),
+        {
+          sessionId: this.ctx.session.id,
+        }
+      );
     // ChatResponse from @modules/ai has stop_reason; the extended version from chat/models has finishReason
     const response = toolResultResponse as unknown as {
       finishReason?: string;

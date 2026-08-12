@@ -6,7 +6,10 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { useChatStore } from "../../../stores/chat";
+import { createLogger } from "@/utils/logger";
 import ImageViewer from "../ImageViewer/ImageViewer";
+
+const logger = createLogger("components:imageGenerateResult");
 
 interface Props {
   data: Record<string, unknown>;
@@ -67,6 +70,18 @@ export default function ImageGenerateResult({ data }: Props) {
     };
   };
 
+  /** 发送图片分析（带附件）并记录，便于排查"AI 看不到图"类问题 */
+  const sendImageAnalysis = (img: Record<string, string>) => {
+    const attached = toAttachedImage(img);
+    logger.info("ImageGenerateResult: 发送图片分析", {
+      filename: attached.filename,
+      path: attached.path,
+      url: attached.url,
+      localUrl: img.localUrl,
+    });
+    sendMessage("请分析这张图片", undefined, [attached]);
+  };
+
   // 优先使用本地持久化 URL（刷新后不丢失），fallback 到远程 URL
   const imageUrls = images.map((img) => img.localUrl || img.url || "");
   const getSrc = (img: Record<string, string>) => img.localUrl || img.url || "";
@@ -117,9 +132,7 @@ export default function ImageGenerateResult({ data }: Props) {
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    sendMessage("请分析这张图片", undefined, [
-                      toAttachedImage(img),
-                    ]);
+                    sendImageAnalysis(img);
                   }}
                   className="px-1.5 py-0.5 rounded text-[10px] bg-gray-900/80 text-blue-300 hover:bg-gray-800 border-0 cursor-pointer"
                   title={t("image.analyze")}
@@ -142,11 +155,7 @@ export default function ImageGenerateResult({ data }: Props) {
         </button>
         {images.length === 1 && (
           <button
-            onClick={() =>
-              sendMessage("请分析这张图片", undefined, [
-                toAttachedImage(images[0]),
-              ])
-            }
+            onClick={() => sendImageAnalysis(images[0])}
             className="text-[10px] px-2 py-0.5 rounded bg-purple-600/20 text-purple-300 hover:bg-purple-600/30 border-0 cursor-pointer"
           >
             {t("image.analyze")}

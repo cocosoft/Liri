@@ -58,6 +58,7 @@ import {
   stripOrphanToolTags,
 } from './services/MessageContextPipeline';
 import { StreamingToolCallScrubber } from '../streaming/scrubbers/StreamingToolCallScrubber';
+import { stripBareExploration } from './services/bareExplorationStripper';
 import { SessionAccessFacade } from './services/SessionAccessFacade';
 import { SessionLifecycleManager } from './services/SessionLifecycleManager.js';
 import { ResumeCoordinator } from './services/ResumeCoordinator.js';
@@ -2947,7 +2948,11 @@ export class ChatManagerImpl implements ChatManager {
       this._streamingCheckpoint = null;
 
       const assistantMessage = this.messageService.createAssistantMessage(
-        stripThinkResponseTags(repairImageUrls(accumulatedContent)),
+        // 与主链路 StreamPipeline.repairContent 对齐：断线恢复累积的工具轮叙述
+        // 落盘前剥离裸探索段，避免历史加载合并后探索叙述重复出现
+        stripBareExploration(
+          stripThinkResponseTags(repairImageUrls(accumulatedContent))
+        ),
         { sessionId }
       );
       assistantMessage.sessionId = sessionId;
@@ -4152,8 +4157,12 @@ export class ChatManagerImpl implements ChatManager {
     return this.contextCompactor.getCompactService();
   }
 
-  async createCheckpoint(sessionId: string, label?: string): Promise<string> {
-    return this.resumeCoordinator.createCheckpoint(sessionId, label);
+  async createCheckpoint(
+    sessionId: string,
+    label?: string,
+    metadata?: Record<string, unknown>
+  ): Promise<string> {
+    return this.resumeCoordinator.createCheckpoint(sessionId, label, metadata);
   }
 
   async listCheckpoints(

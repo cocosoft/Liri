@@ -217,6 +217,12 @@ async function handleNormalChat(
     // 思考型模型（如 deepseek-v4-flash）在 max_tokens 预算被思考耗尽时 content 为空，
     // 或响应仅为 tool_calls 时 content 也为空——此时并非错误，返回 200 空内容避免误报 500。
     if (response.finishReason === 'error') {
+      logger.error('Chat 返回错误 finishReason=error', {
+        model: request.model || DEFAULT_MODEL_SENTINEL,
+        sessionId: request.session_id,
+        durationMs: chatDurationMs,
+        contentLength: response.content?.length ?? 0,
+      });
       res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(
         JSON.stringify({
@@ -229,11 +235,26 @@ async function handleNormalChat(
       return;
     }
 
+    // 排查 J-1.5：content 为空但 finishReason 非 error（思考耗尽/仅 tool_calls）——正常路径，非 500
+    if (!response.content) {
+      logger.info(
+        'Chat 完成但 content 为空（非错误，思考耗尽或仅 tool_calls）',
+        {
+          model: request.model || DEFAULT_MODEL_SENTINEL,
+          sessionId: request.session_id,
+          finishReason: response.finishReason || 'stop',
+          toolCallCount: response.toolCalls?.length ?? 0,
+        }
+      );
+    }
+
     logger.info('Chat completed', {
       model: request.model || DEFAULT_MODEL_SENTINEL,
       durationMs: chatDurationMs,
       contentLength: response.content?.length ?? 0,
       sessionId: request.session_id,
+      finishReason: response.finishReason || 'stop',
+      toolCallCount: response.toolCalls?.length ?? 0,
     });
 
     const completionResponse: ChatCompletionResponse = {
@@ -859,6 +880,9 @@ export async function handleLatestCheckpoint(
           checkpointAvailable: true,
           checkpointId: checkpoint.id,
           messages: checkpoint.messages,
+          // P1 修复：回传 metadata（含 abortRecovery 标记），此前缺失导致前端
+          // checkAbortRecoveryImpl 读 data.metadata 恒为 undefined，恢复提示永不弹出
+          metadata: checkpoint.metadata,
         })
       );
     } else {
@@ -874,6 +898,91 @@ export async function handleLatestCheckpoint(
     });
     res.writeHead(500, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ error: 'Internal server error' }));
+  }
+}
+
+/**
+ * 序列化 resumeStream 的 chunk 为 OpenAI 兼容 SSE 格式（与 handleStreamingChat 对齐）。
+ * P1 修复：此前对象 chunk 平铺发送（无 choices[].delta 包装），前端 parseSseChunk
+ * 只识别 OpenAI 兼容格式，导致恢复后 thinking/status/tool_call/error 内容全部丢失。
+ * @returns JSON 字符串；无法序列化的 chunk 返回 null（调用方跳过）
+ */
+function serializeResumeChunk(chunk: string | ChatStreamChunk): string | null {
+  const base = {
+    object: 'chat.completion.chunk',
+  };
+  if (typeof chunk === 'string') {
+    return JSON.stringify({
+      ...base,
+      __pyapp_type: 'text',
+      choices: [{ index: 0, delta: { content: chunk }, finish_reason: null }],
+    });
+  }
+  const c = chunk as ChatStreamChunk;
+  switch (c.type) {
+    case 'text':
+      if (!c.content) return null;
+      return JSON.stringify({
+        ...base,
+        __pyapp_type: 'text',
+        choices: [
+          { index: 0, delta: { content: c.content }, finish_reason: null },
+        ],
+      });
+    case 'thinking':
+    case 'status':
+      if (!c.content) return null;
+      return JSON.stringify({
+        ...base,
+        __pyapp_type: c.type,
+        ...(c.statusType ? { __pyapp_status_type: c.statusType } : {}),
+        choices: [
+          { index: 0, delta: { content: c.content }, finish_reason: null },
+        ],
+      });
+    case 'error':
+      return JSON.stringify({
+        ...base,
+        __pyapp_type: 'error',
+        __pyapp_error_code: c.errorCode || 'UNKNOWN',
+        choices: [
+          {
+            index: 0,
+            delta: { content: c.content || 'Unknown error' },
+            finish_reason: 'error',
+          },
+        ],
+      });
+    case 'tool_call':
+      if (!c.toolCall) return null;
+      return JSON.stringify({
+        ...base,
+        __pyapp_type: 'tool_call',
+        __pyapp_tool_status: c.toolCall.status || 'running',
+        ...(c._meta ? { __pyapp_meta: c._meta } : {}),
+        choices: [
+          {
+            index: 0,
+            delta: {
+              content: '',
+              tool_calls: [
+                {
+                  id: c.toolCall.id,
+                  type: 'function',
+                  function: {
+                    name: c.toolCall.name,
+                    arguments: JSON.stringify(c.toolCall.arguments),
+                  },
+                },
+              ],
+            },
+            finish_reason: null,
+          },
+        ],
+      });
+    default:
+      // resume 场景不产生 question/todo/execution_phase 等决策块，未知类型跳过
+      return null;
   }
 }
 
@@ -936,20 +1045,14 @@ export async function handleResumeChat(
     while (!result.done) {
       if (res.destroyed || res.writableEnded) break;
 
-      const chunk = result.value;
-      const data =
-        typeof chunk === 'string'
-          ? JSON.stringify({
-              __pyapp_type: 'text',
-              choices: [{ delta: { content: chunk } }],
-            })
-          : JSON.stringify({
-              ...(chunk as unknown as Record<string, unknown>),
-              __pyapp_type: (chunk as unknown as Record<string, unknown>).type,
-            });
-
-      res.write(`data: ${data}\n\n`);
-      safeFlush(res);
+      // P1 修复：统一 OpenAI 兼容包装（此前对象 chunk 平铺发送，前端解析丢失内容）
+      const data = serializeResumeChunk(
+        result.value as string | ChatStreamChunk
+      );
+      if (data !== null) {
+        res.write(`data: ${data}\n\n`);
+        safeFlush(res);
+      }
       result = await generator.next();
     }
 
@@ -1051,10 +1154,11 @@ export async function handleGetDataDirectory(
 
     const currentDir = resolvePyappHome();
     const configuredDir = getUserDataDirOverride();
-    const savedOverride = getUserDataDirOverride();
-    if (savedOverride) setUserDataDirOverride(null);
+    // P3 简化：configuredDir 即 override 值，原实现重复读取两次；
+    // 临时清除 override 读取默认目录（仅内存级，随后恢复），供前端对比"生效目录"与"默认目录"
+    if (configuredDir) setUserDataDirOverride(null);
     const defaultDir = resolvePyappHome();
-    if (savedOverride) setUserDataDirOverride(savedOverride);
+    if (configuredDir) setUserDataDirOverride(configuredDir);
 
     // 读取环境变量，判断是否有外部覆盖
     const envLiriHome = process.env['LIRI_HOME']?.trim() || null;

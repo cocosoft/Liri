@@ -408,6 +408,11 @@ export class InboxManager {
         !item ||
         (item.status !== 'pending' && item.status !== 'processing')
       ) {
+        logger.warn('Inbox reply 拒绝（非 pending/processing）', {
+          id,
+          status: item?.status,
+          reply,
+        });
         otel.endSpan(
           span,
           SpanStatusCode.ERROR,
@@ -415,6 +420,17 @@ export class InboxManager {
         );
         return null;
       }
+
+      // 排查审批链路：记录放行状态（pending/processing）与回复动作
+      logger.info('Inbox item replied', {
+        id,
+        status: item.status,
+        reply,
+        type: item.type,
+        title: item.title,
+        sessionId: item.sessionId,
+        channelSessionId: item.channelSessionId,
+      });
 
       const now = Date.now();
       await new Promise<void>((resolve, reject) => {

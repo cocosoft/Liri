@@ -28,6 +28,8 @@ export interface CreateCheckpointParams {
   description?: string;
   autoCreated?: boolean;
   tokenCount?: number;
+  /** 附加 metadata（如 abortRecovery 标记），与既有 metadata 合并 */
+  metadata?: SessionMetadata;
 }
 
 export interface CheckpointStorage {

@@ -70,7 +70,11 @@ export class ResumeCoordinator {
     return getLocalSession(this.chatSessions, sessionId);
   }
 
-  async createCheckpoint(sessionId: string, label?: string): Promise<string> {
+  async createCheckpoint(
+    sessionId: string,
+    label?: string,
+    metadata?: Record<string, unknown>
+  ): Promise<string> {
     const session = this._getLocalSession(sessionId);
     if (!session) {
       throw new AppError(
@@ -84,7 +88,9 @@ export class ResumeCoordinator {
     const cp = await this.checkpointService.saveCheckpointWithData(
       sessionId,
       session.messages,
-      session.metadata,
+      // P1 修复：合并调用方附加 metadata（如 abortRecovery 标记），
+      // 此前仅存 session.metadata，前端 checkAbortRecovery 永远检测不到标记
+      { ...session.metadata, ...metadata } as typeof session.metadata,
       session.state,
       label
     );

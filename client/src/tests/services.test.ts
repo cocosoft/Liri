@@ -1,3 +1,6 @@
+// 运行方式：bun run test（vitest）—— 勿用 bun test 直接跑。
+// 本文件使用 vitest 专属 API（vi.mock / vi.stubGlobal），bun test 的 vi 兼容不完整会报
+// "vi.stubGlobal is not a function"（client 测试唯一运行器为 vitest，见 client/package.json "test"）。
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { sessionService } from "../services/sessionService";
 import { configService } from "../services/configService";

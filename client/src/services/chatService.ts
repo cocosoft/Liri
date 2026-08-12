@@ -1173,10 +1173,14 @@ export const chatService = {
             throw new Error(`Resume HTTP ${resumeResp.status}`);
           if (!resumeResp.body) throw new Error("No resume response body");
 
-          // 复用内联 SSE 解析逻辑（与 streamMessage 一致）；无数据超时兜底防止挂起
+          // 复用主链路一致的 SSE 事件边界解析（M8 修复）：
+          // ① 兼容 `data:` 无空格前缀（主链路已支持，resume 原只认 `data: `）
+          // ② 多行 data continuation 按空行事件边界累积（原逐行 JSON.parse，跨行即丢）
+          // ③ readWithIdleTimeout 无数据超时兜底，防止恢复路径挂起
           const reader = resumeResp.body.getReader();
           const decoder = new TextDecoder();
           let buffer = "";
+          const pendingData: string[] = [];
           while (true) {
             const { done, value } = await readWithIdleTimeout(
               reader,
@@ -1187,17 +1191,40 @@ export const chatService = {
             const lines = buffer.split("\n");
             buffer = lines.pop() || "";
             for (const line of lines) {
-              if (line.startsWith("data: ")) {
-                const data = line.slice(6);
-                if (data === "[DONE]") return;
+              const trimmed = line.trim();
+              if (!trimmed) {
+                // 空行 = SSE 事件结束：处理累积的多行 data
+                if (pendingData.length === 0) continue;
+                const payload = pendingData.join("\n");
+                pendingData.length = 0;
+                if (payload === "[DONE]") return;
                 try {
                   // P2-1: 复用与主链路一致的共享解析，恢复后 thinking/tool_call/question 等决策块不丢失
-                  const chunk = JSON.parse(data);
+                  const chunk = JSON.parse(payload);
                   const parsed = parseSseChunk(chunk);
                   if (parsed) yield parsed;
                 } catch {
                   /* skip malformed */
                 }
+                continue;
+              }
+              // 兼容 `data:` 与 `data: ` 前缀（SSE 规范允许无空格）
+              if (trimmed.startsWith("data:")) {
+                pendingData.push(trimmed.slice(5).trimStart());
+              }
+              // 其他 SSE 字段（event:/id:/retry:）忽略
+            }
+          }
+          // 流结束：flush 未闭合的残留 data（最后一条无空行结尾）
+          if (pendingData.length > 0) {
+            const payload = pendingData.join("\n");
+            if (payload !== "[DONE]") {
+              try {
+                const chunk = JSON.parse(payload);
+                const parsed = parseSseChunk(chunk);
+                if (parsed) yield parsed;
+              } catch {
+                /* skip malformed */
               }
             }
           }

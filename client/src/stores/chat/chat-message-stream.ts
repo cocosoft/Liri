@@ -77,7 +77,19 @@ export async function streamMessageImpl(
     if (editIndex >= 0) {
       // 截断 editTarget 及其之后的所有消息
       const truncated = get().messages.slice(0, editIndex);
-      set({ messages: truncated, editTarget: null });
+      // M12 修复：编辑重发 id 悬空 —— 截断后重建的 userMessage 是全新 UUID：
+      // ① 继承被编辑消息的 replyToId，回复链不因换新 id 而断裂（被回复标记/引用保留）
+      // ② 若 pendingReplyToId 指向被截断的消息（含 editTarget 本身），改用继承值避免悬空
+      const pendingReplyId = get().pendingReplyToId;
+      const pendingSurvives = pendingReplyId
+        ? truncated.some((m) => m.id === pendingReplyId)
+        : false;
+      // 悬空时不能回退到 pendingReplyId 本身（它可能正指向被截断的 editTarget），
+      // 只继承被编辑消息的回复关系
+      const nextReplyToId = pendingSurvives
+        ? pendingReplyId
+        : editTarget.replyToId ?? null;
+      set({ messages: truncated, editTarget: null, pendingReplyToId: nextReplyToId });
       // AB-13 修复：同步截断后端持久化消息，防止切会话/重载后旧消息回显。
       // 编辑场景先等后端截断完成再发流（写前持久化语义），失败不阻断发送。
       if (sessionId) {

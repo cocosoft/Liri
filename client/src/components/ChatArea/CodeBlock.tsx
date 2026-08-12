@@ -140,7 +140,7 @@ function CodeBlock({ code, language }: CodeBlockProps) {
       {/* 代码内容 */}
       <pre className="bg-gray-900 text-gray-100 p-4 overflow-x-auto text-sm leading-relaxed">
         <code
-          className={`hljs${language ? ` language-${language}` : ""}`}
+          className={`hljs${safeLangClass(language)}`}
           dangerouslySetInnerHTML={{ __html: highlighted }}
         />
       </pre>
@@ -155,6 +155,15 @@ function escapeHtml(text: string): string {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
+}
+
+/** N7 修复：语言名消毒——只允许安全字符，原 `language-${language}` 直接拼入
+ * className（AI 输出可注入任意类名污染 CSS 选择器面） */
+function safeLangClass(language?: string): string {
+  if (!language) return "";
+  const lang = language.toLowerCase();
+  if (!/^[a-z0-9_+-]+$/.test(lang)) return "";
+  return ` language-${lang}`;
 }
 
 export default CodeBlock;

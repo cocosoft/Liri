@@ -92,6 +92,8 @@ function ChatInput({ fluid = false }: { fluid?: boolean }) {
   const [mentionIndex, setMentionIndex] = useState(0);
   const [mentionStartPos, setMentionStartPos] = useState(0);
   const [isImageDragOver, setIsImageDragOver] = useState(false);
+  // R1 修复：超过 MAX_VISIBLE_THUMBNAILS 时点击 +N 展开全部缩略图（隐藏图片才有移除入口）
+  const [showAllThumbnails, setShowAllThumbnails] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const fileBarRef = useRef<FileAttachmentBarHandle>(null);
@@ -887,40 +889,49 @@ function ChatInput({ fluid = false }: { fluid?: boolean }) {
           {/* 图片缩略图预览条 */}
           {imageItems.length > 0 && (
             <div className="mb-2 flex items-center gap-2 flex-wrap">
-              {imageItems.slice(0, MAX_VISIBLE_THUMBNAILS).map((item) => (
-                <div
-                  // #14 修复：key 用唯一 id（原 key={idx}，删除中间项后状态错位）
-                  key={item.id}
-                  className="relative group w-16 h-16 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600 flex-shrink-0"
-                >
-                  <img
-                    src={item.previewUrl}
-                    alt={item.file.name}
-                    className="w-full h-full object-cover"
-                  />
-                  {item.status === "uploading" && (
-                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                      <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    </div>
-                  )}
-                  {item.status === "error" && (
-                    <div className="absolute inset-0 bg-red-500/40 flex items-center justify-center text-white text-xs">
-                      !
-                    </div>
-                  )}
-                  <button
-                    onClick={() => handleRemoveImage(item.id)}
-                    className="absolute top-0.5 right-0.5 w-5 h-5 bg-black/60 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs hover:bg-black/80"
-                    title={t("chat.removeImage")}
+              {/* R1 修复：showAllThumbnails 展开时显示全部（隐藏图片也可移除） */}
+              {imageItems
+                .slice(0, showAllThumbnails ? imageItems.length : MAX_VISIBLE_THUMBNAILS)
+                .map((item) => (
+                  <div
+                    // #14 修复：key 用唯一 id（原 key={idx}，删除中间项后状态错位）
+                    key={item.id}
+                    className="relative group w-16 h-16 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600 flex-shrink-0"
                   >
-                    ×
-                  </button>
-                </div>
-              ))}
+                    <img
+                      src={item.previewUrl}
+                      alt={item.file.name}
+                      className="w-full h-full object-cover"
+                    />
+                    {item.status === "uploading" && (
+                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                        <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      </div>
+                    )}
+                    {item.status === "error" && (
+                      <div className="absolute inset-0 bg-red-500/40 flex items-center justify-center text-white text-xs">
+                        !
+                      </div>
+                    )}
+                    <button
+                      onClick={() => handleRemoveImage(item.id)}
+                      className="absolute top-0.5 right-0.5 w-5 h-5 bg-black/60 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs hover:bg-black/80"
+                      title={t("chat.removeImage")}
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              {/* R1 修复：+N 由纯 div 改为按钮，点击展开/收起全部缩略图 */}
               {imageItems.length > MAX_VISIBLE_THUMBNAILS && (
-                <div className="w-16 h-16 rounded-lg border border-gray-200 dark:border-gray-600 flex items-center justify-center text-sm text-gray-500 dark:text-gray-400 flex-shrink-0">
-                  +{imageItems.length - MAX_VISIBLE_THUMBNAILS}
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowAllThumbnails((v) => !v)}
+                  className="w-16 h-16 rounded-lg border border-gray-200 dark:border-gray-600 flex items-center justify-center text-sm text-gray-500 dark:text-gray-400 flex-shrink-0 hover:border-blue-400 hover:text-blue-500 transition-colors cursor-pointer"
+                  title={showAllThumbnails ? "收起" : "展开全部图片"}
+                >
+                  {showAllThumbnails ? "收起" : `+${imageItems.length - MAX_VISIBLE_THUMBNAILS}`}
+                </button>
               )}
             </div>
           )}

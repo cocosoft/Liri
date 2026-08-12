@@ -61,6 +61,8 @@ function MarkdownRenderer({
   knownFilePaths,
 }: MarkdownRendererProps) {
   const blockIdRef = useRef(0);
+  // N6 修复：mermaid 只处理本组件容器内的元素（原全局 querySelectorAll 越权）
+  const containerRef = useRef<HTMLDivElement>(null);
 
   /** content 归一化（undefined 防护）：调用方可能传未初始化的 result，直接 .length 会崩溃 */
   const normalizedContent = content ?? "";
@@ -77,17 +79,40 @@ function MarkdownRenderer({
   }, [safeContent, isTruncated]);
 
   useEffect(() => {
-    mermaid.initialize({ startOnLoad: false });
-    const mermaidElements = document.querySelectorAll(".mermaid");
+    // N6 修复：
+    // ① 显式 securityLevel: strict（默认值，显式声明避免依赖库默认行为）
+    // ② 查询范围收敛到本组件容器（原全局 querySelectorAll 越权处理其它组件）
+    // ③ cancelled 标志：卸载/依赖变化后不再 innerHTML 注入
+    // ④ 渲染结果过 DOMPurify，与全局 sanitize 策略对齐（mermaid 输出唯一裸插点）
+    // ⑤ try/catch 兜底：语法错误不再 unhandled rejection，降级显示原文
+    mermaid.initialize({ startOnLoad: false, securityLevel: "strict" });
+    const root = containerRef.current;
+    if (!root) return;
+    let cancelled = false;
+    const mermaidElements = root.querySelectorAll<HTMLElement>(".mermaid");
     mermaidElements.forEach(async (el) => {
-      if (!el.classList.contains("rendered")) {
-        const id = `mermaid-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-        const code = (el as HTMLElement).textContent || "";
+      if (el.classList.contains("rendered")) return;
+      const id = `mermaid-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      const code = el.textContent || "";
+      try {
         const { svg } = await mermaid.render(id, code);
-        (el as HTMLElement).innerHTML = svg;
+        if (cancelled) return;
+        el.innerHTML = DOMPurify.sanitize(svg, {
+          USE_PROFILES: { svg: true, svgFilters: true },
+        });
         el.classList.add("rendered");
+      } catch (e) {
+        if (cancelled) return;
+        // 语法错误等：降级为等宽文本展示原始代码，避免一直显示原文且无提示
+        const fallback = document.createElement("pre");
+        fallback.className = "mermaid-error text-xs text-red-500";
+        fallback.textContent = code;
+        el.replaceWith(fallback);
       }
     });
+    return () => {
+      cancelled = true;
+    };
   }, [blocks]);
 
   const renderHeading = (content: string, level: number, key: string) => {
@@ -415,7 +440,7 @@ function MarkdownRenderer({
   }
 
   return (
-    <div className="prose prose-sm max-w-none">
+    <div ref={containerRef} className="prose prose-sm max-w-none">
       {blocks.map((block) => (
         <BlockContent
           key={block.id}

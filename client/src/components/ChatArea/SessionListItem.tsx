@@ -7,6 +7,7 @@
  * - 删除按钮（hover 显示）
  * - 右键菜单触发
  */
+import { useRef, useEffect } from "react";
 import { formatRelativeTime } from "../../utils/format";
 import { useRootStore } from "../../stores/root-store";
 import { getModuleMeta } from "../../stores/root-store/moduleRegistry";
@@ -62,6 +63,39 @@ function SessionListItem({
     ? getModuleMeta(session.moduleType)
     : null;
 
+  // R4 修复：单击延迟 250ms 执行切换，双击时第一次点击被取消——
+  // 原 onClick + onDoubleClick 并存，双击先触发 2 次切换再重命名
+  const clickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingClickIdRef = useRef<string | null>(null);
+
+  useEffect(
+    () => () => {
+      if (clickTimerRef.current) clearTimeout(clickTimerRef.current);
+    },
+    [],
+  );
+
+  const handleItemClick = (id: string) => {
+    if (pendingClickIdRef.current !== null) {
+      clearTimeout(clickTimerRef.current!);
+      clickTimerRef.current = null;
+      const prevId = pendingClickIdRef.current;
+      pendingClickIdRef.current = null;
+      if (prevId === id) {
+        // 同一会话双击：取消单击切换，交给 onDoubleClick（重命名）
+        return;
+      }
+      // 不同会话连点：先执行上一个待定切换，避免丢切换
+      onSwitch(prevId);
+    }
+    pendingClickIdRef.current = id;
+    clickTimerRef.current = setTimeout(() => {
+      clickTimerRef.current = null;
+      pendingClickIdRef.current = null;
+      onSwitch(id);
+    }, 250);
+  };
+
   return (
     <div
       key={session.id}
@@ -73,7 +107,7 @@ function SessionListItem({
       }`}
     >
       <button
-        onClick={() => onSwitch(session.id)}
+        onClick={() => handleItemClick(session.id)}
         onDoubleClick={() => onDoubleClick(session.id, session.title)}
         className="flex-1 flex items-center gap-2 truncate text-left min-w-0"
       >

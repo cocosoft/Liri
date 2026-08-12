@@ -9,6 +9,11 @@ import { useState, useCallback, useRef, useEffect } from "react";
 export function useChatDraft(sessionId?: string) {
   const [input, setInput] = useState("");
   const draftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // R2 修复：实时跟踪最新输入（cleanup 中 flush 防抖草稿需要读取最新值）
+  const inputRef = useRef("");
+  useEffect(() => {
+    inputRef.current = input;
+  }, [input]);
 
   /** 草稿持久化键名（按会话 ID 区分） */
   const getDraftKey = useCallback(
@@ -26,6 +31,26 @@ export function useChatDraft(sessionId?: string) {
     } catch {
       setInput("");
     }
+
+    // R2 修复：切换会话（或卸载）时先同步 flush 本会话未落盘的防抖草稿。
+    // 原实现不 flush，切到新会话后 300ms 内的输入会 clearTimeout 掉
+    // 旧会话定时器，旧会话草稿永久丢失。cleanup 闭包捕获旧会话 key。
+    return () => {
+      if (draftTimerRef.current) {
+        clearTimeout(draftTimerRef.current);
+        draftTimerRef.current = null;
+        const pending = inputRef.current;
+        try {
+          if (pending.trim()) {
+            localStorage.setItem(key, pending);
+          } else {
+            localStorage.removeItem(key);
+          }
+        } catch {
+          // localStorage 不可用时静默忽略
+        }
+      }
+    };
   }, [sessionId, getDraftKey]);
 
   /** 将当前输入内容持久化到 localStorage */

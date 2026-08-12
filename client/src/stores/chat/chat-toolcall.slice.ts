@@ -388,9 +388,16 @@ export class ChronologicalBlockBuilder {
     let idx = this.blocks.findIndex(
       (b) => b.type === "todo" && b.content === todoData.title,
     );
-    // 标题不匹配时，回退到第一个 todo 块（流式更新时标题可能不同）
+    // 标题不匹配时回退到**最后一个** todo 块（流式更新时标题可能不同）。
+    // 修复：原回退到第一个 todo 块，多轮任务（同一消息多次 todo_write）时
+    // 第 2 轮数据会覆盖第 1 轮的任务列表——按"最近写入"语义应更新最后一个。
     if (idx === -1) {
-      idx = this.blocks.findIndex((b) => b.type === "todo");
+      for (let i = this.blocks.length - 1; i >= 0; i--) {
+        if (this.blocks[i].type === "todo") {
+          idx = i;
+          break;
+        }
+      }
     }
     if (idx !== -1) {
       // AB-6 修复：替换为新块对象（含 dirty），流式任务状态实时刷新
@@ -420,7 +427,14 @@ export class ChronologicalBlockBuilder {
       durationMs: number;
     }>,
   ): void {
-    const idx = this.blocks.findIndex((b) => b.type === "todo" && b.taskCard);
+    // 修复：按 taskId 在所有 todo 块中查找——原实现永远命中第一个 todo 块，
+    // 同一消息多次 todo_write（多轮任务）时第 2 轮起的更新全部落到第 1 轮上，
+    // taskId 不在第一个块中则静默 no-op。
+    const idx = this.blocks.findIndex(
+      (b) =>
+        b.type === "todo" &&
+        b.taskCard?.tasks?.some((t) => String(t.id) === String(taskId)),
+    );
     if (idx !== -1 && this.blocks[idx].taskCard) {
       const tasks = this.blocks[idx].taskCard!.tasks.map((t) =>
         String(t.id) === String(taskId) ? { ...t, ...updates } : t,
@@ -463,12 +477,18 @@ export class ChronologicalBlockBuilder {
     this.markBlocksDirty();
   }
 
-  /** 冻结所有块（流式结束或中断时调用） */
-  freezeAll(): void {
+  /**
+   * 冻结所有块（流式结束或中断时调用）
+   * @param completed 是否正常完成（用户取消/异常中断时传 false）——
+   *   修复：原实现无条件把 todo 卡标 done，中止/失败也算"全部完成"；
+   *   仅正常完成时 finalize todo 为 done，中断时保持 executing，
+   *   由调用方 P3-1 完整性检查（未完成 tool_call → ⚠️ 任务中断）补充标记。
+   */
+  freezeAll(completed = true): void {
     for (const block of this.blocks) {
       block.isStreaming = false;
-      // R1: 对 todo 块最终化其整体状态（修复 BUG #11）
-      if (block.type === "todo" && block.taskCard) {
+      // R1: 对 todo 块最终化其整体状态（修复 BUG #11）；仅正常完成时置 done
+      if (completed && block.type === "todo" && block.taskCard) {
         block.taskCard.status = "done";
       }
     }

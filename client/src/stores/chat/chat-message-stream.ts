@@ -405,8 +405,8 @@ export async function streamMessageImpl(
       });
     }
 
-    // 流结束，冻结所有块
-    blockBuilder.freezeAll();
+    // 流结束，冻结所有块（用户取消/异常中断时 todo 不置 done——中止≠全部完成）
+    blockBuilder.freezeAll(!controller.signal.aborted);
 
     // P3-1: 流完整性检查 — 检测未完成的 tool_call 块，标记中断状态
     const unfrozenBlocks = blockBuilder.getBlocks();

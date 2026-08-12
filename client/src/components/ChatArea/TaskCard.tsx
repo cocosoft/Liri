@@ -52,7 +52,13 @@ export default function TaskCard({ data }: TaskCardProps) {
 
   const { title, tasks, status } = merged;
   const isExecuting = status === "executing";
-  const isDone = status === "done";
+  // 修复："全部完成"徽章仅当任务级**全部** completed 时显示——
+  // 原实现只看卡片级 status==="done"，与 freezeAll 一刀切 done 叠加后，
+  // 中止/含 failed 的任务卡也亮"全部完成"徽章，与任务列表状态自相矛盾。
+  const isAllCompleted =
+    status === "done" &&
+    tasks.length > 0 &&
+    tasks.every((t) => t.status === "completed");
   const total = tasks.length;
   const completed = tasks.filter((t) => t.status === "completed").length;
   const failed = tasks.filter((t) => t.status === "failed").length;
@@ -70,9 +76,14 @@ export default function TaskCard({ data }: TaskCardProps) {
             任务分解：{title}
           </span>
         </div>
-        {isDone && (
+        {isAllCompleted && (
           <span className="text-xs px-2 py-0.5 bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-full flex-shrink-0">
             全部完成
+          </span>
+        )}
+        {status === "done" && !isAllCompleted && (
+          <span className="text-xs px-2 py-0.5 bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 rounded-full flex-shrink-0">
+            已结束{failed > 0 ? `（${failed} 失败）` : ""}
           </span>
         )}
         {isExecuting && (

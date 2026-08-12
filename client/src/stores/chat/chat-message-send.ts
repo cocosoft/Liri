@@ -26,6 +26,7 @@ export async function sendMessageImpl(
   get: MessageGet,
   content: string,
   sessionId?: string,
+  images?: import("@/types").AttachedImage[],
 ): Promise<void> {
   // P2-6: 检查是否有可恢复的中止检查点
   const state = get();
@@ -85,14 +86,9 @@ export async function sendMessageImpl(
   }
 
   try {
-    const response = await chatService.sendMessage(
-      content,
-      sessionId,
-      undefined,
-      {
-        messageId: writeAheadOk ? userMessage.id : undefined,
-      },
-    );
+    const response = await chatService.sendMessage(content, sessionId, images, {
+      messageId: writeAheadOk ? userMessage.id : undefined,
+    });
     // 发送成功 → 后端已持久化该轮用户消息，清除该会话待补发消息（避免重复补发）
     if (outboxed) clearOutboxForSession(userMessage.session_id);
 

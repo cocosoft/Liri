@@ -46,7 +46,11 @@ export interface MessageSlice {
   recoverySessionId: string | null;
 
   addMessage: (message: Message) => void;
-  sendMessage: (content: string, sessionId?: string) => Promise<void>;
+  sendMessage: (
+    content: string,
+    sessionId?: string,
+    images?: import("@/types").AttachedImage[],
+  ) => Promise<void>;
   /** 将消息加入队列（流式输出中不阻塞输入） */
   enqueueMessage: (content: string, sessionId?: string) => void;
   /** 消费队列中的下一条消息 */

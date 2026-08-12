@@ -13,8 +13,23 @@ import { createLogger } from "@/utils/logger";
 const logger = createLogger("GlobalSearchModal");
 import { handleClientError } from "../../utils/handleError";
 import type { Session } from "../../types";
+
+/** 搜索结果会话：Session + 模块类型（用于跳转正确页面，Session 类型本身无此字段） */
+type SearchResultSession = Session & { moduleType?: string };
 import type { FileRegistryRecord } from "../../types/file";
 import type { KnowledgeItem } from "../../types/knowledge";
+
+/** 模块类型 → AppPage 映射（media/office/calendar/translation 无独立页面，回退 chat） */
+const MODULE_PAGE: Record<string, AppPage> = {
+  chat: "chat",
+  knowledge: "knowledge",
+  files: "files",
+  workspace: "workspace",
+  media: "chat",
+  office: "chat",
+  calendar: "chat",
+  translation: "chat",
+};
 
 interface GlobalSearchModalProps {
   /** 是否显示 */
@@ -40,7 +55,9 @@ export default function GlobalSearchModal({
   const { t } = useTranslation();
   const inputRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState("");
-  const [sessionResults, setSessionResults] = useState<Session[]>([]);
+  const [sessionResults, setSessionResults] = useState<SearchResultSession[]>(
+    [],
+  );
   const [fileResults, setFileResults] = useState<FileRegistryRecord[]>([]);
   const [knowledgeResults, setKnowledgeResults] = useState<KnowledgeItem[]>([]);
   const [searching, setSearching] = useState(false);
@@ -54,14 +71,6 @@ export default function GlobalSearchModal({
   const switchWorkspace = useRootStore((s) => s.switchWorkspace);
   const switchSession = useSessionStore((s) => s.switchSession);
   const setActivePage = useNavigationStore((s) => s.setActivePage);
-
-  /** 模块类型 → AppPage 映射 */
-  const MODULE_PAGE: Record<string, AppPage> = {
-    chat: "chat",
-    knowledge: "knowledge",
-    files: "files",
-    workspace: "workspace",
-  };
 
   /** 聚焦输入框 */
   useEffect(() => {
@@ -102,9 +111,10 @@ export default function GlobalSearchModal({
               updatedAt: new Date(s.updatedAt).toISOString(),
               messageCount: 0,
               roundCount: 0,
-              // 携带归属信息
+              // 携带归属信息：workspaceId（worktree ID）+ moduleType（模块类型，用于跳转）
               workspaceId: s.workspaceId,
-            }) as Session,
+              moduleType: s.moduleType,
+            }) as SearchResultSession,
         ),
       );
 
@@ -140,7 +150,7 @@ export default function GlobalSearchModal({
 
   /** 点击会话结果：切换工作空间 + 会话 + 跳转正确模块页面 */
   const handleSessionClick = useCallback(
-    async (session: Session) => {
+    async (session: SearchResultSession) => {
       const otel = getOTelTracing();
       const span = otel.startSpan("session.switch.globalSearch", {
         sessionId: session.id,
@@ -161,8 +171,9 @@ export default function GlobalSearchModal({
           await switchWorkspace(session.workspaceId);
         }
         await switchSession(session.id);
-        // 根据 workspaceId 确定目标页面
-        const page = MODULE_PAGE[session.workspaceId ?? "chat"] ?? "chat";
+        // 修复：原用 workspaceId（worktree ID，形如 wt_xxx）查模块类型表必然 miss、
+        // 永远 fallback "chat"——改用 SessionRecord 携带的 moduleType（chat/media/office/...）
+        const page = MODULE_PAGE[session.moduleType ?? "chat"] ?? "chat";
 
         if (import.meta.env.DEV)
           console.info("[SessionSwitch] 全局搜索切换会话成功", {

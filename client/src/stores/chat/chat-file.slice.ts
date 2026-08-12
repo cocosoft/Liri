@@ -332,6 +332,14 @@ export const createFileSlice: StateCreator<FileSlice, [], [], FileSlice> = (
     if (pendingPreview === filePath) return;
     set({ pendingPreview: filePath });
 
+    // 修复：交叉竞态（快速点 A 再点 B，A 响应后到会覆盖 B）——
+    // 响应返回时校验 pendingPreview 仍等于本次 filePath 才写入 previewFile，
+    // 已被更新请求取代的过期响应直接丢弃。
+    const commitPreview = (file: FilePreview) => {
+      if (get().pendingPreview !== filePath) return;
+      set({ previewFile: file, pendingPreview: undefined });
+    };
+
     try {
       const resolvedPath = await resolveFilePath(filePath);
 
@@ -353,13 +361,13 @@ export const createFileSlice: StateCreator<FileSlice, [], [], FileSlice> = (
       const existing = get().sessionFiles.find((f) => f.path === resolvedPath);
       // 文本类文件：有 content 即可复用缓存
       if (existing && existing.content) {
-        set({ previewFile: existing, pendingPreview: undefined });
+        commitPreview(existing);
         return;
       }
       // 客户端直渲/流播放类文件：content 始终为空，但有 staticUrl 或已渲染过即可复用
       const clientRenderedTypes = ["docx", "xlsx", "pptx", "audio", "video"];
       if (existing && clientRenderedTypes.includes(existing.type)) {
-        set({ previewFile: existing, pendingPreview: undefined });
+        commitPreview(existing);
         return;
       }
 
@@ -374,7 +382,7 @@ export const createFileSlice: StateCreator<FileSlice, [], [], FileSlice> = (
           content: "",
           type: "unsupported",
         };
-        set({ previewFile: filePreview, pendingPreview: undefined });
+        commitPreview(filePreview);
         useChatInspectorStore.getState().setOpen(true);
         useChatInspectorStore.getState().setActiveTab("files");
         return;
@@ -391,7 +399,7 @@ export const createFileSlice: StateCreator<FileSlice, [], [], FileSlice> = (
           type: inferredType,
           staticUrl,
         };
-        set({ previewFile: filePreview, pendingPreview: undefined });
+        commitPreview(filePreview);
         useChatInspectorStore.getState().setOpen(true);
         useChatInspectorStore.getState().setActiveTab("files");
         return;
@@ -409,7 +417,7 @@ export const createFileSlice: StateCreator<FileSlice, [], [], FileSlice> = (
           content: "",
           type: inferredType,
         };
-        set({ previewFile: filePreview, pendingPreview: undefined });
+        commitPreview(filePreview);
         useChatInspectorStore.getState().setOpen(true);
         useChatInspectorStore.getState().setActiveTab("files");
         return;
@@ -462,7 +470,7 @@ export const createFileSlice: StateCreator<FileSlice, [], [], FileSlice> = (
           get().addSessionFile(filePreview);
         }
       }
-      set({ previewFile: filePreview, pendingPreview: undefined });
+      commitPreview(filePreview);
       useChatInspectorStore.getState().setOpen(true);
       useChatInspectorStore.getState().setActiveTab("files");
     } catch (err) {
@@ -471,15 +479,12 @@ export const createFileSlice: StateCreator<FileSlice, [], [], FileSlice> = (
         { module: "stores:chat:file", action: "readFileToPreview" },
         "warn",
       );
-      set({
-        previewFile: {
-          path: filePath,
-          name:
-            filePath.split("/").pop() || filePath.split("\\").pop() || filePath,
-          content: `错误: ${err instanceof Error ? err.message : String(err)}`,
-          type: inferFileType(filePath),
-        },
-        pendingPreview: undefined,
+      commitPreview({
+        path: filePath,
+        name:
+          filePath.split("/").pop() || filePath.split("\\").pop() || filePath,
+        content: `错误: ${err instanceof Error ? err.message : String(err)}`,
+        type: inferFileType(filePath),
       });
     }
   },

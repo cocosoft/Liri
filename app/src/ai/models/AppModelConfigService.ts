@@ -268,7 +268,10 @@ export class AppModelConfigService {
 
         const isNonChat = allModels.some(
           (m) =>
-            m.modelId === config.model &&
+            // 修复：config.model 存的是模型 UUID（如 0191cb75-...），
+            // 原仅匹配 m.modelId（模型名）导致 UUID 场景永不命中、
+            // 非聊天模型条目无法自动清理——同时匹配 id（UUID）与 modelId
+            (m.modelId === config.model || m.id === config.model) &&
             m.capabilities?.some((c) => nonChatCaps.includes(c))
         );
         if (isNonChat) {

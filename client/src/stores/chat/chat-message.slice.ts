@@ -75,8 +75,12 @@ export const createMessageSlice: StateCreator<
       set({ messages: [...get().messages, message] });
     },
 
-    sendMessage: async (content: string, sessionId?: string) => {
-      await sendMessageImpl(messageSet, messageGet, content, sessionId);
+    sendMessage: async (
+      content: string,
+      sessionId?: string,
+      images?: import("@/types").AttachedImage[],
+    ) => {
+      await sendMessageImpl(messageSet, messageGet, content, sessionId, images);
     },
 
     enqueueMessage: (content: string, sessionId?: string) => {

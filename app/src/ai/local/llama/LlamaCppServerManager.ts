@@ -303,6 +303,11 @@ export class LlamaCppServerManager {
   async updateConfig(
     partial: Partial<LlamaServerConfig>
   ): Promise<LlamaServerConfig> {
+    // AA 修复：先 reloadConfig() 使 this.config 与 config.json 事实源一致——
+    // 原实现基于内存 this.config 合并，若与磁盘不一致（部分字段更新场景），
+    // setConfigValue('llama', merged) 整体替换会丢失未传字段（如 model/port，
+    // 实测 PUT {contextWindow,kvCache} 后 restart 报"未配置 GGUF 模型"）
+    this.reloadConfig();
     const validation = this.validateConfig(partial);
     if (!validation.valid) {
       throw new AppError(

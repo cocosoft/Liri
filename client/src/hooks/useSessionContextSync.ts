@@ -111,7 +111,20 @@ export function useSessionContextSync<T extends Partial<SessionContext>>(
     }, debounceMsRef.current);
 
     return () => {
-      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+      // R2 同模式修复：切换会话/卸载时先同步 flush 未触发的防抖保存，
+      // 否则 500ms 窗口内变更的模块上下文随 timer 一起被 clearTimeout 丢弃。
+      // cleanup 闭包捕获的是旧会话的 currentModuleSession.id，落盘到正确会话。
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current);
+        saveTimerRef.current = null;
+        const context = saveRef.current();
+        if (context) {
+          updateSessionContext(
+            currentModuleSession.id,
+            context as Partial<SessionContext>,
+          );
+        }
+      }
     };
   }, [currentModuleSession?.id, updateSessionContext]); // eslint-disable-line react-hooks/exhaustive-deps
 }

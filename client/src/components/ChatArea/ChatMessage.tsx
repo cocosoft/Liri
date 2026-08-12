@@ -371,9 +371,11 @@ const ChatMessageMemo = memo(
                     : "bg-gray-50 dark:bg-gray-700/50 border-gray-300 dark:border-gray-500 text-gray-500 dark:text-gray-400"
                 }`}
                 onClick={() => {
-                  const el = document.querySelector(
-                    `[data-msg-id="${replyTarget.id}"]`,
-                  );
+                  // N2 同模式修复：不把 id 拼进选择器（含特殊字符时 DOM 异常/注入风险），
+                  // 静态选择器 + 属性值比对
+                  const el = Array.from(
+                    document.querySelectorAll<HTMLElement>("[data-msg-id]"),
+                  ).find((n) => n.getAttribute("data-msg-id") === replyTarget.id);
                   el?.scrollIntoView({ behavior: "smooth", block: "center" });
                 }}
                 title={t("chat.jumpToReply")}

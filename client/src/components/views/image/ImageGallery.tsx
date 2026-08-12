@@ -155,13 +155,17 @@ function ImageGallery({
                 loading="lazy"
                 onError={(e) => {
                   // 图片加载失败显示占位色块
+                  // N3 同模式修复：原 innerHTML 注入（虽为硬编码常量，但一旦拼接动态值即成 XSS 点）
                   const target = e.currentTarget;
                   const parent = target.parentElement;
                   if (!parent) return;
                   target.style.display = "none";
                   parent.style.background = "rgba(128,128,128,0.1)";
-                  parent.innerHTML =
-                    '<span style="font-size:20px;opacity:0.3">🖼</span>';
+                  const placeholder = document.createElement("span");
+                  placeholder.style.fontSize = "20px";
+                  placeholder.style.opacity = "0.3";
+                  placeholder.textContent = "🖼";
+                  parent.replaceChildren(placeholder);
                   parent.style.display = "flex";
                   parent.style.alignItems = "center";
                   parent.style.justifyContent = "center";

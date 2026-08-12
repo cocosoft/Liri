@@ -58,9 +58,11 @@ function ChatArea({ fluid = false }: { fluid?: boolean }) {
     if (!highlightedRoundId) return;
     // 等待 DOM 渲染完成后再滚动（消息列表可能还未挂载）
     requestAnimationFrame(() => {
-      const el = document.querySelector(
-        `[data-msg-id="${highlightedRoundId}"]`,
-      );
+      // N2 同模式修复：不把 id 拼进选择器（含特殊字符时 DOM 异常/注入风险），
+      // 静态选择器 + 属性值比对
+      const el = Array.from(
+        document.querySelectorAll<HTMLElement>("[data-msg-id]"),
+      ).find((n) => n.getAttribute("data-msg-id") === highlightedRoundId);
       if (el) {
         el.scrollIntoView({ behavior: "smooth", block: "center" });
         // 高亮闪烁效果

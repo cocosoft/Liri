@@ -638,7 +638,9 @@ function ChatInput({ fluid = false }: { fluid?: boolean }) {
         setAttachments([]);
         setImageItems([]);
         setReplyMessage(null);
-        useChatStore.getState().setEditTarget(null);
+        // H1 修复：不能在此提前清空 store.editTarget——streamMessage 内部
+        // 会读取 editTarget 截断其后的消息（chat-message-stream.ts），
+        // 截断完成后它自己会置 null。提前清空会导致截断分支永不执行。
         clearDraft();
         await streamMessage(
           messageContent,

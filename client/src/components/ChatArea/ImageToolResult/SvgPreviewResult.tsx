@@ -10,14 +10,71 @@ interface Props {
   data: Record<string, unknown>;
 }
 
-/** 基础 SVG 安全过滤（复用后端 validateSvg 逻辑的前端子集） */
+/** N1 修复：SVG 安全过滤改为 DOMParser + 白名单。
+ * 原正则黑名单可被绕过（无引号事件属性 onload=alert(1)、实体编码协议
+ * java&#115;cript:、未闭合 script 标签等）。白名单方案：
+ * 解析成 DOM → 移除非白名单标签 / on* 属性 / 危险协议 href → 重新序列化。
+ * 属性值已被解析器实体解码，编码绕过无效。 */
+const ALLOWED_SVG_TAGS = new Set([
+  "svg", "g", "path", "circle", "rect", "line", "polyline", "polygon",
+  "ellipse", "text", "textpath", "tspan", "defs", "symbol", "use", "image",
+  "marker", "lineargradient", "radialgradient", "stop", "clippath", "mask",
+  "pattern", "filter", "feblend", "fecolormatrix", "fecomponenttransfer",
+  "fecomposite", "feconvolvematrix", "fediffuselighting", "fedisplacementmap",
+  "fedistantlight", "fedropshadow", "feflood", "fefunca", "fefuncb", "fefuncg",
+  "fefuncr", "fegaussianblur", "feimage", "femerge", "femergenode",
+  "femorphology", "feoffset", "fepointlight", "fespecularlighting",
+  "fespotlight", "fetile", "feturbulence", "title", "desc", "metadata",
+  "style", "a",
+  // 注意：script/foreignObject/object/iframe/link 等一律不在白名单 → 整节点删除
+]);
+
+const SAFE_URL_PROTOCOLS = new Set(["http:", "https:", "mailto:", "tel:"]);
+
+/** href/src 协议白名单；无协议（相对/锚点）放行 */
+function isSafeSvgUrl(value: string): boolean {
+  const v = value.trim();
+  if (!v) return true;
+  const proto = v.match(/^([a-z][a-z0-9+.-]*):/i)?.[1]?.toLowerCase();
+  if (!proto) return true;
+  return SAFE_URL_PROTOCOLS.has(`${proto}:`);
+}
+
+function sanitizeSvgElement(el: Element): void {
+  const children = Array.from(el.children);
+  if (!ALLOWED_SVG_TAGS.has(el.tagName.toLowerCase())) {
+    el.remove();
+    return;
+  }
+  for (const attr of Array.from(el.attributes)) {
+    const name = attr.name.toLowerCase();
+    if (name.startsWith("on")) {
+      el.removeAttribute(attr.name);
+      continue;
+    }
+    if (name === "href" || name === "xlink:href" || name === "src") {
+      if (!isSafeSvgUrl(attr.value)) {
+        el.removeAttribute(attr.name);
+      }
+    }
+  }
+  for (const child of children) {
+    sanitizeSvgElement(child as Element);
+  }
+}
+
+/** 解析失败（XML 非法）或根节点非 svg 时返回空串，不渲染不可信内容 */
 function sanitizeSvg(svg: string): string {
-  return svg
-    .replace(/<script[\s\S]*?<\/script>/gi, "") // 移除 script 标签
-    .replace(/\s+on\w+\s*=\s*"[^"]*"/gi, "") // 移除事件处理器
-    .replace(/\s+on\w+\s*=\s*'[^']*'/gi, "")
-    .replace(/xlink:href\s*=\s*"javascript:[^"]*"/gi, "") // 移除 javascript: 协议
-    .replace(/<use[^>]*href\s*=\s*"data:[^"]*"[^>]*>/gi, ""); // 移除 data: URI
+  try {
+    const doc = new DOMParser().parseFromString(svg, "image/svg+xml");
+    if (doc.querySelector("parsererror")) return "";
+    const root = doc.documentElement;
+    if (!root || root.tagName.toLowerCase() !== "svg") return "";
+    sanitizeSvgElement(root);
+    return new XMLSerializer().serializeToString(root);
+  } catch {
+    return "";
+  }
 }
 
 export default function SvgPreviewResult({ data }: Props) {

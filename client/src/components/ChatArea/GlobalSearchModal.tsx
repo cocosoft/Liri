@@ -16,6 +16,12 @@ import type { Session } from "../../types";
 
 /** 搜索结果会话：Session + 模块类型（用于跳转正确页面，Session 类型本身无此字段） */
 type SearchResultSession = Session & { moduleType?: string };
+
+/** M4 修复：扁平化搜索结果项（键盘导航用，判别联合类型） */
+type SearchItem =
+  | { kind: "session"; session: SearchResultSession }
+  | { kind: "file"; file: FileRegistryRecord }
+  | { kind: "knowledge"; item: KnowledgeItem };
 import type { FileRegistryRecord } from "../../types/file";
 import type { KnowledgeItem } from "../../types/knowledge";
 
@@ -61,6 +67,10 @@ export default function GlobalSearchModal({
   const [fileResults, setFileResults] = useState<FileRegistryRecord[]>([]);
   const [knowledgeResults, setKnowledgeResults] = useState<KnowledgeItem[]>([]);
   const [searching, setSearching] = useState(false);
+  // M4 修复：请求序号，旧请求晚返回时丢弃（防抖竞态）
+  const searchSeqRef = useRef(0);
+  // M4 修复：键盘导航选中项（扁平化结果列表下标）
+  const [activeIndex, setActiveIndex] = useState(-1);
   // P1-10: 搜索源从 chatSessions 改为 SessionHub 全量（含 media/office 等模块会话）
   const sessionsRecord = useRootStore((s) => s.sessions);
   const worktrees = useRootStore((s) => s.worktrees);
@@ -83,9 +93,11 @@ export default function GlobalSearchModal({
     }
   }, [isOpen]);
 
-  /** 300ms 防抖搜索 */
+  /** 300ms 防抖搜索（M4：带请求序号，旧请求晚返回不覆盖新结果） */
   useEffect(() => {
     if (!query.trim()) {
+      searchSeqRef.current += 1; // 使在途请求全部失效
+      setSearching(false);
       setSessionResults([]);
       setFileResults([]);
       setKnowledgeResults([]);
@@ -95,12 +107,14 @@ export default function GlobalSearchModal({
     const timer = setTimeout(async () => {
       setSearching(true);
       const q = query.toLowerCase();
+      const seq = ++searchSeqRef.current;
 
       // 1. 客户端过滤所有模块会话标题（SessionHub 全量）
       //    SessionRecord 有 title 字段，转为 Session-like 结构用于搜索
       const matchedSessions = allSessions
         .filter((s) => s.title?.toLowerCase().includes(q))
         .slice(0, 5);
+      if (seq !== searchSeqRef.current) return;
       setSessionResults(
         matchedSessions.map(
           (s) =>
@@ -121,8 +135,10 @@ export default function GlobalSearchModal({
       // 2. 异步搜索文件
       try {
         const fileRes = await fileService.searchFiles({ query: q, limit: 5 });
+        if (seq !== searchSeqRef.current) return;
         setFileResults(fileRes.items.slice(0, 5));
       } catch (e) {
+        if (seq !== searchSeqRef.current) return;
         handleClientError(e, {
           module: "components:chat:GlobalSearch",
           action: "searchFiles",
@@ -133,8 +149,10 @@ export default function GlobalSearchModal({
       // 3. 异步搜索知识库
       try {
         const kbRes = await knowledgeService.search(q);
+        if (seq !== searchSeqRef.current) return;
         setKnowledgeResults((kbRes as KnowledgeItem[]).slice(0, 5));
       } catch (e) {
+        if (seq !== searchSeqRef.current) return;
         handleClientError(e, {
           module: "components:chat:GlobalSearch",
           action: "searchKnowledge",
@@ -147,6 +165,24 @@ export default function GlobalSearchModal({
 
     return () => clearTimeout(timer);
   }, [query, allSessions]);
+
+  /** M4 修复：扁平化结果列表，供键盘导航定位（顺序 = 会话 → 文件 → 知识库） */
+  const items = useMemo<readonly SearchItem[]>(
+    () => [
+      ...sessionResults.map((session) => ({
+        kind: "session" as const,
+        session,
+      })),
+      ...fileResults.map((file) => ({ kind: "file" as const, file })),
+      ...knowledgeResults.map((item) => ({ kind: "knowledge" as const, item })),
+    ],
+    [sessionResults, fileResults, knowledgeResults],
+  );
+
+  // M4 修复：查询/结果变化时重置选中项
+  useEffect(() => {
+    setActiveIndex(-1);
+  }, [query, items]);
 
   /** 点击会话结果：切换工作空间 + 会话 + 跳转正确模块页面 */
   const handleSessionClick = useCallback(
@@ -238,10 +274,26 @@ export default function GlobalSearchModal({
     onClose();
   }, [setActivePage, onClose]);
 
-  /** Escape 关闭 */
+  /** M4 修复：Escape 关闭 + ↑↓ 导航 + Enter 打开（此前提示存在但未实现） */
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Escape") {
       onClose();
+      return;
+    }
+    if (items.length === 0) return;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setActiveIndex((prev) => (prev + 1) % items.length);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setActiveIndex((prev) => (prev - 1 + items.length) % items.length);
+    } else if (e.key === "Enter" && activeIndex >= 0) {
+      const item = items[activeIndex];
+      if (!item) return;
+      e.preventDefault();
+      if (item.kind === "session") void handleSessionClick(item.session);
+      else if (item.kind === "file") handleFileClick();
+      else handleKnowledgeClick();
     }
   };
 
@@ -311,13 +363,19 @@ export default function GlobalSearchModal({
                 <div className="px-4 py-2 text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
                   {t("chat.sessions")}
                 </div>
-                {sessionResults.map((session) => {
+                {sessionResults.map((session, i) => {
                   const ctx = getSessionContext(session);
+                  const isActive = activeIndex === i;
                   return (
                     <button
                       key={session.id}
                       onClick={() => handleSessionClick(session)}
-                      className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                      onMouseEnter={() => setActiveIndex(i)}
+                      className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${
+                        isActive
+                          ? "bg-blue-50 dark:bg-blue-900/30"
+                          : "hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                      }`}
                     >
                       <span className="text-base shrink-0">{ctx.icon}</span>
                       <div className="min-w-0 flex-1">
@@ -345,23 +403,32 @@ export default function GlobalSearchModal({
                 <div className="px-4 py-2 text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider border-t border-gray-100 dark:border-gray-700">
                   {t("chat.files")}
                 </div>
-                {fileResults.map((file, idx) => (
-                  <button
-                    key={file.fileId || idx}
-                    onClick={handleFileClick}
-                    className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
-                  >
-                    <span className="text-base shrink-0">📄</span>
-                    <div className="min-w-0 flex-1">
-                      <div className="text-sm text-gray-800 dark:text-gray-200 truncate">
-                        {file.originalName}
+                {fileResults.map((file, i) => {
+                  const globalIdx = sessionResults.length + i;
+                  const isActive = activeIndex === globalIdx;
+                  return (
+                    <button
+                      key={file.fileId || i}
+                      onClick={handleFileClick}
+                      onMouseEnter={() => setActiveIndex(globalIdx)}
+                      className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${
+                        isActive
+                          ? "bg-blue-50 dark:bg-blue-900/30"
+                          : "hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                      }`}
+                    >
+                      <span className="text-base shrink-0">📄</span>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-sm text-gray-800 dark:text-gray-200 truncate">
+                          {file.originalName}
+                        </div>
+                        <div className="text-xs text-gray-400 dark:text-gray-500 truncate font-mono">
+                          {file.savedPath}
+                        </div>
                       </div>
-                      <div className="text-xs text-gray-400 dark:text-gray-500 truncate font-mono">
-                        {file.savedPath}
-                      </div>
-                    </div>
-                  </button>
-                ))}
+                    </button>
+                  );
+                })}
               </div>
             )}
 
@@ -371,23 +438,32 @@ export default function GlobalSearchModal({
                 <div className="px-4 py-2 text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider border-t border-gray-100 dark:border-gray-700">
                   {t("chat.knowledge")}
                 </div>
-                {knowledgeResults.map((item, idx) => (
-                  <button
-                    key={item.id || idx}
-                    onClick={handleKnowledgeClick}
-                    className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
-                  >
-                    <span className="text-base shrink-0">📚</span>
-                    <div className="min-w-0 flex-1">
-                      <div className="text-sm text-gray-800 dark:text-gray-200 truncate">
-                        {item.title || item.content?.slice(0, 60)}
+                {knowledgeResults.map((item, i) => {
+                  const globalIdx = sessionResults.length + fileResults.length + i;
+                  const isActive = activeIndex === globalIdx;
+                  return (
+                    <button
+                      key={item.id || i}
+                      onClick={handleKnowledgeClick}
+                      onMouseEnter={() => setActiveIndex(globalIdx)}
+                      className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${
+                        isActive
+                          ? "bg-blue-50 dark:bg-blue-900/30"
+                          : "hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                      }`}
+                    >
+                      <span className="text-base shrink-0">📚</span>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-sm text-gray-800 dark:text-gray-200 truncate">
+                          {item.title || item.content?.slice(0, 60)}
+                        </div>
+                        <div className="text-xs text-gray-400 dark:text-gray-500 truncate">
+                          {item.tags?.length ? item.tags.join(", ") : ""}
+                        </div>
                       </div>
-                      <div className="text-xs text-gray-400 dark:text-gray-500 truncate">
-                        {item.tags?.length ? item.tags.join(", ") : ""}
-                      </div>
-                    </div>
-                  </button>
-                ))}
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>

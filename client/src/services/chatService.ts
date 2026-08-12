@@ -586,6 +586,12 @@ if (typeof window !== "undefined") {
   window.addEventListener("online", () => {
     void flushOutbox();
   });
+  // M7 修复：应用启动时若已联网也补发一次 outbox。
+  // 仅监听 online 事件在"启动时已联网"的场景不触发（上次离线关闭留滞的消息无法补发）。
+  // 后端未就绪时补发失败会保留消息（flushOutbox 失败不清除），幂等安全。
+  if (navigator.onLine) {
+    void flushOutbox();
+  }
 }
 
 export const chatService = {

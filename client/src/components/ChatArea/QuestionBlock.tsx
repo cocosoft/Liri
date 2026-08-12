@@ -21,6 +21,8 @@ function QuestionBlock({
 }: QuestionBlockProps) {
   const [selectedLabels, setSelectedLabels] = useState<string[]>([]);
   const [otherText, setOtherText] = useState<string>("");
+  // M5 修复：无选项时的自由文本回答
+  const [freeText, setFreeText] = useState<string>("");
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -52,19 +54,24 @@ function QuestionBlock({
   const handleSubmit = async () => {
     // #9 修复：提交期间防重（原双击/连点会重复提交）
     if (submitted || submitting) return;
-    if (selectedLabels.length === 0) return;
-    // 选中"其他"但没填文字时，禁用提交
-    if (otherRequiresText) return;
 
-    // 构造答案：选中"其他"时，将用户输入的文字作为答案
+    // 构造答案：无选项模式提交自由文本；有选项模式按选中项提交
     let answers: string[];
-    if (isOtherSelected) {
-      // 把"其他"替换成用户实际填写的文字
-      answers = selectedLabels.map((l) =>
-        l === OTHER_LABEL ? otherText.trim() : l,
-      );
+    if (validOptions.length === 0) {
+      // M5 修复：无选项时必须有输入框，自由文本即答案
+      const text = freeText.trim();
+      if (!text) return;
+      answers = [text];
     } else {
-      answers = selectedLabels;
+      if (selectedLabels.length === 0) return;
+      // 选中"其他"但没填文字时，禁用提交
+      if (otherRequiresText) return;
+      // 选中"其他"时，将用户输入的文字作为答案
+      answers = isOtherSelected
+        ? selectedLabels.map((l) =>
+            l === OTHER_LABEL ? otherText.trim() : l,
+          )
+        : selectedLabels;
     }
 
     setSubmitting(true);
@@ -94,7 +101,10 @@ function QuestionBlock({
     }
   };
 
-  const canSubmit = selectedLabels.length > 0 && !otherRequiresText;
+  const canSubmit =
+    validOptions.length === 0
+      ? freeText.trim().length > 0
+      : selectedLabels.length > 0 && !otherRequiresText;
 
   return (
     <div className="my-3 border border-blue-200 dark:border-blue-800 rounded-lg overflow-hidden bg-blue-50/50 dark:bg-blue-950/30">
@@ -250,12 +260,33 @@ function QuestionBlock({
               )}
             </div>
           ) : (
-            <div className="px-3 py-2.5 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50/60 dark:bg-amber-950/30 text-xs text-amber-700 dark:text-amber-300">
-              ⚠️ 该问题未提供可选项，请直接在下方输入框回复。
+            // M5 修复：无选项时必须有输入框 + 提交按钮，否则用户无法回应
+            <div className="space-y-2">
+              <textarea
+                value={freeText}
+                onChange={(e) => setFreeText(e.target.value)}
+                placeholder="该问题未提供可选项，请在此直接输入您的回答（1-200 字）..."
+                maxLength={200}
+                rows={3}
+                disabled={submitted}
+                className="w-full px-2.5 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400 resize-none"
+              />
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-gray-400">{freeText.length}/200</span>
+                {!submitted && (
+                  <button
+                    onClick={handleSubmit}
+                    disabled={!canSubmit || submitting}
+                    className="px-4 py-1.5 text-xs bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-md transition-colors"
+                  >
+                    {submitting ? "提交中..." : "提交回答"}
+                  </button>
+                )}
+              </div>
             </div>
           )}
 
-          {/* 提交按钮 */}
+          {/* 提交按钮（仅选项模式显示在下方；无选项模式按钮已内联在上方分支） */}
           {!submitted && validOptions.length > 0 && (
             <div className="flex items-center gap-2 pt-1">
               <button
@@ -281,9 +312,11 @@ function QuestionBlock({
               <span>✓</span>
               <span>
                 已选择：
-                {isOtherSelected
-                  ? otherText.trim() || OTHER_LABEL
-                  : selectedLabels.join("、")}
+                {validOptions.length === 0
+                  ? freeText.trim() || "（空）"
+                  : isOtherSelected
+                    ? otherText.trim() || OTHER_LABEL
+                    : selectedLabels.join("、")}
               </span>
             </div>
           )}

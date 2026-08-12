@@ -15,6 +15,24 @@ import SessionContextMenu from "./SessionContextMenu";
 import SessionListItem from "./SessionListItem";
 import { useDreamSessionIds } from "./useDreamSessionIds";
 
+/** M10 修复：文件名消毒——Windows 非法字符 \ / : * ? " < > | 会导致下载失败 */
+function sanitizeFilename(name: string): string {
+  return name.replace(/[\\/:*?"<>|]/g, "_").trim() || "session";
+}
+
+/** M10 修复：触发 blob 下载并延迟 revokeObjectURL——
+ * 立即 revoke 在 Firefox 偶发下载失败；元素需先挂载到 DOM 再 click */
+function triggerBlobDownload(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 /**
  * 会话来源渠道 → 显示名称映射
  * 根据会话的 source 字段显示来源标签，如【QQ】【WeChat】
@@ -197,25 +215,19 @@ function SessionHistorySidebar({
       const session = sessions.find((s) => s.id === sessionId);
       if (!session) return;
       // P3: 仅导出会话元数据（非完整消息）。完整对话导出请使用 SessionHeader 的导出功能。
-      const exportedTitle = session.title || "session";
+      const exportedTitle = sanitizeFilename(session.title || "session");
       if (format === "md") {
-        const md = `# ${exportedTitle}\n\n- ID: ${session.id}\n- 创建时间: ${session.createdAt}\n- 更新时间: ${session.updatedAt}\n- 消息数: ${session.messageCount ?? "N/A"}\n`;
-        const blob = new Blob([md], { type: "text/markdown" });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `${exportedTitle}.md`;
-        a.click();
-        URL.revokeObjectURL(url);
+        const md = `# ${session.title || "session"}\n\n- ID: ${session.id}\n- 创建时间: ${session.createdAt}\n- 更新时间: ${session.updatedAt}\n- 消息数: ${session.messageCount ?? "N/A"}\n`;
+        triggerBlobDownload(
+          new Blob([md], { type: "text/markdown" }),
+          `${exportedTitle}.md`,
+        );
       } else {
         const data = JSON.stringify(session, null, 2);
-        const blob = new Blob([data], { type: "application/json" });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `${exportedTitle}.json`;
-        a.click();
-        URL.revokeObjectURL(url);
+        triggerBlobDownload(
+          new Blob([data], { type: "application/json" }),
+          `${exportedTitle}.json`,
+        );
       }
     } finally {
       setContextMenu(null);

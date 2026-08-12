@@ -280,7 +280,11 @@ export default function ChatMessageList({
     (index: number) => {
       const id = matchedIds[index];
       if (!id || !listRef.current) return;
-      const el = listRef.current.querySelector(`[data-msg-id="${id}"]`);
+      // N2 修复：不把 id 拼进选择器（含特殊字符时 DOM 异常/注入风险），
+      // 改为静态选择器 + 属性值比对
+      const el = Array.from(
+        listRef.current.querySelectorAll<HTMLElement>("[data-msg-id]"),
+      ).find((node) => node.getAttribute("data-msg-id") === id);
       if (el) {
         el.scrollIntoView({ behavior: "smooth", block: "center" });
       }
@@ -371,9 +375,17 @@ export default function ChatMessageList({
               className="w-20 h-20 object-contain"
               onError={(e) => {
                 // 头像加载失败时显示首字母 fallback
-                (e.target as HTMLImageElement).style.display = "none";
-                (e.target as HTMLImageElement).parentElement!.innerHTML =
-                  "<div class='w-20 h-20 rounded-full bg-blue-500 flex items-center justify-center text-white text-3xl font-bold'>L</div>";
+                // N3 修复：改用 DOM API 创建元素（原 innerHTML 注入虽为常量，
+                // 但一旦拼接动态值即成 XSS 点）
+                const img = e.target as HTMLImageElement;
+                img.style.display = "none";
+                const parent = img.parentElement;
+                if (!parent) return;
+                const fallback = document.createElement("div");
+                fallback.className =
+                  "w-20 h-20 rounded-full bg-blue-500 flex items-center justify-center text-white text-3xl font-bold";
+                fallback.textContent = "L";
+                parent.appendChild(fallback);
               }}
             />
           </div>

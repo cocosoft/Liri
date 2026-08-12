@@ -41,7 +41,7 @@ const FileAttachmentBar = forwardRef<
   FileAttachmentBarHandle,
   FileAttachmentBarProps
 >(function FileAttachmentBar(
-  { attachments, onAttachmentsChange, disabled: _disabled },
+  { attachments, onAttachmentsChange, disabled = false },
   ref,
 ) {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -50,6 +50,8 @@ const FileAttachmentBar = forwardRef<
   /** 暴露 triggerFileInput 给父组件的统一「+」菜单调用 */
   useImperativeHandle(ref, () => ({
     triggerFileInput: () => {
+      // 修复：disabled 时禁止打开文件选择器（原参数未使用，禁用态不生效）
+      if (disabled) return;
       fileInputRef.current?.click();
     },
   }));
@@ -68,6 +70,7 @@ const FileAttachmentBar = forwardRef<
    */
   const handleFileSelect = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (disabled) return;
       const files = e.target.files;
       if (!files) return;
 
@@ -91,7 +94,7 @@ const FileAttachmentBar = forwardRef<
       onAttachmentsChange([...attachments, ...newAttachments]);
       e.target.value = "";
     },
-    [attachments, onAttachmentsChange],
+    [attachments, onAttachmentsChange, disabled],
   );
 
   /**
@@ -111,6 +114,7 @@ const FileAttachmentBar = forwardRef<
     (e: React.DragEvent) => {
       e.preventDefault();
       setIsDragOver(false);
+      if (disabled) return;
       const files = Array.from(e.dataTransfer.files);
       if (files.length === 0) return;
 
@@ -136,13 +140,17 @@ const FileAttachmentBar = forwardRef<
       };
       processFiles();
     },
-    [attachments, onAttachmentsChange],
+    [attachments, onAttachmentsChange, disabled],
   );
 
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragOver(true);
-  }, []);
+  const handleDragOver = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      if (disabled) return;
+      setIsDragOver(true);
+    },
+    [disabled],
+  );
 
   const handleDragLeave = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -162,6 +170,7 @@ const FileAttachmentBar = forwardRef<
         type="file"
         multiple
         className="hidden"
+        disabled={disabled}
         onChange={handleFileSelect}
       />
 

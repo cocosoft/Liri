@@ -38,12 +38,9 @@ function ThinkingBlock({ content, isStreaming }: ThinkingBlockProps) {
       </button>
       {!collapsed && content && (
         <div style={styles.content}>
-          <pre
-            style={{
-              ...styles.pre,
-              maxHeight: isStreaming ? "none" : "300px",
-            }}
-          >
+          {/* 修复：流式时原 maxHeight:none 导致超长思考无限撑高页面，
+              统一沿用 styles.pre 的 300px 上限 + 纵向滚动 */}
+          <pre style={styles.pre}>
             {content}
           </pre>
         </div>

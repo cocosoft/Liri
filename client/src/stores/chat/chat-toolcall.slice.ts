@@ -391,23 +391,47 @@ export class ChronologicalBlockBuilder {
     let idx = this.blocks.findIndex(
       (b) => b.type === "todo" && b.content === todoData.title,
     );
-    // 标题不匹配时回退到**最后一个** todo 块（流式更新时标题可能不同）。
-    // 修复：原回退到第一个 todo 块，多轮任务（同一消息多次 todo_write）时
-    // 第 2 轮数据会覆盖第 1 轮的任务列表——按"最近写入"语义应更新最后一个。
+    // 标题不匹配时优先按 task id 交集匹配（T7 修复）：
+    // update 动作的全量快照默认 title='任务计划'，write 传自定义 name 时标题对不上，
+    // 原实现直接回退更新**最后一个** todo 块 → 多轮任务时覆盖错块、旧块停在初始状态。
+    // 快照与块共享任务 id（update 的 todo_id 来自 write 的 id），交集可精确命中目标块。
     if (idx === -1) {
-      for (let i = this.blocks.length - 1; i >= 0; i--) {
-        if (this.blocks[i].type === "todo") {
+      const newIds = new Set((normalized.tasks ?? []).map((t) => String(t.id)));
+      if (newIds.size > 0) {
+        let bestIdx = -1;
+        let bestOverlap = 0;
+        for (let i = 0; i < this.blocks.length; i++) {
+          const b = this.blocks[i];
+          if (b.type !== "todo" || !b.taskCard) continue;
+          const overlap = (b.taskCard.tasks ?? []).filter((t) =>
+            newIds.has(String(t.id)),
+          ).length;
+          if (overlap > bestOverlap) {
+            bestOverlap = overlap;
+            bestIdx = i;
+          }
+        }
+        if (bestOverlap > 0) idx = bestIdx;
+      }
+      // 仍不匹配（新任务列表）时回退到**最后一个** todo 块（"最近写入"语义）
+      // R2 强化：仅当最后一个 todo 块**未完成**（planning/executing）时才兜底更新——
+      // 已完成（done）的旧任务列表被新数据覆盖是错误场景，改为新建块。
+      if (idx === -1) {
+        for (let i = this.blocks.length - 1; i >= 0; i--) {
+          const b = this.blocks[i];
+          if (b.type !== "todo" || !b.taskCard) continue;
+          if (b.taskCard.status === "done") break; // 最后一个 todo 已完成，不兜底
           idx = i;
           break;
         }
-      }
-      if (idx !== -1) {
-        logger.info("addTodo: 标题未命中，回退更新最后一个 todo 块", {
-          title: todoData.title,
-          targetIdx: idx,
-          targetTitle: this.blocks[idx].content,
-          taskCount: normalized.tasks?.length ?? 0,
-        });
+        if (idx !== -1) {
+          logger.info("addTodo: 标题未命中，回退更新最后一个 todo 块", {
+            title: todoData.title,
+            targetIdx: idx,
+            targetTitle: this.blocks[idx].content,
+            taskCount: normalized.tasks?.length ?? 0,
+          });
+        }
       }
     }
     if (idx !== -1) {
@@ -533,8 +557,17 @@ export class ChronologicalBlockBuilder {
     for (const block of this.blocks) {
       block.isStreaming = false;
       // R1: 对 todo 块最终化其整体状态（修复 BUG #11）；仅正常完成时置 done
+      // T4 修复：仅当全部任务已终态（completed/failed）时卡片置 done——
+      // 原实现一刀切 done，任务级状态保留 pending/in_progress 时
+      // 卡片显示"已结束"而底下任务仍"等待中"，状态自相矛盾
       if (completed && block.type === "todo" && block.taskCard) {
-        block.taskCard.status = "done";
+        const tasks = block.taskCard.tasks ?? [];
+        const allFinal =
+          tasks.length > 0 &&
+          tasks.every(
+            (t) => t.status === "completed" || t.status === "failed",
+          );
+        block.taskCard.status = allFinal ? "done" : "executing";
         todoBlocks.push(block.content);
       }
     }

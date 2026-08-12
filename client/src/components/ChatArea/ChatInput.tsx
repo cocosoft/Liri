@@ -99,6 +99,19 @@ function ChatInput({ fluid = false }: { fluid?: boolean }) {
   const [showSteering, setShowSteering] = useState(false);
   const [steeringText, setSteeringText] = useState("");
   const steeringInputRef = useRef<HTMLInputElement>(null);
+  /** R3 修复：流式（非排队模式）阻止发送时给用户可见提示，避免"输入被静默丢弃" */
+  const [streamBlockedHint, setStreamBlockedHint] = useState(false);
+  const streamBlockedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  /** 闪烁提示"正在回复中"（2.5s 后自动消失） */
+  const flashStreamBlocked = useCallback(() => {
+    setStreamBlockedHint(true);
+    if (streamBlockedTimer.current) clearTimeout(streamBlockedTimer.current);
+    streamBlockedTimer.current = setTimeout(() => {
+      setStreamBlockedHint(false);
+      streamBlockedTimer.current = null;
+    }, 2500);
+  }, []);
 
   /** textarea 自动扩展高度 */
   const autoGrow = useCallback(() => {
@@ -499,7 +512,10 @@ function ChatInput({ fluid = false }: { fluid?: boolean }) {
     const trimmed = input.trim();
 
     // 流式传输中：消息排队模式下不阻塞，旧模式下阻止
-    if (isStreaming && !messageQueueEnabled) return;
+    if (isStreaming && !messageQueueEnabled) {
+      flashStreamBlocked();
+      return;
+    }
 
     // 编辑重发：内容未变守卫
     if (editTarget && typeof editTarget.content === "string") {
@@ -757,6 +773,7 @@ function ChatInput({ fluid = false }: { fluid?: boolean }) {
     if (isStreaming && e.key === "Enter" && !e.shiftKey) {
       if (!messageQueueEnabled) {
         e.preventDefault();
+        flashStreamBlocked();
         return;
       }
     }
@@ -1009,6 +1026,12 @@ function ChatInput({ fluid = false }: { fluid?: boolean }) {
                   />
                   {"另存为分支"}
                 </label>
+              </div>
+            )}
+            {/* R3 修复：流式（非排队模式）阻止发送时的可见提示 */}
+            {streamBlockedHint && (
+              <div className="mb-1.5 px-2 py-1 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800 animate-pulse">
+                ⏳ 正在回复中，请等待当前回复完成后发送
               </div>
             )}
             {/* 模式选择器 + 上传/表情 — 输入框上方 */}

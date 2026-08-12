@@ -479,12 +479,19 @@ export async function streamMessageImpl(
         messages: finalMessages.map((m) => (m.id === assistantId ? msg : m)),
       });
 
-      addFilePathsFromBlocks(
-        finalBlocks,
-        (file) => get().addSessionFile(file),
-        () => get().sessionFiles,
-        (files) => set({ sessionFiles: files }),
-      );
+      // R1 修复：流式结束追加 sessionFile 需会话守卫——会话 A 的流在用户
+      // 切到会话 B 之后才结束时会污染 B 的 knownFilePaths（BUG-4 只修了
+      // setMessages 加载替换路径，流式追加路径未加守卫，FileLink 偶发漂移）。
+      // 当前活跃会话以加载时 setMessages 写入的 messages[0].session_id 为准。
+      const activeSessionId = get().messages[0]?.session_id ?? "default";
+      if (sid === activeSessionId) {
+        addFilePathsFromBlocks(
+          finalBlocks,
+          (file) => get().addSessionFile(file),
+          () => get().sessionFiles,
+          (files) => set({ sessionFiles: files }),
+        );
+      }
 
       // 将 blocks 结构保存到后端
       // AB-15 修复：abort（用户停止/幽灵块检测中断）时不覆盖——

@@ -8,9 +8,12 @@
  * - 右键菜单触发
  */
 import { useRef, useEffect } from "react";
+import { createLogger } from "@/utils/logger";
 import { formatRelativeTime } from "../../utils/format";
 import { useRootStore } from "../../stores/root-store";
 import { getModuleMeta } from "../../stores/root-store/moduleRegistry";
+
+const logger = createLogger("components:chat:sessionListItem");
 
 interface SessionListItemProps {
   session: {
@@ -83,15 +86,26 @@ function SessionListItem({
       pendingClickIdRef.current = null;
       if (prevId === id) {
         // 同一会话双击：取消单击切换，交给 onDoubleClick（重命名）
+        // 竞态排查：双击取消切换——若单击切换仍发生，说明 250ms 窗口被突破
+        logger.info("sessionListItem:clickCancelledByDblClick", {
+          sessionId: id,
+          dblClickWindowMs: 250,
+        });
         return;
       }
       // 不同会话连点：先执行上一个待定切换，避免丢切换
+      // 竞态排查：连点不同会话——记录先后顺序与切换次序
+      logger.info("sessionListItem:rapidClickDifferentSession", {
+        firstId: prevId,
+        secondId: id,
+      });
       onSwitch(prevId);
     }
     pendingClickIdRef.current = id;
     clickTimerRef.current = setTimeout(() => {
       clickTimerRef.current = null;
       pendingClickIdRef.current = null;
+      logger.info("sessionListItem:switch", { sessionId: id });
       onSwitch(id);
     }, 250);
   };

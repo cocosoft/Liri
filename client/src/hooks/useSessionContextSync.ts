@@ -119,6 +119,13 @@ export function useSessionContextSync<T extends Partial<SessionContext>>(
         saveTimerRef.current = null;
         const context = saveRef.current();
         if (context) {
+          // 竞态排查：切换时 flush 未触发的防抖上下文保存——若未打印且上下文丢失，
+          // 说明模块状态变更未在 effect 依赖内（timer 未被重置），需检查调用方
+          logger.info("contextSync:flushOnSwitch", {
+            moduleType,
+            sessionId: currentModuleSession.id,
+            contextKeys: Object.keys(context),
+          });
           updateSessionContext(
             currentModuleSession.id,
             context as Partial<SessionContext>,

@@ -1181,6 +1181,14 @@ export const chatService = {
           const decoder = new TextDecoder();
           let buffer = "";
           const pendingData: string[] = [];
+          // 竞态排查：恢复路径事件统计——[DONE]/流结束/残留 flush 时打印，
+          // 便于确认恢复链路上事件是否丢失或重复（对比主链路事件数）
+          let resumeEventCount = 0;
+          logger.info("resume:start", {
+            sessionId,
+            checkpointId,
+            retryCount,
+          });
           while (true) {
             const { done, value } = await readWithIdleTimeout(
               reader,
@@ -1197,12 +1205,22 @@ export const chatService = {
                 if (pendingData.length === 0) continue;
                 const payload = pendingData.join("\n");
                 pendingData.length = 0;
-                if (payload === "[DONE]") return;
+                if (payload === "[DONE]") {
+                  logger.info("resume:done", {
+                    sessionId,
+                    checkpointId,
+                    eventCount: resumeEventCount,
+                  });
+                  return;
+                }
                 try {
                   // P2-1: 复用与主链路一致的共享解析，恢复后 thinking/tool_call/question 等决策块不丢失
                   const chunk = JSON.parse(payload);
                   const parsed = parseSseChunk(chunk);
-                  if (parsed) yield parsed;
+                  if (parsed) {
+                    resumeEventCount++;
+                    yield parsed;
+                  }
                 } catch {
                   /* skip malformed */
                 }
@@ -1222,12 +1240,21 @@ export const chatService = {
               try {
                 const chunk = JSON.parse(payload);
                 const parsed = parseSseChunk(chunk);
-                if (parsed) yield parsed;
+                if (parsed) {
+                  resumeEventCount++;
+                  yield parsed;
+                }
               } catch {
                 /* skip malformed */
               }
             }
           }
+          logger.info("resume:complete", {
+            sessionId,
+            checkpointId,
+            eventCount: resumeEventCount,
+            flushRemainder: pendingData.length > 0,
+          });
           return; // 恢复成功，正常结束
         } catch (err: unknown) {
           const e = err as Error & { name?: string };

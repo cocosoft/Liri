@@ -108,13 +108,24 @@ export default function GlobalSearchModal({
       setSearching(true);
       const q = query.toLowerCase();
       const seq = ++searchSeqRef.current;
+      // 竞态排查：本次请求序号——若后续"stale:drop"日志与完成日志交错，
+      // 说明存在旧请求晚返回覆盖新结果的风险（序号机制应丢弃旧请求）
+      logger.info("search:start", { query: q, seq });
 
       // 1. 客户端过滤所有模块会话标题（SessionHub 全量）
       //    SessionRecord 有 title 字段，转为 Session-like 结构用于搜索
       const matchedSessions = allSessions
         .filter((s) => s.title?.toLowerCase().includes(q))
         .slice(0, 5);
-      if (seq !== searchSeqRef.current) return;
+      if (seq !== searchSeqRef.current) {
+        // 竞态排查：旧请求在"会话过滤"阶段被新请求取代
+        logger.info("search:staleDrop", {
+          seq,
+          current: searchSeqRef.current,
+          stage: "sessions",
+        });
+        return;
+      }
       setSessionResults(
         matchedSessions.map(
           (s) =>
@@ -135,7 +146,14 @@ export default function GlobalSearchModal({
       // 2. 异步搜索文件
       try {
         const fileRes = await fileService.searchFiles({ query: q, limit: 5 });
-        if (seq !== searchSeqRef.current) return;
+        if (seq !== searchSeqRef.current) {
+          logger.info("search:staleDrop", {
+            seq,
+            current: searchSeqRef.current,
+            stage: "files",
+          });
+          return;
+        }
         setFileResults(fileRes.items.slice(0, 5));
       } catch (e) {
         if (seq !== searchSeqRef.current) return;
@@ -149,7 +167,14 @@ export default function GlobalSearchModal({
       // 3. 异步搜索知识库
       try {
         const kbRes = await knowledgeService.search(q);
-        if (seq !== searchSeqRef.current) return;
+        if (seq !== searchSeqRef.current) {
+          logger.info("search:staleDrop", {
+            seq,
+            current: searchSeqRef.current,
+            stage: "knowledge",
+          });
+          return;
+        }
         setKnowledgeResults((kbRes as KnowledgeItem[]).slice(0, 5));
       } catch (e) {
         if (seq !== searchSeqRef.current) return;
@@ -160,6 +185,13 @@ export default function GlobalSearchModal({
         setKnowledgeResults([]);
       }
 
+      // 竞态排查：请求完成（未被新请求取代）——与 search:start 成对出现；
+      // 若只有 start 无 complete 也无 staleDrop，说明请求卡在 await（排查服务超时）
+      logger.info("search:complete", {
+        query: q,
+        seq,
+        sessionCount: matchedSessions.length,
+      });
       setSearching(false);
     }, 300);
 

@@ -89,6 +89,19 @@ export async function streamMessageImpl(
       const nextReplyToId = pendingSurvives
         ? pendingReplyId
         : editTarget.replyToId ?? null;
+      // 竞态排查：编辑截断决策点——记录截断前消息数/截断后消息数/回复继承结果，
+      // 若 pendingReplyId 被意外清空或 replyToId 悬空，可从此日志定位时序
+      logger.info("streamMessage:editTruncate", {
+        sessionId: sid,
+        editTargetId: editTarget.id,
+        editIndex,
+        beforeCount: get().messages.length,
+        afterCount: truncated.length,
+        editTargetReplyToId: editTarget.replyToId ?? null,
+        pendingReplyId,
+        pendingSurvives,
+        nextReplyToId,
+      });
       set({ messages: truncated, editTarget: null, pendingReplyToId: nextReplyToId });
       // AB-13 修复：同步截断后端持久化消息，防止切会话/重载后旧消息回显。
       // 编辑场景先等后端截断完成再发流（写前持久化语义），失败不阻断发送。
@@ -105,6 +118,13 @@ export async function streamMessageImpl(
         );
       }
     } else {
+      // 竞态排查：editTarget 在消息列表中已不存在（可能已被其它流/清空操作移除），
+      // 仅清空 editTarget 不截断——若预期截断未发生，检查此日志
+      logger.warn("streamMessage:editTruncateMiss", {
+        sessionId: sid,
+        editTargetId: editTarget.id,
+        messageCount: get().messages.length,
+      });
       set({ editTarget: null });
     }
   }

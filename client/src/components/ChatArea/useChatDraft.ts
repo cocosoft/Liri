@@ -1,4 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from "react";
+import { createLogger } from "@/utils/logger";
+
+const logger = createLogger("components:chat:draft");
 
 /**
  * useChatDraft — 聊天输入框草稿持久化 hook
@@ -28,6 +31,12 @@ export function useChatDraft(sessionId?: string) {
       const saved = localStorage.getItem(key);
       // 无论是否有草稿都重置 input——否则切到无草稿会话时残留上一会话文本
       setInput(saved ?? "");
+      // 竞态排查：会话切换恢复点——记录目标会话与恢复结果（有/无草稿）
+      logger.info("draft:restore", {
+        sessionId: sessionId || "default",
+        hasDraft: saved !== null,
+        draftLength: saved?.length ?? 0,
+      });
     } catch {
       setInput("");
     }
@@ -43,8 +52,22 @@ export function useChatDraft(sessionId?: string) {
         try {
           if (pending.trim()) {
             localStorage.setItem(key, pending);
+            // 竞态排查：切换时 flush 未落盘草稿——若此处未触发且草稿丢失，
+            // 检查是否 persistDraft 在 cleanup 之后才被调度
+            logger.info("draft:flushOnSwitch", {
+              sessionId: sessionId || "default",
+              key,
+              pendingLength: pending.length,
+              action: "set",
+            });
           } else {
             localStorage.removeItem(key);
+            logger.info("draft:flushOnSwitch", {
+              sessionId: sessionId || "default",
+              key,
+              pendingLength: 0,
+              action: "remove",
+            });
           }
         } catch {
           // localStorage 不可用时静默忽略

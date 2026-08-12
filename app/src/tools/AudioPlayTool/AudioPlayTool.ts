@@ -10,7 +10,9 @@ import { BaseTool } from '../BaseTool';
 import { ToolResult, ToolUseContext, ToolParam, ToolTag } from '../types/index';
 import { AudioUrlHelper } from '../AudioUrlHelper';
 import { existsSync, statSync } from 'fs';
-import { resolve } from 'path';
+import path from 'path';
+import { resolveMediaDir } from '@modules/core/paths';
+import { resolveAccessibleMediaUrl } from '../MediaUrlResolver';
 
 const logger = getLogger('tools:audioPlay');
 
@@ -84,13 +86,17 @@ export class AudioPlayTool extends BaseTool {
         continue;
       }
 
-      const resolvedPath = resolve(trimmed);
+      const resolvedPath = path.resolve(trimmed);
       if (!existsSync(resolvedPath)) {
         logger.warn('音频文件不存在，跳过', { path: resolvedPath });
         continue;
       }
 
-      const displayUrl = AudioUrlHelper.toDisplayUrl(resolvedPath);
+      // 2026-08-12 统一修复：按文件实际位置生成可访问 URL（音频库内直接映射，非安全根复制到音频库 imported/）
+      const displayUrl = resolveAccessibleMediaUrl(resolvedPath, {
+        mediaRoot: path.join(resolveMediaDir(), 'audio'),
+        mediaPrefix: '/v1/audio/static/',
+      });
       const name =
         AudioUrlHelper.extractFilename(resolvedPath) ||
         resolvedPath.split(/[\\/]/).pop() ||

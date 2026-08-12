@@ -10,9 +10,26 @@ import { BaseTool } from '../BaseTool';
 import { ToolResult, ToolUseContext, ToolParam, ToolTag } from '../types/index';
 import { ImageUrlHelper } from '../ImageUrlHelper';
 import { existsSync, statSync } from 'fs';
-import { resolve } from 'path';
+import path from 'path';
+import {
+  resolveMediaDir,
+  resolveOutputDir,
+  resolveAttachmentsDir,
+} from '@modules/core/paths';
+import { resolveAccessibleMediaUrl, MediaRoot } from '../MediaUrlResolver';
 
 const logger = getLogger('tools:imageDisplay');
+
+/** 与 image-handlers.ts 对齐的安全图片根目录（静态服务仅允许这些目录） */
+const MEDIA_IMAGES_ROOT = path.join(resolveMediaDir(), 'images');
+const IMAGES_ROOT = path.join(resolveOutputDir(), 'images');
+const ATTACHMENTS_ROOT = resolveAttachmentsDir();
+
+/** 图片可访问根映射（URL 前缀与 handleImageStatic 解析规则对应） */
+const IMAGE_MEDIA_ROOTS: MediaRoot[] = [
+  { root: IMAGES_ROOT, prefix: '/v1/images/static/' },
+  { root: ATTACHMENTS_ROOT, prefix: '/v1/images/static/attachments/' },
+];
 
 export interface DisplayImage {
   /** 前端展示用的 URL */
@@ -90,13 +107,19 @@ export class ImageDisplayTool extends BaseTool {
       }
 
       // 本地文件路径
-      const resolvedPath = resolve(trimmed);
+      const resolvedPath = path.resolve(trimmed);
       if (!existsSync(resolvedPath)) {
         logger.warn('图片文件不存在，跳过', { path: resolvedPath });
         continue;
       }
 
-      const displayUrl = ImageUrlHelper.toDisplayUrl(resolvedPath);
+      // 2026-08-12 修复：按文件实际位置生成可访问 URL（媒体库/输出/附件/复制到媒体库），
+      // 不再一律拼 media/ 前缀（项目工作目录图片此前 404 → 前端占位符）
+      const displayUrl = resolveAccessibleMediaUrl(resolvedPath, {
+        mediaRoot: MEDIA_IMAGES_ROOT,
+        mediaPrefix: '/v1/images/static/media/',
+        extraRoots: IMAGE_MEDIA_ROOTS,
+      });
       const name =
         ImageUrlHelper.extractFilename(resolvedPath) ||
         resolvedPath.split(/[\\/]/).pop() ||

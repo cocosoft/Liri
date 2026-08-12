@@ -22,6 +22,7 @@ function QuestionBlock({
   const [selectedLabels, setSelectedLabels] = useState<string[]>([]);
   const [otherText, setOtherText] = useState<string>("");
   const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   const { question, header, options, multiSelect, questionId } = questionData;
@@ -49,6 +50,8 @@ function QuestionBlock({
   };
 
   const handleSubmit = async () => {
+    // #9 修复：提交期间防重（原双击/连点会重复提交）
+    if (submitted || submitting) return;
     if (selectedLabels.length === 0) return;
     // 选中"其他"但没填文字时，禁用提交
     if (otherRequiresText) return;
@@ -64,22 +67,30 @@ function QuestionBlock({
       answers = selectedLabels;
     }
 
-    // 提交回答到后端
-    const result = await chatService.submitQuestionAnswer(
-      questionId,
-      answers,
-      sessionId,
-    );
+    setSubmitting(true);
+    try {
+      // 提交回答到后端
+      const result = await chatService.submitQuestionAnswer(
+        questionId,
+        answers,
+        sessionId,
+      );
 
-    setSubmitted(true);
-
-    if (!result.success) {
-      logger.warn("提交回答失败，但已标记为已提交", { questionId });
-    }
-
-    // 非流式路径：后端返回了最终响应内容，通过回调追加到消息列表
-    if (result.content && onResponse) {
-      onResponse(result.content);
+      // #9 修复：仅成功才锁定（原失败也 setSubmitted(true)，用户无法重试）
+      if (result.success) {
+        setSubmitted(true);
+        // 非流式路径：后端返回了最终响应内容，通过回调追加到消息列表
+        if (result.content && onResponse) {
+          onResponse(result.content);
+        }
+      } else {
+        logger.warn("提交回答失败，未锁定，允许重试", { questionId });
+      }
+    } catch (e) {
+      // #9 修复：异常不锁定，保留可重试状态
+      logger.error("提交回答异常", { questionId, error: String(e) });
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -249,12 +260,14 @@ function QuestionBlock({
             <div className="flex items-center gap-2 pt-1">
               <button
                 onClick={handleSubmit}
-                disabled={!canSubmit}
+                disabled={!canSubmit || submitting}
                 className="px-4 py-1.5 text-xs bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-md transition-colors"
               >
-                {multiSelect
-                  ? `确认选择（${selectedLabels.length}项）`
-                  : "确认选择"}
+                {submitting
+                  ? "提交中..."
+                  : multiSelect
+                    ? `确认选择（${selectedLabels.length}项）`
+                    : "确认选择"}
               </button>
               {multiSelect && (
                 <span className="text-xs text-gray-400">可多选</span>

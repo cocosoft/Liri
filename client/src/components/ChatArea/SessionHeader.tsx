@@ -238,7 +238,8 @@ function SessionHeader() {
   };
 
   return (
-    <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3 flex items-center justify-between">
+    // #20 修复：header 补 relative——详情面板 absolute top-full 需以其为定位基准
+    <header className="relative bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3 flex items-center justify-between">
       <div className="flex items-center gap-3 min-w-0">
         {currentSession ? (
           <>

@@ -125,6 +125,11 @@ function ChatArea({ fluid = false }: { fluid?: boolean }) {
   const playResponse = useVoiceStore((s) => s.playResponse);
   const lastPlayedMsgRef = useRef<string | null>(null);
 
+  // #13 修复：切会话时重置已播放标记，避免新会话最后一条助手消息被跳过不朗读
+  useEffect(() => {
+    lastPlayedMsgRef.current = null;
+  }, [currentSession?.id]);
+
   useEffect(() => {
     // 流式传输结束，且最后一条消息是助手消息 → 自动 TTS
     if (
@@ -147,8 +152,10 @@ function ChatArea({ fluid = false }: { fluid?: boolean }) {
           .catch((err) => logger.warn("自动 TTS 播放失败:", err));
       }
     }
+    // #13 修复：依赖补 messages——原只依赖 messages.length，消息被整体替换
+    // （长度不变）时不触发自动朗读；lastPlayedMsgRef 按消息 id 防重，不会重复播
   }, [
-    messages.length,
+    messages,
     isStreaming,
     voiceSettings?.config?.autoPlayTTS,
     playResponse,

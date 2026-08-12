@@ -41,6 +41,9 @@ interface FileAttachment {
 
 /** 图片上传状态 */
 interface ImageItem {
+  /** #14 修复：唯一 id（缩略图 key/上传状态定位用），原用数组索引 key={idx}，
+   *  删除中间项后状态错位 */
+  id: string;
   /** 本地 File 对象 */
   file: File;
   /** 本地 blob URL（缩略图） */
@@ -288,6 +291,10 @@ function ChatInput({ fluid = false }: { fluid?: boolean }) {
         return [
           ...prev,
           ...toAdd.map((file) => ({
+            // #14 修复：唯一 id（file.name+size+时间戳），避免同 File 重复添加 key 冲突
+            id: `${file.name}-${file.size}-${Date.now()}-${Math.random()
+              .toString(36)
+              .slice(2)}`,
             file,
             previewUrl: URL.createObjectURL(file),
             status: "pending" as const,
@@ -299,12 +306,12 @@ function ChatInput({ fluid = false }: { fluid?: boolean }) {
     [t],
   );
 
-  /** 移除单张图片 */
-  const handleRemoveImage = useCallback((index: number) => {
+  /** #14 修复：移除单张图片（按唯一 id 定位，原按数组索引删除中间项后错位） */
+  const handleRemoveImage = useCallback((id: string) => {
     setImageItems((prev) => {
-      const item = prev[index];
+      const item = prev.find((p) => p.id === id);
       if (item) URL.revokeObjectURL(item.previewUrl);
-      return prev.filter((_, i) => i !== index);
+      return prev.filter((p) => p.id !== id);
     });
   }, []);
 
@@ -428,9 +435,11 @@ function ChatInput({ fluid = false }: { fluid?: boolean }) {
       const batch = pending.slice(i, i + MAX_CONCURRENT_UPLOADS);
       const results = await Promise.allSettled(
         batch.map(async (item) => {
+          // #14 修复：用 item.id 定位（原 p.file === item.file，同一 File 重复
+          // 添加时两个条目互相覆盖状态）
           setImageItems((prev) =>
             prev.map((p) =>
-              p.file === item.file
+              p.id === item.id
                 ? { ...p, status: "uploading" as const, progress: 0 }
                 : p,
             ),
@@ -439,13 +448,13 @@ function ChatInput({ fluid = false }: { fluid?: boolean }) {
             const result = await imageService.upload(item.file, (pct) => {
               setImageItems((prev) =>
                 prev.map((p) =>
-                  p.file === item.file ? { ...p, progress: pct } : p,
+                  p.id === item.id ? { ...p, progress: pct } : p,
                 ),
               );
             });
             setImageItems((prev) =>
               prev.map((p) =>
-                p.file === item.file
+                p.id === item.id
                   ? {
                       ...p,
                       status: "done" as const,
@@ -471,7 +480,7 @@ function ChatInput({ fluid = false }: { fluid?: boolean }) {
             });
             setImageItems((prev) =>
               prev.map((p) =>
-                p.file === item.file ? { ...p, status: "error" as const } : p,
+                p.id === item.id ? { ...p, status: "error" as const } : p,
               ),
             );
             return null;
@@ -687,34 +696,32 @@ function ChatInput({ fluid = false }: { fluid?: boolean }) {
   const handleKeyDown = (e: React.KeyboardEvent) => {
     /** @ 引用菜单键盘导航 */
     if (showMentions) {
-      // 计算过滤后的条目数（与 MentionMenu 内逻辑一致）
+      // 计算过滤后的条目数（与 MentionMenu 内逻辑一致：文件按 name + 项目条目按 label）
       const q = mentionQuery.toLowerCase();
-      const filtered = sessionFiles.filter((f) =>
-        f.name.toLowerCase().includes(q),
-      );
+      const filtered = [
+        ...sessionFiles
+          .filter((f) => f.name.toLowerCase().includes(q))
+          .map((f): MentionItem => ({ id: f.path, label: f.name, type: "file", path: f.path })),
+        // #7 修复：键盘导航纳入项目资料/成果条目（原只含 sessionFiles，
+        // 项目条目只能鼠标点选，且文件索引在含项目条目时错位）
+        ...projectMentionItems.filter((p) => p.label.toLowerCase().includes(q)),
+      ];
+      const size = filtered.length || 1;
 
       if (e.key === "ArrowDown") {
         e.preventDefault();
-        setMentionIndex((i) => (i + 1) % (filtered.length || 1));
+        setMentionIndex((i) => (i + 1) % size);
         return;
       }
       if (e.key === "ArrowUp") {
         e.preventDefault();
-        setMentionIndex(
-          (i) => (i - 1 + (filtered.length || 1)) % (filtered.length || 1),
-        );
+        setMentionIndex((i) => (i - 1 + size) % size);
         return;
       }
       if (e.key === "Tab" || e.key === "Enter") {
         e.preventDefault();
         if (filtered.length > 0) {
-          const item: MentionItem = {
-            id: filtered[mentionIndex].path,
-            label: filtered[mentionIndex].name,
-            type: "file",
-            path: filtered[mentionIndex].path,
-          };
-          handleMentionSelect(item);
+          handleMentionSelect(filtered[Math.min(mentionIndex, filtered.length - 1)]);
         }
         return;
       }
@@ -726,21 +733,28 @@ function ChatInput({ fluid = false }: { fluid?: boolean }) {
     }
 
     if (showCommands) {
+      // #5 修复：索引基于前缀过滤子集（与 SlashCommandMenu 一致）——
+      // 原实现用全量数组取模，输入 /k 后按 Enter 会选中 /dashboard 而非 /knowledge
+      const filtered = SLASH_COMMANDS.filter((cmd) =>
+        cmd.key.startsWith(input.toLowerCase()),
+      );
+      if (filtered.length === 0) {
+        return;
+      }
+      const size = filtered.length;
       if (e.key === "ArrowDown") {
         e.preventDefault();
-        setCommandIndex((i) => (i + 1) % SLASH_COMMANDS.length);
+        setCommandIndex((i) => (i + 1) % size);
         return;
       }
       if (e.key === "ArrowUp") {
         e.preventDefault();
-        setCommandIndex(
-          (i) => (i - 1 + SLASH_COMMANDS.length) % SLASH_COMMANDS.length,
-        );
+        setCommandIndex((i) => (i - 1 + size) % size);
         return;
       }
       if (e.key === "Tab" || e.key === "Enter") {
         e.preventDefault();
-        setInput(SLASH_COMMANDS[commandIndex].key + " ");
+        setInput(filtered[Math.min(commandIndex, size - 1)].key + " ");
         setCommandIndex(0);
         setShowCommands(false);
         return;
@@ -871,9 +885,10 @@ function ChatInput({ fluid = false }: { fluid?: boolean }) {
           {/* 图片缩略图预览条 */}
           {imageItems.length > 0 && (
             <div className="mb-2 flex items-center gap-2 flex-wrap">
-              {imageItems.slice(0, MAX_VISIBLE_THUMBNAILS).map((item, idx) => (
+              {imageItems.slice(0, MAX_VISIBLE_THUMBNAILS).map((item) => (
                 <div
-                  key={idx}
+                  // #14 修复：key 用唯一 id（原 key={idx}，删除中间项后状态错位）
+                  key={item.id}
                   className="relative group w-16 h-16 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600 flex-shrink-0"
                 >
                   <img
@@ -892,7 +907,7 @@ function ChatInput({ fluid = false }: { fluid?: boolean }) {
                     </div>
                   )}
                   <button
-                    onClick={() => handleRemoveImage(idx)}
+                    onClick={() => handleRemoveImage(item.id)}
                     className="absolute top-0.5 right-0.5 w-5 h-5 bg-black/60 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs hover:bg-black/80"
                     title={t("chat.removeImage")}
                   >

@@ -656,8 +656,19 @@ export const createSessionSlice: StateCreator<
           try {
             const messages = await sessionService.getMessages(sessions[0].id);
             await chatCoordinator.loadMessages(messages);
-          } catch {
-            /* ignore */
+          } catch (e) {
+            // #10 修复：getMessages 失败不再静默——仍切走目标会话但清空消息，
+            // 避免 UI 错位显示已删除会话的内容，并记录错误便于排查
+            const { handleClientError } = await import("@/utils/handleError");
+            handleClientError(
+              e,
+              {
+                module: "stores:sessionSlice",
+                action: "deleteChatSession:loadNext",
+              },
+              "warn",
+            );
+            await chatCoordinator.loadMessages([]).catch(() => {});
           }
           // 重新从当前状态获取 sessions，防止并发修改
           set({

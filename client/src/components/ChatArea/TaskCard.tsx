@@ -21,6 +21,9 @@ const STATUS_CONFIG: Record<
   completed: { icon: "✓", color: "text-green-500", label: "已完成" },
   failed: { icon: "✗", color: "text-red-500", label: "失败" },
   blocked: { icon: "⏸", color: "text-orange-400", label: "等待依赖" },
+  // T5 修复：后端 todo-types.ts 存在 skipped 状态，此前无映射时
+  // cfg 回退到 pending，被跳过的任务错误显示"○ 等待中"
+  skipped: { icon: "↷", color: "text-gray-400", label: "已跳过" },
 };
 
 function formatDuration(ms: number): string {

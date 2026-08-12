@@ -626,7 +626,9 @@ export class TodoWriteTool extends BaseTool<Record<string, unknown>> {
 
     const {
       action,
-      session_id = context.toolUseId || 'default',
+      // T2 修复：session_id 默认值改用真实会话 ID——原实现 context.toolUseId 每次调用唯一，
+      // 同一会话多轮 add/update 之间断链（add 存到 A、update 查 B），任务永远无法更新
+      session_id = context.sessionId || 'default',
       todo_id,
       content,
       status,
@@ -891,18 +893,12 @@ export class TodoWriteTool extends BaseTool<Record<string, unknown>> {
               },
             ],
             metadata: {
-              _todoData: {
-                title: (input.name as string) || '任务计划',
-                phase: 'planning' as const,
-                tasks: newTodos.map((t) => ({
-                  id: t.id,
-                  name: t.content,
-                  status: t.status as 'pending' | 'in_progress' | 'completed',
-                  dependsOn: t.metadata?.dependsOn
-                    ? [t.metadata.dependsOn as string]
-                    : [],
-                })),
-              },
+              // T6 修复：复用 _buildTodoData 计算 phase——原实现硬编码 'planning'，
+              // todos 全 completed 时卡片永不亮"全部完成"徽章（需 status==='done'）
+              _todoData: this._buildTodoData(
+                newTodos,
+                (input.name as string) || '任务计划'
+              ),
             },
           });
         }

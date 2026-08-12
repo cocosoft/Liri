@@ -62,7 +62,7 @@ export function getUserDataDirOverride(): string | null {
  * 优先级（单一确定性来源）：
  * 1. 用户设置中配置的数据目录（setUserDataDirOverride）
  * 2. LIRI_HOME 环境变量（由入口文件在启动时设置）
- * 3. 默认：项目根目录下的 app/data/pyapp（所有数据统一在项目目录下）
+ * 3. 默认：项目根目录下的 app/data/pyapp（历史既有数据源）
  *
  * 注意：不再有回退链！入口文件（main.ts / pyapp.ts）应负责在启动时设置
  * LIRI_HOME 环境变量，本函数仅读取已有决定。
@@ -80,6 +80,9 @@ export function resolvePyappHome(env: NodeJS.ProcessEnv = process.env): string {
   }
 
   // 3. 默认值：项目根目录下的 app/data/pyapp
+  //    保持既有数据源（数出同源：DB 是唯一事实来源，不擅自切换数据目录）。
+  //    曾尝试改为 ~/.pyapp 以对齐规范 §1.5，但会切换运行时 DB 导致历史数据被弃用，
+  //    违背数出同源原则，已回滚（2026-08-12）。统一迁移需用户明确决策后一次性执行。
   return join(resolveProjectRoot(env), 'app', 'data', 'pyapp');
 }
 

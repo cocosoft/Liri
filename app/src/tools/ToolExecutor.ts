@@ -247,7 +247,13 @@ export class ToolExecutor {
         tracing.endSpan(tracingSpan, SpanStatusCode.OK);
       }
 
-      this.recordToolExecution(toolName, toolUseId, startTime, success);
+      this.recordToolExecution(
+        toolName,
+        toolUseId,
+        startTime,
+        success,
+        context.sessionId
+      );
       return result;
     } catch (error) {
       const errorMessage =
@@ -263,7 +269,13 @@ export class ToolExecutor {
         await this.executePostToolUseHooks(hookContext, false);
       }
 
-      this.recordToolExecution(toolName, toolUseId, startTime, false);
+      this.recordToolExecution(
+        toolName,
+        toolUseId,
+        startTime,
+        false,
+        context.sessionId
+      );
 
       // 关闭 OTel span（如有），记录错误
       if (tracingSpan) {
@@ -898,12 +910,16 @@ export class ToolExecutor {
 
   /**
    * 记录工具执行
+   * 除内部执行日志外，同时写入 AnalyticsService 与 query_logs——
+   * 修复仪表盘"工具调用 Top 10"假数据：主执行路径（TAORLoop → ToolExecutionService → ToolExecutor）
+   * 此前只写收敛检测，不写统计，导致分析面板永远读到 0/空。
    */
   private recordToolExecution(
     toolName: string,
     executionId: string,
     startTime: number,
-    success: boolean
+    success: boolean,
+    sessionId?: string
   ): void {
     const executionTime = Date.now() - startTime;
     if (success) {
@@ -921,6 +937,59 @@ export class ToolExecutor {
     }
     this.updateExecutionStats(toolName, executionTime, success);
     this.cleanupExpiredLogs();
+
+    // 统计埋点（动态 import 避免循环依赖）——统一收口点，覆盖 QueryEngine/TAORLoop/Orchestrator 全部工具执行路径
+    void this.reportToolExecutionToAnalytics(
+      toolName,
+      executionId,
+      executionTime,
+      success,
+      sessionId
+    );
+  }
+
+  /** 上报工具执行统计：AnalyticsService（内存，驱动 /v1/analytics/dashboard）+ query_logs（SQLite 持久化） */
+  private async reportToolExecutionToAnalytics(
+    toolName: string,
+    executionId: string,
+    durationMs: number,
+    success: boolean,
+    sessionId?: string
+  ): Promise<void> {
+    try {
+      const { analyticsService } =
+        await import('@modules/analytics/AnalyticsService');
+      analyticsService.logEvent('tool_execute', {
+        tool_name: toolName,
+        success,
+        duration_ms: durationMs,
+        execution_id: executionId,
+      });
+    } catch (err) {
+      // @ignore-catch — 统计上报失败不影响工具执行
+    }
+    if (!sessionId) return;
+    try {
+      const { getQueryLogStore } = await import('../query/QueryLogStore.js');
+      await getQueryLogStore()
+        .log({
+          sessionId,
+          type: 'tool_call',
+          toolName,
+          promptTokens: 0,
+          outputTokens: 0,
+          totalTokens: 0,
+          durationMs,
+          success,
+          error: success ? undefined : `execution_id:${executionId}`,
+          timestamp: Date.now(),
+        })
+        .catch((err: unknown) => {
+          // @ignore-catch — query_logs 落库失败不影响工具执行
+        });
+    } catch (err) {
+      // @ignore-catch — QueryLogStore 不可用时跳过持久化
+    }
   }
 
   /**

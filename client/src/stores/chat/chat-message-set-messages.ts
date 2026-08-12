@@ -76,6 +76,16 @@ export function setMessagesImpl(
         toolResultsByCallId.set(msg.toolCallId, rawContent);
         // 全量结果存入独立缓存（LRU 淘汰），不在 block 中内联
         cacheToolResult(msg.toolCallId, rawContent);
+      } else if (
+        Array.isArray(msg.blocks) &&
+        msg.blocks.some((b) => b.type === "progress")
+      ) {
+        // 历史兼容：progress 块是执行中的临时状态（此前 freezeAll 未移除被持久化），
+        // 加载时过滤，避免"正在执行工具"等状态文字作为正文显示
+        filteredMessages.push({
+          ...msg,
+          blocks: msg.blocks.filter((b) => b.type !== "progress"),
+        });
       } else {
         filteredMessages.push(msg);
       }

@@ -10,7 +10,11 @@ export interface Context {
 export interface SessionContext extends Context {
   type: 'session';
   sessionId: string;
-  userId: string;
+  /**
+   * 用户 ID（可选）：SessionGateway 注入时提供；
+   * ContextFactory.createSessionContext 等纯会话场景不提供（R07-P1 归并后统一）
+   */
+  userId?: string;
   agentName?: string;
   channelType?: string;
 }

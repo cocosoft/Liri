@@ -9,7 +9,6 @@
 - **AppCore** — 应用核心，协调各子系统
 - **Coordinator** — 协调器，负责编排业务流程
 - **DIContainer** — 依赖注入容器
-- **PluginSDK** — 插件 SDK，提供插件开发接口
 - **featureFlags** — 特性开关管理
 - **state/** — 全局状态管理（AppState、Store）
 - **config/** — 核心配置管理

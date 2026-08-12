@@ -280,6 +280,9 @@ export class TAORLoop {
   private stopReason: StopHookReason = 'completed';
   /** 上一轮工具执行是否有错误/空结果 — 用于防止静默完成 */
   private _lastRoundHadToolErrors: boolean = false;
+  /** 本次 run 的工具执行统计（方案 C：修正 RunLogger 硬编码全 0 的假数据） */
+  private toolCallStats: Map<string, number> = new Map();
+  private failedToolCalls: number = 0;
 
   // 检查点相关
   private checkpointStorage: CheckpointStorage;
@@ -932,6 +935,12 @@ export class TAORLoop {
         for (let i = 0; i < effectiveToolCalls.length; i++) {
           const tc = effectiveToolCalls[i];
           const r = rawResults[i];
+          // 方案 C：累计本次 run 的工具统计（供 RunLogger 真实记录，替代硬编码全 0）
+          this.toolCallStats.set(
+            tc.name,
+            (this.toolCallStats.get(tc.name) ?? 0) + 1
+          );
+          if (r?.error) this.failedToolCalls++;
           void this.runLogger.recordTrace({
             type: 'tool',
             runId: this.runId,
@@ -1317,7 +1326,16 @@ export class TAORLoop {
           cacheRead: 0,
           cacheCreation: 0,
         },
-        toolCalls: { total: 0, unique: 0, failed: 0, topTools: [] },
+        // 方案 C：写入真实工具统计（此前硬编码全 0，RunLogger 面板展示时是假数据）
+        toolCalls: {
+          total: [...this.toolCallStats.values()].reduce((a, b) => a + b, 0),
+          unique: this.toolCallStats.size,
+          failed: this.failedToolCalls,
+          topTools: [...this.toolCallStats.entries()]
+            .map(([name, count]) => ({ name, count }))
+            .sort((a, b) => b.count - a.count)
+            .slice(0, 10),
+        },
         compressions: {
           count: this.contextTracker.getCompressionHistory().length,
           totalTokensSaved: this.contextTracker.getTotalTokensSaved(),

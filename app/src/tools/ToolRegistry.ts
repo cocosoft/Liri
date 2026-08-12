@@ -286,12 +286,70 @@ export class ToolRegistry {
     try {
       result = await tool.execute(toolCall.input, context);
       this.updateUsageStats(tool.name, true, Date.now() - startTime);
+      // 统一统计收口（与 ToolExecutor.recordToolExecution 对齐）——
+      // 主执行路径 ChatManager → ToolExecutionService → ToolRegistry 此前绕过埋点层，
+      // 仪表盘"工具调用 Top 10"读不到数据（第六份导出修复仅覆盖 ToolExecutor，非真实主路径）
+      void this.reportToolExecutionToAnalytics(
+        tool.name,
+        startTime,
+        true,
+        context.sessionId
+      );
     } catch (error) {
       this.updateUsageStats(tool.name, false, Date.now() - startTime);
+      void this.reportToolExecutionToAnalytics(
+        tool.name,
+        startTime,
+        false,
+        context.sessionId
+      );
       throw error;
     }
 
     return result;
+  }
+
+  /** 统一工具执行统计上报：AnalyticsService（内存，驱动 /v1/analytics/dashboard）+ query_logs（SQLite 持久化） */
+  private async reportToolExecutionToAnalytics(
+    toolName: string,
+    startTime: number,
+    success: boolean,
+    sessionId?: string
+  ): Promise<void> {
+    const durationMs = Date.now() - startTime;
+    try {
+      const { analyticsService } =
+        await import('@modules/analytics/AnalyticsService');
+      analyticsService.logEvent('tool_execute', {
+        tool_name: toolName,
+        success,
+        duration_ms: durationMs,
+      });
+    } catch (err) {
+      // @ignore-catch — 统计上报失败不影响工具执行
+    }
+    if (!sessionId) return;
+    try {
+      const { getQueryLogStore } = await import('@modules/query/QueryLogStore.js');
+      await getQueryLogStore()
+        .log({
+          sessionId,
+          type: 'tool_call',
+          toolName,
+          promptTokens: 0,
+          outputTokens: 0,
+          totalTokens: 0,
+          durationMs,
+          success,
+          error: success ? undefined : 'tool_execution_failed',
+          timestamp: Date.now(),
+        })
+        .catch((err: unknown) => {
+          // @ignore-catch — query_logs 落库失败不影响工具执行
+        });
+    } catch (err) {
+      // @ignore-catch — QueryLogStore 不可用时跳过持久化
+    }
   }
 
   searchTools(options: string | ToolSearchOptions): Tool[] {

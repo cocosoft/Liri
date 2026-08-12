@@ -519,6 +519,17 @@ export class ChronologicalBlockBuilder {
    */
   freezeAll(completed = true): void {
     const todoBlocks: string[] = [];
+    // 流结束：progress 块是执行中的临时状态（阶段/步骤/进度条），
+    // 不应保留为正文——用户反馈"正在执行工具"等状态文字出现在聊天记录里。
+    // 执行中通过 StatusFloatBar（executionPhase）与流式进度卡展示，结束后即移除。
+    const keptBlocks = this.blocks.filter((b) => b.type !== "progress");
+    if (keptBlocks.length !== this.blocks.length) {
+      logger.info("freezeAll: 移除执行中 progress 块（不保留为正文）", {
+        removed: this.blocks.length - keptBlocks.length,
+      });
+      this.blocks = keptBlocks;
+      this.markBlocksDirty();
+    }
     for (const block of this.blocks) {
       block.isStreaming = false;
       // R1: 对 todo 块最终化其整体状态（修复 BUG #11）；仅正常完成时置 done

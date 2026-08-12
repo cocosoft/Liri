@@ -54,8 +54,7 @@ export {
   type ServiceDescriptor,
   type CycleDetectionResult,
 } from './DIContainer';
-/** @deprecated 由 pluginSystem 统一替代 */
-export { PluginSDK, type PluginSDKConfig } from './PluginSDK';
+// J-7 清理：旧版 PluginSDK 双轨已删除（@deprecated 由 pluginSystem 统一替代），re-export 一并移除
 export type { Plugin } from '@modules/plugin-sdk';
 export {
   Coordinator,

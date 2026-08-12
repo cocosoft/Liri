@@ -227,7 +227,10 @@ export async function handleAnalyticsDashboard(
     const toolCounts = new Map<string, number>();
     for (const e of toolEvents) {
       const evt = e as Record<string, unknown>;
+      // 埋点统一写 metadata.tool_name（ToolExecutor/ToolRegistry/QueryEngine 三处一致）；
+      // 早期可能混用 toolName，故两者都读
       const name =
+        ((evt.metadata as Record<string, unknown>)?.tool_name as string) ||
         ((evt.metadata as Record<string, unknown>)?.toolName as string) ||
         (evt.name as string) ||
         'unknown';

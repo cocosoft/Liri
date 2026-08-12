@@ -165,6 +165,7 @@ export interface StreamChunk {
     | "QUOTA_EXCEEDED"
     | "CONNECTION_RESET"
     | "BACKEND_UNREACHABLE"
+    | "PROXY_ERROR"
     | "TIMEOUT";
   /** 后端注入的前端导航/提示元数据（如 create_project 后建议跳转） */
   _meta?: Record<string, unknown>;
@@ -1025,10 +1026,19 @@ export const chatService = {
         }
         // 使用结构化 errorCode 替代字符串匹配 (CS02)
         const errorMessage = e instanceof Error ? e.message : String(e);
+        // 可恢复的流中断类（后端进程仍存活，检查点恢复重连有意义）——并入 CONNECTION_RESET
+        // （2026-08-12 会话排查导出：原仅识别 3 种，ERR_EMPTY_RESPONSE/socket hang up/aborted
+        //   等常见断流落入"其他网络错误"分支 → 不触发重连直接结束对话）
         const isConnectionReset =
           errorMessage.includes("socket connection was closed unexpectedly") ||
           errorMessage.includes("ERR_CONNECTION_RESET") ||
-          errorMessage.includes("net::ERR_INCOMPLETE_CHUNKED_ENCODING");
+          errorMessage.includes("ERR_INCOMPLETE_CHUNKED_ENCODING") ||
+          errorMessage.includes("ERR_EMPTY_RESPONSE") ||
+          errorMessage.includes("ERR_CONNECTION_ABORTED") ||
+          errorMessage.includes("ECONNRESET") ||
+          errorMessage.includes("socket hang up") ||
+          errorMessage.toLowerCase().includes("aborted") ||
+          errorMessage.toLowerCase().includes("network connection was lost");
         if (isConnectionReset) {
           // P0-fix: 中断时失效会话缓存，确保下次切换从后端读取最新消息
           if (sessionId) {
@@ -1046,7 +1056,36 @@ export const chatService = {
           }
           return;
         }
-        // 其他网络错误
+        // 代理软件拦截（Clash/V2Ray 等全局/系统代理劫持 127.0.0.1 是本地开发经典坑）
+        const isProxyInterception =
+          errorMessage.includes("ERR_PROXY_CONNECTION_FAILED") ||
+          errorMessage.includes("ERR_TUNNEL_CONNECTION_FAILED") ||
+          errorMessage.includes("ERR_PROXY_CONNECTION_RESET");
+        if (isProxyInterception) {
+          yield {
+            type: "error",
+            content:
+              "网络请求被代理拦截，请关闭代理软件的全局/系统代理（或添加 127.0.0.1 例外）后重试",
+            errorCode: "PROXY_ERROR",
+          };
+          return;
+        }
+        // 后端不可达（请求未建立：后端未启动/地址错误），重连无意义故不 throw
+        const isBackendUnreachable =
+          errorMessage.includes("ECONNREFUSED") ||
+          errorMessage.includes("Failed to fetch") ||
+          errorMessage.includes("ENOTFOUND") ||
+          errorMessage.toLowerCase().includes("network error") ||
+          errorMessage.toLowerCase().includes("fetch failed");
+        if (isBackendUnreachable) {
+          yield {
+            type: "error",
+            content: "无法连接后端服务，请确认后端已启动后重试",
+            errorCode: "BACKEND_UNREACHABLE",
+          };
+          return;
+        }
+        // 其他网络错误（保留原始消息便于排查）
         yield {
           type: "error",
           content: `网络错误: ${errorMessage}`,

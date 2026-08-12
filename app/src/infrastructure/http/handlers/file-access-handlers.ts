@@ -411,11 +411,8 @@ export async function handleFileResolvePath(
       return;
     }
 
-    const {
-      resolveProjectRoot,
-      resolvePyappHome,
-      containsPathTraversal,
-    } = await import('@modules/core/paths');
+    const { resolveProjectRoot, resolvePyappHome, containsPathTraversal } =
+      await import('@modules/core/paths');
 
     // BUG-C 修复：绝对路径必须验证在文件访问白名单（统一 baseDirs）
     if (path.isAbsolute(rawPath)) {

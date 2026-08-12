@@ -29,12 +29,19 @@ const STEP_STATUS_COLORS: Record<string, string> = {
   failed: "text-red-500",
 };
 
+/** 滚动区高度上限（px）——命令过多时内部滚动，不撑高页面 */
+const STEPS_MAX_HEIGHT = 176; // max-h-44
+
 /**
  * 进度卡片组件
  * 渲染 AI 执行阶段的进度信息：阶段名 + 进度条 + 步骤列表 + 当前描述
+ *
+ * 高度治理：步骤列表随命令累积只增不减，若不加限制会把页面撑得很高，
+ * 因此步骤区设固定高度上限 + overflow-y 滚动。
  */
 export default function ProgressCard({ data }: ProgressCardProps) {
-  const { phase, progress, description, steps, currentStep } = data;
+  const { phase, progress, description, steps, currentStep, totalSteps, truncated } =
+    data;
   const phaseInfo = PHASE_LABELS[phase] || { icon: "\u{1F4CC}", label: phase };
 
   return (
@@ -62,30 +69,52 @@ export default function ProgressCard({ data }: ProgressCardProps) {
         </div>
       </div>
 
-      {/* 步骤列表 */}
+      {/* 步骤列表：高度上限 + 滚动（防止命令过多撑高页面） */}
       {steps.length > 0 && (
-        <div className="px-3 py-2 space-y-1">
-          {steps.map((step, idx) => (
-            <div key={idx} className="flex items-center gap-2 text-xs">
+        <div className="px-3 py-2">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-wider">
+              已执行 {totalSteps ?? steps.length} 项
+            </span>
+            {truncated ? (
               <span
-                className={`flex-shrink-0 ${STEP_STATUS_COLORS[step.status] || "text-gray-400"}`}
+                className="text-[10px] text-gray-400 dark:text-gray-500"
+                title="更早的记录已折叠，仅保留最近若干条以减少传输"
               >
-                {STEP_STATUS_ICONS[step.status] || "\u25CB"}
+                仅展示最近 {steps.length} 条
               </span>
-              <span
-                className={`truncate ${
-                  step.status === "in_progress"
-                    ? "text-blue-600 dark:text-blue-400 font-medium"
-                    : "text-gray-600 dark:text-gray-400"
-                }`}
-              >
-                {step.name}
+            ) : steps.length > 6 ? (
+              <span className="text-[10px] text-gray-400 dark:text-gray-500">
+                可滚动查看
               </span>
-              {step.name === currentStep && (
-                <span className="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
-              )}
-            </div>
-          ))}
+            ) : null}
+          </div>
+          <div
+            className="space-y-1 overflow-y-auto pr-1 [scrollbar-width:thin] [scrollbar-color:rgba(148,163,184,0.4)_transparent]"
+            style={{ maxHeight: STEPS_MAX_HEIGHT }}
+          >
+            {steps.map((step, idx) => (
+              <div key={idx} className="flex items-center gap-2 text-xs">
+                <span
+                  className={`flex-shrink-0 ${STEP_STATUS_COLORS[step.status] || "text-gray-400"}`}
+                >
+                  {STEP_STATUS_ICONS[step.status] || "\u25CB"}
+                </span>
+                <span
+                  className={`truncate ${
+                    step.status === "in_progress"
+                      ? "text-blue-600 dark:text-blue-400 font-medium"
+                      : "text-gray-600 dark:text-gray-400"
+                  }`}
+                >
+                  {step.name}
+                </span>
+                {step.name === currentStep && (
+                  <span className="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+                )}
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

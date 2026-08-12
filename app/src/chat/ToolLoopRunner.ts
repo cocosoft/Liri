@@ -236,7 +236,10 @@ export class ToolLoopRunner {
   private toolTurnCount = 0;
   private llmCallCount = 1;
   private lastHeartbeatTime = Date.now();
+  /** 已完成工具名（去重，用于 steps 展示——同一工具多次执行不产生冗余行） */
   private completedToolNames: string[] = [];
+  /** 工具完成总次数（含重复执行，用于 progress 计数） */
+  private totalCompletedToolCount = 0;
   private completedToolCallIds: string[] = [];
 
   // P2（08-09）：非流式模式 + 交互恢复
@@ -480,10 +483,72 @@ export class ToolLoopRunner {
    *  私有方法
    * ================================================================= */
 
+  /** 心跳 steps 上限：仅保留最近 N 条。原实现全量重发 completedToolNames，
+   *  长任务（大量不同工具）时心跳体积线性增长；截断后每条 execution_phase
+   *  仍是自包含快照（增量在断线重连/resume 重建时会丢失），
+   *  由 totalSteps/truncated 字段补偿真实计数与折叠提示。 */
+  private static readonly MAX_HEARTBEAT_STEPS = 30;
+
+  /** 构建心跳 steps（截断到最近 MAX_HEARTBEAT_STEPS 条，从最早的已完成项丢弃，
+   *  正在执行的工具始终保留） */
+  private _buildExecutionSteps(): {
+    steps: { name: string; status: 'done' | 'in_progress' }[];
+    totalSteps: number;
+    truncated: boolean;
+  } {
+    const full: { name: string; status: 'done' | 'in_progress' }[] = [
+      ...this.completedToolNames.map(
+        (name) => ({ name, status: 'done' as const })
+      ),
+      ...this.currentToolCalls.map((tc) => ({
+        name: getToolCallName(tc),
+        status: 'in_progress' as const,
+      })),
+    ];
+    const truncated =
+      full.length > ToolLoopRunner.MAX_HEARTBEAT_STEPS;
+    const steps = truncated
+      ? full.slice(-ToolLoopRunner.MAX_HEARTBEAT_STEPS)
+      : full;
+    // 截断边界日志：仅发生截断时记录（info 默认可见），
+    // 记录丢弃/保留的边界条目，便于排查长任务时 steps 丢失是否预期
+    if (truncated) {
+      logger.info('heartbeat:steps 截断', {
+        sessionId: this.ctx.session.id,
+        totalSteps: full.length,
+        keptSteps: steps.length,
+        droppedSteps: full.length - steps.length,
+        maxSteps: ToolLoopRunner.MAX_HEARTBEAT_STEPS,
+        droppedFirst: full[0]?.name ?? '',
+        droppedLast: full[full.length - steps.length - 1]?.name ?? '',
+        keptFirst: steps[0]?.name ?? '',
+        keptLast: steps[steps.length - 1]?.name ?? '',
+      });
+    }
+    return {
+      steps,
+      totalSteps: full.length,
+      truncated,
+    };
+  }
+
   /** 心跳：每 5 秒 yield execution_phase */
   private async *_heartbeat(): AsyncGenerator<ChatStreamChunk> {
     if (Date.now() - this.lastHeartbeatTime < 5000) return;
     this.lastHeartbeatTime = Date.now();
+
+    const { steps, totalSteps, truncated } = this._buildExecutionSteps();
+
+    // 心跳发送日志（debug，默认不刷屏；排查时开启 DEBUG 级别可观察每次推送）
+    logger.debug('heartbeat:execution_phase 发送', {
+      sessionId: this.ctx.session.id,
+      totalSteps,
+      keptSteps: steps.length,
+      truncated,
+      progress: this.totalCompletedToolCount,
+      inProgress: this.currentToolCalls.length,
+      currentStep: getToolCallName(this.currentToolCalls[0]) || '',
+    });
 
     yield {
       type: 'execution_phase',
@@ -493,18 +558,12 @@ export class ToolLoopRunner {
       sessionId: this.ctx.session.id,
       executionPhase: {
         phase: 'implementing' as const,
-        progress: this.completedToolNames.length,
+        // progress 用执行总次数（含重复），与展示去重的 completedToolNames 分离
+        progress: this.totalCompletedToolCount,
         description: '正在执行工具调用',
-        steps: [
-          ...this.completedToolNames.map((name) => ({
-            name,
-            status: 'done' as const,
-          })),
-          ...this.currentToolCalls.map((tc) => ({
-            name: getToolCallName(tc),
-            status: 'in_progress' as const,
-          })),
-        ],
+        steps,
+        totalSteps,
+        truncated,
         currentStep: getToolCallName(this.currentToolCalls[0]) || '',
       },
     } as ChatStreamChunk;
@@ -629,7 +688,12 @@ export class ToolLoopRunner {
         result: toolResult,
       });
 
-      this.completedToolNames.push(toolName);
+      // 次生问题1 修复：completedToolNames 去重（原实现不判重，
+      // 同一工具执行 N 次 steps 里出现 N 行相同名称）；执行总次数独立计数
+      if (!this.completedToolNames.includes(toolName)) {
+        this.completedToolNames.push(toolName);
+      }
+      this.totalCompletedToolCount++;
 
       // pendingApproval 工具不算完成
       const isPendingApproval =
@@ -888,7 +952,11 @@ export class ToolLoopRunner {
         | ((content: string) => void)
         | undefined;
       onStream?.(cleanToolContent);
-      yield cleanToolContent;
+      // 2026-08-12 修复：不再 yield 整轮完整文本（cleanToolContent）——
+      // 上方已按 P0-C 增量 yield 每个文本 chunk（用户可见输出已完整），
+      // 完整文本二次下发在主链路被忽略（无副作用的冗余），但在断线恢复路径
+      // （serializeResumeChunk 将 string 序列化为 text）会导致前端对同一段文本
+      // addText 两次 → 历史/检查点出现重复内容。onStream 保留供内部累积。
 
       this.ctx.recordChatResponseUsage(
         this.ctx.session.id,

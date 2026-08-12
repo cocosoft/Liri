@@ -188,8 +188,31 @@ export async function processChunk(
       progress: ep.progress || 0,
       description: ep.description || "",
       steps: (ep.steps as import("../../types").ProgressData["steps"]) || [],
+      totalSteps: ep.totalSteps,
+      truncated: ep.truncated,
       currentStep: ep.currentStep || "",
     };
+    // 心跳接收日志：截断时 info（默认可见）记录真实计数与保留条数，
+    // 与后端 heartbeat:steps 截断 日志对应，排查边界情况
+    const receivedSteps = progressData.steps.length;
+    if (ep.truncated) {
+      logger.info("execution_phase 收到（steps 已截断）", {
+        phase: progressData.phase,
+        totalSteps: ep.totalSteps ?? receivedSteps,
+        keptSteps: receivedSteps,
+        droppedSteps: (ep.totalSteps ?? receivedSteps) - receivedSteps,
+        progress: ep.progress,
+        currentStep: ep.currentStep ?? "",
+      });
+    } else {
+      logger.debug("execution_phase 收到", {
+        phase: progressData.phase,
+        totalSteps: ep.totalSteps ?? receivedSteps,
+        steps: receivedSteps,
+        progress: ep.progress,
+        currentStep: ep.currentStep ?? "",
+      });
+    }
     set({
       executionPhase: {
         phase: progressData.phase,
@@ -249,7 +272,9 @@ export async function processChunk(
         skipDefault = true;
       } else if (args?.action === "update") {
         // 实时更新单个任务状态：从 tool_call 参数中提取变更并应用到 todo block
-        const taskId = String(args.todoId ?? args.id ?? "");
+        // T1 修复：工具 schema（TodoWriteTool.params）定义的是 todo_id，
+        // 原实现读 todoId 取到空串 → updateTodoTask("") 静默 no-op，任务卡永远停在"等待中"
+        const taskId = String(args.todo_id ?? args.todoId ?? args.id ?? "");
         if (taskId) {
           const updates: Partial<{
             status: import("../../types").TaskCardTask["status"];

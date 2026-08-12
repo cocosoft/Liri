@@ -91,7 +91,13 @@ export interface TaskCardData {
 export interface TaskCardTask {
   id: string;
   name: string;
-  status: "pending" | "in_progress" | "completed" | "failed" | "blocked";
+  status:
+    | "pending"
+    | "in_progress"
+    | "completed"
+    | "failed"
+    | "blocked"
+    | "skipped";
   dependsOn: string[];
   result?: string;
   durationMs?: number;
@@ -107,6 +113,10 @@ export interface ProgressData {
     name: string;
     status: "pending" | "in_progress" | "done" | "failed";
   }[];
+  /** 完整步骤数（后端截断前），用于显示真实计数 */
+  totalSteps?: number;
+  /** 后端是否截断了旧步骤（仅保留最近 N 条） */
+  truncated?: boolean;
   currentStep: string;
 }
 

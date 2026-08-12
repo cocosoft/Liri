@@ -182,6 +182,10 @@ export interface ExecutionPhaseData {
     name: string;
     status: 'pending' | 'in_progress' | 'done' | 'failed';
   }[];
+  /** 完整 steps 条目数（截断前），供前端显示真实计数 */
+  totalSteps?: number;
+  /** 是否因超长被截断（仅保留最近 N 条，见 ToolLoopRunner.MAX_HEARTBEAT_STEPS） */
+  truncated?: boolean;
   currentStep?: string;
 }
 

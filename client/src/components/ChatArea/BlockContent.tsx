@@ -7,6 +7,7 @@
  */
 import React from "react";
 import katex from "katex";
+import DOMPurify from "dompurify";
 import type { RenderedBlock } from "../../utils/markdownParser";
 import CodeBlock from "./CodeBlock";
 
@@ -51,8 +52,11 @@ const BlockContent = React.memo(
           return (
             <div
               className="my-4 text-center"
+              // #4 修复：math 块 KaTeX 输出统一 sanitize（KaTeX 支持 \href 等指令）
               dangerouslySetInnerHTML={{
-                __html: renderedFormula,
+                __html: DOMPurify.sanitize(
+                  renderedFormula,
+                ) as unknown as string,
               }}
             />
           );

@@ -74,12 +74,15 @@ async function resolveWorkMode(): Promise<"plan" | "do" | undefined> {
 }
 
 /**
- * 重新生成上一条 AI 回复：
- * 找到 AI 消息之前的最后一条用户消息，重新发送
+ * 重新生成指定 AI 回复（#2 修复）：
+ * 原实现忽略点击哪条、永远找"最后一条 user 消息"截断重发——对历史消息点
+ * 重新生成会误删其后所有对话（数据丢失），且重发的是最后一条回复。
+ * 现在基于点击的 assistant 消息 id 定位其前置用户消息，只截断到该条。
  */
 export async function regenerateMessageImpl(
   set: MessageSet,
   get: MessageGet,
+  assistantMsgId?: string,
   sessionId?: string,
 ): Promise<void> {
   const { messages, isStreaming } = get();
@@ -92,17 +95,31 @@ export async function regenerateMessageImpl(
 
   if (messages.length < 2) return;
 
-  // 找到最后一条 user 消息
-  let lastUserIdx = -1;
-  for (let i = messages.length - 1; i >= 0; i--) {
-    if (messages[i].role === "user") {
-      lastUserIdx = i;
-      break;
+  // 定位目标用户消息：优先基于点击的 assistant 消息向前找
+  let targetUserIdx = -1;
+  if (assistantMsgId) {
+    const aiIdx = messages.findIndex((m) => m.id === assistantMsgId);
+    if (aiIdx !== -1) {
+      for (let i = aiIdx - 1; i >= 0; i--) {
+        if (messages[i].role === "user") {
+          targetUserIdx = i;
+          break;
+        }
+      }
     }
   }
-  if (lastUserIdx === -1) return;
+  // 兼容未传 assistantMsgId 的调用方：回退到最后一条 user 消息
+  if (targetUserIdx === -1) {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role === "user") {
+        targetUserIdx = i;
+        break;
+      }
+    }
+  }
+  if (targetUserIdx === -1) return;
 
-  const userMsg = messages[lastUserIdx];
+  const userMsg = messages[targetUserIdx];
   const content = typeof userMsg.content === "string" ? userMsg.content : "";
 
   // 边界条件2：空消息不重新生成
@@ -118,8 +135,8 @@ export async function regenerateMessageImpl(
     prevController.abort();
   }
 
-  // 移除最后一条 assistant 及之后的所有消息（含可能的部分生成空消息），然后重新发送
-  const truncated = messages.slice(0, lastUserIdx + 1);
+  // 移除目标 user 消息之后的 AI 回复（含可能的部分生成空消息），然后重新发送
+  const truncated = messages.slice(0, targetUserIdx + 1);
   const nextControllers = removeStreamController(get().streamControllers, sid);
   set({
     messages: truncated,

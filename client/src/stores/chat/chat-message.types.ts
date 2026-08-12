@@ -62,8 +62,12 @@ export interface MessageSlice {
     attachedImages?: AttachedImage[],
     existingUserMessageId?: string,
   ) => Promise<void>;
-  /** 重新生成上一条 AI 消息 */
-  regenerateMessage: (sessionId?: string) => Promise<void>;
+  /** #2 修复：重新生成指定 AI 消息（传入点击的 assistant 消息 id），
+   *  原实现忽略点击哪条、永远重发最后一条且误删其后对话 */
+  regenerateMessage: (
+    assistantMsgId: string,
+    sessionId?: string,
+  ) => Promise<void>;
   /** 在出错后重试（传入出错的 assistant 消息 ID，内部找到前置用户消息重新发送） */
   retryFromError: (assistantMsgId: string, sessionId?: string) => Promise<void>;
   clearMessages: () => void;

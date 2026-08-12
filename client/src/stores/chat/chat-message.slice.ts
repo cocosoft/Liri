@@ -130,8 +130,16 @@ export const createMessageSlice: StateCreator<
       );
     },
 
-    regenerateMessage: async (sessionId?: string) => {
-      await regenerateMessageImpl(messageSet, messageGet, sessionId);
+    regenerateMessage: async (
+      assistantMsgId: string,
+      sessionId?: string,
+    ) => {
+      await regenerateMessageImpl(
+        messageSet,
+        messageGet,
+        assistantMsgId,
+        sessionId,
+      );
     },
 
     retryFromError: async (assistantMsgId: string, sessionId?: string) => {

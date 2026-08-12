@@ -135,17 +135,25 @@ export async function streamMessageImpl(
   };
 
   if (needCreateUserMessage) {
+    // #1 修复：流式路径消费 pendingReplyToId——原实现只有非流式 sendMessageImpl
+    // 读取它，回复功能（replyToId/被回复标记/引用跳转）在默认流式路径整体失效。
+    const pendingReplyId = get().pendingReplyToId;
     userMessage = {
       id: crypto.randomUUID(),
       role: "user",
       content,
       timestamp: Date.now(),
       session_id: sessionId || "default",
+      replyToId: pendingReplyId || undefined,
       attachedImages:
         attachedImages && attachedImages.length > 0
           ? attachedImages
           : undefined,
     };
+    // 使用后清除（与 sendMessageImpl 一致）
+    if (pendingReplyId) {
+      set({ pendingReplyToId: null });
+    }
     set({ messages: [...get().messages, userMessage, assistantMessage] });
   } else {
     // 复用场景：用户消息已存在（截断后保留），仅追加 assistant 消息

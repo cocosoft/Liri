@@ -7,6 +7,20 @@ import DOMPurify from "dompurify";
 /** 检测文本是否包含中文字符，含中文的 $...$ 内容不应走 KaTeX 解析 */
 const CONTAINS_CHINESE_RE = /[\u4e00-\u9fa5]/;
 
+/**
+ * #3 修复：链接/图片 URL 协议白名单。
+ * 行内链接 pattern 原直接把 match[2] 作为 href，`[x](javascript:alert(1))`
+ * 会渲染为可点击链接（React 不阻止 javascript: 协议，rel=noopener 只防 opener）。
+ * 允许：http/https/mailto + 相对路径 + file://（应用自身的本地文件引用）；
+ * 拒绝：javascript:/data:/vbscript: 等执行类/嵌入类协议。
+ */
+function isSafeUrl(raw: string): boolean {
+  const url = raw.trim();
+  if (!url) return false;
+  if (/^(\.{0,2}\/|\.\.\/|#|file:\/\/)/i.test(url)) return true;
+  return /^(https?:|mailto:)/i.test(url);
+}
+
 /** 诊断：统计 KaTeX 调用次数和中文拦截次数 */
 let _diagKatexCalls = 0;
 let _diagChineseBlocks = 0;
@@ -210,32 +224,51 @@ function MarkdownRenderer({
             imgSrc = stripped[1];
           }
           const imgAlt = match[1] || "";
-          parts.push(
-            <img
-              key={key++}
-              src={imgSrc}
-              alt={imgAlt}
-              className="max-w-full h-auto rounded-lg my-2 cursor-pointer hover:opacity-90 transition-opacity"
-              loading="lazy"
-              onClick={() => onPreviewFile?.(imgSrc)}
-              onError={(e) => {
-                // 加载失败时显示为链接文本
-                (e.target as HTMLImageElement).style.display = "none";
-              }}
-            />,
-          );
+          if (isSafeUrl(imgSrc)) {
+            parts.push(
+              <img
+                key={key++}
+                src={imgSrc}
+                alt={imgAlt}
+                className="max-w-full h-auto rounded-lg my-2 cursor-pointer hover:opacity-90 transition-opacity"
+                loading="lazy"
+                onClick={() => onPreviewFile?.(imgSrc)}
+                onError={(e) => {
+                  // 加载失败时显示为链接文本
+                  (e.target as HTMLImageElement).style.display = "none";
+                }}
+              />,
+            );
+          } else {
+            // #3 修复：危险协议（data:/javascript: 等）不加载，降级为 alt 文本
+            parts.push(
+              <span key={key++} className="text-gray-700 dark:text-gray-300">
+                {imgAlt}
+              </span>,
+            );
+          }
         } else if (pattern.tag === "link") {
-          parts.push(
-            <a
-              key={key++}
-              href={match[2]}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-blue-500 hover:underline"
-            >
-              {match[1]}
-            </a>,
-          );
+          const linkHref = match[2];
+          if (isSafeUrl(linkHref)) {
+            parts.push(
+              <a
+                key={key++}
+                href={linkHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-500 hover:underline"
+              >
+                {match[1]}
+              </a>,
+            );
+          } else {
+            // #3 修复：危险协议（javascript: 等）降级为纯文本，不渲染可点击链接
+            parts.push(
+              <span key={key++} className="text-gray-700 dark:text-gray-300">
+                {match[1]} ({linkHref})
+              </span>,
+            );
+          }
         } else if (pattern.tag === "url") {
           const url = match[0];
           parts.push(
@@ -336,7 +369,12 @@ function MarkdownRenderer({
             <span
               key={key}
               className="inline-block"
-              dangerouslySetInnerHTML={{ __html: renderedFormula }}
+              // #4 修复：尾段 KaTeX 输出此前直接裸插，统一走 DOMPurify
+              dangerouslySetInnerHTML={{
+                __html: DOMPurify.sanitize(
+                  renderedFormula,
+                ) as unknown as string,
+              }}
             />,
           );
         } else {

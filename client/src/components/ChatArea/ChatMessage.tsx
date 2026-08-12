@@ -197,7 +197,8 @@ const ChatMessageMemo = memo(
     };
 
     const handleRegenerate = () => {
-      regenerateMessage(message.session_id);
+      // #2 修复：传点击的 assistant 消息 id，重新生成该条而非永远最后一条
+      regenerateMessage(message.id, message.session_id);
     };
 
     const handleRetry = () => {
@@ -809,6 +810,10 @@ const ChatMessageMemo = memo(
     // 自定义比较器：仅当消息实际内容变化时重渲染
     if (prevProps.message.id !== nextProps.message.id) return false;
     if (prevProps.isStreaming !== nextProps.isStreaming) return false;
+    // #6 修复：补 hasReplies 比较——原比较器漏掉它，某消息从"无回复"变为
+    // "有回复"（replyToId 指向它）时若自身 blocks/content 未变则跳过重渲染，
+    // "被回复"标记不出现
+    if (prevProps.hasReplies !== nextProps.hasReplies) return false;
     if (prevProps.message.content !== nextProps.message.content) return false;
     if (prevProps.message.role !== nextProps.message.role) return false;
     // blocks 长度变化说明有新 block 追加，引用变化说明 block 内部状态更新（如 isStreaming）

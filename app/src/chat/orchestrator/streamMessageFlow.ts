@@ -90,6 +90,8 @@ export async function* runStreamMessage(
   // P2-3.5: 流式消息预处理
   const ctx = await _prepareStreamSession(content, options);
   const session = ctx.session;
+  // 1.6：流式开始时间（落盘 startedAt，导出显示开始时间+耗时）
+  const streamStartedAt = new Date();
 
   // P2（08-09）：普通对话轻量检查点（try 外声明，finally 可访问）
   const plainTextCheckpoint = new PlainTextCheckpoint(
@@ -543,6 +545,7 @@ export async function* runStreamMessage(
 
     // 创建助手消息
     assistantMessage = pipeline.createAssistantMessage(finalContent);
+    assistantMessage.startedAt = streamStartedAt; // 1.6：回填流式开始时间（createdAt 为完成时间）
 
     // 管线 — 记忆提取 + 路径校验 + post hooks
     await pipeline.postProcess(ctx.content);
@@ -707,9 +710,7 @@ export async function* runStreamMessage(
 }
 
 /**
- * 将工具执行异常转换为用户友好提示（原 ChatManager 模块级函数迁移）。
- * 过滤 OpenAI SDK / fetch 级别的技术错误（如 socket 关闭），
- * 避免向用户暴露底层实现细节。
+ * 工具执行异常 → 用户友好提示（过滤 OpenAI SDK/fetch 级技术错误，不暴露实现细节）
  */
 function getToolExecErrorMessage(err: unknown): string {
   if (!(err instanceof Error)) {
@@ -794,6 +795,5 @@ function getToolExecErrorMessage(err: unknown): string {
     return '连接 AI 服务失败，请检查网络后重试';
   }
 
-  // 超过 200 字符的未知错误也截断
   return `工具执行异常: ${msg.slice(0, 200)}`;
 }

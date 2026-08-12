@@ -7,9 +7,9 @@
  */
 
 import { createHash } from 'crypto';
-import { Logger, LogLevel } from '../monitoring/logs/Logger.js';
+import { createLogger, LogLevel } from '../monitoring/logs/Logger.js';
 
-const logger = new Logger({
+const logger = createLogger({
   module: 'config:runtimeConfigSnapshot',
   level: LogLevel.DEBUG,
 });

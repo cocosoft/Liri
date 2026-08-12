@@ -75,8 +75,9 @@ const isTaskEventForCurrentSession = (
 ): boolean => {
   const sid = data.sessionId as string | undefined;
   if (!sid) return false;
-  const msg = useChatStore.getState().messages[0];
-  return msg?.session_id === sid;
+  // AB-22 修复：messages[0] 在列表为空（新会话尚无消息）或首条消息非目标会话时误判；
+  // 改用 some() 检查该会话消息是否在 store 中（与 messages:deleted 处理模式一致）
+  return useChatStore.getState().messages.some((m) => m.session_id === sid);
 };
 
 sseService.on("task:progress", (data: Record<string, unknown>) => {

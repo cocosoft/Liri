@@ -34,10 +34,10 @@
  *   6. OTel Exporter 失败: OTLP 连续失败 5 次 → P2
  */
 
-import { Logger, LogLevel } from '../logs/Logger';
+import { createLogger, LogLevel } from '../logs/Logger';
 import { globalEventBus } from '../../core/events/EventBus';
 
-const logger = new Logger({
+const logger = createLogger({
   module: 'monitoring:alerts',
   level: LogLevel.WARN,
 });

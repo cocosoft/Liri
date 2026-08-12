@@ -14,9 +14,9 @@ import type {
   ImageGenerationResult,
 } from '../../ai/providers/AIProvider';
 import type { GenerationCacheConfig } from './types';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { createLogger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({
+const logger = createLogger({
   level: LogLevel.DEBUG,
   module: 'tools:imageGenerate',
 });

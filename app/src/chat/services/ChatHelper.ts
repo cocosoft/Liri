@@ -288,6 +288,8 @@ export async function persistChatMessage(
         ? message.content
         : JSON.stringify(message.content),
     timestamp: message.createdAt?.getTime() ?? Date.now(),
+    // 1.6：流式开始时间随消息落盘（与 timestamp 完成时间区分）
+    startedAt: message.startedAt?.getTime(),
     metadata: metadataObj,
     blocks: message.blocks as unknown as FrontendMessageBlock[] | undefined,
     // AB-11 修复：finishReason 随消息落盘，全量刷新后前端可区分截断/错误/正常

@@ -4,7 +4,7 @@
  * 采用异步模式：beginAsyncToolCall → Agent 执行 → finishAsyncToolCall + sendToolResult
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 import type { VoiceToolCallEvent, VoiceToolDeclaration } from './types';
 
@@ -28,7 +28,7 @@ export type ToolResultCallback = (callId: string, output: string) => void;
 export type ToolProgressCallback = (callId: string, summary: string) => void;
 
 export class VoiceToolBridge {
-  private logger = new Logger({ level: LogLevel.INFO });
+  private logger = getLogger('voice:tool-bridge');
 
   /** 工具声明缓存 */
   private declarations: VoiceToolDeclaration[] = [];

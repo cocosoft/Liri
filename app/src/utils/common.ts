@@ -1,6 +1,6 @@
-import { Logger } from '../monitoring/logs/Logger';
+import { getLogger } from '../monitoring/logs/Logger';
 
-const logger = new Logger({ level: 'info' as any });
+const logger = getLogger('utils:common');
 
 export function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));

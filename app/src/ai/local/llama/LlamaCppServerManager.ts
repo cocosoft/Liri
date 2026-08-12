@@ -35,6 +35,7 @@ import { createHash } from 'crypto';
 import { existsSync, mkdirSync, readdirSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import AdmZip from 'adm-zip';
+import { configManager } from '@modules/config';
 import { getLogger } from '@modules/monitoring';
 import {
   AppError,
@@ -411,8 +412,8 @@ export class LlamaCppServerManager {
   /** 合并配置：configProvider → 环境变量 LLAMA_CPP_PORT/LLAMA_CPP_MODEL → 默认值 */
   reloadConfig(): void {
     const user = this.configProvider() ?? {};
-    const envPort = Number(process.env.LLAMA_CPP_PORT);
-    const envModel = process.env.LLAMA_CPP_MODEL;
+    const envPort = Number(configManager.env('LLAMA_CPP_PORT'));
+    const envModel = configManager.env('LLAMA_CPP_MODEL');
     this.config = {
       host: String(user.host ?? DEFAULT_CONFIG.host),
       port:

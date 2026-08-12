@@ -14,7 +14,7 @@ import { TraceEngine } from './engine/TraceEngine';
 import { LiveViewServer } from './live/LiveViewServer';
 import { ViewerService } from './viewer/ViewerService';
 import { ExportService } from './export/ExportService';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { createLogger, LogLevel } from '@modules/monitoring';
 import type {
   TraceRecord,
   TraceConfig,
@@ -23,7 +23,7 @@ import type {
   MonitoringDeps,
 } from './types';
 
-const traceLogger = new Logger({
+const traceLogger = createLogger({
   module: 'trace-recording',
   level: LogLevel.INFO,
   source: 'llm',

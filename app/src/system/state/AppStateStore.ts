@@ -11,13 +11,13 @@ import {
   StateChangeListener,
   StateUpdater,
 } from './AppState';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { Logger, getLogger as getModuleLogger } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 let _logger: Logger | null = null;
 function getLogger(): Logger {
   if (!_logger) {
-    _logger = new Logger({ level: LogLevel.INFO });
+    _logger = getModuleLogger('system:state');
   }
   return _logger;
 }

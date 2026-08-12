@@ -4,7 +4,7 @@
  * 实现 VoiceProviderAdapter 接口，对接 Gemini BidiGenerateContent API
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { randomUUID } from 'crypto';
 import type {
@@ -49,7 +49,7 @@ interface ModelTurnPart {
 }
 
 export class GeminiLiveAdapter implements VoiceProviderAdapter {
-  private logger = new Logger({ level: LogLevel.INFO });
+  private logger = getLogger('voice:gemini-live');
   private ws: WebSocket | null = null;
   private config: GeminiLiveConfig;
   private sendToClient: ((event: VoiceServerEvent) => void) | null = null;

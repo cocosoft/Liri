@@ -29,6 +29,7 @@
  * - CHANNEL_RATE_LIMIT_REFILL_MS = 补充一个 token 的间隔（默认 60000，即 1 条/分钟）
  */
 
+import { configManager } from '@modules/config';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('channels:routing:rate-limiter');
 
@@ -39,12 +40,12 @@ interface TokenBucket {
 
 /** 桶容量（burst 上限） */
 const BUCKET_CAPACITY = parseInt(
-  process.env.CHANNEL_RATE_LIMIT_CAPACITY || '10',
+  configManager.env('CHANNEL_RATE_LIMIT_CAPACITY') || '10',
   10
 );
 /** 补充速率：每 REFILL_MS 恢复一个 token */
 const REFILL_MS = parseInt(
-  process.env.CHANNEL_RATE_LIMIT_REFILL_MS || '60000',
+  configManager.env('CHANNEL_RATE_LIMIT_REFILL_MS') || '60000',
   10
 );
 
@@ -69,7 +70,7 @@ setInterval(() => {
  * @returns true=放行，false=触发限流
  */
 export function checkRateLimit(channel: string, sender: string): boolean {
-  if (process.env.CHANNEL_RATE_LIMIT_ENABLED === 'false') return true;
+  if (configManager.env('CHANNEL_RATE_LIMIT_ENABLED') === 'false') return true;
 
   const key = `${channel}:${sender}`;
   const now = Date.now();

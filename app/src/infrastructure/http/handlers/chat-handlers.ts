@@ -325,13 +325,18 @@ async function handleStreamingChat(
     }
   }, 15000);
 
+  // AB-25 修复：会话 ID 兜底 — request.session_id 可能缺失（旧协议/异常请求），
+  // 流 chunk 的 sessionId（ChatManager 实际会话 ID，_sessionAbortControllers 的键）
+  // 到达后回填，保证 close 时能按真实会话 ID 中止流，避免互斥锁泄漏
+  let activeSessionId = request.session_id;
+
   // S1: 客户端断开时通知后端中止工具执行 — 补全 close → AbortController 链路
   res.on('close', () => {
     clearInterval(keepaliveInterval);
     streamSpan.addEvent('sse.client.disconnected');
-    if (request.session_id) {
+    if (activeSessionId) {
       try {
-        getCoreAPI().chatManager?.abortSessionStream(request.session_id);
+        getCoreAPI().chatManager?.abortSessionStream(activeSessionId);
       } catch {
         // 静默处理 — coreAPI 可能尚未初始化
       }
@@ -502,7 +507,7 @@ async function handleStreamingChat(
         // 否则 streamMessage 的会话互斥锁（SimpleMutex）永不释放，
         // 后续同一会话请求会 SimpleMutex: acquire timeout after 30000ms。
         try {
-          coreAPI.chatManager?.abortSessionStream(request.session_id ?? '');
+          coreAPI.chatManager?.abortSessionStream(activeSessionId ?? '');
         } catch {
           // @ignore-catch — 中止操作本身不应抛出；即使失败也继续关闭生成器
         }
@@ -513,6 +518,8 @@ async function handleStreamingChat(
         break;
       }
       const chunk = result.value as ChatStreamChunk;
+      // AB-25：用流内真实会话 ID 回填（chunk.sessionId 恒为 ChatManager 会话 ID）
+      if (chunk.sessionId) activeSessionId = chunk.sessionId;
 
       switch (chunk.type) {
         case 'text':

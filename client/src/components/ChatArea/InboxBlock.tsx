@@ -8,6 +8,9 @@ import { useState } from "react";
 import type { InboxBlockData } from "../../types";
 import { http } from "../../services/httpClient";
 import { useToastStore } from "../../stores/toastStore";
+import { createLogger } from "@/utils/logger";
+
+const logger = createLogger("components:inboxBlock");
 
 interface Props {
   data: InboxBlockData;
@@ -117,15 +120,27 @@ export default function InboxBlock({ data, sessionId, onResolved }: Props) {
    * @returns 是否已通过后端续跑（false 时调用方需降级触发）
    */
   async function tryResumeAfterApproval(sid: string): Promise<boolean> {
-    const base = (
-      await import("../../services/backendUrl")
-    ).getBackendBaseUrl();
-    const latestResp = await fetch(
-      `${base}/v1/sessions/${sid}/checkpoints/latest`,
-    );
-    if (!latestResp.ok) return false;
-    const latest = await latestResp.json();
-    if (!latest.checkpointAvailable) return false;
+    let checkpointAvailable = false;
+    try {
+      const base = (
+        await import("../../services/backendUrl")
+      ).getBackendBaseUrl();
+      const latestResp = await fetch(
+        `${base}/v1/sessions/${sid}/checkpoints/latest`,
+      );
+      if (!latestResp.ok) return false;
+      const latest = await latestResp.json();
+      checkpointAvailable = !!latest.checkpointAvailable;
+    } catch (e) {
+      // 检查点查询失败（后端未就绪/网络异常）→ 返回 false 让调用方降级 sendMessage 续跑，
+      // 不抛异常（此前 fetch 异常直接上抛被 handleAction catch 吞掉，降级分支被跳过）
+      logger.warn("检查点查询失败，降级 sendMessage 续跑", {
+        sessionId: sid,
+        error: e instanceof Error ? e.message : String(e),
+      });
+      return false;
+    }
+    if (!checkpointAvailable) return false;
 
     const { sessionService } = await import("../../services/sessionService");
     const { useChatStore } = await import("../../stores/chat");

@@ -8,7 +8,7 @@
  */
 
 import { EventBusImpl } from '@modules/core';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 import type {
   VoiceClientEvent,
@@ -30,7 +30,7 @@ export class VoiceEventBus
   extends EventBusImpl
   implements VoiceEventBusInterface
 {
-  private logger = new Logger({ level: LogLevel.INFO });
+  private logger = getLogger('voice:event-bus');
 
   /** 状态变更处理器 —— 与 VoiceSessionState 状态机耦合，保留在领域层 */
   private stateChangeHandlers: Set<VoiceStateChangeHandler> = new Set();

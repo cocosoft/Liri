@@ -2,7 +2,7 @@
  * CheckpointLogConfig — 检查点日志门控（共享模块）
  *
  * P2（08-09）：从 config.json 读取 checkpointLog 配置，
- * 替代 process.env.ENABLE_CHECKPOINT_LOG，支持前端 UI 动态开关。
+ * 替代旧的环境变量 ENABLE_CHECKPOINT_LOG，支持前端 UI 动态开关。
  *
  * 所有检查点模块（PlainTextCheckpoint / StreamingAutoCheckpoint /
  * SessionCheckpointService / DBTAORCheckpointStorage / ChatManager）

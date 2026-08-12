@@ -811,6 +811,14 @@ export class ToolLoopRunner {
           const chunk = toolResultIter.value as string | ThinkingProviderChunk;
           if (typeof chunk === 'string') {
             roundContent += chunk;
+            // P0-C 修复：工具轮 LLM 文本增量 yield（对齐 AB-16 主回复增量 SSE）——
+            // 每次 LLM 调用结果独立成 text 块即时可见，不再聚合单块延迟显示。
+            // roundContent 仍累积供残缺工具调用检测/下一轮消息构建使用。
+            yield {
+              type: 'text',
+              content: chunk,
+              sessionId: this.ctx.session.id,
+            } as ChatStreamChunk;
           } else if (chunk?.type === 'thinking') {
             yield {
               type: 'thinking',

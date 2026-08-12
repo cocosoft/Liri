@@ -213,40 +213,7 @@ function ChatArea({ fluid = false }: { fluid?: boolean }) {
     <div className="flex-1 relative bg-gray-50 dark:bg-gray-900 flex flex-col min-h-0">
       <div ref={containerRef} className="flex-1 min-h-0 overflow-y-auto">
         <div ref={contentRef}>
-          {/* 错误提示 */}
-          {displayError && (
-            <div className="m-4 p-4 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-xl flex items-start gap-3">
-              <span className="text-red-500 dark:text-red-400 flex-shrink-0 mt-0.5">
-                ⚠
-              </span>
-              <div className="flex-1 min-w-0">
-                <span className="text-sm text-red-700 dark:text-red-300 block">
-                  {displayError}
-                </span>
-                <div className="flex items-center gap-2 mt-2">
-                  <button
-                    onClick={() => useBackendStore.getState().checkStatus()}
-                    className="text-xs px-2 py-1 rounded bg-red-100 dark:bg-red-800/50 text-red-600 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-700/50 transition-colors"
-                  >
-                    🔄 {t("common.retry")}
-                  </button>
-                  <button
-                    onClick={() => navigator.clipboard.writeText(displayError)}
-                    className="text-xs px-2 py-1 rounded bg-red-100 dark:bg-red-800/50 text-red-600 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-700/50 transition-colors"
-                  >
-                    📋 {t("chat.copyMessage")}
-                  </button>
-                </div>
-              </div>
-              <button
-                onClick={handleDismissError}
-                className="text-red-400 hover:text-red-600 dark:hover:text-red-200 flex-shrink-0"
-                title={t("common.close")}
-              >
-                ✕
-              </button>
-            </div>
-          )}
+          {/* 错误提示（1.10-4：删除文档流重复渲染，保留底部绝对定位浮层版本，始终可见） */}
 
           {/* 导航建议：create_project 完成后提示跳转 */}
           {navSuggestion && (
@@ -345,7 +312,7 @@ function ChatArea({ fluid = false }: { fluid?: boolean }) {
       {/* 回到底部按钮：复用已有样式，检测 isUserScrolledUp 后渐显，移动端避开 MobileBottomNav */}
       {isUserScrolledUp && distanceFromBottom > 200 && (
         <button
-          onClick={scrollToBottom}
+          onClick={() => scrollToBottom()}
           aria-label={t("chat.scrollToBottom")}
           role="button"
           className="absolute bottom-28 right-6 z-10 w-10 h-10 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full shadow-lg flex items-center justify-center hover:bg-gray-50 dark:hover:bg-gray-700 transition-all max-md:bottom-32 opacity-80 hover:opacity-100"

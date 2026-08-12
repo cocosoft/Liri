@@ -253,7 +253,7 @@ export class LongRunningTaskOrchestrator {
     logger.info('[orchestrator] TAORLoop 已注入', {
       taskId: this.taskId,
       hasTAORLoop: !!this.taorLoop,
-      envEnabled: process.env.ENABLE_LOOP_V8_PHASE2,
+      envEnabled: configManager.env('ENABLE_LOOP_V8_PHASE2'),
     });
   }
 
@@ -483,7 +483,7 @@ export class LongRunningTaskOrchestrator {
       stepId: step.id,
       stepDesc: step.description.slice(0, 80),
       hasTAORLoop: !!this.taorLoop,
-      envEnabled: process.env.ENABLE_LOOP_V8_PHASE2,
+      envEnabled: configManager.env('ENABLE_LOOP_V8_PHASE2'),
       hasAcceptanceCriteria: !!step.acceptanceCriteria,
       hasReviewResult: !!step.reviewResult,
       retryCount: step.retryCount,
@@ -514,7 +514,10 @@ export class LongRunningTaskOrchestrator {
       .join('\n\n');
 
     // Phase 2: 委托 TAORLoop 编排（如果已注入且 ENABLE_LOOP_V8_PHASE2 启用）
-    if (this.taorLoop && process.env.ENABLE_LOOP_V8_PHASE2 !== 'false') {
+    if (
+      this.taorLoop &&
+      configManager.env('ENABLE_LOOP_V8_PHASE2') !== 'false'
+    ) {
       logger.info('[orchestrator] 进入 TAORLoop 分支（真实工具执行）', {
         taskId: this.taskId,
         stepId: step.id,
@@ -731,7 +734,7 @@ export class LongRunningTaskOrchestrator {
       taskId: this.taskId,
       stepId: step.id,
       hasTAORLoop: !!this.taorLoop,
-      envEnabled: process.env.ENABLE_LOOP_V8_PHASE2,
+      envEnabled: configManager.env('ENABLE_LOOP_V8_PHASE2'),
     });
     try {
       const executorStart = Date.now();
@@ -1125,7 +1128,7 @@ export class LongRunningTaskOrchestrator {
       taskId: this.taskId,
       sessionId,
       hasTAORLoop: !!this.taorLoop,
-      envEnabled: process.env.ENABLE_LOOP_V8_PHASE2,
+      envEnabled: configManager.env('ENABLE_LOOP_V8_PHASE2'),
       hasOnTaskMessage: !!opts?.onTaskMessage,
       requireApproval,
       descPreview: description.slice(0, 80),

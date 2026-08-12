@@ -21,13 +21,15 @@
  *   LOOP_NO_TOOL_CALL_CRITICAL — no_tool_call 阻断阈值，默认 5
  */
 
+import { configManager } from '@modules/config';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('query:loopConfig');
 
 // ─── 全局 observeOnly 模式 ─────────────────────────────
 
 /** 全局 observeOnly 模式（不阻断，仅记录日志） */
-export const LOOP_OBSERVE_ONLY = process.env.LOOP_OBSERVE_ONLY === 'true';
+export const LOOP_OBSERVE_ONLY =
+  configManager.env('LOOP_OBSERVE_ONLY') === 'true';
 
 // ─── 阈值环境变量 ──────────────────────────────────────
 

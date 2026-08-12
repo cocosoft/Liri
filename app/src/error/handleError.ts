@@ -20,7 +20,7 @@
 // SOFTWARE.
 
 import { AppError, ErrorCategory, ErrorSeverity } from './types';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { createLogger, LogLevel } from '@modules/monitoring';
 import { getOTelTracing } from '../monitoring/otel/OTelTracing.js';
 
 /**
@@ -109,7 +109,7 @@ function recordError(
     appError.severity === ErrorSeverity.CRITICAL ||
     appError.severity === ErrorSeverity.HIGH
   ) {
-    const warnLogger = new Logger({
+    const warnLogger = createLogger({
       level: LogLevel.WARN,
       module: 'error:tracker',
     });
@@ -156,7 +156,10 @@ export async function handleError(
         );
 
   // 2. 日志记录
-  const logger = new Logger({ level: LogLevel.ERROR, module: options.module });
+  const logger = createLogger({
+    level: LogLevel.ERROR,
+    module: options.module,
+  });
   logger.error(
     options.action
       ? `[${options.action}] ${appError.message}`

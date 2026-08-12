@@ -204,7 +204,7 @@ function ToolCallGroup({
                 {typeof toolCall.result === "string"
                   ? (
                       toolCall.result.length +
-                      getToolResultFull(toolCall.id)!.length
+                      (getToolResultFull(toolCall.id)?.length ?? 0)
                     ).toLocaleString()
                   : "?"}{" "}
                 字符）

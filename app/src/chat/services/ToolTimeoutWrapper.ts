@@ -9,6 +9,7 @@
  */
 
 import crypto from 'crypto';
+import { configManager } from '@modules/config';
 import { getLogger } from '@modules/monitoring';
 import { getOTelTracing } from '@modules/monitoring/otel';
 import {
@@ -38,11 +39,12 @@ export async function withToolTimeout(
     'tool.name': toolCall.name,
     'tool.timeoutMs':
       timeoutMs ??
-      (parseInt(process.env.TOOL_EXEC_TIMEOUT_MS || '', 10) || 300_000),
+      (parseInt(configManager.env('TOOL_EXEC_TIMEOUT_MS') || '', 10) ||
+        300_000),
   });
   const effectiveTimeout =
     timeoutMs ??
-    (parseInt(process.env.TOOL_EXEC_TIMEOUT_MS || '', 10) || 300_000);
+    (parseInt(configManager.env('TOOL_EXEC_TIMEOUT_MS') || '', 10) || 300_000);
   let timer: NodeJS.Timeout | undefined;
   return Promise.race([
     executor(),

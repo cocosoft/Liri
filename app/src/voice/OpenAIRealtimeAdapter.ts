@@ -4,7 +4,7 @@
  * 实现 VoiceProviderAdapter 接口，对接 OpenAI Realtime API
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 import type {
   VoiceSessionConfigEvent,
@@ -72,7 +72,7 @@ function createWsWithHeaders(url: string, options: WsOptions): WebSocket {
 }
 
 export class OpenAIRealtimeAdapter implements VoiceProviderAdapter {
-  private logger = new Logger({ level: LogLevel.INFO });
+  private logger = getLogger('voice:openai-realtime');
   private ws: WebSocket | null = null;
 
   private apiKey: string;

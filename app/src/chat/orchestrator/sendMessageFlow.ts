@@ -31,7 +31,6 @@ import { join, isAbsolute, resolve } from 'path';
 import { existsSync } from 'fs';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-import { createSystemMessage } from '../types/message.js';
 import { estimateMessagesTokens } from '../../ai/tokenizer/TokenEstimator';
 import { resolveMaxContextTokens } from '../services/ChatHelper';
 import {
@@ -333,11 +332,9 @@ export async function compactContext(
       stage: 'generating',
       message: displayMsg,
     });
-    const sysMsg = createSystemMessage(
-      `[上下文压缩] ${beforeCompact} → ${afterTokens} tokens（节省 ${savedPercent}%）, 策略: tiered`,
-      { sessionId: session.id }
-    );
-    host.addAndPersistMessage(session.id, sysMsg);
+    // 1.8 修复：压缩提示不再落盘为系统消息——context_state 是流式过程事件
+    // （SSE 层仅作进度提示转发），落盘会污染会话内容与导出文件；压缩记录由
+    // logger + unifiedTracker.recordCompaction 保留，不依赖会话消息。
     host.unifiedTracker.recordCompaction(beforeCompact, afterTokens);
   }
 

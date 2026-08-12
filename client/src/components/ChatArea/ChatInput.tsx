@@ -730,8 +730,16 @@ function ChatInput({ fluid = false }: { fluid?: boolean }) {
       }
     }
 
-    // PTT 快捷键：按住 Ctrl+Space 说话，松手停止（仅输入框为空时生效）
-    if (e.key === " " && e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey) {
+    // PTT 快捷键：按住 Ctrl+Space 说话，松手停止（仅输入框为空时生效——
+    // 有内容时不 preventDefault，避免劫持中文输入法切换热键）
+    if (
+      e.key === " " &&
+      e.ctrlKey &&
+      !e.shiftKey &&
+      !e.altKey &&
+      !e.metaKey &&
+      !input.trim()
+    ) {
       e.preventDefault();
       if (!e.repeat && voiceBtnRef.current && !voiceIsRecording) {
         voiceBtnRef.current.start();
@@ -1295,7 +1303,9 @@ function ChatInput({ fluid = false }: { fluid?: boolean }) {
                       !currentSession ||
                       (!messageQueueEnabled && isSending) ||
                       isUploading ||
-                      (!input.trim() && attachments.length === 0)
+                      (!input.trim() &&
+                        attachments.length === 0 &&
+                        imageItems.length === 0)
                     }
                     className="px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium shadow-md hover:shadow-lg flex items-center gap-2"
                   >

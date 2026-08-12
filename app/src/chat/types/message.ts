@@ -423,6 +423,11 @@ export interface Message {
   createdAt: Date;
 
   /**
+   * 流式开始时间（1.6：与 createdAt 完成时间区分，用于导出显示开始时间与耗时）
+   */
+  startedAt?: Date;
+
+  /**
    * 更新时间
    */
   updatedAt: Date;

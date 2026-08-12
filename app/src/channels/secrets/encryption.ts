@@ -34,6 +34,7 @@
 import { createCipheriv, createDecipheriv, randomBytes } from 'crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { dirname, join } from 'path';
+import { configManager } from '@modules/config';
 import { resolveDataSubDir } from '@modules/core';
 
 const ENC_PREFIX = 'enc:';
@@ -48,7 +49,7 @@ let cachedKey: Buffer | null = null;
 function getKey(): Buffer {
   if (cachedKey) return cachedKey;
 
-  const fromEnv = process.env.CHANNEL_SECRET_KEY;
+  const fromEnv = configManager.env('CHANNEL_SECRET_KEY');
   if (fromEnv) {
     const key = Buffer.from(fromEnv, 'hex');
     if (key.length === 32) {

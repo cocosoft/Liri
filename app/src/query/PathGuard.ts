@@ -30,6 +30,7 @@
  *   - 环境变量 LOOP_PATH_DENY_LIST（JSON 数组，追加到默认列表）
  */
 
+import { configManager } from '@modules/config';
 import { getLogger } from '@modules/monitoring';
 import { LOOP_OBSERVE_ONLY } from './loop-config.js';
 
@@ -73,7 +74,7 @@ export interface PathCheckResult {
 /** 加载环境变量追加配置 */
 function loadEnvDenyPatterns(): string[] {
   try {
-    const raw = process.env.LOOP_PATH_DENY_LIST;
+    const raw = configManager.env('LOOP_PATH_DENY_LIST');
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];

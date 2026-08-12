@@ -24,6 +24,7 @@ import fs from 'fs';
 import path from 'path';
 import { homedir } from 'node:os';
 
+import { configManager } from '@modules/config';
 import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { repairModelJson } from '@modules/utils/json';
@@ -333,7 +334,9 @@ export class ChatManagerImpl implements ChatManager {
    * 可通过环境变量 MAX_TAOR_TURNS 或 MAX_TOOL_TURNS 覆盖，默认 300
    */
   private readonly MAX_TOOL_TURNS = (() => {
-    const env = process.env.MAX_TAOR_TURNS || process.env.MAX_TOOL_TURNS;
+    const env =
+      configManager.env('MAX_TAOR_TURNS') ||
+      configManager.env('MAX_TOOL_TURNS');
     if (env) {
       const val = parseInt(env, 10);
       if (!isNaN(val) && val > 0) return val;
@@ -453,16 +456,17 @@ export class ChatManagerImpl implements ChatManager {
    * Tracker feature flags（默认 false，灰度控制）
    */
   private readonly ENABLE_TELEMETRY =
-    process.env.ENABLE_AGENT_TELEMETRY === 'true';
-  private readonly ENABLE_TRAJECTORY = process.env.ENABLE_TRAJECTORY === 'true';
+    configManager.env('ENABLE_AGENT_TELEMETRY') === 'true';
+  private readonly ENABLE_TRAJECTORY =
+    configManager.env('ENABLE_TRAJECTORY') === 'true';
   private readonly ENABLE_ERROR_HANDLER =
-    process.env.ENABLE_ERROR_HANDLER === 'true';
+    configManager.env('ENABLE_ERROR_HANDLER') === 'true';
   /**
    * RC-E（08-09）：PlanDrivenLoop 开关（默认 false，灰度启用）
    * 启用后，_launchImplicitPdca 使用 PlanDrivenLoop 替代 LongRunningTaskOrchestrator。
    */
   private readonly ENABLE_PLAN_DRIVEN_LOOP =
-    process.env.ENABLE_PLAN_DRIVEN_LOOP === 'true';
+    configManager.env('ENABLE_PLAN_DRIVEN_LOOP') === 'true';
 
   /**
    * RC-D（08-09）：Durable Resume 灰度开关（默认启用）
@@ -470,7 +474,7 @@ export class ChatManagerImpl implements ChatManager {
    * 可通过 ENABLE_DURABLE_RESUME=false 关闭。
    */
   private readonly ENABLE_DURABLE_RESUME =
-    process.env.ENABLE_DURABLE_RESUME !== 'false';
+    configManager.env('ENABLE_DURABLE_RESUME') !== 'false';
 
   /**
    * Phase 2: TAORLoop 统一编排器开关（RC-A 08-09：默认全量启用）
@@ -478,7 +482,7 @@ export class ChatManagerImpl implements ChatManager {
    * 可通过 ENABLE_LOOP_V8_PHASE2=false 关闭。
    */
   private readonly ENABLE_LOOP_V8_PHASE2 =
-    process.env.ENABLE_LOOP_V8_PHASE2 !== 'false';
+    configManager.env('ENABLE_LOOP_V8_PHASE2') !== 'false';
 
   /**
    * P2-3: TAORLoop 流量百分比（0~100，RC-A 08-09：默认 100 全量）
@@ -487,7 +491,7 @@ export class ChatManagerImpl implements ChatManager {
    * 可通过 TAORLOOP_TRAFFIC_PERCENT 降级。
    */
   private readonly _taorLoopTrafficPercent: number = (() => {
-    const raw = process.env.TAORLOOP_TRAFFIC_PERCENT;
+    const raw = configManager.env('TAORLOOP_TRAFFIC_PERCENT');
     const val = raw && !isNaN(Number(raw)) ? Number(raw) : 100;
     return Math.min(100, Math.max(0, val));
   })();
@@ -871,7 +875,7 @@ export class ChatManagerImpl implements ChatManager {
     if (!this._taorLoop) {
       this._taorLoop = createTAORLoop(this.getQueryEngine(), {
         sessionId,
-        maxTurns: parseInt(process.env.MAX_TAOR_TURNS || '') || 300,
+        maxTurns: parseInt(configManager.env('MAX_TAOR_TURNS') || '') || 300,
         /** 启用检查点，每 3 轮自动保存（原值：关闭 + 5 轮） */
         enableCheckpoint: true,
         checkpointInterval: 3,

@@ -156,6 +156,8 @@ export interface UnifiedMessage {
   content: string | ContentBlock[];
   parentUuid?: string;
   timestamp: number;
+  /** 流式开始时间（毫秒，1.6：与 timestamp 完成时间区分，导出显示开始时间与耗时） */
+  startedAt?: number;
   metadata?: MessageMetadata;
   blocks?: FrontendMessageBlock[];
   /** 流式响应结束原因 */

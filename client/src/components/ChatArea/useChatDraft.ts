@@ -21,11 +21,10 @@ export function useChatDraft(sessionId?: string) {
     const key = getDraftKey(sessionId);
     try {
       const saved = localStorage.getItem(key);
-      if (saved) {
-        setInput(saved);
-      }
+      // 无论是否有草稿都重置 input——否则切到无草稿会话时残留上一会话文本
+      setInput(saved ?? "");
     } catch {
-      // localStorage 不可用时静默忽略
+      setInput("");
     }
   }, [sessionId, getDraftKey]);
 

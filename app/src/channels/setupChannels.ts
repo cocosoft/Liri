@@ -24,15 +24,15 @@ const logger = getLogger('channels:setup');
 // ─── Feature Flag: Inbox ↔ 渠道桥接开关 ───
 /** 渠道 ↔ Inbox 桥接总开关（默认开启，显式设为 'false' 时关闭） */
 export function isBridgeEnabled(): boolean {
-  return process.env.INBOX_CHANNEL_BRIDGE_ENABLED !== 'false';
+  return configManager.env('INBOX_CHANNEL_BRIDGE_ENABLED') !== 'false';
 }
 /** 渠道 ← Inbox 回复回传开关（默认开启，显式设为 'false' 时关闭） */
 export function isReplyEnabled(): boolean {
-  return process.env.INBOX_CHANNEL_REPLY_ENABLED !== 'false';
+  return configManager.env('INBOX_CHANNEL_REPLY_ENABLED') !== 'false';
 }
 /** DeliveryRouter 统一出站开关（默认开启，显式设为 '0' 时切回旧 onOutbound 路径） */
 export function useDeliveryRouterOutbound(): boolean {
-  return process.env.DELIVERY_ROUTER_OUTBOUND !== '0';
+  return configManager.env('DELIVERY_ROUTER_OUTBOUND') !== '0';
 }
 
 /**

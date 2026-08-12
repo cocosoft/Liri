@@ -73,11 +73,19 @@ function exportAsMarkdown(
               ? `⚙️ ${labels.system}`
               : `🛠 ${labels.tool}`;
       const date = new Date(msg.timestamp).toLocaleString();
+      // 1.6：助手消息有 startedAt 时显示开始时间与耗时（区分流式开始/完成）
+      const timeInfo =
+        msg.role === "assistant" && msg.startedAt
+          ? `（开始 ${new Date(msg.startedAt).toLocaleString()} · 耗时 ${(
+              (msg.timestamp - msg.startedAt) /
+              1000
+            ).toFixed(1)}s）`
+          : "";
       const text = getMessageSearchText(msg);
       const usageInfo = msg.usage
         ? `\n> 📊 Token: 输入 ${msg.usage.inputTokens ?? "?"} / 输出 ${msg.usage.outputTokens ?? "?"} / 缓存读 ${msg.usage.cacheReadTokens ?? "0"}`
         : "";
-      return `### ${roleLabel}  (${date})\n\n${text}${usageInfo}\n`;
+      return `### ${roleLabel}  (${date}${timeInfo})\n\n${text}${usageInfo}\n`;
     })
     .join("\n---\n");
 }
@@ -100,6 +108,8 @@ function exportAsJson(messages: Message[]): string {
       id: msg.id,
       role: msg.role,
       timestamp: msg.timestamp,
+      // 1.6：流式开始时间随 JSON 导出
+      startedAt: msg.startedAt,
       content: typeof msg.content === "string" ? msg.content : "",
       blocks: blocksDetail,
       toolCalls: msg.tool_calls,

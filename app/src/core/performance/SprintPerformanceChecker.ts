@@ -4,9 +4,9 @@
  */
 import fs from 'fs';
 import path from 'path';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 
-const perfLogger = new Logger({ level: LogLevel.INFO });
+const perfLogger = getLogger('core:performance');
 
 /**
  * 性能阶段

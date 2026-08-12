@@ -41,9 +41,9 @@ import type {
   EventListener,
   EventSubscription,
 } from '../../core/events/EventBus';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { createLogger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({
+const logger = createLogger({
   level: LogLevel.DEBUG,
   module: 'channels:events:compat',
 });

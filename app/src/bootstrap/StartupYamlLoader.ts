@@ -5,14 +5,14 @@
 
 import { readFileSync, existsSync } from 'fs';
 import { join, resolve } from 'path';
-import { Logger } from '../monitoring/logs/Logger.js';
+import { getLogger } from '../monitoring/logs/Logger.js';
 import { configManager } from '@modules/config';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { handleError } from '@modules/error';
 import type { StartupConfig, PluginSource } from './StartupConfig.js';
 import { DEFAULT_STARTUP_CONFIG } from './StartupConfig.js';
 
-const logger = new Logger({ level: 'info' as any });
+const logger = getLogger('bootstrap:startup-yaml-loader');
 
 /** 搜索路径优先级 */
 const SEARCH_PATHS = ['.', 'config', 'conf'];

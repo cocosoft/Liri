@@ -10,11 +10,8 @@ import { handleError } from '@modules/error';
 import type { ChannelId, MessageContext } from '../types/IChannel.js';
 import { getRedactMiddleware } from '../../security/redact/RedactMiddleware';
 
-import { Logger, LogLevel as MonitoringLogLevel } from '@modules/monitoring';
-const logger = new Logger({
-  module: 'channels:log:ChannelLogManager',
-  level: MonitoringLogLevel.INFO,
-});
+import { getLogger } from '@modules/monitoring';
+const logger = getLogger('channels:log:ChannelLogManager');
 
 /**
  * 日志级别

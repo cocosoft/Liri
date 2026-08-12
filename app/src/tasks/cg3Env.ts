@@ -9,12 +9,13 @@
 import { homedir } from 'os';
 import { join } from 'path';
 import { existsSync, mkdirSync } from 'fs';
+import { configManager } from '@modules/config';
 
 /** 获取数据子目录路径 */
 export function cg3DataDir(sub: string): string {
   const base =
     process.env.PYAPP_DATA_DIR ||
-    process.env.LIRI_DATA_DIR ||
+    configManager.env('LIRI_DATA_DIR') ||
     join(homedir(), '.pyapp', 'data');
   const dir = join(base, sub);
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true });

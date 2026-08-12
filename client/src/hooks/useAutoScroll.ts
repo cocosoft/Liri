@@ -18,6 +18,8 @@ export function useAutoScroll(deps: {
   const contentRef = useRef<HTMLDivElement | null>(null);
   const prevMessageCountRef = useRef(0);
   const isNearBottomRef = useRef(true);
+  /** AB-24：恢复滚动位置后抑制一次自动滚底，避免与"消息数增加滚底"竞态覆盖 */
+  const suppressAutoScrollRef = useRef(false);
 
   /** 用户是否上滑离开底部（控制"回到底部"按钮显隐） */
   const [isUserScrolledUp, setIsUserScrolledUp] = useState(false);
@@ -29,11 +31,11 @@ export function useAutoScroll(deps: {
   const scrollPositionsRef = useRef<Map<string, number>>(new Map());
   const prevSessionIdRef = useRef<string | undefined>(undefined);
 
-  /** 滚动到底部 */
-  const scrollToBottom = useCallback(() => {
+  /** 滚动到底部（behavior 参数：流式高频场景传 "auto" 避免 smooth 追帧抖动） */
+  const scrollToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
     const container = containerRef.current;
     if (!container) return;
-    container.scrollTo({ top: container.scrollHeight, behavior: "smooth" });
+    container.scrollTo({ top: container.scrollHeight, behavior });
   }, []);
 
   // 监听滚动事件，统一跟踪用户位置
@@ -77,13 +79,21 @@ export function useAutoScroll(deps: {
     if (currentId && currentId !== prevId) {
       const savedPosition = scrollPositionsRef.current.get(currentId);
       if (savedPosition != null) {
+        // AB-24：抑制一次自动滚底，防止"消息数增加滚底" effect 覆盖恢复的位置
+        suppressAutoScrollRef.current = true;
         // requestAnimationFrame 等待 DOM 渲染完成后再滚动
         requestAnimationFrame(() => {
           container.scrollTop = savedPosition;
+          // 同步更新底部判定，避免恢复中部位置后被误判为"在底部"而自动滚底
+          const distance =
+            container.scrollHeight -
+            container.scrollTop -
+            container.clientHeight;
+          isNearBottomRef.current = distance < 100;
         });
       } else {
         // 新会话：滚动到底部
-        scrollToBottom();
+        scrollToBottom("auto");
       }
     }
 
@@ -95,9 +105,15 @@ export function useAutoScroll(deps: {
     const prevCount = prevMessageCountRef.current;
     prevMessageCountRef.current = deps.messageCount;
 
-    if (deps.messageCount > prevCount && isNearBottomRef.current) {
-      scrollToBottom();
+    // AB-24：suppressAutoScrollRef 在会话切换恢复位置时置位，跳过本次滚底防止竞态覆盖
+    if (
+      deps.messageCount > prevCount &&
+      isNearBottomRef.current &&
+      !suppressAutoScrollRef.current
+    ) {
+      scrollToBottom("auto");
     }
+    suppressAutoScrollRef.current = false;
   }, [deps.messageCount, scrollToBottom]);
 
   // 流式输出期间：ResizeObserver 监听内容区尺寸变化（而非滚动容器），仅在用户在底部时滚动
@@ -113,7 +129,8 @@ export function useAutoScroll(deps: {
         rafPending = true;
         requestAnimationFrame(() => {
           rafPending = false;
-          scrollToBottom();
+          // AB-24：流式高频调用用 "auto"，smooth 追帧会不断打断重开导致抖动
+          scrollToBottom("auto");
         });
       }
     });

@@ -34,9 +34,9 @@
  */
 
 import { Span, Tracer } from '@opentelemetry/api';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { createLogger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({
+const logger = createLogger({
   module: 'monitoring:tracing:dedup',
   level: LogLevel.DEBUG,
 });

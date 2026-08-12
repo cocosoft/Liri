@@ -18,9 +18,9 @@ import { getModelPricing } from '../cost/ModelPricing.js';
 import type { ModelPricing } from '../cost/ModelPricing.js';
 import { globalEventBus, SystemEvents } from '../core/events/EventBus';
 import type { CostRecordedEvent } from '../core/events/EventBus';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { createLogger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({
+const logger = createLogger({
   module: 'analytics:CostAnalyticsTracker',
   level: LogLevel.WARN,
 });

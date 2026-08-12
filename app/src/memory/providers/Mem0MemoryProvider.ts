@@ -17,6 +17,7 @@ import type {
   ExternalMemoryEntry,
   MemoryQuery,
 } from './ExternalMemoryProvider';
+import { configManager } from '@modules/config';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('memory:providers:mem0');
 
@@ -41,10 +42,10 @@ export class Mem0MemoryProvider implements ExternalMemoryProvider {
   private initialized = false;
 
   constructor(config?: Partial<Mem0Config>) {
-    const apiKey = config?.apiKey || process.env.MEM0_API_KEY || '';
+    const apiKey = config?.apiKey || configManager.env('MEM0_API_KEY') || '';
     const baseUrl =
       config?.baseUrl ||
-      process.env.MEM0_BASE_URL ||
+      configManager.env('MEM0_BASE_URL') ||
       DEFAULT_MEM0_CONFIG.baseUrl!;
     const timeoutMs = config?.timeoutMs ?? DEFAULT_MEM0_CONFIG.timeoutMs!;
     const maxRetries = config?.maxRetries ?? DEFAULT_MEM0_CONFIG.maxRetries!;

@@ -5,11 +5,11 @@
 import type { TokenUsage } from './types';
 import { metrics } from '@opentelemetry/api';
 import type { ObservableGauge } from '@opentelemetry/api';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { createLogger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { recordBackgroundTask } from '@modules/monitoring/BackgroundTaskEvent';
 
-const logger = new Logger({
+const logger = createLogger({
   module: 'cost:metrics-bridge',
   level: LogLevel.WARN,
 });

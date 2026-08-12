@@ -32,7 +32,6 @@ import { StreamingToolCallScrubber } from '../../streaming/scrubbers/StreamingTo
 import { getModelPricing } from '../../cost/ModelPricing';
 import { calculateTotalCost } from '../../cost/calculateCost';
 import { compactionOrchestrator } from '../../context/compaction/CompactionOrchestrator';
-import { createSystemMessage } from '../../utils/messages';
 import { validatePathsInOutput } from '../services/PathGuardService';
 import type { ChatSession } from '../types/session.js';
 import type { Message, StreamMessageOptions } from '../types/message.js';
@@ -279,10 +278,8 @@ export class StreamPipeline {
         stage: 'generating',
         message: `上下文已压缩: ${beforeCompact} → ${afterTokens} tokens（节省 ${savedPercent}%）`,
       });
-      const sysMsg = createSystemMessage(
-        `[上下文压缩] ${beforeCompact} → ${afterTokens} tokens（节省 ${savedPercent}%）, 策略: tiered`
-      );
-      this.ctx.addAndPersistMessage(session.id, sysMsg);
+      // 1.8 修复：压缩提示不再落盘为系统消息（context_state 仅作流式进度提示，
+      // 落盘会污染会话内容与导出文件）；压缩记录由 logger + unifiedTracker 保留。
       this.ctx.unifiedTracker.recordCompaction(beforeCompact, afterTokens);
     }
   }

@@ -33,10 +33,13 @@
 import { writeFileSync, appendFileSync, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { resolveDataDir } from '@modules/core';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { createLogger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
-const logger = new Logger({ level: LogLevel.WARN, module: 'channels:failure' });
+const logger = createLogger({
+  level: LogLevel.WARN,
+  module: 'channels:failure',
+});
 
 /** 失败日志记录 */
 export interface ChannelFailureRecord {

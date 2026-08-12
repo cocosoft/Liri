@@ -5,6 +5,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 
+import { configManager } from '@modules/config';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('hooks:usePrStatus');
 
@@ -92,7 +93,7 @@ export function usePrStatus(repo: string, prNumber: number): UsePrStatusResult {
     setError(null);
 
     try {
-      const token = process.env.GITHUB_TOKEN || '';
+      const token = configManager.env('GITHUB_TOKEN') || '';
       const headers: Record<string, string> = {
         Accept: 'application/vnd.github.v3+json',
       };

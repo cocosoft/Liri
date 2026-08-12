@@ -30,7 +30,7 @@ import { join } from 'path';
 import { writeFile, mkdir, readFile } from 'fs/promises';
 import { existsSync } from 'fs';
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { Logger, getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { resolvePyappHome } from '@modules/core';
 import type { EventBus } from '@modules/core';
@@ -65,7 +65,7 @@ export class KnowledgeBaseWriter {
     maxSnapshots: number = 10
   ) {
     this.baseDir = baseDir || join(resolvePyappHome(), 'knowledge');
-    this.logger = new Logger({ level: LogLevel.INFO });
+    this.logger = getLogger('knowledge:writer');
     this.eventBus = eventBus;
     this.maxSnapshots = maxSnapshots;
   }

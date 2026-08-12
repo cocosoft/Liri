@@ -38,7 +38,7 @@ import type {
 } from './AIProvider';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { handleError } from '@modules/error';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { Logger, getLogger } from '@modules/monitoring';
 import { BaseAIProvider, type BaseProviderOptions } from './BaseAIProvider.js';
 
 /** 轮询查询到的任务状态 */
@@ -95,10 +95,7 @@ export abstract class AsyncVideoTaskProvider extends BaseAIProvider {
   ) {
     super(options);
     this.polling = { ...DEFAULT_POLLING, ...polling };
-    this.logger = new Logger({
-      module: `ai:provider:${this.id}`,
-      level: LogLevel.INFO,
-    });
+    this.logger = getLogger(`ai:provider:${this.id}`);
   }
 
   /** 提交视频生成任务，返回平台 taskId */

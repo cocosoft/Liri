@@ -353,6 +353,12 @@ export default function ChatMessageList({
     [messages],
   );
 
+  /** 被回复消息 id 集合（AB-20：避免每条消息 O(n) 扫描 replyToId → 整列表 O(n²)） */
+  const repliedIdSet = useMemo(
+    () => new Set(messages.map((m) => m.replyToId).filter(Boolean) as string[]),
+    [messages],
+  );
+
   // 重置导出菜单标识
   if (!hasSession) {
     return (
@@ -501,7 +507,7 @@ export default function ChatMessageList({
           const isCurrentMatch =
             matchedIds.length > 0 &&
             matchedIds[currentMatchIndex] === message.id;
-          const hasReplies = messages.some((m) => m.replyToId === message.id);
+          const hasReplies = repliedIdSet.has(message.id);
 
           return (
             <div key={message.id}>

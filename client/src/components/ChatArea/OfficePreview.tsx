@@ -5,7 +5,7 @@
  * - DOCX → mammoth.js → HTML
  * - XLSX → SheetJS → HTML 表格
  * - PPTX → pptx-viewer → SVG 缩略图
- * - PDF  → 回退到后端 Markdown（需 pdf.js 依赖）
+ * - PDF  → 由调用方 FilePreviewContent 分流到后端 Markdown 渲染（不经本组件）
  *
  * 通过 /api/file/stream 获取二进制文件，前端本地转换渲染。
  */

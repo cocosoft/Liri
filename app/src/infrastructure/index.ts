@@ -18,11 +18,9 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
-import { Logger, LogLevel } from '../monitoring/logs/Logger';
+import { Logger, LogLevel, getLogger } from '../monitoring/logs/Logger';
 export type { LoggerConfig } from '../monitoring/logs/Logger';
 export { Logger, LogLevel };
-export const logger = new Logger({
-  level: LogLevel.INFO,
-});
+export const logger = getLogger();
 
 // LocalHTTPService 改用直接路径导入: import { LocalHTTPService } from '@modules/infrastructure/http/LocalHTTPService'

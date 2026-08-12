@@ -3,12 +3,12 @@
  * 基于发布-订阅模式的事件驱动通信机制
  */
 
-import { Logger, LogLevel } from '@modules/monitoring';
+import { Logger, getLogger as getModuleLogger } from '@modules/monitoring';
 
 let _logger: Logger | null = null;
 function getLogger(): Logger {
   if (!_logger) {
-    _logger = new Logger({ level: LogLevel.INFO });
+    _logger = getModuleLogger('core:events');
   }
   return _logger;
 }

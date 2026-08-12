@@ -17,6 +17,7 @@ import type {
   ExternalMemoryEntry,
   MemoryQuery,
 } from './ExternalMemoryProvider';
+import { configManager } from '@modules/config';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('memory:providers:honcho');
 
@@ -43,10 +44,10 @@ export class HonchoMemoryProvider implements ExternalMemoryProvider {
   private initialized = false;
 
   constructor(config?: Partial<HonchoConfig>) {
-    const apiKey = config?.apiKey || process.env.HONCHO_API_KEY || '';
+    const apiKey = config?.apiKey || configManager.env('HONCHO_API_KEY') || '';
     const baseUrl =
       config?.baseUrl ||
-      process.env.HONCHO_BASE_URL ||
+      configManager.env('HONCHO_BASE_URL') ||
       DEFAULT_HONCHO_CONFIG.baseUrl!;
     const timeoutMs = config?.timeoutMs ?? DEFAULT_HONCHO_CONFIG.timeoutMs!;
     const maxRetries = config?.maxRetries ?? DEFAULT_HONCHO_CONFIG.maxRetries!;

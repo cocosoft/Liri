@@ -3,7 +3,7 @@
  * 按会话聚合统计 token 消耗和成本信息
  */
 
-import { Logger, LogLevel } from '../logs/Logger.js';
+import { createLogger, LogLevel } from '../logs/Logger.js';
 import { OTelAwareLogger } from '../logs/OTelAwareLogger.js';
 import {
   appendLogEntry,
@@ -229,7 +229,7 @@ class SensitiveDataScrubber {
 export class LLMTracker {
   private sessionStats = new Map<string, SessionLLMStats>();
   private sessionCalls = new Map<string, LLMCallRecord[]>();
-  private logger = new Logger({ module: 'LLMTracker', source: 'llm' });
+  private logger = createLogger({ module: 'LLMTracker', source: 'llm' });
   private otelLogger = new OTelAwareLogger({
     module: 'LLMTracker',
     source: 'llm',

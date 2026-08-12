@@ -7,7 +7,7 @@
  */
 
 import { trace } from '@opentelemetry/api';
-import { Logger, LogLevel } from './Logger.js';
+import { Logger, createLogger } from './Logger.js';
 import type { LoggerConfig } from './Logger.js';
 import { getLogConfigManager } from './config/LogConfig.js';
 
@@ -15,7 +15,7 @@ export class OTelAwareLogger {
   private logger: Logger;
 
   constructor(config: LoggerConfig = {}) {
-    this.logger = new Logger(config);
+    this.logger = createLogger(config);
   }
 
   /** 获取当前 OTel Span 上下文 */

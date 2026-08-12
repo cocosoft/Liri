@@ -26,6 +26,8 @@
  * 在 TAORLoop 启动时检查当前配置，决定允许的操作范围。
  */
 
+import { configManager } from '@modules/config';
+
 /** 成熟度级别 */
 type MaturityLevel = 'L0' | 'L1' | 'L2' | 'L3';
 
@@ -77,7 +79,7 @@ const MATURITY_CAPABILITIES: Record<MaturityLevel, MaturityCapability> = {
 
 /** 从环境变量读取当前级别 */
 function resolveMaturityLevel(): MaturityLevel {
-  const raw = process.env.LOOP_MATURITY_LEVEL ?? 'L1';
+  const raw = configManager.env('LOOP_MATURITY_LEVEL') ?? 'L1';
   const valid: MaturityLevel[] = ['L0', 'L1', 'L2', 'L3'];
   return valid.includes(raw as MaturityLevel) ? (raw as MaturityLevel) : 'L1';
 }

@@ -134,15 +134,20 @@ describe("ChronologicalBlockBuilder 增量快照缓存（P2-3）", () => {
     expect(second[0].isStreaming).toBe(true);
   });
 
-  it("思考块合并同样复用缓存", () => {
+  it("思考块合并不新建块且内容合并正确（AB-6 置脏语义下引用允许变化）", () => {
     const b = new ChronologicalBlockBuilder();
     b.addThinking("step1", true);
     const first = b.getBlocks();
     b.addThinking(" step2", true);
     const second = b.getBlocks();
 
-    expect(second).toBe(first);
+    // AB-6 契约：thinking 不更新 msg.content，刷新只能靠 blocks 引用变化，
+    // 故合并时替换块对象 + markBlocksDirty（引用允许变化）；
+    // 必须守护：仍是同一块（id 不变）、不新增块、内容合并正确。
+    expect(second[0].id).toBe(first[0].id);
+    expect(second).toHaveLength(first.length);
     expect(second[0].content).toBe("step1 step2");
+    expect(second[0].isStreaming).toBe(true);
   });
 
   it("新增块后缓存失效（不同结构不同引用）", () => {

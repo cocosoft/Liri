@@ -567,7 +567,17 @@ export async function streamMessageImpl(
               sessionId,
               messageCount: data.messages.length,
             });
-            set({ messages: data.messages });
+            // AB-18 修复：合并去重而非整表替换——前端已渲染消息保留（id 不变 → React
+            // DOM 复用，滚动位置/折叠态不丢失），仅补充后端有而前端缺失的消息。
+            const backendMsgs = data.messages as Message[];
+            const current = get().messages;
+            const currentIds = new Set(current.map((m) => m.id));
+            const missing = backendMsgs.filter(
+              (m) => m?.id && !currentIds.has(m.id),
+            );
+            if (missing.length > 0) {
+              set({ messages: [...current, ...missing] });
+            }
           }
         }
       } catch {

@@ -98,7 +98,7 @@ const DEFAULT_ASK_TIMEOUT: AskTimeoutConfig = {
  * 仅作用于非无人值守的 ask 决策路径，无人值守行为不受影响。
  */
 export function isInboxApprovalEnabled(): boolean {
-  const raw = process.env.PERMISSION_INBOX_APPROVAL_ENABLED;
+  const raw = configManager.env('PERMISSION_INBOX_APPROVAL_ENABLED');
   if (raw === undefined || raw === '') return true;
   return raw !== '0' && raw.toLowerCase() !== 'false';
 }

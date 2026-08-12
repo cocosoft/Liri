@@ -6,7 +6,7 @@
  */
 
 import { randomUUID } from 'crypto';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { VoiceEventBus } from './VoiceEventBus';
 import { VoiceToolBridge } from './VoiceToolBridge';
@@ -53,7 +53,7 @@ export interface SessionIntegrationOptions {
 }
 
 export class VoiceSession {
-  private logger = new Logger({ level: LogLevel.INFO });
+  private logger = getLogger('voice:session');
 
   /** 会话唯一标识 */
   readonly id: string;

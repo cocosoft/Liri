@@ -18,9 +18,9 @@ import {
   SystemEvents,
 } from './EventBus';
 import type { CostRecordedEvent } from './EventBus';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { createLogger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({
+const logger = createLogger({
   module: 'core:events:TokenTracker',
   level: LogLevel.WARN,
 });

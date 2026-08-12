@@ -33,9 +33,9 @@ import {
   ROOT_CONTEXT,
   type Context,
 } from '@opentelemetry/api';
-import { Logger, LogLevel } from '@modules/monitoring';
+import { createLogger, LogLevel } from '@modules/monitoring';
 
-const logger = new Logger({
+const logger = createLogger({
   module: 'monitoring:tracing:extract',
   level: LogLevel.DEBUG,
 });

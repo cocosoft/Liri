@@ -4,7 +4,7 @@ import { ConversationArea } from './ConversationArea';
 import { InputArea } from './InputArea';
 import { StatusFloatingBar } from './StatusFloatingBar';
 import { Header } from './Header';
-import { Logger } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import {
   getTotalCostUSD,
   getTotalInputTokens,
@@ -24,7 +24,7 @@ import type {
   QuestionData,
 } from '@modules/runtime/api/CoreAPI';
 
-const logger = new Logger({ level: 'info' as never });
+const logger = getLogger('ink:repl');
 
 interface ReplAppProps {
   chatManager: ChatManager;

@@ -1040,6 +1040,8 @@ export class CoreAPIImpl implements CoreAPI {
             content: typeof m.content === 'string' ? m.content : '',
             session_id: sessionId,
             timestamp: m.timestamp,
+            // 1.6：流式开始时间回传前端（导出显示开始时间与耗时）
+            startedAt: m.startedAt,
             // AB-11：finishReason 随消息持久化后回传前端（区分截断/错误/正常）
             finishReason: m.finishReason,
             tool_calls: m.metadata?.tool_calls as

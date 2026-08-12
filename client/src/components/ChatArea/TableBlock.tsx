@@ -4,6 +4,19 @@
  * 解析 GFM 表格格式，支持标题行、分隔符对齐和行交替背景色。
  * 从 MarkdownRenderer.tsx 提取，保持原逻辑不变。
  */
+
+/** 转义竖线占位符：分割前保护单元格内 `\|`，避免被误分割为多个单元格 */
+const ESCAPED_PIPE = "\u0000";
+
+/** 分割表格行为单元格：先占位 `\|` → 按 `|` 分割 → 还原转义竖线 */
+function splitCells(line: string): string[] {
+  return line
+    .replace(/\\\|/g, ESCAPED_PIPE)
+    .split("|")
+    .filter((cell) => cell.trim())
+    .map((cell) => cell.replace(/\u0000/g, "|"));
+}
+
 interface TableBlockProps {
   content: string;
   renderText: (text: string, autoDetectFormula?: boolean) => JSX.Element[];
@@ -13,19 +26,16 @@ function TableBlock({ content, renderText }: TableBlockProps) {
   const rows = content.split("\n");
   if (rows.length < 2) return null;
 
-  const headers = rows[0].split("|").filter((cell) => cell.trim());
+  const headers = splitCells(rows[0]);
   const separator = rows[1];
   const dataRows = rows.slice(2);
 
-  const alignments = separator
-    .split("|")
-    .filter((cell) => cell.trim())
-    .map((cell) => {
-      if (cell.startsWith(":") && cell.endsWith(":")) return "center" as const;
-      if (cell.startsWith(":")) return "left" as const;
-      if (cell.endsWith(":")) return "right" as const;
-      return "left" as const;
-    });
+  const alignments = splitCells(separator).map((cell) => {
+    if (cell.startsWith(":") && cell.endsWith(":")) return "center" as const;
+    if (cell.startsWith(":")) return "left" as const;
+    if (cell.endsWith(":")) return "right" as const;
+    return "left" as const;
+  });
 
   return (
     <table className="w-full border-collapse my-4">
@@ -44,7 +54,7 @@ function TableBlock({ content, renderText }: TableBlockProps) {
       </thead>
       <tbody>
         {dataRows.map((row, rowIdx) => {
-          const cells = row.split("|").filter((cell) => cell.trim());
+          const cells = splitCells(row);
           return (
             <tr
               key={rowIdx}

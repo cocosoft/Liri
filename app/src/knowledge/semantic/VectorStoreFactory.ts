@@ -11,6 +11,7 @@
  * 调用方不直接依赖具体实现，通过 IVectorStore 接口操作。
  */
 
+import { configManager } from '@modules/config';
 import type { IVectorStore } from './IVectorStore';
 import { JsonlVectorStore } from './JsonlVectorStore';
 import type { IndexIdentity } from './store';
@@ -32,7 +33,7 @@ export function createVectorStore(
 ): IVectorStore {
   const resolvedType =
     type ??
-    (process.env.VECTOR_STORE as VectorStoreType | undefined) ??
+    (configManager.env('VECTOR_STORE') as VectorStoreType | undefined) ??
     'jsonl';
 
   switch (resolvedType) {

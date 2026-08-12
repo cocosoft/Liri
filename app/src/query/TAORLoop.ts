@@ -8,6 +8,7 @@
  * 支持中断恢复（checkpoint/resume）机制。
  */
 
+import { configManager } from '@modules/config';
 import { getLogger } from '@modules/monitoring';
 import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
 import { SpanStatusCode } from '@opentelemetry/api';
@@ -330,7 +331,8 @@ export class TAORLoop {
     this.queryEngine = queryEngine;
     this.config = {
       maxTurns:
-        config.maxTurns ?? (parseInt(process.env.MAX_TAOR_TURNS || '') || 300),
+        config.maxTurns ??
+        (parseInt(configManager.env('MAX_TAOR_TURNS') || '') || 300),
       budgetConfig: config.budgetConfig || {},
       sessionId: config.sessionId || '',
       enableCheckpoint: config.enableCheckpoint !== false,

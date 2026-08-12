@@ -48,9 +48,14 @@ function MarkdownRenderer({
 }: MarkdownRendererProps) {
   const blockIdRef = useRef(0);
 
+  /** content 归一化（undefined 防护）：调用方可能传未初始化的 result，直接 .length 会崩溃 */
+  const normalizedContent = content ?? "";
+
   /** 超长内容保护：跳过 markdown 解析，用纯文本截断显示，防止浏览器 OOM */
-  const isTruncated = content.length > MAX_RENDER_LENGTH;
-  const safeContent = isTruncated ? content.slice(0, 5000) : content;
+  const isTruncated = normalizedContent.length > MAX_RENDER_LENGTH;
+  const safeContent = isTruncated
+    ? normalizedContent.slice(0, 5000)
+    : normalizedContent;
 
   const blocks = useMemo(() => {
     if (isTruncated) return [];
@@ -356,14 +361,15 @@ function MarkdownRenderer({
       <div className="prose prose-sm max-w-none">
         <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg text-xs">
           <p className="text-amber-600 dark:text-amber-400 font-medium mb-1">
-            ⚠️ 内容过长（{(content.length / 1024).toFixed(0)} KB），已截断显示前
-            5000 字符
+            ⚠️ 内容过长（{(normalizedContent.length / 1024).toFixed(0)}{" "}
+            KB），已截断显示前 5000 字符
           </p>
           <pre className="mt-2 p-2 bg-gray-100 dark:bg-gray-800 rounded text-gray-700 dark:text-gray-300 overflow-auto max-h-96 whitespace-pre-wrap text-[11px] leading-relaxed">
             {safeContent}
           </pre>
           <p className="mt-2 text-amber-500 dark:text-amber-400">
-            ... 剩余 {(content.length - 5000).toLocaleString()} 字符未显示 ...
+            ... 剩余 {(normalizedContent.length - 5000).toLocaleString()}{" "}
+            字符未显示 ...
           </p>
         </div>
       </div>
@@ -383,7 +389,6 @@ function MarkdownRenderer({
           renderTable={renderTable}
         />
       ))}
-      {isStreaming && <span className="animate-pulse">▌</span>}
     </div>
   );
 }

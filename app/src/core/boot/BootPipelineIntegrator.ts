@@ -15,6 +15,7 @@ import { BootPhase } from './BootPhase';
 import { bootPipeline } from './BootPipeline';
 import type { BootContext } from './BootPipeline';
 import type { RouterTier } from '@modules/ai/router';
+import { configManager } from '@modules/config';
 import { handleError } from '@modules/error';
 
 const logger = getLogger('BootPipelineIntegrator');
@@ -48,7 +49,7 @@ export function registerStandardHandlers(): void {
       logger.info(`[Phase 1] 环境检测 — 模式: ${ctx.mode}`);
 
       // 验证 LIRI_HOME 已设置（由 main.ts 在调用管道前设置）
-      if (!process.env.LIRI_HOME) {
+      if (!configManager.env('LIRI_HOME')) {
         logger.warn('[Phase 1] LIRI_HOME 未设置，启动路径可能不完整');
       }
 

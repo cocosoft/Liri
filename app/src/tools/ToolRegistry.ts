@@ -330,7 +330,8 @@ export class ToolRegistry {
     }
     if (!sessionId) return;
     try {
-      const { getQueryLogStore } = await import('@modules/query/QueryLogStore.js');
+      const { getQueryLogStore } =
+        await import('@modules/query/QueryLogStore.js');
       await getQueryLogStore()
         .log({
           sessionId,

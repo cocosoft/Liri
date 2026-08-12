@@ -34,6 +34,42 @@ import { handleError } from '@modules/error';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 
 /**
+ * 文件访问统一白名单（Access denied 根治，2026-08-12）：
+ * 此前 resolve-path 允许解析 8 个 baseDirs（含整个项目根），但 read/preview/open
+ * 只校验 isPathWithin(pyappHome) → 能解析出来的项目源码文件（projectRoot/app、
+ * projectRoot/client 等）读不了，点击 FileLink 即 403 "Access denied"。
+ * 统一收口：所有文件访问类 handler 共用此白名单，解析范围 == 读取范围。
+ */
+export async function getAllowedBaseDirs(): Promise<string[]> {
+  const {
+    resolveProjectRoot,
+    resolvePyappHome,
+    resolveOutputDir,
+    resolveDownloadsDir,
+    resolveDataDir,
+    resolveDocsDir,
+  } = await import('@modules/core/paths');
+  const projectRoot = resolveProjectRoot();
+  return [
+    projectRoot,
+    resolvePyappHome(),
+    resolveOutputDir(),
+    resolveDownloadsDir(),
+    resolveDataDir(),
+    resolveDocsDir(),
+    path.join(projectRoot, 'app'),
+    path.join(projectRoot, 'client'),
+  ];
+}
+
+/** 判断文件路径是否在文件访问白名单（任一 baseDir）内 */
+export async function isPathAllowed(filePath: string): Promise<boolean> {
+  const { isPathWithin } = await import('@modules/core/paths');
+  const baseDirs = await getAllowedBaseDirs();
+  return baseDirs.some((dir) => isPathWithin(dir, filePath));
+}
+
+/**
  * 处理文件打开请求
  * GET /api/file/open?path=<encoded_path>
  * 在 Tauri WebView 中点击文件链接时调用，通过 child_process 在系统默认程序中打开文件
@@ -56,11 +92,8 @@ export async function handleFileOpen(
       return;
     }
 
-    // 安全校验：路径必须在 pyappHome 范围内
-    const { isPathWithin, resolvePyappHome } =
-      await import('@modules/core/paths');
-    const home = resolvePyappHome();
-    if (!isPathWithin(home, filePath)) {
+    // 安全校验：路径必须在文件访问白名单（统一 baseDirs，见 getAllowedBaseDirs）
+    if (!(await isPathAllowed(filePath))) {
       res.writeHead(403, { 'Content-Type': 'application/json' });
       res.end(
         JSON.stringify({
@@ -148,11 +181,8 @@ export async function handleFileRead(
       return;
     }
 
-    // 安全校验：路径必须在 pyappHome 范围内
-    const { isPathWithin, resolvePyappHome } =
-      await import('@modules/core/paths');
-    const home = resolvePyappHome();
-    if (!isPathWithin(home, filePath)) {
+    // 安全校验：路径必须在文件访问白名单（统一 baseDirs，见 getAllowedBaseDirs）
+    if (!(await isPathAllowed(filePath))) {
       res.writeHead(403, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: { message: 'Access denied' } }));
       return;
@@ -388,14 +418,12 @@ export async function handleFileResolvePath(
       resolveDownloadsDir,
       resolveDataDir,
       resolveDocsDir,
-      isPathWithin,
       containsPathTraversal,
     } = await import('@modules/core/paths');
 
-    // BUG-C 修复：绝对路径必须验证在允许范围内
+    // BUG-C 修复：绝对路径必须验证在文件访问白名单（统一 baseDirs）
     if (path.isAbsolute(rawPath)) {
-      const pyappHome = resolvePyappHome();
-      if (!isPathWithin(pyappHome, rawPath)) {
+      if (!(await isPathAllowed(rawPath))) {
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(
           JSON.stringify({
@@ -440,16 +468,8 @@ export async function handleFileResolvePath(
     }
 
     const projectRoot = resolveProjectRoot();
-    const baseDirs = [
-      projectRoot,
-      resolvePyappHome(),
-      resolveOutputDir(),
-      resolveDownloadsDir(),
-      resolveDataDir(),
-      resolveDocsDir(),
-      path.join(projectRoot, 'app'),
-      path.join(projectRoot, 'client'),
-    ];
+    // 统一白名单：与 read/preview/open 的允许范围一致（getAllowedBaseDirs）
+    const baseDirs = await getAllowedBaseDirs();
 
     for (const baseDir of baseDirs) {
       const candidate = path.join(baseDir, rawPath);
@@ -503,11 +523,8 @@ export async function handleFilePreview(
       return;
     }
 
-    // 安全校验：路径必须在 pyappHome 范围内
-    const { isPathWithin, resolvePyappHome } =
-      await import('@modules/core/paths');
-    const home = resolvePyappHome();
-    if (!isPathWithin(home, filePath)) {
+    // 安全校验：路径必须在文件访问白名单（统一 baseDirs，见 getAllowedBaseDirs）
+    if (!(await isPathAllowed(filePath))) {
       res.writeHead(403, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: { message: 'Access denied' } }));
       return;

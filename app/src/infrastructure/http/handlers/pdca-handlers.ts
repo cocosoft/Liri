@@ -38,6 +38,7 @@ import {
   writePdcaCheckpoint,
   syncPdcaWorkItemStatus,
 } from '@modules/tasks/PdcaWorkItemBridge';
+import type { PdcaMetrics } from '@modules/tasks/LongRunningTaskOrchestrator';
 
 const logger = getLogger('pdca:handlers');
 
@@ -431,6 +432,81 @@ export async function handlePdcaList(
     } /* 可选模块, 加载失败时降级 */
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(list));
+  } catch (err) {
+    sendError(res, err);
+  }
+}
+
+/**
+ * 获取 PDCA 监控指标（S1 灰度观测，P1-5 §5 S1）
+ *
+ * GET /v1/tasks/pdca/metrics
+ * 数据来源：LongRunningTaskOrchestrator.getAllOrchestrators() → getMetrics()。
+ * 步骤级统计经 TaskOrchestrator 单例（taskOrchestrator），经典路径（LongRunningTaskOrchestrator）
+ * 与快速路径（PlanDrivenLoop 的 markStepRunning/Completed/Failed）记账同源（S1 验证结论）；
+ * totalCycles 仅统计经典路径生命周期事件，快速路径按 decomposed=true 的 run 计数由 S2 落库补齐。
+ * 返回：{ tasks: [{ taskId, metrics }], total: 聚合指标 }
+ */
+export async function handlePdcaMetrics(
+  _req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    let tasks: Array<{ taskId: string; metrics: PdcaMetrics }> = [];
+    try {
+      const m = await import('@modules/tasks/LongRunningTaskOrchestrator');
+      tasks = m.getAllOrchestrators().map((o) => {
+        const status = o.getStatus() as { taskId?: string };
+        return {
+          taskId: status?.taskId ?? 'unknown',
+          metrics: o.getMetrics(),
+        };
+      });
+    } catch (err) {
+      handleError(err, {
+        module: 'infrastructure:http:handlers:pdca-handlers',
+        action: 'orchestratorImportFailed',
+      });
+    } /* 可选模块, 加载失败时降级 */
+
+    const count = tasks.length;
+    const total: PdcaMetrics = {
+      totalCycles: tasks.reduce((s, t) => s + t.metrics.totalCycles, 0),
+      totalSteps: tasks.reduce((s, t) => s + t.metrics.totalSteps, 0),
+      completedSteps: tasks.reduce((s, t) => s + t.metrics.completedSteps, 0),
+      failedSteps: tasks.reduce((s, t) => s + t.metrics.failedSteps, 0),
+      avgStepDurationMs:
+        count > 0
+          ? Math.round(
+              tasks.reduce((s, t) => s + t.metrics.avgStepDurationMs, 0) / count
+            )
+          : 0,
+      avgReviewScore:
+        count > 0
+          ? Math.round(
+              tasks.reduce((s, t) => s + t.metrics.avgReviewScore, 0) / count
+            )
+          : 0,
+      reviewPassRate:
+        count > 0
+          ? Math.round(
+              tasks.reduce((s, t) => s + t.metrics.reviewPassRate, 0) / count
+            )
+          : 100,
+      toolFailureSteps: tasks.reduce(
+        (s, t) => s + t.metrics.toolFailureSteps,
+        0
+      ),
+      abortRate:
+        count > 0
+          ? Math.round(
+              tasks.reduce((s, t) => s + t.metrics.abortRate, 0) / count
+            )
+          : 0,
+    };
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ tasks, total }));
   } catch (err) {
     sendError(res, err);
   }

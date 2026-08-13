@@ -560,6 +560,24 @@ data: {"type":"token","token":"好"}
 data: {"type":"done","result":{...}}
 ```
 
+### §3.29 PDCA（长程任务编排，S1 灰度观测 2026-08-13 新增）
+
+> 指标接口挂 `pdca-handlers.ts`（`handlePdcaMetrics`），数据源 `LongRunningTaskOrchestrator.getAllOrchestrators() → getMetrics()`。
+> 记账同源：经典路径与快速路径（PlanDrivenLoop）步骤统计均经 `taskOrchestrator` 单例（TaskOrchestrator.ts L545）。
+> 存量 `/v1/pdca/*` 路由（start/status/audit/confirm/review/decide/list）未在清单收录，属已知缺口（§5 待补齐登记）。
+
+| 方法 | 路径 | 后端状态 | 前端调用方 |
+|------|------|----------|-----------|
+| GET | `/v1/tasks/pdca/metrics` | ✅ | 无前端调用方（S1 灰度观测，curl 调用） |
+
+**响应示例**：
+```json
+{
+  "tasks": [{ "taskId": "pdca_xxx", "metrics": { "totalCycles": 1, "totalSteps": 4, "completedSteps": 3, "failedSteps": 0, "avgStepDurationMs": 1200, "avgReviewScore": 85, "reviewPassRate": 100, "toolFailureSteps": 0, "abortRate": 0 } }],
+  "total": { "totalCycles": 1, "totalSteps": 4, "completedSteps": 3, "failedSteps": 0, "avgStepDurationMs": 1200, "avgReviewScore": 85, "reviewPassRate": 100, "toolFailureSteps": 0, "abortRate": 0 }
+}
+```
+
 ---
 
 ### 3.15 Inbox API（v2.2 新增）

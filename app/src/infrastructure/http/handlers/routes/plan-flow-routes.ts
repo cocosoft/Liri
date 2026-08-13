@@ -43,6 +43,7 @@ import {
   handlePdcaConfirm,
   handlePdcaDecideStep,
   handlePdcaList,
+  handlePdcaMetrics,
   handlePdcaReviewStep,
   handlePdcaStart,
   handlePdcaStatus,
@@ -152,6 +153,10 @@ export async function dispatchPlanFlowRoutes(
   }
   if (method === 'POST' && url === '/v1/pdca/list') {
     await handlePdcaList(req, res);
+    return true;
+  }
+  if (method === 'GET' && url === '/v1/tasks/pdca/metrics') {
+    await handlePdcaMetrics(req, res);
     return true;
   }
 

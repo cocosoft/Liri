@@ -30,6 +30,31 @@ let _activeSwitchTarget: string | null = null;
 // Promise，避免并发创建两个会话（接口类型 Promise<Session> 保持不变）。
 let _pendingCreate: Promise<Session> | null = null;
 
+/**
+ * E1 修复：切换被丢弃时，将 chat store 消息恢复为当前有效会话（currentSessionId）的内容。
+ * 被丢弃的切换已执行 loadMessages(B) 把 B 的消息写入 store，但 currentSessionId 未变
+ * → 出现"消息区显示被丢弃目标内容、侧栏高亮不一致"的短暂窗口。读取当前有效会话
+ * 消息（缓存优先）恢复一致；无有效会话则清空。
+ */
+async function restoreMessagesToCurrentSession(
+  get: () => RootState,
+): Promise<void> {
+  try {
+    const { sessionService } = await import("@/services/sessionService");
+    const curId = get().currentSessionId;
+    if (curId) {
+      const { _getCachedMessages } = await import("@/stores/chat");
+      const cached = _getCachedMessages(curId);
+      const messages = cached ?? (await sessionService.getMessages(curId));
+      await chatCoordinator.loadMessages(messages);
+    } else {
+      await chatCoordinator.clearMessages().catch(() => {});
+    }
+  } catch {
+    await chatCoordinator.clearMessages().catch(() => {});
+  }
+}
+
 // ─── Slice 接口 ────────────────────────────────────────
 
 export interface SessionSlice {
@@ -856,6 +881,9 @@ export const createSessionSlice: StateCreator<
             seq,
             latestSeq: _switchSeq,
           });
+        // E1 修复：丢弃前把消息区恢复为当前有效会话（本切换的 loadMessages(B)
+        // 已写入 store 但 currentSessionId 未变 → 消息区与侧栏不一致窗口）
+        await restoreMessagesToCurrentSession(get);
         return;
       }
       // G5 竞态修复：目标会话已不在列表（await 期间被删除/清空）→ 丢弃本次切换。
@@ -867,6 +895,8 @@ export const createSessionSlice: StateCreator<
           sessionId: id,
           seq,
         });
+        // E1 修复：同上，丢弃前恢复消息区一致性
+        await restoreMessagesToCurrentSession(get);
         return;
       }
       const t5 = performance.now();

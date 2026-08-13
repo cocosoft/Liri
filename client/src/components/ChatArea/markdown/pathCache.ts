@@ -57,7 +57,9 @@ export function getCacheEntry(key: string): PathCacheEntry | null {
   if (entry) {
     // BUG11 修复：使用 monotonic clock 防止 NTP/夏令时跳变导致缓存异常
     const now = performance.now();
-    const ttl = entry.isNegative ? NEGATIVE_CACHE_TTL_MS : POSITIVE_CACHE_TTL_MS;
+    const ttl = entry.isNegative
+      ? NEGATIVE_CACHE_TTL_MS
+      : POSITIVE_CACHE_TTL_MS;
     if (now - entry.createdAt > ttl) {
       // 过期：删除并触发后台刷新
       pathResolveCache.delete(key);

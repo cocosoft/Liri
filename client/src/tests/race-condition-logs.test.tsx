@@ -63,7 +63,9 @@ describe("竞态条件回归测试", () => {
   let consoleInfoSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
-    consoleInfoSpy = vi.spyOn(console, "info").mockImplementation(() => undefined);
+    consoleInfoSpy = vi
+      .spyOn(console, "info")
+      .mockImplementation(() => undefined);
     vi.useFakeTimers();
     localStorage.clear();
   });
@@ -91,7 +93,7 @@ describe("竞态条件回归测试", () => {
     // ① 草稿已同步落盘到旧会话 key（R2 修复生效）
     expect(localStorage.getItem("chat_draft_A")).toBe("草稿A-未落盘");
     // ② 日志触发（flushOnSwitch 埋点生效）
-    const flushLog = consoleInfoSpy.mock.calls.find((c) =>
+    const flushLog = consoleInfoSpy.mock.calls.find((c: unknown[]) =>
       String(c[1]).includes("draft:flushOnSwitch"),
     );
     expect(flushLog).toBeTruthy();
@@ -101,7 +103,7 @@ describe("竞态条件回归测试", () => {
       action: "set",
     });
     // ③ 恢复点日志也存在
-    const restoreLog = consoleInfoSpy.mock.calls.find((c) =>
+    const restoreLog = consoleInfoSpy.mock.calls.find((c: unknown[]) =>
       String(c[1]).includes("draft:restore"),
     );
     expect(restoreLog).toBeTruthy();
@@ -142,7 +144,7 @@ describe("竞态条件回归测试", () => {
       resolvers[0]({ items: [{ fileId: "stale", originalName: "旧结果" }] });
     });
 
-    const staleLog = consoleInfoSpy.mock.calls.find((c) =>
+    const staleLog = consoleInfoSpy.mock.calls.find((c: unknown[]) =>
       String(c[1]).includes("search:staleDrop"),
     );
     expect(staleLog).toBeTruthy();
@@ -152,7 +154,7 @@ describe("竞态条件回归测试", () => {
     await act(async () => {
       resolvers[1]({ items: [] });
     });
-    const completeLog = consoleInfoSpy.mock.calls.find((c) =>
+    const completeLog = consoleInfoSpy.mock.calls.find((c: unknown[]) =>
       String(c[1]).includes("search:complete"),
     );
     expect(completeLog).toBeTruthy();
@@ -186,7 +188,7 @@ describe("竞态条件回归测试", () => {
     expect(onDoubleClick).toHaveBeenCalledTimes(1);
 
     // 取消日志触发
-    const cancelLog = consoleInfoSpy.mock.calls.find((c) =>
+    const cancelLog = consoleInfoSpy.mock.calls.find((c: unknown[]) =>
       String(c[1]).includes("sessionListItem:clickCancelledByDblClick"),
     );
     expect(cancelLog).toBeTruthy();
@@ -211,7 +213,7 @@ describe("竞态条件回归测试", () => {
     });
 
     expect(onSwitch).toHaveBeenCalledWith("sess-1");
-    const switchLog = consoleInfoSpy.mock.calls.find((c) =>
+    const switchLog = consoleInfoSpy.mock.calls.find((c: unknown[]) =>
       String(c[1]).includes("sessionListItem:switch"),
     );
     expect(switchLog).toBeTruthy();

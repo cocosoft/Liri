@@ -132,8 +132,19 @@ export function useInitApp() {
   useEffect(() => {
     if (initState.phase !== "phase3_sse") return;
 
+    // P2-4 修复：订阅会话变更事件刷新侧栏列表——后端自动生成标题
+    // （autoGenerateTitle → session:renamed）、其它端创建/删除/清空会话时，
+    // 前端列表需实时反映；原实现无订阅 + loadChatSessions 早退（列表非空即
+    // no-op），标题/列表必须刷新页面才更新。
+    // 定义在 try 外以便 cleanup 闭包引用同一引用注销。
+    const refreshSessions = () => loadSessions();
+
     try {
       sseService.on("heartbeat", () => checkBackendStatus());
+      sseService.on("session:renamed", refreshSessions);
+      sseService.on("session:created", refreshSessions);
+      sseService.on("session:deleted", refreshSessions);
+      sseService.on("session:cleared", refreshSessions);
       // P0b-3: AI 自动建项目时，前端同步创建 worktree
       sseService.on("project:auto_created", (data) => {
         const { projectId, name } = data;
@@ -191,6 +202,10 @@ export function useInitApp() {
 
     return () => {
       sseService.off("heartbeat", checkBackendStatus);
+      sseService.off("session:renamed", refreshSessions);
+      sseService.off("session:created", refreshSessions);
+      sseService.off("session:deleted", refreshSessions);
+      sseService.off("session:cleared", refreshSessions);
       sseService.off("project:auto_created", () => {});
       sseService.disconnect();
       connectionMonitor.stop();

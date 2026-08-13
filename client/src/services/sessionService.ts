@@ -179,8 +179,18 @@ export const sessionService = {
             _isUsingFallback = false;
             return flattenSession(res.data as Session);
           }
+          // N1 修复：404 = 会话不存在（后端 P2-3 已改为显式 404，不再静默重建空会话）。
+          // 原实现静默降级到内存假会话（title:"恢复的会话"），switchChatSession 无
+          // 假会话检测 → 空壳会话"复活"。404 直接抛出，由调用方清理残留并切换。
+          if (res.error?.code === 404) {
+            const notFound = new Error(`会话不存在: ${id}`);
+            (notFound as unknown as Record<string, unknown>).statusCode = 404;
+            throw notFound;
+          }
           logger.warn("切换会话失败", { id, error: res.error });
         } catch (e) {
+          // 404 是明确的业务错误，直接上抛（不做 Tauri/内存降级）
+          if ((e as { statusCode?: number })?.statusCode === 404) throw e;
           handleClientError(e, {
             module: "services:session",
             action: "switch",

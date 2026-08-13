@@ -92,12 +92,7 @@ export interface TaskCardTask {
   id: string;
   name: string;
   status:
-    | "pending"
-    | "in_progress"
-    | "completed"
-    | "failed"
-    | "blocked"
-    | "skipped";
+    "pending" | "in_progress" | "completed" | "failed" | "blocked" | "skipped";
   dependsOn: string[];
   result?: string;
   durationMs?: number;

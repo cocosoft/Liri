@@ -564,9 +564,7 @@ export class ChronologicalBlockBuilder {
         const tasks = block.taskCard.tasks ?? [];
         const allFinal =
           tasks.length > 0 &&
-          tasks.every(
-            (t) => t.status === "completed" || t.status === "failed",
-          );
+          tasks.every((t) => t.status === "completed" || t.status === "failed");
         block.taskCard.status = allFinal ? "done" : "executing";
         todoBlocks.push(block.content);
       }

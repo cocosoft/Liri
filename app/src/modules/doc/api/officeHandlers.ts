@@ -921,14 +921,17 @@ export async function handleDocDownload(
 
     const path = await import('path');
     const fs = await import('fs');
-    const { resolveOutputDir } = await import('@modules/core');
+    const { resolveOutputDir, isPathWithin } = await import('@modules/core');
 
     const filePath = path.join(resolveOutputDir(), file);
 
     // 安全检查：防止路径遍历
+    // R7 修复：原 `resolvedPath.startsWith(resolvedBase)` 无路径分隔符边界，
+    // `..\out_evil\secret.docx` resolve 后落在 base 的兄弟目录，前缀仍匹配可绕过；
+    // 改用 isPathWithin（带 sep 边界，与文件访问白名单同源）
     const resolvedPath = path.resolve(filePath);
     const resolvedBase = path.resolve(resolveOutputDir());
-    if (!resolvedPath.startsWith(resolvedBase)) {
+    if (!isPathWithin(resolvedBase, resolvedPath)) {
       res.writeHead(403, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ code: 403, message: '禁止访问' }));
       return;

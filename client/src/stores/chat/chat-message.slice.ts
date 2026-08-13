@@ -130,10 +130,7 @@ export const createMessageSlice: StateCreator<
       );
     },
 
-    regenerateMessage: async (
-      assistantMsgId: string,
-      sessionId?: string,
-    ) => {
+    regenerateMessage: async (assistantMsgId: string, sessionId?: string) => {
       await regenerateMessageImpl(
         messageSet,
         messageGet,

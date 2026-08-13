@@ -213,12 +213,17 @@ const ChatMessageMemo = memo(
     /** 沉淀为成果：手动将 AI 回复保存到项目成果区 */
     const handleCaptureAsDeliverable = async () => {
       if (!projectId) return;
+      // R8 修复：content 可能为复杂对象（非 string），先归一化再 slice，
+      // 原实现非 string content 时 TypeError 被外层 catch 静默吞掉，功能失效无提示
+      const content =
+        typeof message.content === "string" ? message.content : "";
+      if (!content) return;
       try {
         await saveArtifact({
           projectId,
           kind: "output",
-          title: message.content.slice(0, 80) || "未命名成果",
-          content: message.content,
+          title: content.slice(0, 80) || "未命名成果",
+          content,
           sessionId: message.session_id,
         });
         setCaptureToast(true);
@@ -375,7 +380,9 @@ const ChatMessageMemo = memo(
                   // 静态选择器 + 属性值比对
                   const el = Array.from(
                     document.querySelectorAll<HTMLElement>("[data-msg-id]"),
-                  ).find((n) => n.getAttribute("data-msg-id") === replyTarget.id);
+                  ).find(
+                    (n) => n.getAttribute("data-msg-id") === replyTarget.id,
+                  );
                   el?.scrollIntoView({ behavior: "smooth", block: "center" });
                 }}
                 title={t("chat.jumpToReply")}

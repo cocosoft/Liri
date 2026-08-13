@@ -17,6 +17,20 @@ function formatDateTime(dateStr: string): string {
   }
 }
 
+/** P3-7 修复：触发 blob 下载并延迟 revokeObjectURL——与 SessionHistorySidebar 的
+ * triggerBlobDownload（M10 修复）一致：立即 revoke 在 Firefox 偶发下载失败；
+ * 元素需先挂载到 DOM 再 click（原实现 a.click() 未挂载，Firefox 偶发失败）。 */
+function triggerBlobDownload(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 /** 从消息中提取可搜索文本 */
 function getMessageSearchText(message: Message): string {
   const parts: string[] = [];
@@ -205,13 +219,10 @@ function SessionHeader() {
         system: t("chat.system"),
         tool: t("chat.tool"),
       });
-      const blob = new Blob([md], { type: "text/markdown;charset=utf-8" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `chat-export-${Date.now()}.md`;
-      a.click();
-      URL.revokeObjectURL(url);
+      triggerBlobDownload(
+        new Blob([md], { type: "text/markdown;charset=utf-8" }),
+        `chat-export-${Date.now()}.md`,
+      );
     } finally {
       setExporting(false);
     }
@@ -224,13 +235,10 @@ function SessionHeader() {
     try {
       const source = await resolveExportMessages();
       const json = exportAsJson(source);
-      const blob = new Blob([json], { type: "application/json;charset=utf-8" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `chat-export-${Date.now()}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
+      triggerBlobDownload(
+        new Blob([json], { type: "application/json;charset=utf-8" }),
+        `chat-export-${Date.now()}.json`,
+      );
     } finally {
       setExporting(false);
     }
@@ -333,7 +341,7 @@ function SessionHeader() {
       {/* 右侧：导出按钮 */}
       <div className="flex items-center gap-1 flex-shrink-0">
         {/* 导出按钮 */}
-        {currentSession && messages.length > 0 && (
+        {currentSession && (
           <div ref={exportRef} className="relative flex-shrink-0">
             <button
               onClick={() => setExportOpen((prev) => !prev)}

@@ -113,7 +113,7 @@ export class MockLLMServer {
     this.server = Bun.serve({
       port: this.port,
       hostname: '127.0.0.1',
-      fetch: (req) => this.handleRequest(req),
+      fetch: (req: Request) => this.handleRequest(req),
     });
 
     // 获取实际分配的端口

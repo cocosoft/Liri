@@ -22,7 +22,11 @@ import {
   reorderExplorationBlocks,
 } from "./chat-toolcall.slice";
 import { addFilePathsFromBlocks } from "./chat-file.slice";
-import { doAutoRename, SaveQueue } from "./chat-history.slice";
+import {
+  doAutoRename,
+  SaveQueue,
+  staleSessionCache,
+} from "./chat-history.slice";
 import { chatCoordinator } from "./chatCoordinator";
 import { handleClientError } from "@/utils/handleError";
 import { removeStreamController } from "./chat-message-shared";
@@ -56,6 +60,11 @@ export async function streamMessageImpl(
     prevController.abort();
   }
 
+  // P1-1 修复：流式发送使会话缓存失效（staleSessionCache）。
+  // 原实现缓存只在加载时写入、非流式路径失效，流式对话后 _sessionMessageCache
+  // 仍是加载时快照，切走再切回命中旧快照导致"最后一段对话消失"。
+  staleSessionCache(sid);
+
   const controller = new AbortController();
 
   const messageQueueEnabled =
@@ -88,7 +97,7 @@ export async function streamMessageImpl(
       // 只继承被编辑消息的回复关系
       const nextReplyToId = pendingSurvives
         ? pendingReplyId
-        : editTarget.replyToId ?? null;
+        : (editTarget.replyToId ?? null);
       // 竞态排查：编辑截断决策点——记录截断前消息数/截断后消息数/回复继承结果，
       // 若 pendingReplyId 被意外清空或 replyToId 悬空，可从此日志定位时序
       logger.info("streamMessage:editTruncate", {
@@ -102,7 +111,11 @@ export async function streamMessageImpl(
         pendingSurvives,
         nextReplyToId,
       });
-      set({ messages: truncated, editTarget: null, pendingReplyToId: nextReplyToId });
+      set({
+        messages: truncated,
+        editTarget: null,
+        pendingReplyToId: nextReplyToId,
+      });
       // AB-13 修复：同步截断后端持久化消息，防止切会话/重载后旧消息回显。
       // 编辑场景先等后端截断完成再发流（写前持久化语义），失败不阻断发送。
       if (sessionId) {

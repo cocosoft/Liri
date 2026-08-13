@@ -17,6 +17,19 @@ import { chatCoordinator } from "@/stores/chat/chatCoordinator";
 
 const logger = createLogger("root-store:sessionSlice");
 
+// P1-2 修复：会话切换序号。快速连点不同会话时，两次 switchChatSession 并行执行，
+// 慢的请求后完成却无条件 set currentSessionId 覆盖最新目标（乱序覆盖竞态）。
+// 每次切换取递增序号，写入状态前校验"本次仍是最新一次切换"，过期切换直接丢弃。
+let _switchSeq = 0;
+
+// G1 竞态修复：当前进行中的切换目标（供 deleteChatSession 判断"删除的是否为切换目标"）。
+// 仅删除切换目标才需使其过期；删除其他会话不应误丢弃用户刚点的切换。
+let _activeSwitchTarget: string | null = null;
+
+// G2 竞态修复：进行中的"新建会话"Promise——快速双击"新建"时第二次调用复用同一
+// Promise，避免并发创建两个会话（接口类型 Promise<Session> 保持不变）。
+let _pendingCreate: Promise<Session> | null = null;
+
 // ─── Slice 接口 ────────────────────────────────────────
 
 export interface SessionSlice {
@@ -206,6 +219,71 @@ export const createSessionSlice: StateCreator<
     const wtId = get().currentWorkspaceId;
     const wt = wtId ? get().worktrees[wtId] : undefined;
 
+    // P1-3 修复：chat 模块直接复用当前会话。
+    // 真实 chat 会话在 Hub 中的 workspaceId 是 ""（非项目会话后端不写
+    // metadata.workspaceId，flattenSession 得到 undefined，loadChatSessions 用
+    // `?? ""` 兜底），原逻辑按 workspaceId === "chat" 匹配永远失败，
+    // 导致每次回 /chat 都新建一个仅存在于前端 Hub 的幽灵会话（sess-*，
+    // persist 后永久累积），并把 currentSessionId 指向它 → 标题栏丢失会话。
+    if (moduleType === "chat") {
+      const currentId = get().currentSessionId;
+      if (currentId) {
+        const current = get().chatSessions.find((s) => s.id === currentId);
+        // N5 修复：仅当当前会话属于 chat 模块才复用——项目会话（workspaceId 非空 /
+        // Hub moduleType 为 project）也在 chatSessions 中，直接复用会导致 /chat 页
+        // 显示项目会话、侧栏无高亮、消息区空白。
+        const hubType = get().sessions[currentId]?.moduleType;
+        const isChatSession =
+          current &&
+          (hubType === "chat" ||
+            (hubType === undefined && !current.workspaceId));
+        if (isChatSession) {
+          logger.debug("getOrCreateSession:复用当前 chat 会话", {
+            moduleType,
+            sessionId: currentId,
+            workspaceId: current?.workspaceId ?? null,
+            hubType,
+          });
+          return currentId;
+        }
+        // N5 拦截：当前会话存在但不是 chat 模块（项目会话等），记录便于排查
+        logger.info("getOrCreateSession:当前会话非 chat 模块，回退最近会话", {
+          moduleType,
+          currentSessionId: currentId,
+          workspaceId: current?.workspaceId ?? null,
+          hubType,
+        });
+      }
+      // N2 修复：当前会话无效（如项目页 `SessionSliceList` 同步 switchSession 把
+      // currentSessionId 指向项目会话，或指向已删除会话）→ 回退到 chatSessions
+      // 最近会话（loadChatSessions 已按 updatedAt 降序），而非 fallthrough 新建
+      // 幽灵会话——原实现导致项目页回 /chat 时 header 空白 + 幽灵记录累积。
+      // N7 修复：回退目标必须是 chat 会话——chatSessions 来自 /v1/sessions 全量
+      // 列表（含项目会话），若最近活跃的是项目会话，回退会指向它导致 /chat 页
+      // 显示项目会话内容、侧栏（按 chat 过滤）无高亮。
+      const latest = get().chatSessions.find(
+        (s) =>
+          !s.workspaceId &&
+          (get().sessions[s.id]?.moduleType ?? "chat") === "chat",
+      );
+      if (latest) {
+        set({ currentSessionId: latest.id });
+        // N5 修复：回退时同步后端 currentId——此前可能在项目页切到其他会话
+        // （P3-9 已同步后端），若不同步，刷新后 loadChatSessions 的 getCurrentSession
+        // 会把 currentSessionId 拉回项目会话。fire-and-forget，不阻塞导航。
+        import("@/services/sessionService").then(({ sessionService }) =>
+          sessionService.switch(latest.id).catch(() => {}),
+        );
+        logger.info("getOrCreateSession:回退到最近 chat 会话", {
+          moduleType,
+          sessionId: latest.id,
+          title: latest.title,
+          workspaceId: latest.workspaceId ?? null,
+        });
+        return latest.id;
+      }
+    }
+
     // 系统 worktree（chat 或 module）：复用该 worktree 下的当前模块会话，
     // 避免每次进入 /chat 等页面重复创建空会话
     if (wt?.workspaceSource === "system") {
@@ -214,11 +292,21 @@ export const createSessionSlice: StateCreator<
       );
       if (existing) {
         set({ currentSessionId: existing.id });
+        logger.debug("getOrCreateSession:复用系统 worktree 会话", {
+          moduleType,
+          sessionId: existing.id,
+          workspaceId: wtId,
+        });
         return existing.id;
       }
     }
 
     // 用户项目 worktree（workspaceSource === "user"）：创建新会话（项目内多会话）
+    logger.debug("getOrCreateSession:创建新会话", {
+      moduleType,
+      workspaceId: wtId,
+      title: title ?? null,
+    });
     return get().createSession(moduleType, title);
   },
 
@@ -241,7 +329,13 @@ export const createSessionSlice: StateCreator<
   // ─── 旧 sessionStore 兼容动作（异步）────────────────
 
   loadChatSessions: async () => {
-    if (get().chatSessions.length > 0 && !get().error) return;
+    // P2-4 修复：早退条件从"列表非空"改为"正在加载"——原实现首次加载成功后
+    // 所有后续调用都是 no-op，SSE（session:renamed/created/deleted/cleared）
+    // 触发的列表刷新永远不生效，侧栏标题/列表必须刷新页面才更新。
+    if (get().isLoading) {
+      logger.debug("loadChatSessions:加载中，跳过本次刷新");
+      return;
+    }
     set({ isLoading: true, error: null });
     try {
       const { sessionService } = await import("@/services/sessionService");
@@ -275,12 +369,75 @@ export const createSessionSlice: StateCreator<
         };
       }
 
+      // N6 修复：切换进行中（switching=true）不覆盖 currentSessionId——
+      // SSE 回环（autoGenerateTitle 等广播 session:renamed → 本端 SSE → loadChatSessions）
+      // 可穿透 switchChatSession（它只设 switching、不设 isLoading）。若 getCurrent()
+      // 响应乱序（返回旧会话 A）会覆盖切换目标 B → 用户点了 B 却停在 A。
+      const switching = get().switching;
       set({
         chatSessions: sessions,
-        currentSessionId: currentSession?.id ?? null,
+        currentSessionId: switching
+          ? get().currentSessionId
+          : (currentSession?.id ?? null),
         isLoading: false,
         sessions: { ...get().sessions, ...hubSync },
       });
+      logger.info("loadChatSessions:加载完成", {
+        sessionCount: sessions.length,
+        currentSessionId: currentSession?.id ?? null,
+        hubSynced: Object.keys(hubSync).length,
+        switching,
+      });
+
+      // N6 修复：切换进行中跳过补拉——switchChatSession 会自行 stopAndFlush +
+      // getMessages + loadMessages，此处补拉会与其竞态覆盖。
+      if (switching) {
+        logger.debug("loadChatSessions:切换进行中，跳过补拉消息", {
+          switching,
+        });
+        return;
+      }
+
+      // N3 修复：刷新页面后当前会话消息不自动加载 → 消息区空白，必须点侧栏才恢复。
+      // loadChatSessions 只设列表 + currentSessionId，不拉消息；chat store 无 persist、
+      // _sessionMessageCache 是内存 Map（刷新即失）。set 后若 chat store 中没有
+      // 当前会话的消息（空列表或首条 session_id 不匹配），补拉一次（缓存优先）。
+      const currentId = currentSession?.id ?? null;
+      if (currentId) {
+        // chat store 独立于 rootStore（高频 IO），动态读取避免静态循环依赖
+        const { useChatStore } = await import("@/stores/chat");
+        const msgs = useChatStore.getState().messages;
+        const hasCurrentMsgs =
+          msgs.length > 0 && msgs[0].session_id === currentId;
+        if (!hasCurrentMsgs) {
+          try {
+            const { _getCachedMessages } = await import("@/stores/chat");
+            const cached = _getCachedMessages(currentId);
+            const messages =
+              cached ?? (await sessionService.getMessages(currentId));
+            await chatCoordinator.loadMessages(messages);
+            logger.debug("loadChatSessions:补拉当前会话消息", {
+              sessionId: currentId,
+              fromCache: cached != null,
+              messageCount: messages.length,
+            });
+          } catch (e) {
+            // 拉取失败不影响列表展示，保持静默
+            logger.debug("loadChatSessions:补拉当前会话消息失败", {
+              sessionId: currentId,
+              error: String(e),
+            });
+          }
+        } else {
+          logger.debug(
+            "loadChatSessions:chat store 已有当前会话消息，跳过补拉",
+            {
+              sessionId: currentId,
+              messageCount: msgs.length,
+            },
+          );
+        }
+      }
     } catch (error) {
       const { handleClientError } = await import("@/utils/handleError");
       handleClientError(
@@ -292,132 +449,230 @@ export const createSessionSlice: StateCreator<
     }
   },
 
-  createChatSession: async (title: string) => {
-    logger.debug("创建会话:", title);
-    set({ isLoading: true, error: null });
-    try {
-      const { sessionService } = await import("@/services/sessionService");
-
-      // 获取当前后端生效模型
-      let modelId: string | undefined;
-      try {
-        const { modelSwitchService } =
-          await import("@/services/modelSwitchService");
-        const current = await modelSwitchService.getCurrent();
-        // 会话 modelId 统一存 UUID（model_registry.id），与切换/恢复接口对齐；
-        // 老后端无 modelUuid 时回退模型名
-        modelId = current.modelUuid || current.modelId;
-      } catch (e) {
-        const { handleClientError } = await import("@/utils/handleError");
-        handleClientError(
-          e,
-          {
-            module: "stores:sessionSlice",
-            action: "createChatSession:getModelId",
-          },
-          "warn",
-        );
-      }
-
-      // 获取任务分工配置
-      let tasksOverride: Record<string, string> | undefined;
-      try {
-        const { modelSwitchService } =
-          await import("@/services/modelSwitchService");
-        const tasks = await modelSwitchService.getTasks();
-        tasksOverride = tasks as Record<string, string>;
-      } catch (e) {
-        const { handleClientError } = await import("@/utils/handleError");
-        handleClientError(
-          e,
-          {
-            module: "stores:sessionSlice",
-            action: "createChatSession:getTasks",
-          },
-          "warn",
-        );
-      }
-
-      // 获取当前工作空间 — 从 moduleContext 读取，不再依赖 currentWorkspaceId
-      const ctx = get().moduleContext;
-      const workspaceId =
-        ctx.moduleType === "project" ? ctx.projectId : undefined;
-      // P2-2: workspacePath 应为真实 sandboxPath（worktree.path），而非项目名
-      const workspacePath =
-        ctx.moduleType === "project" && ctx.projectId
-          ? get().worktrees[ctx.projectId]?.path
-          : undefined;
-
-      const session = await sessionService.create(title, {
-        modelId,
-        workspaceId,
-        workspacePath,
-        moduleType: ctx.moduleType,
-        projectId: ctx.projectId,
-      });
-      const sessionWithTasks: Session = tasksOverride
-        ? {
-            ...session,
-            tasksOverride: tasksOverride as unknown as Partial<
-              import("@/types/model").TaskModelConfig
-            >,
-          }
-        : session;
-
-      logger.debug("会话已创建: " + session.id, { modelId, workspaceId });
-
-      // 清空 chatStore 消息
-      try {
-        await chatCoordinator.clearMessages();
-      } catch (e) {
-        const { handleClientError } = await import("@/utils/handleError");
-        handleClientError(
-          e,
-          {
-            module: "stores:sessionSlice",
-            action: "createChatSession:clearMessages",
-          },
-          "warn",
-        );
-      }
-
-      // 重新加载会话列表
-      let sessions = await sessionService.list();
-      sessions = sessions.sort(
-        (a, b) =>
-          new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
-      );
-
-      set({
-        chatSessions: sessions,
-        currentSessionId: sessionWithTasks.id,
-        isLoading: false,
-      });
-
-      // 同步到 SessionHub：注入 moduleType + projectId（从 moduleContext 读取）
-      get().createSession(
-        ctx.moduleType,
-        title,
-        sessionWithTasks.id,
-        sessionWithTasks.workspaceId ?? "",
-      );
-
-      return sessionWithTasks;
-    } catch (error) {
-      const { handleClientError } = await import("@/utils/handleError");
-      handleClientError(
-        error,
-        { module: "stores:sessionSlice", action: "createChatSession" },
-        "warn",
-      );
-      set({ error: String(error), isLoading: false });
-      throw error;
+  createChatSession: (title: string) => {
+    // G2 竞态修复：复用进行中的创建——快速双击"新建"时第二次调用返回同一 Promise，
+    // 不并发创建两个会话（原实现无防护，接口 Promise<Session> 保持不变）。
+    if (_pendingCreate) {
+      logger.debug("createChatSession:创建进行中，复用同一 Promise", { title });
+      return _pendingCreate;
     }
+    logger.debug("创建会话:", title);
+    const promise = (async () => {
+      // 时序日志基准：t0 = 本次创建起点；seq = 进入时的切换序号（G1 递增后），
+      // 用于区分并发实例的执行顺序
+      const t0 = performance.now();
+      // G1 竞态修复：递增切换序号使进行中的 switchChatSession 过期——否则切换 B
+      // 进行中点击"新建"（C 已 set currentSessionId=C）后，switch B 完成仍会
+      // set currentSessionId=B 覆盖新会话；同时清掉旧切换的 switching（过期 switch
+      // 的 finally 不再重置，需在此兜底）。
+      const seq = ++_switchSeq;
+      set({ switching: false, isLoading: true, error: null });
+      logger.info("createChatSession:①开始", {
+        seq,
+        title,
+        t: (performance.now() - t0).toFixed(0),
+      });
+      try {
+        const { sessionService } = await import("@/services/sessionService");
+
+        // 获取当前后端生效模型
+        let modelId: string | undefined;
+        try {
+          const { modelSwitchService } =
+            await import("@/services/modelSwitchService");
+          const current = await modelSwitchService.getCurrent();
+          // 会话 modelId 统一存 UUID（model_registry.id），与切换/恢复接口对齐；
+          // 老后端无 modelUuid 时回退模型名
+          modelId = current.modelUuid || current.modelId;
+          logger.info("createChatSession:②模型已获取", {
+            seq,
+            modelId,
+            t: (performance.now() - t0).toFixed(0),
+          });
+        } catch (e) {
+          logger.warn("createChatSession:②获取模型失败", {
+            seq,
+            error: String(e),
+            t: (performance.now() - t0).toFixed(0),
+          });
+          const { handleClientError } = await import("@/utils/handleError");
+          handleClientError(
+            e,
+            {
+              module: "stores:sessionSlice",
+              action: "createChatSession:getModelId",
+            },
+            "warn",
+          );
+        }
+
+        // 获取任务分工配置
+        let tasksOverride: Record<string, string> | undefined;
+        try {
+          const { modelSwitchService } =
+            await import("@/services/modelSwitchService");
+          const tasks = await modelSwitchService.getTasks();
+          tasksOverride = tasks as Record<string, string>;
+        } catch (e) {
+          const { handleClientError } = await import("@/utils/handleError");
+          handleClientError(
+            e,
+            {
+              module: "stores:sessionSlice",
+              action: "createChatSession:getTasks",
+            },
+            "warn",
+          );
+        }
+
+        // 获取当前工作空间 — 从 moduleContext 读取，不再依赖 currentWorkspaceId
+        const ctx = get().moduleContext;
+        const workspaceId =
+          ctx.moduleType === "project" ? ctx.projectId : undefined;
+        // P2-2: workspacePath 应为真实 sandboxPath（worktree.path），而非项目名
+        const workspacePath =
+          ctx.moduleType === "project" && ctx.projectId
+            ? get().worktrees[ctx.projectId]?.path
+            : undefined;
+
+        const session = await sessionService.create(title, {
+          modelId,
+          workspaceId,
+          workspacePath,
+          moduleType: ctx.moduleType,
+          projectId: ctx.projectId,
+        });
+        const sessionWithTasks: Session = tasksOverride
+          ? {
+              ...session,
+              tasksOverride: tasksOverride as unknown as Partial<
+                import("@/types/model").TaskModelConfig
+              >,
+            }
+          : session;
+
+        logger.info("createChatSession:③后端会话已创建", {
+          seq,
+          sessionId: session.id,
+          t: (performance.now() - t0).toFixed(0),
+        });
+        logger.debug("会话已创建: " + session.id, { modelId, workspaceId });
+
+        // P2-1 修复：新建会话前先停止旧流 + 落盘待保存 blocks（与 switchChatSession
+        // 的 stopAndFlush 一致）。原实现只 clearMessages（仅 set({ messages: [] })），
+        // 不 abort streamControllers → 旧流后台继续跑完（持续消耗 token），
+        // 且因 messages 已清空，停止按钮（stopMessageImpl 按 messages[0].session_id
+        // 找 controller）也定位不到旧流，变成"无法停止"。
+        try {
+          await chatCoordinator.stopAndFlush();
+          logger.info("createChatSession:④旧流已停止并落盘", {
+            seq,
+            newSessionId: session.id,
+            t: (performance.now() - t0).toFixed(0),
+          });
+        } catch (e) {
+          logger.warn("createChatSession:④stopAndFlush 失败", {
+            seq,
+            newSessionId: session.id,
+            error: String(e),
+            t: (performance.now() - t0).toFixed(0),
+          });
+          const { handleClientError } = await import("@/utils/handleError");
+          handleClientError(
+            e,
+            {
+              module: "stores:sessionSlice",
+              action: "createChatSession:stopAndFlush",
+            },
+            "warn",
+          );
+        }
+
+        // 清空 chatStore 消息
+        try {
+          await chatCoordinator.clearMessages();
+        } catch (e) {
+          const { handleClientError } = await import("@/utils/handleError");
+          handleClientError(
+            e,
+            {
+              module: "stores:sessionSlice",
+              action: "createChatSession:clearMessages",
+            },
+            "warn",
+          );
+        }
+
+        // 重新加载会话列表
+        let sessions = await sessionService.list();
+        sessions = sessions.sort(
+          (a, b) =>
+            new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+        );
+
+        set({
+          chatSessions: sessions,
+          currentSessionId: sessionWithTasks.id,
+          isLoading: false,
+        });
+        logger.info("createChatSession:⑤状态已更新", {
+          seq,
+          sessionId: sessionWithTasks.id,
+          t: (performance.now() - t0).toFixed(0),
+        });
+
+        // 同步到 SessionHub：注入 moduleType + projectId（从 moduleContext 读取）
+        get().createSession(
+          ctx.moduleType,
+          title,
+          sessionWithTasks.id,
+          sessionWithTasks.workspaceId ?? "",
+        );
+
+        logger.info("createChatSession:✅完成", {
+          seq,
+          sessionId: sessionWithTasks.id,
+          totalMs: (performance.now() - t0).toFixed(0),
+        });
+        return sessionWithTasks;
+      } catch (error) {
+        logger.warn("createChatSession:❌失败", {
+          seq,
+          error: String(error),
+          t: (performance.now() - t0).toFixed(0),
+        });
+        const { handleClientError } = await import("@/utils/handleError");
+        handleClientError(
+          error,
+          { module: "stores:sessionSlice", action: "createChatSession" },
+          "warn",
+        );
+        set({ error: String(error), isLoading: false });
+        throw error;
+      }
+    })(); // 结束 async IIFE
+    // G2：注册进行中的创建，完成后清理（用引用比较防并发覆盖）
+    _pendingCreate = promise;
+    promise.finally(() => {
+      if (_pendingCreate === promise) _pendingCreate = null;
+    });
+    return promise;
   },
 
   switchChatSession: async (id: string) => {
     const t0 = performance.now();
+    // P1-2：记录本次切换序号，供后续"仍是最新一次切换"校验
+    const seq = ++_switchSeq;
+    // G1：记录进行中的切换目标（deleteChatSession 据此精确过期）
+    _activeSwitchTarget = id;
     const prevId = get().currentSessionId;
+    // 时序日志（非 DEV 也输出，便于运行时观察并发顺序；seq 区分并发实例）
+    logger.info("switchChatSession:①开始", {
+      seq,
+      sessionId: id,
+      prevId: prevId ?? null,
+      t: 0,
+    });
     if (import.meta.env.DEV)
       console.info("[Diag:switch] ═══ 开始切换会话", {
         sessionId: id,
@@ -448,6 +703,13 @@ export const createSessionSlice: StateCreator<
       const t2 = performance.now();
       const { sessionService } = await import("@/services/sessionService");
       const session = await sessionService.switch(id);
+      logger.info("switchChatSession:②后端切换完成", {
+        seq,
+        sessionId: id,
+        title: session?.title ?? null,
+        hasWorkspace: !!session?.workspaceId,
+        t: (performance.now() - t0).toFixed(0),
+      });
       if (import.meta.env.DEV)
         console.info("[Diag:switch] ② POST /v1/sessions/:id/switch", {
           ms: (performance.now() - t2).toFixed(1),
@@ -461,6 +723,13 @@ export const createSessionSlice: StateCreator<
       const cached = _getCachedMessages(id);
       const fromCache = cached != null;
       const messages = cached ?? (await sessionService.getMessages(id));
+      logger.info("switchChatSession:③消息已加载", {
+        seq,
+        sessionId: id,
+        count: messages.length,
+        fromCache,
+        t: (performance.now() - t0).toFixed(0),
+      });
       if (import.meta.env.DEV)
         console.info("[Diag:switch] ③ getMessages", {
           ms: (performance.now() - t3).toFixed(1),
@@ -470,6 +739,11 @@ export const createSessionSlice: StateCreator<
 
       const t4 = performance.now();
       await chatCoordinator.loadMessages(messages);
+      logger.info("switchChatSession:④setMessages 完成", {
+        seq,
+        sessionId: id,
+        t: (performance.now() - t0).toFixed(0),
+      });
       if (import.meta.env.DEV)
         console.info("[Diag:switch] ④ setMessages 完成", {
           ms: (performance.now() - t4).toFixed(1),
@@ -490,7 +764,10 @@ export const createSessionSlice: StateCreator<
             await import("@/services/modelSwitchService");
           const current = await modelSwitchService.getCurrent();
           // 用 UUID 比较（current.modelUuid 是 UUID，session.modelId 是 UUID）
-          if (current.modelUuid && current.modelUuid !== session.modelId) {
+          // P3-8 修复：老后端无 modelUuid 时回退比较 modelId（模型名），
+          // 避免 current.modelUuid 为 undefined 时静默跳过模型恢复
+          const currentModelId = current.modelUuid ?? current.modelId;
+          if (currentModelId && currentModelId !== session.modelId) {
             await modelSwitchService.switch(session.modelId);
           }
           if (import.meta.env.DEV)
@@ -564,8 +841,41 @@ export const createSessionSlice: StateCreator<
       }
 
       // 更新当前会话 ID + 同步 SessionHub（最后执行，触发 React 渲染）
+      // P1-2：写入前校验本次仍是最新一次切换——若期间用户又点了其他会话，
+      // 本次的 getMessages/loadMessages 等副作用已被后续切换打断，直接丢弃，
+      // 避免慢请求后完成覆盖最新目标（乱序覆盖竞态）。
+      if (seq !== _switchSeq) {
+        logger.info("switchChatSession:过期切换被丢弃（乱序竞态防护）", {
+          sessionId: id,
+          seq,
+          latestSeq: _switchSeq,
+        });
+        if (import.meta.env.DEV)
+          console.info("[Diag:switch] ⏭ 过期切换被丢弃", {
+            sessionId: id,
+            seq,
+            latestSeq: _switchSeq,
+          });
+        return;
+      }
+      // G5 竞态修复：目标会话已不在列表（await 期间被删除/清空）→ 丢弃本次切换。
+      // 侧栏渲染基于 chatSessions，目标必然曾存在；此刻不在 = 列表已刷新（SSE
+      // session:deleted/cleared 触发）且目标已删，set currentSessionId 会残留幽灵。
+      // 列表状态已由 loadChatSessions 纠正，直接丢弃即可。
+      if (!get().chatSessions.some((s) => s.id === id)) {
+        logger.info("switchChatSession:目标会话已不在列表，丢弃切换", {
+          sessionId: id,
+          seq,
+        });
+        return;
+      }
       const t5 = performance.now();
       set({ currentSessionId: id });
+      logger.info("switchChatSession:⑤状态已更新", {
+        seq,
+        sessionId: id,
+        t: (performance.now() - t0).toFixed(0),
+      });
       // 同步 SessionHub：以「后端 workspaceId」为权威标记会话归属，而非当前
       // currentWorkspaceId —— 防止在项目 worktree 上下文中切换普通会话时
       // 被误标为用户项目会话（导致 /chat 页侧栏过滤隐藏）。
@@ -586,7 +896,9 @@ export const createSessionSlice: StateCreator<
               id,
               moduleType,
               title:
-                session.title ?? prev?.title ?? `新${getNameByModuleType(moduleType)}`,
+                session.title ??
+                prev?.title ??
+                `新${getNameByModuleType(moduleType)}`,
               workspaceId:
                 session.workspaceId ??
                 existingHub?.workspaceId ??
@@ -607,13 +919,86 @@ export const createSessionSlice: StateCreator<
           sessionId: id,
           totalMs: (performance.now() - t0).toFixed(1),
         });
+      logger.info("switchChatSession:✅完成", {
+        seq,
+        sessionId: id,
+        totalMs: (performance.now() - t0).toFixed(0),
+      });
     } catch (error) {
+      logger.warn("switchChatSession:❌失败", {
+        seq,
+        sessionId: id,
+        error: String(error),
+        t: (performance.now() - t0).toFixed(0),
+      });
       if (import.meta.env.DEV)
         logger.error("[Diag:switch] ❌ 切换失败", {
           sessionId: id,
           error: String(error),
           totalMs: (performance.now() - t0).toFixed(1),
         });
+
+      // N1 修复：目标会话不存在（sessionService.switch 对 404 抛出）——
+      // 原实现静默降级内存假会话导致"空壳会话复活"。此处清理残留（chatSessions
+      // + SessionHub + pinned + 消息缓存）并切到最近会话，避免幽灵项残留。
+      const isNotFound =
+        error instanceof Error &&
+        (error as unknown as { statusCode?: number }).statusCode === 404;
+      if (isNotFound && seq === _switchSeq) {
+        const remaining = get().chatSessions.filter((s) => s.id !== id);
+        const next = remaining[0] ?? null;
+        logger.info("switchChatSession:目标会话不存在(404)，清理残留并切换", {
+          sessionId: id,
+          remainingCount: remaining.length,
+          nextSessionId: next?.id ?? null,
+          seq,
+        });
+        set({
+          chatSessions: remaining,
+          currentSessionId: next?.id ?? null,
+        });
+        const { [id]: _removed, ...restSessions } = get().sessions;
+        set({
+          sessions: restSessions,
+          pinnedSessionIds: get().pinnedSessionIds.filter((p) => p !== id),
+        });
+        try {
+          const { staleSessionCache } =
+            await import("@/stores/chat/chat-history.slice");
+          staleSessionCache(id);
+        } catch {
+          /* 缓存清理失败不影响 */
+        }
+        if (next) {
+          try {
+            const { sessionService } =
+              await import("@/services/sessionService");
+            // N4 修复：同步后端 currentId——原实现只 getMessages + loadMessages，
+            // 后端 404 时 currentId 仍保持旧值，刷新后 getCurrentSession 返回旧值
+            // 导致 currentSessionId 漂移。
+            await sessionService.switch(next.id).catch(() => {});
+            const messages = await sessionService.getMessages(next.id);
+            await chatCoordinator.loadMessages(messages);
+            logger.debug("switchChatSession:404 清理后已切到最近会话", {
+              sessionId: id,
+              nextSessionId: next.id,
+              messageCount: messages.length,
+            });
+          } catch (e) {
+            logger.warn("switchChatSession:404 清理后加载最近会话失败", {
+              sessionId: id,
+              nextSessionId: next.id,
+              error: String(e),
+            });
+            await chatCoordinator.clearMessages().catch(() => {});
+          }
+        } else {
+          await chatCoordinator.clearMessages().catch(() => {});
+        }
+        set({ error: null });
+        return;
+      }
+
       const { handleClientError } = await import("@/utils/handleError");
       handleClientError(
         error,
@@ -621,17 +1006,36 @@ export const createSessionSlice: StateCreator<
         "warn",
       );
       // P13: 仅当当前会话仍是切换目标时才回退（防止并发切换覆盖）
-      // switching 由 finally 统一重置，保证 loading 指示器在任何情况下都能停止
-      if (prevId && get().currentSessionId === id) {
-        set({ currentSessionId: prevId });
+      // P1-2: 仅最新一次切换处理错误——过期切换的失败不覆盖新切换的错误状态
+      if (seq === _switchSeq) {
+        if (prevId && get().currentSessionId === id) {
+          set({ currentSessionId: prevId });
+        }
+        set({ error: String(error) });
       }
-      set({ error: String(error) });
     } finally {
-      set({ switching: false });
+      // G1：清除进行中的切换目标标记
+      if (_activeSwitchTarget === id) {
+        _activeSwitchTarget = null;
+      }
+      // P1-2: 仅最新切换负责重置 switching，防止过期切换提前清掉新切换的 loading 指示
+      if (seq === _switchSeq) {
+        set({ switching: false });
+      }
     }
   },
 
   deleteChatSession: async (id: string) => {
+    // G1 竞态修复：仅当删除的是**进行中切换的目标**时才使该 switch 过期——
+    // 切换 B 进行中删除 B，switch B 完成后再 set currentSessionId=B 会残留幽灵；
+    // 删除其他会话不影响进行中的切换（不过度丢弃用户刚点的切换）。
+    if (_activeSwitchTarget === id) {
+      _switchSeq++;
+      set({ switching: false });
+      logger.info("deleteChatSession:删除进行中切换的目标，使该切换过期", {
+        sessionId: id,
+      });
+    }
     try {
       await chatCoordinator.stopMessage();
     } catch {
@@ -642,17 +1046,35 @@ export const createSessionSlice: StateCreator<
     try {
       const { sessionService } = await import("@/services/sessionService");
       await sessionService.delete(id);
+      logger.info("deleteChatSession:删除成功", { sessionId: id });
 
       // R-K 修复：删除会话后清除其消息缓存，防止残留（切回时拉到幽灵数据）
-      const { staleSessionCache } = await import(
-        "@/stores/chat/chat-history.slice"
-      );
+      const { staleSessionCache } =
+        await import("@/stores/chat/chat-history.slice");
       staleSessionCache(id);
 
       const sessions = get().chatSessions.filter((s) => s.id !== id);
 
       if (get().currentSessionId === id) {
         if (sessions[0]) {
+          logger.info("deleteChatSession:当前会话被删，切到最近会话", {
+            deletedSessionId: id,
+            nextSessionId: sessions[0].id,
+          });
+          // P3-3 修复：同步通知后端切换当前会话——原实现仅更新前端
+          // currentSessionId，后端 currentId 仍指向已删除的会话（置 null），
+          // 重启后当前会话丢失。fire-and-forget，不阻塞删除流程。
+          sessionService.switch(sessions[0].id).catch(async (e) => {
+            const { handleClientError } = await import("@/utils/handleError");
+            handleClientError(
+              e,
+              {
+                module: "stores:sessionSlice",
+                action: "deleteChatSession:switchNext",
+              },
+              "warn",
+            );
+          });
           try {
             const messages = await sessionService.getMessages(sessions[0].id);
             await chatCoordinator.loadMessages(messages);
@@ -720,6 +1142,7 @@ export const createSessionSlice: StateCreator<
 
       // 同步到 SessionHub
       get().renameSession(id, title);
+      logger.info("renameChatSession:重命名成功", { sessionId: id, title });
     } catch (error) {
       const { handleClientError } = await import("@/utils/handleError");
       handleClientError(
@@ -727,27 +1150,64 @@ export const createSessionSlice: StateCreator<
         { module: "stores:sessionSlice", action: "renameChatSession" },
         "warn",
       );
+      logger.warn("renameChatSession:重命名失败", {
+        sessionId: id,
+        title,
+        error: String(error),
+      });
       set({ error: String(error), isLoading: false });
     }
   },
 
   clearAllChatSessions: async () => {
+    // G1 竞态修复：递增切换序号使进行中的 switchChatSession 过期（同 deleteChatSession）
+    _switchSeq++;
     try {
       await chatCoordinator.stopMessage();
     } catch {
       /* ignore */
     }
 
-    set({ isLoading: true, error: null });
+    // switching 兜底：被过期的 switch 的 finally 不再重置 switching，此处清掉
+    set({ switching: false, isLoading: true, error: null });
     try {
       const { sessionService } = await import("@/services/sessionService");
-      await sessionService.clearAll();
+      // P2-2 修复：逐个删除 chat 会话，不再调用 clearAll（DELETE /v1/sessions）。
+      // 后端 clearAllSessions 会删除磁盘上所有会话（不限模块），项目会话也在磁盘上，
+      // 前端却只清 Hub 的 chat 记录 → 项目会话数据被误删，前端残留记录点击后
+      // 触发后端"幽灵复活"成空壳。逐个 delete 只影响目标 chat 会话，前后端作用域一致。
+      const targets = get().chatSessions.map((s) => s.id);
+      logger.info("clearAllChatSessions:开始逐个删除 chat 会话", {
+        targetCount: targets.length,
+      });
+      await Promise.all(
+        targets.map((id) =>
+          sessionService.delete(id).catch(async (e) => {
+            logger.warn("clearAllChatSessions:删除单个会话失败", {
+              sessionId: id,
+              error: String(e),
+            });
+            const { handleClientError } = await import("@/utils/handleError");
+            handleClientError(
+              e,
+              {
+                module: "stores:sessionSlice",
+                action: "clearAllChatSessions:delete",
+              },
+              "warn",
+            );
+          }),
+        ),
+      );
       try {
         await chatCoordinator.clearMessages();
       } catch {
         /* ignore */
       }
       set({ chatSessions: [], currentSessionId: null, isLoading: false });
+      logger.info("clearAllChatSessions:清空完成", {
+        targetCount: targets.length,
+      });
 
       // P1: 同步清除 SessionHub 中的 chat 会话（保留其他模块会话）
       const nonChatSessions = Object.fromEntries(
@@ -755,7 +1215,14 @@ export const createSessionSlice: StateCreator<
           ([, v]) => v.moduleType !== "chat",
         ),
       );
-      set({ sessions: nonChatSessions });
+      set({
+        sessions: nonChatSessions,
+        // P3-4 修复：同步清理 pinnedSessionIds 中已删除会话的孤儿 ID
+        // （原实现残留，依赖重载后的 persist migrate 才自愈）
+        pinnedSessionIds: get().pinnedSessionIds.filter(
+          (pid) => nonChatSessions[pid],
+        ),
+      });
     } catch (error) {
       const { handleClientError } = await import("@/utils/handleError");
       handleClientError(

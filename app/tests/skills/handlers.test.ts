@@ -96,7 +96,7 @@ describe('Skills 路由匹配（P1-1~P1-5 回归）', () => {
     ['DELETE', '/v1/skills/sources/custom-x', 'handleRemoveSkillSource'],
   ];
 
-  it.each(cases)('%s %s → 命中 %s', async (method, url, handler) => {
+  it.each(cases)('%s %s → 命中 %s', async (method: string, url: string, handler: string) => {
     const { spies, calls } = makeSpies();
     try {
       const matched = await dispatchRoute(

@@ -16,9 +16,12 @@ import {
 
 describe('ContextWindowResolver — 上下文窗口解析', () => {
   describe('resolveContextWindow', () => {
-    it('resolves 1M context model from name pattern', () => {
+    it('sync path 不再维护模型名表：gemini-2.0-flash 回退默认 200K（DB 是唯一事实来源）', () => {
+      // 2026-08-13 修正：上下文窗口 DB 化后 sync 路径仅识别含 "1m" 关键词的模型，
+      // gemini-2.0-flash 不匹配 → 回退默认（与同文件 gpt-4o/deepseek 用例语义一致）
       const result = resolveContextWindow('gemini-2.0-flash');
-      expect(result.tokens).toBe(1_000_000);
+      expect(result.tokens).toBe(200_000);
+      expect(result.source).toBe('default');
     });
 
     it('falls back to default for unknown model', () => {

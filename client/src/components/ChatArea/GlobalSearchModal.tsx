@@ -471,7 +471,8 @@ export default function GlobalSearchModal({
                   {t("chat.knowledge")}
                 </div>
                 {knowledgeResults.map((item, i) => {
-                  const globalIdx = sessionResults.length + fileResults.length + i;
+                  const globalIdx =
+                    sessionResults.length + fileResults.length + i;
                   const isActive = activeIndex === globalIdx;
                   return (
                     <button

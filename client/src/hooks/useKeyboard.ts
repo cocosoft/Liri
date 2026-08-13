@@ -97,7 +97,13 @@ export function useKeyboard() {
         return;
       }
     },
-    [clearSessionMessages, createSession, sessions.length, activePage, setActivePage],
+    [
+      clearSessionMessages,
+      createSession,
+      sessions.length,
+      activePage,
+      setActivePage,
+    ],
   );
 
   useEffect(() => {

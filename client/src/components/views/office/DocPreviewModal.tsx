@@ -8,6 +8,7 @@ import { useEffect, useRef, useState } from "react";
 import mammoth from "mammoth";
 import * as XLSX from "xlsx";
 import { createLogger } from "../../../utils/logger";
+import { sanitizeDocHtml } from "./renderers/purifyConfig";
 
 const logger = createLogger("components:office:DocPreview");
 
@@ -169,7 +170,8 @@ async function renderDocx(arrayBuffer: ArrayBuffer): Promise<string> {
     logger.warn("mammoth 转换警告", result.messages);
   }
 
-  return result.value;
+  // R6 修复：mammoth 输出可能内嵌恶意 HTML，渲染前统一 sanitize（与 DocxRenderer 同白名单）
+  return sanitizeDocHtml(result.value);
 }
 
 /** .xlsx → HTML 表格（SheetJS，支持多 sheet 切换） */
@@ -190,7 +192,8 @@ function renderXlsx(arrayBuffer: ArrayBuffer): string {
     html += '<hr class="my-4 border-gray-200 dark:border-gray-700" />';
   }
 
-  return html;
+  // R6 修复：SheetJS 输出的表格单元格内容可能含未转义的 HTML，渲染前统一 sanitize
+  return sanitizeDocHtml(html);
 }
 
 /** .pptx → Canvas 幻灯片（pptx-viewer 直接操作 DOM） */

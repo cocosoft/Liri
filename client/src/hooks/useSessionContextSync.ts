@@ -78,10 +78,7 @@ export function useSessionContextSync<T extends Partial<SessionContext>>(
         sessionId: currentModuleSession.id,
       });
       lastSessionIdRef.current = currentModuleSession.id;
-      restoreRef.current(
-        currentModuleSession.context,
-        currentModuleSession.id,
-      );
+      restoreRef.current(currentModuleSession.context, currentModuleSession.id);
     }
   }, [currentModuleSession?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 

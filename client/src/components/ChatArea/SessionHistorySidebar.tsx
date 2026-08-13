@@ -146,15 +146,17 @@ function SessionHistorySidebar({
   const [scrollTop, setScrollTop] = useState(0);
   const ESTIMATED_ITEM_HEIGHT = 56;
   // P10: 实测高度缓存，避免标题换行时虚拟列表偏移量不准
-  const measuredHeights = useRef<Record<number, number>>({});
+  // P3-5 修复：缓存键从数组索引改为会话 id——搜索过滤/删除后列表顺序变化，
+  // 按索引缓存会导致高度张冠李戴、滚动位置闪跳。
+  const measuredHeights = useRef<Record<string, number>>({});
   // P1-4: 首次测量后触发重新计算，修正基于预估值的不准确偏移量
   const [measuredCount, setMeasuredCount] = useState(0);
   const measureItem = useCallback(
-    (index: number, el: HTMLDivElement | null) => {
+    (sessionId: string, el: HTMLDivElement | null) => {
       if (el) {
         const h = el.getBoundingClientRect().height;
-        const prev = measuredHeights.current[index];
-        measuredHeights.current[index] = h;
+        const prev = measuredHeights.current[sessionId];
+        measuredHeights.current[sessionId] = h;
         // 首次测量或高度变化时触发虚拟列表重新计算偏移量
         if (prev == null || prev !== h) {
           setMeasuredCount((c) => c + 1);
@@ -346,17 +348,22 @@ function SessionHistorySidebar({
     const viewportHeight = listContainerRef.current?.clientHeight || 400;
     const overscan = 5;
 
+    // P3-5 修复：按会话 id 读取实测高度（过滤/删除后索引会错位，id 稳定）
+    const getHeight = (i: number): number =>
+      measuredHeights.current[filteredSessions[i]?.id ?? ""] ??
+      ESTIMATED_ITEM_HEIGHT;
+
     // P10: 用实测高度计算 startIdx 和 offsetY，替代固定 ESTIMATED_ITEM_HEIGHT
     let cumulative = 0;
     let startIdx = 0;
     for (let i = 0; i < total; i++) {
-      const h = measuredHeights.current[i] ?? ESTIMATED_ITEM_HEIGHT;
+      const h = getHeight(i);
       if (cumulative + h > scrollTop - overscan * ESTIMATED_ITEM_HEIGHT) {
         startIdx = Math.max(0, i - overscan);
         // 回退到 startIdx 的累积高度
         cumulative = 0;
         for (let j = 0; j < startIdx; j++) {
-          cumulative += measuredHeights.current[j] ?? ESTIMATED_ITEM_HEIGHT;
+          cumulative += getHeight(j);
         }
         break;
       }
@@ -368,7 +375,7 @@ function SessionHistorySidebar({
     let visibleCumulative = cumulative;
     let endIdx = startIdx;
     for (let i = startIdx; i < total; i++) {
-      const h = measuredHeights.current[i] ?? ESTIMATED_ITEM_HEIGHT;
+      const h = getHeight(i);
       visibleCumulative += h;
       endIdx = i + 1;
       if (
@@ -381,7 +388,7 @@ function SessionHistorySidebar({
     // 计算总高度（实测 + 估算）
     let totalHeight = 0;
     for (let i = 0; i < total; i++) {
-      totalHeight += measuredHeights.current[i] ?? ESTIMATED_ITEM_HEIGHT;
+      totalHeight += getHeight(i);
     }
 
     return {
@@ -699,12 +706,12 @@ function SessionHistorySidebar({
                   : undefined
               }
             >
-              {virtualList.visibleItems.map((session, idx) => (
+              {virtualList.visibleItems.map((session) => (
                 <div
                   key={session.id}
                   ref={
                     useVirtualScroll
-                      ? (el) => measureItem(virtualList.startIdx + idx, el)
+                      ? (el) => measureItem(session.id, el)
                       : undefined
                   }
                 >

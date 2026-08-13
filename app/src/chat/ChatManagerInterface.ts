@@ -94,8 +94,9 @@ export interface ChatManager {
 
   /**
    * 清除所有会话
+   * @param moduleType 可选：仅清除指定模块的会话（防其他调用方误删项目会话）
    */
-  clearAllSessions(): Promise<void>;
+  clearAllSessions(moduleType?: string): Promise<void>;
 
   /**
    * 保存会话

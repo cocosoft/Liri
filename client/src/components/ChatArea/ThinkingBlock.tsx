@@ -40,9 +40,7 @@ function ThinkingBlock({ content, isStreaming }: ThinkingBlockProps) {
         <div style={styles.content}>
           {/* 修复：流式时原 maxHeight:none 导致超长思考无限撑高页面，
               统一沿用 styles.pre 的 300px 上限 + 纵向滚动 */}
-          <pre style={styles.pre}>
-            {content}
-          </pre>
+          <pre style={styles.pre}>{content}</pre>
         </div>
       )}
     </div>

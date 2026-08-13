@@ -2995,6 +2995,16 @@ export class ChatManagerImpl implements ChatManager {
           ([, e]) => e.questionId === questionId
         )?.[0];
       logger.info('解析用户交互', { sessionId: sid, questionId, answers });
+      // R5 修复：将用户回答持久化为会话消息——原实现只把答案注入等待中的
+      // promise，刷新后回答从历史中消失，且 question 块恢复未提交态可重复提交。
+      // _addAndPersistMessage 内部已做错误兜底，此处不阻塞回答注入。
+      if (sid && answers.length > 0) {
+        const answerMsg = this.messageService.createUserMessage(
+          answers.join('\n'),
+          { sessionId: sid }
+        );
+        void this._addAndPersistMessage(sid, answerMsg);
+      }
       entry.resolve(answers);
       if (sid) this._pendingInteractions.delete(sid);
       return true;
@@ -3043,6 +3053,16 @@ export class ChatManagerImpl implements ChatManager {
 
     this.pendingInteractions.delete(sessionId);
     logger.info('恢复非流式交互', { sessionId, questionId, answers });
+
+    // R5 修复：非流式路径同样持久化用户回答——原实现只把 answers 注入工具循环，
+    // 用户回答本身不落盘，刷新后从历史中消失
+    if (answers.length > 0) {
+      const answerMsg = this.messageService.createUserMessage(
+        answers.join('\n'),
+        { sessionId }
+      );
+      void this._addAndPersistMessage(sessionId, answerMsg);
+    }
 
     const session = this._getLocalSession(sessionId);
     if (!session) {
@@ -3647,26 +3667,35 @@ export class ChatManagerImpl implements ChatManager {
     }
   }
 
-  async clearAllSessions(): Promise<void> {
+  async clearAllSessions(moduleType?: string): Promise<void> {
     const startedAt = Date.now();
-    logger.info('clearAllSessions:开始批量清空会话', {});
-    // 批量删除前先清理所有存储会话的检查点（失败不阻塞清空主流程）
+    logger.info('clearAllSessions:开始批量清空会话', {
+      moduleType: moduleType ?? 'all',
+    });
+    // 批量删除前先清理所有存储会话的检查点（失败不阻塞清空主流程；按 moduleType 过滤）
     const stored = await this.sessionGateway.listSessions();
     logger.info('clearAllSessions:发现待清理存储会话', {
       count: stored.length,
     });
     await Promise.all(
-      stored.map((s) =>
-        this._checkpointService.deleteSessionCheckpoints(s.id).catch((e) =>
-          handleError(e, {
-            module: 'chat:manager',
-            action: 'clearAllSessions:清理检查点失败',
-            context: { sessionId: s.id },
-          })
+      stored
+        .filter(
+          (s) =>
+            !moduleType ||
+            (s.metadata as Record<string, unknown> | undefined)?.moduleType ===
+              moduleType
         )
-      )
+        .map((s) =>
+          this._checkpointService.deleteSessionCheckpoints(s.id).catch((e) =>
+            handleError(e, {
+              module: 'chat:manager',
+              action: 'clearAllSessions:清理检查点失败',
+              context: { sessionId: s.id },
+            })
+          )
+        )
     );
-    await this.sessionLifecycle.clearAllSessions();
+    await this.sessionLifecycle.clearAllSessions(moduleType);
     logger.info('clearAllSessions:批量清空完成', {
       sessions: stored.length,
       elapsedMs: Date.now() - startedAt,

@@ -4,6 +4,7 @@
  */
 
 import { useEffect, useState } from "react";
+import DOMPurify from "dompurify";
 import { useOfficeStore, type FileInfo } from "../../../../stores/officeStore";
 import { officeApi } from "../../../../services/officeApi";
 import { markStart } from "../../../../hooks/usePerformanceMarks";
@@ -65,7 +66,12 @@ export function PptxRenderer({ file }: PptxRendererProps) {
         const svgStrings = svgs.map((svg) => {
           svg.setAttribute("width", "100%");
           svg.setAttribute("height", "auto");
-          return new XMLSerializer().serializeToString(svg);
+          const raw = new XMLSerializer().serializeToString(svg);
+          // R6 修复：SVG 经 DOMPurify svg 白名单清洗（与 MarkdownRenderer mermaid
+          // 修复同方案）。pptx 内容可含事件属性/外链等，裸插 dangerouslySetInnerHTML 即 XSS。
+          return DOMPurify.sanitize(raw, {
+            USE_PROFILES: { svg: true, svgFilters: true },
+          }) as unknown as string;
         });
 
         // 用分隔符合并存入缓存

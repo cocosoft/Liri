@@ -156,12 +156,7 @@ function ChatArea({ fluid = false }: { fluid?: boolean }) {
     }
     // #13 修复：依赖补 messages——原只依赖 messages.length，消息被整体替换
     // （长度不变）时不触发自动朗读；lastPlayedMsgRef 按消息 id 防重，不会重复播
-  }, [
-    messages,
-    isStreaming,
-    voiceSettings?.config?.autoPlayTTS,
-    playResponse,
-  ]);
+  }, [messages, isStreaming, voiceSettings?.config?.autoPlayTTS, playResponse]);
 
   // 使用结构化 errorCode 判断后端状态 (CS02)，取代字符串匹配
   const displayError =

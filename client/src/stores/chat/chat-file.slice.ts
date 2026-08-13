@@ -167,8 +167,7 @@ export function extractFilePathFromToolCall(toolCall: ToolCall): string | null {
   if (!args) return null;
 
   // 语义明确的文件参数（file_path/filePath）直接信任
-  const explicit =
-    (args.file_path as string) || (args.filePath as string);
+  const explicit = (args.file_path as string) || (args.filePath as string);
   if (explicit && typeof explicit === "string") return explicit;
 
   // 次要7 修复：泛化 path 参数可能是目录（如 outputDir），

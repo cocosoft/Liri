@@ -30,7 +30,7 @@ import fs from 'fs';
 import { join } from 'path';
 import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
-import { handleError } from '@modules/error';
+import { handleError, AppError, ErrorCodes } from '@modules/error';
 import { SimpleMutex } from '@modules/core/SimpleMutex';
 import { resolveDataDir } from '@modules/core/paths';
 import { SessionGateway } from '@modules/session/SessionGateway';
@@ -169,8 +169,13 @@ export class SessionLifecycleManager {
 
   /**
    * 确保会话已加载（内存缓存 → Gateway 降级 → 创建新会话）
+   * @param createIfMissing 找不到会话时是否创建新会话（默认 true）。
+   *   switchSession 传 false —— 指向已删除/过期 ID 的切换不允许"幽灵复活"。
    */
-  private async _ensureSessionLoaded(sessionId: string): Promise<ChatSession> {
+  private async _ensureSessionLoaded(
+    sessionId: string,
+    createIfMissing = true
+  ): Promise<ChatSession> {
     // Step 1: 内存缓存命中
     const cached = this.chatSessions.get(sessionId);
     if (cached) {
@@ -237,7 +242,19 @@ export class SessionLifecycleManager {
       });
     }
 
-    // Step 3: Gateway 也未找到 → 创建新会话
+    // Step 3: Gateway 也未找到
+    // P2-3 修复：createIfMissing=false（switchSession 场景）时拒绝"幽灵复活"——
+    // 指向已删除/过期 ID 的切换（localStorage 持久化的旧 currentSessionId、
+    // 跨端删除、历史"清空所有"误删等）若静默重建空会话，前端拿到空壳会话
+    // 表现为"复活成空会话"。抛 404 由前端处理（跳转/清空）。
+    if (!createIfMissing) {
+      logger.warn('会话不存在，拒绝切换', { sessionId });
+      const notFound = AppError.fromCode(ErrorCodes.ENTITY_NOT_FOUND, {
+        context: { sessionId },
+      });
+      (notFound as unknown as Record<string, unknown>).statusCode = 404;
+      throw notFound;
+    }
     logger.warn('会话未找到，创建新会话', { sessionId });
     return await this.createSession({
       title: 'New Session',
@@ -357,7 +374,8 @@ export class SessionLifecycleManager {
         this.sessionLeaveTimes.set(currentId, Date.now());
       }
 
-      await this._ensureSessionLoaded(sessionId);
+      // P2-3 修复：切换不存在的会话抛 404（不允许静默重建空会话）
+      await this._ensureSessionLoaded(sessionId, false);
       this.currentId.set(sessionId);
 
       // 会话切换时清理路径校验缓存
@@ -382,7 +400,9 @@ export class SessionLifecycleManager {
         module: 'chat:ChatManager',
         action: 'switchSession',
         context: { sessionId },
-        rethrow: false,
+        // P2-3：rethrow 让 HTTP handler 能按 statusCode 返回 404/500，
+        // 而非静默吞错导致前端误以为切换成功
+        rethrow: true,
       });
     }
   }
@@ -478,9 +498,17 @@ export class SessionLifecycleManager {
 
   /**
    * 清除所有会话
+   * @param moduleType 可选：仅清除指定模块的会话（按 metadata.moduleType 匹配）。
+   *   不传时保持全删（兼容旧调用方）。此前无过滤——前端"清空所有"改为逐个 delete 后，
+   *   该 API 仍可能被其他调用方误用导致项目会话被删，故提供模块级安全能力。
    */
-  async clearAllSessions(): Promise<void> {
-    const sessionIds = Array.from(this.chatSessions.keys());
+  async clearAllSessions(moduleType?: string): Promise<void> {
+    const matchesModule = (metadata?: Record<string, unknown>): boolean => {
+      return !moduleType || metadata?.moduleType === moduleType;
+    };
+    const sessionIds = Array.from(this.chatSessions.entries())
+      .filter(([, s]) => matchesModule(s.metadata as Record<string, unknown>))
+      .map(([id]) => id);
     for (const id of sessionIds) {
       this.hookChainManager.execute('chat', {
         event: 'chat.session-end',
@@ -488,12 +516,26 @@ export class SessionLifecycleManager {
         sessionId: id,
       });
     }
-    this.chatSessions.clear();
-    this.currentId.set(null);
+    // 仅删除匹配模块的内存会话
+    if (moduleType) {
+      for (const id of sessionIds) {
+        this.chatSessions.delete(id);
+      }
+      if (
+        this.currentId.get() &&
+        !this.chatSessions.has(this.currentId.get()!)
+      ) {
+        this.currentId.set(null);
+      }
+    } else {
+      this.chatSessions.clear();
+      this.currentId.set(null);
+    }
 
-    // 清理持久化存储
+    // 清理持久化存储（仅匹配模块）
     const storedSessions = await this.sessionGateway.listSessions();
     for (const stored of storedSessions) {
+      if (!matchesModule(stored.metadata as Record<string, unknown>)) continue;
       // @ignore-catch — 清理阶段best-effort删除会话，单个失败不阻塞其他
       await this.sessionGateway.deleteSession(stored.id).catch(() => {});
     }

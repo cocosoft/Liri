@@ -40,8 +40,15 @@ const STEPS_MAX_HEIGHT = 176; // max-h-44
  * 因此步骤区设固定高度上限 + overflow-y 滚动。
  */
 export default function ProgressCard({ data }: ProgressCardProps) {
-  const { phase, progress, description, steps, currentStep, totalSteps, truncated } =
-    data;
+  const {
+    phase,
+    progress,
+    description,
+    steps,
+    currentStep,
+    totalSteps,
+    truncated,
+  } = data;
   const phaseInfo = PHASE_LABELS[phase] || { icon: "\u{1F4CC}", label: phase };
 
   return (

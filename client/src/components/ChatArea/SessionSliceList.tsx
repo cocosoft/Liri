@@ -14,6 +14,8 @@ import {
   MODULE_TYPES,
 } from "@/stores/root-store/moduleRegistry";
 import { resolveWorkspaceId } from "@/stores/root-store/moduleContextSlice";
+import { sessionService } from "@/services/sessionService";
+import { handleClientError } from "@/utils/handleError";
 import { createLogger } from "@/utils/logger";
 
 const logger = createLogger("SessionSliceList");
@@ -95,6 +97,17 @@ export function SessionSliceList({
   /** 会话列表项点击：切换 session + 导航到对应模块页面 */
   const handleClick = (sessionId: string, moduleType: string) => {
     switchSession(sessionId);
+    // P3-9 修复：同步通知后端切换当前会话（仅更新后端 currentId，不加载 chat 消息）。
+    // 原实现只更新前端 Hub 状态，刷新后前后端 current 不一致（回 /chat 时
+    // getCurrentSession 返回旧会话，导致 N2 场景 header 空白）。
+    sessionService.switch(sessionId).catch((e) => {
+      // 会话可能为纯前端残留（历史幽灵 `sess-*`），404 时静默忽略，不阻塞导航
+      handleClientError(
+        e,
+        { module: "components:SessionSliceList", action: "switchSync" },
+        "warn",
+      );
+    });
     // 导航到对应模块页面
     const path = MODULE_PATH[moduleType];
     if (path) {

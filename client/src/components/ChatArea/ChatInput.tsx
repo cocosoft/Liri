@@ -705,7 +705,12 @@ function ChatInput({ fluid = false }: { fluid?: boolean }) {
       const filtered = [
         ...sessionFiles
           .filter((f) => f.name.toLowerCase().includes(q))
-          .map((f): MentionItem => ({ id: f.path, label: f.name, type: "file", path: f.path })),
+          .map((f): MentionItem => ({
+            id: f.path,
+            label: f.name,
+            type: "file",
+            path: f.path,
+          })),
         // #7 修复：键盘导航纳入项目资料/成果条目（原只含 sessionFiles，
         // 项目条目只能鼠标点选，且文件索引在含项目条目时错位）
         ...projectMentionItems.filter((p) => p.label.toLowerCase().includes(q)),
@@ -725,7 +730,9 @@ function ChatInput({ fluid = false }: { fluid?: boolean }) {
       if (e.key === "Tab" || e.key === "Enter") {
         e.preventDefault();
         if (filtered.length > 0) {
-          handleMentionSelect(filtered[Math.min(mentionIndex, filtered.length - 1)]);
+          handleMentionSelect(
+            filtered[Math.min(mentionIndex, filtered.length - 1)],
+          );
         }
         return;
       }
@@ -891,7 +898,12 @@ function ChatInput({ fluid = false }: { fluid?: boolean }) {
             <div className="mb-2 flex items-center gap-2 flex-wrap">
               {/* R1 修复：showAllThumbnails 展开时显示全部（隐藏图片也可移除） */}
               {imageItems
-                .slice(0, showAllThumbnails ? imageItems.length : MAX_VISIBLE_THUMBNAILS)
+                .slice(
+                  0,
+                  showAllThumbnails
+                    ? imageItems.length
+                    : MAX_VISIBLE_THUMBNAILS,
+                )
                 .map((item) => (
                   <div
                     // #14 修复：key 用唯一 id（原 key={idx}，删除中间项后状态错位）
@@ -930,7 +942,9 @@ function ChatInput({ fluid = false }: { fluid?: boolean }) {
                   className="w-16 h-16 rounded-lg border border-gray-200 dark:border-gray-600 flex items-center justify-center text-sm text-gray-500 dark:text-gray-400 flex-shrink-0 hover:border-blue-400 hover:text-blue-500 transition-colors cursor-pointer"
                   title={showAllThumbnails ? "收起" : "展开全部图片"}
                 >
-                  {showAllThumbnails ? "收起" : `+${imageItems.length - MAX_VISIBLE_THUMBNAILS}`}
+                  {showAllThumbnails
+                    ? "收起"
+                    : `+${imageItems.length - MAX_VISIBLE_THUMBNAILS}`}
                 </button>
               )}
             </div>

@@ -68,9 +68,7 @@ function QuestionBlock({
       if (otherRequiresText) return;
       // 选中"其他"时，将用户输入的文字作为答案
       answers = isOtherSelected
-        ? selectedLabels.map((l) =>
-            l === OTHER_LABEL ? otherText.trim() : l,
-          )
+        ? selectedLabels.map((l) => (l === OTHER_LABEL ? otherText.trim() : l))
         : selectedLabels;
     }
 
@@ -272,7 +270,9 @@ function QuestionBlock({
                 className="w-full px-2.5 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400 resize-none"
               />
               <div className="flex items-center justify-between">
-                <span className="text-xs text-gray-400">{freeText.length}/200</span>
+                <span className="text-xs text-gray-400">
+                  {freeText.length}/200
+                </span>
                 {!submitted && (
                   <button
                     onClick={handleSubmit}

@@ -894,7 +894,10 @@ export const chatService = {
                     Record<string, unknown> | undefined,
                 };
               }
-            } else if (pyappType === "execution_phase" && chunk.__pyapp_execution_phase) {
+            } else if (
+              pyappType === "execution_phase" &&
+              chunk.__pyapp_execution_phase
+            ) {
               // AB-9 补全：主链路内联解析此前缺 execution_phase 分支（resume 的 parseSseChunk 有），
               // 心跳 SSE 的 delta.content='正在执行工具' 落入下方通用文本分支 → 作为正文泄漏。
               // 此处还原为 execution_phase chunk，processChunk 走 addProgress（进度卡），不进入正文。

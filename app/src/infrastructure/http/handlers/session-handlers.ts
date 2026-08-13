@@ -478,9 +478,21 @@ export async function handleSwitchSession(
     await handleError(err, { module: 'infra:http', action: 'handler_error' });
     if (!res.headersSent) {
       try {
-        res.writeHead(500, { 'Content-Type': 'application/json' });
+        // P2-3：透传 AppError.statusCode（会话不存在 → 404），与 message-handlers 模式一致
+        const statusCode =
+          err instanceof Error &&
+          (err as unknown as { statusCode?: number }).statusCode
+            ? (err as unknown as { statusCode?: number }).statusCode!
+            : 500;
+        res.writeHead(statusCode, { 'Content-Type': 'application/json' });
         res.end(
-          JSON.stringify({ error: { message: 'Internal server error' } })
+          JSON.stringify({
+            error: {
+              message:
+                err instanceof Error ? err.message : 'Internal server error',
+              type: statusCode === 404 ? 'not_found' : undefined,
+            },
+          })
         );
       } catch (err) {
         handleError(err, {
@@ -624,25 +636,9 @@ export async function handleCompactSession(
 ): Promise<void> {
   try {
     const coreAPI = getCoreAPI();
-    const sessionGateway = (coreAPI as unknown as Record<string, unknown>)
-      .sessionGateway as
-      | { compactSession: (id: string) => Promise<unknown> }
-      | undefined;
-
-    if (!sessionGateway?.compactSession) {
-      res.writeHead(501, { 'Content-Type': 'application/json' });
-      res.end(
-        JSON.stringify({
-          error: {
-            message: 'Session compaction not available',
-            type: 'not_implemented',
-          },
-        })
-      );
-      return;
-    }
-
-    const result = await sessionGateway.compactSession(sessionId);
+    // P2-5 修复：调用 CoreAPIImpl 正式方法（委托 ChatManager.compactSession）。
+    // 原实现反射取 coreAPI.sessionGateway（CoreAPIImpl 无此属性）恒 undefined → 恒 501。
+    const result = await coreAPI.compactSession(sessionId);
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ success: true, result }));
     ctx.broadcastEvent('session:compacted', { id: sessionId });
@@ -676,28 +672,9 @@ export async function handlePruneSession(
 ): Promise<void> {
   try {
     const coreAPI = getCoreAPI();
-    const sessionGateway = (coreAPI as unknown as Record<string, unknown>)
-      .sessionGateway as
-      | {
-          pruneNow: () => Promise<unknown>;
-          getPruneEstimate: () => Promise<unknown>;
-        }
-      | undefined;
-
-    if (!sessionGateway?.pruneNow) {
-      res.writeHead(501, { 'Content-Type': 'application/json' });
-      res.end(
-        JSON.stringify({
-          error: {
-            message: 'Session pruning not available',
-            type: 'not_implemented',
-          },
-        })
-      );
-      return;
-    }
-
-    const result = await sessionGateway.pruneNow();
+    // 修剪修复：调用 CoreAPIImpl 正式方法（委托 ChatManager → SessionGateway.pruneNow）。
+    // 原实现反射取 coreAPI.sessionGateway（CoreAPIImpl 无此属性）恒 undefined → 恒 501。
+    const result = await coreAPI.pruneSessions();
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ success: true, result }));
     ctx.broadcastEvent('session:pruned', {});

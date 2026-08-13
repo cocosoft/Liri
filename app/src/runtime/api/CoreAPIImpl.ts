@@ -1477,12 +1477,31 @@ export class CoreAPIImpl implements CoreAPI {
     await this.chatManager.deleteSession(sessionId);
   }
 
-  async clearAllSessions(): Promise<void> {
-    await this.chatManager.clearAllSessions();
+  async clearAllSessions(moduleType?: string): Promise<void> {
+    // moduleType 可选：仅清空指定模块会话（防其他调用方误删项目会话）
+    await this.chatManager.clearAllSessions(moduleType);
   }
 
   async switchSession(sessionId: string): Promise<void> {
     this.chatManager.switchSession(sessionId);
+  }
+
+  /**
+   * P2-5 修复：压缩会话 — 委托 ChatManager 正式 API。
+   * 原实现经 coreAPI.sessionGateway 取门面（CoreAPIImpl 无此属性）恒 undefined
+   * → 恒 501，前端右键"压缩会话"无任何反应。
+   */
+  async compactSession(sessionId: string): Promise<unknown> {
+    return this.chatManager.compactSession(sessionId);
+  }
+
+  /**
+   * 修剪（清理过期/超出保留策略的会话）— 委托 ChatManager 正式 API。
+   * 原 handlePruneSession 反射 coreAPI.sessionGateway.pruneNow 恒 501（与 P2-5 同根因）。
+   */
+  async pruneSessions(): Promise<unknown> {
+    const gateway = this.chatManager.getSessionGateway();
+    return gateway.pruneNow();
   }
 
   async renameSession(sessionId: string, title: string): Promise<void> {

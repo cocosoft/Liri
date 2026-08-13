@@ -147,20 +147,60 @@ export default {
     }
   },
 
-  /** /goal approve <taskId> — 批准待审批的计划（补全 decisionPrompt 缺失命令） */
+  /** /goal approve [stage] <taskId> — 批准待审批的计划/阶段（D1/M7 扩展 type 分发） */
   async handleApprove(
     args: string[],
     context: CommandContext
   ): Promise<CommandResult> {
-    const taskId = args[0];
+    // D1/M7：target = { type: 'plan'|'stage', taskId }；默认 type='plan'（向后兼容）
+    const type = args[0] === 'stage' ? 'stage' : 'plan';
+    const taskId = type === 'stage' ? args[1] : args[0];
     if (!taskId) {
       return {
         success: false,
         type: 'error',
         error: '请提供任务ID',
-        message: '用法: /goal approve <taskId>',
+        message: '用法: /goal approve <taskId> 或 /goal approve stage <taskId>',
       };
     }
+
+    // 阶段审批：分发到 StageOrchestrator（需求阶段 PRD 审批门）
+    if (type === 'stage') {
+      try {
+        const { StageOrchestrator, createDefaultStageRunner } =
+          await import('@modules/tasks/StageOrchestrator.js');
+        const stageOrch = StageOrchestrator.fromCheckpoint(taskId, {
+          // 默认阶段执行器：child 走默认 executor（纯 LLM）继续阶段链
+          runStage: createDefaultStageRunner(),
+        });
+        if (!stageOrch) {
+          return {
+            success: false,
+            type: 'error',
+            error: `任务 ${taskId} 不是阶段链任务`,
+            message: `任务 ${taskId} 不是阶段链任务（无 stages[] checkpoint）。`,
+          };
+        }
+        const status = await stageOrch.resumeAfterApproval();
+        context.onDone?.(`任务 ${taskId} 阶段已批准并继续执行`, {
+          display: 'system',
+        });
+        return {
+          success: true,
+          type: 'text',
+          message: `任务 ${taskId} 阶段已批准，继续阶段链（phase: ${status.phase}）。`,
+          data: { taskId, type: 'stage', phase: status.phase },
+        };
+      } catch (err) {
+        return {
+          success: false,
+          type: 'error',
+          error: String(err),
+          message: `阶段批准失败: ${String(err)}`,
+        };
+      }
+    }
+
     const orchestrator = getOrchestrator(taskId);
     if (!orchestrator) {
       return {

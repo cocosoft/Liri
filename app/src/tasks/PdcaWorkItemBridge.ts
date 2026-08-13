@@ -28,7 +28,9 @@ type PdcaPhase =
   | 'decide'
   | 'completed'
   | 'abort'
-  | 'failed';
+  | 'failed'
+  /** D1（M7，2026-08-13）：阶段审批挂起 */
+  | 'stage_awaiting_approval';
 type WorkItemStatus =
   | 'pending'
   | 'running'
@@ -40,6 +42,7 @@ type WorkItemStatus =
 const PDCA_TO_WORKITEM: Record<PdcaPhase, WorkItemStatus> = {
   plan: 'pending',
   plan_pending: 'review',
+  stage_awaiting_approval: 'review',
   execute: 'running',
   review: 'review',
   decide: 'running',

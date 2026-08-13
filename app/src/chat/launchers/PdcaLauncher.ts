@@ -115,19 +115,7 @@ export class PdcaLauncher {
       const taskId = `pdca_${Date.now().toString(36)}`;
 
       try {
-        // 写入检查点
-        const { writePdcaCheckpoint } =
-          await import('../../tasks/PdcaWorkItemBridge');
-        writePdcaCheckpoint(taskId, {
-          taskId,
-          status: 'started',
-          description,
-          sessionId,
-          workspaceId: projectId,
-          autoLaunched: true,
-        });
-
-        // 关联到项目 pdcaIds
+        // 关联到项目 pdcaIds（父任务登记；阶段链 checkpoint 由 StageOrchestrator 持久化）
         try {
           const dataDir = resolveDataDir();
           const wiStore = new WorkItemStore(dataDir);
@@ -139,31 +127,62 @@ export class PdcaLauncher {
           /* skip */
         }
 
-        // 启动编排器（隐性模式：不需要审批，不打断用户）
+        // D1（M7，2026-08-13）：隐性模式改按阶段策略——需求阶段产出 PRD 后 stage_approval
+        // 审批，approve 才进设计（"先商量后执行"真正落地）。父 checkpoint 承载阶段链状态。
+        const { StageOrchestrator, buildStagePrompt, collectStageArtifact } =
+          await import('../../tasks/StageOrchestrator');
         const { getOrCreateOrchestrator } =
           await import('../../tasks/LongRunningTaskOrchestrator');
-        const orchestrator = getOrCreateOrchestrator(taskId);
-        // RC-C 修复（08-09）：注入 TAORLoop 使真实工具执行分支可达
-        const taskTaorLoop = this.deps.taorLoopFactory(sessionId);
-        orchestrator.setTAORLoop(taskTaorLoop);
-        // D2（M3，2026-08-13）：注入每步独立 TAORLoop 工厂 → 无依赖步骤批次并行安全
-        orchestrator.setTAORLoopFactory(this.deps.taorLoopFactory);
-        void orchestrator
-          .runFullPdca(description, sessionId, {
-            requirePlanApproval: false,
-            // §5 P1: 任务消息回写原始对话会话
-            onTaskMessage: (sid, msgs) => {
-              if (!this.deps.sessionMap.has(sid)) return;
-              for (const m of msgs) {
-                this.deps.persistMessage(
-                  sid,
-                  this.deps.messageService.createAssistantMessage(m.content, {
-                    sessionId: sid,
-                    metadata: { taskId, isTaskMessage: true },
-                  })
-                );
-              }
+
+        // §5 P1: 任务消息回写原始对话会话
+        const onTaskMessage = (
+          sid: string,
+          msgs: Array<{ role: string; content: string }>
+        ) => {
+          if (!this.deps.sessionMap.has(sid)) return;
+          for (const m of msgs) {
+            this.deps.persistMessage(
+              sid,
+              this.deps.messageService.createAssistantMessage(m.content, {
+                sessionId: sid,
+                metadata: { taskId, isTaskMessage: true },
+              })
+            );
+          }
+        };
+
+        const stageOrch = StageOrchestrator.create(
+          taskId,
+          description,
+          sessionId,
+          {
+            runStage: async (stage, chain) => {
+              const child = getOrCreateOrchestrator(stage.pdcaTaskId);
+              // RC-C（08-09）+ D2（08-13）：注入 TAORLoop（真实工具执行）+ 每步独立工厂（并行安全）
+              child.setTAORLoop(this.deps.taorLoopFactory(chain.sessionId));
+              child.setTAORLoopFactory(this.deps.taorLoopFactory);
+              await child.runFullPdca(
+                buildStagePrompt(stage, chain),
+                chain.sessionId,
+                {
+                  requirePlanApproval: false,
+                  onTaskMessage,
+                }
+              );
+              return collectStageArtifact(child);
             },
+          }
+        );
+
+        void stageOrch
+          .run()
+          .then((s) => {
+            logger.info('StageOrchestrator 阶段链状态', {
+              taskId,
+              sessionId,
+              phase: s.phase,
+              currentStage: s.currentStage,
+            });
           })
           .catch((e) => {
             handleError(e, {

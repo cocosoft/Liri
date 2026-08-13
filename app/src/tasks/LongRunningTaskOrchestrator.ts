@@ -64,7 +64,9 @@ export type PdcaPhase =
   | 'execute'
   | 'review'
   | 'decide'
-  | 'completed';
+  | 'completed'
+  /** D1（M7，2026-08-13）：阶段审批挂起（区别于 plan_pending，阶段产物待审批） */
+  | 'stage_awaiting_approval';
 
 /** PDCA 状态快照（前端查询用） */
 export interface PdcaStatus {

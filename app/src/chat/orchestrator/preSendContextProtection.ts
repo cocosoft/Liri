@@ -32,7 +32,7 @@
 
 import { getLogger } from '@modules/monitoring';
 import { estimateMessagesTokens } from '../../ai/tokenizer/TokenEstimator';
-import { resolveMaxContextTokens } from '../services/ChatHelper';
+import { resolveMaxContextTokens, isLocalLlmEndpoint } from '../services/ChatHelper';
 import { truncateByPreciseTokens } from '../services/MessageContextPipeline';
 import {
   parsePromptTokensFromError,
@@ -125,7 +125,9 @@ export async function applyPreSendProtection(
       { role: 'system' as const, content: toolsJson },
     ]);
     const normBase = baseUrl?.replace(/\/v1\/?$/, '');
-    if (normBase) {
+    // /tokenize 仅本地 llama.cpp 服务提供；远程 API 发起会 401/404
+    // （R 修复 2026-08-13：对 api.deepseek.com 的探测产生 20+ 次 401 噪音）
+    if (normBase && isLocalLlmEndpoint(normBase)) {
       try {
         const res = await fetch(`${normBase}/tokenize`, {
           method: 'POST',

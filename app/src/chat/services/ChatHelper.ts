@@ -301,3 +301,24 @@ export async function persistChatMessage(
     // 持久化失败不应影响主消息流，已由 Proxy 的 .catch 记录日志
   }
 }
+
+/**
+ * 判断 LLM 端点是否为本地服务（llama.cpp / Ollama 等）。
+ * /tokenize 端点仅本地服务提供；对远程 API（OpenAI/DeepSeek 等）发起
+ * /tokenize 会得到 401/404（无鉴权或端点不存在）——2026-08-13 日志排查发现
+ * 每次流式回复前对 api.deepseek.com 的探测产生 20+ 次 status=401 噪音并
+ * 误判"端点不可用"。远程 baseUrl 直接跳过（R 修复 2026-08-13）。
+ */
+export function isLocalLlmEndpoint(baseUrl: string): boolean {
+  try {
+    const { hostname } = new URL(baseUrl);
+    return (
+      hostname === 'localhost' ||
+      hostname === '127.0.0.1' ||
+      hostname === '0.0.0.0' ||
+      hostname === '::1'
+    );
+  } catch {
+    return false;
+  }
+}

@@ -16,7 +16,7 @@ import { getLogger } from '@modules/monitoring';
 import type { ChatSession } from '../types/session.js';
 import { toolResultRegistry } from '../../tool/ToolResultRegistry.js';
 import { estimateMessagesTokens } from '../../ai/tokenizer/TokenEstimator';
-import { sanitizePass } from './ChatHelper';
+import { isLocalLlmEndpoint, sanitizePass } from './ChatHelper';
 import { assembleSystemPrompt } from '@modules/services/prompt/PromptAssembler';
 import { setCurrentKnowledgeQuery } from '@modules/services/prompt/KnowledgePromptProvider';
 import type { SessionContext } from '@modules/memory/types/SessionContext';
@@ -445,6 +445,11 @@ export async function truncateByPreciseTokens(
   baseUrl: string,
   maxInputTokens: number
 ): Promise<void> {
+  // /tokenize 仅本地 llama.cpp 服务提供；远程 API（OpenAI/DeepSeek 等）发起
+  // 探测会 401/404（R 修复 2026-08-13，日志中 20+ 次 status=401 噪音的根因）。
+  // 远程端点直接跳过精确截断（本就无此端点，探测失败也只会走估算兜底）。
+  if (!isLocalLlmEndpoint(baseUrl)) return;
+
   // llama-server 的 /tokenize 端点在根路径（不带 /v1），而 provider baseUrl 常带 /v1 后缀，
   // 不规范化会拼出 /v1/tokenize → 404 → 探测失败 → 精确截断被跳过（本次 400 最终根因）
   const normalizedBase = baseUrl.replace(/\/v1\/?$/, '');

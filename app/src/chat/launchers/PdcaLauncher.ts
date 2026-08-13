@@ -152,6 +152,21 @@ export class PdcaLauncher {
           }
         };
 
+        // D3 消费（偏差 2 闭环）：从 RequirementTracker 查询该项目已注册需求，
+        // 取最近一条 requirementId 关联到阶段链——ImplicitEngineHook 已注册
+        // requirementId（requirements.json），此处让阶段链真正消费（prompt 注入
+        // → 产物 → 交付清单全程携带，需求→产物证据可追溯）。
+        let requirementId: string | undefined;
+        try {
+          const { createRequirementTracker } =
+            await import('../../project/RequirementTracker');
+          const reqs = createRequirementTracker(projectId).list();
+          requirementId =
+            reqs.length > 0 ? reqs[reqs.length - 1].id : undefined;
+        } catch {
+          /* 无需求登记时不关联（阶段链正常运行） */
+        }
+
         const stageOrch = StageOrchestrator.create(
           taskId,
           description,
@@ -188,7 +203,9 @@ export class PdcaLauncher {
               configManager.env('PDCA_BUDGET_POLICY') === 'warn'
                 ? 'warn'
                 : 'terminate',
-          }
+          },
+          // D3 消费（偏差 2）：需求追踪 ID 贯穿阶段链
+          requirementId
         );
 
         void stageOrch

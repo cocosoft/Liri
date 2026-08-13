@@ -237,3 +237,77 @@ describe('StageOrchestrator — 交付阶段（D6/M8）', () => {
     await expect(orch.markDeliveryAccepted()).rejects.toThrow();
   });
 });
+
+describe('StageOrchestrator — 需求追踪贯穿（D3 消费/偏差 2）', () => {
+  it('create 传入 requirementId → record 携带 + prompt 注入 + 交付清单贯穿', async () => {
+    const calls: string[] = [];
+    const orch = StageOrchestrator.create(
+      'req-test-1',
+      '开发结算模块',
+      's',
+      deps(calls, 10),
+      undefined,
+      'req_abc123def456'
+    );
+
+    // record 携带
+    expect(orch.getStatus().requirementId).toBe('req_abc123def456');
+
+    // requirement 阶段 prompt 注入需求追踪 ID（产物须标注证据）
+    const reqStage = orch.getStatus().stages[0];
+    const prompt = buildStagePrompt(reqStage, orch.getStatus());
+    expect(prompt).toContain('req_abc123def456');
+    expect(prompt).toContain('需求追踪 ID');
+
+    // 走完整阶段链（提需求→审批→设计→交付）
+    await orch.run(); // 停在审批门
+    await orch.resumeAfterApproval();
+
+    // 交付清单贯穿 requirementId
+    const manifest = orch.getStatus().deliveryManifest;
+    expect(manifest).toBeDefined();
+    expect(manifest!.requirementId).toBe('req_abc123def456');
+    expect(calls).toEqual(['requirement', 'design']); // delivery 合成阶段
+  });
+});
+
+describe('MS5 — 端到端剧本（提需求→审批→设计→交付）', () => {
+  it('完整剧本：requirement(PRD 审批) → design → delivery 清单 → 验收', async () => {
+    const calls: string[] = [];
+    const orch = StageOrchestrator.create(
+      'ms5-e2e-1',
+      '开发一个电商结算模块',
+      's',
+      deps(calls, 15),
+      { budgetLimitTokens: 1000 },
+      'req_ms5_e2e'
+    );
+
+    // ① 需求阶段：产出 PRD → 停在审批门（stage_awaiting_approval）
+    const s1 = await orch.run();
+    expect(s1.phase).toBe('stage_awaiting_approval');
+    expect(calls).toEqual(['requirement']);
+    expect(s1.stages.find((x) => x.id === 'requirement')?.artifact).toBe(
+      '产物-requirement'
+    );
+
+    // ② 用户审批 → design（auto）→ delivery（合成）→ completed + 交付清单
+    const s2 = await orch.resumeAfterApproval();
+    expect(s2.phase).toBe('completed');
+    expect(calls).toEqual(['requirement', 'design']);
+    expect(s2.stages.every((x) => x.status === 'completed')).toBe(true);
+
+    // ③ 交付清单：产物打包 + 总 tokens（15+15）+ 需求贯穿
+    const manifest = s2.deliveryManifest!;
+    expect(manifest.totalTokens).toBe(30);
+    expect(manifest.artifacts['requirement']).toBe('产物-requirement');
+    expect(manifest.artifacts['design']).toBe('产物-design');
+    expect(manifest.requirementId).toBe('req_ms5_e2e');
+    expect(manifest.acceptance).toBe('pending');
+
+    // ④ 用户验收 → acceptance=accepted
+    const s3 = await orch.markDeliveryAccepted();
+    expect(s3.deliveryAccepted).toBe(true);
+    expect(s3.deliveryManifest!.acceptance).toBe('accepted');
+  });
+});

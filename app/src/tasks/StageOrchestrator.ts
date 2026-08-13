@@ -48,7 +48,7 @@ export interface StageRecord {
   artifact?: string;
 }
 
-/** 阶段链父级记录（LongTaskRecord 阶段链字段） */
+/** 阶段链父级记录（StageChainRecord：LongTaskRecord 实际承载类型） */
 export interface StageChainRecord {
   taskId: string;
   description: string;
@@ -68,6 +68,8 @@ export interface StageChainRecord {
   deliveryAccepted?: boolean;
   /** D6：交付清单（delivery 阶段产物） */
   deliveryManifest?: DeliveryManifest;
+  /** D3/M8 消费（偏差 2 闭环）：需求追踪 ID（requirementTracker 注册的 req_<sha1>） */
+  requirementId?: string;
   updatedAt: string;
 }
 
@@ -90,6 +92,8 @@ export interface DeliveryManifest {
   deployNote: string;
   /** 用户验收标记（默认 pending，markDeliveryAccepted 置 accepted） */
   acceptance: 'pending' | 'accepted';
+  /** D3 消费（偏差 2）：关联的需求追踪 ID（与 StageChainRecord.requirementId 一致） */
+  requirementId?: string;
   deliveredAt: string;
 }
 
@@ -162,8 +166,12 @@ export function buildStagePrompt(
   chain: StageChainRecord
 ): string {
   if (stage.id === 'requirement') {
+    // D3 消费（偏差 2）：阶段链关联需求追踪 ID，产物与需求证据可追溯
+    const rid = chain.requirementId
+      ? `\n需求追踪 ID: ${chain.requirementId}（产物须标注该 ID 作为需求证据）`
+      : '';
     return `【需求分析】请产出需求规格说明（PRD）。
-任务描述: ${chain.description}`;
+任务描述: ${chain.description}${rid}`;
   }
   const baseline =
     chain.stages.find((s) => s.id === 'requirement')?.artifact ?? '';
@@ -196,12 +204,18 @@ export class StageOrchestrator {
     description: string,
     sessionId: string,
     deps: StageOrchestratorDeps,
-    budget: StageBudgetOptions = {}
+    budget: StageBudgetOptions = {},
+    /**
+     * D3 消费（偏差 2）：需求追踪 ID（requirementTracker 注册的 req_<sha1>），
+     * 贯穿阶段链（prompt 注入 → 产物 → 交付清单），供需求→产物证据追溯。
+     */
+    requirementId?: string
   ): StageOrchestrator {
     const record: StageChainRecord = {
       taskId,
       description,
       sessionId,
+      requirementId,
       currentStage: STAGE_DEFS[0].id,
       stages: STAGE_DEFS.map((def) => ({
         id: def.id,
@@ -342,6 +356,7 @@ export class StageOrchestrator {
       // MVP：阶段产物即交付物，部署说明为后续扩展（delivery 合成阶段无独立产物）
       deployNote: '',
       acceptance: this.record.deliveryAccepted ? 'accepted' : 'pending',
+      requirementId: this.record.requirementId,
       deliveredAt: new Date().toISOString(),
     };
   }

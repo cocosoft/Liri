@@ -40,7 +40,7 @@ describe('SessionSupervisor 联动清理检查点', () => {
     cleanupCalls = [];
   });
 
-  it('回收 idle 超阈值会话后调用检查点清理回调', async () => {
+  it('空闲超阈值会话不被物理删除（H1：数据保留，仅日志）', async () => {
     const deleted: string[] = [];
     const store: SessionStore = {
       listSessions: async () => [
@@ -67,8 +67,10 @@ describe('SessionSupervisor 联动清理检查点', () => {
 
     await supervisor.check();
 
-    expect(deleted).toEqual(['s_idle']);
-    expect(cleanupCalls).toEqual(['s_idle']);
+    // H1 修复（2026-08-13）：空闲/结束会话不再物理删除（原 fs.rm 会话目录
+    // 会丢失 session.json + messages.jsonl），仅记录日志——数据保留，用户可随时重开。
+    expect(deleted).toEqual([]);
+    expect(cleanupCalls).toEqual([]);
   });
 
   it('活跃会话不被回收、不触发检查点清理', async () => {

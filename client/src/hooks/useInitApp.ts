@@ -201,6 +201,10 @@ export function useInitApp() {
       sseService.on("session:cleared", refreshSessions);
       // P0b-3: AI 自动建项目时，前端同步创建 worktree
       sseService.on("project:auto_created", onProjectAutoCreated);
+      // M1 修复（2026-08-13）：接线 SSE 断开轮询兜底——sseService.setPollHandler
+      // 此前从未被调用（死代码），SSE 断开时无任何轮询兜底，只能干等重连。
+      // 断开期间每 15s 轮询一次会话列表，保证会话变更在重连前可见。
+      sseService.setPollHandler(refreshSessions);
       sseService.connect();
       loadSessions();
       // 连接/网络状态监测：记录后端掉线/恢复、网络断开/恢复事件
@@ -217,6 +221,8 @@ export function useInitApp() {
       sseService.off("session:deleted", refreshSessions);
       sseService.off("session:cleared", refreshSessions);
       sseService.off("project:auto_created", onProjectAutoCreated);
+      // M1 修复：卸载时解除轮询回调，避免残留引用
+      sseService.setPollHandler(null);
       sseService.disconnect();
       connectionMonitor.stop();
     };

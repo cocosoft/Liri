@@ -68,17 +68,21 @@ function toOldSession(unified: UnifiedSession): Session {
     unified.metadata?.mode ?? 'default'
   );
 
-  const state = new SessionState(
-    unified.status === SessionStatus.ACTIVE
-      ? 'active'
-      : unified.status === SessionStatus.PAUSED
-        ? 'paused'
-        : unified.status === SessionStatus.ENDED
-          ? 'ended'
-          : unified.status === SessionStatus.ARCHIVED
-            ? 'archived'
-            : 'active'
-  );
+  // H1 修复（2026-08-13）：补全 IDLE/RUNNING/ERROR 映射——原实现仅映射
+  // ACTIVE/PAUSED/ENDED/ARCHIVED，其余状态全部落入 'active' 分支，导致
+  // 持久化 status=IDLE 的会话被误读为 active（SessionSupervisor 空闲回收
+  // 永不命中——"意外安全"但语义错误）。补全后状态双向映射对称。
+  const statusMap: Record<string, string> = {
+    [SessionStatus.ACTIVE]: 'active',
+    [SessionStatus.PAUSED]: 'paused',
+    [SessionStatus.ENDED]: 'ended',
+    [SessionStatus.ARCHIVED]: 'archived',
+    [SessionStatus.IDLE]: 'idle',
+    [SessionStatus.RUNNING]: 'running',
+    [SessionStatus.ERROR]: 'error',
+  };
+
+  const state = new SessionState(statusMap[unified.status] ?? 'active');
 
   return new Session(
     unified.id,

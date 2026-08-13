@@ -149,16 +149,22 @@ export class SessionSupervisor {
 
         if (session.status === 'idle' || session.status === 'ended') {
           if (idleTime >= this.config.forceRecycleThreshold) {
-            await this.store.deleteSession(session.id);
-            // 联动清理该会话检查点（不阻塞回收主流程，失败仅记录，避免孤儿检查点）
-            if (this.cleanupSessionCheckpoints) {
-              void this.cleanupSessionCheckpoints(session.id).catch((e) => {
-                handleError(e, {
-                  module: 'session:supervisor',
-                  action: '清理被回收会话检查点失败',
-                });
-              });
-            }
+            // H1 修复（2026-08-13）：空闲/结束会话不再物理删除——原实现
+            // store.deleteSession 是 fs.rm 会话目录（session.json + messages.jsonl），
+            // 2h 无活动的 idle/ended 会话会被静默物理删除，数据不可恢复。
+            // 单机桌面场景回收是纯负收益，改为仅记录日志（会话数据保留，
+            // 状态仍为 idle，用户可随时重新打开）。
+            logger.warn(
+              '[SessionSupervisor] 会话空闲超限，跳过物理删除（数据保留）',
+              {
+                sessionId: session.id,
+                status: session.status,
+                idleMinutes: Math.round(idleTime / 60000),
+                thresholdMinutes: Math.round(
+                  this.config.forceRecycleThreshold / 60000
+                ),
+              }
+            );
           }
           continue;
         }

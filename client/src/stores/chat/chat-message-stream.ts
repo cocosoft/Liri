@@ -610,15 +610,12 @@ export async function streamMessageImpl(
     // P2-2: 断线重连 — 非用户取消的中断尝试从检查点恢复消息
     if (!controller.signal.aborted && sessionId) {
       try {
-        const { getBackendBaseUrl, getApiSecret } =
-          await import("../../services/backendUrl");
-        // P2: 裸 fetch 需注入 X-API-Key，配置 LIRI_API_SECRET 后缺头会 401
-        const headers: Record<string, string> = {};
-        const secret = getApiSecret();
-        if (secret) headers["X-API-Key"] = secret;
+        // M2 修复：改用 buildAuthHeaders（X-API-Key + Bearer 双注入），登录态下断线恢复拉取不再 401
+        const { buildAuthHeaders } = await import("../../services/chatService");
+        const { getBackendBaseUrl } = await import("../../services/backendUrl");
         const resp = await fetch(
           `${getBackendBaseUrl()}/v1/sessions/${sessionId}/checkpoints/latest`,
-          { headers },
+          { headers: buildAuthHeaders() },
         );
         if (resp.ok) {
           const data = await resp.json();

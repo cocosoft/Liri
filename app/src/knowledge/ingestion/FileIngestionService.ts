@@ -590,6 +590,9 @@ export class FileIngestionService {
 
   /**
    * 安全读取文件（仅文本文件）
+   * 编码：优先 native readFileWithEncoding 自动检测（UTF-8 / GBK / GB18030，
+   * 与 FileReadTool/GrepTool 同一 Rust 模块，CS01 归一化——GBK 中文老文档摄取不乱码），
+   * native 不可用或调用失败时回退 UTF-8。
    */
   private async safeReadFile(filePath: string): Promise<string | null> {
     try {
@@ -599,6 +602,13 @@ export class FileIngestionService {
       const stats = await stat(filePath);
       if (stats.size > 1024 * 1024) return null;
 
+      try {
+        const native = require('../../../native');
+        const result = native.readFileWithEncoding(filePath);
+        if (result && result.encoding !== 'error') return result.content;
+      } catch {
+        /* native 不可用，回退 UTF-8 */
+      }
       return await readFile(filePath, 'utf-8');
     } catch (_err) {
       return null;

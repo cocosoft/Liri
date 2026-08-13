@@ -160,6 +160,17 @@ export interface TaskMessage {
   toolCallId?: string;
 }
 
+/**
+ * D5（M6，2026-08-13）：阶段回退增量 replan 记录
+ * escalate 时捕获失败步骤与缺陷清单，重开循环时注入增量 replan 指令。
+ */
+export interface EscalationRecord {
+  stepId: string;
+  stepDescription: string;
+  /** 缺陷清单（severity + description） */
+  defects: string[];
+}
+
 export class LongRunningTaskOrchestrator {
   private taskId: string;
   private planId: string | null = null;
@@ -174,6 +185,11 @@ export class LongRunningTaskOrchestrator {
   private _totalTokensTracked = 0;
   /** S2：任务开始时间（duration 计算） */
   private _startedAt = 0;
+  /**
+   * D5（M6，2026-08-13）：阶段回退增量 replan 记录（escalate 时捕获缺陷清单）
+   * 重开循环时注入"基线 + 缺陷清单 → 仅修订受影响部分"的增量 replan 指令。
+   */
+  private _lastEscalations: EscalationRecord[] = [];
   private decisionAwait: Promise<ReviewDecision> | null = null;
   private decisionResolve: ((d: ReviewDecision) => void) | null = null;
   private auditReport: AuditReport | null = null;
@@ -280,6 +296,8 @@ export class LongRunningTaskOrchestrator {
           maxRetries: s.maxRetries,
           acceptanceCriteria: s.acceptanceCriteria,
         })),
+        // D5（M6）：escalate 缺陷清单（跨重启恢复后增量 replan 仍生效）
+        lastEscalations: this._lastEscalations,
       });
     } catch {
       // @ignore-catch — checkpoint 写入失败不影响任务执行
@@ -334,9 +352,25 @@ export class LongRunningTaskOrchestrator {
     });
 
     try {
+      // D5（M6，2026-08-13）：阶段回退增量 replan —— 仅重生成受缺陷影响部分，不全盘重来
+      const replanSection =
+        this._lastEscalations.length > 0
+          ? `\n\n【增量修订要求】（上次执行存在缺陷，仅修订受影响部分，未变部分沿用原计划）
+上次失败步骤: ${this._lastEscalations.map((e) => `"${e.stepDescription}"`).join('、')}
+缺陷清单:
+${
+  this._lastEscalations
+    .flatMap((e) => e.defects)
+    .map((d) => `- ${d}`)
+    .join('\n') || '- （无明细，按失败步骤范围修订）'
+}
+修订范围: 仅针对上述缺陷重规划受影响步骤；与缺陷无关的已有步骤保持原样。`
+          : '';
+
       // 让 Planner 分析并输出步骤
       const planPrompt = `请分析以下任务并输出 JSON 格式的执行计划：
 任务描述: ${description}
+${replanSection}
 
 输出格式：
 {
@@ -1093,6 +1127,8 @@ export class LongRunningTaskOrchestrator {
             step.decision = 'escalate';
             step.status = 'failed';
             step.error = `Exceeded max retries (${maxRetries})`;
+            // D5（M6）：重试上限升级 escalate 同样捕获缺陷 → 增量 replan
+            this._recordEscalation(step);
             this.lifecycle.record(
               'progress',
               TaskStatus.RUNNING,
@@ -1155,6 +1191,8 @@ export class LongRunningTaskOrchestrator {
             TaskStatus.RUNNING,
             `Escalated: ${step.description}`
           );
+          // D5（M6）：捕获缺陷清单 → 增量 replan 输入（基线 + 缺陷 → 局部修订）
+          this._recordEscalation(step);
           break;
       }
 
@@ -1169,6 +1207,32 @@ export class LongRunningTaskOrchestrator {
       otel.endSpan(span, SpanStatusCode.ERROR, String(e));
       throw e;
     }
+  }
+
+  /**
+   * D5（M6，2026-08-13）：捕获 escalate 缺陷 → 增量 replan 输入（基线 + 缺陷清单）
+   * 缺陷取自步骤 reviewResult.issues（severity + description），落 checkpoint 支持跨重启恢复。
+   */
+  private _recordEscalation(step: PlanStep): void {
+    const defects = (step.reviewResult?.issues ?? [])
+      .map((issue) => {
+        const i = issue as { severity?: string; description?: string };
+        const desc = i.description ?? '';
+        return desc ? `[${i.severity ?? 'unknown'}] ${desc}` : '';
+      })
+      .filter(Boolean);
+    this._lastEscalations.push({
+      stepId: step.id,
+      stepDescription: step.description,
+      defects,
+    });
+    this._persistCheckpoint();
+    logger.info('[orchestrator] escalate 已捕获缺陷（增量 replan 输入）', {
+      taskId: this.taskId,
+      stepId: step.id,
+      defectCount: defects.length,
+      stepDesc: step.description.slice(0, 60),
+    });
   }
 
   /**
@@ -1610,6 +1674,9 @@ export class LongRunningTaskOrchestrator {
 
     this.planId = restored.id;
     this._sessionId = sessionId || null;
+    // D5（M6）：恢复 escalate 缺陷清单（增量 replan 输入跨重启保持）
+    this._lastEscalations =
+      (ck.lastEscalations as EscalationRecord[] | undefined) ?? [];
     this.lifecycle.record(
       'started',
       TaskStatus.RUNNING,

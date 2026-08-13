@@ -37,6 +37,7 @@ import type {
   ChatStreamChunk,
   QuestionData,
 } from '@modules/runtime/api/CoreAPI.js';
+import { compactionOrchestrator } from '../../context/compaction/CompactionOrchestrator';
 import type {
   Message,
   SendMessageOptions,
@@ -516,6 +517,24 @@ export class ChatOrchestrator {
 
         // 阶段 7: 用量通知
         notifyUsage(ctx, response, Date.now() - llmStartTime);
+
+        // 项1（会话排查 2026-08-13）：非流式发送完成后的后台预压缩——压缩结果写回
+        // 会话，下一轮窗口更小。fire-and-forget 不阻塞本轮；长度守卫防覆盖
+        // （若后续工具循环新增消息则放弃写回，安全）。
+        void compactionOrchestrator
+          .compactSessionInBackground(
+            () => session.messages as unknown as ChatMessage[],
+            (messages) => {
+              session.messages = messages as unknown as typeof session.messages;
+            },
+            { model: options?.model || '', sessionId: session.id }
+          )
+          .catch((err) =>
+            logger.warn('compaction:bg_failed', {
+              sessionId: session.id,
+              error: err instanceof Error ? err.message : String(err),
+            })
+          );
 
         // 响应后自动提取记忆
         await this.host.extractMemoryFromChat(

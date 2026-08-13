@@ -32,6 +32,31 @@ const DEFAULT_OPTIONS: Required<SnipEngineOptions> = {
   enabled: true,
 };
 
+/** 单条消息最大字符数：超过则截断（防单条巨大 tool_result/system 消息撑爆窗口，轮次裁剪无效场景） */
+const MAX_MESSAGE_CHARS = 16_000;
+/** 截断后头部保留比例（剩余保留在尾部，中间省略标记） */
+const TRUNCATE_KEEP_HEAD_RATIO = 0.6;
+
+/**
+ * 单条超长消息截断（项2 落地，会话排查 2026-08-13）：
+ * SnipEngine 按轮次裁剪，若"单条超长消息"（如巨大 tool_result、超长 system prompt）
+ * 本身就是窗口膨胀主因，轮次裁剪无法降体积（只有一轮）→ Tier2 无效 → 依赖 Tier3。
+ * 此处对超长消息内容做头尾截断，纯同步零 LLM，与 C5 截断兜底互补。
+ */
+function truncateOverlongMessages(messages: ChatMessage[]): ChatMessage[] {
+  return messages.map((msg) => {
+    const content = typeof msg.content === 'string' ? msg.content : null;
+    if (!content || content.length <= MAX_MESSAGE_CHARS) return msg;
+    const keepHead = Math.floor(MAX_MESSAGE_CHARS * TRUNCATE_KEEP_HEAD_RATIO);
+    const keepTail = MAX_MESSAGE_CHARS - keepHead;
+    const truncated =
+      content.slice(0, keepHead) +
+      `\n\n[... 内容过长已截断（原 ${content.length} 字符），保留头尾 ...]\n\n` +
+      content.slice(content.length - keepTail);
+    return { ...msg, content: truncated } as ChatMessage;
+  });
+}
+
 /**
  * 创建 snip 边界标记消息
  */
@@ -163,6 +188,8 @@ export function snipMessages(
 
   let cleaned = stripUnpairedToolCalls(result, pairedResultIds);
   cleaned = stripUnpairedToolResults(cleaned, pairedCallIds);
+  // 项2：单条超长消息截断（轮次裁剪后的补充，防单条巨大消息撑爆窗口）
+  cleaned = truncateOverlongMessages(cleaned);
   cleaned = ensureTrailingUserMessage(cleaned);
 
   logger.info('compaction:triggered', {

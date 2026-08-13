@@ -1007,6 +1007,41 @@ export async function launch(options: LaunchOptions): Promise<void> {
   // 崩溃恢复/后台任务等关键节点通过 AppLifecycle 驱动全局状态
   initAppStateMachine();
 
+  // 项3（会话排查 2026-08-13）：崩溃转储——uncaughtException/unhandledRejection 时
+  // 同步写崩溃现场到 ~/.pyapp/data/crashes/crash-<ts>.json，补充日志留存的取证能力
+  // （进程信息/堆栈/内存/参数），与日志留存等价满足取证需求。
+  // 同步写：崩溃时事件循环可能即将终止，异步落盘不可靠。
+  function writeCrashDump(
+    type: 'uncaughtException' | 'unhandledRejection',
+    error: unknown
+  ): void {
+    try {
+      const dir = join(resolveDataDir(), 'crashes');
+      if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+      const ts = new Date().toISOString().replace(/[:.]/g, '-');
+      const file = join(dir, `crash-${ts}.json`);
+      const err =
+        error instanceof Error ? error : new Error(String(error));
+      const dump = {
+        timestamp: new Date().toISOString(),
+        type,
+        pid: process.pid,
+        platform: process.platform,
+        nodeVersion: process.version,
+        uptimeMs: Math.round(process.uptime() * 1000),
+        message: err.message,
+        stack: err.stack,
+        raw: String(error),
+        memory: process.memoryUsage(),
+        argv: process.argv,
+      };
+      writeFileSync(file, JSON.stringify(dump, null, 2), 'utf8');
+    } catch (e) {
+      // 转储失败不阻塞原有兜底逻辑，仅输出 stderr
+      console.error('[crash-dump] 写入崩溃转储失败', e);
+    }
+  }
+
   // 全局未捕获异常兜底（handleError 标准化处理）
   // 在模块系统初始化之前注册，确保早期启动阶段的错误也能被捕获
   {
@@ -1020,6 +1055,7 @@ export async function launch(options: LaunchOptions): Promise<void> {
       }
       fatalExiting = true;
 
+      writeCrashDump('uncaughtException', error);
       logger.error('uncaughtException', error);
 
       // 动态 import handleError（模块系统可能尚未初始化，使用动态导入降低依赖风险）
@@ -1040,6 +1076,7 @@ export async function launch(options: LaunchOptions): Promise<void> {
     });
 
     process.on('unhandledRejection', (reason: unknown) => {
+      writeCrashDump('unhandledRejection', reason);
       logger.error('unhandledRejection', { reason: String(reason) });
 
       import('./error/handleError.js')

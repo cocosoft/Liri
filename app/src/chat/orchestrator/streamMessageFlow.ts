@@ -57,6 +57,7 @@ import {
   logFinalRawResponse,
 } from './preSendContextProtection.js';
 import { savePlainTextCheckpoint } from './plainTextCheckpointSave.js';
+import { compactionOrchestrator } from '../../context/compaction/CompactionOrchestrator';
 import { getOTelTracing } from '@modules/monitoring';
 import { trajectoryRecorder } from '../../agent/trajectory/TrajectoryRecorder';
 import { trajectoryRuntime } from '../../core/trajectory/TrajectoryRuntime.js';
@@ -735,6 +736,25 @@ export async function* runStreamMessage(
     streamSpan.addEvent('streamMessage.toolLoop.done', {
       'toolTurns.completed': host.toolRoundCount,
     });
+
+    // 项1（会话排查 2026-08-13）：发送完成后的后台预压缩——压缩结果写回会话，
+    // 下一轮窗口更小（可能 skip/warn 而非触发慢 Tier3），把 Tier3 的等待从
+    // "用户发送前"转移到"发送后后台"。fire-and-forget 不阻塞本轮；
+    // 长度守卫（compactSessionInBackground 内部）防覆盖压缩期间新增消息。
+    void compactionOrchestrator
+      .compactSessionInBackground(
+        () => session.messages as unknown as ChatMessage[],
+        (messages) => {
+          session.messages = messages as unknown as typeof session.messages;
+        },
+        { model: options?.model || '', sessionId: session.id }
+      )
+      .catch((err) =>
+        logger.warn('compaction:bg_failed', {
+          sessionId: session.id,
+          error: err instanceof Error ? err.message : String(err),
+        })
+      );
 
     // P2-3.5: 资源清理 + 持久化 + 构建返回消息
     return await _finalizeStreamMessage(

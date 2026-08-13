@@ -176,6 +176,42 @@ export class CompactionOrchestrator {
     }
   }
 
+  /**
+   * 后台异步压缩会话消息（项1 落地，会话排查 2026-08-13）：
+   * 发送完成后 fire-and-forget 调用，压缩结果写回会话，下一轮发送窗口更小
+   * （可能 skip/warn 而非触发慢 Tier3），从而把 Tier3 的等待从"用户发送前"
+   * 转移到"发送后后台"。
+   * 长度守卫：压缩期间会话消息数量变化（有新消息/删除）→ 放弃写回，避免覆盖新增。
+   * @param getMessages 读取当前会话消息（引用实时值）
+   * @param setMessages 写回压缩结果
+   * @returns 是否已写回
+   */
+  async compactSessionInBackground(
+    getMessages: () => ChatMessage[],
+    setMessages: (messages: ChatMessage[]) => void,
+    ctx: CompactionContext
+  ): Promise<boolean> {
+    const snapshotCount = getMessages().length;
+    if (snapshotCount === 0) return false;
+    const result = await this.compact(getMessages(), ctx);
+    if (!result.applied) return false;
+    // 守卫：压缩期间消息有变更 → 放弃写回（避免覆盖压缩期间新增的消息）
+    if (getMessages().length !== snapshotCount) {
+      logger.warn('compaction:bg_skip — 压缩期间消息有变更，放弃写回', {
+        sessionId: ctx.sessionId,
+        snapshotCount,
+        currentCount: getMessages().length,
+      });
+      return false;
+    }
+    setMessages(result.messages);
+    logger.info('compaction:bg_applied — 后台压缩已写回会话', {
+      sessionId: ctx.sessionId,
+      messageCount: result.messages.length,
+    });
+    return true;
+  }
+
   /** 执行压缩管线。Tier1/2 为同步毫秒级；Tier3 带独立超时（见 _runFullCompactionWithTimeout） */
   private async _doCompact(
     messages: ChatMessage[],

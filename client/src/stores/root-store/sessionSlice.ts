@@ -333,6 +333,12 @@ export const createSessionSlice: StateCreator<
         // 与 switchChatSession 的 ③ 步一致（缓存优先；回退分支为同步函数，
         // 故 fire-and-forget 不阻塞导航）。N5 的 switch 同步一并保留。
         void (async () => {
+          // R2 修复（复查 BUG-1 闭环）：加载消息加版本守卫——快照进入时的
+          // _switchSeq，loadMessages 前校验未变化（与 restoreMessagesToCurrentSession
+          // 的 N8 守卫同思路）。否则用户在网络加载期间点侧栏切到会话 B，
+          // A 的 getMessages 后完成 → loadMessages(A) 覆盖 store →
+          // currentSessionId=B 但消息区显示 A（BUG-1 同症状、不同路径）。
+          const switchSeqSnapshot = _switchSeq;
           try {
             const { sessionService } =
               await import("@/services/sessionService");
@@ -341,6 +347,8 @@ export const createSessionSlice: StateCreator<
             const cached = _getCachedMessages(latest.id);
             const messages =
               cached ?? (await sessionService.getMessages(latest.id));
+            // R2：期间发生新切换/新建/删除（都会 _switchSeq++）→ 放弃本次加载
+            if (_switchSeq !== switchSeqSnapshot) return;
             await chatCoordinator.loadMessages(messages);
           } catch (e) {
             logger.warn("getOrCreateSession:回退加载消息失败", {

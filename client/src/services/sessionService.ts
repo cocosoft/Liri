@@ -214,12 +214,31 @@ export const sessionService = {
             _isUsingFallback = false;
             return;
           }
-          logger.warn("删除会话失败", { id, error: res.error });
+          // R1 修复（复查闭环 BUG-3）：后端明确失败（5xx）时抛错、不做降级——
+          // BUG-3 后端已改为持久化删除失败返回 500，若前端仍静默降级成功，
+          // deleteChatSession 会清理本地记录 → 用户看到删除成功但磁盘残留，
+          // 刷新后会话"复活"（BUG-3 想消灭的场景依然存在）。
+          // 与 switch 的 N1（404 抛错）同思路：明确业务错误上抛，仅纯网络错误
+          // （fetch 抛出进 catch）才尝试 Tauri/内存降级。
+          const status = res.error?.code ?? 500;
+          logger.warn("删除会话失败（后端明确错误，不再降级）", {
+            id,
+            error: res.error,
+          });
+          if (status >= 500) {
+            const err = new Error(
+              `删除会话失败: ${res.error?.message ?? `HTTP ${status}`}`,
+            );
+            (err as unknown as Record<string, unknown>).statusCode = status;
+            throw err;
+          }
         } catch (e) {
           handleClientError(e, {
             module: "services:session",
             action: "delete",
           });
+          // 纯网络错误（fetch 抛出）→ 尝试 Tauri/内存降级；业务错误（5xx）直接上抛
+          if ((e as { statusCode?: number })?.statusCode) throw e;
           // 网络错误
         }
         const result = await tryTauri<void>("delete_session", { id });

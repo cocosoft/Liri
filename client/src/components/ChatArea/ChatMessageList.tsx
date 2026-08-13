@@ -239,8 +239,14 @@ interface ChatMessageListProps {
   };
   /** 无会话时显示 */
   hasSession: boolean;
-  /** 会话标题（空消息时展示） */
+  /** 当前会话标题（空消息时展示） */
   sessionTitle?: string;
+  /**
+   * P0-2 防御：当前会话 ID——用于校验消息区内容与侧栏高亮的一致性。
+   * 渲染只按 messages.length 判断不校验 session_id，若 store 层守卫出现
+   * 新竞态路径（或历史数据错位），会显示上一个会话的旧消息；此处兜底。
+   */
+  currentSessionId?: string;
   /** 创建新会话回调（欢迎页按钮） */
   onCreateSession?: () => void;
   /** 发送入门提示消息回调 */
@@ -254,12 +260,21 @@ export default function ChatMessageList({
   sessionUsage,
   hasSession,
   sessionTitle,
+  currentSessionId,
   onCreateSession,
   onSendMessage,
 }: ChatMessageListProps) {
   const { t } = useTranslation();
   const listRef = useRef<HTMLDivElement>(null);
   const switching = useSessionStore((s) => s.switching);
+
+  // P0-2 防御：消息区内容与当前会话一致性校验——渲染层兜底，不依赖 store 守卫。
+  // 若 messages 首条 session_id 与 currentSessionId 不一致（切换竞态/数据错位），
+  // 按"加载中"处理（骨架屏）而非渲染可能错位的旧会话消息。
+  const sessionMismatch =
+    messages.length > 0 &&
+    currentSessionId != null &&
+    messages[0]?.session_id !== currentSessionId;
 
   // 搜索状态
   const [searchOpen, setSearchOpen] = useState(false);
@@ -420,6 +435,12 @@ export default function ChatMessageList({
         </div>
       </div>
     );
+  }
+
+  // P0-2 防御：消息区与当前会话不一致（切换竞态/数据错位）→ 骨架屏兜底，
+  // 不渲染可能属于上一个会话的旧消息（与"加载中"体验一致，避免错位闪现）
+  if (sessionMismatch) {
+    return <SkeletonMessageList count={2} />;
   }
 
   // "有 session 无消息"状态：灰色圆角容器 + 提示

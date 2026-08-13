@@ -346,6 +346,8 @@ function ChatArea({ fluid = false }: { fluid?: boolean }) {
               sessionUsage={sessionUsage}
               hasSession={!!currentSession}
               sessionTitle={currentSession?.title}
+              // P0-2：渲染层一致性校验用（消息区与侧栏高亮对齐）
+              currentSessionId={currentSession?.id}
               onCreateSession={handleCreateSession}
               onSendMessage={handleSendMessage}
             />

@@ -48,12 +48,12 @@ async function getAiService() {
 }
 
 /**
- * 压缩超时上限（毫秒），超时后回滚到原消息。
- * P0 压缩超时治理（2026-08-13）：10s → 30s——LLM 全量摘要（max_tokens=4096）在
- * 10s 内几乎必然超时，压缩永远失败 → 上下文持续膨胀恶性循环。配 signal 透传后
- * 超时会真正中断底层 LLM 请求（消灭僵尸请求），30s 是摘要生成与用户等待的折中。
+ * Tier 3 LLM 压缩超时上限（毫秒），超时后保留 Tier2 结果并中断 LLM 请求。
+ * 超时治理（2026-08-13 根治）：仅约束 Tier3（LLM 调用），Tier1/2 同步毫秒级不受限。
+ * 历史日志显示 Tier3 实际耗时 12-21s，30s 对长摘要仍偏紧；60s 是摘要生成
+ * （max_tokens=2560，5 字段 ≤1400 字）与用户等待的折中，超时由 signal 真正中断。
  */
-const COMPACTION_TIMEOUT_MS = 30_000;
+const COMPACTION_TIMEOUT_MS = 60_000;
 
 const FULL_COMPACTION_PROMPT = `You are a conversation compressor. Summarize the following conversation to preserve essential context while drastically reducing token count.
 
@@ -107,11 +107,30 @@ export class CompactionOrchestrator {
 
     try {
       const startTime = Date.now();
+      // 排查日志：压缩触发入口——记录触发条件（消息数/估算 tokens/模型/窗口配置），
+      // 与后续"决策/完成/未应用"日志串联，便于排查边界情况
+      const entryTokens = estimateMessagesTokens(messages);
+      logger.info('compaction:①触发评估', {
+        sessionId: ctx.sessionId,
+        model: ctx.model,
+        messageCount: messages.length,
+        estimatedTokens: entryTokens,
+        configOverride: ctx.configOverride,
+      });
       const decision = this.policy.evaluate(
         messages,
         ctx.model,
         ctx.configOverride
       );
+      // 排查日志：决策汇总（skip/warn/trigger 三态 + 阈值快照）
+      logger.info('compaction:决策', {
+        decision: decision.decision,
+        ratio: Number(decision.snapshot.ratio.toFixed(3)),
+        tokens: decision.snapshot.tokens,
+        maxTokens: decision.snapshot.maxTokens,
+        reason: decision.reason ?? null,
+        sessionId: ctx.sessionId,
+      });
 
       // Skip：无需压缩
       if (decision.decision === 'skip') {
@@ -122,51 +141,47 @@ export class CompactionOrchestrator {
         return { messages, applied: false };
       }
 
-      // 超时保护：压缩整体不得超过 COMPACTION_TIMEOUT_MS
-      let timeoutId: ReturnType<typeof setTimeout> | undefined;
-      const abortCtrl = new AbortController();
+      // 超时治理（2026-08-13 根治）：超时保护仅约束 Tier3（LLM 调用），Tier1/2
+      // 为同步毫秒级不受限——原实现 Promise.race 对"整个 _doCompact"超时，Tier2
+      // 已完成但 Tier3 未完成时整个结果被丢弃（Tier2 成果白费 + 返回未压缩），
+      // 且旧代码 signal 未透传导致 Tier3 僵尸请求继续跑。见 _runFullCompactionWithTimeout。
+      let result: { messages: ChatMessage[]; applied: boolean };
       try {
-        const result = await Promise.race([
-          this._doCompact(messages, ctx, decision, startTime, abortCtrl.signal),
-          new Promise<never>((_, reject) => {
-            timeoutId = setTimeout(() => {
-              abortCtrl.abort(); // BUG-G fix: cancel ongoing _doCompact
-              reject(new Error('COMPACTION_TIMEOUT'));
-            }, COMPACTION_TIMEOUT_MS);
-          }),
-        ]);
-        return result;
+        result = await this._doCompact(messages, ctx, decision, startTime);
       } catch (err) {
-        if (err instanceof Error && err.message === 'COMPACTION_TIMEOUT') {
-          logger.warn('compaction:timeout', {
-            sessionId: ctx.sessionId,
-            beforeTokens: decision.snapshot.tokens,
-            timeoutMs: COMPACTION_TIMEOUT_MS,
-            elapsedMs: Date.now() - startTime,
-          });
-          return { messages, applied: false };
-        }
         // 非超时错误：记录 + 返回 fallback，不抛向上层（上层可能没有 catch）
         await handleError(err, {
           module: 'context:compaction',
           action: 'compact',
         });
+        // 排查日志：异常未应用——与 Tier3 超时分支区分，调用方将走截断兜底
+        logger.warn('compaction:❌异常未应用（调用方将走截断兜底）', {
+          sessionId: ctx.sessionId,
+          error: err instanceof Error ? err.message : String(err),
+          elapsedMs: Date.now() - startTime,
+        });
         return { messages, applied: false };
-      } finally {
-        if (timeoutId !== undefined) clearTimeout(timeoutId);
       }
+      // 排查日志：压缩完成（applied + 压缩后 tokens + 耗时）
+      logger.info('compaction:②完成', {
+        sessionId: ctx.sessionId,
+        applied: result.applied,
+        beforeTokens: decision.snapshot.tokens,
+        afterTokens: estimateMessagesTokens(result.messages),
+        elapsedMs: Date.now() - startTime,
+      });
+      return result;
     } finally {
       if (ctx.sessionId) activeCompactions.delete(ctx.sessionId);
     }
   }
 
-  /** 执行压缩管线（不含超时保护，由 compact() 外层处理） */
+  /** 执行压缩管线。Tier1/2 为同步毫秒级；Tier3 带独立超时（见 _runFullCompactionWithTimeout） */
   private async _doCompact(
     messages: ChatMessage[],
     ctx: CompactionContext,
     decision: ReturnType<AutoCompactionPolicy['evaluate']>,
-    startTime: number,
-    signal?: AbortSignal
+    startTime: number
   ): Promise<{ messages: ChatMessage[]; applied: boolean }> {
     const beforeTokens = decision.snapshot.tokens;
 
@@ -197,10 +212,6 @@ export class CompactionOrchestrator {
       if (microResult.applied) {
         result = { messages: microResult.messages, applied: true };
       } else {
-        // BUG-ζ fix: check abort signal before Tier 2 (snip is sync but still adds overhead after timeout)
-        if (signal?.aborted) {
-          return { messages, applied: false };
-        }
         // Micro 无效果，尝试 Tier 2 Snip
         tier = 2;
         triggerLabel = 'warn_snip';
@@ -219,23 +230,17 @@ export class CompactionOrchestrator {
       const snipResult = snipMessages(messages);
       result = { messages: snipResult.messages, applied: snipResult.applied };
 
-      // Tier 2 无效或仍超限 → 尝试 Tier 3 LLM Full Compaction
+      // Tier 2 无效或仍超限 → 尝试 Tier 3 LLM Full Compaction（带独立超时，
+      // 超时只中断 LLM 调用并保留 Tier2 结果，不再丢弃整个压缩成果）
       if (!result.applied || this.isStillOverBudget(result.messages, ctx)) {
-        // BUG-G fix: skip LLM call if already aborted (avoid side effects after timeout)
-        if (signal?.aborted) {
-          logger.debug('compaction:tier3_skipped', { reason: 'aborted' });
-          return { messages, applied: false };
-        }
-
         logger.info('compaction:escalating_to_tier3', {
           reason: result.applied ? 'snip_insufficient' : 'snip_no_effect',
           beforeTokens,
         });
 
-        const fullResult = await this.runFullCompaction(
+        const fullResult = await this._runFullCompactionWithTimeout(
           result.messages,
-          ctx,
-          signal
+          ctx
         );
         if (fullResult.applied) {
           tier = 3;
@@ -306,6 +311,39 @@ export class CompactionOrchestrator {
   }
 
   /**
+   * Tier 3 LLM 压缩 + 独立超时（2026-08-13 根治超时问题）：
+   * 超时只中断 LLM 调用（signal 经 aiService/OpenAIProvider 透传真正 abort，消灭僵尸请求），
+   * 超时返回 applied:false → 调用方保留 Tier2 结果（不再丢弃已完成压缩成果）。
+   * 与旧实现"Promise.race 整体超时丢弃整个 _doCompact"的区别：Tier1/2 同步毫秒级不受限。
+   */
+  private async _runFullCompactionWithTimeout(
+    messages: ChatMessage[],
+    ctx: CompactionContext
+  ): Promise<{ messages: ChatMessage[]; applied: boolean }> {
+    const abortCtrl = new AbortController();
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    try {
+      return await Promise.race([
+        this.runFullCompaction(messages, ctx, abortCtrl.signal),
+        new Promise<{ messages: ChatMessage[]; applied: boolean }>(
+          (resolve) => {
+            timeoutId = setTimeout(() => {
+              abortCtrl.abort();
+              logger.warn('compaction:❌tier3 超时（保留 tier2 结果）', {
+                sessionId: ctx.sessionId,
+                timeoutMs: COMPACTION_TIMEOUT_MS,
+              });
+              resolve({ messages, applied: false });
+            }, COMPACTION_TIMEOUT_MS);
+          }
+        ),
+      ]);
+    } finally {
+      if (timeoutId !== undefined) clearTimeout(timeoutId);
+    }
+  }
+
+  /**
    * Tier 3: LLM Full Compaction — 将对话历史压缩为结构化摘要
    * P2-15: 使用 StructuredCompactionPrompt 5 字段结构化格式，
    * 替代自由文本 FULL_COMPACTION_PROMPT，提升信息保留率。
@@ -326,9 +364,12 @@ export class CompactionOrchestrator {
       }
       const headMessages = messages.slice(0, headIdx);
       if (headMessages.length === 0) {
-        logger.warn('compaction:tier3_skip — 头部无 system 消息，跳过全量压缩', {
-          messageCount: messages.length,
-        });
+        logger.warn(
+          'compaction:tier3_skip — 头部无 system 消息，跳过全量压缩',
+          {
+            messageCount: messages.length,
+          }
+        );
         return { messages, applied: false };
       }
       const toCompress = messages.slice(headIdx);
@@ -363,7 +404,9 @@ export class CompactionOrchestrator {
           },
         ],
         ctx.model || '',
-        { temperature: 0.3, max_tokens: 4096, signal }
+        // 超时治理：max_tokens 4096 → 2560——5 字段摘要上限共 ~1400 字（≈2000-2500 tokens），
+        // 2560 足够且显著缩短 LLM 生成时间（4096 上限是浪费），降低 Tier3 超时概率
+        { temperature: 0.3, max_tokens: 2560, signal }
       );
 
       let summary: string;

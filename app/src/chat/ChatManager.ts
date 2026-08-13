@@ -177,7 +177,12 @@ import {
 import type { StopHookReason } from '../query/StopHooks.js';
 import { TAORLoop, createTAORLoop } from '../query/TAORLoop.js';
 import type { TAORLoopConfig } from '../query/TAORLoop.js';
-import { PlanDrivenLoop } from '../core/loop/PlanDrivenLoop.js';
+import {
+  PlanDrivenLoop,
+  classifyTaskComplexity,
+  hasDangerousToolIntent,
+  isEligibleForFastPath,
+} from '../core/loop/PlanDrivenLoop.js';
 import type { PlanDrivenLoopResult } from '../core/loop/PlanDrivenLoop.js';
 import { ReActToolLoop } from './ReActToolLoop.js';
 import type { ToolLoopContext } from './ToolLoopRunner.js';
@@ -508,6 +513,56 @@ export class ChatManagerImpl implements ChatManager {
     // 简单 hash：取 sessionId 首字符 charCode % 100
     const hash = (sessionId.charCodeAt(0) || 0) % 100;
     return hash < this._taorLoopTrafficPercent;
+  }
+
+  /**
+   * S3（P1-5 §5 S3）：快速路径流量百分比（0~100，灰度期默认 10）
+   * 仅在 ENABLE_PLAN_DRIVEN_LOOP=true 时生效，按 message 粒度 hash 分流。
+   * 可通过 PLAN_DRIVEN_LOOP_TRAFFIC_PERCENT 调整。
+   */
+  private readonly _planDrivenLoopTrafficPercent: number = (() => {
+    const raw = configManager.env('PLAN_DRIVEN_LOOP_TRAFFIC_PERCENT');
+    const val = raw && !isNaN(Number(raw)) ? Number(raw) : 10;
+    return Math.min(100, Math.max(0, val));
+  })();
+
+  /**
+   * S3（2026-08-13，P1-5 §5 S3）：PlanDrivenLoop 快速路径两层分流
+   * ① isEligibleForFastPath：复杂度门（isSimpleTask，S0 冻结判定）+ 危险工具准入筛除
+   * ② 剩余合格任务按 message 粒度 hash 分流（默认 10%，避免 sessionId 与任务类型相关偏差）
+   * 日志可观测：筛除数（第一层剔除）+ 分流数（第二层 hash 命中）。
+   */
+  private _shouldUsePlanDrivenLoop(message: string): boolean {
+    if (!this.ENABLE_PLAN_DRIVEN_LOOP) return false;
+    if (!isEligibleForFastPath(message)) {
+      logger.debug('PlanDrivenLoop 分流：复杂度门/危险工具筛除', {
+        messagePreview: message.slice(0, 50),
+        complexity: classifyTaskComplexity(message),
+        dangerousTool: hasDangerousToolIntent(message),
+      });
+      return false;
+    }
+    if (this._planDrivenLoopTrafficPercent >= 100) return true;
+    if (this._planDrivenLoopTrafficPercent <= 0) return false;
+    // message 粒度 hash（与 sessionId 解耦）
+    const hash = this._hashMessage(message);
+    const shouldUse = hash < this._planDrivenLoopTrafficPercent;
+    logger.info('PlanDrivenLoop 分流', {
+      messagePreview: message.slice(0, 50),
+      hash,
+      trafficPercent: this._planDrivenLoopTrafficPercent,
+      fastPath: shouldUse,
+    });
+    return shouldUse;
+  }
+
+  /** message 粒度 hash（S3：字符串散列 → 0~99，避开 sessionId 偏差） */
+  private _hashMessage(message: string): number {
+    let hash = 0;
+    for (let i = 0; i < message.length; i++) {
+      hash = (hash * 31 + message.charCodeAt(i)) >>> 0;
+    }
+    return hash % 100;
   }
 
   /**
@@ -2424,7 +2479,9 @@ export class ChatManagerImpl implements ChatManager {
               session.metadata.projectId as string,
               assistantMessage.content as string,
               session.id,
-              lastUserContent || undefined
+              lastUserContent || undefined,
+              // S3（P1-5 §5 S3）：两层分流决策（复杂度门 + 危险工具 + message 粒度 hash 10%）
+              this._shouldUsePlanDrivenLoop(lastUserContent || '')
             ).catch(() => {});
           }
         })

@@ -48,7 +48,12 @@ export class PdcaLauncher {
     projectId: string,
     description: string,
     sessionId: string,
-    userMessage?: string
+    userMessage?: string,
+    /**
+     * S3（P1-5 §5 S3）：快速路径分流决策（ChatManager._shouldUsePlanDrivenLoop 两层过滤后）
+     * 未传入时回退 deps.enablePlanDrivenLoop 静态开关。
+     */
+    useFastPath?: boolean
   ): Promise<void> {
     const otel = getOTelTracing();
     const span = otel.startSpan('chat:pdcaLaunch', {
@@ -57,8 +62,8 @@ export class PdcaLauncher {
     });
 
     try {
-      // RC-E（08-09）：PlanDrivenLoop 路径
-      if (this.deps.enablePlanDrivenLoop) {
+      // RC-E（08-09）+ S3（2026-08-13）：PlanDrivenLoop 快速路径（两层分流由 ChatManager 决策）
+      if (useFastPath ?? this.deps.enablePlanDrivenLoop) {
         try {
           const taorLoop = this.deps.taorLoopFactory(sessionId);
           const taorContext = this.deps.buildTAORContext(

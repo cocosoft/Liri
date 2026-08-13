@@ -113,6 +113,38 @@ export function classifyTaskComplexity(message: string): TaskComplexity {
 /** 简单任务最大字符数（冻结基线，见 classifyTaskComplexity） */
 export const SIMPLE_TASK_MAX_LENGTH = 60;
 
+/**
+ * S3（P1-5 §5 S3）：危险工具意图过滤（安全准入）
+ * 删除/发送/写入类工具（delete、send、write 前缀等）后果不可逆——即使任务简单可分解，
+ * 无 REVIEW/DECIDE 质量门的快速路径也不适用，必须走经典路径。
+ * 保守设计：命中即走经典路径（误报安全，漏报有风险）；本过滤是意图分类，非状态判断，与 CS02 不冲突。
+ */
+const DANGEROUS_TOOL_PATTERNS = [
+  /删除|移除|删掉|清除|清理/,
+  /\bdelete\w*\b/i,
+  /\b(?:rm|remove|unlink)\w*\b/i,
+  /发送|发信|寄送/,
+  /\bsend\w*\b/i,
+  /写入|覆盖/,
+  /\b(?:write|overwrite)\w*\b/i,
+];
+
+export function hasDangerousToolIntent(message: string): boolean {
+  const text = message.toLowerCase();
+  return DANGEROUS_TOOL_PATTERNS.some((pattern) => pattern.test(text));
+}
+
+/**
+ * S3 快速路径准入：复杂度门（simple）且无危险工具意图
+ * 供 ChatManager._shouldUsePlanDrivenLoop 两层分流第一层复用（与 S0 冻结判定同源）。
+ */
+export function isEligibleForFastPath(message: string): boolean {
+  return (
+    classifyTaskComplexity(message) === 'simple' &&
+    !hasDangerousToolIntent(message)
+  );
+}
+
 function isSimpleTask(message: string): boolean {
   return classifyTaskComplexity(message) === 'simple';
 }

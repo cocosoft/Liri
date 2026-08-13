@@ -34,13 +34,13 @@ describe('TAORLoop', () => {
 
   describe('run', () => {
     it('应执行 TAOR 循环', async () => {
-      const result = await loop.run('test query');
+      const result = await loop.runCollect({ prompt: 'test query' });
       expect(result).toBeDefined();
       expect(typeof result.turnCount).toBe('number');
     });
 
     it('应返回循环结果', async () => {
-      const result = await loop.run('test');
+      const result = await loop.runCollect({ prompt: 'test' });
       expect(result).toHaveProperty('turnCount');
       expect(result).toHaveProperty('totalTokens');
       expect(result).toHaveProperty('stopReason');
@@ -61,7 +61,7 @@ describe('TAORLoop', () => {
 
       tinyLoop.getTokenBudget().consumeTokens(750);
 
-      await tinyLoop.run('compression test');
+      await tinyLoop.runCollect({ prompt: 'compression test' });
 
       expect(tinyEngine.compactCalled).toBe(true);
     });
@@ -83,9 +83,9 @@ describe('TAORLoop', () => {
     });
 
     it('应在重置后允许重新运行', async () => {
-      const r1 = await loop.run('first');
+      const r1 = await loop.runCollect({ prompt: 'first' });
       loop.reset();
-      const r2 = await loop.run('second');
+      const r2 = await loop.runCollect({ prompt: 'second' });
       expect(r2.turnCount).toBeGreaterThan(0);
     });
   });

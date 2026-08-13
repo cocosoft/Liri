@@ -57,6 +57,12 @@ import { trackUsage } from '@modules/ai';
 const logger = getLogger('ai:task-decomposer');
 
 /**
+ * 子任务上限（唯一事实来源，S0 行为冻结 2026-08-13）
+ * 供分解 prompt 与解析强制截断共用；PlanDrivenLoop 等消费方不再自持上限。
+ */
+export const MAX_SUBTASKS = 5;
+
+/**
  * 子任务定义
  */
 export interface SubTask {
@@ -91,7 +97,7 @@ const DECOMPOSE_PROMPT = `You are a task decomposition expert. Break the user's 
 
 Rules:
 1. Each subtask should be self-contained and independently executable
-2. Maximum 5 subtasks
+2. Maximum ${MAX_SUBTASKS} subtasks
 3. Identify dependencies between subtasks (e.g., subtask B depends on subtask A's result)
 4. Assign a complexity tier to each subtask: simple, medium, complex, reasoning
 5. The overall task also gets a main tier
@@ -216,15 +222,16 @@ export class TaskDecomposer {
       const json = jsonMatch ? jsonMatch[0] : content;
       const parsed = JSON.parse(json);
 
-      const subTasks: SubTask[] = (parsed.subTasks || []).map(
-        (st: ParsedSubTaskJson, index: number) => ({
+      const subTasks: SubTask[] = (parsed.subTasks || [])
+        .map((st: ParsedSubTaskJson, index: number) => ({
           id: st.id || `step-${index + 1}`,
           description: st.description || '',
           tier: this.normalizeTier(st.tier || ''),
           dependsOn: Array.isArray(st.dependsOn) ? st.dependsOn : [],
           status: 'pending' as const,
-        })
-      );
+        }))
+        // S0 冻结（2026-08-13）：上限以 MAX_SUBTASKS 为唯一事实来源，LLM 超发时强制截断
+        .slice(0, MAX_SUBTASKS);
 
       return {
         mainTier: this.normalizeTier(parsed.mainTier),

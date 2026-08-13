@@ -69,6 +69,8 @@ export interface ToolResultEntry {
 export type ReActEvent =
   | { type: 'reasoning_start' }
   | { type: 'reasoning_delta'; text: string }
+  | { type: 'thinking_delta'; content: string }
+  | { type: 'phase'; phase: string; round: number; description?: string }
   | { type: 'reasoning_end'; result: ReasonResult }
   | { type: 'acting_start'; toolCount: number }
   | { type: 'tool_start'; callId: string; name: string }
@@ -114,11 +116,15 @@ export abstract class ReActLoop<
   // Abstract methods — 子类必须实现
   // ==========================================
 
-  /** 推理阶段：调用 LLM，返回文本 + tool_calls */
+  /**
+   * 推理阶段（generator）：调用 LLM，即时产出事件（reasoning_delta/thinking_delta/phase），
+   * return 值携带文本 + tool_calls。方案 A（M4，2026-08-13）：async → generator 化，
+   * 使 reason 内流式 LLM 文本可逐 chunk 增量输出（旧类 P0-C 语义恢复）。
+   */
   protected abstract reason(
     input: TInput,
     context?: TContext
-  ): Promise<ReasonResult<TContext>>;
+  ): AsyncGenerator<ReActEvent, ReasonResult<TContext>>;
 
   /** 执行阶段：执行工具调用列表，返回各工具结果 */
   protected abstract act(
@@ -224,7 +230,15 @@ export abstract class ReActLoop<
 
         let reasonResult: ReasonResult<TContext>;
         try {
-          reasonResult = await this.reason(input, context);
+          // M4（方案 A）：reason 为 generator —— 迭代消费即时事件（增量文本/thinking/phase），
+          // 收集 return 值作为 ReasonResult（主循环 await 期间不再吞掉增量输出）。
+          const reasonIter = this.reason(input, context);
+          let iterResult = await reasonIter.next();
+          while (!iterResult.done) {
+            yield iterResult.value;
+            iterResult = await reasonIter.next();
+          }
+          reasonResult = iterResult.value;
           context = reasonResult.context ?? context;
           yield { type: 'reasoning_end', result: reasonResult };
         } catch (err) {
@@ -314,6 +328,19 @@ export abstract class ReActLoop<
   /** 获取当前状态（用于外部监控） */
   getState(): Readonly<ReActState> {
     return this.state;
+  }
+
+  /**
+   * 便捷入口（A2）：完整收集事件流并返回最终结果（非流式消费）。
+   * 供非流式调用点 / 需 Promise<TResult> 的调用方使用（M4）。
+   */
+  async runCollect(input: TInput): Promise<TResult> {
+    const iter = this.run(input);
+    let r = await iter.next();
+    while (!r.done) {
+      r = await iter.next();
+    }
+    return r.value;
   }
 
   /** 中止循环 */

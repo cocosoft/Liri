@@ -712,7 +712,10 @@ export class LongRunningTaskOrchestrator {
 
         const messages: any[] = [{ role: 'user', content: execPrompt }];
         taorStart = Date.now();
-        const result = await this.taorLoop.run(messages, deps);
+        const result = await this.taorLoop.runCollect({
+          messages: messages as never,
+          deps,
+        } as never);
         const taorElapsed = Date.now() - taorStart;
 
         taskOrchestrator.markStepCompleted(

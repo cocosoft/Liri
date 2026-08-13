@@ -9,8 +9,8 @@
  *   EXECUTE → 逐步骤 TAORLoop.run(step) → TaskOrchestrator 同步状态
  *
  * 专家优化（已采纳）：
- *   1. 复杂度判定门：简单任务跳过分解，直接执行
- *   2. 子任务上限 8 个，超限截断
+ *   1. 复杂度判定门：简单任务跳过分解，直接执行（S0 起结构化判定，CS02）
+ *   2. 子任务上限 5 个（TaskDecomposer.MAX_SUBTASKS 唯一来源，S0 冻结）
  *   3. 子任务不放 messages，仅简短注入 step prompt
  *   4. 分解失败降级为单步执行（不阻塞主流程）
  */
@@ -20,7 +20,10 @@ import { handleError } from '@modules/error';
 import { getOTelTracing } from '@modules/monitoring/otel';
 import { TAORLoop } from '../../query/TAORLoop.js';
 import type { TAORLoopDeps } from '../../query/TAORLoop.js';
-import { TaskDecomposer } from '../../ai/router/TaskDecomposer.js';
+import {
+  TaskDecomposer,
+  MAX_SUBTASKS,
+} from '../../ai/router/TaskDecomposer.js';
 import type { DecompositionResult } from '../../ai/router/TaskDecomposer.js';
 import { taskOrchestrator } from '../../tasks/TaskOrchestrator.js';
 import type { Plan, PlanProgress } from '../../tasks/TaskOrchestrator.js';
@@ -57,8 +60,6 @@ export interface PlanDrivenLoopConfig {
   enableAutoDecompose?: boolean;
   /** 分解用 LLM Provider（不指定则只做简单分解） */
   decomposerProvider?: AIProvider;
-  /** 最大子任务数（默认 8） */
-  maxSteps?: number;
   /** 步骤进度回调 */
   onStepProgress?: (progress: PlanProgress) => void;
   /** 步骤完成回调 */
@@ -85,22 +86,34 @@ export interface PlanDrivenLoopResult {
   stepResults: StepResult[];
 }
 
-// ─── 复杂度判定 ────────────────────────────────────────
+// ─── 复杂度判定（S0 行为冻结 2026-08-13，CS02 合规）──────────────
 
-/** 简单任务关键词（跳过分解） */
-const SIMPLE_TASK_PATTERNS = [
-  /^(你好|hi|hello|hey)[\s!！。.,，]*$/i,
-  /^(谢谢|thanks|thank you|thx)[\s!！。.,，]*$/i,
-  /^(什么是|what is|who is|when is|where is|how to)\s/i,
-  /^(翻译|translate|解释|explain)\s.{1,50}$/i,
-  /^.{1,30}$/, // 极短消息（< 30 字符）
-];
+/**
+ * 任务复杂度（可持久化枚举标记）
+ * 判定结果类型化为枚举，禁止用用户可见字符串正则匹配做业务判断。
+ */
+export type TaskComplexity = 'simple' | 'complex';
+
+/**
+ * 复杂度判定 —— 基于结构化特征（消息长度），无正则、无字符串匹配。
+ *
+ * 阈值基线（冻结期固定，灰度 S1-S3 期间不得修改）：
+ *   trimmed 长度 ≤ 60 → simple
+ *   覆盖原正则的问候/致谢/短问题（≤30）与关键词问答（≤57）全部场景，
+ *   31-60 字符的一般中文请求多为简单指令，纳入快速路径。
+ *
+ * 结果可持久化（消息/任务实体上记录 complexity 标记），供 S3 两层分流复用。
+ */
+export function classifyTaskComplexity(message: string): TaskComplexity {
+  const length = message.trim().length;
+  return length > 0 && length <= SIMPLE_TASK_MAX_LENGTH ? 'simple' : 'complex';
+}
+
+/** 简单任务最大字符数（冻结基线，见 classifyTaskComplexity） */
+export const SIMPLE_TASK_MAX_LENGTH = 60;
 
 function isSimpleTask(message: string): boolean {
-  for (const pattern of SIMPLE_TASK_PATTERNS) {
-    if (pattern.test(message.trim())) return true;
-  }
-  return false;
+  return classifyTaskComplexity(message) === 'simple';
 }
 
 // ─── PlanDrivenLoop ────────────────────────────────────
@@ -111,7 +124,6 @@ export class PlanDrivenLoop {
   private sessionId: string;
   private enableAutoDecompose: boolean;
   private decomposer?: TaskDecomposer;
-  private maxSteps: number;
   private onStepProgress?: (progress: PlanProgress) => void;
   private onStepComplete?: (result: StepResult) => void;
 
@@ -126,7 +138,6 @@ export class PlanDrivenLoop {
     this.deps = config.deps;
     this.sessionId = config.sessionId;
     this.enableAutoDecompose = config.enableAutoDecompose === true;
-    this.maxSteps = config.maxSteps ?? 8;
     this.onStepProgress = config.onStepProgress;
     this.onStepComplete = config.onStepComplete;
 
@@ -226,7 +237,7 @@ export class PlanDrivenLoop {
   private async _executeDirect(
     userMessage: string
   ): Promise<PlanDrivenLoopResult> {
-    const result = await this.taorLoop.run(userMessage);
+    const result = await this.taorLoop.runCollect({ prompt: userMessage });
     this.totalTokens += result.totalTokens;
     return this._buildResult(false, [
       {
@@ -246,7 +257,8 @@ export class PlanDrivenLoop {
     userMessage: string,
     decomposition: DecompositionResult
   ): Promise<PlanDrivenLoopResult> {
-    const subtasks = decomposition.subTasks.slice(0, this.maxSteps);
+    // S0 冻结（2026-08-13）：上限以 TaskDecomposer.MAX_SUBTASKS 为唯一事实来源
+    const subtasks = decomposition.subTasks.slice(0, MAX_SUBTASKS);
 
     // 创建 Plan 并持久化
     this.plan = taskOrchestrator.createPlan(
@@ -283,7 +295,7 @@ export class PlanDrivenLoop {
 
       try {
         const stepPrompt = this._buildStepPrompt(task, subtasks, i);
-        const result = await this.taorLoop.run(stepPrompt);
+        const result = await this.taorLoop.runCollect({ prompt: stepPrompt });
         const duration = Date.now() - stepStart;
 
         taskOrchestrator.markStepCompleted(stepId, '完成');

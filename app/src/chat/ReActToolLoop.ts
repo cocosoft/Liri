@@ -29,6 +29,7 @@ import type {
   ActResult,
   ToolCallEntry,
   ToolResultEntry,
+  ReActEvent,
 } from '../query/ReActLoop.js';
 import type { ToolLoopContext, ToolLoopInput } from './ToolLoopRunner.js';
 import type { ToolCall, ToolResult } from './types/tool.js';
@@ -132,10 +133,10 @@ export class ReActToolLoop extends ReActLoop<
 
   // ─── 抽象方法 ──────────────────────────────────────
 
-  protected async reason(
+  protected async *reason(
     _input: ToolLoopInput,
     context?: ToolLoopContext
-  ): Promise<ReasonResult<ToolLoopContext>> {
+  ): AsyncGenerator<ReActEvent, ReasonResult<ToolLoopContext>> {
     // 4. 循环检测已触发 → 不再调 LLM，直接结束
     if (this.loopState.loopDetected) {
       return { text: '', toolCalls: [], finishReason: 'stop', context };
@@ -166,8 +167,17 @@ export class ReActToolLoop extends ReActLoop<
       };
     }
 
-    let response = await this._callLlm();
-    let cleanContent = response.content ?? '';
+    // LLM 调用（M4 方案 A）：流式路径逐 chunk 增量 yield（reasoning_delta/thinking_delta，P0-C 恢复）；
+    // 非流式路径整段返回。
+    let response: ChatResponse;
+    let cleanContent = '';
+    if (this.input.nonStreaming) {
+      response = await this._callLlmNonStreaming();
+      cleanContent = response.content ?? '';
+    } else {
+      response = yield* this._consumeStreamingLlm(false);
+      cleanContent = response.content ?? '';
+    }
 
     // 1. 残缺工具调用重试：流式输出尾部残留未闭合标签且无 tool_calls → 重试一次
     if (
@@ -179,7 +189,11 @@ export class ReActToolLoop extends ReActLoop<
         contentTail: cleanContent.slice(-160),
       });
       // 5. 残缺重试时 maxTokens 加倍（对齐旧类 _streamLlmRound L868-870），提高完整输出概率
-      response = await this._callLlm(true);
+      if (this.input.nonStreaming) {
+        response = await this._callLlmNonStreaming();
+      } else {
+        response = yield* this._consumeStreamingLlm(true);
+      }
       cleanContent = response.content ?? '';
     }
 
@@ -455,30 +469,34 @@ export class ReActToolLoop extends ReActLoop<
 
   // ─── 私有辅助 ───────────────────────────────────────
 
-  /** 调用 LLM（流式/非流式），返回 ChatResponse + 归一化 content。
-   *  @param retried 残缺工具重试标记：流式路径 maxTokens 加倍（对齐旧类 _streamLlmRound） */
-  private async _callLlm(retried = false): Promise<ChatResponse> {
+  /** 非流式 LLM 调用（对齐旧类 _nonStreamingLlmRound）：tools 透传 + usage 上报 */
+  private async _callLlmNonStreaming(): Promise<ChatResponse> {
     this.loopState.llmCallCount++;
-    if (this.input.nonStreaming) {
-      // F. 非流式：tools 参数透传（对齐旧类 _nonStreamingLlmRound）+ usage 上报
-      const response = await this.ctx.activeClient.sendMessage(
-        this.loopState.messages as unknown as ChatMessage[],
-        {
-          ...this.ctx.options,
-          tools:
-            this.ctx.toolDefinitions.length > 0
-              ? this.ctx.toolDefinitions
-              : undefined,
-        }
-      );
-      this._reportUsage(response);
-      return response;
-    }
+    const response = await this.ctx.activeClient.sendMessage(
+      this.loopState.messages as unknown as ChatMessage[],
+      {
+        ...this.ctx.options,
+        tools:
+          this.ctx.toolDefinitions.length > 0
+            ? this.ctx.toolDefinitions
+            : undefined,
+      }
+    );
+    this._reportUsage(response);
+    return response;
+  }
 
-    // E. 流式：完整清洗链 + onStream + usage 上报（对齐旧类 _streamLlmRound）
+  /**
+   * 流式 LLM 调用（generator，M4 方案 A）：逐 chunk 增量 yield reasoning_delta / thinking_delta
+   * （P0-C 恢复 + thinking 转发），return 携带清洗后的 ChatResponse。
+   * @param retried 残缺工具重试标记：maxTokens 加倍（对齐旧类 _streamLlmRound）
+   */
+  private async *_streamLlm(
+    retried = false
+  ): AsyncGenerator<ReActEvent, ChatResponse> {
+    this.loopState.llmCallCount++;
     const toolRoundBaseMaxTokens =
       (this.ctx.options?.maxTokens as number | undefined) ?? 4096;
-    const textChunks: string[] = [];
     const gen = this.ctx.activeClient.streamMessage(
       this.loopState.messages as unknown as ChatMessage[],
       {
@@ -493,10 +511,17 @@ export class ReActToolLoop extends ReActLoop<
             : undefined,
       }
     );
+    const textChunks: string[] = [];
     let next = await gen.next();
     while (!next.done) {
       const chunk = next.value;
-      if (typeof chunk === 'string') textChunks.push(chunk);
+      if (typeof chunk === 'string') {
+        textChunks.push(chunk);
+        // 增量文本即时输出（对齐旧类 P0-C：工具轮 LLM 文本逐 chunk SSE）
+        yield { type: 'reasoning_delta', text: chunk };
+      } else if (chunk?.type === 'thinking') {
+        yield { type: 'thinking_delta', content: chunk.content };
+      }
       next = await gen.next();
     }
     const final = next.value as ChatResponse;
@@ -525,6 +550,19 @@ export class ReActToolLoop extends ReActLoop<
       ...final,
       content: cleanContent,
     };
+  }
+
+  /** 转发流式 LLM 的增量事件，收集 return 值（供 reason generator 使用） */
+  private async *_consumeStreamingLlm(
+    retried: boolean
+  ): AsyncGenerator<ReActEvent, ChatResponse> {
+    const iter = this._streamLlm(retried);
+    let r = await iter.next();
+    while (!r.done) {
+      yield r.value;
+      r = await iter.next();
+    }
+    return r.value;
   }
 
   /** usage 上报（对齐旧类：recordChatResponseUsage + onToolUsage + trackUsage） */

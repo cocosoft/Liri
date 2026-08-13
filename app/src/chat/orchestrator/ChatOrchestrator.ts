@@ -543,10 +543,10 @@ export class ChatOrchestrator {
                 await import('../../query/ChatManagerTAORAdapter');
               const taorLoop = this.host.getOrCreateTAORLoop(session.id) as {
                 reset(): void;
-                run(
-                  messages: import('@modules/ai').ChatMessage[],
-                  deps: unknown
-                ): Promise<{
+                runCollect(input: {
+                  messages: import('@modules/ai').ChatMessage[];
+                  deps: unknown;
+                }): Promise<{
                   turnCount: number;
                   totalTokens: number;
                   stopReason: string;
@@ -574,7 +574,10 @@ export class ChatOrchestrator {
                   ? { tool_calls: m.tool_calls as ChatMessage['tool_calls'] }
                   : {}),
               }));
-              const taorResult = await taorLoop.run(taorMessages, deps);
+              const taorResult = await taorLoop.runCollect({
+                messages: taorMessages,
+                deps,
+              });
               logger.info('sendMessage TAORLoop 完成', {
                 sessionId: session.id,
                 turns: taorResult.turnCount,

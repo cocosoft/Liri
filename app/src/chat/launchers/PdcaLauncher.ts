@@ -72,7 +72,6 @@ export class PdcaLauncher {
             deps,
             sessionId,
             enableAutoDecompose: true,
-            maxSteps: 8,
             onStepProgress: (progress) => {
               logger.info('PlanDrivenLoop 进度', { sessionId, ...progress });
             },

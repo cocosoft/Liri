@@ -48,6 +48,14 @@ import { FileTAORCheckpointStorage } from './FileTAORCheckpointStorage.js';
 import { DBTAORCheckpointStorage } from './DBTAORCheckpointStorage.js';
 import { estimateMessagesTokens } from '../ai/tokenizer/TokenEstimator';
 import type { ChatMessage } from '../ai/models/types';
+import { ReActLoop } from './ReActLoop.js';
+import type {
+  ReActEvent,
+  ReasonResult,
+  ActResult,
+  ToolCallEntry,
+  ToolResultEntry,
+} from './ReActLoop.js';
 
 const logger = getLogger('query:taorLoop');
 
@@ -142,6 +150,15 @@ export function createTAORLoopDeps(
 }
 
 // ─── 类型定义 ──────────────────────────────────────────
+
+/** M4：骨架化后的 TAORLoop 输入（runCollect 参数；deps 每次 run 注入） */
+export interface TAORInput {
+  /** 旧路径：纯 prompt（queryEngine 兜底构造默认 deps） */
+  prompt?: string;
+  /** 新路径：显式消息 + deps */
+  messages?: ChatMessage[];
+  deps?: TAORLoopDeps;
+}
 
 export interface TAORPhaseInfo {
   phase: TAORPhase;
@@ -267,11 +284,12 @@ export class MemoryCheckpointStorage implements CheckpointStorage {
   }
 }
 
-export class TAORLoop {
+export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
   private queryEngine: QueryEngine;
   private tokenBudget: TokenBudgetController;
   private stopHookManager: StopHookManager;
-  private config: Required<TAORLoopConfig>;
+  /** TAORLoop 配置（与骨架 ReActLoopConfig 区分命名，避免字段冲突） */
+  private taorConfig: Required<TAORLoopConfig>;
   private abortController: AbortController;
   private phaseCallbacks: TAORPhaseCallback;
   private turnCount: number = 0;
@@ -311,6 +329,16 @@ export class TAORLoop {
   private verifier: VerifierAgent;
   // Steering 消息队列（mid-turn 注入）
   private steeringQueue: string[] = [];
+  /** M4：本次 run 的消息历史（骨架化后由 reason/act 共享，替代 _runModern 局部变量） */
+  private messages: ChatMessage[] = [];
+  /** M4：本次 run 的依赖注入（每次 runCollect 传入） */
+  private deps: TAORLoopDeps = createTAORLoopDeps({
+    callModel: async function* () {
+      /* 默认空实现（纯 prompt 路径由 reason 内重建） */
+    },
+    executeTools: async () => [],
+    persistMessages: async () => {},
+  });
   /** Phase 3: 待审批的 Inbox 项列表（保存到 checkpoint） */
   private _pendingInboxItems: Array<{
     itemId: string;
@@ -331,8 +359,14 @@ export class TAORLoop {
     config: TAORLoopConfig = {},
     phaseCallbacks: TAORPhaseCallback = {}
   ) {
+    super({
+      maxIterations:
+        config.maxTurns ??
+        (parseInt(configManager.env('MAX_TAOR_TURNS') || '') || 300),
+      maxConsecutiveInvalidTurns: 0,
+    });
     this.queryEngine = queryEngine;
-    this.config = {
+    this.taorConfig = {
       maxTurns:
         config.maxTurns ??
         (parseInt(configManager.env('MAX_TAOR_TURNS') || '') || 300),
@@ -352,22 +386,22 @@ export class TAORLoop {
       steeringMessages: config.steeringMessages ?? [],
     };
     this.steeringQueue = config.steeringMessages ?? [];
-    const model = this.config.budgetConfig.modelName || 'default';
+    const model = this.taorConfig.budgetConfig.modelName || 'default';
     const defaultBudget = getDefaultTokenBudget(model);
     this.tokenBudget = new TokenBudgetController(
       model,
       {
-        total: this.config.budgetConfig.maxTokens || defaultBudget.total,
+        total: this.taorConfig.budgetConfig.maxTokens || defaultBudget.total,
         remaining:
-          this.config.budgetConfig.maxTokens || defaultBudget.remaining,
-        maxOutputTokens: this.config.budgetConfig.maxOutputTokens,
+          this.taorConfig.budgetConfig.maxTokens || defaultBudget.remaining,
+        maxOutputTokens: this.taorConfig.budgetConfig.maxOutputTokens,
       },
-      this.config.budgetConfig.maxTokens || defaultBudget.total
+      this.taorConfig.budgetConfig.maxTokens || defaultBudget.total
     );
     this.stopHookManager = new StopHookManager();
     this.abortController = new AbortController();
     this.phaseCallbacks = phaseCallbacks;
-    this.checkpointStorage = this.config.checkpointStorage;
+    this.checkpointStorage = this.taorConfig.checkpointStorage;
     // 默认使用 MemoryCheckpointStorage（FileCheckpointStorage 接口不兼容 TAORCheckpoint，后续迁移）
     this.contextTracker = new ContextTracker();
 
@@ -516,54 +550,751 @@ export class TAORLoop {
     return this.turnCount;
   }
 
-  // ─── 重载：向下兼容旧签名 + 新 DI 签名 ──────────────
-  async run(prompt: string): Promise<TAORLoopResult>;
-  async run(
-    messages: ChatMessage[],
-    deps: TAORLoopDeps
-  ): Promise<TAORLoopResult>;
-  async run(
-    arg1: string | ChatMessage[],
-    arg2?: TAORLoopDeps
-  ): Promise<TAORLoopResult> {
-    const otel = getOTelTracing();
-    const span = otel.startSpan('taor.run', {
-      'session.id': this.config.sessionId,
-    });
+  // ═══════════════════════════════════════════════════════
+  // M4：ReActLoop 骨架适配（方案 A 已拍板，2026-08-13）
+  // 逻辑从 _runModern（旧 while 循环）拆解到骨架 hook；
+  // _runModern 保留为 fallbackToLegacy 兜底，观察期后删除。
+  // ═══════════════════════════════════════════════════════
 
-    try {
-      let result: TAORLoopResult;
+  /** 静默完成检测标记：无工具 + 上轮错误时强制多跑一轮（对齐旧 continue 语义） */
+  private _forceContinueRound = false;
 
-      if (typeof arg1 === 'string') {
-        const messages: ChatMessage[] = [{ role: 'user', content: arg1 }];
-        // 旧路径：构造默认 deps（使用 queryEngine 兜底）
-        const deps = createTAORLoopDeps({
-          callModel: async function* () {
-            /* queryEngine 兜底 */
-          },
-          executeTools: async () => [],
-          persistMessages: async () => {},
-        });
-        result = await this._runModern(messages, deps);
-      } else {
-        result = await this._runModern(arg1, arg2!);
+  /** THINK：callModel 流式 + 组装 + fallback parser + 轮次检测 */
+  protected async *reason(
+    input: TAORInput,
+    _context?: unknown
+  ): AsyncGenerator<ReActEvent, ReasonResult<unknown>> {
+    // 首次调用：初始化 run 级状态（对齐旧 run() 初始化段）
+    if (this.turnCount === 0) {
+      this.startTime = Date.now();
+      this.stopped = false;
+      this.stopReason = 'completed';
+      this.runId = RunLogger.generateRunId(this.taorConfig.sessionId);
+      void this.runLogger.recordTrace({
+        type: 'loop',
+        runId: this.runId,
+        sessionId: this.taorConfig.sessionId,
+        ts: new Date().toISOString(),
+        event: 'start',
+      });
+      if (this.verifier) {
+        const modelFn = this.taorConfig.verifierModel ?? null;
+        if (modelFn) {
+          this.verifier.setCallModel(
+            modelFn as (
+              messages: Array<{ role: string; content: string }>,
+              signal: AbortSignal
+            ) => AsyncGenerator<{ content?: string }>
+          );
+        }
       }
+      this.verifier.reset();
+      logger.info('TAOR loop started', {
+        sessionId: this.taorConfig.sessionId,
+      });
+      this.emitPhase(TAORPhase.THINK, 0, 'Initial message received');
+    }
 
-      span.setAttribute('taor.turns', result.turnCount);
-      span.setAttribute('taor.tokens', result.totalTokens);
-      span.setAttribute('taor.duration_ms', result.durationMs);
-      otel.endSpan(span, SpanStatusCode.OK);
-      return result;
+    // 每次 runCollect 注入 messages/deps
+    if (input.messages && input.deps) {
+      this.messages = input.messages;
+      this.deps = input.deps;
+    } else if (input.prompt) {
+      this.messages = [{ role: 'user', content: input.prompt }];
+      this.deps = createTAORLoopDeps({
+        callModel: async function* () {
+          /* queryEngine 兜底 */
+        },
+        executeTools: async () => [],
+        persistMessages: async () => {},
+      });
+    }
+
+    // 中止/停止/超限保护
+    if (this.stopped || this.abortController.signal.aborted) {
+      return {
+        text: '',
+        toolCalls: [],
+        finishReason: 'stop',
+        context: undefined,
+      };
+    }
+    if (this.turnCount >= this.taorConfig.maxTurns) {
+      this.stopped = true;
+      return {
+        text: '',
+        toolCalls: [],
+        finishReason: 'stop',
+        context: undefined,
+      };
+    }
+
+    this.turnCount++;
+    this.currentPhase = TAORPhase.THINK;
+    this.emitPhase(TAORPhase.THINK, this.turnCount, 'Sending to LLM');
+    if (this.shouldStop()) {
+      return {
+        text: '',
+        toolCalls: [],
+        finishReason: 'stop',
+        context: undefined,
+      };
+    }
+
+    // Steering 注入
+    if (this.steeringQueue.length > 0) {
+      const steeringMessages = this.steeringQueue.splice(0);
+      for (const sm of steeringMessages) {
+        this.messages.push({ role: 'user', content: `[STEERING] ${sm}` });
+      }
+      logger.info('Steering messages injected', {
+        sessionId: this.taorConfig.sessionId,
+        count: steeringMessages.length,
+        turnCount: this.turnCount,
+      });
+    }
+
+    // callModel 流式调用（增量 yield reasoning_delta）+ 错误恢复
+    let response: Record<string, unknown>;
+    try {
+      response = yield* this._collectCallModel();
+    } catch (error) {
+      await handleError(error, {
+        module: 'query:taorLoop',
+        action: 'reason_callModel',
+        context: {
+          turnCount: this.turnCount,
+          sessionId: this.taorConfig.sessionId,
+        },
+      });
+      const recovery = this.errorRecovery.assess(error as Error, {
+        turnCount: this.turnCount,
+        tokenUsage: this.tokenBudget.getCurrentBudgetState().currentTokens,
+      });
+      if (recovery.action === 'abort') {
+        this.stopReason = 'error';
+        this.stopped = true;
+        return {
+          text: '',
+          toolCalls: [],
+          finishReason: 'error',
+          context: undefined,
+        };
+      }
+      if (recovery.action === 'compact_and_retry') {
+        logger.info('Context overflow detected, compacting before retry', {
+          sessionId: this.taorConfig.sessionId,
+          turnCount: this.turnCount,
+        });
+        if (this.taorConfig.sessionId) {
+          await this.queryEngine.compactIfNeeded(this.taorConfig.sessionId);
+        }
+        if (recovery.message) {
+          this.messages.push({ role: 'user', content: recovery.message });
+        }
+      } else if (recovery.action === 'retry' && recovery.message) {
+        this.messages.push({ role: 'user', content: recovery.message });
+      }
+      // 重试一次（对齐旧 continue → 下一轮再调 LLM 的语义，此处当轮重试一次）
+      try {
+        response = yield* this._collectCallModel();
+      } catch (e2) {
+        this.stopReason = 'error';
+        this.stopped = true;
+        return {
+          text: '',
+          toolCalls: [],
+          finishReason: 'error',
+          context: undefined,
+        };
+      }
+    }
+
+    // 追加 assistant 消息
+    const assistantMsg: ChatMessage = {
+      role: 'assistant',
+      content: (response.content as string) ?? '',
+      tool_calls:
+        (response.tool_calls as ChatMessage['tool_calls']) ?? undefined,
+    };
+    this.messages.push(assistantMsg);
+
+    // fallback parser（XML 格式工具调用解析）
+    const toolCalls = response.tool_calls as
+      | Array<{ id: string; name: string; arguments: Record<string, unknown> }>
+      | undefined;
+    let fallbackToolCalls:
+      | Array<{ id: string; name: string; arguments: Record<string, unknown> }>
+      | undefined;
+    if (!toolCalls || toolCalls.length === 0) {
+      const content = (response.content as string) ?? '';
+      const { parserRegistry } = await import('../ai/parsers/ParserRegistry');
+      const parsed = parserRegistry.parseFallback(content);
+      if (parsed.toolCalls && parsed.toolCalls.length > 0) {
+        fallbackToolCalls = parsed.toolCalls.map((tc) => ({
+          id: tc.id,
+          name: tc.name,
+          arguments:
+            typeof tc.arguments === 'string'
+              ? (JSON.parse(tc.arguments) as Record<string, unknown>)
+              : (tc.arguments as Record<string, unknown>),
+        }));
+        const cleanContent = parsed.content ?? '';
+        if (cleanContent !== content) {
+          this.messages[this.messages.length - 1] = {
+            role: 'assistant',
+            content: cleanContent,
+            tool_calls:
+              fallbackToolCalls as unknown as ChatMessage['tool_calls'],
+          };
+        }
+        logger.info('Fallback parser 提取到工具调用', {
+          sessionId: this.taorConfig.sessionId,
+          turnCount: this.turnCount,
+          toolCount: fallbackToolCalls.length,
+          toolNames: fallbackToolCalls.map((t) => t.name),
+        });
+      }
+    }
+    const effectiveToolCalls = toolCalls ?? fallbackToolCalls;
+
+    // 轮次检测（原 OBSERVE 拆到 reason 内：与 toolCalls 判定同处）
+    this.loopDetector.recordTurn((effectiveToolCalls?.length ?? 0) > 0);
+    const noToolCallResult = this.loopDetector.detectNoToolCallLoop();
+    if (noToolCallResult.stuck && noToolCallResult.level === 'critical') {
+      logger.warn('no_tool_call 死循环检测触发', {
+        message: noToolCallResult.message,
+      });
+      this.stopReason = 'aborted';
+      this.stopped = true;
+      return {
+        text: '',
+        toolCalls: [],
+        finishReason: 'stop',
+        context: undefined,
+      };
+    }
+
+    // 静默完成检测（对齐旧 L1152-1166）：无工具 + 上轮错误 → 注入提醒并强制多跑一轮
+    if (!effectiveToolCalls?.length) {
+      if (this._lastRoundHadToolErrors && this.turnCount > 1) {
+        logger.warn('TAOR: 工具错误后 LLM 尝试静默结束，注入提醒', {
+          sessionId: this.taorConfig.sessionId,
+          turnCount: this.turnCount,
+        });
+        this.messages.push({
+          role: 'user',
+          content:
+            '[系统提示] 上一轮工具调用返回了错误或空结果。如果你因工具失败无法继续任务，请明确告知用户遇到了什么问题、需要用户提供什么信息，不要直接结束对话。',
+        });
+        this._lastRoundHadToolErrors = false;
+        this._forceContinueRound = true;
+        await this._observeRound();
+        return {
+          text: '',
+          toolCalls: [],
+          finishReason: 'stop',
+          context: undefined,
+        };
+      }
+    }
+
+    if (effectiveToolCalls?.length) {
+      return {
+        text: (response.content as string) ?? '',
+        toolCalls: (effectiveToolCalls ?? []).map((tc) => ({
+          id: tc.id,
+          name: tc.name,
+          input: tc.arguments ?? {},
+        })),
+        finishReason: 'tool_calls',
+        context: undefined,
+      };
+    }
+    // 无工具：OBSERVE 收尾（budget/persist）后结束（对齐旧 while 公共尾部，单轮也执行）
+    await this._observeRound();
+    return {
+      text: (response.content as string) ?? '',
+      toolCalls: [],
+      finishReason: 'stop',
+      context: undefined,
+    };
+  }
+
+  /** ACT：三守卫 + batch 执行 + 结果处理 + verify（对齐旧 ACT 分支） */
+  protected async act(calls: ToolCallEntry[]): Promise<ActResult> {
+    this.currentPhase = TAORPhase.ACT;
+    this.emitPhase(TAORPhase.ACT, this.turnCount, 'Executing tools');
+
+    // 三守卫
+    for (const tc of calls) {
+      const loopResult = this.loopDetector.detect(tc.name, tc.input);
+      if (loopResult.stuck && loopResult.level === 'critical') {
+        logger.warn('Loop detected in TAORLoop: critical', {
+          toolName: tc.name,
+          message: loopResult.message,
+        });
+        this.stopReason = 'aborted';
+        this.stopped = true;
+        return { results: [], allSucceeded: false, anyAborted: false };
+      }
+    }
+    for (const tc of calls) {
+      const pathCheck = this.pathGuard.checkToolCall(tc.name, tc.input);
+      if (!pathCheck.allowed) {
+        logger.warn('PathGuard 拦截工具调用', {
+          tool: tc.name,
+          path: tc.input,
+          reason: pathCheck.reason,
+        });
+        this.stopReason = 'aborted';
+        this.stopped = true;
+        return { results: [], allSucceeded: false, anyAborted: false };
+      }
+    }
+    for (const tc of calls) {
+      const args = tc.input as Record<string, unknown>;
+      const filePath = (args.path ?? args.filePath ?? args.directory) as
+        | string
+        | undefined;
+      if (filePath) {
+        const ioCheck = this.fileIOLoopDetector.checkBeforeAccess(
+          tc.name,
+          filePath,
+          args.offset as number | undefined,
+          args.limit as number | undefined
+        );
+        if (ioCheck.blocked) {
+          logger.warn('文件IO循环已被阻止', { tool: tc.name, path: filePath });
+          this.stopReason = 'aborted';
+          this.stopped = true;
+          return { results: [], allSucceeded: false, anyAborted: false };
+        }
+      }
+    }
+
+    // trace tool enter
+    const toolStartTs = Date.now();
+    for (const tc of calls) {
+      void this.runLogger.recordTrace({
+        type: 'tool',
+        runId: this.runId,
+        sessionId: this.taorConfig.sessionId,
+        ts: new Date().toISOString(),
+        turn: this.turnCount,
+        name: tc.name,
+        argsHead: truncateForTrace(tc.input),
+        status: 'enter',
+      });
+    }
+
+    // batch executeTools（保留 batch 语义，不逐工具）
+    let rawResults: Array<{
+      toolCallId?: string;
+      toolName?: string;
+      result?: unknown;
+      error?: string;
+    }>;
+    try {
+      rawResults = await this.deps.executeTools(
+        calls.map((tc) => ({ id: tc.id, name: tc.name, arguments: tc.input })),
+        this.abortController.signal
+      );
+    } catch (execErr) {
+      await handleError(execErr, {
+        module: 'query:taorLoop',
+        action: 'executeTools_batch',
+        context: {
+          sessionId: this.taorConfig.sessionId,
+          turnCount: this.turnCount,
+          toolCount: calls.length,
+        },
+      });
+      rawResults = calls.map((tc) => ({
+        toolCallId: tc.id,
+        toolName: tc.name,
+        error: `工具执行异常: ${
+          execErr instanceof Error
+            ? execErr.message.slice(0, 300)
+            : String(execErr).slice(0, 300)
+        }`,
+      }));
+      this.messages.push({
+        role: 'user',
+        content: `[SYSTEM] 上一轮 ${calls.length} 个工具调用在执行阶段发生异常，请告知用户遇到了什么问题，并根据当前已完成的部分给出总结或建议下一步操作。`,
+      } as ChatMessage);
+    }
+
+    // trace ok/error + 工具统计
+    for (let i = 0; i < calls.length; i++) {
+      const tc = calls[i];
+      const r = rawResults[i];
+      this.toolCallStats.set(
+        tc.name,
+        (this.toolCallStats.get(tc.name) ?? 0) + 1
+      );
+      if (r?.error) this.failedToolCalls++;
+      void this.runLogger.recordTrace({
+        type: 'tool',
+        runId: this.runId,
+        sessionId: this.taorConfig.sessionId,
+        ts: new Date().toISOString(),
+        turn: this.turnCount,
+        name: tc.name,
+        status: r?.error ? 'error' : 'ok',
+        durationMs: Date.now() - toolStartTs,
+        resultHead: r ? truncateForTrace(r.result ?? r) : undefined,
+        error: r?.error ? String(r.error).slice(0, 500) : undefined,
+      });
+    }
+
+    // Loop 检测记录结果 + 工具结果消息追加
+    let roundHadErrors = false;
+    for (let i = 0; i < calls.length; i++) {
+      const tc = calls[i];
+      const r = rawResults[i];
+      if (r) {
+        this.loopDetector.recordToolCallOutcome(
+          tc.name,
+          tc.input,
+          r.result ?? r,
+          r.error
+        );
+      }
+      const hasError = !r || r.error;
+      const isEmpty =
+        r && !r.error && (r.result === null || r.result === undefined);
+      if (hasError || isEmpty) roundHadErrors = true;
+      this.messages.push({
+        role: 'tool',
+        content: r
+          ? JSON.stringify(
+              r.result ??
+                r.error ?? {
+                  _toolError: 'empty_result',
+                  hint: '工具未返回有效结果，请告知用户遇到了什么问题',
+                }
+            )
+          : JSON.stringify({
+              _toolError: 'no_result',
+              hint: '工具调用失败，未获取到任何结果，请告知用户',
+            }),
+        tool_call_id: tc.id,
+      } as ChatMessage);
+    }
+    this._lastRoundHadToolErrors = roundHadErrors;
+
+    // 全局断路器记录
+    for (let i = 0; i < calls.length; i++) {
+      const tc = calls[i];
+      const r = rawResults[i];
+      if (r && !r.error) {
+        const argsHash =
+          String(tc.name) + ':' + JSON.stringify(tc.input).slice(0, 500);
+        const resultHash = JSON.stringify(r.result ?? r).slice(0, 500);
+        const breakerResult = this.circuitBreaker.recordSameCallResult(
+          tc.name,
+          argsHash,
+          resultHash
+        );
+        if (breakerResult.break) {
+          logger.warn('全局断路器触发', {
+            tool: tc.name,
+            reason: breakerResult.reason,
+          });
+          this.stopReason = 'aborted';
+          this.stopped = true;
+          return { results: [], allSucceeded: false, anyAborted: false };
+        }
+      }
+    }
+
+    // Auto-verify + VerifierAgent（对齐旧 L1030-1151；失败注入消息后骨架自动回 reason，对齐 continue）
+    let toolVerifyPassed = true;
+    if (this.taorConfig.enableAutoVerify) {
+      try {
+        const { verifyProject } = await import('./verifyProject.js');
+        const verifyPromise = verifyProject();
+        const verifyResult = await Promise.race([
+          verifyPromise,
+          new Promise<string>((_, reject) =>
+            setTimeout(
+              () => reject(new Error('verify_timeout')),
+              this.taorConfig.autoVerifyTimeoutMs
+            )
+          ),
+        ]).catch((err) => {
+          logger.warn('Auto-verify skipped', { reason: err.message });
+          return 'SKIPPED';
+        });
+        if (verifyResult !== 'SKIPPED' && typeof verifyResult === 'string') {
+          toolVerifyPassed =
+            verifyResult.includes('✅') && !verifyResult.includes('❌');
+          logger.info('Auto-verify result', {
+            passed: toolVerifyPassed,
+            phases: this.taorConfig.verifyStrategy,
+          });
+        }
+      } catch (verifyErr) {
+        logger.warn('Auto-verify failed', { error: String(verifyErr) });
+        toolVerifyPassed = true;
+      }
+    }
+
+    if (this.taorConfig.verifyStrategy === 'AND') {
+      if (!toolVerifyPassed) {
+        logger.warn(
+          'VerifyStrategy=AND: tool verify failed, skipping VerifierAgent'
+        );
+        this.messages.push({
+          role: 'user',
+          content:
+            '[SYSTEM] 自动验证未通过（编译/测试失败），请修复后重新执行。',
+        } as ChatMessage);
+      }
+    } else if (
+      this.taorConfig.verifyStrategy === 'TOOL_FIRST' &&
+      toolVerifyPassed
+    ) {
+      // Tool verify 通过，跳过 VerifierAgent（原 continue L1084）
+    } else if (this.verifier) {
+      const verificationInput = {
+        messages: this.messages.map((m) => ({
+          role: m.role,
+          content:
+            typeof m.content === 'string'
+              ? m.content
+              : JSON.stringify(m.content),
+          tool_calls: m.tool_calls,
+          tool_call_id: m.tool_call_id,
+        })),
+        toolResults: calls.map((tc, i) => ({
+          toolName: tc.name,
+          toolCallId: tc.id,
+          result: rawResults[i]?.result,
+          error: rawResults[i]?.error,
+        })),
+        turnCount: this.turnCount,
+        sessionId: this.taorConfig.sessionId,
+      };
+      const verification = await this.verifier.verify(
+        verificationInput,
+        this.abortController.signal
+      );
+      if (!verification.passed) {
+        if (verification.verdict === 'ESCALATE') {
+          logger.warn('验证器升级：无法确定修改正确性', {
+            sessionId: this.taorConfig.sessionId,
+            feedback: verification.feedback,
+            cycleCount: this.verifier.getCycleCount(),
+          });
+          this.stopReason = 'verifier_escalate';
+          this.stopped = true;
+          return { results: [], allSucceeded: false, anyAborted: false };
+        }
+        if (verification.verdict === 'REJECT') {
+          logger.warn('验证器拒绝：修改未通过审查', {
+            sessionId: this.taorConfig.sessionId,
+            feedback: verification.feedback,
+            cycleCount: this.verifier.getCycleCount(),
+          });
+          if (verification.feedback) {
+            this.messages.push({
+              role: 'user',
+              content: `[验证器反馈] ${verification.feedback}\n\n请根据以上反馈修复问题，然后重新执行验证。`,
+            } as ChatMessage);
+          }
+        }
+      } else {
+        logger.debug('验证器通过', {
+          sessionId: this.taorConfig.sessionId,
+          confidence: verification.confidence,
+        });
+      }
+    }
+
+    // OBSERVE 收尾（工具轮完成后，对齐旧 while 公共尾部）
+    await this._observeRound();
+    return {
+      results: rawResults.map((r, i) => ({
+        toolCallId: r?.toolCallId ?? calls[i]?.id ?? '',
+        name: calls[i]?.name ?? '',
+        status: r?.error ? ('error' as const) : ('success' as const),
+        output: typeof r?.result === 'string' ? r.result : undefined,
+        error: r?.error,
+      })),
+      allSucceeded: rawResults.every((r) => !r?.error),
+      anyAborted: false,
+    };
+  }
+
+  /** PRE-FLIGHT（每轮 reason 前；OBSERVE 收尾移至 act/reason 尾部，确保单轮也执行） */
+  protected override async beforeReasoning(): Promise<void> {
+    if (this.taorConfig.enableCheckpoint && this.shouldSaveAutoCheckpoint()) {
+      await this.saveCheckpoint('auto');
+    }
+    const budgetState = this.tokenBudget.getCurrentBudgetState();
+    const breakerLimit = this.circuitBreaker.checkHardLimits(
+      this.turnCount + 1,
+      budgetState.currentTokens,
+      budgetState.maxTokens
+    );
+    if (breakerLimit.break) {
+      this.stopReason = 'aborted';
+      this.stopped = true;
+      return;
+    }
+    if (!this.dailyBudget.canExecute()) {
+      if (!this.dailyBudget.needsGraceCall()) {
+        this.stopReason = 'budget_exhausted';
+        this.stopped = true;
+        return;
+      }
+      logger.warn('预算已耗尽，但允许完成当前工具调用（优雅最后一调）');
+    }
+  }
+
+  /** OBSERVE 收尾：token 消耗 + 预算警告 + 断路器 + 收益递减 + 持久化（对齐旧 while 公共尾部） */
+  private async _observeRound(): Promise<void> {
+    if (this.messages.length === 0) return;
+    this.tokenBudget.consumeTokens(this._estimateTokens(this.messages));
+    const currentBudgetState = this.tokenBudget.getCurrentBudgetState();
+    if (
+      currentBudgetState.status === TokenBudgetStatus.WARNING ||
+      currentBudgetState.status === TokenBudgetStatus.CRITICAL
+    ) {
+      this.phaseCallbacks.onBudgetWarning?.(
+        currentBudgetState.percentUsed || 0
+      );
+      if (this.taorConfig.sessionId && !this.abortController.signal.aborted) {
+        await this.queryEngine.compactIfNeeded(this.taorConfig.sessionId);
+      }
+    }
+    this.circuitBreaker.recordTurn({
+      success: !this.stopped || this.stopReason === 'completed',
+      turnCount: this.turnCount,
+      tokenUsage: currentBudgetState.currentTokens,
+      maxTokens: currentBudgetState.maxTokens,
+    });
+    if (this.circuitBreaker.shouldBreak().break) {
+      this.stopReason = 'aborted';
+      this.stopped = true;
+      return;
+    }
+    const diminishingCheck = this.dailyBudget.checkDiminishingReturns(
+      currentBudgetState.currentTokens
+    );
+    if (diminishingCheck.diminishing) {
+      logger.warn('收益递减，终止循环', { reason: diminishingCheck.reason });
+      this.stopReason = 'diminishing_returns';
+      this.stopped = true;
+      return;
+    }
+    // 消息持久化（带重试 + 中断保护）
+    try {
+      await this.deps.persistMessages(
+        this.messages,
+        this.abortController.signal
+      );
     } catch (e) {
       await handleError(e, {
         module: 'query:taorLoop',
-        action: 'run',
-        context: { sessionId: this.config.sessionId },
+        action: 'persistMessages_first',
+        context: {
+          sessionId: this.taorConfig.sessionId,
+          turnCount: this.turnCount,
+        },
       });
-      otel.recordError(span, e instanceof Error ? e : new Error(String(e)));
-      otel.endSpan(span, SpanStatusCode.ERROR, String(e));
-      throw e;
+      try {
+        await this.deps.persistMessages(
+          this.messages,
+          this.abortController.signal
+        );
+      } catch (e2) {
+        await handleError(e2, {
+          module: 'query:taorLoop',
+          action: 'persistMessages_retry',
+          context: {
+            sessionId: this.taorConfig.sessionId,
+            turnCount: this.turnCount,
+          },
+        });
+      }
     }
+  }
+
+  /** 循环继续判定：未停止 + 未超限 + 有工具调用（或强制续跑轮） */
+  protected shouldContinue(
+    _input: TAORInput,
+    result: ReasonResult<unknown>
+  ): boolean {
+    if (this._forceContinueRound) {
+      this._forceContinueRound = false;
+      return true;
+    }
+    if (this.stopped) return false;
+    if (this.turnCount >= this.taorConfig.maxTurns) return false;
+    return result.toolCalls.length > 0;
+  }
+
+  /** COMPLETED：收尾 + durable checkpoint + 返回结果 */
+  protected finalize(): TAORLoopResult {
+    const totalDuration = Date.now() - this.startTime;
+    const finalBudget = this.tokenBudget.getCurrentBudgetState();
+
+    this.currentPhase = TAORPhase.COMPLETED;
+    this.emitPhase(TAORPhase.COMPLETED, this.turnCount, this.stopReason);
+    void this.runLogger.recordTrace({
+      type: 'loop',
+      runId: this.runId,
+      sessionId: this.taorConfig.sessionId,
+      ts: new Date().toISOString(),
+      event: 'end',
+      status: this.stopReason,
+      durationMs: totalDuration,
+    });
+
+    // Durable Resume: 非正常完成时自动保存检查点（骨架 finalize 为同步，fire-and-forget）
+    if (this.taorConfig.enableCheckpoint && this.stopReason !== 'completed') {
+      void this.saveCheckpoint('before_abort').catch(() => {
+        // 检查点保存失败不阻塞主流程（非关键路径）
+      });
+    }
+
+    return {
+      turnCount: this.turnCount,
+      totalTokens: finalBudget.currentTokens,
+      durationMs: totalDuration,
+      stopReason: this.stopReason,
+      resumed: this.resumedFromCheckpoint,
+      checkpointId: this.lastCheckpointId ?? undefined,
+    };
+  }
+
+  /** 流式收集 callModel 输出（增量 yield reasoning_delta，对齐旧 P0-C） */
+  private async *_collectCallModel(): AsyncGenerator<
+    ReActEvent,
+    Record<string, unknown>
+  > {
+    const chunks: Array<Record<string, unknown>> = [];
+    for await (const chunk of this.deps.callModel(
+      this.messages,
+      this.abortController.signal
+    )) {
+      chunks.push(chunk);
+      if (typeof chunk?.content === 'string' && chunk.content) {
+        yield { type: 'reasoning_delta', text: chunk.content };
+      }
+      this.deps.onStreamChunk?.(chunk);
+    }
+    const lastChunk = chunks[chunks.length - 1];
+    return {
+      content: chunks.map((c) => c.content ?? '').join(''),
+      tool_calls: chunks
+        .filter((c) => c.toolCall)
+        .map((c) => c.toolCall) as Array<Record<string, unknown>>,
+      ...lastChunk,
+    };
   }
 
   /**
@@ -578,20 +1309,20 @@ export class TAORLoop {
     this.turnCount = 0;
     this.stopped = false;
     this.stopReason = 'completed';
-    this.runId = RunLogger.generateRunId(this.config.sessionId);
+    this.runId = RunLogger.generateRunId(this.taorConfig.sessionId);
 
     // trace：loop start（持久化，不阻塞主循环）
     void this.runLogger.recordTrace({
       type: 'loop',
       runId: this.runId,
-      sessionId: this.config.sessionId,
+      sessionId: this.taorConfig.sessionId,
       ts: new Date().toISOString(),
       event: 'start',
     });
 
     // Phase 4: 注入 callModel 到验证器（支持独立 local 模型）
     if (this.verifier) {
-      const modelFn = this.config.verifierModel ?? deps.callModel ?? null;
+      const modelFn = this.taorConfig.verifierModel ?? deps.callModel ?? null;
       if (modelFn) {
         this.verifier.setCallModel(
           modelFn as (
@@ -603,14 +1334,14 @@ export class TAORLoop {
     }
     this.verifier.reset();
 
-    logger.info('TAOR loop started', { sessionId: this.config.sessionId });
+    logger.info('TAOR loop started', { sessionId: this.taorConfig.sessionId });
     this.emitPhase(TAORPhase.THINK, 0, 'Initial message received');
 
-    while (this.turnCount < this.config.maxTurns && !this.stopped) {
+    while (this.turnCount < this.taorConfig.maxTurns && !this.stopped) {
       this.turnCount++;
 
       // —— PRE-FLIGHT ——
-      if (this.config.enableCheckpoint && this.shouldSaveAutoCheckpoint()) {
+      if (this.taorConfig.enableCheckpoint && this.shouldSaveAutoCheckpoint()) {
         await this.saveCheckpoint('auto');
         if (this.abortController.signal.aborted) break; // 中断保护
       }
@@ -657,7 +1388,7 @@ export class TAORLoop {
           });
         }
         logger.info('Steering messages injected', {
-          sessionId: this.config.sessionId,
+          sessionId: this.taorConfig.sessionId,
           count: steeringMessages.length,
           turnCount: this.turnCount,
         });
@@ -699,7 +1430,7 @@ export class TAORLoop {
           action: 'callModel',
           context: {
             turnCount: this.turnCount,
-            sessionId: this.config.sessionId,
+            sessionId: this.taorConfig.sessionId,
           },
         });
         const recovery = this.errorRecovery.assess(error as Error, {
@@ -713,11 +1444,11 @@ export class TAORLoop {
         }
         if (recovery.action === 'compact_and_retry') {
           logger.info('Context overflow detected, compacting before retry', {
-            sessionId: this.config.sessionId,
+            sessionId: this.taorConfig.sessionId,
             turnCount: this.turnCount,
           });
-          if (this.config.sessionId) {
-            await this.queryEngine.compactIfNeeded(this.config.sessionId);
+          if (this.taorConfig.sessionId) {
+            await this.queryEngine.compactIfNeeded(this.taorConfig.sessionId);
           }
           if (recovery.message) {
             messages.push({ role: 'user', content: recovery.message });
@@ -731,7 +1462,7 @@ export class TAORLoop {
         // 防御性兜底：未处理的 action
         logger.warn('Unhandled recovery action in TAORLoop', {
           action: recovery.action,
-          sessionId: this.config.sessionId,
+          sessionId: this.taorConfig.sessionId,
           turnCount: this.turnCount,
         });
         this.stopReason = 'error';
@@ -790,7 +1521,7 @@ export class TAORLoop {
             };
           }
           logger.info('Fallback parser 提取到工具调用', {
-            sessionId: this.config.sessionId,
+            sessionId: this.taorConfig.sessionId,
             turnCount: this.turnCount,
             toolCount: fallbackToolCalls.length,
             toolNames: fallbackToolCalls.map((t) => t.name),
@@ -880,7 +1611,7 @@ export class TAORLoop {
           void this.runLogger.recordTrace({
             type: 'tool',
             runId: this.runId,
-            sessionId: this.config.sessionId,
+            sessionId: this.taorConfig.sessionId,
             ts: new Date().toISOString(),
             turn: this.turnCount,
             name: tc.name,
@@ -914,7 +1645,7 @@ export class TAORLoop {
             module: 'query:taorLoop',
             action: 'executeTools_batch',
             context: {
-              sessionId: this.config.sessionId,
+              sessionId: this.taorConfig.sessionId,
               turnCount: this.turnCount,
               toolCount: effectiveToolCalls.length,
             },
@@ -944,7 +1675,7 @@ export class TAORLoop {
           void this.runLogger.recordTrace({
             type: 'tool',
             runId: this.runId,
-            sessionId: this.config.sessionId,
+            sessionId: this.taorConfig.sessionId,
             ts: new Date().toISOString(),
             turn: this.turnCount,
             name: tc.name,
@@ -1031,7 +1762,7 @@ export class TAORLoop {
         // 2026-08-06：原 import skills/builtin/verify.js 绕过技能体系直连假 skill，
         // 归一化为直接调用 query/verifyProject.ts 工具函数。
         let toolVerifyPassed = true;
-        if (this.config.enableAutoVerify) {
+        if (this.taorConfig.enableAutoVerify) {
           try {
             const { verifyProject } = await import('./verifyProject.js');
             const verifyPromise = verifyProject();
@@ -1040,7 +1771,7 @@ export class TAORLoop {
               new Promise<string>((_, reject) =>
                 setTimeout(
                   () => reject(new Error('verify_timeout')),
-                  this.config.autoVerifyTimeoutMs
+                  this.taorConfig.autoVerifyTimeoutMs
                 )
               ),
             ]).catch((err) => {
@@ -1056,7 +1787,7 @@ export class TAORLoop {
                 verifyResult.includes('✅') && !verifyResult.includes('❌');
               logger.info('Auto-verify result', {
                 passed: toolVerifyPassed,
-                phases: this.config.verifyStrategy,
+                phases: this.taorConfig.verifyStrategy,
               });
             }
           } catch (verifyErr) {
@@ -1066,7 +1797,7 @@ export class TAORLoop {
         }
 
         // Phase 2b: VerifyStrategy 仲裁
-        if (this.config.verifyStrategy === 'AND') {
+        if (this.taorConfig.verifyStrategy === 'AND') {
           if (!toolVerifyPassed) {
             logger.warn(
               'VerifyStrategy=AND: tool verify failed, skipping VerifierAgent'
@@ -1078,7 +1809,7 @@ export class TAORLoop {
             } as ChatMessage);
             continue; // 回到 THINK 阶段
           }
-        } else if (this.config.verifyStrategy === 'TOOL_FIRST') {
+        } else if (this.taorConfig.verifyStrategy === 'TOOL_FIRST') {
           if (toolVerifyPassed) {
             // Tool verify 通过，跳过 VerifierAgent（省钱）
             continue; // 跳过 VerifierAgent，直接到下一轮或结束
@@ -1106,7 +1837,7 @@ export class TAORLoop {
               error: rawResults[i]?.error,
             })),
             turnCount: this.turnCount,
-            sessionId: this.config.sessionId,
+            sessionId: this.taorConfig.sessionId,
           };
 
           const verification = await this.verifier.verify(
@@ -1117,7 +1848,7 @@ export class TAORLoop {
           if (!verification.passed) {
             if (verification.verdict === 'ESCALATE') {
               logger.warn('验证器升级：无法确定修改正确性', {
-                sessionId: this.config.sessionId,
+                sessionId: this.taorConfig.sessionId,
                 feedback: verification.feedback,
                 cycleCount: this.verifier.getCycleCount(),
               });
@@ -1128,7 +1859,7 @@ export class TAORLoop {
 
             if (verification.verdict === 'REJECT') {
               logger.warn('验证器拒绝：修改未通过审查', {
-                sessionId: this.config.sessionId,
+                sessionId: this.taorConfig.sessionId,
                 feedback: verification.feedback,
                 cycleCount: this.verifier.getCycleCount(),
               });
@@ -1145,7 +1876,7 @@ export class TAORLoop {
           }
 
           logger.debug('验证器通过', {
-            sessionId: this.config.sessionId,
+            sessionId: this.taorConfig.sessionId,
             confidence: verification.confidence,
           });
         }
@@ -1153,7 +1884,7 @@ export class TAORLoop {
         // 无 tool_use → 检查上一轮是否有工具错误被静默吞掉
         if (this._lastRoundHadToolErrors && this.turnCount > 1) {
           logger.warn('TAOR: 工具错误后 LLM 尝试静默结束，注入提醒', {
-            sessionId: this.config.sessionId,
+            sessionId: this.taorConfig.sessionId,
             turnCount: this.turnCount,
           });
           messages.push({
@@ -1199,8 +1930,8 @@ export class TAORLoop {
         this.phaseCallbacks.onBudgetWarning?.(percentUsed);
 
         // 触发上下文压缩（中断保护）
-        if (this.config.sessionId && !this.abortController.signal.aborted) {
-          await this.queryEngine.compactIfNeeded(this.config.sessionId);
+        if (this.taorConfig.sessionId && !this.abortController.signal.aborted) {
+          await this.queryEngine.compactIfNeeded(this.taorConfig.sessionId);
         }
       }
 
@@ -1237,7 +1968,7 @@ export class TAORLoop {
           module: 'query:taorLoop',
           action: 'persistMessages_first',
           context: {
-            sessionId: this.config.sessionId,
+            sessionId: this.taorConfig.sessionId,
             turnCount: this.turnCount,
           },
         });
@@ -1249,7 +1980,7 @@ export class TAORLoop {
             module: 'query:taorLoop',
             action: 'persistMessages_retry',
             context: {
-              sessionId: this.config.sessionId,
+              sessionId: this.taorConfig.sessionId,
               turnCount: this.turnCount,
             },
           });
@@ -1268,7 +1999,7 @@ export class TAORLoop {
     void this.runLogger.recordTrace({
       type: 'loop',
       runId: this.runId,
-      sessionId: this.config.sessionId,
+      sessionId: this.taorConfig.sessionId,
       ts: new Date().toISOString(),
       event: 'end',
       status: this.stopReason,
@@ -1276,11 +2007,11 @@ export class TAORLoop {
     });
 
     // Durable Resume: 非正常完成时自动保存检查点
-    if (this.config.enableCheckpoint && this.stopReason !== 'completed') {
+    if (this.taorConfig.enableCheckpoint && this.stopReason !== 'completed') {
       try {
         await this.saveCheckpoint('before_abort');
         logger.info('Durable checkpoint saved on stop', {
-          sessionId: this.config.sessionId,
+          sessionId: this.taorConfig.sessionId,
           stopReason: this.stopReason,
           turnCount: this.turnCount,
         });
@@ -1291,7 +2022,7 @@ export class TAORLoop {
     }
 
     await this.stopHookManager.executeHooks({
-      sessionId: this.config.sessionId,
+      sessionId: this.taorConfig.sessionId,
       reason: this.stopReason,
       turnCount: this.turnCount,
       durationMs: totalDuration,
@@ -1305,15 +2036,15 @@ export class TAORLoop {
     // Phase 2：运行日志记录
     if (this.runLogger) {
       this.lastRunLog = {
-        sessionId: this.config.sessionId,
+        sessionId: this.taorConfig.sessionId,
         turnCount: this.turnCount,
         reason: this.stopReason,
         durationMs: totalDuration,
         totalTokens: finalBudget.totalTokensUsed,
       };
       await this.runLogger.record({
-        runId: this.runId || `run_${this.config.sessionId}_${Date.now()}`,
-        sessionId: this.config.sessionId,
+        runId: this.runId || `run_${this.taorConfig.sessionId}_${Date.now()}`,
+        sessionId: this.taorConfig.sessionId,
         startedAt: new Date(this.startTime).toISOString(),
         endedAt: new Date().toISOString(),
         durationMs: totalDuration,
@@ -1378,7 +2109,7 @@ export class TAORLoop {
   private shouldSaveAutoCheckpoint(): boolean {
     return (
       this.turnCount > 0 &&
-      this.turnCount % this.config.checkpointInterval === 0
+      this.turnCount % this.taorConfig.checkpointInterval === 0
     );
   }
 
@@ -1388,14 +2119,14 @@ export class TAORLoop {
    * @returns 检查点ID
    */
   async saveCheckpoint(type: TAORCheckpoint['type']): Promise<string> {
-    if (!this.config.enableCheckpoint) {
+    if (!this.taorConfig.enableCheckpoint) {
       logger.debug('Checkpoint is disabled');
       return '';
     }
 
     const checkpoint: TAORCheckpoint = {
       id: this.generateCheckpointId(),
-      sessionId: this.config.sessionId,
+      sessionId: this.taorConfig.sessionId,
       turnCount: this.turnCount,
       phase: this.currentPhase,
       budgetState: this.tokenBudget.getCurrentBudgetState(),
@@ -1437,7 +2168,7 @@ export class TAORLoop {
    * 生成检查点ID
    */
   private generateCheckpointId(): string {
-    return `taor_${this.config.sessionId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    return `taor_${this.taorConfig.sessionId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   }
 
   /**
@@ -1452,14 +2183,14 @@ export class TAORLoop {
       checkpoint = await this.checkpointStorage.load(checkpointId);
     } else {
       const checkpoints = await this.checkpointStorage.findBySessionId(
-        this.config.sessionId
+        this.taorConfig.sessionId
       );
       checkpoint = checkpoints?.[0] || null;
     }
 
     if (!checkpoint) {
       logger.warning('No checkpoint found for resume', {
-        sessionId: this.config.sessionId,
+        sessionId: this.taorConfig.sessionId,
       });
       return false;
     }
@@ -1604,7 +2335,7 @@ export class TAORLoop {
    * 获取会话的所有检查点
    */
   async getCheckpointsForSession(): Promise<TAORCheckpoint[] | null> {
-    return this.checkpointStorage.findBySessionId(this.config.sessionId);
+    return this.checkpointStorage.findBySessionId(this.taorConfig.sessionId);
   }
 
   private shouldStop(): boolean {
@@ -1614,7 +2345,7 @@ export class TAORLoop {
       return true;
     }
 
-    if (this.turnCount > this.config.maxTurns) {
+    if (this.turnCount > this.taorConfig.maxTurns) {
       this.stopReason = 'max_turns';
       this.stopped = true;
       return true;
@@ -1641,7 +2372,7 @@ export class TAORLoop {
       void this.runLogger.recordTrace({
         type: 'step',
         runId: this.runId,
-        sessionId: this.config.sessionId,
+        sessionId: this.taorConfig.sessionId,
         ts: new Date().toISOString(),
         turn: round,
         phase,
@@ -1655,9 +2386,13 @@ export class TAORLoop {
   /**
    * 中止循环，在中止前保存检查点
    */
-  async abort(saveCheckpoint: boolean = true): Promise<void> {
+  override async abort(saveCheckpoint: boolean = true): Promise<void> {
     // 在中止前保存检查点
-    if (saveCheckpoint && this.config.enableCheckpoint && this.turnCount > 0) {
+    if (
+      saveCheckpoint &&
+      this.taorConfig.enableCheckpoint &&
+      this.turnCount > 0
+    ) {
       await this.saveCheckpoint('before_abort');
     }
 
@@ -1700,7 +2435,7 @@ export class TAORLoop {
     const marked = `[steering]\n${message}`;
     this.steeringQueue.push(marked);
     logger.info('Steering message queued', {
-      sessionId: this.config.sessionId,
+      sessionId: this.taorConfig.sessionId,
       queueLength: this.steeringQueue.length,
     });
   }

@@ -29,12 +29,19 @@ export function reactEventsToChunks(
         ? [{ type: 'text', content: event.text, sessionId }]
         : [];
 
-    case 'reasoning_end':
-      // 骨架 reason() 为 async 方法无法逐 chunk 增量 yield，整段文本在此一次性输出
-      // （旧类 P0-C 为增量输出，观察期记录该体验差异；A-path 首轮 text 为空自动跳过）
-      return event.result.text
-        ? [{ type: 'text', content: event.result.text, sessionId }]
+    case 'thinking_delta':
+      return event.content
+        ? [{ type: 'thinking', content: event.content, sessionId }]
         : [];
+
+    case 'phase':
+      // TAORLoop 阶段事件：内部语义（runLogger/checkpoint），无前端 chunk 映射
+      return [];
+
+    case 'reasoning_end':
+      // M4（方案 A）：文本已由 reasoning_delta 逐 chunk 增量输出，此处不再重复输出
+      // （A-path 首轮 text 为空也无输出）；result 仅用于内部（工具调用/终止原因）
+      return [];
 
     case 'acting_start':
       return [

@@ -13,10 +13,10 @@ import {
   type StageChainRecord,
 } from '../../src/tasks/StageOrchestrator';
 
-const deps = (calls: string[]) => ({
+const deps = (calls: string[], tokens = 10) => ({
   runStage: async (stage: { id: string }, chain: StageChainRecord) => {
     calls.push(stage.id);
-    return `产物-${stage.id}`;
+    return { artifact: `产物-${stage.id}`, tokens };
   },
 });
 
@@ -97,6 +97,9 @@ describe('StageOrchestrator — 2 阶段链（D1/M7）', () => {
       sessionId: 's',
       currentStage: 'design',
       phase: 'running',
+      totalTokens: 0,
+      budgetLimitTokens: 0,
+      budgetPolicy: 'terminate',
       updatedAt: '',
       stages: [
         {
@@ -119,5 +122,53 @@ describe('StageOrchestrator — 2 阶段链（D1/M7）', () => {
     const prompt = buildStagePrompt(chain.stages[1], chain);
     expect(prompt).toContain('PRD：支持微信支付');
     expect(prompt).toContain('需求规格说明');
+  });
+});
+
+describe('StageOrchestrator — 成本护栏（D4/M4）', () => {
+  it('阶段边界累计 token 到父级 totalTokens', async () => {
+    const calls: string[] = [];
+    const orch = StageOrchestrator.create(
+      'budget-test-1',
+      'x',
+      's',
+      deps(calls, 25)
+    );
+    await orch.run(); // requirement 25 tokens
+    const status = orch.getStatus();
+    expect(status.totalTokens).toBe(25);
+  });
+
+  it('超限 terminate：阶段链失败且后续阶段不执行', async () => {
+    const calls: string[] = [];
+    const orch = StageOrchestrator.create(
+      'budget-test-2',
+      'x',
+      's',
+      deps(calls, 120),
+      { budgetLimitTokens: 100, budgetPolicy: 'terminate' }
+    );
+    const status = await orch.run();
+
+    expect(calls).toEqual(['requirement']); // design 未执行
+    expect(status.phase).toBe('failed');
+    expect(status.budgetExhausted).toBe(true);
+  });
+
+  it('超限 warn：警告后继续执行', async () => {
+    const calls: string[] = [];
+    const orch = StageOrchestrator.create(
+      'budget-test-3',
+      'x',
+      's',
+      deps(calls, 120),
+      { budgetLimitTokens: 100, budgetPolicy: 'warn' }
+    );
+    await orch.run();
+    await orch.resumeAfterApproval(); // design 继续
+
+    expect(calls).toEqual(['requirement', 'design']);
+    expect(orch.getStatus().budgetExhausted).toBe(true);
+    expect(orch.getStatus().phase).toBe('completed');
   });
 });

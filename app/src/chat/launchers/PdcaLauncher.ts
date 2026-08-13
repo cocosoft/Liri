@@ -5,6 +5,7 @@ import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { getOTelTracing } from '@modules/monitoring/otel';
 import { resolveDataDir } from '@modules/core/paths';
+import { configManager } from '@modules/config';
 import { PlanDrivenLoop } from '../../core/loop/PlanDrivenLoop.js';
 import type { PlanDrivenLoopResult } from '../../core/loop/PlanDrivenLoop.js';
 import { createChatManagerTAORDeps } from '../../query/ChatManagerTAORAdapter.js';
@@ -169,8 +170,24 @@ export class PdcaLauncher {
                   onTaskMessage,
                 }
               );
-              return collectStageArtifact(child);
+              return {
+                artifact: collectStageArtifact(child),
+                // D4（M4）：阶段边界显式回写 token（成本护栏数据源）
+                tokens: child.getTokenUsage(),
+              };
             },
+          },
+          {
+            // D4（M4）：全局成本护栏配置（PDCA_BUDGET_LIMIT_TOKENS / PDCA_BUDGET_POLICY）
+            budgetLimitTokens: (() => {
+              const raw = configManager.env('PDCA_BUDGET_LIMIT_TOKENS');
+              const val = raw && !isNaN(Number(raw)) ? Number(raw) : 0;
+              return Math.max(0, val);
+            })(),
+            budgetPolicy:
+              configManager.env('PDCA_BUDGET_POLICY') === 'warn'
+                ? 'warn'
+                : 'terminate',
           }
         );
 

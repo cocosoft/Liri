@@ -14,12 +14,15 @@
  */
 
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { getLogger } from '@modules/monitoring';
 import {
   readPdcaCheckpoint,
   writePdcaCheckpoint,
 } from './PdcaWorkItemBridge.js';
 import { taskOrchestrator } from './TaskOrchestrator.js';
 import type { LongRunningTaskOrchestrator } from './LongRunningTaskOrchestrator.js';
+
+const logger = getLogger('tasks:stageOrchestrator');
 
 /** 阶段 ID（2 阶段 MVP） */
 export type StageId = 'requirement' | 'design';
@@ -53,6 +56,14 @@ export interface StageChainRecord {
   currentStage: StageId;
   stages: StageRecord[];
   phase: 'running' | 'stage_awaiting_approval' | 'completed' | 'failed';
+  /** D4（M4）：跨阶段 token 累计（阶段边界显式回写） */
+  totalTokens: number;
+  /** D4：成本护栏上限（0 = 不限制） */
+  budgetLimitTokens: number;
+  /** D4：超限策略——terminate 终止 / warn 警告继续 */
+  budgetPolicy: 'terminate' | 'warn';
+  /** D4：是否已触发超限 */
+  budgetExhausted?: boolean;
   updatedAt: string;
 }
 
@@ -66,10 +77,29 @@ export const STAGE_DEFS: Array<{
   { id: 'design', name: '设计', approval: 'auto' },
 ];
 
+/** 阶段执行结果（D4 起含 token 用量，供阶段边界成本结算） */
+export interface StageRunnerResult {
+  /** 阶段产物文本（下阶段基线） */
+  artifact: string;
+  /** 本阶段 token 消耗（阶段边界累计到父级 totalTokens） */
+  tokens: number;
+}
+
 /** StageOrchestrator 外部依赖（子 PDCA 执行由调用方注入，保持编排器与执行解耦） */
 export interface StageOrchestratorDeps {
-  /** 执行单个阶段（运行子 PDCA），返回该阶段产物文本（下阶段基线） */
-  runStage: (stage: StageRecord, chain: StageChainRecord) => Promise<string>;
+  /** 执行单个阶段（运行子 PDCA），返回产物 + token 用量 */
+  runStage: (
+    stage: StageRecord,
+    chain: StageChainRecord
+  ) => Promise<StageRunnerResult>;
+}
+
+/** 成本护栏配置（D4） */
+export interface StageBudgetOptions {
+  /** token 上限（0 = 不限制） */
+  budgetLimitTokens?: number;
+  /** 超限策略：terminate 终止阶段链 / warn 警告继续 */
+  budgetPolicy?: 'terminate' | 'warn';
 }
 
 /**
@@ -91,7 +121,11 @@ export function createDefaultStageRunner(
       requirePlanApproval: false,
       onTaskMessage,
     });
-    return collectStageArtifact(child);
+    return {
+      artifact: collectStageArtifact(child),
+      // D4（M4）：阶段边界显式回写 token（TAORLoopResult.totalTokens 累计）
+      tokens: child.getTokenUsage(),
+    };
   };
 }
 
@@ -134,7 +168,8 @@ export class StageOrchestrator {
     taskId: string,
     description: string,
     sessionId: string,
-    deps: StageOrchestratorDeps
+    deps: StageOrchestratorDeps,
+    budget: StageBudgetOptions = {}
   ): StageOrchestrator {
     const record: StageChainRecord = {
       taskId,
@@ -149,6 +184,9 @@ export class StageOrchestrator {
         pdcaTaskId: `${taskId}_${def.id}`,
       })),
       phase: 'running',
+      totalTokens: 0,
+      budgetLimitTokens: budget.budgetLimitTokens ?? 0,
+      budgetPolicy: budget.budgetPolicy ?? 'terminate',
       updatedAt: new Date().toISOString(),
     };
     return new StageOrchestrator(record, deps);
@@ -194,11 +232,37 @@ export class StageOrchestrator {
       this.persist();
 
       try {
-        stage.artifact = await this.deps.runStage(stage, this.record);
+        const result = await this.deps.runStage(stage, this.record);
+        stage.artifact = result.artifact;
+        // D4（M4）：阶段边界显式回写 token → 全局成本护栏（跨阶段累计）
+        this.record.totalTokens += result.tokens;
         stage.status =
           stage.approval === 'stage_approval'
             ? 'awaiting_approval'
             : 'completed';
+
+        // D4（M4）：成本护栏——超限降级（terminate 终止 / warn 警告继续）
+        const limit = this.record.budgetLimitTokens;
+        if (limit > 0 && this.record.totalTokens > limit) {
+          this.record.budgetExhausted = true;
+          if (this.record.budgetPolicy === 'terminate') {
+            logger.warn('StageOrchestrator 成本护栏触发（terminate）', {
+              taskId: this.record.taskId,
+              stageId: stage.id,
+              totalTokens: this.record.totalTokens,
+              budgetLimitTokens: limit,
+            });
+            this.record.phase = 'failed';
+            this.persist();
+            return this.record;
+          }
+          logger.warn('StageOrchestrator 成本护栏触发（warn，继续执行）', {
+            taskId: this.record.taskId,
+            stageId: stage.id,
+            totalTokens: this.record.totalTokens,
+            budgetLimitTokens: limit,
+          });
+        }
       } catch (err) {
         stage.status = 'failed';
         this.record.phase = 'failed';

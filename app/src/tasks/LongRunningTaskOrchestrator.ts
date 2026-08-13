@@ -300,6 +300,8 @@ export class LongRunningTaskOrchestrator {
         })),
         // D5（M6）：escalate 缺陷清单（跨重启恢复后增量 replan 仍生效）
         lastEscalations: this._lastEscalations,
+        // D4（M4）：TAORLoop token 累计（阶段边界结算 → StageOrchestrator 成本护栏）
+        totalTokens: this._totalTokensTracked,
       });
     } catch {
       // @ignore-catch — checkpoint 写入失败不影响任务执行
@@ -1501,6 +1503,14 @@ ${replanSection}
       toolFailureSteps,
       abortRate,
     };
+  }
+
+  /**
+   * D4（M4，2026-08-13）：TAORLoop token 累计值（阶段边界结算 → 成本护栏数据源）
+   * 供 StageOrchestrator 在每阶段结束时显式回写父级 totalTokens。
+   */
+  getTokenUsage(): number {
+    return this._totalTokensTracked;
   }
 
   /**

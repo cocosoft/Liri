@@ -62,6 +62,7 @@ import { trajectoryRecorder } from '../../agent/trajectory/TrajectoryRecorder';
 import { trajectoryRuntime } from '../../core/trajectory/TrajectoryRuntime.js';
 import { agentTelemetry } from '../../agent/AgentTelemetry.js';
 import type { ChatOrchestratorHost } from './ChatOrchestrator.js';
+import { getToolExecErrorMessage } from './toolErrorMessages.js';
 import type { Message, StreamMessageOptions } from '../types/message.js';
 import type { ChatResponse } from '../types/message.js';
 import type { ChatSession } from '../types/session.js';
@@ -591,7 +592,6 @@ export async function* runStreamMessage(
             }).catch(() => {});
           });
 
-        const { ToolLoopRunner } = await import('../ToolLoopRunner.js');
         const toolLoopCtx = {
           session,
           options: options as Record<string, unknown>,
@@ -641,16 +641,73 @@ export async function* runStreamMessage(
           ) => number,
         } as unknown as import('../ToolLoopRunner.js').ToolLoopContext;
 
-        const runner = new ToolLoopRunner(toolLoopCtx, {
+        const { ReActToolLoop } = await import('../ReActToolLoop.js');
+        const { reactEventsToChunks } =
+          await import('../reactEventsToChunks.js');
+        const loop = new ReActToolLoop(
+          toolLoopCtx,
+          {
+            apiMessages,
+            currentToolCalls,
+            assistantMessage,
+          },
+          { maxIterations: host.MAX_TOOL_TURNS }
+        );
+
+        // M1c：骨架事件流 → ChatStreamChunk（转换层）+ 心跳聚合 + todo chunk
+        let heartbeatAt = 0;
+        for await (const event of loop.run({
           apiMessages,
           currentToolCalls,
           assistantMessage,
-        });
-
-        for await (const chunk of runner.run()) {
-          yield chunk;
+        })) {
+          for (const chunk of reactEventsToChunks(event, session.id)) {
+            yield chunk;
+          }
+          // todo chunk：工具结果含 _todoData 时产出（对齐旧类 _executeToolRound）
+          for (const todoData of loop.getPendingTodos()) {
+            yield {
+              type: 'todo',
+              content: JSON.stringify(todoData),
+              sessionId: session.id,
+              todoData,
+            } as ChatStreamChunk;
+          }
+          // 心跳：tool_end 后每 5s 产出 execution_phase（对齐旧类 _heartbeat）
+          if (event.type === 'tool_end') {
+            const now = Date.now();
+            if (now - heartbeatAt >= 5000) {
+              heartbeatAt = now;
+              const hb = loop.getHeartbeatData();
+              // 5. steps 截断：仅保留最近 MAX_HEARTBEAT_STEPS 条，避免长任务心跳体积线性增长
+              //   （对齐旧类 ToolLoopRunner._buildExecutionSteps；totalSteps 保留真实计数）
+              const MAX_HEARTBEAT_STEPS = 30;
+              const fullSteps = hb.completedToolNames.map((name) => ({
+                name,
+                status: 'done' as const,
+              }));
+              const truncated = fullSteps.length > MAX_HEARTBEAT_STEPS;
+              const steps = truncated
+                ? fullSteps.slice(-MAX_HEARTBEAT_STEPS)
+                : fullSteps;
+              yield {
+                type: 'execution_phase',
+                content: '正在执行工具',
+                sessionId: session.id,
+                executionPhase: {
+                  phase: 'implementing' as const,
+                  progress: hb.totalCompletedToolCount,
+                  description: '正在执行工具调用',
+                  steps,
+                  totalSteps: fullSteps.length,
+                  truncated,
+                  currentStep: '',
+                },
+              } as ChatStreamChunk;
+            }
+          }
         }
-        assistantMessage = runner.getFinalAssistantMessage();
+        assistantMessage = loop.getAssistantMessage();
         await host
           .endRollbackRound(session.id, ctx.content, firstAssistantContent)
           .catch((err) => {
@@ -707,93 +764,4 @@ export async function* runStreamMessage(
       /* span 可能已结束 */
     }
   }
-}
-
-/**
- * 工具执行异常 → 用户友好提示（过滤 OpenAI SDK/fetch 级技术错误，不暴露实现细节）
- */
-function getToolExecErrorMessage(err: unknown): string {
-  if (!(err instanceof Error)) {
-    return `工具执行异常: ${String(err).slice(0, 200)}`;
-  }
-  const msg = err.message;
-  const lower = msg.toLowerCase();
-
-  // ── 服务商过载/不可用 ──
-  if (
-    lower.includes('503') ||
-    lower.includes('overloaded') ||
-    lower.includes('too busy') ||
-    lower.includes('server error') ||
-    lower.includes('service unavailable') ||
-    lower.includes('capacity')
-  ) {
-    let detail = '';
-    try {
-      const jsonMatch = msg.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        const body = JSON.parse(jsonMatch[0]);
-        if (body.code) detail = ` (${body.code})`;
-        if (body.message) detail = ` (${body.code || ''}: ${body.message})`;
-      }
-    } catch {
-      /* ignore */
-    }
-    return `AI 服务繁忙，请稍后重试${detail}`;
-  }
-
-  // ── 频率限制 ──
-  if (
-    lower.includes('429') ||
-    lower.includes('rate limit') ||
-    lower.includes('too many requests')
-  ) {
-    return '请求过于频繁，请稍后重试';
-  }
-
-  // ── 认证/权限 ──
-  if (
-    lower.includes('401') ||
-    lower.includes('403') ||
-    lower.includes('unauthorized') ||
-    lower.includes('invalid api key')
-  ) {
-    return 'AI 服务认证失败，请检查模型配置中的 API Key';
-  }
-
-  // ── 上下文溢出 ──
-  if (
-    lower.includes('context length') ||
-    lower.includes('too long') ||
-    lower.includes('maximum context') ||
-    lower.includes('token limit')
-  ) {
-    return '输入内容过长，请缩短输入或开启会话压缩';
-  }
-
-  // ── 超时 ──
-  if (lower.includes('timeout') || lower.includes('timed out')) {
-    return 'AI 服务响应超时，请稍后重试';
-  }
-
-  // ── mutex 死锁 ──
-  if (lower.includes('simplemutex') || lower.includes('acquire timeout')) {
-    return '会话正在处理中，请等待上一条消息完成后重试';
-  }
-
-  // socket 连接意外关闭 → AI 服务响应中断
-  if (msg.includes('socket connection was closed')) {
-    return 'AI 服务响应中断，请重试';
-  }
-  // fetch 超时 / 网络错误
-  if (
-    msg.includes('fetch failed') ||
-    msg.includes('ECONNREFUSED') ||
-    msg.includes('ETIMEDOUT') ||
-    msg.includes('ENOTFOUND')
-  ) {
-    return '连接 AI 服务失败，请检查网络后重试';
-  }
-
-  return `工具执行异常: ${msg.slice(0, 200)}`;
 }

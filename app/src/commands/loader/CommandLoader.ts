@@ -165,6 +165,7 @@ export class BuiltinCommandLoader implements CommandLoader {
       { path: '../builtin/command-registry.js', name: 'remote-env' },
       { path: '../builtin/command-registry.js', name: 'insights' },
       { path: '../builtin/command-registry.js', name: 'plan' },
+      { path: '../builtin/command-registry.js', name: 'goal' },
       { path: '../builtin/command-registry.js', name: 'upgrade' },
       { path: '../builtin/command-registry.js', name: 'passes' },
       { path: '../builtin/command-registry.js', name: 'reload-plugins' },

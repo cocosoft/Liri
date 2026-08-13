@@ -6,7 +6,13 @@
  */
 
 import { join } from 'path';
-import { mkdirSync, existsSync, writeFileSync, readFileSync } from 'fs';
+import {
+  mkdirSync,
+  existsSync,
+  writeFileSync,
+  readFileSync,
+  readdirSync,
+} from 'fs';
 import { resolveDataSubDir } from '@modules/core';
 
 const PDCA_CHECKPOINT_DIR = join(resolveDataSubDir('pdca'));
@@ -79,6 +85,20 @@ export function writePdcaCheckpoint(
     updatedAt: new Date().toISOString(),
   });
 }
+
+/** P0(M9)：列出全部 PDCA checkpoint（含终态与非终态，供 /goal list 过滤） */
+export function listPdcaCheckpoints(): Array<Record<string, unknown>> {
+  if (!existsSync(PDCA_CHECKPOINT_DIR)) return [];
+  const files = readdirSync(PDCA_CHECKPOINT_DIR).filter((f) =>
+    f.endsWith('.json')
+  );
+  return files
+    .map((f) => readJson<Record<string, unknown>>(join(PDCA_CHECKPOINT_DIR, f)))
+    .filter((c): c is Record<string, unknown> => c != null);
+}
+
+/** P0(M9)：PDCA 终态阶段（list 时过滤掉） */
+export const PDCA_TERMINAL_PHASES = new Set(['completed', 'failed', 'abort']);
 
 /**
  * 同步 PDCA 阶段 → WorkItem 状态

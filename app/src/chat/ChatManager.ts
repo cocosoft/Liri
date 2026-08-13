@@ -179,7 +179,7 @@ import { TAORLoop, createTAORLoop } from '../query/TAORLoop.js';
 import type { TAORLoopConfig } from '../query/TAORLoop.js';
 import { PlanDrivenLoop } from '../core/loop/PlanDrivenLoop.js';
 import type { PlanDrivenLoopResult } from '../core/loop/PlanDrivenLoop.js';
-import { ToolLoopRunner } from './ToolLoopRunner.js';
+import { ReActToolLoop } from './ReActToolLoop.js';
 import type { ToolLoopContext } from './ToolLoopRunner.js';
 import { withToolTimeout } from './services/ToolTimeoutWrapper.js';
 import { ToolExecutionService } from './services/ToolExecutionService.js';
@@ -3132,19 +3132,31 @@ export class ChatManagerImpl implements ChatManager {
         estimateMessagesTokens as ToolLoopContext['estimateMessagesTokens'],
     };
 
-    const runner = new ToolLoopRunner(toolLoopCtx, {
+    // M1c：切换为 ReActToolLoop（骨架编排，非流式走 A2 runCollect 语义）
+    const loop = new ReActToolLoop(toolLoopCtx, {
       apiMessages: initialMessages,
       currentToolCalls: [],
       assistantMessage: roundAssistantMsg,
       nonStreaming: true,
       needsInitialLlmCall: true,
+      // M1 补7：交互恢复上下文——已恢复的用户答案注入，避免重复等待（对齐旧类 interactionContext）
+      interactionContext: {
+        userAnswers: answers,
+        interactionIdx,
+      },
     });
 
-    for await (const _ of runner.run()) {
+    for await (const _ of loop.run({
+      apiMessages: initialMessages,
+      currentToolCalls: [],
+      assistantMessage: roundAssistantMsg,
+      nonStreaming: true,
+      needsInitialLlmCall: true,
+    })) {
       // 非流式模式：无 yield 输出
     }
 
-    return runner.getFinalAssistantMessage();
+    return loop.getAssistantMessage();
   }
 
   /**

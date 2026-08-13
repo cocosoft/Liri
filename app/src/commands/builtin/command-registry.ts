@@ -284,6 +284,16 @@ export const planCommand: Command = {
   load: loadExecute('./plan/Plan.js'),
 };
 
+/** PDCA 任务管理（P0(M9)：跨重启断点续跑） */
+export const goalCommand: Command = {
+  type: 'action',
+  name: 'goal',
+  description: 'PDCA 任务管理（列表/恢复/审批）',
+  argumentHint: '[list|resume <taskId>|approve <taskId>|reject <taskId>|help]',
+  whenToUse: '当需要列出、恢复或审批 PDCA 长程任务时',
+  load: loadExecute('./goal/Goal.js'),
+};
+
 /** PR评论 */
 export const prCommentsCommand: Command = {
   type: 'action',

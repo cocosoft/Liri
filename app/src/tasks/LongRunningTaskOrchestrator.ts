@@ -47,7 +47,10 @@ import { VerifierAgent, createVerifierAgent } from '../query/VerifierAgent.js';
 import type { VerificationResult } from '../query/VerifierAgent.js';
 import { FileLockManager, fileLockManager } from './FileLockManager.js';
 import { inboxManager } from '@modules/runtime/InboxManager.js';
-import { syncPdcaWorkItemStatus } from './PdcaWorkItemBridge';
+import {
+  syncPdcaWorkItemStatus,
+  writePdcaCheckpoint,
+} from './PdcaWorkItemBridge';
 import { globalToolManager } from '../tools/index.js';
 import type { ToolUseContext } from '../tools/types/Tool.js';
 
@@ -231,10 +234,45 @@ export class LongRunningTaskOrchestrator {
   private setPhase(phase: PdcaPhase): void {
     this.phase = phase;
     syncPdcaWorkItemStatus(this.taskId, phase);
+    this._persistCheckpoint(); // P0(M2)：阶段变更即落盘步骤级快照（跨重启恢复）
   }
 
   getTaskId(): string {
     return this.taskId;
+  }
+
+  /**
+   * P0(M2)：将编排器状态（phase + plan.steps 快照）落盘到 PdcaWorkItemBridge checkpoint。
+   * 跨重启恢复依赖此快照——原实现仅写 lastPdcaPhase 单字段，重启后无法恢复步骤进度。
+   * 快照失败不影响任务执行（@ignore-catch）。
+   */
+  private _persistCheckpoint(): void {
+    try {
+      const plan = this.planId
+        ? taskOrchestrator.getPlan(this.planId)
+        : undefined;
+      writePdcaCheckpoint(this.taskId, {
+        taskId: this.taskId,
+        phase: this.phase,
+        planId: this.planId ?? undefined,
+        sessionId: this._sessionId ?? undefined,
+        description: plan?.description ?? '',
+        steps: (plan?.steps ?? []).map((s) => ({
+          id: s.id,
+          description: s.description,
+          status: s.status,
+          result: s.result,
+          error: s.error,
+          reviewResult: s.reviewResult,
+          decision: s.decision,
+          retryCount: s.retryCount,
+          maxRetries: s.maxRetries,
+          acceptanceCriteria: s.acceptanceCriteria,
+        })),
+      });
+    } catch {
+      // @ignore-catch — checkpoint 写入失败不影响任务执行
+    }
   }
 
   getPhase(): PdcaPhase {
@@ -470,6 +508,7 @@ export class LongRunningTaskOrchestrator {
 
   private async executeSingleStep(step: PlanStep, plan: Plan): Promise<void> {
     taskOrchestrator.markStepRunning(step.id);
+    this._persistCheckpoint(); // P0(M2)：步骤状态变更即落盘
     this.stepDurations.set(step.id, { startMs: Date.now() });
     this.lifecycle.record(
       'progress',
@@ -680,6 +719,7 @@ export class LongRunningTaskOrchestrator {
           step.id,
           `[TAORLoop] turns=${result.turnCount} tokens=${result.totalTokens} elapsed=${taorElapsed}ms`
         );
+        this._persistCheckpoint(); // P0(M2)
         const log = (this.taorLoop as any).getLastRunLog?.();
         const dur = this.stepDurations.get(step.id);
         if (dur) dur.endMs = Date.now();
@@ -747,6 +787,7 @@ export class LongRunningTaskOrchestrator {
       const executorElapsed = Date.now() - executorStart;
 
       taskOrchestrator.markStepCompleted(step.id, result);
+      this._persistCheckpoint(); // P0(M2)
       const dur = this.stepDurations.get(step.id);
       if (dur) dur.endMs = Date.now();
       const stepElapsed = dur && dur.endMs ? dur.endMs - dur.startMs : -1;
@@ -780,6 +821,7 @@ export class LongRunningTaskOrchestrator {
       });
       const errMsg = e instanceof Error ? e.message : String(e);
       taskOrchestrator.markStepFailed(step.id, errMsg);
+      this._persistCheckpoint(); // P0(M2)
       // §5 P1: 失败也回写执行摘要
       this._emitTaskMessage([
         {
@@ -1123,7 +1165,6 @@ export class LongRunningTaskOrchestrator {
     this._onTaskMessage = opts?.onTaskMessage;
     const requireApproval = opts?.requirePlanApproval ?? false;
 
-    const pdcaStart = Date.now();
     logger.info('[orchestrator] runFullPdca 开始', {
       taskId: this.taskId,
       sessionId,
@@ -1174,120 +1215,7 @@ export class LongRunningTaskOrchestrator {
       };
     }
 
-    let allDone = false;
-    let iterations = 0;
-    // 动态上限：步骤数 * 5，最少 20，防止长任务被误杀
-    const maxIterations = Math.max(20, plan.steps.length * 5);
-
-    while (!allDone && iterations < maxIterations) {
-      iterations++;
-      // Execute
-      await this.executeAllSteps();
-
-      // Review + Decide
-      const updatedPlan = this.requirePlan();
-      for (const step of updatedPlan.steps) {
-        if (step.status === 'completed' && !step.decision) {
-          await this.autoDecideStep(step.id);
-        }
-      }
-
-      // 重新检查状态：所有步骤是否都为终态
-      const latestPlan = this.requirePlan();
-      const terminalStatuses = ['completed', 'failed', 'cancelled'] as const;
-      allDone = latestPlan.steps.every((s) =>
-        (terminalStatuses as readonly string[]).includes(s.status)
-      );
-
-      logger.info('[orchestrator] PDCA 迭代完成', {
-        taskId: this.taskId,
-        planId: this.planId,
-        iteration: iterations,
-        maxIterations,
-        allDone,
-        stepStatuses: latestPlan.steps.map((s) => ({
-          id: s.id,
-          status: s.status,
-          decision: s.decision,
-          retryCount: s.retryCount,
-        })),
-        hasRetry:
-          !allDone &&
-          latestPlan.steps.some(
-            (s) => s.status === 'pending' && s.decision === undefined
-          ),
-      });
-
-      if (!allDone) {
-        // 有步骤需要重试
-        const hasRetry = latestPlan.steps.some(
-          (s) => s.status === 'pending' && s.decision === undefined
-        );
-        if (!hasRetry && iterations >= maxIterations) {
-          // 超过上限：保存现场后强制退出
-          latestPlan.status = 'failed';
-          latestPlan.completedAt = new Date().toISOString();
-          taskOrchestrator['savePlan']?.(latestPlan);
-          void handleError(
-            new AppError(
-              'PDCA exceeded max iterations, forced abort',
-              ErrorCategory.OPERATION,
-              ErrorSeverity.HIGH,
-              'PDCA_MAX_ITERATIONS',
-              {
-                taskId: this.taskId,
-                planId: this.planId,
-                iterations,
-                maxIterations,
-                steps: latestPlan.steps.map((s) => ({
-                  id: s.id,
-                  status: s.status,
-                  decision: s.decision,
-                })),
-              }
-            ),
-            { module: 'tasks:longRunning', action: 'runFullPdca' }
-          );
-          break;
-        }
-      }
-    }
-
-    // 标记终态
-    if (allDone) {
-      const finalPlan = this.requirePlan();
-      const hasEscalated = finalPlan.steps.some(
-        (s) => s.decision === 'escalate'
-      );
-      finalPlan.status = hasEscalated ? 'failed' : 'completed';
-      finalPlan.completedAt = new Date().toISOString();
-    }
-
-    // 生成审计报告
-    this.setPhase('completed');
-    this.auditReport = this.generateReport();
-    this.persistAuditReport(this.auditReport);
-    this.lifecycle.record('finalized', TaskStatus.COMPLETED, 'PDCA completed');
-
-    // §5 P2: 任务完成事件广播（前端按 sessionId 过滤渲染）
-    const _finalStatus = this.getStatus();
-    void this._emitTaskEvent('task:completed', {
-      sessionId: this._sessionId ?? '',
-      planId: this.planId,
-      status: _finalStatus.phase,
-    });
-
-    const pdcaElapsed = Date.now() - pdcaStart;
-    logger.info('[orchestrator] runFullPdca 结束', {
-      taskId: this.taskId,
-      planId: this.planId,
-      phase: _finalStatus.phase,
-      totalElapsedMs: pdcaElapsed,
-      stepCount: _finalStatus.plan?.steps.length ?? 0,
-      iterations,
-    });
-
-    return _finalStatus;
+    return this._runExecuteDecideLoop();
   }
 
   // ─── 报告 ───────────────────────────────────────────
@@ -1453,16 +1381,28 @@ export class LongRunningTaskOrchestrator {
       planId: this.planId,
     });
 
-    // 继续 EXECUTE → REVIEW → DECIDE 循环（与 runFullPdca 的后半段相同）
+    // 继续 EXECUTE → REVIEW → DECIDE 循环（复用统一执行循环，P0 抽取去重）
+    return this._runExecuteDecideLoop();
+  }
+
+  /**
+   * P0(M2/M9)：统一 EXECUTE → REVIEW → DECIDE 循环。
+   * 从 runFullPdca 与 resumeAfterApproval 的后半段抽取（两处原为重复实现）。
+   * resumeFromCheckpoint 跨重启恢复后同样进入此循环继续执行。
+   */
+  private async _runExecuteDecideLoop(): Promise<PdcaStatus> {
     let allDone = false;
     let iterations = 0;
     const plan = this.requirePlan();
+    // 动态上限：步骤数 * 5，最少 20，防止长任务被误杀
     const maxIterations = Math.max(20, plan.steps.length * 5);
 
     while (!allDone && iterations < maxIterations) {
       iterations++;
+      // Execute
       await this.executeAllSteps();
 
+      // Review + Decide
       const updatedPlan = this.requirePlan();
       for (const step of updatedPlan.steps) {
         if (step.status === 'completed' && !step.decision) {
@@ -1470,43 +1410,148 @@ export class LongRunningTaskOrchestrator {
         }
       }
 
+      // 重新检查状态：所有步骤是否都为终态
       const latestPlan = this.requirePlan();
       const terminalStatuses = ['completed', 'failed', 'cancelled'] as const;
       allDone = latestPlan.steps.every((s) =>
         (terminalStatuses as readonly string[]).includes(s.status)
       );
 
+      logger.info('[orchestrator] PDCA 迭代完成', {
+        taskId: this.taskId,
+        planId: this.planId,
+        iteration: iterations,
+        maxIterations,
+        allDone,
+        stepStatuses: latestPlan.steps.map((s) => ({
+          id: s.id,
+          status: s.status,
+          decision: s.decision,
+          retryCount: s.retryCount,
+        })),
+        hasRetry:
+          !allDone &&
+          latestPlan.steps.some(
+            (s) => s.status === 'pending' && s.decision === undefined
+          ),
+      });
+
       if (!allDone) {
+        // 有步骤需要重试
         const hasRetry = latestPlan.steps.some(
           (s) => s.status === 'pending' && s.decision === undefined
         );
         if (!hasRetry && iterations >= maxIterations) {
+          // 超过上限：保存现场后强制退出
           latestPlan.status = 'failed';
           latestPlan.completedAt = new Date().toISOString();
           taskOrchestrator['savePlan']?.(latestPlan);
           void handleError(
             new AppError(
-              'PDCA exceeded max iterations after approval',
+              'PDCA exceeded max iterations, forced abort',
               ErrorCategory.OPERATION,
               ErrorSeverity.HIGH,
-              'PDCA_MAX_ITERATIONS_APPROVAL',
+              'PDCA_MAX_ITERATIONS',
               {
                 taskId: this.taskId,
+                planId: this.planId,
                 iterations,
                 maxIterations,
+                steps: latestPlan.steps.map((s) => ({
+                  id: s.id,
+                  status: s.status,
+                  decision: s.decision,
+                })),
               }
             ),
             { module: 'tasks:longRunning', action: 'runFullPdca' }
           );
+          break;
         }
       }
     }
 
+    // 标记终态
+    if (allDone) {
+      const finalPlan = this.requirePlan();
+      const hasEscalated = finalPlan.steps.some(
+        (s) => s.decision === 'escalate'
+      );
+      finalPlan.status = hasEscalated ? 'failed' : 'completed';
+      finalPlan.completedAt = new Date().toISOString();
+    }
+
+    // 生成审计报告
     this.setPhase('completed');
     this.auditReport = this.generateReport();
     this.persistAuditReport(this.auditReport);
     this.lifecycle.record('finalized', TaskStatus.COMPLETED, 'PDCA completed');
-    return this.getStatus();
+
+    // §5 P2: 任务完成事件广播（前端按 sessionId 过滤渲染）
+    const _finalStatus = this.getStatus();
+    void this._emitTaskEvent('task:completed', {
+      sessionId: this._sessionId ?? '',
+      planId: this.planId,
+      status: _finalStatus.phase,
+    });
+
+    return _finalStatus;
+  }
+
+  /**
+   * P0(M9)：从 checkpoint 跨重启恢复执行（/goal resume 入口）。
+   * 读取 checkpoint 中的 plan.steps 快照 → 重建 Plan 到 taskOrchestrator →
+   * 回填步骤状态 → 按 phase 继续（plan_pending 等待审批；否则进入统一执行循环）。
+   */
+  async resumeFromCheckpoint(ck: Record<string, unknown>): Promise<PdcaStatus> {
+    const sessionId = (ck.sessionId as string | undefined) ?? '';
+    const steps =
+      (ck.steps as Array<Record<string, unknown>> | undefined) ?? [];
+    const phase = (ck.phase as string | undefined) ?? 'execute';
+
+    // 重建 Plan（新 taskId 由 taskOrchestrator 生成）
+    const restored = taskOrchestrator.createPlan(
+      (ck.description as string | undefined) ?? '恢复的 PDCA 任务',
+      steps.map((s) => (s.description as string | undefined) ?? ''),
+      sessionId
+    );
+    // 回填步骤状态（executeAllSteps 会跳过 completed/failed/cancelled）
+    steps.forEach((s, i) => {
+      const step = restored.steps[i];
+      if (!step) return;
+      step.status = (s.status as PlanStep['status']) ?? 'pending';
+      step.result = s.result as string | undefined;
+      step.error = s.error as string | undefined;
+      step.reviewResult = s.reviewResult as PlanReview | undefined;
+      step.decision = s.decision as ReviewDecision | undefined;
+      step.retryCount = (s.retryCount as number) ?? 0;
+      step.maxRetries = (s.maxRetries as number) ?? 3;
+      step.acceptanceCriteria = s.acceptanceCriteria as string | undefined;
+    });
+    restored.status = 'running';
+
+    this.planId = restored.id;
+    this._sessionId = sessionId || null;
+    this.lifecycle.record(
+      'started',
+      TaskStatus.RUNNING,
+      'PDCA resumed from checkpoint'
+    );
+    this._persistCheckpoint();
+
+    logger.info('[orchestrator] 从 checkpoint 恢复', {
+      taskId: this.taskId,
+      planId: this.planId,
+      phase,
+      stepCount: steps.length,
+    });
+
+    if (phase === 'plan_pending') {
+      this.setPhase('plan_pending');
+      return this.getStatus(); // 等待审批
+    }
+    this.setPhase('execute');
+    return this._runExecuteDecideLoop();
   }
 
   /**

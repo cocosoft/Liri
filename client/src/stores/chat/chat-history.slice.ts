@@ -2,13 +2,10 @@
  * Chat History Slice — 会话历史与重命名工具函数
  *
  * 无 Zustand 状态字段，仅提供工具函数导出。
- * 被 chat-message.slice 引用（flushSaveBlocks、doAutoRename 等）。
+ * 被 chat-message.slice 引用（flushSaveBlocks 等）。
  */
-import { useRootStore } from "@/stores/root-store";
 import { chatService } from "@/services/chatService";
-import { sessionService } from "@/services/sessionService";
 import { handleClientError } from "@/utils/handleError";
-import { chatCoordinator } from "./chatCoordinator";
 import type { Message } from "@/types";
 import type { MessageBlock } from "@/types";
 
@@ -163,44 +160,4 @@ export function getHasPendingSave(): boolean {
 /** Reset 全局 SaveQueue */
 export function resetSaveQueue(): void {
   _globalSaveQueue.reset();
-}
-
-/**
- * 自动生成会话标题，失败时用用户消息前30字符作为降级标题
- * 添加延迟 + 二次检查防御后端 autoGenerateTitle 的竞态条件
- */
-export async function doAutoRename(
-  sessionId: string,
-  userMessage: string,
-  assistantResponse: string,
-): Promise<void> {
-  // 延迟 2 秒，给后端 fire-and-forget 的 autoGenerateTitle 时间先完成
-  await new Promise((r) => setTimeout(r, 2000));
-
-  // 二次检查：后端可能已通过 SSE 更新了标记
-  if (!chatCoordinator.shouldAutoRename(sessionId)) {
-    return;
-  }
-
-  try {
-    const title = await sessionService.generateTitle(
-      sessionId,
-      userMessage,
-      assistantResponse,
-    );
-
-    const finalTitle =
-      title || userMessage.slice(0, 30) + (userMessage.length > 30 ? "…" : "");
-    useRootStore.getState().renameChatSession(sessionId, finalTitle);
-  } catch (_error) {
-    handleClientError(
-      _error,
-      { module: "stores:chat:history", action: "doAutoRename" },
-      "warn",
-    );
-    // LLM 生成标题失败，用用户消息前30字符降级
-    const fallbackTitle =
-      userMessage.length > 30 ? userMessage.slice(0, 30) + "…" : userMessage;
-    useRootStore.getState().renameChatSession(sessionId, fallbackTitle);
-  }
 }

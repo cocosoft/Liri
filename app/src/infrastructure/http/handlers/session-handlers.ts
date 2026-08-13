@@ -430,7 +430,8 @@ export async function handleGetCurrentSession(
     const coreAPI = getCoreAPI();
     const session = await coreAPI.getCurrentSession();
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify(session));
+    // P1-4：无当前会话时返回 null 而非 JSON.stringify(undefined) 的空产物
+    res.end(JSON.stringify(session ?? null));
   } catch (err) {
     await handleError(err, { module: 'infra:http', action: 'handler_error' });
     if (!res.headersSent) {

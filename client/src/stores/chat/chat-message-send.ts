@@ -12,8 +12,7 @@ import {
 } from "@/services/chatService";
 import { useFeatureFlagStore } from "@/stores/featureFlags";
 import { ChronologicalBlockBuilder } from "./chat-toolcall.slice";
-import { doAutoRename, staleSessionCache } from "./chat-history.slice";
-import { chatCoordinator } from "./chatCoordinator";
+import { staleSessionCache } from "./chat-history.slice";
 import { handleClientError } from "@/utils/handleError";
 import { createLogger } from "@/utils/logger";
 import type { MessageSet, MessageGet } from "./chat-message.types";
@@ -172,20 +171,8 @@ export async function sendMessageImpl(
         );
     }
 
-    // 再执行自动重命名（不阻塞 UI 状态）
-    if (chatCoordinator.shouldAutoRename(sessionId)) {
-      doAutoRename(sessionId!, content, (response as Message).content).catch(
-        (e) =>
-          handleClientError(
-            e,
-            {
-              module: "stores:chat:message",
-              action: "sendMessage:autoRename",
-            },
-            "warn",
-          ),
-      );
-    }
+    // 自动重命名由后端 autoGenerateTitle 唯一负责（P1-4 消除双责任方竞态），
+    // 前端仅响应 session:renamed SSE 刷新标题（P2-4）。
   } catch (error) {
     handleClientError(
       error,

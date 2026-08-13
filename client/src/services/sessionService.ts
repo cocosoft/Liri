@@ -275,35 +275,6 @@ export const sessionService = {
     );
   },
 
-  generateTitle: async (
-    sessionId: string,
-    userMessage: string,
-    assistantResponse: string,
-  ): Promise<string | null> => {
-    try {
-      const res = await apiHttp.post<{
-        success: boolean;
-        title: string | null;
-      }>(`/v1/sessions/${sessionId}/title`, { userMessage, assistantResponse });
-      if (res.ok) {
-        _isUsingFallback = false;
-        return (res.data as { title: string | null })?.title ?? null;
-      }
-      logger.debug("generateTitle 静默降级", { sessionId, error: res.error });
-    } catch (e) {
-      handleClientError(e, {
-        module: "services:session",
-        action: "generateTitle",
-      });
-      // 网络错误
-    }
-    const result = await tryTauri<{ title: string | null }>(
-      "generate_session_title",
-      { sessionId, userMessage, assistantResponse },
-    );
-    return result?.title || null;
-  },
-
   getCurrent: async (): Promise<Session | null> => {
     try {
       const res = await apiHttp.get<Session | null>("/v1/sessions/current");

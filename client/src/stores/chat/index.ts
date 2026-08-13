@@ -28,7 +28,6 @@ export {
 
 // Re-export history utilities
 export {
-  doAutoRename,
   _getCachedMessages,
   flushSaveBlocks,
 } from "./chat-history.slice";

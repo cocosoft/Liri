@@ -23,11 +23,9 @@ import {
 } from "./chat-toolcall.slice";
 import { addFilePathsFromBlocks } from "./chat-file.slice";
 import {
-  doAutoRename,
   SaveQueue,
   staleSessionCache,
 } from "./chat-history.slice";
-import { chatCoordinator } from "./chatCoordinator";
 import { handleClientError } from "@/utils/handleError";
 import { removeStreamController } from "./chat-message-shared";
 import {
@@ -521,7 +519,7 @@ export async function streamMessageImpl(
     }
 
     // 立即重置流式状态，让 UI 立刻响应（ThinkingBlock 收缩、tool_call 停止旋转）
-    // 不等待 updateMessageBlocks 和 doAutoRename 完成
+    // 不等待 updateMessageBlocks 完成（标题自动重命名由后端负责，P1-4）
     // P2-2: 仅清理本会话控制器，其他会话流不受影响
     const nextControllers = removeStreamController(
       get().streamControllers,
@@ -583,23 +581,8 @@ export async function streamMessageImpl(
       }
     }
 
-    // 再执行自动重命名（不阻塞 UI 状态）
-    if (chatCoordinator.shouldAutoRename(sessionId)) {
-      const finalMsgs = get().messages;
-      const finalMI = finalMsgs.findIndex((m) => m.id === assistantId);
-      const assistantResponse =
-        finalMI !== -1 ? finalMsgs[finalMI].content : "";
-      doAutoRename(sessionId!, content, assistantResponse).catch((e) =>
-        handleClientError(
-          e,
-          {
-            module: "stores:chat:message",
-            action: "streamMessage:autoRename",
-          },
-          "warn",
-        ),
-      );
-    }
+    // 自动重命名由后端 autoGenerateTitle 唯一负责（P1-4 消除双责任方竞态），
+    // 前端仅响应 session:renamed SSE 刷新标题（P2-4）。
 
     // 消息排队：自动消费队列中的下一条消息
     tryDequeue();

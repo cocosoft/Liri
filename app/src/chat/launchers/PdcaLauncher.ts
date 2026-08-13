@@ -146,6 +146,8 @@ export class PdcaLauncher {
         // RC-C 修复（08-09）：注入 TAORLoop 使真实工具执行分支可达
         const taskTaorLoop = this.deps.taorLoopFactory(sessionId);
         orchestrator.setTAORLoop(taskTaorLoop);
+        // D2（M3，2026-08-13）：注入每步独立 TAORLoop 工厂 → 无依赖步骤批次并行安全
+        orchestrator.setTAORLoopFactory(this.deps.taorLoopFactory);
         void orchestrator
           .runFullPdca(description, sessionId, {
             requirePlanApproval: false,

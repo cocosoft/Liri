@@ -184,6 +184,12 @@ export class LongRunningTaskOrchestrator {
    */
   private taorLoop?: TAORLoop;
   /**
+   * D2（M3，2026-08-13）：每步独立 TAORLoop 工厂（BatchRunner 并行安全前提）
+   * 注入工厂后 executeSingleStep 为每个步骤创建独立实例，杜绝共享实例状态串扰；
+   * 未注入时回退共享 taorLoop 串行执行（现状零回归）。
+   */
+  private taorLoopFactory?: (sessionId: string) => TAORLoop;
+  /**
    * Phase 4: VerifierAgent（双指标验证：CheckPassRate + Confidence）
    */
   private verifier: VerifierAgent;
@@ -300,6 +306,17 @@ export class LongRunningTaskOrchestrator {
     });
   }
 
+  /**
+   * D2（M3，2026-08-13）：注入每步独立 TAORLoop 工厂（无依赖步骤批次并行的安全前提）
+   * 工厂签名与 PdcaLauncher.deps.taorLoopFactory 一致：(sessionId) => TAORLoop。
+   */
+  setTAORLoopFactory(factory: (sessionId: string) => TAORLoop): void {
+    this.taorLoopFactory = factory;
+    logger.info('[orchestrator] TAORLoop 工厂已注入（每步独立实例，可并行）', {
+      taskId: this.taskId,
+    });
+  }
+
   // ─── Phase 1: PLAN ──────────────────────────────────
 
   async executePlanPhase(
@@ -395,24 +412,70 @@ export class LongRunningTaskOrchestrator {
     const plan = taskOrchestrator.getPlan(this.planId)!;
     plan.status = 'running';
 
-    for (const step of plan.steps) {
+    // D2（M3，2026-08-13）：无依赖步骤批次并行（依赖 step.dependsOn 拓扑分组）
+    const batches = this._groupStepsByDependency(plan.steps);
+    for (const batch of batches) {
       if (this.isolation.abortController.signal.aborted) break;
 
-      // 跳过已完成/失败/取消的步骤
-      if (
-        step.status === 'completed' ||
-        step.status === 'failed' ||
-        step.status === 'cancelled'
-      ) {
-        continue;
-      }
+      const runnable = batch.filter(
+        (s) =>
+          s.status !== 'completed' &&
+          s.status !== 'failed' &&
+          s.status !== 'cancelled'
+      );
+      if (runnable.length === 0) continue;
 
-      await this.executeSingleStep(step, plan);
+      // 并行前提：每步独立 TAORLoop 实例（工厂注入），杜绝共享实例状态串扰
+      const canParallel = runnable.length > 1 && !!this.taorLoopFactory;
+      if (canParallel) {
+        logger.info('[orchestrator] 无依赖步骤批次并行执行', {
+          taskId: this.taskId,
+          batchSize: runnable.length,
+          stepIds: runnable.map((s) => s.id),
+        });
+        await Promise.allSettled(
+          runnable.map((s) => this.executeSingleStep(s, plan))
+        );
+      } else {
+        for (const step of runnable) {
+          if (this.isolation.abortController.signal.aborted) break;
+          await this.executeSingleStep(step, plan);
+        }
+      }
     }
 
     // 检查全部完成
     this.setPhase('review');
     return taskOrchestrator.getPlan(this.planId)!;
+  }
+
+  /**
+   * D2（M3，2026-08-13）：按 step.dependsOn 做拓扑批次分组。
+   * 无 dependsOn 的步骤视为相互独立（可并行）；有 dependsOn 的步骤延迟到依赖批次之后。
+   * 当前 PDCA 流程未填充 dependsOn → 单批次（全部独立）；依赖模型启用后自动生效。
+   * 死锁/循环依赖兜底：整批剩余步骤串行执行（不阻塞主流程）。
+   */
+  private _groupStepsByDependency(steps: PlanStep[]): PlanStep[][] {
+    const remaining = new Map(steps.map((s) => [s.id, s]));
+    const batches: PlanStep[][] = [];
+
+    while (remaining.size > 0) {
+      const ready: PlanStep[] = [];
+      for (const step of remaining.values()) {
+        const deps = step.dependsOn ?? [];
+        // 依赖不在剩余集合 = 已执行完成或属于更早批次
+        if (deps.every((d) => !remaining.has(d))) ready.push(step);
+      }
+      if (ready.length === 0) {
+        // 循环依赖或残留依赖缺失：兜底按剩余顺序串行执行
+        batches.push([...remaining.values()]);
+        remaining.clear();
+        break;
+      }
+      for (const s of ready) remaining.delete(s.id);
+      batches.push(ready);
+    }
+    return batches;
   }
 
   /**
@@ -558,13 +621,15 @@ export class LongRunningTaskOrchestrator {
       .join('\n\n');
 
     // Phase 2: 委托 TAORLoop 编排（如果已注入且 ENABLE_LOOP_V8_PHASE2 启用）
-    if (
-      this.taorLoop &&
-      configManager.env('ENABLE_LOOP_V8_PHASE2') !== 'false'
-    ) {
+    // D2（M3，2026-08-13）：优先每步独立实例（工厂注入，并行安全）；否则共享实例（串行）
+    const loop = this.taorLoopFactory
+      ? this.taorLoopFactory(this.taskId)
+      : this.taorLoop;
+    if (loop && configManager.env('ENABLE_LOOP_V8_PHASE2') !== 'false') {
       logger.info('[orchestrator] 进入 TAORLoop 分支（真实工具执行）', {
         taskId: this.taskId,
         stepId: step.id,
+        perStepInstance: !!this.taorLoopFactory,
         toolNames: computeToolNames(EXECUTOR_ROLE.toolsets),
       });
       let taorStart = 0;
@@ -572,7 +637,7 @@ export class LongRunningTaskOrchestrator {
         const isolation = this.isolation;
         const executor = this.executor;
         const taskId = this.taskId;
-        (this.taorLoop as any).config.sessionId = this.taskId;
+        (loop as any).config.sessionId = this.taskId;
 
         // 持久化缓冲区（PDCA 模式下保持消息上下文）
         const persistedMessages: any[] = [];
@@ -717,7 +782,7 @@ export class LongRunningTaskOrchestrator {
 
         const messages: any[] = [{ role: 'user', content: execPrompt }];
         taorStart = Date.now();
-        const result = await this.taorLoop.runCollect({
+        const result = await loop.runCollect({
           messages: messages as never,
           deps,
         } as never);
@@ -730,7 +795,7 @@ export class LongRunningTaskOrchestrator {
           `[TAORLoop] turns=${result.turnCount} tokens=${result.totalTokens} elapsed=${taorElapsed}ms`
         );
         this._persistCheckpoint(); // P0(M2)
-        const log = (this.taorLoop as any).getLastRunLog?.();
+        const log = (loop as any).getLastRunLog?.();
         const dur = this.stepDurations.get(step.id);
         if (dur) dur.endMs = Date.now();
         const stepElapsed = dur && dur.endMs ? dur.endMs - dur.startMs : -1;

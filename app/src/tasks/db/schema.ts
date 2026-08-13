@@ -111,11 +111,17 @@ CREATE TABLE IF NOT EXISTS usage_records (
 CREATE INDEX IF NOT EXISTS idx_usage_session ON usage_records(session_id);
 CREATE INDEX IF NOT EXISTS idx_usage_date ON usage_records(date);
 
--- goal_metrics: PDCA 循环关键指标（Loop Phase 6: 基准度量）
+-- goal_metrics: PDCA 循环关键指标（Loop Phase 6: 基准度量；S2 2026-08-13 行粒度扩展）
+-- 两类行类型（不互踩字段）：
+--   row_type='goal'    → goal 聚合行（原单行语义，stage_id 为 NULL）
+--   row_type='stage'   → stage 粒度行（每阶段一行，含 stage_id，StageOrchestrator §4.6 成本双粒度）
+-- message 粒度成本由 usage_records 表（会话 usage 行）单独记录，见 GoalMetricsService
 CREATE TABLE IF NOT EXISTS goal_metrics (
   id TEXT PRIMARY KEY,
   goal_id TEXT NOT NULL,
   session_id TEXT NOT NULL,
+  row_type TEXT NOT NULL DEFAULT 'goal',
+  stage_id TEXT,
   total_turns INTEGER NOT NULL DEFAULT 0,
   total_tokens INTEGER NOT NULL DEFAULT 0,
   total_cost_usd REAL NOT NULL DEFAULT 0,
@@ -130,6 +136,7 @@ CREATE TABLE IF NOT EXISTS goal_metrics (
 
 CREATE INDEX IF NOT EXISTS idx_goal_metrics_goal_id ON goal_metrics(goal_id);
 CREATE INDEX IF NOT EXISTS idx_goal_metrics_session_id ON goal_metrics(session_id);
+CREATE INDEX IF NOT EXISTS idx_goal_metrics_row_type ON goal_metrics(row_type);
 
 -- Phase 3: 审批去重表（幂等保护）
 CREATE TABLE IF NOT EXISTS approval_dedup (

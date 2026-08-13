@@ -26,6 +26,7 @@ import {
 } from '../../ai/router/TaskDecomposer.js';
 import type { DecompositionResult } from '../../ai/router/TaskDecomposer.js';
 import { taskOrchestrator } from '../../tasks/TaskOrchestrator.js';
+import { goalMetricsService } from '../../tasks/db/GoalMetricsService.js';
 import type { Plan, PlanProgress } from '../../tasks/TaskOrchestrator.js';
 import type { AIProvider } from '../../ai/providers/AIProvider.js';
 
@@ -212,6 +213,23 @@ export class PlanDrivenLoop {
       // 降级：直接执行
       return this._executeDirect(userMessage);
     } finally {
+      // S2（2026-08-13）：message 粒度成本落库 usage_records（avgTokenCostPerTask 数据源，P1-5 §4）
+      void goalMetricsService
+        .init()
+        .then(() =>
+          goalMetricsService.recordMessageUsage({
+            sessionId: this.sessionId,
+            totalTokens: this.totalTokens,
+            durationMs: Date.now() - this.startTime,
+          })
+        )
+        .catch((err) =>
+          handleError(err, {
+            module: 'core:planDrivenLoop',
+            action: 'goalMetricsRecord',
+            context: { sessionId: this.sessionId },
+          })
+        );
       try {
         otel.endSpan(span);
       } catch {

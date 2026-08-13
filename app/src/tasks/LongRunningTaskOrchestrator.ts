@@ -31,6 +31,7 @@ import {
 } from '@modules/error';
 import { LifecycleTracker } from './LifecycleTracker';
 import type { LifecycleEvent } from './LifecycleTracker';
+import { goalMetricsService } from './db/GoalMetricsService';
 import { createAgentIsolation, throwIfAborted } from '../agent/AgentIsolation';
 import { computeToolNames, resolveToolsets } from '../tools/toolsets';
 import { generateAuditReport } from './AuditReport';
@@ -169,6 +170,10 @@ export class LongRunningTaskOrchestrator {
   /** §5 P1: 任务消息回写回调（runFullPdca 注入）与当前 sessionId */
   private _onTaskMessage?: (sessionId: string, msgs: TaskMessage[]) => void;
   private _sessionId: string | null = null;
+  /** S2（2026-08-13）：TAORLoop 步骤 token 累计（goal_metrics stage 行数据源） */
+  private _totalTokensTracked = 0;
+  /** S2：任务开始时间（duration 计算） */
+  private _startedAt = 0;
   private decisionAwait: Promise<ReviewDecision> | null = null;
   private decisionResolve: ((d: ReviewDecision) => void) | null = null;
   private auditReport: AuditReport | null = null;
@@ -717,6 +722,8 @@ export class LongRunningTaskOrchestrator {
           deps,
         } as never);
         const taorElapsed = Date.now() - taorStart;
+        // S2（2026-08-13）：累计 TAORLoop token，阶段边界结算落库 goal_metrics
+        this._totalTokensTracked += result.totalTokens;
 
         taskOrchestrator.markStepCompleted(
           step.id,
@@ -1166,6 +1173,7 @@ export class LongRunningTaskOrchestrator {
     // §5 P1: 记录回写目标会话与回调，供 executeSingleStep 使用
     this._sessionId = sessionId;
     this._onTaskMessage = opts?.onTaskMessage;
+    this._startedAt = Date.now();
     const requireApproval = opts?.requirePlanApproval ?? false;
 
     logger.info('[orchestrator] runFullPdca 开始', {
@@ -1489,6 +1497,8 @@ export class LongRunningTaskOrchestrator {
     this.auditReport = this.generateReport();
     this.persistAuditReport(this.auditReport);
     this.lifecycle.record('finalized', TaskStatus.COMPLETED, 'PDCA completed');
+    // S2（2026-08-13）：阶段边界落库 goal_metrics（row_type='stage'）
+    this._recordGoalStageMetric('pdca_completed');
 
     // §5 P2: 任务完成事件广播（前端按 sessionId 过滤渲染）
     const _finalStatus = this.getStatus();
@@ -1588,6 +1598,35 @@ export class LongRunningTaskOrchestrator {
   async abort(): Promise<void> {
     this.isolation.abort('User aborted');
     this.lifecycle.record('finalized', TaskStatus.FAILED, 'Aborted by user');
+    // S2（2026-08-13）：中止路径同样落库（超时/失败节点）
+    this._recordGoalStageMetric('pdca_aborted');
+  }
+
+  /**
+   * S2（2026-08-13）：阶段边界落库 goal_metrics（row_type='stage'，P1-5 §5 S2 + StageOrchestrator §4.6）
+   * 仅在真实任务完成/中止时记录；写入失败不阻断主流程（fire-and-forget + handleError 降级日志）。
+   */
+  private _recordGoalStageMetric(stageId: string): void {
+    const metrics = this.getMetrics();
+    void goalMetricsService
+      .init()
+      .then(() =>
+        goalMetricsService.recordStageMetric({
+          goalId: this.taskId,
+          sessionId: this._sessionId ?? '',
+          stageId,
+          totalTurns: metrics.totalSteps,
+          totalTokens: this._totalTokensTracked,
+          durationMs: this._startedAt > 0 ? Date.now() - this._startedAt : 0,
+        })
+      )
+      .catch((err) =>
+        handleError(err, {
+          module: 'tasks:longRunning',
+          action: 'goalMetricsRecord',
+          context: { taskId: this.taskId, stageId },
+        })
+      );
   }
 
   async shutdown(): Promise<void> {

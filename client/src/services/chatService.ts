@@ -348,8 +348,9 @@ async function getTauriCore() {
  * 构建带鉴权的请求头（与 httpClient.buildHeaders 对齐）：
  * 启用 LIRI_API_SECRET 时注入 X-API-Key，登录态注入 Bearer token。
  * 裸 fetch 统一走此函数，避免配置 API Secret 后全部 401（P2 修复）。
+ * 导出供 connectionMonitor/sseService 等裸 fetch 复用（BUG-2/BUG-4 修复）。
  */
-function buildAuthHeaders(
+export function buildAuthHeaders(
   extra?: Record<string, string>,
 ): Record<string, string> {
   const headers: Record<string, string> = {
@@ -1118,6 +1119,13 @@ export const chatService = {
         reader.releaseLock();
       }
     } catch (e) {
+      // BUG-3 修复：fetch 阶段（fetch 尚未 resolve）被 abort 也落入外层 catch——
+      // 与内层 reader 循环（AbortError → "请求已取消"）语义一致，用户主动取消
+      // 不再误报"请求失败/BACKEND_UNREACHABLE"（触发"无法连接后端服务"提示）。
+      if (e instanceof DOMException && e.name === "AbortError") {
+        yield { type: "error", content: "请求已取消", errorCode: "UNKNOWN" };
+        return;
+      }
       handleClientError(e, {
         module: "services:chat",
         action: "streamMessage-outer",

@@ -17,6 +17,8 @@
 
 import { createLogger } from "../utils/logger";
 import { getBackendBaseUrl } from "./backendUrl";
+// BUG-2 修复：健康检查复用统一鉴权头（后端对全部请求统一鉴权，含 /health）
+import { buildAuthHeaders } from "./chatService";
 
 const logger = createLogger("services:connection-monitor");
 
@@ -151,6 +153,8 @@ async function checkBackendHealth(): Promise<boolean> {
   try {
     const res = await fetch(`${getBackendBaseUrl()}/health`, {
       method: "GET",
+      // BUG-2 修复：配置 LIRI_API_SECRET 时缺鉴权头健康检查恒 401 → 误判后端掉线
+      headers: buildAuthHeaders(),
       signal: AbortSignal.timeout(HEALTH_TIMEOUT_MS),
     });
     return res.ok;

@@ -1,4 +1,6 @@
 import { getBackendBaseUrl } from "./backendUrl";
+// BUG-4 修复：心跳 HEAD 复用统一鉴权头（配置 LIRI_API_SECRET 时缺头恒 401 → 保活失效）
+import { buildAuthHeaders } from "./chatService";
 import { getOTelTracing } from "../monitoring/otel/OTelTracing";
 import { createLogger } from "../utils/logger";
 
@@ -296,11 +298,13 @@ class SSEService {
       // 仅当 SSE 连接正常时才发送心跳
       if (!this.isConnected()) return;
 
-      fetch(`${getBackendBaseUrl()}/v1/events`, { method: "HEAD" }).catch(
-        () => {
-          // 心跳失败静默处理，不干扰主流程
-        },
-      );
+      fetch(`${getBackendBaseUrl()}/v1/events`, {
+        method: "HEAD",
+        // BUG-4 修复：与主连接鉴权一致，配置 LIRI_API_SECRET 时心跳不再 401
+        headers: buildAuthHeaders(),
+      }).catch(() => {
+        // 心跳失败静默处理，不干扰主流程
+      });
     }, 30000);
   }
 

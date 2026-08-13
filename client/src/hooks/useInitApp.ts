@@ -188,8 +188,13 @@ export function useInitApp() {
       }
     };
 
+    // BUG-1 修复：heartbeat 处理函数提升为稳定引用——原实现注册传内联箭头
+    // `() => checkBackendStatus()`、cleanup 传 `checkBackendStatus`（不同引用），
+    // sseService.off 按引用删除永远删不掉监听器 → StrictMode/HMR 下泄漏累积。
+    const onHeartbeat = () => checkBackendStatus();
+
     try {
-      sseService.on("heartbeat", () => checkBackendStatus());
+      sseService.on("heartbeat", onHeartbeat);
       sseService.on("session:renamed", refreshSessions);
       sseService.on("session:created", refreshSessions);
       sseService.on("session:deleted", refreshSessions);
@@ -206,7 +211,7 @@ export function useInitApp() {
     }
 
     return () => {
-      sseService.off("heartbeat", checkBackendStatus);
+      sseService.off("heartbeat", onHeartbeat);
       sseService.off("session:renamed", refreshSessions);
       sseService.off("session:created", refreshSessions);
       sseService.off("session:deleted", refreshSessions);

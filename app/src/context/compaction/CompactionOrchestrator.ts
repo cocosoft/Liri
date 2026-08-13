@@ -88,11 +88,16 @@ export class CompactionOrchestrator {
 
   /**
    * 执行压缩编排
+   * @param options.skipTier3Sync 异步压缩模式（2026-08-14 补充落地，对应复查
+   *   "三处调用点仍同步 await" 的剩余项）：发送路径不阻塞等待 Tier3（LLM 摘要），
+   *   仅同步执行 Tier1/2（毫秒级），Tier3 由调用方发送后经 compactSessionInBackground
+   *   后台执行写回会话（下一轮生效）。
    * @returns 压缩后的消息，以及是否应用了压缩
    */
   async compact(
     messages: ChatMessage[],
-    ctx: CompactionContext
+    ctx: CompactionContext,
+    options?: { skipTier3Sync?: boolean }
   ): Promise<{ messages: ChatMessage[]; applied: boolean }> {
     // 防止双管线并发压缩同一会话
     if (ctx.sessionId) {
@@ -147,7 +152,13 @@ export class CompactionOrchestrator {
       // 且旧代码 signal 未透传导致 Tier3 僵尸请求继续跑。见 _runFullCompactionWithTimeout。
       let result: { messages: ChatMessage[]; applied: boolean };
       try {
-        result = await this._doCompact(messages, ctx, decision, startTime);
+        result = await this._doCompact(
+          messages,
+          ctx,
+          decision,
+          startTime,
+          options
+        );
       } catch (err) {
         // 非超时错误：记录 + 返回 fallback，不抛向上层（上层可能没有 catch）
         await handleError(err, {
@@ -193,8 +204,21 @@ export class CompactionOrchestrator {
   ): Promise<boolean> {
     const snapshotCount = getMessages().length;
     if (snapshotCount === 0) return false;
+    // 排查日志：后台压缩入口（记录触发条件，与 compact() 内部"①触发评估/决策"日志串联）
+    logger.info('compaction:bg_start — 后台压缩开始', {
+      sessionId: ctx.sessionId,
+      model: ctx.model,
+      messageCount: snapshotCount,
+    });
     const result = await this.compact(getMessages(), ctx);
-    if (!result.applied) return false;
+    if (!result.applied) {
+      // 排查日志：压缩未应用（决策 skip 或压缩未降体积）——区分"无需压缩"与"压缩失败"
+      logger.debug('compaction:bg_no_effect — 压缩未应用', {
+        sessionId: ctx.sessionId,
+        messageCount: snapshotCount,
+      });
+      return false;
+    }
     // 守卫：压缩期间消息有变更 → 放弃写回（避免覆盖压缩期间新增的消息）
     if (getMessages().length !== snapshotCount) {
       logger.warn('compaction:bg_skip — 压缩期间消息有变更，放弃写回', {
@@ -208,6 +232,7 @@ export class CompactionOrchestrator {
     logger.info('compaction:bg_applied — 后台压缩已写回会话', {
       sessionId: ctx.sessionId,
       messageCount: result.messages.length,
+      beforeCount: snapshotCount,
     });
     return true;
   }
@@ -217,7 +242,8 @@ export class CompactionOrchestrator {
     messages: ChatMessage[],
     ctx: CompactionContext,
     decision: ReturnType<AutoCompactionPolicy['evaluate']>,
-    startTime: number
+    startTime: number,
+    options?: { skipTier3Sync?: boolean }
   ): Promise<{ messages: ChatMessage[]; applied: boolean }> {
     const beforeTokens = decision.snapshot.tokens;
 
@@ -274,14 +300,27 @@ export class CompactionOrchestrator {
           beforeTokens,
         });
 
-        const fullResult = await this._runFullCompactionWithTimeout(
-          result.messages,
-          ctx
-        );
-        if (fullResult.applied) {
-          tier = 3;
-          triggerLabel = 'full_compaction';
-          result = fullResult;
+        // 异步压缩模式（2026-08-14 补充落地）：发送路径不阻塞等待 LLM 摘要。
+        // Tier2 结果立即返回（毫秒级 + C5 截断兜底保证不超窗口），Tier3 由
+        // 调用方发送后经 compactSessionInBackground 后台执行写回会话。
+        if (options?.skipTier3Sync) {
+          logger.info(
+            'compaction:async — 发送路径跳过同步 Tier3（后台执行写回）',
+            {
+              sessionId: ctx.sessionId,
+              tier2Applied: result.applied,
+            }
+          );
+        } else {
+          const fullResult = await this._runFullCompactionWithTimeout(
+            result.messages,
+            ctx
+          );
+          if (fullResult.applied) {
+            tier = 3;
+            triggerLabel = 'full_compaction';
+            result = fullResult;
+          }
         }
       }
     }

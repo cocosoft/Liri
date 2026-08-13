@@ -1020,8 +1020,7 @@ export async function launch(options: LaunchOptions): Promise<void> {
       if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
       const ts = new Date().toISOString().replace(/[:.]/g, '-');
       const file = join(dir, `crash-${ts}.json`);
-      const err =
-        error instanceof Error ? error : new Error(String(error));
+      const err = error instanceof Error ? error : new Error(String(error));
       const dump = {
         timestamp: new Date().toISOString(),
         type,
@@ -1036,6 +1035,10 @@ export async function launch(options: LaunchOptions): Promise<void> {
         argv: process.argv,
       };
       writeFileSync(file, JSON.stringify(dump, null, 2), 'utf8');
+      // 排查日志：转储写入成功（崩溃边缘用 console 而非 logger，避免依赖未初始化的模块）
+      console.error(
+        `[crash-dump] 崩溃转储已写入: ${file}（${type}，错误: ${err.message.slice(0, 200)}，${dump.stack ? `堆栈长度 ${dump.stack.length} 字符` : '无堆栈'}）`
+      );
     } catch (e) {
       // 转储失败不阻塞原有兜底逻辑，仅输出 stderr
       console.error('[crash-dump] 写入崩溃转储失败', e);

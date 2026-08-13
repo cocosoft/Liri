@@ -215,7 +215,10 @@ export class StreamPipeline {
     try {
       const compResult = await compactionOrchestrator.compact(
         this.ctx.apiMessages as unknown as ChatMessage[],
-        { model: options?.model || '', sessionId: session.id }
+        { model: options?.model || '', sessionId: session.id },
+        // 异步压缩（2026-08-14 补充落地）：发送路径不阻塞等待 Tier3（LLM 摘要），
+        // 仅同步 Tier1/2；Tier3 由发送后 compactSessionInBackground 后台执行写回
+        { skipTier3Sync: true }
       );
       if (compResult.applied) {
         span.addEvent('compaction.applied', {

@@ -400,8 +400,27 @@ export class OpenAIProvider extends BaseAIProvider {
       };
     } catch (error) {
       if (error instanceof AppError) throw error;
+      // SSL/TLS 证书错误检测（与 generateImage L567-577 保持一致，CS01 归一化）：
+      // 这类错误是环境问题（系统 CA 信任库 / 代理 MITM 证书），错误消息附带
+      // 可执行的修复提示，便于用户自诊断（NODE_EXTRA_CA_CERTS / 代理证书信任）。
+      const errorMessage = (error as Error).message || String(error);
+      const isSSLError = /certificate|ssl|tls|unable to verify/i.test(
+        errorMessage
+      );
+      logger.warn('OpenAIProvider.stream() · 请求失败', {
+        providerId: this.id,
+        isSSLError,
+        error: errorMessage,
+      });
+      const userHint = isSSLError
+        ? `SSL 证书验证失败。请尝试以下操作：\n` +
+          `1. 设置环境变量 NODE_EXTRA_CA_CERTS 指向系统 CA 证书文件\n` +
+          `   （如 Git\\mingw64\\ssl\\cert.pem 或 curl\\ca-bundle.crt）\n` +
+          `2. 如在代理环境下使用，请确认代理证书已加入信任列表\n` +
+          `原始错误: ${errorMessage}`
+        : errorMessage;
       throw new AppError(
-        `OpenAI stream failed: ${(error as Error).message}`,
+        `OpenAI stream failed: ${userHint}`,
         ErrorCategory.EXECUTION,
         ErrorSeverity.HIGH,
         '1000'

@@ -13,6 +13,10 @@ import { resolveDataDir } from '@modules/core/paths';
 import { randomUUID } from 'crypto';
 import type { ProjectContextType } from '@modules/workspace/types';
 import { createProjectHistoryStore } from './ProjectHistoryStore';
+import {
+  createRequirementTracker,
+  type RequirementType,
+} from './RequirementTracker';
 import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error';
@@ -181,6 +185,8 @@ export class ImplicitEngineHook {
     deliverables: number;
     hasGoal: boolean;
     goalSummary?: string;
+    /** D3/M5：本次注册的需求（goal/requirement 上下文）数 */
+    registeredRequirements: number;
   }> {
     const otel = getOTelTracing();
     const span = otel.startSpan('ImplicitEngineHook.persist');
@@ -192,6 +198,7 @@ export class ImplicitEngineHook {
         deliverables: 0,
         hasGoal: false,
         goalSummary: undefined as string | undefined,
+        registeredRequirements: 0,
       };
       const { contexts, deliverables } = this.process(text);
       if (contexts.length === 0 && deliverables.length === 0) {
@@ -213,6 +220,29 @@ export class ImplicitEngineHook {
       if (!existsSync(projectDir)) {
         mkdirSync(projectDir, { recursive: true });
       }
+
+      // D3/M5：需求追踪 — goal/requirement 上下文注册 requirementId（同内容去重复用）
+      const requirementTracker = createRequirementTracker(projectId, root);
+      const requirementIds: string[] = [];
+      for (const ctx of contexts) {
+        if (ctx.type === 'goal' || ctx.type === 'requirement') {
+          try {
+            const req = requirementTracker.register({
+              type: ctx.type as RequirementType,
+              content: ctx.content,
+              sessionId,
+            });
+            if (!requirementIds.includes(req.id)) requirementIds.push(req.id);
+            result.registeredRequirements++;
+          } catch (err) {
+            void handleError(err, {
+              module: 'project:ImplicitEngine',
+              action: 'registerRequirement',
+            });
+          }
+        }
+      }
+      const primaryRequirementId = requirementIds[0];
 
       // 写入 rules.md
       const rulesPath = join(projectDir, 'rules.md');
@@ -242,6 +272,8 @@ export class ImplicitEngineHook {
         title: string;
         content: string;
         createdAt: string;
+        /** D3/M5：关联的需求 ID（产物证据 → 需求映射） */
+        requirementId?: string;
       }
       let artifacts: ArtifactEntry[] = [];
       if (existsSync(artifactsPath)) {
@@ -262,6 +294,7 @@ export class ImplicitEngineHook {
             title: del.slice(0, 80),
             content: del,
             createdAt: new Date().toISOString(),
+            requirementId: primaryRequirementId,
           });
           result.deliverables++;
         }
@@ -314,7 +347,12 @@ export class ImplicitEngineHook {
         module: 'project:ImplicitEngine',
         action: 'persist',
       });
-      return { contexts: 0, deliverables: 0, hasGoal: false };
+      return {
+        contexts: 0,
+        deliverables: 0,
+        hasGoal: false,
+        registeredRequirements: 0,
+      };
     } finally {
       span.end();
     }

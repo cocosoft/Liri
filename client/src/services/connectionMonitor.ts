@@ -101,6 +101,26 @@ let failCount = 0;
 let currentState = ConnectionState.CONNECTED;
 let history: ConnectionTransition[] = [];
 
+// 断连挂起-恢复机制（阶段 2 地基）：状态变更订阅者。
+// UI（ChatArea Banner）与 chat store（paused 恢复路由）据此实时感知掉线/恢复，
+// 不再只能轮询 getState()。
+export type ConnectionListener = (
+  state: ConnectionState,
+  prev: ConnectionState,
+) => void;
+const listeners = new Set<ConnectionListener>();
+
+/** 通知全部订阅者（单个监听器异常不影响其他订阅者） */
+function notifyListeners(state: ConnectionState, prev: ConnectionState): void {
+  for (const listener of listeners) {
+    try {
+      listener(state, prev);
+    } catch (e) {
+      logger.warn("连接状态监听器异常", { error: String(e) });
+    }
+  }
+}
+
 /** 记录一次状态转移（校验合法性；非法转移仅 warn 不抛错） */
 function transition(to: ConnectionState, reason: string): void {
   const from = currentState;
@@ -124,6 +144,7 @@ function transition(to: ConnectionState, reason: string): void {
   } else {
     logger.info(`连接状态: ${from} → ${to}`, { reason });
   }
+  notifyListeners(to, from);
 }
 
 async function checkBackendHealth(): Promise<boolean> {
@@ -202,8 +223,42 @@ export const connectionMonitor = {
     return currentState;
   },
 
+  /**
+   * N8-1：立即探测一次后端健康（不改变状态机）。
+   * 供挂起自动恢复轮询使用——<30s 最短掉线场景下状态机从未经历
+   * DISCONNECTED→CONNECTED 转移，onBackendUp 不触发，需主动探测兜底。
+   */
+  healthCheckOnce(): Promise<boolean> {
+    return checkBackendHealth();
+  },
+
   /** 状态转移历史（不可变快照） */
   getHistory(): ConnectionTransition[] {
     return [...history];
+  },
+
+  /**
+   * 订阅连接状态变更（断连挂起-恢复机制地基）。
+   * 每次状态转移（含恢复）都会回调 listener(state, prev)；返回退订函数。
+   */
+  subscribe(listener: ConnectionListener): () => void {
+    listeners.add(listener);
+    return () => {
+      listeners.delete(listener);
+    };
+  },
+
+  /** 订阅"后端恢复"事件（进入 CONNECTED 时触发，返回退订函数） */
+  onBackendUp(cb: () => void): () => void {
+    return connectionMonitor.subscribe((state) => {
+      if (state === ConnectionState.CONNECTED) cb();
+    });
+  },
+
+  /** 订阅"后端掉线"事件（进入 DISCONNECTED 时触发，返回退订函数） */
+  onBackendDown(cb: () => void): () => void {
+    return connectionMonitor.subscribe((state) => {
+      if (state === ConnectionState.DISCONNECTED) cb();
+    });
   },
 };

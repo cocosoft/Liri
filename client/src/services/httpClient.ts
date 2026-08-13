@@ -141,6 +141,11 @@ async function request<T>(
  * 带指数退避重试的 fetch 包装器
  * 可重试状态码: 429, 503, 504
  * 网络错误也重试（AbortError 除外）
+ *
+ * BUG-4 修复：重试按方法区分——POST/PATCH 为非幂等写操作，请求若已到达后端
+ * 但响应在网络中丢失，重试会重复副作用（如 POST /v1/sessions 重复创建会话、
+ * POST /v1/chat/completions 重复生成）。仅幂等方法（GET/HEAD/PUT/DELETE）重试，
+ * POST/PATCH 只在 attempt=0 请求一次。
  */
 async function fetchWithRetry(
   url: string,
@@ -151,9 +156,13 @@ async function fetchWithRetry(
   const MAX_RETRIES = 3;
   const BASE_BACKOFF_MS = 1000;
 
+  const method = (options.method ?? "GET").toUpperCase();
+  const isIdempotent = method !== "POST" && method !== "PATCH";
+  const effectiveMaxRetries = isIdempotent ? MAX_RETRIES : 0;
+
   let lastError: unknown;
 
-  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+  for (let attempt = 0; attempt <= effectiveMaxRetries; attempt++) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeout);
 
@@ -168,7 +177,7 @@ async function fetchWithRetry(
       if (
         !res.ok &&
         RETRYABLE_STATUSES.has(res.status) &&
-        attempt < MAX_RETRIES
+        attempt < effectiveMaxRetries
       ) {
         const delay = BASE_BACKOFF_MS * Math.pow(2, attempt);
         await new Promise((r) => setTimeout(r, delay));
@@ -199,8 +208,8 @@ async function fetchWithRetry(
         };
       }
 
-      // 网络错误：重试
-      if (attempt < MAX_RETRIES) {
+      // 网络错误：幂等方法重试；POST/PATCH 不重试（防副作用重复）
+      if (attempt < effectiveMaxRetries) {
         const delay = BASE_BACKOFF_MS * Math.pow(2, attempt);
         await new Promise((r) => setTimeout(r, delay));
         continue;

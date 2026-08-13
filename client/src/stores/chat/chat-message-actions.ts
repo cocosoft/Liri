@@ -275,6 +275,52 @@ export async function retryFromErrorImpl(
 }
 
 /**
+ * B-C1 修复：真「继续生成」——以点击的 AI 消息为回复引用，自动发送"请继续"指令，
+ * 后端以整轮对话（含该消息）为上下文，AI 接着输出（区别于旧"仅设为引用、需用户自己输入"）。
+ */
+export async function continueGenerationImpl(
+  set: MessageSet,
+  get: MessageGet,
+  assistantMsgId: string,
+  sessionId?: string,
+  prompt?: string,
+): Promise<void> {
+  const { messages, isStreaming } = get();
+
+  // 边界条件1：流式输出中（含其他会话并行流）忽略，防重复生成
+  if (isStreaming) {
+    logger.warn("continueGeneration: 流式输出中，忽略继续生成请求");
+    return;
+  }
+
+  const aiMsg = messages.find((m) => m.id === assistantMsgId);
+  if (!aiMsg || aiMsg.role !== "assistant") return;
+
+  const sid = sessionId || aiMsg.session_id || messages[0]?.session_id;
+  if (!sid) return;
+
+  // 以该 AI 消息为回复引用（用户消息带 replyToId，AI 可见引用内容），
+  // pendingReplyToId 由 streamMessageImpl 消费后自动清空
+  set({ pendingReplyToId: assistantMsgId });
+
+  try {
+    await get().streamMessage(prompt || "请继续", sid);
+  } catch (error) {
+    handleClientError(
+      error,
+      { module: "stores:chat:message", action: "continueGeneration" },
+      "warn",
+    );
+    set({
+      error: String(error),
+      isSending: false,
+      isInputBlocked: false,
+      isStreaming: Object.keys(get().streamControllers).length > 0,
+    });
+  }
+}
+
+/**
  * 取消当前流式请求（J1）
  */
 export function stopMessageImpl(set: MessageSet, get: MessageGet): void {
@@ -283,6 +329,15 @@ export function stopMessageImpl(set: MessageSet, get: MessageGet): void {
   const sessionId = state.messages[0]?.session_id ?? "";
   const controller = sessionId ? state.streamControllers[sessionId] : undefined;
   if (controller) {
+    // 阶段2：挂起中的流 —— 用户点停止 = 放弃本次回复
+    // （终止挂起等待 + 中止控制器 + 清理暂停状态；不进入下方普通 abort 路径，
+    //  避免检查点恢复提示与"放弃"语义冲突）
+    if (sessionId && state.pausedStreams[sessionId]) {
+      logger.warn("stopMessage: 挂起中的流被用户放弃", { sessionId });
+      get().abortPausedStream(sessionId);
+      return;
+    }
+
     // P2-6: 保存中止恢复点（fire-and-forget，不阻塞 UI）
     if (sessionId) {
       const assistantMsg = [...state.messages]

@@ -33,11 +33,18 @@ function ChatArea({ fluid = false }: { fluid?: boolean }) {
     recoverySessionId,
     dismissRecovery,
     resumeRecovery,
+    // 阶段2 断连挂起-恢复
+    pausedStreams,
+    resumeStream,
+    abortPausedStream,
   } = useChatStore();
   const { currentSession, createSession } = useSessionStore();
   const backendRunning = useBackendStore((s) => s.status.running);
   const config = useConfigStore((s) => s.config);
   const isDark = config.theme === "dark";
+  // 阶段2：当前会话若存在挂起流则显示断连 Banner
+  const currentSid = currentSession?.id;
+  const pausedInfo = currentSid ? pausedStreams[currentSid] : undefined;
 
   /** 诊断：会话变化时记录 */
   useEffect(() => {
@@ -280,6 +287,39 @@ function ChatArea({ fluid = false }: { fluid?: boolean }) {
               >
                 ✕
               </button>
+            </div>
+          )}
+
+          {/* 阶段2: 断连挂起提示 */}
+          {currentSid && pausedInfo && (
+            <div className="m-4 p-4 bg-sky-50 dark:bg-sky-900/30 border border-sky-200 dark:border-sky-800 rounded-xl flex items-start gap-3">
+              <span className="text-sky-500 dark:text-sky-400 flex-shrink-0 mt-0.5 text-lg">
+                📡
+              </span>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm text-sky-800 dark:text-sky-200 font-medium">
+                  {pausedInfo.phase === "recovering"
+                    ? t("chat.pausedStreamRecovering")
+                    : t("chat.pausedStreamTitle")}
+                </p>
+                <p className="text-xs text-sky-600 dark:text-sky-400 mt-1">
+                  {t("chat.pausedStreamDesc")}
+                </p>
+                <div className="flex items-center gap-2 mt-3">
+                  <button
+                    onClick={() => resumeStream(currentSid)}
+                    className="text-xs px-3 py-1.5 rounded bg-sky-500 text-white hover:bg-sky-600 transition-colors font-medium"
+                  >
+                    {t("chat.pausedStreamResume")}
+                  </button>
+                  <button
+                    onClick={() => abortPausedStream(currentSid)}
+                    className="text-xs px-3 py-1.5 rounded bg-sky-100 dark:bg-sky-800/50 text-sky-600 dark:text-sky-300 hover:bg-sky-200 dark:hover:bg-sky-700/50 transition-colors"
+                  >
+                    {t("chat.pausedStreamAbandon")}
+                  </button>
+                </div>
+              </div>
             </div>
           )}
 

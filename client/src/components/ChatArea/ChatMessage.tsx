@@ -85,8 +85,8 @@ function getFullContent(
           const lines = [`**${labels.toolCall}${tc.name}**`];
           if (argsStr)
             lines.push(`${labels.parameters}\n\`\`\`json\n${argsStr}\n\`\`\``);
-          if (resultStr)
-            lines.push(`${labels.result}\n${resultStr.slice(0, 500)}`);
+          // B-A2 修复：复制纯文本时工具结果不再截断（原 .slice(0,500) 导致复制内容不完整）
+          if (resultStr) lines.push(`${labels.result}\n${resultStr}`);
           parts.push(lines.join("\n\n"));
         }
       }
@@ -108,10 +108,10 @@ const ChatMessageMemo = memo(
     sessionUsage,
   }: ChatMessageProps) {
     const { t } = useTranslation();
-    const setReplyMessage = useChatStore((s) => s.setReplyMessage);
     const setEditTarget = useChatStore((s) => s.setEditTarget);
     const regenerateMessage = useChatStore((s) => s.regenerateMessage);
     const retryFromError = useChatStore((s) => s.retryFromError);
+    const continueGeneration = useChatStore((s) => s.continueGeneration);
     const deleteMessage = useChatStore((s) => s.deleteMessage);
     const rollbackToMessage = useChatStore((s) => s.rollbackToMessage);
     const restoreRollback = useChatStore((s) => s.restoreRollback);
@@ -183,6 +183,12 @@ const ChatMessageMemo = memo(
               parameters: t("chat.parameters"),
               result: t("chat.result"),
             });
+        // B-A1 修复：内容为空时提示失败而非"已复制"（AI 仅输出 thinking/工具调用时 content 为空）
+        if (!textToCopy.trim()) {
+          setCopyToast("failed");
+          setTimeout(() => setCopyToast(null), 2000);
+          return;
+        }
         await navigator.clipboard.writeText(textToCopy);
         setCopyToast("copied");
         setTimeout(() => setCopyToast(null), 2000);
@@ -206,8 +212,14 @@ const ChatMessageMemo = memo(
       retryFromError(message.id, message.session_id);
     };
 
+    // B-C1 修复：真「继续生成」——以该 AI 消息为引用，自动发送"请继续"触发新一轮生成
     const handleContinue = () => {
-      setReplyMessage(message);
+      if (storeIsStreaming) return;
+      continueGeneration(
+        message.id,
+        message.session_id,
+        t("chat.continuePrompt"),
+      );
     };
 
     /** 沉淀为成果：手动将 AI 回复保存到项目成果区 */
@@ -295,7 +307,17 @@ const ChatMessageMemo = memo(
     const handleSaveToKnowledge = async (title: string, base: string) => {
       const content =
         typeof message.content === "string" ? message.content : "";
-      await knowledgeService.saveFromChat({ base, title, content });
+      // B-D2 修复：内容为空时直接抛错提示（避免后端 400 + 弹窗误导）
+      if (!content.trim()) {
+        throw new Error(t("chat.saveEmptyContent"));
+      }
+      // B-D3 修复：补传 sessionId，后端 frontmatter 写入 savedFrom 溯源
+      await knowledgeService.saveFromChat({
+        base,
+        title,
+        content,
+        sessionId: message.session_id,
+      });
     };
 
     const openSaveModal = () => {
@@ -501,9 +523,10 @@ const ChatMessageMemo = memo(
                   className="hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
                   aria-label={t("chat.copyMessage")}
                   title={
+                    // B-A2 修复：Shift+Click 提示文案改"复制纯文本"（原误用 copyMessage）
                     t("chat.copyMessage") +
                     " (Shift+Click: " +
-                    t("chat.copyMessage") +
+                    t("chat.copyPlainText") +
                     ")"
                   }
                 >
@@ -515,19 +538,23 @@ const ChatMessageMemo = memo(
               {!isUser && !isTool && (
                 <button
                   onClick={handleRegenerate}
-                  disabled={isStreaming}
-                  className={`${isStreaming ? "cursor-not-allowed text-gray-300 dark:text-gray-600" : "hover:text-gray-600 dark:hover:text-gray-300"} transition-colors`}
+                  // B-B1 修复：禁用条件补全局 isStreaming——ChatMessageList 只对最后一条
+                  // assistant 传 isStreaming=true，跨会话并行流式时历史消息按钮需同样禁用
+                  disabled={isStreaming || storeIsStreaming}
+                  className={`${isStreaming || storeIsStreaming ? "cursor-not-allowed text-gray-300 dark:text-gray-600" : "hover:text-gray-600 dark:hover:text-gray-300"} transition-colors`}
                   aria-label={t("chat.regenerate")}
                 >
-                  {isStreaming ? "⏳" : "🔄"} {t("chat.regenerate")}
+                  {isStreaming || storeIsStreaming ? "⏳" : "🔄"}{" "}
+                  {t("chat.regenerate")}
                 </button>
               )}
 
-              {/* AI 消息：续写常驻 */}
+              {/* AI 消息：继续生成常驻（B-C1 真续写；B-C2 流式中禁用） */}
               {!isUser && !isTool && (
                 <button
                   onClick={handleContinue}
-                  className="hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                  disabled={storeIsStreaming}
+                  className={`${storeIsStreaming ? "cursor-not-allowed text-gray-300 dark:text-gray-600" : "hover:text-gray-600 dark:hover:text-gray-300"} transition-colors`}
                   aria-label={t("chat.continueGenerate")}
                 >
                   ✏️ {t("chat.continueGenerate")}
@@ -739,7 +766,7 @@ const ChatMessageMemo = memo(
                       handleRegenerate();
                       closeContextMenu();
                     }}
-                    disabled={isStreaming}
+                    disabled={isStreaming || storeIsStreaming}
                     className="w-full px-4 py-2.5 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-40 flex items-center gap-2"
                   >
                     🔄 {t("chat.regenerate")}
@@ -749,7 +776,8 @@ const ChatMessageMemo = memo(
                       handleContinue();
                       closeContextMenu();
                     }}
-                    className="w-full px-4 py-2.5 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+                    disabled={storeIsStreaming}
+                    className="w-full px-4 py-2.5 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-40 flex items-center gap-2"
                   >
                     ✏️ {t("chat.continueGenerate")}
                   </button>

@@ -39,9 +39,21 @@ export const chatCoordinator = {
   async stopAndFlush(): Promise<Message[]> {
     const getChat = await _ensureChatStore();
     const chat = getChat();
-    chat.stopMessage();
+    const sid = chat.messages[0]?.session_id ?? "";
+    // 阶段2：挂起中的流不中止（切会话不杀 paused —— 等后端恢复自动续传，
+    // 避免切走再切回进度丢失）；但仍需 flush 待保存 blocks（写前持久化）。
+    // 挂起流只能由用户点"停止/放弃"（stopMessageImpl 的 paused 分支）显式放弃。
+    if (!(sid && chat.pausedStreams[sid])) {
+      chat.stopMessage();
+    }
     await chat.flushPendingSaves();
     return chat.messages;
+  },
+
+  /** 阶段2: 放弃指定会话的挂起流（删除会话前调用，防止挂起等待者/控制器/ghostCheck 定时器泄漏） */
+  async abortPausedStream(sessionId: string): Promise<void> {
+    const getChat = await _ensureChatStore();
+    getChat().abortPausedStream(sessionId);
   },
 
   /** 加载新会话消息到 chat store */

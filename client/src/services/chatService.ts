@@ -15,6 +15,7 @@ import {
 } from "../utils/readWithIdleTimeout";
 import { getOTelTracing } from "../monitoring/otel";
 import { staleSessionCache } from "../stores/chat/chat-history.slice";
+import { registerResumeWaiter } from "./streamPause";
 
 const logger = createLogger("chatService");
 
@@ -116,7 +117,8 @@ export interface StreamChunk {
     | "diff"
     | "context_state"
     | "tool_completed"
-    | "reconnect_status"; // P2-2: 重连状态提示
+    | "reconnect_status" // P2-2: 重连状态提示
+    | "paused"; // 阶段2: 断连挂起（重试耗尽，等待后端恢复后续传）
   content: string;
   toolCall?: ToolCall;
   questionData?: QuestionData;
@@ -1311,13 +1313,34 @@ export const chatService = {
         },
       );
       if (retryCount > maxRetries) {
-        logger.error("[streamMessage-outer] 重试次数耗尽，放弃重连", {
+        // 阶段2 断连挂起-恢复：重试耗尽后不结束流、不 yield 致命错误，
+        // 已渲染内容全部保留，挂起等待后端恢复（connectionMonitor onBackendUp
+        // 自动恢复，或用户点"立即恢复"）后再从检查点续传——避免"从头开始"。
+        logger.warn("[streamMessage-outer] 重试次数耗尽，进入挂起等待", {
           sessionId,
           retryCount,
           checkpointId,
         });
-        yield { type: "error", content: "重连失败，请手动重试" } as StreamChunk;
-        return;
+        yield {
+          type: "paused",
+          content: "后端连接已断开，回复已暂停，等待后端恢复后自动继续",
+        } as StreamChunk;
+        try {
+          await registerResumeWaiter(sessionId);
+        } catch (err) {
+          // 被放弃（abortPausedStream）或流已中止：结束流，不继续重试
+          logger.info("[streamMessage-outer] 挂起被放弃，流结束", {
+            sessionId,
+            error: err instanceof Error ? err.message : String(err),
+          });
+          return;
+        }
+        // 恢复后：重置重试计数，重新走 while 循环（有检查点则 resume 续传）
+        retryCount = 0;
+        logger.info("[streamMessage-outer] 挂起已恢复，重新尝试续传", {
+          sessionId,
+        });
+        continue;
       }
 
       // 获取最新检查点

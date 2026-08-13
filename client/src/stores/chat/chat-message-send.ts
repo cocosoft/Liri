@@ -15,7 +15,10 @@ import { ChronologicalBlockBuilder } from "./chat-toolcall.slice";
 import { doAutoRename, staleSessionCache } from "./chat-history.slice";
 import { chatCoordinator } from "./chatCoordinator";
 import { handleClientError } from "@/utils/handleError";
+import { createLogger } from "@/utils/logger";
 import type { MessageSet, MessageGet } from "./chat-message.types";
+
+const logger = createLogger("stores:chat:message");
 
 /**
  * sendMessage：非流式发送（同步等待响应，多用于离线/测试路径）
@@ -36,6 +39,14 @@ export async function sendMessageImpl(
     if (hasRecovery) {
       return; // 等待用户确认恢复或拒绝
     }
+  }
+
+  // 阶段2：该会话存在挂起流 —— 拦截发送（需先"立即恢复"或"放弃本次回复"）
+  if (currentSid && get().pausedStreams[currentSid]) {
+    logger.warn("sendMessage: 会话存在挂起流，拦截发送", {
+      sessionId: currentSid,
+    });
+    return;
   }
 
   // 消息排队模式：流式输出中不阻塞，加入队列

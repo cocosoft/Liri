@@ -127,7 +127,8 @@ Examples:
     }
 
     try {
-      chatManager.deleteSession(sessionId);
+      // BUG-3：deleteSession 已 async（持久化删除失败 reject），需 await 才能捕获
+      await chatManager.deleteSession(sessionId);
       return {
         type: 'text',
         value: `Session ${sessionId} deleted successfully!`,

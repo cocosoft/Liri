@@ -44,6 +44,20 @@ export interface MessageSlice {
   messageQueue: Array<{ content: string; sessionId?: string }>;
   /** P2-6: 中止恢复提示 — 上次任务被中止，有可恢复的检查点 */
   recoverySessionId: string | null;
+  /**
+   * 阶段2 断连挂起：sid → 暂停信息。流式重试耗尽后不结束流，
+   * 挂起等待后端恢复（自动/手动）续传；phase 标记等待中/恢复倒计时中。
+   * N8-2：挂起时 controller 从 streamControllers 移入此处——
+   * 挂起流从全局 isStreaming 推导中排除，避免阻塞其他会话的输入/队列。
+   */
+  pausedStreams: Record<
+    string,
+    {
+      since: number;
+      phase: "waiting" | "recovering";
+      controller?: AbortController;
+    }
+  >;
 
   addMessage: (message: Message) => void;
   sendMessage: (
@@ -70,6 +84,15 @@ export interface MessageSlice {
   ) => Promise<void>;
   /** 在出错后重试（传入出错的 assistant 消息 ID，内部找到前置用户消息重新发送） */
   retryFromError: (assistantMsgId: string, sessionId?: string) => Promise<void>;
+  /**
+   * B-C1: 真「继续生成」— 以指定 AI 消息为回复引用，自动发送"请继续"指令触发新一轮生成。
+   * prompt 可选（UI 传本地化文案）；不传则用默认"请继续"。
+   */
+  continueGeneration: (
+    assistantMsgId: string,
+    sessionId?: string,
+    prompt?: string,
+  ) => Promise<void>;
   clearMessages: () => void;
   /**
    * R-A 修复：清空**当前会话**（前端 + 后端同步）。
@@ -102,6 +125,12 @@ export interface MessageSlice {
   dismissRecovery: () => void;
   /** P2-6: 用户确认恢复 — 关闭提示并继续之前被中止的会话 */
   resumeRecovery: (sessionId: string) => void;
+  /** 阶段2: 标记会话流已挂起（消费者收到 paused chunk 时调用） */
+  pauseStream: (sessionId: string) => void;
+  /** 阶段2: 恢复挂起流（自动/手动），使其从检查点续传 */
+  resumeStream: (sessionId: string) => void;
+  /** 阶段2: 放弃挂起流（中止控制器 + 解除挂起等待 + 清理暂停状态） */
+  abortPausedStream: (sessionId: string) => void;
 }
 
 /** 组合后的 Chat Store 状态（MessageSlice + FileSlice） */

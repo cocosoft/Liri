@@ -87,10 +87,11 @@ export interface ChatManager {
   getSessions(): ChatSession[];
 
   /**
-   * 删除会话
+   * 删除会话（BUG-3：async——持久化删除失败会 reject，由 handler 返回 500，
+   * 避免前端误判成功、磁盘残留会话"复活"）
    * @param sessionId 会话ID
    */
-  deleteSession(sessionId: string): void;
+  deleteSession(sessionId: string): Promise<void>;
 
   /**
    * 清除所有会话

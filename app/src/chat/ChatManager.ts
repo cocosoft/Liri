@@ -3594,27 +3594,17 @@ export class ChatManagerImpl implements ChatManager {
     return this.sessionLifecycle.getSessions();
   }
 
-  deleteSession(sessionId: string): void {
+  async deleteSession(sessionId: string): Promise<void> {
     const startedAt = Date.now();
     logger.info('deleteSession:开始删除会话', { sessionId });
-    try {
-      this.sessionLifecycle.deleteSession(sessionId);
-      logger.info('deleteSession:会话删除完成', {
-        sessionId,
-        elapsedMs: Date.now() - startedAt,
-      });
-    } catch (e) {
-      logger.warn('deleteSession:会话删除失败', {
-        sessionId,
-        elapsedMs: Date.now() - startedAt,
-        error: e instanceof Error ? e.message : String(e),
-      });
-      void handleError(e, {
-        module: 'chat:manager',
-        action: 'deleteSession:删除会话失败',
-        context: { sessionId },
-      });
-    }
+    // BUG-3 修复：持久化删除失败不再吞错——原 try/catch 只记日志不 rethrow，
+    // handleDeleteSession 仍返回 200 → 前端本地移除但磁盘残留，刷新后会话"复活"。
+    // 错误上抛由 handler 返回 500，前端据此不清理本地记录。
+    await this.sessionLifecycle.deleteSession(sessionId);
+    logger.info('deleteSession:会话删除完成', {
+      sessionId,
+      elapsedMs: Date.now() - startedAt,
+    });
     // 联动清理该会话全部检查点（不阻塞删除主流程，记录执行情况，避免残留孤儿检查点）
     void this._deleteSessionCheckpoints(sessionId);
   }

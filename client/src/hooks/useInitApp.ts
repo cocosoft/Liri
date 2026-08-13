@@ -138,6 +138,55 @@ export function useInitApp() {
     // no-op），标题/列表必须刷新页面才更新。
     // 定义在 try 外以便 cleanup 闭包引用同一引用注销。
     const refreshSessions = () => loadSessions();
+    // BUG-2 修复：project:auto_created 处理函数提升为稳定引用——原实现注册传
+    // 内联箭头、cleanup 传 `() => {}` 全新函数，按引用匹配永远删不掉监听器：
+    // StrictMode 下 effect 双执行 → 事件被处理两次（worktree 创建跑两遍）；
+    // 组件卸载后监听器残留 sseService 全局单例，App 重建后叠加。
+    const onProjectAutoCreated = (data: Record<string, unknown>) => {
+      const { projectId, name } = data;
+      logger.info("project:auto_created 收到", {
+        projectId,
+        name,
+        sandboxPath: data.sandboxPath ?? null,
+      });
+      if (projectId && name) {
+        const { createWorkspace } = useRootStore.getState();
+        const worktrees = useRootStore.getState().workspaceList;
+        // 去重：已存在则跳过
+        const worktreeExists = worktrees.some(
+          (w) => w.id === String(projectId),
+        );
+        // P2-2: worktree.path 用事件携带的真实 sandboxPath（工具默认 cwd 依赖它），
+        // 兜底退回 projectId
+        const pathToUse = String(data.sandboxPath ?? projectId);
+        logger.info("project worktree 创建判定", {
+          projectId: String(projectId),
+          name: String(name),
+          pathToUse,
+          worktreeExists,
+          worktreeCount: worktrees.length,
+        });
+        if (!worktreeExists) {
+          createWorkspace({
+            id: String(projectId),
+            name: String(name),
+            path: pathToUse,
+            workspaceSource: "system",
+            workspaceType: "project",
+          });
+          logger.info("project worktree 已创建", {
+            projectId: String(projectId),
+            name: String(name),
+            path: pathToUse,
+          });
+        }
+      } else {
+        logger.warn("project:auto_created 事件缺少 projectId/name", {
+          projectId,
+          name,
+        });
+      }
+    };
 
     try {
       sseService.on("heartbeat", () => checkBackendStatus());
@@ -146,51 +195,7 @@ export function useInitApp() {
       sseService.on("session:deleted", refreshSessions);
       sseService.on("session:cleared", refreshSessions);
       // P0b-3: AI 自动建项目时，前端同步创建 worktree
-      sseService.on("project:auto_created", (data) => {
-        const { projectId, name } = data;
-        logger.info("project:auto_created 收到", {
-          projectId,
-          name,
-          sandboxPath: data.sandboxPath ?? null,
-        });
-        if (projectId && name) {
-          const { createWorkspace } = useRootStore.getState();
-          const worktrees = useRootStore.getState().workspaceList;
-          // 去重：已存在则跳过
-          const worktreeExists = worktrees.some(
-            (w) => w.id === String(projectId),
-          );
-          // P2-2: worktree.path 用事件携带的真实 sandboxPath（工具默认 cwd 依赖它），
-          // 兜底退回 projectId
-          const pathToUse = String(data.sandboxPath ?? projectId);
-          logger.info("project worktree 创建判定", {
-            projectId: String(projectId),
-            name: String(name),
-            pathToUse,
-            worktreeExists,
-            worktreeCount: worktrees.length,
-          });
-          if (!worktreeExists) {
-            createWorkspace({
-              id: String(projectId),
-              name: String(name),
-              path: pathToUse,
-              workspaceSource: "system",
-              workspaceType: "project",
-            });
-            logger.info("project worktree 已创建", {
-              projectId: String(projectId),
-              name: String(name),
-              path: pathToUse,
-            });
-          }
-        } else {
-          logger.warn("project:auto_created 事件缺少 projectId/name", {
-            projectId,
-            name,
-          });
-        }
-      });
+      sseService.on("project:auto_created", onProjectAutoCreated);
       sseService.connect();
       loadSessions();
       // 连接/网络状态监测：记录后端掉线/恢复、网络断开/恢复事件
@@ -206,7 +211,7 @@ export function useInitApp() {
       sseService.off("session:created", refreshSessions);
       sseService.off("session:deleted", refreshSessions);
       sseService.off("session:cleared", refreshSessions);
-      sseService.off("project:auto_created", () => {});
+      sseService.off("project:auto_created", onProjectAutoCreated);
       sseService.disconnect();
       connectionMonitor.stop();
     };

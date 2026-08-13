@@ -15,6 +15,20 @@ import { sanitizeFileName } from '@modules/services/file/fileNaming';
 
 import { handleError } from '@modules/error';
 
+/**
+ * B-D1 修复：知识库 baseName 防路径穿越。
+ * base 输入框为自由文本（SaveKnowledgeModal 可手动输入），若直接
+ * `join(knowledgeRoot, baseName)`，注入 `../../xxx` 可逃逸知识库根目录
+ * 写任意位置文件。清洗规则：去掉路径分隔符与 `..`，空值回退 default。
+ */
+function sanitizeBaseName(name: string | undefined | null): string {
+  const cleaned = (name ?? '')
+    .replace(/[\\/]/g, '')
+    .replace(/\.\./g, '')
+    .trim();
+  return cleaned || 'default';
+}
+
 export async function handleListKnowledge(
   req: http.IncomingMessage,
   res: http.ServerResponse
@@ -610,7 +624,8 @@ export async function handleSaveFromChat(
       await import('@modules/docs/FileDocsProvider');
 
     const registry = getDefaultKnowledgeBaseRegistry();
-    const baseName = base || 'default';
+    // B-D1 修复：baseName 必须经路径穿越清洗（base 为自由文本，可注入 ../../xxx）
+    const baseName = sanitizeBaseName(base);
     const baseDir = join(registry.getKnowledgeRoot(), baseName);
 
     await mkdir(baseDir, { recursive: true });

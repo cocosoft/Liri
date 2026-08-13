@@ -427,7 +427,7 @@ export class SessionLifecycleManager {
    * 删除会话
    * @param sessionId 会话ID
    */
-  deleteSession(sessionId: string): void {
+  async deleteSession(sessionId: string): Promise<void> {
     // 方案二 2c：删除项目会话时，惰性清理该项目沙箱根目录残留的临时/锁文件
     // （`_` 前缀脚本、`_temp_*`、`~$` Office 锁文件），仅限沙箱根目录、按前缀白名单
     const session = this.chatSessions.get(sessionId);
@@ -488,12 +488,10 @@ export class SessionLifecycleManager {
     this.sessionAccess.trackActivityEnd(sessionId);
 
     // 同步删除持久化存储
-    this.sessionGateway.deleteSession(sessionId).catch((e) => {
-      handleError(e, {
-        module: 'chat:manager',
-        action: '从Gateway删除会话失败',
-      });
-    });
+    // BUG-3 修复：失败不再 `.catch()` 吞掉——原实现删除失败时 HTTP 仍 200、
+    // 前端误判成功、磁盘残留会话刷新后"复活"。改为 await 让错误上抛，
+    // 由 handler 返回 500，前端据此不清理本地记录。
+    await this.sessionGateway.deleteSession(sessionId);
   }
 
   /**

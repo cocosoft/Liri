@@ -30,23 +30,56 @@ let _activeSwitchTarget: string | null = null;
 // Promise，避免并发创建两个会话（接口类型 Promise<Session> 保持不变）。
 let _pendingCreate: Promise<Session> | null = null;
 
+// N8 极致稳妥修复：恢复操作版本号——并发多个 restore 时新恢复抢占旧恢复，
+// 旧恢复在任一 await 点校验失败即放弃，杜绝"旧恢复完成覆盖新目标"。
+let _restoreSeq = 0;
+
+// BUG-6 修复：loadChatSessions 的 isLoading 超时兜底——
+// fetchWithRetry 最坏 3 次重试约 90s+，期间 isLoading 恒 true，SSE 触发的列表刷新
+// 全部被早退拦截（删除会话残留、标题不更新）。记录加载开始时间，超过
+// LOAD_TIMEOUT_MS 强制复位 isLoading 并允许下一次刷新继续。
+const LOAD_TIMEOUT_MS = 10_000;
+let loadStartedAt = 0;
+
 /**
  * E1 修复：切换被丢弃时，将 chat store 消息恢复为当前有效会话（currentSessionId）的内容。
  * 被丢弃的切换已执行 loadMessages(B) 把 B 的消息写入 store，但 currentSessionId 未变
  * → 出现"消息区显示被丢弃目标内容、侧栏高亮不一致"的短暂窗口。读取当前有效会话
  * 消息（缓存优先）恢复一致；无有效会话则清空。
+ *
+ * N8 极致稳妥：快照 + 版本号守卫 + 并发抢占（4 层防御）——
+ * ① 快照当前会话/切换序号/恢复版本号；② 每个 await 点（动态 import、缓存、网络）
+ * 后校验三者均未变化，把窗口压缩到"校验通过 → loadMessages"之间的同步代码
+ * （零 await，无窗口）；③ 并发 restore 由 _restoreSeq 抢占；④ 期间任何新切换/新建/
+ * 删除（都会 _switchSeq++）使恢复作废——恢复是"为被丢弃的切换善后"，期间发生新动作
+ * 就该让位。
  */
 async function restoreMessagesToCurrentSession(
   get: () => RootState,
 ): Promise<void> {
+  // ① 快照：目标会话 + 切换序号 + 恢复版本号（三者任一变化 → 放弃本次恢复）
+  const curId = get().currentSessionId;
+  const switchSeqSnapshot = _switchSeq;
+  const mySeq = ++_restoreSeq;
+  const stillCurrent = (): boolean =>
+    _restoreSeq === mySeq && // 没有被更新的恢复抢占
+    get().currentSessionId === curId && // 会话没有变
+    _switchSeq === switchSeqSnapshot; // 期间没有新切换/新建/删除开始
   try {
     const { sessionService } = await import("@/services/sessionService");
-    const curId = get().currentSessionId;
+    if (!stillCurrent()) return; // ② await 后校验 1
     if (curId) {
       const { _getCachedMessages } = await import("@/stores/chat");
+      if (!stillCurrent()) return; // ③ await 后校验 2
       const cached = _getCachedMessages(curId);
-      const messages = cached ?? (await sessionService.getMessages(curId));
-      await chatCoordinator.loadMessages(messages);
+      if (cached) {
+        if (!stillCurrent()) return;
+        await chatCoordinator.loadMessages(cached);
+      } else {
+        const messages = await sessionService.getMessages(curId);
+        if (!stillCurrent()) return; // ④ 网络 await 后校验（关键窗口）
+        await chatCoordinator.loadMessages(messages);
+      }
     } else {
       await chatCoordinator.clearMessages().catch(() => {});
     }
@@ -293,12 +326,29 @@ export const createSessionSlice: StateCreator<
       );
       if (latest) {
         set({ currentSessionId: latest.id });
-        // N5 修复：回退时同步后端 currentId——此前可能在项目页切到其他会话
-        // （P3-9 已同步后端），若不同步，刷新后 loadChatSessions 的 getCurrentSession
-        // 会把 currentSessionId 拉回项目会话。fire-and-forget，不阻塞导航。
-        import("@/services/sessionService").then(({ sessionService }) =>
-          sessionService.switch(latest.id).catch(() => {}),
-        );
+        // BUG-1 修复：回退时同步加载该会话消息到 chat store——原实现只设
+        // currentSessionId + fire-and-forget 同步后端，未加载消息 → 消息区仍显示
+        // 项目会话旧消息（ChatMessageList 只按 messages.length 渲染，不校验
+        // session_id 与 currentSessionId 一致性），与标题/侧栏高亮错位。
+        // 与 switchChatSession 的 ③ 步一致（缓存优先；回退分支为同步函数，
+        // 故 fire-and-forget 不阻塞导航）。N5 的 switch 同步一并保留。
+        void (async () => {
+          try {
+            const { sessionService } =
+              await import("@/services/sessionService");
+            sessionService.switch(latest.id).catch(() => {});
+            const { _getCachedMessages } = await import("@/stores/chat");
+            const cached = _getCachedMessages(latest.id);
+            const messages =
+              cached ?? (await sessionService.getMessages(latest.id));
+            await chatCoordinator.loadMessages(messages);
+          } catch (e) {
+            logger.warn("getOrCreateSession:回退加载消息失败", {
+              sessionId: latest.id,
+              error: String(e),
+            });
+          }
+        })();
         logger.info("getOrCreateSession:回退到最近 chat 会话", {
           moduleType,
           sessionId: latest.id,
@@ -358,10 +408,21 @@ export const createSessionSlice: StateCreator<
     // 所有后续调用都是 no-op，SSE（session:renamed/created/deleted/cleared）
     // 触发的列表刷新永远不生效，侧栏标题/列表必须刷新页面才更新。
     if (get().isLoading) {
-      logger.debug("loadChatSessions:加载中，跳过本次刷新");
-      return;
+      // BUG-6 修复：加载超时兜底——上次加载超过 10s 未完成（网络卡死/重试中）
+      // 时强制复位 isLoading 并继续本次刷新，避免 SSE 刷新长期失效
+      if (loadStartedAt && Date.now() - loadStartedAt > LOAD_TIMEOUT_MS) {
+        logger.warn("loadChatSessions:加载超时，强制复位 isLoading", {
+          elapsedMs: Date.now() - loadStartedAt,
+        });
+        loadStartedAt = 0;
+        set({ isLoading: false });
+      } else {
+        logger.debug("loadChatSessions:加载中，跳过本次刷新");
+        return;
+      }
     }
     set({ isLoading: true, error: null });
+    loadStartedAt = Date.now();
     try {
       const { sessionService } = await import("@/services/sessionService");
       let sessions = await sessionService.list();
@@ -407,6 +468,7 @@ export const createSessionSlice: StateCreator<
         isLoading: false,
         sessions: { ...get().sessions, ...hubSync },
       });
+      loadStartedAt = 0; // BUG-6：加载完成复位超时计时
       logger.info("loadChatSessions:加载完成", {
         sessionCount: sessions.length,
         currentSessionId: currentSession?.id ?? null,
@@ -471,6 +533,7 @@ export const createSessionSlice: StateCreator<
         "warn",
       );
       set({ error: String(error), isLoading: false });
+      loadStartedAt = 0; // BUG-6：加载失败复位超时计时
     }
   },
 
@@ -1071,6 +1134,9 @@ export const createSessionSlice: StateCreator<
     } catch {
       /* ignore */
     }
+    // 阶段2：删除会话时放弃其挂起流（中止控制器 + 解除挂起等待 + 清理暂停状态，
+    // 防止等待者 / ghostCheck 定时器 / 控制器永久泄漏）。幂等：未挂起则无操作。
+    await chatCoordinator.abortPausedStream(id).catch(() => {});
 
     set({ isLoading: true, error: null });
     try {
@@ -1123,9 +1189,13 @@ export const createSessionSlice: StateCreator<
             await chatCoordinator.loadMessages([]).catch(() => {});
           }
           // 重新从当前状态获取 sessions，防止并发修改
+          // BUG-5 修复：currentSessionId 用 set 内重新 filter 的最新列表——
+          // 原实现用 await 前捕获的 sessions（L1131），期间若 SSE 刷新列表
+          // （新会话插入头部），切到的可能不是真正最新的会话。
+          const nextList = get().chatSessions.filter((s) => s.id !== id);
           set({
-            chatSessions: get().chatSessions.filter((s) => s.id !== id),
-            currentSessionId: sessions[0].id,
+            chatSessions: nextList,
+            currentSessionId: nextList[0]?.id ?? null,
             isLoading: false,
           });
         } else {
@@ -1210,6 +1280,13 @@ export const createSessionSlice: StateCreator<
       logger.info("clearAllChatSessions:开始逐个删除 chat 会话", {
         targetCount: targets.length,
       });
+      // 阶段2：清空会话前先放弃全部挂起流（stopMessage 只停当前 UI 会话，
+      // 非当前会话的挂起流需在此清理，防止等待者/控制器/ghostCheck 定时器泄漏）
+      await Promise.all(
+        targets.map((id) =>
+          chatCoordinator.abortPausedStream(id).catch(() => {}),
+        ),
+      );
       await Promise.all(
         targets.map((id) =>
           sessionService.delete(id).catch(async (e) => {

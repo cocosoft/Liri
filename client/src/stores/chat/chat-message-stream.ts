@@ -323,6 +323,9 @@ export async function streamMessageImpl(
         clearInterval(ghostCheckTimer);
         return;
       }
+      // 阶段2：挂起中的流不参与幽灵检测——否则 30s 无 chunk 会误判
+      // "任务已死"并 abort 挂起流（挂起时后端本来就不在发 chunk）
+      if (get().pausedStreams[sid]) return;
       if (Date.now() - lastChunkTimeRef.current < 30000) return;
 
       // 30s 无 chunk：ping 后端确认会话状态
@@ -367,6 +370,16 @@ export async function streamMessageImpl(
     for await (const rawChunk of generator) {
       // 检查是否已被中止
       if (controller.signal.aborted) break;
+
+      // 阶段2：断连挂起 —— 不结束流、不当作错误。写暂停状态后继续
+      // 阻塞等待生成器内部恢复（后端恢复自动续传 / 用户点"立即恢复"）
+      if (rawChunk.type === "paused") {
+        logger.warn("streamMessage: 流已挂起（后端断连），等待恢复续传", {
+          sessionId: sid,
+        });
+        get().pauseStream(sid);
+        continue;
+      }
 
       const chunks = Array.from(extractor.extract(rawChunk));
       for (const chunk of chunks) {

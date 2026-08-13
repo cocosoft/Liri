@@ -161,6 +161,8 @@ export interface AIRequestParams {
   stop?: string[];
   stream?: boolean;
   tools?: ToolDefinition[];
+  /** 取消信号（P0 压缩超时治理 2026-08-13：CompactionOrchestrator 超时需真正中断 LLM 请求） */
+  signal?: AbortSignal;
 }
 
 export interface AIClient {

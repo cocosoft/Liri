@@ -95,6 +95,8 @@ export class AIServiceImpl implements AIService {
       maxTokens: options.max_tokens,
       temperature: options.temperature,
       tools: options.tools,
+      // P0 压缩超时治理：透传取消信号，让超时能真正中断底层 LLM 请求（消灭僵尸请求）
+      signal: options.signal,
     });
 
     const latencyMs = Date.now() - startTime;

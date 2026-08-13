@@ -258,13 +258,27 @@ export const sessionService = {
             _isUsingFallback = false;
             return;
           }
-          logger.warn("重命名会话失败", { id, error: res.error });
-          throw new Error(`重命名会话失败: ${res.error || "HTTP error"}`);
+          // L6 修复（会话系统排查 2026-08-13）：后端明确失败（4xx/5xx）时抛带
+          // statusCode 的错误并上抛，不做 Tauri/内存降级——与 delete 的 R1 修复、
+          // switch 的 N1 修复策略一致。原实现所有错误都降级到内存 fallback，
+          // 重命名失败被"假成功"吞掉（内存改了、刷新丢），用户无法感知后端失败。
+          const status = res.error?.code ?? 500;
+          logger.warn("重命名会话失败（后端明确错误，不再降级）", {
+            id,
+            error: res.error,
+          });
+          const err = new Error(
+            `重命名会话失败: ${res.error?.message ?? `HTTP ${status}`}`,
+          );
+          (err as unknown as Record<string, unknown>).statusCode = status;
+          throw err;
         } catch (e) {
           handleClientError(e, {
             module: "services:session",
             action: "rename",
           });
+          // 业务错误（带 statusCode）直接上抛；仅纯网络错误（fetch 抛出）降级
+          if ((e as { statusCode?: number })?.statusCode) throw e;
           // 尝试 Tauri fallback
           const result = await tryTauri<void>("rename_session", { id, title });
           if (result !== null) return;

@@ -171,6 +171,8 @@ export class OpenAIProvider extends BaseAIProvider {
       model?: string;
       maxTokens?: number;
       temperature?: number;
+      /** P0 压缩超时治理：外部取消信号（压缩超时真正中断请求，消灭僵尸压缩） */
+      signal?: AbortSignal;
     }
   ): Promise<ChatResponse> {
     const model = await this.resolveModel('chat', options);
@@ -190,7 +192,13 @@ export class OpenAIProvider extends BaseAIProvider {
           Authorization: `Bearer ${this.apiKey}`,
         },
         body: JSON.stringify(requestBody),
-        signal: AbortSignal.timeout(120000),
+        signal: options?.signal
+          ? // 外部取消信号（压缩超时）与固定 120s 超时任一触发即中断
+            AbortSignal.any([
+              options.signal,
+              AbortSignal.timeout(120000),
+            ])
+          : AbortSignal.timeout(120000),
       });
 
       if (!response.ok) {

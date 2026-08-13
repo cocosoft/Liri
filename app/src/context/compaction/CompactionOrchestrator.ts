@@ -46,8 +46,13 @@ async function getAiService() {
   return cachedAiModule;
 }
 
-/** 压缩超时上限（毫秒），超时后回滚到原消息 */
-const COMPACTION_TIMEOUT_MS = 10_000;
+/**
+ * 压缩超时上限（毫秒），超时后回滚到原消息。
+ * P0 压缩超时治理（2026-08-13）：10s → 30s——LLM 全量摘要（max_tokens=4096）在
+ * 10s 内几乎必然超时，压缩永远失败 → 上下文持续膨胀恶性循环。配 signal 透传后
+ * 超时会真正中断底层 LLM 请求（消灭僵尸请求），30s 是摘要生成与用户等待的折中。
+ */
+const COMPACTION_TIMEOUT_MS = 30_000;
 
 const FULL_COMPACTION_PROMPT = `You are a conversation compressor. Summarize the following conversation to preserve essential context while drastically reducing token count.
 
@@ -226,7 +231,11 @@ export class CompactionOrchestrator {
           beforeTokens,
         });
 
-        const fullResult = await this.runFullCompaction(result.messages, ctx);
+        const fullResult = await this.runFullCompaction(
+          result.messages,
+          ctx,
+          signal
+        );
         if (fullResult.applied) {
           tier = 3;
           triggerLabel = 'full_compaction';
@@ -302,7 +311,8 @@ export class CompactionOrchestrator {
    */
   private async runFullCompaction(
     messages: ChatMessage[],
-    ctx: CompactionContext
+    ctx: CompactionContext,
+    signal?: AbortSignal
   ): Promise<{ messages: ChatMessage[]; applied: boolean }> {
     try {
       // 取头部 2 条（通常是 system prompt）+ 构建要压缩的文本
@@ -319,6 +329,8 @@ export class CompactionOrchestrator {
         .join('\n\n');
 
       if (conversationText.length < 200) return { messages, applied: false };
+      // P0 压缩超时治理：进入 LLM 调用前再查一次信号，避免超时后仍发起请求
+      if (signal?.aborted) return { messages, applied: false };
 
       const { default: aiService, AIMessageRole } = await getAiService();
 
@@ -339,7 +351,7 @@ export class CompactionOrchestrator {
           },
         ],
         ctx.model || '',
-        { temperature: 0.3, max_tokens: 4096 }
+        { temperature: 0.3, max_tokens: 4096, signal }
       );
 
       let summary: string;

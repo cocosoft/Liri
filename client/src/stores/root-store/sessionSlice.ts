@@ -468,11 +468,28 @@ export const createSessionSlice: StateCreator<
       // 可穿透 switchChatSession（它只设 switching、不设 isLoading）。若 getCurrent()
       // 响应乱序（返回旧会话 A）会覆盖切换目标 B → 用户点了 B 却停在 A。
       const switching = get().switching;
+      // L7 修复（会话系统排查 2026-08-13）：后端 current 返回的会话 id 可能不在
+      // 列表中（跨端删除场景），直接采用会指向幽灵会话——消息区空白且列表无高亮
+      // （switchChatSession 已有 G5 存在性校验，但首次加载/SSE 刷新路径此前无校验）。
+      // 不在列表时回退到列表第一个（sessions 已按 updatedAt 降序，第一个最新活跃）。
+      let resolvedCurrentId = currentSession?.id ?? null;
+      if (
+        !switching &&
+        resolvedCurrentId &&
+        !sessions.some((s) => s.id === resolvedCurrentId)
+      ) {
+        logger.warn("loadChatSessions:current 返回幽灵会话，回退最近会话", {
+          ghostId: resolvedCurrentId,
+          sessionCount: sessions.length,
+          fallbackId: sessions[0]?.id ?? null,
+        });
+        resolvedCurrentId = sessions[0]?.id ?? null;
+      }
       set({
         chatSessions: sessions,
         currentSessionId: switching
           ? get().currentSessionId
-          : (currentSession?.id ?? null),
+          : resolvedCurrentId,
         isLoading: false,
         sessions: { ...get().sessions, ...hubSync },
       });
@@ -497,7 +514,9 @@ export const createSessionSlice: StateCreator<
       // loadChatSessions 只设列表 + currentSessionId，不拉消息；chat store 无 persist、
       // _sessionMessageCache 是内存 Map（刷新即失）。set 后若 chat store 中没有
       // 当前会话的消息（空列表或首条 session_id 不匹配），补拉一次（缓存优先）。
-      const currentId = currentSession?.id ?? null;
+      // L7：补拉目标用解析后的 resolvedCurrentId（幽灵校验后的有效 id），
+      // 避免用幽灵 id 拉取失败/空。
+      const currentId = resolvedCurrentId;
       if (currentId) {
         // chat store 独立于 rootStore（高频 IO），动态读取避免静态循环依赖
         const { useChatStore } = await import("@/stores/chat");

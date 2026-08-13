@@ -150,15 +150,36 @@ function transition(to: ConnectionState, reason: string): void {
 }
 
 async function checkBackendHealth(): Promise<boolean> {
+  const startedAt = Date.now();
+  // 构建一次鉴权头：同时供请求与日志 hasAuth 判断复用（不打印 secret 明文）
+  const headers = buildAuthHeaders();
+  const url = `${getBackendBaseUrl()}/health`;
+  logger.debug("健康检查发起", {
+    url,
+    method: "GET",
+    hasAuth: !!headers["X-API-Key"],
+  });
   try {
-    const res = await fetch(`${getBackendBaseUrl()}/health`, {
+    const res = await fetch(url, {
       method: "GET",
       // BUG-2 修复：配置 LIRI_API_SECRET 时缺鉴权头健康检查恒 401 → 误判后端掉线
-      headers: buildAuthHeaders(),
+      headers,
       signal: AbortSignal.timeout(HEALTH_TIMEOUT_MS),
     });
+    logger.debug("健康检查完成", {
+      url,
+      status: res.status,
+      ok: res.ok,
+      durationMs: Date.now() - startedAt,
+    });
     return res.ok;
-  } catch {
+  } catch (err) {
+    // 排查"后端掉线"误判的关键日志：区分超时 / 网络中断 / 鉴权失败
+    logger.warn("健康检查失败", {
+      url,
+      error: err instanceof Error ? err.message : String(err),
+      durationMs: Date.now() - startedAt,
+    });
     return false;
   }
 }

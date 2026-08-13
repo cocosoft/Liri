@@ -298,13 +298,37 @@ class SSEService {
       // 仅当 SSE 连接正常时才发送心跳
       if (!this.isConnected()) return;
 
-      fetch(`${getBackendBaseUrl()}/v1/events`, {
+      const startedAt = Date.now();
+      // 构建一次鉴权头：同时供请求与日志 hasAuth 判断复用（不打印 secret 明文）
+      const headers = buildAuthHeaders();
+      const url = `${getBackendBaseUrl()}/v1/events`;
+      logger.debug("[heartbeat] 心跳发起", {
+        url,
+        method: "HEAD",
+        hasAuth: !!headers["X-API-Key"],
+      });
+
+      fetch(url, {
         method: "HEAD",
         // BUG-4 修复：与主连接鉴权一致，配置 LIRI_API_SECRET 时心跳不再 401
-        headers: buildAuthHeaders(),
-      }).catch(() => {
-        // 心跳失败静默处理，不干扰主流程
-      });
+        headers,
+      })
+        .then((res) => {
+          logger.debug("[heartbeat] 心跳完成", {
+            url,
+            status: res.status,
+            ok: res.ok,
+            durationMs: Date.now() - startedAt,
+          });
+        })
+        .catch((err: unknown) => {
+          // 排查保活失效的关键日志：代理断连 / 鉴权失败 / 网络中断
+          logger.warn("[heartbeat] 心跳失败", {
+            url,
+            error: err instanceof Error ? err.message : String(err),
+            durationMs: Date.now() - startedAt,
+          });
+        });
     }, 30000);
   }
 

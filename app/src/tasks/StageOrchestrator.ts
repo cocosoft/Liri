@@ -24,8 +24,8 @@ import type { LongRunningTaskOrchestrator } from './LongRunningTaskOrchestrator.
 
 const logger = getLogger('tasks:stageOrchestrator');
 
-/** 阶段 ID（2 阶段 MVP） */
-export type StageId = 'requirement' | 'design';
+/** 阶段 ID（MVP：requirement→design→delivery） */
+export type StageId = 'requirement' | 'design' | 'delivery';
 
 /** 阶段状态 */
 export type StageStatus =
@@ -64,7 +64,33 @@ export interface StageChainRecord {
   budgetPolicy: 'terminate' | 'warn';
   /** D4：是否已触发超限 */
   budgetExhausted?: boolean;
+  /** D6（M8）：用户验收标记（交付清单生成后置 true） */
+  deliveryAccepted?: boolean;
+  /** D6：交付清单（delivery 阶段产物） */
+  deliveryManifest?: DeliveryManifest;
   updatedAt: string;
+}
+
+/** D6（M8）：交付清单（打包产物 + 部署说明 + 交付物 + 验收标记） */
+export interface DeliveryManifest {
+  taskId: string;
+  description: string;
+  sessionId: string;
+  totalTokens: number;
+  budgetLimitTokens: number;
+  stages: Array<{
+    id: StageId;
+    name: string;
+    status: StageStatus;
+    artifactPreview: string;
+  }>;
+  /** 各阶段完整产物（交付物） */
+  artifacts: Record<string, string>;
+  /** 部署说明（MVP：阶段产物即交付物，部署说明为后续扩展） */
+  deployNote: string;
+  /** 用户验收标记（默认 pending，markDeliveryAccepted 置 accepted） */
+  acceptance: 'pending' | 'accepted';
+  deliveredAt: string;
 }
 
 /** 阶段定义表（顺序即执行顺序） */
@@ -75,6 +101,7 @@ export const STAGE_DEFS: Array<{
 }> = [
   { id: 'requirement', name: '需求分析', approval: 'stage_approval' },
   { id: 'design', name: '设计', approval: 'auto' },
+  { id: 'delivery', name: '交付', approval: 'auto' },
 ];
 
 /** 阶段执行结果（D4 起含 token 用量，供阶段边界成本结算） */
@@ -225,6 +252,14 @@ export class StageOrchestrator {
         return this.record;
       }
 
+      // D6（M8）：交付阶段为合成阶段——不执行子 PDCA，由 run() 完成后统一打包交付清单
+      if (stage.id === 'delivery') {
+        stage.status = 'completed';
+        this.record.currentStage = stage.id;
+        this.persist();
+        continue;
+      }
+
       // 执行本阶段
       stage.status = 'running';
       this.record.currentStage = stage.id;
@@ -278,8 +313,54 @@ export class StageOrchestrator {
       this.persist();
     }
 
-    // 全部阶段完成
+    // 全部阶段完成 → D6（M8）：生成交付清单（打包产物 + 部署说明 + 验收标记）
     this.record.phase = 'completed';
+    this.record.deliveryManifest = this.buildDeliveryManifest();
+    this.persist();
+    return this.record;
+  }
+
+  /** D6（M8）：打包交付清单（各阶段产物 + 总 tokens + 验收标记 pending） */
+  private buildDeliveryManifest(): DeliveryManifest {
+    return {
+      taskId: this.record.taskId,
+      description: this.record.description,
+      sessionId: this.record.sessionId,
+      totalTokens: this.record.totalTokens,
+      budgetLimitTokens: this.record.budgetLimitTokens,
+      stages: this.record.stages.map((s) => ({
+        id: s.id,
+        name: s.name,
+        status: s.status,
+        artifactPreview: (s.artifact ?? '').slice(0, 200),
+      })),
+      artifacts: Object.fromEntries(
+        this.record.stages
+          .filter((s) => s.artifact)
+          .map((s) => [s.id, s.artifact as string])
+      ),
+      // MVP：阶段产物即交付物，部署说明为后续扩展（delivery 合成阶段无独立产物）
+      deployNote: '',
+      acceptance: this.record.deliveryAccepted ? 'accepted' : 'pending',
+      deliveredAt: new Date().toISOString(),
+    };
+  }
+
+  /**
+   * D6（M8）：用户验收 → 交付清单 acceptance 置 accepted
+   * 仅 phase='completed' 且已生成交付清单时可调用。
+   */
+  async markDeliveryAccepted(): Promise<StageChainRecord> {
+    if (this.record.phase !== 'completed' || !this.record.deliveryManifest) {
+      throw new AppError(
+        'Stage chain not delivered yet',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        'STAGE_NOT_DELIVERED'
+      );
+    }
+    this.record.deliveryAccepted = true;
+    this.record.deliveryManifest.acceptance = 'accepted';
     this.persist();
     return this.record;
   }

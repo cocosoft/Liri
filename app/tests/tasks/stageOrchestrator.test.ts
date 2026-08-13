@@ -172,3 +172,68 @@ describe('StageOrchestrator — 成本护栏（D4/M4）', () => {
     expect(orch.getStatus().phase).toBe('completed');
   });
 });
+
+describe('StageOrchestrator — 交付阶段（D6/M8）', () => {
+  const runToDelivered = async (taskId: string, tokens = 10) => {
+    const calls: string[] = [];
+    const orch = StageOrchestrator.create(
+      taskId,
+      '开发结算模块',
+      's',
+      deps(calls, tokens)
+    );
+    await orch.run(); // requirement 停在审批门
+    await orch.resumeAfterApproval(); // design + delivery 完成
+    return { orch, calls };
+  };
+
+  it('全部阶段完成后生成交付清单（打包产物 + 总 tokens + pending）', async () => {
+    const { orch, calls } = await runToDelivered('d6-test-1', 25);
+
+    // delivery 为合成阶段：不执行子 PDCA，仅一次审批门
+    expect(calls).toEqual(['requirement', 'design']);
+    const status = orch.getStatus();
+    expect(status.phase).toBe('completed');
+    expect(status.stages.find((s) => s.id === 'delivery')?.status).toBe(
+      'completed'
+    );
+
+    const manifest = status.deliveryManifest;
+    expect(manifest).toBeDefined();
+    expect(manifest!.taskId).toBe('d6-test-1');
+    expect(manifest!.totalTokens).toBe(50); // requirement 25 + design 25
+    expect(manifest!.budgetLimitTokens).toBe(0);
+    expect(manifest!.acceptance).toBe('pending');
+    expect(manifest!.deliveredAt).toBeTruthy();
+    // 各阶段产物完整打包（交付物）
+    expect(manifest!.artifacts['requirement']).toBe('产物-requirement');
+    expect(manifest!.artifacts['design']).toBe('产物-design');
+    // 阶段行含产物预览
+    const designRow = manifest!.stages.find((s) => s.id === 'design');
+    expect(designRow?.artifactPreview).toContain('产物-design');
+  });
+
+  it('markDeliveryAccepted 置验收标记并持久化', async () => {
+    const { orch } = await runToDelivered('d6-test-2');
+
+    const accepted = await orch.markDeliveryAccepted();
+    expect(accepted.deliveryAccepted).toBe(true);
+    expect(accepted.deliveryManifest!.acceptance).toBe('accepted');
+
+    // 持久化后 fromCheckpoint 恢复可见
+    const restored = StageOrchestrator.fromCheckpoint('d6-test-2', deps([]));
+    expect(restored!.getStatus().deliveryAccepted).toBe(true);
+    expect(restored!.getStatus().deliveryManifest!.acceptance).toBe('accepted');
+  });
+
+  it('未交付（未到 completed）调用 markDeliveryAccepted 抛错', async () => {
+    const orch = StageOrchestrator.create(
+      'd6-test-3',
+      'x',
+      's',
+      deps([])
+    );
+    await orch.run(); // 停在审批门，未交付
+    await expect(orch.markDeliveryAccepted()).rejects.toThrow();
+  });
+});

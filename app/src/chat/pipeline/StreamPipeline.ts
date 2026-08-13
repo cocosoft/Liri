@@ -228,6 +228,19 @@ export class StreamPipeline {
           string,
           unknown
         >[];
+        // C5 修复（压缩链路排查 2026-08-13）：压缩 applied 后仍校验是否 ≤ 窗口——
+        // 与 sendMessageFlow 一致。Tier3 内部仅保证 afterTokens < beforeTokens，
+        // 压缩后仍超限直接发送会 400 context 超限，追加截断兜底。
+        const postAfter = estimateMessagesTokens(this.ctx.apiMessages);
+        const postMaxCtx = resolveMaxContextTokens(options?.model);
+        if (postMaxCtx > 0 && postAfter > postMaxCtx) {
+          logger.warn('compaction:post_check — 压缩后仍超窗口，追加截断', {
+            sessionId: session.id,
+            afterTokens: postAfter,
+            maxCtx: postMaxCtx,
+          });
+          await this._truncateApiMessages(postMaxCtx, session.id);
+        }
       } else {
         span.addEvent('compaction.skipped', {
           reason: 'orchestrator_not_applied',

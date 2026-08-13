@@ -1249,8 +1249,11 @@ export class QueryEngine {
     if (!session || !session.messages?.length) return;
 
     const messages = session.messages as unknown as ChatMessage[];
+    // C4 修复（压缩链路排查 2026-08-13）：传真实模型名而非硬编码 'default'——
+    // 原实现 resolveContextWindow('default') 落到默认窗口 200K，真实模型（如
+    // deepseek-v4-flash 128K）时压缩触发过晚 → TAORLoop WARNING 路径压缩失效。
     const result = await compactionOrchestrator.compact(messages, {
-      model: 'default',
+      model: session.metadata?.model || 'default',
       sessionId,
     } as CompactionContext);
 

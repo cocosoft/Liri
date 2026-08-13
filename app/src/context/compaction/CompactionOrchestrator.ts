@@ -19,6 +19,7 @@ import {
 } from './AutoCompactionPolicy';
 import { applyMicroCompaction } from './MicroCompactionEngine';
 import { snipMessages } from './SnipEngine';
+import { ensureTrailingUserMessage } from './toolPairIntegrity';
 import { hookRegistry } from '../hooks/CompactionHooks';
 import { compactionMetricsTracker } from './CompactionMetrics';
 import { getLogger } from '@modules/monitoring';
@@ -315,11 +316,22 @@ export class CompactionOrchestrator {
     signal?: AbortSignal
   ): Promise<{ messages: ChatMessage[]; applied: boolean }> {
     try {
-      // 取头部 2 条（通常是 system prompt）+ 构建要压缩的文本
-      const headMessages = messages
-        .slice(0, 2)
-        .filter((m) => m.role === 'system');
-      const toCompress = messages.slice(headMessages.length);
+      // C1 修复（压缩链路排查 2026-08-13）：保留头部连续的 system 消息（system prompt
+      // 应在列表开头），而非仅取前 2 条过滤——原实现若前 2 条无 system（被 isTaskMessage
+      // 过滤/顺序异常）导致 headMessages 为空，原 system prompt（工具定义/角色设定）会
+      // 随历史一起被 LLM 压缩进摘要而丢失。头部无 system 时直接回退不压缩。
+      let headIdx = 0;
+      while (headIdx < messages.length && messages[headIdx].role === 'system') {
+        headIdx++;
+      }
+      const headMessages = messages.slice(0, headIdx);
+      if (headMessages.length === 0) {
+        logger.warn('compaction:tier3_skip — 头部无 system 消息，跳过全量压缩', {
+          messageCount: messages.length,
+        });
+        return { messages, applied: false };
+      }
+      const toCompress = messages.slice(headIdx);
 
       const conversationText = toCompress
         .map(
@@ -378,7 +390,7 @@ export class CompactionOrchestrator {
 
       // 构建压缩后消息：system prompts + 摘要 + 最后 2 条尾部消息
       const tailMessages = toCompress.slice(-2);
-      const compacted: ChatMessage[] = [
+      let compacted: ChatMessage[] = [
         ...headMessages,
         {
           role: 'system',
@@ -386,6 +398,10 @@ export class CompactionOrchestrator {
         } as ChatMessage,
         ...tailMessages,
       ];
+      // C2 修复（压缩链路排查 2026-08-13）：确保尾部为 user 消息（与 SnipEngine 一致）。
+      // 压缩结果尾部若为 assistant（如本轮 user 被 isTaskMessage 过滤），OpenAI/DeepSeek
+      // 会返回 400 "Conversation ended with assistant message"。
+      compacted = ensureTrailingUserMessage(compacted);
 
       // 校验：压缩后 token 应少于压缩前，否则回退
       const beforeTokens = estimateMessagesTokens(toCompress);

@@ -307,6 +307,24 @@ export async function compactContext(
       string,
       unknown
     >[];
+    // C5 修复（压缩链路排查 2026-08-13）：压缩 applied 后仍校验是否 ≤ 窗口——
+    // Tier3 内部仅保证 afterTokens < beforeTokens，不保证 ≤ 窗口；压缩后仍超限
+    // 直接发送会 400 context 超限。追加截断兜底（原实现仅"不 applied"才走截断）。
+    const afterTokens = estimateMessagesTokens(ctx.apiMessages);
+    const postMaxCtx = resolveMaxContextTokens(options?.model);
+    if (postMaxCtx > 0 && afterTokens > postMaxCtx) {
+      logger.warn('compaction:post_check — 压缩后仍超窗口，追加截断', {
+        sessionId: session.id,
+        afterTokens,
+        maxCtx: postMaxCtx,
+      });
+      await host.truncateApiMessages(
+        ctx.apiMessages,
+        postMaxCtx,
+        session.id,
+        options?.maxTokens
+      );
+    }
   } else {
     const maxCtx = resolveMaxContextTokens(options?.model);
     await host.truncateApiMessages(

@@ -58,6 +58,10 @@ import type {
   ToolResult,
 } from '../types';
 import { createToolResult } from '../types/ToolResult';
+import { getLogger } from '@modules/monitoring';
+
+/** 提问工具排查日志（2026-08-14 第五十次）：观察 LLM 是否调用、调用内容、答案是否注入 */
+const logger = getLogger('tools:askUserQuestion');
 
 export class AskUserQuestionTool extends BaseTool {
   name = 'ask_user_question';
@@ -146,6 +150,32 @@ export class AskUserQuestionTool extends BaseTool {
     // 如果没有 _userAnswers，说明工具调用走的非交互路径（未经过 streamMessage 的交互检查）
     // 此时返回空数组，不允许自动回退到全部选项（避免"自我回答"问题）
     const userAnswers = (input._userAnswers as string[]) || [];
+
+    // 提问工具调用日志（2026-08-14 第五十次补充）：记录 LLM 是否发起提问、问题内容、
+    // 选项数、是否收到用户答案——观察"提问工具不能正常调用/结果未返回"类问题的关键路径
+    const questionText = (input.question as string) ?? '';
+    const options = (input.options as { label?: string }[]) ?? [];
+    if (userAnswers.length > 0) {
+      logger.info('ask_user_question:answered', {
+        sessionId: context.sessionId,
+        question: questionText.slice(0, 120),
+        header: (input.header as string) ?? '',
+        optionCount: options.length,
+        answerCount: userAnswers.length,
+        answers: userAnswers.slice(0, 5),
+      });
+    } else {
+      // 无用户答案：可能是未走交互路径（LLM 调用被 abort/未等答案）、或答案注入失败。
+      // 05-1 排查关注点：此日志出现即说明提问被发起但答案未回灌，需结合前端 QuestionBlock
+      // 是否展示定位。
+      logger.warn('ask_user_question:no_answer', {
+        sessionId: context.sessionId,
+        question: questionText.slice(0, 120),
+        header: (input.header as string) ?? '',
+        optionCount: options.length,
+        hasUserAnswersField: '_userAnswers' in input,
+      });
+    }
 
     const result: AskUserQuestionResult = {
       questionId: `q_${Date.now()}`,

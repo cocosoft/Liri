@@ -1047,9 +1047,25 @@ export const chatService = {
           };
           return;
         }
-        if (e instanceof DOMException && e.name === "AbortError") {
-          // 用户主动取消（AbortController.abort()）——正常路径，非超时
-          logger.info("[streamMessage] 用户取消流式请求", { sessionId });
+        if (
+          (e instanceof DOMException && e.name === "AbortError") ||
+          // 2026-08-14 排查：fetch 流被 abort 时 Chromium 抛 "BodyStreamBuffer was aborted"，
+          // 其 message 含 "aborted" 会误命中下方 isConnectionReset → 误报 CONNECTION_RESET
+          // 错误并上报（用户停止/新消息接管旧流属正常取消，非网络故障）。
+          // 归为主动取消（与 AbortError 同类），不上报 error、不触发重连。
+          (e instanceof Error && e.message.includes("BodyStreamBuffer was aborted"))
+        ) {
+          // 取消路径诊断日志（2026-08-14 第五十次补充）：记录错误对象细节，便于确认
+          // ① 误报是否已消除（此后不应再出现 services:chat 的 CONNECTION_RESET 上报）
+          // ② 取消类型分布（用户停止 vs 新消息接管旧流 vs 其他 abort）
+          logger.info("[streamMessage] 流式请求已中止（取消/新消息接管旧流）", {
+            sessionId,
+            errorName: e instanceof DOMException ? e.name : e?.constructor?.name,
+            errorMessage: e instanceof Error ? e.message : String(e),
+            isStandardAbortError: e instanceof DOMException && e.name === "AbortError",
+            isBodyStreamAbort: e instanceof Error && e.message.includes("BodyStreamBuffer was aborted"),
+            abortedFlag: (e as { aborted?: boolean })?.aborted ?? false,
+          });
           yield { type: "error", content: "请求已取消", errorCode: "UNKNOWN" };
           return;
         }

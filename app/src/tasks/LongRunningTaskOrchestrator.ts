@@ -36,12 +36,10 @@ import { createAgentIsolation, throwIfAborted } from '../agent/AgentIsolation';
 import { computeToolNames, resolveToolsets } from '../tools/toolsets';
 import { generateAuditReport } from './AuditReport';
 import type { AuditReport } from './AuditReport';
-import {
-  parseReviewFromText,
-  isReviewPassed,
-  formatReviewSummary,
-} from './PlanReview';
+import { formatReviewSummary } from './PlanReview';
 import type { PlanReview, ReviewDecision } from './PlanReview';
+import { createReviewGate } from './review/ReviewGate.js';
+import type { ReviewGate, ReviewGateContext } from './review/ReviewGate.js';
 import { TAORLoop, createTAORLoopDeps } from '../query/TAORLoop.js';
 import type { TAORLoopDeps } from '../query/TAORLoop.js';
 import { VerifierAgent, createVerifierAgent } from '../query/VerifierAgent.js';
@@ -136,13 +134,6 @@ const EXECUTOR_ROLE: RoleConfig = {
     '你是一个任务执行者。严格按照给定的步骤描述和验收标准执行。完成后汇报执行结果。',
 };
 
-const REVIEWER_ROLE: RoleConfig = {
-  name: 'Reviewer',
-  toolsets: ['search', 'file'],
-  systemPrompt:
-    '你是一个任务审查员。对比验收标准和实际执行结果，给出审查意见。只读操作，不修改任何文件。输出 JSON 格式：{"pass":bool,"score":0-100,"issues":[],"summary":"..."}',
-};
-
 /** 默认执行器函数类型 */
 type ExecutorFn = (params: {
   systemPrompt: string;
@@ -215,6 +206,12 @@ export class LongRunningTaskOrchestrator {
    * Phase 6: 文件级并发锁（多会话冲突保护）
    */
   readonly fileLockManager: FileLockManager;
+  /**
+   * ReviewGate（REVIEW + DECIDE 阶段组件）：
+   * 默认从环境变量创建（PDCA_REVIEW_GATE 等），可 setReviewGate 注入自定义实现。
+   * 决策结果（approve/retry/skip/escalate）仍由 decideStep 应用状态变更。
+   */
+  private reviewGate: ReviewGate;
 
   constructor(taskId: string, executor?: ExecutorFn) {
     this.taskId = taskId;
@@ -223,6 +220,7 @@ export class LongRunningTaskOrchestrator {
     this.lifecycle.record('created', TaskStatus.PENDING);
     this.verifier = createVerifierAgent({ enabled: true });
     this.fileLockManager = fileLockManager;
+    this.reviewGate = createReviewGate();
 
     // 默认 executor：通过 AI 服务执行
     this.executor =
@@ -337,6 +335,30 @@ export class LongRunningTaskOrchestrator {
     logger.info('[orchestrator] TAORLoop 工厂已注入（每步独立实例，可并行）', {
       taskId: this.taskId,
     });
+  }
+
+  /**
+   * 注入自定义 ReviewGate（REVIEW + DECIDE 阶段组件化挂载点）
+   * 未注入时默认使用 createReviewGate()（按 PDCA_REVIEW_GATE 环境变量切换模式）。
+   */
+  setReviewGate(gate: ReviewGate): void {
+    this.reviewGate = gate;
+    logger.info('[orchestrator] ReviewGate 已注入', {
+      taskId: this.taskId,
+      gateName: gate.name,
+    });
+  }
+
+  /** 构建 ReviewGate 执行上下文（Orchestrator 运行时依赖注入） */
+  private _buildReviewGateContext(step: PlanStep): ReviewGateContext {
+    return {
+      taskId: this.taskId,
+      planId: this.planId!,
+      step,
+      isolation: this.isolation,
+      executor: this.executor,
+      verifier: this.verifier,
+    };
   }
 
   // ─── Phase 1: PLAN ──────────────────────────────────
@@ -971,89 +993,11 @@ ${replanSection}
     });
 
     try {
-      // 2026-08-06：PDCA C（Review）接入机械验证（verifyProject）——先跑编译/测试，
-      // 结果作为 Reviewer 输入上下文，形成"机械验证 + LLM 语义审查"两级防线。
-      let mechanicalVerify = '';
-      try {
-        const { verifyProject } = await import('../query/verifyProject.js');
-        const verifyResult = await Promise.race([
-          verifyProject(),
-          new Promise<string>((_, reject) =>
-            setTimeout(() => reject(new Error('verify_timeout')), 30000)
-          ),
-        ]).catch((err) => `verify skipped: ${String(err)}`);
-        if (typeof verifyResult === 'string' && verifyResult) {
-          mechanicalVerify = verifyResult;
-        }
-      } catch (_err) {
-        // @ignore-catch: 机械验证失败不阻塞 Review（降级为仅语义审查）
-      }
-
-      const reviewPrompt = [
-        `审查以下步骤的执行结果：`,
-        `步骤: ${step.description}`,
-        step.acceptanceCriteria ? `验收标准: ${step.acceptanceCriteria}` : '',
-        `实际输出: ${step.result || '(无输出)'}`,
-        mechanicalVerify ? `机械验证结果:\n${mechanicalVerify}` : '',
-        `请输出 JSON 审查结果: {"pass":bool,"score":0-100,"issues":[{"severity":"critical|major|minor","description":"..."}],"summary":"..."}`,
-      ].join('\n');
-
-      const reviewText = await this.executor({
-        systemPrompt: REVIEWER_ROLE.systemPrompt,
-        userPrompt: reviewPrompt,
-        tools: computeToolNames(REVIEWER_ROLE.toolsets),
-        isolation: this.isolation,
-      });
-
-      const review = parseReviewFromText(reviewText, stepId);
+      // 委托 ReviewGate 执行审查（默认实现：机械验证 + LLM Reviewer + VerifierAgent 双指标）
+      const review = await this.reviewGate.reviewStep(
+        this._buildReviewGateContext(step)
+      );
       step.reviewResult = review;
-
-      // Phase 4: VerifierAgent 双指标验证
-      try {
-        const verifyResult = await this.verifier.verify(
-          {
-            messages: [
-              { role: 'system', content: REVIEWER_ROLE.systemPrompt },
-              { role: 'user', content: reviewPrompt },
-              { role: 'assistant', content: reviewText },
-            ],
-            toolResults: [],
-            turnCount: 0,
-            sessionId: this.taskId,
-          },
-          this.isolation.abortController.signal
-        );
-
-        const { passed, confidence, verdict } = verifyResult;
-
-        // VerifierAgent 判定集成到 Review
-        if (!passed) {
-          if (verdict === 'REJECT') {
-            review.pass = false;
-            review.issues.push({
-              severity: 'major',
-              description: `VerifierAgent REJECT: confidence=${confidence.toFixed(2)}`,
-            });
-          } else if (verdict === 'ESCALATE') {
-            review.pass = false;
-            review.issues.push({
-              severity: 'critical',
-              description: `VerifierAgent ESCALATE: confidence=${confidence.toFixed(2)}，需人工介入。反馈：${verifyResult.feedback || '无'}`,
-            });
-          }
-        }
-        // APPROVE 时保持 Reviewer 原有评分
-
-        span.setAttribute('review.verifierVerdict', verdict);
-        span.setAttribute('review.verifierConfidence', confidence);
-      } catch (verifyErr) {
-        logger.warn(
-          'VerifierAgent failed in reviewStep, continuing with Reviewer score only',
-          {
-            error: String(verifyErr),
-          }
-        );
-      }
 
       this.lifecycle.record(
         'progress',
@@ -1240,7 +1184,8 @@ ${replanSection}
   }
 
   /**
-   * 自动决策：审查通过 → approve，未通过且可重试 → retry，否则 escalate
+   * 自动决策：委托 ReviewGate.decide（默认：审查通过 → approve，未通过且可重试 → retry，否则 escalate）
+   * 若 ReviewGate.shouldReview 返回 false（如 disabled 模式），直接 approve。
    */
   async autoDecideStep(stepId: string): Promise<ReviewDecision> {
     if (!this.planId) throw new Error('No plan created');
@@ -1249,23 +1194,28 @@ ${replanSection}
     const step = plan.steps.find((s) => s.id === stepId);
     if (!step) throw new Error(`Step not found: ${stepId}`);
 
+    const gateCtx = this._buildReviewGateContext(step);
+
+    // 门关闭：跳过审查直接批准（NoopReviewGate / disabled 模式）
+    if (!this.reviewGate.shouldReview(gateCtx)) {
+      logger.info('[orchestrator] ReviewGate 关闭，直接批准', {
+        taskId: this.taskId,
+        planId: this.planId,
+        stepId: step.id,
+        stepDesc: step.description.slice(0, 60),
+        gateName: this.reviewGate.name,
+      });
+      await this.decideStep(stepId, 'approved');
+      return 'approved';
+    }
+
     if (!step.reviewResult) {
       await this.reviewStep(stepId);
     }
 
-    const isPassed = step.reviewResult
-      ? isReviewPassed(step.reviewResult)
-      : false;
-    const maxRetries = step.maxRetries ?? 3;
-
-    let decision: ReviewDecision;
-    if (isPassed) {
-      decision = 'approved';
-    } else if (step.retryCount < maxRetries) {
-      decision = 'retry';
-    } else {
-      decision = 'escalate';
-    }
+    const decision = await this.reviewGate.decide(
+      this._buildReviewGateContext(step)
+    );
 
     logger.info('[orchestrator] autoDecideStep 决策', {
       taskId: this.taskId,
@@ -1273,15 +1223,14 @@ ${replanSection}
       stepId: step.id,
       stepDesc: step.description.slice(0, 60),
       decision,
-      isPassed,
-      retryCount: step.retryCount,
-      maxRetries,
       reviewScore: step.reviewResult?.score,
       reviewPass: step.reviewResult?.pass,
       reviewIssues: step.reviewResult?.issues
         ?.slice(0, 3)
         .map((i) => `${i.severity}:${i.description}`.slice(0, 80)),
-      remainingRetries: maxRetries - step.retryCount,
+      remainingRetries:
+        (step.maxRetries ?? this.reviewGate.getConfig().maxRetries) -
+        step.retryCount,
     });
 
     await this.decideStep(stepId, decision);

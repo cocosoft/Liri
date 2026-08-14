@@ -14,8 +14,28 @@ import type { ChatMessage, ToolDefinition } from '../ai/models/types';
 import type { TAORLoopDeps, TAORLoopResult } from './TAORLoop.js';
 import { createTAORLoopDeps } from './TAORLoop.js';
 import { CascadeAbortManager } from './CascadeAbortManager.js';
+import type { ToolCallEventDetail } from '../chat/types/message.js';
 
 const logger = getLogger('query:chatManagerTAORAdapter');
+
+/**
+ * 安全序列化（第三轮复查，对齐 ReActToolLoop 遗漏 3）：
+ * ToolResult.result 类型为 unknown，工具可返回任意结构；循环引用/BigInt 会抛
+ * TypeError → 被 executeTools 的 catch 误报"工具失败"并可能触发级联中止。
+ * 失败降级为空串（SlowOperationDetector.safeStringify 为异步慢操作检测语义，不适用）。
+ */
+function safeStringify(value: unknown): string {
+  try {
+    return JSON.stringify(value) ?? '';
+  } catch (err) {
+    // 序列化失败（循环引用/BigInt 等异常结构）：降级空串，记录来源便于排查
+    logger.warn('taorAdapter:safeStringify failed', {
+      error: String(err),
+      valueType: typeof value,
+    });
+    return '';
+  }
+}
 
 // ─── ChatManager 暴露给适配器的能力接口 ────────────────
 
@@ -70,7 +90,7 @@ export interface ChatManagerTAORContext {
     event: string,
     toolName: string,
     toolCallId: string,
-    detail: string
+    detail?: ToolCallEventDetail
   ) => void;
   /** 用量回调 */
   onUsage?: (usage: Record<string, unknown>) => void;
@@ -185,12 +205,12 @@ export function createChatManagerTAORDeps(
           toolName: tc.name,
         });
 
-        ctx.onToolCall?.(
-          'start',
-          tc.name,
-          tc.id,
-          JSON.stringify(tc.arguments).slice(0, 200)
-        );
+        logger.debug('taorAdapter:onToolCall start', {
+          toolName: tc.name,
+          toolCallId: tc.id,
+          onToolCallRegistered: !!ctx.onToolCall,
+        });
+        ctx.onToolCall?.('start', tc.name, tc.id, { args: tc.arguments });
 
         try {
           // P1-5: Promise.race 使工具执行可被 AbortSignal 中断
@@ -211,11 +231,36 @@ export function createChatManagerTAORDeps(
           const hasError = !!toolResult.error;
           cascadeManager.reportResult(tc.name, !hasError, toolResult.error);
 
-          const resultDetail = toolResult.error
-            ? `失败: ${toolResult.error.slice(0, 200)}`
-            : `成功: ${(JSON.stringify(toolResult.result) ?? '').slice(0, 200)}`;
+          // 审批等待态判定（对齐 ReActToolLoop 遗漏 2）：审批等待工具返回
+          // { result: { pendingApproval: true } }（error 为 undefined），不触发
+          // onToolCall('end')——否则 CoreAPIImpl 误发 "✅ Tool completed"、前端
+          // 聚合把审批中工具计入 completed++（显示 "2/3 完成"），与 pendingApproval 徽标矛盾。
+          const isPendingApproval =
+            (toolResult as { result?: { pendingApproval?: boolean } })?.result
+              ?.pendingApproval === true;
 
-          ctx.onToolCall?.('end', tc.name, tc.id, resultDetail);
+          const resultDetail: ToolCallEventDetail = toolResult.error
+            ? {
+                ok: false,
+                message: `失败: ${toolResult.error.slice(0, 200)}`,
+              }
+            : {
+                ok: true,
+                message: `成功: ${safeStringify(toolResult.result).slice(0, 200)}`,
+                result: toolResult.result,
+              };
+
+          logger.debug('taorAdapter:onToolCall end', {
+            toolName: tc.name,
+            toolCallId: tc.id,
+            status: toolResult.error ? 'failed' : 'success',
+            message: resultDetail.message,
+            pendingApproval: isPendingApproval,
+            onToolCallRegistered: !!ctx.onToolCall,
+          });
+          if (!isPendingApproval) {
+            ctx.onToolCall?.('end', tc.name, tc.id, resultDetail);
+          }
 
           results.push({
             toolCallId: tc.id,
@@ -232,12 +277,10 @@ export function createChatManagerTAORDeps(
           } else {
             cascadeManager.reportResult(tc.name, false, errMsg);
           }
-          ctx.onToolCall?.(
-            'end',
-            tc.name,
-            tc.id,
-            `错误: ${errMsg.slice(0, 200)}`
-          );
+          ctx.onToolCall?.('end', tc.name, tc.id, {
+            ok: false,
+            message: `错误: ${errMsg.slice(0, 200)}`,
+          });
           results.push({
             toolCallId: tc.id,
             toolName: tc.name,

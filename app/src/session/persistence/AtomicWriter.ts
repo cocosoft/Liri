@@ -46,8 +46,25 @@ export class AtomicWriter {
     const tmpPath = path.join(dir, `.tmp.${suffix}`);
 
     try {
+      // 阶段耗时分解：writeFile（数据写入，随数据量增长）vs rename（原子替换，
+      // 同盘为 O(1) 元数据操作）。对比可确认"原子操作"本身是否有额外性能损耗——
+      // 若 renameMs 占比高，提示跨盘 rename / 防病毒实时扫描等环境因素。
+      const writeStart = Date.now();
       await fs.writeFile(tmpPath, data, 'utf-8');
+      const writeFileMs = Date.now() - writeStart;
+      const renameStart = Date.now();
       await fs.rename(tmpPath, targetPath);
+      const renameMs = Date.now() - renameStart;
+      const totalMs = writeFileMs + renameMs;
+      logger.debug('AtomicWriter.write 完成', {
+        path: targetPath,
+        bytes: typeof data === 'string' ? data.length : data.byteLength,
+        writeFileMs,
+        renameMs,
+        totalMs,
+        // 原子操作开销占比（0-1）；正常应远小于 writeFileMs（<0.1）
+        renameRatio: totalMs > 0 ? Math.round((renameMs / totalMs) * 100) : 0,
+      });
     } catch (err) {
       // @ignore-catch — 原子写入失败时清理临时文件，best-effort非关键
       await fs.unlink(tmpPath).catch(() => {});

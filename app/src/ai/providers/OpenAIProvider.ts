@@ -194,10 +194,7 @@ export class OpenAIProvider extends BaseAIProvider {
         body: JSON.stringify(requestBody),
         signal: options?.signal
           ? // 外部取消信号（压缩超时）与固定 120s 超时任一触发即中断
-            AbortSignal.any([
-              options.signal,
-              AbortSignal.timeout(120000),
-            ])
+            AbortSignal.any([options.signal, AbortSignal.timeout(120000)])
           : AbortSignal.timeout(120000),
       });
 

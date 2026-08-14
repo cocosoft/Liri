@@ -88,6 +88,8 @@ export interface MessageService {
     options?: {
       sessionId?: string;
       metadata?: Record<string, unknown>;
+      /** P0 根治（2026-08-14）：自定义消息 ID（前端 assistantId 透传复用） */
+      id?: string;
     }
   ): Message;
 
@@ -410,6 +412,8 @@ export class MessageServiceImpl implements MessageService {
     options?: {
       sessionId?: string;
       metadata?: Record<string, unknown>;
+      /** P0 根治（2026-08-14）：自定义消息 ID（前端 assistantId 透传复用） */
+      id?: string;
     }
   ): Message {
     return createMessage({
@@ -417,6 +421,7 @@ export class MessageServiceImpl implements MessageService {
       content,
       sessionId: options?.sessionId,
       metadata: options?.metadata,
+      id: options?.id,
     });
   }
 

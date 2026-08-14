@@ -567,6 +567,7 @@ const zh = {
       "通知已被浏览器阻止，请在浏览器设置中允许本网站的通知",
     logs: "查看日志",
     tasks: "任务管理",
+    pdcaReview: "PDCA 审查门",
     logViewerTitle: "日志浏览器",
     logViewerDesc: "浏览系统日志、LLM 会话记录和安全日志",
     logViewerTabLogs: "系统日志",

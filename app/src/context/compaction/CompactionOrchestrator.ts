@@ -432,22 +432,18 @@ export class CompactionOrchestrator {
       // C1 修复（压缩链路排查 2026-08-13）：保留头部连续的 system 消息（system prompt
       // 应在列表开头），而非仅取前 2 条过滤——原实现若前 2 条无 system（被 isTaskMessage
       // 过滤/顺序异常）导致 headMessages 为空，原 system prompt（工具定义/角色设定）会
-      // 随历史一起被 LLM 压缩进摘要而丢失。头部无 system 时直接回退不压缩。
+      // 随历史一起被 LLM 压缩进摘要而丢失。
       let headIdx = 0;
       while (headIdx < messages.length && messages[headIdx].role === 'system') {
         headIdx++;
       }
       const headMessages = messages.slice(0, headIdx);
-      if (headMessages.length === 0) {
-        logger.warn(
-          'compaction:tier3_skip — 头部无 system 消息，跳过全量压缩',
-          {
-            messageCount: messages.length,
-          }
-        );
-        return { messages, applied: false };
-      }
-      const toCompress = messages.slice(headIdx);
+      // 断点 3 修复（2026-08-14 排查）：头部无 system 时**不再跳过**——原实现直接
+      // 回退（applied:false）导致纯用户会话 tier3 永不压缩，上下文无限膨胀（实测
+      // 单次输入 411 万 tokens，超 128k 上限 32 倍）。无 system prompt 可保护时，
+      // 压缩全部消息并以摘要作为新 system 消息注入，行为安全。
+      const toCompress =
+        headMessages.length === 0 ? messages : messages.slice(headIdx);
 
       const conversationText = toCompress
         .map(

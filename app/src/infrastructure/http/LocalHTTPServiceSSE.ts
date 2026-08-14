@@ -24,6 +24,10 @@ export async function handleEvents(
     'Cache-Control': 'no-cache',
     Connection: 'keep-alive',
   });
+  // BUG-A 修复：writeHead 只缓存响应头，首个 write() 才真正发出。
+  // 不 flush 的话，浏览器 EventSource 的 onopen 要等首次心跳（15s）才触发，
+  // 期间前端 sseService.isConnected()=false，心跳保活与重连判断失真。
+  res.flushHeaders();
 
   clients.add(res);
   logger.info('SSE 客户端已连接', { total: clients.size });

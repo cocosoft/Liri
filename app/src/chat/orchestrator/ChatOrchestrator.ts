@@ -227,7 +227,7 @@ export interface ChatOrchestratorHost {
     repairContent(): string;
     recordUsage(): void;
     notifyUsage(): void;
-    createAssistantMessage(content: string): Message;
+    createAssistantMessage(content: string, opts?: { id?: string }): Message;
     postProcess(content: string): Promise<void>;
   };
   _finalizeStreamMessage(

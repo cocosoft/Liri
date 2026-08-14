@@ -21,7 +21,9 @@
 
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
+use std::net::TcpStream;
 use std::sync::Mutex;
+use std::time::Duration;
 use tauri_plugin_shell::process::CommandEvent;
 use tauri_plugin_shell::ShellExt;
 use tracing::info;
@@ -90,6 +92,28 @@ pub async fn start_backend(app_handle: tauri::AppHandle) -> Result<BackendStatus
             exit_code,
             error,
         });
+    }
+
+    // 断点 5 修复（2026-08-14 排查）：内存无进程记录时探测端口活性。
+    // Tauri 前端重启后 BACKEND_PROCESS 静态全局清空，但旧后端进程可能仍存活并
+    // 监听 http_port——若不探测直接拉起新实例，双实例竞争同一数据目录（DB 锁冲突、
+    // "清理锁被其他进程持有"）。端口可连接 = 已有后端存活，直接复用。
+    if let Ok(addr) = format!("127.0.0.1:{}", current_port)
+        .parse::<std::net::SocketAddr>()
+    {
+        if TcpStream::connect_timeout(&addr, Duration::from_millis(500)).is_ok() {
+            info!(
+                "start_backend: 端口 {} 已被占用，复用现有后端进程（防多实例）",
+                current_port
+            );
+            return Ok(BackendStatus {
+                running: true,
+                port: Some(current_port),
+                pid: None,
+                exit_code: None,
+                error: None,
+            });
+        }
     }
 
     let port_str = current_port.to_string();

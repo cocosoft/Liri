@@ -54,6 +54,24 @@ const logger = getLogger('chat:reactToolLoop');
 const TRUNCATED_TAG_RE =
   /<\/?(?:parameter|invoke|tool_call|tool_calls)\b[^>]*>\s*$/i;
 
+/**
+ * 安全序列化（遗漏 3，2026-08-14 复查）：
+ * ToolResult.result 类型为 unknown，工具可返回任意结构；循环引用/BigInt 会抛
+ * TypeError → ReActLoop.run() 外层 catch 中断整轮剩余工具执行。失败降级为空串。
+ */
+function safeStringify(value: unknown): string {
+  try {
+    return JSON.stringify(value) ?? '';
+  } catch (err) {
+    // 序列化失败（循环引用/BigInt 等异常结构）：降级空串，记录来源便于排查
+    logger.warn('reactToolLoop:safeStringify failed', {
+      error: String(err),
+      valueType: typeof value,
+    });
+    return '';
+  }
+}
+
 /** M1 子类自持的跨轮状态 */
 interface ReActToolLoopState {
   messages: Record<string, unknown>[];
@@ -296,6 +314,25 @@ export class ReActToolLoop extends ReActLoop<
         }
       }
 
+      // P0-4（2026-08-14）：工具执行事件同步触发 onToolCall（对齐 TAOR 路径 ChatManagerTAORAdapter）：
+      // start 携带完整参数对象（不再截断）→ CoreAPIImpl.onToolCall 产出带参数的 tool_call chunk + "🔧 Running tool" 提示；
+      // end 携带 ok/message/result → 产出 "✅/❌ Tool xxx completed" 提示 + toolResultCache 注入。
+      // （参数显示另有事件流 tool_start 兜底，前端按 toolCallId 去重合并，不产生双卡片。）
+      // 排查日志：日志内仍截断 200 字符，实际回调传完整对象。
+      // 遗漏 3：safeStringify 防循环引用/BigInt 抛错中断整轮工具。
+      const rawArgsJson = safeStringify(tc.input);
+      logger.debug('reactToolLoop:onToolCall start', {
+        sessionId: this.ctx.session.id,
+        toolName: tc.name,
+        toolCallId: tc.id,
+        argsLength: rawArgsJson.length,
+        detail: rawArgsJson.slice(0, 200),
+        onToolCallRegistered: !!this.ctx.onToolCall,
+      });
+      this.ctx.onToolCall?.('start', tc.name, tc.id, {
+        args: tc.input,
+      });
+
       const toolResult = await this.ctx.executeTool(
         {
           id: tc.id,
@@ -305,6 +342,34 @@ export class ReActToolLoop extends ReActLoop<
         },
         { useErrorHandler: true }
       );
+
+      // 遗漏 2（2026-08-14 复查）：审批等待态判定提前（原 L381 重复计算，现合并）。
+      // 审批等待工具不触发 onToolCall('end')——否则 CoreAPIImpl 误发 "✅ Tool completed"、
+      // 前端聚合把审批中工具计入 completed++（显示 "2/3 完成"），与 pendingApproval 徽标矛盾。
+      const isPendingApproval =
+        (toolResult as { result?: { pendingApproval?: boolean } })?.result
+          ?.pendingApproval === true;
+
+      const rawResultJson = safeStringify(toolResult.result);
+      const resultMessage = toolResult.error
+        ? `失败: ${toolResult.error.slice(0, 200)}`
+        : `成功: ${rawResultJson.slice(0, 200)}`;
+      logger.debug('reactToolLoop:onToolCall end', {
+        sessionId: this.ctx.session.id,
+        toolName: tc.name,
+        toolCallId: tc.id,
+        status: toolResult.error ? 'failed' : 'success',
+        detail: resultMessage,
+        onToolCallRegistered: !!this.ctx.onToolCall,
+        pendingApproval: isPendingApproval,
+      });
+      if (!isPendingApproval) {
+        this.ctx.onToolCall?.('end', tc.name, tc.id, {
+          ok: !toolResult.error,
+          message: resultMessage,
+          result: toolResult.result,
+        });
+      }
 
       // 工具结果注册表 + 循环检测记录 + 心跳进度数据（5）
       try {
@@ -341,9 +406,6 @@ export class ReActToolLoop extends ReActLoop<
         this.loopState.completedToolNames.push(tc.name);
       }
       this.loopState.totalCompletedToolCount++;
-      const isPendingApproval =
-        (toolResult as { result?: { pendingApproval?: boolean } })?.result
-          ?.pendingApproval === true;
       if (!isPendingApproval) {
         this.loopState.completedToolCallIds.push(tc.id);
       }
@@ -377,8 +439,15 @@ export class ReActToolLoop extends ReActLoop<
         toolCallId: tc.id,
         name: tc.name,
         status: toolResult.error ? 'error' : 'success',
+        // 遗漏 1（2026-08-14 复查）：对象/数组结果（grep/glob/create_project 等经
+        // ToolExecutor 返回 result.data 为对象）也下发——否则 tool_end 转换层 result
+        // undefined → 前端工具卡片结果区空白。对齐 ToolExecutor.ts 的 JSON.stringify 方案。
         output:
-          typeof toolResult.result === 'string' ? toolResult.result : undefined,
+          typeof toolResult.result === 'string'
+            ? toolResult.result
+            : toolResult.result !== undefined
+              ? safeStringify(toolResult.result)
+              : undefined,
         error: toolResult.error,
       });
       // todo chunk 数据：工具结果含 _todoData 时收集（对齐旧类 _executeToolRound extractTodoData）
@@ -567,7 +636,18 @@ export class ReActToolLoop extends ReActLoop<
 
   /** usage 上报（对齐旧类：recordChatResponseUsage + onToolUsage + trackUsage） */
   private _reportUsage(response: ChatResponse): void {
-    const usage = (response as unknown as { usage?: unknown }).usage;
+    const usage = (response as unknown as { usage?: ChatResponse['usage'] })
+      .usage;
+    // 成本 0/0 修复（2026-08-14 复检 #5）：provider 流式返回的 usage 缺失（undefined）
+    // 时跳过空记录——原实现无条件 trackUsage，产生 "LLM call recorded: 0/0 tokens"
+    // + warn"成本累加" 空条，污染 LLMTracker 与成本统计。真实 usage 由 trace-recording
+    // 层独立记录并驱动校准因子，此处空记录不丢真实数据。
+    if (
+      !usage ||
+      (usage.prompt_tokens ?? 0) + (usage.completion_tokens ?? 0) === 0
+    ) {
+      return;
+    }
     this.ctx.recordChatResponseUsage(this.ctx.session.id, usage);
     this.ctx.onToolUsage?.((usage as Record<string, unknown>) ?? {});
     trackUsage(response as unknown as Record<string, unknown>, {

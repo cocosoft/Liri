@@ -27,10 +27,7 @@ export {
 } from "./chat-toolcall.slice";
 
 // Re-export history utilities
-export {
-  _getCachedMessages,
-  flushSaveBlocks,
-} from "./chat-history.slice";
+export { _getCachedMessages, flushSaveBlocks } from "./chat-history.slice";
 
 // Re-export file utilities
 export { inferFileType, extractFileName } from "./chat-file.slice";

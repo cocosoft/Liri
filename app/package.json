@@ -46,6 +46,7 @@
     "lint:size": "PYAPP_PROJECT_DIR=.. bun run ../scripts/lint-file-size.ts",
     "lint:models": "PYAPP_PROJECT_DIR=.. bun run ../scripts/lint-models.ts",
     "lint:mock": "PYAPP_PROJECT_DIR=.. bun run ../scripts/lint-mock.ts",
+    "lint:session": "PYAPP_PROJECT_DIR=.. bun run ../scripts/lint-session-regression.ts",
     "health:arch": "PYAPP_PROJECT_DIR=.. bun run ../scripts/architecture-health.ts --compare",
     "health:arch:json": "PYAPP_PROJECT_DIR=.. bun run ../scripts/architecture-health.ts --json",
     "format": "prettier --write src",

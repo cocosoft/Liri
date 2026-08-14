@@ -933,7 +933,9 @@ export class ChatManagerImpl implements ChatManager {
     // P0 修复（2026-08-14 排查）：空 sessionId 拒绝创建——原单例首次调用固化空 id，
     // 导致所有会话串扰同一 TAORLoop。改为按 sessionId 的 Map 缓存 + 非空校验。
     if (!sessionId) {
-      logger.warn('_getOrCreateTAORLoop: 拒绝空 sessionId（防 TAORLoop 串扰污染）');
+      logger.warn(
+        '_getOrCreateTAORLoop: 拒绝空 sessionId（防 TAORLoop 串扰污染）'
+      );
       throw new Error('TAORLoop requires a non-empty sessionId');
     }
     let taorLoop = this._taorLoops.get(sessionId);
@@ -1135,10 +1137,39 @@ export class ChatManagerImpl implements ChatManager {
     let message = session.messages.find((m) => m.id === messageId);
 
     if (!message) {
+      // 排查日志：前端 id 未命中（旧数据无 assistantId 透传时必然发生，属预期），
+      // 走兜底取最后一条 assistant；若 P0 根治生效则此处不应出现
+      logger.debug(
+        'updateMessageBlocks: 前端 id 未命中，走兜底取最后一条 assistant',
+        {
+          sessionId,
+          messageId,
+          assistantCount: session.messages.filter((m) => m.role === 'assistant')
+            .length,
+        }
+      );
       message = session.messages.filter((m) => m.role === 'assistant').pop();
+    } else {
+      logger.debug('updateMessageBlocks: 前端 id 直接命中', {
+        sessionId,
+        messageId,
+        blockCount: blocks.length,
+      });
     }
 
     if (!message) {
+      // 边缘场景：流式结束前、后端 msg-xxx 尚未创建时的首次 blocks 保存。
+      // 此时只能用前端 UUID 占位创建（id 与后续 updateMessageBlocks 的 messageId 一致，
+      // 可命中更新），但流式结束后后端会另建 msg-xxx 消息，刷新后可能出现双条。
+      // TODO: CS05-ROOTFIX — 根治方案为前端透传 assistantId，后端 createAssistantMessage 复用。
+      logger.warn(
+        'updateMessageBlocks: 无 assistant 消息，用前端 UUID 创建占位消息',
+        {
+          sessionId,
+          messageId,
+          blockCount: blocks.length,
+        }
+      );
       message = this.messageService.createAssistantMessage('', {
         sessionId,
       });
@@ -1179,11 +1210,22 @@ export class ChatManagerImpl implements ChatManager {
       blocks: message.blocks as unknown as FrontendMessageBlock[] | undefined,
     };
     try {
+      // P0 修复（2026-08-14 排查）：必须用实际消息 id（msg-xxx）而非调用方传入的
+      // 前端 UUID。原实现 storage.updateMessage 按 UUID 查找 → FileSystemUnifiedStorage
+      // 找不到 idx 静默 return → blocks 永不落盘 → 刷新后 rebuildBlocksFromContent
+      // 从 content 猜测重建，与流式真实时序不一致。
       await this.sessionGateway.updateMessage(
         sessionId,
-        messageId,
+        message.id,
         unifiedMessage
       );
+      // 排查日志：落盘成功（FileSystemUnifiedStorage.updateMessage 命中 idx 时）
+      logger.debug('updateMessageBlocks: blocks 已提交落盘', {
+        sessionId,
+        messageId: message.id,
+        requestedId: messageId,
+        blockCount: blocks.length,
+      });
     } catch (err) {
       // 更新失败不应影响主消息流
       handleError(err, {
@@ -2142,15 +2184,20 @@ export class ChatManagerImpl implements ChatManager {
         break;
       }
     }
+    // 日志刷屏修复（2026-08-14 排查）：与 sendMessageFlow 同款——循环内逐条 info
+    // 改为计数后单条 debug 汇总（历史 100+ 条时每轮刷屏 100+ 行）
+    let cleanedToolCallCount = 0;
     for (let i = 0; i < lastUserMsgIdx; i++) {
       const msg = apiMessages[i];
       if (msg.role === 'assistant' && msg.tool_calls) {
-        logger.info('清除旧轮次 assistant tool_calls，防止跨轮污染', {
-          index: i,
-          toolCallCount: (msg.tool_calls as unknown[]).length,
-        });
         delete msg.tool_calls;
+        cleanedToolCallCount++;
       }
+    }
+    if (cleanedToolCallCount > 0) {
+      logger.debug('清除旧轮次 assistant tool_calls，防止跨轮污染', {
+        cleanedCount: cleanedToolCallCount,
+      });
     }
 
     return apiMessages;

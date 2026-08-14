@@ -149,15 +149,20 @@ export function prepareApiMessages(
       break;
     }
   }
+  // 日志刷屏修复（2026-08-14 排查）：原实现循环内逐条 info（历史 100+ 条时每轮刷屏），
+  // 改为计数后单条 debug 汇总（历史清理属常规内部操作，非用户可见事件）
+  let cleanedToolCallCount = 0;
   for (let i = 0; i < lastUserMsgIdx; i++) {
     const msg = apiMessages[i];
     if (msg.role === 'assistant' && msg.tool_calls) {
-      logger.info('清除旧轮次 assistant tool_calls，防止跨轮污染', {
-        index: i,
-        toolCallCount: (msg.tool_calls as unknown[]).length,
-      });
       delete msg.tool_calls;
+      cleanedToolCallCount++;
     }
+  }
+  if (cleanedToolCallCount > 0) {
+    logger.debug('清除旧轮次 assistant tool_calls，防止跨轮污染', {
+      cleanedCount: cleanedToolCallCount,
+    });
   }
 
   // 附带图片路径 → 文本追加到用户消息
@@ -298,6 +303,15 @@ export async function compactContext(
 ): Promise<Record<string, unknown>[]> {
   const { options, session, host } = ctx;
   const beforeCompact = estimateMessagesTokens(ctx.apiMessages);
+  // 耗时日志：发送路径压缩入口（skipTier3Sync 模式应毫秒级返回，不含 Tier3）
+  const ctxStart = Date.now();
+  logger.info('compaction:ctx_start — 发送路径压缩开始', {
+    sessionId: session.id,
+    model: options?.model || '',
+    messageCount: ctx.apiMessages.length,
+    estimatedTokens: beforeCompact,
+    skipTier3Sync: true,
+  });
   const compResult = await compactionOrchestrator.compact(
     ctx.apiMessages as unknown as ChatMessage[],
     { model: options?.model || '', sessionId: session.id },
@@ -358,6 +372,19 @@ export async function compactContext(
     // logger + unifiedTracker.recordCompaction 保留，不依赖会话消息。
     host.unifiedTracker.recordCompaction(beforeCompact, afterTokens);
   }
+
+  // 耗时日志：发送路径压缩完成——elapsedMs 应毫秒级（Tier1/2 同步）；
+  // 若接近 60s 说明 skipTier3Sync 未生效（Tier3 仍同步阻塞），据此确认异步化效果
+  const ctxElapsed = Date.now() - ctxStart;
+  logger.info('compaction:ctx_done — 发送路径压缩完成', {
+    sessionId: session.id,
+    elapsedMs: ctxElapsed,
+    applied: compResult.applied,
+    beforeTokens: beforeCompact,
+    afterTokens: estimateMessagesTokens(ctx.apiMessages),
+    skipTier3Sync: true,
+    tier3SyncBlocked: ctxElapsed > 5000,
+  });
 
   // 校准：压缩后 checkBeforeRequest 设定 baselineInputTokens
   if (options?.model) {
@@ -436,20 +463,30 @@ export async function invokeLlm(
     }
   );
 
-  host.recordChatResponseUsage(session.id, response.usage);
+  // 成本 0/0 修复（2026-08-14 复检 #5）：usage 缺失/为空时跳过空记录（与
+  // ReActToolLoop._reportUsage / StreamPipeline.recordUsage 对齐），避免 0/0 污染
+  const usage = response.usage as
+    | { prompt_tokens?: number; completion_tokens?: number }
+    | undefined;
+  if (
+    usage &&
+    (usage.prompt_tokens ?? 0) + (usage.completion_tokens ?? 0) > 0
+  ) {
+    host.recordChatResponseUsage(session.id, response.usage);
 
-  // 异步记录使用量
-  trackUsage(response, {
-    model: options?.model || 'unknown',
-    providerId: activeClient.getProviderId(),
-    latencyMs: 0,
-    isStreaming: false,
-    sessionId: session.id,
-  }).catch((err) => {
-    logger.warn('用量记录失败', {
-      error: err instanceof Error ? err.message : String(err),
+    // 异步记录使用量
+    trackUsage(response, {
+      model: options?.model || 'unknown',
+      providerId: activeClient.getProviderId(),
+      latencyMs: 0,
+      isStreaming: false,
+      sessionId: session.id,
+    }).catch((err) => {
+      logger.warn('用量记录失败', {
+        error: err instanceof Error ? err.message : String(err),
+      });
     });
-  });
+  }
 
   return { response, llmStartTime };
 }

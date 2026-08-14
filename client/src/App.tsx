@@ -26,6 +26,7 @@ import { useNotificationSSE } from "./hooks/useNotificationSSE";
 import NotificationPanel from "./components/views/NotificationPanel";
 import { useInitApp } from "./hooks/useInitApp";
 import { useAutoCreateSession } from "./hooks/useAutoCreateSession";
+import SleepConfirmNotice from "./components/common/SleepConfirmNotice";
 
 function App() {
   const setActivePage = useNavigationStore((s) => s.setActivePage);
@@ -180,6 +181,7 @@ function App() {
         <MobileBottomNav />
         <ConfigPanel />
         <KeyboardShortcutsHelp />
+        <SleepConfirmNotice />
         {initState.phase === "first_run_wizard" && (
           <FirstRunWizard onComplete={completeWizard} />
         )}

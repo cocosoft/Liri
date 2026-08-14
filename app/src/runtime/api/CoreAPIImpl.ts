@@ -547,9 +547,18 @@ export class CoreAPIImpl implements CoreAPI {
         ...(request.metadata || {}),
         routerTier: tier,
       };
+      // 排查日志：确认前端透传的 assistantMessageId 是否到达（undefined 说明
+      // 前端未传/未走新协议 → 后端回退自动生成 msg-xxx，idSource 为 auto_generated）
+      logger.debug('chatStream:assistantMessageId 透传入参', {
+        sessionId: finalSessionId,
+        assistantMessageId: request.assistantMessageId,
+        hasAssistantId: !!request.assistantMessageId,
+      });
       const generator = this.chatManager.streamMessage(request.content, {
         sessionId: request.sessionId,
         messageId: request.messageId,
+        // P0 根治（2026-08-14）：前端流式消息 id 透传 → createAssistantMessage 复用
+        assistantMessageId: request.assistantMessageId,
         metadata: enrichedMetadata,
         model,
         images: request.images,
@@ -585,12 +594,16 @@ export class CoreAPIImpl implements CoreAPI {
         },
         onToolCall: (phase, toolName, toolCallId, detail) => {
           if (phase === 'start') {
-            let toolArgs: Record<string, unknown> = {};
-            try {
-              toolArgs = JSON.parse(detail || '{}');
-            } catch (_err) {
-              // detail might not be valid JSON, use empty object
-            }
+            // detail 为结构化对象，直接取完整参数（不再截断字符串 JSON.parse）
+            const toolArgs = detail?.args ?? {};
+            const argsKeyCount = Object.keys(toolArgs).length;
+            logger.debug('chatStream:onToolCall start', {
+              sessionId: finalSessionId,
+              toolName,
+              toolCallId,
+              argsKeyCount,
+              argsEmpty: argsKeyCount === 0,
+            });
 
             pendingEvents.push({
               type: 'status',
@@ -625,17 +638,30 @@ export class CoreAPIImpl implements CoreAPI {
               },
             } as ChatStreamChunk);
           } else {
-            const isFailed = detail ? detail.includes('失败') : false;
+            const isFailed = detail?.ok === false;
+            const failMsg = detail?.message?.replace(/^失败:\s*/, '');
+            logger.debug('chatStream:onToolCall end', {
+              sessionId: finalSessionId,
+              toolName,
+              toolCallId,
+              isFailed,
+              failMsg,
+              resultType: typeof detail?.result,
+              resultLength:
+                typeof detail?.result === 'string'
+                  ? detail.result.length
+                  : undefined,
+            });
             pendingEvents.push({
               type: 'status',
               content: isFailed
-                ? `❌ Tool ${toolName} failed${detail ? ` — ${detail.replace(/^失败:\s*/, '')}` : ''}`
+                ? `❌ Tool ${toolName} failed${failMsg ? ` — ${failMsg}` : ''}`
                 : `✅ Tool ${toolName} completed`,
               sessionId: finalSessionId,
             } as ChatStreamChunk);
 
             // 从工具执行结果中提取文件路径（file_write 等工具的 result 包含完整路径）
-            // detail 格式: 成功: "File written successfully: E:\\PY\\CODES\\...\\xxx.md"（JSON.stringify 导致双斜杠）
+            // detail.result 为原始结果（字符串或对象），路径可能为 JSON 转义双斜杠
             let extractedArgs: Record<string, unknown> = {};
             const isFileWritingTool = [
               'file_write',
@@ -645,20 +671,52 @@ export class CoreAPIImpl implements CoreAPI {
               'create_file',
               'edit_file',
             ].includes(toolName);
-            if (isFileWritingTool && detail && !isFailed) {
-              const normalized = detail.replace(/\\\\/g, '\\');
+            if (isFileWritingTool && detail?.result != null && !isFailed) {
+              let resultText = '';
+              if (typeof detail.result === 'string') {
+                resultText = detail.result;
+              } else {
+                try {
+                  resultText = JSON.stringify(detail.result) ?? '';
+                } catch {
+                  // 循环引用等不可序列化结果，跳过路径提取
+                }
+              }
+              const normalized = resultText.replace(/\\\\/g, '\\');
               const winPathMatch = normalized.match(
                 /([A-Za-z]:\\(?:[^"\\]+\\)*[^"\\]+\.[a-zA-Z0-9]{1,10})/
               );
               if (winPathMatch) {
                 extractedArgs = { file_path: winPathMatch[1] };
               }
+              // 排查日志：打印 end 回调接收的完整 result 对象，确认文件路径提取正确
+              logger.debug('chatStream:onToolCall end 路径提取', {
+                sessionId: finalSessionId,
+                toolName,
+                toolCallId,
+                isFailed,
+                resultType: typeof detail.result,
+                resultTextLength: resultText.length,
+                resultText, // 完整 result（JSON 序列化文本），供核对路径来源
+                normalizedLength: normalized.length,
+                pathMatched: !!winPathMatch,
+                extractedArgs,
+              });
             }
 
             // 从缓存中查询 tool:completed 事件携带的结果数据并注入到完成块
             const cachedResult = toolResultCache.get(toolCallId);
             if (cachedResult) {
               toolResultCache.delete(toolCallId);
+              logger.debug(
+                'chatStream:onToolCall end tool:completed 缓存命中',
+                {
+                  sessionId: finalSessionId,
+                  toolName,
+                  toolCallId,
+                  cachedKeys: Object.keys(cachedResult).slice(0, 10),
+                }
+              );
             }
 
             pendingEvents.push({
@@ -739,23 +797,62 @@ export class CoreAPIImpl implements CoreAPI {
         sessionId: finalSessionId,
       } as ChatStreamChunk;
 
+      // 排查日志：chunk 从生成到发送的完整链路（2026-08-14）
+      // 计数：streamMessage 产出的 chunk 数 / pendingEvents flush 数（onToolCall 事件经此转发）
+      let yieldedChunkCount = 0;
+      let flushedEventCount = 0;
       let result = await generator.next();
       while (!result.done) {
         const chunk = result.value;
 
-        while (pendingEvents.length > 0) {
-          yield pendingEvents.shift()!;
+        // 发送前先 flush onToolCall 累积的 pendingEvents（tool_call/status 事件）
+        const pendingCount = pendingEvents.length;
+        if (pendingCount > 0) {
+          const firstType = (pendingEvents[0] as { type?: string })?.type;
+          while (pendingEvents.length > 0) {
+            flushedEventCount++;
+            yield pendingEvents.shift()!;
+          }
+          logger.debug('chatStream:flush_pending_events', {
+            sessionId: finalSessionId,
+            count: pendingCount,
+            firstEventType: firstType ?? 'unknown',
+          });
         }
 
         if (typeof chunk === 'string') {
           fullContent += chunk;
-
+          yieldedChunkCount++;
+          // 文本 chunk 高频（每 token 一条），debug 级别避免刷屏
+          logger.debug('chatStream:yield_text_chunk', {
+            sessionId: finalSessionId,
+            chunkLength: chunk.length,
+            fullContentLength: fullContent.length,
+          });
           yield {
             type: 'text',
             content: chunk,
             sessionId: finalSessionId,
           } as ChatStreamChunk;
         } else if (chunk) {
+          yieldedChunkCount++;
+          const toolName = (chunk as { toolCall?: { name?: string } }).toolCall
+            ?.name;
+          logger.debug('chatStream:yield_chunk', {
+            sessionId: finalSessionId,
+            type: chunk.type,
+            toolName: toolName ?? '',
+            toolCallId:
+              (chunk as { toolCall?: { id?: string } }).toolCall?.id ?? '',
+            status:
+              (chunk as { toolCall?: { status?: string } }).toolCall?.status ??
+              '',
+            contentLength:
+              typeof chunk.content === 'string' ? chunk.content.length : 0,
+            hasResult:
+              (chunk as { toolCall?: { result?: unknown } }).toolCall
+                ?.result !== undefined,
+          });
           yield chunk as ChatStreamChunk;
         }
 
@@ -763,8 +860,17 @@ export class CoreAPIImpl implements CoreAPI {
       }
 
       while (pendingEvents.length > 0) {
+        flushedEventCount++;
         yield pendingEvents.shift()!;
       }
+
+      logger.info('chatStream:complete', {
+        sessionId: finalSessionId,
+        yieldedChunkCount,
+        flushedEventCount,
+        fullContentLength: fullContent.length,
+        durationMs: Date.now() - chatStreamStartTime,
+      });
 
       finalMessage = result.value;
       if (finalMessage) {
@@ -1647,25 +1753,21 @@ export class CoreAPIImpl implements CoreAPI {
           return;
         }
 
-        const title = await this.generateSessionTitle(
-          sessionId,
-          userMessage,
-          assistantResponse
-        );
-        if (title) {
-          await this.renameSession(sessionId, title);
-          logger.info('Auto-generated session title', { sessionId, title });
-        }
-      } catch (_error) {
-        logger.debug('Auto title generation skipped', { sessionId });
-        // 降级：LLM 失败时用首条用户消息前 30 字符
-        const fallback =
+        const title =
+          (await this.generateSessionTitle(
+            sessionId,
+            userMessage,
+            assistantResponse
+          )) ??
+          // BUG-B 修复：generateSessionTitle 内部 catch 返回 null（从不抛异常），
+          // 原 catch 分支的"首条消息前 30 字符"兜底永远不会执行。
+          // 降级标题直接在此生成，LLM 失败时不再停留在"新对话"。
           userMessage.slice(0, 30) + (userMessage.length > 30 ? '…' : '');
-        try {
-          await this.renameSession(sessionId, fallback);
-        } catch (_err) {
-          // 降级也失败，放弃
-        }
+        await this.renameSession(sessionId, title);
+        logger.info('Auto-generated session title', { sessionId, title });
+      } catch (_error) {
+        // 仅 renameSession 等异常走到这里（标题已保证非空），不重复兜底
+        logger.debug('Auto title generation skipped', { sessionId });
       }
     });
   }

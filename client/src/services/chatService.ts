@@ -734,6 +734,9 @@ export const chatService = {
       workMode?: "plan" | "do";
       images?: AttachedImage[];
       messageId?: string;
+      /** P0 根治（2026-08-14）：前端流式消息 id，后端 createAssistantMessage 复用，
+       *  使 updateMessageBlocks(assistantId) 直接命中落盘 */
+      assistantMessageId?: string;
       /** P0: 可恢复错误（CONNECTION_RESET）时向外抛 StreamConnectionError，
        *  供 streamMessageWithReconnect 捕获进入检查点重试。默认 false 保持原行为。 */
       throwOnRecoverable?: boolean;
@@ -762,6 +765,8 @@ export const chatService = {
       };
       if (sessionId) body.session_id = sessionId;
       if (options?.messageId) body.message_id = options.messageId;
+      if (options?.assistantMessageId)
+        body.assistant_message_id = options.assistantMessageId;
       if (workspacePath) body.workspace_path = workspacePath;
       if (options?.workMode) body.work_mode = options.workMode;
       if (options?.images && options.images.length > 0)
@@ -1156,6 +1161,8 @@ export const chatService = {
       workMode?: "plan" | "do";
       images?: AttachedImage[];
       messageId?: string;
+      /** P0 根治（2026-08-14）：前端流式消息 id（透传给 streamMessage） */
+      assistantMessageId?: string;
     },
   ): AsyncGenerator<StreamChunk, void, unknown> {
     let checkpointId: string | null = null;

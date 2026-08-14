@@ -44,7 +44,10 @@ class EventLoopLagMonitor {
 
       lastTick = now;
 
-      if (lag > 500) {
+      if (lag > 2000) {
+        // 复检报告（2026-08-14 第三轮）建议：原阈值 500ms 偏严——秒级滞后（891/1982ms）
+        // 属正常 GC/文件操作抖动，每 5s 一条 warn 淹没其他日志。上调至 2000ms，
+        // 仅 ≥2s 的真实阻塞（事件循环明显停摆）保留告警。
         logger.warn(`Event Loop 滞后: ${lag}ms`, {
           expectedDelay: expectedDelay,
           actualDelay: actualDelay,

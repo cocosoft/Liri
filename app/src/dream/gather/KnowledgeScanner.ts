@@ -163,12 +163,18 @@ export class KnowledgeScanner {
     try {
       const data = await readFile(deltaPath, 'utf-8');
       previous = JSON.parse(data) as KnowledgeDelta;
-    } catch {
-      /* first time scanning */
-      void handleError(new Error('读取delta文件失败'), {
-        module: 'dream:scanner',
-        action: 'computeDelta',
-      });
+    } catch (err) {
+      // K1 修复（日志排查 2026-08-13）：ENOENT = delta 文件不存在 = 首次扫描的
+      // 正常路径，直接建立基线，不记录 error；其余错误（读取失败/JSON 解析失败）
+      // 保留原始错误 + deltaPath 上下文，避免固定字符串掩盖真实原因。
+      const code = (err as NodeJS.ErrnoException)?.code;
+      if (code !== 'ENOENT') {
+        void handleError(err, {
+          module: 'dream:scanner',
+          action: 'computeDelta',
+          context: { deltaPath },
+        });
+      }
     }
 
     if (!previous) {

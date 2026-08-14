@@ -53,6 +53,8 @@ export interface ChatRequest {
   sessionId?: string;
   /** 前端写前落盘的用户消息 id（幂等去重用） */
   messageId?: string;
+  /** 前端流式消息 id（P0 根治：后端 createAssistantMessage 复用，使 blocks 落盘命中） */
+  assistantMessageId?: string;
   stream?: boolean;
   metadata?: Record<string, unknown>;
   /** 用户消息附带的图片信息 */
@@ -221,6 +223,8 @@ export interface ToolCallSpec {
   name: string;
   arguments: Record<string, unknown>;
   status?: 'running' | 'completed' | 'failed';
+  /** P0-2（2026-08-14）：工具执行结果（普通工具经 tool_end 下发，前端渲染结果内容） */
+  result?: unknown;
 }
 
 /** 工具执行结果 */

@@ -52,6 +52,9 @@ export class ModuleInitializer {
   private initializationStates: Map<string, ModuleInitializationState> =
     new Map();
   private initializationPromise?: Promise<void>;
+  /** 断点 9 修复（2026-08-14 排查）：registerAllModules 防重入标记
+   *  （对齐 initializeAllModules 的 initializationPromise 保护，日志曾现重复执行） */
+  private _modulesRegistered = false;
 
   /**
    * 获取单例实例
@@ -67,6 +70,13 @@ export class ModuleInitializer {
    * 注册所有模块
    */
   public registerAllModules(): void {
+    if (this._modulesRegistered) {
+      logger.warn('registerAllModules: 已注册过，跳过重复执行', {
+        registrySize: getRegistry().getStatistics().total,
+      });
+      return;
+    }
+    this._modulesRegistered = true;
     logger.info('开始注册所有模块...');
 
     // 验证模块依赖关系

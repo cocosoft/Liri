@@ -793,15 +793,25 @@ export async function launchRepl(
              */
             onToolCall: (phase, toolName, _toolCallId, detail) => {
               if (phase === 'start') {
-                // 提取关键参数摘要，避免输出过多
-                const paramSummary = detail ? detail.slice(0, 80) : '';
+                // 渲染关键参数摘要，避免输出过多
+                let paramSummary = '';
+                if (detail?.args) {
+                  try {
+                    paramSummary = (JSON.stringify(detail.args) ?? '').slice(
+                      0,
+                      80
+                    );
+                  } catch {
+                    paramSummary = '';
+                  }
+                }
                 console.log(
                   chalk.yellow('⚙️ System: 🛠 正在调用工具: ') +
                     chalk.cyan(toolName) +
                     (paramSummary ? chalk.gray(` ${paramSummary}`) : '')
                 );
               } else {
-                const isSuccess = detail?.startsWith('成功');
+                const isSuccess = detail?.ok === true;
                 console.log(
                   chalk.yellow('⚙️ System: ') +
                     (isSuccess ? chalk.green('✅') : chalk.red('❌')) +

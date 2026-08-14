@@ -12,6 +12,7 @@ import { useRootStore } from "../stores/root-store";
 import { sessionService } from "../services/sessionService";
 import { chatCoordinator } from "../stores/chat/chatCoordinator";
 import { getBackendBaseUrl } from "../services/backendUrl";
+import { useSleepNoticeStore } from "../stores/sleepNoticeStore";
 
 /** P1-1: inbox 事件若属于当前打开的会话，则刷新该会话消息（追加/更新 InboxBlock） */
 function refreshSessionIfActive(sessionId?: string): void {
@@ -129,6 +130,24 @@ export function useNotificationSSE() {
         try {
           const data = JSON.parse(e.data);
           refreshSessionIfActive(data.sessionId);
+        } catch {
+          /* ignore parse errors */
+        }
+      });
+
+      // 休眠检测：后端检测到系统休眠/睡眠后推送，前端弹出"是否继续执行积压任务"提示
+      es.addEventListener("system:sleep_detected", (e: MessageEvent) => {
+        try {
+          const data = JSON.parse(e.data);
+          useSleepNoticeStore.getState().setNotice({
+            detectedAt:
+              typeof data.detectedAt === "number"
+                ? data.detectedAt
+                : Date.now(),
+            lagMs: typeof data.lagMs === "number" ? data.lagMs : 0,
+            pendingCount:
+              typeof data.pendingCount === "number" ? data.pendingCount : 0,
+          });
         } catch {
           /* ignore parse errors */
         }

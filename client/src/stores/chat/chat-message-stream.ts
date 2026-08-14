@@ -22,10 +22,7 @@ import {
   reorderExplorationBlocks,
 } from "./chat-toolcall.slice";
 import { addFilePathsFromBlocks } from "./chat-file.slice";
-import {
-  SaveQueue,
-  staleSessionCache,
-} from "./chat-history.slice";
+import { SaveQueue, staleSessionCache } from "./chat-history.slice";
 import { handleClientError } from "@/utils/handleError";
 import { removeStreamController } from "./chat-message-shared";
 import {
@@ -301,6 +298,9 @@ export async function streamMessageImpl(
             // AB-14 修复：写前落盘失败（outbox）也传前端消息 id，
             // 后端创建用户消息时沿用该 id（ChatManager 兜底），保证前后端 id 一致
             messageId: userMessage ? userMessage.id : undefined,
+            // P0 根治（2026-08-14）：透传前端流式消息 id → 后端 createAssistantMessage
+            // 复用 → updateMessageBlocks(assistantId) 命中落盘，刷新后 blocks 一致
+            assistantMessageId: assistantId,
           },
         )
       : chatService.streamMessage(content, sessionId, controller.signal, {
@@ -308,6 +308,8 @@ export async function streamMessageImpl(
           images: attachedImages,
           // AB-14 修复：写前落盘失败（outbox）也传前端消息 id
           messageId: userMessage ? userMessage.id : undefined,
+          // P0 根治（2026-08-14）：透传前端流式消息 id（同上）
+          assistantMessageId: assistantId,
         });
     const blockBuilder = new ChronologicalBlockBuilder();
     const extractor = createThinkExtractor();

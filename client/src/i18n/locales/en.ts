@@ -581,6 +581,7 @@ const en = {
       "Notifications are blocked. Please enable them in your browser settings.",
     logs: "Backend Log",
     tasks: "Tasks",
+    pdcaReview: "PDCA Review Gate",
     logViewerTitle: "Log Browser",
     logViewerDesc:
       "Browse system logs, LLM session records, and cost statistics",

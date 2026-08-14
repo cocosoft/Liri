@@ -83,13 +83,30 @@ export class AutoCompactionPolicy {
 
   /** 消息数量兜底阈值：超过此数量时强制至少 warn（绕过 token 估算偏差） */
   private static readonly MESSAGE_COUNT_FALLBACK = 50;
+  /** 消息数兜底触发的水位下限：低于此水位（估算严重偏低但有偏差也不会超限）不强制 */
+  private static readonly MESSAGE_COUNT_FALLBACK_RATIO_MIN = 0.3;
   /** 消息数兜底触发的最低比率：仅当估算低于此阈值（50%）时才认为估算失准 */
-  private static readonly MESSAGE_COUNT_FALLBACK_RATIO = 0.5;
+  private static readonly MESSAGE_COUNT_FALLBACK_RATIO_MAX = 0.5;
 
   constructor(warningRatio = 0.85, blockingRatio = 0.92) {
     this.warningRatio = warningRatio;
     this.blockingRatio = blockingRatio;
     this.maxRecentSavings = 2; // 反抖动窗口
+  }
+
+  /**
+   * 获取当前生效的触发阈值（考虑小窗口模型）。
+   * C8 修复（压缩链路排查 2026-08-13）：阈值是 evaluate 动态计算的（小窗口 60%/70%，
+   * 大窗口构造默认 85%/92%），对外暴露供 /context debug 等诊断输出真实值。
+   * @param model 模型名（用于解析上下文窗口判断小窗口）
+   */
+  getThresholds(model: string): { warnRatio: number; blockRatio: number } {
+    const { tokens: maxTokens } = resolveContextWindow(model);
+    const isSmallWindow = maxTokens < 128_000;
+    return {
+      warnRatio: isSmallWindow ? 0.6 : this.warningRatio,
+      blockRatio: isSmallWindow ? 0.7 : this.blockingRatio,
+    };
   }
 
   /**
@@ -140,12 +157,33 @@ export class AutoCompactionPolicy {
 
       const snapshot = { tokens, maxTokens, ratio };
 
-      // 消息数量兜底：当 token 估算严重偏低时（ratio 极低但消息数已达上限），
+      // 水位评估上下文日志（2026-08-14 补充，观察水位触发行为用）：完整展示触发决策的
+      // 输入链路——原始估算(rawTokens) × 校准因子 = 修正后 tokens，水位 ratio 与
+      // warn/block 阈值对比，以及小窗口判定。一条日志即可定位"为什么 skip/warn/trigger"。
+      logger.info('compaction:evaluate context', {
+        model,
+        messageCount: messages.length,
+        rawTokens,
+        calibrationFactor: this.calibrationFactor,
+        tokens,
+        maxTokens,
+        ratio: Math.round(ratio * 100) / 100,
+        warnRatio,
+        blockRatio,
+        isSmallWindow,
+        warnPct: Math.round(warnRatio * 100),
+        blockPct: Math.round(blockRatio * 100),
+      });
+
+      // 消息数量兜底：当 token 估算严重偏低时（消息数已达上限但 ratio 处于可疑区间），
       // 强制 trigger 以启动完整 Tier2→Tier3 压缩管线，防止压缩永远不触发。
-      // 仅当比率低于 50% 时才认为估算明显失准，避免在正常高水位时误触发。
+      // 复检报告（2026-08-14 第三轮）建议联动水位：原实现 ratio < 0.5 一律强制，
+      // 短消息会话（130 条/水位 6.9%）每轮都走完整压缩评估偏激进——水位过低（<30%）
+      // 时即使估算偏差 3 倍也不会超限，无需强制；仅 0.3-0.5 可疑区间（偏差可能致超限）强制。
       if (
         messages.length > AutoCompactionPolicy.MESSAGE_COUNT_FALLBACK &&
-        ratio < AutoCompactionPolicy.MESSAGE_COUNT_FALLBACK_RATIO
+        ratio > AutoCompactionPolicy.MESSAGE_COUNT_FALLBACK_RATIO_MIN &&
+        ratio < AutoCompactionPolicy.MESSAGE_COUNT_FALLBACK_RATIO_MAX
       ) {
         logger.info('compaction:evaluate message-count fallback', {
           decision: 'trigger',
@@ -156,6 +194,9 @@ export class AutoCompactionPolicy {
           maxTokens,
           model,
           isSmallWindow,
+          warnRatio,
+          blockRatio,
+          calibrationFactor: this.calibrationFactor,
         });
         return {
           decision: 'trigger',
@@ -172,6 +213,9 @@ export class AutoCompactionPolicy {
           maxTokens,
           model,
           isSmallWindow,
+          warnRatio,
+          blockRatio,
+          calibrationFactor: this.calibrationFactor,
         });
         return { decision: 'skip', snapshot };
       }
@@ -183,6 +227,13 @@ export class AutoCompactionPolicy {
             ratio: Math.round(ratio * 100) / 100,
             tokens,
             maxTokens,
+            model,
+            isSmallWindow,
+            warnRatio,
+            blockRatio,
+            calibrationFactor: this.calibrationFactor,
+            recentSavings: [...this.recentSavings],
+            antiFlappingSkipCount: this.antiFlappingSkipCount,
           });
           return {
             decision: 'skip',
@@ -199,6 +250,9 @@ export class AutoCompactionPolicy {
           maxTokens,
           model,
           isSmallWindow,
+          warnRatio,
+          blockRatio,
+          calibrationFactor: this.calibrationFactor,
         });
         return {
           decision: 'trigger',
@@ -214,6 +268,9 @@ export class AutoCompactionPolicy {
         maxTokens,
         model,
         isSmallWindow,
+        warnRatio,
+        blockRatio,
+        calibrationFactor: this.calibrationFactor,
       });
       return {
         decision: 'warn',

@@ -331,6 +331,11 @@ export class ChronologicalBlockBuilder {
         toolCall: {
           ...toolCall,
           result: { success: true, data: resultData },
+          // P0-3（2026-08-14）：tool_completed 到达即视为完成，状态置 completed。
+          // 修复分组头永远显示"⏳ 执行中"（原实现只写 result/isStreaming，不更新 status）。
+          // 审批等待态保持原状态（由 pendingApproval 标记驱动，非字符串匹配 CS02）。
+          status:
+            resultData.pendingApproval === true ? toolCall.status : "completed",
           // P2-2: 结构化审批等待信号 → 置 pendingApproval 标记（CS02：状态判断用持久化标记，非字符串匹配）
           pendingApproval:
             resultData.pendingApproval === true

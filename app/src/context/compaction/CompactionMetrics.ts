@@ -8,6 +8,7 @@
  *   /context debug    — 压缩决策树打印
  */
 import { getLogger } from '@modules/monitoring';
+import { autoCompactionPolicy } from './AutoCompactionPolicy';
 const logger = getLogger('context:compaction:diag');
 
 const MAX_HISTORY_ENTRIES = 50;
@@ -127,15 +128,47 @@ class CompactionMetricsTracker {
   }
 
   /** 格式化压缩决策树（用于 /context debug 命令） */
-  formatDebugTree(): string {
+  formatDebugTree(model = ''): string {
     const summary = this.getSummary();
+    // C8 修复（压缩链路排查 2026-08-13）：阈值动态读取——小窗口模型（<128K）
+    // 触发水位 60%/70%，大窗口 85%/92%（AutoCompactionPolicy 构造默认），
+    // 不再硬编码文案（原 85/92% 对 llama.cpp 等小窗口模型失真）。
+    const { warnRatio, blockRatio } = autoCompactionPolicy.getThresholds(model);
+    const warnPct = Math.round(warnRatio * 100);
+    const blockPct = Math.round(blockRatio * 100);
+    // 大窗口（默认任务 200K）阈值用于对比说明；'default' 为任务路由名，非具体模型
+    const largeWarn = Math.round(
+      autoCompactionPolicy.getThresholds('default').warnRatio * 100
+    );
+    const largeBlock = Math.round(
+      autoCompactionPolicy.getThresholds('default').blockRatio * 100
+    );
+
+    // 阈值渲染日志（C8 观察用）：记录 model 入参、原始小数阈值、渲染后百分比与窗口对比，
+    // 便于核对 /context debug 输出与实际触发水位（evaluate 的 warnRatio/blockRatio）一致
+    logger.info('compaction:debug_tree_thresholds', {
+      model: model || '(default task)',
+      warnRatio,
+      blockRatio,
+      warnPct,
+      blockPct,
+      largeWarn,
+      largeBlock,
+      isSmallWindow: warnPct < 85, // 60/70 = 小窗口；85/92 = 大窗口
+      historyTotal: summary.total,
+      historyT1: summary.byTier[1],
+      historyT2: summary.byTier[2],
+      historyT3: summary.byTier[3],
+    });
+
     return [
       '## Compaction Debug Tree',
       '',
       '### AutoCompactionPolicy',
-      `  < 85% → skip`,
-      `  85-92% → warn → recommend MicroCompact (Tier 1) or Snip (Tier 2)`,
-      `  > 92% → trigger → Full Compaction (Tier 3)`,
+      `  < ${warnPct}% → skip`,
+      `  ${warnPct}-${blockPct}% → warn → recommend MicroCompact (Tier 1) or Snip (Tier 2)`,
+      `  > ${blockPct}% → trigger → Full Compaction (Tier 3)`,
+      `  (当前 ${warnPct}/${blockPct}%；大窗口 ${largeWarn}/${largeBlock}%)`,
       `  Anti-flap: skip if last 2 Tier 3 each saved < 10%`,
       '',
       '### History Summary',

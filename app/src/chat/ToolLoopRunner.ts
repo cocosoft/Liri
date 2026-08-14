@@ -38,6 +38,7 @@ import type {
 import type { ToolCall, ToolResult } from './types/tool.js';
 import type { Message } from './types/message.js';
 import type { ChatSession } from './types/session.js';
+import type { ToolCallEventDetail } from './types/message.js';
 
 /* ===================================================================
  *  ToolLoopContext — 工具循环所需的全部外部依赖
@@ -53,6 +54,16 @@ export interface ToolLoopContext {
     toolCall: ToolCall,
     opts?: { useErrorHandler?: boolean }
   ) => Promise<ToolResult>;
+
+  /** P0-4（2026-08-14）：工具执行事件回调（对齐 TAOR 路径 ChatManagerTAORAdapter）。
+   *  流式主链路在 act() 执行工具前后同步触发，使带参数的 tool_call chunk 正常产出
+   *  （CoreAPIImpl.onToolCall start 分支携带完整参数）+ 工具完成状态提示。 */
+  onToolCall?: (
+    phase: 'start' | 'end',
+    toolName: string,
+    toolCallId: string,
+    detail?: ToolCallEventDetail
+  ) => void;
 
   // 交互
   pendingInteractions: Map<

@@ -73,12 +73,17 @@ export class SessionContentGatherer {
             });
           }
         }
-      } catch {
-        /* pending dir not exists */
-        void handleError(new Error('挂起目录不存在'), {
-          module: 'dream:gather',
-          action: 'readPendingDir',
-        });
+      } catch (err) {
+        // 断点 8 修复（2026-08-14 第一轮报告）：pending 目录不存在（ENOENT）= 无挂起
+        // 会话的正常情况，不报 error（原实现固定字符串"挂起目录不存在"刷 UNHANDLED_ERROR）；
+        // 其余错误（权限等）保留原始 error 上下文
+        const code = (err as NodeJS.ErrnoException)?.code;
+        if (code !== 'ENOENT') {
+          void handleError(err, {
+            module: 'dream:gather',
+            action: 'readPendingDir',
+          });
+        }
       }
     }
 
@@ -101,12 +106,15 @@ export class SessionContentGatherer {
           });
         }
       }
-    } catch {
-      /* sessions dir not exists */
-      void handleError(new Error('会话目录不存在'), {
-        module: 'dream:gather',
-        action: 'readSessionsDir',
-      });
+    } catch (err) {
+      // 断点 8 修复（2026-08-14 第一轮报告）：sessions 目录不存在（ENOENT）不报 error
+      const code = (err as NodeJS.ErrnoException)?.code;
+      if (code !== 'ENOENT') {
+        void handleError(err, {
+          module: 'dream:gather',
+          action: 'readSessionsDir',
+        });
+      }
     }
 
     return digests;
@@ -158,12 +166,16 @@ export class SessionContentGatherer {
             });
           }
         }
-      } catch {
-        /* no messages file */
-        void handleError(new Error('消息文件不存在'), {
-          module: 'dream:gather',
-          action: 'readMessagesFile',
-        });
+      } catch (err) {
+        // 断点 8 修复（2026-08-14 第一轮报告）：消息文件不存在（ENOENT）= 空会话正常
+        // 情况，不报 error；其余错误保留上下文
+        const code = (err as NodeJS.ErrnoException)?.code;
+        if (code !== 'ENOENT') {
+          void handleError(err, {
+            module: 'dream:gather',
+            action: 'readMessagesFile',
+          });
+        }
       }
 
       return digest;

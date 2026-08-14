@@ -101,6 +101,7 @@
 |------|------|----------|-----------|
 | GET | `/health` | ✅ | `chatService.checkHealth`（免认证） |
 | GET | `/v1/events` | ✅ | 无明确前端调用方（SSE 事件总线） |
+| POST | `/v1/system/sleep/resolve` | ✅ **2026-08-14 新增** | `systemService.resolveSleep`（休眠恢复用户决策，body `{ runMissed: boolean }`） |
 
 ### §3.2 模型
 
@@ -194,6 +195,7 @@
 **约定**：
 - `statusType` 联合类型已含 `tool_retry`（后端 CoreAPI.ts 与前端 chatService.ts 同步，改动需双端一致）
 - 审批等待态通过 `tool_completed` + `result_data.pendingApproval === true` 传递，非 error 语义
+- 请求体可选字段 `assistant_message_id`（P0 根治，2026-08-14）：前端流式消息 id（`crypto.randomUUID`），后端 `createAssistantMessage` 复用它作消息 id，使 `PUT /v1/sessions/{id}/messages/{mid}/blocks`（updateMessageBlocks）直接命中落盘，刷新后 blocks 与流式一致；缺省时后端自动生成 `msg-{timestamp}-{suffix}`
 - 事件总线 `/v1/events`（`broadcastEvent` → 前端 `sseService.on`）与对话流内转发**并存**：长程任务等无活跃 chatStream 的场景走事件总线
 - `session:paused`（根因 C）：崩溃恢复把会话标记 PAUSED 后主动推送 `{ sessionId, reason: 'crash_recovery', crashedAt }`，前端展示"会话已暂停"提示（[chat store index.ts](client/src/stores/chat/index.ts)）
 

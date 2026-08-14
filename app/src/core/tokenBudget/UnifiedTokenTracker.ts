@@ -21,6 +21,10 @@ import {
   TokenBudgetController,
   UNIFIED_THRESHOLDS,
 } from './TokenBudgetController';
+import {
+  getCalibrationFactor,
+  persistCalibrationFactor,
+} from './CalibrationStore';
 
 // 订阅 Trace 引擎的真实 token 消耗数据
 import { traceUsageListeners } from '../../trace-recording/AITracePlugin';
@@ -353,6 +357,8 @@ export class UnifiedTokenTracker {
           this.calibrationFactor =
             this.CALIBRATION_ALPHA * raw +
             (1 - this.CALIBRATION_ALPHA) * this.calibrationFactor;
+          // 持久化校准因子（按模型，重启后直接恢复，无需重新学习）
+          persistCalibrationFactor(this.currentModel, this.calibrationFactor);
           logger.info('unified:calibration updated', {
             oldFactor: Math.round(oldFactor * 100) / 100,
             newFactor: Math.round(this.calibrationFactor * 100) / 100,
@@ -430,7 +436,15 @@ export class UnifiedTokenTracker {
       this.totalMessageChars = 0;
       this.estimatedStreamTokens = 0;
     }
-    this.calibrationFactor = 1.2;
+    // 加载该模型的持久化校准因子（重启后无需从默认重新学习；无记录则用默认 1.2）
+    const persisted = getCalibrationFactor(newModel);
+    this.calibrationFactor = persisted ?? 1.2;
+    if (persisted) {
+      logger.info('unified:calibration loaded from store', {
+        model: newModel,
+        factor: Math.round(persisted * 100) / 100,
+      });
+    }
     this.compactionHistory.forEach((r) => {
       r.crossModel = true;
     });
@@ -487,6 +501,8 @@ export class UnifiedTokenTracker {
           this.calibrationFactor =
             this.CALIBRATION_ALPHA * raw +
             (1 - this.CALIBRATION_ALPHA) * this.calibrationFactor;
+          // 持久化校准因子（按模型，重启后直接恢复）
+          persistCalibrationFactor(usage.model, this.calibrationFactor);
           logger.info('unified:calibration updated from trace', {
             source: 'trace',
             oldFactor: Math.round(oldFactor * 100) / 100,

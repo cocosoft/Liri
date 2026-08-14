@@ -484,6 +484,18 @@ export const createSessionSlice: StateCreator<
           fallbackId: sessions[0]?.id ?? null,
         });
         resolvedCurrentId = sessions[0]?.id ?? null;
+      } else if (!switching && !resolvedCurrentId) {
+        // 排查日志：后端无当前会话（current 为 null 或列表为空），
+        // 与幽灵回退区分——确认"无当前会话"是正常空列表而非识别失败
+        logger.debug("loadChatSessions:无当前会话（current 为空）", {
+          sessionCount: sessions.length,
+        });
+      } else if (!switching && resolvedCurrentId) {
+        // 排查日志：校验通过路径（id 在列表中），与幽灵回退对照
+        logger.debug("loadChatSessions:current id 校验通过", {
+          currentSessionId: resolvedCurrentId,
+          sessionCount: sessions.length,
+        });
       }
       set({
         chatSessions: sessions,

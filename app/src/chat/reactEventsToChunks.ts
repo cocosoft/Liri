@@ -53,6 +53,8 @@ export function reactEventsToChunks(
       ];
 
     case 'tool_start':
+      // P0-1（2026-08-14）：携带工具参数（event.input），前端 ToolCallGroup 展示"人话"摘要。
+      // 修复 M1 迁移后 arguments 恒为空 → 用户看不到工具执行了什么。
       return [
         {
           type: 'tool_call',
@@ -61,7 +63,7 @@ export function reactEventsToChunks(
           toolCall: {
             id: event.callId,
             name: event.name,
-            arguments: {},
+            arguments: event.input ?? {},
             status: 'running',
           },
         },
@@ -69,6 +71,7 @@ export function reactEventsToChunks(
 
     case 'tool_end':
       // 更新 tool_start 建卡的状态：completed / failed（对齐旧类 tool_call 完成 chunk）；
+      // P0-2（2026-08-14）：补 result（ToolResultEntry.output），前端渲染普通工具执行结果。
       // 失败时另补一条状态提示
       return [
         {
@@ -80,6 +83,10 @@ export function reactEventsToChunks(
             name: event.result.name,
             arguments: {},
             status: event.result.status === 'error' ? 'failed' : 'completed',
+            result:
+              event.result.output !== undefined
+                ? { success: true, data: event.result.output }
+                : undefined,
           },
         },
         ...(event.result.status === 'error'

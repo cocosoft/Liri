@@ -73,7 +73,12 @@ export type ReActEvent =
   | { type: 'phase'; phase: string; round: number; description?: string }
   | { type: 'reasoning_end'; result: ReasonResult }
   | { type: 'acting_start'; toolCount: number }
-  | { type: 'tool_start'; callId: string; name: string }
+  | {
+      type: 'tool_start';
+      callId: string;
+      name: string;
+      input: Record<string, unknown>;
+    }
   | { type: 'tool_progress'; callId: string; progress: number }
   | { type: 'tool_end'; callId: string; result: ToolResultEntry }
   | { type: 'acting_end'; result: ActResult }
@@ -275,7 +280,13 @@ export abstract class ReActLoop<
         try {
           // Emit per-tool start events
           for (const tc of reasonResult.toolCalls) {
-            yield { type: 'tool_start', callId: tc.id, name: tc.name };
+            yield {
+              type: 'tool_start',
+              callId: tc.id,
+              name: tc.name,
+              // 携带工具参数：转换层据此下发 arguments，前端 ToolCallGroup 展示"人话"摘要
+              input: tc.input,
+            };
           }
           actResult = await this.act(reasonResult.toolCalls, context);
         } catch (err) {

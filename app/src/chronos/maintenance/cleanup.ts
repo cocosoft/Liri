@@ -3,7 +3,7 @@
  * 负责周期性清理任务
  */
 
-import { mkdir, readdir, rm, stat, writeFile } from 'fs/promises';
+import { mkdir, readFile, readdir, rm, stat, writeFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join } from 'path';
 import { resolveDataDir } from '@modules/core';
@@ -19,11 +19,37 @@ async function getCleanupLockPath(): Promise<string> {
   return join(resolveDataDir(), CLEANUP_LOCK_FILE);
 }
 
+/**
+ * 判断清理锁是否过期。
+ * 复检报告（2026-08-14 第三轮）建议：原实现仅按文件年龄（>24h）判断，
+ * 旧实例非 graceful 退出（崩溃/强杀）时锁文件残留，新实例会一直跳过清理。
+ * 增加进程存活检测——锁文件内容为持有者 PID，PID 不存在即视为过期残留。
+ */
 async function isLockStale(lockPath: string): Promise<boolean> {
   try {
     const s = await stat(lockPath);
-    const age = Date.now() - s.mtimeMs;
-    return age > CLEANUP_INTERVAL_MS;
+
+    // 读取锁文件中的持有者 PID
+    const content = await readFile(lockPath, 'utf-8');
+    const pid = parseInt(content.trim(), 10);
+    if (Number.isInteger(pid) && pid > 0) {
+      try {
+        process.kill(pid, 0);
+        // 进程存活：按文件年龄判断（超 24h 视为过期）
+        return Date.now() - s.mtimeMs > CLEANUP_INTERVAL_MS;
+      } catch (err) {
+        const code = (err as NodeJS.ErrnoException).code;
+        if (code === 'EPERM') {
+          // 进程存在但当前用户无权限访问（Windows 上表示持有者存活）
+          return Date.now() - s.mtimeMs > CLEANUP_INTERVAL_MS;
+        }
+        // ESRCH 等：进程不存在（已退出/崩溃）→ 锁残留，视为过期
+        return true;
+      }
+    }
+
+    // 锁文件无有效 PID：仅按年龄判断
+    return Date.now() - s.mtimeMs > CLEANUP_INTERVAL_MS;
   } catch (err) {
     return true;
   }

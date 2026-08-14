@@ -540,13 +540,10 @@ export function dismissRecoveryImpl(set: MessageSet, get: MessageGet): void {
     import("../../services/chatService")
       .then(async ({ buildAuthHeaders }) => {
         const { getBackendBaseUrl } = await import("../../services/backendUrl");
-        fetch(
-          `${getBackendBaseUrl()}/v1/sessions/${sid}/checkpoints/latest`,
-          {
-            method: "DELETE",
-            headers: buildAuthHeaders(),
-          },
-        ).catch(() => {});
+        fetch(`${getBackendBaseUrl()}/v1/sessions/${sid}/checkpoints/latest`, {
+          method: "DELETE",
+          headers: buildAuthHeaders(),
+        }).catch(() => {});
       })
       .catch(() => {
         /* chatService 动态加载失败，静默忽略 */

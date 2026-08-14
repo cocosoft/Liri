@@ -602,6 +602,22 @@ export interface UsageInfo {
 }
 
 /**
+ * 工具调用事件详情（结构化对象，替代原截断 200 字符的 JSON 字符串）
+ * - start：args 携带完整参数对象（不再截断，避免 CoreAPIImpl JSON.parse 失败）
+ * - end：ok 成功标志 + message 摘要文本 + result 原始结果（供文件路径提取等）
+ */
+export interface ToolCallEventDetail {
+  /** start: 工具参数对象（完整，不截断） */
+  args?: Record<string, unknown>;
+  /** end: 是否执行成功（error 为空即成功） */
+  ok?: boolean;
+  /** end: 摘要文本（成功/失败/错误消息） */
+  message?: string;
+  /** end: 原始执行结果（类型 unknown，供 file 路径提取等） */
+  result?: unknown;
+}
+
+/**
  * 发送消息选项
  */
 export interface SendMessageOptions {
@@ -625,6 +641,13 @@ export interface SendMessageOptions {
    * 存在时后端按 id 查重，避免流式路径重复持久化用户消息
    */
   messageId?: string;
+
+  /**
+   * 前端流式消息 id（crypto.randomUUID），P0 根治（2026-08-14）：
+   * 后端 createAssistantMessage 复用它 → updateMessageBlocks(assistantId) 直接命中，
+   * blocks 正常落盘，刷新后无需从 content 猜测重建。
+   */
+  assistantMessageId?: string;
 
   /**
    * 内部调用标记（系统内部发起，非用户直接输入，如计划步骤 executeStepPrompt）
@@ -675,13 +698,13 @@ export interface SendMessageOptions {
    * @param phase 阶段：'start' 开始执行 | 'end' 执行完成
    * @param toolName 工具名称
    * @param toolCallId 工具调用 ID
-   * @param detail 详情信息（开始时为参数JSON，结束时为结果摘要或错误信息）
+   * @param detail 结构化详情（start 携带完整参数对象 args；end 携带 ok/message/result）
    */
   onToolCall?: (
     phase: 'start' | 'end',
     toolName: string,
     toolCallId: string,
-    detail?: string
+    detail?: ToolCallEventDetail
   ) => void;
 
   /**
@@ -748,6 +771,12 @@ export interface CreateMessageParams {
    * 消息内容
    */
   content: string | ContentBlock[];
+
+  /**
+   * 自定义消息 ID（缺省时自动生成 msg-{timestamp}-{suffix}）
+   * P0 根治（2026-08-14）：前端透传 assistantId，使 updateMessageBlocks 直接命中
+   */
+  id?: string;
 
   /**
    * 会话ID
@@ -937,7 +966,7 @@ export function createMessage(params: CreateMessageParams): Message {
   const now = new Date();
 
   return {
-    id: generateMessageId(),
+    id: params.id || generateMessageId(),
     role: params.role,
     content: params.content,
     createdAt: now,

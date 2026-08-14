@@ -312,13 +312,24 @@ export async function persistChatMessage(
 export function isLocalLlmEndpoint(baseUrl: string): boolean {
   try {
     const { hostname } = new URL(baseUrl);
-    return (
+    const isLocal =
       hostname === 'localhost' ||
       hostname === '127.0.0.1' ||
       hostname === '0.0.0.0' ||
-      hostname === '::1'
-    );
+      hostname === '::1';
+    // 端点识别排查日志：baseUrl → hostname → 判定结果。
+    // 决策链路：本地 → 走 llama.cpp 精确截断；远程 → 跳过 /tokenize（避免 401 噪音）
+    logger.info('isLocalLlmEndpoint 判定', {
+      baseUrl,
+      hostname,
+      isLocal,
+    });
+    return isLocal;
   } catch {
+    // 非法 URL 按远程处理（跳过 /tokenize），不抛错中断主流程
+    logger.warn('isLocalLlmEndpoint 解析失败（非法 URL，按远程处理）', {
+      baseUrl,
+    });
     return false;
   }
 }

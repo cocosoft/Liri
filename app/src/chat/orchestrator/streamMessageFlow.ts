@@ -309,10 +309,13 @@ export async function* runStreamMessage(
       let result = await gen.next();
 
       // Phase 1c: 流式水位监测
+      // P1 修复（2026-08-14 排查）：水位告警刷屏降噪——定时器每 1.5s 触发一次，
+      // 原实现无条件 logger.warn（normal 级别也在刷，24h 日志膨胀 12.6MB+）。
+      // 复用 severity 分级：normal 降为 debug，仅 warn/compact 记录告警。
+      // P2（2026-08-14 排查）：warn 级仍 1.5s 一条会淹没其他日志 → warn 节流 15s，
+      // compact（触发压缩的关键告警）保持全量记录。
+      let lastWatermarkWarnAt = 0;
       host.unifiedTracker.startStreamingCheck((state) => {
-        // P1 修复（2026-08-14 排查）：水位告警刷屏降噪——定时器每 1.5s 触发一次，
-        // 原实现无条件 logger.warn（normal 级别也在刷，24h 日志膨胀 12.6MB+）。
-        // 复用 severity 分级：normal 降为 debug，仅 warn/compact 记录告警。
         const logPayload = {
           sessionId: session.id,
           currentTokens: state.currentTokens,
@@ -322,6 +325,12 @@ export async function* runStreamMessage(
         };
         if (state.severity === 'normal') {
           logger.debug('流式输出中上下文水位（normal）', logPayload);
+        } else if (state.severity === 'warn') {
+          const now = Date.now();
+          if (now - lastWatermarkWarnAt >= 15_000) {
+            lastWatermarkWarnAt = now;
+            logger.warn('流式输出中上下文水位告警', logPayload);
+          }
         } else {
           logger.warn('流式输出中上下文水位告警', logPayload);
         }
@@ -554,7 +563,20 @@ export async function* runStreamMessage(
     pipeline.notifyUsage();
 
     // 创建助手消息
-    assistantMessage = pipeline.createAssistantMessage(finalContent);
+    // P0 根治（2026-08-14）：复用前端透传的 assistantId（如存在），
+    // 使前端 updateMessageBlocks(assistantId) 直接命中，不再依赖兜底取最后一条 assistant。
+    assistantMessage = pipeline.createAssistantMessage(finalContent, {
+      id: options?.assistantMessageId,
+    });
+    // 排查日志：确认助手消息 ID 来源（前端透传 vs 后端自动生成）与内容规模
+    logger.debug('streamMessageFlow:assistantMessage created', {
+      sessionId: session.id,
+      messageId: assistantMessage.id,
+      idSource: options?.assistantMessageId
+        ? 'frontend_passthrough'
+        : 'auto_generated',
+      contentLength: finalContent.length,
+    });
     assistantMessage.startedAt = streamStartedAt; // 1.6：回填流式开始时间（createdAt 为完成时间）
 
     // 管线 — 记忆提取 + 路径校验 + post hooks
@@ -605,6 +627,9 @@ export async function* runStreamMessage(
           session,
           options: options as Record<string, unknown>,
           abortSignal: streamAbortController.signal,
+          // P0-4（2026-08-14）：透传工具执行事件回调 → ReActToolLoop.act 触发 → CoreAPIImpl
+          // onToolCall 收集（带参数 tool_call chunk + 完成状态提示，与 TAOR 路径行为一致）
+          onToolCall: options?.onToolCall,
           executeTool: (tc: ParsedToolCall, opts: unknown) =>
             host.executeTool(
               {

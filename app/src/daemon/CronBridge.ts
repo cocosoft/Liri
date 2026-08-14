@@ -7,6 +7,10 @@ import type { TaskQueue } from './TaskQueue';
 import { TaskPriority } from './types';
 import type { ManagedProcess } from './ProcessManager';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { sleepMonitor, SLEEP_EVENTS } from '@modules/core/sleep/SleepMonitor';
+import { globalEventBus } from '../core/events/EventBus';
+import { broadcastEvent } from '../infrastructure/http/LocalHTTPServiceSSE';
+import type { EventSubscription } from '../core/events/EventBus';
 
 const logger = getLogger('daemon:cronBridge');
 
@@ -24,6 +28,7 @@ export class CronBridge implements ManagedProcess {
   private running = false;
   private sqliteCronStore: ReturnType<typeof createSqliteCronStore> | null =
     null;
+  private sleepSubs: EventSubscription[] = [];
 
   constructor(taskQueue: TaskQueue, config: CronBridgeConfig = {}) {
     this.taskQueue = taskQueue;
@@ -64,6 +69,17 @@ export class CronBridge implements ManagedProcess {
     this.timerId = setInterval(async () => {
       if (!this.running || !this.sqliteCronStore) return;
 
+      // P2 休眠检测：暂停期间跳过积压任务触发（避免唤醒瞬间资源尖峰）
+      const tick = sleepMonitor.detectTick(CHECK_INTERVAL_MS);
+      if (tick !== 'normal') {
+        if (tick === 'detected') {
+          logger.warn(
+            '[CronBridge] 检测到系统休眠，暂停 cron 触发（等待用户决策）'
+          );
+        }
+        return;
+      }
+
       try {
         const tasks = await this.sqliteCronStore!.listTasks();
         const now = Date.now();
@@ -83,6 +99,21 @@ export class CronBridge implements ManagedProcess {
         logger.warning('[CronBridge] 轮询检查失败', { error });
       }
     }, CHECK_INTERVAL_MS);
+
+    // P2 休眠检测：订阅检测/恢复事件。检测到休眠 → 广播 SSE 供前端提示；
+    // 用户选择"跳过"（resolve(false)）→ 将积压任务标记为已处理，避免下轮补跑。
+    this.sleepSubs.push(
+      globalEventBus.subscribe(SLEEP_EVENTS.DETECTED, (data) => {
+        const d = data as { lagMs?: number; detectedAt?: number };
+        this.broadcastSleepDetected(d?.lagMs ?? 0, d?.detectedAt ?? Date.now());
+      }),
+      globalEventBus.subscribe(SLEEP_EVENTS.RESOLVED, (data) => {
+        const d = data as { runMissed?: boolean };
+        if (d?.runMissed === false) {
+          this.skipMissedTasks();
+        }
+      })
+    );
 
     // O-02: 启动健康检查服务
     startHealthServer().catch((error) => {
@@ -105,6 +136,11 @@ export class CronBridge implements ManagedProcess {
       this.timerId = null;
     }
 
+    for (const sub of this.sleepSubs) {
+      sub.unsubscribe();
+    }
+    this.sleepSubs = [];
+
     if (this.sqliteCronStore) {
       await this.sqliteCronStore.close();
       this.sqliteCronStore = null;
@@ -121,6 +157,67 @@ export class CronBridge implements ManagedProcess {
       return true;
     } catch (err) {
       return false;
+    }
+  }
+
+  /** 休眠检测到 → 广播 SSE（附积压任务数，供前端提示） */
+  private async broadcastSleepDetected(
+    lagMs: number,
+    detectedAt: number
+  ): Promise<void> {
+    try {
+      const pendingCount = await this.countPendingMissed();
+      logger.warn('[CronBridge] 系统休眠检测到，暂停 cron 触发', {
+        lagMinutes: Math.round(lagMs / 60000),
+        pendingCount,
+      });
+      broadcastEvent('system:sleep_detected', {
+        lagMs,
+        detectedAt,
+        pendingCount,
+      });
+    } catch (err) {
+      logger.warning('[CronBridge] 休眠检测广播失败', { error: err });
+    }
+  }
+
+  /** 统计已到期但未触发的积压任务数 */
+  private async countPendingMissed(): Promise<number> {
+    if (!this.sqliteCronStore) return 0;
+    const tasks = await this.sqliteCronStore.listTasks();
+    const now = Date.now();
+    let count = 0;
+    for (const task of tasks) {
+      const nextRun = nextCronRunMs(
+        task.cron,
+        task.lastFiredAt ?? task.createdAt
+      );
+      if (nextRun !== null && nextRun <= now) count++;
+    }
+    return count;
+  }
+
+  /** 用户选择"跳过"（resolve(false)）→ 将积压任务标记为已处理，避免下轮补跑 */
+  private async skipMissedTasks(): Promise<void> {
+    if (!this.sqliteCronStore) return;
+    try {
+      const tasks = await this.sqliteCronStore.listTasks();
+      const now = Date.now();
+      const missed = tasks.filter((t) => {
+        const nextRun = nextCronRunMs(t.cron, t.lastFiredAt ?? t.createdAt);
+        return nextRun !== null && nextRun <= now;
+      });
+      if (missed.length > 0) {
+        await this.sqliteCronStore.markFired(
+          missed.map((t) => t.id),
+          now
+        );
+        logger.info('[CronBridge] 用户选择跳过积压定时任务', {
+          count: missed.length,
+        });
+      }
+    } catch (err) {
+      logger.warning('[CronBridge] 跳过积压任务失败', { error: err });
     }
   }
 

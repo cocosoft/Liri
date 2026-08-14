@@ -64,6 +64,8 @@ interface ChatCompletionRequest {
   session_id?: string;
   /** 前端写前落盘的用户消息 id（幂等去重用） */
   message_id?: string;
+  /** 前端流式消息 id（P0 根治：后端 createAssistantMessage 复用，使 blocks 落盘命中） */
+  assistant_message_id?: string;
   workspace_path?: string;
   images?: Array<{ path: string; url: string; filename: string; size: number }>;
   system_prompt?: string;
@@ -173,6 +175,7 @@ async function handleNormalChat(
       stream: false,
       sessionId: request.session_id,
       messageId: request.message_id,
+      assistantMessageId: request.assistant_message_id,
       metadata: request.workspace_path
         ? { workspacePath: request.workspace_path }
         : undefined,
@@ -465,6 +468,7 @@ async function handleStreamingChat(
       stream: true,
       sessionId: request.session_id,
       messageId: request.message_id,
+      assistantMessageId: request.assistant_message_id,
       metadata: request.workspace_path
         ? { workspacePath: request.workspace_path }
         : undefined,

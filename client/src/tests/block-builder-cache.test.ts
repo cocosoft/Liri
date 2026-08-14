@@ -76,6 +76,34 @@ describe("审批等待态 pendingApproval 透传（J-2.2 回归）", () => {
     );
     expect(tcBlock!.toolCall!.pendingApproval).toBe(true);
     expect(tcBlock!.isStreaming).toBe(false);
+    // P0-3: 审批等待态保持原状态（不置 completed）
+    expect(tcBlock!.toolCall!.status).toBe("running");
+  });
+
+  it("tool_completed 普通完成（无 pendingApproval）→ status 置 completed（P0-3）", () => {
+    const b = new ChronologicalBlockBuilder();
+    const tcId = "call_t2b";
+
+    b.addToolCall({
+      id: tcId,
+      name: "bash",
+      arguments: { command: "ls" },
+      status: "running",
+    });
+
+    b.updateToolCallResult(tcId, { output: "done" });
+
+    const blocks = b.getBlocks();
+    const tcBlock = blocks.find(
+      (blk) => blk.type === "tool_call" && blk.toolCall?.id === tcId,
+    );
+    // P0-3: 修复分组头永远显示"⏳ 执行中"——tool_completed 到达即置 completed
+    expect(tcBlock!.toolCall!.status).toBe("completed");
+    expect(tcBlock!.isStreaming).toBe(false);
+    expect(tcBlock!.toolCall!.result).toEqual({
+      success: true,
+      data: { output: "done" },
+    });
   });
 
   it("后续 tool_call completed 合并 chunk 不覆盖 pendingApproval", () => {

@@ -11,6 +11,9 @@ import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { recordBackgroundTask } from '@modules/monitoring/BackgroundTaskEvent';
 import type { CompileResult } from './KnowledgeCompiler';
+import { sleepMonitor, SLEEP_EVENTS } from '@modules/core/sleep/SleepMonitor';
+import { globalEventBus } from '@modules/core/events/EventBus';
+import type { EventSubscription } from '@modules/core/events/EventBus';
 
 const logger = getLogger('knowledge:knowledgeCompileScheduler');
 
@@ -43,6 +46,7 @@ export class KnowledgeCompileScheduler {
   private delayTimer: ReturnType<typeof setTimeout> | null = null;
   private state: SchedulerState = 'stopped';
   private compileFn: (force?: boolean) => Promise<CompileResult>;
+  private sleepSubs: EventSubscription[] = [];
 
   constructor(
     compileFn: (force?: boolean) => Promise<CompileResult>,
@@ -79,8 +83,27 @@ export class KnowledgeCompileScheduler {
     }
 
     this.intervalTimer = setInterval(() => {
+      // P2 休眠检测：暂停期间跳过编译检查（避免唤醒后资源尖峰）
+      const tick = sleepMonitor.detectTick(this.config.intervalMs);
+      if (tick !== 'normal') {
+        if (tick === 'detected') {
+          logger.warn('检测到系统休眠，跳过本次编译检查（等待用户决策）');
+        }
+        return;
+      }
       this.scheduleCompile();
     }, this.config.intervalMs);
+
+    // P2 休眠恢复：用户选择"继续"（resolve(true)）→ 补一次编译检查
+    this.sleepSubs.push(
+      globalEventBus.subscribe(SLEEP_EVENTS.RESOLVED, (data) => {
+        const d = data as { runMissed?: boolean };
+        if (d?.runMissed === true) {
+          logger.info('系统休眠恢复，用户选择继续，补执行编译检查');
+          this.scheduleCompile();
+        }
+      })
+    );
   }
 
   /**
@@ -95,6 +118,10 @@ export class KnowledgeCompileScheduler {
       clearTimeout(this.delayTimer);
       this.delayTimer = null;
     }
+    for (const sub of this.sleepSubs) {
+      sub.unsubscribe();
+    }
+    this.sleepSubs = [];
     this.state = 'stopped';
     logger.info('KnowledgeCompileScheduler 已停止');
   }

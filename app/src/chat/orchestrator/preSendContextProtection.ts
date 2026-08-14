@@ -32,7 +32,10 @@
 
 import { getLogger } from '@modules/monitoring';
 import { estimateMessagesTokens } from '../../ai/tokenizer/TokenEstimator';
-import { resolveMaxContextTokens, isLocalLlmEndpoint } from '../services/ChatHelper';
+import {
+  resolveMaxContextTokens,
+  isLocalLlmEndpoint,
+} from '../services/ChatHelper';
 import { truncateByPreciseTokens } from '../services/MessageContextPipeline';
 import {
   parsePromptTokensFromError,

@@ -88,7 +88,7 @@ export interface PipelineContext {
   messageService: {
     createAssistantMessage(
       content: string,
-      opts: { sessionId: string }
+      opts: { sessionId: string; id?: string }
     ): Message;
   };
 
@@ -211,9 +211,21 @@ export class StreamPipeline {
     });
     const { session, options } = this.ctx;
     const beforeCompact = estimateMessagesTokens(this.ctx.apiMessages);
+    // 耗时日志：发送路径压缩入口（skipTier3Sync 模式应毫秒级返回，不含 Tier3）
+    const ctxStart = Date.now();
+    logger.info('compaction:ctx_start — 发送路径压缩开始', {
+      sessionId: session.id,
+      model: options?.model || '',
+      messageCount: this.ctx.apiMessages.length,
+      estimatedTokens: beforeCompact,
+      skipTier3Sync: true,
+    });
+
+    // 压缩结果（try 内赋值，供完成日志引用）
+    let compResult: { messages: ChatMessage[]; applied: boolean } | undefined;
 
     try {
-      const compResult = await compactionOrchestrator.compact(
+      compResult = await compactionOrchestrator.compact(
         this.ctx.apiMessages as unknown as ChatMessage[],
         { model: options?.model || '', sessionId: session.id },
         // 异步压缩（2026-08-14 补充落地）：发送路径不阻塞等待 Tier3（LLM 摘要），
@@ -298,6 +310,19 @@ export class StreamPipeline {
       // 落盘会污染会话内容与导出文件）；压缩记录由 logger + unifiedTracker 保留。
       this.ctx.unifiedTracker.recordCompaction(beforeCompact, afterTokens);
     }
+
+    // 耗时日志：发送路径压缩完成——elapsedMs 应毫秒级（Tier1/2 同步）；
+    // 若接近 60s 说明 skipTier3Sync 未生效（Tier3 仍同步阻塞），据此确认异步化效果
+    const ctxElapsed = Date.now() - ctxStart;
+    logger.info('compaction:ctx_done — 发送路径压缩完成', {
+      sessionId: session.id,
+      elapsedMs: ctxElapsed,
+      applied: compResult?.applied,
+      beforeTokens: beforeCompact,
+      afterTokens: estimateMessagesTokens(this.ctx.apiMessages),
+      skipTier3Sync: true,
+      tier3SyncBlocked: ctxElapsed > 5000,
+    });
   }
 
   private async _truncateApiMessages(
@@ -306,7 +331,14 @@ export class StreamPipeline {
   ): Promise<void> {
     let totalTokens = estimateMessagesTokens(this.ctx.apiMessages);
     while (totalTokens > maxTokens && this.ctx.apiMessages.length > 2) {
-      const removed = this.ctx.apiMessages.splice(1, 1)[0];
+      // BUG-C 修复：从 index 1 起跳过 role === 'system' 的消息，
+      // 避免截断误删系统提示（角色设定/工具定义/压缩摘要）。
+      // 仅当头部之后全是 system 时（findIndex 返回 -1）停止截断。
+      const idx = this.ctx.apiMessages.findIndex(
+        (m, i) => i > 0 && (m as Record<string, unknown>).role !== 'system'
+      );
+      if (idx === -1) break;
+      const [removed] = this.ctx.apiMessages.splice(idx, 1);
       logger.debug('截断消息', {
         sessionId,
         removedRole: (removed as Record<string, unknown>)?.role,
@@ -349,6 +381,17 @@ export class StreamPipeline {
   /** 记录用量 */
   recordUsage(): void {
     const { finalResponse, options, session } = this.ctx;
+    // 成本 0/0 修复（2026-08-14 复检 #5）：finalResponse 缺失或其 usage 为空时跳过
+    // 空记录（与 ReActToolLoop._reportUsage 对齐），避免 0/0 tokens 污染成本/LLMTracker
+    const usage = finalResponse?.usage as
+      | { prompt_tokens?: number; completion_tokens?: number }
+      | undefined;
+    if (
+      !usage ||
+      (usage.prompt_tokens ?? 0) + (usage.completion_tokens ?? 0) === 0
+    ) {
+      return;
+    }
     this.ctx.recordChatResponseUsage(session.id, finalResponse?.usage);
 
     trackUsage(finalResponse ?? {}, {
@@ -365,12 +408,22 @@ export class StreamPipeline {
   }
 
   /** 创建助手消息 */
-  createAssistantMessage(finalContent: string): Message {
+  createAssistantMessage(
+    finalContent: string,
+    opts?: { id?: string }
+  ): Message {
     const { finalResponse, session } = this.ctx;
     const assistantMessage = this.ctx.messageService.createAssistantMessage(
       finalContent,
-      { sessionId: session.id }
+      { sessionId: session.id, id: opts?.id }
     );
+    // 排查日志：确认自定义 id 是否被 createMessage 采用（params.id || generateMessageId）
+    logger.debug('pipeline:createAssistantMessage', {
+      sessionId: session.id,
+      requestedId: opts?.id,
+      finalId: assistantMessage.id,
+      idAdopted: opts?.id ? assistantMessage.id === opts.id : false,
+    });
     // P1 修复（AB-3）：优先用 finalResponse.finishReason（错误路径为 'error'），
     // 再回退 stop_reason / 'stop'——否则内部流错误（genIteration catch）落盘消息
     // 会被写成 'stop'，前端把失败流误判为成功

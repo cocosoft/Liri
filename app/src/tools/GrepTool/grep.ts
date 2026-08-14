@@ -179,10 +179,18 @@ function searchDir(
   try {
     entries = fs.readdirSync(dir, { withFileTypes: true });
   } catch (err) {
-    handleError(err, {
-      module: 'tools:grep',
-      action: 'readdir',
-    });
+    // K2 修复（日志排查 2026-08-13）：EPERM（Windows 上目录被其他进程占用/锁定）
+    // 属可跳过噪音——行为正确（跳过该目录不中断整体搜索），仅日志级别偏高，降 warn；
+    // 其余错误保持 error 级。
+    const code = (err as NodeJS.ErrnoException)?.code;
+    if (code === 'EPERM') {
+      logger.warn('[readdir] 目录不可读，跳过', { dir, error: String(err) });
+    } else {
+      handleError(err, {
+        module: 'tools:grep',
+        action: 'readdir',
+      });
+    }
     return;
   }
 

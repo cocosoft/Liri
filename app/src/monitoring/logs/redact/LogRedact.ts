@@ -70,7 +70,10 @@ const DEFAULT_PATTERNS: RedactPattern[] = [
   {
     name: 'credit-card',
     pattern: /\b(\d{4}[-\s]?){3}\d{4}\b/g,
-    replacement: '****-****-****-${1}',
+    // P2 修复（2026-08-14 排查）：原 replacement 为 '****-****-****-${1}'——
+    // `${1}` 在 String.replace 中不是特殊模式（特殊的是 `$1`），按字面残留到日志
+    // （证据：raw: 3.****-****-****-${1}）。改为纯掩码，去除占位符残留。
+    replacement: '****-****-****',
   },
 ];
 

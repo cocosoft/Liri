@@ -225,7 +225,10 @@ export const sessionService = {
             id,
             error: res.error,
           });
-          if (status >= 500) {
+          // P3 修复（2026-08-14 排查）：status >= 400 上抛——原实现仅覆盖 5xx，
+          // 404（会话不存在）仍走 Tauri/内存降级 →「假删除成功」残留（R1 只覆盖 5xx）。
+          // 404 与 switch 的 N1 一致：明确业务错误上抛，由调用方清理残留并切换。
+          if (status >= 400) {
             const err = new Error(
               `删除会话失败: ${res.error?.message ?? `HTTP ${status}`}`,
             );
@@ -252,10 +255,14 @@ export const sessionService = {
     return getOTelTracing().asyncWrap(
       "services:session:renameSession",
       async () => {
+        // 排查日志：rename 全链路（开始/后端成功/业务失败/网络降级），
+        // 与 switchChatSession 的"①开始/✅完成"风格对齐
+        logger.info("rename:①开始", { id, title });
         try {
           const res = await apiHttp.put<void>(`/v1/sessions/${id}`, { title });
           if (res.ok) {
             _isUsingFallback = false;
+            logger.info("rename:✅后端重命名成功", { id });
             return;
           }
           // L6 修复（会话系统排查 2026-08-13）：后端明确失败（4xx/5xx）时抛带
@@ -263,8 +270,10 @@ export const sessionService = {
           // switch 的 N1 修复策略一致。原实现所有错误都降级到内存 fallback，
           // 重命名失败被"假成功"吞掉（内存改了、刷新丢），用户无法感知后端失败。
           const status = res.error?.code ?? 500;
-          logger.warn("重命名会话失败（后端明确错误，不再降级）", {
+          logger.warn("rename:❌后端明确失败（业务错误，不再降级）", {
             id,
+            title,
+            status,
             error: res.error,
           });
           const err = new Error(
@@ -279,10 +288,21 @@ export const sessionService = {
           });
           // 业务错误（带 statusCode）直接上抛；仅纯网络错误（fetch 抛出）降级
           if ((e as { statusCode?: number })?.statusCode) throw e;
-          // 尝试 Tauri fallback
+          // 网络错误路径：先尝试 Tauri fallback，再内存 fallback
+          logger.warn("rename:网络错误，尝试 Tauri 降级", {
+            id,
+            title,
+            error: e instanceof Error ? e.message : String(e),
+          });
           const result = await tryTauri<void>("rename_session", { id, title });
-          if (result !== null) return;
+          if (result !== null) {
+            logger.info("rename:✅Tauri 降级成功", { id });
+            return;
+          }
           // 内存 fallback（与 delete/switch 一致）
+          logger.warn("rename:Tauri 不可用，降级内存模式（重启后不生效）", {
+            id,
+          });
           return createMemorySessionService().rename(id, title);
         }
       },

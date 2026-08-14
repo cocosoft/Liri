@@ -42,7 +42,9 @@ fn estimate_message_tokens(msg: &JsonValue) -> i32 {
     } else {
         let cjk_ratio = cjk_chars as f64 / content_len;
         if cjk_ratio > 0.3 {
-            cjk_chars as f64 * 1.5 + (content_len - cjk_chars as f64) * 0.25
+            // P1 修复（2026-08-14 排查）：与 TS TokenEstimator 对齐——CJK 2.0/非CJK 0.35
+            // （原 1.5/0.25 对中文模型低估 2.5-3.6 倍）
+            cjk_chars as f64 * 2.0 + (content_len - cjk_chars as f64) * 0.35
         } else {
             word_count * 1.3 + content_len * 0.05
         }

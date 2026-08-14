@@ -62,7 +62,9 @@ fn estimate_tokens_impl(text: &str, model: Option<&str>) -> i32 {
         let cjk_ratio = cjk_chars as f64 / char_count;
         let estimated: f64;
         if cjk_ratio > 0.3 {
-            estimated = cjk_chars as f64 * 1.5 + (char_count - cjk_chars as f64) * 0.25;
+            // P1 修复（2026-08-14 排查）：与 TS TokenEstimator 对齐——CJK 2.0/非CJK 0.35
+            // （原 1.5/0.25 对中文模型低估 2.5-3.6 倍）
+            estimated = cjk_chars as f64 * 2.0 + (char_count - cjk_chars as f64) * 0.35;
         } else {
             estimated = word_count * 1.3 + char_count * 0.05;
         }

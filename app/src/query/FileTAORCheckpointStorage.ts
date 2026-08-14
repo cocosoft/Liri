@@ -139,7 +139,8 @@ export class FileTAORCheckpointStorage implements CheckpointStorage {
       for (const file of files) {
         if (!isStableFile(file)) continue;
         const match = file.match(/^taor-(.+)-.+\.json$/);
-        if (match) sessionIds.add(match[1]);
+        // P0 修复（2026-08-14 排查）：防御过滤空 sessionId（与 DB 存储一致）
+        if (match && match[1]) sessionIds.add(match[1]);
       }
       return Array.from(sessionIds);
     } catch {

@@ -50,11 +50,14 @@ export function estimateTokens(text: string): number {
 
   const cjkRatio = cjkCount / totalChars;
   if (cjkRatio > 0.3) {
-    // CJK 主导：CJK 字符 ≈ 1.5 token, 非 CJK ≈ 0.25 token
+    // CJK 主导：CJK 字符 ≈ 2.0 token, 非 CJK ≈ 0.35 token
+    // P1 修复（2026-08-14 排查）：deepseek 等中文模型实测低估 2.5-3.6 倍
+    // （estimated 4321 vs actual 15585），BPE 真实中文 1 字 ≈ 1.5-2 token，
+    // 原系数 1.5/0.25 偏保守。上调后减少对校准因子（重启从 1.2 重学）的依赖。
     const words = text.split(/\s+/).filter(Boolean);
     const nonCjk = totalChars - cjkCount;
     return (
-      Math.ceil(cjkCount * 1.5 + nonCjk * 0.25) + Math.min(words.length, 5)
+      Math.ceil(cjkCount * 2.0 + nonCjk * 0.35) + Math.min(words.length, 5)
     );
   }
 

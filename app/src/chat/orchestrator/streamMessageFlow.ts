@@ -310,13 +310,21 @@ export async function* runStreamMessage(
 
       // Phase 1c: 流式水位监测
       host.unifiedTracker.startStreamingCheck((state) => {
-        logger.warn('流式输出中上下文水位告警', {
+        // P1 修复（2026-08-14 排查）：水位告警刷屏降噪——定时器每 1.5s 触发一次，
+        // 原实现无条件 logger.warn（normal 级别也在刷，24h 日志膨胀 12.6MB+）。
+        // 复用 severity 分级：normal 降为 debug，仅 warn/compact 记录告警。
+        const logPayload = {
           sessionId: session.id,
           currentTokens: state.currentTokens,
           contextLimit: state.contextLimit,
           ratio: Number(state.ratio.toFixed(3)),
           severity: state.severity,
-        });
+        };
+        if (state.severity === 'normal') {
+          logger.debug('流式输出中上下文水位（normal）', logPayload);
+        } else {
+          logger.warn('流式输出中上下文水位告警', logPayload);
+        }
         const pct = Math.round(state.ratio * 100);
         const curK =
           state.currentTokens > 0

@@ -282,7 +282,10 @@ export class DBTAORCheckpointStorage implements CheckpointStorage {
 
     const rows = await new Promise<any[]>((resolve, reject) => {
       this.db!.all(
-        `SELECT DISTINCT session_id FROM ${TABLE_NAME}`,
+        // P0 修复（2026-08-14 排查）：过滤空/非法 session_id——脏检查点
+        // （session_id=''）会污染 TAORLoop 单例导致会话串扰，此处源头拦截
+        `SELECT DISTINCT session_id FROM ${TABLE_NAME}
+         WHERE session_id IS NOT NULL AND session_id != ''`,
         [],
         (err, rows) => {
           if (err) reject(err);

@@ -566,9 +566,11 @@ export class ChatManagerImpl implements ChatManager {
   }
 
   /**
-   * TAORLoop 统一编排器实例（懒初始化，仅在 ENABLE_LOOP_V8_PHASE2 时创建）
+   * P0 修复（2026-08-14 排查）：TAORLoop 按 sessionId 的 Map 缓存——原单例 `_taorLoop`
+   * 首次调用固化了 sessionId，若首个检查点 sessionId 为空（脏数据），之后所有会话
+   * 共用绑定空 id 的 TAORLoop → steering 队列/检查点跨会话串扰。Map 化 + 非空校验根治。
    */
-  private _taorLoop?: TAORLoop;
+  private readonly _taorLoops = new Map<string, TAORLoop>();
 
   /**
    * RC-E（08-09）：PlanDrivenLoop 实例（懒初始化，仅在 ENABLE_PLAN_DRIVEN_LOOP 时创建）
@@ -928,16 +930,24 @@ export class ChatManagerImpl implements ChatManager {
    * 仅在 ENABLE_LOOP_V8_PHASE2 启用时调用
    */
   private _getOrCreateTAORLoop(sessionId: string): TAORLoop {
-    if (!this._taorLoop) {
-      this._taorLoop = createTAORLoop(this.getQueryEngine(), {
+    // P0 修复（2026-08-14 排查）：空 sessionId 拒绝创建——原单例首次调用固化空 id，
+    // 导致所有会话串扰同一 TAORLoop。改为按 sessionId 的 Map 缓存 + 非空校验。
+    if (!sessionId) {
+      logger.warn('_getOrCreateTAORLoop: 拒绝空 sessionId（防 TAORLoop 串扰污染）');
+      throw new Error('TAORLoop requires a non-empty sessionId');
+    }
+    let taorLoop = this._taorLoops.get(sessionId);
+    if (!taorLoop) {
+      taorLoop = createTAORLoop(this.getQueryEngine(), {
         sessionId,
         maxTurns: parseInt(configManager.env('MAX_TAOR_TURNS') || '') || 300,
         /** 启用检查点，每 3 轮自动保存（原值：关闭 + 5 轮） */
         enableCheckpoint: true,
         checkpointInterval: 3,
       } satisfies TAORLoopConfig);
+      this._taorLoops.set(sessionId, taorLoop);
     }
-    return this._taorLoop;
+    return taorLoop;
   }
 
   /**
@@ -1447,6 +1457,14 @@ export class ChatManagerImpl implements ChatManager {
       for (const candidate of candidates) {
         try {
           const cp = candidate.checkpoint;
+          // P0 修复（2026-08-14 排查）：空 sessionId 检查点直接跳过——脏数据
+          // 若进入 _getOrCreateTAORLoop 会抛错中断整个恢复循环，此处防御性拦截
+          if (!cp.sessionId) {
+            logger.warn('Durable Resume: 跳过空 sessionId 检查点', {
+              checkpointId: cp.id,
+            });
+            continue;
+          }
           logger.info('Durable Resume: 恢复会话', {
             sessionId: cp.sessionId,
             checkpointId: cp.id,

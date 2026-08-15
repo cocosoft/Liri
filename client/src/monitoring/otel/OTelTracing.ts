@@ -187,7 +187,7 @@ export function getOTelTracing(): OTelTracing {
   if (!_instance) {
     _instance = new OTelTracing({
       serviceName: "liri-client",
-      serviceVersion: "0.4.34",
+      serviceVersion: "0.4.38",
     });
   }
   return _instance;

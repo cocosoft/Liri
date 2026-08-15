@@ -31,6 +31,29 @@ interface FileSizeResult {
     severity: 'error' | 'warning' | 'ok';
 }
 
+/**
+ * 加载文件大小例外（R04-001）
+ * 来源：scripts/layer-exceptions.json 的 fileSizeExceptions（与 lint-architecture.ts 同源）。
+ * 历史巨型文件登记为例外后不再阻塞 CI，仅拦截新增超限文件。
+ */
+function loadFileSizeExceptions(): Set<string> {
+    const exPath = join(import.meta.dir, 'layer-exceptions.json');
+    const exceptions = new Set<string>();
+    if (!existsSync(exPath)) return exceptions;
+
+    try {
+        const data = JSON.parse(readFileSync(exPath, 'utf-8'));
+        for (const ex of data.fileSizeExceptions || []) {
+            // 已过期的例外失效（强制重新评估）
+            if (ex.expiresAt && new Date(ex.expiresAt) < new Date()) continue;
+            exceptions.add(ex.file.replace(/\\/g, '/').toLowerCase());
+        }
+    } catch {
+        /* 例外文件解析失败时不豁免任何文件（保持严格检查） */
+    }
+    return exceptions;
+}
+
 // ============ 工具函数 ============
 
 function readdirSyncFull(dir: string): Array<{ name: string; isDirectory: () => boolean }> {
@@ -71,6 +94,7 @@ function countLines(filePath: string): number {
 
 async function main(): Promise<void> {
     const rootDir = process.cwd();
+    const fileSizeExceptions = loadFileSizeExceptions();
     const srcDirs = [
         join(rootDir, 'app', 'src'),
         join(rootDir, 'client', 'src'),
@@ -98,10 +122,19 @@ async function main(): Promise<void> {
             const sizeKB = Math.round(stat.size / 1024);
 
             if (lines > WARN_LINES) {
-                const severity = lines > ERROR_LINES ? 'error' : 'warning';
                 const relPath = relative(rootDir, file);
+                const severity = lines > ERROR_LINES ? 'error' : 'warning';
+                // 已登记例外的历史巨型文件（R04-001）豁免，不再阻塞 CI
+                const exempt =
+                    severity === 'error' &&
+                    fileSizeExceptions.has(relPath.replace(/\\/g, '/').toLowerCase());
 
-                allResults.push({ file: relPath, lines, sizeKB, severity });
+                allResults.push({
+                    file: exempt ? `${relPath}（例外豁免）` : relPath,
+                    lines,
+                    sizeKB,
+                    severity: exempt ? 'ok' : severity,
+                });
             }
         }
     }
@@ -118,29 +151,42 @@ async function main(): Promise<void> {
 
     let errorCount = 0;
     let warningCount = 0;
+    let exemptCount = 0;
 
     console.log();
-    console.log(`发现 ${allResults.length} 个超标文件:`);
+    console.log(`发现 ${allResults.length} 个超标文件（R04-001 例外豁免 ${fileSizeExceptions.size} 项已加载）:`);
     console.log('-'.repeat(80));
 
     for (const result of allResults) {
-        const tag = result.severity === 'error' ? '[ERROR]' : '[WARN ]';
-        const prefix = result.severity === 'error' ? '\x1b[31m' : '\x1b[33m';
+        const tag =
+            result.severity === 'error'
+                ? '[ERROR]'
+                : result.severity === 'warning'
+                  ? '[WARN ]'
+                  : '[EXEMPT]';
+        const prefix =
+            result.severity === 'error'
+                ? '\x1b[31m'
+                : result.severity === 'warning'
+                  ? '\x1b[33m'
+                  : '\x1b[36m';
         const suffix = '\x1b[0m';
 
         console.log(`${prefix}${tag}${suffix} ${result.lines} 行 (${result.sizeKB} KB) - ${result.file}`);
 
         if (result.severity === 'error') errorCount++;
-        else warningCount++;
+        else if (result.severity === 'warning') warningCount++;
+        else exemptCount++;
     }
 
     console.log('-'.repeat(80));
-    console.log(`总计: ${errorCount} 个错误, ${warningCount} 个警告`);
+    console.log(`总计: ${errorCount} 个错误, ${warningCount} 个警告, ${exemptCount} 个例外豁免`);
     console.log();
 
-    // 退出码：有错误则失败
+    // 退出码：有错误则失败（例外豁免不计入）
     if (errorCount > 0) {
-        console.log('存在 >800 行的文件需要拆分（阻塞合并）。');
+        console.log('存在 >800 行且未登记例外的文件需要拆分（阻塞合并）。');
+        console.log('历史巨型文件请登记到 scripts/layer-exceptions.json 的 fileSizeExceptions（R04-001）。');
         process.exit(1);
     } else {
         console.log('警告级文件建议拆分，但不阻塞合并。');

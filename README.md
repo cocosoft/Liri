@@ -9,9 +9,9 @@
 
 **终端里的 AI 智能体 · 连接 26+ 平台的智能助手**
 
-一键安装 · 自然语言交互 · 60+ 内置工具 · 企业级安全
+一键安装 · 自然语言交互 · 100+ 内置工具 · 企业级安全
 
-[![CI Status](https://github.com/190615273/Liri/actions/workflows/ci.yml/badge.svg)](https://github.com/190615273/Liri/actions/workflows/ci.yml)
+[![CI Status](https://github.com/cocosoft/Liri/actions/workflows/ci.yml/badge.svg)](https://github.com/cocosoft/Liri/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 ![Version](https://img.shields.io/badge/version-0.4.38-blue)
 
@@ -30,13 +30,13 @@
 Liri 是一个运行在终端中的 **AI 智能助手**。你用它做什么？
 
 - **终端里的编程搭档** — 在命令行中自然语言对话，读代码、搜文件、写脚本、查文档
-- **跨平台消息机器人** — 接入 Telegram、Discord、微信、钉钉、Slack 等 26+ 平台，一处部署处处可用
+- **跨平台消息机器人** — 接入 Telegram、Discord、微信、钉钉、Slack 等 26 个平台，一处部署处处可用
 - **可编程 AI 工作流** — 插件系统 + 技能系统 + 定时任务，构建属于你的自动化流程
 - **安全的命令执行环境** — Rust AST 级安全分析 + 沙箱隔离，让 AI 安全地操作你的系统
 
 > ⚡ **一行命令启动**：`cd app && bun install && cp .env.example .env` 填入 API Key，即可开始对话
 
-拥有 40+ 模块化子系统、4 阶段分层启动、三级延迟加载策略、多智能体通信协议（ACP），以及完整的安全沙箱与可观测性体系。
+拥有 60+ 模块化子系统、4 阶段分层启动、三级延迟加载策略、多智能体通信协议（ACP），以及完整的安全沙箱与可观测性体系。
 
 ---
 
@@ -98,7 +98,7 @@ bun run dev
 
 ### 配置自己的 AI 模型
 
-支持 DeepSeek、OpenAI、Anthropic Claude、Ollama（本地）、Azure、Vertex 等多种模型，修改 `.env` 即可切换。
+支持 DeepSeek、OpenAI、Ollama（本地）、Azure、Vertex 等多种模型，修改 `.env` 即可切换。
 
 ---
 
@@ -129,13 +129,13 @@ T3 ── 后台延迟加载（DEFERRED + ON_DEMAND 模块）
 
 | 能力 | 说明 |
 |------|------|
-| 多模型支持 | DeepSeek / OpenAI / Anthropic / Ollama / Azure / Vertex |
+| 多模型支持 | DeepSeek / OpenAI / Ollama / Azure / Vertex |
 | 多轮对话 | 完整会话管理，支持上下文记忆 |
 | 思维链 | Agent 自主规划-执行-观察循环（TAOR），5 种停止条件 |
 | 流式输出 | 实时显示 AI 思考过程 |
 | Token 预算 | 三级预算控制（Warning / Critical / Hard），防止超额 |
 
-### 🛠 60+ 内置工具
+### 🛠 100+ 内置工具
 
 | 分类 | 工具 |
 |------|------|
@@ -191,7 +191,7 @@ Rust AST 编译时分析 → TypeScript 语义分析 → Guardrail 规则引擎 
 | **中国平台** | 微信、企业微信、钉钉、飞书、QQ |
 | **社交平台** | Facebook Messenger、Twitter/X |
 | **协作工具** | Microsoft Teams、Google Chat、Mattermost |
-| **其他** | Email、SMS、Webhook、Nostr、Zalo、BlueBubbles、Claude |
+| **其他** | Email、SMS、Webhook、Nostr、Zalo、BlueBubbles |
 
 每个通道支持完整的消息收发、交互卡片、文件传输，自动适配平台特性。
 
@@ -206,9 +206,9 @@ Rust AST 编译时分析 → TypeScript 语义分析 → Guardrail 规则引擎 
 ```bash
 # 1. 进入应用目录，编译为独立二进制
 cd app
-bun run build:win        # Windows
-bun run build:mac        # macOS
-bun run build:linux      # Linux
+bun run build:win:coding   # Windows（编程版）
+bun run build:mac          # macOS
+bun run build:linux        # Linux
 
 # 2. 安装为系统服务（只需执行一次）
 bun run service:install
@@ -247,10 +247,11 @@ bun run service:dev       # 开发模式（无需编译，直接 bun run）
 
 | 文档 | 说明 |
 |------|------|
-| [📖 用户引导](app/docs/用户引导/guide.md) | 新手上路 |
 | [🚀 快速入门](app/docs/快速入门/index.md) | 安装配置 |
+| [📖 安装部署](app/docs/安装部署/index.md) | 三平台安装与 Docker |
 | [📚 完整命令参考](app/docs/USAGE.md) | 全部命令详解 |
 | [🔧 工具参考](app/docs/工具参考/index.md) | 每个工具的用法 |
+| [🌐 渠道指南](app/docs/渠道/index.md) | 消息平台接入 |
 | [🧩 插件开发](app/docs/插件系统/index.md) | 插件 SDK 与市场 |
 | [💻 开发指南](app/docs/开发指南/index.md) | 二次开发 |
 | [🏗 架构设计](app/docs/概念与架构/architecture.md) | 系统架构 |
@@ -260,7 +261,7 @@ bun run service:dev       # 开发模式（无需编译，直接 bun run）
 ## 🏗 项目结构
 
 ```
-PY_APP/                          # 工程根目录（内部代号）
+Liri/                            # 工程根目录
 ├── app/                         # 主应用（TypeScript + Bun）
 │   ├── src/                     # 源代码
 │   │   ├── main.ts              # 应用启动入口（launch 函数）
@@ -281,7 +282,7 @@ PY_APP/                          # 工程根目录（内部代号）
 │   │   ├── acp/                 # Agent Communication Protocol
 │   │   ├── ai/                  # AI 模型适配层
 │   │   ├── agent/               # AI Agent 核心
-│   │   ├── tools/               # 60+ 工具实现
+│   │   ├── tools/               # 100+ 工具实现
 │   │   ├── channels/            # 26+ 消息通道
 │   │   ├── mcp/                 # MCP 协议实现
 │   │   ├── security/            # 安全防护体系（5 层）
@@ -312,8 +313,8 @@ PY_APP/                          # 工程根目录（内部代号）
 
 ```bash
 cd client
-npm install
-npm run tauri dev
+bun install
+bun run tauri dev
 ```
 
 ---
@@ -335,7 +336,7 @@ bun run build:enterprise  # 企业版（全功能）
 
 ### 强大的 Agent 引擎
 
-基于 **TAOR（Think-Act-Observe-Reason）循环**的 Agent 架构，支持自主规划-执行-观察的闭环决策。内置 4 种检查点机制（CheckpointManager），确保长时间运行任务的可靠性。支持 DeepSeek、OpenAI、Anthropic Claude、Ollama 等多种模型，流式输出实时展示思考过程。
+基于 **TAOR（Think-Act-Observe-Reason）循环**的 Agent 架构，支持自主规划-执行-观察的闭环决策。内置 4 种检查点机制（CheckpointManager），确保长时间运行任务的可靠性。支持 DeepSeek、OpenAI、Ollama 等多种模型，流式输出实时展示思考过程。
 
 ### 100+ 内置工具
 
@@ -349,9 +350,9 @@ bun run build:enterprise  # 企业版（全功能）
 - 完整审计日志，所有操作可追溯
 - 速率限制与会话风险行为追踪
 
-### 30+ 消息渠道
+### 26+ 消息渠道
 
-支持 Discord、Slack、Telegram、QQ、微信、钉钉、飞书、邮件、IRC、WhatsApp、Signal 等 30+ 主流消息平台，统一协议帧和路由管理，一次接入全渠道触达。
+支持 Discord、Slack、Telegram、QQ、微信、钉钉、飞书、邮件、IRC、WhatsApp、Signal 等 26 个主流消息平台，统一协议帧和路由管理，一次接入全渠道触达。
 
 ### 企业级可观测性
 
@@ -373,14 +374,29 @@ bun run build:enterprise  # 企业版（全功能）
 
 ## 📋 版本
 
-当前版本：**v0.2.0**
+当前版本：**v0.4.38**
 
 版本管理遵循 [语义化版本规范](.trae/rules/versioning.md)：
-- 每次提交递增修订号
-- 修订号达 100 进位次版本
-- 次版本达 10 进位主版本
+- 修订号 — 按需升，每次发版 +1（Bug 修复、文档更新、小重构）
+- 次版本 — 每月/每迭代 +1，修订号归零（新增功能、新通道接入、架构重构）
+- 主版本 — 达到 v1.0.0 标准时一次性从 0.x.x 跳到 1.0.0
 
 ### 🚀 版本更新记录
+
+#### v0.4.38 (2026-08-15)
+
+**稳定性与 CI**
+- ✅ **CI 全绿** — E2E 故障注入测试、三平台 Test Suite、静态检查全通过
+- ✅ **E2E 适配新 UI** - Agent 任务管理迁移至 /agent 页面，重写对应测试
+- ✅ **版本号一致性** - sync-version.ts 统一同步 6+ 版本文件
+
+#### v0.4.37 (2026-08-14)
+
+**会话链路与稳定性**
+- ✅ **会话链路排查** - TAORLoop 污染、水位告警降噪、估算系数校准、删除 404 修复
+- ✅ **压缩超时根治** - 超时保护收敛到 Tier3、保留 Tier2 成果、60s 上限、2560 摘要窗口
+- ✅ **会话不物理删除** - SSE 鉴权白名单、fetch 补充 Bearer
+- ✅ **知识库编码支持** - GBK/GB18030 编码自动检测
 
 #### v0.2.0 (2026-06-05)
 
@@ -406,7 +422,6 @@ Liri 的诞生离不开 AI Agent 领域众多先行者的启发。在此致以�
 
 | 项目 | 贡献 |
 |------|------|
-| [Claude Code](https://github.com/anthropics/claude-code)（Anthropic） | Agent 架构、命令系统、安全分析等方面的核心参考 |
 | [OpenClaw](https://github.com/tsotnikov/openclaw) | 多通道 AI 网关架构、ACP 协议设计的对标参考 |
 | [Hermes Agent](https://github.com/NEXUS-Bots/Hermes) | 自改进 AI 代理、ContextEngine 压缩策略的对标参考 |
 | [Codex](https://github.com/openai/codex) | Rust 编码引擎、Sandbox 容器隔离的参考 |

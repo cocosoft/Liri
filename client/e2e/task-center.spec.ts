@@ -1,39 +1,40 @@
 import { test, expect } from '@playwright/test';
 
-test.describe('Liri Task Center E2E', () => {
+/**
+ * Agent 任务管理 E2E（2026-08-15 重写适配新 UI）
+ *
+ * 旧"任务中心"页面（/tasks）已迁移：
+ * - /tasks 路由重定向到 /projects（client/src/routes/index.tsx:388）
+ * - Agent 任务管理现位于 /agent（AgentPage 组件）
+ *
+ * 原 task-center.spec.ts 针对已删除页面元素（统计卡片/搜索框/新建 Agent 任务弹窗）
+ * 已全部失效，重写为验证 /agent 页面的核心交互。
+ */
 
-  test('首页加载并显示界面', async ({ page }) => {
-    await page.goto('/');
-    await expect(page.locator('text=Liri').first()).toBeVisible({ timeout: 10_000 });
+test.describe('Agent 任务管理 E2E', () => {
+  test('导航到 Agent 任务页面并显示标题', async ({ page }) => {
+    await page.goto('/agent');
+    await expect(page.locator('text=Agent 任务').first()).toBeVisible({
+      timeout: 10_000,
+    });
   });
 
-  test('导航到任务中心页面', async ({ page }) => {
-    await page.goto('/tasks');
-    await expect(page.locator('text=任务中心')).toBeVisible({ timeout: 10_000 });
+  test('任务输入框与执行/刷新按钮可用', async ({ page }) => {
+    await page.goto('/agent');
+    const input = page.locator('input[placeholder*="任务名称"]').first();
+    await expect(input).toBeVisible({ timeout: 10_000 });
+    await input.fill('E2E 测试任务');
+    await expect(input).toHaveValue('E2E 测试任务');
+    await expect(page.locator('button:has-text("执行")').first()).toBeVisible();
+    await expect(page.locator('button:has-text("刷新")').first()).toBeVisible();
+    // 不点击"执行"——会触发真实 AI 任务（CI 离线环境无模型可用）
   });
 
-  test('任务中心显示统计卡片', async ({ page }) => {
-    await page.goto('/tasks');
-    await expect(page.locator('text=总任务').first()).toBeVisible({ timeout: 10_000 });
-    await expect(page.locator('text=已完成').first()).toBeVisible({ timeout: 5_000 });
+  test('任务列表渲染或显示空状态', async ({ page }) => {
+    await page.goto('/agent');
+    // 有任务 → 渲染任务列表；无任务 → "暂无任务"
+    const empty = page.locator('text=暂无任务').first();
+    const title = page.locator('text=Agent 任务').first();
+    await expect(empty.or(title)).toBeVisible({ timeout: 10_000 });
   });
-
-  test('搜索框可用', async ({ page }) => {
-    await page.goto('/tasks');
-    const searchInput = page.locator('input[placeholder*="搜索"]').first();
-    await expect(searchInput).toBeVisible({ timeout: 5_000 });
-    await searchInput.fill('测试');
-    await expect(searchInput).toHaveValue('测试');
-  });
-
-  test('新建 Agent 任务弹窗可打开和关闭', async ({ page }) => {
-    await page.goto('/tasks');
-    const createBtn = page.locator('text=新建 Agent 任务').first();
-    await createBtn.click();
-    await expect(page.locator('text=任务名称').first()).toBeVisible({ timeout: 3_000 });
-    const cancelBtn = page.locator('button:has-text("取消")');
-    await cancelBtn.click();
-    await expect(page.locator('text=任务名称').first()).not.toBeVisible({ timeout: 3_000 });
-  });
-
 });

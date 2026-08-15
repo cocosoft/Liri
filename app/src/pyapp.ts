@@ -423,7 +423,8 @@ if (isCompiledBinary) {
 
     // 在多个位置搜索 deps/（编译二进制 vs bun bundle 模式 vs macOS app bundle）
     const SEARCH_DIRS = [
-      path.join(exeDir, 'deps'), // --compile 二进制（Windows/Linux：与二进制同级）
+      path.join(exeDir, 'node_modules'), // --compile 二进制（copy-external-deps 默认复制到 exe 同级 node_modules）
+      path.join(exeDir, 'deps'), // --compile 二进制（旧布局：deps/ 目录）
       path.join(exeDir, 'binaries', 'deps'), // 开发/未打包的 Tauri binaries
       path.join(exeDir, '..', 'Resources', 'deps'), // macOS .app bundle（Contents/Resources/deps）
       path.join(process.env.LIRI_PROJECT_DIR ?? '', 'dist', 'deps'), // Docker/开发 bundle

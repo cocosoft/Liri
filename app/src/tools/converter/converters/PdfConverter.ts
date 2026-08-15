@@ -5,7 +5,10 @@ import { AppError, handleError } from '@modules/error';
 import { ErrorCodes } from '@modules/error';
 import { resolve, dirname } from 'path';
 import { pathToFileURL } from 'url';
-import { createRequire } from 'module';
+import {
+  loadExternal,
+  resolvePdfjsDistPath,
+} from '@modules/utils/externalDeps';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('tools:converter:converters:PdfConverter');
@@ -29,14 +32,10 @@ function ensurePdfJsLoaded(): void {
     handleError(err, { module: 'tools:converter', action: 'loadPdfjs1' });
   }
 
-  // 尝试2: 通过 createRequire 从 exe 同目录加载外部 node_modules
-  // 适用场景：bun build --compile 打包后的 exe，配合 --external pdfjs-dist 使用
+  // 尝试2: 通过共享 externalDeps 解析（编译产物中基于 exe 真实路径，绕开 import.meta.url 虚拟路径）
   try {
-    const exeRequire = createRequire(import.meta.url);
-    _pdfjsLib = exeRequire('pdfjs-dist/legacy/build/pdf');
-    const pdfjsDistPath = dirname(
-      exeRequire.resolve('pdfjs-dist/package.json')
-    );
+    _pdfjsLib = loadExternal('pdfjs-dist/legacy/build/pdf');
+    const pdfjsDistPath = resolvePdfjsDistPath();
     _cMapUrl = pathToFileURL(resolve(pdfjsDistPath, 'cmaps') + '/').href;
     return;
   } catch (err) {

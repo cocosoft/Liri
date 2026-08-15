@@ -4,10 +4,15 @@
  * 使用 Sharp 处理图片 I/O 和格式转换，使用 SVG 层渲染图形/文字
  */
 
-import sharp from 'sharp';
+import { loadSharp } from '@modules/utils/externalDeps';
 import { resolveOutputDir } from '@modules/core/paths';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('tools:canvas');
+
+/** 惰性加载 sharp（编译产物中 external，不能顶层 import） */
+function getSharp(): typeof import('sharp') {
+  return loadSharp();
+}
 
 /** 支持的画布元素类型 */
 export interface CanvasElement {
@@ -198,7 +203,7 @@ export class CanvasInstance {
         : null;
 
     // 创建底色
-    let pipeline = sharp({
+    let pipeline = getSharp()({
       create: {
         width: this.width,
         height: this.height,
@@ -210,7 +215,7 @@ export class CanvasInstance {
     // Composite 图片元素（逐个叠加）
     for (const elem of imageElements) {
       try {
-        const buf = await sharp(elem.src!)
+        const buf = await getSharp()(elem.src!)
           .resize(elem.width ?? 100, elem.height ?? 100)
           .toBuffer();
         pipeline = pipeline.composite([
@@ -234,7 +239,7 @@ export class CanvasInstance {
     // SVG overlay 叠加到画布上
     if (svgOverlay) {
       const svgBuf = Buffer.from(svgOverlay);
-      result = await sharp(result)
+      result = await getSharp()(result)
         .composite([{ input: svgBuf, top: 0, left: 0 }])
         .toBuffer();
     }
@@ -242,22 +247,22 @@ export class CanvasInstance {
     // 格式转换
     switch (format) {
       case 'png':
-        return sharp(result)
+        return getSharp()(result)
           .png({ quality: quality ?? 90 })
           .toBuffer();
       case 'jpeg':
-        return sharp(result)
+        return getSharp()(result)
           .jpeg({ quality: quality ?? 90 })
           .toBuffer();
       case 'webp':
-        return sharp(result)
+        return getSharp()(result)
           .webp({ quality: quality ?? 90 })
           .toBuffer();
       case 'svg':
         // SVG 直接输出：生成完整 SVG 文档
         return Buffer.from(this.toSvgString());
       default:
-        return sharp(result).png().toBuffer();
+        return getSharp()(result).png().toBuffer();
     }
   }
 

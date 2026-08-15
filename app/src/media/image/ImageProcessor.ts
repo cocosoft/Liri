@@ -8,10 +8,24 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { handleError } from '@modules/error/handleError';
 import fs from 'fs';
 import path from 'path';
-import sharp from 'sharp';
+import { loadSharp } from '@modules/utils/externalDeps';
 import { imageFormatDetector } from './ImageFormatDetector';
 
 const logger = getLogger('media:image');
+
+/** 惰性加载 sharp（编译产物中 external，不能顶层 import） */
+function getSharp(): typeof import('sharp') {
+  try {
+    return loadSharp();
+  } catch (err) {
+    void handleError(err, { module: 'media:image', action: 'loadSharp' });
+    throw new AppError(
+      'sharp 依赖加载失败',
+      ErrorCategory.OPERATION,
+      ErrorSeverity.MEDIUM
+    );
+  }
+}
 
 /** 图片格式 */
 export type ImageFormat =
@@ -90,7 +104,7 @@ export class ImageProcessor {
     const originalSize = fs.statSync(input).size;
     try {
       fs.mkdirSync(path.dirname(output), { recursive: true });
-      let pipeline = sharp(input);
+      let pipeline = getSharp()(input);
       switch (format) {
         case 'png':
           pipeline = pipeline.png();
@@ -145,8 +159,8 @@ export class ImageProcessor {
     const originalSize = fs.statSync(input).size;
     try {
       fs.mkdirSync(path.dirname(output), { recursive: true });
-      let pipeline = sharp(input);
-      const resizeOpts: sharp.ResizeOptions = {
+      let pipeline = getSharp()(input);
+      const resizeOpts: import('sharp').ResizeOptions = {
         fit: 'inside' as const,
         withoutEnlargement: true,
       };
@@ -192,7 +206,7 @@ export class ImageProcessor {
     const originalSize = fs.statSync(input).size;
     try {
       fs.mkdirSync(path.dirname(output), { recursive: true });
-      const outputBuffer = await sharp(input)
+      const outputBuffer = await getSharp()(input)
         .extract({
           left: options.x,
           top: options.y,
@@ -231,7 +245,7 @@ export class ImageProcessor {
     const originalSize = fs.statSync(input).size;
     try {
       fs.mkdirSync(path.dirname(output), { recursive: true });
-      const outputBuffer = await sharp(input).rotate(degrees).toBuffer();
+      const outputBuffer = await getSharp()(input).rotate(degrees).toBuffer();
       fs.writeFileSync(output, outputBuffer);
       return {
         success: true,
@@ -263,7 +277,7 @@ export class ImageProcessor {
     const originalSize = fs.statSync(input).size;
     try {
       fs.mkdirSync(path.dirname(output), { recursive: true });
-      let pipeline = sharp(input);
+      let pipeline = getSharp()(input);
       if (direction === 'horizontal' || direction === 'both')
         pipeline = pipeline.flop();
       if (direction === 'vertical' || direction === 'both')
@@ -300,7 +314,7 @@ export class ImageProcessor {
     const originalSize = fs.statSync(input).size;
     try {
       fs.mkdirSync(path.dirname(output), { recursive: true });
-      const meta = await sharp(input).metadata();
+      const meta = await getSharp()(input).metadata();
       const imgWidth = meta.width ?? 800;
       const imgHeight = meta.height ?? 600;
       const fontSize =
@@ -339,7 +353,7 @@ export class ImageProcessor {
             ? 'end'
             : 'start';
       const svgText = `<svg width="${imgWidth}" height="${imgHeight}" xmlns="http://www.w3.org/2000/svg"><text x="${x}" y="${y}" font-size="${fontSize}" fill="${fontColor}" text-anchor="${anchor}" font-family="sans-serif">${escapeXml(options.text)}</text></svg>`;
-      const outputBuffer = await sharp(input)
+      const outputBuffer = await getSharp()(input)
         .composite([{ input: Buffer.from(svgText), top: 0, left: 0 }])
         .toBuffer();
       fs.writeFileSync(output, outputBuffer);
@@ -373,7 +387,7 @@ export class ImageProcessor {
     const originalSize = fs.statSync(input).size;
     try {
       fs.mkdirSync(path.dirname(output), { recursive: true });
-      let pipeline = sharp(input);
+      let pipeline = getSharp()(input);
       if (
         options.brightness !== undefined ||
         options.saturation !== undefined
@@ -453,7 +467,7 @@ export class ImageProcessor {
     const outPath = outputPath || inputPath.replace(/\.(heic|heif)$/i, '.jpg');
 
     try {
-      await sharp(inputPath).jpeg({ quality: 90 }).toFile(outPath);
+      await getSharp()(inputPath).jpeg({ quality: 90 }).toFile(outPath);
 
       logger.info('ImageProcessor.convertHeic()', {
         inputPath,
@@ -496,7 +510,7 @@ export class ImageProcessor {
 
     try {
       // sharp 的 rotate() 会自动读取并应用 EXIF Orientation
-      await sharp(inputPath)
+      await getSharp()(inputPath)
         .rotate() // auto-orient based on EXIF
         .toFile(outPath + '.tmp');
 

@@ -394,7 +394,11 @@ async function fetchJSON<T>(url: string, options?: RequestInit): Promise<T> {
     const error = await response
       .json()
       .catch(() => ({ message: "Request failed" }));
-    throw new Error(error.message || `HTTP ${response.status}`);
+    // 附加 HTTP 状态码：调用方按 statusCode 做业务判断（如 404 = 交互已失效），
+    // 对齐 sessionService.switch 的既有模式，避免字符串匹配状态
+    const httpError = new Error(error.message || `HTTP ${response.status}`);
+    (httpError as { statusCode?: number }).statusCode = response.status;
+    throw httpError;
   }
 
   return response.json();
@@ -1480,7 +1484,7 @@ export const chatService = {
     questionId: string,
     answers: string[],
     sessionId?: string,
-  ): Promise<{ success: boolean; content?: string }> => {
+  ): Promise<{ success: boolean; content?: string; notFound?: boolean }> => {
     return getOTelTracing().asyncWrap(
       "services:chat:submitQuestionAnswer",
       async () => {
@@ -1494,6 +1498,11 @@ export const chatService = {
           });
           return response;
         } catch (err) {
+          // 404 = 后端无对应待处理交互（会话中断/后端重启/交互超时已清理），
+          // 交由调用方锁定 question 块并提示，避免无限重试
+          if ((err as { statusCode?: number }).statusCode === 404) {
+            return { success: false, notFound: true };
+          }
           handleClientError(err, {
             module: "services:chat",
             action: "submitQuestionAnswer",

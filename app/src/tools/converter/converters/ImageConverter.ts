@@ -3,14 +3,10 @@ import type { ConversionResult, ConversionContext } from '../engine/types';
 import { PRIORITY_SPECIFIC_FILE_FORMAT } from '../engine/types';
 import { AppError, handleError } from '@modules/error';
 import { ErrorCodes } from '@modules/error';
-import { resolve, dirname } from 'path';
-import { fileURLToPath } from 'url';
-import { createRequire } from 'module';
+import { loadSharp } from '@modules/utils/externalDeps';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('tools:converter:converters:ImageConverter');
-
-const __filename = fileURLToPath(import.meta.url);
 
 let _loaded = false;
 let _sharp: any = null;
@@ -18,27 +14,16 @@ let _sharp: any = null;
 /**
  * 延迟加载 sharp（原生插件，bun build --compile 无法内联）
  *
- * 三级加载策略：
- *   1) 标准 require（bun run 开发模式、纯 JS 打包后正常）
- *   2) createRequire + 回退路径（exe 外部 node_modules）
- *   3) 最终回退
+ * 统一走 externalDeps.loadSharp()（内部处理编译模式虚拟路径问题）
  */
 function ensureSharpLoaded(): void {
   if (_loaded) return;
   _loaded = true;
 
   try {
-    _sharp = require('sharp');
-    return;
+    _sharp = loadSharp();
   } catch (err) {
-    handleError(err, { module: 'tools:converter', action: 'loadSharp1' });
-  }
-
-  try {
-    const exeRequire = createRequire(__filename);
-    _sharp = exeRequire('sharp');
-  } catch (err) {
-    handleError(err, { module: 'tools:converter', action: 'loadSharp2' });
+    handleError(err, { module: 'tools:converter', action: 'loadSharp' });
   }
 }
 

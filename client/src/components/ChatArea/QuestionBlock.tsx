@@ -24,6 +24,8 @@ function QuestionBlock({
   // M5 修复：无选项时的自由文本回答
   const [freeText, setFreeText] = useState<string>("");
   const [submitted, setSubmitted] = useState(false);
+  // 会话中断态：后端无对应待处理交互（重启/超时/abort 已清理），锁定且不可重试
+  const [interrupted, setInterrupted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
 
@@ -80,6 +82,19 @@ function QuestionBlock({
         answers,
         sessionId,
       );
+
+      // 404 = 后端无对应待处理交互（会话中断/后端重启/交互超时），
+      // 锁定并提示"会话已中断"，禁止无限重试（方案 1）
+      if (result.notFound) {
+        setInterrupted(true);
+        setSubmitted(true);
+        logger.warn("question 块失效：后端无对应交互，锁定", {
+          questionId,
+          sessionId,
+          interruptedAt: new Date().toISOString(),
+        });
+        return;
+      }
 
       // #9 修复：仅成功才锁定（原失败也 setSubmitted(true)，用户无法重试）
       if (result.success) {
@@ -306,8 +321,16 @@ function QuestionBlock({
             </div>
           )}
 
+          {/* 会话中断提示（方案 1：后端已无待处理交互，块锁定不可重试） */}
+          {interrupted && (
+            <div className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded px-2.5 py-2">
+              <span>⚠️</span>
+              <span>会话已中断，该问题无法继续回答，请重新发起对话。</span>
+            </div>
+          )}
+
           {/* 已提交提示 */}
-          {submitted && (
+          {submitted && !interrupted && (
             <div className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400">
               <span>✓</span>
               <span>

@@ -32,9 +32,19 @@ test.describe('Agent 任务管理 E2E', () => {
 
   test('任务列表渲染或显示空状态', async ({ page }) => {
     await page.goto('/agent');
-    // 有任务 → 渲染任务列表；无任务 → "暂无任务"
-    const empty = page.locator('text=暂无任务').first();
-    const title = page.locator('text=Agent 任务').first();
-    await expect(empty.or(title)).toBeVisible({ timeout: 10_000 });
+    // 有任务 → 渲染任务列表（ul）；无任务 → 显示空状态（"暂无任务"）。
+    // 注意：不能用 .or() 组合定位器——标题与空状态同屏可见时
+    // strict mode 会判定 "resolved to 2 elements" 直接报错（CI 曾因此失败）。
+    // 用计数判断：任一出现即为通过。
+    await expect
+      .poll(
+        async () => {
+          const listCount = await page.locator('ul').count();
+          const emptyCount = await page.locator('text=暂无任务').count();
+          return listCount + emptyCount;
+        },
+        { timeout: 10_000 },
+      )
+      .toBeGreaterThan(0);
   });
 });

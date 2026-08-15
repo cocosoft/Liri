@@ -103,12 +103,14 @@ describe('NotificationPersistence 收件箱化断言', () => {
   });
 
   it('P0-4: markReadAll 循环处理超过 limit 的未读（不静默保留）', async () => {
-    // 插入 600 条未读（> 默认 limit 500，触发循环）
-    for (let i = 0; i < 600; i++) {
+    // 插入 30 条未读（> limit 20，触发循环，两批处理）
+    // 注：曾用 600 条/limit 500，但逐条 create 在 windows 上超过 bun 默认 5s 测试超时
+    //（单条 INSERT 含 fsync，windows 磁盘路径更慢），降低量级不影响"超过 limit 触发循环"的断言意图
+    for (let i = 0; i < 30; i++) {
       await persistence.create({ category: 'system', title: `sys-${i}` });
     }
-    const updated = await persistence.markReadAll(undefined, 'default', 500);
-    expect(updated).toBe(600);
+    const updated = await persistence.markReadAll(undefined, 'default', 20);
+    expect(updated).toBe(30);
 
     const db = (await (
       persistence as unknown as { _getDb(): Promise<unknown> }

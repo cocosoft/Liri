@@ -1,0 +1,3 @@
+# Playwright 测试产物（本地/CI 运行生成，不跟踪）
+playwright-report/
+test-results/

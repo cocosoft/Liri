@@ -459,7 +459,11 @@ export class TeamMemoryService {
         author: memory.metadata.author,
         source: memory.metadata.source,
       };
-      const content = matter.stringify(memory.content, frontmatter);
+      // 修复（预存错误 #57-1）：传对象绕过 gray-matter stringify 的字符串 parse 副作用
+      const content = matter.stringify(
+        { content: memory.content },
+        frontmatter
+      );
       fs.writeFileSync(filePath, content, 'utf8');
     }
   }

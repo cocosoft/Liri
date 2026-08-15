@@ -98,9 +98,10 @@ export class AITracePlugin {
     }
 
     // 注册拦截器
-    this.interceptor.install(this.engine, (record) => {
-      this.onRecord(record);
-    });
+    // v5 方案 3.4（审查 F）：直接返回 promise，使 FetchInterceptor.emitRecord 的
+    // catch 生效——此前 `{ this.onRecord(record); }` 无 return，回调返回 undefined，
+    // "callback 失败记录日志"保护从未生效。
+    this.interceptor.install(this.engine, (record) => this.onRecord(record));
 
     this.running = true;
   }
@@ -132,20 +133,34 @@ export class AITracePlugin {
   /**
    * 处理录制事件
    * 每次有 AI API 调用被录制时触发
+   * v5 方案 3.4：按 phase 分流——pending 只写盘 + 索引 + 日志 + 广播；
+   * completed 走全链路（recordedCount/stats/usage/metrics/alerts）。
    */
-  private onRecord(record: TraceRecord): void {
-    this.recordedCount++;
+  private async onRecord(record: TraceRecord): Promise<void> {
+    const isPending = record.phase === 'pending';
 
-    // 写入引擎
+    // v5 方案 3.4（第一轮审查④）：pending 跳过 recordedCount，避免翻倍
+    if (!isPending) {
+      this.recordedCount++;
+    }
+
+    // v5 方案 3.4：traceId 顺序修正——先 pushTracingContext 再 engine.record，
+    // 使 traceId/spanId 落盘（此前 engine.record 在 pushTracingContext 之前，从未写入）。
+    if (this.monitoring) {
+      this.pushTracingContext(record);
+    }
+
+    // 写入引擎（pending 时 StatsEngine 内部跳过统计）
     if (this.engine) {
-      this.engine.record(record);
+      await this.engine.record(record);
     }
 
     // === 始终通过 Logger 记录 Trace 数据（必选项，不依赖配置） ===
     const model = this.extractModel(record);
     const usage = this.extractUsageFromRecord(record);
     const isError = !!record.error || record.response.status >= 400;
-    traceLogger.info('trace:ai_call', {
+    // v5 方案 3.4（第四轮审查 C）：pending 用独立事件名，避免日志采集重复计数
+    traceLogger.info(isPending ? 'trace:ai_call_pending' : 'trace:ai_call', {
       model,
       inputTokens: usage.inputTokens,
       outputTokens: usage.outputTokens,
@@ -155,36 +170,39 @@ export class AITracePlugin {
       status: record.response.status,
       isError,
       timestamp: record.timestamp,
+      phase: record.phase,
     });
 
-    // === 通知全局 usage 监听器（供 UnifiedTokenTracker 校准因子闭环） ===
-    if (usage.inputTokens > 0 || usage.outputTokens > 0) {
-      for (const listener of traceUsageListeners) {
-        try {
-          listener({
-            model,
-            inputTokens: usage.inputTokens,
-            outputTokens: usage.outputTokens,
-            cacheReadTokens: usage.cacheReadTokens,
-            cacheCreateTokens: usage.cacheCreateTokens,
-            durationMs: record.durationMs,
-            status: record.response.status,
-            timestamp: record.timestamp,
-          });
-        } catch {
-          // 监听器异常不中断 trace 流程
+    // pending 分支：跳过 usage listeners / metrics / alerts（completed 才走全链路）
+    if (!isPending) {
+      // === 通知全局 usage 监听器（供 UnifiedTokenTracker 校准因子闭环） ===
+      if (usage.inputTokens > 0 || usage.outputTokens > 0) {
+        for (const listener of traceUsageListeners) {
+          try {
+            listener({
+              model,
+              inputTokens: usage.inputTokens,
+              outputTokens: usage.outputTokens,
+              cacheReadTokens: usage.cacheReadTokens,
+              cacheCreateTokens: usage.cacheCreateTokens,
+              durationMs: record.durationMs,
+              status: record.response.status,
+              timestamp: record.timestamp,
+            });
+          } catch {
+            // 监听器异常不中断 trace 流程
+          }
         }
+      }
+
+      // 集成模式：推送指标到监控系统
+      if (this.monitoring) {
+        this.pushMetrics(record);
+        this.checkAlerts(record);
       }
     }
 
-    // 集成模式：推送指标到监控系统
-    if (this.monitoring) {
-      this.pushMetrics(record);
-      this.pushTracingContext(record);
-      this.checkAlerts(record);
-    }
-
-    // 实时广播
+    // 实时广播（pending 也广播——v5 方案 3.6，LiveView 前端按 phase 渲染 ⏳）
     if (this.liveServer) {
       this.liveServer.broadcast(record);
     }

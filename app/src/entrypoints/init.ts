@@ -892,7 +892,12 @@ async function startDeferredPrefetches(): Promise<void> {
           const { getSkillDB, initializeSkillLifecycle } =
             await import('../skills/persistence/index.js');
           const skillDB = getSkillDB();
-          await initializeSkillLifecycle(skillRegistry, skillDB);
+          // T3.7：返回清理函数，应用关闭时回收技能辅助组件的 Registry 事件监听
+          const disposeSkillLifecycle = await initializeSkillLifecycle(
+            skillRegistry,
+            skillDB
+          );
+          registerShutdownHandler(() => disposeSkillLifecycle());
           logger.info('技能生命周期初始化完成');
         } catch (error) {
           logger.warning('技能生命周期初始化失败（非关键）', { error });

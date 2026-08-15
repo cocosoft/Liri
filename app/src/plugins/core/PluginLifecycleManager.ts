@@ -10,7 +10,13 @@ import {
   PluginEventType,
   PluginEvent,
 } from '../types/PluginTypes';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import {
+  AppError,
+  ErrorCategory,
+  ErrorSeverity,
+  handleError,
+} from '@modules/error';
+import { EffectScope } from '@modules/context/EffectScope';
 
 const logger = getLogger('plugins:core:pluginLifecycleManager');
 
@@ -85,6 +91,8 @@ export class PluginLifecycleManager extends EventEmitter {
   private lifecycleHooks: Map<PluginLifecycleEvent, LifecycleHook[]> =
     new Map();
   private isRunning = false;
+  /** G2b（附录 C）：插件级副作用作用域——激活时创建，停用时按 LIFO 释放 */
+  private scopes: Map<string, EffectScope> = new Map();
 
   /**
    * 构造函数
@@ -182,6 +190,11 @@ export class PluginLifecycleManager extends EventEmitter {
       plugin.activatedAt = new Date();
       if (plugin.stats) plugin.stats.activateCount++;
 
+      // G2b：激活时创建插件级作用域（供 onPluginDispose 登记逆操作）
+      if (!this.scopes.has(pluginId)) {
+        this.scopes.set(pluginId, new EffectScope());
+      }
+
       // 执行启动后钩子
       await this.executeLifecycleHooks(
         PluginLifecycleEvent.AFTER_START,
@@ -235,6 +248,19 @@ export class PluginLifecycleManager extends EventEmitter {
       plugin.state = PluginState.DEACTIVATED;
       plugin.deactivatedAt = new Date();
 
+      // G2b：停用 = scope.dispose()（幂等 + LIFO；错误仅上报不阻断）
+      const scope = this.scopes.get(pluginId);
+      if (scope) {
+        this.scopes.delete(pluginId);
+        await scope.dispose().catch((error) => {
+          void handleError(error, {
+            module: 'plugins:core:pluginLifecycleManager',
+            action: 'stopPlugin scope dispose',
+            context: { pluginId },
+          });
+        });
+      }
+
       // 执行停止后钩子
       await this.executeLifecycleHooks(PluginLifecycleEvent.AFTER_STOP, plugin);
 
@@ -253,6 +279,29 @@ export class PluginLifecycleManager extends EventEmitter {
 
       throw error;
     }
+  }
+
+  /**
+   * G2b（附录 C）：在插件作用域内登记逆操作（停用/卸载时按 LIFO 自动释放）。
+   * 对齐 agent/managers/PluginLoader 的 T3.6 onDispose 模式——插件作者无需手写清理。
+   * 插件未激活 → 抛错（use-before-activate 防护）。
+   * @param pluginId 插件 ID
+   * @param disposer 逆操作
+   */
+  onPluginDispose(
+    pluginId: string,
+    disposer: () => void | Promise<void>
+  ): void {
+    const scope = this.scopes.get(pluginId);
+    if (!scope) {
+      throw new AppError(
+        `Plugin not activated: ${pluginId}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
+    }
+    scope.onDispose(disposer);
   }
 
   /**
@@ -507,12 +556,15 @@ export class PluginLifecycleManager extends EventEmitter {
 
   /**
    * 销毁生命周期管理器
+   * 无条件停止全部插件并释放插件级作用域（不依赖 start() 的 isRunning 状态，
+   * 覆盖"直接 startPlugin 未经 start()"的场景，G2b）
    */
   async destroy(): Promise<void> {
-    await this.stop();
-
+    await this.stopAllPlugins();
+    this.scopes.clear();
     this.plugins.clear();
     this.lifecycleHooks.clear();
+    this.isRunning = false;
 
     logger.info('✅ Plugin lifecycle manager destroyed');
   }

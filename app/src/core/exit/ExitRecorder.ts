@@ -50,6 +50,43 @@ export interface ExitRecord {
   message?: string;
 }
 
+/**
+ * 异常退出痕迹记录（#57-3）
+ * Windows 外部强杀（任务管理器/OOM/断电）不触发任何 Node 退出事件，
+ * last-exit.json 与 crash dump 均不产生。下次启动检测到锁文件残留时，
+ * 将痕迹持久化到 `~/.pyapp/data/last-abnormal.json`，事后可溯源。
+ */
+export interface AbnormalExitRecord {
+  /** 检测时间（下次启动时） */
+  detectedAt: string;
+  /** 残留锁文件中的 PID */
+  stalePid: number;
+  /** 锁文件 mtime（上次启动/最后活动时间） */
+  lastLockedAt: string | null;
+  /** 最近一次退出记录（null = 从未触发过退出事件，强杀/断电） */
+  lastExit: ExitRecord | null;
+}
+
+function abnormalExitFile(): string {
+  return path.join(resolveDataDir(), 'last-abnormal.json');
+}
+
+/** 记录异常退出痕迹（覆盖式，保留最近一次，同步写盘保证落盘；filePath 可注入便于测试） */
+export function recordAbnormalExit(
+  record: AbnormalExitRecord,
+  filePath?: string
+): void {
+  try {
+    fs.writeFileSync(
+      filePath ?? abnormalExitFile(),
+      JSON.stringify(record, null, 2)
+    );
+  } catch (e) {
+    // @ignore-catch — 记录失败不阻断启动，仅告警
+    logger.warn('写入异常退出记录失败', { error: String(e) });
+  }
+}
+
 function exitFile(): string {
   return path.join(resolveDataDir(), 'last-exit.json');
 }

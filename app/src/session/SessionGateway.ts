@@ -734,6 +734,15 @@ export class SessionGateway {
   }
 
   /**
+   * 恢复会话状态（PAUSED → ACTIVE）。
+   * 中断治理（2026-08-15）：接通 CrashRecoveryManager.resumeSession 的恢复出口，
+   * 供前端 resume / 会话重新激活时调用，paused 会话不再永久冻结。
+   */
+  async resumeSession(sessionId: string): Promise<UnifiedSession | null> {
+    return this.crashRecoveryManager.resumeSession(sessionId);
+  }
+
+  /**
    * 在启动时重建 FTS5 索引（从持久化文件加载，或从存储全量重建）
    */
   private async rebuildFTSIndex(): Promise<void> {

@@ -446,26 +446,6 @@ export interface ChatManager {
   ): boolean;
 
   /**
-   * 获取非流式路径中的待处理交互数据
-   * @param sessionId 会话ID
-   * @returns 待处理的提问数据，如果没有则返回 null
-   */
-  getPendingInteraction(sessionId: string): QuestionData | null;
-
-  /**
-   * 继续非流式路径中的交互（用户回答后恢复工具执行）
-   * @param sessionId 会话ID
-   * @param questionId 问题ID
-   * @param answers 用户选择的答案列表
-   * @returns 最终消息
-   */
-  continueInteraction(
-    sessionId: string,
-    questionId: string,
-    answers: string[]
-  ): Promise<Message>;
-
-  /**
    * P1-5: 检查指定会话是否有活跃的流式请求
    * 用于前端幽灵块检测
    */

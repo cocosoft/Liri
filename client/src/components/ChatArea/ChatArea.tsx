@@ -1,4 +1,4 @@
-import { useMemo, useEffect, useRef, useState } from "react";
+import { useMemo, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { useChatStore } from "../../stores/chat";
 import { useSessionStore } from "../../stores/sessionStore";
@@ -201,56 +201,34 @@ function ChatArea({ fluid = false }: { fluid?: boolean }) {
       : undefined;
   }, [messages]);
 
-  // 导航建议：create_project 工具完成后显示跳转提示
+  // 自适应导航（P0-F，2026-08-14）：AI 明确调用 create_project 建项目后，
+  // 前端自动切换到项目管理页面并打开新项目，无需用户手动点击提示
   const navigate = useNavigate();
-  const [navSuggestion, setNavSuggestion] = useState<{
-    target: string;
-    label: string;
-  } | null>(null);
 
   useEffect(() => {
     const handler = (e: Event) => {
       const detail = (e as CustomEvent).detail as Record<string, unknown>;
-      setNavSuggestion({
-        target: String(detail.target || "/projects"),
+      const target = String(detail.target || "/projects");
+      // 跳转时机日志（保留）：记录收到导航建议事件 → 跳转的完整上下文，便于排查
+      // create_project 后前端未/重复/错误跳转的问题
+      logger.info("自适应导航：create_project 完成，自动跳转项目管理页", {
+        target,
         label: String(detail.label || "查看项目"),
+        eventAt: new Date().toISOString(),
+        location: window.location.pathname + window.location.search,
       });
+      // 流式仍在继续（后续 LLM 轮），跳转后 chunk 由 store 层继续处理，消息照常落盘
+      navigate(target);
     };
     window.addEventListener("pyapp:navigate-suggest", handler);
     return () => window.removeEventListener("pyapp:navigate-suggest", handler);
-  }, []);
+  }, [navigate]);
 
   return (
     <div className="flex-1 relative bg-gray-50 dark:bg-gray-900 flex flex-col min-h-0">
       <div ref={containerRef} className="flex-1 min-h-0 overflow-y-auto">
         <div ref={contentRef}>
           {/* 错误提示（1.10-4：删除文档流重复渲染，保留底部绝对定位浮层版本，始终可见） */}
-
-          {/* 导航建议：create_project 完成后提示跳转 */}
-          {navSuggestion && (
-            <div className="m-4 p-3 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-xl flex items-center justify-between">
-              <span className="text-sm text-blue-700 dark:text-blue-300">
-                项目已创建 —{" "}
-              </span>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => {
-                    navigate(navSuggestion.target);
-                    setNavSuggestion(null);
-                  }}
-                  className="text-xs px-3 py-1 rounded bg-blue-600 text-white hover:bg-blue-700 transition-colors"
-                >
-                  {navSuggestion.label}
-                </button>
-                <button
-                  onClick={() => setNavSuggestion(null)}
-                  className="text-xs text-blue-400 hover:text-blue-600 dark:hover:text-blue-200"
-                >
-                  忽略
-                </button>
-              </div>
-            </div>
-          )}
 
           {/* P2-6: 中止恢复提示 */}
           {recoverySessionId && (

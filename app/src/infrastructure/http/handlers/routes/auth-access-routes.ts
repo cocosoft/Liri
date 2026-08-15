@@ -150,6 +150,11 @@ export async function dispatchAuthAccessRoutes(
     await handleFileStream(req, res);
     return true;
   }
+  if (method === 'GET' && url.startsWith('/api/file/html/')) {
+    const { handleFileHtmlServe } = await import('../file-access-handlers');
+    await handleFileHtmlServe(req, res);
+    return true;
+  }
 
   // ---- Agent Roles ----
   if (method === 'GET' && url === '/v1/agent-roles') {

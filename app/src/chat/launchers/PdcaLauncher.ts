@@ -63,6 +63,9 @@ export class PdcaLauncher {
     });
 
     try {
+      // P0-E（2026-08-14）：PDCA 任务标识提前定义（两个路径共用），用于过程消息回写
+      const taskId = `pdca_${Date.now().toString(36)}`;
+
       // RC-E（08-09）+ S3（2026-08-13）：PlanDrivenLoop 快速路径（两层分流由 ChatManager 决策）
       if (useFastPath ?? this.deps.enablePlanDrivenLoop) {
         try {
@@ -73,13 +76,93 @@ export class PdcaLauncher {
             undefined
           );
           const deps = createChatManagerTAORDeps(taorContext);
+          // P0-E：百分比档位节流——仅在进度跨越 25%/50%/75%/完成 时回写一条对话消息，
+          // 长任务最多 4 条（跳过 0% 首条），既保证 PDCA 过程可见又不刷屏。
+          // 频率说明：onStepProgress 每步仅回调 1~2 次（markStepRunning + 步骤结束），
+          // 本身为低频；档位节流在此基础上进一步限制消息条数，无性能/卡顿风险。
+          let lastReportedBucket = -1;
           const planLoop = new PlanDrivenLoop({
             taorLoop,
             deps,
             sessionId,
             enableAutoDecompose: true,
             onStepProgress: (progress) => {
-              logger.info('PlanDrivenLoop 进度', { sessionId, ...progress });
+              // 详细日志：记录每次进度回调的原始数据 + 档位计算（total/isDone/bucket/lastReportedBucket）
+              const total = progress.total || progress.completed;
+              const isDone = progress.completed >= total;
+              const bucket = isDone
+                ? 4
+                : Math.min(3, Math.floor((progress.completed / total) * 4));
+              logger.info('PlanDrivenLoop 进度回调', {
+                sessionId,
+                ...progress,
+                computed: {
+                  total,
+                  isDone,
+                  bucket,
+                  lastReportedBucket,
+                  // 对比校验：自算百分比与原始 percent 应一致（同源公式），偏差非 0 说明计算链路有分歧
+                  derivedPct:
+                    total > 0
+                      ? Math.round((progress.completed / total) * 100)
+                      : 0,
+                  pctDiff:
+                    progress.percent !== undefined
+                      ? Math.round(
+                          (progress.completed / (total > 0 ? total : 1)) * 100
+                        ) - progress.percent
+                      : null,
+                  pctAligned:
+                    progress.percent !== undefined &&
+                    Math.round(
+                      (progress.completed / (total > 0 ? total : 1)) * 100
+                    ) === progress.percent,
+                },
+              });
+              try {
+                if (total <= 0) {
+                  logger.warn('PlanDrivenLoop 进度跳过：total<=0', {
+                    sessionId,
+                    total,
+                    completed: progress.completed,
+                  });
+                  return;
+                }
+                // 跳过 0% 首条（markStepRunning 触发，completed=0 时无进展意义）
+                if (progress.completed <= 0) return;
+                if (bucket <= lastReportedBucket) return;
+                lastReportedBucket = bucket;
+                logger.info('PlanDrivenLoop 档位切换，触发进度消息回写', {
+                  sessionId,
+                  bucket,
+                  completed: progress.completed,
+                  total,
+                  isDone,
+                  pct: Math.round((progress.completed / total) * 100),
+                });
+                const pct = Math.round((progress.completed / total) * 100);
+                const failedNote =
+                  progress.failed > 0 ? `，${progress.failed} 步失败` : '';
+                const summary = isDone
+                  ? `PDCA 执行完成：${progress.completed}/${total} 步${failedNote}`
+                  : `已完成 ${progress.completed}/${total} 步（进度 ${pct}%）${failedNote}`;
+                this.deps.persistMessage(
+                  sessionId,
+                  this.deps.messageService.createAssistantMessage(
+                    `${isDone ? '✅' : '🔁'} ${summary}`,
+                    {
+                      sessionId,
+                      metadata: {
+                        taskId,
+                        isTaskMessage: true,
+                        taskType: 'pdca-progress',
+                      },
+                    }
+                  )
+                );
+              } catch {
+                // 进度回写失败不影响循环（@ignore-catch）
+              }
             },
           });
           const message = userMessage || description;
@@ -112,8 +195,6 @@ export class PdcaLauncher {
           // 回退到原有 PDCA 路径
         }
       }
-
-      const taskId = `pdca_${Date.now().toString(36)}`;
 
       try {
         // 关联到项目 pdcaIds（父任务登记；阶段链 checkpoint 由 StageOrchestrator 持久化）

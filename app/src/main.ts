@@ -40,6 +40,8 @@ import {
 import {
   installExitRecorder,
   logStartupContext,
+  readLastExit,
+  recordAbnormalExit,
 } from './core/exit/ExitRecorder.js';
 import { initAppStateMachine } from './state/app/AppLifecycle.js';
 import {
@@ -53,6 +55,7 @@ import {
   readFileSync,
   rmSync,
   unlinkSync,
+  statSync,
 } from 'fs';
 import { join } from 'path';
 import { execSync } from 'child_process';
@@ -567,13 +570,86 @@ function checkSingletonInstance(): void {
           logger.warning(`检测到已有实例在运行 (PID: ${pid})，当前实例将退出`);
           process.exit(1);
         } catch (err) {
-          // 进程不存在，锁文件过期，继续启动
-          logger.info(`检测到过期锁文件 (PID: ${pid}，进程已不存在)，将覆盖`);
+          // 进程不存在 → 锁文件残留。正常退出必然在 exit 事件清理锁文件（cleanup），
+          // 残留即上次进程未走正常退出（强杀/崩溃/断电）。
+          // #57-3 可观测性：详细结构化日志 + 持久化痕迹（last-abnormal.json），事后可溯源
+          const detectedAt = new Date().toISOString();
+          let lockStat: {
+            mtime: string | null;
+            ctime: string | null;
+            size: number | null;
+          } = {
+            mtime: null,
+            ctime: null,
+            size: null,
+          };
+          try {
+            const s = statSync(lockFile);
+            lockStat = {
+              mtime: s.mtime.toISOString(),
+              ctime: s.ctime.toISOString(),
+              size: s.size,
+            };
+          } catch {
+            /* stat 失败不阻断启动 */
+          }
+          const lastExit = readLastExit();
+          recordAbnormalExit({
+            detectedAt,
+            stalePid: pid,
+            lastLockedAt: lockStat.mtime,
+            lastExit,
+          });
+          logger.warning(
+            `上次进程异常退出（锁文件残留，未走正常退出清理）：PID ${pid}` +
+              (lockStat.mtime ? `，最后活动 ${lockStat.mtime}` : '') +
+              (lastExit
+                ? `；最近退出记录 reason=${lastExit.reason} code=${lastExit.code} at=${lastExit.exitAt}`
+                : '；无 last-exit.json（强杀/断电，未触发任何退出事件）') +
+              `。已记录到 last-abnormal.json，当前实例将覆盖并继续启动`,
+            {
+              // 详细上下文：锁文件状态 / 退出记录 / 运行环境
+              lockFile,
+              stalePid: pid,
+              lockMtime: lockStat.mtime,
+              lockCtime: lockStat.ctime,
+              lockSize: lockStat.size,
+              lastExit: lastExit ?? null,
+              detectedAt,
+              currentPid: process.pid,
+              uptimeMs: Math.round(process.uptime() * 1000),
+              dataDir,
+              abnormalRecordPath: join(dataDir, 'last-abnormal.json'),
+            }
+          );
         }
       }
     } catch (err) {
-      // 锁文件内容异常，忽略并覆盖
-      logger.warning('锁文件内容异常，将覆盖');
+      // 锁文件内容异常，忽略并覆盖（记录文件状态与内容摘要便于排查）
+      let lockStat: { mtime: string | null; size: number | null } = {
+        mtime: null,
+        size: null,
+      };
+      try {
+        const s = statSync(lockFile);
+        lockStat = { mtime: s.mtime.toISOString(), size: s.size };
+      } catch {
+        /* stat 失败不阻断启动 */
+      }
+      let rawPreview: string | null = null;
+      try {
+        rawPreview = readFileSync(lockFile, 'utf-8').slice(0, 100);
+      } catch {
+        /* 读取失败不阻断 */
+      }
+      logger.warning('锁文件内容异常，将覆盖', {
+        lockFile,
+        lockMtime: lockStat.mtime,
+        lockSize: lockStat.size,
+        rawPreview: rawPreview ?? null,
+        detectedAt: new Date().toISOString(),
+        currentPid: process.pid,
+      });
     }
   }
 
@@ -610,12 +686,28 @@ function checkSingletonInstance(): void {
   });
   process.on('SIGINT', () => {
     cleanup();
-    flush().finally(() => process.exit(0));
+    // T3.4: 优雅退出释放通道级 scope（注销已注册通道）
+    void gracefulChannelShutdown().finally(() =>
+      flush().finally(() => process.exit(0))
+    );
   });
   process.on('SIGTERM', () => {
     cleanup();
-    flush().finally(() => process.exit(0));
+    // T3.4: 优雅退出释放通道级 scope（注销已注册通道）
+    void gracefulChannelShutdown().finally(() =>
+      flush().finally(() => process.exit(0))
+    );
   });
+}
+
+/**
+ * T3.4: 通道级 scope 释放（注销 bootstrap 注册的通道）。
+ * dynamic import 避免 main.ts 与 channels 模块静态耦合。
+ */
+async function gracefulChannelShutdown(): Promise<void> {
+  const { channelBootstrapper } =
+    await import('./channels/bootstrap/ChannelBootstrapper');
+  await channelBootstrapper.disposeAll();
 }
 
 /**
@@ -680,8 +772,15 @@ async function launchREPL(options: LaunchOptions): Promise<void> {
     }
   }
 
-  const httpPort = parseHttpPortFromArgs(options.args) || 7890;
+  // HTTP 端口优先级：命令行 --http-port > 环境变量 LIRI_HTTP_PORT > 默认 7890
+  // （Docker 部署通过 LIRI_HTTP_PORT=3000 注入，避免硬编码默认值）
+  const httpPort =
+    parseHttpPortFromArgs(options.args) ||
+    parseInt(process.env.LIRI_HTTP_PORT ?? '', 10) ||
+    7890;
   process.env.LIRI_HTTP_PORT = String(httpPort);
+  // 监听地址：默认 127.0.0.1（本地/桌面场景），Docker 部署设置 LIRI_HTTP_HOST=0.0.0.0
+  const httpHost = process.env.LIRI_HTTP_HOST?.trim() || '127.0.0.1';
   const useLegacyRepl = options.args?.includes('--legacy-repl') || false;
   const httpOnly = options.args?.includes('--http-only') || false;
 
@@ -693,9 +792,9 @@ async function launchREPL(options: LaunchOptions): Promise<void> {
   const { startHTTPServer } = await import('./entrypoints/http-server');
   let httpService: Awaited<ReturnType<typeof startHTTPServer>> | null = null;
   try {
-    httpService = await startHTTPServer(httpPort);
+    httpService = await startHTTPServer(httpPort, httpHost);
     process.env.LIRI_HTTP_STARTED = '1';
-    logger.info(`HTTP 服务已启动: http://127.0.0.1:${httpPort}`);
+    logger.info(`HTTP 服务已启动: http://${httpHost}:${httpPort}`);
   } catch (e: unknown) {
     const errMsg = e instanceof Error ? e.message : String(e);
     logger.error('HTTP 服务启动失败，前端将无法连接', {

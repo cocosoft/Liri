@@ -102,6 +102,25 @@ export class FetchInterceptor {
   }
 
   /**
+   * 异步触发录制回调（fire-and-forget）。
+   * 修复（2026-08-15）：此前直接 `this.callback(record)` 未 await 且未捕获
+   * rejection —— 大记录写入 TraceWriter 失败会静默丢失并产生 unhandledRejection。
+   * 这里保持不阻塞响应，但对 rejection 统一记录日志。
+   */
+  private emitRecord(record: TraceRecord): void {
+    if (!this.callback) return;
+    const result = this.callback(record);
+    if (result && typeof (result as Promise<void>).catch === 'function') {
+      (result as Promise<void>).catch((err) => {
+        logger.warn('trace:fetchInterceptor callback 失败', {
+          recordId: record.id,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      });
+    }
+  }
+
+  /**
    * 拦截逻辑
    * @param input fetch 输入
    * @param init fetch 配置
@@ -134,6 +153,10 @@ export class FetchInterceptor {
 
     this.turnCounter++;
     const t0 = performance.now();
+    // P2 修复（2026-08-15）：记录请求发起时刻（绝对时间戳）。
+    // 此前 timestamp 在响应完成后写入（完成时刻）——长流（如 34s 的 Kimi）
+    // 记录的时间戳会严重滞后于真实发起时间，误导时间线分析（对话 L2069）。
+    const startedAtMs = Date.now();
     const reqId = `req_${crypto.randomBytes(6).toString('hex')}`;
 
     let reqBodyText = '';
@@ -212,6 +235,31 @@ export class FetchInterceptor {
       });
     }
 
+    // v5 方案 3.2：流式请求两阶段写入——请求发起时先落 pending 记录
+    // （不经过 shouldRecord，保证"发起过"可复盘；非流式保持现状单写）
+    let streamError: string | undefined;
+    if (isStreaming && this.engine && this.callback) {
+      this.emitRecord(
+        this.buildRecord(
+          reqId,
+          startedAtMs,
+          method,
+          url,
+          reqHeaders,
+          reqBody,
+          reqBodyText,
+          0,
+          {},
+          null,
+          0,
+          undefined,
+          extractModelName(reqBody || {}),
+          undefined,
+          'pending'
+        )
+      );
+    }
+
     try {
       const response = await original(input, init);
       const durationMs = Math.round(performance.now() - t0);
@@ -257,8 +305,10 @@ export class FetchInterceptor {
           }
         } catch (err) {
           // 流读取异常时使用已有数据，不中断主响应
+          // v5 方案 3.2：保存错误到 streamError，completed 记录带 error 字段
+          streamError = err instanceof Error ? err.message : String(err);
           logger.warn('trace:fetchInterceptor SSE reader error', {
-            error: err instanceof Error ? err.message : String(err),
+            error: streamError,
             url,
           });
         }
@@ -274,6 +324,7 @@ export class FetchInterceptor {
         // 异步写入录制记录（不阻塞响应）
         const record = this.buildRecord(
           reqId,
+          startedAtMs,
           method,
           url,
           reqHeaders,
@@ -284,10 +335,11 @@ export class FetchInterceptor {
           respBody,
           durationMs,
           sseEvents,
-          extractModelName(reqBody || {})
+          extractModelName(reqBody || {}),
+          streamError
         );
 
-        this.callback(record);
+        this.emitRecord(record);
       } else {
         // 非流式响应：先克隆再读body
         if (response.body) {
@@ -315,6 +367,7 @@ export class FetchInterceptor {
 
         const record = this.buildRecord(
           reqId,
+          startedAtMs,
           method,
           url,
           reqHeaders,
@@ -328,7 +381,7 @@ export class FetchInterceptor {
           extractModelName(reqBody || {})
         );
 
-        this.callback(record);
+        this.emitRecord(record);
       }
 
       return response;
@@ -341,6 +394,7 @@ export class FetchInterceptor {
       if (this.engine && this.callback) {
         const record = this.buildRecord(
           reqId,
+          startedAtMs,
           method,
           url,
           reqHeaders,
@@ -354,7 +408,7 @@ export class FetchInterceptor {
           extractModelName(reqBody || {}),
           errorMessage
         );
-        this.callback(record);
+        this.emitRecord(record);
       }
 
       throw error;
@@ -402,9 +456,12 @@ export class FetchInterceptor {
 
   /**
    * 构建录制记录
+   * @param startedAtMs 请求发起时刻（绝对时间戳，P2 修复：长流时间线不再滞后）
+   * @param phase 记录阶段：'pending'（请求发起）| 'completed'（默认，完成/中断）
    */
   private buildRecord(
     reqId: string,
+    startedAtMs: number,
     method: string,
     url: string,
     reqHeaders: Record<string, string>,
@@ -416,14 +473,16 @@ export class FetchInterceptor {
     durationMs: number,
     sseEvents?: SSERawEvent[],
     model?: string,
-    error?: string
+    error?: string,
+    phase: 'pending' | 'completed' = 'completed'
   ): TraceRecord {
     const record: TraceRecord = {
       id: reqId,
-      timestamp: new Date().toISOString(),
+      timestamp: new Date(startedAtMs).toISOString(),
       turn: this.turnCounter,
       durationMs,
       upstreamBaseUrl: url,
+      phase,
       request: {
         method,
         path: url,
@@ -443,6 +502,11 @@ export class FetchInterceptor {
 
     if (error) {
       record.error = error;
+    }
+
+    // v5 方案 3.1：completed 记录带完成时刻
+    if (phase === 'completed') {
+      record.completedAt = new Date().toISOString();
     }
 
     return record;

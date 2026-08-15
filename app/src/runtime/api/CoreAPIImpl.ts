@@ -1911,52 +1911,6 @@ export class CoreAPIImpl implements CoreAPI {
   }
 
   /**
-   * 获取非流式路径中的待处理交互数据
-   */
-  getPendingInteraction(sessionId: string): QuestionData | null {
-    return this.chatManager.getPendingInteraction(sessionId);
-  }
-
-  /**
-   * 继续非流式路径中的交互（用户回答后恢复工具执行）
-   */
-  async continueInteraction(
-    sessionId: string,
-    questionId: string,
-    answers: string[]
-  ): Promise<ChatResponse> {
-    try {
-      const message = await this.chatManager.continueInteraction(
-        sessionId,
-        questionId,
-        answers
-      );
-
-      const content =
-        typeof message.content === 'string'
-          ? message.content
-          : message.content
-              .map((block) => ('value' in block ? block.value : ''))
-              .join('');
-
-      return {
-        content,
-        sessionId: message.sessionId || sessionId,
-        messageId: message.id,
-        finishReason: 'stop',
-      };
-    } catch (error) {
-      handleError(error, { module: 'runtime:api', action: '聊天续写失败' });
-      return {
-        content: '',
-        sessionId,
-        messageId: '',
-        finishReason: 'error',
-      };
-    }
-  }
-
-  /**
    * P0: 附件清理 — 删除消息后清理孤儿附件文件
    * 检查引用计数，仅当附件不被任何未删除消息引用时才删除文件
    */

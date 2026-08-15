@@ -7,6 +7,7 @@
  */
 
 import type { SkillDB } from './persistence/SkillDB';
+import type { RegistryEventHandler, SkillRegistry } from './SkillRegistry';
 
 import { handleError } from '@modules/error';
 
@@ -99,18 +100,27 @@ export class SkillCurator {
   }
 
   /**
-   * 订阅 SkillRegistry 事件自动同步
+   * 订阅 SkillRegistry 事件自动同步。
+   * @returns 取消订阅函数（T3.7：事件监听可回收，防生命周期残留）
    */
-  subscribeToRegistry(registry: import('./SkillRegistry').SkillRegistry): void {
-    registry.on('unregistered', (_event, skill) => {
+  subscribeToRegistry(registry: SkillRegistry): () => void {
+    const onUnregistered: RegistryEventHandler = (_event, skill) => {
       if (skill) {
         this.removeState(skill.name);
       }
-    });
+    };
 
-    registry.on('cleared', () => {
+    const onCleared: RegistryEventHandler = () => {
       this.clearAll();
-    });
+    };
+
+    registry.on('unregistered', onUnregistered);
+    registry.on('cleared', onCleared);
+
+    return () => {
+      registry.off('unregistered', onUnregistered);
+      registry.off('cleared', onCleared);
+    };
   }
 
   /**

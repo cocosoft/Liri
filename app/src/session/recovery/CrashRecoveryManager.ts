@@ -136,10 +136,17 @@ export class CrashRecoveryManager {
   }
 
   private isInterruptibleSession(session: UnifiedSession): boolean {
-    return (
-      session.status === SessionStatus.RUNNING ||
-      session.status === SessionStatus.ACTIVE
-    );
+    if (
+      session.status !== SessionStatus.RUNNING &&
+      session.status !== SessionStatus.ACTIVE
+    ) {
+      return false;
+    }
+    // 中断治理（2026-08-15）：仅"确有活动痕迹"的会话参与崩溃恢复。
+    // 空壳/从未使用的会话（lastActivityAt 未前进，== createdAt）跳过，
+    // 避免每次应用启动把闲置/测试空壳批量转 paused/error。
+    if (session.lastActivityAt <= session.createdAt) return false;
+    return true;
   }
 
   private async processSession(
@@ -182,8 +189,6 @@ export class CrashRecoveryManager {
       sessionId: session.id,
       idleMs: duration,
     });
-    // §十 阶段 A：崩溃恢复（PAUSED）→ 应用全局 ERROR 状态（快照落盘）
-    markAppError(new Error(`会话崩溃恢复（PAUSED）: ${session.id}`));
     // 根因 C：PAUSED 后主动推送 SSE，前端可即时提示"会话已暂停，可恢复"
     broadcastEvent('session:paused', {
       sessionId: session.id,

@@ -278,7 +278,13 @@ export class MemoryStoreImpl implements MemoryStore {
           frontmatter.supersedes = memory.metadata.supersedes;
 
         const validatedContent = this.validateMarkdownContent(memory.content);
-        const content = matter.stringify(validatedContent, frontmatter);
+        // 修复（预存错误 #57-1）：gray-matter stringify 对字符串首参会先 parse（index.js L161），
+        // content 首行 `---page-break---` 会被误判为 frontmatter language → engine 未注册抛错。
+        // 传对象 `{ content }` 绕过 parse 副作用，正文原样保留。
+        const content = matter.stringify(
+          { content: validatedContent },
+          frontmatter
+        );
         // 任务 4：按 session 分目录，使用 sessionId 确定目标路径
         const filePath = this.getMemoryFilePath(id, memory.metadata.sessionId);
         await this.atomicWrite(filePath, content);
@@ -1007,8 +1013,8 @@ export class MemoryStoreImpl implements MemoryStore {
       source: memory.metadata.source,
     };
 
-    // 创建Markdown内容
-    const content = matter.stringify(memory.content, frontmatter);
+    // 修复（预存错误 #57-1）：传对象绕过 gray-matter stringify 的字符串 parse 副作用
+    const content = matter.stringify({ content: memory.content }, frontmatter);
 
     // 写入导出文件
     await fs.writeFile(exportPath, content);

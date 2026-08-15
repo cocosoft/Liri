@@ -41,7 +41,17 @@ export interface ChatInspectorState {
 const STORAGE_VERSION = "v1";
 const DEFAULT_PANEL_WIDTH = 360;
 const MIN_PANEL_WIDTH = 280;
-const MAX_PANEL_WIDTH = 480;
+/** 面板最大宽度 = 屏幕宽度的 50%（用户反馈固定 480px 太小；50% 便于阅读长内容） */
+const MAX_PANEL_WIDTH_RATIO = 0.5;
+
+/** 计算当前屏幕下的面板最大宽度（px）；小屏时以 MIN 兜底，保证 max >= min */
+export function getMaxPanelWidth(): number {
+  if (typeof window === "undefined") return MIN_PANEL_WIDTH;
+  return Math.max(
+    MIN_PANEL_WIDTH,
+    Math.floor(window.innerWidth * MAX_PANEL_WIDTH_RATIO),
+  );
+}
 
 function storageKey(key: string): string {
   return `chatInspector:${STORAGE_VERSION}:${key}`;
@@ -70,7 +80,11 @@ function persistSetting(key: string, value: unknown): void {
 export const useChatInspectorStore = create<ChatInspectorState>((set) => ({
   isOpen: loadStored<boolean>("isOpen", false),
   activeTab: loadStored<InspectorTab>("activeTab", "context"),
-  panelWidth: loadStored<number>("panelWidth", DEFAULT_PANEL_WIDTH),
+  panelWidth: (() => {
+    // 加载时 clamp：旧存储值（如 480）可能超出当前屏幕 50% 上限
+    const stored = loadStored<number>("panelWidth", DEFAULT_PANEL_WIDTH);
+    return Math.max(MIN_PANEL_WIDTH, Math.min(getMaxPanelWidth(), stored));
+  })(),
   highlightedRoundId: null,
   activeToolCount: 0,
   newFileCount: 0,
@@ -87,7 +101,10 @@ export const useChatInspectorStore = create<ChatInspectorState>((set) => ({
   },
 
   setPanelWidth: (width) => {
-    const clamped = Math.max(MIN_PANEL_WIDTH, Math.min(MAX_PANEL_WIDTH, width));
+    const clamped = Math.max(
+      MIN_PANEL_WIDTH,
+      Math.min(getMaxPanelWidth(), width),
+    );
     set({ panelWidth: clamped });
     persistSetting("panelWidth", clamped);
   },
@@ -103,4 +120,4 @@ export const useChatInspectorStore = create<ChatInspectorState>((set) => ({
 
 // ─── 导出常量 ────────────────────────────────────
 
-export { DEFAULT_PANEL_WIDTH, MIN_PANEL_WIDTH, MAX_PANEL_WIDTH };
+export { DEFAULT_PANEL_WIDTH, MIN_PANEL_WIDTH };

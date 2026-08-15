@@ -440,7 +440,12 @@ const traceRecordingCommand = {
       const viewer = new ViewerService();
 
       if (typeof viewer.generateHtml === 'function') {
-        viewer.generateHtml(allRecords, outputFile);
+        // v5 方案 3.7：透传 slowThresholdMs（展示层判定"已完成（模式过滤）"用）
+        const slowThresholdMs =
+          typeof engine.getSlowThreshold === 'function'
+            ? engine.getSlowThreshold()
+            : undefined;
+        viewer.generateHtml(allRecords, outputFile, slowThresholdMs);
       } else {
         const html = viewer.renderHtml(allRecords);
         writeFileSync(outputFile, html, 'utf-8');

@@ -6,6 +6,26 @@ import FileTypeIcon from "./FileTypeIcon";
 import OfficePreview from "./OfficePreview";
 import { formatFileSize } from "../../utils/format";
 import { handleClientError } from "../../utils/handleError";
+import { getBackendBaseUrl } from "../../services/backendUrl";
+
+/**
+ * 生成 HTML 预览 URL（路径段方式，页面内相对引用的本地 css/js/图片可基于该 URL 加载）
+ */
+function buildHtmlPreviewUrl(filePath: string): string {
+  const normalized = filePath.replace(/\\/g, "/");
+  const encoded = normalized
+    .split("/")
+    .filter(Boolean)
+    .map(encodeURIComponent)
+    .join("/");
+  if (!encoded) return filePath;
+  return `${getBackendBaseUrl()}/api/file/html/${encoded}`;
+}
+
+/** 转义闭合标签，防止注入内容提前终止 srcdoc 中的 script/style */
+function escapeClosingTag(content: string, tag: "script" | "style"): string {
+  return content.replace(new RegExp(`</${tag}>`, "gi"), `<\\/${tag}>`);
+}
 
 interface FilePreviewContentProps {
   file: FilePreview;
@@ -279,6 +299,81 @@ function FilePreviewContent({ file, onClose }: FilePreviewContentProps) {
                 : ""}
             </p>
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  // HTML：iframe 加载（路径段 URL，页面内相对引用的 css/js/图片可正常加载；sandbox 隔离脚本）
+  if (file.type === "html") {
+    return (
+      <div className="flex flex-col h-full">
+        <FileHeader file={file} onClose={handleClose} />
+        <div className="flex-1 overflow-auto bg-white dark:bg-gray-900">
+          <iframe
+            title={file.name}
+            src={buildHtmlPreviewUrl(file.path)}
+            sandbox="allow-scripts allow-popups allow-forms allow-modals"
+            className="w-full h-full border-0"
+          />
+        </div>
+      </div>
+    );
+  }
+
+  // JavaScript：包装为空白页面在沙箱中执行（操作 DOM 的脚本可见输出）
+  if (file.type === "code" && file.language === "javascript") {
+    const jsDoc = `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>JS 预览</title></head>
+<body>
+<script>${escapeClosingTag(file.content, "script")}<\/script>
+</body>
+</html>`;
+    return (
+      <div className="flex flex-col h-full">
+        <FileHeader file={file} onClose={handleClose} />
+        <div className="flex-1 overflow-auto bg-white dark:bg-gray-900">
+          <iframe
+            title={file.name}
+            srcDoc={jsDoc}
+            sandbox="allow-scripts allow-popups allow-forms allow-modals"
+            className="w-full h-full border-0"
+          />
+        </div>
+      </div>
+    );
+  }
+
+  // CSS：包装为示例页面应用样式，展示实际渲染效果
+  if (file.type === "code" && file.language === "css") {
+    const cssDoc = `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>CSS 预览</title>
+<style>${escapeClosingTag(file.content, "style")}<\/style>
+</head>
+<body>
+  <div class="pyapp-css-preview" style="padding:24px;font-family:system-ui,sans-serif">
+    <h1>标题 Heading</h1>
+    <p>段落文本 Paragraph text</p>
+    <a href="#">链接 Link</a>
+    <button>按钮 Button</button>
+    <ul><li>列表项 List item</li><li>列表项 List item</li></ul>
+    <blockquote>引用 Blockquote</blockquote>
+    <code>inline code</code>
+  </div>
+</body>
+</html>`;
+    return (
+      <div className="flex flex-col h-full">
+        <FileHeader file={file} onClose={handleClose} />
+        <div className="flex-1 overflow-auto bg-white dark:bg-gray-900">
+          <iframe
+            title={file.name}
+            srcDoc={cssDoc}
+            sandbox="allow-popups allow-forms"
+            className="w-full h-full border-0"
+          />
         </div>
       </div>
     );

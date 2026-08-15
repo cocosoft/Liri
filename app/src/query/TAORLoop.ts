@@ -822,7 +822,9 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
   }
 
   /** ACT：三守卫 + batch 执行 + 结果处理 + verify（对齐旧 ACT 分支） */
-  protected async act(calls: ToolCallEntry[]): Promise<ActResult> {
+  protected async *act(
+    calls: ToolCallEntry[]
+  ): AsyncGenerator<ReActEvent, ActResult> {
     this.currentPhase = TAORPhase.ACT;
     this.emitPhase(TAORPhase.ACT, this.turnCount, 'Executing tools');
 

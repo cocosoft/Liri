@@ -177,6 +177,34 @@ export default function ProjectsPage() {
   const leaveModule = useRootStore((s) => s.leaveModule);
   const messages = useChatStore((s) => s.messages);
 
+  // P0-E（2026-08-14）：create_project 创建的项目注册为 workspace 后，
+  // 通过 workspaceList 补全 worktrees，使项目名称在 /projects 列表可见
+  const listWorkspaces = useRootStore((s) => s.listWorkspaces);
+  const createWorkspace = useRootStore((s) => s.createWorkspace);
+  const workspaceList = useRootStore((s) => s.workspaceList);
+
+  // 挂载时拉取后端 workspace 列表
+  useEffect(() => {
+    listWorkspaces();
+  }, [listWorkspaces]);
+
+  // 将后端 workspaceList 中尚未进入 worktrees 的项目补全（create_project 工具创建的项目在此可见）
+  useEffect(() => {
+    if (workspaceList.length === 0) return;
+    const worktreeIds = new Set(Object.keys(worktrees));
+    const missing = workspaceList.filter((w) => !worktreeIds.has(w.id));
+    if (missing.length === 0) return;
+    for (const w of missing) {
+      createWorkspace({
+        id: w.id,
+        name: w.name,
+        description: w.description,
+        path: "",
+        workspaceSource: "user",
+      });
+    }
+  }, [workspaceList, worktrees, createWorkspace]);
+
   useEffect(() => {
     // P2-1: 仅当 moduleType 不是 project 或 projectId 为空时才 enterModule，
     // 避免覆盖式（moduleContext = {...ctx}）清空已有 projectId（如从项目会话离开再进入）

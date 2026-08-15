@@ -325,4 +325,226 @@ describe('ReActToolLoop (M1a)', () => {
     expect(errChunks[0].toolCall?.status).toBe('failed');
     expect(errChunks[1].type).toBe('status');
   });
+
+  // ─── v3：交互链路（ask_user_question）───────────────────────────
+
+  /** 交互工具 ctx：toolRegistry 返回 requiresUserInteraction 工具 + 捕获 executeTool 入参 */
+  function makeInteractionCtx(capture?: { executedArgs?: Record<string, unknown> }) {
+    return makeCtx({
+      toolRegistry: {
+        getTool: (name: string) =>
+          name === 'ask_user_question'
+            ? ({ requiresUserInteraction: () => true } as never)
+            : undefined,
+      },
+      executeTool: async (tc: {
+        id: string;
+        name: string;
+        arguments: Record<string, unknown>;
+        sessionId?: string;
+      }) => {
+        if (capture) capture.executedArgs = tc.arguments;
+        return { result: 'answered', error: undefined };
+      },
+    });
+  }
+
+  /** 交互 LLM：首次产出 ask_user_question 调用，之后无工具正常结束 */
+  function interactionLlm() {
+    let calls = 0;
+    return {
+      sendMessage: async () => {
+        calls++;
+        if (calls === 1) {
+          return {
+            content: '请用户确认',
+            stop_reason: 'tool_calls',
+            tool_calls: [
+              {
+                id: 'tc1',
+                name: 'ask_user_question',
+                arguments: {
+                  question: '请选择参与方式',
+                  header: '确认',
+                  options: [{ label: '是' }, { label: '否' }],
+                },
+              },
+            ],
+          } as ChatResponse;
+        }
+        return { content: '完成', stop_reason: 'stop' } as ChatResponse;
+      },
+      getProviderId: () => 'mock',
+    } as never;
+  }
+
+  it('交互工具不阻塞：yield question + 注册 pendingInteraction + 恢复后继续执行（v3）', async () => {
+    const capture: { executedArgs?: Record<string, unknown> } = {};
+    const ctx = makeInteractionCtx(capture);
+    const ctxWithLlm = makeCtx({
+      ...ctx,
+      activeClient: interactionLlm(),
+    });
+    const loop = new ReActToolLoop(ctxWithLlm, makeInput(), {
+      maxIterations: 3,
+    });
+    const iter = loop.run(makeInput());
+    const received: ReActEvent[] = [];
+    let r = await iter.next();
+    while (!r.done && r.value.type !== 'question') {
+      received.push(r.value);
+      r = await iter.next();
+    }
+    received.push(r.value);
+    // ① 首个事件应为 question，且 pendingInteractions 已注册
+    expect(r.value.type).toBe('question');
+    const entry = (
+      ctxWithLlm.pendingInteractions as Map<
+        string,
+        { questionId: string; resolve: (a: string[]) => void }
+      >
+    ).get('sess-test');
+    expect(entry).toBeTruthy();
+    // ② 用户回答 → promise resolve → act 继续
+    entry!.resolve(['是']);
+    let final;
+    while (true) {
+      r = await iter.next();
+      if (r.done) {
+        final = r.value;
+        break;
+      }
+      received.push(r.value);
+    }
+    // ③ 工具执行收到真实答案数组（非 generator 对象）
+    expect(capture.executedArgs?._userAnswers).toEqual(['是']);
+    expect(received.some((e) => e.type === 'question')).toBe(true);
+    expect(
+      received.find((e) => e.type === 'tool_end')
+    ).toBeTruthy();
+    expect(
+      ctxWithLlm.pendingInteractions.has('sess-test')
+    ).toBe(false);
+    expect(final).toBeTruthy();
+  });
+
+  it('挂起期间持续产出 question_waiting 心跳（心跳间隔参数化缩短，v3）', async () => {
+    const ctx = makeInteractionCtx();
+    const ctxWithLlm = makeCtx({ ...ctx, activeClient: interactionLlm() });
+    const loop = new ReActToolLoop(ctxWithLlm, makeInput(), {
+      maxIterations: 3,
+      interactionHeartbeatMs: 5,
+    });
+    const iter = loop.run(makeInput());
+    const received: ReActEvent[] = [];
+    let r = await iter.next();
+    while (!r.done && r.value.type !== 'question') {
+      received.push(r.value);
+      r = await iter.next();
+    }
+    // 到达 question 后不 resolve，收集心跳
+    let hbCount = 0;
+    let guard = 0;
+    while (guard++ < 30 && !r.done && hbCount === 0) {
+      r = await iter.next();
+      if (r.value.type === 'question_waiting') hbCount++;
+    }
+    // 结束挂起，避免测试悬挂
+    const entry = (
+      ctxWithLlm.pendingInteractions as Map<
+        string,
+        { resolve: (a: string[]) => void }
+      >
+    ).get('sess-test');
+    entry?.resolve(['是']);
+    while (true) {
+      r = await iter.next();
+      if (r.done) break;
+    }
+    expect(hbCount).toBeGreaterThan(0);
+  });
+
+  it('abortSignal 中止时清理 pendingInteraction 并正常退出（v3）', async () => {
+    const controller = new AbortController();
+    const ctx = makeInteractionCtx();
+    const ctxWithLlm = makeCtx({
+      ...ctx,
+      abortSignal: controller.signal,
+      activeClient: interactionLlm(),
+    });
+    const loop = new ReActToolLoop(ctxWithLlm, makeInput(), {
+      maxIterations: 3,
+    });
+    const iter = loop.run(makeInput());
+    let r = await iter.next();
+    while (!r.done && r.value.type !== 'question') {
+      r = await iter.next();
+    }
+    expect(r.value.type).toBe('question');
+    // 触发 abort → act 的 race 命中 abort → 清理并退出
+    controller.abort();
+    while (true) {
+      r = await iter.next();
+      if (r.done) break;
+    }
+    expect(ctxWithLlm.pendingInteractions.has('sess-test')).toBe(false);
+  });
+
+  it('同轮多提问防护：已有 pending 交互时产出 error result（tool_end 闭环，v3）', async () => {
+    const ctx = makeInteractionCtx();
+    const ctxWithLlm = makeCtx({
+      ...ctx,
+      activeClient: {
+        sendMessage: async () =>
+          ({
+            content: '',
+            stop_reason: 'tool_calls',
+            tool_calls: [
+              {
+                id: 'tc1',
+                name: 'ask_user_question',
+                arguments: {
+                  question: '请确认',
+                  header: '确认',
+                  options: [{ label: '是' }],
+                },
+              },
+            ],
+          }) as ChatResponse,
+        getProviderId: () => 'mock',
+      } as never,
+    });
+    // 预塞一个挂起交互（模拟同轮已有 pending）：防护分支应在提问前拦截 tc1
+    (
+      ctxWithLlm.pendingInteractions as Map<string, unknown>
+    ).set('sess-test', {
+      questionId: 'q_existing',
+      promise: new Promise(() => {}),
+      resolve: () => {},
+    });
+    const loop = new ReActToolLoop(ctxWithLlm, makeInput(), {
+      maxIterations: 3,
+    });
+    const iter = loop.run(makeInput());
+    const received: ReActEvent[] = [];
+    let r = await iter.next();
+    while (!r.done) {
+      received.push(r.value);
+      r = await iter.next();
+    }
+    // 防护触发：不产出 question（未重复注册/提问）；tc1 产出 error result → tool_end 闭环（无悬挂卡片）
+    expect(received.filter((e) => e.type === 'question').length).toBe(0);
+    const tc1End = received.find(
+      (e) => e.type === 'tool_end' && e.result.toolCallId === 'tc1'
+    );
+    expect(tc1End && tc1End.type === 'tool_end' ? tc1End.result.status : '').toBe(
+      'error'
+    );
+    // 预塞的 entry 未被覆盖/误删
+    expect(
+      (ctxWithLlm.pendingInteractions as Map<string, { questionId: string }>).get(
+        'sess-test'
+      )?.questionId
+    ).toBe('q_existing');
+  });
 });

@@ -31,6 +31,7 @@ import {
   resolveUserProfilePath,
   resolvePyappHome,
 } from '@modules/core';
+import { AtomicWriter } from '@modules/session/persistence/AtomicWriter';
 import { join } from 'path';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('dream:reflect:personality');
@@ -56,6 +57,7 @@ export class PersonalityReflector {
   private userPath: string;
   private soulSnapshotMtime: number = 0;
   private userSnapshotMtime: number = 0;
+  private readonly atomicWriter = new AtomicWriter();
 
   constructor() {
     this.soulPath = resolveSoulPath();
@@ -179,12 +181,12 @@ export class PersonalityReflector {
         /* no existing file to backup */
       }
 
-      // 追加变更
+      // 追加变更（原子写：tmp+rename，防止写入中途崩溃损坏核心文件）
       const current = await readFile(this.soulPath, 'utf-8').catch(() => '');
       const updated =
         current +
         `\n\n<!-- 梦境纠偏 (${new Date().toISOString()}) -->\n${suggestedPatch}`;
-      await writeFile(this.soulPath, updated, 'utf-8');
+      await this.atomicWriter.write(this.soulPath, updated);
 
       logger.info('SOUL.md 已更新', { reason });
       return { written: true, conflict: false };
@@ -235,11 +237,12 @@ export class PersonalityReflector {
         /* no existing file to backup */
       }
 
+      // 追加变更（原子写：tmp+rename，防止写入中途崩溃损坏核心文件）
       const current = await readFile(this.userPath, 'utf-8').catch(() => '');
       const updated =
         current +
         `\n\n<!-- 梦境纠偏 (${new Date().toISOString()}) -->\n${suggestedPatch}`;
-      await writeFile(this.userPath, updated, 'utf-8');
+      await this.atomicWriter.write(this.userPath, updated);
 
       logger.info('USER.md 已更新', { reason });
       return { written: true, conflict: false };
@@ -252,18 +255,21 @@ export class PersonalityReflector {
   /** 写入低置信度建议到 knowledge/raw/ */
   async writeSuggestionsFile(
     suggestions: string,
-    type: 'soul' | 'user'
+    type: 'soul' | 'user',
+    targetPath?: string
   ): Promise<void> {
-    const suggestionsPath = join(
-      resolvePyappHome(),
-      'knowledge',
-      'raw',
-      `personality_suggestions_${type}_${Date.now()}.md`
-    );
+    const suggestionsPath =
+      targetPath ??
+      join(
+        resolvePyappHome(),
+        'knowledge',
+        'raw',
+        `personality_suggestions_${type}_${Date.now()}.md`
+      );
     await mkdir(join(resolvePyappHome(), 'knowledge', 'raw'), {
       recursive: true,
     });
-    await writeFile(suggestionsPath, suggestions, 'utf-8');
+    await this.atomicWriter.write(suggestionsPath, suggestions);
     logger.info(`低置信度 ${type} 建议已写入`, { path: suggestionsPath });
   }
 

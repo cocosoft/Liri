@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 导出服务
  *
  * 支持三种格式：
@@ -75,7 +75,12 @@ export class ExportService {
       lines.push(`- **ID**: \`${record.id}\``);
       lines.push(`- **Time**: ${record.timestamp}`);
       lines.push(`- **Duration**: ${record.durationMs}ms`);
-      lines.push(`- **Status**: ${record.response.status}`);
+      // v5 方案 3.6：pending 记录标记"进行中"，避免中断记录被误读为成功
+      lines.push(
+        record.phase === 'pending'
+          ? `- **Status**: PENDING（进行中）`
+          : `- **Status**: ${record.response.status}`
+      );
       lines.push(`- **Tokens**: ${inputTokens} in / ${outputTokens} out`);
       if (record.error) {
         lines.push(`- **Error**: ${record.error}`);
@@ -165,6 +170,8 @@ export class ExportService {
       turn: r.turn,
       durationMs: r.durationMs,
       model: this.extractModel(r),
+      // v5 方案 3.6：透传 phase，pending 记录在导出中保留并标记
+      phase: r.phase,
       request: {
         url: r.request.path,
         body: r.request.body,

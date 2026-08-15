@@ -107,6 +107,13 @@ export interface Plugin {
   deactivate?: (context: PluginContext) => Promise<void> | void;
   destroy?: (context: PluginContext) => Promise<void> | void;
 
+  /**
+   * T3.3: 热替换清理钩子（可选）。
+   * destroy 无法回收模块级全局状态（require.cache、全局监听器、setInterval），
+   * 插件声明 __hotDispose() 显式清理。未声明者默认保守拒绝热替换（保留旧版本）。
+   */
+  __hotDispose?: () => void | Promise<void>;
+
   skills?: SkillDefinition[];
 }
 

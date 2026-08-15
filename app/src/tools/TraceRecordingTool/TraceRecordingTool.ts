@@ -260,12 +260,16 @@ export class TraceRecordingTool extends BaseTool {
 
       records = records.slice(0, limit);
 
+      // v5 方案 3.6：统一两条路径返回 shape——
+      //  无 date 走 getRecentRecords（IndexEntry：status 为 HTTP 码、model 直取）
+      //  有 date 走 getRecordsByDate（TraceRecord：response.status、request.body.model）
       const simplified = records.map((rec: any) => ({
         id: rec.id,
         timestamp: rec.timestamp,
-        model: rec.model,
+        model: rec.model || rec.request?.body?.model || 'unknown',
         durationMs: rec.durationMs,
-        statusCode: rec.statusCode,
+        statusCode: rec.response?.status ?? rec.status,
+        phase: rec.phase,
         error: rec.error || null,
         tokens: rec.usage
           ? {

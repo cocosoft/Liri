@@ -353,6 +353,7 @@ export async function streamMessageImpl(
     }, 10000);
 
     // processChunk 运行上下文（显式注入替代原闭包捕获）
+    // P0（2026-08-15）：thinkingCharsRef 跟踪流内 thinking 累计长度，超预算截断
     const chunkCtx: ProcessChunkContext = {
       sid,
       sessionId,
@@ -365,6 +366,7 @@ export async function streamMessageImpl(
       flushSet,
       set,
       get,
+      thinkingCharsRef: { current: 0, truncated: false },
     };
 
     for await (const rawChunk of generator) {
@@ -409,13 +411,15 @@ export async function streamMessageImpl(
     // 核心：模型可能只输出了 <think> 未生成 <response>（think-only 场景），
     // 此时把思考内容转为用户可见 text，避免"思考中无回复"的卡死观感；
     // 完全无内容的才提示重试。
+    // 修复（2026-08-15）：tool_call 不再算"可见结果"——工具调用成功但无正文
+    // （模型在 thinking 里写完就收尾）时，必须触发兜底把思考转 text，否则该
+    // 场景永远暴露不了（CS02 根因修复，两条路径同步修改）。
     let noVisibleResultTriggered = false;
     if (!controller.signal.aborted) {
       const preFreezeBlocks = blockBuilder.getBlocks();
       const hasVisibleResult = preFreezeBlocks.some(
         (b) =>
           b.type === "text" ||
-          b.type === "tool_call" ||
           b.type === "question" ||
           b.type === "todo",
       );
@@ -647,6 +651,8 @@ export async function streamMessageImpl(
     //  - 仅有 thinking 块（模型只输出思考即中断）→ 转 text 让用户看到思考内容，避免"无回复"观感
     //  - 完全无内容 → 添加可见提示块
     // 注：blockBuilder 声明在内层作用域，此处直接操作 store 中 assistant 消息的 blocks。
+    // 修复（2026-08-15）：与正常路径一致，tool_call 不再算"可见结果"，保证
+    // "工具调用成功 + 无正文"场景也会触发 think-only 转 text 兜底。
     {
       const msgsNow = get().messages;
       const aidxNow = msgsNow.findIndex((m) => m.id === assistantId);
@@ -656,7 +662,6 @@ export async function streamMessageImpl(
         const hasVisible = blocksNow.some(
           (b) =>
             b.type === "text" ||
-            b.type === "tool_call" ||
             b.type === "question" ||
             b.type === "todo",
         );

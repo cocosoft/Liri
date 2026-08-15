@@ -4,6 +4,13 @@
  */
 
 import type { Skill } from './types';
+import { EffectScope } from '@modules/context/EffectScope';
+import { handleError } from '@modules/error/handleError';
+
+/**
+ * 技能注册表
+ * 负责管理技能的注册和查询，提供完整的事件系统
+ */
 
 /**
  * 注册表事件类型
@@ -32,6 +39,8 @@ export class SkillRegistry {
   private listeners: Map<RegistryEvent, Set<RegistryEventHandler>> = new Map();
   /** enabled 内存态（唯一真源为外部 index.json，启动时经 setEnabled 读入；默认 true） */
   private enabledState: Map<string, boolean> = new Map();
+  /** T2.4: 技能副作用作用域（装载时创建，卸载时 dispose） */
+  private scopes: Map<string, EffectScope> = new Map();
 
   // ==================== 事件系统 ====================
 
@@ -111,18 +120,53 @@ export class SkillRegistry {
       return;
     }
     this.skills.set(skill.name, skill);
+    // T2.4: 装载时创建技能副作用作用域（卸载时 dispose）
+    if (!this.scopes.has(skill.name)) {
+      this.scopes.set(skill.name, new EffectScope());
+    }
     this.emit('registered', skill);
   }
 
   /**
+   * T2.4: 在技能作用域内登记逆操作（卸载技能时按 LIFO 释放）。
+   * 技能未装载 → 抛错（use-before-register 防护）。
+   * @param skillName 技能名称
+   * @param disposer 逆操作
+   */
+  onSkillDispose(
+    skillName: string,
+    disposer: () => void | Promise<void>
+  ): void {
+    const scope = this.scopes.get(skillName);
+    if (!scope) {
+      throw new Error(
+        `SkillRegistry: 技能 ${skillName} 未装载，无法登记副作用`
+      );
+    }
+    scope.onDispose(disposer);
+  }
+
+  /**
    * 注销技能
-   * 触发 unregistered 事件
+   * 触发 unregistered 事件；技能副作用作用域按 LIFO 释放（T2.4）
    * @param skillName 技能名称
    */
   unregister(skillName: string): void {
     const skill = this.skills.get(skillName);
     this.skills.delete(skillName);
     this.enabledState.delete(skillName);
+    // T2.4: 卸载 = scope.dispose()（幂等 + 容错，错误仅上报不阻断）
+    const scope = this.scopes.get(skillName);
+    if (scope) {
+      this.scopes.delete(skillName);
+      void scope.dispose().catch((error) => {
+        void handleError(error, {
+          module: 'skills:registry',
+          action: 'unregister dispose',
+          context: { skillName },
+        });
+      });
+    }
     if (skill) {
       this.emit('unregistered', skill);
     }
@@ -196,11 +240,22 @@ export class SkillRegistry {
 
   /**
    * 清空注册表
-   * 触发 cleared 事件
+   * 触发 cleared 事件；全部技能副作用作用域按 LIFO 释放（T2.4）
    */
   clear(): void {
     this.skills.clear();
     this.enabledState.clear();
+    // T2.4: 清空 = 释放所有技能作用域
+    for (const [name, scope] of this.scopes) {
+      void scope.dispose().catch((error) => {
+        void handleError(error, {
+          module: 'skills:registry',
+          action: 'clear dispose',
+          context: { skillName: name },
+        });
+      });
+    }
+    this.scopes.clear();
     this.emit('cleared');
   }
 

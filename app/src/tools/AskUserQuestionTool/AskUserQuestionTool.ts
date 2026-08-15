@@ -146,36 +146,79 @@ export class AskUserQuestionTool extends BaseTool {
     context: ToolUseContext,
     onProgress?: ToolCallProgress<any>
   ): Promise<ToolResult<unknown>> {
-    // 优先使用 ChatManager 注入的用户真实答案（来自 UI 层的选择）
-    // 如果没有 _userAnswers，说明工具调用走的非交互路径（未经过 streamMessage 的交互检查）
-    // 此时返回空数组，不允许自动回退到全部选项（避免"自我回答"问题）
-    const userAnswers = (input._userAnswers as string[]) || [];
-
-    // 提问工具调用日志（2026-08-14 第五十次补充）：记录 LLM 是否发起提问、问题内容、
-    // 选项数、是否收到用户答案——观察"提问工具不能正常调用/结果未返回"类问题的关键路径
+    // 详细诊断日志（第五十二次排查补充）：进入 execute 时记录完整输入状态，
+    // 重点区分 _userAnswers 三种形态（undefined=字段缺失 / 空数组=注入失败 /
+    // 非数组对象=类型错误，如 v3 P0 的 generator 被塞入），定位"答案注入失败"根因
+    const rawAnswers = input._userAnswers;
+    const rawAnswersIsArray = Array.isArray(rawAnswers);
     const questionText = (input.question as string) ?? '';
     const options = (input.options as { label?: string }[]) ?? [];
-    if (userAnswers.length > 0) {
-      logger.info('ask_user_question:answered', {
-        sessionId: context.sessionId,
-        question: questionText.slice(0, 120),
-        header: (input.header as string) ?? '',
-        optionCount: options.length,
-        answerCount: userAnswers.length,
-        answers: userAnswers.slice(0, 5),
-      });
-    } else {
-      // 无用户答案：可能是未走交互路径（LLM 调用被 abort/未等答案）、或答案注入失败。
-      // 05-1 排查关注点：此日志出现即说明提问被发起但答案未回灌，需结合前端 QuestionBlock
-      // 是否展示定位。
+    logger.info('ask_user_question:execute_enter', {
+      sessionId: context.sessionId,
+      question: questionText.slice(0, 120),
+      header: (input.header as string) ?? '',
+      optionCount: options.length,
+      multiSelect: input.multiSelect === true,
+      hasUserAnswersField: '_userAnswers' in input,
+      rawAnswerType:
+        rawAnswers === undefined
+          ? 'undefined'
+          : rawAnswersIsArray
+            ? 'array'
+            : typeof rawAnswers,
+      rawAnswerLength: rawAnswersIsArray
+        ? (rawAnswers as unknown[]).length
+        : -1,
+      answersHead: rawAnswersIsArray
+        ? (rawAnswers as string[]).slice(0, 5)
+        : [],
+    });
+
+    // 类型防御：非数组（如 generator 对象）按无答案处理——避免 truthy 非数组绕过 no_answer 分支
+    const userAnswers = rawAnswersIsArray ? (rawAnswers as string[]) : [];
+
+    // 提问工具调用日志（2026-08-14 第五十次补充）：记录 LLM 是否调用提问工具、是否收到答案
+    if (userAnswers.length === 0) {
+      // 无用户答案（第五十二次修复）：非流式 TAORLoop 直接执行 / 流式 abort/超时未注入。
+      // 返回明确错误而非静默空数组（避免"提问静默失效"：LLM 收到 answers:[] 误以为用户已选）——
+      // 引导 LLM 改用自然语言在正文中直接提问，用户可在下一条消息回复。
       logger.warn('ask_user_question:no_answer', {
         sessionId: context.sessionId,
         question: questionText.slice(0, 120),
         header: (input.header as string) ?? '',
         optionCount: options.length,
         hasUserAnswersField: '_userAnswers' in input,
+        rawAnswerType:
+          rawAnswers === undefined
+            ? 'undefined'
+            : rawAnswersIsArray
+              ? 'array'
+              : typeof rawAnswers,
+        rawAnswerLength: rawAnswersIsArray
+          ? (rawAnswers as unknown[]).length
+          : -1,
+        decision: 'return_error_no_retry',
+      });
+      logger.info('ask_user_question:error_returned', {
+        sessionId: context.sessionId,
+        retryable: false,
+        errorHint: '引导 LLM 改用自然语言提问，用户下一条消息回复',
+      });
+      return createToolResult({
+        error:
+          '交互提问未完成：当前执行路径不支持等待用户回答（_userAnswers 缺失）。请勿重试本工具，改用自然语言在正文中直接提问，用户会在下一条消息中回复。',
+        retryable: false,
       });
     }
+
+    logger.info('ask_user_question:answered', {
+      sessionId: context.sessionId,
+      question: questionText.slice(0, 120),
+      header: (input.header as string) ?? '',
+      optionCount: options.length,
+      answerCount: userAnswers.length,
+      answers: userAnswers.slice(0, 5),
+    });
 
     const result: AskUserQuestionResult = {
       questionId: `q_${Date.now()}`,
@@ -185,9 +228,7 @@ export class AskUserQuestionTool extends BaseTool {
     };
 
     // 记录到历史（仅当有真实答案时）
-    if (userAnswers.length > 0) {
-      questions.push(result);
-    }
+    questions.push(result);
 
     return createToolResult(JSON.stringify(result, null, 2));
   }

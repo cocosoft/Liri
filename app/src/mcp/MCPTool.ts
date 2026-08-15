@@ -7,6 +7,7 @@ import type { Tool, ToolUseContext, ToolResult } from '../tools/types';
 import { createToolResult } from '../tools/types/ToolResult';
 import { MCPServerConfig, MCPToolDefinition } from './types';
 import { getMCPServerManager } from '../services/mcp/MCPServerManager.js';
+import { toolScopeManager } from '../tool/ToolScopeManager';
 import { configManager } from '@modules/config';
 
 import { getLogger } from '@modules/monitoring';
@@ -223,6 +224,20 @@ export const MCPTool: Tool = {
           if (connection) {
             const connected = await connection.connect();
             if (connected) {
+              // T1.4-MCP（§3.1 关联点1/4）：MCP 连接是长生命周期副作用（跨工具调用复用），
+              // 登记到会话级 scope，会话销毁时断开连接（防泄漏）；
+              // 进程级兜底由 ChildProcessTracker（stdio 两阶段终止）承担，二者共存。
+              if (context.sessionId) {
+                toolScopeManager
+                  .getSessionScope(context.sessionId)
+                  .onDispose(() => {
+                    try {
+                      connection.disconnect();
+                    } catch {
+                      // @ignore-catch — 断开失败由进程级兜底兜住，不阻断 scope 释放
+                    }
+                  });
+              }
               return createToolResult(
                 {
                   server: server_config.name,

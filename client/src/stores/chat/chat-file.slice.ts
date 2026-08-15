@@ -18,6 +18,7 @@ const logger = createLogger("stores:chat:file");
 /** 扩展名 → 文件类型映射表 */
 export type FileType =
   | "code"
+  | "html"
   | "text"
   | "image"
   | "markdown"
@@ -63,8 +64,8 @@ const EXT_TO_TYPE: Record<string, FileType> = {
   ".css": "code",
   ".scss": "code",
   ".less": "code",
-  ".html": "code",
-  ".htm": "code",
+  ".html": "html",
+  ".htm": "html",
   // 后端
   ".py": "code",
   ".rs": "code",

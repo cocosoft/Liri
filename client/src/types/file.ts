@@ -75,6 +75,7 @@ export interface FilePreview {
   content: string;
   type:
     | "code"
+    | "html"
     | "markdown"
     | "json"
     | "yaml"

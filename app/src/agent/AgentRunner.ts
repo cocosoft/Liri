@@ -7,7 +7,7 @@ import { AgentSwarmManager, SwarmTask, SwarmResult } from './swarms';
 import { feature } from '../core/featureFlags';
 import { configManager } from '@modules/config';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-
+import { EffectScope } from '@modules/context/EffectScope';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('agent/AgentRunner');
 
@@ -19,7 +19,7 @@ export type SubagentType =
 
 export type AgentModel = string; // 模型 ID，由配置/模型体系提供（DB 为唯一事实来源，禁止硬编码模型名）
 
-export type AgentIsolation = 'worktree' | 'remote' | 'none';
+export type AgentIsolationMode = 'worktree' | 'remote' | 'none';
 
 export type AgentState =
   | 'pending'
@@ -35,7 +35,7 @@ export interface AgentTaskInput {
   subagentType?: SubagentType;
   model?: AgentModel;
   runInBackground?: boolean;
-  isolation?: AgentIsolation;
+  isolation?: AgentIsolationMode;
   cwd?: string;
 }
 
@@ -161,6 +161,16 @@ export class AgentRunner {
 
   generateAgentId(): string {
     return `agent_${randomUUID().substring(0, 8)}`;
+  }
+
+  /**
+   * T1.2：创建 Agent 执行副作用作用域。
+   * 调用方将资源（临时文件/子进程/订阅）通过 scope.onDispose() 登记，
+   * 执行结束（或中断）时调用 scope.dispose() 统一按 LIFO 释放。
+   * 返回 scope 本体，AgentCleanup 或 AgentIsolation 辅助函数负责登记标准资源。
+   */
+  createExecutionScope(): EffectScope {
+    return new EffectScope();
   }
 
   /**

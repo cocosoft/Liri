@@ -234,11 +234,13 @@ function FileExplorerPage() {
       const jsonExts = ["json", "jsonc"];
       const yamlExts = ["yaml", "yml"];
       const markdownExts = ["md", "markdown", "mdx"];
+      const htmlExts = ["html", "htm"];
       const pdfExts = ["pdf"];
       const docxExts = ["docx", "doc"];
       const pptxExts = ["pptx", "ppt"];
 
       if (imageExts.includes(ext)) return "image";
+      if (htmlExts.includes(ext)) return "html";
       if (pdfExts.includes(ext)) return "pdf";
       if (docxExts.includes(ext)) return "docx";
       if (pptxExts.includes(ext)) return "pptx";

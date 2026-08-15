@@ -16,6 +16,9 @@ import { handleError } from '@modules/error';
 import { resolveDataDir } from '@modules/core/paths';
 import { createProjectStore } from '../../workspace/ProjectStore.js';
 import { WorkItemStore } from '../../workspace/WorkItemStore.js';
+import { register } from '../../workspaces/WorkspaceRegistry.js';
+import { existsSync, mkdirSync, writeFileSync } from 'fs';
+import { join } from 'path';
 
 const logger = getLogger('tools:create_project');
 
@@ -83,6 +86,41 @@ export class CreateProjectTool {
             name,
             description,
           });
+
+          // P0-E（2026-08-14）：create_project 创建的项目注册为 workspace + 写入 .workspace.json，
+          // 使 GET /v1/workspaces 能列出 → 前端 /projects 列表显示项目名称（此前项目只存 ProjectStore，
+          // 前端 worktrees/workspaceList 均不可见，用户反馈"项目管理模块看不到项目名称"）
+          const sandboxPath = project.sandboxPath;
+          if (sandboxPath) {
+            try {
+              if (!existsSync(sandboxPath)) {
+                mkdirSync(sandboxPath, { recursive: true });
+              }
+              const metaPath = join(sandboxPath, '.workspace.json');
+              writeFileSync(
+                metaPath,
+                JSON.stringify(
+                  {
+                    id: project.id,
+                    name,
+                    description,
+                    createdAt: project.createdAt,
+                    updatedAt: project.updatedAt,
+                  },
+                  null,
+                  2
+                ),
+                'utf-8'
+              );
+              await register(name, sandboxPath);
+            } catch (err) {
+              // 注册失败不影响项目创建（项目数据已在 ProjectStore）
+              void handleError(err, {
+                module: 'tools:create_project',
+                action: 'registerWorkspace',
+              });
+            }
+          }
 
           span.setAttribute('projectId', project.id);
 

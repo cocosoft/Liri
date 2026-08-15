@@ -1259,6 +1259,16 @@
       "plan": "会话链路修复（异步压缩 skipTier3Sync/onToolCall 透传/usage 守卫/水位告警降噪）致行数微超 21 行；后续按 orchestration 子域拆分",
       "expiresAt": "2026-11-30",
       "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-108",
+      "ruleId": "R04-001",
+      "file": "app/src/chat/ReActToolLoop.ts",
+      "lines": 815,
+      "targetLines": 800,
+      "plan": "M1 重构产物（v3 交互心跳 + question 事件链路，act 改 AsyncGenerator）致行数微超 15 行；后续随交互心跳重构拆出 question 事件链路子模块",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
     }
   ],
   "barrelExceptions": [

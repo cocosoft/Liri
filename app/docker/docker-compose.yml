@@ -34,6 +34,8 @@ services:
       - LIRI_PROJECT_DIR=/app
       - LIRI_HOME=/app/app/data
       - LIRI_DATA_DIR=/app/app/data
+      - LIRI_HTTP_PORT=3000
+      - LIRI_HTTP_HOST=0.0.0.0
 
     # ── 持久化数据卷 ──
     # 数据库、会话、记忆等运行时数据通过卷持久化
@@ -52,8 +54,17 @@ services:
     restart: unless-stopped
 
     # ── 健康检查 ──
+    # oven/bun 基础镜像不保证自带 curl，用 bun 内建 fetch 探活。
+    # 探测端点：/v1/health/report 由 LocalHTTPService 提供（端口 LIRI_HTTP_PORT=3000），
+    # 就绪前也返回 200，适用于容器存活探活（区别于 daemon 模式 9090 /health）。
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:3000/health || exit 1"]
+      test:
+        [
+          "CMD",
+          "bun",
+          "-e",
+          "fetch('http://127.0.0.1:3000/v1/health/report').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
       interval: 30s
       timeout: 10s
       retries: 3

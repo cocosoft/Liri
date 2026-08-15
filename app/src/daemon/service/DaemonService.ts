@@ -477,6 +477,7 @@ export class DaemonService {
 
   /**
    * 获取 schtasks 状态
+   * 兼容中英文系统输出：任务运行中时状态列为 "Running"（英文）或 "正在运行"（中文）
    */
   private getSchtasksStatus(): ServiceStatus {
     try {
@@ -484,7 +485,7 @@ export class DaemonService {
         `schtasks /query /tn "LIRI_${this.config.name}" /v /fo csv`,
         { stdio: 'pipe', encoding: 'utf-8', shell: 'cmd.exe' }
       ).toString();
-      const running = output.includes('Running');
+      const running = output.includes('Running') || output.includes('正在运行');
       return { running, enabled: true };
     } catch {
       return { running: false, enabled: false };
@@ -614,7 +615,8 @@ WantedBy=multi-user.target
 </Task>
 `;
 
-    fs.writeFileSync(xmlPath, xml, 'utf-8');
+    // schtasks 要求 XML 文件为 UTF-16 编码（含 BOM），否则解析失败
+    fs.writeFileSync(xmlPath, '\ufeff' + xml, 'utf16le');
     return xmlPath;
   }
 }

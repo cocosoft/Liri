@@ -18,6 +18,7 @@
 
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
+import type { QuestionData } from '@modules/runtime/api/CoreAPI.js';
 
 const logger = getLogger('query:reactLoop');
 
@@ -84,7 +85,10 @@ export type ReActEvent =
   | { type: 'acting_end'; result: ActResult }
   | { type: 'iteration_end'; iteration: number }
   | { type: 'error'; message: string }
-  | { type: 'aborted' };
+  | { type: 'aborted' }
+  // v3：交互工具提问（act generator 化后由 ReActToolLoop 产出，穿透 generator 挂起链路）
+  | { type: 'question'; questionData: QuestionData }
+  | { type: 'question_waiting' };
 
 /** 循环配置 */
 export interface ReActLoopConfig {
@@ -131,11 +135,12 @@ export abstract class ReActLoop<
     context?: TContext
   ): AsyncGenerator<ReActEvent, ReasonResult<TContext>>;
 
-  /** 执行阶段：执行工具调用列表，返回各工具结果 */
+  /** 执行阶段（generator）：执行工具调用列表，交互工具可产出 question/question_waiting 事件，
+   *  return 值携带各工具结果。与 reason 的 generator 化对称（M4，v3 扩展 act）。 */
   protected abstract act(
     calls: ToolCallEntry[],
     context?: TContext
-  ): Promise<ActResult>;
+  ): AsyncGenerator<ReActEvent, ActResult>;
 
   /** 判断循环是否应该继续 */
   protected abstract shouldContinue(
@@ -288,7 +293,24 @@ export abstract class ReActLoop<
               input: tc.input,
             };
           }
-          actResult = await this.act(reasonResult.toolCalls, context);
+          // v3：迭代消费 act generator（交互工具可产出 question/question_waiting 事件）
+          const actIter = this.act(reasonResult.toolCalls, context);
+          let actIterResult: IteratorResult<ReActEvent, ActResult>;
+          try {
+            actIterResult = await actIter.next();
+            while (!actIterResult.done) {
+              yield actIterResult.value; // question / question_waiting 转发
+              actIterResult = await actIter.next();
+            }
+          } finally {
+            // v3：外层 for-await 提前终止（请求取消）时，确保 act 内部 finally（清理 pendingInteractions）执行
+            try {
+              await actIter.return(undefined as never);
+            } catch {
+              // 忽略 return 阶段错误（@ignore-catch）
+            }
+          }
+          actResult = actIterResult.value;
         } catch (err) {
           handleError(err, { module: 'query:reactLoop', action: 'acting' });
           actResult = {

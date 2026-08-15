@@ -37,11 +37,18 @@ import {
   executeAutoDream,
   runKnowledgeRain,
 } from '../chronos/autoDream/AutoDream';
-import { resolveDataSubDir } from '@modules/core';
+import {
+  resolveDataSubDir,
+  resolveSoulPath,
+  resolveUserProfilePath,
+  resolvePyappHome,
+} from '@modules/core';
 import { globalEventBus, SystemEvents } from '@modules/core';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { broadcastEvent } from '@modules/infrastructure/http/LocalHTTPServiceSSE.js';
+import { DreamTransaction, fileTx, TxOperation } from './DreamTransaction';
 import { join } from 'path';
 import { mkdir, writeFile, unlink } from 'fs/promises';
 
@@ -292,7 +299,8 @@ export class UnifiedDreamCycle {
         });
       }
 
-      // SOUL/USER 纠偏
+      // SOUL/USER 纠偏（事务化：备份 → 写入 → 失败回滚）
+      const txOps: TxOperation[] = [];
       const soulAnalysis = this.reflector.analyzeSoulAlignment(
         soulContent,
         '{}'
@@ -302,21 +310,52 @@ export class UnifiedDreamCycle {
         soulAnalysis.confidence >= 0.8 &&
         soulAnalysis.suggestedPatch
       ) {
-        const result = await this.reflector.writeSoulPatch(
-          soulAnalysis.suggestedPatch,
-          soulAnalysis.reason || '梦境纠偏'
+        txOps.push(
+          fileTx(resolveSoulPath(), async () => {
+            const result = await this.reflector.writeSoulPatch(
+              soulAnalysis.suggestedPatch!,
+              soulAnalysis.reason || '梦境纠偏'
+            );
+            if (result.conflict) {
+              soulConflicts++;
+              errors.push('SOUL.md 乐观锁冲突：用户手动编辑了文件');
+              // 冲突 = 事务失败：整批回滚并标记周期 failed（不做部分生效）
+              throw new AppError(
+                'SOUL.md 乐观锁冲突：用户手动编辑了文件',
+                ErrorCategory.DATA,
+                ErrorSeverity.HIGH,
+                'DREAM_SOUL_CONFLICT'
+              );
+            }
+            if (result.written) {
+              soulUpdated = true;
+              insights.push('SOUL.md 已自动更新');
+            } else if (!result.conflict) {
+              // 写入失败（writeSoulPatch 内部吞错）→ 事务回滚
+              throw new AppError(
+                'SOUL.md 写入失败',
+                ErrorCategory.DATA,
+                ErrorSeverity.HIGH,
+                'DREAM_SOUL_WRITE_FAILED'
+              );
+            }
+          })
         );
-        if (result.conflict) {
-          soulConflicts++;
-          errors.push('SOUL.md 乐观锁冲突：用户手动编辑了文件');
-        } else if (result.written) {
-          soulUpdated = true;
-          insights.push('SOUL.md 已自动更新');
-        }
       } else if (soulAnalysis.needsUpdate && soulAnalysis.confidence >= 0.5) {
-        await this.reflector.writeSuggestionsFile(
-          soulAnalysis.suggestedPatch || '',
-          'soul'
+        const suggestionsPath = join(
+          resolvePyappHome(),
+          'knowledge',
+          'raw',
+          `personality_suggestions_soul_${Date.now()}.md`
+        );
+        txOps.push(
+          fileTx(suggestionsPath, async () => {
+            await this.reflector.writeSuggestionsFile(
+              soulAnalysis.suggestedPatch || '',
+              'soul',
+              suggestionsPath
+            );
+          })
         );
       }
 
@@ -329,22 +368,64 @@ export class UnifiedDreamCycle {
         userAnalysis.confidence >= 0.8 &&
         userAnalysis.suggestedPatch
       ) {
-        const result = await this.reflector.writeUserPatch(
-          userAnalysis.suggestedPatch,
-          userAnalysis.reason || '梦境纠偏'
+        txOps.push(
+          fileTx(resolveUserProfilePath(), async () => {
+            const result = await this.reflector.writeUserPatch(
+              userAnalysis.suggestedPatch!,
+              userAnalysis.reason || '梦境纠偏'
+            );
+            if (result.conflict) {
+              userConflicts++;
+              errors.push('USER.md 乐观锁冲突：用户手动编辑了文件');
+              // 冲突 = 事务失败：整批回滚并标记周期 failed（不做部分生效）
+              throw new AppError(
+                'USER.md 乐观锁冲突：用户手动编辑了文件',
+                ErrorCategory.DATA,
+                ErrorSeverity.HIGH,
+                'DREAM_USER_CONFLICT'
+              );
+            }
+            if (result.written) {
+              userProfileUpdated = true;
+              insights.push('USER.md 已自动更新');
+            } else if (!result.conflict) {
+              // 写入失败（writeUserPatch 内部吞错）→ 事务回滚
+              throw new AppError(
+                'USER.md 写入失败',
+                ErrorCategory.DATA,
+                ErrorSeverity.HIGH,
+                'DREAM_USER_WRITE_FAILED'
+              );
+            }
+          })
         );
-        if (result.conflict) {
-          userConflicts++;
-          errors.push('USER.md 乐观锁冲突：用户手动编辑了文件');
-        } else if (result.written) {
-          userProfileUpdated = true;
-          insights.push('USER.md 已自动更新');
-        }
       } else if (userAnalysis.needsUpdate && userAnalysis.confidence >= 0.5) {
-        await this.reflector.writeSuggestionsFile(
-          userAnalysis.suggestedPatch || '',
-          'user'
+        const suggestionsPath = join(
+          resolvePyappHome(),
+          'knowledge',
+          'raw',
+          `personality_suggestions_user_${Date.now()}.md`
         );
+        txOps.push(
+          fileTx(suggestionsPath, async () => {
+            await this.reflector.writeSuggestionsFile(
+              userAnalysis.suggestedPatch || '',
+              'user',
+              suggestionsPath
+            );
+          })
+        );
+      }
+
+      if (txOps.length > 0) {
+        try {
+          await DreamTransaction.run(txOps);
+        } catch (error) {
+          // 事务失败：备份已回滚（或保留快照供人工恢复），周期标记 failed
+          errors.push(`梦境 Write 事务失败: ${String(error)}`);
+          status = 'failed';
+          throw error;
+        }
       }
 
       // 清理 pending_sessions

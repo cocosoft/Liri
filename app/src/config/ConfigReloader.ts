@@ -6,7 +6,7 @@
 
 import { getLogger } from '../monitoring/logs/Logger.js';
 import { handleError } from '@modules/error';
-import { watch, type FSWatcher } from 'fs';
+import { watch, type FSWatcher, readFileSync } from 'fs';
 import { join } from 'path';
 import { EventEmitter } from 'events';
 
@@ -23,6 +23,16 @@ export interface ConfigReloadTarget {
   filePatterns: RegExp[];
   reload: () => Promise<void> | void;
   priority: number;
+  /**
+   * T2.3: 可选字段级对账钩子。返回 true = 有实质变化需 reload/rebuild；
+   * false = 无实质变化跳过。未提供时用默认稳定 JSON 序列化比较。
+   */
+  diff?: (prev: unknown, next: unknown) => boolean;
+  /**
+   * T2.3: 可选重建钩子（身份/模块地址变化时重建 target）。
+   * 提供后，有实质变化时优先调用 rebuild 而非 reload。
+   */
+  rebuild?: () => Promise<void> | void;
 }
 
 export class ConfigWatcher extends EventEmitter {
@@ -96,6 +106,8 @@ export class ConfigReloader {
   private targets: ConfigReloadTarget[] = [];
   private watcher: ConfigWatcher;
   private lock = false;
+  /** T2.3: target 上次稳定序列化内容（用于字段级对账） */
+  private lastContents = new Map<string, string>();
 
   constructor(watcher?: ConfigWatcher) {
     this.watcher = watcher || new ConfigWatcher();
@@ -149,8 +161,20 @@ export class ConfigReloader {
       );
       for (const target of matchedTargets) {
         try {
-          await target.reload();
-          logger.info(`重载完成: ${target.name}`);
+          // T2.3: 字段级对账 —— 无实质变化时跳过 reload（值未变不重载）
+          if (await this.shouldSkipReload(target, event.filePath)) {
+            logger.info(`配置无实质变化，跳过重载: ${target.name}`);
+            continue;
+          }
+
+          // 身份/模块地址类 target 提供 rebuild → 优先重建（最小破坏性）
+          if (target.rebuild) {
+            await target.rebuild();
+            logger.info(`重建完成: ${target.name}`);
+          } else {
+            await target.reload();
+            logger.info(`重载完成: ${target.name}`);
+          }
         } catch (error) {
           void handleError(error, {
             module: 'config:reloader',
@@ -162,6 +186,74 @@ export class ConfigReloader {
       this.lock = false;
     }
   }
+
+  /**
+   * T2.3: 判断目标是否应跳过 reload。
+   * 用稳定 JSON 序列化比较（处理数组/嵌套结构），target.diff 覆盖钩子优先。
+   * 保守策略：diff 不存在、序列化失败或无法判定 → 一律 reload（不跳过）。
+   */
+  private async shouldSkipReload(
+    target: ConfigReloadTarget,
+    filePath: string
+  ): Promise<boolean> {
+    // 无 diff 能力（未提供 diff 且读取失败）→ 保守 reload
+    let next: unknown;
+    try {
+      const content = readFileSync(filePath, 'utf-8');
+      next = JSON.parse(content);
+    } catch {
+      // 读取/解析失败 → 无法判定 → reload（保守）
+      this.lastContents.delete(target.name);
+      return false;
+    }
+
+    const prevSerialized = this.lastContents.get(target.name);
+    const nextSerialized = stableSerialize(next);
+
+    if (prevSerialized === undefined) {
+      // 首次变更：记录基线，触发 reload
+      this.lastContents.set(target.name, nextSerialized);
+      return false;
+    }
+
+    // 覆盖钩子优先
+    if (target.diff) {
+      let prev: unknown;
+      try {
+        prev = JSON.parse(prevSerialized);
+      } catch {
+        this.lastContents.set(target.name, nextSerialized);
+        return false; // 无法解析上次内容 → reload（保守）
+      }
+      const changed = target.diff(prev, next);
+      this.lastContents.set(target.name, nextSerialized);
+      return !changed;
+    }
+
+    // 默认：稳定序列化比较（key 排序后比较，数组顺序变化视为实质变化 → reload）
+    this.lastContents.set(target.name, nextSerialized);
+    return prevSerialized === nextSerialized;
+  }
+}
+
+/**
+ * 稳定 JSON 序列化：递归排序对象 key（处理数组/嵌套结构），
+ * 避免浅比较对通道数组配置误判。数组元素顺序保留（顺序变化 = 实质变化）。
+ */
+export function stableSerialize(value: unknown): string {
+  if (value === null) return 'null';
+  if (Array.isArray(value)) {
+    return `[${value.map(stableSerialize).join(',')}]`;
+  }
+  if (typeof value === 'object') {
+    const obj = value as Record<string, unknown>;
+    const keys = Object.keys(obj).sort();
+    const parts = keys.map(
+      (k) => `${JSON.stringify(k)}:${stableSerialize(obj[k])}`
+    );
+    return `{${parts.join(',')}}`;
+  }
+  return JSON.stringify(value);
 }
 
 export function createConfigWatcher(dirs: string[]): ConfigWatcher {

@@ -341,6 +341,13 @@ export class PlanDrivenLoop {
 
       // 标记为运行中
       taskOrchestrator.markStepRunning(stepId);
+      // 触发时机日志：markStepRunning 后首次进度通知（completed 通常为 0）
+      logger.info('步骤 markStepRunning，触发进度通知', {
+        sessionId: this.sessionId,
+        stepId,
+        stepIndex: i + 1,
+        totalSteps: subtasks.length,
+      });
       this._notifyProgress();
 
       try {
@@ -459,6 +466,14 @@ export class PlanDrivenLoop {
   private _notifyProgress(): void {
     if (!this.plan || !this.onStepProgress) return;
     const progress = taskOrchestrator.getPlanProgress(this.plan.id);
+    // 触发时机日志：每次进度通知的完整快照（含回调是否存在，排查档位切换时机的直接依据）
+    logger.info('PlanDrivenLoop _notifyProgress 触发', {
+      sessionId: this.sessionId,
+      planId: this.plan.id,
+      ...(progress ?? {}),
+      hasCallback: Boolean(this.onStepProgress),
+      at: Date.now(),
+    });
     if (progress) this.onStepProgress(progress);
   }
 

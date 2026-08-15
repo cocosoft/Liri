@@ -1,0 +1,30 @@
+name: Setup Bun (checkout + install + cache)
+description: |
+  统一 Bun 环境准备：Setup Bun → 缓存 node_modules → 安装依赖。
+  复用此 action 避免各 job 重复编写相同的 4 个步骤（checkout 由调用方显式执行，
+  便于 e2e 等需要多个子项目依赖的场景只 checkout 一次）。
+inputs:
+  project:
+    description: '子项目目录（app 或 client），默认 app'
+    required: false
+    default: app
+runs:
+  using: composite
+  steps:
+    - name: Setup Bun
+      uses: oven-sh/setup-bun@v2
+      with:
+        bun-version: latest
+
+    - name: Cache node_modules
+      uses: actions/cache@v4
+      with:
+        path: ${{ inputs.project }}/node_modules
+        key: ${{ runner.os }}-bun-${{ hashFiles(format('{0}/bun.lock', inputs.project)) }}
+        restore-keys: |
+          ${{ runner.os }}-bun-
+
+    - name: Install dependencies
+      shell: bash
+      run: bun install
+      working-directory: ${{ inputs.project }}

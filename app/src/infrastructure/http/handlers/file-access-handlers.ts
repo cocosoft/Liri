@@ -290,7 +290,8 @@ export async function handleFileRead(
       '.hpp': { type: 'code', language: 'cpp' },
       '.css': { type: 'code', language: 'css' },
       '.scss': { type: 'code', language: 'scss' },
-      '.html': { type: 'code', language: 'html' },
+      '.html': { type: 'html' },
+      '.htm': { type: 'html' },
       '.xml': { type: 'code', language: 'xml' },
       '.yaml': { type: 'yaml', language: 'yaml' },
       '.yml': { type: 'yaml', language: 'yaml' },
@@ -577,5 +578,117 @@ export async function handleFilePreview(
         error: { message: `Failed to preview file: ${message}` },
       })
     );
+  }
+}
+
+/**
+ * 网页预览资源 MIME 映射（html/css/js/图片/字体等）
+ */
+const WEB_MIME_TYPES: Record<string, string> = {
+  '.html': 'text/html; charset=utf-8',
+  '.htm': 'text/html; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.js': 'application/javascript; charset=utf-8',
+  '.mjs': 'application/javascript; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+  '.txt': 'text/plain; charset=utf-8',
+  '.xml': 'application/xml; charset=utf-8',
+  '.svg': 'image/svg+xml',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.webp': 'image/webp',
+  '.ico': 'image/x-icon',
+  '.bmp': 'image/bmp',
+  '.woff': 'font/woff',
+  '.woff2': 'font/woff2',
+  '.ttf': 'font/ttf',
+  '.otf': 'font/otf',
+};
+
+/**
+ * 处理 HTML 预览静态资源服务
+ * GET /api/file/html/<path-segments>
+ *
+ * 采用路径段（而非 query）方式定位文件，使 HTML 中相对引用的本地资源
+ * （如 <link href="./style.css">、<script src="./app.js">、<img src="./a.png">）
+ * 能基于 iframe 文档 URL 正常解析并加载。
+ */
+export async function handleFileHtmlServe(
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const PREFIX = '/api/file/html/';
+    const rawUrl = req.url || '';
+    if (!rawUrl.startsWith(PREFIX)) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: 'Not found' } }));
+      return;
+    }
+
+    const pathPart = rawUrl.slice(PREFIX.length).split('?')[0].split('#')[0];
+    if (!pathPart) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: 'Missing path' } }));
+      return;
+    }
+
+    // 逐段解码并重组（保留 / 作为路径分隔符）
+    let filePath: string;
+    try {
+      filePath = pathPart
+        .split('/')
+        .map((seg) => decodeURIComponent(seg))
+        .join('/');
+    } catch {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: 'Malformed path' } }));
+      return;
+    }
+
+    // 安全校验：路径必须在文件访问白名单（与 read/preview 一致）
+    if (!(await isPathAllowed(filePath))) {
+      res.writeHead(403, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: 'Access denied' } }));
+      return;
+    }
+
+    if (!fs.existsSync(filePath)) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: 'File not found' } }));
+      return;
+    }
+
+    const stats = fs.statSync(filePath);
+    if (!stats.isFile()) {
+      res.writeHead(403, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: 'Not a file' } }));
+      return;
+    }
+
+    const ext = path.extname(filePath).toLowerCase();
+    const contentType = WEB_MIME_TYPES[ext] || 'application/octet-stream';
+
+    res.writeHead(200, {
+      'Content-Length': stats.size,
+      'Content-Type': contentType,
+      'Cache-Control': 'no-cache',
+    });
+    fs.createReadStream(filePath).pipe(res);
+  } catch (err) {
+    await handleError(err, {
+      module: 'infra:http',
+      action: 'file_html_serve',
+      context: { path: req.url },
+    });
+    if (!res.headersSent) {
+      const message = err instanceof Error ? err.message : String(err);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({ error: { message: `Failed to serve: ${message}` } })
+      );
+    }
   }
 }

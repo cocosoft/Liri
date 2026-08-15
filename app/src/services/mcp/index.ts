@@ -38,6 +38,7 @@ const logger = getLogger('services:mcp:index');
 import { enhancedMcpConfigManager } from './EnhancedMCPConfigManager';
 import { mcpConnectionManager } from './MCPConnectionManager';
 import { mcpToolBridge } from './MCPToolBridge';
+import { initMCPConfigReload } from './mcpConfigReload';
 import { getCommandManager } from './commandManager';
 import { resourceManager } from './resourceManager';
 import { mcpCacheManager } from './MCPCacheManager';
@@ -111,6 +112,10 @@ export class MCPSystem {
       profilePhaseStart('mcp_tool_bridge');
       await mcpToolBridge.initialize();
       profilePhaseEnd('mcp_tool_bridge');
+
+      // 启动 MCP 配置热重载（§3.1 关联点3 接线）：监听三层 mcp.json/.mcp.json，
+      // 变更经 ConfigReloader diff 对账后重载配置内存
+      initMCPConfigReload();
 
       // 预取官方MCP注册表（后台非阻塞）
       prefetchOfficialMcpUrls().catch((err) =>

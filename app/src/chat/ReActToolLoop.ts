@@ -46,6 +46,10 @@ import { StreamingToolCallScrubber } from '../streaming/scrubbers/StreamingToolC
 import { stripBareExploration } from './services/bareExplorationStripper';
 import { repairImageUrls, extractTodoData } from './services/ChatHelper';
 import type { TodoBlockData } from '@modules/runtime/api/todo-types';
+import type {
+  QuestionData,
+  QuestionOption,
+} from '@modules/runtime/api/CoreAPI.js';
 import { trackUsage } from '@modules/ai';
 
 const logger = getLogger('chat:reactToolLoop');
@@ -53,6 +57,9 @@ const logger = getLogger('chat:reactToolLoop');
 /** 残缺工具调用检测：LLM 输出尾部残留未闭合的标签 */
 const TRUNCATED_TAG_RE =
   /<\/?(?:parameter|invoke|tool_call|tool_calls)\b[^>]*>\s*$/i;
+
+/** 延时工具（v3：交互心跳轮询用；文件此前无定义，直接使用会编译报错） */
+const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
 /**
  * 安全序列化（遗漏 3，2026-08-14 复查）：
@@ -96,10 +103,20 @@ export class ReActToolLoop extends ReActLoop<
 
   private loopState: ReActToolLoopState;
 
+  /** v3：交互心跳间隔（前端 STREAM_IDLE_TIMEOUT_MS=60s，10s 留 5 次余量）+ 最大等待（防资源泄漏） */
+  private static readonly INTERACTION_HEARTBEAT_MS = 10_000;
+  private static readonly INTERACTION_MAX_WAIT_MS = 10 * 60_000;
+  /** 实例级可配置（测试缩短心跳间隔用），默认取 static 常量 */
+  private heartbeatMs: number;
+  private maxWaitMs: number;
+
   constructor(
     ctx: ToolLoopContext,
     input: ToolLoopInput,
-    config?: Partial<ReActLoopConfig>
+    config?: Partial<ReActLoopConfig> & {
+      interactionHeartbeatMs?: number;
+      interactionMaxWaitMs?: number;
+    }
   ) {
     super({
       maxIterations: ctx.maxToolTurns,
@@ -108,6 +125,10 @@ export class ReActToolLoop extends ReActLoop<
     });
     this.ctx = ctx;
     this.input = input;
+    this.heartbeatMs =
+      config?.interactionHeartbeatMs ?? ReActToolLoop.INTERACTION_HEARTBEAT_MS;
+    this.maxWaitMs =
+      config?.interactionMaxWaitMs ?? ReActToolLoop.INTERACTION_MAX_WAIT_MS;
     this.loopState = {
       messages: [...input.apiMessages],
       assistantMessage: input.assistantMessage ?? null,
@@ -266,10 +287,10 @@ export class ReActToolLoop extends ReActLoop<
     };
   }
 
-  protected async act(
+  protected async *act(
     calls: ToolCallEntry[],
     _context?: ToolLoopContext
-  ): Promise<ActResult> {
+  ): AsyncGenerator<ReActEvent, ActResult> {
     this.loopState.toolTurnCount++;
     const results: ToolResultEntry[] = [];
     const processedResults: Array<{
@@ -297,7 +318,7 @@ export class ReActToolLoop extends ReActLoop<
     }
 
     for (const tc of calls) {
-      // 2. 交互恢复：requiresUserInteraction 工具等待用户答案
+      // 2. 交互恢复：requiresUserInteraction 工具等待用户答案（v3：yield question 事件穿透 generator 挂起链路）
       const toolObj = this.ctx.toolRegistry.getTool(tc.name);
       if (toolObj?.requiresUserInteraction?.()) {
         const isRecovery =
@@ -307,7 +328,35 @@ export class ReActToolLoop extends ReActLoop<
           (tc.input as Record<string, unknown>)._userAnswers =
             this.input.interactionContext!.userAnswers;
         } else {
-          const answers = await this._awaitUserAnswers(tc);
+          // 同轮多提问防护（v3）：Map 单槽不静默覆盖——构造 error result 保证 tool_end 闭环（避免 tool_start 卡片悬挂）
+          if (this.ctx.pendingInteractions.has(this.ctx.session.id)) {
+            logger.warn('reactToolLoop:interaction_already_pending', {
+              sessionId: this.ctx.session.id,
+              toolName: tc.name,
+              toolCallId: tc.id,
+            });
+            results.push({
+              toolCallId: tc.id,
+              name: tc.name,
+              status: 'error' as const,
+              error: '已有待处理交互，本次提问被拒绝',
+            });
+            continue;
+          }
+          const { questionData, promise } = this._registerInteraction(tc);
+          // 挂起前产出 question 事件（★ 穿透 generator 挂起链路的唯一通道）
+          yield { type: 'question', questionData };
+          // 迭代消费心跳 generator（★ 禁止 await async generator：直接 await 不执行代码，心跳全丢）
+          const answersIter = this._awaitAnswersWithHeartbeat(
+            questionData.questionId,
+            promise
+          );
+          let answersResult = await answersIter.next();
+          while (!answersResult.done) {
+            yield answersResult.value; // question_waiting 心跳转发
+            answersResult = await answersIter.next();
+          }
+          const answers = answersResult.value; // string[] | undefined
           if (answers) {
             (tc.input as Record<string, unknown>)._userAnswers = answers;
           }
@@ -659,11 +708,23 @@ export class ReActToolLoop extends ReActLoop<
     }).catch(() => {});
   }
 
-  /** 等待交互工具的用户答案（pendingInteractions 注册 + promise 等待） */
-  private async _awaitUserAnswers(
-    tc: ToolCallEntry
-  ): Promise<string[] | undefined> {
+  /**
+   * 注册 pendingInteraction，返回 questionData + 等待 promise（v3：不挂起调用方，
+   * 由 act 内迭代消费 _awaitAnswersWithHeartbeat 产出心跳并等待答案）。
+   */
+  private _registerInteraction(tc: ToolCallEntry): {
+    questionData: QuestionData;
+    promise: Promise<string[]>;
+  } {
     const questionId = `q_${Date.now()}_${(tc.id || '').slice(0, 8)}`;
+    const args = tc.input as Record<string, unknown>;
+    const questionData: QuestionData = {
+      questionId,
+      question: String(args.question),
+      header: String(args.header),
+      options: (args.options as QuestionOption[]) ?? [],
+      multiSelect: args.multiSelect === true,
+    };
     let resolve!: (answers: string[]) => void;
     const promise = new Promise<string[]>((res) => (resolve = res));
     this.ctx.pendingInteractions.set(this.ctx.session.id, {
@@ -671,11 +732,57 @@ export class ReActToolLoop extends ReActLoop<
       promise,
       resolve,
     });
+    return { questionData, promise };
+  }
+
+  /**
+   * 等待答案：Promise.race 轮询产出心跳事件 + abort/超时兜底。
+   * ★ async generator，必须迭代消费（act 内 while 转发 yield），禁止直接 await。
+   */
+  private async *_awaitAnswersWithHeartbeat(
+    questionId: string,
+    promise: Promise<string[]>
+  ): AsyncGenerator<ReActEvent, string[] | undefined> {
+    const sig = this.ctx.abortSignal;
+    const onAbort = () => abortResolve('abort');
+    let abortResolve!: (v: 'abort') => void;
+    const abortPromise = new Promise<'abort'>((res) => {
+      abortResolve = res;
+      // v3：sig undefined 时禁用 abort 兜底（超时兜底仍生效），不再静默挂起
+      if (!sig) return;
+      if (sig.aborted) {
+        res('abort');
+        return;
+      }
+      sig.addEventListener('abort', onAbort, { once: true });
+    });
+    const timeoutPromise = new Promise<'timeout'>((res) =>
+      setTimeout(res, this.maxWaitMs, 'timeout' as const)
+    );
     try {
-      return await promise;
-    } catch {
-      return undefined;
+      while (true) {
+        const winner = await Promise.race([
+          promise.then((a) => ({ kind: 'answer' as const, value: a })),
+          sleep(this.heartbeatMs).then(() => ({
+            kind: 'hb' as const,
+          })),
+          abortPromise.then((v) => ({ kind: v as 'abort' })),
+          timeoutPromise.then((v) => ({ kind: v as 'timeout' })),
+        ]);
+        if (winner.kind === 'answer') return winner.value;
+        if (winner.kind === 'abort' || winner.kind === 'timeout') {
+          logger.warn('reactToolLoop:interaction_stopped', {
+            sessionId: this.ctx.session.id,
+            questionId,
+            reason: winner.kind,
+          });
+          return undefined;
+        }
+        yield { type: 'question_waiting' }; // 心跳事件
+      }
     } finally {
+      // v3：显式移除 abort 监听器，避免跨轮多次提问累积
+      if (sig) sig.removeEventListener('abort', onAbort);
       this.ctx.pendingInteractions.delete(this.ctx.session.id);
     }
   }

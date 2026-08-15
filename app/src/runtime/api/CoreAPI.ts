@@ -323,16 +323,6 @@ export interface CoreAPI {
     sessionId?: string
   ): boolean;
 
-  /** 获取非流式路径中的待处理交互数据 */
-  getPendingInteraction(sessionId: string): QuestionData | null;
-
-  /** 继续非流式路径中的交互（用户回答后恢复工具执行） */
-  continueInteraction(
-    sessionId: string,
-    questionId: string,
-    answers: string[]
-  ): Promise<ChatResponse>;
-
   // ========== 工具 ==========
 
   /** 执行工具 */

@@ -69,6 +69,10 @@ export function reactEventsToChunks(
         },
       ];
 
+    case 'tool_progress':
+      // 工具进度：内部语义，无前端 chunk 映射
+      return [];
+
     case 'tool_end':
       // 更新 tool_start 建卡的状态：completed / failed（对齐旧类 tool_call 完成 chunk）；
       // P0-2（2026-08-14）：补 result（ToolResultEntry.output），前端渲染普通工具执行结果。
@@ -127,7 +131,40 @@ export function reactEventsToChunks(
         },
       ];
 
-    default:
+    case 'question':
+      // v3：交互工具提问 → question chunk（前端 chat-stream-chunk.ts addQuestion 消费）
+      return [
+        {
+          type: 'question',
+          content: '',
+          sessionId,
+          questionData: event.questionData,
+        },
+      ];
+
+    case 'question_waiting':
+      // v3：交互等待心跳，防前端/后端 SSE idle 断连。
+      // phase 复用 'implementing'（ExecutionPhaseData.phase 联合类型无 'waiting_interaction'，
+      // 加新值会编译报错且需前端同步）；心跳仅用于保活，用 description 区分，前端零改动。
+      return [
+        {
+          type: 'execution_phase',
+          content: '正在等待你的回答',
+          sessionId,
+          executionPhase: {
+            phase: 'implementing' as const,
+            progress: 0,
+            description: '等待用户回答',
+            steps: [],
+            totalSteps: 0,
+          },
+        } as ChatStreamChunk,
+      ];
+
+    default: {
+      // v3：exhaustive check —— ReActEvent 新增类型而漏加 case 时编译报错，防静默丢事件回归
+      const _exhaustive: never = event;
       return [];
+    }
   }
 }

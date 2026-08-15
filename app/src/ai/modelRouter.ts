@@ -48,6 +48,10 @@ import { SpanStatusCode } from '@opentelemetry/api';
 import { ModelRegistry } from '@modules/ai';
 import type { APIProvider } from '@modules/ai';
 import type { AppModelConfigService } from './models/AppModelConfigService';
+import {
+  dependencyRegistry,
+  DepChange,
+} from '@modules/context/DependencyRegistry';
 
 const logger = getLogger('ai:model-router');
 
@@ -553,6 +557,9 @@ export class ModelRouter {
         await import('./models/AppModelConfigService.js');
       await appModelConfigService.initialize();
       await this._loadTaskCacheFromDb(appModelConfigService);
+
+      // T2.2: 全量刷新后发布任务模型变更通知
+      this.notifyAllTaskChanges();
       logger.debug('ModelRouter: 任务缓存已刷新');
     } catch (err) {
       void handleError(err, {
@@ -576,6 +583,8 @@ export class ModelRouter {
         if (config && config.model === modelId) {
           await appModelConfigService.deleteConfig(taskType);
           this._taskCache.delete(taskType);
+          // T2.2: 模型删除 → 该任务依赖被 withdraw（订阅方按预停用处理）
+          dependencyRegistry.withdraw(`model:${taskType}`);
           logger.info('ModelRouter: 级联清理任务引用', {
             taskType,
             modelId,
@@ -597,6 +606,8 @@ export class ModelRouter {
       if (currentConfig && currentConfig.model === modelId) {
         await appModelConfigService.deleteConfig('current');
         this._currentModel = '';
+        // T2.2: current 模型删除 → default 依赖 withdraw（若 default 也引用该模型）
+        dependencyRegistry.withdraw(`model:default`);
       }
     } catch (err) {
       void handleError(err, {
@@ -1077,6 +1088,12 @@ export class ModelRouter {
           (modelName ? ` (${modelName})` : '') +
           ` | 清除继承任务: ${clearedCount} | 保留显式任务: ${preservedCount}`
       );
+
+      // T2.2: 发布 default/current 变更（chat 类任务继承 default 的已清除，一并通知）
+      this.notifyTaskChange('default');
+      for (const t of chatOverrides) {
+        this.notifyTaskChange(t as TaskType);
+      }
     } catch (err) {
       await handleError(err, {
         module: 'ai:model-router',
@@ -1099,6 +1116,46 @@ export class ModelRouter {
   }
 
   /**
+   * T2.2: 订阅指定任务的模型变更（模型热切换通知）。
+   * 通知 payload：{ type, prev, next, at }（next 为新模型 ID，withdraw 时为 undefined）。
+   * 订阅契约（重激活协议）：
+   *   a) 无在途请求 → 立即采用新模型；
+   *   b) 有在途请求且可取消 → 默认允许完成当前请求，下一次请求采用新模型（保守）；
+   *   c) 在途请求不可取消 → 本次继续，下次采用。
+   * 返回 unsub 函数。
+   */
+  subscribeTask(
+    taskType: TaskType,
+    cb: (change: DepChange) => void
+  ): () => void {
+    return dependencyRegistry.subscribe(`model:${taskType}`, cb);
+  }
+
+  /** T2.2: 读取任务当前模型（未就绪返回 undefined，等待而非报错） */
+  injectTask(taskType: TaskType): string | undefined {
+    return dependencyRegistry.inject<string>(`model:${taskType}`);
+  }
+
+  /**
+   * T2.2: 发布单任务模型变更通知。
+   * 仅当模型值变化（Object.is）时通知订阅者；依赖注册表未提供时跳过。
+   */
+  private notifyTaskChange(taskType: TaskType): void {
+    const modelId = this._taskCache.get(taskType);
+    // 仅发布已配置的任务；未配置（undefined）不发布，避免 withdraw 语义混淆
+    if (modelId) {
+      dependencyRegistry.provide(`model:${taskType}`, modelId);
+    }
+  }
+
+  /** T2.2: 发布所有任务模型变更通知（refreshTaskCache 全量刷新后调用） */
+  private notifyAllTaskChanges(): void {
+    for (const taskType of ALL_TASK_TYPES) {
+      this.notifyTaskChange(taskType);
+    }
+  }
+
+  /**
    * 保存任务分工配置（持久化到 DB + 更新内存缓存）
    */
   async setTasks(tasks: TaskModelConfig): Promise<void> {
@@ -1113,6 +1170,11 @@ export class ModelRouter {
         await appModelConfigService.setConfig(taskType, { model: modelId });
         this._taskCache.set(taskType, modelId);
       }
+    }
+
+    // T2.2: 发布任务模型变更通知（模型热切换）
+    for (const [taskType] of entries) {
+      this.notifyTaskChange(taskType as TaskType);
     }
 
     logger.info('ModelRouter: 任务分工已保存', { taskCount: entries.length });

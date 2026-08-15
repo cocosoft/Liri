@@ -5,6 +5,7 @@
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { channelRegistry } from '../registry/ChannelRegistry';
+import { EffectScope } from '@modules/context/EffectScope';
 import type { IChannelPlugin } from '../types/IChannel';
 
 const logger = getLogger('channels:bootstrap');
@@ -42,6 +43,8 @@ export class ChannelBootstrapper {
   private pluginChannels: Map<string, () => IChannelPlugin | undefined> =
     new Map();
   private pluginInstances: Map<string, IChannelPlugin> = new Map();
+  /** T3.4: 通道级 EffectScope——注册的通道登记注销逆操作，disposeAll 统一回收 */
+  private channelScopes: Map<string, EffectScope> = new Map();
   private initialized = false;
 
   /**
@@ -100,6 +103,18 @@ export class ChannelBootstrapper {
       try {
         channelRegistry.register(plugin);
         this.pluginInstances.set(entry.type, plugin);
+
+        // T3.4: 通道级 scope——登记注销逆操作，disposeAll 时统一回收
+        const scope = new EffectScope();
+        this.channelScopes.set(entry.type, scope);
+        scope.onDispose(() => {
+          try {
+            channelRegistry.unregister(plugin.id);
+          } catch {
+            // @ignore-catch — 注销失败仅日志，不阻断 scope 释放
+          }
+        });
+
         result.registered++;
         logger.info(
           `ChannelBootstrapper: 通道已注册 — ${plugin.id} (${entry.type})`
@@ -123,6 +138,27 @@ export class ChannelBootstrapper {
    */
   isInitialized(): boolean {
     return this.initialized;
+  }
+
+  /**
+   * 释放全部通道级 scope（优雅退出时调用）。
+   * 幂等：每个通道 scope 仅 dispose 一次；dispose 失败上报，不阻断其余通道。
+   */
+  async disposeAll(): Promise<void> {
+    const scopes = Array.from(this.channelScopes.values());
+    this.channelScopes.clear();
+    for (const scope of scopes) {
+      try {
+        await scope.dispose();
+      } catch (error) {
+        await handleError(error, {
+          module: 'channels:bootstrap',
+          action: 'disposeAll 通道 scope',
+        });
+      }
+    }
+    this.pluginInstances.clear();
+    this.initialized = false;
   }
 }
 

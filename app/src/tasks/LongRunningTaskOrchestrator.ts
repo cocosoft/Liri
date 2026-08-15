@@ -32,7 +32,12 @@ import {
 import { LifecycleTracker } from './LifecycleTracker';
 import type { LifecycleEvent } from './LifecycleTracker';
 import { goalMetricsService } from './db/GoalMetricsService';
-import { createAgentIsolation, throwIfAborted } from '../agent/AgentIsolation';
+import {
+  createAgentIsolation,
+  throwIfAborted,
+  registerIsolationToScope,
+} from '../agent/AgentIsolation';
+import { EffectScope } from '@modules/context/EffectScope';
 import { computeToolNames, resolveToolsets } from '../tools/toolsets';
 import { generateAuditReport } from './AuditReport';
 import type { AuditReport } from './AuditReport';
@@ -170,6 +175,8 @@ export class LongRunningTaskOrchestrator {
   private phase: PdcaPhase = 'plan';
   private lifecycle: LifecycleTracker;
   private isolation: ReturnType<typeof createAgentIsolation>;
+  /** T1.2: Agent 执行副作用作用域（dispose 时按 LIFO 释放） */
+  private scope: EffectScope;
   private executor: ExecutorFn;
   /** §5 P1: 任务消息回写回调（runFullPdca 注入）与当前 sessionId */
   private _onTaskMessage?: (sessionId: string, msgs: TaskMessage[]) => void;
@@ -217,6 +224,10 @@ export class LongRunningTaskOrchestrator {
     this.taskId = taskId;
     this.lifecycle = new LifecycleTracker();
     this.isolation = createAgentIsolation(taskId);
+    // T1.2: 创建执行副作用作用域并登记隔离资源
+    // （abort 最后登记 → dispose 时最先执行，与 AgentCleanup 旧语义一致）
+    this.scope = new EffectScope();
+    registerIsolationToScope(this.isolation, this.scope);
     this.lifecycle.record('created', TaskStatus.PENDING);
     this.verifier = createVerifierAgent({ enabled: true });
     this.fileLockManager = fileLockManager;
@@ -1735,6 +1746,10 @@ ${replanSection}
 
     // 1. 中止所有异步操作
     this.isolation.abort('Orchestrator disposed');
+
+    // 1.5 T1.2: 释放执行副作用作用域（abort/文件/沙箱按 LIFO 释放，
+    //    dispose 幂等 + 内部容错上报，不阻断主流程）
+    void this.scope.dispose();
 
     // 2. 清理 TAORLoop 实例
     if (this.taorLoop) {

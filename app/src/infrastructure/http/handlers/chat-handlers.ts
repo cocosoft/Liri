@@ -1099,7 +1099,7 @@ export async function handleQuestionAnswer(
 
     const coreAPI = getCoreAPI();
 
-    // 先尝试流式路径的交互解析（P0-1: 传 sessionId 精确定位，多会话并行不串扰）
+    // P0-1: 传 sessionId 精确定位，多会话并行不串扰
     const resolved = coreAPI.resolveInteraction(questionId, answers, sessionId);
     if (resolved) {
       res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -1107,37 +1107,10 @@ export async function handleQuestionAnswer(
       return;
     }
 
-    // 流式路径未命中，尝试非流式路径
-    if (!sessionId) {
-      res.writeHead(400, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: '非流式交互需要 sessionId' }));
-      return;
-    }
-
-    const pendingData = coreAPI.getPendingInteraction(sessionId);
-    if (!pendingData || pendingData.questionId !== questionId) {
-      res.writeHead(404, { 'Content-Type': 'application/json' });
-      res.end(
-        JSON.stringify({ error: '未找到匹配的待处理交互', resolved: false })
-      );
-      return;
-    }
-
-    // 恢复非流式路径的工具循环
-    const chatResponse = await coreAPI.continueInteraction(
-      sessionId,
-      questionId,
-      answers
-    );
-
-    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    // 未命中（第五十二次清理：非流式 continueInteraction 已删除，统一走流式 promise 恢复）
+    res.writeHead(404, { 'Content-Type': 'application/json' });
     res.end(
-      JSON.stringify({
-        success: true,
-        content: chatResponse.content || '',
-        finish_reason: chatResponse.finishReason || 'stop',
-        sessionId,
-      })
+      JSON.stringify({ error: '未找到匹配的待处理交互', resolved: false })
     );
   } catch (err) {
     ctx.sendError(res, err);

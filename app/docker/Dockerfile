@@ -114,9 +114,13 @@ RUN chown -R liri:liri /app
 USER liri
 
 # ── 环境变量 ──
+# LIRI_HTTP_PORT/LIRI_HTTP_HOST：HTTP 服务监听端口与地址（main.ts 读取）。
+# 容器内必须绑定 0.0.0.0，否则 127.0.0.1 仅在容器内部可达，外部无法访问。
 ENV LIRI_PROJECT_DIR=/app \
     LIRI_HOME=/app/app/data \
     LIRI_DATA_DIR=/app/app/data \
+    LIRI_HTTP_PORT=3000 \
+    LIRI_HTTP_HOST=0.0.0.0 \
     NODE_ENV=production
 
 EXPOSE 3000

@@ -30,6 +30,8 @@ export function createPlugin(definition: {
   activate?: (context: PluginContext) => Promise<void> | void;
   deactivate?: (context: PluginContext) => Promise<void> | void;
   destroy?: (context: PluginContext) => Promise<void> | void;
+  /** T3.3: 热替换清理钩子（可选） */
+  __hotDispose?: () => void | Promise<void>;
   skills?: Array<{
     id: string;
     name: string;
@@ -59,6 +61,7 @@ export function createPlugin(definition: {
     activate: definition.activate,
     deactivate: definition.deactivate,
     destroy: definition.destroy,
+    __hotDispose: definition.__hotDispose,
     skills: definition.skills,
   };
 }

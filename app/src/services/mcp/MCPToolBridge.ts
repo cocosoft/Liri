@@ -12,6 +12,7 @@ import { getToolManager } from '@modules/tools/ToolManager';
 import { mcpToolRegistry } from './MCPToolRegistry';
 import { McpToolWrapper } from './McpToolWrapper';
 import { mcpConnectionManager } from './MCPConnectionManager';
+import { dependencyRegistry } from '@modules/context/DependencyRegistry';
 import type { Tool } from '@modules/tools/types/Tool';
 
 /**
@@ -20,6 +21,8 @@ import type { Tool } from '@modules/tools/types/Tool';
  */
 export class MCPToolBridge {
   private registeredMcpTools: Map<string, Tool> = new Map();
+  /** T2.1-MCP（§3.1 关联点2）：已广播工具集变更的服务器集合（用于注销时 withdraw） */
+  private registeredServers: Set<string> = new Set();
   private initialized = false;
 
   /**
@@ -100,6 +103,14 @@ export class MCPToolBridge {
     logger.info(
       `Registered ${serializedTools.length} tools from MCP server: ${serverName}`
     );
+
+    // T2.1-MCP（§3.1 关联点2）：服务器工具集变更经 DependencyRegistry 广播
+    // （与 T2.2 模型热切换同"重激活"模式），消费者 subscribe(`mcp:tools:${serverName}`) 感知
+    this.registeredServers.add(serverName);
+    dependencyRegistry.provide(
+      `mcp:tools:${serverName}`,
+      serializedTools.map((t) => (t as { name: string }).name)
+    );
   }
 
   /**
@@ -127,6 +138,15 @@ export class MCPToolBridge {
       getToolManager().unregisterTool(name);
     }
     this.registeredMcpTools.clear();
+
+    // T2.1-MCP（§3.1 关联点2）：注销对应服务器的工具集变更广播
+    // 并同步清理 mcpToolRegistry（修复：注册时同步写入（registerServerTools），注销时必须同步清理，
+    // 否则 refreshAllTools 反复调用会残留旧工具定义）
+    for (const serverName of this.registeredServers) {
+      dependencyRegistry.withdraw(`mcp:tools:${serverName}`);
+      mcpToolRegistry.unregisterServer(serverName);
+    }
+    this.registeredServers.clear();
   }
 
   /**

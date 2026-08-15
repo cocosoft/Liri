@@ -239,21 +239,6 @@ import { FILE_WRITE_TOOL_NAME, FILE_EDIT_TOOL_NAME } from '@modules/constants';
 import { taskRegistry } from '@modules/tasks/TaskRegistry';
 import { taskOrchestrator } from '@modules/tasks/TaskOrchestrator';
 
-/** 非流式路径中待恢复的工具循环状态 */
-interface InteractionSavedState {
-  currentRoundMessages: Record<string, unknown>[];
-  currentToolCalls: ParsedToolCall[];
-  processedResults: Array<{
-    normalizedToolCall: ToolCall;
-    result: ToolResult;
-  }>;
-  interactionIdx: number;
-  roundAssistantMsg: Message;
-  toolDefinitions: Record<string, unknown>[];
-  sessionId: string;
-  questionData: QuestionData;
-}
-
 /**
  * 聊天管理器实现
  */
@@ -418,13 +403,6 @@ export class ChatManagerImpl implements ChatManager {
       resolve: (answers: string[]) => void;
     }
   >();
-
-  /**
-   * 非流式路径中待恢复的工具循环状态
-   * 当 sendMessage 遇到需要用户交互的工具时，将循环状态保存至此 Map，
-   * 等待 continueInteraction() 恢复执行
-   */
-  private pendingInteractions: Map<string, InteractionSavedState> = new Map();
 
   /**
    * 查询引擎
@@ -1069,6 +1047,31 @@ export class ChatManagerImpl implements ChatManager {
     sessionId: string,
     message: Message
   ): Promise<void> {
+    // P1 修复（2026-08-15）：空正文消息告警 — assistant 消息 content 为空
+    // 且 blocks 无 text 块（含纯 thinking 收尾/纯 tool_call 无正文）时，
+    // 记录告警供可观测性排查（此前被静默持久化为"成功"，i18n saveEmptyContent
+    // 文案长期无调用点）。不阻断持久化（正常返回），仅告警。
+    if (
+      message.role === 'assistant' &&
+      typeof message.content === 'string' &&
+      message.content.trim() === ''
+    ) {
+      const hasTextBlock = (message.blocks ?? []).some(
+        (b) => (b as { type?: unknown }).type === 'text'
+      );
+      if (!hasTextBlock) {
+        const blockTypes = (message.blocks ?? [])
+          .map((b) => (b as { type?: unknown }).type)
+          .filter(Boolean);
+        logger.warn('chat:空正文助手消息被持久化', {
+          sessionId,
+          messageId: message.id,
+          contentLen: message.content.length,
+          blockTypes,
+          hasToolCalls: !!message.tool_calls?.length,
+        });
+      }
+    }
     const session = this._chatSessions.get(sessionId);
     if (session) {
       session.messages.push(message);
@@ -2825,6 +2828,18 @@ export class ChatManagerImpl implements ChatManager {
     }
     await mutex.acquire();
 
+    // 中断治理（2026-08-15）：resume 时同步恢复会话状态（PAUSED → ACTIVE），
+    // 避免崩溃恢复标记的 paused 会话在磁盘上永久冻结；失败不阻断检查点恢复主流程
+    try {
+      await this.sessionGateway.resumeSession(sessionId);
+    } catch (e) {
+      // @ignore-catch — 状态恢复失败不影响检查点恢复
+      logger.warn('resume 时恢复会话状态失败', {
+        sessionId,
+        error: String(e),
+      });
+    }
+
     const streamingCheckpoint = new StreamingAutoCheckpoint(
       this._checkpointService,
       sessionId
@@ -3132,233 +3147,6 @@ export class ChatManagerImpl implements ChatManager {
     }
     logger.warn('未找到匹配的待处理交互', { questionId });
     return false;
-  }
-
-  /**
-   * 获取非流式路径中的待处理交互数据
-   * @param sessionId 会话ID
-   * @returns 待处理的提问数据，如果没有则返回 null
-   */
-  getPendingInteraction(sessionId: string): QuestionData | null {
-    const state = this.pendingInteractions.get(sessionId);
-    return state?.questionData ?? null;
-  }
-
-  /**
-   * 继续非流式路径中的交互（用户回答后恢复工具执行）
-   * 恢复 sendMessage() 中断的工具循环：注入用户答案执行交互工具，
-   * 执行剩余工具，继续 LLM 多轮递归
-   */
-  async continueInteraction(
-    sessionId: string,
-    questionId: string,
-    answers: string[]
-  ): Promise<Message> {
-    const state = this.pendingInteractions.get(sessionId);
-    if (!state) {
-      throw new AppError(
-        `会话 ${sessionId} 没有待恢复的交互状态`,
-        ErrorCategory.EXECUTION,
-        ErrorSeverity.HIGH,
-        '1000'
-      );
-    }
-    if (state.questionData.questionId !== questionId) {
-      throw new AppError(
-        `问题 ID 不匹配: 期望 ${state.questionData.questionId}，实际 ${questionId}`,
-        ErrorCategory.EXECUTION,
-        ErrorSeverity.HIGH,
-        '1000'
-      );
-    }
-
-    this.pendingInteractions.delete(sessionId);
-    logger.info('恢复非流式交互', { sessionId, questionId, answers });
-
-    // R5 修复：非流式路径同样持久化用户回答——原实现只把 answers 注入工具循环，
-    // 用户回答本身不落盘，刷新后从历史中消失
-    if (answers.length > 0) {
-      const answerMsg = this.messageService.createUserMessage(
-        answers.join('\n'),
-        { sessionId }
-      );
-      void this._addAndPersistMessage(sessionId, answerMsg);
-    }
-
-    const session = this._getLocalSession(sessionId);
-    if (!session) {
-      throw new AppError(
-        `会话 ${sessionId} 不存在`,
-        ErrorCategory.EXECUTION,
-        ErrorSeverity.HIGH,
-        '1000'
-      );
-    }
-
-    // 解构保存的状态
-    let {
-      currentRoundMessages,
-      currentToolCalls,
-      processedResults,
-      interactionIdx,
-      roundAssistantMsg,
-      toolDefinitions,
-    } = state;
-
-    // ----- 执行从 interactionIdx 开始的工具 -----
-    const newProcessedResults = await this._executeRemainingInteractionTools(
-      session,
-      currentToolCalls,
-      interactionIdx,
-      processedResults,
-      answers
-    );
-
-    // P2（08-09）：使用 ToolLoopRunner 替代手写 while 循环
-    // 构建初始消息（含全部工具调用和结果），ToolLoopRunner 以 needsInitialLlmCall 模式启动
-    const initialMessages = this._buildToolRoundMessages(
-      currentRoundMessages,
-      roundAssistantMsg,
-      currentToolCalls,
-      newProcessedResults
-    );
-
-    const activeClient = this.getLLMClient();
-    const toolLoopCtx: ToolLoopContext = {
-      session,
-      options: {} as Record<string, unknown>,
-      abortSignal: new AbortController().signal,
-      executeTool: (tc, opts) => this.executeTool(tc, opts),
-      pendingInteractions: this._pendingInteractions,
-      loopDetector: this._loopDetector as ToolLoopContext['loopDetector'],
-      messageService: this.messageService,
-      addAndPersistMessage: (sid, msg) => this._addAndPersistMessage(sid, msg),
-      checkpointService: this
-        ._checkpointService as unknown as ToolLoopContext['checkpointService'],
-      streamingCheckpoint:
-        {} as unknown as ToolLoopContext['streamingCheckpoint'],
-      activeClient,
-      unifiedTracker: this
-        .unifiedTracker as unknown as ToolLoopContext['unifiedTracker'],
-      recordChatResponseUsage: (sid, usage) =>
-        this.recordChatResponseUsage(sid, usage as Record<string, number>),
-      toolResultRegistry:
-        toolResultRegistry as ToolLoopContext['toolResultRegistry'],
-      toolRegistry: this.toolRegistry as ToolLoopContext['toolRegistry'],
-      toolDefinitions: toolDefinitions as unknown as ToolDefinition[],
-      buildToolRoundMessages: (msgs, am, tcs, prs) =>
-        this._buildToolRoundMessages(msgs, am, tcs, prs),
-      maxToolTurns: this.MAX_TOOL_TURNS,
-      estimateMessagesTokens:
-        estimateMessagesTokens as ToolLoopContext['estimateMessagesTokens'],
-    };
-
-    // M1c：切换为 ReActToolLoop（骨架编排，非流式走 A2 runCollect 语义）
-    const loop = new ReActToolLoop(toolLoopCtx, {
-      apiMessages: initialMessages,
-      currentToolCalls: [],
-      assistantMessage: roundAssistantMsg,
-      nonStreaming: true,
-      needsInitialLlmCall: true,
-      // M1 补7：交互恢复上下文——已恢复的用户答案注入，避免重复等待（对齐旧类 interactionContext）
-      interactionContext: {
-        userAnswers: answers,
-        interactionIdx,
-      },
-    });
-
-    for await (const _ of loop.run({
-      apiMessages: initialMessages,
-      currentToolCalls: [],
-      assistantMessage: roundAssistantMsg,
-      nonStreaming: true,
-      needsInitialLlmCall: true,
-    })) {
-      // 非流式模式：无 yield 输出
-    }
-
-    return loop.getAssistantMessage();
-  }
-
-  /**
-   * 执行交互恢复中剩余的待处理工具（从 interactionIdx 开始）
-   * 提取自 continueInteraction（P2-08-09：第二阶段收敛）
-   */
-  private async _executeRemainingInteractionTools(
-    session: ChatSession,
-    currentToolCalls: ParsedToolCall[],
-    interactionIdx: number,
-    processedResults: Array<{
-      normalizedToolCall: ToolCall;
-      result: ToolResult;
-    }>,
-    answers: string[]
-  ): Promise<Array<{ normalizedToolCall: ToolCall; result: ToolResult }>> {
-    const remainingTools = currentToolCalls.slice(interactionIdx);
-    const newProcessedResults: Array<{
-      normalizedToolCall: ToolCall;
-      result: ToolResult;
-    }> = [...processedResults];
-
-    for (let i = 0; i < remainingTools.length; i++) {
-      const toolCall = remainingTools[i];
-      const normalizedToolCall: ToolCall = {
-        id: toolCall.id,
-        name: toolCall.name || 'unknown',
-        arguments: toolCall.arguments || {},
-      };
-
-      let parsedArguments: Record<string, unknown>;
-      if (typeof normalizedToolCall.arguments === 'string') {
-        try {
-          parsedArguments = JSON.parse(normalizedToolCall.arguments);
-        } catch (err) {
-          logger.debug('Tool argument JSON parse failed, using empty object', {
-            error: err instanceof Error ? err.message : String(err),
-          });
-          parsedArguments = {};
-        }
-      } else {
-        parsedArguments = normalizedToolCall.arguments as Record<
-          string,
-          unknown
-        >;
-      }
-
-      // 如果是交互工具（第一个），注入用户答案
-      if (i === 0) {
-        parsedArguments._userAnswers = answers;
-      }
-
-      const toolResult = await this.executeTool(
-        {
-          id: normalizedToolCall.id,
-          name: normalizedToolCall.name,
-          arguments: parsedArguments,
-          sessionId: session.id,
-        },
-        { useErrorHandler: true }
-      );
-
-      toolResultRegistry.storeResult(
-        session.id,
-        normalizedToolCall.id,
-        normalizedToolCall.name,
-        parsedArguments,
-        { result: toolResult.result, error: toolResult.error },
-        toolResultRegistry.getCurrentRound(session.id)
-      );
-
-      const toolResultMessage = this.messageService.createToolResultMessage(
-        toolResult,
-        { sessionId: session.id, metadata: toolResult.metadata }
-      );
-      this._addAndPersistMessage(session.id, toolResultMessage);
-
-      newProcessedResults.push({ normalizedToolCall, result: toolResult });
-    }
-
-    return newProcessedResults;
   }
 
   /**

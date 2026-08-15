@@ -519,6 +519,7 @@
 | GET | `/api/file/read` | ✅ | `chatStore` 直接 fetch |
 | GET | `/api/file/paths` | ✅ | 无前端调用方 |
 | GET | `/api/file/resolve-path` | ✅ | `filePathResolver.resolveFilePath` |
+| GET | `/api/file/html/*` | ✅ | `FilePreviewContent` iframe 加载（路径段方式，HTML 预览及其相对引用的 css/js/图片） |
 
 ### §3.28 翻译 API
 

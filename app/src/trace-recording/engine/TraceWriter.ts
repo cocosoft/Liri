@@ -56,7 +56,9 @@ export class TraceWriter {
    */
   private async doWrite(record: TraceRecord): Promise<void> {
     try {
-      const today = new Date().toISOString().slice(0, 10);
+      // v5 方案 3.3：按记录发起时刻选文件（timestamp 即发起时刻），
+      // 而非写入时刻——长流跨午夜时 pending/completed 同文件，读取去重才有效。
+      const today = (record.timestamp || new Date().toISOString()).slice(0, 10);
       if (today !== this.currentDate) {
         this.rotateFile(today);
       }
@@ -105,10 +107,12 @@ export class TraceWriter {
     }
 
     const content = fs.readFileSync(filePath, 'utf-8');
-    const records: TraceRecord[] = [];
+    // v5 方案 3.3：按 id 去重（completed 覆盖 pending），再按 timestamp 降序
+    const byId = new Map<string, TraceRecord>();
     for (const line of content.split('\n').filter(Boolean)) {
       try {
-        records.push(JSON.parse(line));
+        const rec = JSON.parse(line) as TraceRecord;
+        byId.set(rec.id, rec);
       } catch (err) {
         // 忽略无效行
 
@@ -118,7 +122,9 @@ export class TraceWriter {
         });
       }
     }
-    return records;
+    return Array.from(byId.values()).sort((a, b) =>
+      b.timestamp.localeCompare(a.timestamp)
+    );
   }
 
   /**
@@ -130,7 +136,8 @@ export class TraceWriter {
       return [];
     }
 
-    const records: TraceRecord[] = [];
+    // v5 方案 3.3：按 id 去重（completed 覆盖 pending），再按 timestamp 降序
+    const byId = new Map<string, TraceRecord>();
     const files = fs
       .readdirSync(this.traceDir)
       .filter((f) => f.startsWith('trace_') && f.endsWith('.jsonl'))
@@ -141,7 +148,8 @@ export class TraceWriter {
       const content = fs.readFileSync(filePath, 'utf-8');
       for (const line of content.split('\n').filter(Boolean)) {
         try {
-          records.push(JSON.parse(line));
+          const rec = JSON.parse(line) as TraceRecord;
+          byId.set(rec.id, rec);
         } catch (err) {
           // 忽略无效行
 
@@ -152,7 +160,9 @@ export class TraceWriter {
         }
       }
     }
-    return records;
+    return Array.from(byId.values()).sort((a, b) =>
+      b.timestamp.localeCompare(a.timestamp)
+    );
   }
 
   /**

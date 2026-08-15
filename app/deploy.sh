@@ -1,26 +1,21 @@
 #!/bin/bash
 
 # 部署脚本
-# 用于部署和启动Liri应用
+# 用于部署和启动Liri应用（Bun 工具链）
 
 echo "=== Liri 部署脚本 ==="
 echo "官网: https://openliri.com"
 echo ""
 
-# 检查Node.js是否安装
-if ! command -v node &> /dev/null; then
-    echo "错误: Node.js 未安装"
-    exit 1
-fi
-
-# 检查npm是否安装
-if ! command -v npm &> /dev/null; then
-    echo "错误: npm 未安装"
+# 检查 Bun 是否安装（项目为 Bun 工程，仅 bun.lock）
+if ! command -v bun &> /dev/null; then
+    echo "错误: Bun 未安装（项目使用 Bun 作为运行时与包管理器）"
+    echo "安装: https://bun.sh/docs/installation"
     exit 1
 fi
 
 echo "1. 安装依赖..."
-npm install
+bun install --frozen-lockfile
 
 if [ $? -ne 0 ]; then
     echo "错误: 依赖安装失败"
@@ -28,7 +23,7 @@ if [ $? -ne 0 ]; then
 fi
 
 echo "2. 构建应用..."
-npm run build
+bun run build
 
 if [ $? -ne 0 ]; then
     echo "错误: 应用构建失败"
@@ -45,8 +40,8 @@ fi
 echo "4. 启动应用..."
 if [ "$NODE_ENV" = "production" ]; then
     echo "以生产模式启动..."
-    npm run start
+    bun run start
 else
     echo "以开发模式启动..."
-    npm run dev
+    bun run dev
 fi

@@ -147,5 +147,7 @@ export interface KnowledgeDelta {
   additions: string[];
   /** 删除的行 */
   removals: string[];
+  /** 上次内容行（用于行级 diff；旧格式文件缺失时重建基线） */
+  oldLines?: string[];
   lastCheckedAt: number;
 }

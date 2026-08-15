@@ -19,6 +19,15 @@ import type { MessageSet, MessageGet } from "./chat-message.types";
 
 const logger = createLogger("stores:chat:message");
 
+/**
+ * P0（2026-08-15）：thinking 预算上限（字符数）。
+ * 防止模型输出数万字思考占满正文预算：超限后截断 thinking，
+ * 不再进入 store/messages.jsonl，避免上下文爆炸（CS04 根因修复）。
+ * 取值说明：≈4000 tokens（中文约 2 字符/token、英文约 4 字符/token 的折中），
+ * 正常思考远低于此，数万字异常输出会被截断。
+ */
+export const MAX_THINKING_CHARS = 16000;
+
 /** 批量更新状态（J4 版本号机制，防止过期 rAF 覆盖最终状态） */
 export interface StreamBatchState {
   version: number;
@@ -39,6 +48,8 @@ export interface ProcessChunkContext {
   flushSet: (currentVersion: number) => void;
   set: MessageSet;
   get: MessageGet;
+  /** P0（2026-08-15）：thinking 预算跟踪 — 累计字符数，防止数万字思考进 store/messages.jsonl */
+  thinkingCharsRef: { current: number; truncated: boolean };
 }
 
 /**
@@ -82,8 +93,39 @@ export async function processChunk(
   let updatedMsg: Message;
 
   if (chunk.type === "thinking") {
-    blockBuilder.addThinking(chunk.content, true);
-    updatedMsg = { ...msg, blocks: blockBuilder.getBlocks() };
+    // P0（2026-08-15）：thinking 预算上限 — 累计字符超限后截断，
+    // 不再进入 store/messages.jsonl（避免数万字思考占用正文预算 + 上下文爆炸）。
+    const thinkingChars = ctx.thinkingCharsRef.current;
+    if (thinkingChars >= MAX_THINKING_CHARS) {
+      ctx.thinkingCharsRef.current += chunk.content.length;
+      if (!ctx.thinkingCharsRef.truncated) {
+        ctx.thinkingCharsRef.truncated = true;
+        logger.warn("processChunk: thinking 超预算截断", {
+          sessionId: sid,
+          maxChars: MAX_THINKING_CHARS,
+          totalChars: ctx.thinkingCharsRef.current,
+        });
+      }
+      updatedMsg = msg;
+    } else {
+      const remaining = MAX_THINKING_CHARS - thinkingChars;
+      // 本 chunk 未超限 → 全量进块；跨过边界 → 只保留剩余预算部分
+      const keep =
+        chunk.content.length <= remaining
+          ? chunk.content
+          : chunk.content.slice(0, remaining);
+      ctx.thinkingCharsRef.current += keep.length;
+      if (keep.length < chunk.content.length && !ctx.thinkingCharsRef.truncated) {
+        ctx.thinkingCharsRef.truncated = true;
+        logger.warn("processChunk: thinking 超预算截断", {
+          sessionId: sid,
+          maxChars: MAX_THINKING_CHARS,
+          totalChars: ctx.thinkingCharsRef.current,
+        });
+      }
+      blockBuilder.addThinking(keep, true);
+      updatedMsg = { ...msg, blocks: blockBuilder.getBlocks() };
+    }
   } else if (chunk.type === "text") {
     blockBuilder.freezeThinking();
     // 先剥离结构化标签再进 blocks/content，确保任何泄漏的 <response>/<think>/<invoke>

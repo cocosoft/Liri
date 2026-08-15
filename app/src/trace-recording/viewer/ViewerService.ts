@@ -33,9 +33,14 @@ export class ViewerService {
    * 生成 HTML 查看器文件
    * @param records 录制记录列表
    * @param outputPath 输出路径
+   * @param slowThresholdMs 慢查询阈值（ms，可选）——v5 方案 3.7：展示层判定"已完成（模式过滤）"用
    * @returns 输出文件路径
    */
-  generateHtml(records: TraceRecord[], outputPath: string): string {
+  generateHtml(
+    records: TraceRecord[],
+    outputPath: string,
+    slowThresholdMs?: number
+  ): string {
     const recordsJson = JSON.stringify(records);
     const metadataList = records.map((r) => this.extractMetadata(r));
     const metadataJson = JSON.stringify(metadataList);
@@ -50,6 +55,7 @@ export class ViewerService {
       totalCount: records.length,
       needsLazyLoad,
       generatedAt: new Date().toISOString(),
+      slowThresholdMs: slowThresholdMs ?? 30000,
     });
 
     const dir = path.dirname(outputPath);
@@ -64,9 +70,10 @@ export class ViewerService {
   /**
    * 生成 HTML 字符串（不写文件）
    * @param records 录制记录列表
+   * @param slowThresholdMs 慢查询阈值（ms，可选）
    * @returns HTML 字符串
    */
-  renderHtml(records: TraceRecord[]): string {
+  renderHtml(records: TraceRecord[], slowThresholdMs?: number): string {
     const recordsJson = JSON.stringify(records);
     const metadataList = records.map((r) => this.extractMetadata(r));
     const metadataJson = JSON.stringify(metadataList);
@@ -77,15 +84,20 @@ export class ViewerService {
       totalCount: records.length,
       needsLazyLoad: records.length > 50,
       generatedAt: new Date().toISOString(),
+      slowThresholdMs: slowThresholdMs ?? 30000,
     });
   }
 
   /**
    * 提取查看器元数据
    */
-  private extractMetadata(
-    record: TraceRecord
-  ): ViewerMeta & { id: string; timestamp: string; status: number } {
+  private extractMetadata(record: TraceRecord): ViewerMeta & {
+    id: string;
+    timestamp: string;
+    status: number;
+    error?: string;
+    phase?: 'pending' | 'completed';
+  } {
     const reqBody = record.request.body;
     let model = 'unknown';
     let systemPrompt = '';
@@ -147,6 +159,8 @@ export class ViewerService {
       systemPrompt,
       durationMs: record.durationMs,
       status: record.response.status,
+      error: record.error,
+      phase: record.phase,
     };
   }
 
@@ -206,6 +220,8 @@ export class ViewerService {
     totalCount: number;
     needsLazyLoad: boolean;
     generatedAt: string;
+    /** v5 方案 3.7：慢查询阈值，展示层判定"已完成（模式过滤）"用 */
+    slowThresholdMs: number;
   }): string {
     const {
       recordsJson,
@@ -213,6 +229,7 @@ export class ViewerService {
       totalCount,
       needsLazyLoad,
       generatedAt,
+      slowThresholdMs,
     } = params;
 
     return `<!DOCTYPE html>
@@ -277,6 +294,7 @@ const ALL_RECORDS = ${recordsJson};
 const METADATA = ${metadataJson};
 const LAZY_LIMIT = 50;
 const needsLazy = ${needsLazyLoad};
+const SLOW_THRESHOLD_MS = ${slowThresholdMs};
 let renderedCount = 0;
 let selectedId = null;
 
@@ -323,8 +341,28 @@ function loadMoreRecords() {
 }
 
 function itemHtml(m, i) {
-  const statusClass = m.status >= 400 ? 'badge-err' : m.durationMs > 30000 ? 'badge-slow' : 'badge-ok';
-  const statusLabel = m.status >= 400 ? 'ERR' : m.durationMs > 30000 ? 'SLOW' : 'OK';
+  // v5 方案 3.6/3.7（审查 B/D）：徽章判定——
+  //   pending → 黄色 PENDING（进行中）
+  //   status>=400 或 error 有值 → 红色 ERR（外层 catch 的抛错记录 status=0+error 不再误标 OK）
+  //   pending 且距今超过阈值 → "已完成（模式过滤）"而非"中断"
+  let statusClass, statusLabel;
+  if (m.phase === 'pending') {
+    const staleMs = Date.now() - new Date(m.timestamp).getTime();
+    const threshold = Math.max(5 * 60 * 1000, SLOW_THRESHOLD_MS);
+    if (staleMs > threshold && !m.error) {
+      statusClass = 'badge-slow';
+      statusLabel = 'FILTERED';
+    } else {
+      statusClass = 'badge-slow';
+      statusLabel = 'PENDING';
+    }
+  } else if (m.status >= 400 || m.error) {
+    statusClass = 'badge-err';
+    statusLabel = 'ERR';
+  } else {
+    statusClass = m.durationMs > 30000 ? 'badge-slow' : 'badge-ok';
+    statusLabel = m.durationMs > 30000 ? 'SLOW' : 'OK';
+  }
   return '<div class="item" onclick="selectRecord(' + i + ')">' +
     '<div class="model">' + esc(m.model) + '</div>' +
     '<div class="ts">' + m.timestamp + ' | ' + m.id + '</div>' +

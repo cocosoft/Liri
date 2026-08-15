@@ -55,6 +55,10 @@ export interface TraceRecord {
   traceId?: string;
   /** 关联的 OpenTelemetry span ID（集成模式） */
   spanId?: string;
+  /** 记录阶段：pending=请求发起（进行中），completed=已完成/中断（最终态） */
+  phase?: 'pending' | 'completed';
+  /** 完成/中断时刻（ISO-8601，可选）——pending 无，completed 有 */
+  completedAt?: string;
 }
 
 /** SSE原始事件 */

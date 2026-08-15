@@ -4,7 +4,7 @@
  * 追踪技能调用频率、成功率、耗时等指标
  */
 
-import type { SkillRegistry } from './SkillRegistry';
+import type { SkillRegistry, RegistryEventHandler } from './SkillRegistry';
 import type { SkillDB } from './persistence/SkillDB';
 
 import { handleError } from '@modules/error';
@@ -84,11 +84,12 @@ export class SkillUsageTracker {
   }
 
   /**
-   * 订阅 SkillRegistry 事件自动追踪
+   * 订阅 SkillRegistry 事件自动追踪。
+   * @returns 取消订阅函数（T3.7：事件监听可回收，防生命周期残留）
    */
-  subscribeToRegistry(registry: SkillRegistry): void {
+  subscribeToRegistry(registry: SkillRegistry): () => void {
     // 技能注册时自动记录溯源
-    registry.on('registered', (_event, skill) => {
+    const onRegistered: RegistryEventHandler = (_event, skill) => {
       if (skill) {
         this.track({
           skillName: skill.name,
@@ -98,10 +99,10 @@ export class SkillUsageTracker {
           triggeredBy: 'system',
         });
       }
-    });
+    };
 
     // 技能注销时记录
-    registry.on('unregistered', (_event, skill) => {
+    const onUnregistered: RegistryEventHandler = (_event, skill) => {
       if (skill) {
         this.track({
           skillName: skill.name,
@@ -111,7 +112,15 @@ export class SkillUsageTracker {
           triggeredBy: 'system',
         });
       }
-    });
+    };
+
+    registry.on('registered', onRegistered);
+    registry.on('unregistered', onUnregistered);
+
+    return () => {
+      registry.off('registered', onRegistered);
+      registry.off('unregistered', onUnregistered);
+    };
   }
 
   /**

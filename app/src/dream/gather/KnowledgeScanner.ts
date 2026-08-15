@@ -25,10 +25,11 @@
  * 支持 git-style diff 检测（小变更只返回 diff）。
  */
 
-import { stat, readFile, writeFile, mkdir } from 'fs/promises';
+import { stat, readFile, mkdir } from 'fs/promises';
 import { join, relative } from 'path';
 import { createHash } from 'crypto';
 import { resolvePyappHome } from '@modules/core';
+import { AtomicWriter } from '@modules/session/persistence/AtomicWriter';
 import type { KnowledgeDelta } from '../types';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
@@ -52,15 +53,15 @@ export interface ScannedFile {
 export class KnowledgeScanner {
   private knowledgeRoot: string;
   private deltaDir: string;
+  /** 原子写入器（tmp+rename，防强杀半写 delta 文件，预存错误 #57-2） */
+  private writer = new AtomicWriter();
 
-  constructor() {
-    this.knowledgeRoot = join(resolvePyappHome(), 'knowledge');
-    this.deltaDir = join(
-      resolvePyappHome(),
-      'data',
-      'dream',
-      'knowledge_delta'
-    );
+  constructor(options?: { knowledgeRoot?: string; deltaDir?: string }) {
+    this.knowledgeRoot =
+      options?.knowledgeRoot ?? join(resolvePyappHome(), 'knowledge');
+    this.deltaDir =
+      options?.deltaDir ??
+      join(resolvePyappHome(), 'data', 'dream', 'knowledge_delta');
   }
 
   /**
@@ -178,12 +179,13 @@ export class KnowledgeScanner {
     }
 
     if (!previous) {
-      // 首次扫描，存储基线
+      // 首次扫描，存储基线（含内容行，供后续行级 diff）
       await this.saveDelta(deltaPath, {
         fileName,
         baseSnapshot: currentHash,
         additions: [],
         removals: [],
+        oldLines: currentContent.split('\n'),
         lastCheckedAt: Date.now(),
       });
       return null;
@@ -194,8 +196,21 @@ export class KnowledgeScanner {
       return null;
     }
 
-    // 计算行级 diff
+    // 旧格式 delta（升级前无 oldLines）→ 无法行级 diff，重建基线后全量读
     const oldLines = this.getContentLines(previous);
+    if (oldLines.length === 0) {
+      await this.saveDelta(deltaPath, {
+        fileName,
+        baseSnapshot: currentHash,
+        additions: [],
+        removals: [],
+        oldLines: currentContent.split('\n'),
+        lastCheckedAt: Date.now(),
+      });
+      return null;
+    }
+
+    // 计算行级 diff
     const newLines = currentContent.split('\n');
     const additions: string[] = [];
     const removals: string[] = [];
@@ -216,12 +231,13 @@ export class KnowledgeScanner {
     const totalChanges = additions.length + removals.length;
     const totalLines = Math.max(oldLines.length, newLines.length);
 
-    // 更新基线
+    // 更新基线（含最新内容行）
     await this.saveDelta(deltaPath, {
       fileName,
       baseSnapshot: currentHash,
       additions,
       removals,
+      oldLines: newLines,
       lastCheckedAt: Date.now(),
     });
 
@@ -243,11 +259,9 @@ export class KnowledgeScanner {
     return null;
   }
 
-  /** 从 delta 记录中恢复旧内容行 */
-  private getContentLines(_delta: KnowledgeDelta): string[] {
-    // 简化实现：从 source content 中重建
-    // 实际上需要存储完整旧内容或仅用 hash 比较
-    return [];
+  /** 从 delta 记录中恢复旧内容行（旧格式缺失时返回空 → 上层重建基线） */
+  private getContentLines(delta: KnowledgeDelta): string[] {
+    return delta.oldLines ?? [];
   }
 
   private sha256(input: string): string {
@@ -259,6 +273,8 @@ export class KnowledgeScanner {
     delta: KnowledgeDelta
   ): Promise<void> {
     await mkdir(this.deltaDir, { recursive: true });
-    await writeFile(deltaPath, JSON.stringify(delta, null, 2), 'utf-8');
+    // 原子写（预存错误 #57-2）：直写目标文件在进程强杀时会留下半写文件，
+    // 下次扫描 JSON.parse 失败 → 非 ENOENT 报错刷屏。tmp+rename 保证 delta 恒完整。
+    await this.writer.writeJSON(deltaPath, delta);
   }
 }

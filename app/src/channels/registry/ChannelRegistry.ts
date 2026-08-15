@@ -18,6 +18,7 @@ import type { IChannelPlugin } from '../types/IChannel';
 import { channelEventBus, ChannelEvents } from '../events/ChannelEventBus';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
+import { dependencyRegistry } from '@modules/context/DependencyRegistry';
 
 const logger = getLogger('channels:registry');
 
@@ -422,6 +423,13 @@ export class ChannelRegistry extends EventEmitter {
         type: adapted.type,
       });
     }
+
+    // T3.5（G1）：通道状态经 DependencyRegistry 广播，依赖者 inject/subscribe 感知（"等待而非报错"）
+    dependencyRegistry.provide(`channel:${adapted.name}:status`, {
+      connected: adapted.connected,
+      type: adapted.type,
+      registered: true,
+    });
   }
 
   /**
@@ -450,6 +458,9 @@ export class ChannelRegistry extends EventEmitter {
 
       this.emit('channel:unregistered', { name });
       channelEventBus.publish(ChannelEvents.CHANNEL_UNREGISTERED, { name });
+
+      // T3.5（G1）：注销 = 状态 withdraw（订阅方收到预停用通知）
+      dependencyRegistry.withdraw(`channel:${name}:status`);
 
       return true;
     }
@@ -648,7 +659,14 @@ export class ChannelRegistry extends EventEmitter {
     const channel = this.channels.get(name);
     if (!channel) return false;
 
-    return channel.connect();
+    const ok = await channel.connect();
+    // T3.5（G1）：连接状态变化经 DependencyRegistry 广播
+    dependencyRegistry.provide(`channel:${name}:status`, {
+      connected: ok,
+      type: channel.type,
+      registered: true,
+    });
+    return ok;
   }
 
   /**
@@ -659,6 +677,12 @@ export class ChannelRegistry extends EventEmitter {
     if (!channel) return false;
 
     await channel.disconnect();
+    // T3.5（G1）：断开状态变化经 DependencyRegistry 广播
+    dependencyRegistry.provide(`channel:${name}:status`, {
+      connected: false,
+      type: channel.type,
+      registered: true,
+    });
 
     return true;
   }

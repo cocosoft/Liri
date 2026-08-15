@@ -18,6 +18,8 @@ interface IndexEntry {
   durationMs: number;
   status: number;
   hasError: boolean;
+  /** v5 方案 3.5：记录阶段（pending/completed），供展示层判断"进行中/中断" */
+  phase?: 'pending' | 'completed';
 }
 
 /**
@@ -54,6 +56,7 @@ export class TraceStore {
       durationMs: record.durationMs,
       status: record.response.status,
       hasError: !!record.error || record.response.status >= 400,
+      phase: record.phase,
     };
 
     this.index.set(record.id, entry);

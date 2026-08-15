@@ -22,6 +22,21 @@ function FileTypeIcon({ type }: { type: string }) {
         />
       </svg>
     ),
+    html: (
+      <svg
+        className="w-4 h-4 text-orange-400"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M8 4l4 4-4 4M16 4l-4 4 4 4"
+        />
+      </svg>
+    ),
     markdown: (
       <svg
         className="w-4 h-4 text-purple-500"

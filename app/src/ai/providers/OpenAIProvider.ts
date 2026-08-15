@@ -54,6 +54,18 @@ const logger = getLogger('ai:openai');
 
 const DEFAULT_BASE_URL = 'https://api.openai.com/v1';
 
+/**
+ * 模型请求超时（毫秒）。
+ * 中断治理（2026-08-15）：Trace 实证 Kimi-K2.6 等长任务推理多次撞上固定 120s 超时
+ * （请求耗时 120028ms/120009ms 顶满上限）被截断，导致执行中断、会话 paused。
+ * 默认提升到 300s，可通过环境变量 AI_MODEL_TIMEOUT_MS 覆盖。
+ */
+function resolveModelTimeoutMs(): number {
+  const raw = configManager.env('AI_MODEL_TIMEOUT_MS');
+  const parsed = raw ? Number(raw) : NaN;
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 300_000;
+}
+
 export class OpenAIProvider extends BaseAIProvider {
   private apiKey: string;
   /** baseUrl 供子类（如 LlamaCppProvider）访问 */
@@ -193,9 +205,12 @@ export class OpenAIProvider extends BaseAIProvider {
         },
         body: JSON.stringify(requestBody),
         signal: options?.signal
-          ? // 外部取消信号（压缩超时）与固定 120s 超时任一触发即中断
-            AbortSignal.any([options.signal, AbortSignal.timeout(120000)])
-          : AbortSignal.timeout(120000),
+          ? // 外部取消信号（压缩超时）与模型请求超时任一触发即中断
+            AbortSignal.any([
+              options.signal,
+              AbortSignal.timeout(resolveModelTimeoutMs()),
+            ])
+          : AbortSignal.timeout(resolveModelTimeoutMs()),
       });
 
       if (!response.ok) {
@@ -253,7 +268,7 @@ export class OpenAIProvider extends BaseAIProvider {
             Authorization: `Bearer ${this.apiKey}`,
           },
           body: JSON.stringify(requestBody),
-          signal: AbortSignal.timeout(180000),
+          signal: AbortSignal.timeout(resolveModelTimeoutMs()),
         }
       );
 

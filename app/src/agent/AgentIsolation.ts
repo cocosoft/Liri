@@ -1,13 +1,14 @@
-﻿/**
+/**
  * Agent 执行隔离
  *
  * 每个 Agent 实例拥有独立的 AbortController 和工作目录，
  * 多 Agent 并行运行时互不干扰。
  */
 
-import { mkdirSync, existsSync } from 'fs';
+import { mkdirSync, existsSync, rmSync } from 'fs';
 import { resolvePyappHome } from '@modules/core';
 import { join } from 'path';
+import type { EffectScope } from '@modules/context/EffectScope';
 
 export interface AgentIsolation {
   /** 取消信号控制器 */
@@ -63,4 +64,31 @@ export function throwIfAborted(isolation: AgentIsolation): void {
   if (isAborted(isolation)) {
     throw new Error('ABORTED: Agent operation cancelled');
   }
+}
+
+export interface RegisterIsolationOptions {
+  /** 是否在 dispose 时删除工作目录（默认 false：允许事后检查） */
+  cleanupWorkspace?: boolean;
+}
+
+/**
+ * 将隔离资源（AbortController / 工作目录）登记到 EffectScope。
+ * LIFO 逆序执行约定：先登记工作目录清理，再登记 abort ——
+ * 保证 dispose 时 abort 最先执行，与 AgentCleanup 现状语义一致。
+ */
+export function registerIsolationToScope(
+  isolation: AgentIsolation,
+  scope: EffectScope,
+  options: RegisterIsolationOptions = {}
+): void {
+  if (options.cleanupWorkspace) {
+    scope.onDispose(() => {
+      if (existsSync(isolation.workspace)) {
+        rmSync(isolation.workspace, { recursive: true, force: true });
+      }
+    });
+  }
+  scope.onDispose(() => {
+    isolation.abort('EffectScope disposed');
+  });
 }

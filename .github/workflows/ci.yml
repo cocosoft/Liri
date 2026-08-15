@@ -38,21 +38,10 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Setup Bun
-      uses: oven-sh/setup-bun@v2
+    - name: Setup Bun (cache + install)
+      uses: ./.github/actions/setup-bun
       with:
-        bun-version: latest
-
-    - name: Cache node_modules
-      uses: actions/cache@v4
-      with:
-        path: app/node_modules
-        key: ${{ runner.os }}-bun-${{ hashFiles('app/bun.lock') }}
-        restore-keys: |
-          ${{ runner.os }}-bun-
-
-    - name: Install dependencies
-      run: bun install
+        project: app
 
     - name: Run type check
       run: bun run typecheck
@@ -81,11 +70,19 @@ jobs:
     - name: Run tests (without coverage)
       run: bun test tests/
 
-    - name: Generate coverage report (lcov)
-      run: bun test --coverage --coverage-reporter=lcov tests/
+    - name: Generate coverage report (text + lcov)
+      run: bun test --coverage --coverage-reporter=text --coverage-reporter=lcov tests/
 
     - name: Check coverage threshold (at least 18%)
       run: bun run scripts/check-coverage-threshold.ts 18
+
+    - name: Upload coverage report
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage-report-${{ matrix.os }}
+        path: app/coverage/lcov.info
+        retention-days: 30
+        if-no-files-found: warn
 
     - name: Run build
       run: bun run build
@@ -134,8 +131,8 @@ jobs:
       run: cargo build --release
       continue-on-error: true
 
-  security-scan:
-    name: Security Scan
+  static-check:
+    name: Static Checks (security + circular + architecture)
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -143,21 +140,10 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Setup Bun
-      uses: oven-sh/setup-bun@v2
+    - name: Setup Bun (cache + install)
+      uses: ./.github/actions/setup-bun
       with:
-        bun-version: latest
-
-    - name: Cache node_modules
-      uses: actions/cache@v4
-      with:
-        path: app/node_modules
-        key: ${{ runner.os }}-bun-${{ hashFiles('app/bun.lock') }}
-        restore-keys: |
-          ${{ runner.os }}-bun-
-
-    - name: Install dependencies
-      run: bun install
+        project: app
 
     - name: Run security scan
       run: bun run security-scan --ci
@@ -165,31 +151,6 @@ jobs:
     - name: Run dependency audit
       run: bun audit --ignore-fixes
       continue-on-error: true
-
-  circular-check:
-    name: Circular Dependency Check
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Setup Bun
-      uses: oven-sh/setup-bun@v2
-      with:
-        bun-version: latest
-
-    - name: Cache node_modules
-      uses: actions/cache@v4
-      with:
-        path: app/node_modules
-        key: ${{ runner.os }}-bun-${{ hashFiles('app/bun.lock') }}
-        restore-keys: |
-          ${{ runner.os }}-bun-
-
-    - name: Install dependencies
-      run: bun install
 
     - name: Check circular dependencies (baseline at most 7)
       run: |
@@ -202,34 +163,19 @@ jobs:
           exit 1
         fi
         echo "PASS: Within baseline limit (at most 7)"
-      working-directory: app
-
-  arch-check:
-    name: Architecture Compliance
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    defaults:
-      run:
-        working-directory: .
-
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Setup Bun
-      uses: oven-sh/setup-bun@v2
-      with:
-        bun-version: latest
 
     - name: Run architecture compliance check
+      working-directory: .
       run: |
         bun run scripts/lint-architecture.ts
 
     - name: Run file size check
+      working-directory: .
       run: |
         bun run scripts/lint-file-size.ts
 
     - name: Run session regression check (BUG-A/B/C)
+      working-directory: .
       run: |
         bun run scripts/lint-session-regression.ts
 
@@ -242,21 +188,10 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Setup Bun
-      uses: oven-sh/setup-bun@v2
+    - name: Setup Bun (cache + install)
+      uses: ./.github/actions/setup-bun
       with:
-        bun-version: latest
-
-    - name: Cache node_modules
-      uses: actions/cache@v4
-      with:
-        path: app/node_modules
-        key: ${{ runner.os }}-bun-${{ hashFiles('app/bun.lock') }}
-        restore-keys: |
-          ${{ runner.os }}-bun-
-
-    - name: Install dependencies
-      run: bun install
+        project: app
 
     - name: Run Phase 1 (Structure Audit)
       run: bun test tests/ci/commands/FullCommandAudit.test.ts
@@ -285,21 +220,10 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Setup Bun
-      uses: oven-sh/setup-bun@v2
+    - name: Setup Bun (cache + install)
+      uses: ./.github/actions/setup-bun
       with:
-        bun-version: latest
-
-    - name: Cache node_modules
-      uses: actions/cache@v4
-      with:
-        path: app/node_modules
-        key: ${{ runner.os }}-bun-${{ hashFiles('app/bun.lock') }}
-        restore-keys: |
-          ${{ runner.os }}-bun-
-
-    - name: Install dependencies
-      run: bun install
+        project: app
 
     - name: Run performance tests
       run: bun test tests/ci/performance.test.ts
@@ -359,21 +283,10 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Setup Bun
-      uses: oven-sh/setup-bun@v2
+    - name: Setup Bun (cache + install)
+      uses: ./.github/actions/setup-bun
       with:
-        bun-version: latest
-
-    - name: Cache node_modules
-      uses: actions/cache@v4
-      with:
-        path: client/node_modules
-        key: ${{ runner.os }}-bun-${{ hashFiles('client/bun.lock') }}
-        restore-keys: |
-          ${{ runner.os }}-bun-
-
-    - name: Install dependencies
-      run: bun install
+        project: client
 
     - name: Run type check
       run: bun run typecheck
@@ -393,30 +306,10 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Setup Bun
-      uses: oven-sh/setup-bun@v2
+    - name: Setup Bun + app deps (cache + install)
+      uses: ./.github/actions/setup-bun
       with:
-        bun-version: latest
-
-    - name: Cache node_modules (app)
-      uses: actions/cache@v4
-      with:
-        path: app/node_modules
-        key: ${{ runner.os }}-bun-app-${{ hashFiles('app/bun.lock') }}
-        restore-keys: |
-          ${{ runner.os }}-bun-app-
-
-    - name: Cache node_modules (client)
-      uses: actions/cache@v4
-      with:
-        path: client/node_modules
-        key: ${{ runner.os }}-bun-client-${{ hashFiles('client/bun.lock') }}
-        restore-keys: |
-          ${{ runner.os }}-bun-client-
-
-    - name: Install app dependencies
-      working-directory: app
-      run: bun install
+        project: app
 
     - name: Prepare app config (offline mode)
       working-directory: app
@@ -424,9 +317,10 @@ jobs:
         if [ ! -f .env ]; then cp .env.example .env; fi
         echo "app/.env prepared (offline mode, no API keys required)"
 
-    - name: Install client dependencies
-      working-directory: client
-      run: bun install
+    - name: Setup client deps (cache + install)
+      uses: ./.github/actions/setup-bun
+      with:
+        project: client
 
     - name: Install Playwright browsers
       working-directory: client

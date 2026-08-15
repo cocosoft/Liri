@@ -354,6 +354,8 @@ h1 { font-size: 24px; margin-bottom: 8px; }
   const log = document.getElementById('event-log');
   const status = document.getElementById('status');
   const evtSource = new EventSource('/events');
+  // v5 方案 3.6（审查 A）：前端维护 id → DOM 节点的 Map，同 id 更新行
+  const rows = new Map();
 
   evtSource.addEventListener('connected', function(e) {
     status.textContent = 'connected';
@@ -368,8 +370,45 @@ h1 { font-size: 24px; margin-bottom: 8px; }
       const model = (record.request && record.request.body && record.request.body.model) || 'unknown';
       const ms = record.durationMs;
       const statusCode = (record.response && record.response.status) || 0;
-      const icon = statusCode >= 400 ? '\u{1F534}' : ms > 30000 ? '\u{1F7E1}' : '\u{1F7E2}';
-      addEntry(icon + ' [' + record.timestamp.slice(11, 19) + '] ' + model + ' - ' + ms + 'ms (' + statusCode + ')');
+      // v5 方案 3.6（审查 A/B）：pending 广播后前端按 record.id 更新行；
+      // pending 阶段渲染 ⏳，completed 才按 status/duration 判定（否则 pending 显示为成功绿点）
+      let icon, label;
+      if (record.phase === 'pending') {
+        icon = '\u23F3';           // ⏳ 进行中
+        label = 'PENDING';
+      } else if (statusCode >= 400 || record.error) {
+        icon = '\u{1F534}';        // 🔴 错误
+        label = 'ERR ' + statusCode;
+      } else if (ms > 30000) {
+        icon = '\u{1F7E1}';        // 🟡 慢
+        label = 'SLOW';
+      } else {
+        icon = '\u{1F7E2}';        // 🟢 成功
+        label = 'OK';
+      }
+      const text = icon + ' [' + record.timestamp.slice(11, 19) + '] ' + model + ' - ' + ms + 'ms (' + label + ')';
+      // 同 id 更新已有行，而非追加（pending 行在 completed 到达时原位更新）
+      const id = record.id;
+      let row = rows.get(id);
+      if (!row) {
+        row = document.createElement('div');
+        row.className = 'entry';
+        log.appendChild(row);
+        rows.set(id, row);
+      }
+      row.textContent = text;
+      log.scrollTop = log.scrollHeight;
+      while (log.children.length > 200) {
+        const first = log.firstChild;
+        if (first && first !== row) {
+          const fid = first.textContent;
+          rows.forEach(function(v, k) { if (v === first) rows.delete(k); });
+          void fid;
+          log.removeChild(first);
+        } else {
+          break;
+        }
+      }
     } catch(err) {
       addEntry('\u26A0 Parse error: ' + err.message);
     }

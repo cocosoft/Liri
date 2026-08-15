@@ -35,6 +35,11 @@ export class StatsEngine {
    * @param record 录制记录
    */
   record(record: TraceRecord): void {
+    // v5 方案 3.4：pending 记录不计入统计（调用数/延迟/token），
+    // 否则 pending+completed 各计一次导致 totalCalls/分位数翻倍。
+    if (record.phase === 'pending') {
+      return;
+    }
     this.totalCalls++;
     this.allDurations.push(record.durationMs);
 

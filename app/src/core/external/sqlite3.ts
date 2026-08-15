@@ -34,6 +34,64 @@ import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 const logger = getLogger('core:external:sqlite3');
 
+/**
+ * 慢查询告警阈值（毫秒）。
+ * #59-2 运行期插桩：bun:sqlite 为同步 API，慢查询会直接阻塞事件循环
+ * （08-13 曾观测每 ~30s 一次 500ms~25.5s 滞后，怀疑同步 DB 写/GC）。
+ * 超过阈值的查询记录 SQL 摘要 + 耗时，用于归因事件循环阻塞源。
+ */
+const SLOW_SQL_THRESHOLD_MS = 200;
+
+/**
+ * 计时执行同步操作，超过阈值记录慢查询日志（含 SQL + 参数，便于归因阻塞源）。
+ * 抛错时同样计时（慢查询失败也是阻塞归因线索）。
+ */
+function measure<T>(
+  method: string,
+  sql: string,
+  fn: () => T,
+  params?: unknown[]
+): T {
+  const startedAt = performance.now();
+
+  /** 序列化参数（仅慢查询时调用；大对象/不可序列化时截断降级） */
+  const formatParams = (): string => {
+    if (!params || params.length === 0) return '';
+    try {
+      const text = JSON.stringify(params);
+      return text.length > 300 ? `${text.slice(0, 300)}...` : text;
+    } catch {
+      // 参数含 BigInt/循环引用等 JSON 不可序列化值时降级为计数摘要
+      return `[${params.length} params 不可序列化]`;
+    }
+  };
+
+  try {
+    const result = fn();
+    const elapsedMs = performance.now() - startedAt;
+    if (elapsedMs > SLOW_SQL_THRESHOLD_MS) {
+      logger.warn(`sqlite3:慢查询 ${method} ${Math.round(elapsedMs)}ms`, {
+        method,
+        sql: sql.length > 500 ? `${sql.slice(0, 500)}...` : sql,
+        params: formatParams(),
+        elapsedMs: Math.round(elapsedMs),
+      });
+    }
+    return result;
+  } catch (e) {
+    const elapsedMs = performance.now() - startedAt;
+    if (elapsedMs > SLOW_SQL_THRESHOLD_MS) {
+      logger.warn(`sqlite3:慢查询失败 ${method} ${Math.round(elapsedMs)}ms`, {
+        method,
+        sql: sql.length > 500 ? `${sql.slice(0, 500)}...` : sql,
+        params: formatParams(),
+        elapsedMs: Math.round(elapsedMs),
+      });
+    }
+    throw e;
+  }
+}
+
 // 使用 Bun 内置的 sqlite
 const { Database: BunDB } = require('bun:sqlite') as {
   Database: new (
@@ -176,7 +234,12 @@ class Database {
         : undefined;
     try {
       const params = this.resolveParams(args);
-      const result = this._db.prepare(sql).run(...params);
+      const result = measure(
+        'run',
+        sql,
+        () => this._db.prepare(sql).run(...params),
+        params
+      );
       if (callback) {
         // W6: 安全转换 lastInsertRowid（bigint → number 可能丢失精度）
         // 超出 Number.MAX_SAFE_INTEGER 时记录警告并使用安全上限
@@ -225,7 +288,13 @@ class Database {
           ) => void)
         : undefined;
     try {
-      const row = this._db.prepare(sql).get(...this.resolveParams(args));
+      const params = this.resolveParams(args);
+      const row = measure(
+        'get',
+        sql,
+        () => this._db.prepare(sql).get(...params),
+        params
+      );
       callback?.(null, row ?? undefined);
     } catch (e) {
       callback?.(e as Error);
@@ -282,7 +351,13 @@ class Database {
           ) => void)
         : undefined;
     try {
-      const rows = this._db.prepare(sql).all(...this.resolveParams(args));
+      const params = this.resolveParams(args);
+      const rows = measure(
+        'all',
+        sql,
+        () => this._db.prepare(sql).all(...params),
+        params
+      );
       callback?.(null, rows);
     } catch (e) {
       callback?.(e as Error);
@@ -309,7 +384,13 @@ class Database {
           ) => void)
         : undefined;
     try {
-      const rows = this._db.prepare(sql).all(...this.resolveParams(args));
+      const params = this.resolveParams(args);
+      const rows = measure(
+        'each',
+        sql,
+        () => this._db.prepare(sql).all(...params),
+        params
+      );
       for (const row of rows) {
         callback?.(null, row);
       }
@@ -324,7 +405,7 @@ class Database {
    */
   exec(sql: string, callback?: (err: Error | null) => void): this {
     try {
-      this._db.exec(sql);
+      measure('exec', sql, () => this._db.exec(sql));
       callback?.(null);
     } catch (e) {
       callback?.(e as Error);

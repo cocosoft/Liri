@@ -26,6 +26,7 @@
  *
  * 调用方（如 init.ts）只需一次调用：
  *   await initializeSkillLifecycle(registry, skillDB);
+ * 返回清理函数，供应用关闭/热重置时回收事件监听（T3.7）。
  */
 
 import { getLogger } from '@modules/monitoring';
@@ -67,12 +68,13 @@ const DEFAULT_CONFIG: SkillLifecycleConfig = {
  * @param registry SkillRegistry 实例
  * @param skillDB SkillDB 实例（可选，默认 getSkillDB()）
  * @param config 生命周期配置（可选）
+ * @returns 清理函数：取消所有 Registry 事件订阅（T3.7）
  */
 export async function initializeSkillLifecycle(
   registry: SkillRegistry,
   skillDB: SkillDB,
   config: Partial<SkillLifecycleConfig> = {}
-): Promise<void> {
+): Promise<() => void> {
   const cfg = { ...DEFAULT_CONFIG, ...config };
 
   // 1. 初始化 DB
@@ -100,12 +102,21 @@ export async function initializeSkillLifecycle(
   }
 
   // 4. 订阅 SkillRegistry 事件
+  const unsubscribes: Array<() => void> = [];
   if (cfg.subscribeToRegistry) {
-    usageTracker.subscribeToRegistry(registry);
-    curator.subscribeToRegistry(registry);
-    provenanceTracker.subscribeToRegistry(registry);
+    unsubscribes.push(usageTracker.subscribeToRegistry(registry));
+    unsubscribes.push(curator.subscribeToRegistry(registry));
+    unsubscribes.push(provenanceTracker.subscribeToRegistry(registry));
     logger.debug('技能辅助组件已订阅 Registry 事件');
   }
 
   logger.info('技能生命周期初始化完成');
+
+  return () => {
+    for (const unsub of unsubscribes) {
+      unsub();
+    }
+    unsubscribes.length = 0;
+    logger.debug('技能辅助组件已取消 Registry 事件订阅');
+  };
 }

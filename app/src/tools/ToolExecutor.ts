@@ -36,6 +36,7 @@ import {
 import type { ToolExecutionStats, ToolExecutionLog } from './types/ToolTypes';
 import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
 import { Span, SpanStatusCode } from '@opentelemetry/api';
+import { toolScopeManager } from '../tool/ToolScopeManager';
 
 export interface ToolResultBlock {
   toolCallId: string;
@@ -125,6 +126,12 @@ export class ToolExecutor {
     const toolUseId = uuidv4();
 
     const toolName = tool.name;
+
+    // T1.4: 工具执行包工具级 scope（会话级子 scope），结束自动 dispose。
+    // sessionId 缺失（无会话上下文）时跳过，不阻断执行
+    const toolScope = context.sessionId
+      ? toolScopeManager.startToolScope(context.sessionId)
+      : undefined;
 
     // P2-2: coerce_tool_args — 自动修复 LLM 参数类型偏差
     const coerced = this.coerceInputIfNeeded(tool, input);
@@ -302,6 +309,9 @@ export class ToolExecutor {
     } finally {
       this.isExecuting = false;
       this.interrupted = false;
+      if (toolScope) {
+        await toolScopeManager.endToolScope(toolScope);
+      }
     }
   }
 

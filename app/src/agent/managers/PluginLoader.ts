@@ -6,6 +6,7 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { handleError } from '@modules/error/handleError';
 import { pluginSystem } from '@modules/plugins';
 import { PluginState } from '@modules/plugins/types/PluginTypes';
+import { EffectScope } from '@modules/context/EffectScope';
 
 const logger = getLogger('agent:managers:pluginLoader');
 
@@ -78,6 +79,8 @@ interface PluginLoadResult {
 export class PluginLoader {
   private plugins: Map<string, AgentPlugin> = new Map();
   private sandboxes: Map<string, PluginSandbox> = new Map();
+  /** T3.4: 插件级 EffectScope——框架资源（PluginSystem 注册）登记逆操作，卸载时 dispose 统一回收 */
+  private pluginScopes: Map<string, EffectScope> = new Map();
   private loadHistory: PluginLoadResult[] = [];
   private pluginDir: string;
 
@@ -128,7 +131,26 @@ export class PluginLoader {
       const sandbox = this.createSandbox(plugin);
       this.sandboxes.set(plugin.id, sandbox);
 
-      await plugin.initialize({ sandboxId: sandbox.id });
+      // T3.4: 插件级 scope——框架资源登记逆操作，卸载时 dispose 统一回收。
+      // 修复：原 unloadPlugin 从 plugins/sandboxes 删除后未从 PluginSystem 注销，残留可见性。
+      const scope = new EffectScope();
+      this.pluginScopes.set(plugin.id, scope);
+      scope.onDispose(() => {
+        try {
+          pluginSystem.getRegistry().unregisterPlugin(plugin.id);
+        } catch {
+          // @ignore-catch — 注销失败仅日志，不阻断卸载
+        }
+      });
+
+      // T3.6（G2）：声明式清理能力——插件可在 initialize 中登记 onDispose(disposer)，
+      // 逆操作登记到插件级 scope，卸载时统一 LIFO 执行（对齐论文"discharged once, by the abstraction"）
+      await plugin.initialize({
+        sandboxId: sandbox.id,
+        onDispose: (disposer: () => void | Promise<void>) => {
+          scope.onDispose(disposer);
+        },
+      });
       this.plugins.set(plugin.id, plugin);
 
       // 注册到 PluginSystem，使 Agent 插件对其他模块可见
@@ -162,6 +184,14 @@ export class PluginLoader {
       await plugin.deactivate();
       this.plugins.delete(pluginId);
       this.sandboxes.delete(pluginId);
+
+      // T3.4: 卸载 = scope.dispose（LIFO 逆操作：从 PluginSystem 注销）
+      const scope = this.pluginScopes.get(pluginId);
+      if (scope) {
+        this.pluginScopes.delete(pluginId);
+        await scope.dispose();
+      }
+
       logger.info(`Unloaded plugin ${pluginId}`);
     } catch (error) {
       handleError(error, { module: 'agent:plugin', action: '卸载插件' });

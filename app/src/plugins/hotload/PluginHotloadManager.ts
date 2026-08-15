@@ -7,6 +7,11 @@
  * - 模块级依赖图：热加载时的卸载排序（先卸载依赖方，后卸载被依赖方）
  * - ActivationContext 持久化：重载前后保存/恢复插件上下文
  * - 优雅卸载：依次执行 deactivate → saveContext → unload
+ *
+ * T3.3 增强：
+ * - __hotDispose 可选钩子：dispose 无法回收模块级全局状态（require.cache、
+ *   全局监听器、setInterval），插件可声明 __hotDispose() 显式清理。
+ *   未声明者默认保守拒绝热替换（保留旧版本，与全局保守策略一致）。
  */
 
 import { resolvePluginsInstalledDir } from '@modules/core';
@@ -100,6 +105,33 @@ export interface HotloadConfig {
 
 /** 默认监听的插件文件扩展名 */
 const DEFAULT_WATCH_EXTENSIONS = ['.js', '.mjs', '.cjs', '.ts', '.json'];
+
+/** T3.3: 插件实例是否声明 __hotDispose 钩子 */
+export function hasHotDisposeHook(
+  instance: unknown
+): instance is { __hotDispose: () => void | Promise<void> } {
+  return (
+    typeof instance === 'object' &&
+    instance !== null &&
+    '__hotDispose' in instance &&
+    typeof (instance as Record<string, unknown>).__hotDispose === 'function'
+  );
+}
+
+/**
+ * T3.3: 保守拒绝检查 —— 插件未声明 __hotDispose 时拒绝热替换。
+ * 返回 true = 允许热更（已声明钩子）；false = 拒绝热更（保留旧版本）。
+ */
+export function isHotReloadEligible(
+  instance: unknown,
+  pluginName: string
+): boolean {
+  if (hasHotDisposeHook(instance)) return true;
+  logger.warning(
+    `插件 ${pluginName} 未声明 __hotDispose，保守拒绝热替换（保留旧版本）`
+  );
+  return false;
+}
 
 const DEFAULT_HOTLOAD_CONFIG: HotloadConfig = {
   enabled: true,
@@ -443,8 +475,14 @@ export class PluginHotloadManager {
       return;
     }
 
-    // 2. 备份当前状态用于回滚
     const currentPlugin = pluginManager.getPlugin(pluginName);
+
+    // T3.3: 保守拒绝 —— 插件未声明 __hotDispose 时拒绝热替换（保留旧版本）
+    if (!isHotReloadEligible(currentPlugin?.instance, pluginName)) {
+      return;
+    }
+
+    // 2. 备份当前状态用于回滚
     if (currentPlugin) {
       this.stateBackup.set(pluginName, {
         state: currentPlugin.state,
@@ -458,7 +496,23 @@ export class PluginHotloadManager {
     const reloadLog = { pluginName, startedAt: Date.now() };
 
     try {
-      // 3. 执行 reload（内部处理停用→卸载→加载→激活）
+      // 3. 热更前调用旧实例 __hotDispose 清理模块级全局状态
+      //    （require.cache、全局监听器、setInterval 等 destroy 无法回收的资源）
+      if (currentPlugin && hasHotDisposeHook(currentPlugin.instance)) {
+        try {
+          await currentPlugin.instance.__hotDispose();
+          logger.debug(`插件 ${pluginName} 旧实例 __hotDispose 已调用`, {
+            durationMs: Date.now() - reloadLog.startedAt,
+          });
+        } catch (disposeError) {
+          // __hotDispose 失败不阻断 reload（由 reload/rollback 兜底），仅上报
+          logger.error(`插件 ${pluginName} __hotDispose 失败`, {
+            error: String(disposeError),
+          });
+        }
+      }
+
+      // 4. 执行 reload（内部处理停用→卸载→加载→激活）
       await pluginManager.reloadPlugin(pluginName);
 
       // 清除备份（重载成功）

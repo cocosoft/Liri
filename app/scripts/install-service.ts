@@ -14,10 +14,12 @@
  *
  *   --dev        使用 bun run 开发模式（默认使用编译后的二进制文件）
  *   --binary     指定编译后的二进制文件路径（默认自动检测 dist/ 目录）
+ *   --schtasks   强制使用 schtasks 计划任务（非管理员用户部署时使用，默认优先 nssm）
  */
 
 import { execSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
+import { homedir } from 'node:os';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { DaemonService } from '../src/daemon/service/DaemonService.ts';
@@ -56,6 +58,7 @@ interface ScriptOptions {
   action: Action;
   devMode: boolean;
   binaryPath?: string;
+  forceSchtasks: boolean;
 }
 
 /**
@@ -66,10 +69,13 @@ function parseArgs(): ScriptOptions {
   let action: Action = 'status';
   let devMode = false;
   let binaryPath: string | undefined;
+  let forceSchtasks = false;
 
   for (const arg of argv) {
     if (arg === '--dev') {
       devMode = true;
+    } else if (arg === '--schtasks') {
+      forceSchtasks = true;
     } else if (arg.startsWith('--binary=')) {
       binaryPath = arg.split('=')[1];
     } else if ((VALID_ACTIONS as readonly string[]).includes(arg)) {
@@ -77,7 +83,7 @@ function parseArgs(): ScriptOptions {
     }
   }
 
-  return { action, devMode, binaryPath };
+  return { action, devMode, binaryPath, forceSchtasks };
 }
 
 /**
@@ -175,40 +181,65 @@ function buildServiceConfig(options: ScriptOptions): ServiceConfig {
     envVars: {
       LIRI_SERVICE_MODE: '1',
     },
-    // Windows 平台自动查找 nssm，优先使用 nssm 替代 schtasks
-    nssmPath: findNssmPath(),
+    // Windows 平台默认自动查找 nssm；--schtasks 时强制使用 schtasks
+    // （nssm 注册系统服务需要管理员权限，普通用户无法创建服务）
+    nssmPath: options.forceSchtasks ? undefined : findNssmPath(),
   };
 }
 
 /**
  * 查找 bun 可执行文件路径
+ * 优先返回真实的 bun.exe（shim 如 bun.ps1 无法被计划任务/服务直接 CreateProcess 执行）
  */
 function findBunPath(): string {
+  const isWin = process.platform === 'win32';
+
+  if (isWin) {
+    // 1. npm 全局安装的真实 exe
+    const npmBun = join(
+      process.env.APPDATA ?? '',
+      'npm',
+      'node_modules',
+      'bun',
+      'bin',
+      'bun.exe'
+    );
+    if (existsSync(npmBun)) return npmBun;
+
+    // 2. 用户级 ~/.bun 安装
+    const userBun = join(homedir(), '.bun', 'bin', 'bun.exe');
+    if (existsSync(userBun)) return userBun;
+  }
+
   try {
     const result = execSync('where bun', {
       encoding: 'utf-8',
       stdio: ['pipe', 'pipe', 'pipe'],
       shell: 'cmd.exe',
     });
-    const lines = result.trim().split('\n');
-    if (lines.length > 0 && lines[0].length > 0) {
-      return lines[0].trim();
-    }
+    const lines = result
+      .trim()
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(Boolean);
+    // 3. 全局路径中优先 .exe（跳过 .ps1/.cmd shim）
+    const exe = lines.find((l) => l.toLowerCase().endsWith('.exe'));
+    if (exe) return exe;
+    if (lines.length > 0) return lines[0];
   } catch {
     // fallback to global path
   }
 
-  const isWin = process.platform === 'win32';
   return isWin ? 'bun.exe' : 'bun';
 }
 
 /**
  * 获取平台名称的中文描述
  */
-function getPlatformLabel(): string {
+function getPlatformLabel(forceSchtasks = false): string {
   switch (process.platform) {
     case 'win32':
-      return findNssmPath() ? 'Windows (nssm)' : 'Windows (schtasks)';
+      return forceSchtasks || !findNssmPath() ? 'Windows (schtasks)' : 'Windows (nssm)';
     case 'darwin':
       return 'macOS (launchd)';
     case 'linux':
@@ -246,14 +277,14 @@ function executeAction(service: DaemonService, action: Action): void {
 /**
  * 显示服务详细信息
  */
-function showServiceInfo(service: DaemonService, config: ServiceConfig): void {
+function showServiceInfo(service: DaemonService, config: ServiceConfig, forceSchtasks = false): void {
   const status = service.getStatus();
 
   console.log('');
   console.log('═══════════════════════════════════════');
   console.log('  Liri 守护进程服务信息');
   console.log('═══════════════════════════════════════');
-  console.log(`  平台:         ${getPlatformLabel()}`);
+  console.log(`  平台:         ${getPlatformLabel(forceSchtasks)}`);
   console.log(`  服务名称:     ${config.name}`);
   console.log(`  显示名称:     ${config.displayName}`);
   console.log(`  描述:         ${config.description}`);
@@ -290,7 +321,7 @@ function main(): void {
   console.log('');
   console.log('═══════════════════════════════════════');
   console.log('  Liri 跨平台服务管理工具');
-  console.log(`  平台: ${getPlatformLabel()}`);
+  console.log(`  平台: ${getPlatformLabel(options.forceSchtasks)}`);
   console.log(`  模式: ${options.devMode ? '开发模式 (bun)' : '生产模式 (编译二进制)'}`);
   console.log('═══════════════════════════════════════\n');
 
@@ -307,7 +338,7 @@ function main(): void {
   executeAction(service, options.action);
 
   if (options.action === 'install' || options.action === 'status') {
-    showServiceInfo(service, config);
+    showServiceInfo(service, config, options.forceSchtasks);
   }
 }
 

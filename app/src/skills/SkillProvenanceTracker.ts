@@ -26,7 +26,7 @@
  */
 
 import type { SkillDB } from './persistence/SkillDB';
-import type { SkillRegistry } from './SkillRegistry';
+import type { RegistryEventHandler, SkillRegistry } from './SkillRegistry';
 import { SkillSource } from './types/index';
 import { handleError } from '@modules/error';
 
@@ -87,10 +87,11 @@ export class SkillProvenanceTracker {
   }
 
   /**
-   * 订阅 SkillRegistry 事件自动追踪
+   * 订阅 SkillRegistry 事件自动追踪。
+   * @returns 取消订阅函数（T3.7：事件监听可回收，防生命周期残留）
    */
-  subscribeToRegistry(registry: SkillRegistry): void {
-    registry.on('registered', (_event, skill) => {
+  subscribeToRegistry(registry: SkillRegistry): () => void {
+    const onRegistered: RegistryEventHandler = (_event, skill) => {
       if (skill) {
         this.track(
           skill.name,
@@ -100,17 +101,27 @@ export class SkillProvenanceTracker {
           }
         );
       }
-    });
+    };
 
-    registry.on('unregistered', (_event, skill) => {
+    const onUnregistered: RegistryEventHandler = (_event, skill) => {
       if (skill) {
         this.remove(skill.name);
       }
-    });
+    };
 
-    registry.on('cleared', () => {
+    const onCleared: RegistryEventHandler = () => {
       this.clear();
-    });
+    };
+
+    registry.on('registered', onRegistered);
+    registry.on('unregistered', onUnregistered);
+    registry.on('cleared', onCleared);
+
+    return () => {
+      registry.off('registered', onRegistered);
+      registry.off('unregistered', onUnregistered);
+      registry.off('cleared', onCleared);
+    };
   }
 
   /**

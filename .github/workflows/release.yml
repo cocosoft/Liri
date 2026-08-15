@@ -51,7 +51,8 @@ jobs:
 
       - name: Test
         run: bun test
-        continue-on-error: true
+        # 版本门禁：测试失败必须阻断发版（2026-08-15 评审修正，
+        # 原 continue-on-error 允许测试挂掉仍继续发布）
 
   # ══════════════════════════════════════════════
   # JS Bundle（平台无关，供 Tauri sidecar 使用）

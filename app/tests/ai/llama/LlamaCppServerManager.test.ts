@@ -69,8 +69,11 @@ mock.module('child_process', () => ({
 function makeZip(): Buffer {
   const zip = new AdmZip();
   const variant = resolveDownloadVariant();
+  // 平台自适应：非 win32 平台二进制无 .exe 后缀（resolveLlamaBinaryPath 同规则）
+  const binaryName =
+    process.platform === 'win32' ? 'llama-server.exe' : 'llama-server';
   zip.addFile(
-    `llama-${LLAMA_VERSION}-bin-${variant}/llama-server.exe`,
+    `llama-${LLAMA_VERSION}-bin-${variant}/${binaryName}`,
     Buffer.from('fake-llama-server-binary'),
   );
   return zip.toBuffer();
@@ -171,7 +174,10 @@ describe('ensureBinary（下载 + 解压）', () => {
     const restore = disableSha256();
     try {
       const zip = new AdmZip();
-      zip.addFile('llama-server.exe', Buffer.from('fake-exe'));
+      // 平台自适应：非 win32 平台二进制无 .exe 后缀（resolveLlamaBinaryPath 同规则）
+      const binaryName =
+        process.platform === 'win32' ? 'llama-server.exe' : 'llama-server';
+      zip.addFile(binaryName, Buffer.from('fake-exe'));
       zip.addFile('llama-server-impl.dll', Buffer.from('fake-impl-dll'));
       zip.addFile('ggml.dll', Buffer.from('fake-ggml'));
       globalThis.fetch = mock(() =>

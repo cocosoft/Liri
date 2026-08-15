@@ -209,6 +209,32 @@ function main(): void {
   } else {
     console.warn(`[跳过] README 文件不存在: ${readmeSrc}`);
   }
+
+  // ── 产物完整性校验 ──
+  // exe 运行时 external 解析依赖 exe 同级 node_modules，缺失即无法加载
+  // （日志表现为 "Cannot find package 'sharp'" / 启动检查报缺）。校验不通过阻断构建。
+  const missingDeps = EXTERNAL_DEPS.filter(
+    (dep) => !fs.existsSync(path.join(depsDir, dep, 'package.json'))
+  );
+  const imgDir = path.join(depsDir, '@img');
+  const imgEntries = fs.existsSync(imgDir) ? fs.readdirSync(imgDir) : [];
+  if (missingDeps.length > 0 || imgEntries.length === 0) {
+    const reasons: string[] = [];
+    for (const dep of missingDeps) {
+      reasons.push(`${dep}（package.json 缺失）`);
+    }
+    if (imgEntries.length === 0) {
+      reasons.push('@img/*（sharp 原生二进制缺失）');
+    }
+    console.error(
+      `\n[错误] 外部依赖产物不完整，exe 运行时将无法加载: ${reasons.join(', ')}\n` +
+        `  请先确认 app/node_modules 中相关依赖已安装（bun install），再重新构建。`
+    );
+    process.exit(1);
+  }
+  console.log(
+    `[校验] 外部依赖产物完整: ${EXTERNAL_DEPS.join('/')} + @img/*（${imgEntries.length} 个平台包）已就位`
+  );
 }
 
 main();

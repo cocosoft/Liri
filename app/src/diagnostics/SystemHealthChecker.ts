@@ -9,12 +9,11 @@ import { promisify } from 'util';
 import { freemem, totalmem, cpus, platform, arch, homedir } from 'os';
 import { existsSync, statSync, readdirSync } from 'fs';
 import { join } from 'path';
-import { createRequire } from 'module';
 import { resolvePyappHome, resolveProjectRoot } from '@modules/core';
 import { configManager } from '@modules/config';
 import { getSystemCpuPercent, getDiskInfo } from '@modules/monitoring';
+import { probeExternalModule } from '@modules/utils/externalDeps';
 
-const _require = createRequire(import.meta.url);
 const execAsync = promisify(exec);
 
 import type { HealthStatus } from '@modules/core/health/types.js';
@@ -419,9 +418,7 @@ export class SystemHealthChecker extends EventEmitter {
     };
 
     for (const [pkg, purpose] of Object.entries(deps)) {
-      try {
-        _require.resolve(pkg);
-      } catch {
+      if (!probeExternalModule(pkg)) {
         npmMissing.push(`${pkg}（${purpose}）`);
         npmSuggestions.push(
           `运行 bun add ${pkg} 安装可选依赖以启用 ${purpose} 功能`

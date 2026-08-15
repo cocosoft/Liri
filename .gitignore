@@ -6,6 +6,7 @@ package-lock.json
 dist/
 build/
 target/
+release/
 
 # IDE
 .idea/

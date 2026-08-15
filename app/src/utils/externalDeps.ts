@@ -11,17 +11,55 @@
  */
 
 import { createRequire } from 'module';
-import { dirname, join } from 'path';
+import { dirname, join, basename } from 'path';
+import { existsSync } from 'fs';
 
-// --compile 模式下 import.meta.url 指向虚拟路径（如 B:/~BUN/root/liri_terminal）
-const isCompiledBinary = import.meta.url.includes('~BUN');
+// --compile 模式检测：曾用 import.meta.url.includes('~BUN')，但当前 Bun 版本下
+// compile 产物的 import.meta.url 不含该标记（实测失效）。改用 process.execPath：
+// dev/--target=bun 为 bun.exe，--compile 为 liri_terminal.exe。
+const isCompiledBinary = !basename(process.execPath)
+  .toLowerCase()
+  .startsWith('bun');
 
 /** 编译模式下基于真实 exe 路径的 require；非编译模式退化为源码路径 */
-function getExternalRequire(): NodeRequire {
+export function getExternalRequire(): NodeRequire {
   if (isCompiledBinary) {
     return createRequire(join(dirname(process.execPath), '_external_.js'));
   }
   return createRequire(import.meta.url);
+}
+
+/**
+ * 探测外部包是否可加载（编译产物检测专用）
+ *
+ * compile 模式下 Bun 的 resolver（require.resolve / createRequire().resolve）
+ * 基于打包模块图解析，不访问真实文件系统，对 --external 的 sharp/pdfjs-dist
+ * 恒失败（pyapp.ts 的 Module._resolveFilename hook 只对运行时 require 生效）。
+ * 因此做文件级探测：与 pyapp.ts SEARCH_DIRS 对齐，检查 exe 同级 node_modules。
+ *
+ * @param request 包名（支持子路径，如 'pdfjs-dist/legacy/build/pdf'）
+ */
+export function probeExternalModule(request: string): boolean {
+  // 开发模式：标准 resolver 可用（从 app/node_modules 解析）
+  if (!isCompiledBinary) {
+    try {
+      require.resolve(request);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  const exeDir = dirname(process.execPath);
+  const pkgName = request.split('/')[0];
+  const searchDirs = [join(exeDir, 'node_modules'), join(exeDir, 'deps')];
+  for (const dir of searchDirs) {
+    const base = join(dir, pkgName);
+    if (!existsSync(base)) continue;
+    const subPath = request.slice(pkgName.length).replace(/^\//, '');
+    if (!subPath || existsSync(join(base, subPath))) return true;
+  }
+  return false;
 }
 
 let _sharp: typeof import('sharp') | null = null;

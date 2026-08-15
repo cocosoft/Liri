@@ -30,7 +30,7 @@
  *   2. Object.defineProperty override process.cwd — JS 层兜底
  *   3. fs.mkdirSync/mkdir 拦截 — 检测根路径写入时重定向至 projectRoot
  */
-import { resolve, dirname, join } from 'path';
+import { resolve, dirname, join, basename } from 'path';
 import {
   existsSync,
   readFileSync,
@@ -38,17 +38,54 @@ import {
   type MakeDirectoryOptions,
 } from 'fs';
 import { getLogger } from './monitoring/logs/Logger';
-import { handleError } from '@modules/error';
 import { createRequire } from 'module';
+// type-only import：编译期擦除，不产生运行时 require，不会提前拉入 paths.ts
+import type { handleError as HandleErrorFn } from '@modules/error';
 
 const bootLogger = getLogger('pyapp');
 
+// 延迟加载 handleError——禁止静态 import '@modules/error'：
+// 其 barrel 会拉入 @modules/monitoring → MonitoringService → @modules/core → paths.ts，
+// 在 LIRI_HOME 设置前触发 paths.ts 模块级常量求值，导致 SOUL_PATH/USER_PROFILE_PATH
+// 按错误路径求值（Program Files 安装下数据分散）。首次调用时 LIRI_HOME 已设置。
+let lazyHandleError: typeof HandleErrorFn | undefined;
+
+function reportStartupError(
+  err: unknown,
+  ctx: { module: string; action: string }
+): void {
+  try {
+    const handler =
+      lazyHandleError ??
+      (() => {
+        const mod =
+          require('@modules/error') as typeof import('@modules/error');
+        lazyHandleError = mod.handleError;
+        return mod.handleError;
+      })();
+    void handler(err, ctx);
+  } catch (e) {
+    bootLogger.error(
+      `startup error reporter failed [${ctx.module}:${ctx.action}]`,
+      {
+        error: String(e),
+      }
+    );
+  }
+}
+
 /**
  * 检测是否为 --compile 模式（单文件 exe 二进制）
- * 在 --compile 模式中，import.meta.url 指向虚拟路径如 B:/~BUN/root/liri_terminal
- * 在 --target=bun 模式中，import.meta.url 指向实际文件路径
+ *
+ * 曾用 import.meta.url.includes('~BUN')，但实测当前 Bun 版本下 compile 产物
+ * 的 import.meta.url 不含 '~BUN' 标记（2026-08-15 验证 isCompiled=false），
+ * 导致 external 加载/路径推断走错分支。改用 process.execPath 判断：
+ *   dev / --target=bun：execPath 为 bun 运行时（bun.exe / bun）
+ *   --compile：execPath 为编译出的可执行文件（liri_terminal.exe 等）
  */
-const isCompiledBinary = import.meta.url.includes('~BUN');
+const isCompiledBinary = !basename(process.execPath)
+  .toLowerCase()
+  .startsWith('bun');
 
 /**
  * 确定项目根目录
@@ -300,7 +337,7 @@ process.env.LIRI_PROJECT_DIR = projectRoot;
   } catch (err) {
     // 非致命：.env 加载失败不影响启动
 
-    handleError(err, { module: 'core:startup', action: 'loadEnvFile' });
+    reportStartupError(err, { module: 'core:startup', action: 'loadEnvFile' });
   }
 }
 
@@ -346,7 +383,10 @@ try {
 } catch (err) {
   // 非致命：用户档案文件创建失败不影响启动
 
-  handleError(err, { module: 'core:startup', action: 'ensureUserProfiles' });
+  reportStartupError(err, {
+    module: 'core:startup',
+    action: 'ensureUserProfiles',
+  });
 }
 
 // ── 策略 6: 全局异常捕获（进程级兜底） ──
@@ -438,7 +478,7 @@ if (isCompiledBinary) {
         } catch (err) {
           // 当前目录没有 node_modules，继续尝试下一个
 
-          handleError(err, {
+          reportStartupError(err, {
             module: 'pyapp:main',
             action: 'resolveModuleFromDir',
           });
@@ -469,7 +509,7 @@ if (isCompiledBinary) {
         } catch (err) {
           // fallback to original
 
-          handleError(err, {
+          reportStartupError(err, {
             module: 'pyapp:main',
             action: 'resolveExternalModuleFallback',
           });

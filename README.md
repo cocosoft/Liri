@@ -13,7 +13,7 @@
 
 [![CI Status](https://github.com/cocosoft/Liri/actions/workflows/ci.yml/badge.svg)](https://github.com/cocosoft/Liri/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-![Version](https://img.shields.io/badge/version-0.4.38-blue)
+![Version](https://img.shields.io/badge/version-0.4.39-blue)
 
 [快速开始](#-快速开始) •
 [功能概览](#-功能概览) •
@@ -374,7 +374,7 @@ bun run build:enterprise  # 企业版（全功能）
 
 ## 📋 版本
 
-当前版本：**v0.4.38**
+当前版本：**v0.4.39**
 
 版本管理遵循 [语义化版本规范](.trae/rules/versioning.md)：
 - 修订号 — 按需升，每次发版 +1（Bug 修复、文档更新、小重构）
@@ -382,6 +382,14 @@ bun run build:enterprise  # 企业版（全功能）
 - 主版本 — 达到 v1.0.0 标准时一次性从 0.x.x 跳到 1.0.0
 
 ### 🚀 版本更新记录
+
+#### v0.4.39 (2026-08-15)
+
+**安装与打包修复**
+- ✅ **安装目录启动崩溃修复** - 安装到 Program Files（只读）后 EPERM 崩溃，会话存储迁移至 `~/.pyapp/data/chat_sessions`
+- ✅ **SOUL_PATH 数据分散修复** - pyapp.ts 延迟加载 handleError，消除 paths.ts 在 LIRI_HOME 设置前的早期求值
+- ✅ **external 依赖检测修复** - `~BUN` 虚拟路径判断失效改用 `process.execPath`；sharp/pdfjs-dist 改为文件级探测（probeExternalModule），消除编译产物误报
+- ✅ **发布单元机制** - 新增 `build:win:coding:dist` 打包脚本，exe + node_modules 整体分发
 
 #### v0.4.38 (2026-08-15)
 

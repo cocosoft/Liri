@@ -1,6 +1,6 @@
 {
   "name": "openliri",
-  "version": "0.4.38",
+  "version": "0.4.39",
   "description": "Liri — 你的 AI 私人助手,基于 TypeScript + Rust 架构",
   "homepage": "https://openliri.com",
   "license": "MIT",
@@ -20,6 +20,7 @@
     "build:coding": "bun run scripts/build-variant.ts --variant=coding",
     "build:enterprise": "bun run scripts/build-variant.ts --variant=enterprise",
     "build:win:coding": "bun run scripts/build-variant.ts --variant=coding && bun build --compile --target=bun-windows-x64-modern --external pdfjs-dist --external sharp --compile-autoload-package-json --outfile=../dist/liri_terminal src/pyapp.ts && bun run scripts/copy-external-deps.ts",
+    "build:win:coding:dist": "bun run build:win:coding && bun run scripts/package-compile.ts --platform=win-x64",
     "build:mac": "bun run scripts/build-variant.ts --variant=coding && bun build --compile --target=bun-darwin-arm64-modern --external pdfjs-dist --external sharp --compile-autoload-package-json --outfile=../dist/liri_terminal src/pyapp.ts && bun run scripts/copy-external-deps.ts",
     "build:linux": "bun run scripts/build-variant.ts --variant=coding && bun build --compile --target=bun-linux-x64-modern --external pdfjs-dist --external sharp --compile-autoload-package-json --outfile=../dist/liri_terminal src/pyapp.ts && bun run scripts/copy-external-deps.ts",
     "build:bundle": "bun run scripts/build-variant.ts --variant=personal && bun build --target=bun --external sharp --external pdfjs-dist --outdir=../dist/pkg src/pyapp.ts && bun -e \"import{renameSync}from'fs';renameSync('../dist/pkg/pyapp.js','../dist/pkg/liri.js')\"",

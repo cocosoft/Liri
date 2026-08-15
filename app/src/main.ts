@@ -33,6 +33,7 @@ import {
   setGlobalBufferConfig,
 } from './monitoring/logs/Logger';
 import { LogConfigManager } from './monitoring/logs/config/LogConfig';
+import { probeExternalModule } from './utils/externalDeps.js';
 import {
   startMdmPrefetch,
   ensureMdmPrefetchCompleted,
@@ -266,9 +267,9 @@ async function checkCriticalDependencies(): Promise<{
   }
 
   // 3. 检查 sharp（图片处理，原生 C++ 模块，ABI 敏感）
-  try {
-    require.resolve('sharp');
-  } catch (err) {
+  // 使用文件级探测（exe 同级 node_modules）：compile 模式下 Bun 的
+  // require.resolve/createRequire.resolve 基于打包模块图解析，external 包必然失败
+  if (!probeExternalModule('sharp')) {
     issues.push(
       '缺少 sharp 模块（图片处理依赖）。请确保 node_modules/sharp 已正确安装。\n' +
         '  修复: 在应用目录执行 bun install，确保 sharp 的原生二进制与当前系统兼容。'
@@ -276,18 +277,14 @@ async function checkCriticalDependencies(): Promise<{
   }
 
   // 4. 检查 pdfjs-dist（PDF 解析依赖）
-  try {
-    require.resolve('pdfjs-dist/legacy/build/pdf');
-  } catch (err) {
-    // 尝试不带 legacy 路径的解析
-    try {
-      require.resolve('pdfjs-dist');
-    } catch (err) {
-      issues.push(
-        '缺少 pdfjs-dist 模块（PDF 解析依赖）。请确保 node_modules/pdfjs-dist 已正确安装。\n' +
-          '  修复: 在应用目录执行 bun install。'
-      );
-    }
+  if (
+    !probeExternalModule('pdfjs-dist/legacy/build/pdf') &&
+    !probeExternalModule('pdfjs-dist')
+  ) {
+    issues.push(
+      '缺少 pdfjs-dist 模块（PDF 解析依赖）。请确保 node_modules/pdfjs-dist 已正确安装。\n' +
+        '  修复: 在应用目录执行 bun install。'
+    );
   }
 
   if (issues.length > 0) {

@@ -11,7 +11,6 @@ import {
 import { ChatSession } from '../types/session';
 import { ChatSession as ChatSessionImpl } from '../sessions/chatSession';
 import { join } from 'path';
-import { resolveProjectRoot } from '@modules/core';
 import {
   readdirSync,
   writeFileSync,
@@ -234,7 +233,7 @@ export function createChatService(
   const defaultConfig: ChatServiceConfig = {
     defaultModel: '',
     defaultHistoryLimit: 100,
-    storagePath: join(resolveProjectRoot(), 'chat_sessions'),
+    storagePath: resolveDataSubDir('chat_sessions'),
     autoSave: true,
   };
 

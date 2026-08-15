@@ -4,6 +4,8 @@ export default defineConfig({
   testDir: './e2e',
   timeout: 30_000,
   retries: 0,
+  // 显式配置 html reporter（默认行为，但显式声明确保 CI 失败时生成 playwright-report/）
+  reporter: [['html', { open: 'never' }]],
   use: {
     baseURL: 'http://localhost:1420',
     video: 'off',

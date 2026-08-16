@@ -191,7 +191,7 @@ describe("ChronologicalBlockBuilder 增量快照缓存（P2-3）", () => {
     expect(after.length).toBeGreaterThan(before.length);
   });
 
-  it("freezeAll 只改内容不重建结构，缓存引用保持", () => {
+  it("freezeAll 置脏使 getBlocks 返回新引用（W13：流结束状态可感知），isStreaming 冻结", () => {
     const b = new ChronologicalBlockBuilder();
     b.addText("final", true);
     const before = b.getBlocks();
@@ -199,7 +199,11 @@ describe("ChronologicalBlockBuilder 增量快照缓存（P2-3）", () => {
     b.freezeAll();
     const after = b.getBlocks();
 
-    expect(after).toBe(before);
+    // W13 修复：freezeAll 无条件 markBlocksDirty——原地改 block.isStreaming 后
+    // 若复用旧缓存引用，ChatMessage memo 浅比较跳过重渲染（流结束状态不刷新）。
+    // 故此处断言新引用 + 内容保留 + isStreaming 已冻结。
+    expect(after).not.toBe(before);
+    expect(after[0].content).toBe("final");
     expect(after[0].isStreaming).toBe(false);
   });
 

@@ -71,10 +71,11 @@ export class LlamaCppProvider extends OpenAIProvider {
     );
   }
 
-  /** 本地服务可用性：探测 llama-server /health */
+  /** 本地服务可用性：探测 llama-server /health（根路径，baseUrl 的 /v1 后缀需剥离） */
   async isAvailable(): Promise<boolean> {
     try {
-      const res = await fetch(`${this.baseUrl}/health`, {
+      const origin = this.baseUrl.replace(/\/v1$/, '');
+      const res = await fetch(`${origin}/health`, {
         signal: AbortSignal.timeout(3000),
       });
       return res.ok;
@@ -86,13 +87,14 @@ export class LlamaCppProvider extends OpenAIProvider {
   /**
    * 模型列表：优先 GGUF 目录扫描（本地文件为准），
    * 其次 llama-server /models（OpenAI 兼容）兜底
+   * 命名与 model_registry 注册一致：modelId 不含 .gguf 扩展名
    */
   override async listModels(): Promise<string[]> {
     const { llamaCppServerManager } =
       await import('../local/llama/LlamaCppServerManager.js');
     const ggufModels = llamaCppServerManager
       .scanModels()
-      .map((p) => p.split(/[\\/]/).pop() || p);
+      .map((p) => (p.split(/[\\/]/).pop() || p).replace(/\.gguf$/i, ''));
     if (ggufModels.length > 0) return ggufModels;
 
     try {

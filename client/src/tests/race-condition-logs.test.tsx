@@ -90,8 +90,8 @@ describe("竞态条件回归测试", () => {
     });
     rerender(<DraftHarness sid="B" />);
 
-    // ① 草稿已同步落盘到旧会话 key（R2 修复生效）
-    expect(localStorage.getItem("chat_draft_A")).toBe("草稿A-未落盘");
+    // ① 草稿已同步落盘到旧会话 key（R2 修复生效；W4 统一 liri- 命名空间）
+    expect(localStorage.getItem("liri-chat-draft-A")).toBe("草稿A-未落盘");
     // ② 日志触发（flushOnSwitch 埋点生效）
     const flushLog = consoleInfoSpy.mock.calls.find((c: unknown[]) =>
       String(c[1]).includes("draft:flushOnSwitch"),

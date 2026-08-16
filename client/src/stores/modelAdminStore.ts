@@ -150,9 +150,17 @@ export const useModelAdminStore = create<ModelAdminState>((set) => ({
     try {
       const result = await providerService.test(id);
       const first = result.results?.[0];
+      // 仅凭无 error 不够：非 2xx 状态码同样视为失败（后端已标注 error，此处双重保险）
+      const statusOk =
+        first?.status === undefined ||
+        (first.status >= 200 && first.status < 300);
       return {
-        success: !first?.error,
-        error: first?.error,
+        success: !first?.error && statusOk,
+        error:
+          first?.error ||
+          (first?.status !== undefined && !statusOk
+            ? `HTTP ${first.status}`
+            : undefined),
         latencyMs: first?.latency,
       };
     } catch (e) {

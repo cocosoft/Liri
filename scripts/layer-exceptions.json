@@ -1539,6 +1539,16 @@
       "plan": "历史巨型文件批量登记（2026-08-15 例外机制落地），按模块拆分或重构",
       "expiresAt": "2026-11-30",
       "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-136",
+      "ruleId": "R04-001",
+      "file": "app/src/ai/local/llama/LlamaCppServerManager.ts",
+      "lines": 818,
+      "targetLines": 800,
+      "plan": "本地模型链路 15 项修复（2026-08-16）后由 715 行增至 818 行；后续随 llama 子模块拆分（配置/生命周期/下载）收敛",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
     }
   ],
   "barrelExceptions": [

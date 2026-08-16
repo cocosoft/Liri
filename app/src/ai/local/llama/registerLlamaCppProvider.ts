@@ -182,7 +182,8 @@ export async function syncLlamaModelsToRegistry(): Promise<number> {
         providerId,
         contextWindow,
         maxOutputTokens: 8192,
-        capabilities: ['chat', 'streaming'],
+        // 仅写入合法 ModelCapability 枚举值（'chat' 非法会被 loadModelsFromDb 静默过滤）
+        capabilities: ['streaming'],
         inputCostPerMillion: 0,
         outputCostPerMillion: 0,
       });

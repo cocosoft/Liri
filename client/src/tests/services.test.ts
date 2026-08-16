@@ -50,13 +50,13 @@ describe("SessionService (fallback)", () => {
     expect(sessions).toEqual([]);
   });
 
-  it("create returns a local session", async () => {
-    const session = await sessionService.create("测试会话");
-    expect(session.id).toContain("local-");
-    expect(session.title).toBe("测试会话");
-    expect(session.createdAt).toBeTruthy();
-    expect(typeof session.createdAt).toBe("string");
-    expect(session.messageCount).toBe(0);
+  it("create throws when backend & Tauri unavailable（W1：不再静默返回内存假会话）", async () => {
+    // W1 修复：HTTP 与 Tauri 均不可用时原实现返回 local-* 内存假会话
+    // （list() 返回空、刷新即失，UI 却显示"创建成功"）——改为显式抛错，
+    // 由调用方展示失败。本测试守护该语义。
+    await expect(sessionService.create("测试会话")).rejects.toThrow(
+      "无法创建会话：后端服务不可用",
+    );
   });
 
   it("switch returns a session", async () => {

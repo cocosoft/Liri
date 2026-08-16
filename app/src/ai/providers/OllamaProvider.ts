@@ -29,6 +29,9 @@ export class OllamaProvider extends BaseAIProvider {
   private baseUrl: string;
   private timeout: number;
   private cachedModels: string[] | null = null;
+  /** 模型列表缓存时间戳（TTL 过期后重新拉取，避免 pull/删除模型后列表永不刷新） */
+  private cachedModelsAt = 0;
+  private static readonly MODELS_TTL_MS = 30_000;
 
   /**
    * 初始化 Ollama Provider。
@@ -280,7 +283,12 @@ export class OllamaProvider extends BaseAIProvider {
   }
 
   async listModels(): Promise<string[]> {
-    if (this.cachedModels) return this.cachedModels;
+    if (
+      this.cachedModels &&
+      Date.now() - this.cachedModelsAt < OllamaProvider.MODELS_TTL_MS
+    ) {
+      return this.cachedModels;
+    }
 
     try {
       const response = await fetch(`${this.baseUrl}/api/tags`, {
@@ -292,6 +300,7 @@ export class OllamaProvider extends BaseAIProvider {
 
       const data = (await response.json()) as { models?: { name: string }[] };
       this.cachedModels = (data.models || []).map((m) => m.name);
+      this.cachedModelsAt = Date.now();
       return this.cachedModels;
     } catch (err) {
       return [];

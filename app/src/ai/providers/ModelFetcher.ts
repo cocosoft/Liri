@@ -58,7 +58,12 @@ export interface FetchModelsResult {
  * 本地供应商类型列表
  * 这些供应商运行在本地，通常不需要 API Key
  */
-export const LOCAL_PROVIDER_TYPES = ['ollama', 'lmstudio', 'localai'] as const;
+export const LOCAL_PROVIDER_TYPES = [
+  'ollama',
+  'lmstudio',
+  'localai',
+  'llamacpp',
+] as const;
 
 export type LocalProviderType = (typeof LOCAL_PROVIDER_TYPES)[number];
 
@@ -86,6 +91,9 @@ function getLocalProviderModelsEndpoint(
   switch (providerType) {
     case 'ollama':
       return `${url}/api/tags`;
+    case 'llamacpp':
+      // GGUF 目录扫描优先（见 fetchLocalProviderModels），HTTP /models 仅兜底
+      return url.endsWith('/v1') ? `${url}/models` : `${url}/v1/models`;
     case 'lmstudio':
     case 'localai':
     default:
@@ -153,6 +161,50 @@ function buildCandidates(
 }
 
 /**
+ * 从 GGUF 目录扫描构建模型列表（llamacpp 专用）。
+ * modelId 命名与 registry 注册一致：去除 .gguf 扩展名（见 registerLlamaCppProvider）。
+ * @returns 扫描到模型时返回结果；扫描为空返回 null（调用方回退 HTTP /models）
+ */
+async function fetchLlamaCppGgufModels(
+  options: FetchModelsOptions = {}
+): Promise<FetchModelsResult | null> {
+  const { page = 1, pageSize = 50, search } = options;
+  try {
+    const { llamaCppServerManager } = await import(
+      '../local/llama/LlamaCppServerManager.js'
+    );
+    let ids = llamaCppServerManager
+      .scanModels()
+      .map((p) => (p.split(/[\\/]/).pop() || p).replace(/\.gguf$/i, ''))
+      .filter(Boolean)
+      .sort((a, b) => a.localeCompare(b));
+
+    if (ids.length === 0) return null;
+
+    if (search) {
+      const lowerSearch = search.toLowerCase();
+      ids = ids.filter((id) => id.toLowerCase().includes(lowerSearch));
+    }
+
+    const total = ids.length;
+    const start = (page - 1) * pageSize;
+    const models = ids
+      .slice(start, start + pageSize)
+      .map((id) => ({ id, ownedBy: 'llamacpp' }));
+
+    logger.info(
+      `[ModelFetch] llamacpp 成功获取 ${total} 个 GGUF 模型 (显示 ${models.length} 个)`
+    );
+    return { models, usedUrl: 'GGUF 目录扫描', total, page, pageSize };
+  } catch (err) {
+    logger.debug('llamacpp GGUF 扫描失败，回退 HTTP /models', {
+      error: String(err),
+    });
+    return null;
+  }
+}
+
+/**
  * 获取本地供应商模型列表
  * 本地供应商不需要 API Key
  */
@@ -162,6 +214,13 @@ async function fetchLocalProviderModels(
   options: FetchModelsOptions = {}
 ): Promise<FetchModelsResult | { error: string }> {
   const { page = 1, pageSize = 50, search } = options;
+
+  // llamacpp：本地 GGUF 文件扫描优先（与 llama.cpp 实际加载的模型一致）
+  if (providerType === 'llamacpp') {
+    const ggufResult = await fetchLlamaCppGgufModels(options);
+    if (ggufResult) return ggufResult;
+  }
+
   const url = getLocalProviderModelsEndpoint(providerType, baseUrl);
 
   try {

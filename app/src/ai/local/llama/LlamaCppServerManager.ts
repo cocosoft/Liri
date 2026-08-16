@@ -201,14 +201,21 @@ function defaultConfigProvider(): Partial<LlamaServerConfig> {
 /**
  * 平台 → 官方预编译变体名（llama.cpp Release 命名规则 llama-<v>-bin-<variant>.zip）
  * Phase 1 仅覆盖 CPU 变体；CUDA/Metal GPU 变体由专业配置页面（Phase 3）扩展
+ * 未知平台直接抛错（曾错误 fallback 到 `linux-${arch}`，导致 win-arm64 下载 linux 包）
  */
 export function resolveDownloadVariant(): string {
   const { platform, arch } = process;
   if (platform === 'win32' && arch === 'x64') return 'win-cpu-x64';
   if (platform === 'linux' && arch === 'x64') return 'linux-x64';
+  if (platform === 'linux' && arch === 'arm64') return 'linux-arm64';
   if (platform === 'darwin' && arch === 'arm64') return 'macos-arm64';
   if (platform === 'darwin' && arch === 'x64') return 'macos-x64';
-  return `linux-${arch}`;
+  throw new AppError(
+    `当前平台不受支持（llama.cpp 官方无预编译包: ${platform}-${arch}）`,
+    ErrorCategory.EXECUTION,
+    ErrorSeverity.HIGH,
+    'LLAMA_PLATFORM_UNSUPPORTED'
+  );
 }
 
 /** 下载 URL（可注入便于测试） */
@@ -275,6 +282,14 @@ export class LlamaCppServerManager {
   private stopping = false;
   private restartTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly configProvider: () => Partial<LlamaServerConfig>;
+  /** spawn 子进程 stderr 尾部（失败诊断） */
+  private lastStderr = '';
+  /** 最近一次健康探测时间（getStatus 节流） */
+  private lastHealthProbeAt = 0;
+  /** 上次扫描到的 GGUF 列表（模型变更检测） */
+  private lastScannedModels: string[] | null = null;
+  /** 模型注册同步进行中（防重入） */
+  private modelSyncInFlight = false;
 
   static getInstance(): LlamaCppServerManager {
     if (!LlamaCppServerManager.instance) {
@@ -303,10 +318,9 @@ export class LlamaCppServerManager {
   async updateConfig(
     partial: Partial<LlamaServerConfig>
   ): Promise<LlamaServerConfig> {
-    // AA 修复：先 reloadConfig() 使 this.config 与 config.json 事实源一致——
-    // 原实现基于内存 this.config 合并，若与磁盘不一致（部分字段更新场景），
-    // setConfigValue('llama', merged) 整体替换会丢失未传字段（如 model/port，
-    // 实测 PUT {contextWindow,kvCache} 后 restart 报"未配置 GGUF 模型"）
+    // 合并基准 = config.json 事实源（configProvider），而非含环境变量覆盖的内存态——
+    // 否则 LLAMA_CPP_PORT/LLAMA_CPP_MODEL 会随 setConfigValue 整体写回被固化到磁盘，
+    // 且后续用户改动会被 env 值「顶掉」
     this.reloadConfig();
     const validation = this.validateConfig(partial);
     if (!validation.valid) {
@@ -317,17 +331,19 @@ export class LlamaCppServerManager {
         'LLAMA_CONFIG_INVALID'
       );
     }
-    const merged = { ...this.config, ...partial };
+    const user = this.configProvider() ?? {};
+    const merged = { ...user, ...partial };
     const { setConfigValue } = require('@modules/config') as {
       setConfigValue: (key: string, value: unknown) => void;
     };
     setConfigValue('llama', merged);
-    this.config = merged;
+    // 重新加载内存态，恢复「环境变量 > config.json > 默认值」的运行时优先级
+    this.reloadConfig();
     logger.info('llama.cpp 配置已保存', {
-      port: merged.port,
-      model: merged.model || '(未设置)',
+      port: this.config.port,
+      model: this.config.model || '(未设置)',
     });
-    return { ...merged };
+    return { ...this.config };
   }
 
   /** 校验配置：GGUF 存在 / 端口范围 / 数值范围 / 枚举合法性 */
@@ -466,29 +482,56 @@ export class LlamaCppServerManager {
     return { ...this.config };
   }
 
-  /** 扫描用户 GGUF 模型目录（*.gguf） */
+  /** 扫描用户 GGUF 模型目录（*.gguf），并纳入配置的模型路径（若在扫描目录之外） */
   scanModels(): string[] {
     const dir = resolveLlamaModelsDir();
+    const result = new Set<string>();
     try {
-      if (!existsSync(dir)) return [];
-      return readdirSync(dir)
-        .filter((f) => f.toLowerCase().endsWith('.gguf'))
-        .map((f) => join(dir, f))
-        .sort();
+      if (existsSync(dir)) {
+        for (const f of readdirSync(dir)) {
+          if (f.toLowerCase().endsWith('.gguf')) {
+            result.add(join(dir, f));
+          }
+        }
+      }
     } catch (err) {
       void handleError(err, {
         module: 'ai:llama',
         action: 'scanModels',
         context: { dir },
       });
-      return [];
     }
+    // 配置的 model 若指向扫描目录之外的 GGUF，也纳入列表，
+    // 避免「服务能启动但该模型不出现在列表/无法被路由」
+    const { model } = this.config;
+    if (model && model.toLowerCase().endsWith('.gguf') && existsSync(model)) {
+      result.add(model);
+    }
+    return [...result].sort();
   }
 
   /** 汇总状态信息 */
   async getStatus(): Promise<LlamaServerStatusInfo> {
     this.reloadConfig();
     const binaryPath = resolveLlamaBinaryPath();
+    const models = this.scanModels();
+    this.maybeResyncModels(models);
+
+    // 运行时健康探测（节流 3s）：接管模式（无进程句柄）或外部进程被杀时，
+    // 实时校正 running 状态，避免前端持续显示「运行中」
+    if (
+      this.status === 'running' &&
+      Date.now() - this.lastHealthProbeAt > 3000
+    ) {
+      this.lastHealthProbeAt = Date.now();
+      const probe = await this.isServerRunning();
+      if (!probe.reachable && !this.serverProcess) {
+        this.status = 'stopped';
+        this.lastError = 'llama-server 已停止（端口不可达）';
+        logger.warning(this.lastError);
+      }
+    }
+
     return {
       status: this.status,
       version: LLAMA_VERSION,
@@ -499,10 +542,45 @@ export class LlamaCppServerManager {
       port: this.config.port,
       model: this.config.model,
       modelsDir: resolveLlamaModelsDir(),
-      models: this.scanModels(),
+      models,
       lastError: this.lastError,
       restartCount: this.restartCount,
     };
+  }
+
+  /** GGUF 列表变化时触发模型注册同步（防重入、幂等；无模型时无需同步） */
+  private maybeResyncModels(models: string[]): void {
+    if (models.length === 0) return;
+    if (this.modelSyncInFlight || this.status !== 'running') return;
+    if (
+      this.lastScannedModels &&
+      this.sameModelList(this.lastScannedModels, models)
+    ) {
+      return;
+    }
+    this.lastScannedModels = models;
+    this.modelSyncInFlight = true;
+    void (async () => {
+      try {
+        const { syncLlamaModelsToRegistry } = await import(
+          './registerLlamaCppProvider.js'
+        );
+        await syncLlamaModelsToRegistry();
+      } catch (err) {
+        // 非关键路径：同步失败不影响状态查询
+        void handleError(err, { module: 'ai:llama', action: 'resyncModels' });
+      } finally {
+        this.modelSyncInFlight = false;
+      }
+    })();
+  }
+
+  private sameModelList(a: string[], b: string[]): boolean {
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) {
+      if (a[i] !== b[i]) return false;
+    }
+    return true;
   }
 
   // ============================================================
@@ -550,8 +628,13 @@ export class LlamaCppServerManager {
     const buf = Buffer.from(await res.arrayBuffer());
     logger.debug(`下载完成 ${buf.length} bytes`);
 
-    // SHA256 校验：清单已登记期望值时强校验；未登记时记录实际值（首次接入）
-    verifySha256(buf, EXPECTED_SHA256[LLAMA_VERSION], LLAMA_VERSION);
+    // SHA256 校验：按平台变体登记期望值时强校验；未登记时记录实际值（首次接入）
+    const variant = resolveDownloadVariant();
+    verifySha256(
+      buf,
+      EXPECTED_SHA256[LLAMA_VERSION]?.[variant],
+      `${LLAMA_VERSION}-${variant}`
+    );
 
     // 解压：官方 zip 为扁平结构（llama-server.exe + llama-server-impl.dll + ggml*.dll + libomp 等），全量解压
     const zip = new AdmZip(buf);
@@ -575,14 +658,21 @@ export class LlamaCppServerManager {
   // 服务生命周期
   // ============================================================
 
-  /** 探测 llama-server /health（连接成功即视为端口被接管） */
+  /**
+   * 探测 llama-server /health。
+   * 校验响应体为 {"status":"ok"}——仅凭 HTTP 200 会把占用同一端口的其它服务误判为 llama-server
+   */
   async isServerRunning(): Promise<HealthProbe> {
     const { host, port } = this.config;
     try {
       const res = await fetch(`http://${host}:${port}/health`, {
         signal: AbortSignal.timeout(1500),
       });
-      const reachable = res.ok || res.status === 200;
+      if (!res.ok) return { reachable: false, port };
+      const data = (await res.json().catch(() => null)) as {
+        status?: string;
+      } | null;
+      const reachable = data?.status === 'ok';
       return { reachable, port };
     } catch {
       return { reachable: false, port };
@@ -617,12 +707,20 @@ export class LlamaCppServerManager {
     this.status = 'starting';
     this.shouldRun = true;
     this.stopping = false;
+    this.lastStderr = '';
     const args = buildArgs(this.config);
     logger.info(
       `拉起 llama-server: ${resolveLlamaBinaryPath()} ${args.join(' ')}`
     );
+    // stdio 捕获 stderr/stdout 尾部：llama-server 缺 DLL / 参数非法时，失败原因可追溯
     this.serverProcess = spawn(resolveLlamaBinaryPath(), args, {
-      stdio: 'ignore',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    this.serverProcess.stderr?.on('data', (d: Buffer) => {
+      this.lastStderr = (this.lastStderr + d.toString()).slice(-2000);
+    });
+    this.serverProcess.stdout?.on('data', () => {
+      // stdout 仅用于排空管道，避免缓冲区阻塞
     });
     this.serverProcess.on('exit', (code, signal) => {
       this.serverProcess = null;
@@ -630,7 +728,7 @@ export class LlamaCppServerManager {
     });
     this.serverProcess.on('error', (err) => {
       this.status = 'error';
-      this.lastError = err.message;
+      this.lastError = `${err.message}${this.lastStderr ? `: ${this.lastStderr.trim()}` : ''}`;
       void handleError(err, { module: 'ai:llama', action: 'spawn' });
     });
 
@@ -645,7 +743,9 @@ export class LlamaCppServerManager {
       await new Promise((r) => setTimeout(r, 500));
     }
     this.status = 'error';
-    this.lastError = 'llama-server 启动超时（15s 内未就绪）';
+    this.lastError = this.lastStderr
+      ? `llama-server 启动失败: ${this.lastStderr.trim()}`
+      : 'llama-server 启动超时（15s 内未就绪）';
     logger.warning(this.lastError);
   }
 
@@ -681,7 +781,7 @@ export class LlamaCppServerManager {
   ): Promise<void> {
     if (this.stopping || !this.shouldRun) return;
     this.status = 'error';
-    this.lastError = `llama-server 退出 code=${code} signal=${signal}`;
+    this.lastError = `llama-server 退出 code=${code} signal=${signal}${this.lastStderr ? `: ${this.lastStderr.trim()}` : ''}`;
     logger.warning(this.lastError, { code, signal });
 
     this.restartCount += 1;
@@ -702,12 +802,15 @@ export class LlamaCppServerManager {
 }
 
 /**
- * 各版本期望 SHA256（已登记启用强校验）
- * key: LLAMA_VERSION；value: 期望 sha256（小写 hex）
+ * 各版本/变体期望 SHA256（已登记启用强校验；未登记时仅 warning 并记录实际值）
+ * key: LLAMA_VERSION → variant；value: 期望 sha256（小写 hex）
  */
-export const EXPECTED_SHA256: Record<string, string> = {
+export const EXPECTED_SHA256: Record<string, Record<string, string>> = {
   // llama-b10225-bin-win-cpu-x64.zip（2026-08-02 Release）
-  b10225: '79ae579ed5083435baa0abaee4b3e18d0c5b2eafdb05c8c77afddf3c7977e553',
+  b10225: {
+    'win-cpu-x64': '79ae579ed5083435baa0abaee4b3e18d0c5b2eafdb05c8c77afddf3c7977e553',
+    // linux-x64 / linux-arm64 / macos-arm64 / macos-x64 待按官方校验值登记
+  },
 };
 
 /** 全局单例 */

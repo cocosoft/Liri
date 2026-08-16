@@ -79,9 +79,17 @@ function makeZip(): Buffer {
   return zip.toBuffer();
 }
 
-/** 构造 health 探测的 Response 形状 */
-function healthRes(ok: boolean): { ok: boolean; status: number } {
-  return { ok, status: ok ? 200 : 503 };
+/** 构造 health 探测的 Response 形状（llama.cpp /health 返回 {"status":"ok"}） */
+function healthRes(ok: boolean): {
+  ok: boolean;
+  status: number;
+  json: () => Promise<unknown>;
+} {
+  return {
+    ok,
+    status: ok ? 200 : 503,
+    json: async () => (ok ? { status: 'ok' } : { status: 'error' }),
+  };
 }
 
 // ── 路径隔离 ────────────────────────────────────────────────
@@ -119,9 +127,11 @@ function disableSha256(): () => void {
 
 describe('verifySha256', () => {
   it('当前锁定版本已登记期望值（强校验启用）', () => {
-    const expected = EXPECTED_SHA256[LLAMA_VERSION];
-    expect(expected).toBeDefined();
-    expect(expected).toMatch(/^[0-9a-f]{64}$/);
+    const byVariant = EXPECTED_SHA256[LLAMA_VERSION];
+    expect(byVariant).toBeDefined();
+    // SHA256 按平台变体登记；win-cpu-x64 为已登记基准
+    expect(byVariant).toHaveProperty('win-cpu-x64');
+    expect(byVariant['win-cpu-x64']).toMatch(/^[0-9a-f]{64}$/);
   });
 
   it('未登记期望值时跳过强校验并返回实际值', () => {

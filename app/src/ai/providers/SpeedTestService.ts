@@ -105,11 +105,15 @@ export async function testEndpoints(
       });
       const latency = Math.round(performance.now() - start);
 
+      // 非 2xx 视为端点不可用（如 llamacpp 的 /v1 路径 GET 返回 404），
+      // 避免前端误报「连接成功」
+      const ok = resp.status >= 200 && resp.status < 300;
+
       return {
         url: trimmed,
         latency,
         status: resp.status,
-        error: undefined,
+        error: ok ? undefined : `HTTP ${resp.status}`,
       };
     } catch (err) {
       clearTimeout(timeoutId);

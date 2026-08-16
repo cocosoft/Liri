@@ -126,6 +126,18 @@ export async function handleLlamaRestart(
     const { llamaCppServerManager } =
       await import('@modules/ai/local/llama/LlamaCppServerManager.js');
     await llamaCppServerManager.restart();
+    const status = await llamaCppServerManager.getStatus();
+    if (status.status === 'error' || !status.running) {
+      // 重启后未就绪（如未配置 GGUF 模型）：返回错误而非静默 success:true
+      res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(
+        JSON.stringify({
+          success: false,
+          error: status.lastError || 'llama-server 重启后未就绪',
+        })
+      );
+      return;
+    }
     const { ensureLlamaCppProviderRegistered } =
       await import('@modules/ai/local/llama/registerLlamaCppProvider.js');
     const providerRegistered = await ensureLlamaCppProviderRegistered();

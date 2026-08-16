@@ -60,6 +60,8 @@ export class SessionMaintenance {
       // @ignore-catch — 定时清理回调fire-and-forget，失败由内部handleError处理
       this.cleanup().catch(() => {});
     }, this.config.cleanInterval);
+    // P1-14 修复：unref 避免进程被维护定时器钉住
+    this.timer.unref();
   }
 
   /**

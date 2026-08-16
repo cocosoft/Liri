@@ -201,6 +201,9 @@ export class SessionCompactionBridge {
           );
           if (result.success) {
             anySuccess = true;
+            // B14 修复：首个引擎成功后停止——多引擎串行跑会各自修改
+            // session.messages 叠加（二次压缩），成功即视为完成。
+            break;
           }
         } catch (e) {
           logger.warn('Engine compaction error', {

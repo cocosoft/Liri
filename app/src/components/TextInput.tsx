@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { Text, Box } from 'ink';
+import { Text, Box } from '@modules/ink';
 import { useInput } from '../ink/ink/index.js';
 
 /**

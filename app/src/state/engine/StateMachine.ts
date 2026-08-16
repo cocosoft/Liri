@@ -211,12 +211,12 @@ export class StateMachine<S extends string> {
     };
     this.history.push(record);
 
-    // 限制历史记录容量
+    // 限制历史记录容量（P2-32 修复：splice 批量移除替代 slice 全量复制）
     if (
       this.maxHistorySize !== undefined &&
       this.history.length > this.maxHistorySize
     ) {
-      this.history = this.history.slice(-this.maxHistorySize);
+      this.history.splice(0, this.history.length - this.maxHistorySize);
     }
 
     // §十 阶段 B 日志分级：进入关键状态（ERROR/PAUSED）至少 warn，常规转移 debug

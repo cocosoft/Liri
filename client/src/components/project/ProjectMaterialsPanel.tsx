@@ -32,6 +32,7 @@ import {
   type ProjectSummary,
   type ProjectFilesResult,
 } from "../../services/projectArtifactService";
+import { toastError } from "../../stores/toastStore";
 
 interface Props {
   projectId: string;
@@ -90,7 +91,7 @@ export const ProjectMaterialsPanel: React.FC<Props> = ({
         const { failed } = await uploadProjectFiles(projectId, files);
         await loadFiles(); // 上传后刷新文件列表
         if (failed.length > 0) {
-          window.alert(`以下文件上传失败：\n${failed.join("\n")}`);
+          toastError(new Error(`以下文件上传失败：\n${failed.join("\n")}`));
         }
       } finally {
         setUploading(false);
@@ -111,7 +112,7 @@ export const ProjectMaterialsPanel: React.FC<Props> = ({
         await deleteProjectFile(projectId, filename);
         await loadFiles();
       } catch (err) {
-        window.alert(`删除文件失败：${String(err)}`);
+        toastError(new Error(`删除文件失败：${String(err)}`));
       } finally {
         setDeleting(null);
       }

@@ -14,7 +14,7 @@ import { useTranslation } from "react-i18next";
 import { useOfficeStore, type ChatMessage } from "../../../stores/officeStore";
 
 /** localStorage 存储键 */
-const CHAT_STORAGE_KEY = "office-chat-messages";
+const CHAT_STORAGE_KEY = "liri-office-chat-messages";
 /** 聊天消息上限 */
 const MAX_MESSAGES = 50;
 

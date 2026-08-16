@@ -94,7 +94,7 @@ export type {
 
 // 导出类型
 export type { Message, ContentBlock } from './types/message';
-export type { SessionState } from './types/session';
+export type { DataSessionStatus } from './types/session';
 export type { ToolCall, ToolResult } from './types/tool';
 export type { ToolUseBlock } from './types/ToolUseBlock';
 

@@ -13,6 +13,7 @@ import FetchedModelList from "../modelAdmin/FetchedModelList";
 import { PROVIDER_TYPE_LABELS } from "../../config/providerPresets";
 import { usageService } from "../../services/usageService";
 import { modelSwitchService } from "../../services/modelSwitchService";
+import { toastError, toastInfo } from "../../stores/toastStore";
 import type {
   ProviderInfo,
   ProviderFormData,
@@ -250,8 +251,10 @@ function ProviderPage() {
         setShowAddModel(false);
         loadModels();
       } catch (e) {
-        alert(
-          `${t("settings.modelCreateFailed")}: ${e instanceof Error ? e.message : t("settings.modelUnknownError")}`,
+        toastError(
+          new Error(
+            `${t("settings.modelCreateFailed")}: ${e instanceof Error ? e.message : t("settings.modelUnknownError")}`,
+          ),
         );
       }
     },
@@ -267,10 +270,12 @@ function ProviderPage() {
           await import("../../services/providerService");
         await providerService.bulkImportModels(fetchingProviderId, modelIds);
         await loadModels();
-        alert(`成功导入 ${modelIds.length} 个模型到模型列表`);
+        toastInfo(`成功导入 ${modelIds.length} 个模型到模型列表`);
       } catch (e) {
-        alert(
-          `${t("settings.modelImportFailed")}: ${e instanceof Error ? e.message : t("settings.modelUnknownError")}`,
+        toastError(
+          new Error(
+            `${t("settings.modelImportFailed")}: ${e instanceof Error ? e.message : t("settings.modelUnknownError")}`,
+          ),
         );
       } finally {
         setImporting(false);
@@ -290,12 +295,12 @@ function ProviderPage() {
           (d) =>
             `${d.planName || ""}: ${d.remaining?.toFixed(2) ?? "--"} ${d.unit || ""}${d.total ? ` / ${d.total.toFixed(2)}` : ""}`,
         );
-        alert(`余额 — ${result.provider}\n${lines.join("\n")}`);
+        toastInfo(`余额 — ${result.provider}\n${lines.join("\n")}`);
       } else {
-        alert(`余额查询失败: ${result.error}`);
+        toastError(new Error(`余额查询失败: ${result.error}`));
       }
     } catch {
-      alert(t("settings.modelBalanceFailed"));
+      toastError(new Error(t("settings.modelBalanceFailed")));
     } finally {
       setCheckingBalanceId(null);
     }
@@ -309,12 +314,14 @@ function ProviderPage() {
     if (modelId === null) return;
     try {
       await modelSwitchService.setDefaultModel(provider.id, modelId);
-      alert(
+      toastInfo(
         `已${modelId ? `将 "${provider.name}" 默认模型设为 ${modelId}` : `清除 "${provider.name}" 的默认模型`}`,
       );
     } catch (e) {
-      alert(
-        `${t("settings.modelSetDefaultFailed")}: ${e instanceof Error ? e.message : t("settings.modelUnknownError")}`,
+      toastError(
+        new Error(
+          `${t("settings.modelSetDefaultFailed")}: ${e instanceof Error ? e.message : t("settings.modelUnknownError")}`,
+        ),
       );
     }
   }, []);
@@ -479,11 +486,11 @@ function ProviderPage() {
                         <button
                           onClick={async () => {
                             const result = await store.testConnection(p.id);
-                            alert(
-                              result.success
-                                ? `连接成功 (${result.latencyMs}ms)`
-                                : `失败: ${result.error}`,
-                            );
+                            if (result.success) {
+                              toastInfo(`连接成功 (${result.latencyMs}ms)`);
+                            } else {
+                              toastError(new Error(`失败: ${result.error}`));
+                            }
                           }}
                           disabled={p.requiresAuth && !p.apiKey}
                           title={

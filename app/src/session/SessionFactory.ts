@@ -2,6 +2,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { Session } from './models/Session';
 import { SessionMetadata } from './models/SessionMetadata';
 import { SessionState } from './models/SessionState';
+import type { SessionMessage } from './models/SessionMessage';
 import type {
   SessionStorage,
   MessageLoadOptions,
@@ -12,7 +13,7 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import type { SessionSource } from './key/SessionSource';
 
 import { getLogger } from '@modules/monitoring';
-const logger = getLogger('session\SessionFactory');
+const logger = getLogger('session:factory');
 
 /**
  * 会话工厂
@@ -45,12 +46,14 @@ export class SessionFactory {
     source?: SessionSource;
   }): Promise<Session> {
     const id = uuidv4();
+    const title =
+      options?.title?.trim() || `Session ${new Date().toISOString()}`;
     const metadata = new SessionMetadata(
-      options?.title || `Session ${new Date().toISOString()}`,
+      title,
       options?.tags || [],
       options?.mode || 'default'
     );
-    const state = new SessionState(options?.initialState || 'active');
+    const state = new SessionState(options?.initialState || 'idle');
     const session = new Session(
       id,
       metadata,
@@ -114,7 +117,7 @@ export class SessionFactory {
    * @param sessionId 会话ID
    * @param message 消息实例
    */
-  async addMessage(sessionId: string, message: any): Promise<void> {
+  async addMessage(sessionId: string, message: SessionMessage): Promise<void> {
     const session = await this.loadSession(sessionId);
     if (!session) {
       throw new AppError(
@@ -138,7 +141,7 @@ export class SessionFactory {
   async loadMessages(
     sessionId: string,
     options?: MessageLoadOptions
-  ): Promise<any[]> {
+  ): Promise<SessionMessage[]> {
     return this.storage.loadMessages(sessionId, options);
   }
 
@@ -162,8 +165,18 @@ export class SessionFactory {
     }
 
     session.updateMetadata(metadata);
+    // P2-33 修复：session.json（saveSession）是权威主文件，已内嵌最新元数据。
+    // 随后的 saveMetadata 是派生缓存文件（metadata.json），写失败不影响主数据正确性
+    // （下次保存自愈），故仅告警不抛出，避免"两次写非原子"把操作标记为失败。
     await this.saveSession(session);
-    await this.storage.saveMetadata(sessionId, session.metadata);
+    try {
+      await this.storage.saveMetadata(sessionId, session.metadata);
+    } catch (err) {
+      logger.warn('元数据缓存写失败（session.json 已是最新）', {
+        sessionId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
   }
 
   /**

@@ -106,15 +106,31 @@ export class AnthropicProvider extends BaseAIProvider {
     messages: ChatMessage[],
     options?: ChatOptions
   ): Promise<ChatResponse> {
-    const model =
-      options?.model || this.config.model || (await this.resolveModel('chat'));
+    // 耗时统计：委托 BaseAIProvider.measureChat（2026-08-16）
+    return BaseAIProvider.measureChat('Anthropic', async () => {
+      const model =
+        options?.model ||
+        this.config.model ||
+        (await this.resolveModel('chat'));
 
-    return this.withRetry(async () => {
-      return this.sendRequest(model, messages, options);
+      return this.withRetry(async () => {
+        return this.sendRequest(model, messages, options);
+      });
     });
   }
 
   async *chatStream(
+    messages: ChatMessage[],
+    options?: ChatOptions
+  ): AsyncGenerator<string | ThinkingProviderChunk, ChatResponse, unknown> {
+    // 流式耗时统计：委托 BaseAIProvider.wrapChatStreamMeasure（2026-08-16）
+    return yield* BaseAIProvider.wrapChatStreamMeasure(
+      'Anthropic',
+      this.chatStreamInternal(messages, options)
+    );
+  }
+
+  private async *chatStreamInternal(
     messages: ChatMessage[],
     options?: ChatOptions
   ): AsyncGenerator<string | ThinkingProviderChunk, ChatResponse, unknown> {

@@ -1,5 +1,5 @@
 import type { Message } from '../types/message';
-import type { SessionMetadata, SessionState } from '../types/session';
+import type { SessionMetadata, DataSessionStatus } from '../types/session';
 import type {
   SessionCheckpoint,
   CheckpointService,
@@ -50,7 +50,7 @@ export class SessionCheckpointService implements CheckpointService {
       messages: [],
       // P1 修复：透传调用方提供的 metadata（如 abortRecovery 标记），此前固定空对象导致标记丢失
       metadata: params.metadata ?? ({} as SessionMetadata),
-      state: 'active' as SessionState,
+      state: 'active' as DataSessionStatus,
       tokenCount: params.tokenCount,
       autoCreated: params.autoCreated ?? false,
     };
@@ -73,7 +73,7 @@ export class SessionCheckpointService implements CheckpointService {
     sessionId: string,
     messages: Message[],
     metadata: SessionMetadata,
-    state: SessionState,
+    state: DataSessionStatus,
     label?: string,
     description?: string,
     autoCreated?: boolean,
@@ -120,12 +120,12 @@ export class SessionCheckpointService implements CheckpointService {
     currentSession: {
       messages: Message[];
       metadata: SessionMetadata;
-      state: SessionState;
+      state: DataSessionStatus;
     }
   ): Promise<{
     messages: Message[];
     metadata: SessionMetadata;
-    state: SessionState;
+    state: DataSessionStatus;
     diff: CheckpointDiff;
   }> {
     const checkpoint = await this.storage.loadCheckpoint(checkpointId);
@@ -182,7 +182,7 @@ export class SessionCheckpointService implements CheckpointService {
     sessionId: string,
     messages: Message[],
     metadata: SessionMetadata,
-    state: SessionState
+    state: DataSessionStatus
   ): Promise<SessionCheckpoint> {
     const latestCheckpoint = await this.storage.getLatestCheckpoint(sessionId);
 
@@ -208,7 +208,7 @@ export class SessionCheckpointService implements CheckpointService {
     current: {
       messages: Message[];
       metadata: SessionMetadata;
-      state: SessionState;
+      state: DataSessionStatus;
     },
     checkpoint: SessionCheckpoint
   ): CheckpointDiff {

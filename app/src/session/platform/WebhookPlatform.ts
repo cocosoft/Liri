@@ -65,6 +65,8 @@ export class WebhookPlatform implements PlatformAdapter {
     this.flushTimer = setInterval(() => {
       this.flushPendingQueue();
     }, flushInterval);
+    // P1-14 修复：unref 避免进程被 flush 定时器钉住
+    this.flushTimer.unref();
 
     logger.info('Webhook 平台已连接', {
       name: this.platformName,

@@ -21,6 +21,9 @@ export class SessionStateMachine extends StateMachine<SessionState> {
       initialState: SessionState.IDLE,
       rules: SESSION_TRANSITIONS,
       contextId: sessionId,
+      // P2-32 修复：进入关键状态（ERROR/PAUSED）至少 warn 的分级告警此前从未生效
+      // （criticalStates 未配置 → 空 Set，ERROR 转移只打 debug）
+      criticalStates: [SessionState.ERROR, SessionState.PAUSED],
     });
   }
 

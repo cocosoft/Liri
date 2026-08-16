@@ -112,7 +112,7 @@ function computeStats(installed: InstalledSkill[]): SkillMarketStats {
 
 // ─── 版本比对缓存（P3-3：真实版本比对替代 7 天时间戳推断） ──
 
-const VERSION_CHECK_KEY = "pyapp_skill_version_check";
+const VERSION_CHECK_KEY = "liri-skill-version-check";
 /** 版本检查缓存时长：24h */
 const VERSION_CHECK_MS = 24 * 60 * 60 * 1000;
 

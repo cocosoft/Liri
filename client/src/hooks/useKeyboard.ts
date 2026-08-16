@@ -48,7 +48,9 @@ export function useKeyboard() {
 
       if (isCtrl && e.shiftKey && key === shortcutMap["new-session"].key) {
         e.preventDefault();
-        createSession(`新会话 ${sessions.length + 1}`);
+        // W1 修复：createChatSession 失败已在其内部 toast + 记录，
+        // 这里无需重复处理，仅防止未 await 产生 unhandledRejection
+        createSession(`新会话 ${sessions.length + 1}`).catch(() => {});
         setActivePage("chat");
         return;
       }

@@ -102,11 +102,15 @@ export class PrioritySessionLock {
     this.watchdogTimer = setInterval(() => {
       this.runWatchdog();
     }, this.watchdogIntervalMs);
+    // P1-14 修复：unref 避免进程被 watchdog 定时器钉住
+    this.watchdogTimer.unref();
 
     if (this.enablePriorityAging) {
       this.agingTimer = setInterval(() => {
         this.runPriorityAging();
       }, this.priorityAgingIntervalMs);
+      // P1-14 修复：unref 避免进程被 aging 定时器钉住
+      this.agingTimer.unref();
     }
 
     logger.info('PrioritySessionLock started', {

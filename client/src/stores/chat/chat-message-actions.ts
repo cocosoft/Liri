@@ -198,7 +198,15 @@ export async function retryFromErrorImpl(
   }
 
   const aiIdx = messages.findIndex((m) => m.id === assistantMsgId);
-  if (aiIdx === -1) return;
+  if (aiIdx === -1) {
+    // 边界：assistant 消息不在当前消息列表（会话切换/消息被清除/列表未含该消息）
+    logger.warn("retryFromError: 目标 assistant 消息不存在，跳过重试", {
+      assistantMsgId,
+      sessionId: sessionId ?? null,
+      messageCount: messages.length,
+    });
+    return;
+  }
 
   // 向前找到最近的一条 user 消息
   let userMsgIdx = -1;
@@ -208,14 +216,26 @@ export async function retryFromErrorImpl(
       break;
     }
   }
-  if (userMsgIdx === -1) return;
+  if (userMsgIdx === -1) {
+    // 边界：assistant 消息之前没有 user 消息（异常消息序列/首条即 assistant）
+    logger.warn("retryFromError: 未找到前置 user 消息，跳过重试", {
+      assistantMsgId,
+      sessionId: sessionId ?? null,
+      aiIdx,
+    });
+    return;
+  }
 
   const userMsg = messages[userMsgIdx];
   const content = typeof userMsg.content === "string" ? userMsg.content : "";
 
   // 边界条件2：空消息不重试
   if (!content.trim()) {
-    logger.warn("retryFromError: 用户消息为空，跳过重试");
+    logger.warn("retryFromError: 用户消息为空，跳过重试", {
+      assistantMsgId,
+      userMsgId: userMsg.id,
+      userMsgIdx,
+    });
     return;
   }
 
@@ -223,6 +243,7 @@ export async function retryFromErrorImpl(
   const sid = sessionId || messages[0]?.session_id || "default";
   const prevController = get().streamControllers[sid];
   if (prevController) {
+    logger.debug("retryFromError: 中止本会话旧流", { sid, assistantMsgId });
     prevController.abort();
   }
 
@@ -256,6 +277,13 @@ export async function retryFromErrorImpl(
       undefined,
       userMsg.id, // AB-4 修复：复用原用户消息 id，避免重复显示/双写
     );
+    logger.info("retryFromError: 重发成功", {
+      assistantMsgId,
+      sessionId: sessionId || userMsg.session_id,
+      userMsgId: userMsg.id,
+      truncatedTo: userMsgIdx + 1,
+      workMode,
+    });
   } catch (error) {
     handleClientError(
       error,

@@ -418,10 +418,7 @@ export async function streamMessageImpl(
     if (!controller.signal.aborted) {
       const preFreezeBlocks = blockBuilder.getBlocks();
       const hasVisibleResult = preFreezeBlocks.some(
-        (b) =>
-          b.type === "text" ||
-          b.type === "question" ||
-          b.type === "todo",
+        (b) => b.type === "text" || b.type === "question" || b.type === "todo",
       );
       if (!hasVisibleResult) {
         noVisibleResultTriggered = true;
@@ -661,9 +658,7 @@ export async function streamMessageImpl(
         const blocksNow = curMsg.blocks ?? [];
         const hasVisible = blocksNow.some(
           (b) =>
-            b.type === "text" ||
-            b.type === "question" ||
-            b.type === "todo",
+            b.type === "text" || b.type === "question" || b.type === "todo",
         );
         if (!hasVisible) {
           const nowStamp = Date.now();

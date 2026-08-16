@@ -7,6 +7,7 @@ import {
 } from "react";
 import { readFileAsBase64 } from "../../utils/format";
 import { handleClientError } from "../../utils/handleError";
+import { toastWarning } from "../../stores/toastStore";
 
 interface FileAttachment {
   name: string;
@@ -77,7 +78,7 @@ const FileAttachmentBar = forwardRef<
       const newAttachments: FileAttachment[] = [];
       for (const file of Array.from(files)) {
         if (file.size > MAX_FILE_SIZE) {
-          alert(`文件 "${file.name}" 超过 20MB 限制，已跳过`);
+          toastWarning(`文件 "${file.name}" 超过 20MB 限制，已跳过`);
           continue;
         }
         try {
@@ -88,7 +89,7 @@ const FileAttachmentBar = forwardRef<
             module: "components:chat:FileAttachmentBar",
             action: "handleFileSelect",
           });
-          alert(`读取文件 "${file.name}" 失败`);
+          toastWarning(`读取文件 "${file.name}" 失败`);
         }
       }
       onAttachmentsChange([...attachments, ...newAttachments]);
@@ -122,7 +123,7 @@ const FileAttachmentBar = forwardRef<
         const newAttachments: FileAttachment[] = [];
         for (const file of files) {
           if (file.size > MAX_FILE_SIZE) {
-            alert(`文件 "${file.name}" 超过 20MB 限制，已跳过`);
+            toastWarning(`文件 "${file.name}" 超过 20MB 限制，已跳过`);
             continue;
           }
           try {
@@ -133,7 +134,7 @@ const FileAttachmentBar = forwardRef<
               module: "components:chat:FileAttachmentBar",
               action: "handleFileDrop",
             });
-            alert(`读取文件 "${file.name}" 失败`);
+            toastWarning(`读取文件 "${file.name}" 失败`);
           }
         }
         onAttachmentsChange([...attachments, ...newAttachments]);

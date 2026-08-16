@@ -472,9 +472,25 @@ export abstract class BaseAIProvider implements AIProvider {
     // 注入系统 CA 证书 dispatcher（解决 Windows SSL 证书验证问题）
     const caInit = BaseAIProvider.injectCADispatcher(init);
 
+    // TTFB 耗时统计（2026-08-16）：请求发出到响应头返回（含连接重试）的耗时。
+    // 所有 Provider 的 chat/chatStream 均经此入口，一处覆盖全量网络请求，
+    // 排查 Provider 慢/断连时可直接看耗时与重试次数。
+    const requestStart = Date.now();
+    const urlSummary = BaseAIProvider.summarizeUrl(url);
+    let attempts = 0;
+
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      attempts = attempt + 1;
       try {
-        return await fetch(url, caInit);
+        const response = await fetch(url, caInit);
+        logger.info('provider 请求完成（TTFB）', {
+          url: urlSummary,
+          elapsedMs: Date.now() - requestStart,
+          attempts,
+          status: response.status,
+          ok: response.ok,
+        });
+        return response;
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
 
@@ -494,12 +510,104 @@ export abstract class BaseAIProvider implements AIProvider {
           continue;
         }
 
-        // 非 TypeError 错误直接抛出（超时、取消等）
+        // 非 TypeError 错误直接抛出（超时、取消等），记录失败耗时便于排查
+        logger.warn('provider 请求失败', {
+          url: urlSummary,
+          elapsedMs: Date.now() - requestStart,
+          attempts,
+          errorType: lastError.constructor.name,
+          error: lastError.message,
+        });
         throw error;
       }
     }
 
+    // 网络连接错误（TypeError）重试耗尽
+    logger.warn('provider 请求失败（连接重试耗尽）', {
+      url: urlSummary,
+      elapsedMs: Date.now() - requestStart,
+      attempts,
+      error: lastError?.message ?? String(lastError),
+    });
     throw lastError;
+  }
+
+  /**
+   * URL 日志摘要：仅保留 host + pathname（剥离 query/敏感参数并防超长），
+   * 供耗时统计日志使用，避免把完整 URL（可能含 token/密钥）写进日志。
+   */
+  private static summarizeUrl(url: string): string {
+    try {
+      const u = new URL(url);
+      return `${u.host}${u.pathname}`;
+    } catch {
+      return url.length > 100 ? `${url.slice(0, 100)}…` : url;
+    }
+  }
+
+  // ============================================================
+  // 流式耗时统计
+  // ============================================================
+
+  /**
+   * 流式请求耗时统计包装器（2026-08-16）：包装 Provider 的 chatStream 生成器，
+   * 统一统计流式总耗时与 chunk 数。正常完成打 info，异常/中断打 warn。
+   * 各 Provider 的 chatStream 入口用 `yield*` 委托本包装器即可接入，
+   * return 值（如 usage）通过 yield* 透传，行为不变。
+   */
+  protected static async *wrapChatStreamMeasure<T>(
+    label: string,
+    stream: AsyncGenerator<T>
+  ): AsyncGenerator<T> {
+    const start = Date.now();
+    let chunkCount = 0;
+    try {
+      for await (const chunk of stream) {
+        chunkCount++;
+        yield chunk;
+      }
+      logger.info('provider 流式完成', {
+        provider: label,
+        elapsedMs: Date.now() - start,
+        chunkCount,
+      });
+    } catch (error) {
+      logger.warn('provider 流式失败', {
+        provider: label,
+        elapsedMs: Date.now() - start,
+        chunkCount,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * 非流式聊天请求耗时统计（2026-08-16）：包装 Provider 的 chat 方法，
+   * 统计从入口到响应完成的耗时。正常完成打 info，失败打 warn。
+   * 各 Provider 的 chat 入口用 `measureChat(label, () => this.xxx(...))`
+   * 接入即可，返回值透传，行为不变。
+   */
+  protected static async measureChat<T>(
+    label: string,
+    fn: () => Promise<T>
+  ): Promise<T> {
+    const start = Date.now();
+    try {
+      const result = await fn();
+      logger.info('provider 聊天完成', {
+        provider: label,
+        elapsedMs: Date.now() - start,
+      });
+      return result;
+    } catch (error) {
+      logger.warn('provider 聊天失败', {
+        provider: label,
+        elapsedMs: Date.now() - start,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    }
   }
 
   // ============================================================

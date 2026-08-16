@@ -111,11 +111,59 @@ function ChatArea({ fluid = false }: { fluid?: boolean }) {
   });
 
   const handleDismissError = () => {
-    useChatStore.setState({ error: null });
+    // 补清 errorCode：仅清 error 会残留错误码，导致 displayError 后续误判后端状态
+    useChatStore.setState({ error: null, errorCode: null });
+  };
+
+  /**
+   * 错误面板重试（2026-08-16 修复）：原实现仅 checkStatus()（探测后端状态），
+   * 既不重新发送失败的消息、也不清除 chat store 的 error/errorCode——
+   * 后端恢复后面板仍显示错误文本，点击"重试"看似无效。
+   * 现改为：探测后端 → 清除聊天错误 → 后端可达时用 retryFromError 重发
+   * 最后一条失败的 assistant 消息（内部找前置 user 消息重新发送并截断失败残留）。
+   */
+  const handleRetryError = async () => {
+    await useBackendStore.getState().checkStatus();
+    const running = useBackendStore.getState().status.running;
+    // 先清掉当前错误显示（无论后端是否恢复）
+    useChatStore.setState({ error: null, errorCode: null });
+    if (!running) {
+      logger.warn("handleRetryError: 后端仍不可达，仅清除错误提示，未重发消息");
+      return;
+    }
+    const { messages } = useChatStore.getState();
+    const lastAssistant = [...messages]
+      .reverse()
+      .find((m) => m.role === "assistant");
+    if (!lastAssistant) {
+      // 边界：无 assistant 消息（纯后端不可达提示/消息已被清空），无失败消息可重发
+      logger.debug("handleRetryError: 无 assistant 消息可重发，仅清除错误", {
+        messageCount: messages.length,
+      });
+      return;
+    }
+    logger.info("handleRetryError: 后端已恢复，准备重发失败消息", {
+      assistantMsgId: lastAssistant.id,
+      sessionId: lastAssistant.session_id,
+      messageCount: messages.length,
+    });
+    try {
+      await useChatStore
+        .getState()
+        .retryFromError(lastAssistant.id, lastAssistant.session_id);
+      logger.info("handleRetryError: 重发失败消息已触发", {
+        assistantMsgId: lastAssistant.id,
+      });
+    } catch (e) {
+      logger.warn("handleRetryError: 重发失败消息异常", {
+        error: e instanceof Error ? e.message : String(e),
+      });
+    }
   };
 
   const handleCreateSession = () => {
-    createSession(t("chat.newSession"));
+    // W1 修复：失败已在 createChatSession 内 toast + 记录，这里仅防 unhandledRejection
+    createSession(t("chat.newSession")).catch(() => {});
   };
 
   /** 点击入门提示卡片时发送预设消息 */
@@ -326,6 +374,8 @@ function ChatArea({ fluid = false }: { fluid?: boolean }) {
               sessionTitle={currentSession?.title}
               // P0-2：渲染层一致性校验用（消息区与侧栏高亮对齐）
               currentSessionId={currentSession?.id}
+              // W3：虚拟滚动需要滚动容器引用（滚动容器在 ChatArea，overflow-y-auto）
+              scrollRef={containerRef}
               onCreateSession={handleCreateSession}
               onSendMessage={handleSendMessage}
             />
@@ -381,7 +431,7 @@ function ChatArea({ fluid = false }: { fluid?: boolean }) {
                 </span>
                 <div className="flex items-center gap-2 mt-2">
                   <button
-                    onClick={() => useBackendStore.getState().checkStatus()}
+                    onClick={() => void handleRetryError()}
                     className="text-xs px-2 py-1 rounded bg-red-100 dark:bg-red-800/50 text-red-600 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-700/50 transition-colors"
                   >
                     🔄 {t("common.retry")}

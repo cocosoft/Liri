@@ -29,6 +29,7 @@ import MentionMenu, { type MentionItem } from "./MentionMenu";
 import { useChatDraft } from "./useChatDraft";
 import { readFileAsBase64 } from "../../utils/format";
 import { handleClientError } from "../../utils/handleError";
+import { toastError, toastWarning } from "../../stores/toastStore";
 import type { Message, AttachedImage } from "../../types";
 
 const EmojiPicker = React.lazy(() => import("./EmojiPicker"));
@@ -281,7 +282,9 @@ function ChatInput({ fluid = false }: { fluid?: boolean }) {
 
       const oversized = imageFiles.find((f) => f.size > MAX_IMAGE_SIZE);
       if (oversized) {
-        alert(t("chat.imageTooLarge", { name: oversized.name, max: "10MB" }));
+        toastWarning(
+          t("chat.imageTooLarge", { name: oversized.name, max: "10MB" }),
+        );
         return;
       }
 
@@ -327,7 +330,9 @@ function ChatInput({ fluid = false }: { fluid?: boolean }) {
 
       for (const file of files) {
         if (file.size > MAX_FILE_SIZE) {
-          alert(t("chat.fileTooLarge", { name: file.name, max: "20MB" }));
+          toastWarning(
+            t("chat.fileTooLarge", { name: file.name, max: "20MB" }),
+          );
           continue;
         }
         try {
@@ -338,7 +343,7 @@ function ChatInput({ fluid = false }: { fluid?: boolean }) {
             module: "components:chat:ChatInput",
             action: "handleFileAttachments",
           });
-          alert(t("chat.fileReadFailed", { name: file.name }));
+          toastWarning(t("chat.fileReadFailed", { name: file.name }));
         }
       }
 
@@ -531,7 +536,7 @@ function ChatInput({ fluid = false }: { fluid?: boolean }) {
     // 编辑重发：内容未变守卫
     if (editTarget && typeof editTarget.content === "string") {
       if (trimmed === editTarget.content.trim()) {
-        alert(t("chat.contentUnchanged"));
+        toastWarning(t("chat.contentUnchanged"));
         return;
       }
     }
@@ -660,7 +665,7 @@ function ChatInput({ fluid = false }: { fluid?: boolean }) {
         action: "handleSubmit",
       });
       const errorMsg = err instanceof Error ? err.message : String(err);
-      alert(t("chat.fileUploadFailed", { errorMsg }));
+      toastError(new Error(t("chat.fileUploadFailed", { errorMsg })));
       useChatStore.setState({ isUploading: false });
     }
   };

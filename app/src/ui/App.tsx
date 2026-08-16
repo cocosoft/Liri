@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { Text } from 'ink';
+import { Text } from '@modules/ink';
 
 export function App() {
   return <Text color="green">Liri UI</Text>;

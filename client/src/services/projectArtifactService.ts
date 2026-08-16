@@ -300,7 +300,7 @@ export async function deleteProject(projectId: string): Promise<boolean> {
 
 // ─── P0b-4: 旧数据迁移 ───
 
-const MIGRATION_DONE_KEY = "liri_project_migration_v8_done";
+const MIGRATION_DONE_KEY = "liri-project-migration-v8-done";
 
 export interface MigrationResult {
   files: { copied: number; skipped: number };

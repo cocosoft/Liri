@@ -5,7 +5,7 @@
  */
 
 import React from 'react';
-import { Text as InkText } from 'ink';
+import { Text as InkText } from '@modules/ink';
 
 export interface TextProps {
   children?: React.ReactNode;

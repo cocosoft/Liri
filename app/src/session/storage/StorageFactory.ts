@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 存储工厂类
  * 用于创建统一存储实例
  */
@@ -6,7 +6,6 @@
 import type { UnifiedSessionStorage } from './UnifiedStorage.js';
 import { StorageConfig, StorageType } from './UnifiedStorage.js';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-import { configManager } from '@modules/config';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('session\storage\StorageFactory');
@@ -74,19 +73,6 @@ export class StorageFactory {
   }
 
   /**
-   * 创建数据库存储
-   * @param databasePath 数据库路径
-   * @returns 数据库存储实例
-   */
-  static createDatabaseStorage(databasePath: string): UnifiedSessionStorage {
-    return this.createStorage({
-      type: StorageType.DATABASE,
-      databasePath,
-      enableCompression: false,
-    });
-  }
-
-  /**
    * 创建文件系统存储
    * @param basePath 基础路径
    * @returns 文件系统存储实例
@@ -94,25 +80,6 @@ export class StorageFactory {
   static createFileSystemStorage(basePath: string): UnifiedSessionStorage {
     return this.createStorage({
       type: StorageType.FILESYSTEM,
-      basePath,
-      enableCompression: true,
-      maxFileSize: 50 * 1024 * 1024,
-    });
-  }
-
-  /**
-   * 创建混合存储
-   * @param databasePath 数据库路径
-   * @param basePath 基础路径
-   * @returns 混合存储实例
-   */
-  static createHybridStorage(
-    databasePath: string,
-    basePath: string
-  ): UnifiedSessionStorage {
-    return this.createStorage({
-      type: StorageType.HYBRID,
-      databasePath,
       basePath,
       enableCompression: true,
       maxFileSize: 50 * 1024 * 1024,
@@ -142,29 +109,6 @@ export class StorageFactory {
    */
   static getDefaultType(): StorageType {
     return StorageType.MEMORY;
-  }
-
-  /**
-   * 从环境变量创建存储
-   * @returns 存储实例
-   */
-  static createFromEnv(): UnifiedSessionStorage {
-    const sessionDbPath = configManager.env('SESSION_DB_PATH');
-    const sessionFsPath = configManager.env('SESSION_FS_PATH');
-
-    if (sessionDbPath && sessionFsPath) {
-      return this.createHybridStorage(sessionDbPath, sessionFsPath);
-    }
-
-    if (sessionDbPath) {
-      return this.createDatabaseStorage(sessionDbPath);
-    }
-
-    if (sessionFsPath) {
-      return this.createFileSystemStorage(sessionFsPath);
-    }
-
-    return this.createMemoryStorage();
   }
 }
 

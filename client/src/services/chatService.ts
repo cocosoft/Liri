@@ -1,10 +1,5 @@
 import type { Message, BackendStatus, ToolCall, AttachedImage } from "../types";
-import {
-  getBackendBaseUrl,
-  getBackendPort,
-  getApiSecret,
-  setApiSecret,
-} from "./backendUrl";
+import { getBackendBaseUrl, getBackendPort, getApiSecret } from "./backendUrl";
 import { useModelSwitchStore } from "../stores/modelSwitchStore";
 import { useConfigStore } from "../stores/configStore";
 import { createLogger } from "../utils/logger";
@@ -362,7 +357,7 @@ export function buildAuthHeaders(
     headers["X-API-Key"] = secret;
   }
   if (typeof localStorage !== "undefined") {
-    const authToken = localStorage.getItem("auth_token");
+    const authToken = localStorage.getItem("liri-auth-token");
     if (authToken) {
       headers["Authorization"] = `Bearer ${authToken}`;
     }
@@ -434,7 +429,7 @@ async function pollHealth(
 }
 
 // ── 写前持久化 outbox（根因 B：断网消息暂存与恢复补发）─────────────
-const CHAT_OUTBOX_KEY = "pyapp.chat.outbox.v1";
+const CHAT_OUTBOX_KEY = "liri-chat-outbox-v1";
 
 interface ChatOutboxEntry {
   id: string;
@@ -606,17 +601,8 @@ export const chatService = {
     const core = await getTauriCore();
     if (core) {
       const status = await core.invoke<BackendStatus>("start_backend");
-      // 获取共享密钥，后续所有 HTTP 请求将自动携带
-      try {
-        const secret = await core.invoke<string | null>("get_backend_secret");
-        if (secret) setApiSecret(secret);
-      } catch (e) {
-        handleClientError(e, {
-          module: "services:chat",
-          action: "startBackend-getSecret",
-        });
-        /* Tauri 旧版本不支持此命令时忽略 */
-      }
+      // W6 修复：不再获取共享密钥——HTTP 请求统一走 Rust http_proxy 代理，
+      // 密钥由 Rust 侧注入 X-API-Key，WebView JS 上下文不持有明文密钥。
       const healthy = await pollHealth();
       // 健康检查失败时，查询进程是否已崩溃（获取退出码和 stderr）
       if (!healthy) {
@@ -1057,17 +1043,22 @@ export const chatService = {
           // 其 message 含 "aborted" 会误命中下方 isConnectionReset → 误报 CONNECTION_RESET
           // 错误并上报（用户停止/新消息接管旧流属正常取消，非网络故障）。
           // 归为主动取消（与 AbortError 同类），不上报 error、不触发重连。
-          (e instanceof Error && e.message.includes("BodyStreamBuffer was aborted"))
+          (e instanceof Error &&
+            e.message.includes("BodyStreamBuffer was aborted"))
         ) {
           // 取消路径诊断日志（2026-08-14 第五十次补充）：记录错误对象细节，便于确认
           // ① 误报是否已消除（此后不应再出现 services:chat 的 CONNECTION_RESET 上报）
           // ② 取消类型分布（用户停止 vs 新消息接管旧流 vs 其他 abort）
           logger.info("[streamMessage] 流式请求已中止（取消/新消息接管旧流）", {
             sessionId,
-            errorName: e instanceof DOMException ? e.name : e?.constructor?.name,
+            errorName:
+              e instanceof DOMException ? e.name : e?.constructor?.name,
             errorMessage: e instanceof Error ? e.message : String(e),
-            isStandardAbortError: e instanceof DOMException && e.name === "AbortError",
-            isBodyStreamAbort: e instanceof Error && e.message.includes("BodyStreamBuffer was aborted"),
+            isStandardAbortError:
+              e instanceof DOMException && e.name === "AbortError",
+            isBodyStreamAbort:
+              e instanceof Error &&
+              e.message.includes("BodyStreamBuffer was aborted"),
             abortedFlag: (e as { aborted?: boolean })?.aborted ?? false,
           });
           yield { type: "error", content: "请求已取消", errorCode: "UNKNOWN" };

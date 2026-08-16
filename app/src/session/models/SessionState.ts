@@ -38,6 +38,21 @@ export interface SessionState {
 }
 
 /**
+ * 合法会话状态集合（P1-27 修复）：对齐新状态机（state/session/types.ts）8 状态枚举。
+ * 旧实现默认 'active' 不在该枚举中，导致持久化的状态新状态机不认。
+ */
+export const SESSION_STATES: ReadonlySet<string> = new Set([
+  'idle',
+  'running',
+  'requires_action',
+  'paused',
+  'completed',
+  'error',
+  'archived',
+  'aborted',
+]);
+
+/**
  * 会话状态类
  */
 export class SessionState implements SessionState {
@@ -48,7 +63,7 @@ export class SessionState implements SessionState {
    * @param config 会话配置
    */
   constructor(
-    public currentState: string = 'active',
+    public currentState: string = 'idle',
     public history: StateHistory[] = [],
     public config: Record<string, unknown> = {}
   ) {
@@ -74,6 +89,15 @@ export class SessionState implements SessionState {
    * @param state 新的状态
    */
   updateState(state: string): void {
+    // P1-27 修复：状态词汇表校验——对齐新状态机（state/session/types.ts）8 状态枚举，
+    // 旧值 'active' 不在枚举中（此前任意字符串可写入，持久化后新状态机不认）。
+    if (!SESSION_STATES.has(state)) {
+      logger.warn('非法会话状态，忽略更新', {
+        from: this.currentState,
+        to: state,
+      });
+      return;
+    }
     if (state !== this.currentState) {
       const from = this.currentState;
       this.currentState = state;
@@ -130,7 +154,7 @@ export class SessionState implements SessionState {
    */
   static fromJSON(data: any): SessionState {
     return new SessionState(
-      data.currentState || 'active',
+      data.currentState || 'idle',
       (data.history || []).map((h: any) => ({
         state: h.state,
         timestamp: new Date(h.timestamp),

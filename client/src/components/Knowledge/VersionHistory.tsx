@@ -5,6 +5,7 @@
  */
 import { useState, useEffect } from "react";
 import { knowledgeService } from "../../services/knowledgeService";
+import { toastError } from "../../stores/toastStore";
 
 interface VersionHistoryProps {
   isDark: boolean;
@@ -77,7 +78,7 @@ function VersionHistory({
       setOpen(false);
       onRestored?.(content);
     } else {
-      alert("恢复失败");
+      toastError(new Error("恢复失败"));
     }
   }
 

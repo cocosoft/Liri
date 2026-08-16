@@ -3,22 +3,31 @@
 #  官网：https://openliri.com
 #  参考 Windows 版：exe 直接运行，等同 docker-compose up 后进入交互界面
 # =============================================================================
-#  快速开始：
+#  快速开始（本地开发，从源码构建）：
 #    首次构建： cd app && docker compose -f docker/docker-compose.yml build
 #    交互模式： docker compose -f docker/docker-compose.yml run --rm app
 #    后台服务： docker compose -f docker/docker-compose.yml up -d
 #    查看日志： docker compose -f docker/docker-compose.yml logs -f
 #    停止：     docker compose -f docker/docker-compose.yml down
 #
-#  简便方式（在 app/ 目录下）：
-#    也可 cd app/docker && docker compose up -d
+#  服务器部署（从 GHCR 拉取发布镜像，启用 Watchtower 自动升级）：
+#    1. docker compose -f docker/docker-compose.yml pull app
+#    2. docker compose -f docker/docker-compose.yml up -d
+#    3. Watchtower 每 5 分钟检查 ghcr.io/cocosoft/liri 新镜像，
+#       发现更新自动拉取并滚动重建 app 容器（--label-enable 只监控带标签的容器）
 # =============================================================================
 
 services:
   app:
+    # 发布镜像（GitHub Actions 推送到 GHCR，见 .github/workflows/deploy-docker.yml）。
+    # 服务器部署时 docker compose pull 拉取；本地开发用 build 从源码构建。
+    image: ghcr.io/cocosoft/liri
     build:
       context: ..
       dockerfile: docker/Dockerfile
+    # 允许 Watchtower 自动升级本容器（配合 watchtower 服务的 --label-enable）
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
     # ── 交互模式（等同 Windows 版双击 Liri_coding.exe） ──
     #   docker compose -f docker/docker-compose.yml run --rm app
     #   如需传启动模式：docker compose -f docker/docker-compose.yml run --rm app mcp
@@ -69,6 +78,25 @@ services:
       timeout: 10s
       retries: 3
       start_period: 30s
+
+# ── Watchtower 自动升级 ──
+# 定期检查镜像仓库新版本，发现更新自动拉取并重建带
+# com.centurylinklabs.watchtower.enable=true 标签的容器（即上面的 app 服务）。
+# 仅影响本 compose 中标记的容器，不干扰服务器上其他容器。
+  watchtower:
+    image: containrrr/watchtower:latest
+    container_name: watchtower
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      - WATCHTOWER_POLL_INTERVAL=300        # 检查间隔（秒），5 分钟
+      - WATCHTOWER_LABEL_ENABLE=true        # 只升级带 enable 标签的容器
+      - WATCHTOWER_CLEANUP=true             # 升级后清理旧镜像，防磁盘膨胀
+      - WATCHTOWER_STOP_TIMEOUT=30s         # 容器优雅停止超时（Liri 落盘需要时间）
+      # 若 ghcr.io/cocosoft/liri 设为私有镜像，需配置 GHCR 凭据（public 可删除）：
+      # - REPO_USER=<ghcr 用户名>
+      # - REPO_PASS=<ghcr PAT，权限 read:packages>
 
 # ── 命名卷 ──
 volumes:

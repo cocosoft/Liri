@@ -41,7 +41,7 @@ import { eventNotificationService } from './EventNotificationService.js';
 import { clearPathCheckCache } from './PathGuardService';
 import { getLocalSession, mapSessionStatusToState } from './ChatHelper';
 import type { ChatSession, CreateSessionParams } from '../types/session.js';
-import { SessionState } from '../types/session.js';
+import { DataSessionStatus } from '@modules/core/data-models';
 import type { Message } from '../types/message.js';
 
 const logger = getLogger('chat:sessionLifecycle');
@@ -116,7 +116,7 @@ export class SessionLifecycleManager {
     const session: ChatSession = {
       id: sessionId,
       title: params.title,
-      state: SessionState.ACTIVE,
+      state: DataSessionStatus.ACTIVE,
       metadata: {
         title: params.title,
         description: params.description,

@@ -119,7 +119,12 @@ export function useInitApp() {
           await startBackend();
         }
         // P0b-4: 后端就绪后执行旧数据迁移（幂等，仅首次执行）
-        migrateLegacyData().catch(() => {});
+        // W9 修复：失败不再静默吞掉——告警留痕，避免迁移中断无任何提示
+        migrateLegacyData().catch((err) => {
+          logger.warn("旧数据迁移失败（非致命，跳过）", {
+            error: err instanceof Error ? err.message : String(err),
+          });
+        });
         dispatch({ type: "PHASE2_DONE" });
       } catch (e) {
         dispatch({ type: "ERROR", error: String(e) });
@@ -193,26 +198,31 @@ export function useInitApp() {
     // sseService.off 按引用删除永远删不掉监听器 → StrictMode/HMR 下泄漏累积。
     const onHeartbeat = () => checkBackendStatus();
 
-    try {
-      sseService.on("heartbeat", onHeartbeat);
-      sseService.on("session:renamed", refreshSessions);
-      sseService.on("session:created", refreshSessions);
-      sseService.on("session:deleted", refreshSessions);
-      sseService.on("session:cleared", refreshSessions);
-      // P0b-3: AI 自动建项目时，前端同步创建 worktree
-      sseService.on("project:auto_created", onProjectAutoCreated);
-      // M1 修复（2026-08-13）：接线 SSE 断开轮询兜底——sseService.setPollHandler
-      // 此前从未被调用（死代码），SSE 断开时无任何轮询兜底，只能干等重连。
-      // 断开期间每 15s 轮询一次会话列表，保证会话变更在重连前可见。
-      sseService.setPollHandler(refreshSessions);
-      sseService.connect();
-      loadSessions();
-      // 连接/网络状态监测：记录后端掉线/恢复、网络断开/恢复事件
-      connectionMonitor.start();
-      dispatch({ type: "PHASE3_DONE" });
-    } catch (e) {
-      dispatch({ type: "ERROR", error: String(e) });
-    }
+    // W9 修复：loadSessions 需要 await 完成再 dispatch PHASE3_DONE，
+    // 否则 ready 时列表仍为空（用户看到"无会话"闪屏）
+    const runPhase3 = async () => {
+      try {
+        sseService.on("heartbeat", onHeartbeat);
+        sseService.on("session:renamed", refreshSessions);
+        sseService.on("session:created", refreshSessions);
+        sseService.on("session:deleted", refreshSessions);
+        sseService.on("session:cleared", refreshSessions);
+        // P0b-3: AI 自动建项目时，前端同步创建 worktree
+        sseService.on("project:auto_created", onProjectAutoCreated);
+        // M1 修复（2026-08-13）：接线 SSE 断开轮询兜底——sseService.setPollHandler
+        // 此前从未被调用（死代码），SSE 断开时无任何轮询兜底，只能干等重连。
+        // 断开期间每 15s 轮询一次会话列表，保证会话变更在重连前可见。
+        sseService.setPollHandler(refreshSessions);
+        sseService.connect();
+        await loadSessions();
+        // 连接/网络状态监测：记录后端掉线/恢复、网络断开/恢复事件
+        connectionMonitor.start();
+        dispatch({ type: "PHASE3_DONE" });
+      } catch (e) {
+        dispatch({ type: "ERROR", error: String(e) });
+      }
+    };
+    runPhase3();
 
     return () => {
       sseService.off("heartbeat", onHeartbeat);

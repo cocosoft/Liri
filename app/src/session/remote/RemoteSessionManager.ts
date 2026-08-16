@@ -18,7 +18,10 @@ import type {
 import type { UnifiedSession } from '../types/Session.js';
 
 import { getLogger } from '@modules/monitoring';
-const logger = getLogger('session\remote\RemoteSessionManager');
+const logger = getLogger('session:remote');
+
+/** 权限请求超时（毫秒）：超时未响应的挂起请求自动取消，防止永久挂起 */
+const PERMISSION_TIMEOUT_MS = 5 * 60 * 1000;
 
 export interface RemoteSessionConfig {
   sessionId: string;
@@ -89,6 +92,13 @@ export class RemoteSessionManager {
       return;
     }
 
+    // B5 修复：重连中（isConnected=false 但 websocket 已存在）再次 connect()
+    // 原实现会新建 WS 而不关旧的 → 泄漏。先关旧实例再重建。
+    if (this.websocket) {
+      this.websocket.close();
+      this.websocket = null;
+    }
+
     const wsConfig: SessionsWebSocketConfig = {
       url: this.config.wsUrl!,
       sessionId: this.config.sessionId,
@@ -115,6 +125,13 @@ export class RemoteSessionManager {
     }
     this.isConnected = false;
     this.pendingPermissionRequests.clear();
+    if (this.messageQueue.length > 0) {
+      // B5 修复：清空待发队列不再静默——告警记录丢弃条数
+      logger.warn('断连时丢弃待发送消息', {
+        sessionId: this.config.sessionId,
+        count: this.messageQueue.length,
+      });
+    }
     this.messageQueue = [];
   }
 
@@ -143,9 +160,16 @@ export class RemoteSessionManager {
 
     if (this.websocket && this.isConnected) {
       this.websocket.send(controlResponse);
+      this.pendingPermissionRequests.delete(requestId);
+    } else {
+      // B5 修复：未连接时不再静默丢弃——入队待发（重连后随队列 flush），
+      // 并告警提示，避免远端权限请求永久等待
+      this.messageQueue.push(controlResponse);
+      logger.warn('权限响应在未连接时入队待发', {
+        sessionId: this.config.sessionId,
+        requestId,
+      });
     }
-
-    this.pendingPermissionRequests.delete(requestId);
   }
 
   private handleMessage(message: SessionMessage): void {
@@ -169,6 +193,9 @@ export class RemoteSessionManager {
 
   private handleControlRequest(request: SDKControlRequest): void {
     if (request.action === 'permission_request') {
+      // B5 修复：新请求到达时顺手清理超时未响应的挂起请求，避免无限增长
+      this.sweepExpiredPermissions();
+
       const permissionRequest: PermissionRequest = {
         requestId: request.requestId,
         toolName: (request.params?.toolName as string) ?? 'unknown',
@@ -221,6 +248,27 @@ export class RemoteSessionManager {
   private handleClose(): void {
     this.isConnected = false;
     this.callbacks.onDisconnected?.();
+  }
+
+  /**
+   * 清理超时未响应的挂起权限请求（B5 修复：无定时器，按需扫）
+   */
+  private sweepExpiredPermissions(): void {
+    const now = Date.now();
+    for (const [requestId, request] of this.pendingPermissionRequests) {
+      if (now - request.timestamp > PERMISSION_TIMEOUT_MS) {
+        this.pendingPermissionRequests.delete(requestId);
+        this.callbacks.onPermissionCancelled?.(
+          requestId,
+          request.params?.toolUseId as string | undefined
+        );
+        logger.warn('权限请求超时取消', {
+          sessionId: this.config.sessionId,
+          requestId,
+          toolName: request.toolName,
+        });
+      }
+    }
   }
 
   private handleError(error: Error): void {

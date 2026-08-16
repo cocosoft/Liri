@@ -74,7 +74,7 @@ function buildHeaders(extra?: Record<string, string>): Record<string, string> {
 
   // 登录态注入：管理 API 鉴权（M0d，登录后携带 Bearer token；未登录不注入）
   if (typeof localStorage !== "undefined") {
-    const authToken = localStorage.getItem("auth_token");
+    const authToken = localStorage.getItem("liri-auth-token");
     if (authToken) {
       headers["Authorization"] = `Bearer ${authToken}`;
     }
@@ -104,6 +104,83 @@ function formatError(status: number, body?: string): ApiError {
   return { code: status, message };
 }
 
+// ─── W6 修复：Tauri 环境 HTTP 代理 ────────────────────
+// 共享密钥（LIRI_API_SECRET）由 Rust 侧 http_proxy command 注入 X-API-Key，
+// WebView JS 上下文永不持有明文密钥（防止 XSS 拿到密钥后任意调用后端 → RCE）。
+// 浏览器模式（非 Tauri）保持 fetch 直连（后端默认不鉴权）。
+
+const isTauri =
+  typeof window !== "undefined" &&
+  ("__TAURI__" in window || "__TAURI_INTERNALS__" in window);
+
+let _tauriCorePromise: Promise<
+  typeof import("@tauri-apps/api/core") | null
+> | null = null;
+
+function getTauriCore(): Promise<typeof import("@tauri-apps/api/core") | null> {
+  if (!isTauri) return Promise.resolve(null);
+  if (!_tauriCorePromise) {
+    _tauriCorePromise = import("@tauri-apps/api/core").catch(() => null);
+  }
+  return _tauriCorePromise;
+}
+
+interface ProxyResponse {
+  status: number;
+  body: string;
+}
+
+async function proxyFetch<T>(
+  method: string,
+  url: string,
+  headers: Record<string, string>,
+  body: unknown,
+  timeout: number,
+): Promise<ApiResponse<T>> {
+  const core = await getTauriCore();
+  if (!core) {
+    return { ok: false, error: { code: 0, message: "Tauri IPC 不可用" } };
+  }
+
+  try {
+    const invokePromise = core.invoke<ProxyResponse>("http_proxy", {
+      method,
+      url,
+      body:
+        body !== undefined && method !== "GET" ? JSON.stringify(body) : null,
+      headers,
+    });
+
+    // 超时保护：invoke 挂起时按超时失败返回（Rust 侧 reqwest 另有 60s 兜底）
+    const resp = await Promise.race([
+      invokePromise,
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error(`请求超时 (${timeout}ms)`)), timeout),
+      ),
+    ]);
+
+    if (resp.status >= 200 && resp.status < 300) {
+      let data: unknown;
+      if (resp.body) {
+        try {
+          data = JSON.parse(resp.body);
+        } catch {
+          data = resp.body;
+        }
+      }
+      return { ok: true, data: data as T };
+    }
+    return { ok: false, error: formatError(resp.status, resp.body) };
+  } catch (e) {
+    handleClientError(e, {
+      module: "services:httpClient",
+      action: "proxyFetch",
+    });
+    const message = e instanceof Error ? e.message : String(e);
+    return { ok: false, error: { code: 408, message: `请求失败: ${message}` } };
+  }
+}
+
 async function request<T>(
   method: string,
   path: string,
@@ -117,6 +194,11 @@ async function request<T>(
       const timeout =
         config?.timeout ?? globalConfig.timeout ?? DEFAULT_TIMEOUT;
       const headers = buildHeaders(config?.headers);
+
+      // W6：Tauri 环境走 Rust 代理（secret 由 Rust 注入，JS 不接触明文密钥）
+      if (isTauri) {
+        return await proxyFetch<T>(method, url, headers, body, timeout);
+      }
 
       const fetchOptions: RequestInit = {
         method,

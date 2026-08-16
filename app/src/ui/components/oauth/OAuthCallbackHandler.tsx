@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { Box, Text, useInput } from 'ink';
+import { Box, Text, useInput } from '@modules/ink';
 import { Input } from '../Input';
 
 interface OAuthCallbackHandlerProps {

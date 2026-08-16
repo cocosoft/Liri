@@ -1,29 +1,11 @@
 /**
  * 会话状态
  *
- * @deprecated 使用 {@link DataSessionStatus} — 从 `@modules/core/data-models` 导入
+ * 统一使用 {@link DataSessionStatus}（10 态标准词表，含 RUNNING/COMPLETED/ERROR/ABORTED）
  */
-export enum SessionState {
-  /**
-   * 活跃
-   */
-  ACTIVE = 'active',
+import { DataSessionStatus } from '@modules/core/data-models';
 
-  /**
-   * 已暂停
-   */
-  PAUSED = 'paused',
-
-  /**
-   * 已结束
-   */
-  ENDED = 'ended',
-
-  /**
-   * 已归档
-   */
-  ARCHIVED = 'archived',
-}
+export { DataSessionStatus };
 
 /**
  * 会话元数据
@@ -119,9 +101,9 @@ export interface ChatSession {
   title?: string;
 
   /**
-   * 会话状态
+   * 会话状态（统一 10 态标准词表）
    */
-  state: SessionState;
+  state: DataSessionStatus;
 
   /**
    * 会话元数据

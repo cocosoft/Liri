@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useMemo } from 'react';
-import { Text, Box } from 'ink';
+import { Text, Box } from '@modules/ink';
 
 export type TaskStatus =
   | 'pending'

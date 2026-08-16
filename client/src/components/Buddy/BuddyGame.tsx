@@ -59,7 +59,7 @@ function BuddyGame() {
     let a = Math.floor(Math.random() * 20) + 1;
     let b = Math.floor(Math.random() * 20) + 1;
     if (op === "-" && a < b) [a, b] = [b, a];
-    const answer = eval(`${a}${op}${b}`) as number;
+    const answer = op === "+" ? a + b : op === "-" ? a - b : a * b;
     setMathProblem({ question: `${a} ${op} ${b} = ?`, answer });
     setUserAnswer("");
     setFeedback(null);

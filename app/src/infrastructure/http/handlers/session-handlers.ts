@@ -26,6 +26,11 @@ import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import type { Message } from '@modules/chat/types/message';
 import { MessageRole } from '@modules/chat/types/message';
+import {
+  tryParseJson,
+  sendBadRequest,
+  normalizeTimestamp,
+} from './session-handlers-utils';
 
 const logger = getLogger('infra:http:session-handlers');
 
@@ -95,7 +100,11 @@ export async function handleCreateSession(
 ): Promise<void> {
   try {
     const body = await ctx.readRequestBody(req);
-    const data = JSON.parse(body);
+    const data = tryParseJson(body);
+    if (!data) {
+      sendBadRequest(res, 'invalid JSON body');
+      return;
+    }
     const { title, model, workspaceId, workspace_path, moduleType, projectId } =
       data;
     const coreAPI = getCoreAPI();
@@ -103,13 +112,16 @@ export async function handleCreateSession(
 
     // 将 model、workspaceId、moduleType、projectId 存入 session metadata
     const metadata: Record<string, unknown> = {};
-    if (model) metadata.model = model;
-    if (workspaceId) metadata.workspaceId = workspaceId;
-    if (workspace_path) metadata.workspacePath = workspace_path;
-    if (moduleType) metadata.moduleType = moduleType;
-    if (projectId) metadata.projectId = projectId;
+    if (model) metadata.model = model as string;
+    if (workspaceId) metadata.workspaceId = workspaceId as string;
+    if (workspace_path) metadata.workspacePath = workspace_path as string;
+    if (moduleType) metadata.moduleType = moduleType as string;
+    if (projectId) metadata.projectId = projectId as string;
 
-    const session = await coreAPI.createSession({ title, metadata });
+    const session = await coreAPI.createSession({
+      title: title as string | undefined,
+      metadata,
+    });
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(session));
     ctx.broadcastEvent('session:created', { id: session?.id });
@@ -184,6 +196,8 @@ export async function handleGetSessionMessages(
 ): Promise<void> {
   try {
     const coreAPI = getCoreAPI();
+    // P1-21：启动后首个请求（前端最常见动作）若命中本 handler，确保会话已加载
+    await coreAPI.ensureSessionsLoaded();
     const messages = await coreAPI.getSessionMessages(sessionId);
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(messages));
@@ -218,7 +232,11 @@ export async function handleAddSessionMessage(
 ): Promise<void> {
   try {
     const body = await ctx.readRequestBody(req);
-    const data = JSON.parse(body);
+    const data = tryParseJson(body);
+    if (!data) {
+      sendBadRequest(res, 'invalid JSON body');
+      return;
+    }
 
     if (!data.id || typeof data.id !== 'string') {
       res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -270,7 +288,10 @@ export async function handleAddSessionMessage(
       return;
     }
 
-    const createdAt = new Date(data.timestamp ?? Date.now());
+    // P2-23：时间戳单位归一化（秒级 ×1000 转毫秒，防 1970 年错乱）
+    const createdAt = new Date(
+      (normalizeTimestamp(data.timestamp) as number | undefined) ?? Date.now()
+    );
     const message: Message = {
       id: data.id,
       role:
@@ -327,8 +348,13 @@ export async function handleUpdateMessageBlocks(
 ): Promise<void> {
   try {
     const body = await ctx.readRequestBody(req);
-    const data = JSON.parse(body);
-    const blocks = data.blocks || [];
+    const data = tryParseJson(body);
+    if (!data) {
+      sendBadRequest(res, 'invalid JSON body');
+      return;
+    }
+    // P2-23：blocks 必须为数组，非数组时按空处理（原实现字符串等类型直接透传）
+    const blocks = Array.isArray(data.blocks) ? data.blocks : [];
 
     const coreAPI = getCoreAPI();
     await coreAPI.updateMessageBlocks(sessionId, messageId, blocks);
@@ -461,6 +487,8 @@ export async function handleSwitchSession(
 ): Promise<void> {
   try {
     const coreAPI = getCoreAPI();
+    // P1-21：切换前确保会话已加载（避免命中未加载路径）
+    await coreAPI.ensureSessionsLoaded();
     await coreAPI.switchSession(sessionId);
     const session = await coreAPI.getSession(sessionId);
     if (!session) {
@@ -516,12 +544,20 @@ export async function handleRenameSession(
 ): Promise<void> {
   try {
     const body = await ctx.readRequestBody(req);
-    const { title } = JSON.parse(body);
+    const data = tryParseJson(body);
+    if (!data) {
+      sendBadRequest(res, 'invalid JSON body');
+      return;
+    }
+    const { title } = data;
     const coreAPI = getCoreAPI();
-    await coreAPI.renameSession(sessionId, title);
+    await coreAPI.renameSession(sessionId, title as string);
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ success: true }));
-    ctx.broadcastEvent('session:renamed', { id: sessionId, title });
+    ctx.broadcastEvent('session:renamed', {
+      id: sessionId,
+      title: title as string,
+    });
   } catch (err) {
     await handleError(err, { module: 'infra:http', action: 'handler_error' });
     if (!res.headersSent) {
@@ -551,12 +587,19 @@ export async function handleGenerateTitle(
 ): Promise<void> {
   try {
     const body = await ctx.readRequestBody(req);
-    const { userMessage, assistantResponse } = JSON.parse(body);
+    const data = tryParseJson(body);
+    if (!data) {
+      sendBadRequest(res, 'invalid JSON body');
+      return;
+    }
+    const { userMessage, assistantResponse } = data;
     const coreAPI = getCoreAPI();
+    // P1-21：启动后首个请求若命中本 handler，确保会话已加载
+    await coreAPI.ensureSessionsLoaded();
     const title = await coreAPI.generateSessionTitle(
       sessionId,
-      userMessage,
-      assistantResponse
+      userMessage as string,
+      assistantResponse as string
     );
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ success: true, title }));
@@ -594,14 +637,18 @@ export async function handleUpdateSessionMeta(
 ): Promise<void> {
   try {
     const body = await ctx.readRequestBody(req);
-    const data = JSON.parse(body);
+    const data = tryParseJson(body);
+    if (!data) {
+      sendBadRequest(res, 'invalid JSON body');
+      return;
+    }
     const coreAPI = getCoreAPI();
 
     await coreAPI.updateSessionMeta(sessionId, {
-      model: data.model,
-      workspaceId: data.workspace_id,
-      providerId: data.provider_id,
-      tasksOverride: data.tasks_override,
+      model: data.model as string | undefined,
+      workspaceId: data.workspace_id as string | undefined,
+      providerId: data.provider_id as string | undefined,
+      tasksOverride: data.tasks_override as Record<string, string> | undefined,
     });
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -663,13 +710,12 @@ export async function handleCompactSession(
 
 /**
  * 处理触发会话修剪请求
- * POST /v1/sessions/:id/prune
+ * POST /v1/sessions/prune（全量修剪，P2-22 修复：原 :id 路由与全量实现语义不符）
  */
 export async function handlePruneSession(
   ctx: HandlerCtx,
   req: http.IncomingMessage,
-  res: http.ServerResponse,
-  _sessionId: string
+  res: http.ServerResponse
 ): Promise<void> {
   try {
     const coreAPI = getCoreAPI();

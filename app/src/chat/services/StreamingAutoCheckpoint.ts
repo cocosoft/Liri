@@ -17,7 +17,7 @@ import { handleError } from '@modules/error';
 import type { SessionCheckpointService } from './SessionCheckpointService';
 import type { SessionCheckpoint } from '../types/checkpoint';
 import type { Message } from '../types/message';
-import type { SessionMetadata, SessionState } from '../types/session';
+import type { SessionMetadata, DataSessionStatus } from '../types/session';
 import type { ToolCallSpec } from '@modules/runtime/api/CoreAPI';
 
 const logger = getLogger('chat:streamingAutoCheckpoint');
@@ -44,7 +44,7 @@ export interface ToolCompletedState {
     tokenUsage?: Record<string, number>;
   };
   /** 会话状态 */
-  sessionState: SessionState;
+  sessionState: DataSessionStatus;
 }
 
 export interface RestoreResult {

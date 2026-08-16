@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import { toastWarning } from "../../stores/toastStore";
 import {
   ConfigSection,
   ConfigItem,
@@ -48,7 +49,7 @@ function requestNotificationPermission(t: (key: string) => string): void {
     typeof Notification !== "undefined" &&
     Notification.permission === "denied"
   ) {
-    alert(t("settings.notificationsBlockedAlert"));
+    toastWarning(t("settings.notificationsBlockedAlert"));
   }
 }
 

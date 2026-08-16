@@ -108,7 +108,7 @@ function SessionHistorySidebar({
 
   // 从 localStorage 恢复折叠状态，默认展开
   const [isExpanded, setIsExpanded] = useState(() => {
-    const saved = localStorage.getItem("sidebar_expanded");
+    const saved = localStorage.getItem("liri-sidebar-expanded");
     return saved !== null ? saved === "true" : true;
   });
 
@@ -116,7 +116,7 @@ function SessionHistorySidebar({
   const toggleSidebar = useCallback(() => {
     setIsExpanded((prev) => {
       const next = !prev;
-      localStorage.setItem("sidebar_expanded", String(next));
+      localStorage.setItem("liri-sidebar-expanded", String(next));
       return next;
     });
   }, []);
@@ -131,7 +131,7 @@ function SessionHistorySidebar({
     const handleChange = (e: MediaQueryListEvent | MediaQueryList) => {
       if (e.matches) {
         setIsExpanded(false);
-        localStorage.setItem("sidebar_expanded", "false");
+        localStorage.setItem("liri-sidebar-expanded", "false");
       }
     };
     handleChange(mediaQuery);
@@ -406,8 +406,12 @@ function SessionHistorySidebar({
 
   const handleNewSession = async () => {
     const title = t("chat.newSession") + ` ${filteredSessions.length + 1}`;
-    await createSession(title);
-    navigate(basePath);
+    try {
+      await createSession(title);
+      navigate(basePath);
+    } catch {
+      // W1 修复：创建失败已由 createChatSession 内 toast + 记录，不再误跳转
+    }
   };
 
   const handleSwitchSession = async (id: string) => {

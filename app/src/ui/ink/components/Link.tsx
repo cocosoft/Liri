@@ -5,7 +5,7 @@
  */
 
 import React from 'react';
-import { Link as InkLink } from 'ink';
+import { Link as InkLink } from '@modules/ink';
 
 export interface LinkProps {
   url: string;

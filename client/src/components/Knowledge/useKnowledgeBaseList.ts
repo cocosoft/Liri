@@ -15,6 +15,7 @@ import {
 } from "../../stores/knowledgeStore";
 import { createLogger } from "@/utils/logger";
 import { handleClientError } from "../../utils/handleError";
+import { toastError } from "../../stores/toastStore";
 
 const logger = createLogger("components:knowledgeBaseList");
 
@@ -213,7 +214,11 @@ export function useKnowledgeBaseList(opts: UseKnowledgeBaseListOpts) {
       await loadBases();
     } catch (err) {
       logger.error("克隆知识库失败", err);
-      alert(`克隆失败: ${err instanceof Error ? err.message : String(err)}`);
+      toastError(
+        new Error(
+          `克隆失败: ${err instanceof Error ? err.message : String(err)}`,
+        ),
+      );
     }
   }
 
@@ -228,7 +233,11 @@ export function useKnowledgeBaseList(opts: UseKnowledgeBaseListOpts) {
       await loadBases();
     } catch (err) {
       logger.error("复制知识库配置失败", err);
-      alert(`复制失败: ${err instanceof Error ? err.message : String(err)}`);
+      toastError(
+        new Error(
+          `复制失败: ${err instanceof Error ? err.message : String(err)}`,
+        ),
+      );
     }
   }
 

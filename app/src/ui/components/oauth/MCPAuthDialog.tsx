@@ -4,7 +4,7 @@
  */
 
 import React, { useState } from 'react';
-import { Box, Text, useInput } from 'ink';
+import { Box, Text, useInput } from '@modules/ink';
 import { Button } from '../Button';
 import { Input } from '../Input';
 

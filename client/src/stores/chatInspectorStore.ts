@@ -54,7 +54,7 @@ export function getMaxPanelWidth(): number {
 }
 
 function storageKey(key: string): string {
-  return `chatInspector:${STORAGE_VERSION}:${key}`;
+  return `liri-chat-inspector:${STORAGE_VERSION}:${key}`;
 }
 
 function loadStored<T>(key: string, defaultValue: T): T {

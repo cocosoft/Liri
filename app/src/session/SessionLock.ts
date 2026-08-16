@@ -202,7 +202,45 @@ export class SessionLock {
     await Promise.all(keys.map((id) => this.release(id)));
   }
 
+  /**
+   * 续约锁（P1-28 修复）：长事务（compact 大会话/批量迁移）持锁超过
+   * staleThreshold 会被其他进程判为 stale 并强拆，导致双持有者并发写。
+   * 持有者应在长事务中定期调用本方法刷新锁时间戳。
+   * @param sessionId 会话 ID
+   * @returns 续约是否成功（非持有者/未持有返回 false）
+   */
+  async renew(sessionId: string): Promise<boolean> {
+    const held = this.heldLocks.get(sessionId);
+    if (!held || held.holder !== this.instanceId) {
+      return false;
+    }
+
+    const now = Date.now();
+    const lockData = { holder: this.instanceId, acquiredAt: now };
+    const lockFile = this.getLockFilePath(sessionId);
+    try {
+      await fs.writeFile(lockFile, JSON.stringify(lockData), 'utf-8');
+      held.acquiredAt = now;
+      this.heldLocks.set(sessionId, held);
+      logger.debug('Session lock renewed', { sessionId });
+      return true;
+    } catch (err) {
+      // 锁文件被并发删除（已被 releaseStale 强拆）时续约失败，通知持有者
+      logger.warning('Session lock renew failed', {
+        sessionId,
+        error: String(err),
+      });
+      this.heldLocks.delete(sessionId);
+      return false;
+    }
+  }
+
   private getLockFilePath(sessionId: string): string {
+    // P1-28 修复：sessionId 若来自外部输入（HTTP :id 参数）且含 `..\` 可路径穿越
+    // 写到任意目录。白名单校验：仅允许字母数字、点、横线、下划线。
+    if (!/^[\w.-]+$/.test(sessionId)) {
+      throw new Error(`Invalid sessionId for lock: ${sessionId}`);
+    }
     return join(this.lockDir, `${sessionId}.lock`);
   }
 

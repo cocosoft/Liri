@@ -30,7 +30,7 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { createCheckpointService } from './SessionCheckpointService.js';
 import { getLocalSession } from './ChatHelper';
 import type { ChatSession, CreateSessionParams } from '../types/session.js';
-import { SessionState } from '../types/session.js';
+import { DataSessionStatus } from '@modules/core/data-models';
 
 /**
  * ResumeCoordinator 门面依赖
@@ -121,7 +121,7 @@ export class ResumeCoordinator {
     await this.checkpointService.rollbackToCheckpoint(checkpointId, {
       messages: checkpoint.messages || [],
       metadata: checkpoint.metadata || { title: '' },
-      state: SessionState.ACTIVE,
+      state: DataSessionStatus.ACTIVE,
     });
 
     return {

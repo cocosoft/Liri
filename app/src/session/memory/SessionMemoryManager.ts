@@ -25,7 +25,7 @@ import {
   appendFileSync,
   statSync,
 } from 'fs';
-import { dirname } from 'path';
+import { dirname, join } from 'path';
 import { getLogger } from '@modules/monitoring';
 import type { EmbeddingManager } from '../../ai/embedding/EmbeddingManager';
 import type { ChatMessage } from '../../ai/models/types';
@@ -100,10 +100,6 @@ const DEFAULT_CONFIG: MemoryThresholdConfig = {
 
 const MEMORY_FILE = 'memory.md';
 
-/** memory.md 版本头 — 跨版本升级兼容 */
-const MEMORY_FILE_HEADER =
-  '# memory.md v1\n# Format: [timestamp] [category] content\n';
-
 /** memory.md 大小上限（bytes），约 2.5K token，超出后触发 LLM 压缩 */
 const MAX_MEMORY_FILE_SIZE = 10_000;
 
@@ -172,8 +168,13 @@ export class SessionMemoryManager {
    */
   getMemoryPath(sessionId: string): string {
     // 路径格式: <sessionsDir>/<sessionId>/memory.md
-    const sessionDir = `${this.memoryDir}/${sessionId}`;
-    return `${sessionDir}/${MEMORY_FILE}`;
+    // 安全加固：sessionId 含 ../ 等可穿越到 memoryDir 外（sessionId 多来源于
+    // 用户输入/通道 ID），用 path.join 归一化并校验仍位于 memoryDir 内。
+    const normalized = join(this.memoryDir, sessionId, MEMORY_FILE);
+    if (!normalized.startsWith(this.memoryDir)) {
+      throw new Error(`非法 sessionId，拒绝穿越路径: ${sessionId}`);
+    }
+    return normalized;
   }
 
   /**
@@ -269,9 +270,25 @@ export class SessionMemoryManager {
   appendToMemory(memory: SessionMemory, newItems: MemoryItem[]): SessionMemory {
     const path = this.getMemoryPath(memory.sessionId);
 
+    // B2 修复：全量重写前先合并磁盘已有记忆（含 extractPerTurn 行级追加的
+    // [timestamp] 条目），避免 buildMemoryMarkdown 把逐轮提取的行悄悄清掉
+    const existing = this.loadMemory(memory.sessionId);
+    const seen = new Set(memory.items.map((i) => `${i.type}:${i.content}`));
+    for (const item of existing.items) {
+      const key = `${item.type}:${item.content}`;
+      if (!seen.has(key)) {
+        memory.items.push(item);
+        seen.add(key);
+      }
+    }
+
     // 追加新记忆项
     for (const item of newItems) {
-      memory.items.push(item);
+      const key = `${item.type}:${item.content}`;
+      if (!seen.has(key)) {
+        memory.items.push(item);
+        seen.add(key);
+      }
     }
 
     // 重置计数器
@@ -371,7 +388,21 @@ export class SessionMemoryManager {
         item,
         vector: result.embeddings[idx],
       }));
-      this.vectorIndex.set(sessionId, entries);
+      // B3 修复：追加而非覆盖——原实现每次新提炼后 set 覆盖整个 session 的索引，
+      // 旧条目从索引消失，语义搜索丢失历史
+      const existing = this.vectorIndex.get(sessionId) || [];
+      const seen = new Set(
+        existing.map((e) => `${e.item.type}:${e.item.content}`)
+      );
+      const merged = [...existing];
+      for (const entry of entries) {
+        const key = `${entry.item.type}:${entry.item.content}`;
+        if (!seen.has(key)) {
+          merged.push(entry);
+          seen.add(key);
+        }
+      }
+      this.vectorIndex.set(sessionId, merged);
     } catch (err) {
       logger.warn('记忆向量化失败，不影响主流程', {
         sessionId,
@@ -403,6 +434,8 @@ export class SessionMemoryManager {
       mkdirSync(sessionDir, { recursive: true });
     }
     writeFileSync(path, content, 'utf-8');
+    // B3 修复：覆盖写入后内存向量索引已 stale，删除让下次 searchMemory 重新索引
+    this.vectorIndex.delete(sessionId);
   }
 
   /**
@@ -475,33 +508,6 @@ export class SessionMemoryManager {
   }
 
   /**
-   * 初始化 memory.md 文件（确保版本头存在）
-   * 在会话首次创建时调用
-   */
-  initializeMemoryFile(sessionId: string): void {
-    const path = this.getMemoryPath(sessionId);
-    const sessionDir = dirname(path);
-
-    if (!existsSync(sessionDir)) {
-      mkdirSync(sessionDir, { recursive: true });
-    }
-
-    if (!existsSync(path)) {
-      writeFileSync(path, MEMORY_FILE_HEADER, 'utf-8');
-    } else {
-      // 检查已有文件的版本头
-      try {
-        const firstLine = readFileSync(path, 'utf-8').split('\n')[0];
-        if (!firstLine.startsWith('# memory.md v')) {
-          logger.warn('memory.md 格式版本不匹配，尝试降级读取', { firstLine });
-        }
-      } catch (err) {
-        // 文件读取失败，忽略
-      }
-    }
-  }
-
-  /**
    * 追加记忆项到 memory.md 文件（行级追加，不重写整个文件）
    */
   private _appendToMemoryFile(sessionId: string, items: MemoryItem[]): void {
@@ -513,7 +519,9 @@ export class SessionMemoryManager {
     }
 
     if (!existsSync(path)) {
-      writeFileSync(path, MEMORY_FILE_HEADER, 'utf-8');
+      // B7 修复：新文件统一写 MEMORY_TEMPLATE（Markdown 模板），
+      // 与 initMemory 保持一致，消除双格式双模板
+      writeFileSync(path, MEMORY_TEMPLATE, 'utf-8');
     }
 
     const lines = items.map(
@@ -629,6 +637,19 @@ export class SessionMemoryManager {
   }
 
   /**
+   * 判断字符串是否为合法的 MemoryItem 类型（B2 修复用）
+   */
+  private isMemoryItemType(value: string): value is MemoryItem['type'] {
+    return (
+      value === 'discussion' ||
+      value === 'decision' ||
+      value === 'file_change' ||
+      value === 'code_reference' ||
+      value === 'todo'
+    );
+  }
+
+  /**
    * 从 Markdown 文件解析记忆结构
    */
   private parseMemoryMarkdown(sessionId: string, raw: string): SessionMemory {
@@ -645,6 +666,17 @@ export class SessionMemoryManager {
 
       const toolMatch = line.match(/processedToolCalls:\s*(\d+)/);
       if (toolMatch) processedToolCalls = parseInt(toolMatch[1], 10);
+
+      // B2 修复：解析 extractPerTurn 行级追加格式 [ISO] [category] content，
+      // 这类行不属于任何 ## 段落，原实现读不回 → 逐轮提取内容静默丢失
+      const perTurnMatch = line.match(/^\s*\[[^\]]+\]\s*\[(\w+)\]\s*(.+)$/);
+      if (perTurnMatch) {
+        const content = perTurnMatch[2].trim();
+        if (content && this.isMemoryItemType(perTurnMatch[1])) {
+          items.push({ type: perTurnMatch[1] as MemoryItem['type'], content });
+        }
+        continue;
+      }
 
       // 检测段落标题
       if (line.startsWith('## 关键讨论')) currentType = 'discussion';

@@ -3,7 +3,7 @@ import { persist } from "zustand/middleware";
 import type { Project, ProjectNode, ProjectStatus } from "../types/work";
 import { taskService } from "../services/taskService";
 
-const STORE_KEY = "pyapp_project_store";
+const STORE_KEY = "liri-project-store";
 
 interface ProjectStore {
   projects: Record<string, Project>;

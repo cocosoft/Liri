@@ -44,8 +44,8 @@ export interface Permission {
   level: "none" | "read" | "write" | "admin";
 }
 
-const AUTH_TOKEN_KEY = "auth_token";
-const AUTH_USER_KEY = "auth_user";
+const AUTH_TOKEN_KEY = "liri-auth-token";
+const AUTH_USER_KEY = "liri-auth-user";
 
 function getStoredToken(): string | null {
   return localStorage.getItem(AUTH_TOKEN_KEY);

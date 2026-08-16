@@ -579,6 +579,10 @@ export class ChronologicalBlockBuilder {
       blockCount: this.blocks.length,
       finalizedTodoTitles: todoBlocks,
     });
+    // W13 修复：无条件置脏——原地改 block.isStreaming 后 blocksDirty 仍为 false 时
+    // getBlocks() 返回旧缓存引用，ChatMessage memo 浅比较跳过重渲染（流结束状态不刷新）。
+    // 原实现仅在移除 progress 块时置脏，无 progress 场景漏置。
+    this.markBlocksDirty();
     this.activeTextBlock = null;
     this.activeThinkingBlock = null;
   }
@@ -923,9 +927,12 @@ export function rebuildBlocksFromContent(
   const rawToolCalls = msg.tool_calls || [];
   // 统一规范化 tool_calls 格式
   const toolCalls = rawToolCalls.map(normalizeToolCall);
-  const fullText = stripStructuralTags(
-    typeof msg.content === "string" ? msg.content : "",
-  );
+  // W12 修复：先基于原始 content 提取 <think> 段——stripStructuralTags 会删除
+  // <think> 标签（:846-851），原实现先 strip 再 match 导致 thinkMatch 恒为 null，
+  // 旧消息思考内容被当正文展示、无法折叠（死代码分支）。
+  const rawContent = typeof msg.content === "string" ? msg.content : "";
+  const thinkMatch = rawContent.match(/<think>([\s\S]*?)<\/think>/);
+  const fullText = stripStructuralTags(rawContent);
   let remainingText = fullText;
 
   // 超长内容保护：content 超过 50000 字符时不做文本解析重建，直接包装为 text block
@@ -953,7 +960,6 @@ export function rebuildBlocksFromContent(
   }
 
   // 从 content 中提取 <think> 标签内容作为 thinking 块（切换会话后还原流式思考过程）
-  const thinkMatch = remainingText.match(/<think>([\s\S]*?)<\/think>/);
   if (thinkMatch) {
     newBlocks.push({
       id: generateBlockId(),
@@ -962,8 +968,16 @@ export function rebuildBlocksFromContent(
       isStreaming: false,
       groupId: generateGroupId(),
     });
-    // 移除已提取的 <think> 内容，剩余部分继续处理
-    remainingText = remainingText.replace(thinkMatch[0], "").trim();
+    // W12 修复：stripStructuralTags 只删标签不删内容，需手动把 think 内容
+    // 从 remainingText 移除，避免正文里残留思考文本。
+    const thinkContent = thinkMatch[1].trim();
+    const thinkIdx = remainingText.indexOf(thinkContent);
+    if (thinkIdx !== -1) {
+      remainingText = (
+        remainingText.slice(0, thinkIdx) +
+        remainingText.slice(thinkIdx + thinkContent.length)
+      ).trim();
+    }
   }
 
   if (toolCalls.length === 0) {
@@ -971,7 +985,9 @@ export function rebuildBlocksFromContent(
       newBlocks.push({
         id: generateBlockId(),
         type: "text",
-        content: fullText,
+        // W12 修复：用 remainingText（已剔除 think 内容），原实现用 fullText
+        // 会把思考文本重复留在正文里。
+        content: remainingText,
         isStreaming: false,
         groupId: generateGroupId(),
       });

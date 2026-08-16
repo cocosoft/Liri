@@ -49,7 +49,9 @@ export class CountBasedPruner implements PruningStrategy {
 
     let prunedTokenEstimate = 0;
     const keepCount = Math.max(0, middleBlock.length - excess);
-    const keptMiddle = middleBlock.slice(-keepCount);
+    // B8 修复：keepCount=0 时 slice(-0) 等价 slice(0) 返回整个数组（JS 中 -0 === 0），
+    // 超额全删场景一条都删不掉。显式判空返回 []。
+    const keptMiddle = keepCount > 0 ? middleBlock.slice(-keepCount) : [];
 
     for (const msg of middleBlock.slice(0, middleBlock.length - keepCount)) {
       const content = typeof msg.content === 'string' ? msg.content : '';

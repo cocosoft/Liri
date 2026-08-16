@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { Box } from 'ink';
+import { Box } from '@modules/ink';
 
 export interface SplitPaneProps {
   left: React.ReactNode;

@@ -70,14 +70,19 @@ export class LayeredCompactor implements CompactionEngine {
       );
     }
 
-    logger.info(
-      'Layered compaction: no autoCompactService configured, skipping',
+    logger.warn(
+      'Layered compaction: no autoCompactService configured, skipped',
       {
         sessionId,
         messageCount: messages.length,
       }
     );
 
-    return { success: true };
+    // B13 修复：无 service 时返回失败，不再假成功——调用方
+    // SessionCompactionBridge 据此记录 compaction failed 而非 "压缩成功"。
+    return {
+      success: false,
+      error: 'No autoCompactService configured',
+    };
   }
 }

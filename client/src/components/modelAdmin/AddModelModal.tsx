@@ -6,6 +6,7 @@
 
 import { useState } from "react";
 import type { ProviderInfo } from "../../types";
+import { toastWarning } from "../../stores/toastStore";
 
 interface AddModelFormData {
   modelId: string;
@@ -181,11 +182,11 @@ export default function AddModelModal({
           <button
             onClick={() => {
               if (!form.modelId.trim()) {
-                alert("请输入模型 ID");
+                toastWarning("请输入模型 ID");
                 return;
               }
               if (!form.providerId) {
-                alert("请先添加供应商");
+                toastWarning("请先添加供应商");
                 return;
               }
               onSave(form);

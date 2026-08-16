@@ -19,7 +19,7 @@ interface TTSPlaygroundProps {
 }
 
 /** localStorage 键名 */
-const HISTORY_KEY = "pyapp_tts_history";
+const HISTORY_KEY = "liri-tts-history";
 
 /** 历史记录最大条数 */
 const MAX_HISTORY = 100;

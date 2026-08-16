@@ -25,7 +25,7 @@ export function getCurrentTier(): Tier {
   const envTier = import.meta.env.VITE_TIER as string | undefined;
   if (envTier === "pro" || envTier === "base") return envTier;
   try {
-    const stored = localStorage.getItem("liri_tier");
+    const stored = localStorage.getItem("liri-tier");
     if (stored === "pro" || stored === "base") return stored;
   } catch {
     /* localStorage 不可用时默认 base */

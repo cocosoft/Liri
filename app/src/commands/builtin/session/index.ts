@@ -21,6 +21,11 @@
 /**
  * 会话命令
  * 管理会话
+ *
+ * F0-F3 修复：本命令由 CommandLoader 注册（commands/loader/CommandLoader.ts），
+ * 旧实现用 `as Function` 全擦类型契约 + 不 await async 方法 + context 未防护，
+ * 在终端 UI（resolveCommandExecutor 只传 args）下 100% 抛 TypeError。
+ * 对齐 commands/builtin/session/Session.ts 的已修复逻辑重写。
  */
 import type {
   Command,
@@ -29,146 +34,156 @@ import type {
   CommandResult,
 } from '@modules/commands';
 import { createChatManager } from '@modules/chat/ChatManager.js';
+import type { ChatManager } from '@modules/chat/ChatManagerInterface';
+import type { ChatSession } from '@modules/chat/types/session';
 
 class SessionCommand implements Command {
   type: CommandType = 'action';
   name = 'session';
   description = 'Manage sessions';
 
-  async execute(args: string, context: CommandContext): Promise<CommandResult> {
-    const manager = this.getChatManager(context);
+  async execute(
+    args: string,
+    context: CommandContext = {}
+  ): Promise<CommandResult> {
+    const manager = await this.getChatManager(context);
     const parts = args.trim().split(/\s+/);
-    const [subcommand, ...rest] = args.trim() ? parts : [];
+    const subcommand = parts[0]?.toLowerCase();
 
-    if (!subcommand) {
+    if (!subcommand || subcommand === 'help') {
       return { type: 'text', value: this.getHelpText() };
     }
 
-    switch (subcommand) {
-      case 'list': {
-        return { type: 'text', value: this.formatSessionList(manager) };
-      }
+    try {
+      switch (subcommand) {
+        case 'list': {
+          return { type: 'text', value: this.formatSessionList(manager) };
+        }
 
-      case 'create': {
-        const title = rest.join(' ') || 'New Session';
-        const newSession = (manager.createSession as Function)(title);
-        return {
-          type: 'text',
-          value: `Session created: ${(newSession as Record<string, unknown>).id as string}`,
-        };
-      }
-
-      case 'switch': {
-        const sessionId = rest[0];
-        if (!sessionId)
+        case 'create': {
+          const title = parts.slice(1).join(' ') || 'New Session';
+          const session = await manager.createSession({ title });
           return {
-            type: 'error',
-            value: 'Error: Please provide a session ID.',
+            type: 'text',
+            value: `Session created: ${session.id} - ${session.title}`,
           };
-        (manager.switchSession as Function)(sessionId);
-        return { type: 'text', value: `Switched to session: ${sessionId}` };
-      }
+        }
 
-      case 'delete': {
-        const sessionId = rest[0];
-        if (!sessionId)
+        case 'switch': {
+          const sessionId = parts[1];
+          if (!sessionId)
+            return {
+              type: 'error',
+              value: 'Error: Please provide a session ID.',
+            };
+          await manager.switchSession(sessionId);
+          return { type: 'text', value: `Switched to session: ${sessionId}` };
+        }
+
+        case 'delete': {
+          const sessionId = parts[1];
+          if (!sessionId)
+            return {
+              type: 'error',
+              value: 'Error: Please provide a session ID.',
+            };
+          await manager.deleteSession(sessionId);
+          return { type: 'text', value: `Session deleted: ${sessionId}` };
+        }
+
+        case 'info': {
+          const sessionId = parts[1];
+          if (!sessionId)
+            return {
+              type: 'error',
+              value: 'Error: Please provide a session ID.',
+            };
+          const session = manager
+            .getSessions()
+            .find((s: ChatSession) => s.id === sessionId);
+          if (!session)
+            return { type: 'error', value: `Session not found: ${sessionId}` };
           return {
-            type: 'error',
-            value: 'Error: Please provide a session ID.',
+            type: 'text',
+            value: this.formatSessionInfo(session),
           };
-        (manager.deleteSession as Function)(sessionId);
-        return { type: 'text', value: `Session deleted: ${sessionId}` };
-      }
+        }
 
-      case 'rename': {
-        const sessionId = rest[0];
-        const title = rest.slice(1).join(' ');
-        if (!sessionId || !title)
+        case 'current': {
+          const current = manager.getCurrentSession();
+          if (!current) return { type: 'text', value: 'No active session.' };
           return {
-            type: 'error',
-            value: 'Error: Please provide a session ID and new title.',
+            type: 'text',
+            value: `Current Session: ${current.id} - ${this.getSessionTitle(current)}`,
           };
-        (manager.renameSession as Function)(sessionId, title);
-        return {
-          type: 'text',
-          value: `Session renamed: ${sessionId} -> ${title}`,
-        };
-      }
+        }
 
-      case 'info': {
-        const sessionId = rest[0];
-        if (!sessionId)
-          return {
-            type: 'error',
-            value: 'Error: Please provide a session ID.',
-          };
-        const session = (manager.getSession as Function)(sessionId) as
-          | Record<string, unknown>
-          | undefined;
-        if (!session)
-          return { type: 'error', value: `Session not found: ${sessionId}` };
-        return {
-          type: 'text',
-          value: `Session Info
-=============
-ID: ${session.id as string}
-Title: ${this.getSessionTitle(session)}
-Created: ${new Date(session.createdAt as string).toLocaleString()}
-Messages: ${(session.messages as unknown[]).length}`,
-        };
+        default:
+          return { type: 'text', value: this.getHelpText() };
       }
-
-      case 'current': {
-        const current = (manager.getCurrentSession as Function)() as
-          | Record<string, unknown>
-          | undefined;
-        if (!current) return { type: 'text', value: 'No active session.' };
-        return {
-          type: 'text',
-          value: `Current Session: ${current.id as string} - ${this.getSessionTitle(current)}`,
-        };
-      }
-
-      default:
-        return { type: 'text', value: this.getHelpText() };
+    } catch (error) {
+      return {
+        type: 'error',
+        value: `Error: ${error instanceof Error ? error.message : String(error)}`,
+      };
     }
   }
 
-  private getChatManager(context: CommandContext): Record<string, unknown> {
-    if (context.chatManager) {
-      return context.chatManager as Record<string, unknown>;
+  /**
+   * 获取 ChatManager：优先复用 context 中的实例；缺失时创建并等待初始化完成。
+   * F0 修复：context 可能为空对象（终端 UI 路径），旧实现直接 `context.chatManager`
+   * 在 undefined 时抛 TypeError；且 initialize 未 await 导致后续查询读空列表。
+   */
+  private async getChatManager(context: CommandContext): Promise<ChatManager> {
+    const existing = context.chatManager;
+    if (
+      existing &&
+      typeof (existing as ChatManager).createSession === 'function'
+    ) {
+      return existing as ChatManager;
     }
-    const manager = createChatManager() as unknown as Record<string, unknown>;
-    if (typeof manager.initialize === 'function') {
-      manager.initialize();
-    }
+    const manager = createChatManager();
+    await manager.initialize();
     return manager;
   }
 
-  private getSessionTitle(session: Record<string, unknown>): string {
+  private getSessionTitle(session: ChatSession): string {
+    const metaTitle = (session.metadata as Record<string, unknown> | undefined)
+      ?.title;
     return (
-      (session.title as string) ||
-      ((session.metadata as Record<string, unknown>)?.title as string) ||
+      session.title ||
+      (typeof metaTitle === 'string' ? metaTitle : undefined) ||
       'Untitled'
     );
   }
 
-  private formatSessionList(chatManager: Record<string, unknown>): string {
-    const sessions = (chatManager.getSessions as Function)() as unknown[];
+  private formatSessionInfo(session: ChatSession): string {
+    let output = `Session Info: ${session.id}\n`;
+    output += '==================\n\n';
+    output += `Title: ${session.title || 'Untitled'}\n`;
+    output += `Created: ${new Date(session.createdAt).toLocaleString()}\n`;
+    if (session.lastModifiedAt) {
+      output += `Last Modified: ${new Date(session.lastModifiedAt).toLocaleString()}\n`;
+    }
+    output += `Messages: ${session.messages.length}\n`;
+    if (session.metadata) {
+      output += 'Metadata: ' + JSON.stringify(session.metadata, null, 2) + '\n';
+    }
+    return output;
+  }
+
+  private formatSessionList(manager: ChatManager): string {
+    const sessions = manager.getSessions();
     if (sessions.length === 0) {
       return 'No sessions found. Use /session create to create one.';
     }
-    const currentSession = (chatManager.getCurrentSession as Function)() as
-      | Record<string, unknown>
-      | undefined;
+    const currentSession = manager.getCurrentSession();
     let output = 'Available Sessions\n==================\n\n';
     for (const session of sessions) {
-      const s = session as Record<string, unknown>;
-      const isCurrent =
-        (currentSession as Record<string, unknown>)?.id === s.id;
-      output += `${isCurrent ? '\u2192 ' : '  '}${(s.id as string).padEnd(20)} - ${this.getSessionTitle(s)}\n`;
-      output += `    Created: ${new Date(s.createdAt as string).toLocaleString()}\n`;
-      output += `    Messages: ${(s.messages as unknown[]).length}\n\n`;
+      const isCurrent = currentSession?.id === session.id;
+      output += `${isCurrent ? '\u2192 ' : '  '}${session.id.padEnd(20)} - ${session.title || 'Untitled'}\n`;
+      output += `    Created: ${new Date(session.createdAt).toLocaleString()}\n`;
+      output += `    Messages: ${session.messages.length}\n\n`;
     }
     output += `Total: ${sessions.length} sessions`;
     return output;
@@ -184,7 +199,6 @@ Usage:
   /session create <title>            - Create a new session
   /session switch <session_id>       - Switch to a different session
   /session delete <session_id>       - Delete a session
-  /session rename <id> <title>       - Rename a session
   /session info <session_id>         - Show session details
   /session current                   - Show current session
 
@@ -193,9 +207,8 @@ Examples:
   /session create "My Project"
   /session switch session_123456
   /session delete session_123456
-  /session rename session_123456 New Title
   /session info session_123456
-`;
+  /session current`;
   }
 }
 

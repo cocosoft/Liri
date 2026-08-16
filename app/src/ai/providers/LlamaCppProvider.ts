@@ -30,6 +30,7 @@
  */
 
 import { getLogger } from '@modules/monitoring';
+import { BaseAIProvider } from './BaseAIProvider';
 import { OpenAIProvider } from './OpenAIProvider';
 import type { ProviderConfig, ProviderValidationResult } from './AIProvider';
 import type {
@@ -143,10 +144,13 @@ export class LlamaCppProvider extends OpenAIProvider {
     messages: ChatMessage[],
     options?: ChatOptions
   ): Promise<ChatResponse> {
-    return super.chat(messages, {
-      ...options,
-      tools: this.limitTools(options?.tools),
-    });
+    // 耗时统计：委托 BaseAIProvider.measureChat（2026-08-16）
+    return BaseAIProvider.measureChat('LlamaCpp', () =>
+      super.chat(messages, {
+        ...options,
+        tools: this.limitTools(options?.tools),
+      })
+    );
   }
 
   override async *chatStream(

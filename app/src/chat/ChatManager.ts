@@ -94,7 +94,7 @@ import type {
 } from './types/message.js';
 import { createSystemMessage } from './types/message.js';
 import type { ChatSession, CreateSessionParams } from './types/session.js';
-import { SessionState } from './types/session.js';
+import { DataSessionStatus } from '@modules/core/data-models';
 import type { ToolCall, ToolResult, ToolIntegration } from './types/tool.js';
 import { getToolCallName } from './types/tool.js';
 import {
@@ -3695,7 +3695,7 @@ export class ChatManagerImpl implements ChatManager {
             sessionId,
             this._getLocalSession(sessionId)?.messages || [],
             this._getLocalSession(sessionId)?.metadata || { title: '' },
-            this._getLocalSession(sessionId)?.state || SessionState.ACTIVE,
+            this._getLocalSession(sessionId)?.state || DataSessionStatus.ACTIVE,
             label
           )
           .then((cp) => cp.id),
@@ -3705,7 +3705,7 @@ export class ChatManagerImpl implements ChatManager {
         this._checkpointService.rollbackToCheckpoint(checkpointId, {
           messages: [],
           metadata: { title: '' },
-          state: SessionState.ACTIVE,
+          state: DataSessionStatus.ACTIVE,
         }),
       deleteCheckpoint: (checkpointId: string) =>
         this._checkpointService.deleteCheckpoint(checkpointId),

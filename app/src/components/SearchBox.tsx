@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { Text, Box } from 'ink';
+import { Text, Box } from '@modules/ink';
 import { useInput } from '../ink/ink/index.js';
 
 export interface SearchMatch {

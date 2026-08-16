@@ -131,6 +131,12 @@ pub fn run() {
         .setup(|app| {
             info!("Application setup started");
 
+            // W8 修复：IPC 会话持久化到 app_data_dir/sessions.json，
+            // 重启后降级路径创建的会话不再丢失
+            let session_state = app.state::<AppState>();
+            let sessions_path = app.path().app_data_dir()?.join("sessions.json");
+            session_state.init_storage(sessions_path);
+
             let handle = app.handle();
 
             let menu = create_tray_menu(handle)?;
@@ -224,7 +230,7 @@ pub fn run() {
             commands::backend_ctrl::start_backend,
             commands::backend_ctrl::stop_backend,
             commands::backend_ctrl::get_backend_status,
-            commands::backend_ctrl::get_backend_secret,
+            commands::backend_ctrl::http_proxy,
             commands::backend_ctrl::set_backend_port,
             commands::app_config::get_app_config,
             commands::app_config::set_app_config,

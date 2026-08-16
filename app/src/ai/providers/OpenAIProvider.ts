@@ -187,6 +187,23 @@ export class OpenAIProvider extends BaseAIProvider {
       signal?: AbortSignal;
     }
   ): Promise<ChatResponse> {
+    // 耗时统计：委托 BaseAIProvider.measureChat（2026-08-16）
+    return BaseAIProvider.measureChat('OpenAI', () =>
+      this.chatInternal(messages, options)
+    );
+  }
+
+  private async chatInternal(
+    messages: ChatMessage[],
+    options?: {
+      tools?: ToolDefinition[];
+      model?: string;
+      maxTokens?: number;
+      temperature?: number;
+      /** P0 压缩超时治理：外部取消信号（压缩超时真正中断请求，消灭僵尸压缩） */
+      signal?: AbortSignal;
+    }
+  ): Promise<ChatResponse> {
     const model = await this.resolveModel('chat', options);
     const requestBody = this.transport!.buildRequest({
       model,
@@ -239,6 +256,22 @@ export class OpenAIProvider extends BaseAIProvider {
   }
 
   async *chatStream(
+    messages: ChatMessage[],
+    options?: {
+      tools?: ToolDefinition[];
+      model?: string;
+      maxTokens?: number;
+      temperature?: number;
+    }
+  ): AsyncGenerator<string | ThinkingProviderChunk, ChatResponse, unknown> {
+    // 流式耗时统计：委托 BaseAIProvider.wrapChatStreamMeasure（2026-08-16）
+    return yield* BaseAIProvider.wrapChatStreamMeasure(
+      'OpenAI',
+      this.chatStreamInternal(messages, options)
+    );
+  }
+
+  private async *chatStreamInternal(
     messages: ChatMessage[],
     options?: {
       tools?: ToolDefinition[];

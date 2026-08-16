@@ -259,13 +259,10 @@ export async function dispatchChatSessionRoutes(
     );
     return true;
   }
-  if (method === 'POST' && url.match(/^\/v1\/sessions\/(.+)\/prune$/)) {
-    await handlePruneSession(
-      handlerCtx,
-      req,
-      res,
-      url.match(/^\/v1\/sessions\/(.+)\/prune$/)![1]
-    );
+  // P2-22 修复：后端 pruneNow 为全量修剪（无单会话实现），原路由带 :id 造成
+  // "修剪指定会话"的误导语义（实际修剪全部）。改为全量路由 /v1/sessions/prune。
+  if (method === 'POST' && url.match(/^\/v1\/sessions\/prune$/)) {
+    await handlePruneSession(handlerCtx, req, res);
     return true;
   }
   if (method === 'GET' && url.match(/^\/v1\/sessions\/(.+)\/memory$/)) {

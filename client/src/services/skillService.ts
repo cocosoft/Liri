@@ -354,7 +354,7 @@ const skillService = {
     const secret = getApiSecret();
     if (secret) headers["X-API-Key"] = secret;
     if (typeof localStorage !== "undefined") {
-      const authToken = localStorage.getItem("auth_token");
+      const authToken = localStorage.getItem("liri-auth-token");
       if (authToken) headers["Authorization"] = `Bearer ${authToken}`;
     }
     const res = await fetch(`${getBackendBaseUrl()}/v1/skills/export`, {

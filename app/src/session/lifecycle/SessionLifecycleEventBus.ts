@@ -63,12 +63,20 @@ export class SessionLifecycleEventBus extends EventBusImpl {
    * 将通用 publish 调用包装为 SessionLifecycleEvent 后交由 emit 处理
    */
   override publish<T = any>(event: string, data?: T): void {
+    // P1-15 修复：data 本身是完整 SessionLifecycleEvent 时（如 SessionHooks 传全量事件），
+    // 原实现一律生成 sessionKey/sessionId 为 '' 的伪事件，按 sessionId 路由的订阅方会静默错乱。
+    // 改为从 data 提取真实会话字段。
+    const meta = (data ?? {}) as Partial<SessionLifecycleEvent>;
     this.emit({
       type: event as SessionEventType,
-      sessionKey: '',
-      sessionId: '',
-      timestamp: Date.now(),
-      metadata: data as Record<string, unknown>,
+      sessionKey: typeof meta.sessionKey === 'string' ? meta.sessionKey : '',
+      sessionId: typeof meta.sessionId === 'string' ? meta.sessionId : '',
+      timestamp:
+        typeof meta.timestamp === 'number' ? meta.timestamp : Date.now(),
+      metadata:
+        meta.metadata !== undefined
+          ? (meta.metadata as Record<string, unknown>)
+          : (data as Record<string, unknown>),
     } as SessionLifecycleEvent);
   }
 
@@ -106,11 +114,13 @@ export class SessionLifecycleEventBus extends EventBusImpl {
   }
 
   /**
-   * 清除所有处理器和事件历史
+   * 清除所有处理器、通配符处理器和事件历史
    */
   clear(): void {
     super.unsubscribeAll();
     this.wildcardHandlers.clear();
+    // P1-15 修复：语义与文档一致——调用方以为"清干净了"，history 也应清空
+    this.history = [];
   }
 
   /**
@@ -158,7 +168,8 @@ export class SessionLifecycleEventBus extends EventBusImpl {
   private addToHistory(event: SessionLifecycleEvent): void {
     this.history.push(event);
     if (this.history.length > this.maxHistory) {
-      this.history = this.history.slice(-this.maxHistory);
+      // P1-15 修复：splice 从头部批量移除，替代 slice 全量复制（事件密集时 O(n)/事件）
+      this.history.splice(0, this.history.length - this.maxHistory);
     }
   }
 

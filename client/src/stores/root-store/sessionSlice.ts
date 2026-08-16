@@ -774,6 +774,10 @@ export const createSessionSlice: StateCreator<
           { module: "stores:sessionSlice", action: "createChatSession" },
           "warn",
         );
+        // W1 修复：handleClientError 仅记日志不弹 toast——后端不可用时
+        // 用户必须能看到"创建失败"而不是误以为成功，故追加 toast
+        const { toastError } = await import("@/stores/toastStore");
+        toastError(error);
         set({ error: String(error), isLoading: false });
         throw error;
       }

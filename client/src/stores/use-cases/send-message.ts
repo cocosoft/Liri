@@ -43,14 +43,10 @@ export function sendMessage(
   // updatedAt 由 Slice 内部在上下文变更时自动维护
 
   // chatStore.sendMessage 是异步的，等待完整回复
-  const promise = chat
-    .sendMessage(content, sessionId)
-    .then(() => {
-      logger.info("消息发送完成", { sessionId: root.currentSessionId });
-    })
-    .catch((err: unknown) => {
-      logger.error("消息发送失败", { error: String(err) });
-    });
+  // W10 修复：catch 不再吞错——rethrow 让调用方（UI 编排层）感知失败
+  const promise = chat.sendMessage(content, sessionId).then(() => {
+    logger.info("消息发送完成", { sessionId: root.currentSessionId });
+  });
 
   return {
     promise,

@@ -104,6 +104,8 @@ export class SessionActivityTracker {
       this.heartbeatTimer = setInterval(() => {
         this.heartbeat();
       }, this.config.heartbeatIntervalMs);
+      // P1-14 修复：unref 避免测试/CLI 进程被心跳定时器钉住不退出
+      this.heartbeatTimer.unref();
     }
   }
 

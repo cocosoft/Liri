@@ -66,6 +66,8 @@ const RECONNECT_DELAY_MS = 2000;
 const MAX_RECONNECT_ATTEMPTS = 5;
 const PING_INTERVAL_MS = 30000;
 const MAX_SESSION_NOT_FOUND_RETRIES = 3;
+/** P2-26：pong 超时阈值（2 个 ping 周期 + 余量），超时判定 TCP 半开死连接 */
+const PONG_TIMEOUT_MS = PING_INTERVAL_MS * 2 + 5000;
 
 const PERMANENT_CLOSE_CODES = new Set([4003]);
 
@@ -76,6 +78,10 @@ export class SessionsWebSocket {
   private sessionNotFoundRetries = 0;
   private pingInterval: ReturnType<typeof setInterval> | null = null;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  /** P2-26：最近一次收到 pong 的时间戳（用于死连接检测） */
+  private lastPongAt = 0;
+  /** P2-26：pong 超时检查定时器 */
+  private pongTimeoutTimer: ReturnType<typeof setTimeout> | null = null;
   private sessionId: string;
   private orgUuid: string;
   private getAccessToken: () => string;
@@ -120,6 +126,14 @@ export class SessionsWebSocket {
     return new Promise((resolve, reject) => {
       const wsUrl = this.buildWebSocketUrl();
       this.ws = new WebSocket(wsUrl);
+      // P1-20a 修复：onopen/onclose/onerror 都可能结束 Promise，且只允许一次
+      let settled = false;
+      const finish = (fn: () => void): void => {
+        if (!settled) {
+          settled = true;
+          fn();
+        }
+      };
 
       this.ws.onopen = () => {
         this.state = 'connected';
@@ -128,7 +142,7 @@ export class SessionsWebSocket {
         this.startPingInterval();
         this.sendAuth();
         this.callbacks.onConnected?.();
-        resolve();
+        finish(resolve);
       };
 
       this.ws.onmessage = (event) => {
@@ -136,12 +150,19 @@ export class SessionsWebSocket {
       };
 
       this.ws.onclose = (event) => {
+        // P1-20a：握手前被关闭（4003 拒绝/网络闪断）时结束 Promise，
+        // 否则 connect() 永久挂起、重连永不触发。正常连接后的 close 走 handleClose。
+        finish(() =>
+          reject(
+            new Error(`WebSocket closed during connect: code=${event.code}`)
+          )
+        );
         this.handleClose(event.code, event.reason);
       };
 
       this.ws.onerror = (event) => {
         this.callbacks.onError?.(new Error('WebSocket error'));
-        reject(new Error('WebSocket connection error'));
+        finish(() => reject(new Error('WebSocket connection error')));
       };
     });
   }
@@ -199,6 +220,16 @@ export class SessionsWebSocket {
         }
       }
 
+      // P2-26：应用层心跳——收到 ping 回 pong；收到 pong 更新存活时间
+      if (message.type === 'ping') {
+        this.send({ type: 'pong', timestamp: Date.now() });
+        return;
+      }
+      if (message.type === 'pong') {
+        this.lastPongAt = Date.now();
+        return;
+      }
+
       this.callbacks.onMessage(message);
     } catch (error) {
       handleError(error, {
@@ -243,10 +274,17 @@ export class SessionsWebSocket {
     if (this.state === 'closed') {
       return;
     }
+    // P1-20b 修复：onerror→reject→connect catch 与 onclose→handleClose 双路径都会
+    // 走到这里，无幂等保护时产生两个重连 timer、两个 WebSocket（后者覆盖前者，
+    // 先建连接泄漏）。已有 timer 时直接返回。
+    if (this.reconnectTimer) {
+      return;
+    }
 
     this.callbacks.onReconnecting?.();
 
     this.reconnectTimer = setTimeout(async () => {
+      this.reconnectTimer = null;
       this.reconnectAttempts++;
       try {
         await this.establishConnection();
@@ -257,21 +295,59 @@ export class SessionsWebSocket {
   }
 
   private startPingInterval(): void {
+    // P2-26 修复：标准 WebSocket 无 ping() 方法（原实现 `ping?.()` 是静默 no-op）。
+    // 改应用层 ping/pong：发 {type:'ping'}，服务端回 {type:'pong'}；
+    // 超过 PONG_TIMEOUT_MS 未收到 pong 判定 TCP 半开死连接，主动 close 触发重连。
+    this.lastPongAt = Date.now();
     this.pingInterval = setInterval(() => {
       if (this.ws && this.state === 'connected') {
         try {
-          (this.ws as any).ping?.();
-        } catch (err) {
-          // Ping not supported
+          this.send({ type: 'ping', timestamp: Date.now() });
+        } catch {
+          // 发送失败交由 pong 超时检测兜底
         }
       }
     }, this.pingIntervalMs);
+    // P1-14 修复：unref 避免进程被 ping 定时器钉住
+    this.pingInterval.unref();
+    this.pongTimeoutTimer = setTimeout(
+      this.checkPongAlive.bind(this),
+      PONG_TIMEOUT_MS
+    );
+  }
+
+  private checkPongAlive(): void {
+    this.pongTimeoutTimer = null;
+    if (this.state !== 'connected') {
+      return;
+    }
+    if (Date.now() - this.lastPongAt > PONG_TIMEOUT_MS) {
+      logger.warning('WebSocket pong timeout，判定死连接并重连', {
+        sessionId: this.sessionId,
+        lastPongAt: new Date(this.lastPongAt).toISOString(),
+      });
+      // 主动关闭（非 1000）→ handleClose 走重连分支
+      try {
+        this.ws?.close(4000, 'pong timeout');
+      } catch {
+        // 已关闭则忽略
+      }
+      return;
+    }
+    this.pongTimeoutTimer = setTimeout(
+      this.checkPongAlive.bind(this),
+      PONG_TIMEOUT_MS
+    );
   }
 
   private stopPingInterval(): void {
     if (this.pingInterval) {
       clearInterval(this.pingInterval);
       this.pingInterval = null;
+    }
+    if (this.pongTimeoutTimer) {
+      clearTimeout(this.pongTimeoutTimer);
+      this.pongTimeoutTimer = null;
     }
   }
 

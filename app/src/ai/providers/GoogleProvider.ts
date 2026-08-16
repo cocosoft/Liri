@@ -82,6 +82,21 @@ export class GoogleProvider extends BaseAIProvider {
       temperature?: number;
     }
   ): Promise<ChatResponse> {
+    // 耗时统计：委托 BaseAIProvider.measureChat（2026-08-16）
+    return BaseAIProvider.measureChat('Google', () =>
+      this.chatInternal(messages, options)
+    );
+  }
+
+  private async chatInternal(
+    messages: ChatMessage[],
+    options?: {
+      tools?: ToolDefinition[];
+      model?: string;
+      maxTokens?: number;
+      temperature?: number;
+    }
+  ): Promise<ChatResponse> {
     const model = await this.resolveModel('chat', options);
     const { systemPrompt } = this.transport!.splitMessages(messages);
 
@@ -131,6 +146,22 @@ export class GoogleProvider extends BaseAIProvider {
   }
 
   async *chatStream(
+    messages: ChatMessage[],
+    options?: {
+      tools?: ToolDefinition[];
+      model?: string;
+      maxTokens?: number;
+      temperature?: number;
+    }
+  ): AsyncGenerator<string, ChatResponse, unknown> {
+    // 流式耗时统计：委托 BaseAIProvider.wrapChatStreamMeasure（2026-08-16）
+    return yield* BaseAIProvider.wrapChatStreamMeasure(
+      'Google',
+      this.chatStreamInternal(messages, options)
+    );
+  }
+
+  private async *chatStreamInternal(
     messages: ChatMessage[],
     options?: {
       tools?: ToolDefinition[];

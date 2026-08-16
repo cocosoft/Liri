@@ -21,6 +21,7 @@
 
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::net::TcpStream;
 use std::sync::Mutex;
 use std::time::Duration;
@@ -301,10 +302,65 @@ pub async fn get_backend_status() -> Result<BackendStatus, String> {
     }
 }
 
+// W6 修复：get_backend_secret 已删除——共享密钥仅由 Rust 内部持有，
+// 通过 http_proxy 注入 X-API-Key，前端 JS 不再可调用获取（防 XSS 窃取 → RCE）。
+
+#[derive(Debug, Deserialize)]
+pub struct ProxyRequest {
+    pub method: String,
+    pub url: String,
+    #[serde(default)]
+    pub body: Option<String>,
+    #[serde(default)]
+    pub headers: Option<HashMap<String, String>>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ProxyResponse {
+    pub status: u16,
+    pub body: String,
+}
+
+/// W6 修复：HTTP 代理 command —— 前端 JS 不再接触 LIRI_API_SECRET。
+/// 请求经 Rust 侧转发，共享密钥在此注入 X-API-Key，WebView JS 上下文永不持有明文密钥。
 #[tauri::command]
-pub async fn get_backend_secret() -> Result<Option<String>, String> {
-    let secret_guard = BACKEND_SECRET.lock().map_err(|e| e.to_string())?;
-    Ok(secret_guard.clone())
+pub async fn http_proxy(request: ProxyRequest) -> Result<ProxyResponse, String> {
+    let secret = BACKEND_SECRET.lock().map_err(|e| e.to_string())?.clone();
+
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(60))
+        .build()
+        .map_err(|e| e.to_string())?;
+
+    let method = reqwest::Method::from_bytes(request.method.as_bytes())
+        .map_err(|e| format!("invalid method {}: {}", request.method, e))?;
+
+    let mut req = client.request(method, &request.url);
+
+    // 注入共享密钥（仅 Rust 侧持有，JS 不可见）
+    if let Some(ref s) = secret {
+        req = req.header("X-API-Key", s);
+    }
+
+    // 合并前端自定义 headers（禁止覆盖 X-API-Key）
+    if let Some(headers) = request.headers {
+        for (k, v) in headers {
+            if k.to_lowercase() != "x-api-key" {
+                req = req.header(&k, v);
+            }
+        }
+    }
+
+    if let Some(ref body) = request.body {
+        req = req
+            .header("Content-Type", "application/json")
+            .body(body.clone());
+    }
+
+    let resp = req.send().await.map_err(|e| e.to_string())?;
+    let status = resp.status().as_u16();
+    let body = resp.text().await.map_err(|e| e.to_string())?;
+    Ok(ProxyResponse { status, body })
 }
 
 #[tauri::command]

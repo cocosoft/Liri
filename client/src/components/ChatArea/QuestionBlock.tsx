@@ -99,6 +99,11 @@ function QuestionBlock({
       // #9 修复：仅成功才锁定（原失败也 setSubmitted(true)，用户无法重试）
       if (result.success) {
         setSubmitted(true);
+        logger.info("question 提交成功，等待后端恢复流", {
+          questionId,
+          sessionId,
+          answerCount: answers.length,
+        });
         // 非流式路径：后端返回了最终响应内容，通过回调追加到消息列表
         if (result.content && onResponse) {
           onResponse(result.content);

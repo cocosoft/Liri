@@ -96,9 +96,13 @@ const OfficeCalendarPage = lazy(
 // M2：/apikeys 归一为 ApiKeyContent 唯一实现（方案 §5.4，替代 ApiKeyPage 重复实现）
 const ApiKeyPage = lazy(() => import("../components/settings/ApiKeyContent"));
 const OAuthPage = lazy(() => import("../components/views/OAuthPage"));
+const LoginPage = lazy(() => import("../components/views/LoginPage"));
 
 /** 完整路由表——App.tsx（33 条）与 routes/index.tsx 原路由取并集，同名路由 App.tsx 优先（含 AuthGuard） */
 export const routes: RouteObject[] = [
+  // W7：登录页（供 AuthGuard requiredRole/requiredTrustLevel 校验失败时跳转）
+  { path: "/login", element: <LoginPage /> },
+
   // 首页
   {
     path: "/",

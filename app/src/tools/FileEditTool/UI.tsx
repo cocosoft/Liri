@@ -7,7 +7,7 @@
  */
 
 import React from 'react';
-import { Box, Text } from 'ink';
+import { Box, Text } from '@modules/ink';
 
 export type FileEditUIOutput = {
   filePath?: string;

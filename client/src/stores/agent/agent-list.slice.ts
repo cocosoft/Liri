@@ -117,7 +117,8 @@ export const useAgentListStore = create<AgentListSlice>((set, get) => ({
     set({ error: null });
     try {
       const task = await agentService.executeTask(name, params);
-      set({ tasks: [task, ...get().tasks] });
+      // W14 修复：去重——SSE 兜底可能已把执行中任务插入列表头，直接插头会产生重复项
+      set({ tasks: [task, ...get().tasks.filter((t) => t.id !== task.id)] });
     } catch (e) {
       handleClientError(e, {
         module: "stores:agent:list",

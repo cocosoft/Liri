@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, useMemo, useEffect } from "react";
 import { useTranslation } from "react-i18next";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import ChatMessage from "./ChatMessage";
 import type { Message } from "../../types";
 import { SkeletonMessageList } from "../common/Skeleton";
@@ -247,6 +248,8 @@ interface ChatMessageListProps {
    * 新竞态路径（或历史数据错位），会显示上一个会话的旧消息；此处兜底。
    */
   currentSessionId?: string;
+  /** W3：虚拟滚动滚动容器引用（overflow-y-auto 容器在 ChatArea） */
+  scrollRef?: React.RefObject<HTMLDivElement | null>;
   /** 创建新会话回调（欢迎页按钮） */
   onCreateSession?: () => void;
   /** 发送入门提示消息回调 */
@@ -261,12 +264,22 @@ export default function ChatMessageList({
   hasSession,
   sessionTitle,
   currentSessionId,
+  scrollRef,
   onCreateSession,
   onSendMessage,
 }: ChatMessageListProps) {
   const { t } = useTranslation();
-  const listRef = useRef<HTMLDivElement>(null);
   const switching = useSessionStore((s) => s.switching);
+
+  // W3：虚拟滚动——仅渲染视口 ± overscan 内的消息，长会话不再全量挂载
+  // （每条消息含 KaTeX/mermaid/代码高亮，几千条时全量渲染导致首屏/切换卡顿）
+  const virtualizer = useVirtualizer({
+    count: messages.length,
+    getScrollElement: () => scrollRef?.current ?? null,
+    estimateSize: () => 96,
+    overscan: 10,
+    getItemKey: (index) => messages[index]?.id ?? index,
+  });
 
   // P0-2 防御：消息区内容与当前会话一致性校验——渲染层兜底，不依赖 store 守卫。
   // 若 messages 首条 session_id 与 currentSessionId 不一致（切换竞态/数据错位），
@@ -294,17 +307,14 @@ export default function ChatMessageList({
   const scrollToMatch = useCallback(
     (index: number) => {
       const id = matchedIds[index];
-      if (!id || !listRef.current) return;
-      // N2 修复：不把 id 拼进选择器（含特殊字符时 DOM 异常/注入风险），
-      // 改为静态选择器 + 属性值比对
-      const el = Array.from(
-        listRef.current.querySelectorAll<HTMLElement>("[data-msg-id]"),
-      ).find((node) => node.getAttribute("data-msg-id") === id);
-      if (el) {
-        el.scrollIntoView({ behavior: "smooth", block: "center" });
+      if (!id) return;
+      // W3：虚拟列表下离屏消息不在 DOM，按消息索引 scrollToIndex（替代 querySelectorAll）
+      const msgIndex = messages.findIndex((m) => m.id === id);
+      if (msgIndex >= 0) {
+        virtualizer.scrollToIndex(msgIndex, { align: "center" });
       }
     },
-    [matchedIds],
+    [matchedIds, messages, virtualizer],
   );
 
   /** 上一个匹配 */
@@ -494,7 +504,7 @@ export default function ChatMessageList({
   }
 
   return (
-    <div ref={listRef} className="relative">
+    <div className="relative">
       {/* 顶部工具栏：搜索 + 导出 */}
       {searchOpen && (
         <SearchBar
@@ -533,9 +543,14 @@ export default function ChatMessageList({
         </div>
       )}
 
-      {/* 消息列表（原生滚动，content-visibility 优化离屏渲染） */}
-      <div className="py-4">
-        {messages.map((message, i) => {
+      {/* 消息列表（W3 虚拟滚动：仅渲染视口 ± overscan，长会话不再全量挂载） */}
+      <div
+        className="py-4 relative"
+        style={{ height: virtualizer.getTotalSize() }}
+      >
+        {virtualizer.getVirtualItems().map((virtualRow) => {
+          const message = messages[virtualRow.index];
+          const i = virtualRow.index;
           const isMatched = matchedSet.has(message.id);
           const isCurrentMatch =
             matchedIds.length > 0 &&
@@ -543,7 +558,18 @@ export default function ChatMessageList({
           const hasReplies = repliedIdSet.has(message.id);
 
           return (
-            <div key={message.id}>
+            <div
+              key={message.id}
+              data-index={virtualRow.index}
+              ref={virtualizer.measureElement}
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                width: "100%",
+                transform: `translateY(${virtualRow.start}px)`,
+              }}
+            >
               {/* 日期分隔线：跨天时插入 */}
               {shouldShowDateSeparator(i, messages) && (
                 <div

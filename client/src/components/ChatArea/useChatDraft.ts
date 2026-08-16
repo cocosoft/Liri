@@ -18,9 +18,9 @@ export function useChatDraft(sessionId?: string) {
     inputRef.current = input;
   }, [input]);
 
-  /** 草稿持久化键名（按会话 ID 区分） */
+  /** 草稿持久化键名（按会话 ID 区分，统一 liri- 命名空间） */
   const getDraftKey = useCallback(
-    (sid?: string): string => `chat_draft_${sid || "default"}`,
+    (sid?: string): string => `liri-chat-draft-${sid || "default"}`,
     [],
   );
 

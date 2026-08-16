@@ -115,7 +115,10 @@ export async function processChunk(
           ? chunk.content
           : chunk.content.slice(0, remaining);
       ctx.thinkingCharsRef.current += keep.length;
-      if (keep.length < chunk.content.length && !ctx.thinkingCharsRef.truncated) {
+      if (
+        keep.length < chunk.content.length &&
+        !ctx.thinkingCharsRef.truncated
+      ) {
         ctx.thinkingCharsRef.truncated = true;
         logger.warn("processChunk: thinking 超预算截断", {
           sessionId: sid,

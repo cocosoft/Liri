@@ -76,7 +76,7 @@ export interface EditingImage {
 // 收藏持久化（localStorage）
 // ============================================================
 
-const FAVORITES_KEY = "pyapp_media_favorites";
+const FAVORITES_KEY = "liri-media-favorites";
 
 function loadFavorites(): Set<string> {
   try {

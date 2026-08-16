@@ -14,7 +14,7 @@
 import type { SessionCheckpointService } from './SessionCheckpointService';
 import type { SessionCheckpoint } from '../types/checkpoint';
 import type { Message } from '../types/message';
-import type { SessionMetadata, SessionState } from '../types/session';
+import type { SessionMetadata, DataSessionStatus } from '../types/session';
 
 /** metadata 中标记普通对话检查点的字段 */
 const META_KEY = 'plainTextAutoCheckpoint';
@@ -39,7 +39,7 @@ export class PlainTextCheckpoint {
   async save(
     messages: Message[],
     metadata: SessionMetadata,
-    state: SessionState
+    state: DataSessionStatus
   ): Promise<SessionCheckpoint | null> {
     try {
       const enrichedMetadata = {

@@ -18,19 +18,26 @@ interface CacheEntry<T> {
 
 export interface SessionStoreOptions {
   maxCacheSize?: number;
+  /** P1 第5条：消息缓存独立上限（消息体积远大于元数据，不共用 maxCacheSize） */
+  messagesCacheMax?: number;
   storage?: SessionStorage;
   storageRootDir?: string;
 }
+
+// P1 第4条：稳态不溢出——插入后逐出到 ≤ 上限（而非"≤ 上限时跳过插入前逐出"）
+const EVICT_TARGET_RATIO = 0.8;
 
 export class SessionStore implements SessionStorage {
   private sessionCache: Map<string, CacheEntry<Session>> = new Map();
   private metadataCache: Map<string, CacheEntry<SessionMetadata>> = new Map();
   private messagesCache: Map<string, CacheEntry<SessionMessage[]>> = new Map();
   private maxCacheSize: number;
+  private messagesCacheMax: number;
   private storage: SessionStorage;
 
   constructor(options: SessionStoreOptions = {}) {
     this.maxCacheSize = options.maxCacheSize ?? 100;
+    this.messagesCacheMax = options.messagesCacheMax ?? 30;
     this.storage =
       options.storage ?? new FileSystemStorage(options.storageRootDir);
   }
@@ -46,17 +53,20 @@ export class SessionStore implements SessionStorage {
   async loadSession(sessionId: string): Promise<Session | null> {
     const cached = this.sessionCache.get(sessionId);
     if (cached) {
+      // P1 第4条：命中移尾（Map 迭代序伪 LRU，O(1)，替代全 Map 扫描找最旧）
+      this.sessionCache.delete(sessionId);
+      this.sessionCache.set(sessionId, cached);
       cached.lastAccess = Date.now();
       return cached.value;
     }
 
     const session = await this.storage.loadSession(sessionId);
     if (session) {
-      this.evictIfNeeded(this.sessionCache);
       this.sessionCache.set(sessionId, {
         value: session,
         lastAccess: Date.now(),
       });
+      this.evictIfNeeded(this.sessionCache, this.maxCacheSize);
     }
     return session;
   }
@@ -73,6 +83,9 @@ export class SessionStore implements SessionStorage {
     if (!options) {
       const cached = this.messagesCache.get(sessionId);
       if (cached) {
+        // P1 第4条：命中移尾
+        this.messagesCache.delete(sessionId);
+        this.messagesCache.set(sessionId, cached);
         cached.lastAccess = Date.now();
         return cached.value;
       }
@@ -80,11 +93,11 @@ export class SessionStore implements SessionStorage {
 
     const messages = await this.storage.loadMessages(sessionId, options);
     if (!options) {
-      this.evictIfNeeded(this.messagesCache);
       this.messagesCache.set(sessionId, {
         value: messages,
         lastAccess: Date.now(),
       });
+      this.evictIfNeeded(this.messagesCache, this.messagesCacheMax);
     }
     return messages;
   }
@@ -103,17 +116,20 @@ export class SessionStore implements SessionStorage {
   async loadMetadata(sessionId: string): Promise<SessionMetadata | null> {
     const cached = this.metadataCache.get(sessionId);
     if (cached) {
+      // P1 第4条：命中移尾
+      this.metadataCache.delete(sessionId);
+      this.metadataCache.set(sessionId, cached);
       cached.lastAccess = Date.now();
       return cached.value;
     }
 
     const metadata = await this.storage.loadMetadata(sessionId);
     if (metadata) {
-      this.evictIfNeeded(this.metadataCache);
       this.metadataCache.set(sessionId, {
         value: metadata,
         lastAccess: Date.now(),
       });
+      this.evictIfNeeded(this.metadataCache, this.maxCacheSize);
     }
     return metadata;
   }
@@ -156,20 +172,19 @@ export class SessionStore implements SessionStorage {
     };
   }
 
-  private evictIfNeeded(cache: Map<string, CacheEntry<any>>): void {
-    if (cache.size <= this.maxCacheSize) return;
-
-    let oldestKey: string | null = null;
-    let oldestTime = Infinity;
-
-    for (const [key, entry] of cache) {
-      if (entry.lastAccess < oldestTime) {
-        oldestTime = entry.lastAccess;
-        oldestKey = key;
-      }
-    }
-
-    if (oldestKey) {
+  /**
+   * P1 第4条：伪 LRU 批量逐出。
+   * - 命中已把 key 移到 Map 尾部（迭代序 = 访问序），keys().next() 即最久未访问，O(1)
+   * - 插入后逐出到 maxSize * EVICT_TARGET_RATIO（批量摊薄扫描成本，稳态不溢出）
+   */
+  private evictIfNeeded(
+    cache: Map<string, CacheEntry<any>>,
+    maxSize: number
+  ): void {
+    const target = Math.floor(maxSize * EVICT_TARGET_RATIO);
+    while (cache.size > maxSize && cache.size > target) {
+      const oldestKey = cache.keys().next().value;
+      if (oldestKey === undefined) break;
       cache.delete(oldestKey);
     }
   }

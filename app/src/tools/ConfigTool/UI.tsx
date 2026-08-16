@@ -1,5 +1,5 @@
 // import React from 'react'
-import { Box, Text } from 'ink';
+import { Box, Text } from '@modules/ink';
 
 export function renderToolUseMessage(
   input: Partial<{ action: string; key: string }>,

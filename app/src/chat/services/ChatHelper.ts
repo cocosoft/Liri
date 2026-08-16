@@ -9,7 +9,7 @@ import { getLogger } from '@modules/monitoring';
 import type { SessionConfirmedPaths } from './SessionConfirmedPaths';
 import type { Message, UsageInfo } from '../types/message.js';
 import { MessageRole } from '../types/message.js';
-import { SessionState } from '../types/session.js';
+import { DataSessionStatus } from '@modules/core/data-models';
 import type { ChatSession } from '../types/session.js';
 import type { ToolResult } from '../types/tool.js';
 import type { TodoBlockData } from '@modules/runtime/api/todo-types.js';
@@ -102,23 +102,23 @@ export function sanitizePass(apiMessages: Record<string, unknown>[]): void {
 }
 
 /**
- * 将会话状态字符串映射为 SessionState 枚举
+ * 将会话状态字符串映射为统一 DataSessionStatus 枚举
  */
-export function mapSessionStatusToState(status: string): SessionState {
+export function mapSessionStatusToState(status: string): DataSessionStatus {
   switch (status) {
     case 'active':
     case 'running':
-      return SessionState.ACTIVE;
+      return DataSessionStatus.ACTIVE;
     case 'paused':
-      return SessionState.PAUSED;
+      return DataSessionStatus.PAUSED;
     case 'ended':
     case 'completed':
     case 'aborted':
-      return SessionState.ENDED;
+      return DataSessionStatus.ENDED;
     case 'archived':
-      return SessionState.ARCHIVED;
+      return DataSessionStatus.ARCHIVED;
     default:
-      return SessionState.ACTIVE;
+      return DataSessionStatus.ACTIVE;
   }
 }
 

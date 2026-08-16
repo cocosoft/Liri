@@ -7,7 +7,7 @@
  */
 
 import React from 'react';
-import { Text, Box } from 'ink';
+import { Text, Box } from '@modules/ink';
 
 export interface CronJobItem {
   /** 任务 ID */

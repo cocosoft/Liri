@@ -17,7 +17,6 @@ import type { ChatSession } from '../../chat/types/session';
 import type { Message } from '../../chat/types/message';
 
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
 const logger = getLogger('session:hydration:SessionStateHydrator');
 
 // ============================================================================
@@ -164,13 +163,9 @@ export class SessionStateHydrator {
             const parsed = JSON.parse(block.text);
             const path = parsed.file_path || parsed.filePath || parsed.path;
             if (typeof path === 'string') return path;
-          } catch (err) {
-            // ignore
-
-            handleError(err, {
-              module: 'session:hydration',
-              action: 'extractFilePath',
-            });
+          } catch {
+            // B12 修复：预期内失败（普通文本不是 JSON）静默忽略，不上报 error——
+            // 与 string 分支（:143-157）行为对齐，避免每次加载会话刷 error 日志。
           }
         }
       }
@@ -198,13 +193,8 @@ export class SessionStateHydrator {
         if (block.type === 'text' && block.text) {
           try {
             return JSON.parse(block.text);
-          } catch (err) {
-            // ignore
-
-            handleError(err, {
-              module: 'session:hydration',
-              action: 'parseToolResult',
-            });
+          } catch {
+            // B12 修复：预期内失败（普通文本不是 JSON）静默忽略，不上报 error。
           }
         }
         if (block.value) {

@@ -4,7 +4,7 @@
  */
 
 import React, { useState } from 'react';
-import { Text, Box } from 'ink';
+import { Text, Box } from '@modules/ink';
 
 export interface OnboardingStep {
   /** 步骤标题 */

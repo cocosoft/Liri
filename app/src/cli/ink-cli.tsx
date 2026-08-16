@@ -23,6 +23,12 @@ import type { TaskGroup, TaskItem } from '@modules/components/TaskListV2';
 const logger = getLogger('cli:ink');
 
 /**
+ * 全局退出回调（F7 修复：render 后由 instance.unmount 注入，
+ * Exit 按钮走 Ink 优雅卸载路径，不再 process.exit(0) 绕过清理）
+ */
+let exitInkApp: (() => void) | null = null;
+
+/**
  * 主菜单组件
  */
 const MainMenu = ({
@@ -58,7 +64,16 @@ const MainMenu = ({
       </Button>
       <Box height={1} />
 
-      <Button onClick={() => process.exit(0)} width="100%" color="red">
+      <Button
+        onClick={() => {
+          // F7 修复：优先走 Ink unmount 优雅退出（恢复终端/清理资源），
+          // 无实例时兜底 process.exit
+          if (exitInkApp) exitInkApp();
+          else process.exit(0);
+        }}
+        width="100%"
+        color="red"
+      >
         Exit
       </Button>
     </Box>
@@ -228,6 +243,9 @@ const ProfileReport = ({
 }: {
   onMenuChange: (menu: string) => void;
 }) => {
+  // F7 修复：profileReport() 已导入但从未调用，组件永远显示 "Loading..."。
+  // 惰性初始化只执行一次，展示真实启动分析报告。
+  const [report] = useState<string>(() => profileReport());
   return (
     <Box flexDirection="column" padding={2} width="100%" height="100%">
       <Text bold color="green">
@@ -236,8 +254,7 @@ const ProfileReport = ({
       <Box height={1} />
 
       <ScrollBox width="100%" height="80%">
-        {/* 这里将显示启动分析报告 */}
-        <Text color="gray">Loading profile report...</Text>
+        <Text color="gray">{report || '无启动分析数据'}</Text>
       </ScrollBox>
 
       <Box height={2} />
@@ -463,4 +480,7 @@ const App = () => {
 };
 
 // 渲染应用
-render(<App />);
+render(<App />).then((instance) => {
+  // F7 修复：注入优雅退出回调（Ink unmount 恢复终端状态/清理资源）
+  exitInkApp = () => instance.unmount();
+});

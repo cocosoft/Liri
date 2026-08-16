@@ -53,8 +53,11 @@ export class SessionRouter {
     if (!parsed) return null;
 
     const parts = parsed.full.split(':');
+    // B1 修复：key 中内嵌的 chatType（repl/cli/mcp/daemon/web/api）即会话来源平台。
+    // 原实现 resolvePlatform(parts[2]) 拿 chatType 去匹配 platformToChatType 的 value
+    // （全部是 'dm'），恒不匹配 → platform 永远返回 'unknown'（死代码）。
     const platform =
-      parts.length >= 5 ? this.resolvePlatform(parts[2]) : 'unknown';
+      parts.length >= 5 ? (parsed.chatType as SessionPlatform) : 'unknown';
     const routingId = parts.slice(5).join(':') || 'default';
 
     return {
@@ -73,14 +76,5 @@ export class SessionRouter {
 
   static resolveChatType(platform: string): SessionChatType {
     return SessionRouter.platformToChatType[platform] ?? 'dm';
-  }
-
-  private resolvePlatform(chatType: string): SessionPlatform {
-    for (const [platform, ct] of Object.entries(
-      SessionRouter.platformToChatType
-    )) {
-      if (ct === chatType) return platform;
-    }
-    return 'unknown';
   }
 }

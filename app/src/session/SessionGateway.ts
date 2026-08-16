@@ -818,6 +818,8 @@ export class SessionGateway {
         // 持久化失败不影响主流程
       }
     }, SessionGateway.FTS_SAVE_INTERVAL_MS);
+    // P1-14 修复：unref 避免进程被 FTS 定时器钉住（close() 仍会 clear）
+    this.ftsSaveInterval.unref();
   }
 
   /**

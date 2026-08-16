@@ -24,6 +24,8 @@
 //! 前端通过 HTTP `/v1/sessions/*` 优先调用，失败后降级至此 IPC 通道。
 
 use crate::Session;
+use std::fs;
+use std::path::PathBuf;
 use std::sync::Mutex;
 use tauri::State;
 use tracing::info;
@@ -32,6 +34,8 @@ use uuid::Uuid;
 pub struct AppState {
     pub sessions: Mutex<Vec<Session>>,
     pub current_session_id: Mutex<Option<String>>,
+    /// 持久化文件路径（setup 时经 init_storage 绑定，None = 未持久化）
+    storage_path: Mutex<Option<PathBuf>>,
 }
 
 impl Default for AppState {
@@ -39,6 +43,41 @@ impl Default for AppState {
         Self {
             sessions: Mutex::new(Vec::new()),
             current_session_id: Mutex::new(None),
+            storage_path: Mutex::new(None),
+        }
+    }
+}
+
+impl AppState {
+    /// 绑定持久化文件路径并加载已有会话
+    /// W8 修复：IPC 会话此前存内存 Vec，重启即清空——前端降级路径创建的会话
+    /// 刷新/重启后消失（"数据丢失"）。现持久化到 app_data_dir/sessions.json。
+    pub fn init_storage(&self, path: PathBuf) {
+        if let Ok(content) = fs::read_to_string(&path) {
+            match serde_json::from_str::<Vec<Session>>(&content) {
+                Ok(loaded) => {
+                    if let Ok(mut sessions) = self.sessions.lock() {
+                        *sessions = loaded;
+                    }
+                }
+                Err(e) => info!("sessions.json 解析失败，忽略并重建: {}", e),
+            }
+        }
+        if let Ok(mut storage) = self.storage_path.lock() {
+            *storage = Some(path);
+        }
+    }
+
+    /// 将当前会话列表写回持久化文件（W8 修复）
+    fn persist(&self) {
+        let path = self.storage_path.lock().ok().and_then(|g| g.clone());
+        let Some(path) = path else { return };
+        let Ok(sessions) = self.sessions.lock() else { return };
+        if let Ok(json) = serde_json::to_string_pretty(&*sessions) {
+            if let Some(dir) = path.parent() {
+                let _ = fs::create_dir_all(dir);
+            }
+            let _ = fs::write(&path, json);
         }
     }
 }
@@ -73,6 +112,9 @@ pub async fn create_session(
 
     let mut current_id = state.current_session_id.lock().map_err(|e| e.to_string())?;
     *current_id = Some(session.id.clone());
+
+    // W8 修复：变更后落盘，重启保留
+    state.persist();
 
     Ok(session)
 }
@@ -112,6 +154,9 @@ pub async fn delete_session(
         *current_id = sessions.first().map(|s| s.id.clone());
     }
 
+    // W8 修复：变更后落盘，重启保留
+    state.persist();
+
     Ok(())
 }
 
@@ -145,6 +190,8 @@ pub async fn rename_session(
     match session {
         Some(s) => {
             s.title = title;
+            // W8 修复：变更后落盘，重启保留
+            state.persist();
             Ok(())
         }
         None => Err("Session not found".to_string()),

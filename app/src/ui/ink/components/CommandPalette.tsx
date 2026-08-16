@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Box, Text, useInput } from 'ink';
+import { Box, Text, useInput } from '@modules/ink';
 import { Text as InkTextInput } from './Text';
 
 export interface CommandItem {

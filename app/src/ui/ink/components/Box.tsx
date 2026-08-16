@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { Box as InkBox } from 'ink';
+import { Box as InkBox } from '@modules/ink';
 
 export interface BoxProps {
   children?: React.ReactNode;

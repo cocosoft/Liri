@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Bedrock AI 提供商（AWS Bedrock）
  * 对标 Hermes Bedrock provider
  * 使用 AWS SigV4 签名 + fetch API 调用 Bedrock 端点
@@ -43,10 +43,24 @@ export class BedrockProvider extends BaseAIProvider {
     messages: ChatMessage[],
     options?: ChatOptions
   ): Promise<ChatResponse> {
-    return this.sendConverseRequest(messages, options, false);
+    // 耗时统计：委托 BaseAIProvider.measureChat（2026-08-16）
+    return BaseAIProvider.measureChat('Bedrock', () =>
+      this.sendConverseRequest(messages, options, false)
+    );
   }
 
   async *chatStream(
+    messages: ChatMessage[],
+    options?: ChatOptions
+  ): AsyncGenerator<string, ChatResponse, unknown> {
+    // 流式耗时统计：委托 BaseAIProvider.wrapChatStreamMeasure（2026-08-16）
+    return yield* BaseAIProvider.wrapChatStreamMeasure(
+      'Bedrock',
+      this.chatStreamInternal(messages, options)
+    );
+  }
+
+  private async *chatStreamInternal(
     messages: ChatMessage[],
     options?: ChatOptions
   ): AsyncGenerator<string, ChatResponse, unknown> {

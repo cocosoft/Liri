@@ -1,4 +1,4 @@
-import { Box, Text } from 'ink';
+import { Box, Text } from '@modules/ink';
 
 interface ThinkingData {
   step?: number;

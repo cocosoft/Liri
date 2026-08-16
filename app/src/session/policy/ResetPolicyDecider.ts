@@ -54,6 +54,13 @@ export class ResetPolicyDecider {
       return false;
     }
 
+    // B11 修复：已 idle 的会话同日不重复触发 reset（幂等）——SessionSupervisor 对
+    // reset 动作执行 markIdle，状态变 idle 后再次 evaluate 应返回 skip，
+    // 否则同日每个周期都重复返回 reset（语义缺陷）。
+    if (session.status === 'idle') {
+      return false;
+    }
+
     return session.createdAt < todayReset.getTime();
   }
 }

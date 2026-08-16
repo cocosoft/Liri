@@ -21,7 +21,7 @@ export interface FrontendLogEntry {
   data?: unknown;
 }
 
-const STORAGE_KEY = "pyapp_frontend_logs";
+const STORAGE_KEY = "liri-frontend-logs";
 const MAX_LOGS = 500;
 
 function generateId(): string {

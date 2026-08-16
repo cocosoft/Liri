@@ -51,9 +51,13 @@ function messagesFilePath(basePath: string, sessionId: string): string {
  * 增量写入方案（2026-08-14）：updateMessage 改为 O(1) 追加后，同 id 在
  * messages.jsonl 中可能出现多行（旧行 + 新行）。loadMessages 反向去重
  * （后写覆盖先写）保证取最新值；但文件会随更新次数增长，故每追加
- * APPEND_REWRITE_INTERVAL 次执行一次全量重写（compact）回收重复行。
+ * APPEND_REWRITE_INTERVAL 次（或累计体积达阈值）执行一次全量重写（compact）
+ * 回收重复行。
+ * 第 6/7 条改造：compact 已异步化（fire-and-forget 入写队列），阈值可配置
+ * （StorageConfig.appendRewriteInterval / appendRewriteBytes）。
  */
-const APPEND_REWRITE_INTERVAL = 100;
+const DEFAULT_APPEND_REWRITE_INTERVAL = 100;
+const DEFAULT_APPEND_REWRITE_BYTES = 2 * 1024 * 1024;
 
 export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
   private sessions: Map<string, UnifiedSession> = new Map();
@@ -62,8 +66,16 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
   private basePath: string;
   private writer: AtomicWriter;
   private initialized = false;
-  /** 增量追加计数：达 APPEND_REWRITE_INTERVAL 后触发 compact（全量重写） */
-  private _appendCount = 0;
+  /**
+   * per-session 写队列（P0-1/P2-17 修复）：append 与 compact 是分离的 await，
+   * 并发调用时同会话的追加与全量重写会在 OS 层竞争（整行丢失/重复）。
+   * 同一 session 的全部落盘操作串行化，消除跨 syscall 竞态。
+   */
+  private writeQueues: Map<string, Promise<void>> = new Map();
+  /** 增量追加计数（per-session）：达阈值后触发该会话 compact */
+  private appendCounts: Map<string, number> = new Map();
+  /** 累计追加行字节估算（per-session，第 7 条）：长消息会话按体积触发 compact */
+  private appendBytes: Map<string, number> = new Map();
 
   constructor(config: StorageConfig) {
     this.config = config;
@@ -80,6 +92,9 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
   async close(): Promise<void> {
     this.sessions.clear();
     this.messages.clear();
+    this.messageAccessOrder = [];
+    this.appendCounts.clear();
+    this.appendBytes.clear();
     this.initialized = false;
   }
 
@@ -99,11 +114,67 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
         const data = await fs.readFile(filePath, 'utf-8');
         const session: UnifiedSession = JSON.parse(data);
         this.sessions.set(sessionId, session);
-      } catch {
+      } catch (err) {
+        // P2-16 修复：损坏的 session.json（断电半写/手动编辑出错）此前静默跳过，
+        // 用户以为会话丢失。改为隔离到 <root>/.corrupt/{id}/（连同 messages）并告警，
+        // 保留恢复路径而非无声消失。
+        logger.warn('会话文件损坏，隔离到 .corrupt/', {
+          sessionId,
+          filePath,
+          error: String(err),
+        });
+        try {
+          const corruptDir = path.join(this.basePath, '.corrupt', sessionId);
+          await fs.rename(sessionDir(this.basePath, sessionId), corruptDir);
+        } catch (renameErr) {
+          logger.warn('隔离损坏会话目录失败', {
+            sessionId,
+            error: String(renameErr),
+          });
+        }
         continue;
       }
 
-      await this.loadMessages(sessionId);
+      // P1-3 修复：initialize 不再预载全部会话消息（懒加载，见 ensureMessagesLoaded）
+    }
+  }
+
+  /**
+   * P1-3 修复：消息按需加载 + 缓存上限逐出。
+   * 原实现 initialize 时把全部会话消息读入内存（无上限）；现改为：
+   * - 首次访问某会话消息时才读盘（懒加载）
+   * - messages Map 超 MESSAGE_CACHE_MAX 个会话时逐出最久未访问者
+   * loadMessages 反向去重幂等，逐出后再次访问重新加载安全。
+   */
+  private static readonly MESSAGE_CACHE_MAX = 50;
+  private messageAccessOrder: string[] = [];
+
+  private async ensureMessagesLoaded(sessionId: string): Promise<void> {
+    if (this.messages.has(sessionId)) {
+      this.touchMessageAccess(sessionId);
+      return;
+    }
+    await this.loadMessages(sessionId);
+    this.touchMessageAccess(sessionId);
+    this.evictMessageCacheIfNeeded();
+  }
+
+  private touchMessageAccess(sessionId: string): void {
+    const idx = this.messageAccessOrder.indexOf(sessionId);
+    if (idx !== -1) this.messageAccessOrder.splice(idx, 1);
+    this.messageAccessOrder.push(sessionId);
+  }
+
+  private evictMessageCacheIfNeeded(): void {
+    while (
+      this.messageAccessOrder.length >
+      FileSystemUnifiedStorage.MESSAGE_CACHE_MAX
+    ) {
+      const oldest = this.messageAccessOrder.shift();
+      if (!oldest) break;
+      this.messages.delete(oldest);
+      this.appendCounts.delete(oldest);
+      this.appendBytes.delete(oldest);
     }
   }
 
@@ -191,6 +262,93 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
     await this.writer.write(messagesFilePath(this.basePath, sessionId), data);
   }
 
+  /**
+   * 将写操作按会话串行化执行：前一个操作完成（无论成败）后才执行下一个，
+   * 保证同一会话的 append/compact 不跨 syscall 竞争。队列尾部自动清理。
+   */
+  private enqueueWrite(
+    sessionId: string,
+    op: () => Promise<void>
+  ): Promise<void> {
+    const prev = this.writeQueues.get(sessionId) ?? Promise.resolve();
+    const next = prev.then(op, op);
+    this.writeQueues.set(sessionId, next);
+    next
+      .finally(() => {
+        if (this.writeQueues.get(sessionId) === next) {
+          this.writeQueues.delete(sessionId);
+        }
+      })
+      .catch(() => {
+        // 错误由调用方处理，队列清理不抛
+      });
+    return next;
+  }
+
+  /**
+   * 定期 compact 异步化（第 6 条）：把"全量重写 + 读回校验"作为一个 op 排入
+   * per-session 写队列，fire-and-forget——调用方不等 compact 完成，消除
+   * updateMessage 主流程的同步阻塞。队列串行保证与 append 不跨 syscall 竞争
+   * （P0-1 语义保留）；op 执行时读取当前内存快照（触发后到执行间的更新一并
+   * 落盘，不丢数据）。enqueueWrite 内部已挂 catch，无需担心 unhandledRejection。
+   */
+  private enqueueCompact(sessionId: string): void {
+    void this.enqueueWrite(sessionId, async () => {
+      const msgs = this.messages.get(sessionId);
+      if (!msgs) return;
+      logger.info('compact 异步执行开始', {
+        sessionId,
+        memoryMessageCount: msgs.length,
+      });
+      const compactStart = Date.now();
+      await this.persistMessagesRewrite(sessionId, msgs);
+      const compactElapsedMs = Date.now() - compactStart;
+      // 读回磁盘行数校验一致性——增量追加期间同 id 可能多行，compact 全量
+      // 重写后应回到"每消息一行"（行数 == 内存唯一消息数）。差异定位同
+      // updateMessage 原逻辑（diffDiskVsMemory）。
+      let diskLineCount = -1;
+      let consistencyDiff: {
+        duplicatedIds: Array<{ id: string; count: number }>;
+        missingIds: string[];
+        orphanIds: string[];
+      } | null = null;
+      try {
+        const diskData = await fs.readFile(
+          messagesFilePath(this.basePath, sessionId),
+          'utf-8'
+        );
+        const diskLines = diskData
+          .split('\n')
+          .filter((l) => l.trim().length > 0);
+        diskLineCount = diskLines.length;
+        if (diskLineCount !== msgs.length) {
+          consistencyDiff = this.diffDiskVsMemory(sessionId, diskLines, msgs);
+        }
+      } catch {
+        // 读取失败不影响主流程（-1 表示校验未执行）
+      }
+      if (consistencyDiff) {
+        logger.warn('compact 异步完成但一致性校验失败', {
+          sessionId,
+          compactElapsedMs,
+          memoryMessageCount: msgs.length,
+          diskLineCount,
+          ...consistencyDiff,
+          impact:
+            '仅 duplicatedIds 时可安全忽略（读取不受影响）；含 missingIds/orphanIds 需人工排查',
+        });
+      } else {
+        logger.info('compact 异步完成', {
+          sessionId,
+          compactElapsedMs,
+          memoryMessageCount: msgs.length,
+          diskLineCount,
+          consistent: diskLineCount === msgs.length,
+        });
+      }
+    });
+  }
+
   async createSession(session: UnifiedSession): Promise<string> {
     this.sessions.set(session.id, { ...session });
     this.messages.set(session.id, []);
@@ -214,10 +372,18 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
 
     const dir = sessionDir(this.basePath, sessionId);
     try {
-      await fs.rm(dir, { recursive: true, force: true });
+      // P1 第10条：软删除——rename 到 .trash/（带时间戳避免同名冲突），
+      // 误删可恢复，不再直接 fs.rm 物理删除（与 SessionPruner/Supervisor 的
+      // "不物理删除"策略对齐）。TTL 自动清理 .trash 留待后续。
+      const trashDir = path.join(
+        this.basePath,
+        '.trash',
+        `${sessionId}_${Date.now()}`
+      );
+      await fs.mkdir(path.dirname(trashDir), { recursive: true });
+      await fs.rename(dir, trashDir);
     } catch (err) {
-      // ignore cleanup errors
-
+      // 目标不存在（会话目录可能已物理删除/损坏隔离）时忽略
       handleError(err, {
         module: 'session:storage',
         action: 'deleteSession',
@@ -245,18 +411,48 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
   }
 
   async addMessage(sessionId: string, message: UnifiedMessage): Promise<void> {
-    const msgs = this.messages.get(sessionId) ?? [];
-    msgs.push({ ...message });
-    this.messages.set(sessionId, msgs);
-    await this.persistMessageAppend(sessionId, message);
+    // P1-3：按需加载（保证内存中有该会话消息数组）
+    await this.ensureMessagesLoaded(sessionId);
+    return this.enqueueWrite(sessionId, async () => {
+      const msgs = this.messages.get(sessionId) ?? [];
+      msgs.push({ ...message });
+      this.messages.set(sessionId, msgs);
+      await this.persistMessageAppend(sessionId, message);
+    });
   }
 
   async getMessages(
     sessionId: string,
     options?: UnifiedMessageQueryOptions
   ): Promise<UnifiedMessage[]> {
+    // P1-3：按需加载（懒加载会话消息）
+    await this.ensureMessagesLoaded(sessionId);
     const msgs = this.messages.get(sessionId) ?? [];
     let result = msgs.map((m) => ({ ...m }));
+    // P1-13 修复：此前仅处理 limit，startDate/endDate/offset/types/roles/parentUuid 被静默吞掉
+    if (options?.startDate !== undefined) {
+      result = result.filter((m) => m.timestamp >= options.startDate!);
+    }
+    if (options?.endDate !== undefined) {
+      result = result.filter((m) => m.timestamp <= options.endDate!);
+    }
+    if (options?.types?.length) {
+      const typeSet = new Set(options.types);
+      result = result.filter((m) => typeSet.has(m.type));
+    }
+    if (options?.roles?.length) {
+      const roleSet = new Set(options.roles);
+      result = result.filter(
+        (m) => m.role !== undefined && roleSet.has(m.role)
+      );
+    }
+    if (options?.parentUuid !== undefined) {
+      result = result.filter((m) => m.parentUuid === options.parentUuid);
+    }
+    if (options?.offset) {
+      result = result.slice(options.offset);
+    }
+    // 保持原语义：limit 取最近 N 条（slice 负索引）
     if (options?.limit) {
       result = result.slice(-options.limit);
     }
@@ -268,120 +464,95 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
     messageId: string,
     message: UnifiedMessage
   ): Promise<void> {
-    const msgs = this.messages.get(sessionId);
-    if (!msgs) return;
-    let idx = msgs.findIndex((m) => m.id === messageId);
-    // P1 加固（2026-08-14）：调用方可能传错 id（如前端 UUID vs 后端 msg-xxx），
-    // 原实现找不到时静默 return 导致 blocks 永不落盘。降级按消息自身 id 再查一次。
-    if (idx === -1 && message.id && message.id !== messageId) {
-      idx = msgs.findIndex((m) => m.id === message.id);
-    }
-    if (idx !== -1) {
-      msgs[idx] = { ...message };
-      // 增量写入方案（2026-08-14）：O(1) 追加替代全量重写 O(n)——
-      // 长会话下每轮 blocks 保存不再重写整个 messages.jsonl。
-      // loadMessages 已反向去重（后写覆盖），同 id 多行读取安全。
-      const writeStart = Date.now();
-      await this.persistMessageAppend(sessionId, msgs[idx]);
-      const writeElapsedMs = Date.now() - writeStart;
-      // 定期 compact：追加次数达阈值后全量重写一次，回收重复行防文件无限增长
-      this._appendCount++;
-      if (this._appendCount >= APPEND_REWRITE_INTERVAL) {
-        this._appendCount = 0;
-        const compactStart = Date.now();
-        // 触发前：记录内存唯一消息数（compact 后磁盘行数应与之相等，供一致性核对）
-        logger.debug('updateMessage: compact 触发', {
-          sessionId,
-          reason: 'append_count_reached',
-          threshold: APPEND_REWRITE_INTERVAL,
-          memoryMessageCount: msgs.length,
-          updatedMessageId: message.id,
-        });
-        await this.persistMessagesRewrite(sessionId, msgs);
-        const compactElapsedMs = Date.now() - compactStart;
-        // 触发后：读回磁盘行数校验一致性——增量追加期间同 id 可能多行，
-        // compact 全量重写后应回到"每消息一行"（行数 == 内存唯一消息数）。
-        // 行数不一致时自动定位重复/丢失/孤儿的具体消息 id。
-        let diskLineCount = -1;
-        let consistencyDiff: {
-          duplicatedIds: Array<{ id: string; count: number }>;
-          missingIds: string[];
-          orphanIds: string[];
-        } | null = null;
-        try {
-          const diskData = await fs.readFile(
-            messagesFilePath(this.basePath, sessionId),
-            'utf-8'
-          );
-          const diskLines = diskData
-            .split('\n')
-            .filter((l) => l.trim().length > 0);
-          diskLineCount = diskLines.length;
-          if (diskLineCount !== msgs.length) {
-            consistencyDiff = this.diffDiskVsMemory(sessionId, diskLines, msgs);
-          }
-        } catch {
-          // 读取失败不影响主流程（-1 表示校验未执行）
-        }
-        if (consistencyDiff) {
-          logger.warn('updateMessage: compact 一致性校验失败', {
-            sessionId,
-            compactElapsedMs,
-            memoryMessageCount: msgs.length,
-            diskLineCount,
-            ...consistencyDiff,
-            // 差异解读（供排查，不做自动修复——修复动作会掩盖并发/写路径根因，
-            // orphan 删除可能销毁仍被其他逻辑使用的数据）：
-            // duplicatedIds → 不影响读取（loadMessages 取最后值），文件冗余，下次 compact 回收；
-            //                   持续出现提示并发写入（append 与 compact 竞争）
-            // missingIds   → 疑似重写丢失/并发修改，需人工核对写入路径，自动重写可能再次丢失
-            // orphanIds    → 疑似未知写入源/旧数据残留，勿自动删除，需人工排查写入来源
-            impact:
-              '仅 duplicatedIds 时可安全忽略（读取不受影响）；含 missingIds/orphanIds 需人工排查',
-          });
-        } else {
-          logger.debug('updateMessage: compact 完成', {
-            sessionId,
-            compactElapsedMs,
-            memoryMessageCount: msgs.length,
-            diskLineCount,
-            consistent: diskLineCount === msgs.length,
-          });
-        }
+    // P1-3：按需加载
+    await this.ensureMessagesLoaded(sessionId);
+    return this.enqueueWrite(sessionId, async () => {
+      const msgs = this.messages.get(sessionId);
+      if (!msgs) return;
+      let idx = msgs.findIndex((m) => m.id === messageId);
+      // P1 加固（2026-08-14）：调用方可能传错 id（如前端 UUID vs 后端 msg-xxx），
+      // 原实现找不到时静默 return 导致 blocks 永不落盘。降级按消息自身 id 再查一次。
+      if (idx === -1 && message.id && message.id !== messageId) {
+        idx = msgs.findIndex((m) => m.id === message.id);
       }
-      // 排查日志：storage 层增量落盘（直接命中 vs 降级按 message.id 命中）
-      logger.debug('updateMessage: blocks 增量落盘', {
-        sessionId,
-        hitPath:
-          msgs[idx].id === messageId ? 'direct' : 'fallback_by_message_id',
-        storedId: msgs[idx].id,
-        requestedId: messageId,
-        writeElapsedMs,
-        storedCount: msgs.length,
-      });
-    } else {
-      // 仍找不到：记录日志避免静默丢失（消息可能尚未在 storage 中创建）
-      logger.warn('updateMessage: 未找到目标消息，更新被丢弃', {
-        sessionId,
-        messageId,
-        fallbackId: message.id,
-        storedCount: msgs.length,
-      });
-    }
+      if (idx !== -1) {
+        msgs[idx] = { ...message };
+        // 增量写入方案（2026-08-14）：O(1) 追加替代全量重写 O(n)——
+        // 长会话下每轮 blocks 保存不再重写整个 messages.jsonl。
+        // loadMessages 已反向去重（后写覆盖），同 id 多行读取安全。
+        const writeStart = Date.now();
+        await this.persistMessageAppend(sessionId, msgs[idx]);
+        const writeElapsedMs = Date.now() - writeStart;
+        // 定期 compact（第 6/7 条改造）：追加次数或累计体积达阈值即触发，异步化——
+        // fire-and-forget 入写队列后台重写（enqueueCompact），不再阻塞 updateMessage。
+        // P0-1：计数为 per-session（原全局计数会让活跃会话触发所有会话的 compact）。
+        const appendCount = (this.appendCounts.get(sessionId) ?? 0) + 1;
+        const appendBytes =
+          (this.appendBytes.get(sessionId) ?? 0) +
+          Buffer.byteLength(JSON.stringify(msgs[idx]), 'utf-8');
+        const interval =
+          this.config.appendRewriteInterval ?? DEFAULT_APPEND_REWRITE_INTERVAL;
+        const bytesThreshold =
+          this.config.appendRewriteBytes ?? DEFAULT_APPEND_REWRITE_BYTES;
+        if (appendCount >= interval || appendBytes >= bytesThreshold) {
+          this.appendCounts.set(sessionId, 0);
+          this.appendBytes.set(sessionId, 0);
+          logger.info('updateMessage: compact 触发（异步入队）', {
+            sessionId,
+            reason: 'append_count_or_bytes_reached',
+            appendCount,
+            appendBytes,
+            interval,
+            bytesThreshold,
+            hitPath:
+              msgs[idx].id === messageId ? 'direct' : 'fallback_by_message_id',
+            updatedMessageId: message.id,
+          });
+          this.enqueueCompact(sessionId);
+        } else {
+          this.appendCounts.set(sessionId, appendCount);
+          this.appendBytes.set(sessionId, appendBytes);
+        }
+        // 排查日志：storage 层增量落盘（直接命中 vs 降级按 message.id 命中）
+        logger.debug('updateMessage: blocks 增量落盘', {
+          sessionId,
+          hitPath:
+            msgs[idx].id === messageId ? 'direct' : 'fallback_by_message_id',
+          storedId: msgs[idx].id,
+          requestedId: messageId,
+          writeElapsedMs,
+          storedCount: msgs.length,
+        });
+      } else {
+        // 仍找不到：记录日志避免静默丢失（消息可能尚未在 storage 中创建）
+        logger.warn('updateMessage: 未找到目标消息，更新被丢弃', {
+          sessionId,
+          messageId,
+          fallbackId: message.id,
+          storedCount: msgs.length,
+        });
+      }
+    });
   }
 
   async deleteMessage(sessionId: string, messageId: string): Promise<void> {
-    const msgs = this.messages.get(sessionId);
-    if (!msgs) return;
-    const filtered = msgs.filter((m) => m.id !== messageId);
-    this.messages.set(sessionId, filtered);
-    await this.persistMessagesRewrite(sessionId, filtered);
+    // P1-3：按需加载
+    await this.ensureMessagesLoaded(sessionId);
+    return this.enqueueWrite(sessionId, async () => {
+      const msgs = this.messages.get(sessionId);
+      if (!msgs) return;
+      const filtered = msgs.filter((m) => m.id !== messageId);
+      this.messages.set(sessionId, filtered);
+      await this.persistMessagesRewrite(sessionId, filtered);
+    });
   }
 
   async searchMessages(
     sessionId: string,
     query: string
   ): Promise<UnifiedMessage[]> {
+    // P1-3：按需加载
+    await this.ensureMessagesLoaded(sessionId);
     const q = query.toLowerCase();
     const msgs = this.messages.get(sessionId) ?? [];
     return msgs
@@ -398,25 +569,36 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
     sessionId: string,
     messages: UnifiedMessage[]
   ): Promise<void> {
-    const msgs = this.messages.get(sessionId) ?? [];
-    for (const m of messages) {
-      msgs.push({ ...m });
-    }
-    this.messages.set(sessionId, msgs);
+    // P1-3：按需加载
+    await this.ensureMessagesLoaded(sessionId);
+    return this.enqueueWrite(sessionId, async () => {
+      const msgs = this.messages.get(sessionId) ?? [];
+      for (const m of messages) {
+        msgs.push({ ...m });
+      }
+      this.messages.set(sessionId, msgs);
 
-    const data = messages.map((m) => JSON.stringify(m)).join('\n') + '\n';
-    const dir = sessionDir(this.basePath, sessionId);
-    await fs.mkdir(dir, { recursive: true });
-    await this.writer.append(messagesFilePath(this.basePath, sessionId), data);
+      const data = messages.map((m) => JSON.stringify(m)).join('\n') + '\n';
+      const dir = sessionDir(this.basePath, sessionId);
+      await fs.mkdir(dir, { recursive: true });
+      await this.writer.append(
+        messagesFilePath(this.basePath, sessionId),
+        data
+      );
+    });
   }
 
   async deleteMessages(sessionId: string, messageIds: string[]): Promise<void> {
-    const msgs = this.messages.get(sessionId);
-    if (!msgs) return;
-    const idSet = new Set(messageIds);
-    const filtered = msgs.filter((m) => !idSet.has(m.id));
-    this.messages.set(sessionId, filtered);
-    await this.persistMessagesRewrite(sessionId, filtered);
+    // P1-3：按需加载
+    await this.ensureMessagesLoaded(sessionId);
+    return this.enqueueWrite(sessionId, async () => {
+      const msgs = this.messages.get(sessionId);
+      if (!msgs) return;
+      const idSet = new Set(messageIds);
+      const filtered = msgs.filter((m) => !idSet.has(m.id));
+      this.messages.set(sessionId, filtered);
+      await this.persistMessagesRewrite(sessionId, filtered);
+    });
   }
 
   async getSessionStats(sessionId?: string): Promise<SessionStats> {
@@ -429,6 +611,8 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
           sessions: [],
         } as unknown as SessionStats;
       }
+      // P1-3：按需加载，保证消息数真实
+      await this.ensureMessagesLoaded(sessionId);
       const msgs = this.messages.get(sessionId) ?? [];
       return {
         totalSessions: 1,
@@ -450,6 +634,8 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
   }
 
   async getSessionMessageCount(sessionId: string): Promise<number> {
+    // P1-3：按需加载（逐出后再次访问需重新读盘）
+    await this.ensureMessagesLoaded(sessionId);
     return (this.messages.get(sessionId) ?? []).length;
   }
 

@@ -54,7 +54,9 @@ export class SessionKey {
     if (parts.length < 5) return null;
     if (parts[0] !== SESSION_KEY_PREFIX) return null;
 
-    const timestamp = Number(parts[3]);
+    // B6 修复：timestamp 从末尾取（parts[len-2]），userId 可能含冒号（如 u_abc:123），
+    // 原实现固定取 parts[3] 在 userId 含冒号时解析错位（数字转换 NaN → parse 失败）
+    const timestamp = Number(parts[parts.length - 2]);
     if (isNaN(timestamp)) return null;
 
     return new SessionKey({

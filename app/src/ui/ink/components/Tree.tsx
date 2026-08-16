@@ -4,7 +4,7 @@
  */
 
 import React, { useState } from 'react';
-import { Box, Text } from 'ink';
+import { Box, Text } from '@modules/ink';
 
 export interface TreeNode {
   id: string;

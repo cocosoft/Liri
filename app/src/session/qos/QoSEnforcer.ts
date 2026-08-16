@@ -61,29 +61,17 @@ export class QoSEnforcer {
     const state = this.sessionStates.get(sessionId);
     if (!state) return true;
 
-    const limit = this.getLimit(state.priority.qos);
-    this.resetMinuteIfNeeded(state);
-
-    if (state.activeRequests >= limit.maxConcurrent) return false;
-    if (state.requestsThisMinute >= limit.maxRequestsPerMinute) return false;
-    if (
-      estimatedTokens > 0 &&
-      state.tokensUsedThisMinute + estimatedTokens > limit.maxTokensPerMinute
-    )
-      return false;
-
-    return true;
+    return this.canAccept(state, estimatedTokens);
   }
 
-  beginRequest(sessionId: string): boolean {
+  beginRequest(sessionId: string, estimatedTokens: number = 0): boolean {
     const state = this.sessionStates.get(sessionId);
     if (!state) return false;
 
-    const limit = this.getLimit(state.priority.qos);
-    this.resetMinuteIfNeeded(state);
-
-    if (state.activeRequests >= limit.maxConcurrent) return false;
-    if (state.requestsThisMinute >= limit.maxRequestsPerMinute) return false;
+    // B4 修复：检查与递增在同一同步块内完成（事件循环内原子），
+    // 消除"先 canAcceptRequest 再 beginRequest"之间被其他请求插队的 TOCTOU 窗口；
+    // 同时补上 beginRequest 原本缺失的 token 额度检查（与 canAcceptRequest 一致）
+    if (!this.canAccept(state, estimatedTokens)) return false;
 
     state.activeRequests++;
     state.requestsThisMinute++;
@@ -125,6 +113,21 @@ export class QoSEnforcer {
     this.activeHigh = 0;
     this.activeNormal = 0;
     this.activeLow = 0;
+  }
+
+  private canAccept(state: QoSSessionState, estimatedTokens: number): boolean {
+    const limit = this.getLimit(state.priority.qos);
+    this.resetMinuteIfNeeded(state);
+
+    if (state.activeRequests >= limit.maxConcurrent) return false;
+    if (state.requestsThisMinute >= limit.maxRequestsPerMinute) return false;
+    if (
+      estimatedTokens > 0 &&
+      state.tokensUsedThisMinute + estimatedTokens > limit.maxTokensPerMinute
+    )
+      return false;
+
+    return true;
   }
 
   private resetMinuteIfNeeded(state: QoSSessionState): void {

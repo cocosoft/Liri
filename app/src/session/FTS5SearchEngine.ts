@@ -57,6 +57,8 @@ export class FTS5SearchEngine {
   private documents: Map<string, FTSDocument> = new Map();
   private invertedIndex: Map<string, Set<string>> = new Map();
   private config: FTSConfig;
+  /** 索引自上次落盘后是否有变更（P2-18 修复：无变更时跳过全量写盘） */
+  private isDirty: boolean = false;
 
   constructor(config?: Partial<FTSConfig>) {
     this.config = { ...DEFAULT_CONFIG, ...config };
@@ -79,6 +81,8 @@ export class FTS5SearchEngine {
       }
       this.invertedIndex.get(token)!.add(doc.id);
     }
+
+    this.isDirty = true;
   }
 
   /**
@@ -189,6 +193,8 @@ export class FTS5SearchEngine {
     for (const docIds of this.invertedIndex.values()) {
       docIds.delete(docId);
     }
+
+    this.isDirty = true;
   }
 
   /**
@@ -245,6 +251,7 @@ export class FTS5SearchEngine {
   clear(): void {
     this.documents.clear();
     this.invertedIndex.clear();
+    this.isDirty = true;
   }
 
   /**
@@ -317,6 +324,9 @@ export class FTS5SearchEngine {
    * @param filePath 文件路径
    */
   saveToDisk(filePath?: string): void {
+    // P2-18 修复：索引无变更时跳过全量序列化写盘，避免每 60s 无条件写放大
+    if (!this.isDirty) return;
+
     const target = filePath || this.config.dbPath;
     const dir = path.dirname(target);
 
@@ -330,6 +340,7 @@ export class FTS5SearchEngine {
     };
 
     fs.writeFileSync(target, JSON.stringify(data), 'utf-8');
+    this.isDirty = false;
   }
 
   /**
@@ -350,6 +361,8 @@ export class FTS5SearchEngine {
     for (const [key, values] of data.invertedIndex) {
       this.invertedIndex.set(key, new Set(values));
     }
+
+    this.isDirty = false;
   }
 }
 

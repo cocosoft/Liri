@@ -164,7 +164,10 @@ export const sessionService = {
         }
         const result = await tryTauri<Session>("create_session", { title });
         if (result) return flattenSession(result);
-        return createMemorySessionService().create(title);
+        // W1 修复：HTTP 与 Tauri 均不可用时，原实现返回内存假会话（id 为 local-*，
+        // list() 返回空、刷新即失，UI 却显示"创建成功"——静默假成功）。
+        // 改为显式抛错，由调用方展示失败（对齐 switch() 的 N1 404 上抛语义）。
+        throw new Error("无法创建会话：后端服务不可用");
       },
     );
   },
@@ -513,9 +516,10 @@ export const sessionService = {
     return null;
   },
 
-  prune: async (sessionId: string): Promise<unknown | null> => {
+  // P2-22 同步：后端 prune 为全量修剪（无单会话实现），路由为 POST /v1/sessions/prune
+  prune: async (): Promise<unknown | null> => {
     try {
-      const res = await apiHttp.post(`/v1/sessions/${sessionId}/prune`);
+      const res = await apiHttp.post(`/v1/sessions/prune`);
       if (res.ok) {
         _isUsingFallback = false;
         return res.data;
@@ -524,7 +528,7 @@ export const sessionService = {
       handleClientError(e, { module: "services:session", action: "prune" });
       // 网络错误
     }
-    logger.debug("prune 静默降级：API 不可用", { sessionId });
+    logger.debug("prune 静默降级：API 不可用");
     return null;
   },
 

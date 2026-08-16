@@ -37,9 +37,7 @@ export * from './types/index.js';
 export {
   StorageType,
   createDefaultStorageConfig,
-  createDatabaseStorageConfig,
   createFileSystemStorageConfig,
-  createHybridStorageConfig,
   getStorageTypeName,
 } from './storage/UnifiedStorage.js';
 export type {

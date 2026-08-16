@@ -1,6 +1,6 @@
 //
 import React, { useEffect, useState } from 'react';
-import { Box, Text } from 'ink';
+import { Box, Text } from '@modules/ink';
 
 interface StatusInfo {
   commands: number;

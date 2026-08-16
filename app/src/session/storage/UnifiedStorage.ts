@@ -36,6 +36,10 @@ export interface StorageConfig {
   databasePath?: string;
   maxFileSize?: number;
   enableCompression?: boolean;
+  /** 定期 compact 触发：追加次数阈值（默认 100）——第 7 条可配置化 */
+  appendRewriteInterval?: number;
+  /** 定期 compact 触发：累计追加体积阈值（字节，默认 2MB）——长消息会话防文件膨胀 */
+  appendRewriteBytes?: number;
 }
 
 /**
@@ -124,40 +128,11 @@ export function createDefaultStorageConfig(): StorageConfig {
 }
 
 /**
- * 创建数据库存储配置
- */
-export function createDatabaseStorageConfig(
-  databasePath: string
-): StorageConfig {
-  return {
-    type: StorageType.DATABASE,
-    databasePath,
-    enableCompression: false,
-  };
-}
-
-/**
  * 创建文件系统存储配置
  */
 export function createFileSystemStorageConfig(basePath: string): StorageConfig {
   return {
     type: StorageType.FILESYSTEM,
-    basePath,
-    enableCompression: true,
-    maxFileSize: 50 * 1024 * 1024,
-  };
-}
-
-/**
- * 创建混合存储配置
- */
-export function createHybridStorageConfig(
-  databasePath: string,
-  basePath: string
-): StorageConfig {
-  return {
-    type: StorageType.HYBRID,
-    databasePath,
     basePath,
     enableCompression: true,
     maxFileSize: 50 * 1024 * 1024,

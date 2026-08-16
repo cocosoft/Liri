@@ -345,6 +345,12 @@ export class ReActToolLoop extends ReActLoop<
           }
           const { questionData, promise } = this._registerInteraction(tc);
           // 挂起前产出 question 事件（★ 穿透 generator 挂起链路的唯一通道）
+          logger.info('reactToolLoop:interaction_question_emitted', {
+            sessionId: this.ctx.session.id,
+            toolCallId: tc.id,
+            toolName: tc.name,
+            questionId: questionData.questionId,
+          });
           yield { type: 'question', questionData };
           // 迭代消费心跳 generator（★ 禁止 await async generator：直接 await 不执行代码，心跳全丢）
           const answersIter = this._awaitAnswersWithHeartbeat(
@@ -732,6 +738,13 @@ export class ReActToolLoop extends ReActLoop<
       promise,
       resolve,
     });
+    logger.info('reactToolLoop:interaction_registered', {
+      sessionId: this.ctx.session.id,
+      questionId,
+      question: String(args.question).slice(0, 100),
+      optionCount: (args.options as QuestionOption[])?.length ?? 0,
+      multiSelect: args.multiSelect === true,
+    });
     return { questionData, promise };
   }
 
@@ -760,6 +773,13 @@ export class ReActToolLoop extends ReActLoop<
       setTimeout(res, this.maxWaitMs, 'timeout' as const)
     );
     try {
+      const waitStart = Date.now();
+      logger.info('reactToolLoop:interaction_wait_start', {
+        sessionId: this.ctx.session.id,
+        questionId,
+        heartbeatMs: this.heartbeatMs,
+        maxWaitMs: this.maxWaitMs,
+      });
       while (true) {
         const winner = await Promise.race([
           promise.then((a) => ({ kind: 'answer' as const, value: a })),
@@ -769,15 +789,30 @@ export class ReActToolLoop extends ReActLoop<
           abortPromise.then((v) => ({ kind: v as 'abort' })),
           timeoutPromise.then((v) => ({ kind: v as 'timeout' })),
         ]);
-        if (winner.kind === 'answer') return winner.value;
+        if (winner.kind === 'answer') {
+          logger.info('reactToolLoop:interaction_resolved', {
+            sessionId: this.ctx.session.id,
+            questionId,
+            answerCount: winner.value.length,
+            waitMs: Date.now() - waitStart,
+          });
+          return winner.value;
+        }
         if (winner.kind === 'abort' || winner.kind === 'timeout') {
           logger.warn('reactToolLoop:interaction_stopped', {
             sessionId: this.ctx.session.id,
             questionId,
             reason: winner.kind,
+            waitMs: Date.now() - waitStart,
           });
           return undefined;
         }
+        // 心跳事件（高频：仅 debug，避免刷屏；配合 wait_start/resolved 可还原完整等待曲线）
+        logger.debug('reactToolLoop:interaction_heartbeat', {
+          sessionId: this.ctx.session.id,
+          questionId,
+          waitMs: Date.now() - waitStart,
+        });
         yield { type: 'question_waiting' }; // 心跳事件
       }
     } finally {

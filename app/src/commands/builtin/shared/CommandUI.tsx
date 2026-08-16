@@ -1,6 +1,11 @@
-import React, { useEffect, useState } from 'react';
-import { Box, Text } from 'ink';
-import type { CommandResult } from '../../types/index.js';
+import React, { useEffect, useRef, useState } from 'react';
+import { Box, Text } from '@modules/ink';
+import type { CommandContext, CommandResult } from '../../types/index.js';
+
+/** 成功结果展示时长（毫秒） */
+const SUCCESS_DISPLAY_MS = 2000;
+/** 错误结果展示时长（毫秒）——F6 修复：错误信息至少留足阅读时间，不再 2s 一闪而过 */
+const ERROR_DISPLAY_MS = 8000;
 
 interface CommandUIProps {
   commandName: string;
@@ -20,8 +25,13 @@ export function CommandUI({
   );
   const [error, setError] = useState<string | null>(null);
   const [output, setOutput] = useState<string>('');
+  const ranRef = useRef(false);
 
   useEffect(() => {
+    // F6 修复：父组件每次渲染重建 execute 箭头函数，若以其为 effect 依赖，
+    // 任何 re-render 都会重新执行命令。用 ref 守卫保证仅执行一次。
+    if (ranRef.current) return;
+    ranRef.current = true;
     const run = async () => {
       try {
         const result = await execute();
@@ -39,7 +49,8 @@ export function CommandUI({
 
   useEffect(() => {
     if (state === 'loading') return;
-    const timer = setTimeout(() => onDone?.(), 2000);
+    const displayMs = state === 'error' ? ERROR_DISPLAY_MS : SUCCESS_DISPLAY_MS;
+    const timer = setTimeout(() => onDone?.(), displayMs);
     return () => clearTimeout(timer);
   }, [state, onDone]);
 
@@ -83,7 +94,8 @@ export function CommandUI({
 export async function resolveCommandExecutor(
   modulePromise: Promise<Record<string, unknown>>,
   exportName: string,
-  args: string
+  args: string,
+  context: CommandContext = {}
 ): Promise<CommandResult | void> {
   const mod = await modulePromise;
   const exported = mod[exportName];
@@ -102,12 +114,22 @@ export async function resolveCommandExecutor(
 
     const execFn = implRecord.execute;
     if (typeof execFn === 'function') {
-      return (execFn as (args: string) => Promise<CommandResult | void>)(args);
+      return (
+        execFn as (
+          args: string,
+          context: CommandContext
+        ) => Promise<CommandResult | void>
+      )(args, context);
     }
 
     const callFn = implRecord.call;
     if (typeof callFn === 'function') {
-      return (callFn as (args: string) => Promise<CommandResult | void>)(args);
+      return (
+        callFn as (
+          args: string,
+          context: CommandContext
+        ) => Promise<CommandResult | void>
+      )(args, context);
     }
 
     return;
@@ -116,11 +138,21 @@ export async function resolveCommandExecutor(
   // Pattern B: CommandImplementation directly (execute or call)
   const execFn = exportedRecord.execute;
   if (typeof execFn === 'function') {
-    return (execFn as (args: string) => Promise<CommandResult | void>)(args);
+    return (
+      execFn as (
+        args: string,
+        context: CommandContext
+      ) => Promise<CommandResult | void>
+    )(args, context);
   }
 
   const callFn = exportedRecord.call;
   if (typeof callFn === 'function') {
-    return (callFn as (args: string) => Promise<CommandResult | void>)(args);
+    return (
+      callFn as (
+        args: string,
+        context: CommandContext
+      ) => Promise<CommandResult | void>
+    )(args, context);
   }
 }

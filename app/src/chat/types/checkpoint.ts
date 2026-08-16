@@ -1,5 +1,5 @@
 import type { Message } from './message';
-import type { SessionState, SessionMetadata } from './session';
+import type { DataSessionStatus, SessionMetadata } from './session';
 
 export interface SessionCheckpoint {
   id: string;
@@ -9,7 +9,7 @@ export interface SessionCheckpoint {
   createdAt: number;
   messages: Message[];
   metadata: SessionMetadata;
-  state: SessionState;
+  state: DataSessionStatus;
   tokenCount?: number;
   autoCreated: boolean;
 }
@@ -51,12 +51,12 @@ export interface CheckpointService {
     currentSession: {
       messages: Message[];
       metadata: SessionMetadata;
-      state: SessionState;
+      state: DataSessionStatus;
     }
   ): Promise<{
     messages: Message[];
     metadata: SessionMetadata;
-    state: SessionState;
+    state: DataSessionStatus;
     diff: CheckpointDiff;
   }>;
   deleteCheckpoint(checkpointId: string): Promise<void>;
@@ -65,7 +65,7 @@ export interface CheckpointService {
     sessionId: string,
     messages: Message[],
     metadata: SessionMetadata,
-    state: SessionState
+    state: DataSessionStatus
   ): Promise<SessionCheckpoint>;
 }
 

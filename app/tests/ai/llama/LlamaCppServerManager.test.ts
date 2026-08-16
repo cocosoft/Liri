@@ -129,9 +129,18 @@ describe('verifySha256', () => {
   it('当前锁定版本已登记期望值（强校验启用）', () => {
     const byVariant = EXPECTED_SHA256[LLAMA_VERSION];
     expect(byVariant).toBeDefined();
-    // SHA256 按平台变体登记；win-cpu-x64 为已登记基准
-    expect(byVariant).toHaveProperty('win-cpu-x64');
-    expect(byVariant['win-cpu-x64']).toMatch(/^[0-9a-f]{64}$/);
+    // 全部平台变体均须登记（官方 GitHub Release digest），缺一即强校验缺口
+    const variants = [
+      'win-cpu-x64',
+      'ubuntu-x64',
+      'ubuntu-arm64',
+      'macos-arm64',
+      'macos-x64',
+    ];
+    for (const v of variants) {
+      expect(byVariant).toHaveProperty(v);
+      expect(byVariant[v]).toMatch(/^[0-9a-f]{64}$/);
+    }
   });
 
   it('未登记期望值时跳过强校验并返回实际值', () => {

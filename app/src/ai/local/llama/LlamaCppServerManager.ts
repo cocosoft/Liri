@@ -30,9 +30,16 @@
  * 配置来源优先级：configProvider（config.json llama 段）→ 环境变量 → 默认值
  */
 
-import { spawn, type ChildProcess } from 'child_process';
+import { execFile, spawn, type ChildProcess } from 'child_process';
 import { createHash } from 'crypto';
-import { existsSync, mkdirSync, readdirSync, writeFileSync } from 'fs';
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from 'fs';
 import { join } from 'path';
 import AdmZip from 'adm-zip';
 import { configManager } from '@modules/config';
@@ -199,15 +206,16 @@ function defaultConfigProvider(): Partial<LlamaServerConfig> {
 }
 
 /**
- * 平台 → 官方预编译变体名（llama.cpp Release 命名规则 llama-<v>-bin-<variant>.zip）
+ * 平台 → 官方预编译变体名（llama.cpp Release 命名规则 llama-<v>-bin-<variant>.<ext>）
  * Phase 1 仅覆盖 CPU 变体；CUDA/Metal GPU 变体由专业配置页面（Phase 3）扩展
+ * 变体名必须与官方资产一致：Linux 资产名为 ubuntu-*（非 linux-*），
  * 未知平台直接抛错（曾错误 fallback 到 `linux-${arch}`，导致 win-arm64 下载 linux 包）
  */
 export function resolveDownloadVariant(): string {
   const { platform, arch } = process;
   if (platform === 'win32' && arch === 'x64') return 'win-cpu-x64';
-  if (platform === 'linux' && arch === 'x64') return 'linux-x64';
-  if (platform === 'linux' && arch === 'arm64') return 'linux-arm64';
+  if (platform === 'linux' && arch === 'x64') return 'ubuntu-x64';
+  if (platform === 'linux' && arch === 'arm64') return 'ubuntu-arm64';
   if (platform === 'darwin' && arch === 'arm64') return 'macos-arm64';
   if (platform === 'darwin' && arch === 'x64') return 'macos-x64';
   throw new AppError(
@@ -218,9 +226,11 @@ export function resolveDownloadVariant(): string {
   );
 }
 
-/** 下载 URL（可注入便于测试） */
+/** 下载 URL（可注入便于测试）；Windows 资产为 .zip，Linux/macOS 资产为 .tar.gz */
 export function resolveDownloadUrl(version = LLAMA_VERSION): string {
-  return `https://github.com/ggml-org/llama.cpp/releases/download/${version}/llama-${version}-bin-${resolveDownloadVariant()}.zip`;
+  const variant = resolveDownloadVariant();
+  const ext = variant.startsWith('win-') ? 'zip' : 'tar.gz';
+  return `https://github.com/ggml-org/llama.cpp/releases/download/${version}/llama-${version}-bin-${variant}.${ext}`;
 }
 
 /**
@@ -635,20 +645,58 @@ export class LlamaCppServerManager {
       `${LLAMA_VERSION}-${variant}`
     );
 
-    // 解压：官方 zip 为扁平结构（llama-server.exe + llama-server-impl.dll + ggml*.dll + libomp 等），全量解压
-    const zip = new AdmZip(buf);
-    zip.extractAllTo(llamaDir, true);
-    const binaryPath = resolveLlamaBinaryPath();
-    if (!existsSync(binaryPath)) {
-      // 兼容带顶层目录的历史 zip：将 zip 内文件全部提升到 llama 目录根
-      for (const e of zip.getEntries()) {
-        if (e.isDirectory) continue;
-        const name = e.entryName.split('/').pop();
-        if (!name) continue;
-        writeFileSync(join(llamaDir, name), e.getData());
-      }
+    // 解压：按实际包格式分发——Windows 官方资产为 .zip（AdmZip），
+    // Linux/macOS 官方资产为 .tar.gz（系统 tar）。用魔数嗅探而非平台判断，
+    // 避免测试 mock 与真实平台格式耦合。
+    if (buf.length >= 2 && buf[0] === 0x1f && buf[1] === 0x8b) {
+      await this.extractTarGz(buf, llamaDir);
+    } else {
+      const zip = new AdmZip(buf);
+      zip.extractAllTo(llamaDir, true);
+      const binaryPath = resolveLlamaBinaryPath();
       if (!existsSync(binaryPath)) {
-        throw new Error(`解压后未找到 llama-server 可执行文件: ${binaryPath}`);
+        // 兼容带顶层目录的历史 zip：将 zip 内文件全部提升到 llama 目录根
+        for (const e of zip.getEntries()) {
+          if (e.isDirectory) continue;
+          const name = e.entryName.split('/').pop();
+          if (!name) continue;
+          writeFileSync(join(llamaDir, name), e.getData());
+        }
+      }
+    }
+    if (!existsSync(resolveLlamaBinaryPath())) {
+      throw new Error(`解压后未找到 llama-server 可执行文件: ${resolveLlamaBinaryPath()}`);
+    }
+  }
+
+  /** 解压 tar.gz（Linux/macOS 官方资产）：临时解压到子目录后扁平化到 llama 目录根 */
+  private async extractTarGz(buf: Buffer, destDir: string): Promise<void> {
+    const stamp = Date.now();
+    const tmpTar = join(destDir, `.llama-${stamp}.tar.gz`);
+    const tmpDir = join(destDir, `.extract-${stamp}`);
+    writeFileSync(tmpTar, buf);
+    mkdirSync(tmpDir, { recursive: true });
+    try {
+      await new Promise<void>((resolve, reject) => {
+        execFile('tar', ['-xzf', tmpTar, '-C', tmpDir], (err) =>
+          err ? reject(new Error(`tar 解压失败: ${err.message}`)) : resolve()
+        );
+      });
+      this.flattenDirTo(tmpDir, destDir);
+    } finally {
+      rmSync(tmpTar, { force: true });
+      rmSync(tmpDir, { recursive: true, force: true });
+    }
+  }
+
+  /** 递归将目录下全部文件（含嵌套子目录）扁平化提升到目标目录（与 zip 提升逻辑对齐） */
+  private flattenDirTo(dir: string, destDir: string): void {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const p = join(dir, entry.name);
+      if (entry.isDirectory()) {
+        this.flattenDirTo(p, destDir);
+      } else if (entry.isFile() || entry.isSymbolicLink()) {
+        writeFileSync(join(destDir, entry.name), readFileSync(p));
       }
     }
   }
@@ -803,13 +851,20 @@ export class LlamaCppServerManager {
 /**
  * 各版本/变体期望 SHA256（已登记启用强校验；未登记时仅 warning 并记录实际值）
  * key: LLAMA_VERSION → variant；value: 期望 sha256（小写 hex）
+ * 官方校验值来源：GitHub Release API digest（2026-08-02 发布，asset digest 逐项核对）
  */
 export const EXPECTED_SHA256: Record<string, Record<string, string>> = {
-  // llama-b10225-bin-win-cpu-x64.zip（2026-08-02 Release）
   b10225: {
     'win-cpu-x64':
       '79ae579ed5083435baa0abaee4b3e18d0c5b2eafdb05c8c77afddf3c7977e553',
-    // linux-x64 / linux-arm64 / macos-arm64 / macos-x64 待按官方校验值登记
+    'ubuntu-x64':
+      '0ddec0d5868abd5c892725c872db76f3867891a88f33205e41452f5955c84085',
+    'ubuntu-arm64':
+      'e9eff82a9846e66a75127bad039cca5d97714dc6cd5be552ccc7aeb026f41d98',
+    'macos-arm64':
+      '22501218e24108aff81fddf298c1afecb017be52adfd0810d2c64da3519e3c69',
+    'macos-x64':
+      'd087717d40d30d8bcf88cd84a67189d3c8891a572fd87b22e7d0dfcafac84dd6',
   },
 };
 

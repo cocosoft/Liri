@@ -23,7 +23,9 @@
 //!
 //! 前端通过 HTTP `/v1/sessions/*` 优先调用，失败后降级至此 IPC 通道。
 
+use crate::Message;
 use crate::Session;
+use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 use std::sync::Mutex;
@@ -34,6 +36,8 @@ use uuid::Uuid;
 pub struct AppState {
     pub sessions: Mutex<Vec<Session>>,
     pub current_session_id: Mutex<Option<String>>,
+    /// 会话消息（降级路径：HTTP 不可用时前端仅读写内存态，此处提供消息查询能力）
+    pub messages: Mutex<HashMap<String, Vec<Message>>>,
     /// 持久化文件路径（setup 时经 init_storage 绑定，None = 未持久化）
     storage_path: Mutex<Option<PathBuf>>,
 }
@@ -43,6 +47,7 @@ impl Default for AppState {
         Self {
             sessions: Mutex::new(Vec::new()),
             current_session_id: Mutex::new(None),
+            messages: Mutex::new(HashMap::new()),
             storage_path: Mutex::new(None),
         }
     }
@@ -196,4 +201,44 @@ pub async fn rename_session(
         }
         None => Err("Session not found".to_string()),
     }
+}
+
+#[tauri::command]
+pub async fn get_session(
+    id: String,
+    state: State<'_, AppState>,
+) -> Result<Option<Session>, String> {
+    info!("get_session called with id: {}", id);
+
+    let sessions = state.sessions.lock().map_err(|e| e.to_string())?;
+    Ok(sessions.iter().find(|s| s.id == id).cloned())
+}
+
+#[tauri::command]
+pub async fn get_session_messages(
+    session_id: String,
+    state: State<'_, AppState>,
+) -> Result<Vec<Message>, String> {
+    info!("get_session_messages called with session_id: {}", session_id);
+
+    let messages = state.messages.lock().map_err(|e| e.to_string())?;
+    Ok(messages.get(&session_id).cloned().unwrap_or_default())
+}
+
+#[tauri::command]
+pub async fn clear_all_sessions(
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    info!("clear_all_sessions called");
+
+    state.sessions.lock().map_err(|e| e.to_string())?.clear();
+    *state
+        .current_session_id
+        .lock()
+        .map_err(|e| e.to_string())? = None;
+    state.messages.lock().map_err(|e| e.to_string())?.clear();
+    // W8 修复：变更后落盘，重启保留
+    state.persist();
+
+    Ok(())
 }

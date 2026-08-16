@@ -23,10 +23,7 @@ import type http from 'http';
 import type { HandlerCtx } from './handler-utils';
 import { broadcastEvent } from './handler-utils';
 import { handleError } from '@modules/error';
-import { getLogger } from '@modules/monitoring';
 import { refreshCheckpointLogConfig } from '@modules/config/settings/CheckpointLogConfig';
-
-const logger = getLogger('http:config-handlers');
 
 // ========== Config Handlers ==========
 
@@ -242,47 +239,6 @@ export async function handleRouterUpdateConfig(
       } /* res可能已结束, 忽略 */
     }
   }
-}
-
-// ========== SSE Event Bus ==========
-
-const _clients = new Set<http.ServerResponse>();
-let _heartbeatTimer: ReturnType<typeof setInterval> | null = null;
-
-/**
- * 处理 SSE 事件订阅
- */
-export async function handleEvents(
-  ctx: HandlerCtx,
-  req: http.IncomingMessage,
-  res: http.ServerResponse
-): Promise<void> {
-  res.writeHead(200, {
-    'Content-Type': 'text/event-stream; charset=utf-8',
-    'Cache-Control': 'no-cache',
-    Connection: 'keep-alive',
-  });
-
-  _clients.add(res);
-
-  if (!_heartbeatTimer) {
-    _heartbeatTimer = setInterval(() => {
-      const payload = JSON.stringify({ type: 'heartbeat', ts: Date.now() });
-      // R08-002: SSE 心跳广播循环记录
-      logger.debug('SSE 心跳广播 tick', { clientCount: _clients.size });
-      for (const client of _clients) {
-        client.write(`event: heartbeat\ndata: ${payload}\n\n`);
-      }
-    }, 15000);
-  }
-
-  req.on('close', () => {
-    _clients.delete(res);
-    if (_clients.size === 0 && _heartbeatTimer) {
-      clearInterval(_heartbeatTimer);
-      _heartbeatTimer = null;
-    }
-  });
 }
 
 // ========== 统一设置端点（从 LocalHTTPService.ts 迁移）==========

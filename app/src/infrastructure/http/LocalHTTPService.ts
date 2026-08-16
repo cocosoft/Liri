@@ -19,7 +19,11 @@ import { configManager } from '@modules/config';
 import { upgradeSTTStreamConnection } from '../../voice/STTStreamServer';
 import { setAnalyticsDependencies } from './handlers/analytics-handlers';
 import { setupInfrastructureDiagnostics } from '@modules/diagnostics/infrastructure-diagnostics';
-import { HandlerCtx, createHandlerCtx } from './handlers/handler-utils';
+import {
+  HandlerCtx,
+  createHandlerCtx,
+  setBroadcastHandler,
+} from './handlers/handler-utils';
 import { SandboxPermission } from '@modules/sandbox/SandboxTypes';
 import { dispatchRoute } from './handlers/route-table';
 import {
@@ -64,6 +68,16 @@ export class LocalHTTPService {
     );
     setupInfrastructureDiagnostics();
     this.apiSecret = configManager.env('LIRI_API_SECRET') || '';
+
+    // P0-1 修复：注入 broadcastEvent 实现——handler-utils 的 broadcastEventFn 默认
+    // 是空函数（`() => {}`），此前 setBroadcastHandler 从未被调用，导致 HandlerCtx
+    // 路径（session-handlers / message-handlers / config-handlers 等）广播的
+    // session:created/deleted/renamed、messages:deleted、config:updated 等事件
+    // 全部静默丢失，前端 SSE 收不到（侧栏标题停在"新对话 N"、跨端不同步）。
+    // 注入后委托给 LocalHTTPServiceSSE.broadcastEvent，与前端 EventSource 同集合。
+    setBroadcastHandler((event, data) =>
+      this.broadcastEvent(event, data ?? {})
+    );
   }
 
   /**

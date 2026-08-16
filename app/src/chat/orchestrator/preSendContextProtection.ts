@@ -239,7 +239,16 @@ export function logFinalRawResponse(
   sessionId: string,
   finalResponse: unknown
 ): void {
-  const rawResp = finalResponse as Record<string, unknown>;
+  // 防御：finalResponse 可能为 undefined（模型空响应/迭代结果缺失时 result.value 为 undefined），
+  // as 断言不改变运行时值，直接访问 rawResp.tool_calls 会崩溃（undefined is not an object）
+  const rawResp =
+    finalResponse != null && typeof finalResponse === 'object'
+      ? (finalResponse as Record<string, unknown>)
+      : null;
+  if (!rawResp) {
+    logger.warn('streamMessage:推理结束 raw response 为空', { sessionId });
+    return;
+  }
   const toolCallsArr = Array.isArray(rawResp.tool_calls)
     ? (rawResp.tool_calls as Array<{ name?: string; id?: string }>)
     : [];

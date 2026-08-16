@@ -665,7 +665,9 @@ export class LlamaCppServerManager {
       }
     }
     if (!existsSync(resolveLlamaBinaryPath())) {
-      throw new Error(`解压后未找到 llama-server 可执行文件: ${resolveLlamaBinaryPath()}`);
+      throw new Error(
+        `解压后未找到 llama-server 可执行文件: ${resolveLlamaBinaryPath()}`
+      );
     }
   }
 

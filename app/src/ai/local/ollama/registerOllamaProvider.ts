@@ -76,7 +76,10 @@ export async function syncOllamaModelsToRegistry(): Promise<number> {
     );
     if (!provider) return 0;
     const providerId = provider.id;
-    const baseUrl = (provider.baseUrl || DEFAULT_OLLAMA_URL).replace(/\/+$/, '');
+    const baseUrl = (provider.baseUrl || DEFAULT_OLLAMA_URL).replace(
+      /\/+$/,
+      ''
+    );
 
     const tags = await fetchOllamaTags(baseUrl);
     if (tags.length === 0) {

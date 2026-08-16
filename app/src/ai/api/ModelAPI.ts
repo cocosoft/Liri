@@ -255,7 +255,8 @@ export async function handleUpdateModel(
     if (body.cacheWriteCostPerMillion !== undefined)
       params.cacheWriteCostPerMillion = body.cacheWriteCostPerMillion as number;
     if (body.billingMode !== undefined)
-      params.billingMode = body.billingMode as UpsertPricingParams['billingMode'];
+      params.billingMode =
+        body.billingMode as UpsertPricingParams['billingMode'];
     if (body.pricePerRequest !== undefined)
       params.pricePerRequest = body.pricePerRequest as number;
     if (body.timeBasedPricing !== undefined)

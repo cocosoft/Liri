@@ -13,7 +13,12 @@
  */
 
 import { getLogger } from '@modules/monitoring';
-import { handleError, AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import {
+  handleError,
+  AppError,
+  ErrorCategory,
+  ErrorSeverity,
+} from '@modules/error';
 import { OFFICIAL_PRICING } from './official-pricing-data.js';
 import type { OfficialProviderPricing } from './official-pricing-data.js';
 
@@ -22,7 +27,11 @@ const logger = getLogger('ai:pricing:official');
 /** HH:mm 24h 格式 */
 const HHMM_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 
-const BILLING_MODES = new Set(['token', 'per_request', 'token_and_per_request']);
+const BILLING_MODES = new Set([
+  'token',
+  'per_request',
+  'token_and_per_request',
+]);
 
 function isNonNegative(v: number | undefined): boolean {
   return v === undefined || v >= 0;
@@ -79,12 +88,16 @@ export function validateOfficialPricing(
         m.outputPer1M === undefined &&
         m.pricePerRequest === undefined
       ) {
-        errors.push(`${tag} 至少需要 inputPer1M/outputPer1M/pricePerRequest 之一`);
+        errors.push(
+          `${tag} 至少需要 inputPer1M/outputPer1M/pricePerRequest 之一`
+        );
       }
       if (m.timeBasedPricing) {
         for (const slot of m.timeBasedPricing) {
           if (!HHMM_RE.test(slot.start) || !HHMM_RE.test(slot.end)) {
-            errors.push(`${tag} 分时段时间格式非法: ${slot.start}-${slot.end}（应为 HH:mm）`);
+            errors.push(
+              `${tag} 分时段时间格式非法: ${slot.start}-${slot.end}（应为 HH:mm）`
+            );
           }
           if (slot.start === slot.end) {
             errors.push(`${tag} 分时段 start 不能等于 end: ${slot.start}`);
@@ -147,10 +160,8 @@ export async function applyOfficialPricing(): Promise<number> {
         }
         // 目标值 = 官方表值 ?? 现有值
         const target = {
-          inputCostPerMillion:
-            m.inputPer1M ?? existing.inputCostPerMillion,
-          outputCostPerMillion:
-            m.outputPer1M ?? existing.outputCostPerMillion,
+          inputCostPerMillion: m.inputPer1M ?? existing.inputCostPerMillion,
+          outputCostPerMillion: m.outputPer1M ?? existing.outputCostPerMillion,
           cacheReadCostPerMillion:
             m.cacheReadPer1M ?? existing.cacheReadCostPerMillion,
           cacheWriteCostPerMillion:
@@ -172,16 +183,14 @@ export async function applyOfficialPricing(): Promise<number> {
           );
         }
         if (
-          target.cacheReadCostPerMillion !==
-          existing.cacheReadCostPerMillion
+          target.cacheReadCostPerMillion !== existing.cacheReadCostPerMillion
         ) {
           diffs.push(
             `缓存读 ${existing.cacheReadCostPerMillion}→${target.cacheReadCostPerMillion}`
           );
         }
         if (
-          target.cacheWriteCostPerMillion !==
-          existing.cacheWriteCostPerMillion
+          target.cacheWriteCostPerMillion !== existing.cacheWriteCostPerMillion
         ) {
           diffs.push(
             `缓存写 ${existing.cacheWriteCostPerMillion}→${target.cacheWriteCostPerMillion}`
@@ -218,8 +227,7 @@ export async function applyOfficialPricing(): Promise<number> {
     }
 
     if (updated > 0) {
-      const { ModelRegistry } =
-        await import('../models/ModelRegistry.js');
+      const { ModelRegistry } = await import('../models/ModelRegistry.js');
       await ModelRegistry.getInstance().refreshDbPricing();
       logger.info(
         `官方价格已同步: ${updated} 个模型（${changed} 个有价格变化；跳过未注册 ${skippedUnregistered} / 手工配置 ${skippedManual}）`

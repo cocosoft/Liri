@@ -337,9 +337,7 @@ export class ModelRegistry {
   }
 
   /** DB 定价缓存条目（含计费模式/按次/分时） */
-  getModelPricing(
-    modelName: string
-  ): {
+  getModelPricing(modelName: string): {
     inputPer1M: number;
     outputPer1M: number;
     billingMode: BillingMode;
@@ -352,9 +350,7 @@ export class ModelRegistry {
   }
 
   /** 异步获取模型定价 — 从 DB 实时查询（更精确，例如用于计费） */
-  async getModelPricingAsync(
-    modelName: string
-  ): Promise<{
+  async getModelPricingAsync(modelName: string): Promise<{
     inputPer1M: number;
     outputPer1M: number;
     billingMode: BillingMode;

@@ -170,9 +170,8 @@ async function fetchLlamaCppGgufModels(
 ): Promise<FetchModelsResult | null> {
   const { page = 1, pageSize = 50, search } = options;
   try {
-    const { llamaCppServerManager } = await import(
-      '../local/llama/LlamaCppServerManager.js'
-    );
+    const { llamaCppServerManager } =
+      await import('../local/llama/LlamaCppServerManager.js');
     let ids = llamaCppServerManager
       .scanModels()
       .map((p) => (p.split(/[\\/]/).pop() || p).replace(/\.gguf$/i, ''))

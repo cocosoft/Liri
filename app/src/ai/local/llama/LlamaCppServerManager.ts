@@ -562,9 +562,8 @@ export class LlamaCppServerManager {
     this.modelSyncInFlight = true;
     void (async () => {
       try {
-        const { syncLlamaModelsToRegistry } = await import(
-          './registerLlamaCppProvider.js'
-        );
+        const { syncLlamaModelsToRegistry } =
+          await import('./registerLlamaCppProvider.js');
         await syncLlamaModelsToRegistry();
       } catch (err) {
         // 非关键路径：同步失败不影响状态查询
@@ -808,7 +807,8 @@ export class LlamaCppServerManager {
 export const EXPECTED_SHA256: Record<string, Record<string, string>> = {
   // llama-b10225-bin-win-cpu-x64.zip（2026-08-02 Release）
   b10225: {
-    'win-cpu-x64': '79ae579ed5083435baa0abaee4b3e18d0c5b2eafdb05c8c77afddf3c7977e553',
+    'win-cpu-x64':
+      '79ae579ed5083435baa0abaee4b3e18d0c5b2eafdb05c8c77afddf3c7977e553',
     // linux-x64 / linux-arm64 / macos-arm64 / macos-x64 待按官方校验值登记
   },
 };

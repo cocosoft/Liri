@@ -109,6 +109,12 @@ export const createModuleContextSlice: StateCreator<
       prev.projectName === ctx.projectName &&
       prev.sessionId === ctx.sessionId
     ) {
+      // BUG-74 修复：幂等短路不再重置 ready 标记。StrictMode 双挂载（dev）时序为
+      // mount#1 enterModule(true) → leaveModule(false) → mount#2 enterModule(幂等 return)，
+      // 若此处不补标记，_contextReady 永久为 false → 侧边栏会话列表
+      // `!contextReady && sessions.length === 0` 永远显示"加载中..."。
+      // 刷新页面 rehydrate 重置 _contextReady=false 时同样依赖此处补标记。
+      set({ _contextReady: true } as Partial<ModuleContextState>);
       return;
     }
 

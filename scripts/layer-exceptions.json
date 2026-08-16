@@ -1544,9 +1544,9 @@
       "id": "FSZ-136",
       "ruleId": "R04-001",
       "file": "app/src/ai/local/llama/LlamaCppServerManager.ts",
-      "lines": 818,
+      "lines": 993,
       "targetLines": 800,
-      "plan": "本地模型链路 15 项修复（2026-08-16）后由 715 行增至 818 行；后续随 llama 子模块拆分（配置/生命周期/下载）收敛",
+      "plan": "本地模型链路 15 项修复（2026-08-16）后由 715 行增至 993 行（P2#9 自动同步 syncLlamaModelsToRegistry 迁入本模块以消除循环依赖）；后续随 llama 子模块拆分（配置/生命周期/下载/同步）收敛",
       "expiresAt": "2026-11-30",
       "owner": "@arch-lead"
     }

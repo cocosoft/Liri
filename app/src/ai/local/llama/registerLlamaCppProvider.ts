@@ -28,8 +28,10 @@
 
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-import { basename, extname } from 'path';
-import { llamaCppServerManager } from './LlamaCppServerManager.js';
+import {
+  llamaCppServerManager,
+  syncLlamaModelsToRegistry,
+} from './LlamaCppServerManager.js';
 
 const logger = getLogger('ai:llama');
 
@@ -88,141 +90,5 @@ export async function ensureLlamaCppProviderRegistered(): Promise<boolean> {
       action: 'ensureLlamaCppProviderRegistered',
     });
     return false;
-  }
-}
-
-/**
- * 从 llama-server 服务端探测真实 n_ctx（--ctx-size 实际值）
- * llama.cpp 的可用窗口由启动参数决定，DB 应跟随服务端真实值而非配置抄写。
- */
-async function probeLlamaNctx(
-  host: string,
-  port: number
-): Promise<number | null> {
-  try {
-    const res = await fetch(`http://${host}:${port}/props`, {
-      signal: AbortSignal.timeout(5000),
-    });
-    if (!res.ok) return null;
-    const data = (await res.json()) as {
-      default_generation_settings?: { n_ctx?: number };
-    };
-    const nctx = data.default_generation_settings?.n_ctx;
-    return typeof nctx === 'number' && nctx > 0 ? nctx : null;
-  } catch {
-    return null;
-  }
-}
-
-/**
- * 将 GGUF 目录扫描到的模型同步注册到 model_registry（幂等）。
- * 遵循 model-usage.md：DB 唯一事实源，经 ModelPricingService.upsertPricing 写入，
- * 不手写 SQL；完成后刷新 ModelRegistry 缓存与 ModelRouter UUID 缓存。
- * @returns 本次新增注册的模型数
- */
-export async function syncLlamaModelsToRegistry(): Promise<number> {
-  try {
-    const status = await llamaCppServerManager.getStatus();
-    if (!status.running) return 0;
-
-    const { providerManager } =
-      await import('@modules/ai/providers/ProviderManager.js');
-    await providerManager.initialize();
-    const provider = (await providerManager.listProviders()).find(
-      (p) => p.providerType === LLAMACPP_PROVIDER_TYPE
-    );
-    if (!provider) return 0;
-    const providerId = provider.id;
-    // 主动探测：从服务端 /props 获取真实 n_ctx（llama-server 实际 --ctx-size），
-    // 探测失败回退 llama 配置值。DB 跟随服务端真实值，消除"配置改了 DB 不跟随"脱节。
-    const probedNctx = await probeLlamaNctx(
-      status.host || '127.0.0.1',
-      status.port
-    );
-    const contextWindow =
-      probedNctx ?? llamaCppServerManager.getConfig().contextWindow;
-
-    const { modelPricingService } =
-      await import('@modules/ai/models/ModelPricingService.js');
-    await modelPricingService.initialize();
-
-    let registered = 0;
-    let updated = 0;
-    for (const ggufPath of status.models) {
-      const ext = extname(ggufPath);
-      if (ext.toLowerCase() !== '.gguf') continue;
-      const modelId = basename(ggufPath, ext);
-      if (!modelId) continue;
-
-      const existing = await modelPricingService.getPricing(modelId);
-      if (existing) {
-        if (existing.providerId === providerId) {
-          // 已注册且归属本 provider：若 context_window 与当前服务端不一致则更新，
-          // 消除"服务端 --ctx-size 已变、DB 仍旧值"的脱节（无需手动同步）
-          if (existing.contextWindow !== contextWindow) {
-            await modelPricingService.upsertPricing({
-              modelId,
-              contextWindow,
-              inputCostPerMillion: existing.inputCostPerMillion,
-              outputCostPerMillion: existing.outputCostPerMillion,
-            });
-            updated++;
-          }
-          continue;
-        }
-        logger.warning(
-          `模型 ${modelId} 已被其他 provider 占用，跳过 GGUF 注册`
-        );
-        continue;
-      }
-
-      await modelPricingService.upsertPricing({
-        modelId,
-        displayName: modelId,
-        providerId,
-        contextWindow,
-        maxOutputTokens: 8192,
-        // 仅写入合法 ModelCapability 枚举值（'chat' 非法会被 loadModelsFromDb 静默过滤）
-        capabilities: ['streaming'],
-        inputCostPerMillion: 0,
-        outputCostPerMillion: 0,
-      });
-      registered++;
-    }
-
-    if (registered > 0 || updated > 0) {
-      const { ModelRegistry } =
-        await import('@modules/ai/models/ModelRegistry.js');
-      ModelRegistry.getInstance()
-        .refreshDbPricing()
-        .catch((er: unknown) => {
-          // @ignore-catch: 非关键缓存刷新
-          logger.warning('refreshDbPricing 失败(llama sync)', {
-            error: (er as Error).message,
-          });
-        });
-      const { modelRouter } = await import('@modules/ai/modelRouter.js');
-      modelRouter.invalidateUuidCache().catch((er: unknown) => {
-        // @ignore-catch: 非关键缓存刷新
-        logger.warning('invalidateUuidCache 失败(llama sync)', {
-          error: (er as Error).message,
-        });
-      });
-      if (updated > 0) {
-        logger.info(
-          `已同步 ${updated} 个 GGUF 模型 context_window（跟随服务端 n_ctx=${contextWindow}）`
-        );
-      }
-      if (registered > 0) {
-        logger.info(`已同步 ${registered} 个 GGUF 模型到 model_registry`);
-      }
-    }
-    return registered;
-  } catch (err) {
-    await handleError(err, {
-      module: 'ai:llama',
-      action: 'syncLlamaModelsToRegistry',
-    });
-    return 0;
   }
 }

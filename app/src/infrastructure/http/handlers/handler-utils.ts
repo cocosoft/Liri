@@ -355,13 +355,14 @@ export function json(
 }
 
 /**
- * sessionId 白名单（P0 路径穿越修复）：会话 ID 由 randomUUID() 生成，
+ * sessionId 格式白名单校验（P0 路径穿越修复）：会话 ID 由 randomUUID() 生成，
  * 仅允许字母/数字/下划线/连字符。拦截 ../、%2e、绝对路径等穿越载荷。
  * 路由层拦截 + 存储层双保险共用。
+ * 命名说明：避免与 @modules/acp 的 isValidSessionId（ACP 前缀校验）同名冲突。
  */
 const SESSION_ID_RE = /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/;
 
-export function isValidSessionId(sessionId: string): boolean {
+export function isValidSessionIdFormat(sessionId: string): boolean {
   return SESSION_ID_RE.test(sessionId);
 }
 

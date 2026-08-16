@@ -28,7 +28,7 @@
 
 import type http from 'http';
 import type { HandlerCtx } from '../handler-utils';
-import { isValidSessionId, sendInvalidSessionId } from '../handler-utils';
+import { isValidSessionIdFormat, sendInvalidSessionId } from '../handler-utils';
 import { handleEvents } from '../../LocalHTTPServiceSSE';
 import {
   handleChatCompletions,
@@ -75,7 +75,7 @@ function requireSessionId(
   res: http.ServerResponse
 ): string | null {
   const sid = url.match(pattern)![1];
-  if (!isValidSessionId(sid)) {
+  if (!isValidSessionIdFormat(sid)) {
     sendInvalidSessionId(res, sid);
     return null;
   }

@@ -25,6 +25,9 @@ import type {
   MessageLoadOptions,
   SessionListOptions,
 } from '../SessionStorage.js';
+import { getLogger } from '@modules/monitoring';
+
+const logger = getLogger('session:storage:adapter');
 
 /**
  * 将旧 Session（含 Date 类型）转换为 UnifiedSession（number 时间戳）
@@ -234,6 +237,9 @@ export class UnifiedStorageAdapter implements SessionStorage {
   }
 
   async deleteSession(sessionId: string): Promise<void> {
+    logger.debug('deleteSession:桥接 UnifiedSessionStorage（旧接口 → 新链）', {
+      sessionId,
+    });
     await this.storage.deleteSession(sessionId);
   }
 
@@ -273,6 +279,9 @@ export class UnifiedStorageAdapter implements SessionStorage {
   }
 
   async compactSession(sessionId: string): Promise<void> {
+    logger.debug('compactSession:桥接 UnifiedSessionStorage（旧接口 → 新链）', {
+      sessionId,
+    });
     const session = await this.storage.getSession(sessionId);
     if (!session) return;
 

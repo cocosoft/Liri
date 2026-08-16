@@ -36,7 +36,13 @@ function matchesFilter(
 }
 
 function sessionDir(basePath: string, sessionId: string): string {
-  return path.join(basePath, sessionId);
+  // P0 路径穿越双保险：resolve 后必须仍位于 basePath 内，拒绝 ../ 越界目录
+  const base = path.resolve(basePath);
+  const dir = path.resolve(base, sessionId);
+  if (dir === base || !dir.startsWith(base + path.sep)) {
+    throw new Error(`非法 sessionId（路径越界）: ${sessionId}`);
+  }
+  return dir;
 }
 
 function sessionFilePath(basePath: string, sessionId: string): string {
@@ -85,6 +91,7 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
 
   async initialize(): Promise<void> {
     await fs.mkdir(this.basePath, { recursive: true });
+    await this.purgeExpiredTrash();
     await this.loadAllSessions();
     this.initialized = true;
   }
@@ -96,6 +103,40 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
     this.appendCounts.clear();
     this.appendBytes.clear();
     this.initialized = false;
+  }
+
+  /** .trash 软删除保留时长（P1 修复：TTL 自动清理，防止回收站无限膨胀） */
+  private static readonly TRASH_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+  /** 清理过期 .trash 项（mtime 超过 TTL 的软删除目录物理删除） */
+  private async purgeExpiredTrash(): Promise<void> {
+    const trashRoot = path.join(this.basePath, '.trash');
+    let entries: Dirent[];
+    try {
+      entries = await fs.readdir(trashRoot, { withFileTypes: true });
+    } catch {
+      return; // .trash 不存在或不可读，无需清理
+    }
+    const now = Date.now();
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue;
+      const fullPath = path.join(trashRoot, entry.name);
+      try {
+        const stat = await fs.stat(fullPath);
+        if (now - stat.mtimeMs > FileSystemUnifiedStorage.TRASH_TTL_MS) {
+          await fs.rm(fullPath, { recursive: true, force: true });
+          logger.info('清理过期 .trash 项', {
+            path: fullPath,
+            ageDays: Number(((now - stat.mtimeMs) / 86400000).toFixed(1)),
+          });
+        }
+      } catch (err) {
+        logger.warn('清理 .trash 项失败，跳过', {
+          path: fullPath,
+          error: String(err),
+        });
+      }
+    }
   }
 
   private async loadAllSessions(): Promise<void> {
@@ -296,6 +337,9 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
     void this.enqueueWrite(sessionId, async () => {
       const msgs = this.messages.get(sessionId);
       if (!msgs) return;
+      logger.debug('compact:新链 FileSystemUnifiedStorage 异步 compact 执行', {
+        sessionId,
+      });
       logger.info('compact 异步执行开始', {
         sessionId,
         memoryMessageCount: msgs.length,
@@ -367,6 +411,9 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
   }
 
   async deleteSession(sessionId: string): Promise<void> {
+    logger.debug('deleteSession:新链 FileSystemUnifiedStorage 软删除', {
+      sessionId,
+    });
     this.sessions.delete(sessionId);
     this.messages.delete(sessionId);
 
@@ -449,8 +496,10 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
     if (options?.parentUuid !== undefined) {
       result = result.filter((m) => m.parentUuid === options.parentUuid);
     }
+    // 分页语义（P1 修复）：offset 表示从最新一条往前跳过 N 条（聊天历史分页），
+    // limit 表示取最近 N 条。二者组合：先按 offset 往前跳，再取末尾 limit 条。
     if (options?.offset) {
-      result = result.slice(options.offset);
+      result = result.slice(0, Math.max(0, result.length - options.offset));
     }
     // 保持原语义：limit 取最近 N 条（slice 负索引）
     if (options?.limit) {

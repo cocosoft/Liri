@@ -1,6 +1,7 @@
 import { promises as fs } from 'fs';
-import { join, dirname } from 'path';
+import { join, dirname, resolve, sep } from 'path';
 import { handleError } from '@modules/error';
+import { getLogger } from '@modules/monitoring';
 import { Session } from '../models/Session';
 import { SessionMessage } from '../models/SessionMessage';
 import { SessionMetadata } from '../models/SessionMetadata';
@@ -10,6 +11,8 @@ import type {
   SessionListOptions,
 } from '../SessionStorage';
 import { resolveSessionsDir } from '@modules/core';
+
+const logger = getLogger('session:storage');
 
 /**
  * 文件系统存储实现
@@ -50,7 +53,13 @@ export class FileSystemStorage implements SessionStorage {
    * @returns 会话目录路径
    */
   private getSessionDir(sessionId: string): string {
-    return join(this.rootDir, sessionId);
+    // P0 路径穿越双保险：resolve 后必须仍位于 rootDir 内，拒绝 ../ 越界目录
+    const base = resolve(this.rootDir);
+    const dir = resolve(base, sessionId);
+    if (dir === base || !dir.startsWith(base + sep)) {
+      throw new Error(`非法 sessionId（路径越界）: ${sessionId}`);
+    }
+    return dir;
   }
 
   /**
@@ -224,17 +233,56 @@ export class FileSystemStorage implements SessionStorage {
   }
 
   /**
-   * 删除会话
+   * 删除会话（P1-1 双存储对齐：软删除语义）
+   * 对齐 FileSystemUnifiedStorage：rename 到 .trash/（带时间戳避免同名冲突），
+   * 误删可恢复，不再直接 fs.rm 物理删除。.trash 的 TTL 清理由
+   * FileSystemUnifiedStorage.purgeExpiredTrash 统一负责（两链共用 basePath）。
    * @param sessionId 会话ID
    */
   async deleteSession(sessionId: string): Promise<void> {
     const sessionDir = this.getSessionDir(sessionId);
 
     try {
-      // 删除会话目录及其所有内容
-      await fs.rm(sessionDir, { recursive: true, force: true });
+      const trashDir = join(
+        this.rootDir,
+        '.trash',
+        `${sessionId}_${Date.now()}`
+      );
+      logger.debug('deleteSession:旧链 FileSystemStorage 软删除', {
+        sessionId,
+        sourceDir: sessionDir,
+        trashDir,
+      });
+      logger.info('deleteSession:开始软删除', {
+        sessionId,
+        sourceDir: sessionDir,
+        trashDir,
+      });
+      await fs.mkdir(dirname(trashDir), { recursive: true });
+      await fs.rename(sessionDir, trashDir);
+      logger.info('deleteSession:软删除完成', {
+        sessionId,
+        trashDir,
+      });
     } catch (error) {
-      // 目录不存在，忽略错误
+      const code = (error as NodeJS.ErrnoException).code;
+      if (code === 'ENOENT') {
+        // 目录不存在（会话可能已软删除/隔离），预期路径，无需告警
+        logger.debug('deleteSession:会话目录不存在，跳过', {
+          sessionId,
+          sourceDir: sessionDir,
+        });
+        return;
+      }
+      logger.warn('deleteSession:软删除失败', {
+        sessionId,
+        sourceDir: sessionDir,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      await handleError(error, {
+        module: 'session:storage',
+        action: 'deleteSession',
+      });
     }
   }
 
@@ -285,11 +333,95 @@ export class FileSystemStorage implements SessionStorage {
   }
 
   /**
-   * 压缩会话
+   * 压缩会话（P1-1 双存储对齐：compact 语义）
+   * 对齐 FileSystemUnifiedStorage：全量重写 messages.jsonl，按消息 id 反向去重
+   * （后写覆盖先写，Map.set 天然覆盖），回收增量追加产生的重复行。
    * @param sessionId 会话ID
    */
   async compactSession(sessionId: string): Promise<void> {
-    // 这里可以实现会话压缩逻辑
-    // 例如，合并消息文件，删除冗余数据等
+    const messagesFilePath = this.getMessagesFilePath(sessionId);
+    const compactStart = Date.now();
+
+    let content: string;
+    try {
+      content = await fs.readFile(messagesFilePath, 'utf-8');
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      // 会话无消息文件（尚未写入/已被删除），预期路径，无需告警
+      logger.debug('compactSession:消息文件不存在，跳过', {
+        sessionId,
+        messagesFilePath,
+        code,
+      });
+      return;
+    }
+
+    const lines = content.trim().split('\n');
+    if (lines.length === 0) {
+      logger.debug('compactSession:消息文件为空，跳过', {
+        sessionId,
+        messagesFilePath,
+      });
+      return;
+    }
+    logger.info('compactSession:开始全量重写', {
+      sessionId,
+      messagesFilePath,
+      beforeLines: lines.length,
+      fileBytes: content.length,
+    });
+    logger.debug('compactSession:旧链 FileSystemStorage 全量重写', {
+      sessionId,
+      beforeLines: lines.length,
+    });
+
+    // 反向去重：后写覆盖先写（与 FileSystemUnifiedStorage.loadMessages 一致）
+    const msgMap = new Map<string, SessionMessage>();
+    let badLines = 0;
+    for (const line of lines) {
+      try {
+        const data = JSON.parse(line);
+        const msg = SessionMessage.fromJSON(data);
+        msgMap.set(msg.id, msg);
+      } catch {
+        // 坏行跳过（保留可解析行，丢弃损坏行）
+        badLines++;
+      }
+    }
+
+    const compacted = [...msgMap.values()];
+    if (compacted.length === 0) {
+      logger.warn('compactSession:解析后无有效消息，跳过写回', {
+        sessionId,
+        beforeLines: lines.length,
+        badLines,
+      });
+      return;
+    }
+
+    const compactedData =
+      compacted.map((m) => JSON.stringify(m.toJSON())).join('\n') + '\n';
+    try {
+      await fs.writeFile(messagesFilePath, compactedData, 'utf-8');
+      logger.info('compactSession:完成', {
+        sessionId,
+        beforeLines: lines.length,
+        afterCount: compacted.length,
+        deduped: lines.length - compacted.length,
+        badLines,
+        writeBytes: compactedData.length,
+        elapsedMs: Date.now() - compactStart,
+      });
+    } catch (error) {
+      logger.warn('compactSession:写回失败', {
+        sessionId,
+        messagesFilePath,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      await handleError(error, {
+        module: 'session:storage',
+        action: 'compactSession',
+      });
+    }
   }
 }

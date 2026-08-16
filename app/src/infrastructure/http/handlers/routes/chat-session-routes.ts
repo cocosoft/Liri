@@ -28,6 +28,7 @@
 
 import type http from 'http';
 import type { HandlerCtx } from '../handler-utils';
+import { isValidSessionId, sendInvalidSessionId } from '../handler-utils';
 import { handleEvents } from '../../LocalHTTPServiceSSE';
 import {
   handleChatCompletions,
@@ -63,6 +64,23 @@ import {
   handleDeleteLatestCheckpoint,
   handleSaveLatestCheckpoint,
 } from '../checkpoint-handlers';
+
+/**
+ * 提取并校验 URL 中的 sessionId（P0 路径穿越修复）。
+ * 合法返回 sessionId；非法已发送 400 并返回 null。
+ */
+function requireSessionId(
+  url: string,
+  pattern: RegExp,
+  res: http.ServerResponse
+): string | null {
+  const sid = url.match(pattern)![1];
+  if (!isValidSessionId(sid)) {
+    sendInvalidSessionId(res, sid);
+    return null;
+  }
+  return sid;
+}
 
 /**
  * dispatchChatSessionRoutes — chat-session-routes 领域路由分发
@@ -114,21 +132,15 @@ export async function dispatchChatSessionRoutes(
     return true;
   }
   if (method === 'GET' && url.match(/^\/v1\/sessions\/(.+)\/messages$/)) {
-    await handleGetSessionMessages(
-      handlerCtx,
-      req,
-      res,
-      url.match(/^\/v1\/sessions\/(.+)\/messages$/)![1]
-    );
+    const sid = requireSessionId(url, /^\/v1\/sessions\/(.+)\/messages$/, res);
+    if (sid === null) return true;
+    await handleGetSessionMessages(handlerCtx, req, res, sid);
     return true;
   }
   if (method === 'POST' && url.match(/^\/v1\/sessions\/(.+)\/messages$/)) {
-    await handleAddSessionMessage(
-      handlerCtx,
-      req,
-      res,
-      url.match(/^\/v1\/sessions\/(.+)\/messages$/)![1]
-    );
+    const sid = requireSessionId(url, /^\/v1\/sessions\/(.+)\/messages$/, res);
+    if (sid === null) return true;
+    await handleAddSessionMessage(handlerCtx, req, res, sid);
     return true;
   }
   if (
@@ -136,15 +148,26 @@ export async function dispatchChatSessionRoutes(
     url.match(/^\/v1\/sessions\/(.+)\/messages\/(.+)$/)
   ) {
     const match = url.match(/^\/v1\/sessions\/(.+)\/messages\/(.+)$/);
-    await handleDeleteMessage(handlerCtx, req, res, match![1], match![2]);
+    const sid = requireSessionId(
+      url,
+      /^\/v1\/sessions\/(.+)\/messages\/(.+)$/,
+      res
+    );
+    if (sid === null) return true;
+    await handleDeleteMessage(handlerCtx, req, res, sid, match![2]);
     return true;
   }
   if (
     method === 'POST' &&
     url.match(/^\/v1\/sessions\/(.+)\/messages\/truncate$/)
   ) {
-    const match = url.match(/^\/v1\/sessions\/(.+)\/messages\/truncate$/);
-    await handleTruncateMessages(handlerCtx, req, res, match![1]);
+    const sid = requireSessionId(
+      url,
+      /^\/v1\/sessions\/(.+)\/messages\/truncate$/,
+      res
+    );
+    if (sid === null) return true;
+    await handleTruncateMessages(handlerCtx, req, res, sid);
     return true;
   }
   if (
@@ -152,28 +175,32 @@ export async function dispatchChatSessionRoutes(
     url.match(/^\/api\/session\/(.+)\/message\/(.+)\/blocks$/)
   ) {
     const match = url.match(/^\/api\/session\/(.+)\/message\/(.+)\/blocks$/);
-    await handleUpdateMessageBlocks(handlerCtx, req, res, match![1], match![2]);
+    const sid = requireSessionId(
+      url,
+      /^\/api\/session\/(.+)\/message\/(.+)\/blocks$/,
+      res
+    );
+    if (sid === null) return true;
+    await handleUpdateMessageBlocks(handlerCtx, req, res, sid, match![2]);
     return true;
   }
   if (method === 'GET' && url.match(/^\/v1\/sessions\/(.+)\/streaming$/)) {
-    await handleSessionStreamingStatus(
-      handlerCtx,
-      req,
-      res,
-      url.match(/^\/v1\/sessions\/(.+)\/streaming$/)![1]
-    );
+    const sid = requireSessionId(url, /^\/v1\/sessions\/(.+)\/streaming$/, res);
+    if (sid === null) return true;
+    await handleSessionStreamingStatus(handlerCtx, req, res, sid);
     return true;
   }
   if (
     method === 'GET' &&
     url.match(/^\/v1\/sessions\/(.+)\/checkpoints\/latest$/)
   ) {
-    await handleLatestCheckpoint(
-      handlerCtx,
-      req,
-      res,
-      url.match(/^\/v1\/sessions\/(.+)\/checkpoints\/latest$/)![1]
+    const sid = requireSessionId(
+      url,
+      /^\/v1\/sessions\/(.+)\/checkpoints\/latest$/,
+      res
     );
+    if (sid === null) return true;
+    await handleLatestCheckpoint(handlerCtx, req, res, sid);
     return true;
   }
   // P1 修复：abortRecovery 三段链路补全（此前仅 GET，POST/DELETE 均 404）
@@ -181,24 +208,26 @@ export async function dispatchChatSessionRoutes(
     method === 'POST' &&
     url.match(/^\/v1\/sessions\/(.+)\/checkpoints\/latest$/)
   ) {
-    await handleSaveLatestCheckpoint(
-      handlerCtx,
-      req,
-      res,
-      url.match(/^\/v1\/sessions\/(.+)\/checkpoints\/latest$/)![1]
+    const sid = requireSessionId(
+      url,
+      /^\/v1\/sessions\/(.+)\/checkpoints\/latest$/,
+      res
     );
+    if (sid === null) return true;
+    await handleSaveLatestCheckpoint(handlerCtx, req, res, sid);
     return true;
   }
   if (
     method === 'DELETE' &&
     url.match(/^\/v1\/sessions\/(.+)\/checkpoints\/latest$/)
   ) {
-    await handleDeleteLatestCheckpoint(
-      handlerCtx,
-      req,
-      res,
-      url.match(/^\/v1\/sessions\/(.+)\/checkpoints\/latest$/)![1]
+    const sid = requireSessionId(
+      url,
+      /^\/v1\/sessions\/(.+)\/checkpoints\/latest$/,
+      res
     );
+    if (sid === null) return true;
+    await handleDeleteLatestCheckpoint(handlerCtx, req, res, sid);
     return true;
   }
   if (method === 'POST' && url.match(/^\/v1\/sessions\/(.+)\/resume$/)) {
@@ -206,57 +235,39 @@ export async function dispatchChatSessionRoutes(
     return true;
   }
   if (method === 'GET' && url.match(/^\/v1\/sessions\/(.+)$/)) {
-    await handleGetSession(
-      handlerCtx,
-      req,
-      res,
-      url.match(/^\/v1\/sessions\/(.+)$/)![1]
-    );
+    const sid = requireSessionId(url, /^\/v1\/sessions\/(.+)$/, res);
+    if (sid === null) return true;
+    await handleGetSession(handlerCtx, req, res, sid);
     return true;
   }
   if (method === 'POST' && url.match(/^\/v1\/sessions\/(.+)\/switch$/)) {
-    await handleSwitchSession(
-      handlerCtx,
-      req,
-      res,
-      url.match(/^\/v1\/sessions\/(.+)\/switch$/)![1]
-    );
+    const sid = requireSessionId(url, /^\/v1\/sessions\/(.+)\/switch$/, res);
+    if (sid === null) return true;
+    await handleSwitchSession(handlerCtx, req, res, sid);
     return true;
   }
   if (method === 'PUT' && url.match(/^\/v1\/sessions\/(.+)$/)) {
-    await handleRenameSession(
-      handlerCtx,
-      req,
-      res,
-      url.match(/^\/v1\/sessions\/(.+)$/)![1]
-    );
+    const sid = requireSessionId(url, /^\/v1\/sessions\/(.+)$/, res);
+    if (sid === null) return true;
+    await handleRenameSession(handlerCtx, req, res, sid);
     return true;
   }
   if (method === 'POST' && url.match(/^\/v1\/sessions\/(.+)\/title$/)) {
-    await handleGenerateTitle(
-      handlerCtx,
-      req,
-      res,
-      url.match(/^\/v1\/sessions\/(.+)\/title$/)![1]
-    );
+    const sid = requireSessionId(url, /^\/v1\/sessions\/(.+)\/title$/, res);
+    if (sid === null) return true;
+    await handleGenerateTitle(handlerCtx, req, res, sid);
     return true;
   }
   if (method === 'PATCH' && url.match(/^\/v1\/sessions\/(.+)\/meta$/)) {
-    await handleUpdateSessionMeta(
-      handlerCtx,
-      req,
-      res,
-      url.match(/^\/v1\/sessions\/(.+)\/meta$/)![1]
-    );
+    const sid = requireSessionId(url, /^\/v1\/sessions\/(.+)\/meta$/, res);
+    if (sid === null) return true;
+    await handleUpdateSessionMeta(handlerCtx, req, res, sid);
     return true;
   }
   if (method === 'POST' && url.match(/^\/v1\/sessions\/(.+)\/compact$/)) {
-    await handleCompactSession(
-      handlerCtx,
-      req,
-      res,
-      url.match(/^\/v1\/sessions\/(.+)\/compact$/)![1]
-    );
+    const sid = requireSessionId(url, /^\/v1\/sessions\/(.+)\/compact$/, res);
+    if (sid === null) return true;
+    await handleCompactSession(handlerCtx, req, res, sid);
     return true;
   }
   // P2-22 修复：后端 pruneNow 为全量修剪（无单会话实现），原路由带 :id 造成
@@ -266,21 +277,15 @@ export async function dispatchChatSessionRoutes(
     return true;
   }
   if (method === 'GET' && url.match(/^\/v1\/sessions\/(.+)\/memory$/)) {
-    await handleGetSessionMemory(
-      handlerCtx,
-      req,
-      res,
-      url.match(/^\/v1\/sessions\/(.+)\/memory$/)![1]
-    );
+    const sid = requireSessionId(url, /^\/v1\/sessions\/(.+)\/memory$/, res);
+    if (sid === null) return true;
+    await handleGetSessionMemory(handlerCtx, req, res, sid);
     return true;
   }
   if (method === 'DELETE' && url.match(/^\/v1\/sessions\/(.+)$/)) {
-    await handleDeleteSession(
-      handlerCtx,
-      req,
-      res,
-      url.match(/^\/v1\/sessions\/(.+)$/)![1]
-    );
+    const sid = requireSessionId(url, /^\/v1\/sessions\/(.+)$/, res);
+    if (sid === null) return true;
+    await handleDeleteSession(handlerCtx, req, res, sid);
     return true;
   }
   if (method === 'DELETE' && url === '/v1/sessions') {
@@ -290,7 +295,8 @@ export async function dispatchChatSessionRoutes(
 
   // ---- Steering (Phase 3) ----
   if (method === 'POST' && url.match(/^\/v1\/sessions\/(.+)\/steer$/)) {
-    const sid = url.match(/^\/v1\/sessions\/(.+)\/steer$/)![1];
+    const sid = requireSessionId(url, /^\/v1\/sessions\/(.+)\/steer$/, res);
+    if (sid === null) return true;
     await handleSteerSession(req, res, handlerCtx, sid);
     return true;
   }

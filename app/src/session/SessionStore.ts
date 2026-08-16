@@ -135,6 +135,9 @@ export class SessionStore implements SessionStorage {
   }
 
   async deleteSession(sessionId: string): Promise<void> {
+    logger.debug('deleteSession:SessionStore 入口，转发底层存储', {
+      sessionId,
+    });
     await this.storage.deleteSession(sessionId);
     this.sessionCache.delete(sessionId);
     this.metadataCache.delete(sessionId);
@@ -151,6 +154,9 @@ export class SessionStore implements SessionStorage {
   }
 
   async compactSession(sessionId: string): Promise<void> {
+    logger.debug('compactSession:SessionStore 入口，转发底层存储', {
+      sessionId,
+    });
     await this.storage.compactSession(sessionId);
     this.sessionCache.delete(sessionId);
     this.metadataCache.delete(sessionId);

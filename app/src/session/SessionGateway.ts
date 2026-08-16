@@ -584,6 +584,7 @@ export class SessionGateway {
    * 删除会话
    */
   async deleteSession(sessionId: string): Promise<void> {
+    logger.debug('deleteSession:SessionGateway 入口，新链存储', { sessionId });
     const messages = await this.storage.getMessages(sessionId);
 
     await this.storage.deleteSession(sessionId);
@@ -1082,6 +1083,10 @@ export class SessionGateway {
     error?: string;
   } | null> {
     if (!this.compactionBridge) return null;
+
+    logger.debug('compactSession:SessionGateway 入口，compactionBridge 链', {
+      sessionId,
+    });
 
     const session = await this.getSession(sessionId);
     if (!session) return { success: false, error: 'Session not found' };

@@ -13,6 +13,7 @@ import {
   resolveMediaDir,
   resolveOutputDir,
   resolveAttachmentsDir,
+  isPathWithin,
 } from '@modules/core/paths';
 
 /** 允许的基础目录 */
@@ -57,8 +58,10 @@ export function resolveSafePath(inputPath: string): PathCheckResult {
   }
 
   // 2. 校验是否在允许的基础目录内
+  // BUG-4 修复：startsWith(resolve(base)) 无路径边界，base="media" 会误放行
+  // "media2/x"（前缀碰撞）。改用 isPathWithin（带分隔符边界保护）。
   const isAllowed = ALLOWED_BASE_DIRS.some((base) =>
-    normalized.startsWith(resolve(base))
+    isPathWithin(base, normalized)
   );
 
   if (!isAllowed) {

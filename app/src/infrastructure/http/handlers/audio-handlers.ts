@@ -97,17 +97,52 @@ export async function handleAudioStatic(
     const fileSize = stat.size;
     const mimeType = getAudioMimeType(fullPath);
 
+    // BUG-6 修复：Range 无校验 — NaN/负数/end>fileSize 时 Buffer.alloc 抛
+    // RangeError → 500。严格解析，非法/不可满足一律 416。
     const rangeHeader = req.headers['range'];
     if (rangeHeader) {
-      const parts = rangeHeader.replace(/bytes=/, '').split('-');
-      const start = parseInt(parts[0], 10);
-      const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+      const rangeMatch = /^bytes=(\d*)-(\d*)$/.exec(rangeHeader.trim());
+      if (!rangeMatch || fileSize === 0) {
+        res.writeHead(416, { 'Content-Range': `bytes */${fileSize}` });
+        res.end();
+        return;
+      }
+
+      let start: number;
+      let end: number;
+      if (rangeMatch[1] === '') {
+        // 后缀范围 bytes=-N：取末尾 N 字节
+        const suffix = parseInt(rangeMatch[2], 10);
+        if (!Number.isFinite(suffix) || suffix <= 0) {
+          res.writeHead(416, { 'Content-Range': `bytes */${fileSize}` });
+          res.end();
+          return;
+        }
+        start = Math.max(0, fileSize - suffix);
+        end = fileSize - 1;
+      } else {
+        start = parseInt(rangeMatch[1], 10);
+        end = rangeMatch[2] !== '' ? parseInt(rangeMatch[2], 10) : fileSize - 1;
+        if (
+          !Number.isFinite(start) ||
+          !Number.isFinite(end) ||
+          start < 0 ||
+          end < start
+        ) {
+          res.writeHead(416, { 'Content-Range': `bytes */${fileSize}` });
+          res.end();
+          return;
+        }
+      }
 
       if (start >= fileSize) {
         res.writeHead(416, { 'Content-Range': `bytes */${fileSize}` });
         res.end();
         return;
       }
+
+      // 防 end 超出文件大小导致 readSync 越界
+      if (end >= fileSize) end = fileSize - 1;
 
       const chunkSize = end - start + 1;
       const buffer = Buffer.alloc(chunkSize);

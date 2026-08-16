@@ -397,6 +397,13 @@ export class ImageProcessor {
           saturation: options.saturation,
         });
       }
+      // BUG-7 修复：contrast 原实现被忽略。sharp 无直接 contrast 选项，
+      // 用 linear(a, b) 实现：pixel' = pixel*a + b，以 127.5 为中点缩放，
+      // contrast=1 时恒等（b=0），>1 增强对比，<1 降低对比。
+      if (options.contrast !== undefined) {
+        const offset = 127.5 * (1 - options.contrast);
+        pipeline = pipeline.linear(options.contrast, offset);
+      }
       if (options.gamma !== undefined) pipeline = pipeline.gamma(options.gamma);
       const outputBuffer = await pipeline.toBuffer();
       fs.writeFileSync(output, outputBuffer);
@@ -442,16 +449,10 @@ export class ImageProcessor {
 
   /** 检查是否支持该格式 */
   isFormatSupported(format: string): boolean {
-    const supported: ImageFormat[] = [
-      'png',
-      'jpeg',
-      'webp',
-      'gif',
-      'bmp',
-      'svg',
-      'heic',
-      'heif',
-    ];
+    // P2-11 修复：与 convert() 的 switch 实际支持的输出格式对齐。
+    // 原实现含 bmp/svg/heic/heif（convert 不支持），传这些格式时
+    // isFormatSupported 返回 true 但 convert 返回 "Unsupported"，前端无提示。
+    const supported: ImageFormat[] = ['png', 'jpeg', 'webp', 'gif'];
     return supported.includes(format as ImageFormat);
   }
 

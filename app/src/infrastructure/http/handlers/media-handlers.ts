@@ -21,6 +21,7 @@ import {
 import { handleError } from '@modules/error';
 import { resolveTempDir } from '@modules/core/paths';
 import { videoProcessor } from '../../../media/video/VideoProcessor';
+import { MAX_HTTP_BODY_BYTES } from './handler-utils';
 
 /** 支持的媒体文件扩展名 */
 const SUPPORTED_AUDIO_EXTS = new Set([
@@ -74,8 +75,24 @@ async function readMultipartBody(
 ): Promise<{ fileName: string; data: Buffer } | null> {
   return new Promise((resolve) => {
     const chunks: Buffer[] = [];
+    let received = 0;
 
-    req.on('data', (chunk: Buffer) => chunks.push(chunk));
+    // P2-9 修复：上传体积上限（防大文件整包进内存 OOM）
+    const contentLength = parseInt(req.headers['content-length'] || '0', 10);
+    if (contentLength > MAX_HTTP_BODY_BYTES) {
+      resolve(null);
+      return;
+    }
+
+    req.on('data', (chunk: Buffer) => {
+      received += chunk.length;
+      if (received > MAX_HTTP_BODY_BYTES) {
+        req.destroy();
+        resolve(null);
+        return;
+      }
+      chunks.push(chunk);
+    });
     req.on('end', () => {
       const raw = Buffer.concat(chunks);
 

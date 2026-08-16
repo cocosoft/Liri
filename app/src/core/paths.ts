@@ -687,15 +687,23 @@ export function ensureDir(dirPath: string): void {
 /**
  * 安全的路径包含判断 — 检查 child 是否在 parent 目录内（含边界保护）
  * 解决 startsWith 前缀碰撞：parent="proj" 不会匹配 child="proj2/file"
+ *
+ * P2 补充（媒体排查导出笔记）：Windows 路径大小写不敏感，
+ * 原实现大小写敏感比较会误拒 `c:\users\...`（小写盘符/目录）形式的输入。
+ * win32 下统一转小写比较，其他平台保持原样。
  */
 export function isPathWithin(parent: string, child: string): boolean {
   const resolvedParent = resolve(parent);
   const resolvedChild = resolve(child);
-  if (resolvedChild === resolvedParent) return true;
-  const parentWithSep = resolvedParent.endsWith(sep)
-    ? resolvedParent
-    : resolvedParent + sep;
-  return resolvedChild.startsWith(parentWithSep);
+  const parentKey =
+    process.platform === 'win32'
+      ? resolvedParent.toLowerCase()
+      : resolvedParent;
+  const childKey =
+    process.platform === 'win32' ? resolvedChild.toLowerCase() : resolvedChild;
+  if (childKey === parentKey) return true;
+  const parentWithSep = parentKey.endsWith(sep) ? parentKey : parentKey + sep;
+  return childKey.startsWith(parentWithSep);
 }
 
 /**

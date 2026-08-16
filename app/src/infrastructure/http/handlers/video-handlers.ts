@@ -16,6 +16,7 @@ import path from 'path';
 import type { HandlerCtx } from './handler-utils';
 import { handleError } from '@modules/error';
 import { resolveMediaDir, isPathWithin } from '@modules/core/paths';
+import { ffmpegWrapper } from '../../../media/ffmpeg/FFmpegWrapper';
 
 /** 视频根目录（AI 生成持久化） */
 const VIDEOS_ROOT = path.join(resolveMediaDir(), 'video');
@@ -39,6 +40,44 @@ const _VIDEO_EXTENSIONS = Object.keys(VIDEO_MIME_MAP);
 function getVideoMimeType(filePath: string): string {
   const ext = path.extname(filePath).toLowerCase();
   return VIDEO_MIME_MAP[ext] || 'application/octet-stream';
+}
+
+/** 视频元信息（ffprobe 结果子集） */
+interface VideoMeta {
+  duration: number | null;
+  width: number | null;
+  height: number | null;
+}
+
+/** 元信息缓存：path+mtime+size → meta，文件变更后自动失效 */
+const videoMetaCache = new Map<string, VideoMeta>();
+
+/**
+ * 通过 ffprobe 获取视频时长/尺寸（带缓存，失败降级 null）
+ */
+async function getVideoMeta(absPath: string): Promise<VideoMeta> {
+  try {
+    const stat = fs.statSync(absPath);
+    const key = `${absPath}:${stat.mtimeMs}:${stat.size}`;
+    const cached = videoMetaCache.get(key);
+    if (cached) return cached;
+
+    const info = await ffmpegWrapper.probe(absPath);
+    const videoStream = info?.streams?.find((s) => s.codec_type === 'video');
+    const rawDuration = info?.format?.duration ?? videoStream?.duration ?? null;
+    const meta: VideoMeta = {
+      duration:
+        rawDuration != null && Number.isFinite(rawDuration)
+          ? Math.round(rawDuration * 10) / 10
+          : null,
+      width: videoStream?.width ?? null,
+      height: videoStream?.height ?? null,
+    };
+    videoMetaCache.set(key, meta);
+    return meta;
+  } catch {
+    return { duration: null, width: null, height: null };
+  }
 }
 
 /**
@@ -198,17 +237,52 @@ export async function handleVideoStatic(
     const mimeType = getVideoMimeType(fullPath);
 
     // 处理 Range 请求（视频 seek 需要）
+    // BUG-6 修复：原实现无校验 — parseInt 得 NaN / 负数 / end>fileSize 时
+    // Buffer.alloc 抛 RangeError → 500。改为严格解析，非法/不可满足一律 416。
     const rangeHeader = req.headers['range'];
     if (rangeHeader) {
-      const parts = rangeHeader.replace(/bytes=/, '').split('-');
-      const start = parseInt(parts[0], 10);
-      const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+      const rangeMatch = /^bytes=(\d*)-(\d*)$/.exec(rangeHeader.trim());
+      if (!rangeMatch || fileSize === 0) {
+        res.writeHead(416, { 'Content-Range': `bytes */${fileSize}` });
+        res.end();
+        return;
+      }
+
+      let start: number;
+      let end: number;
+      if (rangeMatch[1] === '') {
+        // 后缀范围 bytes=-N：取末尾 N 字节
+        const suffix = parseInt(rangeMatch[2], 10);
+        if (!Number.isFinite(suffix) || suffix <= 0) {
+          res.writeHead(416, { 'Content-Range': `bytes */${fileSize}` });
+          res.end();
+          return;
+        }
+        start = Math.max(0, fileSize - suffix);
+        end = fileSize - 1;
+      } else {
+        start = parseInt(rangeMatch[1], 10);
+        end = rangeMatch[2] !== '' ? parseInt(rangeMatch[2], 10) : fileSize - 1;
+        if (
+          !Number.isFinite(start) ||
+          !Number.isFinite(end) ||
+          start < 0 ||
+          end < start
+        ) {
+          res.writeHead(416, { 'Content-Range': `bytes */${fileSize}` });
+          res.end();
+          return;
+        }
+      }
 
       if (start >= fileSize) {
         res.writeHead(416, { 'Content-Range': `bytes */${fileSize}` });
         res.end();
         return;
       }
+
+      // 防 end 超出文件大小导致 readSync 越界
+      if (end >= fileSize) end = fileSize - 1;
 
       const chunkSize = end - start + 1;
       const buffer = Buffer.alloc(chunkSize);
@@ -468,10 +542,21 @@ export async function handleVideoList(
     const startIdx = (page - 1) * pageSize;
     const paged = dbVideos.slice(startIdx, startIdx + pageSize);
 
-    const videos = paged.map((f) => ({
-      path: f.absolutePath,
-      url: `/v1/videos/static/${f.relativePath.replace(/\\/g, '/')}`,
-    }));
+    // P2-13 修复：列表补 duration/width/height（ffprobe 探测 + mtime 缓存，
+    // 避免重复 probe；探测失败降级 null 不影响列表）。缩略图由前端原生
+    // <video> 首帧渲染，无需额外缩略图管线。
+    const videos = await Promise.all(
+      paged.map(async (f) => {
+        const meta = await getVideoMeta(f.absolutePath);
+        return {
+          path: f.absolutePath,
+          url: `/v1/videos/static/${f.relativePath.replace(/\\/g, '/')}`,
+          duration: meta.duration,
+          width: meta.width,
+          height: meta.height,
+        };
+      })
+    );
 
     res.writeHead(200, {
       'Content-Type': 'application/json',

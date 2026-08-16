@@ -128,7 +128,10 @@ export async function dispatchToolMediaRoutes(
   }
 
   // ---- Media ----
-  if (url.startsWith('/v1/media')) {
+  // BUG-1 修复：原 `url.startsWith('/v1/media')` 泛匹配会劫持 /v1/media/subtitle（字幕
+  // 生成/下载，正确 handler 在 auth-access-routes，分发顺序在其之前导致死代码）。
+  // handleMedia 仅处理 /v1/media/templates*，改为精确前缀匹配，其余放行到后续路由。
+  if (url.startsWith('/v1/media/templates')) {
     await handleMedia(handlerCtx, req, res);
     return true;
   }

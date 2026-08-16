@@ -301,8 +301,31 @@ export class VideoGenerateTool extends BaseTool {
             );
           }
 
+          // P2-10 修复：原实现 `isLocalUrl || !resultVideoUrl ? 'completed' : 'completed'`
+          // 两个分支都是 completed，下载失败也被标记成功（前端误判 + 掩盖故障）。
+          // 改为：生成成功且落盘本地 → completed；否则 → failed（走失败通知）。
+          if (!isLocalUrl) {
+            persistence.update(taskId, {
+              status: 'failed',
+              progress: 0,
+              error: resultVideoUrl
+                ? '视频生成成功但下载到本地失败'
+                : '视频生成未返回本地文件',
+              resultVideoUrl,
+              completedAt: Date.now(),
+            });
+            globalEventBus.publish(SystemEvents.TASK_FAILED, {
+              taskId,
+              taskType: 'video_generation',
+              error: resultVideoUrl
+                ? '视频生成成功但下载到本地失败'
+                : '视频生成未返回本地文件',
+            });
+            return;
+          }
+
           persistence.update(taskId, {
-            status: isLocalUrl || !resultVideoUrl ? 'completed' : 'completed',
+            status: 'completed',
             progress: 100,
             resultJson: JSON.stringify(result.data),
             resultVideoUrl,

@@ -204,14 +204,40 @@ export function readRequestBody(req: http.IncomingMessage): Promise<string> {
 /**
  * 读取 HTTP 请求体并返回原始 Buffer（用于二进制/multipart 解析）
  *
+ * P2-9 修复：增加体积上限（默认 100MB），content-length 超限立即拒绝；
+ * 流式累积期间超限则销毁连接，防止大文件整包进内存导致 OOM。
+ *
  * @param req - HTTP 请求对象
+ * @param maxBytes - 请求体大小上限（默认 100MB）
  * @returns 请求体 Buffer
  */
-export function readRawBody(req: http.IncomingMessage): Promise<Buffer> {
+export const MAX_HTTP_BODY_BYTES = 100 * 1024 * 1024;
+
+export function readRawBody(
+  req: http.IncomingMessage,
+  maxBytes: number = MAX_HTTP_BODY_BYTES
+): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
+    let received = 0;
+
+    const contentLength = parseInt(req.headers['content-length'] || '0', 10);
+    if (contentLength > maxBytes) {
+      reject(
+        new Error(
+          `Request body too large (${contentLength} bytes > ${maxBytes})`
+        )
+      );
+      return;
+    }
 
     req.on('data', (chunk: Buffer) => {
+      received += chunk.length;
+      if (received > maxBytes) {
+        req.destroy();
+        reject(new Error(`Request body exceeds limit of ${maxBytes} bytes`));
+        return;
+      }
       chunks.push(chunk);
     });
 

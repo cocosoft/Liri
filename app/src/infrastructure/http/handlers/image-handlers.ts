@@ -14,7 +14,11 @@ import fs from 'fs';
 import path from 'path';
 import { randomUUID } from 'crypto';
 import type { HandlerCtx } from './handler-utils';
-import { readRawBody, parseMultipartBody } from './handler-utils';
+import {
+  readRawBody,
+  parseMultipartBody,
+  MAX_HTTP_BODY_BYTES,
+} from './handler-utils';
 import { handleError } from '@modules/error';
 import {
   resolveOutputDir,
@@ -433,6 +437,14 @@ export async function handleImageUpload(
       res.end(
         JSON.stringify({ error: 'Too many uploads. Please try again later.' })
       );
+      return;
+    }
+
+    // P2-9 修复：上传体积预检（超限直接 413，配合 readRawBody 内部守卫防 OOM）
+    const contentLength = parseInt(req.headers['content-length'] || '0', 10);
+    if (contentLength > MAX_HTTP_BODY_BYTES) {
+      res.writeHead(413, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'File too large (max 100MB)' }));
       return;
     }
 

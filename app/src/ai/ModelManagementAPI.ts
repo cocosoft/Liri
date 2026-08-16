@@ -61,6 +61,7 @@ import {
   handleToggleModel,
   handleUpdateModel,
   handleDeleteModel,
+  handleSyncOfficialPricing,
 } from './api/ModelAPI.js';
 import {
   handleListModels,
@@ -165,6 +166,11 @@ const ROUTES: RouteEntry[] = [
     method: 'POST',
     pattern: /^\/v1\/models$/,
     handler: handleCreateCustomModel,
+  },
+  {
+    method: 'POST',
+    pattern: /^\/v1\/models\/pricing\/sync$/,
+    handler: handleSyncOfficialPricing,
   },
   {
     method: 'POST',

@@ -74,6 +74,10 @@ export async function handleListModels(
           outputCostPerMillion: number;
           cacheReadCostPerMillion: number;
           cacheWriteCostPerMillion: number;
+          billingMode?: string;
+          pricePerRequest?: number;
+          timeBasedPricing?: unknown[];
+          pricingSource?: string;
           providerType?: string;
         }) => [pr.modelId, pr]
       )
@@ -89,7 +93,16 @@ export async function handleListModels(
       context_length: number;
       enabled: boolean;
       requiresAuth: boolean;
-      pricing?: Record<string, number>;
+      pricing?: {
+        inputPer1M: number;
+        outputPer1M: number;
+        cacheReadPer1M?: number;
+        cacheWritePer1M?: number;
+        billingMode?: string;
+        pricePerRequest?: number;
+        timeBasedPricing?: unknown[];
+        pricingSource?: string;
+      };
     }> = [];
 
     const { providerRegistry } =
@@ -142,7 +155,11 @@ export async function handleListModels(
           outputPer1M: pr.outputCostPerMillion,
           cacheReadPer1M: pr.cacheReadCostPerMillion || undefined,
           cacheWritePer1M: pr.cacheWriteCostPerMillion || undefined,
-        } as Record<string, number>,
+          billingMode: pr.billingMode || 'token',
+          pricePerRequest: pr.pricePerRequest || undefined,
+          timeBasedPricing: pr.timeBasedPricing || undefined,
+          pricingSource: pr.pricingSource || undefined,
+        },
       });
     }
 

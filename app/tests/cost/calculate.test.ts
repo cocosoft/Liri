@@ -7,7 +7,8 @@
 
 import { describe, it, expect } from 'bun:test';
 import { safeTokens, safePerTokenRate, safeModelName } from '../../src/cost/pricingSafety';
-import { calculateCost, roundCost } from '../../src/cost/calculateCost';
+import { calculateCost, calculateTotalCost, roundCost } from '../../src/cost/calculateCost';
+import { resolveTimeBasedPricing } from '../../src/cost/ModelPricing';
 import type { ModelPricing } from '../../src/cost/ModelPricing';
 import {
   extractOpenAIUsage,
@@ -130,6 +131,59 @@ describe('calculateCost', () => {
     expect(result.webSearchCost).toBe(0.03);
   });
 
+  describe('按次计价（billingMode）', () => {
+    it('per_request：按次计费 = 次数 × 单价，叠加在 token 成本之上', () => {
+      const perReqPricing: ModelPricing = {
+        ...pricing,
+        billingMode: 'per_request',
+        pricePerRequest: 0.5,
+      };
+      const result = calculateCost(perReqPricing, 1000, 500, 0, 0, 0, 'standard', 0, 3);
+      // token 成本 = $0.0105；按次 = 3 × $0.5 = $1.5
+      expect(result.perRequestCost).toBe(1.5);
+      expect(result.total).toBe(1.5105);
+    });
+
+    it('token_and_per_request：token 与按次同时计费', () => {
+      const mixedPricing: ModelPricing = {
+        ...pricing,
+        billingMode: 'token_and_per_request',
+        pricePerRequest: 0.02,
+      };
+      const result = calculateCost(mixedPricing, 1000, 500, 0, 0, 0, 'standard', 0, 2);
+      // token = $0.0105；按次 = 2 × $0.02 = $0.04
+      expect(result.perRequestCost).toBe(0.04);
+      expect(result.total).toBe(0.0505);
+    });
+
+    it('token（默认）：即使传 requestCount 也不产生按次费用', () => {
+      const result = calculateCost(pricing, 1000, 500, 0, 0, 0, 'standard', 0, 99);
+      expect(result.perRequestCost).toBe(0);
+      expect(result.total).toBe(0.0105);
+    });
+
+    it('负 requestCount 钳制为 0', () => {
+      const perReqPricing: ModelPricing = {
+        ...pricing,
+        billingMode: 'per_request',
+        pricePerRequest: 0.5,
+      };
+      const result = calculateCost(perReqPricing, 0, 0, 0, 0, 0, 'standard', 0, -5);
+      expect(result.perRequestCost).toBe(0);
+    });
+  });
+
+  describe('calculateTotalCost 透传 requestCount', () => {
+    it('按次计费总价包含 per-request 成本', () => {
+      const perReqPricing: ModelPricing = {
+        ...pricing,
+        billingMode: 'per_request',
+        pricePerRequest: 1,
+      };
+      expect(calculateTotalCost(perReqPricing, 0, 0, 0, 0, 0, 'standard', 0, 4)).toBe(4);
+    });
+  });
+
   describe('roundCost', () => {
     it('六位精度舍入', () => {
       expect(roundCost(0.123456789)).toBe(0.123457);
@@ -137,6 +191,55 @@ describe('calculateCost', () => {
     it('整数不变', () => {
       expect(roundCost(1)).toBe(1);
     });
+  });
+});
+
+// ============================================================
+// resolveTimeBasedPricing 分时价差测试
+// ============================================================
+describe('resolveTimeBasedPricing', () => {
+  const slots = [
+    { start: '09:00', end: '18:00', inputCostPerMillion: 3.0, outputCostPerMillion: 9.0 },
+    { start: '21:30', end: '08:00', inputCostPerMillion: 1.5, outputCostPerMillion: 4.5 },
+  ];
+
+  it('空数组返回 null', () => {
+    expect(resolveTimeBasedPricing([], new Date('2026-08-16T10:00:00'))).toBeNull();
+    expect(resolveTimeBasedPricing(null, new Date('2026-08-16T10:00:00'))).toBeNull();
+    expect(resolveTimeBasedPricing(undefined, new Date('2026-08-16T10:00:00'))).toBeNull();
+  });
+
+  it('命中非跨天时段（10:00 落在 09:00-18:00）', () => {
+    const hit = resolveTimeBasedPricing(slots, new Date('2026-08-16T10:00:00'));
+    expect(hit).not.toBeNull();
+    expect(hit!.inputCostPerMillion).toBe(3.0);
+  });
+
+  it('end 时刻不命中（18:00 不在 09:00-18:00）', () => {
+    expect(resolveTimeBasedPricing(slots, new Date('2026-08-16T18:00:00'))).toBeNull();
+  });
+
+  it('跨天时段次日命中（07:00 落在 21:30-08:00）', () => {
+    const hit = resolveTimeBasedPricing(slots, new Date('2026-08-16T07:30:00'));
+    expect(hit).not.toBeNull();
+    expect(hit!.inputCostPerMillion).toBe(1.5);
+  });
+
+  it('跨天时段当日命中（22:00 落在 21:30-08:00）', () => {
+    const hit = resolveTimeBasedPricing(slots, new Date('2026-08-16T22:00:00'));
+    expect(hit).not.toBeNull();
+    expect(hit!.inputCostPerMillion).toBe(1.5);
+  });
+
+  it('两个时段都未命中返回 null（19:00）', () => {
+    expect(resolveTimeBasedPricing(slots, new Date('2026-08-16T19:00:00'))).toBeNull();
+  });
+
+  it('非法时间格式容错（按 00:00 处理）', () => {
+    const bad = [{ start: '', end: '', inputCostPerMillion: 1 }];
+    // 00:00-00:00 是零长度时段（cur >= 0 && cur < 0 恒假），任何时刻都不命中
+    expect(resolveTimeBasedPricing(bad, new Date('2026-08-16T00:00:00'))).toBeNull();
+    expect(resolveTimeBasedPricing(bad, new Date('2026-08-16T10:00:00'))).toBeNull();
   });
 });
 

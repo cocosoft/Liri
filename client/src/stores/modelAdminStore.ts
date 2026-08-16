@@ -5,7 +5,12 @@
 
 import { create } from "zustand";
 import { providerService } from "../services/providerService";
-import type { ProviderInfo, ProviderFormData } from "../types";
+import type {
+  ProviderInfo,
+  ProviderFormData,
+  BillingMode,
+  TimeBasedPrice,
+} from "../types";
 import { handleClientError } from "@/utils/handleError";
 
 interface ModelAdminState {
@@ -47,6 +52,11 @@ interface ModelAdminState {
     maxOutputTokens?: number;
     inputCostPerMillion?: number;
     outputCostPerMillion?: number;
+    cacheReadCostPerMillion?: number;
+    cacheWriteCostPerMillion?: number;
+    billingMode?: BillingMode;
+    pricePerRequest?: number;
+    timeBasedPricing?: TimeBasedPrice[];
   }) => Promise<void>;
 }
 

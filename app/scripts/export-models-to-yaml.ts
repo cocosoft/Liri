@@ -94,23 +94,6 @@ const models: Record<string, ModelEntry> = {
     providers: { firstParty: 'qwen2.5-coder', openai: 'qwen2.5-coder' },
     pricing: { inputPer1M: 0.5, outputPer1M: 1.5 },
   },
-
-  // ===== Ollama 本地 =====
-  'ollama-llama3': {
-    displayName: 'Llama 3 (Ollama)', contextWindow: 8192, maxOutputTokens: 4096,
-    capabilities: ['streaming', 'function_calling', 'tool_use'],
-    providers: { firstParty: 'llama3', ollama: 'llama3' },
-  },
-  'ollama-deepseek': {
-    displayName: 'DeepSeek (Ollama)', contextWindow: 16384, maxOutputTokens: 8192,
-    capabilities: ['streaming', 'function_calling', 'tool_use'],
-    providers: { firstParty: 'deepseek-ollama', ollama: 'deepseek-ollama' },
-  },
-  'ollama-qwen': {
-    displayName: 'Qwen (Ollama)', contextWindow: 16384, maxOutputTokens: 8192,
-    capabilities: ['streaming', 'function_calling', 'tool_use'],
-    providers: { firstParty: 'qwen-ollama', ollama: 'qwen-ollama' },
-  },
 };
 
 const sortedModels: Record<string, ModelEntry> = {};

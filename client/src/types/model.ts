@@ -1,3 +1,14 @@
+export type BillingMode = "token" | "per_request" | "token_and_per_request";
+
+export interface TimeBasedPrice {
+  start: string; // "HH:mm"
+  end: string; // "HH:mm"；end < start 表示跨天
+  inputCostPerMillion?: number;
+  outputCostPerMillion?: number;
+  cacheReadCostPerMillion?: number;
+  cacheWriteCostPerMillion?: number;
+}
+
 export interface ModelInfo {
   id: string; // UUID（后端返回）—— BREAKING CHANGE: 原为模型名
   modelId: string; // 模型名（新增）
@@ -13,6 +24,11 @@ export interface ModelInfo {
     outputPer1M?: number;
     cacheReadPer1M?: number;
     cacheWritePer1M?: number;
+    billingMode?: BillingMode;
+    pricePerRequest?: number;
+    timeBasedPricing?: TimeBasedPrice[];
+    /** 定价来源：official=官方价格自动同步 / manual=用户手工配置（官方同步不覆盖） */
+    pricingSource?: string;
   };
 }
 

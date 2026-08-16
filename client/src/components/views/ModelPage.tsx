@@ -13,12 +13,15 @@ import FetchedModelList from "../modelAdmin/FetchedModelList";
 import { PROVIDER_TYPE_LABELS } from "../../config/providerPresets";
 import { usageService } from "../../services/usageService";
 import { modelSwitchService } from "../../services/modelSwitchService";
+import { modelService } from "../../services/modelService";
 import { toastError, toastInfo } from "../../stores/toastStore";
 import type {
   ProviderInfo,
   ProviderFormData,
   FetchedModel,
   ModelInfo,
+  BillingMode,
+  TimeBasedPrice,
 } from "../../types";
 
 const TYPE_COLORS: Record<string, string> = {
@@ -40,6 +43,18 @@ const DEFAULT_COLOR =
 function formatDate(ts: number, locale = "zh-CN"): string {
   return new Date(ts * 1000).toLocaleDateString(locale);
 }
+
+/** 每百万 token 单价展示（≥1 保留 2 位，<1 保留 3 位） */
+function formatUnitPrice(v: number | undefined): string {
+  if (v === undefined || Number.isNaN(v)) return "--";
+  return v >= 1 ? v.toFixed(2) : v.toFixed(3);
+}
+
+const BILLING_LABELS: Record<string, string> = {
+  token: "按Token",
+  per_request: "按次",
+  token_and_per_request: "Token+按次",
+};
 
 function ProviderPage() {
   const { t, i18n } = useTranslation();
@@ -88,6 +103,7 @@ function ProviderPage() {
   );
   const [showAddModel, setShowAddModel] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [syncingPricing, setSyncingPricing] = useState(false);
   const [initialFormData, setInitialFormData] = useState<
     Partial<ProviderFormData> | undefined
   >(undefined);
@@ -247,6 +263,11 @@ function ProviderPage() {
       maxOutputTokens: number;
       inputCostPerMillion: number;
       outputCostPerMillion: number;
+      cacheReadCostPerMillion: number;
+      cacheWriteCostPerMillion: number;
+      billingMode: BillingMode;
+      pricePerRequest: number;
+      timeBasedPricing: TimeBasedPrice[];
     }) => {
       try {
         await store.createModel(form);
@@ -262,6 +283,27 @@ function ProviderPage() {
     },
     [store, loadModels],
   );
+
+  const handleSyncOfficialPricing = useCallback(async () => {
+    setSyncingPricing(true);
+    try {
+      const updated = await modelService.syncOfficialPricing();
+      await loadModels(); // 刷新展示的价格
+      if (updated > 0) {
+        toastInfo(`已同步 ${updated} 个模型的官方价格`);
+      } else {
+        toastInfo("官方价格已是最新（或模型均为自定义定价）");
+      }
+    } catch (e) {
+      toastError(
+        new Error(
+          `同步官方价格失败: ${e instanceof Error ? e.message : String(e)}`,
+        ),
+      );
+    } finally {
+      setSyncingPricing(false);
+    }
+  }, [loadModels]);
 
   const handleBulkImport = useCallback(
     async (modelIds: string[]) => {
@@ -583,7 +625,15 @@ function ProviderPage() {
         {/* 模型列表 Tab */}
         {activeTab === "models" && (
           <>
-            <div className="flex justify-end mb-4">
+            <div className="flex justify-end gap-2 mb-4">
+              <button
+                onClick={handleSyncOfficialPricing}
+                disabled={syncingPricing}
+                title="按内置官方价格表刷新已注册模型的价格（不覆盖自定义定价）"
+                className="px-4 py-2 text-sm bg-emerald-50 dark:bg-emerald-900/20 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 rounded-lg transition-colors disabled:opacity-50"
+              >
+                {syncingPricing ? "同步中..." : "同步官方价格"}
+              </button>
               <button
                 onClick={() => setShowAddModel(true)}
                 className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
@@ -642,6 +692,38 @@ function ProviderPage() {
                           <span className="text-xs text-gray-400 dark:text-gray-500">
                             {model.type}
                           </span>
+                          {model.pricing && (
+                            <span className="text-xs text-gray-500 dark:text-gray-400">
+                              输入 ${formatUnitPrice(model.pricing.inputPer1M)} / 输出 $
+                              {formatUnitPrice(model.pricing.outputPer1M)} /1M
+                            </span>
+                          )}
+                          {model.pricing?.billingMode &&
+                            model.pricing.billingMode !== "token" && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-teal-50 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400">
+                                {BILLING_LABELS[model.pricing.billingMode] ||
+                                  model.pricing.billingMode}
+                                {model.pricing.pricePerRequest
+                                  ? ` $${model.pricing.pricePerRequest}/次`
+                                  : ""}
+                              </span>
+                            )}
+                          {model.pricing?.timeBasedPricing?.length ? (
+                            <span
+                              className="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400"
+                              title={`分时价差: ${model.pricing.timeBasedPricing.map((s) => `${s.start}-${s.end}`).join("、")}`}
+                            >
+                              分时
+                            </span>
+                          ) : null}
+                          {model.pricing?.pricingSource === "manual" && (
+                            <span
+                              className="text-[10px] px-1.5 py-0.5 rounded bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
+                              title="价格由用户手动配置，官方价格同步不会覆盖"
+                            >
+                              自定义
+                            </span>
+                          )}
                         </div>
                       </div>
                       <div className="flex items-center gap-2 ml-4 shrink-0">

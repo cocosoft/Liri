@@ -71,6 +71,19 @@ const COLUMN_MAP: Record<string, string> = {
 };
 
 /** 模型注册表记录（完整字段） */
+/** 计费模式：按 token / 按次 / 混合 */
+export type BillingMode = 'token' | 'per_request' | 'token_and_per_request';
+
+/** 分时价格条目（24h 格式 "HH:mm"；end < start 表示跨天，如 21:30-08:00 错峰） */
+export interface TimeBasedPrice {
+  start: string;
+  end: string;
+  inputCostPerMillion?: number;
+  outputCostPerMillion?: number;
+  cacheReadCostPerMillion?: number;
+  cacheWriteCostPerMillion?: number;
+}
+
 export interface ModelPricingRecord {
   id: string;
   modelId: string;
@@ -89,6 +102,12 @@ export interface ModelPricingRecord {
   isCustom: boolean;
   providerId: string;
   enabled: boolean;
+  /** 计费模式（默认 'token'） */
+  billingMode: BillingMode;
+  /** 按次计价单价（美元/请求，仅 billingMode 含 per_request 时生效） */
+  pricePerRequest: number;
+  /** 分时价格（JSON 数组，默认 []） */
+  timeBasedPricing: TimeBasedPrice[];
   createdAt: number;
   updatedAt: number;
 }
@@ -109,6 +128,9 @@ export interface UpsertPricingParams {
   pricingSource?: string;
   providerId?: string;
   enabled?: boolean;
+  billingMode?: BillingMode;
+  pricePerRequest?: number;
+  timeBasedPricing?: TimeBasedPrice[];
 }
 
 /** 将数据库行转为 ModelPricingRecord */
@@ -125,6 +147,14 @@ function rowToRecord(row: Record<string, unknown>): ModelPricingRecord {
   try {
     const raw = row.provider_mappings as string;
     if (raw) providerMappings = JSON.parse(raw);
+  } catch (err) {
+    /* 静默忽略 */
+  }
+
+  let timeBasedPricing: TimeBasedPrice[] = [];
+  try {
+    const raw = row.time_based_pricing as string;
+    if (raw) timeBasedPricing = JSON.parse(raw);
   } catch (err) {
     /* 静默忽略 */
   }
@@ -146,6 +176,9 @@ function rowToRecord(row: Record<string, unknown>): ModelPricingRecord {
     isCustom: (row.is_custom as number) === 1,
     providerId: (row.provider_id as string) || '',
     enabled: (row.enabled as number) !== 0,
+    billingMode: (row.billing_mode as BillingMode) || 'token',
+    pricePerRequest: (row.price_per_request as number) || 0,
+    timeBasedPricing,
     createdAt: row.created_at as number,
     updatedAt: row.updated_at as number,
   };
@@ -278,6 +311,30 @@ export class ModelPricingService {
     await new Promise<void>((resolve) => {
       this.db!.run(
         `ALTER TABLE ${REGISTRY_TABLE} ADD COLUMN pricing_source TEXT NOT NULL DEFAULT 'default'`,
+        () => resolve()
+      );
+    });
+
+    // 兼容旧列：计费模式（token / per_request / token_and_per_request）
+    await new Promise<void>((resolve) => {
+      this.db!.run(
+        `ALTER TABLE ${REGISTRY_TABLE} ADD COLUMN billing_mode TEXT NOT NULL DEFAULT 'token'`,
+        () => resolve()
+      );
+    });
+
+    // 兼容旧列：按次计价单价（美元/请求）
+    await new Promise<void>((resolve) => {
+      this.db!.run(
+        `ALTER TABLE ${REGISTRY_TABLE} ADD COLUMN price_per_request REAL NOT NULL DEFAULT 0`,
+        () => resolve()
+      );
+    });
+
+    // 兼容旧列：分时价格（JSON 数组）
+    await new Promise<void>((resolve) => {
+      this.db!.run(
+        `ALTER TABLE ${REGISTRY_TABLE} ADD COLUMN time_based_pricing TEXT NOT NULL DEFAULT '[]'`,
         () => resolve()
       );
     });
@@ -587,7 +644,8 @@ export class ModelPricingService {
            input_price = ?, output_price = ?,
            cache_read_price = ?, cache_write_price = ?,
            cost_multiplier = ?, pricing_source = ?,
-           provider_id = ?, updated_at = ?
+           provider_id = ?, billing_mode = ?, price_per_request = ?,
+           time_based_pricing = ?, updated_at = ?
            WHERE model_id = ?`,
           [
             params.displayName || existing.displayName,
@@ -603,6 +661,13 @@ export class ModelPricingService {
             params.costMultiplier ?? existing.costMultiplier ?? 1.0,
             params.pricingSource || existing.pricingSource || 'default',
             params.providerId || existing.providerId || '',
+            params.billingMode || existing.billingMode || 'token',
+            params.pricePerRequest ?? existing.pricePerRequest ?? 0,
+            params.timeBasedPricing
+              ? JSON.stringify(params.timeBasedPricing)
+              : existing.timeBasedPricing
+                ? JSON.stringify(existing.timeBasedPricing)
+                : '[]',
             now,
             params.modelId,
           ],
@@ -628,8 +693,9 @@ export class ModelPricingService {
             capabilities, provider_mappings,
             input_price, output_price, cache_read_price, cache_write_price,
             cost_multiplier, pricing_source,
-            provider_id, enabled, is_custom, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
+            provider_id, billing_mode, price_per_request, time_based_pricing,
+            enabled, is_custom, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
           [
             id,
             params.modelId,
@@ -645,6 +711,11 @@ export class ModelPricingService {
             params.costMultiplier ?? 1.0,
             params.pricingSource || 'default',
             params.providerId || '',
+            params.billingMode || 'token',
+            params.pricePerRequest || 0,
+            params.timeBasedPricing
+              ? JSON.stringify(params.timeBasedPricing)
+              : '[]',
             params.enabled !== false ? 1 : 0,
             now,
             now,

@@ -1390,6 +1390,31 @@ export async function launch(options: LaunchOptions): Promise<void> {
       }
     })();
 
+    // T1.25.2: Ollama 集成（非阻塞；服务可用时注册 provider 并同步本地真实模型）
+    void (async () => {
+      try {
+        const { ensureOllamaProviderRegistered } =
+          await import('@modules/ai/local/ollama/registerOllamaProvider.js');
+        await ensureOllamaProviderRegistered();
+      } catch (err) {
+        await handleError(err, { module: 'ai:ollama', action: 'startup' });
+      }
+    })();
+
+    // T1.25.3: 官方价格自动同步（非阻塞、幂等；仅更新已注册模型价格，不覆盖手工配置）
+    void (async () => {
+      try {
+        const { applyOfficialPricing } =
+          await import('@modules/ai/config/official-pricing.js');
+        await applyOfficialPricing();
+      } catch (err) {
+        await handleError(err, {
+          module: 'ai:pricing:official',
+          action: 'startup-sync',
+        });
+      }
+    })();
+
     // T1.26: 初始化通知持久化（建表 + FTS5 + 过期调度）
     await wrapInit('NotificationPersistence', async () => {
       const { notificationPersistence } =

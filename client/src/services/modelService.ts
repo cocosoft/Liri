@@ -1,5 +1,5 @@
 import { httpLegacy as http } from "./httpClient";
-import type { ModelInfo } from "../types";
+import type { BillingMode, ModelInfo, TimeBasedPrice } from "../types";
 
 export type { ModelInfo };
 
@@ -8,8 +8,13 @@ export interface UpdateModelParams {
   displayName?: string;
   inputCostPerMillion?: number;
   outputCostPerMillion?: number;
+  cacheReadCostPerMillion?: number;
+  cacheWriteCostPerMillion?: number;
   contextWindow?: number;
   maxOutputTokens?: number;
+  billingMode?: BillingMode;
+  pricePerRequest?: number;
+  timeBasedPricing?: TimeBasedPrice[];
 }
 
 export const modelService = {
@@ -59,5 +64,14 @@ export const modelService = {
       response?: unknown;
       error?: string;
     }>("/v1/models/test", { modelId, providerId });
+  },
+
+  /** 同步官方价格到已注册模型（POST /v1/models/pricing/sync），返回更新的模型数 */
+  async syncOfficialPricing(): Promise<number> {
+    const resp = await http.post<{ data: { updated: number } }>(
+      "/v1/models/pricing/sync",
+      {},
+    );
+    return resp?.data?.updated ?? 0;
   },
 };

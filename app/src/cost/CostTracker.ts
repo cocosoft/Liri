@@ -105,7 +105,10 @@ export class CostTracker {
       cacheCreationTokens,
       cacheReadTokens,
       webSearchRequests,
-      isFastMode ? 'fast' : 'standard'
+      isFastMode ? 'fast' : 'standard',
+      0,
+      // 每次 addCost 代表一次模型调用；billingMode=per_request 的模型按此次数计费
+      1
     );
 
     this.totalCostUSD += cost;

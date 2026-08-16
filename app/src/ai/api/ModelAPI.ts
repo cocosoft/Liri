@@ -65,6 +65,11 @@ export async function handleCreateCustomModel(
         (body.cacheReadCostPerMillion as number) || undefined,
       cacheWriteCostPerMillion:
         (body.cacheWriteCostPerMillion as number) || undefined,
+      billingMode: body.billingMode as UpsertPricingParams['billingMode'],
+      pricePerRequest: (body.pricePerRequest as number) || undefined,
+      timeBasedPricing:
+        body.timeBasedPricing as UpsertPricingParams['timeBasedPricing'],
+      pricingSource: 'manual', // 用户自建 = 手工配置，官方价格同步不覆盖
     });
 
     // 在注册表中发现该模型
@@ -245,6 +250,33 @@ export async function handleUpdateModel(
       params.inputCostPerMillion = body.inputCostPerMillion as number;
     if (body.outputCostPerMillion !== undefined)
       params.outputCostPerMillion = body.outputCostPerMillion as number;
+    if (body.cacheReadCostPerMillion !== undefined)
+      params.cacheReadCostPerMillion = body.cacheReadCostPerMillion as number;
+    if (body.cacheWriteCostPerMillion !== undefined)
+      params.cacheWriteCostPerMillion = body.cacheWriteCostPerMillion as number;
+    if (body.billingMode !== undefined)
+      params.billingMode = body.billingMode as UpsertPricingParams['billingMode'];
+    if (body.pricePerRequest !== undefined)
+      params.pricePerRequest = body.pricePerRequest as number;
+    if (body.timeBasedPricing !== undefined)
+      params.timeBasedPricing =
+        body.timeBasedPricing as UpsertPricingParams['timeBasedPricing'];
+    if (body.pricingSource !== undefined)
+      params.pricingSource = body.pricingSource as string;
+    else if (
+      // 更新了任何价格字段即视为手工配置，官方价格同步不再覆盖
+      [
+        'inputCostPerMillion',
+        'outputCostPerMillion',
+        'cacheReadCostPerMillion',
+        'cacheWriteCostPerMillion',
+        'billingMode',
+        'pricePerRequest',
+        'timeBasedPricing',
+      ].some((f) => body[f] !== undefined)
+    ) {
+      params.pricingSource = 'manual';
+    }
 
     const record = await modelPricingService.upsertPricing(params);
 
@@ -321,5 +353,26 @@ export async function handleDeleteModel(
       action: 'deleteModel',
     });
     sendError(res, `删除模型失败: ${(err as Error).message}`, 500);
+  }
+}
+
+/**
+ * POST /v1/models/pricing/sync — 同步官方价格到 model_registry
+ */
+export async function handleSyncOfficialPricing(
+  _req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const { applyOfficialPricing } =
+      await import('../config/official-pricing.js');
+    const updated = await applyOfficialPricing();
+    sendJson(res, { data: { updated } });
+  } catch (err) {
+    await handleError(err, {
+      module: 'ai:modelManagement',
+      action: 'syncOfficialPricing',
+    });
+    sendError(res, `同步官方价格失败: ${(err as Error).message}`, 500);
   }
 }

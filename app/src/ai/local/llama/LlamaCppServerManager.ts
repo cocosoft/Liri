@@ -954,7 +954,22 @@ export async function syncLlamaModelsToRegistry(): Promise<number> {
       registered++;
     }
 
-    if (registered > 0 || updated > 0) {
+    // 真实化对账：删除归属本 provider 但本地已不存在的模型（与 Ollama 同步一致）
+    let removed = 0;
+    const localModelIds = new Set(
+      status.models
+        .filter((p) => extname(p).toLowerCase() === '.gguf')
+        .map((p) => basename(p, extname(p)))
+        .filter((m) => m)
+    );
+    const allModels = await modelPricingService.getAllPricing();
+    for (const m of allModels) {
+      if (m.providerId === providerId && !localModelIds.has(m.modelId)) {
+        if (await modelPricingService.deleteModelById(m.id)) removed++;
+      }
+    }
+
+    if (registered > 0 || updated > 0 || removed > 0) {
       const { ModelRegistry } =
         await import('@modules/ai/models/ModelRegistry.js');
       ModelRegistry.getInstance()
@@ -979,6 +994,9 @@ export async function syncLlamaModelsToRegistry(): Promise<number> {
       }
       if (registered > 0) {
         logger.info(`已同步 ${registered} 个 GGUF 模型到 model_registry`);
+      }
+      if (removed > 0) {
+        logger.info(`已清理 ${removed} 个本地已不存在的 GGUF 模型记录`);
       }
     }
     return registered;

@@ -134,6 +134,9 @@
 | GET | `/v1/models/app-config/{appType}` | ✅ | 无前端调用方 |
 | PUT | `/v1/models/app-config/{appType}` | ✅ | 无前端调用方 |
 | DELETE | `/v1/models/app-config/{appType}` | ✅ | 无前端调用方 |
+| POST | `/v1/models/pricing/sync` | ✅ **2026-08-16 新增** | 无前端调用方（内置官方价格源同步：启动时自动执行 + 手动触发；进库前经 schema 校验，非法数据阻止写入；不覆盖 `pricingSource=manual` 的手工配置；响应 `{ data: { updated: number } }`） |
+
+> **模型价格字段（2026-08-16 扩展）**：`GET /v1/models` 响应中 `pricing` 对象新增 `billingMode`（`token` / `per_request` / `token_and_per_request`）、`pricePerRequest`（美元/请求）、`timeBasedPricing`（分时价差数组 `[{ start, end, inputCostPerMillion?, outputCostPerMillion?, cacheReadCostPerMillion?, cacheWriteCostPerMillion? }]`，`end < start` 表示跨天时段）、`pricingSource`（`official`=官方价格自动同步 / `manual`=用户手工配置 / `default`=默认）。`POST /v1/models`（自定义模型创建）与 `PUT /v1/models/{id}`（模型更新）同样透传这 3 个字段；更新价格字段时 `pricingSource` 自动置为 `manual`（官方价格同步不再覆盖）。
 
 ### §3.3.1 llama.cpp 本地推理（2026-08-10 新增，llamacpp-integration）
 

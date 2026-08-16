@@ -34,6 +34,8 @@ export type {
   TaskModelConfig,
   TaskDefinition,
   FetchedModel,
+  BillingMode,
+  TimeBasedPrice,
 } from "./model";
 
 // ─── 文件管理 ───

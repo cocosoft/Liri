@@ -9,6 +9,8 @@ import type {
   ProviderFormData,
   EndpointLatency,
   FetchedModel,
+  BillingMode,
+  TimeBasedPrice,
 } from "../types";
 
 export const providerService = {
@@ -133,6 +135,9 @@ export const providerService = {
     outputCostPerMillion?: number;
     cacheReadCostPerMillion?: number;
     cacheWriteCostPerMillion?: number;
+    billingMode?: BillingMode;
+    pricePerRequest?: number;
+    timeBasedPricing?: TimeBasedPrice[];
   }): Promise<{
     id: string;
     modelId: string;

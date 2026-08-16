@@ -24,6 +24,7 @@ import { getLogger } from '@modules/monitoring';
 import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error';
+import type { BillingMode, TimeBasedPrice } from './ModelPricingService.js';
 
 const logger = getLogger('ai:registry');
 
@@ -78,8 +79,16 @@ export class ModelRegistry {
   private providerConfigs: Map<string, ProviderConfig> = new Map();
 
   /** DB 中加载的定价缓存，键为 modelId（唯一来源） */
-  private dbPricing: Map<string, { inputPer1M: number; outputPer1M: number }> =
-    new Map();
+  private dbPricing: Map<
+    string,
+    {
+      inputPer1M: number;
+      outputPer1M: number;
+      billingMode: BillingMode;
+      pricePerRequest: number;
+      timeBasedPricing: TimeBasedPrice[];
+    }
+  > = new Map();
 
   private constructor() {
     // 启动时通过 loadDefaultModels + loadDbPricing 初始化
@@ -167,6 +176,9 @@ export class ModelRegistry {
         this.dbPricing.set(rec.modelId, {
           inputPer1M: rec.inputCostPerMillion,
           outputPer1M: rec.outputCostPerMillion,
+          billingMode: rec.billingMode,
+          pricePerRequest: rec.pricePerRequest,
+          timeBasedPricing: rec.timeBasedPricing,
         });
       }
       otel.endSpan(span, SpanStatusCode.OK);
@@ -324,11 +336,16 @@ export class ModelRegistry {
     return (config as unknown as Record<string, string>)[provider] || '';
   }
 
-  /** 获取模型定价 — 统一来源：DB（唯一事实来源）
-   * 调用方需要 YAML 默认值时自行实现 fallback */
+  /** DB 定价缓存条目（含计费模式/按次/分时） */
   getModelPricing(
     modelName: string
-  ): { inputPer1M: number; outputPer1M: number } | null {
+  ): {
+    inputPer1M: number;
+    outputPer1M: number;
+    billingMode: BillingMode;
+    pricePerRequest: number;
+    timeBasedPricing: TimeBasedPrice[];
+  } | null {
     // DB 定价是唯一来源，不再 fallback 到 YAML
     // 避免"DB 删除后仍能读到 YAML 旧价"的混淆
     return this.dbPricing.get(modelName) || null;
@@ -337,7 +354,13 @@ export class ModelRegistry {
   /** 异步获取模型定价 — 从 DB 实时查询（更精确，例如用于计费） */
   async getModelPricingAsync(
     modelName: string
-  ): Promise<{ inputPer1M: number; outputPer1M: number } | null> {
+  ): Promise<{
+    inputPer1M: number;
+    outputPer1M: number;
+    billingMode: BillingMode;
+    pricePerRequest: number;
+    timeBasedPricing: TimeBasedPrice[];
+  } | null> {
     try {
       const { modelPricingService } =
         await import('@modules/ai/models/ModelPricingService.js');
@@ -348,6 +371,9 @@ export class ModelRegistry {
         return {
           inputPer1M: dbPricing.inputCostPerMillion,
           outputPer1M: dbPricing.outputCostPerMillion,
+          billingMode: dbPricing.billingMode,
+          pricePerRequest: dbPricing.pricePerRequest,
+          timeBasedPricing: dbPricing.timeBasedPricing,
         };
       }
     } catch (err) {

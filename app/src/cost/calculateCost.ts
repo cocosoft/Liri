@@ -27,6 +27,8 @@ export interface CostBreakdown {
   cacheReadCost: number;
   cacheCreationCost: number;
   webSearchCost: number;
+  /** 按次计价成本（billingMode 含 per_request 时 > 0） */
+  perRequestCost: number;
   total: number;
 }
 
@@ -47,6 +49,7 @@ const WEB_SEARCH_COST_PER_REQUEST = 0.01;
  * @param webSearchRequests   网络搜索请求数
  * @param speed               标准 / 快速模式
  * @param oneHourCacheCreationTokens 1 小时缓存创建 token 数（当前无采集来源，默认 0）
+ * @param requestCount        请求次数（billingMode 含 per_request 时按此计费，默认 0）
  * @returns 成本（美元）+ 成本组成详情
  */
 export function calculateCost(
@@ -57,7 +60,8 @@ export function calculateCost(
   cacheReadTokens: number = 0,
   webSearchRequests: number = 0,
   speed: 'standard' | 'fast' = 'standard',
-  oneHourCacheCreationTokens: number = 0
+  oneHourCacheCreationTokens: number = 0,
+  requestCount: number = 0
 ): CostBreakdown {
   // 安全 clamp：负/NaN/Infinity → 0
   const safeInput = safeTokens(inputTokens);
@@ -105,13 +109,21 @@ export function calculateCost(
     safeOneHourCacheCreation * cacheWriteRate * ONE_HOUR_CACHE_WRITE_MULTIPLIER;
   const webSearchCost = safeWebSearch * WEB_SEARCH_COST_PER_REQUEST;
 
+  // 按次计价：billingMode 含 per_request 时按请求次数计费（不乘 fastMultiplier）
+  const billingMode = pricing.billingMode ?? 'token';
+  const perRequestCost =
+    billingMode === 'per_request' || billingMode === 'token_and_per_request'
+      ? safeTokens(requestCount) * (pricing.pricePerRequest || 0)
+      : 0;
+
   const total = roundCost(
     (inputCost +
       outputCost +
       cacheReadCost +
       cacheCreationCost +
       webSearchCost) *
-      multiplier
+      multiplier +
+      perRequestCost
   );
 
   return {
@@ -120,6 +132,7 @@ export function calculateCost(
     cacheReadCost: roundCost(cacheReadCost),
     cacheCreationCost: roundCost(cacheCreationCost),
     webSearchCost: roundCost(webSearchCost),
+    perRequestCost: roundCost(perRequestCost),
     total,
   };
 }
@@ -135,7 +148,8 @@ export function calculateTotalCost(
   cacheReadTokens: number = 0,
   webSearchRequests: number = 0,
   speed: 'standard' | 'fast' = 'standard',
-  oneHourCacheCreationTokens: number = 0
+  oneHourCacheCreationTokens: number = 0,
+  requestCount: number = 0
 ): number {
   return calculateCost(
     pricing,
@@ -145,7 +159,8 @@ export function calculateTotalCost(
     cacheReadTokens,
     webSearchRequests,
     speed,
-    oneHourCacheCreationTokens
+    oneHourCacheCreationTokens,
+    requestCount
   ).total;
 }
 

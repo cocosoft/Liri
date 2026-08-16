@@ -8,6 +8,7 @@
 
 import { ModelRegistry } from '@modules/ai';
 import { getModelConfigById } from '@modules/ai';
+import type { BillingMode, TimeBasedPrice } from '@modules/ai/models/ModelPricingService';
 
 import { handleError } from '@modules/error';
 
@@ -21,6 +22,39 @@ export interface ModelPricing {
   cacheCreationPricePerMillion: number;
   webSearchPricePerRequest: number;
   fastModePricing?: ModelPricing;
+  /** 计费模式（默认 'token'） */
+  billingMode?: BillingMode;
+  /** 按次计价单价（美元/请求） */
+  pricePerRequest?: number;
+}
+
+/** "HH:mm" → 分钟数（0-1439） */
+function minutesOfDay(hhmm: string): number {
+  const [h, m] = (hhmm || '00:00').split(':').map(Number);
+  return (h || 0) * 60 + (m || 0);
+}
+
+/**
+ * 解析分时价格：返回当前时刻命中的时段条目；未配置分时或未命中返回 null。
+ * end < start 视为跨天时段（如 21:30-08:00 错峰优惠）。
+ */
+export function resolveTimeBasedPricing(
+  list: TimeBasedPrice[] | undefined | null,
+  now: Date = new Date()
+): TimeBasedPrice | null {
+  if (!list || list.length === 0) return null;
+  const cur = now.getHours() * 60 + now.getMinutes();
+  for (const p of list) {
+    const s = minutesOfDay(p.start);
+    const e = minutesOfDay(p.end);
+    if (s <= e) {
+      if (cur >= s && cur < e) return p;
+    } else if (cur >= s || cur < e) {
+      // 跨天时段
+      return p;
+    }
+  }
+  return null;
 }
 
 let hasUnknownModelCost = false;
@@ -46,15 +80,38 @@ function getPricingFromRegistry(modelName: string): ModelPricing | null {
       // 启发式兜底：无明确定价时，缓存读 = 输入×0.1、缓存写 = 输入×1.25（参考 codeburn）
       const cacheRead = model?.pricing?.cacheReadPer1M;
       const cacheWrite = model?.pricing?.cacheWritePer1M;
-      const inputPrice = pricing.inputPer1M;
+      let inputPrice = pricing.inputPer1M;
+      let outputPrice = pricing.outputPer1M;
+      // 分时价差：命中当前时段则用时段价覆盖默认价（如 deepseek 错峰优惠）
+      const timeSlot = resolveTimeBasedPricing(pricing.timeBasedPricing);
+      if (timeSlot) {
+        if (timeSlot.inputCostPerMillion !== undefined) {
+          inputPrice = timeSlot.inputCostPerMillion;
+        }
+        if (timeSlot.outputCostPerMillion !== undefined) {
+          outputPrice = timeSlot.outputCostPerMillion;
+        }
+      }
+      const timeCacheRead = timeSlot?.cacheReadCostPerMillion;
+      const timeCacheWrite = timeSlot?.cacheWriteCostPerMillion;
       return {
         inputPricePerMillion: inputPrice,
-        outputPricePerMillion: pricing.outputPer1M,
+        outputPricePerMillion: outputPrice,
         cacheReadPricePerMillion:
-          cacheRead && cacheRead > 0 ? cacheRead : inputPrice * 0.1,
+          timeCacheRead && timeCacheRead > 0
+            ? timeCacheRead
+            : cacheRead && cacheRead > 0
+              ? cacheRead
+              : inputPrice * 0.1,
         cacheCreationPricePerMillion:
-          cacheWrite && cacheWrite > 0 ? cacheWrite : inputPrice * 1.25,
+          timeCacheWrite && timeCacheWrite > 0
+            ? timeCacheWrite
+            : cacheWrite && cacheWrite > 0
+              ? cacheWrite
+              : inputPrice * 1.25,
         webSearchPricePerRequest: 0.01,
+        billingMode: pricing.billingMode,
+        pricePerRequest: pricing.pricePerRequest,
       };
     }
   } catch (err) {

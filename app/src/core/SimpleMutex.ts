@@ -20,11 +20,12 @@ export class SimpleMutex {
     const effectiveTimeout = timeoutMs ?? SimpleMutex.DEFAULT_TIMEOUT_MS;
     return new Promise<void>((resolve, reject) => {
       const timer = setTimeout(() => {
-        // 超时：从队列中移除自己，强制释放锁
+        // BUG-2 修复：超时只从队列移除自己，不做全局解锁。
+        // 原实现 `if (queue.length === 0) locked = false` 会在队列只剩自己时
+        // 错误清零持有者 A 的锁，导致后续请求与 A 并发进入临界区。
+        // 锁的释放只能由持有者 release() 决定，等待者超时无权解锁他人。
         const idx = this.queue.indexOf(onAcquired);
         if (idx >= 0) this.queue.splice(idx, 1);
-        // 如果队列空了但没有其他持有者，解锁
-        if (this.queue.length === 0) this.locked = false;
         reject(
           new Error(`SimpleMutex: acquire timeout after ${effectiveTimeout}ms`)
         );

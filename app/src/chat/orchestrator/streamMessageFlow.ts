@@ -107,6 +107,11 @@ export async function* runStreamMessage(
   const mutex = ctx.mutex;
   const userMessage = ctx.userMessage;
 
+  // BUG-1 修复：mutexHeld 必须在 try 外声明——finally 块是 try 的子句，
+  // 与 try Block 平行，看不到 try 块内声明的 let（此前 tsc 报 Cannot find name）。
+  // 声明后供 try 内 acquire（置 true）与最外层 finally（释放）共享。
+  let mutexHeld = false;
+
   try {
     streamSpan.addEvent('streamMessage.start', {
       'session.id': session.id,
@@ -274,7 +279,7 @@ export async function* runStreamMessage(
     // 流式统计（跨重试轮次，循环外声明供结束后日志使用）
     const streamStats = createStreamLoopStats();
     // P2 修复（AB-1）：mutex 仅首轮获取（重试轮重复 acquire 会因 release 未执行而 30s 超时）
-    let mutexHeld = false;
+    // （mutexHeld 声明于 try 外，见函数头部 BUG-1 注释）
     while (true) {
       streamHadError = false;
       host.unifiedTracker.resetStreamTokens();
@@ -764,9 +769,11 @@ export async function* runStreamMessage(
       });
       const errMsg = getToolExecErrorMessage(toolExecErr);
       accumulatedContent += `\n\n[${errMsg}]`;
-    } finally {
-      mutex.release();
     }
+    // BUG-1 修复：此处不再 release 互斥锁。
+    // 锁在首轮 acquire 后（mutexHeld）由最外层 finally 统一释放一次。
+    // 原实现双重 release（内层 + 外层 finally）非幂等：队列为空时第二次
+    // release 会把 locked 清零，导致并发请求穿透"同一会话串行"保证。
 
     streamSpan.addEvent('streamMessage.toolLoop.done', {
       'toolTurns.completed': host.toolRoundCount,
@@ -803,9 +810,13 @@ export async function* runStreamMessage(
       options
     );
   } finally {
-    // P2 修复（AB-2）：兜底释放会话互斥锁（内层被 return 遗弃时工具循环 finally 不执行，
-    // 锁永久泄漏致下一条消息 30s 超时）。release 幂等，正常路径双 release 无害。
-    mutex.release();
+    // P2 修复（AB-2）+ BUG-1/2 收敛：兜底释放会话互斥锁。
+    // 仅当首轮 acquire 成功（mutexHeld）才释放——acquire 超时抛错时
+    // mutexHeld=false，此时绝不能 release（会错误清零他人持有的锁）。
+    // 内层工具循环已不再 release（见上），此处是唯一释放点，保证释放恰好一次。
+    if (mutexHeld) {
+      mutex.release();
+    }
     // P2（08-09）：兜底检查点
     savePlainTextCheckpoint({
       checkpoint: plainTextCheckpoint,

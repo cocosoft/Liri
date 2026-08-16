@@ -74,6 +74,8 @@ const PERMANENT_CLOSE_CODES = new Set([4003]);
 export class SessionsWebSocket {
   private ws: WebSocket | null = null;
   private state: WebSocketState = 'closed';
+  /** #12 修复：close() 主动关闭标志，用于 handleClose 去重（见 close/handleClose） */
+  private userInitiatedClose = false;
   private reconnectAttempts = 0;
   private sessionNotFoundRetries = 0;
   private pingInterval: ReturnType<typeof setInterval> | null = null;
@@ -137,6 +139,9 @@ export class SessionsWebSocket {
 
       this.ws.onopen = () => {
         this.state = 'connected';
+        // R-2 修复：成功建连时复位 userInitiatedClose——若同一实例曾主动 close()
+        // 后再次 connect()，复位后后续正常关闭（code 1000）才会再次触发 onClose。
+        this.userInitiatedClose = false;
         this.reconnectAttempts = 0;
         this.sessionNotFoundRetries = 0;
         this.startPingInterval();
@@ -191,6 +196,7 @@ export class SessionsWebSocket {
 
   close(): void {
     this.state = 'closed';
+    this.userInitiatedClose = true;
     this.stopPingInterval();
     this.stopReconnectTimer();
 
@@ -199,6 +205,8 @@ export class SessionsWebSocket {
       this.ws = null;
     }
 
+    // #12 修复：主动关闭同步触发一次 onClose；随后 ws.close(1000) 异步触发的
+    // handleClose(1000) 因 userInitiatedClose 置位而不再重复回调，避免上层重复清理。
     this.callbacks.onClose?.();
   }
 
@@ -243,6 +251,11 @@ export class SessionsWebSocket {
     this.stopPingInterval();
 
     if (code === 1000) {
+      // #12 修复：主动 close() 已同步触发过 onClose，此处去重不再回调
+      if (this.userInitiatedClose) {
+        this.state = 'closed';
+        return;
+      }
       this.state = 'closed';
       this.callbacks.onClose?.();
       return;

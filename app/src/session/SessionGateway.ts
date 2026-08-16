@@ -435,21 +435,14 @@ export class SessionGateway {
       });
 
       this.eventBus.on('session:deleted', (event: SessionLifecycleEvent) => {
-        const sessionId = event.sessionId;
-        this.storage
-          .getMessages(sessionId)
-          .then((messages) => {
-            const engine = getFTS5SearchEngine();
-            for (const msg of messages) {
-              engine.remove(`msg_${msg.id}`);
-            }
-          })
-          .catch((err) => {
-            handleError(err, {
-              module: 'session:gateway',
-              action: 'fts5Cleanup',
-            });
-          });
+        // BUG-3 修复：消费 deleteSession 携带的 messageIds（删除前已取），
+        // 不再删除后重新 getMessages（会得空数组导致 FTS 索引残留）。
+        const messageIds: string[] =
+          (event.metadata?.messageIds as string[]) ?? [];
+        const engine = getFTS5SearchEngine();
+        for (const msgId of messageIds) {
+          engine.remove(`msg_${msgId}`);
+        }
       });
 
       // 单条/批量消息删除时的 FTS5 索引清理
@@ -487,12 +480,27 @@ export class SessionGateway {
   ): Promise<UnifiedSession> {
     const otel = getOTelTracing();
     const span = otel.startSpan('SessionGateway.createSession');
+    const startedAt = Date.now();
+    // 入口日志：记录创建请求的参数摘要（排除大字段），用于排查 id 来源与重复创建
+    logger.debug('createSession:入口', {
+      id: params.id ?? null,
+      type: params.type ?? SessionType.LOCAL,
+      title: params.title ?? null,
+      userId: params.userId ?? null,
+      sessionSource: params.sessionSource ?? null,
+      chatType: params.chatType ?? null,
+      metadataKeys: params.metadata ? Object.keys(params.metadata) : [],
+    });
 
     try {
       let sessionId = params.id;
 
       if (!sessionId && this.sessionRouter && params.sessionSource) {
         sessionId = this.sessionRouter.route(params.sessionSource);
+        logger.debug('createSession:sessionId 由 sessionRouter 路由生成', {
+          sessionId,
+          sessionSource: params.sessionSource,
+        });
       } else if (!sessionId && this.keyFactory) {
         sessionId = this.keyFactory
           .create({
@@ -500,9 +508,19 @@ export class SessionGateway {
             chatType: params.chatType as any,
           })
           .toString();
+        logger.debug('createSession:sessionId 由 keyFactory 生成', {
+          sessionId,
+          userId: params.userId,
+          chatType: params.chatType,
+        });
       }
 
       sessionId = sessionId ?? randomUUID();
+      if (params.id && params.id === sessionId) {
+        logger.debug('createSession:使用调用方指定 id', { sessionId });
+      } else if (sessionId && !params.id) {
+        logger.debug('createSession:fallback randomUUID 生成', { sessionId });
+      }
       const now = Date.now();
 
       const session: UnifiedSession = {
@@ -519,7 +537,17 @@ export class SessionGateway {
         },
       };
 
+      // 落盘前：检查是否重复创建（同 id 已存在）
+      const preExists = await this.storage.sessionIdExists(sessionId);
+      logger.debug('createSession:落盘前存在性检查', {
+        sessionId,
+        preExists,
+      });
       await this.storage.createSession(session);
+      logger.debug('createSession:storage.createSession 完成', {
+        sessionId,
+        costMs: Date.now() - startedAt,
+      });
 
       this.eventBus?.emit(
         createSessionLifecycleEvent('session:created', session.id, {
@@ -527,11 +555,27 @@ export class SessionGateway {
           metadata: { userId: params.userId, type: params.type },
         })
       );
+      logger.debug('createSession:已 emit session:created 事件', {
+        sessionId: session.id,
+      });
 
-      logger.info('会话已创建', { sessionId: session.id });
+      logger.info('会话已创建', {
+        sessionId: session.id,
+        preExists,
+        costMs: Date.now() - startedAt,
+      });
       otel.endSpan(span);
       return session;
     } catch (e) {
+      logger.warn('createSession:失败', {
+        params: {
+          id: params.id ?? null,
+          type: params.type,
+          userId: params.userId,
+        },
+        error: e instanceof Error ? e.message : String(e),
+        costMs: Date.now() - startedAt,
+      });
       otel.recordError(span, e instanceof Error ? e : new Error(String(e)));
       otel.endSpan(span, SpanStatusCode.ERROR);
       await handleError(e, {
@@ -584,36 +628,73 @@ export class SessionGateway {
    * 删除会话
    */
   async deleteSession(sessionId: string): Promise<void> {
-    logger.debug('deleteSession:SessionGateway 入口，新链存储', { sessionId });
+    const startedAt = Date.now();
+    logger.debug('deleteSession:入口，新链存储', { sessionId });
+
     const messages = await this.storage.getMessages(sessionId);
+    // BUG-3 修复：删除前记录 messageIds，供 FTS5 索引清理使用——
+    // 原实现监听器在删除后重新 getMessages 得到空数组，导致索引残留（幽灵数据）。
+    const messageIds = messages.map((m) => m.id);
+    logger.debug('deleteSession:已读取消息（删除前）', {
+      sessionId,
+      messageCount: messages.length,
+      messageIds,
+    });
 
     await this.storage.deleteSession(sessionId);
-    await this.transcriptManager.deleteTranscript(sessionId);
+    logger.debug('deleteSession:storage.deleteSession 完成', {
+      sessionId,
+      costMs: Date.now() - startedAt,
+    });
 
+    await this.transcriptManager.deleteTranscript(sessionId);
+    logger.debug('deleteSession:transcript 已删除', {
+      sessionId,
+    });
+
+    // BUG-3 修复：事件名统一为复数 messages:deleted（原单数 message:deleted 孤发无人消费），
+    // 携带 messageIds 供 :456 监听器清理 FTS5 索引。
     this.eventBus?.emit(
-      createSessionLifecycleEvent('message:deleted', sessionId, {
+      createSessionLifecycleEvent('messages:deleted', sessionId, {
         sessionKey: sessionId,
-        metadata: { messageCount: messages.length },
+        metadata: { messageIds, messageCount: messages.length },
       })
     );
+    logger.debug('deleteSession:已 emit messages:deleted 事件', {
+      sessionId,
+      messageCount: messages.length,
+    });
 
     this.eventBus?.emit(
       createSessionLifecycleEvent('session:deleted', sessionId, {
         sessionKey: sessionId,
+        metadata: { messageIds, messageCount: messages.length },
       })
     );
+    logger.debug('deleteSession:已 emit session:deleted 事件', {
+      sessionId,
+      messageCount: messages.length,
+    });
 
     const remoteSession = this.remoteSessions.get(sessionId);
     if (remoteSession) {
       remoteSession.disconnect();
       this.remoteSessions.delete(sessionId);
+      logger.info('deleteSession:已断开远程会话连接', { sessionId });
     }
 
     const ws = this.webSockets.get(sessionId);
     if (ws) {
       ws.close();
       this.webSockets.delete(sessionId);
+      logger.info('deleteSession:已关闭 WebSocket 订阅', { sessionId });
     }
+
+    logger.info('deleteSession:完成', {
+      sessionId,
+      messageCount: messages.length,
+      costMs: Date.now() - startedAt,
+    });
   }
 
   /**
@@ -630,47 +711,111 @@ export class SessionGateway {
   async listLiteSessions(): Promise<
     Array<{ id: string; title?: string; status?: string; updatedAt?: string }>
   > {
-    const { readdirSync } = require('fs');
+    const { readdirSync, statSync } = require('fs');
     const { join } = require('path');
     const { readLiteSessionMeta } =
       await import('./storage/LiteSessionReader.js');
     const sessionsDir = resolveSessionsDir();
+    logger.debug('listLiteSessions:开始扫描会话目录', { sessionsDir });
 
+    let entries: string[];
     try {
-      const entries = readdirSync(sessionsDir);
-      const results: Array<{
-        id: string;
-        title?: string;
-        status?: string;
-        updatedAt?: string;
-      }> = [];
-
-      for (const entry of entries) {
-        if (entry.startsWith('.')) continue; // 跳过隐藏文件/迁移标记
-        const fullPath = join(sessionsDir, entry);
-        // 跳过目录和会话存储目录（directories have items inside）
-        const { statSync } = require('fs');
-        const isDir = (() => {
-          try {
-            return statSync(fullPath).isDirectory();
-          } catch (err) {
-            return false;
-          }
-        })();
-        if (!isDir) {
-          // 直接 JSON 文件：提取文件名作为 ID
-          const sessionId = entry.replace(/\.json$/i, '');
-          const meta = readLiteSessionMeta(fullPath);
-          if (meta) {
-            results.push({ id: sessionId, ...meta });
-          }
-        }
-      }
-
-      return results;
+      entries = readdirSync(sessionsDir);
     } catch (err) {
+      logger.warn('listLiteSessions:会话目录读取失败，返回空列表', {
+        sessionsDir,
+        error: err instanceof Error ? err.message : String(err),
+      });
       return [];
     }
+    logger.debug('listLiteSessions:目录条目总数', {
+      sessionsDir,
+      entryCount: entries.length,
+    });
+
+    const results: Array<{
+      id: string;
+      title?: string;
+      status?: string;
+      updatedAt?: string;
+    }> = [];
+    let skippedHidden = 0;
+    let statFailed = 0;
+    let dirCount = 0;
+    let fileCount = 0;
+    let metaNull = 0;
+
+    for (const entry of entries) {
+      if (entry.startsWith('.')) {
+        skippedHidden++;
+        continue; // 跳过隐藏文件/迁移标记
+      }
+      const fullPath = join(sessionsDir, entry);
+      let isDir = false;
+      try {
+        isDir = statSync(fullPath).isDirectory();
+      } catch (err) {
+        statFailed++;
+        logger.debug('listLiteSessions:条目 stat 失败，跳过', {
+          entry,
+          fullPath,
+          error: err instanceof Error ? err.message : String(err),
+        });
+        continue; // 条目已消失（并发删除），跳过
+      }
+
+      if (isDir) {
+        // 当前存储布局：每会话一个子目录 {sessionId}/session.json
+        dirCount++;
+        const sessionId = entry;
+        const meta = readLiteSessionMeta(join(fullPath, 'session.json'));
+        if (meta) {
+          logger.debug('listLiteSessions:子目录命中会话元数据', {
+            sessionId,
+            fullPath,
+            meta,
+          });
+          results.push({ id: sessionId, ...meta });
+        } else {
+          metaNull++;
+          logger.debug('listLiteSessions:子目录未解析出元数据，跳过', {
+            sessionId,
+            fullPath,
+          });
+        }
+      } else {
+        // 兼容旧布局：直接 JSON 文件 {sessionId}.json
+        fileCount++;
+        const sessionId = entry.replace(/\.json$/i, '');
+        const meta = readLiteSessionMeta(fullPath);
+        if (meta) {
+          logger.debug('listLiteSessions:直接文件命中会话元数据', {
+            sessionId,
+            fullPath,
+            meta,
+          });
+          results.push({ id: sessionId, ...meta });
+        } else {
+          metaNull++;
+          logger.debug('listLiteSessions:直接文件未解析出元数据，跳过', {
+            sessionId,
+            fullPath,
+          });
+        }
+      }
+    }
+
+    logger.info('listLiteSessions:扫描完成', {
+      sessionsDir,
+      entryCount: entries.length,
+      resultCount: results.length,
+      skippedHidden,
+      statFailed,
+      dirCount,
+      fileCount,
+      metaNull,
+    });
+    return results;
   }
 
   /**
@@ -784,7 +929,9 @@ export class SessionGateway {
           const messages = await this.storage.getMessages(s.id);
           const userMsgCount = messages.filter((m) => m.role === 'user').length;
           metadata.roundCount = userMsgCount;
-          await (this.storage as any).saveSession?.(s);
+          // #15 修复：改用接口的 updateSession（原 (this.storage as any).saveSession?.()
+          // 对 UnifiedSessionStorage 为 undefined，可选调用静默 no-op，迁移从未落盘）
+          await this.storage.updateSession(s);
           migratedCount++;
         }
       }

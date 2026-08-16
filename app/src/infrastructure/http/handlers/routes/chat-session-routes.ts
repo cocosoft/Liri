@@ -234,8 +234,12 @@ export async function dispatchChatSessionRoutes(
     await handleResumeChat(handlerCtx, req, res);
     return true;
   }
-  if (method === 'GET' && url.match(/^\/v1\/sessions\/(.+)$/)) {
-    const sid = requireSessionId(url, /^\/v1\/sessions\/(.+)$/, res);
+  // BUG-4 修复：泛型路由改为 ([^/]+)，避免贪婪吞掉子路径路由
+  // （原 (.+) 会让 /v1/sessions/abc/memory 被此处匹配为 sid=abc/memory，随后被
+  // 白名单校验拒绝恒 400，导致 :id/memory 功能不可达。改为单段匹配后，
+  // 子路径路由（memory 等）可被其后的具体路由正确命中。）
+  if (method === 'GET' && url.match(/^\/v1\/sessions\/([^/]+)$/)) {
+    const sid = requireSessionId(url, /^\/v1\/sessions\/([^/]+)$/, res);
     if (sid === null) return true;
     await handleGetSession(handlerCtx, req, res, sid);
     return true;

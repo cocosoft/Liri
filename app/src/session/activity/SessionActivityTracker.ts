@@ -23,6 +23,7 @@ import {
   unlinkSync,
   existsSync,
   mkdirSync,
+  readdirSync,
 } from 'fs';
 import { join, dirname } from 'path';
 import { resolvePyappHome } from '@modules/core/paths';
@@ -261,10 +262,42 @@ export class SessionActivityTracker {
    * 遍历 PID 目录，删除进程已退出的 PID 文件
    */
   private cleanupZombiePids(): void {
-    // PID 目录路径在配置中，默认在数据目录下
-    // 此方法依赖 fs 操作，实现较简单：
-    // 遍历 PID 目录下所有 .pid 文件 → 读取 PID → 检查进程存活 → 不存活则删除文件
-    // 由于路径可能不存在，静默处理
+    // #16 修复：原实现为空函数体，PID 文件只在 evicted 时删除，
+    // 进程异常退出（未走 evict）会残留 .pid 文件并持续累积。
+    try {
+      const pidDir = this.config.pidDir.replace(
+        /^~\/\.pyapp/,
+        resolvePyappHome()
+      );
+      if (!existsSync(pidDir)) return;
+      const entries = readdirSync(pidDir);
+      for (const name of entries) {
+        if (!name.endsWith('.pid')) continue;
+        const pidPath = join(pidDir, name);
+        try {
+          const raw = readFileSync(pidPath, 'utf-8').trim();
+          const pid = Number(raw);
+          if (!Number.isFinite(pid) || !this.isProcessAlive(pid)) {
+            unlinkSync(pidPath);
+            logger.info('清理僵尸 PID 文件', {
+              pidPath,
+              pid: Number.isFinite(pid) ? pid : undefined,
+            });
+          }
+        } catch (err) {
+          handleError(err, {
+            module: 'session:activity',
+            action: 'cleanupZombiePids',
+          });
+        }
+      }
+    } catch (err) {
+      // PID 目录不存在或不可读时静默跳过（路径可能未创建）
+      handleError(err, {
+        module: 'session:activity',
+        action: 'cleanupZombiePids',
+      });
+    }
   }
 
   private getPidPath(sessionId: string): string {

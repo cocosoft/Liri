@@ -48,6 +48,9 @@ export class SessionStore implements SessionStorage {
       value: session,
       lastAccess: Date.now(),
     });
+    // #14 修复：save 后同样逐出（原仅 loadSession 时逐出，反复 save 不同会话
+    // 可超出 maxCacheSize 导致缓存无限膨胀）
+    this.evictIfNeeded(this.sessionCache, this.maxCacheSize);
   }
 
   async loadSession(sessionId: string): Promise<Session | null> {

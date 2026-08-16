@@ -2849,19 +2849,16 @@ export class ChatManagerImpl implements ChatManager {
     try {
       restoreResult = await streamingCheckpoint.restore();
     } catch (err) {
-      mutex.release();
+      // BUG-1 修复：此处不再 release（由最外层 finally 统一释放一次，
+      // 避免双重 release 清零他人持有的锁）。
       throw err;
     }
     if (!restoreResult) {
-      try {
-        yield {
-          type: 'error',
-          content: '无可用检查点，无法恢复',
-          sessionId,
-        } as ChatStreamChunk;
-      } finally {
-        mutex.release();
-      }
+      yield {
+        type: 'error',
+        content: '无可用检查点，无法恢复',
+        sessionId,
+      } as ChatStreamChunk;
       return null as unknown as Message;
     }
 
@@ -2906,16 +2903,13 @@ export class ChatManagerImpl implements ChatManager {
 
       if (remainingToolCalls.length === 0) {
         logger.info('resumeStream: 所有工具已完成，无需恢复', { sessionId });
-        try {
-          yield {
-            type: 'status',
-            statusType: 'task_all_done',
-            content: '任务已全部完成',
-            sessionId,
-          } as ChatStreamChunk;
-        } finally {
-          mutex.release();
-        }
+        // BUG-1 修复：此处不再 release（由最外层 finally 统一释放一次）
+        yield {
+          type: 'status',
+          statusType: 'task_all_done',
+          content: '任务已全部完成',
+          sessionId,
+        } as ChatStreamChunk;
         return session.messages[session.messages.length - 1] || ({} as Message);
       }
 

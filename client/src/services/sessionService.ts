@@ -185,15 +185,24 @@ export const sessionService = {
           // N1 修复：404 = 会话不存在（后端 P2-3 已改为显式 404，不再静默重建空会话）。
           // 原实现静默降级到内存假会话（title:"恢复的会话"），switchChatSession 无
           // 假会话检测 → 空壳会话"复活"。404 直接抛出，由调用方清理残留并切换。
-          if (res.error?.code === 404) {
-            const notFound = new Error(`会话不存在: ${id}`);
-            (notFound as unknown as Record<string, unknown>).statusCode = 404;
-            throw notFound;
+          // #10 修复：与 delete/rename 统一为 status>=400 上抛——原实现仅 404 上抛，
+          // HTTP 500 等业务失败仍降级到内存假会话，switchChatSession 用它覆盖标题并
+          // set currentSessionId，制造"切换成功"假象。
+          const status = res.error?.code ?? 500;
+          logger.warn("切换会话失败（后端明确错误，不再降级）", {
+            id,
+            error: res.error,
+          });
+          if (status >= 400) {
+            const err = new Error(
+              `切换会话失败: ${res.error?.message ?? `HTTP ${status}`}`,
+            );
+            (err as unknown as Record<string, unknown>).statusCode = status;
+            throw err;
           }
-          logger.warn("切换会话失败", { id, error: res.error });
         } catch (e) {
-          // 404 是明确的业务错误，直接上抛（不做 Tauri/内存降级）
-          if ((e as { statusCode?: number })?.statusCode === 404) throw e;
+          // 业务错误（带 statusCode）直接上抛（不做 Tauri/内存降级）
+          if ((e as { statusCode?: number })?.statusCode) throw e;
           handleClientError(e, {
             module: "services:session",
             action: "switch",

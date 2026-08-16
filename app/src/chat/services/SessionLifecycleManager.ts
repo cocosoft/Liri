@@ -137,22 +137,37 @@ export class SessionLifecycleManager {
     };
 
     this.chatSessions.set(session.id, session);
+    const prevCurrentId = this.currentId.get();
     this.currentId.set(session.id);
 
     // 持久化会话到 FileSystemUnifiedStorage
     // P0-D: 完整持久化 metadata（含 projectId/workspaceId/moduleType），此前硬编码 {} 导致重启后全部丢失
-    await this.sessionGateway
-      .createSession({
+    // #13 修复：持久化失败 rethrow（原 .catch 只记录不重抛 → 内存有会话、磁盘没有，
+    // 重启即消失，"创建成功"假象）。
+    // R-1 修复：持久化失败时先回滚内存态（chatSessions.delete + currentId 恢复原值）再 rethrow——
+    // 否则 handler 返回 500 但内存仍残留幽灵会话（磁盘没有、内存有）。
+    try {
+      await this.sessionGateway.createSession({
         id: session.id,
         title: params.title ?? session.title,
         metadata: session.metadata,
-      })
-      .catch((e) => {
-        handleError(e, {
-          module: 'chat:manager',
-          action: '持久化会话创建失败',
-        });
       });
+    } catch (e) {
+      this.chatSessions.delete(session.id);
+      if (this.currentId.get() === session.id) {
+        this.currentId.set(prevCurrentId);
+      }
+      logger.warn('createSession:持久化失败，已回滚内存态', {
+        sessionId: session.id,
+        error: e instanceof Error ? e.message : String(e),
+      });
+      await handleError(e, {
+        module: 'chat:manager',
+        action: '持久化会话创建失败',
+        rethrow: true,
+      });
+      throw e;
+    }
 
     // 触发 ChatSessionStart Hook
     this.hookChainManager.execute('chat', {
@@ -513,6 +528,18 @@ export class SessionLifecycleManager {
         data: { sessionId: id },
         sessionId: id,
       });
+      // BUG-6 修复：复用 deleteSession 的资源清理路径——
+      // 中止活跃流、删除 abort controller 与 mutex、停止活跃度追踪、清离开时间戳。
+      // 原实现直接 clear()/delete() 跳过这些，导致清空后活跃流继续跑完（消耗 token）
+      // 且 abort controller / mutex / leaveTimes 条目永久残留。
+      const pendingAbort = this.sessionAbortControllers.get(id);
+      if (pendingAbort) {
+        pendingAbort.abort();
+      }
+      this.sessionAbortControllers.delete(id);
+      this.sessionMutexes.delete(id);
+      this.sessionLeaveTimes.delete(id);
+      this.sessionAccess.trackActivityEnd(id);
     }
     // 仅删除匹配模块的内存会话
     if (moduleType) {

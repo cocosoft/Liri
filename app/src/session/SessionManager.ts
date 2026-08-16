@@ -483,7 +483,14 @@ export class SessionManager {
     this.stopPruner();
     this.prunerInterval = setInterval(
       () => {
-        this.pruner.prune();
+        // #9 修复：prune 异常会 rethrow（SessionPruner），定时器无 await 上下文
+        // 直接抛会导致 unhandledRejection——包 catch 走统一错误处理，对齐新链。
+        void this.pruner.prune().catch((e) =>
+          handleError(e, {
+            module: 'session:manager',
+            action: 'pruneInterval',
+          })
+        );
       },
       60 * 60 * 1000
     );

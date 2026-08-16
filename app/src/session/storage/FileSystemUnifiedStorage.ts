@@ -97,6 +97,11 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
   }
 
   async close(): Promise<void> {
+    // #7 修复：关闭前等待所有 pending 写队列落盘（allSettled 不因单个失败阻塞），
+    // 原实现直接清空内存缓存，writeQueues 中未完成的 append/compact 可能丢最后几条消息。
+    if (this.writeQueues.size > 0) {
+      await Promise.allSettled([...this.writeQueues.values()]);
+    }
     this.sessions.clear();
     this.messages.clear();
     this.messageAccessOrder = [];
@@ -228,12 +233,33 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
       // 反向去重——后写覆盖先写（Map.set 天然覆盖），兼容旧全量重写格式
       // （旧格式无重复 id，行为不变）。注意与 updateMessage 的追加必须同步落地。
       const msgMap = new Map<string, UnifiedMessage>();
+      let badLines = 0;
       for (const line of lines) {
-        const msg: UnifiedMessage = JSON.parse(line);
-        msgMap.set(msg.id, msg);
+        try {
+          const msg: UnifiedMessage = JSON.parse(line);
+          msgMap.set(msg.id, msg);
+        } catch {
+          // BUG-5 修复：坏行跳过并计数，不再让整行 JSON.parse 抛错清空整会话——
+          // 原实现任一行损坏即 messages.set([], 后续 compact 全量重写会物理覆盖磁盘正常消息。
+          badLines++;
+        }
+      }
+      if (badLines > 0) {
+        logger.warn('loadMessages:存在损坏行，已跳过（其余消息保留）', {
+          sessionId,
+          badLines,
+          totalLines: lines.length,
+          filePath,
+        });
       }
       this.messages.set(sessionId, [...msgMap.values()]);
-    } catch {
+    } catch (error) {
+      // 仅文件不存在/IO 失败等整体异常才置空（与旧行为一致）
+      logger.warn('loadMessages:读取消息文件失败', {
+        sessionId,
+        filePath,
+        error: String(error),
+      });
       this.messages.set(sessionId, []);
     }
   }

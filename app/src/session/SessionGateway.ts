@@ -539,10 +539,19 @@ export class SessionGateway {
 
       // 落盘前：检查是否重复创建（同 id 已存在）
       const preExists = await this.storage.sessionIdExists(sessionId);
-      logger.debug('createSession:落盘前存在性检查', {
-        sessionId,
-        preExists,
-      });
+      // R1-3 修复：preExists 时升级 warn——存储层 createSession 对同 id 静默覆盖
+      // （sessions.set + persistSession，且清空消息缓存）。若调用方重复提交同一 id
+      // 会覆盖既有会话，warn 便于排查（不做行为变更，避免破坏既有幂等语义）。
+      if (preExists) {
+        logger.warn('createSession:检测到同 id 会话已存在，即将覆盖', {
+          sessionId,
+        });
+      } else {
+        logger.debug('createSession:落盘前存在性检查通过', {
+          sessionId,
+          preExists,
+        });
+      }
       await this.storage.createSession(session);
       logger.debug('createSession:storage.createSession 完成', {
         sessionId,
@@ -733,17 +742,18 @@ export class SessionGateway {
       entryCount: entries.length,
     });
 
-    const results: Array<{
-      id: string;
-      title?: string;
-      status?: string;
-      updatedAt?: string;
-    }> = [];
     let skippedHidden = 0;
     let statFailed = 0;
     let dirCount = 0;
     let fileCount = 0;
     let metaNull = 0;
+
+    // R1-4 修复：用 Map 按 id 去重（目录布局为当前布局，优先；旧布局文件兜底），
+    // 避免迁移中间态（{id}/session.json 与 {id}.json 并存）产出重复 id。
+    const resultMap = new Map<
+      string,
+      { title?: string; status?: string; updatedAt?: string }
+    >();
 
     for (const entry of entries) {
       if (entry.startsWith('.')) {
@@ -775,7 +785,7 @@ export class SessionGateway {
             fullPath,
             meta,
           });
-          results.push({ id: sessionId, ...meta });
+          resultMap.set(sessionId, meta);
         } else {
           metaNull++;
           logger.debug('listLiteSessions:子目录未解析出元数据，跳过', {
@@ -794,7 +804,10 @@ export class SessionGateway {
             fullPath,
             meta,
           });
-          results.push({ id: sessionId, ...meta });
+          // 目录布局已命中时保留目录版本，旧文件仅作兜底
+          if (!resultMap.has(sessionId)) {
+            resultMap.set(sessionId, meta);
+          }
         } else {
           metaNull++;
           logger.debug('listLiteSessions:直接文件未解析出元数据，跳过', {
@@ -804,6 +817,11 @@ export class SessionGateway {
         }
       }
     }
+
+    const results = [...resultMap.entries()].map(([id, meta]) => ({
+      id,
+      ...meta,
+    }));
 
     logger.info('listLiteSessions:扫描完成', {
       sessionsDir,

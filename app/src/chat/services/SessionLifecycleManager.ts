@@ -136,6 +136,9 @@ export class SessionLifecycleManager {
       updatedAt: now,
     };
 
+    // R1-2 修复：记录是否为新建会话——回滚时仅删除新建会话，
+    // 避免 params.id 复用已存在会话且持久化失败时误删内存中的旧会话。
+    const isNewSession = !this.chatSessions.has(session.id);
     this.chatSessions.set(session.id, session);
     const prevCurrentId = this.currentId.get();
     this.currentId.set(session.id);
@@ -153,12 +156,15 @@ export class SessionLifecycleManager {
         metadata: session.metadata,
       });
     } catch (e) {
-      this.chatSessions.delete(session.id);
+      if (isNewSession) {
+        this.chatSessions.delete(session.id);
+      }
       if (this.currentId.get() === session.id) {
         this.currentId.set(prevCurrentId);
       }
       logger.warn('createSession:持久化失败，已回滚内存态', {
         sessionId: session.id,
+        isNewSession,
         error: e instanceof Error ? e.message : String(e),
       });
       await handleError(e, {
@@ -166,7 +172,6 @@ export class SessionLifecycleManager {
         action: '持久化会话创建失败',
         rethrow: true,
       });
-      throw e;
     }
 
     // 触发 ChatSessionStart Hook

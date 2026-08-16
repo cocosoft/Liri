@@ -455,9 +455,11 @@ export async function* runStreamMessage(
       }
 
       // P2-12: 检查是否需要加倍重试
+      // 防御：result.value 可能为 undefined（模型空响应），as 断言不改变运行时值，
+      // 直接访问 .stop_reason 会抛 undefined is not an object，故用可选链降级。
       const aiStopReason = (
-        finalResponse as unknown as { stop_reason?: string }
-      ).stop_reason;
+        finalResponse as unknown as { stop_reason?: string } | null
+      )?.stop_reason;
       if (aiStopReason === 'max_tokens') {
         retryState = advanceMaxOutputRetry(
           'max_tokens',

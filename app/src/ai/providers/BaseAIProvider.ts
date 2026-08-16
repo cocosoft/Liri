@@ -555,22 +555,27 @@ export abstract class BaseAIProvider implements AIProvider {
    * 各 Provider 的 chatStream 入口用 `yield*` 委托本包装器即可接入，
    * return 值（如 usage）通过 yield* 透传，行为不变。
    */
-  protected static async *wrapChatStreamMeasure<T>(
+  protected static async *wrapChatStreamMeasure<T, TReturn = void>(
     label: string,
-    stream: AsyncGenerator<T>
-  ): AsyncGenerator<T> {
+    stream: AsyncGenerator<T, TReturn>
+  ): AsyncGenerator<T, TReturn> {
     const start = Date.now();
     let chunkCount = 0;
     try {
-      for await (const chunk of stream) {
+      // 必须手动 next() 迭代：for await 会丢弃内部生成器的 return 值，
+      // 导致上游 result.value 变 undefined（finalResponse.tool_calls 丢失 → 工具调用不执行）。
+      let result = await stream.next();
+      while (!result.done) {
         chunkCount++;
-        yield chunk;
+        yield result.value as T;
+        result = await stream.next();
       }
       logger.info('provider 流式完成', {
         provider: label,
         elapsedMs: Date.now() - start,
         chunkCount,
       });
+      return result.value;
     } catch (error) {
       logger.warn('provider 流式失败', {
         provider: label,

@@ -313,6 +313,8 @@ const en = {
     closeSearch: "Close Search",
     exportAsMarkdown: "Export as Markdown",
     exportAsJson: "Export as JSON",
+    exportAsHtml: "Export as HTML",
+    exportAsWord: "Export as Word",
     welcomeTitle: "Welcome to Liri",
     welcomeHint: "Your AI Personal Assistant",
     startChat: "Start Chat",

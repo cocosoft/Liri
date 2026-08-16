@@ -307,6 +307,8 @@ const zh = {
     closeSearch: "关闭搜索",
     exportAsMarkdown: "导出为 Markdown",
     exportAsJson: "导出为 JSON",
+    exportAsHtml: "导出为 HTML",
+    exportAsWord: "导出为 Word",
     welcomeTitle: "欢迎使用 Liri",
     welcomeHint: "你的 AI 私人助手",
     startChat: "开始聊天",

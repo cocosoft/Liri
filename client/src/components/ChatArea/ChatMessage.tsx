@@ -15,6 +15,7 @@ import { useShallow } from "zustand/shallow";
 import { useSessionStore } from "../../stores/sessionStore";
 import { useRootStore } from "../../stores/root-store";
 import { saveArtifact } from "../../services/projectArtifactService";
+import { exportMessageAsFormat } from "../../utils/exportMessage";
 
 const SaveKnowledgeModal = React.lazy(() => import("./SaveKnowledgeModal"));
 
@@ -88,6 +89,30 @@ function getFullContent(
           // B-A2 修复：复制纯文本时工具结果不再截断（原 .slice(0,500) 导致复制内容不完整）
           if (resultStr) lines.push(`${labels.result}\n${resultStr}`);
           parts.push(lines.join("\n\n"));
+        }
+      }
+    }
+  }
+
+  return parts.join("\n\n").trim();
+}
+
+/**
+ * 提取消息正文（仅 content + text 块，不含 thinking/tool_call）
+ * 用于 HTML/Word 导出——思考过程与工具调用不进文档，只导出最终正文
+ */
+function getBodyContent(message: Message): string {
+  const parts: string[] = [];
+
+  if (message.content) {
+    parts.push(message.content);
+  }
+
+  if (message.blocks && message.blocks.length > 0) {
+    for (const block of message.blocks) {
+      if (block.type === "text" && block.content) {
+        if (!message.content || !message.content.includes(block.content)) {
+          parts.push(block.content);
         }
       }
     }
@@ -200,6 +225,30 @@ const ChatMessageMemo = memo(
         setCopyToast("failed");
         setTimeout(() => setCopyToast(null), 2000);
       }
+    };
+
+    /**
+     * 导出 AI 回复（md / html / word）
+     * - md：完整内容（getFullContent，含 thinking/tool_call 文本）
+     * - html/word：仅正文（getBodyContent，排除思考/工具调用），由工具层渲染成
+     *   带 markdown 样式的 HTML / Word 文档（标题/粗体/代码块/表格等）
+     */
+    const handleExport = (format: "md" | "html" | "word") => {
+      const content =
+        format === "md"
+          ? getFullContent(message, {
+              thoughtProcess: t("chat.thoughtProcess"),
+              toolCall: t("chat.toolCall"),
+              parameters: t("chat.parameters"),
+              result: t("chat.result"),
+            })
+          : getBodyContent(message);
+      if (!content.trim()) {
+        setCopyToast("failed");
+        setTimeout(() => setCopyToast(null), 2000);
+        return;
+      }
+      exportMessageAsFormat(content, format);
     };
 
     const handleRegenerate = () => {
@@ -586,7 +635,7 @@ const ChatMessageMemo = memo(
                   ⋯
                 </button>
                 {menuOpen && (
-                  <div className="absolute bottom-full left-0 mb-1 w-32 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1 z-30">
+                  <div className="absolute bottom-full left-0 mb-1 w-40 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1 z-30">
                     {isUser ? (
                       <></>
                     ) : (
@@ -596,6 +645,34 @@ const ChatMessageMemo = memo(
                           className="w-full px-3 py-1.5 text-left text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
                         >
                           💾 {t("chat.saveToKnowledge")}
+                        </button>
+                        {/* AI 回复导出：md / html / word（导出为纯前端下载，零后端依赖） */}
+                        <button
+                          onClick={() => {
+                            setMenuOpen(false);
+                            handleExport("md");
+                          }}
+                          className="w-full px-3 py-1.5 text-left text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                        >
+                          📤 {t("chat.exportAsMarkdown")}
+                        </button>
+                        <button
+                          onClick={() => {
+                            setMenuOpen(false);
+                            handleExport("html");
+                          }}
+                          className="w-full px-3 py-1.5 text-left text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                        >
+                          📤 {t("chat.exportAsHtml")}
+                        </button>
+                        <button
+                          onClick={() => {
+                            setMenuOpen(false);
+                            handleExport("word");
+                          }}
+                          className="w-full px-3 py-1.5 text-left text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                        >
+                          📤 {t("chat.exportAsWord")}
                         </button>
                       </>
                     )}
@@ -789,6 +866,34 @@ const ChatMessageMemo = memo(
                     className="w-full px-4 py-2.5 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
                   >
                     💾 {t("chat.saveToKnowledge")}
+                  </button>
+                  {/* AI 回复导出：md / html / word */}
+                  <button
+                    onClick={() => {
+                      handleExport("md");
+                      closeContextMenu();
+                    }}
+                    className="w-full px-4 py-2.5 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+                  >
+                    📤 {t("chat.exportAsMarkdown")}
+                  </button>
+                  <button
+                    onClick={() => {
+                      handleExport("html");
+                      closeContextMenu();
+                    }}
+                    className="w-full px-4 py-2.5 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+                  >
+                    📤 {t("chat.exportAsHtml")}
+                  </button>
+                  <button
+                    onClick={() => {
+                      handleExport("word");
+                      closeContextMenu();
+                    }}
+                    className="w-full px-4 py-2.5 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+                  >
+                    📤 {t("chat.exportAsWord")}
                   </button>
                 </>
               )}

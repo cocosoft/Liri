@@ -502,8 +502,11 @@ export abstract class BaseAIProvider implements AIProvider {
 
           // 详细重试日志：记录本次失败原因、重试间隔与底层 cause，
           // 便于排查 Provider 网络抖动/断连是否频繁及退避节奏（2026-08-17）
-          const cause = (lastError as { cause?: { code?: string; hostname?: string; port?: number } })
-            .cause;
+          const cause = (
+            lastError as {
+              cause?: { code?: string; hostname?: string; port?: number };
+            }
+          ).cause;
           logger.warn('provider 请求连接失败，将按退避重试', {
             url: urlSummary,
             elapsedMs: Date.now() - requestStart,

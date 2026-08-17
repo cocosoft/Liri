@@ -11,6 +11,8 @@ import type { ToolUseContext } from '../../tools/types/ToolUseContext';
 import { resolveSafePath } from './MediaPathGuard';
 import { MediaErrorCode } from './MediaErrorCodes';
 import type { MediaToolResult } from './MediaToolResult';
+import { mediaStore } from '../store/MediaStore';
+import { isToolCallApproved } from '@modules/permission';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
@@ -37,7 +39,7 @@ export function createMediaDeleteBatchTool(): Tool {
 
     async execute(
       input: Record<string, unknown>,
-      _context: ToolUseContext
+      context: ToolUseContext
     ): Promise<MediaToolResult> {
       const startTime = Date.now();
       let paths: string[];
@@ -98,6 +100,37 @@ export function createMediaDeleteBatchTool(): Tool {
       }
 
       try {
+        // N1 修复（两阶段执行）：先查审批缓存——已批准则真正执行批量删除；
+        // 未批准返回 REQUIRES_APPROVAL 提交审批卡（原实现无条件返回，永远不删除）。
+        if (
+          context.sessionId &&
+          isToolCallApproved(context.sessionId, 'media:deleteBatch', input)
+        ) {
+          const results = mediaStore.deleteBatch(safePaths);
+          const deletedCount = results.filter((r) => r.deleted).length;
+          logger.info('media:deleteBatch 已执行删除', {
+            count: safePaths.length,
+            deletedCount,
+          });
+          return {
+            status: ToolExecutionStatus.SUCCESS,
+            executionTime: Date.now() - startTime,
+            output: `已删除 ${deletedCount}/${safePaths.length} 个文件`,
+            errorOutput: '',
+            progress: [],
+            metadata: {
+              filePaths: safePaths,
+              count: safePaths.length,
+              deletedCount,
+              action: 'deleted_batch',
+            },
+            executionId: `media_delete_batch_${Date.now()}`,
+            toolName: 'media:deleteBatch',
+            timestamp: Date.now(),
+            content: `已批量删除 ${deletedCount}/${safePaths.length} 个文件`,
+          };
+        }
+
         // ── 统一审批（无论文件数量）──
         return {
           status: ToolExecutionStatus.REQUIRES_APPROVAL,

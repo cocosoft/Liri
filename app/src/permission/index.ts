@@ -133,6 +133,8 @@ export {
   hashCommand,
   hashCommandForExecution,
   getBaseCommand,
+  toolCallApprovalKey,
+  isToolCallApproved,
 } from './ApprovedCommandRegistry';
 
 // Risk classification (Phase 3: OpenWorker-style)

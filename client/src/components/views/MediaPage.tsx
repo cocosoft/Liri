@@ -1318,7 +1318,9 @@ function MediaPage() {
               onClick={(e) => e.stopPropagation()}
             >
               <p className="mb-3 text-sm">
-                确定要删除此图片吗？此操作不可撤销。
+                {deleteConfirming.type === "video"
+                  ? "确定要删除此视频吗？此操作不可撤销。"
+                  : "确定要删除此图片吗？此操作不可撤销。"}
               </p>
               <p
                 className="mb-3 text-xs text-gray-400 truncate"

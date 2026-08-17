@@ -3447,8 +3447,14 @@ export class ChatManagerImpl implements ChatManager {
     try {
       const { inboxManager } = await import('@modules/runtime/InboxManager.js');
       // P0-2: 统一 hashCommandForExecution，与执行端 BashTool hash 一致
-      const { hashCommandForExecution } = await import('@modules/permission');
+      const { hashCommandForExecution, toolCallApprovalKey } =
+        await import('@modules/permission');
       const command = typeof input.command === 'string' ? input.command : '';
+      // N1：非命令类工具（media:delete 等）改用工具调用键（toolName:稳定JSON）作为放行
+      // 哈希——审批后 LLM 重发时工具内 isToolCallApproved 命中才真正执行；bash 类工具
+      // toolCallApprovalKey 返回 command 原值，哈希与既有命令级审批完全一致（零行为变化）。
+      const approvalKey = toolCallApprovalKey(toolName, input);
+      const commandHash = hashCommandForExecution(approvalKey);
       const sid = sessionId || 'default';
       await inboxManager.submit(
         {

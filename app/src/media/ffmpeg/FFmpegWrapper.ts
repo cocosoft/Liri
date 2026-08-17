@@ -8,6 +8,9 @@ import { handleError } from '@modules/error/handleError';
 
 const logger = getLogger('media:ffmpeg');
 
+/** ffprobe 单次调用超时上限（正常毫秒级，给 15s 上限防挂死） */
+const PROBE_TIMEOUT_MS = 15 * 1000;
+
 /**
  * FFmpeg 选项
  */
@@ -99,12 +102,25 @@ export class FFmpegWrapper {
       });
 
       let stdout = '';
+      let timer: ReturnType<typeof setTimeout> | undefined;
 
       proc.stdout.on('data', (data: Buffer) => {
         stdout += data.toString();
       });
 
+      // N3 修复：消费 stderr，防 ffprobe 错误输出写满管道缓冲导致阻塞；
+      // 加超时保护防 ffprobe 挂死（probe 正常应在毫秒级完成）。
+      proc.stderr.on('data', () => {
+        /* 仅消费，无需记录 */
+      });
+
+      timer = setTimeout(() => {
+        proc.kill('SIGKILL');
+        resolve(null);
+      }, PROBE_TIMEOUT_MS);
+
       proc.on('close', (code) => {
+        if (timer) clearTimeout(timer);
         if (code !== 0) {
           resolve(null);
 
@@ -123,6 +139,7 @@ export class FFmpegWrapper {
       });
 
       proc.on('error', () => {
+        if (timer) clearTimeout(timer);
         resolve(null);
       });
     });

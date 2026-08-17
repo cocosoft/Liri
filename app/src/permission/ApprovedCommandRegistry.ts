@@ -249,3 +249,42 @@ export function getApprovedCommandRegistry(): ApprovedCommandRegistry {
   }
   return _instance;
 }
+
+/**
+ * 工具调用级审批键（N1，两阶段执行）
+ *
+ * 用于非 bash 类工具（如 media:delete）的审批放行：
+ * - bash/shell/command：沿用 input.command 作为键（与既有命令级审批一致，零行为变化）
+ * - 其他工具：`toolName:稳定JSON`（键排序，防 LLM 重发时参数顺序漂移导致哈希不匹配）
+ */
+export function toolCallApprovalKey(
+  toolName: string,
+  input: Record<string, unknown>
+): string {
+  if (typeof input.command === 'string' && input.command) {
+    return input.command;
+  }
+  const stable: Record<string, unknown> = {};
+  for (const key of Object.keys(input).sort()) {
+    stable[key] = input[key];
+  }
+  return `${toolName}:${JSON.stringify(stable)}`;
+}
+
+/**
+ * 工具调用是否已批准（session 隔离 + TTL）
+ *
+ * 与审批提交端 `_submitToolApproval` 使用同一键（toolCallApprovalKey），
+ * 用户批准后 LLM 重发同一调用即可命中放行。
+ */
+export function isToolCallApproved(
+  sessionId: string,
+  toolName: string,
+  input: Record<string, unknown>
+): boolean {
+  const key = toolCallApprovalKey(toolName, input);
+  return getApprovedCommandRegistry().isApproved(
+    sessionId,
+    hashCommandForExecution(key)
+  );
+}

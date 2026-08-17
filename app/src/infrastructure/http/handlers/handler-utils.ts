@@ -183,11 +183,30 @@ export function checkFilePathPermission(
  * @param req - HTTP 请求对象
  * @returns 请求体字符串
  */
-export function readRequestBody(req: http.IncomingMessage): Promise<string> {
+export function readRequestBody(
+  req: http.IncomingMessage,
+  maxBytes: number = MAX_HTTP_BODY_BYTES
+): Promise<string> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
+    let received = 0;
+
+    // N2 修复：JSON 请求体同样加体积上限（原实现无限制，超大 body 可 OOM）
+    const contentLength = parseInt(req.headers['content-length'] || '0', 10);
+    if (contentLength > maxBytes) {
+      reject(
+        new Error(`Request body too large (${contentLength} bytes > ${maxBytes})`)
+      );
+      return;
+    }
 
     req.on('data', (chunk: Buffer) => {
+      received += chunk.length;
+      if (received > maxBytes) {
+        req.destroy();
+        reject(new Error(`Request body exceeds limit of ${maxBytes} bytes`));
+        return;
+      }
       chunks.push(chunk);
     });
 

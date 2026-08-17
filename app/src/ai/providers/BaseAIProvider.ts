@@ -517,6 +517,8 @@ export abstract class BaseAIProvider implements AIProvider {
           attempts,
           errorType: lastError.constructor.name,
           error: lastError.message,
+          // fetch 底层连接错误原因（ENOTFOUND/ECONNREFUSED/EAI_AGAIN 等）
+          causeCode: (lastError as { cause?: { code?: string } }).cause?.code,
         });
         throw error;
       }
@@ -528,6 +530,7 @@ export abstract class BaseAIProvider implements AIProvider {
       elapsedMs: Date.now() - requestStart,
       attempts,
       error: lastError?.message ?? String(lastError),
+      causeCode: (lastError as { cause?: { code?: string } }).cause?.code,
     });
     throw lastError;
   }

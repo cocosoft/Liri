@@ -66,6 +66,60 @@ function resolveModelTimeoutMs(): number {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 300_000;
 }
 
+/**
+ * 提取 fetch 底层连接错误的 cause（undici/Bun 将 DNS/连接错误包装为
+ * TypeError("Was there a typo in the url or port?")，真实原因在 cause 中：
+ * code=ENOTFOUND/ECONNREFUSED/EAI_AGAIN/ETIMEDOUT 等，附 hostname/port）。
+ * 用于把不可诊断的通用消息转换为可执行提示（2026-08-17 排查 DeepSeek 断连）。
+ */
+interface FetchCause {
+  code: string;
+  hostname: string;
+  port: number;
+}
+
+function extractFetchCause(error: unknown): FetchCause | null {
+  const cause = (error as { cause?: unknown } | null)?.cause;
+  if (!cause || typeof cause !== 'object') return null;
+  const c = cause as { code?: string; hostname?: string; port?: number };
+  if (!c.code) return null;
+  return { code: c.code, hostname: c.hostname ?? '', port: c.port ?? 0 };
+}
+
+/** 将 fetch cause 映射为可执行的中文诊断提示（附 host/port） */
+function describeFetchError(cause: FetchCause, url: string): string {
+  const host =
+    cause.hostname ||
+    (() => {
+      try {
+        return new URL(url).host;
+      } catch {
+        return url;
+      }
+    })();
+  const port = cause.port ? `:${cause.port}` : '';
+
+  switch (cause.code) {
+    case 'ENOTFOUND':
+      return `DNS 解析失败（${host}${port} 无法解析）。请检查：
+1. 域名/地址拼写是否正确（当前: ${host}）
+2. 本机网络能否访问该地址（是否需要代理）
+3. 本机 DNS 是否正常`;
+    case 'EAI_AGAIN':
+      return `DNS 临时解析失败（${host}${port}），网络可能波动，请稍后重试`;
+    case 'ECONNREFUSED':
+      return `连接被拒绝（${host}${port}）。请检查：
+1. 端口是否正确（当前: ${port || '(默认端口)'}）
+2. 目标服务是否在运行
+3. 是否有防火墙/代理拦截`;
+    case 'ETIMEDOUT':
+    case 'UND_ERR_CONNECT_TIMEOUT':
+      return `连接超时（${host}${port}）。请检查网络连通性或代理配置`;
+    default:
+      return `网络连接失败（${host}${port}, ${cause.code}）`;
+  }
+}
+
 export class OpenAIProvider extends BaseAIProvider {
   private apiKey: string;
   /** baseUrl 供子类（如 LlamaCppProvider）访问 */
@@ -464,6 +518,13 @@ export class OpenAIProvider extends BaseAIProvider {
       } catch (error) {
         if (error instanceof AppError) throw error;
         const errorMessage = (error as Error).message || String(error);
+        // 提取 fetch 底层 cause（ENOTFOUND/ECONNREFUSED/EAI_AGAIN 等）：
+        // undici/Bun 只给 "Was there a typo in the url or port?" 通用消息，
+        // 真实原因（DNS/端口/超时）藏在 TypeError.cause 里，需展开为可执行提示。
+        const fetchCause = extractFetchCause(error);
+        const diagnostic = fetchCause
+          ? describeFetchError(fetchCause, `${this.baseUrl}/chat/completions`)
+          : errorMessage;
         // socket 被对端关闭且尚未产出内容：重试整个请求（attempt 0 → 1）
         const isSocketClosed =
           /socket.*(closed|reset)|connection.*(closed|reset)/i.test(
@@ -492,6 +553,9 @@ export class OpenAIProvider extends BaseAIProvider {
           providerId: this.id,
           isSSLError,
           error: errorMessage,
+          fetchCauseCode: fetchCause?.code,
+          fetchCauseHost: fetchCause?.hostname,
+          fetchCausePort: fetchCause?.port,
           attempt: attempt + 1,
         });
         const userHint = isSSLError
@@ -500,7 +564,7 @@ export class OpenAIProvider extends BaseAIProvider {
             `   （如 Git\\mingw64\\ssl\\cert.pem 或 curl\\ca-bundle.crt）\n` +
             `2. 如在代理环境下使用，请确认代理证书已加入信任列表\n` +
             `原始错误: ${errorMessage}`
-          : errorMessage;
+          : diagnostic;
         // 诊断增强：错误消息附带 Provider 标识与端点 host，便于定位是哪个供应商/网关
         throw new AppError(
           `OpenAI stream failed: ${userHint}（Provider: ${this.id} / ${this.endpointHost()}）`,

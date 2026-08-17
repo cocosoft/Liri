@@ -7,6 +7,32 @@ import path from 'path';
 import { configManager } from '@modules/config';
 
 /**
+ * 查找可用的 CA 证书文件路径（供 Bun fetch 的 tls.ca 注入使用）。
+ *
+ * 优先从 NODE_EXTRA_CA_CERTS 环境变量读取，其次从系统默认 CA 路径查找
+ * （Windows 下 Git for Windows 自带的 ca-bundle.crt）。
+ *
+ * 与 getCACertificates() 的区别：后者返回文件内容（供 undici dispatcher 注入），
+ * 本函数返回文件路径（Bun 的 fetch tls.ca 需要 Bun.file() 路径形式）。
+ *
+ * @returns CA 证书文件绝对路径；未找到返回 undefined
+ */
+export function findCACertFilePath(): string | undefined {
+  const caCertEnv = configManager.env('NODE_EXTRA_CA_CERTS');
+  if (caCertEnv && fs.existsSync(caCertEnv)) {
+    return caCertEnv;
+  }
+
+  for (const defaultPath of getDefaultCaCertPaths()) {
+    if (fs.existsSync(defaultPath)) {
+      return defaultPath;
+    }
+  }
+
+  return undefined;
+}
+
+/**
  * 获取CA证书
  */
 export function getCACertificates(): string[] | undefined {
@@ -50,6 +76,27 @@ function getDefaultCaCertPaths(): string[] {
       paths.push(
         path.join(
           programFiles,
+          'Git',
+          'mingw64',
+          'ssl',
+          'certs',
+          'ca-bundle.crt'
+        )
+      );
+      // Git for Windows 新版（2.49+）默认安装到 usr 布局
+      paths.push(path.join(programFiles, 'Git', 'usr', 'ssl', 'cert.pem'));
+      paths.push(
+        path.join(programFiles, 'Git', 'usr', 'ssl', 'certs', 'ca-bundle.crt')
+      );
+      // 32 位系统 / 非默认安装目录
+      const programFilesX86 =
+        process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)';
+      paths.push(
+        path.join(programFilesX86, 'Git', 'mingw64', 'ssl', 'cert.pem')
+      );
+      paths.push(
+        path.join(
+          programFilesX86,
           'Git',
           'mingw64',
           'ssl',

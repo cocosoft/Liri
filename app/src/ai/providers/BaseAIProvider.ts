@@ -58,7 +58,7 @@ import { TransportProviderAdapter } from '../transports/TransportProviderAdapter
 import type { TransportStreamEvent } from '../transports/types';
 import { configManager } from '@modules/config';
 import { repairModelJson } from '@modules/utils/json';
-import { getCACertificates } from '@modules/utils/caCerts';
+import { getCACertificates, findCACertFilePath } from '@modules/utils/caCerts';
 
 const logger = getLogger('ai:baseProvider');
 
@@ -391,6 +391,12 @@ export abstract class BaseAIProvider implements AIProvider {
     null;
 
   /**
+   * 缓存的自定义 CA 证书文件路径（供 Bun fetch 的 tls.ca 注入）。
+   * null 表示已查找过但未找到（避免重复 IO）；string 为找到的证书路径。
+   */
+  private static _caCertFilePath: string | null | undefined = undefined;
+
+  /**
    * 获取带有系统 CA 证书的 undici fetch dispatcher。
    *
    * 优先从 NODE_EXTRA_CA_CERTS 环境变量读取，其次从系统默认 CA 路径读取。
@@ -433,17 +439,64 @@ export abstract class BaseAIProvider implements AIProvider {
   }
 
   /**
-   * 将 CA dispatcher 注入到 RequestInit 中（如果有的话）。
+   * 将 CA 证书注入到 RequestInit 中，兼容两种运行时：
+   * - Node.js：通过 undici `dispatcher` 注入 Agent（`connect.ca` 接受 PEM 字符串）
+   * - Bun：通过原生 `tls.ca` 选项注入（`Bun.file()` 路径形式，Bun 1.0+ 支持）
+   *
    * 不会修改传入的 init 对象，返回新对象或原对象。
+   * 两种注入方式互不冲突——Bun 忽略 dispatcher，Node 忽略 tls.ca。
    *
    * @param init - 原始 RequestInit
-   * @returns 注入了 dispatcher 的 RequestInit
+   * @returns 注入了 CA 证书的 RequestInit
    */
   private static injectCADispatcher(init?: RequestInit): RequestInit {
-    const dispatcher = BaseAIProvider.getFetchDispatcher();
-    if (!dispatcher) return init ?? {};
+    const result = { ...(init ?? {}) } as RequestInit;
 
-    return { ...(init ?? {}), dispatcher } as RequestInit;
+    // 1. undici dispatcher 注入（Node.js）
+    const dispatcher = BaseAIProvider.getFetchDispatcher();
+    if (dispatcher) {
+      (result as Record<string, unknown>).dispatcher = dispatcher;
+    }
+
+    // 2. Bun 原生 tls.ca 注入
+    const tlsCA = BaseAIProvider.getBunTlsCA();
+    if (tlsCA) {
+      (result as Record<string, unknown>).tls = tlsCA;
+    }
+
+    return result;
+  }
+
+  /**
+   * 获取 Bun 原生 fetch 的 tls.ca 配置（仅 Bun 运行时生效）。
+   *
+   * Bun 的 fetch 使用 BoringSSL 作为 TLS 栈，与 Node.js 的 OpenSSL 共享
+   * 不同的 CA 信任列表。通过 `tls: { ca: [Bun.file(path)] }` 可将系统 CA
+   * 证书注入到 Bun 的 TLS 验证中，解决 "unknown certificate verification error"
+   * 等 SSL 验证失败问题（2026-08-17）。
+   *
+   * @returns `{ ca: [BunFile] }` 或 undefined（非 Bun 运行时 / 未找到 CA 证书）
+   */
+  private static getBunTlsCA(): { ca: unknown[] } | undefined {
+    // 非 Bun 运行时直接返回
+    if (typeof Bun === 'undefined' || typeof Bun.file !== 'function') {
+      return undefined;
+    }
+
+    // 首次查找后缓存结果（避免重复 IO）
+    if (BaseAIProvider._caCertFilePath === undefined) {
+      BaseAIProvider._caCertFilePath = findCACertFilePath() ?? null;
+    }
+
+    if (!BaseAIProvider._caCertFilePath) {
+      return undefined;
+    }
+
+    logger.info('BaseAIProvider · 已注入 Bun 原生 tls.ca 证书', {
+      path: BaseAIProvider._caCertFilePath,
+    });
+
+    return { ca: [Bun.file(BaseAIProvider._caCertFilePath)] };
   }
 
   // ============================================================
@@ -451,9 +504,52 @@ export abstract class BaseAIProvider implements AIProvider {
   // ============================================================
 
   /**
+   * 提取 fetch 底层连接错误信息，兼容两种运行时错误结构（2026-08-17）：
+   * - undici/Node：`TypeError("Was there a typo in the url or port?")`，真实原因在
+   *   `error.cause.code`（ENOTFOUND/ECONNREFUSED/EAI_AGAIN/ETIMEDOUT，附 hostname/port）
+   * - Bun：连接失败抛 `Error("Unable to connect. Is the computer able to access the url?")`，
+   *   `code: "ConnectionRefused"` 直接挂在错误对象自身，**无 cause**，也不附 hostname/port
+   *
+   * @returns 提取到的连接错误码与主机信息；无法识别（HTTP/超时/业务错误）返回 null
+   */
+  protected static extractFetchCause(error: unknown): {
+    code: string;
+    hostname: string;
+    port: number;
+  } | null {
+    if (!error || typeof error !== 'object') return null;
+    // undici 结构：code 在 error.cause 上；Bun 结构：code 直接挂在 error 上
+    const cause = (error as { cause?: unknown }).cause;
+    const src =
+      cause && typeof cause === 'object' && 'code' in cause
+        ? cause
+        : (error as { code?: unknown });
+    const code = (src as { code?: string }).code;
+    if (typeof code !== 'string' || !code) return null;
+    const c = src as { hostname?: string; port?: number };
+    return { code, hostname: c.hostname ?? '', port: c.port ?? 0 };
+  }
+
+  /**
+   * 判断是否为可重试的网络连接错误（仅瞬态连接故障）：
+   * - undici/Node：`TypeError`
+   * - Bun：`Error` 且 `code === 'ConnectionRefused'`（DNS 解析失败/连接被拒绝/TCP 重置统一归此类）
+   * 不重试：HTTP 错误响应（正常返回）、超时（DOMException TimeoutError）、业务错误。
+   */
+  protected static isRetryableConnectError(error: unknown): boolean {
+    if (error instanceof TypeError) return true;
+    if (error instanceof Error && error.name === 'Error') {
+      const code = (error as { code?: unknown }).code;
+      return code === 'ConnectionRefused';
+    }
+    return false;
+  }
+
+  /**
    * 带连接重试的 fetch 包装（已注入系统 CA 证书 dispatcher）。
    *
-   * 仅在网络连接阶段失败时重试（TypeError），不重试 HTTP 错误响应或超时。
+   * 仅在网络连接阶段失败时重试（TypeError / Bun ConnectionRefused），
+   * 不重试 HTTP 错误响应或超时。
    * 适用场景：Provider API 网关偶发断连、DNS 闪断、TCP 重置等瞬态网络故障。
    * 重试间隔采用线性退避（1s, 2s, 4s...）。
    *
@@ -494,19 +590,18 @@ export abstract class BaseAIProvider implements AIProvider {
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
 
-        // 仅重试网络连接错误（TypeError），不重试：
+        // 仅重试网络连接错误（TypeError / Bun ConnectionRefused），不重试：
         // - HTTP 错误响应（response.ok === false 不会 throw，正常返回）
         // - AbortError（DOMException，用户主动取消或超时）
-        if (error instanceof TypeError && attempt < maxRetries) {
+        if (
+          BaseAIProvider.isRetryableConnectError(error) &&
+          attempt < maxRetries
+        ) {
           const delay = 1000 * Math.pow(2, attempt);
 
           // 详细重试日志：记录本次失败原因、重试间隔与底层 cause，
           // 便于排查 Provider 网络抖动/断连是否频繁及退避节奏（2026-08-17）
-          const cause = (
-            lastError as {
-              cause?: { code?: string; hostname?: string; port?: number };
-            }
-          ).cause;
+          const cause = BaseAIProvider.extractFetchCause(error);
           logger.warn('provider 请求连接失败，将按退避重试', {
             url: urlSummary,
             elapsedMs: Date.now() - requestStart,
@@ -537,20 +632,22 @@ export abstract class BaseAIProvider implements AIProvider {
           attempts,
           errorType: lastError.constructor.name,
           error: lastError.message,
-          // fetch 底层连接错误原因（ENOTFOUND/ECONNREFUSED/EAI_AGAIN 等）
-          causeCode: (lastError as { cause?: { code?: string } }).cause?.code,
+          // fetch 底层连接错误原因（ENOTFOUND/ECONNREFUSED/EAI_AGAIN/ConnectionRefused 等）
+          causeCode: BaseAIProvider.extractFetchCause(error)?.code,
         });
         throw error;
       }
     }
 
-    // 网络连接错误（TypeError）重试耗尽
+    // 网络连接错误重试耗尽
     logger.warn('provider 请求失败（连接重试耗尽）', {
       url: urlSummary,
       elapsedMs: Date.now() - requestStart,
       attempts,
       error: lastError?.message ?? String(lastError),
-      causeCode: (lastError as { cause?: { code?: string } }).cause?.code,
+      causeCode: lastError
+        ? BaseAIProvider.extractFetchCause(lastError)?.code
+        : undefined,
     });
     throw lastError;
   }

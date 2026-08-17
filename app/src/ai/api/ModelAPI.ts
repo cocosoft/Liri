@@ -70,7 +70,8 @@ export async function handleCreateCustomModel(
       timeBasedPricing:
         body.timeBasedPricing as UpsertPricingParams['timeBasedPricing'],
       pricingSource: 'manual', // 用户自建 = 手工配置，官方价格同步不覆盖
-      isCustom: true, // 用户手动添加 = 自定义模型（is_custom=1）
+      // 用户手动添加 = 自定义模型（is_custom=1）；默认 true，显式传 false 才关闭
+      isCustom: body.isCustom !== false,
     });
 
     // 在注册表中发现该模型

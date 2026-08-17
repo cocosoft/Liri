@@ -138,6 +138,8 @@ export const providerService = {
     billingMode?: BillingMode;
     pricePerRequest?: number;
     timeBasedPricing?: TimeBasedPrice[];
+    /** 用户自定义模型标记（is_custom=1，官方价格同步不覆盖） */
+    isCustom?: boolean;
   }): Promise<{
     id: string;
     modelId: string;

@@ -163,6 +163,7 @@ export function LLMSetupGuide({ onDismiss }: LLMSetupGuideProps) {
       const created = await providerService.createModel({
         modelId: models[0].id,
         providerId: provider.id,
+        isCustom: true,
       });
       setImported(created);
       setStep("done");

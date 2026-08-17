@@ -57,6 +57,8 @@ interface ModelAdminState {
     billingMode?: BillingMode;
     pricePerRequest?: number;
     timeBasedPricing?: TimeBasedPrice[];
+    /** 用户自定义模型标记（is_custom=1） */
+    isCustom?: boolean;
   }) => Promise<void>;
 }
 

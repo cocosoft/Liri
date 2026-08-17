@@ -269,7 +269,8 @@ function ProviderPage() {
       timeBasedPricing: TimeBasedPrice[];
     }) => {
       try {
-        await store.createModel(form);
+        // 用户通过 UI 添加的模型 = 自定义模型（is_custom=1，官方价格同步不覆盖）
+        await store.createModel({ ...form, isCustom: true });
         setShowAddModel(false);
         loadModels();
       } catch (e) {

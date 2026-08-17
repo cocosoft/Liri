@@ -500,6 +500,23 @@ export abstract class BaseAIProvider implements AIProvider {
         if (error instanceof TypeError && attempt < maxRetries) {
           const delay = 1000 * Math.pow(2, attempt);
 
+          // 详细重试日志：记录本次失败原因、重试间隔与底层 cause，
+          // 便于排查 Provider 网络抖动/断连是否频繁及退避节奏（2026-08-17）
+          const cause = (lastError as { cause?: { code?: string; hostname?: string; port?: number } })
+            .cause;
+          logger.warn('provider 请求连接失败，将按退避重试', {
+            url: urlSummary,
+            elapsedMs: Date.now() - requestStart,
+            retryIndex: attempt + 1, // 第几次重试（1-based）
+            maxAttempts: maxRetries + 1, // 总尝试次数
+            delayMs: delay, // 本次重试前等待间隔（线性退避 1s,2s,4s...）
+            nextAttemptMs: Date.now() + delay,
+            error: lastError.message,
+            causeCode: cause?.code,
+            causeHost: cause?.hostname,
+            causePort: cause?.port,
+          });
+
           void handleError(error, {
             module: 'ai:baseProvider',
             action: 'fetchRetry',

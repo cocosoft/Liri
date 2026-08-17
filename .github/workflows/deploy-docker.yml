@@ -62,9 +62,10 @@ jobs:
           context: .
           file: app/docker/Dockerfile
           push: true
-          # 2026-08-17 临时：仅构建 amd64（QEMU arm64 下 bun build 持续失败，run 342+ 全挂）。
-          # arm64 恢复前需在本地 arm64/QEMU 环境复现 bun build 失败并修复（本地 amd64 已验证通过）。
-          platforms: linux/amd64
+          # 2026-08-17：恢复双平台（amd64 + arm64）。
+          # 原"QEMU arm64 持续失败"根因为 .dockerignore 递归模式（**/logs/ 等）误伤
+          # src/monitoring/logs 源码，与平台无关；修复后 amd64 run #357 已通过，arm64 同步恢复。
+          platforms: linux/amd64,linux/arm64
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha

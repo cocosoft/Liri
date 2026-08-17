@@ -46,23 +46,60 @@ function htmlToText(html: string): string {
 /**
  * 从 imapflow 解析的 MIME body 结构（body: true 返回）中递归提取正文纯文本。
  * 优先 text/plain；无 plain 时用 text/html 转纯文本兜底。
+ * 关键分支带日志：正常命中走 debug，MIME 解析异常/结构异常走 warn，
+ * 便于排查"正文缺失/显示主题"类问题（邮件 MIME 结构千差万别）。
  */
 function extractMailBody(node: unknown): string {
-  if (!node || typeof node !== 'object') return '';
+  if (!node || typeof node !== 'object') {
+    logger.warn('extractMailBody: body 为空或非对象（MIME 结构异常）', {
+      bodyType: node === null ? 'null' : typeof node,
+    });
+    return '';
+  }
   const n = node as { type?: string; text?: unknown; childNodes?: unknown[] };
 
   if (n.type === 'text/plain' && typeof n.text === 'string' && n.text.trim()) {
+    logger.debug('extractMailBody: 命中 text/plain 正文', {
+      nodeType: n.type,
+      textLength: n.text.length,
+      trimmedLength: n.text.trim().length,
+    });
     return n.text.trim();
   }
   if (n.type === 'text/html' && typeof n.text === 'string' && n.text.trim()) {
-    return htmlToText(n.text);
+    const text = htmlToText(n.text);
+    logger.debug('extractMailBody: 无 text/plain，text/html 转纯文本兜底', {
+      htmlLength: n.text.length,
+      textLength: text.length,
+    });
+    return text;
+  }
+  // 节点携带 text 字段但内容为空或非字符串 —— MIME 解析异常信号
+  if (n.text !== undefined) {
+    logger.warn('extractMailBody: 节点带 text 但无法使用', {
+      nodeType: n.type ?? '(无 type)',
+      textType: typeof n.text,
+      textLength: typeof n.text === 'string' ? n.text.length : -1,
+    });
   }
   if (Array.isArray(n.childNodes)) {
     for (const child of n.childNodes) {
       const text = extractMailBody(child);
       if (text) return text;
     }
+    logger.debug('extractMailBody: 子节点遍历完成，未找到可用正文', {
+      nodeType: n.type ?? '(无 type)',
+      childCount: n.childNodes.length,
+    });
+  } else if (n.type) {
+    // 非 text 叶节点（附件/嵌套容器等），不属于正文范围
+    logger.debug('extractMailBody: 跳过非正文节点', {
+      nodeType: n.type,
+    });
   }
+  logger.warn('extractMailBody: 未找到可解析正文（将回退主题）', {
+    nodeType: n.type ?? '(无 type)',
+  });
   return '';
 }
 

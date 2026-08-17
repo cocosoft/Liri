@@ -44,6 +44,11 @@ export class ToolManager {
     this.inner.registerTool(tool);
   }
 
+  /** N-6：注销工具（模块销毁时释放已注册工具，防止重复注册） */
+  unregisterTool(toolName: string): boolean {
+    return this.inner.unregisterTool(toolName);
+  }
+
   getTools(): ToolRegistration[] {
     const tools = this.inner.getAllTools();
     return tools.map((t) => this.inner.toToolRegistration(t));

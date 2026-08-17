@@ -129,6 +129,10 @@ export function createCalendarAddTool(): Tool {
                 method: 'push' as const,
               }
             : undefined,
+          // N-4：ScheduleHook 通过 reminderMinutes 兜底创建提醒，不传则永远走默认 [15] 分钟
+          reminderMinutes: input.minutesBefore
+            ? [input.minutesBefore as number]
+            : undefined,
         });
 
         return {

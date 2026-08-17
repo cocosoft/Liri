@@ -61,6 +61,12 @@ export class MailModule {
 
   async onDestroy(): Promise<void> {
     logger.info('MailModule 销毁中...');
+    // N-6：注销已注册工具，避免模块重启后工具重复注册
+    try {
+      globalToolManager.unregisterTool('mail:send');
+    } catch {
+      /* 注销失败不阻塞销毁 */
+    }
     this.emailTool = null;
     this.status = Status.SHUTDOWN;
   }

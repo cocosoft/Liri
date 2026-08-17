@@ -10,6 +10,7 @@
  */
 
 import { getLogger } from '@modules/monitoring';
+import type { EventSubscription } from '@modules/core/events/EventBus';
 import { CronJobStore } from '@modules/tasks/cron/CronJobStore';
 import { resolveDbPath } from '@modules/core';
 import {
@@ -31,6 +32,8 @@ const logger = getLogger('calendar:scheduleHook');
 export class ScheduleHook {
   private cronStore: CronJobStore;
   private aiIndex: AIScheduleIndex;
+  /** N-5：保存订阅对象，destroy 时统一退订，避免热重载/重复 init 后监听器叠加 */
+  private unsubscribes: EventSubscription[] = [];
 
   constructor(cronStore?: CronJobStore, aiIndex?: AIScheduleIndex) {
     this.cronStore = cronStore ?? new CronJobStore(resolveDbPath());
@@ -46,32 +49,61 @@ export class ScheduleHook {
 
     const bus = getCalendarEventBus();
 
-    bus.subscribe(
-      CalendarEvents.EVENT_CREATED,
-      (payload: CalendarEventCreatedPayload) => {
-        this.onCalendarCreated(payload);
-      }
+    this.unsubscribes.push(
+      bus.subscribe(
+        CalendarEvents.EVENT_CREATED,
+        (payload: CalendarEventCreatedPayload) => {
+          // N-5：回调 fire-and-forget，显式 catch 防止异步异常静默丢失
+          this.onCalendarCreated(payload).catch((err) => {
+            logger.error('onCalendarCreated 未捕获异常', {
+              error: String(err),
+              eventId: payload.event.id,
+            });
+          });
+        }
+      )
     );
 
-    bus.subscribe(
-      CalendarEvents.EVENT_UPDATED,
-      (payload: CalendarEventUpdatedPayload) => {
-        this.onCalendarUpdated(payload);
-      }
+    this.unsubscribes.push(
+      bus.subscribe(
+        CalendarEvents.EVENT_UPDATED,
+        (payload: CalendarEventUpdatedPayload) => {
+          this.onCalendarUpdated(payload).catch((err) => {
+            logger.error('onCalendarUpdated 未捕获异常', {
+              error: String(err),
+              eventId: payload.newEvent.id,
+            });
+          });
+        }
+      )
     );
 
-    bus.subscribe(
-      CalendarEvents.EVENT_DELETED,
-      (payload: CalendarEventDeletedPayload) => {
-        this.onCalendarDeleted(payload);
-      }
+    this.unsubscribes.push(
+      bus.subscribe(
+        CalendarEvents.EVENT_DELETED,
+        (payload: CalendarEventDeletedPayload) => {
+          this.onCalendarDeleted(payload).catch((err) => {
+            logger.error('onCalendarDeleted 未捕获异常', {
+              error: String(err),
+              eventId: payload.id,
+            });
+          });
+        }
+      )
     );
 
-    bus.subscribe(
-      CalendarEvents.CRON_STATE_CHANGED,
-      (payload: CronStateChangedPayload) => {
-        this.onCronStateChanged(payload);
-      }
+    this.unsubscribes.push(
+      bus.subscribe(
+        CalendarEvents.CRON_STATE_CHANGED,
+        (payload: CronStateChangedPayload) => {
+          this.onCronStateChanged(payload).catch((err) => {
+            logger.error('onCronStateChanged 未捕获异常', {
+              error: String(err),
+              jobId: payload.jobId,
+            });
+          });
+        }
+      )
     );
 
     logger.info('ScheduleHook 已初始化 — 4 个事件监听器已注册');
@@ -260,11 +292,22 @@ export class ScheduleHook {
   }
 
   /**
-   * 销毁：关闭数据库连接
+   * 销毁：退订事件 + 关闭数据库连接
+   * N-5：与 CalendarMerger.close 对齐——cronStore 与 aiIndex 都要关，且退订全部监听器
    */
   async destroy(): Promise<void> {
+    for (const sub of this.unsubscribes) {
+      try {
+        sub.unsubscribe();
+      } catch {
+        /* 忽略单次退订失败 */
+      }
+    }
+    this.unsubscribes = [];
+
+    await this.cronStore.close();
     await this.aiIndex.close();
-    logger.info('ScheduleHook 已销毁');
+    logger.info('ScheduleHook 已销毁（监听器已退订，数据库已关闭）');
   }
 
   /**

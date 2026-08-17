@@ -74,6 +74,19 @@ export class CalendarModule {
 
   async onDestroy(): Promise<void> {
     logger.info('CalendarModule 销毁中...');
+    // N-6：注销已注册工具，避免模块重启后工具重复注册
+    for (const toolName of [
+      'calendar:add',
+      'calendar:list',
+      'calendar:update',
+      'calendar:delete',
+    ]) {
+      try {
+        globalToolManager.unregisterTool(toolName);
+      } catch {
+        /* 单工具注销失败不阻塞销毁 */
+      }
+    }
     if (this.scheduleHook) {
       await this.scheduleHook.destroy();
       this.scheduleHook = null;

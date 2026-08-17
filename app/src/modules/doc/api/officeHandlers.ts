@@ -872,6 +872,11 @@ export async function handleCalendarAdd(
       reminder: body.minutesBefore
         ? { minutesBefore: Number(body.minutesBefore), method: 'push' as const }
         : undefined,
+      // N-4：ScheduleHook 通过 reminderMinutes 兜底创建提醒（registerReminder 仍是 TODO），
+      // 不传则永远走默认 [15] 分钟，用户设置"提前 N 分钟"静默失效
+      reminderMinutes: body.minutesBefore
+        ? [Number(body.minutesBefore)]
+        : undefined,
     });
 
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
@@ -894,7 +899,9 @@ export async function handleCalendarUpdate(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const id = req.url!.split('/v1/calendar/events/')[1];
+    // N-9：用 URL.pathname 提取 id，避免 query/尾斜杠污染（否则白名单校验 500）
+    const url = new URL(req.url!, `http://${req.headers.host}`);
+    const id = url.pathname.split('/v1/calendar/events/')[1];
     const body = JSON.parse(await readBody(req));
 
     const { CalendarTool } =
@@ -926,7 +933,9 @@ export async function handleCalendarDelete(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const id = req.url!.split('/v1/calendar/events/')[1];
+    // N-9：用 URL.pathname 提取 id，避免 query 污染
+    const url = new URL(req.url!, `http://${req.headers.host}`);
+    const id = url.pathname.split('/v1/calendar/events/')[1];
 
     const { CalendarTool } =
       await import('../../../../packages/office/calendar/CalendarTool');

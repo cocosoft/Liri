@@ -27,6 +27,11 @@ export interface EmailSummary {
   snippet: string;
 }
 
+/** 生成邮件摘要（正文优先，无正文回退主题，截断 500 字符） */
+function buildSnippet(bodyText: string, subject: string): string {
+  return (bodyText || subject || '').slice(0, 500);
+}
+
 /** 简单 HTML → 纯文本（换行保留，用于 html-only 邮件兜底） */
 function htmlToText(html: string): string {
   return html
@@ -44,69 +49,53 @@ function htmlToText(html: string): string {
 }
 
 /**
- * 从 imapflow 解析的 MIME body 结构（body: true 返回）中递归提取正文纯文本。
- * 优先 text/plain；无 plain 时用 text/html 转纯文本兜底。
- * 关键分支带日志：正常命中走 debug，MIME 解析异常/结构异常走 warn，
- * 便于排查"正文缺失/显示主题"类问题（邮件 MIME 结构千差万别）。
+ * N-7：递归在 bodyStructure 中定位文本 part（text/plain 优先，text/html 兜底）。
+ * 用于 bodyParts 精确拉取，避免 body:true 下载附件等全量 MIME 造成性能回归。
+ * 返回 part 路径与类型标记（html part 需转纯文本）。
  */
-function extractMailBody(node: unknown): string {
-  if (!node || typeof node !== 'object') {
-    logger.warn('extractMailBody: body 为空或非对象（MIME 结构异常）', {
-      bodyType: node === null ? 'null' : typeof node,
+function findTextPart(
+  node: unknown
+): { path: string; isHtml: boolean } | undefined {
+  if (!node || typeof node !== 'object') return undefined;
+  const n = node as { type?: string; part?: string; childNodes?: unknown[] };
+
+  if (n.type === 'text/plain' && n.part) return { path: n.part, isHtml: false };
+  if (Array.isArray(n.childNodes)) {
+    for (const child of n.childNodes) {
+      const r = findTextPart(child);
+      if (r) return r;
+    }
+  }
+  if (n.type === 'text/html' && n.part) return { path: n.part, isHtml: true };
+  return undefined;
+}
+
+/**
+ * N-7：按 part 路径精确拉取单封邮件的正文文本（仅下载 text 部分，不含附件）。
+ * html part 拉回后转纯文本；无 text part 或拉取失败返回空串（由 buildSnippet 回退主题）。
+ */
+async function fetchMailBodyText(
+  client: unknown,
+  uid: number,
+  part: { path: string; isHtml: boolean } | undefined
+): Promise<string> {
+  if (!part) return '';
+  try {
+    const msg = await (client as any).fetchOne(uid, {
+      uid: true,
+      bodyParts: [part.path],
+    });
+    const text = msg?.bodyParts?.[part.path];
+    if (typeof text !== 'string') return '';
+    return part.isHtml ? htmlToText(text) : text;
+  } catch (err) {
+    logger.warn('邮件正文 part 拉取失败', {
+      uid,
+      partPath: part.path,
+      error: String(err),
     });
     return '';
   }
-  const n = node as { type?: string; text?: unknown; childNodes?: unknown[] };
-
-  if (n.type === 'text/plain' && typeof n.text === 'string' && n.text.trim()) {
-    logger.debug('extractMailBody: 命中 text/plain 正文', {
-      nodeType: n.type,
-      textLength: n.text.length,
-      trimmedLength: n.text.trim().length,
-    });
-    return n.text.trim();
-  }
-  if (n.type === 'text/html' && typeof n.text === 'string' && n.text.trim()) {
-    const text = htmlToText(n.text);
-    logger.debug('extractMailBody: 无 text/plain，text/html 转纯文本兜底', {
-      htmlLength: n.text.length,
-      textLength: text.length,
-    });
-    return text;
-  }
-  // 节点携带 text 字段但内容为空或非字符串 —— MIME 解析异常信号
-  if (n.text !== undefined) {
-    logger.warn('extractMailBody: 节点带 text 但无法使用', {
-      nodeType: n.type ?? '(无 type)',
-      textType: typeof n.text,
-      textLength: typeof n.text === 'string' ? n.text.length : -1,
-    });
-  }
-  if (Array.isArray(n.childNodes)) {
-    for (const child of n.childNodes) {
-      const text = extractMailBody(child);
-      if (text) return text;
-    }
-    logger.debug('extractMailBody: 子节点遍历完成，未找到可用正文', {
-      nodeType: n.type ?? '(无 type)',
-      childCount: n.childNodes.length,
-    });
-  } else if (n.type) {
-    // 非 text 叶节点（附件/嵌套容器等），不属于正文范围
-    logger.debug('extractMailBody: 跳过非正文节点', {
-      nodeType: n.type,
-    });
-  }
-  logger.warn('extractMailBody: 未找到可解析正文（将回退主题）', {
-    nodeType: n.type ?? '(无 type)',
-  });
-  return '';
-}
-
-/** 正文摘要：截断到 500 字符，无正文时回退主题 */
-function buildSnippet(bodyText: string, subject: string): string {
-  const text = bodyText || subject || '';
-  return text.slice(0, 500);
 }
 
 /**
@@ -159,29 +148,33 @@ export class EmailReader {
 
       const messages: EmailSummary[] = [];
 
+      // N-7：不再用 body:true 全量下载（含附件 base64）——改为两遍拉取：
+      // 第一遍 envelope+bodyStructure 定位 text part，第二遍 bodyParts 精确拉正文。
       for await (const msg of client.fetch(
         { start: Math.max(1, mailbox.exists - limit + 1), end: mailbox.exists },
         {
           uid: true,
           envelope: true,
           bodyStructure: true,
-          body: true,
           source: false,
         }
       )) {
         const fromAddr = msg.envelope.from?.[0]?.address || '';
+        const subject = msg.envelope.subject || '';
+        const bodyText = await fetchMailBodyText(
+          client,
+          msg.uid,
+          findTextPart(msg.bodyStructure)
+        );
         messages.push({
           uid: msg.uid,
           folder: 'INBOX',
           messageId: msg.envelope.messageId || '',
-          subject: msg.envelope.subject || '',
+          subject,
           fromAddr,
           from: fromAddr,
           date: msg.envelope.date?.toISOString() || '',
-          snippet: buildSnippet(
-            extractMailBody(msg.body),
-            msg.envelope.subject || ''
-          ),
+          snippet: buildSnippet(bodyText, subject),
         });
       }
 
@@ -242,26 +235,29 @@ export class EmailReader {
       const messages: EmailSummary[] = [];
       if (searchUids.length > 0) {
         const capped = searchUids.slice(-limit);
+        // N-7：bodyStructure 定位 text part 后 bodyParts 精确拉取，避免全量下载附件
         for await (const msg of client.fetch(capped, {
           uid: true,
           envelope: true,
           bodyStructure: true,
-          body: true,
           source: false,
         })) {
           const fromAddr = msg.envelope.from?.[0]?.address || '';
+          const subject = msg.envelope.subject || '';
+          const bodyText = await fetchMailBodyText(
+            client,
+            msg.uid,
+            findTextPart(msg.bodyStructure)
+          );
           messages.push({
             uid: msg.uid,
             folder: 'INBOX',
             messageId: msg.envelope.messageId || '',
-            subject: msg.envelope.subject || '',
+            subject,
             fromAddr,
             from: fromAddr,
             date: msg.envelope.date?.toISOString() || '',
-            snippet: buildSnippet(
-              extractMailBody(msg.body),
-              msg.envelope.subject || ''
-            ),
+            snippet: buildSnippet(bodyText, subject),
           });
         }
       }
@@ -294,10 +290,12 @@ export class EmailReader {
     try {
       await client.connect();
       await client.mailboxOpen('INBOX');
+      // N-3：uid 参数必须显式传 { uid: true }——否则 imapflow 按序列号解释，
+      // 收件箱有已删除邮件（UID 空洞）时 UID≠序列号，标记/归档作用到错误邮件
       if (read) {
-        await client.messageFlagsAdd(`${uid}`, ['\\Seen']);
+        await client.messageFlagsAdd(`${uid}`, ['\\Seen'], { uid: true });
       } else {
-        await client.messageFlagsRemove(`${uid}`, ['\\Seen']);
+        await client.messageFlagsRemove(`${uid}`, ['\\Seen'], { uid: true });
       }
       logger.info(read ? '邮件已标记已读' : '邮件已标记未读', { uid });
     } finally {
@@ -316,7 +314,8 @@ export class EmailReader {
     return {
       host: account.imapHost || account.smtpHost?.replace('smtp', 'imap'),
       port: account.imapPort || 993,
-      secure: true,
+      // N-8：143 端口走 STARTTLS（secure:false），其余默认 SSL（993）
+      secure: account.imapPort === 143 ? false : true,
       auth: {
         user: account.user,
         // BUG-2：存储的是密文，认证前必须解密为明文

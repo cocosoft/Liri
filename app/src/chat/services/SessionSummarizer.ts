@@ -9,6 +9,8 @@ import { join } from 'path';
 import type { ChatSession } from '../types/session.js';
 import type { Message } from '../types/message.js';
 import type { ToolAwareClient } from '@modules/ai';
+import { trackUsage } from '@modules/ai';
+import { extractModelFromResponse } from '@modules/ai/UsageTracker';
 
 const logger = getLogger('chat:summarizer');
 
@@ -140,6 +142,7 @@ export class SessionSummarizer {
 
       // 尝试 LLM 摘要
       if (this.llmClient) {
+        const _summarizeStart = Date.now();
         try {
           const llmResponse = await this.llmClient.chat([
             {
@@ -152,6 +155,13 @@ export class SessionSummarizer {
               content: `用户：${userBrief}\nAI：${aiBrief}`,
             },
           ]);
+          // Token 追踪：ToolAwareClient.chat 直调 provider 不经过 Pipeline，需显式上报
+          void trackUsage(llmResponse, {
+            model: extractModelFromResponse(llmResponse, 'unknown'),
+            providerId: this.llmClient.providerId,
+            latencyMs: Date.now() - _summarizeStart,
+            sessionId: session.id,
+          });
           const llmSummary = (llmResponse.content as string)?.trim();
           if (llmSummary && llmSummary.length > 5) {
             summary = llmSummary;
@@ -199,6 +209,7 @@ ${phaseText}`;
 
         // 尝试 LLM 生成综合摘要
         if (this.llmClient) {
+          const _phaseStart = Date.now();
           try {
             const llmResponse = await this.llmClient.chat([
               {
@@ -208,6 +219,13 @@ ${phaseText}`;
               },
               { role: 'user' as const, content: phaseText },
             ]);
+            // Token 追踪：同会话摘要——ToolAwareClient 直调 provider 需显式上报
+            void trackUsage(llmResponse, {
+              model: extractModelFromResponse(llmResponse, 'unknown'),
+              providerId: this.llmClient.providerId,
+              latencyMs: Date.now() - _phaseStart,
+              sessionId: session.id,
+            });
             const llmPhaseSummary = (llmResponse.content as string)?.trim();
             if (llmPhaseSummary && llmPhaseSummary.length > 10) {
               phaseSummary = `项目阶段性小结（最近 ${recentSummaries.length} 次会话）：

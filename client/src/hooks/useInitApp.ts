@@ -112,11 +112,21 @@ export function useInitApp() {
 
     const runPhase2 = async () => {
       try {
+        logger.info(
+          "[init] phase2 开始：initBackendUrlFromConfig + checkBackendStatus",
+        );
         await initBackendUrlFromConfig();
         await checkBackendStatus();
         const { status } = useBackendStore.getState();
+        logger.info("[init] phase2 后端状态检查结果", status);
         if (!status.running) {
+          logger.info("[init] 后端未运行，调用 startBackend");
           await startBackend();
+          const after = useBackendStore.getState();
+          logger.info("[init] startBackend 之后状态", after.status);
+          if (after.error) {
+            logger.error("[init] 后端启动失败", { error: after.error });
+          }
         }
         // P0b-4: 后端就绪后执行旧数据迁移（幂等，仅首次执行）
         // W9 修复：失败不再静默吞掉——告警留痕，避免迁移中断无任何提示
@@ -126,7 +136,9 @@ export function useInitApp() {
           });
         });
         dispatch({ type: "PHASE2_DONE" });
+        logger.info("[init] phase2 完成");
       } catch (e) {
+        logger.error("[init] phase2 异常", { error: String(e) });
         dispatch({ type: "ERROR", error: String(e) });
       }
     };

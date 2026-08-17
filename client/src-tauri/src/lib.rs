@@ -20,12 +20,16 @@
 // SOFTWARE.
 
 use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 use tauri::{
     menu::{Menu, MenuItem, PredefinedMenuItem, Submenu},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
     Manager,
 };
 use tracing::info;
+use tracing_subscriber::layer::SubscriberExt;
+use tracing_subscriber::util::SubscriberInitExt;
+use tracing_subscriber::EnvFilter;
 
 pub mod commands;
 #[cfg(test)]
@@ -110,14 +114,45 @@ fn create_tray_menu(app: &tauri::AppHandle) -> Result<Menu<tauri::Wry>, tauri::E
     Menu::with_items(app, &[&show, &hide, &separator, &quit])
 }
 
+/// 初始化 tracing：控制台 + 文件双输出。
+/// 发布版（windows_subsystem=windows，无控制台）下控制台日志不可见，
+/// 文件输出（%APPDATA%/com.liri.client/logs/liri-client.log）保证启动/崩溃链路可回溯。
+fn init_tracing() -> tracing_appender::non_blocking::WorkerGuard {
+    let log_dir = dirs::data_dir()
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join("com.liri.client")
+        .join("logs");
+    let _ = std::fs::create_dir_all(&log_dir);
+
+    let file_appender = tracing_appender::rolling::daily(&log_dir, "liri-client.log");
+    let (file_writer, guard) = tracing_appender::non_blocking(file_appender);
+
+    let filter = EnvFilter::from_default_env()
+        .add_directive(tracing::Level::INFO.into());
+
+    let file_layer = tracing_subscriber::fmt::layer()
+        .with_writer(file_writer)
+        .with_ansi(false)
+        .with_target(false);
+
+    let console_layer = tracing_subscriber::fmt::layer()
+        .with_ansi(true)
+        .with_target(false);
+
+    tracing_subscriber::registry()
+        .with(filter)
+        .with(console_layer)
+        .with(file_layer)
+        .init();
+
+    info!("tracing 初始化完成: 控制台 + 文件({}/liri-client.log)", log_dir.display());
+
+    guard
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tracing_subscriber::fmt()
-        .with_env_filter(
-            tracing_subscriber::EnvFilter::from_default_env()
-                .add_directive(tracing::Level::INFO.into()),
-        )
-        .init();
+    let _tracing_guard = init_tracing();
 
     info!("Starting Liri Client");
 

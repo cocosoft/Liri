@@ -7,7 +7,10 @@
 import { create } from "zustand";
 import { chatService } from "../services/chatService";
 import { handleClientError } from "@/utils/handleError";
+import { createLogger } from "../utils/logger";
 import type { BackendStatus } from "../types";
+
+const logger = createLogger("stores:backendStore");
 
 export type { BackendStatus };
 
@@ -54,6 +57,7 @@ export const useBackendStore = create<BackendStore>((set, get) => ({
     set({ isChecking: true });
     try {
       const status = await chatService.getBackendStatus();
+      logger.info("[checkStatus] 后端状态", status);
       set({ status, isChecking: false, error: null });
     } catch (e) {
       handleClientError(
@@ -61,6 +65,9 @@ export const useBackendStore = create<BackendStore>((set, get) => ({
         { module: "stores:backendStore", action: "checkStatus" },
         "warn",
       );
+      logger.error("[checkStatus] 状态检查失败", {
+        error: e instanceof Error ? e.message : String(e),
+      });
       set({
         status: { running: false, port: null },
         isChecking: false,
@@ -73,13 +80,16 @@ export const useBackendStore = create<BackendStore>((set, get) => ({
     set({ error: null });
     if (!get().isBrowserMode) {
       try {
+        logger.info("[startBackend] Tauri 模式，调用 chatService.startBackend");
         const status = await chatService.startBackend();
+        logger.info("[startBackend] 完成，最终状态", status);
         set({ status });
         // 后端启动失败时，将退出码/stderr 展示给用户（而非仅"连接被拒"）
         if (!status.running && (status.exit_code != null || status.error)) {
           const errorMsg = status.error
             ? `后端进程启动失败：\n${status.error}`
             : `后端进程异常退出，退出码：${status.exit_code}`;
+          logger.error("[startBackend] 后端启动失败", { errorMsg });
           set({ error: errorMsg });
         }
       } catch (e) {
@@ -88,9 +98,13 @@ export const useBackendStore = create<BackendStore>((set, get) => ({
           { module: "stores:backendStore", action: "startBackend" },
           "warn",
         );
+        logger.error("[startBackend] 启动异常", {
+          error: e instanceof Error ? e.message : String(e),
+        });
         set({ error: e instanceof Error ? e.message : String(e) });
       }
     } else {
+      logger.warn("[startBackend] 浏览器模式，无法自动启动后端");
       set({
         error:
           "浏览器模式下无法自动启动后端。请在终端中运行：\ncd app && bun run src/main.ts repl --http-port 7890\n启动后刷新页面。",
@@ -102,7 +116,9 @@ export const useBackendStore = create<BackendStore>((set, get) => ({
     set({ error: null });
     if (!get().isBrowserMode) {
       try {
+        logger.info("[stopBackend] 调用 chatService.stopBackend");
         await chatService.stopBackend();
+        logger.info("[stopBackend] 后端已停止");
         set({ status: { running: false, port: null } });
       } catch (e) {
         handleClientError(
@@ -110,6 +126,9 @@ export const useBackendStore = create<BackendStore>((set, get) => ({
           { module: "stores:backendStore", action: "stopBackend" },
           "warn",
         );
+        logger.error("[stopBackend] 停止异常", {
+          error: e instanceof Error ? e.message : String(e),
+        });
         set({ error: e instanceof Error ? e.message : String(e) });
       }
     } else {

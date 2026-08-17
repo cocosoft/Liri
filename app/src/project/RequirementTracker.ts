@@ -157,9 +157,9 @@ export class RequirementTracker {
    * 覆盖检查（D3/M5）：每项需求 → 证据映射
    * 证据 = artifacts.json 中 requirementId 标签匹配，或 title/content 含需求片段
    */
-  checkCoverage(): RequirementCoverage[] {
+  async checkCoverage(): Promise<RequirementCoverage[]> {
     const reqs = this.load();
-    const artifacts = this.loadArtifacts();
+    const artifacts = await this.loadArtifacts();
     return reqs.map((req) => {
       const evidence = artifacts
         .filter(
@@ -176,19 +176,44 @@ export class RequirementTracker {
     });
   }
 
-  private loadArtifacts(): Array<{
-    title: string;
-    content: string;
-    requirementId?: string;
-  }> {
+  private async loadArtifacts(): Promise<
+    Array<{
+      title: string;
+      content: string;
+      requirementId?: string;
+    }>
+  > {
     const p = join(this.dir, 'artifacts.json');
-    if (!existsSync(p)) return [];
+    if (existsSync(p)) {
+      try {
+        return JSON.parse(readFileSync(p, 'utf-8')) as Array<{
+          title: string;
+          content: string;
+          requirementId?: string;
+        }>;
+      } catch {
+        return [];
+      }
+    }
+
+    // G-1 修复：S2 迁移后 artifacts.json 被改名 .bak → 原实现只读该文件，
+    // 覆盖检查全部返回 covered=false（迁移后需求证据永远为空）。
+    // 回退读 items.db（kind='artifact'）作为证据来源。
     try {
-      return JSON.parse(readFileSync(p, 'utf-8')) as Array<{
-        title: string;
-        content: string;
-        requirementId?: string;
-      }>;
+      const { ProjectItemStore } =
+        await import('../workspace/ProjectItemStore.js');
+      const store = new ProjectItemStore(this.projectId);
+      try {
+        await store.initialize();
+        const items = await store.list('artifact');
+        return items.map((i) => ({
+          title: i.title,
+          content: i.content,
+          requirementId: undefined,
+        }));
+      } finally {
+        await store.close().catch(() => {});
+      }
     } catch {
       return [];
     }

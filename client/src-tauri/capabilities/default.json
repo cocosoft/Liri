@@ -12,6 +12,15 @@
     "dialog:allow-ask",
     "dialog:allow-message",
     "process:default",
-    "process:allow-restart"
+    "process:allow-restart",
+    {
+      "identifier": "shell:allow-spawn",
+      "allow": [
+        {
+          "name": "binaries/liri_terminal",
+          "sidecar": true
+        }
+      ]
+    }
   ]
 }

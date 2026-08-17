@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Liri",
-  "version": "0.4.39",
+  "version": "0.4.40",
   "identifier": "com.liri.client",
   "build": {
     "frontendDist": "../dist",
@@ -36,7 +36,10 @@
       "../../app/docs": "app/docs",
       "../../app/config": "app/config",
       "../../app/seed/pyapp": "app/data/pyapp",
-      "binaries/deps": "node_modules"
+      "../../app/.env.example": "app/.env.example",
+      "../../app/src/ai/config": "app/src/ai/config",
+      "../../app/src/monitoring/alerts/presets": "app/src/monitoring/alerts/presets",
+      "../../dist/node_modules": "node_modules"
     },
     "icon": [
       "icons/icon.png",

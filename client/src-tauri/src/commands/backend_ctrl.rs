@@ -27,7 +27,7 @@ use std::sync::Mutex;
 use std::time::Duration;
 use tauri_plugin_shell::process::CommandEvent;
 use tauri_plugin_shell::ShellExt;
-use tracing::info;
+use tracing::{error, info, warn};
 
 use super::app_config;
 
@@ -60,7 +60,7 @@ struct BackendProcess {
 
 #[tauri::command]
 pub async fn start_backend(app_handle: tauri::AppHandle) -> Result<BackendStatus, String> {
-    info!("start_backend called");
+    info!("[start_backend] 前端请求启动后端");
 
     let mut process_guard = BACKEND_PROCESS.lock().map_err(|e| e.to_string())?;
 
@@ -72,6 +72,12 @@ pub async fn start_backend(app_handle: tauri::AppHandle) -> Result<BackendStatus
     }
     let port_guard = BACKEND_PORT.lock().map_err(|e| e.to_string())?;
     let current_port = *port_guard;
+    info!(
+        "[start_backend] 配置加载完成: http_port={}, data_dir={:?}, first_run_completed={}",
+        current_port,
+        if config.data_dir.is_empty() { "(空，将自动解析)" } else { &config.data_dir },
+        config.first_run_completed
+    );
 
     if process_guard.is_some() {
         // 已有进程记录，检查其是否已崩溃退出
@@ -86,6 +92,12 @@ pub async fn start_backend(app_handle: tauri::AppHandle) -> Result<BackendStatus
                     None
                 }
             });
+        info!(
+            "[start_backend] 已有进程记录: running={}, exit_code={:?}, stderr_len={}",
+            running,
+            exit_code,
+            error.as_ref().map(|s| s.len()).unwrap_or(0)
+        );
         return Ok(BackendStatus {
             running,
             port: if running { Some(current_port) } else { None },
@@ -99,23 +111,27 @@ pub async fn start_backend(app_handle: tauri::AppHandle) -> Result<BackendStatus
     // Tauri 前端重启后 BACKEND_PROCESS 静态全局清空，但旧后端进程可能仍存活并
     // 监听 http_port——若不探测直接拉起新实例，双实例竞争同一数据目录（DB 锁冲突、
     // "清理锁被其他进程持有"）。端口可连接 = 已有后端存活，直接复用。
-    if let Ok(addr) = format!("127.0.0.1:{}", current_port)
+    let port_busy = if let Ok(addr) = format!("127.0.0.1:{}", current_port)
         .parse::<std::net::SocketAddr>()
     {
-        if TcpStream::connect_timeout(&addr, Duration::from_millis(500)).is_ok() {
-            info!(
-                "start_backend: 端口 {} 已被占用，复用现有后端进程（防多实例）",
-                current_port
-            );
-            return Ok(BackendStatus {
-                running: true,
-                port: Some(current_port),
-                pid: None,
-                exit_code: None,
-                error: None,
-            });
-        }
+        TcpStream::connect_timeout(&addr, Duration::from_millis(500)).is_ok()
+    } else {
+        false
+    };
+    if port_busy {
+        info!(
+            "[start_backend] 端口 {} 已被占用，复用现有后端进程（防多实例）",
+            current_port
+        );
+        return Ok(BackendStatus {
+            running: true,
+            port: Some(current_port),
+            pid: None,
+            exit_code: None,
+            error: None,
+        });
     }
+    info!("[start_backend] 端口 {} 空闲，准备拉起新后端进程", current_port);
 
     let port_str = current_port.to_string();
 
@@ -124,8 +140,18 @@ pub async fn start_backend(app_handle: tauri::AppHandle) -> Result<BackendStatus
     let data_dir = if !config.data_dir.is_empty() {
         config.data_dir.clone()
     } else {
-        app_config::resolve_safe_data_dir()?
+        match app_config::resolve_safe_data_dir() {
+            Ok(dir) => {
+                info!("[start_backend] data_dir 为空，自动解析为: {}", dir);
+                dir
+            }
+            Err(e) => {
+                error!("[start_backend] 自动解析 data_dir 失败: {}", e);
+                return Err(e);
+            }
+        }
     };
+    info!("[start_backend] 最终数据目录: {}", data_dir);
 
     // 确保数据目录存在
     std::fs::create_dir_all(&data_dir)
@@ -141,12 +167,14 @@ pub async fn start_backend(app_handle: tauri::AppHandle) -> Result<BackendStatus
     // 同时确保 data 子目录存在（LIRI_DATA_DIR 环境变量指向此处）
     std::fs::create_dir_all(format!("{}/data", data_dir))
         .map_err(|e| format!("Failed to create data subdirectory '{}/data': {}", data_dir, e))?;
+    info!("[start_backend] 数据目录已就绪: {}（含 data 子目录）", data_dir);
 
     // 获取 Tauri 进程当前工作目录作为项目根目录
     // 开发模式下为项目源代码根目录，确保第一层路径（app/docs/、app/config/ 等）解析正确
     let project_root = std::env::current_dir()
         .map(|p| p.display().to_string())
         .unwrap_or_else(|_| data_dir.clone());
+    info!("[start_backend] Tauri current_dir(project_root) = {}", project_root);
 
     // 生成随机共享密钥，防止未经授权的第三方访问后端 API
     let secret = uuid::Uuid::new_v4().to_string();
@@ -167,37 +195,50 @@ pub async fn start_backend(app_handle: tauri::AppHandle) -> Result<BackendStatus
         .env("LIRI_API_SECRET", &secret);
 
     info!(
-        "Starting backend sidecar: liri_terminal repl --http-port={}, LIRI_HOME={:?}",
-        current_port,
-        if config.data_dir.is_empty() {
-            "(default)"
-        } else {
-            &config.data_dir
-        }
+        "[start_backend] 启动 sidecar: liri_terminal repl --http-port={}, \
+         cwd={}, LIRI_HOME={}, LIRI_DATA_DIR={}/data, LIRI_PROJECT_DIR={}",
+        current_port, data_dir, data_dir, data_dir, project_root
     );
 
     let (mut rx, child) = command
         .spawn()
-        .map_err(|e| format!("Failed to start backend sidecar: {}", e))?;
+        .map_err(|e| {
+            let msg = format!(
+                "Failed to start backend sidecar: {}。请检查安装目录下 liri_terminal.exe 是否存在",
+                e
+            );
+            error!("[start_backend] sidecar spawn 失败: {}", msg);
+            msg
+        })?;
 
     let pid = child.pid();
+    info!("[start_backend] sidecar 已启动: pid={}", pid);
 
     // 启动后台任务：捕获 stderr/stdout 并监听进程退出事件
     tauri::async_runtime::spawn(async move {
         let mut stderr_buf = String::new();
+        let mut stdout_lines = 0usize;
 
         while let Some(event) = rx.recv().await {
             match event {
                 CommandEvent::Stderr(bytes) => {
                     let text = String::from_utf8_lossy(&bytes);
                     stderr_buf.push_str(&text);
-                    tracing::warn!("Backend stderr: {}", text.trim());
+                    warn!("[backend:stderr] {}", text.trim());
                 }
                 CommandEvent::Stdout(bytes) => {
                     let text = String::from_utf8_lossy(&bytes);
-                    tracing::info!("Backend: {}", text.trim());
+                    stdout_lines += 1;
+                    info!("[backend:stdout] {}", text.trim());
                 }
                 CommandEvent::Terminated(payload) => {
+                    info!(
+                        "[start_backend] 后端进程退出: exit_code={:?}, signal={:?}, 累计 stdout 行数={}, 累计 stderr 长度={}",
+                        payload.code,
+                        payload.signal,
+                        stdout_lines,
+                        stderr_buf.len()
+                    );
                     if let Some(code) = payload.code {
                         if let Ok(mut guard) = BACKEND_PROCESS.lock() {
                             if let Some(ref mut proc) = *guard {
@@ -207,17 +248,17 @@ pub async fn start_backend(app_handle: tauri::AppHandle) -> Result<BackendStatus
                                 }
                             }
                         }
-                        tracing::warn!(
+                        warn!(
                             "Backend process exited with code: {}",
                             code
                         );
                     } else {
-                        tracing::warn!("Backend process terminated (no exit code)");
+                        warn!("Backend process terminated (no exit code)");
                     }
                     break;
                 }
                 CommandEvent::Error(err) => {
-                    tracing::error!("Backend process error: {}", err);
+                    error!("[start_backend] 后端进程事件错误: {}", err);
                     if let Ok(mut guard) = BACKEND_PROCESS.lock() {
                         if let Some(ref mut proc) = *guard {
                             proc.stderr_output = err.clone();
@@ -228,6 +269,7 @@ pub async fn start_backend(app_handle: tauri::AppHandle) -> Result<BackendStatus
                 _ => {}
             }
         }
+        info!("[start_backend] 进程事件监听结束（后端已退出或通道关闭）");
     });
 
     *process_guard = Some(BackendProcess {
@@ -249,7 +291,7 @@ pub async fn start_backend(app_handle: tauri::AppHandle) -> Result<BackendStatus
 
 #[tauri::command]
 pub async fn stop_backend() -> Result<(), String> {
-    info!("stop_backend called");
+    info!("[stop_backend] 前端请求停止后端");
 
     let mut process_guard = BACKEND_PROCESS.lock().map_err(|e| e.to_string())?;
 
@@ -264,9 +306,9 @@ pub async fn stop_backend() -> Result<(), String> {
             secret_guard.take();
         }
 
-        info!("Backend process killed");
+        info!("[stop_backend] 后端进程已 kill");
     } else {
-        info!("No backend process to stop");
+        info!("[stop_backend] 无进程记录，无需停止");
     }
 
     Ok(())
@@ -278,9 +320,15 @@ pub async fn get_backend_status() -> Result<BackendStatus, String> {
     let port_guard = BACKEND_PORT.lock().map_err(|e| e.to_string())?;
     let current_port = *port_guard;
 
-    if let Some(ref proc) = *process_guard {
+    let status = if let Some(ref proc) = *process_guard {
         let running = proc.exit_code.is_none();
-        Ok(BackendStatus {
+        info!(
+            "[get_backend_status] 进程记录存在: running={}, exit_code={:?}, stderr_len={}",
+            running,
+            proc.exit_code,
+            proc.stderr_output.len()
+        );
+        BackendStatus {
             running,
             port: if running { Some(current_port) } else { None },
             pid: None,
@@ -290,16 +338,21 @@ pub async fn get_backend_status() -> Result<BackendStatus, String> {
             } else {
                 None
             },
-        })
+        }
     } else {
-        Ok(BackendStatus {
+        info!(
+            "[get_backend_status] 无进程记录（running=false, port={}）",
+            current_port
+        );
+        BackendStatus {
             running: false,
             port: None,
             pid: None,
             exit_code: None,
             error: None,
-        })
-    }
+        }
+    };
+    Ok(status)
 }
 
 // W6 修复：get_backend_secret 已删除——共享密钥仅由 Rust 内部持有，

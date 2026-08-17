@@ -303,6 +303,21 @@ export async function handleSaveProjectContext(
       json(res, 400, { error: '非法 projectId' });
       return;
     }
+    // G-3 修复：项目存在性校验——原实现任意 projectId 都会 mkdirSync + 写
+    // rules.md/items.db（幽灵目录复活），与 handleEngineHook 保持一致。
+    const { createProjectStore } =
+      await import('../../../workspace/ProjectStore.js');
+    const { WorkItemStore } =
+      await import('../../../workspace/WorkItemStore.js');
+    const store = createProjectStore(
+      resolveDataDir(),
+      new WorkItemStore(resolveDataDir())
+    );
+    if (!store.get(projectId)) {
+      span.setStatus({ code: SpanStatusCode.OK });
+      json(res, 404, { error: '项目不存在' });
+      return;
+    }
     const body = await readBody(req);
     const { type, content, domain } = JSON.parse(body) as {
       type?: string;
@@ -427,6 +442,23 @@ export async function handleEngineHook(
   const span = otel.startSpan('project:artifactHandlers:engineHook');
   span.setAttribute('projectId', projectId);
   try {
+    // G-3 修复：项目存在性校验——原实现任意 projectId 都会 mkdirSync + 写
+    // items.db/requirements.json/history，已删除项目的残留会话 persist 会重建
+    // 幽灵目录（数据"复活"且无法通过 UI 删除）。
+    const { createProjectStore } =
+      await import('../../../workspace/ProjectStore.js');
+    const { WorkItemStore } =
+      await import('../../../workspace/WorkItemStore.js');
+    const store = createProjectStore(
+      resolveDataDir(),
+      new WorkItemStore(resolveDataDir())
+    );
+    if (!store.get(projectId)) {
+      span.setStatus({ code: SpanStatusCode.OK });
+      json(res, 404, { error: '项目不存在' });
+      return;
+    }
+
     const body = await readBody(req);
     const { text } = JSON.parse(body) as { text?: string };
 

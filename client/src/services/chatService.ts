@@ -418,13 +418,21 @@ async function pollHealth(
   intervalMs = 1000,
 ): Promise<boolean> {
   for (let i = 0; i < maxRetries; i++) {
-    if (await checkHealth()) {
+    const healthy = await checkHealth();
+    if (healthy) {
+      if (i > 0) {
+        logger.info(
+          `[pollHealth] 第 ${i + 1}/${maxRetries} 次探测成功（此前失败 ${i} 次）`,
+        );
+      }
       return true;
     }
+    logger.warn(`[pollHealth] 健康检查失败（${i + 1}/${maxRetries}）`);
     if (i < maxRetries - 1) {
       await new Promise((resolve) => setTimeout(resolve, intervalMs));
     }
   }
+  logger.error(`[pollHealth] ${maxRetries} 次重试后后端仍未就绪`);
   return false;
 }
 
@@ -598,29 +606,38 @@ if (typeof window !== "undefined") {
 
 export const chatService = {
   startBackend: async (): Promise<BackendStatus> => {
+    logger.info("[startBackend] 前端发起启动后端请求");
     const core = await getTauriCore();
     if (core) {
+      logger.info("[startBackend] Tauri 模式，invoke start_backend");
       const status = await core.invoke<BackendStatus>("start_backend");
+      logger.info("[startBackend] start_backend 返回", status);
       // W6 修复：不再获取共享密钥——HTTP 请求统一走 Rust http_proxy 代理，
       // 密钥由 Rust 侧注入 X-API-Key，WebView JS 上下文不持有明文密钥。
       const healthy = await pollHealth();
+      logger.info("[startBackend] pollHealth 健康检查结果", { healthy });
       // 健康检查失败时，查询进程是否已崩溃（获取退出码和 stderr）
       if (!healthy) {
+        logger.warn("[startBackend] 健康检查失败，查询进程崩溃状态");
         const updatedStatus =
           await core.invoke<BackendStatus>("get_backend_status");
+        logger.warn("[startBackend] 后端崩溃状态", updatedStatus);
         return updatedStatus;
       }
       return { ...status, running: healthy };
     }
 
     const healthy = await checkHealth();
+    logger.info("[startBackend] 浏览器模式健康检查结果", { healthy });
     return { running: healthy, port: healthy ? getBackendPort() : null };
   },
 
   stopBackend: async (): Promise<void> => {
+    logger.info("[stopBackend] 前端发起停止后端请求");
     const core = await getTauriCore();
     if (core) {
       await core.invoke<void>("stop_backend");
+      logger.info("[stopBackend] stop_backend 已调用");
       return;
     }
   },
@@ -629,8 +646,13 @@ export const chatService = {
     const core = await getTauriCore();
     if (core) {
       const status = await core.invoke<BackendStatus>("get_backend_status");
+      logger.info("[getBackendStatus] Rust 状态返回", status);
       if (status.running) {
         const healthy = await checkHealth();
+        logger.info("[getBackendStatus] 健康检查结果", {
+          healthy,
+          port: getBackendPort(),
+        });
         return { ...status, running: healthy };
       }
       return status;

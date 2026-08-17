@@ -591,7 +591,42 @@ const DEFAULT_SECTIONS: SystemPromptSection[] = [
           }> = [];
           if (existsSync(summariesPath)) {
             const raw = readFileSync(summariesPath, 'utf-8');
-            all = JSON.parse(raw);
+            // G-2 修复：兼容写入者结构。SessionSummarizer 写的是 SummaryEntry
+            // （{sessionId, summary, messageCount, createdAt, decision?, phaseSummary?}，
+            // 无 type 字段），原实现按 s.type==='decision'/'phase_summary' 过滤恒空 →
+            // AI 上下文永远看不到项目最近小结/决策。此处归一化为 {type,title,content}。
+            const rawEntries = JSON.parse(raw) as Array<
+              Record<string, unknown>
+            >;
+            all = rawEntries
+              .map((s) => {
+                if (s.decision) {
+                  return {
+                    type: 'decision',
+                    title: '决策',
+                    content: String(s.decision),
+                  };
+                }
+                if (s.phaseSummary) {
+                  return {
+                    type: 'phase_summary',
+                    title: '阶段性小结',
+                    content: String(s.summary ?? ''),
+                  };
+                }
+                if (typeof s.type === 'string') {
+                  return {
+                    type: s.type,
+                    title: String(s.title ?? ''),
+                    content: String(s.content ?? ''),
+                  };
+                }
+                return null;
+              })
+              .filter(
+                (x): x is { type: string; title: string; content: string } =>
+                  x !== null
+              );
           }
           const decisions = all.filter((s) => s.type === 'decision').slice(-2);
           const phaseSummaries = all

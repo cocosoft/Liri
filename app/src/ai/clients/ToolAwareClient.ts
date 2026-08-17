@@ -26,6 +26,11 @@ export class ToolAwareClient {
 
   initialize(): void {}
 
+  /** 供应商 ID（供调用方 trackUsage 时上报，Token 追踪） */
+  get providerId(): string | undefined {
+    return this.provider.id;
+  }
+
   async chat(
     messages: ChatMessage[],
     options?: ChatOptions

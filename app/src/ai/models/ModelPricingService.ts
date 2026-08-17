@@ -128,6 +128,8 @@ export interface UpsertPricingParams {
   pricingSource?: string;
   providerId?: string;
   enabled?: boolean;
+  /** 是否为用户自定义模型（is_custom=1，官方价格同步不覆盖） */
+  isCustom?: boolean;
   billingMode?: BillingMode;
   pricePerRequest?: number;
   timeBasedPricing?: TimeBasedPrice[];
@@ -271,6 +273,9 @@ export class ModelPricingService {
           cost_multiplier    REAL NOT NULL DEFAULT 1.0,
           pricing_source     TEXT NOT NULL DEFAULT 'default',
           provider_id        TEXT NOT NULL DEFAULT '',
+          billing_mode       TEXT NOT NULL DEFAULT 'token',
+          price_per_request  REAL NOT NULL DEFAULT 0,
+          time_based_pricing TEXT NOT NULL DEFAULT '[]',
           enabled            INTEGER NOT NULL DEFAULT 1,
           is_custom          INTEGER NOT NULL DEFAULT 0,
           created_at         INTEGER NOT NULL DEFAULT (strftime('%s','now')),
@@ -695,7 +700,7 @@ export class ModelPricingService {
             cost_multiplier, pricing_source,
             provider_id, billing_mode, price_per_request, time_based_pricing,
             enabled, is_custom, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)`,
           [
             id,
             params.modelId,
@@ -716,7 +721,7 @@ export class ModelPricingService {
             params.timeBasedPricing
               ? JSON.stringify(params.timeBasedPricing)
               : '[]',
-            params.enabled !== false ? 1 : 0,
+            params.isCustom ? 1 : 0,
             now,
             now,
           ],

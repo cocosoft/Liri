@@ -265,7 +265,7 @@ export class TaskStore {
 
   /** 创建或全量覆盖任务（UPSERT） */
   save(node: TaskNode): Promise<void> {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       const db = this.ensureDb();
       db.run(
         `INSERT OR REPLACE INTO ${TABLE_NAME}
@@ -299,7 +299,12 @@ export class TaskStore {
         ],
         (err: Error | null) => {
           if (err) {
+            // D-4 修复：错误必须 reject（原实现只 handleError 不 reject，
+            // Promise 永远 resolve → saveBatch 的 catch/ROLLBACK 成为死代码，
+            // 批量保存中单行失败时整体仍报成功 = 静默部分失败）
             handleError(err, { module: 'workspace:TaskStore', action: 'save' });
+            reject(err);
+            return;
           }
           resolve();
         }

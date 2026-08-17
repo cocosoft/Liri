@@ -573,6 +573,9 @@ const DEFAULT_SECTIONS: SystemPromptSection[] = [
         }
 
         // P3-5: 附加最近摘要（最近 1 条阶段性小结 + 2 条决策）
+        // 注：本 section 为同步构建（DANGEROUS_uncached），无法 await items.db；
+        // 已迁移项目的摘要经 handleGetSummaries（HTTP 读回退 items.db）与
+        // SessionSummarizer（写分流进 items.db）保障可见，此处仅同步读 summaries.json。
         let summaryInfo = '';
         try {
           const summariesPath = join(
@@ -581,40 +584,39 @@ const DEFAULT_SECTIONS: SystemPromptSection[] = [
             ctx.projectId,
             'summaries.json'
           );
+          let all: Array<{
+            type?: string;
+            title?: string;
+            content?: string;
+          }> = [];
           if (existsSync(summariesPath)) {
             const raw = readFileSync(summariesPath, 'utf-8');
-            const all: Array<{
-              type?: string;
-              title?: string;
-              content?: string;
-            }> = JSON.parse(raw);
-            const decisions = all
-              .filter((s) => s.type === 'decision')
-              .slice(-2);
-            const phaseSummaries = all
-              .filter((s) => s.type === 'phase_summary')
-              .slice(-1);
+            all = JSON.parse(raw);
+          }
+          const decisions = all.filter((s) => s.type === 'decision').slice(-2);
+          const phaseSummaries = all
+            .filter((s) => s.type === 'phase_summary')
+            .slice(-1);
 
-            const lines: string[] = [];
-            if (phaseSummaries.length > 0) {
-              lines.push('## 最近阶段性小结');
-              for (const s of phaseSummaries) {
-                lines.push(
-                  `- ${s.title ?? '小结'}: ${(s.content ?? '').slice(0, 150)}`
-                );
-              }
+          const lines: string[] = [];
+          if (phaseSummaries.length > 0) {
+            lines.push('## 最近阶段性小结');
+            for (const s of phaseSummaries) {
+              lines.push(
+                `- ${s.title ?? '小结'}: ${(s.content ?? '').slice(0, 150)}`
+              );
             }
-            if (decisions.length > 0) {
-              lines.push('## 最近决策');
-              for (const d of decisions) {
-                lines.push(
-                  `- ${d.title ?? '决策'}: ${(d.content ?? '').slice(0, 100)}`
-                );
-              }
+          }
+          if (decisions.length > 0) {
+            lines.push('## 最近决策');
+            for (const d of decisions) {
+              lines.push(
+                `- ${d.title ?? '决策'}: ${(d.content ?? '').slice(0, 100)}`
+              );
             }
-            if (lines.length > 0) {
-              summaryInfo = '\n\n' + lines.join('\n');
-            }
+          }
+          if (lines.length > 0) {
+            summaryInfo = '\n\n' + lines.join('\n');
           }
         } catch {
           // @ignore-catch 读取摘要失败不影响 prompt 组装主流程

@@ -78,6 +78,14 @@ export async function handleCreateProject(
       return;
     }
 
+    // D-7 修复：tags 类型校验（原实现透传——字符串 tags 会存入 project.tags，
+    // 前端 tags.map() 崩溃。update 已有校验，create 补齐）
+    if (tags !== undefined && !Array.isArray(tags)) {
+      span.setStatus({ code: SpanStatusCode.OK });
+      json(res, 400, { error: 'tags 必须是数组' });
+      return;
+    }
+
     const store = getProjectStore();
     const project = store.create({
       workspaceId: workspaceId || 'default',

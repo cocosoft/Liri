@@ -103,14 +103,12 @@ export class SessionSummarizer {
         _mkdirFs(projDir, { recursive: true });
       }
       const summariesPath = join(projDir, 'summaries.json');
-      let summaries: SummaryEntry[] = [];
-      if (_existsFs(summariesPath)) {
-        try {
-          summaries = JSON.parse(_readFs(summariesPath, 'utf-8'));
-        } catch {
-          /* 重建 */
-        }
-      }
+      // E-2 修复：加载摘要——已迁移（summaries.json 被改名 .bak）时从 items.db 读，
+      // 否则迁移后重建 json 与 items.db 永久分裂，旧摘要永远不可见（AI 记忆丢失）。
+      let summaries: SummaryEntry[] = await this._loadSummaries(
+        projectId,
+        summariesPath
+      );
 
       if (summaries.some((s) => s.sessionId === session.id)) return;
 
@@ -123,7 +121,7 @@ export class SessionSummarizer {
           // 合并到上一条摘要：跳过 LLM 调用，仅更新消息计数
           lastSessionSummary.messageCount += messageCount;
           lastSessionSummary.createdAt = new Date().toISOString();
-          _writeFs(summariesPath, JSON.stringify(summaries, null, 2), 'utf-8');
+          await this._saveSummaries(projectId, summariesPath, summaries);
           logger.debug('S6 5分钟内连续会话，合并摘要（跳过 LLM）', {
             sessionId: session.id,
             mergedInto: lastSessionSummary.sessionId,
@@ -241,7 +239,8 @@ ${llmPhaseSummary}`;
         summaries = summaries.slice(-50);
       }
 
-      _writeFs(summariesPath, JSON.stringify(summaries, null, 2), 'utf-8');
+      // E-2 修复：按迁移状态分流写入（json 存在写 json；已迁移写 items.db）
+      await this._saveSummaries(projectId, summariesPath, summaries);
 
       const hasDecision = decision ? ' + 决策' : '';
       logger.info(`S6 会话摘要已生成${hasDecision}`, {
@@ -265,6 +264,93 @@ ${llmPhaseSummary}`;
       } catch {
         /* span 可能已结束 */
       }
+    }
+  }
+
+  /**
+   * E-2 修复：加载摘要。
+   * summaries.json 存在（未迁移）读 json；不存在（已迁移，文件已改名 .bak）回退 items.db
+   * （kind='context', type='summary'，content 存 SummaryEntry 的 JSON）。
+   */
+  private async _loadSummaries(
+    projectId: string,
+    summariesPath: string
+  ): Promise<SummaryEntry[]> {
+    const { existsSync, readFileSync } = await import('fs');
+    if (existsSync(summariesPath)) {
+      try {
+        return JSON.parse(readFileSync(summariesPath, 'utf-8'));
+      } catch {
+        return [];
+      }
+    }
+    try {
+      const { ProjectItemStore } =
+        await import('../../workspace/ProjectItemStore.js');
+      const itemStore = new ProjectItemStore(projectId);
+      try {
+        await itemStore.initialize();
+        const items = await itemStore.list('context');
+        return items
+          .filter((i) => i.type === 'summary')
+          .map((i) => {
+            try {
+              return JSON.parse(i.content) as SummaryEntry;
+            } catch {
+              return null;
+            }
+          })
+          .filter((x): x is SummaryEntry => x !== null);
+      } finally {
+        await itemStore.close().catch(() => {});
+      }
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * E-2 修复：保存摘要。
+   * summaries.json 存在（未迁移）写 json；不存在（已迁移）写 items.db 全量覆盖，
+   * 与 _loadSummaries 的映射对称。
+   */
+  private async _saveSummaries(
+    projectId: string,
+    summariesPath: string,
+    summaries: SummaryEntry[]
+  ): Promise<void> {
+    const { existsSync, writeFileSync } = await import('fs');
+    if (existsSync(summariesPath)) {
+      writeFileSync(summariesPath, JSON.stringify(summaries, null, 2), 'utf-8');
+      return;
+    }
+    try {
+      const { ProjectItemStore } =
+        await import('../../workspace/ProjectItemStore.js');
+      const itemStore = new ProjectItemStore(projectId);
+      try {
+        await itemStore.initialize();
+        await itemStore.upsertBatch(
+          summaries.map((s) => ({
+            id: s.sessionId,
+            projectId,
+            kind: 'context' as const,
+            type: 'summary',
+            title: s.phaseSummary ? 'phase_summary' : 'summary',
+            content: JSON.stringify(s),
+            createdAt: s.createdAt,
+            updatedAt: new Date().toISOString(),
+          }))
+        );
+      } finally {
+        await itemStore.close().catch(() => {});
+      }
+    } catch (e) {
+      // @ignore-catch 已迁移分支写入失败仅记录，不阻断摘要主流程
+      handleError(e, {
+        module: 'chat:summarizer',
+        action: 'saveSummaries',
+      });
     }
   }
 }

@@ -288,7 +288,32 @@ export async function handleUpdateWorkItem(
 ): Promise<void> {
   try {
     const body = await ctx.readRequestBody(req);
-    const updates = JSON.parse(body || '{}');
+    const updates = JSON.parse(body || '{}') as Record<string, unknown>;
+
+    // E-4 修复：work item status 白名单 + tags 数组校验（原实现透传任意值入库）
+    const WORK_ITEM_STATUSES = [
+      'pending',
+      'running',
+      'paused',
+      'review',
+      'done',
+      'failed',
+    ] as const;
+    if (
+      updates.status !== undefined &&
+      !WORK_ITEM_STATUSES.includes(
+        updates.status as (typeof WORK_ITEM_STATUSES)[number]
+      )
+    ) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: '非法工作项状态' } }));
+      return;
+    }
+    if (updates.tags !== undefined && !Array.isArray(updates.tags)) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: 'tags 必须是数组' } }));
+      return;
+    }
 
     const wsPath = await resolveWorkspacePath(workspaceId);
 
@@ -1510,6 +1535,10 @@ export async function handleListTasks(
 
     if (projectId) {
       tasks = await taskStore.listByProject(projectId);
+      // 附带观察修复：原实现同时传 projectId + status 时 status 被忽略
+      if (status) {
+        tasks = tasks.filter((t) => t.status === status);
+      }
     } else if (workspaceId && status) {
       tasks = await taskStore.listByStatus(workspaceId, status as TaskStatus);
     } else if (workspaceId) {
@@ -1583,6 +1612,36 @@ export async function handleCreateTask(
       return;
     }
 
+    // D-6 修复：status 白名单校验（创建入口，与 update 一致）
+    if (
+      data.status !== undefined &&
+      !TASK_STATUS_WHITELIST.includes(data.status)
+    ) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: '非法任务状态' } }));
+      return;
+    }
+
+    // E-3 修复：tags/priority 类型校验（D-7 漏网——task 链路原实现透传，
+    // 字符串 tags 经 toJsonArray 存成 `"\"bug\""`，读取 parseJsonArray 静默返回 []）
+    if (data.tags !== undefined && !Array.isArray(data.tags)) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: 'tags 必须是数组' } }));
+      return;
+    }
+    if (
+      data.priority !== undefined &&
+      (typeof data.priority !== 'number' ||
+        data.priority < 0 ||
+        data.priority > 3)
+    ) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({ error: { message: 'priority 必须是 0-3 的数字' } })
+      );
+      return;
+    }
+
     const now = new Date().toISOString();
     const task: TaskNode = {
       id: `task_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
@@ -1618,6 +1677,22 @@ export async function handleCreateTask(
 }
 
 /**
+ * D-6 修复：任务状态白名单（与 workspace/types.ts 的 TaskStatus 一致）。
+ * 原实现 handleUpdateTask 透传任意 status 字符串，运行时无校验 → 非法状态入库，
+ * 前端 ProjectStatus 强转后 UI 分支处理不了。SQL CHECK 迁移成本高，handler 层先拦截。
+ */
+const TASK_STATUS_WHITELIST = [
+  'planning',
+  'pending',
+  'active',
+  'paused',
+  'review',
+  'completed',
+  'archived',
+  'failed',
+] as const;
+
+/**
  * 更新任务
  * PATCH /v1/tasks/:taskId
  */
@@ -1631,7 +1706,26 @@ export async function handleUpdateTask(
     await taskStore.initialize();
 
     const body = await ctx.readRequestBody(req);
-    const updates = JSON.parse(body || '{}');
+    const updates = JSON.parse(body || '{}') as Record<string, unknown>;
+
+    // D-6 修复：status 白名单校验
+    if (
+      updates.status !== undefined &&
+      !TASK_STATUS_WHITELIST.includes(
+        updates.status as (typeof TASK_STATUS_WHITELIST)[number]
+      )
+    ) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: '非法任务状态' } }));
+      return;
+    }
+
+    // E-3 修复：tags 数组校验（update 入口，与 create 对齐）
+    if (updates.tags !== undefined && !Array.isArray(updates.tags)) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: 'tags 必须是数组' } }));
+      return;
+    }
 
     const updated = await taskStore.update(taskId, updates);
     if (!updated) {

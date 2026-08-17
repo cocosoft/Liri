@@ -192,11 +192,19 @@ export class WorkItemStore {
     const item = this.get(id);
     if (!item) return null;
 
-    const merged: WorkItem = {
-      ...item,
-      ...updates,
-      updatedAt: new Date().toISOString(),
-    };
+    // E-4 修复：字段白名单——原实现 `{...item, ...updates}` 运行时透传，
+    // 可注入 id/workspaceId/createdAt 等（写新文件 + 原文件残留 + 幽灵工作项）。
+    // 仅显式挑选可编辑字段合并。
+    const merged: WorkItem = { ...item, updatedAt: new Date().toISOString() };
+    const { title, description, type, status, sessionId, tags, priority } =
+      updates;
+    if (title !== undefined) merged.title = title;
+    if (description !== undefined) merged.description = description;
+    if (type !== undefined) merged.type = type;
+    if (status !== undefined) merged.status = status;
+    if (sessionId !== undefined) merged.sessionId = sessionId;
+    if (tags !== undefined) merged.tags = tags;
+    if (priority !== undefined) merged.priority = priority;
 
     if (updates.status === 'done' || updates.status === 'failed') {
       merged.completedAt = new Date().toISOString();

@@ -58,17 +58,25 @@ export async function handleListArtifacts(
   const effectiveKind =
     kind === 'input' || kind === 'output' ? kind : undefined;
 
-  // 优先读 artifacts.json（旧格式）
-  let artifacts = artifactStore.list(projectId, effectiveKind);
-
-  // P0-1 修复：artifacts.json 可能已被 ProjectItemStore.migrateFromLegacy
-  // 迁移进 items.db 并改名 .bak（迁移未切换读取路径的历史缺陷）。
-  // json 为空时回退读取 items.db 的 project_items kind='artifact'。
-  if (artifacts.length === 0 && effectiveKind !== 'input') {
-    artifacts = await listArtifactsFromItemsDb(projectId);
+  // E-1 修复：合并两处来源（artifacts.json 旧格式 + items.db 已迁移成果）。
+  // 原实现"优先 artifacts.json、仅当空才回退 items.db"——双写时某一侧数据被隐藏，
+  // 且"保存→迁移→保存"无限循环。input 型 items.db 不承载（kind 仅 context/artifact），
+  // 仅用于 output/全部场景合并。
+  const jsonArtifacts = artifactStore.list(projectId, effectiveKind);
+  if (effectiveKind !== 'input') {
+    const dbArtifacts = await listArtifactsFromItemsDb(projectId);
+    const merged = [...jsonArtifacts];
+    const seen = new Set(merged.map((a) => a.id));
+    for (const a of dbArtifacts) {
+      if (!seen.has(a.id)) {
+        merged.push(a);
+        seen.add(a.id);
+      }
+    }
+    json(res, 200, merged);
+    return;
   }
-
-  json(res, 200, artifacts);
+  json(res, 200, jsonArtifacts);
 }
 
 /**
@@ -147,7 +155,35 @@ export async function handleSaveArtifact(
       createdAt: data.createdAt || new Date().toISOString(),
     };
 
-    artifactStore.save(artifact);
+    // E-1 修复：按迁移状态分流写入，避免 artifacts.json ↔ items.db 双写分裂。
+    // input 型 items.db 不承载（kind 仅 context/artifact），始终写 artifacts.json；
+    // output 型已迁移（rules.md 不存在 → items.db 为当前存储）写 items.db，
+    // 与 ImplicitEngineHook 的 migrated 判断一致。
+    const migrated = !existsSync(
+      join(LIRI_PROJECTS_DIR, projectId, 'rules.md')
+    );
+    if (kind === 'output' && migrated) {
+      const itemStore = new ProjectItemStore(projectId, resolveDataDir());
+      try {
+        await itemStore.initialize();
+        await itemStore.upsert({
+          id: artifact.id,
+          projectId,
+          kind: 'artifact',
+          type: 'artifact',
+          title: artifact.title,
+          content: artifact.content,
+          sessionId: artifact.sessionId,
+          messageId: artifact.refId,
+          createdAt: artifact.createdAt,
+          updatedAt: new Date().toISOString(),
+        });
+      } finally {
+        await itemStore.close().catch(() => {});
+      }
+    } else {
+      artifactStore.save(artifact);
+    }
     logger.info('构件已保存', { projectId, artifactId: artifact.id });
     json(res, 200, artifact);
   } catch (e) {
@@ -167,11 +203,28 @@ export async function handleDeleteArtifact(
   projectId: string,
   artifactId: string
 ): Promise<void> {
-  const deleted = artifactStore.delete(projectId, artifactId);
+  // E-1 修复：同时删 artifacts.json 与 items.db（原实现只删 json，
+  // 已迁移成果（items.db）删不掉 → 列表删了又"冒出"）。
+  const jsonDeleted = artifactStore.delete(projectId, artifactId);
+  let dbDeleted = false;
+  const itemStore = new ProjectItemStore(projectId, resolveDataDir());
+  try {
+    await itemStore.initialize();
+    try {
+      await itemStore.delete(artifactId);
+      dbDeleted = true;
+    } catch {
+      // @ignore-catch items.db 无此 id 属正常（未迁移项目只存在于 artifacts.json）
+    }
+  } catch {
+    // @ignore-catch itemStore 初始化失败不影响 artifacts.json 删除结果
+  } finally {
+    await itemStore.close().catch(() => {});
+  }
   json(
     res,
-    deleted ? 200 : 404,
-    deleted ? { ok: true } : { error: '构件不存在' }
+    jsonDeleted || dbDeleted ? 200 : 404,
+    jsonDeleted || dbDeleted ? { ok: true } : { error: '构件不存在' }
   );
 }
 
@@ -192,27 +245,37 @@ export async function handleGetProjectContext(
     const rulesPath = join(LIRI_PROJECTS_DIR, projectId, 'rules.md');
     if (existsSync(rulesPath)) {
       const entries = ProjectContextService.parseRulesFile(rulesPath);
-      span.setStatus({ code: SpanStatusCode.OK });
-      json(res, 200, entries);
-      return;
+      // E-9 修复：空 rules.md（迁移 rename 失败残留）不再遮蔽 items.db——
+      // 原实现只要文件存在就走 rules.md，空文件也会让 items.db context 永远不可见。
+      // 解析为空时继续落入 items.db 分支读取。
+      if (entries.length > 0) {
+        span.setStatus({ code: SpanStatusCode.OK });
+        json(res, 200, entries);
+        return;
+      }
     }
 
     // P2-4: rules.md 已迁移到 items.db，从 SQLite 读取
+    // D-1 修复：SQLite 连接必须关闭（否则句柄泄漏 + WAL 不 checkpoint + Windows 删项目 EBUSY）
     const itemStore = new ProjectItemStore(projectId, resolveDataDir());
-    if (itemStore.needsMigration()) {
-      await itemStore.initialize();
-      await itemStore.migrateFromLegacy();
-    } else {
-      await itemStore.initialize();
+    try {
+      if (itemStore.needsMigration()) {
+        await itemStore.initialize();
+        await itemStore.migrateFromLegacy();
+      } else {
+        await itemStore.initialize();
+      }
+      const items = await itemStore.list('context');
+      const entries: ProjectContext[] = items.map((item, idx) => ({
+        type: (item.type as ProjectContext['type']) ?? 'constraint',
+        content: item.content,
+        line: idx + 1,
+      }));
+      span.setStatus({ code: SpanStatusCode.OK });
+      json(res, 200, entries);
+    } finally {
+      await itemStore.close().catch(() => {});
     }
-    const items = await itemStore.list('context');
-    const entries: ProjectContext[] = items.map((item, idx) => ({
-      type: (item.type as ProjectContext['type']) ?? 'constraint',
-      content: item.content,
-      line: idx + 1,
-    }));
-    span.setStatus({ code: SpanStatusCode.OK });
-    json(res, 200, entries);
   } catch (e) {
     logger.error('解析项目上下文失败', { projectId, error: String(e) });
     await handleError(e, {
@@ -318,20 +381,25 @@ export async function handleSaveProjectContext(
     } else {
       // BUG-5 修复：S2 迁移后直写 rules.md 会重建文件 → needsMigration 复发 → 重复迁移。
       // 已迁移（rules.md 不存在）时写入 items.db（kind=context），保持与 ImplicitEngineHook 一致。
+      // D-1 修复：SQLite 连接用毕必须关闭。
       const itemStore = new ProjectItemStore(projectId, resolveDataDir());
-      await itemStore.initialize();
-      const existing = await itemStore.list('context');
-      if (!existing.some((i) => i.type === type && i.content === content)) {
-        await itemStore.upsert({
-          id: randomUUID(),
-          projectId,
-          kind: 'context',
-          type,
-          title: content,
-          content,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        });
+      try {
+        await itemStore.initialize();
+        const existing = await itemStore.list('context');
+        if (!existing.some((i) => i.type === type && i.content === content)) {
+          await itemStore.upsert({
+            id: randomUUID(),
+            projectId,
+            kind: 'context',
+            type,
+            title: content,
+            content,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          });
+        }
+      } finally {
+        await itemStore.close().catch(() => {});
       }
     }
     span.setStatus({ code: SpanStatusCode.OK });
@@ -441,15 +509,41 @@ export async function handleGetSummaries(
       projectId,
       'summaries.json'
     );
-    if (!existsSync(summariesPath)) {
+    if (existsSync(summariesPath)) {
+      const raw = readFileSync(summariesPath, 'utf-8');
+      const summaries = JSON.parse(raw);
       span.setStatus({ code: SpanStatusCode.OK });
-      json(res, 200, []);
+      json(res, 200, summaries);
       return;
     }
-    const raw = readFileSync(summariesPath, 'utf-8');
-    const summaries = JSON.parse(raw);
+
+    // E-2 修复：已迁移（summaries.json 缺失）回退 items.db
+    // （kind='context', type='summary'，content 存 SummaryEntry 的 JSON）。
+    // 原实现缺失直接返回 []——迁移后 AI 摘要永久不可见，跨会话记忆断裂。
+    const itemStore = new ProjectItemStore(projectId, resolveDataDir());
+    try {
+      await itemStore.initialize();
+      const items = await itemStore.list('context');
+      const entries = items
+        .filter((i) => i.type === 'summary')
+        .map((i) => {
+          try {
+            return JSON.parse(i.content);
+          } catch {
+            return null;
+          }
+        })
+        .filter((x): x is unknown => x !== null);
+      span.setStatus({ code: SpanStatusCode.OK });
+      json(res, 200, entries);
+      return;
+    } catch {
+      // @ignore-catch items.db 不可用时按空返回
+    } finally {
+      await itemStore.close().catch(() => {});
+    }
     span.setStatus({ code: SpanStatusCode.OK });
-    json(res, 200, summaries);
+    json(res, 200, []);
   } catch (e) {
     logger.error('读取摘要失败', { projectId, error: String(e) });
     await handleError(e, {
@@ -582,6 +676,8 @@ export async function handleListProjectFiles(
     const { readdirSync: _readdir, statSync: _stat } = await import('fs');
     // 方案二收尾：递归列出沙箱文件，files 的 name/path 为相对路径（含子目录），
     // 配合 00_input/01_work/output/ 目录约定；跳过隐藏/临时目录（_ 前缀）
+    // E-8 修复：递归加深度（≤4）与文件数（≤500）上限，避免含 node_modules/.git
+    // 时全量遍历慢、响应膨胀。
     const files: Array<{
       name: string;
       size: number;
@@ -589,7 +685,10 @@ export async function handleListProjectFiles(
       path: string;
     }> = [];
     const dirs: Array<{ name: string; type: 'dir' }> = [];
-    const walk = (dir: string, rel: string): void => {
+    const MAX_DEPTH = 4;
+    const MAX_FILES = 500;
+    const walk = (dir: string, rel: string, depth: number): void => {
+      if (depth > MAX_DEPTH || files.length >= MAX_FILES) return;
       let entries: import('fs').Dirent[] = [];
       try {
         entries = _readdir(dir, { withFileTypes: true });
@@ -597,13 +696,14 @@ export async function handleListProjectFiles(
         return;
       }
       for (const e of entries) {
+        if (files.length >= MAX_FILES) return;
         const full = join(dir, e.name);
         const relPath = rel ? `${rel}/${e.name}` : e.name;
         if (e.isDirectory()) {
           if (rel === '' && !e.name.startsWith('.')) {
             dirs.push({ name: e.name, type: 'dir' });
           }
-          if (!e.name.startsWith('_')) walk(full, relPath);
+          if (!e.name.startsWith('_')) walk(full, relPath, depth + 1);
         } else if (e.isFile()) {
           let size = 0;
           try {
@@ -620,7 +720,7 @@ export async function handleListProjectFiles(
         }
       }
     };
-    walk(project.sandboxPath, '');
+    walk(project.sandboxPath, '', 0);
     span.setStatus({ code: SpanStatusCode.OK });
     json(res, 200, { files, dirs, sandboxPath: project.sandboxPath });
   } catch (e) {

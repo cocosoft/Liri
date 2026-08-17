@@ -32,7 +32,7 @@
 import { Database } from '@modules/core/external/sqlite3';
 import { resolveDataDir } from '@modules/core/paths';
 import { join } from 'path';
-import { existsSync, mkdirSync, readFileSync, renameSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync, renameSync, statSync } from 'fs';
 import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
 import {
@@ -313,44 +313,70 @@ export class ProjectItemStore {
   // ─── FTS 同步 ───
 
   /** P2-1: 同步一条记录到 FTS5（使用 rowid 关联主表） */
-  private _syncFts(
+  private async _syncFts(
     rowid: number,
     title: string,
     content: string,
     summary?: string
-  ): void {
+  ): Promise<void> {
     try {
       const tokenizedTitle = bigramTokenize(title);
       const tokenizedContent = bigramTokenize(content);
       const tokenizedSummary = summary ? bigramTokenize(summary) : null;
-      this.db!.run(
-        `INSERT OR REPLACE INTO project_items_fts(rowid, title, content, summary)
-         VALUES (?, ?, ?, ?)`,
-        rowid,
-        tokenizedTitle,
-        tokenizedContent,
-        tokenizedSummary,
-        () => {
-          /* fire-and-forget */
-        }
-      );
-    } catch {
-      /* FTS 同步失败不影响主流程 */
+      // D-8 修复：原实现 fire-and-forget（不等待回调且异常静默吞掉）——高并发下
+      // delete 与 FTS 写入乱序时已删除记录残留在 FTS 索引；FTS 表损坏时每次 upsert
+      // 静默失败无人知晓。改为等待完成 + 失败记录日志（仍不阻断主流程）。
+      await new Promise<void>((resolve) => {
+        this.db!.run(
+          `INSERT OR REPLACE INTO project_items_fts(rowid, title, content, summary)
+           VALUES (?, ?, ?, ?)`,
+          rowid,
+          tokenizedTitle,
+          tokenizedContent,
+          tokenizedSummary,
+          (err: Error | null) => {
+            if (err) {
+              logger.warn('FTS 同步失败', {
+                projectId: this.projectId,
+                error: String(err),
+              });
+            }
+            resolve();
+          }
+        );
+      });
+    } catch (e) {
+      logger.warn('FTS 同步异常', {
+        projectId: this.projectId,
+        error: String(e),
+      });
     }
   }
 
   /** P2-1: 从 FTS5 删除一条记录 */
-  private _deleteFts(rowid: number): void {
+  private async _deleteFts(rowid: number): Promise<void> {
     try {
-      this.db!.run(
-        'DELETE FROM project_items_fts WHERE rowid = ?',
-        rowid,
-        () => {
-          /* fire-and-forget */
-        }
-      );
-    } catch {
-      /* ignore */
+      // D-8 修复：同上，等待完成 + 失败记录
+      await new Promise<void>((resolve) => {
+        this.db!.run(
+          'DELETE FROM project_items_fts WHERE rowid = ?',
+          rowid,
+          (err: Error | null) => {
+            if (err) {
+              logger.warn('FTS 删除失败', {
+                projectId: this.projectId,
+                error: String(err),
+              });
+            }
+            resolve();
+          }
+        );
+      });
+    } catch (e) {
+      logger.warn('FTS 删除异常', {
+        projectId: this.projectId,
+        error: String(e),
+      });
     }
   }
 
@@ -401,10 +427,10 @@ export class ProjectItemStore {
           }
         );
       });
-      // P2-1: 同步 FTS5（异步 fire-and-forget，不在主 Promise 内阻塞）
+      // P2-1: 同步 FTS5（D-8：改为等待完成，避免 delete 与 FTS 写入乱序残留）
       const rowid = await this._getRowid(item.id);
       if (rowid !== null) {
-        this._syncFts(rowid, item.title, item.content, item.summary);
+        await this._syncFts(rowid, item.title, item.content, item.summary);
       }
       span.setStatus({ code: SpanStatusCode.OK });
     } catch (e) {
@@ -547,6 +573,14 @@ export class ProjectItemStore {
       const tokenizedQuery = bigramTokenize(query);
       if (tokenizedQuery) {
         try {
+          // E-6 修复：FTS5 MATCH 特殊字符转义——bigramTokenize 会保留 `"` `*` `(` `OR`
+          // 等 FTS 语法字符，未转义会导致语法错误降级。把每个 token 包成双引号短语
+          //（内部双引号按 FTS5 规则翻倍转义），做字面短语匹配。
+          const safeFtsQuery = tokenizedQuery
+            .split(/\s+/)
+            .filter(Boolean)
+            .map((t) => `"${t.replace(/"/g, '""')}"`)
+            .join(' ');
           const ftsRows = await new Promise<ItemRow[]>((resolve, reject) => {
             this.db!.all(
               `SELECT pi.* FROM ${TABLE_NAME} pi
@@ -554,7 +588,7 @@ export class ProjectItemStore {
                WHERE project_items_fts MATCH ?
                ORDER BY rank
                LIMIT ?`,
-              tokenizedQuery,
+              safeFtsQuery,
               limit,
               (err: Error | null, rows: ItemRow[]) => {
                 if (err) reject(err);
@@ -571,13 +605,14 @@ export class ProjectItemStore {
         }
       }
 
-      // LIKE 降级
-      const likePattern = `%${query}%`;
+      // LIKE 降级（E-6：%/_/ 是 LIKE 通配符，未转义时 `%` 会匹配全部——转义 + ESCAPE）
+      const escapeLike = (s: string) => s.replace(/[\\%_]/g, (m) => `\\${m}`);
+      const likePattern = `%${escapeLike(query)}%`;
       const result = await new Promise<ProjectItem[]>((resolve, reject) => {
         this.db!.all(
           `SELECT * FROM ${TABLE_NAME}
            WHERE project_id = ?
-             AND (title LIKE ? OR content LIKE ? OR summary LIKE ?)
+             AND (title LIKE ? ESCAPE '\\' OR content LIKE ? ESCAPE '\\' OR summary LIKE ? ESCAPE '\\')
            ORDER BY updated_at DESC
            LIMIT ?`,
           this.projectId,
@@ -624,7 +659,8 @@ export class ProjectItemStore {
         );
       });
       if (rowid !== null) {
-        this._deleteFts(rowid);
+        // D-8：FTS 删除等待完成（原 fire-and-forget 可能与后续 upsert 乱序 → 残留）
+        await this._deleteFts(rowid);
       }
       span.setStatus({ code: SpanStatusCode.OK });
     } catch (e) {
@@ -677,6 +713,9 @@ export class ProjectItemStore {
       if (existsSync(rulesPath)) {
         try {
           const content = readFileSync(rulesPath, 'utf-8');
+          // E-10 修复：rules.md 无内嵌时间戳，用文件修改时间作为条目 createdAt 近似值，
+          // 避免全部重置为迁移时刻导致前端时间线排序错乱（artifacts/summaries 迁移已保留原时间）。
+          const rulesMtime = statSync(rulesPath).mtime.toISOString();
           const sections = content.split(/^### /gm).filter(Boolean);
           for (const section of sections) {
             const lines = section.split('\n');
@@ -696,8 +735,8 @@ export class ProjectItemStore {
               type: itemType,
               title: itemTitle,
               content: body,
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
+              createdAt: rulesMtime,
+              updatedAt: rulesMtime,
             });
             migrated++;
           }

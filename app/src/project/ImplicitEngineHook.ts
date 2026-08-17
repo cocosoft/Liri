@@ -255,26 +255,31 @@ export class ImplicitEngineHook {
       const migrated = !existsSync(rulesPath);
 
       if (migrated) {
+        // D-1 修复：SQLite 连接用毕必须关闭。
         const itemStore = new ProjectItemStore(projectId, resolveDataDir());
-        await itemStore.initialize();
-        const existingItems = await itemStore.list('context');
-        for (const ctx of contexts) {
-          const dup = existingItems.some(
-            (i) => i.type === ctx.type && i.content === ctx.content
-          );
-          if (!dup) {
-            await itemStore.upsert({
-              id: `implicit_ctx_${Date.now()}_${result.contexts}`,
-              projectId,
-              kind: 'context',
-              type: ctx.type,
-              title: ctx.content,
-              content: ctx.content,
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-            });
-            result.contexts++;
+        try {
+          await itemStore.initialize();
+          const existingItems = await itemStore.list('context');
+          for (const ctx of contexts) {
+            const dup = existingItems.some(
+              (i) => i.type === ctx.type && i.content === ctx.content
+            );
+            if (!dup) {
+              await itemStore.upsert({
+                id: `implicit_ctx_${Date.now()}_${result.contexts}`,
+                projectId,
+                kind: 'context',
+                type: ctx.type,
+                title: ctx.content,
+                content: ctx.content,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+              });
+              result.contexts++;
+            }
           }
+        } finally {
+          await itemStore.close().catch(() => {});
         }
       } else {
         let existingLines: string[] = [];
@@ -296,24 +301,29 @@ export class ImplicitEngineHook {
       // 写入 artifacts（迁移前 artifacts.json，迁移后 items.db）
       const artifactsPath = join(projectDir, 'artifacts.json');
       if (migrated) {
+        // D-1 修复：SQLite 连接用毕必须关闭。
         const itemStore = new ProjectItemStore(projectId, resolveDataDir());
-        await itemStore.initialize();
-        const existingItems = await itemStore.list('artifact');
-        for (const del of deliverables) {
-          const dup = existingItems.some((a) => a.title === del.slice(0, 80));
-          if (!dup) {
-            await itemStore.upsert({
-              id: randomUUID(),
-              projectId,
-              kind: 'artifact',
-              type: 'artifact',
-              title: del.slice(0, 80),
-              content: del,
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-            });
-            result.deliverables++;
+        try {
+          await itemStore.initialize();
+          const existingItems = await itemStore.list('artifact');
+          for (const del of deliverables) {
+            const dup = existingItems.some((a) => a.title === del.slice(0, 80));
+            if (!dup) {
+              await itemStore.upsert({
+                id: randomUUID(),
+                projectId,
+                kind: 'artifact',
+                type: 'artifact',
+                title: del.slice(0, 80),
+                content: del,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+              });
+              result.deliverables++;
+            }
           }
+        } finally {
+          await itemStore.close().catch(() => {});
         }
       } else {
         interface ArtifactEntry {

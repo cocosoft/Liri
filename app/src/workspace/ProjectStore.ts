@@ -13,6 +13,7 @@ import {
   readdirSync,
   unlinkSync,
   rmSync,
+  renameSync,
 } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
@@ -25,7 +26,7 @@ import type {
   WorkItemStatus,
 } from './types';
 import { WorkItemStore } from './WorkItemStore';
-import { resolveDataDir } from '@modules/core/paths';
+import { resolveDataDir, resolveDataSubDir } from '@modules/core/paths';
 import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error';
@@ -283,7 +284,11 @@ export class ProjectStore {
       mkdirSync(dirPath, { recursive: true });
     }
     const filePath = this.getFilePath(project.id);
-    writeFileSync(filePath, JSON.stringify(project, null, 2), 'utf-8');
+    // D-5 修复：原子写（临时文件 + rename）。原实现直接 writeFileSync，
+    // 写一半崩溃 → project.json 损坏 → _readProject 返回 null → 项目静默"消失"。
+    const tmpPath = `${filePath}.tmp`;
+    writeFileSync(tmpPath, JSON.stringify(project, null, 2), 'utf-8');
+    renameSync(tmpPath, filePath);
     // P0-1/P0-2: 幂等补写项目上下文文件，覆盖 create/update/惰性迁移所有写路径
     this.writeContextFile(project);
   }
@@ -323,6 +328,8 @@ export class ProjectStore {
     template?: Project['template'];
     tags?: string[];
     sandboxPath?: string;
+    /** E-7: 显式指定项目 ID（migrateWorktrees 保留旧 worktreeId，避免会话/历史无法关联） */
+    id?: string;
     /** P0-5: 延迟创建 sandbox 文件夹（自动建项目时设为 true，等首次使用再 mkdir） */
     delaySandbox?: boolean;
   }): Project {
@@ -332,7 +339,9 @@ export class ProjectStore {
       this.ensureDir();
 
       const now = new Date().toISOString();
-      const id = `proj_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      const id =
+        params.id ??
+        `proj_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
       // 解析 sandboxPath：用户指定 > 默认路径（~/Documents/LiriProjects/<projectId>）
       const sandboxPath =
@@ -440,6 +449,23 @@ export class ProjectStore {
         void handleError(e, {
           module: 'workspace:ProjectStore',
           action: 'deleteLegacyFile',
+        });
+      }
+
+      // E-5 修复：清理历史记录（data/history/<projectId>/*.jsonl）。
+      // 原实现只删项目目录，ProjectHistoryStore 的历史数据残留（磁盘垃圾累积，
+      // 若未来 id 复用存在数据泄漏风险）。
+      try {
+        const historyDir = join(resolveDataSubDir('history'), id);
+        if (existsSync(historyDir)) {
+          rmSync(historyDir, { recursive: true, force: true });
+          logger.info('项目历史记录已删除', { projectId: id });
+        }
+      } catch (e) {
+        // @ignore-catch 历史目录删除失败仅记录，不阻断删除主流程
+        void handleError(e, {
+          module: 'workspace:ProjectStore',
+          action: 'deleteHistory',
         });
       }
 

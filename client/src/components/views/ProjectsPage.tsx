@@ -15,7 +15,10 @@ import { useChatStore } from "@/stores/chat";
 import { chatCoordinator } from "@/stores/chat/chatCoordinator";
 import { sessionService } from "@/services/sessionService";
 import { handleClientError } from "@/utils/handleError";
-import { triggerEngineHook, deleteProject } from "@/services/projectArtifactService";
+import {
+  triggerEngineHook,
+  deleteProject,
+} from "@/services/projectArtifactService";
 import CreateProjectModal from "@/components/Workspace/CreateProjectModal";
 import ChatArea from "@/components/ChatArea/ChatArea";
 import SessionHistorySidebar from "@/components/ChatArea/SessionHistorySidebar";
@@ -641,8 +644,18 @@ export default function ProjectsPage() {
               {canUndo && (
                 <button
                   onClick={() => {
-                    deleteWorkspace(p.id);
-                    setContextMenuId(null);
+                    // 遗留①修复：撤销创建与 handleDelete 同源——先删后端实体再清 UI，
+                    // 否则项目在后端残留、刷新后"复活"。
+                    void (async () => {
+                      const backendDeleted = await deleteProject(p.id);
+                      if (!backendDeleted) {
+                        alert("删除后端项目失败，请重试");
+                        setContextMenuId(null);
+                        return;
+                      }
+                      deleteWorkspace(p.id);
+                      setContextMenuId(null);
+                    })();
                   }}
                   className="w-full text-left px-3 py-1.5 text-xs text-amber-600 dark:text-amber-400 hover:bg-gray-100 dark:hover:bg-gray-700"
                 >

@@ -138,7 +138,18 @@ export function migrateWorktrees(
     }
 
     try {
+      // E-7 修复：保留旧 worktreeId 作为新项目 id（原实现 store.create 重新生成
+      // proj_id，wt.id 被丢弃 → 旧 worktree 的会话/历史无法关联到新项目）。
+      // id 参与 join 路径，先做穿越防护校验；不安全的 id 退化为自动生成。
+      const id =
+        wt.id &&
+        !wt.id.includes('/') &&
+        !wt.id.includes('\\') &&
+        !wt.id.includes('..')
+          ? wt.id
+          : undefined;
       store.create({
+        id,
         workspaceId,
         name: wt.name,
         description: wt.description || '',

@@ -1549,6 +1549,16 @@
       "plan": "本地模型链路 15 项修复（2026-08-16）后由 715 行增至 993 行（P2#9 自动同步 syncLlamaModelsToRegistry 迁入本模块以消除循环依赖）；后续随 llama 子模块拆分（配置/生命周期/下载/同步）收敛",
       "expiresAt": "2026-11-30",
       "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-137",
+      "ruleId": "R04-001",
+      "file": "app/src/infrastructure/http/handlers/project-artifact-handlers.ts",
+      "lines": 815,
+      "targetLines": 800,
+      "plan": "项目模块第三轮深挖修复（2026-08-17 E-1 artifacts 双写分流/list 合并、E-2 summaries 读回退、E-8 文件列表限制、E-9 空 rules.md）致行数微超 15 行；后续按 artifact/context/files 子域拆分",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
     }
   ],
   "barrelExceptions": [

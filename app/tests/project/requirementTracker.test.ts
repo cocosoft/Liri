@@ -55,7 +55,7 @@ describe('RequirementTracker — 需求注册（D3）', () => {
     expect(tracker.list().length).toBe(2);
   });
 
-  it('覆盖检查：requirementId 标签 + 内容片段双重证据映射', () => {
+  it('覆盖检查：requirementId 标签 + 内容片段双重证据映射', async () => {
     const tracker = new RequirementTracker(projectId, root);
     const req = tracker.register({
       type: 'goal',
@@ -87,7 +87,7 @@ describe('RequirementTracker — 需求注册（D3）', () => {
       'utf-8'
     );
 
-    const coverage = tracker.checkCoverage();
+    const coverage = await tracker.checkCoverage();
     const entry = coverage.find((c) => c.requirement.id === req.id);
     expect(entry).toBeDefined();
     expect(entry!.covered).toBe(true);
@@ -100,6 +100,11 @@ describe('ImplicitEngineHook.persist — 需求注册集成（D3）', () => {
   it('检测到 goal 上下文时注册需求并给产物打标', async () => {
     const text =
       '项目目标：开发发票识别工具\n需求：支持 pdf 与图片两种输入\n产出：E:\\out\\invoice.pdf';
+
+    // E-9 修复后 persist 按"rules.md 是否存在"分流：无 rules.md（已迁移）走 items.db，
+    // 不写 artifacts.json。测试断言 artifacts.json 打标 → 先创建 rules.md 模拟未迁移项目。
+    writeFileSync(join(projectDir, 'rules.md'), '', 'utf-8');
+
     const result = await ImplicitEngineHook.persist(
       projectId,
       text,

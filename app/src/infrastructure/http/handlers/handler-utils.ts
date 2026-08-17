@@ -195,7 +195,9 @@ export function readRequestBody(
     const contentLength = parseInt(req.headers['content-length'] || '0', 10);
     if (contentLength > maxBytes) {
       reject(
-        new Error(`Request body too large (${contentLength} bytes > ${maxBytes})`)
+        new Error(
+          `Request body too large (${contentLength} bytes > ${maxBytes})`
+        )
       );
       return;
     }

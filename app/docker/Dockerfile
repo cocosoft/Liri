@@ -24,7 +24,9 @@ RUN cargo build --release && \
 # =============================================================================
 #  构建阶段 2：Bun 打包 JS bundle
 # =============================================================================
-FROM oven/bun:latest AS app-builder
+# 固定 bun 版本与本地/CI 一致（1.3.14），避免 latest 漂移导致 install/build 行为差异
+# （2026-08-17 排查：Deploy Docker run 342 起 bun build 失败，root cause 为 install 环境 + 版本漂移）
+FROM oven/bun:1.3.14 AS app-builder
 
 # 安装编译原生模块所需的系统依赖
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -37,7 +39,9 @@ WORKDIR /app
 
 # 复制依赖清单（利用 Docker 层缓存）
 COPY app/package.json app/bun.lock* ./
-RUN bun install --frozen-lockfile --no-progress 2>/dev/null || bun install --no-progress
+# 2026-08-17 修复：原 `bun install --frozen-lockfile ... || bun install` 静默降级会掩盖
+# install 失败（依赖树不完整 → bun build 报模块缺失）。frozen-lockfile 失败必须显式报错暴露根因。
+RUN bun install --frozen-lockfile --no-progress
 
 # 复制源码（app/ → /app/）
 COPY app/ .
@@ -65,7 +69,7 @@ RUN bun run scripts/copy-external-deps.ts --target=/app/dist
 # =============================================================================
 #  运行阶段：Bun 运行时
 # =============================================================================
-FROM oven/bun:latest AS runtime
+FROM oven/bun:1.3.14 AS runtime
 
 # 安装运行时系统依赖
 RUN apt-get update && apt-get install -y --no-install-recommends \

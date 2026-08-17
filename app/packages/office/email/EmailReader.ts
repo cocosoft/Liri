@@ -79,15 +79,33 @@ async function fetchMailBodyText(
   uid: number,
   part: { path: string; isHtml: boolean } | undefined
 ): Promise<string> {
-  if (!part) return '';
+  if (!part) {
+    logger.info('邮件无 text part，snippet 回退主题', { uid });
+    return '';
+  }
   try {
     const msg = await (client as any).fetchOne(uid, {
       uid: true,
       bodyParts: [part.path],
     });
     const text = msg?.bodyParts?.[part.path];
-    if (typeof text !== 'string') return '';
-    return part.isHtml ? htmlToText(text) : text;
+    if (typeof text !== 'string') {
+      logger.warn('邮件正文 part 返回异常（缺失或非字符串）', {
+        uid,
+        partPath: part.path,
+        rawType: text === undefined ? 'undefined' : typeof text,
+      });
+      return '';
+    }
+    const plain = part.isHtml ? htmlToText(text) : text;
+    logger.info('邮件正文拉取成功', {
+      uid,
+      partPath: part.path,
+      isHtml: part.isHtml,
+      rawLength: text.length,
+      plainLength: plain.length,
+    });
+    return plain;
   } catch (err) {
     logger.warn('邮件正文 part 拉取失败', {
       uid,
@@ -141,12 +159,16 @@ export class EmailReader {
 
       // 遗留项 1：空收件箱（exists=0）直接返回，避免 fetch({start:1, end:0}) 无效范围抛错
       const mailbox = await client.mailboxOpen('INBOX');
+      logger.info('IMAP INBOX 打开成功', { exists: mailbox.exists });
       if (!mailbox.exists) {
+        logger.info('收件箱为空，返回空列表');
         await client.logout();
         return [];
       }
 
       const messages: EmailSummary[] = [];
+      let bodyOkCount = 0;
+      let bodyFallbackCount = 0;
 
       // N-7：不再用 body:true 全量下载（含附件 base64）——改为两遍拉取：
       // 第一遍 envelope+bodyStructure 定位 text part，第二遍 bodyParts 精确拉正文。
@@ -161,11 +183,20 @@ export class EmailReader {
       )) {
         const fromAddr = msg.envelope.from?.[0]?.address || '';
         const subject = msg.envelope.subject || '';
-        const bodyText = await fetchMailBodyText(
-          client,
-          msg.uid,
-          findTextPart(msg.bodyStructure)
-        );
+        const textPart = findTextPart(msg.bodyStructure);
+        logger.info('邮件正文 part 定位', {
+          uid: msg.uid,
+          subject,
+          part: textPart
+            ? `${textPart.path}(${textPart.isHtml ? 'html' : 'plain'})`
+            : null,
+        });
+        const bodyText = await fetchMailBodyText(client, msg.uid, textPart);
+        if (bodyText) {
+          bodyOkCount++;
+        } else {
+          bodyFallbackCount++;
+        }
         messages.push({
           uid: msg.uid,
           folder: 'INBOX',
@@ -178,10 +209,18 @@ export class EmailReader {
         });
       }
 
+      logger.info('IMAP 收件箱读取完成', {
+        total: messages.length,
+        bodyOkCount,
+        bodyFallbackCount,
+      });
       await client.logout();
       return messages;
     } catch (error) {
       // G-4/D-7：读取失败用正确的读取错误码（原误用 MAIL_SEND_FAILED）
+      logger.warn('IMAP 收件箱读取失败', {
+        error: error instanceof Error ? error.message : String(error),
+      });
       throw new Error(
         `MAIL_READ_FAILED: IMAP 读取失败 - ${error instanceof Error ? error.message : String(error)}`
       );
@@ -215,9 +254,14 @@ export class EmailReader {
     try {
       await client.connect();
       const mailbox = await client.mailboxOpen('INBOX');
+      logger.info('IMAP 搜索 INBOX 打开成功', {
+        query,
+        exists: mailbox.exists,
+      });
 
       // 遗留项 1：空收件箱直接返回空结果（避免无效 search range）
       if (!mailbox.exists) {
+        logger.info('搜索收件箱为空，返回空结果', { query });
         await client.logout();
         return [];
       }
@@ -231,8 +275,15 @@ export class EmailReader {
         { text: query },
         { uid: true, range }
       );
+      logger.info('IMAP 搜索命中', {
+        query,
+        matched: searchUids.length,
+        capped: Math.min(searchUids.length, limit),
+      });
 
       const messages: EmailSummary[] = [];
+      let bodyOkCount = 0;
+      let bodyFallbackCount = 0;
       if (searchUids.length > 0) {
         const capped = searchUids.slice(-limit);
         // N-7：bodyStructure 定位 text part 后 bodyParts 精确拉取，避免全量下载附件
@@ -244,11 +295,21 @@ export class EmailReader {
         })) {
           const fromAddr = msg.envelope.from?.[0]?.address || '';
           const subject = msg.envelope.subject || '';
-          const bodyText = await fetchMailBodyText(
-            client,
-            msg.uid,
-            findTextPart(msg.bodyStructure)
-          );
+          const textPart = findTextPart(msg.bodyStructure);
+          logger.info('搜索邮件正文 part 定位', {
+            query,
+            uid: msg.uid,
+            subject,
+            part: textPart
+              ? `${textPart.path}(${textPart.isHtml ? 'html' : 'plain'})`
+              : null,
+          });
+          const bodyText = await fetchMailBodyText(client, msg.uid, textPart);
+          if (bodyText) {
+            bodyOkCount++;
+          } else {
+            bodyFallbackCount++;
+          }
           messages.push({
             uid: msg.uid,
             folder: 'INBOX',
@@ -262,9 +323,19 @@ export class EmailReader {
         }
       }
 
+      logger.info('IMAP 搜索完成', {
+        query,
+        total: messages.length,
+        bodyOkCount,
+        bodyFallbackCount,
+      });
       await client.logout();
       return messages;
     } catch (error) {
+      logger.warn('IMAP 搜索失败', {
+        query,
+        error: error instanceof Error ? error.message : String(error),
+      });
       throw new Error(
         `MAIL_READ_FAILED: IMAP 搜索失败 - ${error instanceof Error ? error.message : String(error)}`
       );

@@ -40,6 +40,17 @@ export async function handleCreateCustomModel(
 ): Promise<void> {
   try {
     const body = (await parseBody(req)) as Record<string, unknown>;
+    logger.info('收到创建自定义模型请求', {
+      modelId: body.modelId,
+      displayName: body.displayName,
+      providerId: body.providerId,
+      capabilities: body.capabilities,
+      billingMode: body.billingMode,
+      pricePerRequest: body.pricePerRequest,
+      contextWindow: body.contextWindow,
+      maxOutputTokens: body.maxOutputTokens,
+      isCustom: body.isCustom,
+    });
     // modelPricingService 已通过顶部静态 import 引入
     const { ModelRegistry } = await import('../models/ModelRegistry.js');
 
@@ -47,6 +58,9 @@ export async function handleCreateCustomModel(
 
     const modelId = body.modelId as string;
     if (!modelId) {
+      logger.warn('创建自定义模型失败：modelId 为空', {
+        displayName: body.displayName,
+      });
       sendError(res, 'modelId 不能为空', 400);
       return;
     }
@@ -73,6 +87,13 @@ export async function handleCreateCustomModel(
       // 用户手动添加 = 自定义模型（is_custom=1）；默认 true，显式传 false 才关闭
       isCustom: body.isCustom !== false,
     });
+    logger.info('模型定价记录已创建/更新', {
+      modelId,
+      isCustom: body.isCustom !== false,
+      pricingSource: 'manual',
+      recordModelId: (record as { modelId?: string })?.modelId,
+      recordIsCustom: (record as { isCustom?: boolean })?.isCustom,
+    });
 
     // 在注册表中发现该模型
     const registry = ModelRegistry.getInstance();
@@ -81,10 +102,15 @@ export async function handleCreateCustomModel(
       contextWindow: (body.contextWindow as number) || 200000,
       maxOutputTokens: (body.maxOutputTokens as number) || 4096,
     });
+    logger.info('模型已注册到运行时注册表', {
+      modelId,
+      displayName: body.displayName,
+    });
     // 刷新 ModelRegistry 定价缓存
     registry.refreshDbPricing().catch((er: unknown) => {
       // @ignore-catch: 非关键缓存刷新
       logger.warning('refreshDbPricing 失败(registry)', {
+        modelId,
         error: (er as Error).message,
       });
     });
@@ -94,15 +120,21 @@ export async function handleCreateCustomModel(
     modelRouter.invalidateUuidCache().catch((er: unknown) => {
       // @ignore-catch: 非关键缓存刷新
       logger.warning('invalidateUuidCache 失败', {
+        modelId,
         error: (er as Error).message,
       });
     });
 
+    logger.info('创建自定义模型成功', { modelId });
     sendJson(res, { data: record }, 201);
   } catch (err) {
     await handleError(err, {
       module: 'ai:modelManagement',
       action: 'createModel',
+    });
+    logger.warn('创建自定义模型失败（异常路径）', {
+      error: (err as Error).message,
+      stack: (err as Error).stack,
     });
     sendError(res, `创建模型失败: ${(err as Error).message}`, 500);
   }

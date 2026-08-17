@@ -10,12 +10,12 @@ client/
 **/node_modules/
 app/dist/
 app/dist-test/
-**/target/
-dist/
+app/native/target/
+/dist/
 
-# ── 运行时数据 ──
-**/data/
-**/logs/
+# ── 运行时数据（仅排除对应层级，禁止 **/ 递归——会误伤 src 源码目录）──
+app/data/
+/logs/
 
 # ── 开发/参考目录（不入镜像）──
 dev_docs/

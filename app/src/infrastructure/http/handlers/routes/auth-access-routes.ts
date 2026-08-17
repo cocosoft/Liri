@@ -245,6 +245,21 @@ export async function dispatchAuthAccessRoutes(
     await handleDocCreate(req, res);
     return true;
   }
+  if (method === 'POST' && url === '/v1/doc/rename') {
+    const { handleDocRename } = await import('@modules/doc');
+    await handleDocRename(req, res);
+    return true;
+  }
+  if (method === 'DELETE' && url.startsWith('/v1/doc/delete')) {
+    const { handleDocDelete } = await import('@modules/doc');
+    await handleDocDelete(req, res);
+    return true;
+  }
+  if (method === 'POST' && url === '/v1/doc/upload') {
+    const { handleDocUpload } = await import('@modules/doc');
+    await handleDocUpload(req, res);
+    return true;
+  }
   if (method === 'GET' && url.startsWith('/v1/doc/download')) {
     const { handleDocDownload } = await import('@modules/doc');
     await handleDocDownload(req, res);

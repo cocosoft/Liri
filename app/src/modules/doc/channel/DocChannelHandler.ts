@@ -4,6 +4,7 @@
  */
 
 import { getLogger } from '@modules/monitoring';
+import { AppError } from '@modules/error';
 const logger = getLogger('doc:channel');
 
 /**
@@ -20,20 +21,28 @@ export class DocChannelHandler {
 
   /**
    * 渠道内创建文档并发送文件预览
+   * G-12：显式未实现——原静默 log 返回成功属"假成功"，改为抛出明确错误
    */
   async createAndSend(
     channelId: string,
     args: { filename: string; content: string }
   ): Promise<void> {
-    logger.info('渠道文档创建', { channelId, filename: args.filename });
-    // TODO: MCP 创建 + sendFile 实现
+    throw new AppError(
+      '渠道内创建文档功能未实现',
+      'UNIMPLEMENTED' as any,
+      'MEDIUM' as any,
+      'DOC_CHANNEL_UNIMPLEMENTED',
+      { channelId, filename: args.filename }
+    );
   }
 
   /**
    * 注册渠道感知工具到 ToolManager
+   * G-12：未实现——不再输出"已注册"误导日志
    */
   registerTools(): void {
-    logger.info('DocChannelHandler 工具已注册');
-    // TODO: ToolManager.registerTool('doc:send-to-channel', ...)
+    logger.warn(
+      '渠道感知工具未注册：DocChannelHandler 尚未接入 ToolManager（G-12）'
+    );
   }
 }

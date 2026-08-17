@@ -152,11 +152,19 @@ export default function OfficeMailPage() {
     setSaving(true);
     setError(null);
     try {
-      await officeService.sendMail({
+      // G-6 修复：检查响应 ok，避免发送失败（如 400 密文 AUTH 失败）仍被当作成功
+      const res = await officeService.sendMail({
         to: mailTo,
         subject: mailSubject,
         body: mailBody,
       });
+      if (res?.ok === false) {
+        setError(
+          (res.error as unknown as { message?: string })?.message ||
+            t("office.mailSendError", "发送失败"),
+        );
+        return;
+      }
       setShowCompose(false);
       setMailTo("");
       setMailSubject("");
@@ -171,11 +179,18 @@ export default function OfficeMailPage() {
 
   async function handleDeleteMail(id: string) {
     try {
-      await officeService.deleteMail(id);
+      const res = await officeService.deleteMail(id);
+      if (res?.ok === false) {
+        setError(
+          (res.error as unknown as { message?: string })?.message ||
+            t("office.mailDeleteError", "删除失败"),
+        );
+        return;
+      }
       fetchMailList();
       setSelectedMail(null);
     } catch {
-      /* ignored */
+      setError(t("office.mailDeleteError", "删除失败"));
     }
   }
 

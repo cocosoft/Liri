@@ -50,11 +50,8 @@ export class ExecutionGuardian {
       // 原子重命名
       fs.renameSync(tmpPath, targetPath);
 
-      // 清理备份
-      if (existed && fs.existsSync(backupPath)) {
-        fs.unlinkSync(backupPath);
-      }
-
+      // D-8 修复：保留 backup 供 undo 撤销使用（原删除后 undo 永远"无可用备份"）。
+      // 下次 guardedWrite 会重新覆盖 backup，无累积风险。
       logger.info('文件操作完成', { operation, target: targetPath });
     } catch (err) {
       // 失败回滚

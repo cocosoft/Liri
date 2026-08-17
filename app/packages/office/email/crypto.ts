@@ -77,3 +77,21 @@ export function decryptPassword(ciphertext: string): string {
   ]);
   return decrypted.toString('utf-8');
 }
+
+/**
+ * 判断字符串是否为 `iv:encrypted:tag` 密文格式
+ */
+export function isEncryptedPassword(value: string): boolean {
+  const parts = value.split(':');
+  return parts.length === 3 && parts.every((p) => /^[0-9a-f]+$/i.test(p));
+}
+
+/**
+ * 解析账户密码：密文则解密返回明文，非密文（明文/空）原样返回。
+ * BUG-2：EmailSender/EmailReader 认证前必须解密密文密码。
+ */
+export function resolvePlainPassword(pass: string | undefined): string {
+  if (!pass) return pass ?? '';
+  if (!isEncryptedPassword(pass)) return pass;
+  return decryptPassword(pass);
+}

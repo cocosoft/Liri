@@ -293,8 +293,15 @@ export class CalendarMerger {
 
   /**
    * 关闭数据库连接
+   * G-2 修复：同时关闭 cronStore 与 aiIndex 两个连接，防止每次请求泄漏
    */
   async close(): Promise<void> {
     await this.aiIndex.close();
+    // cronStore 独立打开连接，必须显式关闭
+    try {
+      await this.cronStore.close();
+    } catch (err) {
+      logger.warn('cronStore 关闭失败', { error: String(err) });
+    }
   }
 }

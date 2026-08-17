@@ -24,6 +24,19 @@ function WorkspaceRedirect() {
   return null;
 }
 
+/**
+ * D-12 修复：/office/calendar → /calendar 重定向并保留 search（含 date= 参数），
+ * 使消息中心的「查看日历」通知能定位到具体日期
+ */
+function NavigateWithSearch() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  useEffect(() => {
+    navigate(`/calendar${location.search}`, { replace: true });
+  }, [location.search, navigate]);
+  return null;
+}
+
 // 页面组件懒加载（减少首屏体积）
 const HomePage = lazy(() => import("../components/views/HomePage"));
 const DashboardPage = lazy(() => import("../components/views/DashboardPage"));
@@ -254,7 +267,11 @@ export const routes: RouteObject[] = [
       </AuthGuard>
     ),
   },
-  { path: "/office/calendar", element: <Navigate to="/calendar" replace /> },
+  // D-12 修复：带 date 查询参数的通知跳转保留 query（原 <Navigate to="/calendar"> 丢弃 search，无法定位日期）
+  {
+    path: "/office/calendar",
+    element: <NavigateWithSearch />,
+  },
 
   // 日历模块（独立顶级路由）
   {

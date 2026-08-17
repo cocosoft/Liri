@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect, useMemo } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { CalendarIcon } from "../../../assets/icons/navigation";
 import { useRootStore } from "../../../stores/root-store";
@@ -102,6 +102,8 @@ const CRON_STATE_COLORS: Record<string, string> = {
 
 export default function OfficeCalendarPage() {
   const { t } = useTranslation();
+  const [searchParams] = useSearchParams();
+
   const {
     mergedCalendar,
     mergedErrors,
@@ -132,6 +134,15 @@ export default function OfficeCalendarPage() {
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+
+  // D-12 深化修复：从 URL 读取 date 参数（通知「查看日历」跳转），定位到具体日期
+  useEffect(() => {
+    const dateParam = searchParams.get("date");
+    if (dateParam) {
+      setSelectedDate(dateParam);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("month");
 
@@ -141,6 +152,17 @@ export default function OfficeCalendarPage() {
   const [viewMonth, setViewMonth] = useState(today.getMonth());
   /** 周视图偏移量（0=当前周，-1=上周，1=下周） */
   const [weekOffset, setWeekOffset] = useState(0);
+
+  /** D-13 修复：周视图标题按 weekOffset 计算实际年月（原固定用 viewYear/viewMonth 显示错误月份） */
+  const weekTitle = useMemo(() => {
+    const now = new Date();
+    const currentMonday = new Date(now);
+    const dow = now.getDay();
+    currentMonday.setDate(now.getDate() - dow + (dow === 0 ? -6 : 1));
+    const weekStart = new Date(currentMonday);
+    weekStart.setDate(currentMonday.getDate() + weekOffset * 7);
+    return `${weekStart.getFullYear()}年 ${MONTH_NAMES[weekStart.getMonth()]}`;
+  }, [weekOffset]);
 
   /** 右键菜单状态 */
   const [contextMenu, setContextMenu] = useState<{
@@ -344,7 +366,8 @@ export default function OfficeCalendarPage() {
     setSaving(true);
     setError(null);
     try {
-      await officeService.addCalendarEvent({
+      // G-11 修复：检查响应 ok，添加失败不再静默当作成功
+      const res = await officeService.addCalendarEvent({
         summary: data.summary,
         start: data.start,
         end: data.end,
@@ -354,6 +377,15 @@ export default function OfficeCalendarPage() {
         priority: data.priority,
         tags: data.tags ? data.tags.split(",").map((s) => s.trim()) : undefined,
       });
+      const wrapped = res as unknown as {
+        ok?: boolean;
+        error?: { message?: string };
+      };
+      if (wrapped.ok === false) {
+        setError(wrapped.error?.message ?? t("office.calAddError", "添加日程失败"));
+        setTimeout(() => setError(null), 4000);
+        return;
+      }
       // 同步到消息中心待办
       if (data.syncToNotification) {
         notificationService
@@ -376,6 +408,7 @@ export default function OfficeCalendarPage() {
       refreshMerged();
     } catch {
       setError(t("office.calAddError", "添加日程失败"));
+      setTimeout(() => setError(null), 4000);
     } finally {
       setSaving(false);
     }
@@ -404,10 +437,21 @@ export default function OfficeCalendarPage() {
   /** 删除日程后刷新 */
   async function handleDeleteEvent(id: string) {
     try {
-      await officeService.deleteCalendarEvent(id);
+      // G-11 修复：检查响应 ok，删除失败不再静默当作成功
+      const res = await officeService.deleteCalendarEvent(id);
+      const wrapped = res as unknown as {
+        ok?: boolean;
+        error?: { message?: string };
+      };
+      if (wrapped.ok === false) {
+        setError(wrapped.error?.message ?? t("office.calDeleteError", "删除日程失败"));
+        setTimeout(() => setError(null), 4000);
+        return;
+      }
       refreshMerged();
     } catch {
-      /* ignored */
+      setError(t("office.calDeleteError", "删除日程失败"));
+      setTimeout(() => setError(null), 4000);
     }
   }
 
@@ -1130,7 +1174,7 @@ export default function OfficeCalendarPage() {
                       ◀ 上周
                     </button>
                     <h2 className="text-base font-semibold text-gray-900 dark:text-white">
-                      {viewYear}年 {MONTH_NAMES[viewMonth]}
+                      {weekTitle}
                     </h2>
                     <button
                       onClick={nextMonth}

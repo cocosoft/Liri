@@ -14,7 +14,7 @@ import { useEffect, useState, useRef } from "react";
 import mammoth from "mammoth";
 import * as XLSX from "xlsx";
 import DOMPurify from "dompurify";
-import { getBackendBaseUrl } from "../../services/backendUrl";
+import { http } from "../../services/httpClient";
 import { handleClientError } from "../../utils/handleError";
 import type { FilePreview } from "../../types";
 
@@ -51,15 +51,22 @@ export default function OfficePreview({ file }: OfficePreviewProps) {
       setError(null);
 
       try {
-        const baseUrl = getBackendBaseUrl();
-        const streamUrl = `${baseUrl}/api/file/stream?path=${encodeURIComponent(file.path)}`;
-        const res = await fetch(streamUrl);
-
-        if (!res.ok) {
-          throw new Error(`HTTP ${res.status}: 文件加载失败`);
+        // G-10 修复：改用 httpClient（自动携带 API-Key/Bearer 鉴权头），
+        // 原原生 fetch 在配置 LIRI_API_SECRET 后必 401
+        const blobRes = await http.get<Blob>(
+          `/api/file/stream?path=${encodeURIComponent(file.path)}`,
+          {
+            responseType: "blob",
+          } as Record<string, unknown>,
+        );
+        if (blobRes?.ok === false) {
+          throw new Error(
+            (blobRes.error as unknown as { message?: string })?.message ||
+              "文件加载失败",
+          );
         }
-
-        const arrayBuffer = await res.arrayBuffer();
+        const blob = blobRes.data as Blob;
+        const arrayBuffer = await blob.arrayBuffer();
         if (cancelled) return;
 
         let content: string;

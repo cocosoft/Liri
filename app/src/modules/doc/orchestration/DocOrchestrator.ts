@@ -26,6 +26,23 @@ interface WorkflowResult {
  * 依赖 doc（核心）+ mail（可选），mail 未安装时跳过邮件步骤
  */
 export class DocOrchestrator {
+  /** D-1 修复：由 DocModule 注入的真实工具调用执行器（未注入时显式失败，不做假成功） */
+  private toolExecutor:
+    | ((tool: string, params: Record<string, unknown>) => Promise<unknown>)
+    | null = null;
+
+  /**
+   * 注入工具执行器（DocModule 初始化时调用）
+   */
+  setToolExecutor(
+    executor: (
+      tool: string,
+      params: Record<string, unknown>
+    ) => Promise<unknown>
+  ): void {
+    this.toolExecutor = executor;
+  }
+
   /** 预定义编排模板 */
   static readonly workflows: Record<string, WorkflowStep[]> = {
     'send-report': [
@@ -49,6 +66,7 @@ export class DocOrchestrator {
   /**
    * 执行编排模板
    * 中间结果自动在步骤间传递
+   * D-1 修复：未注入执行器时返回失败而非"假成功"
    */
   async execute(
     workflowName: string,
@@ -62,6 +80,13 @@ export class DocOrchestrator {
         error: `未知工作流: ${workflowName}`,
       };
     }
+    if (!this.toolExecutor) {
+      return {
+        success: false,
+        completedSteps: [],
+        error: 'DocOrchestrator 未注入工具执行器，无法执行编排',
+      };
+    }
 
     const completedSteps: string[] = [];
     let output: string | undefined;
@@ -72,7 +97,10 @@ export class DocOrchestrator {
           workflow: workflowName,
           tool: step.tool,
         });
-        // TODO: 实际工具调用由 DocModule 注入
+        const stepResult = await this.toolExecutor(step.tool, params);
+        if (typeof stepResult === 'string') {
+          output = stepResult;
+        }
         completedSteps.push(step.tool);
       } catch (error) {
         return {

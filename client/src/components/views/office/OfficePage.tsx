@@ -96,12 +96,12 @@ export default function OfficePage() {
         )?.installed === true;
 
       const mailOk =
-        (mailEnvelope as unknown as Record<string, unknown>)?.ok !== false;
+        (mailEnvelope as unknown as Record<string, unknown>)?.ok === true;
 
       const calOk =
-        (calEnvelope as unknown as Record<string, unknown>)?.ok !== false;
+        (calEnvelope as unknown as Record<string, unknown>)?.ok === true;
 
-      setDocStatus(docInstalled ? "FULL" : "DEGRADED");
+      setDocStatus(docInstalled ? "active" : "degraded");
 
       if (mailOk) {
         setMailConfigured(true);
@@ -149,7 +149,7 @@ export default function OfficePage() {
         }
       }
     } catch {
-      setDocStatus("DEGRADED");
+      setDocStatus("degraded");
     }
   }
 

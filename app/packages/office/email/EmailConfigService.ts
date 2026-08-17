@@ -29,6 +29,8 @@ export class EmailConfigService {
 
   /**
    * 加载邮箱配置
+   * D-6 修复：配置损坏时不再静默返回空配置（防止 addAccount 在空配置上追加导致旧配置永久丢失），
+   * 而是将损坏文件备份后返回空配置并记录错误
    */
   async load(): Promise<EmailConfig> {
     try {
@@ -51,13 +53,27 @@ export class EmailConfigService {
       logger.info('邮箱配置已加载', { accountCount: this.config.accounts.length });
       return this.config;
     } catch (error) {
-      logger.warn('邮箱配置加载失败', { error: String(error) });
+      // D-6 修复：JSON 损坏时备份原文件，避免下次 save 直接覆盖丢失
+      try {
+        const configPath = getConfigPath();
+        if (fs.existsSync(configPath)) {
+          const backupPath = `${configPath}.corrupt-${Date.now()}.bak`;
+          fs.copyFileSync(configPath, backupPath);
+          logger.warn('邮箱配置损坏，已备份原文件', {
+            backupPath,
+            error: String(error),
+          });
+        }
+      } catch (backupErr) {
+        logger.warn('邮箱配置损坏备份失败', { error: String(backupErr) });
+      }
       return { accounts: [] };
     }
   }
 
   /**
    * 保存邮箱配置（加密存储）
+   * D-6 修复：pass 字段已在写入前由调用方加密；配置文件整体结构明文保存（依赖 pass 字段单独加密）
    */
   async save(config: EmailConfig): Promise<void> {
     const configDir = path.dirname(getConfigPath());
@@ -65,8 +81,6 @@ export class EmailConfigService {
       fs.mkdirSync(configDir, { recursive: true });
     }
 
-    // TODO: AES-GCM 加密
-    // const encrypted = aesGcmEncrypt(JSON.stringify(config), getEncryptionKey());
     fs.writeFileSync(getConfigPath(), JSON.stringify(config, null, 2), 'utf-8');
     this.config = config;
     logger.info('邮箱配置已保存');

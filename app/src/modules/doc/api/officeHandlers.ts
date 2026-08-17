@@ -10,18 +10,117 @@ import { handleError } from '@modules/error';
 
 const logger = getLogger('doc:api');
 
+/** G-15：JSON 请求体大小上限（office 接口均为小型配置/事件数据） */
+const MAX_JSON_BODY_BYTES = 2 * 1024 * 1024;
+/** G-15：文件上传 body 大小上限（docx 等文档） */
+const MAX_UPLOAD_BODY_BYTES = 50 * 1024 * 1024;
+
 /**
- * 读取 HTTP 请求体
+ * 读取 HTTP 请求体（JSON 文本，带大小上限防内存 DoS）
  */
 function readBody(req: http.IncomingMessage): Promise<string> {
   return new Promise((resolve, reject) => {
     let body = '';
+    let settled = false;
     req.on('data', (chunk: Buffer) => {
+      if (settled) return;
       body += chunk.toString();
+      if (Buffer.byteLength(body) > MAX_JSON_BODY_BYTES) {
+        settled = true;
+        reject(new Error('请求体超过大小上限'));
+        req.destroy();
+      }
     });
-    req.on('end', () => resolve(body));
-    req.on('error', reject);
+    req.on('end', () => {
+      if (!settled) {
+        settled = true;
+        resolve(body);
+      }
+    });
+    req.on('error', (err) => {
+      if (!settled) {
+        settled = true;
+        reject(err);
+      }
+    });
   });
+}
+
+/**
+ * 读取 HTTP 请求体（二进制，用于文件上传，带大小上限）
+ */
+function readBodyBuffer(req: http.IncomingMessage): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    let total = 0;
+    let settled = false;
+    req.on('data', (chunk: Buffer) => {
+      if (settled) return;
+      total += chunk.length;
+      if (total > MAX_UPLOAD_BODY_BYTES) {
+        settled = true;
+        reject(new Error('上传文件超过大小上限'));
+        req.destroy();
+        return;
+      }
+      chunks.push(chunk);
+    });
+    req.on('end', () => {
+      if (!settled) {
+        settled = true;
+        resolve(Buffer.concat(chunks));
+      }
+    });
+    req.on('error', (err) => {
+      if (!settled) {
+        settled = true;
+        reject(err);
+      }
+    });
+  });
+}
+
+/**
+ * G-16：从 /v1/mail/:uid[/read] 提取 uid。
+ * 用 URL.pathname 解析，避免 query/尾斜杠导致 Number() 得 NaN。
+ */
+function extractMailUid(req: http.IncomingMessage): number {
+  const url = new URL(req.url!, `http://${req.headers.host}`);
+  const parts = url.pathname.split('/'); // ['', 'v1', 'mail', '<uid>', ...]
+  const uid = Number(parts[3]);
+  if (!Number.isInteger(uid) || uid <= 0) {
+    throw new Error('无效的邮件 uid');
+  }
+  return uid;
+}
+
+/**
+ * 简单 multipart/form-data 解析（提取单个文件字段）
+ * 返回 { filename, content }；无文件字段时返回 null
+ */
+function parseMultipartFile(
+  body: Buffer,
+  contentType: string
+): { filename: string; content: Buffer } | null {
+  const m = /boundary=(?:"([^"]+)"|([^;]+))/i.exec(contentType);
+  if (!m) return null;
+  const boundary = `--${m[1] || m[2]}`;
+
+  const headerEnd = body.indexOf('\r\n\r\n');
+  if (headerEnd === -1) return null;
+
+  const header = body.subarray(0, headerEnd).toString('utf-8');
+  const fileMatch = /filename="([^"]*)"/i.exec(header);
+  if (!fileMatch) return null;
+  const filename = fileMatch[1];
+
+  const contentStart = headerEnd + 4;
+  const boundaryEnd = body.indexOf(`\r\n${boundary}`, contentStart);
+  const content =
+    boundaryEnd === -1
+      ? body.subarray(contentStart)
+      : body.subarray(contentStart, boundaryEnd);
+  return { filename, content };
 }
 
 // ==================== doc 模块 API ====================
@@ -118,11 +217,23 @@ export async function handleDocCapabilities(
  * 手动触发 OfficeCLI 重新检测
  */
 export async function handleDocDetect(
-  _req: http.IncomingMessage,
+  req: http.IncomingMessage,
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    // TODO: 权限检查 — 需要 admin
+    // G-21：触发 CLI 检测会修改 MCP 配置，需 admin 权限（复用统一鉴权，无 token 本地回环放行）
+    const { checkAdminRequest } =
+      await import('../../../infrastructure/http/handlers/auth-handlers');
+    const adminCheck = checkAdminRequest(req);
+    if (adminCheck !== 'ok') {
+      res.writeHead(adminCheck === 'unauthorized' ? 401 : 403, {
+        'Content-Type': 'application/json; charset=utf-8',
+      });
+      res.end(
+        JSON.stringify({ error: { message: '检测操作需要 admin 权限' } })
+      );
+      return;
+    }
 
     const { DocModule } = await import('../DocModule');
     const doc = DocModule.getInstance();
@@ -221,7 +332,7 @@ export async function handleMailPatchRead(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const uid = req.url!.split('/v1/mail/')[1].split('/read')[0];
+    const uid = extractMailUid(req);
     const body = JSON.parse(await readBody(req));
     const read = body.read === true;
 
@@ -229,7 +340,7 @@ export async function handleMailPatchRead(
       await import('../../../../packages/office/email/EmailTool');
     const emailTool = new EmailTool();
     await emailTool.configService.load();
-    await emailTool.reader.markRead(Number(uid), read);
+    await emailTool.reader.markRead(uid, read);
 
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(
@@ -364,8 +475,9 @@ export async function handleMailConfig(
       user: String(body.emailAddress),
     };
 
+    // 明文密码先用于下方 IMAP 连通性测试，通过后再加密落盘（BUG-2/G-7）
     if (body.password) {
-      account.pass = encryptPassword(String(body.password));
+      account.pass = String(body.password);
     }
 
     // 填充 SMTP/IMAP 默认值
@@ -390,7 +502,7 @@ export async function handleMailConfig(
       await import('../../../../packages/office/email/EmailTool');
     const emailTool = new EmailTool();
 
-    // 保存前先做 IMAP 连通性测试
+    // 保存前先做 IMAP 连通性测试（用明文密码）
     try {
       await emailTool.testConnection(
         account as unknown as Record<string, unknown>
@@ -406,10 +518,17 @@ export async function handleMailConfig(
       return;
     }
 
-    // 幂等：先清除已有配置，再写入
+    // 连接测试通过后再加密密码落盘（BUG-2：禁止密文参与认证测试）
+    if (body.password) {
+      account.pass = encryptPassword(String(body.password));
+    }
+
+    // 幂等：先清除已有配置，再写入（BUG-7：避免每次保存堆积账户）
     const existingAccounts = emailTool.getAccounts();
     if (existingAccounts.length > 0) {
-      // EmailConfigService.addAccount 是追加模式，这里直接调用 config 覆盖
+      const config = await emailTool.configService.load();
+      config.accounts = [];
+      await emailTool.configService.save(config);
     }
     await emailTool.config(account);
 
@@ -530,9 +649,13 @@ export async function handleMailSend(
       attachments: body.attachments,
     });
 
-    // 记录已发送
-    const { recordSentMail } = await import('./officeSentRecorder');
-    await recordSentMail({ to: body.to, subject: body.subject });
+    // 记录已发送（G-8：写入失败仅记日志，不返回 500——否则已发出邮件被误报失败，用户重试导致重复发送）
+    try {
+      const { recordSentMail } = await import('./officeSentRecorder');
+      await recordSentMail({ to: body.to, subject: body.subject });
+    } catch (recordErr) {
+      logger.warn('已发送记录写入失败', { error: String(recordErr) });
+    }
 
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ code: 200, message: '邮件已发送', data: result }));
@@ -558,7 +681,7 @@ export async function handleMailDelete(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const uid = req.url!.split('/v1/mail/')[1];
+    const uid = extractMailUid(req);
 
     const { EmailTool } =
       await import('../../../../packages/office/email/EmailTool');
@@ -566,7 +689,7 @@ export async function handleMailDelete(
     await emailTool.configService.load();
 
     // EmailReader 暂无 IMAP delete 支持，标记为已读作为替代
-    await emailTool.reader.markRead(Number(uid), true);
+    await emailTool.reader.markRead(uid, true);
 
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(
@@ -899,6 +1022,147 @@ export async function handleDocCreate(
   }
 }
 
+/**
+ * 校验文档路径是否在 output 目录内（防路径遍历，与 handleDocDownload 同源）
+ */
+async function assertDocPathWithin(fileName: string): Promise<string> {
+  const path = await import('path');
+  const { resolveOutputDir, isPathWithin } = await import('@modules/core');
+  const base = path.resolve(resolveOutputDir());
+  const target = path.resolve(path.join(base, fileName));
+  if (!isPathWithin(base, target)) {
+    throw new Error('非法路径');
+  }
+  return target;
+}
+
+/**
+ * 处理 POST /v1/doc/rename
+ * BUG-1 修复：重命名 output 目录内的文档
+ */
+export async function handleDocRename(
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const body = JSON.parse(await readBody(req)) as {
+      name?: string;
+      newName?: string;
+    };
+    const name = (body.name || '').trim();
+    const newName = (body.newName || '').trim();
+    if (!name || !newName) {
+      res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(
+        JSON.stringify({ code: 400, message: 'name 与 newName 不能为空' })
+      );
+      return;
+    }
+
+    const fs = await import('fs');
+    const src = await assertDocPathWithin(name);
+    const dest = await assertDocPathWithin(newName);
+    if (!fs.existsSync(src)) {
+      res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ code: 404, message: '文档不存在' }));
+      return;
+    }
+    fs.renameSync(src, dest);
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({ code: 200, message: '文档已重命名' }));
+  } catch (err) {
+    await handleError(err, { module: 'doc:api', action: 'doc_rename' });
+    res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({ code: 500, message: '重命名失败' }));
+  }
+}
+
+/**
+ * 处理 DELETE /v1/doc/delete?file=xxx
+ * BUG-1 修复：删除 output 目录内的文档
+ */
+export async function handleDocDelete(
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const url = new URL(req.url!, `http://${req.headers.host ?? 'localhost'}`);
+    const file = url.searchParams.get('file') || '';
+    if (!file) {
+      res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ code: 400, message: '缺少 file 参数' }));
+      return;
+    }
+
+    const fs = await import('fs');
+    const target = await assertDocPathWithin(file);
+    if (!fs.existsSync(target)) {
+      res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ code: 404, message: '文档不存在' }));
+      return;
+    }
+    fs.unlinkSync(target);
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({ code: 200, message: '文档已删除' }));
+  } catch (err) {
+    await handleError(err, { module: 'doc:api', action: 'doc_delete' });
+    res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({ code: 500, message: '删除失败' }));
+  }
+}
+
+/**
+ * 处理 POST /v1/doc/upload（multipart/form-data，字段名 file）
+ * BUG-1 修复：上传文档到 output 目录
+ */
+export async function handleDocUpload(
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const contentType = req.headers['content-type'] || '';
+    if (!contentType.includes('multipart/form-data')) {
+      res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(
+        JSON.stringify({
+          code: 400,
+          message: '请使用 multipart/form-data 上传',
+        })
+      );
+      return;
+    }
+
+    const body = await readBodyBuffer(req);
+    const parsed = parseMultipartFile(body, contentType);
+    if (!parsed || !parsed.filename) {
+      res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(
+        JSON.stringify({
+          code: 400,
+          message: '未找到上传文件（字段名应为 file）',
+        })
+      );
+      return;
+    }
+
+    const fs = await import('fs');
+    const target = await assertDocPathWithin(parsed.filename);
+    fs.writeFileSync(target, parsed.content);
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(
+      JSON.stringify({
+        code: 200,
+        message: '文档已上传',
+        data: { file: parsed.filename },
+      })
+    );
+  } catch (err) {
+    await handleError(err, { module: 'doc:api', action: 'doc_upload' });
+    res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({ code: 500, message: '上传失败' }));
+  }
+}
+
 // ==================== 文档下载 API ====================
 
 /**
@@ -1165,21 +1429,24 @@ export async function handleCalendarMerged(
     const events = await cal.list();
 
     const merger = new CalendarMerger();
-    await merger.init();
-    const result = await merger.getMergedEvents(
-      { start, end, timezone },
-      events
-    );
-    await merger.close();
-
-    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-    res.end(
-      JSON.stringify({
-        code: 200,
-        message: 'OK',
-        data: result,
-      })
-    );
+    try {
+      await merger.init();
+      const result = await merger.getMergedEvents(
+        { start, end, timezone },
+        events
+      );
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(
+        JSON.stringify({
+          code: 200,
+          message: 'OK',
+          data: result,
+        })
+      );
+    } finally {
+      // G-2 修复：getMergedEvents 抛错时也必须关闭 SQLite 连接，防止连接泄漏
+      await merger.close();
+    }
   } catch (err) {
     await handleError(err, {
       module: 'calendar:api',

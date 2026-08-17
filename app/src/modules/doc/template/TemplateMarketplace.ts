@@ -26,40 +26,31 @@ export class TemplateMarketplace {
 
   /**
    * 将所有内置模板注册到 MCPMarketplace
+   * G-12：registerAsResource 未真正接入 MCPMarketplace，改为告警而非"已注册"假象
    */
   registerBuiltinTemplates(): void {
     for (const tmpl of BUILTIN_TEMPLATES) {
       this.registerAsResource(tmpl);
     }
-    logger.info('内置模板已注册到市场', { count: BUILTIN_TEMPLATES.length });
+    logger.warn('内置模板未真正注册到市场：MCPMarketplace 尚未接入（G-12）', {
+      count: BUILTIN_TEMPLATES.length,
+    });
   }
 
   /**
    * 将单个模板注册为 MCP Resource
+   * G-12：未实现——明确告警
    */
   private registerAsResource(meta: TemplateMeta): void {
-    const resourceName = `office:template:${meta.name}`;
-
-    // TODO: 调用 MCPMarketplace.registerResource()
-    // MCPMarketplace.registerResource(resourceName, {
-    //   displayName: meta.displayName,
-    //   description: meta.description,
-    //   version: meta.version,
-    //   tags: meta.tags,
-    //   previewImage: meta.previewImage,
-    //   outputFormats: [meta.outputFormat],
-    //   author: meta.author,
-    //   license: 'MIT',
-    // });
-
-    logger.debug('模板资源已就绪', { resource: resourceName });
+    logger.warn('模板资源未注册到 MCPMarketplace（G-12）', {
+      resource: `office:template:${meta.name}`,
+    });
   }
 
   /**
    * 搜索模板
    */
   static async search(query: string): Promise<TemplateMeta[]> {
-    // TODO: 调用 MCPMarketplace.listResources({ type: 'office:template', query })
     logger.info('模板搜索', { query });
     return BUILTIN_TEMPLATES.filter(
       (t) =>
@@ -71,10 +62,12 @@ export class TemplateMarketplace {
 
   /**
    * 安装模板
+   * G-12：未实现——明确告警而非静默成功
    */
   static async install(templateName: string): Promise<void> {
-    // TODO: 调用 MCPMarketplace.install(`office:template:${templateName}`)
-    logger.info('模板安装', { template: templateName });
+    logger.warn('模板安装未实现：MCPMarketplace 尚未接入（G-12）', {
+      template: templateName,
+    });
   }
 
   /**

@@ -7,6 +7,8 @@ export interface OfficeCLIInfo {
   installed: boolean;
   version?: string;
   path?: string;
+  /** D-3：版本存在但不在兼容约束范围内时标记为 true */
+  incompatible?: boolean;
 }
 
 /** OfficeCLI 版本约束 */

@@ -416,7 +416,7 @@ export const http = {
   async stream(
     path: string,
     onChunk: (data: string) => void,
-    config?: HttpClientConfig,
+    config?: HttpClientConfig & { onError?: (err: unknown) => void },
   ): Promise<AbortController> {
     const url = buildUrl(path);
     const headers = buildHeaders({
@@ -476,14 +476,18 @@ export const http = {
     };
 
     doFetch().catch((err: unknown) => {
+      // G-9 修复：流中断（非用户主动 Abort）时通知 onError，避免前端无感知静默卡死
+      const isAbort = err instanceof DOMException && err.name === "AbortError";
+      if (!isAbort) {
+        config?.onError?.(err);
+      }
       if (err instanceof DOMException && err.name === "TimeoutError") {
         // 排查网络超时：SSE 流 idle 超时（区别于用户 AbortController 关闭）
         logger.warn("httpClient.stream: 流式读取超时（idle 60s 无数据）", {
           path,
         });
-        return;
       }
-      // 流中断是正常行为（AbortController 关闭）
+      // 用户主动 Abort（AbortError）是正常关闭，静默
     });
 
     return controller;

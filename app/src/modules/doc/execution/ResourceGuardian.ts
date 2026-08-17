@@ -104,14 +104,16 @@ export class ResourceGuardian {
 
   /**
    * 递归计算目录大小（字节）
+   * G-19：限制递归深度（6 层），防止深目录全量扫描拖慢每次操作前检查
    */
-  private getDirectorySize(dirPath: string): number {
+  private getDirectorySize(dirPath: string, depth = 0): number {
+    if (depth > 6) return 0;
     let totalSize = 0;
     const entries = fs.readdirSync(dirPath, { withFileTypes: true });
     for (const entry of entries) {
       const fullPath = path.join(dirPath, entry.name);
       if (entry.isDirectory()) {
-        totalSize += this.getDirectorySize(fullPath);
+        totalSize += this.getDirectorySize(fullPath, depth + 1);
       } else {
         totalSize += fs.statSync(fullPath).size;
       }

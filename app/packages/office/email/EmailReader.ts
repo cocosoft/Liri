@@ -6,6 +6,7 @@
 
 import { Logger, LogLevel } from '@modules/monitoring';
 import { EmailConfigService } from './EmailConfigService';
+import { resolvePlainPassword } from './crypto';
 
 const logger = new Logger({
   module: 'mail:email',
@@ -19,6 +20,8 @@ export interface EmailSummary {
   messageId: string;
   subject: string;
   fromAddr: string;
+  /** G-5：兼容前端 MailItem.from（前端读取 from 字段） */
+  from: string;
   date: string;
   snippet: string;
 }
@@ -59,9 +62,11 @@ export class EmailReader {
     const account = accounts[0];
     logger.info('IMAP 收件箱读取', { limit });
 
+    const client = await this.getImapFlow().then(
+      ({ ImapFlow }) => new ImapFlow(this.buildImapConfig(account))
+    );
+
     try {
-      const { ImapFlow } = await this.getImapFlow();
-      const client = new ImapFlow(this.buildImapConfig(account));
       await client.connect();
 
       const messages: EmailSummary[] = [];
@@ -71,12 +76,14 @@ export class EmailReader {
         { start: Math.max(1, mailbox.exists - limit + 1), end: mailbox.exists },
         { uid: true, envelope: true, bodyStructure: true, source: false }
       )) {
+        const fromAddr = msg.envelope.from?.[0]?.address || '';
         messages.push({
           uid: msg.uid,
           folder: 'INBOX',
           messageId: msg.envelope.messageId || '',
           subject: msg.envelope.subject || '',
-          fromAddr: msg.envelope.from?.[0]?.address || '',
+          fromAddr,
+          from: fromAddr,
           date: msg.envelope.date?.toISOString() || '',
           snippet: msg.envelope.subject || '',
         });
@@ -85,17 +92,77 @@ export class EmailReader {
       await client.logout();
       return messages;
     } catch (error) {
-      throw new Error(`MAIL_SEND_FAILED: IMAP 读取失败 - ${error instanceof Error ? error.message : String(error)}`);
+      // G-4/D-7：读取失败用正确的读取错误码（原误用 MAIL_SEND_FAILED）
+      throw new Error(`MAIL_READ_FAILED: IMAP 读取失败 - ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      // G-4：无论成功失败都确保连接被关闭，防止连接泄漏
+      try {
+        client.close();
+      } catch {
+        /* 忽略 */
+      }
     }
   }
 
   /**
    * 搜索邮件
+   * BUG-6：基于 imapflow SEARCH 实现，支持 TEXT 全文搜索
    */
   async search(query: string, limit: number = 20): Promise<EmailSummary[]> {
     logger.info('IMAP 邮件搜索', { query, limit });
-    // TODO: imapflow SEARCH - X-GM-RAW for Gmail, TEXT for standard
-    return [];
+    const accounts = this.configService.getAccounts();
+    if (accounts.length === 0) {
+      throw new Error('MAIL_AUTH_FAILED: 未配置邮箱账户');
+    }
+    if (!query) return [];
+
+    const account = accounts[0];
+    const client = await this.getImapFlow().then(
+      ({ ImapFlow }) => new ImapFlow(this.buildImapConfig(account))
+    );
+
+    try {
+      await client.connect();
+      const mailbox = await client.mailboxOpen('INBOX');
+
+      // IMAP TEXT 搜索（按主题/正文/发件人匹配），限定最近 limit*10 封提升效率
+      const range = { start: Math.max(1, mailbox.exists - limit * 10 + 1), end: mailbox.exists };
+      const searchUids = await client.search({ text: query }, { uid: true, range });
+
+      const messages: EmailSummary[] = [];
+      if (searchUids.length > 0) {
+        const capped = searchUids.slice(-limit);
+        for await (const msg of client.fetch(capped, {
+          uid: true,
+          envelope: true,
+          bodyStructure: true,
+          source: false,
+        })) {
+          const fromAddr = msg.envelope.from?.[0]?.address || '';
+          messages.push({
+            uid: msg.uid,
+            folder: 'INBOX',
+            messageId: msg.envelope.messageId || '',
+            subject: msg.envelope.subject || '',
+            fromAddr,
+            from: fromAddr,
+            date: msg.envelope.date?.toISOString() || '',
+            snippet: msg.envelope.subject || '',
+          });
+        }
+      }
+
+      await client.logout();
+      return messages;
+    } catch (error) {
+      throw new Error(`MAIL_READ_FAILED: IMAP 搜索失败 - ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      try {
+        client.close();
+      } catch {
+        /* 忽略 */
+      }
+    }
   }
 
   /**
@@ -136,7 +203,8 @@ export class EmailReader {
       secure: true,
       auth: {
         user: account.user,
-        pass: account.pass,
+        // BUG-2：存储的是密文，认证前必须解密为明文
+        pass: resolvePlainPassword(account.pass),
       },
     };
   }

@@ -33,7 +33,7 @@ export function LeftPanel() {
     [setGenerationStatus],
   );
 
-  const connected = docStatus === "FULL";
+  const connected = docStatus === "active";
 
   return (
     <div

@@ -4,6 +4,9 @@
  */
 
 import { execSync } from 'child_process';
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
 import { getLogger } from '@modules/monitoring';
 import type { OfficeCLIInfo, OfficeCLIVersionConstraint } from '../types';
 
@@ -49,7 +52,8 @@ export function detectOfficeCLI(): OfficeCLIInfo {
         version,
         constraint: OFFICECLI_CONSTRAINT,
       });
-      return { installed: true, version, path: 'officecli' };
+      // D-3 修复：版本不兼容视为"已安装但不兼容"，由上层按不兼容状态处理（原返回 installed:true 使约束形同虚设）
+      return { installed: true, version, path: 'officecli', incompatible: true };
     }
 
     // 中文兼容性快速检查
@@ -99,18 +103,21 @@ function extractVersion(output: string): string | null {
 
 /**
  * 中文兼容性检查
- * 创建测试文档并验证中文输出
+ * 在系统临时目录创建测试文档并验证中文输出（D-3/G-20：避免污染 cwd，失败时清理）
  */
 function checkCJKCompatibility(): void {
+  const tmpFile = path.join(os.tmpdir(), `test-cjk-compat-${process.pid}.docx`);
   try {
-    const tmpFile = 'test-cjk-compat.docx';
-    execSync(`officecli create ${tmpFile} --content "中文测试" --json`, {
-      encoding: 'utf-8',
-      timeout: 10000,
-      windowsHide: true,
-    });
+    execSync(
+      `officecli create "${tmpFile}" --content "中文测试" --json`,
+      {
+        encoding: 'utf-8',
+        timeout: 10000,
+        windowsHide: true,
+      }
+    );
 
-    const viewOutput = execSync(`officecli view ${tmpFile} text`, {
+    const viewOutput = execSync(`officecli view "${tmpFile}" text`, {
       encoding: 'utf-8',
       timeout: 10000,
       windowsHide: true,
@@ -121,11 +128,15 @@ function checkCJKCompatibility(): void {
     } else {
       logger.info('OfficeCLI 中文兼容性检查通过');
     }
-
-    // 清理测试文件
-    execSync(`del ${tmpFile}`, { windowsHide: true });
   } catch (error) {
     logger.warn('中文兼容性检查失败，不影响正常运行', { error: String(error) });
+  } finally {
+    // G-20 修复：无论成功失败都清理临时文件
+    try {
+      fs.unlinkSync(tmpFile);
+    } catch {
+      /* 文件不存在则忽略 */
+    }
   }
 }
 

@@ -5,7 +5,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { resolvePyappHome } from '@modules/core';
+import { resolvePyappHome, isPathWithin } from '@modules/core';
 import { Logger, LogLevel } from '@modules/monitoring';
 import { ICalParser } from './ICalParser';
 import {
@@ -26,6 +26,9 @@ function getCalendarDir(): string {
   return path.join(resolvePyappHome(), 'office', 'calendars');
 }
 
+/** BUG-3 事件 ID 白名单：仅允许字母数字中划线，防止路径遍历 */
+const EVENT_ID_WHITELIST = /^[A-Za-z0-9_-]+$/;
+
 /**
  * CalendarTool
  * 日程管理核心工具，注册到 ToolManager
@@ -36,6 +39,21 @@ export class CalendarTool {
   constructor() {
     this.parser = new ICalParser();
     this.ensureStorageDir();
+  }
+
+  /**
+   * BUG-3 解析事件文件路径：白名单校验 + 边界校验，禁止越界读写
+   */
+  private resolveEventPath(id: string): string {
+    if (!EVENT_ID_WHITELIST.test(id)) {
+      throw new Error(`非法的事件 ID: ${id}`);
+    }
+    const base = path.resolve(getCalendarDir());
+    const filePath = path.resolve(path.join(base, `${id}.ics`));
+    if (!isPathWithin(base, filePath)) {
+      throw new Error(`事件路径越界: ${id}`);
+    }
+    return filePath;
   }
 
   /**
@@ -60,11 +78,15 @@ export class CalendarTool {
    * 添加日程事件
    */
   async add(args: CalendarAddArgs): Promise<CalendarEvent> {
+    // G-1 唯一 ID：时间戳 + 随机后缀，避免同毫秒并发覆盖
+    const id = `event-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    // D-5 end 为空时回退到 start（避免生成空 DTEND 行写坏数据）
+    const end = args.end || args.start;
     const event: CalendarEvent = {
-      id: `event-${Date.now()}`,
+      id,
       summary: args.summary,
       start: args.start,
-      end: args.end,
+      end,
       description: args.description,
       location: args.location,
       status: args.status ?? EventStatus.PENDING,
@@ -76,7 +98,7 @@ export class CalendarTool {
 
     // 写入 .ics 文件
     const icsContent = this.parser.export([event]);
-    const filePath = path.join(getCalendarDir(), `${event.id}.ics`);
+    const filePath = this.resolveEventPath(event.id);
     fs.writeFileSync(filePath, icsContent, 'utf-8');
 
     // 注册 Chronos reminder（如果配置了提醒）
@@ -113,7 +135,7 @@ export class CalendarTool {
    * 修改日程
    */
   async update(id: string, updates: Partial<CalendarEvent>): Promise<void> {
-    const filePath = path.join(getCalendarDir(), `${id}.ics`);
+    const filePath = this.resolveEventPath(id);
     if (!fs.existsSync(filePath)) {
       throw new Error(`日程 ${id} 不存在`);
     }
@@ -177,7 +199,7 @@ export class CalendarTool {
    * 删除日程
    */
   async delete(id: string): Promise<void> {
-    const filePath = path.join(getCalendarDir(), `${id}.ics`);
+    const filePath = this.resolveEventPath(id);
     if (fs.existsSync(filePath)) {
       // 删除前读取事件信息用于发布事件
       try {
@@ -204,7 +226,7 @@ export class CalendarTool {
    * @param status 新状态
    */
   async updateStatus(id: string, status: EventStatus): Promise<CalendarEvent> {
-    const filePath = path.join(getCalendarDir(), `${id}.ics`);
+    const filePath = this.resolveEventPath(id);
     if (!fs.existsSync(filePath)) {
       throw new Error(`日程 ${id} 不存在`);
     }
@@ -285,7 +307,7 @@ export class CalendarTool {
    * 导出 .ics 文件
    */
   async export(id: string): Promise<string> {
-    const filePath = path.join(getCalendarDir(), `${id}.ics`);
+    const filePath = this.resolveEventPath(id);
     if (!fs.existsSync(filePath)) {
       throw new Error(`日程 ${id} 不存在`);
     }

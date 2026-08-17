@@ -46,6 +46,8 @@ export class DocModule {
   private healthCheckTimer: ReturnType<typeof setInterval> | null = null;
   /** 检测到的 OfficeCLI 版本号（initFullMode 时记录） */
   private officeCLIVersion?: string;
+  /** D-9：已同步的 MCP 工具数（syncMCPServerTools 时更新，getCapabilities 只读此缓存） */
+  private toolCount = 0;
 
   /** 核心组件 */
   readonly executionGuardian = new ExecutionGuardian();
@@ -165,6 +167,9 @@ export class DocModule {
     const templateMetas = this.templateEngine.getTemplates();
     const templateNames = templateMetas.map((t) => t.name);
 
+    // D-9 修复：toolCount 使用 syncMCPServerTools 缓存的实际工具数（原错赋 templateCount）
+    const toolCount = this.toolCount;
+
     return {
       status: this.status,
       officeCliInfo: {
@@ -172,7 +177,7 @@ export class DocModule {
         version: this.officeCLIVersion,
       },
       connectedCount: this.status === Status.FULL ? 1 : 0,
-      toolCount: this.templateEngine.templateCount,
+      toolCount,
       templateCount: this.templateEngine.templateCount,
       templates: templateNames,
       documents: this.scanOutputDirectory(),
@@ -274,6 +279,8 @@ export class DocModule {
       // 触发 MCPToolBridge 从 toolsCache 同步到 ToolManager
       const { mcpSystem } = await import('@modules/services/mcp');
       const count = await mcpSystem.refreshAllTools();
+      // D-9：同步成功后缓存工具数，供 getCapabilities 只读
+      this.toolCount = count;
       logger.info(`MCP 工具已刷新：${count} 个工具可用`);
     } catch (error) {
       logger.warn('MCP 工具刷新失败', { error: String(error) });
@@ -418,14 +425,36 @@ export class DocModule {
   }
 
   /**
-   * 处理 OfficeCLI 崩溃后的降级
+   * 处理 OfficeCLI 崩溃后的重连与降级
+   * D-14 修复：用 tryDirectMcpConnect 做真实重连（最多 3 次、指数退避），成功恢复 FULL，失败降级 DEGRADED
    */
   async handleOfficeCLICrash(): Promise<void> {
     docMetrics.cliCrashTotal.inc();
 
-    for (let i = 0; i < 3; i++) {
-      logger.warn('OfficeCLI 重连尝试', { attempt: i + 1 });
-      // TODO: 尝试重连
+    const MAX_ATTEMPTS = 3;
+    const BASE_BACKOFF_MS = 500;
+    for (let i = 0; i < MAX_ATTEMPTS; i++) {
+      logger.warn('OfficeCLI 重连尝试', {
+        attempt: i + 1,
+        max: MAX_ATTEMPTS,
+      });
+      const connected = await this.tryDirectMcpConnect();
+      if (connected) {
+        this.status = Status.FULL;
+        await this.syncMCPServerTools();
+        logger.info('OfficeCLI 重连成功，恢复完整模式');
+        await OfficeAuditLogger.record({
+          user: 'system',
+          operation: 'doc_reconnect',
+          target: 'officecli',
+          result: 'success',
+        });
+        return;
+      }
+      // 指数退避：500ms → 1000ms（最后一次不再等待）
+      if (i < MAX_ATTEMPTS - 1) {
+        await new Promise((r) => setTimeout(r, BASE_BACKOFF_MS * 2 ** i));
+      }
     }
 
     // 重连失败 → DEGRADED 状态

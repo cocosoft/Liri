@@ -8,6 +8,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { DocIcon } from "../../../assets/icons/navigation";
 import { officeService } from "../../../services/officeService";
+import { officeApi } from "../../../services/officeApi";
 import { useOfficeStore } from "../../../stores/officeStore";
 import { useChatStore } from "../../../stores/chat";
 import CreateDocModal from "./CreateDocModal";
@@ -76,6 +77,49 @@ export default function OfficeDocPage() {
   useEffect(() => {
     fetchDocStatus().finally(() => setLoading(false));
   }, []);
+
+  /** D-11 修复：下载文档走 httpClient（携带鉴权头），替代原生 <a href> 导致 LIRI_API_SECRET 配置后 401 */
+  async function handleDownloadDoc(name: string) {
+    try {
+      const res = await officeApi.downloadDoc(name);
+      if (res?.ok === false) {
+        setError(
+          (res.error as unknown as { message?: string })?.message ||
+            t("office.downloadFailed", "下载失败"),
+        );
+        return;
+      }
+      const blob = res.data as Blob;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = name;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      setError(t("office.downloadFailed", "下载失败"));
+    }
+  }
+
+  /** D-10 修复：预览文档（原误跳首页），通过下载 blob + 本地打开新标签页预览 */
+  async function handlePreviewDoc(name: string) {
+    try {
+      const res = await officeApi.downloadDoc(name);
+      if (res?.ok === false) {
+        setError(
+          (res.error as unknown as { message?: string })?.message ||
+            t("office.previewFailed", "预览失败"),
+        );
+        return;
+      }
+      const blob = res.data as Blob;
+      const url = URL.createObjectURL(blob);
+      window.open(url, "_blank");
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch {
+      setError(t("office.previewFailed", "预览失败"));
+    }
+  }
 
   async function fetchDocStatus() {
     try {
@@ -380,15 +424,14 @@ export default function OfficeDocPage() {
                         </div>
                       </div>
                     </div>
-                    <a
-                      href={`/v1/doc/download?file=${encodeURIComponent(doc.name)}`}
+                    <button
+                      onClick={() => handleDownloadDoc(doc.name)}
                       className="text-xs text-blue-600 dark:text-blue-400 hover:underline shrink-0 ml-2"
-                      download
                     >
                       {t("office.download", "下载")}
-                    </a>
+                    </button>
                     <button
-                      onClick={() => navigate("/office")}
+                      onClick={() => handlePreviewDoc(doc.name)}
                       className="text-xs text-green-600 dark:text-green-400 hover:underline shrink-0 ml-2"
                     >
                       {t("office.preview", "预览")}

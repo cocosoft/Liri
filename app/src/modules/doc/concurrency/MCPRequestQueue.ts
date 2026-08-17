@@ -28,6 +28,16 @@ export class MCPRequestQueue {
   private readQueue: MCPRequest[] = [];
   private writeQueue: MCPRequest[] = [];
   private pendingCount = 0;
+  /** D-1：由 DocModule 注入的真实 MCP 调用执行器（未注入时请求显式失败，不做假成功） */
+  private executor: ((request: MCPRequest) => Promise<MCPResponse>) | null =
+    null;
+
+  /**
+   * 注入 MCP 请求执行器（DocModule 初始化时调用）
+   */
+  setExecutor(executor: (request: MCPRequest) => Promise<MCPResponse>): void {
+    this.executor = executor;
+  }
 
   /**
    * 入队一个 MCP 请求
@@ -53,9 +63,27 @@ export class MCPRequestQueue {
       pendingCount: this.pendingCount,
     });
 
+    // D-1 修复：定时器在 race 结束（无论胜负）后必须清理，防止每次请求泄漏定时器
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timeoutPromise = new Promise<MCPResponse>((_, reject) => {
+      timer = setTimeout(
+        () =>
+          reject(
+            new AppError(
+              `MCP 请求超时 (${request.type}, ${(TIMEOUTS[request.type] || 30000) / 1000}s)`,
+              'EXECUTION' as any,
+              'MEDIUM' as any,
+              'DOC_COMMAND_FAILED'
+            )
+          ),
+        TIMEOUTS[request.type] || 30000
+      );
+    });
+
     try {
-      return await Promise.race([this.execute(request), this.timeout(request)]);
+      return await Promise.race([this.execute(request), timeoutPromise]);
     } finally {
+      if (timer) clearTimeout(timer);
       this.pendingCount--;
     }
   }
@@ -88,34 +116,34 @@ export class MCPRequestQueue {
 
   /**
    * 执行请求（实际调用由 DocModule 注入）
+   * D-1 修复：执行真实 MCP 调用（由 DocModule 注入 executor）；未注入时不再假装成功，
+   * 而是显式失败，避免"假成功"误导上层流程
    */
   private async execute(request: MCPRequest): Promise<MCPResponse> {
-    // TODO: 实际 MCP 调用由 DocModule 注入 executor
-    return {
-      requestId: request.id,
-      success: true,
-      duration: 0,
-    };
-  }
-
-  /**
-   * 超时 Promise
-   */
-  private timeout(request: MCPRequest): Promise<MCPResponse> {
-    const ms = TIMEOUTS[request.type] || 30000;
-    return new Promise((_, reject) =>
-      setTimeout(
-        () =>
-          reject(
-            new AppError(
-              `MCP 请求超时 (${request.type}, ${ms / 1000}s)`,
-              'EXECUTION' as any,
-              'MEDIUM' as any,
-              'DOC_COMMAND_FAILED'
-            )
-          ),
-        ms
-      )
-    );
+    const executor = this.executor;
+    if (!executor) {
+      throw new AppError(
+        `MCP 请求未执行（executor 未注入）: ${request.id}`,
+        'EXECUTION' as any,
+        'HIGH' as any,
+        'DOC_COMMAND_FAILED'
+      );
+    }
+    const start = Date.now();
+    try {
+      const result = await executor(request);
+      return {
+        requestId: request.id,
+        success: result.success !== false,
+        duration: Date.now() - start,
+        ...(result as object),
+      } as MCPResponse;
+    } catch (err) {
+      logger.warn('MCP 请求执行失败', {
+        id: request.id,
+        error: String(err),
+      });
+      throw err;
+    }
   }
 }

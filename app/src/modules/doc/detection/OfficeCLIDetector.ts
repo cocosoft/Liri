@@ -53,7 +53,12 @@ export function detectOfficeCLI(): OfficeCLIInfo {
         constraint: OFFICECLI_CONSTRAINT,
       });
       // D-3 修复：版本不兼容视为"已安装但不兼容"，由上层按不兼容状态处理（原返回 installed:true 使约束形同虚设）
-      return { installed: true, version, path: 'officecli', incompatible: true };
+      return {
+        installed: true,
+        version,
+        path: 'officecli',
+        incompatible: true,
+      };
     }
 
     // 中文兼容性快速检查
@@ -108,14 +113,11 @@ function extractVersion(output: string): string | null {
 function checkCJKCompatibility(): void {
   const tmpFile = path.join(os.tmpdir(), `test-cjk-compat-${process.pid}.docx`);
   try {
-    execSync(
-      `officecli create "${tmpFile}" --content "中文测试" --json`,
-      {
-        encoding: 'utf-8',
-        timeout: 10000,
-        windowsHide: true,
-      }
-    );
+    execSync(`officecli create "${tmpFile}" --content "中文测试" --json`, {
+      encoding: 'utf-8',
+      timeout: 10000,
+      windowsHide: true,
+    });
 
     const viewOutput = execSync(`officecli view "${tmpFile}" text`, {
       encoding: 'utf-8',

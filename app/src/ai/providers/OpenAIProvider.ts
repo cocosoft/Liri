@@ -290,194 +290,244 @@ export class OpenAIProvider extends BaseAIProvider {
       stream: true,
     });
 
-    try {
-      // 使用带连接重试的 fetch，应对 Provider API 网关偶发断连
-      const response = await BaseAIProvider.fetchWithConnectionRetry(
-        `${this.baseUrl}/chat/completions`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${this.apiKey}`,
-          },
-          body: JSON.stringify(requestBody),
-          signal: AbortSignal.timeout(resolveModelTimeoutMs()),
-        }
-      );
-
-      if (!response.ok) {
-        const errorBody = await response.text();
-        throw new AppError(
-          `OpenAI stream error (${response.status}): ${errorBody}`,
-          ErrorCategory.EXECUTION,
-          ErrorSeverity.HIGH,
-          '1000'
-        );
-      }
-
-      const reader = response.body?.getReader();
-      if (!reader) {
-        throw new AppError(
-          'OpenAI stream: no response body',
-          ErrorCategory.EXECUTION,
-          ErrorSeverity.HIGH,
-          '1000'
-        );
-      }
-
-      const decoder = new TextDecoder();
-      let buffer = '';
+    // 流式断连自动重试（2026-08-17）：Bun fetch 在流式读取中 socket 被对端关闭
+    // （"The socket connection was closed unexpectedly"）且尚未产出任何内容时，
+    // 重新发起请求一次——LLM 无状态，重发安全；已产出内容时不重试避免重复输出。
+    // 与 BaseAIProvider.fetchWithConnectionRetry 的连接级重试（最多 2 次）叠加。
+    const MAX_STREAM_ATTEMPTS = 2;
+    for (let attempt = 0; attempt < MAX_STREAM_ATTEMPTS; attempt++) {
       let fullContent = '';
-      let lastUsage:
-        | import('@modules/ai/models/types').ChatResponse['usage']
-        | undefined;
-      // 流式 tool_calls 累积（按 index 合并分片）
-      const pendingToolCalls = new Map<
-        number,
-        { id: string; name: string; arguments: string }
-      >();
-      let stopReason: 'stop' | 'tool_calls' | 'max_tokens' = 'stop';
-      let toolCalls: ParsedToolCall[] = [];
+      try {
+        // 使用带连接重试的 fetch，应对 Provider API 网关偶发断连
+        const response = await BaseAIProvider.fetchWithConnectionRetry(
+          `${this.baseUrl}/chat/completions`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${this.apiKey}`,
+            },
+            body: JSON.stringify(requestBody),
+            signal: AbortSignal.timeout(resolveModelTimeoutMs()),
+          }
+        );
 
-      // P2-13 修复：reader.read() 无数据超时（60s），防止 Provider 流挂起导致
-      // streamMessage 卡在 await gen.next()、会话互斥锁（SimpleMutex）永久不释放。
-      // 统一走 BaseAIProvider.readStreamChunkWithTimeout。
-      while (true) {
-        const { done, value } = await this.readStreamChunkWithTimeout(reader);
-        if (done) break;
+        if (!response.ok) {
+          const errorBody = await response.text();
+          throw new AppError(
+            `OpenAI stream error (${response.status}): ${errorBody}`,
+            ErrorCategory.EXECUTION,
+            ErrorSeverity.HIGH,
+            '1000'
+          );
+        }
 
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
+        const reader = response.body?.getReader();
+        if (!reader) {
+          throw new AppError(
+            'OpenAI stream: no response body',
+            ErrorCategory.EXECUTION,
+            ErrorSeverity.HIGH,
+            '1000'
+          );
+        }
 
-        for (const line of lines) {
-          const trimmed = line.trim();
-          if (!trimmed || !trimmed.startsWith('data: ')) continue;
+        const decoder = new TextDecoder();
+        let buffer = '';
+        let lastUsage:
+          | import('@modules/ai/models/types').ChatResponse['usage']
+          | undefined;
+        // 流式 tool_calls 累积（按 index 合并分片）
+        const pendingToolCalls = new Map<
+          number,
+          { id: string; name: string; arguments: string }
+        >();
+        let stopReason: 'stop' | 'tool_calls' | 'max_tokens' = 'stop';
+        let toolCalls: ParsedToolCall[] = [];
 
-          const data = trimmed.slice(6);
-          if (data === '[DONE]') break;
+        // P2-13 修复：reader.read() 无数据超时（60s），防止 Provider 流挂起导致
+        // streamMessage 卡在 await gen.next()、会话互斥锁（SimpleMutex）永久不释放。
+        // 统一走 BaseAIProvider.readStreamChunkWithTimeout。
+        while (true) {
+          const { done, value } = await this.readStreamChunkWithTimeout(reader);
+          if (done) break;
 
-          try {
-            const parsed = JSON.parse(data) as Record<string, unknown>;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
 
-            // 提取 usage 字段（通常在流式响应的最后一个 chunk 中出现）
-            const usage = parsed['usage'] as
-              | import('@modules/ai/models/types').ChatResponse['usage']
-              | undefined;
-            if (usage) {
-              lastUsage = usage;
-            }
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed || !trimmed.startsWith('data: ')) continue;
 
-            const choice = (parsed.choices as Record<string, unknown>[])?.[0];
-            const delta = choice?.delta as Record<string, unknown> | undefined;
-            const finishReason = choice?.finish_reason as string | undefined;
+            const data = trimmed.slice(6);
+            if (data === '[DONE]') break;
 
-            // 处理推理内容（OpenAI o1/o3 的 reasoning_content 字段）
-            const reasoningContent = delta?.['reasoning_content'] as
-              | string
-              | undefined;
-            if (reasoningContent) {
-              yield { type: 'thinking', content: reasoningContent };
-            }
+            try {
+              const parsed = JSON.parse(data) as Record<string, unknown>;
 
-            const content = delta?.content as string | undefined;
-            if (content) {
-              fullContent += content;
-              yield content;
-            }
+              // 提取 usage 字段（通常在流式响应的最后一个 chunk 中出现）
+              const usage = parsed['usage'] as
+                | import('@modules/ai/models/types').ChatResponse['usage']
+                | undefined;
+              if (usage) {
+                lastUsage = usage;
+              }
 
-            // 流式 tool_calls 累积（按 index 合并分片）
-            const streamToolCalls = delta?.tool_calls as
-              | Array<Record<string, unknown>>
-              | undefined;
-            if (streamToolCalls) {
-              for (const tc of streamToolCalls) {
-                const idx = tc.index as number;
-                const func = tc.function as Record<string, unknown> | undefined;
+              const choice = (parsed.choices as Record<string, unknown>[])?.[0];
+              const delta = choice?.delta as
+                | Record<string, unknown>
+                | undefined;
+              const finishReason = choice?.finish_reason as string | undefined;
 
-                let pending = pendingToolCalls.get(idx);
-                if (!pending) {
-                  pending = { id: '', name: '', arguments: '' };
-                  pendingToolCalls.set(idx, pending);
-                }
-                if (tc.id) pending.id = tc.id as string;
-                if (func) {
-                  if (func.name) pending.name = func.name as string;
-                  if (func.arguments)
-                    pending.arguments += func.arguments as string;
+              // 处理推理内容（OpenAI o1/o3 的 reasoning_content 字段）
+              const reasoningContent = delta?.['reasoning_content'] as
+                | string
+                | undefined;
+              if (reasoningContent) {
+                yield { type: 'thinking', content: reasoningContent };
+              }
+
+              const content = delta?.content as string | undefined;
+              if (content) {
+                fullContent += content;
+                yield content;
+              }
+
+              // 流式 tool_calls 累积（按 index 合并分片）
+              const streamToolCalls = delta?.tool_calls as
+                | Array<Record<string, unknown>>
+                | undefined;
+              if (streamToolCalls) {
+                for (const tc of streamToolCalls) {
+                  const idx = tc.index as number;
+                  const func = tc.function as
+                    | Record<string, unknown>
+                    | undefined;
+
+                  let pending = pendingToolCalls.get(idx);
+                  if (!pending) {
+                    pending = { id: '', name: '', arguments: '' };
+                    pendingToolCalls.set(idx, pending);
+                  }
+                  if (tc.id) pending.id = tc.id as string;
+                  if (func) {
+                    if (func.name) pending.name = func.name as string;
+                    if (func.arguments)
+                      pending.arguments += func.arguments as string;
+                  }
                 }
               }
-            }
 
-            // 记录 finish_reason，处理 tool_calls 完成
-            if (finishReason === 'tool_calls' && pendingToolCalls.size > 0) {
-              stopReason = 'tool_calls';
-              toolCalls = Array.from(pendingToolCalls.entries())
-                .sort(([a], [b]) => a - b)
-                .map(([_, tc]) => {
-                  try {
-                    return {
-                      id: tc.id,
-                      name: tc.name,
-                      arguments: JSON.parse(tc.arguments) as Record<
-                        string,
-                        unknown
-                      >,
-                    };
-                  } catch {
-                    return {
-                      id: tc.id,
-                      name: tc.name,
-                      arguments: { _raw: tc.arguments },
-                    };
-                  }
-                });
-            } else if (
-              finishReason === 'max_tokens' ||
-              finishReason === 'length'
-            ) {
-              stopReason = 'max_tokens';
+              // 记录 finish_reason，处理 tool_calls 完成
+              if (finishReason === 'tool_calls' && pendingToolCalls.size > 0) {
+                stopReason = 'tool_calls';
+                toolCalls = Array.from(pendingToolCalls.entries())
+                  .sort(([a], [b]) => a - b)
+                  .map(([_, tc]) => {
+                    try {
+                      return {
+                        id: tc.id,
+                        name: tc.name,
+                        arguments: JSON.parse(tc.arguments) as Record<
+                          string,
+                          unknown
+                        >,
+                      };
+                    } catch {
+                      return {
+                        id: tc.id,
+                        name: tc.name,
+                        arguments: { _raw: tc.arguments },
+                      };
+                    }
+                  });
+              } else if (
+                finishReason === 'max_tokens' ||
+                finishReason === 'length'
+              ) {
+                stopReason = 'max_tokens';
+              }
+            } catch (err) {
+              // skip malformed SSE lines
             }
-          } catch (err) {
-            // skip malformed SSE lines
           }
         }
-      }
 
-      return {
-        content: fullContent,
-        model,
-        stop_reason: stopReason,
-        tool_calls: toolCalls.length > 0 ? toolCalls : undefined,
-        usage: lastUsage,
-      };
-    } catch (error) {
-      if (error instanceof AppError) throw error;
-      // SSL/TLS 证书错误检测（与 generateImage L567-577 保持一致，CS01 归一化）：
-      // 这类错误是环境问题（系统 CA 信任库 / 代理 MITM 证书），错误消息附带
-      // 可执行的修复提示，便于用户自诊断（NODE_EXTRA_CA_CERTS / 代理证书信任）。
-      const errorMessage = (error as Error).message || String(error);
-      const isSSLError = /certificate|ssl|tls|unable to verify/i.test(
-        errorMessage
-      );
-      logger.warn('OpenAIProvider.stream() · 请求失败', {
-        providerId: this.id,
-        isSSLError,
-        error: errorMessage,
-      });
-      const userHint = isSSLError
-        ? `SSL 证书验证失败。请尝试以下操作：\n` +
-          `1. 设置环境变量 NODE_EXTRA_CA_CERTS 指向系统 CA 证书文件\n` +
-          `   （如 Git\\mingw64\\ssl\\cert.pem 或 curl\\ca-bundle.crt）\n` +
-          `2. 如在代理环境下使用，请确认代理证书已加入信任列表\n` +
-          `原始错误: ${errorMessage}`
-        : errorMessage;
-      throw new AppError(
-        `OpenAI stream failed: ${userHint}`,
-        ErrorCategory.EXECUTION,
-        ErrorSeverity.HIGH,
-        '1000'
-      );
+        return {
+          content: fullContent,
+          model,
+          stop_reason: stopReason,
+          tool_calls: toolCalls.length > 0 ? toolCalls : undefined,
+          usage: lastUsage,
+        };
+      } catch (error) {
+        if (error instanceof AppError) throw error;
+        const errorMessage = (error as Error).message || String(error);
+        // socket 被对端关闭且尚未产出内容：重试整个请求（attempt 0 → 1）
+        const isSocketClosed =
+          /socket.*(closed|reset)|connection.*(closed|reset)/i.test(
+            errorMessage
+          );
+        if (
+          attempt < MAX_STREAM_ATTEMPTS - 1 &&
+          isSocketClosed &&
+          fullContent.length === 0
+        ) {
+          logger.warn('流式请求连接中断（首块前），重试请求', {
+            providerId: this.id,
+            attempt: attempt + 1,
+            error: errorMessage,
+          });
+          continue;
+        }
+
+        // SSL/TLS 证书错误检测（与 generateImage L567-577 保持一致，CS01 归一化）：
+        // 这类错误是环境问题（系统 CA 信任库 / 代理 MITM 证书），错误消息附带
+        // 可执行的修复提示，便于用户自诊断（NODE_EXTRA_CA_CERTS / 代理证书信任）。
+        const isSSLError = /certificate|ssl|tls|unable to verify/i.test(
+          errorMessage
+        );
+        logger.warn('OpenAIProvider.stream() · 请求失败', {
+          providerId: this.id,
+          isSSLError,
+          error: errorMessage,
+          attempt: attempt + 1,
+        });
+        const userHint = isSSLError
+          ? `SSL 证书验证失败。请尝试以下操作：\n` +
+            `1. 设置环境变量 NODE_EXTRA_CA_CERTS 指向系统 CA 证书文件\n` +
+            `   （如 Git\\mingw64\\ssl\\cert.pem 或 curl\\ca-bundle.crt）\n` +
+            `2. 如在代理环境下使用，请确认代理证书已加入信任列表\n` +
+            `原始错误: ${errorMessage}`
+          : errorMessage;
+        // 诊断增强：错误消息附带 Provider 标识与端点 host，便于定位是哪个供应商/网关
+        throw new AppError(
+          `OpenAI stream failed: ${userHint}（Provider: ${this.id} / ${this.endpointHost()}）`,
+          ErrorCategory.EXECUTION,
+          ErrorSeverity.HIGH,
+          '1000'
+        );
+      }
+    }
+
+    // 循环内必然 return 或 throw，此行为类型收窄兜底
+    throw new AppError(
+      'OpenAI stream failed: 重试后仍失败',
+      ErrorCategory.EXECUTION,
+      ErrorSeverity.HIGH,
+      '1000'
+    );
+  }
+
+  /**
+   * 端点 host 摘要（脱敏：仅 host，不含路径/query/密钥），供错误诊断提示使用
+   */
+  private endpointHost(): string {
+    try {
+      return new URL(this.baseUrl).host;
+    } catch {
+      return this.baseUrl;
     }
   }
 

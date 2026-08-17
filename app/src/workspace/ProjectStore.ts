@@ -426,6 +426,23 @@ export class ProjectStore {
         });
       }
 
+      // BUG-4 修复：兼容旧格式（仅 <id>.json 未迁移的项目）。
+      // 原实现只删目录，legacy-only 项目返回 false → 404 且文件残留 → 项目永远删不掉。
+      try {
+        const legacyPath = this.getLegacyFilePath(id);
+        if (existsSync(legacyPath)) {
+          unlinkSync(legacyPath);
+          deleted = true;
+          logger.info('旧格式项目文件已删除', { projectId: id });
+        }
+      } catch (e) {
+        // @ignore-catch legacy 文件删除失败仅记录，不阻断删除主流程
+        void handleError(e, {
+          module: 'workspace:ProjectStore',
+          action: 'deleteLegacyFile',
+        });
+      }
+
       span.setStatus({ code: SpanStatusCode.OK });
       return deleted;
     } finally {

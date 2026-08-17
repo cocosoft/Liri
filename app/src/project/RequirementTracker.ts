@@ -144,6 +144,16 @@ export class RequirementTracker {
   }
 
   /**
+   * 内容是否已注册（BUG-9：供计数判断"本次是否新增"，避免去重命中仍自增）
+   */
+  isRegistered(content: string): boolean {
+    const trimmed = content.trim();
+    if (!trimmed) return false;
+    const id = requirementIdOf(trimmed);
+    return this.load().some((r) => r.id === id);
+  }
+
+  /**
    * 覆盖检查（D3/M5）：每项需求 → 证据映射
    * 证据 = artifacts.json 中 requirementId 标签匹配，或 title/content 含需求片段
    */

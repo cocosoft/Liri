@@ -15,7 +15,7 @@ import { useChatStore } from "@/stores/chat";
 import { chatCoordinator } from "@/stores/chat/chatCoordinator";
 import { sessionService } from "@/services/sessionService";
 import { handleClientError } from "@/utils/handleError";
-import { triggerEngineHook } from "@/services/projectArtifactService";
+import { triggerEngineHook, deleteProject } from "@/services/projectArtifactService";
 import CreateProjectModal from "@/components/Workspace/CreateProjectModal";
 import ChatArea from "@/components/ChatArea/ChatArea";
 import SessionHistorySidebar from "@/components/ChatArea/SessionHistorySidebar";
@@ -426,6 +426,13 @@ export default function ProjectsPage() {
         } catch {
           /* @ignore-catch 单个会话删除失败不阻塞 */
         }
+      }
+      // BUG-3 修复：同步删除后端项目实体（project.json/rules.md/items.db/artifacts/
+      // history/.workspace.json）。原实现只调 deleteWorkspace（后端无 DELETE /v1/workspaces
+      // 路由必然失败被忽略），刷新后 listWorkspaces 补全逻辑把项目重新拉回列表（"复活"）。
+      const backendDeleted = await deleteProject(selectedProjectId);
+      if (!backendDeleted) {
+        throw new Error("删除后端项目失败，请重试");
       }
       await deleteWorkspace(selectedProjectId);
       setSelectedProjectId(null);

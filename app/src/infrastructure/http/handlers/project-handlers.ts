@@ -144,9 +144,29 @@ export async function handleUpdateProject(
   span.setAttribute('projectId', projectId);
   try {
     const body = await readBody(req);
-    const updates = JSON.parse(body);
+    const raw = JSON.parse(body) as Record<string, unknown>;
+    // BUG-4 修复：字段白名单——原实现直接透传请求体，`{...project, ...updates}`
+    // 可注入 id/workspaceId/sandboxPath/workItemIds/pdcaIds/createdAt 等（改写到新目录、
+    // 幽灵项目、篡改归属）。仅允许可编辑字段，且 tags 必须是字符串数组。
+    const updates: Record<string, unknown> = {};
+    for (const key of [
+      'name',
+      'description',
+      'status',
+      'tags',
+      'template',
+    ] as const) {
+      if (raw[key] !== undefined) updates[key] = raw[key];
+    }
+    if (updates.tags !== undefined && !Array.isArray(updates.tags)) {
+      json(res, 400, { error: 'tags 必须是数组' });
+      return;
+    }
     const store = getProjectStore();
-    const project = store.update(projectId, updates);
+    const project = store.update(
+      projectId,
+      updates as Parameters<typeof store.update>[1]
+    );
     if (!project) {
       span.setStatus({ code: SpanStatusCode.OK });
       json(res, 404, { error: '项目不存在' });

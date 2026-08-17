@@ -44,6 +44,7 @@ import {
   handleInitLiriDir,
   handleListChangeSets,
   handleListTaskChildren,
+  handleListTasks,
   handleListWorkItems,
   handleListWorkspaceSessions,
   handleListWorkspaces,
@@ -53,7 +54,6 @@ import {
   handleUpdateWorkspaceConfig,
   handleUpdateWorkspaceRules,
 } from '../workspaces-handlers';
-import { handleListTasks } from '../task-handlers';
 
 /**
  * dispatchWorkspaceRoutes — workspace-routes 领域路由分发
@@ -119,7 +119,9 @@ export async function dispatchWorkspaceRoutes(
     return true;
   }
   if (method === 'GET' && url === '/v1/tasks') {
-    await handleListTasks(req, res);
+    // BUG-1 修复：原误从 task-handlers 导入（TaskRegistry 版，返回 {tasks,count} 且忽略
+    // query），改为 TaskStore 版（workspaces-handlers，支持 projectId/status 过滤 + data 包装）。
+    await handleListTasks(handlerCtx, req, res);
     return true;
   }
   if (method === 'POST' && url === '/v1/tasks') {

@@ -27,6 +27,19 @@ import { readBody, json } from './handler-utils';
 
 const logger = getLogger('project:artifactHandlers');
 
+/**
+ * BUG-10 修复：projectId 路径穿越防护。
+ * projectId 直接参与 `join(projectsDir, projectId)`，含路径分隔符/`..` 可穿越目录。
+ */
+function isSafeProjectId(projectId: string): boolean {
+  return (
+    !!projectId &&
+    !projectId.includes('/') &&
+    !projectId.includes('\\') &&
+    !projectId.includes('..')
+  );
+}
+
 /** P0-3: 存储路径收敛到 resolveDataDir()/projects/ */
 const LIRI_PROJECTS_DIR = join(resolveDataDir(), 'projects');
 const artifactStore = new ProjectArtifactStore(LIRI_PROJECTS_DIR);
@@ -112,10 +125,21 @@ export async function handleSaveArtifact(
       return;
     }
 
+    // BUG-10 修复：kind 白名单（原实现任意字符串可写入）
+    const kind = data.kind || 'output';
+    if (kind !== 'input' && kind !== 'output') {
+      json(res, 400, { error: 'kind 必须是 input 或 output' });
+      return;
+    }
+    if (!isSafeProjectId(projectId)) {
+      json(res, 400, { error: '非法 projectId' });
+      return;
+    }
+
     const artifact: ProjectArtifact = {
       id: data.id || randomUUID(),
       projectId,
-      kind: data.kind || 'output',
+      kind,
       title: data.title,
       content: data.content,
       sessionId: data.sessionId,
@@ -161,6 +185,10 @@ export async function handleGetProjectContext(
   const span = otel.startSpan('project:artifactHandlers:getContext');
   span.setAttribute('projectId', projectId);
   try {
+    if (!isSafeProjectId(projectId)) {
+      json(res, 400, { error: '非法 projectId' });
+      return;
+    }
     const rulesPath = join(LIRI_PROJECTS_DIR, projectId, 'rules.md');
     if (existsSync(rulesPath)) {
       const entries = ProjectContextService.parseRulesFile(rulesPath);
@@ -208,6 +236,10 @@ export async function handleSaveProjectContext(
   const span = otel.startSpan('project:artifactHandlers:saveContext');
   span.setAttribute('projectId', projectId);
   try {
+    if (!isSafeProjectId(projectId)) {
+      json(res, 400, { error: '非法 projectId' });
+      return;
+    }
     const body = await readBody(req);
     const { type, content, domain } = JSON.parse(body) as {
       type?: string;
@@ -281,7 +313,27 @@ export async function handleSaveProjectContext(
       lines.push(marker);
     }
 
-    writeFileSync(rulesPath, lines.join('\n') + '\n', 'utf-8');
+    if (existsSync(rulesPath)) {
+      writeFileSync(rulesPath, lines.join('\n') + '\n', 'utf-8');
+    } else {
+      // BUG-5 修复：S2 迁移后直写 rules.md 会重建文件 → needsMigration 复发 → 重复迁移。
+      // 已迁移（rules.md 不存在）时写入 items.db（kind=context），保持与 ImplicitEngineHook 一致。
+      const itemStore = new ProjectItemStore(projectId, resolveDataDir());
+      await itemStore.initialize();
+      const existing = await itemStore.list('context');
+      if (!existing.some((i) => i.type === type && i.content === content)) {
+        await itemStore.upsert({
+          id: randomUUID(),
+          projectId,
+          kind: 'context',
+          type,
+          title: content,
+          content,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        });
+      }
+    }
     span.setStatus({ code: SpanStatusCode.OK });
     json(res, 200, { ok: true, marker });
   } catch (e) {

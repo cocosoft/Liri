@@ -45,9 +45,34 @@ interface ProjectStore {
   loadProjectFromBackend: (projectId: string) => Promise<void>;
 }
 
-let _counter = 0;
+// BUG-6 修复：本地项目 ID 与后端 ProjectStore.create 的格式对齐
+// （proj_{ts}_{random6}）。原 `proj_ts_counter` 与后端格式不同，syncProjectToBackend
+// 用本地 ID 作后端 projectId 时任务会挂到格式不匹配的项目下。
 function genId(): string {
-  return "proj_" + Date.now() + "_" + ++_counter;
+  return `proj_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+// BUG-8 修复：TaskStatus（含 pending/review/failed）→ ProjectStatus 的显式映射。
+// 原 `task.status as ProjectStatus` 强转会产生 UI 无法处理的非法状态值。
+function mapTaskStatusToProject(status: string): ProjectStatus {
+  switch (status) {
+    case "planning":
+    case "pending":
+      return "planning";
+    case "active":
+    case "in_progress":
+    case "review":
+    case "failed":
+      return "active";
+    case "paused":
+      return "paused";
+    case "completed":
+      return "completed";
+    case "archived":
+      return "archived";
+    default:
+      return "active";
+  }
 }
 
 export const useProjectStore = create<ProjectStore>()(
@@ -195,8 +220,13 @@ export const useProjectStore = create<ProjectStore>()(
           const n = project.nodes[id];
           return n.status === "completed" || n.status === "archived";
         });
+        // BUG-7 修复：原实现 `avgProgress === 0 → planning` 会把"有节点已开始但 progress=0"
+        // 的项目误判为 planning（覆盖 active）。改为仅当无任何 active 节点时才 planning。
+        const hasActiveNode = nodeIds.some(
+          (id) => project.nodes[id].status === "active",
+        );
         if (allDone && nodeIds.length > 0) overallStatus = "completed";
-        else if (avgProgress === 0) overallStatus = "planning";
+        else if (!hasActiveNode && avgProgress === 0) overallStatus = "planning";
 
         set((s) => ({
           projects: {
@@ -294,7 +324,7 @@ export const useProjectStore = create<ProjectStore>()(
                 : task.priority === 2
                   ? "P2"
                   : "P3") as ProjectNode["priority"],
-            status: task.status as ProjectNode["status"],
+            status: mapTaskStatusToProject(task.status),
             progress: task.progress,
             children: [],
             dependsOn: task.dependsOn,

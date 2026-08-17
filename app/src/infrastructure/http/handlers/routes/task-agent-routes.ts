@@ -95,20 +95,30 @@ export async function dispatchTaskAgentRoutes(
 ): Promise<boolean> {
   const method = req.method || 'GET';
   // ---- Tasks (长程任务中心) ----
-  if (method === 'GET' && url === '/v1/tasks') {
+  // BUG-1/2 修复：/v1/tasks 命名空间归项目任务（TaskStore，见 workspace-routes）。
+  // TaskRegistry（长程任务中心）统一迁移到 /v1/task-registry/* 前缀，避免抢占
+  // 项目任务的列表/删除路由（此前分发顺序在前导致项目任务列表恒空、删除失效）。
+  if (method === 'GET' && url === '/v1/task-registry/tasks') {
     await handleListTasks(req, res);
     return true;
   }
-  if (method === 'POST' && url.match(/^\/v1\/tasks\/(.+)\/cancel$/)) {
+  if (
+    method === 'POST' &&
+    url.match(/^\/v1\/task-registry\/tasks\/(.+)\/cancel$/)
+  ) {
     await handleCancelTask(
       req,
       res,
-      url.match(/^\/v1\/tasks\/(.+)\/cancel$/)![1]
+      url.match(/^\/v1\/task-registry\/tasks\/(.+)\/cancel$/)![1]
     );
     return true;
   }
-  if (method === 'DELETE' && url.match(/^\/v1\/tasks\/(.+)$/)) {
-    await handleRemoveTask(req, res, url.match(/^\/v1\/tasks\/(.+)$/)![1]);
+  if (method === 'DELETE' && url.match(/^\/v1\/task-registry\/tasks\/(.+)$/)) {
+    await handleRemoveTask(
+      req,
+      res,
+      url.match(/^\/v1\/task-registry\/tasks\/(.+)$/)![1]
+    );
     return true;
   }
 

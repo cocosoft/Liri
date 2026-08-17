@@ -20,6 +20,7 @@ import {
 import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error';
+import { ProjectItemStore } from '../workspace/ProjectItemStore';
 
 const logger = getLogger('project:ImplicitEngine');
 
@@ -227,13 +228,15 @@ export class ImplicitEngineHook {
       for (const ctx of contexts) {
         if (ctx.type === 'goal' || ctx.type === 'requirement') {
           try {
+            // BUG-9 修复：仅"本次新注册"才计数（原实现去重命中仍无条件自增 → 计数虚高）
+            const isNew = !requirementTracker.isRegistered(ctx.content);
             const req = requirementTracker.register({
               type: ctx.type as RequirementType,
               content: ctx.content,
               sessionId,
             });
             if (!requirementIds.includes(req.id)) requirementIds.push(req.id);
-            result.registeredRequirements++;
+            if (isNew) result.registeredRequirements++;
           } catch (err) {
             void handleError(err, {
               module: 'project:ImplicitEngine',
@@ -244,68 +247,117 @@ export class ImplicitEngineHook {
       }
       const primaryRequirementId = requirementIds[0];
 
-      // 写入 rules.md
+      // 写入 rules.md（迁移前）或 items.db（迁移后）
+      // BUG-5 修复：S2 迁移（rules.md → items.db，文件改名 .bak）后原逻辑仍直写
+      // rules.md → 重建文件 → needsMigration() 再次为 true → 重复迁移产生脏数据 + 数据分叉。
+      // 改为：legacy 文件存在（未迁移）写 rules.md；不存在（已迁移或全新项目）写 items.db。
       const rulesPath = join(projectDir, 'rules.md');
-      let existingLines: string[] = [];
-      if (existsSync(rulesPath)) {
-        existingLines = readFileSync(rulesPath, 'utf-8').split('\n');
-      }
+      const migrated = !existsSync(rulesPath);
 
-      for (const ctx of contexts) {
-        const marker = `### [${ctx.type}] ${ctx.content}`;
-        if (!existingLines.some((l) => l.trim() === marker)) {
-          existingLines.push(marker);
-          result.contexts++;
+      if (migrated) {
+        const itemStore = new ProjectItemStore(projectId, resolveDataDir());
+        await itemStore.initialize();
+        const existingItems = await itemStore.list('context');
+        for (const ctx of contexts) {
+          const dup = existingItems.some(
+            (i) => i.type === ctx.type && i.content === ctx.content
+          );
+          if (!dup) {
+            await itemStore.upsert({
+              id: `implicit_ctx_${Date.now()}_${result.contexts}`,
+              projectId,
+              kind: 'context',
+              type: ctx.type,
+              title: ctx.content,
+              content: ctx.content,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            });
+            result.contexts++;
+          }
+        }
+      } else {
+        let existingLines: string[] = [];
+        if (existsSync(rulesPath)) {
+          existingLines = readFileSync(rulesPath, 'utf-8').split('\n');
+        }
+        for (const ctx of contexts) {
+          const marker = `### [${ctx.type}] ${ctx.content}`;
+          if (!existingLines.some((l) => l.trim() === marker)) {
+            existingLines.push(marker);
+            result.contexts++;
+          }
+        }
+        if (result.contexts > 0) {
+          writeFileSync(rulesPath, existingLines.join('\n') + '\n', 'utf-8');
         }
       }
 
-      if (result.contexts > 0) {
-        writeFileSync(rulesPath, existingLines.join('\n') + '\n', 'utf-8');
-      }
-
-      // 写入 artifacts
+      // 写入 artifacts（迁移前 artifacts.json，迁移后 items.db）
       const artifactsPath = join(projectDir, 'artifacts.json');
-      interface ArtifactEntry {
-        id: string;
-        projectId: string;
-        kind: string;
-        title: string;
-        content: string;
-        createdAt: string;
-        /** D3/M5：关联的需求 ID（产物证据 → 需求映射） */
-        requirementId?: string;
-      }
-      let artifacts: ArtifactEntry[] = [];
-      if (existsSync(artifactsPath)) {
-        try {
-          artifacts = JSON.parse(readFileSync(artifactsPath, 'utf-8'));
-        } catch {
-          artifacts = [];
+      if (migrated) {
+        const itemStore = new ProjectItemStore(projectId, resolveDataDir());
+        await itemStore.initialize();
+        const existingItems = await itemStore.list('artifact');
+        for (const del of deliverables) {
+          const dup = existingItems.some((a) => a.title === del.slice(0, 80));
+          if (!dup) {
+            await itemStore.upsert({
+              id: randomUUID(),
+              projectId,
+              kind: 'artifact',
+              type: 'artifact',
+              title: del.slice(0, 80),
+              content: del,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            });
+            result.deliverables++;
+          }
         }
-      }
-
-      for (const del of deliverables) {
-        const exists = artifacts.some((a) => a.title === del.slice(0, 80));
-        if (!exists) {
-          artifacts.push({
-            id: randomUUID(),
-            projectId,
-            kind: 'output',
-            title: del.slice(0, 80),
-            content: del,
-            createdAt: new Date().toISOString(),
-            requirementId: primaryRequirementId,
-          });
-          result.deliverables++;
+      } else {
+        interface ArtifactEntry {
+          id: string;
+          projectId: string;
+          kind: string;
+          title: string;
+          content: string;
+          createdAt: string;
+          /** D3/M5：关联的需求 ID（产物证据 → 需求映射） */
+          requirementId?: string;
         }
-      }
+        let artifacts: ArtifactEntry[] = [];
+        if (existsSync(artifactsPath)) {
+          try {
+            artifacts = JSON.parse(readFileSync(artifactsPath, 'utf-8'));
+          } catch {
+            artifacts = [];
+          }
+        }
 
-      if (result.deliverables > 0) {
-        writeFileSync(
-          artifactsPath,
-          JSON.stringify(artifacts, null, 2),
-          'utf-8'
-        );
+        for (const del of deliverables) {
+          const exists = artifacts.some((a) => a.title === del.slice(0, 80));
+          if (!exists) {
+            artifacts.push({
+              id: randomUUID(),
+              projectId,
+              kind: 'output',
+              title: del.slice(0, 80),
+              content: del,
+              createdAt: new Date().toISOString(),
+              requirementId: primaryRequirementId,
+            });
+            result.deliverables++;
+          }
+        }
+
+        if (result.deliverables > 0) {
+          writeFileSync(
+            artifactsPath,
+            JSON.stringify(artifacts, null, 2),
+            'utf-8'
+          );
+        }
       }
 
       // 记录讨论历史

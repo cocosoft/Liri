@@ -471,7 +471,13 @@ export async function handleMCPListTools(
       await import('@modules/services/mcp/MCPServerManager');
     const { mcpSystem } = await import('@modules/services/mcp');
     const manager = getMCPServerManager();
-    const serverInfos = manager.getServerInfos();
+    // TODO: CS05-ROOTFIX — bun 并发测试下动态 import 偶发返回未完成模块实例
+    // （getServerInfos 缺失，预存第五十八次登记），防御降级为空列表避免 500；
+    // 生产环境（模块已完整加载）不会触发。根因待 bun 模块缓存竞态解决后移除。
+    const serverInfos =
+      typeof manager.getServerInfos === 'function'
+        ? manager.getServerInfos()
+        : [];
 
     const tools: Array<{
       name: string;

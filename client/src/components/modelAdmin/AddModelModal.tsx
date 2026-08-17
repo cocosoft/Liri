@@ -6,11 +6,7 @@
  */
 
 import { useState } from "react";
-import type {
-  BillingMode,
-  ProviderInfo,
-  TimeBasedPrice,
-} from "../../types";
+import type { BillingMode, ProviderInfo, TimeBasedPrice } from "../../types";
 import { toastWarning } from "../../stores/toastStore";
 
 interface AddModelFormData {
@@ -42,7 +38,12 @@ const BILLING_MODE_LABELS: Record<BillingMode, string> = {
 };
 
 function emptyTimeSlot(): TimeBasedPrice {
-  return { start: "00:00", end: "00:00", inputCostPerMillion: 0, outputCostPerMillion: 0 };
+  return {
+    start: "00:00",
+    end: "00:00",
+    inputCostPerMillion: 0,
+    outputCostPerMillion: 0,
+  };
 }
 
 export default function AddModelModal({
@@ -263,11 +264,13 @@ export default function AddModelModal({
                 }
                 className={inputCls}
               >
-                {(Object.keys(BILLING_MODE_LABELS) as BillingMode[]).map((m) => (
-                  <option key={m} value={m}>
-                    {BILLING_MODE_LABELS[m]}
-                  </option>
-                ))}
+                {(Object.keys(BILLING_MODE_LABELS) as BillingMode[]).map(
+                  (m) => (
+                    <option key={m} value={m}>
+                      {BILLING_MODE_LABELS[m]}
+                    </option>
+                  ),
+                )}
               </select>
             </div>
             <div>

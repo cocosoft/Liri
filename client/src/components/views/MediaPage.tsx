@@ -343,90 +343,93 @@ function MediaPage() {
   }, [galleryItems, favoriteIds]);
 
   // ──── 加载图库（首次加载 / 分页追加） ────
-  const loadGallery = useCallback(async (append = false) => {
-    if (append && !galleryHasMore) return; // 无更多数据时跳过
+  const loadGallery = useCallback(
+    async (append = false) => {
+      if (append && !galleryHasMore) return; // 无更多数据时跳过
 
-    // BUG-5 修复：图片/视频各自独立页码，不再从合并 offset 推算。
-    const imgPage = append ? imgPageRef.current : 1;
-    const vidPage = append ? vidPageRef.current : 1;
-    useMediaStore.setState({ galleryLoading: true });
+      // BUG-5 修复：图片/视频各自独立页码，不再从合并 offset 推算。
+      const imgPage = append ? imgPageRef.current : 1;
+      const vidPage = append ? vidPageRef.current : 1;
+      useMediaStore.setState({ galleryLoading: true });
 
-    try {
-      const q = (page: number) => {
-        const p = new URLSearchParams();
-        p.set("pageSize", String(PAGE_SIZE));
-        p.set("page", String(page));
-        return p.toString();
-      };
+      try {
+        const q = (page: number) => {
+          const p = new URLSearchParams();
+          p.set("pageSize", String(PAGE_SIZE));
+          p.set("page", String(page));
+          return p.toString();
+        };
 
-      const [imgRes, vidRes] = await Promise.all([
-        http.get<{ images: ImageApiItem[] }>(`/v1/images/list?${q(imgPage)}`),
-        http.get<{ videos: VideoApiItem[] }>(`/v1/videos/list?${q(vidPage)}`),
-      ]);
+        const [imgRes, vidRes] = await Promise.all([
+          http.get<{ images: ImageApiItem[] }>(`/v1/images/list?${q(imgPage)}`),
+          http.get<{ videos: VideoApiItem[] }>(`/v1/videos/list?${q(vidPage)}`),
+        ]);
 
-      const images: GalleryItem[] = (
-        imgRes.ok && imgRes.data?.images ? imgRes.data.images : []
-      ).map((img) => ({
-        id: `img:${img.path || img.url}`,
-        type: "image" as const,
-        url: img.url,
-        thumbnailUrl: img.url,
-        width: img.width,
-        height: img.height,
-        alt: img.alt || "",
-      }));
+        const images: GalleryItem[] = (
+          imgRes.ok && imgRes.data?.images ? imgRes.data.images : []
+        ).map((img) => ({
+          id: `img:${img.path || img.url}`,
+          type: "image" as const,
+          url: img.url,
+          thumbnailUrl: img.url,
+          width: img.width,
+          height: img.height,
+          alt: img.alt || "",
+        }));
 
-      const videos: GalleryItem[] = (
-        vidRes.ok && vidRes.data?.videos ? vidRes.data.videos : []
-      ).map((vid) => ({
-        id: `vid:${vid.path || vid.url}`,
-        type: "video" as const,
-        url: vid.url,
-        thumbnailUrl: vid.url,
-        duration: vid.duration,
-        width: vid.width,
-        height: vid.height,
-      }));
+        const videos: GalleryItem[] = (
+          vidRes.ok && vidRes.data?.videos ? vidRes.data.videos : []
+        ).map((vid) => ({
+          id: `vid:${vid.path || vid.url}`,
+          type: "video" as const,
+          url: vid.url,
+          thumbnailUrl: vid.url,
+          duration: vid.duration,
+          width: vid.width,
+          height: vid.height,
+        }));
 
-      const newItems = [...images, ...videos];
-      // 图片/视频各自的 hasMore 分开判定，任一还有数据即可继续翻页
-      const imgCount = imgRes.ok ? (imgRes.data?.images?.length ?? 0) : 0;
-      const vidCount = vidRes.ok ? (vidRes.data?.videos?.length ?? 0) : 0;
-      const hasMore = imgCount >= PAGE_SIZE || vidCount >= PAGE_SIZE;
+        const newItems = [...images, ...videos];
+        // 图片/视频各自的 hasMore 分开判定，任一还有数据即可继续翻页
+        const imgCount = imgRes.ok ? (imgRes.data?.images?.length ?? 0) : 0;
+        const vidCount = vidRes.ok ? (vidRes.data?.videos?.length ?? 0) : 0;
+        const hasMore = imgCount >= PAGE_SIZE || vidCount >= PAGE_SIZE;
 
-      if (append) {
-        // 本页已消费，页码前进；下一页继续各取各的
-        imgPageRef.current += 1;
-        vidPageRef.current += 1;
-        useMediaStore.getState().appendGalleryItems(newItems, hasMore);
-      } else {
-        imgPageRef.current = 2;
-        vidPageRef.current = 2;
-        useMediaStore.setState({
-          galleryItems: newItems,
-          galleryLoading: false,
-          galleryHasMore: hasMore,
-          galleryOffset: newItems.length,
+        if (append) {
+          // 本页已消费，页码前进；下一页继续各取各的
+          imgPageRef.current += 1;
+          vidPageRef.current += 1;
+          useMediaStore.getState().appendGalleryItems(newItems, hasMore);
+        } else {
+          imgPageRef.current = 2;
+          vidPageRef.current = 2;
+          useMediaStore.setState({
+            galleryItems: newItems,
+            galleryLoading: false,
+            galleryHasMore: hasMore,
+            galleryOffset: newItems.length,
+          });
+        }
+        logger.info("图库加载完成", {
+          append,
+          imgPage,
+          vidPage,
+          images: images.length,
+          videos: videos.length,
         });
+      } catch (e) {
+        logger.warn("加载图库失败", { error: String(e) });
+        if (!append) {
+          useMediaStore.setState({
+            galleryItems: [],
+            galleryLoading: false,
+            galleryHasMore: false,
+          });
+        }
       }
-      logger.info("图库加载完成", {
-        append,
-        imgPage,
-        vidPage,
-        images: images.length,
-        videos: videos.length,
-      });
-    } catch (e) {
-      logger.warn("加载图库失败", { error: String(e) });
-      if (!append) {
-        useMediaStore.setState({
-          galleryItems: [],
-          galleryLoading: false,
-          galleryHasMore: false,
-        });
-      }
-    }
-  }, [galleryHasMore]);
+    },
+    [galleryHasMore],
+  );
 
   useEffect(() => {
     if (!initialLoadDone.current) {
@@ -668,15 +671,18 @@ function MediaPage() {
   // ──── lightbox 删除 ────
   // BUG-2 修复：删除按类型分流。原实现一律调 imageService.deleteImage，
   // 视频 URL 不匹配图片前缀 → 后端 403 Access denied。
-  const deleteMediaItem = useCallback(async (item: GalleryItem): Promise<void> => {
-    if (item.type === "video") {
-      const backendPath = item.url.replace(/^\/v1\/videos\/static\//, "");
-      const ok = await videoService.deleteVideo(backendPath);
-      if (!ok) throw new Error("video delete failed");
-      return;
-    }
-    await imageService.deleteImage(item.url);
-  }, []);
+  const deleteMediaItem = useCallback(
+    async (item: GalleryItem): Promise<void> => {
+      if (item.type === "video") {
+        const backendPath = item.url.replace(/^\/v1\/videos\/static\//, "");
+        const ok = await videoService.deleteVideo(backendPath);
+        if (!ok) throw new Error("video delete failed");
+        return;
+      }
+      await imageService.deleteImage(item.url);
+    },
+    [],
+  );
 
   const handleLightboxDelete = useCallback(async () => {
     const imageItems = galleryItems.filter((i) => i.type === "image");
@@ -692,7 +698,13 @@ function MediaPage() {
     } catch {
       addToast("error", "删除失败，请重试");
     }
-  }, [lightboxIndex, galleryItems, deleteMediaItem, removeGalleryItem, addToast]);
+  }, [
+    lightboxIndex,
+    galleryItems,
+    deleteMediaItem,
+    removeGalleryItem,
+    addToast,
+  ]);
 
   // ──── 删除（单个，供右键菜单/面板使用） ────
   // 先弹确认框，确认后才执行删除

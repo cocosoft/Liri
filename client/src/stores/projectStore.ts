@@ -226,7 +226,8 @@ export const useProjectStore = create<ProjectStore>()(
           (id) => project.nodes[id].status === "active",
         );
         if (allDone && nodeIds.length > 0) overallStatus = "completed";
-        else if (!hasActiveNode && avgProgress === 0) overallStatus = "planning";
+        else if (!hasActiveNode && avgProgress === 0)
+          overallStatus = "planning";
 
         set((s) => ({
           projects: {

@@ -5,6 +5,7 @@
 
 import { getLogger } from '@modules/monitoring';
 import { feature, resolveOutputDir } from '@modules/core';
+import { globalToolManager } from '@modules/tools';
 import { join } from 'path';
 import { readdirSync, statSync } from 'fs';
 
@@ -15,6 +16,8 @@ import type {
 } from './types';
 
 import { DocModuleStatus as Status } from './types';
+import type { Tool } from '@modules/tools/types/Tool';
+import { ToolExecutionStatus } from '@modules/tools/types/ToolResult';
 
 import {
   detectOfficeCLI,
@@ -58,6 +61,9 @@ export class DocModule {
   /** 模板引擎 */
   readonly templateEngine = new TemplateEngine();
   readonly templateMarketplace = new TemplateMarketplace(this.templateEngine);
+
+  /** 文档编排器（P0：由 setupOrchestrator 注入执行器后激活） */
+  readonly orchestrator = new DocOrchestrator();
 
   /**
    * 获取模块单例
@@ -131,6 +137,9 @@ export class DocModule {
     // 注册渠道感知工具
     this.channelHandler.registerTools();
 
+    // 注入编排器执行器 + 注册 office:workflow 工具（P0）
+    this.setupOrchestrator();
+
     // 注册模板引擎（需 DOC_TEMPLATE flag）
     if (feature('DOC_TEMPLATE')) {
       this.templateMarketplace.registerBuiltinTemplates();
@@ -150,6 +159,12 @@ export class DocModule {
     logger.info('DocModule 销毁中...');
     this.stopHealthCheck();
     this.requestQueue.flush();
+    // N-6：注销编排器工作流工具，避免模块重启后重复注册
+    try {
+      globalToolManager.unregisterTool('office:workflow');
+    } catch {
+      /* 注销失败不阻塞销毁 */
+    }
     this.status = Status.SHUTDOWN;
   }
 
@@ -181,6 +196,124 @@ export class DocModule {
       templateCount: this.templateEngine.templateCount,
       templates: templateNames,
       documents: this.scanOutputDirectory(),
+    };
+  }
+
+  /**
+   * 工作流友好工具名 → 实际 ToolManager 注册工具名映射
+   * doc:* 工具实际由 officecli MCP 包装为 officecli__command 或由 DocGenerateTool 注册为 doc_generate
+   * mail:search 暂未注册，映射为 mail:search 会触发 ToolManager 的 "Tool not found" 错误（诚实失败）
+   */
+  private static readonly WORKFLOW_TOOL_ALIASES: Record<string, string> = {
+    'doc:create-docx': 'doc_generate',
+    'doc:command': 'doc_generate',
+  };
+
+  /**
+   * 注入编排器执行器 + 注册 office:workflow 工具（P0）
+   * 通过 globalToolManager.executeTool 分发到真实工具：
+   * mail:send / calendar:* 由对应模块注册，officecli 文档工具经 MCP 桥接注册。
+   * D-1：仅当编排器可分发时才注册工具，未注册任何工具时保持不可用（不假成功）。
+   */
+  private setupOrchestrator(): void {
+    this.orchestrator.setToolExecutor(async (tool, params) => {
+      // 友好名 → 实际注册名映射
+      const actualTool = DocModule.WORKFLOW_TOOL_ALIASES[tool] ?? tool;
+      const result = await globalToolManager.executeTool(
+        actualTool,
+        params,
+        {}
+      );
+      logger.info('编排器步骤执行完成', {
+        friendlyTool: tool,
+        actualTool,
+        success: (result as { status?: string })?.status ?? 'ok',
+      });
+      return result;
+    });
+
+    globalToolManager.registerTool(this.createWorkflowTool());
+    logger.info('编排器已激活 — office:workflow 工具已注册', {
+      workflows: DocOrchestrator.getAvailableWorkflows(),
+    });
+  }
+
+  /**
+   * 创建 office:workflow 工具（P0）
+   * 供 LLM 在对话中直接触发"会议纪要→群发邮件"等跨模块闭环
+   */
+  private createWorkflowTool(): Tool {
+    const workflows = DocOrchestrator.getAvailableWorkflows();
+    return {
+      name: 'office:workflow',
+      description:
+        'Execute a pre-defined cross-module office workflow (doc + mail + calendar). ' +
+        `Available workflows: ${workflows.join(', ')}. ` +
+        'Usage: pass workflow name and its params, e.g. meeting-to-all with meetingTitle, recipients.',
+      params: [
+        {
+          name: 'workflow',
+          type: 'string',
+          description: `工作流名称，可选值: ${workflows.join(' | ')}`,
+          required: true,
+          enum: workflows,
+        },
+        {
+          name: 'params',
+          type: 'object',
+          description: '工作流参数（传递给各步骤工具）',
+          required: true,
+        },
+      ],
+      aliases: ['office_workflow', 'run_office_workflow'],
+      searchTips: ['office', 'workflow', 'orchestrate'],
+      isEnabled: () => true,
+      isReadOnly: () => false,
+      isDestructive: () => false,
+      isConcurrencySafe: () => false,
+
+      async execute(input: Record<string, unknown>) {
+        const workflow = input.workflow as string;
+        const params = (input.params ?? {}) as Record<string, unknown>;
+        const result = await DocModule.getInstance().orchestrator.execute(
+          workflow,
+          params
+        );
+        const status = result.success
+          ? ToolExecutionStatus.SUCCESS
+          : ToolExecutionStatus.FAILURE;
+        return {
+          status,
+          result,
+          output: result.success
+            ? (result.output ?? `工作流 ${workflow} 执行完成`)
+            : (result.error ?? `工作流 ${workflow} 执行失败`),
+          errorOutput: result.success ? '' : (result.error ?? ''),
+          progress: [],
+          metadata: { workflow, completedSteps: result.completedSteps },
+          executionTime: 0,
+          executionId: `office_workflow_${Date.now()}`,
+          toolName: 'office:workflow',
+          timestamp: Date.now(),
+        };
+      },
+
+      getInfo() {
+        return {
+          name: 'office:workflow',
+          description: this.description,
+          params: this.params,
+          aliases: this.aliases,
+          searchTips: this.searchTips,
+          enabled: true,
+          readOnly: false,
+          destructive: false,
+          concurrencySafe: false,
+          deferred: false,
+          alwaysLoad: false,
+          interruptBehavior: 'block',
+        };
+      },
     };
   }
 

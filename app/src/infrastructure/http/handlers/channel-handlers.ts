@@ -23,7 +23,7 @@
 
 import type http from 'http';
 import { sendError, readRequestBody, type HandlerCtx } from './handler-utils';
-import { getLogger } from '@modules/monitoring';
+import { getLogger, getMetricsService } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
 
@@ -856,6 +856,71 @@ export async function handleChannelHealth(
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ channels, stats }));
   } catch (err) {
+    sendError(res, err);
+  }
+}
+
+/**
+ * 获取渠道模块可观测性指标（消息收发计数/拒绝原因/处理耗时/发送耗时）
+ * GET /v1/channels/metrics
+ *
+ * 数据来源：ChannelMetrics 经 MetricsService 记录的 channels.* 系列指标。
+ * 输出结构化 JSON（key 含 labels，count/sum/buckets/quantiles 视指标类型而定），
+ * 供前端监控面板直接渲染。
+ */
+export async function handleChannelMetrics(
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  logger.info('[TRACE] GET /v1/channels/metrics 请求开始', {
+    method: req.method,
+    url: req.url,
+    timestamp: Date.now(),
+  });
+
+  try {
+    const allMetrics = getMetricsService().getAllMetrics();
+    const metrics: Array<Record<string, unknown>> = [];
+    let counterGaugeCount = 0;
+    let histogramCount = 0;
+
+    for (const [key, metric] of allMetrics) {
+      if (!key.startsWith('channels.')) continue;
+      const entry: Record<string, unknown> = { key };
+      const value = metric.get();
+      if (typeof value === 'number') {
+        entry.value = value;
+        counterGaugeCount += 1;
+      } else if (value && typeof value === 'object') {
+        if (value.count !== undefined) entry.count = value.count;
+        if (value.sum !== undefined) entry.sum = value.sum;
+        if (value.buckets) entry.buckets = value.buckets;
+        if (value.quantiles) entry.quantiles = value.quantiles;
+        histogramCount += 1;
+      }
+      metrics.push(entry);
+    }
+
+    logger.info('[TRACE] GET /v1/channels/metrics 指标获取成功', {
+      totalMetricsInStore: allMetrics.size,
+      channelsMetrics: metrics.length,
+      counterGaugeCount,
+      histogramCount,
+      metricKeys: metrics.map((m) => m.key),
+      timestamp: Date.now(),
+    });
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ metrics, updatedAt: Date.now() }));
+  } catch (err) {
+    // sendError 内部会经 handleError 统一记录（Logger + ErrorTracker）
+    logger.warning('[TRACE] GET /v1/channels/metrics 指标获取失败', {
+      method: req.method,
+      url: req.url,
+      error: String(err),
+      stack: err instanceof Error ? err.stack : undefined,
+      timestamp: Date.now(),
+    });
     sendError(res, err);
   }
 }

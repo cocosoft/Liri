@@ -68,6 +68,8 @@ export class ChannelHealthMonitor extends EventEmitter {
 
   /**
    * 注册所有通道为健康检查项
+   * 幂等：registerCheck 为 Map.set 覆盖，可安全重复调用，
+   * 因此每次 checkAll/getReport 前调用可覆盖动态注册的新通道（P3）
    */
   registerAllChannels(): void {
     const channels = this.registry.getAll();
@@ -118,6 +120,8 @@ export class ChannelHealthMonitor extends EventEmitter {
    * 运行所有通道健康检查
    */
   async checkAll(): Promise<HealthCheckResult> {
+    // P3：动态注册的通道不在初始 registerAllChannels 范围，运行前同步一次
+    this.registerAllChannels();
     const result = await this.checker.runAllChecks();
     this.evaluateAlerts(result);
     this.emit('health:updated', result);
@@ -147,6 +151,8 @@ export class ChannelHealthMonitor extends EventEmitter {
    * 获取所有通道健康报告
    */
   async getReport(): Promise<ChannelHealthReport[]> {
+    // P3：动态注册的通道不在初始 registerAllChannels 范围，查询前同步一次
+    this.registerAllChannels();
     const channels = this.registry.getAll();
     const reports: ChannelHealthReport[] = [];
 
@@ -221,9 +227,10 @@ export class ChannelHealthMonitor extends EventEmitter {
    */
   startAutoCheck(): void {
     this.stop();
+    // P3：unref() 避免健康检查定时器阻止进程退出
     this.autoTimer = setInterval(() => {
       this.checkAll();
-    }, this.config.checkIntervalMs);
+    }, this.config.checkIntervalMs).unref();
   }
 
   /**

@@ -36,15 +36,36 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { configManager } from '@modules/config';
 import { resolveDataSubDir } from '@modules/core';
+import { getLogger } from '@modules/monitoring';
 
 const ENC_PREFIX = 'enc:';
+
+const logger = getLogger('channels:secrets');
 
 /** 密钥文件位置：~/.pyapp/data/channels/secret.key */
 function getSecretKeyFile(): string {
   return join(resolveDataSubDir('channels'), 'secret.key');
 }
 
+/** DEEP-11：密钥备份文件位置：~/.pyapp/data/channels/secret.key.bak */
+function getSecretKeyBackupFile(): string {
+  return join(resolveDataSubDir('channels'), 'secret.key.bak');
+}
+
 let cachedKey: Buffer | null = null;
+
+/** 从文件读取 32 字节密钥，缺失或无效返回 null */
+function loadKeyFromFile(file: string): Buffer | null {
+  if (!existsSync(file)) return null;
+  const key = Buffer.from(readFileSync(file, 'utf-8').trim(), 'hex');
+  return key.length === 32 ? key : null;
+}
+
+/** 写密钥文件（0600 权限） */
+function persistKeyFile(file: string, key: Buffer): void {
+  mkdirSync(dirname(file), { recursive: true });
+  writeFileSync(file, key.toString('hex'), { mode: 0o600 });
+}
 
 function getKey(): Buffer {
   if (cachedKey) return cachedKey;
@@ -59,17 +80,33 @@ function getKey(): Buffer {
   }
 
   const file = getSecretKeyFile();
-  if (existsSync(file)) {
-    const key = Buffer.from(readFileSync(file, 'utf-8').trim(), 'hex');
-    if (key.length === 32) {
-      cachedKey = key;
-      return key;
+  const backupFile = getSecretKeyBackupFile();
+
+  // DEEP-11：主密钥优先，缺失/损坏时回退备份，避免密钥丢失导致全部凭据不可恢复
+  const fromMain = loadKeyFromFile(file);
+  if (fromMain) {
+    // 存量用户补写备份，确保后续有兜底
+    if (!existsSync(backupFile)) {
+      persistKeyFile(backupFile, fromMain);
     }
+    cachedKey = fromMain;
+    return fromMain;
   }
 
+  const fromBackup = loadKeyFromFile(backupFile);
+  if (fromBackup) {
+    logger.warning('主密钥文件缺失或损坏，使用备份密钥恢复', {
+      file,
+      backupFile,
+    });
+    cachedKey = fromBackup;
+    return fromBackup;
+  }
+
+  // 首次初始化：生成新密钥并同步写主文件 + 备份
   const key = randomBytes(32);
-  mkdirSync(dirname(file), { recursive: true });
-  writeFileSync(file, key.toString('hex'), { mode: 0o600 });
+  persistKeyFile(file, key);
+  persistKeyFile(backupFile, key);
   cachedKey = key;
   return key;
 }
@@ -84,9 +121,20 @@ export function isSensitiveKey(key: string): boolean {
   );
 }
 
+/**
+ * 判断字符串是否为合法密文（enc:<iv>:<tag>:<ciphertext>，三段非空 base64）
+ * 仅对合法密文做幂等跳过，避免明文恰好以 `enc:` 开头时被误判为已加密（P3）
+ */
+function isEncryptedValue(value: string): boolean {
+  if (!value.startsWith(ENC_PREFIX)) return false;
+  const parts = value.slice(ENC_PREFIX.length).split(':');
+  if (parts.length !== 3) return false;
+  return parts.every((p) => p.length > 0);
+}
+
 /** 加密单个字符串（已加密值幂等跳过） */
 export function encryptSecret(plain: string): string {
-  if (plain.startsWith(ENC_PREFIX)) return plain;
+  if (isEncryptedValue(plain)) return plain;
   const iv = randomBytes(12);
   const cipher = createCipheriv('aes-256-gcm', getKey(), iv);
   const data = Buffer.concat([cipher.update(plain, 'utf-8'), cipher.final()]);

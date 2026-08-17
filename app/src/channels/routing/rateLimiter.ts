@@ -38,15 +38,35 @@ interface TokenBucket {
   lastRefill: number;
 }
 
+/**
+ * 解析正整数环境变量；非法值（NaN/非正数）回退默认值并告警，
+ * 避免 `NaN <= 0` 恒 false 导致限流被静默关闭（P3）
+ */
+function parsePositiveIntEnv(
+  raw: string | undefined,
+  fallback: number,
+  name: string
+): number {
+  if (!raw) return fallback;
+  const parsed = Number.parseInt(raw, 10);
+  if (Number.isNaN(parsed) || parsed <= 0) {
+    logger.warning(`环境变量 ${name} 无效，回退默认值 ${fallback}`, { raw });
+    return fallback;
+  }
+  return parsed;
+}
+
 /** 桶容量（burst 上限） */
-const BUCKET_CAPACITY = parseInt(
-  configManager.env('CHANNEL_RATE_LIMIT_CAPACITY') || '10',
-  10
+const BUCKET_CAPACITY = parsePositiveIntEnv(
+  configManager.env('CHANNEL_RATE_LIMIT_CAPACITY'),
+  10,
+  'CHANNEL_RATE_LIMIT_CAPACITY'
 );
 /** 补充速率：每 REFILL_MS 恢复一个 token */
-const REFILL_MS = parseInt(
-  configManager.env('CHANNEL_RATE_LIMIT_REFILL_MS') || '60000',
-  10
+const REFILL_MS = parsePositiveIntEnv(
+  configManager.env('CHANNEL_RATE_LIMIT_REFILL_MS'),
+  60000,
+  'CHANNEL_RATE_LIMIT_REFILL_MS'
 );
 
 const buckets = new Map<string, TokenBucket>();

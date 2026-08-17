@@ -354,7 +354,8 @@
 | DELETE | `/v1/channels/{id}` | ✅ | `channelService.delete` |
 | GET | `/v1/channels/plugins` | ✅ | `channelService.listPlugins` |
 | POST | `/v1/channels/plugins/install` | ✅ | `channelService.installPlugin` |
-| GET | `/v1/channels/{id}/health` | ❌ | `channelService.health` |
+| GET | `/v1/channels/health` | ✅ | `channelService.health` — 聚合健康 |
+| GET | `/v1/channels/metrics` | ✅ | `channelService.getMetrics` — ChannelMetricsCard 仪表盘卡片 |
 | POST | `/v1/channels/config/apply` | ❌ | `channelService.applyConfig` |
 
 ### §3.15 配置

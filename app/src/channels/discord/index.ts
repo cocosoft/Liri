@@ -42,23 +42,6 @@ export type {
   MonitorEvent as DiscordMonitorEvent,
   MonitorStats as DiscordMonitorStats,
 } from './monitor';
-export { diagnoseDiscord } from './doctor';
-export type {
-  DiagnosisResult as DiscordDiagnosisResult,
-  DiscordDiagnosisContext,
-} from './doctor';
-export { discordProbe } from './probe';
-export type { ProbeResult as DiscordProbeResult } from './probe';
-export {
-  normalizeDiscordApproverId,
-  resolveDiscordApprovers,
-  isDiscordSenderAuthorized,
-} from './approval-auth';
-export type {
-  DiscordApproverInfo,
-  DiscordApprovalAuthConfig,
-  DiscordApprovalAuthResult,
-} from './approval-auth';
 export { DiscordStreamMessage } from './streaming-message';
 export type {
   DiscordStreamState,

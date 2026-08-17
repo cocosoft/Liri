@@ -468,9 +468,10 @@ class TelegramChannel extends BaseChannelPlugin {
     target: string,
     content: string
   ): Promise<SendResult> {
+    // BUG-8：HTML 解析模式下 `<`、`>`、`&` 必须转义，否则 Telegram 返回 400
     const body = {
       chat_id: target,
-      text: content.slice(0, TELEGRAM_META.maxMessageLength),
+      text: escapeHtml(content).slice(0, TELEGRAM_META.maxMessageLength),
       parse_mode: 'HTML',
     };
     const resp = await this.transport.fetch(
@@ -496,10 +497,10 @@ class TelegramChannel extends BaseChannelPlugin {
     target: string,
     content: string
   ): Promise<SendResult> {
-    // 使用 HTML 解析模式，无需转义特殊字符。比 MarkdownV2 更健壮。
+    // BUG-8：HTML 解析模式下特殊字符必须转义（与 sendTextMessage 一致）
     const body = {
       chat_id: target,
-      text: content.slice(0, TELEGRAM_META.maxMessageLength),
+      text: escapeHtml(content).slice(0, TELEGRAM_META.maxMessageLength),
       parse_mode: 'HTML',
     };
     const resp = await this.transport.fetch(

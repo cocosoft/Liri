@@ -33,12 +33,18 @@
 
 import { getLogger } from '@modules/monitoring';
 import { getOTelTracing } from '../../monitoring/otel/OTelTracing.js';
+import {
+  recordInboundMessage,
+  recordMessageProcessing,
+  recordMessageRejected,
+} from '../monitoring/ChannelMetrics.js';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '../../error/handleError';
 import {
   claimMessage,
   releaseProcessing,
   finalizeMessage,
+  markMessageProcessed,
 } from '../dedup/index';
 import type { MessageContext } from '../types/IChannel';
 import type { SessionSpanContext } from '../../ai/telemetry/SessionSpanTracer';
@@ -115,7 +121,7 @@ export interface RouteMessageOptions {
       content: string;
       sessionId: string;
       metadata?: Record<string, unknown>;
-    }): Promise<{ content: string }>;
+    }): Promise<{ content: string; finishReason?: string }>;
   };
   /** 出站回调（处理完消息后的回复发送） */
   onOutbound?: (content: string, target: string) => Promise<void>;
@@ -125,6 +131,34 @@ export interface RouteMessageOptions {
   enableTracing?: boolean;
   /** 2026-08-06 新增（P0-2）：DM 策略配置（pairing/allowlist/open），提供则执行授权检查 */
   dmPolicy?: Partial<DmPolicyConfig>;
+}
+
+/**
+ * Per-conversation 串行队列（DEEP-6 修复）
+ *
+ * 同会话内多条消息按到达顺序串行处理，避免 LLM 并发导致回复乱序。
+ * key = channel:conversationId（DM 下 conversationId=senderId，天然隔离）。
+ */
+const sessionQueues = new Map<string, Promise<void>>();
+
+/**
+ * 按会话 key 串行执行 fn
+ * 前一条完成后再执行下一条，保证同会话内回复顺序与消息到达顺序一致。
+ */
+async function runSerialized<T>(key: string, fn: () => Promise<T>): Promise<T> {
+  const prev = sessionQueues.get(key) ?? Promise.resolve();
+  let release!: () => void;
+  const next = new Promise<void>((r) => (release = r));
+  sessionQueues.set(key, next);
+  try {
+    return await prev.then(fn);
+  } finally {
+    release();
+    // 若队列已空（当前就是队尾）则清理，防止 Map 无限增长
+    if (sessionQueues.get(key) === next) {
+      sessionQueues.delete(key);
+    }
+  }
 }
 
 /**
@@ -213,6 +247,10 @@ export async function routeChannelMessage(
     hasOnOutbound: !!onOutbound,
   });
 
+  // 可观测性（指标）：入站计数 + 处理耗时起点
+  const processingStartMs = Date.now();
+  recordInboundMessage();
+
   // [0] 生成全链路 traceId
   const traceId = `ch_trc_${channelName}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
 
@@ -240,6 +278,8 @@ export async function routeChannelMessage(
       messageId: message.messageId,
       errors: validation.errors,
     });
+    recordMessageRejected(validation.errorCode || 'INVALID_FRAME');
+    otel.endSpan(routeSpan);
     return {
       valid: false,
       errorCode: validation.errorCode || 'INVALID_FRAME',
@@ -259,6 +299,8 @@ export async function routeChannelMessage(
         senderId: message.senderId,
         reason: authResult.reason,
       });
+      recordMessageRejected('UNAUTHORIZED');
+      otel.endSpan(routeSpan);
       return {
         valid: false,
         errorCode: 'UNAUTHORIZED',
@@ -267,37 +309,30 @@ export async function routeChannelMessage(
     }
   }
 
-  // ①-③ 入站限流（2026-08-06 接入，P1-5）：按渠道+sender 令牌桶，
-  // 超限直接拒绝（不触发 LLM 调用），防止 open 渠道被刷爆成本
-  if (!checkRateLimit(channelName, message.senderId)) {
-    logger.warning('消息触发限流', {
-      channelName,
-      senderId: message.senderId,
-    });
-    return {
-      valid: false,
-      errorCode: 'RATE_LIMITED',
-      errorMessage: '发送过于频繁，请稍后再试',
-    };
-  }
-
-  // ② 去重检查（messageId 级）
+  // ② 去重检查（messageId 级）——先于限流，避免重复事件浪费限流额度（BUG-4）
   const claimResult = claimMessage(message.messageId);
   if (claimResult === 'duplicate') {
     logger.info(`重复消息已跳过: ${message.messageId}`, { channelName });
+    recordMessageRejected('duplicate');
+    otel.endSpan(routeSpan);
     return { valid: true, response: 'duplicate_skipped' };
   }
   if (claimResult === 'inflight') {
     logger.info(`消息正在处理中: ${message.messageId}`, { channelName });
+    recordMessageRejected('inflight');
+    otel.endSpan(routeSpan);
     return { valid: true, response: 'inflight_skipped' };
   }
   if (claimResult === 'invalid') {
+    recordMessageRejected('INVALID_ID');
+    otel.endSpan(routeSpan);
     return { valid: false, errorCode: 'INVALID_ID' };
   }
 
   // ②-② 内容级去重检查（兜底：不同 messageId 但内容相同的重复事件）
   if (message.content) {
-    const contentKey = `${message.channelId || channelName}:${message.content}`;
+    // DEEP-7：内容去重 key 增加 senderId 维度，避免误杀不同用户发送的相同内容
+    const contentKey = `${message.channelId || channelName}:${message.senderId}:${message.content}`;
     const now = Date.now();
     const lastContentTime = contentDedupCache.get(contentKey);
     if (lastContentTime && now - lastContentTime < CONTENT_DEDUP_WINDOW_MS) {
@@ -307,6 +342,8 @@ export async function routeChannelMessage(
       });
       // 也释放 messageId 级别的锁
       releaseProcessing(message.messageId);
+      recordMessageRejected('content_dedup');
+      otel.endSpan(routeSpan);
       return { valid: true, response: 'duplicate_skipped' };
     }
     contentDedupCache.set(contentKey, now);
@@ -318,6 +355,25 @@ export async function routeChannelMessage(
         }
       }
     }
+  }
+
+  // ②-③ 入站限流（2026-08-06 接入，P1-5）：按渠道+sender 令牌桶，
+  // 超限直接拒绝（不触发 LLM 调用），防止 open 渠道被刷爆成本
+  if (!checkRateLimit(channelName, message.senderId)) {
+    logger.warning('消息触发限流', {
+      channelName,
+      senderId: message.senderId,
+    });
+    // P1-1：claimMessage 已持锁，限流拒绝路径必须释放锁，
+    // 否则该 messageId 永久残留 inflight 集合，渠道重传被无限拦截
+    releaseProcessing(message.messageId);
+    recordMessageRejected('RATE_LIMITED');
+    otel.endSpan(routeSpan);
+    return {
+      valid: false,
+      errorCode: 'RATE_LIMITED',
+      errorMessage: '发送过于频繁，请稍后再试',
+    };
   }
 
   try {
@@ -357,10 +413,16 @@ export async function routeChannelMessage(
       });
     }
 
+    // DEEP-12：群聊场景下 conversationId 是群 ID，所有用户共享会导致上下文互相污染
+    // 非 DM 消息时在会话键中注入 senderId 区分不同用户
+    const sessionKey = message.isDirectMessage
+      ? (message.conversationId ?? message.senderId)
+      : `${message.conversationId ?? message.senderId}:${message.senderId}`;
+
     // ④ 会话创建/复用 → ⑤ CoreAPI.chat()
     logger.info('[TRACE] routeChannelMessage 调用 CoreAPI.chat 开始', {
       messageId: message.messageId,
-      sessionId: message.conversationId ?? message.senderId,
+      sessionId: sessionKey,
       contentLength: message.content.length,
     });
 
@@ -404,6 +466,9 @@ export async function routeChannelMessage(
                       message.conversationId ?? message.senderId
                     );
                   }
+                  // DEEP-9：释放 claimMessage 锁，防止 messageId 永久 inflight
+                  finalizeMessage(message.messageId, true);
+                  otel.endSpan(routeSpan);
                   return { valid: true, response: 'text_approval_processed' };
                 } catch (inboxErr) {
                   await handleError(inboxErr, {
@@ -417,6 +482,10 @@ export async function routeChannelMessage(
                       message.conversationId ?? message.senderId
                     );
                   }
+                  // DEEP-9：即使失败也要释放锁
+                  finalizeMessage(message.messageId, true);
+                  recordMessageRejected('INBOX_UNAVAILABLE');
+                  otel.endSpan(routeSpan);
                   return { valid: false, errorCode: 'INBOX_UNAVAILABLE' };
                 }
               }
@@ -433,36 +502,67 @@ export async function routeChannelMessage(
       }
     }
 
-    const chatPromise = coreAPI.chat({
-      content: message.content,
-      sessionId: message.conversationId ?? message.senderId,
-      metadata: {
-        channel: message.channelId || channelName,
-        sender: message.senderId,
-        messageType: message.messageType,
-        isDirectMessage: message.isDirectMessage,
-        traceId,
-        channelSessionId: channelSession?.id,
-        channelConversationId: channelSession?.conversationId,
-        rawPayload: message.rawPayload,
-      },
+    // DEEP-6：per-session 串行化，保证同会话回复顺序不乱
+    // DEEP-12：串行 key 与 CoreAPI 会话键一致（群聊按用户隔离）
+    const serializedKey = `${channelName}:${sessionKey}`;
+    const response = await runSerialized(serializedKey, async () => {
+      const chatPromise = coreAPI.chat({
+        content: message.content,
+        sessionId: sessionKey,
+        metadata: {
+          channel: message.channelId || channelName,
+          sender: message.senderId,
+          messageType: message.messageType,
+          isDirectMessage: message.isDirectMessage,
+          traceId,
+          channelSessionId: channelSession?.id,
+          channelConversationId: channelSession?.conversationId,
+          rawPayload: message.rawPayload,
+        },
+      });
+      // DEEP-14：超时 timer 可取消
+      let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        timeoutHandle = setTimeout(
+          () =>
+            reject(
+              new Error(`CoreAPI.chat() 超时 (>${CHAT_TIMEOUT_MS / 1000}s)`)
+            ),
+          CHAT_TIMEOUT_MS
+        );
+      });
+      const result = await Promise.race([chatPromise, timeoutPromise]);
+      clearTimeout(timeoutHandle);
+      return result;
     });
-    const timeoutPromise = new Promise<never>((_, reject) =>
-      setTimeout(
-        () =>
-          reject(
-            new Error(`CoreAPI.chat() 超时 (>${CHAT_TIMEOUT_MS / 1000}s)`)
-          ),
-        CHAT_TIMEOUT_MS
-      )
-    );
-    const response = await Promise.race([chatPromise, timeoutPromise]);
 
     logger.info('[TRACE] routeChannelMessage CoreAPI.chat 返回', {
       messageId: message.messageId,
       hasContent: !!response.content,
       responseLength: response.content?.length || 0,
+      finishReason: (response as Record<string, unknown>).finishReason,
     });
+
+    // DEEP-5：CoreAPI 返回 error 时，消息不应标记为已处理（否则 LLM 错误后渠道重传同一消息被丢弃）
+    const finishReason = (response as Record<string, unknown>).finishReason;
+    if (finishReason === 'error') {
+      logger.warning(
+        'CoreAPI.chat 返回 error finishReason，释放消息锁但不标记已处理',
+        {
+          messageId: message.messageId,
+          channelName,
+        }
+      );
+      releaseProcessing(message.messageId);
+      recordMessageRejected('LLM_ERROR');
+      recordMessageProcessing(channelName, Date.now() - processingStartMs);
+      otel.endSpan(routeSpan);
+      return {
+        valid: false,
+        errorCode: 'LLM_ERROR',
+        errorMessage: '消息处理失败，请稍后重试',
+      };
+    }
 
     // ⑥ 出站回调 + 追踪完成
     if (response.content && onOutbound) {
@@ -504,16 +604,34 @@ export async function routeChannelMessage(
     // 标记消息处理完成
     finalizeMessage(message.messageId, true);
 
+    recordMessageProcessing(channelName, Date.now() - processingStartMs);
     otel.endSpan(routeSpan);
     return { valid: true, response: response.content };
   } catch (error) {
     // 释放消息锁
     releaseProcessing(message.messageId);
 
+    // BUG-5：超时后补标记 processed，防止渠道重传同一消息导致重复处理
+    // （LLM 请求超时≠请求失败，重传会再次触发 LLM 调用造成重复计费）
+    const isTimeout =
+      error instanceof Error &&
+      error.message.includes(`超时 (>${CHAT_TIMEOUT_MS / 1000}s)`);
+    if (isTimeout) {
+      markMessageProcessed(message.messageId);
+      logger.warning(
+        'CoreAPI.chat 超时，消息标记为已处理（避免重传重复计费）',
+        {
+          messageId: message.messageId,
+          channelName,
+        }
+      );
+    }
+
     otel.recordError(
       routeSpan,
       error instanceof Error ? error : new Error(String(error))
     );
+    recordMessageProcessing(channelName, Date.now() - processingStartMs);
     otel.endSpan(routeSpan);
     await handleError(error, {
       module: 'channels:routing',

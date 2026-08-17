@@ -79,6 +79,22 @@ export interface ChannelHealthAggregate {
   };
 }
 
+/** 渠道可观测性指标条目（GET /v1/channels/metrics，key 形如 `name{label=k,v}`） */
+export interface ChannelMetricEntry {
+  key: string;
+  value?: number;
+  count?: number;
+  sum?: number;
+  buckets?: Record<string, number>;
+  quantiles?: Record<string, number>;
+}
+
+/** 渠道可观测性指标响应体（GET /v1/channels/metrics） */
+export interface ChannelMetricsResponse {
+  metrics: ChannelMetricEntry[];
+  updatedAt: number;
+}
+
 /** 渠道配置字段定义（GET /v1/channels/schema，4.1：后端单一来源） */
 export interface PlatformFieldDef {
   key: string;

@@ -57,15 +57,6 @@ export type {
   MonitorStats as FacebookMessengerMonitorStats,
 } from './monitor.js';
 
-export { diagnoseFacebookMessenger } from './doctor.js';
-export type {
-  DiagnosisResult as FacebookMessengerDiagnosisResult,
-  FacebookMessengerDiagnosisContext,
-} from './doctor.js';
-
-export { facebookMessengerProbe } from './probe.js';
-export type { ProbeResult as FacebookMessengerProbeResult } from './probe.js';
-
 export {
   setFacebookMessengerRuntime,
   getFacebookMessengerRuntime,

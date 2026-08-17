@@ -51,15 +51,6 @@ export type {
   MonitorStats as SignalMonitorStats,
 } from './monitor.js';
 
-export { diagnoseSignal } from './doctor.js';
-export type {
-  DiagnosisResult as SignalDiagnosisResult,
-  SignalDiagnosisContext,
-} from './doctor.js';
-
-export { signalProbe } from './probe.js';
-export type { ProbeResult as SignalProbeResult } from './probe.js';
-
 export {
   setSignalRuntime,
   getSignalRuntime,

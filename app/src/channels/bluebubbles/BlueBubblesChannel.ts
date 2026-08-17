@@ -25,7 +25,6 @@ import {
 } from './config-schema';
 import type { BlueBubblesConfig } from './config-schema';
 import { BlueBubblesMonitor } from './monitor';
-import type { BlueBubblesProbe } from './probe';
 import { BLUEBUBBLES_TOOL_HINTS } from './channel.runtime';
 
 import { getLogger } from '@modules/monitoring';

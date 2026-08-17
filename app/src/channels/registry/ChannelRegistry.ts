@@ -258,8 +258,8 @@ export class ChannelRegistry extends EventEmitter {
               });
             }
 
-            // 用 type（通道标识，如 "qq"）作为 key，而非自增 id
-            const key = (row.type || row.name).toLowerCase();
+            // 统一用 type（通道标识，如 "qq"）作为 configs map key，与 register/updateConfig/getConfig 保持一致
+            const key = row.type || row.name;
 
             // 若因历史数据重复（同一 key 多行），保留含凭据的配置
             const existing = this.configs.get(key);
@@ -297,7 +297,8 @@ export class ChannelRegistry extends EventEmitter {
       this.db!.run(
         `INSERT INTO channel_configs (id, name, type, enabled, options, updated_at)
          VALUES (?, ?, ?, ?, ?, ?)
-         ON CONFLICT(name) DO UPDATE SET
+         ON CONFLICT(id) DO UPDATE SET
+           name = excluded.name,
            type = excluded.type,
            enabled = excluded.enabled,
            options = excluded.options,
@@ -327,7 +328,7 @@ export class ChannelRegistry extends EventEmitter {
         return;
       }
       this.db!.run(
-        'DELETE FROM channel_configs WHERE name = ?',
+        'DELETE FROM channel_configs WHERE id = ?',
         [id],
         (err: Error | null) => {
           if (err) {
@@ -361,6 +362,23 @@ export class ChannelRegistry extends EventEmitter {
   }
 
   /**
+   * 统一 key 解析（DEEP-10 修复）
+   *
+   * configs map 以 type（通道标识）为主键；但历史数据/前端可能按 name 查询。
+   * 此函数同时支持 type 和 name 两种查询方式，返回找到的 config。
+   */
+  private getConfigResolved(key: string): ChannelConfig | undefined {
+    // 优先按 key 直接命中（type 或 name 恰好等于 key）
+    const direct = this.configs.get(key);
+    if (direct) return direct;
+    // 回退：按 name 或 type 匹配（前端可能传显示名）
+    for (const config of this.configs.values()) {
+      if (config.name === key || config.type === key) return config;
+    }
+    return undefined;
+  }
+
+  /**
    * 注册通道（支持 ChannelInterface 和 IChannelPlugin）
    * 内存更新始终成功；DB 持久化失败时记录警告但不阻止通道运行
    */
@@ -374,7 +392,7 @@ export class ChannelRegistry extends EventEmitter {
     }
 
     // P1-1：DB 持久化配置为准 — 已存在配置时用其 enabled 覆盖（前端禁用后重启不再连接）
-    const persistedEnabled = this.configs.get(adapted.name)?.enabled;
+    const persistedEnabled = this.getConfigResolved(adapted.name)?.enabled;
     if (persistedEnabled !== undefined) {
       adapted.enabled = persistedEnabled;
     }
@@ -386,7 +404,7 @@ export class ChannelRegistry extends EventEmitter {
     this.channels.set(adapted.name, adapted);
 
     // 检查是否已有持久化的配置（从 DB 加载），有则保留，避免覆盖用户已保存的凭据
-    const existingConfig = this.configs.get(adapted.name);
+    const existingConfig = this.getConfigResolved(adapted.name);
     if (!existingConfig) {
       const config: ChannelConfig = {
         name: adapted.name,
@@ -394,7 +412,8 @@ export class ChannelRegistry extends EventEmitter {
         enabled: adapted.enabled,
         options: {},
       };
-      this.configs.set(adapted.name, config);
+      // DEEP-10：统一以 type 作为 configs map 的 key
+      this.configs.set(adapted.type, config);
 
       // 异步持久化（不阻塞调用者，失败时自动记录错误日志）
       this.persistConfig(config)
@@ -441,10 +460,11 @@ export class ChannelRegistry extends EventEmitter {
     if (channel) {
       channel.disconnect();
       this.channels.delete(name);
-      this.configs.delete(name);
+      // DEEP-10：configs 以 type 为 key，删除时用 channel.type
+      this.configs.delete(channel.type);
 
       // 异步删除持久化配置（不阻塞调用者，失败时自动记录错误日志）
-      this.deletePersistedConfig(name)
+      this.deletePersistedConfig(channel.type)
         .then((deleted) => {
           if (!deleted) {
             logger.warning(`注销通道 ${name}: 内存已更新但 DB 删除失败`);
@@ -490,15 +510,17 @@ export class ChannelRegistry extends EventEmitter {
   }
 
   /**
-   * 获取配置
+   * 获取配置（支持 type 或 name 查询，DEEP-10 统一 key 解析）
    */
   getConfig(name: string): ChannelConfig | undefined {
-    return this.configs.get(name);
+    return this.getConfigResolved(name);
   }
 
   /**
    * 更新通道配置（合并模式）
    * 支持更新 name / enabled / options
+   * BUG-2/BUG-7：`clearOptions=true` 时 options 采用替换语义（覆盖而非合并），
+   * 使空值/删除操作能真正清空旧字段。
    * 内存更新始终成功；DB 持久化失败时记录警告但不阻止调用方继续
    */
   updateConfig(
@@ -507,9 +529,10 @@ export class ChannelRegistry extends EventEmitter {
       name?: string;
       enabled?: boolean;
       options?: Record<string, unknown>;
+      clearOptions?: boolean;
     }
   ): boolean {
-    const config = this.configs.get(name);
+    const config = this.getConfigResolved(name);
     if (!config) return false;
 
     if (changes.name !== undefined) {
@@ -518,11 +541,22 @@ export class ChannelRegistry extends EventEmitter {
     if (changes.enabled !== undefined) {
       config.enabled = changes.enabled;
       // P1-1：同步内存 ChannelInterface.enabled，使 getEnabled()/lazyConnectChannels 立即生效
-      const ch = this.channels.get(name);
+      const ch = this.channels.get(name) ?? this.channels.get(config.type);
       if (ch) ch.enabled = changes.enabled;
     }
     if (changes.options !== undefined) {
-      config.options = { ...config.options, ...changes.options };
+      if (changes.clearOptions) {
+        // BUG-2/BUG-7：替换语义，空对象可真正清空旧字段
+        config.options = { ...changes.options };
+      } else {
+        // 合并语义；BUG-7：空字符串值表示删除该字段（前端清空输入）
+        config.options = { ...config.options, ...changes.options };
+        for (const [k, v] of Object.entries(changes.options)) {
+          if (typeof v === 'string' && v.length === 0) {
+            delete config.options[k];
+          }
+        }
+      }
     }
 
     // 异步持久化（不阻塞调用者，失败时自动记录错误日志）

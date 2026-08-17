@@ -51,15 +51,6 @@ export type {
   MonitorStats as YuanbaoMonitorStats,
 } from './monitor.js';
 
-export { diagnoseYuanbao } from './doctor.js';
-export type {
-  DiagnosisResult as YuanbaoDiagnosisResult,
-  YuanbaoDiagnosisContext,
-} from './doctor.js';
-
-export { yuanbaoProbe } from './probe.js';
-export type { ProbeResult as YuanbaoProbeResult } from './probe.js';
-
 export {
   setYuanbaoRuntime,
   getYuanbaoRuntime,

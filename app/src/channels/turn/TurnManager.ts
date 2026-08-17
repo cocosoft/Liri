@@ -103,13 +103,15 @@ export class TurnManager extends EventEmitter {
       entry.lastTurn = Date.now();
       entry.turnCount++;
       entry.cooldownUntil = Date.now() + this.config.cooldownMs;
-      this.lastAssignedId = entry.id;
 
+      // DEEP-17：必须先比较旧值再更新，否则恒等导致 consecutiveCount 永不复位，
+      // 单条目时超过 maxConsecutive 后 getAvailable() 永远为空 → next() 死锁
       if (this.lastAssignedId === entry.id) {
         this.consecutiveCount++;
       } else {
         this.consecutiveCount = 1;
       }
+      this.lastAssignedId = entry.id;
 
       this.lastAssignedIndex = this.getEntryIndex(entry.id);
 
@@ -145,7 +147,10 @@ export class TurnManager extends EventEmitter {
         continue;
       }
 
+      // P2-3：单条目时 maxConsecutive 无意义（没有其它条目可轮转），
+      // 若仍应用连续次数上限，3 次后 getAvailable() 恒空 → next() 永久返回 undefined（死锁）
       if (
+        this.entries.size > 1 &&
         entry.id === this.lastAssignedId &&
         this.consecutiveCount >= this.config.maxConsecutive
       ) {

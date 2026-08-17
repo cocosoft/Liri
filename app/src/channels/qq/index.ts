@@ -42,14 +42,5 @@ export type {
   MonitorStats as QQMonitorStats,
 } from './monitor.js';
 
-export { diagnoseQQ } from './doctor.js';
-export type {
-  DiagnosisResult as QQDiagnosisResult,
-  QQDiagnosisContext,
-} from './doctor.js';
-
-export { qqProbe } from './probe.js';
-export type { ProbeResult as QQProbeResult } from './probe.js';
-
 export { setQQRuntime, getQQRuntime, clearQQRuntime } from './runtime.js';
 export type { QQRuntime, QQRuntimeStatus } from './runtime.js';

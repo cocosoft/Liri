@@ -5,5 +5,3 @@
  * 在运行时边界聚合通道运行时功能，保持主入口加载轻量。
  */
 export { EmailMonitor } from './monitor.js';
-export { diagnoseEmail } from './doctor.js';
-export { emailProbe } from './probe.js';

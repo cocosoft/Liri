@@ -62,6 +62,7 @@ import {
 import {
   handleApplyChannelConfig,
   handleChannelHealth,
+  handleChannelMetrics,
   handleChannelSchema,
   handleDeleteChannel,
   handleGetChannel,
@@ -268,6 +269,11 @@ export async function dispatchCostChannelRoutes(
   // P2-6（4.12）：健康聚合接口必须先于 /v1/channels/(.+) 匹配，否则被 handleGetChannel 吞掉
   if (method === 'GET' && url === '/v1/channels/health') {
     await handleChannelHealth(req, res);
+    return true;
+  }
+  // 渠道可观测性指标（channels.* 系列），同样先于 /v1/channels/(.+) 匹配
+  if (method === 'GET' && url === '/v1/channels/metrics') {
+    await handleChannelMetrics(req, res);
     return true;
   }
   if (method === 'GET' && url.match(/^\/v1\/channels\/(.+)$/)) {

@@ -51,15 +51,6 @@ export type {
   MonitorStats as WebhookMonitorStats,
 } from './monitor.js';
 
-export { diagnoseWebhook } from './doctor.js';
-export type {
-  DiagnosisResult as WebhookDiagnosisResult,
-  WebhookDiagnosisContext,
-} from './doctor.js';
-
-export { webhookProbe } from './probe.js';
-export type { ProbeResult as WebhookProbeResult } from './probe.js';
-
 export {
   setWebhookRuntime,
   getWebhookRuntime,

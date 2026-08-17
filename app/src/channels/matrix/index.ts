@@ -37,23 +37,6 @@ export type {
   MonitorEvent as MatrixMonitorEvent,
   MonitorStats as MatrixMonitorStats,
 } from './monitor.js';
-export { diagnoseMatrix } from './doctor.js';
-export type {
-  DiagnosisResult as MatrixDiagnosisResult,
-  MatrixDiagnosisContext,
-} from './doctor.js';
-export { matrixProbe } from './probe.js';
-export type { ProbeResult as MatrixProbeResult } from './probe.js';
-export {
-  normalizeMatrixApproverId,
-  resolveMatrixApprovers,
-  isMatrixSenderAuthorized,
-} from './approval-auth.js';
-export type {
-  MatrixApproverInfo,
-  MatrixApprovalAuthConfig,
-  MatrixApprovalAuthResult,
-} from './approval-auth.js';
 export { MatrixStreamMessage } from './streaming-message.js';
 export type {
   MatrixStreamState,

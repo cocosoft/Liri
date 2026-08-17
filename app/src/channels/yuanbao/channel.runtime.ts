@@ -5,5 +5,3 @@
  * 在运行时边界聚合通道运行时功能，保持主入口加载轻量。
  */
 export { YuanbaoMonitor } from './monitor.js';
-export { diagnoseYuanbao } from './doctor.js';
-export { yuanbaoProbe } from './probe.js';

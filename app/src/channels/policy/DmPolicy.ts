@@ -1,4 +1,4 @@
-﻿/**
+/**
  * DM Policy 引擎
  * pairing / allowlist / open 三档安全策略
  * 对齐 OpenClaw channels/dm-policy-shared.ts
@@ -10,9 +10,14 @@ import type {
   MessageContext,
   ResolvedSender,
 } from '@modules/channels/types';
-import { PairingStore } from './PairingStore';
+import { PairingStore, getPairingStore } from './PairingStore';
 
 const logger = getLogger('channels:dm');
+
+// DEEP-1/BUG-3：进程内共享配对尝试计数
+// DmPolicyEngine 可能被每条消息新建，若尝试计数挂在实例上会每消息重置，
+// 导致 maxPairingAttempts 永远无法触发。共享为模块级 Map。
+const sharedPairingAttempts = new Map<string, number>();
 
 export interface DmPolicyConfig {
   policy: DmPolicy;
@@ -31,11 +36,12 @@ const DEFAULT_POLICY_CONFIG: DmPolicyConfig = {
 export class DmPolicyEngine {
   private config: DmPolicyConfig;
   private pairings: PairingStore;
-  private pairingAttempts: Map<string, number> = new Map();
+  private pairingAttempts: Map<string, number> = sharedPairingAttempts;
 
   constructor(config?: Partial<DmPolicyConfig>, pairings?: PairingStore) {
     this.config = { ...DEFAULT_POLICY_CONFIG, ...config };
-    this.pairings = pairings || new PairingStore();
+    // DEEP-1/BUG-3：默认使用进程内共享单例，避免每消息新建 PairingStore 导致配对状态不一致
+    this.pairings = pairings || getPairingStore();
   }
 
   async authorize(
@@ -79,6 +85,8 @@ export class DmPolicyEngine {
       ctx.senderId
     );
     if (approved) {
+      // 配对成功后清除该发送者的尝试计数，避免共享 Map 无限增长
+      this.pairingAttempts.delete(ctx.senderId);
       return { allowed: true };
     }
 

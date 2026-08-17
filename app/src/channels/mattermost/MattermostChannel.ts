@@ -29,7 +29,6 @@ import {
 } from './config-schema';
 import type { MattermostConfig } from './config-schema';
 import { MattermostMonitor } from './monitor';
-import type { MattermostProbe } from './probe';
 import { MATTERMOST_TOOL_HINTS } from './channel.runtime';
 
 import { getLogger } from '@modules/monitoring';

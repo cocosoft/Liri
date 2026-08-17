@@ -38,28 +38,11 @@ export type {
   MonitorEvent as FeishuMonitorEvent,
   MonitorStats as FeishuMonitorStats,
 } from './monitor';
-export { diagnoseFeishu } from './doctor';
-export type {
-  DiagnosisResult as FeishuDiagnosisResult,
-  DiagnosisContext as FeishuDiagnosisContext,
-} from './doctor';
-export { feishuProbe } from './probe';
-export type { ProbeResult as FeishuProbeResult } from './probe';
 /**
  * 消息去重（已迁移至共享模块）
  * @deprecated 请直接使用 @modules/channels/dedup 的 claimMessage/finalizeMessage
  */
 export { claimMessage, finalizeMessage } from './dedup';
-export {
-  normalizeFeishuApproverId,
-  resolveFeishuApprovers,
-  isFeishuSenderAuthorized,
-} from './approval-auth';
-export type {
-  FeishuApproverInfo,
-  FeishuApprovalAuthConfig,
-  FeishuApprovalAuthResult,
-} from './approval-auth';
 export { FeishuStreamingCard } from './streaming-card';
 export type { FeishuStreamState, FeishuStreamOptions } from './streaming-card';
 export {

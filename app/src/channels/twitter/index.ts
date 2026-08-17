@@ -51,15 +51,6 @@ export type {
   MonitorStats as TwitterMonitorStats,
 } from './monitor.js';
 
-export { diagnoseTwitter } from './doctor.js';
-export type {
-  DiagnosisResult as TwitterDiagnosisResult,
-  TwitterDiagnosisContext,
-} from './doctor.js';
-
-export { twitterProbe } from './probe.js';
-export type { ProbeResult as TwitterProbeResult } from './probe.js';
-
 export {
   setTwitterRuntime,
   getTwitterRuntime,

@@ -34,12 +34,5 @@ export type {
   MonitorEvent as IrcMonitorEvent,
   MonitorStats as IrcMonitorStats,
 } from './monitor.js';
-export { diagnoseIrc } from './doctor.js';
-export type {
-  DiagnosisResult as IrcDiagnosisResult,
-  IrcDiagnosisContext,
-} from './doctor.js';
-export { ircProbe } from './probe.js';
-export type { ProbeResult as IrcProbeResult } from './probe.js';
 export { setIrcRuntime, getIrcRuntime, clearIrcRuntime } from './runtime.js';
 export type { IrcRuntime, IrcRuntimeStatus } from './runtime.js';

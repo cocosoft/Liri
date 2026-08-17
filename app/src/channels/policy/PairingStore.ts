@@ -6,7 +6,8 @@
 
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
+import { existsSync, mkdirSync } from 'fs';
+import { readFile, writeFile } from 'fs/promises';
 import { join } from 'path';
 import { randomBytes } from 'crypto';
 
@@ -34,8 +35,8 @@ export class PairingStore {
 
   constructor(storeDir?: string) {
     this.storeDir = storeDir || resolvePairingsDir();
+    // DEEP-16：构造仅确保目录存在，不再同步读盘；加载推迟到 ensureLoaded()
     this.ensureDir();
-    this.load();
   }
 
   async isApproved(channelId: string, userId: string): Promise<boolean> {
@@ -58,8 +59,14 @@ export class PairingStore {
       expiresAt: Date.now() + timeoutMs,
     };
     const list = this.pending.get(channelId) || [];
-    list.push(pending);
-    this.pending.set(channelId, list);
+    // DEEP-15：清理该用户已过期/旧的 pending 码，避免无限增长
+    const now = Date.now();
+    const filtered = list.filter(
+      (p) => now < p.expiresAt && p.userId !== userId
+    );
+    filtered.push(pending);
+    this.pending.set(channelId, filtered);
+    await this.savePending();
     return code;
   }
 
@@ -69,7 +76,7 @@ export class PairingStore {
     const users = this.users.get(channelId) || [];
     users.push({ userId, approvedAt: Date.now() });
     this.users.set(channelId, users);
-    this.save();
+    await this.save();
     logger.info(`配对已批准: ${channelId}/${userId}`);
     return true;
   }
@@ -87,6 +94,8 @@ export class PairingStore {
     const entry = list[idx];
     list.splice(idx, 1);
     this.pending.set(channelId, list);
+    // DEEP-15：消费掉的配对码同步落盘
+    await this.savePending();
     return this.approve(channelId, entry.userId);
   }
 
@@ -96,7 +105,7 @@ export class PairingStore {
     const filtered = users.filter((u) => u.userId !== userId);
     if (filtered.length === users.length) return false;
     this.users.set(channelId, filtered);
-    this.save();
+    await this.save();
     logger.info(`配对已撤销: ${channelId}/${userId}`);
     return true;
   }
@@ -122,6 +131,11 @@ export class PairingStore {
     return join(this.storeDir, 'approved-pairings.json');
   }
 
+  /** DEEP-15：pending 配对码落盘文件（配对码重启不丢失，CLI 与消息路径共享） */
+  private getPendingFilePath(): string {
+    return join(this.storeDir, 'pending-pairings.json');
+  }
+
   private ensureDir(): void {
     if (!existsSync(this.storeDir)) {
       mkdirSync(this.storeDir, { recursive: true });
@@ -129,37 +143,102 @@ export class PairingStore {
   }
 
   private ensureLoaded(): void {
-    if (!this.loaded) this.load();
+    // DEEP-16：首次访问时异步加载，避免在消息处理路径上同步读盘阻塞事件循环
+    if (!this.loaded) {
+      this.loaded = true;
+      this.load().catch((error) =>
+        handleError(error instanceof Error ? error : new Error(String(error)), {
+          module: 'channels:policy',
+          action: '加载配对数据失败',
+        })
+      );
+    }
   }
 
-  private load(): void {
+  private async load(): Promise<void> {
     try {
       const filePath = this.getFilePath();
       if (existsSync(filePath)) {
         const raw: Record<string, PairedUser[]> = JSON.parse(
-          readFileSync(filePath, 'utf-8')
+          await readFile(filePath, 'utf-8')
         );
         for (const [channel, users] of Object.entries(raw)) {
           this.users.set(channel, users);
         }
         logger.info(`已加载配对数据: ${Object.keys(raw).length} 个通道`);
       }
+      // DEEP-15：恢复 pending 配对码
+      await this.loadPending();
     } catch (error) {
       handleError(error instanceof Error ? error : new Error(String(error)), {
         module: 'channels:policy',
         action: '加载配对数据失败',
       });
     }
-    this.loaded = true;
   }
 
-  private save(): void {
+  /** DEEP-15：持久化 pending 配对码（DEEP-16：异步写盘，不阻塞事件循环） */
+  private async savePending(): Promise<void> {
+    try {
+      const data: Record<
+        string,
+        Array<{
+          code: string;
+          userId: string;
+          createdAt: number;
+          expiresAt: number;
+        }>
+      > = {};
+      for (const [k, v] of this.pending) {
+        const now = Date.now();
+        data[k] = v.filter((p) => p.expiresAt > now);
+      }
+      await writeFile(this.getPendingFilePath(), JSON.stringify(data, null, 2));
+    } catch (error) {
+      handleError(error instanceof Error ? error : new Error(String(error)), {
+        module: 'channels:policy',
+        action: '保存 pending 配对码失败',
+      });
+    }
+  }
+
+  /** DEEP-15：从磁盘恢复 pending 配对码（DEEP-16：异步读盘） */
+  private async loadPending(): Promise<void> {
+    try {
+      const filePath = this.getPendingFilePath();
+      if (existsSync(filePath)) {
+        const raw: Record<
+          string,
+          Array<{
+            code: string;
+            userId: string;
+            createdAt: number;
+            expiresAt: number;
+          }>
+        > = JSON.parse(await readFile(filePath, 'utf-8'));
+        const now = Date.now();
+        for (const [channel, list] of Object.entries(raw)) {
+          const valid = list.filter((p) => p.expiresAt > now);
+          if (valid.length > 0) {
+            this.pending.set(channel, valid);
+          }
+        }
+      }
+    } catch (error) {
+      handleError(error instanceof Error ? error : new Error(String(error)), {
+        module: 'channels:policy',
+        action: '加载 pending 配对码失败',
+      });
+    }
+  }
+
+  private async save(): Promise<void> {
     try {
       const data: Record<string, PairedUser[]> = {};
       for (const [k, v] of this.users) {
         data[k] = v;
       }
-      writeFileSync(this.getFilePath(), JSON.stringify(data, null, 2));
+      await writeFile(this.getFilePath(), JSON.stringify(data, null, 2));
     } catch (error) {
       handleError(error instanceof Error ? error : new Error(String(error)), {
         module: 'channels:policy',
@@ -167,4 +246,17 @@ export class PairingStore {
       });
     }
   }
+}
+
+// DEEP-1/BUG-3：进程内共享单例
+// 所有 DmPolicyEngine 实例共享同一 PairingStore，确保配对状态（approved + pending）
+// 在消息路径与 CLI 路径之间一致，且配对尝试计数不被重置。
+let pairingStoreInstance: PairingStore | null = null;
+
+/** 获取 PairingStore 单例（进程内共享，跨 DmPolicyEngine 实例） */
+export function getPairingStore(): PairingStore {
+  if (!pairingStoreInstance) {
+    pairingStoreInstance = new PairingStore();
+  }
+  return pairingStoreInstance;
 }

@@ -3,6 +3,7 @@ import type {
   UpdateChannelRequest,
   ChannelHealth,
   ChannelHealthAggregate,
+  ChannelMetricsResponse,
   ChannelSchema,
   ChannelPluginInfo,
 } from "../types";
@@ -53,6 +54,11 @@ export const channelService = {
   /** 获取所有通道健康聚合（P2-6 / 4.12） */
   getHealth: async (): Promise<ChannelHealthAggregate> => {
     return http.get<ChannelHealthAggregate>("/v1/channels/health");
+  },
+
+  /** 获取渠道可观测性指标（消息收发计数/拒绝原因/处理耗时/发送耗时） */
+  getMetrics: async (): Promise<ChannelMetricsResponse> => {
+    return http.get<ChannelMetricsResponse>("/v1/channels/metrics");
   },
 
   /** 获取渠道字段渲染 schema（4.1：后端单一来源，前端表单渲染依据） */

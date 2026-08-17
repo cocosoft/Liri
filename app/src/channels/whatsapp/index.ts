@@ -51,15 +51,6 @@ export type {
   MonitorStats as WhatsAppMonitorStats,
 } from './monitor.js';
 
-export { diagnoseWhatsApp } from './doctor.js';
-export type {
-  DiagnosisResult as WhatsAppDiagnosisResult,
-  WhatsAppDiagnosisContext,
-} from './doctor.js';
-
-export { whatsappProbe } from './probe.js';
-export type { ProbeResult as WhatsAppProbeResult } from './probe.js';
-
 export {
   setWhatsAppRuntime,
   getWhatsAppRuntime,

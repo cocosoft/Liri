@@ -49,15 +49,6 @@ export type {
   MonitorStats as DingTalkMonitorStats,
 } from './monitor.js';
 
-export { diagnoseDingTalk } from './doctor.js';
-export type {
-  DiagnosisResult as DingTalkDiagnosisResult,
-  DingTalkDiagnosisContext,
-} from './doctor.js';
-
-export { dingTalkProbe } from './probe.js';
-export type { ProbeResult as DingTalkProbeResult } from './probe.js';
-
 export {
   setDingTalkRuntime,
   getDingTalkRuntime,

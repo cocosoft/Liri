@@ -50,12 +50,8 @@ const SPECIFIC_ERROR_MAP: Array<[RegExp, string]> = [
     "模型不存在或已被移除，请在模型管理中选择可用模型",
   ],
   [
-    /certificate|ssl|tls/i,
-    "模型服务 SSL 证书校验失败，请检查 API 地址是否为 HTTPS 且证书有效",
-  ],
-  [
-    /unable to connect|is the computer able to access/i,
-    "无法连接到模型服务，请检查网络或 API 地址",
+    /certificate|ssl|tls|unable to connect|is the computer able to access|FailedToOpenSocket/i,
+    "网络连接异常，无法访问模型 API，请检查本机网络、代理或防火墙配置",
   ],
   [
     /api[- ]?key|incorrect.*key|invalid.*key|unauthorized/i,

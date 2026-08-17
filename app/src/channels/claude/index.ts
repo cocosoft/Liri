@@ -51,15 +51,6 @@ export type {
   MonitorStats as ClaudeMonitorStats,
 } from './monitor.js';
 
-export { diagnoseClaude } from './doctor.js';
-export type {
-  DiagnosisResult as ClaudeDiagnosisResult,
-  ClaudeDiagnosisContext,
-} from './doctor.js';
-
-export { claudeProbe } from './probe.js';
-export type { ProbeResult as ClaudeProbeResult } from './probe.js';
-
 export {
   setClaudeRuntime,
   getClaudeRuntime,

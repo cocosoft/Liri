@@ -104,6 +104,8 @@ export type {
   UpdateChannelRequest,
   ChannelHealth,
   ChannelHealthAggregate,
+  ChannelMetricEntry,
+  ChannelMetricsResponse,
   PlatformFieldDef,
   ChannelSchema,
   ChannelPluginInfo,

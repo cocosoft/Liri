@@ -52,15 +52,6 @@ export type {
   MonitorStats as WechatMonitorStats,
 } from './monitor.js';
 
-export { diagnoseWechat } from './doctor.js';
-export type {
-  DiagnosisResult as WechatDiagnosisResult,
-  WechatDiagnosisContext,
-} from './doctor.js';
-
-export { wechatProbe } from './probe.js';
-export type { ProbeResult as WechatProbeResult } from './probe.js';
-
 export {
   setWechatRuntime,
   getWechatRuntime,

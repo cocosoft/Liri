@@ -46,15 +46,6 @@ export type {
   MonitorStats as WeComMonitorStats,
 } from './monitor.js';
 
-export { diagnoseWeCom } from './doctor.js';
-export type {
-  DiagnosisResult as WeComDiagnosisResult,
-  WeComDiagnosisContext,
-} from './doctor.js';
-
-export { wecomProbe } from './probe.js';
-export type { ProbeResult as WeComProbeResult } from './probe.js';
-
 export {
   setWeComRuntime,
   getWeComRuntime,

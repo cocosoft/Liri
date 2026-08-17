@@ -28,7 +28,7 @@ interface _ChannelRegistry {
   ): { options?: Record<string, unknown>; type?: string } | undefined;
   updateConfig(
     name: string,
-    changes: { options?: Record<string, unknown> }
+    changes: { options?: Record<string, unknown>; clearOptions?: boolean }
   ): boolean;
   getAllConfigs(): Array<{ type: string; options?: Record<string, unknown> }>;
 }
@@ -63,17 +63,83 @@ function toCamelCase(snake: string): string {
 
 /**
  * P1-2：从环境变量读取渠道凭据回退源
- * 命名规范：`LIRI_CHANNEL_<TYPE>_<FIELD>`（如 LIRI_CHANNEL_TELEGRAM_BOT_TOKEN）
+ * DEEP-2：同时识别标准社区命名（如 TELEGRAM_BOT_TOKEN），避免需要重复配置。
+ * 运行顺序：`LIRI_CHANNEL_<TYPE>_<FIELD>` 前缀 → 标准 env 变量名 → 兜底全量扫描
  */
 function getEnvCredentials(channelId: string): Record<string, unknown> {
   const prefix = `LIRI_CHANNEL_${channelId.toUpperCase()}_`;
   const result: Record<string, unknown> = {};
+
+  // 1. 优先读取 LIRI_CHANNEL_ 前缀格式
   for (const [key, value] of Object.entries(process.env)) {
     if (key.startsWith(prefix) && value) {
       result[toCamelCase(key.slice(prefix.length))] = value;
     }
   }
+
+  // 2. DEEP-2：渠道→标准 env 变量名映射（对齐 setupChannels 的启用判定）
+  const standardEnvVars = getStandardEnvVarMap(channelId);
+  for (const [fieldKey, envVarName] of Object.entries(standardEnvVars)) {
+    if (!result[fieldKey] && process.env[envVarName]) {
+      result[fieldKey] = process.env[envVarName]!;
+    }
+  }
+
   return result;
+}
+
+/**
+ * 渠道标准环境变量名映射表
+ * DEEP-2：与 setupChannels.ts 的 channelCandidates 启用判定保持一致
+ */
+function getStandardEnvVarMap(channelId: string): Record<string, string> {
+  const maps: Record<string, Record<string, string>> = {
+    telegram: { botToken: 'TELEGRAM_BOT_TOKEN' },
+    discord: { botToken: 'DISCORD_TOKEN' },
+    qq: { appId: 'QQ_APP_ID', appSecret: 'QQ_APP_SECRET' },
+    dingtalk: { appKey: 'DINGTALK_APP_KEY', appSecret: 'DINGTALK_APP_SECRET' },
+    feishu: { appId: 'FEISHU_APP_ID', appSecret: 'FEISHU_APP_SECRET' },
+    wechat: { webhookUrl: 'WECHAT_BOT_HTTP_URL' },
+    slack: {
+      botToken: 'SLACK_BOT_TOKEN',
+      signingSecret: 'SLACK_SIGNING_SECRET',
+    },
+    line: {
+      channelAccessToken: 'LINE_CHANNEL_ACCESS_TOKEN',
+      channelSecret: 'LINE_CHANNEL_SECRET',
+    },
+    irc: { server: 'IRC_SERVER', nick: 'IRC_NICK' },
+    nostr: { privateKey: 'NOSTR_PRIVATE_KEY', relays: 'NOSTR_RELAYS' },
+    email: { host: 'EMAIL_HOST', user: 'EMAIL_USER' },
+    sms: { fromNumber: 'SMS_FROM_NUMBER' },
+    webhook: { listenPort: 'WEBHOOK_LISTEN_PORT' },
+    wecom: {
+      corpId: 'WECOM_CORP_ID',
+      corpSecret: 'WECOM_CORP_SECRET',
+      agentId: 'WECOM_AGENT_ID',
+    },
+    googlechat: { serviceAccount: 'GOOGLECHAT_SERVICE_ACCOUNT' },
+    msteams: { botId: 'MSTEAMS_BOT_ID', botPassword: 'MSTEAMS_BOT_PASSWORD' },
+    zalo: { appId: 'ZALO_APP_ID', appSecret: 'ZALO_APP_SECRET' },
+    yuanbao: { appId: 'YUANBAO_APP_ID', appKey: 'YUANBAO_APP_KEY' },
+    whatsapp: {
+      phoneNumberId: 'WHATSAPP_PHONE_NUMBER_ID',
+      accessToken: 'WHATSAPP_ACCESS_TOKEN',
+    },
+    signal: { account: 'SIGNAL_ACCOUNT' },
+    matrix: {
+      homeserverUrl: 'MATRIX_HOMESERVER_URL',
+      accessToken: 'MATRIX_ACCESS_TOKEN',
+    },
+    facebook: { pageAccessToken: 'FACEBOOK_PAGE_ACCESS_TOKEN' },
+    twitter: {
+      apiKey: 'TWITTER_API_KEY',
+      apiSecretKey: 'TWITTER_API_SECRET_KEY',
+    },
+    mattermost: { url: 'MATTERMOST_URL', token: 'MATTERMOST_TOKEN' },
+    bluebubbles: { url: 'BLUEBUBBLES_URL', password: 'BLUEBUBBLES_PASSWORD' },
+  };
+  return maps[channelId] || {};
 }
 
 /**
@@ -118,6 +184,7 @@ export class ChannelSecretStore {
 
   /**
    * 保存指定渠道的凭据（敏感字段加密后持久化到 DB）
+   * BUG-2/BUG-7：使用替换语义（clearOptions=true），确保前端清空字段后旧值不再保留
    *
    * @param channelId 渠道 ID
    * @param credentials 凭据对象
@@ -125,16 +192,21 @@ export class ChannelSecretStore {
   set(channelId: string, credentials: Record<string, unknown>): void {
     getRegistry().updateConfig(channelId, {
       options: encryptOptions(credentials),
+      clearOptions: true,
     });
   }
 
   /**
    * 删除指定渠道的凭据（从 DB 中清除）
+   * BUG-2/BUG-7：使用替换语义（clearOptions=true），确保空对象真正清空旧字段
    *
    * @param channelId 渠道 ID
    */
   delete(channelId: string): void {
-    getRegistry().updateConfig(channelId, { options: {} });
+    getRegistry().updateConfig(channelId, {
+      options: {},
+      clearOptions: true,
+    });
   }
 
   /**

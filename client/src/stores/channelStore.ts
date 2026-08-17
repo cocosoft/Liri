@@ -10,9 +10,15 @@ import { handleClientError } from "@/utils/handleError";
  * 轮询 GET /v1/channels/health，替代固定 sleep(2000)：
  * 连接状态与保存前不同（或超时）即返回，保存流程更快且不依赖硬编码等待。
  */
+/**
+ * 等待渠道健康状态达到目标 connected 值
+ * DEEP-18：原实现用 `connected !== prevConnected` 判断"状态变化"，
+ * 但调用方传入的是目标状态——保存前后状态相同时恒为 false，每次保存至少空等满超时（3 秒）。
+ * 修正为等待「达到目标状态」即返回。
+ */
 async function waitForChannelConnected(
   id: string,
-  prevConnected: boolean,
+  targetConnected: boolean,
   timeoutMs: number,
 ): Promise<void> {
   const deadline = Date.now() + timeoutMs;
@@ -21,7 +27,7 @@ async function waitForChannelConnected(
     try {
       const health = await channelService.getHealth();
       const ch = health.channels?.find((c) => c.channelId === id);
-      if (ch && ch.connected !== prevConnected) return;
+      if (ch && ch.connected === targetConnected) return;
     } catch {
       // 单次轮询失败继续，避免健康接口抖动影响保存流程
     }

@@ -52,10 +52,3 @@ export {
   buildBlueBubblesContext,
 } from './channel.runtime.js';
 export type { BlueBubblesRuntimeContext } from './channel.runtime.js';
-export { diagnoseBlueBubbles } from './doctor.js';
-export type {
-  DiagnosisResult as BlueBubblesDiagnosisResult,
-  DiagnosisCheck as BlueBubblesDiagnosisCheck,
-  BlueBubblesDiagnosisContext,
-} from './doctor.js';
-export type { BlueBubblesProbe } from './probe.js';

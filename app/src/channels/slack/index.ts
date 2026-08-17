@@ -43,15 +43,6 @@ export type {
   MonitorStats as SlackMonitorStats,
 } from './monitor.js';
 
-export { diagnoseSlack } from './doctor.js';
-export type {
-  DiagnosisResult as SlackDiagnosisResult,
-  SlackDiagnosisContext,
-} from './doctor.js';
-
-export { slackProbe } from './probe.js';
-export type { ProbeResult as SlackProbeResult } from './probe.js';
-
 export {
   setSlackRuntime,
   getSlackRuntime,

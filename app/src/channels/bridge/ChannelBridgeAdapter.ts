@@ -1,4 +1,4 @@
-﻿// MIT License
+// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -73,6 +73,14 @@ export interface LegacyChannel {
     connected: boolean;
     type: string;
     metrics?: Record<string, unknown>;
+  };
+  /**
+   * DEEP-3：通道 DM 安全策略（与 setupChannels 的 plugin.security 对齐）
+   * 桥接入口必须与应用同一套授权，避免绕过 DM 授权检查
+   */
+  security?: {
+    dmPolicy?: 'open' | 'pairing' | 'allowlist';
+    allowFrom?: string[];
   };
 }
 
@@ -194,6 +202,11 @@ export function bridgeLegacyChannels(options: BridgeOptions): void {
             coreAPI,
             channelName,
             enableTracing: true,
+            // DEEP-3：桥接入口与应用同一套 DM 授权策略（未配置时默认 open）
+            dmPolicy: {
+              policy: legacy.security?.dmPolicy ?? 'open',
+              allowFrom: legacy.security?.allowFrom ?? [],
+            },
             onOutbound: async (content, target) => {
               if (legacy.send) {
                 await legacy.send({

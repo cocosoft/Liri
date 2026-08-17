@@ -5,5 +5,3 @@
  * 在运行时边界聚合通道运行时功能，保持主入口加载轻量。
  */
 export { DingTalkMonitor } from './monitor.js';
-export { diagnoseDingTalk } from './doctor.js';
-export { dingTalkProbe } from './probe.js';

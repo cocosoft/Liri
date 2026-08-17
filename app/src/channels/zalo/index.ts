@@ -48,14 +48,5 @@ export type {
   MonitorStats as ZaloMonitorStats,
 } from './monitor.js';
 
-export { diagnoseZalo } from './doctor.js';
-export type {
-  DiagnosisResult as ZaloDiagnosisResult,
-  ZaloDiagnosisContext,
-} from './doctor.js';
-
-export { zaloProbe } from './probe.js';
-export type { ProbeResult as ZaloProbeResult } from './probe.js';
-
 export { setZaloRuntime, getZaloRuntime, clearZaloRuntime } from './runtime.js';
 export type { ZaloRuntime, ZaloRuntimeStatus } from './runtime.js';

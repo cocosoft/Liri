@@ -11,7 +11,12 @@ import type { ChannelInterface } from './registry/ChannelRegistry';
 import type { ChannelId } from './types/IChannel';
 
 import { getLogger } from '@modules/monitoring';
-import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing';
+import { getOTelTracing } from '../monitoring/otel/OTelTracing.js';
+import {
+  recordDeliverySend,
+  recordDeliverySendLatency,
+  recordBroadcast,
+} from './monitoring/ChannelMetrics.js';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error';
 import {
@@ -132,6 +137,8 @@ export class DeliveryRouter {
           span,
           result.success ? SpanStatusCode.OK : SpanStatusCode.ERROR
         );
+        recordDeliverySend(String(platform), result.success);
+        recordDeliverySendLatency(String(platform), Date.now() - startTime);
         return { ...result, durationMs: Date.now() - startTime };
       } catch (err) {
         otel.recordError(
@@ -139,6 +146,8 @@ export class DeliveryRouter {
           err instanceof Error ? err : new Error(String(err))
         );
         otel.endSpan(span, SpanStatusCode.ERROR);
+        recordDeliverySend(String(platform), false);
+        recordDeliverySendLatency(String(platform), Date.now() - startTime);
         return {
           success: false,
           actualFormat: 'none',
@@ -184,6 +193,7 @@ export class DeliveryRouter {
         'delivery.chatId': target.chatId,
         'delivery.format': content.format,
       });
+      const startTime = Date.now();
 
       try {
         const result = await this._sendWithFallback(
@@ -199,6 +209,11 @@ export class DeliveryRouter {
           span,
           result.success ? SpanStatusCode.OK : SpanStatusCode.ERROR
         );
+        recordDeliverySend(String(target.platform), result.success);
+        recordDeliverySendLatency(
+          String(target.platform),
+          Date.now() - startTime
+        );
         return result;
       } catch (err) {
         otel.recordError(
@@ -206,6 +221,11 @@ export class DeliveryRouter {
           err instanceof Error ? err : new Error(String(err))
         );
         otel.endSpan(span, SpanStatusCode.ERROR);
+        recordDeliverySend(String(target.platform), false);
+        recordDeliverySendLatency(
+          String(target.platform),
+          Date.now() - startTime
+        );
         return {
           success: false,
           actualFormat: 'none',
@@ -241,6 +261,7 @@ export class DeliveryRouter {
       'delivery.totalSuccess': totalSuccess,
       'delivery.totalFailed': totalFailed,
     });
+    recordBroadcast();
     otel.endSpan(span, SpanStatusCode.OK);
 
     return { results, totalSuccess, totalFailed };
@@ -413,53 +434,81 @@ export class DeliveryRouter {
     content: DeliveryContent,
     steps: DeliveryFormat[]
   ): Promise<DeliveryResult | null> {
+    // DEEP-8：每个格式分支都用 try/catch 包裹，发送方法抛异常时降级而非冒泡
     switch (content.format) {
       case 'interactive': {
         if (typeof channel.plugin?.outbound?.sendInteractive !== 'function')
           return null;
-        const ok = await channel.plugin.outbound.sendInteractive(
-          target,
-          content.fallbackText,
-          content.card as unknown as Record<string, unknown>
-        );
-        if (!ok) return null;
-        return {
-          success: true,
-          actualFormat: 'interactive',
-          durationMs: 0,
-          fallbackSteps: steps,
-        };
+        try {
+          const ok = await channel.plugin.outbound.sendInteractive(
+            target,
+            content.fallbackText,
+            content.card as unknown as Record<string, unknown>
+          );
+          if (!ok) return null;
+          return {
+            success: true,
+            actualFormat: 'interactive',
+            durationMs: 0,
+            fallbackSteps: steps,
+          };
+        } catch (err) {
+          logger.warning('interactive 发送异常，降级到下一格式', {
+            channel: channel.name,
+            target,
+            error: String(err),
+          });
+          return null;
+        }
       }
       case 'markdown': {
         if (typeof channel.plugin?.outbound?.sendMarkdown !== 'function')
           return null;
-        const ok = await channel.plugin.outbound.sendMarkdown(
-          target,
-          content.content
-        );
-        if (!ok) return null;
-        return {
-          success: true,
-          actualFormat: 'markdown',
-          durationMs: 0,
-          fallbackSteps: steps,
-        };
+        try {
+          const ok = await channel.plugin.outbound.sendMarkdown(
+            target,
+            content.content
+          );
+          if (!ok) return null;
+          return {
+            success: true,
+            actualFormat: 'markdown',
+            durationMs: 0,
+            fallbackSteps: steps,
+          };
+        } catch (err) {
+          logger.warning('markdown 发送异常，降级到下一格式', {
+            channel: channel.name,
+            target,
+            error: String(err),
+          });
+          return null;
+        }
       }
       case 'text': {
         if (typeof channel.plugin?.outbound?.sendText !== 'function')
           return null;
         for (let attempt = 0; attempt < 2; attempt++) {
-          const ok = await channel.plugin.outbound.sendText(
-            target,
-            content.content
-          );
-          if (ok)
-            return {
-              success: true,
-              actualFormat: 'text',
-              durationMs: 0,
-              fallbackSteps: steps,
-            };
+          try {
+            const ok = await channel.plugin.outbound.sendText(
+              target,
+              content.content
+            );
+            if (ok)
+              return {
+                success: true,
+                actualFormat: 'text',
+                durationMs: 0,
+                fallbackSteps: steps,
+              };
+          } catch (err) {
+            logger.warning('text 发送异常，重试', {
+              channel: channel.name,
+              target,
+              attempt,
+              error: String(err),
+            });
+          }
           if (attempt === 0) await new Promise((r) => setTimeout(r, 100));
         }
         return null;

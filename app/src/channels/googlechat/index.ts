@@ -43,23 +43,6 @@ export type {
   MonitorEvent as GoogleChatMonitorEvent,
   MonitorStats as GoogleChatMonitorStats,
 } from './monitor.js';
-export { diagnoseGoogleChat } from './doctor.js';
-export type {
-  DiagnosisResult as GoogleChatDiagnosisResult,
-  GoogleChatDiagnosisContext,
-} from './doctor.js';
-export { googleChatProbe } from './probe.js';
-export type { ProbeResult as GoogleChatProbeResult } from './probe.js';
-export {
-  normalizeGoogleChatApproverId,
-  resolveGoogleChatApprovers,
-  isGoogleChatSenderAuthorized,
-} from './approval-auth.js';
-export type {
-  GoogleChatApproverInfo,
-  GoogleChatApprovalAuthConfig,
-  GoogleChatApprovalAuthResult,
-} from './approval-auth.js';
 export {
   setGoogleChatRuntime,
   getGoogleChatRuntime,

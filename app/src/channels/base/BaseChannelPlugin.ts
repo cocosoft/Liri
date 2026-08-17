@@ -247,6 +247,11 @@ export abstract class BaseChannelPlugin implements IChannelPlugin {
           { channel: this.id, errors }
         );
       }
+      // P2-1：connect 幂等守卫 — 已连接时先断开再重连，
+      // 避免 handleUpdateChannel/handleApplyChannelConfig 每次保存累积重复 WS 连接
+      if (this._state.connected) {
+        await this.onDisconnect();
+      }
       this._state = {
         connected: false,
         lastMessageAt: null,

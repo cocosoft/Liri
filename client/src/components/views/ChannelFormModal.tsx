@@ -187,6 +187,10 @@ function ChannelFormModal({ visible, channel }: ChannelFormModalProps) {
   const [enabled, setEnabled] = useState(true);
   const [textFields, setTextFields] = useState<Record<string, string>>({});
   const [secretFields, setSecretFields] = useState<Record<string, string>>({});
+  // BUG-7：记录用户修改过的字段（touched），清空后也能表达「删除该字段」
+  const [touchedFields, setTouchedFields] = useState<Record<string, boolean>>(
+    {},
+  );
 
   // 渠道字段渲染 schema（4.1：从后端 GET /v1/channels/schema 拉取，替代前端硬编码）
   const [schema, setSchema] = useState<{
@@ -212,14 +216,21 @@ function ChannelFormModal({ visible, channel }: ChannelFormModalProps) {
 
   // 每次 channel 变化时初始化表单（用 useEffect 避免 render 中 setState）
   const [lastChannelId, setLastChannelId] = useState<string | null>(null);
+  // BUG-6：标记「当前渠道是否已基于就绪的 schema 完成初始化」，
+  // 解决首次打开时 schema 异步加载导致的字段永远为空（需关掉重开）的竞态
+  const [hasInitializedSchema, setHasInitializedSchema] = useState(false);
 
   useEffect(() => {
-    // 模态框关闭时重置 lastChannelId，确保下次打开时重新初始化
+    // 模态框关闭时重置状态，确保下次打开时重新初始化
     if (!channel) {
       setLastChannelId(null);
+      setHasInitializedSchema(false);
       return;
     }
-    if (channel.id === lastChannelId) return;
+    // 已用当前 schema 初始化过同渠道 → 跳过（避免覆盖用户编辑中的输入）
+    if (channel.id === lastChannelId && hasInitializedSchema) return;
+
+    // 新渠道 或 schema 刚就绪尚未填充 → 初始化表单
     setLastChannelId(channel.id);
     setName(channel.name);
     setEnabled(channel.enabled);
@@ -241,24 +252,35 @@ function ChannelFormModal({ visible, channel }: ChannelFormModalProps) {
     }
     setTextFields(texts);
     setSecretFields(secrets);
-  }, [channel, lastChannelId, schema]);
+    setTouchedFields({});
+    // schema 已就绪才算初始化完成；未就绪时等待 schema 变化后再次进入
+    if (schema) setHasInitializedSchema(true);
+  }, [channel, lastChannelId, schema, hasInitializedSchema]);
 
   // 构建保存数据 — 使用 useCallback 必须在条件返回之前
+  // BUG-7：仅发送用户修改过（touched）的字段；清空后发送空字符串表示删除该字段
   const buildSaveData = useCallback((): UpdateChannelRequest => {
     const config: Record<string, unknown> = {};
+    // 文本字段
     for (const [key, val] of Object.entries(textFields)) {
-      if (val) config[key] = val;
+      if (touchedFields[key]) config[key] = val;
     }
+    // 密码字段：空串=清空（删除）；占位符输入=视为未修改跳过
     for (const [key, val] of Object.entries(secretFields)) {
-      const normalized = normalizeSecretInput(val);
-      if (normalized) config[key] = normalized;
+      if (!touchedFields[key]) continue;
+      if (val.trim() === "") {
+        config[key] = "";
+      } else {
+        const normalized = normalizeSecretInput(val);
+        if (normalized !== null) config[key] = normalized;
+      }
     }
     return {
       name: name || undefined,
       enabled,
       config: Object.keys(config).length > 0 ? config : undefined,
     };
-  }, [name, enabled, textFields, secretFields]);
+  }, [name, enabled, textFields, secretFields, touchedFields]);
 
   // 派生数据 — 必须在条件返回之前
   const fields = channel
@@ -352,21 +374,26 @@ function ChannelFormModal({ visible, channel }: ChannelFormModalProps) {
                         (channel.config || {})[field.key] || "",
                       )}
                       secretMap={secretFields}
-                      onSecretChange={(key, value) =>
-                        setSecretFields((prev) => ({ ...prev, [key]: value }))
-                      }
+                      onSecretChange={(key, value) => {
+                        setSecretFields((prev) => ({ ...prev, [key]: value }));
+                        setTouchedFields((prev) => ({ ...prev, [key]: true }));
+                      }}
                     />
                   ) : (
                     <TextField
                       key={field.key}
                       field={field}
                       value={textFields[field.key] || ""}
-                      onChange={(value) =>
+                      onChange={(value) => {
                         setTextFields((prev) => ({
                           ...prev,
                           [field.key]: value,
-                        }))
-                      }
+                        }));
+                        setTouchedFields((prev) => ({
+                          ...prev,
+                          [field.key]: true,
+                        }));
+                      }}
                     />
                   ),
                 )}

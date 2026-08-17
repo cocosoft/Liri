@@ -5,5 +5,3 @@
  * 在运行时边界聚合通道运行时功能，保持主入口加载轻量。
  */
 export { QQMonitor } from './monitor.js';
-export { diagnoseQQ } from './doctor.js';
-export { qqProbe } from './probe.js';

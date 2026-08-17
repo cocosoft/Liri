@@ -3,7 +3,6 @@
  * 处理消息格式转换、工具提示、多账号分发
  */
 
-import type { MattermostProbe } from './probe';
 import type { ChannelMessageToolHints } from '@modules/channels/types';
 
 export const MATTERMOST_TOOL_HINTS: ChannelMessageToolHints = {

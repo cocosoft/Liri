@@ -40,23 +40,6 @@ export type {
   MonitorEvent as MSTeamsMonitorEvent,
   MonitorStats as MSTeamsMonitorStats,
 } from './monitor.js';
-export { diagnoseMSTeams } from './doctor.js';
-export type {
-  DiagnosisResult as MSTeamsDiagnosisResult,
-  MSTeamsDiagnosisContext,
-} from './doctor.js';
-export { msteamsProbe } from './probe.js';
-export type { ProbeResult as MSTeamsProbeResult } from './probe.js';
-export {
-  normalizeMSTeamsApproverId,
-  resolveMSTeamsApprovers,
-  isMSTeamsSenderAuthorized,
-} from './approval-auth.js';
-export type {
-  MSTeamsApproverInfo,
-  MSTeamsApprovalAuthConfig,
-  MSTeamsApprovalAuthResult,
-} from './approval-auth.js';
 export { TeamsHttpStream } from './streaming-message.js';
 export type {
   TeamsStreamState,

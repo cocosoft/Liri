@@ -32,6 +32,7 @@ import {
   getCurrencyFromTimezone,
 } from "../../utils/format";
 import { DashboardStatCard } from "../common/DashboardStatCard";
+import { ChannelMetricsCard } from "../common/ChannelMetricsCard";
 
 const BuddyCard = memo(function BuddyCard({
   buddy,
@@ -124,11 +125,14 @@ function DashboardPage() {
 
   useEffect(() => {
     fetchData();
+    // 统计概览改为定时轮询（30s），不再依赖手动刷新
+    const statsInterval = setInterval(fetchData, 30000);
     sseService.connect();
     const handler = () => fetchData();
     sseService.on("heartbeat", handler);
     return () => {
       sseService.off("heartbeat", handler);
+      clearInterval(statsInterval);
     };
   }, [fetchData]);
 
@@ -208,13 +212,9 @@ function DashboardPage() {
             >
               {showMonitor ? "收起监控" : "展开监控"}
             </button>
-            <button
-              onClick={fetchData}
-              disabled={loading}
-              className="px-3 py-1.5 text-sm bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 disabled:opacity-50"
-            >
-              {loading ? "刷新中..." : "刷新"}
-            </button>
+            <span className="px-3 py-1.5 text-xs text-gray-400 dark:text-gray-500 self-center">
+              每 30s 自动刷新
+            </span>
             <button
               onClick={() => navigate("/chat")}
               className="px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded"
@@ -415,6 +415,9 @@ function DashboardPage() {
                 {infrastructure && (
                   <SystemHealthStatus status={infrastructure} isDark={isDark} />
                 )}
+
+                {/* 渠道消息可观测性指标 */}
+                <ChannelMetricsCard />
 
                 {/* 前端客户端错误统计 */}
                 <ClientErrorStats />

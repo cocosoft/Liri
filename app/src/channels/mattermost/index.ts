@@ -52,10 +52,3 @@ export {
   buildMattermostContext,
 } from './channel.runtime.js';
 export type { MattermostRuntimeContext } from './channel.runtime.js';
-export { diagnoseMattermost } from './doctor.js';
-export type {
-  DiagnosisResult as MattermostDiagnosisResult,
-  DiagnosisCheck as MattermostDiagnosisCheck,
-  MattermostDiagnosisContext,
-} from './doctor.js';
-export type { MattermostProbe } from './probe.js';

@@ -62,7 +62,9 @@ jobs:
           context: .
           file: app/docker/Dockerfile
           push: true
-          platforms: linux/amd64,linux/arm64
+          # 2026-08-17 临时：仅构建 amd64（QEMU arm64 下 bun build 持续失败，run 342+ 全挂）。
+          # arm64 恢复前需在本地 arm64/QEMU 环境复现 bun build 失败并修复（本地 amd64 已验证通过）。
+          platforms: linux/amd64
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha

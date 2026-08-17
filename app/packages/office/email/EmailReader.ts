@@ -23,7 +23,53 @@ export interface EmailSummary {
   /** G-5：兼容前端 MailItem.from（前端读取 from 字段） */
   from: string;
   date: string;
+  /** 正文纯文本（无正文时回退主题）——修复"邮件正文仍显示主题"问题 */
   snippet: string;
+}
+
+/** 简单 HTML → 纯文本（换行保留，用于 html-only 邮件兜底） */
+function htmlToText(html: string): string {
+  return html
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/(p|div|li|h[1-6]|tr)>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+/**
+ * 从 imapflow 解析的 MIME body 结构（body: true 返回）中递归提取正文纯文本。
+ * 优先 text/plain；无 plain 时用 text/html 转纯文本兜底。
+ */
+function extractMailBody(node: unknown): string {
+  if (!node || typeof node !== 'object') return '';
+  const n = node as { type?: string; text?: unknown; childNodes?: unknown[] };
+
+  if (n.type === 'text/plain' && typeof n.text === 'string' && n.text.trim()) {
+    return n.text.trim();
+  }
+  if (n.type === 'text/html' && typeof n.text === 'string' && n.text.trim()) {
+    return htmlToText(n.text);
+  }
+  if (Array.isArray(n.childNodes)) {
+    for (const child of n.childNodes) {
+      const text = extractMailBody(child);
+      if (text) return text;
+    }
+  }
+  return '';
+}
+
+/** 正文摘要：截断到 500 字符，无正文时回退主题 */
+function buildSnippet(bodyText: string, subject: string): string {
+  const text = bodyText || subject || '';
+  return text.slice(0, 500);
 }
 
 /**
@@ -44,9 +90,7 @@ export class EmailReader {
     try {
       return await import('imapflow');
     } catch {
-      throw new Error(
-        'MAIL_MODULE: imapflow 未安装。请运行 bun add imapflow',
-      );
+      throw new Error('MAIL_MODULE: imapflow 未安装。请运行 bun add imapflow');
     }
   }
 
@@ -80,7 +124,13 @@ export class EmailReader {
 
       for await (const msg of client.fetch(
         { start: Math.max(1, mailbox.exists - limit + 1), end: mailbox.exists },
-        { uid: true, envelope: true, bodyStructure: true, source: false }
+        {
+          uid: true,
+          envelope: true,
+          bodyStructure: true,
+          body: true,
+          source: false,
+        }
       )) {
         const fromAddr = msg.envelope.from?.[0]?.address || '';
         messages.push({
@@ -91,7 +141,10 @@ export class EmailReader {
           fromAddr,
           from: fromAddr,
           date: msg.envelope.date?.toISOString() || '',
-          snippet: msg.envelope.subject || '',
+          snippet: buildSnippet(
+            extractMailBody(msg.body),
+            msg.envelope.subject || ''
+          ),
         });
       }
 
@@ -99,7 +152,9 @@ export class EmailReader {
       return messages;
     } catch (error) {
       // G-4/D-7：读取失败用正确的读取错误码（原误用 MAIL_SEND_FAILED）
-      throw new Error(`MAIL_READ_FAILED: IMAP 读取失败 - ${error instanceof Error ? error.message : String(error)}`);
+      throw new Error(
+        `MAIL_READ_FAILED: IMAP 读取失败 - ${error instanceof Error ? error.message : String(error)}`
+      );
     } finally {
       // G-4：无论成功失败都确保连接被关闭，防止连接泄漏
       try {
@@ -138,8 +193,14 @@ export class EmailReader {
       }
 
       // IMAP TEXT 搜索（按主题/正文/发件人匹配），限定最近 limit*10 封提升效率
-      const range = { start: Math.max(1, mailbox.exists - limit * 10 + 1), end: mailbox.exists };
-      const searchUids = await client.search({ text: query }, { uid: true, range });
+      const range = {
+        start: Math.max(1, mailbox.exists - limit * 10 + 1),
+        end: mailbox.exists,
+      };
+      const searchUids = await client.search(
+        { text: query },
+        { uid: true, range }
+      );
 
       const messages: EmailSummary[] = [];
       if (searchUids.length > 0) {
@@ -148,6 +209,7 @@ export class EmailReader {
           uid: true,
           envelope: true,
           bodyStructure: true,
+          body: true,
           source: false,
         })) {
           const fromAddr = msg.envelope.from?.[0]?.address || '';
@@ -159,7 +221,10 @@ export class EmailReader {
             fromAddr,
             from: fromAddr,
             date: msg.envelope.date?.toISOString() || '',
-            snippet: msg.envelope.subject || '',
+            snippet: buildSnippet(
+              extractMailBody(msg.body),
+              msg.envelope.subject || ''
+            ),
           });
         }
       }
@@ -167,7 +232,9 @@ export class EmailReader {
       await client.logout();
       return messages;
     } catch (error) {
-      throw new Error(`MAIL_READ_FAILED: IMAP 搜索失败 - ${error instanceof Error ? error.message : String(error)}`);
+      throw new Error(
+        `MAIL_READ_FAILED: IMAP 搜索失败 - ${error instanceof Error ? error.message : String(error)}`
+      );
     } finally {
       try {
         client.close();

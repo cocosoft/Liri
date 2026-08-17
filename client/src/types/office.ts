@@ -40,6 +40,8 @@ export interface MailItem {
   date: string;
   uid?: number;
   messageId?: string;
+  /** 正文纯文本（后端 EmailReader 解析 IMAP body，无正文时回退主题） */
+  snippet?: string;
 }
 
 /** 邮件配置提交参数 */

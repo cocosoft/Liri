@@ -6,28 +6,19 @@
 import { http } from "./httpClient";
 import type { DocItem } from "../types/office";
 
-/**
- * 创建带超时的 AbortSignal
- * 用于前端兜底，防止骨架屏永驻
- */
-function createTimeoutSignal(ms: number): AbortSignal {
-  const controller = new AbortController();
-  setTimeout(() => controller.abort(), ms);
-  return controller.signal;
-}
-
 export const officeApi = {
   // ==================== 文档 ====================
 
   /**
    * 下载文档 blob（15s 超时）
    * 用于前端预览渲染
+   * N-1：httpClient 已支持 responseType: "blob"（浏览器 + Tauri 双路径）
    */
   downloadDoc: (file: string) =>
     http.get<Blob>(`/v1/doc/download?file=${encodeURIComponent(file)}`, {
-      signal: createTimeoutSignal(15000),
+      timeout: 15000,
       responseType: "blob",
-    } as Record<string, unknown>),
+    }),
 
   /**
    * 获取综合状态（含连接状态、文件列表、OfficeCLI 信息）

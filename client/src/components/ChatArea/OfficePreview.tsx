@@ -57,7 +57,7 @@ export default function OfficePreview({ file }: OfficePreviewProps) {
           `/api/file/stream?path=${encodeURIComponent(file.path)}`,
           {
             responseType: "blob",
-          } as Record<string, unknown>,
+          },
         );
         if (blobRes?.ok === false) {
           throw new Error(

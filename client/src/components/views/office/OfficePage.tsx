@@ -211,6 +211,8 @@ export default function OfficePage() {
   }, []);
 
   // --- 发送消息回调（接入真实 AI 管线）---
+  // 遗留项 3：复用办公专用会话，避免每次生成文档创建新会话无限堆积
+  const officeSessionIdRef = useRef<string | null>(null);
   const handleSendMessage = useCallback(async (message: string) => {
     const officeStore = useOfficeStore.getState();
     const chatStore = useChatStore.getState();
@@ -220,15 +222,18 @@ export default function OfficePage() {
       message: message.slice(0, 50),
     });
 
-    // 每次文档生成请求都创建新会话，避免旧历史污染 AI 判断
-    let sessionId: string;
-    try {
-      const newSession = await sessionStore.createSession("办公文档");
-      sessionId = newSession?.id ?? "office-default";
-      logger.debug("创建办公专用新会话", { sessionId });
-    } catch (err) {
-      logger.error("创建会话失败", err);
-      sessionId = "office-default";
+    // 首次创建后复用同一会话（若已被删除则兜底重建）
+    let sessionId = officeSessionIdRef.current;
+    if (!sessionId) {
+      try {
+        const newSession = await sessionStore.createSession("办公文档");
+        sessionId = newSession?.id ?? "office-default";
+        officeSessionIdRef.current = sessionId;
+        logger.debug("创建办公专用会话", { sessionId });
+      } catch (err) {
+        logger.error("创建会话失败", err);
+        sessionId = "office-default";
+      }
     }
 
     // 记录文件列表快照（用于生成后对比，找到新文件）

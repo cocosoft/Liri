@@ -130,7 +130,6 @@ export default function OfficeCalendarPage() {
   /** 窄屏侧栏折叠状态 */
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  const [, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -141,7 +140,6 @@ export default function OfficeCalendarPage() {
     if (dateParam) {
       setSelectedDate(dateParam);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("month");
@@ -363,7 +361,6 @@ export default function OfficeCalendarPage() {
   }, [mergedCalendar, visibleSources, statusFilter]);
 
   async function handleSaveEvent(data: CalendarAddFormData) {
-    setSaving(true);
     setError(null);
     try {
       // G-11 修复：检查响应 ok，添加失败不再静默当作成功
@@ -382,7 +379,9 @@ export default function OfficeCalendarPage() {
         error?: { message?: string };
       };
       if (wrapped.ok === false) {
-        setError(wrapped.error?.message ?? t("office.calAddError", "添加日程失败"));
+        setError(
+          wrapped.error?.message ?? t("office.calAddError", "添加日程失败"),
+        );
         setTimeout(() => setError(null), 4000);
         return;
       }
@@ -409,8 +408,6 @@ export default function OfficeCalendarPage() {
     } catch {
       setError(t("office.calAddError", "添加日程失败"));
       setTimeout(() => setError(null), 4000);
-    } finally {
-      setSaving(false);
     }
   }
 
@@ -444,7 +441,9 @@ export default function OfficeCalendarPage() {
         error?: { message?: string };
       };
       if (wrapped.ok === false) {
-        setError(wrapped.error?.message ?? t("office.calDeleteError", "删除日程失败"));
+        setError(
+          wrapped.error?.message ?? t("office.calDeleteError", "删除日程失败"),
+        );
         setTimeout(() => setError(null), 4000);
         return;
       }

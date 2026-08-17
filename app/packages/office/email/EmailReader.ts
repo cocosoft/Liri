@@ -69,8 +69,14 @@ export class EmailReader {
     try {
       await client.connect();
 
-      const messages: EmailSummary[] = [];
+      // 遗留项 1：空收件箱（exists=0）直接返回，避免 fetch({start:1, end:0}) 无效范围抛错
       const mailbox = await client.mailboxOpen('INBOX');
+      if (!mailbox.exists) {
+        await client.logout();
+        return [];
+      }
+
+      const messages: EmailSummary[] = [];
 
       for await (const msg of client.fetch(
         { start: Math.max(1, mailbox.exists - limit + 1), end: mailbox.exists },
@@ -124,6 +130,12 @@ export class EmailReader {
     try {
       await client.connect();
       const mailbox = await client.mailboxOpen('INBOX');
+
+      // 遗留项 1：空收件箱直接返回空结果（避免无效 search range）
+      if (!mailbox.exists) {
+        await client.logout();
+        return [];
+      }
 
       // IMAP TEXT 搜索（按主题/正文/发件人匹配），限定最近 limit*10 封提升效率
       const range = { start: Math.max(1, mailbox.exists - limit * 10 + 1), end: mailbox.exists };

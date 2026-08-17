@@ -19,6 +19,8 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+use base64::engine::general_purpose::STANDARD as BASE64;
+use base64::Engine as _;
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -366,12 +368,28 @@ pub struct ProxyRequest {
     pub body: Option<String>,
     #[serde(default)]
     pub headers: Option<HashMap<String, String>>,
+    /// N-2：multipart 表单字段（文件内容 base64），与 body 互斥
+    #[serde(default)]
+    pub form_parts: Option<Vec<ProxyFormPart>>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ProxyFormPart {
+    pub name: String,
+    pub filename: Option<String>,
+    /// 字段内容（文件或文本，均 base64 编码）
+    pub content: String,
+    #[serde(rename = "content_type")]
+    pub content_type: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
 pub struct ProxyResponse {
     pub status: u16,
     pub body: String,
+    /// N-1：二进制响应（下载/预览）时返回 base64，前端解码为 Blob
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub body_base64: Option<String>,
 }
 
 /// W6 修复：HTTP 代理 command —— 前端 JS 不再接触 LIRI_API_SECRET。
@@ -404,7 +422,26 @@ pub async fn http_proxy(request: ProxyRequest) -> Result<ProxyResponse, String> 
         }
     }
 
-    if let Some(ref body) = request.body {
+    // N-2：multipart 表单重建（reqwest 自动生成含 boundary 的 Content-Type）
+    if let Some(parts) = request.form_parts {
+        let mut form = reqwest::multipart::Form::new();
+        for p in parts {
+            let bytes = BASE64
+                .decode(&p.content)
+                .map_err(|e| format!("form part base64 解码失败: {}", e))?;
+            let mut part = reqwest::multipart::Part::bytes(bytes);
+            if let Some(fname) = p.filename {
+                part = part.file_name(fname);
+            }
+            if let Some(ct) = p.content_type {
+                part = part
+                    .mime_str(&ct)
+                    .map_err(|e| format!("mime 解析失败: {}", e))?;
+            }
+            form = form.part(p.name, part);
+        }
+        req = req.multipart(form);
+    } else if let Some(ref body) = request.body {
         req = req
             .header("Content-Type", "application/json")
             .body(body.clone());
@@ -412,8 +449,34 @@ pub async fn http_proxy(request: ProxyRequest) -> Result<ProxyResponse, String> 
 
     let resp = req.send().await.map_err(|e| e.to_string())?;
     let status = resp.status().as_u16();
-    let body = resp.text().await.map_err(|e| e.to_string())?;
-    Ok(ProxyResponse { status, body })
+
+    // N-1：非文本响应按二进制读取并 base64 返回（下载/预览场景，文本转 base64 会损坏）
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("")
+        .to_lowercase();
+    let is_binary = !(content_type.is_empty()
+        || content_type.contains("json")
+        || content_type.contains("text")
+        || content_type.contains("xml")
+        || content_type.contains("html"));
+    if is_binary {
+        let bytes = resp.bytes().await.map_err(|e| e.to_string())?;
+        Ok(ProxyResponse {
+            status,
+            body: String::new(),
+            body_base64: Some(BASE64.encode(&bytes)),
+        })
+    } else {
+        let body = resp.text().await.map_err(|e| e.to_string())?;
+        Ok(ProxyResponse {
+            status,
+            body,
+            body_base64: None,
+        })
+    }
 }
 
 #[tauri::command]

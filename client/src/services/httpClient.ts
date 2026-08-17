@@ -21,6 +21,8 @@ export interface HttpClientConfig {
   baseUrl?: string;
   timeout?: number;
   headers?: Record<string, string>;
+  /** 响应类型：json（默认，自动解析）| blob（二进制下载/预览） */
+  responseType?: "json" | "blob";
 }
 
 const DEFAULT_TIMEOUT = 30_000;
@@ -128,6 +130,67 @@ function getTauriCore(): Promise<typeof import("@tauri-apps/api/core") | null> {
 interface ProxyResponse {
   status: number;
   body: string;
+  /** N-1：二进制响应（下载/预览）时 Rust 侧返回 base64 */
+  body_base64?: string | null;
+}
+
+/** N-2：multipart 表单字段（Tauri 代理序列化），文件内容转 base64 */
+interface ProxyFormPart {
+  name: string;
+  filename?: string;
+  content: string;
+  content_type?: string;
+}
+
+/** bytes → base64（浏览器端，支持大块数据） */
+function bytesToBase64(bytes: Uint8Array): string {
+  let binary = "";
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+  }
+  return btoa(binary);
+}
+
+/** base64 → bytes */
+function base64ToBytes(b64: string): Uint8Array {
+  const binary = atob(b64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
+}
+
+/** N-2：FormData → Rust 代理可序列化的 parts（文件内容转 base64） */
+async function formDataToParts(form: FormData): Promise<ProxyFormPart[]> {
+  const parts: ProxyFormPart[] = [];
+  for (const [name, value] of form.entries()) {
+    if (value instanceof Blob) {
+      const file = value as File;
+      parts.push({
+        name,
+        filename: file.name || undefined,
+        content: bytesToBase64(new Uint8Array(await value.arrayBuffer())),
+        content_type: value.type || undefined,
+      });
+    } else {
+      parts.push({
+        name,
+        content: bytesToBase64(new TextEncoder().encode(String(value))),
+        content_type: "text/plain",
+      });
+    }
+  }
+  return parts;
+}
+
+/** 移除 Content-Type（FormData 时由浏览器/Rust 自动设置含 boundary 的类型） */
+function omitContentType(
+  headers: Record<string, string>,
+): Record<string, string> {
+  const { "Content-Type": _ct, ...rest } = headers;
+  return rest;
 }
 
 async function proxyFetch<T>(
@@ -136,6 +199,7 @@ async function proxyFetch<T>(
   headers: Record<string, string>,
   body: unknown,
   timeout: number,
+  responseType: "json" | "blob" = "json",
 ): Promise<ApiResponse<T>> {
   const core = await getTauriCore();
   if (!core) {
@@ -143,11 +207,22 @@ async function proxyFetch<T>(
   }
 
   try {
+    // N-2：FormData 序列化为 parts（Rust 侧重建 multipart）；其余 JSON 字符串化
+    let invokeBody: string | null = null;
+    let formParts: ProxyFormPart[] | null = null;
+    if (body !== undefined && method !== "GET") {
+      if (body instanceof FormData) {
+        formParts = await formDataToParts(body);
+      } else {
+        invokeBody = JSON.stringify(body);
+      }
+    }
+
     const invokePromise = core.invoke<ProxyResponse>("http_proxy", {
       method,
       url,
-      body:
-        body !== undefined && method !== "GET" ? JSON.stringify(body) : null,
+      body: invokeBody,
+      form_parts: formParts,
       headers,
     });
 
@@ -160,6 +235,18 @@ async function proxyFetch<T>(
     ]);
 
     if (resp.status >= 200 && resp.status < 300) {
+      // N-1：blob 响应——Rust 侧返回 base64，前端解码为 Blob
+      if (responseType === "blob") {
+        if (resp.body_base64) {
+          const bytes = base64ToBytes(resp.body_base64);
+          return {
+            ok: true,
+            data: new Blob([bytes.buffer as ArrayBuffer]) as T,
+          };
+        }
+        // 空响应或无 base64（文本兜底）
+        return { ok: true, data: resp.body as unknown as T };
+      }
       let data: unknown;
       if (resp.body) {
         try {
@@ -193,11 +280,24 @@ async function request<T>(
       const url = buildUrl(path);
       const timeout =
         config?.timeout ?? globalConfig.timeout ?? DEFAULT_TIMEOUT;
-      const headers = buildHeaders(config?.headers);
+      const responseType = config?.responseType ?? "json";
+      // N-2：FormData 的 Content-Type 由浏览器/Rust 自动设置（含 boundary），
+      // 移除强制 application/json，否则后端 multipart 校验必 400
+      const headers =
+        body instanceof FormData
+          ? omitContentType(buildHeaders(config?.headers))
+          : buildHeaders(config?.headers);
 
       // W6：Tauri 环境走 Rust 代理（secret 由 Rust 注入，JS 不接触明文密钥）
       if (isTauri) {
-        return await proxyFetch<T>(method, url, headers, body, timeout);
+        return await proxyFetch<T>(
+          method,
+          url,
+          headers,
+          body,
+          timeout,
+          responseType,
+        );
       }
 
       const fetchOptions: RequestInit = {
@@ -206,13 +306,15 @@ async function request<T>(
       };
 
       if (body !== undefined && method !== "GET") {
-        fetchOptions.body = JSON.stringify(body);
+        fetchOptions.body =
+          body instanceof FormData ? body : JSON.stringify(body);
       }
 
       return (await fetchWithRetry(
         url,
         fetchOptions,
         timeout,
+        responseType,
       )) as ApiResponse<T>;
     },
     { "http.method": method, "http.url": path },
@@ -233,6 +335,7 @@ async function fetchWithRetry(
   url: string,
   options: RequestInit,
   timeout: number,
+  responseType: "json" | "blob" = "json",
 ): Promise<ApiResponse<unknown>> {
   const RETRYABLE_STATUSES = new Set([429, 503, 504]);
   const MAX_RETRIES = 3;
@@ -274,6 +377,12 @@ async function fetchWithRetry(
       // 204 No Content
       if (res.status === 204) {
         return { ok: true, data: undefined };
+      }
+
+      // N-1：blob 响应——二进制直接返回，不做 JSON 解析
+      if (responseType === "blob") {
+        const blob = await res.blob();
+        return { ok: true, data: blob };
       }
 
       const data = await res.json().catch(() => null);
@@ -381,7 +490,12 @@ export const httpLegacy = {
 export const http = {
   async get<T>(
     path: string,
-    options?: { params?: Record<string, unknown> },
+    options?: {
+      params?: Record<string, unknown>;
+      /** N-1：blob 响应（下载/预览二进制文件） */
+      responseType?: "json" | "blob";
+      timeout?: number;
+    },
   ): Promise<ApiResponse<T>> {
     let url = path;
     if (options?.params) {
@@ -393,7 +507,10 @@ export const http = {
       });
       url += `?${params.toString()}`;
     }
-    return request<T>("GET", url, undefined);
+    return request<T>("GET", url, undefined, {
+      timeout: options?.timeout,
+      responseType: options?.responseType,
+    });
   },
 
   async post<T>(path: string, body?: unknown): Promise<ApiResponse<T>> {

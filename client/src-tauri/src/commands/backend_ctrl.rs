@@ -25,8 +25,10 @@ use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::net::TcpStream;
+use std::path::PathBuf;
 use std::sync::Mutex;
 use std::time::Duration;
+use tauri::Manager;
 use tauri_plugin_shell::process::CommandEvent;
 use tauri_plugin_shell::ShellExt;
 use tracing::{error, info, warn};
@@ -50,6 +52,9 @@ pub struct BackendStatus {
     pub exit_code: Option<i32>,
     /// 进程 stderr 输出或错误信息
     pub error: Option<String>,
+    /// 共享密钥（W6 回归修复：重新暴露给前端，供直连 fetch 注入 X-API-Key）
+    /// 仅当本进程持有密钥时返回（新拉起后端路径）；复用既有进程时为 None
+    pub secret: Option<String>,
 }
 
 struct BackendProcess {
@@ -58,6 +63,88 @@ struct BackendProcess {
     exit_code: Option<i32>,
     /// 进程 stderr 输出（后台任务累积填充）
     stderr_output: String,
+}
+
+/// 读取当前共享密钥（BACKEND_SECRET 未设置时返回 None）
+fn current_secret() -> Option<String> {
+    BACKEND_SECRET.lock().ok().and_then(|g| g.clone())
+}
+
+/// 共享密钥持久化文件路径（与 app_config.json 同目录，随配置一起被系统管理）
+fn secret_file_path(app_handle: &tauri::AppHandle) -> PathBuf {
+    let config_dir = app_handle
+        .path()
+        .app_config_dir()
+        .unwrap_or_else(|_| PathBuf::from("."));
+    config_dir.join("backend_secret.json")
+}
+
+/// 将共享密钥写入磁盘（内存 + 磁盘双写，Tauri 进程重启后可从盘恢复）
+fn persist_secret(app_handle: &tauri::AppHandle, secret: &str) {
+    let path = secret_file_path(app_handle);
+    if let Some(parent) = path.parent() {
+        if let Err(e) = std::fs::create_dir_all(parent) {
+            warn!("[secret] 创建密钥目录失败 {}: {}", parent.display(), e);
+            return;
+        }
+    }
+    let payload = serde_json::json!({ "secret": secret });
+    match std::fs::write(&path, serde_json::to_string_pretty(&payload).unwrap_or_default()) {
+        Ok(_) => info!("[secret] 共享密钥已持久化: {}", path.display()),
+        Err(e) => warn!("[secret] 共享密钥持久化失败 {}: {}", path.display(), e),
+    }
+}
+
+/// 获取当前共享密钥：内存优先，内存为空时从磁盘恢复并回填内存
+fn load_secret(app_handle: &tauri::AppHandle) -> Option<String> {
+    if let Some(s) = current_secret() {
+        return Some(s);
+    }
+    let path = secret_file_path(app_handle);
+    let content = std::fs::read_to_string(&path).ok()?;
+    let value: serde_json::Value = serde_json::from_str(&content).ok()?;
+    let secret = value.get("secret")?.as_str()?.to_string();
+    if let Ok(mut guard) = BACKEND_SECRET.lock() {
+        *guard = Some(secret.clone());
+    }
+    info!("[secret] 已从磁盘恢复共享密钥");
+    Some(secret)
+}
+
+/// 清除共享密钥：内存 + 磁盘
+fn clear_secret(app_handle: &tauri::AppHandle) {
+    if let Ok(mut guard) = BACKEND_SECRET.lock() {
+        guard.take();
+    }
+    let path = secret_file_path(app_handle);
+    match std::fs::remove_file(&path) {
+        Ok(_) => info!("[secret] 持久化密钥已清除: {}", path.display()),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+        Err(e) => warn!("[secret] 删除持久化密钥失败 {}: {}", path.display(), e),
+    }
+}
+
+/// 应用退出钩子调用：同步停止后端进程并清理共享密钥
+/// （避免后端进程独立存活导致重启后密钥不匹配，W6 回归根因之一）
+pub fn shutdown_backend(app_handle: &tauri::AppHandle) {
+    info!("[shutdown_backend] 应用退出，停止后端进程");
+    let mut process_guard = match BACKEND_PROCESS.lock() {
+        Ok(g) => g,
+        Err(_) => {
+            warn!("[shutdown_backend] 无法获取进程锁，跳过停止");
+            return;
+        }
+    };
+    if let Some(backend) = process_guard.take() {
+        match backend.child.kill() {
+            Ok(_) => info!("[shutdown_backend] 后端进程已 kill"),
+            Err(e) => warn!("[shutdown_backend] 后端进程 kill 失败: {}", e),
+        }
+    } else {
+        info!("[shutdown_backend] 无进程记录（可能已被前端 stop_backend 停止）");
+    }
+    drop(process_guard);
+    clear_secret(app_handle);
 }
 
 #[tauri::command]
@@ -106,6 +193,7 @@ pub async fn start_backend(app_handle: tauri::AppHandle) -> Result<BackendStatus
             pid: None,
             exit_code,
             error,
+            secret: load_secret(&app_handle),
         });
     }
 
@@ -131,6 +219,7 @@ pub async fn start_backend(app_handle: tauri::AppHandle) -> Result<BackendStatus
             pid: None,
             exit_code: None,
             error: None,
+            secret: load_secret(&app_handle),
         });
     }
     info!("[start_backend] 端口 {} 空闲，准备拉起新后端进程", current_port);
@@ -184,6 +273,8 @@ pub async fn start_backend(app_handle: tauri::AppHandle) -> Result<BackendStatus
         let mut secret_guard = BACKEND_SECRET.lock().map_err(|e| e.to_string())?;
         *secret_guard = Some(secret.clone());
     }
+    // W6 回归修复：密钥持久化到磁盘，Tauri 进程重启后可从盘恢复
+    persist_secret(&app_handle, &secret);
 
     let command = app_handle
         .shell()
@@ -288,11 +379,12 @@ pub async fn start_backend(app_handle: tauri::AppHandle) -> Result<BackendStatus
         pid: Some(pid),
         exit_code: None,
         error: None,
+        secret: load_secret(&app_handle),
     })
 }
 
 #[tauri::command]
-pub async fn stop_backend() -> Result<(), String> {
+pub async fn stop_backend(app_handle: tauri::AppHandle) -> Result<(), String> {
     info!("[stop_backend] 前端请求停止后端");
 
     let mut process_guard = BACKEND_PROCESS.lock().map_err(|e| e.to_string())?;
@@ -303,10 +395,8 @@ pub async fn stop_backend() -> Result<(), String> {
             .kill()
             .map_err(|e| format!("Failed to kill backend process: {}", e))?;
 
-        // 清除共享密钥
-        if let Ok(mut secret_guard) = BACKEND_SECRET.lock() {
-            secret_guard.take();
-        }
+        // 清除共享密钥（内存 + 磁盘）
+        clear_secret(&app_handle);
 
         info!("[stop_backend] 后端进程已 kill");
     } else {
@@ -317,7 +407,7 @@ pub async fn stop_backend() -> Result<(), String> {
 }
 
 #[tauri::command]
-pub async fn get_backend_status() -> Result<BackendStatus, String> {
+pub async fn get_backend_status(app_handle: tauri::AppHandle) -> Result<BackendStatus, String> {
     let process_guard = BACKEND_PROCESS.lock().map_err(|e| e.to_string())?;
     let port_guard = BACKEND_PORT.lock().map_err(|e| e.to_string())?;
     let current_port = *port_guard;
@@ -340,6 +430,7 @@ pub async fn get_backend_status() -> Result<BackendStatus, String> {
             } else {
                 None
             },
+            secret: load_secret(&app_handle),
         }
     } else {
         info!(
@@ -352,6 +443,7 @@ pub async fn get_backend_status() -> Result<BackendStatus, String> {
             pid: None,
             exit_code: None,
             error: None,
+            secret: load_secret(&app_handle),
         }
     };
     Ok(status)
@@ -395,8 +487,12 @@ pub struct ProxyResponse {
 /// W6 修复：HTTP 代理 command —— 前端 JS 不再接触 LIRI_API_SECRET。
 /// 请求经 Rust 侧转发，共享密钥在此注入 X-API-Key，WebView JS 上下文永不持有明文密钥。
 #[tauri::command]
-pub async fn http_proxy(request: ProxyRequest) -> Result<ProxyResponse, String> {
-    let secret = BACKEND_SECRET.lock().map_err(|e| e.to_string())?.clone();
+pub async fn http_proxy(
+    app_handle: tauri::AppHandle,
+    request: ProxyRequest,
+) -> Result<ProxyResponse, String> {
+    // 内存优先，Tauri 重启后内存为空时从磁盘恢复
+    let secret = load_secret(&app_handle);
 
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(60))

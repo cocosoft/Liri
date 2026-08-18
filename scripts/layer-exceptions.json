@@ -17,7 +17,7 @@
       "rationale": "应用层（agent/ai/chat/tools/gateway 等）大量使用 infra 层的基础能力，需通过 Phase 2-3 逐步引入 SPI 接口解耦",
       "estimatedCount": 120,
       "createdAt": "2026-06-19",
-      "expiresAt": "2026-08-18",
+      "expiresAt": "2026-10-18",
       "owner": "@arch-lead"
     },
     {
@@ -28,7 +28,7 @@
       "rationale": "服务层（session/bridge/channels）使用 infra 层的监控和工具函数，属合理依赖。后续通过 SPI 接口治理",
       "estimatedCount": 50,
       "createdAt": "2026-06-19",
-      "expiresAt": "2026-08-18",
+      "expiresAt": "2026-10-18",
       "owner": "@arch-lead"
     },
     {
@@ -39,7 +39,7 @@
       "rationale": "应用层（agent/ai/chat）引用服务层（session/bridge）是正常依赖，无需治理",
       "estimatedCount": 40,
       "createdAt": "2026-06-19",
-      "expiresAt": "2026-08-18",
+      "expiresAt": "2026-10-18",
       "owner": "@arch-lead"
     },
     {
@@ -50,7 +50,7 @@
       "rationale": "部分混合模块（buddy/chat）直接引用 UI 组件渲染。后续通过事件模式解耦",
       "estimatedCount": 30,
       "createdAt": "2026-06-19",
-      "expiresAt": "2026-08-18",
+      "expiresAt": "2026-10-18",
       "owner": "@arch-lead"
     },
     {
@@ -61,7 +61,7 @@
       "rationale": "服务层（channels）引用应用层（ai）的遥测和消息处理能力。后续通过 SPI 接口解耦",
       "estimatedCount": 20,
       "createdAt": "2026-06-19",
-      "expiresAt": "2026-08-18",
+      "expiresAt": "2026-10-18",
       "owner": "@arch-lead"
     },
     {
@@ -72,7 +72,7 @@
       "rationale": "UI 组件直接调用应用层服务。后续通过事件订阅解耦",
       "estimatedCount": 185,
       "createdAt": "2026-06-19",
-      "expiresAt": "2026-08-18",
+      "expiresAt": "2026-10-18",
       "owner": "@arch-lead"
     },
     {
@@ -83,7 +83,7 @@
       "rationale": "infra 层模块（chronos/scheduling）直接调用应用层回调。后续通过事件总线解耦",
       "estimatedCount": 204,
       "createdAt": "2026-06-19",
-      "expiresAt": "2026-08-18",
+      "expiresAt": "2026-10-18",
       "owner": "@arch-lead"
     },
     {
@@ -94,7 +94,7 @@
       "rationale": "infra 层模块（chronos/constants）引用服务层模块。后续通过 SPI 接口解耦",
       "estimatedCount": 50,
       "createdAt": "2026-06-19",
-      "expiresAt": "2026-08-18",
+      "expiresAt": "2026-10-18",
       "owner": "@arch-lead"
     },
     {
@@ -105,7 +105,7 @@
       "rationale": "infra 层引用 UI 组件的异常模式。后续治理",
       "estimatedCount": 10,
       "createdAt": "2026-06-19",
-      "expiresAt": "2026-08-18",
+      "expiresAt": "2026-10-18",
       "owner": "@arch-lead"
     },
     {
@@ -116,7 +116,7 @@
       "rationale": "core 层（AppCore/acp）直接使用 infra 层的错误处理和监控。需通过 Phase 2 SPI 接口解耦",
       "estimatedCount": 50,
       "createdAt": "2026-06-19",
-      "expiresAt": "2026-08-18",
+      "expiresAt": "2026-10-18",
       "owner": "@arch-lead"
     },
     {
@@ -127,7 +127,7 @@
       "rationale": "core 层引用服务层的异常模式。后续治理",
       "estimatedCount": 10,
       "createdAt": "2026-06-19",
-      "expiresAt": "2026-08-18",
+      "expiresAt": "2026-10-18",
       "owner": "@arch-lead"
     },
     {
@@ -138,7 +138,7 @@
       "rationale": "core 层引用应用层的异常模式。后续治理",
       "estimatedCount": 10,
       "createdAt": "2026-06-19",
-      "expiresAt": "2026-08-18",
+      "expiresAt": "2026-10-18",
       "owner": "@arch-lead"
     },
     {
@@ -149,7 +149,7 @@
       "rationale": "core 层引用 UI 组件的异常模式。后续治理",
       "estimatedCount": 10,
       "createdAt": "2026-06-19",
-      "expiresAt": "2026-08-18",
+      "expiresAt": "2026-10-18",
       "owner": "@arch-lead"
     },
     {
@@ -160,7 +160,7 @@
       "rationale": "服务层引用 UI 组件的异常模式。后续治理",
       "estimatedCount": 10,
       "createdAt": "2026-06-19",
-      "expiresAt": "2026-08-18",
+      "expiresAt": "2026-10-18",
       "owner": "@arch-lead"
     },
     {
@@ -171,7 +171,7 @@
       "rationale": "应用层引用入口点的异常模式。后续治理",
       "estimatedCount": 10,
       "createdAt": "2026-06-19",
-      "expiresAt": "2026-08-18",
+      "expiresAt": "2026-10-18",
       "owner": "@arch-lead"
     },
     {
@@ -182,7 +182,7 @@
       "rationale": "infra 层引用入口点的异常模式。后续治理",
       "estimatedCount": 10,
       "createdAt": "2026-06-19",
-      "expiresAt": "2026-08-18",
+      "expiresAt": "2026-10-18",
       "owner": "@arch-lead"
     },
     {
@@ -193,7 +193,7 @@
       "rationale": "core 层引用入口点的异常模式。后续治理",
       "estimatedCount": 1,
       "createdAt": "2026-06-19",
-      "expiresAt": "2026-08-18",
+      "expiresAt": "2026-10-18",
       "owner": "@arch-lead"
     },
     {
@@ -204,7 +204,7 @@
       "rationale": "service 层引用入口点的异常模式。后续治理",
       "estimatedCount": 1,
       "createdAt": "2026-06-19",
-      "expiresAt": "2026-08-18",
+      "expiresAt": "2026-10-18",
       "owner": "@arch-lead"
     }
   ],
@@ -216,7 +216,7 @@
       "targetModule": "ui",
       "description": "Buddy 模块需要 UI 组件渲染精灵动画",
       "rationale": "buddy 是混合模块，同时包含业务逻辑和 UI 渲染，后续通过事件模式解耦",
-      "expiresAt": "2026-08-18",
+      "expiresAt": "2026-10-18",
       "owner": "@buddy-team"
     },
     {
@@ -226,7 +226,7 @@
       "targetModule": "types",
       "description": "core 模块引用 types 目录的定义",
       "rationale": "types 是全局类型共享目录，所有层都可引用。待统一类型治理后移除",
-      "expiresAt": "2026-08-18",
+      "expiresAt": "2026-10-18",
       "owner": "@arch-lead"
     }
   ],

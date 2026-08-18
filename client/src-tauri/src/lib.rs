@@ -288,6 +288,14 @@ pub fn run() {
             commands::config::set_config,
             commands::config::list_config,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app_handle, event| {
+            // W6 回归修复：应用退出时自动停止后端进程并清理共享密钥。
+            // 否则后端进程独立存活，重启后前端拿不到密钥 → 直连请求 401 → 前端显示"后端已停止"。
+            if let tauri::RunEvent::Exit = event {
+                info!("[RunEvent::Exit] 应用退出，清理后端进程与共享密钥");
+                commands::backend_ctrl::shutdown_backend(app_handle);
+            }
+        });
 }

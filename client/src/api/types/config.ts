@@ -20,6 +20,8 @@ export interface BackendStatus {
   pid?: number | null;
   exit_code?: number | null;
   error?: string | null;
+  /** 共享密钥（Rust start_backend/get_backend_status 返回，用于直连 fetch 注入 X-API-Key） */
+  secret?: string | null;
 }
 
 export interface ModelInfo {

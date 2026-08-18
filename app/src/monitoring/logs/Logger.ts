@@ -214,23 +214,38 @@ type GlobalConfigProvider = () => Partial<LoggerConfig>;
 let globalConfigProvider: GlobalConfigProvider | null = null;
 
 /**
+ * 全局文件输出配置缓存。
+ * 由 setGlobalConfigProvider 注册时立即计算并缓存。
+ * 用途：在配置提供者注册之前创建的 Logger（如 main.ts 模块加载期执行的
+ * `getLogger('main')`）构造时无法拿到 fileOutput/logFile，会在写入阶段
+ * 动态读取该缓存，避免早期 Logger 永久丢失文件输出（BUG1 根因修复）。
+ */
+let globalFileOutput = false;
+let globalLogFile: string | undefined;
+
+/**
  * 设置全局配置提供者
  * 用于 LogConfigManager 等集中配置系统注册默认配置
  */
 export function setGlobalConfigProvider(provider: GlobalConfigProvider): void {
   globalConfigProvider = provider;
+  // 立即刷新文件输出缓存，供注册前创建的 Logger 在写入时动态读取
+  const resolved = provider();
+  globalFileOutput = resolved.fileOutput ?? false;
+  globalLogFile = resolved.logFile;
 }
 
 export class Logger {
   private level: LogLevel;
   private module: string;
-  private logFile: string | undefined;
   private consoleOutput: boolean;
-  private fileOutput: boolean;
   private format: 'text' | 'json';
   private colorize: boolean;
   private otelTraceEnabled: boolean;
   protected logSource: LogSource = 'logger';
+  /** 调用方是否显式指定了文件输出（非 undefined 时优先于全局配置） */
+  private explicitFileOutput: boolean | undefined;
+  private explicitLogFile: string | undefined;
 
   constructor(config: LoggerConfig = {}) {
     // 合并全局配置提供者的默认值
@@ -239,13 +254,34 @@ export class Logger {
 
     this.level = merged.level ?? LogLevel.INFO;
     this.module = merged.module ?? 'app';
-    this.logFile = merged.logFile;
     this.consoleOutput = merged.consoleOutput !== false;
-    this.fileOutput = merged.fileOutput ?? false;
     this.format = merged.format ?? 'text';
     this.colorize = merged.colorize ?? false;
     this.otelTraceEnabled = merged.otelTraceEnabled ?? false;
     if (merged.source) this.logSource = merged.source;
+
+    // 记录调用方是否显式指定文件输出。未显式指定时，写入阶段动态读取全局
+    // 配置缓存，使 setGlobalConfigProvider 注册前创建的 Logger 也能写文件。
+    this.explicitFileOutput = config.fileOutput;
+    this.explicitLogFile = config.logFile;
+  }
+
+  /**
+   * 解析文件输出是否启用。
+   * 调用方显式指定时以显式值为准；否则读取全局配置缓存（动态），
+   * 保证在 setGlobalConfigProvider 注册前创建的 Logger 也能写入文件。
+   */
+  private resolveFileOutput(): boolean {
+    if (this.explicitFileOutput !== undefined) return this.explicitFileOutput;
+    return globalFileOutput;
+  }
+
+  /**
+   * 解析日志文件路径（同上，未显式指定时动态读取全局配置缓存）。
+   */
+  private resolveLogFile(): string | undefined {
+    if (this.explicitLogFile !== undefined) return this.explicitLogFile;
+    return globalLogFile;
   }
 
   private shouldLog(level: LogLevel): boolean {
@@ -349,9 +385,12 @@ export class Logger {
       }
     }
 
-    if (this.fileOutput && this.logFile) {
-      // 文件输出不着色
-      enqueueFileWrite(this.logFile, sanitized);
+    if (this.resolveFileOutput()) {
+      const logFilePath = this.resolveLogFile();
+      if (logFilePath) {
+        // 文件输出不着色
+        enqueueFileWrite(logFilePath, sanitized);
+      }
     }
   }
 

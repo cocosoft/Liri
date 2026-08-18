@@ -22,6 +22,7 @@ import {
   handleError,
 } from '@modules/error';
 import { resolveDataSubDir } from '@modules/core';
+import { sanitizeFileName } from '@modules/services/file/fileNaming';
 
 const logger = getLogger('tools:notebook');
 
@@ -119,11 +120,15 @@ export class NotebookManager {
 
   /**
    * 保存Notebook（P1-1: 写标准 Jupyter nbformat 4.x）
+   *
+   * 当 notebook.path 未设置时，用 notebook.name 拼接路径；
+   * name 可能来自 LLM/用户输入，需调用 sanitizeFileName 清理非法字符（含全角符号）。
    */
   saveNotebook(notebook: Notebook): void {
     try {
       const path =
-        notebook.path || join(this.notebookDir, `${notebook.name}.ipynb`);
+        notebook.path ||
+        join(this.notebookDir, `${sanitizeFileName(notebook.name)}.ipynb`);
       const data = JSON.stringify(
         JupyterNotebookConverter.toJupyter(notebook),
         null,

@@ -25,7 +25,7 @@ export interface MonitorTarget {
 export const DEFAULT_MONITOR_TARGETS: MonitorTarget[] = [
   {
     name: 'mcp-server',
-    url: 'http://localhost:7890/health',
+    url: 'http://localhost:18990/health',
     checkIntervalMs: 30_000,
     timeoutMs: 5000,
   },

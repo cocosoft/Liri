@@ -2,6 +2,7 @@ import type { StructuredAnalyticsEvent } from './AnalyticsSchema';
 import { configManager } from '@modules/config';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
+import { APP_VERSION } from '@modules/constants/common';
 
 const logger = getLogger('FirstPartyEventLogger');
 
@@ -50,7 +51,7 @@ export class FirstPartyEventLogger implements FirstPartyEventSink {
     this.deviceId =
       options?.deviceId || configManager.env('DEVICE_ID') || 'unknown';
     this.platform = process.platform;
-    this.sourceVersion = configManager.env('APP_VERSION') || '1.0.0';
+    this.sourceVersion = configManager.env('APP_VERSION') || APP_VERSION;
     this.endpoint =
       options?.endpoint || configManager.env('FIRST_PARTY_EVENT_ENDPOINT');
     this.enabled = options?.enabled !== false;

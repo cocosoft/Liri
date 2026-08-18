@@ -37,7 +37,8 @@ const TARGETS: SyncTarget[] = [
     // 项目主页 badge
     { file: 'README.md',
       transform: (v: string) => (content: string) =>
-          content.replace(/version-\d+\.\d+\.\d+-blue/g, `version-${v}-blue`) },
+          content.replace(/version-\d+\.\d+\.\d+-blue/g, `version-${v}-blue`)
+              .replace(/当前版本：\*\*v[\d.]+(?:-[a-z0-9.]+)?\*\*/g, `当前版本：**v${v}**`) },
 ];
 
 function main(): void {

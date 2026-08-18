@@ -5,6 +5,7 @@ import type { Memory } from '../types/Memory';
 import { getLogger, Logger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { resolvePyappHome } from '@modules/core';
+import { sanitizeFileName as sanitizeFileNameBase } from '@modules/services/file/fileNaming';
 
 export interface KnowledgeBaseEntry {
   title: string;
@@ -151,10 +152,7 @@ export class KnowledgeBaseWriter {
   }
 
   private sanitizeFileName(name: string): string {
-    return name
-      .replace(/[<>:"/\\|?*]/g, '_')
-      .replace(/\s+/g, '_')
-      .slice(0, 100);
+    return sanitizeFileNameBase(name).replace(/\s+/g, '_').slice(0, 100);
   }
 
   private buildFrontmatter(metadata: Record<string, unknown>): string {

@@ -23,33 +23,3 @@ export interface BackendStatus {
   /** 共享密钥（Rust start_backend/get_backend_status 返回，用于直连 fetch 注入 X-API-Key） */
   secret?: string | null;
 }
-
-export interface ModelInfo {
-  id: string;
-  name: string;
-  provider: string;
-  providerId?: string;
-  type: "chat" | "embedding" | "image";
-  context_length: number;
-  enabled: boolean;
-  requiresAuth?: boolean;
-  pricing?: {
-    inputPer1M?: number;
-    outputPer1M?: number;
-    cacheReadPer1M?: number;
-    cacheWritePer1M?: number;
-  };
-}
-
-export interface ProviderInfo {
-  id: string;
-  name: string;
-  providerType: string;
-  baseUrl: string;
-  apiKey?: string;
-  isActive: boolean;
-  sortIndex: number;
-  requiresAuth: boolean;
-  createdAt: number;
-  updatedAt: number;
-}

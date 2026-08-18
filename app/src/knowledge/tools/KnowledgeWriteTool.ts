@@ -37,6 +37,7 @@ import { writeAuditLog } from '../KnowledgeAuditLogger';
 import { existsSync } from 'fs';
 import { join } from 'path';
 import { resolvePyappHome } from '@modules/core';
+import { sanitizeFileName } from '@modules/services/file/fileNaming';
 
 const logger = getLogger('knowledge:tools:knowledgeWriteTool');
 
@@ -134,7 +135,7 @@ export class KnowledgeWriteTool implements Tool {
         .filter((t) => t.length > 0);
 
       // ── 审批检查：检测是否覆盖已有文档 ──
-      const sanitizedTitle = title.trim().replace(/[<>:"/\\|?*]/g, '_');
+      const sanitizedTitle = sanitizeFileName(title.trim());
       const knowledgeRoot = join(resolvePyappHome(), 'knowledge');
       const targetPath = join(knowledgeRoot, `${sanitizedTitle}.md`);
       const isOverwrite = existsSync(targetPath);

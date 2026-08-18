@@ -53,6 +53,10 @@ async function executeShutdownHandlers() {
 
 /**
  * 设置优雅关闭
+ *
+ * 仅监听 SIGINT / SIGTERM / uncaughtException 触发关闭流程。
+ * unhandledRejection 由 main.ts 的全局处理器接管（记录 + crash dump，不退出进程），
+ * 避免重复注册导致策略冲突（曾出现 gracefulShutdown 强制 exit 覆盖 main.ts "不退出"策略）。
  */
 export function setupGracefulShutdown() {
   // 监听SIGINT信号（Ctrl+C）
@@ -67,17 +71,14 @@ export function setupGracefulShutdown() {
     executeShutdownHandlers();
   });
 
-  // 监听未捕获的异常
+  // 监听未捕获的异常（不可恢复，需关闭进程）
   process.on('uncaughtException', (error) => {
     logger.error('未捕获的异常:', error);
     executeShutdownHandlers();
   });
 
-  // 监听未处理的Promise拒绝
-  process.on('unhandledRejection', (reason) => {
-    logger.error('未处理的Promise拒绝:', reason as Error);
-    executeShutdownHandlers();
-  });
+  // 注意：unhandledRejection 不在此注册——由 main.ts 全局处理器接管，
+  // 策略为"记录 + 不退出"（unhandledRejection 可能是非致命的，如 Provider 超时）。
 }
 
 /**

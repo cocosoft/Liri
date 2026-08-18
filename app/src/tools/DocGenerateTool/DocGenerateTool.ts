@@ -14,6 +14,7 @@ import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';
 
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
+import { sanitizeFileName as sanitizeFileNameBase } from '@modules/services/file/fileNaming';
 import {
   DEFAULT_CN_FONT,
   LANG_PROFILES,
@@ -60,10 +61,12 @@ interface BatchCommand {
 
 /**
  * 清洗文件名
+ *
+ * 非法字符清理（含全角符号）委托给统一入口 sanitizeFileName，
+ * 此处仅保留额外的格式化（空格→下划线、连续下划线合并、首尾清理、长度截断）。
  */
 function sanitizeFileName(name: string): string {
-  return name
-    .replace(/[<>:"/\\|?*]/g, '_')
+  return sanitizeFileNameBase(name)
     .replace(/\s+/g, '_')
     .replace(/_+/g, '_')
     .replace(/^_|_$/g, '')

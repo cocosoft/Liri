@@ -33,6 +33,7 @@ import { join } from 'path';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { resolveDataSubDir } from '@modules/core';
+import { sanitizeFileName } from '@modules/services/file/fileNaming';
 
 const logger = getLogger('knowledge:tools:knowledgeExportTool');
 
@@ -122,9 +123,7 @@ export class KnowledgeExportTool implements Tool {
         });
       } else {
         for (const doc of docs) {
-          const safeName = doc.title
-            .replace(/[<>:"/\\|?*]/g, '_')
-            .slice(0, 100);
+          const safeName = sanitizeFileName(doc.title).slice(0, 100);
           const filePath = join(targetDir, `${safeName}.md`);
           const frontmatter = [
             '---',

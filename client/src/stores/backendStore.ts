@@ -8,6 +8,7 @@ import { create } from "zustand";
 import { chatService } from "../services/chatService";
 import { handleClientError } from "@/utils/handleError";
 import { createLogger } from "../utils/logger";
+import { DEFAULT_BACKEND_PORT } from "../services/backendUrl";
 import type { BackendStatus } from "../types";
 
 const logger = createLogger("stores:backendStore");
@@ -107,7 +108,7 @@ export const useBackendStore = create<BackendStore>((set, get) => ({
       logger.warn("[startBackend] 浏览器模式，无法自动启动后端");
       set({
         error:
-          "浏览器模式下无法自动启动后端。请在终端中运行：\ncd app && bun run src/main.ts repl --http-port 7890\n启动后刷新页面。",
+          `浏览器模式下无法自动启动后端。请在终端中运行：\ncd app && bun run src/main.ts repl --http-port ${DEFAULT_BACKEND_PORT}\n启动后刷新页面。`,
       });
     }
   },

@@ -8,6 +8,8 @@ import type http from 'http';
 import type { HandlerCtx } from '../handler-utils';
 import { readBody, json } from '../handler-utils';
 import { sleepMonitor } from '@modules/core/sleep/SleepMonitor';
+import { APP_VERSION } from '@modules/constants/common';
+import { resolveDataDir, resolvePyappHome } from '@modules/core/paths';
 
 /**
  * dispatchSystemRoutes — 系统领域路由分发
@@ -22,6 +24,12 @@ export async function dispatchSystemRoutes(
 ): Promise<boolean> {
   const method = req.method || 'GET';
 
+  // 应用信息（版本 / 数据目录 / 用户目录）
+  if (method === 'GET' && url === '/v1/app/info') {
+    await handleAppInfo(req, res);
+    return true;
+  }
+
   // 休眠检测：用户决策是否继续执行积压的定时任务
   if (method === 'POST' && url === '/v1/system/sleep/resolve') {
     await handleSleepResolve(req, res);
@@ -29,6 +37,20 @@ export async function dispatchSystemRoutes(
   }
 
   return false;
+}
+
+/**
+ * GET /v1/app/info — 应用信息（版本号来自 app/package.json，数出同源）
+ */
+async function handleAppInfo(
+  _req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  json(res, 200, {
+    version: APP_VERSION,
+    dataDir: resolveDataDir(),
+    pyappHome: resolvePyappHome(),
+  });
 }
 
 /**

@@ -183,11 +183,14 @@ export class OTelTracing {
 /** 全局单例 */
 let _instance: OTelTracing | null = null;
 
-export function getOTelTracing(): OTelTracing {
+export function getOTelTracing(
+  config?: Partial<OTelTracingConfig>,
+): OTelTracing {
   if (!_instance) {
     _instance = new OTelTracing({
       serviceName: "liri-client",
-      serviceVersion: "0.4.39",
+      // 版本号唯一事实来源 /v1/app/info（后端 app/package.json），main.tsx 启动时注入
+      serviceVersion: config?.serviceVersion || "0.0.0",
     });
   }
   return _instance;

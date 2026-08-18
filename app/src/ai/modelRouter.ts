@@ -1046,6 +1046,10 @@ export class ModelRouter {
       await appModelConfigService.setConfig('current', { model: modelId });
       this._currentModel = modelId;
 
+      // 保存旧 default（用于后续判断 chat 任务是否"从 default 继承"），
+      // 必须在 setConfig('default') 之前读取，否则拿到的是新值。
+      const previousDefault = this._taskCache.get('default');
+
       await appModelConfigService.setConfig('default', { model: modelId });
       this._taskCache.set('default', modelId);
 
@@ -1056,7 +1060,6 @@ export class ModelRouter {
 
       // 仅清除与被替换模型相同的聊天任务（从 default 继承来的），
       // 保留用户显式配置的任务分工（如 chat→GPT-4, default→DeepSeek 时切换不改 chat）
-      const previousDefault = this._taskCache.get('default');
       const chatOverrides = [
         'chat',
         'coding',

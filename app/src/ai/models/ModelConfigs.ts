@@ -15,6 +15,9 @@ export type { ModelConfig, ModelKey, APIProvider };
 export { API_PROVIDER_KEYS };
 
 import { handleError } from '@modules/error';
+import { getLogger } from '@modules/monitoring';
+
+const logger = getLogger('ai:models:configs');
 
 function _getRegistry(): unknown {
   try {
@@ -162,15 +165,56 @@ export function getModelsWithCapability(
 
 /**
  * 获取模型支持的能力列表
+ *
+ * 与 getModelContextWindow 一致：先按模型名查 userModels/discoveredModels（key 即模型名），
+ * 命中则直接返回；未命中则用 getModelKeyByName 转换为 ModelKey（内置模型 key）再查。
+ * 全部 miss 时返回空数组。
+ *
+ * 同源问题修复（2026-08-18）：原实现只走 getModelKeyByName 转换，对 user 自定义模型
+ * 会返回基础模型的能力（因为 user config 通过 ...base 继承了基础模型的 provider 字段，
+ * 导致 getModelKeyByName 返回基础模型的 key），而非用户在 models.yaml 中通过
+ * override.capabilities 自定义的能力。
  * @param modelName 模型名称
  * @returns 能力列表
  */
 export function getModelCapabilities(modelName: string): ModelCapability[] {
+  // 1. 直接按模型名索引（命中 userModels / discoveredModels，key 即模型名）
+  const direct = ALL_MODEL_CONFIGS[modelName];
+  if (direct?.capabilities) {
+    logger.info('getModelCapabilities:命中直接索引', {
+      modelName,
+      hitStep: 'direct',
+      source: 'userModels/discoveredModels',
+      capabilities: direct.capabilities,
+      capabilityCount: direct.capabilities.length,
+    });
+    return direct.capabilities;
+  }
+  // 2. 内置模型 key 转换（ALL_MODEL_CONFIGS 的内置 key 是 ModelKey 如 "deepseek"）
   const modelKey = getModelKeyByName(modelName);
   if (modelKey) {
     const config = ALL_MODEL_CONFIGS[modelKey];
-    return config.capabilities ?? [];
+    const caps = config?.capabilities ?? [];
+    logger.info('getModelCapabilities:命中 key 转换', {
+      modelName,
+      hitStep: 'keyConversion',
+      resolvedKey: modelKey,
+      source: 'builtinModels',
+      hasConfig: !!config,
+      capabilities: caps,
+      capabilityCount: caps.length,
+      // 若 direct 索引存在但 capabilities 为空，标记为异常（可能 user 覆盖了 capabilities 为空）
+      directExistsButEmpty: !!direct && !direct.capabilities,
+    });
+    return caps;
   }
+  // 3. 全部 miss：返回空数组（可能是未注册的模型名）
+  logger.warn('getModelCapabilities:全部 miss', {
+    modelName,
+    hitStep: 'none',
+    directExists: !!direct,
+    resolvedKey: null,
+  });
   return [];
 }
 
@@ -189,10 +233,21 @@ export function modelSupportsCapability(
 
 /**
  * 获取模型的上下文窗口大小
- * 从 YAML 配置读取真实的 contextWindow，找不到时返回 65536
+ *
+ * 与 getModelCapabilities 一致：先按模型名查 userModels/discoveredModels（key 即模型名），
+ * 命中则直接返回；未命中则用 getModelKeyByName 转换为 ModelKey（内置模型 key）再查。
+ * 全部 miss 时返回 65536 兜底。
  */
 export function getModelContextWindow(modelName: string): number {
-  return ALL_MODEL_CONFIGS[modelName]?.contextWindow ?? 65536;
+  // 1. 直接按模型名索引（命中 userModels / discoveredModels，key 即模型名）
+  const direct = ALL_MODEL_CONFIGS[modelName]?.contextWindow;
+  if (direct !== undefined) return direct;
+  // 2. 内置模型 key 转换（ALL_MODEL_CONFIGS 的内置 key 是 ModelKey 如 "deepseek"）
+  const modelKey = getModelKeyByName(modelName);
+  if (modelKey) {
+    return ALL_MODEL_CONFIGS[modelKey]?.contextWindow ?? 65536;
+  }
+  return 65536;
 }
 
 /**

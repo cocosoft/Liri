@@ -31,6 +31,7 @@ import { resolveDbPath, resolveProjectRoot } from '@modules/core';
 import { getLogger } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { handleError } from '@modules/error';
+import { APP_VERSION } from '@modules/constants/common';
 import yaml from 'js-yaml';
 import fs from 'fs';
 import path from 'path';
@@ -342,7 +343,7 @@ export class CapabilityService {
       }
 
       // 检查废弃能力（YAML 中移除的能力）
-      const currentVersion = '0.4.0'; // TODO: 从版本配置获取
+      const currentVersion = APP_VERSION;
       for (const dbCap of dbCapabilities) {
         const yamlCap = (
           data.capabilities as Array<Record<string, unknown>>

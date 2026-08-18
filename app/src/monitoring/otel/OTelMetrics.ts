@@ -1,4 +1,4 @@
-﻿/**
+/**
  * OpenTelemetry 指标系统
  */
 
@@ -25,6 +25,7 @@ import { errorMessage } from '@modules/error';
 import { getPlatform, getWslVersion } from '@modules/utils/platform.js';
 
 import { getLogger } from '@modules/monitoring';
+import { APP_VERSION } from '@modules/constants/common';
 const logger = getLogger('monitoring\otel\OTelMetrics');
 
 /**
@@ -246,7 +247,7 @@ export function getOTelMetrics(config?: OTelMetricsConfig): OTelMetrics {
     otelMetrics = new OTelMetrics(
       config || {
         serviceName: 'py-app',
-        serviceVersion: '1.0.0',
+        serviceVersion: APP_VERSION,
       }
     );
   }

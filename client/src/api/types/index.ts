@@ -25,12 +25,7 @@ export type {
 } from "./chat";
 
 // config
-export type {
-  AppConfig,
-  BackendStatus,
-  ModelInfo,
-  ProviderInfo,
-} from "./config";
+export type { AppConfig, BackendStatus } from "./config";
 
 // cron
 export type {

@@ -37,16 +37,22 @@ export function generateSavedName(originalName: string, md5: string): string {
  * 清理文件名中的非法字符
  *
  * 替换 Windows 路径非法字符：\ / : * ? " < > |
- * 保留汉字等有意义的 Unicode 字符
+ * 同时替换对应的全角符号：＼ ／ ： ＊ ？ ＂ ＜ ＞ ｜
+ * 保留汉字、中文标点（〈〉《》「」『』【】（）等 NTFS 合法字符）等有意义的 Unicode 字符
  *
  * @param name - 原始文件名
  * @returns 清理后的文件名
  */
 export function sanitizeFileName(name: string): string {
-  return name
-    .replace(/[<>:"/\\|?*]/g, '_')
-    .replace(/\s+/g, ' ')
-    .trim();
+  return (
+    name
+      // 半角非法字符（Windows 路径禁止）
+      .replace(/[<>:"/\\|?*]/g, '_')
+      // 全角对应符号（U+FF0A..U+FF5C 范围内的 9 个 Windows 禁止符号的全角版本）
+      .replace(/[＜＞：＂／＼｜？＊]/g, '_')
+      .replace(/\s+/g, ' ')
+      .trim()
+  );
 }
 
 /**

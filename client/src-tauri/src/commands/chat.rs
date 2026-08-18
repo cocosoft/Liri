@@ -32,7 +32,7 @@ use tauri::{Emitter, Window};
 use tracing::{error, info};
 use uuid::Uuid;
 
-static BACKEND_URL: Lazy<Mutex<String>> = Lazy::new(|| Mutex::new("http://127.0.0.1:7890".to_string()));
+static BACKEND_URL: Lazy<Mutex<String>> = Lazy::new(|| Mutex::new("http://127.0.0.1:18990".to_string()));
 
 /// 哨兵值：同步自 app/src/constants/common.ts 的 DEFAULT_MODEL_SENTINEL = 'pyapp-default'
 /// 表示"未选择具体模型，由后端 SmartRouter 自动决策"

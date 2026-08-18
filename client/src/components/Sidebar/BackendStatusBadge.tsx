@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useBackendStore } from "../../stores/backendStore";
+import { DEFAULT_BACKEND_PORT } from "../../services/backendUrl";
 
 function BackendStatusBadge() {
   const {
@@ -85,7 +86,7 @@ function BackendStatusBadge() {
               <div className="text-xs text-gray-400 bg-gray-800 rounded p-2 leading-relaxed">
                 浏览器模式需要手动启动后端：
                 <code className="block mt-1 text-yellow-300 break-all select-all">
-                  cd backend &amp;&amp; bun start -- --http-port 7890
+                  cd backend &amp;&amp; bun start -- --http-port {DEFAULT_BACKEND_PORT}
                 </code>
               </div>
             )}

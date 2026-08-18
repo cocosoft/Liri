@@ -109,13 +109,52 @@ export async function handleListModels(
       await import('../providers/ProviderRegistry.js');
 
     for (const pr of pricingList) {
-      let matchingProvider;
+      let matchingProvider: {
+        id: string;
+        name: string;
+        requiresAuth: boolean;
+        isActive: boolean;
+      } | undefined;
+
+      // 1. 优先匹配 DB 已配置的 Provider（ProviderManager.listProviders）
       if (pr.providerId) {
         matchingProvider = providers.find((p) => p.id === pr.providerId);
+        // 兼容 model_registry.provider_id 存 provider_type（如 'deepseek'）的场景：
+        // 按 provider_type 匹配 ai_providers 记录，保证数出同源下模型可见可管理
+        if (!matchingProvider) {
+          matchingProvider = providers.find(
+            (p) => p.providerType === pr.providerId
+          );
+        }
       } else {
         const modelProvider = providerRegistry.getByModel(pr.modelId);
         if (modelProvider) {
           matchingProvider = providers.find((p) => p.id === modelProvider.id);
+        }
+      }
+
+      // 2. DB 未匹配时回退到运行时已注册的 Provider：
+      //    环境变量等未落库的 Provider 也能让模型在列表中可见、可管理（数出同源兼容）
+      if (!matchingProvider) {
+        let runtimeProvider: AIProvider | undefined;
+        if (pr.providerId) {
+          try {
+            // get() 找不到会抛 AppError，属正常"未注册"分支，回退到按模型名查找
+            runtimeProvider = providerRegistry.get(pr.providerId);
+          } catch {
+            runtimeProvider = undefined;
+          }
+        }
+        if (!runtimeProvider) {
+          runtimeProvider = providerRegistry.getByModel(pr.modelId);
+        }
+        if (runtimeProvider) {
+          matchingProvider = {
+            id: runtimeProvider.id,
+            name: runtimeProvider.displayName,
+            requiresAuth: true,
+            isActive: true,
+          };
         }
       }
       const caps =

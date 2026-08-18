@@ -1,7 +1,17 @@
 import { handleClientError } from "../utils/handleError";
 
-let _backendBase = "http://127.0.0.1:7890";
-let _port = 7890;
+/**
+ * 默认后端 HTTP 端口
+ *
+ * 前端所有引用后端默认端口的位置都应引用此常量，避免散落硬编码。
+ * 与后端 app/src/main.ts 的默认端口保持一致。
+ *
+ * 注意：vite.config.ts 和测试脚本因构建期/独立运行约束，仍保留字面量。
+ */
+export const DEFAULT_BACKEND_PORT = 18990;
+
+let _backendBase = `http://127.0.0.1:${DEFAULT_BACKEND_PORT}`;
+let _port = DEFAULT_BACKEND_PORT;
 let _apiSecret = "";
 
 export function getBackendBaseUrl(): string {
@@ -35,6 +45,6 @@ export async function initBackendUrlFromConfig(): Promise<void> {
       module: "services:backendUrl",
       action: "initBackendUrlFromConfig",
     });
-    // 使用默认值 7890
+    // 使用默认值
   }
 }

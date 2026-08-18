@@ -5,7 +5,7 @@ import { useRootStore } from "../../stores/root-store";
 import { getCurrentTier } from "../../stores/root-store/featureSlice";
 import { chatService } from "../../services/chatService";
 import { appConfigService } from "../../services/appConfigService";
-import { setBackendPort as setBackendUrlPort } from "../../services/backendUrl";
+import { setBackendPort as setBackendUrlPort, DEFAULT_BACKEND_PORT } from "../../services/backendUrl";
 import { httpLegacy as http } from "../../services/httpClient";
 import AIConfigPanel from "../settings/AIConfigPanel";
 import AutoUpdatePanel from "../settings/AutoUpdatePanel";
@@ -369,7 +369,7 @@ function SettingsPage() {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [backendPort, setBackendPort] = useState("7890");
+  const [backendPort, setBackendPort] = useState(String(DEFAULT_BACKEND_PORT));
   const [portSaved, setPortSaved] = useState(false);
   const [dataDirectory, setDataDirectory] = useState("");
   const [configuredDirectory, setConfiguredDirectory] = useState<string | null>(

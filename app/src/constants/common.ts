@@ -2,9 +2,34 @@
  * 通用常量
  */
 
+import { existsSync, readFileSync } from 'fs';
+import { dirname, join } from 'path';
+import { fileURLToPath } from 'url';
+
 export const APP_NAME = 'Liri';
 export const APP_NAME_LOWER = 'liri';
-export const APP_VERSION = '1.0.0';
+
+/**
+ * 版本号唯一事实来源：app/package.json
+ * 模块加载时直接解析，不依赖启动 env 注入时序（.env 中已删除 APP_VERSION 假值）
+ */
+function resolveAppVersion(): string {
+  try {
+    const here = dirname(fileURLToPath(import.meta.url)); // app/src/constants
+    const pkgPath = join(here, '..', '..', 'package.json'); // app/package.json
+    if (existsSync(pkgPath)) {
+      const pkg = JSON.parse(readFileSync(pkgPath, 'utf8')) as {
+        version?: string;
+      };
+      if (pkg.version) return pkg.version;
+    }
+  } catch {
+    // 解析失败回退 env / 默认值
+  }
+  return process.env.APP_VERSION || '0.0.0';
+}
+
+export const APP_VERSION = resolveAppVersion();
 
 export const DEFAULT_SESSION_TIMEOUT = 30 * 60 * 1000;
 export const MAX_CONCURRENT_TASKS = 10;

@@ -33,6 +33,7 @@ import { existsSync } from 'fs';
 import { Logger, getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { resolvePyappHome } from '@modules/core';
+import { sanitizeFileName as sanitizeFileNameBase } from '@modules/services/file/fileNaming';
 import type { EventBus } from '@modules/core';
 import { KnowledgeDedupStrategy } from '@modules/knowledge/KnowledgeDedupStrategy';
 
@@ -253,10 +254,8 @@ export class KnowledgeBaseWriter {
   }
 
   private sanitizeFileName(name: string): string {
-    return name
-      .replace(/[<>:"/\\|?*]/g, '_')
-      .replace(/\s+/g, '_')
-      .slice(0, 100);
+    // 委托统一入口处理非法字符（含全角符号），保留额外的空格→下划线和长度截断
+    return sanitizeFileNameBase(name).replace(/\s+/g, '_').slice(0, 100);
   }
 
   private buildFrontmatter(metadata: Record<string, unknown>): string {

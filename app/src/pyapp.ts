@@ -167,6 +167,23 @@ if (!process.env.LIRI_HOME) {
   const { homedir } = require('os');
   process.env.LIRI_HOME = join(homedir(), '.pyapp');
 }
+// 应用版本注入 — 唯一事实来源：app/package.json（CONTRIBUTING.md 规定）
+// 消除各处硬编码版本号（7.9.0 / 1.0.0）与 fallback 'unknown'/'1.0.0' 假值
+try {
+  const pkgPath = join(projectRoot, 'app', 'package.json');
+  if (existsSync(pkgPath)) {
+    const pkgJson = JSON.parse(readFileSync(pkgPath, 'utf8')) as {
+      version?: string;
+    };
+    const version = pkgJson.version || '0.0.0';
+    process.env.APP_VERSION = version;
+    process.env.Liri_VERSION = version;
+  }
+} catch (err) {
+  bootLogger.warn('无法读取 app/package.json 注入版本号', {
+    error: String(err),
+  });
+}
 
 // 额外环境变量兜底：某些库/模块可能使用 PWD 或 INIT_CWD
 process.env.PWD = projectRoot;

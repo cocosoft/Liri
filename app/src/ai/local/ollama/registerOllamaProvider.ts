@@ -37,6 +37,8 @@ const logger = getLogger('ai:ollama');
 
 const OLLAMA_PROVIDER_TYPE = 'ollama' as const;
 const DEFAULT_OLLAMA_URL = 'http://localhost:11434';
+/** 注册默认上下文窗口：现代本地模型可运行的安全操作窗口上限（探测失败时的兜底） */
+const DEFAULT_OLLAMA_CONTEXT_WINDOW = 32768;
 
 interface OllamaTag {
   name: string;
@@ -57,6 +59,35 @@ async function fetchOllamaTags(baseUrl: string): Promise<OllamaTag[]> {
       error: (err as Error).message,
     });
     return [];
+  }
+}
+
+/**
+ * 探测 Ollama 模型真实原生上下文长度（model_info['llama.context_length']）。
+ * 这是该模型 num_ctx 的硬上限：若应用侧窗口超过它，Ollama 会直接拒绝
+ * （"requested context length exceeds model max"）。失败返回 null（用注册默认值兜底）。
+ * 与 llama.cpp probeLlamaNctx 同构：DB 跟随服务端真实值，而非配置抄写/硬编码。
+ */
+async function probeOllamaContextLength(
+  baseUrl: string,
+  modelName: string
+): Promise<number | null> {
+  try {
+    const response = await fetch(`${baseUrl}/api/show`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: modelName }),
+      signal: AbortSignal.timeout(3000),
+    });
+    if (!response.ok) return null;
+    const data = (await response.json()) as {
+      model_info?: Record<string, unknown>;
+    };
+    const raw = data.model_info?.['llama.context_length'];
+    const n = typeof raw === 'number' ? raw : Number(raw);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  } catch {
+    return null;
   }
 }
 
@@ -102,17 +133,38 @@ export async function syncOllamaModelsToRegistry(): Promise<number> {
       }
     }
 
-    // 2. 注册：本地真实模型（已归属本 provider 的跳过；被其他 provider 占用的跳过）
+    // 2. 注册：本地真实模型（已归属本 provider 的跟随真实窗口；被其他 provider 占用的跳过）
     let registered = 0;
+    let updated = 0;
     for (const name of localNames) {
+      // 探测真实上下文（llama.context_length），失败回退默认安全窗口。
+      // min(真实, 默认) 兜底：既避免小窗口模型被 32768 撑爆 KV 缓存 OOM，
+      // 也避免 num_ctx 超过模型原生上限被 Ollama 拒绝。
+      const realCtx = await probeOllamaContextLength(baseUrl, name);
+      const contextWindow = realCtx
+        ? Math.min(realCtx, DEFAULT_OLLAMA_CONTEXT_WINDOW)
+        : DEFAULT_OLLAMA_CONTEXT_WINDOW;
+
       const existing = await modelPricingService.getPricing(name);
-      if (existing && existing.providerId === providerId) continue;
+      if (existing && existing.providerId === providerId) {
+        // 已注册且归属本 provider：窗口与当前探测不一致则更新（跟随服务端真实值）
+        if (existing.contextWindow !== contextWindow) {
+          await modelPricingService.upsertPricing({
+            modelId: name,
+            contextWindow,
+            inputCostPerMillion: existing.inputCostPerMillion,
+            outputCostPerMillion: existing.outputCostPerMillion,
+          });
+          updated++;
+        }
+        continue;
+      }
       if (existing && existing.providerId !== providerId) continue;
       await modelPricingService.upsertPricing({
         modelId: name,
         displayName: name,
         providerId,
-        contextWindow: 32768,
+        contextWindow,
         maxOutputTokens: 8192,
         capabilities: ['streaming', 'function_calling', 'tool_use'],
         inputCostPerMillion: 0,
@@ -121,7 +173,7 @@ export async function syncOllamaModelsToRegistry(): Promise<number> {
       registered++;
     }
 
-    if (registered > 0 || removed > 0) {
+    if (registered > 0 || updated > 0 || removed > 0) {
       const { ModelRegistry } =
         await import('@modules/ai/models/ModelRegistry.js');
       ModelRegistry.getInstance()
@@ -139,7 +191,9 @@ export async function syncOllamaModelsToRegistry(): Promise<number> {
           error: (er as Error).message,
         });
       });
-      logger.info(`Ollama 模型同步: 新增 ${registered}，清理 ${removed}`);
+      logger.info(
+        `Ollama 模型同步: 新增 ${registered}，更新 ${updated}，清理 ${removed}`
+      );
     }
     return registered;
   } catch (err) {

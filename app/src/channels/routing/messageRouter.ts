@@ -58,6 +58,16 @@ import { checkRateLimit } from './rateLimiter';
 
 const logger = getLogger('channels:routing');
 
+/**
+ * Windows 兼容：会话 ID 可能含文件系统非法字符（如 QQ 的 "c2c:{openid}"、
+ * 群聊的 "group:{gid}:{uid}"），直接作为持久化目录名会导致 mkdir ENOTDIR
+ * 失败（会话创建失败 → chat 报错 → 渠道无回复）。统一替换为 '_'
+ * （确定性映射，同一用户/会话每次生成相同 ID，会话复用不受影响）。
+ */
+function sanitizeSessionId(id: string): string {
+  return id.replace(/[<>:"/\\|?*\u0000-\u001f]/g, '_').replace(/[. ]+$/g, '');
+}
+
 /** 消息大小上限（默认 1MB） */
 const MAX_MESSAGE_SIZE = 1 * 1024 * 1024;
 

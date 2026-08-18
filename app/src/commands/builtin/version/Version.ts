@@ -30,7 +30,8 @@ function readPackageInfo(): Record<string, unknown> {
   }
 
   try {
-    const packagePath = join(resolveProjectRoot(), 'package.json');
+    // 版本号唯一事实来源：app/package.json（根目录无 package.json）
+    const packagePath = join(resolveProjectRoot(), 'app', 'package.json');
     if (existsSync(packagePath)) {
       const content = readFileSync(packagePath, 'utf8');
       cachedPackage = JSON.parse(content);
@@ -47,7 +48,7 @@ function readPackageInfo(): Record<string, unknown> {
   if (!cachedPackage) {
     cachedPackage = {
       name: 'Liri',
-      version: '1.0.0',
+      version: process.env.APP_VERSION || '0.0.0',
       description: '基于 TypeScript + Rust 架构的 AI Agent 项目',
     };
   }
@@ -63,7 +64,7 @@ function getVersionInfo() {
 
   return {
     appName: pkg.name || 'Liri',
-    version: pkg.version || '1.0.0',
+    version: pkg.version || process.env.APP_VERSION || '0.0.0',
     description: pkg.description || '',
     nodeVersion: process.version,
     platform: process.platform,

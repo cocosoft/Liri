@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { appConfigService } from "../../services/appConfigService";
 import { useBackendStore } from "../../stores/backendStore";
+import { DEFAULT_BACKEND_PORT } from "../../services/backendUrl";
 
 interface FirstRunWizardProps {
   onComplete: () => void;
@@ -8,7 +9,7 @@ interface FirstRunWizardProps {
 
 export function FirstRunWizard({ onComplete }: FirstRunWizardProps) {
   const [dataDir, setDataDir] = useState("");
-  const [httpPort, setHttpPort] = useState(7890);
+  const [httpPort, setHttpPort] = useState(DEFAULT_BACKEND_PORT);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [step, setStep] = useState<"welcome" | "configure" | "finishing">(

@@ -1,7 +1,7 @@
 const http = require('http');
 function get(path) {
   return new Promise((resolve, reject) => {
-    http.get({ host: '127.0.0.1', port: 7890, path, timeout: 10000 }, (res) => {
+    http.get({ host: '127.0.0.1', port: 18990, path, timeout: 10000 }, (res) => {
       let data = '';
       res.on('data', (c) => (data += c));
       res.on('end', () => resolve({ status: res.statusCode, data }));

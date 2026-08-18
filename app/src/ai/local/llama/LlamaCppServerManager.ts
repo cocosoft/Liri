@@ -742,6 +742,21 @@ export class LlamaCppServerManager {
       this.status = 'running';
       this.shouldRun = true;
       logger.info(`检测到端口 ${this.config.port} 已有 llama-server，直接接管`);
+
+      // 校验外部 llama-server 的 n_ctx 是否与 Liri 配置一致
+      // 不一致时 warn（不强制重启，避免打断用户手动调试中的服务）
+      const externalNctx = await probeLlamaNctx(
+        this.config.host,
+        this.config.port
+      );
+      const expectedNctx = this.config.contextWindow;
+      if (externalNctx !== null && externalNctx !== expectedNctx) {
+        logger.warning(
+          `外部 llama-server 的 n_ctx=${externalNctx} 与 Liri 配置 contextWindow=${expectedNctx} 不一致。` +
+            `该外部服务可能由用户手动启动，参数未走 Liri 配置链。` +
+            `如需 Liri 接管配置：先停止外部 llama-server，再通过设置页重启。`
+        );
+      }
       return;
     }
 

@@ -427,7 +427,7 @@ export function getLocalHTTPService(): LocalHTTPService {
   if (!_localHTTPService) {
     _localHTTPService = new LocalHTTPService({
       host: '127.0.0.1',
-      port: 7890,
+      port: 18990,
     });
   }
   return _localHTTPService;

@@ -13,6 +13,7 @@ import { AsyncLocalStorage } from 'async_hooks';
 import { logForDebugging } from '@modules/utils/debug.js';
 import { errorMessage } from '@modules/error';
 import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
+import { APP_VERSION } from '@modules/constants/common';
 import {
   isSpanCovered,
   markSpanCovered,
@@ -72,7 +73,7 @@ export class SessionTracing {
     this.config = {
       enabled: true,
       serviceName: 'py-app',
-      serviceVersion: '1.0.0',
+      serviceVersion: APP_VERSION,
       maxSpans: 1000,
       spanTTL: 30 * 60 * 1000, // 30分钟
       ...config,

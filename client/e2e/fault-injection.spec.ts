@@ -13,7 +13,7 @@ import { test, expect, type Page } from "@playwright/test";
  * - 断网/后端重启通过断言状态机状态与转移历史；SSE 中断通过
  *   localStorage 持久化日志（pyapp_frontend_logs）断言重连调度。
  *
- * 前置条件：后端 7890 + 前端 1420 已运行（reuseExistingServer）。
+ * 前置条件：后端 18990 + 前端 1420 已运行（reuseExistingServer）。
  */
 
 /** 在页面上下文中读取 connectionMonitor 快照 */

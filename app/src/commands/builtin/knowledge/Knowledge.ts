@@ -11,6 +11,7 @@ import { join, basename, dirname, extname } from 'path';
 import { existsSync } from 'fs';
 
 import { getLogger } from '@modules/monitoring';
+import { sanitizeFileName } from '@modules/services/file/fileNaming';
 const logger = getLogger('commands:builtin:knowledge:Knowledge');
 
 const knowledgeCommand = {
@@ -247,7 +248,7 @@ const knowledgeCommand = {
 
     const roots = knowledgeDocsProvider.getDocsRoots();
     const root = roots[0];
-    const safeTitle = actualTitle.replace(/[<>:"/\\|?*]/g, '_');
+    const safeTitle = sanitizeFileName(actualTitle);
     const fileName = `${safeTitle}.md`;
     const filePath = join(root, fileName);
 

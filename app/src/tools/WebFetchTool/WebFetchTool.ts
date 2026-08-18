@@ -18,6 +18,7 @@ import type {
 } from '../types/index';
 import { createToolResult } from '../types/ToolResult';
 import { resolveDownloadsDir, resolveInboundDir } from '@modules/core';
+import { sanitizeFileName } from '@modules/services/file/fileNaming';
 import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
 import { v4 as uuidv4 } from 'uuid';
@@ -433,7 +434,7 @@ export class WebFetchTool extends BaseTool {
       }
       // 添加时间戳前缀防重名
       const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-      const safeName = `${ts}_${fileName.replace(/[<>:"/\\|?*]/g, '_')}`;
+      const safeName = `${ts}_${sanitizeFileName(fileName)}`;
       const filePath = join(downloadsDir, safeName);
 
       await writeFile(filePath, content, 'utf-8');

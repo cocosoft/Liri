@@ -15,6 +15,8 @@ import { AIMessageRole } from '../../ai/models/types';
 import { modelManager } from '../../ai/models/ModelManager.js';
 import fs from 'fs';
 import path from 'path';
+import { resolveOutputDir, resolveDownloadsDir } from '@modules/core/paths';
+import { sanitizeFileName } from '@modules/services/file/fileNaming';
 
 const logger = getLogger('tools:imageSvg');
 
@@ -273,16 +275,52 @@ export class ImageSvgTool extends BaseTool<ImageSvgInput, ImageSvgOutput> {
       let filePath: string | undefined;
 
       if (input.savePath) {
-        const resolvedPath = path.resolve(input.savePath);
-        const dir = path.dirname(resolvedPath);
+        // 路径安全检查 + 文件名清理
+        // 1. 相对路径默认基于 output 目录解析
+        // 2. 绝对路径必须在 output 或 downloads 目录下
+        // 3. 对文件名部分调用 sanitizeFileName 清理非法字符（含全角符号）
+        const outputDir = resolveOutputDir();
+        const downloadsDir = resolveDownloadsDir();
 
+        const resolvedPath = path.isAbsolute(input.savePath)
+          ? path.resolve(input.savePath)
+          : path.resolve(outputDir, input.savePath);
+
+        // 路径白名单检查：只允许保存到 output 或 downloads 目录
+        // 使用 path.sep 分隔符避免前缀误匹配（如 /a/output 误匹配 /a/output2）
+        const isInsideAllowed =
+          resolvedPath === outputDir ||
+          resolvedPath === downloadsDir ||
+          resolvedPath.startsWith(outputDir + path.sep) ||
+          resolvedPath.startsWith(downloadsDir + path.sep);
+
+        if (!isInsideAllowed) {
+          logger.warn('ImageSvgTool · 拒绝非白名单路径', {
+            savePath: input.savePath,
+            resolvedPath,
+            outputDir,
+            downloadsDir,
+          });
+          return {
+            success: false,
+            error: `保存路径必须在 output 或 downloads 目录下，当前路径不在允许范围: ${resolvedPath}`,
+          };
+        }
+
+        // 对文件名部分做清理（保留目录结构）
+        const parsedPath = path.parse(resolvedPath);
+        const safeName = sanitizeFileName(parsedPath.name);
+        const safeExt = parsedPath.ext === '.svg' ? '.svg' : parsedPath.ext || '.svg';
+        filePath = path.join(parsedPath.dir, safeName + safeExt);
+        if (!filePath.endsWith('.svg')) {
+          filePath = filePath + '.svg';
+        }
+
+        const dir = path.dirname(filePath);
         if (!fs.existsSync(dir)) {
           fs.mkdirSync(dir, { recursive: true });
         }
 
-        filePath = resolvedPath.endsWith('.svg')
-          ? resolvedPath
-          : resolvedPath + '.svg';
         fs.writeFileSync(filePath, svgCode, 'utf-8');
       }
 

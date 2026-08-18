@@ -528,10 +528,22 @@ export async function streamMessageImpl(
       get().streamControllers,
       sid,
     );
+    const nextIsStreaming = Object.keys(nextControllers).length > 0;
+    // 流式结束日志（正常路径）：记录会话/abort/剩余活跃流数/推导结果，
+    // 便于排查 ProjectsPage 等订阅 isStreaming 的组件是否在正确时机收到 false。
+    logger.info("streamMessage:流式正常结束", {
+      sessionId: sid,
+      assistantId,
+      aborted: controller.signal.aborted,
+      remainingActiveStreams: Object.keys(nextControllers).length,
+      nextIsStreaming,
+      // ProjectsPage 等组件依赖此字段决定是否自动切换会话
+      willNotifyStreamingEnd: !nextIsStreaming,
+    });
     set({
       isSending: false,
       isInputBlocked: false,
-      isStreaming: Object.keys(nextControllers).length > 0,
+      isStreaming: nextIsStreaming,
       streamingStatus: "",
       streamControllers: nextControllers,
       executionPhase: null,
@@ -714,11 +726,23 @@ export async function streamMessageImpl(
       get().streamControllers,
       sid,
     );
+    const nextIsStreamingOnError = Object.keys(nextControllers).length > 0;
+    // 流式结束日志（错误/中止路径）：记录会话/abort/错误信息/剩余活跃流数/推导结果，
+    // 与正常路径日志对齐，便于对比两条路径的 isStreaming 切换时机。
+    logger.warn("streamMessage:流式异常结束", {
+      sessionId: sid,
+      assistantId,
+      aborted: controller.signal.aborted,
+      error: error instanceof Error ? error.message : String(error),
+      remainingActiveStreams: Object.keys(nextControllers).length,
+      nextIsStreaming: nextIsStreamingOnError,
+      willNotifyStreamingEnd: !nextIsStreamingOnError,
+    });
     set({
       error: !controller.signal.aborted ? String(error) : null,
       isSending: false,
       isInputBlocked: false,
-      isStreaming: Object.keys(nextControllers).length > 0,
+      isStreaming: nextIsStreamingOnError,
       streamingStatus: "",
       streamControllers: nextControllers,
       executionPhase: null,

@@ -176,9 +176,11 @@ async function syncModelToProviderMappings(
     const allModels = await modelPricingService.getAllPricing();
 
     // 构建 providerId → providerType 的快速查找
+    // 同时兼容 model_registry.provider_id 存 provider_type 类型名（如 'deepseek'）的场景
     const providerTypeById = new Map<string, string>();
     for (const p of providerRecords) {
       providerTypeById.set(p.id, p.providerType);
+      providerTypeById.set(p.providerType, p.providerType);
     }
 
     const mappings = new Map<string, string>();

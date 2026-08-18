@@ -13,11 +13,6 @@ export namespace SystemConstants {
   export const APP_NAME = 'Liri';
 
   /**
-   * 应用版本
-   */
-  export const APP_VERSION = '1.0.0';
-
-  /**
    * 默认会话超时时间（毫秒）
    */
   export const DEFAULT_SESSION_TIMEOUT = 30 * 60 * 1000;

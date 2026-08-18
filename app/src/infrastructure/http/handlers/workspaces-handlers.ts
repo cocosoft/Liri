@@ -1395,7 +1395,7 @@ export async function handleDecomposeProject(
 ): Promise<void> {
   try {
     const body = await ctx.readRequestBody(req);
-    const { requirements } = JSON.parse(body || '{}');
+    const { requirements, model } = JSON.parse(body || '{}');
 
     if (!requirements || typeof requirements !== 'string') {
       res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -1408,11 +1408,10 @@ export async function handleDecomposeProject(
     }
 
     const coreAPI = getCoreAPI();
-    const modelRouter = (
-      await import('@modules/ai/modelRouter')
-    ).ModelRouter.getInstance();
-    const model = modelRouter.resolve('default') || undefined;
-    // model 为空时由 SmartRouter 自动选择，不阻塞功能
+    // 跟随调用方显式传入的模型（前端手动选择）；未传入时交给 CoreAPI.resolveSmartModel
+    // 自动决策（用户当前模型 / SmartRouter），不再硬编码 default 覆盖用户选择。
+    const decomposeModel =
+      typeof model === 'string' && model ? model : undefined;
 
     const response = await coreAPI.chat({
       content: [
@@ -1440,7 +1439,7 @@ export async function handleDecomposeProject(
       ].join('\n'),
       stream: false,
       sessionId: `decompose-${_projectId}-${Date.now()}`,
-      model,
+      model: decomposeModel,
     });
 
     // 提取 AI 回复中的 JSON（去除可能的 markdown 代码块包裹）

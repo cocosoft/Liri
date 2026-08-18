@@ -38,7 +38,7 @@ use super::app_config;
 static BACKEND_PROCESS: Lazy<Mutex<Option<BackendProcess>>> =
     Lazy::new(|| Mutex::new(None));
 
-static BACKEND_PORT: Lazy<Mutex<u16>> = Lazy::new(|| Mutex::new(7890));
+static BACKEND_PORT: Lazy<Mutex<u16>> = Lazy::new(|| Mutex::new(18990));
 
 static BACKEND_SECRET: Lazy<Mutex<Option<String>>> =
     Lazy::new(|| Mutex::new(None));

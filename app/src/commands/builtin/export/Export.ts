@@ -12,6 +12,7 @@ import { resolveDataDir } from '@modules/core';
 import type { CommandContext } from '@modules/commands';
 
 import { getLogger } from '@modules/monitoring';
+import { sanitizeFileName as sanitizeFileNameBase } from '@modules/services/file/fileNaming';
 const logger = getLogger('commands:builtin:export:Export');
 
 interface MsgLike {
@@ -42,12 +43,14 @@ function formatHumanDate(date: Date): string {
 }
 
 /**
- * 净化文件名，移除特殊字符
+ * 净化文件名
+ *
+ * 非法字符清理（含全角符号）委托给统一入口 sanitizeFileName，
+ * 此处仅保留额外的格式化（转小写、空格→连字符、连续连字符合并、首尾清理、长度截断）。
  */
 function sanitizeFilename(text: string): string {
-  return text
+  return sanitizeFileNameBase(text)
     .toLowerCase()
-    .replace(/[^a-z0-9\u4e00-\u9fff\s-]/g, '')
     .replace(/\s+/g, '-')
     .replace(/-+/g, '-')
     .replace(/^-|-$/g, '')

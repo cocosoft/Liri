@@ -12,6 +12,8 @@ import type { ToolParam, ToolResult, ToolUseContext } from '../types/index';
 import voiceService from '@modules/services/voice';
 import { globalEventBus } from '@modules/core';
 import type { EventSubscription } from '@modules/core';
+import { parse, join } from 'path';
+import { sanitizeFileName } from '@modules/services/file/fileNaming';
 
 const logger = getLogger('tools:tts');
 
@@ -290,10 +292,17 @@ export class TTSTool extends BaseTool<Record<string, unknown>> {
                   };
                 }
 
+                // 清理文件名中的非法字符（含全角符号），保留路径结构
+                // filename 可能是完整路径或仅文件名，分离后只清理文件名部分
+                const pathInfo = parse(filename);
+                const safeFilename = pathInfo.dir
+                  ? join(pathInfo.dir, sanitizeFileName(pathInfo.name) + pathInfo.ext)
+                  : sanitizeFileName(pathInfo.name) + pathInfo.ext;
+
                 this.isSynthesizing = true;
                 try {
                   logger.info('TTSTool · 语音保存', {
-                    filename,
+                    filename: safeFilename,
                     voice: selectedVoice,
                   });
 
@@ -309,18 +318,18 @@ export class TTSTool extends BaseTool<Record<string, unknown>> {
 
                   // 使用 fs 保存文件
                   const { writeFile } = await import('fs/promises');
-                  await writeFile(filename, audioBuffer);
+                  await writeFile(safeFilename, audioBuffer);
 
                   return {
                     success: true,
                     data: {
-                      filename,
+                      filename: safeFilename,
                       voice: selectedVoice,
                       language: lang,
                       textLength: text.length,
                       audioDurationSec: Math.round(text.length / 15),
                     },
-                    output: `Speech saved to "${filename}". Voice: ${selectedVoice}.`,
+                    output: `Speech saved to "${safeFilename}". Voice: ${selectedVoice}.`,
                   };
                 } catch (error) {
                   const errorMsg =
@@ -328,7 +337,7 @@ export class TTSTool extends BaseTool<Record<string, unknown>> {
                   void handleError(error, {
                     module: 'tools:tts',
                     action: 'save',
-                    context: { filename, voice: selectedVoice },
+                    context: { filename: safeFilename, voice: selectedVoice },
                   });
                   return {
                     success: false,

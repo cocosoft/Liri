@@ -769,12 +769,13 @@ async function launchREPL(options: LaunchOptions): Promise<void> {
     }
   }
 
-  // HTTP 端口优先级：命令行 --http-port > 环境变量 LIRI_HTTP_PORT > 默认 7890
+  // HTTP 端口优先级：命令行 --http-port > 环境变量 LIRI_HTTP_PORT > 默认 18990
   // （Docker 部署通过 LIRI_HTTP_PORT=3000 注入，避免硬编码默认值）
+  // 18990 避开 Clash/V2Ray 等代理软件默认端口 7890
   const httpPort =
     parseHttpPortFromArgs(options.args) ||
     parseInt(process.env.LIRI_HTTP_PORT ?? '', 10) ||
-    7890;
+    18990;
   process.env.LIRI_HTTP_PORT = String(httpPort);
   // 监听地址：默认 127.0.0.1（本地/桌面场景），Docker 部署设置 LIRI_HTTP_HOST=0.0.0.0
   const httpHost = process.env.LIRI_HTTP_HOST?.trim() || '127.0.0.1';
@@ -800,7 +801,7 @@ async function launchREPL(options: LaunchOptions): Promise<void> {
     });
     console.error(`\n[ERROR] HTTP 服务启动失败 (端口 ${httpPort}): ${errMsg}`);
     console.error('请检查:');
-    console.error('  1. 端口是否被占用: netstat -ano | findstr :7890');
+    console.error(`  1. 端口是否被占用: netstat -ano | findstr :${httpPort}`);
     console.error(`  2. 数据库路径是否可写: ${resolveDataDir()}`);
     console.error('  3. app/.env 文件是否存在且配置正确\n');
   }

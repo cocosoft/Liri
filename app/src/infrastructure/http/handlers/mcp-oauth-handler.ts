@@ -92,7 +92,7 @@ export async function handleMCPOAuthCallback(
     }
 
     // 通过 Discovery 解析 OAuth 端点
-    const callbackBase = `http://127.0.0.1:${parsedUrl.port || '7890'}`;
+    const callbackBase = `http://127.0.0.1:${parsedUrl.port || '18990'}`;
     const oauthConfig = await resolveOAuthConfig(mcpConfig.oauth, callbackBase);
 
     const token = await mcpAuthManager.handleCallback(

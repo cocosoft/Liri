@@ -629,6 +629,25 @@ export class ModelPricingService {
     const now = Math.floor(Date.now() / 1000);
     const existing = await this.getPricing(params.modelId);
 
+    // 价格更新日志（入口）：记录 modelId/操作类型预判/传入关键字段/是否已有记录，
+    // 便于排查 BUG 3 修复（input_price/output_price 兜底）是否真的生效，
+    // 以及定位是哪个调用方触发了 upsert。
+    logger.info('upsertPricing:入口', {
+      modelId: params.modelId,
+      operation: existing ? 'UPDATE' : 'INSERT',
+      hasExisting: !!existing,
+      // 传入的字段（用于排查调用方是否遗漏关键字段）
+      inputCostPerMillion: params.inputCostPerMillion,
+      outputCostPerMillion: params.outputCostPerMillion,
+      contextWindow: params.contextWindow,
+      pricingSource: params.pricingSource,
+      providerId: params.providerId,
+      // existing 的关键字段（UPDATE 分支兜底值来源）
+      existingInputCost: existing?.inputCostPerMillion,
+      existingOutputCost: existing?.outputCostPerMillion,
+      existingContextWindow: existing?.contextWindow,
+    });
+
     if (existing) {
       const providerMappings = params.providerMappings
         ? JSON.stringify(params.providerMappings)
@@ -658,8 +677,8 @@ export class ModelPricingService {
             params.maxOutputTokens ?? existing.maxOutputTokens,
             capabilities,
             providerMappings,
-            params.inputCostPerMillion,
-            params.outputCostPerMillion,
+            params.inputCostPerMillion ?? existing.inputCostPerMillion ?? 0,
+            params.outputCostPerMillion ?? existing.outputCostPerMillion ?? 0,
             params.cacheReadCostPerMillion ?? existing.cacheReadCostPerMillion,
             params.cacheWriteCostPerMillion ??
               existing.cacheWriteCostPerMillion,
@@ -681,6 +700,43 @@ export class ModelPricingService {
             else resolve();
           }
         );
+      });
+
+      // 价格更新日志（UPDATE 分支完成）：记录实际写入的价格值，
+      // 验证 BUG 3 修复（input_price/output_price 兜底）是否生效。
+      // 当 params.inputCostPerMillion 为 undefined 时，应回退到 existing 再到 0。
+      const finalInputCost =
+        params.inputCostPerMillion ?? existing.inputCostPerMillion ?? 0;
+      const finalOutputCost =
+        params.outputCostPerMillion ?? existing.outputCostPerMillion ?? 0;
+      const finalContextWindow =
+        params.contextWindow ?? existing.contextWindow;
+      logger.info('upsertPricing:UPDATE 完成', {
+        modelId: params.modelId,
+        // 兜底链路：params → existing → 0（验证 BUG 3 修复）
+        inputCostPerMillion: {
+          fromParams: params.inputCostPerMillion,
+          fromExisting: existing.inputCostPerMillion,
+          final: finalInputCost,
+          usedFallback:
+            params.inputCostPerMillion === undefined &&
+            existing.inputCostPerMillion !== undefined,
+        },
+        outputCostPerMillion: {
+          fromParams: params.outputCostPerMillion,
+          fromExisting: existing.outputCostPerMillion,
+          final: finalOutputCost,
+          usedFallback:
+            params.outputCostPerMillion === undefined &&
+            existing.outputCostPerMillion !== undefined,
+        },
+        contextWindow: {
+          fromParams: params.contextWindow,
+          fromExisting: existing.contextWindow,
+          final: finalContextWindow,
+        },
+        pricingSource: params.pricingSource || existing.pricingSource || 'default',
+        providerId: params.providerId || existing.providerId || '',
       });
     } else {
       const id = randomUUID();
@@ -731,9 +787,40 @@ export class ModelPricingService {
           }
         );
       });
+
+      // 价格更新日志（INSERT 分支完成）：记录新增记录的关键字段，
+      // INSERT 无兜底链路（params 直接写入），关注调用方是否传了价格。
+      logger.info('upsertPricing:INSERT 完成', {
+        modelId: params.modelId,
+        newId: id,
+        // INSERT 分支直接写 params 值，无 existing 兜底
+        inputCostPerMillion: params.inputCostPerMillion,
+        outputCostPerMillion: params.outputCostPerMillion,
+        contextWindow: params.contextWindow ?? 200000,
+        maxOutputTokens: params.maxOutputTokens ?? 8192,
+        isCustom: params.isCustom ? 1 : 0,
+        pricingSource: params.pricingSource || 'default',
+        providerId: params.providerId || '',
+        // 警告：INSERT 时价格字段为 undefined 会写入 NULL
+        priceMissing:
+          params.inputCostPerMillion === undefined ||
+          params.outputCostPerMillion === undefined,
+      });
     }
 
-    return (await this.getPricing(params.modelId))!;
+    const result = await this.getPricing(params.modelId);
+    // 价格更新日志（返回前）：记录最终落盘的记录，确认 DB 写入成功且字段完整。
+    logger.info('upsertPricing:返回', {
+      modelId: params.modelId,
+      success: !!result,
+      // 最终落盘值（与 UPDATE/INSERT 分支日志对比，确认一致）
+      finalInputCost: result?.inputCostPerMillion,
+      finalOutputCost: result?.outputCostPerMillion,
+      finalContextWindow: result?.contextWindow,
+      finalEnabled: result?.enabled,
+      finalIsCustom: result?.isCustom,
+    });
+    return result!;
   }
 
   /** 获取单个模型 */

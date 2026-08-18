@@ -188,7 +188,7 @@ class QQChannelPlugin extends BaseChannelPlugin {
 
     this.security = {
       ...this.security,
-      dmPolicy: 'pairing' as const,
+      dmPolicy: 'open' as const,
       maxPairingAttempts: 5,
       resolveSender: async (sender: Record<string, unknown>) => {
         const author = sender['author'] as Record<string, unknown> | undefined;

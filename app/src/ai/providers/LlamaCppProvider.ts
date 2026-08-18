@@ -30,6 +30,7 @@
  */
 
 import { getLogger } from '@modules/monitoring';
+import { configManager } from '@modules/config';
 import { BaseAIProvider } from './BaseAIProvider';
 import { OpenAIProvider } from './OpenAIProvider';
 import type { ProviderConfig, ProviderValidationResult } from './AIProvider';
@@ -55,7 +56,23 @@ const DEFAULT_BASE_URL = 'http://127.0.0.1:11435/v1';
  */
 const MAX_TOOLS_PER_REQUEST = 20;
 
+/**
+ * 工具能力探测结果缓存有效期。
+ * 避免每次 chat 请求都查 /props（llama-server 重启后能力可能变化，60s 足够平衡）。
+ */
+const TOOL_SUPPORT_CACHE_TTL_MS = 60_000;
+
 export class LlamaCppProvider extends OpenAIProvider {
+  /**
+   * 工具能力探测缓存。
+   * null=未探测；{supported, checkedAt}=已探测（TTL 内复用）。
+   * 模型/服务端重启后 capability 可能变化，所以不能用静态字段。
+   */
+  private toolSupportCache: {
+    supported: boolean;
+    checkedAt: number;
+  } | null = null;
+
   /**
    * @param options - 基础选项（providerId, displayName, defaultBaseUrl 等）
    * @param _extraConfig - 扩展配置（保留接口一致）
@@ -124,12 +141,92 @@ export class LlamaCppProvider extends OpenAIProvider {
   }
 
   /**
-   * 工具定义数量兜底：截断到 MAX_TOOLS_PER_REQUEST。
-   * llama.cpp chat template 会把工具 schema 全部渲染进 prompt，
-   * 超限时移除尾部工具（保留靠前的核心工具），避免小窗口 context 溢出。
+   * 本地推理超时（毫秒）。
+   * 14B Q4_K_M 模型在纯 CPU 上约 3.8 tokens/s，生成 1000 tokens 需要 ~260s。
+   * 云端默认 300s 对本地不够，提升到 600s（10 分钟）。
+   * 环境变量 AI_MODEL_TIMEOUT_MS 若显式设置则优先（用户可强制覆盖）。
    */
-  private limitTools(tools?: ToolDefinition[]): ToolDefinition[] | undefined {
-    if (!tools || tools.length <= MAX_TOOLS_PER_REQUEST) return tools;
+  protected override resolveRequestTimeoutMs(): number {
+    const raw = configManager.env('AI_MODEL_TIMEOUT_MS');
+    const parsed = raw ? Number(raw) : NaN;
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 600_000;
+  }
+
+  /**
+   * 探测 llama-server 当前模型是否支持工具调用。
+   * llama.cpp 的 /props 返回 chat_template_caps.supports_tools/supports_tool_calls，
+   * 不少 GGUF 模型（如 DeepSeek-R1-Distill）不支持工具调用。
+   * 若强行发送 tools 字段，模型会忽略并返回空 content，
+   * Liri 的 ReAct 循环会反复重试直到熔断。
+   * 缓存 TTL=60s，避免每次请求都查 /props。
+   */
+  private async probeToolSupport(): Promise<boolean> {
+    // TTL 内复用缓存
+    if (
+      this.toolSupportCache &&
+      Date.now() - this.toolSupportCache.checkedAt < TOOL_SUPPORT_CACHE_TTL_MS
+    ) {
+      return this.toolSupportCache.supported;
+    }
+
+    try {
+      const origin = this.baseUrl.replace(/\/v1$/, '');
+      const res = await fetch(`${origin}/props`, {
+        signal: AbortSignal.timeout(3000),
+      });
+      if (!res.ok) {
+        // 探测失败时保守返回 true（不阻断工具调用，由服务端自行处理）
+        this.toolSupportCache = { supported: true, checkedAt: Date.now() };
+        return true;
+      }
+      const data = (await res.json()) as {
+        chat_template_caps?: {
+          supports_tools?: boolean;
+          supports_tool_calls?: boolean;
+        };
+      };
+      const caps = data.chat_template_caps;
+      // 两个能力都为 true 才认为支持工具调用
+      const supported =
+        caps?.supports_tools === true && caps?.supports_tool_calls === true;
+      this.toolSupportCache = { supported, checkedAt: Date.now() };
+      if (!supported) {
+        logger.warn(
+          'llama-server 当前模型不支持工具调用（chat_template_caps.supports_tools=false），本次请求将不带 tools 字段'
+        );
+      }
+      return supported;
+    } catch (err) {
+      // 探测异常时保守返回 true（不阻断主流程）
+      logger.debug('探测 llama-server 工具能力失败，保守按支持处理', {
+        error: String(err),
+      });
+      this.toolSupportCache = { supported: true, checkedAt: Date.now() };
+      return true;
+    }
+  }
+
+  /**
+   * 工具定义数量兜底 + 能力探测：
+   * 1. 探测模型是否支持工具调用，不支持则整体丢弃 tools（避免 ReAct 死循环）
+   * 2. 支持时截断到 MAX_TOOLS_PER_REQUEST（避免小窗口 context 溢出）
+   */
+  private async limitTools(
+    tools?: ToolDefinition[]
+  ): Promise<ToolDefinition[] | undefined> {
+    if (!tools || tools.length === 0) return tools;
+
+    // 能力探测：不支持工具调用则整体丢弃
+    const supported = await this.probeToolSupport();
+    if (!supported) {
+      logger.warn(
+        `llama: 模型不支持工具调用，本次请求丢弃 ${tools.length} 个工具定义`
+      );
+      return undefined;
+    }
+
+    // 数量兜底：截断到上限
+    if (tools.length <= MAX_TOOLS_PER_REQUEST) return tools;
     const kept = tools.slice(0, MAX_TOOLS_PER_REQUEST);
     const removed = tools
       .slice(MAX_TOOLS_PER_REQUEST)
@@ -147,10 +244,11 @@ export class LlamaCppProvider extends OpenAIProvider {
     options?: ChatOptions
   ): Promise<ChatResponse> {
     // 耗时统计：委托 BaseAIProvider.measureChat（2026-08-16）
+    const limitedTools = await this.limitTools(options?.tools);
     return BaseAIProvider.measureChat('LlamaCpp', () =>
       super.chat(messages, {
         ...options,
-        tools: this.limitTools(options?.tools),
+        tools: limitedTools,
       })
     );
   }
@@ -159,9 +257,10 @@ export class LlamaCppProvider extends OpenAIProvider {
     messages: ChatMessage[],
     options?: ChatOptions
   ): AsyncGenerator<string | ThinkingProviderChunk, ChatResponse, unknown> {
+    const limitedTools = await this.limitTools(options?.tools);
     return yield* super.chatStream(messages, {
       ...options,
-      tools: this.limitTools(options?.tools),
+      tools: limitedTools,
     });
   }
 }

@@ -90,6 +90,27 @@ export class ModelRegistry {
     }
   > = new Map();
 
+  /**
+   * refreshDbPricing 互斥锁。
+   * 多处调用（本地模型同步/云端模型 CRUD/上下文窗口解析）可能并发，
+   * 不加锁会导致 loadModelsFromDb + loadDbPricing 交错执行，
+   * 中间状态（模型已更新但定价未更新）被其他读取方观察到。
+   * 用 promise chain 串行化所有刷新请求。
+   */
+  private refreshInFlight: Promise<void> = Promise.resolve();
+
+  /**
+   * refreshDbPricing 调用序号（自增），仅用于日志排查排队顺序。
+   * 入队时分配 seq，日志中呈现 #seq 让用户清楚看到请求的到达与执行顺序。
+   */
+  private refreshSeq = 0;
+
+  /**
+   * refreshDbPricing 已完成序号（用于计算后续请求的 queueDepth）。
+   * 与 refreshSeq 配合：queueDepth = refreshSeq - refreshDoneSeq - 1。
+   */
+  private refreshDoneSeq = 0;
+
   private constructor() {
     // 启动时通过 loadDefaultModels + loadDbPricing 初始化
   }
@@ -158,6 +179,17 @@ export class ModelRegistry {
 
     this.builtinModels = dbModels;
     logger.info(`从 DB 加载了 ${dbModels.size} 个模型定义`);
+    // 上下文窗口排查锚点：列出本地/小窗口模型，便于确认 DB 值已正确入内存缓存。
+    // llama.cpp/ollama 模型 window 错配会在此暴露（如 4096 被旧值 200K 覆盖）。
+    const smallCtxModels = Array.from(dbModels.entries())
+      .filter(([, cfg]) => cfg.contextWindow < 65_536)
+      .map(([id, cfg]) => ({ modelId: id, contextWindow: cfg.contextWindow }));
+    if (smallCtxModels.length > 0) {
+      logger.info('registry:小窗口模型（context_window < 64K）', {
+        count: smallCtxModels.length,
+        models: smallCtxModels,
+      });
+    }
     return true;
   }
 
@@ -381,8 +413,62 @@ export class ModelRegistry {
     return this.getModelPricing(modelName);
   }
 
-  /** 刷新 DB 定价缓存（API upsert/toggle 后调用） */
+  /**
+   * 刷新 DB 运行时缓存（API upsert/toggle 后调用）。
+   * 定价 + 模型定义双刷新：model_registry 是模型定义（context_window/capabilities 等）
+   * 与定价的共同唯一事实来源，任一字段变更都必须同步重建 builtinModels——
+   * 否则 resolveContextWindow/getContextWindow 等同步读取路径会命中过期窗口
+   * （如 llama.cpp 服务端 n_ctx=4096 已被旧值 200K 掩盖，导致发送前截断不触发）。
+   *
+   * 并发治理：本地模型同步（llama/ollama）与云端模型 CRUD 可能并发触发本方法，
+   * 用 promise chain 串行化（refreshInFlight），避免 loadModelsFromDb + loadDbPricing
+   * 交错执行导致中间状态被读取方观察到（竞态根因：本地与云端刷新互相覆盖）。
+   */
   async refreshDbPricing(): Promise<void> {
-    await this.loadDbPricing();
+    // 入队：分配序号，记录到达顺序
+    const seq = ++this.refreshSeq;
+    logger.info(`registry:refreshDbPricing #${seq} 入队`, {
+      seq,
+      queueDepth: this.refreshSeq - this.refreshDoneSeq - 1, // 当前排在多少个之后
+    });
+
+    // 串行化：当前刷新等待前一个完成（忽略前一个的错误），然后执行。
+    // refreshInFlight 始终 resolve（链不断），但 current 的错误会传播给调用方。
+    const previous = this.refreshInFlight;
+    const current = (async () => {
+      const waitStart = Date.now();
+      await previous.catch(() => {
+        // 前一次刷新失败不影响本次，仅等待其结束
+      });
+      const waitMs = Date.now() - waitStart;
+      if (waitMs > 50) {
+        // 等待超过 50ms 说明确实有前序刷新在执行，记录实际排队时长
+        logger.info(`registry:refreshDbPricing #${seq} 出队开始执行`, {
+          seq,
+          queuedForMs: waitMs,
+        });
+      }
+      // 排查锚点：记录刷新前窗口基线，便于对比刷新后是否真的更新了 builtinModels。
+      const beforeIds = new Set(this.builtinModels.keys());
+      await this.loadModelsFromDb();
+      await this.loadDbPricing();
+      this.refreshDoneSeq = seq; // 标记本序号已完成（用于计算后续请求的 queueDepth）
+      const afterIds = new Set(this.builtinModels.keys());
+      logger.info(`registry:refreshDbPricing #${seq} 完成`, {
+        seq,
+        beforeCount: beforeIds.size,
+        afterCount: afterIds.size,
+        modelsAdded: [...afterIds].filter((id) => !beforeIds.has(id))
+          .length,
+        modelsRemoved: [...beforeIds].filter((id) => !afterIds.has(id))
+          .length,
+      });
+    })();
+    // 链不断：current 失败时 refreshInFlight 仍 resolve，不影响后续调用排队
+    this.refreshInFlight = current.catch(() => {
+      // 失败也标记完成序号（否则后续请求的 queueDepth 会一直累加）
+      this.refreshDoneSeq = seq;
+    });
+    return current;
   }
 }

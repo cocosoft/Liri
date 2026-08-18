@@ -133,6 +133,15 @@ export class OpenAIProvider extends BaseAIProvider {
   }
 
   /**
+   * 请求超时（毫秒），可由子类覆盖以适配本地推理场景。
+   * 默认走 resolveModelTimeoutMs()（环境变量 AI_MODEL_TIMEOUT_MS，默认 300s）。
+   * 子类如 LlamaCppProvider 覆盖此方法以提供更长超时（CPU 推理慢于云端 GPU）。
+   */
+  protected resolveRequestTimeoutMs(): number {
+    return resolveModelTimeoutMs();
+  }
+
+  /**
    * 初始化 OpenAI Provider。
    * 构造函数回退链：DB 持久化 > 环境变量。
    *
@@ -281,9 +290,9 @@ export class OpenAIProvider extends BaseAIProvider {
           ? // 外部取消信号（压缩超时）与模型请求超时任一触发即中断
             AbortSignal.any([
               options.signal,
-              AbortSignal.timeout(resolveModelTimeoutMs()),
+              AbortSignal.timeout(this.resolveRequestTimeoutMs()),
             ])
-          : AbortSignal.timeout(resolveModelTimeoutMs()),
+          : AbortSignal.timeout(this.resolveRequestTimeoutMs()),
       });
 
       if (!response.ok) {
@@ -364,7 +373,7 @@ export class OpenAIProvider extends BaseAIProvider {
               Authorization: `Bearer ${this.apiKey}`,
             },
             body: JSON.stringify(requestBody),
-            signal: AbortSignal.timeout(resolveModelTimeoutMs()),
+            signal: AbortSignal.timeout(this.resolveRequestTimeoutMs()),
           }
         );
 

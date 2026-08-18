@@ -546,17 +546,36 @@ export class PowerShellTool extends BaseTool {
       });
 
       const psMsg = error instanceof Error ? error.message : String(error);
+      const executionTime = Date.now() - startTime;
 
-      if (psMsg.includes('ETIMEDOUT') || psMsg.includes('timeout')) {
+      // 排查锚点：powershell 失败时必须记录命令、超时配置、错误分类与耗时，
+      // 否则日志只有"权限通过"，circuit_breaker 触发时无法定位是超时/命令错误/输出过大。
+      // 输出截断 200 字符避免日志膨胀；命令保留前 200 字符便于复现。
+      // command/timeout 在 try 块内定义，catch 中从 input 重新读取。
+      const commandPreview = String(input.command ?? '').slice(0, 200);
+      const timeoutConfig = Number(input.timeout) || 60000;
+      const isTimeout =
+        psMsg.includes('ETIMEDOUT') || psMsg.includes('timeout');
+      logger.warn('powershell:execution_failed', {
+        toolCallId: toolUseId,
+        sessionId: context.sessionId,
+        commandPreview,
+        timeout: timeoutConfig,
+        executionTimeMs: executionTime,
+        isTimeout,
+        errorPreview: psMsg.slice(0, 200),
+      });
+
+      if (isTimeout) {
         return createFailureResult('Command timed out', {
-          executionTime: Date.now() - startTime,
+          executionTime,
           errorLevel: ErrorLevel.RETRYABLE,
           metadata: { errorCategory: 'execution', errorCode: 'TIMEOUT' },
         });
       }
 
       return createFailureResult(psMsg, {
-        executionTime: Date.now() - startTime,
+        executionTime,
         errorLevel: ErrorLevel.RETRYABLE,
         metadata: { errorCategory: 'execution', errorCode: 'EXECUTION_FAILED' },
       });
@@ -590,8 +609,13 @@ export class PowerShellTool extends BaseTool {
       finalCommand += ` | Select-String -NotMatch -SimpleMatch '${escapedExclude}'`;
     }
 
-    const escapedCommand = finalCommand.replace(/"/g, '\\"');
-    return `pwsh -NoProfile -ExecutionPolicy ${executionPolicy} -Command "${escapedCommand}"`;
+    // 使用 EncodedCommand 避免双层引号转义问题：
+    // child_process.exec 在 Windows 上通过 cmd.exe /d /s /c 执行，
+    // cmd.exe 对引号的处理（^" 或 ""）与 PowerShell（`" 或 ""）不同，
+    // 导致含双引号的命令（如 LLM 用引号包裹含中文符号的文件路径）被错误解析。
+    // Base64 编码完全绕过 cmd.exe → pwsh 的引号转义层，支持任意 Unicode 字符。
+    const encoded = Buffer.from(finalCommand, 'utf16le').toString('base64');
+    return `pwsh -NoProfile -ExecutionPolicy ${executionPolicy} -EncodedCommand ${encoded}`;
   }
 
   /**

@@ -33,7 +33,6 @@ const NAV_LABEL_KEYS: Record<string, string> = {
 };
 
 const ACTIVE_NAV_KEY = "liri-help-active-nav";
-const APP_VERSION = "7.9.0";
 
 /**
  * 文档分类索引（与 app/docs/ 目录结构同步）
@@ -389,6 +388,15 @@ function HelpPage() {
     html: string;
   } | null>(null);
   const [loadingDoc, setLoadingDoc] = useState(false);
+  const [appVersion, setAppVersion] = useState("");
+
+  // 应用版本：唯一事实来源 /v1/app/info（后端从 app/package.json 读取）
+  useEffect(() => {
+    http
+      .get<{ version: string }>("/v1/app/info")
+      .then((r) => setAppVersion(r.version))
+      .catch(() => {});
+  }, []);
 
   // 更新检查
   const {
@@ -646,7 +654,7 @@ function HelpPage() {
                 Liri
               </p>
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                {t("help.versionLabel", { version: APP_VERSION })}
+                {t("help.versionLabel", { version: appVersion })}
               </p>
               <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
                 {t("help.aboutDesc")}

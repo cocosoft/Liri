@@ -40,7 +40,7 @@ impl Default for AppConfig {
     fn default() -> Self {
         Self {
             data_dir: String::new(),
-            http_port: 7890,
+            http_port: 18990,
             first_run_completed: false,
         }
     }

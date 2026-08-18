@@ -164,6 +164,9 @@ export default function ProjectsPage() {
   const [contextMenuId, setContextMenuId] = useState<string | null>(null);
   const inited = useRef<string | null>(null);
   const lastProcessedMsgId = useRef<string | null>(null);
+  // init 串行化：保证多次 useEffect 触发的 init() 顺序执行，避免并发副作用。
+  // 流式中进入项目页 → 流式结束重触发 → 两次 init 不能并发（否则 enterModule/switchWorkspace 会乱）
+  const initInFlightRef = useRef<Promise<void> | null>(null);
 
   // Root Store 订阅
   const worktrees = useRootStore((s) => s.worktrees);
@@ -179,6 +182,9 @@ export default function ProjectsPage() {
   const enterModule = useRootStore((s) => s.enterModule);
   const leaveModule = useRootStore((s) => s.leaveModule);
   const messages = useChatStore((s) => s.messages);
+  // 订阅 isStreaming：流式状态变化时触发 init useEffect 重新评估，
+  // 使流式期间跳过的自动切换能在流式结束后补做。
+  const isStreaming = useChatStore((s) => s.isStreaming);
 
   // P0-E（2026-08-14）：create_project 创建的项目注册为 workspace 后，
   // 通过 workspaceList 补全 worktrees，使项目名称在 /projects 列表可见
@@ -351,47 +357,166 @@ export default function ProjectsPage() {
     ? worktrees[selectedProjectId]
     : undefined;
 
-  /* ---- 进入项目时初始化：切换 worktree + 自动创建首个会话 ---- */
+  /* ---- 进入项目时初始化：切换 worktree + 自动创建首个会话 ----
+   *
+   * 竞态修复要点（2026-08-18）：
+   *
+   * 1. inited.current 时机：
+   *    - 不能在外层同步设置，否则流式跳过切换后 inited 已被污染，
+   *      流式结束后再进入项目页无法重新触发自动切换。
+   *    - 必须在 init() 内部「流式检查通过 + 实际切换前」设置，
+   *      保证流式跳过的分支不会标记 inited，下次进入可重试。
+   *
+   * 2. isStreaming 依赖：
+   *    - 将 isStreaming 加入依赖，使流式状态变化时 useEffect 重新评估。
+   *    - 流式开始（true）→ init 跳过切换（inited 不设置）
+   *    - 流式结束（false）→ useEffect 重新触发 → init 执行切换 → inited 设置
+   *    - 已初始化的分支会被 guard `inited.current === selectedProjectId` 拦截，无副作用。
+   *
+   * 3. 副作用前置检查：
+   *    - 流式检查必须在 enterModule/switchWorkspace 之前执行。
+   *    - 否则流式跳过时 workspace 已切换但会话未切，UI 状态不一致。
+   *
+   * 4. init 串行化（initInFlightRef）：
+   *    - init() 是 async，多次触发 useEffect 可能导致两个 init 并发执行。
+   *    - 通过 initInFlightRef 链式 await，保证顺序执行。
+   *    - 链不断：失败的 init 不阻塞后续 init。
+   */
   useEffect(() => {
     if (
       !selectedProjectId ||
       !selectedProject ||
       inited.current === selectedProjectId
-    )
+    ) {
+      // 流式状态变化时，若已初始化则静默跳过；若未选中项目也跳过
+      if (
+        selectedProjectId &&
+        inited.current === selectedProjectId &&
+        !isStreaming
+      ) {
+        console.info(
+          "[ProjectsPage] 流式状态变化，但当前项目已初始化，无需重试",
+          {
+            projectId: selectedProjectId,
+            isStreaming,
+          },
+        );
+      }
       return;
-    inited.current = selectedProjectId;
+    }
+    // 注意：inited.current 不在此处设置，移到 init() 内部
     const wid = selectedProjectId;
     const project = selectedProject;
 
     async function init() {
-      // P0-4: 项目会话必须关联 projectId（createChatSession 从 moduleContext 读取）
+      // ===== 1. 读取状态（无副作用）=====
+      const state = useRootStore.getState();
+      const projSessions = Object.values(state.sessions)
+        .filter((s) => s.workspaceId === wid)
+        .sort((a, b) => b.updatedAt - a.updatedAt);
+      const currentId = state.currentSessionId;
+
+      console.info("[ProjectsPage] init 开始", {
+        projectId: wid,
+        currentSessionId: currentId,
+        projectSessionCount: projSessions.length,
+        initedBefore: inited.current,
+        isStreaming, // 订阅值（触发本次 useEffect 的原因之一）
+      });
+
+      // ===== 2. 无会话场景：创建首个会话（流式也允许，创建不中断现有流）=====
+      if (projSessions.length === 0) {
+        inited.current = wid;
+        console.info("[ProjectsPage] 项目无会话，创建首个会话", {
+          projectId: wid,
+        });
+        // P0-4: 项目会话必须关联 projectId（createChatSession 从 moduleContext 读取）
+        enterModule({
+          moduleType: "project",
+          projectId: wid,
+          projectName: project.name,
+        });
+        await switchWorkspace(wid);
+        await createChatSession("对话 1");
+        console.info("[ProjectsPage] 首个会话创建完成", {
+          projectId: wid,
+        });
+        return;
+      }
+
+      // ===== 3. 已有会话：决定目标会话 =====
+      const targetId =
+        projSessions.find((s) => s.id === currentId)?.id ?? projSessions[0].id;
+
+      if (currentId === targetId) {
+        // 当前会话已属于本项目，无需切换会话
+        inited.current = wid;
+        console.info("[ProjectsPage] 当前会话已属于本项目，无需切换", {
+          projectId: wid,
+          sessionId: currentId,
+        });
+        // 仍需同步 moduleContext 和 workspace（无副作用风险）
+        enterModule({
+          moduleType: "project",
+          projectId: wid,
+          projectName: project.name,
+        });
+        await switchWorkspace(wid);
+        return;
+      }
+
+      // ===== 4. 流式检查（关键：在 enterModule/switchWorkspace 之前）=====
+      // 流式响应中跳过自动切换：避免中断正在进行 AI 回复的会话流，
+      // 导致用户消息错位或流被 abort。
+      // 关键：此分支不设置 inited.current，也不执行 enterModule/switchWorkspace，
+      // 保证无副作用残留，流式结束后 useEffect 重新触发时是干净状态。
+      const realtimeStreaming = useChatStore.getState().isStreaming;
+      if (realtimeStreaming) {
+        console.warn(
+          "[ProjectsPage] 当前有流式请求进行中，跳过自动切换（无副作用，流结束后自动重试）",
+          {
+            projectId: wid,
+            currentSessionId: currentId,
+            targetSessionId: targetId,
+            initedRemains: inited.current,
+            streamingSource: "realtime getState",
+          },
+        );
+        return;
+      }
+
+      // ===== 5. 流式已结束，执行完整切换 =====
+      inited.current = wid;
+      console.info("[ProjectsPage] 流式已结束，执行自动切换", {
+        projectId: wid,
+        fromSessionId: currentId,
+        toSessionId: targetId,
+        triggerReason: isStreaming ? "订阅值仍为 true（异常）" : "流式已结束",
+      });
+      // P0-4: 项目会话必须关联 projectId
       enterModule({
         moduleType: "project",
         projectId: wid,
         projectName: project.name,
       });
       await switchWorkspace(wid);
-      const state = useRootStore.getState();
-      const projSessions = Object.values(state.sessions)
-        .filter((s) => s.workspaceId === wid)
-        .sort((a, b) => b.updatedAt - a.updatedAt);
-      const currentId = state.currentSessionId;
-      if (projSessions.length === 0) {
-        // 项目无会话：创建首个会话（清空消息并指向新会话）
-        await createChatSession("对话 1");
-        return;
-      }
-      // 项目已有会话：切到当前会话（若属于本项目）或最近一条，
-      // 避免把对话模块的当前会话/消息带入项目模块
-      const targetId =
-        projSessions.find((s) => s.id === currentId)?.id ?? projSessions[0].id;
-      if (currentId !== targetId) {
-        // 先清空消息，避免项目页短暂显示对话模块残留的会话内容
-        await chatCoordinator.clearMessages();
-        await switchChatSession(targetId);
-      }
+      // 先清空消息，避免项目页短暂显示对话模块残留的会话内容
+      await chatCoordinator.clearMessages();
+      await switchChatSession(targetId);
+      console.info("[ProjectsPage] 自动切换完成", {
+        projectId: wid,
+        sessionId: targetId,
+      });
     }
-    init().catch((e) =>
+
+    // ===== 串行化：等待上一次 init 完成再执行本次 =====
+    // 场景：流式中进入项目 A → init 跳过 → 流式结束 → useEffect 重触发 →
+    //       上一次 init 已 return，但保险起见仍串行化，避免任何并发副作用。
+    const prev = initInFlightRef.current;
+    const current = (prev ?? Promise.resolve()).then(() => init());
+    // 链不断：失败的 init 不阻塞后续 init
+    initInFlightRef.current = current.catch(() => {});
+    current.catch((e) =>
       handleClientError(e, {
         module: "projects:page",
         action: "initProject",
@@ -404,6 +529,7 @@ export default function ProjectsPage() {
     switchChatSession,
     createChatSession,
     enterModule,
+    isStreaming, // 流式状态变化时重新评估，实现流式结束后自动补做切换
   ]);
 
   const handleSelectProject = (id: string) => {

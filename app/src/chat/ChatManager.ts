@@ -1284,6 +1284,11 @@ export class ChatManagerImpl implements ChatManager {
   async ensureSessionsLoaded(): Promise<void> {
     if (this._sessionsLoaded) return;
     try {
+      // 迁移旧路径遗留数据到 ~/.pyapp（一次性，幂等）—— 必须在加载会话前执行，
+      // 否则新复制进来的旧会话无法被本次加载识别。
+      // 注：放在 ensureSessionsLoaded（启动时调用）而非 initialize（延迟 LLM 初始化），
+      // 确保后端启动即完成数据统一，不依赖首次聊天。
+      await this._migrateHomeFromProjectToUser();
       await this.sessionGateway.initialize();
       await this._loadSessionsFromGateway();
       this._sessionsLoaded = true;
@@ -1334,71 +1339,110 @@ export class ChatManagerImpl implements ChatManager {
   }
 
   /**
-   * 迁移：旧版项目路径 → 用户主目录
-   * 当 LIRI_HOME 变更时，将 app/data/pyapp/data/ 下的 sessions 移到 ~/.pyapp/data/
+   * 迁移：旧版项目路径 → 用户主目录（一次性，幂等）
+   *
+   * 2026-08-18 resolvePyappHome() 统一为 ~/.pyapp 后，历史遗留数据位于
+   * <projectRoot>/app/data/pyapp/data，且原迁移函数因「curHome 已为主目录」
+   * 的早退条件成为死代码，遗留数据从未迁移。本实现直接检测遗留路径，
+   * 将新目录缺失的文件合并到 ~/.pyapp/data/，完成后写标记避免重复复制。
+   *
+   * 排除项（重型循环产物 / 运行时日志，避免无价值复制）：checkpoints /
+   * snapshots / transcripts / logs / otel-traces / run-logs / traces /
+   * backups / background / cache / analytics / artifacts / chat_sessions /
+   * chronos / governance / locks / oauth / pairings / permissions /
+   * security / state / team-memory / teams / tmp 及 app.db*（新库为事实来源）。
    */
   private async _migrateHomeFromProjectToUser(): Promise<void> {
     try {
-      const { resolvePyappHome } = await import('@modules/core');
+      const { resolveProjectRoot } = await import('@modules/core');
+      const oldDataDir = path.join(
+        resolveProjectRoot(),
+        'app',
+        'data',
+        'pyapp',
+        'data'
+      );
+      const newDataDir = path.join(homedir(), '.pyapp', 'data');
+      const marker = path.join(newDataDir, '.home-migration-v1');
 
-      const newHome = path.join(homedir(), '.pyapp');
-      const curHome = resolvePyappHome();
+      if (fs.existsSync(marker)) return; // 已迁移
+      if (!fs.existsSync(oldDataDir)) return; // 无遗留数据
+      if (!fs.existsSync(newDataDir)) return; // 新目录未就绪
 
-      // 当前已在用户主目录，无需迁移
-      if (curHome.startsWith(homedir())) return;
+      const SKIP_TOP = new Set([
+        'checkpoints',
+        'snapshots',
+        'transcripts',
+        'logs',
+        'otel-traces',
+        'run-logs',
+        'traces',
+        'backups',
+        'background',
+        'cache',
+        'analytics',
+        'artifacts',
+        'chat_sessions',
+        'chronos',
+        'governance',
+        'locks',
+        'oauth',
+        'pairings',
+        'permissions',
+        'security',
+        'state',
+        'team-memory',
+        'teams',
+        'tmp',
+        'app.db',
+        'app.db-shm',
+        'app.db-wal',
+      ]);
 
-      const curDataDir = path.join(curHome, 'data');
-      const newDataDir = path.join(newHome, 'data');
+      let copied = 0;
+      let skipped = 0;
 
-      // 新路径已有数据 → 已迁移，跳过
-      if (fs.existsSync(newDataDir)) return;
-      // 旧路径无数据 → 无需迁移
-      if (!fs.existsSync(curDataDir)) return;
-
-      // 递归迁移：创建目标 → 移动文件 → 成功后删除旧目录
-      fs.mkdirSync(newHome, { recursive: true });
-      fs.mkdirSync(newDataDir, { recursive: true });
-
-      // 迁移 home 根目录文件（settings.json 等）
-      for (const entry of fs.readdirSync(curHome, { withFileTypes: true })) {
-        if (entry.isFile()) {
-          const srcPath = path.join(curHome, entry.name);
-          const dstPath = path.join(newHome, entry.name);
-          if (!fs.existsSync(dstPath)) {
-            try {
-              fs.renameSync(srcPath, dstPath);
-            } catch {
-              /* skip */
-            }
-          }
-        }
-      }
-
-      // 迁移 data 子目录
-      const migrateDir = (src: string, dst: string): void => {
+      const walk = (src: string, dst: string): void => {
         if (!fs.existsSync(src)) return;
-        fs.mkdirSync(dst, { recursive: true });
-        for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
-          const srcPath = path.join(src, entry.name);
-          const dstPath = path.join(dst, entry.name);
-          if (entry.isDirectory()) {
-            migrateDir(srcPath, dstPath);
-          } else {
-            try {
-              fs.renameSync(srcPath, dstPath);
-            } catch {
-              /* 单项失败跳过 */
-            }
+        const st = fs.statSync(src);
+        if (st.isDirectory()) {
+          if (src.endsWith('pid')) return; // 跳过会话锁目录
+          for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
+            walk(path.join(src, entry.name), path.join(dst, entry.name));
           }
+          return;
+        }
+        if (src.endsWith('-shm') || src.endsWith('-wal')) return; // SQLite 残留 journal
+        if (fs.existsSync(dst)) {
+          skipped++;
+          return;
+        }
+        try {
+          fs.mkdirSync(path.dirname(dst), { recursive: true });
+          fs.copyFileSync(src, dst);
+          copied++;
+        } catch {
+          /* 单项失败跳过 */
         }
       };
-      migrateDir(curDataDir, newDataDir);
 
+      for (const entry of fs.readdirSync(oldDataDir, {
+        withFileTypes: true,
+      })) {
+        if (SKIP_TOP.has(entry.name)) continue;
+        walk(
+          path.join(oldDataDir, entry.name),
+          path.join(newDataDir, entry.name)
+        );
+      }
+
+      fs.writeFileSync(marker, new Date().toISOString(), 'utf-8');
       logger.info(
-        `会话数据已从项目路径迁移到用户主目录: ${curDataDir} → ${newDataDir}`
+        `遗留数据已从项目路径迁移到用户主目录: ${oldDataDir} → ${newDataDir}（复制 ${copied}，跳过 ${skipped}）`
       );
-    } catch {
-      // 非致命，迁移失败不影响启动
+    } catch (err) {
+      // 非致命：迁移失败不影响启动，标记未写则下次启动重试
+      handleError(err, { module: 'chat:manager', action: 'migrateHome' });
     }
   }
 
@@ -1412,11 +1456,6 @@ export class ChatManagerImpl implements ChatManager {
     // 清理超过 24 小时的残留 PID 锁文件
     this._cleanStalePidFiles().catch((err) => {
       handleError(err, { module: 'chat:manager', action: 'cleanPidFiles' });
-    });
-
-    // 迁移：旧版项目路径 → 用户主目录（LIRI_HOME 统一后的一次性操作）
-    await this._migrateHomeFromProjectToUser().catch((err) => {
-      handleError(err, { module: 'chat:manager', action: 'migrateHome' });
     });
 
     // 启动会话活跃度追踪（心跳 + 并发控制）

@@ -107,6 +107,62 @@ const ENV_PRESETS: EnvPreset[] = [
 ];
 
 /**
+ * model_registry 引用但 ai_providers 缺失时的补录预设
+ * （数出同源：确保 DB Provider 覆盖所有已注册模型引用的 provider）
+ * apiKey 从对应环境变量读取，无则留空（模型显示为待配置，仍可见可管理）
+ */
+const REFERENCED_PROVIDER_PRESETS: Array<{
+  providerType: string;
+  name: string;
+  baseUrl: string;
+  requiresAuth: boolean;
+  envKey: string;
+}> = [
+  {
+    providerType: 'deepseek',
+    name: 'DeepSeek',
+    baseUrl: 'https://api.deepseek.com',
+    requiresAuth: true,
+    envKey: 'DEEPSEEK_API_KEY',
+  },
+  {
+    providerType: 'openai',
+    name: 'OpenAI',
+    baseUrl: 'https://api.openai.com/v1',
+    requiresAuth: true,
+    envKey: 'OPENAI_API_KEY',
+  },
+  {
+    providerType: 'google',
+    name: 'Google Gemini',
+    baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
+    requiresAuth: true,
+    envKey: 'GOOGLE_API_KEY',
+  },
+  {
+    providerType: 'anthropic',
+    name: 'Anthropic',
+    baseUrl: 'https://api.anthropic.com',
+    requiresAuth: true,
+    envKey: 'ANTHROPIC_API_KEY',
+  },
+  {
+    providerType: 'llamacpp',
+    name: 'Llama.cpp',
+    baseUrl: 'http://localhost:8080',
+    requiresAuth: false,
+    envKey: '',
+  },
+  {
+    providerType: 'ollama',
+    name: 'Ollama',
+    baseUrl: 'http://localhost:11434',
+    requiresAuth: false,
+    envKey: '',
+  },
+];
+
+/**
  * 从环境变量检测并写入 DB
  * 已存在的供应商（按 name + providerType 去重）跳过
  */
@@ -150,6 +206,73 @@ async function seedEnvProvidersToDB(dedupNames: Set<string>): Promise<number> {
     void handleError(err, {
       module: 'ai:modelManagementBootstrap',
       action: 'seedEnvProviders',
+    });
+    return 0;
+  }
+}
+
+/**
+ * 补录 model_registry 引用但 ai_providers 缺失的 Provider
+ *
+ * 数出同源：model_registry 的 provider_id 必须能在 ai_providers 中找到对应记录，
+ * 否则 handleListModels 按 DB provider 匹配会把这些模型过滤掉，前端不可见、不可管理。
+ *
+ * 幂等：按 providerType 去重，已存在跳过，不覆盖用户已有配置。
+ */
+async function ensureReferencedProviders(dedupNames: Set<string>): Promise<number> {
+  try {
+    const { modelPricingService } =
+      await import('@modules/ai/models/ModelPricingService.js');
+    await modelPricingService.initialize();
+    const { providerManager } =
+      await import('@modules/ai/providers/ProviderManager.js');
+    await providerManager.initialize();
+
+    // 1. 收集 model_registry 引用的所有 provider_id（去重）
+    const allModels = await modelPricingService.getAllPricing();
+    const referencedTypes = new Set(
+      allModels.map((m) => m.providerId).filter(Boolean) as string[]
+    );
+
+    // 2. 当前 DB 已存在的 provider_type
+    const existing = await providerManager.listProviders();
+    const existingTypes = new Set<string>(
+      existing.map((p) => p.providerType)
+    );
+
+    // 3. 对缺失的 provider_type 补录（内置预设默认配置）
+    let seeded = 0;
+    for (const type of referencedTypes) {
+      const preset = REFERENCED_PROVIDER_PRESETS.find(
+        (p) => p.providerType === type
+      );
+      if (!preset) continue; // 未知类型（如自定义 UUID 的 provider）跳过
+      if (existingTypes.has(type)) continue;
+      if (dedupNames.has(`${preset.name}:${type}`)) continue;
+
+      try {
+        await providerManager.createProvider({
+          name: preset.name,
+          providerType: preset.providerType as ProviderType,
+          baseUrl: preset.baseUrl,
+          apiKey: preset.envKey ? process.env[preset.envKey] || undefined : undefined,
+          requiresAuth: preset.requiresAuth,
+        });
+        dedupNames.add(`${preset.name}:${type}`);
+        seeded++;
+        logger.info(`补录缺失 Provider: ${preset.name} (${type})`);
+      } catch (err) {
+        logger.debug(`补录 Provider 跳过: ${preset.name}`, {
+          error: (err as Error).message,
+        });
+      }
+    }
+
+    return seeded;
+  } catch (err) {
+    void handleError(err, {
+      module: 'ai:modelManagementBootstrap',
+      action: 'ensureReferencedProviders',
     });
     return 0;
   }
@@ -253,8 +376,9 @@ export async function initializeModelManagementServices(): Promise<void> {
     }
   }
 
-  // 从环境变量 seed Provider 到 DB
+  // 从环境变量 seed Provider 到 DB + 补录 model_registry 引用的缺失 Provider
   let seeded = 0;
+  let referenced = 0;
   try {
     const { providerManager } =
       await import('@modules/ai/providers/ProviderManager.js');
@@ -264,6 +388,7 @@ export async function initializeModelManagementServices(): Promise<void> {
       existing.map((p) => `${p.name}:${p.providerType}`)
     );
     seeded = await seedEnvProvidersToDB(dedupNames);
+    referenced = await ensureReferencedProviders(dedupNames);
   } catch (err) {
     void handleError(err, {
       module: 'ai:modelManagementBootstrap',

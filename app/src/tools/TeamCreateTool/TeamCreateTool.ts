@@ -13,6 +13,7 @@ import { join } from 'path';
 import { writeFileSync, existsSync, mkdirSync } from 'fs';
 import { resolveDataSubDir } from '@modules/core';
 import { configManager } from '@modules/config';
+import { sanitizeFileName } from '@modules/services/file/fileNaming';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('tools:TeamCreateTool:TeamCreateTool');
@@ -151,15 +152,19 @@ export class TeamCreateTool extends BaseTool<
 
   /**
    * 生成唯一的团队名称
+   *
+   * 对 providedName 调用 sanitizeFileName 清理非法字符（含全角符号），
+   * 确保后续构造的文件路径安全。
    */
   private generateUniqueTeamName(providedName: string): string {
-    const filePath = this.getTeamFilePath(providedName);
+    const safeName = sanitizeFileName(providedName);
+    const filePath = this.getTeamFilePath(safeName);
     if (!existsSync(filePath)) {
-      return providedName;
+      return safeName;
     }
 
     // 如果名称已存在，添加时间戳
-    return `${providedName}_${Date.now()}`;
+    return `${safeName}_${Date.now()}`;
   }
 
   /**

@@ -9,6 +9,7 @@ import { join } from 'path';
 import { deflateSync } from 'zlib';
 
 import { getLogger } from '@modules/monitoring';
+import { sanitizeFileName as sanitizeFileNameBase } from '@modules/services/file/fileNaming';
 import {
   LANG_PROFILES,
   canUseStandardPdfFont,
@@ -345,11 +346,10 @@ function generateSimplePDF(
   return { buffer: buildPdf(objects), pages: pageCount, cjkFont: true };
 }
 
-/** 清洗输出文件名（禁用字符 → _，去除空白） */
+/** 清洗输出文件名（委托统一入口处理非法字符含全角，保留额外格式化） */
 function sanitizePdfFileName(name: string): string {
   return (
-    name
-      .replace(/[<>:"/\\|?*]/g, '_')
+    sanitizeFileNameBase(name)
       .replace(/\s+/g, '_')
       .replace(/_+/g, '_')
       .replace(/^_|_$/g, '')

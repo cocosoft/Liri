@@ -246,6 +246,25 @@ export class ReActToolLoop extends ReActLoop<
       })
     );
 
+    // 排查锚点：每轮推理产出的工具调用默认可见。circuit_breaker 触发时，
+    // 配合 onToolCall end 和工具自身失败日志，可完整还原"AI 决策 → 工具执行 → 失败"链路。
+    // 参数 JSON 化后截断 200 字符（命令类工具如 powershell/bash 必须能看到命令内容）。
+    if (toolCalls.length > 0) {
+      logger.info('reactToolLoop:reason_tool_calls', {
+        sessionId: this.ctx.session.id,
+        iteration: this.state.iteration,
+        toolCallCount: toolCalls.length,
+        toolCalls: toolCalls.map((tc) => ({
+          name: tc.name,
+          argsPreview: safeStringify(tc.input).slice(0, 200),
+        })),
+        finishReason:
+          (response as { finishReason?: string }).finishReason ??
+          (response as { stop_reason?: string }).stop_reason ??
+          'unknown',
+      });
+    }
+
     // D. 对齐旧类 _prepareNextRound：清洗叙述 + tool_calls metadata + 助手消息落盘
     const repairedContent = stripBareExploration(cleanContent);
     const assistantMsg = this.ctx.messageService.createAssistantMessage(
@@ -409,15 +428,31 @@ export class ReActToolLoop extends ReActLoop<
       const resultMessage = toolResult.error
         ? `失败: ${toolResult.error.slice(0, 200)}`
         : `成功: ${rawResultJson.slice(0, 200)}`;
-      logger.debug('reactToolLoop:onToolCall end', {
-        sessionId: this.ctx.session.id,
-        toolName: tc.name,
-        toolCallId: tc.id,
-        status: toolResult.error ? 'failed' : 'success',
-        detail: resultMessage,
-        onToolCallRegistered: !!this.ctx.onToolCall,
-        pendingApproval: isPendingApproval,
-      });
+      // 排查锚点：工具执行结果默认可见。失败用 WARN（circuit_breaker 触发时必须能
+      // 看到每轮失败原因），成功用 INFO（避免 DEBUG 默认不可见导致排查断链）。
+      // 配合 PowerShellTool:execution_failed 等工具自身的失败日志定位根因。
+      const toolStatus = toolResult.error ? 'failed' : 'success';
+      if (toolResult.error) {
+        logger.warn('reactToolLoop:onToolCall end', {
+          sessionId: this.ctx.session.id,
+          toolName: tc.name,
+          toolCallId: tc.id,
+          status: toolStatus,
+          detail: resultMessage,
+          onToolCallRegistered: !!this.ctx.onToolCall,
+          pendingApproval: isPendingApproval,
+        });
+      } else {
+        logger.info('reactToolLoop:onToolCall end', {
+          sessionId: this.ctx.session.id,
+          toolName: tc.name,
+          toolCallId: tc.id,
+          status: toolStatus,
+          detail: resultMessage,
+          onToolCallRegistered: !!this.ctx.onToolCall,
+          pendingApproval: isPendingApproval,
+        });
+      }
       if (!isPendingApproval) {
         this.ctx.onToolCall?.('end', tc.name, tc.id, {
           ok: !toolResult.error,

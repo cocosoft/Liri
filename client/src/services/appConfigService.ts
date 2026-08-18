@@ -1,4 +1,5 @@
 import { handleClientError } from "../utils/handleError";
+import { DEFAULT_BACKEND_PORT } from "./backendUrl";
 
 export interface AppConfig {
   dataDir: string;
@@ -28,7 +29,7 @@ function defaultConfig(): AppConfig {
 
   return {
     dataDir: homeDir ? `${homeDir}\\.pyapp` : "",
-    httpPort: 7890,
+    httpPort: DEFAULT_BACKEND_PORT,
     firstRunCompleted: false,
   };
 }

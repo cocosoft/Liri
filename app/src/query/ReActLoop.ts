@@ -190,12 +190,27 @@ export abstract class ReActLoop<
     const allInvalid = result.results.every((r) => r.status === 'error');
     if (allInvalid) {
       this.consecutiveInvalidTurns++;
+      // 排查锚点：每轮 all-error 时记录失败工具名 + 错误摘要，便于定位根因
+      // （常见根因：工具 schema 不兼容本地 LLM、上下文超限导致 LLM 返回非法 tool_call、
+      // 工具自身 bug）。错误信息截断 200 字符避免日志膨胀。
+      const failedTools = result.results.map((r) => ({
+        name: r.name,
+        error: (r.error ?? r.output ?? '').slice(0, 200),
+      }));
+      logger.warn('reActLoop:all-tools-failed (consecutive invalid turn)', {
+        iteration: this.state.iteration,
+        consecutiveInvalidTurns: this.consecutiveInvalidTurns,
+        maxConsecutiveInvalidTurns: this.config.maxConsecutiveInvalidTurns,
+        failedToolCount: result.results.length,
+        failedTools,
+      });
       if (
         this.consecutiveInvalidTurns >= this.config.maxConsecutiveInvalidTurns
       ) {
         logger.warn('reActLoop:circuit_breaker triggered', {
           consecutiveInvalidTurns: this.consecutiveInvalidTurns,
           maxConsecutiveInvalidTurns: this.config.maxConsecutiveInvalidTurns,
+          lastFailedTools: failedTools,
         });
         return true;
       }

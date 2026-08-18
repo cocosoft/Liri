@@ -825,17 +825,23 @@ export abstract class BaseAIProvider implements AIProvider {
    * 导致 streamMessage 卡在 await gen.next()、会话互斥锁（SimpleMutex）永久不释放。
    * 各 Provider 的流式读取统一调用此方法。
    *
+   * 超时策略（2026-08-18 优化）：
+   * - 首 chunk（TTFB）：默认 120s，覆盖推理模型（GLM-Z1/DeepSeek-R1）长时间思考
+   * - 后续 chunk：默认 90s，覆盖网络抖动/服务端短暂停滞
+   * - 重试次数：2 次（总等待上限 120s + 90s + 90s = 300s，与 L1 请求总超时对齐）
+   *
    * 诊断日志（module: ai:baseProvider，排查超时用）：
    * - debug：每块读取（序号/字节数）、流正常结束
-   * - warn：超时（idle 时长/已读块数/总耗时）、读取异常、cancel 失败
+   * - warn：超时（idle 时长/已读块数/总耗时/场景分类）、读取异常、cancel 失败
    *
    * @param reader - response.body.getReader() 返回的 reader
-   * @param timeoutMs - 无数据超时（默认 60s）
+   * @param timeoutMs - 无数据超时（默认 90s，首 chunk 自动用 120s）
+   * @param timeoutRetries - 超时重试次数（默认 2 次）
    */
   protected async readStreamChunkWithTimeout(
     reader: ReadableStreamDefaultReader<Uint8Array>,
-    timeoutMs: number = 60_000,
-    timeoutRetries: number = 1
+    timeoutMs: number = 90_000,
+    timeoutRetries: number = 2
   ): Promise<{ done: boolean; value: Uint8Array | undefined }> {
     // 每次流式调用共享的读取诊断状态（按 reader 隔离）
     let state = streamReadState.get(reader);
@@ -851,18 +857,26 @@ export abstract class BaseAIProvider implements AIProvider {
     }
     state.chunkCount++;
 
+    // 首 chunk 特殊处理：推理模型（GLM-Z1/DeepSeek-R1）首 token 可能 60-90s
+    // chunkCount === 1 表示首次 read()（等待响应头/首 chunk），用更长超时
+    const isFirstChunk = state.chunkCount === 1;
+    const effectiveTimeoutMs = isFirstChunk
+      ? Math.max(timeoutMs, 120_000) // 首 chunk 至少 120s
+      : timeoutMs;
+
     try {
       // 每次读取前的"等待"标记：排查挂起时可确认最后一次 read() 已发出但未返回
       logger.debug(`[${this.id}] 流式读取等待第 ${state.chunkCount} 块`, {
         chunkIndex: state.chunkCount,
         elapsedMs: Date.now() - state.startedAt,
         lastChunkAt: new Date(state.lastChunkAt).toISOString(),
+        isFirstChunk,
+        effectiveTimeoutMs,
       });
 
       // 每轮新建无数据超时计时器。关键：reader.read() 先返回（流活跃）时
-      // 必须 clearTimeout —— 否则 timer 在 60s 后到期，对已 settle 的 race
+      // 必须 clearTimeout —— 否则 timer 在到期后执行 reject，对已 settle 的 race
       // 里的 promise 执行 reject，无人消费 → unhandledRejection。
-      // 修复前：流总时长 >60s 时（长回复/thinking），首个 timer 必误触发。
       let timer: ReturnType<typeof setTimeout> | undefined;
       const timeoutPromise = new Promise<never>((_, reject) => {
         const failAfterExhausted = () => {
@@ -870,41 +884,57 @@ export abstract class BaseAIProvider implements AIProvider {
           if (state.strikes > timeoutRetries) {
             // 连续超时达到阈值：取消流并报错（真挂起）
             const idleMs = Date.now() - state.lastChunkAt;
+            // 场景分类：便于日志快速定位超时原因
+            // - TTFB_TIMEOUT: 首 token 超时（推理模型思考长 / 服务端排队）
+            // - INTER_CHUNK_TIMEOUT: chunk 间隔超时（网络抖动 / 服务端短暂停滞）
+            // - STREAM_STALLED: 流停滞（可能服务端挂起 / 连接半关闭）
+            const scenario = isFirstChunk
+              ? 'TTFB_TIMEOUT'
+              : state.lastIntervalMs > effectiveTimeoutMs
+                ? 'INTER_CHUNK_TIMEOUT'
+                : 'STREAM_STALLED';
             logger.warn(
-              `[${this.id}] 流式读取超时（${timeoutMs / 1000}s 无数据，已重试 ${timeoutRetries} 次）`,
+              `[${this.id}] 流式读取超时（${effectiveTimeoutMs / 1000}s 无数据，已重试 ${timeoutRetries} 次）`,
               {
-                timeoutMs,
+                timeoutMs: effectiveTimeoutMs,
+                baseTimeoutMs: timeoutMs,
+                isFirstChunk,
                 idleMs,
                 chunkCount: state.chunkCount,
                 totalMs: Date.now() - state.startedAt,
                 lastIntervalMs: state.lastIntervalMs,
                 lastChunkAt: new Date(state.lastChunkAt).toISOString(),
-                awaitingFirstChunk: state.chunkCount === 1,
+                awaitingFirstChunk: isFirstChunk,
+                scenario,
+                strikes: state.strikes,
               }
             );
             reject(
               new Error(
-                `${this.id} stream: ${timeoutMs / 1000}s 无数据（重试 ${timeoutRetries} 次后仍无数据），连接可能挂起`
+                `${this.id} stream: ${effectiveTimeoutMs / 1000}s 无数据（重试 ${timeoutRetries} 次后仍无数据），连接可能挂起`
               )
             );
             return;
           }
           // 首次超时：仅告警并继续等待（网络抖动/慢响应可恢复），即自动重试
           logger.warn(
-            `[${this.id}] 流式读取超时（第 ${state.strikes}/${timeoutRetries + 1} 次，继续等待 ${timeoutMs / 1000}s）`,
+            `[${this.id}] 流式读取超时（第 ${state.strikes}/${timeoutRetries + 1} 次，继续等待 ${effectiveTimeoutMs / 1000}s）`,
             {
-              timeoutMs,
+              timeoutMs: effectiveTimeoutMs,
+              baseTimeoutMs: timeoutMs,
+              isFirstChunk,
               strikes: state.strikes,
               timeoutRetries,
               chunkCount: state.chunkCount,
               totalMs: Date.now() - state.startedAt,
               lastIntervalMs: state.lastIntervalMs,
               lastChunkAt: new Date(state.lastChunkAt).toISOString(),
+              scenario: isFirstChunk ? 'TTFB_TIMEOUT_RETRY' : 'INTER_CHUNK_TIMEOUT_RETRY',
             }
           );
-          timer = setTimeout(failAfterExhausted, timeoutMs);
+          timer = setTimeout(failAfterExhausted, effectiveTimeoutMs);
         };
-        timer = setTimeout(failAfterExhausted, timeoutMs);
+        timer = setTimeout(failAfterExhausted, effectiveTimeoutMs);
       });
       // 双保险：极端时序下（clearTimeout 未生效）该 promise 的孤儿 rejection
       // 不应触发全局 unhandledRejection；实际错误仍由 race 正常传递
@@ -951,6 +981,8 @@ export abstract class BaseAIProvider implements AIProvider {
         totalMs: Date.now() - state.startedAt,
         lastIntervalMs: state.lastIntervalMs,
         lastChunkAt: new Date(state.lastChunkAt).toISOString(),
+        isFirstChunk,
+        scenario: isFirstChunk ? 'TTFB_FAILURE' : 'STREAM_FAILURE',
       });
       streamReadState.delete(reader);
       throw err;
@@ -972,6 +1004,13 @@ export abstract class BaseAIProvider implements AIProvider {
     pendingToolCalls?: Map<number, PendingToolCall>
   ): Promise<void> {
     if (!response.body) {
+      const headerObj: Record<string, string> = {};
+      response.headers.forEach((v, k) => { headerObj[k] = v; });
+      logger.warn(`[${this.id}] 流式响应体为空`, {
+        status: response.status,
+        statusText: response.statusText,
+        headers: headerObj,
+      });
       throw new AppError(
         `${this.id}: 响应体为空`,
         ErrorCategory.EXECUTION,
@@ -984,17 +1023,70 @@ export abstract class BaseAIProvider implements AIProvider {
     const decoder = new TextDecoder();
     let buffer = '';
     const streamStartedAt = Date.now();
+    let firstChunkAt: number | null = null;
+    let chunkCount = 0;
+    let totalBytes = 0;
+    let textEventCount = 0;
+    let toolCallEventCount = 0;
+    let thinkingEventCount = 0;
+    let usageEventCount = 0;
+    let doneEventCount = 0;
+
+    // 包装 onEvent：统计事件类型，便于排查"流式结束但未收到 done"等异常
+    const wrappedOnEvent: typeof onEvent = (event) => {
+      switch (event.type) {
+        case 'text': textEventCount++; break;
+        case 'tool_call': toolCallEventCount++; break;
+        case 'thinking': thinkingEventCount++; break;
+        case 'usage': usageEventCount++; break;
+        case 'done':
+          doneEventCount++;
+          logger.info(`[${this.id}] 收到 done 事件`, {
+            finishReason: event.response?.finishReason ?? null,
+            model: event.response?.model ?? null,
+            elapsedMs: Date.now() - streamStartedAt,
+            chunkCount,
+            textEventCount,
+            toolCallEventCount,
+            thinkingEventCount,
+          });
+          break;
+        case 'error':
+          logger.warn(`[${this.id}] 收到 error 事件`, {
+            error: (event as { error?: string }).error ?? null,
+            elapsedMs: Date.now() - streamStartedAt,
+            chunkCount,
+          });
+          break;
+      }
+      onEvent(event);
+    };
 
     // 排查流式挂起：记录流开始（id/format/无数据超时配置）
     logger.info(`[${this.id}] 流式读取开始`, {
       format,
-      timeoutMs: 60_000, // readStreamChunkWithTimeout 默认无数据超时
+      timeoutMs: 90_000, // readStreamChunkWithTimeout 默认无数据超时（首 chunk 自动 120s）
+      firstChunkTimeoutMs: 120_000, // 首 chunk 超时（覆盖推理模型 TTFB）
+      timeoutRetries: 2, // 重试次数（总等待上限 120+90+90=300s）
+      responseStatus: response.status,
+      contentLength: response.headers.get('content-length'),
     });
 
     try {
       while (true) {
         const { done, value } = await this.readStreamChunkWithTimeout(reader);
         if (done) break;
+
+        // 首 chunk 到达：记录 TTFB（Time To First Byte）
+        if (firstChunkAt === null) {
+          firstChunkAt = Date.now();
+          logger.info(`[${this.id}] 首 chunk 到达`, {
+            ttfbMs: firstChunkAt - streamStartedAt,
+            firstChunkBytes: value?.length ?? 0,
+          });
+        }
+        chunkCount++;
+        totalBytes += value?.length ?? 0;
 
         buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split('\n');
@@ -1006,32 +1098,68 @@ export abstract class BaseAIProvider implements AIProvider {
 
           if (trimmed.startsWith('data: ')) {
             const data = trimmed.slice(6);
-            if (data === '[DONE]') return;
+            if (data === '[DONE]') {
+              logger.info(`[${this.id}] 收到 [DONE] 标记，流式结束`, {
+                chunkCount,
+                totalBytes,
+                elapsedMs: Date.now() - streamStartedAt,
+                doneEventCount,
+                textEventCount,
+                toolCallEventCount,
+                thinkingEventCount,
+              });
+              return;
+            }
 
             try {
               const json = JSON.parse(data);
 
               switch (format) {
                 case SSEFormat.OPENAI:
-                  this.parseOpenaiSSELine(json, onEvent, pendingToolCalls);
+                  this.parseOpenaiSSELine(json, wrappedOnEvent, pendingToolCalls);
                   break;
                 case SSEFormat.ANTHROPIC:
-                  this.parseAnthropicSSELine(json, onEvent, pendingToolCalls);
+                  this.parseAnthropicSSELine(json, wrappedOnEvent, pendingToolCalls);
                   break;
                 case SSEFormat.GOOGLE:
-                  this.parseGoogleSSELine(json, onEvent);
+                  this.parseGoogleSSELine(json, wrappedOnEvent);
                   break;
               }
             } catch (err) {
-              // JSON 解析失败，跳过该行
+              // JSON 解析失败：记录 warn 便于排查损坏的 SSE 数据
+              logger.warn(`[${this.id}] SSE JSON 解析失败，跳过该行`, {
+                linePreview: trimmed.substring(0, 200),
+                lineLength: trimmed.length,
+                error: err instanceof Error ? err.message : String(err),
+                chunkIndex: chunkCount,
+              });
             }
           }
         }
       }
-      logger.debug(`[${this.id}] 流式读取完成`, {
+      // reader.read() 返回 done=true（流自然结束）但未收到 [DONE] 标记或 done 事件
+      // 这是异常情况：可能是流被服务端中途关闭
+      logger.info(`[${this.id}] 流式读取完成`, {
         totalMs: Date.now() - streamStartedAt,
+        ttfbMs: firstChunkAt ? firstChunkAt - streamStartedAt : null,
+        chunkCount,
+        totalBytes,
+        textEventCount,
+        toolCallEventCount,
+        thinkingEventCount,
+        usageEventCount,
+        doneEventCount,
+        avgChunkBytes: chunkCount > 0 ? Math.round(totalBytes / chunkCount) : 0,
+        endedByDoneMarker: doneEventCount > 0,
+        // 若 doneEventCount=0 且 chunkCount>0，说明流结束但未收到 done 事件
+        // 可能是服务端异常关闭或 SSE 格式不符合预期
+        abnormalEnd: doneEventCount === 0 && chunkCount > 0,
       });
     } finally {
+      logger.debug(`[${this.id}] 释放 reader 锁`, {
+        chunkCount,
+        totalMs: Date.now() - streamStartedAt,
+      });
       reader.releaseLock();
     }
   }

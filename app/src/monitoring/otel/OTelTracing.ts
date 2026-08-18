@@ -25,6 +25,7 @@ import { logForDebugging } from '@modules/utils/debug.js';
 import { errorMessage } from '@modules/error';
 
 import { getLogger } from '@modules/monitoring';
+import { APP_VERSION } from '@modules/constants/common';
 const logger = getLogger('monitoring\otel\OTelTracing');
 
 /**
@@ -260,7 +261,7 @@ export function getOTelTracing(config?: OTelTracingConfig): OTelTracing {
     otelTracing = new OTelTracing(
       config || {
         serviceName: 'py-app',
-        serviceVersion: '1.0.0',
+        serviceVersion: APP_VERSION,
       }
     );
   }

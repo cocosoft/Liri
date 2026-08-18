@@ -296,7 +296,10 @@ export class TTSTool extends BaseTool<Record<string, unknown>> {
                 // filename 可能是完整路径或仅文件名，分离后只清理文件名部分
                 const pathInfo = parse(filename);
                 const safeFilename = pathInfo.dir
-                  ? join(pathInfo.dir, sanitizeFileName(pathInfo.name) + pathInfo.ext)
+                  ? join(
+                      pathInfo.dir,
+                      sanitizeFileName(pathInfo.name) + pathInfo.ext
+                    )
                   : sanitizeFileName(pathInfo.name) + pathInfo.ext;
 
                 this.isSynthesizing = true;

@@ -109,12 +109,14 @@ export async function handleListModels(
       await import('../providers/ProviderRegistry.js');
 
     for (const pr of pricingList) {
-      let matchingProvider: {
-        id: string;
-        name: string;
-        requiresAuth: boolean;
-        isActive: boolean;
-      } | undefined;
+      let matchingProvider:
+        | {
+            id: string;
+            name: string;
+            requiresAuth: boolean;
+            isActive: boolean;
+          }
+        | undefined;
 
       // 1. 优先匹配 DB 已配置的 Provider（ProviderManager.listProviders）
       if (pr.providerId) {

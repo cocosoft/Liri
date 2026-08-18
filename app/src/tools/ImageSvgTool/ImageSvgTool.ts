@@ -310,7 +310,8 @@ export class ImageSvgTool extends BaseTool<ImageSvgInput, ImageSvgOutput> {
         // 对文件名部分做清理（保留目录结构）
         const parsedPath = path.parse(resolvedPath);
         const safeName = sanitizeFileName(parsedPath.name);
-        const safeExt = parsedPath.ext === '.svg' ? '.svg' : parsedPath.ext || '.svg';
+        const safeExt =
+          parsedPath.ext === '.svg' ? '.svg' : parsedPath.ext || '.svg';
         filePath = path.join(parsedPath.dir, safeName + safeExt);
         if (!filePath.endsWith('.svg')) {
           filePath = filePath + '.svg';

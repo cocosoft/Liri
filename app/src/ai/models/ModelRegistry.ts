@@ -458,10 +458,8 @@ export class ModelRegistry {
         seq,
         beforeCount: beforeIds.size,
         afterCount: afterIds.size,
-        modelsAdded: [...afterIds].filter((id) => !beforeIds.has(id))
-          .length,
-        modelsRemoved: [...beforeIds].filter((id) => !afterIds.has(id))
-          .length,
+        modelsAdded: [...afterIds].filter((id) => !beforeIds.has(id)).length,
+        modelsRemoved: [...beforeIds].filter((id) => !afterIds.has(id)).length,
       });
     })();
     // 链不断：current 失败时 refreshInFlight 仍 resolve，不影响后续调用排队

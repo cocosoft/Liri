@@ -929,7 +929,9 @@ export abstract class BaseAIProvider implements AIProvider {
               totalMs: Date.now() - state.startedAt,
               lastIntervalMs: state.lastIntervalMs,
               lastChunkAt: new Date(state.lastChunkAt).toISOString(),
-              scenario: isFirstChunk ? 'TTFB_TIMEOUT_RETRY' : 'INTER_CHUNK_TIMEOUT_RETRY',
+              scenario: isFirstChunk
+                ? 'TTFB_TIMEOUT_RETRY'
+                : 'INTER_CHUNK_TIMEOUT_RETRY',
             }
           );
           timer = setTimeout(failAfterExhausted, effectiveTimeoutMs);
@@ -1005,7 +1007,9 @@ export abstract class BaseAIProvider implements AIProvider {
   ): Promise<void> {
     if (!response.body) {
       const headerObj: Record<string, string> = {};
-      response.headers.forEach((v, k) => { headerObj[k] = v; });
+      response.headers.forEach((v, k) => {
+        headerObj[k] = v;
+      });
       logger.warn(`[${this.id}] 流式响应体为空`, {
         status: response.status,
         statusText: response.statusText,
@@ -1035,10 +1039,18 @@ export abstract class BaseAIProvider implements AIProvider {
     // 包装 onEvent：统计事件类型，便于排查"流式结束但未收到 done"等异常
     const wrappedOnEvent: typeof onEvent = (event) => {
       switch (event.type) {
-        case 'text': textEventCount++; break;
-        case 'tool_call': toolCallEventCount++; break;
-        case 'thinking': thinkingEventCount++; break;
-        case 'usage': usageEventCount++; break;
+        case 'text':
+          textEventCount++;
+          break;
+        case 'tool_call':
+          toolCallEventCount++;
+          break;
+        case 'thinking':
+          thinkingEventCount++;
+          break;
+        case 'usage':
+          usageEventCount++;
+          break;
         case 'done':
           doneEventCount++;
           logger.info(`[${this.id}] 收到 done 事件`, {
@@ -1116,10 +1128,18 @@ export abstract class BaseAIProvider implements AIProvider {
 
               switch (format) {
                 case SSEFormat.OPENAI:
-                  this.parseOpenaiSSELine(json, wrappedOnEvent, pendingToolCalls);
+                  this.parseOpenaiSSELine(
+                    json,
+                    wrappedOnEvent,
+                    pendingToolCalls
+                  );
                   break;
                 case SSEFormat.ANTHROPIC:
-                  this.parseAnthropicSSELine(json, wrappedOnEvent, pendingToolCalls);
+                  this.parseAnthropicSSELine(
+                    json,
+                    wrappedOnEvent,
+                    pendingToolCalls
+                  );
                   break;
                 case SSEFormat.GOOGLE:
                   this.parseGoogleSSELine(json, wrappedOnEvent);

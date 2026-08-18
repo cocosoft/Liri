@@ -219,7 +219,9 @@ async function seedEnvProvidersToDB(dedupNames: Set<string>): Promise<number> {
  *
  * 幂等：按 providerType 去重，已存在跳过，不覆盖用户已有配置。
  */
-async function ensureReferencedProviders(dedupNames: Set<string>): Promise<number> {
+async function ensureReferencedProviders(
+  dedupNames: Set<string>
+): Promise<number> {
   try {
     const { modelPricingService } =
       await import('@modules/ai/models/ModelPricingService.js');
@@ -236,9 +238,7 @@ async function ensureReferencedProviders(dedupNames: Set<string>): Promise<numbe
 
     // 2. 当前 DB 已存在的 provider_type
     const existing = await providerManager.listProviders();
-    const existingTypes = new Set<string>(
-      existing.map((p) => p.providerType)
-    );
+    const existingTypes = new Set<string>(existing.map((p) => p.providerType));
 
     // 3. 对缺失的 provider_type 补录（内置预设默认配置）
     let seeded = 0;
@@ -255,7 +255,9 @@ async function ensureReferencedProviders(dedupNames: Set<string>): Promise<numbe
           name: preset.name,
           providerType: preset.providerType as ProviderType,
           baseUrl: preset.baseUrl,
-          apiKey: preset.envKey ? process.env[preset.envKey] || undefined : undefined,
+          apiKey: preset.envKey
+            ? process.env[preset.envKey] || undefined
+            : undefined,
           requiresAuth: preset.requiresAuth,
         });
         dedupNames.add(`${preset.name}:${type}`);

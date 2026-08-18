@@ -709,8 +709,7 @@ export class ModelPricingService {
         params.inputCostPerMillion ?? existing.inputCostPerMillion ?? 0;
       const finalOutputCost =
         params.outputCostPerMillion ?? existing.outputCostPerMillion ?? 0;
-      const finalContextWindow =
-        params.contextWindow ?? existing.contextWindow;
+      const finalContextWindow = params.contextWindow ?? existing.contextWindow;
       logger.info('upsertPricing:UPDATE 完成', {
         modelId: params.modelId,
         // 兜底链路：params → existing → 0（验证 BUG 3 修复）
@@ -735,7 +734,8 @@ export class ModelPricingService {
           fromExisting: existing.contextWindow,
           final: finalContextWindow,
         },
-        pricingSource: params.pricingSource || existing.pricingSource || 'default',
+        pricingSource:
+          params.pricingSource || existing.pricingSource || 'default',
         providerId: params.providerId || existing.providerId || '',
       });
     } else {

@@ -30,6 +30,24 @@ const logger = getLogger('chat:helper');
 export const TOOL_RESULT_MAX_LENGTH = 8000;
 
 /**
+ * 判断是否为"空正文且无 tool_calls"的 assistant 消息。
+ * 工具循环中模型只回 tool_calls 但未解析/落盘、或空响应产生的中间消息，
+ * 进入 API 上下文会污染模型（多轮空 assistant 消息）并浪费 token，
+ * 构建 API 消息列表时应跳过（_buildApiMessagesForStream / prepareApiMessages 共用）。
+ */
+export function isEmptyAssistantWithoutToolCalls(msg: Message): boolean {
+  if (msg.role !== MessageRole.ASSISTANT) return false;
+  if (typeof msg.content !== 'string' || msg.content.trim() !== '')
+    return false;
+  const metaToolCalls = msg.metadata?.tool_calls as unknown;
+  const hasMetaToolCalls =
+    Array.isArray(metaToolCalls) && metaToolCalls.length > 0;
+  const hasMsgToolCalls =
+    Array.isArray(msg.tool_calls) && msg.tool_calls.length > 0;
+  return !hasMetaToolCalls && !hasMsgToolCalls;
+}
+
+/**
  * AB-10 修复：Provider 原始 usage（prompt_tokens 等）→ 标准 UsageInfo。
  * 流式主回复（StreamPipeline）与工具轮次（streamMessageFlow onToolUsage）共用，
  * 保证 usage SSE 事件的字段口径一致。

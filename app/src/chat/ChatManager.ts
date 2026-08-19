@@ -45,6 +45,7 @@ import {
   getLocalSession,
   getOrCreateSessionMachine,
   persistChatMessage,
+  isEmptyAssistantWithoutToolCalls,
 } from './services/ChatHelper';
 import {
   sanitizeApiMessages,
@@ -2166,6 +2167,8 @@ export class ChatManagerImpl implements ChatManager {
     let builtCount = 0;
     for (const msg of messages) {
       if (msg.metadata?.isTaskMessage === true) continue;
+      // 空正文且无 tool_calls 的 assistant 消息跳过（工具循环中间空消息，避免污染上下文）
+      if (isEmptyAssistantWithoutToolCalls(msg)) continue;
 
       let content =
         typeof msg.content === 'string'

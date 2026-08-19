@@ -9,7 +9,15 @@ import { create } from "zustand";
 
 // ─── 类型 ─────────────────────────────────────────
 
-export type InspectorTab = "context" | "tools" | "files" | "settings";
+export type InspectorTab = "context" | "log" | "files" | "settings";
+
+/** 合法 Tab 列表（localStorage 旧值防护：旧版 "tools" 已废弃） */
+const VALID_TABS: readonly InspectorTab[] = [
+  "context",
+  "log",
+  "files",
+  "settings",
+];
 
 export interface ChatInspectorState {
   /** 面板是否展开 */
@@ -79,7 +87,11 @@ function persistSetting(key: string, value: unknown): void {
 
 export const useChatInspectorStore = create<ChatInspectorState>((set) => ({
   isOpen: loadStored<boolean>("isOpen", false),
-  activeTab: loadStored<InspectorTab>("activeTab", "context"),
+  activeTab: (() => {
+    // 旧版存储值可能是已废弃的 "tools"（被 log 替代），落到 "context" 兜底
+    const stored = loadStored<InspectorTab>("activeTab", "context");
+    return VALID_TABS.includes(stored) ? stored : "context";
+  })(),
   panelWidth: (() => {
     // 加载时 clamp：旧存储值（如 480）可能超出当前屏幕 50% 上限
     const stored = loadStored<number>("panelWidth", DEFAULT_PANEL_WIDTH);

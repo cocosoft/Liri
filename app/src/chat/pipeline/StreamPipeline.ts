@@ -204,7 +204,12 @@ export class StreamPipeline {
   }
 
   /** 上下文压缩 */
-  async compactContext(): Promise<void> {
+  async compactContext(): Promise<{
+    applied: boolean;
+    beforeTokens: number;
+    afterTokens: number;
+    savedPercent: number;
+  }> {
     const otel = getOTelTracing();
     const span = otel.startSpan('chat:pipeline:compactContext', {
       'session.id': this.ctx.session.id,
@@ -323,6 +328,14 @@ export class StreamPipeline {
       skipTier3Sync: true,
       tier3SyncBlocked: ctxElapsed > 5000,
     });
+
+    // 返回压缩信息（供 streamMessageFlow 发射前端可见的压缩状态块）
+    return {
+      applied: compResult?.applied ?? false,
+      beforeTokens: beforeCompact,
+      afterTokens: estimateMessagesTokens(this.ctx.apiMessages),
+      savedPercent,
+    };
   }
 
   private async _truncateApiMessages(

@@ -225,7 +225,12 @@ export interface ChatOrchestratorHost {
     assembleSystemPrompt(
       fn: (s: ChatSession, c: string) => Promise<string>
     ): Promise<void>;
-    compactContext(): Promise<void>;
+    compactContext(): Promise<{
+      applied: boolean;
+      beforeTokens: number;
+      afterTokens: number;
+      savedPercent: number;
+    }>;
     repairContent(): string;
     recordUsage(): void;
     notifyUsage(): void;

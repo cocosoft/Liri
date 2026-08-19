@@ -10,7 +10,7 @@ import { useCallback, useRef, useEffect } from "react";
 import { useChatInspectorStore } from "../../stores/chatInspectorStore";
 import type { InspectorTab } from "../../stores/chatInspectorStore";
 import ContextTab from "./ContextTab";
-import ToolsTab from "./ToolsTab";
+import LogTab from "./LogTab";
 import FilesTab from "./FilesTab";
 import SettingsTab from "./SettingsTab";
 
@@ -28,17 +28,18 @@ const TABS: { id: InspectorTab; icon: React.ReactNode; label: string }[] = [
     label: "上下文",
   },
   {
-    id: "tools",
+    id: "log",
     icon: (
       <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
         <path
           fillRule="evenodd"
-          d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z"
+          d="M5 3a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2V5a2 2 0 00-2-2H5zm10 2H5v10h10V5z"
           clipRule="evenodd"
         />
+        <path d="M6 8a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zM6 11a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zM6 14a1 1 0 011-1h3a1 1 0 110 2H7a1 1 0 01-1-1z" />
       </svg>
     ),
-    label: "工具",
+    label: "日志",
   },
   {
     id: "files",
@@ -83,7 +84,7 @@ function CollapsedBarImpl({
     <div className="w-12 flex flex-col items-center py-2 gap-2 bg-white dark:bg-gray-900 border-l border-gray-200 dark:border-gray-700">
       {TABS.map((tab) => {
         const badge =
-          tab.id === "tools" && activeToolCount > 0
+          tab.id === "log" && activeToolCount > 0
             ? `${activeToolCount}`
             : tab.id === "files" && newFileCount > 0
               ? `+${newFileCount}`
@@ -103,7 +104,7 @@ function CollapsedBarImpl({
                 className={`absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] flex items-center justify-center text-[10px] font-bold text-white rounded-full ${
                   tab.id === "context"
                     ? "bg-red-500"
-                    : tab.id === "tools"
+                    : tab.id === "log"
                       ? "bg-blue-500 animate-pulse"
                       : "bg-green-500"
                 }`}
@@ -123,8 +124,8 @@ function TabContentImpl({ tabId }: { tabId: InspectorTab }) {
   switch (tabId) {
     case "context":
       return <ContextTab />;
-    case "tools":
-      return <ToolsTab />;
+    case "log":
+      return <LogTab />;
     case "files":
       return <FilesTab />;
     case "settings":
@@ -163,7 +164,7 @@ function ChatInspector() {
   useEffect(() => {
     const KEY_MAP: Record<string, InspectorTab> = {
       "1": "context",
-      "2": "tools",
+      "2": "log",
       "3": "files",
       "4": "settings",
     };

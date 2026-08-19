@@ -57,6 +57,7 @@ function BlockRenderer({
           content={block.content}
           isStreaming={block.isStreaming ?? false}
           status={block.status}
+          phase={block.phase}
         />
       );
     case "tool_call":

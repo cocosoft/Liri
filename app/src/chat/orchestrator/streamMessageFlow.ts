@@ -61,6 +61,7 @@ import {
 } from './preSendContextProtection.js';
 import { savePlainTextCheckpoint } from './plainTextCheckpointSave.js';
 import { compactionOrchestrator } from '../../context/compaction/CompactionOrchestrator';
+import { autoCompactionPolicy } from '../../context/compaction/AutoCompactionPolicy';
 import { getOTelTracing } from '@modules/monitoring';
 import { trajectoryRecorder } from '../../agent/trajectory/TrajectoryRecorder';
 import { trajectoryRuntime } from '../../core/trajectory/TrajectoryRuntime.js';
@@ -177,11 +178,22 @@ export async function* runStreamMessage(
     const activeClient = host.getClientForModel(options?.model);
 
     // 管线 — 上下文压缩
-    await pipeline.compactContext();
+    const compactInfo = await pipeline.compactContext();
     // BUG 修复：compactContext 内部可能替换 this.ctx.apiMessages 引用（压缩后新数组），
     // 局部 apiMessages 变量仍是旧引用，必须重新同步，否则发送的仍是未压缩的完整历史
     // （llama.cpp 等小上下文模型会因 15408 > n_ctx 4096 直接 400）。
     apiMessages = pipeline.ctx.apiMessages;
+    // 前端可见性（2026-08-19）：压缩实际执行且节省显著时发射"完成"状态块（类似工具块），
+    // 仅当 applied && savedPercent>0 才展示，避免每轮 skip 时产生无意义噪声
+    if (compactInfo.applied && compactInfo.savedPercent > 0) {
+      yield {
+        type: 'status',
+        statusType: 'compaction',
+        phase: 'done',
+        content: `上下文已压缩: ${compactInfo.beforeTokens.toLocaleString()} → ${compactInfo.afterTokens.toLocaleString()} tokens（节省 ${compactInfo.savedPercent}%）`,
+        sessionId: session.id,
+      } as ChatStreamChunk;
+    }
     // 诊断日志：压缩后 token 变化
     await logTokenSnapshot(
       '上下文压缩后',
@@ -794,6 +806,25 @@ export async function* runStreamMessage(
     // 下一轮窗口更小（可能 skip/warn 而非触发慢 Tier3），把 Tier3 的等待从
     // "用户发送前"转移到"发送后后台"。fire-and-forget 不阻塞本轮；
     // 长度守卫（compactSessionInBackground 内部）防覆盖压缩期间新增消息。
+    // 前端可见性（2026-08-19）：水位接近触发阈值（复用 policy 真实阈值，CS01 不重复定义）
+    // 时发射"后台压缩进行中"状态块，提示用户上下文较长已进入后台压缩
+    const bgThresholds = autoCompactionPolicy.getThresholds(
+      options?.model || ''
+    );
+    const bgTokens = estimateMessagesTokens(
+      session.messages as unknown as ChatMessage[]
+    );
+    const bgMax = resolveMaxContextTokens(options?.model);
+    const bgRatio = bgMax > 0 ? bgTokens / bgMax : 0;
+    if (bgRatio >= bgThresholds.warnRatio) {
+      yield {
+        type: 'status',
+        statusType: 'compaction',
+        phase: 'compacting',
+        content: `上下文较长（${Math.round(bgRatio * 100)}%），正在后台压缩历史...`,
+        sessionId: session.id,
+      } as ChatStreamChunk;
+    }
     void compactionOrchestrator
       .compactSessionInBackground(
         () => session.messages as unknown as ChatMessage[],

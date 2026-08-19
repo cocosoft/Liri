@@ -161,7 +161,14 @@ export interface StreamChunk {
   };
   /** 状态子类型 — SSE 协议增强字段 (CS02)，替代前端字符串匹配 */
   statusType?:
-    "ai_thinking" | "retry" | "task_all_done" | "resume" | "tool_retry";
+    | "ai_thinking"
+    | "retry"
+    | "task_all_done"
+    | "resume"
+    | "tool_retry"
+    | "compaction";
+  /** 压缩状态阶段（仅 statusType='compaction' 时存在）：compacting=进行中 / done=完成 */
+  phase?: "compacting" | "done";
   /** 结构化错误码 — SSE 协议增强字段 (CS02)，替代前端字符串匹配 */
   errorCode?:
     | "UNKNOWN"
@@ -201,6 +208,7 @@ function parseSseChunk(chunk: Record<string, unknown>): StreamChunk | null {
       content: deltaContent,
       statusType:
         (chunk.__pyapp_status_type as StreamChunk["statusType"]) || undefined,
+      phase: (chunk.__pyapp_phase as StreamChunk["phase"]) || undefined,
     };
   }
   if (pyappType === "context_state") {
@@ -847,6 +855,7 @@ export const chatService = {
                 type: "status",
                 content: chunk.choices?.[0]?.delta?.content || "",
                 statusType: chunk.__pyapp_status_type || undefined,
+                phase: chunk.__pyapp_phase || undefined,
               };
             } else if (pyappType === "context_state") {
               yield {

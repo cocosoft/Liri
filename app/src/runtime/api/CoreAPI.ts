@@ -157,7 +157,10 @@ export interface ChatStreamChunk {
     | 'retry'
     | 'task_all_done'
     | 'resume'
-    | 'tool_retry';
+    | 'tool_retry'
+    | 'compaction';
+  /** 压缩状态阶段（仅 statusType='compaction' 时存在）：compacting=进行中 / done=完成 */
+  phase?: 'compacting' | 'done';
   /** 结构化错误码 — 替代前端对 error message 的字符串匹配 (CS02) */
   errorCode?:
     | 'UNKNOWN'
@@ -225,6 +228,8 @@ export interface ToolCallSpec {
   status?: 'running' | 'completed' | 'failed';
   /** P0-2（2026-08-14）：工具执行结果（普通工具经 tool_end 下发，前端渲染结果内容） */
   result?: unknown;
+  /** 工具执行失败原因（仅 status='failed' 时存在，前端日志面板据此展示失败原因） */
+  error?: string;
 }
 
 /** 工具执行结果 */

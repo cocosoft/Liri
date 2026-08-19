@@ -69,6 +69,8 @@ export interface MessageBlock {
   content: string;
   toolCall?: ToolCall;
   status?: string;
+  /** 状态块阶段（如压缩 compaction：compacting=进行中 / done=完成），CS02 结构化标记 */
+  phase?: "compacting" | "done";
   isStreaming?: boolean;
   toolCallId?: string;
   groupId?: string;
@@ -174,6 +176,8 @@ export interface ToolCall {
   pendingApproval?: boolean;
   /** 标记 result 为截断摘要，全量结果通过 getToolResultFull(id) 获取 */
   _hasFullResult?: boolean;
+  /** 工具执行失败原因（status='failed' 时存在，日志面板据此展示失败详情） */
+  error?: string;
 }
 
 // ============================================================

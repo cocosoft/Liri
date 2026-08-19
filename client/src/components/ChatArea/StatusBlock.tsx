@@ -6,9 +6,16 @@ interface StatusBlockProps {
   isStreaming?: boolean;
   /** 状态标记（用于图标判断，不依赖字符串匹配） */
   status?: string;
+  /** 压缩状态阶段（status='compaction' 时存在）：compacting=进行中 / done=完成 */
+  phase?: "compacting" | "done";
 }
 
-function StatusBlock({ content, isStreaming, status }: StatusBlockProps) {
+function StatusBlock({
+  content,
+  isStreaming,
+  status,
+  phase,
+}: StatusBlockProps) {
   const [collapsed, setCollapsed] = useState(!isStreaming);
   const prevStreaming = useRef(isStreaming);
 
@@ -23,24 +30,31 @@ function StatusBlock({ content, isStreaming, status }: StatusBlockProps) {
 
   const isRunning = status === "running";
   const isToolStatus = status === "completed" || status === "failed";
+  // 压缩进行中：脉冲动画 + 强调色（类似工具调用的运行态）
+  const isCompacting =
+    status === "compaction" && phase === "compacting" && isStreaming;
+  // 压缩完成：静态图标
+  const isCompactionDone = status === "compaction" && phase === "done";
+
+  const icon = isRunning || isCompacting ? (
+    <span style={styles.dot}></span>
+  ) : isToolStatus ? (
+    "📦"
+  ) : isCompactionDone ? (
+    "🗜️"
+  ) : (
+    "⚪"
+  );
 
   return (
     <div style={styles.container}>
       <button onClick={() => setCollapsed(!collapsed)} style={styles.header}>
-        <span style={styles.icon}>
-          {isRunning ? (
-            <span style={styles.dot}></span>
-          ) : isToolStatus ? (
-            "📦"
-          ) : (
-            "⚪"
-          )}
-        </span>
+        <span style={styles.icon}>{icon}</span>
         <span
           style={{
             ...styles.text,
-            color: isRunning ? "#e6c384" : "#7aa2f7",
-            fontStyle: isRunning ? "italic" : "normal",
+            color: isRunning || isCompacting ? "#e6c384" : "#7aa2f7",
+            fontStyle: isRunning || isCompacting ? "italic" : "normal",
           }}
         >
           {content}

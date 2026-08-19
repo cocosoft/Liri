@@ -584,6 +584,7 @@ async function handleStreamingChat(
                 ...(chunk.statusType
                   ? { __pyapp_status_type: chunk.statusType }
                   : {}),
+                ...(chunk.phase ? { __pyapp_phase: chunk.phase } : {}),
                 choices: [
                   {
                     index: 0,

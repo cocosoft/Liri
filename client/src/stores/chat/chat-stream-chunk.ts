@@ -141,7 +141,7 @@ export async function processChunk(
       blocks: blockBuilder.getBlocks(),
     };
   } else if (chunk.type === "status") {
-    blockBuilder.addStatus(chunk.content, chunk.statusType);
+    blockBuilder.addStatus(chunk.content, chunk.statusType, chunk.phase);
     set({ streamingStatus: chunk.content });
     updatedMsg = { ...msg, blocks: blockBuilder.getBlocks() };
   } else if (chunk.type === "reconnect_status") {
@@ -157,8 +157,8 @@ export async function processChunk(
     if (chunk.watermarkState) {
       watermarkStore.updateWatermark(chunk.watermarkState);
       if (chunk.watermarkState.severity !== "normal") {
-        // 异常水位渲染为一次性提示块
-        blockBuilder.addStatus(chunk.content);
+        // 异常水位渲染为一次性提示块（结构化标记 watermark，ChatArea 收缩展示）
+        blockBuilder.addStatus(chunk.content, "watermark");
         set({ streamingStatus: chunk.content });
         updatedMsg = { ...msg, blocks: blockBuilder.getBlocks() };
       } else {

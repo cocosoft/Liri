@@ -6,6 +6,8 @@ const logger = createLogger("components:chatMessage");
 import { useTranslation } from "react-i18next";
 import type { Message, MessageBlock } from "../../types";
 import ToolExecutionGroup from "./ToolExecutionGroup";
+import ToolInlineTags from "./ToolInlineTags";
+import WatermarkTag from "./WatermarkTag";
 import ToolResultMessage from "./ToolResultMessage";
 import BlockRenderer from "./BlockRenderer";
 import { knowledgeService } from "../../services/knowledgeService";
@@ -1225,7 +1227,10 @@ function isToolRelatedBlock(block: MessageBlock): boolean {
 }
 
 /**
- * 将 blocks 中的连续工具相关 blocks 按 groupId 分组成 ToolExecutionGroup
+ * 将 blocks 中的连续工具相关 blocks 按 groupId 分组：
+ * - 普通工具组 → ToolInlineTags 行内小标签（P2，详细过程移右侧会话日志）
+ * - 审批等待组 → ToolExecutionGroup（保留琥珀徽标 + 审批交互）
+ * - 纯 status / 多媒体展示 → 直接渲染 BlockRenderer
  * groupId 由 ChronologicalBlockBuilder 在流式构建时分配，
  * 或由 rebuildBlocksFromContent 在重建时分配，
  * 确保同一逻辑组（文本→工具调用→状态）始终共享相同 groupId，避免割裂。
@@ -1283,6 +1288,15 @@ function renderBlocksWithGroups(
     // 纯 status 块（无 tool_call）直接渲染，不包装为 "工具执行" 组
     if (!hasToolCall) {
       for (const tb of toolBlocks) {
+        // 上下文水位：收缩为紧凑标签（结构化标记 block.status === "watermark"，
+        // 旧数据无标记时回退内容匹配），完整详情在右侧「会话日志」面板
+        if (
+          tb.type === "status" &&
+          (tb.status === "watermark" || /^上下文水位/.test(tb.content))
+        ) {
+          result.push(<WatermarkTag key={tb.id} content={tb.content} />);
+          continue;
+        }
         result.push(
           <BlockRenderer
             key={tb.id}
@@ -1320,12 +1334,26 @@ function renderBlocksWithGroups(
       continue;
     }
 
-    result.push(
-      <ToolExecutionGroup
-        key={`tool-group-${firstBlockId || groupKey || i}`}
-        blocks={toolBlocks}
-      />,
+    // 审批等待组：保留完整交互（琥珀徽标 + 审批操作），走 ToolExecutionGroup
+    const hasPendingApproval = toolBlocks.some(
+      (b) => b.type === "tool_call" && b.toolCall?.pendingApproval,
     );
+    if (hasPendingApproval) {
+      result.push(
+        <ToolExecutionGroup
+          key={`tool-group-${firstBlockId || groupKey || i}`}
+          blocks={toolBlocks}
+        />,
+      );
+    } else {
+      // 普通工具组：降级为行内小标签（P2），详细过程移右侧「会话日志」面板
+      result.push(
+        <ToolInlineTags
+          key={`tool-tags-${firstBlockId || groupKey || i}`}
+          blocks={toolBlocks}
+        />,
+      );
+    }
   }
 
   return result;

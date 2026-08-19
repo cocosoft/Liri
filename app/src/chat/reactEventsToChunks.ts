@@ -87,6 +87,11 @@ export function reactEventsToChunks(
             name: event.result.name,
             arguments: {},
             status: event.result.status === 'error' ? 'failed' : 'completed',
+            // 失败原因直接挂到 toolCall，前端日志面板可精确展示（不再只靠 status block）
+            error:
+              event.result.status === 'error'
+                ? (event.result.error ?? '工具执行失败')
+                : undefined,
             result:
               event.result.output !== undefined
                 ? { success: true, data: event.result.output }

@@ -42,11 +42,30 @@ const TRUNCATE_KEEP_HEAD_RATIO = 0.6;
  * SnipEngine 按轮次裁剪，若"单条超长消息"（如巨大 tool_result、超长 system prompt）
  * 本身就是窗口膨胀主因，轮次裁剪无法降体积（只有一轮）→ Tier2 无效 → 依赖 Tier3。
  * 此处对超长消息内容做头尾截断，纯同步零 LLM，与 C5 截断兜底互补。
+ *
+ * BUG-FIX（2026-08-19 per-message 截断）：**跳过当前用户输入**（最后一条 user 消息）。
+ * 原实现对全部消息截断，会把用户最新提问的中间部分裁掉：
+ * ① 发送路径 compact(apiMessages) 中 LLM 看不到提问完整内容（关键上下文丢失）；
+ * ② 后台 compactSessionInBackground 把截断结果写回 session.messages，原始提问
+ *    内容被截断覆盖。
+ * 截断仅适用于历史消息（tool_result / system / 旧轮次），与设计意图
+ * （"防单条巨大 tool_result/system 消息撑爆窗口"）一致。
  */
 function truncateOverlongMessages(messages: ChatMessage[]): ChatMessage[] {
-  return messages.map((msg) => {
+  // 定位最后一条 user 消息索引（当前用户输入，禁止截断）
+  let lastUserIdx = -1;
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i].role === 'user') {
+      lastUserIdx = i;
+      break;
+    }
+  }
+
+  return messages.map((msg, idx) => {
     const content = typeof msg.content === 'string' ? msg.content : null;
     if (!content || content.length <= MAX_MESSAGE_CHARS) return msg;
+    // BUG-FIX：当前用户输入不截断（LLM 需看完整提问，且避免写回会话时原始内容丢失）
+    if (idx === lastUserIdx) return msg;
     const keepHead = Math.floor(MAX_MESSAGE_CHARS * TRUNCATE_KEEP_HEAD_RATIO);
     const keepTail = MAX_MESSAGE_CHARS - keepHead;
     const truncated =

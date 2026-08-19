@@ -41,6 +41,12 @@ const TASK_TOOL_PARAMS: ToolParam[] = [
   },
 ];
 
+/**
+ * 单次 create_task_list 调用允许创建的最大任务数。
+ * 防止模型批量幻觉一次性输出大量（如 43 个）空参数 tool_call 造成任务爆炸。
+ */
+export const MAX_TASKS_PER_CALL = 20;
+
 export class TaskCreateListTool implements Tool {
   name = 'create_task_list';
   description =
@@ -98,13 +104,47 @@ export class TaskCreateListTool implements Tool {
       });
     }
 
+    // 空参数校验：过滤掉 description 缺失/非字符串/空白的无效项
+    const validTasks = tasks.filter(
+      (t): t is { description: string; metadata?: Record<string, unknown> } =>
+        !!t &&
+        typeof t.description === 'string' &&
+        t.description.trim().length > 0
+    );
+    const skippedCount = tasks.length - validTasks.length;
+
+    if (validTasks.length === 0) {
+      return createToolResult(null, {
+        newMessages: [
+          {
+            role: 'system',
+            content:
+              'Error: all task descriptions are empty. Each task must have a non-empty description string.',
+          },
+        ],
+      });
+    }
+
+    // 单次调用数量限制：防止模型批量幻觉一次性创建过多任务
+    if (validTasks.length > MAX_TASKS_PER_CALL) {
+      return createToolResult(null, {
+        newMessages: [
+          {
+            role: 'system',
+            content: `Error: too many tasks in one call (${validTasks.length}). Max ${MAX_TASKS_PER_CALL} tasks per call. Please create them in smaller batches.`,
+          },
+        ],
+      });
+    }
+
     const created: Array<{ id: string; description: string }> = [];
-    for (const t of tasks) {
-      const note = taskRegistry.registerNoteTask(t.description);
+    for (const t of validTasks) {
+      const description = t.description.trim();
+      const note = taskRegistry.registerNoteTask(description);
       if (t.metadata) {
         note.setMetadata(t.metadata);
       }
-      created.push({ id: note.id, description: t.description });
+      created.push({ id: note.id, description });
     }
 
     const stats = taskRegistry.getTaskStats();
@@ -113,13 +153,16 @@ export class TaskCreateListTool implements Tool {
       ...created.map((c) => `  - [${c.id}] ${c.description}`),
       '',
       `Stats: ${stats.total} total, ${stats.pending} pending`,
+      ...(skippedCount > 0
+        ? [`Note: ${skippedCount} invalid empty task(s) were skipped`]
+        : []),
     ].join('\n');
 
     return createToolResult(output, {
       newMessages: [
         {
           role: 'system',
-          content: `Created ${created.length} tasks`,
+          content: `Created ${created.length} tasks${skippedCount > 0 ? ` (skipped ${skippedCount} empty)` : ''}`,
         },
       ],
     });

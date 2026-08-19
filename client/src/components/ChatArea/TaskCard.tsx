@@ -66,131 +66,158 @@ export default function TaskCard({ data }: TaskCardProps) {
   const completed = tasks.filter((t) => t.status === "completed").length;
   const failed = tasks.filter((t) => t.status === "failed").length;
   const hasDependencies = tasks.some((t) => t.dependsOn.length > 0);
+  const [expanded, setExpanded] = useState(false);
   const [showDAG, setShowDAG] = useState(false);
   const [showFullDAG, setShowFullDAG] = useState(false);
 
   return (
-    <div className="my-2 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 overflow-hidden shadow-sm">
-      {/* 卡片标题栏 */}
-      <div className="px-3 py-2 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+    <div
+      className={`my-2 rounded-xl bg-white dark:bg-gray-800 overflow-hidden border ${
+        expanded
+          ? "border-gray-200 dark:border-gray-700 shadow-sm"
+          : "border-gray-200/70 dark:border-gray-700/70"
+      }`}
+    >
+      {/* 卡片标题栏（兼作展开/收起开关，默认折叠为一行摘要） */}
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className={`w-full px-3 flex items-center justify-between text-left cursor-pointer transition-colors hover:bg-gray-50 dark:hover:bg-gray-700/50 ${
+          expanded
+            ? "py-2 border-b border-gray-100 dark:border-gray-700"
+            : "py-1.5"
+        }`}
+      >
         <div className="flex items-center gap-1.5 min-w-0">
           <span className="text-sm flex-shrink-0">📋</span>
           <span className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
             任务分解：{title}
           </span>
         </div>
-        {isAllCompleted && (
-          <span className="text-xs px-2 py-0.5 bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-full flex-shrink-0">
-            全部完成
-          </span>
-        )}
-        {status === "done" && !isAllCompleted && (
-          <span className="text-xs px-2 py-0.5 bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 rounded-full flex-shrink-0">
-            已结束{failed > 0 ? `（${failed} 失败）` : ""}
-          </span>
-        )}
-        {isExecuting && (
-          <span className="text-xs px-2 py-0.5 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded-full flex-shrink-0">
-            {completed}/{total} 完成{failed > 0 ? `, ${failed} 失败` : ""}
-          </span>
-        )}
-      </div>
-
-      {/* 任务列表 */}
-      <div className="px-3 py-1.5 space-y-1">
-        {tasks.map((task, index) => {
-          const cfg = STATUS_CONFIG[task.status] || STATUS_CONFIG.pending;
-          const deps = renderDepends(task.dependsOn, tasks);
-
-          return (
-            <div
-              key={task.id}
-              className={`flex items-center gap-1.5 py-1 px-1.5 rounded-lg transition-colors ${
-                task.status === "in_progress"
-                  ? "bg-blue-50 dark:bg-blue-900/20"
-                  : task.status === "completed"
-                    ? "bg-green-50/50 dark:bg-green-900/10"
-                    : task.status === "failed"
-                      ? "bg-red-50/50 dark:bg-red-900/10"
-                      : ""
-              }`}
-            >
-              {/* 序号 + 状态图标 */}
-              <span className="text-xs text-gray-400 dark:text-gray-500 w-3 flex-shrink-0 text-right">
-                {index + 1}.
-              </span>
-              <span className={`text-xs flex-shrink-0 ${cfg.color}`}>
-                {cfg.icon}
-              </span>
-
-              {/* 任务名称 */}
-              <span className="text-xs text-gray-700 dark:text-gray-300 truncate flex-1 min-w-0">
-                {task.name}
-              </span>
-
-              {/* 状态标签或被阻塞的原因 */}
-              {task.status === "blocked" && deps ? (
-                <span className="text-xs text-orange-500 dark:text-orange-400 truncate flex-shrink-0 max-w-[160px]">
-                  {deps}
-                </span>
-              ) : task.status === "in_progress" ? (
-                <span className="text-xs text-blue-500 dark:text-blue-400 flex-shrink-0">
-                  {cfg.label}
-                </span>
-              ) : task.durationMs !== undefined ? (
-                <span className="text-xs text-gray-400 dark:text-gray-500 flex-shrink-0">
-                  {formatDuration(task.durationMs)}
-                </span>
-              ) : (
-                <span className={`text-xs ${cfg.color} flex-shrink-0`}>
-                  {cfg.label}
-                </span>
-              )}
-
-              {/* 结果指示 */}
-              {task.status === "completed" && task.result && (
-                <span className="text-xs text-gray-400 dark:text-gray-500 truncate flex-shrink-0 max-w-[120px]">
-                  {task.result}
-                </span>
-              )}
-            </div>
-          );
-        })}
-      </div>
-
-      {/* DAG 依赖图（有依赖关系时展示） */}
-      {hasDependencies && (
-        <div className="border-t border-gray-100 dark:border-gray-700">
-          <button
-            onClick={() => setShowDAG(!showDAG)}
-            className="w-full px-3 py-1 text-xs text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors flex items-center gap-1 justify-center"
-          >
-            <span>{showDAG ? "▲" : "▼"}</span>
-            <span>
-              查看依赖关系图 (
-              {tasks.filter((t) => t.dependsOn.length > 0).length} 个节点,{" "}
-              {tasks.reduce((sum, t) => sum + t.dependsOn.length, 0)} 条边)
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {isAllCompleted && (
+            <span className="text-xs px-2 py-0.5 bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-full">
+              全部完成
             </span>
-          </button>
-          {showDAG && (
-            <div className="px-2 pb-2">
-              <DAGMiniMap
-                tasks={tasks}
-                height={200}
-                onExpand={() => setShowFullDAG(true)}
-              />
+          )}
+          {status === "done" && !isAllCompleted && (
+            <span className="text-xs px-2 py-0.5 bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 rounded-full">
+              已结束{failed > 0 ? `（${failed} 失败）` : ""}
+            </span>
+          )}
+          {isExecuting && (
+            <span className="text-xs px-2 py-0.5 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded-full">
+              {completed}/{total} 完成{failed > 0 ? `, ${failed} 失败` : ""}
+            </span>
+          )}
+          <span
+            className={`text-xs text-gray-400 dark:text-gray-500 transition-transform duration-200 ${
+              expanded ? "rotate-180" : ""
+            }`}
+          >
+            ▼
+          </span>
+        </div>
+      </button>
+
+      {/* 展开后：任务列表 + DAG 依赖图 */}
+      {expanded && (
+        <>
+          <div className="px-3 py-1.5 space-y-1">
+            {tasks.map((task, index) => {
+              const cfg = STATUS_CONFIG[task.status] || STATUS_CONFIG.pending;
+              const deps = renderDepends(task.dependsOn, tasks);
+
+              return (
+                <div
+                  key={task.id}
+                  className={`flex items-center gap-1.5 py-1 px-1.5 rounded-lg transition-colors ${
+                    task.status === "in_progress"
+                      ? "bg-blue-50 dark:bg-blue-900/20"
+                      : task.status === "completed"
+                        ? "bg-green-50/50 dark:bg-green-900/10"
+                        : task.status === "failed"
+                          ? "bg-red-50/50 dark:bg-red-900/10"
+                          : ""
+                  }`}
+                >
+                  {/* 序号 + 状态图标 */}
+                  <span className="text-xs text-gray-400 dark:text-gray-500 w-3 flex-shrink-0 text-right">
+                    {index + 1}.
+                  </span>
+                  <span className={`text-xs flex-shrink-0 ${cfg.color}`}>
+                    {cfg.icon}
+                  </span>
+
+                  {/* 任务名称 */}
+                  <span className="text-xs text-gray-700 dark:text-gray-300 truncate flex-1 min-w-0">
+                    {task.name}
+                  </span>
+
+                  {/* 状态标签或被阻塞的原因 */}
+                  {task.status === "blocked" && deps ? (
+                    <span className="text-xs text-orange-500 dark:text-orange-400 truncate flex-shrink-0 max-w-[160px]">
+                      {deps}
+                    </span>
+                  ) : task.status === "in_progress" ? (
+                    <span className="text-xs text-blue-500 dark:text-blue-400 flex-shrink-0">
+                      {cfg.label}
+                    </span>
+                  ) : task.durationMs !== undefined ? (
+                    <span className="text-xs text-gray-400 dark:text-gray-500 flex-shrink-0">
+                      {formatDuration(task.durationMs)}
+                    </span>
+                  ) : (
+                    <span className={`text-xs ${cfg.color} flex-shrink-0`}>
+                      {cfg.label}
+                    </span>
+                  )}
+
+                  {/* 结果指示 */}
+                  {task.status === "completed" && task.result && (
+                    <span className="text-xs text-gray-400 dark:text-gray-500 truncate flex-shrink-0 max-w-[120px]">
+                      {task.result}
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* DAG 依赖图（有依赖关系时展示） */}
+          {hasDependencies && (
+            <div className="border-t border-gray-100 dark:border-gray-700">
+              <button
+                onClick={() => setShowDAG(!showDAG)}
+                className="w-full px-3 py-1 text-xs text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors flex items-center gap-1 justify-center"
+              >
+                <span>{showDAG ? "▲" : "▼"}</span>
+                <span>
+                  查看依赖关系图 (
+                  {tasks.filter((t) => t.dependsOn.length > 0).length} 个节点,{" "}
+                  {tasks.reduce((sum, t) => sum + t.dependsOn.length, 0)} 条边)
+                </span>
+              </button>
+              {showDAG && (
+                <div className="px-2 pb-2">
+                  <DAGMiniMap
+                    tasks={tasks}
+                    height={200}
+                    onExpand={() => setShowFullDAG(true)}
+                  />
+                </div>
+              )}
             </div>
           )}
-        </div>
-      )}
 
-      {/* 全屏 DAG 弹窗 */}
-      {showFullDAG && (
-        <DAGFullScreen
-          tasks={tasks}
-          title={title}
-          onClose={() => setShowFullDAG(false)}
-        />
+          {/* 全屏 DAG 弹窗 */}
+          {showFullDAG && (
+            <DAGFullScreen
+              tasks={tasks}
+              title={title}
+              onClose={() => setShowFullDAG(false)}
+            />
+          )}
+        </>
       )}
     </div>
   );

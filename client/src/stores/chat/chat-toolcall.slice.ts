@@ -135,7 +135,7 @@ export class ChronologicalBlockBuilder {
    *  利用 SSE 协议的 statusType 字段进行结构化过滤（CS02），
    *  仅当 statusType 缺失时才回退到字符串匹配（兼容旧后端）。
    */
-  addStatus(status: string, statusType?: string): void {
+  addStatus(status: string, statusType?: string, phase?: string): void {
     // 结构化过滤 (CS02) — 新 SSE 协议路径
     if (statusType) {
       // 瞬态/冗余状态类型 → 丢弃
@@ -155,6 +155,8 @@ export class ChronologicalBlockBuilder {
         id: generateBlockId(),
         type: "status",
         content: status,
+        status: statusType, // CS02：结构化标记持久化，渲染层按 block.status 判断状态类型（如 watermark）
+        phase: (phase as "compacting" | "done") ?? undefined, // 压缩状态阶段（compacting/done）
         isStreaming: true,
         toolCallId: this.currentToolCallId ?? undefined,
         groupId: this.currentGroupId,
@@ -245,6 +247,8 @@ export class ChronologicalBlockBuilder {
           arguments: mergedArgs,
           status: toolCall.status || ("completed" as const),
           result: toolCall.result || existingResult,
+          // 失败原因保留：tool_end 失败块携带 error，避免被后续 chunk 覆盖丢失
+          error: toolCall.error || existing.toolCall?.error,
           // P2-2: 审批等待信号可能先于 tool_call 块到达（tool_completed → pendingResults）
           pendingApproval:
             existing.toolCall?.pendingApproval ||

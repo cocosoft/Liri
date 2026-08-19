@@ -37,6 +37,7 @@ import {
   repairImageUrls,
   TOOL_RESULT_MAX_LENGTH,
   truncateToolResult,
+  isEmptyAssistantWithoutToolCalls,
 } from '../services/ChatHelper';
 import {
   ensureThinkResponseTags,
@@ -87,8 +88,13 @@ export function prepareApiMessages(
   const messages = session.messages;
 
   // §5.3: 排除 isTaskMessage 消息
+  // 空正文且无 tool_calls 的 assistant 消息也跳过（工具循环中间空消息，避免污染上下文）
   let apiMessages = messages
-    .filter((msg) => msg.metadata?.isTaskMessage !== true)
+    .filter(
+      (msg) =>
+        msg.metadata?.isTaskMessage !== true &&
+        !isEmptyAssistantWithoutToolCalls(msg)
+    )
     .map((msg) => {
       let content =
         typeof msg.content === 'string'

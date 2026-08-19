@@ -310,11 +310,17 @@ export class PlanDrivenLoop {
     // S0 冻结（2026-08-13）：上限以 TaskDecomposer.MAX_SUBTASKS 为唯一事实来源
     const subtasks = decomposition.subTasks.slice(0, MAX_SUBTASKS);
 
-    // 创建 Plan 并持久化
+    // 创建 Plan 并持久化（workspaceId 从会话解析，用于项目编排面板隔离）
+    const workspaceId = await taskOrchestrator.resolveWorkspaceId(
+      this.sessionId
+    );
     this.plan = taskOrchestrator.createPlan(
       userMessage.slice(0, 200),
       subtasks.map((t) => t.description),
-      this.sessionId
+      this.sessionId,
+      undefined,
+      undefined,
+      workspaceId
     );
 
     logger.info('PlanDrivenLoop 开始执行', {

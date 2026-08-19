@@ -39,8 +39,6 @@ export { SettingsPanel, createSettingsPanel } from './SettingsPanel';
 export type { SettingsPanelProps } from './SettingsPanel';
 
 export { AppearanceSettings } from './settings/AppearanceSettings';
-export { AISettings } from './settings/AISettings';
-export { AgentSettings } from './settings/AgentSettings';
 export { FeatureSettings } from './settings/FeatureSettings';
 export { ChannelSettings } from './settings/ChannelSettings';
 export { CompanionSettings } from './settings/CompanionSettings';

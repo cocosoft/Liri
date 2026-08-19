@@ -82,6 +82,8 @@ export interface Plan {
   createdAt: string;
   completedAt?: string;
   sessionId: string;
+  /** 所属工作空间（项目）ID，用于项目编排面板隔离；无项目归属时省略 */
+  workspaceId?: string;
 }
 
 export interface PlanProgress {
@@ -108,6 +110,17 @@ export class TaskOrchestrator {
   private stepIndex: Map<string, Plan> = new Map();
   /** 进度事件节流：记录每个 plan 上次发射时间，防止事件风暴 */
   private lastProgressEmit: Map<string, number> = new Map();
+  /** 计划持久化目录，默认用户数据目录；测试可通过 setPlansDir 指向临时目录避免污染 */
+  private plansDir: string = PLANS_DIR;
+
+  /**
+   * 覆盖计划持久化目录（测试隔离用）
+   * 将计划写入指向临时目录，避免自动化测试污染用户数据。
+   * 生产代码不调用。
+   */
+  setPlansDir(dir: string): void {
+    this.plansDir = dir;
+  }
 
   /**
    * 从磁盘加载已持久化的计划
@@ -116,15 +129,15 @@ export class TaskOrchestrator {
     if (this.initialized) return;
     this.initialized = true;
 
-    if (!existsSync(PLANS_DIR)) {
-      mkdirSync(PLANS_DIR, { recursive: true });
+    if (!existsSync(this.plansDir)) {
+      mkdirSync(this.plansDir, { recursive: true });
       return;
     }
 
     const { readdir } = await import('fs/promises');
     let files: string[];
     try {
-      files = await readdir(PLANS_DIR);
+      files = await readdir(this.plansDir);
     } catch (e) {
       await handleError(e, {
         module: 'tasks:TaskOrchestrator',
@@ -135,7 +148,7 @@ export class TaskOrchestrator {
 
     for (const file of files) {
       if (!file.endsWith('.json')) continue;
-      const filePath = join(PLANS_DIR, file);
+      const filePath = join(this.plansDir, file);
       try {
         const data = readFileSync(filePath, 'utf-8');
         const plan = JSON.parse(data) as Plan;
@@ -153,7 +166,7 @@ export class TaskOrchestrator {
   }
 
   private getPlanFilePath(planId: string): string {
-    return join(PLANS_DIR, `plan_${planId}.json`);
+    return join(this.plansDir, `plan_${planId}.json`);
   }
 
   /** 构建 stepId → Plan 索引 */
@@ -169,8 +182,8 @@ export class TaskOrchestrator {
   }
 
   private savePlan(plan: Plan): void {
-    if (!existsSync(PLANS_DIR)) {
-      mkdirSync(PLANS_DIR, { recursive: true });
+    if (!existsSync(this.plansDir)) {
+      mkdirSync(this.plansDir, { recursive: true });
     }
     const filePath = this.getPlanFilePath(plan.id);
     const tmpPath = filePath + '.tmp';
@@ -213,6 +226,7 @@ export class TaskOrchestrator {
    * @param sessionId 会话 ID
    * @param existingTaskIds 可选：已有任务 ID 列表（当任务已被 create_task_list 工具注册时使用）
    * @param acceptanceCriteria 可选：每步的验收标准列表
+   * @param workspaceId 可选：所属工作空间（项目）ID，用于项目编排面板隔离
    * @returns 创建的 Plan 对象
    */
   createPlan(
@@ -220,7 +234,8 @@ export class TaskOrchestrator {
     stepDescriptions: string[],
     sessionId: string,
     existingTaskIds?: string[],
-    acceptanceCriteria?: string[]
+    acceptanceCriteria?: string[],
+    workspaceId?: string
   ): Plan {
     void this.initialize();
 
@@ -255,6 +270,7 @@ export class TaskOrchestrator {
       status: 'pending',
       createdAt: new Date().toISOString(),
       sessionId,
+      workspaceId,
     };
 
     this.plans.set(planId, plan);
@@ -283,6 +299,36 @@ export class TaskOrchestrator {
    */
   getAllPlans(): Plan[] {
     return Array.from(this.plans.values());
+  }
+
+  /**
+   * 获取指定工作空间（项目）下的计划
+   */
+  getPlansByWorkspace(workspaceId: string): Plan[] {
+    return Array.from(this.plans.values()).filter(
+      (p) => p.workspaceId === workspaceId
+    );
+  }
+
+  /**
+   * 通过会话 ID 解析所属工作空间（项目）ID
+   * 从会话 metadata.workspaceId 读取；会话不存在或未关联项目时返回 undefined
+   */
+  async resolveWorkspaceId(sessionId: string): Promise<string | undefined> {
+    if (!sessionId) return undefined;
+    try {
+      const { createSessionGateway } =
+        await import('@modules/session/SessionGateway');
+      const session = await createSessionGateway().getSession(sessionId);
+      return session?.metadata?.workspaceId;
+    } catch (err) {
+      void handleError(err, {
+        module: 'tasks:TaskOrchestrator',
+        action: 'resolveWorkspaceId',
+        context: { sessionId },
+      });
+      return undefined;
+    }
   }
 
   /**

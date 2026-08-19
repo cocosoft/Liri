@@ -50,6 +50,8 @@ export interface DAGData {
 export interface CreatePlanInput {
   goal: string;
   steps?: string[];
+  /** 所属工作空间（项目）ID，用于项目编排面板隔离 */
+  workspaceId?: string;
 }
 
 /** 计划列表 API 响应（可能直接返回数组，或包裹在 data 字段中） */
@@ -58,9 +60,12 @@ interface PlanListResponse {
 }
 
 export const planService = {
-  /** 获取所有计划 */
-  list: async (): Promise<Plan[]> => {
-    const res = await http.get<Plan[] | PlanListResponse>("/v1/plans");
+  /** 获取计划列表；传入 workspaceId 时按项目过滤 */
+  list: async (workspaceId?: string): Promise<Plan[]> => {
+    const res = await http.get<Plan[] | PlanListResponse>(
+      "/v1/plans",
+      workspaceId ? { params: { workspaceId } } : undefined,
+    );
     if (Array.isArray(res)) return res;
     if (res && Array.isArray(res.data)) return res.data;
     return [];

@@ -12,6 +12,7 @@ import { handleClientError } from "../utils/handleError";
 import {
   readWithIdleTimeout,
   STREAM_IDLE_TIMEOUT_MS,
+  FIRST_CHUNK_TIMEOUT_MS,
 } from "../utils/readWithIdleTimeout";
 import { getOTelTracing } from "../monitoring/otel";
 import { staleSessionCache } from "../stores/chat/chat-history.slice";
@@ -1017,13 +1018,17 @@ export const chatService = {
         }
 
         const pendingData: string[] = [];
+        // 首块区分（2026-08-19）：首 chunk 用 120s 超时对齐后端首块等待，
+        // 避免智谱 GLM 等思考型模型长 TTFB / 后端上下文预处理耗时被误判为断连
+        let isFirstChunk = true;
         while (true) {
           // 无数据超时兜底（对齐后端 60s idle）：SSE 流中断时不永久挂起
           const { done, value } = await readWithIdleTimeout(
             reader,
-            STREAM_IDLE_TIMEOUT_MS,
+            isFirstChunk ? FIRST_CHUNK_TIMEOUT_MS : STREAM_IDLE_TIMEOUT_MS,
           );
           if (done) break;
+          isFirstChunk = false;
 
           buffer += decoder.decode(value, { stream: true });
           const lines = buffer.split("\n");
@@ -1258,12 +1263,18 @@ export const chatService = {
             checkpointId,
             retryCount,
           });
+          // 首块区分（2026-08-19）：恢复路径同样用 120s 首块超时，
+          // 后端重建状态可能耗时较长，避免误判断连
+          let resumeFirstChunk = true;
           while (true) {
             const { done, value } = await readWithIdleTimeout(
               reader,
-              STREAM_IDLE_TIMEOUT_MS,
+              resumeFirstChunk
+                ? FIRST_CHUNK_TIMEOUT_MS
+                : STREAM_IDLE_TIMEOUT_MS,
             );
             if (done) break;
+            resumeFirstChunk = false;
             buffer += decoder.decode(value, { stream: true });
             const lines = buffer.split("\n");
             buffer = lines.pop() || "";

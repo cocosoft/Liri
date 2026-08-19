@@ -575,7 +575,7 @@ export class ReActToolLoop extends ReActLoop<
     this.ctx.unifiedTracker.resetStreamTokens();
     const model = this.ctx.options?.model as string | undefined;
     if (model) {
-      this.ctx.unifiedTracker.updateBaselineForRound(
+      await this.ctx.unifiedTracker.updateBaselineForRound(
         this.loopState.messages as unknown as Record<string, unknown>[],
         model
       );

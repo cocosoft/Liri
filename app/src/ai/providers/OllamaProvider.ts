@@ -27,11 +27,18 @@ const DEFAULT_BASE_URL = 'http://localhost:11434';
 
 export class OllamaProvider extends BaseAIProvider {
   private baseUrl: string;
-  private timeout: number;
   private cachedModels: string[] | null = null;
   /** 模型列表缓存时间戳（TTL 过期后重新拉取，避免 pull/删除模型后列表永不刷新） */
   private cachedModelsAt = 0;
   private static readonly MODELS_TTL_MS = 30_000;
+  /**
+   * 已确认不支持工具调用的模型（内存缓存，带 TTL）：此类模型发送 tools 必返回
+   * 400 "does not support tools"，命中后直接剥掉 tools 请求，避免每次先失败一次再回退。
+   * 值=加入时间戳，TTL 过期后重新探测（模型 pull 更新后能力可能变化）。
+   */
+  private noToolSupportModels = new Map<string, number>();
+  /** 工具不支持缓存有效期（对齐 LlamaCppProvider 的 TOOL_SUPPORT_CACHE_TTL_MS） */
+  private static readonly TOOL_SUPPORT_CACHE_TTL_MS = 60_000;
 
   /**
    * 初始化 Ollama Provider。
@@ -50,7 +57,6 @@ export class OllamaProvider extends BaseAIProvider {
       /\/+$/,
       ''
     );
-    this.timeout = parseInt(configManager.env('OLLAMA_TIMEOUT') || '30000', 10);
 
     if (!this.transport) {
       this.transport = new TransportProviderAdapter(new OllamaTransport());
@@ -72,6 +78,55 @@ export class OllamaProvider extends BaseAIProvider {
     );
   }
 
+  /** 判定 Ollama 400 错误体是否因模型不支持工具调用（"does not support tools"） */
+  private isToolUnsupportedError(status: number, body: string): boolean {
+    return status === 400 && /does not support tools/i.test(body);
+  }
+
+  /**
+   * 本地推理超时（毫秒）。
+   * 15GB CPU 模型首 token 需数秒~数十秒（warm 后 6.5s，长上下文更久），
+   * 原默认 30s（流式 60s）在冷启动/长上下文下会误超时（对齐 LlamaCppProvider 的 600s）。
+   * 优先沿用 OLLAMA_TIMEOUT，其次 AI_MODEL_TIMEOUT_MS，默认 600s（10 分钟）。
+   */
+  protected resolveRequestTimeoutMs(): number {
+    const raw =
+      configManager.env('OLLAMA_TIMEOUT') ??
+      configManager.env('AI_MODEL_TIMEOUT_MS');
+    const parsed = raw ? Number(raw) : NaN;
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 600_000;
+  }
+
+  /** 缓存中是否标记该模型不支持工具调用（TTL 内有效） */
+  private isToolUnsupportedCached(model: string): boolean {
+    const addedAt = this.noToolSupportModels.get(model);
+    if (addedAt === undefined) return false;
+    if (Date.now() - addedAt >= OllamaProvider.TOOL_SUPPORT_CACHE_TTL_MS) {
+      this.noToolSupportModels.delete(model);
+      return false;
+    }
+    return true;
+  }
+
+  /** 记录模型不支持工具调用（TTL 过期后自动失效） */
+  private markToolUnsupported(model: string): void {
+    this.noToolSupportModels.set(model, Date.now());
+  }
+
+  /**
+   * 裁剪不支持工具调用的模型：命中缓存后返回 undefined（请求不带 tools）。
+   * 未命中缓存或未传 tools 时原样透传。
+   */
+  private stripUnsupportedTools(
+    model: string,
+    tools?: ToolDefinition[]
+  ): ToolDefinition[] | undefined {
+    if (tools && this.isToolUnsupportedCached(model)) {
+      return undefined;
+    }
+    return tools;
+  }
+
   private async chatInternal(
     messages: ChatMessage[],
     options?: {
@@ -84,11 +139,12 @@ export class OllamaProvider extends BaseAIProvider {
     const model = await this.resolveModel('chat', options);
     const temperature = options?.temperature ?? 0.7;
     const maxTokens = options?.maxTokens || 2048;
+    const tools = this.stripUnsupportedTools(model, options?.tools);
 
     const requestBody = this.transport!.buildRequest({
       model,
       messages,
-      tools: options?.tools,
+      tools,
       maxTokens,
       temperature,
       stream: false,
@@ -99,12 +155,23 @@ export class OllamaProvider extends BaseAIProvider {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(requestBody),
-        signal: AbortSignal.timeout(this.timeout),
+        signal: AbortSignal.timeout(this.resolveRequestTimeoutMs()),
       });
 
       if (!response.ok) {
+        const errorBody = await response.text();
+        // 模型不支持工具调用（400 "does not support tools"）：记录并降级为无 tools 重试一次
+        if (tools && this.isToolUnsupportedError(response.status, errorBody)) {
+          this.markToolUnsupported(model);
+          logger.warn('Ollama 模型不支持工具调用，回退为无 tools 请求', {
+            model,
+            error: errorBody.slice(0, 200),
+          });
+          return this.chatInternal(messages, { ...options, tools: undefined });
+        }
+        // 读取 body 暴露真实错误（原实现仅 statusText，掩盖 "does not support tools" 等详情）
         throw new AppError(
-          `Ollama chat failed (${response.status}): ${response.statusText}`,
+          `Ollama chat failed (${response.status}): ${errorBody || response.statusText}`,
           ErrorCategory.EXECUTION,
           ErrorSeverity.HIGH,
           '1000'
@@ -154,12 +221,13 @@ export class OllamaProvider extends BaseAIProvider {
     const model = await this.resolveModel('chat', options);
     const temperature = options?.temperature ?? 0.7;
     const maxTokens = options?.maxTokens || 2048;
+    const tools = this.stripUnsupportedTools(model, options?.tools);
 
     // Y1 修复: 传递 tools 到请求体
     const requestBody = this.transport!.buildRequest({
       model,
       messages,
-      tools: options?.tools,
+      tools,
       maxTokens,
       temperature,
       stream: true,
@@ -172,13 +240,27 @@ export class OllamaProvider extends BaseAIProvider {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(requestBody),
-          signal: AbortSignal.timeout(this.timeout * 2),
+          signal: AbortSignal.timeout(this.resolveRequestTimeoutMs()),
         }
       );
 
       if (!response.ok) {
+        const errorBody = await response.text();
+        // 模型不支持工具调用（400 "does not support tools"）：记录并降级为无 tools 重试一次
+        if (tools && this.isToolUnsupportedError(response.status, errorBody)) {
+          this.markToolUnsupported(model);
+          logger.warn('Ollama 模型不支持工具调用，回退为无 tools 流式请求', {
+            model,
+            error: errorBody.slice(0, 200),
+          });
+          return yield* this.chatStreamInternal(messages, {
+            ...options,
+            tools: undefined,
+          });
+        }
+        // 读取 body 暴露真实错误（原实现仅 statusText，掩盖 "does not support tools" 等详情）
         throw new AppError(
-          `Ollama stream failed (${response.status}): ${response.statusText}`,
+          `Ollama stream failed (${response.status}): ${errorBody || response.statusText}`,
           ErrorCategory.EXECUTION,
           ErrorSeverity.HIGH,
           '1000'
@@ -319,6 +401,58 @@ export class OllamaProvider extends BaseAIProvider {
     }
   }
 
+  /**
+   * 静态探测模型能力（Ollama GET /api/show）：
+   *  - tool_use: 聊天模板含工具槽位（{{.Tools}}/{{.ToolCalls}}/tool_calls 关键字）
+   *    —— 实测 qwen3.6-27b 模板无工具槽位 → false，与实际 400 "does not support tools" 一致
+   *  - vision: projector_info 存在（多模态投影器存在即支持图像输入）
+   * 免费、毫秒级、不消耗推理资源；探测失败返回 unknown（不阻断）。
+   */
+  async probeCapabilities(model: string): Promise<{
+    tool_use: boolean | 'unknown';
+    vision: boolean | 'unknown';
+  }> {
+    try {
+      const response = await fetch(`${this.baseUrl}/api/show`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model }),
+        signal: AbortSignal.timeout(5000),
+      });
+      if (!response.ok) {
+        logger.debug('Ollama /api/show 探测失败', {
+          model,
+          status: response.status,
+        });
+        return { tool_use: 'unknown', vision: 'unknown' };
+      }
+      const data = (await response.json()) as {
+        template?: string;
+        projector_info?: unknown;
+      };
+      const template = data.template || '';
+      // 聊天模板含工具变量引用（{{.Tools}} / {{- if .Tools }} / {{.ToolCalls}}）
+      // 或 tool_calls 关键字即支持工具调用（工具调用能力由模板决定）
+      const toolUse = /\{\{[^}]*\.Tools?\b[^}]*\}\}|ToolCalls|tool_calls/i.test(
+        template
+      );
+      const vision =
+        data.projector_info !== undefined && data.projector_info !== null;
+      logger.info('Ollama /api/show 能力探测完成', {
+        model,
+        toolUse,
+        vision,
+      });
+      return { tool_use: toolUse, vision };
+    } catch (err) {
+      logger.debug('Ollama /api/show 探测异常，按 unknown 处理', {
+        model,
+        error: String(err),
+      });
+      return { tool_use: 'unknown', vision: 'unknown' };
+    }
+  }
+
   async generate(
     prompt: string,
     options?: {
@@ -353,7 +487,7 @@ export class OllamaProvider extends BaseAIProvider {
             num_predict: maxTokens,
           },
         }),
-        signal: AbortSignal.timeout(this.timeout),
+        signal: AbortSignal.timeout(this.resolveRequestTimeoutMs()),
       });
 
       if (!response.ok) {

@@ -50,10 +50,7 @@ export type {
   EditorMode,
   DiffTool,
   AIConfig,
-  OllamaConfig,
-  RoutingConfig,
   TokenEstimatorConfig,
-  LocalAgentConfig,
   ChannelsConfig,
   ChannelInboundConfig,
 } from './types.js';

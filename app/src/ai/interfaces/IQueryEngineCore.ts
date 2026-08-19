@@ -30,7 +30,7 @@ export interface QueryOptions {
 
 /**
  * 查询引擎核心接口
- * query/QueryEngine、ai/services/AIQueryEngine、ai/services/QueryEngineWrapper 均可实现此接口
+ * 查询引擎实现类均可实现此接口
  */
 export interface IQueryEngineCore {
   /**

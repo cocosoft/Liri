@@ -10,7 +10,6 @@ import { httpLegacy as http } from "../../services/httpClient";
 import AIConfigPanel from "../settings/AIConfigPanel";
 import AutoUpdatePanel from "../settings/AutoUpdatePanel";
 import FeatureFlagsPanel from "../settings/FeatureFlagsPanel";
-import LocalAgentPanel from "../settings/LocalAgentPanel";
 import LlamaConfigPanel from "../settings/LlamaConfigPanel";
 import NotificationsPanel from "../settings/NotificationsPanel";
 import TrustedWorkspacesPanel from "../settings/TrustedWorkspacesPanel";
@@ -743,76 +742,6 @@ function SettingsPage() {
                     })
                   }
                 />
-                <LocalAgentPanel
-                  isDark={isDark}
-                  collapsible
-                  localAgent={
-                    (() => {
-                      const raw = (config.ai as Record<string, unknown>)
-                        ?.localAgent as Record<string, unknown> | undefined;
-                      // 深合并默认值，确保 routing 不会因残缺的已存储数据而丢失
-                      return {
-                        enabled: false,
-                        routing: {
-                          strategy: "cloud-first" as const,
-                          fallbackToCloud: true,
-                        },
-                        ...(raw || {}),
-                      };
-                    })() as unknown as Parameters<
-                      typeof LocalAgentPanel
-                    >[0]["localAgent"]
-                  }
-                  ollama={
-                    ((
-                      (config.ai as Record<string, unknown>)
-                        ?.localAgent as Record<string, unknown>
-                    )?.ollama || {
-                      enabled: false,
-                      baseUrl: "http://localhost:11434",
-                      defaultModel: "llama3",
-                      timeout: 120000,
-                    }) as unknown as Parameters<
-                      typeof LocalAgentPanel
-                    >[0]["ollama"]
-                  }
-                  onUpdateLocalAgent={(u) =>
-                    setConfig("ai", {
-                      ...((config.ai as object) || {}),
-                      localAgent: {
-                        // 提供 routing 默认值，防止首次启用时 routing 为 undefined 导致崩溃
-                        routing: {
-                          strategy: "cloud-first" as const,
-                          fallbackToCloud: true,
-                        },
-                        ...(((config.ai as Record<string, unknown>)
-                          ?.localAgent as object) || {}),
-                        ...u,
-                      },
-                    })
-                  }
-                  onUpdateOllama={(u) =>
-                    setConfig("ai", {
-                      ...((config.ai as object) || {}),
-                      localAgent: {
-                        // 提供 routing 默认值，防止首次启用时 routing 为 undefined 导致崩溃
-                        routing: {
-                          strategy: "cloud-first" as const,
-                          fallbackToCloud: true,
-                        },
-                        ...(((config.ai as Record<string, unknown>)
-                          ?.localAgent as object) || {}),
-                        ollama: {
-                          ...(((
-                            (config.ai as Record<string, unknown>)
-                              ?.localAgent as Record<string, unknown>
-                          )?.ollama as object) || {}),
-                          ...u,
-                        },
-                      },
-                    })
-                  }
-                />
                 <AutoUpdatePanel
                   isDark={isDark}
                   collapsible
@@ -1070,7 +999,7 @@ function RouterConfigContent({
             <div className="text-gray-400">
               Judge 模型:{" "}
               <span className="text-gray-500">
-                使用 LocalAgent 本地模型判定
+                使用云端 Judge 模型判定（未配置时回退默认等级）
               </span>
             </div>
           </div>

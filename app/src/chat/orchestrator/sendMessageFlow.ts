@@ -388,7 +388,7 @@ export async function compactContext(
 
   // 校准：压缩后 checkBeforeRequest 设定 baselineInputTokens
   if (options?.model) {
-    host.unifiedTracker.checkBeforeRequest(
+    await host.unifiedTracker.checkBeforeRequest(
       ctx.apiMessages as unknown as {
         role?: string;
         content?: string | unknown;

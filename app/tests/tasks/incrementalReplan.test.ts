@@ -7,9 +7,15 @@
  * （基线 + 缺陷清单 → 仅修订受影响部分，不全盘重来）。
  */
 import { describe, it, expect } from 'bun:test';
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { LongRunningTaskOrchestrator } from '../../src/tasks/LongRunningTaskOrchestrator';
 import type { PlanReview } from '../../src/tasks/PlanReview';
 import { taskOrchestrator } from '../../src/tasks/TaskOrchestrator';
+
+// 隔离计划持久化目录：测试计划写入临时目录，避免污染用户数据（~/.pyapp/data/plans/）
+taskOrchestrator.setPlansDir(mkdtempSync(join(tmpdir(), 'plans-test-')));
 
 type EscalationRecord = {
   stepId: string;

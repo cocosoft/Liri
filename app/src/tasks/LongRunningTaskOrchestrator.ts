@@ -441,13 +441,15 @@ ${replanSection}
         });
       }
 
-      // 创建 Plan
+      // 创建 Plan（workspaceId 从会话解析，用于项目编排面板隔离）
+      const workspaceId = await taskOrchestrator.resolveWorkspaceId(sessionId);
       const plan = taskOrchestrator.createPlan(
         description,
         steps,
         sessionId,
         undefined,
-        acceptance
+        acceptance,
+        workspaceId
       );
 
       this.planId = plan.id;
@@ -1623,11 +1625,15 @@ ${replanSection}
       (ck.steps as Array<Record<string, unknown>> | undefined) ?? [];
     const phase = (ck.phase as string | undefined) ?? 'execute';
 
-    // 重建 Plan（新 taskId 由 taskOrchestrator 生成）
+    // 重建 Plan（新 taskId 由 taskOrchestrator 生成；workspaceId 从会话解析）
+    const workspaceId = await taskOrchestrator.resolveWorkspaceId(sessionId);
     const restored = taskOrchestrator.createPlan(
       (ck.description as string | undefined) ?? '恢复的 PDCA 任务',
       steps.map((s) => (s.description as string | undefined) ?? ''),
-      sessionId
+      sessionId,
+      undefined,
+      undefined,
+      workspaceId
     );
     // 回填步骤状态（executeAllSteps 会跳过 completed/failed/cancelled）
     steps.forEach((s, i) => {

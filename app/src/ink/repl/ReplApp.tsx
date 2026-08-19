@@ -360,7 +360,7 @@ export const ReplApp: React.FC<ReplAppProps> = ({ chatManager, onExit }) => {
                     'Judge 配置:',
                     routerConfig.judge
                       ? `  Provider: ${routerConfig.judge.provider} | 模型: ${routerConfig.judge.model} | 超时: ${routerConfig.judge.timeoutMs}ms`
-                      : '  （使用 LocalAgent 本地判定）',
+                      : '  （未配置 Judge，回退默认等级）',
                     '',
                     '回退链:',
                     (routerConfig.fallback?.length ?? 0) > 0

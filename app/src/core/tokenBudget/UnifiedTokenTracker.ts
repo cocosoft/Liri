@@ -10,8 +10,8 @@
 import type { ContextTracker } from '../../query/context/ContextTracker';
 import { extractUsage } from '../../ai/tokenizer/UsageExtractor';
 import {
-  tokenCountWithEstimation,
   estimateTokens,
+  estimateMessagesTokensCooperative,
 } from '../../ai/tokenizer/TokenEstimator';
 import { getCachedTiktokenEncoder } from '../../ai/tokenizer/TiktokenEstimator';
 import { resolveContextWindow } from '../../context/window/ContextWindowResolver';
@@ -146,15 +146,17 @@ export class UnifiedTokenTracker {
   // 请求前评估
   // ==========================================
 
-  /** 请求前评估：估算 input + output 是否超限 */
-  checkBeforeRequest(
+  /** 请求前评估：估算 input + output 是否超限（2026-08-19 改为异步协作式估算） */
+  async checkBeforeRequest(
     messages: readonly { role?: string; content?: string | unknown }[],
     model: string,
     maxOutputTokens?: number
-  ): CompactionDecision {
+  ): Promise<CompactionDecision> {
     try {
       this.currentModel = model;
-      this.baselineInputTokens = tokenCountWithEstimation(messages);
+      // 根因①修复：大列表同步估算阻塞事件循环，改用协作式分批估算
+      this.baselineInputTokens =
+        await estimateMessagesTokensCooperative(messages);
       // 计算消息总字符数（流式水位回退用，避免正反馈污染）
       this.totalMessageChars = messages.reduce(
         (sum, m) =>
@@ -225,12 +227,14 @@ export class UnifiedTokenTracker {
   }
 
   /** 更新 per-round baseline（工具执行后消息列表变化时调用） */
-  updateBaselineForRound(
+  async updateBaselineForRound(
     messages: readonly { role?: string; content?: string | unknown }[],
     model: string
-  ): void {
+  ): Promise<void> {
     this.currentModel = model;
-    this.baselineInputTokens = tokenCountWithEstimation(messages);
+    // 2026-08-19 根因①修复：工具轮间也改协作式估算，避免 mid-stream 阻塞
+    this.baselineInputTokens =
+      await estimateMessagesTokensCooperative(messages);
     this.totalMessageChars = messages.reduce(
       (sum, m) => sum + (typeof m.content === 'string' ? m.content.length : 0),
       0

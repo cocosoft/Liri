@@ -109,6 +109,7 @@
 |------|------|----------|-----------|
 | GET | `/v1/models` | ✅ | `modelService.list`, `chatService.fetchModels` |
 | POST | `/v1/models/test` | ✅ | 无前端调用方 |
+| POST | `/v1/models/probe` | ✅ **2026-08-19 新增** | `modelService.probeCapabilities`（模型能力静态探测：body `{ modelId, persist? }`（modelId 为模型名，默认 persist=true 写回 `model_registry.capabilities`）；返回 `{ data: { modelId, providerType, method: static\|skipped\|failed, tool_use, vision, persisted } }`；仅本地可静态探测 Provider（ollama `/api/show`、llamacpp `/props`），云端返回 skipped） |
 | GET | `/v1/models/current` | ✅ | `modelSwitchService.getCurrent` |
 |  | 响应新增 `isNonChat: boolean` 字段（v2.3） |  | 非聊天模型标记，前端据此显示警告 |
 | POST | `/v1/models/switch` | ✅ | `modelSwitchService.switch` |
@@ -124,6 +125,7 @@
 | GET | `/v1/providers` | ✅ | `providerService.list` |
 | POST | `/v1/providers` | ✅ | `providerService.create` |
 | GET | `/v1/providers/stats` | ✅ | `providerService.stats` |
+| GET | `/v1/providers/status` | ✅ **2026-08-19 新增** | `modelService.providerStatus`（本地服务运行状态：仅 Ollama/llama.cpp；返回 `{ data: [{ providerType, running, detail?: { port?, model? } }] }`，ollama 走 `/api/tags`、llamacpp 走 `LlamaCppServerManager.getStatus`） |
 | GET | `/v1/providers/{id}` | ✅ | `providerService.get` |
 | PUT | `/v1/providers/{id}` | ✅ | `providerService.update` |
 | DELETE | `/v1/providers/{id}` | ✅ | `providerService.remove` |

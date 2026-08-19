@@ -109,6 +109,10 @@ import {
   handleTranslateExport,
   handleTranslateStream,
 } from './api/TranslateAPI.js';
+import {
+  handleProbeModelCapability,
+  handleProviderStatus,
+} from './api/ModelCapabilityAPI.js';
 
 interface RouteEntry {
   method: string;
@@ -127,6 +131,11 @@ const ROUTES: RouteEntry[] = [
     method: 'GET',
     pattern: /^\/v1\/providers\/stats$/,
     handler: handleProviderStats,
+  },
+  {
+    method: 'GET',
+    pattern: /^\/v1\/providers\/status$/,
+    handler: handleProviderStatus,
   },
   {
     method: 'GET',
@@ -181,6 +190,11 @@ const ROUTES: RouteEntry[] = [
     method: 'PATCH',
     pattern: /^\/v1\/models\/([^/]+)\/toggle$/,
     handler: handleToggleModel,
+  },
+  {
+    method: 'POST',
+    pattern: /^\/v1\/models\/probe$/,
+    handler: handleProbeModelCapability,
   },
 
   // Model runtime routes (merged from model-handlers.ts)

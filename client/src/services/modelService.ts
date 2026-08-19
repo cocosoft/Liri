@@ -3,6 +3,24 @@ import type { BillingMode, ModelInfo, TimeBasedPrice } from "../types";
 
 export type { ModelInfo };
 
+/** 模型能力探测结果（与后端 CapabilityProbeResult 对齐） */
+export interface CapabilityProbeResult {
+  modelId: string;
+  providerType: string | null;
+  tool_use: boolean | "unknown";
+  vision: boolean | "unknown";
+  method: "static" | "skipped" | "failed";
+  /** 是否已写回 DB capabilities */
+  persisted?: boolean;
+}
+
+/** 本地服务（Ollama/llama.cpp）运行状态 */
+export interface ProviderStatusInfo {
+  providerType: string;
+  running: boolean;
+  detail?: { port?: number; model?: string };
+}
+
 export interface UpdateModelParams {
   capabilities?: string[];
   displayName?: string;
@@ -73,5 +91,28 @@ export const modelService = {
       {},
     );
     return resp?.data?.updated ?? 0;
+  },
+
+  /**
+   * 探测模型能力（POST /v1/models/probe，modelId 为模型名）。
+   * 静态探测 tool_use/vision，persist=true 时写回 DB capabilities。
+   */
+  async probeCapabilities(
+    modelId: string,
+    persist = true,
+  ): Promise<CapabilityProbeResult> {
+    const resp = await http.post<{ data: CapabilityProbeResult }>(
+      "/v1/models/probe",
+      { modelId, persist },
+    );
+    return resp.data;
+  },
+
+  /** 本地服务（Ollama/llama.cpp）运行状态（GET /v1/providers/status） */
+  async providerStatus(): Promise<ProviderStatusInfo[]> {
+    const resp = await http.get<{ data: ProviderStatusInfo[] }>(
+      "/v1/providers/status",
+    );
+    return resp.data || [];
   },
 };

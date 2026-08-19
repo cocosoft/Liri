@@ -1081,9 +1081,9 @@ export default function ProjectsPage() {
           {/* 编排 */}
           {rightPanelTab === "orchestration" && (
             <div className="flex flex-col h-full">
-              {/* PlansPanel：计划与流程 */}
+              {/* PlansPanel：计划与流程（按当前项目过滤） */}
               <div className="flex-1 overflow-y-auto min-h-0">
-                <PlansPanel />
+                <PlansPanel projectId={selectedProjectId ?? undefined} />
               </div>
               {/* PDCA 任务列表 */}
               {pdcaTasks.length > 0 && (

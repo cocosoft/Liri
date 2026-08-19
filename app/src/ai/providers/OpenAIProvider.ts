@@ -541,15 +541,24 @@ export class OpenAIProvider extends BaseAIProvider {
           /socket.*(closed|reset)|connection.*(closed|reset)/i.test(
             errorMessage
           );
+        // 超时检测：AbortSignal.timeout 触发的 DOMException（TimeoutError / "The operation timed out."）
+        // 或底层 ETIMEDOUT。发生在响应头/首块到达前（fullContent 为空）时，视为 Provider 瞬时故障
+        // （如智谱偶发请求挂起无响应头，重发通常立即成功），与连接中断同策略重试一次。
+        const isTimeout =
+          (error instanceof DOMException && error.name === 'TimeoutError') ||
+          /timed out|timeout|ETIMEDOUT|UND_ERR_HEADERS_TIMEOUT|UND_ERR_BODY_TIMEOUT/i.test(
+            errorMessage
+          );
         if (
           attempt < MAX_STREAM_ATTEMPTS - 1 &&
-          isSocketClosed &&
+          (isSocketClosed || isTimeout) &&
           fullContent.length === 0
         ) {
-          logger.warn('流式请求连接中断（首块前），重试请求', {
+          logger.warn('流式请求中断（首块前），重试请求', {
             providerId: this.id,
             attempt: attempt + 1,
             error: errorMessage,
+            timeout: isTimeout,
           });
           continue;
         }

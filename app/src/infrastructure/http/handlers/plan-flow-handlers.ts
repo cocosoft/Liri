@@ -26,16 +26,21 @@ import { sendError, readRequestBody, broadcastEvent } from './handler-utils';
 
 /**
  * 列出所有计划
+ * 支持 ?workspaceId= 查询参数：按项目过滤；不传则返回全部
  */
 export async function handleListPlans(
-  _req: http.IncomingMessage,
+  req: http.IncomingMessage,
   res: http.ServerResponse
 ): Promise<void> {
   try {
     const { taskOrchestrator } =
       await import('@modules/tasks/TaskOrchestrator');
     await taskOrchestrator['initialize']();
-    const plans = taskOrchestrator.getAllPlans();
+    const url = new URL(req.url ?? '', 'http://localhost');
+    const workspaceId = url.searchParams.get('workspaceId');
+    const plans = workspaceId
+      ? taskOrchestrator.getPlansByWorkspace(workspaceId)
+      : taskOrchestrator.getAllPlans();
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(plans));
   } catch (err) {
@@ -54,11 +59,14 @@ export async function handleCreatePlan(
     const { taskOrchestrator } =
       await import('@modules/tasks/TaskOrchestrator');
     const body = await readRequestBody(req);
-    const { description, steps, sessionId } = JSON.parse(body);
+    const { description, steps, sessionId, workspaceId } = JSON.parse(body);
     const plan = taskOrchestrator.createPlan(
       description || '',
       steps || [],
-      sessionId || ''
+      sessionId || '',
+      undefined,
+      undefined,
+      workspaceId
     );
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(plan));

@@ -343,6 +343,10 @@ async function handleStreamingChat(
     try {
       logger.debug('SSE 保活心跳 tick', { sessionId: request.session_id });
       res.write(': heartbeat\n\n');
+      // 2026-08-19：心跳写后必须 safeFlush，确保字节真正冲刷到 socket。
+      // 否则心跳可能滞留在响应缓冲中，客户端 idle 计时不被重置，
+      // 后端等待智谱 GLM 等长 TTFB 期间被前端误判为"流式响应超时"。
+      safeFlush(res);
     } catch {
       logger.warn('SSE 心跳写入失败，停止保活');
       clearInterval(keepaliveInterval);

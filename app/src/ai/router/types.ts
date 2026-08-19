@@ -53,7 +53,7 @@ export interface JudgeCloudConfig {
 export interface RouterConfig {
   /** 总开关：前端可关闭，关闭后走 ModelRouter 静态路由 */
   enabled: boolean;
-  /** LLM Judge 云端回退配置（可选：LocalAgent 可用时以本地模型优先） */
+  /** LLM Judge 云端回退配置（可选：本地分类钩子可用时以本地优先） */
   judge?: JudgeCloudConfig;
   /** 四级的模型映射 */
   tiers: Partial<Record<RouterTier, TierModelConfig>>;
@@ -99,7 +99,7 @@ export interface RouteDecision {
   reason: string;
   /** 是否来自快速通道（SimpleQA/规则引擎跳过） */
   fastPath?: boolean;
-  /** 兼容 LocalAgent 的决策目标 */
+  /** 决策目标别名（兼容旧版本地判定） */
   target?: string;
 }
 

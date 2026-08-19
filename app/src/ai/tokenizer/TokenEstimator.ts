@@ -17,6 +17,9 @@
 import type { ChatMessage } from '../models/types';
 import { getTiktokenCount } from './TiktokenEstimator';
 import { getCachedTiktokenEncoder } from './TiktokenEstimator';
+import { getLogger } from '@modules/monitoring';
+
+const logger = getLogger('ai:tokenizer');
 
 const CJK_REGEX =
   /[\u4e00-\u9fff\u3400-\u4dbf\u{20000}-\u{2a6df}\uf900-\ufaff\u3040-\u309f\u30a0-\u30ff\uac00-\ud7af]/gu;
@@ -121,6 +124,73 @@ export function estimateMessagesTokens(
   }
 
   return messages.reduce((sum, msg) => sum + estimateMessageTokens(msg), 0);
+}
+
+/**
+ * 让出事件循环（macrotask），避免长循环同步阻塞其他 I/O（SSE 心跳 / HTTP 请求）。
+ * 2026-08-19 根因①修复：发送前对数百条消息的同步估算/构建曾实测阻塞事件循环 49s，
+ * 期间心跳与请求全部卡死，前端把"后端正在处理"误判为"流式响应超时"。
+ */
+export function yieldToEventLoop(): Promise<void> {
+  return new Promise((resolve) => setImmediate(resolve));
+}
+
+/**
+ * 协作式消息列表 token 估算（异步，分批让出事件循环）
+ *
+ * 与 estimateMessagesTokens 口径完全一致（tiktoken 缓存优先 → CJK 启发式），
+ * 但每处理 batchSize 条消息就 await 一次让出事件循环。
+ * 用于发送路径等大列表场景（数百条消息），避免同步估算阻塞事件循环。
+ */
+export async function estimateMessagesTokensCooperative(
+  messages: readonly { role?: string; content?: string | unknown }[],
+  batchSize = 25
+): Promise<number> {
+  if (!messages || messages.length === 0) return 0;
+
+  // 优先使用 tiktoken BPE 精确分词（若编码器已加载）
+  const encoder = getCachedTiktokenEncoder();
+  let total = 0;
+  const totalStart = Date.now();
+  let batchStart = totalStart;
+  for (let i = 0; i < messages.length; i++) {
+    const msg = messages[i];
+    const overhead = ROLE_OVERHEAD[msg.role ?? 'user'] ?? PER_MESSAGE_OVERHEAD;
+    total += overhead;
+    if (typeof msg.content === 'string') {
+      if (encoder) {
+        try {
+          const result = encoder.encode(msg.content);
+          total += Array.isArray(result) ? result.length : result.length;
+        } catch {
+          // 编码失败时回退到启发式
+          total += estimateTokens(msg.content);
+        }
+      } else {
+        total += estimateTokens(msg.content);
+      }
+    } else if (msg.content) {
+      total += estimateTokens(JSON.stringify(msg.content));
+    }
+    if ((i + 1) % batchSize === 0) {
+      // 2026-08-19 根因①修复监控：记录每批估算耗时，验证让出事件循环的有效性
+      logger.debug('estimate:cooperative_batch_done', {
+        batch: Math.floor((i + 1) / batchSize),
+        processed: i + 1,
+        batchDurationMs: Date.now() - batchStart,
+        totalDurationMs: Date.now() - totalStart,
+      });
+      batchStart = Date.now();
+      await yieldToEventLoop();
+    }
+  }
+  // 2026-08-19 根因①修复监控：总耗时（含所有让出等待）
+  logger.debug('estimate:cooperative_total_done', {
+    totalMessages: messages.length,
+    estimatedTokens: total,
+    totalDurationMs: Date.now() - totalStart,
+  });
+  return Math.ceil(total);
 }
 
 /**

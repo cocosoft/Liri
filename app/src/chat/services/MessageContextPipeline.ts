@@ -15,7 +15,11 @@
 import { getLogger } from '@modules/monitoring';
 import type { ChatSession } from '../types/session.js';
 import { toolResultRegistry } from '../../tool/ToolResultRegistry.js';
-import { estimateMessagesTokens } from '../../ai/tokenizer/TokenEstimator';
+import {
+  estimateMessagesTokens,
+  estimateMessagesTokensCooperative,
+  yieldToEventLoop,
+} from '../../ai/tokenizer/TokenEstimator';
 import { isLocalLlmEndpoint, sanitizePass } from './ChatHelper';
 import { assembleSystemPrompt } from '@modules/services/prompt/PromptAssembler';
 import { setCurrentKnowledgeQuery } from '@modules/services/prompt/KnowledgePromptProvider';
@@ -257,9 +261,7 @@ export async function truncateApiMessages(
   sessionId?: string,
   outputBudgetTokens?: number
 ): Promise<void> {
-  // P1-3 fix: Skills 作为 User Message 注入 — 在最后一条 user message 前插入。
-  // 注意：ensureFresh() 无外部调用点，cache.l1 恒为空；且原注入代码位于上下文超限路径尾部，
-  // 正常请求（未超限）早退导致技能列表从未注入 LLM。这里在早退前统一刷新并注入。
+  // P1-3 fix: Skills 注入（原位于超限路径尾部，正常请求早退从未注入；此处早退前统一刷新注入）
   try {
     await skillInjectionService.ensureFresh();
     const injected = skillInjectionService.injectSkillsIntoMessageHistory(
@@ -283,18 +285,18 @@ export async function truncateApiMessages(
 
   if (maxContextTokens <= 0) return;
 
-  // 输出预算：显式扣除本次请求的输出 token 上限（maxTokens），保证"输入+输出"不超窗口。
-  // 上限封顶 40% 窗口，防止 maxTokens 异常大挤占输入空间（llama.cpp n_ctx=4096 场景
-  // 若只留 15% 缓冲，输入 3482 + 请求输出 4096 结构性必超）。
+  // 输出预算：扣除本次 maxTokens（封顶 40% 窗口），保证"输入+输出"不超窗（llama.cpp n_ctx=4096 需封顶）
   const RESPONSE_BUFFER_TOKENS =
     outputBudgetTokens && outputBudgetTokens > 0
       ? Math.min(outputBudgetTokens, Math.round(maxContextTokens * 0.4))
       : Math.round(maxContextTokens * 0.15);
   const SAFE_LIMIT = maxContextTokens - RESPONSE_BUFFER_TOKENS;
 
-  const estimatedTokens = estimateMessagesTokens(
+  // 2026-08-19 根因①修复：协作式估算，分批让出事件循环（批次耗时见 estimate:cooperative_* 日志）
+  const estimatedTokens = await estimateMessagesTokensCooperative(
     apiMessages as { content?: string | unknown; role?: string }[]
   );
+  logger.debug('truncate:estimate_done', { sessionId, estimatedTokens });
   if (estimatedTokens <= SAFE_LIMIT) return;
 
   logger.warn(
@@ -307,9 +309,7 @@ export async function truncateApiMessages(
   const nonSystemMessages = apiMessages.filter(
     (m: Record<string, unknown>) => m.role !== 'system'
   );
-  // 小窗口模型（<64K，如 llama.cpp n_ctx=4096）按 token 预算反推保护条数：
-  // 保护最近消息直至约占 SAFE_LIMIT 的 50%，防止"至少 20 条"本身占满窗口导致截断压不下去；
-  // 大窗口保持原"条数比例"逻辑（下限 20 / 上限 100）。
+  // 小窗口（<64K）按 token 预算反推保护条数（约 SAFE_LIMIT 的 50%）；大窗口按条数比例（20-100）
   const isSmallWindow = SAFE_LIMIT < 64_000;
   const protectedCount = isSmallWindow
     ? Math.max(
@@ -337,32 +337,37 @@ export async function truncateApiMessages(
     typeof msg.content === 'string' &&
     msg.content.length < SHORT_USER_MSG_THRESHOLD;
 
-  // 第一遍：优先丢长消息（保护短 user 指令，如"继续""好的"）
+  // 第一遍：优先丢长消息（保护短 user 指令，如"继续""好的"）—— 每 25 条让出事件循环并记录批次耗时
+  let batchStart = Date.now();
   for (let i = 0; i < nonSystemMessages.length - protectedCount; i++) {
     if (currentTokens <= SAFE_LIMIT) break;
-
     const msg = nonSystemMessages[i] as Record<string, unknown>;
-    const msgTokens = estimateMessagesTokens([
-      msg as { content?: string | unknown; role?: string },
-    ]);
+    const msgTokens = estimateMessagesTokens([msg as never]);
     if (isShortUserMsg(msg)) continue;
     currentTokens -= msgTokens;
     toDrop.add(i);
-    dropCount++;
+    if (++dropCount % 25 === 0) {
+      logger.debug('drop_batch', { pass: 1, ms: Date.now() - batchStart });
+      batchStart = Date.now();
+      await yieldToEventLoop();
+    }
   }
   // 第二遍：仍超限则也丢短 user 消息（修复 BUG：此前短消息 continue 导致 toDrop 恒空、截断零生效）
   if (currentTokens > SAFE_LIMIT) {
+    batchStart = Date.now();
     for (let i = 0; i < nonSystemMessages.length - protectedCount; i++) {
       if (currentTokens <= SAFE_LIMIT) break;
       if (toDrop.has(i)) continue;
       const msg = nonSystemMessages[i] as Record<string, unknown>;
       if (!isShortUserMsg(msg)) continue;
-      const msgTokens = estimateMessagesTokens([
-        msg as { content?: string | unknown; role?: string },
-      ]);
+      const msgTokens = estimateMessagesTokens([msg as never]);
       currentTokens -= msgTokens;
       toDrop.add(i);
-      dropCount++;
+      if (++dropCount % 25 === 0) {
+        logger.debug('drop_batch', { pass: 2, ms: Date.now() - batchStart });
+        batchStart = Date.now();
+        await yieldToEventLoop();
+      }
     }
   }
 

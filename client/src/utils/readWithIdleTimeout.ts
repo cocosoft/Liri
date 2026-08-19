@@ -15,6 +15,16 @@ const logger = createLogger("utils:readWithIdleTimeout");
 export const STREAM_IDLE_TIMEOUT_MS = 60_000;
 
 /**
+ * 首 chunk 无数据超时（ms）。
+ *
+ * 对齐后端 BaseAIProvider 首 chunk 超时（120s，覆盖推理模型 TTFB）：
+ * 智谱 GLM 等思考型模型在输出首 token 前可能长时间"思考"（长 TTFB），
+ * 且后端在发送请求前有上下文预处理（压缩/截断）耗时，首块等待可能远超 60s。
+ * 首块用 120s，避免把"模型正常思考"误判为"连接中断"。
+ */
+export const FIRST_CHUNK_TIMEOUT_MS = 120_000;
+
+/**
  * 带无数据超时的 reader.read()。
  *
  * - 正常：有数据/流结束 → 返回 ReadableStreamReadResult

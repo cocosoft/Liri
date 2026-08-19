@@ -76,6 +76,9 @@ const TOOL_NAME_MAP: Record<string, string> = {
   channel_manager: "频道管理",
   broadcast: "广播消息",
   gateway: "网关",
+  browser: "浏览器操作",
+  agents_list: "查看 Agent 列表",
+  cron_create: "创建定时任务",
 
   // ---- MCP ----
   mcp_resource: "MCP 资源",
@@ -219,6 +222,18 @@ export function getToolHumanSummary(toolCall: ToolCall): string {
       return formatSummary("正在模拟操作", getArgStr(args, "action"));
     case "notebook":
       return formatSummary("正在编辑笔记本", getArgStr(args, "action"));
+    case "browser":
+      return formatSummary(
+        "正在浏览网页",
+        getArgStr(args, "url") || getArgStr(args, "action"),
+      );
+    case "agents_list":
+      return formatSummary(
+        "查看 Agent 列表",
+        getArgStr(args, "type") || getArgStr(args, "status"),
+      );
+    case "cron_create":
+      return formatSummary("创建定时任务", getArgStr(args, "name"));
     case "channel":
     case "channel_manager":
     case "broadcast":

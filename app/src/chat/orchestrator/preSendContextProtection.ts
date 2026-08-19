@@ -31,7 +31,10 @@
  */
 
 import { getLogger } from '@modules/monitoring';
-import { estimateMessagesTokens } from '../../ai/tokenizer/TokenEstimator';
+import {
+  estimateMessagesTokens,
+  estimateMessagesTokensCooperative,
+} from '../../ai/tokenizer/TokenEstimator';
 import {
   resolveMaxContextTokens,
   isLocalLlmEndpoint,
@@ -50,17 +53,18 @@ import type { ToolDefinition } from '@modules/ai';
 const logger = getLogger('chat:streamFlow');
 
 /** 压缩前/压缩后 token 诊断日志（仅 info 级，前端日志面板按 streamMessage:token 过滤） */
-export function logTokenSnapshot(
+export async function logTokenSnapshot(
   label: string,
   sessionId: string,
   model: string,
   apiMessages: Record<string, unknown>[]
-): void {
+): Promise<void> {
+  // 2026-08-19 根因①修复：大列表同步估算会阻塞事件循环，改用协作式分批估算
   logger.info(`streamMessage:token — ${label}`, {
     sessionId,
     model,
     messageCount: apiMessages.length,
-    estimateTokens: estimateMessagesTokens(apiMessages),
+    estimateTokens: await estimateMessagesTokensCooperative(apiMessages),
   });
 }
 
@@ -146,7 +150,7 @@ export async function applyPreSendProtection(
         // @ignore-catch: 精确计算失败保留估算值
       }
     }
-    const msgTokens = estimateMessagesTokens(
+    const msgTokens = await estimateMessagesTokensCooperative(
       apiMessages as { role?: string; content?: string | unknown }[]
     );
     const budget = Math.floor(sendCtxLimit * 0.6);
@@ -171,18 +175,19 @@ export async function applyPreSendProtection(
  * 推理完成诊断：发送前估算 vs 发送后 API 返回真实 usage（inputTokens/prompt_tokens 兼容）。
  * 闭环对比估算是否贴近真实，判断截断/压缩是否真正把输入压到窗口内。
  */
-export function logInferenceUsage(
+export async function logInferenceUsage(
   sessionId: string,
   model: string,
   finalResponse: { usage?: Record<string, number> } | null,
   apiMessages: Record<string, unknown>[]
-): void {
+): Promise<void> {
   const usageRec = finalResponse?.usage as Record<string, number> | undefined;
   const actualInputTokens =
     usageRec?.inputTokens ?? usageRec?.prompt_tokens ?? 0;
   const actualOutputTokens =
     usageRec?.outputTokens ?? usageRec?.completion_tokens ?? 0;
-  const estimatedTokens = estimateMessagesTokens(apiMessages);
+  // 2026-08-19 根因①修复：post-stream 全量估算改为协作式，避免收尾仍卡事件循环
+  const estimatedTokens = await estimateMessagesTokensCooperative(apiMessages);
   logger.info('streamMessage:token — 推理完成（估算 vs 真实）', {
     sessionId,
     model,

@@ -23,9 +23,9 @@
  * JudgeService — LLM Judge 分级服务
  *
  * 职责：对用户消息做四级分类（simple/medium/complex/reasoning）。
- * 优先级：LocalAgent 可用时委托本地 Ollama 模型，不可用时回退到云端 LLM。
+ * 优先级：本地分类钩子可用时优先本地，否则回退到云端 LLM。
  *
- * Judge 不独立管理 provider 连接——本地路径委托给 LocalAgent，
+ * Judge 不独立管理 provider 连接——本地路径走注入的本地分类钩子，
  * 云端路径复用系统已有的 ProviderRegistry。
  */
 
@@ -52,12 +52,12 @@ Respond with ONLY a JSON object: {"tier": "simple|medium|complex|reasoning", "co
 User message: {MESSAGE}`;
 
 /**
- * JudgeService 将分级决策委托给 LocalAgent 或云端 LLM
+ * JudgeService 将分级决策委托给本地分类钩子或云端 LLM
  */
 export class JudgeService {
   /**
-   * @param classifyLocal - 本地分类函数（由 LocalAgent.classifyForJudge 提供），可为 null
-   * @param cloudJudge - 云端 Judge 配置（仅 LocalAgent 不可用时需要）
+   * @param classifyLocal - 本地分类函数（可选，注入式本地模型分级），可为 null
+   * @param cloudJudge - 云端 Judge 配置（本地分类不可用时需要）
    * @param cloudProvider - 云端 Provider 实例（用于云端分类时的 LLM 调用）
    */
   constructor(
@@ -68,7 +68,7 @@ export class JudgeService {
 
   /**
    * 四级分类主入口
-   * 优先级：LocalAgent（本地模型）> 云端 LLM > 兜底（'medium'）
+   * 优先级：本地分类钩子 > 云端 LLM > 兜底（'medium'）
    */
   async classify(message: string): Promise<JudgeResult> {
     const otel = getOTelTracing();
@@ -78,21 +78,21 @@ export class JudgeService {
       has_cloud: !!(this.cloudJudge && this.cloudProvider),
     });
 
-    // 优先级 1：LocalAgent 可用 → 委托本地模型
+    // 优先级 1：本地分类钩子可用 → 委托本地模型
     if (this.classifyLocal) {
       try {
         const tier = await this.classifyLocal(message);
-        logger.debug('JudgeService: LocalAgent 分类完成', { tier });
+        logger.debug('JudgeService: 本地分类完成', { tier });
         otel.endSpan(span, SpanStatusCode.OK);
         return {
           tier,
           confidence: 0.8,
-          reason: 'LocalAgent 本地模型分类',
+          reason: '本地分类',
           source: 'local',
         };
       } catch (error) {
         await handleError(error, { module: 'ai:judge', action: 'classify' });
-        logger.warning('JudgeService: LocalAgent 分类失败，回退云端', {
+        logger.warning('JudgeService: 本地分类失败，回退云端', {
           error,
         });
         // fall through to cloud

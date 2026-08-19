@@ -7,6 +7,7 @@ import {
   estimateTokens,
   estimateMessageTokens,
   estimateMessagesTokens,
+  estimateMessagesTokensCooperative,
   tokenCountWithEstimation,
   estimateTokensPrecise,
 } from '../../../src/ai/tokenizer/TokenEstimator';
@@ -88,6 +89,34 @@ describe('TokenEstimator', () => {
         { role: 'assistant', content: 'hi there' },
       ]);
       expect(tokens).toBeGreaterThan(5);
+    });
+  });
+
+  describe('estimateMessagesTokensCooperative', () => {
+    it('returns 0 for empty array', async () => {
+      expect(await estimateMessagesTokensCooperative([])).toBe(0);
+    });
+
+    it('matches sync estimateMessagesTokens result (口径一致)', async () => {
+      const messages = [
+        { role: 'user', content: 'hello world 这是一段中文测试' },
+        { role: 'assistant', content: 'hi there, 继续处理' },
+        { role: 'tool', content: '{"status":"ok","data":123}' },
+        { role: 'user', content: 'over 25 messages to force multiple batches' },
+      ];
+      const syncResult = estimateMessagesTokens(messages);
+      const coopResult = await estimateMessagesTokensCooperative(messages);
+      expect(coopResult).toBe(syncResult);
+    });
+
+    it('handles large lists across multiple batches', async () => {
+      const messages = Array.from({ length: 60 }, (_, i) => ({
+        role: (i % 2 === 0 ? 'user' : 'assistant') as string,
+        content: `消息内容 ${i} — 中文 mixed english`,
+      }));
+      const syncResult = estimateMessagesTokens(messages);
+      const coopResult = await estimateMessagesTokensCooperative(messages);
+      expect(coopResult).toBe(syncResult);
     });
   });
 

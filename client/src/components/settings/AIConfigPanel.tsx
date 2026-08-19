@@ -65,7 +65,6 @@ function AIConfigPanel({
               { value: "", label: "自动检测" },
               { value: "anthropic", label: "Anthropic" },
               { value: "deepseek", label: "DeepSeek" },
-              { value: "ollama", label: t("settings.providersOllama") },
               { value: "azure", label: "Azure" },
             ]}
           />

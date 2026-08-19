@@ -156,62 +156,8 @@ export interface AIConfig {
       privateKey?: string;
     };
   };
-  /** 本地 Ollama 配置 */
-  localOllama?: OllamaConfig;
-  /** 路由配置 */
-  routing?: RoutingConfig;
   /** Token 估算器配置 */
   tokenEstimator?: TokenEstimatorConfig;
-  /** Local Agent 配置 */
-  localAgent?: LocalAgentConfig;
-}
-
-/**
- * Local Agent 配置
- */
-export interface LocalAgentConfig {
-  /** 是否启用 */
-  enabled: boolean;
-  /** 路由策略 */
-  routing: RoutingConfig;
-  /** Ollama 配置 */
-  ollama?: OllamaConfig;
-  /** 绕过路由（这些路由不经过 LocalAgent 直接执行） */
-  bypassRoutes?: string[];
-  /** 是否启用性能指标 */
-  enableMetrics?: boolean;
-  /** Skill 提供者配置 */
-  skillProvider?: {
-    enabled: boolean;
-  };
-  /** MCP 提供者配置 */
-  mcpProvider?: {
-    enabled: boolean;
-  };
-}
-
-/**
- * Ollama 配置
- */
-export interface OllamaConfig {
-  /** 是否启用 */
-  enabled: boolean;
-  /** 服务地址 */
-  baseUrl: string;
-  /** 默认模型 */
-  defaultModel: string;
-  /** 超时时间（毫秒） */
-  timeout: number;
-}
-
-/**
- * 路由配置
- */
-export interface RoutingConfig {
-  /** 路由策略 */
-  strategy: 'cloud-first' | 'ollama-first' | 'local-first';
-  /** 是否降级到 Cloud */
-  fallbackToCloud: boolean;
 }
 
 /**
@@ -607,16 +553,6 @@ export function createDefaultGlobalConfig(): GlobalConfig {
           clientEmail: '',
           privateKey: '',
         },
-      },
-      localOllama: {
-        enabled: false,
-        baseUrl: 'http://localhost:11434',
-        defaultModel: '',
-        timeout: 30000,
-      },
-      routing: {
-        strategy: 'cloud-first',
-        fallbackToCloud: true,
       },
       tokenEstimator: {
         enabled: false,

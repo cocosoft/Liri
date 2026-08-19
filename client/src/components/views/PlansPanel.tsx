@@ -13,8 +13,14 @@ interface PlanFlowItem {
   description?: string;
 }
 
-/** 任务计划面板 — 嵌入 TaskCenterPage 的「任务计划」Tab */
-export default function PlansPanel() {
+/** 任务计划面板 — 嵌入 TaskCenterPage 的「任务计划」Tab
+ *  projectId 为当前项目（workspace）ID，传入时仅展示该项目下的计划
+ */
+export default function PlansPanel({
+  projectId,
+}: {
+  projectId?: string;
+}) {
   const config = useConfigStore((s) => s.config);
   const isDark = config.theme === "dark";
 
@@ -30,7 +36,7 @@ export default function PlansPanel() {
     const load = async () => {
       try {
         const [plansData, flowsRes] = await Promise.all([
-          planService.list(),
+          planService.list(projectId),
           import("../../services/httpClient").then((m) =>
             m.httpLegacy.get<{ data: PlanFlowItem[] }>("/v1/flows"),
           ),
@@ -51,7 +57,7 @@ export default function PlansPanel() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [projectId]);
 
   if (loading) {
     return (

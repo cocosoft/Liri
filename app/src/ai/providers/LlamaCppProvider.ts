@@ -160,7 +160,7 @@ export class LlamaCppProvider extends OpenAIProvider {
    * Liri 的 ReAct 循环会反复重试直到熔断。
    * 缓存 TTL=60s，避免每次请求都查 /props。
    */
-  private async probeToolSupport(): Promise<boolean> {
+  async probeToolSupport(): Promise<boolean> {
     // TTL 内复用缓存
     if (
       this.toolSupportCache &&
@@ -204,6 +204,20 @@ export class LlamaCppProvider extends OpenAIProvider {
       this.toolSupportCache = { supported: true, checkedAt: Date.now() };
       return true;
     }
+  }
+
+  /**
+   * 静态探测模型能力（供统一能力探测模块调用）：
+   *  - tool_use: 复用 probeToolSupport（/props chat_template_caps，带 60s 缓存）
+   *  - vision: llama-server /props 未直接暴露视觉元数据，保守返回 unknown
+   * model 参数仅用于保持接口一致（llama.cpp 一次加载一个模型，能力由服务端决定）。
+   */
+  async probeCapabilities(_model: string): Promise<{
+    tool_use: boolean | 'unknown';
+    vision: boolean | 'unknown';
+  }> {
+    const supported = await this.probeToolSupport();
+    return { tool_use: supported, vision: 'unknown' };
   }
 
   /**

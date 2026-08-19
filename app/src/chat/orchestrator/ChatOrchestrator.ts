@@ -205,7 +205,9 @@ export interface ChatOrchestratorHost {
     userMessage: Message;
     streamSpan: Span;
   }>;
-  _buildApiMessagesForStream(messages: Message[]): Record<string, unknown>[];
+  _buildApiMessagesForStream(
+    messages: Message[]
+  ): Promise<Record<string, unknown>[]>;
   _createStreamPipeline(
     session: ChatSession,
     content: string,

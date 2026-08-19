@@ -225,56 +225,6 @@ export type {
   SpanEvent,
 } from './telemetry';
 
-export {
-  LocalAgent,
-  KeywordRuleEngine,
-  TaskRouterImpl,
-  LocalCommandExecutor,
-  createLocalAgent,
-  getGlobalLocalAgent,
-  setGlobalLocalAgent,
-  createTaskRouter,
-  createCommandExecutor,
-  QueryEngineIntegrationAdapter,
-  createIntegrationAdapter,
-  getGlobalIntegrationAdapter,
-  MCPProvider,
-  getGlobalMCPProvider,
-  createMCPProvider,
-  MetricsCollector,
-  createMetricsCollector,
-  getGlobalMetricsCollector,
-} from './localAgent';
-export type {
-  Intent,
-  RouteDecision,
-  RouteTarget,
-  IntentType,
-  CommandMatch,
-  CommandAction,
-  RuleMatch,
-  LocalAgentConfig,
-  LocalAgentResult,
-  OllamaConfig,
-  RoutingConfig,
-  RoutingStrategy,
-  IRuleEngine,
-  QueryEngineIntegrationConfig,
-  QueryEngineIntegrationResult,
-  MCPProviderConfig,
-  IMCPClient,
-  MCPToolCall,
-  MCPToolResult,
-  LocalAgentMetrics,
-  MetricEntry,
-} from './localAgent';
-
-export {
-  QueryEngineWrapper,
-  createQueryEngineWrapper,
-} from './services/QueryEngineWrapper';
-export type { QueryEngineWrapperConfig } from './services/QueryEngineWrapper';
-
 // router/ — 智能路由模块
 export {
   SmartRouter,
@@ -290,6 +240,7 @@ export type {
   JudgeCloudConfig,
   SessionRouteRecord,
   JudgeResult,
+  RouteDecision,
 } from './router';
 export { ALL_ROUTER_TIERS } from './router';
 export { resolveModelRoute, RouteKey } from './router';

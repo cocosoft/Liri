@@ -136,7 +136,7 @@ export interface ToolLoopContext {
   // 词元追踪
   unifiedTracker: {
     resetStreamTokens(): void;
-    updateBaselineForRound(messages: unknown[], model: string): void;
+    updateBaselineForRound(messages: unknown[], model: string): Promise<void>;
   };
   recordChatResponseUsage: (sessionId: string, usage: unknown) => void;
   /** AB-10 修复：工具轮次 LLM 用量上报（区别于 recordChatResponseUsage 的内部记账，此回调转发给 streamMessage 的 onUsage → 前端 usage 事件） */

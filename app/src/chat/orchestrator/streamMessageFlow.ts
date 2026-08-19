@@ -44,7 +44,10 @@ import {
   type DegradationState,
 } from '../../ai/ContextDegradation';
 import { resolveMaxContextTokens, toUsageInfo } from '../services/ChatHelper';
-import { estimateMessagesTokens } from '../../ai/tokenizer/TokenEstimator';
+import {
+  estimateMessagesTokens,
+  estimateMessagesTokensCooperative,
+} from '../../ai/tokenizer/TokenEstimator';
 import {
   logTokenSnapshot,
   applyPreSendProtection,
@@ -120,9 +123,10 @@ export async function* runStreamMessage(
     });
 
     // 构建 API 格式消息列表
-    let apiMessages = _buildApiMessagesForStream(session.messages);
+    // 2026-08-19 根因①修复：构建改为异步（内部批量让出事件循环），避免大会话阻塞
+    let apiMessages = await _buildApiMessagesForStream(session.messages);
     // 诊断日志：压缩前 token 基线
-    logTokenSnapshot(
+    await logTokenSnapshot(
       'API 消息构建后（压缩前）',
       session.id,
       options?.model ?? 'unknown',
@@ -179,7 +183,7 @@ export async function* runStreamMessage(
     // （llama.cpp 等小上下文模型会因 15408 > n_ctx 4096 直接 400）。
     apiMessages = pipeline.ctx.apiMessages;
     // 诊断日志：压缩后 token 变化
-    logTokenSnapshot(
+    await logTokenSnapshot(
       '上下文压缩后',
       session.id,
       options?.model ?? 'unknown',
@@ -199,7 +203,7 @@ export async function* runStreamMessage(
       session,
     });
     // 诊断日志：发送前强制截断后的 token（兜底保护结果）
-    logTokenSnapshot(
+    await logTokenSnapshot(
       '发送前兜底截断后',
       session.id,
       options?.model ?? 'unknown',
@@ -237,7 +241,7 @@ export async function* runStreamMessage(
 
     // 缺陷 C 修复: 推理前容量预检
     if (options?.model) {
-      const preCheck = host.unifiedTracker.checkBeforeRequest(
+      const preCheck = await host.unifiedTracker.checkBeforeRequest(
         apiMessages as unknown as readonly {
           role?: string;
           content?: string | unknown;
@@ -289,12 +293,19 @@ export async function* runStreamMessage(
         'message.count': apiMessages.length,
       });
       // 诊断日志：实际发送前的 token 估算（含降级重试轮次，观察重试是否带上被截断后的消息）
+      // 2026-08-19 根因①修复：改协作式估算，避免重试轮也同步阻塞
+      const preSendEstimate = await estimateMessagesTokensCooperative(
+        apiMessages as unknown as readonly {
+          role?: string;
+          content?: string | unknown;
+        }[]
+      );
       logger.info('streamMessage:token — 实际发送前', {
         sessionId: session.id,
         model: options?.model ?? 'unknown',
         retryCount: retryState.retryCount,
         messageCount: apiMessages.length,
-        estimateTokens: estimateMessagesTokens(apiMessages),
+        estimateTokens: preSendEstimate,
         sendCtxLimit,
       });
       const gen = activeClient.streamMessage(
@@ -517,7 +528,7 @@ export async function* runStreamMessage(
     );
 
     // 诊断日志：发送前估算 vs 发送后 API 返回真实 usage（闭环对比截断/压缩效果）
-    logInferenceUsage(
+    await logInferenceUsage(
       session.id,
       options?.model ?? 'unknown',
       finalResponse,

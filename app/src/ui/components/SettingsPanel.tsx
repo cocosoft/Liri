@@ -5,8 +5,6 @@
 
 import React, { useState } from 'react';
 import { AppearanceSettings } from './settings/AppearanceSettings';
-import { AISettings } from './settings/AISettings';
-import { AgentSettings } from './settings/AgentSettings';
 import { FeatureSettings } from './settings/FeatureSettings';
 import { ChannelSettings } from './settings/ChannelSettings';
 import { CompanionSettings } from './settings/CompanionSettings';
@@ -30,8 +28,6 @@ interface SettingsTab {
  */
 const SETTINGS_TABS: SettingsTab[] = [
   { id: 'appearance', label: '外观', component: AppearanceSettings },
-  { id: 'ai', label: 'AI 模型', component: AISettings },
-  { id: 'agent', label: 'Agent', component: AgentSettings },
   { id: 'features', label: '功能开关', component: FeatureSettings },
   { id: 'channels', label: '渠道', component: ChannelSettings },
   { id: 'companion', label: '伙伴', component: CompanionSettings },

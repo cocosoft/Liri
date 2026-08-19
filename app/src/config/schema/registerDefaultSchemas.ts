@@ -191,57 +191,6 @@ function registerAiSettings(): void {
   });
 
   configSchema.registerItem('AI 设置', {
-    key: 'ai.routing.strategy',
-    description: 'AI 路由策略',
-    type: 'string',
-    defaultValue: 'cloud-first',
-    enum: ['cloud-first', 'ollama-first', 'local-first'],
-    example: 'cloud-first',
-  });
-
-  configSchema.registerItem('AI 设置', {
-    key: 'ai.routing.fallbackToCloud',
-    description: '是否允许降级到云端',
-    type: 'boolean',
-    defaultValue: true,
-    example: true,
-  });
-
-  configSchema.registerItem('AI 设置', {
-    key: 'ai.localOllama.enabled',
-    description: '是否启用本地 Ollama',
-    type: 'boolean',
-    defaultValue: false,
-    example: true,
-  });
-
-  configSchema.registerItem('AI 设置', {
-    key: 'ai.localOllama.baseUrl',
-    description: 'Ollama 服务地址',
-    type: 'string',
-    defaultValue: 'http://localhost:11434',
-    example: 'http://localhost:11434',
-  });
-
-  configSchema.registerItem('AI 设置', {
-    key: 'ai.localOllama.defaultModel',
-    description: 'Ollama 默认模型',
-    type: 'string',
-    defaultValue: '',
-    example: 'llama3:8b',
-  });
-
-  configSchema.registerItem('AI 设置', {
-    key: 'ai.localOllama.timeout',
-    description: 'Ollama 请求超时（毫秒）',
-    type: 'number',
-    defaultValue: 30000,
-    min: 1000,
-    max: 120000,
-    example: 30000,
-  });
-
-  configSchema.registerItem('AI 设置', {
     key: 'ai.tokenEstimator.enabled',
     description: '是否启用 Token 估算器',
     type: 'boolean',

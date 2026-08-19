@@ -90,7 +90,7 @@ export interface SmartRouterOptions {
   config: RouterConfig;
   /** Provider 注册表（用于 TierResolver） */
   providerRegistry: ProviderRegistry;
-  /** 可选：LocalAgent 的 classifyForJudge 函数 */
+  /** 可选：本地分类函数（注入式本地模型分级） */
   classifyLocal?: (message: string) => Promise<RouterTier>;
   /** 可选：云端 Judge 用的 Provider */
   cloudJudgeProvider?: AIProvider;

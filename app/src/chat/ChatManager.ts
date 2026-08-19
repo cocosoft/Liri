@@ -168,6 +168,7 @@ import { UnifiedTokenTracker } from '../core/tokenBudget/UnifiedTokenTracker.js'
 import { ContextTracker } from '../query/context/ContextTracker.js';
 import { compactionOrchestrator } from '../context/compaction/CompactionOrchestrator.js';
 import { estimateMessagesTokens } from '../ai/tokenizer/TokenEstimator';
+import { yieldToEventLoop } from '../ai/tokenizer/TokenEstimator';
 import { FileCheckpointStorage } from '../query/FileCheckpointStorage.js';
 import {
   StopHookManager,
@@ -2155,68 +2156,73 @@ export class ChatManagerImpl implements ChatManager {
    * 提取自 streamMessage，处理工具结果截断、tool_call_id 补全、
    * 跨轮 tool_calls 清理等纯数据转换逻辑。
    */
-  private _buildApiMessagesForStream(
+  private async _buildApiMessagesForStream(
     messages: Message[]
-  ): Array<Record<string, unknown>> {
+  ): Promise<Array<Record<string, unknown>>> {
     // §5.3: 排除 isTaskMessage 消息（任务摘要仅用户可见，不进入 LLM 上下文，避免污染）
-    const apiMessages = messages
-      .filter((msg) => msg.metadata?.isTaskMessage !== true)
-      .map((msg) => {
-        let content =
-          typeof msg.content === 'string'
-            ? msg.content
-            : JSON.stringify(msg.content);
+    // 2026-08-19 根因①修复：filter/map 改为分批 for 循环 + 让出事件循环，
+    // 避免大会话（数百条/大 JSON 序列化）同步构建阻塞事件循环数秒
+    const apiMessages: Array<Record<string, unknown>> = [];
+    let builtCount = 0;
+    for (const msg of messages) {
+      if (msg.metadata?.isTaskMessage === true) continue;
 
-        if (
-          msg.role === 'tool' &&
-          typeof content === 'string' &&
-          content.length > TOOL_RESULT_MAX_LENGTH
-        ) {
-          content = truncateToolResult(content);
+      let content =
+        typeof msg.content === 'string'
+          ? msg.content
+          : JSON.stringify(msg.content);
+
+      if (
+        msg.role === 'tool' &&
+        typeof content === 'string' &&
+        content.length > TOOL_RESULT_MAX_LENGTH
+      ) {
+        content = truncateToolResult(content);
+      }
+
+      const chatMessage: Record<string, unknown> = {
+        role: msg.role,
+        content,
+      };
+
+      if (msg.role === 'tool') {
+        const tcId =
+          msg.toolCallId ||
+          (msg.metadata?.toolCallId as string) ||
+          (msg.metadata?.tool_call_id as string);
+        if (tcId) {
+          chatMessage.tool_call_id = tcId;
         }
+      }
 
-        const chatMessage: Record<string, unknown> = {
-          role: msg.role,
-          content,
-        };
-
-        if (msg.role === 'tool') {
-          const tcId =
-            msg.toolCallId ||
-            (msg.metadata?.toolCallId as string) ||
-            (msg.metadata?.tool_call_id as string);
-          if (tcId) {
-            chatMessage.tool_call_id = tcId;
-          }
-        }
-
-        if (msg.role === 'assistant' && msg.metadata?.tool_calls) {
-          const toolCalls = msg.metadata.tool_calls as Record<
-            string,
-            unknown
-          >[];
-          chatMessage.tool_calls = toolCalls.map(
-            (tc: Record<string, unknown>) => {
-              if (tc.type && tc.function) {
-                return tc;
-              }
-              return {
-                id: tc.id,
-                type: 'function',
-                function: {
-                  name: tc.name,
-                  arguments:
-                    typeof tc.arguments === 'string'
-                      ? tc.arguments
-                      : JSON.stringify(tc.arguments || {}),
-                },
-              };
+      if (msg.role === 'assistant' && msg.metadata?.tool_calls) {
+        const toolCalls = msg.metadata.tool_calls as Record<string, unknown>[];
+        chatMessage.tool_calls = toolCalls.map(
+          (tc: Record<string, unknown>) => {
+            if (tc.type && tc.function) {
+              return tc;
             }
-          );
-        }
+            return {
+              id: tc.id,
+              type: 'function',
+              function: {
+                name: tc.name,
+                arguments:
+                  typeof tc.arguments === 'string'
+                    ? tc.arguments
+                    : JSON.stringify(tc.arguments || {}),
+              },
+            };
+          }
+        );
+      }
 
-        return chatMessage;
-      });
+      apiMessages.push(chatMessage);
+      builtCount++;
+      if (builtCount % 25 === 0) {
+        await yieldToEventLoop();
+      }
+    }
 
     // 防止跨轮 tool_calls 污染
     let lastUserMsgIdx = -1;

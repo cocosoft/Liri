@@ -52,7 +52,9 @@ export class TaskFacade implements ITaskFacade {
       'User-assigned task plan',
       stepDescriptions,
       session.id,
-      taskIds
+      taskIds,
+      undefined,
+      session.metadata?.workspaceId
     );
 
     const steps = taskOrchestrator.getPendingSteps(plan.id);

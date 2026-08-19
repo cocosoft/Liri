@@ -21,6 +21,13 @@ const RESERVED_WORDS = new Set([
     'type', 'enum', 'namespace', 'declare', 'implements', 'abstract',
 ]);
 
+/**
+ * R04-001: 单文件行数上限
+ * 默认 1000 行；可用环境变量 ARCH_MAX_LINES 覆盖（如大型基础设施文件无需改代码即可放宽）。
+ * 超限文件仍可通过 layer-exceptions.json 的 fileSizeExceptions / bulkExceptions(R04-001) 登记豁免。
+ */
+const MAX_FILE_LINES = Number(process.env.ARCH_MAX_LINES) || 1000;
+
 // ============ 类型定义 ============
 
 interface RuleViolation {
@@ -615,7 +622,7 @@ class ArchitectureLinter {
             const content = readFileSync(file, 'utf-8');
             const lines = content.split('\n').length;
 
-            if (lines > 800) {
+            if (lines > MAX_FILE_LINES) {
                 const relPath = relative(process.cwd(), file);
                 // R04-001 豁免：已登记 fileSizeExceptions 的文件不阻断
                 if (this.isFileSizeExempt(relPath)) continue;
@@ -623,7 +630,7 @@ class ArchitectureLinter {
                     ruleId: 'R04-001',
                     severity: 'error',
                     file: relPath,
-                    message: `文件 ${lines} 行，超过 800 行限制`,
+                    message: `文件 ${lines} 行，超过 ${MAX_FILE_LINES} 行限制`,
                     suggestion: '必须拆分为子目录下的多个文件，或在例外表中登记',
                 });
             }

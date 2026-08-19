@@ -13,7 +13,10 @@ import FetchedModelList from "../modelAdmin/FetchedModelList";
 import { PROVIDER_TYPE_LABELS } from "../../config/providerPresets";
 import { usageService } from "../../services/usageService";
 import { modelSwitchService } from "../../services/modelSwitchService";
-import { modelService } from "../../services/modelService";
+import {
+  modelService,
+  type CapabilityProbeResult,
+} from "../../services/modelService";
 import { toastError, toastInfo } from "../../stores/toastStore";
 import type {
   ProviderInfo,
@@ -106,10 +109,41 @@ function ProviderPage() {
   const [initialFormData, setInitialFormData] = useState<
     Partial<ProviderFormData> | undefined
   >(undefined);
+  const [providerStatus, setProviderStatus] = useState<Record<string, boolean>>(
+    {},
+  );
+  const [probingId, setProbingId] = useState<string | null>(null);
+  const [probeResults, setProbeResults] = useState<
+    Record<string, CapabilityProbeResult>
+  >({});
 
   useEffect(() => {
     loadModels();
     store.loadProviders();
+  }, []);
+
+  // 本地服务（Ollama/llama.cpp）运行状态轮询
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const statuses = await modelService.providerStatus();
+        if (cancelled) return;
+        const map: Record<string, boolean> = {};
+        statuses.forEach((s) => {
+          map[s.providerType] = s.running;
+        });
+        setProviderStatus(map);
+      } catch {
+        // @ignore 状态轮询失败静默保留上次结果
+      }
+    };
+    load();
+    const timer = window.setInterval(load, 20_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
   }, []);
 
   const filteredProviders = useMemo(() => {
@@ -273,6 +307,21 @@ function ProviderPage() {
         await store.createModel({ ...form, isCustom: true });
         setShowAddModel(false);
         loadModels();
+        // 添加后自动探测能力（tool_use/vision）并写回 DB；云端模型返回 skipped，不打扰
+        if (form.modelId) {
+          modelService
+            .probeCapabilities(form.modelId, true)
+            .then((r) => {
+              if (r.method === "static") {
+                toastInfo(
+                  `已自动检测模型能力：工具调用${r.tool_use === true ? "✓" : r.tool_use === false ? "✗" : "未知"}${r.vision === true ? " · 视觉✓" : ""}`,
+                );
+              }
+            })
+            .catch(() => {
+              // @ignore 自动探测失败不阻塞添加流程
+            });
+        }
       } catch (e) {
         toastError(
           new Error(
@@ -367,6 +416,40 @@ function ProviderPage() {
           `${t("settings.modelSetDefaultFailed")}: ${e instanceof Error ? e.message : t("settings.modelUnknownError")}`,
         ),
       );
+    }
+  }, []);
+
+  /** 探测模型能力（工具调用/视觉），结果写回 DB capabilities */
+  const handleProbeModel = useCallback(async (model: ModelInfo) => {
+    setProbingId(model.id);
+    try {
+      const result = await modelService.probeCapabilities(
+        model.modelId || model.id,
+        true,
+      );
+      setProbeResults((prev) => ({ ...prev, [model.id]: result }));
+      const parts: string[] = [];
+      if (result.tool_use === true) parts.push("工具调用");
+      if (result.vision === true) parts.push("视觉");
+      if (parts.length > 0) {
+        toastInfo(`检测完成：支持${parts.join("、")}（已写入模型能力）`);
+      } else {
+        toastInfo(
+          result.method === "skipped"
+            ? "该模型由云端 Provider 托管，不支持自动检测，请手动配置能力标签"
+            : result.method === "failed"
+              ? "检测失败：模型对应 Provider 未就绪或服务不可达"
+              : "未检测到工具调用/视觉能力",
+        );
+      }
+    } catch (e) {
+      toastError(
+        new Error(
+          `能力检测失败: ${e instanceof Error ? e.message : String(e)}`,
+        ),
+      );
+    } finally {
+      setProbingId(null);
     }
   }, []);
 
@@ -625,6 +708,27 @@ function ProviderPage() {
         {/* 模型列表 Tab */}
         {activeTab === "models" && (
           <>
+            {Object.keys(providerStatus).length > 0 && (
+              <div className="flex flex-wrap items-center gap-3 mb-3 px-1">
+                {Object.entries(providerStatus).map(([type, running]) => (
+                  <span
+                    key={type}
+                    className="inline-flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400"
+                  >
+                    <span
+                      className={`inline-block w-2 h-2 rounded-full ${
+                        running ? "bg-green-500" : "bg-red-500"
+                      }`}
+                    />
+                    {type === "ollama" ? "Ollama" : "llama.cpp"}
+                    {running ? "运行中" : "未运行"}
+                  </span>
+                ))}
+                <span className="text-xs text-gray-400 dark:text-gray-500">
+                  每 20 秒自动刷新
+                </span>
+              </div>
+            )}
             <div className="flex justify-end gap-2 mb-4">
               <button
                 onClick={handleSyncOfficialPricing}
@@ -692,6 +796,22 @@ function ProviderPage() {
                           <span className="text-xs text-gray-400 dark:text-gray-500">
                             {model.type}
                           </span>
+                          {probeResults[model.id] && (
+                            <span
+                              className="text-[10px] px-1.5 py-0.5 rounded bg-violet-50 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400"
+                              title="最近一次能力检测结果"
+                            >
+                              工具调用
+                              {probeResults[model.id].tool_use === true
+                                ? "✓"
+                                : probeResults[model.id].tool_use === false
+                                  ? "✗"
+                                  : "?"}
+                              {probeResults[model.id].vision === true
+                                ? " · 视觉✓"
+                                : ""}
+                            </span>
+                          )}
                           {model.pricing && (
                             <span className="text-xs text-gray-500 dark:text-gray-400">
                               输入 ${formatUnitPrice(model.pricing.inputPer1M)}{" "}
@@ -759,6 +879,14 @@ function ProviderPage() {
                             管理 Provider
                           </button>
                         )}
+                        <button
+                          onClick={() => handleProbeModel(model)}
+                          disabled={probingId === model.id}
+                          title="静态探测模型是否支持工具调用/视觉，结果写入模型能力"
+                          className="px-2 py-1 text-xs bg-violet-50 dark:bg-violet-900/20 hover:bg-violet-100 dark:hover:bg-violet-900/40 text-violet-600 dark:text-violet-400 rounded shrink-0 disabled:opacity-50"
+                        >
+                          {probingId === model.id ? "检测中..." : "检测能力"}
+                        </button>
                         <button
                           onClick={() => setEditMetaId(model.id)}
                           className="px-2 py-1 text-xs bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 rounded shrink-0"

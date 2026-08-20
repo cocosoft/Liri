@@ -82,6 +82,18 @@ import {
   serializeOnShutdownSync,
 } from './context/persistence/ContextPersistenceLifecycle.js';
 import { contextManager } from './context/ContextManager.js';
+// AC-7：type-only 导入，信号处理中同步强关 HTTP（零运行时依赖，无循环引用）
+import type { LocalHTTPService } from './infrastructure/http/LocalHTTPService.js';
+
+/**
+ * 当前实例的 HTTP 服务引用（AC-7）
+ *
+ * 信号处理（SIGINT/SIGTERM，注册于 checkSingletonInstance）需要第一时间
+ * 同步释放监听端口：卡死在优雅退出链时，"无监听端口"是单实例锁判定
+ * "退出中僵尸"的唯一可靠信号（健康实例必有 HTTP LISTENING）。
+ * launchREPL 启动 HTTP 成功后赋值。
+ */
+let activeHttpService: LocalHTTPService | null = null;
 
 import { getLogger, Logger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
@@ -541,6 +553,112 @@ function getLockFilePath(): string {
 }
 
 /**
+ * 同步等待（Atomics.wait 阻塞事件循环，用于启动期同步流程）
+ */
+function syncSleep(ms: number): void {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
+/**
+ * 检测指定 PID 是否监听着任意 TCP 端口（仅 Windows）
+ *
+ * AC-7（2026-08-20）：用于区分"健康服务实例"（REPL/DAEMON 模式必有 HTTP LISTENING）
+ * 与"退出中僵尸"（优雅退出流程已关闭 HTTP server 但进程未死透）。
+ *
+ * @returns true=在监听 / false=无监听 / netstat 执行失败时返回 true（保守视为健康，避免误杀）
+ */
+function isProcessListeningOnAnyPort(pid: number): boolean {
+  if (process.platform !== 'win32') {
+    // 非 Windows 平台无可靠同步检测手段，保守视为健康
+    return true;
+  }
+  try {
+    const out = execSync('netstat -ano -p tcp', {
+      encoding: 'utf-8',
+      timeout: 5000,
+      windowsHide: true,
+    });
+    const pidRe = new RegExp(`\\s${pid}\\s*$`);
+    return out
+      .split('\n')
+      .some((line) => line.includes('LISTENING') && pidRe.test(line));
+  } catch (err) {
+    logger.warning('netstat 端口检测失败，保守视为健康实例', {
+      pid,
+      error: String(err),
+    });
+    return true;
+  }
+}
+
+/**
+ * 终止退出中的僵尸实例（AC-7）
+ *
+ * 场景：bun --watch 文件变更重启时，旧进程收到信号后优雅退出链
+ * （通道 dispose / flush）可能卡死——HTTP 已关、进程未死。此时新实例
+ * 需接管而非退出，否则服务下线。
+ *
+ * 流程：SIGTERM → 3s 优雅窗口 → 仍存活则 SIGKILL → 2s 确认死亡。
+ *
+ * @returns true=僵尸已清理可接管 / false=无法终止（调用方应退出）
+ */
+function terminateZombieInstance(pid: number): boolean {
+  const t0 = Date.now();
+  logger.warning(
+    `检测到疑似僵尸实例 (PID: ${pid}，进程存活但无监听端口，疑似卡在优雅退出流程)，尝试清理后接管`,
+    { pid, currentPid: process.pid }
+  );
+  // 第一步：SIGTERM 优雅终止（健康 CLI/MCP 等无端口实例也会正常退出，属替换语义）
+  try {
+    process.kill(pid, 'SIGTERM');
+  } catch {
+    return true; // 已死亡
+  }
+  for (let i = 0; i < 15; i++) {
+    syncSleep(200);
+    try {
+      process.kill(pid, 0);
+    } catch {
+      logger.info(`僵尸实例已通过 SIGTERM 退出 (${Date.now() - t0}ms)`, {
+        pid,
+      });
+      return true;
+    }
+  }
+  // 第二步：SIGKILL 强杀（Windows 上等价 TerminateProcess）
+  logger.warning(
+    `僵尸实例 SIGTERM 后 ${Date.now() - t0}ms 未退出，升级 SIGKILL`,
+    {
+      pid,
+    }
+  );
+  try {
+    process.kill(pid, 'SIGKILL');
+  } catch {
+    return true;
+  }
+  for (let i = 0; i < 10; i++) {
+    syncSleep(200);
+    try {
+      process.kill(pid, 0);
+    } catch {
+      logger.warning(
+        `僵尸实例已被 SIGKILL 终止 (总耗时 ${Date.now() - t0}ms)`,
+        {
+          pid,
+        }
+      );
+      return true;
+    }
+  }
+  logger.error(`无法终止僵尸实例 (PID: ${pid})，放弃接管`, {
+    pid,
+    elapsedMs: Date.now() - t0,
+  });
+  return false;
+}
+
+/**
  * 单实例锁检查（PID 文件锁）
  *
  * 在进程启动时检查是否存在锁文件，若存在且对应进程存活则退出，
@@ -564,8 +682,33 @@ function checkSingletonInstance(): void {
         // 检查对应进程是否存活（不发送信号，仅探测）
         try {
           process.kill(pid, 0);
-          logger.warning(`检测到已有实例在运行 (PID: ${pid})，当前实例将退出`);
-          process.exit(1);
+          // AC-7（2026-08-20）：存活需区分两种情况——
+          // ① 健康实例：有 LISTENING 端口（REPL/DAEMON 的 HTTP 服务）→ 保持原语义退出
+          // ② 退出中僵尸：bun --watch 重启时旧进程卡在优雅退出链（锁已删、HTTP 已关、
+          //    进程未死）→ 清理僵尸后接管，避免双实例导致 QQ WS 归属错乱、消息静默丢失
+          if (isProcessListeningOnAnyPort(pid)) {
+            logger.warning(
+              `检测到已有健康实例在运行 (PID: ${pid}，端口监听中)，当前实例将退出`
+            );
+            process.exit(1);
+          }
+          if (!terminateZombieInstance(pid)) {
+            logger.warning(
+              `已有实例 (PID: ${pid}) 无法终止，当前实例将退出（请手动检查该进程）`
+            );
+            process.exit(1);
+          }
+          // 僵尸已清理：持久化痕迹（复用异常退出记录，含僵尸场景标识）后继续启动
+          recordAbnormalExit({
+            detectedAt: new Date().toISOString(),
+            stalePid: pid,
+            lastLockedAt: null,
+            lastExit: readLastExit(),
+          });
+          logger.warning(
+            `僵尸实例 (PID: ${pid}) 已清理，当前实例 (PID: ${process.pid}) 接管并继续启动`
+          );
+          // 跳过下方的"进程不存在残留"处理，直接进入写锁阶段
         } catch (err) {
           // 进程不存在 → 锁文件残留。正常退出必然在 exit 事件清理锁文件（cleanup），
           // 残留即上次进程未走正常退出（强杀/崩溃/断电）。
@@ -682,15 +825,22 @@ function checkSingletonInstance(): void {
     flush().catch(() => {});
   });
   process.on('SIGINT', () => {
-    cleanup();
+    // AC-7（2026-08-20）：不在信号处理中提前执行 cleanup（删锁）。
+    // 若优雅退出链（通道 dispose/flush）卡死，锁已删而进程未死 →
+    // 新实例无法检测到旧实例 → 双实例并存（QQ WS 归属错乱、消息丢失）。
+    // 删锁统一延迟到 process.exit 触发的 'exit' 事件（必然同步执行）；
+    // 卡死时锁保留，供新实例按僵尸流程检测并接管。
+    // 同步强关 HTTP：立即释放端口（新实例可绑定）+"无监听端口"成为
+    // 退出中僵尸的可靠信号（closeAllConnections 防 keep-alive 拖住）。
+    activeHttpService?.forceCloseSync();
     // T3.4: 优雅退出释放通道级 scope（注销已注册通道）
     void gracefulChannelShutdown().finally(() =>
       flush().finally(() => process.exit(0))
     );
   });
   process.on('SIGTERM', () => {
-    cleanup();
-    // T3.4: 优雅退出释放通道级 scope（注销已注册通道）
+    // 同上：删锁延迟到 exit 事件；先同步强关 HTTP（AC-7）
+    activeHttpService?.forceCloseSync();
     void gracefulChannelShutdown().finally(() =>
       flush().finally(() => process.exit(0))
     );
@@ -702,6 +852,10 @@ function checkSingletonInstance(): void {
  * dynamic import 避免 main.ts 与 channels 模块静态耦合。
  */
 async function gracefulChannelShutdown(): Promise<void> {
+  // 先停渠道实时监控（清探测循环与退避定时器），再释放通道 scope
+  const { getChannelRealtimeMonitor } =
+    await import('./channels/monitoring/ChannelRealtimeMonitor');
+  getChannelRealtimeMonitor().stop();
   const { channelBootstrapper } =
     await import('./channels/bootstrap/ChannelBootstrapper');
   await channelBootstrapper.disposeAll();
@@ -791,6 +945,8 @@ async function launchREPL(options: LaunchOptions): Promise<void> {
   let httpService: Awaited<ReturnType<typeof startHTTPServer>> | null = null;
   try {
     httpService = await startHTTPServer(httpPort, httpHost);
+    // AC-7：暴露给信号处理（同步强关端口，见 forceCloseSync 注释）
+    activeHttpService = httpService;
     process.env.LIRI_HTTP_STARTED = '1';
     logger.info(`HTTP 服务已启动: http://${httpHost}:${httpPort}`);
   } catch (e: unknown) {
@@ -1379,6 +1535,15 @@ export async function launch(options: LaunchOptions): Promise<void> {
       try {
         const { llamaCppServerManager } =
           await import('@modules/ai/local/llama/LlamaCppServerManager.js');
+        const cfg = llamaCppServerManager.getConfig();
+        if (!cfg.autoStart) {
+          logger.info('llama.cpp autoStart=false，跳过自动启动');
+          return;
+        }
+        if (!cfg.model) {
+          logger.info('llama.cpp 未配置 GGUF 模型，跳过自动启动');
+          return;
+        }
         await llamaCppServerManager.start();
         const status = await llamaCppServerManager.getStatus();
         if (status.running) {

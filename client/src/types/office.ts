@@ -33,6 +33,34 @@ export interface DocStatusResponse {
   documents?: DocItem[];
 }
 
+/** OfficeCLI 安装状态（GET /v1/officecli/status 数据源） */
+export type OfficeCliInstallState = "idle" | "running" | "completed" | "failed";
+
+/** OfficeCLI 检测结果 */
+export interface OfficeCliInfo {
+  installed: boolean;
+  version?: string;
+  path?: string;
+  incompatible?: boolean;
+}
+
+/** OfficeCLI 版本约束 */
+export interface OfficeCliVersionConstraint {
+  minVersion: string;
+  maxVersion: string;
+  lastTested: string;
+}
+
+/** GET /v1/officecli/status 响应 */
+export interface OfficeCliInstallStatus {
+  state: OfficeCliInstallState;
+  info: OfficeCliInfo;
+  constraint: OfficeCliVersionConstraint;
+  startedAt: number | null;
+  finishedAt: number | null;
+  error?: string;
+}
+
 /** 邮件项（来自 /v1/mail/inbox） */
 export interface MailItem {
   subject: string;

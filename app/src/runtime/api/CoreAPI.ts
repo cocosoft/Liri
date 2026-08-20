@@ -29,6 +29,7 @@ import type {
   FileInfo,
 } from '@modules/tools/converter/engine/types';
 import type { TodoBlockData } from './todo-types';
+import type { DocWorkflowProgressData } from '@modules/doc/types/outline';
 
 /** 进度事件，用于通知调用方当前 AI 处理阶段 */
 export interface ProgressEvent {
@@ -109,6 +110,8 @@ export interface QuestionData {
   header: string;
   options: QuestionOption[];
   multiSelect?: boolean;
+  /** 提问类型（v0.5 新增，对齐 PendingQuestion.type） */
+  questionType?: 'choice' | 'open' | 'confirm';
 }
 
 export interface ChatStreamChunk {
@@ -122,7 +125,8 @@ export interface ChatStreamChunk {
     | 'question'
     | 'todo'
     | 'execution_phase'
-    | 'context_state';
+    | 'context_state'
+    | 'doc_workflow';
   content: string;
   sessionId: string;
   toolCall?: ToolCallSpec;
@@ -140,6 +144,8 @@ export interface ChatStreamChunk {
   deliverableData?: DeliverableBlockData;
   /** diff 数据 */
   diffData?: DiffBlockData;
+  /** 仅在 type='doc_workflow' 时存在：文档工作流进度数据 */
+  docWorkflowData?: DocWorkflowProgressData;
   /** 工作模式（Plan/Do） */
   mode?: 'plan' | 'do';
   /** 仅当 type='done' 时存在：模型的终止原因 */

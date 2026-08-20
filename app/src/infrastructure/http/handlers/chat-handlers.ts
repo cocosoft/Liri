@@ -730,6 +730,28 @@ async function handleStreamingChat(
             safeFlush(res);
           }
           break;
+        case 'doc_workflow':
+          if (chunk.docWorkflowData) {
+            res.write(
+              `data: ${JSON.stringify({
+                id: responseId,
+                object: 'chat.completion.chunk',
+                created,
+                model,
+                __pyapp_type: 'doc_workflow',
+                __pyapp_doc_workflow: chunk.docWorkflowData,
+                choices: [
+                  {
+                    index: 0,
+                    delta: { content: chunk.content || '' },
+                    finish_reason: null,
+                  },
+                ],
+              })}\n\n`
+            );
+            safeFlush(res);
+          }
+          break;
       }
 
       result = await generator.next();

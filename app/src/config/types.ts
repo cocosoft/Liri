@@ -209,6 +209,42 @@ export interface FeatureFlags {
 }
 
 /**
+ * 分阶段文档工作流配置（设计方案 §6 M3）
+ *
+ * 与 negotiation 独立——docWorkflow 控制文档生成流水线行为，
+ * negotiation 控制协商式执行引擎的门控强度。
+ */
+export interface DocWorkflowConfig {
+  /** 是否启用分阶段文档生成（false = 一次性生成） */
+  staged: boolean;
+  /** 默认输出格式 */
+  defaultFormat: 'docx' | 'pptx' | 'html' | 'pdf';
+  /** 图片生成并发度 */
+  imageConcurrency: number;
+  /** 大纲确认超时（毫秒，0 = 不超时） */
+  outlineConfirmTimeoutMs: number;
+  /** 图片生成失败时是否降级为占位符（true）还是中止（false） */
+  degradeOnImageFailure: boolean;
+}
+
+/**
+ * 协商式执行引擎配置（设计方案 §6 M3）
+ *
+ * 与 docWorkflow 独立——negotiation 控制全局门控强度，
+ * docWorkflow 控制文档流水线行为。
+ */
+export interface NegotiationConfig {
+  /** 是否启用协商式执行（false = 自动执行不拦截） */
+  enabled: boolean;
+  /** 门控强度：strict（全拦截）/ moderate（仅外部操作+异常）/ relaxed（仅外部操作） */
+  tier: 'strict' | 'moderate' | 'relaxed';
+  /** 用户响应超时（毫秒，默认 5 分钟） */
+  responseTimeoutMs: number;
+  /** 超时后是否自动降级（true = 取默认答案继续，false = 中止） */
+  autoDegradeOnTimeout: boolean;
+}
+
+/**
  * 自动更新配置
  */
 export interface AutoUpdateConfig {
@@ -413,6 +449,10 @@ export interface GlobalConfig {
   channels: ChannelsConfig;
   /** 内部运行状态 */
   internal: InternalState;
+  /** 分阶段文档工作流配置（设计方案 §6 M3） */
+  docWorkflow: DocWorkflowConfig;
+  /** 协商式执行引擎配置（设计方案 §6 M3） */
+  negotiation: NegotiationConfig;
 
   // ===== 已废弃（向后兼容，请使用分组字段） =====
 
@@ -521,6 +561,19 @@ export function createDefaultGlobalConfig(): GlobalConfig {
       promptQueueUseCount: 0,
       btwUseCount: 0,
       cachedStatsigGates: {},
+    },
+    docWorkflow: {
+      staged: true,
+      defaultFormat: 'docx',
+      imageConcurrency: 3,
+      outlineConfirmTimeoutMs: 0,
+      degradeOnImageFailure: true,
+    },
+    negotiation: {
+      enabled: true,
+      tier: 'moderate',
+      responseTimeoutMs: 5 * 60 * 1000,
+      autoDegradeOnTimeout: true,
     },
     ai: {
       provider: '', // 空字符串 → 从 DB/环境变量自动检测

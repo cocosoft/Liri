@@ -496,11 +496,32 @@ export async function lazyConnectChannels(): Promise<void> {
             coreAPI,
             channelName: channel.name,
             enableTracing: true,
+            // AC-5③（2026-08-20 渠道对齐）：仅被动回复窗口渠道（QQ 等）启用长任务占位提示
+            enableLongTaskPlaceholder:
+              plugin.capabilities?.passiveReplyWindow === true,
             // 2026-08-06（P0-2）：传入渠道 DM 策略配置，启用授权检查（未提供时默认不拦截）
             dmPolicy: {
               policy: plugin.security?.dmPolicy ?? 'open',
               allowFrom: plugin.security?.allowFrom ?? [],
             },
+            // 2026-08-20 spec qq-file-transfer：渠道声明 fileUpload 能力时绑定
+            // （sendFile 返回 SendResult 不抛错，此处转 throw 供编排层统一捕获）
+            ...(plugin.capabilities?.fileUpload === true && plugin.outbound
+              ? {
+                  onOutboundFile: async (
+                    filePath: string,
+                    fileTarget: string
+                  ): Promise<void> => {
+                    const result = await plugin.outbound!.sendFile(
+                      fileTarget,
+                      filePath
+                    );
+                    if (!result.success) {
+                      throw new Error(result.error || '文件发送失败');
+                    }
+                  },
+                }
+              : {}),
             onOutbound: async (content, target) => {
               logger.info('[TRACE] setupChannels onOutbound 回调被调用', {
                 channelName: channel.name,
@@ -631,5 +652,17 @@ export async function lazyConnectChannels(): Promise<void> {
   );
   if (errors.length > 0) {
     logger.warning('延迟通道连接存在错误', { errors });
+  }
+
+  // 第八步：启动渠道实时监控（探测循环 unref 不阻止退出；start 幂等）
+  try {
+    const { getChannelRealtimeMonitor } =
+      await import('./monitoring/ChannelRealtimeMonitor');
+    getChannelRealtimeMonitor().start();
+  } catch (error) {
+    await handleError(error, {
+      module: 'channels:setup',
+      action: 'startChannelRealtimeMonitor',
+    });
   }
 }

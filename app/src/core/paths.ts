@@ -398,10 +398,18 @@ export function resolveLlamaBinaryPath(
   );
 }
 
-/** 用户 GGUF 模型存放目录（~/.pyapp/data/models/llama/models/） */
+/**
+ * 用户 GGUF 模型存放目录
+ * 默认路径：~/.pyapp/data/models/llama/models/
+ * 可通过 customDir 参数指定自定义目录（用于用户迁移模型目录后的配置）
+ */
 export function resolveLlamaModelsDir(
+  customDir?: string,
   env: NodeJS.ProcessEnv = process.env
 ): string {
+  if (customDir && typeof customDir === 'string' && customDir.trim()) {
+    return customDir.trim();
+  }
   return join(resolveLlamaDir(env), 'models');
 }
 

@@ -34,6 +34,7 @@ import { configManager } from '@modules/config';
 import { BaseAIProvider } from './BaseAIProvider';
 import { OpenAIProvider } from './OpenAIProvider';
 import type { ProviderConfig, ProviderValidationResult } from './AIProvider';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import type {
   ChatOptions,
   ChatMessage,
@@ -55,6 +56,15 @@ const DEFAULT_BASE_URL = 'http://127.0.0.1:11435/v1';
  * 工具多但预算未触发时仍截断到上限，保留核心工具可用。
  */
 const MAX_TOOLS_PER_REQUEST = 20;
+
+/**
+ * llama.cpp 单次输出词元上限（2026-08-20 用户决策：2048 封顶防卡死）。
+ * 纯 CPU 跑 27B 模型生成速度仅 ~1-4 词元/秒：4096 默认值需 17~68 分钟，
+ * 输出截断重试翻倍到 8192 更是数小时（日志实证 n_predict=8192 剩余 7805 排队）。
+ * 此处封顶同时拦住两条路径：上游默认 4096 与 streamMessageFlow 重试翻倍。
+ * 云端 Provider 不受影响（速度快，无需封顶）。
+ */
+const MAX_OUTPUT_TOKENS = 2048;
 
 /**
  * 工具能力探测结果缓存有效期。
@@ -142,14 +152,15 @@ export class LlamaCppProvider extends OpenAIProvider {
 
   /**
    * 本地推理超时（毫秒）。
-   * 14B Q4_K_M 模型在纯 CPU 上约 3.8 tokens/s，生成 1000 tokens 需要 ~260s。
-   * 云端默认 300s 对本地不够，提升到 600s（10 分钟）。
+   * 本地模型首 token 通常在 10-60s，整体生成 5 分钟足够。
+   * 设 300s 为默认值（而非 600s）——配合 streamMessageFlow 的 TTFB 硬超时（300s），
+   * 形成双重保护：首 token 超时由 streamMessageFlow 兜底，整体生成超时由此处兜底。
    * 环境变量 AI_MODEL_TIMEOUT_MS 若显式设置则优先（用户可强制覆盖）。
    */
   protected override resolveRequestTimeoutMs(): number {
     const raw = configManager.env('AI_MODEL_TIMEOUT_MS');
     const parsed = raw ? Number(raw) : NaN;
-    return Number.isFinite(parsed) && parsed > 0 ? parsed : 600_000;
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 300_000;
   }
 
   /**
@@ -257,23 +268,285 @@ export class LlamaCppProvider extends OpenAIProvider {
     messages: ChatMessage[],
     options?: ChatOptions
   ): Promise<ChatResponse> {
-    // 耗时统计：委托 BaseAIProvider.measureChat（2026-08-16）
+    await this.preFetchHealthCheck();
     const limitedTools = await this.limitTools(options?.tools);
     return BaseAIProvider.measureChat('LlamaCpp', () =>
       super.chat(messages, {
         ...options,
+        ...this.clampMaxTokens(options),
         tools: limitedTools,
       })
     );
+  }
+
+  /**
+   * 输出词元封顶：maxTokens 不超过 MAX_OUTPUT_TOKENS（2048）。
+   * 未传时同样注入 2048——父类 OpenAIProvider 默认 4096，对纯 CPU 本地推理过大。
+   */
+  private clampMaxTokens(options?: ChatOptions): { maxTokens: number } {
+    const requested = options?.maxTokens;
+    if (requested !== undefined && requested <= MAX_OUTPUT_TOKENS) {
+      return { maxTokens: requested };
+    }
+    if (requested !== undefined) {
+      logger.info('llama.cpp 输出词元封顶', {
+        requestedMaxTokens: requested,
+        cappedTo: MAX_OUTPUT_TOKENS,
+        reason: `纯 CPU 生效速度 ~1-4 词元/秒，防止单次回复耗时过长导致排队卡死`,
+      });
+    }
+    return { maxTokens: MAX_OUTPUT_TOKENS };
+  }
+
+  /**
+   * 发送请求前检查 llama-server 健康状态。
+   * 若服务未运行或已卡在处理中，直接返回错误而非等待超时。
+   * 检查 /health（服务存活）和 /slots（是否已有任务占用）。
+   */
+  private async preFetchHealthCheck(): Promise<void> {
+    const checkStart = Date.now();
+    const origin = this.baseUrl.replace(/\/v1$/, '');
+    logger.info('llama-server 健康检查开始', {
+      baseUrl: this.baseUrl,
+      origin,
+      requestId: `hc-${checkStart}`,
+    });
+
+    try {
+      // Step 1: /health 健康检查
+      const healthStart = Date.now();
+      const healthCtrl = new AbortController();
+      const healthTimer = setTimeout(() => {
+        logger.warn('llama-server /health 请求超时', {
+          timeoutMs: 5000,
+          elapsedMs: Date.now() - healthStart,
+        });
+        healthCtrl.abort();
+      }, 5000);
+
+      let healthRes: Response;
+      try {
+        healthRes = await fetch(`${origin}/health`, {
+          signal: healthCtrl.signal,
+        });
+      } catch (fetchErr) {
+        clearTimeout(healthTimer);
+        const elapsedMs = Date.now() - healthStart;
+        const msg =
+          fetchErr instanceof Error ? fetchErr.message : String(fetchErr);
+        logger.error('llama-server /health 请求失败', {
+          error: msg,
+          elapsedMs,
+          errorName: fetchErr instanceof Error ? fetchErr.name : undefined,
+          errorStack:
+            fetchErr instanceof Error
+              ? fetchErr.stack?.slice(0, 200)
+              : undefined,
+        });
+        throw fetchErr;
+      }
+      clearTimeout(healthTimer);
+
+      const healthElapsedMs = Date.now() - healthStart;
+      const healthOk = healthRes.ok;
+      logger.info('llama-server /health 检查完成', {
+        status: healthRes.status,
+        ok: healthOk,
+        elapsedMs: healthElapsedMs,
+      });
+
+      if (!healthOk) {
+        logger.warn('llama-server /health 返回非 200，跳过 slots 检查', {
+          status: healthRes.status,
+          elapsedMs: healthElapsedMs,
+          reason: '服务可能未就绪',
+        });
+        logger.info('llama-server 健康检查结束', {
+          totalElapsedMs: Date.now() - checkStart,
+          result: 'health_check_failed',
+        });
+        return;
+      }
+
+      // Step 2: /slots 状态检查
+      const slotStart = Date.now();
+      const slotCtrl = new AbortController();
+      const slotTimer = setTimeout(() => {
+        logger.warn('llama-server /slots 请求超时', {
+          timeoutMs: 5000,
+          elapsedMs: Date.now() - slotStart,
+        });
+        slotCtrl.abort();
+      }, 5000);
+
+      let slotRes: Response;
+      try {
+        slotRes = await fetch(`${origin}/slots`, {
+          signal: slotCtrl.signal,
+        });
+      } catch (fetchErr) {
+        clearTimeout(slotTimer);
+        const elapsedMs = Date.now() - slotStart;
+        const msg =
+          fetchErr instanceof Error ? fetchErr.message : String(fetchErr);
+        logger.error('llama-server /slots 请求失败', {
+          error: msg,
+          elapsedMs,
+          errorName: fetchErr instanceof Error ? fetchErr.name : undefined,
+          errorStack:
+            fetchErr instanceof Error
+              ? fetchErr.stack?.slice(0, 200)
+              : undefined,
+        });
+        throw fetchErr;
+      }
+      clearTimeout(slotTimer);
+
+      const slotElapsedMs = Date.now() - slotStart;
+      const slotOk = slotRes.ok;
+      logger.info('llama-server /slots 请求完成', {
+        status: slotRes.status,
+        ok: slotOk,
+        elapsedMs: slotElapsedMs,
+      });
+
+      if (!slotOk) {
+        logger.info('llama-server 健康检查结束', {
+          totalElapsedMs: Date.now() - checkStart,
+          result: 'slots_check_non_ok',
+          slotStatus: slotRes.status,
+        });
+        return;
+      }
+
+      // Step 3: 解析 slots 数据（llama-server 返回数组）
+      const rawSlots = (await slotRes.json()) as unknown;
+      const slots = Array.isArray(rawSlots) ? rawSlots : [];
+      const totalSlots = slots.length;
+
+      // 遍历所有 slot，检查是否有正在处理的任务
+      // 生成进度位于 next_token[0]（n_deccoded=已生成 / n_remain=剩余）
+      const processingSlots: Array<{
+        id: number;
+        nPromptTokens: number;
+        nPromptProcessed: number;
+        nDecoded: number;
+        nRemain: number;
+        nPredict: number;
+      }> = [];
+
+      for (const slot of slots) {
+        const s = slot as {
+          id: number;
+          is_processing?: boolean;
+          n_prompt_tokens?: number;
+          n_prompt_tokens_processed?: number;
+          next_token?: Array<{ n_remain?: number; n_decoded?: number }>;
+          params?: { n_predict?: number };
+        };
+        if (s.is_processing) {
+          processingSlots.push({
+            id: s.id,
+            nPromptTokens: s.n_prompt_tokens ?? 0,
+            nPromptProcessed: s.n_prompt_tokens_processed ?? 0,
+            nDecoded: s.next_token?.[0]?.n_decoded ?? 0,
+            nRemain: s.next_token?.[0]?.n_remain ?? 0,
+            nPredict: s.params?.n_predict ?? 0,
+          });
+        }
+      }
+
+      const slotInfo = slots.map((s) => {
+        const slot = s as {
+          id: number;
+          is_processing?: boolean;
+          n_ctx?: number;
+          n_prompt_tokens?: number;
+          n_tokens_predicted?: number;
+        };
+        return {
+          id: slot.id,
+          isProcessing: slot.is_processing ?? false,
+          nCtx: slot.n_ctx ?? 0,
+          nPromptTokens: slot.n_prompt_tokens ?? 0,
+          nTokensPredicted: slot.n_tokens_predicted ?? 0,
+        };
+      });
+
+      logger.info('llama-server /slots 数据解析完成', {
+        totalSlots,
+        processingCount: processingSlots.length,
+        slots: slotInfo,
+        elapsedMs: slotElapsedMs,
+      });
+
+      const isBusy = processingSlots.length > 0;
+
+      // busy 时直接拒绝请求（2026-08-20 根因修复）：
+      // llama-server 单 slot 被长任务占用时，新请求会进入队列排队。
+      // 纯 CPU 跑大模型生成 n_predict=8192 需要数十分钟，排队必然触发
+      // TTFB 300s 超时（日志实证：elapsedMs=300095 + LLM_TTFB_TIMEOUT）。
+      // 明确拒绝并提示用户，比让请求排队等死更友好。
+      if (isBusy) {
+        const ps = processingSlots[0];
+        // CPU 生成速度按 1~4 tokens/s 估算剩余时间（下限口径，保守提示）
+        const estRemainingSec = ps.nRemain > 0 ? Math.round(ps.nRemain / 2) : 0;
+        const estText =
+          estRemainingSec > 0
+            ? `预计还需约 ${Math.max(1, Math.round(estRemainingSec / 60))} 分钟以上（纯 CPU 速度约 1~4 词元/秒）`
+            : '剩余时间无法预估（纯 CPU 速度约 1~4 词元/秒）';
+
+        logger.warn('llama-server 正在处理任务，拒绝新请求', {
+          slotId: ps.id,
+          promptTokens: ps.nPromptTokens,
+          promptProcessed: ps.nPromptProcessed,
+          decoded: ps.nDecoded,
+          remain: ps.nRemain,
+          nPredict: ps.nPredict,
+          processingCount: processingSlots.length,
+        });
+
+        throw new AppError(
+          `本地模型正在处理上一个回复（已生成 ${ps.nDecoded} 个词元，剩余 ${ps.nRemain} 个，${estText}），为避免本次请求排队超时已直接取消。建议：等上一条回复完成后再发新消息；若上一条已不需要，可到「设置 → llama.cpp 本地推理」点击「强制重启」清理积压任务。`,
+          ErrorCategory.EXECUTION,
+          ErrorSeverity.MEDIUM,
+          'LLAMA_SERVER_BUSY'
+        );
+      }
+
+      logger.info('llama-server 健康检查结束', {
+        totalElapsedMs: Date.now() - checkStart,
+        result: 'ready',
+        totalSlots,
+        processingCount: 0,
+        isBusy: false,
+      });
+    } catch (e) {
+      // LLAMA_SERVER_BUSY 必须穿透（不能被健康检查的容错逻辑吞掉）
+      if (e instanceof AppError && e.code === 'LLAMA_SERVER_BUSY') {
+        throw e;
+      }
+      const msg = e instanceof Error ? e.message : String(e);
+      const elapsedMs = Date.now() - checkStart;
+      logger.warn('llama-server 健康检查异常（将继续尝试请求）', {
+        error: msg,
+        elapsedMs,
+        errorName: e instanceof Error ? e.name : undefined,
+        errorStack: e instanceof Error ? e.stack?.slice(0, 300) : undefined,
+        note: '健康检查失败不阻断主请求流程，主请求会有独立超时保护',
+      });
+    }
   }
 
   override async *chatStream(
     messages: ChatMessage[],
     options?: ChatOptions
   ): AsyncGenerator<string | ThinkingProviderChunk, ChatResponse, unknown> {
+    await this.preFetchHealthCheck();
     const limitedTools = await this.limitTools(options?.tools);
     return yield* super.chatStream(messages, {
       ...options,
+      ...this.clampMaxTokens(options),
       tools: limitedTools,
     });
   }

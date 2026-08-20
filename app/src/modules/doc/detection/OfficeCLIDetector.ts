@@ -14,10 +14,10 @@ const logger = getLogger('doc:detection');
 
 /** OfficeCLI 版本兼容约束 */
 const OFFICECLI_CONSTRAINT: OfficeCLIVersionConstraint = {
-  minVersion: '3.0.0',
-  maxVersion: '3.x.x',
+  minVersion: '1.0.0',
+  maxVersion: '1.x.x',
   knownIncompatible: [],
-  lastTested: '3.2.1',
+  lastTested: '1.0.144',
 };
 
 /** 常见安装路径（Windows） */
@@ -91,7 +91,7 @@ function isVersionCompatible(
   if (parts[0] < minParts[0]) return false;
   if (parts[0] === minParts[0] && parts[1] < minParts[1]) return false;
 
-  // maxVersion 为 '3.x.x' 时仅限制 major
+  // maxVersion 为 '1.x.x' 时仅限制 major
   const maxMajor = parseInt(constraint.maxVersion.split('.')[0], 10);
   if (parts[0] > maxMajor) return false;
 

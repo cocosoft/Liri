@@ -40,6 +40,8 @@ export { renderDocumentPreview } from './types/components';
 // HTTP API handlers
 export {
   handleDocStatus,
+  handleOfficeCLIStatus,
+  handleOfficeCLIInstall,
   handleDocCapabilities,
   handleDocDetect,
   handleDocUndo,
@@ -86,9 +88,63 @@ export type {
   ResourceLimits,
 } from './types';
 
+// 分阶段文档工作流类型（设计方案 §4.2）
+export type {
+  DocFormat,
+  DocOutlineNode,
+  DocOutline,
+  FilledOutline,
+  OutlinePatch,
+  PptRefineConfig,
+  ImagePlaceholder,
+} from './types/outline';
+export { DEFAULT_PPT_CONFIG, validatePptConfig } from './types/outline';
+
 export type { DocumentPreviewProps } from './types/components';
 export type {
   DocumentPreviewData,
   EmailConfirmationData,
   CalendarCardData,
 } from './types/messageContent';
+
+// 分阶段文档工作流（设计方案 §4）
+export {
+  buildOutline,
+  fillContent,
+  generateImages,
+  compose,
+  diffOutline,
+  runDocWorkflow,
+  DocWorkflowProgressEmitter,
+} from './workflow/DocWorkflow';
+export type {
+  BuildOutlineInput,
+  FillContentOptions,
+  GenerateImagesOptions,
+  ComposeResult,
+  RunDocWorkflowOptions,
+  DocWorkflowProgressCallback,
+} from './workflow/DocWorkflow';
+export type {
+  DocWorkflowProgressData,
+  DocWorkflowStage,
+  DocWorkflowStageStatus,
+  DocWorkflowStageData,
+  DocWorkflowNodeProgress,
+} from './types/outline';
+export {
+  refineNode,
+  refineOutline,
+  refineTitle,
+  refineBullets,
+} from './workflow/PptRefiner';
+export type { RefineResult, RefineViolation } from './workflow/PptRefiner';
+
+// 占位符解析器（设计方案 §4.3）
+export {
+  parsePlaceholders,
+  replacePlaceholders,
+  deduplicatePlaceholders,
+  buildPlaceholderText,
+  generatePlaceholderId,
+} from './placeholder/PlaceholderResolver';

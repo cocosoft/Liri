@@ -220,6 +220,16 @@ export async function dispatchAuthAccessRoutes(
   if (handled) return true;
 
   // ---- Office / doc 模块 API ----
+  if (method === 'GET' && url === '/v1/officecli/status') {
+    const { handleOfficeCLIStatus } = await import('@modules/doc');
+    await handleOfficeCLIStatus(req, res);
+    return true;
+  }
+  if (method === 'POST' && url === '/v1/officecli/install') {
+    const { handleOfficeCLIInstall } = await import('@modules/doc');
+    await handleOfficeCLIInstall(req, res);
+    return true;
+  }
   if (method === 'GET' && url === '/v1/doc/status') {
     const { handleDocStatus } = await import('@modules/doc');
     await handleDocStatus(req, res);

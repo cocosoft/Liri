@@ -475,8 +475,13 @@ export async function initializeTelemetry() {
       new FileSpanExporter(),
     ];
 
-    // 增强遥测启用时追加 OTLP 导出器
-    if (telemetryEnabled) {
+    // 增强遥测启用时追加 OTLP 导出器。
+    // 方案 B（2026-08-20）：用户显式配置 OTEL_TRACES_EXPORTER 含 'otlp' 时无条件追加，
+    // 与 Liri_ENABLE_TELEMETRY 总门控解耦——显式配置表达明确意图（如本地接 Jaeger 调试渠道链路）。
+    const explicitOtlpTraces = parseExporterTypes(
+      configManager.env('OTEL_TRACES_EXPORTER')
+    ).includes('otlp');
+    if (telemetryEnabled || explicitOtlpTraces) {
       const otlpExporters = await getOtlpTraceExporters();
       spanExporters.push(...otlpExporters);
     }

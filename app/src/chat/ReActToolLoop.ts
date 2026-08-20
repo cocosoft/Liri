@@ -51,6 +51,17 @@ import type {
   QuestionOption,
 } from '@modules/runtime/api/CoreAPI.js';
 import { trackUsage } from '@modules/ai';
+import {
+  shouldAsk as decisionGateCheck,
+  type GateTier,
+} from './services/DecisionGate';
+import {
+  loadNegotiationState,
+  createNegotiationState,
+  addPendingQuestion,
+  recordAnswer,
+  type NegotiationState,
+} from './services/NegotiationState';
 
 const logger = getLogger('chat:reactToolLoop');
 
@@ -109,6 +120,10 @@ export class ReActToolLoop extends ReActLoop<
   /** 实例级可配置（测试缩短心跳间隔用），默认取 static 常量 */
   private heartbeatMs: number;
   private maxWaitMs: number;
+  /** DecisionGate 门控强度（undefined 表示门控未启用，对齐设计方案 §5.1） */
+  private gateTier?: GateTier;
+  /** 协商状态（跨消息持久化，null 表示未启用协商引擎） */
+  private negotiationState: NegotiationState | null = null;
 
   constructor(
     ctx: ToolLoopContext,
@@ -116,6 +131,7 @@ export class ReActToolLoop extends ReActLoop<
     config?: Partial<ReActLoopConfig> & {
       interactionHeartbeatMs?: number;
       interactionMaxWaitMs?: number;
+      gateTier?: GateTier;
     }
   ) {
     super({
@@ -129,6 +145,14 @@ export class ReActToolLoop extends ReActLoop<
       config?.interactionHeartbeatMs ?? ReActToolLoop.INTERACTION_HEARTBEAT_MS;
     this.maxWaitMs =
       config?.interactionMaxWaitMs ?? ReActToolLoop.INTERACTION_MAX_WAIT_MS;
+    this.gateTier = config?.gateTier;
+    // 加载或创建协商状态（跨消息持久化恢复）
+    this.negotiationState = loadNegotiationState(ctx.session.id);
+    if (!this.negotiationState) {
+      this.negotiationState = createNegotiationState(ctx.session.id, {
+        tier: this.gateTier,
+      });
+    }
     this.loopState = {
       messages: [...input.apiMessages],
       assistantMessage: input.assistantMessage ?? null,
@@ -337,6 +361,99 @@ export class ReActToolLoop extends ReActLoop<
     }
 
     for (const tc of calls) {
+      // DecisionGate 门控检查（设计方案 §5.3）：执行前检查是否需要用户确认
+      if (this.gateTier) {
+        const gateQuestion = decisionGateCheck(
+          { toolName: tc.name, toolInput: tc.input },
+          this.gateTier,
+          'execute'
+        );
+        if (gateQuestion) {
+          const gateQuestionData: QuestionData = {
+            questionId: gateQuestion.id,
+            question: gateQuestion.question,
+            header: '决策确认',
+            options: gateQuestion.options
+              ? gateQuestion.options.map((o: string) => ({
+                  label: o,
+                  description: gateQuestion.rationale,
+                }))
+              : [
+                  { label: '继续', description: gateQuestion.rationale },
+                  { label: '取消', description: '跳过此操作' },
+                ],
+            multiSelect: false,
+            questionType: gateQuestion.type,
+          };
+          if (this.ctx.pendingInteractions.has(this.ctx.session.id)) {
+            logger.warn('reactToolLoop:gate_already_pending', {
+              sessionId: this.ctx.session.id,
+              toolName: tc.name,
+            });
+            results.push({
+              toolCallId: tc.id,
+              name: tc.name,
+              status: 'error' as const,
+              error: '已有待处理交互，决策门控被跳过',
+            });
+            continue;
+          }
+          let gateResolve!: (answers: string[]) => void;
+          const gatePromise = new Promise<string[]>(
+            (res) => (gateResolve = res)
+          );
+          this.ctx.pendingInteractions.set(this.ctx.session.id, {
+            questionId: gateQuestion.id,
+            promise: gatePromise,
+            resolve: gateResolve,
+          });
+          logger.info('reactToolLoop:gate_question_emitted', {
+            sessionId: this.ctx.session.id,
+            toolCallId: tc.id,
+            toolName: tc.name,
+            questionId: gateQuestion.id,
+            signalKind: gateQuestion.signal?.kind,
+          });
+          if (this.negotiationState) {
+            addPendingQuestion(this.negotiationState, gateQuestion);
+          }
+          yield { type: 'question', questionData: gateQuestionData };
+          const gateIter = this._awaitAnswersWithHeartbeat(
+            gateQuestion.id,
+            gatePromise
+          );
+          let gateAnswerResult = await gateIter.next();
+          while (!gateAnswerResult.done) {
+            yield gateAnswerResult.value;
+            gateAnswerResult = await gateIter.next();
+          }
+          const gateAnswers = gateAnswerResult.value;
+          if (this.negotiationState && gateAnswers) {
+            recordAnswer(this.negotiationState, gateQuestion.id, gateAnswers);
+          }
+          if (
+            !gateAnswers ||
+            gateAnswers.length === 0 ||
+            gateAnswers[0] === '取消' ||
+            gateAnswers[0] === '跳过' ||
+            gateAnswers[0] === '中止'
+          ) {
+            logger.info('reactToolLoop:gate_rejected', {
+              sessionId: this.ctx.session.id,
+              toolCallId: tc.id,
+              toolName: tc.name,
+            });
+            results.push({
+              toolCallId: tc.id,
+              name: tc.name,
+              status: 'error' as const,
+              error: '用户取消执行',
+            });
+            continue;
+          }
+        }
+      }
+
       // 2. 交互恢复：requiresUserInteraction 工具等待用户答案（v3：yield question 事件穿透 generator 挂起链路）
       const toolObj = this.ctx.toolRegistry.getTool(tc.name);
       if (toolObj?.requiresUserInteraction?.()) {
@@ -765,6 +882,8 @@ export class ReActToolLoop extends ReActLoop<
       header: String(args.header),
       options: (args.options as QuestionOption[]) ?? [],
       multiSelect: args.multiSelect === true,
+      questionType:
+        (args.questionType as QuestionData['questionType']) ?? 'choice',
     };
     let resolve!: (answers: string[]) => void;
     const promise = new Promise<string[]>((res) => (resolve = res));

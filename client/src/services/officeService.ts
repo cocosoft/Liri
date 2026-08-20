@@ -10,6 +10,7 @@ import type {
   MailItem,
   CalendarEventItem,
   MergedCalendarResponse,
+  OfficeCliInstallStatus,
 } from "../types/office";
 
 /** 后端统一响应信封（{ code, message, data }） */
@@ -20,6 +21,16 @@ export const officeService = {
 
   getDocStatus: () =>
     http.get<ApiEnvelope<DocStatusResponse>>("/v1/doc/status"),
+
+  // ==================== OfficeCLI 安装管理 ====================
+
+  /** 获取 OfficeCLI 安装状态（检测结果 + 安装进度 + 版本约束） */
+  getOfficeCLIStatus: () =>
+    http.get<ApiEnvelope<OfficeCliInstallStatus>>("/v1/officecli/status"),
+
+  /** 触发 OfficeCLI 安装（异步后台执行，返回当前状态） */
+  installOfficeCLI: () =>
+    http.post<ApiEnvelope<OfficeCliInstallStatus>>("/v1/officecli/install"),
 
   // ==================== 邮件 ====================
 

@@ -10,6 +10,7 @@ import {
   TaskCardData,
   TaskCardTask,
   ProgressData,
+  DocWorkflowProgressData,
 } from "../../types";
 import type { Message } from "../../types";
 import type {
@@ -537,6 +538,31 @@ export class ChronologicalBlockBuilder {
       type: "progress",
       content: progressData.description,
       progressData,
+      isStreaming: true,
+      groupId: this.currentGroupId,
+    });
+    this.markBlocksDirty();
+  }
+
+  /**
+   * 添加/更新文档工作流进度块
+   * 同一文档工作流只维护一个块，后续调用更新 docWorkflowData
+   */
+  addDocWorkflow(data: DocWorkflowProgressData): void {
+    const idx = this.blocks.findIndex((b) => b.type === "doc_workflow");
+    if (idx !== -1) {
+      this.replaceBlockAt(idx, {
+        ...this.blocks[idx],
+        docWorkflowData: data,
+        isStreaming: !data.outputFilePath && !data.error,
+      });
+      return;
+    }
+    this.blocks.push({
+      id: generateBlockId(),
+      type: "doc_workflow",
+      content: "",
+      docWorkflowData: data,
       isStreaming: true,
       groupId: this.currentGroupId,
     });

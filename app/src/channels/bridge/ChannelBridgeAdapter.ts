@@ -37,7 +37,10 @@
 
 import { getLogger } from '@modules/monitoring';
 import { channelRegistry } from '../registry/ChannelRegistry';
-import { routeChannelMessage } from '../routing/messageRouter';
+import {
+  routeChannelMessage,
+  type RouteMessageOptions,
+} from '../routing/messageRouter';
 import { handleError } from '../../error/handleError';
 import type { MessageContext, ChannelId } from '../types/IChannel';
 import type { ChannelInterface } from '../registry/ChannelRegistry';
@@ -86,14 +89,8 @@ export interface LegacyChannel {
 
 /** 桥接选项 */
 export interface BridgeOptions {
-  /** CoreAPI 实例 */
-  coreAPI: {
-    chat(params: {
-      content: string;
-      sessionId: string;
-      metadata?: Record<string, unknown>;
-    }): Promise<{ content: string }>;
-  };
+  /** CoreAPI 实例（类型复用路由定义，避免重复窄化声明） */
+  coreAPI: RouteMessageOptions['coreAPI'];
   /** 桥接的通道列表 */
   channels: LegacyChannel[];
 }

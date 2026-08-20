@@ -30,7 +30,17 @@ import type { HandlerCtx } from '../handler-utils';
 import {
   handleLlamaConfig,
   handleLlamaRestart,
+  handleLlamaForceKill,
+  handleLlamaForceRestart,
+  handleLlamaLogs,
+  handleLlamaLogsStream,
   handleLlamaStatus,
+  handleLlamaMigrate,
+  handleLlamaMigrateCancel,
+  handleLlamaDeleteModel,
+  handleLlamaHardware,
+  handleLlamaRecommendations,
+  handleLlamaDownload,
 } from '../llama-handlers';
 
 /**
@@ -56,6 +66,53 @@ export async function dispatchLlamaRoutes(
   }
   if (method === 'POST' && url === '/v1/llama/restart') {
     await handleLlamaRestart(req, res);
+    return true;
+  }
+  if (method === 'POST' && url === '/v1/llama/force-kill') {
+    await handleLlamaForceKill(req, res);
+    return true;
+  }
+  if (method === 'POST' && url === '/v1/llama/force-restart') {
+    await handleLlamaForceRestart(req, res);
+    return true;
+  }
+  if (method === 'GET' && url === '/v1/llama/logs') {
+    await handleLlamaLogs(req, res);
+    return true;
+  }
+  if (method === 'GET' && url === '/v1/llama/logs/stream') {
+    await handleLlamaLogsStream(req, res);
+    return true;
+  }
+
+  // 硬件检测与模型推荐路由（Task 3.2 / 4.3）
+  if (method === 'GET' && url === '/v1/llama/hardware') {
+    await handleLlamaHardware(req, res);
+    return true;
+  }
+  if (method === 'GET' && url === '/v1/llama/recommendations') {
+    await handleLlamaRecommendations(req, res);
+    return true;
+  }
+  if (method === 'POST' && url === '/v1/llama/download') {
+    await handleLlamaDownload(req, res);
+    return true;
+  }
+
+  // 模型迁移路由（Task 2.2）
+  if (method === 'POST' && url === '/v1/llama/migrate') {
+    await handleLlamaMigrate(req, res);
+    return true;
+  }
+  if (method === 'POST' && url === '/v1/llama/migrate/cancel') {
+    await handleLlamaMigrateCancel(req, res);
+    return true;
+  }
+
+  // 模型删除路由（Task 2.2）
+  const modelDeleteMatch = url.match(/^\/v1\/llama\/models\/(.+)$/);
+  if (method === 'DELETE' && modelDeleteMatch) {
+    await handleLlamaDeleteModel(req, res);
     return true;
   }
 

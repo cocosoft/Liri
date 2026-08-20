@@ -257,6 +257,37 @@ export class LocalHTTPService {
   }
 
   /**
+   * 同步强制关闭（AC-7，2026-08-20）
+   *
+   * 信号处理专用：closeAllConnections 立即断开存量 keep-alive 连接并
+   * 发起 close，不等待回调（server.close 会被 keep-alive 连接拖住）。
+   * 用途：进程进入优雅退出流程时第一时间释放监听端口——
+   *  ① 新实例可立即绑定端口（避免 EADDRINUSE）；
+   *  ② "无监听端口"成为"退出中"的可靠信号，供单实例锁的僵尸检测
+   *     （main.ts isProcessListeningOnAnyPort）区分健康实例与退出中僵尸，
+   *     防止 bun --watch 重启产生双实例（QQ WS 归属错乱、消息丢失）。
+   */
+  forceCloseSync(): void {
+    if (!this.server) {
+      return;
+    }
+    try {
+      stopSSE();
+      // closeAllConnections: Node 18.2+/Bun 支持，断开活跃连接使 close 立即完成
+      this.server.closeAllConnections?.();
+      this.server.close(() => {
+        /* 回调忽略：同步语义，不等待 */
+      });
+      this.server = null;
+      this._isRunning = false;
+      logger.info('LocalHTTPService 已同步强制关闭（信号处理）');
+    } catch (err) {
+      // @ignore-catch — 强制关闭失败不阻断退出流程；端口随进程终止由 OS 回收
+      logger.warn('LocalHTTPService 同步强关异常', { error: String(err) });
+    }
+  }
+
+  /**
    * 处理 HTTP 请求
    */
   private async handleRequest(

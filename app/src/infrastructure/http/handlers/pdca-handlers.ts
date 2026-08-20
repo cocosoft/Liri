@@ -412,12 +412,25 @@ export async function handlePdcaDecideStep(
 
 /**
  * 列出所有 PDCA 任务
+ *
+ * POST /v1/pdca/list
+ * 请求体（可选）: { workspaceId?: string }
+ * 传入 workspaceId 时按项目过滤（通过关联 Plan 的 workspaceId 字段）
  */
 export async function handlePdcaList(
-  _req: http.IncomingMessage,
+  req: http.IncomingMessage,
   res: http.ServerResponse
 ): Promise<void> {
   try {
+    let workspaceId: string | undefined;
+    try {
+      const body = await readRequestBody(req);
+      const parsed = JSON.parse(body || '{}') as { workspaceId?: string };
+      workspaceId = parsed.workspaceId;
+    } catch {
+      /* 无请求体时不过滤 */
+    }
+
     let list: unknown[] = [];
     try {
       const m = await import('@modules/tasks/LongRunningTaskOrchestrator');
@@ -430,6 +443,15 @@ export async function handlePdcaList(
         action: 'orchestratorImportFailed',
       });
     } /* 可选模块, 加载失败时降级 */
+
+    // 按 workspaceId 过滤（通过关联 Plan 的 workspaceId 字段）
+    if (workspaceId) {
+      list = list.filter((item) => {
+        const status = item as { plan?: { workspaceId?: string } };
+        return status?.plan?.workspaceId === workspaceId;
+      });
+    }
+
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(list));
   } catch (err) {

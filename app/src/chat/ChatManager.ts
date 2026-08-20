@@ -60,6 +60,7 @@ import {
 } from './services/MessageContextPipeline';
 import { StreamingToolCallScrubber } from '../streaming/scrubbers/StreamingToolCallScrubber';
 import { stripBareExploration } from './services/bareExplorationStripper';
+import { deleteNegotiationState } from './services/NegotiationState';
 import { SessionAccessFacade } from './services/SessionAccessFacade';
 import { SessionLifecycleManager } from './services/SessionLifecycleManager.js';
 import { ResumeCoordinator } from './services/ResumeCoordinator.js';
@@ -970,6 +971,27 @@ export class ChatManagerImpl implements ChatManager {
     return {
       sessionId,
       toolDefinitions,
+      // v0.5：注入 toolRegistry + pendingInteractions，支持非流式路径 requiresUserInteraction 检测
+      toolRegistry: this.toolRegistry
+        ? {
+            getTool: (name: string) => {
+              const tool = this.toolRegistry!.getTool(name);
+              return tool
+                ? {
+                    requiresUserInteraction: () =>
+                      typeof (
+                        tool as { requiresUserInteraction?: () => boolean }
+                      ).requiresUserInteraction === 'function'
+                        ? (
+                            tool as { requiresUserInteraction: () => boolean }
+                          ).requiresUserInteraction()
+                        : false,
+                  }
+                : undefined;
+            },
+          }
+        : undefined,
+      pendingInteractions: this._pendingInteractions,
       sendModelRequest: async (messages, opts) => {
         const client = this.getClientForModel(options?.model);
         const response = await client.sendMessage(
@@ -1049,29 +1071,29 @@ export class ChatManagerImpl implements ChatManager {
     sessionId: string,
     message: Message
   ): Promise<void> {
-    // P1 修复（2026-08-15）：空正文消息告警 — assistant 消息 content 为空
-    // 且 blocks 无 text 块（含纯 thinking 收尾/纯 tool_call 无正文）时，
-    // 记录告警供可观测性排查（此前被静默持久化为"成功"，i18n saveEmptyContent
-    // 文案长期无调用点）。不阻断持久化（正常返回），仅告警。
+    // P1 修复（2026-08-15）：空正文消息告警；2026-08-20 升级为拦截（QQ 空响应事故）：
+    // DeepSeek 对"历史含空 assistant 消息/连续多条 assistant"会直接返回空响应
+    // （chunkCount=0, finishReason=stop）。若空 assistant 再落盘，污染逐轮累积，
+    // 形成恶性循环（每轮都空）。故空正文 + 无 toolCalls + 无 text 块的 assistant
+    // 消息直接拒绝持久化（含 tool_calls 的空 content 是合法 tool 轮次，仍允许）。
     if (
       message.role === 'assistant' &&
       typeof message.content === 'string' &&
-      message.content.trim() === ''
+      message.content.trim() === '' &&
+      !message.tool_calls?.length
     ) {
       const hasTextBlock = (message.blocks ?? []).some(
         (b) => (b as { type?: unknown }).type === 'text'
       );
       if (!hasTextBlock) {
-        const blockTypes = (message.blocks ?? [])
-          .map((b) => (b as { type?: unknown }).type)
-          .filter(Boolean);
-        logger.warn('chat:空正文助手消息被持久化', {
+        logger.warn('chat:空正文助手消息拒绝持久化（防历史污染）', {
           sessionId,
           messageId: message.id,
-          contentLen: message.content.length,
-          blockTypes,
-          hasToolCalls: !!message.tool_calls?.length,
+          blockTypes: (message.blocks ?? [])
+            .map((b) => (b as { type?: unknown }).type)
+            .filter(Boolean),
         });
+        return;
       }
     }
     const session = this._chatSessions.get(sessionId);
@@ -3576,6 +3598,8 @@ export class ChatManagerImpl implements ChatManager {
     });
     // 联动清理该会话全部检查点（不阻塞删除主流程，记录执行情况，避免残留孤儿检查点）
     void this._deleteSessionCheckpoints(sessionId);
+    // 清理协商状态文件（避免残留）
+    deleteNegotiationState(sessionId);
   }
 
   /**

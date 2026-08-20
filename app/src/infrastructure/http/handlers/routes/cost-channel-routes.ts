@@ -63,6 +63,11 @@ import {
   handleApplyChannelConfig,
   handleChannelHealth,
   handleChannelMetrics,
+  handleChannelMonitorForceReconnect,
+  handleChannelMonitorStatus,
+  handleChannelMessageTrace,
+  handleChannelMessageTraces,
+  handleChannelMonitorStream,
   handleChannelSchema,
   handleDeleteChannel,
   handleGetChannel,
@@ -274,6 +279,33 @@ export async function dispatchCostChannelRoutes(
   // 渠道可观测性指标（channels.* 系列），同样先于 /v1/channels/(.+) 匹配
   if (method === 'GET' && url === '/v1/channels/metrics') {
     await handleChannelMetrics(req, res);
+    return true;
+  }
+  // 渠道实时监控（五态机快照 / SSE 事件流 / 强制重连兜底），先于 /v1/channels/(.+) 匹配
+  if (method === 'GET' && url === '/v1/channels/monitor/status') {
+    await handleChannelMonitorStatus(req, res);
+    return true;
+  }
+  if (method === 'GET' && url === '/v1/channels/monitor/stream') {
+    await handleChannelMonitorStream(req, res);
+    return true;
+  }
+  if (method === 'POST' && url === '/v1/channels/monitor/force-reconnect') {
+    await handleChannelMonitorForceReconnect(req, res);
+    return true;
+  }
+  // 方案 A：消息级全链路追踪（精确路径先于 /v1/channels/(.+) 通配匹配）
+  if (method === 'GET' && url.startsWith('/v1/channels/messages/trace')) {
+    const remainder = url.slice('/v1/channels/messages/trace'.length);
+    if (remainder === '' || remainder.startsWith('?')) {
+      await handleChannelMessageTraces(req, res);
+    } else {
+      await handleChannelMessageTrace(
+        req,
+        res,
+        decodeURIComponent(remainder.replace(/^\//, '').split('?')[0])
+      );
+    }
     return true;
   }
   if (method === 'GET' && url.match(/^\/v1\/channels\/(.+)$/)) {

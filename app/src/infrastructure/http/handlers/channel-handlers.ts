@@ -26,6 +26,7 @@ import { sendError, readRequestBody, type HandlerCtx } from './handler-utils';
 import { getLogger, getMetricsService } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
+import { messageTraceBuffer } from '@modules/channels/monitoring/MessageTraceBuffer';
 
 const logger = getLogger('infrastructure:http:handlers:channel-handlers');
 
@@ -921,6 +922,303 @@ export async function handleChannelMetrics(
       stack: err instanceof Error ? err.stack : undefined,
       timestamp: Date.now(),
     });
+    sendError(res, err);
+  }
+}
+
+// ========== Channel Realtime Monitor（渠道实时监控） ==========
+
+/** ChannelRealtimeMonitor 最小接口（避免静态 import 违反模块边界 lint） */
+interface ChannelRealtimeMonitorLike {
+  start(): void;
+  getStatusAll(): Array<Record<string, unknown>>;
+  subscribeChannelEvents(
+    callback: (event: Record<string, unknown>) => void
+  ): () => void;
+  forceReconnect(channelId: string): Promise<{
+    recovered: boolean;
+    error?: string;
+  }>;
+}
+
+let _realtimeMonitorPromise: Promise<ChannelRealtimeMonitorLike> | null = null;
+
+/** 获取全局 ChannelRealtimeMonitor 实例（懒加载单例，首次访问即启动探测循环） */
+async function getRealtimeMonitor(): Promise<ChannelRealtimeMonitorLike> {
+  if (!_realtimeMonitorPromise) {
+    _realtimeMonitorPromise = (async () => {
+      const { getChannelRealtimeMonitor } =
+        await import('@modules/channels/monitoring/ChannelRealtimeMonitor');
+      const monitor = getChannelRealtimeMonitor();
+      monitor.start();
+      return monitor as unknown as ChannelRealtimeMonitorLike;
+    })();
+  }
+  return _realtimeMonitorPromise;
+}
+
+/**
+ * 全部渠道实时状态快照（五态机 + 探测结果 + 重连计数 + 错误快照）
+ * GET /v1/channels/monitor/status
+ */
+export async function handleChannelMonitorStatus(
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  const t0 = Date.now();
+  logger.info('[TRACE] GET /v1/channels/monitor/status 请求开始', {
+    url: req.url,
+    timestamp: Date.now(),
+  });
+  try {
+    const monitor = await getRealtimeMonitor();
+    const channels = monitor.getStatusAll();
+    logger.info('[TRACE] GET /v1/channels/monitor/status 快照获取成功', {
+      channelCount: channels.length,
+      elapsedMs: Date.now() - t0,
+    });
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(
+      JSON.stringify({
+        channels,
+        updatedAt: Date.now(),
+      })
+    );
+  } catch (err) {
+    logger.warning('[TRACE] GET /v1/channels/monitor/status 快照获取失败', {
+      error: String(err),
+      stack: err instanceof Error ? err.stack : undefined,
+      elapsedMs: Date.now() - t0,
+    });
+    sendError(res, err);
+  }
+}
+
+/**
+ * 渠道实时事件流（SSE）
+ * GET /v1/channels/monitor/stream
+ *
+ * 连接即推全量快照（event: snapshot），之后增量推送
+ * status_change / reconnecting / recovered / probe_failed，15s 心跳保活。
+ */
+export async function handleChannelMonitorStream(
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  const monitor = await getRealtimeMonitor();
+  const t0 = Date.now();
+  logger.info('[TRACE] GET /v1/channels/monitor/stream SSE 连接建立', {
+    url: req.url,
+    timestamp: Date.now(),
+  });
+
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream; charset=utf-8',
+    'Cache-Control': 'no-cache',
+    Connection: 'keep-alive',
+  });
+  // flushHeaders 确保浏览器 EventSource onopen 立即触发（不必等首个心跳）
+  res.flushHeaders();
+
+  // 初始快照
+  try {
+    const snapshotChannels = monitor.getStatusAll();
+    res.write(
+      `event: snapshot\ndata: ${JSON.stringify({
+        channels: snapshotChannels,
+        ts: Date.now(),
+      })}\n\n`
+    );
+    logger.info('[TRACE] GET /v1/channels/monitor/stream 初始快照已推送', {
+      channelCount: snapshotChannels.length,
+    });
+  } catch {
+    // 客户端连接即断开，直接放弃
+    logger.warning(
+      '[TRACE] GET /v1/channels/monitor/stream 初始快照写入失败（客户端已断开）'
+    );
+    return;
+  }
+
+  const unsubscribe = monitor.subscribeChannelEvents((event) => {
+    try {
+      res.write(
+        `event: ${String(event.type)}\ndata: ${JSON.stringify(event)}\n\n`
+      );
+      logger.debug('[TRACE] 渠道监控 SSE 事件已推送', {
+        type: event.type,
+        channelId: event.channelId,
+      });
+    } catch {
+      logger.warning('[TRACE] 渠道监控 SSE 事件推送失败，取消订阅', {
+        type: event.type,
+      });
+      unsubscribe();
+    }
+  });
+
+  const heartbeat = setInterval(() => {
+    try {
+      res.write(': ping\n\n');
+      logger.debug('渠道监控 SSE 心跳已发送');
+    } catch {
+      // 写失败由 req close 统一清理
+      logger.warn('渠道监控 SSE 心跳发送失败，等待 close 清理');
+    }
+  }, 15000);
+  heartbeat.unref?.();
+
+  req.on('close', () => {
+    unsubscribe();
+    clearInterval(heartbeat);
+    logger.info('[TRACE] GET /v1/channels/monitor/stream SSE 客户端已断开', {
+      elapsedMs: Date.now() - t0,
+    });
+  });
+}
+
+/**
+ * 强制重连兜底（对齐 llama.cpp forceKill 模式：断开 → 释放 → 重连 → 探测验证）
+ * POST /v1/channels/monitor/force-reconnect  body: { channelId }
+ */
+export async function handleChannelMonitorForceReconnect(
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  const t0 = Date.now();
+  try {
+    const body = JSON.parse(await readRequestBody(req));
+    const channelId = String(body?.channelId ?? '');
+    if (!channelId) {
+      logger.warning(
+        '[TRACE] POST /v1/channels/monitor/force-reconnect 缺少 channelId',
+        {
+          body,
+        }
+      );
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: 'channelId is required' } }));
+      return;
+    }
+
+    logger.info('[TRACE] POST /v1/channels/monitor/force-reconnect 请求开始', {
+      channelId,
+    });
+    const monitor = await getRealtimeMonitor();
+    const result = await monitor.forceReconnect(channelId);
+    logger.info('[TRACE] POST /v1/channels/monitor/force-reconnect 执行完成', {
+      channelId,
+      recovered: result.recovered,
+      error: result.error ?? null,
+      elapsedMs: Date.now() - t0,
+    });
+
+    res.writeHead(
+      result.recovered ? 200 : result.error === 'Channel not found' ? 404 : 502,
+      { 'Content-Type': 'application/json' }
+    );
+    res.end(JSON.stringify({ channelId, ...result }));
+  } catch (err) {
+    logger.warning(
+      '[TRACE] POST /v1/channels/monitor/force-reconnect 执行异常',
+      {
+        error: String(err),
+        stack: err instanceof Error ? err.stack : undefined,
+        elapsedMs: Date.now() - t0,
+      }
+    );
+    sendError(res, err);
+  }
+}
+
+/**
+ * 最近消息链路列表（方案 A：消息级全链路追踪）
+ * GET /v1/channels/messages/trace?limit=50&channel=qq
+ */
+export async function handleChannelMessageTraces(
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  const t0 = Date.now();
+  logger.info('[TRACE] GET /v1/channels/messages/trace 请求开始', {
+    url: req.url,
+  });
+  try {
+    const parsed = new URL(req.url || '/', 'http://localhost');
+    const limit = Math.min(
+      Math.max(Number(parsed.searchParams.get('limit')) || 50, 1),
+      200
+    );
+    const channel = parsed.searchParams.get('channel') || undefined;
+    const traces = messageTraceBuffer.recent(limit, channel);
+    logger.info('[TRACE] GET /v1/channels/messages/trace 查询成功', {
+      count: traces.length,
+      channel: channel ?? 'all',
+      bufferSize: messageTraceBuffer.size,
+      elapsedMs: Date.now() - t0,
+    });
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(
+      JSON.stringify({
+        traces,
+        total: messageTraceBuffer.size,
+        updatedAt: Date.now(),
+      })
+    );
+  } catch (err) {
+    logger.warning('[TRACE] GET /v1/channels/messages/trace 查询失败', {
+      error: String(err),
+      elapsedMs: Date.now() - t0,
+    });
+    sendError(res, err);
+  }
+}
+
+/**
+ * 单条消息全链路详情（方案 A）
+ * GET /v1/channels/messages/trace/:traceId
+ */
+export async function handleChannelMessageTrace(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  traceId: string
+): Promise<void> {
+  const t0 = Date.now();
+  logger.info('[TRACE] GET /v1/channels/messages/trace/:traceId 请求开始', {
+    traceId,
+  });
+  try {
+    const trace = messageTraceBuffer.get(traceId);
+    if (!trace) {
+      logger.warning(
+        '[TRACE] GET /v1/channels/messages/trace/:traceId 未找到（可能已淘汰）',
+        { traceId }
+      );
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          error: { message: 'trace not found (may have been evicted)' },
+        })
+      );
+      return;
+    }
+    logger.info('[TRACE] GET /v1/channels/messages/trace/:traceId 查询成功', {
+      traceId,
+      stageCount: trace.stages.length,
+      status: trace.status,
+      elapsedMs: Date.now() - t0,
+    });
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(trace));
+  } catch (err) {
+    logger.warning(
+      '[TRACE] GET /v1/channels/messages/trace/:traceId 查询失败',
+      {
+        traceId,
+        error: String(err),
+        elapsedMs: Date.now() - t0,
+      }
+    );
     sendError(res, err);
   }
 }

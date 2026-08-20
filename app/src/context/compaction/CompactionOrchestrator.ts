@@ -16,6 +16,7 @@ import { estimateMessagesTokens } from '../../ai/tokenizer/TokenEstimator';
 import {
   AutoCompactionPolicy,
   autoCompactionPolicy,
+  type AutoCompactionDecision,
 } from './AutoCompactionPolicy';
 import { applyMicroCompaction } from './MicroCompactionEngine';
 import { snipMessages } from './SnipEngine';
@@ -92,12 +93,15 @@ export class CompactionOrchestrator {
    *   "三处调用点仍同步 await" 的剩余项）：发送路径不阻塞等待 Tier3（LLM 摘要），
    *   仅同步执行 Tier1/2（毫秒级），Tier3 由调用方发送后经 compactSessionInBackground
    *   后台执行写回会话（下一轮生效）。
+   * @param options.preEvaluated 调用方已评估的决策（2026-08-19 TRAE 式回合开始预压缩）：
+   *   传入时跳过内部二次同步评估——预评估走协作式异步估算（evaluateAsync），避免大历史
+   *   同步估算阻塞事件循环。调用方须保证 preEvaluated 与 messages 对应同一份消息。
    * @returns 压缩后的消息，以及是否应用了压缩
    */
   async compact(
     messages: ChatMessage[],
     ctx: CompactionContext,
-    options?: { skipTier3Sync?: boolean }
+    options?: { skipTier3Sync?: boolean; preEvaluated?: AutoCompactionDecision }
   ): Promise<{ messages: ChatMessage[]; applied: boolean }> {
     // 防止双管线并发压缩同一会话
     if (ctx.sessionId) {
@@ -114,19 +118,23 @@ export class CompactionOrchestrator {
       const startTime = Date.now();
       // 排查日志：压缩触发入口——记录触发条件（消息数/估算 tokens/模型/窗口配置），
       // 与后续"决策/完成/未应用"日志串联，便于排查边界情况
-      const entryTokens = estimateMessagesTokens(messages);
+      // 传入 preEvaluated 时复用其 snapshot.tokens，避免对巨大历史再次同步估算（阻塞事件循环）
+      const entryTokens =
+        options?.preEvaluated?.snapshot.tokens ??
+        estimateMessagesTokens(messages);
       logger.info('compaction:①触发评估', {
         sessionId: ctx.sessionId,
         model: ctx.model,
         messageCount: messages.length,
         estimatedTokens: entryTokens,
+        preEvaluated: !!options?.preEvaluated,
         configOverride: ctx.configOverride,
       });
-      const decision = this.policy.evaluate(
-        messages,
-        ctx.model,
-        ctx.configOverride
-      );
+      // 决策汇总（skip/warn/trigger 三态 + 阈值快照）：
+      // 传入 preEvaluated（调用方协作式异步评估）时直接复用，跳过内部二次同步评估
+      const decision =
+        options?.preEvaluated ??
+        this.policy.evaluate(messages, ctx.model, ctx.configOverride);
       // 排查日志：决策汇总（skip/warn/trigger 三态 + 阈值快照）
       logger.info('compaction:决策', {
         decision: decision.decision,

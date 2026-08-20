@@ -127,11 +127,13 @@ function runOfficeCLI(args: string[]): {
 
 /**
  * 将 Markdown 内容解析为 batch 命令数组
- * 支持：# → Heading1, ## → Heading2, ### → Heading3, - → 列表项, 普通文本 → 段落
+ * 支持：# → Heading1, ## → Heading2, ### → Heading3, - → 列表项, ![alt](path) → picture, 普通文本 → 段落
  */
 function markdownToBatchCommands(content: string): BatchCommand[] {
   const lines = content.split('\n');
   const commands: BatchCommand[] = [];
+  // 段落计数器（1-based，用于 picture parent 定位）
+  let paragraphCount = 0;
 
   for (const line of lines) {
     const trimmed = line.trim();
@@ -139,8 +141,29 @@ function markdownToBatchCommands(content: string): BatchCommand[] {
     // 空行跳过
     if (!trimmed) continue;
 
+    // 图片：![alt](path) → 先添加空段落，再添加 picture 到该段落
+    const imgMatch = trimmed.match(/^!\[([^\]]*)\]\(([^)]+)\)$/);
+    if (imgMatch) {
+      const [, alt, src] = imgMatch;
+      paragraphCount++;
+      commands.push({
+        command: 'add',
+        parent: '/body',
+        type: 'paragraph',
+        props: { text: '' },
+      });
+      commands.push({
+        command: 'add',
+        parent: `/body/p[${paragraphCount}]`,
+        type: 'picture',
+        props: { src, width: '15cm' },
+      });
+      continue;
+    }
+
     // 标题
     if (trimmed.startsWith('### ')) {
+      paragraphCount++;
       commands.push({
         command: 'add',
         parent: '/body',
@@ -148,6 +171,7 @@ function markdownToBatchCommands(content: string): BatchCommand[] {
         props: { text: trimmed.slice(4), style: 'Heading3' },
       });
     } else if (trimmed.startsWith('## ')) {
+      paragraphCount++;
       commands.push({
         command: 'add',
         parent: '/body',
@@ -155,6 +179,7 @@ function markdownToBatchCommands(content: string): BatchCommand[] {
         props: { text: trimmed.slice(3), style: 'Heading2' },
       });
     } else if (trimmed.startsWith('# ')) {
+      paragraphCount++;
       commands.push({
         command: 'add',
         parent: '/body',
@@ -163,6 +188,7 @@ function markdownToBatchCommands(content: string): BatchCommand[] {
       });
     } else if (trimmed.startsWith('---')) {
       // 分隔线：添加空段落
+      paragraphCount++;
       commands.push({
         command: 'add',
         parent: '/body',
@@ -171,6 +197,7 @@ function markdownToBatchCommands(content: string): BatchCommand[] {
       });
     } else if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
       // 列表项
+      paragraphCount++;
       const itemText = trimmed.slice(2);
       commands.push({
         command: 'add',
@@ -180,6 +207,7 @@ function markdownToBatchCommands(content: string): BatchCommand[] {
       });
     } else {
       // 普通段落
+      paragraphCount++;
       commands.push({
         command: 'add',
         parent: '/body',
@@ -268,15 +296,12 @@ function createWithOfficeCLI(
 
       // 回退：逐条执行 add 命令
       for (const cmd of commands) {
-        if (
-          cmd.command === 'add' &&
-          cmd.parent &&
-          cmd.type &&
-          cmd.props?.text !== undefined
-        ) {
+        if (cmd.command === 'add' && cmd.parent && cmd.type) {
           const addArgs = ['add', filePath, cmd.parent, '--type', cmd.type];
-          for (const [key, value] of Object.entries(cmd.props)) {
-            addArgs.push('--prop', `${key}=${value}`);
+          if (cmd.props) {
+            for (const [key, value] of Object.entries(cmd.props)) {
+              addArgs.push('--prop', `${key}=${value}`);
+            }
           }
           addArgs.push('--json');
           runOfficeCLI(addArgs);

@@ -119,7 +119,8 @@ export interface StreamChunk {
     | "context_state"
     | "tool_completed"
     | "reconnect_status" // P2-2: 重连状态提示
-    | "paused"; // 阶段2: 断连挂起（重试耗尽，等待后端恢复后续传）
+    | "paused" // 阶段2: 断连挂起（重试耗尽，等待后端恢复后续传）
+    | "doc_workflow";
   content: string;
   toolCall?: ToolCall;
   questionData?: QuestionData;
@@ -136,6 +137,7 @@ export interface StreamChunk {
   progressData?: import("../types").ProgressData;
   deliverableData?: import("../types").DeliverableData;
   diffData?: import("../types").DiffData;
+  docWorkflowData?: import("../types").DocWorkflowProgressData;
   usage?: {
     inputTokens: number;
     outputTokens: number;
@@ -325,6 +327,14 @@ function parseSseChunk(chunk: Record<string, unknown>): StreamChunk | null {
       content: deltaContent || "",
       executionPhase:
         chunk.__pyapp_execution_phase as StreamChunk["executionPhase"],
+    };
+  }
+  if (pyappType === "doc_workflow" && chunk.__pyapp_doc_workflow) {
+    return {
+      type: "doc_workflow",
+      content: deltaContent || "",
+      docWorkflowData:
+        chunk.__pyapp_doc_workflow as StreamChunk["docWorkflowData"],
     };
   }
   if (deltaContent) {
@@ -952,6 +962,16 @@ export const chatService = {
                 content: chunk.choices?.[0]?.delta?.content || "",
                 executionPhase:
                   chunk.__pyapp_execution_phase as StreamChunk["executionPhase"],
+              };
+            } else if (
+              pyappType === "doc_workflow" &&
+              chunk.__pyapp_doc_workflow
+            ) {
+              yield {
+                type: "doc_workflow",
+                content: chunk.choices?.[0]?.delta?.content || "",
+                docWorkflowData:
+                  chunk.__pyapp_doc_workflow as StreamChunk["docWorkflowData"],
               };
             } else if (pyappType === "usage" && chunk.usage) {
               yield {

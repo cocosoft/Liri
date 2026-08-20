@@ -20,6 +20,7 @@ export type {
   DiffData,
   InboxBlockData,
   Tool,
+  DocWorkflowProgressData,
 } from "./message";
 
 // ─── 模型与供应商 ───
@@ -106,6 +107,16 @@ export type {
   ChannelHealthAggregate,
   ChannelMetricEntry,
   ChannelMetricsResponse,
+  ChannelRuntimeStatus,
+  ChannelRuntimeStatusInfo,
+  ChannelMonitorStatusResponse,
+  ChannelMonitorEvent,
+  ChannelForceReconnectResponse,
+  MessageTraceStageStatus,
+  MessageTraceStage,
+  MessageTraceStatus,
+  MessageTrace,
+  MessageTracesResponse,
   PlatformFieldDef,
   ChannelSchema,
   ChannelPluginInfo,

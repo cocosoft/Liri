@@ -6,6 +6,9 @@ import type {
   ChannelMetricsResponse,
   ChannelSchema,
   ChannelPluginInfo,
+  ChannelMonitorStatusResponse,
+  ChannelForceReconnectResponse,
+  MessageTracesResponse,
 } from "../types";
 import { httpLegacy as http } from "./httpClient";
 
@@ -59,6 +62,35 @@ export const channelService = {
   /** 获取渠道可观测性指标（消息收发计数/拒绝原因/处理耗时/发送耗时） */
   getMetrics: async (): Promise<ChannelMetricsResponse> => {
     return http.get<ChannelMetricsResponse>("/v1/channels/metrics");
+  },
+
+  /** 获取全部渠道实时监控快照（五态机/探测/重连计数/错误快照） */
+  getMonitorStatus: async (): Promise<ChannelMonitorStatusResponse> => {
+    return http.get<ChannelMonitorStatusResponse>(
+      "/v1/channels/monitor/status",
+    );
+  },
+
+  /** 强制重连兜底（断开 → 释放 → 重连 → 探测验证） */
+  forceReconnect: async (
+    channelId: string,
+  ): Promise<ChannelForceReconnectResponse> => {
+    return http.post<ChannelForceReconnectResponse>(
+      "/v1/channels/monitor/force-reconnect",
+      { channelId },
+    );
+  },
+
+  /** 获取最近消息全链路（方案 A：入站→验证→去重→LLM→出站阶段耗时与状态） */
+  getMessageTraces: async (
+    limit = 50,
+    channel?: string,
+  ): Promise<MessageTracesResponse> => {
+    const params = new URLSearchParams({ limit: String(limit) });
+    if (channel) params.set("channel", channel);
+    return http.get<MessageTracesResponse>(
+      `/v1/channels/messages/trace?${params.toString()}`,
+    );
   },
 
   /** 获取渠道字段渲染 schema（4.1：后端单一来源，前端表单渲染依据） */

@@ -318,6 +318,14 @@
 | PUT | `/v1/knowledge/{id}` | ✅ | `knowledgeService.update` |
 | DELETE | `/v1/knowledge/{id}` | ✅ | `knowledgeService.delete` |
 
+### §3.11b OfficeCli 安装管理
+
+| 方法 | 路径 | 后端状态 | 前端调用方 |
+|------|------|----------|-----------|
+| GET | `/v1/officecli/status` | ✅ | `officeService.getOfficeCLIStatus` |
+| POST | `/v1/officecli/install` | ✅ | `officeService.installOfficeCLI` |
+| POST | `/v1/doc/detect` | ✅ | 无前端调用方（内部重新检测） |
+
 ### §3.12 Buddy 电子宠物
 
 | 方法 | 路径 | 后端状态 | 前端调用方 |
@@ -358,6 +366,9 @@
 | POST | `/v1/channels/plugins/install` | ✅ | `channelService.installPlugin` |
 | GET | `/v1/channels/health` | ✅ | `channelService.health` — 聚合健康 |
 | GET | `/v1/channels/metrics` | ✅ | `channelService.getMetrics` — ChannelMetricsCard 仪表盘卡片 |
+| GET | `/v1/channels/monitor/status` | ✅ | `channelService.getMonitorStatus` — 渠道实时监控快照（五态机/探测/重连计数/错误快照） |
+| GET | `/v1/channels/monitor/stream` | ✅ | `ChannelMonitorPanel` EventSource — 渠道实时监控 SSE 事件流（snapshot + status_change/reconnecting/recovered/probe_failed） |
+| POST | `/v1/channels/monitor/force-reconnect` | ✅ | `channelService.forceReconnect` — 强制重连兜底，body `{ channelId }` |
 | POST | `/v1/channels/config/apply` | ❌ | `channelService.applyConfig` |
 
 ### §3.15 配置

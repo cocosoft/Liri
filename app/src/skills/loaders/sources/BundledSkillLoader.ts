@@ -487,6 +487,71 @@ Do NOT include extraneous files (README.md, CHANGELOG.md, INSTALLATION_GUIDE.md,
       ];
     },
   },
+  {
+    name: 'doc-workflow',
+    description:
+      '分阶段生成图文混编文档（周报/PPT/方案/纪要）。按「大纲→内容+配图→成稿」三阶段执行，支持 docx/pptx/html/pdf。触发词：做份周报/做份PPT/生成方案/写文档/做报告。Generate documents in stages: outline → content+images → compose.',
+    aliases: ['做文档', '做报告', '做PPT', '做周报', '生成文档'],
+    whenToUse:
+      '用户要求生成图文混编文档时使用，特别是周报、PPT、方案、会议纪要等职场场景。当用户说"做份周报"、"做份PPT"、"生成方案"时触发。',
+    allowedTools: ['doc_generate', 'image_generate', 'AskUserQuestion'],
+    argumentHint: '[文档主题和格式]',
+    userInvocable: true,
+    async getPromptForCommand(args) {
+      return [
+        {
+          type: 'text',
+          text: `# 分阶段文档工作流
+
+用户请求：${args || '（未指定主题，请先询问）'}
+
+## 执行流程
+
+### 阶段①：大纲整理
+1. 分析用户需求，确定文档格式（docx/pptx/html/pdf）和主题
+2. 生成结构化大纲：
+   - 每个节点包含：id、kind（section/slide/chart/text）、title、bullets、imageHint
+   - PPT 格式额外约束：
+     * 标题 ≤6 字（可配置 4-8）
+     * 要点 ≤3 条（可配置 2-4）
+     * 每页应标注是否配图 + 意图描述
+     * 正文为提炼后语言（主语+动作+结果），非原文平铺
+3. **必须等待用户确认大纲**后才进入阶段②
+4. 用户可修改大纲，修改后仅对变更节点增量填充
+
+### 阶段②：内容填充 + 配图
+1. 逐节点填充正文内容
+2. 含 imageHint 的节点生成图片占位符：\`![描述](GENERATE:id=img-1;prompt=提示词)\`
+3. 调用 image_generate 生成图片（同 id 只生成一次，多节点复用）
+4. 图片生成失败时降级：保留占位符，人工插图
+5. **图片需求可批量确认**，确认后批量生成
+
+### 阶段③：成稿
+1. 替换所有图片占位符为实际 filePath
+2. 调用 doc_generate 生成最终文档
+3. 返回文件路径
+
+## PPT 精炼规则（仅 pptx 格式）
+- 标题精炼：每页标题 ≤6 字，不是截断而是改写
+- 要点精炼：每页 ≤3 条要点，每条为主语+动作+结果结构
+- 配图意图：≥80% 页面标注配图意图
+- 正文提炼：改写为演讲语言，非原文平铺
+- 排版约束：16:9 比例，标题区/正文区/配图区分区
+
+## 场景模板
+- weekly-report：周报模板
+- meeting-minutes：会议纪要模板
+- tech-design：技术方案模板
+- prd：产品需求文档模板
+
+## 注意事项
+- 流程级确认（大纲/图片）由本技能内部管理，不经过 DecisionGate
+- 图片生成并发度建议 3-4，受 provider 速率限制
+- 文件输出到 ~/.pyapp/output/ 目录`,
+        },
+      ];
+    },
+  },
 ];
 
 /**

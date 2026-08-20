@@ -33,6 +33,7 @@ import {
 } from "../../utils/format";
 import { DashboardStatCard } from "../common/DashboardStatCard";
 import { ChannelMetricsCard } from "../common/ChannelMetricsCard";
+import { ChannelMonitorPanel } from "../common/ChannelMonitorPanel";
 
 const BuddyCard = memo(function BuddyCard({
   buddy,
@@ -418,6 +419,9 @@ function DashboardPage() {
 
                 {/* 渠道消息可观测性指标 */}
                 <ChannelMetricsCard />
+
+                {/* 渠道实时监控（五态机/SSE 事件流/强制重连） */}
+                <ChannelMonitorPanel />
 
                 {/* 前端客户端错误统计 */}
                 <ClientErrorStats />

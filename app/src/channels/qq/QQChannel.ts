@@ -20,6 +20,7 @@ import type {
 } from '@modules/channels/types';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { handleError } from '@modules/error';
+import { channelEventBus, ChannelEvents } from '../events/ChannelEventBus';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('channels:qq:QQChannel');
@@ -43,9 +44,12 @@ const QQ_CAPABILITIES: ChannelCapabilities = {
   reactions: false,
   interactive: false,
   voiceCall: false,
-  fileUpload: false,
+  // 2026-08-20 spec qq-file-transfer：c2c/群支持富媒体文件上传（频道由 sendFileMessage 守卫拦截）
+  fileUpload: true,
   imageMessage: true,
   webhook: true,
+  // AC-5③：QQ 官方被动回复窗口（5 分钟），声明后 router 才发送长任务占位提示
+  passiveReplyWindow: true,
 };
 
 /** QQ Bot WebSocket OP Code */
@@ -110,6 +114,12 @@ const TOKEN_REFRESH_AHEAD_MS = 5 * 60 * 1000;
 /** 连续会话失败上限：超过此值说明配置有误，停止重连 */
 const MAX_CONSECUTIVE_SESSION_FAILURES = 5;
 
+/** 连续丢失心跳 ACK 上限：达到即判定为死链（半开连接，NAT 超时/网络静默断开） */
+const MAX_MISSED_HEARTBEAT_ACKS = 2;
+
+/** 停连降频自愈的长期退避延迟（毫秒）：会话连续失败/重连次数耗尽后 5 分钟再试，不永久放弃 */
+const LONG_BACKOFF_DELAY_MS = 300_000;
+
 class QQChannelPlugin extends BaseChannelPlugin {
   readonly id = 'qq';
   readonly meta = QQ_META;
@@ -159,6 +169,18 @@ class QQChannelPlugin extends BaseChannelPlugin {
   /** 是否需要在重连前清理会话 */
   private needsSessionClear = false;
 
+  /** 上次心跳发送时间戳（用于 ACK 超时检测） */
+  private lastHeartbeatSentAt = 0;
+
+  /** 上次收到 HEARTBEAT_ACK 的时间戳 */
+  private lastHeartbeatAckAt = 0;
+
+  /** 连续丢失的心跳 ACK 次数（≥ MAX_MISSED_HEARTBEAT_ACKS 判定死链） */
+  private missedHeartbeatAcks = 0;
+
+  /** 上次连接断开时间戳（用于度量自愈全流程恢复耗时） */
+  private lastDisconnectAt = 0;
+
   /** 消息去重缓存：message_id → 时间戳 */
   private readonly dedupCache = new Map<string, number>();
 
@@ -182,6 +204,20 @@ class QQChannelPlugin extends BaseChannelPlugin {
 
   /** 内容级去重窗口（毫秒） */
   private readonly contentDedupWindowMs = 60000;
+
+  /** AC-5（2026-08-20）：被动回复上下文 — target → 最近入站消息。
+   *  QQ 被动回复窗口内出站携带原消息 msg_id/msg_seq 可走被动回复通道，
+   *  不占用主动消息每日配额。 */
+  private readonly passiveReplyByTarget = new Map<
+    string,
+    { msgId: string; receivedAt: number; lastSeq: number }
+  >();
+
+  /** AC-5：QQ 被动回复窗口（官方 5 分钟，留安全余量） */
+  private static readonly PASSIVE_REPLY_WINDOW_MS = 270_000;
+
+  /** AC-5：QQ 服务端对同一 msg_id 仅保留最近 5 条被动回复（msg_seq 超出被静默丢弃） */
+  private static readonly PASSIVE_REPLY_MAX_SEQ = 5;
 
   constructor() {
     super();
@@ -373,15 +409,27 @@ class QQChannelPlugin extends BaseChannelPlugin {
     latencyMs: number;
   }> {
     const start = Date.now();
-    try {
-      const token = await this.getAccessToken();
-      const resp = await fetch('https://api.sgroup.qq.com/gateway', {
-        headers: { Authorization: `QQBot ${token}` },
-      });
-      return { healthy: resp.ok, latencyMs: Date.now() - start };
-    } catch {
-      return { healthy: this.state.connected, latencyMs: Date.now() - start };
+    const now = Date.now();
+
+    // 根因修复（2026-08-20）：原实现探测 REST /gateway，该接口对此机器人类型
+    // 恒返回非 200（假阴性），而 WebSocket 数据面实际正常（connected=true、消息收发正常），
+    // 引发监控"探测不健康 → 强制断开健康连接 → 重连 → 仍不健康"的 15~20s 重连风暴。
+    // 改用心跳 ACK 新鲜度判定——这是 WebSocket 数据面的真实存活信号：
+    //   未连接 → 不健康；刚连接（首个 ACK 未返回，2 周期宽限）→ 健康；
+    //   3 个心跳周期内收到过 ACK → 健康。
+    // 死链硬检测（连续 2 次丢 ACK → handleDeadLink 主动断开）仍由 sendHeartbeat 周期负责。
+    if (!this.state.connected) {
+      return { healthy: false, latencyMs: now - start };
     }
+    if (this.lastHeartbeatAckAt === 0) {
+      const withinGrace =
+        this.lastConnectTime > 0 &&
+        now - this.lastConnectTime < this.heartbeatIntervalMs * 2;
+      return { healthy: withinGrace, latencyMs: now - start };
+    }
+    const ackFresh =
+      now - this.lastHeartbeatAckAt < this.heartbeatIntervalMs * 3;
+    return { healthy: ackFresh, latencyMs: now - start };
   }
 
   /**
@@ -402,6 +450,82 @@ class QQChannelPlugin extends BaseChannelPlugin {
       return { scope: 'group', targetId: target.slice(6) };
     }
     return { scope: 'guild', targetId: target };
+  }
+
+  /**
+   * AC-5（2026-08-20）：记录入站消息的被动回复上下文。
+   * target 与出站 sendMessage 的 target 同格式（c2c:{openid} / group:{group_openid}）。
+   */
+  private recordPassiveReplyContext(target: string, msgId: string): void {
+    this.passiveReplyByTarget.set(target, {
+      msgId,
+      receivedAt: Date.now(),
+      lastSeq: 0,
+    });
+    // 防膨胀兜底：超窗条目顺手清理（正常路径由 consume 清理）
+    if (this.passiveReplyByTarget.size > 200) {
+      const now = Date.now();
+      for (const [k, v] of this.passiveReplyByTarget) {
+        if (now - v.receivedAt > QQChannelPlugin.PASSIVE_REPLY_WINDOW_MS) {
+          this.passiveReplyByTarget.delete(k);
+        }
+      }
+    }
+    this.logger.debug('QQ 被动回复上下文已记录', { target, msgId });
+  }
+
+  /**
+   * AC-5：消费被动回复字段。窗口内返回 {msg_id, msg_seq}（seq 递增保证同一
+   * 消息的多条回复不被 QQ 去重）。以下情况返回空对象（降级主动消息通道）：
+   * - 超过被动回复窗口（270s）
+   * - seq 已达 QQ 服务端保留上限（同 msg_id 仅保留最近 5 条，超出被静默丢弃）
+   */
+  private consumePassiveReplyFields(
+    target: string
+  ): { msg_id: string; msg_seq: number } | Record<string, never> {
+    const ctx = this.passiveReplyByTarget.get(target);
+    if (!ctx) {
+      // 降级原因①：无入站上下文（定时任务/主动通知，或上下文已被清理）
+      this.logger.debug(
+        'QQ 被动回复降级：target 无入站消息上下文，本次走主动消息通道',
+        { target, contextSize: this.passiveReplyByTarget.size }
+      );
+      return {};
+    }
+    const elapsed = Date.now() - ctx.receivedAt;
+    if (elapsed > QQChannelPlugin.PASSIVE_REPLY_WINDOW_MS) {
+      // 降级原因②：超过被动回复窗口（官方 5 分钟，本地留余量 270s）
+      this.passiveReplyByTarget.delete(target);
+      this.logger.info(
+        `QQ 被动回复降级：窗口已过期(elapsed=${elapsed}ms > window=${QQChannelPlugin.PASSIVE_REPLY_WINDOW_MS}ms)，本次走主动消息通道`,
+        { target, msgId: ctx.msgId, elapsedMs: elapsed }
+      );
+      return {};
+    }
+    // seq 上限保护：QQ 服务端仅保留同 msg_id 最近 5 条被动回复，
+    // 第 6 条起会被静默丢弃——必须降级主动消息，否则消息丢失
+    if (ctx.lastSeq >= QQChannelPlugin.PASSIVE_REPLY_MAX_SEQ) {
+      // 降级原因③：seq 达到 QQ 服务端保留上限
+      this.logger.warning(
+        `QQ 被动回复降级：seq 已达上限(lastSeq=${ctx.lastSeq} >= max=${QQChannelPlugin.PASSIVE_REPLY_MAX_SEQ}，超出部分 QQ 服务端静默丢弃)，本次走主动消息通道`,
+        { target, msgId: ctx.msgId, lastSeq: ctx.lastSeq, elapsedMs: elapsed }
+      );
+      return {};
+    }
+    // 成功路径：seq 递增（0→1 为首条回复，QQ 规范 seq 从 1 开始）
+    ctx.lastSeq += 1;
+    this.logger.debug(
+      `QQ 被动回复字段生成：seq 递增 ${ctx.lastSeq - 1} → ${ctx.lastSeq}（同 msg_id 第 ${ctx.lastSeq} 条被动回复）`,
+      {
+        target,
+        msgId: ctx.msgId,
+        seq: ctx.lastSeq,
+        elapsedMs: elapsed,
+        remainingWindowMs: QQChannelPlugin.PASSIVE_REPLY_WINDOW_MS - elapsed,
+        remainingSeqQuota: QQChannelPlugin.PASSIVE_REPLY_MAX_SEQ - ctx.lastSeq,
+      }
+    );
+    return { msg_id: ctx.msgId, msg_seq: ctx.lastSeq };
   }
 
   /**
@@ -457,9 +581,13 @@ class QQChannelPlugin extends BaseChannelPlugin {
 
     try {
       const token = await this.getAccessToken();
-      const body = {
+      // AC-5（2026-08-20）：窗口内携带 msg_id/msg_seq 走被动回复通道，
+      // 不占用主动消息每日配额；超窗自动降级（consume 内处理）
+      const passiveFields = this.consumePassiveReplyFields(target);
+      const body: Record<string, unknown> = {
         msg_type: 0,
         content: content.slice(0, QQ_META.maxMessageLength),
+        ...passiveFields,
       };
       const url = this.getMessageApiUrl(target);
 
@@ -467,21 +595,44 @@ class QQChannelPlugin extends BaseChannelPlugin {
         url,
         target,
         bodyKeys: Object.keys(body),
+        isPassiveReply: 'msg_id' in passiveFields,
+        msgSeq: 'msg_seq' in passiveFields ? passiveFields.msg_seq : undefined,
       });
 
-      const resp = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `QQBot ${token}`,
-        },
-        body: JSON.stringify(body),
-      });
-      const data = (await resp.json()) as Record<string, unknown>;
-      const ok = resp.ok;
+      const sendOnce = async (payload: Record<string, unknown>) => {
+        const resp = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `QQBot ${token}`,
+          },
+          body: JSON.stringify(payload),
+        });
+        return {
+          status: resp.status,
+          ok: resp.ok,
+          data: (await resp.json()) as Record<string, unknown>,
+        };
+      };
+
+      let { status, ok, data } = await sendOnce(body);
+
+      // AC-5：被动回复失败（如窗口临界过期被服务端拒绝）→ 降级主动消息重试一次。
+      // 首次已失败未送达，重试不会产生重复消息。
+      if (!ok && 'msg_id' in passiveFields) {
+        this.logger.warning('QQ 被动回复发送失败，降级主动消息重试', {
+          target,
+          status,
+          error: data['message'],
+        });
+        ({ status, ok, data } = await sendOnce({
+          msg_type: 0,
+          content: body['content'],
+        }));
+      }
 
       this.logger.info('[TRACE] QQ sendTextMessage HTTP 响应', {
-        status: resp.status,
+        status,
         ok,
         messageId: data['id'],
         error: ok ? undefined : data['message'],
@@ -508,10 +659,12 @@ class QQChannelPlugin extends BaseChannelPlugin {
     if (!this.appId) return { success: false, error: '未连接' };
     try {
       const token = await this.getAccessToken();
-      const body = {
+      const body: Record<string, unknown> = {
         msg_type: 2,
         markdown: { content },
-        msg_id: `${Date.now()}`,
+        // AC-5（2026-08-20）：替换原假 msg_id（时间戳冒充，无法关联原消息）；
+        // 窗口内携带真实 msg_id/msg_seq 走被动回复，超窗省略（主动消息）
+        ...this.consumePassiveReplyFields(target),
       };
       const url = this.getMessageApiUrl(target);
 
@@ -540,8 +693,14 @@ class QQChannelPlugin extends BaseChannelPlugin {
   }
 
   /**
-   * 上传文件到 QQ Bot 媒体库
+   * 上传文件到 QQ Bot 媒体库（2026-08-20 spec qq-file-transfer 重写）
    * POST /v2/groups/{group_id}/files 或 /v2/users/{user_id}/files
+   *
+   * - 公网 http(s) URL → JSON body { url }（官方 url 方式）
+   * - 本地路径 → multipart/form-data 二进制上传（官方 file 方式；
+   *   旧实现将本地文件编码为 data URI 塞 JSON url 字段，QQ 服务端不接受）
+   *
+   * @param fileType QQ file_type: 1=图片 2=视频 3=语音 4=文件
    */
   private async uploadQQFile(
     target: string,
@@ -549,39 +708,62 @@ class QQChannelPlugin extends BaseChannelPlugin {
     fileType: number
   ): Promise<{ fileUuid?: string; error?: string }> {
     try {
-      // 如果是本地路径，先读取文件内容后通过 data URI 上传
-      let uploadUrl = fileUrlOrPath;
-      if (
-        !fileUrlOrPath.startsWith('http://') &&
-        !fileUrlOrPath.startsWith('https://')
-      ) {
+      const uploadUrlApi = this.getMediaUploadApiUrl(target);
+      const token = await this.getAccessToken();
+      const isRemoteUrl =
+        fileUrlOrPath.startsWith('http://') ||
+        fileUrlOrPath.startsWith('https://');
+
+      let resp: Response;
+      if (isRemoteUrl) {
+        resp = await fetch(uploadUrlApi, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `QQBot ${token}`,
+          },
+          body: JSON.stringify({
+            file_type: fileType,
+            url: fileUrlOrPath,
+            srv_send_msg: false,
+          }),
+        });
+      } else {
         const fs = await import('fs');
         const path = await import('path');
         const buf = fs.readFileSync(fileUrlOrPath);
-        const ext = path.extname(fileUrlOrPath).slice(1) || 'bin';
-        const base64 = buf.toString('base64');
-        uploadUrl = `data:application/octet-stream;base64,${base64}`;
+        const fileName = path.basename(fileUrlOrPath);
+        const form = new FormData();
+        form.append('file_type', String(fileType));
+        form.append('srv_send_msg', 'false');
+        form.append('file', new Blob([new Uint8Array(buf)]), fileName);
+        resp = await fetch(uploadUrlApi, {
+          method: 'POST',
+          headers: { Authorization: `QQBot ${token}` },
+          body: form,
+        });
       }
 
-      // 根据目标类型选择正确的上传 API
-      const uploadUrlApi = this.getMediaUploadApiUrl(target);
-      const token = await this.getAccessToken();
-      const resp = await fetch(uploadUrlApi, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `QQBot ${token}`,
-        },
-        body: JSON.stringify({
-          file_type: fileType,
-          url: uploadUrl,
-          srv_send_msg: false,
-        }),
-      });
       const data = (await resp.json()) as Record<string, unknown>;
       if (!resp.ok) {
+        this.logger.warning('QQ 媒体上传失败', {
+          target,
+          fileType,
+          status: resp.status,
+          apiMessage: data['message'],
+          hint:
+            resp.status === 403 || resp.status === 401
+              ? '可能是机器人未开通富媒体权限（QQ 开放平台申请）'
+              : undefined,
+        });
+        const permissionHint =
+          resp.status === 403 || resp.status === 401
+            ? '（未开通富媒体权限？请在 QQ 开放平台申请）'
+            : '';
         return {
-          error: (data['message'] as string) || `上传失败: ${resp.status}`,
+          error:
+            (data['message'] as string) ||
+            `上传失败: HTTP ${resp.status}${permissionHint}`,
         };
       }
       return { fileUuid: data['file_uuid'] as string };
@@ -597,6 +779,10 @@ class QQChannelPlugin extends BaseChannelPlugin {
 
   /**
    * 发送媒体消息到用户/群（对标 Hermes _send_c2c_text / _send_group_text 路由分离）
+   *
+   * 2026-08-20 spec qq-file-transfer：修复假 msg_id——原实现传 Date.now()
+   * 时间戳会被服务端拒绝或误耗主动消息配额；改为接入被动回复字段
+   * （窗口内携带 msg_id/msg_seq，超窗降级不带，与 sendTextMessage 一致）
    */
   private async sendQQMediaMessage(
     target: string,
@@ -604,22 +790,44 @@ class QQChannelPlugin extends BaseChannelPlugin {
   ): Promise<SendResult> {
     try {
       const token = await this.getAccessToken();
-      const body = {
-        msg_type: 7,
-        media: { file_uuid: fileUuid },
-        msg_id: `${Date.now()}`,
-      };
       const url = this.getMessageApiUrl(target);
 
-      const resp = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `QQBot ${token}`,
-        },
-        body: JSON.stringify(body),
-      });
-      const data = (await resp.json()) as Record<string, unknown>;
+      const sendOnce = async (
+        payload: Record<string, unknown>
+      ): Promise<{ resp: Response; data: Record<string, unknown> }> => {
+        const resp = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `QQBot ${token}`,
+          },
+          body: JSON.stringify(payload),
+        });
+        return { resp, data: (await resp.json()) as Record<string, unknown> };
+      };
+
+      const passiveFields = this.consumePassiveReplyFields(target);
+      const body: Record<string, unknown> = {
+        msg_type: 7,
+        media: { file_uuid: fileUuid },
+        ...passiveFields,
+      };
+
+      let { resp, data } = await sendOnce(body);
+
+      // 被动回复失败（窗口临界过期被服务端拒绝）→ 降级主动消息重试一次
+      if (!resp.ok && 'msg_id' in passiveFields) {
+        this.logger.warning('QQ 媒体被动回复发送失败，降级主动消息重试', {
+          target,
+          status: resp.status,
+          error: data['message'],
+        });
+        ({ resp, data } = await sendOnce({
+          msg_type: 7,
+          media: { file_uuid: fileUuid },
+        }));
+      }
+
       return {
         success: resp.ok,
         error: resp.ok ? undefined : (data['message'] as string),
@@ -821,10 +1029,18 @@ class QQChannelPlugin extends BaseChannelPlugin {
 
         this.ws.onopen = () => {
           clearTimeout(connectTimeout);
+          const attemptsUsed = this.reconnectAttempts;
           this.reconnectAttempts = 0;
           this.consecutiveSessionFailures = 0;
           this.lastConnectTime = Date.now();
-          this.logger.info('QQ Bot WebSocket 已连接');
+          this.logger.info('QQ Bot WebSocket 已连接', {
+            attemptsUsed, // 本次自愈共经历的重连次数（首次连接为 0）
+            // 断开 → 重新连上的总耗时（首次连接为 -1）
+            recoveryMs:
+              this.lastDisconnectAt > 0
+                ? this.lastConnectTime - this.lastDisconnectAt
+                : -1,
+          });
 
           // 连接成功即 resolve Promise，后续事件由 onmessage 处理
           if (!resolved) {
@@ -911,6 +1127,14 @@ class QQChannelPlugin extends BaseChannelPlugin {
         break;
 
       case QQOpCode.HEARTBEAT_ACK:
+        // ACK 检测：记录时间戳并清零丢失计数（连接实际存活的确凿证据）
+        this.lastHeartbeatAckAt = Date.now();
+        if (this.missedHeartbeatAcks > 0) {
+          this.logger.info('QQ Bot 心跳 ACK 恢复接收', {
+            previousMissed: this.missedHeartbeatAcks,
+          });
+        }
+        this.missedHeartbeatAcks = 0;
         break;
 
       case QQOpCode.RECONNECT:
@@ -1033,7 +1257,14 @@ class QQChannelPlugin extends BaseChannelPlugin {
       //   break;
 
       case QQEventType.C2C_MESSAGE_CREATE:
-        this.handleC2cMessageCreate(payload.d as QQC2cMessageCreatePayload);
+        this.handleC2cMessageCreate(
+          payload.d as QQC2cMessageCreatePayload
+        ).catch((error) => {
+          handleError(error, {
+            module: 'channels:qq',
+            action: 'C2C_MESSAGE_CREATE 处理异常',
+          });
+        });
         break;
 
       // BYPASS: 仅使用 C2C 私聊，不处理群消息
@@ -1210,7 +1441,9 @@ class QQChannelPlugin extends BaseChannelPlugin {
    * 处理 C2C_MESSAGE_CREATE 事件（用户私聊消息）
    * conversationId 格式: "c2c:{openid}"，用于后续出站路由到 /v2/users/{openid}/messages
    */
-  private handleC2cMessageCreate(data: QQC2cMessageCreatePayload): void {
+  private async handleC2cMessageCreate(
+    data: QQC2cMessageCreatePayload
+  ): Promise<void> {
     if (this.isDuplicate(data.id)) {
       this.logger.info('[TRACE] QQ C2C_MESSAGE_CREATE 重复消息已跳过', {
         messageId: data.id,
@@ -1223,7 +1456,38 @@ class QQChannelPlugin extends BaseChannelPlugin {
       senderId: data.author.id,
       content: data.content.slice(0, 100),
       isDirectMessage: true,
+      attachmentCount: data.attachments?.length ?? 0,
     });
+
+    // 富媒体附件（2026-08-20 spec qq-file-transfer）：下载注册 FileRegistry，
+    // await 完成使 AI 处理时文件已落盘、提示文本可携带真实保存路径
+    let content = data.content;
+    let messageType: MessageContext['messageType'] = 'text';
+    const media = this.pickMediaAttachment(data.attachments);
+    if (media) {
+      const attachmentKind = media.content_type === 1 ? '图片' : '文件';
+      messageType = media.content_type === 1 ? 'image' : 'file';
+      const filename = media.filename || `qq_attachment_${data.id}`;
+      if (media.url) {
+        try {
+          const saved = await this.downloadQQAttachment(media, data.id);
+          content =
+            (data.content ? `${data.content}\n` : '') +
+            `[用户发送了${attachmentKind}: ${filename}` +
+            (media.size ? ` (${media.size}字节)` : '') +
+            `，已保存到 ${saved}，可用 file_read 读取]`;
+        } catch (dlErr) {
+          await handleError(dlErr, {
+            module: 'channels:qq',
+            action: 'QQ附件下载失败',
+            context: { messageId: data.id, filename },
+          });
+          content = `[用户发送了${attachmentKind}: ${filename}，但下载失败，请告知用户重发]`;
+        }
+      } else {
+        content = `[用户发送了${attachmentKind}: ${filename}，但事件未携带下载链接]`;
+      }
+    }
 
     const message: MessageContext = {
       channelId: 'qq',
@@ -1231,12 +1495,15 @@ class QQChannelPlugin extends BaseChannelPlugin {
       senderName: data.author.username,
       conversationId: `c2c:${data.author.id}`,
       messageId: data.id,
-      messageType: 'text',
-      content: data.content,
+      messageType,
+      content,
       timestamp: Date.now(),
       isDirectMessage: true,
       rawPayload: data as unknown as Record<string, unknown>,
     };
+
+    // AC-5：记录被动回复上下文（5 分钟窗口内出站携带 msg_id/msg_seq）
+    this.recordPassiveReplyContext(`c2c:${data.author.id}`, data.id);
 
     this.handleIncomingMessage(message).catch((error) => {
       handleError(error, {
@@ -1244,6 +1511,62 @@ class QQChannelPlugin extends BaseChannelPlugin {
         action: 'C2C_MESSAGE_CREATE 处理异常',
       });
     });
+  }
+
+  /**
+   * 从附件列表中取第一个富媒体附件（图片/视频/语音/文件）
+   * QQ 事件约定：文本附件不携带 url，富媒体附件才有 CDN 临时链接
+   */
+  private pickMediaAttachment(
+    attachments: QQAttachment[] | undefined
+  ): QQAttachment | undefined {
+    return attachments?.find((a) => a.content_type >= 1 && a.content_type <= 4);
+  }
+
+  /**
+   * 下载 QQ CDN 附件并注册到 FileRegistry（2026-08-20 spec qq-file-transfer）
+   * CDN URL 有时效（分钟级），须在收到事件后立即调用
+   *
+   * @returns FileRegistry 保存路径（供 AI file_read）
+   */
+  private async downloadQQAttachment(
+    attachment: QQAttachment,
+    messageId: string
+  ): Promise<string> {
+    if (!attachment.url) {
+      throw new Error('附件缺少下载 URL');
+    }
+    const filename = attachment.filename || `qq_attachment_${messageId}`;
+
+    this.logger.info('[TRACE] QQ 附件下载开始', {
+      messageId,
+      filename,
+      size: attachment.size,
+      contentType: attachment.content_type,
+    });
+
+    const resp = await fetch(attachment.url);
+    if (!resp.ok) {
+      throw new Error(`附件下载失败: HTTP ${resp.status}`);
+    }
+    const buffer = Buffer.from(await resp.arrayBuffer());
+
+    const result = await this.handleInboundFile({
+      originalName: filename,
+      content: buffer,
+      sourceId: messageId,
+      mimeType: resp.headers.get('content-type') || undefined,
+      description: 'QQ 通道入站附件',
+    });
+
+    this.logger.info('[TRACE] QQ 附件下载注册完成', {
+      messageId,
+      filename,
+      savedPath: result.savedPath,
+      bytes: buffer.length,
+      action: result.action,
+    });
+    return result.savedPath;
   }
 
   /**
@@ -1300,6 +1623,9 @@ class QQChannelPlugin extends BaseChannelPlugin {
       isDirectMessage: false,
       rawPayload: data as unknown as Record<string, unknown>,
     };
+
+    // AC-5：记录被动回复上下文（5 分钟窗口内出站携带 msg_id/msg_seq）
+    this.recordPassiveReplyContext(`group:${data.group_openid}`, data.id);
 
     this.handleIncomingMessage(message).catch((error) => {
       handleError(error, {
@@ -1383,8 +1709,14 @@ class QQChannelPlugin extends BaseChannelPlugin {
   private startHeartbeat(): void {
     this.stopHeartbeat();
 
-    // 使用服务器下发间隔的 70% 作为实际心跳间隔，确保在服务器超时前发送
-    const safeInterval = Math.floor(this.heartbeatIntervalMs * 0.7);
+    // 使用服务器下发间隔的 70% 作为实际心跳间隔，确保在服务器超时前发送。
+    // 下限保护（2026-08-20）：Hello 若下发畸形 heartbeat_interval（0/极小），
+    // setInterval(fn, 0) 会毫秒级狂发心跳触发网关限流；同时 checkHealth 的
+    // 宽限/新鲜度阈值（2×/3×）依赖 interval > 0，floor 到 5s 保证两者数学有效。
+    const safeInterval = Math.max(
+      5000,
+      Math.floor(this.heartbeatIntervalMs * 0.7)
+    );
     this.logger.info('QQ Bot 心跳开始', {
       intervalMs: this.heartbeatIntervalMs,
       safeIntervalMs: safeInterval,
@@ -1395,10 +1727,32 @@ class QQChannelPlugin extends BaseChannelPlugin {
   }
 
   /**
-   * 发送心跳
+   * 发送心跳（含 ACK 超时检测）
+   *
+   * TCP 静默断开（NAT 超时/网络切换/防火墙 idle 回收）不会触发 onclose，
+   * 必须靠"心跳发出后是否收到 ACK"判定死链，否则内存态永远 connected=true
+   * 而消息收发早已"脑死亡"。
    */
   private sendHeartbeat(): void {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
+
+    // 检测上一周期心跳是否已收到 ACK：未收到 → 丢失计数 +1
+    if (
+      this.lastHeartbeatSentAt > 0 &&
+      this.lastHeartbeatAckAt < this.lastHeartbeatSentAt
+    ) {
+      this.missedHeartbeatAcks++;
+      this.logger.warn('QQ Bot 心跳 ACK 未收到', {
+        missed: this.missedHeartbeatAcks,
+        max: MAX_MISSED_HEARTBEAT_ACKS,
+        sinceSentMs: Date.now() - this.lastHeartbeatSentAt,
+      });
+
+      if (this.missedHeartbeatAcks >= MAX_MISSED_HEARTBEAT_ACKS) {
+        this.handleDeadLink();
+        return;
+      }
+    }
 
     const heartbeatPayload = {
       op: QQOpCode.HEARTBEAT,
@@ -1406,6 +1760,57 @@ class QQChannelPlugin extends BaseChannelPlugin {
     };
 
     this.ws.send(JSON.stringify(heartbeatPayload));
+    this.lastHeartbeatSentAt = Date.now();
+  }
+
+  /**
+   * 死链处理：判定半开连接已死，主动断开并触发退避重连
+   *
+   * 摘除 ws 事件回调后再 close，避免 onclose 与此处双重触发 handleDisconnect
+   * （scheduleReconnect 无双定时器守卫，双重触发会产生两个重连定时器）。
+   */
+  private handleDeadLink(): void {
+    // 时序快照：在 stopHeartbeat 重置计数前捕获，用于还原链路死亡时间线
+    const now = Date.now();
+    const sinceLastAckMs =
+      this.lastHeartbeatAckAt > 0 ? now - this.lastHeartbeatAckAt : -1;
+    const connectionUptimeMs =
+      this.lastConnectTime > 0 ? now - this.lastConnectTime : -1;
+
+    this.logger.error(
+      `QQ Bot 连续 ${this.missedHeartbeatAcks} 个心跳周期未收到 ACK，` +
+        '判定为死链（NAT 超时/网络静默断开），主动断开并重连',
+      {
+        sinceLastAckMs, // 距最后一次 ACK → 链路实际已死亡多久
+        connectionUptimeMs, // 本次连接存活时长
+        heartbeatIntervalMs: this.heartbeatIntervalMs,
+      }
+    );
+    channelEventBus.publish(ChannelEvents.CHANNEL_ERROR, {
+      channelName: 'qq',
+      code: 'HEARTBEAT_DEAD_LINK',
+      message: `QQ 心跳 ACK 连续 ${this.missedHeartbeatAcks} 次超时，检测到半开死链，已主动断开并重连`,
+    });
+
+    this.lastCloseCode = 4000;
+    const ws = this.ws;
+    if (ws) {
+      ws.onclose = null;
+      ws.onerror = null;
+      ws.onmessage = null;
+      ws.onopen = null;
+      try {
+        ws.close(4000, 'heartbeat ack timeout');
+      } catch {
+        // TCP 已死的连接 close 报错是预期行为，忽略
+      }
+      this.ws = null;
+    }
+    this.logger.info('QQ Bot 死链清理完成，移交断开处理流程', {
+      cleanupMs: Date.now() - now,
+      atMs: Date.now(),
+    });
+    this.handleDisconnect();
   }
 
   /**
@@ -1417,6 +1822,10 @@ class QQChannelPlugin extends BaseChannelPlugin {
       clearInterval(this.heartbeatTimer);
       this.heartbeatTimer = null;
     }
+    // 重置 ACK 检测计数，新连接从干净状态开始
+    this.lastHeartbeatSentAt = 0;
+    this.lastHeartbeatAckAt = 0;
+    this.missedHeartbeatAcks = 0;
   }
 
   /**
@@ -1509,24 +1918,42 @@ class QQChannelPlugin extends BaseChannelPlugin {
    * 对标 OpenClaw ReconnectState + Hermes onclose 逻辑
    */
   private handleDisconnect(): void {
+    this.lastDisconnectAt = Date.now();
     this.logger.info('QQ Bot WebSocket 断开，开始处理断开事件', {
       code: this.lastCloseCode,
       attempt: this.reconnectAttempts,
+      // 断开时刻距连接建立 → 本次连接存活时长
+      sinceConnectMs:
+        this.lastConnectTime > 0
+          ? this.lastDisconnectAt - this.lastConnectTime
+          : -1,
     });
     this.stopHeartbeat();
     this.setInboundListening(false);
 
-    // 连续会话失败检测：INVALID_SESSION + 服务端错误循环，说明配置有误
+    // 连续会话失败检测：INVALID_SESSION + 服务端错误循环
     if (this.consecutiveSessionFailures >= MAX_CONSECUTIVE_SESSION_FAILURES) {
-      this.shouldReconnect = false;
+      // 长退避自愈（原为永久停连）：QQ 网关抖动/维护期常触发 INVALID_SESSION 连发，
+      // 永久放弃会导致通道死透且无告警。改为清会话+刷 Token+5 分钟后重试，
+      // 配置真正有误时降频重试（每 5 分钟一次）也不会打爆平台。
       this.logger.error(
         `QQ Bot 连续 ${this.consecutiveSessionFailures} 次会话失败，` +
-          '已停止重连。请检查以下配置：\n' +
+          `进入长退避自愈（${LONG_BACKOFF_DELAY_MS / 1000}s 后重试）。请检查以下配置：\n` +
           '  1. QQ Bot AppID 和 AppSecret 是否正确\n' +
           '  2. 机器人在 QQ 开放平台是否已启用 WebSocket 协议（非 Webhook）\n' +
           '  3. 机器人是否已添加了必要的权限（Intents）\n' +
           '  4. 网络环境是否能正常访问 api.sgroup.qq.com 和 wss://api.sgroup.qq.com'
       );
+      channelEventBus.publish(ChannelEvents.CHANNEL_ERROR, {
+        channelName: 'qq',
+        code: 'SESSION_FAILURE_BACKOFF',
+        message: `QQ 会话连续失败 ${this.consecutiveSessionFailures} 次，已进入 5 分钟长退避自愈（原为永久停连）`,
+      });
+      this.consecutiveSessionFailures = 0;
+      this.sessionId = null;
+      this.lastSeq = null;
+      this.needsTokenRefresh = true;
+      this.scheduleReconnect(LONG_BACKOFF_DELAY_MS);
       return;
     }
 
@@ -1577,7 +2004,19 @@ class QQChannelPlugin extends BaseChannelPlugin {
    */
   private scheduleReconnect(delayMs?: number): void {
     if (this.reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
-      this.logger.error('QQ Bot 重连已达最大次数，停止重连');
+      // 长退避自愈（原为永久停连）：重置计数后 5 分钟再试，指数阶梯重新开始，
+      // 避免 QQ 网关长时间故障恢复后通道永远不再连接。
+      this.logger.error(
+        `QQ Bot 重连已达 ${MAX_RECONNECT_ATTEMPTS} 次，` +
+          `进入长退避自愈（${LONG_BACKOFF_DELAY_MS / 1000}s 后重试）`
+      );
+      channelEventBus.publish(ChannelEvents.CHANNEL_ERROR, {
+        channelName: 'qq',
+        code: 'RECONNECT_EXHAUSTED_BACKOFF',
+        message: `QQ 重连次数耗尽（${MAX_RECONNECT_ATTEMPTS} 次），已进入 5 分钟长退避自愈（原为永久停连）`,
+      });
+      this.reconnectAttempts = 0;
+      this.scheduleReconnect(LONG_BACKOFF_DELAY_MS);
       return;
     }
 
@@ -1588,17 +2027,31 @@ class QQChannelPlugin extends BaseChannelPlugin {
       ];
 
     this.reconnectAttempts++;
+    const scheduledAt = Date.now();
     this.logger.info('QQ Bot 计划重连', {
       attempt: this.reconnectAttempts,
       delayMs: delay,
       refreshToken: this.needsTokenRefresh,
       clearSession: this.needsSessionClear,
+      // 距断开时刻 → 已等待多久
+      sinceDisconnectMs:
+        this.lastDisconnectAt > 0 ? scheduledAt - this.lastDisconnectAt : -1,
     });
 
     this.reconnectTimer = setTimeout(async () => {
+      const firedAt = Date.now();
+      const reconnectStartAt = firedAt;
+      this.logger.info('QQ Bot 重连定时器触发，开始执行重连流程', {
+        attempt: this.reconnectAttempts,
+        scheduledDelayMs: delay,
+        actualWaitMs: firedAt - scheduledAt, // 实际等待 vs 计划延迟（事件循环阻塞时可观察偏差）
+      });
       try {
         // 清理会话状态（如果需要），仅执行一次后重置标志
         if (this.needsSessionClear) {
+          this.logger.info(
+            'QQ Bot 重连前清理会话状态（sessionId/lastSeq 置空）'
+          );
           this.sessionId = null;
           this.lastSeq = null;
           this.needsSessionClear = false;
@@ -1606,17 +2059,44 @@ class QQChannelPlugin extends BaseChannelPlugin {
 
         // 刷新 Token（如果需要），仅执行一次后重置标志
         if (this.needsTokenRefresh) {
+          const tokenStartAt = Date.now();
+          this.logger.info('QQ Bot 重连前刷新 Token 开始');
           await this.refreshAccessToken();
           this.needsTokenRefresh = false;
+          this.logger.info('QQ Bot 重连前刷新 Token 完成', {
+            tokenRefreshMs: Date.now() - tokenStartAt,
+          });
         }
 
         // 网关地址缓存复用：仅首次连接时重新获取网关地址，
         // 后续重连复用已缓存的地址，避免频繁调用 /gateway 接口触发 QQ 开放平台限流
         if (!this.gatewayUrl) {
+          const gatewayStartAt = Date.now();
+          this.logger.info('QQ Bot 网关地址未缓存，重新获取');
           await this.resolveGatewayUrl();
+          this.logger.info('QQ Bot 网关地址获取完成', {
+            gatewayFetchMs: Date.now() - gatewayStartAt,
+          });
         }
+
+        this.logger.info('QQ Bot 开始建立 WebSocket 连接（重连）', {
+          attempt: this.reconnectAttempts,
+          prepMs: Date.now() - reconnectStartAt, // 连接前置准备耗时（清会话/刷Token/取网关）
+        });
         await this.connectWebSocket();
+        this.logger.info('QQ Bot 重连流程执行完成，等待网关 HELLO/鉴权', {
+          attempt: this.reconnectAttempts,
+          connectMs: Date.now() - reconnectStartAt,
+          // 自愈全流程耗时：断开时刻 → WS 重新建立
+          recoveryMs:
+            this.lastDisconnectAt > 0 ? Date.now() - this.lastDisconnectAt : -1,
+        });
       } catch (error) {
+        this.logger.warn('QQ Bot 重连尝试失败', {
+          attempt: this.reconnectAttempts,
+          elapsedMs: Date.now() - reconnectStartAt,
+          error: String(error),
+        });
         await handleError(error, {
           module: 'channels:qq',
           action: 'reconnect',
@@ -1710,6 +2190,17 @@ interface QQAtMessageCreatePayload {
   };
 }
 
+/** QQ Bot 富媒体附件（C2C/群媒体事件携带，url 为 CDN 临时链接有时效） */
+interface QQAttachment {
+  /** 富媒体子类型：0=文本 1=图片 2=视频 3=语音 4=文件 */
+  content_type: number;
+  filename?: string;
+  height?: number;
+  width?: number;
+  size?: number;
+  url?: string;
+}
+
 /** QQ Bot C2C_MESSAGE_CREATE 事件数据（私聊） */
 interface QQC2cMessageCreatePayload {
   id: string;
@@ -1720,6 +2211,8 @@ interface QQC2cMessageCreatePayload {
     avatar?: string;
   };
   timestamp?: string;
+  /** 富媒体附件（用户发图片/文件时存在） */
+  attachments?: QQAttachment[];
 }
 
 /** QQ Bot GROUP_AT_MESSAGE_CREATE 事件数据（群聊 @消息） */

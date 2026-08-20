@@ -23,6 +23,7 @@ import ProgressCard from "./ProgressCard";
 import DeliverableCard from "./DeliverableCard";
 import DiffBlock from "./DiffBlock";
 import InboxBlock from "./InboxBlock";
+import { DocWorkflowProgress } from "./DocWorkflowProgress";
 import { useChatStore } from "../../stores/chat";
 import { createLogger } from "@/utils/logger";
 
@@ -154,6 +155,25 @@ function BlockRenderer({
       return (
         <div className="text-xs text-gray-400 italic px-2 py-1">
           收件箱数据缺失
+        </div>
+      );
+    case "doc_workflow":
+      if (block.docWorkflowData) {
+        return (
+          <DocWorkflowProgress
+            data={block.docWorkflowData}
+            isStreaming={block.isStreaming}
+          />
+        );
+      }
+      if (import.meta.env.DEV)
+        logger.warn(
+          "[BlockRenderer] doc_workflow block 缺少 docWorkflowData",
+          block,
+        );
+      return (
+        <div className="text-xs text-gray-400 italic px-2 py-1">
+          文档工作流数据缺失
         </div>
       );
     case "text":

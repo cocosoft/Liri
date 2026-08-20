@@ -154,6 +154,7 @@ export default function ProjectsPage() {
   const [pdcaTasks, setPdcaTasks] = useState<
     { taskId: string; planId: string; phase: string; description: string }[]
   >([]);
+  const [pdcaError, setPdcaError] = useState<string | null>(null);
   const [selectedPdcaTaskId, setSelectedPdcaTaskId] = useState<string | null>(
     null,
   );
@@ -247,22 +248,29 @@ export default function ProjectsPage() {
     setRefreshKey((k) => k + 1);
   }, [messages, selectedProjectId]);
 
-  // §6线A：编排 tab — 获取 PDCA 任务列表
+  // §6线A：编排 tab — 获取 PDCA 任务列表（按项目过滤）
   useEffect(() => {
     if (!selectedProjectId) {
       setPdcaTasks([]);
+      setPdcaError(null);
       setSelectedPdcaTaskId(null);
       return;
     }
     let cancelled = false;
+    setPdcaError(null);
     pdcaService
-      .list()
+      .list(selectedProjectId)
       .then((tasks) => {
         if (cancelled) return;
         setPdcaTasks(tasks);
       })
-      .catch(() => {
-        /* 静默失败 */
+      .catch((e) => {
+        if (cancelled) return;
+        handleClientError(e, {
+          module: "views:ProjectsPage",
+          action: "load_pdca_list",
+        });
+        setPdcaError("加载 PDCA 任务列表失败");
       });
     return () => {
       cancelled = true;
@@ -1086,6 +1094,15 @@ export default function ProjectsPage() {
                 <PlansPanel projectId={selectedProjectId ?? undefined} />
               </div>
               {/* PDCA 任务列表 */}
+              {pdcaError && (
+                <div className="border-t border-gray-200 dark:border-gray-700 px-3 py-2">
+                  <div className="rounded border border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-900/20 px-2 py-1.5">
+                    <p className="text-xs text-red-600 dark:text-red-400">
+                      {pdcaError}
+                    </p>
+                  </div>
+                </div>
+              )}
               {pdcaTasks.length > 0 && (
                 <div className="border-t border-gray-200 dark:border-gray-700">
                   <div className="px-3 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
@@ -1135,9 +1152,13 @@ export default function ProjectsPage() {
                   )}
                 </div>
               )}
-              {pdcaTasks.length === 0 && selectedProjectId && (
-                <div className="p-4 text-sm text-gray-400 text-center">
-                  暂无 PDCA 任务
+              {pdcaTasks.length === 0 && !pdcaError && selectedProjectId && (
+                <div className="border-t border-gray-200 dark:border-gray-700 px-3 py-3 text-sm text-gray-400 space-y-1">
+                  <p>暂无 PDCA 任务</p>
+                  <p className="text-xs">
+                    PDCA 流程在 AI
+                    执行任务分解后自动启动，用于计划-执行-检查-行动的质量闭环。
+                  </p>
                 </div>
               )}
             </div>

@@ -409,6 +409,12 @@ export async function processChunk(
   } else if (chunk.type === "todo" && chunk.todoData) {
     blockBuilder.addTodo(chunk.todoData);
     updatedMsg = { ...msg, blocks: blockBuilder.getBlocks() };
+  } else if (chunk.type === "doc_workflow" && chunk.docWorkflowData) {
+    blockBuilder.addDocWorkflow(chunk.docWorkflowData);
+    updatedMsg = { ...msg, blocks: blockBuilder.getBlocks() };
+    if (sessionId) {
+      saveQueue.enqueue(sessionId, assistantId, blockBuilder.getBlocks(), true);
+    }
   } else if (chunk.type === "usage") {
     // L5: 检测截断信号 finishReason='length'（修复 BUG #10）
     if (chunk.finishReason === "length") {

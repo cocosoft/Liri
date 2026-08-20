@@ -71,6 +71,13 @@ export interface ChannelCapabilities {
   fileUpload: boolean;
   imageMessage: boolean;
   webhook: boolean;
+  /**
+   * 平台存在被动回复窗口（如 QQ 官方 5 分钟：收到消息后限时内可回，
+   * 超时拒收需走主动消息配额）。声明该位的渠道才会收到长任务占位提示
+   * （messageRouter AC-5③）；无窗口约束的渠道（email/sms/webhook 等
+   * 主动 API 出站）不适用，缺省视为 false。
+   */
+  passiveReplyWindow?: boolean;
 }
 
 /**

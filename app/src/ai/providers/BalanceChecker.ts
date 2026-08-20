@@ -55,7 +55,8 @@ type BalanceProvider =
   | 'siliconflow'
   | 'siliconflow-en'
   | 'openrouter'
-  | 'novita';
+  | 'novita'
+  | 'zhipu';
 
 /** 检测供应商类型 */
 function detectProvider(baseUrl: string): BalanceProvider | null {
@@ -66,6 +67,8 @@ function detectProvider(baseUrl: string): BalanceProvider | null {
   if (url.includes('api.siliconflow.com')) return 'siliconflow-en';
   if (url.includes('openrouter.ai')) return 'openrouter';
   if (url.includes('api.novita.ai')) return 'novita';
+  if (url.includes('open.bigmodel.cn')) return 'zhipu';
+  if (url.includes('api.z.ai')) return 'zhipu';
 
   return null;
 }
@@ -199,9 +202,44 @@ async function queryDeepSeek(apiKey: string): Promise<BalanceResult> {
 
 // ─── SiliconFlow ───────────────────────────────────────
 
+/** 从响应对象中尝试提取余额字段（支持多种命名风格） */
+function extractBalanceFields(obj: Record<string, unknown>): {
+  total: number | undefined;
+  charge: number | undefined;
+  free: number | undefined;
+} {
+  const pick = (...keys: string[]): number | undefined => {
+    for (const k of keys) {
+      const v = parseFloatField(obj, k);
+      if (v !== undefined) return v;
+    }
+    return undefined;
+  };
+
+  return {
+    total: pick(
+      'totalBalance',
+      'total_balance',
+      'totalBalance',
+      'availableBalance',
+      'available_balance'
+    ),
+    charge: pick(
+      'chargeBalance',
+      'charge_balance',
+      'chargedBalance',
+      'rechargeBalance'
+    ),
+    free: pick('balance', 'freeBalance', 'free_balance', '赠送余额'),
+  };
+}
+
 /** SiliconFlow 余额查询
  *  GET https://api.siliconflow.cn/v1/user/info
- *  返回: { code, data: { balance, chargeBalance, totalBalance, status } }
+ *  返回: { code, message, status, data: { balance, chargeBalance, totalBalance } }
+ *  - balance: 免费赠送余额
+ *  - chargeBalance: 充值余额
+ *  - totalBalance: 总可用余额 (= balance + chargeBalance)
  */
 async function querySiliconFlow(
   apiKey: string,
@@ -230,26 +268,82 @@ async function querySiliconFlow(
     }
 
     const obj = body as Record<string, unknown>;
-    const dataField = obj['data'] as Record<string, unknown> | undefined;
+    logger.info(
+      `SiliconFlow 响应: status=${status} keys=${Object.keys(obj).join(',')}`
+    );
 
-    if (!dataField) {
+    const apiCode = typeof obj['code'] === 'number' ? obj['code'] : undefined;
+    const apiMessage = typeof obj['message'] === 'string' ? obj['message'] : '';
+
+    // SiliconFlow 成功码: 20000 (文档) 或 0 / 200 (实际可能)
+    if (
+      apiCode !== undefined &&
+      apiCode !== 20000 &&
+      apiCode !== 0 &&
+      apiCode !== 200
+    ) {
+      logger.warning(`SiliconFlow API 错误: code=${apiCode} msg=${apiMessage}`);
+      return {
+        success: false,
+        provider,
+        data: [],
+        error: `API 错误 (code=${apiCode}): ${apiMessage}`,
+      };
+    }
+
+    // 尝试从 data 字段解析，若不存在则直接从根对象解析
+    const dataField =
+      obj['data'] && typeof obj['data'] === 'object'
+        ? (obj['data'] as Record<string, unknown>)
+        : obj;
+
+    if (!dataField || typeof dataField !== 'object') {
       return { success: false, provider, data: [], error: '响应格式异常' };
     }
 
-    const balance = parseFloatField(dataField, 'balance') || 0;
-    const totalBalance = parseFloatField(dataField, 'totalBalance') || balance;
+    const { total, charge, free } = extractBalanceFields(dataField);
+    logger.info(
+      `SiliconFlow 余额解析: total=${total} charge=${charge} free=${free}`
+    );
+
+    // 若所有字段均未提取到，记录原始字段供排查
+    if (total === undefined && charge === undefined && free === undefined) {
+      logger.warning(
+        `SiliconFlow 未能提取余额字段，原始 data keys: ${Object.keys(dataField).join(',')}`
+      );
+    }
+
+    const remaining = total ?? (free !== undefined ? free : undefined) ?? 0;
+
+    const resultData: BalanceData[] = [
+      {
+        planName: 'SiliconFlow',
+        remaining,
+        total: total ?? remaining,
+        unit: 'CNY',
+      },
+    ];
+
+    if (charge !== undefined && charge > 0) {
+      resultData.push({
+        planName: 'SiliconFlow 充值余额',
+        remaining: charge,
+        unit: 'CNY',
+      });
+    }
+
+    if (free !== undefined && free > 0) {
+      resultData.push({
+        planName: 'SiliconFlow 免费额度',
+        remaining: free,
+        unit: 'CNY',
+      });
+    }
 
     return {
       success: true,
       provider,
-      data: [
-        {
-          planName: 'SiliconFlow',
-          remaining: balance,
-          total: totalBalance,
-          unit: 'CNY',
-        },
-      ],
+      data: resultData,
     };
   } catch (error) {
     return {
@@ -383,6 +477,61 @@ async function queryNovita(apiKey: string): Promise<BalanceResult> {
   }
 }
 
+// ─── Zhipu AI (BigModel) ───────────────────────────────
+
+/** 智谱 AI 余额查询
+ *  GET https://open.bigmodel.cn/api/biz/account/query-customer-account-report
+ *  返回: { balance: number }
+ */
+async function queryZhipu(apiKey: string): Promise<BalanceResult> {
+  try {
+    const { status, body } = await httpGet(
+      'https://open.bigmodel.cn/api/biz/account/query-customer-account-report',
+      apiKey
+    );
+
+    if (status === 401 || status === 403) {
+      return {
+        success: false,
+        provider: 'zhipu',
+        data: [],
+        error: `认证失败 (HTTP ${status})`,
+      };
+    }
+
+    if (!body || typeof body !== 'object') {
+      return {
+        success: false,
+        provider: 'zhipu',
+        data: [],
+        error: '无效响应',
+      };
+    }
+
+    const obj = body as Record<string, unknown>;
+    const balance = parseFloatField(obj, 'balance');
+
+    return {
+      success: true,
+      provider: 'zhipu',
+      data: [
+        {
+          planName: '智谱 AI',
+          remaining: balance,
+          unit: 'CNY',
+        },
+      ],
+    };
+  } catch (error) {
+    return {
+      success: false,
+      provider: 'zhipu',
+      data: [],
+      error: `网络错误: ${error instanceof Error ? error.message : String(error)}`,
+    };
+  }
+}
+
 // ─── 公共 API ─────────────────────────────────────────
 
 /**
@@ -411,7 +560,7 @@ export async function checkBalance(
       success: false,
       provider: 'unknown',
       data: [],
-      error: `不支持的供应商: ${baseUrl}。当前支持: DeepSeek, SiliconFlow, OpenRouter, Novita AI`,
+      error: `不支持的供应商: ${baseUrl}。当前支持: DeepSeek, SiliconFlow, OpenRouter, Novita AI, 智谱 AI`,
     };
   }
 
@@ -427,6 +576,8 @@ export async function checkBalance(
       return queryOpenRouter(apiKey);
     case 'novita':
       return queryNovita(apiKey);
+    case 'zhipu':
+      return queryZhipu(apiKey);
   }
 }
 

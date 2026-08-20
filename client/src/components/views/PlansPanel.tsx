@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useConfigStore } from "../../stores/configStore";
 import { planService } from "../../services/planService";
 import type { Plan } from "../../services/planService";
+import { handleClientError } from "../../utils/handleError";
 import DAGView from "./DAGView";
 import { SkeletonCard } from "../common/Skeleton";
 
@@ -16,17 +17,14 @@ interface PlanFlowItem {
 /** 任务计划面板 — 嵌入 TaskCenterPage 的「任务计划」Tab
  *  projectId 为当前项目（workspace）ID，传入时仅展示该项目下的计划
  */
-export default function PlansPanel({
-  projectId,
-}: {
-  projectId?: string;
-}) {
+export default function PlansPanel({ projectId }: { projectId?: string }) {
   const config = useConfigStore((s) => s.config);
   const isDark = config.theme === "dark";
 
   const [plans, setPlans] = useState<Plan[]>([]);
   const [flows, setFlows] = useState<PlanFlowItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   /** P2（08-09）：展开的计划 ID */
   const [expandedPlanId, setExpandedPlanId] = useState<string | null>(null);
 
@@ -34,6 +32,7 @@ export default function PlansPanel({
     let cancelled = false;
 
     const load = async () => {
+      setError(null);
       try {
         const [plansData, flowsRes] = await Promise.all([
           planService.list(projectId),
@@ -46,8 +45,14 @@ export default function PlansPanel({
         setPlans(Array.isArray(plansData) ? plansData : []);
         const fData = flowsRes?.data;
         setFlows(Array.isArray(fData) ? fData : []);
-      } catch {
-        // 静默失败
+      } catch (e) {
+        if (!cancelled) {
+          handleClientError(e, {
+            module: "views:PlansPanel",
+            action: "load_plans_flows",
+          });
+          setError("加载计划或流程列表失败，请检查后端服务是否正常运行");
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -72,6 +77,16 @@ export default function PlansPanel({
   const textPrimary = isDark ? "text-gray-100" : "text-gray-900";
   const textSecondary = isDark ? "text-gray-400" : "text-gray-500";
 
+  if (error) {
+    return (
+      <div className="p-4">
+        <div className="rounded-lg border border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-900/20 p-3">
+          <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* 计划列表 */}
@@ -80,7 +95,13 @@ export default function PlansPanel({
           执行计划 ({plans.length})
         </h3>
         {plans.length === 0 ? (
-          <p className={`text-sm ${textSecondary}`}>暂无计划</p>
+          <div className={`text-sm ${textSecondary} space-y-1`}>
+            <p>暂无计划</p>
+            <p className="text-xs">
+              在对话中输入需要分解的复杂任务，AI
+              会自动生成执行计划并展示在此处。
+            </p>
+          </div>
         ) : (
           <div className="space-y-2">
             {plans.map((plan) => {
@@ -139,7 +160,12 @@ export default function PlansPanel({
           执行流程 ({flows.length})
         </h3>
         {flows.length === 0 ? (
-          <p className={`text-sm ${textSecondary}`}>暂无流程</p>
+          <div className={`text-sm ${textSecondary} space-y-1`}>
+            <p>暂无流程</p>
+            <p className="text-xs">
+              流程是可复用的任务编排模板，由后端 TaskFlowRegistry 注册。
+            </p>
+          </div>
         ) : (
           <div className="space-y-2">
             {flows.map((flow, i: number) => (

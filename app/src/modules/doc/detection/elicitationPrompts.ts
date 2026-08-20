@@ -8,11 +8,33 @@ const logger = getLogger('doc:lifecycle');
 
 /**
  * 注册 OfficeCLI 安装引导提示
- * 在侦测到 OfficeCLI 未安装时调用
- * G-12：未实现——原静默 INFO 造成"已注册"假象，改为明确告警
+ * 在侦测到 OfficeCLI 未安装时调用（DocModule.initDegradedMode）
+ * G-12：真正注册 officecli 的 elicitation prompt，
+ * 引导用户在文档生成时前往「设置 → 办公 → OfficeCLI」一键安装。
  */
 export function registerOfficeCLIInstallPrompt(): void {
-  logger.warn('OfficeCLI 安装引导未注册：elicitationHandler 尚未注入（G-12）');
+  void (async () => {
+    try {
+      const { registerElicitationPrompts } =
+        await import('@modules/services/mcp/elicitationHandler');
+      registerElicitationPrompts('officecli', [
+        {
+          type: 'confirm',
+          key: 'installOfficeCli',
+          label: '安装 OfficeCli',
+          description:
+            '文档创建/编辑功能依赖 OfficeCli 命令行工具。请前往 设置 → 办公 → OfficeCLI，点击「一键安装」后重试。',
+          required: true,
+          defaultValue: 'yes',
+        },
+      ]);
+      logger.info(
+        'OfficeCLI 安装引导已注册（G-12 落地：officecli elicitation prompt）'
+      );
+    } catch (err) {
+      logger.warn('OfficeCLI 安装引导注册失败', { error: String(err) });
+    }
+  })();
 }
 
 /**

@@ -126,6 +126,69 @@ function parseMultipartFile(
 // ==================== doc 模块 API ====================
 
 /**
+ * 处理 GET /v1/officecli/status
+ * 获取 OfficeCLI 安装状态（检测结果 + 安装进度 + 版本约束）
+ */
+export async function handleOfficeCLIStatus(
+  _req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const { officeCliInstallService } =
+      await import('../installation/OfficeCliInstallService');
+    const status = officeCliInstallService.getStatus();
+
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({ code: 200, message: 'ok', data: status }));
+  } catch (err) {
+    await handleError(err, {
+      module: 'doc:api',
+      action: 'officecli_status',
+    });
+    res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({ error: { message: '获取 OfficeCLI 状态失败' } }));
+  }
+}
+
+/**
+ * 处理 POST /v1/officecli/install — 需要 admin 权限（执行系统安装脚本）
+ * 触发 OfficeCLI 异步安装
+ */
+export async function handleOfficeCLIInstall(
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const { checkAdminRequest } =
+      await import('../../../infrastructure/http/handlers/auth-handlers');
+    const adminCheck = checkAdminRequest(req);
+    if (adminCheck !== 'ok') {
+      res.writeHead(adminCheck === 'unauthorized' ? 401 : 403, {
+        'Content-Type': 'application/json; charset=utf-8',
+      });
+      res.end(
+        JSON.stringify({ error: { message: '安装操作需要 admin 权限' } })
+      );
+      return;
+    }
+
+    const { officeCliInstallService } =
+      await import('../installation/OfficeCliInstallService');
+    const status = await officeCliInstallService.install();
+
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({ code: 200, message: 'ok', data: status }));
+  } catch (err) {
+    await handleError(err, {
+      module: 'doc:api',
+      action: 'officecli_install',
+    });
+    res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({ error: { message: 'OfficeCLI 安装失败' } }));
+  }
+}
+
+/**
  * 处理 GET /v1/doc/status
  * 获取文档模块状态（OfficeCLI 安装情况、连接状态、工具数、模板数）
  */
@@ -196,7 +259,7 @@ export async function handleDocCapabilities(
 
     const capabilities = {
       status: doc.getStatus(),
-      formats: ['docx', 'xlsx', 'pptx'],
+      formats: ['docx', 'xlsx', 'pptx', 'html'],
       operations:
         doc.getStatus() === 'full'
           ? ['create', 'read', 'edit', 'render']
@@ -970,7 +1033,7 @@ export async function handleDocCreate(
     const name = (body.name as string) || '';
 
     // 输入验证
-    const validTypes = ['docx', 'xlsx', 'pptx'];
+    const validTypes = ['docx', 'xlsx', 'pptx', 'html'];
     if (!validTypes.includes(type)) {
       res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(

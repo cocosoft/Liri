@@ -148,10 +148,13 @@ export interface PdcaStatus {
 }
 
 export const pdcaService = {
-  /** 获取 PDCA 列表 */
-  list: async (): Promise<PdcaStatus[]> => {
+  /** 获取 PDCA 列表；传入 workspaceId 时按项目过滤 */
+  list: async (workspaceId?: string): Promise<PdcaStatus[]> => {
     try {
-      const res = await http.post<any>("/v1/pdca/list", {});
+      const res = await http.post<any>(
+        "/v1/pdca/list",
+        workspaceId ? { workspaceId } : {},
+      );
       if (Array.isArray(res)) return res as PdcaStatus[];
       if (res && Array.isArray(res.data)) return res.data as PdcaStatus[];
       return [];

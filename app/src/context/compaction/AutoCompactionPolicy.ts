@@ -52,7 +52,10 @@
  *   ├── CompactionHooks
  *   └── CompactionMetrics
  */
-import { estimateMessagesTokens } from '../../ai/tokenizer/TokenEstimator';
+import {
+  estimateMessagesTokens,
+  estimateMessagesTokensCooperative,
+} from '../../ai/tokenizer/TokenEstimator';
 import { resolveContextWindow } from '../window/ContextWindowResolver';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '../../error/handleError';
@@ -134,7 +137,7 @@ export class AutoCompactionPolicy {
   }
 
   /**
-   * 评估是否触发压缩
+   * 评估是否触发压缩（同步估算）
    * @param messages 当前消息列表
    * @param model 模型名（用于解析上下文窗口）
    */
@@ -144,7 +147,66 @@ export class AutoCompactionPolicy {
     configOverride?: number
   ): AutoCompactionDecision {
     try {
-      const rawTokens = estimateMessagesTokens(messages);
+      return this._evaluateWithTokens(
+        messages,
+        estimateMessagesTokens(messages),
+        model,
+        configOverride
+      );
+    } catch (err) {
+      void handleError(err, {
+        module: 'context:compaction',
+        action: '压缩评估失败，回退到warn',
+      });
+      return {
+        decision: 'warn',
+        snapshot: { tokens: 0, maxTokens: 0, ratio: 0 },
+      };
+    }
+  }
+
+  /**
+   * 评估是否触发压缩（协作式异步估算，不阻塞事件循环）
+   * 2026-08-19 TRAE 式回合开始评估：大历史（数百条消息）同步估算会阻塞事件循环
+   * （实测约 49s），改分批让出事件循环后评估可安全用于发送前路径。
+   * 与 evaluate() 共用决策核心 _evaluateWithTokens，仅估算路径不同（CS01 不重复决策逻辑）。
+   */
+  async evaluateAsync(
+    messages: readonly { role?: string; content?: string | unknown }[],
+    model: string,
+    configOverride?: number
+  ): Promise<AutoCompactionDecision> {
+    try {
+      return this._evaluateWithTokens(
+        messages,
+        await estimateMessagesTokensCooperative(messages),
+        model,
+        configOverride
+      );
+    } catch (err) {
+      void handleError(err, {
+        module: 'context:compaction',
+        action: '压缩评估失败，回退到warn',
+      });
+      return {
+        decision: 'warn',
+        snapshot: { tokens: 0, maxTokens: 0, ratio: 0 },
+      };
+    }
+  }
+
+  /**
+   * 决策核心：基于已估算的 rawTokens 计算水位并返回 skip/warn/trigger
+   * @param messages 当前消息列表（用于消息数兜底判断）
+   * @param rawTokens 已估算的原始 token 数（同步估算或协作式估算的产物）
+   */
+  private _evaluateWithTokens(
+    messages: readonly { role?: string; content?: string | unknown }[],
+    rawTokens: number,
+    model: string,
+    configOverride?: number
+  ): AutoCompactionDecision {
+    try {
       // 用校准因子修正估算偏差，使 token 计数更接近真实值
       const tokens = Math.round(rawTokens * this.calibrationFactor);
       const { tokens: maxTokens } = resolveContextWindow(model, configOverride);

@@ -28,7 +28,13 @@
  */
 
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import {
+  handleError,
+  AppError,
+  ErrorCategory,
+  ErrorSeverity,
+} from '@modules/error';
+import { configManager } from '@modules/config';
 import { SimpleMutex } from '@modules/core/SimpleMutex';
 import { PlainTextCheckpoint } from '../services/PlainTextCheckpoint.js';
 import { StreamingAutoCheckpoint } from '../services/StreamingAutoCheckpoint.js';
@@ -79,6 +85,16 @@ import type { ChatStreamChunk } from '@modules/runtime/api/CoreAPI.js';
 const logger = getLogger('chat:streamFlow');
 
 /**
+ * 定时等待（保活心跳轮询用）。
+ * 2026-08-19 Fix A：准备阶段（API 消息构建/协作式估算）与模型首块等待（TTFB）期间，
+ * 用 setTimeout 定时间隔轮询并发任务，每 10s 向 SSE 发射一次 status 心跳，
+ * 防止大会话准备 + 思考模型 TTFB 超过前端 60s 空闲超时被误判为"流式响应超时"。
+ */
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
  * 流式编排入口 — 由 ChatOrchestrator.streamMessage 委托
  */
 export async function* runStreamMessage(
@@ -123,9 +139,190 @@ export async function* runStreamMessage(
       'content.length': ctx.content.length,
     });
 
-    // 构建 API 格式消息列表
-    // 2026-08-19 根因①修复：构建改为异步（内部批量让出事件循环），避免大会话阻塞
-    let apiMessages = await _buildApiMessagesForStream(session.messages);
+    // === TRAE 式上下文准备（2026-08-19）：回合开始先读上下文，达到压缩条件则先压缩再构建 ===
+    // 1) 发射"读取上下文"状态块（前端可见，类似工具调用），大历史准备期间用户能感知处理进度
+    yield {
+      type: 'status',
+      statusType: 'compaction',
+      phase: 'compacting',
+      content: '正在读取上下文...',
+      sessionId: session.id,
+    } as ChatStreamChunk;
+
+    // 2) 协作式评估原始历史是否达到压缩条件（Fix C：先压缩再构建，
+    //    避免 ~100 万 token 全量构建；evaluateAsync 分批让出事件循环不阻塞）
+    // 耗时日志（2026-08-19 超时排查）：记录评估开始/结束 + 决策快照，
+    // 与 TokenEstimator 的 estimate:cooperative_total_done（debug）串联定位评估耗时
+    const preEvalStart = Date.now();
+    logger.info('compaction:pre_eval_start', {
+      sessionId: session.id,
+      model: options?.model ?? 'unknown',
+      messageCount: session.messages.length,
+    });
+    const preCompactEval = await autoCompactionPolicy.evaluateAsync(
+      session.messages as unknown as ChatMessage[],
+      options?.model || ''
+    );
+    logger.info('compaction:pre_eval_done', {
+      sessionId: session.id,
+      elapsedMs: Date.now() - preEvalStart,
+      decision: preCompactEval.decision,
+      tokens: preCompactEval.snapshot.tokens,
+      maxTokens: preCompactEval.snapshot.maxTokens,
+      ratio: Number(preCompactEval.snapshot.ratio.toFixed(3)),
+      messageCount: session.messages.length,
+    });
+    let preCompacted = false;
+    if (preCompactEval.decision !== 'skip') {
+      // 达到压缩条件 → 发射"压缩中"状态块（带水位信息，前端脉冲动画）
+      yield {
+        type: 'status',
+        statusType: 'compaction',
+        phase: 'compacting',
+        content: `上下文水位 ${Math.round(preCompactEval.snapshot.ratio * 100)}%（${(preCompactEval.snapshot.tokens / 1000).toFixed(0)}K/${(preCompactEval.snapshot.maxTokens / 1000).toFixed(0)}K tokens），正在压缩历史...`,
+        sessionId: session.id,
+      } as ChatStreamChunk;
+      // 耗时日志：预压缩执行（Tier1/2 应毫秒级，Tier3 已被 skipTier3Sync 推迟后台）
+      const preCompactStart = Date.now();
+      logger.info('compaction:pre_compact_start', {
+        sessionId: session.id,
+        messageCount: session.messages.length,
+        decision: preCompactEval.decision,
+        skipTier3Sync: true,
+      });
+      const preCompactResult = await compactionOrchestrator.compact(
+        session.messages as unknown as ChatMessage[],
+        { model: options?.model || '', sessionId: session.id },
+        { skipTier3Sync: true, preEvaluated: preCompactEval }
+      );
+      logger.info('compaction:pre_compact_done', {
+        sessionId: session.id,
+        elapsedMs: Date.now() - preCompactStart,
+        applied: preCompactResult.applied,
+        beforeMessageCount: session.messages.length,
+        afterMessageCount: preCompactResult.messages.length,
+      });
+      if (preCompactResult.applied) {
+        // 写回会话：后续构建基于压缩后的历史（Fix C 生效，构建量显著减小）
+        session.messages =
+          preCompactResult.messages as unknown as typeof session.messages;
+        preCompacted = true;
+        const afterTokens = estimateMessagesTokens(
+          preCompactResult.messages as unknown as ChatMessage[]
+        );
+        const savedPercent =
+          preCompactEval.snapshot.tokens > 0
+            ? Math.round(
+                (1 - afterTokens / preCompactEval.snapshot.tokens) * 100
+              )
+            : 0;
+        yield {
+          type: 'status',
+          statusType: 'compaction',
+          phase: 'done',
+          content: `上下文已压缩: ${preCompactEval.snapshot.tokens.toLocaleString()} → ${afterTokens.toLocaleString()} tokens（节省 ${savedPercent}%）`,
+          sessionId: session.id,
+        } as ChatStreamChunk;
+      }
+    }
+
+    // 3) 构建 API 格式消息列表（Fix C：基于可能已压缩的历史）
+    // 2026-08-19 根因①修复：构建改为异步（内部批量让出事件循环），避免大会话阻塞；
+    // 构建期间每 10s 心跳保活（Fix A），同内容状态块前端去重只保留一条，但每次收到
+    // 数据都会重置前端空闲超时计时器
+    // 耗时日志（2026-08-19 超时排查）：构建开始/结束 + 心跳次数——若构建阻塞
+    // 事件循环，心跳会被拖慢，heartbeatCount 能反映"阻塞了几轮 10s"辅助定位
+    let apiMessages: Array<Record<string, unknown>>;
+    {
+      const buildStart = Date.now();
+      let buildHeartbeatCount = 0;
+      logger.info('compaction:build_start', {
+        sessionId: session.id,
+        messageCount: session.messages.length,
+        preCompacted,
+      });
+      const buildPromise = _buildApiMessagesForStream(session.messages);
+      while (true) {
+        const settled = await Promise.race([
+          buildPromise.then((v) => ({ done: true as const, value: v })),
+          sleep(10_000).then(() => ({ done: false as const, value: null })),
+        ]);
+        if (settled.done) {
+          apiMessages = settled.value;
+          break;
+        }
+        buildHeartbeatCount++;
+        yield {
+          type: 'status',
+          statusType: 'compaction',
+          phase: 'compacting',
+          content: '正在读取上下文...',
+          sessionId: session.id,
+        } as ChatStreamChunk;
+      }
+      // 2026-08-20 QQ 空响应事故防御：发送前清洗历史污染。
+      // 根因：旧版 persistMessages 全量重写 bug（P0-2 修复前）在渠道会话落盘了
+      // 同毫秒批量 assistant 副本；DeepSeek 收到"连续多条 assistant（无 user
+      // 间隔）/空 assistant"会直接返回空响应（chunkCount=0, finishReason=stop），
+      // 用户侧表现为长时间沉默。清洗规则：
+      //   a) 丢弃空 assistant（content 空/null 且无 tool_calls）
+      //   b) 合并连续纯文本 assistant（换行拼接；带 tool_calls 的不合并，
+      //      其后必须紧跟 tool 结果，合并会破坏调用序列）
+      const beforeSanitize = apiMessages.length;
+      let droppedEmpty = 0;
+      let mergedRuns = 0;
+      const sanitized: Array<Record<string, unknown>> = [];
+      for (const msg of apiMessages) {
+        const role = msg.role as string;
+        const content = msg.content;
+        const hasToolCalls =
+          Array.isArray(msg.tool_calls) && msg.tool_calls.length > 0;
+        // 规则 a：空 assistant 丢弃
+        if (
+          role === 'assistant' &&
+          !hasToolCalls &&
+          (content === null ||
+            content === undefined ||
+            (typeof content === 'string' && content.trim() === ''))
+        ) {
+          droppedEmpty++;
+          continue;
+        }
+        const prev = sanitized[sanitized.length - 1];
+        // 规则 b：连续纯文本 assistant 合并
+        if (
+          role === 'assistant' &&
+          !hasToolCalls &&
+          typeof content === 'string' &&
+          prev &&
+          prev.role === 'assistant' &&
+          !Array.isArray(prev.tool_calls)
+        ) {
+          prev.content = `${prev.content}\n${content}`;
+          mergedRuns++;
+          continue;
+        }
+        sanitized.push({ ...msg });
+      }
+      if (droppedEmpty > 0 || mergedRuns > 0) {
+        apiMessages = sanitized;
+        logger.warn('compaction:历史污染清洗（发送前防御）', {
+          sessionId: session.id,
+          beforeCount: beforeSanitize,
+          afterCount: apiMessages.length,
+          droppedEmptyAssistant: droppedEmpty,
+          mergedConsecutiveAssistant: mergedRuns,
+          hint: '历史含旧版全量重写 bug 落盘的重复/空 assistant，已清洗防止 LLM 空响应',
+        });
+      }
+      logger.info('compaction:build_done', {
+        sessionId: session.id,
+        elapsedMs: Date.now() - buildStart,
+        beforeMessageCount: session.messages.length,
+        apiMessageCount: apiMessages.length,
+        heartbeatCount: buildHeartbeatCount,
+      });
+    }
     // 诊断日志：压缩前 token 基线
     await logTokenSnapshot(
       'API 消息构建后（压缩前）',
@@ -183,9 +380,10 @@ export async function* runStreamMessage(
     // 局部 apiMessages 变量仍是旧引用，必须重新同步，否则发送的仍是未压缩的完整历史
     // （llama.cpp 等小上下文模型会因 15408 > n_ctx 4096 直接 400）。
     apiMessages = pipeline.ctx.apiMessages;
-    // 前端可见性（2026-08-19）：压缩实际执行且节省显著时发射"完成"状态块（类似工具块），
-    // 仅当 applied && savedPercent>0 才展示，避免每轮 skip 时产生无意义噪声
-    if (compactInfo.applied && compactInfo.savedPercent > 0) {
+    // 前端可见性（2026-08-19）：压缩"完成"状态块已由回合开始处的预压缩路径发射
+    // （preCompacted 分支）；此处仅当"预压缩未生效"且 compactContext 兜底压缩成功时补发，
+    // 避免双份"上下文已压缩"噪声。仅 applied && savedPercent>0 展示，skip 时不产生无意义噪声
+    if (!preCompacted && compactInfo.applied && compactInfo.savedPercent > 0) {
       yield {
         type: 'status',
         statusType: 'compaction',
@@ -334,7 +532,66 @@ export async function* runStreamMessage(
       );
 
       beginStreamLoop(streamStats);
-      let result = await gen.next();
+      // Fix A（2026-08-19）：等待模型首块（TTFB）期间每 10s 心跳保活——思考模型
+      // （如 glm-5.2）TTFB 可达数十秒，叠加准备阶段后易击穿前端 60s 空闲超时；
+      // 首块到达即退出轮询，后续流式块之间一般远小于空闲超时
+      // Fix B（2026-08-20）：增加 TTFB 硬超时（默认 300s），防止 llama-server
+      // 接受 TCP 但不返回响应头时无限等待（超时盲区：fetch→响应头阶段无超时保护）
+      let result: Awaited<ReturnType<typeof gen.next>>;
+      {
+        const TTFB_MAX_WAIT_MS = Number(
+          configManager.env('TTFB_MAX_WAIT_MS') ?? '300000'
+        );
+        const ttfbStart = Date.now();
+        let ttfbHeartbeatCount = 0;
+        const firstNextPromise = gen.next();
+        while (true) {
+          const elapsedMs = Date.now() - ttfbStart;
+          if (elapsedMs > TTFB_MAX_WAIT_MS) {
+            logger.error('compaction:ttfb_timeout', {
+              sessionId: session.id,
+              elapsedMs,
+              heartbeatCount: ttfbHeartbeatCount,
+              model: options?.model ?? 'unknown',
+              maxWaitMs: TTFB_MAX_WAIT_MS,
+              apiMessageCount: apiMessages.length,
+            });
+            throw new AppError(
+              `模型首块响应超时（已等待 ${Math.round(elapsedMs / 1000)}s），可能原因：模型加载中、内存不足或服务未就绪。建议检查 llama-server 状态或更换较小模型。`,
+              ErrorCategory.EXECUTION,
+              ErrorSeverity.HIGH,
+              'LLM_TTFB_TIMEOUT'
+            );
+          }
+          const remainingSec = Math.max(
+            0,
+            Math.round((TTFB_MAX_WAIT_MS - elapsedMs) / 1000)
+          );
+          const settled = await Promise.race([
+            firstNextPromise.then((v) => ({ done: true as const, value: v })),
+            sleep(10_000).then(() => ({ done: false as const, value: null })),
+          ]);
+          if (settled.done) {
+            result = settled.value;
+            break;
+          }
+          ttfbHeartbeatCount++;
+          yield {
+            type: 'status',
+            statusType: 'compaction',
+            phase: 'compacting',
+            content: `等待模型响应（首块）... [剩余超时: ${remainingSec}s]`,
+            sessionId: session.id,
+          } as ChatStreamChunk;
+        }
+        logger.info('compaction:ttfb_done', {
+          sessionId: session.id,
+          elapsedMs: Date.now() - ttfbStart,
+          heartbeatCount: ttfbHeartbeatCount,
+          model: options?.model ?? 'unknown',
+          apiMessageCount: apiMessages.length,
+        });
+      }
 
       // Phase 1c: 流式水位监测
       // P1 修复（2026-08-14 排查）：水位告警刷屏降噪——定时器每 1.5s 触发一次，

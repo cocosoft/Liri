@@ -1,11 +1,22 @@
 /**
  * 用户提问工具 AskUserQuestionTool
+ *
+ * 支持三种提问类型（对齐设计方案 §5.2 PendingQuestion.type）：
+ * - choice：封闭式多选题（提供 2-4 个固定选项）
+ * - open：开放式确认（用户自由回答）
+ * - confirm：是/否确认
+ *
+ * 交互机制：
+ * - 流式路径（ReActToolLoop）：requiresUserInteraction → yield question → 等待 → _userAnswers 注入
+ * - 非流式路径（TAORLoop）：_userAnswers 缺失时返回引导性错误，LLM 改用自然语言提问
  */
 export interface AskUserQuestionInput {
   question: string;
   header: string;
   options: { label: string; description: string }[];
   multiSelect?: boolean;
+  /** 提问类型（v0.5 新增，对齐 PendingQuestion.type） */
+  questionType?: 'choice' | 'open' | 'confirm';
 }
 
 export interface AskUserQuestionResult {
@@ -13,6 +24,8 @@ export interface AskUserQuestionResult {
   question: string;
   answers: string[];
   timestamp: number;
+  /** 提问类型 */
+  questionType: 'choice' | 'open' | 'confirm';
 }
 
 const questions: AskUserQuestionResult[] = [];
@@ -20,11 +33,16 @@ const questions: AskUserQuestionResult[] = [];
 export function askUserQuestion(
   input: AskUserQuestionInput
 ): AskUserQuestionResult {
+  const questionType = input.questionType ?? 'choice';
   const result: AskUserQuestionResult = {
     questionId: `q_${Date.now()}`,
     question: input.question,
-    answers: input.options.map((o) => o.label),
+    answers:
+      input.questionType === 'open' || input.questionType === 'confirm'
+        ? []
+        : input.options.map((o) => o.label),
     timestamp: Date.now(),
+    questionType,
   };
   questions.push(result);
   return result;
@@ -60,17 +78,20 @@ import type {
 import { createToolResult } from '../types/ToolResult';
 import { getLogger } from '@modules/monitoring';
 
-/** 提问工具排查日志（2026-08-14 第五十次）：观察 LLM 是否调用、调用内容、答案是否注入 */
 const logger = getLogger('tools:askUserQuestion');
 
 export class AskUserQuestionTool extends BaseTool {
   name = 'ask_user_question';
   override description =
-    '向用户提出一个封闭式多选题（提供 2-4 个固定选项）。**此工具仅适用于选项可以穷举的问题（如"选择技术栈"、"选择模式"）**，不适用于开放性问题（如"你的目标是什么？"、"有什么想法？"）。' +
-    '对于开放性问题，请直接在正文中以自然语言提问，让用户自由回答，不要调用此工具。' +
-    '**严禁**将所有选项内容直接写进 question 文本中，每个选项的具体文字必须作为独立对象的 label 字段传入。' +
-    'question 字段只能是简洁的问题标题（如"请选择参与方式"），选项细节放在 options 数组中。' +
-    '系统会在选项末尾自动添加"其它"选项，允许用户输入自由文本。';
+    '向用户提问以获取确认或决策。支持三种类型：\n' +
+    '1. **choice**（默认）：封闭式多选题，提供 2-4 个固定选项。适用于选项可穷举的问题（如"选择技术栈"）。\n' +
+    '2. **open**：开放式确认，用户自由回答。适用于无法穷举选项的问题（如"你的目标是什么？"）。\n' +
+    '3. **confirm**：是/否确认。适用于需要用户批准的决策点（如"是否继续执行？"）。\n\n' +
+    '**使用规范**：\n' +
+    '- choice 类型：每个选项的 label 作为独立字段传入，不要写进 question 文本。\n' +
+    '- open 类型：options 可传空数组或省略，系统会自动添加自由输入入口。\n' +
+    '- confirm 类型：options 可传空数组或省略，系统自动生成"确认/取消"选项。\n' +
+    '- 系统会在选项末尾自动添加"其它"选项，允许用户输入自由文本。';
 
   override tags = [ToolTag.AI];
 
@@ -96,9 +117,9 @@ export class AskUserQuestionTool extends BaseTool {
       name: 'options',
       type: 'array',
       description:
-        '选项数组，恰好 2-4 个项。每个项必须包含 label（选项文字，1-20 字）和可选的 description（补充说明）',
-      required: true,
-      minLength: 2,
+        '选项数组，恰好 2-4 个项。每个项必须包含 label 和可选的 description。choice 类型必填；open/confirm 类型可省略或传空数组。',
+      required: false,
+      minLength: 0,
       maxLength: 4,
       items: {
         type: 'object',
@@ -123,7 +144,14 @@ export class AskUserQuestionTool extends BaseTool {
     {
       name: 'multiSelect',
       type: 'boolean',
-      description: '是否允许多选。默认 false（单选）',
+      description: '是否允许多选。默认 false（单选）。仅 choice 类型有效。',
+      required: false,
+    },
+    {
+      name: 'questionType',
+      type: 'string',
+      description:
+        '提问类型：choice（封闭式多选，默认）/ open（开放式确认）/ confirm（是/否确认）。',
       required: false,
     },
   ];
@@ -144,78 +172,44 @@ export class AskUserQuestionTool extends BaseTool {
   override async execute(
     input: Record<string, unknown>,
     context: ToolUseContext,
-    onProgress?: ToolCallProgress<any>
+    _onProgress?: ToolCallProgress<any>
   ): Promise<ToolResult<unknown>> {
-    // 详细诊断日志（第五十二次排查补充）：进入 execute 时记录完整输入状态，
-    // 重点区分 _userAnswers 三种形态（undefined=字段缺失 / 空数组=注入失败 /
-    // 非数组对象=类型错误，如 v3 P0 的 generator 被塞入），定位"答案注入失败"根因
+    const questionType = (input.questionType as string) ?? 'choice';
     const rawAnswers = input._userAnswers;
     const rawAnswersIsArray = Array.isArray(rawAnswers);
     const questionText = (input.question as string) ?? '';
     const options = (input.options as { label?: string }[]) ?? [];
-    logger.info('ask_user_question:execute_enter', {
+
+    logger.info('ask_user_question:execute', {
       sessionId: context.sessionId,
+      questionType,
       question: questionText.slice(0, 120),
       header: (input.header as string) ?? '',
       optionCount: options.length,
       multiSelect: input.multiSelect === true,
-      hasUserAnswersField: '_userAnswers' in input,
-      rawAnswerType:
-        rawAnswers === undefined
-          ? 'undefined'
-          : rawAnswersIsArray
-            ? 'array'
-            : typeof rawAnswers,
-      rawAnswerLength: rawAnswersIsArray
-        ? (rawAnswers as unknown[]).length
-        : -1,
-      answersHead: rawAnswersIsArray
-        ? (rawAnswers as string[]).slice(0, 5)
-        : [],
+      hasUserAnswers: '_userAnswers' in input,
+      answerCount: rawAnswersIsArray ? (rawAnswers as unknown[]).length : 0,
     });
 
-    // 类型防御：非数组（如 generator 对象）按无答案处理——避免 truthy 非数组绕过 no_answer 分支
     const userAnswers = rawAnswersIsArray ? (rawAnswers as string[]) : [];
 
-    // 提问工具调用日志（2026-08-14 第五十次补充）：记录 LLM 是否调用提问工具、是否收到答案
     if (userAnswers.length === 0) {
-      // 无用户答案（第五十二次修复）：非流式 TAORLoop 直接执行 / 流式 abort/超时未注入。
-      // 返回明确错误而非静默空数组（避免"提问静默失效"：LLM 收到 answers:[] 误以为用户已选）——
-      // 引导 LLM 改用自然语言在正文中直接提问，用户可在下一条消息回复。
       logger.warn('ask_user_question:no_answer', {
         sessionId: context.sessionId,
+        questionType,
         question: questionText.slice(0, 120),
-        header: (input.header as string) ?? '',
-        optionCount: options.length,
-        hasUserAnswersField: '_userAnswers' in input,
-        rawAnswerType:
-          rawAnswers === undefined
-            ? 'undefined'
-            : rawAnswersIsArray
-              ? 'array'
-              : typeof rawAnswers,
-        rawAnswerLength: rawAnswersIsArray
-          ? (rawAnswers as unknown[]).length
-          : -1,
-        decision: 'return_error_no_retry',
-      });
-      logger.info('ask_user_question:error_returned', {
-        sessionId: context.sessionId,
-        retryable: false,
-        errorHint: '引导 LLM 改用自然语言提问，用户下一条消息回复',
       });
       return createToolResult({
         error:
-          '交互提问未完成：当前执行路径不支持等待用户回答（_userAnswers 缺失）。请勿重试本工具，改用自然语言在正文中直接提问，用户会在下一条消息中回复。',
+          '交互提问未完成：当前执行路径不支持等待用户回答（_userAnswers 缺失）。请改用自然语言在正文中直接提问，用户会在下一条消息中回复。',
         retryable: false,
       });
     }
 
     logger.info('ask_user_question:answered', {
       sessionId: context.sessionId,
+      questionType,
       question: questionText.slice(0, 120),
-      header: (input.header as string) ?? '',
-      optionCount: options.length,
       answerCount: userAnswers.length,
       answers: userAnswers.slice(0, 5),
     });
@@ -225,9 +219,9 @@ export class AskUserQuestionTool extends BaseTool {
       question: input.question as string,
       answers: userAnswers,
       timestamp: Date.now(),
+      questionType: questionType as 'choice' | 'open' | 'confirm',
     };
 
-    // 记录到历史（仅当有真实答案时）
     questions.push(result);
 
     return createToolResult(JSON.stringify(result, null, 2));

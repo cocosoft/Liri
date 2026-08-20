@@ -65,7 +65,8 @@ export interface MessageBlock {
     | "progress"
     | "deliverable"
     | "diff"
-    | "inbox";
+    | "inbox"
+    | "doc_workflow";
   content: string;
   toolCall?: ToolCall;
   status?: string;
@@ -80,6 +81,7 @@ export interface MessageBlock {
   deliverableData?: DeliverableData;
   diffData?: DiffData;
   inboxData?: InboxBlockData;
+  docWorkflowData?: DocWorkflowProgressData;
 }
 
 export interface TaskCardData {
@@ -190,6 +192,45 @@ export interface MessageHeaderProps {
   timestamp: number;
   channel?: "web" | "terminal";
   status?: "sending" | "sent" | "error";
+}
+
+/** 文档工作流阶段类型 */
+export type DocWorkflowStage = "outline" | "filling" | "compose";
+
+/** 文档工作流阶段状态 */
+export type DocWorkflowStageStatus =
+  "pending" | "in_progress" | "awaiting_confirm" | "completed" | "failed";
+
+/** 文档工作流进度数据（设计方案 §4 M3） */
+export interface DocWorkflowProgressData {
+  /** 文档标题 */
+  title: string;
+  /** 输出格式 */
+  format: "docx" | "pptx" | "html" | "pdf";
+  /** 当前阶段 */
+  currentStage: DocWorkflowStage;
+  /** 阶段状态 */
+  stages: Record<
+    DocWorkflowStage,
+    {
+      status: DocWorkflowStageStatus;
+      /** 阶段内进度（0-100） */
+      progress?: number;
+      /** 阶段描述 */
+      description?: string;
+      /** 节点级进度（大纲/填充阶段使用） */
+      nodes?: {
+        id: string;
+        title: string;
+        status: "pending" | "in_progress" | "completed" | "failed";
+        hasImage?: boolean;
+      }[];
+    }
+  >;
+  /** 最终输出文件路径（compose 完成后填充） */
+  outputFilePath?: string;
+  /** 失败原因 */
+  error?: string;
 }
 
 /** MessageContent 子组件 Props */

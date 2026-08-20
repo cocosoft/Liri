@@ -50,6 +50,8 @@ export interface ChannelInterface {
   disconnect(): Promise<void>;
   sendMessage(target: string, text: string): Promise<boolean>;
   getStatus(): Record<string, unknown>;
+  /** 真实健康探测（插件适配层透传 lifecycle.healthCheck；legacy 直注册通道无此方法） */
+  healthCheck?(): Promise<{ healthy: boolean; latencyMs: number }>;
 
   homeChannelId?: string;
   supportsThreads?: boolean;
@@ -104,6 +106,7 @@ export function adaptPluginToInterface(
       ...plugin.lifecycle.getStatus(),
       type: plugin.id,
     }),
+    healthCheck: async () => plugin.lifecycle.healthCheck(),
     plugin: {
       outbound: {
         sendText: async (target: string, content: string) => {

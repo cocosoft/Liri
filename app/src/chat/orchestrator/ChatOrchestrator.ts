@@ -563,6 +563,26 @@ export class ChatOrchestrator {
             logger.info('sendMessage 委托 TAORLoop 编排工具调用循环', {
               sessionId: session.id,
               toolCalls: response.tool_calls.length,
+              toolNames: response.tool_calls.map((tc) => tc.name),
+            });
+            // P0-1 修复（2026-08-20 渠道排查）：invokeLlm 的响应（含 tool_calls）此前
+            // 未写回 ctx.apiMessages，TAORLoop 拿到的上下文缺失"本轮已决定调用工具"的
+            // assistant 消息 → 重新调 LLM 时模型不再生成 tool_calls → turns:1 直接
+            // completed，工具从未执行（各渠道"只回一次+动作不执行"根因）。
+            // 修复：委托前补入第一响应，TAOR 从 ACT 阶段续跑而非重新开始。
+            const assistantTurnMessage: Record<string, unknown> = {
+              role: 'assistant',
+              content: response.content ?? '',
+              tool_calls: response.tool_calls,
+            };
+            ctx.apiMessages.push(assistantTurnMessage);
+            logger.info('sendMessage 第一响应已补入 TAOR 上下文', {
+              sessionId: session.id,
+              appendedRole: 'assistant',
+              hasToolCalls: true,
+              toolCallCount: response.tool_calls.length,
+              contentPreview: (response.content ?? '').slice(0, 50),
+              apiMessagesTotal: ctx.apiMessages.length,
             });
             try {
               const { createChatManagerTAORDeps } =

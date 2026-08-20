@@ -11,6 +11,8 @@ import AIConfigPanel from "../settings/AIConfigPanel";
 import AutoUpdatePanel from "../settings/AutoUpdatePanel";
 import FeatureFlagsPanel from "../settings/FeatureFlagsPanel";
 import LlamaConfigPanel from "../settings/LlamaConfigPanel";
+import OllamaConfigPanel from "../settings/OllamaConfigPanel";
+import OfficeProjectSettingsPanel from "../settings/OfficeProjectSettingsPanel";
 import NotificationsPanel from "../settings/NotificationsPanel";
 import TrustedWorkspacesPanel from "../settings/TrustedWorkspacesPanel";
 import CustomRulesPanel from "../settings/CustomRulesPanel";
@@ -55,6 +57,7 @@ import {
   WrenchIcon,
   BookOpenIcon,
   UserIcon,
+  OfficeIcon,
 } from "../../assets/icons";
 import type { BaseIconProps } from "../../assets/icons";
 
@@ -198,6 +201,18 @@ const NAV_GROUPS: NavGroup[] = [
         icon: ModelIcon,
         zone: "integration",
       },
+      {
+        id: "ollama",
+        labelKey: "settings.ollama",
+        icon: ModelIcon,
+        zone: "integration",
+      },
+      {
+        id: "office",
+        labelKey: "settings.office",
+        icon: OfficeIcon,
+        zone: "integration",
+      },
     ],
   },
   {
@@ -255,6 +270,8 @@ const PAGE_DESCRIPTIONS: Record<string, string> = {
   oauth: "配置 OAuth 第三方登录认证",
   voice: "配置语音唤醒、识别和合成功能",
   llama: "配置 llama.cpp 本地推理服务（内置 llama-server 生命周期）",
+  ollama: "配置 Ollama 本地推理服务，管理已安装模型",
+  office: "办公能力配置——OfficeCLI 工具的检测与一键安装",
   "data-dir": "配置数据文件和附件的存储位置",
   ingest: "配置知识库摄入规则和来源",
   cost: "查看 API 调用成本和用量统计",
@@ -705,13 +722,6 @@ function SettingsPage() {
             <AIConfigPanel
               isDark={isDark}
               collapsible
-              config={(config.ai as Record<string, unknown>) || {}}
-              onUpdate={(updates) =>
-                setConfig("ai", {
-                  ...((config.ai as object) || {}),
-                  ...updates,
-                })
-              }
             />
             {/* U3：简单视角隐藏高级配置（功能开关/本地 Agent/自动更新/通知），走"高级设置" */}
             {viewMode === "simple" ? null : (
@@ -869,6 +879,10 @@ function SettingsPage() {
         return <VoiceSettings isDark={isDark} />;
       case "llama":
         return <LlamaConfigPanel isDark={isDark} />;
+      case "ollama":
+        return <OllamaConfigPanel isDark={isDark} />;
+      case "office":
+        return <OfficeProjectSettingsPanel isDark={isDark} />;
       case "data-dir":
         return (
           <DataStoragePanel

@@ -1151,7 +1151,9 @@ async function launchDaemon(options: LaunchOptions): Promise<void> {
       error: errMsg,
       stack: e instanceof Error ? e.stack : undefined,
     });
-    console.error(`\n[ERROR] DAEMON HTTP 启动失败 (端口 ${httpPort}): ${errMsg}`);
+    console.error(
+      `\n[ERROR] DAEMON HTTP 启动失败 (端口 ${httpPort}): ${errMsg}`
+    );
   }
 
   // DAEMON 语义等价于 --http-only：HTTP 就绪后手动标记 _appReady（否则请求 503）

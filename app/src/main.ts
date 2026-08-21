@@ -1125,9 +1125,57 @@ async function launchMCPServer(options: LaunchOptions): Promise<void> {
  * init() 由 bootstrap() 内部调用，此函数仅保留模式分发逻辑。
  */
 async function launchDaemon(options: LaunchOptions): Promise<void> {
-  logger.info('后台守护进程模式启动（当前复用 REPL 模式）');
-  const { launchRepl } = await import('./entrypoints/repl');
-  await launchRepl({ useLegacyRepl: true });
+  logger.info('后台守护进程模式启动（常驻模式，不启动 REPL 交互）');
+
+  // DAEMON 模式复用与 REPL 完全一致的 HTTP 启动链路（端口解析优先级、startHTTPServer）：
+  //   CLI --http-port > env LIRI_HTTP_PORT > 默认 18990
+  // 之前走 launchRepl(useLegacyRepl=true) 的问题：后台 no-tty 下 stdin EOF 立即触发
+  //   REPL 退出 → launchDaemon return → HTTP 没 listen 进程就自杀 → 前端 127.0.0.1:18990 连不上
+  const httpPort =
+    parseHttpPortFromArgs(options.args) ||
+    parseInt(process.env.LIRI_HTTP_PORT ?? '', 10) ||
+    18990;
+  process.env.LIRI_HTTP_PORT = String(httpPort);
+  const httpHost = process.env.LIRI_HTTP_HOST?.trim() || '127.0.0.1';
+
+  const { startHTTPServer } = await import('./entrypoints/http-server');
+  let httpService: Awaited<ReturnType<typeof startHTTPServer>> | null = null;
+  try {
+    httpService = await startHTTPServer(httpPort, httpHost);
+    activeHttpService = httpService;
+    process.env.LIRI_HTTP_STARTED = '1';
+    logger.info(`HTTP 服务已启动: http://${httpHost}:${httpPort}`);
+  } catch (e: unknown) {
+    const errMsg = e instanceof Error ? e.message : String(e);
+    logger.error('DAEMON 模式 HTTP 服务启动失败', {
+      error: errMsg,
+      stack: e instanceof Error ? e.stack : undefined,
+    });
+    console.error(`\n[ERROR] DAEMON HTTP 启动失败 (端口 ${httpPort}): ${errMsg}`);
+  }
+
+  // DAEMON 语义等价于 --http-only：HTTP 就绪后手动标记 _appReady（否则请求 503）
+  if (httpService) {
+    try {
+      const { LocalHTTPService } =
+        await import('./infrastructure/http/LocalHTTPService.js');
+      LocalHTTPService._appReady = true;
+    } catch {
+      // @ignore-catch — 就绪标记失败不影响进程存活，launch() 末尾会再设一次兜底
+    }
+  }
+
+  // 永远挂住直到 SIGINT/SIGTERM
+  logger.info('DAEMON 模式常驻：等待信号退出（SIGINT/SIGTERM）');
+  await new Promise<void>((resolve) => {
+    const onSignal = () => {
+      process.removeListener('SIGINT', onSignal);
+      process.removeListener('SIGTERM', onSignal);
+      resolve();
+    };
+    process.on('SIGINT', onSignal);
+    process.on('SIGTERM', onSignal);
+  });
 }
 
 /**

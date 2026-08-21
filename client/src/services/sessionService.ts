@@ -1,8 +1,11 @@
-import type { Message, Session } from "../types";
+import type { LiriEvent, Message, Session } from "../types";
 import { http as apiHttp } from "./httpClient";
 import { createLogger } from "../utils/logger";
 import { handleClientError } from "../utils/handleError";
 import { getOTelTracing } from "../monitoring/otel";
+import { trajectoryService } from "./trajectoryService";
+import { deriveConversationBlocks } from "../stores/chat/deriveConversationBlocks";
+import { importLegacyMessages } from "../stores/chat/legacyMessageImporter";
 
 const logger = createLogger("sessionService");
 
@@ -12,6 +15,42 @@ const isTauri =
 
 // 是否已降级到内存模式（后端不可用时设为 true）
 let _isUsingFallback = false;
+
+// ─── A1：会话级 events 缓存（支持增量加载） ───
+/** 单会话 events 缓存条目 */
+interface SessionEventsCacheEntry {
+  events: LiriEvent[];
+  tailSeq: number;
+}
+const _sessionEventsCache = new Map<string, SessionEventsCacheEntry>();
+const MAX_EVENTS_CACHED_SESSIONS = 15; // 与 Message cache LRU 上限一致
+
+/** 读 events 缓存（A1 增量加载） */
+export function _getCachedSessionEvents(
+  sessionId: string,
+): SessionEventsCacheEntry | null {
+  return _sessionEventsCache.get(sessionId) ?? null;
+}
+
+/** 写 events 缓存（带 LRU 淘汰，A1） */
+export function _setCachedSessionEvents(
+  sessionId: string,
+  entry: SessionEventsCacheEntry,
+): void {
+  if (
+    _sessionEventsCache.size >= MAX_EVENTS_CACHED_SESSIONS &&
+    !_sessionEventsCache.has(sessionId)
+  ) {
+    const oldest = _sessionEventsCache.keys().next().value;
+    if (oldest) _sessionEventsCache.delete(oldest);
+  }
+  _sessionEventsCache.set(sessionId, entry);
+}
+
+/** 标记 events 缓存失效（发送新消息后可选调用，不调用也安全——增量 fromSeq 会自动补齐） */
+export function _staleSessionEventsCache(sessionId: string): void {
+  _sessionEventsCache.delete(sessionId);
+}
 
 /** 获取当前是否处于降级模式 */
 export function isUsingFallback(): boolean {
@@ -386,6 +425,83 @@ export const sessionService = {
         });
         if (result) return result;
         return [];
+      },
+    );
+  },
+
+  /**
+   * M2-3 + A1：加载会话对话数据（events 优先，增量加载，回退 messages）
+   *
+   * A1 增量策略：
+   *  - 命中 _sessionEventsCache → 仅传 fromSeq=tailSeq+1 拉后端新增事件，合并到缓存 events
+   *  - 未命中 → 全量拉 limit=10000，写入缓存
+   *  - 回退：events 为空（旧会话未迁移）→ 走 legacy messages
+   */
+  loadConversation: (
+    sessionId: string,
+  ): Promise<{ messages: Message[]; source: "events" | "legacy" }> => {
+    return getOTelTracing().asyncWrap(
+      "services:session:loadConversation",
+      async () => {
+        // 优先尝试 events 路径
+        try {
+          // A1：优先走增量
+          const cached = _sessionEventsCache.get(sessionId);
+          let events: LiriEvent[];
+          let newTailSeq: number;
+
+          if (cached) {
+            const result = await trajectoryService.getEvents(sessionId, {
+              fromSeq: cached.tailSeq + 1,
+              limit: 10000,
+            });
+            events = [...cached.events, ...result.events];
+            newTailSeq = result.tailSeq || cached.tailSeq;
+            logger.debug("loadConversation: 增量拉取完成", {
+              sessionId,
+              prevTailSeq: cached.tailSeq,
+              newTailSeq,
+              incrementalCount: result.events.length,
+              totalCount: events.length,
+            });
+          } else {
+            const result = await trajectoryService.getEvents(sessionId, {
+              limit: 10000,
+            });
+            events = result.events;
+            newTailSeq = result.tailSeq;
+          }
+
+          if (events.length > 0) {
+            _setCachedSessionEvents(sessionId, {
+              events,
+              tailSeq: newTailSeq,
+            });
+            const messages = deriveConversationBlocks(events, { sessionId });
+            logger.info("loadConversation: 从 events 派生", {
+              sessionId,
+              incremental: !!cached,
+              eventCount: events.length,
+              messageCount: messages.length,
+              tailSeq: newTailSeq,
+            });
+            return { messages, source: "events" };
+          }
+          logger.debug("loadConversation: events 为空，回退 legacy", {
+            sessionId,
+            tailSeq: newTailSeq,
+          });
+        } catch (e) {
+          handleClientError(e, {
+            module: "services:session",
+            action: "loadConversation:events",
+          });
+        }
+
+        // 回退到 messages 路径
+        const rawMessages = await sessionService.getMessages(sessionId);
+        const messages = importLegacyMessages(rawMessages);
+        return { messages, source: "legacy" };
       },
     );
   },

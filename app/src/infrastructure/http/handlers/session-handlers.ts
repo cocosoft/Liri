@@ -26,6 +26,8 @@ import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import type { Message } from '@modules/chat/types/message';
 import { MessageRole } from '@modules/chat/types/message';
+import type { LiriEvent, LiriEventType } from '@modules/chat/types/events';
+import type { EventLogQuery } from '@modules/session/storage/EventLogStorage';
 import {
   tryParseJson,
   sendBadRequest,
@@ -788,6 +790,93 @@ export async function handleGetSessionMemory(
           action: 'responseAlreadyEnded',
         });
       } /* res可能已结束, 忽略 */
+    }
+  }
+}
+
+/**
+ * M1 事件溯源：处理获取会话事件流请求
+ * GET /v1/sessions/:id/events?fromSeq=X&toSeq=Y&types=a,b&limit=N
+ *
+ * 查询参数：
+ *   - fromSeq: 起始 seq（包含），默认 1
+ *   - toSeq: 结束 seq（包含），默认 Infinity
+ *   - types: 逗号分隔的事件类型白名单
+ *   - limit: 最大返回数，默认 1000，上限 10000
+ *
+ * 响应：
+ *   200: { events: LiriEvent[], tailSeq: number, hasMore: boolean }
+ *   400: 参数错误
+ *   500: 服务器错误
+ *
+ * 首次访问时若 events.jsonl 不存在但 messages.jsonl 存在，自动触发迁移。
+ */
+export async function handleGetSessionEvents(
+  ctx: HandlerCtx,
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  sessionId: string
+): Promise<void> {
+  try {
+    const coreAPI = getCoreAPI();
+    await coreAPI.ensureSessionsLoaded();
+
+    // 解析查询参数
+    const url = new URL(
+      req.url || '/',
+      `http://${req.headers.host || 'localhost'}`
+    );
+    const fromSeqParam = url.searchParams.get('fromSeq');
+    const toSeqParam = url.searchParams.get('toSeq');
+    const typesParam = url.searchParams.get('types');
+    const limitParam = url.searchParams.get('limit');
+
+    const fromSeq = fromSeqParam ? Number(fromSeqParam) : undefined;
+    const toSeq = toSeqParam ? Number(toSeqParam) : undefined;
+    const types = typesParam
+      ? (typesParam.split(',').filter(Boolean) as LiriEventType[])
+      : undefined;
+    const limit = limitParam ? Math.min(Number(limitParam), 10000) : 1000;
+
+    // 参数校验
+    if (fromSeq !== undefined && (!Number.isFinite(fromSeq) || fromSeq < 1)) {
+      sendBadRequest(res, 'fromSeq must be a positive number');
+      return;
+    }
+    if (toSeq !== undefined && (!Number.isFinite(toSeq) || toSeq < 1)) {
+      sendBadRequest(res, 'toSeq must be a positive number');
+      return;
+    }
+    if (limit < 1) {
+      sendBadRequest(res, 'limit must be a positive number');
+      return;
+    }
+
+    // 获取事件流（coreAPI 内部触发首次迁移）
+    const result = await coreAPI.getSessionEvents(sessionId, {
+      fromSeq,
+      toSeq,
+      types,
+      limit,
+    });
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(result));
+  } catch (err) {
+    await handleError(err, {
+      module: 'infra:http:session-handlers',
+      action: 'getSessionEvents',
+      context: { sessionId },
+    });
+    if (!res.headersSent) {
+      try {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({ error: { message: 'Internal server error' } })
+        );
+      } catch {
+        /* res可能已结束, 忽略 */
+      }
     }
   }
 }

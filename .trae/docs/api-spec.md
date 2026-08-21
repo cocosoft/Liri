@@ -217,6 +217,7 @@
 | DELETE | `/v1/sessions/{id}` | ✅ | `sessionService.delete` |
 | POST | `/v1/sessions/{id}/switch` | ✅ | `sessionService.switch` |
 | GET | `/v1/sessions/{id}/messages` | ✅ | `sessionService.getMessages` |
+| GET | `/v1/sessions/{id}/events` | ✅ M1-6 | `trajectoryService.getEvents`（M1-7） |
 | POST | `/v1/sessions/{id}/messages` | ✅ 写前持久化 | `chatService.addMessage`（断网 outbox 补发） |
 | POST | `/v1/sessions/{id}/title` | ✅ | `sessionService.generateTitle` |
 | PUT | `/api/session/{id}/message/{msgId}/blocks` | ✅ | `chatService.updateMessageBlocks` |

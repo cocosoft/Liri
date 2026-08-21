@@ -1,9 +1,16 @@
 /**
- * Chat Message Slice — streamMessage 内 processChunk 实现
+ * Chat Message Slice — streamMessage 内 processChunk 实现（M4 单轨版本）
  *
  * 从 chat-message.slice.ts 拆出（R04-001 文件行数限制治理）。
- * processChunk 是 streamMessage 流式主循环中对单个 chunk 的处理函数，
- * 原为闭包函数，现通过 ProcessChunkContext 显式传递依赖。
+ *
+ * M4 切换：渲染不再走 ChronologicalBlockBuilder 可变 blocks，
+ * 改为 appendChunk → 事件流 → deriveConversationBlocks 纯函数派生。
+ * 副作用（streamingStatus / executionPhase / watermarkStore / saveQueue /
+ * playWarningSound / dispatchEvent / hasPendingQuestion）保持原逻辑独立运行。
+ *
+ * 副作用与渲染两条链路分离：
+ *   渲染链路：chunk → aggregator.appendChunk → events → deriveMessages → Message[]
+ *   副作用链路：chunk → set({streamingStatus / executionPhase / error …}) / watermarkStore / saveQueue …
  */
 import type { Message } from "@/types";
 import { useContextWatermarkStore } from "@/stores/contextWatermarkStore";
@@ -12,10 +19,10 @@ import { stripStructuralTags } from "./chat-toolcall.slice";
 import { friendlyErrorSummary } from "@/utils/friendlyError";
 import { switchState } from "./chat-message-shared";
 import { createLogger } from "@/utils/logger";
-import type { ChronologicalBlockBuilder } from "./chat-toolcall.slice";
 import type { SaveQueue } from "./chat-history.slice";
 import type { StreamChunk } from "@/services/chatService";
 import type { MessageSet, MessageGet } from "./chat-message.types";
+import type { EventBasedStreamAggregator } from "./streaming/EventBasedStreamAggregator";
 
 const logger = createLogger("stores:chat:message");
 
@@ -23,8 +30,6 @@ const logger = createLogger("stores:chat:message");
  * P0（2026-08-15）：thinking 预算上限（字符数）。
  * 防止模型输出数万字思考占满正文预算：超限后截断 thinking，
  * 不再进入 store/messages.jsonl，避免上下文爆炸（CS04 根因修复）。
- * 取值说明：≈4000 tokens（中文约 2 字符/token、英文约 4 字符/token 的折中），
- * 正常思考远低于此，数万字异常输出会被截断。
  */
 export const MAX_THINKING_CHARS = 16000;
 
@@ -41,7 +46,6 @@ export interface ProcessChunkContext {
   sessionId?: string;
   assistantId: string;
   controller: AbortController;
-  blockBuilder: ChronologicalBlockBuilder;
   saveQueue: SaveQueue;
   lastChunkTimeRef: { current: number };
   batch: StreamBatchState;
@@ -50,11 +54,32 @@ export interface ProcessChunkContext {
   get: MessageGet;
   /** P0（2026-08-15）：thinking 预算跟踪 — 累计字符数，防止数万字思考进 store/messages.jsonl */
   thinkingCharsRef: { current: number; truncated: boolean };
+  /** M4：事件聚合器（渲染源。chunk → 事件 → deriveMessages） */
+  aggregator: EventBasedStreamAggregator;
 }
 
 /**
- * 处理单个流式 chunk：按类型更新 blockBuilder / store / 落盘队列。
- * 原为 streamMessage 内部闭包函数，拆出后通过 ctx 显式访问依赖。
+ * 从聚合器派生出本流 assistant 消息的 blocks（供 saveQueue/外部使用）。
+ *
+ * 约定：
+ *  1. 若 aggregator 派生出的新 messages 中找不到 assistantId，
+ *     返回空数组（不应发生，但作为安全兜底）。
+ *  2. 返回的 blocks 是非空浅拷贝，避免调用方意外修改聚合器状态。
+ */
+function deriveAssistantBlocks(
+  ctx: ProcessChunkContext,
+): Message["blocks"] | undefined {
+  const derived = ctx.aggregator.deriveMessages();
+  const assistantMsg = derived.find((m) => m.id === ctx.assistantId);
+  if (!assistantMsg) return undefined;
+  return assistantMsg.blocks;
+}
+
+/**
+ * 处理单个流式 chunk：M4 单轨版（副作用 + 渲染分离）
+ *   - 渲染：aggregator.appendChunk → deriveMessages → batch.latestMessages
+ *   - 副作用：保留原有 set(streamingStatus/error/executionPhase/hasPendingQuestion)、
+ *     watermarkStore、playWarningSound、window.dispatchEvent、saveQueue 等
  */
 export async function processChunk(
   ctx: ProcessChunkContext,
@@ -64,7 +89,6 @@ export async function processChunk(
     sid,
     sessionId,
     assistantId,
-    blockBuilder,
     saveQueue,
     lastChunkTimeRef,
     batch,
@@ -75,26 +99,14 @@ export async function processChunk(
 
   // P1-5: 每次收到 chunk 时更新时间戳
   lastChunkTimeRef.current = Date.now();
-  // AB-5 修复：以 batch.latestMessages 为累积基准（同帧内多个 chunk 连续累加），
-  // 而非每次从 store 取旧快照——否则同帧多 chunk 基于同一快照互相覆盖，
-  // msg.content 丢字（复制/自动重命名内容不完整）。
-  const current = batch.latestMessages ?? get().messages;
-  const msgIdx = current.findIndex((m) => m.id === assistantId);
 
-  if (msgIdx === -1) {
-    logger.warn(
-      "processChunk: 未找到对应的 assistant 消息（assistantId=%s），跳过 chunk",
-      assistantId,
-    );
-    return;
-  }
-
-  const msg = current[msgIdx];
-  let updatedMsg: Message;
-
+  // ── 渲染链路 前置守卫：thinking 预算截断（aggregator 之前做，避免事件流污染） ──
+  // 注意：
+  //   1. thinking 预算截断：若超限，appendToAggregator = false
+  //   2. error chunk 去重：若已有 error，appendToAggregator = false（在副作用 switch 内设置）
+  //   3. aggregator 调用在副作用 switch 之后（因为 error 去重守卫依赖 get().error 状态可能在副作用里改）
+  let appendToAggregator = true;
   if (chunk.type === "thinking") {
-    // P0（2026-08-15）：thinking 预算上限 — 累计字符超限后截断，
-    // 不再进入 store/messages.jsonl（避免数万字思考占用正文预算 + 上下文爆炸）。
     const thinkingChars = ctx.thinkingCharsRef.current;
     if (thinkingChars >= MAX_THINKING_CHARS) {
       ctx.thinkingCharsRef.current += chunk.content.length;
@@ -106,10 +118,9 @@ export async function processChunk(
           totalChars: ctx.thinkingCharsRef.current,
         });
       }
-      updatedMsg = msg;
+      appendToAggregator = false;
     } else {
       const remaining = MAX_THINKING_CHARS - thinkingChars;
-      // 本 chunk 未超限 → 全量进块；跨过边界 → 只保留剩余预算部分
       const keep =
         chunk.content.length <= remaining
           ? chunk.content
@@ -126,329 +137,313 @@ export async function processChunk(
           totalChars: ctx.thinkingCharsRef.current,
         });
       }
-      blockBuilder.addThinking(keep, true);
-      updatedMsg = { ...msg, blocks: blockBuilder.getBlocks() };
+      // 替换成已截断的子串，避免 aggregator 追加超预算思考
+      chunk = { ...chunk, content: keep } as StreamChunk;
     }
-  } else if (chunk.type === "text") {
-    blockBuilder.freezeThinking();
-    // 先剥离结构化标签再进 blocks/content，确保任何泄漏的 <response>/<think>/<invoke>
-    // 片段都不会显示给用户（blocks 渲染与 msg.content 保持一致）
-    const cleanContent = stripStructuralTags(chunk.content);
-    blockBuilder.addText(cleanContent, true);
-    updatedMsg = {
-      ...msg,
-      content: msg.content + cleanContent,
-      blocks: blockBuilder.getBlocks(),
-    };
-  } else if (chunk.type === "status") {
-    blockBuilder.addStatus(chunk.content, chunk.statusType, chunk.phase);
-    set({ streamingStatus: chunk.content });
-    updatedMsg = { ...msg, blocks: blockBuilder.getBlocks() };
-  } else if (chunk.type === "reconnect_status") {
-    // P2-2: 重连状态提示
-    blockBuilder.addStatus(`🔄 ${chunk.content}`);
-    set({ streamingStatus: chunk.content });
-    updatedMsg = { ...msg, blocks: blockBuilder.getBlocks() };
-  } else if (chunk.type === "context_state") {
-    // 上下文状态事件：水位监控信息只更新进度条，不渲染进消息内容
-    // （修复：原实现把每 1.5s 的高频水位也 addStatus，导致"上下文水位: xx%"污染消息块）
-    const watermarkStore = useContextWatermarkStore.getState();
-    // 1) 结构化水位（后端首选通道）→ 更新进度条
-    if (chunk.watermarkState) {
-      watermarkStore.updateWatermark(chunk.watermarkState);
-      if (chunk.watermarkState.severity !== "normal") {
-        // 异常水位渲染为一次性提示块（结构化标记 watermark，ChatArea 收缩展示）
-        blockBuilder.addStatus(chunk.content, "watermark");
-        set({ streamingStatus: chunk.content });
-        updatedMsg = { ...msg, blocks: blockBuilder.getBlocks() };
+  }
+
+  // AB-5：以 batch.latestMessages 为累积基准（同帧内多个 chunk 连续累加）
+  const current = batch.latestMessages ?? get().messages;
+  const msgIdx = current.findIndex((m) => m.id === assistantId);
+
+  if (msgIdx === -1) {
+    logger.warn(
+      "processChunk: 未找到对应的 assistant 消息（assistantId=%s），跳过 chunk",
+      assistantId,
+    );
+    return;
+  }
+
+  // ── 副作用链路：按 chunk 类型执行 set / watermarkStore / 播放音 / dispatch ──
+  // （全部保留在 processChunk 内，不写入 aggregator 事件流，避免回放时重复触发副作用）
+  switch (chunk.type) {
+    case "status":
+      set({ streamingStatus: chunk.content });
+      break;
+
+    case "reconnect_status":
+      set({ streamingStatus: chunk.content });
+      break;
+
+    case "context_state": {
+      const watermarkStore = useContextWatermarkStore.getState();
+      if (chunk.watermarkState) {
+        watermarkStore.updateWatermark(chunk.watermarkState);
+        // 异常水位：额外 status 块已由 aggregator 写入事件流
       } else {
-        // normal 水位每 1.5s 高频，仅更新进度条，消息内容不变
-        updatedMsg = msg;
-      }
-    } else {
-      // 2) 兼容旧格式: "上下文水位: 85% (170K/200K) | severity:compact | ratio:0.852 | tokens:170000/200000"
-      const structured = chunk.content.match(
-        /上下文水位:\s*(\d+)%\s*\(?(\d+K?)\/(\d+K?)\)?\s*\|\s*severity:(compact|warn)\s*\|\s*ratio:([\d.]+)\s*\|\s*tokens:(\d+)\/(\d+)/,
-      );
-      if (structured) {
-        watermarkStore.updateWatermark({
-          currentTokens: parseInt(structured[6], 10),
-          contextLimit: parseInt(structured[7], 10),
-          ratio: parseFloat(structured[5]),
-          severity: structured[4] as "compact" | "warn",
-        });
-        updatedMsg = msg;
-      } else {
-        // 兼容旧格式: "上下文水位: 85%"
-        const legacy = chunk.content.match(/上下文水位:\s*(\d+)%/);
-        if (legacy) {
-          const pct = parseInt(legacy[1], 10);
-          const isCompact =
-            chunk.content.includes("压缩") || chunk.content.includes("临界");
+        const structured = chunk.content.match(
+          /上下文水位:\s*(\d+)%\s*\(?(\d+K?)\/(\d+K?)\)?\s*\|\s*severity:(compact|warn)\s*\|\s*ratio:([\d.]+)\s*\|\s*tokens:(\d+)\/(\d+)/,
+        );
+        if (structured) {
           watermarkStore.updateWatermark({
-            currentTokens: 0,
-            contextLimit: 0,
-            ratio: pct / 100,
-            severity: isCompact ? "compact" : "warn",
+            currentTokens: parseInt(structured[6], 10),
+            contextLimit: parseInt(structured[7], 10),
+            ratio: parseFloat(structured[5]),
+            severity: structured[4] as "compact" | "warn",
           });
-          updatedMsg = msg;
         } else {
-          // 3) 非水位提示（上下文压缩/召回/降级事件）→ status 块
-          blockBuilder.addStatus(chunk.content);
-          set({ streamingStatus: chunk.content });
-          updatedMsg = { ...msg, blocks: blockBuilder.getBlocks() };
+          const legacy = chunk.content.match(/上下文水位:\s*(\d+)%/);
+          if (legacy) {
+            const pct = parseInt(legacy[1], 10);
+            const isCompact =
+              chunk.content.includes("压缩") || chunk.content.includes("临界");
+            watermarkStore.updateWatermark({
+              currentTokens: 0,
+              contextLimit: 0,
+              ratio: pct / 100,
+              severity: isCompact ? "compact" : "warn",
+            });
+          } else {
+            // 非水位提示（压缩/召回/降级事件）
+            set({ streamingStatus: chunk.content });
+          }
         }
       }
+      break;
     }
-  } else if (chunk.type === "tool_completed") {
-    // 工具完成事件：携带结构化 result data 更新对应 toolCall.result
-    const tcId = chunk.tool_call_id;
-    const resultData = chunk.result_data;
-    logger.debug("tool_completed chunk", {
-      tcId,
-      hasResultData: !!resultData,
-      resultDataKeys: resultData ? Object.keys(resultData) : "N/A",
-    });
-    if (tcId && resultData) {
-      blockBuilder.updateToolCallResult(tcId, resultData);
-      logger.debug("after updateToolCallResult", {
-        blocks: blockBuilder
-          .getBlocks()
-          .filter((b) => b.type === "tool_call")
-          .map((b) => ({
-            id: b.toolCall?.id,
-            name: b.toolCall?.name,
-            hasResult: !!b.toolCall?.result,
+
+    case "execution_phase":
+      if (chunk.executionPhase) {
+        const ep = chunk.executionPhase;
+        const progressData: {
+          phase:
+            | "analyzing"
+            | "designing"
+            | "implementing"
+            | "verifying"
+            | "presenting";
+          progress: number;
+          description: string;
+          steps: Array<{
+            name: string;
+            status: "pending" | "in_progress" | "done" | "failed";
+          }>;
+          totalSteps?: number;
+          truncated?: boolean;
+          currentStep: string;
+        } = {
+          phase:
+            (ep.phase as
+              | "analyzing"
+              | "designing"
+              | "implementing"
+              | "verifying"
+              | "presenting") || "analyzing",
+          progress: ep.progress || 0,
+          description: ep.description || "",
+          steps: (
+            (ep.steps as Array<{
+              name: string;
+              status: "pending" | "in_progress" | "done" | "failed";
+            }>) || []
+          ).map((s) => ({
+            name: s.name,
+            status: s.status,
           })),
-      });
-    }
-    updatedMsg = { ...msg, blocks: blockBuilder.getBlocks() };
-  } else if (chunk.type === "execution_phase" && chunk.executionPhase) {
-    // 执行阶段推送：更新 executionPhase 状态 + 生成进度块
-    const ep = chunk.executionPhase;
-    const progressData: import("../../types").ProgressData = {
-      phase:
-        (ep.phase as import("../../types").ProgressData["phase"]) ||
-        "analyzing",
-      progress: ep.progress || 0,
-      description: ep.description || "",
-      steps: (ep.steps as import("../../types").ProgressData["steps"]) || [],
-      totalSteps: ep.totalSteps,
-      truncated: ep.truncated,
-      currentStep: ep.currentStep || "",
-    };
-    // 心跳接收日志：截断时 info（默认可见）记录真实计数与保留条数，
-    // 与后端 heartbeat:steps 截断 日志对应，排查边界情况
-    const receivedSteps = progressData.steps.length;
-    if (ep.truncated) {
-      logger.info("execution_phase 收到（steps 已截断）", {
-        phase: progressData.phase,
-        totalSteps: ep.totalSteps ?? receivedSteps,
-        keptSteps: receivedSteps,
-        droppedSteps: (ep.totalSteps ?? receivedSteps) - receivedSteps,
-        progress: ep.progress,
-        currentStep: ep.currentStep ?? "",
-      });
-    } else {
-      logger.debug("execution_phase 收到", {
-        phase: progressData.phase,
-        totalSteps: ep.totalSteps ?? receivedSteps,
-        steps: receivedSteps,
-        progress: ep.progress,
-        currentStep: ep.currentStep ?? "",
-      });
-    }
-    set({
-      executionPhase: {
-        phase: progressData.phase,
-        progress: progressData.progress,
-        description: progressData.description,
-      },
-    });
-    blockBuilder.addProgress(progressData);
-    updatedMsg = { ...msg, blocks: blockBuilder.getBlocks() };
-  } else if (chunk.type === "error") {
-    // P1 修复（AB-3）：错误去重——后端 catch 会先发带真实消息的 error chunk，
-    // 随后 done 块 finish_reason:'error' 会再解析出一个 fallback error chunk
-    // （"流式响应出错"）。已有错误状态时仅补充 errorCode，不重复追加状态块/覆盖错误文本。
-    if (get().error) {
-      set({ errorCode: chunk.errorCode || "UNKNOWN" });
-      updatedMsg = msg;
-    } else {
-      // 将错误信息显示在聊天界面中
-      // P1 修复（1.5）：错误信息可读化——状态块显示映射后的可读提示
-      // （如 SSL 证书失败/连接失败/模型不存在 → 中文操作指引），
-      // msg.content 仍保留原始错误文本供排查
-      blockBuilder.addStatus(`❌ ${friendlyErrorSummary(chunk.content)}`);
-      updatedMsg = {
-        ...msg,
-        content: msg.content + stripStructuralTags(chunk.content),
-        blocks: blockBuilder.getBlocks(),
-      };
-      set({
-        error: chunk.content,
-        errorCode: chunk.errorCode || "UNKNOWN",
-      });
-    }
-  } else if (chunk.type === "tool_call" && chunk.toolCall) {
-    // 实时转换：todo_write 的 tool_call 直接转 todo block，不等流结束
-    let skipDefault = false;
-    if (chunk.toolCall.name === "todo_write") {
-      const args = chunk.toolCall.arguments as
-        Record<string, unknown> | undefined;
-      if (args?.action === "write" && args?.todos) {
-        const todos = Array.isArray(args.todos)
-          ? (args.todos as Array<Record<string, unknown>>)
-          : [];
-        const tasks = todos.map((t, idx) => ({
-          id: String(t.id || idx + 1),
-          name: String(t.name || t.content || `步骤 ${idx + 1}`),
-          status:
-            (t.status as import("../../types").TaskCardTask["status"]) ||
-            "pending",
-          dependsOn: (t.dependsOn as string[]) || [],
-        }));
-        const title = String(
-          args?.title ||
-            (typeof args?.description === "string" ? args.description : "") ||
-            `任务 (${todos.length} 步)`,
-        );
-        blockBuilder.addTodo({ title, tasks, status: "planning" });
-        skipDefault = true;
-      } else if (args?.action === "update") {
-        // 实时更新单个任务状态：从 tool_call 参数中提取变更并应用到 todo block
-        // T1 修复：工具 schema（TodoWriteTool.params）定义的是 todo_id，
-        // 原实现读 todoId 取到空串 → updateTodoTask("") 静默 no-op，任务卡永远停在"等待中"
-        const taskId = String(args.todo_id ?? args.todoId ?? args.id ?? "");
-        if (taskId) {
-          const updates: Partial<{
-            status: import("../../types").TaskCardTask["status"];
-            result: string;
-            durationMs: number;
-          }> = {};
-          if (args.status)
-            updates.status =
-              args.status as import("../../types").TaskCardTask["status"];
-          if (args.result) updates.result = args.result as string;
-          if (args.durationMs) updates.durationMs = args.durationMs as number;
-          blockBuilder.updateTodoTask(taskId, updates);
+          totalSteps: ep.totalSteps,
+          truncated: ep.truncated,
+          currentStep: ep.currentStep || "",
+        };
+        // 截断时 info 级日志（与旧逻辑保持一致）
+        const receivedSteps = progressData.steps.length;
+        if (ep.truncated) {
+          logger.info("execution_phase 收到（steps 已截断）", {
+            phase: progressData.phase,
+            totalSteps: ep.totalSteps ?? receivedSteps,
+            keptSteps: receivedSteps,
+            droppedSteps: (ep.totalSteps ?? receivedSteps) - receivedSteps,
+            progress: ep.progress,
+            currentStep: ep.currentStep ?? "",
+          });
+        } else {
+          logger.debug("execution_phase 收到", {
+            phase: progressData.phase,
+            totalSteps: ep.totalSteps ?? receivedSteps,
+            steps: receivedSteps,
+            progress: ep.progress,
+            currentStep: ep.currentStep ?? "",
+          });
         }
-        skipDefault = true;
-      }
-    }
-    // ask_user_question 的 tool_call：跳过默认 tool_call 渲染块，
-    // 稍后将由 question 类型 chunk 渲染 QuestionBlock
-    if (chunk.toolCall.name === "ask_user_question") {
-      skipDefault = true;
-    }
-    if (!skipDefault) {
-      blockBuilder.addToolCall(chunk.toolCall);
-    }
-
-    // 文件路径收集已移至流结束后的 addFilePathsFromBlocks 统一处理
-    // 避免流式传输中同步 setState 导致无限重渲染
-
-    updatedMsg = { ...msg, blocks: blockBuilder.getBlocks() };
-
-    // 关键节点即时落盘：tool_call 完成时立即持久化 blocks
-    // 防止切换会话时该 tool_call 结果丢失（方案 C）
-    if (
-      chunk.toolCall.status === "completed" ||
-      chunk.toolCall.status === "failed"
-    ) {
-      if (sessionId) {
-        // 排查写前持久化：tool_call 终态即时落盘，确认 blocks 不丢失
-        logger.info("processChunk: tool_call 终态即时落盘", {
-          sessionId,
-          toolName: chunk.toolCall.name,
-          toolCallId: chunk.toolCall.id,
-          status: chunk.toolCall.status,
-          blockCount: blockBuilder.getBlocks().length,
+        set({
+          executionPhase: {
+            phase: progressData.phase,
+            progress: progressData.progress,
+            description: progressData.description,
+          },
         });
-        saveQueue.enqueue(
-          sessionId,
-          assistantId,
-          blockBuilder.getBlocks(),
-          true,
+      }
+      break;
+
+    case "error": {
+      // 错误去重：已有 error 状态时仅补充 errorCode，不重复追加 status 块/覆盖错误文本
+      const hasExistingError = !!get().error;
+      if (!hasExistingError) {
+        // 注入友好摘要到 chunk._meta，供 aggregator 渲染 assistant/status 块
+        chunk = {
+          ...chunk,
+          _meta: {
+            ...(chunk._meta ?? {}),
+            friendlySummary: friendlyErrorSummary(chunk.content),
+          },
+        } as StreamChunk;
+      } else {
+        // 已有错误：跳过 aggregator（避免重复 assistant/status 块），
+        // 仅保留 system/error 事件用于日志面板
+        appendToAggregator = false;
+        // 仍写 system/error 到事件流（用于轨迹面板显示，不影响对话视图）
+        try {
+          ctx.aggregator.appendEvent({
+            type: "system/error",
+            data: {
+              module: "chat:stream",
+              action: "streamErrorDeduped",
+              error: chunk.content,
+              errorCode: chunk.errorCode,
+            },
+          });
+        } catch (e) {
+          logger.error("processChunk: system/error 事件注入失败", {
+            error: e instanceof Error ? e.message : String(e),
+          });
+        }
+      }
+      if (hasExistingError) {
+        set({ errorCode: chunk.errorCode || "UNKNOWN" });
+      } else {
+        set({
+          error: chunk.content,
+          errorCode: chunk.errorCode || "UNKNOWN",
+        });
+      }
+      break;
+    }
+
+    case "tool_call":
+      // _meta 导航建议：create_project 完成后触发前端提示
+      if (chunk._meta?.action === "suggest_navigate") {
+        window.dispatchEvent(
+          new CustomEvent("pyapp:navigate-suggest", {
+            detail: chunk._meta,
+          }),
         );
       }
-    }
+      break;
 
-    // _meta 导航建议：create_project 完成后触发前端提示
-    if (chunk._meta?.action === "suggest_navigate") {
-      window.dispatchEvent(
-        new CustomEvent("pyapp:navigate-suggest", {
-          detail: chunk._meta,
-        }),
-      );
+    case "question":
+      if (chunk.questionData) {
+        logger.debug("收到 question chunk", {
+          questionId: chunk.questionData.questionId,
+          q: chunk.questionData.question?.slice(0, 40),
+          optCnt: chunk.questionData.options?.length,
+        });
+        // hasPendingQuestion 只由副作用触发，避免回放重复设置
+        if (!get().hasPendingQuestion[sid]) {
+          set({
+            hasPendingQuestion: {
+              ...get().hasPendingQuestion,
+              [sid]: true,
+            },
+          });
+        }
+        playWarningSound();
+      }
+      break;
+
+    case "doc_workflow":
+      if (sessionId) {
+        const blocks = deriveAssistantBlocks(ctx);
+        if (blocks && blocks.length > 0) {
+          saveQueue.enqueue(sessionId, assistantId, blocks, true);
+        }
+      }
+      break;
+
+    case "usage": {
+      if (chunk.finishReason === "length" && sessionId) {
+        // 关键节点即时落盘：截断时立即持久化
+        const blocks = deriveAssistantBlocks(ctx);
+        if (blocks && blocks.length > 0) {
+          saveQueue.enqueue(sessionId, assistantId, blocks, true);
+        }
+      }
+      if (chunk._meta?.action === "suggest_navigate") {
+        window.dispatchEvent(
+          new CustomEvent("pyapp:navigate-suggest", {
+            detail: chunk._meta,
+          }),
+        );
+      }
+      break;
     }
-  } else if (chunk.type === "question" && chunk.questionData) {
-    logger.debug("收到 question chunk", {
-      questionId: chunk.questionData.questionId,
-      q: chunk.questionData.question?.slice(0, 40),
-      optCnt: chunk.questionData.options?.length,
-      blocksBefore: blockBuilder.getBlocks().length,
-    });
-    blockBuilder.addQuestion(chunk.questionData);
-    const newBlocks = blockBuilder.getBlocks();
-    logger.debug("addQuestion 后 block count: " + newBlocks.length, {
-      questionBlocks: newBlocks.filter((b) => b.type === "question").length,
-    });
-    updatedMsg = { ...msg, blocks: newBlocks };
-    // P2-3: 按会话记录 pending question，多会话并行互不覆盖
-    if (!get().hasPendingQuestion[sid]) {
-      set({
-        hasPendingQuestion: {
-          ...get().hasPendingQuestion,
-          [sid]: true,
-        },
+    // 其他 chunk 类型：无额外副作用（或副作用已由 aggregator + 派生产出）
+    default:
+      break;
+  }
+
+  // ── 渲染链路：追加 chunk 到 aggregator（在副作用 switch 之后，因为 error 去重会改 appendToAggregator） ──
+  if (appendToAggregator) {
+    // 正文 text：先做结构标签剥离，与旧 blockBuilder.addText 行为一致
+    if (chunk.type === "text") {
+      const cleanContent = stripStructuralTags(chunk.content);
+      chunk = { ...chunk, content: cleanContent } as StreamChunk;
+    }
+    try {
+      ctx.aggregator.appendChunk(chunk);
+    } catch (e) {
+      logger.error("processChunk: aggregator.appendChunk 失败", {
+        chunkType: chunk.type,
+        error: e instanceof Error ? e.message : String(e),
       });
     }
-    // 需要用户关注时播放警示音
-    playWarningSound();
-  } else if (chunk.type === "todo" && chunk.todoData) {
-    blockBuilder.addTodo(chunk.todoData);
-    updatedMsg = { ...msg, blocks: blockBuilder.getBlocks() };
-  } else if (chunk.type === "doc_workflow" && chunk.docWorkflowData) {
-    blockBuilder.addDocWorkflow(chunk.docWorkflowData);
-    updatedMsg = { ...msg, blocks: blockBuilder.getBlocks() };
+  }
+
+  // tool_call 终态即时落盘：写在 switch 外，因为状态在 chunk.toolCall.status
+  if (
+    chunk.type === "tool_call" &&
+    chunk.toolCall &&
+    (chunk.toolCall.status === "completed" ||
+      chunk.toolCall.status === "failed")
+  ) {
     if (sessionId) {
-      saveQueue.enqueue(sessionId, assistantId, blockBuilder.getBlocks(), true);
-    }
-  } else if (chunk.type === "usage") {
-    // L5: 检测截断信号 finishReason='length'（修复 BUG #10）
-    if (chunk.finishReason === "length") {
-      const truncatedSuffix =
-        "\n\n> ⚠️ **AI 输出已被截断**（max_tokens 限制），请考虑分步提问或增大 max_tokens 设置。";
-      blockBuilder.addText(truncatedSuffix, false);
-      // 关键节点即时落盘：截断时立即持久化，确保截断前的 blocks 不丢失（方案 C）
-      if (sessionId) {
-        saveQueue.enqueue(
-          sessionId,
-          assistantId,
-          blockBuilder.getBlocks(),
-          true,
-        );
+      logger.info("processChunk: tool_call 终态即时落盘", {
+        sessionId,
+        toolName: chunk.toolCall.name,
+        toolCallId: chunk.toolCall.id,
+        status: chunk.toolCall.status,
+      });
+      const blocks = deriveAssistantBlocks(ctx);
+      if (blocks && blocks.length > 0) {
+        saveQueue.enqueue(sessionId, assistantId, blocks, true);
       }
     }
-    // 仅当 chunk.usage 非空时更新 usage，避免 standalone finish_reason 覆盖已有数据（BUG #10 L2）
-    const usageUpdate = chunk.usage ? { usage: chunk.usage } : {};
-    updatedMsg = {
-      ...msg,
-      ...usageUpdate,
-      blocks: blockBuilder.getBlocks(),
-    };
+  }
 
-    // P0 增强：自动建项目后触发前端导航提示（_meta 在 usage 块中）
-    if (chunk._meta?.action === "suggest_navigate") {
-      window.dispatchEvent(
-        new CustomEvent("pyapp:navigate-suggest", {
-          detail: chunk._meta,
-        }),
-      );
-    }
+  // ── 渲染链路：从 aggregator 派生全量 messages，提取本流 assistant 定向替换 ──
+  const derivedAll = ctx.aggregator.deriveMessages();
+  const derivedAssistant = derivedAll.find((m) => m.id === assistantId);
+
+  let updatedMsg: Message;
+  if (derivedAssistant) {
+    // 派生结果中 assistantId 命中（M4 正常路径）：
+    //   - blocks/progress/tool_calls/content 走派生（纯函数保证与回放一致）
+    //   - 保留已写的 usage/metadata（防止 usage chunk 的数据在 chunk 顺序上位于 assistant/text 之后而丢失）
+    const base = current[msgIdx];
+    updatedMsg = {
+      ...derivedAssistant,
+      // usage：usage chunk 的处理发生在 assistant/text 之后，derived 中不会包含 usage
+      usage: (base as Message).usage ?? derivedAssistant.usage,
+      // 其他辅助字段：如果派生结果无则继承 base（避免派生覆盖了 set 的中间状态）
+      error: (base as Message).error ?? derivedAssistant.error,
+      metadata: (base as Message).metadata ?? derivedAssistant.metadata,
+    };
   } else {
-    updatedMsg = msg;
+    // 派生结果不含本流 assistant（极端情况：尚未产生任何 assistant/* 事件，
+    // 如 chunk 全是 context_state/usage/execution_phase 这类非对话事件）。
+    // 保留 base，仅确保 blocks 至少存在空数组
+    updatedMsg = {
+      ...current[msgIdx],
+      blocks: current[msgIdx].blocks ?? [],
+    };
   }
 
   const newMessages = [...current];
@@ -465,9 +460,8 @@ export async function processChunk(
       });
   }
 
-  // J3：流式传输中实时防抖保存 blocks，使用闭包内局部变量避免竞态
+  // J3：流式传输中实时防抖保存 blocks
   if (sessionId && updatedMsg.blocks && updatedMsg.blocks.length > 0) {
-    // 会话切换锁：setMessages 期间暂存流式 chunk，避免覆盖
     if (switchState.lock) {
       switchState.pending.push({
         sessionId,

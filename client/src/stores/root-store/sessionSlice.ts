@@ -10,7 +10,7 @@ import type { StateCreator } from "zustand";
 import type { SessionRecord, SessionContext } from "./types";
 import type { RootState } from "./index";
 import type { ModuleType } from "./moduleContextSlice";
-import type { Session } from "@/types";
+import type { Message, Session } from "@/types";
 import { createLogger } from "@/utils/logger";
 import { useModelSwitchStore } from "../modelSwitchStore";
 import { chatCoordinator } from "@/stores/chat/chatCoordinator";
@@ -76,7 +76,8 @@ async function restoreMessagesToCurrentSession(
         if (!stillCurrent()) return;
         await chatCoordinator.loadMessages(cached);
       } else {
-        const messages = await sessionService.getMessages(curId);
+        // M2-3：优先从 events 派生，回退到 legacy messages
+        const { messages } = await sessionService.loadConversation(curId);
         if (!stillCurrent()) return; // ④ 网络 await 后校验（关键窗口）
         await chatCoordinator.loadMessages(messages);
       }
@@ -345,8 +346,10 @@ export const createSessionSlice: StateCreator<
             sessionService.switch(latest.id).catch(() => {});
             const { _getCachedMessages } = await import("@/stores/chat");
             const cached = _getCachedMessages(latest.id);
+            // M2-3：优先从 events 派生，回退到 legacy messages
             const messages =
-              cached ?? (await sessionService.getMessages(latest.id));
+              cached ??
+              (await sessionService.loadConversation(latest.id)).messages;
             // R2：期间发生新切换/新建/删除（都会 _switchSeq++）→ 放弃本次加载
             if (_switchSeq !== switchSeqSnapshot) return;
             await chatCoordinator.loadMessages(messages);
@@ -848,17 +851,25 @@ export const createSessionSlice: StateCreator<
           hasWorkspace: !!session?.workspaceId,
         });
 
-      // 获取消息（优先缓存）
+      // 获取消息（优先缓存 → A1：未命中时走 loadConversation 增量 events 派生）
       const t3 = performance.now();
       const { _getCachedMessages } = await import("@/stores/chat");
       const cached = _getCachedMessages(id);
       const fromCache = cached != null;
-      const messages = cached ?? (await sessionService.getMessages(id));
+      let messages: Message[];
+      if (fromCache) {
+        messages = cached as Message[];
+      } else {
+        // A1：走 loadConversation（events 增量 → 纯函数派生），与流式渲染路径一致
+        const loaded = await sessionService.loadConversation(id);
+        messages = loaded.messages;
+      }
       logger.info("switchChatSession:③消息已加载", {
         seq,
         sessionId: id,
         count: messages.length,
         fromCache,
+        source: fromCache ? "memory-cache" : "events-incremental",
         t: (performance.now() - t0).toFixed(0),
       });
       if (import.meta.env.DEV)

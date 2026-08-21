@@ -43,6 +43,7 @@ import type {
   SendMessageOptions,
   StreamMessageOptions,
 } from '../types/message.js';
+import type { LiriEvent } from '../types/events.js';
 import type { ChatSession } from '../types/session.js';
 import type { ToolResult } from '../types/tool.js';
 import type { SessionLifecycleManager } from '../services/SessionLifecycleManager.js';
@@ -111,6 +112,23 @@ export interface ChatOrchestratorHost {
   getToolRegistry(): ToolRegistry | null;
   buildToolDefinitions(schemas: unknown[]): ToolDefinition[];
   addAndPersistMessage(sessionId: string, message: Message): void;
+  /**
+   * M1 事件溯源：流式过程中追加事件到 events.jsonl
+   *
+   * 供 streamMessageFlow 在每个 chunk yield 前调用，
+   * 把 thinking/text chunk 实时落盘到事件日志。
+   * 失败不阻断流式（CS03），返回结果含失败原因。
+   */
+  appendStreamEvent(
+    sessionId: string,
+    event: LiriEvent
+  ): Promise<{ ok: boolean; reason?: string; tailSeq: number }>;
+  /**
+   * M1 事件溯源：获取当前会话的 tailSeq
+   *
+   * 供 streamMessageFlow 在流式开始时调用，决定 turn/start 与首个 chunk 的 seq。
+   */
+  getStreamTailSeq(sessionId: string): Promise<number>;
   getSessionMachine(sessionId: string): {
     start(reason?: string): unknown;
     finish(reason?: string): unknown;

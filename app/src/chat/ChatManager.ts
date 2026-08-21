@@ -47,6 +47,9 @@ import {
   persistChatMessage,
   isEmptyAssistantWithoutToolCalls,
 } from './services/ChatHelper';
+import { EventLogStorage } from '@modules/session/storage/EventLogStorage';
+import { MessageToEventMigrator } from '@modules/session/storage/MessageToEventMigrator';
+import type { LiriEvent } from '@modules/chat/types/events';
 import {
   sanitizeApiMessages,
   compressToolHistory,
@@ -586,6 +589,22 @@ export class ChatManagerImpl implements ChatManager {
   private _pendingPersistPromises: Set<Promise<void>> = new Set();
 
   /**
+   * M1 事件溯源：per-session EventLogStorage 实例缓存
+   *
+   * 同一会话复用同一 EventLogStorage 实例，避免重复初始化 tailSeq。
+   * 实例化时 worktreeHash 使用 'default'（与 ChatManager 不感知 worktree 一致）。
+   */
+  private _eventLogCache: Map<string, EventLogStorage> = new Map();
+
+  /**
+   * M1 事件溯源：toolCallId → seq 映射
+   *
+   * 用于 tool/result 事件回填 callSeq。
+   * key: toolCallId, value: 对应的 assistant/tool_call 事件的 seq
+   */
+  private _toolCallSeqMap: Map<string, number> = new Map();
+
+  /**
    * 会话子系统访问门面
    */
   private sessionAccess = new SessionAccessFacade();
@@ -802,6 +821,8 @@ export class ChatManagerImpl implements ChatManager {
           ._loopDetector as import('../query/LoopDetector.js').LoopDetector,
         addAndPersistMessage: (sid, msg) =>
           this._addAndPersistMessage(sid, msg),
+        appendStreamEvent: (sid, event) => this.appendStreamEvent(sid, event),
+        getStreamTailSeq: (sid) => this.getStreamTailSeq(sid),
         getSessionMachine: (sid) => this.getSessionMachine(sid),
         getOrAssembleSystemPrompt: (session, content) =>
           this.getOrAssembleSystemPrompt(session, content),
@@ -1110,6 +1131,19 @@ export class ChatManagerImpl implements ChatManager {
       }
     }
     const persistPromise = (async () => {
+      // M1 事件溯源：在 messages.jsonl 落盘前，先把消息追加到事件日志。
+      // 复用 Migrator 的 convertMessage 逻辑（CS01 归一化），避免重复实现。
+      // 事件追加失败不阻断主路径（CS03），只记日志。
+      try {
+        await this._appendEventsForMessage(sessionId, message);
+      } catch (e) {
+        // @ignore-catch — 事件日志写入失败不阻断消息落盘
+        handleError(e, {
+          module: 'chat:manager',
+          action: 'appendEventsForMessage',
+          context: { sessionId, messageId: message.id },
+        }).catch(() => {});
+      }
       try {
         await persistChatMessage(this.sessionGateway, sessionId, message);
       } catch (e) {
@@ -1127,6 +1161,156 @@ export class ChatManagerImpl implements ChatManager {
       this._pendingPersistPromises.delete(persistPromise)
     );
     await persistPromise;
+  }
+
+  /**
+   * M1 事件溯源：把单条消息转换为事件并追加到 events.jsonl
+   *
+   * 实现要点：
+   *   1. 获取 per-session EventLogStorage 实例（缓存）
+   *   2. 若首次使用且存在旧 messages.jsonl，触发自动迁移
+   *   3. 复用 MessageToEventMigrator.convertMessage 转换
+   *   4. 内存维护 toolCallId → seq 映射，回填 tool/result.callSeq
+   *   5. 逐条 append（不批量，避免阻塞主路径）
+   *
+   * 失败处理：
+   *   - append 返回 duplicate-seq：正常幂等情况，不告警
+   *   - append 返回其他失败：记 warn 日志，不抛错
+   */
+  private async _appendEventsForMessage(
+    sessionId: string,
+    message: Message
+  ): Promise<void> {
+    const eventLog = this._getOrCreateEventLog(sessionId);
+
+    // 首次使用时检测是否需要迁移旧数据
+    if (!eventLog.exists()) {
+      const migrator = new MessageToEventMigrator(
+        eventLog,
+        sessionId,
+        'default'
+      );
+      if (migrator.needsMigration()) {
+        logger.info('chat:manager 自动触发事件日志迁移', { sessionId });
+        const result = await migrator.migrate();
+        logger.info('chat:manager 迁移完成', {
+          sessionId,
+          migrated: result.migrated,
+          generated: result.generated,
+          errors: result.errors.length,
+        });
+      }
+    }
+
+    // 获取当前 tailSeq，决定新事件的起始 seq
+    const tailSeq = await eventLog.getTailSeq();
+    const migrator = new MessageToEventMigrator(eventLog, sessionId, 'default');
+    const { events } = migrator.convertMessage(
+      message,
+      tailSeq + 1,
+      Date.now()
+    );
+
+    // 内存映射回填 callSeq
+    for (const event of events) {
+      if (event.type === 'assistant/tool_call') {
+        const data = event.data as { toolCallId: string };
+        this._toolCallSeqMap.set(data.toolCallId, event.seq);
+      }
+    }
+    for (const event of events) {
+      if (event.type === 'tool/result') {
+        const data = event.data as { callSeq: number; toolCallId: string };
+        if (data.callSeq === -1) {
+          data.callSeq = this._toolCallSeqMap.get(data.toolCallId) ?? -1;
+        }
+      }
+    }
+
+    // 逐条追加
+    for (const event of events) {
+      const result = await eventLog.append(event);
+      if (!result.ok && result.reason !== 'duplicate-seq') {
+        logger.warn('chat:manager 事件追加失败', {
+          sessionId,
+          seq: event.seq,
+          type: event.type,
+          reason: result.reason,
+        });
+      }
+    }
+  }
+
+  /**
+   * 获取或创建 per-session EventLogStorage 实例
+   *
+   * 同一会话复用同一实例，避免重复初始化 tailSeq。
+   */
+  private _getOrCreateEventLog(sessionId: string): EventLogStorage {
+    let log = this._eventLogCache.get(sessionId);
+    if (!log) {
+      log = new EventLogStorage(sessionId, 'default');
+      this._eventLogCache.set(sessionId, log);
+    }
+    return log;
+  }
+
+  /**
+   * M1 事件溯源：流式过程中追加事件到 events.jsonl
+   *
+   * 实现 ChatOrchestratorHost 接口，供 streamMessageFlow 在每个 chunk yield 前调用。
+   * - 失败不阻断流式（CS03）
+   * - duplicate-seq 视为正常幂等，不告警
+   * - 首次使用时若需迁移旧数据，触发迁移
+   */
+  async appendStreamEvent(
+    sessionId: string,
+    event: LiriEvent
+  ): Promise<{ ok: boolean; reason?: string; tailSeq: number }> {
+    try {
+      const eventLog = this._getOrCreateEventLog(sessionId);
+
+      // 首次使用时检测是否需要迁移旧数据
+      if (!eventLog.exists()) {
+        const migrator = new MessageToEventMigrator(
+          eventLog,
+          sessionId,
+          'default'
+        );
+        if (migrator.needsMigration()) {
+          logger.info('chat:manager 流式前自动触发事件日志迁移', {
+            sessionId,
+          });
+          await migrator.migrate();
+        }
+      }
+
+      const result = await eventLog.append(event);
+      if (!result.ok && result.reason !== 'duplicate-seq') {
+        logger.warn('chat:manager 流式事件追加失败', {
+          sessionId,
+          seq: event.seq,
+          type: event.type,
+          reason: result.reason,
+        });
+      }
+      return { ok: result.ok, reason: result.reason, tailSeq: result.tailSeq };
+    } catch (e) {
+      await handleError(e, {
+        module: 'chat:manager',
+        action: 'appendStreamEvent',
+        context: { sessionId, eventSeq: event.seq, eventType: event.type },
+      }).catch(() => {});
+      return { ok: false, reason: 'exception', tailSeq: 0 };
+    }
+  }
+
+  /**
+   * M1 事件溯源：获取当前会话的 tailSeq（供 streamMessageFlow 分配新 seq）
+   */
+  async getStreamTailSeq(sessionId: string): Promise<number> {
+    const eventLog = this._getOrCreateEventLog(sessionId);
+    return eventLog.getTailSeq();
   }
 
   /**

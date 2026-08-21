@@ -645,6 +645,28 @@ export async function* runStreamMessage(
         await mutex.acquire();
         mutexHeld = true;
       }
+
+      // M1 事件溯源：流式开始前追加 turn/start 事件
+      // turn 编号使用 toolRoundCount+1（与现有计数器对齐）
+      let streamTurnSeq = 0;
+      try {
+        const tailSeq = await host.getStreamTailSeq(session.id);
+        streamTurnSeq = tailSeq + 1;
+        await host.appendStreamEvent(session.id, {
+          type: 'turn/start',
+          seq: streamTurnSeq,
+          time: Date.now(),
+          sessionId: session.id,
+          data: { turn: host.toolRoundCount + 1 },
+        });
+      } catch (e) {
+        // @ignore-catch — 事件追加失败不阻断流式（CS03）
+        logger.debug('streamMessageFlow: turn/start 追加失败', {
+          sessionId: session.id,
+          error: e instanceof Error ? e.message : String(e),
+        });
+      }
+
       try {
         while (!result.done) {
           const chunk = result.value as string | ThinkingProviderChunk;
@@ -652,6 +674,21 @@ export async function* runStreamMessage(
             countStreamChunk(streamStats, false);
             accumulatedContent += chunk;
             host.unifiedTracker.onStreamChunk(chunk);
+
+            // M1 事件溯源：text chunk 追加为 assistant/text 事件
+            try {
+              const ts = await host.getStreamTailSeq(session.id);
+              await host.appendStreamEvent(session.id, {
+                type: 'assistant/text',
+                seq: ts + 1,
+                time: Date.now(),
+                sessionId: session.id,
+                data: { content: chunk },
+              });
+            } catch {
+              // @ignore-catch — 事件追加失败不阻断流式
+            }
+
             yield { type: 'text', content: chunk, sessionId: session.id };
           } else if (chunk?.type === 'thinking') {
             countStreamChunk(streamStats, true);
@@ -662,6 +699,25 @@ export async function* runStreamMessage(
                   : JSON.stringify(chunk.content)
               );
             }
+
+            // M1 事件溯源：thinking chunk 追加为 assistant/thinking 事件
+            try {
+              const ts = await host.getStreamTailSeq(session.id);
+              const thinkingContent =
+                typeof chunk.content === 'string'
+                  ? chunk.content
+                  : JSON.stringify(chunk.content);
+              await host.appendStreamEvent(session.id, {
+                type: 'assistant/thinking',
+                seq: ts + 1,
+                time: Date.now(),
+                sessionId: session.id,
+                data: { content: thinkingContent },
+              });
+            } catch {
+              // @ignore-catch — 事件追加失败不阻断流式
+            }
+
             const thinkingChunk: ChatStreamChunk = {
               type: 'thinking',
               content: chunk.content,
@@ -770,6 +826,29 @@ export async function* runStreamMessage(
         sessionId: session.id,
       } as ChatStreamChunk;
       accumulatedContent = '';
+    }
+
+    // M1 事件溯源：流式正常结束追加 turn/end 事件
+    try {
+      const ts = await host.getStreamTailSeq(session.id);
+      const finishReason = (finalResponse?.finishReason ?? 'stop') as
+        | 'stop'
+        | 'length'
+        | 'tool_use'
+        | 'error'
+        | 'canceled';
+      await host.appendStreamEvent(session.id, {
+        type: 'turn/end',
+        seq: ts + 1,
+        time: Date.now(),
+        sessionId: session.id,
+        data: {
+          turn: host.toolRoundCount + 1,
+          finishReason,
+        },
+      });
+    } catch {
+      // @ignore-catch — 事件追加失败不阻断主流程
     }
 
     streamSpan.addEvent('streamMessage.llm.done', {

@@ -6,13 +6,19 @@
  */
 
 import React from "react";
-import { useCallback, useRef, useEffect } from "react";
+import { useCallback, useRef, useEffect, useMemo } from "react";
 import { useChatInspectorStore } from "../../stores/chatInspectorStore";
 import type { InspectorTab } from "../../stores/chatInspectorStore";
 import ContextTab from "./ContextTab";
-import LogTab from "./LogTab";
 import FilesTab from "./FilesTab";
 import SettingsTab from "./SettingsTab";
+import { useSessionStore } from "../../stores/sessionStore";
+import { useTrajectoryStore } from "../../stores/chat/trajectoryStore";
+import { TrajectoryFilter } from "../Trajectory/TrajectoryFilter";
+import { TrajectoryRow } from "../Trajectory/TrajectoryRow";
+import { TrajectoryDetail } from "../Trajectory/TrajectoryDetail";
+import type { LiriEvent } from "../../types";
+import { categorizeEvent } from "../../types";
 
 // ─── 配置 ─────────────────────────────────────────
 
@@ -28,18 +34,17 @@ const TABS: { id: InspectorTab; icon: React.ReactNode; label: string }[] = [
     label: "上下文",
   },
   {
-    id: "log",
+    id: "trajectory",
     icon: (
       <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
         <path
           fillRule="evenodd"
-          d="M5 3a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2V5a2 2 0 00-2-2H5zm10 2H5v10h10V5z"
+          d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z"
           clipRule="evenodd"
         />
-        <path d="M6 8a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zM6 11a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zM6 14a1 1 0 011-1h3a1 1 0 110 2H7a1 1 0 01-1-1z" />
       </svg>
     ),
-    label: "日志",
+    label: "轨迹",
   },
   {
     id: "files",
@@ -60,7 +65,7 @@ const TABS: { id: InspectorTab; icon: React.ReactNode; label: string }[] = [
       <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
         <path
           fillRule="evenodd"
-          d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z"
+          d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.532 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z"
           clipRule="evenodd"
         />
       </svg>
@@ -84,7 +89,7 @@ function CollapsedBarImpl({
     <div className="w-12 flex flex-col items-center py-2 gap-2 bg-white dark:bg-gray-900 border-l border-gray-200 dark:border-gray-700">
       {TABS.map((tab) => {
         const badge =
-          tab.id === "log" && activeToolCount > 0
+          tab.id === "trajectory" && activeToolCount > 0
             ? `${activeToolCount}`
             : tab.id === "files" && newFileCount > 0
               ? `+${newFileCount}`
@@ -104,7 +109,7 @@ function CollapsedBarImpl({
                 className={`absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] flex items-center justify-center text-[10px] font-bold text-white rounded-full ${
                   tab.id === "context"
                     ? "bg-red-500"
-                    : tab.id === "log"
+                    : tab.id === "trajectory"
                       ? "bg-blue-500 animate-pulse"
                       : "bg-green-500"
                 }`}
@@ -120,12 +125,134 @@ function CollapsedBarImpl({
 }
 const CollapsedBar = React.memo(CollapsedBarImpl);
 
+/** 内嵌版轨迹面板（放在 ChatInspector Tab 里的版本，不带外层独立抽屉壳） */
+function TrajectoryTabContentImpl() {
+  const currentSession = useSessionStore((s) => s.currentSession);
+  const sessionId = currentSession?.id ?? null;
+
+  const {
+    events,
+    tailSeq,
+    loading,
+    error,
+    selectedSeq,
+    filter,
+    loadEvents,
+    loadMore,
+    hasMore,
+    selectEvent,
+    setFilter,
+  } = useTrajectoryStore();
+
+  // 会话切换 → 重新加载该会话的事件流
+  useEffect(() => {
+    if (sessionId) {
+      loadEvents(sessionId);
+    }
+  }, [sessionId, loadEvents]);
+
+  // 过滤后的事件（和 TrajectoryView 保持一致）
+  const filteredEvents = useMemo(() => {
+    let result: LiriEvent[] = events;
+    if (filter.categories.length > 0) {
+      const set = new Set(filter.categories);
+      result = result.filter((e) => set.has(categorizeEvent(e.type)));
+    }
+    if (filter.types.length > 0) {
+      const set = new Set(filter.types);
+      result = result.filter((e) => set.has(e.type));
+    }
+    if (filter.keyword.trim()) {
+      const kw = filter.keyword.trim().toLowerCase();
+      result = result.filter((e) => {
+        const data = e.data as Record<string, unknown>;
+        const candidates = [
+          typeof data.content === "string" ? data.content : "",
+          typeof data.name === "string" ? data.name : "",
+          typeof data.error === "string" ? data.error : "",
+          typeof data.message === "string" ? data.message : "",
+          typeof data.result === "string" ? data.result : "",
+        ];
+        return candidates.some((c) => c.toLowerCase().includes(kw));
+      });
+    }
+    return result;
+  }, [events, filter]);
+
+  const selectedEvent = useMemo(() => {
+    if (selectedSeq === null) return null;
+    return events.find((e) => e.seq === selectedSeq) ?? null;
+  }, [events, selectedSeq]);
+
+  if (!sessionId) {
+    return (
+      <div className="p-6 text-sm text-gray-500 dark:text-gray-400 text-center">
+        还没有选中会话。
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col h-full overflow-hidden">
+      <div className="px-4 py-2 text-xs text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/50">
+        {filteredEvents.length}/{events.length} 条 · tailSeq={tailSeq}
+      </div>
+      <TrajectoryFilter filter={filter} onChange={setFilter} />
+      <div className="flex-1 overflow-y-auto">
+        {loading && events.length === 0 ? (
+          <div className="p-4 text-sm text-gray-500 dark:text-gray-400">
+            加载中...
+          </div>
+        ) : error ? (
+          <div className="p-4 text-sm text-red-600 dark:text-red-400">
+            加载失败：{error}
+          </div>
+        ) : filteredEvents.length === 0 ? (
+          <div className="p-4 text-sm text-gray-500 dark:text-gray-400">
+            {events.length === 0 ? "暂无事件" : "无匹配事件"}
+          </div>
+        ) : (
+          <ul className="divide-y divide-gray-100 dark:divide-gray-800">
+            {filteredEvents.map((event) => (
+              <TrajectoryRow
+                key={`${event.seq}-${event.type}`}
+                event={event}
+                selected={event.seq === selectedSeq}
+                onClick={() =>
+                  selectEvent(event.seq === selectedSeq ? null : event.seq)
+                }
+              />
+            ))}
+          </ul>
+        )}
+        {hasMore && !loading && (
+          <div className="p-3 text-center">
+            <button
+              onClick={loadMore}
+              className="px-3 py-1.5 text-xs text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded"
+            >
+              加载更多
+            </button>
+          </div>
+        )}
+      </div>
+      {selectedEvent && (
+        <TrajectoryDetail
+          event={selectedEvent}
+          onClose={() => selectEvent(null)}
+        />
+      )}
+    </div>
+  );
+}
+const TrajectoryTabContent = React.memo(TrajectoryTabContentImpl);
+
 function TabContentImpl({ tabId }: { tabId: InspectorTab }) {
   switch (tabId) {
     case "context":
       return <ContextTab />;
-    case "log":
-      return <LogTab />;
+    case "trajectory":
+      return <TrajectoryTabContent />;
     case "files":
       return <FilesTab />;
     case "settings":
@@ -164,7 +291,7 @@ function ChatInspector() {
   useEffect(() => {
     const KEY_MAP: Record<string, InspectorTab> = {
       "1": "context",
-      "2": "log",
+      "2": "trajectory",
       "3": "files",
       "4": "settings",
     };

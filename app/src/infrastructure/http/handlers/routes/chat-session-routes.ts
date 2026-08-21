@@ -48,6 +48,7 @@ import {
   handleGetSession,
   handleGetSessionMemory,
   handleGetSessionMessages,
+  handleGetSessionEvents,
   handleListSessions,
   handlePruneSession,
   handleRenameSession,
@@ -284,6 +285,14 @@ export async function dispatchChatSessionRoutes(
     const sid = requireSessionId(url, /^\/v1\/sessions\/(.+)\/memory$/, res);
     if (sid === null) return true;
     await handleGetSessionMemory(handlerCtx, req, res, sid);
+    return true;
+  }
+  // M1 事件溯源：获取会话事件流
+  // GET /v1/sessions/:id/events?fromSeq=X&toSeq=Y&types=a,b&limit=N
+  if (method === 'GET' && url.match(/^\/v1\/sessions\/(.+)\/events$/)) {
+    const sid = requireSessionId(url, /^\/v1\/sessions\/(.+)\/events$/, res);
+    if (sid === null) return true;
+    await handleGetSessionEvents(handlerCtx, req, res, sid);
     return true;
   }
   if (method === 'DELETE' && url.match(/^\/v1\/sessions\/(.+)$/)) {

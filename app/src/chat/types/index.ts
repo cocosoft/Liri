@@ -8,3 +8,12 @@ export {
   MessageStatus,
   MessagePriority,
 } from './message';
+export type {
+  LiriEvent,
+  LiriEventType,
+  LiriEventMap,
+  LiriEventCategory,
+  LiriEventData,
+  LiriEventOf,
+} from './events';
+export { isLiriEvent, categorizeEvent } from './events';

@@ -65,16 +65,40 @@ function getFullContent(
   }
 
   if (message.blocks && message.blocks.length > 0) {
+    // 相邻 thinking 块先合并再 push（防御性：即使 blocks 有多个相邻 thinking——
+    // 比如旧流式版本、回放迁移数据等——也只渲染一条 💭 [思考中]，避免重复标签和逐词换行）
+    let thinkingBuffer: string[] = [];
+    const flushThinking = (): void => {
+      if (thinkingBuffer.length === 0) return;
+      const merged = thinkingBuffer.join("");
+      thinkingBuffer = [];
+      if (!merged.trim()) return;
+      parts.push(
+        `> 💭 ${labels.thoughtProcess}\n> ${merged.replace(/\n/g, "\n> ")}`,
+      );
+    };
+    // 相邻 text 块也合并（流式 text 是逐 token delta，绝不允许逐 token 分段换行）
+    let textBuffer: string[] = [];
+    const flushText = (): void => {
+      if (textBuffer.length === 0) return;
+      const merged = textBuffer.join("");
+      textBuffer = [];
+      if (!merged) return;
+      // 去重：message.content 已包含完整正文时跳过（避免重复渲染）
+      if (message.content && message.content.includes(merged)) return;
+      parts.push(merged);
+    };
     for (const block of message.blocks) {
       if (block.type === "text" && block.content) {
-        if (!message.content || !message.content.includes(block.content)) {
-          parts.push(block.content);
-        }
+        flushThinking();
+        textBuffer.push(block.content);
       } else if (block.type === "thinking" && block.content) {
-        parts.push(
-          `> 💭 ${labels.thoughtProcess}\n> ${block.content.replace(/\n/g, "\n> ")}`,
-        );
+        flushText();
+        // thinking 块合并 + stripStructuralTags（去除 <response>/<think> 等结构标签碎片）
+        thinkingBuffer.push(block.content);
       } else if (block.type === "tool_call" && block.toolCall) {
+        flushText();
+        flushThinking();
         const tc = block.toolCall;
         const argsStr = tc.arguments
           ? JSON.stringify(tc.arguments, null, 2)
@@ -94,6 +118,8 @@ function getFullContent(
         }
       }
     }
+    flushText();
+    flushThinking();
   }
 
   return parts.join("\n\n").trim();
@@ -1257,6 +1283,45 @@ function isToolRelatedBlock(block: MessageBlock): boolean {
 }
 
 /**
+ * 高风险工具名单（默认走完整 ToolExecutionGroup 卡片，不降级为小标签）
+ * 判断标准：有副作用（写文件/执行命令/删数据/外发请求）的工具必须让用户看清楚。
+ * 低风险工具（读文件/搜索/查询类）走 ToolInlineTags 行内小标签 + 点击展开。
+ */
+const HIGH_RISK_TOOL_NAMES = new Set<string>([
+  // Shell / 进程
+  "Bash",
+  "bash",
+  "shell",
+  "run_command",
+  "RunCommand",
+  "kill_process",
+  "KillProcess",
+  // 文件写
+  "write_file",
+  "Write",
+  "edit_file",
+  "Edit",
+  "delete_file",
+  "DeleteFile",
+  "apply_patch",
+  "ApplyPatch",
+  "move_file",
+  "rename_file",
+  // 外部网络副作用（web_fetch 是只读但可能触发外部日志，保留观察）
+  "web_fetch",
+  "WebFetch",
+  // MCP 外部桥接
+  "mcp_call",
+  "run_mcp",
+]);
+
+function isHighRiskToolBlock(block: MessageBlock): boolean {
+  if (block.type !== "tool_call" || !block.toolCall) return false;
+  const name = block.toolCall.name ?? "";
+  return HIGH_RISK_TOOL_NAMES.has(name);
+}
+
+/**
  * 将 blocks 中的连续工具相关 blocks 按 groupId 分组：
  * - 普通工具组 → ToolInlineTags 行内小标签（P2，详细过程移右侧会话日志）
  * - 审批等待组 → ToolExecutionGroup（保留琥珀徽标 + 审批交互）
@@ -1368,7 +1433,9 @@ function renderBlocksWithGroups(
     const hasPendingApproval = toolBlocks.some(
       (b) => b.type === "tool_call" && b.toolCall?.pendingApproval,
     );
-    if (hasPendingApproval) {
+    // 高风险工具组：副作用大（写文件/Bash/MCP 等），默认走完整卡片让用户能直接看到 args/result
+    const hasHighRiskTool = toolBlocks.some(isHighRiskToolBlock);
+    if (hasPendingApproval || hasHighRiskTool) {
       result.push(
         <ToolExecutionGroup
           key={`tool-group-${firstBlockId || groupKey || i}`}
@@ -1376,7 +1443,7 @@ function renderBlocksWithGroups(
         />,
       );
     } else {
-      // 普通工具组：降级为行内小标签（P2），详细过程移右侧「会话日志」面板
+      // 普通工具组：降级为行内小标签（P2），点击可就地展开详情
       result.push(
         <ToolInlineTags
           key={`tool-tags-${firstBlockId || groupKey || i}`}

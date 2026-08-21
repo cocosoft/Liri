@@ -6,6 +6,15 @@ export { isApiResponse, unwrapApiResponse } from "./system";
 
 // ─── 核心业务类型 ───
 export type { Session } from "./session";
+
+// ─── 事件溯源（M1） ───
+export type {
+  LiriEventType,
+  LiriEventMap,
+  LiriEvent,
+  LiriEventCategory,
+} from "./events";
+export { categorizeEvent, isLiriEvent } from "./events";
 export type {
   AttachedImage,
   Message,

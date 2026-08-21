@@ -30,6 +30,7 @@ import type {
 } from '@modules/tools/converter/engine/types';
 import type { TodoBlockData } from './todo-types';
 import type { DocWorkflowProgressData } from '@modules/doc/types/outline';
+import type { LiriEvent } from '@modules/chat/types/events';
 
 /** 进度事件，用于通知调用方当前 AI 处理阶段 */
 export interface ProgressEvent {
@@ -364,6 +365,26 @@ export interface CoreAPI {
       blocks?: Array<Record<string, unknown>>;
     }>
   >;
+
+  /**
+   * M1 事件溯源：获取会话事件流
+   *
+   * 首次访问时若 events.jsonl 不存在但 messages.jsonl 存在，自动触发迁移。
+   * 返回结果含 tailSeq 与 hasMore，支持增量拉取。
+   */
+  getSessionEvents(
+    sessionId: string,
+    query?: {
+      fromSeq?: number;
+      toSeq?: number;
+      types?: Array<string>;
+      limit?: number;
+    }
+  ): Promise<{
+    events: Array<LiriEvent>;
+    tailSeq: number;
+    hasMore: boolean;
+  }>;
 
   /** 更新消息的 blocks 结构 */
   updateMessageBlocks(

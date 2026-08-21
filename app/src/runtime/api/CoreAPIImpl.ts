@@ -53,6 +53,9 @@ import { FileTypeDetector } from '@modules/tools/converter/engine/FileTypeDetect
 import { createPermissionManager } from '@modules/permission/PermissionManager';
 import type { ChatManager } from '@modules/chat/ChatManager';
 import { createChatManager } from '@modules/chat/ChatManager';
+import { MessageToEventMigrator } from '@modules/session/storage/MessageToEventMigrator';
+import { EventLogStorage } from '@modules/session/storage/EventLogStorage';
+import type { LiriEvent } from '@modules/chat/types/events';
 import type { SessionManager } from '@modules/chat/types/session';
 import type {
   UnifiedMessage,
@@ -1286,6 +1289,60 @@ export class CoreAPIImpl implements CoreAPI {
         action: 'attach_pending_approval_blocks',
       });
     }
+  }
+
+  /**
+   * M1 事件溯源：获取会话事件流
+   *
+   * 通过 ChatManager 持有的 EventLogStorage 读取事件。
+   * 首次访问时若 events.jsonl 不存在但 messages.jsonl 存在，ChatManager 自动触发迁移。
+   */
+  async getSessionEvents(
+    sessionId: string,
+    query?: {
+      fromSeq?: number;
+      toSeq?: number;
+      types?: Array<string>;
+      limit?: number;
+    }
+  ): Promise<{
+    events: Array<LiriEvent>;
+    tailSeq: number;
+    hasMore: boolean;
+  }> {
+    // 复用 ChatManager 的事件日志能力（ChatManager 持有 EventLogStorage 实例缓存）
+    const chatManager = this.chatManager as unknown as {
+      _getOrCreateEventLog?(sessionId: string): EventLogStorage;
+    };
+
+    const log = chatManager._getOrCreateEventLog?.(sessionId);
+    if (!log) {
+      return { events: [], tailSeq: 0, hasMore: false };
+    }
+
+    // 首次访问时触发迁移（与 ChatManager._appendEventsForMessage 一致）
+    if (!log.exists()) {
+      const migrator = new MessageToEventMigrator(log, sessionId, 'default');
+      if (migrator.needsMigration()) {
+        await migrator.migrate();
+      }
+    }
+
+    // types: string[] → LiriEventType[]（HTTP 入参为字符串，运行时已校验）
+    const logQuery = query
+      ? {
+          fromSeq: query.fromSeq,
+          toSeq: query.toSeq,
+          types: query.types as Array<LiriEvent['type']> | undefined,
+          limit: query.limit,
+        }
+      : undefined;
+    const events = await log.read(logQuery);
+    const tailSeq = await log.getTailSeq();
+    const hasMore =
+      events.length > 0 && events[events.length - 1].seq < tailSeq;
+
+    return { events, tailSeq, hasMore };
   }
 
   async updateMessageBlocks(

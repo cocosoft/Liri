@@ -5,7 +5,7 @@
  * streamMessage：流式发送主流程（写前持久化 + SSE 消费 + 批量更新 +
  * 无内容兜底 + 检查点恢复），chunk 处理委托 chat-stream-chunk.ts。
  */
-import type { Message, AttachedImage } from "@/types";
+import type { Message, MessageBlock, AttachedImage } from "@/types";
 import {
   chatService,
   enqueueOutbox,
@@ -16,7 +16,6 @@ import { useFeatureFlagStore } from "@/stores/featureFlags";
 import { playCompletionSound } from "@/services/SoundService";
 import { createLogger } from "@/utils/logger";
 import {
-  ChronologicalBlockBuilder,
   createThinkExtractor,
   stripStructuralTags,
   reorderExplorationBlocks,
@@ -25,12 +24,15 @@ import { addFilePathsFromBlocks } from "./chat-file.slice";
 import { SaveQueue, staleSessionCache } from "./chat-history.slice";
 import { handleClientError } from "@/utils/handleError";
 import { removeStreamController } from "./chat-message-shared";
+import { useTrajectoryStore } from "./trajectoryStore";
 import {
   processChunk,
   type ProcessChunkContext,
   type StreamBatchState,
 } from "./chat-stream-chunk";
 import type { MessageSet, MessageGet } from "./chat-message.types";
+import { EventBasedStreamAggregator } from "./streaming/EventBasedStreamAggregator";
+import { trajectoryService } from "@/services/trajectoryService";
 
 const logger = createLogger("stores:chat:message");
 
@@ -311,7 +313,6 @@ export async function streamMessageImpl(
           // P0 根治（2026-08-14）：透传前端流式消息 id（同上）
           assistantMessageId: assistantId,
         });
-    const blockBuilder = new ChronologicalBlockBuilder();
     const extractor = createThinkExtractor();
     // 流诊断埋点：记录流起始时间与 chunk 总数，供流结束/异常时定位"无回复/卡死"问题
     streamStartTime = Date.now();
@@ -352,6 +353,27 @@ export async function streamMessageImpl(
       }
     }, 10000);
 
+    // M4：初始化事件聚合器（渲染源。chunk → 事件 → deriveMessages）
+    // 从后端拉取已有 events 作为基线，流式过程中追加新事件。
+    // assistantMessageId 透传给派生函数，确保派生产物的 assistant id 与
+    // store 中提前占位的 assistantId UUID 一致（否则 flushSet 定向替换命中失败）。
+    const streamAggregator = new EventBasedStreamAggregator();
+    try {
+      const eventsResult = await trajectoryService.getEvents(sid, {
+        limit: 10000,
+      });
+      await streamAggregator.init(eventsResult.events, sid, {
+        assistantMessageId: assistantId,
+      });
+    } catch (e) {
+      // 聚合器初始化失败：流式渲染回退到原 blocks（store 会保留空 assistant，
+      // 但至少不崩溃。typecheck 要求 aggregator 必填，失败时静默降级）。
+      logger.warn("streamMessage: 事件聚合器初始化失败", {
+        sessionId: sid,
+        error: e instanceof Error ? e.message : String(e),
+      });
+    }
+
     // processChunk 运行上下文（显式注入替代原闭包捕获）
     // P0（2026-08-15）：thinkingCharsRef 跟踪流内 thinking 累计长度，超预算截断
     const chunkCtx: ProcessChunkContext = {
@@ -359,7 +381,6 @@ export async function streamMessageImpl(
       sessionId,
       assistantId,
       controller,
-      blockBuilder,
       saveQueue,
       lastChunkTimeRef,
       batch,
@@ -367,6 +388,119 @@ export async function streamMessageImpl(
       set,
       get,
       thinkingCharsRef: { current: 0, truncated: false },
+      aggregator: streamAggregator,
+    };
+
+    // ── A2：轨迹面板实时同步（rAF 节流，会话匹配才更新） ──
+    //   - 仅在用户打开轨迹面板且正在看当前会话时才写入（由 trajectoryStore.setLiveEvents 内守卫判断）
+    //   - 60fps 上限，1 帧内多个 chunk 合并一次同步
+    //   - **关键**：同步拍快照（events/tailSeq），避免异步回调时 aggregator 已被 reset 清空导致覆盖为空
+    //   - 流式结束后强制同步一次，确保最终状态与后端落盘后刷新一致
+    let trajSyncRafId: number | null = null;
+    let trajSyncPending = false;
+    let trajSyncCallCount = 0;
+    const doSync = (opts: { force: boolean; callSeq: number }): void => {
+      trajSyncPending = false;
+      trajSyncRafId = null;
+      // 同步拍快照：避免后续 aggregator.reset() 把我们要同步的数据抹掉
+      const snapEvents = streamAggregator.getEvents();
+      const snapTailSeq = streamAggregator.getTailSeq();
+      const snapEventsLen = snapEvents.length;
+      logger.debug("[A2:doSync] snapshot", {
+        callSeq: opts.callSeq,
+        force: opts.force,
+        sessionId: sid,
+        snapTailSeq,
+        snapEventsLen,
+        lastEventType:
+          snapEventsLen > 0 ? snapEvents[snapEventsLen - 1].type : "<empty>",
+        lastEventSeq: snapEventsLen > 0 ? snapEvents[snapEventsLen - 1].seq : 0,
+      });
+      try {
+        const store = useTrajectoryStore.getState();
+        if (!store) {
+          logger.debug(
+            "[A2:doSync] skip: useTrajectoryStore.getState() returned null",
+            {
+              callSeq: opts.callSeq,
+            },
+          );
+          return;
+        }
+        logger.debug("[A2:doSync] before setLiveEvents", {
+          callSeq: opts.callSeq,
+          storeSessionId: store.sessionId,
+          storeTailSeq: store.tailSeq,
+          storeEventsLen: store.events.length,
+          match: store.sessionId === sid,
+        });
+        store.setLiveEvents(sid, snapEvents, snapTailSeq);
+        logger.debug("[A2:doSync] after setLiveEvents", {
+          callSeq: opts.callSeq,
+          storeTailSeq: store.tailSeq,
+          storeEventsLen: store.events.length,
+        });
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        logger.warn(
+          "[A2:doSync] trajectory store 访问失败（非关键路径，已忽略）",
+          {
+            callSeq: opts.callSeq,
+            error: msg,
+          },
+        );
+      }
+    };
+    const scheduleTrajSync = (force: boolean = false): void => {
+      trajSyncCallCount += 1;
+      const callSeq = trajSyncCallCount;
+      const curTail = streamAggregator.getTailSeq();
+      const curEventsLen = streamAggregator.getEvents().length;
+      if (trajSyncPending && !force) {
+        logger.debug("[A2:schedule] skip (pending && !force)", {
+          callSeq,
+          force,
+          aggregatorTailSeq: curTail,
+          aggregatorEventsLen: curEventsLen,
+        });
+        return;
+      }
+      trajSyncPending = true;
+      logger.debug("[A2:schedule] entered", {
+        callSeq,
+        force,
+        pendingNow: trajSyncPending,
+        rafIdNotNull: trajSyncRafId !== null,
+        aggregatorTailSeq: curTail,
+        aggregatorEventsLen: curEventsLen,
+      });
+      if (force) {
+        // 强制同步：cancel 挂起的 rAF，立即执行
+        if (trajSyncRafId !== null) {
+          logger.debug("[A2:schedule] cancel pending rAF (force=true)", {
+            callSeq,
+            oldRafId: trajSyncRafId,
+          });
+          cancelAnimationFrame(trajSyncRafId);
+        }
+        doSync({ force: true, callSeq });
+      } else if (trajSyncRafId === null) {
+        trajSyncRafId = requestAnimationFrame(() =>
+          doSync({ force: false, callSeq }),
+        );
+        logger.debug("[A2:schedule] requestAnimationFrame scheduled", {
+          callSeq,
+          rafId: trajSyncRafId,
+        });
+      } else {
+        logger.debug(
+          "[A2:schedule] wait existing rAF (trajSyncPending marked)",
+          {
+            callSeq,
+            existingRafId: trajSyncRafId,
+          },
+        );
+      }
     };
 
     for await (const rawChunk of generator) {
@@ -388,6 +522,8 @@ export async function streamMessageImpl(
         chunkCount++;
         await processChunk(chunkCtx, chunk);
       }
+      // A2：每帧最多一次轨迹同步（节流）
+      scheduleTrajSync();
     }
 
     // 处理未闭合的 think 标签
@@ -395,6 +531,7 @@ export async function streamMessageImpl(
       for (const chunk of extractor.flush()) {
         await processChunk(chunkCtx, chunk);
       }
+      scheduleTrajSync();
     }
 
     // 根因 B：流式发送正常结束 → 后端已持久化该轮用户消息，清除该会话待补发消息（避免重复补发）
@@ -402,52 +539,91 @@ export async function streamMessageImpl(
       clearOutboxForSession(userMessage.session_id);
     }
 
+    // A2：流结束 —  cancel 挂起 rAF + 强制同步一次最终状态（轨迹面板显示到最后一个事件）
+    if (trajSyncRafId !== null) {
+      cancelAnimationFrame(trajSyncRafId);
+      trajSyncRafId = null;
+    }
+    scheduleTrajSync(true); // force=true：立即同步
+
     // 清除防抖定时器已在 SaveQueue.flush() 内部处理
     // P1-5: 清除幽灵块检测定时器
     clearInterval(ghostCheckTimer);
     await saveQueue.flush();
 
+    // M4：从 aggregator 派生最终 assistant 消息的 blocks（作为后续兜底/完整性检查/落盘的权威源）
+    const derivedMsgs = streamAggregator.deriveMessages();
+    const derivedAsstMsg = derivedMsgs.find((m) => m.id === assistantId);
+    const derivedBlocks: Message["blocks"] = derivedAsstMsg?.blocks ?? [];
+
+    // 流式结束后重置聚合器（事件已由后端追加到 events.jsonl 持久化，本地 events 丢弃避免内存泄漏）
+    const preResetTail = streamAggregator.getTailSeq();
+    const preResetEventsLen = streamAggregator.getEvents().length;
+    logger.debug("[A2:stream-end] about to streamAggregator.reset()", {
+      sessionId: sid,
+      preResetTail,
+      preResetEventsLen,
+      assistantId,
+    });
+    streamAggregator.reset();
+    logger.debug("[A2:stream-end] streamAggregator.reset() done", {
+      sessionId: sid,
+      afterResetTail: streamAggregator.getTailSeq(),
+      afterResetEventsLen: streamAggregator.getEvents().length,
+    });
+
     // P3-2: 无内容兜底 — 流正常结束（非用户取消）但未生成任何用户可见成果时处理。
-    // 核心：模型可能只输出了 <think> 未生成 <response>（think-only 场景），
-    // 此时把思考内容转为用户可见 text，避免"思考中无回复"的卡死观感；
-    // 完全无内容的才提示重试。
-    // 修复（2026-08-15）：tool_call 不再算"可见结果"——工具调用成功但无正文
-    // （模型在 thinking 里写完就收尾）时，必须触发兜底把思考转 text，否则该
-    // 场景永远暴露不了（CS02 根因修复，两条路径同步修改）。
+    // 修复（2026-08-15）：tool_call 不算"可见结果"——工具调用成功但无正文会触发兜底
     let noVisibleResultTriggered = false;
+    let finalBlocks: Message["blocks"] = derivedBlocks ?? [];
     if (!controller.signal.aborted) {
-      const preFreezeBlocks = blockBuilder.getBlocks();
-      const hasVisibleResult = preFreezeBlocks.some(
+      const hasVisibleResult = derivedBlocks.some(
         (b) => b.type === "text" || b.type === "question" || b.type === "todo",
       );
       if (!hasVisibleResult) {
         noVisibleResultTriggered = true;
-        // 1) 模型把内容写进了思考标签（think-only）→ 转为 text，保证沟通闭环
-        const thinkingText = preFreezeBlocks
+        // 1) think-only（只有 thinking 没有 text/question/todo）→ 转 text 兜底
+        const thinkingText = derivedBlocks
           .filter((b) => b.type === "thinking")
           .map((b) => b.content)
           .join("");
         if (thinkingText.trim()) {
-          // 转 text：重建 blocks 仅保留 text 块。
-          // 修复：此前 addText 追加导致 thinking 块 + text 块并存，思考内容渲染两遍。
-          blockBuilder.reset();
-          blockBuilder.addText(stripStructuralTags(thinkingText), false);
+          // 重建：保留 tool_call/status/progress 等非 thinking 块，
+          // 丢弃原 thinking 块 + 追加清洗后的思考 text。
+          // 与旧 blockBuilder.reset + addText 行为一致（思考内容不重复）。
+          const nowStamp = Date.now();
+          const fallbackTextBlock: MessageBlock = {
+            id: `blk_thinkfallback_${nowStamp}`,
+            type: "text",
+            content: stripStructuralTags(thinkingText),
+            isStreaming: false,
+            groupId: `grp_thinkfallback_${nowStamp}`,
+          };
+          finalBlocks = [
+            ...derivedBlocks.filter((b) => b.type !== "thinking"),
+            fallbackTextBlock,
+          ];
           logger.warn("streamMessage:think-only 转 text 兜底", {
             sessionId: sid,
             thinkingLen: thinkingText.length,
-            // 完整模型原始输出（清洗前），用于判断是否为工具调用失败 / 标签解析异常
             thinkingText,
-            blockTypes: preFreezeBlocks.map((b) => b.type),
+            blockTypes: derivedBlocks.map((b) => b.type),
           });
         } else {
-          // 2) 完全无内容 → 提示重试
-          blockBuilder.addStatus(
-            "⚠️ 本次回复未生成内容，请重试或检查模型/网络状态。",
-          );
+          // 2) 完全无内容 → 提示重试（追加 status 块）
+          const nowStamp = Date.now();
+          const fallbackBlock: MessageBlock = {
+            id: `blk_fallback_${nowStamp}`,
+            type: "status",
+            content: "⚠️ 本次回复未生成内容，请重试或检查模型/网络状态。",
+            isStreaming: false,
+            groupId: `grp_fallback_${nowStamp}`,
+          };
+          finalBlocks = [...derivedBlocks, fallbackBlock];
           logger.warn("streamMessage:无内容兜底触发", {
             sessionId: sid,
-            blockCount: preFreezeBlocks.length,
-            blockTypes: preFreezeBlocks.map((b) => b.type),
+            blockCount: derivedBlocks.length,
+            blockTypes: derivedBlocks.map((b) => b.type),
           });
         }
       }
@@ -456,7 +632,7 @@ export async function streamMessageImpl(
     // ── 流结束诊断埋点：记录结束原因 / 触发条件 / 耗时 / 块统计，供排查"无回复/卡死"类问题 ──
     {
       const blockStats: Record<string, number> = {};
-      for (const b of blockBuilder.getBlocks()) {
+      for (const b of finalBlocks) {
         blockStats[b.type] = (blockStats[b.type] ?? 0) + 1;
       }
       logger.info("streamMessage:流结束", {
@@ -472,12 +648,8 @@ export async function streamMessageImpl(
       });
     }
 
-    // 流结束，冻结所有块（用户取消/异常中断时 todo 不置 done——中止≠全部完成）
-    blockBuilder.freezeAll(!controller.signal.aborted);
-
     // P3-1: 流完整性检查 — 检测未完成的 tool_call 块，标记中断状态
-    const unfrozenBlocks = blockBuilder.getBlocks();
-    const incompleteToolCalls = unfrozenBlocks.filter(
+    const incompleteToolCalls = finalBlocks.filter(
       (b) => b.type === "tool_call" && b.toolCall?.status === "running",
     );
     if (incompleteToolCalls.length > 0) {
@@ -485,18 +657,24 @@ export async function streamMessageImpl(
         .map((b) => b.toolCall?.name)
         .filter(Boolean)
         .join("、");
-      blockBuilder.addStatus(
-        `⚠️ 任务中断：以下工具未完成 — ${names || `${incompleteToolCalls.length} 个工具`}`,
-      );
+      const nowStamp = Date.now();
+      const interruptBlock: MessageBlock = {
+        id: `blk_interrupt_${nowStamp}`,
+        type: "status",
+        content: `⚠️ 任务中断：以下工具未完成 — ${names || `${incompleteToolCalls.length} 个工具`}`,
+        isStreaming: false,
+        groupId: `grp_interrupt_${nowStamp}`,
+      };
+      finalBlocks = [...finalBlocks, interruptBlock];
       logger.warn("流完整性检查：发现未完成的 tool_call", {
         count: incompleteToolCalls.length,
         names,
       });
     }
 
-    // P0 修复：抽离"裸探索段"（模型未走 thinking 通道泄漏进正文的工具过程叙述）
+    // reorderExplorationBlocks：抽离"裸探索段"（泄漏进正文的工具过程叙述）
     // 为 thinking 块 + 干净正文，保证落盘 blocks 与后端剥离后的 content 一致
-    const finalBlocks = reorderExplorationBlocks(blockBuilder.getBlocks());
+    finalBlocks = reorderExplorationBlocks(finalBlocks);
 
     // 版本号递增：使 pending 的 rAF flushSet 全部失效，
     // 旧版本的回调被丢弃，不再覆盖最终状态

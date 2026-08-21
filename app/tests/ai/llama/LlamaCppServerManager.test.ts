@@ -13,7 +13,7 @@
 
 import { describe, it, expect, mock, beforeEach, afterEach } from 'bun:test';
 import { EventEmitter } from 'events';
-import { existsSync, mkdtempSync, rmSync } from 'fs';
+import { existsSync, mkdtempSync, rmSync, writeFileSync, mkdirSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import AdmZip from 'adm-zip';
@@ -92,9 +92,11 @@ function healthRes(ok: boolean): {
   };
 }
 
-// ── 路径隔离 ────────────────────────────────────────────────
+// ── 路径隔离 + 测试环境依赖隔离 ──────────────────────────────
 
 let tmpDir: string;
+let savedCheckPortAvailable: typeof LlamaCppServerManager.checkPortAvailable;
+let checkPortMockedCalls = 0;
 
 beforeEach(() => {
   tmpDir = mkdtempSync(join(tmpdir(), 'llama-test-'));
@@ -104,12 +106,43 @@ beforeEach(() => {
   spawnCalls.length = 0;
   procs.length = 0;
   LlamaCppServerManager.resetInstance();
+  // H 类补充 #2 修复：mock 静态端口探测，消除真实环境端口占用的耦合
+  // （测试目标是参数组装/进程生命周期语义，不需要真实 TCP bind 行为）
+  savedCheckPortAvailable = LlamaCppServerManager.checkPortAvailable;
+  checkPortMockedCalls = 0;
+  LlamaCppServerManager.checkPortAvailable = async (_host, port) => {
+    checkPortMockedCalls++;
+    // 对所有测试显式配置的端口一律放行（非冲突环境模拟）
+    // 即使 11435 被用户真实 llama-server 占用，也不影响断言
+    void port;
+    return true;
+  };
 });
 
 afterEach(() => {
   rmSync(tmpDir, { recursive: true, force: true });
   delete process.env.LIRI_DATA_DIR;
+  LlamaCppServerManager.checkPortAvailable = savedCheckPortAvailable;
 });
+
+/**
+ * H 类补充 #1/#2/#3 修复：在 tmpDir 下创建"看起来存在的 GGUF 文件"（大小>0）。
+ * 生产 start() 新增 statSync 预检查（K-2）：不存在/0 字节 → 直接 return 不 spawn。
+ * 之前所有用例写的是 /tmp/models/...（Windows 不存在）→ spawnCalls=0 → procs[0] undefined TypeError。
+ * 现在统一写入真实临时文件，确保 start() 能通过预检查走到 spawn 分支。
+ * @returns 生成的绝对路径（应该直接填入 config.model）
+ */
+function touchValidGguf(filename = 'model.gguf', bytes = 8): string {
+  const dir = join(tmpDir, 'models');
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+  const path = join(dir, filename);
+  // 前 4 字节 GGUF 魔数（语义正确；start 本身不校魔数，仅 ModelDownloadService._verifyFile 校验）
+  // 后面 pad 0 填充到 bytes 大小（bytes>=8 默认，保证 size>0）
+  const header = Buffer.from('GGUF', 'ascii');
+  const pad = Buffer.alloc(Math.max(0, bytes - header.length), 0);
+  writeFileSync(path, Buffer.concat([header, pad]));
+  return path;
+}
 
 /**
  * 临时禁用当前版本的登记值（fake zip 与真实 SHA256 必然不符），用后恢复。
@@ -332,6 +365,8 @@ describe('start（拉起子进程）', () => {
     const restore = disableSha256();
     // 下载二进制
     const zipBuf = makeZip();
+    // H 类补充 #1：模型文件必须存在，否则 K-2 statSync 检查直接 return 不 spawn
+    const modelPath = touchValidGguf('llama3.1-8b.gguf');
     let healthCalls = 0;
     const fetchMock = mock((url: string | URL) => {
       const u = String(url);
@@ -348,9 +383,10 @@ describe('start（拉起子进程）', () => {
     });
     globalThis.fetch = fetchMock as typeof fetch;
 
+    // H 类补充 #2：显式选不常被占用的 29711（配合 checkPortAvailable mock 形成双保险）
     const mgr = new LlamaCppServerManager(() => ({
-      port: 11436,
-      model: '/tmp/models/llama3.1-8b.gguf',
+      port: 29711,
+      model: modelPath,
       gpuLayers: 8,
       contextWindow: 8192,
     }));
@@ -360,12 +396,13 @@ describe('start（拉起子进程）', () => {
     const { cmd, args } = spawnCalls[0];
     expect(cmd).toContain('llama-server');
     expect(args).toContain('--port');
-    expect(args[args.indexOf('--port') + 1]).toBe('11436');
+    expect(args[args.indexOf('--port') + 1]).toBe('29711');
     expect(args).toContain('--model');
-    expect(args[args.indexOf('--model') + 1]).toBe('/tmp/models/llama3.1-8b.gguf');
+    expect(args[args.indexOf('--model') + 1]).toBe(modelPath);
     expect(args).toContain('--n-gpu-layers');
     expect(args[args.indexOf('--n-gpu-layers') + 1]).toBe('8');
     expect(args).toContain('--ctx-size');
+    // f2-1 验证：contextWindow:8192 在模型文件不存在时也被尊重（不兜底 4096）
     expect(args[args.indexOf('--ctx-size') + 1]).toBe('8192');
 
     // 清理：stop 避免悬挂
@@ -403,6 +440,8 @@ describe('崩溃退避重启', () => {
   it('子进程非主动退出时记录 restartCount 并计划重启', async () => {
     const restore = disableSha256();
     const zipBuf = makeZip();
+    // H 类补充 #3 修复：touch 真实 gguf，保证 start() 通过 K-2 预检查才会 spawn（否则 procs[0] undefined TypeError）
+    const modelPath = touchValidGguf('x.gguf');
     let healthCalls = 0;
     globalThis.fetch = mock((url: string | URL) => {
       if (String(url).includes('/health')) {
@@ -417,12 +456,14 @@ describe('崩溃退避重启', () => {
     }) as typeof fetch;
 
     const mgr = new LlamaCppServerManager(() => ({
-      model: '/tmp/models/x.gguf',
+      port: 29711,
+      model: modelPath,
     }));
     await mgr.start();
     expect(spawnCalls).toHaveLength(1);
 
     // 模拟崩溃退出
+    if (procs.length < 1) throw new Error('spawn 未执行，无法模拟进程退出');
     procs[0]._emit('exit', 1, null);
     await new Promise((r) => setTimeout(r, 10));
 
@@ -437,6 +478,7 @@ describe('崩溃退避重启', () => {
   it('stop 后子进程退出不触发重启', async () => {
     const restore = disableSha256();
     const zipBuf = makeZip();
+    const modelPath = touchValidGguf('x.gguf');
     let healthCalls = 0;
     globalThis.fetch = mock((url: string | URL) => {
       if (String(url).includes('/health')) {
@@ -451,12 +493,14 @@ describe('崩溃退避重启', () => {
     }) as typeof fetch;
 
     const mgr = new LlamaCppServerManager(() => ({
-      model: '/tmp/models/x.gguf',
+      port: 29711,
+      model: modelPath,
     }));
     await mgr.start();
     await mgr.stop();
 
-    // stop 后崩溃退出 → 不重启
+    // stop 后崩溃退出 → 不重启（H 类补充 #3：procs[0] 守卫避免 start 未 spawn 时报 TypeError）
+    if (procs.length < 1) throw new Error('spawn 未执行，无法验证 stop 后的退出语义');
     procs[0]._emit('exit', 1, null);
     await new Promise((r) => setTimeout(r, 10));
 

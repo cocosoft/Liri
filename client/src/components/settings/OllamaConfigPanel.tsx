@@ -21,7 +21,13 @@ interface OllamaConfigPanelProps {
 
 function OllamaConfigPanel({ isDark }: OllamaConfigPanelProps) {
   const navigate = useNavigate();
-  const { providers, loadProviders, toggleProvider, updateProvider, createProvider } = useModelAdminStore();
+  const {
+    providers,
+    loadProviders,
+    toggleProvider,
+    updateProvider,
+    createProvider,
+  } = useModelAdminStore();
   const { models, loadModels } = useModelStore();
 
   const [ollamaStatus, setOllamaStatus] = useState<{
@@ -44,7 +50,11 @@ function OllamaConfigPanel({ isDark }: OllamaConfigPanelProps) {
     return m.providerId === ollamaProvider.id;
   });
 
-  const loadStatus = useCallback(async (): Promise<{ running: boolean; port?: number; model?: string } | null> => {
+  const loadStatus = useCallback(async (): Promise<{
+    running: boolean;
+    port?: number;
+    model?: string;
+  } | null> => {
     logger.info("开始检测 Ollama 服务状态");
     try {
       const statuses = await modelService.providerStatus();
@@ -57,7 +67,7 @@ function OllamaConfigPanel({ isDark }: OllamaConfigPanelProps) {
         })),
       });
       const ollamaStatusInfo = statuses.find(
-        (s) => s.providerType === "ollama"
+        (s) => s.providerType === "ollama",
       );
       if (ollamaStatusInfo) {
         const result = {
@@ -69,7 +79,9 @@ function OllamaConfigPanel({ isDark }: OllamaConfigPanelProps) {
         setOllamaStatus(result);
         return result;
       } else {
-        logger.warn("providerStatus 列表中未找到 ollama 类型，Ollama Provider 可能未在后端注册");
+        logger.warn(
+          "providerStatus 列表中未找到 ollama 类型，Ollama Provider 可能未在后端注册",
+        );
         setOllamaStatus({ running: false });
         return { running: false };
       }
@@ -95,7 +107,9 @@ function OllamaConfigPanel({ isDark }: OllamaConfigPanelProps) {
       const provider = latestProviders.find((p) => p.providerType === "ollama");
       const url = provider?.baseUrl || "http://localhost:11434/v1";
       setConfigUrl(url);
-      const ollamaModelsCount = latestModels.filter((m) => provider && m.providerId === provider.id).length;
+      const ollamaModelsCount = latestModels.filter(
+        (m) => provider && m.providerId === provider.id,
+      ).length;
       logger.info("配置加载完成", {
         providerCount: latestProviders.length,
         hasOllamaProvider: !!provider,
@@ -254,7 +268,9 @@ function OllamaConfigPanel({ isDark }: OllamaConfigPanelProps) {
         errorStack: e instanceof Error ? e.stack : undefined,
       });
       handleClientError(e, { module: "settings:ollama", action: "create" });
-      setError(e instanceof Error ? e.message : "自动创建 Ollama Provider 失败");
+      setError(
+        e instanceof Error ? e.message : "自动创建 Ollama Provider 失败",
+      );
     } finally {
       setCreating(false);
     }
@@ -283,7 +299,9 @@ function OllamaConfigPanel({ isDark }: OllamaConfigPanelProps) {
       >
         <ConfigItem label="服务状态" isDark={isDark}>
           <div className="flex items-center gap-2 flex-wrap">
-            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusClass}`}>
+            <span
+              className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusClass}`}
+            >
               {statusLabel}
             </span>
             {ollamaStatus?.running && (
@@ -380,7 +398,8 @@ function OllamaConfigPanel({ isDark }: OllamaConfigPanelProps) {
             </ConfigItem>
             <ConfigItem label="类型" isDark={isDark}>
               <span className="text-sm">
-                {PROVIDER_TYPE_LABELS[ollamaProvider.providerType] || ollamaProvider.providerType}
+                {PROVIDER_TYPE_LABELS[ollamaProvider.providerType] ||
+                  ollamaProvider.providerType}
               </span>
             </ConfigItem>
             <ConfigItem label="启用状态" isDark={isDark}>
@@ -395,12 +414,16 @@ function OllamaConfigPanel({ isDark }: OllamaConfigPanelProps) {
             </ConfigItem>
           </>
         ) : (
-          <div className={`p-4 text-center rounded-lg border-2 border-dashed ${
-            isDark
-              ? "border-gray-700 text-gray-500"
-              : "border-gray-300 text-gray-400"
-          }`}>
-            <div className="text-sm mb-3">Ollama Provider 尚未添加到模型管理</div>
+          <div
+            className={`p-4 text-center rounded-lg border-2 border-dashed ${
+              isDark
+                ? "border-gray-700 text-gray-500"
+                : "border-gray-300 text-gray-400"
+            }`}
+          >
+            <div className="text-sm mb-3">
+              Ollama Provider 尚未添加到模型管理
+            </div>
             <div className="flex gap-2 justify-center">
               <button
                 onClick={() => void handleAutoCreateProvider()}
@@ -436,9 +459,7 @@ function OllamaConfigPanel({ isDark }: OllamaConfigPanelProps) {
               <div
                 key={model.id}
                 className={`flex items-center justify-between gap-2 py-1.5 px-3 rounded ${
-                  isDark
-                    ? "hover:bg-gray-800"
-                    : "hover:bg-gray-50"
+                  isDark ? "hover:bg-gray-800" : "hover:bg-gray-50"
                 }`}
               >
                 <div className="flex-1 min-w-0">
@@ -447,14 +468,18 @@ function OllamaConfigPanel({ isDark }: OllamaConfigPanelProps) {
                   </div>
                   <div className="text-xs text-gray-500 dark:text-gray-400">
                     {model.enabled ? "已启用" : "已禁用"}
-                    {model.context_length ? ` · 上下文 ${model.context_length}` : ""}
+                    {model.context_length
+                      ? ` · 上下文 ${model.context_length}`
+                      : ""}
                   </div>
                 </div>
               </div>
             ))}
           </div>
         ) : (
-          <div className={`text-sm text-center py-4 ${isDark ? "text-gray-500" : "text-gray-400"}`}>
+          <div
+            className={`text-sm text-center py-4 ${isDark ? "text-gray-500" : "text-gray-400"}`}
+          >
             {ollamaStatus?.running
               ? "Ollama 正在运行，但模型尚未同步到模型管理系统。"
               : "Ollama 未运行，无法读取已安装模型。"}

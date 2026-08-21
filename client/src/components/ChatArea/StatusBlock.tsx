@@ -36,15 +36,16 @@ function StatusBlock({
   // 压缩完成：静态图标
   const isCompactionDone = status === "compaction" && phase === "done";
 
-  const icon = isRunning || isCompacting ? (
-    <span style={styles.dot}></span>
-  ) : isToolStatus ? (
-    "📦"
-  ) : isCompactionDone ? (
-    "🗜️"
-  ) : (
-    "⚪"
-  );
+  const icon =
+    isRunning || isCompacting ? (
+      <span style={styles.dot}></span>
+    ) : isToolStatus ? (
+      "📦"
+    ) : isCompactionDone ? (
+      "🗜️"
+    ) : (
+      "⚪"
+    );
 
   return (
     <div style={styles.container}>

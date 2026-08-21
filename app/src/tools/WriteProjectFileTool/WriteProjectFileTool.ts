@@ -16,7 +16,13 @@ import { handleError } from '@modules/error';
 import { resolveDataDir } from '@modules/core/paths';
 import { createProjectStore } from '../../workspace/ProjectStore.js';
 import { WorkItemStore } from '../../workspace/WorkItemStore.js';
-import { writeFileSync, existsSync, mkdirSync, realpathSync } from 'fs';
+import {
+  writeFileSync,
+  existsSync,
+  mkdirSync,
+  realpathSync,
+  readFileSync,
+} from 'fs';
 import { resolve, normalize, dirname, basename, extname, join } from 'path';
 
 const logger = getLogger('tools:write_project_file');
@@ -62,7 +68,9 @@ export class WriteProjectFileTool {
     return {
       name: 'write_project_file',
       description:
-        '向项目文件夹写入文件。传入项目 ID、相对路径和文件内容。AI 产出物自动保存到项目文件夹。仅允许写入项目 sandbox 内的文件。',
+        '向项目文件夹写入文件。传入项目 ID、相对路径和文件内容。AI 产出物自动保存到项目文件夹。仅允许写入项目 sandbox 内的文件。' +
+        '当内容已存在于本地文件（如 AI 刚生成的 md/html/docx/方案文档），必须优先传 source_file 路径而非复述长内容——' +
+        '0 输出 token，无截断与内存爆炸风险。',
       params: [
         {
           name: 'projectId',
@@ -79,8 +87,16 @@ export class WriteProjectFileTool {
         {
           name: 'content',
           type: 'string',
-          description: '要写入的文件内容',
-          required: true,
+          description: '要写入的文件内容（小内容推荐；大内容推荐 source_file）',
+          required: false,
+        },
+        {
+          name: 'source_file',
+          type: 'string',
+          description:
+            '本地已有文件路径，内容从该文件拷贝到项目文件夹。' +
+            '大内容/长文档必须优先此项 — 0 输出 token、不截断。',
+          required: false,
         },
       ],
       aliases: ['write_project', 'save_to_project'],
@@ -98,7 +114,14 @@ export class WriteProjectFileTool {
         try {
           const projectId = String(input.projectId || '');
           const relativePath = String(input.relativePath || '');
-          const content = String(input.content || '');
+          const rawContent = input.content;
+          const hasContent =
+            typeof rawContent === 'string' && rawContent.trim().length > 0;
+          const sourceFile =
+            typeof input.source_file === 'string' &&
+            input.source_file.trim().length > 0
+              ? input.source_file
+              : undefined;
 
           span.setAttribute('projectId', projectId);
 
@@ -109,6 +132,18 @@ export class WriteProjectFileTool {
                 {
                   role: 'assistant' as const,
                   content: '缺少 projectId 或 relativePath 参数',
+                },
+              ],
+            });
+          }
+          if (!hasContent && !sourceFile) {
+            span.setStatus({ code: SpanStatusCode.OK });
+            return createToolResult(null, {
+              newMessages: [
+                {
+                  role: 'assistant' as const,
+                  content:
+                    '缺少参数 content 或 source_file（内容在本地文件时必须优先使用 source_file，避免复述长内容导致 token 爆炸）',
                 },
               ],
             });
@@ -211,7 +246,48 @@ export class WriteProjectFileTool {
             }
           }
 
-          writeFileSync(rawPath, content, 'utf-8');
+          // source_file 优先：从盘读（0 输出 token）
+          let effectiveContent: string;
+          if (sourceFile && !hasContent) {
+            const src = resolve(sourceFile);
+            if (!existsSync(src)) {
+              span.setStatus({ code: SpanStatusCode.OK });
+              return createToolResult(null, {
+                newMessages: [
+                  {
+                    role: 'assistant' as const,
+                    content: `source_file 指定的文件不存在: ${src}`,
+                  },
+                ],
+              });
+            }
+            try {
+              effectiveContent = readFileSync(src, 'utf-8');
+              logger.info(
+                'WriteProjectFileTool: source_file 读取成功，写入项目',
+                {
+                  projectId,
+                  sourceFile: src,
+                  target: targetRelative,
+                  bytes: Buffer.byteLength(effectiveContent),
+                }
+              );
+            } catch (e) {
+              span.setStatus({ code: SpanStatusCode.OK });
+              return createToolResult(null, {
+                newMessages: [
+                  {
+                    role: 'assistant' as const,
+                    content: `source_file 读取失败: ${src}（${e instanceof Error ? e.message : String(e)}）`,
+                  },
+                ],
+              });
+            }
+          } else {
+            effectiveContent = String(rawContent || '');
+          }
+
+          writeFileSync(rawPath, effectiveContent, 'utf-8');
 
           logger.info('项目文件已写入', { projectId, path: targetRelative });
 
@@ -248,7 +324,7 @@ export class WriteProjectFileTool {
             JSON.stringify({
               path: targetRelative,
               sandboxPath,
-              size: Buffer.byteLength(content, 'utf-8'),
+              size: Buffer.byteLength(effectiveContent, 'utf-8'),
             }),
             {
               newMessages: [

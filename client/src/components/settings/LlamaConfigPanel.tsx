@@ -93,24 +93,31 @@ function LlamaConfigPanel({ isDark }: LlamaConfigPanelProps) {
   // ─── 硬件检测 / 推荐 ──────────────────────────────────────────
   const [hardware, setHardware] = useState<LlamaHardwareInfo | null>(null);
   const [hardwareDetecting, setHardwareDetecting] = useState(false);
-  const [recommendations, setRecommendations] = useState<LlamaModelRecommendation[]>([]);
+  const [recommendations, setRecommendations] = useState<
+    LlamaModelRecommendation[]
+  >([]);
 
   // ─── 迁移 ────────────────────────────────────────────────────
   const [migrating, setMigrating] = useState(false);
-  const [migrateProgress, setMigrateProgress] = useState<MigrateProgress | null>(null);
-  const [migrateResult, setMigrateResult] = useState<LlamaMigrateResponse | null>(null);
+  const [migrateProgress, setMigrateProgress] =
+    useState<MigrateProgress | null>(null);
+  const [migrateResult, setMigrateResult] =
+    useState<LlamaMigrateResponse | null>(null);
   const [migrateError, setMigrateError] = useState<string | null>(null);
   const [migrateShowConfirm, setMigrateShowConfirm] = useState(false);
   const [migrateCopy, setMigrateCopy] = useState(false);
   const [migrateOverwrite, setMigrateOverwrite] = useState(false);
 
   // ─── 下载 ────────────────────────────────────────────────────
-  const [downloadingVersion, setDownloadingVersion] = useState<string | null>(null);
+  const [downloadingVersion, setDownloadingVersion] = useState<string | null>(
+    null,
+  );
   const [downloadProgress, setDownloadProgress] = useState<{
     percent?: number;
     status?: string;
   } | null>(null);
-  const [downloadComplete, setDownloadComplete] = useState<LlamaDownloadedModelInfo | null>(null);
+  const [downloadComplete, setDownloadComplete] =
+    useState<LlamaDownloadedModelInfo | null>(null);
   const [downloadError, setDownloadError] = useState<string | null>(null);
 
   // ─── 强制杀死/重启操作 ──────────────────────────────────────
@@ -152,7 +159,10 @@ function LlamaConfigPanel({ isDark }: LlamaConfigPanelProps) {
       const recs = await llamaService.getRecommendations();
       setRecommendations(recs);
     } catch (e) {
-      handleClientError(e, { module: "settings:llama", action: "detect_hardware" });
+      handleClientError(e, {
+        module: "settings:llama",
+        action: "detect_hardware",
+      });
       setError(e instanceof Error ? e.message : "硬件检测失败");
     } finally {
       setHardwareDetecting(false);
@@ -251,7 +261,10 @@ function LlamaConfigPanel({ isDark }: LlamaConfigPanelProps) {
     try {
       await llamaService.cancelMigration();
     } catch (e) {
-      handleClientError(e, { module: "settings:llama", action: "cancel_migrate" });
+      handleClientError(e, {
+        module: "settings:llama",
+        action: "cancel_migrate",
+      });
     }
   };
 
@@ -280,7 +293,10 @@ function LlamaConfigPanel({ isDark }: LlamaConfigPanelProps) {
         onError: (e) => setDownloadError(e),
       });
     } catch (e) {
-      handleClientError(e, { module: "settings:llama", action: "download_model" });
+      handleClientError(e, {
+        module: "settings:llama",
+        action: "download_model",
+      });
       setDownloadError(e instanceof Error ? e.message : "下载失败");
     } finally {
       setDownloadingVersion(null);
@@ -298,7 +314,10 @@ function LlamaConfigPanel({ isDark }: LlamaConfigPanelProps) {
       setSavedMsg(`已删除模型 ${filename}`);
       void load();
     } catch (e) {
-      handleClientError(e, { module: "settings:llama", action: "delete_model" });
+      handleClientError(e, {
+        module: "settings:llama",
+        action: "delete_model",
+      });
       setError(e instanceof Error ? e.message : "删除模型失败");
     }
   };
@@ -335,7 +354,10 @@ function LlamaConfigPanel({ isDark }: LlamaConfigPanelProps) {
       }
       await load();
     } catch (e) {
-      handleClientError(e, { module: "settings:llama", action: "forceRestart" });
+      handleClientError(e, {
+        module: "settings:llama",
+        action: "forceRestart",
+      });
       setError(e instanceof Error ? e.message : "强制重启失败");
     } finally {
       setForceRestarting(false);
@@ -350,7 +372,9 @@ function LlamaConfigPanel({ isDark }: LlamaConfigPanelProps) {
       setLogsContent(logs);
     } catch (e) {
       handleClientError(e, { module: "settings:llama", action: "getLogs" });
-      setLogsContent(`获取日志失败: ${e instanceof Error ? e.message : String(e)}`);
+      setLogsContent(
+        `获取日志失败: ${e instanceof Error ? e.message : String(e)}`,
+      );
     } finally {
       setLogsLoading(false);
     }
@@ -367,23 +391,29 @@ function LlamaConfigPanel({ isDark }: LlamaConfigPanelProps) {
     setLogStreamActive(true);
 
     try {
-      const controller = await llamaService.subscribeLogsStream({
-        onInitial: (logs) => {
-          setLogsContent(logs);
-          logsEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      const controller = await llamaService.subscribeLogsStream(
+        {
+          onInitial: (logs) => {
+            setLogsContent(logs);
+            logsEndRef.current?.scrollIntoView({ behavior: "smooth" });
+          },
+          onLog: (logs) => {
+            setLogsContent((prev) => prev + logs);
+            logsEndRef.current?.scrollIntoView({ behavior: "smooth" });
+          },
+          onError: (err) => {
+            setLogsContent((prev) => prev + `\n[错误] ${err}\n`);
+            setLogStreamActive(false);
+          },
         },
-        onLog: (logs) => {
-          setLogsContent((prev) => prev + logs);
-          logsEndRef.current?.scrollIntoView({ behavior: "smooth" });
-        },
-        onError: (err) => {
-          setLogsContent((prev) => prev + `\n[错误] ${err}\n`);
-          setLogStreamActive(false);
-        },
-      }, 200);
+        200,
+      );
       logStreamControllerRef.current = controller;
     } catch (e) {
-      handleClientError(e, { module: "settings:llama", action: "subscribeLogs" });
+      handleClientError(e, {
+        module: "settings:llama",
+        action: "subscribeLogs",
+      });
       setLogStreamActive(false);
     }
   };
@@ -764,7 +794,8 @@ function LlamaConfigPanel({ isDark }: LlamaConfigPanelProps) {
           <>
             <ConfigItem label="CPU 核心" isDark={isDark}>
               <span className="text-sm">
-                {hardware.cpuCores} 核心 / 系统 {hardware.systemMemoryGB} GB 内存
+                {hardware.cpuCores} 核心 / 系统 {hardware.systemMemoryGB} GB
+                内存
               </span>
             </ConfigItem>
             <ConfigItem label="GPU" isDark={isDark}>
@@ -842,7 +873,8 @@ function LlamaConfigPanel({ isDark }: LlamaConfigPanelProps) {
                         )}
                       </div>
                       <div className="text-xs text-gray-500 mt-1">
-                        大小 {rec.fileSizeGB} GB · 运行内存 ~{rec.estimatedRamGB} GB · 质量 {rec.qualityScore}/100
+                        大小 {rec.fileSizeGB} GB · 运行内存 ~
+                        {rec.estimatedRamGB} GB · 质量 {rec.qualityScore}/100
                       </div>
                       <div className="text-xs text-gray-400 mt-1">
                         💡 {rec.recommendationReason}
@@ -1005,7 +1037,9 @@ function LlamaConfigPanel({ isDark }: LlamaConfigPanelProps) {
                     <div className="font-medium">
                       迁移完成（耗时 {migrateResult.elapsedMs}ms）
                     </div>
-                    <div>✓ 已迁移: {migrateResult.migratedFiles.length} 个文件</div>
+                    <div>
+                      ✓ 已迁移: {migrateResult.migratedFiles.length} 个文件
+                    </div>
                     {migrateResult.skippedFiles.length > 0 && (
                       <div className="text-yellow-600">
                         ⊘ 已跳过: {migrateResult.skippedFiles.length} 个

@@ -105,9 +105,7 @@ export function ChannelMonitorPanel() {
       data?: Record<string, unknown>;
     }) => {
       setChannels((prev) => {
-        const idx = prev.findIndex(
-          (c) => c.channelId === event.channelId,
-        );
+        const idx = prev.findIndex((c) => c.channelId === event.channelId);
         if (idx === -1) return prev;
         const next = [...prev];
         const current = next[idx];
@@ -190,7 +188,8 @@ export function ChannelMonitorPanel() {
             logger.warn("SSE 事件解析失败", {
               type,
               error: String(error),
-              rawData: typeof e.data === "string" ? e.data.slice(0, 200) : e.data,
+              rawData:
+                typeof e.data === "string" ? e.data.slice(0, 200) : e.data,
             });
           }
         });
@@ -247,46 +246,43 @@ export function ChannelMonitorPanel() {
     };
   }, [applyEvent]);
 
-  const handleForceReconnect = useCallback(
-    async (channelId: string) => {
-      const t0 = Date.now();
-      logger.info("强制重连请求发起", { channelId });
-      setReconnectingIds((prev) => new Set(prev).add(channelId));
-      try {
-        const result = await channelService.forceReconnect(channelId);
-        logger.info("强制重连请求完成", {
-          channelId,
-          recovered: result.recovered,
-          error: result.error ?? null,
-          elapsedMs: Date.now() - t0,
-        });
-        if (!result.recovered) {
-          handleClientError(
-            new Error(result.error ?? "强制重连后探测仍不健康"),
-            { module: "ChannelMonitorPanel", action: "forceReconnect" },
-          );
-        }
-        // 成功/失败状态由 SSE status_change/recovered 事件驱动刷新
-      } catch (error) {
-        logger.warn("强制重连请求异常", {
-          channelId,
-          error: String(error),
-          elapsedMs: Date.now() - t0,
-        });
-        handleClientError(error, {
+  const handleForceReconnect = useCallback(async (channelId: string) => {
+    const t0 = Date.now();
+    logger.info("强制重连请求发起", { channelId });
+    setReconnectingIds((prev) => new Set(prev).add(channelId));
+    try {
+      const result = await channelService.forceReconnect(channelId);
+      logger.info("强制重连请求完成", {
+        channelId,
+        recovered: result.recovered,
+        error: result.error ?? null,
+        elapsedMs: Date.now() - t0,
+      });
+      if (!result.recovered) {
+        handleClientError(new Error(result.error ?? "强制重连后探测仍不健康"), {
           module: "ChannelMonitorPanel",
           action: "forceReconnect",
         });
-      } finally {
-        setReconnectingIds((prev) => {
-          const next = new Set(prev);
-          next.delete(channelId);
-          return next;
-        });
       }
-    },
-    [],
-  );
+      // 成功/失败状态由 SSE status_change/recovered 事件驱动刷新
+    } catch (error) {
+      logger.warn("强制重连请求异常", {
+        channelId,
+        error: String(error),
+        elapsedMs: Date.now() - t0,
+      });
+      handleClientError(error, {
+        module: "ChannelMonitorPanel",
+        action: "forceReconnect",
+      });
+    } finally {
+      setReconnectingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(channelId);
+        return next;
+      });
+    }
+  }, []);
 
   /** 拉取最近消息链路（方案 A） */
   const loadTraces = useCallback(async () => {
@@ -368,75 +364,73 @@ export function ChannelMonitorPanel() {
         <MessageTracesView
           traces={traces}
           expandedTrace={expandedTrace}
-          onToggle={(id) =>
-            setExpandedTrace(expandedTrace === id ? null : id)
-          }
+          onToggle={(id) => setExpandedTrace(expandedTrace === id ? null : id)}
           onRefresh={() => void loadTraces()}
         />
       ) : (
         <div className="space-y-1.5 max-h-72 overflow-y-auto">
-        {channels.map((ch) => {
-          const badge = STATUS_BADGE[ch.status] ?? STATUS_BADGE.disconnected;
-          const busy = reconnectingIds.has(ch.channelId);
-          return (
-            <div
-              key={ch.channelId}
-              className="flex items-center gap-2 text-xs py-1.5 px-2 rounded hover:bg-gray-50 dark:hover:bg-gray-700/40"
-            >
-              <span className="font-medium text-gray-700 dark:text-gray-200 w-24 truncate">
-                {ch.channelId}
-              </span>
-              <span
-                className={`px-1.5 py-0.5 rounded text-[11px] ${badge.className}`}
+          {channels.map((ch) => {
+            const badge = STATUS_BADGE[ch.status] ?? STATUS_BADGE.disconnected;
+            const busy = reconnectingIds.has(ch.channelId);
+            return (
+              <div
+                key={ch.channelId}
+                className="flex items-center gap-2 text-xs py-1.5 px-2 rounded hover:bg-gray-50 dark:hover:bg-gray-700/40"
               >
-                {badge.label}
-              </span>
-              {ch.latencyMs !== null && (
-                <span className="text-gray-500 dark:text-gray-400">
-                  {ch.latencyMs}ms
+                <span className="font-medium text-gray-700 dark:text-gray-200 w-24 truncate">
+                  {ch.channelId}
                 </span>
-              )}
-              {ch.reconnectCount > 0 && (
-                <span className="text-yellow-600 dark:text-yellow-400">
-                  重连×{ch.reconnectCount}
+                <span
+                  className={`px-1.5 py-0.5 rounded text-[11px] ${badge.className}`}
+                >
+                  {badge.label}
                 </span>
-              )}
-              {ch.uptimeMs > 0 && (
-                <span className="text-gray-400 dark:text-gray-500">
-                  {formatDuration(ch.uptimeMs)}
-                </span>
-              )}
-              {ch.lastError && (
+                {ch.latencyMs !== null && (
+                  <span className="text-gray-500 dark:text-gray-400">
+                    {ch.latencyMs}ms
+                  </span>
+                )}
+                {ch.reconnectCount > 0 && (
+                  <span className="text-yellow-600 dark:text-yellow-400">
+                    重连×{ch.reconnectCount}
+                  </span>
+                )}
+                {ch.uptimeMs > 0 && (
+                  <span className="text-gray-400 dark:text-gray-500">
+                    {formatDuration(ch.uptimeMs)}
+                  </span>
+                )}
+                {ch.lastError && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setExpanded(
+                        expanded === ch.channelId ? null : ch.channelId,
+                      )
+                    }
+                    className="text-red-500 hover:underline truncate max-w-40 text-left"
+                    title={ch.lastError}
+                  >
+                    {ch.lastError}
+                  </button>
+                )}
                 <button
                   type="button"
-                  onClick={() =>
-                    setExpanded(
-                      expanded === ch.channelId ? null : ch.channelId,
-                    )
-                  }
-                  className="text-red-500 hover:underline truncate max-w-40 text-left"
-                  title={ch.lastError}
+                  disabled={busy || !ch.enabled}
+                  onClick={() => void handleForceReconnect(ch.channelId)}
+                  className="ml-auto text-[11px] px-2 py-0.5 rounded border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed"
                 >
-                  {ch.lastError}
+                  {busy ? "重连中…" : "强制重连"}
                 </button>
-              )}
-              <button
-                type="button"
-                disabled={busy || !ch.enabled}
-                onClick={() => void handleForceReconnect(ch.channelId)}
-                className="ml-auto text-[11px] px-2 py-0.5 rounded border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                {busy ? "重连中…" : "强制重连"}
-              </button>
 
-              {expanded === ch.channelId && ch.lastErrorSnapshot && (
-                <pre className="w-full mt-1 p-2 rounded bg-gray-50 dark:bg-gray-900/60 text-[10px] text-gray-600 dark:text-gray-300 whitespace-pre-wrap break-all max-h-32 overflow-y-auto">
-                  {ch.lastErrorSnapshot}
-                </pre>
-              )}
-            </div>
-          );
-        })}
+                {expanded === ch.channelId && ch.lastErrorSnapshot && (
+                  <pre className="w-full mt-1 p-2 rounded bg-gray-50 dark:bg-gray-900/60 text-[10px] text-gray-600 dark:text-gray-300 whitespace-pre-wrap break-all max-h-32 overflow-y-auto">
+                    {ch.lastErrorSnapshot}
+                  </pre>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
@@ -460,8 +454,7 @@ const TRACE_STATUS_BADGE: Record<
   },
   fail: {
     label: "失败",
-    className:
-      "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300",
+    className: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300",
   },
   rejected: {
     label: "被拒",

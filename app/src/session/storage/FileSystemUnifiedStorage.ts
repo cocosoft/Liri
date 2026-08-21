@@ -1,5 +1,5 @@
 import fs from 'fs/promises';
-import { Dirent } from 'fs';
+import { Dirent, existsSync } from 'fs';
 import path from 'path';
 
 import { registerStorage } from './StorageFactory.js';
@@ -254,13 +254,38 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
       }
       this.messages.set(sessionId, [...msgMap.values()]);
     } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
       // 仅文件不存在/IO 失败等整体异常才置空（与旧行为一致）
       logger.warn('loadMessages:读取消息文件失败', {
         sessionId,
         filePath,
+        code,
         error: String(error),
       });
       this.messages.set(sessionId, []);
+
+      // K-6 P2 会话 ENOENT 自愈：messages.jsonl ENOENT 但 session.json 存在
+      // → 磁盘会话目录部分文件丢失（messages.jsonl 被删但元数据还在），
+      //   自动软删除会话，避免上层列表出现切不出消息的"僵尸 session"。
+      if (code === 'ENOENT') {
+        const metaPath = sessionFilePath(this.basePath, sessionId);
+        try {
+          if (existsSync(metaPath)) {
+            logger.warn(
+              'K-6 loadMessages: messages.jsonl 丢失但 session.json 存在，自动软删除僵尸会话',
+              { sessionId, messagesPath: filePath, sessionMetaPath: metaPath }
+            );
+            // 同步清理内存索引（删除会话元数据 + messages）+ 目录 rename 到 .trash
+            await this.deleteSession(sessionId);
+          }
+        } catch (cleanErr) {
+          // 自愈失败不能阻塞上层 getMessages（CS03：回退吞错 + 记录）
+          logger.warn('K-6 loadMessages: 自动软删除失败，已吞错避免阻塞上层', {
+            sessionId,
+            error: String(cleanErr),
+          });
+        }
+      }
     }
   }
 

@@ -8,7 +8,7 @@ import { http, type HttpClientConfig } from "./httpClient";
 import { getBackendBaseUrl } from "./backendUrl";
 
 export type LlamaServerStatus =
-  | "stopped" | "downloading" | "starting" | "running" | "error";
+  "stopped" | "downloading" | "starting" | "running" | "error";
 
 export type LlamaKvCacheTier = "low" | "medium" | "high";
 
@@ -183,19 +183,29 @@ export const llamaService = {
   },
 
   /** 强制杀掉所有 llama-server 进程（紧急恢复） */
-  async forceKill(): Promise<{ success: boolean; remainingProcesses: number; message: string }> {
+  async forceKill(): Promise<{
+    success: boolean;
+    remainingProcesses: number;
+    message: string;
+  }> {
     const res = await http.post<{
       success: boolean;
       remainingProcesses: number;
       message: string;
     }>("/v1/llama/force-kill");
-    if (!res.ok) throw new Error(res.error?.message ?? "强制杀死 llama 服务失败");
+    if (!res.ok)
+      throw new Error(res.error?.message ?? "强制杀死 llama 服务失败");
     if (!res.data) throw new Error("响应数据为空");
     return res.data;
   },
 
   /** 强制杀掉并重启 llama-server（一键恢复） */
-  async forceRestart(): Promise<{ success: boolean; providerRegistered: boolean; status: string; message: string }> {
+  async forceRestart(): Promise<{
+    success: boolean;
+    providerRegistered: boolean;
+    status: string;
+    message: string;
+  }> {
     const res = await http.post<{
       success: boolean;
       providerRegistered: boolean;
@@ -203,7 +213,8 @@ export const llamaService = {
       message: string;
       error?: string;
     }>("/v1/llama/force-restart");
-    if (!res.ok) throw new Error(res.error?.message ?? "强制重启 llama 服务失败");
+    if (!res.ok)
+      throw new Error(res.error?.message ?? "强制重启 llama 服务失败");
     if (!res.data) throw new Error("响应数据为空");
     if (!res.data.success && res.data.error) {
       throw new Error(res.data.error);
@@ -238,10 +249,16 @@ export const llamaService = {
       Accept: "text/event-stream",
     };
 
-    const secret = typeof localStorage !== "undefined" ? localStorage.getItem("liri-api-secret") : null;
+    const secret =
+      typeof localStorage !== "undefined"
+        ? localStorage.getItem("liri-api-secret")
+        : null;
     if (secret) headers["X-API-Key"] = secret;
 
-    const token = typeof localStorage !== "undefined" ? localStorage.getItem("liri-auth-token") : null;
+    const token =
+      typeof localStorage !== "undefined"
+        ? localStorage.getItem("liri-auth-token")
+        : null;
     if (token) headers["Authorization"] = `Bearer ${token}`;
 
     const controller = new AbortController();
@@ -295,7 +312,8 @@ export const llamaService = {
             }
             if (trimmed.startsWith("event:")) {
               const evt = trimmed.slice(6).trim();
-              currentEvent = evt === "initial" || evt === "log" ? evt : "message";
+              currentEvent =
+                evt === "initial" || evt === "log" ? evt : "message";
             } else if (trimmed.startsWith("data:")) {
               pendingData.push(trimmed.slice(5).trimStart());
             }
@@ -385,7 +403,9 @@ export const llamaService = {
             handlers.onComplete?.(event.data as LlamaMigrateResponse);
             break;
           case "error":
-            handlers.onError?.((event.data as { error: string }).error ?? String(event.data));
+            handlers.onError?.(
+              (event.data as { error: string }).error ?? String(event.data),
+            );
             break;
           case "cancelled":
             handlers.onCancelled?.();
@@ -410,7 +430,11 @@ export const llamaService = {
   async downloadModel(
     model: ModelDownloadRequest,
     options: { autoStart?: boolean } & {
-      onProgress?: (payload: { percent?: number; status?: string; error?: string }) => void;
+      onProgress?: (payload: {
+        percent?: number;
+        status?: string;
+        error?: string;
+      }) => void;
       onComplete?: (info: LlamaDownloadedModelInfo) => void;
       onError?: (error: string) => void;
     },
@@ -422,13 +446,21 @@ export const llamaService = {
       (event: LlamaSseEvent) => {
         switch (event.event) {
           case "progress":
-            onProgress?.(event.data as { percent?: number; status?: string; error?: string });
+            onProgress?.(
+              event.data as {
+                percent?: number;
+                status?: string;
+                error?: string;
+              },
+            );
             break;
           case "complete":
             onComplete?.(event.data as LlamaDownloadedModelInfo);
             break;
           case "error":
-            onError?.((event.data as { error: string }).error ?? String(event.data));
+            onError?.(
+              (event.data as { error: string }).error ?? String(event.data),
+            );
             break;
         }
       },
@@ -456,10 +488,16 @@ async function postSseRequest(
     ...config?.headers,
   };
 
-  const secret = typeof localStorage !== "undefined" ? localStorage.getItem("liri-api-secret") : null;
+  const secret =
+    typeof localStorage !== "undefined"
+      ? localStorage.getItem("liri-api-secret")
+      : null;
   if (secret) headers["X-API-Key"] = secret;
 
-  const token = typeof localStorage !== "undefined" ? localStorage.getItem("liri-auth-token") : null;
+  const token =
+    typeof localStorage !== "undefined"
+      ? localStorage.getItem("liri-auth-token")
+      : null;
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
   const controller = new AbortController();
@@ -480,7 +518,8 @@ async function postSseRequest(
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
     let buffer = "";
-    let currentEvent: "message" | "progress" | "complete" | "error" | "cancelled" = "message";
+    let currentEvent:
+      "message" | "progress" | "complete" | "error" | "cancelled" = "message";
     const pendingData: string[] = [];
 
     while (true) {
@@ -510,7 +549,10 @@ async function postSseRequest(
         if (trimmed.startsWith("event:")) {
           const evt = trimmed.slice(6).trim();
           currentEvent =
-            evt === "progress" || evt === "complete" || evt === "error" || evt === "cancelled"
+            evt === "progress" ||
+            evt === "complete" ||
+            evt === "error" ||
+            evt === "cancelled"
               ? evt
               : "message";
         } else if (trimmed.startsWith("data:")) {
@@ -532,7 +574,10 @@ async function postSseRequest(
 
   doFetch().catch((err: unknown) => {
     if (err instanceof DOMException && err.name === "AbortError") return;
-    onEvent({ event: "error", data: { error: err instanceof Error ? err.message : String(err) } });
+    onEvent({
+      event: "error",
+      data: { error: err instanceof Error ? err.message : String(err) },
+    });
   });
 
   return controller;

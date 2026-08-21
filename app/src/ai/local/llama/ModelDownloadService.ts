@@ -7,6 +7,7 @@
 
 import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
 import { resolveLlamaModelsDir } from '@modules/core/paths';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error/types';
 import { createHash } from 'crypto';
 import { stat, mkdir, writeFile, rename, open, unlink } from 'fs/promises';
 import { existsSync, statSync } from 'fs';
@@ -675,9 +676,19 @@ except Exception as e:
           error: String(unlinkErr),
         });
       }
-      throw new Error(
+      throw new AppError(
         `GGUF 魔数校验失败：文件头为 ${JSON.stringify(magic)}（预期 "GGUF"），` +
-          `下载源可能返回了错误响应，损坏文件已删除：${filePath}`
+          `下载源可能返回了错误响应，损坏文件已删除：${filePath}`,
+        ErrorCategory.VALIDATION,
+        ErrorSeverity.HIGH,
+        'GGUF_MAGIC_INVALID',
+        {
+          filePath,
+          expectedMagic: 'GGUF',
+          actualMagic: magic,
+          fileSizeBytes: fileStat.size,
+          hint: '下载源通常返回 JSON 错误体，已自动清理损坏文件，请在模型管理重新下载',
+        }
       );
     }
     logger.debug('GGUF 魔数校验通过', { filePath, magic });

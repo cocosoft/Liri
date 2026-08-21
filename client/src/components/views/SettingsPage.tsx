@@ -5,7 +5,10 @@ import { useRootStore } from "../../stores/root-store";
 import { getCurrentTier } from "../../stores/root-store/featureSlice";
 import { chatService } from "../../services/chatService";
 import { appConfigService } from "../../services/appConfigService";
-import { setBackendPort as setBackendUrlPort, DEFAULT_BACKEND_PORT } from "../../services/backendUrl";
+import {
+  setBackendPort as setBackendUrlPort,
+  DEFAULT_BACKEND_PORT,
+} from "../../services/backendUrl";
 import { httpLegacy as http } from "../../services/httpClient";
 import AIConfigPanel from "../settings/AIConfigPanel";
 import AutoUpdatePanel from "../settings/AutoUpdatePanel";
@@ -719,10 +722,7 @@ function SettingsPage() {
                 collapsible
               />
             )}
-            <AIConfigPanel
-              isDark={isDark}
-              collapsible
-            />
+            <AIConfigPanel isDark={isDark} collapsible />
             {/* U3：简单视角隐藏高级配置（功能开关/本地 Agent/自动更新/通知），走"高级设置" */}
             {viewMode === "simple" ? null : (
               <>

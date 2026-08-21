@@ -113,10 +113,19 @@ export async function initializeOTelSystem(): Promise<void> {
     });
     logger.info('OTel 日志适配器已创建');
 
-    // P0-2.2: 启用 Logger → OTel LogHandler 桥接
-    // 确保所有 Logger（非 OTelAwareLogger）输出也携带 traceId/spanId
-    registerOTelLogHandler(otelAdapter);
-    logger.info('Logger → OTel LogHandler 桥接已启用');
+    // P0-2.2: Logger → OTel LogHandler 桥接
+    // 2026-08-21 日志双写修复：该桥接会把每条全局日志经 module 'app' 适配器
+    // 再落盘一遍（app.log 双写，实测重连风暴期日志量 ×2）。
+    // 仅在显式配置 OTLP 导出时才有导出价值，未配置时跳过注册。
+    const exporterConfig = process.env.OTEL_TRACES_EXPORTER ?? '';
+    if (exporterConfig.includes('otlp')) {
+      registerOTelLogHandler(otelAdapter);
+      logger.info('Logger → OTel LogHandler 桥接已启用（OTLP 导出激活）');
+    } else {
+      logger.info(
+        'OTLP 导出未启用，跳过 Logger → OTel LogHandler 桥接（避免日志双写）'
+      );
+    }
 
     // P0-2.1b: 启动 AI Trace 录制（含失败模式防护 + 心跳自检）
     await startAITracePlugin(otelTracing, heartbeat);

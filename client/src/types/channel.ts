@@ -97,11 +97,7 @@ export interface ChannelMetricsResponse {
 
 /** 渠道运行时五态（GET /v1/channels/monitor/*，ChannelRealtimeMonitor） */
 export type ChannelRuntimeStatus =
-  | "disconnected"
-  | "connecting"
-  | "connected"
-  | "reconnecting"
-  | "error";
+  "disconnected" | "connecting" | "connected" | "reconnecting" | "error";
 
 /** 单渠道实时状态快照（GET /v1/channels/monitor/status） */
 export interface ChannelRuntimeStatusInfo {

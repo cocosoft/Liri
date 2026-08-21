@@ -5,7 +5,7 @@
 import { BaseTool } from '../BaseTool';
 import type { ToolParam, ToolResult, ToolUseContext } from '../types/index';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
-import { join } from 'path';
+import { join, resolve } from 'path';
 import { deflateSync } from 'zlib';
 
 import { getLogger } from '@modules/monitoring';
@@ -365,7 +365,11 @@ function ensurePdfExt(name: string): string {
 export class PDFTool extends BaseTool<Record<string, unknown>> {
   name = 'pdf';
   description =
-    'Generate simple PDF documents from text content. Supports creating, extracting text from, and getting info about PDF files.';
+    'Generate simple PDF documents from text content, or convert a local file directly to PDF. ' +
+    'When the source content already exists on disk (e.g. a markdown/html/text file), ' +
+    'you MUST pass content_file instead of reciting the full content — ' +
+    'avoids output token explosion and long-content JSON truncation.' +
+    'Also supports extract (read text from PDF) and info (get PDF metadata).';
   params: ToolParam[] = [
     {
       name: 'action',
@@ -384,7 +388,18 @@ export class PDFTool extends BaseTool<Record<string, unknown>> {
     {
       name: 'content',
       type: 'string',
-      description: 'Text content to include in the PDF (required for generate)',
+      description:
+        'Text content to include in the PDF. Use only for small bodies. ' +
+        'For large/existing documents prefer content_file path instead.',
+      required: false,
+    },
+    {
+      name: 'content_file',
+      type: 'string',
+      description:
+        'Local file path (md/html/txt/docx etc.) to use as PDF content source. ' +
+        'Strongly preferred over the content parameter for any non-trivial document — ' +
+        '0 output tokens, no truncation risk.',
       required: false,
     },
     {
@@ -422,18 +437,72 @@ export class PDFTool extends BaseTool<Record<string, unknown>> {
 
       switch (action) {
         case 'generate': {
-          if (!content || typeof content !== 'string') {
+          // content 或 content_file 至少一个：内容在磁盘必须优先 content_file（0 输出 token）
+          const hasContent =
+            typeof content === 'string' && content.trim().length > 0;
+          const hasContentFile =
+            typeof (input as unknown as { content_file?: string })
+              .content_file === 'string' &&
+            (input as unknown as { content_file?: string }).content_file!.trim()
+              .length > 0;
+          if (!hasContent && !hasContentFile) {
             return {
               success: false,
               error:
-                'content is required and must be a string for generate action',
+                'content 或 content_file 必须提供一个（generate 需要正文内容，content_file 从本地文件读取可避免复述长内容导致 token 爆炸）',
             };
+          }
+
+          // content_file 优先：md/html/txt/docx 等经 ConverterEngine 转 md；纯文本兜底 readFileSync
+          let effectiveContent: string;
+          if (hasContentFile && !hasContent) {
+            const src = resolve(
+              (input as unknown as { content_file: string }).content_file
+            );
+            if (!existsSync(src)) {
+              return {
+                success: false,
+                error: `content_file 指定的文件不存在: ${src}`,
+              };
+            }
+            try {
+              const { getConverterEngine } =
+                await import('../converter/engine/ConverterEngine').catch(
+                  () => ({ getConverterEngine: undefined })
+                );
+              const { FileTypeDetector } =
+                await import('../converter/engine/FileTypeDetector').catch(
+                  () => ({ FileTypeDetector: undefined })
+                );
+              const buf = readFileSync(src);
+              if (getConverterEngine && FileTypeDetector) {
+                const info = new FileTypeDetector().detect(src, buf.length);
+                const converted = await getConverterEngine().convertContent(
+                  info,
+                  buf
+                );
+                effectiveContent = converted.markdown || buf.toString('utf-8');
+              } else {
+                effectiveContent = buf.toString('utf-8');
+              }
+              logger.info('PDFTool: content_file 读取成功', {
+                src,
+                length: effectiveContent.length,
+              });
+            } catch (e) {
+              return {
+                success: false,
+                error: `content_file 读取失败: ${src}（${e instanceof Error ? e.message : String(e)}）`,
+              };
+            }
+          } else {
+            effectiveContent = content as string;
           }
 
           const docTitle = title || 'Untitled';
           // 多语言解析（通用设置 → 系统语言 → 内容检测）→ 按语言选字体
-          const lang = resolveLanguage(undefined, content);
-          const font = resolvePdfFont(lang, content);
+          const lang = resolveLanguage(undefined, effectiveContent);
+          const font = resolvePdfFont(lang, effectiveContent);
           if (!font) {
             return {
               success: false,
@@ -442,7 +511,7 @@ export class PDFTool extends BaseTool<Record<string, unknown>> {
           }
           const { buffer, pages, cjkFont } = generateSimplePDF(
             docTitle,
-            content,
+            effectiveContent,
             font
           );
 

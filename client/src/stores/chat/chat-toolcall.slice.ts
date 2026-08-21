@@ -942,27 +942,149 @@ export function normalizeToolCall(tc: unknown): ToolCall {
 }
 
 /**
+ * H-FIX 修复：判断 blocks 中是否包含"实际内容块"。
+ * 临时状态块（status/progress）不应作为 blocks 存在的唯一证据——
+ * 若 blocks 中只有 compaction/watermark 等临时标记，
+ * 说明流式过程中状态块被落盘但正文 text 块没写入，应强制从 content 重建。
+ *
+ * H-FIX-3（2026-08-21）加固：对 thinking/text/tool_call 要求内容非空才算 meaningful。
+ * 空 thinking 块（如 MSG[1] 流式中断仅生成空状态块）占坑会让守卫误判，
+ * 导致跳过 rebuildBlocksFromContent、又因 content 空跳过 ensureTextBlockFromContent，
+ * 最终 blocks 全空、前端无任何渲染/兜底提示。
+ */
+const MEANINGFUL_BLOCK_TYPES: ReadonlySet<MessageBlock["type"]> = new Set([
+  "text",
+  "thinking",
+  "tool_call",
+  "question",
+  "doc_workflow",
+  "task_decomposition",
+  "todo",
+  "deliverable",
+  "diff",
+  "inbox",
+]);
+
+export function hasMeaningfulContentBlocks(
+  blocks: MessageBlock[] | undefined | null,
+): boolean {
+  if (!Array.isArray(blocks) || blocks.length === 0) return false;
+  return blocks.some((b) => {
+    if (!MEANINGFUL_BLOCK_TYPES.has(b.type)) return false;
+    // 对易产生"空壳临时块"的类型强制校验内容非空
+    switch (b.type) {
+      case "text":
+        return Boolean((b.content ?? "").trim());
+      case "thinking":
+        // thinking 块的内容可能在 content 或 thinking 字段，任一非空即可
+        return Boolean(
+          (b.content ?? "").trim() ||
+          (b as unknown as Record<string, unknown>).thinking,
+        );
+      case "tool_call":
+        // tool_call 块需有真实 toolCall 对象，不是 status 占位时产生的空壳
+        return Boolean(b.toolCall?.id || b.toolCall?.name);
+      case "question":
+        return Boolean((b.content ?? "").trim());
+      default:
+        // 其他类型（doc_workflow/todo 等）只要 type 命中即算
+        return true;
+    }
+  });
+}
+
+/**
+ * H-FIX-2 加固：若 blocks 中缺少 text 正文块，但消息 content 字段有非空正文，
+ * 则基于 content 剥离结构标签后追加 text 块。
+ * 用于修复两种场景：
+ *  1. 守卫分支认为 blocks 有效（有 thinking/tool_call），但正文 text 块缺失
+ *  2. 流式中途状态块被持久化、content 有值但 blocks 无 text
+ *
+ * ⚠️ 关键修复（2026-08-21）：think 文本去重不再依赖 blocks.think.content 精确匹配。
+ * 原实现用 indexOf + replace 匹配 think 块纯文本，因换行/空白/流式截断差异
+ * 匹配率极低，导致 think 文本残留在 text 块中与 thinking 块双重显示。
+ * 修复策略：先从 rawContent 中整段删除 <think>/<thinking> 内容（含标签），
+ * 再 strip 其他标签，从源头上避免 think 文本渗入正文 text 块。
+ */
+export function ensureTextBlockFromContent(
+  blocks: MessageBlock[],
+  msg: Pick<Message, "content">,
+): MessageBlock[] {
+  const rawContent = typeof msg.content === "string" ? msg.content : "";
+  if (!rawContent.trim()) return blocks;
+
+  const hasTextBlock = blocks.some(
+    (b) => b.type === "text" && (b.content || "").trim(),
+  );
+  if (hasTextBlock) return blocks;
+
+  // Step 1: 从源头上删除 think 整段内容（含标签和内容），避免渗入 text 块
+  // 支持 <think>…</think> 和 <thinking>…</thinking>，兼容未闭合的半截（流式中断场景）
+  let noThinkContent = rawContent
+    .replace(/<think(?:ing)?>([\s\S]*?)<\/think(?:ing)?>/gi, "")
+    .replace(/<think(?:ing)?>[\s\S]*$/gi, "") // 未闭合的半截开头：删到末尾
+    .replace(/^[\s\S]*?<\/think(?:ing)?>/gi, ""); // 未闭合的半截结尾：删到开头
+
+  // Step 2: 再 strip response/tool_call 等其他结构标签
+  const cleanContent = stripStructuralTags(noThinkContent).trim();
+  if (!cleanContent) return blocks;
+
+  return [
+    ...blocks,
+    {
+      id: generateBlockId(),
+      type: "text" as const,
+      content: cleanContent,
+      isStreaming: false,
+      groupId: generateGroupId(),
+    },
+  ];
+}
+
+/**
  * 智能重建 blocks：基于 content + tool_calls 还原时序
  * 对标流式 ChronologicalBlockBuilder 的输出结构，分配 groupId 确保分组正确
  */
 export function rebuildBlocksFromContent(
   msg: Message & { tool_calls?: ToolCall[] },
 ): MessageBlock[] {
-  // 守卫：如果消息已有 blocks，直接返回，不再重建
-  if (Array.isArray(msg.blocks) && msg.blocks.length > 0) {
-    return msg.blocks.map((b: MessageBlock) => ({ ...b, isStreaming: false }));
+  // 守卫：只有当消息已有 blocks 且含实际内容块时才直接返回。
+  // H-FIX：blocks 仅含 status/progress 等临时状态块时，强制走重建，
+  // 避免正文完整但 blocks 只有 compaction 标记导致前端无正文渲染。
+  // H-FIX-2：即使守卫通过，也确保 content 有正文且 blocks 无 text 时补 text 块。
+  if (
+    Array.isArray(msg.blocks) &&
+    msg.blocks.length > 0 &&
+    hasMeaningfulContentBlocks(msg.blocks)
+  ) {
+    const normalized = msg.blocks.map((b: MessageBlock) => ({
+      ...b,
+      isStreaming: false,
+    }));
+    return ensureTextBlockFromContent(normalized, { content: msg.content });
   }
 
   const newBlocks: MessageBlock[] = [];
   const rawToolCalls = msg.tool_calls || [];
   // 统一规范化 tool_calls 格式
   const toolCalls = rawToolCalls.map(normalizeToolCall);
-  // W12 修复：先基于原始 content 提取 <think> 段——stripStructuralTags 会删除
-  // <think> 标签（:846-851），原实现先 strip 再 match 导致 thinkMatch 恒为 null，
-  // 旧消息思考内容被当正文展示、无法折叠（死代码分支）。
+  // H-FIX-3（2026-08-21）：think 内容去重与提取统一用"整段删除"策略。
+  // 原 W12 修复先 stripStructuralTags（只删标签不删内容）再 indexOf 精确匹配，
+  // 因换行/空白/流式截断差异匹配率极低，think 文本残留在 remainingText →
+  // 渗入 text 正文与 thinking 块双重显示。
+  // 新策略：先从 rawContent 中整段剥离 <think>/<thinking>（含标签+内容），
+  // 再 strip 其他标签；提取 thinking 块也走独立的 think 内容抓取正则，互不耦合。
   const rawContent = typeof msg.content === "string" ? msg.content : "";
-  const thinkMatch = rawContent.match(/<think>([\s\S]*?)<\/think>/);
-  const fullText = stripStructuralTags(rawContent);
+  // 提取 thinking 块内容：支持完整闭合的 <think>…</think> 或 <thinking>…</thinking>
+  const thinkMatch = rawContent.match(
+    /<think(?:ing)?>([\s\S]*?)<\/think(?:ing)?>/i,
+  );
+  // 先整段删除所有 think 段（含未闭合的半截），再 strip 其他结构标签
+  const noThinkRaw = rawContent
+    .replace(/<think(?:ing)?>([\s\S]*?)<\/think(?:ing)?>/gi, "")
+    .replace(/<think(?:ing)?>[\s\S]*$/gi, "")
+    .replace(/^[\s\S]*?<\/think(?:ing)?>/gi, "");
+  const fullText = stripStructuralTags(noThinkRaw);
   let remainingText = fullText;
 
   // 超长内容保护：content 超过 50000 字符时不做文本解析重建，直接包装为 text block
@@ -986,7 +1108,7 @@ export function rebuildBlocksFromContent(
         groupId: gid,
       });
     }
-    return newBlocks;
+    return ensureTextBlockFromContent(newBlocks, { content: msg.content });
   }
 
   // 从 content 中提取 <think> 标签内容作为 thinking 块（切换会话后还原流式思考过程）
@@ -998,16 +1120,8 @@ export function rebuildBlocksFromContent(
       isStreaming: false,
       groupId: generateGroupId(),
     });
-    // W12 修复：stripStructuralTags 只删标签不删内容，需手动把 think 内容
-    // 从 remainingText 移除，避免正文里残留思考文本。
-    const thinkContent = thinkMatch[1].trim();
-    const thinkIdx = remainingText.indexOf(thinkContent);
-    if (thinkIdx !== -1) {
-      remainingText = (
-        remainingText.slice(0, thinkIdx) +
-        remainingText.slice(thinkIdx + thinkContent.length)
-      ).trim();
-    }
+    // H-FIX-3 说明：remainingText / fullText 已通过 noThinkRaw 整段剥离 think 段
+    // （含标签+内容），无需再做 indexOf 去重，避免换行/截断差异导致的匹配失败。
   }
 
   if (toolCalls.length === 0) {
@@ -1022,7 +1136,7 @@ export function rebuildBlocksFromContent(
         groupId: generateGroupId(),
       });
     }
-    return newBlocks;
+    return ensureTextBlockFromContent(newBlocks, { content: msg.content });
   }
 
   const boundaries: Array<{ idx: number; pos: number; len: number } | null> =
@@ -1083,7 +1197,7 @@ export function rebuildBlocksFromContent(
         groupId: gid,
       });
     }
-    return newBlocks;
+    return ensureTextBlockFromContent(newBlocks, { content: msg.content });
   }
 
   const indexedBoundaries = boundaries
@@ -1195,7 +1309,7 @@ export function rebuildBlocksFromContent(
     }
   }
 
-  return newBlocks;
+  return ensureTextBlockFromContent(newBlocks, { content: msg.content });
 }
 
 /* ===================================================================

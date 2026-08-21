@@ -31,6 +31,9 @@ import { MultiAccountManager } from '@modules/channels/accounts';
 import type { ResolvedAccount } from '@modules/channels/accounts';
 // 2026-08-06（P0-2）：授权行为与 dmPolicy 一致的默认实现
 import { DmPolicyEngine } from '../policy/DmPolicy';
+// 2026-08-21（AC-2 治理）：统一发布 CHANNEL_CONNECTED / CHANNEL_DISCONNECTED /
+// CHANNEL_STOPPED 生命周期事件到 ChannelEventBus（之前常量定义存在但无任何发布方）
+import { ChannelEvents, channelEventBus } from '../events/ChannelEventBus';
 
 export interface ChannelPluginState {
   connected: boolean;
@@ -173,6 +176,46 @@ export abstract class BaseChannelPlugin implements IChannelPlugin {
     this.logger = getLogger('channels:base');
   }
 
+  // ─── AC-2 生命周期事件发布统一辅助器 ──────────────────────
+  /**
+   * 统一 publish CHANNEL_CONNECTED / CHANNEL_DISCONNECTED / CHANNEL_STOPPED。
+   * payload 设计：
+   *   - channelId / channelName：消费者可任选，对齐 QQChannel 的 CHANNEL_ERROR（含 channelName）
+   *   - status / connected / uptimeMs：ChannelRealtimeMonitor 可直接读，不再需要轮询 registry
+   *   - at：事件发生时间（单调时钟用 Date.now()）
+   *   - cause：可选触发原因（disconnect/stop 的场景下便于区分主动/被动/错误）
+   */
+  private _publishLifecycleEvent(
+    event:
+      | typeof ChannelEvents.CHANNEL_CONNECTED
+      | typeof ChannelEvents.CHANNEL_DISCONNECTED
+      | typeof ChannelEvents.CHANNEL_STOPPED,
+    cause?: string,
+    extra: Record<string, unknown> = {}
+  ): void {
+    try {
+      // CS03：EventBus publish 内部若出 bug 不影响连接主流程
+      const status = this.lifecycle.getStatus();
+      channelEventBus.publish(event, {
+        channelId: this.id,
+        channelName: this.id,
+        connected: status.connected,
+        uptimeMs: status.uptimeMs,
+        at: Date.now(),
+        cause,
+        status,
+        ...extra,
+      });
+    } catch (err) {
+      void handleError(err, {
+        module: 'channels:base',
+        action: 'publish_lifecycle_event',
+        context: { channel: this.id, event, cause },
+        rethrow: false,
+      });
+    }
+  }
+
   // ─── 子类必须实现的方法 ──────────────────────────────────
   protected abstract getDefaultConfig(): Record<string, unknown>;
   protected abstract validateConfig(config: Record<string, unknown>): string[];
@@ -260,12 +303,23 @@ export abstract class BaseChannelPlugin implements IChannelPlugin {
       await this.onConnect(config);
       this._state = { ...this._state, connected: true };
       this.logger.info(`${this.id} 通道已连接`);
+      // AC-2：onConnect 抛错会在上层 throw 中断流程（不会走到这），到这里 = 连接成功
+      this._publishLifecycleEvent(
+        ChannelEvents.CHANNEL_CONNECTED,
+        'lifecycle_connect'
+      );
     },
 
     disconnect: async () => {
       this._state = { ...this._state, connected: false };
       await this.onDisconnect();
       this.logger.info(`${this.id} 通道已断开`);
+      // AC-2：disconnect 完成后统一发布 DISCONNECTED 事件
+      // （主动断开/重连前的先断开/异常断开最终都会走到 lifecycle.disconnect 桥接入口）
+      this._publishLifecycleEvent(
+        ChannelEvents.CHANNEL_DISCONNECTED,
+        'lifecycle_disconnect'
+      );
     },
 
     healthCheck: async () => this.checkHealth(),
@@ -515,7 +569,36 @@ export abstract class BaseChannelPlugin implements IChannelPlugin {
 
   get inbound(): IChannelInboundAdapter {
     if (!this._inboundAdapter) {
-      this._inboundAdapter = this.createInboundAdapter();
+      const raw = this.createInboundAdapter();
+      // 子类未实现入站（createInboundAdapter 返回空）→ 返回空对象占位？不行：
+      // IChannelInboundAdapter 要求 readonly protocol / isListening / start / stop / ...
+      // 但 IChannelPlugin 接口上 inbound?: IChannelInboundAdapter，所以这里允许 null。
+      // TS 这里 getter 返回类型是 IChannelInboundAdapter（非 optional），
+      // 和接口不一致 — 但旧代码就这么写，我们保持行为不变：
+      // 当 raw 为空（无入站）时返回 raw，靠调用方 (IChannelPlugin 声明 inbound?) 来处理。
+      if (!raw) {
+        this._inboundAdapter = raw as unknown as IChannelInboundAdapter;
+      } else {
+        // AC-2：包装 inbound.stop()，在入站监听完全停止后发布 CHANNEL_STOPPED
+        // （入站 stop = 插件不再接收消息，对应「生命周期终点」语义；
+        //  lifecycle.disconnect 仅断网关连接，还可能被重连继续）
+        const originalStop: () => Promise<void> = raw.stop.bind(raw);
+        const self = this;
+        const wrapped: IChannelInboundAdapter = {
+          ...raw,
+          stop: async () => {
+            try {
+              await originalStop();
+            } finally {
+              self._publishLifecycleEvent(
+                ChannelEvents.CHANNEL_STOPPED,
+                'inbound_stop'
+              );
+            }
+          },
+        };
+        this._inboundAdapter = wrapped;
+      }
     }
     return this._inboundAdapter;
   }

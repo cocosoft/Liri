@@ -12,7 +12,7 @@ import ToolResultMessage from "./ToolResultMessage";
 import BlockRenderer from "./BlockRenderer";
 import { knowledgeService } from "../../services/knowledgeService";
 import { useConfigStore } from "../../stores/configStore";
-import { useChatStore } from "../../stores/chat";
+import { useChatStore, hasMeaningfulContentBlocks } from "../../stores/chat";
 import { useShallow } from "zustand/shallow";
 import { useSessionStore } from "../../stores/sessionStore";
 import { useRootStore } from "../../stores/root-store";
@@ -1085,11 +1085,41 @@ function AssistantMessage({
     [sessionFiles],
   );
 
-  // 优先使用 blocks 渲染，如果 blocks 不存在则从 content 和 tool_calls 重建
-  const blocks =
-    message.blocks && message.blocks.length > 0
+  // 优先使用 blocks 渲染。
+  // H-FIX：blocks 存在但仅含 status/progress 临时块时，仍走兜底从 content 重建，
+  // 避免流式过程中状态块被落盘而正文 text 块缺失时前端无正文。
+  let blocks =
+    message.blocks &&
+    message.blocks.length > 0 &&
+    hasMeaningfulContentBlocks(message.blocks)
       ? message.blocks
       : buildFallbackBlocks(message);
+
+  // H-FIX-2 流式中断兜底：blocks 中没有 text 正文且 content 为空，
+  // 但存在 thinking 块（典型的流式在思考阶段被打断场景），
+  // 追加提示 text 块，避免用户以为"正文消失"。
+  const hasTextBlock = blocks.some(
+    (b) => b.type === "text" && (b.content || "").trim(),
+  );
+  const hasThinkBlock = blocks.some(
+    (b) => b.type === "thinking" && (b.content || "").trim(),
+  );
+  const contentEmpty = !(
+    typeof message.content === "string" && message.content.trim()
+  );
+  if (!hasTextBlock && hasThinkBlock && contentEmpty) {
+    blocks = [
+      {
+        id: "fb_interrupted_hint_" + message.id,
+        type: "text",
+        content:
+          "⚠️ **该回复生成中断，未完成最终输出。** 下方「💭 思考过程」标签中保留了模型当时的推理草稿，可点击展开查看。",
+        isStreaming: false,
+        groupId: "fb_interrupt_" + message.id,
+      },
+      ...blocks,
+    ];
+  }
 
   const renderedContent = renderBlocksWithGroups(
     blocks,

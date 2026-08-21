@@ -1,4 +1,4 @@
-import { promises as fs } from 'fs';
+import { promises as fs, existsSync } from 'fs';
 import { join, dirname, resolve, sep } from 'path';
 import { handleError } from '@modules/error';
 import { getLogger } from '@modules/monitoring';
@@ -192,6 +192,37 @@ export class FileSystemStorage implements SessionStorage {
 
       return messages;
     } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      // K-6 P2 会话数据自动修复：messages.jsonl ENOENT 但 session.json 存在
+      // → 会话磁盘数据不完整（文件被外部清理/磁盘损坏/半写入中断），
+      //   自动软删除该会话，避免 DB/sessions 索引残留的"僵尸记录"继续
+      //   出现在列表里但切换读不到任何消息。软删除后可在 .trash 找回。
+      if (code === 'ENOENT') {
+        const sessionMetaPath = this.getSessionFilePath(sessionId);
+        try {
+          // ⚠️ existsSync 是 `import { existsSync } from 'fs'` 直接 import 的顶层函数，
+          // 不是 fs（= fs.promises）对象上的方法（fs.promises 上不存在同步 API）
+          if (existsSync(sessionMetaPath)) {
+            logger.warn(
+              'K-6 loadMessages: messages.jsonl 丢失但 session.json 存在，自动软删除僵尸会话',
+              { sessionId, messagesFilePath, sessionMetaPath }
+            );
+            await this.deleteSession(sessionId);
+          }
+        } catch (cleanErr) {
+          logger.warn('K-6 loadMessages: 自动软删除失败，已吞错避免阻塞上层', {
+            sessionId,
+            error: String(cleanErr),
+          });
+        }
+        return [];
+      }
+      // 非 ENOENT 错误（EACCES/EIO 等）原样告警 + 空返回（与历史行为对齐）
+      logger.error('loadMessages: 读取异常（非 ENOENT）', {
+        sessionId,
+        code,
+        error: String(error),
+      });
       return [];
     }
   }

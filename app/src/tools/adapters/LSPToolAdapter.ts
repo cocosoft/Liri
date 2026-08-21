@@ -12,6 +12,8 @@ import type {
 import type { ToolUseContext } from '../types/ToolUseContext.js';
 import type { ToolResult } from '../types/ToolResult.js';
 import { ToolTag } from '../types/Tool.js';
+import { existsSync, readFileSync } from 'fs';
+import { resolve } from 'path';
 import { LSPToolImpl } from '../lsp/LSPToolImpl.js';
 import {
   Position,
@@ -49,7 +51,9 @@ export class LSPToolAdapter implements Tool {
    * 工具描述
    */
   description =
-    'Language Server Protocol工具，提供代码智能提示、定义跳转等功能';
+    'Language Server Protocol 工具，提供代码智能提示/定义跳转/引用/诊断/格式化/重命名等能力。' +
+    '当目标文件在磁盘上时（绝大多数情况），必须优先使用 file_path 而非 document —— ' +
+    '避免模型背诵数千行源码导致 output token 爆炸、JSON 截断与上下文溢出。';
 
   /**
    * 工具参数
@@ -80,10 +84,21 @@ export class LSPToolAdapter implements Tool {
       example: 'completions',
     },
     {
+      name: 'file_path',
+      type: 'string',
+      description:
+        '本地源代码文件路径（强烈推荐）。工具直接从磁盘读取文件内容 —— 0 输出 token，' +
+        '不截断，不占上下文窗口。大多数场景必须使用此项。',
+      required: false,
+      example: 'app/src/tools/DocGenerateTool/DocGenerateTool.ts',
+    },
+    {
       name: 'document',
       type: 'string',
-      description: '代码文档内容',
-      required: true,
+      description:
+        '源代码内容本身。仅用于 snippet 级别的小代码段（file_path 不存在时才使用此项）。' +
+        '严禁为磁盘上已有文件背诵全文到此处 — 会导致 token 爆炸。',
+      required: false,
       example: 'function hello() { console.log("Hello"); }',
     },
     {
@@ -233,8 +248,18 @@ export class LSPToolAdapter implements Tool {
       return { result: false, message: 'Missing required parameter: action' };
     }
 
-    if (!params.document) {
-      return { result: false, message: 'Missing required parameter: document' };
+    // 文档内容：file_path（推荐，0 token）或 document（小 snippet）二选一
+    const hasDoc =
+      typeof params.document === 'string' && params.document.trim().length > 0;
+    const hasFile =
+      typeof params.file_path === 'string' &&
+      params.file_path.trim().length > 0;
+    if (!hasDoc && !hasFile) {
+      return {
+        result: false,
+        message:
+          'Missing required parameter: file_path (preferred for files on disk) or document (for small snippets only). Do NOT recite full source code into document — causes output token explosion.',
+      };
     }
 
     if (!params.language) {
@@ -280,61 +305,95 @@ export class LSPToolAdapter implements Tool {
 
       let result: any;
       const action = params.action as string;
-      const document = params.document as string;
       const language = params.language as string;
       const position = params.position as Position | undefined;
       const newName = params.newName as string;
 
+      // ========== 文档内容来源归一化 ==========
+      // 1. file_path（推荐）：磁盘直接读，0 输出 token，不占上下文
+      // 2. document：小 snippet 兼容
+      const filePathRaw = params.file_path as string | undefined;
+      const documentRaw = params.document as string | undefined;
+      let effectiveDocument: string;
+      if (filePathRaw && filePathRaw.trim().length > 0) {
+        const abs = resolve(filePathRaw.trim());
+        if (!existsSync(abs)) {
+          return {
+            success: false,
+            output:
+              `file_path 指向的文件不存在：${abs}\n` +
+              `请确认路径无误，或改用 document 参数传入小片段源码。`,
+          } as ToolResult;
+        }
+        effectiveDocument = readFileSync(abs, 'utf-8');
+        logger.info('LSPToolAdapter: file_path 读取成功', {
+          path: abs,
+          bytes: Buffer.byteLength(effectiveDocument, 'utf-8'),
+          action,
+        });
+      } else {
+        // document 作为 fallback（小 snippet 用例）。
+        // 注意：不做 trim，保持与未改前的行为一致（LSP 诊断/格式化依赖精确行号与换行符）。
+        effectiveDocument = documentRaw ?? '';
+      }
+      const defaultUri =
+        filePathRaw && filePathRaw.trim().length > 0
+          ? `file://${resolve(filePathRaw.trim())}`
+          : `file://${language}_snippet`;
+
       switch (action) {
         case 'completions':
           result = await this.lspTool.getCompletions(
-            document,
+            effectiveDocument,
             position as Position
           );
           break;
         case 'definition':
           result = await this.lspTool.getDefinition(
-            document,
+            effectiveDocument,
             position as Position
           );
           break;
         case 'references':
           result = await this.lspTool.getReferences(
-            document,
+            effectiveDocument,
             position as Position
           );
           break;
         case 'diagnostics':
-          result = await this.lspTool.getDiagnostics(document);
+          result = await this.lspTool.getDiagnostics(effectiveDocument);
           break;
         case 'format':
-          result = await this.lspTool.formatDocument(document);
+          result = await this.lspTool.formatDocument(effectiveDocument);
           break;
         case 'hover':
-          result = await this.lspTool.getHover(document, position as Position);
+          result = await this.lspTool.getHover(
+            effectiveDocument,
+            position as Position
+          );
           break;
         case 'rename':
           result = await this.lspTool.renameSymbol(
-            document,
+            effectiveDocument,
             position as Position,
             newName
           );
           break;
         case 'codeAction':
           result = await this.lspTool.getCodeActions(
-            document,
+            effectiveDocument,
             position as Position
           );
           break;
         case 'implementation':
           result = await this.lspTool.getImplementation(
-            document,
+            effectiveDocument,
             position as Position
           );
           break;
         case 'typeDefinition':
           result = await this.lspTool.getTypeDefinition(
-            document,
+            effectiveDocument,
             position as Position
           );
           break;
@@ -346,26 +405,28 @@ export class LSPToolAdapter implements Tool {
         }
         case 'documentSymbol':
           result = await this.symbolSearch.getDocumentSymbols(
-            (params.uri as string) || `file://${document}`
+            (params.uri as string) || defaultUri
           );
           break;
         case 'callHierarchy': {
           const p = position as Record<string, unknown> | undefined;
+          const uri = (params.uri as string) || defaultUri;
           const items = await this.callHierarchy.prepareCallHierarchy(
-            (params.uri as string) || `file://${document}`,
+            uri,
             (params.line as number) ?? (p?.line as number) ?? 0,
             (params.character as number) ?? (p?.character as number) ?? 0
           );
           result = await this.callHierarchy.buildCallHierarchy(
-            (params.uri as string) || `file://${document}`,
+            uri,
             (params.line as number) ?? (p?.line as number) ?? 0,
             (params.character as number) ?? (p?.character as number) ?? 0
           );
+          void items;
           break;
         }
         case 'symbolContext': {
           result = await this.symbolContextProvider.getSymbolContext(
-            document,
+            effectiveDocument,
             (params.line as number) ??
               ((position as unknown as Record<string, unknown>)
                 ?.line as number) ??
@@ -374,7 +435,9 @@ export class LSPToolAdapter implements Tool {
               ((position as unknown as Record<string, unknown>)
                 ?.character as number) ??
               0,
-            (params.filePath as string) || ''
+            (filePathRaw && resolve(filePathRaw.trim())) ||
+              (params.filePath as string) ||
+              ''
           );
           break;
         }

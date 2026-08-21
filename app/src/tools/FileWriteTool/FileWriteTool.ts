@@ -127,7 +127,11 @@ const logger = getLogger('tools:FileWriteTool:FileWriteTool');
 
 export class FileWriteTool extends BaseTool {
   name = 'file_write';
-  description = 'Write content to a file';
+  description =
+    'Write content to a file. ' +
+    'When the content already exists on disk (e.g. another tool produced a local file), ' +
+    'you MUST pass source_file instead of reciting the full content as a string — ' +
+    'this avoids output token explosion, JSON truncation and memory blow-up.';
 
   override tags = [ToolTag.FILE, ToolTag.WRITE];
 
@@ -135,14 +139,24 @@ export class FileWriteTool extends BaseTool {
     {
       name: 'file_path',
       type: 'string',
-      description: 'Path to the file',
+      description: 'Path to the destination file',
       required: true,
     },
     {
       name: 'content',
       type: 'string',
-      description: 'Content to write',
-      required: true,
+      description:
+        'Content to write. Required only when source_file is not used.',
+      required: false,
+    },
+    {
+      name: 'source_file',
+      type: 'string',
+      description:
+        'Path to an existing local file whose content will be copied to the destination. ' +
+        'Use this instead of content whenever the file already exists on disk — ' +
+        '0 output tokens, no truncation risk.',
+      required: false,
     },
     {
       name: 'append',
@@ -190,18 +204,72 @@ export class FileWriteTool extends BaseTool {
 
       const append = (input.append as boolean) || false;
 
+      // content 与 source_file 至少提供一个：内容在磁盘时必须优先走 source_file（0 输出 token）
+      const hasContent =
+        typeof input.content === 'string' &&
+        (input.content as string).trim().length > 0;
+      const hasSourceFile =
+        typeof input.source_file === 'string' &&
+        (input.source_file as string).trim().length > 0;
+      if (!hasContent && !hasSourceFile) {
+        return createToolResult(
+          '参数 content 或 source_file 必须提供一个（content 为要写入的正文，source_file 为本地已有文件路径，用于避免复述长内容导致 token 爆炸）',
+          {
+            newMessages: [
+              { role: 'system', content: '缺少参数 content 或 source_file' },
+            ],
+          }
+        );
+      }
+
+      // source_file 优先：从磁盘读取，0 输出 token、不截断、不走模型的嘴
+      let effectiveContent: string;
+      if (hasSourceFile && !hasContent) {
+        const src = path.resolve(input.source_file as string);
+        if (!fs.existsSync(src)) {
+          return createToolResult(`source_file 指定的文件不存在: ${src}`, {
+            newMessages: [
+              { role: 'system', content: `source_file 不存在: ${src}` },
+            ],
+          });
+        }
+        try {
+          effectiveContent = readFileWithEncoding(src);
+          logger.info('FileWriteTool: source_file 读取成功，写入目标', {
+            sourcePath: src,
+            destPath: input.file_path as string,
+            bytes: Buffer.byteLength(effectiveContent),
+            append,
+          });
+        } catch (e) {
+          return createToolResult(
+            `source_file 读取失败: ${src}（${e instanceof Error ? e.message : String(e)}）`,
+            {
+              newMessages: [
+                {
+                  role: 'system',
+                  content: `source_file 读取失败: ${src}`,
+                },
+              ],
+            }
+          );
+        }
+      } else {
+        effectiveContent = input.content as string;
+      }
+
       if (append) {
         const resolved = resolveFilePath(input.file_path as string);
         // 使用编码感知的文件读取（自动检测 UTF-8 / GBK / GB18030）
         const existingContent = readFileWithEncoding(resolved);
         writeFile({
           filePath: input.file_path as string,
-          content: existingContent + (input.content as string),
+          content: existingContent + effectiveContent,
         });
       } else {
         writeFile({
           filePath: input.file_path as string,
-          content: input.content as string,
+          content: effectiveContent,
         });
       }
 

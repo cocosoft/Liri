@@ -59,21 +59,235 @@ import { getLogger } from '../monitoring/logs/Logger.js';
 const logger = getLogger('config:ConfigManager');
 
 /**
+ * 🔴 hash-debug 专用 helper：收集对象所有 JSON 叶子路径 + 类型（用于归一化前后对比）。
+ * ⚠ 仅记录路径+类型，绝不记录值，避免 config 中的 secret/API Key 落日志。
+ */
+function collectLeafTypes(node: unknown, prefix = ''): Record<string, string> {
+  const out: Record<string, string> = {};
+  function walk(n: unknown, p: string): void {
+    if (n === null) {
+      out[p || '<root>'] = 'null';
+      return;
+    }
+    const t = typeof n;
+    if (t === 'string' || t === 'number' || t === 'boolean') {
+      out[p || '<root>'] = t;
+      return;
+    }
+    if (Array.isArray(n)) {
+      n.forEach((item, i) => walk(item, p ? `${p}[${i}]` : `[${i}]`));
+      return;
+    }
+    if (t === 'object') {
+      const record = n as Record<string, unknown>;
+      const keys = Object.keys(record).sort();
+      if (keys.length === 0) {
+        out[p || '<root>'] = 'object(empty)';
+        return;
+      }
+      for (const k of keys) {
+        const v = record[k];
+        const keyPath = p ? `${p}.${k}` : k;
+        // 标记非 JSON-native 类型（undefined/Date/BigInt/symbol/function）
+        if (v === undefined) {
+          out[keyPath] = 'undefined(会被 JSON 归一化删除该键)';
+          continue;
+        }
+        const vt = typeof v;
+        if (v instanceof Date) {
+          out[keyPath] =
+            `Date(iso=${v.toISOString()}:会被 JSON 归一化转 string)`;
+          continue;
+        }
+        if (vt === 'bigint') {
+          out[keyPath] =
+            `BigInt(${String(v)}:会被 JSON 归一化抛 TypeError 或截断)`;
+          continue;
+        }
+        if (Number.isNaN(v as number)) {
+          out[keyPath] = 'NaN(会被 JSON 归一化转 null)';
+          continue;
+        }
+        if (v === Infinity || v === -Infinity) {
+          out[keyPath] =
+            `${v === Infinity ? '' : '-'}Infinity(会被 JSON 归一化转 null)`;
+          continue;
+        }
+        if (vt === 'symbol' || vt === 'function') {
+          out[keyPath] = `${vt}(会被 JSON 归一化删除/省略该值)`;
+          continue;
+        }
+        walk(v, keyPath);
+      }
+    }
+  }
+  walk(node, prefix);
+  return out;
+}
+
+/**
+ * 🔴 hash-debug 专用 helper：对比两份 leaf type 表，返回人类可读差异列表。
+ * 每条 [path, before→after]，仅输出前 60 条避免刷屏，超过的输出总量。
+ */
+function diffLeafTypes(
+  before: Record<string, string>,
+  after: Record<string, string>,
+  limit = 60
+): { lines: string[]; truncated: number } {
+  const allKeys = new Set([...Object.keys(before), ...Object.keys(after)]);
+  const changes: Array<{
+    k: string;
+    type: 'changed' | 'removed' | 'added';
+    line: string;
+  }> = [];
+  for (const k of allKeys) {
+    const b = before[k];
+    const a = after[k];
+    if (b === a) continue;
+    if (b !== undefined && a === undefined) {
+      changes.push({
+        k,
+        type: 'removed',
+        line: `  - ${k} :: ${b}  (键被 JSON 归一化删除)`,
+      });
+    } else if (b === undefined && a !== undefined) {
+      changes.push({ k, type: 'added', line: `  + ${k} :: ${a}  (键新增)` });
+    } else {
+      changes.push({ k, type: 'changed', line: `  ~ ${k} :: ${b}  →  ${a}` });
+    }
+  }
+  changes.sort((x, y) => x.k.localeCompare(y.k, 'en'));
+  return {
+    lines: changes.slice(0, limit).map((c) => c.line),
+    truncated: Math.max(0, changes.length - limit),
+  };
+}
+
+/**
  * 确定性 JSON 序列化，用于配置 Hash 计算
  * 保证相同配置值总是产生相同字符串
+ *
+ * K-3 修复 (2026-08-21)：根因是「内存对象」和「磁盘 JSON.parse 对象」在 JSON-non-native 类型上的语义差：
+ *   - undefined 属性：JSON.stringify 会省略该键，原 stableStringify 保留键并把 undefined 写成 "null"
+ *   - Date：JSON.stringify 输出 ISO 字符串，原 stableStringify 把 Date 当普通 record 输出 `{}`
+ *   - NaN/Infinity/BigInt：JSON.stringify 行为特殊，原实现没对齐
+ * 修复方案：先 `JSON.parse(JSON.stringify(v))` 做一次 JSON 归一化（符合 RFC 8259 纯对象），
+ *   结果和磁盘 JSON.parse 的值形态完全一致，再排序键 → 确定性序列化。
+ *   这样 computeHash(memoryConfig) 与 verifyConfigHash(fileParsed) 对同一语义配置必相等。
+ *
+ * @param debugLabel  传入时打印「归一化前后类型差异 + 长度对比」结构化日志。
+ *                    递归内部不建议传（会刷屏），仅在顶层 computeHash / verifyConfigHash 等处传入。
  */
-function stableStringify(value: unknown): string {
-  if (value === null || typeof value !== 'object') {
-    return JSON.stringify(value) ?? 'null';
+function stableStringify(value: unknown, debugLabel?: string): string {
+  // 🔴 hash-debug (before)：仅当顶层传了 label 才采样归一化前快照（叶子路径+类型，不含值）
+  const beforeLeaves = debugLabel ? collectLeafTypes(value) : null;
+  const beforeRawLen = debugLabel
+    ? (() => {
+        try {
+          return JSON.stringify(value)?.length ?? 0;
+        } catch {
+          return -1; // 循环引用等 JSON.stringify 失败，标记为 -1 方便识别
+        }
+      })()
+    : 0;
+
+  // Step 1: 归一化到 JSON 语义（undefined→删键、Date→ISO string、NaN/Infinity→null、循环引用报错）
+  // 这是让「内存对象的 hash」与「磁盘 JSON.parse 回来对象的 hash」对齐的关键
+  let normalized: unknown;
+  try {
+    normalized = JSON.parse(JSON.stringify(value));
+  } catch (err) {
+    if (debugLabel) {
+      logger.warn(
+        '[hash-debug] stableStringify: JSON 归一化失败，该值将被当作 null 处理（不影响旧语义）',
+        {
+          label: debugLabel,
+          error:
+            err instanceof Error ? `${err.name}: ${err.message}` : String(err),
+          valueType: typeof value,
+          valueIsArray: Array.isArray(value),
+          valueKeys:
+            typeof value === 'object' && value !== null
+              ? Object.keys(value).slice(0, 30)
+              : undefined,
+        }
+      );
+    }
+    normalized = null;
   }
-  if (Array.isArray(value)) {
-    return `[${value.map((entry) => stableStringify(entry)).join(',')}]`;
+
+  // 🔴 hash-debug (after)：输出归一化前后的叶子类型差异
+  if (debugLabel && beforeLeaves) {
+    const afterLeaves = collectLeafTypes(normalized);
+    const diff = diffLeafTypes(beforeLeaves, afterLeaves);
+    const beforeTotalKeys = Object.keys(beforeLeaves).length;
+    const afterTotalKeys = Object.keys(afterLeaves).length;
+    const afterRawLen = (() => {
+      try {
+        return JSON.stringify(normalized)?.length ?? 0;
+      } catch {
+        return -1;
+      }
+    })();
+    logger.debug(
+      '[hash-debug] stableStringify: 归一化前后对比（仅路径+类型，不含值）',
+      {
+        label: debugLabel,
+        before: {
+          rawJsonLen: beforeRawLen, // JSON.stringify 后的字节长度（失败=-1）
+          totalLeafKeys: beforeTotalKeys,
+          // 采样前 15 个可疑（非 string/number/boolean/object/array/primitive-ok）类型，帮助快速找到 Date/undefined/NaN/Infinity/BigInt
+          suspiciousTypesSample: Object.entries(beforeLeaves)
+            .filter(
+              ([, t]) =>
+                t.startsWith('undefined') ||
+                t.startsWith('Date') ||
+                t.startsWith('NaN') ||
+                t.startsWith('Infinity') ||
+                t.startsWith('-Infinity') ||
+                t.startsWith('BigInt') ||
+                t.startsWith('symbol') ||
+                t.startsWith('function')
+            )
+            .slice(0, 15)
+            .map(([k, t]) => `${k}=${t}`),
+        },
+        after: {
+          rawJsonLen: afterRawLen,
+          totalLeafKeys: afterTotalKeys,
+        },
+        summary: {
+          rawLenDelta: afterRawLen - beforeRawLen,
+          totalKeysDelta: afterTotalKeys - beforeTotalKeys,
+          diffLines: diff.lines,
+          diffTruncatedCount: diff.truncated,
+        },
+      }
+    );
   }
-  const record = value as Record<string, unknown>;
-  const keys = Object.keys(record).sort();
-  return `{${keys
-    .map((key) => `${JSON.stringify(key)}:${stableStringify(record[key])}`)
-    .join(',')}}`;
+
+  // Step 2: 键排序的确定性序列化
+  function canonical(node: unknown): string {
+    if (node === null) return 'null';
+    const t = typeof node;
+    if (t === 'string' || t === 'number' || t === 'boolean') {
+      return JSON.stringify(node);
+    }
+    if (Array.isArray(node)) {
+      return `[${node.map((entry) => canonical(entry)).join(',')}]`;
+    }
+    if (t === 'object') {
+      const record = node as Record<string, unknown>;
+      const keys = Object.keys(record).sort();
+      return `{${keys
+        .map((k) => `${JSON.stringify(k)}:${canonical(record[k])}`)
+        .join(',')}}`;
+    }
+    // JSON 归一化后不会走到这里（symbol/undefined/function 都已被 JSON.stringify 清除/转换）
+    return 'null';
+  }
+
+  return canonical(normalized);
 }
 
 /**
@@ -260,7 +474,11 @@ export class ConfigManager {
         config,
         mtime: stats?.mtimeMs ?? Date.now(),
       };
-      this.configHash = this.computeHash(config);
+      // 🔴 hash-debug: loadConfig 从磁盘读入后记录首个内存 hash（用于与后续写入/校验追踪）
+      this.configHash = this.computeHash(
+        config,
+        `loadConfig:fromFile#read=${this.stats.readCount ?? 0}`
+      );
       this.lastHashCheckTime = Date.now();
       this.configHashRevision++;
       this.stats.readCount++;
@@ -310,9 +528,37 @@ export class ConfigManager {
   /**
    * 计算配置对象的确定性 Hash 值
    * 使用 SHA-256 算法，保证相同配置产生相同 Hash
+   *
+   * @param config  待哈希的 config 对象（通常是 GlobalConfig 或 fileParsed 形态）
+   * @param callerLabel  来源标识：传入则开启 hash-debug，打印「归一化前后差异 + 最终 hash」
+   *                     仅在关键路径传入：save/mutate/reload/verify；不要在高频递归内传
    */
-  private computeHash(config: GlobalConfig): string {
-    return createHash('sha256').update(stableStringify(config)).digest('hex');
+  private computeHash(
+    config: GlobalConfig | Record<string, unknown>,
+    callerLabel?: string
+  ): string {
+    // 🔴 hash-debug：顶层 stableStringify 打归一化差异日志
+    const debugLabel = callerLabel ? `computeHash[${callerLabel}]` : undefined;
+    const canonical = stableStringify(config, debugLabel);
+    const hash = createHash('sha256').update(canonical).digest('hex');
+
+    if (callerLabel) {
+      logger.debug(
+        '[hash-debug] computeHash: 输出 hash（不包含 canonical 原文以免 secret 落盘）',
+        {
+          caller: callerLabel,
+          configTopLevelKeys:
+            typeof config === 'object' && config !== null
+              ? Object.keys(config as Record<string, unknown>).sort()
+              : [],
+          canonicalLen: canonical.length,
+          hashPrefix: `${hash.slice(0, 8)}…${hash.slice(-6)}`, // 仅展示 hash 前后缀用于比对，完整 hash 由 mismatch 分支打印
+          configPath: this.globalConfigPath,
+        }
+      );
+    }
+
+    return hash;
   }
 
   /**
@@ -340,31 +586,122 @@ export class ConfigManager {
 
     this.stats.hashChecks = (this.stats.hashChecks ?? 0) + 1;
     this.lastHashCheckTime = Date.now();
+    const checkSeq = this.stats.hashChecks;
 
     try {
       const fileContent = this.readConfigFileSnapshot();
       if (fileContent === null) {
+        logger.debug(
+          '[hash-debug] verifyConfigHash: 配置文件不可读，跳过本次校验',
+          {
+            checkSeq,
+            configPath: this.globalConfigPath,
+          }
+        );
         return;
       }
 
-      const fileParsed = JSON.parse(fileContent);
-      const fileHash = createHash('sha256')
-        .update(stableStringify(fileParsed))
-        .digest('hex');
+      const fileParsed: Record<string, unknown> = JSON.parse(fileContent);
+      // 🔴 hash-debug: file 侧走 computeHash（传 caller 开启 stableStringify 归一化差异日志）
+      const fileHash = this.computeHash(
+        fileParsed,
+        `verifyConfigHash:file#${checkSeq}`
+      );
+      const expectedFull = this.configHash;
+      const actualFull = fileHash;
 
-      if (fileHash !== this.configHash) {
+      if (actualFull !== expectedFull) {
         this.stats.hashMismatches = (this.stats.hashMismatches ?? 0) + 1;
-        logger.warn('配置文件外部修改检测，自动重载配置', {
-          expectedHash: this.configHash,
-          actualHash: fileHash,
-          configPath: this.globalConfigPath,
-        });
+
+        // 🔴 hash-debug (mismatch)：对比内存配置与文件解析后配置的「叶子类型 + 路径」差异
+        //   （只输出路径 + 类型 / key 集合，不输出任何具体值——避免 secret 泄露）
+        const memoryLeaves = collectLeafTypes(this.configCache.config);
+        const fileLeaves = collectLeafTypes(fileParsed);
+        const leafDiff = diffLeafTypes(memoryLeaves, fileLeaves, 50);
+        const memoryKeys =
+          typeof this.configCache.config === 'object' &&
+          this.configCache.config !== null
+            ? Object.keys(
+                this.configCache.config as Record<string, unknown>
+              ).sort()
+            : [];
+        const fileKeys = Object.keys(fileParsed).sort();
+        const topLevelKeyDelta: string[] = [
+          ...memoryKeys
+            .filter((k) => !fileKeys.includes(k))
+            .map((k) => `-${k}(仅内存)`),
+          ...fileKeys
+            .filter((k) => !memoryKeys.includes(k))
+            .map((k) => `+${k}(仅文件)`),
+        ];
+
+        logger.warn(
+          '[hash-debug] verifyConfigHash: hash 不匹配（内存 vs 文件），已触发 reload',
+          {
+            checkSeq,
+            // 完整 hash（此处 OK，hash 本身不可逆 → 不含 secret 明文）
+            expectedHash_full: expectedFull,
+            actualHash_full: actualFull,
+            hashDiff_startPosition: (() => {
+              let pos = -1;
+              for (
+                let i = 0;
+                i < Math.max(expectedFull.length, actualFull.length);
+                i++
+              ) {
+                if (expectedFull[i] !== actualFull[i]) {
+                  pos = i;
+                  break;
+                }
+              }
+              return pos === -1 ? 'identical(理论上不可达)' : `${pos}/64`;
+            })(),
+            // 结构级差异（仅路径 + 类型 / 顶层 key 名，不含值）
+            topLevelKeys: {
+              memory: memoryKeys,
+              file: fileKeys,
+              delta: topLevelKeyDelta,
+            },
+            leafTypeDiff: {
+              totalMemoryLeafKeys: Object.keys(memoryLeaves).length,
+              totalFileLeafKeys: Object.keys(fileLeaves).length,
+              changedLines: leafDiff.lines,
+              truncatedCount: leafDiff.truncated,
+            },
+            fileRawSize: fileContent.length,
+            configPath: this.globalConfigPath,
+            statsSnapshot: {
+              hashChecks: this.stats.hashChecks,
+              hashMismatches: this.stats.hashMismatches,
+              hashRevision: this.configHashRevision,
+            },
+          }
+        );
         this.reloadConfig();
+      } else {
+        logger.debug(
+          '[hash-debug] verifyConfigHash: hash 匹配（本次校验正常）',
+          {
+            checkSeq,
+            hashPrefix: `${fileHash.slice(0, 8)}…${fileHash.slice(-6)}`,
+            totalChecks: this.stats.hashChecks,
+            totalMismatches: this.stats.hashMismatches,
+            configPath: this.globalConfigPath,
+          }
+        );
       }
     } catch (error) {
-      logger.warn('配置 Hash 校验失败，跳过本次校验', {
-        error: error instanceof Error ? error.message : String(error),
-      });
+      logger.warn(
+        '[hash-debug] verifyConfigHash: Hash 校验流程异常，跳过本次校验',
+        {
+          checkSeq,
+          error:
+            error instanceof Error
+              ? `${error.name}: ${error.message}`
+              : String(error),
+          configPath: this.globalConfigPath,
+        }
+      );
     }
   }
 
@@ -515,7 +852,11 @@ export class ConfigManager {
 
       // 更新缓存和 Hash
       this.configCache = { config: newConfig, mtime: Date.now() };
-      this.configHash = this.computeHash(newConfig);
+      // 🔴 hash-debug: saveGlobalConfig 写入完成后更新内存 hash
+      this.configHash = this.computeHash(
+        newConfig,
+        `saveGlobalConfig:postWrite#write=${(this.stats.writeCount ?? 0) + 1}`
+      );
       this.lastHashCheckTime = Date.now();
       this.configHashRevision++;
       this.stats.writeCount++;
@@ -552,16 +893,64 @@ export class ConfigManager {
     try {
       const fileContent = this.readConfigFileSnapshot();
       if (fileContent !== null) {
-        const fileParsed = JSON.parse(fileContent);
-        const fileHash = createHash('sha256')
-          .update(stableStringify(fileParsed))
-          .digest('hex');
+        const fileParsed: Record<string, unknown> = JSON.parse(fileContent);
+        // 🔴 hash-debug: mutate 预检阶段 file 侧 hash（带 label，触发 stableStringify 归一化日志）
+        const fileHash = this.computeHash(
+          fileParsed,
+          `mutateConfigFile:preCheck:file#expectedSeq=${this.configHashRevision}`
+        );
 
         if (expectedHash !== null && fileHash !== expectedHash) {
           this.stats.hashMismatches = (this.stats.hashMismatches ?? 0) + 1;
+          // 🔴 hash-debug (冲突)：输出内存 vs 文件的 leaf-type + 顶层 key 差异
+          const memoryLeaves = this.configCache.config
+            ? collectLeafTypes(this.configCache.config)
+            : {};
+          const fileLeaves = collectLeafTypes(fileParsed);
+          const leafDiff = diffLeafTypes(memoryLeaves, fileLeaves, 50);
+          const memoryKeys =
+            this.configCache.config &&
+            typeof this.configCache.config === 'object'
+              ? Object.keys(
+                  this.configCache.config as Record<string, unknown>
+                ).sort()
+              : [];
+          const fileKeys = Object.keys(fileParsed).sort();
+          logger.warn(
+            '[hash-debug] mutateConfigFile: 预检冲突 — 配置自上次加载后已被外部修改，抛出 ConfigMutationConflictError',
+            {
+              expectedHash_full: expectedHash,
+              actualHash_full: fileHash,
+              fileRawSize: fileContent.length,
+              topLevelKeysDelta: [
+                ...memoryKeys
+                  .filter((k) => !fileKeys.includes(k))
+                  .map((k) => `-${k}(仅内存)`),
+                ...fileKeys
+                  .filter((k) => !memoryKeys.includes(k))
+                  .map((k) => `+${k}(仅文件)`),
+              ],
+              leafTypeDiff_lines: leafDiff.lines,
+              leafTypeDiff_truncatedCount: leafDiff.truncated,
+              configPath: this.globalConfigPath,
+              hashRevision: this.configHashRevision,
+            }
+          );
           throw new ConfigMutationConflictError(
             '配置自上次加载后已被外部修改，写入冲突',
             { expectedHash, actualHash: fileHash }
+          );
+        } else {
+          logger.debug(
+            '[hash-debug] mutateConfigFile: 预检通过（内存 hash 与文件 hash 一致）',
+            {
+              expectedHash_prefix: expectedHash
+                ? `${expectedHash.slice(0, 8)}…${expectedHash.slice(-6)}`
+                : 'null(expectedHash 未初始化，首次写入跳过)',
+              actualHash_prefix: `${fileHash.slice(0, 8)}…${fileHash.slice(-6)}`,
+              fileRawSize: fileContent.length,
+              hashRevision: this.configHashRevision,
+            }
           );
         }
       }
@@ -569,8 +958,11 @@ export class ConfigManager {
       if (error instanceof ConfigMutationConflictError) {
         throw error;
       }
-      logger.warn('原子修改预检失败，继续执行写入', {
-        error: error instanceof Error ? error.message : String(error),
+      logger.warn('[hash-debug] mutateConfigFile: 预检读盘异常，继续执行写入', {
+        error:
+          error instanceof Error
+            ? `${error.name}: ${error.message}`
+            : String(error),
       });
     }
 
@@ -579,7 +971,11 @@ export class ConfigManager {
 
     // 更新缓存和 Hash
     this.configCache = { config: draft, mtime: Date.now() };
-    this.configHash = this.computeHash(draft);
+    // 🔴 hash-debug: mutate 写入完成后更新内存 hash
+    this.configHash = this.computeHash(
+      draft,
+      `mutateConfigFile:applyDraft#write=${(this.stats.writeCount ?? 0) + 1}`
+    );
     this.lastHashCheckTime = Date.now();
     this.configHashRevision++;
     this.stats.writeCount++;
@@ -830,7 +1226,11 @@ export class ConfigManager {
             config: mergedConfig,
             mtime: curr.mtimeMs,
           };
-          this.configHash = this.computeHash(mergedConfig);
+          // 🔴 hash-debug: 文件监控检测到外部变更（非我们写入），更新内存 hash
+          this.configHash = this.computeHash(
+            mergedConfig,
+            'freshnessWatcher:fileModified'
+          );
           this.lastHashCheckTime = Date.now();
           this.configHashRevision++;
           setRuntimeConfigSnapshot(mergedConfig);
@@ -1030,7 +1430,8 @@ export class ConfigManager {
     const defaultConfig = createDefaultGlobalConfig();
     this.atomicWriteConfig(defaultConfig);
     this.configCache = { config: defaultConfig, mtime: Date.now() };
-    this.configHash = this.computeHash(defaultConfig);
+    // 🔴 hash-debug: resetConfig 重置为默认值后更新内存 hash
+    this.configHash = this.computeHash(defaultConfig, 'resetConfig:toDefault');
     this.lastHashCheckTime = Date.now();
     this.configHashRevision++;
     setRuntimeConfigSnapshot(defaultConfig);

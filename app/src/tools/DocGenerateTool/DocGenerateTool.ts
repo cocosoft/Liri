@@ -5,8 +5,15 @@
  */
 
 import { execSync, spawnSync } from 'child_process';
-import { existsSync, mkdirSync, unlinkSync, statSync, writeFileSync } from 'fs';
-import { join } from 'path';
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  unlinkSync,
+  statSync,
+  writeFileSync,
+} from 'fs';
+import { join, resolve } from 'path';
 import { deflateRawSync } from 'zlib';
 
 import { BaseTool } from '../BaseTool';
@@ -31,7 +38,9 @@ type DocType = (typeof VALID_TYPES)[number];
 /** 工具输入参数 */
 interface DocGenerateInput {
   title: string;
-  content: string;
+  content?: string;
+  /** 本地文件路径：内容从该文件读取（content 为空时生效）。避免模型复述长内容（0 输出 token、不截断） */
+  content_file?: string;
   type?: DocType;
   template?: string;
   /** 文档语言（如 zh-CN / en-US），未传则按 通用设置→系统→内容 解析 */
@@ -75,8 +84,9 @@ function sanitizeFileName(name: string): string {
 
 /**
  * 检测 officecli 是否可用
+ * 导出供 file_convert 等工具复用
  */
-function isOfficeCLIAvailable(): boolean {
+export function isOfficeCLIAvailable(): boolean {
   try {
     execSync('officecli --version', {
       encoding: 'utf-8',
@@ -222,8 +232,9 @@ function markdownToBatchCommands(content: string): BatchCommand[] {
 
 /**
  * 使用 officecli batch 创建 Office 文档
+ * 导出供 file_convert 等工具复用（docx 本地直转）
  */
-function createWithOfficeCLI(
+export function createWithOfficeCLI(
   title: string,
   content: string,
   type: DocType,
@@ -500,8 +511,9 @@ function buildZip(entries: { name: string; data: Buffer }[]): Buffer {
 /**
  * 原生 docx 生成（officecli 不可用时的 fallback）
  * 生成标准 OOXML 结构的 .docx 文件，Word/WPS 可直接打开。
+ * 导出供 file_convert 等工具复用（docx 本地直转）
  */
-function createNativeDocx(
+export function createNativeDocx(
   title: string,
   content: string,
   outputDir: string,
@@ -1247,6 +1259,8 @@ export class DocGenerateTool extends BaseTool {
     '创建并填充 Office 文档（.docx/.xlsx/.pptx）或 HTML 页面（.html）。' +
     '当用户要求"创建文档"、"生成周报"、"写一份会议纪要"、"导出为 docx"、"导出为 html"时必须调用此工具。' +
     '传入 Markdown 格式的内容（标题 # ## ###、列表 -、段落、表格 |），自动生成格式化的文档。' +
+    '内容已存在于本地文件时（如用户给的 html/md/txt 文档），必须优先传 content_file 路径而非复述长内容，' +
+    '工具直接从文件读取，避免长内容截断与巨量 token 消耗。' +
     'type 参数默认 docx；template 可选：weekly-report / meeting-minutes / tech-design / prd。';
 
   params: ToolParam[] = [
@@ -1260,8 +1274,16 @@ export class DocGenerateTool extends BaseTool {
       name: 'content',
       type: 'string',
       description:
-        '文档正文内容，支持 Markdown 格式（标题、列表、粗体、表格等）',
-      required: true,
+        '文档正文内容，支持 Markdown 格式（标题、列表、粗体、表格等）。与 content_file 二选一',
+      required: false,
+    },
+    {
+      name: 'content_file',
+      type: 'string',
+      description:
+        '本地文件路径（html/md/txt 等），内容从该文件读取。适用于内容已存在于磁盘的场景，' +
+        '避免模型复述长内容导致截断与 token 浪费。与 content 二选一',
+      required: false,
     },
     {
       name: 'type',
@@ -1328,12 +1350,71 @@ export class DocGenerateTool extends BaseTool {
           error: '参数 title 是必需的，且必须为字符串',
         };
       }
-      if (!params.content || typeof params.content !== 'string') {
-        logger.warn('DocGenerateTool: 参数 content 无效');
+
+      // content 与 content_file 至少提供一个
+      const hasContent =
+        typeof params.content === 'string' && params.content.trim().length > 0;
+      const hasContentFile =
+        typeof params.content_file === 'string' &&
+        params.content_file.trim().length > 0;
+      if (!hasContent && !hasContentFile) {
+        logger.warn('DocGenerateTool: 参数 content/content_file 均缺失');
         return {
           success: false,
-          error: '参数 content 是必需的，且必须为字符串',
+          error:
+            '参数 content 或 content_file 必须提供一个（content 为 Markdown 正文，content_file 为本地文件路径）',
         };
+      }
+
+      // content_file 路径：从磁盘读取内容（0 输出 token、不占上下文、不截断）。
+      // html/md/txt/docx 等经 ConverterEngine 统一转为 Markdown 后走既有生成管线。
+      let contentFromFile: string | null = null;
+      if (!hasContent && hasContentFile) {
+        const sourcePath = resolve(params.content_file as string);
+        if (!existsSync(sourcePath)) {
+          logger.warn('DocGenerateTool: content_file 不存在', { sourcePath });
+          return {
+            success: false,
+            error: `content_file 指定的文件不存在: ${sourcePath}`,
+          };
+        }
+        try {
+          const { getConverterEngine } =
+            await import('../converter/engine/ConverterEngine').catch(() => ({
+              getConverterEngine: undefined,
+            }));
+          const { FileTypeDetector } =
+            await import('../converter/engine/FileTypeDetector').catch(() => ({
+              FileTypeDetector: undefined,
+            }));
+          const buffer = readFileSync(sourcePath);
+          if (getConverterEngine && FileTypeDetector) {
+            const info = new FileTypeDetector().detect(
+              sourcePath,
+              statSync(sourcePath).size
+            );
+            const converted = await getConverterEngine().convertContent(
+              info,
+              buffer
+            );
+            contentFromFile = converted.markdown || buffer.toString('utf-8');
+          } else {
+            contentFromFile = buffer.toString('utf-8');
+          }
+          logger.info('DocGenerateTool: content_file 读取成功', {
+            sourcePath,
+            length: contentFromFile.length,
+          });
+        } catch (error) {
+          logger.warn('DocGenerateTool: content_file 读取失败', {
+            sourcePath,
+            error: String(error),
+          });
+          return {
+            success: false,
+            error: `content_file 读取失败: ${sourcePath}（${error instanceof Error ? error.message : String(error)}）`,
+          };
+        }
       }
 
       const docType: DocType =
@@ -1342,7 +1423,7 @@ export class DocGenerateTool extends BaseTool {
           : 'docx';
 
       // 渲染模板（如果指定了模板）
-      let finalContent = params.content;
+      let finalContent = contentFromFile ?? params.content ?? '';
       let finalTitle = params.title;
 
       if (params.template) {

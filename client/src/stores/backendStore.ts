@@ -107,8 +107,7 @@ export const useBackendStore = create<BackendStore>((set, get) => ({
     } else {
       logger.warn("[startBackend] 浏览器模式，无法自动启动后端");
       set({
-        error:
-          `浏览器模式下无法自动启动后端。请在终端中运行：\ncd app && bun run src/main.ts repl --http-port ${DEFAULT_BACKEND_PORT}\n启动后刷新页面。`,
+        error: `浏览器模式下无法自动启动后端。请在终端中运行：\ncd app && bun run src/main.ts repl --http-port ${DEFAULT_BACKEND_PORT}\n启动后刷新页面。`,
       });
     }
   },

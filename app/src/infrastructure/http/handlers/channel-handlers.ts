@@ -634,7 +634,19 @@ function bindInboundHandler(channelType: string, plugin: any): void {
 
   const _processingMessages = new Set<string>();
 
-  /** 跟踪待重试的出站回复（用于断点恢复） */
+  /**
+   * 跟踪待重试的出站回复（用于断点恢复）
+   *
+   * 📝 R01-003 已登记架构例外（architecture-compliance.md 已知例外表，2026-08-21 永久）：
+   * 本结构 + schedulePendingFlush() = "跨 N 条独立 onOutbound 失败消息的批处理延迟调度状态机"，
+   * 语义与 R01-003 要禁止的"对单个请求做线性 for-重试"不同：
+   *   ① 每条失败消息有独立 pending.lastAttemptAt（距上次发 ≥10s 才允许重试）
+   *   ② setInterval 15s 轮询整张共享 Map（非单条消息的 await 串行）
+   *   ③ 定时器懒启动（入队时 schedulePendingFlush）+ 空自动 clearInterval
+   *   ④ 同一 tick 可并发重试多条消息（不是 withRetry 一条 Promise 串行）
+   * 硬套 utils/withRetry 需为每条消息额外造 setTimeout/for/drain 三重管理，代码更难维护
+   * （对齐 session/platform/WebhookPlatform.ts 的 flushPendingQueue 同类登记）
+   */
   const _pendingOutboundReplies = new Map<
     string,
     {

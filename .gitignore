@@ -202,3 +202,8 @@ temp_url2.txt
 test.txt
 dev_docs/*
 REF/*
+
+# 临时会话去重备份与一次性脚本
+app/scripts/session-dedup-backup-*.jsonl
+liri_check.py
+liri_serve.py

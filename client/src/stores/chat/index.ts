@@ -24,6 +24,8 @@ export {
   findLastToolCallId,
   normalizeToolCall,
   rebuildBlocksFromContent,
+  hasMeaningfulContentBlocks,
+  ensureTextBlockFromContent,
 } from "./chat-toolcall.slice";
 
 // Re-export history utilities

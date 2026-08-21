@@ -1,10 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
-import {
-  ConfigSection,
-  ToggleConfig,
-} from "./ConfigComponents";
+import { ConfigSection, ToggleConfig } from "./ConfigComponents";
 import { useModelAdminStore } from "../../stores/modelAdminStore";
 import { useModelStore } from "../../stores/modelStore";
 import { modelService } from "../../services/modelService";
@@ -18,13 +15,17 @@ interface AIConfigProps {
 
 const TYPE_COLORS: Record<string, string> = {
   deepseek: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
-  openai: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
-  anthropic: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
+  openai:
+    "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
+  anthropic:
+    "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
   google: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
-  ollama: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
+  ollama:
+    "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
   llamacpp: "bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400",
   siliconflow: "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400",
-  zhipu: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400",
+  zhipu:
+    "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400",
 };
 
 function AIConfigPanel({ isDark, collapsible }: AIConfigProps) {
@@ -32,7 +33,9 @@ function AIConfigPanel({ isDark, collapsible }: AIConfigProps) {
   const navigate = useNavigate();
   const { providers, loadProviders, toggleProvider } = useModelAdminStore();
   const { models, loadModels } = useModelStore();
-  const [providerStatus, setProviderStatus] = useState<Record<string, boolean>>({});
+  const [providerStatus, setProviderStatus] = useState<Record<string, boolean>>(
+    {},
+  );
   const [detecting, setDetecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -67,7 +70,10 @@ function AIConfigPanel({ isDark, collapsible }: AIConfigProps) {
     try {
       await toggleProvider(id);
     } catch (e) {
-      handleClientError(e, { module: "settings:ai", action: "toggle_provider" });
+      handleClientError(e, {
+        module: "settings:ai",
+        action: "toggle_provider",
+      });
       setError(e instanceof Error ? e.message : "切换 Provider 状态失败");
     }
   };
@@ -87,25 +93,29 @@ function AIConfigPanel({ isDark, collapsible }: AIConfigProps) {
 
   const activeProviders = providers.filter((p) => p.isActive);
   const localProviders = providers.filter(
-    (p) => p.providerType === "ollama" || p.providerType === "llamacpp"
+    (p) => p.providerType === "ollama" || p.providerType === "llamacpp",
   );
   const cloudProviders = providers.filter(
-    (p) => p.providerType !== "ollama" && p.providerType !== "llamacpp"
+    (p) => p.providerType !== "ollama" && p.providerType !== "llamacpp",
   );
 
-  const renderProviderCard = (provider: typeof providers[number]) => {
-    const typeLabel = PROVIDER_TYPE_LABELS[provider.providerType] || provider.providerType;
-    const colorClass = TYPE_COLORS[provider.providerType] || "bg-gray-100 text-gray-700";
-    const isLocal = provider.providerType === "ollama" || provider.providerType === "llamacpp";
-    const localRunning = isLocal ? providerStatus[provider.providerType] : undefined;
+  const renderProviderCard = (provider: (typeof providers)[number]) => {
+    const typeLabel =
+      PROVIDER_TYPE_LABELS[provider.providerType] || provider.providerType;
+    const colorClass =
+      TYPE_COLORS[provider.providerType] || "bg-gray-100 text-gray-700";
+    const isLocal =
+      provider.providerType === "ollama" ||
+      provider.providerType === "llamacpp";
+    const localRunning = isLocal
+      ? providerStatus[provider.providerType]
+      : undefined;
 
     return (
       <div
         key={provider.id}
         className={`p-3 rounded-lg border ${
-          isDark
-            ? "border-gray-700 bg-gray-800/50"
-            : "border-gray-200 bg-white"
+          isDark ? "border-gray-700 bg-gray-800/50" : "border-gray-200 bg-white"
         }`}
       >
         <div className="flex items-start justify-between gap-3">
@@ -116,7 +126,9 @@ function AIConfigPanel({ isDark, collapsible }: AIConfigProps) {
               >
                 {typeLabel}
               </span>
-              <span className="font-medium text-sm truncate">{provider.name}</span>
+              <span className="font-medium text-sm truncate">
+                {provider.name}
+              </span>
               {isLocal && (
                 <span
                   className={`px-1.5 py-0.5 rounded text-xs ${

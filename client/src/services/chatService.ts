@@ -1517,14 +1517,30 @@ export const chatService = {
   > => {
     return getOTelTracing().asyncWrap("services:chat:fetchModels", async () => {
       try {
+        // K-4 修复 (2026-08-21)：后端 GET /v1/models 已由 ModelManagementAPI
+        // 统一接管（返回 modelId / name / provider / providerId 新格式，不再是
+        // OpenAI 兼容的 {id, owned_by}）。原解析会导致：
+        //   id = DB row UUID / name = DB row UUID / provider = "pyapp"(永远兜底)
+        // → 聊天选择器里模型名是乱码 UUID，provider 全为 pyapp，与管理页不一致。
+        // 改为解析新格式，并以 modelId 作为聊天实际传入的 model 参数标识。
         const response = await fetchJSON<{
-          data: Array<{ id: string; owned_by?: string }>;
+          object: string;
+          data: Array<{
+            id: string;
+            modelId: string;
+            name: string;
+            provider: string;
+            providerId?: string;
+            enabled?: boolean;
+          }>;
         }>(`${getBackendBaseUrl()}/v1/models`);
-        return response.data.map((m) => ({
-          id: m.id,
-          name: m.id,
-          provider: m.owned_by || "pyapp",
-        }));
+        return (response.data || [])
+          .filter((m) => m.enabled !== false)
+          .map((m) => ({
+            id: m.modelId, // 聊天传入的模型名
+            name: m.name || m.modelId, // 显示名
+            provider: m.provider, // 与模型管理页同源的显示名
+          }));
       } catch (e) {
         handleClientError(e, {
           module: "services:chat",

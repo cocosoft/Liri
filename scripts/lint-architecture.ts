@@ -298,6 +298,11 @@ class ArchitectureLinter {
                 'chat\\tool\\SmartToolIntegrator.ts', 'chat/tool/SmartToolIntegrator.ts',
                 'session\\platform\\WebhookPlatform.ts', 'session/platform/WebhookPlatform.ts',
                 'streaming\\IncrementalRetry.ts', 'streaming/IncrementalRetry.ts',
+                // R01-003 AC-1 治理落地：channel-handlers 出站消息重试（2026-08-21 复核登记）
+                // → 属于"跨 N 条独立 onOutbound 失败消息的 15s 批处理延迟调度状态机"，
+                //   不是 R01-003 要禁止的"单请求线性重试"语义；硬套 withRetry 反而引入更复杂的 timer/drain 管理
+                //   （详见 architecture-compliance.md 已知例外 R01-003 channel-handlers 条目）
+                'infrastructure\\http\\handlers\\channel-handlers.ts', 'infrastructure/http/handlers/channel-handlers.ts',
                 // 第二组：2026-Q3 前计划迁移
                 'core\\utils\\ErrorHandler.ts', 'core/utils/ErrorHandler.ts',
                 'ai\\providers\\BaseAIProvider.ts', 'ai/providers/BaseAIProvider.ts',

@@ -45,6 +45,9 @@ import {
   renameSync,
   appendFileSync,
   watch,
+  openSync,
+  readSync,
+  closeSync,
 } from 'fs';
 import { basename, dirname, extname, join, resolve, normalize } from 'path';
 import { createServer, type Server } from 'net';
@@ -222,11 +225,41 @@ export function resolveSafeContextWindow(
     const stat = statSync(modelPath);
     modelSizeGB = stat.size / (1024 * 1024 * 1024);
   } catch {
-    // 无法获取模型大小，使用保守默认
-    logger.warn('无法获取模型文件大小，使用保守默认 contextWindow');
+    // f2-1 (H 类补充 #1) 修复 / CS05 配置尊重性：
+    // statSync(modelPath) 失败 ≠ "用户的 contextWindow 必须被强制覆盖为 4096"。
+    // 旧实现无条件兜底 4096+autoAdjusted=true → 即使用户显式配置了合法值 8192
+    // 也被静默改写，影响语义且使测试（路径不存在的断言）永远命中兜底。
+    // 新策略：
+    //   currentWindow 是正整数且 ≤ 8192（保守上限 8K，符合 8GB 内存安全承载）
+    //     → 尊重用户显式输入，不 auto-adjust。
+    //   currentWindow 缺失/NaN/≤0/非整数/超 32K（硬上限）或 > 8192 且未知模型/RAM 约束
+    //     → 兜底 4096。
+    if (
+      Number.isFinite(currentWindow) &&
+      Number.isInteger(currentWindow) &&
+      currentWindow > 0 &&
+      currentWindow <= 8192
+    ) {
+      return {
+        recommended: currentWindow,
+        reason:
+          '模型文件不可访问，但 contextWindow 为合法显式配置（≤8192），尊重用户输入不自动调整',
+        autoAdjusted: false,
+      };
+    }
+    const sanitized =
+      Number.isFinite(currentWindow) && currentWindow > 0 ? currentWindow : 0;
+    logger.warn(
+      '模型文件不可访问且配置缺失/超限，使用保守默认 contextWindow=4096（尊重合法配置原则）',
+      {
+        rawCurrentWindow: sanitized > 0 ? sanitized : '(缺失/非法)',
+        fallback: 4096,
+        modelPath,
+      }
+    );
     return {
       recommended: 4096,
-      reason: '模型文件不可访问，使用安全默认值',
+      reason: '模型文件不可访问且配置缺失/超限，使用安全默认值 4096',
       autoAdjusted: true,
     };
   }
@@ -436,6 +469,13 @@ export class LlamaCppServerManager {
   private logListeners = 0;
   /** fs.watch 监听器引用 */
   private logWatcher: ReturnType<typeof watch> | null = null;
+  /**
+   * 配置级失败标记（模型文件不存在 / 路径不可访问等静态错误）。
+   * 一旦置位，onProcessExit 不再触发退避重启（CS03：本地配置错误不是概率可观的外部故障，
+   * 反复 spawn + exit code=1 只会产生垃圾日志并重置 K-3 中的 provider 反注册计数器）。
+   * 清除条件：用户在 UI 改了 model/modelsDir 并重启 → start() 入口重新评估。
+   */
+  private _configFailed = false;
 
   static getInstance(): LlamaCppServerManager {
     if (!LlamaCppServerManager.instance) {
@@ -1092,6 +1132,8 @@ export class LlamaCppServerManager {
    */
   async start(): Promise<void> {
     this.reloadConfig();
+    // 配置变更可能改了 model 路径，清零上一次的配置级失败标记
+    this._configFailed = false;
     if (this.serverProcess) return; // 已在运行（本进程管理）
 
     await this.ensureBinary();
@@ -1122,9 +1164,86 @@ export class LlamaCppServerManager {
     const { model } = this.config;
     if (!model) {
       this.status = 'error';
+      this._configFailed = true;
       this.lastError = '未配置 GGUF 模型（请先指定模型路径）';
       logger.warning(this.lastError);
       return;
+    }
+
+    // CS03：启动前 fs.stat 验证模型文件。本地文件不存在/不可访问是配置级错误，
+    // 不是概率可观的外部故障 → 置位 _configFailed 后直接返回，onProcessExit 不再退避重试。
+    let st: ReturnType<typeof statSync>;
+    try {
+      st = statSync(model);
+      if (!st.isFile()) {
+        throw new Error(`不是常规文件: ${model}`);
+      }
+      if (st.size === 0) {
+        throw new Error(`GGUF 文件为空（0 bytes）: ${model}`);
+      }
+    } catch (statErr) {
+      this._configFailed = true;
+      this.status = 'error';
+      const msg = statErr instanceof Error ? statErr.message : String(statErr);
+      this.lastError = `GGUF 模型不可访问，已停止尝试启动：${msg}`;
+      logger.error(this.lastError, { model });
+      return;
+    }
+
+    // AC-3 根因修复（运行时第二道防线·魔数校验）：
+    // 事故复盘：CDN 返回的 JSON 错误体（139 字节，如"参数错误：文件路径不能为空"）
+    // 曾被当作模型文件落盘，stat.size===0 判断对其无效 → llama-server 启动崩溃后退避
+    // 重试 21 次。与下载链路 _verifyFile 的 GGUF 魔数校验对齐，启动前读 4 字节魔数，
+    // 非 'GGUF' 一律判为配置级失败，置位 _configFailed，onProcessExit 不再退避重试。
+    {
+      let fd: number | null = null;
+      let magic = '';
+      try {
+        fd = openSync(model, 'r');
+        const buf = Buffer.alloc(4);
+        const bytesRead = readSync(fd, buf, 0, 4, 0);
+        magic = bytesRead >= 1 ? buf.toString('ascii', 0, bytesRead) : '';
+      } catch (magicErr) {
+        // 读魔数失败本身 = 文件不可读/权限错误 → 按配置级失败处理（和 stat 抛错一致）
+        this._configFailed = true;
+        this.status = 'error';
+        const msg =
+          magicErr instanceof Error ? magicErr.message : String(magicErr);
+        this.lastError = `GGUF 模型文件读取失败（魔数校验前），已停止尝试启动：${msg}`;
+        logger.error(this.lastError, { model });
+        if (fd !== null) {
+          try {
+            closeSync(fd);
+          } catch {
+            /* @ignore-catch fd 已损坏，close 失败不计入错误 */
+          }
+        }
+        return;
+      } finally {
+        if (fd !== null) {
+          try {
+            closeSync(fd);
+          } catch {
+            /* @ignore-catch close 失败不影响主流程 */
+          }
+        }
+      }
+      if (magic !== 'GGUF') {
+        this._configFailed = true;
+        this.status = 'error';
+        this.lastError =
+          `GGUF 魔数校验失败：文件头为 ${JSON.stringify(magic)}（预期 "GGUF"），` +
+          `文件不是合法的 GGUF 模型（常见原因：下载源返回了 JSON 错误响应、文件后缀被手动修改、文件截断）。` +
+          `已停止尝试启动，_configFailed=true 防止 onProcessExit 退避重试。请通过模型管理重新下载或更换正确的 GGUF 文件。`;
+        logger.error('GGUF 魔数校验失败，配置级熔断停止启动', {
+          model,
+          actualMagic: JSON.stringify(magic),
+          fileSizeBytes: st.size,
+          hint: '可手动通过 `file` 命令或前 4 字节 `xxd -l 4` 验证；AC-3 同事故 2026-08-20 139 字节 JSON 错误体场景。',
+        });
+        return;
+      }
+      logger.debug('GGUF 魔数校验通过（运行时第二道防线）', { model, magic });
     }
 
     // 上下文窗口安全校验：检测并警告/自动调整不合理的值
@@ -1312,11 +1431,26 @@ export class LlamaCppServerManager {
     await this.start();
   }
 
-  /** 子进程退出回调：非主动停止时指数退避重启 */
+  /**
+   * 子进程退出回调。
+   * 分支策略（CS03）：
+   *  - 配置级失败（_configFailed）：直接 shouldRun=false，永不退避重试
+   *  - 用户主动停止（stopping=true / shouldRun=false）：直接 return
+   *  - 进程意外崩溃（code≠0 / signal≠null 但 _configFailed=false）：维持现有指数退避重启（2s→4s→…→30s）
+   */
   private async onProcessExit(
     code: number | null,
     signal: string | null
   ): Promise<void> {
+    // 配置级失败：本地文件不存在 / 参数非法等静态错误 — 退避重试毫无意义，直接放弃
+    if (this._configFailed) {
+      this.shouldRun = false;
+      logger.error(
+        'llama-server 配置级失败已确认，停止自动重试。请在设置页修正模型路径或文件权限后手动重启',
+        { lastError: this.lastError }
+      );
+      return;
+    }
     if (this.stopping || !this.shouldRun) return;
     this.status = 'error';
     this.lastError = `llama-server 退出 code=${code} signal=${signal}${this.lastStderr ? `: ${this.lastStderr.trim()}` : ''}`;

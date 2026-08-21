@@ -111,8 +111,11 @@ const QUICK_DISCONNECT_THRESHOLD = 5000;
 /** Token 后台刷新提前量（毫秒）：过期前 5 分钟刷新 */
 const TOKEN_REFRESH_AHEAD_MS = 5 * 60 * 1000;
 
-/** 连续会话失败上限：超过此值说明配置有误，停止重连 */
-const MAX_CONSECUTIVE_SESSION_FAILURES = 5;
+/** 连续会话失败上限（鉴权级错误阈值）：超过此值 → 熔断停连 + 告警推送
+ *  2026-08-21 从 5 降为 3：日志实证 1.4s 一轮×68 次 ERROR，
+ *  对于 intents 权限未审核这种静态配置错误，降频重试毫无意义
+ *  （符合 CS02：intents 审核状态是持久化标记，非字符串匹配）。 */
+const MAX_CONSECUTIVE_SESSION_FAILURES = 3;
 
 /** 连续丢失心跳 ACK 上限：达到即判定为死链（半开连接，NAT 超时/网络静默断开） */
 const MAX_MISSED_HEARTBEAT_ACKS = 2;
@@ -219,6 +222,14 @@ class QQChannelPlugin extends BaseChannelPlugin {
   /** AC-5：QQ 服务端对同一 msg_id 仅保留最近 5 条被动回复（msg_seq 超出被静默丢弃） */
   private static readonly PASSIVE_REPLY_MAX_SEQ = 5;
 
+  /**
+   * 鉴权级失败熔断：true 时 scheduleReconnect 直接 no-op，停止一切自动重连。
+   * 触发条件：连续 MAX_CONSECUTIVE_SESSION_FAILURES 次都是「op:9 (INVALID_SESSION d=false)
+   *            + close=4903 (SERVER_ERROR) + 会话存活<5s」的紧耦合循环 = intents 权限未审核。
+   * 清除条件：用户通过 lifecycle.connect() 发起新的连接（onConnect 开头清零）。
+   */
+  private _authFuseBlown = false;
+
   constructor() {
     super();
 
@@ -269,6 +280,14 @@ class QQChannelPlugin extends BaseChannelPlugin {
   }
 
   protected async onConnect(config: Record<string, unknown>): Promise<void> {
+    // 用户显式发起连接：重置鉴权级失败熔断，允许新的配置生效
+    if (this._authFuseBlown) {
+      this.logger.info('QQ Bot 鉴权熔断已解除（用户发起新连接），开始尝试连接');
+      this._authFuseBlown = false;
+      this.consecutiveSessionFailures = 0;
+      this.quickDisconnectCount = 0;
+      this.reconnectAttempts = 0;
+    }
     this.appId = (config['appId'] as string) || '';
     this.secret =
       (config['clientSecret'] as string) || (config['secret'] as string) || '';
@@ -1018,7 +1037,31 @@ class QQChannelPlugin extends BaseChannelPlugin {
           : `wss://${this.gatewayUrl}`;
 
         this.logger.info('QQ Bot 正在建立 WebSocket 连接', { wsUrl });
-        this.ws = new WebSocket(wsUrl);
+
+        // 2026-08-21 重连风暴修复：替换连接前摘除旧 WS 全部事件处理器并主动关闭。
+        // 否则旧连接被 QQ 单会话策略踢下线后，其 onclose 会再次触发
+        // handleDisconnect → scheduleReconnect，形成"新连接踢旧连接→旧连接报复性重连"
+        // 的乘性堆积风暴（实测 48 分钟写 4.6GB 日志直至进程 OOM）。
+        const staleWs = this.ws;
+        if (staleWs) {
+          staleWs.onopen = null;
+          staleWs.onmessage = null;
+          staleWs.onerror = null;
+          staleWs.onclose = null;
+          try {
+            if (
+              staleWs.readyState === WebSocket.OPEN ||
+              staleWs.readyState === WebSocket.CONNECTING
+            ) {
+              staleWs.close(4000, 'superseded');
+            }
+          } catch {
+            // 旧连接关闭失败不影响新连接建立
+          }
+        }
+
+        const ws = new WebSocket(wsUrl);
+        this.ws = ws;
 
         const connectTimeout = setTimeout(() => {
           if (!resolved) {
@@ -1027,7 +1070,11 @@ class QQChannelPlugin extends BaseChannelPlugin {
           }
         }, 15000);
 
-        this.ws.onopen = () => {
+        ws.onopen = () => {
+          // 过期连接守卫：本连接已被更新连接替换时，忽略其事件
+          if (this.ws !== ws) {
+            return;
+          }
           clearTimeout(connectTimeout);
           const attemptsUsed = this.reconnectAttempts;
           this.reconnectAttempts = 0;
@@ -1049,7 +1096,10 @@ class QQChannelPlugin extends BaseChannelPlugin {
           }
         };
 
-        this.ws.onmessage = (event: MessageEvent) => {
+        ws.onmessage = (event: MessageEvent) => {
+          if (this.ws !== ws) {
+            return;
+          }
           try {
             const payload = JSON.parse(
               event.data as string
@@ -1074,7 +1124,10 @@ class QQChannelPlugin extends BaseChannelPlugin {
           }
         };
 
-        this.ws.onerror = (event: Event) => {
+        ws.onerror = (event: Event) => {
+          if (this.ws !== ws) {
+            return;
+          }
           clearTimeout(connectTimeout);
           this.logger.error('QQ Bot WebSocket 错误', { event });
 
@@ -1084,7 +1137,11 @@ class QQChannelPlugin extends BaseChannelPlugin {
           }
         };
 
-        this.ws.onclose = (event: CloseEvent) => {
+        ws.onclose = (event: CloseEvent) => {
+          if (this.ws !== ws) {
+            // 过期连接的关闭事件：不触发断开处理（重连风暴根因之一）
+            return;
+          }
           clearTimeout(connectTimeout);
           this.lastCloseCode = event.code;
           this.logger.warn('QQ Bot WebSocket 连接关闭', {
@@ -1919,6 +1976,27 @@ class QQChannelPlugin extends BaseChannelPlugin {
    */
   private handleDisconnect(): void {
     this.lastDisconnectAt = Date.now();
+    // AC-2：WS 真实断开的触发点（onclose / 主动心跳死链断开 → 都调这里），
+    // 统一 publish CHANNEL_DISCONNECTED。
+    // 注意：不通过基类 lifecycle.disconnect 发布，因为这里是"WS 断→即将重连"
+    // （lifecycle.disconnect 语义是用户手动断开/卸载插件，不进入重连）。
+    try {
+      const status = this.lifecycle.getStatus();
+      channelEventBus.publish(ChannelEvents.CHANNEL_DISCONNECTED, {
+        channelId: this.id,
+        channelName: 'qq',
+        connected: false,
+        uptimeMs: status.uptimeMs,
+        at: Date.now(),
+        cause: 'qq_ws_disconnect',
+        status,
+        closeCode: this.lastCloseCode,
+        reconnectAttempts: this.reconnectAttempts,
+        consecutiveSessionFailures: this.consecutiveSessionFailures,
+      });
+    } catch {
+      // CS03：publish 内部若出 bug 不影响断开处理主流程
+    }
     this.logger.info('QQ Bot WebSocket 断开，开始处理断开事件', {
       code: this.lastCloseCode,
       attempt: this.reconnectAttempts,
@@ -1931,29 +2009,48 @@ class QQChannelPlugin extends BaseChannelPlugin {
     this.stopHeartbeat();
     this.setInboundListening(false);
 
-    // 连续会话失败检测：INVALID_SESSION + 服务端错误循环
+    // 连续会话失败检测：INVALID_SESSION(op:9 d=false) + close 49xx 紧耦合循环
     if (this.consecutiveSessionFailures >= MAX_CONSECUTIVE_SESSION_FAILURES) {
-      // 长退避自愈（原为永久停连）：QQ 网关抖动/维护期常触发 INVALID_SESSION 连发，
-      // 永久放弃会导致通道死透且无告警。改为清会话+刷 Token+5 分钟后重试，
-      // 配置真正有误时降频重试（每 5 分钟一次）也不会打爆平台。
-      this.logger.error(
-        `QQ Bot 连续 ${this.consecutiveSessionFailures} 次会话失败，` +
-          `进入长退避自愈（${LONG_BACKOFF_DELAY_MS / 1000}s 后重试）。请检查以下配置：\n` +
-          '  1. QQ Bot AppID 和 AppSecret 是否正确\n' +
-          '  2. 机器人在 QQ 开放平台是否已启用 WebSocket 协议（非 Webhook）\n' +
-          '  3. 机器人是否已添加了必要的权限（Intents）\n' +
-          '  4. 网络环境是否能正常访问 api.sgroup.qq.com 和 wss://api.sgroup.qq.com'
-      );
+      // 2026-08-21（K-1 修复）：改为鉴权级失败熔断，不再长退避自愈
+      //   日志实证：4903+op:9 循环是「intents 权限未在 QQ 开放平台审核通过」，每 1.4s 一轮×68 次 ERROR。
+      //   配置级错误不是概率可观的外部故障（CS03），降频重试只会产生垃圾日志。
+      //   熔断后用户在通道管理 UI 可见明确告警（CHANNEL_ERROR 会桥接到全局 APP_ERROR），
+      //   修正配置后再点「连接」即可通过 onConnect 清零熔断。
+      this._authFuseBlown = true;
+      this.shouldReconnect = false;
+      const closeCode = this.lastCloseCode;
+      const diagnoseHint =
+        closeCode === 4914 || closeCode === 4915
+          ? '关闭码明确为 INTENTS 权限不足/禁用'
+          : `关闭码 ${closeCode} 落在服务端错误区间(4900-4913)且会话均<5s，高度疑似 intents 未审核通过`;
+      const errorMessage =
+        `QQ Bot 连续 ${this.consecutiveSessionFailures} 次会话失败（${diagnoseHint}）。` +
+        `已停止自动重连，请前往 QQ 开放平台 (https://q.qq.com/) 确认以下事项，修正后在本页手动点击「连接」：\n` +
+        '  1. 「消息事件权限」板块：PUBLIC_GUILD_MESSAGES / GROUP_AT_MESSAGE_CREATE / \n' +
+        '     C2C_MESSAGE_CREATE / DIRECT_MESSAGE_CREATE 是否已通过审核（沙箱环境仅需沙箱权限）\n' +
+        '  2. AppID / AppSecret 是否匹配当前环境（沙箱 vs 生产密钥不同）\n' +
+        '  3. 机器人创建时的协议选择是否为「WebSocket」（Webhook 协议无法使用本通道）\n' +
+        '  4. 机器人状态是否「已发布并通过平台合规审核」（未发布状态下仅沙箱地址可用）';
+      this.logger.error(errorMessage, {
+        closeCode,
+        consecutiveFailures: this.consecutiveSessionFailures,
+        authFuseBlown: true,
+      });
       channelEventBus.publish(ChannelEvents.CHANNEL_ERROR, {
         channelName: 'qq',
-        code: 'SESSION_FAILURE_BACKOFF',
-        message: `QQ 会话连续失败 ${this.consecutiveSessionFailures} 次，已进入 5 分钟长退避自愈（原为永久停连）`,
+        code: 'AUTH_INTENTS_FUSED',
+        severity: 'critical',
+        message:
+          'QQ Bot 停止自动重连：连续 ' +
+          this.consecutiveSessionFailures +
+          ' 次鉴权/权限级错误（intents 未审核通过或密钥错误）。' +
+          '请在 QQ 开放平台完成权限审核后手动点击「连接」。',
+        hint: '前往 https://q.qq.com → 开发设置 → 消息事件权限，确认 GUILD_MESSAGES/GROUP/C2C/DIRECT_MESSAGE 已通过审核',
       });
       this.consecutiveSessionFailures = 0;
       this.sessionId = null;
       this.lastSeq = null;
-      this.needsTokenRefresh = true;
-      this.scheduleReconnect(LONG_BACKOFF_DELAY_MS);
+      // 熔断：不再 scheduleReconnect，scheduleReconnect 入口另有熔断守卫
       return;
     }
 
@@ -2003,6 +2100,52 @@ class QQChannelPlugin extends BaseChannelPlugin {
    * 安排重连（指数退避，对标 OpenClaw ReconnectState.getNextDelay）
    */
   private scheduleReconnect(delayMs?: number): void {
+    // 鉴权级失败熔断：任何路径进入重连调度都直接 no-op，
+    // 避免 MAX_RECONNECT_ATTEMPTS 支路或其他错误路径绕过熔断守卫继续重试
+    if (this._authFuseBlown) {
+      this.logger.info(
+        'QQ Bot 处于鉴权熔断状态，忽略 scheduleReconnect 调度；请手动点击「连接」重试'
+      );
+      return;
+    }
+
+    // AC-2：进入重连调度（熔断守卫已过）→ 发布 CHANNEL_RECONNECTING
+    // （CHANNEL_RECONNECTING 也是 ChannelEvents 枚举中定义但无人发布的，一并补齐，
+    //   与 CHANNEL_DISCONNECTED 配对便于监控计算"断开→重连中→恢复"三态 SLA）
+    try {
+      // 与下方 scheduleReconnect 后半段的 delay 计算保持一致（L2160-2164）
+      const delayFromTable =
+        RECONNECT_DELAYS[
+          Math.min(this.reconnectAttempts, RECONNECT_DELAYS.length - 1)
+        ];
+      const actualDelay =
+        typeof delayMs === 'number' && Number.isFinite(delayMs)
+          ? delayMs
+          : this.reconnectAttempts >= MAX_RECONNECT_ATTEMPTS
+            ? LONG_BACKOFF_DELAY_MS
+            : delayFromTable;
+      channelEventBus.publish(ChannelEvents.CHANNEL_RECONNECTING, {
+        channelId: this.id,
+        channelName: 'qq',
+        connected: false,
+        at: Date.now(),
+        cause: 'qq_schedule_reconnect',
+        reconnectAttempts: this.reconnectAttempts,
+        nextAttemptDelayMs: actualDelay,
+        closeCode: this.lastCloseCode,
+      });
+    } catch {
+      // CS03：publish 内部若出 bug 不影响重连调度主流程
+    }
+
+    // 2026-08-21 重连风暴修复：先清除未触发的旧定时器。
+    // 多个关闭事件（WS close / 服务端 RECONNECT / 错误路径）可能并发进入本方法，
+    // 若不清旧定时器会叠加多条调度链，每条独立触发 connectWebSocket，连接数滚雪球。
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+
     if (this.reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
       // 长退避自愈（原为永久停连）：重置计数后 5 分钟再试，指数阶梯重新开始，
       // 避免 QQ 网关长时间故障恢复后通道永远不再连接。

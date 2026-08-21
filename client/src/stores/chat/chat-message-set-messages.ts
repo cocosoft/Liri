@@ -10,6 +10,8 @@ import {
   generateGroupId,
   findLastToolCallId,
   rebuildBlocksFromContent,
+  hasMeaningfulContentBlocks,
+  ensureTextBlockFromContent,
 } from "./chat-toolcall.slice";
 import { setSessionCache, enqueueSaveBlocks } from "./chat-history.slice";
 import { restorePlanTasks } from "@/utils/planRestore";
@@ -91,11 +93,25 @@ export function setMessagesImpl(
       }
     }
 
+    // Phase 1.5（H-FIX-3 2026-08-21）：按消息 ID 去重，拦截磁盘 JSONL 重复写入行。
+    // 后端流式异常/多次 flush 时可能把同 id 的消息写多行到 JSONL，
+    // 导致 React Virtual 列表 key={message.id} 冲突——虚拟列表的测量缓存和
+    // DOM 复用会被污染，整列表渲染错位，产生"第一条 AI 回复包含第二轮内容"
+    // 的视觉错觉。保留同一 id 的最后一条（后者通常是最后写入的完整版本）。
+    const seenIds = new Set<string>();
+    const dedupMessages: Message[] = [];
+    for (let i = filteredMessages.length - 1; i >= 0; i--) {
+      const msg = filteredMessages[i];
+      if (msg.id && seenIds.has(msg.id)) continue;
+      if (msg.id) seenIds.add(msg.id);
+      dedupMessages.unshift(msg);
+    }
+
     // Phase 2: 合并连续的 assistant 消息
     // 多轮工具调用时，后端将每轮 LLM 回复存为独立 assistant 消息，
     // 导致加载历史后出现多个"🤖 Liri"气泡。此处合并为一条消息，与流式体验一致。
     const mergedMessages: Message[] = [];
-    for (const msg of filteredMessages) {
+    for (const msg of dedupMessages) {
       if (msg.role !== "assistant") {
         mergedMessages.push(msg);
         continue;
@@ -128,7 +144,14 @@ export function setMessagesImpl(
     const enhancedMessages = mergedMessages.map((msg) => {
       if (msg.role !== "assistant") return msg;
 
-      if (Array.isArray(msg.blocks) && msg.blocks.length > 0) {
+      // H-FIX：只有 blocks 非空且含实际内容块时才走"已有 blocks"分支。
+      // 若 blocks 仅含 status/progress（如 compaction 标记），说明流式中状态块被
+      // 落盘但正文 text 块缺失，强制走 rebuildBlocksFromContent 从 content 重建。
+      if (
+        Array.isArray(msg.blocks) &&
+        msg.blocks.length > 0 &&
+        hasMeaningfulContentBlocks(msg.blocks)
+      ) {
         // 先处理已有 blocks：合并工具结果 + 迁移 groupId
         let hasMergedResult = false;
         const mergedBlocks = msg.blocks.map((b) => {
@@ -152,15 +175,23 @@ export function setMessagesImpl(
         });
 
         if (hasMergedResult) {
-          return { ...msg, blocks: mergedBlocks };
+          const merged = { ...msg, blocks: mergedBlocks };
+          return {
+            ...merged,
+            blocks: ensureTextBlockFromContent(merged.blocks, merged),
+          };
         }
 
         // 无匹配工具结果时，执行 groupId 迁移（旧 blocks 兼容）
         const oldBlocksHaveGroupId = msg.blocks.some((b) => b.groupId);
         if (oldBlocksHaveGroupId) {
-          return {
+          const migrated = {
             ...msg,
             blocks: msg.blocks.map((b) => normalizeLoadedBlock(b)),
+          };
+          return {
+            ...migrated,
+            blocks: ensureTextBlockFromContent(migrated.blocks, migrated),
           };
         }
         const lastToolCallId = findLastToolCallId(msg);
@@ -173,7 +204,11 @@ export function setMessagesImpl(
             generateGroupId();
           return { ...normalizeLoadedBlock(b), groupId: "migrate_" + id }; // "migrate_" 前缀标记历史数据，与流式 "grp_" 区分
         });
-        return { ...msg, blocks: enhancedBlocks };
+        const enhanced = { ...msg, blocks: enhancedBlocks };
+        return {
+          ...enhanced,
+          blocks: ensureTextBlockFromContent(enhanced.blocks, enhanced),
+        };
       }
 
       const newBlocks = rebuildBlocksFromContent(msg);

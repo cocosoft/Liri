@@ -184,6 +184,14 @@ class SSEService {
         "background:state",
         // §十 阶段 C：task-system 任务状态机转移实时广播（task:{taskId}）
         "task:state",
+        // P2-4 修复（2026-08-23 二次根因）：会话命名事件必须在 EventSource 层显式
+        // addEventListener 才会触发 dispatch。此前仅 sseService.on() 注册 handlers，
+        // EventSource 对命名事件（event: session:renamed）不匹配 onmessage，导致
+        // useInitApp 的 refreshSessions 永远收不到 → 标题/列表必须刷新页面才更新。
+        "session:renamed",
+        "session:created",
+        "session:deleted",
+        "session:cleared",
       ];
       logger.info(`[connect] 注册进度事件监听 count=${progressEvents.length}`);
       for (const evt of progressEvents) {

@@ -23,6 +23,7 @@ import { snipMessages } from './SnipEngine';
 import { ensureTrailingUserMessage } from './toolPairIntegrity';
 import { hookRegistry } from '../hooks/CompactionHooks';
 import { compactionMetricsTracker } from './CompactionMetrics';
+import { compactionLockStore } from './CompactionLockStore';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
@@ -77,9 +78,6 @@ export interface CompactionOrchestratorOptions {
   policy?: AutoCompactionPolicy;
 }
 
-/** 正在执行压缩的会话 ID 集合，防止双管线并发压缩同一会话 */
-const activeCompactions = new Set<string>();
-
 export class CompactionOrchestrator {
   private policy: AutoCompactionPolicy;
 
@@ -103,15 +101,29 @@ export class CompactionOrchestrator {
     ctx: CompactionContext,
     options?: { skipTier3Sync?: boolean; preEvaluated?: AutoCompactionDecision }
   ): Promise<{ messages: ChatMessage[]; applied: boolean }> {
-    // 防止双管线并发压缩同一会话
+    // 防止双管线并发压缩同一会话（P2-5：内存 + 磁盘双层锁，崩溃残留锁自动清除）
+    let lockCompactionId: string | undefined;
     if (ctx.sessionId) {
-      if (activeCompactions.has(ctx.sessionId)) {
-        logger.debug('compaction:already_in_progress', {
-          sessionId: ctx.sessionId,
-        });
+      const acquired = compactionLockStore.tryAcquire(ctx.sessionId);
+      if (acquired === null) {
+        // 并发拒绝是异常路径（同会话已被另一压缩管线占用），提升为 warn 便于排查
+        logger.warn(
+          'compaction:already_in_progress — 压缩被并发锁拒绝，跳过本次压缩',
+          {
+            sessionId: ctx.sessionId,
+            model: ctx.model,
+            messageCount: messages.length,
+            estimatedTokens: options?.preEvaluated?.snapshot.tokens,
+          }
+        );
         return { messages, applied: false };
       }
-      activeCompactions.add(ctx.sessionId);
+      lockCompactionId = acquired;
+      logger.info('compaction:lock_acquired — 编排器已获取压缩锁', {
+        sessionId: ctx.sessionId,
+        compactionId: acquired,
+        trigger: options?.preEvaluated?.decision ?? 'evaluate',
+      });
     }
 
     try {
@@ -191,8 +203,29 @@ export class CompactionOrchestrator {
       });
       return result;
     } finally {
-      if (ctx.sessionId) activeCompactions.delete(ctx.sessionId);
+      if (ctx.sessionId && lockCompactionId) {
+        compactionLockStore.release(ctx.sessionId, lockCompactionId);
+      }
     }
+  }
+
+  /**
+   * 消息集内容指纹（P2-6 对标 deepseek-harness assertSelectedSpanStable）：
+   * role + content 长度 + 前 64 字符参与 hash，用于后台压缩写回前校验
+   * 压缩期间会话消息内容未被并发修改（数量守卫覆盖增删，本指纹覆盖同数量改写）。
+   * @param messages 待校验的消息集
+   */
+  private static fingerprintMessages(messages: ChatMessage[]): string {
+    let hash = 5381;
+    for (const m of messages) {
+      const content = typeof m.content === 'string' ? m.content : '';
+      hash = ((hash << 5) + hash + m.role.length) | 0;
+      hash = ((hash << 5) + hash + content.length) | 0;
+      for (let i = 0; i < content.length && i < 64; i++) {
+        hash = ((hash << 5) + hash + content.charCodeAt(i)) | 0;
+      }
+    }
+    return hash.toString(36);
   }
 
   /**
@@ -200,7 +233,8 @@ export class CompactionOrchestrator {
    * 发送完成后 fire-and-forget 调用，压缩结果写回会话，下一轮发送窗口更小
    * （可能 skip/warn 而非触发慢 Tier3），从而把 Tier3 的等待从"用户发送前"
    * 转移到"发送后后台"。
-   * 长度守卫：压缩期间会话消息数量变化（有新消息/删除）→ 放弃写回，避免覆盖新增。
+   * 稳定性守卫（P2-6）：压缩期间会话消息数量或内容变化 → 放弃写回，
+   * 避免覆盖并发新增/修改的消息（数量守卫 + 内容指纹双重校验）。
    * @param getMessages 读取当前会话消息（引用实时值）
    * @param setMessages 写回压缩结果
    * @returns 是否已写回
@@ -212,6 +246,9 @@ export class CompactionOrchestrator {
   ): Promise<boolean> {
     const snapshotCount = getMessages().length;
     if (snapshotCount === 0) return false;
+    // 压缩开始前的内容指纹（压缩期间可能被并发修改）
+    const snapshotFingerprint =
+      CompactionOrchestrator.fingerprintMessages(getMessages());
     // 排查日志：后台压缩入口（记录触发条件，与 compact() 内部"①触发评估/决策"日志串联）
     logger.info('compaction:bg_start — 后台压缩开始', {
       sessionId: ctx.sessionId,
@@ -227,12 +264,23 @@ export class CompactionOrchestrator {
       });
       return false;
     }
-    // 守卫：压缩期间消息有变更 → 放弃写回（避免覆盖压缩期间新增的消息）
+    // 守卫①：压缩期间消息数量变化（有新消息/删除）→ 放弃写回（避免覆盖新增）
     if (getMessages().length !== snapshotCount) {
-      logger.warn('compaction:bg_skip — 压缩期间消息有变更，放弃写回', {
+      logger.warn('compaction:bg_skip — 压缩期间消息数量变化，放弃写回', {
         sessionId: ctx.sessionId,
         snapshotCount,
         currentCount: getMessages().length,
+      });
+      return false;
+    }
+    // 守卫②（P2-6）：数量相同但内容被并发改写（替换/编辑消息）→ 放弃写回
+    if (
+      CompactionOrchestrator.fingerprintMessages(getMessages()) !==
+      snapshotFingerprint
+    ) {
+      logger.warn('compaction:bg_skip — 压缩期间消息内容变化，放弃写回', {
+        sessionId: ctx.sessionId,
+        snapshotCount,
       });
       return false;
     }
@@ -453,35 +501,33 @@ export class CompactionOrchestrator {
       const toCompress =
         headMessages.length === 0 ? messages : messages.slice(headIdx);
 
-      const conversationText = toCompress
-        .map(
-          (m) =>
-            `[${m.role}]: ${typeof m.content === 'string' ? m.content : JSON.stringify(m.content)}`
-        )
-        .join('\n\n');
-
-      if (conversationText.length < 200) return { messages, applied: false };
+      // P1-1（KV cache 复用，对齐 deepseek-harness summarizer）：
+      // 摘要请求 = 对话自身 system prompt（headMessages）+ 被压缩消息原始结构（toCompress，
+      // 非文本拼接）+ 压缩指令作为最后一条 user 消息收尾 → 摘要调用是主对话请求的
+      // 真实前缀，可复用 provider 的 KV cache（本地模型 prefill 显著下降）。
+      const shadowedTokens = estimateMessagesTokens(toCompress);
+      if (shadowedTokens < 50) return { messages, applied: false };
       // P0 压缩超时治理：进入 LLM 调用前再查一次信号，避免超时后仍发起请求
       if (signal?.aborted) return { messages, applied: false };
 
-      const { default: aiService, AIMessageRole } = await getAiService();
+      const { default: aiService } = await getAiService();
 
       // P2-15: 优先使用结构化 prompt（5 字段），解析失败时回退到自由文本
       const {
-        COMPACTION_SYSTEM_PROMPT,
         COMPACTION_USER_PROMPT,
         parseCompactionSummary,
         renderCompactionSummary,
       } = await import('./StructuredCompactionPrompt');
 
+      const apiMessages: ChatMessage[] = [
+        ...headMessages,
+        ...toCompress,
+        // 压缩指令收尾（作为最后 user 消息，与 deepseek-harness 的 COMPACTION_INSTRUCTION 一致）
+        { role: 'user', content: COMPACTION_USER_PROMPT } as ChatMessage,
+      ];
+
       const response = await aiService.generate(
-        [
-          { role: AIMessageRole.SYSTEM, content: COMPACTION_SYSTEM_PROMPT },
-          {
-            role: AIMessageRole.USER,
-            content: `${COMPACTION_USER_PROMPT}\n\n${conversationText}`,
-          },
-        ],
+        apiMessages,
         ctx.model || '',
         // 超时治理：max_tokens 4096 → 2560——5 字段摘要上限共 ~1400 字（≈2000-2500 tokens），
         // 2560 足够且显著缩短 LLM 生成时间（4096 上限是浪费），降低 Tier3 超时概率
@@ -525,8 +571,25 @@ export class CompactionOrchestrator {
       // 会返回 400 "Conversation ended with assistant message"。
       compacted = ensureTrailingUserMessage(compacted);
 
-      // 校验：压缩后 token 应少于压缩前，否则回退
-      const beforeTokens = estimateMessagesTokens(toCompress);
+      // P1-2（有效性硬校验，对齐 deepseek-harness region.ts）：
+      // ① 摘要本身必须小于被压缩内容——framed summary >= shadowed content 则拒绝，
+      //    防止"压缩反而膨胀"（head/tail 保留会让整体对比掩盖摘要过大的问题）
+      const summaryTokens = estimateMessagesTokens([
+        { role: 'system', content: summary } as ChatMessage,
+      ]);
+      if (summaryTokens >= shadowedTokens) {
+        logger.warn('compaction:tier3_summary_not_smaller', {
+          summaryTokens,
+          shadowedTokens,
+          summaryLength: summary.length,
+          structured: !!structured,
+        });
+        return { messages, applied: false };
+      }
+
+      // ② 兜底校验：压缩后整体（head + 摘要 + tail）须小于压缩前全部消息
+      // （原实现 beforeTokens 只计 toCompress 不含 head，head 较大时整体对比失真）
+      const beforeTokens = estimateMessagesTokens(messages);
       const afterTokens = estimateMessagesTokens(compacted);
       if (afterTokens >= beforeTokens) {
         logger.warn('compaction:tier3_no_reduction', {

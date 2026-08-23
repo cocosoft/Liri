@@ -834,16 +834,19 @@ function checkSingletonInstance(): void {
     // 退出中僵尸的可靠信号（closeAllConnections 防 keep-alive 拖住）。
     activeHttpService?.forceCloseSync();
     // T3.4: 优雅退出释放通道级 scope（注销已注册通道）
-    void gracefulChannelShutdown().finally(() =>
-      flush().finally(() => process.exit(0))
-    );
+    // T1.25.4: 并行停止 llama-server（生命周期同步；allSettled 保证任一失败互不影响）
+    void Promise.allSettled([
+      gracefulChannelShutdown(),
+      gracefulLlamaShutdown(),
+    ]).then(() => flush().finally(() => process.exit(0)));
   });
   process.on('SIGTERM', () => {
     // 同上：删锁延迟到 exit 事件；先同步强关 HTTP（AC-7）
     activeHttpService?.forceCloseSync();
-    void gracefulChannelShutdown().finally(() =>
-      flush().finally(() => process.exit(0))
-    );
+    void Promise.allSettled([
+      gracefulChannelShutdown(),
+      gracefulLlamaShutdown(),
+    ]).then(() => flush().finally(() => process.exit(0)));
   });
 }
 
@@ -859,6 +862,21 @@ async function gracefulChannelShutdown(): Promise<void> {
   const { channelBootstrapper } =
     await import('./channels/bootstrap/ChannelBootstrapper');
   await channelBootstrapper.disposeAll();
+}
+
+/**
+ * T1.25.4: 退出时停止 llama-server（与 Liri 生命周期同步）。
+ * 防止应用退出后 llama-server 进程残留（占内存、后台继续生成导致下次请求 busy 误判）。
+ * dynamic import 避免 main.ts 与 llama 模块静态耦合；失败不阻塞退出。
+ */
+async function gracefulLlamaShutdown(): Promise<void> {
+  try {
+    const { llamaCppServerManager } =
+      await import('@modules/ai/local/llama/LlamaCppServerManager.js');
+    await llamaCppServerManager.stop();
+  } catch (err) {
+    // @ignore-catch — llama 模块加载/停止失败不阻塞应用退出
+  }
 }
 
 /**

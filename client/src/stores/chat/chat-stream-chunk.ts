@@ -65,12 +65,18 @@ export interface ProcessChunkContext {
  *  1. 若 aggregator 派生出的新 messages 中找不到 assistantId，
  *     返回空数组（不应发生，但作为安全兜底）。
  *  2. 返回的 blocks 是非空浅拷贝，避免调用方意外修改聚合器状态。
+ *
+ * P0-2 修复：使用 findLast 取最后一条匹配消息（而非 find 取第一条）。
+ * 当历史事件中存在多条同 ID 的 assistant 消息时，
+ *  第一条匹配的是历史消息，最后一条才是当前流式消息。
  */
 function deriveAssistantBlocks(
   ctx: ProcessChunkContext,
 ): Message["blocks"] | undefined {
   const derived = ctx.aggregator.deriveMessages();
-  const assistantMsg = derived.find((m) => m.id === ctx.assistantId);
+  const assistantMsg = [...derived]
+    .reverse()
+    .find((m) => m.id === ctx.assistantId);
   if (!assistantMsg) return undefined;
   return assistantMsg.blocks;
 }
@@ -204,6 +210,22 @@ export async function processChunk(
 
     case "execution_phase":
       if (chunk.executionPhase) {
+        // 关键修复（2026-08-23）：question 等待期间（hasPendingQuestion=true），
+        // question_waiting 心跳转成的 execution_phase 不再更新 executionPhase 状态、
+        // 也不再追加到 aggregator（避免生成"等待用户回答"的 progress 块污染对话视图）。
+        // 用户此时应聚焦于回答 question 块，而不是看到"正在执行"的进度。
+        if (get().hasPendingQuestion?.[sid]) {
+          logger.debug(
+            "processChunk: question 等待中，跳过 execution_phase 心跳",
+            {
+              phase: chunk.executionPhase.phase,
+              description: chunk.executionPhase.description,
+              sessionId: sid,
+            },
+          );
+          appendToAggregator = false;
+          break;
+        }
         const ep = chunk.executionPhase;
         const progressData: {
           phase:
@@ -345,6 +367,15 @@ export async function processChunk(
             },
           });
         }
+        // 明确等待态：question 到达后 executionPhase 切换为"等待回答"，
+        // 让 StatusFloatBar / 输入框区域明确提示用户需要作答，而不是"执行中"。
+        set({
+          executionPhase: {
+            phase: "implementing",
+            progress: 0,
+            description: "等待您的回答",
+          },
+        });
         playWarningSound();
       }
       break;

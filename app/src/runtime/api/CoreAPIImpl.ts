@@ -55,6 +55,12 @@ import type { ChatManager } from '@modules/chat/ChatManager';
 import { createChatManager } from '@modules/chat/ChatManager';
 import { MessageToEventMigrator } from '@modules/session/storage/MessageToEventMigrator';
 import { EventLogStorage } from '@modules/session/storage/EventLogStorage';
+import { deriveMessagesFromEvents } from '@modules/session/storage/EventMessageDeriver';
+// E-1 接入（2026-08-23）：工具完成自动记录交付物（复用 ExecutionPhaseTracker，此前无生产实例）
+import { ExecutionPhaseTracker } from '@modules/session/ExecutionPhaseTracker';
+// E-1 diff（2026-08-23）：文件变更前后 unified diff 计算
+import { computeUnifiedDiff } from '@modules/chat/utils/unifiedDiff';
+import { dedupeMessagesToolCallBlocks } from '@modules/chat/utils/chatBlocks';
 import type { LiriEvent } from '@modules/chat/types/events';
 import type { SessionManager } from '@modules/chat/types/session';
 import type {
@@ -151,6 +157,20 @@ export class CoreAPIImpl implements CoreAPI {
 
   /** LLM 客户端延迟初始化标记 */
   private _llmReady = false;
+
+  /**
+   * E-1 接入（2026-08-23）：per-session 执行阶段追踪器
+   * 工具完成自动记录交付物 → 流结束时 buildDeliverableData 发射 deliverable chunk + 写事件。
+   */
+  private readonly _executionPhaseTrackers = new Map<
+    string,
+    ExecutionPhaseTracker
+  >();
+
+  /**
+   * E-1 diff（2026-08-23）：文件写入工具执行前的内容缓存（key: 文件路径，供 end 时计算 unified diff）
+   */
+  private readonly _fileOldContentCache = new Map<string, string>();
 
   constructor(options?: {
     chatManager?: ChatManager;
@@ -396,6 +416,20 @@ export class CoreAPIImpl implements CoreAPI {
     });
     try {
       await this.ensureLLMClientInitialized();
+      // E-3（2026-08-23，方案 D2-B）：发消息时立即设占位标题（LLM 调用前，不阻塞主路径）。
+      // 清洗截断 userMessage 作为 preliminary 标题，回复完成后由 autoGenerateTitle LLM 精化覆盖。
+      // 回滚开关（规格书 §二 回滚）：TITLE_STAGE='false' 时跳过占位标题（回退单阶段精化）。
+      if (
+        configManager.env('TITLE_STAGE') !== 'false' &&
+        request.sessionId &&
+        request.content &&
+        this.shouldAutoTitle(request.sessionId)
+      ) {
+        void this.setPreliminaryTitle(
+          request.sessionId,
+          this.sanitizePlaceholderTitle(request.content)
+        ).catch(() => {});
+      }
       const { model, tier } = await this.resolveSmartModel(
         request.content,
         request.sessionId,
@@ -527,10 +561,33 @@ export class CoreAPIImpl implements CoreAPI {
       }
     };
 
+    // E-1 diff（2026-08-23）：本次请求内文件变更的 unified diff 结果（done 前发射；
+    // 定义在 try 外，供 finally 之后的发射块访问）
+    const pendingFileDiffs: Array<{
+      file: string;
+      diff: string;
+      additions: number;
+      deletions: number;
+    }> = [];
+
     try {
       const pendingEvents: ChatStreamChunk[] = [];
 
       eventNotificationService.on('tool:completed', onToolCompletedFromCache);
+
+      // E-3（2026-08-23，方案 D2-B）：流式入口同样先设占位标题（LLM 调用前，不阻塞主路径）
+      // 回滚开关：TITLE_STAGE='false' 时跳过占位标题（回退单阶段精化）
+      if (
+        configManager.env('TITLE_STAGE') !== 'false' &&
+        finalSessionId &&
+        request.content &&
+        this.shouldAutoTitle(finalSessionId)
+      ) {
+        void this.setPreliminaryTitle(
+          finalSessionId,
+          this.sanitizePlaceholderTitle(request.content)
+        ).catch(() => {});
+      }
 
       const { model, tier } = await this.resolveSmartModel(
         request.content,
@@ -608,10 +665,40 @@ export class CoreAPIImpl implements CoreAPI {
               argsEmpty: argsKeyCount === 0,
             });
 
+            // E-1 diff（2026-08-23）：文件写入工具 start 时缓存旧内容（供 end 计算 unified diff）
+            const fileWritingToolStart = [
+              'file_write',
+              'file_edit',
+              'FileWrite',
+              'FileEdit',
+              'write',
+              'create_file',
+              'edit_file',
+            ].includes(toolName);
+            if (fileWritingToolStart) {
+              const filePathArg =
+                (toolArgs as { file_path?: unknown }).file_path ??
+                (toolArgs as { filePath?: unknown }).filePath ??
+                (toolArgs as { path?: unknown }).path;
+              if (typeof filePathArg === 'string' && filePathArg) {
+                try {
+                  if (fs.existsSync(filePathArg)) {
+                    this._fileOldContentCache.set(
+                      filePathArg,
+                      fs.readFileSync(filePathArg, 'utf-8')
+                    );
+                  }
+                } catch {
+                  // 旧内容读取失败则不计算 diff（不影响工具执行）
+                }
+              }
+            }
+
             pendingEvents.push({
               type: 'status',
               content: `🔧 Running tool: ${toolName}`,
               sessionId: finalSessionId,
+              toolCallId,
             } as ChatStreamChunk);
 
             // 图像工具：流式返回进度状态，前端展示友好提示
@@ -661,6 +748,7 @@ export class CoreAPIImpl implements CoreAPI {
                 ? `❌ Tool ${toolName} failed${failMsg ? ` — ${failMsg}` : ''}`
                 : `✅ Tool ${toolName} completed`,
               sessionId: finalSessionId,
+              toolCallId,
             } as ChatStreamChunk);
 
             // 从工具执行结果中提取文件路径（file_write 等工具的 result 包含完整路径）
@@ -691,6 +779,47 @@ export class CoreAPIImpl implements CoreAPI {
               );
               if (winPathMatch) {
                 extractedArgs = { file_path: winPathMatch[1] };
+              }
+              // E-1 接入（2026-08-23）：文件写入工具完成 → 记录交付物到 ExecutionPhaseTracker
+              if (winPathMatch) {
+                const tracker = this._getExecutionPhaseTracker(finalSessionId);
+                if (!tracker.getCurrentPhase()) {
+                  tracker.enter('implementing', '工具执行');
+                }
+                tracker.addArtifact({
+                  type: 'code',
+                  summary: `${toolName} 写入文件`,
+                  files: [winPathMatch[1]],
+                });
+              }
+              // E-1 diff（2026-08-23）：文件变更前后 → unified diff（start 时已缓存旧内容）
+              if (
+                winPathMatch &&
+                this._fileOldContentCache.has(winPathMatch[1])
+              ) {
+                try {
+                  const oldContent = this._fileOldContentCache.get(
+                    winPathMatch[1]
+                  )!;
+                  const newContent = fs.readFileSync(winPathMatch[1], 'utf-8');
+                  const { diff, additions, deletions } = computeUnifiedDiff(
+                    oldContent,
+                    newContent,
+                    winPathMatch[1]
+                  );
+                  if (diff) {
+                    pendingFileDiffs.push({
+                      file: winPathMatch[1],
+                      diff,
+                      additions,
+                      deletions,
+                    });
+                  }
+                } catch {
+                  // diff 计算失败不影响工具执行
+                } finally {
+                  this._fileOldContentCache.delete(winPathMatch[1]);
+                }
               }
               // 排查日志：打印 end 回调接收的完整 result 对象，确认文件路径提取正确
               logger.debug('chatStream:onToolCall end 路径提取', {
@@ -925,6 +1054,96 @@ export class CoreAPIImpl implements CoreAPI {
       ? 'error'
       : finalMessage?.finishReason || 'stop';
 
+    // E-1 接入（2026-08-23）：工具执行完成 → 发射 deliverable chunk + 写 assistant/deliverable 事件
+    // （复用 ExecutionPhaseTracker.buildDeliverableData，纯事件回放由前端聚合器/后端派生器重建）
+    try {
+      if (finalSessionId && !streamFailed) {
+        const tracker = this._getExecutionPhaseTracker(finalSessionId);
+        const deliverable = tracker.buildDeliverableData();
+        if (deliverable && deliverable.files.length > 0) {
+          yield {
+            type: 'deliverable',
+            content: deliverable.summary,
+            sessionId: finalSessionId,
+            deliverableData: deliverable,
+          } as ChatStreamChunk;
+          // 写事件（回放重建；失败不阻断流）
+          try {
+            const ts = await this.chatManager.getStreamTailSeq(finalSessionId);
+            await this.chatManager.appendStreamEvent(finalSessionId, {
+              type: 'assistant/deliverable',
+              seq: ts + 1,
+              time: Date.now(),
+              sessionId: finalSessionId,
+              data: deliverable,
+            } as LiriEvent);
+          } catch (evErr) {
+            logger.debug('chatStream:deliverable 事件写入失败（不影响流式）', {
+              sessionId: finalSessionId,
+              error: String(evErr),
+            });
+          }
+          tracker.reset();
+        }
+      }
+    } catch (deliverableErr) {
+      // @ignore-catch — deliverable 发射失败不影响流结束
+      logger.debug('chatStream:deliverable 发射失败', {
+        sessionId: finalSessionId,
+        error: String(deliverableErr),
+      });
+    }
+
+    // E-1 diff（2026-08-23）：文件变更 unified diff → 发射 diff chunk + 写 assistant/diff 事件
+    if (finalSessionId && !streamFailed && pendingFileDiffs.length > 0) {
+      for (const item of pendingFileDiffs) {
+        try {
+          yield {
+            type: 'diff',
+            content: item.diff,
+            sessionId: finalSessionId,
+            diffData: {
+              file: item.file,
+              diff: item.diff,
+              stats: {
+                additions: item.additions,
+                deletions: item.deletions,
+              },
+            },
+          } as ChatStreamChunk;
+          // 写事件（回放重建；失败不阻断流）
+          try {
+            const ts = await this.chatManager.getStreamTailSeq(finalSessionId);
+            await this.chatManager.appendStreamEvent(finalSessionId, {
+              type: 'assistant/diff',
+              seq: ts + 1,
+              time: Date.now(),
+              sessionId: finalSessionId,
+              data: {
+                file: item.file,
+                diff: item.diff,
+                stats: {
+                  additions: item.additions,
+                  deletions: item.deletions,
+                },
+              },
+            } as LiriEvent);
+          } catch (evErr) {
+            logger.debug('chatStream:diff 事件写入失败（不影响流式）', {
+              sessionId: finalSessionId,
+              error: String(evErr),
+            });
+          }
+        } catch (diffErr) {
+          // @ignore-catch — 单条 diff 发射失败继续下一条
+          logger.debug('chatStream:diff 发射失败', {
+            sessionId: finalSessionId,
+            error: String(diffErr),
+          });
+        }
+      }
+    }
+
     try {
       yield {
         type: 'done',
@@ -1134,6 +1353,21 @@ export class CoreAPIImpl implements CoreAPI {
       metadata?: Record<string, unknown>;
     }>
   > {
+    // P2-1（2026-08-23）：优先 events 统一派生（评审 G7）——events 含 v1（messageId）事件时
+    // 用派生结果（事件聚合 + 投影覆盖），否则回退投影（存量 v0 会话安全兼容）。
+    try {
+      const derived = await this._deriveSessionMessagesFromEvents(sessionId);
+      if (derived) {
+        await this._attachPendingApprovalBlocks(
+          sessionId,
+          derived as unknown as UnifiedMessage[]
+        );
+        return derived;
+      }
+    } catch {
+      // @ignore-catch — 派生失败回退投影路径
+    }
+
     // 优先从持久化存储读取，确保 blocks 完整
     try {
       const gateway = this.chatManager.getSessionGateway();
@@ -1143,7 +1377,8 @@ export class CoreAPIImpl implements CoreAPI {
           // 读时合成 pending 审批卡片：提交期的 blocks 注入存在竞态（详见 InboxManager），
           // 读取时按会话动态附加，确保前端实时拿到审批交互卡片。
           await this._attachPendingApprovalBlocks(sessionId, storedMessages);
-          return storedMessages.map((m: UnifiedMessage) => ({
+          // T1.3（2026-08-23）：投影返回前 blocks 去重（同 toolCallId 合并，终态优先）
+          const mapped = storedMessages.map((m: UnifiedMessage) => ({
             id: m.id,
             role: m.role.toLowerCase(),
             content: typeof m.content === 'string' ? m.content : '',
@@ -1160,6 +1395,7 @@ export class CoreAPIImpl implements CoreAPI {
             blocks: m.blocks as Array<Record<string, unknown>> | undefined,
             metadata: m.metadata as Record<string, unknown> | undefined,
           }));
+          return dedupeMessagesToolCallBlocks(mapped);
         }
       }
     } catch (_err) {
@@ -1172,7 +1408,8 @@ export class CoreAPIImpl implements CoreAPI {
       return [];
     }
 
-    return (session.messages || []).map((msg) => {
+    // T1.3（2026-08-23）：内存 fallback 返回前 blocks 去重（同 toolCallId 合并，终态优先）
+    const mapped = (session.messages || []).map((msg) => {
       let content: string;
       if (typeof msg.content === 'string') {
         content = msg.content;
@@ -1220,6 +1457,98 @@ export class CoreAPIImpl implements CoreAPI {
         metadata: msg.metadata as Record<string, unknown> | undefined,
       };
     });
+    return dedupeMessagesToolCallBlocks(mapped);
+  }
+
+  /**
+   * P2-1（2026-08-23）：从 events 统一派生消息（事件聚合 + 投影覆盖，评审 G7/A1'）。
+   * 仅当 events 含 v1（messageId）事件时返回派生结果，否则返回 null（回退投影路径，
+   * 存量 v0 会话安全兼容）。
+   */
+  private async _deriveSessionMessagesFromEvents(
+    sessionId: string
+  ): Promise<Array<{
+    id: string;
+    role: string;
+    content: string;
+    timestamp: number;
+    startedAt?: number;
+    finishReason?: string;
+    tool_calls?: Array<Record<string, unknown>>;
+    toolCallId?: string;
+    blocks?: Array<Record<string, unknown>>;
+    metadata?: Record<string, unknown>;
+  }> | null> {
+    const eventLog = new EventLogStorage(sessionId, 'default');
+    if (!eventLog.exists()) return null;
+
+    // 循环拉取 events（G5：read limit≤10000 无分页，防静默截断）
+    const events: LiriEvent[] = [];
+    let fromSeq = 1;
+    for (;;) {
+      const batch = await eventLog.read({ fromSeq, limit: 10000 });
+      events.push(...batch);
+      if (batch.length < 10000) break;
+      fromSeq = batch[batch.length - 1].seq + 1;
+    }
+    const hasV1 = events.some((e) => {
+      const d = e.data as { messageId?: string };
+      return typeof d.messageId === 'string';
+    });
+    if (!hasV1) return null;
+
+    const gateway = this.chatManager.getSessionGateway();
+    const projections: UnifiedMessage[] = gateway
+      ? await gateway.getMessages(sessionId)
+      : [];
+    // A-3（2026-08-23）：派生时传入会话 metadata 压缩区间表（trajectoryCompactions，优先于事件）
+    const sessionMeta = this.sessionManager.getSession(sessionId)?.metadata as
+      | Record<string, unknown>
+      | undefined;
+    const compactionRanges = sessionMeta?.trajectoryCompactions as
+      | Array<{
+          startSeq: number;
+          endSeq: number;
+          summaryMessageId?: string;
+        }>
+      | undefined;
+    const derived = deriveMessagesFromEvents(
+      events,
+      projections.map((m) => ({
+        id: m.id,
+        role: m.role.toLowerCase(),
+        content: typeof m.content === 'string' ? m.content : '',
+        timestamp: m.timestamp,
+        startedAt: m.startedAt,
+        finishReason: m.finishReason,
+        tool_calls: m.metadata?.tool_calls as
+          | Array<Record<string, unknown>>
+          | undefined,
+        toolCallId: m.metadata?.toolCallId as string | undefined,
+        blocks: m.blocks as Array<Record<string, unknown>> | undefined,
+        metadata: m.metadata as Record<string, unknown> | undefined,
+        lastEventSeq: m.lastEventSeq,
+      })),
+      { compactionRanges }
+    );
+    // T1.3（2026-08-23）：派生结果返回前对 blocks 去重（合并同 toolCallId 的 tool_call 块，
+    // 终态优先 + 保留首非空 arguments），消除 SSE 层重复发送在投影/内存中残留的污染块。
+    const mapped = derived.map((m) => ({
+      id: m.id,
+      role: m.role,
+      content: m.content,
+      session_id: sessionId,
+      timestamp: m.timestamp,
+      startedAt: m.startedAt,
+      finishReason: m.finishReason,
+      tool_calls: m.tool_calls,
+      toolCallId: m.toolCallId,
+      blocks: m.blocks,
+      metadata: m.metadata,
+      // B-2（2026-08-23）：透传排序键（事件派生序），前端 setMessages 据此排序
+      lastEventSeq: m.lastEventSeq,
+    }));
+    return dedupeMessagesToolCallBlocks(mapped);
   }
 
   /**
@@ -1667,18 +1996,36 @@ export class CoreAPIImpl implements CoreAPI {
     return gateway.pruneNow();
   }
 
-  async renameSession(sessionId: string, title: string): Promise<void> {
+  /**
+   * 重命名会话标题
+   *
+   * E-3（2026-08-23，方案 D2-B）：来源区分 + titleStage
+   * - source='user' → 用户手动改名 → titleStage='manual'（preliminary/final 均不覆盖）
+   * - source='ai' → AI 精化完成 → titleStage='final'（不再覆盖）
+   * 存量 titleAutoGenerated=true → 一并迁移为 final。
+   */
+  async renameSession(
+    sessionId: string,
+    title: string,
+    source: 'user' | 'ai' = 'user'
+  ): Promise<void> {
+    const stage: 'manual' | 'final' = source === 'user' ? 'manual' : 'final';
+    const metadataPatch: Record<string, unknown> = {
+      titleStage: stage,
+      // 存量兼容：同步保留旧标记，避免旧判断路径误覆盖
+      titleAutoGenerated: true,
+    };
     // 更新内存中的会话标题
     const session = this.chatManager
       .getSessions()
       .find((s) => s.id === sessionId);
     if (session) {
       session.title = title;
-      session.metadata.titleAutoGenerated = true;
+      session.metadata = { ...session.metadata, ...metadataPatch };
     } else {
       logger.warn(
         `renameSession: 会话 ${sessionId} 不在内存中，仅持久化到存储`,
-        { sessionId, title }
+        { sessionId, title, source }
       );
     }
 
@@ -1691,7 +2038,7 @@ export class CoreAPIImpl implements CoreAPI {
           storedSession.title = title;
           storedSession.metadata = {
             ...storedSession.metadata,
-            titleAutoGenerated: true,
+            ...metadataPatch,
           };
           await gateway.updateSession(storedSession);
         } else {
@@ -1713,6 +2060,100 @@ export class CoreAPIImpl implements CoreAPI {
     const { broadcastEvent } =
       await import('@modules/infrastructure/http/handlers/handler-utils');
     broadcastEvent('session:renamed', { id: sessionId, title });
+  }
+
+  /**
+   * E-3（2026-08-23，方案 D2-B）：设置占位标题（preliminary，不调 LLM）
+   *
+   * 发消息时（LLM 调用前）立即调用，用户可立即看到新标题；
+   * 回复完成后由 autoGenerateTitle 用 LLM 精化覆盖（若未变 manual/final）。
+   */
+  async setPreliminaryTitle(sessionId: string, title: string): Promise<void> {
+    const metadataPatch: Record<string, unknown> = {
+      titleStage: 'preliminary',
+    };
+    // 内存
+    const session = this.chatManager
+      .getSessions()
+      .find((s) => s.id === sessionId);
+    if (session) {
+      session.title = title;
+      session.metadata = { ...session.metadata, ...metadataPatch };
+    }
+    // 持久化
+    try {
+      const gateway = this.chatManager.getSessionGateway();
+      if (gateway) {
+        const storedSession = await gateway.getSession(sessionId);
+        if (storedSession) {
+          storedSession.title = title;
+          storedSession.metadata = {
+            ...storedSession.metadata,
+            ...metadataPatch,
+          };
+          await gateway.updateSession(storedSession);
+        }
+      }
+    } catch (e) {
+      await handleError(e, {
+        module: 'runtime:api',
+        action: 'persist_preliminary_title',
+        context: { sessionId },
+      });
+    }
+    // 广播
+    const { broadcastEvent } =
+      await import('@modules/infrastructure/http/handlers/handler-utils');
+    broadcastEvent('session:renamed', { id: sessionId, title });
+  }
+
+  /**
+   * E-3（2026-08-23，方案 D2-B）：占位标题清洗截断
+   *
+   * 去除首尾空白/常见敏感前缀，超 30 字截断加省略号；清洗后为空 → '新对话'。
+   */
+  private sanitizePlaceholderTitle(raw: string): string {
+    let text = (raw ?? '')
+      .trim()
+      .replace(/^[#>*\- ]+/, '')
+      .trim();
+    if (!text) return '新对话';
+    if (text.length > 30) {
+      text = text.slice(0, 30) + '…';
+    }
+    return text;
+  }
+
+  /**
+   * E-1 接入（2026-08-23）：获取 per-session 执行阶段追踪器（懒创建）
+   */
+  private _getExecutionPhaseTracker(sessionId: string): ExecutionPhaseTracker {
+    let tracker = this._executionPhaseTrackers.get(sessionId);
+    if (!tracker) {
+      tracker = new ExecutionPhaseTracker(sessionId, () => {
+        // 阶段事件由流式 progress/execution_phase 通道推送，此处不额外处理
+      });
+      this._executionPhaseTrackers.set(sessionId, tracker);
+    }
+    return tracker;
+  }
+
+  /**
+   * E-3（2026-08-23，方案 D2-B）：是否需要生成/精化标题
+   *
+   * 返回 false 的条件：titleStage=final/manual，或存量 titleAutoGenerated=true（视为 final）。
+   */
+  private shouldAutoTitle(sessionId: string): boolean {
+    const session = this.chatManager
+      .getSessions()
+      .find((s) => s.id === sessionId);
+    if (!session) return false;
+    const meta = session.metadata as Record<string, unknown> | undefined;
+    const stage = meta?.titleStage;
+    if (stage === 'final' || stage === 'manual') return false;
+    // 存量迁移：titleAutoGenerated=true 且无 titleStage → 视为 final
+    if (stage === undefined && meta?.titleAutoGenerated === true) return false;
+    return true;
   }
 
   /**
@@ -1802,11 +2243,9 @@ export class CoreAPIImpl implements CoreAPI {
     // 后台 fire-and-forget：不影响流式响应速度
     setImmediate(async () => {
       try {
-        // 根据持久化的 titleAutoGenerated 标记判断是否需要自动生成标题
-        const session = this.chatManager
-          .getSessions()
-          .find((s) => s.id === sessionId);
-        if (session?.metadata?.titleAutoGenerated) {
+        // E-3（2026-08-23，方案 D2-B）：titleStage 判断——final/manual 或存量
+        // titleAutoGenerated=true（视为 final）不再覆盖；preliminary（占位）或无标记可精化。
+        if (!this.shouldAutoTitle(sessionId)) {
           return;
         }
 
@@ -1820,7 +2259,8 @@ export class CoreAPIImpl implements CoreAPI {
           // 原 catch 分支的"首条消息前 30 字符"兜底永远不会执行。
           // 降级标题直接在此生成，LLM 失败时不再停留在"新对话"。
           userMessage.slice(0, 30) + (userMessage.length > 30 ? '…' : '');
-        await this.renameSession(sessionId, title);
+        // AI 精化完成 → source='ai' → titleStage='final'（不再覆盖）
+        await this.renameSession(sessionId, title, 'ai');
         logger.info('Auto-generated session title', { sessionId, title });
       } catch (_error) {
         // 仅 renameSession 等异常走到这里（标题已保证非空），不重复兜底

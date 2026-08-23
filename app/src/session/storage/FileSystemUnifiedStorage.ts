@@ -722,8 +722,11 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
     }
 
     let totalMessages = 0;
-    for (const msgs of this.messages.values()) {
-      totalMessages += msgs.length;
+    // P1-fix（H3）：P1-3 懒加载后 messages Map 仅含已访问会话，直接遍历
+    // 会虚低。改为遍历全部会话键逐个计数（getSessionMessageCount 内部
+    // 触发按需加载，且受 MESSAGE_CACHE_MAX 逐出保护）。
+    for (const sessionId of this.sessions.keys()) {
+      totalMessages += await this.getSessionMessageCount(sessionId);
     }
 
     return {

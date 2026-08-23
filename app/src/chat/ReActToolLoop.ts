@@ -41,6 +41,7 @@ import {
   ensureThinkResponseTags,
   stripThinkResponseTags,
   stripOrphanToolTags,
+  truncateApiMessages,
 } from './services/MessageContextPipeline';
 import { StreamingToolCallScrubber } from '../streaming/scrubbers/StreamingToolCallScrubber';
 import { stripBareExploration } from './services/bareExplorationStripper';
@@ -62,6 +63,10 @@ import {
   recordAnswer,
   type NegotiationState,
 } from './services/NegotiationState';
+// 工具轮内上下文压缩（2026-08-23）：复用主流程压缩策略/编排器，
+// 防止长工具会话消息膨胀导致 LLM 请求超限（deepseek 1M 窗口请求 1.78M 实测）
+import { autoCompactionPolicy } from '../context/compaction/AutoCompactionPolicy';
+import { compactionOrchestrator } from '../context/compaction/CompactionOrchestrator';
 
 const logger = getLogger('chat:reactToolLoop');
 
@@ -113,6 +118,10 @@ export class ReActToolLoop extends ReActLoop<
   private input: ToolLoopInput;
 
   private loopState: ReActToolLoopState;
+
+  /** P1-3（2026-08-23）：当前工具轮 assistant 消息 id——工具轮入口（首次 _streamLlm 前）预分配，
+   *  chunk 事件写入与 createAssistantMessage 复用（N4/A3） */
+  private _activeToolRoundMessageId = '';
 
   /** v3：交互心跳间隔（前端 STREAM_IDLE_TIMEOUT_MS=60s，10s 留 5 次余量）+ 最大等待（防资源泄漏） */
   private static readonly INTERACTION_HEARTBEAT_MS = 10_000;
@@ -191,6 +200,59 @@ export class ReActToolLoop extends ReActLoop<
       } catch {
         // 检查点保存失败不影响执行（@ignore-catch）
       }
+    }
+
+    // 4. 工具轮内上下文保护（2026-08-23 修复）：
+    //    消息随工具轮累积膨胀（LLM 回复 + 工具结果逐轮回填），而主流程压缩只在
+    //    streamMessageFlow 首轮评估一次，工具轮内不再评估 → 长工具会话请求超限
+    //    （实测 deepseek-v4-flash 1M 窗口请求 1.78M，OpenAI stream error 400）。
+    //    每轮 reason 前对齐主流程：① 评估 → 超限压缩 loopState.messages（本轮 LLM 输入）
+    //    ② 发送前兜底截断（压缩不足/未触发时丢弃旧消息，确保输入 ≤ 窗口 - 输出预留）。
+    try {
+      const { session } = this.ctx;
+      const model = (this.ctx.options?.model as string | undefined) ?? '';
+      if (this.loopState.messages.length > 0) {
+        const evalResult = await autoCompactionPolicy.evaluateAsync(
+          this.loopState.messages as unknown as ChatMessage[],
+          model
+        );
+        if (evalResult.decision !== 'skip') {
+          logger.info('reactToolLoop:工具轮内压缩评估触发', {
+            sessionId: session.id,
+            decision: evalResult.decision,
+            tokens: evalResult.snapshot.tokens,
+            maxTokens: evalResult.snapshot.maxTokens,
+            ratio: Number(evalResult.snapshot.ratio.toFixed(3)),
+            messageCount: this.loopState.messages.length,
+            toolTurn: this.loopState.toolTurnCount,
+          });
+          const compactResult = await compactionOrchestrator.compact(
+            this.loopState.messages as unknown as ChatMessage[],
+            { model, sessionId: session.id },
+            { skipTier3Sync: true, preEvaluated: evalResult }
+          );
+          if (compactResult.applied) {
+            this.loopState.messages =
+              compactResult.messages as unknown as Record<string, unknown>[];
+            logger.info('reactToolLoop:工具轮内上下文压缩完成', {
+              sessionId: session.id,
+              beforeTokens: evalResult.snapshot.tokens,
+              afterMessageCount: compactResult.messages.length,
+              toolTurn: this.loopState.toolTurnCount,
+            });
+          }
+        }
+        // 兜底：无论压缩是否生效，发送前强制截断（估算超窗口-输出预留才截断，否则零开销早退）
+        await truncateApiMessages(
+          this.loopState.messages as unknown as Record<string, unknown>[],
+          evalResult.snapshot.maxTokens,
+          new Map([[session.id, session]]),
+          session.id,
+          (this.ctx.options?.maxTokens as number | undefined) ?? undefined
+        );
+      }
+    } catch {
+      // 压缩/截断失败不阻断工具循环（@ignore-catch，CS03）
     }
   }
 
@@ -291,33 +353,70 @@ export class ReActToolLoop extends ReActLoop<
 
     // D. 对齐旧类 _prepareNextRound：清洗叙述 + tool_calls metadata + 助手消息落盘
     const repairedContent = stripBareExploration(cleanContent);
-    const assistantMsg = this.ctx.messageService.createAssistantMessage(
-      repairedContent,
-      { sessionId: this.ctx.session.id }
-    );
     const resp = response as unknown as {
       finishReason?: string;
       stop_reason?: string;
     };
-    assistantMsg.finishReason = resp.finishReason || resp.stop_reason || 'stop';
-    if (response.tool_calls?.length) {
-      assistantMsg.metadata = {
-        ...assistantMsg.metadata,
-        tool_calls: response.tool_calls.map((tc) => ({
-          id: tc.id,
-          type: 'function',
-          function: {
-            name: tc.name,
-            arguments:
-              typeof tc.arguments === 'string'
-                ? tc.arguments
-                : JSON.stringify(tc.arguments || {}),
-          },
-        })),
-      };
+
+    // P0-fix: 如果 assistantMessage 已存在（流式主路径已创建），更新它而不是创建新消息
+    // 这解决了重复消息问题：streamMessageFlow.ts 创建第一条后，ReActToolLoop 不应再创建第二条
+    // 注意：不调用 addAndPersistMessage，因为 _finalizeStreamMessage 会在最后统一持久化
+    if (this.loopState.assistantMessage) {
+      const existingMsg = this.loopState.assistantMessage;
+      existingMsg.content = repairedContent;
+      existingMsg.finishReason =
+        resp.finishReason || resp.stop_reason || 'stop';
+      if (response.tool_calls?.length) {
+        existingMsg.metadata = {
+          ...existingMsg.metadata,
+          tool_calls: response.tool_calls.map((tc) => ({
+            id: tc.id,
+            type: 'function',
+            function: {
+              name: tc.name,
+              arguments:
+                typeof tc.arguments === 'string'
+                  ? tc.arguments
+                  : JSON.stringify(tc.arguments || {}),
+            },
+          })),
+        };
+      }
+      logger.debug('reactToolLoop:reason updated existing assistantMessage', {
+        sessionId: this.ctx.session.id,
+        messageId: existingMsg.id,
+        contentLength: repairedContent.length,
+      });
+    } else {
+      const assistantMsg = this.ctx.messageService.createAssistantMessage(
+        repairedContent,
+        {
+          sessionId: this.ctx.session.id,
+          // P1-3：复用工具轮入口预分配的 id（A3），保证 chunk 事件与落盘 id 一致
+          id: this._activeToolRoundMessageId,
+        }
+      );
+      assistantMsg.finishReason =
+        resp.finishReason || resp.stop_reason || 'stop';
+      if (response.tool_calls?.length) {
+        assistantMsg.metadata = {
+          ...assistantMsg.metadata,
+          tool_calls: response.tool_calls.map((tc) => ({
+            id: tc.id,
+            type: 'function',
+            function: {
+              name: tc.name,
+              arguments:
+                typeof tc.arguments === 'string'
+                  ? tc.arguments
+                  : JSON.stringify(tc.arguments || {}),
+            },
+          })),
+        };
+      }
+      this.ctx.addAndPersistMessage(this.ctx.session.id, assistantMsg);
+      this.loopState.assistantMessage = assistantMsg;
     }
-    this.ctx.addAndPersistMessage(this.ctx.session.id, assistantMsg);
-    this.loopState.assistantMessage = assistantMsg;
 
     // 4. LoopDetector 记录轮次（对齐旧类 recordTurn(currentToolCalls.length > 0)）
     this.ctx.loopDetector.recordTurn(toolCalls.length > 0);
@@ -599,11 +698,24 @@ export class ReActToolLoop extends ReActLoop<
       }
 
       // B. 工具结果消息落盘（对齐旧类 _executeToolRound L673-680）
+      // P1-4（2026-08-23）：metadata 携带 parentMessageId（= 归属 assistant 消息 id，G1/N6/A2），
+      // convertMessage 的 tool 分支据此生成 tool/result.messageId。
+      // T2.3（2026-08-23）：metadata 携带 callSeq（= tool_call 事件 seq，A1③ 闭环）——
+      // streamMessageFlow 在写 assistant/tool_call 事件时填充 toolCallSeqMap，
+      // convertMessage tool 分支据此直读生成 tool/result.callSeq，不再依赖 _toolCallSeqMap 回填。
       const toolResultMsg = this.ctx.messageService.createToolResultMessage(
         toolResult,
         {
           sessionId: this.ctx.session.id,
-          metadata: toolResult.metadata,
+          metadata: {
+            ...(toolResult.metadata as Record<string, unknown> | undefined),
+            parentMessageId:
+              this.loopState.assistantMessage?.id ??
+              this._activeToolRoundMessageId,
+            ...(this.ctx.toolCallSeqMap?.has(tc.id)
+              ? { callSeq: this.ctx.toolCallSeqMap.get(tc.id) }
+              : {}),
+          },
         }
       );
       this.ctx.addAndPersistMessage(this.ctx.session.id, toolResultMsg);
@@ -767,10 +879,53 @@ export class ReActToolLoop extends ReActLoop<
    * （P0-C 恢复 + thinking 转发），return 携带清洗后的 ChatResponse。
    * @param retried 残缺工具重试标记：maxTokens 加倍（对齐旧类 _streamLlmRound）
    */
+  /**
+   * M1 事件溯源（2026-08-23）：工具轮 text/thinking chunk 写 events.jsonl。
+   * 对齐 streamMessageFlow 主循环（首轮已实时写）——此前缺失导致工具轮正文/思考
+   * 不进事件流，重新打开会话（events 派生）时正文缺失，仅靠 legacy 合并兜底。
+   */
+  private async _appendStreamEvent(
+    type: 'assistant/text' | 'assistant/thinking',
+    data: unknown
+  ): Promise<void> {
+    const { appendStreamEvent, getStreamTailSeq } = this.ctx;
+    if (!appendStreamEvent || !getStreamTailSeq) return;
+    try {
+      const ts = await getStreamTailSeq(this.ctx.session.id);
+      await appendStreamEvent(this.ctx.session.id, {
+        type,
+        schemaVersion: 1,
+        seq: ts + 1,
+        time: Date.now(),
+        sessionId: this.ctx.session.id,
+        // P1-3：工具轮 chunk 事件携带预分配的 assistant 消息 id
+        data: {
+          ...(data as Record<string, unknown>),
+          messageId: this._activeToolRoundMessageId,
+        },
+      });
+    } catch {
+      // @ignore-catch — 事件追加失败不阻断工具循环（CS03）
+    }
+  }
+
+  /**
+   * G12（2026-08-23）：骨架 run() 产出的 tool_start/tool_end 事件携带工具轮消息 id，
+   * 供 reactEventsToChunks 透传到 SSE chunk（前端工具轮块归属对位）。
+   */
+  protected override getCurrentMessageId(): string | undefined {
+    return this._activeToolRoundMessageId || undefined;
+  }
+
   private async *_streamLlm(
     retried = false
   ): AsyncGenerator<ReActEvent, ChatResponse> {
     this.loopState.llmCallCount++;
+    // P1-3（2026-08-23）：工具轮 assistant 消息 id 预分配——必须在首个 chunk 事件写入前确定，
+    // 首次工具轮 loopState.assistantMessage 尚不存在（N4/A3）；已有则复用其 id。
+    this._activeToolRoundMessageId =
+      this.loopState.assistantMessage?.id ||
+      `msg-turn-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
     const toolRoundBaseMaxTokens =
       (this.ctx.options?.maxTokens as number | undefined) ?? 4096;
     const gen = this.ctx.activeClient.streamMessage(
@@ -794,9 +949,22 @@ export class ReActToolLoop extends ReActLoop<
       if (typeof chunk === 'string') {
         textChunks.push(chunk);
         // 增量文本即时输出（对齐旧类 P0-C：工具轮 LLM 文本逐 chunk SSE）
-        yield { type: 'reasoning_delta', text: chunk };
+        yield {
+          type: 'reasoning_delta',
+          text: chunk,
+          messageId: this._activeToolRoundMessageId,
+        };
+        // M1 事件溯源：工具轮 text chunk 补写 assistant/text 事件
+        await this._appendStreamEvent('assistant/text', { content: chunk });
       } else if (chunk?.type === 'thinking') {
-        yield { type: 'thinking_delta', content: chunk.content };
+        yield {
+          type: 'thinking_delta',
+          content: chunk.content,
+          messageId: this._activeToolRoundMessageId,
+        };
+        await this._appendStreamEvent('assistant/thinking', {
+          content: chunk.content,
+        });
       }
       next = await gen.next();
     }

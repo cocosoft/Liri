@@ -17,7 +17,8 @@ const LOG_LEVEL_PRIORITY: Record<LogLevel, number> = {
 };
 
 const currentLevel: LogLevel =
-  (import.meta.env.VITE_LOG_LEVEL as LogLevel) || "debug";
+  (import.meta.env.VITE_LOG_LEVEL as LogLevel) ||
+  (import.meta.env.PROD ? "warn" : "info");
 
 function shouldLog(level: LogLevel): boolean {
   return LOG_LEVEL_PRIORITY[level] >= LOG_LEVEL_PRIORITY[currentLevel];

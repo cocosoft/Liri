@@ -45,6 +45,9 @@ export type LiriEventType =
   | 'assistant/todo'
   | 'assistant/doc_workflow'
   | 'assistant/truncation'
+  // ─── 交付物/diff（E-1，2026-08-23：deliverable/diff 事件化，T-H.2） ───
+  | 'assistant/deliverable'
+  | 'assistant/diff'
   // ─── 上下文管理 ───
   | 'context/compaction'
   | 'context/summary'
@@ -92,16 +95,22 @@ export interface LiriEventMap {
     content: string;
     /** 附件列表（图片、文件等） */
     attachments?: DataAttachment[];
+    /** 所属用户消息 id（v1 起，v0 事件无此字段） */
+    messageId?: string;
   };
 
   /** AI 思考（纯文本，无 RichMediaReference 标签） */
   'assistant/thinking': {
     content: string;
+    /** 所属 assistant 消息 id（v1 起） */
+    messageId?: string;
   };
 
   /** AI 正文（纯 markdown，不含 thinking 段） */
   'assistant/text': {
     content: string;
+    /** 所属 assistant 消息 id（v1 起） */
+    messageId?: string;
   };
 
   /** 工具调用开始 */
@@ -112,6 +121,10 @@ export interface LiriEventMap {
     name: string;
     /** 工具参数（已解析的对象，非 JSON 字符串） */
     args: unknown;
+    /** 所属 assistant 消息 id（v1 起） */
+    messageId?: string;
+    /** callSeq 持久化（= 本事件将获得的 seq，tailSeq+1 预分配；A1） */
+    callSeq?: number;
   };
 
   /** 工具结果（引用 assistant/tool_call 的 seq） */
@@ -124,6 +137,8 @@ export interface LiriEventMap {
     result: string;
     /** 是否为错误结果 */
     isError?: boolean;
+    /** 归属的 assistant 消息 id（v1 起，= metadata.parentMessageId 回退 parentUuid；A2） */
+    messageId?: string;
   };
 
   /** 上下文压缩状态（独立 seq，不混进 blocks） */
@@ -136,6 +151,13 @@ export interface LiriEventMap {
     afterTokens?: number;
     /** 阶段说明 */
     message?: string;
+    /** T-A（2026-08-23）：被压缩消息的事件 seq 区间（startSeq → endSeq，含端点）。
+     *  压缩语义 = 区间内全部消息替换为 summary；summary 消息不写 events（本事件即其事件表示）。 */
+    compactedRange?: { startSeq: number; endSeq: number };
+    /** 压缩后 summary 文本（与投影写入的 summary 同一份，供派生器合成 summary 消息） */
+    summary?: string;
+    /** 投影 summary 消息的真实 id（派生器合成 summary 消息时复用，T-D 对账跳过其 lastEventSeq 比对） */
+    summaryMessageId?: string;
   };
 
   /** 压缩后的摘要 */
@@ -229,6 +251,10 @@ export interface LiriEventMap {
     statusType?: 'compaction' | 'watermark' | 'reconnect' | 'error' | string;
     /** 阶段（compaction 使用：compacting/done） */
     phase?: 'compacting' | 'done';
+    /** 工具状态块关联的 toolCallId（C-1 schema 对齐前端 P1-6：按 toolCallId 去重） */
+    toolCallId?: string;
+    /** 结构化水位数据（statusType='watermark' 时存在，C-1 schema 对齐前端 P1-3） */
+    watermark?: { pct: number; severity: 'warn' | 'compact' };
   };
 
   /**
@@ -354,6 +380,36 @@ export interface LiriEventMap {
     /** 提示文本（追加到正文中） */
     suffix: string;
   };
+
+  /**
+   * 交付物卡片（E-1，2026-08-23；对齐前端 DeliverableData）
+   * AI 完成工作后推送的文件变更列表。
+   */
+  'assistant/deliverable': {
+    files: Array<{
+      path: string;
+      change: 'added' | 'modified' | 'deleted';
+      status: 'pending' | 'verified' | 'failed';
+    }>;
+    summary: string;
+    checks?: Array<{ name: string; passed: boolean; detail?: string }>;
+    actions?: Array<{
+      label: string;
+      action: 'accept' | 'reject' | 'retry';
+      file?: string;
+    }>;
+  };
+
+  /**
+   * diff 卡片（E-1，2026-08-23；对齐前端 DiffData）
+   * AI 代码变更的 unified diff 格式预览。
+   */
+  'assistant/diff': {
+    file: string;
+    diff: string;
+    language?: string;
+    stats?: { additions: number; deletions: number };
+  };
 }
 
 // ─── 事件结构 ───────────────────────────────────────────────────────────────
@@ -366,6 +422,8 @@ export interface LiriEventMap {
 export interface LiriEvent<T extends LiriEventType = LiriEventType> {
   /** 事件类型 */
   type: T;
+  /** 事件 schema 版本：无字段 = v0；v1 起消息级事件带 messageId */
+  schemaVersion?: 1;
   /** 会话内全局单调递增序号，从 1 开始 */
   seq: number;
   /** epoch ms 时间戳 */

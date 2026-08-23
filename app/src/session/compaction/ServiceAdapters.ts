@@ -12,6 +12,8 @@ import { SessionCompactionBridge } from './SessionCompactionBridge';
 import { SummaryCompactor } from './SummaryCompactor';
 import { LayeredCompactor } from './LayeredCompactor';
 import { KeyInfoExtractor } from './KeyInfoExtractor';
+import { join } from 'path';
+import { resolveDataDir } from '@modules/core';
 
 export class AutoCompactServiceAdapter implements AutoCompactServiceRef {
   constructor(private real: AutoCompactService) {}
@@ -57,7 +59,15 @@ export class SessionCheckpointServiceAdapter implements SessionCheckpointService
 }
 
 export function createWiredCompactionBridge(): SessionCompactionBridge {
-  const bridge = new SessionCompactionBridge();
+  // M2-fix: 压缩历史 JSONL 持久化到 ~/.pyapp/data/sessions/compaction-history.jsonl，
+  // 跨重启可恢复（违反 R08-001 的原纯内存实现已修正）
+  const bridge = new SessionCompactionBridge({
+    recordHistoryPath: join(
+      resolveDataDir(),
+      'sessions',
+      'compaction-history.jsonl'
+    ),
+  });
 
   const autoCompactService = new AutoCompactService();
   const adapter = new AutoCompactServiceAdapter(autoCompactService);

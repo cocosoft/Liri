@@ -119,11 +119,15 @@ export class ColdStorage {
     try {
       const data = await readFile(this.storagePath, 'utf-8');
       return JSON.parse(data) as ArchivedMemory[];
-    } catch {
-      void handleError(new Error('读取冷存储文件失败'), {
-        module: 'dream:coldstorage',
-        action: 'readAll',
-      });
+    } catch (err) {
+      // 冷存储文件不存在 = 首次运行尚无归档，属正常状态，不报 error
+      const code = (err as NodeJS.ErrnoException)?.code;
+      if (code !== 'ENOENT') {
+        void handleError(new Error('读取冷存储文件失败'), {
+          module: 'dream:coldstorage',
+          action: 'readAll',
+        });
+      }
       return [];
     }
   }

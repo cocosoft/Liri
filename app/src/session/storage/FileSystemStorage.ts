@@ -115,6 +115,26 @@ export class FileSystemStorage implements SessionStorage {
       const data = JSON.parse(content);
       return Session.fromJSON(data);
     } catch (error) {
+      // M3-fix: 对齐新链 .corrupt 隔离 —— ENOENT（会话不存在）正常返回 null，
+      // 其余错误（JSON 损坏/断电半写）视为损坏，隔离目录并告警而非静默吞错。
+      const code = (error as NodeJS.ErrnoException).code;
+      if (code === 'ENOENT') {
+        return null;
+      }
+      logger.warn('会话文件损坏，隔离到 .corrupt/（旧链）', {
+        sessionId,
+        filePath: sessionFilePath,
+        error: String(error),
+      });
+      try {
+        const corruptDir = join(this.rootDir, '.corrupt', sessionId);
+        await fs.rename(this.getSessionDir(sessionId), corruptDir);
+      } catch (renameErr) {
+        logger.warn('隔离损坏会话目录失败', {
+          sessionId,
+          error: String(renameErr),
+        });
+      }
       await handleError(error, {
         module: 'sessions:storage',
         action: `加载会话失败: ${sessionId}`,

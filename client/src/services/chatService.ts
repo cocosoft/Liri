@@ -125,6 +125,8 @@ export interface StreamChunk {
   toolCall?: ToolCall;
   questionData?: QuestionData;
   todoData?: import("../types").TaskCardData;
+  /** P1-7（2026-08-23）：text/thinking chunk 携带归属 assistant 消息 id（后端 SSE 透传） */
+  messageId?: string;
   executionPhase?: {
     phase: string;
     progress: number;
@@ -148,7 +150,7 @@ export interface StreamChunk {
   };
   /** 来自后端的终止原因（'stop' | 'length' | 'error'），仅 usage 或 done 类型时存在 */
   finishReason?: string;
-  /** tool_completed 事件携带的 tool_call_id，用于匹配前端 blocks 中的 tool call */
+  /** tool_completed / status（工具状态块）事件携带的 tool_call_id，用于匹配前端 blocks 中的 tool call */
   tool_call_id?: string;
   /** tool_completed 事件携带的工具名 */
   tool_name?: string;
@@ -202,7 +204,11 @@ function parseSseChunk(chunk: Record<string, unknown>): StreamChunk | null {
   const deltaContent = (delta?.content as string) || "";
 
   if (pyappType === "thinking") {
-    return { type: "thinking", content: deltaContent };
+    return {
+      type: "thinking",
+      content: deltaContent,
+      messageId: (chunk.__pyapp_message_id as string) || undefined,
+    };
   }
   if (pyappType === "status") {
     return {
@@ -211,6 +217,7 @@ function parseSseChunk(chunk: Record<string, unknown>): StreamChunk | null {
       statusType:
         (chunk.__pyapp_status_type as StreamChunk["statusType"]) || undefined,
       phase: (chunk.__pyapp_phase as StreamChunk["phase"]) || undefined,
+      tool_call_id: (chunk.__pyapp_tool_call_id as string) || undefined,
     };
   }
   if (pyappType === "context_state") {
@@ -338,7 +345,11 @@ function parseSseChunk(chunk: Record<string, unknown>): StreamChunk | null {
     };
   }
   if (deltaContent) {
-    return { type: "text", content: deltaContent };
+    return {
+      type: "text",
+      content: deltaContent,
+      messageId: (chunk.__pyapp_message_id as string) || undefined,
+    };
   }
   return null;
 }
@@ -866,6 +877,8 @@ export const chatService = {
                 content: chunk.choices?.[0]?.delta?.content || "",
                 statusType: chunk.__pyapp_status_type || undefined,
                 phase: chunk.__pyapp_phase || undefined,
+                tool_call_id:
+                  (chunk.__pyapp_tool_call_id as string) || undefined,
               };
             } else if (pyappType === "context_state") {
               yield {

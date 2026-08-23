@@ -11,6 +11,9 @@ import {
 import { useFeatureFlagStore } from "../../stores/featureFlags";
 import GroupStatusLine from "./GroupStatusLine";
 import BlockItem from "./BlockItem";
+import { createLogger } from "@/utils/logger";
+
+const logger = createLogger("components:toolExecutionGroup");
 
 interface ToolExecutionGroupProps {
   blocks: MessageBlock[];
@@ -18,13 +21,26 @@ interface ToolExecutionGroupProps {
 
 function ToolExecutionGroup({ blocks }: ToolExecutionGroupProps) {
   const { t } = useTranslation();
-  const { readFileToPreview } = useChatStore();
+  // P0-5 修复：精准 selector 订阅，避免每个 chunk 触发工具卡片重渲染
+  const readFileToPreview = useChatStore((s) => s.readFileToPreview);
   const toolcallFlat = useFeatureFlagStore((s) => s.flags.toolcall_flat);
 
+  /** P0-5 日志：流式状态切换边界（流式中工具卡片渲染频率监控，每 complete→streaming 边沿记录） */
   const isGroupStreaming = useMemo(
     () => blocks.some((b) => b.isStreaming),
     [blocks],
   );
+  const prevGroupStreamingRef = useRef(isGroupStreaming);
+  useEffect(() => {
+    if (prevGroupStreamingRef.current !== isGroupStreaming) {
+      prevGroupStreamingRef.current = isGroupStreaming;
+      logger.debug("[P0-5:ToolGroup] isStreaming 切换", {
+        isGroupStreaming,
+        blockCount: blocks.length,
+        toolCallCount: blocks.filter((b) => b.type === "tool_call").length,
+      });
+    }
+  }, [isGroupStreaming, blocks]);
   const [collapsed, setCollapsed] = useState(!isGroupStreaming);
   const [innerCollapsed, setInnerCollapsed] = useState(true);
   const prevStreaming = useRef(false);
@@ -126,12 +142,15 @@ function ToolExecutionGroup({ blocks }: ToolExecutionGroupProps) {
     return null;
   }, [blocks]);
 
-  /** 聚合统计：对连续同类型工具调用进行计数 */
+  /** 聚合统计：对同组工具调用进行计数，折叠态展示凝练总结（"已执行 N 个工具调用"） */
   const aggregateStats = useMemo(() => {
     const toolCalls = blocks.filter(
       (b) => b.type === "tool_call" && b.toolCall,
     );
-    if (toolCalls.length < 3) return null;
+    // 关键修复（2026-08-23）：阈值从 3 降到 2 —— 2 个及以上工具调用
+    // 就在折叠态展示"已执行 N 个工具调用"总结，展开才看明细，
+    // 避免"执行2个工具调用"标题下堆积一堆工具过程输出（用户反馈视觉混乱）。
+    if (toolCalls.length < 2) return null;
 
     // 按工具名称分组
     const groups = new Map<
@@ -151,27 +170,29 @@ function ToolExecutionGroup({ blocks }: ToolExecutionGroupProps) {
       else if (b.toolCall?.status === "failed") stat.failed++;
     }
 
-    // 找到数量最多的工具类型作为主要统计
-    let primaryName = "";
-    let primaryStat = { total: 0, completed: 0, running: 0, failed: 0 };
-    for (const [name, stat] of groups) {
-      if (stat.total > primaryStat.total) {
-        primaryName = name;
-        primaryStat = stat;
-      }
+    // 汇总总调用数与失败数（不局限于单一工具类型）
+    let total = 0;
+    let completed = 0;
+    let running = 0;
+    let failed = 0;
+    for (const stat of groups.values()) {
+      total += stat.total;
+      completed += stat.completed;
+      running += stat.running;
+      failed += stat.failed;
     }
 
     return {
-      label: getToolDisplayName(primaryName),
-      total: primaryStat.total,
-      completed: primaryStat.completed,
-      running: primaryStat.running,
-      failed: primaryStat.failed,
-      allDone: primaryStat.completed + primaryStat.failed === primaryStat.total,
+      label: `${total} 个工具调用`,
+      total,
+      completed,
+      running,
+      failed,
+      allDone: completed + failed === total,
     };
   }, [blocks]);
 
-  /** 过滤冗余状态块：连续相似的 tool 状态只显示最后一条 */
+  /** P1-6 修复：status 块按 toolCallId 去重（消除 CS02 正则解析） */
   const filteredBlocks = useMemo(() => {
     return blocks.filter((block, idx) => {
       if (block.type !== "status") return true;
@@ -179,14 +200,23 @@ function ToolExecutionGroup({ blocks }: ToolExecutionGroupProps) {
 
       const prev = blocks[idx - 1];
       if (prev?.type === "status") {
-        const prevTool = prev.content.match(
-          /(?:Running tool|Tool) (.+?)(?:\.\.\.| completed)/,
-        );
-        const currTool = block.content.match(
-          /(?:Running tool|Tool) (.+?)(?:\.\.\.| completed)/,
-        );
-        if (prevTool && currTool && prevTool[1] === currTool[1]) {
+        // P1-6：优先按 toolCallId 去重（数据模型已有字段）
+        const prevToolId = prev.toolCallId;
+        const currToolId = block.toolCallId;
+        if (prevToolId && currToolId && prevToolId === currToolId) {
           return false;
+        }
+        // Fallback：无 toolCallId 时仍用正则（标记 TODO: CS05-ROOTFIX）
+        if (!prevToolId && !currToolId) {
+          const prevTool = prev.content.match(
+            /(?:Running tool|Tool) (.+?)(?:\.\.\.| completed)/,
+          );
+          const currTool = block.content.match(
+            /(?:Running tool|Tool) (.+?)(?:\.\.\.| completed)/,
+          );
+          if (prevTool && currTool && prevTool[1] === currTool[1]) {
+            return false;
+          }
         }
       }
 
@@ -209,17 +239,23 @@ function ToolExecutionGroup({ blocks }: ToolExecutionGroupProps) {
           )}
         </span>
 
-        {/* 工具名称 + 参数摘要 */}
+        {/* 工具名称 + 参数摘要（聚合态：凝练总结 + 完成数；单工具态：工具名 + 摘要） */}
         <span className="font-semibold text-gray-200 shrink overflow-hidden text-ellipsis whitespace-nowrap min-w-0">
           {aggregateStats ? (
             <>
-              {aggregateStats.label}
+              {/* 凝练总结话语：如 "✅ 已执行 2 个工具调用" / "2 个工具调用 (1/2)" */}
+              {aggregateStats.allDone && !aggregateStats.failed
+                ? `已执行 ${aggregateStats.total} 个工具调用`
+                : aggregateStats.label}
               <span className="font-normal text-xs text-gray-400 ml-1">
                 {aggregateStats.completed}/{aggregateStats.total}
                 {aggregateStats.failed > 0 && (
                   <span className="text-red-400 ml-1">
                     ({aggregateStats.failed} {t("chat.failed")})
                   </span>
+                )}
+                {!aggregateStats.allDone && (
+                  <span className="text-amber-400/80 ml-1">执行中</span>
                 )}
               </span>
             </>
@@ -324,13 +360,49 @@ function ToolExecutionGroup({ blocks }: ToolExecutionGroupProps) {
                     );
                   })
                 : // 旧版模式：BlockItem 嵌套卡片
-                  filteredBlocks.map((block) => (
-                    <BlockItem
-                      key={block.id}
-                      block={block}
-                      onPreviewFile={readFileToPreview}
-                    />
-                  ))}
+                  filteredBlocks.map((block) => {
+                    // P1-5 修复：孤立 tool_call 结果块（无配对 tool_call 但有 content）显示为独立结果卡片
+                    // 注：MessageBlock 无 tool_result 类型，用 content 非空但 toolCall 缺失判断孤立结果
+                    if (
+                      block.type === "tool_call" &&
+                      !block.toolCall &&
+                      block.content
+                    ) {
+                      logger.warn(
+                        "[P1-5] 孤立 tool_call 结果块（无配对调用）",
+                        {
+                          blockId: block.id,
+                          contentLength: block.content?.length ?? 0,
+                        },
+                      );
+                      return (
+                        <div
+                          key={block.id}
+                          className="border border-amber-400/30 rounded-[8px] p-2 bg-amber-400/[0.05]"
+                        >
+                          <div className="text-[11px] text-amber-300 mb-1">
+                            ⚠️{" "}
+                            {t(
+                              "chat.orphanToolResult",
+                              "孤立工具结果（未配对调用）",
+                            )}
+                          </div>
+                          <MarkdownRenderer
+                            content={block.content}
+                            isStreaming={block.isStreaming}
+                            onPreviewFile={readFileToPreview}
+                          />
+                        </div>
+                      );
+                    }
+                    return (
+                      <BlockItem
+                        key={block.id}
+                        block={block}
+                        onPreviewFile={readFileToPreview}
+                      />
+                    );
+                  })}
             </div>
           )}
         </div>

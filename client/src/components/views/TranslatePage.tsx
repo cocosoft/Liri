@@ -23,6 +23,9 @@ import type { AlternativeTranslation } from "../../services/translateService";
 import { imageService } from "../../services/imageService";
 import SplitText from "./SplitText";
 import AlternativesPopover from "./AlternativesPopover";
+import { createLogger } from "../../utils/logger";
+
+const logger = createLogger("views:TranslatePage");
 
 // 浏览器 SpeechRecognition API 类型声明（非标准 API，手动补充）
 declare class SpeechRecognition extends EventTarget {
@@ -590,7 +593,8 @@ function TranslatePage() {
 
   // ──── SessionHub 上下文同步（Phase 4）──
   // 保存/恢复翻译模块的源语言、目标语言
-  useSessionContextSync("translation", {
+  // P0-3 修复：解构 scheduleSave，在 sourceLang/targetLang/sourceText 变更时显式触发保存
+  const { scheduleSave } = useSessionContextSync("translation", {
     save: () => {
       const state = useTranslateStore.getState();
       return {
@@ -607,6 +611,30 @@ function TranslatePage() {
       if (ctx.targetLang) state.setTargetLang(ctx.targetLang);
     },
   });
+
+  /** P0-3：sourceLang/targetLang/sourceText 变更时触发保存 */
+  const translateState = useTranslateStore((s) => ({
+    sourceLang: s.sourceLang,
+    targetLang: s.targetLang,
+    sourceText: s.sourceText,
+  }));
+  const prevTranslateStateRef = useRef(translateState);
+  useEffect(() => {
+    const prev = prevTranslateStateRef.current;
+    if (
+      prev.sourceLang !== translateState.sourceLang ||
+      prev.targetLang !== translateState.targetLang ||
+      prev.sourceText !== translateState.sourceText
+    ) {
+      prevTranslateStateRef.current = translateState;
+      logger.debug("[P0-3:TranslatePage] 翻译状态变更，触发 scheduleSave", {
+        sourceLang: translateState.sourceLang,
+        targetLang: translateState.targetLang,
+        sourceTextLength: translateState.sourceText?.length ?? 0,
+      });
+      scheduleSave();
+    }
+  }, [translateState, scheduleSave]);
 
   const [historyCollapsed, setHistoryCollapsed] = useState(false);
 

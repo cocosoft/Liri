@@ -327,6 +327,8 @@ export class OpenAIProvider extends BaseAIProvider {
       model?: string;
       maxTokens?: number;
       temperature?: number;
+      /** 外部取消信号（用户停止/会话切换/压缩超时），任一触发即中断流式请求 */
+      signal?: AbortSignal;
     }
   ): AsyncGenerator<string | ThinkingProviderChunk, ChatResponse, unknown> {
     // 流式耗时统计：委托 BaseAIProvider.wrapChatStreamMeasure（2026-08-16）
@@ -343,6 +345,7 @@ export class OpenAIProvider extends BaseAIProvider {
       model?: string;
       maxTokens?: number;
       temperature?: number;
+      signal?: AbortSignal;
     }
   ): AsyncGenerator<string | ThinkingProviderChunk, ChatResponse, unknown> {
     const model = await this.resolveModel('chat', options);
@@ -373,7 +376,16 @@ export class OpenAIProvider extends BaseAIProvider {
               Authorization: `Bearer ${this.apiKey}`,
             },
             body: JSON.stringify(requestBody),
-            signal: AbortSignal.timeout(this.resolveRequestTimeoutMs()),
+            // 外部取消信号（用户停止/会话切换/压缩超时）与模型请求超时任一触发即中断。
+            // 与 chat() 的 signal 组合保持一致（CS01 归一化）。
+            // 缺失该传递会导致：前端 abort → 后端无法中断 llama-server 生成 →
+            // slot 一直 busy → 下次请求被 LLAMA_SERVER_BUSY 拒绝。
+            signal: options?.signal
+              ? AbortSignal.any([
+                  options.signal,
+                  AbortSignal.timeout(this.resolveRequestTimeoutMs()),
+                ])
+              : AbortSignal.timeout(this.resolveRequestTimeoutMs()),
           }
         );
 

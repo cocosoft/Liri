@@ -11,6 +11,8 @@ export interface ArchivePayload {
   session: UnifiedSession;
   messages: UnifiedMessage[];
   metadata: ArchiveMetadata;
+  /** D-2（2026-08-23）：完整 events.jsonl 原文（事件溯源单一化——归档不裁剪事件流） */
+  events?: string;
 }
 
 export class ArchiveStorage {
@@ -89,10 +91,26 @@ export class ArchiveStorage {
   }
 
   async getArchivePathFor(sessionId: string): Promise<string | null> {
-    const path = this.getArchivePath(sessionId);
+    // P1-fix（H6）：归档路径带时间戳版本（${sessionId}-${ts}.archive），
+    // 已归档判断改为扫描目录前缀匹配，兼容旧固定路径（${sessionId}.archive）。
     try {
-      await fs.access(path);
-      return path;
+      const entries = await fs.readdir(this.config.archiveRootDir);
+      const prefix = `${sessionId}-`;
+      const match = entries.find(
+        (e) => e.startsWith(prefix) && e.endsWith('.archive')
+      );
+      if (match) return join(this.config.archiveRootDir, match);
+      // 兼容旧格式固定路径
+      const legacyPath = join(
+        this.config.archiveRootDir,
+        `${sessionId}.archive`
+      );
+      try {
+        await fs.access(legacyPath);
+        return legacyPath;
+      } catch {
+        return null;
+      }
     } catch {
       return null;
     }
@@ -119,6 +137,11 @@ export class ArchiveStorage {
   }
 
   private getArchivePath(sessionId: string): string {
-    return join(this.config.archiveRootDir, `${sessionId}.archive`);
+    // P1-fix（H6）：固定路径 → 时间戳版本路径，避免同一会话重复归档直接覆盖
+    // 旧归档（无历史版本）。毫秒时间戳，同会话两次归档不冲突。
+    return join(
+      this.config.archiveRootDir,
+      `${sessionId}-${Date.now()}.archive`
+    );
   }
 }

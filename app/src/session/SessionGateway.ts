@@ -9,8 +9,11 @@ import path from 'path';
 import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error';
+// E-4（2026-08-23，T-G）：会话删除时清理 PDCA 旁路轨迹文件
+import { TrajectoryTrailRecorder } from './trajectory/TrajectoryTrailRecorder';
 import { resolveSessionsDir, resolveDataDir } from '@modules/core';
 import { asyncContextStorage } from '../context/AsyncContextStorage';
+import { resolveContextWindow } from '../context/window/ContextWindowResolver';
 import { FileCheckpointStorage } from '../query/FileCheckpointStorage.js';
 import type { SessionContext } from '../context/types/Context';
 import {
@@ -656,6 +659,9 @@ export class SessionGateway {
       costMs: Date.now() - startedAt,
     });
 
+    // E-4（2026-08-23，T-G）：清理 PDCA 旁路轨迹文件（会话外诊断数据，随会话删除）
+    void TrajectoryTrailRecorder.cleanup(sessionId);
+
     await this.transcriptManager.deleteTranscript(sessionId);
     logger.debug('deleteSession:transcript 已删除', {
       sessionId,
@@ -1198,10 +1204,10 @@ export class SessionGateway {
 
     const messages = await this.getMessages(sessionId);
     const tokenUsage = this.tokenTracker?.getUsage(sessionId);
-    const totalTokens =
-      (tokenUsage?.totalTokens ?? 0) +
-      (tokenUsage?.inputTokens ?? 0) +
-      (tokenUsage?.outputTokens ?? 0);
+    // P1-fix（H2）：totalTokens 已是累计值（TokenTracker.accumulateTokenUsage
+    // 累加 input/output/cache 等），再叠加 inputTokens + outputTokens 导致
+    // 约 3 倍重复计数，触发过早修剪。
+    const totalTokens = tokenUsage?.totalTokens ?? 0;
 
     const decision = this.pruningDecider.decide({
       session: {
@@ -1214,7 +1220,11 @@ export class SessionGateway {
         updatedAt: new Date(session.updatedAt),
       } as import('../session/models/Session').Session,
       tokenUsage: totalTokens,
-      modelContextWindow: 200000,
+      // L3-fix: 从模型注册表解析上下文窗口（model_registry 事实来源），
+      // 原 200000 硬编码违反 model-usage 规则（模型属性必须读 DB）。
+      modelContextWindow: resolveContextWindow(
+        (session.metadata as { model?: string } | undefined)?.model ?? ''
+      ).tokens,
     });
 
     if (decision.action === 'skip') return null;

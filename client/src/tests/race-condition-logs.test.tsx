@@ -27,12 +27,13 @@ import { useChatDraft } from "../components/ChatArea/useChatDraft";
 
 // ── useChatDraft 测试 Harness ─────────────────────────────
 function DraftHarness({ sid }: { sid?: string }) {
-  const { input, setInputWithDraft } = useChatDraft(sid);
+  // P0-4：setInputWithDraft 已删除，setInput 内部统一走持久化
+  const { input, setInput } = useChatDraft(sid);
   return (
     <input
       aria-label="draft-input"
       value={input}
-      onChange={(e) => setInputWithDraft(e.target.value)}
+      onChange={(e) => setInput(e.target.value)}
     />
   );
 }

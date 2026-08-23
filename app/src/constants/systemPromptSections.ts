@@ -807,6 +807,15 @@ const DEFAULT_SECTIONS: SystemPromptSection[] = [
 ];
 
 /**
+ * 本地模型专用工具使用段落（PromptAssembler local 模式替换 toolUse 使用）：
+ * 去掉"必要时等待用户确认"的确认倾向——弱本地模型（7B 量化）会过度遵循该规则，
+ * 即使被用户要求执行仍反复输出"请确认"导致死循环（2026-08-22 排查导出文件确认）。
+ */
+export const localToolUseSection = systemPromptSection('localToolUse', () => {
+  return `## 工具使用\n\n你可以使用一系列工具与用户的系统进行交互。\n使用这些工具帮助用户完成任务。\n\n执行时：\n- 直接执行用户要求的操作，不要在回复末尾请求确认（除非任务存在真实的多义性需要澄清）\n- 先读取相关文件再分析或修改\n- 做精准、最小化的修改\n- 完成后清晰地报告结果\n\n## 输出规范\n\n推理、探索、工具使用的过程叙述只允许放在思考通道（thinking）内，正文只输出对用户问题的最终回答。禁止把工具执行过程叙述混入正文。`;
+});
+
+/**
  * 注册系统提示词段落
  */
 export function registerSections(sections: SystemPromptSection[]): void {

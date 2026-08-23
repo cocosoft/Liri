@@ -7,13 +7,15 @@
  * 实现模块特定状态与 SessionSlice 中 SessionContext 的双向同步。
  *
  * 使用方式：
- *   useSessionContextSync("media", {
+ *   const { scheduleSave } = useSessionContextSync("media", {
  *     save: () => ({ prompt: mediaPrompt, size: mediaSize }),
  *     restore: (ctx) => { setPrompt(ctx.prompt); setSize(ctx.size); },
  *   });
+ *   // 在模块状态变更时显式调用 scheduleSave()
+ *   const setPrompt = (p: string) => { set({ prompt: p }); scheduleSave(); };
  */
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useCallback } from "react";
 import { useRootStore } from "@/stores/root-store";
 import type { SessionContext } from "@/stores/root-store/types";
 import { createLogger } from "@/utils/logger";
@@ -31,18 +33,30 @@ export interface ContextSyncConfig<T extends Partial<SessionContext>> {
 }
 
 /**
+ * P0-3 修复：返回值类型
+ * 历史问题：旧版无返回值，save 函数仅由 effect 依赖触发，模块状态变更不会重跑 effect，
+ * 导致"保存方向形同虚设"——用户在同一会话内修改配置后若应用崩溃，自上次切换以来的
+ * context 变更全部丢失。
+ */
+export interface ContextSyncResult {
+  /** 模块状态变更时显式调用，触发防抖保存（500ms 防抖） */
+  scheduleSave: () => void;
+}
+
+/**
  * 模块状态 ↔ SessionSlice 双向同步钩子
  *
- * - 保存方向：当模块状态变更时（通过 save 函数返回），自动同步到 SessionSlice
+ * - 保存方向：模块状态变更时**由调用方显式调用 scheduleSave()** 触发防抖保存
  * - 恢复方向：仅在 sessionId 变化时（会话切换），从 SessionSlice 恢复模块状态
  *
  * @param moduleType - 模块类型标识（如 "chat"、"media"、"office"）
  * @param config - 同步配置（save/restore 函数 + 防抖间隔）
+ * @returns ContextSyncResult - 包含 scheduleSave 供调用方在状态变更时调用
  */
 export function useSessionContextSync<T extends Partial<SessionContext>>(
   moduleType: string,
   config: ContextSyncConfig<T>,
-): void {
+): ContextSyncResult {
   // R-D 修复：save/restore/debounceMs 用 ref 保存最新值，effect 不再依赖它们——
   // 调用方（如 ChatArea）传入内联 save/restore，每次渲染都是新引用；
   // 若 effect 依赖引用，组件每重渲染（流式期间极频繁）就 clearTimeout + 重设
@@ -85,16 +99,42 @@ export function useSessionContextSync<T extends Partial<SessionContext>>(
   // ── 保存方向：module state 变更时保存到 SessionSlice ──
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => {
+  // P0-3 修复：暴露 scheduleSave 供调用方显式触发保存
+  const scheduleSave = useCallback(() => {
     if (!currentModuleSession) return;
 
-    // 防抖保存（R-D：依赖稳定，仅会话切换/重建时重设）
+    // 防抖保存
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(() => {
       const context = saveRef.current();
       if (!context) return;
 
-      logger.debug("保存模块上下文到 SessionSlice", {
+      logger.debug("[P0-3] 保存模块上下文到 SessionSlice", {
+        moduleType,
+        sessionId: currentModuleSession.id,
+        contextKeys: Object.keys(context),
+      });
+
+      // context 已由 save() 函数保证类型（T extends Partial<SessionContext>）
+      updateSessionContext(
+        currentModuleSession.id,
+        context as Partial<SessionContext>,
+      );
+    }, debounceMsRef.current);
+  }, [currentModuleSession?.id, updateSessionContext, moduleType]);
+
+  useEffect(() => {
+    if (!currentModuleSession) return;
+
+    // P0-3 修复：仅会话切换时触发一次性保存（兜底），模块状态变更由 scheduleSave 显式触发
+    // 历史问题：旧版依赖 effect 重跑触发保存，但 effect 依赖只有 currentModuleSession?.id，
+    // 模块状态变更不会重跑 effect，导致"保存方向形同虚设"。
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      const context = saveRef.current();
+      if (!context) return;
+
+      logger.debug("[P0-3] 会话切换后一次性保存（兜底）", {
         moduleType,
         sessionId: currentModuleSession.id,
         contextKeys: Object.keys(context),
@@ -130,5 +170,7 @@ export function useSessionContextSync<T extends Partial<SessionContext>>(
         }
       }
     };
-  }, [currentModuleSession?.id, updateSessionContext]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [currentModuleSession?.id, updateSessionContext, moduleType]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  return { scheduleSave };
 }

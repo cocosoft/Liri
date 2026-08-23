@@ -45,6 +45,8 @@ export type LiriEventType =
   | "assistant/todo"
   | "assistant/doc_workflow"
   | "assistant/truncation"
+  | "assistant/deliverable"
+  | "assistant/diff"
   | "context/compaction"
   | "context/summary"
   | "system/error"
@@ -69,19 +71,24 @@ export interface LiriEventMap {
   "user/message": {
     content: string;
     attachments?: Array<{ path: string; filename: string; size: number }>;
+    /** 归属消息 id（P1-5：SSE/事件透传，非流式落盘消息为投影 id） */
+    messageId?: string;
   };
-  "assistant/thinking": { content: string };
-  "assistant/text": { content: string };
+  "assistant/thinking": { content: string; messageId?: string };
+  "assistant/text": { content: string; messageId?: string };
   "assistant/tool_call": {
     toolCallId: string;
     name: string;
     args: unknown;
+    messageId?: string;
   };
   "tool/result": {
     callSeq: number;
     toolCallId: string;
     result: string;
     isError?: boolean;
+    /** 归属 assistant 消息 id（P1-5：parentMessageId/parentUuid 回退） */
+    messageId?: string;
   };
   "context/compaction": {
     phase: "start" | "compacting" | "done" | "failed";
@@ -119,6 +126,10 @@ export interface LiriEventMap {
     content: string;
     statusType?: "compaction" | "watermark" | "reconnect" | "error" | string;
     phase?: "compacting" | "done";
+    /** 工具状态块关联的 toolCallId（P1-6：按 toolCallId 去重，替代内容正则） */
+    toolCallId?: string;
+    /** 结构化水位数据（statusType='watermark' 时存在，P1-3：替代内容正则解析） */
+    watermark?: { pct: number; severity: "warn" | "compact" };
   };
   "assistant/progress": {
     phase:
@@ -204,6 +215,26 @@ export interface LiriEventMap {
     reason: "length";
     suffix: string;
   };
+  "assistant/deliverable": {
+    files: Array<{
+      path: string;
+      change: "added" | "modified" | "deleted";
+      status: "pending" | "verified" | "failed";
+    }>;
+    summary: string;
+    checks?: Array<{ name: string; passed: boolean; detail?: string }>;
+    actions?: Array<{
+      label: string;
+      action: "accept" | "reject" | "retry";
+      file?: string;
+    }>;
+  };
+  "assistant/diff": {
+    file: string;
+    diff: string;
+    language?: string;
+    stats?: { additions: number; deletions: number };
+  };
 }
 
 // ─── 事件结构 ───────────────────────────────────
@@ -214,6 +245,8 @@ export interface LiriEvent<T extends LiriEventType = LiriEventType> {
   time: number;
   sessionId: string;
   data: LiriEventMap[T];
+  /** 事件 schema 版本（P1-5：v1 事件携带 messageId，参与消息聚合；v0 无） */
+  schemaVersion?: 1;
   sourceEventSeqs?: number[];
   ignorable?: true;
 }

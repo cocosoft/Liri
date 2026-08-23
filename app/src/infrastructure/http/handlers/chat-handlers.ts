@@ -559,6 +559,9 @@ async function handleStreamingChat(
                 object: 'chat.completion.chunk',
                 created,
                 model,
+                ...(chunk.messageId
+                  ? { __pyapp_message_id: chunk.messageId }
+                  : {}),
                 choices: [
                   {
                     index: 0,
@@ -585,6 +588,12 @@ async function handleStreamingChat(
                   ? { __pyapp_status_type: chunk.statusType }
                   : {}),
                 ...(chunk.phase ? { __pyapp_phase: chunk.phase } : {}),
+                ...(chunk.toolCallId
+                  ? { __pyapp_tool_call_id: chunk.toolCallId }
+                  : {}),
+                ...(chunk.messageId
+                  ? { __pyapp_message_id: chunk.messageId }
+                  : {}),
                 choices: [
                   {
                     index: 0,
@@ -956,6 +965,7 @@ function serializeResumeChunk(chunk: string | ChatStreamChunk): string | null {
       return JSON.stringify({
         ...base,
         __pyapp_type: 'text',
+        ...(c.messageId ? { __pyapp_message_id: c.messageId } : {}),
         choices: [
           { index: 0, delta: { content: c.content }, finish_reason: null },
         ],
@@ -967,6 +977,11 @@ function serializeResumeChunk(chunk: string | ChatStreamChunk): string | null {
         ...base,
         __pyapp_type: c.type,
         ...(c.statusType ? { __pyapp_status_type: c.statusType } : {}),
+        // L-3229 修复：与流式直写分支对齐，补透传 phase（compacting/done），
+        // 避免经 checkpoint 恢复/重放路径的 compaction status 块丢 phase 导致前端动画状态异常
+        ...(c.phase ? { __pyapp_phase: c.phase } : {}),
+        ...(c.toolCallId ? { __pyapp_tool_call_id: c.toolCallId } : {}),
+        ...(c.messageId ? { __pyapp_message_id: c.messageId } : {}),
         choices: [
           { index: 0, delta: { content: c.content }, finish_reason: null },
         ],

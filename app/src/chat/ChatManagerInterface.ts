@@ -10,6 +10,7 @@ import type {
   ChatResponse,
 } from './types/message.js';
 import type { ChatSession, CreateSessionParams } from './types/session.js';
+import type { LiriEvent } from './types/events.js';
 import type { ToolCall, ToolResult, ToolIntegration } from './types/tool.js';
 import type { MessageService } from './services/MessageService.js';
 import type { StreamService } from './services/StreamService.js';
@@ -53,6 +54,18 @@ export interface ChatManager {
     content: string,
     options?: StreamMessageOptions
   ): AsyncGenerator<string | ChatStreamChunk, Message, unknown>;
+
+  /**
+   * M1 事件溯源：流式过程中追加事件到 events.jsonl
+   * （E-1：CoreAPIImpl 发射 deliverable 事件时调用；失败不阻断流式）
+   */
+  appendStreamEvent(
+    sessionId: string,
+    event: LiriEvent
+  ): Promise<{ ok: boolean; reason?: string; tailSeq: number }>;
+
+  /** M1 事件溯源：获取会话当前 tailSeq（O(1) 缓存，事件 seq 分配用） */
+  getStreamTailSeq(sessionId: string): Promise<number>;
 
   /**
    * 执行工具

@@ -85,45 +85,59 @@ export class SessionKeyManager {
 
   /**
    * 加密数据
+   * M4-fix: 返回值携带 keyId，解密时按 keyId 取旧键（轮换后旧密文仍可解）。
    */
   encrypt(
     sessionId: string,
     data: string
-  ): { encrypted: string; iv: string; tag: string } | undefined {
+  ): { encrypted: string; iv: string; tag: string; keyId: string } | undefined {
     const sessionKey = this.get(sessionId);
 
     if (!sessionKey) return undefined;
 
     const iv = crypto.randomBytes(12);
-    const cipher = crypto.createCipheriv('aes-256-gcm', sessionKey.key, iv);
+    // M4-fix: config.algorithm 为 string 类型，TS 无法推断 GCM 特有方法，断言为 CipherGCM
+    const cipher = crypto.createCipheriv(
+      this.config.algorithm,
+      sessionKey.key,
+      iv
+    ) as crypto.CipherGCM;
 
     let encrypted = cipher.update(data, 'utf-8', 'hex');
     encrypted += cipher.final('hex');
 
     const tag = cipher.getAuthTag().toString('hex');
 
-    return { encrypted, iv: iv.toString('hex'), tag };
+    return {
+      encrypted,
+      iv: iv.toString('hex'),
+      tag,
+      keyId: sessionKey.id,
+    };
   }
 
   /**
    * 解密数据
+   * M4-fix: 增加可选 keyId —— 传入时直接从 keys Map 取对应密钥（跨轮换的旧
+   * 密文可解，不会触发轮换删除旧键）；不传时回退 get(sessionId) 行为不变。
    */
   decrypt(
     sessionId: string,
     encrypted: string,
     ivHex: string,
-    tagHex: string
+    tagHex: string,
+    keyId?: string
   ): string | undefined {
-    const sessionKey = this.get(sessionId);
+    const sessionKey = keyId ? this.keys.get(keyId) : this.get(sessionId);
 
     if (!sessionKey) return undefined;
 
     try {
       const decipher = crypto.createDecipheriv(
-        'aes-256-gcm',
+        this.config.algorithm,
         sessionKey.key,
         Buffer.from(ivHex, 'hex')
-      );
+      ) as crypto.DecipherGCM;
 
       decipher.setAuthTag(Buffer.from(tagHex, 'hex'));
 
@@ -138,10 +152,10 @@ export class SessionKeyManager {
 
   /**
    * 轮换密钥
+   * M4-fix: 不再 delete 旧键 —— 旧键保留在 keys Map 中供解密历史密文
+   * （宽限期），仅将 active 指向新键。显式 delete(sessionId) 仍可移除。
    */
   rotate(sessionId: string): SessionKey {
-    this.delete(sessionId);
-
     return this.create(sessionId);
   }
 

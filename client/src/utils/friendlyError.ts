@@ -6,7 +6,7 @@
  */
 
 /** 常见网络错误 → 中文映射 */
-const NETWORK_ERROR_MAP: Array<[RegExp | string, string]> = [
+const NETWORK_ERROR_MAP: Array<[RegExp, string]> = [
   [
     /socket connection was closed unexpectedly/i,
     "网络连接意外中断，请检查网络后重试",
@@ -19,8 +19,16 @@ const NETWORK_ERROR_MAP: Array<[RegExp | string, string]> = [
   [/aborted/i, "请求已被取消"],
   [/Load failed/i, "资源加载失败，请刷新页面重试"],
   [/Unexpected token.*JSON/i, "服务器返回了异常数据，请稍后重试"],
-  [/5\d\d/ as unknown as string, "服务器内部错误（{code}），请稍后重试"],
-  [/4\d\d/ as unknown as string, "请求有误（{code}），请检查参数"],
+  // P3-2 修复：泛化 5xx/4xx 要求状态码语境前缀（status/HTTP/error 邻近），
+  // 避免 "已处理 500 条记录" 式误匹配；捕获组用于替换 {code} 占位符
+  [
+    /(?:status|http|error)[^\d]{0,20}(5\d{2})\b/i,
+    "服务器内部错误（{code}），请稍后重试",
+  ],
+  [
+    /(?:status|http|error)[^\d]{0,20}(4\d{2})\b/i,
+    "请求有误（{code}），请检查参数",
+  ],
 ];
 
 /** HTTP 状态码 → 中文 */
@@ -84,10 +92,17 @@ export function getRawErrorMessage(error: unknown): string {
  */
 function extractHttpStatus(error: unknown): number | null {
   const msg = getRawErrorMessage(error);
-  const match =
-    msg.match(/status(?: code)?[: ]?(\d{3})/i) ||
-    msg.match(/\b(5\d\d|4\d\d)\b/);
-  return match ? parseInt(match[1], 10) : null;
+  // P3-2 修复：优先语境前缀匹配（status/HTTP/error 邻近）；
+  // 裸三位数仅当是已知 HTTP 状态码才采纳，避免任意三位数误匹配
+  const ctx = msg.match(
+    /(?:status(?:\s*code)?|http|error)\s*[:：(]?\s*(\d{3})\b/i,
+  );
+  if (ctx) return parseInt(ctx[1], 10);
+  const bare = msg.match(/\b(\d{3})\b/);
+  if (bare && Number(bare[1]) in HTTP_STATUS_MAP) {
+    return parseInt(bare[1], 10);
+  }
+  return null;
 }
 
 /**
@@ -115,14 +130,14 @@ export function friendlyErrorMessage(error: unknown): string {
     return `${HTTP_STATUS_MAP[status]}\n\n（原异常信息：${raw}）`;
   }
 
-  // 2. 再查网络错误模式
+  // 2. 再查网络错误模式（P3-2：替换 {code} 占位符为实际捕获的状态码）
   for (const [pattern, friendly] of NETWORK_ERROR_MAP) {
-    if (pattern instanceof RegExp) {
-      if (pattern.test(raw)) {
-        return `${friendly}\n\n（原异常信息：${raw}）`;
-      }
-    } else if (raw.includes(pattern)) {
-      return `${friendly}\n\n（原异常信息：${raw}）`;
+    const m = raw.match(pattern);
+    if (m) {
+      const text = friendly.includes("{code}")
+        ? friendly.replace("{code}", m[1] ?? "")
+        : friendly;
+      return `${text}\n\n（原异常信息：${raw}）`;
     }
   }
 

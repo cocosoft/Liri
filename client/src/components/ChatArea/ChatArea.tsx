@@ -6,7 +6,6 @@ import { useBackendStore } from "../../stores/backendStore";
 import { useVoiceStore } from "../../stores/voiceStore";
 import { useConfigStore } from "../../stores/configStore";
 import { useModelSwitchStore } from "../../stores/modelSwitchStore";
-import { useChatInspectorStore } from "../../stores/chatInspectorStore";
 import { useAutoScroll } from "../../hooks/useAutoScroll";
 import { useSessionContextSync } from "../../hooks/useSessionContextSync";
 import { voiceService } from "../../services/voiceService";
@@ -26,20 +25,20 @@ const logger = createLogger("components:chatArea");
 
 function ChatArea({ fluid = false }: { fluid?: boolean }) {
   const { t } = useTranslation();
-  const {
-    messages,
-    error,
-    errorCode,
-    isStreaming,
-    recoverySessionId,
-    dismissRecovery,
-    resumeRecovery,
-    // 阶段2 断连挂起-恢复
-    pausedStreams,
-    resumeStream,
-    abortPausedStream,
-  } = useChatStore();
-  const { currentSession, createSession } = useSessionStore();
+  // P0-5 修复：精准 selector 订阅，避免流式 chunk / voice audioLevel 变化导致整树重渲染
+  const messages = useChatStore((s) => s.messages);
+  const error = useChatStore((s) => s.error);
+  const errorCode = useChatStore((s) => s.errorCode);
+  const isStreaming = useChatStore((s) => s.isStreaming);
+  const recoverySessionId = useChatStore((s) => s.recoverySessionId);
+  const dismissRecovery = useChatStore((s) => s.dismissRecovery);
+  const resumeRecovery = useChatStore((s) => s.resumeRecovery);
+  // 阶段2 断连挂起-恢复
+  const pausedStreams = useChatStore((s) => s.pausedStreams);
+  const resumeStream = useChatStore((s) => s.resumeStream);
+  const abortPausedStream = useChatStore((s) => s.abortPausedStream);
+  const currentSession = useSessionStore((s) => s.currentSession);
+  const createSession = useSessionStore((s) => s.createSession);
   const backendRunning = useBackendStore((s) => s.status.running);
   const config = useConfigStore((s) => s.config);
   const isDark = config.theme === "dark";
@@ -57,37 +56,49 @@ function ChatArea({ fluid = false }: { fluid?: boolean }) {
       });
   }, [currentSession?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  /** 上下文面板点击消息摘要 → 滚动到对应消息 */
-  const highlightedRoundId = useChatInspectorStore((s) => s.highlightedRoundId);
-  const setHighlightedRoundId = useChatInspectorStore(
-    (s) => s.setHighlightedRoundId,
-  );
+  /** P0-5 日志：isStreaming 状态变化边界（每个流式开始/结束记录一次，用于排查重渲染频率异常） */
+  const prevIsStreamingRef = useRef(isStreaming);
   useEffect(() => {
-    if (!highlightedRoundId) return;
-    // 等待 DOM 渲染完成后再滚动（消息列表可能还未挂载）
-    requestAnimationFrame(() => {
-      // N2 同模式修复：不把 id 拼进选择器（含特殊字符时 DOM 异常/注入风险），
-      // 静态选择器 + 属性值比对
-      const el = Array.from(
-        document.querySelectorAll<HTMLElement>("[data-msg-id]"),
-      ).find((n) => n.getAttribute("data-msg-id") === highlightedRoundId);
-      if (el) {
-        el.scrollIntoView({ behavior: "smooth", block: "center" });
-        // 高亮闪烁效果
-        el.classList.add("ring-2", "ring-blue-400", "ring-offset-1");
-        setTimeout(() => {
-          el.classList.remove("ring-2", "ring-blue-400", "ring-offset-1");
-        }, 1500);
-      }
-      // 重置以允许重复点击同一消息
-      setHighlightedRoundId(null);
-    });
-  }, [highlightedRoundId, setHighlightedRoundId]);
-  const { interimText, finalText, audioLevel, subtitleStatus } =
-    useVoiceStore();
+    if (prevIsStreamingRef.current !== isStreaming) {
+      prevIsStreamingRef.current = isStreaming;
+      logger.debug("[P0-5:ChatArea] isStreaming 切换", {
+        isStreaming,
+        msgCount: messages.length,
+        sessionId: currentSession?.id,
+        at: new Date().toISOString(),
+      });
+    }
+  }, [isStreaming, messages.length, currentSession?.id]);
+
+  /** P0-5 日志：error / errorCode 变化边界（错误状态切换记录） */
+  const prevErrorRef = useRef(error);
+  useEffect(() => {
+    if (prevErrorRef.current !== error) {
+      const prevErr = prevErrorRef.current;
+      prevErrorRef.current = error;
+      logger.debug("[P0-5:ChatArea] error 状态切换", {
+        hadError: !!prevErr,
+        hasError: !!error,
+        errorCode,
+        sessionId: currentSession?.id,
+      });
+    }
+  }, [error, errorCode, currentSession?.id]);
+
+  /**
+   * 上下文面板点击消息摘要 → 滚动到对应消息
+   * P1-1 修复：已下沉到 ChatMessageList（虚拟列表内用 virtualizer.scrollToIndex，
+   * 替代 DOM 查询——离屏消息不在 DOM 中会静默失效）。
+   */
+
+  // P0-5 修复：voice store 改精准 selector，audioLevel 30fps 更新不再触发整树重渲染
+  const interimText = useVoiceStore((s) => s.interimText);
+  const finalText = useVoiceStore((s) => s.finalText);
+  const audioLevel = useVoiceStore((s) => s.audioLevel);
+  const subtitleStatus = useVoiceStore((s) => s.subtitleStatus);
 
   /** 模块上下文同步：保存/恢复 ChatSessionContext */
-  useSessionContextSync("chat", {
+  const { scheduleSave } = useSessionContextSync("chat", {
     save: () => ({
       moduleType: "chat" as const,
       modelId: useModelSwitchStore.getState().currentModelId || undefined,
@@ -98,13 +109,27 @@ function ChatArea({ fluid = false }: { fluid?: boolean }) {
     },
   });
 
+  /** P0-3：modelId 变更时触发保存（Chat 模块的 context 主要是 modelId） */
+  const currentModelId = useModelSwitchStore((s) => s.currentModelId);
+  const prevModelIdRef = useRef(currentModelId);
+  useEffect(() => {
+    if (prevModelIdRef.current !== currentModelId) {
+      prevModelIdRef.current = currentModelId;
+      logger.debug("[P0-3:ChatArea] modelId 变更，触发 scheduleSave", {
+        modelId: currentModelId,
+        sessionId: currentSession?.id,
+      });
+      scheduleSave();
+    }
+  }, [currentModelId, scheduleSave, currentSession?.id]);
+
   /** 统一滚动状态：isUserScrolledUp 和 scrollToBottom 均由 useAutoScroll 管理 */
   const {
     containerRef,
     contentRef,
     isUserScrolledUp,
     scrollToBottom,
-    distanceFromBottom,
+    showScrollButton,
   } = useAutoScroll({
     messageCount: messages.length,
     isStreaming,
@@ -223,8 +248,23 @@ function ChatArea({ fluid = false }: { fluid?: boolean }) {
       ? t("chat.backendNotRunning")
       : error;
 
-  // 缓存 sessionUsage 计算，仅 messages 变化时重算 O(n)
-  const sessionUsage = useMemo(() => {
+  // P2-2 修复：流式期间跳过 sessionUsage 计算（O(n) → O(1)），流式结束后一次性计算
+  type SessionUsage =
+    | {
+        inputTokens: number;
+        outputTokens: number;
+        totalTokens: number;
+        estimatedCostUsd: number;
+        cacheReadTokens: number;
+        cacheCreationTokens: number;
+      }
+    | undefined;
+  const sessionUsageRef = useRef<SessionUsage>(undefined);
+  const sessionUsage = useMemo((): SessionUsage => {
+    // 流式中复用上次结果，避免每 chunk O(n) 重算
+    if (isStreaming && sessionUsageRef.current) {
+      return sessionUsageRef.current;
+    }
     let inputTokens = 0;
     let outputTokens = 0;
     let totalTokens = 0;
@@ -241,17 +281,23 @@ function ChatArea({ fluid = false }: { fluid?: boolean }) {
         cacheCreationTokens += m.usage.cacheCreationTokens || 0;
       }
     }
-    return totalTokens > 0
-      ? {
-          inputTokens,
-          outputTokens,
-          totalTokens,
-          estimatedCostUsd,
-          cacheReadTokens,
-          cacheCreationTokens,
-        }
-      : undefined;
-  }, [messages]);
+    const result: SessionUsage =
+      totalTokens > 0
+        ? {
+            inputTokens,
+            outputTokens,
+            totalTokens,
+            estimatedCostUsd,
+            cacheReadTokens,
+            cacheCreationTokens,
+          }
+        : undefined;
+    // 流式结束后缓存结果供下次流式期间复用
+    if (!isStreaming) {
+      sessionUsageRef.current = result;
+    }
+    return result;
+  }, [messages, isStreaming]);
 
   // 自适应导航（P0-F，2026-08-14）：AI 明确调用 create_project 建项目后，
   // 前端自动切换到项目管理页面并打开新项目，无需用户手动点击提示
@@ -388,7 +434,7 @@ function ChatArea({ fluid = false }: { fluid?: boolean }) {
       </div>
 
       {/* 回到底部按钮：复用已有样式，检测 isUserScrolledUp 后渐显，移动端避开 MobileBottomNav */}
-      {isUserScrolledUp && distanceFromBottom > 200 && (
+      {isUserScrolledUp && showScrollButton && (
         <button
           onClick={() => scrollToBottom()}
           aria-label={t("chat.scrollToBottom")}

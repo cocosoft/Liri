@@ -59,6 +59,20 @@ const MEMORY_CONTEXT_RULES = `## 上下文保持规则
 6. **直接行动，禁止无信息量确认**：用户给出任务后直接执行或回答，禁止问"要不要我继续？""你确认要执行吗？"等无信息量的确认性问题。但在**真实决策点**（需求存在多义、方案需要用户选择方向、任务卡在关键岔路、执行结果与预期不符需要用户拍板时）**允许使用 ask_user_question 工具**提出有实质选项的封闭式问题（如"接下来优先推进哪个方向？"），选项必须具体可执行，禁止"继续/跳过/都行"等空泛标签。做完后直接输出结果即可。
 7. **任务隔离**：仅响应最新一条用户消息提出的任务。对话历史中较早的用户请求和工具调用已全部完成，**禁止**重新执行、延续或引用历史请求中的工具调用（如图片生成、文件分析等），除非最新用户消息明确要求。`;
 
+/** 本地模型（llama.cpp/Ollama）精简版行为约束 — 与 MEMORY_CONTEXT_RULES 差异：
+ * 第 2 条去掉强制 <think>/<response> 标签格式（本地推理模型 R1 等有原生思考通道，
+ * Liri 已自动提取 thinking，强制标签会让模型把标签输出到正文），改为"思考通道分离"表述 */
+const LOCAL_MEMORY_CONTEXT_RULES = `## 上下文保持规则
+你是当前会话的持续参与者。用户已提供的个人信息（姓名、背景、经历、偏好等）不会因上下文压缩而消失。**禁止**在已知用户信息的情况下重新询问姓名、联系方式、经历等基础问题。
+
+## 输出行为约束
+1. **语言统一**：始终使用与用户上一条消息相同的语言回答。
+2. **思考过程分离**：推理、规划、分析等过程只放入思考通道（thinking），正文只输出对用户的最终回答。禁止在正文泄漏"我先看看结构""让我分析一下"等内部规划语言。如果本轮不需要推理（如简单问候），直接输出回答即可。
+3. **承诺-落地**：当你向用户承诺"我会出报告/做分析/调用工具"时，必须在同一回复中真正完成该动作。仅描述"准备做"而未实际输出结果，视为违反此约束。
+4. **失败透明**：当工具调用失败时，明确告诉用户失败原因和影响，不要默默切换方案继续。
+5. **直接行动，禁止无信息量确认**：用户给出任务后直接执行或回答，禁止问"要不要我继续？""你确认要执行吗？"等无信息量的确认性问题。做完后直接输出结果即可。
+6. **任务隔离**：仅响应最新一条用户消息提出的任务。对话历史中较早的用户请求和工具调用已全部完成，**禁止**重新执行、延续或引用历史请求中的工具调用，除非最新用户消息明确要求。`;
+
 /** 图像工具链式操作指南 */
 const IMAGE_CHAIN_RULES = `## 图像工具链式操作
 当用户请求涉及多个图像操作时（如"生成一张图，然后编辑它，再分析一下"），你可以在单次回复中**依次调用多个工具**组成链式操作。规则如下：
@@ -604,11 +618,15 @@ export async function truncateByPreciseTokens(
 export async function assembleContextualSystemPrompt(
   session: ChatSession,
   currentMessage: string | undefined,
-  llmClient: { getProviderId(): string } | undefined,
+  llmClient: { getProviderId(): string; getBaseUrl?(): string } | undefined,
   imageContextService: ImageContextService,
   getMemoryContext?: (sessionId: string) => string
 ): Promise<string> {
   const providerId = llmClient?.getProviderId() || '';
+  // 本地模型判定：baseUrl 指向 localhost/127.0.0.1 → 启用精简 system prompt
+  const baseUrl =
+    typeof llmClient?.getBaseUrl === 'function' ? llmClient.getBaseUrl() : '';
+  const isLocal = baseUrl ? isLocalLlmEndpoint(baseUrl) : false;
   const sessionContext: SessionContext = {
     sessionId: session.id,
     turnCount: session.messages.length,
@@ -626,8 +644,26 @@ export async function assembleContextualSystemPrompt(
   const prompt = await assembleSystemPrompt({
     providerId,
     sessionContext,
-    mode: 'conversation',
+    mode: isLocal ? 'local' : 'conversation',
   });
+
+  if (isLocal) {
+    logger.info(
+      'assembleContextualSystemPrompt: 本地模型启用精简 system prompt',
+      {
+        baseUrl,
+        providerId,
+        mode: 'local',
+        skippedSections: [
+          'taskNegotiation',
+          'shellDeclaration',
+          'toolIntegrity',
+        ],
+        memoryRules: 'local(无强制think/response标签)',
+        imageChainRules: false,
+      }
+    );
+  }
 
   // 分层记忆注入（Phase 3.5）：将 memory.md 内容注入系统提示词
   let memorySection = '';
@@ -653,14 +689,19 @@ export async function assembleContextualSystemPrompt(
 
   const currentGoal = extractCurrentGoal(session, currentMessage);
   const imageContext = imageContextService.buildImageContextPrompt(session.id);
+  // 本地模型：用精简版行为约束 + 跳过图像链式规则（image 工具已被裁剪，属死规则）
+  const contextRules = isLocal
+    ? LOCAL_MEMORY_CONTEXT_RULES
+    : MEMORY_CONTEXT_RULES;
+  const chainRules = isLocal ? '' : `\n\n${IMAGE_CHAIN_RULES}`;
   const basePrompt = currentGoal
     ? prompt +
       `\n\n## 当前会话目标\n你正在协助用户完成以下任务。对话中可能包含较早的无关话题，请以当前目标为准：\n\n${currentGoal}` +
       memorySection +
-      `\n\n${MEMORY_CONTEXT_RULES}${imageContext}\n\n${IMAGE_CHAIN_RULES}`
+      `\n\n${contextRules}${imageContext}${chainRules}`
     : prompt +
       memorySection +
-      `\n\n${MEMORY_CONTEXT_RULES}${imageContext}\n\n${IMAGE_CHAIN_RULES}`;
+      `\n\n${contextRules}${imageContext}${chainRules}`;
 
   return basePrompt;
 }

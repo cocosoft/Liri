@@ -28,6 +28,7 @@
  */
 
 import { getLogger } from '@modules/monitoring';
+import { mergeCompactionRanges } from '@modules/session/storage/EventMessageDeriver';
 import {
   handleError,
   AppError,
@@ -74,6 +75,8 @@ import { trajectoryRuntime } from '../../core/trajectory/TrajectoryRuntime.js';
 import { agentTelemetry } from '../../agent/AgentTelemetry.js';
 import type { ChatOrchestratorHost } from './ChatOrchestrator.js';
 import { getToolExecErrorMessage } from './toolErrorMessages.js';
+import { filterToolsByTask } from '../../tools/toolCategories.js';
+import { isLocalLlmEndpoint } from '../services/ChatHelper.js';
 import type { Message, StreamMessageOptions } from '../types/message.js';
 import type { ChatResponse } from '../types/message.js';
 import type { ChatSession } from '../types/session.js';
@@ -93,6 +96,9 @@ const logger = getLogger('chat:streamFlow');
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
+// 归一化（CS01）：压缩区间合并统一复用 EventMessageDeriver.mergeCompactionRanges
+// （写路径持久化 metadata 与读路径派生共用，避免两处重复维护）。
 
 /**
  * 流式编排入口 — 由 ChatOrchestrator.streamMessage 委托
@@ -114,6 +120,14 @@ export async function* runStreamMessage(
   const session = ctx.session;
   // 1.6：流式开始时间（落盘 startedAt，导出显示开始时间+耗时）
   const streamStartedAt = new Date();
+
+  // P1-2（2026-08-23）：首轮 assistant 消息 id——优先前端透传（options.assistantMessageId），
+  // 缺失时预生成兜底 id（N3/A3）。必须在此处（首个 appendStreamEvent 之前）确定，
+  // 保证首轮 text/thinking chunk 事件从第一个 chunk 起就带 messageId，
+  // 并在流式结束 createAssistantMessage 时复用同一 id（L1019）。
+  const assistantMessageId =
+    options?.assistantMessageId ??
+    `msg-turn-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 
   // P2（08-09）：普通对话轻量检查点（try 外声明，finally 可访问）
   const plainTextCheckpoint = new PlainTextCheckpoint(
@@ -203,26 +217,132 @@ export async function* runStreamMessage(
         afterMessageCount: preCompactResult.messages.length,
       });
       if (preCompactResult.applied) {
-        // 写回会话：后续构建基于压缩后的历史（Fix C 生效，构建量显著减小）
-        session.messages =
-          preCompactResult.messages as unknown as typeof session.messages;
-        preCompacted = true;
-        const afterTokens = estimateMessagesTokens(
-          preCompactResult.messages as unknown as ChatMessage[]
-        );
-        const savedPercent =
-          preCompactEval.snapshot.tokens > 0
-            ? Math.round(
-                (1 - afterTokens / preCompactEval.snapshot.tokens) * 100
+        // A-1/A-4（2026-08-23）：压缩 applied 时写 context/compaction 事件 + 持久化区间表；
+        // **事件写成功才提交投影压缩**（写回 session.messages），失败则不提交 + 告警（A-4）。
+        // 压缩输入是 session.messages（Message[] 含 lastEventSeq），压缩策略 `{...msg}` 保留
+        // 运行时字段；压缩产物（summary 消息）为 after 中无 lastEventSeq 的新消息。
+        //
+        // 回滚开关（规格书 §二 回滚）：EVENT_SOURCE_COMPACT='false' 时跳过压缩事件写入与
+        // 区间表持久化（回到纯投影压缩，用于紧急回滚）；默认开启。
+        const eventSourceCompact =
+          configManager.env('EVENT_SOURCE_COMPACT') !== 'false';
+        let compactionCommitted = false;
+        try {
+          if (eventSourceCompact) {
+            const beforeMsgs = session.messages;
+            const afterMsgs = preCompactResult.messages as unknown as Array<{
+              content?: string;
+              lastEventSeq?: number;
+            }>;
+            const beforeSeqs = beforeMsgs
+              .map(
+                (m) => (m as unknown as { lastEventSeq?: number }).lastEventSeq
               )
-            : 0;
-        yield {
-          type: 'status',
-          statusType: 'compaction',
-          phase: 'done',
-          content: `上下文已压缩: ${preCompactEval.snapshot.tokens.toLocaleString()} → ${afterTokens.toLocaleString()} tokens（节省 ${savedPercent}%）`,
-          sessionId: session.id,
-        } as ChatStreamChunk;
+              .filter((n): n is number => typeof n === 'number');
+            const afterSeqs = new Set(
+              afterMsgs
+                .map((m) => m.lastEventSeq)
+                .filter((n): n is number => typeof n === 'number')
+            );
+            const compressedSeqs = beforeSeqs.filter((s) => !afterSeqs.has(s));
+            if (compressedSeqs.length > 0) {
+              const compactedRange = {
+                startSeq: Math.min(...compressedSeqs),
+                endSeq: Math.max(...compressedSeqs),
+              };
+              // summary 消息 = after 中无 lastEventSeq 的新消息（压缩产物）
+              const summaryMsg = afterMsgs.find(
+                (m) => m.lastEventSeq === undefined
+              );
+              const summary =
+                typeof summaryMsg?.content === 'string'
+                  ? summaryMsg.content
+                  : '';
+              const summaryMessageId = (
+                summaryMsg as unknown as { id?: string }
+              )?.id;
+              const ts = await host.getStreamTailSeq(session.id);
+              const appendResult = await host.appendStreamEvent(session.id, {
+                type: 'context/compaction',
+                schemaVersion: 1,
+                seq: ts + 1,
+                time: Date.now(),
+                sessionId: session.id,
+                data: {
+                  phase: 'done',
+                  compactedRange,
+                  summary,
+                  summaryMessageId,
+                  beforeTokens: preCompactEval.snapshot.tokens,
+                  afterTokens: estimateMessagesTokens(
+                    preCompactResult.messages as unknown as ChatMessage[]
+                  ),
+                },
+              });
+              if (!appendResult.ok) {
+                throw new Error(
+                  `appendStreamEvent failed: ${appendResult.reason ?? 'unknown'}`
+                );
+              }
+              // 持久化压缩区间表到会话 metadata（派生器优先读 metadata，修剪删压缩事件不丢区间）
+              const existing = (session.metadata as Record<string, unknown>)
+                .trajectoryCompactions as
+                | Array<{
+                    startSeq: number;
+                    endSeq: number;
+                    summaryMessageId?: string;
+                  }>
+                | undefined;
+              session.metadata = {
+                ...session.metadata,
+                trajectoryCompactions: mergeCompactionRanges([
+                  ...(existing ?? []),
+                  { ...compactedRange, summaryMessageId },
+                ]),
+              };
+              logger.info('compaction:已写 context/compaction 事件', {
+                sessionId: session.id,
+                compactedRange,
+                summaryLen: summary.length,
+                summaryMessageId,
+                compressedCount: compressedSeqs.length,
+              });
+            }
+          }
+          // 事件写成功（或无被压缩消息）→ 提交投影压缩（写回会话）
+          compactionCommitted = true;
+          session.messages =
+            preCompactResult.messages as unknown as typeof session.messages;
+          preCompacted = true;
+        } catch (err) {
+          // @ignore-catch — 压缩事件写入失败不阻断流式（CS03）；**不提交投影压缩**（A-4，保持一致性），
+          // 派生器回退事件补充/投影兜底；pendingRepair 由 T-B 处理
+          logger.warn(
+            'compaction:写 context/compaction 事件失败，不提交投影压缩',
+            {
+              sessionId: session.id,
+              error: err instanceof Error ? err.message : String(err),
+            }
+          );
+        }
+        if (compactionCommitted) {
+          const afterTokens = estimateMessagesTokens(
+            preCompactResult.messages as unknown as ChatMessage[]
+          );
+          const savedPercent =
+            preCompactEval.snapshot.tokens > 0
+              ? Math.round(
+                  (1 - afterTokens / preCompactEval.snapshot.tokens) * 100
+                )
+              : 0;
+          yield {
+            type: 'status',
+            statusType: 'compaction',
+            phase: 'done',
+            content: `上下文已压缩: ${preCompactEval.snapshot.tokens.toLocaleString()} → ${afterTokens.toLocaleString()} tokens（节省 ${savedPercent}%）`,
+            sessionId: session.id,
+          } as ChatStreamChunk;
+        }
       }
     }
 
@@ -351,6 +471,40 @@ export async function* runStreamMessage(
         registryPresent: !!toolRegistry,
         schemaCount: toolRegistry?.getToolSchemas().length ?? 0,
       });
+    }
+
+    // Step 3（2026-08-22）：按任务裁剪工具集——全量工具定义（50+ 个，~10K tokens）
+    // 在小上下文（llama.cpp 8K）下放不进，preSendProtection 只能整体移除 → 模型无工具可用。
+    // 任务类型优先级：调用方显式 metadata.taskType > 本地 LLM 端点（llama.cpp/ollama，工具
+    // 能力弱）→ 'local' 只读轻量集 > undefined（default 保底集）。
+    if (toolDefinitions.length > 0) {
+      const baseUrl = (
+        host.getClientForModel(options?.model) as unknown as {
+          getBaseUrl?: () => string;
+        }
+      )?.getBaseUrl?.();
+      const explicitTaskType = (
+        options?.metadata as Record<string, unknown> | undefined
+      )?.taskType;
+      const taskType =
+        (typeof explicitTaskType === 'string' && explicitTaskType
+          ? explicitTaskType
+          : undefined) ??
+        (baseUrl && isLocalLlmEndpoint(baseUrl) ? 'local' : undefined);
+      const filteredTools = filterToolsByTask(toolDefinitions, taskType);
+      if (filteredTools.length !== toolDefinitions.length) {
+        logger.info('streamMessage:tools — 按任务裁剪工具集', {
+          sessionId: session.id,
+          taskType: taskType ?? 'default',
+          before: toolDefinitions.length,
+          after: filteredTools.length,
+          removedNames: toolDefinitions
+            .filter((t) => !filteredTools.includes(t))
+            .map((t) => t.function?.name ?? ''),
+        });
+        toolDefinitions.length = 0;
+        toolDefinitions.push(...filteredTools);
+      }
     }
 
     // 触发 ChatPreStream Hook
@@ -492,6 +646,12 @@ export async function* runStreamMessage(
     let streamHadError = false;
     // 流式统计（跨重试轮次，循环外声明供结束后日志使用）
     const streamStats = createStreamLoopStats();
+    // P0-fix: 防止重试循环重复写入 turn/start 事件
+    // 当发生重试时（continue 或重新开始），不会重复写入相同 turn 编号的 turn/start
+    let turnStarted = false;
+    // P0-fix-2（2026-08-23）：缓存本 turn 的编号（turn/start 从事件日志恢复后写入，
+    // turn/end 复用同一编号，保证 start/end 一致且重启后不重复）
+    let currentTurnNo = 0;
     // P2 修复（AB-1）：mutex 仅首轮获取（重试轮重复 acquire 会因 release 未执行而 30s 超时）
     // （mutexHeld 声明于 try 外，见函数头部 BUG-1 注释）
     while (true) {
@@ -648,23 +808,36 @@ export async function* runStreamMessage(
 
       // M1 事件溯源：流式开始前追加 turn/start 事件
       // turn 编号使用 toolRoundCount+1（与现有计数器对齐）
-      let streamTurnSeq = 0;
-      try {
-        const tailSeq = await host.getStreamTailSeq(session.id);
-        streamTurnSeq = tailSeq + 1;
-        await host.appendStreamEvent(session.id, {
-          type: 'turn/start',
-          seq: streamTurnSeq,
-          time: Date.now(),
-          sessionId: session.id,
-          data: { turn: host.toolRoundCount + 1 },
-        });
-      } catch (e) {
-        // @ignore-catch — 事件追加失败不阻断流式（CS03）
-        logger.debug('streamMessageFlow: turn/start 追加失败', {
-          sessionId: session.id,
-          error: e instanceof Error ? e.message : String(e),
-        });
+      // P0-fix: 仅首轮写入 turn/start，重试时跳过（避免重复写入相同 turn 编号）
+      // P0-fix-2（2026-08-23）：turn 编号改用事件日志恢复的最大 turn+1，
+      // 避免后端重启后 _toolRoundCount 归零导致 turn 编号从 1 重复（前端误判重复回放删除新对话）。
+      if (!turnStarted) {
+        let streamTurnSeq = 0;
+        try {
+          const tailSeq = await host.getStreamTailSeq(session.id);
+          streamTurnSeq = tailSeq + 1;
+          // 从事件日志恢复最大 turn（重启后继续递增），兜底取内存计数器的较大值
+          const [persistedTurn, memTurn] = await Promise.all([
+            host.getStreamMaxTurn(session.id),
+            Promise.resolve(host.toolRoundCount),
+          ]);
+          const nextTurn = Math.max(persistedTurn, memTurn) + 1;
+          currentTurnNo = nextTurn;
+          await host.appendStreamEvent(session.id, {
+            type: 'turn/start',
+            seq: streamTurnSeq,
+            time: Date.now(),
+            sessionId: session.id,
+            data: { turn: nextTurn },
+          });
+          turnStarted = true;
+        } catch (e) {
+          // @ignore-catch — 事件追加失败不阻断流式（CS03）
+          logger.debug('streamMessageFlow: turn/start 追加失败', {
+            sessionId: session.id,
+            error: e instanceof Error ? e.message : String(e),
+          });
+        }
       }
 
       try {
@@ -680,16 +853,22 @@ export async function* runStreamMessage(
               const ts = await host.getStreamTailSeq(session.id);
               await host.appendStreamEvent(session.id, {
                 type: 'assistant/text',
+                schemaVersion: 1,
                 seq: ts + 1,
                 time: Date.now(),
                 sessionId: session.id,
-                data: { content: chunk },
+                data: { content: chunk, messageId: assistantMessageId },
               });
             } catch {
               // @ignore-catch — 事件追加失败不阻断流式
             }
 
-            yield { type: 'text', content: chunk, sessionId: session.id };
+            yield {
+              type: 'text',
+              content: chunk,
+              sessionId: session.id,
+              messageId: assistantMessageId,
+            };
           } else if (chunk?.type === 'thinking') {
             countStreamChunk(streamStats, true);
             if (chunk.content) {
@@ -709,10 +888,14 @@ export async function* runStreamMessage(
                   : JSON.stringify(chunk.content);
               await host.appendStreamEvent(session.id, {
                 type: 'assistant/thinking',
+                schemaVersion: 1,
                 seq: ts + 1,
                 time: Date.now(),
                 sessionId: session.id,
-                data: { content: thinkingContent },
+                data: {
+                  content: thinkingContent,
+                  messageId: assistantMessageId,
+                },
               });
             } catch {
               // @ignore-catch — 事件追加失败不阻断流式
@@ -722,6 +905,7 @@ export async function* runStreamMessage(
               type: 'thinking',
               content: chunk.content,
               sessionId: session.id,
+              messageId: assistantMessageId,
             };
             yield thinkingChunk;
           }
@@ -802,11 +986,34 @@ export async function* runStreamMessage(
         finalResponse as unknown as { stop_reason?: string } | null
       )?.stop_reason;
       if (aiStopReason === 'max_tokens') {
-        retryState = advanceMaxOutputRetry(
-          'max_tokens',
-          retryState,
-          MAX_OUTPUT_RETRY_CFG
-        );
+        // 优化（2026-08-22）：max_tokens 截断且本轮无正文 → 跳过无效重试。
+        // 典型场景：本地推理模型（DeepSeek-R1-Distill 等）思考过长，thinking 占满
+        // 输出预算，正文始终为 0。此时重试只会让模型重新思考（仍会截断），
+        // 属无效连环重试（曾致 4 次重试 / 173s / 空正文）。直接结束并明确提示。
+        if (accumulatedContent.length === 0) {
+          logger.warn(
+            'maxOutputRetry: max_tokens 截断且无正文，跳过重试（推理模型思考过长）',
+            {
+              sessionId: session.id,
+              retryCount: retryState.retryCount,
+              currentMaxTokens: retryState.currentMaxTokens,
+              model: options?.model,
+            }
+          );
+          yield {
+            type: 'status',
+            content:
+              '模型思考过长被输出上限截断，未生成正文。建议增大 maxTokens、减小上下文，或更换输出能力更强的模型后重试。',
+            sessionId: session.id,
+          } as ChatStreamChunk;
+          retryState = { ...retryState, shouldRetry: false };
+        } else {
+          retryState = advanceMaxOutputRetry(
+            'max_tokens',
+            retryState,
+            MAX_OUTPUT_RETRY_CFG
+          );
+        }
       } else {
         retryState = { ...retryState, shouldRetry: false };
       }
@@ -829,26 +1036,36 @@ export async function* runStreamMessage(
     }
 
     // M1 事件溯源：流式正常结束追加 turn/end 事件
-    try {
-      const ts = await host.getStreamTailSeq(session.id);
-      const finishReason = (finalResponse?.finishReason ?? 'stop') as
-        | 'stop'
-        | 'length'
-        | 'tool_use'
-        | 'error'
-        | 'canceled';
-      await host.appendStreamEvent(session.id, {
-        type: 'turn/end',
-        seq: ts + 1,
-        time: Date.now(),
-        sessionId: session.id,
-        data: {
-          turn: host.toolRoundCount + 1,
-          finishReason,
-        },
-      });
-    } catch {
-      // @ignore-catch — 事件追加失败不阻断主流程
+    // P0-fix-3（2026-08-23，顺序错乱根因）：若本次回复带有工具调用，
+    // 工具执行（ReActToolLoop）发生在 turn/end 写入之后，导致 tool/result 事件
+    // 无 turn 包裹、出现在 turn 外（回放时工具结果与对话错位）。
+    // 修复：有工具调用时延迟 turn/end，待工具循环结束后（下方工具循环块）补写。
+    const hasToolCalls =
+      Array.isArray(finalResponse?.tool_calls) &&
+      finalResponse!.tool_calls.length > 0;
+    if (!hasToolCalls) {
+      try {
+        const ts = await host.getStreamTailSeq(session.id);
+        const finishReason = (finalResponse?.finishReason ?? 'stop') as
+          | 'stop'
+          | 'length'
+          | 'tool_use'
+          | 'error'
+          | 'canceled';
+        await host.appendStreamEvent(session.id, {
+          type: 'turn/end',
+          seq: ts + 1,
+          time: Date.now(),
+          sessionId: session.id,
+          data: {
+            // P0-fix-2：复用 turn/start 写入的编号（重启后从事件日志恢复，不重复）
+            turn: currentTurnNo > 0 ? currentTurnNo : host.toolRoundCount + 1,
+            finishReason,
+          },
+        });
+      } catch {
+        // @ignore-catch — 事件追加失败不阻断主流程
+      }
     }
 
     streamSpan.addEvent('streamMessage.llm.done', {
@@ -931,8 +1148,10 @@ export async function* runStreamMessage(
     // 创建助手消息
     // P0 根治（2026-08-14）：复用前端透传的 assistantId（如存在），
     // 使前端 updateMessageBlocks(assistantId) 直接命中，不再依赖兜底取最后一条 assistant。
+    // P1-2（2026-08-23）：缺失时复用入口预生成的 assistantMessageId（N3/A3），
+    // 保证 chunk 事件 messageId 与落盘消息 id 一致。
     assistantMessage = pipeline.createAssistantMessage(finalContent, {
-      id: options?.assistantMessageId,
+      id: assistantMessageId,
     });
     // 排查日志：确认助手消息 ID 来源（前端透传 vs 后端自动生成）与内容规模
     logger.debug('streamMessageFlow:assistantMessage created', {
@@ -944,6 +1163,16 @@ export async function* runStreamMessage(
       contentLength: finalContent.length,
     });
     assistantMessage.startedAt = streamStartedAt; // 1.6：回填流式开始时间（createdAt 为完成时间）
+    // 关键修复：标记此消息已通过 appendStreamEvent 流式写入了 thinking/text/tool_call chunk。
+    // ChatManager._appendEventsForMessage 将仅对带此标记的消息跳过 convertMessage 生成的完整
+    // text/thinking 事件，避免流式 chunk 与完整正文双份写入。
+    // 非流式生成的消息（如 ReAct reason 回填、非流式 API 返回、会话恢复重建）
+    // 不会有此标记，必须完整写入 text/thinking 到 events.jsonl，
+    // 否则前端回放时 content 为空 → 触发"生成中断"误报。
+    assistantMessage.metadata = {
+      ...(assistantMessage.metadata ?? {}),
+      __streamedEventsWritten: true,
+    };
 
     // 管线 — 记忆提取 + 路径校验 + post hooks
     await pipeline.postProcess(ctx.content);
@@ -989,6 +1218,9 @@ export async function* runStreamMessage(
             }).catch(() => {});
           });
 
+        // T2.3（2026-08-23）：tool_call 事件 seq 映射，供 ReActToolLoop 构造
+        // toolResultMsg 时读取（metadata.callSeq），闭环 callSeq 直读（A1③）
+        const toolCallSeqMap = new Map<string, number>();
         const toolLoopCtx = {
           session,
           options: options as Record<string, unknown>,
@@ -1035,6 +1267,15 @@ export async function* runStreamMessage(
               result: ToolResult;
             }>
           ) => host.buildToolRoundMessages(msgs, am, tcs, prs),
+          // M1 事件溯源（2026-08-23）：桥接 host 事件写入 → ReActToolLoop 工具轮
+          // text/thinking chunk 补写 assistant/text、assistant/thinking 事件
+          appendStreamEvent: (
+            sid: string,
+            ev: Parameters<ChatOrchestratorHost['appendStreamEvent']>[1]
+          ) => host.appendStreamEvent(sid, ev),
+          getStreamTailSeq: (sid: string) => host.getStreamTailSeq(sid),
+          // T2.3（2026-08-23）：tool_call 事件 seq 映射（闭环 callSeq 直读）
+          toolCallSeqMap,
           maxToolTurns: host.MAX_TOOL_TURNS,
           estimateMessagesTokens: estimateMessagesTokens as (
             messages: unknown[]
@@ -1061,8 +1302,56 @@ export async function* runStreamMessage(
           currentToolCalls,
           assistantMessage,
         })) {
+          // T1.2 诊断（2026-08-23，[DUP: 前缀）：记录工具事件产出，观察同 callId 是否重复。
+          // 根因背景：SSE 层 tool_start/tool_end 序列被重复发送（前端收到 2 遍），
+          // 但 events 层（appendStreamEvent）唯一——两条路径独立，此处日志定位产出侧。
+          if (event.type === 'tool_start' || event.type === 'tool_end') {
+            logger.debug('[DUP:streamFlow] 工具事件产出', {
+              sessionId: session.id,
+              eventType: event.type,
+              callId: (event as { callId: string }).callId,
+              ts: Date.now(),
+            });
+          }
           for (const chunk of reactEventsToChunks(event, session.id)) {
             yield chunk;
+          }
+          // P0-fix-4（2026-08-23）：工具循环内实时写入 assistant/tool_call 事件。
+          // 时机关键：若等到 _finalizeStreamMessage 落盘时才写，tool_call 事件会晚于
+          // tool/result（工具循环内 addAndPersistMessage 已写）和 turn/end，导致：
+          //   events.jsonl 顺序 = turn/start → text → tool/result → turn/end → assistant/tool_call
+          //   （tool_call 无 turn 包裹，回放时工具调用与结果错位）
+          // 在 tool_start 事件到达时立即写 assistant/tool_call，保证：
+          //   turn/start → text/thinking → assistant/tool_call → tool/result → turn/end
+          // 与 _finalizeStreamMessage 落盘时 convertMessage 生成的事件按 id 去重（不会重复写）。
+          if (event.type === 'tool_start') {
+            try {
+              const ts = await host.getStreamTailSeq(session.id);
+              const tArgs =
+                (event as { input?: Record<string, unknown> }).input ?? {};
+              const tCallId = (event as { callId: string }).callId;
+              // tool_call 事件自带 messageId + callSeq（A1）；_toolCallSeqMap 由
+              // ChatManager.appendStreamEvent 同步维护（toolCallId → event.seq），可重建
+              await host.appendStreamEvent(session.id, {
+                type: 'assistant/tool_call',
+                schemaVersion: 1,
+                seq: ts + 1,
+                time: Date.now(),
+                sessionId: session.id,
+                data: {
+                  toolCallId: tCallId,
+                  name: (event as { name: string }).name,
+                  args: tArgs,
+                  messageId: assistantMessageId,
+                  callSeq: ts + 1,
+                },
+              });
+              // T2.3（2026-08-23）：记录 tool_call 事件 seq，供 ReActToolLoop 构造
+              // toolResultMsg 时写入 metadata.callSeq（convertMessage 直读，闭环 A1③）
+              toolCallSeqMap.set(tCallId, ts + 1);
+            } catch {
+              // @ignore-catch — 事件追加失败不阻断工具循环（CS03）
+            }
           }
           // todo chunk：工具结果含 _todoData 时产出（对齐旧类 _executeToolRound）
           for (const todoData of loop.getPendingTodos()) {
@@ -1108,6 +1397,11 @@ export async function* runStreamMessage(
           }
         }
         assistantMessage = loop.getAssistantMessage();
+        // 工具循环结束后再次确保标记存在（loop 内部可能创建/替换了新消息对象）
+        assistantMessage.metadata = {
+          ...(assistantMessage.metadata ?? {}),
+          __streamedEventsWritten: true,
+        };
         await host
           .endRollbackRound(session.id, ctx.content, firstAssistantContent)
           .catch((err) => {
@@ -1129,6 +1423,12 @@ export async function* runStreamMessage(
       const errMsg = getToolExecErrorMessage(toolExecErr);
       accumulatedContent += `\n\n[${errMsg}]`;
     }
+
+    // P0-fix-3（2026-08-23）：工具调用轮次的 turn/end 不在本处写入——
+    // assistant 消息的 tool_call 事件由 _finalizeStreamMessage 落盘时才生成，
+    // 若在此补写 turn/end，tool_call 事件会落在 turn/end 之后（仍无 turn 包裹）。
+    // 统一由 ChatManager._finalizeStreamMessage 在落盘 assistant 消息后补写，
+    // 保证 events.jsonl 顺序：turn/start → text/thinking → tool/result → assistant/tool_call → turn/end。
     // BUG-1 修复：此处不再 release 互斥锁。
     // 锁在首轮 acquire 后（mutexHeld）由最外层 finally 统一释放一次。
     // 原实现双重 release（内层 + 外层 finally）非幂等：队列为空时第二次

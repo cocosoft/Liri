@@ -403,17 +403,22 @@ export class SessionManager {
         try {
           const session = await this.store.loadSession(sessionId);
           if (!session) continue;
-          if (session.state.currentState !== 'active') continue;
+          // P0-fix（H1）：P1-27 状态机枚举对齐后不再有 'active' 状态，原过滤条件
+          // 使所有会话被 continue 跳过，compactNow 永不压缩。改为仅跳过已归档
+          // 会话，其余状态交由 beforeCompact 内部阈值判断（checkAndCompact）。
+          if (session.state.currentState === 'archived') continue;
 
           const bridgeResult = await this.compactionBridge.beforeCompact(
             session,
-            ''
+            // L2-fix: 传会话绑定的 model 而非空串 —— 空 model 使压缩引擎拿不到
+            // 模型上下文窗口（阈值判断降级）。
+            session.metadata?.model ?? ''
           );
           if (!bridgeResult.proceed) continue;
 
           const record = await this.compactionBridge.performCompact(
             session,
-            '',
+            session.metadata?.model ?? '',
             'manual'
           );
           results.push({

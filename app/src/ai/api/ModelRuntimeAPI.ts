@@ -494,6 +494,12 @@ export async function handleSwitchModel(
           resolvedProvider = providerRegistry.get(syncedId);
         }
       }
+      // 兼容 model_registry.provider_id 存 provider_type（如 'deepseek'）的场景：
+      // providerTypeToId 别名映射查找，与 handleListModels 的 providerType 匹配对齐（数出同源）。
+      // 缺失时：模型在列表可见（list 按 providerType 匹配）但 switch 按 UUID 查不到 → 400 切换失败。
+      if (!resolvedProvider) {
+        resolvedProvider = providerRegistry.getByType(record.providerId);
+      }
     }
 
     if (!resolvedProvider) {

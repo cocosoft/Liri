@@ -97,7 +97,9 @@ function getLocalProviderModelsEndpoint(
     case 'lmstudio':
     case 'localai':
     default:
-      return `${url}/v1/models`;
+      // L-3081 修复：LM Studio（默认 :1234/v1）/LocalAI（默认 :8080/v1）baseUrl 常已含 /v1，
+      // 直接拼接会得到 /v1/v1/models（预存 BUG）。与 llamacpp 分支一致做 endsWith('/v1') 规避。
+      return url.endsWith('/v1') ? `${url}/models` : `${url}/v1/models`;
   }
 }
 

@@ -24,6 +24,9 @@ import {
   MAX_INLINE_RESULT_LENGTH,
 } from "./chat-message-shared";
 import type { MessageSet, MessageGet } from "./chat-message.types";
+import { createLogger } from "@/utils/logger";
+
+const logger = createLogger("stores:chat:message:setMessages");
 
 /**
  * AB-7 修复：历史加载时归一化 tool_call 块。
@@ -110,7 +113,13 @@ export function setMessagesImpl(
     // Phase 2: 合并连续的 assistant 消息
     // 多轮工具调用时，后端将每轮 LLM 回复存为独立 assistant 消息，
     // 导致加载历史后出现多个"🤖 Liri"气泡。此处合并为一条消息，与流式体验一致。
+    //
+    // H-FIX-20260822（重复渲染第三道防线）：
+    //   如果后一条 assistant 的 content 与上一条完全相同（一字不差的重复回放），
+    //   说明后端写入了完整重复的 turn 块（seq 递增但内容一致），此时跳过合并，
+    //   避免 Phase 2 把相同内容 ×2 / ×4 叠加。同时记录 warn 便于观测。
     const mergedMessages: Message[] = [];
+    let duplicateAssistantSkipCount = 0;
     for (const msg of dedupMessages) {
       if (msg.role !== "assistant") {
         mergedMessages.push(msg);
@@ -120,6 +129,41 @@ export function setMessagesImpl(
       const lastIdx = mergedMessages.length - 1;
       const lastMsg = mergedMessages[lastIdx];
       if (lastMsg && lastMsg.role === "assistant") {
+        // 检测：完全相同 content 的重复 assistant → 跳过
+        const lastContent = lastMsg.content ?? "";
+        const thisContent = msg.content ?? "";
+        const identicalContent =
+          thisContent.length > 0 &&
+          lastContent.length === thisContent.length &&
+          lastContent === thisContent;
+
+        // 检测：thisContent 是 lastContent 的重复前缀段（如 last="ABAB" this="AB"）
+        // 长度必须 ≥ 8 才触发，避免短句误判。
+        const repeatedSuffixSegment =
+          thisContent.length >= 8 &&
+          lastContent.length >= thisContent.length * 2 &&
+          lastContent.endsWith(thisContent) &&
+          lastContent
+            .slice(0, lastContent.length - thisContent.length)
+            .endsWith(thisContent);
+
+        if (identicalContent || repeatedSuffixSegment) {
+          duplicateAssistantSkipCount++;
+          logger.warn(
+            "[setMessages:Phase2] 跳过完全重复的 assistant 消息合并",
+            {
+              reason: identicalContent
+                ? "identical-content"
+                : "repeated-suffix-segment",
+              len: thisContent.length,
+              preview:
+                thisContent.slice(0, 80) + (thisContent.length > 80 ? "…" : ""),
+              skippedCount: duplicateAssistantSkipCount,
+            },
+          );
+          continue;
+        }
+
         mergedMessages[lastIdx] = {
           ...lastMsg,
           content: (lastMsg.content || "") + (msg.content || ""),
@@ -138,6 +182,13 @@ export function setMessagesImpl(
       } else {
         mergedMessages.push({ ...msg });
       }
+    }
+    if (duplicateAssistantSkipCount > 0) {
+      logger.info("[setMessages:Phase2] 重复 assistant 合并统计", {
+        skipped: duplicateAssistantSkipCount,
+        dedupMessages: dedupMessages.length,
+        mergedMessages: mergedMessages.length,
+      });
     }
 
     // Phase 3: 处理合并后的消息，将工具结果合并到对应 assistant 消息的 tool_call 块中
@@ -249,9 +300,52 @@ export function setMessagesImpl(
 
     // BUG-4 修复：sessionFiles 完全替换为当前会话提取的文件列表。
     // 原实现与 get().sessionFiles 合并，切换会话时旧会话文件残留，
-    // 导致 knownFilePaths 混入上一会话路径、代码被错误匹配成 FileLink。
+    // 导致 knownFilePaths 混入上一会话路径、代码被错误匹配为 FileLink。
+    //
+    // 排序修复（2026-08-23，消息顺序错乱根因之二）：
+    // 按 606833 经验的"单一责任点"规则，统一在 setMessages 做稳定排序。
+    // 排序键归一化（B-1，2026-08-23）：lastEventSeq（后端事件派生序，权威）→ timestamp → id。
+    //  - 后端 getSessionMessages 已按 lastEventSeq 排序返回（B-2），此排序对其幂等；
+    //  - 拦截以下乱序来源：
+    //    - JSONL 异步 flush 时写序与逻辑时序不一致
+    //    - Phase 1.5 倒序去重的边界情况（相同 id 的多个版本）
+    //    - events 派生 + legacy 修复合并后的时序错位（timestamp 同毫秒时 id 字典序与事件序无关）
+    //    - 多轮合并后 user/assistant 交叉顺序异常
+    const sortBefore = enhancedMessages.length;
+    const sortedMessages = [...enhancedMessages].sort((a, b) => {
+      // 主键：事件派生序（有 lastEventSeq 的按它，缺失排最前由 0 兜底）
+      const sa = typeof a.lastEventSeq === "number" ? a.lastEventSeq : 0;
+      const sb = typeof b.lastEventSeq === "number" ? b.lastEventSeq : 0;
+      if (sa !== sb) return sa - sb;
+      // 次键：timestamp 升序（旧→新，从上到下）
+      const ta =
+        typeof a.timestamp === "number" && Number.isFinite(a.timestamp)
+          ? a.timestamp
+          : 0;
+      const tb =
+        typeof b.timestamp === "number" && Number.isFinite(b.timestamp)
+          ? b.timestamp
+          : 0;
+      if (ta !== tb) return ta - tb;
+      // 末键：id 字典序（timestamp 相同时的 tie-breaker）
+      const ia = typeof a.id === "string" ? a.id : String(a.timestamp ?? "0");
+      const ib = typeof b.id === "string" ? b.id : String(b.timestamp ?? "0");
+      if (ia < ib) return -1;
+      if (ia > ib) return 1;
+      return 0;
+    });
+    const sortedMovedCount = sortedMessages.reduce(
+      (cnt, m, i) => cnt + (enhancedMessages[i]?.id === m.id ? 0 : 1),
+      0,
+    );
+    if (sortedMovedCount > 0) {
+      logger.warn("[setMessages:SORT] 检测到顺序不一致，已归一化", {
+        total: sortBefore,
+        movedCount: sortedMovedCount,
+      });
+    }
     set({
-      messages: enhancedMessages,
+      messages: sortedMessages,
       sessionFiles: sessionFilesList,
       hasPendingQuestion: pendingQuestion,
       streamingStatus: "",

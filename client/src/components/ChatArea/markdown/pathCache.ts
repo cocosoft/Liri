@@ -43,13 +43,19 @@ export const pathResolvePending = new Set<string>();
  */
 const pathAliasCandidates = new Map<string, Set<string>>();
 
-/** 生成带 sessionId 的缓存 key */
+/**
+ * 生成带 sessionId 的缓存 key
+ * P2-11 修复：filePath 统一 toLowerCase —— 大小写归一化收敛在 key 生成处（唯一入口），
+ * 写入（setPathCache）/ 读取（getCacheEntry）/ 失效（invalidateCacheEntry）三方天然一致。
+ * sessionId 是精确标识符，保持原始大小写。
+ */
 export function getCacheKey(sessionId: string, filePath: string): string {
-  return `${sessionId}${SESSION_KEY_SEPARATOR}${filePath}`;
+  return `${sessionId}${SESSION_KEY_SEPARATOR}${filePath.toLowerCase()}`;
 }
 
 /**
  * 从缓存获取条目，自动处理 TTL 过期
+ * @param key 必须经 getCacheKey() 生成（大小写已归一化）
  * @returns 有效条目或 null（已过期/不存在）
  */
 export function getCacheEntry(key: string): PathCacheEntry | null {
@@ -130,23 +136,6 @@ export function clearPathCache(): void {
   pathResolveCache.clear();
   pathResolvePending.clear();
   pathAliasCandidates.clear();
-}
-
-/**
- * 清除指定会话的路径缓存
- */
-export function clearSessionPathCache(sessionId: string): void {
-  const prefix = `${sessionId}${SESSION_KEY_SEPARATOR}`;
-  for (const key of pathResolveCache.keys()) {
-    if (key.startsWith(prefix)) {
-      pathResolveCache.delete(key);
-    }
-  }
-  for (const key of pathAliasCandidates.keys()) {
-    if (key.startsWith(prefix)) {
-      pathAliasCandidates.delete(key);
-    }
-  }
 }
 
 /**

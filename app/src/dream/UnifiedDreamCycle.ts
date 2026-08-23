@@ -692,12 +692,15 @@ export class UnifiedDreamCycle {
           await unlink(join(dir, file));
         }
       }
-    } catch {
-      /* ignore */
-      void handleError(new Error('清理挂起会话失败'), {
-        module: 'dream:cycle',
-        action: 'cleanupPendingSessions',
-      });
+    } catch (err) {
+      // pending 目录不存在 = 无挂起会话，属正常状态，不报 error
+      const code = (err as NodeJS.ErrnoException)?.code;
+      if (code !== 'ENOENT') {
+        void handleError(new Error('清理挂起会话失败'), {
+          module: 'dream:cycle',
+          action: 'cleanupPendingSessions',
+        });
+      }
     }
   }
 

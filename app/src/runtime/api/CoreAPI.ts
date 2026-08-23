@@ -127,11 +127,17 @@ export interface ChatStreamChunk {
     | 'todo'
     | 'execution_phase'
     | 'context_state'
-    | 'doc_workflow';
+    | 'doc_workflow'
+    | 'deliverable'
+    | 'diff';
   content: string;
   sessionId: string;
   toolCall?: ToolCallSpec;
   status?: string;
+  /** P1-7（2026-08-23）：text/thinking chunk 携带归属 assistant 消息 id（SSE 透传） */
+  messageId?: string;
+  /** 仅当 type='status' 且为工具状态块时存在：关联的 toolCallId（前端按 toolCallId 去重，CS02） */
+  toolCallId?: string;
   usage?: UsageInfo;
   /** 仅在 type='question' 时存在 */
   questionData?: QuestionData;
@@ -426,8 +432,15 @@ export interface CoreAPI {
   /** 切换当前会话 */
   switchSession(sessionId: string): Promise<void>;
 
-  /** 重命名会话 */
-  renameSession(sessionId: string, title: string): Promise<void>;
+  /**
+   * 重命名会话标题
+   * @param source E-3（2026-08-23）：'user'（手动改名，titleStage=manual）| 'ai'（AI 精化，titleStage=final），默认 'user'
+   */
+  renameSession(
+    sessionId: string,
+    title: string,
+    source?: 'user' | 'ai'
+  ): Promise<void>;
 
   /** 更新会话元数据（模型绑定、工作空间、任务分工等） */
   updateSessionMeta(

@@ -2,11 +2,13 @@ import type { Message } from "../../types";
 import { handleClientError } from "../../utils/handleError";
 
 /**
- * 格式化日期标签：今天/昨天/日期（如 2026-07-10）
- * @param timestamp Unix 毫秒时间戳
- * @returns 中文日期标签
+ * P2-8 修复：formatDateLabel 支持 i18n（"今天/昨天" 不再硬编码中文）
+ * 函数接收可选 t() 函数，调用方传入（如 useTranslation()）
  */
-export function formatDateLabel(timestamp: number): string {
+export function formatDateLabel(
+  timestamp: number,
+  t?: (key: string) => string,
+): string {
   try {
     const date = new Date(timestamp);
     const now = new Date();
@@ -24,8 +26,9 @@ export function formatDateLabel(timestamp: number): string {
     ).getTime();
     const diffDays = Math.round((nowDay - dateDay) / (24 * 60 * 60 * 1000));
 
-    if (diffDays === 0) return "今天";
-    if (diffDays === 1) return "昨天";
+    // P2-8：t() 存在时用 i18n（复用已有 chat.today/yesterday），否则 fallback 硬编码中文
+    if (diffDays === 0) return t ? t("chat.today") : "今天";
+    if (diffDays === 1) return t ? t("chat.yesterday") : "昨天";
 
     // 同年不显示年份
     const year = date.getFullYear();

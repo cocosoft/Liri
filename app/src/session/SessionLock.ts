@@ -146,7 +146,13 @@ export class SessionLock {
 
       const lockFile = this.getLockFilePath(sessionId);
       try {
-        await fs.unlink(lockFile);
+        // P1-fix（H5）：compare-and-delete —— 删除前校验锁文件仍属于本实例。
+        // 若锁已被其他进程判 stale 强拆（releaseStale）并重建（新持有者），
+        // 原持有者直接 unlink 会误删新锁，导致双持有者并发写。
+        const current = await this.readLockFile(lockFile);
+        if (current && current.holder === this.instanceId) {
+          await fs.unlink(lockFile);
+        }
       } catch (err) {
         // Lock file may already be deleted
       }
@@ -219,6 +225,20 @@ export class SessionLock {
     const lockData = { holder: this.instanceId, acquiredAt: now };
     const lockFile = this.getLockFilePath(sessionId);
     try {
+      // P1-fix（H5）：续约前校验锁文件仍属于本实例，防止过期持有者覆盖
+      // 新持有者已重建的锁（与 release 的 compare-and-delete 对称）。
+      const current = await this.readLockFile(lockFile);
+      if (!current || current.holder !== this.instanceId) {
+        logger.warning(
+          'Session lock renew skipped: lock no longer owned by this instance',
+          {
+            sessionId,
+            fileHolder: current?.holder,
+          }
+        );
+        this.heldLocks.delete(sessionId);
+        return false;
+      }
       await fs.writeFile(lockFile, JSON.stringify(lockData), 'utf-8');
       held.acquiredAt = now;
       this.heldLocks.set(sessionId, held);

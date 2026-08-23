@@ -23,6 +23,8 @@ import {
 import { addFilePathsFromBlocks } from "./chat-file.slice";
 import { SaveQueue, staleSessionCache } from "./chat-history.slice";
 import { handleClientError } from "@/utils/handleError";
+import { toastWarning } from "@/stores/toastStore";
+import i18n from "@/i18n";
 import { removeStreamController } from "./chat-message-shared";
 import { useTrajectoryStore } from "./trajectoryStore";
 import {
@@ -357,7 +359,13 @@ export async function streamMessageImpl(
     // 从后端拉取已有 events 作为基线，流式过程中追加新事件。
     // assistantMessageId 透传给派生函数，确保派生产物的 assistant id 与
     // store 中提前占位的 assistantId UUID 一致（否则 flushSet 定向替换命中失败）。
+    //
+    // P0-1 修复：初始化失败守卫 + 健康度跟踪
+    // 历史问题：一次瞬时 getEvents 网络抖动 → aggregator 未初始化 → 流式渲染全程空 blocks →
+    // 流结束时触发"⚠️ 未生成内容"兜底 → finalBlocks 覆盖后端已持久化的正常 blocks（数据回退）
     const streamAggregator = new EventBasedStreamAggregator();
+    /** P0-1：聚合器健康度标志（false 时最终落盘跳过覆盖，后端权威数据优先） */
+    let aggregatorHealthy = true;
     try {
       const eventsResult = await trajectoryService.getEvents(sid, {
         limit: 10000,
@@ -365,13 +373,46 @@ export async function streamMessageImpl(
       await streamAggregator.init(eventsResult.events, sid, {
         assistantMessageId: assistantId,
       });
+      logger.debug("[P0-1:streamMessage] 聚合器初始化成功", {
+        sessionId: sid,
+        assistantId,
+        baselineEvents: eventsResult.events.length,
+        tailSeq: streamAggregator.getTailSeq(),
+      });
     } catch (e) {
-      // 聚合器初始化失败：流式渲染回退到原 blocks（store 会保留空 assistant，
-      // 但至少不崩溃。typecheck 要求 aggregator 必填，失败时静默降级）。
-      logger.warn("streamMessage: 事件聚合器初始化失败", {
+      // P0-1 修复：初始化失败重试 1 次（防抖 500ms 后立即重试）
+      logger.warn("[P0-1:streamMessage] 聚合器初始化首次失败，500ms 后重试", {
         sessionId: sid,
         error: e instanceof Error ? e.message : String(e),
       });
+      try {
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        const eventsResult = await trajectoryService.getEvents(sid, {
+          limit: 10000,
+        });
+        await streamAggregator.init(eventsResult.events, sid, {
+          assistantMessageId: assistantId,
+        });
+        logger.info("[P0-1:streamMessage] 聚合器初始化重试成功", {
+          sessionId: sid,
+          assistantId,
+          baselineEvents: eventsResult.events.length,
+        });
+      } catch (retryErr) {
+        // P0-1 修复：重试仍失败 → 置 aggregatorHealthy=false，最终落盘跳过覆盖
+        aggregatorHealthy = false;
+        logger.warn(
+          "[P0-1:streamMessage] 聚合器初始化重试失败，标记为不健康，最终落盘将跳过覆盖",
+          {
+            sessionId: sid,
+            error:
+              retryErr instanceof Error ? retryErr.message : String(retryErr),
+            consequence: "本次回复仅显示后端快照，不会覆盖后端已持久化数据",
+          },
+        );
+        // P0-1 修复：用户侧 toast（轨迹初始化失败 → 仅显示后端快照）
+        toastWarning(i18n.t("chat.aggregatorInitFailed"));
+      }
     }
 
     // processChunk 运行上下文（显式注入替代原闭包捕获）
@@ -553,7 +594,12 @@ export async function streamMessageImpl(
 
     // M4：从 aggregator 派生最终 assistant 消息的 blocks（作为后续兜底/完整性检查/落盘的权威源）
     const derivedMsgs = streamAggregator.deriveMessages();
-    const derivedAsstMsg = derivedMsgs.find((m) => m.id === assistantId);
+    // P0-2 修复：使用 findLast 取最后一条匹配消息（而非 find 取第一条）。
+    // 当历史事件中存在多条同 ID 的 assistant 消息时（因 assistantMessageId 透传），
+    // 第一条匹配的是历史消息，最后一条才是当前流式消息。
+    const derivedAsstMsg = [...derivedMsgs]
+      .reverse()
+      .find((m) => m.id === assistantId);
     const derivedBlocks: Message["blocks"] = derivedAsstMsg?.blocks ?? [];
 
     // 流式结束后重置聚合器（事件已由后端追加到 events.jsonl 持久化，本地 events 丢弃避免内存泄漏）
@@ -676,6 +722,22 @@ export async function streamMessageImpl(
     // 为 thinking 块 + 干净正文，保证落盘 blocks 与后端剥离后的 content 一致
     finalBlocks = reorderExplorationBlocks(finalBlocks);
 
+    // 关键修复（2026-08-23）：流式结束后移除 progress 块。
+    // 旧版 ChronologicalBlockBuilder.freezeAll 会移除执行中的 progress 块
+    // （"正在执行工具"等临时状态不应作为正文保留），但 M4 事件派生路径
+    // 派生的 progress 块不会自动清理，导致执行结束后进度卡片残留。
+    // 仅正常/中断结束都移除（progress 是瞬态，StatusFloatBar 负责流式中展示）。
+    {
+      const before = finalBlocks.length;
+      finalBlocks = finalBlocks.filter((b) => b.type !== "progress");
+      if (finalBlocks.length !== before) {
+        logger.info("streamMessage:流结束移除 progress 块", {
+          removed: before - finalBlocks.length,
+          blockTypes: finalBlocks.map((b) => b.type),
+        });
+      }
+    }
+
     // 版本号递增：使 pending 的 rAF flushSet 全部失效，
     // 旧版本的回调被丢弃，不再覆盖最终状态
     batch.version++;
@@ -754,7 +816,19 @@ export async function streamMessageImpl(
       // AB-15 修复：abort（用户停止/幽灵块检测中断）时不覆盖——
       // 前端中断时的 finalBlocks 可能不完整（ghostCheck 场景后端内容更全），
       // 覆盖会导致数据回退；后端在 abort 时已持久化权威内容，重载即恢复。
-      if (sessionId && finalBlocks.length > 0 && !controller.signal.aborted) {
+      //
+      // P0-1 修复：聚合器不健康时跳过覆盖（后端权威数据优先）
+      // 场景：aggregator 初始化失败 → 流式渲染全程空 blocks → finalBlocks 仅含兜底 status 块
+      // → 覆盖会永久丢失后端已持久化的正常内容（数据回退）
+      const isAggregatorFallbackOnly =
+        finalBlocks.length === 1 &&
+        finalBlocks[0].type === "status" &&
+        typeof finalBlocks[0].content === "string" &&
+        finalBlocks[0].content.includes("未生成内容");
+      const shouldSkipOverwrite =
+        controller.signal.aborted ||
+        (!aggregatorHealthy && isAggregatorFallbackOnly);
+      if (sessionId && finalBlocks.length > 0 && !shouldSkipOverwrite) {
         try {
           await chatService.updateMessageBlocks(
             sessionId,
@@ -771,6 +845,18 @@ export async function streamMessageImpl(
             "warn",
           );
         }
+      } else if (!aggregatorHealthy && isAggregatorFallbackOnly) {
+        // P0-1 日志：跳过覆盖边界情况记录（用户应看到后端快照，前端仅显示兜底提示）
+        logger.warn(
+          "[P0-1:streamMessage] 聚合器不健康且 finalBlocks 仅含兜底块，跳过覆盖后端数据",
+          {
+            sessionId,
+            assistantId,
+            finalBlocksCount: finalBlocks.length,
+            firstBlockType: finalBlocks[0]?.type,
+            aggregatorHealthy,
+          },
+        );
       }
     }
 

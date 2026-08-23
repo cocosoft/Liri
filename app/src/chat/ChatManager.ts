@@ -49,6 +49,8 @@ import {
 } from './services/ChatHelper';
 import { EventLogStorage } from '@modules/session/storage/EventLogStorage';
 import { MessageToEventMigrator } from '@modules/session/storage/MessageToEventMigrator';
+import { ReconcileService } from '@modules/session/reconcile/ReconcileService';
+import { dedupeToolCallBlocks } from '@modules/chat/utils/chatBlocks';
 import type { LiriEvent } from '@modules/chat/types/events';
 import {
   sanitizeApiMessages,
@@ -603,6 +605,10 @@ export class ChatManagerImpl implements ChatManager {
    * key: toolCallId, value: 对应的 assistant/tool_call 事件的 seq
    */
   private _toolCallSeqMap: Map<string, number> = new Map();
+  /** T2.2（2026-08-23）：已从 events 重建过 _toolCallSeqMap 的会话集合（懒重建去重） */
+  private _toolCallSeqMapRebuilt: Set<string> = new Set();
+  /** A-7（2026-08-23）：待对账会话集合（Phase D T-D 对账服务消费） */
+  private readonly _pendingReconcileSessions: Set<string> = new Set();
 
   /**
    * 会话子系统访问门面
@@ -784,6 +790,13 @@ export class ChatManagerImpl implements ChatManager {
         get toolRoundCount(): number {
           return managerRef._toolRoundCount;
         },
+        incrementToolRoundCount: (): void => {
+          managerRef._toolRoundCount += 1;
+          logger.debug('chat:toolRoundCount 递增', {
+            currentSessionId: managerRef._currentSessionId,
+            newValue: managerRef._toolRoundCount,
+          });
+        },
         get executingPlan(): boolean {
           return managerRef._executingPlan;
         },
@@ -823,6 +836,7 @@ export class ChatManagerImpl implements ChatManager {
           this._addAndPersistMessage(sid, msg),
         appendStreamEvent: (sid, event) => this.appendStreamEvent(sid, event),
         getStreamTailSeq: (sid) => this.getStreamTailSeq(sid),
+        getStreamMaxTurn: (sid) => this.getStreamMaxTurn(sid),
         getSessionMachine: (sid) => this.getSessionMachine(sid),
         getOrAssembleSystemPrompt: (session, content) =>
           this.getOrAssembleSystemPrompt(session, content),
@@ -1119,7 +1133,15 @@ export class ChatManagerImpl implements ChatManager {
     }
     const session = this._chatSessions.get(sessionId);
     if (session) {
-      session.messages.push(message);
+      // B4（2026-08-23）：流式结束复用占位对象——updateMessageBlocks 已创建同 id 占位
+      //（前端 messageId 透传），此处更新该对象而非新建 push，避免内存/磁盘双条同 id
+      const existing = session.messages.find((m) => m.id === message.id);
+      if (existing) {
+        Object.assign(existing, message);
+        message = existing;
+      } else {
+        session.messages.push(message);
+      }
       session.updatedAt = new Date();
       session.metadata.lastActivityAt = new Date();
       session.metadata.totalMessages = session.messages.length;
@@ -1211,14 +1233,62 @@ export class ChatManagerImpl implements ChatManager {
       Date.now()
     );
 
+    // 修复（P0-根因修复，替代 tailSeq>0 的宽泛判断）：
+    // 只有明确带 __streamedEventsWritten 标记的消息（即已通过 appendStreamEvent 流式写入了
+    // thinking/text/tool_call chunk 的消息）才跳过完整 text/thinking 事件，避免流式 chunk
+    // 与完整正文双份写入导致前端回放重复。
+    //
+    // 之前的 tailSeq > 0 判断太宽泛：只要会话中有任何事件（如 user/message、旧 turn 事件）
+    // 就会把后续 assistant 消息的 text/thinking 全部过滤，导致：
+    //  - 非流式生成的消息（ReAct reason 回填、非流式 API 返回）丢失正文
+    //  - 流式中断（仅写了 thinking chunk 没写 text chunk）丢失完整正文
+    //  - 前端回放时 content 空 + 仅 thinking 块 → 触发"生成中断"误报
+    const hasStreamedMarker = Boolean(
+      (message.metadata as Record<string, unknown> | undefined)
+        ?.__streamedEventsWritten
+    );
+    let filteredEvents = events;
+    if (hasStreamedMarker && message.role === 'assistant') {
+      const before = events.length;
+      // P0-fix-4（2026-08-23）：流式路径已实时写入 tool_call 事件（工具循环内 tool_start 时），
+      // 落盘时同样过滤 assistant/tool_call，避免与实时写入的事件重复（按 id 去重靠过滤实现）。
+      filteredEvents = events.filter(
+        (e) =>
+          e.type !== 'assistant/text' &&
+          e.type !== 'assistant/thinking' &&
+          e.type !== 'assistant/tool_call'
+      );
+      const removed = before - filteredEvents.length;
+      if (removed > 0) {
+        logger.debug(
+          'chat:appendEventsForMessage 过滤流式已写过的 text/thinking/tool_call 事件',
+          {
+            sessionId,
+            messageId: message.id,
+            hasStreamedMarker,
+            removedCount: removed,
+            remainingTypes: filteredEvents.map((e) => e.type),
+          }
+        );
+      }
+    }
+
     // 内存映射回填 callSeq
-    for (const event of events) {
+    for (const event of filteredEvents) {
       if (event.type === 'assistant/tool_call') {
         const data = event.data as { toolCallId: string };
         this._toolCallSeqMap.set(data.toolCallId, event.seq);
       }
     }
-    for (const event of events) {
+    // T2.2（2026-08-23）：重启后 _toolCallSeqMap 为空，tool/result.callSeq === -1 时
+    // 从 events 懒重建映射（每个会话一次，结果缓存），避免 -1 占位影响前端 callSeq 配对
+    const needsRebuild = filteredEvents.some(
+      (e) =>
+        e.type === 'tool/result' &&
+        (e.data as { callSeq: number }).callSeq === -1
+    );
+    if (needsRebuild) await this._rebuildToolCallSeqMap(sessionId);
+    for (const event of filteredEvents) {
       if (event.type === 'tool/result') {
         const data = event.data as { callSeq: number; toolCallId: string };
         if (data.callSeq === -1) {
@@ -1228,17 +1298,93 @@ export class ChatManagerImpl implements ChatManager {
     }
 
     // 逐条追加
-    for (const event of events) {
+    for (const event of filteredEvents) {
       const result = await eventLog.append(event);
       if (!result.ok && result.reason !== 'duplicate-seq') {
-        logger.warn('chat:manager 事件追加失败', {
+        // A-7（2026-08-23）：写事件失败 → 投影消息打 pendingRepair 标记 + 触发该会话对账。
+        // 标记随 persistChatMessage 落盘到投影，T-D 对账（Phase D）据此修复事件/投影漂移。
+        logger.warn('chat:manager 事件追加失败，标记投影消息 pendingRepair', {
           sessionId,
+          messageId: message.id,
           seq: event.seq,
           type: event.type,
           reason: result.reason,
         });
+        message.metadata = {
+          ...(message.metadata ?? {}),
+          pendingRepair: true,
+        };
+        this._requestReconcile(sessionId, eventLog);
       }
     }
+  }
+
+  /**
+   * A-7（2026-08-23）：触发该会话 T-D 对账（Phase D 对账服务消费）
+   *
+   * - 记录待对账会话到内存集合，Phase D 实现对账后从集合消费
+   * - 熔断期间跳过（防失败风暴，方案 T-B#1 评审 v0.3#11）
+   */
+  private _requestReconcile(
+    sessionId: string,
+    eventLog: EventLogStorage
+  ): void {
+    if (eventLog.isAppendCircuitOpen()) {
+      logger.debug('chat:manager 对账请求被熔断跳过（防风暴）', { sessionId });
+      return;
+    }
+    this._pendingReconcileSessions.add(sessionId);
+    logger.warn('chat:manager 会话已加入待对账队列（Phase D T-D 消费）', {
+      sessionId,
+    });
+  }
+
+  /**
+   * D-1（2026-08-23）：执行待对账会话（消费 A-7 标记的 _pendingReconcileSessions）
+   *
+   * 对账默认只检测 + 告警 + 生成修复计划（自动修复关闭）。
+   * 调用时机：启动时 / 后台定时任务（由外部触发，本方法不阻塞消息主路径）。
+   */
+  async runPendingReconciles(): Promise<void> {
+    if (this._pendingReconcileSessions.size === 0) return;
+    const service = new ReconcileService({
+      getEventLog: (sid) => this._getOrCreateEventLog(sid),
+      getProjections: async (sid) => {
+        const msgs = await this.sessionGateway.getMessages(sid);
+        return msgs.map((m) => ({
+          id: m.id,
+          role: m.role.toLowerCase(),
+          content: typeof m.content === 'string' ? m.content : '',
+          timestamp: m.timestamp,
+          blocks: m.blocks as Array<Record<string, unknown>> | undefined,
+          lastEventSeq: m.lastEventSeq,
+        }));
+      },
+      getSessionMeta: async (sid) => {
+        const session = await this.sessionGateway.getSession(sid);
+        return session?.metadata as Record<string, unknown> | undefined;
+      },
+    });
+    const pending = [...this._pendingReconcileSessions];
+    for (const sid of pending) {
+      try {
+        const report = await service.reconcileSession(sid);
+        if (!report.ok) {
+          logger.warn('chat:manager 会话对账完成（有漂移）', {
+            sessionId: sid,
+            driftCount: report.drifts.length,
+            repairPlan: report.repairPlan,
+          });
+        }
+      } catch (e) {
+        void handleError(e, {
+          module: 'chat:manager',
+          action: 'runPendingReconciles',
+          context: { sessionId: sid },
+        }).catch(() => {});
+      }
+    }
+    this._pendingReconcileSessions.clear();
   }
 
   /**
@@ -1294,6 +1440,15 @@ export class ChatManagerImpl implements ChatManager {
           reason: result.reason,
         });
       }
+      // P0-fix-4（2026-08-23）：流式实时写入的 assistant/tool_call 事件同样维护
+      // _toolCallSeqMap 映射，保证后续 tool/result 事件的 callSeq 能正确回填
+      // （与 _appendEventsForMessage 中的回填逻辑保持一致）。
+      if (result.ok && event.type === 'assistant/tool_call') {
+        const data = event.data as { toolCallId: string };
+        if (data.toolCallId) {
+          this._toolCallSeqMap.set(data.toolCallId, event.seq);
+        }
+      }
       return { ok: result.ok, reason: result.reason, tailSeq: result.tailSeq };
     } catch (e) {
       await handleError(e, {
@@ -1311,6 +1466,57 @@ export class ChatManagerImpl implements ChatManager {
   async getStreamTailSeq(sessionId: string): Promise<number> {
     const eventLog = this._getOrCreateEventLog(sessionId);
     return eventLog.getTailSeq();
+  }
+
+  /**
+   * T2.2（2026-08-23）：从 events 重建 `_toolCallSeqMap`（toolCallId → 事件 seq）。
+   *
+   * 背景（A1④）：_toolCallSeqMap 原仅运行时维护（appendStreamEvent/落盘时增量 set），
+   * 后端重启后为空，同轮内 tool/result 回填 callSeq 走 -1 兜底。本方法按会话**懒重建**
+   * （首次需要回填且 Map 未命中时触发，每个会话只扫一次 events，结果缓存）。
+   */
+  private async _rebuildToolCallSeqMap(sessionId: string): Promise<void> {
+    if (this._toolCallSeqMapRebuilt.has(sessionId)) return;
+    try {
+      const eventLog = this._getOrCreateEventLog(sessionId);
+      if (!eventLog.exists()) {
+        this._toolCallSeqMapRebuilt.add(sessionId);
+        return;
+      }
+      let fromSeq = 1;
+      for (;;) {
+        const batch = await eventLog.read({ fromSeq, limit: 10000 });
+        for (const e of batch) {
+          if (e.type === 'assistant/tool_call') {
+            const d = e.data as { toolCallId?: string };
+            if (d.toolCallId) this._toolCallSeqMap.set(d.toolCallId, e.seq);
+          }
+        }
+        if (batch.length < 10000) break;
+        fromSeq = batch[batch.length - 1].seq + 1;
+      }
+      logger.debug('chat:manager 重建 _toolCallSeqMap', {
+        sessionId,
+        entries: this._toolCallSeqMap.size,
+      });
+    } catch {
+      // @ignore-catch — 重建失败不影响主流程（回填走 -1 兜底）
+    }
+    this._toolCallSeqMapRebuilt.add(sessionId);
+  }
+
+  /**
+   * M1 事件溯源：获取当前会话已有事件的最大 turn 编号（重启后恢复 turn 计数）
+   *
+   * 背景：turn 编号原由内存计数器 _toolRoundCount 生成，后端重启后归零，
+   * 导致同一会话的 events.jsonl 中出现重复 turn 号（如 turn=1 出现多次），
+   * 前端回放时误判为"重复回放"整块丢弃，造成重新进入会话信息不全/顺序错乱。
+   *
+   * 修复：写入 turn/start 前调用本方法取事件日志中的最大 turn，继续递增。
+   */
+  async getStreamMaxTurn(sessionId: string): Promise<number> {
+    const eventLog = this._getOrCreateEventLog(sessionId);
+    return eventLog.getMaxTurn();
   }
 
   /**
@@ -1340,6 +1546,9 @@ export class ChatManagerImpl implements ChatManager {
     messageId: string,
     blocks: Array<Record<string, unknown>>
   ): Promise<void> {
+    // T1.1（2026-08-23）：落盘前对同 toolCallId 的 tool_call 块合并去重（终态优先 + 保留首非空 arguments），
+    // 与前端 SaveQueue 同策略；对历史污染数据 + SSE 重复发送产生的重复做防御兜底。
+    blocks = dedupeToolCallBlocks(blocks);
     const session = this._chatSessions.get(sessionId);
     if (!session) {
       throw new Error(`Session ${sessionId} not found`);
@@ -1348,33 +1557,11 @@ export class ChatManagerImpl implements ChatManager {
     let message = session.messages.find((m) => m.id === messageId);
 
     if (!message) {
-      // 排查日志：前端 id 未命中（旧数据无 assistantId 透传时必然发生，属预期），
-      // 走兜底取最后一条 assistant；若 P0 根治生效则此处不应出现
+      // P1-6（N2/B4，2026-08-23）：前端 id 未命中时**不再取"最后一条 assistant"**——
+      // 前端传入的 messageId 即事件 messageId，必须按它直接创建占位（id 与事件侧一致），
+      // 否则投影消息 id ≠ 事件 messageId，§5.1 按消息对位失败。
       logger.debug(
-        'updateMessageBlocks: 前端 id 未命中，走兜底取最后一条 assistant',
-        {
-          sessionId,
-          messageId,
-          assistantCount: session.messages.filter((m) => m.role === 'assistant')
-            .length,
-        }
-      );
-      message = session.messages.filter((m) => m.role === 'assistant').pop();
-    } else {
-      logger.debug('updateMessageBlocks: 前端 id 直接命中', {
-        sessionId,
-        messageId,
-        blockCount: blocks.length,
-      });
-    }
-
-    if (!message) {
-      // 边缘场景：流式结束前、后端 msg-xxx 尚未创建时的首次 blocks 保存。
-      // 此时只能用前端 UUID 占位创建（id 与后续 updateMessageBlocks 的 messageId 一致，
-      // 可命中更新），但流式结束后后端会另建 msg-xxx 消息，刷新后可能出现双条。
-      // TODO: CS05-ROOTFIX — 根治方案为前端透传 assistantId，后端 createAssistantMessage 复用。
-      logger.warn(
-        'updateMessageBlocks: 无 assistant 消息，用前端 UUID 创建占位消息',
+        'updateMessageBlocks: 前端 id 未命中，按 messageId 创建占位',
         {
           sessionId,
           messageId,
@@ -1383,14 +1570,20 @@ export class ChatManagerImpl implements ChatManager {
       );
       message = this.messageService.createAssistantMessage('', {
         sessionId,
+        id: messageId,
       });
-      message.id = messageId;
       message.blocks = blocks;
       message.createdAt = new Date();
       message.updatedAt = new Date();
       session.messages.push(message);
       await persistChatMessage(this.sessionGateway, sessionId, message);
       return;
+    } else {
+      logger.debug('updateMessageBlocks: 前端 id 直接命中', {
+        sessionId,
+        messageId,
+        blockCount: blocks.length,
+      });
     }
 
     message.blocks = blocks;
@@ -1407,18 +1600,43 @@ export class ChatManagerImpl implements ChatManager {
       ...(message.toolCallId ? { toolCallId: message.toolCallId } : {}),
       ...(toolCalls ? { tool_calls: toolCalls } : {}),
     };
+    // L-修复（2026-08-23）：content 为空但 blocks 含 text 时聚合 text 到 content。
+    // 背景：流式最终落盘（content 完整，meta.__streamedEventsWritten）后，前端再调
+    // updateMessageBlocks 仅传 blocks，内存 message.content 为空 → 全量覆盖落盘时
+    // content 被写空（正文仅存于 blocks.text），重新打开会话时 legacy content 为空，
+    // 前端合并「lgHasBetter」判定不覆盖 → 正文严重缺失。
+    const rawContent =
+      typeof message.content === 'string' ? message.content : '';
+    const blocksText = blocks
+      .filter(
+        (b) =>
+          b.type === 'text' &&
+          typeof b.content === 'string' &&
+          (b.content as string).trim().length > 0
+      )
+      .map((b) => b.content as string)
+      .join('')
+      .trim();
+    const content = rawContent.trim().length > 0 ? rawContent : blocksText;
+    // P1-6（G8/N11）：投影版本戳 lastEventSeq = 写盘时刻的会话全局事件 seq。
+    // 前提：getStreamTailSeq 缓存 tailSeq（O(1)）；字段随内存消息常驻（compact 序列化不丢）。
+    let lastEventSeq: number | undefined;
+    try {
+      lastEventSeq = await this.getStreamTailSeq(sessionId);
+      message.lastEventSeq = lastEventSeq;
+    } catch {
+      // @ignore-catch — tailSeq 获取失败不阻断 blocks 落盘
+    }
     const unifiedMessage: UnifiedMessage = {
       id: message.id,
       sessionId,
       type: toSessionMsgType(message),
       role: message.role as unknown as SessionMessageRole,
-      content:
-        typeof message.content === 'string'
-          ? message.content
-          : JSON.stringify(message.content),
+      content,
       timestamp: message.createdAt?.getTime() ?? Date.now(),
       metadata: metadataObj,
       blocks: message.blocks as unknown as FrontendMessageBlock[] | undefined,
+      lastEventSeq,
     };
     try {
       // P0 修复（2026-08-14 排查）：必须用实际消息 id（msg-xxx）而非调用方传入的
@@ -1461,14 +1679,38 @@ export class ChatManagerImpl implements ChatManager {
     session: ChatSession,
     currentMessage?: string
   ): Promise<string> {
+    // 修复（2026-08-22）：this.llmClient 可能停留在初始化时的 provider——
+    // 用户切换模型后未重建，直接用它组装 system prompt 会导致 isLocal 判定错误：
+    // 本地模型（llama.cpp）收到远程版"强制 think/response 标签"规则（system prompt
+    // 3653 tokens，且诱导模型输出 <response> 包装 → 前端正文重复显示）。
+    // 改用当前模型路由对应 client 组装，isLocal 判定与实际请求一致。
+    const promptClient = await this.resolvePromptClientForSystemPrompt();
     return assembleContextualSystemPrompt(
       session,
       currentMessage,
-      this.llmClient,
+      promptClient,
       this.imageContextService,
       (sessionId: string) =>
         this.sessionAccess.getMemoryManager().getMemoryContext(sessionId)
     );
+  }
+
+  /**
+   * 解析用于组装 system prompt 的 LLM client。
+   * 优先当前模型路由（modelRouter.resolve('default')）对应 client；
+   * 路由不可用时回退全局 llmClient（组装不阻断）。
+   */
+  private async resolvePromptClientForSystemPrompt(): Promise<
+    ToolAwareClient | undefined
+  > {
+    try {
+      const { modelRouter } = await import('../ai/modelRouter.js');
+      const modelName = modelRouter.resolve('default');
+      if (modelName) return this.getClientForModel(modelName);
+    } catch {
+      // @ignore-catch 模型路由不可用时回退全局 llmClient
+    }
+    return this.llmClient;
   }
 
   /**
@@ -2726,6 +2968,35 @@ export class ChatManagerImpl implements ChatManager {
       await this._addAndPersistMessage(session.id, assistantMessage);
     }
 
+    // P0-fix-3（2026-08-23，顺序错乱根因）：工具调用轮次的 turn/end 在此补写。
+    // 时机关键：assistant/tool_call 事件由 _addAndPersistMessage 落盘时（convertMessage）生成，
+    // 必须在本方法内、落盘 assistant 消息**之后**写入 turn/end，才能保证：
+    //   events.jsonl 顺序 = turn/start → text/thinking → tool/result → assistant/tool_call → turn/end
+    // （此前在 streamMessageFlow 工具循环后补写，tool_call 事件晚于 turn/end，仍无 turn 包裹。）
+    // 无工具调用轮次：turn/end 已在 streamMessageFlow LLM 流结束后写入（!hasToolCalls 分支），此处不重复写。
+    const hasFinalToolCalls =
+      Array.isArray(finalResponse?.tool_calls) &&
+      finalResponse!.tool_calls.length > 0;
+    if (hasFinalToolCalls) {
+      try {
+        // turn 编号与 turn/start 一致：turn/start 已写入事件日志，读取最大 turn 即为当前轮编号
+        const persistedTurn = await this.getStreamMaxTurn(session.id);
+        const ts = await this.getStreamTailSeq(session.id);
+        await this.appendStreamEvent(session.id, {
+          type: 'turn/end',
+          seq: ts + 1,
+          time: Date.now(),
+          sessionId: session.id,
+          data: {
+            turn: persistedTurn > 0 ? persistedTurn : this._toolRoundCount + 1,
+            finishReason: 'tool_use',
+          },
+        });
+      } catch {
+        // @ignore-catch — 事件追加失败不阻断主流程
+      }
+    }
+
     // Phase 1c: 停止流式水位监测
     this.unifiedTracker.stopStreamingCheck();
     // 通知会话状态变化为空闲状态
@@ -2853,6 +3124,13 @@ export class ChatManagerImpl implements ChatManager {
 
     // P2-1: 流正常结束，清理自动检查点
     this._streamingCheckpoint = null;
+
+    // 修复：每完成一次完整 turn 递增计数，确保 turn 编号唯一（否则恒为 turn=1）
+    this._toolRoundCount += 1;
+    logger.debug('chat:streamFinalize toolRoundCount 递增', {
+      sessionId: session.id,
+      newValue: this._toolRoundCount,
+    });
 
     return assistantMessage;
   }

@@ -38,10 +38,17 @@
  *  - 未知 type（ignorable）
  */
 
-import type { LiriEvent, Message, MessageBlock } from "@/types";
+import type {
+  LiriEvent,
+  Message,
+  MessageBlock,
+  DeliverableData,
+  DiffData,
+} from "@/types";
 import {
   generateBlockId,
   generateGroupId,
+  isInternalTransitionStatus,
   normalizeToolCall,
   stripStructuralTags,
 } from "./chat-toolcall.slice";
@@ -50,6 +57,9 @@ import {
   truncateResult,
   MAX_INLINE_RESULT_LENGTH,
 } from "./chat-message-shared";
+import { createLogger } from "@/utils/logger";
+
+const logger = createLogger("stores:chat:derive");
 
 interface DeriveContext {
   sessionId: string;
@@ -68,6 +78,14 @@ interface BuilderState {
   messages: Message[];
   /** 当前 turn 编号（用于生成 message id） */
   turn: number;
+  /** 当前分组 id（对齐 ChronologicalBlockBuilder.currentGroupId）：
+   *  - 同一 turn 内的 status/tool_call/progress/todo/question 共享该组
+   *  - text 在工具调用后（hasToolCallSinceLastText）开新组
+   *  保证 renderBlocksWithGroups 能把"执行 N 个工具调用" status + 多个 tool_call 合并成一个 ToolExecutionGroup，
+   *  而不是每个工具独立渲染成卡片。 */
+  currentGroupId: string;
+  /** 自上次文本后是否出现过工具调用（对齐 ChronologicalBlockBuilder.hasToolCallSinceLastText） */
+  hasToolCallSinceLastText: boolean;
 }
 
 export function deriveConversationBlocks(
@@ -81,9 +99,19 @@ export function deriveConversationBlocks(
     toolCallSeqMap: new Map(),
     messages: [],
     turn: 0,
+    currentGroupId: generateGroupId(),
+    hasToolCallSinceLastText: false,
   };
 
+  // ⚠ 派生器层 seq 去重（第二道防线）：对外部直接调用 derive 的路径生效
+  // （例如单测、流式回退分支、手动派生地）。
+  // 相同 seq 保留第一条，跳过后续重复行，避免 assistant/text delta 被累加多次。
+  const seenSeqs = new Set<number>();
   for (const event of events) {
+    if (event && typeof event.seq === "number" && Number.isFinite(event.seq)) {
+      if (seenSeqs.has(event.seq)) continue;
+      seenSeqs.add(event.seq);
+    }
     handleEvent(event, state, sessionId, assistantMessageId);
   }
 
@@ -91,6 +119,107 @@ export function deriveConversationBlocks(
   flushCurrent(state);
 
   return state.messages;
+}
+
+/**
+ * P2-1：增量派生器 —— 复用同一 BuilderState，每次只处理新增事件（O(k)，k=新增数），
+ * 替代流式期间每 chunk 对全部历史事件重派生的 O(n) 行为。
+ *
+ * 渲染契约：
+ *  - 已 flush 消息保持稳定引用（memo 友好）；
+ *  - 未 flush 的 current 消息每次返回**浅拷贝快照**（新引用），保证 zustand set 后
+ *    React 能感知流式变更（若复用原引用，memo 化组件将跳过更新，流式 UI 冻结）。
+ */
+export class IncrementalDeriver {
+  private state: BuilderState = {
+    current: null,
+    toolCallSeqMap: new Map(),
+    messages: [],
+    turn: 0,
+    currentGroupId: generateGroupId(),
+    hasToolCallSinceLastText: false,
+  };
+  /** 已派化到的 events 数组下标（不含） */
+  private derivedUpTo = 0;
+  /** 已处理过的 event.seq 集合（用于流式期间拦截重复 seq 的事件） */
+  private readonly seenSeqs = new Set<number>();
+
+  constructor(private readonly context: DeriveContext) {}
+
+  /**
+   * 增量处理 events[derivedUpTo..] 并返回当前完整消息视图。
+   * 防御：events 数组变短（基线重置/回放重载）时自动全量重派生。
+   */
+  derive(events: LiriEvent[]): Message[] {
+    if (this.derivedUpTo > events.length) this.reset();
+    const sessionId =
+      this.context.sessionId ?? events[0]?.sessionId ?? "unknown";
+    for (; this.derivedUpTo < events.length; this.derivedUpTo++) {
+      const event = events[this.derivedUpTo];
+      // ⚠ 增量派生层 seq 去重（流式场景第二道防线）：
+      // 后端 SSE / processChunk 可能因重连或重复 flush 推送相同 seq 的事件多次，
+      // 这里拦截避免 delta 累加导致内容翻倍。
+      if (
+        event &&
+        typeof event.seq === "number" &&
+        Number.isFinite(event.seq)
+      ) {
+        if (this.seenSeqs.has(event.seq)) {
+          logger.debug("[IncrementalDeriver] 跳过重复 seq", {
+            seq: event.seq,
+            type: event.type,
+          });
+          continue;
+        }
+        this.seenSeqs.add(event.seq);
+      }
+      handleEvent(
+        event,
+        this.state,
+        sessionId,
+        this.context.assistantMessageId,
+      );
+    }
+    const out = [...this.state.messages];
+    if (this.state.current) {
+      out.push(snapshotCurrent(this.state.current));
+    }
+    return out;
+  }
+
+  /** 重置派生状态（基线 events 更换时调用） */
+  reset(): void {
+    this.state = {
+      current: null,
+      toolCallSeqMap: new Map(),
+      messages: [],
+      turn: 0,
+      currentGroupId: generateGroupId(),
+      hasToolCallSinceLastText: false,
+    };
+    this.derivedUpTo = 0;
+    this.seenSeqs.clear();
+  }
+}
+
+/**
+ * current 消息快照：浅拷贝 + blocks 新数组，不改动内部 state。
+ * 与 flushCurrent 的兜底一致：blocks 为空时补一个空 text block。
+ */
+function snapshotCurrent(msg: Message): Message {
+  let blocks = msg.blocks!;
+  if (blocks.length === 0) {
+    blocks = [
+      {
+        id: generateBlockId(),
+        type: "text",
+        content: "",
+        isStreaming: false,
+        groupId: generateGroupId(),
+      },
+    ];
+  }
+  return { ...msg, blocks: [...blocks] };
 }
 
 function handleEvent(
@@ -105,6 +234,9 @@ function handleEvent(
       flushCurrent(state);
       const data = event.data as { turn: number };
       state.turn = data.turn;
+      // 新 turn 开新分组（对齐 ChronologicalBlockBuilder）
+      state.currentGroupId = generateGroupId();
+      state.hasToolCallSinceLastText = false;
       break;
     }
 
@@ -157,7 +289,7 @@ function handleEvent(
           type: "thinking",
           content: cleanDelta,
           isStreaming: false,
-          groupId: generateGroupId(),
+          groupId: state.currentGroupId,
         });
       }
       break;
@@ -173,12 +305,19 @@ function handleEvent(
       if (lastBlock && lastBlock.type === "text") {
         lastBlock.content = `${lastBlock.content}${data.content ?? ""}`;
       } else {
+        // 工具调用后的新正文 → 开新分组（对齐 ChronologicalBlockBuilder：
+        // hasToolCallSinceLastText 时 addText 会新建 groupId），
+        // 使正文与"工具执行组"分离，不被并入工具卡片组。
+        if (state.hasToolCallSinceLastText || lastBlock?.type === "tool_call") {
+          state.currentGroupId = generateGroupId();
+        }
+        state.hasToolCallSinceLastText = false;
         blocks.push({
           id: generateBlockId(),
           type: "text",
           content: data.content ?? "",
           isStreaming: false,
-          groupId: generateGroupId(),
+          groupId: state.currentGroupId,
         });
       }
       // content 字段累积所有 text（保持"完整正文"语义，供搜索/导出）
@@ -206,11 +345,15 @@ function handleEvent(
         toolCall: { ...toolCall, status: "completed" },
         isStreaming: false,
         toolCallId: data.toolCallId,
-        groupId: generateGroupId(),
+        // 共享当前组（对齐 ChronologicalBlockBuilder.addToolCall 用 currentGroupId），
+        // 使"执行 N 个工具调用" status + 多个 tool_call 合并成一个 ToolExecutionGroup
+        groupId: state.currentGroupId,
       };
       state.current!.blocks!.push(block);
       state.current!.tool_calls = state.current!.tool_calls || [];
       state.current!.tool_calls.push(toolCall);
+      // 标记自上次文本后有工具调用 → 后续 text 开新组（对齐 addToolCall 设 hasToolCallSinceLastText）
+      state.hasToolCallSinceLastText = true;
       break;
     }
 
@@ -228,16 +371,68 @@ function handleEvent(
       const callSeq = data.callSeq;
       const toolCallId =
         (callSeq > 0 && state.toolCallSeqMap.get(callSeq)) || data.toolCallId;
-      if (state.current && toolCallId) {
-        const block = state.current.blocks!.find(
-          (b) => b.type === "tool_call" && b.toolCallId === toolCallId,
-        );
-        if (block?.toolCall) {
-          block.toolCall.result = truncateResult(data.result);
-          block.toolCall._hasFullResult =
-            data.result.length > MAX_INLINE_RESULT_LENGTH || undefined;
-          block.toolCall.status = data.isError ? "failed" : "completed";
+      // P0-2 修复：配对查找范围扩展到 state.messages（已 flush 消息），
+      // 覆盖 tool/result 与 tool_call 跨 turn 边界的场景（回放/断连续传）
+      //
+      // P0-3 修复（2026-08-23，根因：后端在 turn/end 之后才写入 tool/result，
+      // 或重启后无 turn 包裹的 tool/result 在 state.current 为 null 时到达）：
+      // 原实现仅当 state.current 存在时才进入配对查找，导致 turn/end 后的
+      // tool/result 事件全部丢失（工具结果不显示、顺序错乱）。
+      // 修复：无论 state.current 是否存在，都在已 flush 消息中反向查找。
+      let block: MessageBlock | undefined;
+      if (toolCallId) {
+        if (state.current) {
+          block = state.current.blocks!.find(
+            (b) => b.type === "tool_call" && b.toolCallId === toolCallId,
+          );
         }
+        // P0-2/P0-3 修复：当前消息未命中（或无 current）→ 在已 flush 的 messages 中反向查找（最近的优先）
+        if (!block) {
+          for (let i = state.messages.length - 1; i >= 0; i--) {
+            const msg = state.messages[i];
+            block = msg.blocks?.find(
+              (b) => b.type === "tool_call" && b.toolCallId === toolCallId,
+            );
+            if (block) {
+              logger.warn(
+                "[P0-3:derive] tool/result 在已 flush 消息中配对成功",
+                {
+                  toolCallId,
+                  callSeq,
+                  eventSeq: event.seq,
+                  msgIndex: i,
+                  msgId: msg.id,
+                  hasCurrent: !!state.current,
+                },
+              );
+              break;
+            }
+          }
+        }
+        // P0-2 修复：仍未命中 → 记录 warn（避免静默丢失）
+        if (!block) {
+          logger.warn(
+            "[P0-3:derive] tool/result 配对失败，toolCallId 在所有消息中均不存在",
+            {
+              toolCallId,
+              callSeq,
+              eventSeq: event.seq,
+              currentMsgId: state.current?.id,
+              flushedMsgCount: state.messages.length,
+            },
+          );
+        }
+      } else {
+        logger.warn("[P0-3:derive] tool/result 事件缺少 toolCallId", {
+          callSeq,
+          eventSeq: event.seq,
+        });
+      }
+      if (block?.toolCall) {
+        block.toolCall.result = truncateResult(data.result);
+        block.toolCall._hasFullResult =
+          data.result.length > MAX_INLINE_RESULT_LENGTH || undefined;
+        block.toolCall.status = data.isError ? "failed" : "completed";
       }
       break;
     }
@@ -268,17 +463,33 @@ function handleEvent(
         content: string;
         statusType?: string;
         phase?: "compacting" | "done";
+        toolCallId?: string;
+        watermark?: { pct: number; severity: "warn" | "compact" };
       };
       // compaction 事件在 context/compaction 分支已处理，这里避免重复
       if (data.statusType === "compaction") break;
+      // 内部过渡状态（AI is thinking 等）→ 丢弃，与 ChronologicalBlockBuilder.addStatus
+      // 共用 isInternalTransitionStatus，保证流式/回放一致过滤（修复状态块堆积）
+      if (isInternalTransitionStatus(data.content, data.statusType)) break;
+      // 连续重复 status 去重（对齐 ChronologicalBlockBuilder.addStatus：连续相同 content 跳过），
+      // 防止"执行 N 个工具调用"等高频 status 心跳堆积多个同内容块
+      const lastBlock =
+        state.current!.blocks![state.current!.blocks!.length - 1];
+      if (lastBlock?.type === "status" && lastBlock.content === data.content) {
+        break;
+      }
       state.current!.blocks!.push({
         id: generateBlockId(),
         type: "status",
         content: data.content,
         status: data.statusType,
         phase: data.phase,
+        toolCallId: data.toolCallId,
+        watermark: data.watermark,
         isStreaming: false,
-        groupId: generateGroupId(),
+        // 共享当前组（对齐 ChronologicalBlockBuilder.addStatus 用 currentGroupId），
+        // 使"执行 N 个工具调用" status 与后续 tool_call 合并进同一个 ToolExecutionGroup
+        groupId: state.currentGroupId,
       });
       break;
     }
@@ -302,22 +513,37 @@ function handleEvent(
         truncated?: boolean;
         currentStep: string;
       };
-      state.current!.blocks!.push({
-        id: generateBlockId(),
-        type: "progress",
-        content: data.description,
-        progressData: {
-          phase: data.phase,
-          progress: data.progress,
-          description: data.description,
-          steps: data.steps,
-          totalSteps: data.totalSteps,
-          truncated: data.truncated,
-          currentStep: data.currentStep,
-        },
-        isStreaming: false,
-        groupId: generateGroupId(),
-      });
+      const progressData: MessageBlock["progressData"] = {
+        phase: data.phase,
+        progress: data.progress,
+        description: data.description,
+        steps: data.steps,
+        totalSteps: data.totalSteps,
+        truncated: data.truncated,
+        currentStep: data.currentStep,
+      };
+      // 关键修复（2026-08-23）：按 phase 去重 —— 同一次执行中同一 phase 的 progress 心跳
+      // （execution_phase 高频心跳）应更新已有块而非重复 push，否则会堆积海量 process block。
+      // 对齐旧版 ChronologicalBlockBuilder.addProgress 的 findIndex+replace 语义。
+      const idx = state.current!.blocks!.findIndex(
+        (b) => b.type === "progress" && b.progressData?.phase === data.phase,
+      );
+      if (idx !== -1) {
+        state.current!.blocks![idx] = {
+          ...state.current!.blocks![idx],
+          progressData,
+          content: data.description,
+        };
+      } else {
+        state.current!.blocks!.push({
+          id: generateBlockId(),
+          type: "progress",
+          content: data.description,
+          progressData,
+          isStreaming: false,
+          groupId: state.currentGroupId,
+        });
+      }
       break;
     }
 
@@ -342,7 +568,7 @@ function handleEvent(
           multiSelect: data.multiSelect,
         },
         isStreaming: false,
-        groupId: generateGroupId(),
+        groupId: state.currentGroupId,
       });
       break;
     }
@@ -403,7 +629,7 @@ function handleEvent(
             planId: data.taskCard.planId,
           },
           isStreaming: false,
-          groupId: generateGroupId(),
+          groupId: state.currentGroupId,
         });
       } else if (data.action === "update" && data.taskId) {
         // 增量更新：找到最后一个 todo block，更新其 taskCard.tasks 中对应 task
@@ -460,7 +686,7 @@ function handleEvent(
         content: data.title,
         docWorkflowData: data,
         isStreaming: false,
-        groupId: generateGroupId(),
+        groupId: state.currentGroupId,
       });
       break;
     }
@@ -474,9 +700,57 @@ function handleEvent(
         type: "text",
         content: data.suffix,
         isStreaming: false,
-        groupId: generateGroupId(),
+        groupId: state.currentGroupId,
       });
       state.current!.content = (state.current!.content || "") + data.suffix;
+      break;
+    }
+
+    case "assistant/deliverable": {
+      ensureCurrent(state, event, sessionId, assistantMessageId);
+      const data = event.data as {
+        files: DeliverableData["files"];
+        summary: string;
+        checks?: DeliverableData["checks"];
+        actions?: DeliverableData["actions"];
+      };
+      state.current!.blocks!.push({
+        id: generateBlockId(),
+        type: "deliverable",
+        content: data.summary,
+        deliverableData: {
+          files: data.files,
+          summary: data.summary,
+          checks: data.checks,
+          actions: data.actions,
+        },
+        isStreaming: false,
+        groupId: state.currentGroupId,
+      });
+      break;
+    }
+
+    case "assistant/diff": {
+      ensureCurrent(state, event, sessionId, assistantMessageId);
+      const data = event.data as {
+        file: string;
+        diff: string;
+        language?: string;
+        stats?: DiffData["stats"];
+      };
+      state.current!.blocks!.push({
+        id: generateBlockId(),
+        type: "diff",
+        content: data.diff,
+        diffData: {
+          file: data.file,
+          diff: data.diff,
+          language: data.language,
+          stats: data.stats,
+        },
+        isStreaming: false,
+        groupId: state.currentGroupId,
+      });
       break;
     }
 
@@ -513,10 +787,18 @@ function ensureCurrent(
 
 /**
  * 关闭当前 assistant，推入 messages
+ * 消息完成（flush）时移除 progress 块——progress 是执行中的瞬态状态
+ * （对齐旧版 ChronologicalBlockBuilder.freezeAll 的移除逻辑），
+ * 流式过程中 current 未 flush 前由 snapshotCurrent 保留实时展示，
+ * 消息结束/回放时进度已无意义，且应避免进度卡片残留正文。
  */
 function flushCurrent(state: BuilderState): void {
   if (!state.current) return;
   const msg = state.current;
+  // 移除 progress 块（瞬态，StatusFloatBar 负责流式中展示，完成后不保留）
+  if (msg.blocks!.some((b) => b.type === "progress")) {
+    msg.blocks = msg.blocks!.filter((b) => b.type !== "progress");
+  }
   // 兜底：blocks 为空时至少有一个空 text block（避免渲染异常）
   if (msg.blocks!.length === 0) {
     msg.blocks!.push({

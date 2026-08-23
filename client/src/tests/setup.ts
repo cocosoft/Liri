@@ -7,13 +7,15 @@ afterEach(() => {
 });
 
 // Mock react-i18next 避免测试环境 NO_I18NEXT_INSTANCE 警告，保证 t() 返回原始 key
+// initReactI18next 必须有 type（i18next v26 use() 严格校验 module.type），
+// 否则 i18n/index.ts 的 i18n.use(initReactI18next) 抛 "You are passing a wrong module!"（L-3242）
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
     t: (k: string) => k,
     i18n: { changeLanguage: () => Promise.resolve(), language: "zh" },
   }),
   Trans: ({ children }: { children: React.ReactNode }) => children,
-  initReactI18next: {},
+  initReactI18next: { type: "3rdParty", init: () => {} },
 }));
 
 // Polyfill Path2D for test environments (Vitest / jsdom)

@@ -49,7 +49,7 @@ function ToolInlineTags({ blocks }: ToolInlineTagsProps) {
           return (
             <button
               type="button"
-              key={tc.id}
+              key={b.id}
               title={isExpanded ? "点击收起详情" : (argsText ?? "点击查看详情")}
               onClick={() => toggleExpand(b.id)}
               className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] leading-none border cursor-pointer transition-colors ${

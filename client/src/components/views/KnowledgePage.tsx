@@ -94,7 +94,8 @@ function KnowledgePage() {
 
   const { selectedBase, selectedFile, isInitialLoading } = view;
 
-  useSessionContextSync("knowledge", {
+  // P0-3 修复：解构 scheduleSave，在 search.query / selectedFile 变更时显式触发保存
+  const { scheduleSave } = useSessionContextSync("knowledge", {
     save: () => ({
       moduleType: "knowledge" as const,
       query: search.query || undefined,
@@ -105,6 +106,25 @@ function KnowledgePage() {
       if (ctx.query) setSearch({ query: ctx.query });
     },
   });
+
+  /** P0-3：search.query / selectedFile 变更时触发保存 */
+  const searchQuery = search.query;
+  const selectedFileId = selectedFile?.id;
+  const prevKnowledgeStateRef = useRef({ searchQuery, selectedFileId });
+  useEffect(() => {
+    const prev = prevKnowledgeStateRef.current;
+    if (
+      prev.searchQuery !== searchQuery ||
+      prev.selectedFileId !== selectedFileId
+    ) {
+      prevKnowledgeStateRef.current = { searchQuery, selectedFileId };
+      logger.debug("[P0-3:KnowledgePage] 知识库状态变更，触发 scheduleSave", {
+        query: searchQuery,
+        selectedFileId,
+      });
+      scheduleSave();
+    }
+  }, [searchQuery, selectedFileId, scheduleSave]);
 
   useEffect(() => {
     (async () => {

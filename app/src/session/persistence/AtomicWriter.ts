@@ -53,7 +53,16 @@ export class AtomicWriter {
       await fs.writeFile(tmpPath, data, 'utf-8');
       const writeFileMs = Date.now() - writeStart;
       const renameStart = Date.now();
-      await fs.rename(tmpPath, targetPath);
+      // C9（2026-08-23）：Windows 下 rename 覆盖可能因读端打开句柄失败，重试（最多 3 次，100ms 间隔）
+      for (let attempt = 0; ; attempt++) {
+        try {
+          await fs.rename(tmpPath, targetPath);
+          break;
+        } catch (err) {
+          if (attempt >= 2) throw err;
+          await new Promise((r) => setTimeout(r, 100));
+        }
+      }
       const renameMs = Date.now() - renameStart;
       const totalMs = writeFileMs + renameMs;
       logger.debug('AtomicWriter.write 完成', {

@@ -109,6 +109,12 @@ export async function handleCreateSession(
     }
     const { title, model, workspaceId, workspace_path, moduleType, projectId } =
       data;
+    // L4-fix: title 类型校验 —— 原实现直接 `title as string | undefined` 硬断言，
+    // 传入非 string（对象/数组/数字）会被静默写入，导致前端展示异常。
+    if (title !== undefined && typeof title !== 'string') {
+      sendBadRequest(res, 'title must be a string');
+      return;
+    }
     const coreAPI = getCoreAPI();
     await coreAPI.ensureSessionsLoaded();
 
@@ -606,7 +612,8 @@ export async function handleGenerateTitle(
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ success: true, title }));
     if (title) {
-      await coreAPI.renameSession(sessionId, title);
+      // E-3（2026-08-23）：AI 生成标题 → source='ai' → titleStage='final'
+      await coreAPI.renameSession(sessionId, title, 'ai');
       ctx.broadcastEvent('session:renamed', { id: sessionId, title });
     }
   } catch (err) {

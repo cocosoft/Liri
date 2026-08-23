@@ -39,9 +39,13 @@ export function InlineCodeLink({
   const [checking, setChecking] = useState(false);
   /** BUG-6 修复：验证失败时间戳（冷却 5s），防止 finally setChecking 触发 effect 重跑导致无限重试 */
   const lastFailRef = useRef(0);
+  /** P1-4 修复：请求取消标记（竞态防护） */
+  const cancelledRef = useRef(false);
   const sessionId = useSessionStore((s) => s.currentSession?.id);
 
   useEffect(() => {
+    // P1-4 修复：重置取消标记
+    cancelledRef.current = false;
     // 阶段 1 同步匹配 — 在 knownFilePaths 中查找，命中则立即渲染 FileLink
     if (knownFilePaths && knownFilePaths.length > 0) {
       const matched = matchFilePath(codeContent, knownFilePaths);
@@ -86,6 +90,8 @@ export function InlineCodeLink({
       fetch(`${baseUrl}/api/file/resolve-path?path=${encodedPath}`, { headers })
         .then((res) => (res.ok ? res.json() : null))
         .then((data) => {
+          // P1-4 修复：竞态防护——若组件已取消（codeContent 变化），丢弃旧结果
+          if (cancelledRef.current) return;
           // BUG-1 修复：后端对不存在的路径也返回 resolvedPath（猜测路径）+ exists:false（HTTP 200），
           // 必须检查 exists/restricted（与 filePathResolver.ts 对齐），否则任意被误判为路径的文本
           // 都被渲染成 FileLink（点击报"文件不存在"）。
@@ -147,6 +153,13 @@ export function InlineCodeLink({
         });
     }
   }, [codeContent, knownFilePaths, checking]); // sessionId 不在依赖中：缓存 key 已含 sessionId，切换会话时组件随消息重新挂载，无需重触发
+
+  // P1-4 修复：cleanup 时标记取消，丢弃旧请求的晚返回结果
+  useEffect(() => {
+    return () => {
+      cancelledRef.current = true;
+    };
+  }, [codeContent]);
 
   if (confirmedPath) {
     return <FileLink filePath={confirmedPath} onPreview={onPreviewFile} />;

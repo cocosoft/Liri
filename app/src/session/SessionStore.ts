@@ -114,6 +114,9 @@ export class SessionStore implements SessionStorage {
       value: metadata,
       lastAccess: Date.now(),
     });
+    // P1-fix（M1）：saveMetadata 补缓存逐出 —— 原实现只 set 不 evictIfNeeded，
+    // 高频保存不同会话元数据时 metadataCache 无限增长（内存泄漏）。
+    this.evictIfNeeded(this.metadataCache, this.maxCacheSize);
   }
 
   async loadMetadata(sessionId: string): Promise<SessionMetadata | null> {

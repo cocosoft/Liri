@@ -3,8 +3,7 @@ import { http as apiHttp } from "./httpClient";
 import { createLogger } from "../utils/logger";
 import { handleClientError } from "../utils/handleError";
 import { getOTelTracing } from "../monitoring/otel";
-import { trajectoryService } from "./trajectoryService";
-import { deriveConversationBlocks } from "../stores/chat/deriveConversationBlocks";
+import { setSessionCache } from "../stores/chat/chat-history.slice";
 import { importLegacyMessages } from "../stores/chat/legacyMessageImporter";
 
 const logger = createLogger("sessionService");
@@ -16,45 +15,156 @@ const isTauri =
 // 是否已降级到内存模式（后端不可用时设为 true）
 let _isUsingFallback = false;
 
-// ─── A1：会话级 events 缓存（支持增量加载） ───
-/** 单会话 events 缓存条目 */
-interface SessionEventsCacheEntry {
-  events: LiriEvent[];
-  tailSeq: number;
-}
-const _sessionEventsCache = new Map<string, SessionEventsCacheEntry>();
-const MAX_EVENTS_CACHED_SESSIONS = 15; // 与 Message cache LRU 上限一致
-
-/** 读 events 缓存（A1 增量加载） */
-export function _getCachedSessionEvents(
-  sessionId: string,
-): SessionEventsCacheEntry | null {
-  return _sessionEventsCache.get(sessionId) ?? null;
-}
-
-/** 写 events 缓存（带 LRU 淘汰，A1） */
-export function _setCachedSessionEvents(
-  sessionId: string,
-  entry: SessionEventsCacheEntry,
-): void {
-  if (
-    _sessionEventsCache.size >= MAX_EVENTS_CACHED_SESSIONS &&
-    !_sessionEventsCache.has(sessionId)
-  ) {
-    const oldest = _sessionEventsCache.keys().next().value;
-    if (oldest) _sessionEventsCache.delete(oldest);
-  }
-  _sessionEventsCache.set(sessionId, entry);
-}
-
-/** 标记 events 缓存失效（发送新消息后可选调用，不调用也安全——增量 fromSeq 会自动补齐） */
-export function _staleSessionEventsCache(sessionId: string): void {
-  _sessionEventsCache.delete(sessionId);
-}
-
 /** 获取当前是否处于降级模式 */
 export function isUsingFallback(): boolean {
   return _isUsingFallback;
+}
+
+// ─── A2：events 回放规范化（防重复渲染的双保险防线） ───
+/**
+ * normalizeEventsForReplay — 回放前对 events 做规范化，防御重复渲染。
+ *
+ * 后端写入层只保证 seq 单调递增（相同 seq 拒绝），但无法拦截以下异常：
+ *   ① 同一个 turn 块（turn/start → assistant/* → turn/end）被完整回放多次
+ *      （每次 seq 递增，写入层无法识别内容重复）
+ *   ② 增量合并缓存时出现 seq 重叠（cached tailSeq ≥ 新拉 fromSeq）
+ *   ③ 历史损坏行 / 非法 seq 行
+ *
+ * 处理步骤（按优先级）：
+ *   Step 1: 过滤无效事件（seq 非正整数 / JSON 损坏）
+ *   Step 2: 按 seq 去重（保留 seq 第一次出现的事件，后者丢弃）
+ *   Step 3: 按 seq 升序排序（后端保证单调，但缓存合并 + 增量可能乱序）
+ *   Step 4: 重复 turn 块跳过 —— turn/start 的 turn 号已出现过，
+ *           则从该 turn/start 起（含）直到下一个 turn/end（含）之间的所有事件全部丢弃。
+ *           这是修复 "重新打开会话 AI 输出重复 N 次" 的关键防线。
+ *
+ * @param events 原始 events（可能含重复 seq / 重复 turn 块）
+ * @param loggerLabel 用于日志的标签（如 sessionId）
+ * @returns 规范化后的 events（保证 seq 唯一 + 单调 + 无重复 turn 回放）
+ */
+export function normalizeEventsForReplay(
+  events: LiriEvent[],
+  loggerLabel: string = "unknown",
+): LiriEvent[] {
+  // Step 1: 过滤无效事件
+  const validEvents = events.filter(
+    (e) =>
+      e && typeof e.seq === "number" && Number.isFinite(e.seq) && e.seq > 0,
+  );
+  const invalidCount = events.length - validEvents.length;
+
+  // Step 2: 按 seq 去重（保留首次出现）
+  const seenSeqs = new Set<number>();
+  const dedupSeqs: LiriEvent[] = [];
+  let duplicateSeqCount = 0;
+  for (const e of validEvents) {
+    if (seenSeqs.has(e.seq)) {
+      duplicateSeqCount++;
+      continue;
+    }
+    seenSeqs.add(e.seq);
+    dedupSeqs.push(e);
+  }
+
+  // Step 3: 按 seq 升序排序
+  dedupSeqs.sort((a, b) => a.seq - b.seq);
+
+  // Step 4: 重复 turn 块跳过（仅限"连续重复回放"）
+  // 场景：后端异常时同一个 turn 块被完整回放多次（seq 递增但 turn 号相同、内容相同）。
+  //
+  // ⚠ 修复（2026-08-23，根因：后端重启后 _toolRoundCount 归零 → turn 号重新从 1 开始）：
+  // 原实现用全局 seenTurns 集合判断"turn 号是否出现过"，会把重启后的新对话
+  // （turn=1 与历史 turn=1 同号，但中间隔着其他 turn / user/message，是合法的新一轮）
+  // 误判为"重复回放"并整块删除 → 重新进入会话时信息不全、顺序错乱。
+  // 修复：改为"连续重复"判定——仅当上一次 turn 与本 turn 号相同且已正常 turn/end
+  // （紧邻重复）才跳过；user/message 是对话边界，遇到时重置判定状态。
+  let lastTurnNo: number | null = null; // 上一次 turn/start 的 turn 号
+  let lastTurnEnded = false; // 上一次 turn 是否已 turn/end（紧邻重复的必要条件）
+  const normalized: LiriEvent[] = [];
+  let skipUntilTurnEnd = false;
+  let skipStartSeq = 0;
+  let skipCount = 0;
+  let skippedTurnsCount = 0;
+
+  for (const e of dedupSeqs) {
+    if (skipUntilTurnEnd) {
+      skipCount++;
+      if (e.type === "turn/end") {
+        skipUntilTurnEnd = false;
+        skippedTurnsCount++;
+        logger.warn("[normalizeEvents] 跳过重复 turn 块结束", {
+          sessionId: loggerLabel,
+          seq: e.seq,
+          skipStartSeq,
+          skipCount,
+        });
+      }
+      continue;
+    }
+
+    if (e.type === "turn/start") {
+      const data = e.data as { turn: number } | undefined;
+      const turnNo = data?.turn;
+      if (
+        typeof turnNo === "number" &&
+        Number.isFinite(turnNo) &&
+        lastTurnNo === turnNo &&
+        lastTurnEnded
+      ) {
+        // 连续重复（同 turn 号紧邻且已完整结束）→ 开启跳过模式直到 turn/end
+        skipUntilTurnEnd = true;
+        skipStartSeq = e.seq;
+        skipCount = 1;
+        logger.warn(
+          "[normalizeEvents] 检测到连续重复 turn/start，开启跳过至 turn/end",
+          {
+            sessionId: loggerLabel,
+            turn: turnNo,
+            seq: e.seq,
+          },
+        );
+        continue;
+      }
+      if (typeof turnNo === "number" && Number.isFinite(turnNo)) {
+        lastTurnNo = turnNo;
+      }
+      lastTurnEnded = false;
+    } else if (e.type === "turn/end") {
+      // 记录上一次 turn 已正常结束（供"连续重复"判定）
+      lastTurnEnded = true;
+    } else if (e.type === "user/message") {
+      // 用户消息是新的对话边界：后端重启后 turn 号重新计数是合法场景，
+      // 重置判定状态，避免把重启后的新 turn 误判为重复回放
+      lastTurnNo = null;
+      lastTurnEnded = false;
+    }
+
+    normalized.push(e);
+  }
+
+  // 如果遇到文件末尾仍在 skipUntilTurnEnd（缺少 turn/end 收尾），记录一条 warn
+  if (skipUntilTurnEnd) {
+    logger.warn("[normalizeEvents] 文件尾仍在跳过态（缺少 turn/end 收尾）", {
+      sessionId: loggerLabel,
+      skipStartSeq,
+      skipCount,
+    });
+  }
+
+  const totalRemoved =
+    invalidCount + duplicateSeqCount + (dedupSeqs.length - normalized.length);
+  if (totalRemoved > 0 || skippedTurnsCount > 0) {
+    logger.info("[normalizeEvents] events 规范化完成", {
+      sessionId: loggerLabel,
+      input: events.length,
+      output: normalized.length,
+      removed: totalRemoved,
+      invalid: invalidCount,
+      duplicateSeq: duplicateSeqCount,
+      skippedTurns: skippedTurnsCount,
+    });
+  }
+  return normalized;
 }
 
 async function getTauriCore() {
@@ -430,12 +540,15 @@ export const sessionService = {
   },
 
   /**
-   * M2-3 + A1：加载会话对话数据（events 优先，增量加载，回退 messages）
+   * M2-3 + G7（2026-08-23 更新）：加载会话对话数据（后端统一派生）
    *
-   * A1 增量策略：
-   *  - 命中 _sessionEventsCache → 仅传 fromSeq=tailSeq+1 拉后端新增事件，合并到缓存 events
-   *  - 未命中 → 全量拉 limit=10000，写入缓存
-   *  - 回退：events 为空（旧会话未迁移）→ 走 legacy messages
+   * P2-2（2026-08-23）：统一消费后端派生结果——后端 getSessionMessages 已实现
+   * "事件派生优先（事件聚合 + 投影 lastEventSeq 版本覆盖）+ 投影兜底"，前端不再
+   * 自行 events 派生 / 3 信号损坏检测 / legacy 合并 / 10 分钟匹配窗 / timestamp 二次排序。
+   * （v0.1 的"增量双通道"设计已被后端派生内部吸收：覆盖判定在后端完成，前端无需
+   * events 增量 + 投影增量双通道。）
+   *
+   * 回退：后端派生/投影失败（网络/异常）→ legacy messages 规整。
    */
   loadConversation: (
     sessionId: string,
@@ -443,65 +556,42 @@ export const sessionService = {
     return getOTelTracing().asyncWrap(
       "services:session:loadConversation",
       async () => {
-        // 优先尝试 events 路径
+        // P2-2（2026-08-23）：统一消费后端派生结果（评审 G7）——
+        // 后端 getSessionMessages 已实现"事件派生优先（事件聚合 + 投影覆盖）+ 投影兜底"，
+        // 前端不再自行 events 派生 / 3 信号损坏检测 / legacy 合并 / 10 分钟匹配窗。
         try {
-          // A1：优先走增量
-          const cached = _sessionEventsCache.get(sessionId);
-          let events: LiriEvent[];
-          let newTailSeq: number;
-
-          if (cached) {
-            const result = await trajectoryService.getEvents(sessionId, {
-              fromSeq: cached.tailSeq + 1,
-              limit: 10000,
-            });
-            events = [...cached.events, ...result.events];
-            newTailSeq = result.tailSeq || cached.tailSeq;
-            logger.debug("loadConversation: 增量拉取完成", {
+          const res = await apiHttp.get<Message[]>(
+            `/v1/sessions/${sessionId}/messages`,
+          );
+          if (res.ok && Array.isArray(res.data)) {
+            // 评审 #3：排序键 = 首事件 seq——后端派生（EventMessageDeriver）已按首事件 seq 升序
+            // 返回（纯投影按 lastEventSeq 插入），前端**不再二次 timestamp 排序**（否则可能
+            // 打乱派生顺序，尤其 timestamp 相同/缺失的异常消息）。
+            const messages = res.data.slice();
+            if (messages.length > 0) {
+              setSessionCache(sessionId, messages);
+            }
+            logger.info("loadConversation: 消费后端派生结果", {
               sessionId,
-              prevTailSeq: cached.tailSeq,
-              newTailSeq,
-              incrementalCount: result.events.length,
-              totalCount: events.length,
-            });
-          } else {
-            const result = await trajectoryService.getEvents(sessionId, {
-              limit: 10000,
-            });
-            events = result.events;
-            newTailSeq = result.tailSeq;
-          }
-
-          if (events.length > 0) {
-            _setCachedSessionEvents(sessionId, {
-              events,
-              tailSeq: newTailSeq,
-            });
-            const messages = deriveConversationBlocks(events, { sessionId });
-            logger.info("loadConversation: 从 events 派生", {
-              sessionId,
-              incremental: !!cached,
-              eventCount: events.length,
               messageCount: messages.length,
-              tailSeq: newTailSeq,
             });
             return { messages, source: "events" };
           }
-          logger.debug("loadConversation: events 为空，回退 legacy", {
+          logger.warn("loadConversation 获取会话消息失败", {
             sessionId,
-            tailSeq: newTailSeq,
+            error: res.error,
           });
         } catch (e) {
           handleClientError(e, {
             module: "services:session",
-            action: "loadConversation:events",
+            action: "loadConversation",
           });
         }
 
-        // 回退到 messages 路径
-        const rawMessages = await sessionService.getMessages(sessionId);
-        const messages = importLegacyMessages(rawMessages);
-        return { messages, source: "legacy" };
+        // 回退：投影路径（后端 getMessages 已派生/投影，importLegacyMessages 规整）
+        const rawFallback = await sessionService.getMessages(sessionId);
+        const fallbackMessages = importLegacyMessages(rawFallback);
+        return { messages: fallbackMessages, source: "legacy" };
       },
     );
   },

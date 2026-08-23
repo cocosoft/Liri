@@ -1,5 +1,6 @@
-import React, { useState, useRef, useEffect } from "react";
+import React from "react";
 import { STYLES } from "../../styles/animations";
+import { isInternalTransitionStatus } from "../../stores/chat/chat-toolcall.slice";
 
 interface StatusBlockProps {
   content: string;
@@ -16,18 +17,12 @@ function StatusBlock({
   status,
   phase,
 }: StatusBlockProps) {
-  const [collapsed, setCollapsed] = useState(!isStreaming);
-  const prevStreaming = useRef(isStreaming);
-
-  useEffect(() => {
-    const wasStreaming = prevStreaming.current;
-    prevStreaming.current = isStreaming;
-
-    if (wasStreaming && !isStreaming) {
-      setCollapsed(true);
-    }
-  }, [isStreaming]);
-
+  // 内部过渡状态（AI is thinking 等）→ 不渲染；空 content 无信息价值同样跳过。
+  // 覆盖回放/历史数据路径（消息直接来自后端 blocks，不经过流式派生过滤）。
+  if (!content.trim() || isInternalTransitionStatus(content, status)) {
+    return null;
+  }
+  // P3-6：折叠功能为死代码（无内容区随 collapsed 隐藏），已移除 collapsed state/箭头/button
   const isRunning = status === "running";
   const isToolStatus = status === "completed" || status === "failed";
   // 压缩进行中：脉冲动画 + 强调色（类似工具调用的运行态）
@@ -49,7 +44,7 @@ function StatusBlock({
 
   return (
     <div style={styles.container}>
-      <button onClick={() => setCollapsed(!collapsed)} style={styles.header}>
+      <div style={styles.header}>
         <span style={styles.icon}>{icon}</span>
         <span
           style={{
@@ -60,8 +55,7 @@ function StatusBlock({
         >
           {content}
         </span>
-        <span style={styles.toggle}>{collapsed ? "▶" : "▼"}</span>
-      </button>
+      </div>
     </div>
   );
 }
@@ -79,11 +73,7 @@ const styles: Record<string, React.CSSProperties> = {
     gap: "6px",
     padding: "3px 10px",
     background: "rgba(128, 128, 128, 0.04)",
-    border: "none",
     width: "100%",
-    cursor: "pointer",
-    textAlign: "left",
-    fontFamily: "inherit",
     fontSize: "11px",
   },
   icon: {
@@ -102,11 +92,6 @@ const styles: Record<string, React.CSSProperties> = {
   text: {
     flex: 1,
     textAlign: "left",
-  },
-  toggle: {
-    fontSize: "10px",
-    color: "#565f89",
-    flexShrink: 0,
   },
 };
 

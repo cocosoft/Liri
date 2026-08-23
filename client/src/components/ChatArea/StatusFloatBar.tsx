@@ -1,13 +1,14 @@
 import { useState, useMemo, useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { useChatStore } from "../../stores/chat";
 import type { TaskCardData } from "../../types";
 
 const PHASE_LABELS: Record<string, string> = {
-  analyzing: "正在分析代码...",
-  designing: "正在设计方案...",
-  implementing: "正在实施变更...",
-  verifying: "正在验证结果...",
-  presenting: "正在生成报告...",
+  analyzing: "chat.phaseAnalyzing",
+  designing: "chat.phaseDesigning",
+  implementing: "chat.phaseImplementing",
+  verifying: "chat.phaseVerifying",
+  presenting: "chat.phasePresenting",
 };
 
 const STATUS_ICONS: Record<string, string> = {
@@ -48,6 +49,7 @@ function findLatestTaskCard(
  * 任务进度显示组件
  */
 function TaskProgress({ data }: { data: TaskCardData }) {
+  const { t } = useTranslation();
   const total = data.tasks.length;
   const completed = data.tasks.filter((t) => t.status === "completed").length;
   const failed = data.tasks.filter((t) => t.status === "failed").length;
@@ -56,8 +58,12 @@ function TaskProgress({ data }: { data: TaskCardData }) {
 
   return (
     <span className="text-xs text-gray-500 dark:text-gray-400 ml-2">
-      {completed}/{total} 任务已完成
-      {failed > 0 && <span className="text-red-500 ml-1">| {failed} 失败</span>}
+      {t("chat.taskProgressCompleted", { completed, total })}
+      {failed > 0 && (
+        <span className="text-red-500 ml-1">
+          | {t("chat.taskProgressFailed", { count: failed })}
+        </span>
+      )}
     </span>
   );
 }
@@ -74,6 +80,7 @@ function TaskMiniPanel({
   onClose: () => void;
   fluid?: boolean;
 }) {
+  const { t } = useTranslation();
   return (
     <div
       className="absolute bottom-full left-0 right-0 px-3 pb-1"
@@ -88,7 +95,7 @@ function TaskMiniPanel({
             <button
               onClick={onClose}
               className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
-              aria-label="收起"
+              aria-label={t("chat.collapse")}
             >
               <svg
                 className="w-4 h-4"
@@ -143,6 +150,7 @@ function TaskMiniPanel({
  * - 点击任务进度可展开 Mini 面板查看具体任务状态
  */
 export default function StatusFloatBar({ fluid = false }: { fluid?: boolean }) {
+  const { t } = useTranslation();
   const isSending = useChatStore((s) => s.isSending);
   const isStreaming = useChatStore((s) => s.isStreaming);
   const isUploading = useChatStore((s) => s.isUploading);
@@ -190,22 +198,25 @@ export default function StatusFloatBar({ fluid = false }: { fluid?: boolean }) {
    * 优先级：executionPhase > streamingStatus > 默认状态
    */
   const getStatusText = (): string => {
-    if (isUploading) return "正在上传文件...";
-    if (isSending && !isStreaming) return "正在发送...";
+    if (isUploading) return t("chat.uploading");
+    if (isSending && !isStreaming) return t("chat.sending");
     if (executionPhase?.phase) {
       const phaseLabel =
-        PHASE_LABELS[executionPhase.phase] || executionPhase.phase;
+        t(PHASE_LABELS[executionPhase.phase]) || executionPhase.phase;
       return executionPhase.description
         ? `${phaseLabel} ${executionPhase.description}`
         : phaseLabel;
     }
     if (streamingStatus) {
       // 精简上下文水位显示：仅取百分比，其余信息在 ContextWatermark hover 中查看
+      // TODO: CS05-ROOTFIX — 正则解析为旧格式兜底；当前水位数据已走 contextWatermarkStore
+      // 结构化字段（chat-stream-chunk context_state 分支），streamingStatus 不再承载水位文本
       const pctMatch = streamingStatus.match(/上下文水位:\s*(\d+)%/);
-      if (pctMatch) return `上下文 ${pctMatch[1]}%`;
+      if (pctMatch)
+        return t("chat.statusContextWatermark", { pct: pctMatch[1] });
       return streamingStatus;
     }
-    return "AI 正在回复...";
+    return t("chat.streamingLabel");
   };
 
   return (

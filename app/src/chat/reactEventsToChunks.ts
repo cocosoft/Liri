@@ -26,12 +26,26 @@ export function reactEventsToChunks(
 
     case 'reasoning_delta':
       return event.text
-        ? [{ type: 'text', content: event.text, sessionId }]
+        ? [
+            {
+              type: 'text',
+              content: event.text,
+              sessionId,
+              messageId: event.messageId,
+            },
+          ]
         : [];
 
     case 'thinking_delta':
       return event.content
-        ? [{ type: 'thinking', content: event.content, sessionId }]
+        ? [
+            {
+              type: 'thinking',
+              content: event.content,
+              sessionId,
+              messageId: event.messageId,
+            },
+          ]
         : [];
 
     case 'phase':
@@ -60,6 +74,7 @@ export function reactEventsToChunks(
           type: 'tool_call',
           content: '',
           sessionId,
+          messageId: event.messageId,
           toolCall: {
             id: event.callId,
             name: event.name,
@@ -82,6 +97,7 @@ export function reactEventsToChunks(
           type: 'tool_call',
           content: '',
           sessionId,
+          messageId: event.messageId,
           toolCall: {
             id: event.callId,
             name: event.result.name,

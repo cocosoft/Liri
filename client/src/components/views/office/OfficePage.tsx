@@ -45,7 +45,8 @@ export default function OfficePage() {
   useOfficeHotkeys();
 
   /** 模块上下文同步：保存/恢复 OfficeSessionContext */
-  useSessionContextSync("office", {
+  // P0-3 修复：解构 scheduleSave，在 selectedFile 变更时显式触发保存
+  const { scheduleSave } = useSessionContextSync("office", {
     save: () => {
       const state = useOfficeStore.getState();
       return {
@@ -63,6 +64,19 @@ export default function OfficePage() {
       }
     },
   });
+
+  /** P0-3：selectedFile 变更时触发保存 */
+  const selectedFileName = useOfficeStore((s) => s.selectedFile?.name);
+  const prevSelectedFileRef = useRef(selectedFileName);
+  useEffect(() => {
+    if (prevSelectedFileRef.current !== selectedFileName) {
+      prevSelectedFileRef.current = selectedFileName;
+      logger.debug("[P0-3:OfficePage] 文件选择变更，触发 scheduleSave", {
+        selectedFileName,
+      });
+      scheduleSave();
+    }
+  }, [selectedFileName, scheduleSave]);
 
   /** 初始化：加载办公模块状态 */
   useEffect(() => {

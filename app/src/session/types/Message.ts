@@ -103,6 +103,8 @@ export interface MessageMetadata {
   promptTokens?: number;
   finishReason?: string;
   tool_calls?: Array<Record<string, unknown>>;
+  /** A-7（2026-08-23）：事件写入失败标记——投影消息需对账修复（T-D 消费） */
+  pendingRepair?: boolean;
 }
 
 /**
@@ -162,6 +164,8 @@ export interface UnifiedMessage {
   blocks?: FrontendMessageBlock[];
   /** 流式响应结束原因 */
   finishReason?: string;
+  /** 投影版本戳（P1-6/G8/N11）：写盘时刻的会话全局事件 seq，随消息对象常驻以过 compact */
+  lastEventSeq?: number;
 }
 
 /**

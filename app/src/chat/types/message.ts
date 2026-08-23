@@ -458,6 +458,11 @@ export interface Message {
   metadata?: Record<string, unknown>;
 
   /**
+   * 投影版本戳（P1-6/G8/N11）：写盘时刻的会话全局事件 seq，随消息对象常驻以过 compact
+   */
+  lastEventSeq?: number;
+
+  /**
    * 消息状态
    */
   status?: MessageStatus;

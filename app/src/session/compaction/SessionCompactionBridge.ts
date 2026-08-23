@@ -22,6 +22,8 @@ import { handleError } from '@modules/error';
 import { SummaryCompactor } from './SummaryCompactor';
 import { LayeredCompactor } from './LayeredCompactor';
 import { KeyInfoExtractor } from './KeyInfoExtractor';
+import { promises as fs } from 'fs';
+import { dirname } from 'path';
 
 const logger = getLogger('session:compactionBridge');
 
@@ -31,6 +33,8 @@ export interface CompactionBridgeConfig {
   maxRecordsPerSession: number;
   compactOnThreshold: boolean;
   thresholdPercent: number;
+  /** M2-fix: 压缩历史 JSONL 持久化路径（空 = 纯内存，不持久化） */
+  recordHistoryPath?: string;
 }
 
 const DEFAULT_BRIDGE_CONFIG: CompactionBridgeConfig = {
@@ -64,6 +68,61 @@ export class SessionCompactionBridge {
   constructor(config?: Partial<CompactionBridgeConfig>) {
     this.config = { ...DEFAULT_BRIDGE_CONFIG, ...config };
     this.registerDefaultEngines();
+    // M2-fix: 构造时异步预加载历史（fire-and-forget，JSONL 很小不阻塞启动）
+    if (this.config.recordHistoryPath) {
+      this.loadHistory().catch((e) => {
+        logger.warn('压缩历史加载失败', {
+          error: e instanceof Error ? e.message : String(e),
+        });
+      });
+    }
+  }
+
+  /**
+   * M2-fix: 从 JSONL 加载压缩历史（跨重启恢复）
+   */
+  private async loadHistory(): Promise<void> {
+    const filePath = this.config.recordHistoryPath;
+    if (!filePath) return;
+    let content: string;
+    try {
+      content = await fs.readFile(filePath, 'utf-8');
+    } catch {
+      return; // 文件不存在 → 首次启动，无历史
+    }
+    for (const line of content.split('\n')) {
+      if (!line.trim()) continue;
+      try {
+        const record = JSON.parse(line) as CompactionRecord;
+        const list = this.records.get(record.sessionId) ?? [];
+        list.push(record);
+        if (list.length > this.config.maxRecordsPerSession) list.shift();
+        this.records.set(record.sessionId, list);
+      } catch {
+        // 跳过损坏行（@ignore-catch）
+      }
+    }
+    logger.debug('压缩历史加载完成', {
+      sessions: this.records.size,
+      filePath,
+    });
+  }
+
+  /**
+   * M2-fix: 追加一条记录到 JSONL（异步，失败不阻塞主流程）
+   */
+  private async persistRecord(record: CompactionRecord): Promise<void> {
+    const filePath = this.config.recordHistoryPath;
+    if (!filePath) return;
+    try {
+      await fs.mkdir(dirname(filePath), { recursive: true });
+      await fs.appendFile(filePath, JSON.stringify(record) + '\n', 'utf-8');
+    } catch (e) {
+      logger.warn('压缩历史持久化失败', {
+        sessionId: record.sessionId,
+        error: e instanceof Error ? e.message : String(e),
+      });
+    }
   }
 
   /**
@@ -233,6 +292,10 @@ export class SessionCompactionBridge {
       existing.splice(0, existing.length - this.config.maxRecordsPerSession);
     }
     this.records.set(record.sessionId, existing);
+    // M2-fix: 异步持久化（失败已由 persistRecord 内部记日志，不阻塞主流程）
+    if (this.config.recordHistoryPath) {
+      this.persistRecord(record);
+    }
   }
 
   getCompactionHistory(sessionId: string): CompactionRecord[] {

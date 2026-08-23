@@ -270,13 +270,17 @@ export class MessageToEventMigrator {
     const sessionId = this.sessionId;
 
     if (message.role === 'user') {
+      // P1-5 缺口修复（2026-08-23）：user 分支透传 messageId（message.id），
+      // 非流式落盘/恢复重建的用户消息参与 v1 事件聚合，不再只能靠投影兜底。
       events.push({
         type: 'user/message',
+        schemaVersion: 1,
         seq: seq++,
         time,
         sessionId,
         data: {
           content: this.extractStringContent(message.content),
+          messageId: message.id,
         },
       });
     } else if (message.role === 'assistant') {
@@ -284,16 +288,29 @@ export class MessageToEventMigrator {
       // 更新 seq：events 已追加，下一个 seq 是 startSeq + events.length
       seq = startSeq + events.length;
     } else if (message.role === 'tool' && message.toolCallId) {
+      // P1-5（2026-08-23）：tool/result.messageId = 归属 assistant 消息 id。
+      // 读取顺序：metadata.parentMessageId → metadata.parentUuid → 顶层 parentUuid（N6 回退），
+      // 覆盖存量带 parentUuid 的 tool 消息；v0 无任何来源 → messageId 缺省待归组。
+      const meta = (message.metadata ?? {}) as Record<string, unknown>;
+      const parentMsgId =
+        (meta.parentMessageId as string) ||
+        (meta.parentUuid as string) ||
+        (message as unknown as { parentUuid?: string }).parentUuid;
+      // T2.3（2026-08-23）：callSeq 直读 —— ReActToolLoop 在 toolResultMsg.metadata 携带
+      // callSeq（= tool_call 事件 seq，A1③ 闭环）；无则 -1 占位由 _toolCallSeqMap 回填兜底。
+      const callSeq = typeof meta.callSeq === 'number' ? meta.callSeq : -1;
       events.push({
         type: 'tool/result',
+        schemaVersion: parentMsgId ? 1 : undefined,
         seq: seq++,
         time,
         sessionId,
         data: {
-          callSeq: -1, // 占位，主流程回填
+          callSeq,
           toolCallId: message.toolCallId,
           result: this.extractStringContent(message.content),
           isError: this.isToolError(message),
+          messageId: parentMsgId,
         },
       });
     }
@@ -331,10 +348,11 @@ export class MessageToEventMigrator {
     if (thinkingText.trim()) {
       events.push({
         type: 'assistant/thinking',
+        schemaVersion: 1,
         seq: seq++,
         time,
         sessionId,
-        data: { content: thinkingText.trim() },
+        data: { content: thinkingText.trim(), messageId: message.id },
       });
     }
 
@@ -343,21 +361,42 @@ export class MessageToEventMigrator {
     if (textContent) {
       events.push({
         type: 'assistant/text',
+        schemaVersion: 1,
         seq: seq++,
         time,
         sessionId,
-        data: { content: textContent },
+        data: { content: textContent, messageId: message.id },
       });
     }
 
     // Step 3: tool_calls 拆为独立事件
-    const toolCalls = message.tool_calls ?? [];
+    // ⚠ 修复（2026-08-23，根因：ReActToolLoop 把 tool_calls 写入 metadata.tool_calls，
+    // 而这里只读 message.tool_calls → assistant/tool_call 事件从未写入 events.jsonl，
+    // 导致重新进入会话时工具调用过程在回放中完全丢失，对话顺序错乱）。
+    // 修复：同时兼容 message.tool_calls 与 metadata.tool_calls 两个位置。
+    const metaToolCalls = (
+      message.metadata as Record<string, unknown> | undefined
+    )?.tool_calls as Array<Record<string, unknown>> | undefined;
+    const rawToolCalls = [
+      ...(message.tool_calls ?? []),
+      ...(metaToolCalls ?? []),
+    ];
+    // 按 id 去重（两个位置可能同时存在相同调用）
+    const seenCallIds = new Set<string>();
+    const toolCalls = rawToolCalls.filter((tc) => {
+      const id = String(this.extractToolCallId(tc) ?? '');
+      if (!id) return true;
+      if (seenCallIds.has(id)) return false;
+      seenCallIds.add(id);
+      return true;
+    });
     for (const tc of toolCalls) {
       const toolCallId = this.extractToolCallId(tc);
       const name = this.extractToolCallName(tc);
       const args = this.extractToolCallArgs(tc);
       events.push({
         type: 'assistant/tool_call',
+        schemaVersion: 1,
         seq: seq++,
         time,
         sessionId,
@@ -365,6 +404,7 @@ export class MessageToEventMigrator {
           toolCallId,
           name,
           args,
+          messageId: message.id,
         },
       });
     }

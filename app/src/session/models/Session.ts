@@ -94,6 +94,20 @@ export class Session implements Session {
     if (metadata.worktreeState !== undefined)
       this.metadata.worktreeState = metadata.worktreeState;
     if (metadata.prLink !== undefined) this.metadata.prLink = metadata.prLink;
+    // P0-fix（H4）：补全静默丢弃的字段 —— model/workspaceId/providerId/
+    // tasksOverride/tokenUsage/sessionSource 此前传入后被忽略，调用方以为
+    // 元数据更新成功实际未生效（如 token 用量、模型绑定）。
+    if (metadata.model !== undefined) this.metadata.model = metadata.model;
+    if (metadata.workspaceId !== undefined)
+      this.metadata.workspaceId = metadata.workspaceId;
+    if (metadata.providerId !== undefined)
+      this.metadata.providerId = metadata.providerId;
+    if (metadata.tasksOverride !== undefined)
+      this.metadata.tasksOverride = metadata.tasksOverride;
+    if (metadata.tokenUsage !== undefined)
+      this.metadata.tokenUsage = metadata.tokenUsage;
+    if (metadata.sessionSource !== undefined)
+      this.metadata.sessionSource = metadata.sessionSource;
     this.update();
   }
 
@@ -103,8 +117,11 @@ export class Session implements Session {
    */
   updateState(state: Partial<SessionState>): void {
     const from = this.state.currentState;
-    if (state.currentState !== undefined)
-      this.state.currentState = state.currentState;
+    // L1-fix: 走 SessionState.updateState 词汇表校验（SESSION_STATES 8 状态枚举），
+    // 原实现直接赋值 currentState 绕过校验，旧值 'active' 可被写入。
+    if (state.currentState !== undefined) {
+      this.state.updateState(state.currentState);
+    }
     if (state.history !== undefined) this.state.history = state.history;
     if (state.config !== undefined) this.state.config = state.config;
     this.update();

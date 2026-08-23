@@ -6,8 +6,12 @@
  */
 import { chatService } from "@/services/chatService";
 import { handleClientError } from "@/utils/handleError";
+import { createLogger } from "@/utils/logger";
 import type { Message } from "@/types";
 import type { MessageBlock } from "@/types";
+import { dedupeToolCallBlocks } from "./chat-message-shared";
+
+const logger = createLogger("stores:chat:history");
 
 // 会话消息缓存：避免快速切换时重复 fetch
 const _sessionMessageCache = new Map<string, Message[]>();
@@ -59,7 +63,23 @@ export class SaveQueue {
   ): void {
     this._sessionId = sessionId;
     this._messageId = messageId;
-    this._blocks = blocks;
+    // T1.1（2026-08-23）：落盘前对同 toolCallId 的 tool_call 块合并去重，
+    // 防止 SSE 层重复发送导致投影 blocks 持续污染（合并保留终态 status/result + 首个非空 arguments）
+    // T1.2 诊断：有重复时记录去重统计（[DUP: 前缀），定位重复产生侧
+    const rawToolCalls = blocks.filter((b) => b.type === "tool_call");
+    if (rawToolCalls.length > 0) {
+      const uniqueToolIds = new Set(
+        rawToolCalls.map((b) => b.toolCallId || b.toolCall?.id || ""),
+      ).size;
+      if (rawToolCalls.length !== uniqueToolIds) {
+        logger.debug("[DUP:save] tool_call 块去重", {
+          messageId,
+          rawToolCalls: rawToolCalls.length,
+          uniqueToolIds,
+        });
+      }
+    }
+    this._blocks = dedupeToolCallBlocks(blocks);
     this._hasPending = true;
     if (immediate) {
       if (this._timer) clearTimeout(this._timer);

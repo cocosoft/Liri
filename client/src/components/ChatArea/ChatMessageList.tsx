@@ -5,8 +5,11 @@ import ChatMessage from "./ChatMessage";
 import type { Message } from "../../types";
 import { SkeletonMessageList } from "../common/Skeleton";
 import { useSessionStore } from "../../stores/sessionStore";
+import { useChatInspectorStore } from "../../stores/chatInspectorStore";
 import { ErrorBoundary } from "../common/ErrorBoundary";
 import { shouldShowDateSeparator, formatDateLabel } from "./dateUtils";
+import { VirtualScrollProvider } from "./VirtualScrollContext";
+import { getMessageSearchText } from "../../utils/messageText";
 
 /** 入门提示卡片数据 */
 interface StarterPrompt {
@@ -60,35 +63,6 @@ function MessageErrorFallback({ error }: { error: Error | null }) {
       </div>
     </div>
   );
-}
-
-/** 从消息中提取所有可搜索文本（含 block 内容） */
-function getMessageSearchText(message: Message): string {
-  const parts: string[] = [];
-
-  if (message.content) {
-    parts.push(typeof message.content === "string" ? message.content : "");
-  }
-
-  if (message.blocks && message.blocks.length > 0) {
-    for (const block of message.blocks) {
-      if (block.content) {
-        if (
-          !message.content ||
-          (typeof message.content === "string" &&
-            !message.content.includes(block.content))
-        ) {
-          parts.push(block.content);
-        }
-      }
-    }
-  }
-
-  if (message.error) {
-    parts.push(message.error);
-  }
-
-  return parts.join("\n");
 }
 
 /**
@@ -334,6 +308,39 @@ export default function ChatMessageList({
     scrollToMatch(next);
   }, [matchedIds, currentMatchIndex, scrollToMatch]);
 
+  /**
+   * P1-1 修复：上下文面板高亮跳转下沉到列表内部（替代 ChatArea 的 querySelectorAll）。
+   * 虚拟列表下离屏消息不在 DOM，DOM 查询静默失效；此处用 virtualizer.scrollToIndex
+   * 先滚动（目标进入视口后才渲染），再 rAF 一次挂高亮闪烁。
+   */
+  const highlightedRoundId = useChatInspectorStore((s) => s.highlightedRoundId);
+  const setHighlightedRoundId = useChatInspectorStore(
+    (s) => s.setHighlightedRoundId,
+  );
+  useEffect(() => {
+    if (!highlightedRoundId) return;
+    requestAnimationFrame(() => {
+      const msgIndex = messages.findIndex((m) => m.id === highlightedRoundId);
+      if (msgIndex >= 0) {
+        virtualizer.scrollToIndex(msgIndex, { align: "center" });
+        // 滚动完成、目标消息渲染后再加高亮闪烁
+        requestAnimationFrame(() => {
+          const el = Array.from(
+            document.querySelectorAll<HTMLElement>("[data-msg-id]"),
+          ).find((n) => n.getAttribute("data-msg-id") === highlightedRoundId);
+          if (el) {
+            el.classList.add("ring-2", "ring-blue-400", "ring-offset-1");
+            setTimeout(() => {
+              el.classList.remove("ring-2", "ring-blue-400", "ring-offset-1");
+            }, 1500);
+          }
+        });
+      }
+      // 重置以允许重复点击同一消息
+      setHighlightedRoundId(null);
+    });
+  }, [highlightedRoundId, messages, virtualizer, setHighlightedRoundId]);
+
   /** 切换搜索 */
   const toggleSearch = useCallback(() => {
     setSearchOpen((prev) => {
@@ -375,18 +382,30 @@ export default function ChatMessageList({
   /** 匹配集用于高亮标记 */
   const matchedSet = useMemo(() => new Set(matchedIds), [matchedIds]);
 
-  /** 最后一条 assistant 消息的索引（isStreaming 仅对此消息生效） */
-  const lastAssistantIdx = useMemo(
-    () =>
-      messages.reduce((last, m, i) => (m.role === "assistant" ? i : last), -1),
-    [messages],
-  );
+  /** P2-3 修复：lastAssistantIdx 改 findLastIndex 提前退出（O(n) → 平均 O(n/2)） */
+  const lastAssistantIdx = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role === "assistant") return i;
+    }
+    return -1;
+  }, [messages]);
 
-  /** 被回复消息 id 集合（AB-20：避免每条消息 O(n) 扫描 replyToId → 整列表 O(n²)） */
-  const repliedIdSet = useMemo(
-    () => new Set(messages.map((m) => m.replyToId).filter(Boolean) as string[]),
-    [messages],
-  );
+  /**
+   * 被回复消息 id 集合（AB-20：避免每条消息 O(n) 扫描 replyToId → 整列表 O(n²)）。
+   * P2-3 修复：流式期间 messages 引用每 chunk 变化，复用上次结果避免每 chunk O(n) 重算；
+   * 流式期间最后一条 assistant 消息在变，replyToId 关系几乎不变（新消息 replyToId 恒为空），复用安全。
+   */
+  const repliedIdSetRef = useRef<Set<string>>(new Set());
+  const repliedIdSet = useMemo(() => {
+    if (isStreaming && repliedIdSetRef.current.size > 0) {
+      return repliedIdSetRef.current;
+    }
+    const set = new Set(
+      messages.map((m) => m.replyToId).filter(Boolean) as string[],
+    );
+    repliedIdSetRef.current = set;
+    return set;
+  }, [messages, isStreaming]);
 
   // 重置导出菜单标识
   if (!hasSession) {
@@ -504,114 +523,118 @@ export default function ChatMessageList({
   }
 
   return (
-    <div className="relative">
-      {/* 顶部工具栏：搜索 + 导出 */}
-      {searchOpen && (
-        <SearchBar
-          query={searchQuery}
-          onQueryChange={setSearchQuery}
-          matchCount={matchedIds.length}
-          currentIndex={currentMatchIndex}
-          onPrev={goToPrevMatch}
-          onNext={goToNextMatch}
-          onClose={closeSearch}
-        />
-      )}
+    <VirtualScrollProvider virtualizer={virtualizer} messages={messages}>
+      <div className="relative">
+        {/* 顶部工具栏：搜索 + 导出 */}
+        {searchOpen && (
+          <SearchBar
+            query={searchQuery}
+            onQueryChange={setSearchQuery}
+            matchCount={matchedIds.length}
+            currentIndex={currentMatchIndex}
+            onPrev={goToPrevMatch}
+            onNext={goToNextMatch}
+            onClose={closeSearch}
+          />
+        )}
 
-      {/* 搜索按钮（固定在右上角，搜索栏打开时隐藏） */}
-      {!searchOpen && (
-        <div className="sticky top-0 z-10 flex items-center justify-end gap-1 px-4 py-1.5 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm">
-          <button
-            onClick={toggleSearch}
-            className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-            title={t("common.search")}
-          >
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
+        {/* 搜索按钮（固定在右上角，搜索栏打开时隐藏） */}
+        {!searchOpen && (
+          <div className="sticky top-0 z-10 flex items-center justify-end gap-1 px-4 py-1.5 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm">
+            <button
+              onClick={toggleSearch}
+              className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              title={t("common.search")}
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-              />
-            </svg>
-          </button>
-        </div>
-      )}
-
-      {/* 消息列表（W3 虚拟滚动：仅渲染视口 ± overscan，长会话不再全量挂载） */}
-      <div
-        className="py-4 relative"
-        style={{ height: virtualizer.getTotalSize() }}
-      >
-        {virtualizer.getVirtualItems().map((virtualRow) => {
-          const message = messages[virtualRow.index];
-          const i = virtualRow.index;
-          const isMatched = matchedSet.has(message.id);
-          const isCurrentMatch =
-            matchedIds.length > 0 &&
-            matchedIds[currentMatchIndex] === message.id;
-          const hasReplies = repliedIdSet.has(message.id);
-
-          return (
-            <div
-              key={message.id}
-              data-index={virtualRow.index}
-              ref={virtualizer.measureElement}
-              style={{
-                position: "absolute",
-                top: 0,
-                left: 0,
-                width: "100%",
-                transform: `translateY(${virtualRow.start}px)`,
-              }}
-            >
-              {/* 日期分隔线：跨天时插入 */}
-              {shouldShowDateSeparator(i, messages) && (
-                <div
-                  className="flex items-center justify-center py-2"
-                  role="separator"
-                  aria-label={formatDateLabel(message.timestamp!)}
-                >
-                  <span className="rounded-full bg-gray-200 dark:bg-gray-700 px-3 py-0.5 text-xs text-gray-500 dark:text-gray-400">
-                    {formatDateLabel(message.timestamp!)}
-                  </span>
-                </div>
-              )}
-
-              <div
-                data-msg-id={message.id}
-                className={`transition-colors ${
-                  message.role === "user"
-                    ? "animate-message-enter-right"
-                    : "animate-message-enter-left"
-                } ${
-                  isMatched
-                    ? "bg-yellow-50/40 dark:bg-yellow-900/10 border-l-2 border-yellow-400 dark:border-yellow-500"
-                    : "border-l-2 border-transparent"
-                } ${isCurrentMatch ? "bg-yellow-100/60 dark:bg-yellow-900/20 ring-1 ring-yellow-400/30" : ""}`}
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
               >
-                <ErrorBoundary fallback={<MessageErrorFallback error={null} />}>
-                  <ChatMessage
-                    message={message}
-                    isStreaming={
-                      isStreaming &&
-                      message.role === "assistant" &&
-                      i === lastAssistantIdx
-                    }
-                    hasReplies={hasReplies}
-                    sessionUsage={sessionUsage}
-                  />
-                </ErrorBoundary>
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                />
+              </svg>
+            </button>
+          </div>
+        )}
+
+        {/* 消息列表（W3 虚拟滚动：仅渲染视口 ± overscan，长会话不再全量挂载） */}
+        <div
+          className="py-4 relative"
+          style={{ height: virtualizer.getTotalSize() }}
+        >
+          {virtualizer.getVirtualItems().map((virtualRow) => {
+            const message = messages[virtualRow.index];
+            const i = virtualRow.index;
+            const isMatched = matchedSet.has(message.id);
+            const isCurrentMatch =
+              matchedIds.length > 0 &&
+              matchedIds[currentMatchIndex] === message.id;
+            const hasReplies = repliedIdSet.has(message.id);
+
+            return (
+              <div
+                key={message.id}
+                data-index={virtualRow.index}
+                ref={virtualizer.measureElement}
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  width: "100%",
+                  transform: `translateY(${virtualRow.start}px)`,
+                }}
+              >
+                {/* 日期分隔线：跨天时插入 */}
+                {shouldShowDateSeparator(i, messages) && (
+                  <div
+                    className="flex items-center justify-center py-2"
+                    role="separator"
+                    aria-label={formatDateLabel(message.timestamp!)}
+                  >
+                    <span className="rounded-full bg-gray-200 dark:bg-gray-700 px-3 py-0.5 text-xs text-gray-500 dark:text-gray-400">
+                      {formatDateLabel(message.timestamp!)}
+                    </span>
+                  </div>
+                )}
+
+                <div
+                  data-msg-id={message.id}
+                  className={`transition-colors ${
+                    message.role === "user"
+                      ? "animate-message-enter-right"
+                      : "animate-message-enter-left"
+                  } ${
+                    isMatched
+                      ? "bg-yellow-50/40 dark:bg-yellow-900/10 border-l-2 border-yellow-400 dark:border-yellow-500"
+                      : "border-l-2 border-transparent"
+                  } ${isCurrentMatch ? "bg-yellow-100/60 dark:bg-yellow-900/20 ring-1 ring-yellow-400/30" : ""}`}
+                >
+                  <ErrorBoundary
+                    fallback={<MessageErrorFallback error={null} />}
+                  >
+                    <ChatMessage
+                      message={message}
+                      isStreaming={
+                        isStreaming &&
+                        message.role === "assistant" &&
+                        i === lastAssistantIdx
+                      }
+                      hasReplies={hasReplies}
+                      sessionUsage={sessionUsage}
+                    />
+                  </ErrorBoundary>
+                </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
-    </div>
+    </VirtualScrollProvider>
   );
 }

@@ -43,6 +43,8 @@ import { generateAuditReport } from './AuditReport';
 import type { AuditReport } from './AuditReport';
 import { formatReviewSummary } from './PlanReview';
 import type { PlanReview, ReviewDecision } from './PlanReview';
+// E-4（2026-08-23，T-G）：PDCA 旁路轨迹文件（子步骤完整轨迹，会话外诊断数据）
+import { TrajectoryTrailRecorder } from '@modules/session/trajectory/TrajectoryTrailRecorder';
 import { createReviewGate } from './review/ReviewGate.js';
 import type { ReviewGate, ReviewGateContext } from './review/ReviewGate.js';
 import { TAORLoop, createTAORLoopDeps } from '../query/TAORLoop.js';
@@ -643,6 +645,16 @@ ${replanSection}
         sessionId: this._sessionId,
         status: 'running',
         stepDesc: last.content.slice(0, 120),
+      });
+    }
+    // E-4（2026-08-23，T-G）：PDCA 子步骤完整轨迹落旁路文件（会话外诊断数据，
+    // 不占会话体积/上下文；会话内回写仍保持 slice 节流）
+    for (const m of msgs) {
+      void TrajectoryTrailRecorder.append(this._sessionId, {
+        type: 'task_step',
+        taskId: this.taskId,
+        desc: m.content.slice(0, 500),
+        detail: { role: m.role },
       });
     }
   }

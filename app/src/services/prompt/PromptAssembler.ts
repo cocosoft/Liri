@@ -3,6 +3,7 @@ import {
   resolveSystemPromptSections,
   CACHE_BOUNDARY,
   type SystemPromptSection,
+  localToolUseSection,
 } from '@modules/constants/systemPromptSections';
 import { buildSystemPrompt, type SystemPromptContext } from '@modules/ai';
 import { providerPromptRegistry } from './ProviderPromptPlugin';
@@ -56,6 +57,18 @@ const CONVERSATION_SECTION_NAMES = new Set([
   'projectContext',
 ]);
 
+// 本地模型（llama.cpp/Ollama）精简段落：
+// 去掉依赖已裁剪工具的规则段落 — taskNegotiation（todo_write/ask_user_question）、
+// shellDeclaration（bash/powershell 已裁剪）、toolIntegrity（工具结果完整性对少工具模型价值低）
+const LOCAL_SECTION_NAMES = new Set([
+  'identity',
+  'personality',
+  'userProfile',
+  'toolUse',
+  'sessionContext',
+  'projectContext',
+]);
+
 export interface AssembleOptions {
   sections?: SystemPromptSection[];
   strategyExtra?: string;
@@ -76,6 +89,12 @@ function filterSectionsByMode(
       return sections.filter((s) => CORE_SECTION_NAMES.has(s.name));
     case 'conversation':
       return sections.filter((s) => CONVERSATION_SECTION_NAMES.has(s.name));
+    case 'local':
+      // 本地模型：精简段落 + toolUse 替换为 localToolUseSection
+      // （去掉"必要时等待用户确认"，避免弱模型反复请求确认死循环）
+      return sections
+        .filter((s) => LOCAL_SECTION_NAMES.has(s.name))
+        .map((s) => (s.name === 'toolUse' ? localToolUseSection : s));
     case 'full':
     default:
       return sections;

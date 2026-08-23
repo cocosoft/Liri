@@ -49,6 +49,14 @@ export interface ToolLoopContext {
   options: Record<string, unknown>;
   abortSignal: AbortSignal;
 
+  /**
+   * T2.3（2026-08-23）：tool_call 事件 seq 映射（toolCallId → 事件 seq）。
+   * streamMessageFlow 在写 assistant/tool_call 事件时填充；ReActToolLoop 构造
+   * toolResultMsg 时读取写入 metadata.callSeq，convertMessage 据此直读生成
+   * tool/result.callSeq（闭环 A1③，前端配对不再依赖 -1 兜底）。
+   */
+  toolCallSeqMap?: Map<string, number>;
+
   // 工具执行
   executeTool: (
     toolCall: ToolCall,
@@ -98,7 +106,7 @@ export interface ToolLoopContext {
     ): Message;
     createAssistantMessage(
       content: string,
-      opts: { sessionId: string }
+      opts: { sessionId: string; id?: string }
     ): Message;
   };
   addAndPersistMessage: (sessionId: string, message: Message) => void;
@@ -185,6 +193,21 @@ export interface ToolLoopContext {
 
   // 用量估算
   estimateMessagesTokens: (messages: unknown[]) => number;
+
+  // M1 事件溯源（2026-08-23）：工具轮 text/thinking chunk 写 events.jsonl
+  //（对齐 streamMessageFlow 主循环，缺失导致工具轮正文/思考不进事件流，重新打开正文缺失）
+  appendStreamEvent?: (
+    sessionId: string,
+    event: {
+      type: string;
+      schemaVersion?: 1;
+      seq: number;
+      time: number;
+      sessionId: string;
+      data: unknown;
+    }
+  ) => Promise<void>;
+  getStreamTailSeq?: (sessionId: string) => Promise<number>;
 }
 
 /* ===================================================================

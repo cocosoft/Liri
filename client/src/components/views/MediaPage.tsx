@@ -173,7 +173,8 @@ function MediaPage() {
 
   // ──── SessionHub 上下文同步（Phase 4）──
   // 保存/恢复媒体模块的 prompt、尺寸、风格、当前文件
-  useSessionContextSync("media", {
+  // P0-3 修复：解构 scheduleSave，在 prompt/size/style/editingImage 变更时显式触发保存
+  const { scheduleSave } = useSessionContextSync("media", {
     save: () => {
       const state = useMediaStore.getState();
       return {
@@ -192,6 +193,33 @@ function MediaPage() {
       if (ctx.style) state.setParams({ style: ctx.style });
     },
   });
+
+  /** P0-3：prompt/size/style/editingImage 变更时触发保存 */
+  const mediaState = useMediaStore((s) => ({
+    prompt: s.prompt,
+    size: s.params.aspectRatio,
+    style: s.params.style,
+    editingImageUrl: s.editingImage?.url,
+  }));
+  const prevMediaStateRef = useRef(mediaState);
+  useEffect(() => {
+    const prev = prevMediaStateRef.current;
+    if (
+      prev.prompt !== mediaState.prompt ||
+      prev.size !== mediaState.size ||
+      prev.style !== mediaState.style ||
+      prev.editingImageUrl !== mediaState.editingImageUrl
+    ) {
+      prevMediaStateRef.current = mediaState;
+      logger.debug("[P0-3:MediaPage] 媒体状态变更，触发 scheduleSave", {
+        promptLength: mediaState.prompt?.length ?? 0,
+        size: mediaState.size,
+        style: mediaState.style,
+        hasEditingImage: !!mediaState.editingImageUrl,
+      });
+      scheduleSave();
+    }
+  }, [mediaState, scheduleSave]);
   const setIntendedAction = useMediaStore((s) => s.setIntendedAction);
   const clearSelectedImage = useMediaStore((s) => s.clearSelectedImage);
   const editingImage = useMediaStore((s) => s.editingImage);

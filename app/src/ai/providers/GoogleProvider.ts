@@ -80,6 +80,8 @@ export class GoogleProvider extends BaseAIProvider {
       model?: string;
       maxTokens?: number;
       temperature?: number;
+      /** 外部取消信号（用户停止/会话切换），任一触发即中断请求 */
+      signal?: AbortSignal;
     }
   ): Promise<ChatResponse> {
     // 耗时统计：委托 BaseAIProvider.measureChat（2026-08-16）
@@ -95,6 +97,7 @@ export class GoogleProvider extends BaseAIProvider {
       model?: string;
       maxTokens?: number;
       temperature?: number;
+      signal?: AbortSignal;
     }
   ): Promise<ChatResponse> {
     const model = await this.resolveModel('chat', options);
@@ -116,7 +119,10 @@ export class GoogleProvider extends BaseAIProvider {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(requestBody),
-        signal: AbortSignal.timeout(120000),
+        // 外部取消信号与请求超时任一触发即中断（CS01：与 chatStream 一致）
+        signal: options?.signal
+          ? AbortSignal.any([options.signal, AbortSignal.timeout(120000)])
+          : AbortSignal.timeout(120000),
       });
 
       if (!response.ok) {
@@ -152,6 +158,8 @@ export class GoogleProvider extends BaseAIProvider {
       model?: string;
       maxTokens?: number;
       temperature?: number;
+      /** 外部取消信号（用户停止/会话切换），任一触发即中断流式请求 */
+      signal?: AbortSignal;
     }
   ): AsyncGenerator<string, ChatResponse, unknown> {
     // 流式耗时统计：委托 BaseAIProvider.wrapChatStreamMeasure（2026-08-16）
@@ -168,6 +176,7 @@ export class GoogleProvider extends BaseAIProvider {
       model?: string;
       maxTokens?: number;
       temperature?: number;
+      signal?: AbortSignal;
     }
   ): AsyncGenerator<string, ChatResponse, unknown> {
     const model = await this.resolveModel('chat', options);
@@ -191,7 +200,10 @@ export class GoogleProvider extends BaseAIProvider {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(requestBody),
-        signal: AbortSignal.timeout(180000),
+        // 外部取消信号（用户停止/会话切换）与请求超时任一触发即中断（CS01：与其他 Provider 一致）
+        signal: options?.signal
+          ? AbortSignal.any([options.signal, AbortSignal.timeout(180000)])
+          : AbortSignal.timeout(180000),
       });
 
       if (!response.ok) {

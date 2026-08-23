@@ -157,6 +157,10 @@ export class BedrockProvider extends BaseAIProvider {
         ...signedHeaders,
       },
       body,
+      // 外部取消信号（用户停止/会话切换）与默认超时任一触发即中断（CS01：与其他 Provider 一致）
+      signal: options?.signal
+        ? AbortSignal.any([options.signal, AbortSignal.timeout(180000)])
+        : AbortSignal.timeout(180000),
     });
 
     if (!response.ok) {

@@ -38,6 +38,27 @@ const MAX_MESSAGE_CHARS = 16_000;
 const TRUNCATE_KEEP_HEAD_RATIO = 0.6;
 
 /**
+ * P2-4（对标 deepseek-harness tool-result-pruner）：Unicode 码点安全头尾截断。
+ * JS `slice` 按 UTF-16 单元切分，会切开 surrogate pair（emoji/生僻字变乱码）；
+ * 本函数按 Unicode code point 切分，保留边界不拆代理对。
+ * @param content 原始内容
+ * @returns 截断后内容（未超长时返回原串）
+ */
+function truncateUnicodeSafe(content: string): string {
+  const chars = Array.from(content); // 按码点（code point）切分
+  if (chars.length <= MAX_MESSAGE_CHARS) return content;
+  const keepHead = Math.floor(MAX_MESSAGE_CHARS * TRUNCATE_KEEP_HEAD_RATIO);
+  const keepTail = MAX_MESSAGE_CHARS - keepHead;
+  const head = chars.slice(0, keepHead).join('');
+  const tail = chars.slice(chars.length - keepTail).join('');
+  return (
+    head +
+    `\n\n[... 内容过长已截断（原 ${chars.length} 字符），保留头尾 ...]\n\n` +
+    tail
+  );
+}
+
+/**
  * 单条超长消息截断（项2 落地，会话排查 2026-08-13）：
  * SnipEngine 按轮次裁剪，若"单条超长消息"（如巨大 tool_result、超长 system prompt）
  * 本身就是窗口膨胀主因，轮次裁剪无法降体积（只有一轮）→ Tier2 无效 → 依赖 Tier3。
@@ -63,15 +84,12 @@ function truncateOverlongMessages(messages: ChatMessage[]): ChatMessage[] {
 
   return messages.map((msg, idx) => {
     const content = typeof msg.content === 'string' ? msg.content : null;
-    if (!content || content.length <= MAX_MESSAGE_CHARS) return msg;
+    if (!content) return msg;
+    const truncated = truncateUnicodeSafe(content);
+    // 未超长 → 原样返回
+    if (truncated === content) return msg;
     // BUG-FIX：当前用户输入不截断（LLM 需看完整提问，且避免写回会话时原始内容丢失）
     if (idx === lastUserIdx) return msg;
-    const keepHead = Math.floor(MAX_MESSAGE_CHARS * TRUNCATE_KEEP_HEAD_RATIO);
-    const keepTail = MAX_MESSAGE_CHARS - keepHead;
-    const truncated =
-      content.slice(0, keepHead) +
-      `\n\n[... 内容过长已截断（原 ${content.length} 字符），保留头尾 ...]\n\n` +
-      content.slice(content.length - keepTail);
     return { ...msg, content: truncated } as ChatMessage;
   });
 }

@@ -98,7 +98,9 @@ describe('SessionArchiver', () => {
       expect(result.success).toBe(true);
       expect(result.sessionId).toBe('arch-s1');
       expect(result.archivePath).not.toBeNull();
-      expect(result.archivePath!).toContain('arch-s1.archive');
+      // H6：归档路径带时间戳版本（${sessionId}-${ts}.archive）
+      expect(result.archivePath!).toContain('arch-s1-');
+      expect(result.archivePath!).toContain('.archive');
     });
 
     it('should return failure result for archiving error', async () => {

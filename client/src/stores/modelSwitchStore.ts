@@ -8,6 +8,7 @@
 import { create } from "zustand";
 import { modelSwitchService } from "../services/modelSwitchService";
 import { handleClientError } from "@/utils/handleError";
+import { toastError } from "@/stores/toastStore";
 import type { CurrentModelInfo, TaskModelConfig } from "../types";
 
 interface ModelSwitchState {
@@ -85,6 +86,8 @@ export const useModelSwitchStore = create<ModelSwitchState>((set) => ({
         "warn",
       );
       set({ error: e instanceof Error ? e.message : "切换模型失败" });
+      // 切换失败用户可见提示（如 "模型 X 的供应商未找到或未启用"）
+      toastError(e);
     }
   },
 

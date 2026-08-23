@@ -88,6 +88,9 @@ const ALLOWED_POWERSHELL_COMMANDS = new Set([
   'rename',
   'ren',
   'rni',
+  // 解压类（zip/tar，低危文件操作；用于 skill/插件包安装解压）
+  'expand-archive',
+  'tar',
   // 环境变量
   'get-variable',
   'set-variable',

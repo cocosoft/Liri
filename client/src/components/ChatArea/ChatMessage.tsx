@@ -1,6 +1,15 @@
-import React, { memo, useState, Suspense, useMemo } from "react";
+import React, {
+  memo,
+  useState,
+  Suspense,
+  useMemo,
+  useRef,
+  useEffect,
+  useLayoutEffect,
+} from "react";
 import { handleClientError } from "../../utils/handleError";
 import { createLogger } from "@/utils/logger";
+import { useTimedToast } from "../../hooks/useTimedToast";
 
 const logger = createLogger("components:chatMessage");
 import { useTranslation } from "react-i18next";
@@ -8,12 +17,18 @@ import type { Message, MessageBlock } from "../../types";
 import ToolExecutionGroup from "./ToolExecutionGroup";
 import ToolInlineTags from "./ToolInlineTags";
 import WatermarkTag from "./WatermarkTag";
+import { useVirtualScroll } from "./VirtualScrollContext";
 import ToolResultMessage from "./ToolResultMessage";
 import BlockRenderer from "./BlockRenderer";
 import { knowledgeService } from "../../services/knowledgeService";
 import { useConfigStore } from "../../stores/configStore";
-import { useChatStore, hasMeaningfulContentBlocks } from "../../stores/chat";
+import {
+  useChatStore,
+  hasMeaningfulContentBlocks,
+  ensureTextBlockFromContent,
+} from "../../stores/chat";
 import { useShallow } from "zustand/shallow";
+import { dedupeToolCallBlocks } from "../../stores/chat/chat-message-shared";
 import { useSessionStore } from "../../stores/sessionStore";
 import { useRootStore } from "../../stores/root-store";
 import { saveArtifact } from "../../services/projectArtifactService";
@@ -169,7 +184,28 @@ const ChatMessageMemo = memo(
     const rollbackToMessage = useChatStore((s) => s.rollbackToMessage);
     const restoreRollback = useChatStore((s) => s.restoreRollback);
     const storeIsStreaming = useChatStore((s) => s.isStreaming);
-    const messages = useChatStore((s) => s.messages);
+    // P0-5 修复：精准订阅 replyTarget，避免 messages 数组引用每 chunk 变化导致该消息重渲染
+    const replyTarget = useChatStore((s) =>
+      message.replyToId
+        ? (s.messages.find((m) => m.id === message.replyToId) ?? null)
+        : null,
+    );
+    /** P1-1：虚拟滚动 context（用于 reply 跳转） */
+    const virtualScroll = useVirtualScroll();
+
+    /** P0-5 日志：replyTarget 引用变化边界（仅 reply 消息会触发，用于排查 selector 是否精准） */
+    const prevReplyTargetRef = useRef(replyTarget);
+    useEffect(() => {
+      if (prevReplyTargetRef.current !== replyTarget) {
+        prevReplyTargetRef.current = replyTarget;
+        logger.debug("[P0-5:ChatMessage] replyTarget 变化", {
+          messageId: message.id,
+          replyToId: message.replyToId,
+          targetFound: !!replyTarget,
+          targetRole: replyTarget?.role,
+        });
+      }
+    }, [replyTarget, message.id, message.replyToId]);
     const currentSession = useSessionStore((s) => s.currentSession);
     const remainingRollbacks =
       5 - ((currentSession?.metadata?.rollbackCount as number) ?? 0);
@@ -182,28 +218,42 @@ const ChatMessageMemo = memo(
     const [confirmAction, setConfirmAction] = useState<
       "delete" | "rollback" | null
     >(null);
-    const [copyToast, setCopyToast] = useState<"copied" | "failed" | null>(
+    // P2-10 修复：setTimeout 统一 cleanup，使用 useTimedToast hook
+    const [copyToast, showCopyToast] = useTimedToast<"copied" | "failed">(
       null,
+      2000,
     );
-    const [captureToast, setCaptureToast] = useState(false);
-    const [showUndo, setShowUndo] = useState(false);
-    const [undoWarning, setUndoWarning] = useState<string | null>(null);
+    const [captureToast, showCaptureToast] = useTimedToast<boolean>(null, 2000);
+    const [showUndo, showUndoToast, hideUndoToast] = useTimedToast<boolean>(
+      null,
+      3000,
+    );
+    const [undoWarning, showUndoWarning] = useTimedToast<string>(null, 8000);
     /** 移动端长按/右键菜单 */
     const [contextMenu, setContextMenu] = useState<{
       x: number;
       y: number;
     } | null>(null);
+    // 菜单定位（按实际尺寸钳制到视口，避免固定假设尺寸导致靠右/靠下溢出或错位）
+    const contextMenuRef = useRef<HTMLDivElement>(null);
+    const [menuPos, setMenuPos] = useState({ left: 0, top: 0 });
+    useLayoutEffect(() => {
+      if (!contextMenu || !contextMenuRef.current) return;
+      const rect = contextMenuRef.current.getBoundingClientRect();
+      const margin = 8;
+      const maxLeft = window.innerWidth - rect.width - margin;
+      const maxTop = window.innerHeight - rect.height - margin;
+      setMenuPos({
+        left: Math.max(margin, Math.min(contextMenu.x, maxLeft)),
+        top: Math.max(margin, Math.min(contextMenu.y, maxTop)),
+      });
+    }, [contextMenu]);
     const configTheme = useConfigStore((s) => s.config.theme);
     const isDark = configTheme === "dark";
     const isUser = message.role === "user";
     const isTool = message.role === "tool";
 
-    /** 查找被回复的原始消息 */
-    const replyTarget = useMemo(() => {
-      if (!message.replyToId) return null;
-      return messages.find((m) => m.id === message.replyToId) || null;
-    }, [message.replyToId, messages]);
-
+    /** 查找被回复的原始消息（P0-5：replyTarget 已由上方 selector 精准订阅，无需 useMemo） */
     const formatTime = (timestamp: number) => {
       const date = new Date(timestamp);
       return date.toLocaleTimeString("zh-CN", {
@@ -238,20 +288,17 @@ const ChatMessageMemo = memo(
             });
         // B-A1 修复：内容为空时提示失败而非"已复制"（AI 仅输出 thinking/工具调用时 content 为空）
         if (!textToCopy.trim()) {
-          setCopyToast("failed");
-          setTimeout(() => setCopyToast(null), 2000);
+          showCopyToast("failed");
           return;
         }
         await navigator.clipboard.writeText(textToCopy);
-        setCopyToast("copied");
-        setTimeout(() => setCopyToast(null), 2000);
+        showCopyToast("copied");
       } catch (e) {
         handleClientError(e, {
           module: "components:chat:ChatMessage",
           action: "handleCopy",
         });
-        setCopyToast("failed");
-        setTimeout(() => setCopyToast(null), 2000);
+        showCopyToast("failed");
       }
     };
 
@@ -272,8 +319,7 @@ const ChatMessageMemo = memo(
             })
           : getBodyContent(message);
       if (!content.trim()) {
-        setCopyToast("failed");
-        setTimeout(() => setCopyToast(null), 2000);
+        showCopyToast("failed");
         return;
       }
       exportMessageAsFormat(content, format);
@@ -315,8 +361,7 @@ const ChatMessageMemo = memo(
           content,
           sessionId: message.session_id,
         });
-        setCaptureToast(true);
-        setTimeout(() => setCaptureToast(false), 2000);
+        showCaptureToast(true);
       } catch {
         /* 沉淀失败静默处理 */
       }
@@ -359,15 +404,13 @@ const ChatMessageMemo = memo(
       try {
         const result = await rollbackToMessage(message.id);
         if (result.remainingRollbacks >= 0) {
-          setShowUndo(true);
-          setTimeout(() => setShowUndo(false), 3000);
+          showUndoToast(true);
           // 检查是否有文件回滚失败
           const failedUndos = result.undoResults?.filter((r) => !r.success);
           if (failedUndos && failedUndos.length > 0) {
-            setUndoWarning(
+            showUndoWarning(
               t("chat.rollbackUndoFailed", { count: failedUndos.length }),
             );
-            setTimeout(() => setUndoWarning(null), 8000);
           }
         }
       } catch {
@@ -378,7 +421,7 @@ const ChatMessageMemo = memo(
     /** 撤销回退 */
     const handleUndoRollback = () => {
       restoreRollback();
-      setShowUndo(false);
+      hideUndoToast();
     };
 
     const handleSaveToKnowledge = async (title: string, base: string) => {
@@ -475,14 +518,18 @@ const ChatMessageMemo = memo(
                     : "bg-gray-50 dark:bg-gray-700/50 border-gray-300 dark:border-gray-500 text-gray-500 dark:text-gray-400"
                 }`}
                 onClick={() => {
-                  // N2 同模式修复：不把 id 拼进选择器（含特殊字符时 DOM 异常/注入风险），
-                  // 静态选择器 + 属性值比对
-                  const el = Array.from(
-                    document.querySelectorAll<HTMLElement>("[data-msg-id]"),
-                  ).find(
-                    (n) => n.getAttribute("data-msg-id") === replyTarget.id,
-                  );
-                  el?.scrollIntoView({ behavior: "smooth", block: "center" });
+                  // P1-1 修复：虚拟列表下离屏消息不在 DOM，优先用 virtualizer.scrollToIndex
+                  if (virtualScroll && replyTarget) {
+                    virtualScroll.scrollToMessageId(replyTarget.id);
+                  } else {
+                    // Fallback：DOM 查询（非虚拟列表场景）
+                    const el = Array.from(
+                      document.querySelectorAll<HTMLElement>("[data-msg-id]"),
+                    ).find(
+                      (n) => n.getAttribute("data-msg-id") === replyTarget.id,
+                    );
+                    el?.scrollIntoView({ behavior: "smooth", block: "center" });
+                  }
                 }}
                 title={t("chat.jumpToReply")}
               >
@@ -643,10 +690,13 @@ const ChatMessageMemo = memo(
                 <button
                   onClick={handleCaptureAsDeliverable}
                   className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
-                  aria-label="沉淀为成果"
-                  title="将当前回复保存到项目成果区"
+                  aria-label={t("chat.saveAsDeliverable", "沉淀为成果")}
+                  title={t(
+                    "chat.saveAsDeliverableHint",
+                    "将当前回复保存到项目成果区",
+                  )}
                 >
-                  📌 沉淀
+                  📌 {t("chat.saveAsDeliverableShort", "沉淀")}
                 </button>
               )}
 
@@ -722,7 +772,7 @@ const ChatMessageMemo = memo(
               {/* 沉淀 toast */}
               {captureToast && (
                 <span className="text-emerald-500 animate-pulse text-xs">
-                  已沉淀到成果区
+                  {t("chat.toastDeliverableSaved")}
                 </span>
               )}
             </div>
@@ -846,11 +896,9 @@ const ChatMessageMemo = memo(
               onTouchEnd={closeContextMenu}
             />
             <div
+              ref={contextMenuRef}
               className="fixed z-50 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl py-1 min-w-[140px]"
-              style={{
-                left: Math.min(contextMenu.x, window.innerWidth - 150),
-                top: Math.min(contextMenu.y, window.innerHeight - 200),
-              }}
+              style={{ left: menuPos.left, top: menuPos.top }}
             >
               {/* 复制（所有消息） */}
               <button
@@ -1114,16 +1162,35 @@ function AssistantMessage({
   // 优先使用 blocks 渲染。
   // H-FIX：blocks 存在但仅含 status/progress 临时块时，仍走兜底从 content 重建，
   // 避免流式过程中状态块被落盘而正文 text 块缺失时前端无正文。
-  let blocks =
+  //
+  // 关键修复（2026-08-23，根因对应后端 _appendEventsForMessage 宽泛过滤 Bug）：
+  // 之前仅 hasMeaningfulContentBlocks 通过时直接使用 blocks，不执行 ensureTextBlockFromContent。
+  // 若 blocks 只有 thinking（如流式只写了 thinking chunk、text/thinking 被后端错误过滤），
+  // 就会导致 content 虽有正文但 blocks 无 text 块 → 触发"生成中断"误报 + 正文消失。
+  // 修复：无论走哪个分支，最后统一调用 ensureTextBlockFromContent 补 text 块兜底。
+  let blocks: MessageBlock[];
+  if (
     message.blocks &&
     message.blocks.length > 0 &&
     hasMeaningfulContentBlocks(message.blocks)
-      ? message.blocks
-      : buildFallbackBlocks(message);
+  ) {
+    blocks = message.blocks.map((b) => ({ ...b }));
+  } else {
+    blocks = buildFallbackBlocks(message);
+  }
+  // 统一兜底：content 有正文则补 text 块（确保旧损坏数据也能显示）
+  blocks = ensureTextBlockFromContent(blocks, { content: message.content });
+  // 历史数据清洗：同 toolCallId 的 tool_call 块去重（旧版前端重复 addToolCall 污染）
+  blocks = dedupeToolCallBlocks(blocks);
 
   // H-FIX-2 流式中断兜底：blocks 中没有 text 正文且 content 为空，
   // 但存在 thinking 块（典型的流式在思考阶段被打断场景），
   // 追加提示 text 块，避免用户以为"正文消失"。
+  //
+  // 修复（2026-08-22）：仅流式结束后才判断（!isStreaming）。
+  // 流式过程中（isStreaming=true）推理模型（glm/deepseek 等）通常先输出 thinking、
+  // text 正文稍后才到——若此时判断，整个思考阶段都会误报"生成中断"。
+  // 且 text 未产出是正常等待，不是中断；只有流式结束仍 thinking-only 才是真中断。
   const hasTextBlock = blocks.some(
     (b) => b.type === "text" && (b.content || "").trim(),
   );
@@ -1133,7 +1200,7 @@ function AssistantMessage({
   const contentEmpty = !(
     typeof message.content === "string" && message.content.trim()
   );
-  if (!hasTextBlock && hasThinkBlock && contentEmpty) {
+  if (!isStreaming && !hasTextBlock && hasThinkBlock && contentEmpty) {
     blocks = [
       {
         id: "fb_interrupted_hint_" + message.id,
@@ -1383,13 +1450,20 @@ function renderBlocksWithGroups(
     // 纯 status 块（无 tool_call）直接渲染，不包装为 "工具执行" 组
     if (!hasToolCall) {
       for (const tb of toolBlocks) {
-        // 上下文水位：收缩为紧凑标签（结构化标记 block.status === "watermark"，
-        // 旧数据无标记时回退内容匹配），完整详情在右侧「会话日志」面板
+        // 上下文水位：收缩为紧凑标签（结构化标记 block.status === "watermark"），
+        // 完整详情在右侧「会话日志」面板
+        // TODO: CS05-ROOTFIX — /^上下文水位/ 内容匹配仅为旧持久化数据（无 status 标记）的过渡兜底
         if (
           tb.type === "status" &&
           (tb.status === "watermark" || /^上下文水位/.test(tb.content))
         ) {
-          result.push(<WatermarkTag key={tb.id} content={tb.content} />);
+          result.push(
+            <WatermarkTag
+              key={tb.id}
+              content={tb.content}
+              watermark={tb.watermark}
+            />,
+          );
           continue;
         }
         result.push(

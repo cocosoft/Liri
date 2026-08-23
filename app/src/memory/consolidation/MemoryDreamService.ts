@@ -43,6 +43,38 @@ export interface DreamResult {
 
 const MAX_MEMORIES_PER_DREAM = 50;
 
+/**
+ * 从 LLM 输出中提取精炼结果 JSON 数组。
+ * 优先贪婪匹配整个数组；解析失败时尝试截断修复（LLM 输出可能被截断、
+ * 或在数组尾追加解释文字/标点），仍失败返回 null（调用方降级保留原记忆）。
+ */
+function extractRefineResult(
+  content: string
+): Array<{ content: string; tags?: string[] }> | null {
+  const candidates: string[] = [];
+  const greedy = content.match(/\[[\s\S]*\]/);
+  if (greedy) candidates.push(greedy[0]);
+  // 截断修复：取最后一个 } 之前的内容并补全数组闭合符
+  const lastBrace = content.lastIndexOf('}');
+  if (lastBrace > -1) {
+    const cut = content.slice(0, lastBrace + 1);
+    const openIdx = cut.indexOf('[');
+    if (openIdx > -1) {
+      candidates.push(`${cut.slice(openIdx)}]`);
+    }
+  }
+  for (const cand of candidates) {
+    try {
+      const parsed = JSON.parse(cand);
+      if (Array.isArray(parsed))
+        return parsed as Array<{ content: string; tags?: string[] }>;
+    } catch {
+      /* 尝试下一个候选 */
+    }
+  }
+  return null;
+}
+
 function getLastSyncFilePath(): string {
   return join(resolvePyappHome(), 'data', '.memory_dream_last_sync');
 }
@@ -284,8 +316,14 @@ export async function runMemoryDream(
         { model: refineModel, temperature: 0.3, maxTokens: 4096 }
       );
 
-      const jsonMatch = response.content.match(/\[[\s\S]*\]/);
-      if (!jsonMatch) {
+      const refined = extractRefineResult(response.content);
+      if (!refined) {
+        // LLM 输出格式漂移/截断（历史 error「JSON Parse error: Expected '}'」根因）：
+        // 降级保留原记忆，仅 warn，不再 handleError 刷屏
+        logger.warn('Dream精炼: LLM 输出无法解析为 JSON 数组，保留原记忆', {
+          typeName,
+          contentLength: response.content.length,
+        });
         details.push({
           type: typeName,
           original: batch.length,
@@ -295,11 +333,7 @@ export async function runMemoryDream(
         totalRefined += batch.length;
         continue;
       }
-
-      const refined: Array<{ content: string; tags?: string[] }> = JSON.parse(
-        jsonMatch[0]
-      );
-      if (!Array.isArray(refined) || refined.length === 0) {
+      if (refined.length === 0) {
         details.push({
           type: typeName,
           original: batch.length,

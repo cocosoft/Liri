@@ -23,7 +23,8 @@ const SECURITY_REASON_LABELS: Record<string, string> = {
  * 解析并显示工具执行的结果
  */
 function ToolResultMessage({ message }: ToolResultMessageProps) {
-  const { readFileToPreview } = useChatStore();
+  // P0-5：精准 selector（避免整个 store 订阅）
+  const readFileToPreview = useChatStore((s) => s.readFileToPreview);
 
   // 检查是否为安全拦截结果
   const isSecurityIntercepted = message.metadata?.securityIntercepted === true;

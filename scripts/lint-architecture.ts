@@ -2349,6 +2349,49 @@ class ArchitectureLinter {
 
 // ============ 主入口 ============
 
+/**
+ * P0-5: 前端高频渲染路径禁止无 selector 的 zustand 全量订阅。
+ * 仅扫描 ChatArea 相关组件目录（流式期间每 chunk 重渲染的高频路径），
+ * 低频组件（配置页 / hooks 一次性读取 action）不做检查，避免误报噪音。
+ */
+function checkFrontendStoreSubscription(projectDir: string): RuleViolation[] {
+    const violations: RuleViolation[] = [];
+    const clientSrc = resolve(projectDir, 'client', 'src');
+    if (!existsSync(clientSrc)) return violations;
+
+    const highFreqDirs = [
+        join(clientSrc, 'components', 'ChatArea'),
+        join(clientSrc, 'components', 'chat'),
+        join(clientSrc, 'components', 'Chat'),
+    ];
+    const files = new Set<string>();
+    for (const dir of highFreqDirs) {
+        if (!existsSync(dir)) continue;
+        for (const f of collectTsFiles(dir)) files.add(f);
+    }
+
+    // 高频 store：useChatStore / useVoiceStore（驱动流式渲染，全量订阅时每 chunk 重渲染）
+    const storePattern = /(useChatStore|useVoiceStore)\(\s*\)/g;
+    for (const file of files) {
+        if (!file.endsWith('.tsx')) continue; // 仅组件文件
+        if (file.includes('.test.') || file.includes('__tests__')) continue;
+        const content = readFileSync(file, 'utf-8');
+        const matches = [...content.matchAll(storePattern)];
+        if (matches.length > 0) {
+            const line = content.slice(0, matches[0].index).split('\n').length;
+            violations.push({
+                ruleId: 'P0-5',
+                severity: 'warning',
+                file: relative(projectDir, file),
+                line,
+                message: `无 selector 的 zustand 全量订阅 ${matches.length} 处（流式期间无关字段变化会触发本组件重渲染）`,
+                suggestion: '改精准 selector：useChatStore((s) => s.xxx) / useVoiceStore((s) => s.xxx)',
+            });
+        }
+    }
+    return violations;
+}
+
 async function main(): Promise<void> {
     // 解析 src 路径：优先使用环境变量 PYAPP_PROJECT_DIR，其次是 cwd
     const projectDir = process.env.PYAPP_PROJECT_DIR || process.cwd();
@@ -2362,6 +2405,8 @@ async function main(): Promise<void> {
 
     const linter = new ArchitectureLinter(srcPath);
     const violations = await linter.runAll();
+    // P0-5: 前端高频路径 store 订阅检查（独立扫描 client/src，不并入 app/src 扫描集）
+    violations.push(...checkFrontendStoreSubscription(projectDir));
 
     const errors = violations.filter(v => v.severity === 'error');
     const warnings = violations.filter(v => v.severity === 'warning');

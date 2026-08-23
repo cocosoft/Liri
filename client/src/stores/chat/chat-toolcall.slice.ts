@@ -38,6 +38,44 @@ export function generateGroupId(): string {
 }
 
 /**
+ * 判断 status 内容是否属于"内部过渡状态"（SSE 协议过程消息，非用户可见内容，应丢弃）。
+ *
+ * 分层过滤（与 ChronologicalBlockBuilder.addStatus 共用，CS01 归一化）：
+ *  - 结构化（CS02）：statusType 命中瞬态类型 → 丢弃
+ *  - 字符串回退：兼容旧后端 statusType 缺失时的协议消息
+ *
+ * 用法：流式派生（deriveConversationBlocks）、渲染（StatusBlock）、旧构建器（addStatus）三处共用，
+ * 保证"流式视图 = 回放视图"且过渡状态在各路径一致过滤。
+ */
+export function isInternalTransitionStatus(
+  content: string,
+  statusType?: string,
+): boolean {
+  // 结构化过滤 (CS02)：瞬态/冗余状态类型（工具状态已由 tool_call 块展示）
+  if (
+    statusType === "ai_thinking" ||
+    statusType === "tool_started" ||
+    statusType === "tool_completed"
+  ) {
+    return true;
+  }
+  // 字符串回退：兼容旧后端 statusType 缺失时的协议消息
+  if (content.includes("🔧") && content.includes("Running tool")) return true;
+  if (content.startsWith("✅ Tool") || content.startsWith("❌ Tool")) {
+    return true;
+  }
+  const internalPatterns = [
+    "AI is thinking",
+    "AI is analyzing",
+    "AI is preparing",
+    "AI is waiting",
+    "🔍 AI is analyzing the image",
+    "🎨 AI is generating",
+  ];
+  return internalPatterns.some((p) => content.startsWith(p));
+}
+
+/**
  * 时序块构建器
  * 按流顺序构建 MessageBlock[]，确保工具调用前后的文本正确分段。
  * 对标 Cline 的 assistantMessageContent[] 顺序管理。
@@ -137,70 +175,21 @@ export class ChronologicalBlockBuilder {
    *  仅当 statusType 缺失时才回退到字符串匹配（兼容旧后端）。
    */
   addStatus(status: string, statusType?: string, phase?: string): void {
-    // 结构化过滤 (CS02) — 新 SSE 协议路径
-    if (statusType) {
-      // 瞬态/冗余状态类型 → 丢弃
-      if (
-        statusType === "ai_thinking" ||
-        statusType === "tool_started" ||
-        statusType === "tool_completed"
-      ) {
-        return;
-      }
-      // 可渲染的状态类型 → 正常添加
-      const lastBlock = this.blocks[this.blocks.length - 1];
-      if (lastBlock?.type === "status" && lastBlock.content === status) {
-        return; // 去重
-      }
-      this.blocks.push({
-        id: generateBlockId(),
-        type: "status",
-        content: status,
-        status: statusType, // CS02：结构化标记持久化，渲染层按 block.status 判断状态类型（如 watermark）
-        phase: (phase as "compacting" | "done") ?? undefined, // 压缩状态阶段（compacting/done）
-        isStreaming: true,
-        toolCallId: this.currentToolCallId ?? undefined,
-        groupId: this.currentGroupId,
-      });
-      this.markBlocksDirty();
+    // 内部过渡状态 → 丢弃（结构化 statusType + 字符串回退，与流式派生共用 isInternalTransitionStatus）
+    if (isInternalTransitionStatus(status, statusType)) {
       return;
     }
-
-    // 回退：字符串匹配（兼容旧后端，statusType 缺失时使用）
-    // 丢弃中间态 "🔧 Running tool: xxx"
-    if (status.includes("🔧") && status.includes("Running tool")) {
-      return;
-    }
-
-    // 丢弃冗余完成/失败态 — tool_call 块头部已展示工具名和状态图标
-    if (status.startsWith("✅ Tool") || status.startsWith("❌ Tool")) {
-      return;
-    }
-
-    // 丢弃后端内部处理状态 — 这些是 SSE 协议消息，不是用户可见内容
-    const internalPatterns = [
-      "AI is thinking",
-      "AI is analyzing",
-      "AI is preparing",
-      "AI is waiting",
-      "🔍 AI is analyzing the image",
-      "🎨 AI is generating",
-    ];
-    if (internalPatterns.some((p) => status.startsWith(p))) {
-      return;
-    }
-
+    // 可渲染的状态类型 → 正常添加（连续重复去重）
     const lastBlock = this.blocks[this.blocks.length - 1];
-
-    // 连续重复跳过
     if (lastBlock?.type === "status" && lastBlock.content === status) {
-      return;
+      return; // 去重
     }
-
     this.blocks.push({
       id: generateBlockId(),
       type: "status",
       content: status,
+      status: statusType, // CS02：结构化标记持久化，渲染层按 block.status 判断状态类型（如 watermark）
+      phase: (phase as "compacting" | "done") ?? undefined, // 压缩状态阶段（compacting/done）
       isStreaming: true,
       toolCallId: this.currentToolCallId ?? undefined,
       groupId: this.currentGroupId,
@@ -666,12 +655,10 @@ export function createThinkExtractor() {
   const MAX_PENDING_CHARS = 300;
 
   // ─── 调试日志（仅开发环境） ──────────────────────
+  // 注意：浏览器环境无 `process`，旧判断 typeof process !== "undefined" 永远为 true，
+  // 导致生产构建仍输出日志（L-8 控制台日志爆炸根因②）。改用 Vite 构建期常量。
   const dbg = (msg: string, detail?: Record<string, unknown>) => {
-    if (
-      typeof process !== "undefined" &&
-      process.env?.NODE_ENV === "production"
-    )
-      return;
+    if (!import.meta.env.DEV) return;
     const extra = detail ? ` ${JSON.stringify(detail)}` : "";
     // eslint-disable-next-line no-console
     console.debug(`[think-extractor] ${msg}${extra}`);
@@ -1029,16 +1016,46 @@ export function ensureTextBlockFromContent(
   const cleanContent = stripStructuralTags(noThinkContent).trim();
   if (!cleanContent) return blocks;
 
-  return [
-    ...blocks,
-    {
-      id: generateBlockId(),
-      type: "text" as const,
-      content: cleanContent,
-      isStreaming: false,
-      groupId: generateGroupId(),
-    },
-  ];
+  const textBlock: MessageBlock = {
+    id: generateBlockId(),
+    type: "text" as const,
+    content: cleanContent,
+    isStreaming: false,
+    groupId: generateGroupId(),
+  };
+
+  // 关键修复（2026-08-23，顺序错乱根因之一）：
+  // 原实现用 [...blocks, textBlock] 把补的正文追加到末尾。
+  // 但若 blocks 中已有 thinking（在思考阶段写入）和 tool_call（工具调用先于最终总结），
+  // 正文 text 会跑到工具调用块之后 → 用户看到"AI 的最终回复出现在工具输出下面"，
+  // 感觉"位置错乱、对话不匹配"。
+  //
+  // 正确时序（与流式 ChronologicalBlockBuilder 一致）：
+  //   thinking → text 正文 → tool_call → status/progress → 其他
+  //
+  // 插入位置：最后一个 thinking 块之后、第一个非 thinking/内部过渡块之前。
+  // 若没有 thinking 块，则找第一个 tool_call 之前（正文必须出现在工具调用前）。
+  // 两者都没有则直接拼到末尾（安全回退）。
+  let insertIdx = blocks.length;
+  const lastThinkingIdx = blocks.reduceRight(
+    (acc, b, i) => (acc !== -1 ? acc : b.type === "thinking" ? i : -1),
+    -1 as number,
+  );
+  if (lastThinkingIdx !== -1) {
+    insertIdx = lastThinkingIdx + 1;
+  } else {
+    const firstToolIdx = blocks.findIndex(
+      (b) =>
+        b.type === "tool_call" ||
+        b.type === "doc_workflow" ||
+        b.type === "todo" ||
+        b.type === "question",
+    );
+    if (firstToolIdx !== -1) {
+      insertIdx = firstToolIdx;
+    }
+  }
+  return [...blocks.slice(0, insertIdx), textBlock, ...blocks.slice(insertIdx)];
 }
 
 /**

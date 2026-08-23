@@ -1,4 +1,7 @@
 import { useRef, useEffect, useCallback, useState } from "react";
+import { createLogger } from "@/utils/logger";
+
+const logger = createLogger("hooks:useAutoScroll");
 
 /**
  * 聊天区域自动滚动 Hook
@@ -24,11 +27,29 @@ export function useAutoScroll(deps: {
   /** 用户是否上滑离开底部（控制"回到底部"按钮显隐） */
   const [isUserScrolledUp, setIsUserScrolledUp] = useState(false);
 
-  /** 当前距离底部的像素距离（用于按钮显示阈值判断） */
-  const [distanceFromBottom, setDistanceFromBottom] = useState(0);
+  /** P0-5 修复：showScrollButton 替代 distanceFromBottom 阈值判断
+   *  原因：scroll 事件每次都 setDistanceFromBottom 导致 ChatArea 整树重渲染，
+   *  而 distanceFromBottom 唯一用途是 `> 200` 判断，改为离散布尔即可。
+   */
+  const [showScrollButton, setShowScrollButton] = useState(false);
+  /** 上一次 showScrollButton 的值，用于跨过阈值才 setState */
+  const prevShowButtonRef = useRef(false);
 
-  /** 会话切换时保存/恢复滚动位置 */
+  /** P2-9 修复：scrollPositionsRef 改 LRU（容量 50），防止长期运行内存泄漏 */
   const scrollPositionsRef = useRef<Map<string, number>>(new Map());
+  const scrollPositionsMaxSize = 50;
+  const setScrollPosition = (id: string, pos: number) => {
+    const map = scrollPositionsRef.current;
+    // LRU：删除最老的 entry
+    if (map.size >= scrollPositionsMaxSize) {
+      const oldestKey = map.keys().next().value;
+      if (oldestKey) map.delete(oldestKey);
+    }
+    map.set(id, pos);
+  };
+  const getScrollPosition = (id: string): number | undefined => {
+    return scrollPositionsRef.current.get(id);
+  };
   const prevSessionIdRef = useRef<string | undefined>(undefined);
 
   /** 滚动到底部（behavior 参数：流式高频场景传 "auto" 避免 smooth 追帧抖动） */
@@ -49,7 +70,18 @@ export function useAutoScroll(deps: {
       const nearBottom = distance < 100;
       isNearBottomRef.current = nearBottom;
       setIsUserScrolledUp(!nearBottom);
-      setDistanceFromBottom(distance);
+      // P0-5 修复：仅在跨越 200px 阈值时 setState，避免每次滚动都触发重渲染
+      const shouldShowButton = distance > 200;
+      if (shouldShowButton !== prevShowButtonRef.current) {
+        prevShowButtonRef.current = shouldShowButton;
+        setShowScrollButton(shouldShowButton);
+        // P0-5 日志：阈值跨越边界记录（排查 button 显隐抖动/丢失）
+        logger.debug("[P0-5:useAutoScroll] showScrollButton 跨越", {
+          shouldShowButton,
+          distance,
+          sessionId: deps.sessionId,
+        });
+      }
     };
 
     container.addEventListener("scroll", handleScroll, { passive: true });
@@ -72,12 +104,12 @@ export function useAutoScroll(deps: {
 
     // 保存上一个会话的滚动位置
     if (prevId && prevId !== currentId) {
-      scrollPositionsRef.current.set(prevId, container.scrollTop);
+      setScrollPosition(prevId, container.scrollTop);
     }
 
     // 恢复当前会话的滚动位置
     if (currentId && currentId !== prevId) {
-      const savedPosition = scrollPositionsRef.current.get(currentId);
+      const savedPosition = getScrollPosition(currentId);
       if (savedPosition != null) {
         // AB-24：抑制一次自动滚底，防止"消息数增加滚底" effect 覆盖恢复的位置
         suppressAutoScrollRef.current = true;
@@ -90,6 +122,22 @@ export function useAutoScroll(deps: {
             container.scrollTop -
             container.clientHeight;
           isNearBottomRef.current = distance < 100;
+          // P0-5 修复：恢复位置后同步 showScrollButton 状态
+          const shouldShowButton = distance > 200;
+          if (shouldShowButton !== prevShowButtonRef.current) {
+            prevShowButtonRef.current = shouldShowButton;
+            setShowScrollButton(shouldShowButton);
+            // P0-5 日志：会话切换恢复位置时跨越记录
+            logger.debug(
+              "[P0-5:useAutoScroll] 恢复位置后 showScrollButton 跨越",
+              {
+                sessionId: currentId,
+                savedPosition,
+                distance,
+                shouldShowButton,
+              },
+            );
+          }
         });
       } else {
         // 新会话：滚动到底部
@@ -147,6 +195,7 @@ export function useAutoScroll(deps: {
     contentRef,
     isUserScrolledUp,
     scrollToBottom,
-    distanceFromBottom,
+    /** P0-5 修复：离散布尔替代连续 distanceFromBottom，避免每次滚动都触发 ChatArea 重渲染 */
+    showScrollButton,
   };
 }

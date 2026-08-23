@@ -3,7 +3,7 @@
  * 全宽两栏布局：左侧月历导航+筛选图例 + 右侧月/周/年日历面板（三源聚合）
  */
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { CalendarIcon } from "../../../assets/icons/navigation";
@@ -22,11 +22,14 @@ import type {
 import type { CronTask } from "../../../types/project";
 import { solarToLunar } from "../../../utils/lunarCalendar";
 import { useSessionContextSync } from "../../../hooks/useSessionContextSync";
+import { createLogger } from "../../../utils/logger";
 import CalendarAddDialog, {
   type CalendarAddFormData,
 } from "./CalendarAddDialog";
 import StatusBadge from "./StatusBadge";
 import DayView from "./DayView";
+
+const logger = createLogger("components:office:CalendarPage");
 
 const WEEKDAYS = ["日", "一", "二", "三", "四", "五", "六"];
 const WEEKDAYS_FULL = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
@@ -275,7 +278,8 @@ export default function OfficeCalendarPage() {
   }, [viewYear, viewMonth, weekOffset, viewMode]);
 
   /** 模块上下文同步：保存/恢复 CalendarSessionContext */
-  useSessionContextSync("calendar", {
+  // P0-3 修复：解构 scheduleSave，在 viewMode/viewYear/viewMonth/weekOffset 变更时显式触发保存
+  const { scheduleSave } = useSessionContextSync("calendar", {
     save: () => ({
       moduleType: "calendar" as const,
       view: (viewMode === "year" ? "month" : viewMode) as
@@ -289,6 +293,37 @@ export default function OfficeCalendarPage() {
       }
     },
   });
+
+  /** P0-3：viewMode/viewYear/viewMonth/weekOffset 变更时触发保存 */
+  const prevCalendarStateRef = useRef({
+    viewMode,
+    viewYear,
+    viewMonth,
+    weekOffset,
+  });
+  useEffect(() => {
+    const prev = prevCalendarStateRef.current;
+    if (
+      prev.viewMode !== viewMode ||
+      prev.viewYear !== viewYear ||
+      prev.viewMonth !== viewMonth ||
+      prev.weekOffset !== weekOffset
+    ) {
+      prevCalendarStateRef.current = {
+        viewMode,
+        viewYear,
+        viewMonth,
+        weekOffset,
+      };
+      logger.debug("[P0-3:CalendarPage] 日历视图变更，触发 scheduleSave", {
+        viewMode,
+        viewYear,
+        viewMonth,
+        weekOffset,
+      });
+      scheduleSave();
+    }
+  }, [viewMode, viewYear, viewMonth, weekOffset, scheduleSave]);
 
   /** 构建统一事件列表 */
   const unifiedEvents = useMemo((): UnifiedCalendarEvent[] => {

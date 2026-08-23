@@ -31,6 +31,7 @@
  * 配置变更经 diff 对账（无实质变化跳过）后重载配置内存。
  */
 import { join } from 'path';
+import { mkdirSync } from 'fs';
 import {
   enhancedMcpConfigManager,
   EnhancedMCPConfigManager,
@@ -73,9 +74,9 @@ export function initMCPConfigReload(): void {
   if (reloader) return;
   reloader = new ConfigReloader();
   reloader.registerTarget(createMCPConfigReloadTarget());
-  reloader.start([
-    resolvePyappHome(),
-    join(resolvePyappHome(), 'user'),
-    resolveProjectRoot(),
-  ]);
+  // L-7：~/.pyapp/user 是 MCP 用户配置（mcp.json）的合法目录，启动前确保存在，
+  // 避免 watch 因 ENOENT 失败（每次启动产生警告噪音且 mcp.json 无法热加载）
+  const userDir = join(resolvePyappHome(), 'user');
+  mkdirSync(userDir, { recursive: true });
+  reloader.start([resolvePyappHome(), userDir, resolveProjectRoot()]);
 }

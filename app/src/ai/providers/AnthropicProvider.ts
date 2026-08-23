@@ -165,7 +165,10 @@ export class AnthropicProvider extends BaseAIProvider {
             'anthropic-version': '2023-06-01',
           },
           body: JSON.stringify(requestBody),
-          signal: AbortSignal.timeout(180000),
+          // 外部取消信号（用户停止/会话切换）与请求超时任一触发即中断（CS01：与 OpenAIProvider 一致）
+          signal: options?.signal
+            ? AbortSignal.any([options.signal, AbortSignal.timeout(180000)])
+            : AbortSignal.timeout(180000),
         }
       );
 
@@ -498,6 +501,10 @@ export class AnthropicProvider extends BaseAIProvider {
       method: 'POST',
       headers: this.buildHeaders(),
       body: JSON.stringify(requestBody),
+      // 外部取消信号与请求超时任一触发即中断（CS01：与 chatStream 一致）
+      signal: options?.signal
+        ? AbortSignal.any([options.signal, AbortSignal.timeout(180000)])
+        : AbortSignal.timeout(180000),
     });
 
     if (!response.ok) {

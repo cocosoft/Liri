@@ -17,6 +17,8 @@ export interface Message {
   timestamp: number;
   /** 流式开始时间（毫秒，1.6：与 timestamp 完成时间区分，导出显示开始时间与耗时） */
   startedAt?: number;
+  /** B-1（2026-08-23）：事件派生排序键（后端派生消息的 lastEventSeq，setMessages 排序用） */
+  lastEventSeq?: number;
   session_id: string;
   tool_calls?: ToolCall[];
   blocks?: MessageBlock[];
@@ -72,6 +74,8 @@ export interface MessageBlock {
   status?: string;
   /** 状态块阶段（如压缩 compaction：compacting=进行中 / done=完成），CS02 结构化标记 */
   phase?: "compacting" | "done";
+  /** 结构化水位数据（status === "watermark" 时存在），CS02：替代对 content 的正则解析 */
+  watermark?: { pct: number; severity: "warn" | "compact" };
   isStreaming?: boolean;
   toolCallId?: string;
   groupId?: string;

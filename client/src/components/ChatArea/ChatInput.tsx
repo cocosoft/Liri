@@ -127,15 +127,22 @@ function ChatInput({ fluid = false }: { fluid?: boolean }) {
     el.style.height = Math.min(el.scrollHeight, 200) + "px";
   }, []);
 
-  const {
-    streamMessage,
-    isSending,
-    isStreaming,
-    isUploading,
-    clearSessionMessages,
-    messageQueue,
-    stopMessage,
-  } = useChatStore();
+  // P0-5：精准 selector 订阅（避免流式期间无关字段变化触发本组件重渲染）
+  const streamMessage = useChatStore((s) => s.streamMessage);
+  const isSending = useChatStore((s) => s.isSending);
+  const isStreaming = useChatStore((s) => s.isStreaming);
+  const isUploading = useChatStore((s) => s.isUploading);
+  // P2-3: 会话级待回答 question 标记 —— 有 pending question 时输入框显示"请先回答"提示
+  const hasPendingQuestion = useChatStore(
+    useShallow((s) => s.hasPendingQuestion),
+  );
+  const currentSid = useSessionStore((s) => s.currentSession?.id);
+  const pendingQuestionActive = Boolean(
+    currentSid && hasPendingQuestion[currentSid],
+  );
+  const clearSessionMessages = useChatStore((s) => s.clearSessionMessages);
+  const messageQueue = useChatStore((s) => s.messageQueue);
+  const stopMessage = useChatStore((s) => s.stopMessage);
   const sessionFiles = useChatStore(useShallow((s) => s.sessionFiles));
   const { currentSession, createSession } = useSessionStore();
   const { config } = useConfigStore();
@@ -188,10 +195,8 @@ function ChatInput({ fluid = false }: { fluid?: boolean }) {
     };
   }, [projectId]);
 
-  // 草稿持久化
-  const { input, setInput, setInputWithDraft, clearDraft } = useChatDraft(
-    currentSession?.id,
-  );
+  // 草稿持久化（P0-4：setInput 内部已统一走持久化，无 setInputWithDraft 双轨）
+  const { input, setInput, clearDraft } = useChatDraft(currentSession?.id);
 
   useEffect(() => {
     autoGrow();
@@ -824,7 +829,7 @@ function ChatInput({ fluid = false }: { fluid?: boolean }) {
    */
   const handleInputChange = (value: string) => {
     const willShowCommands = value.startsWith("/") && value.indexOf(" ") === -1;
-    setInputWithDraft(value);
+    setInput(value);
     setShowCommands(willShowCommands);
 
     if (!wasShowingCommandsRef.current && willShowCommands) {
@@ -1264,9 +1269,11 @@ function ChatInput({ fluid = false }: { fluid?: boolean }) {
                   aria-label={t("chat.messageInput")}
                   placeholder={
                     currentSession
-                      ? isStreaming && messageQueueEnabled
-                        ? t("chat.streamingInputHint")
-                        : t("chat.inputPlaceholder")
+                      ? pendingQuestionActive
+                        ? "请先在上方回答 AI 的问题"
+                        : isStreaming && messageQueueEnabled
+                          ? t("chat.streamingInputHint")
+                          : t("chat.inputPlaceholder")
                       : t("chat.selectSessionHint")
                   }
                   disabled={!currentSession}
@@ -1276,6 +1283,14 @@ function ChatInput({ fluid = false }: { fluid?: boolean }) {
                 />
               </div>
 
+              {/* P2-3: 待回答 question 等待态提示条 —— 明确告知用户 AI 在等待回答 */}
+              {pendingQuestionActive && (
+                <div className="px-2 py-1.5 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/60 rounded-lg text-xs text-blue-600 dark:text-blue-300 flex items-center gap-1.5">
+                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
+                  AI 正在等待您的回答，请在上方问题卡片中作答后继续。
+                </div>
+              )}
+
               {/* 底部按钮 — 语音 + 发送，右对齐 */}
               <div className="flex items-center gap-1 self-end">
                 <VoiceInputButton
@@ -1284,7 +1299,7 @@ function ChatInput({ fluid = false }: { fluid?: boolean }) {
                   autoSubmit
                   onShouldSubmit={handleVoiceSubmit}
                   onTranscribed={(text) => {
-                    setInputWithDraft(text);
+                    setInput(text);
                     // 填入文字后自动聚焦到输入框
                     textareaRef.current?.focus();
                   }}

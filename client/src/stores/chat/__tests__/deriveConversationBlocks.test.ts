@@ -143,6 +143,33 @@ describe("deriveConversationBlocks — M2-1 纯函数", () => {
     expect(toolCallBlock!.toolCall?.status).toBe("failed");
   });
 
+  it("assistant/status 透传结构化字段 + 过滤内部过渡状态", () => {
+    const events: LiriEvent[] = [
+      ev(1, "turn/start", { turn: 1 }),
+      ev(2, "assistant/status", {
+        content: "正在执行任务...",
+        toolCallId: "tc-9",
+      }),
+      ev(3, "assistant/status", {
+        content: "AI is thinking...",
+        statusType: "ai_thinking",
+      }),
+      ev(4, "assistant/status", {
+        content: "上下文水位: 92% (118K/128K) | severity:compact | ratio:0.920",
+        statusType: "watermark",
+        watermark: { pct: 92, severity: "compact" },
+      }),
+      ev(5, "turn/end", { turn: 1 }),
+    ];
+    const msgs = deriveConversationBlocks(events);
+    const statusBlocks = msgs[0].blocks!.filter((b) => b.type === "status");
+    // "AI is thinking..."（statusType=ai_thinking）为内部过渡状态 → 被过滤
+    expect(statusBlocks).toHaveLength(2);
+    expect(statusBlocks[0].toolCallId).toBe("tc-9");
+    expect(statusBlocks[1].status).toBe("watermark");
+    expect(statusBlocks[1].watermark).toEqual({ pct: 92, severity: "compact" });
+  });
+
   it("多轮对话：turn/start 边界正确分隔", () => {
     const events: LiriEvent[] = [
       ev(1, "turn/start", { turn: 1 }),
@@ -257,11 +284,14 @@ describe("deriveConversationBlocks — M2-1 纯函数", () => {
     expect(msgs[0].role).toBe("assistant");
     // 3 个 text 段累积到 content
     expect(msgs[0].content).toBe("段1段2段3");
-    // 6 个 block（2 thinking + 3 text + ... 实际是 2 thinking + 3 text）
+    // 相邻 text delta 合并到最后一个 text 块（流式合并是刻意设计）：
+    // 段1+段2 合并 → thinking(思路1) text(段1段2) thinking(思路2) text(段3) = 2 thinking + 2 text
     const thinkBlocks = msgs[0].blocks!.filter((b) => b.type === "thinking");
     const textBlocks = msgs[0].blocks!.filter((b) => b.type === "text");
     expect(thinkBlocks).toHaveLength(2);
-    expect(textBlocks).toHaveLength(3);
+    expect(textBlocks).toHaveLength(2);
+    expect(textBlocks[0].content).toBe("段1段2");
+    expect(textBlocks[1].content).toBe("段3");
   });
 
   it("tool_call 在 turn 内但无 tool/result → status 保持 completed", () => {

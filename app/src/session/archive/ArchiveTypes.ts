@@ -1,4 +1,4 @@
-﻿import { join } from 'path';
+import { join } from 'path';
 import { resolveDataDir } from '@modules/core';
 
 export type ArchiveTrigger = 'manual' | 'auto_idle' | 'auto_size' | 'auto_age';
@@ -13,6 +13,8 @@ export interface ArchiveMetadata {
   messageCount: number;
   totalTokens: number;
   ttlDays?: number;
+  /** D-2（2026-08-23）：归档事件日志行数（0 = 无事件日志） */
+  eventCount?: number;
 }
 
 export interface ArchiveConfig {

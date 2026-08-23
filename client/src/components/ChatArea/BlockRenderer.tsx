@@ -29,6 +29,36 @@ import { createLogger } from "@/utils/logger";
 
 const logger = createLogger("BlockRenderer");
 
+/** P3-8：各 block 类型数据缺失时的统一兜底文案 */
+const MISSING_DATA_LABELS: Record<string, string> = {
+  tool_call: "工具调用",
+  question: "问题",
+  task: "任务",
+  progress: "进度",
+  deliverable: "交付物",
+  diff: "差异",
+  inbox: "收件箱",
+  doc_workflow: "文档工作流",
+};
+
+/** P3-8：数据缺失兜底（8 处重复模式抽组件）：DEV 记录日志 + 统一样式展示 */
+function MissingDataFallback({
+  type,
+  block,
+}: {
+  type: string;
+  block: MessageBlock;
+}) {
+  if (import.meta.env.DEV) {
+    logger.warn(`[BlockRenderer] ${type} block 数据缺失`, block);
+  }
+  return (
+    <div className="text-xs text-gray-400 italic px-2 py-1">
+      {MISSING_DATA_LABELS[type] ?? type}数据缺失
+    </div>
+  );
+}
+
 interface BlockRendererProps {
   block: MessageBlock;
   sessionId?: string;
@@ -71,16 +101,7 @@ function BlockRenderer({
           />
         );
       }
-      if (import.meta.env.DEV)
-        logger.warn(
-          "[BlockRenderer] tool_call block 缺少 toolCall 数据",
-          block,
-        );
-      return (
-        <div className="text-xs text-gray-400 italic px-2 py-1">
-          工具调用数据缺失
-        </div>
-      );
+      return <MissingDataFallback type="tool_call" block={block} />;
     case "question":
       if (block.questionData) {
         return (
@@ -91,72 +112,33 @@ function BlockRenderer({
           />
         );
       }
-      if (import.meta.env.DEV)
-        logger.warn("[BlockRenderer] question block 缺少 questionData", block);
-      return (
-        <div className="text-xs text-gray-400 italic px-2 py-1">
-          问题数据缺失
-        </div>
-      );
+      return <MissingDataFallback type="question" block={block} />;
     case "task_decomposition":
     case "todo":
       if (block.taskCard) {
         return <TaskCard data={block.taskCard} />;
       }
-      if (import.meta.env.DEV)
-        logger.warn("[BlockRenderer] task block 缺少 taskCard 数据", block);
-      return (
-        <div className="text-xs text-gray-400 italic px-2 py-1">
-          任务数据缺失
-        </div>
-      );
+      return <MissingDataFallback type="task" block={block} />;
     case "progress":
       if (block.progressData) {
         return <ProgressCard data={block.progressData} />;
       }
-      if (import.meta.env.DEV)
-        logger.warn("[BlockRenderer] progress block 缺少 progressData", block);
-      return (
-        <div className="text-xs text-gray-400 italic px-2 py-1">
-          进度数据缺失
-        </div>
-      );
+      return <MissingDataFallback type="progress" block={block} />;
     case "deliverable":
       if (block.deliverableData) {
         return <DeliverableCard data={block.deliverableData} />;
       }
-      if (import.meta.env.DEV)
-        logger.warn(
-          "[BlockRenderer] deliverable block 缺少 deliverableData",
-          block,
-        );
-      return (
-        <div className="text-xs text-gray-400 italic px-2 py-1">
-          交付物数据缺失
-        </div>
-      );
+      return <MissingDataFallback type="deliverable" block={block} />;
     case "diff":
       if (block.diffData) {
         return <DiffBlock data={block.diffData} />;
       }
-      if (import.meta.env.DEV)
-        logger.warn("[BlockRenderer] diff block 缺少 diffData", block);
-      return (
-        <div className="text-xs text-gray-400 italic px-2 py-1">
-          差异数据缺失
-        </div>
-      );
+      return <MissingDataFallback type="diff" block={block} />;
     case "inbox":
       if (block.inboxData) {
         return <InboxBlock data={block.inboxData} sessionId={sessionId} />;
       }
-      if (import.meta.env.DEV)
-        logger.warn("[BlockRenderer] inbox block 缺少 inboxData", block);
-      return (
-        <div className="text-xs text-gray-400 italic px-2 py-1">
-          收件箱数据缺失
-        </div>
-      );
+      return <MissingDataFallback type="inbox" block={block} />;
     case "doc_workflow":
       if (block.docWorkflowData) {
         return (
@@ -166,16 +148,7 @@ function BlockRenderer({
           />
         );
       }
-      if (import.meta.env.DEV)
-        logger.warn(
-          "[BlockRenderer] doc_workflow block 缺少 docWorkflowData",
-          block,
-        );
-      return (
-        <div className="text-xs text-gray-400 italic px-2 py-1">
-          文档工作流数据缺失
-        </div>
-      );
+      return <MissingDataFallback type="doc_workflow" block={block} />;
     case "text":
     default:
       return (

@@ -99,7 +99,9 @@ describe('ArchiveStorage', () => {
   describe('archive / restore', () => {
     it('should archive a session and return the file path', async () => {
       const path = await storage.archive(createTestPayload('s1'));
-      expect(path).toContain('s1.archive');
+      // H6：归档路径带时间戳版本（${sessionId}-${ts}.archive）
+      expect(path).toContain('s1-');
+      expect(path).toContain('.archive');
       expect(existsSync(path)).toBe(true);
     });
 
@@ -143,7 +145,9 @@ describe('ArchiveStorage', () => {
       await storage.archive(createTestPayload('s6'));
       const path = await storage.getArchivePathFor('s6');
       expect(path).not.toBeNull();
-      expect(path!).toContain('s6.archive');
+      // H6：时间戳版本路径前缀匹配
+      expect(path!).toContain('s6-');
+      expect(path!).toContain('.archive');
     });
 
     it('should return null for non-existent archive', async () => {

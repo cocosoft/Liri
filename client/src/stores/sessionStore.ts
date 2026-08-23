@@ -76,9 +76,13 @@ export const useSessionStore = create<SessionStore>()(() => ({
 
 // P12: 一次性迁移 — 将旧的 liri-sessions localStorage 数据迁移到 rootStore
 // NOTE: 迁移代码自清洁（完成后删除 key），无副作用。可在全面迁移确认后移除。
-try {
-  const oldData = localStorage.getItem("liri-sessions");
-  if (oldData) {
+// L5-fix: 迁移执行时机对齐 persist hydration —— 原实现顶层同步执行，若 storage
+// 换异步实现（IndexedDB 等），迁移结果可能被 hydrate 覆盖。现改为：
+// 已 hydrate → 立即执行；未 hydrate → 挂 onFinishHydration 后执行。
+function applyLegacySessionsMigration(): void {
+  try {
+    const oldData = localStorage.getItem("liri-sessions");
+    if (!oldData) return;
     const parsed = JSON.parse(oldData);
     const root = useRootStore.getState();
     const state = parsed?.state;
@@ -102,10 +106,16 @@ try {
     }
     // 迁移完成后清除旧 key，防止重复迁移
     localStorage.removeItem("liri-sessions");
+  } catch {
+    // 迁移失败不影响正常使用
+    localStorage.removeItem("liri-sessions");
   }
-} catch {
-  // 迁移失败不影响正常使用
-  localStorage.removeItem("liri-sessions");
+}
+
+if (useRootStore.persist?.hasHydrated?.()) {
+  applyLegacySessionsMigration();
+} else {
+  useRootStore.persist?.onFinishHydration?.(applyLegacySessionsMigration);
 }
 
 // ─── 核心：rootStore → sessionStore 单向镜像 ────────────

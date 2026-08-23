@@ -607,7 +607,21 @@ export class ConfigManager {
         fileParsed,
         `verifyConfigHash:file#${checkSeq}`
       );
-      const expectedFull = this.configHash;
+      // L-4 回归根因：configHash 为「内存完整配置」hash（含仅内存的默认值键，如 ai/channels/features），
+      // 而磁盘 config.json 仅持久化部分键（稀疏配置），两者键集合不同 → hash 恒不匹配。
+      // hash 校验语义应为「检测外部对已持久化配置的修改」，
+      // 故 expected 侧按文件存在的顶层键裁剪内存配置后计算。
+      const configObj = this.configCache.config as Record<string, unknown>;
+      const memorySubset: Record<string, unknown> = {};
+      for (const key of Object.keys(fileParsed)) {
+        if (Object.prototype.hasOwnProperty.call(configObj, key)) {
+          memorySubset[key] = configObj[key];
+        }
+      }
+      const expectedFull = this.computeHash(
+        memorySubset,
+        `verifyConfigHash:mem#${checkSeq}`
+      );
       const actualFull = fileHash;
 
       if (actualFull !== expectedFull) {

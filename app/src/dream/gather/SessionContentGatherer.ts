@@ -179,11 +179,15 @@ export class SessionContentGatherer {
       }
 
       return digest;
-    } catch {
-      void handleError(new Error('构建摘要失败'), {
-        module: 'dream:gather',
-        action: 'buildDigest',
-      });
+    } catch (err) {
+      // index.json 不存在（新建/空会话）= 正常情况，不报 error（对齐断点 8 修复）
+      const code = (err as NodeJS.ErrnoException)?.code;
+      if (code !== 'ENOENT') {
+        void handleError(new Error('构建摘要失败'), {
+          module: 'dream:gather',
+          action: 'buildDigest',
+        });
+      }
       return null;
     }
   }

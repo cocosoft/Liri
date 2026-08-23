@@ -542,8 +542,13 @@ export const createSessionSlice: StateCreator<
           try {
             const { _getCachedMessages } = await import("@/stores/chat");
             const cached = _getCachedMessages(currentId);
+            // ⚠ 修复（2026-08-23）：统一走 loadConversation（events 优先 + legacy 合并），
+            // 原用 getMessages 直接读 messages.jsonl——历史会话的首条用户消息可能只存在于
+            // events.jsonl（写前落盘失败场景），getMessages 返回缺失首条的消息导致前端不显示。
+            // loadConversation 的 events 派生含完整首条用户消息，且 events 损坏时自动合并 legacy。
             const messages =
-              cached ?? (await sessionService.getMessages(currentId));
+              cached ??
+              (await sessionService.loadConversation(currentId)).messages;
             await chatCoordinator.loadMessages(messages);
             logger.debug("loadChatSessions:补拉当前会话消息", {
               sessionId: currentId,
@@ -1124,7 +1129,10 @@ export const createSessionSlice: StateCreator<
             // 后端 404 时 currentId 仍保持旧值，刷新后 getCurrentSession 返回旧值
             // 导致 currentSessionId 漂移。
             await sessionService.switch(next.id).catch(() => {});
-            const messages = await sessionService.getMessages(next.id);
+            // ⚠ 统一走 loadConversation（events 优先 + legacy 合并），确保首条用户消息等
+            // 仅存在于 events.jsonl 的消息被加载（getMessages 只读 messages.jsonl，可能缺失）。
+            const messages = (await sessionService.loadConversation(next.id))
+              .messages;
             await chatCoordinator.loadMessages(messages);
             logger.debug("switchChatSession:404 清理后已切到最近会话", {
               sessionId: id,
@@ -1226,7 +1234,10 @@ export const createSessionSlice: StateCreator<
             );
           });
           try {
-            const messages = await sessionService.getMessages(sessions[0].id);
+            // ⚠ 统一走 loadConversation（events 优先 + legacy 合并），确保完整消息加载
+            const messages = (
+              await sessionService.loadConversation(sessions[0].id)
+            ).messages;
             await chatCoordinator.loadMessages(messages);
           } catch (e) {
             // #10 修复：getMessages 失败不再静默——仍切走目标会话但清空消息，

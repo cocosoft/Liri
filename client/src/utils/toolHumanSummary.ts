@@ -360,7 +360,8 @@ function summarizeTodoWrite(args: Record<string, unknown>): string {
   switch (action) {
     case "create":
       if (Array.isArray(todos) && todos.length > 0) {
-        const names = todos.map((t) => t["content"] || "").filter(Boolean);
+        // P3-4：getArgStr 内置 typeof string 守卫，避免 unknown 类型拼出 [object Object]
+        const names = todos.map((t) => getArgStr(t, "content")).filter(Boolean);
         return `创建了 ${todos.length} 个任务：${names.slice(0, 3).join("、")}${names.length > 3 ? "等" : ""}`;
       }
       return "创建任务";
@@ -369,10 +370,10 @@ function summarizeTodoWrite(args: Record<string, unknown>): string {
         const first = todos[0];
         const status = first["status"];
         if (status === "completed")
-          return `完成了任务：${first["content"] || ""}`;
+          return `完成了任务：${getArgStr(first, "content")}`;
         if (status === "in_progress")
-          return `开始执行：${first["content"] || ""}`;
-        return `更新了任务：${first["content"] || ""}`;
+          return `开始执行：${getArgStr(first, "content")}`;
+        return `更新了任务：${getArgStr(first, "content")}`;
       }
       return "更新任务状态";
     case "complete":

@@ -32,6 +32,8 @@ import { useEffect, useMemo } from "react";
 import { useTrajectoryStore } from "@/stores/chat/trajectoryStore";
 import type { LiriEvent } from "@/types";
 import { categorizeEvent } from "@/types";
+// E-2（2026-08-23，T-H.3）：Turn/Step/Cell 轨迹布局引擎（此前生产零引用）
+import { deriveTrajectoryLayout } from "@/stores/chat/deriveTrajectoryLayout";
 import { TrajectoryFilter } from "./TrajectoryFilter";
 import { TrajectoryRow } from "./TrajectoryRow";
 import { TrajectoryDetail } from "./TrajectoryDetail";
@@ -97,6 +99,12 @@ export function TrajectoryView({ sessionId, open, onClose }: Props) {
     return events.find((e) => e.seq === selectedSeq) ?? null;
   }, [events, selectedSeq]);
 
+  // E-2（2026-08-23，T-H.3）：轨迹布局分组（Turn → Step → Cell）——
+  // 替代纯 seq 平铺，按"回合 → 步骤"顺序排列，孤立事件（session/start 等）单独列出
+  const layout = useMemo(() => {
+    return deriveTrajectoryLayout(filteredEvents);
+  }, [filteredEvents]);
+
   if (!open) return null;
 
   return (
@@ -135,10 +143,44 @@ export function TrajectoryView({ sessionId, open, onClose }: Props) {
             {events.length === 0 ? "暂无事件" : "无匹配事件"}
           </div>
         ) : (
-          <ul className="divide-y divide-gray-100 dark:divide-gray-800">
-            {filteredEvents.map((event) => (
+          // E-2（2026-08-23，T-H.3）：按轨迹布局分组渲染（Turn → Step → Cell）
+          <div className="divide-y divide-gray-100 dark:divide-gray-800">
+            {layout.turns.map((turn) => (
+              <section key={`turn-${turn.startSeq}`} className="py-1">
+                <div className="px-3 py-1 text-xs font-semibold text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/50 flex items-center justify-between">
+                  <span>Turn {turn.turn}</span>
+                  <span className="font-normal text-gray-400 dark:text-gray-500">
+                    {turn.eventCount} 事件
+                    {turn.completed
+                      ? ""
+                      : turn.interrupted
+                        ? " · 中断"
+                        : " · 进行中"}
+                  </span>
+                </div>
+                {turn.steps.map((step, i) => (
+                  <div key={`step-${turn.startSeq}-${i}`}>
+                    {step.cells.map((cell) => (
+                      <TrajectoryRow
+                        key={`${cell.event.seq}-${cell.event.type}`}
+                        event={cell.event}
+                        selected={cell.event.seq === selectedSeq}
+                        onClick={() =>
+                          selectEvent(
+                            cell.event.seq === selectedSeq
+                              ? null
+                              : cell.event.seq,
+                          )
+                        }
+                      />
+                    ))}
+                  </div>
+                ))}
+              </section>
+            ))}
+            {layout.orphanEvents.map((event) => (
               <TrajectoryRow
-                key={`${event.seq}-${event.type}`}
+                key={`orphan-${event.seq}-${event.type}`}
                 event={event}
                 selected={event.seq === selectedSeq}
                 onClick={() =>
@@ -146,7 +188,7 @@ export function TrajectoryView({ sessionId, open, onClose }: Props) {
                 }
               />
             ))}
-          </ul>
+          </div>
         )}
 
         {hasMore && !loading && (

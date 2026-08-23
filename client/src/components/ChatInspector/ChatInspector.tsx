@@ -61,12 +61,25 @@ const TABS: { id: InspectorTab; icon: React.ReactNode; label: string }[] = [
   },
   {
     id: "settings",
+    // FIX(2026-08-23)：① 手写 cog SVG 的 arc flag 在部分浏览器报 "Expected arc flag"；
+    // ② lucide-react 1.25.0 无 Settings 导出（SettingsIcon is not defined）。
+    // 改用无 arc 命令的简化齿轮（同心圆 + 辐条），纯几何元素无解析歧义。
     icon: (
       <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
+        <circle cx="10" cy="10" r="3" />
+        <circle
+          cx="10"
+          cy="10"
+          r="6"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.2"
+        />
         <path
-          fillRule="evenodd"
-          d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.532 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z"
-          clipRule="evenodd"
+          d="M10 1v3M10 16v3M1 10h3M16 10h3"
+          stroke="currentColor"
+          strokeWidth="1.2"
+          strokeLinecap="round"
         />
       </svg>
     ),

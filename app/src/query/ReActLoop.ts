@@ -69,8 +69,8 @@ export interface ToolResultEntry {
 /** ReAct 事件流 */
 export type ReActEvent =
   | { type: 'reasoning_start' }
-  | { type: 'reasoning_delta'; text: string }
-  | { type: 'thinking_delta'; content: string }
+  | { type: 'reasoning_delta'; text: string; messageId?: string }
+  | { type: 'thinking_delta'; content: string; messageId?: string }
   | { type: 'phase'; phase: string; round: number; description?: string }
   | { type: 'reasoning_end'; result: ReasonResult }
   | { type: 'acting_start'; toolCount: number }
@@ -79,9 +79,15 @@ export type ReActEvent =
       callId: string;
       name: string;
       input: Record<string, unknown>;
+      messageId?: string;
     }
   | { type: 'tool_progress'; callId: string; progress: number }
-  | { type: 'tool_end'; callId: string; result: ToolResultEntry }
+  | {
+      type: 'tool_end';
+      callId: string;
+      result: ToolResultEntry;
+      messageId?: string;
+    }
   | { type: 'acting_end'; result: ActResult }
   | { type: 'iteration_end'; iteration: number }
   | { type: 'error'; message: string }
@@ -179,6 +185,18 @@ export abstract class ReActLoop<
     _context?: TContext
   ): Promise<void> {
     // default: no-op
+  }
+
+  /**
+   * 当前工具轮归属消息 id Hook（G12，2026-08-23）
+   *
+   * 子类（ReActToolLoop）覆写返回工具轮预分配的 assistant 消息 id，
+   * 骨架产出的 tool_start/tool_end 事件据此携带 messageId，
+   * reactEventsToChunks 转换层透传到 SSE chunk，前端据此把工具轮块挂到正确消息。
+   * 默认 undefined（骨架层无此语义）。
+   */
+  protected getCurrentMessageId(): string | undefined {
+    return undefined;
   }
 
   // ==========================================
@@ -306,6 +324,7 @@ export abstract class ReActLoop<
               name: tc.name,
               // 携带工具参数：转换层据此下发 arguments，前端 ToolCallGroup 展示"人话"摘要
               input: tc.input,
+              messageId: this.getCurrentMessageId(),
             };
           }
           // v3：迭代消费 act generator（交互工具可产出 question/question_waiting 事件）
@@ -342,7 +361,12 @@ export abstract class ReActLoop<
 
         // Emit per-tool end events
         for (const r of actResult.results) {
-          yield { type: 'tool_end', callId: r.toolCallId, result: r };
+          yield {
+            type: 'tool_end',
+            callId: r.toolCallId,
+            result: r,
+            messageId: this.getCurrentMessageId(),
+          };
         }
         yield { type: 'acting_end', result: actResult };
 

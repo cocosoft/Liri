@@ -37,7 +37,10 @@
 
 import type { LiriEvent, Message } from "@/types";
 import type { StreamChunk } from "@/services/chatService";
-import { deriveConversationBlocks } from "../deriveConversationBlocks";
+import { createLogger } from "@/utils/logger";
+import { IncrementalDeriver } from "../deriveConversationBlocks";
+
+const logger = createLogger("stores:chat:aggregator");
 
 export class EventBasedStreamAggregator {
   /** 本地 events[]（按 seq 升序） */
@@ -54,6 +57,8 @@ export class EventBasedStreamAggregator {
   private sessionId: string = "";
   /** M4：流式场景指定的 assistant message id（覆盖派生产物的 asst_${seq} 自动生成） */
   private assistantMessageId: string | undefined;
+  /** P2-1：增量派生器（懒创建，init 重置基线后丢弃旧实例） */
+  private deriver: IncrementalDeriver | null = null;
 
   /**
    * 初始化：从后端拉取已有 events 作为基线
@@ -69,6 +74,8 @@ export class EventBasedStreamAggregator {
     this.assistantMessageId = options?.assistantMessageId;
     this.tailSeq = events.length > 0 ? events[events.length - 1].seq : 0;
     this.toolCallSeqMap.clear();
+    // P2-1：基线 events 更换，丢弃增量派生器（下次 deriveMessages 重建）
+    this.deriver = null;
     this.turnStarted = false;
     this.turn = 0;
     // 重建 toolCallSeqMap 和 turn 状态
@@ -124,7 +131,9 @@ export class EventBasedStreamAggregator {
         }
         this.appendEvent({
           type: "assistant/text",
-          data: { content: chunk.content },
+          // G12：透传 chunk.messageId（首轮=assistantMessageId，工具轮=工具轮消息 id），
+          // 派生器按 messageId 归组，工具轮正文不再并入首轮消息
+          data: { content: chunk.content, messageId: chunk.messageId },
         });
         break;
       }
@@ -135,7 +144,7 @@ export class EventBasedStreamAggregator {
         }
         this.appendEvent({
           type: "assistant/thinking",
-          data: { content: chunk.content },
+          data: { content: chunk.content, messageId: chunk.messageId },
         });
         break;
       }
@@ -145,12 +154,22 @@ export class EventBasedStreamAggregator {
           this.startTurn();
         }
         if (chunk.toolCall) {
+          // T1.2 诊断（2026-08-23，[DUP: 前缀）：记录 tool_call chunk 到达，
+          // 观察同 toolCallId 是否被多次 append（每次分配新 seq → 派生重复块）。
+          logger.debug("[DUP:appendChunk] tool_call", {
+            toolCallId: chunk.toolCall.id,
+            name: chunk.toolCall.name,
+            status: chunk.toolCall.status,
+            nextSeq: this.tailSeq + 1,
+            messageId: chunk.messageId,
+          });
           this.appendEvent({
             type: "assistant/tool_call",
             data: {
               toolCallId: chunk.toolCall.id,
               name: chunk.toolCall.name,
               args: chunk.toolCall.arguments,
+              messageId: chunk.messageId,
             },
           });
           // todo_write 特殊语义：实时转 todo 事件（不等 tool/result）
@@ -272,6 +291,7 @@ export class EventBasedStreamAggregator {
             content: chunk.content,
             statusType: chunk.statusType,
             phase: chunk.phase as "compacting" | "done" | undefined,
+            toolCallId: chunk.tool_call_id,
           },
         });
         break;
@@ -301,6 +321,12 @@ export class EventBasedStreamAggregator {
             data: {
               content: chunk.content,
               statusType: "watermark",
+              // P1-3：透传结构化水位（severity 此处必为 warn/compact），
+              // UI 不再解析 content 字符串（CS02）
+              watermark: {
+                pct: Math.round(chunk.watermarkState.ratio * 100),
+                severity: chunk.watermarkState.severity as "warn" | "compact",
+              },
             },
           });
         }
@@ -465,9 +491,32 @@ export class EventBasedStreamAggregator {
         break;
       }
 
-      // 其他 chunk 类型（progress/deliverable/diff 等）：
+      case "deliverable": {
+        // E-1（2026-08-23）：deliverable chunk → assistant/deliverable 事件
+        if (chunk.deliverableData) {
+          if (!this.turnStarted) this.startTurn();
+          this.appendEvent({
+            type: "assistant/deliverable",
+            data: chunk.deliverableData,
+          });
+        }
+        break;
+      }
+
+      case "diff": {
+        // E-1（2026-08-23）：diff chunk → assistant/diff 事件
+        if (chunk.diffData) {
+          if (!this.turnStarted) this.startTurn();
+          this.appendEvent({
+            type: "assistant/diff",
+            data: chunk.diffData,
+          });
+        }
+        break;
+      }
+
+      // 其他 chunk 类型：
       // - progress 已并入 execution_phase 分支
-      // - deliverable/diff 当前 StreamChunk 定义但 processChunk 未走分支（后续补）
       default:
         break;
     }
@@ -505,13 +554,32 @@ export class EventBasedStreamAggregator {
 
   /**
    * 派生当前消息列表（供渲染）
-   * 复用 M2-1 的 deriveConversationBlocks 纯函数
+   * P2-1：改用 IncrementalDeriver 增量派生——每 chunk 只处理新增事件（O(k)），
+   * 替代原每 chunk 全量重派生（O(n)）；已 flush 消息保持稳定引用。
+   */
+  /**
+   * P0-2 修复：deriveMessages 不再将 assistantMessageId 传给 IncrementalDeriver。
+   * assistantMessageId 只用于最后一个 turn 的助手消息（当前流式消息），
+   * 历史消息使用自动生成的 ID（asst_${seq}），避免多条消息同 ID 导致查找错误。
    */
   deriveMessages(): Message[] {
-    return deriveConversationBlocks(this.events, {
-      sessionId: this.sessionId,
-      assistantMessageId: this.assistantMessageId,
-    });
+    if (!this.deriver) {
+      this.deriver = new IncrementalDeriver({
+        sessionId: this.sessionId,
+        // 不传 assistantMessageId —— 由后处理统一分配给最后一条助手消息
+      });
+    }
+    const result = this.deriver.derive(this.events);
+    // P0-2：如果有 assistantMessageId，将最后一条助手消息的 ID 改为它
+    if (this.assistantMessageId && result.length > 0) {
+      for (let i = result.length - 1; i >= 0; i--) {
+        if (result[i].role === "assistant") {
+          result[i] = { ...result[i], id: this.assistantMessageId };
+          break;
+        }
+      }
+    }
+    return result;
   }
 
   /**

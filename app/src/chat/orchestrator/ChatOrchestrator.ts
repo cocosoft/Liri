@@ -82,6 +82,8 @@ export interface ChatOrchestratorHost {
   streamingCheckpoint: StreamingAutoCheckpoint | null;
   /** 工具轮次计数（sendMessage TAORLoop/计划编排读取） */
   toolRoundCount: number;
+  /** 工具轮次计数 +1（流式/非流式完成后调用，确保 turn 编号唯一） */
+  incrementToolRoundCount(): void;
   /** 是否正在执行计划（create_task_list 编排标志） */
   executingPlan: boolean;
   /** 原子切换 executingPlan 并执行（finally 恢复原值） */
@@ -129,6 +131,13 @@ export interface ChatOrchestratorHost {
    * 供 streamMessageFlow 在流式开始时调用，决定 turn/start 与首个 chunk 的 seq。
    */
   getStreamTailSeq(sessionId: string): Promise<number>;
+  /**
+   * M1 事件溯源：获取当前会话已有事件的最大 turn 编号（重启后恢复 turn 计数）
+   *
+   * 供 streamMessageFlow 在写入 turn/start 时调用，替代内存计数器 toolRoundCount，
+   * 避免后端重启后 turn 编号从 1 重新开始导致重复 turn 号。
+   */
+  getStreamMaxTurn(sessionId: string): Promise<number>;
   getSessionMachine(sessionId: string): {
     start(reason?: string): unknown;
     finish(reason?: string): unknown;
@@ -730,6 +739,9 @@ export class ChatOrchestrator {
         true,
         assistantMessage.content as string
       );
+
+      // 修复：非流式 sendMessage 完成后 turn 计数 +1，确保下次 turn 编号唯一
+      this.host.incrementToolRoundCount();
       return assistantMessage;
     });
   }

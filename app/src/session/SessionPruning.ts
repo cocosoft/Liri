@@ -6,7 +6,7 @@
 
 import { handleError } from '@modules/error';
 import { getLogger } from '@modules/monitoring';
-import { existsSync, unlinkSync, readdirSync, statSync } from 'fs';
+import { existsSync, readdirSync, statSync, renameSync, mkdirSync } from 'fs';
 import { join } from 'path';
 
 const logger = getLogger('session:pruning');
@@ -60,36 +60,39 @@ export class SessionPruning {
       const maxAgeMs = this.config.maxAgeDays * 24 * 3600 * 1000;
       const maxSizeBytes = this.config.maxSizeMB * 1024 * 1024;
 
-      const files = readdirSync(this.config.sessionsDir)
-        .filter(
-          (f) =>
-            f.endsWith('.json') ||
-            f.endsWith('.jsonl') ||
-            f.endsWith('.transcript.jsonl')
-        )
-        .map((f) => {
-          const fullPath = join(this.config.sessionsDir, f);
+      // M5-fix: 兼容两种布局——
+      //  旧布局：顶层 *.json/*.jsonl（会话文件散放）
+      //  新布局：{sessionId}/session.json 子目录（修剪对象是目录）
+      const items = readdirSync(this.config.sessionsDir)
+        .map((name) => {
+          const fullPath = join(this.config.sessionsDir, name);
           const st = statSync(fullPath);
-          return {
-            name: f,
-            path: fullPath,
-            size: st.size,
-            mtimeMs: st.mtimeMs,
-          };
+          // 新布局：目录型会话（取目录内 session.json 的 mtime 作参考）
+          const isDirSession =
+            st.isDirectory() && existsSync(join(fullPath, 'session.json'));
+          // 旧布局：顶层会话文件
+          const isLegacyFile =
+            st.isFile() &&
+            (name.endsWith('.json') ||
+              name.endsWith('.jsonl') ||
+              name.endsWith('.transcript.jsonl'));
+          if (!isDirSession && !isLegacyFile) return null;
+          return { name, path: fullPath, size: st.size, mtimeMs: st.mtimeMs };
         })
+        .filter((i): i is NonNullable<typeof i> => i !== null)
         .sort((a, b) => a.mtimeMs - b.mtimeMs); // 最旧的在前
 
-      let totalSize = files.reduce((s, f) => s + f.size, 0);
+      let totalSize = items.reduce((s, f) => s + f.size, 0);
 
-      for (const file of files) {
+      for (const item of items) {
         let shouldRemove = false;
 
         // 超龄
-        if (file.mtimeMs < now - maxAgeMs) {
+        if (item.mtimeMs < now - maxAgeMs) {
           shouldRemove = true;
         }
         // 数量超限
-        if (files.length - result.sessionsPruned > this.config.maxSessions) {
+        if (items.length - result.sessionsPruned > this.config.maxSessions) {
           shouldRemove = true;
         }
         // 大小超限
@@ -100,16 +103,23 @@ export class SessionPruning {
         if (shouldRemove) {
           if (!this.config.dryRun) {
             try {
-              unlinkSync(file.path);
+              // M5-fix: 软删除 —— rename 到 .trash 而非物理删除（unlinkSync），
+              // 保留误剪恢复路径，对齐新链软删除语义。
+              const trashRoot = join(this.config.sessionsDir, '.trash');
+              mkdirSync(trashRoot, { recursive: true });
+              renameSync(
+                item.path,
+                join(trashRoot, `${item.name}-${Date.now()}`)
+              );
             } catch (error) {
-              result.errors.push(`${file.name}: ${String(error)}`);
+              result.errors.push(`${item.name}: ${String(error)}`);
               continue;
             }
           }
           result.sessionsPruned++;
-          result.bytesFreed += file.size;
-          result.prunedSessions.push(file.name);
-          totalSize -= file.size;
+          result.bytesFreed += item.size;
+          result.prunedSessions.push(item.name);
+          totalSize -= item.size;
         }
       }
 

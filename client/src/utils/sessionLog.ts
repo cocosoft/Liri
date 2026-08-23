@@ -20,7 +20,7 @@ export interface ToolCallRecord {
   name: string;
   arguments: Record<string, unknown>;
   result?: unknown;
-  status: "running" | "completed" | "failed";
+  status: "running" | "completed" | "failed" | "canceled";
   messageId?: string;
   error?: string;
   _hasFullResult?: boolean;
@@ -132,7 +132,7 @@ export interface LogEvent {
   kind: LogEventKind;
   /** 近似时序：同消息内按数组序，跨消息用 message.timestamp */
   time: number;
-  status?: "running" | "completed" | "failed";
+  status?: "running" | "completed" | "failed" | "canceled";
   /** 摘要锚点行 */
   title: string;
   /** thinking / system 正文 */
@@ -292,6 +292,26 @@ export function buildLogEventsFromEvents(events: LiriEvent[]): LogEvent[] {
         logEvents[idx] = {
           ...prev,
           status: merged.status,
+          title: toolEventTitle(merged),
+          record: merged,
+        };
+        break;
+      }
+      case "tool/canceled": {
+        // B-3（2026-08-23）：工具未完成终态——配对到 tool 记录并置为 canceled
+        const d = event.data as { toolCallId: string; reason?: string };
+        const idx = toolIdxById.get(d.toolCallId);
+        if (idx === undefined) break;
+        const prev = logEvents[idx];
+        if (prev.kind !== "tool" || !prev.record) break;
+        const merged: ToolCallRecord = {
+          ...prev.record,
+          status: "canceled",
+          error: d.reason,
+        };
+        logEvents[idx] = {
+          ...prev,
+          status: "canceled",
           title: toolEventTitle(merged),
           record: merged,
         };

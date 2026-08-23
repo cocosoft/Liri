@@ -118,6 +118,31 @@ export interface TAORLoopDeps {
   /** 流式 chunk 透传 */
   onStreamChunk?: (chunk: unknown) => void;
 
+  /**
+   * 事件写入通道（可选）：工具未完成终态 tool/canceled 补发用。
+   * 与 ReActToolLoop 的 _appendStreamEvent 对应——TAOR 路径事件由 persistMessages
+   * 落盘时批量生成，无实时事件通道，守卫拦截/中止时需显式补发终态。
+   */
+  appendStreamEvent?: (
+    sessionId: string,
+    event: {
+      type: string;
+      seq: number;
+      time: number;
+      sessionId: string;
+      data: Record<string, unknown>;
+    }
+  ) => Promise<{ ok: boolean }>;
+
+  /** 当前会话事件尾号（可选）：补发 tool/canceled 时分配 seq 用 */
+  getStreamTailSeq?: (sessionId: string) => Promise<number>;
+
+  /**
+   * 等待待处理落盘完成（可选）：补发 tool/canceled 前确保 assistant/tool_call
+   * 事件已写入 events.jsonl（落盘为 fire-and-forget，需显式 flush 保证配对顺序）。
+   */
+  flushPendingPersists?: () => Promise<void>;
+
   /** 是否需要继续（无 tool_use 时停止） */
   needsFollowUp?: (response: unknown) => boolean;
 
@@ -828,7 +853,8 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
     this.currentPhase = TAORPhase.ACT;
     this.emitPhase(TAORPhase.ACT, this.turnCount, 'Executing tools');
 
-    // 三守卫
+    // 三守卫（拦截时统一收尾：落盘 assistant 生成 tool_call 事件 + 补发 tool/canceled 终态）
+    const blocked: Array<{ id: string; name: string; reason: string }> = [];
     for (const tc of calls) {
       const loopResult = this.loopDetector.detect(tc.name, tc.input);
       if (loopResult.stuck && loopResult.level === 'critical') {
@@ -836,9 +862,11 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
           toolName: tc.name,
           message: loopResult.message,
         });
-        this.stopReason = 'aborted';
-        this.stopped = true;
-        return { results: [], allSucceeded: false, anyAborted: false };
+        blocked.push({
+          id: tc.id,
+          name: tc.name,
+          reason: `循环检测拦截: ${loopResult.message}`,
+        });
       }
     }
     for (const tc of calls) {
@@ -849,9 +877,11 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
           path: tc.input,
           reason: pathCheck.reason,
         });
-        this.stopReason = 'aborted';
-        this.stopped = true;
-        return { results: [], allSucceeded: false, anyAborted: false };
+        blocked.push({
+          id: tc.id,
+          name: tc.name,
+          reason: `路径守卫拦截: ${pathCheck.reason}`,
+        });
       }
     }
     for (const tc of calls) {
@@ -868,11 +898,19 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
         );
         if (ioCheck.blocked) {
           logger.warn('文件IO循环已被阻止', { tool: tc.name, path: filePath });
-          this.stopReason = 'aborted';
-          this.stopped = true;
-          return { results: [], allSucceeded: false, anyAborted: false };
+          blocked.push({
+            id: tc.id,
+            name: tc.name,
+            reason: '文件IO循环已被阻止',
+          });
         }
       }
+    }
+    if (blocked.length > 0) {
+      this.stopReason = 'aborted';
+      this.stopped = true;
+      await this._emitCanceledForBlocked(blocked);
+      return { results: [], allSucceeded: false, anyAborted: false };
     }
 
     // trace tool enter
@@ -1128,6 +1166,72 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
       allSucceeded: rawResults.every((r) => !r?.error),
       anyAborted: false,
     };
+  }
+
+  /**
+   * 守卫拦截统一收尾（B-2 对齐，2026-08-23）：落盘本轮 messages（生成 assistant/tool_call 事件），
+   * 再为被拦截工具补发 tool/canceled 终态，保证事件流配对完整。
+   *
+   * TAOR 路径与 ReActToolLoop 不同：事件由 persistMessages 落盘时 convertMessage 批量生成，
+   * 无实时事件通道。因此补发依赖 deps.appendStreamEvent（可选，未注入时仅记日志）。
+   */
+  private async _emitCanceledForBlocked(
+    blocked: Array<{ id: string; name: string; reason: string }>
+  ): Promise<void> {
+    try {
+      // 1. 落盘本轮 messages：assistant（含 tool_calls）落盘 → convertMessage 生成 assistant/tool_call 事件，
+      //    保证后续 tool/canceled 可与 tool_call 配对（前端 buildLogEventsFromEvents 按 toolCallId 配对）。
+      if (this.messages.length > 0) {
+        await this.deps.persistMessages(
+          this.messages,
+          this.abortController.signal
+        );
+      }
+      // 落盘为 fire-and-forget，显式 flush 确保 assistant/tool_call 事件先于补发写入
+      await this.deps.flushPendingPersists?.();
+      // 2. 补发 tool/canceled 终态
+      const sessionId = this.taorConfig.sessionId;
+      if (!sessionId || !this.deps.appendStreamEvent) {
+        logger.info(
+          'taorLoop: 守卫拦截，事件通道未注入，跳过 tool/canceled 补发',
+          {
+            sessionId,
+            blocked: blocked.map((b) => b.id),
+          }
+        );
+        return;
+      }
+      let seq = (await this.deps.getStreamTailSeq?.(sessionId)) ?? 0;
+      for (const b of blocked) {
+        seq += 1;
+        await this.deps.appendStreamEvent(sessionId, {
+          type: 'tool/canceled',
+          seq,
+          time: Date.now(),
+          sessionId,
+          data: {
+            toolCallId: b.id,
+            callSeq: 0,
+            reason: `工具未执行（${b.reason}）`,
+          },
+        });
+      }
+      logger.info('taorLoop: 守卫拦截补发 tool/canceled', {
+        sessionId,
+        count: blocked.length,
+        toolCallIds: blocked.map((b) => b.id),
+      });
+    } catch (e) {
+      // 补发失败不阻断主流程（事件层已由前端兜底）
+      await handleError(e, {
+        module: 'query:taorLoop',
+        action: 'emitCanceledForBlocked',
+        context: {
+          sessionId: this.taorConfig.sessionId,
+          blockedCount: blocked.length,
+        },
+      }).catch(() => {});
+    }
   }
 
   /** PRE-FLIGHT（每轮 reason 前；OBSERVE 收尾移至 act/reason 尾部，确保单轮也执行） */

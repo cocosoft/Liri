@@ -106,14 +106,37 @@ function ClampedBody({
 
 // ─── 子组件：单条事件 ─────────────────────────────
 
-function ToolRowImpl({ event }: { event: LogEvent }) {
+function ToolRowImpl({
+  event,
+  isStreaming,
+}: {
+  event: LogEvent;
+  isStreaming: boolean;
+}) {
   const record = event.record!;
   const displayName = getToolDisplayName(record.name);
   const hasArgs = record.arguments && Object.keys(record.arguments).length > 0;
   const hasResult = record.result !== undefined && record.result !== null;
   const isFailed = record.status === "failed";
+  // 全链路修复①（2026-08-23）：提问工具（ask_user_question）无 result 是"等待回答"
+  // 语义（协议契约，非执行中）——不显示"进行中"，避免误导为挂起的运行任务
+  const isWaitingAnswer =
+    record.name === "ask_user_question" && record.status === "running";
+  // 全链路修复②（2026-08-23）：无 result 的工具调用是"已中断"（非"进行中"）——
+  // canceled 事件终态（B-3）或历史回放中无完成事件（running 且非流式）
+  const isInterrupted =
+    record.status === "canceled" ||
+    (record.status === "running" && !isWaitingAnswer && !isStreaming);
   const errorText = extractError(record);
-  const icon = record.status === "running" ? "🔄" : isFailed ? "❌" : "✅";
+  const icon = isWaitingAnswer
+    ? "🗣"
+    : isInterrupted
+      ? "⏸"
+      : record.status === "running"
+        ? "🔄"
+        : isFailed
+          ? "❌"
+          : "✅";
 
   const handleCopy = useCallback(() => {
     let text: string;
@@ -143,9 +166,19 @@ function ToolRowImpl({ event }: { event: LogEvent }) {
         <span className="font-medium text-gray-700 dark:text-gray-300 break-all">
           {displayName}
         </span>
-        {record.status === "running" && (
+        {record.status === "running" && !isWaitingAnswer && !isInterrupted && (
           <span className="ml-auto text-blue-500 animate-pulse shrink-0 text-[10px]">
             进行中
+          </span>
+        )}
+        {isWaitingAnswer && (
+          <span className="ml-auto text-amber-500 shrink-0 text-[10px]">
+            等待回答
+          </span>
+        )}
+        {isInterrupted && (
+          <span className="ml-auto text-gray-500 shrink-0 text-[10px]">
+            已中断
           </span>
         )}
       </div>
@@ -201,9 +234,15 @@ function ToolRowImpl({ event }: { event: LogEvent }) {
 }
 const ToolRow = React.memo(ToolRowImpl);
 
-function LogRowImpl({ event }: { event: LogEvent }) {
+function LogRowImpl({
+  event,
+  isStreaming,
+}: {
+  event: LogEvent;
+  isStreaming: boolean;
+}) {
   if (event.kind === "tool" && event.record) {
-    return <ToolRow event={event} />;
+    return <ToolRow event={event} isStreaming={isStreaming} />;
   }
   const isSystem = event.kind === "system";
   return (
@@ -248,10 +287,11 @@ function LogTab() {
 
   const [view, setView] = useState<LogView>("all");
 
-  // 收起态角标：进行中工具数
+  // 收起态角标：进行中工具数（历史回放无"进行中"——无 result 的工具已归为"已中断"）
   const runningCount = useMemo(
-    () => events.filter((e) => e.status === "running").length,
-    [events],
+    () =>
+      isStreaming ? events.filter((e) => e.status === "running").length : 0,
+    [events, isStreaming],
   );
   useEffect(() => {
     setActiveToolCount(runningCount);
@@ -435,7 +475,7 @@ function LogTab() {
                   transform: `translateY(${vi.start}px)`,
                 }}
               >
-                <LogRow event={filtered[vi.index]} />
+                <LogRow event={filtered[vi.index]} isStreaming={isStreaming} />
               </div>
             ))}
           </div>

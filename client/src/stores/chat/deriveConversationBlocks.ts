@@ -280,9 +280,12 @@ function handleEvent(
       const cleanDelta = stripStructuralTags(data.content ?? "");
       if (cleanDelta.length === 0) break; // 空 delta（只有标签碎片）直接忽略，不推进 block，保证 UI 不抖
       if (lastBlock && lastBlock.type === "thinking") {
-        // 合并：追加 content（保留中间空格——上一 chunk 末尾没标点时通常需要）
-        // 注意：思考内容常以"词/短语"为单位流式到达，一般不额外加空格以免产生多余空白
-        lastBlock.content = `${lastBlock.content}${cleanDelta}`;
+        // L5 修复（2026-08-23）：不可变更新——替换为新 block 对象（非原地 mutate），
+        // 渲染契约收敛为"block 引用变化"，不再依赖 message.content 隐式变化
+        blocks[blocks.length - 1] = {
+          ...lastBlock,
+          content: `${lastBlock.content}${cleanDelta}`,
+        };
       } else {
         blocks.push({
           id: generateBlockId(),
@@ -303,7 +306,11 @@ function handleEvent(
       const blocks = state.current!.blocks!;
       const lastBlock = blocks.length > 0 ? blocks[blocks.length - 1] : null;
       if (lastBlock && lastBlock.type === "text") {
-        lastBlock.content = `${lastBlock.content}${data.content ?? ""}`;
+        // L5 修复（2026-08-23）：不可变更新——替换为新 block 对象（非原地 mutate）
+        blocks[blocks.length - 1] = {
+          ...lastBlock,
+          content: `${lastBlock.content}${data.content ?? ""}`,
+        };
       } else {
         // 工具调用后的新正文 → 开新分组（对齐 ChronologicalBlockBuilder：
         // hasToolCallSinceLastText 时 addText 会新建 groupId），

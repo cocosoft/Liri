@@ -119,6 +119,24 @@ export interface ChatManagerTAORContext {
   onUsage?: (usage: Record<string, unknown>) => void;
   /** 流式 chunk 透传（streamMessage 路径使用） */
   onStreamChunk?: (chunk: unknown) => void;
+  /**
+   * 事件写入通道（可选，B-2 补发）：TAOR 守卫拦截时补发 tool/canceled 终态用。
+   * 由 ChatManager._buildTAORContext 绑定 this.appendStreamEvent。
+   */
+  appendStreamEvent?: (
+    sessionId: string,
+    event: {
+      type: string;
+      seq: number;
+      time: number;
+      sessionId: string;
+      data: Record<string, unknown>;
+    }
+  ) => Promise<{ ok: boolean }>;
+  /** 当前会话事件尾号（可选）：补发 tool/canceled 时分配 seq 用 */
+  getStreamTailSeq?: (sessionId: string) => Promise<number>;
+  /** 等待待处理落盘完成（可选）：补发前确保 tool_call 事件已写入 */
+  flushPendingPersists?: () => Promise<void>;
 }
 
 // ─── 工厂函数 ──────────────────────────────────────────
@@ -528,6 +546,17 @@ export function createChatManagerTAORDeps(
     onStreamChunk: (chunk: unknown) => {
       ctx.onStreamChunk?.(chunk);
     },
+
+    // ── 事件写入通道（B-2 补发）：守卫拦截 tool/canceled 补发透传 ──
+    appendStreamEvent: ctx.appendStreamEvent
+      ? (sessionId, event) => ctx.appendStreamEvent!(sessionId, event)
+      : undefined,
+    getStreamTailSeq: ctx.getStreamTailSeq
+      ? (sessionId) => ctx.getStreamTailSeq!(sessionId)
+      : undefined,
+    flushPendingPersists: ctx.flushPendingPersists
+      ? () => ctx.flushPendingPersists!()
+      : undefined,
 
     // ── needsFollowUp：检查是否有待执行工具调用 ──
     needsFollowUp: (response: unknown) => {

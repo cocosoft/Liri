@@ -1007,6 +1007,16 @@ export class ChatManagerImpl implements ChatManager {
     toolDefinitions: ToolDefinition[],
     options?: SendMessageOptions
   ): ChatManagerTAORContext {
+    // B-6 补发（2026-08-23）：注入 TAOR 事件通道前记录通道可用性，
+    // 便于排查"守卫拦截无 tool/canceled 终态"（通道未注入/丢失）问题。
+    logger.info('chat:manager 注入 TAOR 事件通道（B-6 补发）', {
+      sessionId,
+      appendStreamEvent: typeof this.appendStreamEvent,
+      getStreamTailSeq: typeof this.getStreamTailSeq,
+      flushPendingPersists: typeof this.flushPendingPersists,
+      hasOptions: !!options,
+      hasToolDefinitions: toolDefinitions.length > 0,
+    });
     return {
       sessionId,
       toolDefinitions,
@@ -1097,6 +1107,11 @@ export class ChatManagerImpl implements ChatManager {
         ? (event, name, id, detail) =>
             options.onToolCall!(event as 'start' | 'end', name, id, detail)
         : undefined,
+      // B-2 补发（2026-08-23）：TAOR 守卫拦截时补发 tool/canceled 事件的事件通道
+      appendStreamEvent: (sid, event) =>
+        this.appendStreamEvent(sid, event as unknown as LiriEvent),
+      getStreamTailSeq: (sid) => this.getStreamTailSeq(sid),
+      flushPendingPersists: () => this.flushPendingPersists(),
     };
   }
 

@@ -38,6 +38,7 @@ export type LiriEventType =
   | 'assistant/text'
   | 'assistant/tool_call'
   | 'tool/result'
+  | 'tool/canceled'
   // ─── 富块（M4-1-a 扩展，覆盖 question/todo/progress/doc_workflow/status） ───
   | 'assistant/status'
   | 'assistant/progress'
@@ -138,6 +139,18 @@ export interface LiriEventMap {
     /** 是否为错误结果 */
     isError?: boolean;
     /** 归属的 assistant 消息 id（v1 起，= metadata.parentMessageId 回退 parentUuid；A2） */
+    messageId?: string;
+  };
+
+  /** 工具调用未完成终态（B-2，2026-08-23：被放弃/循环中止的工具无 result，补发取消终态） */
+  'tool/canceled': {
+    /** 对应的 assistant/tool_call 事件的 seq */
+    callSeq: number;
+    /** 工具调用 ID（与 assistant/tool_call 配对） */
+    toolCallId: string;
+    /** 取消原因（工具循环结束/中止/交互中断等） */
+    reason?: string;
+    /** 归属的 assistant 消息 id */
     messageId?: string;
   };
 
@@ -493,7 +506,11 @@ export type LiriEventCategory =
  *   - turn/*, session/* → lifecycle
  */
 export function categorizeEvent(type: LiriEventType): LiriEventCategory {
-  if (type === 'assistant/tool_call' || type === 'tool/result') {
+  if (
+    type === 'assistant/tool_call' ||
+    type === 'tool/result' ||
+    type === 'tool/canceled'
+  ) {
     return 'tool';
   }
   if (type.startsWith('user/') || type.startsWith('assistant/')) {

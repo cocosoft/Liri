@@ -38,6 +38,7 @@ export type LiriEventType =
   | "assistant/text"
   | "assistant/tool_call"
   | "tool/result"
+  | "tool/canceled"
   // ─── 富块（M4-1-a 扩展） ───
   | "assistant/status"
   | "assistant/progress"
@@ -88,6 +89,13 @@ export interface LiriEventMap {
     result: string;
     isError?: boolean;
     /** 归属 assistant 消息 id（P1-5：parentMessageId/parentUuid 回退） */
+    messageId?: string;
+  };
+  /** 工具调用未完成终态（B-2，2026-08-23） */
+  "tool/canceled": {
+    callSeq: number;
+    toolCallId: string;
+    reason?: string;
     messageId?: string;
   };
   "context/compaction": {
@@ -263,7 +271,7 @@ export function categorizeEvent(type: LiriEventType): LiriEventCategory {
     if (type === "assistant/tool_call") return "tool";
     return "conversation";
   }
-  if (type === "tool/result") return "tool";
+  if (type === "tool/result" || type === "tool/canceled") return "tool";
   if (type.startsWith("context/")) return "context";
   if (type.startsWith("system/") || type.startsWith("metric/")) return "system";
   if (type.startsWith("channel/")) return "channel";

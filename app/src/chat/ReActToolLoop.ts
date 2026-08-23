@@ -440,381 +440,401 @@ export class ReActToolLoop extends ReActLoop<
       result: ToolResult;
     }> = [];
 
-    // 4. 循环检测：对本轮工具调用预检（critical 中止，warning 记录）
-    for (const tc of calls) {
-      const detection = this.ctx.loopDetector.detect(tc.name, tc.input);
-      if (detection.stuck && detection.level === 'critical') {
-        this.loopState.loopDetected = {
-          detector: detection.detector ?? 'unknown',
-          message: detection.message ?? '未提供详情',
-        };
-        logger.warn('reactToolLoop:loop_detected', {
-          sessionId: this.ctx.session.id,
-          toolName: tc.name,
-          detector: this.loopState.loopDetected.detector,
-          message: this.loopState.loopDetected.message,
-          turn: this.loopState.toolTurnCount,
-        });
-        return { results: [], allSucceeded: false, anyAborted: false };
-      }
-    }
-
-    for (const tc of calls) {
-      // DecisionGate 门控检查（设计方案 §5.3）：执行前检查是否需要用户确认
-      if (this.gateTier) {
-        const gateQuestion = decisionGateCheck(
-          { toolName: tc.name, toolInput: tc.input },
-          this.gateTier,
-          'execute'
-        );
-        if (gateQuestion) {
-          const gateQuestionData: QuestionData = {
-            questionId: gateQuestion.id,
-            question: gateQuestion.question,
-            header: '决策确认',
-            options: gateQuestion.options
-              ? gateQuestion.options.map((o: string) => ({
-                  label: o,
-                  description: gateQuestion.rationale,
-                }))
-              : [
-                  { label: '继续', description: gateQuestion.rationale },
-                  { label: '取消', description: '跳过此操作' },
-                ],
-            multiSelect: false,
-            questionType: gateQuestion.type,
+    try {
+      // 4. 循环检测：对本轮工具调用预检（critical 中止，warning 记录）
+      for (const tc of calls) {
+        const detection = this.ctx.loopDetector.detect(tc.name, tc.input);
+        if (detection.stuck && detection.level === 'critical') {
+          this.loopState.loopDetected = {
+            detector: detection.detector ?? 'unknown',
+            message: detection.message ?? '未提供详情',
           };
-          if (this.ctx.pendingInteractions.has(this.ctx.session.id)) {
-            logger.warn('reactToolLoop:gate_already_pending', {
-              sessionId: this.ctx.session.id,
-              toolName: tc.name,
-            });
-            results.push({
-              toolCallId: tc.id,
-              name: tc.name,
-              status: 'error' as const,
-              error: '已有待处理交互，决策门控被跳过',
-            });
-            continue;
-          }
-          let gateResolve!: (answers: string[]) => void;
-          const gatePromise = new Promise<string[]>(
-            (res) => (gateResolve = res)
-          );
-          this.ctx.pendingInteractions.set(this.ctx.session.id, {
-            questionId: gateQuestion.id,
-            promise: gatePromise,
-            resolve: gateResolve,
-          });
-          logger.info('reactToolLoop:gate_question_emitted', {
+          logger.warn('reactToolLoop:loop_detected', {
             sessionId: this.ctx.session.id,
-            toolCallId: tc.id,
             toolName: tc.name,
-            questionId: gateQuestion.id,
-            signalKind: gateQuestion.signal?.kind,
+            detector: this.loopState.loopDetected.detector,
+            message: this.loopState.loopDetected.message,
+            turn: this.loopState.toolTurnCount,
           });
-          if (this.negotiationState) {
-            addPendingQuestion(this.negotiationState, gateQuestion);
-          }
-          yield { type: 'question', questionData: gateQuestionData };
-          const gateIter = this._awaitAnswersWithHeartbeat(
-            gateQuestion.id,
-            gatePromise
-          );
-          let gateAnswerResult = await gateIter.next();
-          while (!gateAnswerResult.done) {
-            yield gateAnswerResult.value;
-            gateAnswerResult = await gateIter.next();
-          }
-          const gateAnswers = gateAnswerResult.value;
-          if (this.negotiationState && gateAnswers) {
-            recordAnswer(this.negotiationState, gateQuestion.id, gateAnswers);
-          }
-          if (
-            !gateAnswers ||
-            gateAnswers.length === 0 ||
-            gateAnswers[0] === '取消' ||
-            gateAnswers[0] === '跳过' ||
-            gateAnswers[0] === '中止'
-          ) {
-            logger.info('reactToolLoop:gate_rejected', {
-              sessionId: this.ctx.session.id,
-              toolCallId: tc.id,
-              toolName: tc.name,
-            });
-            results.push({
-              toolCallId: tc.id,
-              name: tc.name,
-              status: 'error' as const,
-              error: '用户取消执行',
-            });
-            continue;
-          }
+          return { results: [], allSucceeded: false, anyAborted: false };
         }
       }
 
-      // 2. 交互恢复：requiresUserInteraction 工具等待用户答案（v3：yield question 事件穿透 generator 挂起链路）
-      const toolObj = this.ctx.toolRegistry.getTool(tc.name);
-      if (toolObj?.requiresUserInteraction?.()) {
-        const isRecovery =
-          this.input.interactionContext &&
-          calls.indexOf(tc) === this.input.interactionContext.interactionIdx;
-        if (isRecovery) {
-          (tc.input as Record<string, unknown>)._userAnswers =
-            this.input.interactionContext!.userAnswers;
+      for (const tc of calls) {
+        // DecisionGate 门控检查（设计方案 §5.3）：执行前检查是否需要用户确认
+        if (this.gateTier) {
+          const gateQuestion = decisionGateCheck(
+            { toolName: tc.name, toolInput: tc.input },
+            this.gateTier,
+            'execute'
+          );
+          if (gateQuestion) {
+            const gateQuestionData: QuestionData = {
+              questionId: gateQuestion.id,
+              question: gateQuestion.question,
+              header: '决策确认',
+              options: gateQuestion.options
+                ? gateQuestion.options.map((o: string) => ({
+                    label: o,
+                    description: gateQuestion.rationale,
+                  }))
+                : [
+                    { label: '继续', description: gateQuestion.rationale },
+                    { label: '取消', description: '跳过此操作' },
+                  ],
+              multiSelect: false,
+              questionType: gateQuestion.type,
+            };
+            if (this.ctx.pendingInteractions.has(this.ctx.session.id)) {
+              logger.warn('reactToolLoop:gate_already_pending', {
+                sessionId: this.ctx.session.id,
+                toolName: tc.name,
+              });
+              results.push({
+                toolCallId: tc.id,
+                name: tc.name,
+                status: 'error' as const,
+                error: '已有待处理交互，决策门控被跳过',
+              });
+              continue;
+            }
+            let gateResolve!: (answers: string[]) => void;
+            const gatePromise = new Promise<string[]>(
+              (res) => (gateResolve = res)
+            );
+            this.ctx.pendingInteractions.set(this.ctx.session.id, {
+              questionId: gateQuestion.id,
+              promise: gatePromise,
+              resolve: gateResolve,
+            });
+            logger.info('reactToolLoop:gate_question_emitted', {
+              sessionId: this.ctx.session.id,
+              toolCallId: tc.id,
+              toolName: tc.name,
+              questionId: gateQuestion.id,
+              signalKind: gateQuestion.signal?.kind,
+            });
+            if (this.negotiationState) {
+              addPendingQuestion(this.negotiationState, gateQuestion);
+            }
+            yield { type: 'question', questionData: gateQuestionData };
+            const gateIter = this._awaitAnswersWithHeartbeat(
+              gateQuestion.id,
+              gatePromise
+            );
+            let gateAnswerResult = await gateIter.next();
+            while (!gateAnswerResult.done) {
+              yield gateAnswerResult.value;
+              gateAnswerResult = await gateIter.next();
+            }
+            const gateAnswers = gateAnswerResult.value;
+            if (this.negotiationState && gateAnswers) {
+              recordAnswer(this.negotiationState, gateQuestion.id, gateAnswers);
+            }
+            if (
+              !gateAnswers ||
+              gateAnswers.length === 0 ||
+              gateAnswers[0] === '取消' ||
+              gateAnswers[0] === '跳过' ||
+              gateAnswers[0] === '中止'
+            ) {
+              logger.info('reactToolLoop:gate_rejected', {
+                sessionId: this.ctx.session.id,
+                toolCallId: tc.id,
+                toolName: tc.name,
+              });
+              results.push({
+                toolCallId: tc.id,
+                name: tc.name,
+                status: 'error' as const,
+                error: '用户取消执行',
+              });
+              continue;
+            }
+          }
+        }
+
+        // 2. 交互恢复：requiresUserInteraction 工具等待用户答案（v3：yield question 事件穿透 generator 挂起链路）
+        const toolObj = this.ctx.toolRegistry.getTool(tc.name);
+        if (toolObj?.requiresUserInteraction?.()) {
+          const isRecovery =
+            this.input.interactionContext &&
+            calls.indexOf(tc) === this.input.interactionContext.interactionIdx;
+          if (isRecovery) {
+            (tc.input as Record<string, unknown>)._userAnswers =
+              this.input.interactionContext!.userAnswers;
+          } else {
+            // 同轮多提问防护（v3）：Map 单槽不静默覆盖——构造 error result 保证 tool_end 闭环（避免 tool_start 卡片悬挂）
+            if (this.ctx.pendingInteractions.has(this.ctx.session.id)) {
+              logger.warn('reactToolLoop:interaction_already_pending', {
+                sessionId: this.ctx.session.id,
+                toolName: tc.name,
+                toolCallId: tc.id,
+              });
+              results.push({
+                toolCallId: tc.id,
+                name: tc.name,
+                status: 'error' as const,
+                error: '已有待处理交互，本次提问被拒绝',
+              });
+              continue;
+            }
+            const { questionData, promise } = this._registerInteraction(tc);
+            // 挂起前产出 question 事件（★ 穿透 generator 挂起链路的唯一通道）
+            logger.info('reactToolLoop:interaction_question_emitted', {
+              sessionId: this.ctx.session.id,
+              toolCallId: tc.id,
+              toolName: tc.name,
+              questionId: questionData.questionId,
+            });
+            yield { type: 'question', questionData };
+            // 迭代消费心跳 generator（★ 禁止 await async generator：直接 await 不执行代码，心跳全丢）
+            const answersIter = this._awaitAnswersWithHeartbeat(
+              questionData.questionId,
+              promise
+            );
+            let answersResult = await answersIter.next();
+            while (!answersResult.done) {
+              yield answersResult.value; // question_waiting 心跳转发
+              answersResult = await answersIter.next();
+            }
+            const answers = answersResult.value; // string[] | undefined
+            if (answers) {
+              (tc.input as Record<string, unknown>)._userAnswers = answers;
+            }
+          }
+        }
+
+        // P0-4（2026-08-14）：工具执行事件同步触发 onToolCall（对齐 TAOR 路径 ChatManagerTAORAdapter）：
+        // start 携带完整参数对象（不再截断）→ CoreAPIImpl.onToolCall 产出带参数的 tool_call chunk + "🔧 Running tool" 提示；
+        // end 携带 ok/message/result → 产出 "✅/❌ Tool xxx completed" 提示 + toolResultCache 注入。
+        // （参数显示另有事件流 tool_start 兜底，前端按 toolCallId 去重合并，不产生双卡片。）
+        // 排查日志：日志内仍截断 200 字符，实际回调传完整对象。
+        // 遗漏 3：safeStringify 防循环引用/BigInt 抛错中断整轮工具。
+        const rawArgsJson = safeStringify(tc.input);
+        logger.debug('reactToolLoop:onToolCall start', {
+          sessionId: this.ctx.session.id,
+          toolName: tc.name,
+          toolCallId: tc.id,
+          argsLength: rawArgsJson.length,
+          detail: rawArgsJson.slice(0, 200),
+          onToolCallRegistered: !!this.ctx.onToolCall,
+        });
+        this.ctx.onToolCall?.('start', tc.name, tc.id, {
+          args: tc.input,
+        });
+
+        const toolResult = await this.ctx.executeTool(
+          {
+            id: tc.id,
+            name: tc.name,
+            arguments: tc.input,
+            sessionId: this.ctx.session.id,
+          },
+          { useErrorHandler: true }
+        );
+
+        // 遗漏 2（2026-08-14 复查）：审批等待态判定提前（原 L381 重复计算，现合并）。
+        // 审批等待工具不触发 onToolCall('end')——否则 CoreAPIImpl 误发 "✅ Tool completed"、
+        // 前端聚合把审批中工具计入 completed++（显示 "2/3 完成"），与 pendingApproval 徽标矛盾。
+        const isPendingApproval =
+          (toolResult as { result?: { pendingApproval?: boolean } })?.result
+            ?.pendingApproval === true;
+
+        const rawResultJson = safeStringify(toolResult.result);
+        const resultMessage = toolResult.error
+          ? `失败: ${toolResult.error.slice(0, 200)}`
+          : `成功: ${rawResultJson.slice(0, 200)}`;
+        // 排查锚点：工具执行结果默认可见。失败用 WARN（circuit_breaker 触发时必须能
+        // 看到每轮失败原因），成功用 INFO（避免 DEBUG 默认不可见导致排查断链）。
+        // 配合 PowerShellTool:execution_failed 等工具自身的失败日志定位根因。
+        const toolStatus = toolResult.error ? 'failed' : 'success';
+        if (toolResult.error) {
+          logger.warn('reactToolLoop:onToolCall end', {
+            sessionId: this.ctx.session.id,
+            toolName: tc.name,
+            toolCallId: tc.id,
+            status: toolStatus,
+            detail: resultMessage,
+            onToolCallRegistered: !!this.ctx.onToolCall,
+            pendingApproval: isPendingApproval,
+          });
         } else {
-          // 同轮多提问防护（v3）：Map 单槽不静默覆盖——构造 error result 保证 tool_end 闭环（避免 tool_start 卡片悬挂）
-          if (this.ctx.pendingInteractions.has(this.ctx.session.id)) {
-            logger.warn('reactToolLoop:interaction_already_pending', {
-              sessionId: this.ctx.session.id,
-              toolName: tc.name,
-              toolCallId: tc.id,
-            });
-            results.push({
-              toolCallId: tc.id,
-              name: tc.name,
-              status: 'error' as const,
-              error: '已有待处理交互，本次提问被拒绝',
-            });
-            continue;
-          }
-          const { questionData, promise } = this._registerInteraction(tc);
-          // 挂起前产出 question 事件（★ 穿透 generator 挂起链路的唯一通道）
-          logger.info('reactToolLoop:interaction_question_emitted', {
+          logger.info('reactToolLoop:onToolCall end', {
             sessionId: this.ctx.session.id,
-            toolCallId: tc.id,
             toolName: tc.name,
-            questionId: questionData.questionId,
+            toolCallId: tc.id,
+            status: toolStatus,
+            detail: resultMessage,
+            onToolCallRegistered: !!this.ctx.onToolCall,
+            pendingApproval: isPendingApproval,
           });
-          yield { type: 'question', questionData };
-          // 迭代消费心跳 generator（★ 禁止 await async generator：直接 await 不执行代码，心跳全丢）
-          const answersIter = this._awaitAnswersWithHeartbeat(
-            questionData.questionId,
-            promise
+        }
+        if (!isPendingApproval) {
+          this.ctx.onToolCall?.('end', tc.name, tc.id, {
+            ok: !toolResult.error,
+            message: resultMessage,
+            result: toolResult.result,
+          });
+        }
+
+        // 工具结果注册表 + 循环检测记录 + 心跳进度数据（5）
+        try {
+          this.ctx.toolResultRegistry.storeResult(
+            this.ctx.session.id,
+            tc.id,
+            tc.name,
+            tc.input,
+            { result: toolResult.result, error: toolResult.error },
+            this.ctx.toolResultRegistry.getCurrentRound(this.ctx.session.id)
           );
-          let answersResult = await answersIter.next();
-          while (!answersResult.done) {
-            yield answersResult.value; // question_waiting 心跳转发
-            answersResult = await answersIter.next();
-          }
-          const answers = answersResult.value; // string[] | undefined
-          if (answers) {
-            (tc.input as Record<string, unknown>)._userAnswers = answers;
-          }
+          this.ctx.loopDetector.recordToolCallOutcome(
+            tc.name,
+            tc.input,
+            toolResult.result,
+            toolResult.error
+          );
+        } catch {
+          // 注册/记录失败不影响执行
         }
-      }
 
-      // P0-4（2026-08-14）：工具执行事件同步触发 onToolCall（对齐 TAOR 路径 ChatManagerTAORAdapter）：
-      // start 携带完整参数对象（不再截断）→ CoreAPIImpl.onToolCall 产出带参数的 tool_call chunk + "🔧 Running tool" 提示；
-      // end 携带 ok/message/result → 产出 "✅/❌ Tool xxx completed" 提示 + toolResultCache 注入。
-      // （参数显示另有事件流 tool_start 兜底，前端按 toolCallId 去重合并，不产生双卡片。）
-      // 排查日志：日志内仍截断 200 字符，实际回调传完整对象。
-      // 遗漏 3：safeStringify 防循环引用/BigInt 抛错中断整轮工具。
-      const rawArgsJson = safeStringify(tc.input);
-      logger.debug('reactToolLoop:onToolCall start', {
-        sessionId: this.ctx.session.id,
-        toolName: tc.name,
-        toolCallId: tc.id,
-        argsLength: rawArgsJson.length,
-        detail: rawArgsJson.slice(0, 200),
-        onToolCallRegistered: !!this.ctx.onToolCall,
-      });
-      this.ctx.onToolCall?.('start', tc.name, tc.id, {
-        args: tc.input,
-      });
-
-      const toolResult = await this.ctx.executeTool(
-        {
-          id: tc.id,
-          name: tc.name,
-          arguments: tc.input,
-          sessionId: this.ctx.session.id,
-        },
-        { useErrorHandler: true }
-      );
-
-      // 遗漏 2（2026-08-14 复查）：审批等待态判定提前（原 L381 重复计算，现合并）。
-      // 审批等待工具不触发 onToolCall('end')——否则 CoreAPIImpl 误发 "✅ Tool completed"、
-      // 前端聚合把审批中工具计入 completed++（显示 "2/3 完成"），与 pendingApproval 徽标矛盾。
-      const isPendingApproval =
-        (toolResult as { result?: { pendingApproval?: boolean } })?.result
-          ?.pendingApproval === true;
-
-      const rawResultJson = safeStringify(toolResult.result);
-      const resultMessage = toolResult.error
-        ? `失败: ${toolResult.error.slice(0, 200)}`
-        : `成功: ${rawResultJson.slice(0, 200)}`;
-      // 排查锚点：工具执行结果默认可见。失败用 WARN（circuit_breaker 触发时必须能
-      // 看到每轮失败原因），成功用 INFO（避免 DEBUG 默认不可见导致排查断链）。
-      // 配合 PowerShellTool:execution_failed 等工具自身的失败日志定位根因。
-      const toolStatus = toolResult.error ? 'failed' : 'success';
-      if (toolResult.error) {
-        logger.warn('reactToolLoop:onToolCall end', {
-          sessionId: this.ctx.session.id,
-          toolName: tc.name,
-          toolCallId: tc.id,
-          status: toolStatus,
-          detail: resultMessage,
-          onToolCallRegistered: !!this.ctx.onToolCall,
-          pendingApproval: isPendingApproval,
-        });
-      } else {
-        logger.info('reactToolLoop:onToolCall end', {
-          sessionId: this.ctx.session.id,
-          toolName: tc.name,
-          toolCallId: tc.id,
-          status: toolStatus,
-          detail: resultMessage,
-          onToolCallRegistered: !!this.ctx.onToolCall,
-          pendingApproval: isPendingApproval,
-        });
-      }
-      if (!isPendingApproval) {
-        this.ctx.onToolCall?.('end', tc.name, tc.id, {
-          ok: !toolResult.error,
-          message: resultMessage,
-          result: toolResult.result,
-        });
-      }
-
-      // 工具结果注册表 + 循环检测记录 + 心跳进度数据（5）
-      try {
-        this.ctx.toolResultRegistry.storeResult(
-          this.ctx.session.id,
-          tc.id,
-          tc.name,
-          tc.input,
-          { result: toolResult.result, error: toolResult.error },
-          this.ctx.toolResultRegistry.getCurrentRound(this.ctx.session.id)
+        // B. 工具结果消息落盘（对齐旧类 _executeToolRound L673-680）
+        // P1-4（2026-08-23）：metadata 携带 parentMessageId（= 归属 assistant 消息 id，G1/N6/A2），
+        // convertMessage 的 tool 分支据此生成 tool/result.messageId。
+        // T2.3（2026-08-23）：metadata 携带 callSeq（= tool_call 事件 seq，A1③ 闭环）——
+        // streamMessageFlow 在写 assistant/tool_call 事件时填充 toolCallSeqMap，
+        // convertMessage tool 分支据此直读生成 tool/result.callSeq，不再依赖 _toolCallSeqMap 回填。
+        const toolResultMsg = this.ctx.messageService.createToolResultMessage(
+          toolResult,
+          {
+            sessionId: this.ctx.session.id,
+            metadata: {
+              ...(toolResult.metadata as Record<string, unknown> | undefined),
+              parentMessageId:
+                this.loopState.assistantMessage?.id ??
+                this._activeToolRoundMessageId,
+              ...(this.ctx.toolCallSeqMap?.has(tc.id)
+                ? { callSeq: this.ctx.toolCallSeqMap.get(tc.id) }
+                : {}),
+            },
+          }
         );
-        this.ctx.loopDetector.recordToolCallOutcome(
-          tc.name,
-          tc.input,
-          toolResult.result,
-          toolResult.error
-        );
-      } catch {
-        // 注册/记录失败不影响执行
-      }
+        this.ctx.addAndPersistMessage(this.ctx.session.id, toolResultMsg);
 
-      // B. 工具结果消息落盘（对齐旧类 _executeToolRound L673-680）
-      // P1-4（2026-08-23）：metadata 携带 parentMessageId（= 归属 assistant 消息 id，G1/N6/A2），
-      // convertMessage 的 tool 分支据此生成 tool/result.messageId。
-      // T2.3（2026-08-23）：metadata 携带 callSeq（= tool_call 事件 seq，A1③ 闭环）——
-      // streamMessageFlow 在写 assistant/tool_call 事件时填充 toolCallSeqMap，
-      // convertMessage tool 分支据此直读生成 tool/result.callSeq，不再依赖 _toolCallSeqMap 回填。
-      const toolResultMsg = this.ctx.messageService.createToolResultMessage(
-        toolResult,
-        {
-          sessionId: this.ctx.session.id,
-          metadata: {
-            ...(toolResult.metadata as Record<string, unknown> | undefined),
-            parentMessageId:
-              this.loopState.assistantMessage?.id ??
-              this._activeToolRoundMessageId,
-            ...(this.ctx.toolCallSeqMap?.has(tc.id)
-              ? { callSeq: this.ctx.toolCallSeqMap.get(tc.id) }
-              : {}),
-          },
+        // G. 流式检查点（对齐旧类 L707-724）：断点续跑依赖此数据
+        if (!this.loopState.completedToolNames.includes(tc.name)) {
+          this.loopState.completedToolNames.push(tc.name);
         }
-      );
-      this.ctx.addAndPersistMessage(this.ctx.session.id, toolResultMsg);
+        this.loopState.totalCompletedToolCount++;
+        if (!isPendingApproval) {
+          this.loopState.completedToolCallIds.push(tc.id);
+        }
+        try {
+          await this.ctx.streamingCheckpoint.onToolCompleted({
+            newMessagesSinceLastCheckpoint: [
+              this.loopState.assistantMessage,
+              toolResultMsg,
+            ],
+            messagesSnapshot: this.ctx.session.messages.slice(),
+            currentToolCalls: calls
+              .filter((c) => c.id !== tc.id)
+              .map((c) => ({
+                id: c.id,
+                name: c.name,
+                arguments: c.input,
+              })),
+            completedToolCallIds: [...this.loopState.completedToolCallIds],
+            generatorState: {
+              toolTurnCount: this.loopState.toolTurnCount,
+              llmCallCount: this.loopState.llmCallCount,
+            },
+            metadata: { model: this.ctx.options?.model },
+            sessionState: this.ctx.session.state,
+          });
+        } catch {
+          // 流式检查点失败不影响执行（@ignore-catch）
+        }
 
-      // G. 流式检查点（对齐旧类 L707-724）：断点续跑依赖此数据
-      if (!this.loopState.completedToolNames.includes(tc.name)) {
-        this.loopState.completedToolNames.push(tc.name);
-      }
-      this.loopState.totalCompletedToolCount++;
-      if (!isPendingApproval) {
-        this.loopState.completedToolCallIds.push(tc.id);
-      }
-      try {
-        await this.ctx.streamingCheckpoint.onToolCompleted({
-          newMessagesSinceLastCheckpoint: [
-            this.loopState.assistantMessage,
-            toolResultMsg,
-          ],
-          messagesSnapshot: this.ctx.session.messages.slice(),
-          currentToolCalls: calls
-            .filter((c) => c.id !== tc.id)
-            .map((c) => ({
-              id: c.id,
-              name: c.name,
-              arguments: c.input,
-            })),
-          completedToolCallIds: [...this.loopState.completedToolCallIds],
-          generatorState: {
-            toolTurnCount: this.loopState.toolTurnCount,
-            llmCallCount: this.loopState.llmCallCount,
-          },
-          metadata: { model: this.ctx.options?.model },
-          sessionState: this.ctx.session.state,
-        });
-      } catch {
-        // 流式检查点失败不影响执行（@ignore-catch）
-      }
-
-      results.push({
-        toolCallId: tc.id,
-        name: tc.name,
-        status: toolResult.error ? 'error' : 'success',
-        // 遗漏 1（2026-08-14 复查）：对象/数组结果（grep/glob/create_project 等经
-        // ToolExecutor 返回 result.data 为对象）也下发——否则 tool_end 转换层 result
-        // undefined → 前端工具卡片结果区空白。对齐 ToolExecutor.ts 的 JSON.stringify 方案。
-        output:
-          typeof toolResult.result === 'string'
-            ? toolResult.result
-            : toolResult.result !== undefined
-              ? safeStringify(toolResult.result)
-              : undefined,
-        error: toolResult.error,
-      });
-      // todo chunk 数据：工具结果含 _todoData 时收集（对齐旧类 _executeToolRound extractTodoData）
-      const todoData = extractTodoData(toolResult);
-      if (todoData) {
-        this.loopState.pendingTodos.push(todoData);
-      }
-      processedResults.push({
-        normalizedToolCall: {
-          id: tc.id,
+        results.push({
+          toolCallId: tc.id,
           name: tc.name,
-          arguments: tc.input,
-        },
-        result: toolResult,
-      });
-    }
+          status: toolResult.error ? 'error' : 'success',
+          // 遗漏 1（2026-08-14 复查）：对象/数组结果（grep/glob/create_project 等经
+          // ToolExecutor 返回 result.data 为对象）也下发——否则 tool_end 转换层 result
+          // undefined → 前端工具卡片结果区空白。对齐 ToolExecutor.ts 的 JSON.stringify 方案。
+          output:
+            typeof toolResult.result === 'string'
+              ? toolResult.result
+              : toolResult.result !== undefined
+                ? safeStringify(toolResult.result)
+                : undefined,
+          error: toolResult.error,
+        });
+        // todo chunk 数据：工具结果含 _todoData 时收集（对齐旧类 _executeToolRound extractTodoData）
+        const todoData = extractTodoData(toolResult);
+        if (todoData) {
+          this.loopState.pendingTodos.push(todoData);
+        }
+        processedResults.push({
+          normalizedToolCall: {
+            id: tc.id,
+            name: tc.name,
+            arguments: tc.input,
+          },
+          result: toolResult,
+        });
+      }
 
-    // C. 下一轮消息回填（对齐旧类 L406-411）+ 轮次推进 + unifiedTracker（L413-419）
-    if (this.loopState.assistantMessage) {
-      this.loopState.messages = this.ctx.buildToolRoundMessages(
-        this.loopState.messages,
-        this.loopState.assistantMessage,
-        calls.map((c) => ({
-          id: c.id,
-          name: c.name,
-          arguments: c.input,
-        })),
-        processedResults as Array<{
-          normalizedToolCall: ToolCall;
-          result: ToolResult;
-        }>
-      );
-    }
-    this.ctx.toolResultRegistry.nextRound(this.ctx.session.id);
-    this.ctx.unifiedTracker.resetStreamTokens();
-    const model = this.ctx.options?.model as string | undefined;
-    if (model) {
-      await this.ctx.unifiedTracker.updateBaselineForRound(
-        this.loopState.messages as unknown as Record<string, unknown>[],
-        model
-      );
-    }
+      // C. 下一轮消息回填（对齐旧类 L406-411）+ 轮次推进 + unifiedTracker（L413-419）
+      if (this.loopState.assistantMessage) {
+        this.loopState.messages = this.ctx.buildToolRoundMessages(
+          this.loopState.messages,
+          this.loopState.assistantMessage,
+          calls.map((c) => ({
+            id: c.id,
+            name: c.name,
+            arguments: c.input,
+          })),
+          processedResults as Array<{
+            normalizedToolCall: ToolCall;
+            result: ToolResult;
+          }>
+        );
+      }
+      this.ctx.toolResultRegistry.nextRound(this.ctx.session.id);
+      this.ctx.unifiedTracker.resetStreamTokens();
+      const model = this.ctx.options?.model as string | undefined;
+      if (model) {
+        await this.ctx.unifiedTracker.updateBaselineForRound(
+          this.loopState.messages as unknown as Record<string, unknown>[],
+          model
+        );
+      }
 
-    return {
-      results,
-      allSucceeded: results.every((r) => r.status === 'success'),
-      anyAborted: false,
-    };
+      return {
+        results,
+        allSucceeded: results.every((r) => r.status === 'success'),
+        anyAborted: false,
+      };
+    } finally {
+      // B-2（2026-08-23）：工具调用未完成终态补发——已写 tool_call 事件
+      // （toolCallSeqMap 有记录）但未完成的工具，补发 tool/canceled，保证事件流
+      // 有完整终态（回放/日志不再把"已放弃"误显示为"进行中"；ask_user_question
+      // 等交互挂起同样覆盖）。
+      try {
+        for (const tc of calls) {
+          if (this.loopState.completedToolCallIds.includes(tc.id)) continue;
+          if (!this.ctx.toolCallSeqMap?.has(tc.id)) continue; // 未发 tool_call 事件
+          await this._appendStreamEvent('tool/canceled', {
+            toolCallId: tc.id,
+            callSeq: this.ctx.toolCallSeqMap.get(tc.id) ?? 0,
+            reason: '工具调用未完成（工具循环结束/中止）',
+          });
+        }
+      } catch {
+        // @ignore-catch — 补发失败不影响主流程（CS03）
+      }
+    }
   }
 
   protected shouldContinue(
@@ -885,7 +905,7 @@ export class ReActToolLoop extends ReActLoop<
    * 不进事件流，重新打开会话（events 派生）时正文缺失，仅靠 legacy 合并兜底。
    */
   private async _appendStreamEvent(
-    type: 'assistant/text' | 'assistant/thinking',
+    type: 'assistant/text' | 'assistant/thinking' | 'tool/canceled',
     data: unknown
   ): Promise<void> {
     const { appendStreamEvent, getStreamTailSeq } = this.ctx;

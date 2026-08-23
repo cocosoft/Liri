@@ -197,7 +197,8 @@ class SSEService {
       for (const evt of progressEvents) {
         this.eventSource.addEventListener(evt, (e: Event) => {
           const msg = e as MessageEvent;
-          const data = this.parse(msg.data);
+          const rawData = msg.data;
+          const data = this.parse(rawData);
           // 对 plan 事件输出详细日志
           if (evt.startsWith("plan:")) {
             const planId = data.planId as string | undefined;
@@ -212,7 +213,29 @@ class SSEService {
               );
             }
           }
+          // 对会话事件输出详细日志（A4 排查：标题实时刷新依赖此链路）
+          if (evt.startsWith("session:")) {
+            const handlerCount = this.handlers.get(evt)?.size ?? 0;
+            logger.info(`[EventSource] 收到会话命名事件 ${evt}（A4 链路）`, {
+              eventName: evt,
+              rawData: String(rawData),
+              parsedData: {
+                id: (data.id as string) ?? null,
+                title: (data.title as string) ?? null,
+                ts: (data.ts as number) ?? null,
+              },
+              handlerCount,
+              hasHandler: handlerCount > 0,
+            });
+          }
           this.dispatch(evt, data);
+          // 会话事件 dispatch 完成确认（区分「事件收到但 handler 未生效」）
+          if (evt.startsWith("session:")) {
+            logger.info(`[EventSource] ${evt} dispatch 完成（A4 链路）`, {
+              eventName: evt,
+              dispatchedTo: this.handlers.get(evt)?.size ?? 0,
+            });
+          }
         });
       }
     } catch {

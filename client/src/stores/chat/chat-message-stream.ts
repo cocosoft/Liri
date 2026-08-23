@@ -744,13 +744,15 @@ export async function streamMessageImpl(
     batch.latestMessages = null;
     batch.pending = false;
 
-    // 检查最终 blocks 中是否有 question 块，更新 hasPendingQuestion
+    // 检查最终 blocks 中是否有 question 块（仅用于完成音判断）
     const hasQuestion = finalBlocks.some((b) => b.type === "question");
-    // P2-3: 仅更新本会话的 question 状态，不影响其他会话
+    // BUG-11 修复（2026-08-23）：流结束**清除** hasPendingQuestion 而非"检测 finalBlocks
+    // 置 true"——question 等待期间流是挂起不结束的，正常结束即已答完；历史残留的
+    // question 块不应点亮等待态（真正的等待态只由 question chunk S1 驱动）。
     set({
       hasPendingQuestion: {
         ...get().hasPendingQuestion,
-        [sid]: hasQuestion,
+        [sid]: false,
       },
     });
 

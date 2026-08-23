@@ -21,8 +21,10 @@ import { useChatInspectorStore } from "../../stores/chatInspectorStore";
 import { useModelSwitchStore } from "../../stores/modelSwitchStore";
 import { getToolDisplayName } from "../../utils/toolHumanSummary";
 import { getToolResultFull } from "../../stores/chat/chat-message.slice";
+import { useSessionStore } from "../../stores/sessionStore";
+import { useTrajectoryStore } from "../../stores/chat/trajectoryStore";
 import {
-  buildLogEvents,
+  buildLogEventsFromEvents,
   extractError,
   summarizeResult,
   type LogEvent,
@@ -224,12 +226,25 @@ const LogRow = React.memo(LogRowImpl);
 // ─── 主组件 ───────────────────────────────────────
 
 function LogTab() {
-  const messages = useChatStore((s) => s.messages);
   const isStreaming = useChatStore((s) => s.isStreaming);
   const setActiveToolCount = useChatInspectorStore((s) => s.setActiveToolCount);
   const currentModelName = useModelSwitchStore((s) => s.currentModelName);
+  // R-3（2026-08-23）：LogTab 改从事件流构建日志（事件 seq 精确序 + 流式实时），
+  // 不再从 messages 投影重建（buildLogEvents）——与轨迹 Tab 共用 trajectoryStore 事件源
+  const currentSessionId = useSessionStore((s) => s.currentSession?.id);
+  const trajEvents = useTrajectoryStore((s) => s.events);
+  const trajLoading = useTrajectoryStore((s) => s.loading);
+  const trajError = useTrajectoryStore((s) => s.error);
+  const loadEvents = useTrajectoryStore((s) => s.loadEvents);
 
-  const events = useMemo(() => buildLogEvents(messages), [messages]);
+  useEffect(() => {
+    if (currentSessionId) void loadEvents(currentSessionId);
+  }, [currentSessionId, loadEvents]);
+
+  const events = useMemo(
+    () => buildLogEventsFromEvents(trajEvents),
+    [trajEvents],
+  );
 
   const [view, setView] = useState<LogView>("all");
 
@@ -381,14 +396,20 @@ function LogTab() {
         {filtered.length === 0 ? (
           <div className="px-3 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
             {events.length === 0 ? (
-              <>
-                <p>暂无会话日志</p>
-                <p className="text-xs mt-1">
-                  {isStreaming
-                    ? "AI 正在生成回复..."
-                    : "AI 思考、工具调用与系统事件会实时出现在这里"}
-                </p>
-              </>
+              trajLoading ? (
+                <p className="text-xs mt-1">正在加载会话日志...</p>
+              ) : trajError ? (
+                <p className="text-xs mt-1">加载失败：{trajError}</p>
+              ) : (
+                <>
+                  <p>暂无会话日志</p>
+                  <p className="text-xs mt-1">
+                    {isStreaming
+                      ? "AI 正在生成回复..."
+                      : "AI 思考、工具调用与系统事件会实时出现在这里"}
+                  </p>
+                </>
+              )
             ) : (
               <p>当前筛选下没有事件</p>
             )}

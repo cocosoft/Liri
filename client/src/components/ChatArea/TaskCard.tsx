@@ -20,6 +20,8 @@ const STATUS_CONFIG: Record<
   },
   completed: { icon: "✓", color: "text-green-500", label: "已完成" },
   failed: { icon: "✗", color: "text-red-500", label: "失败" },
+  // S3 修复（2026-08-23）：cancelled 独立终态（用户中止），橙色区别于 failed
+  cancelled: { icon: "⏹", color: "text-orange-500", label: "已取消" },
   blocked: { icon: "⏸", color: "text-orange-400", label: "等待依赖" },
   // T5 修复：后端 todo-types.ts 存在 skipped 状态，此前无映射时
   // cfg 回退到 pending，被跳过的任务错误显示"○ 等待中"

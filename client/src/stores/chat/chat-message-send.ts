@@ -64,6 +64,16 @@ export async function sendMessageImpl(
     isInputBlocked: !messageQueueEnabled,
     error: null,
     errorCode: null,
+    // BUG-11 修复（2026-08-23）：发送新消息时清除 hasPendingQuestion——
+    // 覆盖"用户没点问题卡片、直接输入文字回答"的场景，避免等待态残留。
+    ...(currentSid
+      ? {
+          hasPendingQuestion: {
+            ...get().hasPendingQuestion,
+            [currentSid]: false,
+          },
+        }
+      : {}),
   });
 
   const pendingReplyId = get().pendingReplyToId;

@@ -7,7 +7,7 @@
  * - summarizeResult / extractError：结果人性化摘要与错误提取
  */
 
-import type { Message, ToolCall } from "../types";
+import type { LiriEvent, Message, ToolCall } from "../types";
 import { getToolDisplayName, getToolHumanSummary } from "./toolHumanSummary";
 import { createLogger } from "./logger";
 
@@ -218,6 +218,102 @@ export function buildLogEvents(messages: Message[]): LogEvent[] {
   }
 
   return events;
+}
+
+// ─── 事件流 → 会话日志（R-3：LogTab 消费事件流） ───
+
+/**
+ * R-3（2026-08-23）：从事件流（LiriEvent[]，seq 升序）构建会话日志事件。
+ * 替代 buildLogEvents（从 messages 投影重建）——事件流保留精确 seq 序、
+ * 流式实时性与工具终态（assistant/tool_call → tool/result 配对）。
+ *
+ * 不可变更新：tool/result 到达时**替换**对应 LogEvent 引用（React.memo 依赖
+ * 引用变化触发重渲染），工具行状态 running → completed/failed 实时刷新。
+ */
+export function buildLogEventsFromEvents(events: LiriEvent[]): LogEvent[] {
+  const logEvents: LogEvent[] = [];
+  const toolIdxById = new Map<string, number>();
+
+  for (const event of events) {
+    switch (event.type) {
+      case "assistant/thinking": {
+        const content = (event.data as { content?: string }).content ?? "";
+        if (!content) break;
+        logEvents.push({
+          key: `evt-${event.seq}-thinking`,
+          kind: "thinking",
+          time: event.time,
+          title: firstLine(content),
+          content,
+        });
+        break;
+      }
+      case "assistant/tool_call": {
+        const d = event.data as {
+          toolCallId: string;
+          name: string;
+          args?: unknown;
+        };
+        const rec: ToolCallRecord = {
+          id: d.toolCallId,
+          name: d.name,
+          arguments: (d.args as Record<string, unknown>) || {},
+          status: "running",
+        };
+        toolIdxById.set(d.toolCallId, logEvents.length);
+        logEvents.push({
+          key: `tool-${d.toolCallId}`,
+          kind: "tool",
+          time: event.time,
+          status: "running",
+          title: toolEventTitle(rec),
+          record: rec,
+        });
+        break;
+      }
+      case "tool/result": {
+        const d = event.data as {
+          toolCallId: string;
+          result?: string;
+          isError?: boolean;
+        };
+        const idx = toolIdxById.get(d.toolCallId);
+        if (idx === undefined) break;
+        const prev = logEvents[idx];
+        if (prev.kind !== "tool" || !prev.record) break;
+        const merged: ToolCallRecord = {
+          ...prev.record,
+          result: d.result,
+          status: d.isError ? "failed" : "completed",
+        };
+        merged.error = d.isError
+          ? (extractError(merged) ?? undefined)
+          : undefined;
+        logEvents[idx] = {
+          ...prev,
+          status: merged.status,
+          title: toolEventTitle(merged),
+          record: merged,
+        };
+        break;
+      }
+      case "assistant/status": {
+        const content = (event.data as { content?: string }).content ?? "";
+        if (!content) break;
+        logEvents.push({
+          key: `evt-${event.seq}-status`,
+          kind: "system",
+          time: event.time,
+          title: firstLine(content),
+          content,
+        });
+        break;
+      }
+      default:
+        break;
+    }
+  }
+  return logEvents;
 }
 
 // ─── 结果/错误辅助 ───────────────────────────────

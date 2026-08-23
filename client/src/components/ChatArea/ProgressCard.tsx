@@ -27,6 +27,8 @@ const STEP_STATUS_COLORS: Record<string, string> = {
   in_progress: "text-blue-500",
   done: "text-green-500",
   failed: "text-red-500",
+  // S3 修复（2026-08-23）：cancelled 独立终态色（橙色"已取消"）
+  cancelled: "text-orange-500",
 };
 
 /** 滚动区高度上限（px）——命令过多时内部滚动，不撑高页面 */
@@ -50,6 +52,12 @@ export default function ProgressCard({ data }: ProgressCardProps) {
     truncated,
   } = data;
   const phaseInfo = PHASE_LABELS[phase] || { icon: "\u{1F4CC}", label: phase };
+  // BUG-1 修复（2026-08-23）：后端 execution_phase.progress 语义为"累计完成工具数"
+  // （无总计划数分母，无法换算 0-100 百分比），此处 clamp 兜底防溢出（>100% 撑破容器）
+  // 与 NaN 污染。见 dev_docs/20260823/会话标题生成问题-排查报告-20260823.md BUG-1。
+  const clampedProgress = Number.isFinite(progress)
+    ? Math.min(100, Math.max(0, progress))
+    : 0;
 
   return (
     <div className="my-2 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 overflow-hidden shadow-sm">
@@ -62,7 +70,7 @@ export default function ProgressCard({ data }: ProgressCardProps) {
           </span>
         </div>
         <span className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0 ml-2">
-          {progress}%
+          {clampedProgress}%
         </span>
       </div>
 
@@ -71,7 +79,7 @@ export default function ProgressCard({ data }: ProgressCardProps) {
         <div className="w-full h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
           <div
             className="h-full bg-blue-500 rounded-full transition-all duration-300 ease-out"
-            style={{ width: `${progress}%` }}
+            style={{ width: `${clampedProgress}%` }}
           />
         </div>
       </div>
@@ -101,7 +109,13 @@ export default function ProgressCard({ data }: ProgressCardProps) {
             style={{ maxHeight: STEPS_MAX_HEIGHT }}
           >
             {steps.map((step, idx) => (
-              <div key={idx} className="flex items-center gap-2 text-xs">
+              // L1 修复（2026-08-23）：key 含步骤名——原 key={idx} 在 steps 截断
+              // （slice(-30)）后 idx 归位，React 复用旧 DOM 对应新内容导致状态错位；
+              // name+idx 组合保证截断后 key 变化触发重建，避免跨步骤复用。
+              <div
+                key={`${idx}-${step.name}`}
+                className="flex items-center gap-2 text-xs"
+              >
                 <span
                   className={`flex-shrink-0 ${STEP_STATUS_COLORS[step.status] || "text-gray-400"}`}
                 >

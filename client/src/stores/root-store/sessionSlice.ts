@@ -40,6 +40,8 @@ let _restoreSeq = 0;
 // LOAD_TIMEOUT_MS 强制复位 isLoading 并允许下一次刷新继续。
 const LOAD_TIMEOUT_MS = 10_000;
 let loadStartedAt = 0;
+/** T-2/A2 修复（2026-08-23）：isLoading 期间到达的刷新请求排队标记，加载完成后重跑一次 */
+let _pendingSessionRefresh = false;
 
 /**
  * E1 修复：切换被丢弃时，将 chat store 消息恢复为当前有效会话（currentSessionId）的内容。
@@ -428,7 +430,11 @@ export const createSessionSlice: StateCreator<
         loadStartedAt = 0;
         set({ isLoading: false });
       } else {
-        logger.debug("loadChatSessions:加载中，跳过本次刷新");
+        // T-2/A2 修复（2026-08-23）：SSE 刷新不再静默丢弃——排队标记，当前加载完成后
+        // 重跑一次（合并多次为一次）。原实现直接 return，session:renamed（标题/列表
+        // 变更）在加载窗口内被丢弃，表现为"标题需重开页面才显示"。
+        _pendingSessionRefresh = true;
+        logger.debug("loadChatSessions:加载中，排队本次刷新");
         return;
       }
     }
@@ -509,6 +515,12 @@ export const createSessionSlice: StateCreator<
         sessions: { ...get().sessions, ...hubSync },
       });
       loadStartedAt = 0; // BUG-6：加载完成复位超时计时
+      // T-2/A2 修复：加载期间排队的刷新在此重跑（合并多次为一次）
+      if (_pendingSessionRefresh) {
+        _pendingSessionRefresh = false;
+        logger.debug("loadChatSessions:重跑排队的刷新");
+        void get().loadChatSessions();
+      }
       logger.info("loadChatSessions:加载完成", {
         sessionCount: sessions.length,
         currentSessionId: currentSession?.id ?? null,

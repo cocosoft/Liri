@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { QuestionData } from "../../types";
 import { chatService } from "../../services/chatService";
+import { useChatStore } from "../../stores/chat";
 import { createLogger } from "@/utils/logger";
 
 const logger = createLogger("components:questionBlock");
@@ -99,6 +100,14 @@ function QuestionBlock({
       // #9 修复：仅成功才锁定（原失败也 setSubmitted(true)，用户无法重试）
       if (result.success) {
         setSubmitted(true);
+        // BUG-11 修复（2026-08-23）：提交成功立即清除 hasPendingQuestion——
+        // 原实现仅靠 ChatMessage onResponse 回调（依赖后端返回 content，但
+        // handleQuestionAnswer 只返回 {success:true} 无 content，回调永不触发），
+        // 导致"AI 正在等待您的回答"提示一直显示。
+        const sid = sessionId ?? "default";
+        useChatStore.setState((s) => ({
+          hasPendingQuestion: { ...s.hasPendingQuestion, [sid]: false },
+        }));
         logger.info("question 提交成功，等待后端恢复流", {
           questionId,
           sessionId,

@@ -25,6 +25,8 @@ const STATUS_COLORS: Record<
   in_progress: { bg: "#dbeafe", border: "#60a5fa", text: "#2563eb" },
   completed: { bg: "#dcfce7", border: "#22c55e", text: "#16a34a" },
   failed: { bg: "#fee2e2", border: "#ef4444", text: "#dc2626" },
+  // S3 修复：cancelled 独立终态色（橙色"已取消"）
+  cancelled: { bg: "#ffedd5", border: "#f97316", text: "#ea580c" },
   blocked: { bg: "#fff7ed", border: "#f97316", text: "#ea580c" },
   skipped: { bg: "#f9fafb", border: "#9ca3af", text: "#6b7280" },
 };

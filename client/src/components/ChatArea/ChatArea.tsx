@@ -1,4 +1,4 @@
-import { useMemo, useEffect, useRef, useState } from "react";
+import { useMemo, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { useChatStore } from "../../stores/chat";
 import { useSessionStore } from "../../stores/sessionStore";
@@ -17,7 +17,6 @@ import ChatInput from "./ChatInput";
 import { ContextWatermark } from "../chat/ContextWatermark";
 import VoiceSubtitleOverlay from "../VoiceSubtitleOverlay";
 import VoiceSessionIndicator from "../VoiceSessionIndicator";
-import { TrajectoryView } from "../Trajectory/TrajectoryView";
 import { createLogger } from "@/utils/logger";
 import { useNavigate } from "react-router-dom";
 
@@ -140,9 +139,6 @@ function ChatArea({ fluid = false }: { fluid?: boolean }) {
     // 补清 errorCode：仅清 error 会残留错误码，导致 displayError 后续误判后端状态
     useChatStore.setState({ error: null, errorCode: null });
   };
-
-  /** M1-7：轨迹调试面板开关 */
-  const [trajectoryOpen, setTrajectoryOpen] = useState(false);
 
   /**
    * 错误面板重试（2026-08-16 修复）：原实现仅 checkStatus()（探测后端状态），
@@ -464,27 +460,6 @@ function ChatArea({ fluid = false }: { fluid?: boolean }) {
         isStreaming={isStreaming}
         containerRef={containerRef}
       />
-
-      {/* M1-7：轨迹调试入口按钮 */}
-      {currentSession?.id && (
-        <button
-          onClick={() => setTrajectoryOpen(true)}
-          aria-label="轨迹调试"
-          title="轨迹调试"
-          className="absolute top-2 right-2 z-20 px-2 py-1 text-xs rounded bg-white/80 dark:bg-gray-800/80 backdrop-blur border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:bg-white dark:hover:bg-gray-700 shadow-sm transition"
-        >
-          轨迹
-        </button>
-      )}
-
-      {/* M1-7：轨迹调试侧滑面板 */}
-      {currentSession?.id && (
-        <TrajectoryView
-          sessionId={currentSession.id}
-          open={trajectoryOpen}
-          onClose={() => setTrajectoryOpen(false)}
-        />
-      )}
 
       {/* 错误提示 */}
       {displayError && (

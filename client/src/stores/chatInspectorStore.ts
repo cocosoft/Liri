@@ -9,13 +9,15 @@ import { create } from "zustand";
 
 // ─── 类型 ─────────────────────────────────────────
 
-export type InspectorTab = "context" | "trajectory" | "files" | "settings";
+export type InspectorTab =
+  "context" | "trajectory" | "files" | "log" | "settings";
 
-/** 合法 Tab 列表（localStorage 旧值防护：旧版 "tools" 已废弃；旧版 "log" 已替换为 trajectory） */
+/** 合法 Tab 列表（localStorage 旧值防护：旧版 "tools" 已废弃） */
 const VALID_TABS: readonly InspectorTab[] = [
   "context",
   "trajectory",
   "files",
+  "log",
   "settings",
 ];
 

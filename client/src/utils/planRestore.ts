@@ -36,7 +36,8 @@ function mapStepStatus(status: string): TaskCardTask["status"] {
     case "failed":
       return "failed";
     case "cancelled":
-      return "failed"; // 用户中止视为失败态
+      // S3 修复：cancelled 独立终态（用户中止），前端显示"已取消"橙色，不再归为 failed
+      return "cancelled";
     default:
       return "pending";
   }

@@ -231,8 +231,11 @@ export class EventBasedStreamAggregator {
                     | "failed"
                     | "blocked"
                     | "skipped";
-                if (args.result) updates.result = args.result as string;
-                if (args.durationMs)
+                // L2 修复（2026-08-23）：`!== undefined` 替代 truthy 判断——
+                // 空串 result / 0 时长等 falsy 值此前被静默丢弃
+                if (args.result !== undefined)
+                  updates.result = args.result as string;
+                if (args.durationMs !== undefined)
                   updates.durationMs = args.durationMs as number;
                 this.appendEvent({
                   type: "assistant/todo",

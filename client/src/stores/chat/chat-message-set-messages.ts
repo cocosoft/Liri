@@ -287,16 +287,10 @@ export function setMessagesImpl(
       }
     }
 
-    // 检测是否有待用户回答的 question 块
-    const hasQuestion = enhancedMessages.some((m) =>
-      m.blocks?.some((b) => b.type === "question"),
-    );
-    // P2-3: 按会话记录 pending question（setMessages 作用于当前会话）
-    const questionSessionId = messages[0]?.session_id ?? "default";
-    const pendingQuestion = {
-      ...get().hasPendingQuestion,
-      [questionSessionId]: hasQuestion,
-    };
+    // BUG-11 修复（2026-08-23）：移除"历史消息含 question 块 → hasPendingQuestion=true"检测。
+    // question 块是持久化消息内容、提交回答后永不移除，此检测会让等待态被历史残留
+    // 永久点亮（"AI 正在等待您的回答"死锁根因之一）。真正的等待态只由流式 question
+    // chunk（S1）驱动，由 QuestionBlock 提交/流结束/发送新消息清除。
 
     // BUG-4 修复：sessionFiles 完全替换为当前会话提取的文件列表。
     // 原实现与 get().sessionFiles 合并，切换会话时旧会话文件残留，
@@ -347,7 +341,6 @@ export function setMessagesImpl(
     set({
       messages: sortedMessages,
       sessionFiles: sessionFilesList,
-      hasPendingQuestion: pendingQuestion,
       streamingStatus: "",
       executionPhase: null,
     });

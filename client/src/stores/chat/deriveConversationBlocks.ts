@@ -632,21 +632,41 @@ function handleEvent(
           groupId: state.currentGroupId,
         });
       } else if (data.action === "update" && data.taskId) {
-        // 增量更新：找到最后一个 todo block，更新其 taskCard.tasks 中对应 task
-        const todoBlock = [...state.current!.blocks!]
-          .reverse()
-          .find((b) => b.type === "todo" && b.taskCard);
-        if (todoBlock?.taskCard) {
-          const task = todoBlock.taskCard.tasks.find(
+        // BUG-2+8 修复（2026-08-23）：① 按 taskId 跨所有 todo 块查找——原
+        // reverse().find 只命中最后一个 todo 块，多块时更新落错块、跨 turn 静默丢失；
+        // ② 更新后替换块对象新引用——原地改 task.status 不换块引用，ChatMessage
+        // memo 比较器只比块对象引用 → 判定无变化跳过重渲染（对齐 progress 分支同款修复）。
+        const blocks = state.current!.blocks!;
+        for (let i = 0; i < blocks.length; i++) {
+          const b = blocks[i];
+          if (b.type !== "todo" || !b.taskCard) continue;
+          const taskIdx = b.taskCard.tasks.findIndex(
             (t) => t.id === data.taskId,
           );
-          if (task) {
-            if (data.updates?.status) task.status = data.updates.status;
-            if (data.updates?.result !== undefined)
-              task.result = data.updates.result;
-            if (data.updates?.durationMs !== undefined)
-              task.durationMs = data.updates.durationMs;
-          }
+          if (taskIdx === -1) continue;
+          blocks[i] = {
+            ...b,
+            taskCard: {
+              ...b.taskCard,
+              tasks: b.taskCard.tasks.map((t, j) =>
+                j === taskIdx
+                  ? {
+                      ...t,
+                      ...(data.updates?.status
+                        ? { status: data.updates.status }
+                        : {}),
+                      ...(data.updates?.result !== undefined
+                        ? { result: data.updates.result }
+                        : {}),
+                      ...(data.updates?.durationMs !== undefined
+                        ? { durationMs: data.updates.durationMs }
+                        : {}),
+                    }
+                  : t,
+              ),
+            },
+          };
+          break;
         }
       }
       break;

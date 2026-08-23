@@ -85,8 +85,16 @@ export function reactEventsToChunks(
       ];
 
     case 'tool_progress':
-      // 工具进度：内部语义，无前端 chunk 映射
-      return [];
+      // BUG-10 修复（2026-08-23）：工具执行中间进度不再丢弃——原 return [] 导致
+      // 长命令期间前端看不到任何中间输出、感知"工具卡住"。现映射为 status chunk
+      // 透传给前端展示（产生频率已由循环侧控制，无需此处节流）。
+      return [
+        {
+          type: 'status',
+          content: `工具执行中 ${Math.round(event.progress)}%`,
+          sessionId,
+        },
+      ];
 
     case 'tool_end':
       // 更新 tool_start 建卡的状态：completed / failed（对齐旧类 tool_call 完成 chunk）；

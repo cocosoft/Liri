@@ -276,9 +276,31 @@ export class PlanDrivenLoop {
     return taskOrchestrator.getPlanProgress(this.plan.id) ?? null;
   }
 
-  /** 中止执行 */
+  /** 中止执行（BUG-3 修复 2026-08-23：终态化当前 running 步骤，幂等） */
   abort(): void {
+    if (this.aborted) return;
     this.aborted = true;
+    // 终态化当前 running 步骤——否则 plan.status 永久 running、刷新后 planRestore
+    // 恢复"执行中"卡死。异常中止（runCollect 抛错）由 catch 分支的 aborted 守卫
+    // 避免把 cancelled 误标为 failed。
+    const runningStep = this.plan?.steps.find((s) => s.status === 'running');
+    if (runningStep) {
+      taskOrchestrator.markStepCancelled(runningStep.id, '用户中止');
+      // S3 修复（2026-08-23）：广播 cancelled 到前端 SSE（步骤级即时反馈"已取消"，
+      // 前端已支持 cancelled 渲染；plan:completed 由循环 break 后补发）
+      if (this.plan) {
+        this._broadcastStepProgress(
+          runningStep.id,
+          'cancelled',
+          this.plan.steps.indexOf(runningStep),
+          this.plan.steps.length
+        );
+      }
+    }
+    // S2 修复（2026-08-23）：取消 in-flight LLM 调用——TAORLoop.abort() 中止其内部
+    // AbortController，所有透传该 signal 的 LLM 请求被取消（不只跳循环，避免成本
+    // 继续烧）。不保存检查点（用户中止 = 放弃语义，与 markStepCancelled 一致）。
+    void this.taorLoop.abort(false);
   }
 
   // ─── 私有方法 ─────────────────────────────────────────
@@ -354,12 +376,25 @@ export class PlanDrivenLoop {
         stepIndex: i + 1,
         totalSteps: subtasks.length,
       });
+      // BUG-4/S3 修复（2026-08-23）：markStepRunning 补发 in_progress 广播——
+      // 前端已删除"猜状态"推进逻辑，执行中状态必须由后端广播驱动。
+      this._broadcastStepProgress(stepId, 'in_progress', i, subtasks.length);
       this._notifyProgress();
 
       try {
         const stepPrompt = this._buildStepPrompt(task, subtasks, i);
         const result = await this.taorLoop.runCollect({ prompt: stepPrompt });
         const duration = Date.now() - stepStart;
+
+        // S2 修复（2026-08-23）：中止后 runCollect 返回 aborted 结果——步骤已由
+        // abort() 标 cancelled，此处跳过完成标记，避免 cancelled 被覆盖为 completed。
+        if (this.aborted) {
+          logger.info('步骤因中止跳过完成标记（runCollect 已中止）', {
+            sessionId: this.sessionId,
+            stepId,
+          });
+          continue;
+        }
 
         taskOrchestrator.markStepCompleted(stepId, '完成');
         this.totalTokens += result.totalTokens;
@@ -392,33 +427,43 @@ export class PlanDrivenLoop {
         );
       } catch (err) {
         const duration = Date.now() - stepStart;
-        taskOrchestrator.markStepFailed(stepId, String(err));
+        // BUG-3 修复（2026-08-23）：中止触发的异常不覆盖终态——abort() 已将当前
+        // 步骤置 cancelled，此处不再标 failed、不广播失败（避免前端红标"失败"）。
+        if (this.aborted) {
+          logger.info('步骤因中止终止（状态已 cancelled）', {
+            sessionId: this.sessionId,
+            stepId,
+            reason: String(err),
+          });
+        } else {
+          taskOrchestrator.markStepFailed(stepId, String(err));
 
-        this.stepResults.push({
-          stepId,
-          description: task.description,
-          state: 'failed',
-          output: '',
-          error: String(err),
-          durationMs: duration,
-          turnCount: 0,
-          tokenCount: 0,
-        });
+          this.stepResults.push({
+            stepId,
+            description: task.description,
+            state: 'failed',
+            output: '',
+            error: String(err),
+            durationMs: duration,
+            turnCount: 0,
+            tokenCount: 0,
+          });
 
-        // P2（08-09）：SSE 推送步骤失败
-        this._broadcastStepProgress(
-          stepId,
-          'failed',
-          i,
-          subtasks.length,
-          duration
-        );
+          // P2（08-09）：SSE 推送步骤失败
+          this._broadcastStepProgress(
+            stepId,
+            'failed',
+            i,
+            subtasks.length,
+            duration
+          );
 
-        await handleError(err, {
-          module: 'core:planDrivenLoop',
-          action: 'executeStep',
-          context: { sessionId: this.sessionId, stepId },
-        });
+          await handleError(err, {
+            module: 'core:planDrivenLoop',
+            action: 'executeStep',
+            context: { sessionId: this.sessionId, stepId },
+          });
+        }
       }
 
       this._notifyProgress();
@@ -506,7 +551,7 @@ export class PlanDrivenLoop {
   /** P2（08-09）：广播单步进度到前端 SSE */
   private _broadcastStepProgress(
     stepId: string,
-    status: 'completed' | 'failed',
+    status: 'completed' | 'failed' | 'cancelled' | 'in_progress',
     stepIndex: number,
     totalSteps: number,
     durationMs?: number

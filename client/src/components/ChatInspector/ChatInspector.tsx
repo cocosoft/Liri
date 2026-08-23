@@ -17,8 +17,10 @@ import { useTrajectoryStore } from "../../stores/chat/trajectoryStore";
 import { TrajectoryFilter } from "../Trajectory/TrajectoryFilter";
 import { TrajectoryRow } from "../Trajectory/TrajectoryRow";
 import { TrajectoryDetail } from "../Trajectory/TrajectoryDetail";
+import LogTab from "./LogTab";
 import type { LiriEvent } from "../../types";
 import { categorizeEvent } from "../../types";
+import { deriveTrajectoryLayout } from "../../stores/chat/deriveTrajectoryLayout";
 
 // ─── 配置 ─────────────────────────────────────────
 
@@ -58,6 +60,19 @@ const TABS: { id: InspectorTab; icon: React.ReactNode; label: string }[] = [
       </svg>
     ),
     label: "文件",
+  },
+  {
+    id: "log",
+    // R-3 挂载（2026-08-23）：会话日志面板（LogTab）——从事件流构建的
+    // AI 思考/工具调用/系统事件时间轴
+    icon: (
+      <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
+        <path d="M3 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" />
+        <path d="M3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" />
+        <path d="M3 15a1 1 0 011-1h8a1 1 0 110 2H4a1 1 0 01-1-1z" />
+      </svg>
+    ),
+    label: "日志",
   },
   {
     id: "settings",
@@ -164,7 +179,7 @@ function TrajectoryTabContentImpl() {
     }
   }, [sessionId, loadEvents]);
 
-  // 过滤后的事件（和 TrajectoryView 保持一致）
+  // 过滤后的事件（按 category/type/关键字过滤）
   const filteredEvents = useMemo(() => {
     let result: LiriEvent[] = events;
     if (filter.categories.length > 0) {
@@ -197,6 +212,13 @@ function TrajectoryTabContentImpl() {
     return events.find((e) => e.seq === selectedSeq) ?? null;
   }, [events, selectedSeq]);
 
+  // R-1（2026-08-23）：轨迹 Tab 按 Turn/Step 分组渲染（恢复规格书 E-2 交付物），
+  // 孤立事件（session/start 等）单独列出
+  const layout = useMemo(
+    () => deriveTrajectoryLayout(filteredEvents),
+    [filteredEvents],
+  );
+
   if (!sessionId) {
     return (
       <div className="p-6 text-sm text-gray-500 dark:text-gray-400 text-center">
@@ -225,18 +247,67 @@ function TrajectoryTabContentImpl() {
             {events.length === 0 ? "暂无事件" : "无匹配事件"}
           </div>
         ) : (
-          <ul className="divide-y divide-gray-100 dark:divide-gray-800">
-            {filteredEvents.map((event) => (
-              <TrajectoryRow
-                key={`${event.seq}-${event.type}`}
-                event={event}
-                selected={event.seq === selectedSeq}
-                onClick={() =>
-                  selectEvent(event.seq === selectedSeq ? null : event.seq)
-                }
-              />
+          <div>
+            {layout.turns.map((turn) => (
+              <div
+                key={`turn-${turn.startSeq}`}
+                className="border-b border-gray-100 dark:border-gray-800"
+              >
+                {/* Turn 分组头：回合号 + 状态标注（规格书 E-2 完成/中断） */}
+                <div className="px-3 py-1.5 text-[11px] flex items-center gap-2 bg-gray-50/80 dark:bg-gray-900/80 sticky top-0 z-10">
+                  <span className="font-semibold text-blue-600 dark:text-blue-400">
+                    Turn {turn.turn}
+                  </span>
+                  <span className="text-gray-400">
+                    seq {turn.startSeq}-{turn.endSeq} · {turn.eventCount} 事件
+                  </span>
+                  {turn.completed ? (
+                    <span className="text-green-600 dark:text-green-400">
+                      已完成
+                    </span>
+                  ) : turn.interrupted ? (
+                    <span className="text-orange-500">已中断</span>
+                  ) : (
+                    <span className="text-amber-500">进行中</span>
+                  )}
+                </div>
+                <div className="divide-y divide-gray-50 dark:divide-gray-800/50">
+                  {turn.steps.map((step, si) => {
+                    const cell = step.cells[0];
+                    if (!cell) return null;
+                    return (
+                      <TrajectoryRow
+                        key={`${turn.startSeq}-${si}-${cell.event.seq}`}
+                        event={cell.event}
+                        selected={cell.event.seq === selectedSeq}
+                        onClick={() =>
+                          selectEvent(
+                            cell.event.seq === selectedSeq
+                              ? null
+                              : cell.event.seq,
+                          )
+                        }
+                      />
+                    );
+                  })}
+                </div>
+              </div>
             ))}
-          </ul>
+            {layout.orphanEvents.length > 0 && (
+              <div className="divide-y divide-gray-50 dark:divide-gray-800/50">
+                {layout.orphanEvents.map((event) => (
+                  <TrajectoryRow
+                    key={`${event.seq}-${event.type}`}
+                    event={event}
+                    selected={event.seq === selectedSeq}
+                    onClick={() =>
+                      selectEvent(event.seq === selectedSeq ? null : event.seq)
+                    }
+                  />
+                ))}
+              </div>
+            )}
+          </div>
         )}
         {hasMore && !loading && (
           <div className="p-3 text-center">
@@ -268,6 +339,8 @@ function TabContentImpl({ tabId }: { tabId: InspectorTab }) {
       return <TrajectoryTabContent />;
     case "files":
       return <FilesTab />;
+    case "log":
+      return <LogTab />;
     case "settings":
       return <SettingsTab />;
   }

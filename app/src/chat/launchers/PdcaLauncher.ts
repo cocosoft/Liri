@@ -8,6 +8,7 @@ import { resolveDataDir } from '@modules/core/paths';
 import { configManager } from '@modules/config';
 import { PlanDrivenLoop } from '../../core/loop/PlanDrivenLoop.js';
 import type { PlanDrivenLoopResult } from '../../core/loop/PlanDrivenLoop.js';
+import { registerPlanLoop, unregisterPlanLoop } from '../planAbortRegistry.js';
 import { createChatManagerTAORDeps } from '../../query/ChatManagerTAORAdapter.js';
 import type { TAORLoop } from '../../query/TAORLoop.js';
 import type { ChatSession } from '../types/session.js';
@@ -184,6 +185,9 @@ export class PdcaLauncher {
                 action: 'planDrivenLoop_execute',
                 context: { sessionId },
               });
+            })
+            .finally(() => {
+              unregisterPlanLoop(sessionId, planLoop);
             });
           return;
         } catch (err) {

@@ -111,9 +111,13 @@ const isPlanEventForCurrentSession = (
 ): boolean => {
   const sid = data.sessionId as string | undefined;
   if (!sid) return false;
+  const messages = useChatStore.getState().messages;
+  // BUG-6 修复（2026-08-23）：新会话（messages 为空）时放行——原 messages.some
+  // 永远 false，导致第一个 plan:task_card 被丢弃、任务分解卡片整个不出现。
+  if (messages.length === 0) return true;
   // #4 修复：改用 some()（与 isTaskEventForCurrentSession/AB-22 一致），
   // 原 messages[0] 判断在新会话（无消息）或首条消息非目标会话时误丢 TaskCard 事件
-  return useChatStore.getState().messages.some((m) => m.session_id === sid);
+  return messages.some((m) => m.session_id === sid);
 };
 
 /** 生成唯一消息 ID */
@@ -135,21 +139,32 @@ sseService.on("plan:task_card", (data: Record<string, unknown>) => {
   const status = (data.status as TaskCardData["status"]) || "executing";
 
   const taskCard: TaskCardData = { title, tasks, status };
-  // #8 修复：拷贝数组再改首个任务状态，避免直接修改 SSE 事件原始数据（脏副作用）
+  // #8 修复：拷贝数组，避免直接修改 SSE 事件原始数据（脏副作用）
+  // BUG-5 修复（2026-08-23）：尊重后端各任务自带的 status，不再无条件把第一步
+  // 强制置为 in_progress——恢复/重放场景下后端已完成的第一步会被错误回退。
   if (tasks.length > 0) {
-    taskCard.tasks = [
-      { ...tasks[0], status: "in_progress" },
-      ...tasks.slice(1),
-    ];
+    taskCard.tasks = tasks.map((t) => ({ ...t }));
   }
   usePlanTaskStore.getState().upsert(planId, taskCard);
 
   // 在聊天流中插入 task_decomposition 消息
+  // L4 修复（2026-08-23）：plan_msg 分配 lastEventSeq（当前消息最大 seq）——
+  // 原无该字段，历史加载时 setMessages 排序兜底 0 使 plan_msg 跳至会话最前（顺序错位）。
+  const lastEventSeq = useChatStore
+    .getState()
+    .messages.reduce(
+      (max, m) =>
+        typeof m.lastEventSeq === "number" && m.lastEventSeq > max
+          ? m.lastEventSeq
+          : max,
+      0,
+    );
   const planMsg: Message = {
     id: nextPlanMsgId(),
     role: "assistant",
     content: "",
     timestamp: Date.now(),
+    lastEventSeq,
     session_id: data.sessionId as string,
     blocks: [
       {
@@ -172,38 +187,17 @@ sseService.on("plan:step_progress", (data: Record<string, unknown>) => {
 
   const planId = data.planId as string;
   const stepId = data.stepId as string;
-  const status = data.status as "completed" | "failed";
+  const status = data.status as
+    "completed" | "failed" | "cancelled" | "in_progress";
   const durationMs = data.durationMs as number | undefined;
 
-  const store = usePlanTaskStore.getState();
-  const current = store.tasks[planId];
-
-  const newStatus: TaskCardTask["status"] =
-    status === "completed" ? "completed" : "failed";
-
-  // T3 修复：删除"task_card 未到时直接 return"的短路——
-  // planTaskStore.updateTask 内部已有 pendingUpdates 竞态缓冲（#3），
-  // 原实现短路使缓冲形同虚设，step_progress 先于 task_card 到达时事件静默丢失。
-  store.updateTask(planId, stepId, {
-    status: newStatus,
+  // S3/BUG-4 修复（2026-08-23）：直接采用后端广播状态（completed/failed/cancelled/
+  // in_progress），删除"每收一步完成就推进下一个 pending 为 in_progress"的猜状态
+  // 逻辑——执行中状态一律以后端广播为准（markStepRunning 已补发 in_progress）。
+  usePlanTaskStore.getState().updateTask(planId, stepId, {
+    status,
     ...(durationMs !== undefined ? { durationMs } : {}),
   });
-
-  // 推进后续 pending 步骤需要 tasks 已就绪；task_card 未到时
-  // 更新已由 updateTask 缓存，upsert 补发，无需在此处理
-  if (!current) return;
-
-  // #7 修复：不再依赖 progress 字段非空——step_progress 事件本身（completed/failed）
-  // 即代表一步结束，直接推进下一个 pending 步骤；原实现 progress 为 null 时
-  // （步骤完成但 Plan 进度未同步）后续任务全部停在 pending，卡片链断裂。
-  // 用更新后的 tasks 查找（current 可能已被 updateTask 更新过）
-  const latest = usePlanTaskStore.getState().tasks[planId];
-  const nextPending = (latest?.tasks ?? current.tasks).find(
-    (t) => t.status === "pending",
-  );
-  if (nextPending) {
-    store.updateTask(planId, nextPending.id, { status: "in_progress" });
-  }
 });
 
 sseService.on("plan:completed", (data: Record<string, unknown>) => {

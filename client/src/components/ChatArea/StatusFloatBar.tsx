@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { useChatStore } from "../../stores/chat";
+import { usePlanTaskStore } from "../../stores/planTaskStore";
 import type { TaskCardData } from "../../types";
 
 const PHASE_LABELS: Record<string, string> = {
@@ -16,6 +17,7 @@ const STATUS_ICONS: Record<string, string> = {
   in_progress: "→",
   completed: "✓",
   failed: "✗",
+  cancelled: "⏹",
   blocked: "⊘",
 };
 
@@ -24,22 +26,32 @@ const STATUS_COLORS: Record<string, string> = {
   in_progress: "text-blue-500",
   completed: "text-green-500",
   failed: "text-red-500",
+  cancelled: "text-orange-500",
   blocked: "text-yellow-500",
 };
 
 /**
- * 从消息中提取最新的 TaskCard（遍历所有消息的 blocks 寻找最后一个 todo 块）
+ * BUG-9 修复（2026-08-23）：优先从 planTaskStore 读取实时任务数据（SSE 驱动，
+ * 与 TaskCard 组件同源，不再滞后于消息块静态快照）。按消息中最后一个
+ * task_decomposition 块的 planId 定位；planTaskStore 缺失（plan:completed 已移除）
+ * 时回退消息块快照。
  */
 function findLatestTaskCard(
-  messages: Array<{ blocks?: Array<{ taskCard?: TaskCardData }> }>,
+  messages: Array<{
+    blocks?: Array<{ taskCard?: TaskCardData; type?: string }>;
+  }>,
+  liveTasks: Record<string, TaskCardData>,
 ): TaskCardData | null {
   for (let i = messages.length - 1; i >= 0; i--) {
     const blocks = messages[i].blocks;
     if (!blocks) continue;
     for (let j = blocks.length - 1; j >= 0; j--) {
-      if (blocks[j].taskCard) {
-        return blocks[j].taskCard as TaskCardData;
-      }
+      const block = blocks[j];
+      if (!block.taskCard) continue;
+      const planId = block.taskCard.planId;
+      // 优先实时数据（planTaskStore），缺失回退块快照
+      if (planId && liveTasks[planId]) return liveTasks[planId];
+      return block.taskCard as TaskCardData;
     }
   }
   return null;
@@ -188,8 +200,13 @@ export default function StatusFloatBar({ fluid = false }: { fluid?: boolean }) {
     };
   }, [isActive, fadingOut]);
 
-  // 从消息中提取最新的 TaskCard（必须放在所有 return 之前，遵守 Hooks 规则）
-  const taskCard = useMemo(() => findLatestTaskCard(messages), [messages]);
+  // BUG-9 修复（2026-08-23）：从 planTaskStore 订阅实时任务数据（SSE 驱动），
+  // 与 TaskCard 组件同源；按消息中最后一个 planId 定位并优先取实时数据
+  const planTasks = usePlanTaskStore((s) => s.tasks);
+  const taskCard = useMemo(
+    () => findLatestTaskCard(messages, planTasks),
+    [messages, planTasks],
+  );
 
   if (!isActive && !fadingOut) return null;
 

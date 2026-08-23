@@ -28,6 +28,7 @@ import { configManager } from '@modules/config';
 import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { repairModelJson } from '@modules/utils/json';
+import { abortSessionPlans } from './planAbortRegistry.js';
 import { containsComplexKeywords } from '@modules/workspace/CouncilOrchestrator';
 import { ImageContextService } from './services/ImageContextService';
 import {
@@ -296,6 +297,9 @@ export class ChatManagerImpl implements ChatManager {
    * 用于 req.on('close') → 通知后端停止工具执行
    */
   public abortSessionStream(sessionId: string): void {
+    // S4/BUG-7 修复（2026-08-23）：停止会话流时顺带中止该会话的活跃计划循环
+    // （方案 A：前端现有停止路径自动生效，无需透传 planId）
+    abortSessionPlans(sessionId);
     const controller = this._sessionAbortControllers.get(sessionId);
     if (controller) {
       logger.info('req.on(close) 触发 — 中止会话流', { sessionId });

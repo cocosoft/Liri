@@ -472,6 +472,16 @@ export class TaskOrchestrator {
     const step = plan.steps.find((s) => s.id === stepId);
     if (!step) return undefined;
 
+    // BUG-3 修复（2026-08-23）：幂等——已终态步骤不重复覆盖（防止中止后
+    // runCollect 抛错把 cancelled 误标为 failed）
+    if (
+      step.status === 'completed' ||
+      step.status === 'failed' ||
+      step.status === 'cancelled'
+    ) {
+      return step;
+    }
+
     step.status = 'failed';
     step.error = error;
 
@@ -497,6 +507,60 @@ export class TaskOrchestrator {
       planId: plan.id,
       stepIndex: plan.steps.indexOf(step),
       result: error,
+    });
+
+    this.emitPlanProgress(plan);
+    if (allDone) {
+      this.emitPlanCompleted(plan);
+    }
+
+    return step;
+  }
+
+  /**
+   * 标记步骤为已取消（BUG-3 修复，2026-08-23）：用户主动中止时终态化当前步骤，
+   * 区别于 failed（异常中止）。幂等：已终态步骤不重复处理。
+   */
+  markStepCancelled(stepId: string, reason?: string): PlanStep | undefined {
+    const plan = this.getPlanByStepId(stepId);
+    if (!plan) return undefined;
+
+    const step = plan.steps.find((s) => s.id === stepId);
+    if (!step) return undefined;
+    // 幂等：已终态（completed/failed/cancelled）不重复处理
+    if (
+      step.status === 'completed' ||
+      step.status === 'failed' ||
+      step.status === 'cancelled'
+    ) {
+      return step;
+    }
+
+    step.status = 'cancelled';
+    if (reason) step.error = reason;
+
+    const task = taskRegistry.getTask(step.taskId);
+    if (task && task instanceof NoteTask) {
+      task.setStatusDirect(TaskStatus.KILLED);
+    }
+
+    const allDone = plan.steps.every(
+      (s) =>
+        s.status === 'completed' ||
+        s.status === 'failed' ||
+        s.status === 'cancelled'
+    );
+    if (allDone) {
+      plan.status = 'completed';
+      plan.completedAt = new Date().toISOString();
+    }
+
+    this.savePlan(plan);
+
+    safePublish(OrchEvent.PLAN_STEP_COMPLETED, {
+      planId: plan.id,
+      stepIndex: plan.steps.indexOf(step),
+      result: reason,
     });
 
     this.emitPlanProgress(plan);

@@ -164,6 +164,7 @@ export interface LiriEventMap {
           | "in_progress"
           | "completed"
           | "failed"
+          | "cancelled"
           | "blocked"
           | "skipped";
         dependsOn: string[];
@@ -179,6 +180,7 @@ export interface LiriEventMap {
         | "in_progress"
         | "completed"
         | "failed"
+        | "cancelled"
         | "blocked"
         | "skipped";
       result?: string;

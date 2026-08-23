@@ -83,6 +83,47 @@ describe("EventBasedStreamAggregator — M3-1", () => {
     expect(data.name).toBe("read");
   });
 
+  it("M1/K2：同 toolCallId 的 tool_call chunk 去重——终态转 tool/result 不重复建卡", () => {
+    agg.init([], SID);
+    // tool_start（建卡，running）
+    agg.appendChunk(
+      chunk("tool_call", "", {
+        toolCall: {
+          id: "tc-k2",
+          name: "bash",
+          arguments: { cmd: "ls" },
+          status: "running",
+        },
+      }),
+    );
+    // tool_end（终态，completed + result）——同一 toolCallId
+    agg.appendChunk(
+      chunk("tool_call", "", {
+        toolCall: {
+          id: "tc-k2",
+          name: "bash",
+          arguments: {},
+          status: "completed",
+          result: { success: true, data: "file.txt" },
+        },
+      }),
+    );
+    const events = agg.getEvents();
+    // 只建 1 次卡 + 1 条 tool/result，无重复 assistant/tool_call（回放/实时对称）
+    const toolCallEvents = events.filter(
+      (e) => e.type === "assistant/tool_call",
+    );
+    expect(toolCallEvents).toHaveLength(1);
+    const resultEvent = events.find((e) => e.type === "tool/result");
+    expect(resultEvent).toBeDefined();
+    const data = resultEvent!.data as {
+      toolCallId: string;
+      isError: boolean;
+    };
+    expect(data.toolCallId).toBe("tc-k2");
+    expect(data.isError).toBe(false);
+  });
+
   it("tool_completed chunk → tool/result 事件（callSeq 正确配对）", () => {
     agg.init([], SID);
     agg.appendChunk(

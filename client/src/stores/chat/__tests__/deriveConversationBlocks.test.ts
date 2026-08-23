@@ -321,4 +321,33 @@ describe("deriveConversationBlocks — M2-1 纯函数", () => {
     expect(msgs[0].role).toBe("assistant");
     expect(msgs[0].content).toBe("孤儿回复");
   });
+
+  it("M2/T3-G2：带 messageId 的事件按消息归组（工具轮内容独立消息）", () => {
+    const events: LiriEvent[] = [
+      ev(1, "turn/start", { turn: 1 }),
+      ev(2, "user/message", { content: "问题" }),
+      ev(3, "assistant/text", { content: "首答", messageId: "asst-1" }),
+      ev(4, "assistant/tool_call", {
+        toolCallId: "tc-1",
+        name: "read",
+        args: {},
+        messageId: "asst-2",
+      }),
+      ev(5, "tool/result", { callSeq: 4, toolCallId: "tc-1", result: "ok" }),
+      ev(6, "assistant/text", { content: "工具轮正文", messageId: "asst-2" }),
+      ev(7, "turn/end", { turn: 1 }),
+    ];
+    const msgs = deriveConversationBlocks(events);
+    // 2 条 assistant 消息：首轮（asst-1）+ 工具轮（asst-2），不再并入首轮
+    const assistants = msgs.filter((m) => m.role === "assistant");
+    expect(assistants).toHaveLength(2);
+    expect(assistants[0].id).toBe("asst-1");
+    expect(assistants[1].id).toBe("asst-2");
+    // 工具轮消息含 tool_call 块
+    expect(
+      assistants[1].blocks!.some((b) => b.type === "tool_call"),
+    ).toBe(true);
+    // status 无 messageId 不切换（保持复用当前消息）
+    expect(assistants[0].content).toBe("首答");
+  });
 });

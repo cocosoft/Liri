@@ -9,6 +9,14 @@
 import type { ChatStreamChunk } from '@modules/runtime/api/CoreAPI.js';
 import type { ReActEvent } from '../query/ReActLoop.js';
 
+/**
+ * BUG-10 审查补充（2026-08-23）：tool_progress 透传节流。
+ * 同 callId 500ms 内只发一次 status chunk，防止高频 progress 事件刷屏
+ * （日志/轨迹面板）。tool_end 时清理记录，避免 Map 累积。
+ */
+const PROGRESS_THROTTLE_MS = 500;
+const _progressThrottle = new Map<string, number>();
+
 export function reactEventsToChunks(
   event: ReActEvent,
   sessionId: string
@@ -84,10 +92,14 @@ export function reactEventsToChunks(
         },
       ];
 
-    case 'tool_progress':
+    case 'tool_progress': {
       // BUG-10 修复（2026-08-23）：工具执行中间进度不再丢弃——原 return [] 导致
       // 长命令期间前端看不到任何中间输出、感知"工具卡住"。现映射为 status chunk
-      // 透传给前端展示（产生频率已由循环侧控制，无需此处节流）。
+      // 透传给前端展示；同 callId 500ms 节流，防止高频 progress 刷屏。
+      const now = Date.now();
+      const last = _progressThrottle.get(event.callId) ?? 0;
+      if (now - last < PROGRESS_THROTTLE_MS) return [];
+      _progressThrottle.set(event.callId, now);
       return [
         {
           type: 'status',
@@ -95,8 +107,11 @@ export function reactEventsToChunks(
           sessionId,
         },
       ];
+    }
 
-    case 'tool_end':
+    case 'tool_end': {
+      // BUG-10 节流清理：工具结束移除节流记录，避免 Map 累积
+      _progressThrottle.delete(event.callId);
       // 更新 tool_start 建卡的状态：completed / failed（对齐旧类 tool_call 完成 chunk）；
       // P0-2（2026-08-14）：补 result（ToolResultEntry.output），前端渲染普通工具执行结果。
       // 失败时另补一条状态提示
@@ -133,6 +148,7 @@ export function reactEventsToChunks(
             ]
           : []),
       ];
+    }
 
     case 'acting_end':
       return [];

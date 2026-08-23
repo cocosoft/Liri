@@ -24,6 +24,7 @@ function BlockItem({
         <GroupStatusLine
           content={block.content}
           isStreaming={block.isStreaming ?? false}
+          status={block.status}
         />
       );
     case "tool_call":

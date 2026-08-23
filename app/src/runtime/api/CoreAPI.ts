@@ -171,7 +171,10 @@ export interface ChatStreamChunk {
     | 'task_all_done'
     | 'resume'
     | 'tool_retry'
-    | 'compaction';
+    | 'compaction'
+    | 'tool_running'
+    | 'tool_completed'
+    | 'tool_failed';
   /** 压缩状态阶段（仅 statusType='compaction' 时存在）：compacting=进行中 / done=完成 */
   phase?: 'compacting' | 'done';
   /** 结构化错误码 — 替代前端对 error message 的字符串匹配 (CS02) */

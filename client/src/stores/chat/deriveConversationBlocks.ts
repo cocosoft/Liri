@@ -784,6 +784,11 @@ function handleEvent(
 
 /**
  * 确保 current assistant 存在
+ *
+ * M2（T3/G2，2026-08-23）：按事件 messageId 归组——事件自带 messageId 且与
+ * 当前消息不一致时，flush 当前 + 切换新消息（流式中间态与后端 messageId 归组
+ * 一致，工具轮内容不再并入首轮消息）。status 等无 messageId 事件保持复用
+ * 当前消息（不切走），避免工具状态块错位。
  */
 function ensureCurrent(
   state: BuilderState,
@@ -791,18 +796,33 @@ function ensureCurrent(
   sessionId: string,
   assistantMessageId?: string,
 ): void {
-  if (!state.current) {
-    state.current = {
-      id: assistantMessageId || `asst_${event.seq}`,
-      role: "assistant",
-      content: "",
-      timestamp: event.time,
-      startedAt: event.time,
-      session_id: sessionId,
-      blocks: [],
-      tool_calls: [],
-    };
+  const dataMsgId = (event.data as { messageId?: string }).messageId;
+  if (state.current) {
+    if (dataMsgId && state.current.id !== dataMsgId) {
+      flushCurrent(state);
+      state.current = {
+        id: dataMsgId,
+        role: "assistant",
+        content: "",
+        timestamp: event.time,
+        startedAt: event.time,
+        session_id: sessionId,
+        blocks: [],
+        tool_calls: [],
+      };
+    }
+    return;
   }
+  state.current = {
+    id: assistantMessageId || dataMsgId || `asst_${event.seq}`,
+    role: "assistant",
+    content: "",
+    timestamp: event.time,
+    startedAt: event.time,
+    session_id: sessionId,
+    blocks: [],
+    tool_calls: [],
+  };
 }
 
 /**

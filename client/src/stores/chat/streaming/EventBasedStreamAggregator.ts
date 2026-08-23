@@ -154,6 +154,39 @@ export class EventBasedStreamAggregator {
           this.startTurn();
         }
         if (chunk.toolCall) {
+          // M1（K2 收敛，2026-08-23）：同 toolCallId 去重——SSE 层 tool_start（建卡）
+          // + tool_end（终态）发 2 个 tool_call chunk，原实现每次都 append 新事件 →
+          // 实时事件流产生重复 assistant/tool_call（回放 1 条 vs 实时 2 条不对称）。
+          // 已建卡 → 终态 chunk 改发 tool/result（与后端事件层对齐），不重复建卡。
+          // 注：todo_write 的 write/update 参数只在 tool_start（建卡）chunk 携带，
+          // tool_end chunk 的 arguments 为空，故去重分支 return 不影响 todo_write。
+          const dupIdx = this.events.findIndex(
+            (e) =>
+              e.type === "assistant/tool_call" &&
+              (e.data as { toolCallId?: string }).toolCallId ===
+                chunk.toolCall!.id,
+          );
+          if (dupIdx >= 0) {
+            const tc = chunk.toolCall;
+            if (tc.status === "completed" || tc.status === "failed") {
+              this.appendEvent({
+                type: "tool/result",
+                data: {
+                  // callSeq=0：派生器按 toolCallId 配对（P0-2/P0-3 已支持）
+                  callSeq: 0,
+                  toolCallId: tc.id,
+                  result:
+                    typeof tc.result === "string"
+                      ? tc.result
+                      : tc.result !== undefined
+                        ? JSON.stringify(tc.result)
+                        : "",
+                  isError: tc.status === "failed",
+                },
+              });
+            }
+            return;
+          }
           // T1.2 诊断（2026-08-23，[DUP: 前缀）：记录 tool_call chunk 到达，
           // 观察同 toolCallId 是否被多次 append（每次分配新 seq → 派生重复块）。
           logger.debug("[DUP:appendChunk] tool_call", {

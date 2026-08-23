@@ -699,6 +699,9 @@ export class CoreAPIImpl implements CoreAPI {
               content: `🔧 Running tool: ${toolName}`,
               sessionId: finalSessionId,
               toolCallId,
+              // L3（2026-08-23）：结构化 statusType（CS02）——前端 GroupStatusLine
+              // 据此判断运行中，不再字符串匹配 "Running"
+              statusType: 'tool_running',
             } as ChatStreamChunk);
 
             // 图像工具：流式返回进度状态，前端展示友好提示
@@ -749,6 +752,8 @@ export class CoreAPIImpl implements CoreAPI {
                 : `✅ Tool ${toolName} completed`,
               sessionId: finalSessionId,
               toolCallId,
+              // L3（2026-08-23）：结构化 statusType（CS02）——前端据此判断完成/失败
+              statusType: isFailed ? 'tool_failed' : 'tool_completed',
             } as ChatStreamChunk);
 
             // 从工具执行结果中提取文件路径（file_write 等工具的 result 包含完整路径）

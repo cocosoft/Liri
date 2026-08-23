@@ -346,6 +346,7 @@ function ToolExecutionGroup({ blocks }: ToolExecutionGroupProps) {
                               key={block.id}
                               content={block.content}
                               isStreaming={block.isStreaming}
+                              status={block.status}
                             />
                           ) : (
                             <MarkdownRenderer

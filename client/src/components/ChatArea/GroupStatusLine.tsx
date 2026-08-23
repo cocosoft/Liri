@@ -9,13 +9,21 @@ import { STYLES } from "../../styles/animations";
 function GroupStatusLine({
   content,
   isStreaming,
+  status,
 }: {
   content: string;
   isStreaming?: boolean;
+  /** L3（2026-08-23）：结构化状态标记（tool_running/tool_completed/tool_failed） */
+  status?: string;
 }) {
-  const isRunning = content.includes("Running");
-  const isCompleted =
-    content.includes("completed") || content.includes("\u{2705}");
+  // L3 修复（2026-08-23，CS02）：优先用结构化 statusType 标记判断，
+  // 回退字符串匹配仅用于兼容无标记的存量内容（历史事件）
+  const isRunning = status
+    ? status === "tool_running" || status.includes("running")
+    : content.includes("Running");
+  const isCompleted = status
+    ? status === "tool_completed" || status.includes("completed")
+    : content.includes("completed") || content.includes("\u{2705}");
 
   const textColor = isRunning
     ? "text-amber-300"

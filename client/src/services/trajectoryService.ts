@@ -22,8 +22,10 @@
 /**
  * 轨迹调试服务 — 封装 GET /v1/sessions/:id/events
  *
- * M1-7：仅前端调试用，无 Tauri IPC fallback（CS03：调试面板不可用即返回空，
- * 不影响主流程）。
+ * M1-7：仅前端调试用，无 Tauri IPC fallback。
+ * R-6 修复（2026-08-23）：失败时**抛错**（不再静默返回空）——让调用方
+ * （trajectoryStore / streamMessage）区分「加载失败」与「确实无事件」，
+ * 避免面板把加载失败误显示为"暂无事件"。所有调用点均已 try/catch。
  */
 
 import type { LiriEvent, LiriEventType } from "../types";
@@ -50,7 +52,7 @@ export interface SessionEventsResponse {
 export const trajectoryService = {
   /**
    * 获取会话事件流。
-   * 失败时返回空结果（调试场景降级），不抛错。
+   * 失败时抛出错误（调用方区分失败与空）；正常时返回事件流。
    */
   getEvents: (
     sessionId: string,
@@ -75,18 +77,19 @@ export const trajectoryService = {
           if (res.ok && res.data) {
             return res.data;
           }
-          logger.warn("获取会话事件流失败", {
-            sessionId,
-            error: res.error,
-          });
+          const msg =
+            typeof res.error === "string" && res.error
+              ? res.error
+              : "获取会话事件流失败";
+          logger.warn("获取会话事件流失败", { sessionId, error: msg });
+          throw new Error(msg);
         } catch (e) {
           handleClientError(e, {
             module: "services:trajectory",
             action: "getEvents",
           });
+          throw e;
         }
-        // 降级：返回空
-        return { events: [], tailSeq: 0, hasMore: false };
       },
     );
   },

@@ -481,7 +481,14 @@ export const createSessionSlice: StateCreator<
       // 列表中（跨端删除场景），直接采用会指向幽灵会话——消息区空白且列表无高亮
       // （switchChatSession 已有 G5 存在性校验，但首次加载/SSE 刷新路径此前无校验）。
       // 不在列表时回退到列表第一个（sessions 已按 updatedAt 降序，第一个最新活跃）。
-      let resolvedCurrentId = currentSession?.id ?? null;
+      // 2026-08-24 修复（刷新循环根因）：后端 current 为 null 时保留现有
+      // currentSessionId——原逻辑 resolvedCurrentId = current?.id ?? null，
+      // 后端无"当前会话"（getCurrent 返回 null）时每次 loadChatSessions 完成都
+      // 把 currentSessionId 清成 null → 组件"无当前会话"→ 触发自动恢复逻辑 →
+      // 又 set 回会话 id → 再被下次加载清空 → 无限抖动（页面不断刷新）。
+      // 保留前提：现有 currentSessionId 在最新列表中（避免指向幽灵会话）。
+      const prevCurrentId = get().currentSessionId;
+      let resolvedCurrentId = currentSession?.id ?? prevCurrentId ?? null;
       if (
         !switching &&
         resolvedCurrentId &&

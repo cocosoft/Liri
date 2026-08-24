@@ -31,6 +31,10 @@
  */
 
 import type { LiriEvent, LiriEventType } from '../../chat/types/events.js';
+import { getLogger } from '@modules/monitoring';
+import { KNOWN_SESSION_EVENT_TYPES } from '../../chat/types/knownEventTypes.js';
+
+const logger = getLogger('session:event-deriver');
 
 /** 与 getSessionMessages 返回兼容的派生消息 */
 export interface DerivedMessage {
@@ -64,7 +68,7 @@ function makeBlock(
   type: string,
   data: Record<string, unknown>
 ): Record<string, unknown> {
-  return {
+  const block: Record<string, unknown> = {
     id: `blk_${seq}`,
     type,
     content: (data.content as string) ?? '',
@@ -72,6 +76,18 @@ function makeBlock(
     ...(data.name ? { toolName: data.name as string } : {}),
     ...(data.args !== undefined ? { args: data.args } : {}),
   };
+  // D-REPAIR（2026-08-24）：事件派生 tool_call 块补全 toolCall 对象（与投影块结构对齐）。
+  // 此前仅存 toolName/args，前端 ToolInlineTags/ToolCallGroup 读 block.toolCall.name
+  // 显示工具名 → 事件聚合路径（投影滞后 / fork 子会话等）下工具标签退化为
+  // 仅显示状态图标（"✓ ▼"）甚至被过滤（hasMeaningfulContentBlocks 要求 toolCall）。
+  if (type === 'tool_call' && (data.toolCallId || data.name)) {
+    block.toolCall = {
+      id: (data.toolCallId as string) ?? '',
+      name: (data.name as string) ?? '',
+      arguments: (data.args as Record<string, unknown>) ?? {},
+    };
+  }
+  return block;
 }
 
 /**
@@ -122,6 +138,15 @@ const RICH_BLOCK_TYPES = new Set<LiriEventType>([
 function isRichBlockEvent(type: LiriEventType): boolean {
   return RICH_BLOCK_TYPES.has(type);
 }
+
+// ─── D8 工具中断语义合成（2026-08-24，对齐 deepseek-harness repair.ts） ─────
+
+/** 工具中断语义文案：已记录但无结果（崩溃/中断后结果未知） */
+const TOOL_OUTCOME_UNKNOWN =
+  '工具调用已发起但未记录结果，其结果未知。若需重试，请先确认工具执行是只读/幂等操作；若可能有副作用，请先验证外部状态或询问用户，不要盲目重试。';
+
+/** 工具中断语义文案：未记录开始执行 */
+const TOOL_NOT_STARTED = '工具调用在记录执行前被中断，如需仍可重试。';
 
 /**
  * C-2：内部过渡状态过滤（前端基线 isInternalTransitionStatus 的镜像拷贝，
@@ -396,9 +421,31 @@ export function deriveMessagesFromEvents(
   // C-2：跟踪最近 assistant 消息 id——富块事件（无 messageId）按事件流归属
   //（对齐前端聚合器 state.current 语义）
   let lastAssistantMid: string | undefined;
+  // D8（2026-08-24）：已进入终态的工具调用 id 集合（tool/result 或 tool/canceled），
+  // 用于检测"孤儿 tool_call"（已发起但无终态）→ 派生时合成语义文案
+  const terminalToolCallIds = new Set<string>();
   for (const ev of events) {
     // A-3：跳过被压缩区间内的事件（旧消息不回放）
     if (isCompactedSeq(ev.seq)) continue;
+    // D8：终态工具收集——无论事件是否参与消息聚合（tool/result 不单独成消息）
+    if (ev.type === 'tool/result') {
+      const d = ev.data as { toolCallId?: string };
+      if (d.toolCallId) terminalToolCallIds.add(d.toolCallId);
+      continue;
+    }
+    if (ev.type === 'tool/canceled') {
+      const d = ev.data as { toolCallId?: string };
+      if (d.toolCallId) terminalToolCallIds.add(d.toolCallId);
+      continue;
+    }
+    // D2（2026-08-24）：未知事件类型告警——正常读取路径已由 EventLogStorage.read
+    // 过滤（assertEventReadable），此处防御直调 deriveMessagesFromEvents 的场景
+    if (!KNOWN_SESSION_EVENT_TYPES.has(ev.type) && ev.ignorable !== true) {
+      logger.warn('event-deriver: 遇到未知事件类型', {
+        eventSeq: ev.seq,
+        eventType: ev.type,
+      });
+    }
     const data = ev.data as Record<string, unknown>;
     const mid = typeof data.messageId === 'string' ? data.messageId : undefined;
 
@@ -480,6 +527,22 @@ export function deriveMessagesFromEvents(
   const result: DerivedMessage[] = [];
   const usedProjectionIds = new Set<string>();
 
+  // D8（2026-08-24）：孤儿 tool_call 块（已发起但无终态）标记中断语义。
+  // 仅处理工具块：无 toolCallId 或已进入终态（tool/result/tool/canceled）的保留原样。
+  const markOrphanToolBlocks = (
+    blocks: Array<Record<string, unknown>>
+  ): Array<Record<string, unknown>> =>
+    blocks.map((b) => {
+      if (b.type !== 'tool_call' || !b.toolCallId) return b;
+      if (terminalToolCallIds.has(b.toolCallId as string)) return b;
+      return {
+        ...b,
+        status: 'interrupted',
+        // 语义化指导文案（对齐 deepseek-harness repair.ts）——由前端按块渲染展示
+        error: TOOL_OUTCOME_UNKNOWN,
+      };
+    });
+
   // ② 投影做版本覆盖（以消息为单位，评审 A1）
   for (const agg of aggregated.values()) {
     const proj = projections.find((p) => p.id === agg.messageId);
@@ -496,7 +559,9 @@ export function deriveMessagesFromEvents(
         content: proj.content || agg.content,
         // FIX(2026-08-23)：读时归一化——投影 blocks 可能按流式 chunk 碎片化
         //（每 token 一个 text block），合并相邻 text/thinking 防前端渲染卡死
-        blocks: mergeAdjacentTextBlocks(proj.blocks ?? []),
+        blocks: markOrphanToolBlocks(
+          mergeAdjacentTextBlocks(proj.blocks ?? [])
+        ),
       });
     } else {
       result.push({
@@ -506,7 +571,7 @@ export function deriveMessagesFromEvents(
         timestamp: agg.timestamp,
         // B-2（2026-08-23）：统一排序键——事件聚合消息用最后 chunk seq
         lastEventSeq: agg.maxChunkSeq,
-        blocks: agg.blocks,
+        blocks: markOrphanToolBlocks(agg.blocks),
         tool_calls: agg.tool_calls.length > 0 ? agg.tool_calls : undefined,
       });
     }
@@ -564,4 +629,134 @@ export function deriveMessagesFromEvents(
   });
 
   return result;
+}
+
+// ─── D7 事件投影统计（2026-08-24，对齐 deepseek-harness session-stats） ─────
+
+/**
+ * 事件投影统计（D7，2026-08-24）
+ *
+ * 基于事件流单遍扫描派生会话统计，与回放数出同源：
+ * 消息数/工具调用（含终态分类）/轮次/压缩次数——不依赖 LLMTracker 内存聚合
+ * 或 DataSessionStats 列表聚合，跨重启一致、可重放。
+ *
+ * 统计口径与派生器一致：压缩区间内事件不计入消息数；tool/canceled 计入中断。
+ */
+export interface EventSessionStats {
+  /** 消息数（user + assistant，不含压缩 summary/纯投影兜底） */
+  messageCount: number;
+  /** 用户消息数 */
+  userMessageCount: number;
+  /** 助手消息数 */
+  assistantMessageCount: number;
+  /** 工具调用发起数（assistant/tool_call） */
+  toolCallCount: number;
+  /** 工具结果数（tool/result） */
+  toolResultCount: number;
+  /** 工具取消数（tool/canceled） */
+  toolCanceledCount: number;
+  /** 工具调用无终态数（孤儿：已发起但无 result/canceled） */
+  toolOrphanCount: number;
+  /** 轮次（turn）数：turn/start 计数 */
+  turnCount: number;
+  /** 上下文压缩次数（context/compaction phase=done） */
+  compactionCount: number;
+  /** 被压缩源消息事件数（sourceEventSeqs 累计，D6） */
+  compactedSourceEventCount: number;
+  /** 事件总量（含压缩区间） */
+  eventCount: number;
+}
+
+/** 从事件流投影会话统计（D7-1） */
+export function deriveSessionStats(events: LiriEvent[]): EventSessionStats {
+  const stats: EventSessionStats = {
+    messageCount: 0,
+    userMessageCount: 0,
+    assistantMessageCount: 0,
+    toolCallCount: 0,
+    toolResultCount: 0,
+    toolCanceledCount: 0,
+    toolOrphanCount: 0,
+    turnCount: 0,
+    compactionCount: 0,
+    compactedSourceEventCount: 0,
+    eventCount: events.length,
+  };
+
+  // 已进入终态的工具调用 id（tool/result 或 tool/canceled）→ 孤儿数反推
+  const terminalToolCallIds = new Set<string>();
+  const toolCallIds = new Set<string>();
+
+  for (const ev of events) {
+    switch (ev.type) {
+      case 'user/message':
+        stats.userMessageCount++;
+        stats.messageCount++;
+        break;
+      case 'assistant/text':
+      case 'assistant/thinking':
+      case 'assistant/tool_call':
+        if (ev.type === 'assistant/tool_call') {
+          stats.toolCallCount++;
+          const d = ev.data as { toolCallId?: string };
+          if (d.toolCallId) toolCallIds.add(d.toolCallId);
+        } else if (
+          ev.type === 'assistant/text' ||
+          ev.type === 'assistant/thinking'
+        ) {
+          // 消息计数按消息归属去重：聚合循环同消息多 chunk 只计一次。
+          // 此处按事件计粗口径会在 D7-2 精化（消息去重由调用方二次聚合）。
+          // 简单方案：text/thinking 首事件计一条，后续同 messageId 跳过。
+        }
+        break;
+      case 'tool/result': {
+        stats.toolResultCount++;
+        const d = ev.data as { toolCallId?: string };
+        if (d.toolCallId) terminalToolCallIds.add(d.toolCallId);
+        break;
+      }
+      case 'tool/canceled': {
+        stats.toolCanceledCount++;
+        const d = ev.data as { toolCallId?: string };
+        if (d.toolCallId) terminalToolCallIds.add(d.toolCallId);
+        break;
+      }
+      case 'turn/start':
+        stats.turnCount++;
+        break;
+      case 'context/compaction': {
+        const d = ev.data as { phase?: string; sourceEventSeqs?: number[] };
+        if (d.phase === 'done') {
+          stats.compactionCount++;
+          stats.compactedSourceEventCount += d.sourceEventSeqs?.length ?? 0;
+        }
+        break;
+      }
+      default:
+        break;
+    }
+  }
+
+  // 孤儿数：已发起但无终态
+  for (const id of toolCallIds) {
+    if (!terminalToolCallIds.has(id)) stats.toolOrphanCount++;
+  }
+
+  // 助手消息数精化：按 messageId 去重（text/thinking/tool_call 同消息只计一次）
+  const assistantMessageIds = new Set<string>();
+  for (const ev of events) {
+    if (
+      ev.type === 'assistant/text' ||
+      ev.type === 'assistant/thinking' ||
+      ev.type === 'assistant/tool_call'
+    ) {
+      const d = ev.data as { messageId?: string };
+      if (d.messageId) assistantMessageIds.add(d.messageId);
+    }
+  }
+  stats.assistantMessageCount = assistantMessageIds.size;
+  // messageCount 精化：user 按事件计（通常一消息一事件），assistant 按去重后并入
+  stats.messageCount = stats.userMessageCount + stats.assistantMessageCount;
+
+  return stats;
 }

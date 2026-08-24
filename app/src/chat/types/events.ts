@@ -63,7 +63,9 @@ export type LiriEventType =
   | 'channel/message'
   // ─── 生命周期 ───
   | 'session/start'
-  | 'session/end';
+  | 'session/end'
+  // ─── 标题（D5，2026-08-24：标题事件化，log-only 不入消息 surface） ───
+  | 'session/title';
 
 // ─── 事件载荷映射 ───────────────────────────────────────────────────────────
 
@@ -249,6 +251,20 @@ export interface LiriEventMap {
   'session/end': {
     endedAt: number;
     reason?: string;
+  };
+
+  /**
+   * 会话标题快照（D5，2026-08-24，log-only 不入消息 surface）
+   *
+   * 对齐 deepseek-harness `session/title`：latest-wins 标题事件，
+   * 供回放/审计读取历史标题变更轨迹。运行时读取仍走 metadata.titleStage
+   * 快照（性能），本事件为事件溯源完整性的补充。
+   */
+  'session/title': {
+    /** 标准化后的标题文本 */
+    title: string;
+    /** 标题来源：占位（preliminary）/ AI 精化（final）/ 用户手动（manual） */
+    source: 'preliminary' | 'final' | 'manual';
   };
 
   // ─── 富块事件载荷（M4-1-a 扩展） ───

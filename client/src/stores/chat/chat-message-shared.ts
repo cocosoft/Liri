@@ -124,12 +124,22 @@ export function dedupeToolCallBlocks(blocks: MessageBlock[]): MessageBlock[] {
   return result;
 }
 
-/** P2-2: 移除指定会话的流控制器，返回新对象（不可变更新） */
+/** P2-2: 移除指定会话的流控制器，返回新对象（不可变更新）
+ * F2 修复（2026-08-24）：新增 expected 引用校验——同会话新流替换旧流时，
+ * 旧流 A 结束清理若按 sid 直接 delete，会误删新流 B 已注册的 controller
+ * （B 无法停止、isStreaming 提前 false）。传本流 controller 后仅在
+ * `controllers[sid] === expected` 时才删除，否则保留（B 的注册不被干扰）。
+ * 不传 expected 时保持旧行为（按 sid 删除），供非竞态清理点使用。
+ */
 export function removeStreamController(
   controllers: Record<string, AbortController>,
   sid: string,
+  expected?: AbortController,
 ): Record<string, AbortController> {
   const next = { ...controllers };
+  if (expected !== undefined && next[sid] !== expected) {
+    return next; // 已被新流替换，不误删新流 controller
+  }
   delete next[sid];
   return next;
 }

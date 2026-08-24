@@ -33,14 +33,31 @@ const logger = createLogger("stores:chat:message:setMessages");
  * 流中断/异常退出时，后端落盘的 tool_call 块可能残留 "running" 状态，
  * 若原样渲染，前端工具卡片会永久显示"执行中"。
  * 历史数据代表已完成的一轮，一律归一化为最终态：running → failed。
+ *
+ * D-REPAIR（2026-08-24）：事件派生块（后端 EventMessageDeriver.makeBlock）无
+ * toolCall 对象，只有 toolName/args 扁平字段——此处归一化为 toolCall，否则
+ * ToolInlineTags/ToolCallGroup 读 block.toolCall.name 为空 → 工具标签退化为
+ * 仅显示状态图标（"✓ ▼"）甚至被 hasMeaningfulContentBlocks 过滤。
  */
 function normalizeLoadedBlock(block: MessageBlock): MessageBlock {
-  if (block.type === "tool_call" && block.toolCall?.status === "running") {
-    return {
-      ...block,
-      isStreaming: false,
-      toolCall: { ...block.toolCall, status: "failed" },
-    };
+  if (block.type === "tool_call") {
+    // 事件派生块归一化：toolName/args → toolCall（name 完整，工具名可显示）
+    let tc = block.toolCall;
+    if (!tc && block.toolName) {
+      tc = {
+        id: block.toolCallId ?? "",
+        name: block.toolName,
+        arguments: block.args ?? {},
+      };
+    }
+    if (tc?.status === "running") {
+      return {
+        ...block,
+        isStreaming: false,
+        toolCall: { ...tc, status: "failed" },
+      };
+    }
+    if (tc) return { ...block, toolCall: tc, isStreaming: false };
   }
   return { ...block, isStreaming: false };
 }

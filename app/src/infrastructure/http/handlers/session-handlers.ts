@@ -28,6 +28,7 @@ import type { Message } from '@modules/chat/types/message';
 import { MessageRole } from '@modules/chat/types/message';
 import type { LiriEvent, LiriEventType } from '@modules/chat/types/events';
 import type { EventLogQuery } from '@modules/session/storage/EventLogStorage';
+import { deriveSessionStats } from '@modules/session/storage/EventMessageDeriver';
 import {
   tryParseJson,
   sendBadRequest,
@@ -873,6 +874,127 @@ export async function handleGetSessionEvents(
     await handleError(err, {
       module: 'infra:http:session-handlers',
       action: 'getSessionEvents',
+      context: { sessionId },
+    });
+    if (!res.headersSent) {
+      try {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({ error: { message: 'Internal server error' } })
+        );
+      } catch {
+        /* res可能已结束, 忽略 */
+      }
+    }
+  }
+}
+
+/**
+ * GET /v1/sessions/:id/stats — D7（2026-08-24）事件投影统计
+ *
+ * 基于事件流派生会话结构统计（消息/工具/轮次/压缩），与回放数出同源。
+ * 与 /v1/usage（token 成本）维度不同，不重叠。
+ *
+ * 响应：
+ *   200: EventSessionStats
+ *   500: 服务器错误
+ */
+export async function handleGetSessionStats(
+  ctx: HandlerCtx,
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  sessionId: string
+): Promise<void> {
+  try {
+    const coreAPI = getCoreAPI();
+    await coreAPI.ensureSessionsLoaded();
+
+    // 读全量事件（无分页参数；首次访问自动触发迁移）
+    const { events } = await coreAPI.getSessionEvents(sessionId, {
+      limit: 100000,
+    });
+
+    const stats = deriveSessionStats(events);
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(stats));
+  } catch (err) {
+    await handleError(err, {
+      module: 'infra:http:session-handlers',
+      action: 'getSessionStats',
+      context: { sessionId },
+    });
+    if (!res.headersSent) {
+      try {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({ error: { message: 'Internal server error' } })
+        );
+      } catch {
+        /* res可能已结束, 忽略 */
+      }
+    }
+  }
+}
+
+/**
+ * POST /v1/sessions/:id/fork — D3（2026-08-24）事件级 fork
+ *
+ * body: { boundary?: number, childTitle?: string }
+ *  - boundary 缺省 = 源会话 tailSeq（fork 全量历史）；须为 [1..tailSeq] 内整数
+ *  - boundary 落在 open turn（未闭合 turn/start）内 → 400
+ *
+ * 响应：
+ *   200: { session, boundary, copied }（血缘在 session.metadata.parentSessionId/seedLength）
+ *   400: { error }（boundary 无效 / open turn）
+ *   404: { error }（源会话不存在）
+ *   500: 服务器错误
+ */
+export async function handleForkSession(
+  ctx: HandlerCtx,
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  sessionId: string
+): Promise<void> {
+  try {
+    const body = await ctx.readRequestBody(req);
+    const data = body ? tryParseJson(body) : null;
+    const boundary =
+      data && typeof data.boundary === 'number' ? data.boundary : undefined;
+    const childTitle =
+      data && typeof data.childTitle === 'string' ? data.childTitle : undefined;
+
+    const coreAPI = getCoreAPI();
+    await coreAPI.ensureSessionsLoaded();
+
+    const result = await coreAPI.forkSession(sessionId, {
+      boundary,
+      childTitle,
+    });
+
+    if (!result.success) {
+      const notFound = result.error?.includes('source session not found');
+      res.writeHead(notFound ? 404 : 400, {
+        'Content-Type': 'application/json',
+      });
+      res.end(
+        JSON.stringify({ error: { message: result.error ?? 'fork failed' } })
+      );
+      return;
+    }
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(
+      JSON.stringify({
+        session: result.session,
+        boundary: result.boundary,
+        copied: result.copied,
+      })
+    );
+  } catch (err) {
+    await handleError(err, {
+      module: 'infra:http:session-handlers',
+      action: 'forkSession',
       context: { sessionId },
     });
     if (!res.headersSent) {

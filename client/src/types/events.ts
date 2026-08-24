@@ -58,7 +58,8 @@ export type LiriEventType =
   | "channel/disconnect"
   | "channel/message"
   | "session/start"
-  | "session/end";
+  | "session/end"
+  | "session/title";
 
 // ─── 事件载荷映射 ───────────────────────────────
 
@@ -129,6 +130,11 @@ export interface LiriEventMap {
   "channel/message": { channelType: string; raw: unknown };
   "session/start": { startedAt: number; modelId?: string };
   "session/end": { endedAt: number; reason?: string };
+  /** 会话标题快照（D5，2026-08-24，log-only 不入消息 surface） */
+  "session/title": {
+    title: string;
+    source: "preliminary" | "final" | "manual";
+  };
   // ─── 富块事件载荷（M4-1-a 扩展） ───
   "assistant/status": {
     content: string;

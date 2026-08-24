@@ -54,6 +54,13 @@ export async function streamMessageImpl(
 ): Promise<void> {
   // P2-2: 只取消同会话的旧流（多会话并行——不再互相中止）
   const sid = sessionId || "default";
+  // 阶段2 对齐：该会话存在挂起流 —— 拦截发送（需先"立即恢复"或"放弃本次回复"）。
+  // 与 sendMessageImpl 的 paused 拦截保持一致：挂起流尚未结束，直接 abort 旧流
+  // 并发新消息会破坏挂起语义（N8：流恢复后旧回复会继续写入，与新一轮回复错乱）。
+  if (get().pausedStreams[sid]) {
+    logger.warn("streamMessage: 会话存在挂起流，拦截发送", { sessionId: sid });
+    return;
+  }
   const prevController = get().streamControllers[sid];
   if (prevController) {
     prevController.abort();
@@ -766,9 +773,11 @@ export async function streamMessageImpl(
     // 立即重置流式状态，让 UI 立刻响应（ThinkingBlock 收缩、tool_call 停止旋转）
     // 不等待 updateMessageBlocks 完成（标题自动重命名由后端负责，P1-4）
     // P2-2: 仅清理本会话控制器，其他会话流不受影响
+    // F2 修复：传本流 controller 引用校验——同会话新流已注册时不误删（见 removeStreamController）
     const nextControllers = removeStreamController(
       get().streamControllers,
       sid,
+      controller,
     );
     const nextIsStreaming = Object.keys(nextControllers).length > 0;
     // 流式结束日志（正常路径）：记录会话/abort/剩余活跃流数/推导结果，
@@ -988,9 +997,11 @@ export async function streamMessageImpl(
       }
     }
     // P2-2: 错误/中止统一清理本会话控制器，其他会话流不受影响
+    // F2 修复：传本流 controller 引用校验——同会话新流已注册时不误删（见 removeStreamController）
     const nextControllers = removeStreamController(
       get().streamControllers,
       sid,
+      controller,
     );
     const nextIsStreamingOnError = Object.keys(nextControllers).length > 0;
     // 流式结束日志（错误/中止路径）：记录会话/abort/错误信息/剩余活跃流数/推导结果，

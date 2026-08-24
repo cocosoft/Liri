@@ -198,8 +198,16 @@ function ChatArea({ fluid = false }: { fluid?: boolean }) {
       const newSession = await createSession(t("chat.newSession"));
       sessionId = newSession.id;
     }
-    const { streamMessage } = useChatStore.getState();
-    await streamMessage(text, sessionId);
+    if (!sessionId) return;
+    // F9 修复（2026-08-24）：对齐 handleSubmit 守卫——挂起流拦截、流式中入队，
+    // 避免绕过守卫直接 streamMessage 触发 F2（同会话双流 controller 竞态）
+    const chatStore = useChatStore.getState();
+    if (chatStore.pausedStreams[sessionId]) return;
+    if (chatStore.isStreaming) {
+      chatStore.enqueueMessage(text, sessionId);
+      return;
+    }
+    await chatStore.streamMessage(text, sessionId);
   };
 
   // ---- 自动 TTS 播放 ----

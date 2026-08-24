@@ -110,23 +110,26 @@ export class ReconcileService {
 
     try {
       const eventLog = this.deps.getEventLog(sessionId);
+
+      // 坏行检测（规格 D-1 验收：events 损坏 → 以投影为准 + 告警，不反向补全）：
+      // 原始文件非空行数 > 有效事件数 → 存在坏行/损坏行，事件流不可信。
+      // 必须在 eventLog.read() 之前数原始行数——read() 触发 D4 torn repair，
+      // 会抢先截断损坏行（保守视为 torn），repair 之后数不到坏行。
+      let rawLineCount = 0;
+      try {
+        const raw = await fs.readFile(eventLog.getFilePath(), 'utf-8');
+        rawLineCount = raw
+          .split('\n')
+          .filter((l) => l.trim().length > 0).length;
+      } catch {
+        // 文件不存在/读取失败 → 视为无坏行（投影兜底）
+      }
+
       const events = await eventLog.read();
       const projections = await this.deps.getProjections(sessionId);
       const meta = await this.deps.getSessionMeta(sessionId);
 
-      // 坏行检测（规格 D-1 验收：events 损坏 → 以投影为准 + 告警，不反向补全）：
-      // 原始文件非空行数 > 有效事件数 → 存在坏行/损坏行，事件流不可信。
-      // 读取类 API 会跳过坏行，此处显式比对行数暴露损坏。
-      let badLineCount = 0;
-      try {
-        const raw = await fs.readFile(eventLog.getFilePath(), 'utf-8');
-        const rawLineCount = raw
-          .split('\n')
-          .filter((l) => l.trim().length > 0).length;
-        badLineCount = Math.max(0, rawLineCount - events.length);
-      } catch {
-        // 文件不存在/读取失败 → 视为无坏行（投影兜底）
-      }
+      const badLineCount = Math.max(0, rawLineCount - events.length);
       const eventsDamaged = badLineCount > 0;
       if (eventsDamaged) {
         drifts.push({

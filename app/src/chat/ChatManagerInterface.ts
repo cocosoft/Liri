@@ -82,6 +82,15 @@ export interface ChatManager {
   createSession(params: CreateSessionParams): Promise<ChatSession>;
 
   /**
+   * D3（2026-08-24）：事件级 fork——从源会话任意历史 seq fork 出子会话
+   * 复制 [1..boundary] 前缀事件 + 血缘（parentSessionId/seedLength）。
+   */
+  forkSession(
+    sourceId: string,
+    options?: { boundary?: number; childTitle?: string; childId?: string }
+  ): ReturnType<SessionGateway['forkSession']>;
+
+  /**
    * 切换会话
    * @param sessionId 会话ID
    */

@@ -241,6 +241,26 @@
   ],
   "fileSizeExceptions": [
     {
+      "id": "FSZ-139",
+      "ruleId": "R04-001",
+      "file": "app/src/infrastructure/http/handlers/session-handlers.ts",
+      "lines": 1012,
+      "targetLines": 1000,
+      "plan": "D3/D7 新增 fork/stats handler 致超限（1012 行），后续按会话 CRUD / 事件溯源 / 统计子域拆分",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-140",
+      "ruleId": "R04-001",
+      "file": "app/src/session/storage/EventLogStorage.ts",
+      "lines": 1185,
+      "targetLines": 1000,
+      "plan": "D1-D4/D3 事件溯源加固（不可变/版本化/torn修复/fork）致超限（1185 行），后续按 append / read / repair / fork 子模块拆分",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
       "id": "FSZ-106",
       "ruleId": "R04-001",
       "file": "app/src/infrastructure/http/handlers/skills-handlers.ts",

@@ -36,6 +36,11 @@ import {
 } from '@modules/error';
 import type { LiriEvent, LiriEventType } from '@modules/chat/types/events';
 import { isLiriEvent } from '@modules/chat/types/events';
+import { sanitizeEvent } from './eventSanitize';
+import {
+  assertEventReadable,
+  assertEventWritable,
+} from '@modules/chat/types/knownEventTypes';
 
 const logger = getLogger('session:event-log');
 
@@ -67,7 +72,7 @@ export interface EventLogAppendResult {
   /** 是否成功 */
   ok: boolean;
   /** 失败原因 */
-  reason?: 'duplicate-seq' | 'out-of-order' | 'write-error';
+  reason?: 'duplicate-seq' | 'out-of-order' | 'write-error' | 'invalid-event';
   /** 当前 tailSeq */
   tailSeq: number;
 }
@@ -113,6 +118,12 @@ export class EventLogStorage {
   private maxTurn: number | null = null;
 
   /**
+   * D4-4（2026-08-24）：崩溃修复已检查标记——首次 read 时自动执行 torn-tail 截断
+   * + 合成 closers；内存标记防重复扫描（每次进程生命周期仅一次）。
+   */
+  private _repairChecked = false;
+
+  /**
    * 串行化 append 操作的 mutex queue
    *
    * 同一实例内并发 append 时，按调用顺序排队执行，保证 seq 单调。
@@ -122,9 +133,19 @@ export class EventLogStorage {
 
   constructor(
     private readonly sessionId: string,
-    private readonly worktreeHash: string = 'default'
+    private readonly worktreeHash: string = 'default',
+    /**
+     * D3（2026-08-24）：sessions 根目录覆盖（对齐 FileSystemUnifiedStorage.basePath 语义）
+     *
+     * 默认走 buildSessionDir（固定 ~/.pyapp/data/sessions）。传入时路径 =
+     * join(sessionsRoot, worktreeHash, sessionId)，用于与存储层 basePath 统一
+     * （fork 场景：源/子会话事件与 session.json 同目录）及测试隔离。
+     */
+    private readonly sessionsRoot?: string
   ) {
-    this.sessionDir = this.buildSessionDir();
+    this.sessionDir = sessionsRoot
+      ? join(sessionsRoot, worktreeHash, sessionId)
+      : this.buildSessionDir();
     this.filePath = join(this.sessionDir, 'events.jsonl');
     this.backupFilePath = join(this.sessionDir, 'events.jsonl.bak');
     this.tailSeqMetaPath = join(this.sessionDir, 'events.tail');
@@ -291,17 +312,47 @@ export class EventLogStorage {
   async append(event: LiriEvent): Promise<EventLogAppendResult> {
     // 串行化：所有 append 调用排队执行
     return this.queueAppend(async () => {
+      // D1（2026-08-24）：落盘前单遍无损 JSON 校验 + 深冻结——
+      // ① 拒绝 BigInt/undefined/循环引用等非 JSON 值（不写盘，避免 JSON.stringify 静默丢字段）
+      // ② 冻结对象与落盘对象一致，杜绝内存/磁盘不一致（数出同源）
+      const sanitized = sanitizeEvent(event);
+      if (!sanitized.ok) {
+        logger.warn('event-log: 事件未通过无损 JSON 校验，拒绝写入', {
+          sessionId: this.sessionId,
+          eventSeq: event.seq,
+          eventType: event.type,
+          reason: sanitized.reason,
+        });
+        const tailSeq = await this.getTailSeq();
+        return { ok: false, reason: 'invalid-event', tailSeq };
+      }
+      const frozen = sanitized.event!;
+
+      // D2（2026-08-24）：写入端防御——运行时未知类型且非 ignorable 拒绝
+      // （TS 层已保证类型，此处防御运行时动态构造的事件）
+      const writable = assertEventWritable(frozen);
+      if (!writable.ok) {
+        logger.warn('event-log: 写入未知事件类型，拒绝写入', {
+          sessionId: this.sessionId,
+          eventSeq: frozen.seq,
+          eventType: frozen.type,
+          reason: writable.reason,
+        });
+        const tailSeq = await this.getTailSeq();
+        return { ok: false, reason: 'invalid-event', tailSeq };
+      }
+
       const tailSeq = await this.getTailSeq();
 
       // 守卫 1：seq 倒退或重复
-      if (event.seq <= tailSeq) {
+      if (frozen.seq <= tailSeq) {
         const reason: EventLogAppendResult['reason'] =
-          event.seq === tailSeq ? 'duplicate-seq' : 'out-of-order';
+          frozen.seq === tailSeq ? 'duplicate-seq' : 'out-of-order';
         logger.warn('event-log: 拒绝重复/倒退 seq', {
           sessionId: this.sessionId,
-          eventSeq: event.seq,
+          eventSeq: frozen.seq,
           tailSeq,
-          type: event.type,
+          type: frozen.type,
           reason,
         });
         return { ok: false, reason, tailSeq };
@@ -310,17 +361,17 @@ export class EventLogStorage {
       // 写入
       try {
         await this.ensureSessionDir();
-        const line = JSON.stringify(event) + '\n';
+        const line = JSON.stringify(frozen) + '\n';
         await fs.appendFile(this.filePath, line, 'utf-8');
-        this.tailSeq = event.seq;
+        this.tailSeq = frozen.seq;
         // A-6（2026-08-23）：持久化 lastKnown tailSeq（meta 写失败不影响本次写入）
-        await this.writePersistedTailSeq(event.seq);
+        await this.writePersistedTailSeq(frozen.seq);
         // A-5（2026-08-23）：写入成功 → 连续失败计数清零（熔断自动解除）
         this.appendFailCount = 0;
         return { ok: true, tailSeq: this.tailSeq };
       } catch (e) {
         // A-5（2026-08-23）：append 失败 → 节流告警 + 熔断（结构化告警由 handleError 发布）
-        this.recordAppendFailure(event, e);
+        this.recordAppendFailure(frozen, e);
         return { ok: false, reason: 'write-error', tailSeq: this.tailSeq };
       }
     });
@@ -441,6 +492,10 @@ export class EventLogStorage {
    * 不抛错：读盘失败返回空数组（CS03）
    */
   async read(query?: EventLogQuery): Promise<LiriEvent[]> {
+    // D4-4（2026-08-24）：首次读取前自动崩溃修复（torn-tail 截断 + 合成 closers）。
+    // 置于 exists 检查之前——即使文件损坏也需要先尝试修复再读取。
+    await this.ensureRepairChecked();
+
     if (!this.exists()) {
       return [];
     }
@@ -467,6 +522,22 @@ export class EventLogStorage {
             });
             continue;
           }
+
+          // D2（2026-08-24）：版本校验 + 未知类型处理——超前版本/未知非 ignorable 跳过并告警
+          const readable = assertEventReadable(event);
+          if (!readable.ok) {
+            logger.warn('event-log: read 跳过不可读事件', {
+              sessionId: this.sessionId,
+              eventSeq: event.seq,
+              eventType: event.type,
+              reason: readable.reason,
+            });
+            continue;
+          }
+
+          // D1（2026-08-24）：读取路径同步冻结——"读取返回冻结对象"契约
+          // （sanitizeEvent 对已冻结对象幂等跳过，历史未冻结事件在此补齐冻结）
+          sanitizeEvent(event);
 
           // 过滤
           if (event.seq < fromSeq || event.seq > toSeq) continue;
@@ -555,6 +626,93 @@ export class EventLogStorage {
   }
 
   /**
+   * D3（2026-08-24）：事件级 fork——复制本会话 [1..boundary] 前缀事件到目标存储
+   *
+   * - 保留原始 seq（子会话继承祖先 seq 空间，不做重映射；当前无跨会话 seq 引用）
+   * - 复制前先 ensureRepairChecked（复用 D4 崩溃修复，保证复制的是完整前缀）
+   * - 流式读取源文件，直接写原始行（避免 JSON 重序列化导致的格式漂移）
+   * - 目标必须为空（fork 目标 = 新建会话），已存在事件则拒绝 target-not-empty
+   * - 原子写入（tmp + rename，参照 trimEvents），同步更新目标 tailSeq + 持久化 meta
+   *
+   * @param target 目标 EventLogStorage（子会话）
+   * @param boundary fork 边界 seq（包含）；> 源 tailSeq 时复制全量
+   */
+  async copyPrefixTo(
+    target: EventLogStorage,
+    boundary: number
+  ): Promise<{ ok: boolean; copied: number; reason?: string }> {
+    if (boundary <= 0) {
+      return { ok: true, copied: 0 };
+    }
+    // 先修复源（torn-tail 截断 + 未闭合 turn 合成），保证复制的是完整前缀
+    await this.ensureRepairChecked();
+    if (!this.exists()) {
+      return { ok: true, copied: 0 };
+    }
+    // fork 目标必须是新会话（空事件文件）
+    const targetTail = await target.getTailSeq();
+    if (targetTail > 0) {
+      return { ok: false, copied: 0, reason: 'target-not-empty' };
+    }
+
+    try {
+      const lines: string[] = [];
+      let maxCopiedSeq = 0;
+      const rl = this.createReadlineInterface();
+      for await (const line of rl) {
+        if (!line.trim()) continue;
+        try {
+          const event = JSON.parse(line) as LiriEvent;
+          if (typeof event.seq === 'number' && event.seq <= boundary) {
+            lines.push(line);
+            if (event.seq > maxCopiedSeq) maxCopiedSeq = event.seq;
+          }
+        } catch {
+          // 损坏行：repair 已处理 torn-tail，此处保守跳过（不复制损坏行）
+          logger.warn('event-log: copyPrefix 跳过损坏行', {
+            sessionId: this.sessionId,
+            linePreview: line.slice(0, 100),
+          });
+        }
+      }
+      if (lines.length === 0) {
+        return { ok: true, copied: 0 };
+      }
+
+      // 原子写入目标（tmp + rename，避免半写文件）
+      // 基于 target.filePath 创建目录（而非 target.sessionDir），与写入位置保持一致
+      await fs.mkdir(dirname(target.filePath), { recursive: true });
+      const tmpPath = `${target.filePath}.fork`;
+      await fs.writeFile(tmpPath, lines.join('\n') + '\n', 'utf-8');
+      await fs.rename(tmpPath, target.filePath);
+      // 同步目标 tailSeq（内存缓存 + 持久化），后续 append 在此基础继续
+      target.tailSeq = maxCopiedSeq;
+      target.tailSeqInitialized = true;
+      await target.writePersistedTailSeq(maxCopiedSeq);
+
+      logger.info('event-log: copyPrefix 完成', {
+        sessionId: this.sessionId,
+        targetSessionId: target.sessionId,
+        boundary,
+        copied: lines.length,
+        maxCopiedSeq,
+      });
+      return { ok: true, copied: lines.length };
+    } catch (e) {
+      await handleError(e, {
+        module: 'session:event-log',
+        action: 'copyPrefixTo',
+        context: {
+          sessionId: this.sessionId,
+          targetSessionId: target.sessionId,
+          boundary,
+        },
+      }).catch(() => {});
+      return { ok: false, copied: 0, reason: 'copy-error' };
+    }
+  }
+
+  /**
    * 读取单个 seq 的事件（用于工具结果配对）
    *
    * @returns 事件不存在或文件损坏时返回 null
@@ -569,6 +727,20 @@ export class EventLogStorage {
         try {
           const event = JSON.parse(line) as unknown;
           if (isLiriEvent(event) && event.seq === seq) {
+            // D2（2026-08-24）：版本校验 + 未知类型处理——不可读则视为未命中
+            const readable = assertEventReadable(event);
+            if (!readable.ok) {
+              logger.warn('event-log: readBySeq 跳过不可读事件', {
+                sessionId: this.sessionId,
+                seq,
+                eventType: event.type,
+                reason: readable.reason,
+              });
+              return null;
+            }
+            // D1（2026-08-24）：与 read() 契约一致——返回冻结对象
+            // （sanitizeEvent 对已冻结对象幂等跳过）
+            sanitizeEvent(event);
             return event;
           }
         } catch {
@@ -766,5 +938,247 @@ export class EventLogStorage {
       }
     }
     return maxSeq;
+  }
+
+  // ─── D4 torn-tail 崩溃修复（2026-08-24，对齐 deepseek-harness SessionLogScanner） ───
+
+  /**
+   * D4-1：检测 events.jsonl 末尾是否存在半写行（torn tail）
+   *
+   * 应用崩溃时 fs.appendFile 可能中断，末尾残留半写 JSON 行。判定规则：
+   *   1. 文件末尾无换行符（\n 结尾）→ 最后一条记录可能不完整
+   *   2. 或最后一条记录 JSON.parse 失败 → 半写
+   * 双重判定（对齐 deepseek-harness finish()："ignoring a final record without
+   * a newline as a torn tail"），避免误判正常文件。
+   *
+   * @returns { offset: number, torn: boolean }——offset 为安全截断位置（= 最后一个
+   *   完整记录末尾字节数，含换行），torn=true 表示存在需要截断的半写行
+   */
+  async scanForTornTail(): Promise<{ offset: number; torn: boolean }> {
+    if (!this.exists()) return { offset: 0, torn: false };
+    try {
+      const stat = await fs.stat(this.filePath);
+      if (stat.size === 0) return { offset: 0, torn: false };
+
+      // 读末尾 64KB（足够覆盖典型半写；超大单行理论上可能超限，但事件行通常 < 10KB）
+      const tailSize = Math.min(64 * 1024, stat.size);
+      const buf = Buffer.alloc(tailSize);
+      const fd = await fs.open(this.filePath, 'r');
+      try {
+        await fd.read(buf, 0, tailSize, stat.size - tailSize);
+      } finally {
+        await fd.close();
+      }
+
+      const text = buf.toString('utf-8');
+      // 末尾无换行 → 最后一条记录可能半写
+      const endsWithNewline = text.endsWith('\n');
+      // 逐行解析，最后一条完整行的结束字节偏移
+      let lastCompleteEnd = 0;
+      let lineStart = 0;
+      let sawTorn = false;
+
+      for (let i = 0; i < text.length; i++) {
+        if (text[i] === '\n') {
+          const line = text.slice(lineStart, i);
+          const trimmed = line.trim();
+          if (trimmed.length > 0) {
+            try {
+              JSON.parse(trimmed);
+              lastCompleteEnd = i + 1; // 完整行（含换行）
+            } catch {
+              // 中间损坏行（非末尾）——保守视为 torn（可能是崩溃点）
+              sawTorn = true;
+            }
+          }
+          lineStart = i + 1;
+        }
+      }
+
+      // 剩余无换行的尾行：若 trim 非空且 JSON 不可解析 → torn
+      const lastLine = text.slice(lineStart);
+      const lastTrimmed = lastLine.trim();
+      if (lastTrimmed.length > 0) {
+        try {
+          JSON.parse(lastTrimmed);
+          // 可解析但无换行结尾：半写风险（写盘未完成换行），仍算 torn 以安全截断
+          if (!endsWithNewline) {
+            sawTorn = true;
+            // lastCompleteEnd 已是最后一个完整行末尾；若尾行可解析且是唯一记录则保留
+            if (lastCompleteEnd === 0) lastCompleteEnd = text.length;
+          }
+        } catch {
+          // 尾行不可解析 → 明确的半写 torn
+          sawTorn = true;
+        }
+      }
+
+      // 全局偏移：读的是末尾 64KB，需加上文件头偏移
+      const baseOffset = stat.size - tailSize;
+      return {
+        offset: baseOffset + lastCompleteEnd,
+        torn: sawTorn,
+      };
+    } catch (e) {
+      await handleError(e, {
+        module: 'session:event-log',
+        action: 'scanForTornTail',
+        context: { sessionId: this.sessionId },
+      }).catch(() => {});
+      return { offset: 0, torn: false };
+    }
+  }
+
+  /**
+   * D4-2：截断 torn tail 至最后一个完整记录，并同步 tailSeq/持久化值
+   *
+   * 调用方（D4-4 启动钩子 / 首次 read）先 scanForTornTail 确认 torn=true 后再调本方法。
+   * 截断失败不抛错（CS03）：返回 false 由调用方决定是否继续降级。
+   *
+   * @returns 截断后是否成功（false = 无 torn 或截断失败）
+   */
+  async commitTornRepair(): Promise<boolean> {
+    const { offset, torn } = await this.scanForTornTail();
+    if (!torn) return false;
+    try {
+      await fs.truncate(this.filePath, offset);
+      // 重置 tailSeq：截断后重新扫描真实最大 seq
+      this.tailSeq = 0;
+      this.tailSeqInitialized = false;
+      this.maxTurn = null;
+      const realTail = await this.getTailSeq(true);
+      logger.warn('event-log: torn tail 已截断修复', {
+        sessionId: this.sessionId,
+        truncatedOffset: offset,
+        newTailSeq: realTail,
+      });
+      await this.writePersistedTailSeq(realTail);
+      return true;
+    } catch (e) {
+      await handleError(e, {
+        module: 'session:event-log',
+        action: 'commitTornRepair',
+        context: { sessionId: this.sessionId, offset },
+      }).catch(() => {});
+      return false;
+    }
+  }
+
+  /**
+   * D4-3：检测未闭合轮次并生成合成 turn/end（interruptedTurnClosers）
+   *
+   * 应用崩溃可能留下 turn/start 无配对 turn/end 的残缺轮次。扫描事件日志，
+   * 对每个"已 start 未 end"的 turn 合成 `turn/end { finishReason: 'canceled' }`
+   * （对齐 B 方案"未完成=已中断"语义，前端已有 canceled 终态处理）。
+   *
+   * 对齐 deepseek-harness `interruptedTurnClosers`：崩溃恢复仅合成缺失的 closers，
+   * 不修改已存在事件。
+   *
+   * @returns 合成的 turn/end 事件数组（seq 从当前 tailSeq+1 连续分配，未落盘）
+   *   与需要合成的未闭合 turn 号列表
+   */
+  async interruptedTurnClosers(): Promise<{
+    closers: LiriEvent[];
+    openTurns: number[];
+  }> {
+    // 直接流式扫描文件（不调 read()）——read() 会触发 ensureRepairChecked（D4-4），
+    // 首次调用即抢先合成 closers 落盘，导致本方法二次扫描时 turn 已闭合返回空。
+    // 本方法作为"原始状态查询"应只看文件真实内容（repair 闭环由 ensureRepairChecked 驱动）。
+    const openTurns = new Set<number>();
+    if (this.exists()) {
+      try {
+        const rl = this.createReadlineInterface();
+        for await (const line of rl) {
+          if (!line.trim()) continue;
+          try {
+            const event = JSON.parse(line) as LiriEvent;
+            if (event.type === 'turn/start') {
+              openTurns.add((event.data as { turn: number }).turn);
+            } else if (event.type === 'turn/end') {
+              openTurns.delete((event.data as { turn: number }).turn);
+            }
+          } catch {
+            // 损坏行跳过（repair 场景由调用方另行处理 torn tail）
+          }
+        }
+      } catch (e) {
+        await handleError(e, {
+          module: 'session:event-log',
+          action: 'interruptedTurnClosers',
+          context: { sessionId: this.sessionId },
+        }).catch(() => {});
+      }
+    }
+    const sorted = [...openTurns].sort((a, b) => a - b);
+    const tailSeq = await this.getTailSeq();
+    const time = Date.now();
+    const closers: LiriEvent[] = sorted.map((turn, i) => ({
+      type: 'turn/end',
+      seq: tailSeq + i + 1,
+      time,
+      sessionId: this.sessionId,
+      data: { turn, finishReason: 'canceled' as const },
+    }));
+    return { closers, openTurns: sorted };
+  }
+
+  /**
+   * D4-3：将合成的 turn/end closers 落盘（崩溃恢复收尾）
+   *
+   * 调用方先 interruptedTurnClosers() 获取 closers，确认非空后调本方法。
+   * 逐条 append（append 内含 sanitize + 版本校验 + seq 单调守卫）。
+   *
+   * @returns 成功写入的 closers 数量（0 = 无未闭合轮次或写入失败）
+   */
+  async commitInterruptedRepair(): Promise<number> {
+    const { closers } = await this.interruptedTurnClosers();
+    if (closers.length === 0) return 0;
+    let written = 0;
+    for (const closer of closers) {
+      const result = await this.append(closer);
+      if (result.ok) written++;
+    }
+    if (written > 0) {
+      logger.warn('event-log: 崩溃恢复合成 turn/end closers', {
+        sessionId: this.sessionId,
+        openTurns: closers.map((c) => (c.data as { turn: number }).turn),
+        written,
+      });
+    }
+    return written;
+  }
+
+  /**
+   * D4-4：首次读取前自动崩溃修复（内存标记防重复 + 防递归）
+   *
+   * 修复链（对齐 deepseek-harness load-time repair）：
+   *   1. torn-tail 截断（半写行清理）——见 commitTornRepair
+   *   2. 未闭合轮次合成 turn/end closers——见 commitInterruptedRepair
+   *
+   * 防递归：commitInterruptedRepair → interruptedTurnClosers → read()
+   * 会再次进入本方法，靠 `_repairChecked` 在真正执行前已置 true 短路。
+   * 失败不抛错（CS03）：修复失败仅告警，读取照常降级（损坏行跳过）。
+   */
+  private async ensureRepairChecked(): Promise<void> {
+    if (this._repairChecked) return;
+    // 先置标记再执行——防递归（修复内部 read() 再次进入）
+    this._repairChecked = true;
+    try {
+      const tornRepaired = await this.commitTornRepair();
+      const closersWritten = await this.commitInterruptedRepair();
+      if (tornRepaired || closersWritten > 0) {
+        logger.info('event-log: 首次读取触发崩溃修复', {
+          sessionId: this.sessionId,
+          tornRepaired,
+          closersWritten,
+        });
+      }
+    } catch (e) {
+      await handleError(e, {
+        module: 'session:event-log',
+        action: 'ensureRepairChecked',
+        context: { sessionId: this.sessionId },
+      }).catch(() => {});
+    }
   }
 }

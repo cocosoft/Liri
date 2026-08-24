@@ -49,6 +49,21 @@ export interface SessionEventsResponse {
   hasMore: boolean;
 }
 
+/** 事件投影统计（D7，2026-08-24）——后端 EventMessageDeriver.deriveSessionStats 镜像 */
+export interface EventSessionStats {
+  messageCount: number;
+  userMessageCount: number;
+  assistantMessageCount: number;
+  toolCallCount: number;
+  toolResultCount: number;
+  toolCanceledCount: number;
+  toolOrphanCount: number;
+  turnCount: number;
+  compactionCount: number;
+  compactedSourceEventCount: number;
+  eventCount: number;
+}
+
 export const trajectoryService = {
   /**
    * 获取会话事件流。
@@ -87,6 +102,35 @@ export const trajectoryService = {
           handleClientError(e, {
             module: "services:trajectory",
             action: "getEvents",
+          });
+          throw e;
+        }
+      },
+    );
+  },
+
+  /** 获取会话事件投影统计（D7，2026-08-24） */
+  getSessionStats: (sessionId: string): Promise<EventSessionStats> => {
+    return getOTelTracing().asyncWrap(
+      "services:trajectory:getSessionStats",
+      async () => {
+        try {
+          const res = await apiHttp.get<EventSessionStats>(
+            `/v1/sessions/${sessionId}/stats`,
+          );
+          if (res.ok && res.data) {
+            return res.data;
+          }
+          const msg =
+            typeof res.error === "string" && res.error
+              ? res.error
+              : "获取会话统计失败";
+          logger.warn("获取会话统计失败", { sessionId, error: msg });
+          throw new Error(msg);
+        } catch (e) {
+          handleClientError(e, {
+            module: "services:trajectory",
+            action: "getSessionStats",
           });
           throw e;
         }

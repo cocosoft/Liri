@@ -17,6 +17,7 @@ import { useFeatureFlagStore } from "../../stores/featureFlags";
 import { fileService } from "../../services/fileService";
 import { imageService } from "../../services/imageService";
 import { chatService } from "../../services/chatService";
+import { sessionService } from "../../services/sessionService";
 import {
   fetchArtifacts,
   fetchProjectContext,
@@ -576,14 +577,22 @@ function ChatInput({ fluid = false }: { fluid?: boolean }) {
     try {
       let sessionId = currentSession?.id;
 
-      // 编辑重发 + 另存为分支：创建新分支会话
+      // 编辑重发 + 另存为分支：真实事件级 fork（复制历史对话事件，而非新建空会话）
       if (editTarget && branchOnEdit) {
         const branchTitle = currentSession
           ? `${t("chat.branchPrefix")}${currentSession.title}`
           : t("chat.newBranchSession");
-        const branchSession = await createSession(branchTitle);
-        await useSessionStore.getState().switchSession(branchSession.id);
-        sessionId = branchSession.id;
+        if (currentSession) {
+          const forked = await sessionService.forkSession(currentSession.id, {
+            childTitle: branchTitle,
+          });
+          await useSessionStore.getState().switchSession(forked.session.id);
+          sessionId = forked.session.id;
+        } else {
+          const branchSession = await createSession(branchTitle);
+          await useSessionStore.getState().switchSession(branchSession.id);
+          sessionId = branchSession.id;
+        }
       }
 
       if (!sessionId) {
@@ -680,6 +689,13 @@ function ChatInput({ fluid = false }: { fluid?: boolean }) {
    */
   const handleVoiceSubmit = async (text: string) => {
     if (!text.trim()) return;
+
+    // F9 修复（2026-08-24）：与 handleSubmit 对齐——流式中非队列模式拦截，
+    // 避免绕过守卫直接 streamMessage 触发 F2（同会话双流 controller 竞态）
+    if (isStreaming && !messageQueueEnabled) {
+      flashStreamBlocked();
+      return;
+    }
 
     let sessionId = currentSession?.id;
     if (!sessionId) {

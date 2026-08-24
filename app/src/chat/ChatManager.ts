@@ -4054,6 +4054,17 @@ export class ChatManagerImpl implements ChatManager {
     return this.sessionLifecycle.createSession(params);
   }
 
+  /**
+   * D3（2026-08-24）：事件级 fork——从源会话任意历史 seq fork 出子会话
+   * 委托 SessionGateway.forkSession（血缘注入 + 前缀事件复制）
+   */
+  async forkSession(
+    sourceId: string,
+    options: { boundary?: number; childTitle?: string; childId?: string } = {}
+  ): ReturnType<SessionGateway['forkSession']> {
+    return this.sessionGateway.forkSession(sourceId, options);
+  }
+
   async switchSession(sessionId: string): Promise<void> {
     return this.sessionLifecycle.switchSession(sessionId);
   }

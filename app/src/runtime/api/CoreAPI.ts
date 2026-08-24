@@ -360,6 +360,22 @@ export interface CoreAPI {
   /** 创建新会话 */
   createSession(params?: SessionCreateParams): Promise<SessionInfo>;
 
+  /**
+   * D3（2026-08-24）：事件级 fork——从源会话任意历史 seq（boundary）fork 出子会话
+   * 复制 [1..boundary] 前缀事件 + 血缘（parentSessionId/seedLength），保留原 seq。
+   * boundary 落在 open turn 内或无效时 success=false 并返回 error。
+   */
+  forkSession(
+    sourceId: string,
+    options?: { boundary?: number; childTitle?: string }
+  ): Promise<{
+    success: boolean;
+    session?: SessionInfo;
+    boundary?: number;
+    copied?: number;
+    error?: string;
+  }>;
+
   /** 获取会话信息 */
   getSession(sessionId: string): Promise<SessionInfo | undefined>;
 

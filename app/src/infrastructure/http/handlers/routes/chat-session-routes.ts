@@ -49,6 +49,8 @@ import {
   handleGetSessionMemory,
   handleGetSessionMessages,
   handleGetSessionEvents,
+  handleGetSessionStats,
+  handleForkSession,
   handleListSessions,
   handlePruneSession,
   handleRenameSession,
@@ -293,6 +295,22 @@ export async function dispatchChatSessionRoutes(
     const sid = requireSessionId(url, /^\/v1\/sessions\/(.+)\/events$/, res);
     if (sid === null) return true;
     await handleGetSessionEvents(handlerCtx, req, res, sid);
+    return true;
+  }
+  // D7（2026-08-24）：事件投影统计
+  // GET /v1/sessions/:id/stats — 消息/工具/轮次/压缩统计（与 /v1/usage 维度不同）
+  if (method === 'GET' && url.match(/^\/v1\/sessions\/(.+)\/stats$/)) {
+    const sid = requireSessionId(url, /^\/v1\/sessions\/(.+)\/stats$/, res);
+    if (sid === null) return true;
+    await handleGetSessionStats(handlerCtx, req, res, sid);
+    return true;
+  }
+  // D3（2026-08-24）：事件级 fork
+  // POST /v1/sessions/:id/fork — body: { boundary?, childTitle? }
+  if (method === 'POST' && url.match(/^\/v1\/sessions\/(.+)\/fork$/)) {
+    const sid = requireSessionId(url, /^\/v1\/sessions\/(.+)\/fork$/, res);
+    if (sid === null) return true;
+    await handleForkSession(handlerCtx, req, res, sid);
     return true;
   }
   if (method === 'DELETE' && url.match(/^\/v1\/sessions\/(.+)$/)) {

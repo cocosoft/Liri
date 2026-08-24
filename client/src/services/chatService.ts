@@ -870,6 +870,9 @@ export const chatService = {
               yield {
                 type: "thinking",
                 content: chunk.choices?.[0]?.delta?.content || "",
+                // F1 修复（2026-08-24）：主链路与 parseSseChunk 对齐透传 messageId，
+                // 否则流式期间工具轮正文不按 messageId 归组，与回放视图不一致
+                messageId: (chunk.__pyapp_message_id as string) || undefined,
               };
             } else if (pyappType === "status") {
               yield {
@@ -958,6 +961,8 @@ export const chatService = {
                     arguments: parsedArgs,
                     status: chunk.__pyapp_tool_status || "running",
                   },
+                  // F1 修复（2026-08-24）：主链路透传 messageId（与 parseSseChunk 对齐）
+                  messageId: (chunk.__pyapp_message_id as string) || undefined,
                   // 转发后端 _meta（如 create_project 的导航建议）
                   _meta: chunk.__pyapp_meta as
                     Record<string, unknown> | undefined,
@@ -1040,6 +1045,8 @@ export const chatService = {
               yield {
                 type: "text",
                 content: chunk.choices[0].delta.content,
+                // F1 修复（2026-08-24）：主链路透传 messageId（与 parseSseChunk 对齐）
+                messageId: (chunk.__pyapp_message_id as string) || undefined,
               };
             }
           } catch (e) {

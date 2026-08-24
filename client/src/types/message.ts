@@ -71,6 +71,9 @@ export interface MessageBlock {
     | "doc_workflow";
   content: string;
   toolCall?: ToolCall;
+  /** 事件派生块字段（后端 EventMessageDeriver.makeBlock）：toolName/args 为 toolCall 的扁平化，加载时归一化 */
+  toolName?: string;
+  args?: Record<string, unknown>;
   status?: string;
   /** 状态块阶段（如压缩 compaction：compacting=进行中 / done=完成），CS02 结构化标记 */
   phase?: "compacting" | "done";

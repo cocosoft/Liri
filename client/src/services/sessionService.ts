@@ -321,6 +321,42 @@ export const sessionService = {
     );
   },
 
+  /**
+   * D3（2026-08-24）：事件级 fork——复制源会话事件前缀生成分支会话
+   * @param sourceId 源会话 ID
+   * @param options boundary（缺省 = 源 tailSeq，fork 全量历史）、childTitle
+   * @returns 子会话 + 复制边界与数量；open turn / 无效 boundary 时后端 400 → 抛错
+   */
+  forkSession: (
+    sourceId: string,
+    options?: { boundary?: number; childTitle?: string },
+  ): Promise<{ session: Session; boundary: number; copied: number }> => {
+    return getOTelTracing().asyncWrap(
+      "services:session:forkSession",
+      async () => {
+        const body: Record<string, unknown> = {};
+        if (options?.boundary !== undefined) body.boundary = options.boundary;
+        if (options?.childTitle !== undefined)
+          body.childTitle = options.childTitle;
+        const res = await apiHttp.post<{
+          session: Session;
+          boundary: number;
+          copied: number;
+        }>(`/v1/sessions/${sourceId}/fork`, body);
+        if (!res.ok) {
+          const msg = (res.data as { error?: { message?: string } } | null)
+            ?.error?.message;
+          throw new Error(msg ?? "分支创建失败");
+        }
+        return {
+          session: flattenSession(res.data?.session as Session),
+          boundary: res.data?.boundary ?? 0,
+          copied: res.data?.copied ?? 0,
+        };
+      },
+    );
+  },
+
   switch: (id: string): Promise<Session> => {
     return getOTelTracing().asyncWrap(
       "services:session:switchSession",

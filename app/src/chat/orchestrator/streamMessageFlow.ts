@@ -268,6 +268,10 @@ export async function* runStreamMessage(
                 seq: ts + 1,
                 time: Date.now(),
                 sessionId: session.id,
+                // D6（2026-08-24）：replace 语义溯源——sourceEventSeqs 引用被折叠的
+                // 源消息事件 seq（对齐 deepseek-harness replace 的 shadowed 节点引用），
+                // 派生器可据此精确重建"哪些历史被摘要替换"
+                sourceEventSeqs: compressedSeqs,
                 data: {
                   phase: 'done',
                   compactedRange,

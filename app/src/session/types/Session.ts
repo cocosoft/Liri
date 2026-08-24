@@ -48,6 +48,8 @@ export interface SessionMetadata {
   userId?: string;
   createdBy?: string;
   parentSessionId?: string;
+  /** D3（2026-08-24）：fork 血缘——源事件前缀数（子会话继承 [1..seedLength] 事件） */
+  seedLength?: number;
   sessionType?: SessionType;
   crashRecovery?: string;
   crashedAt?: string;

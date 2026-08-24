@@ -38,6 +38,7 @@ import type {
   SessionsWebSocketCallbacks,
 } from './websocket/SessionsWebSocket.js';
 import { StorageFactory } from './storage/StorageFactory.js';
+import { EventLogStorage } from './storage/EventLogStorage.js';
 import type { UnifiedSessionStorage } from './storage/UnifiedStorage.js';
 import type { StorageConfig } from './storage/UnifiedStorage.js';
 
@@ -48,6 +49,7 @@ import { CrashRecoveryManager } from './recovery/CrashRecoveryManager.js';
 import type { CrashRecoveryResult } from './recovery/CrashRecoveryManager.js';
 
 import { SessionType, SessionStatus } from './types/Session.js';
+import type { LiriEvent } from '@modules/chat/types/events';
 import { StorageType } from './storage/UnifiedStorage.js';
 import type {
   UnifiedSession,
@@ -124,6 +126,29 @@ export interface SessionGatewayConfig {
   };
   keyFactoryConfig?: SessionKeyFactoryConfig;
   wireServices?: boolean;
+}
+
+/**
+ * D3（2026-08-24）：检测 events[1..boundary] 内是否存在未闭合 turn
+ *
+ * 用栈配对（turn/end 与最近的 turn/start 匹配），对齐 deepseek-harness OPEN_TURN 拒绝。
+ * @returns 最后一个未闭合的 turn/start；全部闭合返回 null
+ */
+function findOpenTurn(
+  events: LiriEvent[],
+  boundary: number
+): { seq: number; turn?: unknown } | null {
+  const stack: { seq: number; turn?: unknown }[] = [];
+  for (const e of events) {
+    if (e.seq > boundary) break;
+    if (e.type === 'turn/start') {
+      const data = e.data as { turn?: unknown } | undefined;
+      stack.push({ seq: e.seq, turn: data?.turn });
+    } else if (e.type === 'turn/end') {
+      stack.pop();
+    }
+  }
+  return stack.length > 0 ? stack[stack.length - 1] : null;
 }
 
 /**
@@ -596,6 +621,137 @@ export class SessionGateway {
         rethrow: true,
       });
       throw e;
+    }
+  }
+
+  /**
+   * D3（2026-08-24）：事件级 fork——从任意历史 seq（boundary）fork 出子会话
+   *
+   * 流程：
+   *   1. 读源会话 + 源事件（read 自动触发 D4 崩溃修复，保证复制一致性）
+   *   2. 校验 boundary（默认 = tailSeq；须为 [1..tailSeq] 内整数）
+   *   3. open turn 校验：seq ≤ boundary 内存在未闭合 turn/start → 拒绝
+   *   4. createSession 建子会话（metadata 注入 parentSessionId/seedLength 血缘）
+   *   5. copyPrefixTo 复制 [1..boundary] 前缀事件（保留原 seq，子会话继承祖先 seq 空间）
+   *
+   * 返回结果对象（不抛错，对齐本类既有模式）；HTTP 层据此映射 4xx/201
+   */
+  async forkSession(
+    sourceId: string,
+    options: { boundary?: number; childTitle?: string; childId?: string } = {}
+  ): Promise<{
+    success: boolean;
+    session?: UnifiedSession;
+    boundary?: number;
+    copied?: number;
+    error?: string;
+  }> {
+    const otel = getOTelTracing();
+    const span = otel.startSpan('SessionGateway.forkSession');
+    const startedAt = Date.now();
+    logger.debug('forkSession:入口', {
+      sourceId,
+      boundary: options.boundary ?? null,
+      childTitle: options.childTitle ?? null,
+    });
+
+    try {
+      const source = await this.getSession(sourceId);
+      if (!source) {
+        return {
+          success: false,
+          error: `source session not found: ${sourceId}`,
+        };
+      }
+
+      // 事件日志路径与存储层对齐：从 storageConfig.basePath（<root>/sessions/<hash>）
+      // 派生 sessionsRoot=<root>/sessions + worktreeHash=<hash>；未配置时走 EventLogStorage 默认路径
+      const basePath = this.config.storageConfig?.basePath;
+      const sessionsRoot = basePath ? path.dirname(basePath) : undefined;
+      const worktreeHash = basePath ? path.basename(basePath) : 'default';
+      const sourceLog = new EventLogStorage(
+        sourceId,
+        worktreeHash,
+        sessionsRoot
+      );
+      const events = await sourceLog.read();
+      const tailSeq = await sourceLog.getTailSeq();
+
+      const boundary = options.boundary ?? tailSeq;
+      if (!Number.isInteger(boundary) || boundary <= 0 || boundary > tailSeq) {
+        return {
+          success: false,
+          error: `invalid boundary: ${boundary} (tailSeq=${tailSeq})`,
+        };
+      }
+
+      // open turn 校验：boundary 落在未闭合轮次内 → 拒绝（复制残缺 turn 无意义）
+      const openTurn = findOpenTurn(events, boundary);
+      if (openTurn) {
+        return {
+          success: false,
+          error: `open turn at seq ${openTurn.seq} blocks fork boundary ${boundary}`,
+        };
+      }
+
+      // 创建子会话（血缘注入 metadata，复用 createSession 的落盘 + session:created 事件）
+      const child = await this.createSession({
+        id: options.childId,
+        title: options.childTitle,
+        metadata: {
+          parentSessionId: sourceId,
+          seedLength: boundary,
+        },
+      });
+
+      // 复制前缀事件到子会话（保留原 seq）
+      const childLog = new EventLogStorage(
+        child.id,
+        worktreeHash,
+        sessionsRoot
+      );
+      const copy = await sourceLog.copyPrefixTo(childLog, boundary);
+      if (!copy.ok) {
+        return {
+          success: false,
+          session: child,
+          boundary,
+          copied: copy.copied,
+          error: `copy prefix failed: ${copy.reason ?? 'unknown'}`,
+        };
+      }
+
+      logger.info('会话 fork 完成', {
+        sourceId,
+        childId: child.id,
+        boundary,
+        copied: copy.copied,
+        costMs: Date.now() - startedAt,
+      });
+      otel.endSpan(span);
+      return {
+        success: true,
+        session: child,
+        boundary,
+        copied: copy.copied,
+      };
+    } catch (e) {
+      logger.warn('forkSession:失败', {
+        sourceId,
+        options,
+        error: e instanceof Error ? e.message : String(e),
+        costMs: Date.now() - startedAt,
+      });
+      otel.recordError(span, e instanceof Error ? e : new Error(String(e)));
+      otel.endSpan(span, SpanStatusCode.ERROR);
+      await handleError(e, {
+        module: 'session:gateway',
+        action: 'forkSession',
+      }).catch(() => {});
+      return {
+        success: false,
+        error: e instanceof Error ? e.message : String(e),
+      };
     }
   }
 

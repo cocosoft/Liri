@@ -344,9 +344,9 @@ describe("deriveConversationBlocks — M2-1 纯函数", () => {
     expect(assistants[0].id).toBe("asst-1");
     expect(assistants[1].id).toBe("asst-2");
     // 工具轮消息含 tool_call 块
-    expect(
-      assistants[1].blocks!.some((b) => b.type === "tool_call"),
-    ).toBe(true);
+    expect(assistants[1].blocks!.some((b) => b.type === "tool_call")).toBe(
+      true,
+    );
     // status 无 messageId 不切换（保持复用当前消息）
     expect(assistants[0].content).toBe("首答");
   });

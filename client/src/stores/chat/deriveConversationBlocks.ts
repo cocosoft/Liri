@@ -61,6 +61,38 @@ import { createLogger } from "@/utils/logger";
 
 const logger = createLogger("stores:chat:derive");
 
+/** D2（2026-08-24）：已知事件类型集合——与 LiriEventType 保持同步，
+ *  用于 default 分支区分"已知但视图无关"与"真正未知"类型 */
+const KNOWN_EVENT_TYPES = new Set([
+  "turn/start",
+  "turn/end",
+  "user/message",
+  "assistant/thinking",
+  "assistant/text",
+  "assistant/tool_call",
+  "tool/result",
+  "tool/canceled",
+  "assistant/status",
+  "assistant/progress",
+  "assistant/question",
+  "assistant/todo",
+  "assistant/doc_workflow",
+  "assistant/truncation",
+  "assistant/deliverable",
+  "assistant/diff",
+  "context/compaction",
+  "context/summary",
+  "system/error",
+  "system/warning",
+  "system/info",
+  "metric/timing",
+  "channel/connect",
+  "channel/disconnect",
+  "channel/message",
+  "session/start",
+  "session/end",
+]);
+
 interface DeriveContext {
   sessionId: string;
   /** M4：流式场景下指定的 assistant message id（覆盖 `asst_${seq}` 自动生成）。
@@ -643,37 +675,74 @@ function handleEvent(
         // reverse().find 只命中最后一个 todo 块，多块时更新落错块、跨 turn 静默丢失；
         // ② 更新后替换块对象新引用——原地改 task.status 不换块引用，ChatMessage
         // memo 比较器只比块对象引用 → 判定无变化跳过重渲染（对齐 progress 分支同款修复）。
-        const blocks = state.current!.blocks!;
-        for (let i = 0; i < blocks.length; i++) {
-          const b = blocks[i];
-          if (b.type !== "todo" || !b.taskCard) continue;
-          const taskIdx = b.taskCard.tasks.findIndex(
-            (t) => t.id === data.taskId,
-          );
-          if (taskIdx === -1) continue;
-          blocks[i] = {
-            ...b,
-            taskCard: {
-              ...b.taskCard,
-              tasks: b.taskCard.tasks.map((t, j) =>
-                j === taskIdx
-                  ? {
-                      ...t,
-                      ...(data.updates?.status
-                        ? { status: data.updates.status }
-                        : {}),
-                      ...(data.updates?.result !== undefined
-                        ? { result: data.updates.result }
-                        : {}),
-                      ...(data.updates?.durationMs !== undefined
-                        ? { durationMs: data.updates.durationMs }
-                        : {}),
-                    }
-                  : t,
-              ),
-            },
-          };
-          break;
+        //
+        // F3 修复（2026-08-24）：对齐 tool/result 的 P0-3 扩展——当前未 flush 消息
+        // 未命中时，反向遍历已 flush 的 state.messages 查找（跨 turn todo 更新场景：
+        // 第 2 轮 todo_write update 更新第 1 轮创建的 todo，更新事件到达时第 1 轮
+        // 已被 turn/start 或 user/message flush 出 current）。
+        const updateTodoBlocks = (blocks: MessageBlock[]): MessageBlock[] => {
+          let replaced = false;
+          const nextBlocks = blocks.map((b) => {
+            if (b.type !== "todo" || !b.taskCard) return b;
+            const taskIdx = b.taskCard.tasks.findIndex(
+              (t) => t.id === data.taskId,
+            );
+            if (taskIdx === -1) return b;
+            replaced = true;
+            return {
+              ...b,
+              taskCard: {
+                ...b.taskCard,
+                tasks: b.taskCard.tasks.map((t, j) =>
+                  j === taskIdx
+                    ? {
+                        ...t,
+                        ...(data.updates?.status
+                          ? { status: data.updates.status }
+                          : {}),
+                        ...(data.updates?.result !== undefined
+                          ? { result: data.updates.result }
+                          : {}),
+                        ...(data.updates?.durationMs !== undefined
+                          ? { durationMs: data.updates.durationMs }
+                          : {}),
+                      }
+                    : t,
+                ),
+              },
+            };
+          });
+          return replaced ? nextBlocks : blocks;
+        };
+
+        if (state.current?.blocks) {
+          state.current.blocks = updateTodoBlocks(state.current.blocks);
+        }
+        // F3：当前消息未命中（或无 current）→ 已 flush 消息反向查找（最近的优先）
+        const matchedInFlushed = (() => {
+          for (let i = state.messages.length - 1; i >= 0; i--) {
+            const msg = state.messages[i];
+            if (!msg.blocks?.some((b) => b.type === "todo")) continue;
+            const updatedBlocks = updateTodoBlocks(msg.blocks);
+            if (updatedBlocks !== msg.blocks) {
+              state.messages[i] = { ...msg, blocks: updatedBlocks };
+              logger.warn("[F3:derive] todo update 在已 flush 消息中命中", {
+                taskId: data.taskId,
+                msgIndex: i,
+                msgId: msg.id,
+                eventSeq: event.seq,
+              });
+              return true;
+            }
+          }
+          return false;
+        })();
+        if (!matchedInFlushed && state.current === null) {
+          logger.warn("[F3:derive] todo update 未命中任何消息", {
+            taskId: data.taskId,
+            eventSeq: event.seq,
+            flushedMsgCount: state.messages.length,
+          });
         }
       }
       break;
@@ -782,10 +851,19 @@ function handleEvent(
     }
 
     // 其他事件不影响对话视图
-    default:
+    default: {
       // system/error, system/warning, system/info, metric/timing,
       // channel/*, session/*, context/summary, 未知 type
+      // D2（2026-08-24）：未知类型告警——仅对非 ignorable 的未知类型 warn
+      // （后端 EventLogStorage.read 已用 assertEventReadable 过滤，此处防御直调场景）
+      if (!KNOWN_EVENT_TYPES.has(event.type) && event.ignorable !== true) {
+        logger.warn("[D2:derive] 遇到未知事件类型", {
+          eventSeq: event.seq,
+          eventType: event.type,
+        });
+      }
       break;
+    }
   }
 }
 

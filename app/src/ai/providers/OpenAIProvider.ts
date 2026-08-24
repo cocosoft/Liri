@@ -363,6 +363,9 @@ export class OpenAIProvider extends BaseAIProvider {
     // 重新发起请求一次——LLM 无状态，重发安全；已产出内容时不重试避免重复输出。
     // 与 BaseAIProvider.fetchWithConnectionRetry 的连接级重试（最多 2 次）叠加。
     const MAX_STREAM_ATTEMPTS = 2;
+    // 流式请求起始时间（2026-08-24）：用于 SSL/超时错误日志输出实际耗时，
+    // 排查"握手阶段长时间无响应后失败"的时序问题
+    const streamStartMs = Date.now();
     for (let attempt = 0; attempt < MAX_STREAM_ATTEMPTS; attempt++) {
       let fullContent = '';
       try {
@@ -561,9 +564,26 @@ export class OpenAIProvider extends BaseAIProvider {
           /timed out|timeout|ETIMEDOUT|UND_ERR_HEADERS_TIMEOUT|UND_ERR_BODY_TIMEOUT/i.test(
             errorMessage
           );
+        // SSL/TLS 证书错误检测（2026-08-24 增强）：CDN 边缘节点可能瞬态返回
+        // 不完整证书链（Bun BoringSSL 报 unknown certificate verification error），
+        // 该错误同样发生在响应头到达前（fullContent 为空），重发通常立即成功，
+        // 与连接中断/超时同策略重试一次（实测 DeepSeek 偶发 SSL 验证失败可重试恢复）。
+        const isSSLError = /certificate|ssl|tls|unable to verify/i.test(
+          errorMessage
+        );
+        // SSL 错误详细诊断（2026-08-24）：记录 CA 注入状态、运行时与耗时，
+        // 便于复现排查 CDN 瞬态证书链问题（unknown certificate verification error）
+        const sslDetail = isSSLError
+          ? {
+              ...BaseAIProvider.getCaCertDiagnostic(),
+              runtime: typeof Bun === 'undefined' ? 'node' : 'bun',
+              elapsedMs: Date.now() - streamStartMs,
+              errorName: (error as Error)?.name ?? typeof error,
+            }
+          : undefined;
         if (
           attempt < MAX_STREAM_ATTEMPTS - 1 &&
-          (isSocketClosed || isTimeout) &&
+          (isSocketClosed || isTimeout || isSSLError) &&
           fullContent.length === 0
         ) {
           logger.warn('流式请求中断（首块前），重试请求', {
@@ -571,16 +591,15 @@ export class OpenAIProvider extends BaseAIProvider {
             attempt: attempt + 1,
             error: errorMessage,
             timeout: isTimeout,
+            ssl: isSSLError,
+            sslDetail,
           });
           continue;
         }
 
-        // SSL/TLS 证书错误检测（与 generateImage L567-577 保持一致，CS01 归一化）：
-        // 这类错误是环境问题（系统 CA 信任库 / 代理 MITM 证书），错误消息附带
-        // 可执行的修复提示，便于用户自诊断（NODE_EXTRA_CA_CERTS / 代理证书信任）。
-        const isSSLError = /certificate|ssl|tls|unable to verify/i.test(
-          errorMessage
-        );
+        // SSL 错误检测已在上方重试判断中完成（isSSLError），此处直接复用生成用户提示：
+        // 这类错误是环境问题（系统 CA 信任库 / 代理 MITM 证书 / CDN 瞬态），错误消息
+        // 附带可执行的修复提示，便于用户自诊断（NODE_EXTRA_CA_CERTS / 代理证书信任）。
         logger.warn('OpenAIProvider.stream() · 请求失败', {
           providerId: this.id,
           isSSLError,
@@ -589,6 +608,7 @@ export class OpenAIProvider extends BaseAIProvider {
           fetchCauseHost: fetchCause?.hostname,
           fetchCausePort: fetchCause?.port,
           attempt: attempt + 1,
+          sslDetail,
         });
         const userHint = isSSLError
           ? `SSL 证书验证失败。请尝试以下操作：\n` +

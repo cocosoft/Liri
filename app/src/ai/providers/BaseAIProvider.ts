@@ -499,6 +499,25 @@ export abstract class BaseAIProvider implements AIProvider {
     return { ca: [Bun.file(BaseAIProvider._caCertFilePath)] };
   }
 
+  /**
+   * CA 证书注入状态诊断（供 Provider 错误日志输出，排查 SSL 验证失败场景）。
+   * - certPath: 已查找到的 CA 证书文件路径（未找到为 null，尚未查找也为 null）
+   * - certLoaded: 是否已成功注入（undici dispatcher 或 Bun tls.ca 任一成功）
+   */
+  static getCaCertDiagnostic(): {
+    certPath: string | null;
+    certLoaded: boolean;
+  } {
+    return {
+      certPath: BaseAIProvider._caCertFilePath ?? null,
+      certLoaded:
+        (BaseAIProvider._caDispatcher !== null &&
+          BaseAIProvider._caDispatcher !== undefined) ||
+        (BaseAIProvider._caCertFilePath !== null &&
+          BaseAIProvider._caCertFilePath !== undefined),
+    };
+  }
+
   // ============================================================
   // 带连接重试的 fetch
   // ============================================================

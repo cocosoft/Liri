@@ -3042,10 +3042,19 @@ export class ChatManagerImpl implements ChatManager {
     //   events.jsonl 顺序 = turn/start → text/thinking → tool/result → assistant/tool_call → turn/end
     // （此前在 streamMessageFlow 工具循环后补写，tool_call 事件晚于 turn/end，仍无 turn 包裹。）
     // 无工具调用轮次：turn/end 已在 streamMessageFlow LLM 流结束后写入（!hasToolCalls 分支），此处不重复写。
+    // 2026-08-24 修复：写入条件从"最终响应有 tool_calls"放宽为"本轮发生过工具活动"——
+    // 工具型轮次若最终响应无 tool_calls（工具执行后直接给答案），原逻辑不写 turn/end，
+    // turn 永久未闭合 → 崩溃恢复每次启动合成 canceled closers → 前端所有回复显示"该回复已中断"。
     const hasFinalToolCalls =
       Array.isArray(finalResponse?.tool_calls) &&
       finalResponse!.tool_calls.length > 0;
-    if (hasFinalToolCalls) {
+    const hasToolActivity =
+      hasFinalToolCalls ||
+      (Array.isArray(assistantMessage.blocks) &&
+        assistantMessage.blocks.some(
+          (b) => b.type === 'tool_call' || b.type === 'tool_result'
+        ));
+    if (hasToolActivity) {
       try {
         // turn 编号与 turn/start 一致：turn/start 已写入事件日志，读取最大 turn 即为当前轮编号
         const persistedTurn = await this.getStreamMaxTurn(session.id);
@@ -3057,7 +3066,7 @@ export class ChatManagerImpl implements ChatManager {
           sessionId: session.id,
           data: {
             turn: persistedTurn > 0 ? persistedTurn : this._toolRoundCount + 1,
-            finishReason: 'tool_use',
+            finishReason: hasFinalToolCalls ? 'tool_use' : 'stop',
           },
         });
       } catch {

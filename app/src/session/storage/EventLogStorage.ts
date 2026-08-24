@@ -1199,15 +1199,16 @@ export class EventLogStorage {
         const rl = this.createReadlineInterface();
         for await (const line of rl) {
           if (!line.trim()) continue;
-          try {
-            const event = JSON.parse(line) as LiriEvent;
+          // 2026-08-24 根因修复：损坏行（半写/拼接）用 splitJsonLine 恢复——
+          // 裸 JSON.parse 会跳过拼接行，行内真实的 turn/end 丢失 → turn 误判
+          // 未闭合 → 每次启动都重复合成 canceled closers（前端全部回复显示中断）。
+          for (const obj of splitJsonLine(line)) {
+            const event = obj as LiriEvent;
             if (event.type === 'turn/start') {
               openTurns.add((event.data as { turn: number }).turn);
             } else if (event.type === 'turn/end') {
               openTurns.delete((event.data as { turn: number }).turn);
             }
-          } catch {
-            // 损坏行跳过（repair 场景由调用方另行处理 torn tail）
           }
         }
       } catch (e) {

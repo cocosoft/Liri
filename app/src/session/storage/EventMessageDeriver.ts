@@ -495,8 +495,18 @@ export function deriveMessagesFromEvents(
     }
     if (ev.type === 'turn/end') {
       const fr = data.finishReason;
+      // 2026-08-24 根因修复：
+      // ① key 用事件自身的 data.turn（而非 currentTurnNo）——turn/end 配对可能
+      //    因崩溃恢复合成的 closers 与 turn/start 错位，用 currentTurnNo 会记错 turn
+      // ② 非 canceled 优先——崩溃恢复（interruptedTurnClosers）合成的 canceled
+      //    turn/end 追加在文件后部，若后写覆盖会把真实 tool_use/stop 抹成 canceled，
+      //    导致所有回复在前端显示"该回复已中断"
+      const turnNo = typeof data.turn === 'number' ? data.turn : currentTurnNo;
       if (typeof fr === 'string' && fr) {
-        finishReasonByTurn.set(currentTurnNo, fr);
+        const existing = finishReasonByTurn.get(turnNo);
+        if (!existing || existing === 'canceled' || fr !== 'canceled') {
+          finishReasonByTurn.set(turnNo, fr);
+        }
       }
       continue;
     }

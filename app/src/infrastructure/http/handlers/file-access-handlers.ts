@@ -29,6 +29,7 @@
 import type http from 'http';
 import fs from 'fs';
 import path from 'path';
+import { homedir } from 'os';
 import type { HandlerCtx } from './handler-utils';
 import { handleError } from '@modules/error';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
@@ -51,6 +52,11 @@ export async function getAllowedBaseDirs(): Promise<string[]> {
   } = await import('@modules/core/paths');
   const projectRoot = resolveProjectRoot();
   return [
+    // 2026-08-24：用户主目录——file_write/FileLink 引用 AI 生成到主目录根下的
+    // 文件（如 C:\Users\csdnc\xxx.html）需可预览/读取；否则 resolve-path 返回
+    // restricted → 前端回退原始路径 → read/html serve 一律 403 "Access denied"。
+    // 本地应用读用户自身主目录文件，安全范围与已含的 projectRoot/~/.pyapp 相当。
+    homedir(),
     projectRoot,
     resolvePyappHome(),
     resolveOutputDir(),

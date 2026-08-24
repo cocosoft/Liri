@@ -615,10 +615,20 @@ export function deriveMessagesFromEvents(
     //（finishReason=canceled/error），派生消息补充该 finishReason，
     // 使回放时中断 turn 内的消息能显示中断提示（不依赖投影是否带 finishReason）
     const turnFinish = finishReasonByTurn.get(agg.turnNo);
+    // 2026-08-24 补充修复（代码根治，免清洗/删数据）：崩溃恢复合成的 canceled
+    // turn/end 常与"turn 实际已完成但 turn/end 丢失/损坏"混淆（事件溯源早期
+    // 工具型轮次 turn/end 未写入 + 半写损坏行，崩溃恢复每次读取都合成 canceled）。
+    // 消息有完整正文时视为已完成——不补 canceled，否则打开历史记录时所有正常
+    // 回复都显示"该回复已中断"。仅消息无正文（thinking-only / 空）时才视为
+    // 真中断并补 canceled（此时没有可展示的正文，提示"生成中断"是准确的）。
+    const hasFullContent =
+      typeof agg.content === 'string' && agg.content.trim().length > 0;
     const interruptedTurnFinish =
-      turnFinish === 'canceled' || turnFinish === 'error'
-        ? turnFinish
-        : undefined;
+      turnFinish === 'error'
+        ? 'error'
+        : turnFinish === 'canceled' && !hasFullContent
+          ? 'canceled'
+          : undefined;
     if (
       proj &&
       typeof proj.lastEventSeq === 'number' &&

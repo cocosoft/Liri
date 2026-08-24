@@ -537,7 +537,12 @@ export class ToolExecutionService {
             context: {
               toolUseId: string;
               options: Record<string, unknown>;
-            }
+            },
+            // 2026-08-24 进度链路打通：registry.executeTool 透传 onProgress
+            onProgress?: (progress: {
+              toolUseID: string;
+              data: Record<string, unknown>;
+            }) => void
           ) => Promise<{
             result?: unknown;
             data?: unknown;

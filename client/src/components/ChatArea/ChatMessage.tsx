@@ -36,6 +36,12 @@ import { exportMessageAsFormat } from "../../utils/exportMessage";
 
 const SaveKnowledgeModal = React.lazy(() => import("./SaveKnowledgeModal"));
 
+// 2026-08-24 中断提示链路：中断提示文案常量（3.4）
+const INTERRUPTED_HINT_INTERRUPTED =
+  "⚠️ **该回复已中断（任务被中止），未继续完成。** 下方为中断前已生成的内容。";
+const INTERRUPTED_HINT_GENERATION =
+  "⚠️ **该回复生成中断，未完成最终输出。** 下方「💭 思考过程」标签中保留了模型当时的推理草稿，可点击展开查看。";
+
 interface ChatMessageProps {
   message: Message;
   isStreaming?: boolean;
@@ -1200,13 +1206,31 @@ function AssistantMessage({
   const contentEmpty = !(
     typeof message.content === "string" && message.content.trim()
   );
-  if (!isStreaming && !hasTextBlock && hasThinkBlock && contentEmpty) {
+  // 2026-08-24 中断提示链路（v3 修正⑥）：
+  // - 中断判定收敛为 canceled/abort（error 已有"连接已断开"status 块，不重复提示）
+  // - finishReason 判定优先：有正文被中断 → "该回复已中断"；无正文 → 沿用 H-FIX-2 文案
+  // - H-FIX-2 兜底保留（兼容 finishReason 未落盘的存量消息 / thinking-only 中断）
+  const isInterruptedFinish =
+    message.finishReason === "canceled" || message.finishReason === "abort";
+  if (!isStreaming && isInterruptedFinish) {
     blocks = [
       {
         id: "fb_interrupted_hint_" + message.id,
         type: "text",
-        content:
-          "⚠️ **该回复生成中断，未完成最终输出。** 下方「💭 思考过程」标签中保留了模型当时的推理草稿，可点击展开查看。",
+        content: hasTextBlock
+          ? INTERRUPTED_HINT_INTERRUPTED
+          : INTERRUPTED_HINT_GENERATION,
+        isStreaming: false,
+        groupId: "fb_interrupt_" + message.id,
+      },
+      ...blocks,
+    ];
+  } else if (!isStreaming && !hasTextBlock && hasThinkBlock && contentEmpty) {
+    blocks = [
+      {
+        id: "fb_interrupted_hint_" + message.id,
+        type: "text",
+        content: INTERRUPTED_HINT_GENERATION,
         isStreaming: false,
         groupId: "fb_interrupt_" + message.id,
       },

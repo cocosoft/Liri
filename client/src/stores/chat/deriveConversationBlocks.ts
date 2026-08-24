@@ -104,6 +104,9 @@ interface DeriveContext {
 interface BuilderState {
   /** 当前正在累积的 assistant 消息（同一 turn 内的多个事件归并到一条） */
   current: Message | null;
+  /** 最近一条已 flush 的 assistant 消息（2026-08-24 中断提示链路：
+   * turn/end 到达时 current 可能已被 flush，finishReason 挂到它上面兜底） */
+  lastAssistantMsg: Message | null;
   /** tool_call seq → toolCallId 映射，用于 tool/result 配对 */
   toolCallSeqMap: Map<number, string>;
   /** 已完成的消息列表 */
@@ -128,6 +131,7 @@ export function deriveConversationBlocks(
   const assistantMessageId = context?.assistantMessageId;
   const state: BuilderState = {
     current: null,
+    lastAssistantMsg: null,
     toolCallSeqMap: new Map(),
     messages: [],
     turn: 0,
@@ -165,6 +169,7 @@ export function deriveConversationBlocks(
 export class IncrementalDeriver {
   private state: BuilderState = {
     current: null,
+    lastAssistantMsg: null,
     toolCallSeqMap: new Map(),
     messages: [],
     turn: 0,
@@ -273,6 +278,14 @@ function handleEvent(
     }
 
     case "turn/end": {
+      // 2026-08-24 中断提示链路：透传 finishReason 到当前/最近 assistant 消息，
+      // 使「有正文但被中断」的消息能被前端识别并显示中断提示。
+      // 条件赋值：data.finishReason 为空时不清掉已有值（避免覆盖 3.5 后端派生已补的值）
+      const endData = event.data as { finishReason?: string };
+      const target = state.current ?? state.lastAssistantMsg;
+      if (target && endData.finishReason) {
+        target.finishReason = endData.finishReason as Message["finishReason"];
+      }
       flushCurrent(state);
       break;
     }
@@ -936,5 +949,10 @@ function flushCurrent(state: BuilderState): void {
   }
   state.messages.push(msg);
   state.current = null;
+  // 2026-08-24 中断提示链路：记录最近 flush 的 assistant 消息，
+  // 供 turn/end（当前已 flush 时）挂载 finishReason 兜底
+  if (msg.role === "assistant") {
+    state.lastAssistantMsg = msg;
+  }
   state.toolCallSeqMap.clear();
 }

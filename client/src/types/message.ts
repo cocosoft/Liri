@@ -39,6 +39,21 @@ export interface Message {
     cacheReadTokens?: number;
     cacheCreationTokens?: number;
   };
+  /**
+   * 回复结束原因（2026-08-24 中断提示链路）：
+   * - stop/length/max_tokens/tool_calls/tool_use：正常结束
+   * - canceled/abort：回复被中断（用户停止/幽灵块检测/后端静默中断）
+   * - error：流异常（SSE 断开等，已有"连接已断开"提示块）
+   */
+  finishReason?:
+    | "stop"
+    | "length"
+    | "max_tokens"
+    | "tool_calls"
+    | "tool_use"
+    | "canceled"
+    | "abort"
+    | "error";
 }
 
 export interface QuestionOption {
@@ -263,7 +278,7 @@ export interface MessageActionsProps {
   isLastAiMessage?: boolean;
   /** 消息是否被截断（控制"继续生成"按钮显示） */
   isTruncated?: boolean;
-  finishReason?: "stop" | "length" | "max_tokens" | "tool_calls";
+  finishReason?: Message["finishReason"];
 }
 
 /** ToolCallInline 子组件 Props（扁平化后的工具调用展示） */

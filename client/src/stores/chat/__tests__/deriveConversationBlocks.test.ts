@@ -351,3 +351,40 @@ describe("deriveConversationBlocks — M2-1 纯函数", () => {
     expect(assistants[0].content).toBe("首答");
   });
 });
+
+describe("deriveConversationBlocks — 中断提示链路 turn/end 透传（2026-08-24）", () => {
+  it("turn/end 带 canceled → 当前 assistant 消息挂 finishReason", () => {
+    const events: LiriEvent[] = [
+      ev(1, "turn/start", { turn: 1 }),
+      ev(2, "assistant/text", { content: "有正文", messageId: "asst-1" }),
+      ev(3, "turn/end", { turn: 1, finishReason: "canceled" }),
+    ];
+    const msgs = deriveConversationBlocks(events);
+    const asst = msgs.find((m) => m.id === "asst-1");
+    expect(asst?.finishReason).toBe("canceled");
+  });
+
+  it("turn/end 到达时 current 已 flush → lastAssistantMsg 兜底挂上", () => {
+    const events: LiriEvent[] = [
+      ev(1, "turn/start", { turn: 1 }),
+      ev(2, "assistant/text", { content: "回答1", messageId: "asst-1" }),
+      ev(3, "user/message", { content: "追问", messageId: "u-1" }),
+      ev(4, "assistant/text", { content: "回答2", messageId: "asst-2" }),
+      ev(5, "turn/end", { turn: 2, finishReason: "canceled" }),
+    ];
+    const msgs = deriveConversationBlocks(events);
+    const asst2 = msgs.find((m) => m.id === "asst-2");
+    expect(asst2?.finishReason).toBe("canceled");
+  });
+
+  it("turn/end 无 finishReason → 条件赋值不清掉已有值", () => {
+    const events: LiriEvent[] = [
+      ev(1, "turn/start", { turn: 1 }),
+      ev(2, "assistant/text", { content: "有正文", messageId: "asst-1" }),
+      ev(3, "turn/end", { turn: 1 }),
+    ];
+    const msgs = deriveConversationBlocks(events);
+    const asst = msgs.find((m) => m.id === "asst-1");
+    expect(asst?.finishReason).toBeUndefined();
+  });
+});

@@ -59,6 +59,8 @@ interface Aggregated {
   timestamp: number;
   firstSeq: number;
   maxChunkSeq: number;
+  /** 消息所属 turn 号（2026-08-24：派生消息补 finishReason 用） */
+  turnNo: number;
   blocks: Array<Record<string, unknown>>;
   tool_calls: Array<Record<string, unknown>>;
 }
@@ -88,6 +90,39 @@ function makeBlock(
     };
   }
   return block;
+}
+
+/**
+ * 投影兜底消息的排序键降级（2026-08-24 根因修复）
+ *
+ * 背景：消息事件缺失（未落盘/损坏行被跳过/存量旧数据）时，消息只能靠 legacy
+ * 投影兜底。若投影无 lastEventSeq，此前硬编码 0 排最前，导致"新消息显示在
+ * 会话最顶部"（实际时间戳晚于绝大多数消息）。
+ *
+ * 降级策略：lastEventSeq 缺失时，若消息带有效 timestamp，则按 timestamp 在
+ * 事件流时间轴中二分定位"最后一个 time <= ts 的事件 seq"作为近似排序键，
+ * 使消息归位到其真实发生时刻附近；无有效时间戳时回退 0。
+ *
+ * 近似性说明：事件按 seq 升序读入、time 近似升序；异常时间戳导致定位偏差时，
+ * 排序函数（主键 lastEventSeq，次键 timestamp，三级 id）仍能稳定兜底。
+ */
+function resolveFallbackSeq(proj: DerivedMessage, events: LiriEvent[]): number {
+  if (typeof proj.lastEventSeq === 'number') return proj.lastEventSeq;
+  const ts = typeof proj.timestamp === 'number' ? proj.timestamp : 0;
+  if (events.length === 0 || ts <= 0) return 0;
+  let lo = 0;
+  let hi = events.length - 1;
+  let anchor = events[0].seq;
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1;
+    if (events[mid].time <= ts) {
+      anchor = events[mid].seq;
+      lo = mid + 1;
+    } else {
+      hi = mid - 1;
+    }
+  }
+  return anchor;
 }
 
 /**
@@ -424,6 +459,10 @@ export function deriveMessagesFromEvents(
   // D8（2026-08-24）：已进入终态的工具调用 id 集合（tool/result 或 tool/canceled），
   // 用于检测"孤儿 tool_call"（已发起但无终态）→ 派生时合成语义文案
   const terminalToolCallIds = new Set<string>();
+  // 2026-08-24 中断提示链路（3.5）：跟踪每个 turn 的 finishReason，
+  // 供该 turn 内消息派生补 finishReason（中断 turn 的消息在回放时显示中断提示）
+  let currentTurnNo = 0;
+  const finishReasonByTurn = new Map<number, string>();
   for (const ev of events) {
     // A-3：跳过被压缩区间内的事件（旧消息不回放）
     if (isCompactedSeq(ev.seq)) continue;
@@ -447,6 +486,21 @@ export function deriveMessagesFromEvents(
       });
     }
     const data = ev.data as Record<string, unknown>;
+
+    // 2026-08-24 中断提示链路（3.5）：turn 边界跟踪（turn/start 更新当前 turn，
+    // turn/end 记录该 turn 的 finishReason，供后续消息派生使用）
+    if (ev.type === 'turn/start') {
+      currentTurnNo = typeof data.turn === 'number' ? data.turn : currentTurnNo;
+      continue;
+    }
+    if (ev.type === 'turn/end') {
+      const fr = data.finishReason;
+      if (typeof fr === 'string' && fr) {
+        finishReasonByTurn.set(currentTurnNo, fr);
+      }
+      continue;
+    }
+
     const mid = typeof data.messageId === 'string' ? data.messageId : undefined;
 
     // C-2：富块事件（无 messageId）→ 归属最近 assistant 消息的 blocks
@@ -469,6 +523,7 @@ export function deriveMessagesFromEvents(
         timestamp: ev.time,
         firstSeq: ev.seq,
         maxChunkSeq: ev.seq,
+        turnNo: currentTurnNo,
         blocks: [],
         tool_calls: [],
       };
@@ -546,6 +601,14 @@ export function deriveMessagesFromEvents(
   // ② 投影做版本覆盖（以消息为单位，评审 A1）
   for (const agg of aggregated.values()) {
     const proj = projections.find((p) => p.id === agg.messageId);
+    // 2026-08-24 中断提示链路（3.5）：该消息所属 turn 若为中断结束
+    //（finishReason=canceled/error），派生消息补充该 finishReason，
+    // 使回放时中断 turn 内的消息能显示中断提示（不依赖投影是否带 finishReason）
+    const turnFinish = finishReasonByTurn.get(agg.turnNo);
+    const interruptedTurnFinish =
+      turnFinish === 'canceled' || turnFinish === 'error'
+        ? turnFinish
+        : undefined;
     if (
       proj &&
       typeof proj.lastEventSeq === 'number' &&
@@ -557,6 +620,13 @@ export function deriveMessagesFromEvents(
         ...proj,
         role: proj.role ?? agg.role,
         content: proj.content || agg.content,
+        // 2026-08-24 根因修复：排序键以事件真实序（maxChunkSeq）为准，而非投影
+        // lastEventSeq——投影版本戳可能错误指向后续事件（如损坏行/并发写入后
+        // updateMessageBlocks 落盘的 seq 漂移），导致该消息被排到实际时序之后
+        //（"AI 回复被混合进下一轮"）。内容用投影补齐，位置按事件序归位。
+        lastEventSeq: agg.maxChunkSeq,
+        // 2026-08-24 中断提示链路（3.5）：投影无 finishReason 时按所属 turn 补充
+        finishReason: proj.finishReason ?? interruptedTurnFinish,
         // FIX(2026-08-23)：读时归一化——投影 blocks 可能按流式 chunk 碎片化
         //（每 token 一个 text block），合并相邻 text/thinking 防前端渲染卡死
         blocks: markOrphanToolBlocks(
@@ -571,6 +641,8 @@ export function deriveMessagesFromEvents(
         timestamp: agg.timestamp,
         // B-2（2026-08-23）：统一排序键——事件聚合消息用最后 chunk seq
         lastEventSeq: agg.maxChunkSeq,
+        // 2026-08-24 中断提示链路（3.5）：中断 turn 的消息补 finishReason
+        finishReason: interruptedTurnFinish,
         blocks: markOrphanToolBlocks(agg.blocks),
         tool_calls: agg.tool_calls.length > 0 ? agg.tool_calls : undefined,
       });
@@ -580,11 +652,13 @@ export function deriveMessagesFromEvents(
   // ③ 纯投影消息（events 无该消息 chunk，存量缺失）→ 直接取投影（评审 A2'）
   for (const proj of projections) {
     if (!usedProjectionIds.has(proj.id) && !aggregated.has(proj.id)) {
-      // B-2（2026-08-23）：投影兜底消息补排序键——lastEventSeq 缺失（存量旧数据）
-      // 时用 0 占位排最前（事件溯源 seq 从 1 起，0 不冲突）
+      // B-2（2026-08-23）：投影兜底消息补排序键。
+      // 2026-08-24 根因修复：lastEventSeq 缺失时不再硬排 0 置顶（导致"新消息
+      // 显示在会话最前"），而是按消息 timestamp 在事件流时间轴中二分定位近似
+      // seq，使消息归位到其真实发生时刻附近。
       result.push({
         ...proj,
-        lastEventSeq: proj.lastEventSeq ?? 0,
+        lastEventSeq: resolveFallbackSeq(proj, events),
         // FIX(2026-08-23)：同投影覆盖分支，读时归一化碎片化 blocks
         blocks: mergeAdjacentTextBlocks(proj.blocks ?? []),
       });

@@ -1240,7 +1240,13 @@ export async function* runStreamMessage(
                 arguments: tc.arguments,
                 sessionId: session.id,
               },
-              opts as { useErrorHandler?: boolean }
+              opts as {
+                useErrorHandler?: boolean;
+                onProgress?: (progress: {
+                  toolUseID: string;
+                  data: Record<string, unknown>;
+                }) => void;
+              }
             ),
           pendingInteractions: host.pendingInteractions,
           messageService: host.messageService,
@@ -1366,12 +1372,19 @@ export async function* runStreamMessage(
               todoData,
             } as ChatStreamChunk;
           }
-          // 心跳：tool_end 后每 5s 产出 execution_phase（对齐旧类 _heartbeat）
-          if (event.type === 'tool_end') {
+          // 心跳：tool_start / tool_end 后每 5s 产出 execution_phase（对齐旧类 _heartbeat）
+          // 2026-08-24 姊妹问题修复：tool_start 也触发心跳——长耗时单工具
+          //（如 docx 转换/大文件处理）执行中持续反馈"正在执行 xxx"，避免用户
+          // 只看到 tool_call 卡片干等、误以为任务卡死。
+          if (event.type === 'tool_start' || event.type === 'tool_end') {
             const now = Date.now();
             if (now - heartbeatAt >= 5000) {
               heartbeatAt = now;
               const hb = loop.getHeartbeatData();
+              const toolStartName =
+                event.type === 'tool_start'
+                  ? (event as { name?: string }).name
+                  : undefined;
               // 5. steps 截断：仅保留最近 MAX_HEARTBEAT_STEPS 条，避免长任务心跳体积线性增长
               //   （对齐旧类 ToolLoopRunner._buildExecutionSteps；totalSteps 保留真实计数）
               const MAX_HEARTBEAT_STEPS = 30;
@@ -1385,16 +1398,20 @@ export async function* runStreamMessage(
                 : fullSteps;
               yield {
                 type: 'execution_phase',
-                content: '正在执行工具',
+                content: toolStartName
+                  ? `正在执行 ${toolStartName}`
+                  : '正在执行工具',
                 sessionId: session.id,
                 executionPhase: {
                   phase: 'implementing' as const,
                   progress: hb.totalCompletedToolCount,
-                  description: '正在执行工具调用',
+                  description: toolStartName
+                    ? `正在执行 ${toolStartName}，请稍候...`
+                    : '正在执行工具调用',
                   steps,
                   totalSteps: fullSteps.length,
                   truncated,
-                  currentStep: '',
+                  currentStep: toolStartName ?? '',
                 },
               } as ChatStreamChunk;
             }

@@ -60,7 +60,14 @@ export interface ToolLoopContext {
   // 工具执行
   executeTool: (
     toolCall: ToolCall,
-    opts?: { useErrorHandler?: boolean }
+    // 2026-08-24 进度链路打通：opts 增加 onProgress（工具细粒度进度回调）
+    opts?: {
+      useErrorHandler?: boolean;
+      onProgress?: (progress: {
+        toolUseID: string;
+        data: Record<string, unknown>;
+      }) => void;
+    }
   ) => Promise<ToolResult>;
 
   /** P0-4（2026-08-14）：工具执行事件回调（对齐 TAOR 路径 ChatManagerTAORAdapter）。

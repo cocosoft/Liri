@@ -2294,13 +2294,13 @@ export class ChatManagerImpl implements ChatManager {
   /**
    * 压缩工具循环历史消息（委托给 MessageContextPipeline）
    */
-  private _compressToolHistory(
+  private async _compressToolHistory(
     currentRoundMessages: Record<string, unknown>[],
     sessionId: string,
     assistantMsg: Record<string, unknown>,
     toolResults: Record<string, unknown>[]
-  ): Record<string, unknown>[] {
-    const beforeTokens = this._estimateArrayTokens(currentRoundMessages);
+  ): Promise<Record<string, unknown>[]> {
+    const beforeTokens = await this._estimateArrayTokens(currentRoundMessages);
 
     const result = compressToolHistory(
       currentRoundMessages,
@@ -2309,7 +2309,7 @@ export class ChatManagerImpl implements ChatManager {
       toolResults
     );
 
-    const afterTokens = this._estimateArrayTokens(result);
+    const afterTokens = await this._estimateArrayTokens(result);
 
     this.contextTracker.record({
       timestamp: Date.now(),
@@ -2327,10 +2327,59 @@ export class ChatManagerImpl implements ChatManager {
   }
 
   /**
-   * 估算消息数组的 token 数（简化为 JSON 长度 / 4）
+   * 估算消息数组的 token 数（流式近似估算）
+   *
+   * 2026-08-24 优化：原实现 JSON.stringify(messages).length / 4 会对超大消息数组
+   * 做同步全量序列化——字符串拼接 + 转义开销大，压缩边界单次可达数百 ms~秒级，
+   * 阻塞事件循环（心跳/SSE 全停，触发"流式响应超时"）。
+   * 现改为逐字段近似累加：
+   *   1. 不构造完整 JSON 字符串，峰值内存从 O(总量) 降为 O(1)
+   *   2. 每 1000 条让出一次事件循环（setImmediate），长数组不阻塞
+   * 近似模型与 JSON 序列化长度线性相关（键名 + 固定开销 + 值长度），/4 取 token，
+   * 压缩触发阈值行为与之前一致。
    */
-  private _estimateArrayTokens(messages: Record<string, unknown>[]): number {
-    return Math.ceil(JSON.stringify(messages).length / 4);
+  private async _estimateArrayTokens(
+    messages: Record<string, unknown>[]
+  ): Promise<number> {
+    let totalChars = 0;
+    let processed = 0;
+    for (const msg of messages) {
+      // 每 1000 条让出事件循环，避免长数组同步遍历阻塞（心跳/SSE 停更）
+      if (++processed % 1000 === 0) {
+        await new Promise<void>((resolve) => setImmediate(resolve));
+      }
+      totalChars += this._approxJsonLength(msg);
+    }
+    return Math.max(1, Math.ceil(totalChars / 4));
+  }
+
+  /**
+   * 近似 JSON 序列化长度（不构造字符串，逐字段 O(1) 累加）
+   */
+  private _approxJsonLength(value: unknown): number {
+    if (value === null || value === undefined) return 4; // null / undefined
+    switch (typeof value) {
+      case 'string':
+        return value.length + 2; // 引号
+      case 'number':
+        return String(value).length;
+      case 'boolean':
+        return value ? 4 : 5; // true / false
+      case 'object': {
+        if (Array.isArray(value)) {
+          let len = 2; // []
+          for (const item of value) len += this._approxJsonLength(item) + 1; // 逗号
+          return len;
+        }
+        let len = 2; // {}
+        for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+          len += k.length + 4 + this._approxJsonLength(v); // 键 + 引号/冒号/逗号
+        }
+        return len;
+      }
+      default:
+        return 4; // function/symbol 等（JSON.stringify 会省略）
+    }
   }
 
   /**
@@ -3934,7 +3983,14 @@ export class ChatManagerImpl implements ChatManager {
    */
   async executeTool(
     toolCall: ToolCall,
-    opts?: { useErrorHandler?: boolean }
+    // 2026-08-24 进度链路打通：透传 onProgress（工具细粒度进度回调）
+    opts?: {
+      useErrorHandler?: boolean;
+      onProgress?: (progress: {
+        toolUseID: string;
+        data: Record<string, unknown>;
+      }) => void;
+    }
   ): Promise<ToolResult> {
     // 更新动态依赖
     const svc = this._toolExecutionService!;

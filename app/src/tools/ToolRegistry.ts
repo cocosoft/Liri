@@ -266,7 +266,12 @@ export class ToolRegistry {
 
   async executeTool(
     toolCall: { toolName: string; input: Record<string, unknown> },
-    context: ToolUseContext
+    context: ToolUseContext,
+    // 2026-08-24 进度链路打通：透传 onProgress 到 tool.execute（细粒度百分比进度）
+    onProgress?: (progress: {
+      toolUseID: string;
+      data: Record<string, unknown>;
+    }) => void
   ): Promise<ToolResult> {
     const tool = this.getTool(toolCall.toolName);
     if (!tool) {
@@ -284,7 +289,11 @@ export class ToolRegistry {
     let result: ToolResult;
 
     try {
-      result = await tool.execute(toolCall.input, context);
+      result = await tool.execute(
+        toolCall.input,
+        context,
+        onProgress as Parameters<typeof tool.execute>[2]
+      );
       this.updateUsageStats(tool.name, true, Date.now() - startTime);
       // 统一统计收口（与 ToolExecutor.recordToolExecution 对齐）——
       // 主执行路径 ChatManager → ToolExecutionService → ToolRegistry 此前绕过埋点层，

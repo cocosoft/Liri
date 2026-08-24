@@ -551,6 +551,13 @@ export async function streamMessageImpl(
       }
     };
 
+    // 2026-08-24 中断提示链路：流是否正常收尾的标志。
+    // receivedDone/接收 done chunk；receivedError/接收 error chunk（SSE 断开等）。
+    // 流结束但两者皆假 = 异常中断（用户停止 / 幽灵块检测 / 后端静默中断），
+    // 需标记消息 finishReason 供 ChatMessage 显示中断提示。
+    let receivedDone = false;
+    let receivedError = false;
+
     for await (const rawChunk of generator) {
       // 检查是否已被中止
       if (controller.signal.aborted) break;
@@ -565,9 +572,17 @@ export async function streamMessageImpl(
         continue;
       }
 
+      // 正常收尾标志（rawChunk 层与子 chunk 层都检查，覆盖 chatService
+      // 解析路径与 extractor 拆分路径）
+      if (rawChunk.type === "done") receivedDone = true;
+      if (rawChunk.type === "error") receivedError = true;
+
       const chunks = Array.from(extractor.extract(rawChunk));
       for (const chunk of chunks) {
         chunkCount++;
+        // 子 chunk 层标志（extractor 可能拆分出 done/error）
+        if (chunk.type === "done") receivedDone = true;
+        if (chunk.type === "error") receivedError = true;
         await processChunk(chunkCtx, chunk);
       }
       // A2：每帧最多一次轨迹同步（节流）
@@ -608,6 +623,12 @@ export async function streamMessageImpl(
       .reverse()
       .find((m) => m.id === assistantId);
     const derivedBlocks: Message["blocks"] = derivedAsstMsg?.blocks ?? [];
+
+    // 2026-08-24 中断提示链路：异常结束判定（v3 修正①）。
+    // 流结束但从未收到 done/error chunk = 异常中断（用户停止 / 幽灵块检测 /
+    // 后端静默中断 / SSE 断开未走 error 路径）。已收到 error chunk 时已有
+    // "连接已断开"提示，不再重复标记（receivedError=true 走正常落盘）。
+    const abnormallyEnded = !receivedDone && !receivedError;
 
     // 流式结束后重置聚合器（事件已由后端追加到 events.jsonl 持久化，本地 events 丢弃避免内存泄漏）
     const preResetTail = streamAggregator.getTailSeq();
@@ -804,7 +825,20 @@ export async function streamMessageImpl(
     const finalMessages = get().messages;
     const finalMsgIdx = finalMessages.findIndex((m) => m.id === assistantId);
     if (finalMsgIdx !== -1) {
-      const msg = { ...finalMessages[finalMsgIdx], blocks: finalBlocks };
+      const msg = {
+        ...finalMessages[finalMsgIdx],
+        blocks: finalBlocks,
+        // 2026-08-24 中断提示链路（v3 修正④）：流结束标记 finishReason。
+        // 必须走 set() 不可变更新（新数组引用）触发 ChatMessage 重渲染；
+        // 直接改属性在 Zustand 下不触发渲染（隐藏的第 5 处断裂）。
+        // 优先级：异常/abort → 'abort'；已收到 error chunk → 'error'
+        //（已有"连接已断开"提示，3.4 对 error 不重复渲染中断提示）；正常结束不设置。
+        ...(abnormallyEnded || controller.signal.aborted
+          ? { finishReason: "abort" as const }
+          : receivedError
+            ? { finishReason: "error" as const }
+            : {}),
+      };
       set({
         messages: finalMessages.map((m) => (m.id === assistantId ? msg : m)),
       });

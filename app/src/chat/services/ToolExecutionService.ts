@@ -78,7 +78,14 @@ export class ToolExecutionService {
 
   async execute(
     toolCall: ToolCall,
-    opts?: { useErrorHandler?: boolean }
+    // 2026-08-24 进度链路打通：opts 增加 onProgress（工具细粒度进度回调）
+    opts?: {
+      useErrorHandler?: boolean;
+      onProgress?: (progress: {
+        toolUseID: string;
+        data: Record<string, unknown>;
+      }) => void;
+    }
   ): Promise<ToolResult> {
     const otel = getOTelTracing();
     const toolSpan = otel.startSpan(`chat.executeTool.${toolCall.name}`, {
@@ -90,7 +97,10 @@ export class ToolExecutionService {
         try {
           const handled = await ErrorHandler.handleAsync(
             () =>
-              withToolTimeout(() => this._executeInternal(toolCall), toolCall),
+              withToolTimeout(
+                () => this._executeInternal(toolCall, opts?.onProgress),
+                toolCall
+              ),
             { recoveryStrategy: 'retry', maxRetries: 2 }
           );
           return handled.success && handled.result
@@ -111,13 +121,13 @@ export class ToolExecutionService {
             error: err instanceof Error ? err.message : String(err),
           });
           return withToolTimeout(
-            () => this._executeInternal(toolCall),
+            () => this._executeInternal(toolCall, opts?.onProgress),
             toolCall
           );
         }
       }
       const result = await withToolTimeout(
-        () => this._executeInternal(toolCall),
+        () => this._executeInternal(toolCall, opts?.onProgress),
         toolCall
       );
       // Phase 2: 收敛检测
@@ -155,7 +165,14 @@ export class ToolExecutionService {
    *  _executeInternal() — 工具执行核心逻辑（原 ChatManager._executeToolInternal）
    * =============================================================== */
 
-  private async _executeInternal(toolCall: ToolCall): Promise<ToolResult> {
+  private async _executeInternal(
+    toolCall: ToolCall,
+    // 2026-08-24 进度链路打通：透传 onProgress 到 registry.executeTool → tool.execute
+    onProgress?: (progress: {
+      toolUseID: string;
+      data: Record<string, unknown>;
+    }) => void
+  ): Promise<ToolResult> {
     const normalizedToolCall = {
       id: toolCall.id,
       name: toolCall.name,
@@ -537,7 +554,8 @@ export class ToolExecutionService {
             toolName: normalizedToolCall.name,
             input: normalizedToolCall.arguments,
           },
-          context
+          context,
+          onProgress
         );
 
         // 工具返回"需要审批"

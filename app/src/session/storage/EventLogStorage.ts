@@ -89,6 +89,65 @@ export interface EventLogAppendBatchResult {
   firstRejected?: { seq: number; reason: EventLogAppendResult['reason'] };
 }
 
+// ─── 损坏行拆分恢复（2026-08-24 根因修复）───────────────────────────────────
+
+/**
+ * 从可能损坏的 JSONL 行中提取完整的 JSON 对象数组
+ *
+ * 背景（2026-08-24 根因修复）：跨实例并发 append（多进程/多实例各自持有
+ * per-session EventLogStorage，mutex 互不共享）可能把多个事件拼接/截断进同一
+ * 物理行，如 {"type":"assistant/text",...,"content":"x{"type":"user/message",...}}
+ * ——整行 JSON.parse 失败导致事件丢失、tailSeq 少算、投影兜底消息乱序置顶。
+ *
+ * 策略：
+ *   - 快路径：整行即完整 JSON，直接返回（正常行零开销）
+ *   - 慢路径：跳过行首无法解析的截断前缀，从每个 '{' 起点贪心匹配第一个
+ *     闭合 '}' 并尝试解析；成功后提取并继续解析剩余部分（多段恢复）。
+ *     行内字符串中的 '}' 不会误判边界（未闭合字符串 JSON.parse 天然失败）。
+ *
+ * 防护：超大损坏行（> 64KB）与候选起点过多（> 64）时放弃恢复，防 O(n²)
+ * 解析拖垮读取路径（损坏行为罕见路径，正常行不受影响）。
+ */
+export function splitJsonLine(line: string): unknown[] {
+  const rest = line.trim();
+  if (!rest) return [];
+  // 快路径：整行即为完整 JSON
+  try {
+    return [JSON.parse(rest)];
+  } catch {
+    // 进入慢路径
+  }
+  const MAX_REPAIR_LINE_LEN = 64 * 1024;
+  if (rest.length > MAX_REPAIR_LINE_LEN) return [];
+  const results: unknown[] = [];
+  let cursor = 0;
+  let guard = 0;
+  const MAX_CANDIDATES = 64;
+  while (cursor < rest.length && guard++ < MAX_CANDIDATES) {
+    let recovered: unknown | undefined;
+    let consumedTo = -1;
+    for (let start = cursor; start < rest.length; start++) {
+      if (rest[start] !== '{') continue;
+      for (let end = start + 1; end < rest.length; end++) {
+        if (rest[end] !== '}') continue;
+        const candidate = rest.slice(start, end + 1);
+        try {
+          recovered = JSON.parse(candidate);
+          consumedTo = end;
+          break;
+        } catch {
+          // 边界未到（含嵌套 '}' 或字符串内 '}'），继续找下一个 '}'
+        }
+      }
+      if (recovered !== undefined) break;
+    }
+    if (recovered === undefined || consumedTo < 0) break;
+    results.push(recovered);
+    cursor = consumedTo + 1;
+  }
+  return results;
+}
+
 // ─── EventLogStorage ────────────────────────────────────────────────────────
 
 /**
@@ -218,11 +277,15 @@ export class EventLogStorage {
             maxSeq = event.seq;
           }
         } catch {
-          // 损坏行跳过（不影响其他事件）
-          logger.warn('event-log: 跳过损坏的 JSON 行', {
-            sessionId: this.sessionId,
-            linePreview: line.slice(0, 100),
-          });
+          // 损坏行：拆分恢复 seq（防 tailSeq 少算，2026-08-24 根因修复）
+          for (const obj of splitJsonLine(line)) {
+            if (
+              typeof (obj as { seq?: unknown }).seq === 'number' &&
+              (obj as { seq: number }).seq > maxSeq
+            ) {
+              maxSeq = (obj as { seq: number }).seq;
+            }
+          }
         }
       }
     } catch (e) {
@@ -342,30 +405,48 @@ export class EventLogStorage {
         return { ok: false, reason: 'invalid-event', tailSeq };
       }
 
-      const tailSeq = await this.getTailSeq();
-
-      // 守卫 1：seq 倒退或重复
-      if (frozen.seq <= tailSeq) {
-        const reason: EventLogAppendResult['reason'] =
-          frozen.seq === tailSeq ? 'duplicate-seq' : 'out-of-order';
-        logger.warn('event-log: 拒绝重复/倒退 seq', {
+      // 跨实例 seq 对齐（2026-08-24 根因修复）：
+      // 写入前读磁盘 lastKnown（events.tail meta）——多进程/多实例各自持有
+      // per-session EventLogStorage（mutex 互不共享）时，内存 tailSeq 可能落后
+      // 于磁盘，直接写入会产生重复/乱序 seq。先对齐再走守卫。
+      const persisted = await this.readPersistedTailSeq();
+      if (persisted > this.tailSeq) {
+        logger.warn('event-log: 内存 tailSeq 落后磁盘 lastKnown，对齐后写入', {
           sessionId: this.sessionId,
+          memoryTailSeq: this.tailSeq,
+          persistedTailSeq: persisted,
           eventSeq: frozen.seq,
+          eventType: frozen.type,
+        });
+        this.tailSeq = persisted;
+        this.tailSeqInitialized = true;
+      }
+      const tailSeq = this.tailSeq;
+
+      // 守卫 1：seq 冲突 → 自动纠正（跨实例并发下重分配，而非拒绝丢弃事件，
+      // 避免事件丢失导致投影兜底消息乱序置顶 / 事件溯源断层）
+      let toWrite = frozen;
+      if (frozen.seq <= tailSeq) {
+        const correctedSeq = tailSeq + 1;
+        toWrite = { ...frozen, seq: correctedSeq } as LiriEvent;
+        logger.warn('event-log: seq 冲突自动纠正', {
+          sessionId: this.sessionId,
+          fromSeq: frozen.seq,
+          toSeq: correctedSeq,
           tailSeq,
           type: frozen.type,
-          reason,
+          reason: frozen.seq === tailSeq ? 'duplicate-seq' : 'out-of-order',
         });
-        return { ok: false, reason, tailSeq };
       }
 
       // 写入
       try {
         await this.ensureSessionDir();
-        const line = JSON.stringify(frozen) + '\n';
+        const line = JSON.stringify(toWrite) + '\n';
         await fs.appendFile(this.filePath, line, 'utf-8');
-        this.tailSeq = frozen.seq;
+        this.tailSeq = toWrite.seq as number;
         // A-6（2026-08-23）：持久化 lastKnown tailSeq（meta 写失败不影响本次写入）
-        await this.writePersistedTailSeq(frozen.seq);
+        await this.writePersistedTailSeq(toWrite.seq as number);
         // A-5（2026-08-23）：写入成功 → 连续失败计数清零（熔断自动解除）
         this.appendFailCount = 0;
         return { ok: true, tailSeq: this.tailSeq };
@@ -545,10 +626,30 @@ export class EventLogStorage {
 
           results.push(event);
         } catch {
-          logger.warn('event-log: read 跳过损坏行', {
-            sessionId: this.sessionId,
-            linePreview: line.slice(0, 100),
-          });
+          // 损坏行（跨实例并发拼接/截断）→ 按 JSON 边界拆分恢复（2026-08-24 根因修复）
+          let recovered = 0;
+          for (const obj of splitJsonLine(line)) {
+            if (!isLiriEvent(obj)) continue;
+            const readable = assertEventReadable(obj);
+            if (!readable.ok) continue;
+            sanitizeEvent(obj);
+            if (obj.seq < fromSeq || obj.seq > toSeq) continue;
+            if (types && !types.includes(obj.type)) continue;
+            results.push(obj);
+            recovered++;
+          }
+          if (recovered > 0) {
+            logger.warn('event-log: read 损坏行拆分恢复', {
+              sessionId: this.sessionId,
+              recoveredCount: recovered,
+              linePreview: line.slice(0, 100),
+            });
+          } else {
+            logger.warn('event-log: read 跳过损坏行（无法恢复）', {
+              sessionId: this.sessionId,
+              linePreview: line.slice(0, 100),
+            });
+          }
         }
       }
     } catch (e) {
@@ -934,7 +1035,15 @@ export class EventLogStorage {
         if (typeof event.seq === 'number' && event.seq > maxSeq)
           maxSeq = event.seq;
       } catch {
-        // 损坏行跳过
+        // 损坏行：拆分恢复 seq（2026-08-24 根因修复）
+        for (const obj of splitJsonLine(line)) {
+          if (
+            typeof (obj as { seq?: unknown }).seq === 'number' &&
+            (obj as { seq: number }).seq > maxSeq
+          ) {
+            maxSeq = (obj as { seq: number }).seq;
+          }
+        }
       }
     }
     return maxSeq;

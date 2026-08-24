@@ -624,6 +624,10 @@ export class ReActToolLoop extends ReActLoop<
           args: tc.input,
         });
 
+        // 2026-08-24 进度链路打通：收集工具执行中的细粒度进度回调，
+        // 工具完成后批量 yield tool_progress 事件（reactEventsToChunks 已实现
+        // 500ms 节流 → status chunk "工具执行中 X%"），与心跳 execution_phase 互补。
+        const progressEvents: number[] = [];
         const toolResult = await this.ctx.executeTool(
           {
             id: tc.id,
@@ -631,8 +635,21 @@ export class ReActToolLoop extends ReActLoop<
             arguments: tc.input,
             sessionId: this.ctx.session.id,
           },
-          { useErrorHandler: true }
+          {
+            useErrorHandler: true,
+            onProgress: (p) => {
+              const data = (p.data ?? {}) as { percentage?: number };
+              if (typeof data.percentage === 'number') {
+                progressEvents.push(data.percentage);
+              }
+            },
+          }
         );
+
+        // 工具完成后批量产出 tool_progress 事件（细粒度百分比进度）
+        for (const percentage of progressEvents) {
+          yield { type: 'tool_progress', callId: tc.id, progress: percentage };
+        }
 
         // 遗漏 2（2026-08-14 复查）：审批等待态判定提前（原 L381 重复计算，现合并）。
         // 审批等待工具不触发 onToolCall('end')——否则 CoreAPIImpl 误发 "✅ Tool completed"、

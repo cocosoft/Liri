@@ -278,7 +278,14 @@ export class FileReadTool extends BaseTool {
       const ext = path.extname(filePath).toLowerCase();
 
       if (BINARY_EXTENSIONS.has(ext)) {
-        return this.convertFile(filePath, onProgress);
+        // 2026-08-24 修复：二进制转换路径透传 offset/limit——
+        // 大文档（如 18 万字符 docx）可按行分段读取全文，不再被 30K 截断只读头尾
+        return this.convertFile(
+          filePath,
+          onProgress,
+          input.offset as number | undefined,
+          input.limit as number | undefined
+        );
       }
 
       if (onProgress) {
@@ -346,7 +353,9 @@ export class FileReadTool extends BaseTool {
 
   private async convertFile(
     filePath: string,
-    onProgress?: ToolCallProgress<any>
+    onProgress?: ToolCallProgress<any>,
+    offset?: number,
+    limit?: number
   ): Promise<ToolResult<unknown>> {
     try {
       if (onProgress) {
@@ -382,8 +391,36 @@ export class FileReadTool extends BaseTool {
 
       this.autoIngestFile(filePath);
 
+      const fullMarkdown = result.markdown;
+
+      // 2026-08-24 修复：指定 offset/limit 时按行分段（与文本文件 readFile 的
+      // offset/limit 行语义一致）——大文档精读可逐段读取完整内容，中间不再丢失。
+      // 未指定时保持原有源头截断（防大文本 tokenize/GC 阻塞事件循环）。
+      if (offset !== undefined || limit !== undefined) {
+        const lines = fullMarkdown.split('\n');
+        const startIdx = Math.max(0, (offset ?? 1) - 1);
+        const maxLines = limit ?? lines.length;
+        const selected = lines.slice(startIdx, startIdx + maxLines);
+        const markdown = selected.join('\n');
+        const totalLines = lines.length;
+        const endIdx = Math.min(startIdx + maxLines, totalLines);
+        const truncated = endIdx < totalLines;
+        return createToolResult(markdown, {
+          success: true,
+          output: markdown,
+          newMessages: [
+            {
+              role: 'system',
+              content: `文件 [${filePath}] 已转换为 Markdown（共 ${totalLines} 行），当前返回第 ${startIdx + 1}-${endIdx} 行${
+                truncated ? '，可继续用 offset/limit 读取后续段落' : ''
+              }`,
+            },
+          ],
+        });
+      }
+
       // 源头截断：限制转换结果进入上下文的体积，避免大文本 tokenize + 高内存 GC 停顿导致事件循环阻塞
-      const markdown = truncateConvertOutput(result.markdown);
+      const markdown = truncateConvertOutput(fullMarkdown);
 
       return createToolResult(markdown, {
         success: true,

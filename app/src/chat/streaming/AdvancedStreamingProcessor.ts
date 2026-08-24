@@ -160,6 +160,22 @@ export class AdvancedStreamingProcessor implements IAdvancedStreamingProcessor {
       type,
     };
 
+    // 2026-08-24：接线 errorListeners——error chunk 到达时触发处理器错误事件
+    // （此前 errorListeners 为空壳无触发点；错误只走 handleError 全局链路）
+    if (type === 'error') {
+      const procError = new Error(content || 'stream error');
+      for (const listener of this.errorListeners) {
+        try {
+          listener(procError, sessionId);
+        } catch (lerr) {
+          handleError(lerr, {
+            module: 'chat:streaming',
+            action: 'errorListener',
+          });
+        }
+      }
+    }
+
     session.chunks.push(chunk);
     session.metrics.totalChunks++;
     session.metrics.totalBytes += content.length;

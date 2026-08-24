@@ -139,7 +139,11 @@ export class FileWriteTool extends BaseTool {
     {
       name: 'file_path',
       type: 'string',
-      description: 'Path to the destination file',
+      description:
+        'Path to the destination file. Prefer a RELATIVE path or a plain filename — ' +
+        'it will be saved under the app output directory (~/.pyapp/output). ' +
+        'Do NOT invent absolute paths under the user home directory or project root ' +
+        'unless the user explicitly requested a specific location.',
       required: true,
     },
     {

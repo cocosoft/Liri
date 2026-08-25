@@ -25,7 +25,7 @@
 export * from './types';
 export { LandlockPolicyBuilder, clampAccessByAbi, MAX_SUPPORTED_ABI, MIN_FS_ABI, NET_TCP_ABI } from './LandlockPolicyBuilder';
 export { LandlockDetector } from './LandlockDetector';
-export { runWithLandlock } from './runWithLandlock';
+export { runWithLandlock, buildLandlockArgv } from './runWithLandlock';
 export type { RunWithLandlockOptions } from './runWithLandlock';
 export { DEFAULT_LANDLOCK_CONFIG, resolveLandlockConfig, readLandlockConfig } from './config';
 export type { LandlockConfig } from './config';

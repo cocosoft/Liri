@@ -23,11 +23,13 @@
  * landlock-run 执行器（P1，2026-08-25）
  *
  * 通过 landlock-run 在 Landlock 域中执行命令（/bin/sh -c 使 shell 及全部子进程受域约束）。
+ * CLI 语法与 `native/main.c` 对齐：`--ro/--rw`（FS 规则）、`--net-connect tcp|udp`（网络）、
+ * `-- <argv>...`（命令）。
  *
  * fail-closed 协议（对齐参考仓库 cli-contract.md / postmortem 0004）：
  * - exit 125 = 沙箱初始化失败（helper 内部 ABI/规则/restrict 失败），stderr 前缀 `landlock-run: `
  * - partial 通知（`landlock-run: partial: ...`）非致命，命令继续执行
- * - 非 125 退出码 = 目标命令本身结果
+ * - 非 125 退出码 = 目标命令本身结果（消费者归因仅看 exit 125）
  */
 import { spawn } from 'node:child_process';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
@@ -43,6 +45,32 @@ export interface RunWithLandlockOptions {
   cwd?: string;
   env?: NodeJS.ProcessEnv;
   timeoutMs?: number;
+}
+
+/**
+ * 将 LandlockPolicy 转换为 landlock-run CLI 参数。
+ * - 含 write 的规则 → `--rw`（完整 FS 访问，含 read/execute）
+ * - 仅 read/execute 的规则 → `--ro`（read+execute）
+ * - net.allow 含 connect_tcp/connect_udp → `--net-connect tcp|udp`
+ */
+export function buildLandlockArgv(policy: LandlockPolicy): string[] {
+  const args: string[] = [];
+  for (const rule of policy.fs) {
+    if (rule.allow.includes('write')) {
+      args.push('--rw', rule.path);
+    } else {
+      args.push('--ro', rule.path);
+    }
+  }
+  if (policy.net) {
+    if (policy.net.allow.includes('connect_tcp')) {
+      args.push('--net-connect', 'tcp');
+    }
+    if (policy.net.allow.includes('connect_udp')) {
+      args.push('--net-connect', 'udp');
+    }
+  }
+  return args;
 }
 
 /**
@@ -66,13 +94,20 @@ export async function runWithLandlock(
   }
 
   const helper = options.helperPath ?? 'landlock-run';
+  // 写 policy 到临时目录仅用于审计/调试（helper 本身经 argv 读取规则）
   const dir = await mkdtemp(join(tmpdir(), 'landlock-'));
   const policyPath = join(dir, 'policy.json');
   await writeFile(policyPath, JSON.stringify(policy));
 
   try {
-    // landlock-run <policy.json> -- /bin/sh -c "<command>"
-    const args = [policyPath, '--', '/bin/sh', '-c', command];
+    // landlock-run [--ro p]... [--rw p]... [--net-connect tcp|udp]... -- /bin/sh -c "<command>"
+    const args = [
+      ...buildLandlockArgv(policy),
+      '--',
+      '/bin/sh',
+      '-c',
+      command,
+    ];
     return await new Promise<LandlockRunResult>((resolve) => {
       const child = spawn(helper, args, {
         cwd: options.cwd,

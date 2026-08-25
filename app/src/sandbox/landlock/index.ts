@@ -31,7 +31,11 @@ export {
   NET_TCP_ABI,
 } from './LandlockPolicyBuilder';
 export { LandlockDetector } from './LandlockDetector';
-export { runWithLandlock, buildLandlockArgv, isSandboxInitFailure } from './runWithLandlock';
+export {
+  runWithLandlock,
+  buildLandlockArgv,
+  isSandboxInitFailure,
+} from './runWithLandlock';
 export type { RunWithLandlockOptions } from './runWithLandlock';
 export {
   DEFAULT_LANDLOCK_CONFIG,

@@ -560,8 +560,7 @@ export class BashTool {
       if (cap.available && cap.abi >= 1) {
         try {
           // ExecOptions.cwd 可为 URL，归一化为字符串路径（URL 场景降级 undefined）
-          const cwd =
-            typeof options.cwd === 'string' ? options.cwd : undefined;
+          const cwd = typeof options.cwd === 'string' ? options.cwd : undefined;
           const permissions = SandboxConfigBuilder.terminalTool(cwd);
           const policy = LandlockPolicyBuilder.build(permissions, {
             cwd,

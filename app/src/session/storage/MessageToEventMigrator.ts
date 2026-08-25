@@ -281,6 +281,8 @@ export class MessageToEventMigrator {
         data: {
           content: this.extractStringContent(message.content),
           messageId: message.id,
+          // F4（2026-08-25）：透传 replyToId，刷新后回复引用（被回复标记/跳转）不丢失
+          replyToId: (message as { replyToId?: string }).replyToId || undefined,
         },
       });
     } else if (message.role === 'assistant') {

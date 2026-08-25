@@ -294,8 +294,8 @@ function handleEvent(
     case "user/message": {
       // 用户消息前必须关闭上一个 assistant
       flushCurrent(state);
-      const data = event.data as { content: string };
-      state.messages.push({
+      const data = event.data as { content: string; replyToId?: string };
+      const userMsg: Message = {
         id: `user_${event.seq}`,
         role: "user",
         content: data.content,
@@ -310,7 +310,10 @@ function handleEvent(
             groupId: generateGroupId(),
           },
         ],
-      });
+      };
+      // F4（2026-08-25）：透传 replyToId，刷新后回复引用（被回复标记/跳转）不丢失
+      if (data.replyToId) userMsg.replyToId = data.replyToId;
+      state.messages.push(userMsg);
       break;
     }
 

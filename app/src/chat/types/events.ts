@@ -100,6 +100,8 @@ export interface LiriEventMap {
     attachments?: DataAttachment[];
     /** 所属用户消息 id（v1 起，v0 事件无此字段） */
     messageId?: string;
+    /** F4（2026-08-25）：被回复消息 id（回复引用，刷新后透传到派生消息） */
+    replyToId?: string;
   };
 
   /** AI 思考（纯文本，无 RichMediaReference 标签） */

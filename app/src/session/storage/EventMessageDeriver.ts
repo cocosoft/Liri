@@ -585,6 +585,10 @@ export function deriveMessagesFromEvents(
     } else if (ev.type === 'user/message') {
       agg.role = 'user';
       agg.content = (data.content as string) ?? '';
+      // F4（2026-08-25）：透传 replyToId，刷新后回复引用（被回复标记/引用跳转）不丢失
+      if (data.replyToId) {
+        (agg as { replyToId?: string }).replyToId = data.replyToId as string;
+      }
     }
     // tool/result：结果已含在 assistant 的 tool_call blocks（前端配对），此处不单独成消息
   }

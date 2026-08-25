@@ -42,6 +42,9 @@ const LOAD_TIMEOUT_MS = 10_000;
 let loadStartedAt = 0;
 /** T-2/A2 修复（2026-08-23）：isLoading 期间到达的刷新请求排队标记，加载完成后重跑一次 */
 let _pendingSessionRefresh = false;
+/** F10（2026-08-25）：排队节流窗口——SSE 高频事件（session:*) 多次触发只排队一次 */
+const REFRESH_THROTTLE_MS = 500;
+let _lastPendingRefreshAt = 0;
 
 /**
  * E1 修复：切换被丢弃时，将 chat store 消息恢复为当前有效会话（currentSessionId）的内容。
@@ -433,8 +436,17 @@ export const createSessionSlice: StateCreator<
         // T-2/A2 修复（2026-08-23）：SSE 刷新不再静默丢弃——排队标记，当前加载完成后
         // 重跑一次（合并多次为一次）。原实现直接 return，session:renamed（标题/列表
         // 变更）在加载窗口内被丢弃，表现为"标题需重开页面才显示"。
-        _pendingSessionRefresh = true;
-        logger.debug("loadChatSessions:加载中，排队本次刷新");
+        // F10（2026-08-25）：排队节流——500ms 窗口内多次触发只排队一次，
+        // 避免高频 SSE 事件造成"加载完成 → 重跑 → 又排队"的持续重载
+        const now = Date.now();
+        if (
+          !_pendingSessionRefresh ||
+          now - _lastPendingRefreshAt > REFRESH_THROTTLE_MS
+        ) {
+          _pendingSessionRefresh = true;
+          _lastPendingRefreshAt = now;
+          logger.debug("loadChatSessions:加载中，排队本次刷新");
+        }
         return;
       }
     }

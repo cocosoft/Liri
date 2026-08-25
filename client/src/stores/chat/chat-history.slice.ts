@@ -17,9 +17,15 @@ const logger = createLogger("stores:chat:history");
 const _sessionMessageCache = new Map<string, Message[]>();
 const MAX_CACHED_SESSIONS = 15;
 
-/** 导出供 sessionStore 使用：获取缓存的会话消息 */
+/** 导出供 sessionStore 使用：获取缓存的会话消息（F7：读取时刷新 LRU 顺序，淘汰不再是 FIFO） */
 export function _getCachedMessages(sessionId: string): Message[] | null {
-  return _sessionMessageCache.get(sessionId) ?? null;
+  const cached = _sessionMessageCache.get(sessionId) ?? null;
+  if (cached !== null) {
+    // F7（2026-08-25）：删除后重插，把最近读取的会话移到队尾（LRU 语义）
+    _sessionMessageCache.delete(sessionId);
+    _sessionMessageCache.set(sessionId, cached);
+  }
+  return cached;
 }
 
 /** 标记会话缓存为 stale（发送新消息后调用） */

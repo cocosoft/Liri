@@ -75,6 +75,8 @@ export interface LiriEventMap {
     attachments?: Array<{ path: string; filename: string; size: number }>;
     /** 归属消息 id（P1-5：SSE/事件透传，非流式落盘消息为投影 id） */
     messageId?: string;
+    /** F4（2026-08-25）：被回复消息 id（回复引用，刷新后透传到派生消息） */
+    replyToId?: string;
   };
   "assistant/thinking": { content: string; messageId?: string };
   "assistant/text": { content: string; messageId?: string };

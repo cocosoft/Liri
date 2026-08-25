@@ -396,14 +396,29 @@ export default function ChatMessageList({
    * 流式期间最后一条 assistant 消息在变，replyToId 关系几乎不变（新消息 replyToId 恒为空），复用安全。
    */
   const repliedIdSetRef = useRef<Set<string>>(new Set());
+  /** F6（2026-08-25）：记录上次已合并 replyToId 的消息数，流式期间仅增量合并新增 */
+  const repliedIdSetLenRef = useRef(0);
   const repliedIdSet = useMemo(() => {
     if (isStreaming && repliedIdSetRef.current.size > 0) {
+      // F6（2026-08-25）：流式期间 messages 引用每 chunk 变化，不复用空结果；
+      // 若消息数增加（message_queue 流式中发送带 replyToId 的新消息），增量合并新 replyToId，
+      // 避免"被回复"标记流式期间不更新（原实现复用旧 set，新 replyToId 缺失）
+      if (messages.length > repliedIdSetLenRef.current) {
+        const next = new Set(repliedIdSetRef.current);
+        for (let i = repliedIdSetLenRef.current; i < messages.length; i++) {
+          const rid = messages[i].replyToId;
+          if (rid) next.add(rid);
+        }
+        repliedIdSetRef.current = next;
+        repliedIdSetLenRef.current = messages.length;
+      }
       return repliedIdSetRef.current;
     }
     const set = new Set(
       messages.map((m) => m.replyToId).filter(Boolean) as string[],
     );
     repliedIdSetRef.current = set;
+    repliedIdSetLenRef.current = messages.length;
     return set;
   }, [messages, isStreaming]);
 

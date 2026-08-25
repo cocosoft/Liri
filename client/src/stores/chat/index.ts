@@ -210,10 +210,15 @@ sseService.on("plan:completed", (data: Record<string, unknown>) => {
   const planId = data.planId as string;
   const store = usePlanTaskStore.getState();
   const current = store.tasks[planId];
-  if (!current) return;
-
-  const finalCard: TaskCardData = { ...current, status: "done" };
-  store.upsert(planId, finalCard);
+  // F8（2026-08-25）：planTaskStore 缺失条目（SSE 断连窗口）时不再直接 return——
+  // 回退扫描消息块按 planId 置 done，避免任务卡永久"执行中"
+  const finalCard: TaskCardData =
+    current === undefined
+      ? { planId, status: "done", title: "", tasks: [] }
+      : { ...current, status: "done" };
+  if (current) {
+    store.upsert(planId, finalCard);
+  }
 
   // #5/#12：先把最终状态同步进消息块快照，再移除 planTaskStore 条目——
   // 移除后 TaskCard 回退到消息块（已是完成态，不会回退"执行中"）；

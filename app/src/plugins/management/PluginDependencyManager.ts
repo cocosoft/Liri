@@ -10,6 +10,8 @@ import {
   PluginMetadata,
 } from '../types/PluginTypes';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { satisfies } from '../utils/semver';
+import { checkServiceCircularDependencies as checkServiceCircularDependenciesCore } from '../utils/dependencyResolver';
 
 const logger = getLogger('plugins:management:pluginDependencyManager');
 
@@ -306,30 +308,22 @@ export class PluginDependencyManager extends EventEmitter {
 
   /**
    * 检查版本是否满足要求
+   * 复用 utils/semver.ts 的完整实现（^ 主版本约束、~ 主次版本约束、||、范围等）
+   * 修复：原实现对 `^1.2.3` 仅判断 `>= 1.2.3`，允许 2.x 通过（语义过宽，CS05-ROOTFIX）
    */
   private satisfiesVersion(
     actualVersion: string,
     requiredVersion: string
   ): boolean {
-    // 简化版本检查，实际应该使用semver库
     if (requiredVersion === '*' || requiredVersion === 'latest') {
       return true;
     }
 
-    if (requiredVersion.startsWith('^')) {
-      const baseVersion = requiredVersion.slice(1);
-      return this.compareVersions(actualVersion, baseVersion) >= 0;
+    try {
+      return satisfies(actualVersion, requiredVersion);
+    } catch {
+      return false;
     }
-
-    if (requiredVersion.startsWith('~')) {
-      const baseVersion = requiredVersion.slice(1);
-      const [major1, minor1] = baseVersion.split('.').map(Number);
-      const [major2, minor2] = actualVersion.split('.').map(Number);
-
-      return major1 === major2 && minor1 === minor2;
-    }
-
-    return actualVersion === requiredVersion;
   }
 
   /**
@@ -351,134 +345,16 @@ export class PluginDependencyManager extends EventEmitter {
   }
 
   /**
-   * 拓扑排序
+   * 服务级环检测（从本类迁入内核，评审修订 v4）
+   * 委托 dependencyResolver 内核：内部先 getServiceProviderPluginId 转插件级边
+   * （排除 kernel.* 与自依赖）再 detectCycles，环输出恒为插件名序列（与迁移前等价）。
+   * @param pluginInjectMap 插件 ID → inject 声明服务名列表
+   * @returns 服务级依赖环列表（每个环为插件名序列），无环返回空数组
    */
-  topologicalSort(): string[] {
-    const visited = new Set<string>();
-    const result: string[] = [];
-
-    for (const pluginName of this.dependencyGraph.keys()) {
-      if (!visited.has(pluginName)) {
-        this.dfsTopologicalSort(pluginName, visited, new Set<string>(), result);
-      }
-    }
-
-    return result.reverse();
-  }
-
-  /**
-   * 深度优先搜索拓扑排序
-   */
-  private dfsTopologicalSort(
-    pluginName: string,
-    visited: Set<string>,
-    visiting: Set<string>,
-    result: string[]
-  ): void {
-    if (visited.has(pluginName)) {
-      return;
-    }
-
-    if (visiting.has(pluginName)) {
-      throw new AppError(
-        `Circular dependency detected: ${Array.from(visiting).concat(pluginName).join(' -> ')}`,
-        ErrorCategory.EXECUTION,
-        ErrorSeverity.HIGH,
-        '1000'
-      );
-    }
-
-    visiting.add(pluginName);
-
-    // 处理依赖
-    const node = this.dependencyGraph.get(pluginName);
-
-    if (node) {
-      for (const dependency of node.dependencies) {
-        this.dfsTopologicalSort(dependency.name, visited, visiting, result);
-      }
-    }
-
-    visiting.delete(pluginName);
-    visited.add(pluginName);
-
-    result.push(pluginName);
-  }
-
-  /**
-   * 检查循环依赖
-   */
-  checkCircularDependencies(): string[][] {
-    const visited = new Set<string>();
-    const circularDependencies: string[][] = [];
-
-    for (const pluginName of this.dependencyGraph.keys()) {
-      if (!visited.has(pluginName)) {
-        this.dfsCheckCircularDependencies(
-          pluginName,
-          visited,
-          new Set<string>(),
-          [],
-          circularDependencies
-        );
-      }
-    }
-
-    return circularDependencies;
-  }
-
-  /**
-   * 深度优先搜索检查循环依赖
-   */
-  private dfsCheckCircularDependencies(
-    pluginName: string,
-    visited: Set<string>,
-    visiting: Set<string>,
-    path: string[],
-    circularDependencies: string[][]
-  ): void {
-    if (visited.has(pluginName)) {
-      return;
-    }
-
-    if (visiting.has(pluginName)) {
-      // 检测到循环依赖
-      const cycleStartIndex = path.indexOf(pluginName);
-      if (cycleStartIndex !== -1) {
-        const cycle = path.slice(cycleStartIndex).concat(pluginName);
-        circularDependencies.push(cycle);
-      }
-      return;
-    }
-
-    visiting.add(pluginName);
-    path.push(pluginName);
-
-    // 检查依赖
-    const node = this.dependencyGraph.get(pluginName);
-
-    if (node) {
-      for (const dependency of node.dependencies) {
-        this.dfsCheckCircularDependencies(
-          dependency.name,
-          visited,
-          visiting,
-          path,
-          circularDependencies
-        );
-      }
-    }
-
-    visiting.delete(pluginName);
-    path.pop();
-    visited.add(pluginName);
-  }
-
-  /**
-   * 获取依赖图
-   */
-  getDependencyGraph(): Map<string, DependencyNode> {
-    return new Map(this.dependencyGraph);
+  checkServiceCircularDependencies(
+    pluginInjectMap: Map<string, string[]>
+  ): string[][] {
+    return checkServiceCircularDependenciesCore(pluginInjectMap);
   }
 
   /**

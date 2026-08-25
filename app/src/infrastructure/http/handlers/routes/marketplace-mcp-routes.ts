@@ -138,6 +138,13 @@ export async function dispatchMarketplaceMcpRoutes(
     await handlePluginInstalledList(req, res);
     return true;
   }
+  // 4.4：响应式挂起的 SDK 插件列表（inject 必需服务缺失等待中）
+  if (method === 'GET' && url === '/v1/plugins/marketplace/pending') {
+    const { handlePluginPendingList } =
+      await import('../plugin-marketplace-handlers');
+    await handlePluginPendingList(req, res);
+    return true;
+  }
   if (
     method === 'GET' &&
     url.match(/^\/v1\/plugins\/marketplace\/plugins\/(.+)$/)

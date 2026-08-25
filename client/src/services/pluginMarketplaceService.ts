@@ -30,6 +30,19 @@ export interface InstalledPlugin {
   path?: string;
 }
 
+/** 响应式挂起插件（后端 PluginSystem.getPendingSdkPlugins 快照，4.4） */
+export interface PendingPlugin {
+  pluginId: string;
+  pluginName: string;
+  /** 缺失的必需注入服务（等待服务注册后自动激活） */
+  missing: string[];
+  createdAt: number;
+  /** 挂起是否已超时（死锁防护，需手动重试或检查依赖） */
+  timedOut: boolean;
+  /** 挂起状态（经状态机映射，恒为 pending） */
+  state: string;
+}
+
 export interface PluginMarketplaceSearchResult {
   plugins: MarketplacePlugin[];
   total: number;
@@ -62,6 +75,11 @@ class PluginMarketplaceService {
 
   async getInstalledPlugins(): Promise<InstalledPlugin[]> {
     return http.get<InstalledPlugin[]>("/v1/plugins/marketplace/installed");
+  }
+
+  /** 获取响应式挂起的插件列表（inject 必需服务缺失等待中，4.4） */
+  async getPendingPlugins(): Promise<PendingPlugin[]> {
+    return http.get<PendingPlugin[]>("/v1/plugins/marketplace/pending");
   }
 
   async getPluginDetail(pluginId: string): Promise<{

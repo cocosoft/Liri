@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 插件处理器
  * 处理CLI中的插件相关命令
  */
@@ -7,6 +7,9 @@ import chalk from 'chalk';
 import { getLogger } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { ErrorCodes } from '@modules/error';
+import { resolve } from 'path';
+import { writePluginTemplate } from '@modules/plugin-sdk';
+import type { PluginScaffoldOptions } from '@modules/plugin-sdk';
 
 const logger = getLogger('pluginHandler');
 
@@ -28,6 +31,67 @@ export class PluginHandler {
 
   constructor(options?: PluginHandlerOptions) {
     this.options = { verbose: false, ...options };
+  }
+
+  /**
+   * 处理创建（脚手架）命令 —— 4.5 脚手架 CLI
+   * 生成插件项目模板：package.json（pyapp 字段，含 inject 声明）+ index.js + README
+   * @param args [目标目录] [插件名]（可选 --id/--author 等见 options）
+   * @param options 脚手架选项（id/author/category/inject/injectOptional 等）
+   */
+  async handleCreate(
+    args: string[],
+    options: Record<string, unknown> = {}
+  ): Promise<void> {
+    const targetDir = args[0];
+    const pluginName = args[1] || 'my-plugin';
+
+    if (!targetDir) {
+      throw AppError.fromCode(ErrorCodes.INVALID_INPUT, {
+        category: ErrorCategory.VALIDATION,
+        context: { handler: 'PluginHandler', operation: 'handleCreate' },
+      });
+    }
+
+    const scaffoldOptions: PluginScaffoldOptions = {
+      id: String(options.id ?? pluginName),
+      name: String(options.name ?? pluginName),
+      version: String(options.version ?? '0.1.0'),
+      description: String(options.description ?? ''),
+      author: String(options.author ?? ''),
+      category: String(options.category ?? 'tool'),
+      inject: (options.inject as string[] | undefined) ?? [
+        'kernel.configManager',
+      ],
+      injectOptional: (options.injectOptional as string[] | undefined) ?? [
+        'kernel.eventSystem',
+      ],
+    };
+
+    try {
+      const dir = resolve(targetDir);
+      const files = writePluginTemplate(dir, scaffoldOptions);
+
+      console.log(chalk.cyan('═'.repeat(60)));
+      console.log(chalk.bold('  Plugin scaffold created'));
+      console.log(chalk.cyan('═'.repeat(60)));
+      for (const file of files) {
+        console.log(chalk.green('✓'), resolve(dir, file));
+      }
+      console.log();
+      console.log(
+        chalk.gray(
+          '  下一步: 编辑 index.js 实现逻辑，运行插件系统即可自动加载。'
+        )
+      );
+      console.log(chalk.cyan('═'.repeat(60)));
+    } catch (error) {
+      throw AppError.fromCode(ErrorCodes.EXECUTION_FAILED, {
+        category: ErrorCategory.EXECUTION,
+        cause: error instanceof Error ? error : undefined,
+        context: { handler: 'PluginHandler', operation: 'handleCreate' },
+      });
+    }
   }
 
   /**

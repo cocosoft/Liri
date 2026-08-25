@@ -84,6 +84,11 @@ export interface IPluginAPI {
 
   /** 内核服务访问（通过 KernelServiceRegistry） */
   readonly services: {
+    /**
+     * 命令式获取内核服务。
+     * @deprecated 4.6 迁移：推荐改用声明式服务注入（manifest `inject` / `injectOptional` 声明 +
+     * context.services 注入）。resolve 双轨并存期内保留可用，新插件请使用 inject。
+     */
     resolve: <T>(serviceId: KernelServiceId) => T;
     hasService: (serviceId: KernelServiceId) => boolean;
   };
@@ -356,7 +361,7 @@ export class PluginAPIImpl implements IPluginAPI {
       this._auditLog('session.createSession', { options });
       try {
         const sessionManager = this._kernelRegistry.resolveInternal<any>(
-          KernelServiceId.PLUGIN_LOADER
+          KernelServiceId.SESSION_MANAGER
         );
         if (
           sessionManager &&
@@ -374,7 +379,7 @@ export class PluginAPIImpl implements IPluginAPI {
       this._auditLog('session.getSession', { sessionId: id });
       try {
         const sessionManager = this._kernelRegistry.resolveInternal<any>(
-          KernelServiceId.PLUGIN_LOADER
+          KernelServiceId.SESSION_MANAGER
         );
         if (sessionManager && typeof sessionManager.getSession === 'function') {
           return await sessionManager.getSession(id);
@@ -392,7 +397,7 @@ export class PluginAPIImpl implements IPluginAPI {
       this._auditLog('session.sendMessage', { sessionId });
       try {
         const sessionManager = this._kernelRegistry.resolveInternal<any>(
-          KernelServiceId.PLUGIN_LOADER
+          KernelServiceId.SESSION_MANAGER
         );
         if (
           sessionManager &&

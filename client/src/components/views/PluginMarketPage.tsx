@@ -20,6 +20,7 @@ function PluginMarketPage() {
     searchResults,
     total,
     installedPlugins,
+    pendingPlugins,
     isLoading,
     operatingId,
     error,
@@ -29,6 +30,7 @@ function PluginMarketPage() {
     query,
     searchMarket,
     loadInstalled,
+    loadPending,
     install,
     uninstall,
     getPluginDetail,
@@ -41,10 +43,11 @@ function PluginMarketPage() {
   } = usePluginStore();
   const { addToast } = useToastStore();
 
-  // 首次加载已安装列表
+  // 首次加载已安装列表 + 响应式挂起插件
   useEffect(() => {
     loadInstalled();
-  }, [loadInstalled]);
+    loadPending();
+  }, [loadInstalled, loadPending]);
 
   // 搜索防抖
   useEffect(() => {
@@ -152,6 +155,65 @@ function PluginMarketPage() {
             </div>
           )}
         </div>
+
+        {/* 响应式挂起插件（inject 必需服务缺失等待中，4.4） */}
+        {pendingPlugins.length > 0 && (
+          <div className="mb-6">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-lg font-semibold text-amber-700 dark:text-amber-400">
+                响应式挂起 ({pendingPlugins.length})
+              </h2>
+              <button
+                onClick={loadPending}
+                className="text-xs px-2 py-1 rounded-md text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+              >
+                刷新
+              </button>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {pendingPlugins.map((plugin) => (
+                <div
+                  key={plugin.pluginId}
+                  className={`p-4 rounded-lg border ${
+                    isDark
+                      ? "bg-amber-900/10 border-amber-800"
+                      : "bg-amber-50 border-amber-200"
+                  }`}
+                >
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <div className="font-medium text-gray-900 dark:text-gray-100">
+                        {plugin.pluginName}
+                        {plugin.timedOut && (
+                          <span className="ml-2 text-xs px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">
+                            已超时
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                        v· 等待服务注册
+                      </div>
+                    </div>
+                    <span className="px-2 py-0.5 text-xs rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                      pending
+                    </span>
+                  </div>
+                  <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                    缺失必需注入服务：
+                    <span className="font-mono text-xs">
+                      {plugin.missing.join(", ")}
+                    </span>
+                  </p>
+                  {plugin.timedOut && (
+                    <p className="mt-1 text-xs text-red-600 dark:text-red-400">
+                      挂起超时（可能服务级依赖死锁），请安装提供者插件后刷新
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* 搜索栏 */}
         <div className="mb-4">

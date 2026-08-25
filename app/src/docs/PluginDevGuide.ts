@@ -287,6 +287,80 @@ export default plugin;
       },
     ],
   },
+  {
+    name: 'inject-plugin',
+    description:
+      '声明式服务注入插件模板（4.1/4.4：inject 声明 + context.services）',
+    files: [
+      {
+        name: 'index.js',
+        content: `// inject-plugin — 声明式服务注入示例
+import { createPlugin } from '@modules/plugin-sdk';
+
+export default createPlugin({
+  id: 'inject-plugin',
+  name: 'Inject Plugin',
+  version: '1.0.0',
+  description: '演示声明式服务注入',
+  author: 'Your Name',
+  category: 'tool',
+
+  // 声明式服务注入：必需（缺失则挂起等待，服务注册后自动激活）
+  inject: ['kernel.configManager'],
+  // 可选注入：服务缺失时跳过，不阻断加载
+  injectOptional: ['kernel.eventSystem'],
+
+  initialize: async (context) => {
+    context.log.info('inject-plugin initialized');
+
+    // 通过 context.services 访问注入的内核服务（类型化：services.get<接口>('kernel.xxx')）
+    const configManager = context.services?.get('kernel.configManager');
+    if (configManager) {
+      context.log.info('configManager 已注入');
+    }
+  },
+
+  activate: async (context) => {
+    context.log.info('inject-plugin activated');
+  },
+
+  deactivate: async (context) => {
+    context.log.info('inject-plugin deactivated');
+  },
+
+  destroy: async (context) => {
+    context.log.info('inject-plugin destroyed');
+  },
+});
+`,
+      },
+      {
+        name: 'package.json',
+        content: `{
+  "name": "inject-plugin",
+  "version": "1.0.0",
+  "description": "声明式服务注入插件示例",
+  "type": "module",
+  "main": "index.js",
+  "pyapp": {
+    "id": "inject-plugin",
+    "name": "Inject Plugin",
+    "version": "1.0.0",
+    "description": "演示声明式服务注入",
+    "author": "Your Name",
+    "type": "tool",
+    "main": "index.js",
+    "inject": ["kernel.configManager"],
+    "injectOptional": ["kernel.eventSystem"]
+  },
+  "keywords": ["plugin"],
+  "author": "",
+  "license": "MIT"
+}
+`,
+      },
+    ],
+  },
 ];
 
 export class PluginDevGuideSystem {

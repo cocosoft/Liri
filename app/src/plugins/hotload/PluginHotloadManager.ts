@@ -33,6 +33,7 @@ import {
   ActivationContextManager,
   type ActivationContext,
 } from '../lifecycle/ActivationContext';
+import { topoSort, type DependencyEdge } from '../utils/dependencyResolver';
 
 const logger = getLogger('plugins:hotload');
 
@@ -670,32 +671,38 @@ export class PluginHotloadManager {
   }
 
   /**
-   * 获取卸载顺序（拓扑排序）
-   * 先卸载依赖方，后卸载被依赖方
+   * 获取卸载顺序（评审修订 v4：改用内核 subgraph 排序）
+   * 语义保持「从根出发的可达子图」卸载序（先卸载依赖方，后卸载被依赖方）：
+   * 1. 沿反向图（_dependencyGraph: 被依赖方→依赖方）收集可达节点；
+   * 2. 构建子图插件级边（依赖方→被依赖方）；
+   * 3. 内核 topoSort（加载序）取 reverse 得卸载序。
    * @param pluginName 目标插件
    * @returns 卸载顺序数组（含目标插件自身）
    */
   getUnloadOrder(pluginName: string): string[] {
-    const visited = new Set<string>();
-    const order: string[] = [];
+    // 1. 收集可达子图节点（依赖方闭包）
+    const reachable = new Set<string>();
+    const collect = (name: string): void => {
+      if (reachable.has(name)) return;
+      reachable.add(name);
+      for (const dependent of this._dependencyGraph.get(name) ?? []) {
+        collect(dependent);
+      }
+    };
+    collect(pluginName);
 
-    const dfs = (name: string): void => {
-      if (visited.has(name)) return;
-      visited.add(name);
-
-      const dependents = this._dependencyGraph.get(name);
-      if (dependents) {
-        for (const dep of dependents) {
-          dfs(dep);
+    // 2. 构建子图插件级边（依赖方 → 被依赖方）
+    const edges: DependencyEdge[] = [];
+    for (const node of reachable) {
+      for (const dependent of this._dependencyGraph.get(node) ?? []) {
+        if (reachable.has(dependent)) {
+          edges.push({ from: dependent, to: node, kind: 'plugin' });
         }
       }
+    }
 
-      order.push(name);
-    };
-
-    dfs(pluginName);
-
-    return order;
+    // 3. 卸载序 = 加载序 reverse（依赖方先）
+    return topoSort(edges).reverse();
   }
 
   /**
@@ -942,14 +949,14 @@ export class PluginHotloadManager {
   /**
    * 带依赖顺序的重新加载
    * 根据依赖图先卸载依赖方，再卸载目标插件
-   * 重载成功后按逆序重新加载
+   * 重载成功后按逆序重新加载并恢复激活状态
    * @param pluginName 目标插件名称
    */
   async reloadPluginWithDeps(pluginName: string): Promise<void> {
     const unloadOrder = this.getUnloadOrder(pluginName);
     logger.info(`Reload with deps: ${pluginName}`, { unloadOrder });
 
-    // 备份所有受影响插件的状态
+    // 备份所有受影响插件的状态（含是否激活，用于重载后恢复）
     for (const name of unloadOrder) {
       if (pluginManager.hasPlugin(name)) {
         const currentPlugin = pluginManager.getPlugin(name);
@@ -965,18 +972,42 @@ export class PluginHotloadManager {
     }
 
     try {
-      // 按顺序优雅卸载（依赖方先卸载）
+      // 按依赖图顺序卸载（unloadOrder 已是完整闭包，逐个停用+卸载，避免重复卸载）
       for (const name of unloadOrder) {
-        if (pluginManager.hasPlugin(name)) {
-          await this.gracefulUnload(name);
+        if (!pluginManager.hasPlugin(name)) {
+          logger.debug(`Skipping unload (not loaded): ${name}`);
+          continue;
         }
+
+        this._activationContextManager.create(name, 'reload', {
+          previousState: pluginManager.getPlugin(name)?.state,
+        });
+
+        try {
+          await pluginManager.disablePlugin(name);
+        } catch (error) {
+          logger.error(`Deactivate failed during reload: ${name}`, { error });
+          throw error;
+        }
+
+        this.savePluginState(name);
+        await pluginManager.uninstallPlugin(name);
+        logger.debug(`Unloaded during reload: ${name}`);
       }
 
-      // 逆序重新加载（被依赖方先加载）
+      // 逆序重新加载（被依赖方先加载），并恢复激活状态
       const reloadOrder = [...unloadOrder].reverse();
       for (const name of reloadOrder) {
         if (this.stateBackup.has(name)) {
           await pluginManager.loadPlugin(name);
+          // 修复：重载后恢复激活状态（此前只 loadPlugin 不 enable，插件停在 loaded）
+          const wasActivated =
+            this.stateBackup.get(name)?.state === 'activated' ||
+            this.stateBackup.get(name)?.state === 'enabled';
+          if (wasActivated) {
+            pluginManager.enablePlugin(name);
+            logger.debug(`Reactivated after reload: ${name}`);
+          }
         }
       }
 

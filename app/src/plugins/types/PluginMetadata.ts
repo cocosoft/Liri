@@ -202,6 +202,17 @@ export interface PluginMetadata {
   dependencies?: Record<string, string>;
 
   /**
+   * 声明式服务注入（必需）：声明插件依赖的内核服务名（如 "kernel.configManager"）。
+   * 缺失时按宿主策略挂起等待（响应式加载）或拒绝。
+   */
+  inject?: string[];
+
+  /**
+   * 声明式服务注入（可选）：服务缺失时跳过注入，不阻断加载。
+   */
+  injectOptional?: string[];
+
+  /**
    * 插件对等依赖
    */
   peerDependencies?: Record<string, string>;

@@ -85,6 +85,30 @@ export async function handlePluginInstalledList(
 }
 
 /**
+ * 处理响应式挂起插件列表 GET /v1/plugins/marketplace/pending（4.4）
+ * 返回因 inject 必需服务缺失而挂起等待的 SDK 插件（含缺失服务、超时状态）
+ */
+export async function handlePluginPendingList(
+  _req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const { pluginSystem } = await import('@modules/plugins');
+    // 刷新超时标记后返回快照
+    pluginSystem.checkPendingSdkTimeouts();
+    const pending = pluginSystem.getPendingSdkPlugins();
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify(pending));
+  } catch (err) {
+    await handleError(err, {
+      module: 'infra:http',
+      action: 'plugin_pending_list',
+    });
+    sendError(res, err);
+  }
+}
+
+/**
  * 处理插件详情 GET /v1/plugins/marketplace/plugins/:id
  */
 export async function handlePluginMarketplaceDetail(

@@ -31,4 +31,7 @@ export {
   getKernelServiceRegistry,
   resetKernelServiceRegistry,
 } from './KernelServiceRegistry.js';
-export type { ServiceAccessEntry } from './KernelServiceRegistry.js';
+export type {
+  ServiceAccessEntry,
+  ServiceRegisteredEvent,
+} from './KernelServiceRegistry.js';

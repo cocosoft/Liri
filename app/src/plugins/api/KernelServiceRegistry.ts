@@ -3,8 +3,10 @@
  * 采用服务定位器模式（非 DI 容器），提供对内核服务的统一访问入口
  * 支持按服务名称注册、按名称获取、检查所有注册服务
  * 支持基于插件 ID 的访问控制（白名单模式）
+ * 4.4：继承 EventEmitter，register() 发射 serviceRegistered 事件，供响应式加载订阅
  */
 
+import { EventEmitter } from 'events';
 import { getLogger } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
@@ -24,11 +26,21 @@ export enum KernelServiceId {
   ERROR_SERVICE = 'kernel.errorService',
   DIContainer = 'kernel.diContainer',
 
+  /** 会话管理服务（修复 PLUGIN_LOADER 语义错位：session API 不再复用 pluginLoader 标识） */
+  SESSION_MANAGER = 'kernel.sessionManager',
+
   /** 插件 API 访问控制标识 */
   COMMAND_API = 'kernel.api.command',
   TOOL_API = 'kernel.api.tool',
   SETTINGS_API = 'kernel.api.settings',
   RESOURCE_API = 'kernel.api.resource',
+}
+
+/** 服务注册事件数据 */
+export interface ServiceRegisteredEvent {
+  serviceId: KernelServiceId;
+  instance: unknown;
+  timestamp: number;
 }
 
 /**
@@ -44,7 +56,10 @@ export interface ServiceAccessEntry {
  * 内核服务注册表
  * 轻量级服务定位器，仅存储和返回已注册的服务实例
  */
-export class KernelServiceRegistry {
+export class KernelServiceRegistry extends EventEmitter {
+  /** 服务注册事件（4.4 响应式加载订阅） */
+  static readonly SERVICE_REGISTERED = 'serviceRegistered';
+
   private services: Map<string, any> = new Map();
   private accessControl: Map<string, Set<string>> = new Map();
   private allowAllPlugins = false;
@@ -63,6 +78,13 @@ export class KernelServiceRegistry {
 
     this.services.set(key, instance);
     logger.info(`✅ Kernel service registered: ${key}`);
+
+    // 4.4：发射服务注册事件，供响应式加载（pending 插件自动激活）订阅
+    this.emit(KernelServiceRegistry.SERVICE_REGISTERED, {
+      serviceId: key,
+      instance,
+      timestamp: Date.now(),
+    } satisfies ServiceRegisteredEvent);
   }
 
   /**

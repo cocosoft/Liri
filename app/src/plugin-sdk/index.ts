@@ -25,11 +25,20 @@
  * 此模块不引用任何核心内部模块，保证隔离边界。
  */
 
-export { createPlugin, validatePluginManifest } from './core';
+export {
+  createPlugin,
+  createServices,
+  createPluginContext,
+  getInjectedServiceIds,
+  validatePluginManifest,
+} from './core';
 
 export type {
   Plugin,
   PluginContext,
+  PluginServices,
+  ServicesMap,
+  KernelServiceIdName,
   PluginConfig,
   PluginRuntime,
   PluginRuntimeStatus,
@@ -94,6 +103,10 @@ export type {
   ChannelInteractiveCard,
   ChannelMessageContext,
 } from './channel-contract';
+
+// scaffold — 插件项目脚手架（4.5）
+export { generatePluginTemplate, writePluginTemplate } from './scaffold';
+export type { PluginScaffoldOptions, ScaffoldFile } from './scaffold';
 
 // ==================== Provider 实现（从 extensions/ 迁移） ====================
 export { createOpenAIProvider } from './providers/OpenAIProvider.js';

@@ -3,6 +3,7 @@ import {
   pluginMarketplaceService,
   type MarketplacePlugin,
   type InstalledPlugin,
+  type PendingPlugin,
 } from "../services/pluginMarketplaceService";
 import { handleClientError } from "@/utils/handleError";
 
@@ -13,6 +14,8 @@ interface PluginStoreState {
   total: number;
   /** 已安装插件 */
   installedPlugins: InstalledPlugin[];
+  /** 响应式挂起插件（inject 必需服务缺失等待中，4.4） */
+  pendingPlugins: PendingPlugin[];
   /** 搜索关键字 */
   query: string;
   /** 加载状态 */
@@ -33,6 +36,7 @@ interface PluginStoreState {
 
   searchMarket: (query?: string) => Promise<void>;
   loadInstalled: () => Promise<void>;
+  loadPending: () => Promise<void>;
   install: (pluginId: string) => Promise<void>;
   uninstall: (pluginId: string) => Promise<void>;
   getPluginDetail: (pluginId: string) => Promise<void>;
@@ -49,6 +53,7 @@ export const usePluginStore = create<PluginStoreState>((set, get) => ({
   searchResults: [],
   total: 0,
   installedPlugins: [],
+  pendingPlugins: [],
   query: "",
   isLoading: false,
   operatingId: null,
@@ -90,6 +95,19 @@ export const usePluginStore = create<PluginStoreState>((set, get) => ({
       handleClientError(err, {
         module: "stores:plugins",
         action: "loadInstalled",
+      });
+      set({ error: String(err) });
+    }
+  },
+
+  loadPending: async () => {
+    try {
+      const pending = await pluginMarketplaceService.getPendingPlugins();
+      set({ pendingPlugins: pending });
+    } catch (err) {
+      handleClientError(err, {
+        module: "stores:plugins",
+        action: "loadPending",
       });
       set({ error: String(err) });
     }

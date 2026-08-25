@@ -196,6 +196,23 @@ function validateManifest(
     }
   }
 
+  // 声明式服务注入（inject）字段校验：必须是字符串数组
+  for (const field of ['inject', 'injectOptional'] as const) {
+    const value = manifest[field];
+    if (value !== undefined) {
+      if (
+        !Array.isArray(value) ||
+        !value.every((item) => typeof item === 'string')
+      ) {
+        errors.push({
+          field,
+          message: `字段 "${field}" 必须是字符串数组（服务名列表）`,
+          code: 'INVALID_INJECT_FIELD',
+        });
+      }
+    }
+  }
+
   return {
     valid: errors.length === 0,
     errors,

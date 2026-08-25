@@ -645,7 +645,10 @@ export class PluginMarketplace {
         const result = await resolveDependencyClosure(
           qualifiedId,
           async (id: string) => {
-            const rawName = id.split('@')[0];
+            // 评审修订 v4（P1-8）：split('@')[0] 启发式改用 parsePluginIdentifier
+            const { parsePluginIdentifier } =
+              await import('../utils/pluginIdentifier.js');
+            const rawName = parsePluginIdentifier(id).name ?? id;
             const marketPlugin = this.plugins.get(rawName);
             if (!marketPlugin) return null;
 

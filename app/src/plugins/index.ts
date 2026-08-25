@@ -50,10 +50,28 @@ import {
   PluginLoadResult,
   PluginEventType,
   PluginEvent,
+  PluginDependency,
 } from './types/PluginTypes';
 import type { PluginInfo, SkillInfo } from './types/PluginDisplay.js';
 import type { Plugin, SkillContext } from '@modules/plugin-sdk';
+import { SdkPluginAdapter } from './core/SdkPluginAdapter';
+import type { ServiceRegisteredEvent } from './api/index.js';
+import {
+  mapPluginStateToStatus,
+  PLUGIN_PENDING_STATE,
+} from './core/PluginStateMapper';
 const logger = getLogger('plugins:index');
+
+/** 响应式挂起默认超时（毫秒）：超时后标记 timedOut，供 UI 展示与手动重试（4.4 死锁防护） */
+const SDK_PLUGIN_PENDING_TIMEOUT_MS = 5 * 60 * 1000;
+
+/** SDK 插件挂起队列的 contextExtras 类型 */
+type PendingContextExtras = Partial<
+  Pick<
+    import('@modules/plugin-sdk').PluginContext,
+    'log' | 'config' | 'events' | 'utils'
+  >
+>;
 
 /**
  * 热加载管理器实例缓存（惰性加载，避免模块加载时的循环依赖）
@@ -96,16 +114,44 @@ export class PluginSystem {
 
   /** SDK 程序化注册的插件（非文件扫描加载） */
   private _sdkPlugins = new Map<string, Plugin>();
+  /** SDK 程序化注册的插件上下文（含注入的 services，生命周期使用） */
+  private _sdkContexts = new Map<
+    string,
+    import('@modules/plugin-sdk').PluginContext
+  >();
   /** SDK 程序化注册的技能 */
   private _sdkSkills = new Map<string, SkillInfo>();
+  /** 响应式挂起队列：inject 必需服务缺失、等待服务注册后自动激活（4.4） */
+  private _pendingSdkPlugins = new Map<
+    string,
+    {
+      plugin: Plugin;
+      contextExtras?: PendingContextExtras;
+      missing: string[];
+      createdAt: number;
+      deadline: number;
+      timedOut: boolean;
+    }
+  >();
+
+  /** SDK 适配器（懒创建，依赖 kernelRegistry） */
+  private _sdkAdapter: SdkPluginAdapter | null = null;
+
+  /** 加载期安全降级开关（评审修订 v4：PluginSystem 级配置，默认开启） */
+  private _demoteOnLoad: boolean;
 
   private _pluginsDiscovered = false;
   private _pluginsLoaded = false;
 
   /**
    * 构造函数，仅保存配置，不创建任何子系统
+   * @param options 加载器配置
+   * @param pluginOptions PluginSystem 级配置（评审修订 v4：demoteOnLoad 默认开启，仿 HotloadConfig 先例）
    */
-  constructor(options: PluginLoaderOptions = {}) {
+  constructor(
+    options: PluginLoaderOptions = {},
+    pluginOptions: { demoteOnLoad?: boolean } = {}
+  ) {
     this._options = {
       // 注意：pluginDirectories 不再在此处默认解析（join(resolveProjectRoot(), 'plugins')），
       // 惰性交给 PluginLoader 首次使用时兜底——模块级 `new PluginSystem()` 若在
@@ -119,6 +165,7 @@ export class PluginSystem {
       loadTimeout: 30000,
       ...options,
     };
+    this._demoteOnLoad = pluginOptions.demoteOnLoad ?? true;
   }
 
   private get loader(): PluginLoader {
@@ -161,6 +208,14 @@ export class PluginSystem {
       this._eventSystem = new PluginEventSystem();
     }
     return this._eventSystem;
+  }
+
+  /** SDK 适配器（懒创建） */
+  private get sdkAdapter(): SdkPluginAdapter {
+    if (!this._sdkAdapter) {
+      this._sdkAdapter = new SdkPluginAdapter(getKernelServiceRegistry());
+    }
+    return this._sdkAdapter;
   }
 
   private setupEventForwarding(): void {
@@ -217,11 +272,66 @@ export class PluginSystem {
     this.setupEventForwarding();
 
     const plugins = this.loader.getAllPlugins();
-    for (const plugin of plugins) {
-      await this.registerPlugin(plugin);
+
+    // 评审修订 v4（P0-2）：加载期安全降级（demoteOnLoad 默认开启，仅 loader 文件插件）
+    const demoted = new Set<string>();
+    if (this._demoteOnLoad) {
+      const { verifyAndDemote } = await import('./utils/dependencyResolver.js');
+      const result = verifyAndDemote(plugins);
+      for (const id of result.demoted) demoted.add(id);
+      if (result.errors.length > 0) {
+        logger.error('加载期依赖校验：以下插件被降级（依赖不满足）', {
+          demoted: Array.from(result.demoted),
+        });
+      }
     }
 
+    for (const plugin of plugins) {
+      await this.registerPlugin(plugin, !demoted.has(plugin.source));
+    }
+
+    // 评审修订（P0-1）：热加载图数据源接通（过滤 demoted，key 用裸名经 normalize）
+    await this.buildHotloadDependencyGraph(plugins, demoted);
+
     this._pluginsLoaded = true;
+  }
+
+  /**
+   * 构建热加载依赖图数据源（评审修订 v4：key 统一为裸插件名，dep 经 normalize 取 name）
+   * @param plugins 已加载插件
+   * @param demoted 被降级插件 source 集合（建图排除）
+   */
+  private async buildHotloadDependencyGraph(
+    plugins: LoadedPlugin[],
+    demoted: Set<string>
+  ): Promise<void> {
+    try {
+      const { normalizeDependency } =
+        await import('./utils/dependencyResolver.js');
+      const hotloadManager = await getHotloadManagerLazy();
+
+      const graph: Record<string, string[]> = {};
+      for (const p of plugins) {
+        if (demoted.has(p.source)) continue;
+        const manifest = (p.manifest ?? {}) as Record<string, unknown>;
+        const deps = Array.isArray(manifest.dependencies)
+          ? manifest.dependencies.filter(
+              (d): d is string => typeof d === 'string'
+            )
+          : [];
+        graph[p.name] = deps.map((d) => {
+          const norm = normalizeDependency(d, p.name);
+          return 'name' in norm ? norm.name : d;
+        });
+      }
+
+      hotloadManager.buildDependencyGraph(graph);
+      logger.info('热加载依赖图数据源已接通', {
+        nodes: Object.keys(graph).length,
+      });
+    } catch (error) {
+      logger.warn('热加载依赖图构建失败（不影响插件加载）', { error });
+    }
   }
 
   /**
@@ -260,6 +370,14 @@ export class PluginSystem {
     this._kernelRegistry.register(
       KernelServiceId.EVENT_SYSTEM,
       this.eventSystem
+    );
+
+    // 4.4：订阅服务注册事件 → 转发事件系统 + 激活响应式挂起的 SDK 插件
+    this._kernelRegistry.on(
+      KernelServiceRegistry.SERVICE_REGISTERED,
+      (data: ServiceRegisteredEvent) => {
+        void this.handleServiceRegistered(data);
+      }
     );
 
     // 配置核心 PluginRegistry 回退加载器（§5 向后兼容性保障 — 措施3）
@@ -323,8 +441,19 @@ export class PluginSystem {
     }
   }
 
-  private async registerPlugin(plugin: LoadedPlugin): Promise<void> {
+  private async registerPlugin(
+    plugin: LoadedPlugin,
+    enabled = true
+  ): Promise<void> {
     try {
+      // 从插件清单提取真实依赖（修复：原实现 dependencies 硬编码空数组）
+      const manifest = (plugin.manifest ?? {}) as Record<string, unknown>;
+      const manifestDeps = manifest.dependencies;
+      const rawDeps: string[] = Array.isArray(manifestDeps)
+        ? manifestDeps.filter((d): d is string => typeof d === 'string')
+        : [];
+
+      // 评审修订 v4（P1-3）：PluginRegistry 内部图喂真实依赖（原为空数组导致图恒为空）
       this.registry.registerPlugin({
         id: plugin.id,
         name: plugin.name,
@@ -332,20 +461,29 @@ export class PluginSystem {
         path: plugin.path,
         state: plugin.state,
         registeredAt: new Date(),
-        enabled: true,
-        dependencies: [],
+        enabled,
+        dependencies: rawDeps,
         dependents: [],
       });
 
       this.lifecycleManager.registerPlugin(plugin);
 
+      const dependencies: PluginDependency[] = rawDeps.map((name) => ({
+        name,
+        version: '*',
+      }));
+
       const metadata: PluginMetadata = {
         id: plugin.id,
         name: plugin.name,
         version: plugin.version,
-        description: 'Auto-generated metadata',
-        author: 'System',
+        description:
+          (typeof manifest.description === 'string' && manifest.description) ||
+          'Auto-generated metadata',
+        author:
+          (typeof manifest.author === 'string' && manifest.author) || 'System',
         type: PluginType.TOOL,
+        dependencies,
       };
       this.dependencyManager.addPlugin(metadata);
 
@@ -378,7 +516,15 @@ export class PluginSystem {
     const result = await this.loader.loadPlugin(pluginId);
 
     if (result.success && result.plugin) {
-      await this.registerPlugin(result.plugin);
+      // 评审修订 v4（P0-2）：loadPlugin 单独加载也过降级校验（热加载走此路径自动覆盖）
+      let enabled = true;
+      if (this._demoteOnLoad) {
+        const { verifyAndDemote } =
+          await import('./utils/dependencyResolver.js');
+        const { demoted } = verifyAndDemote([result.plugin]);
+        if (demoted.has(result.plugin.source)) enabled = false;
+      }
+      await this.registerPlugin(result.plugin, enabled);
     }
 
     return result;
@@ -611,9 +757,60 @@ export class PluginSystem {
 
   /**
    * 程序化注册插件（SDK 路径）
-   * 将第三方插件通过 Plugin SDK 动态注册到系统中
+   * 将第三方插件通过 Plugin SDK 动态注册到系统中。
+   * 4.1 增强：解析声明式服务注入（inject），动态校验已注册服务目录，
+   * 自动 grantAccess，并将服务实例以参数形式挂载到 context.services。
+   * 4.4 增强：必需服务缺失时挂起等待（响应式加载），服务注册后自动激活；
+   * 不再 fail-fast 拒绝（P1 升级）。
+   * @param plugin SDK 插件
+   * @param contextExtras 可选上下文（log/config/events/utils），由宿主提供
    */
-  async registerPluginFromSDK(plugin: Plugin): Promise<void> {
+  async registerPluginFromSDK(
+    plugin: Plugin,
+    contextExtras?: PendingContextExtras
+  ): Promise<void> {
+    await this.ensureInitialized();
+
+    // 4.1：解析声明式服务注入（动态层校验）
+    const { services, missingRequired } = this.sdkAdapter.resolveInject(plugin);
+
+    // 4.4：必需服务缺失 → 挂起等待（响应式加载），不再 fail-fast 拒绝
+    if (missingRequired.length > 0) {
+      this._pendingSdkPlugins.set(plugin.id, {
+        plugin,
+        contextExtras,
+        missing: missingRequired,
+        createdAt: Date.now(),
+        deadline: Date.now() + SDK_PLUGIN_PENDING_TIMEOUT_MS,
+        timedOut: false,
+      });
+      logger.warn(
+        `SDK plugin ${plugin.id} 等待必需服务注册（响应式挂起）: ${missingRequired.join(', ')}`
+      );
+      return;
+    }
+
+    await this.finalizeSdkPluginRegistration(plugin, services, contextExtras);
+  }
+
+  /**
+   * 完成 SDK 插件注册（动态校验通过后执行）
+   * 静态校验 → 自动授权 → 注册表 → context 构造 → initialize/activate
+   * @param plugin SDK 插件
+   * @param services 已解析的服务实例映射
+   * @param contextExtras 可选上下文
+   */
+  private async finalizeSdkPluginRegistration(
+    plugin: Plugin,
+    services: Record<string, unknown>,
+    contextExtras?: PendingContextExtras
+  ): Promise<void> {
+    // 4.4：静态校验层——第三方服务提供者需在 dependencies 中声明（warning，非阻断）
+    this.sdkAdapter.validateProviderDependencies(plugin);
+
+    // 4.1：自动 grantAccess（inject 声明即授权）
+    this.sdkAdapter.grantInjectedAccess(plugin.id, plugin);
+
     // 注册到内部注册表
     try {
       this.registry.registerPlugin({
@@ -633,6 +830,15 @@ export class PluginSystem {
       });
     }
 
+    // 构造插件上下文并执行 initialize / activate（生命周期映射）
+    const context = this.sdkAdapter.createContext(
+      plugin,
+      services,
+      contextExtras
+    );
+    await this.sdkAdapter.runLifecycle('initialize', plugin, context);
+    await this.sdkAdapter.runLifecycle('activate', plugin, context);
+
     // 存储技能信息（PluginSystem 本地管理技能粒度）
     if (plugin.skills) {
       for (const skill of plugin.skills) {
@@ -649,9 +855,147 @@ export class PluginSystem {
       }
     }
 
+    this._sdkContexts.set(plugin.id, context);
     this._sdkPlugins.set(plugin.id, plugin);
 
-    logger.info(`Registered plugin via SDK: ${plugin.name} v${plugin.version}`);
+    logger.info(
+      `Registered plugin via SDK: ${plugin.name} v${plugin.version}` +
+        (Object.keys(services).length > 0
+          ? ` with injected services: ${Object.keys(services).join(', ')}`
+          : '')
+    );
+  }
+
+  /**
+   * 服务注册事件处理（4.4 响应式加载）
+   * ① 转发到插件事件系统；② 尝试激活响应式挂起的 SDK 插件。
+   * @param data 服务注册事件数据
+   */
+  private async handleServiceRegistered(
+    data: ServiceRegisteredEvent
+  ): Promise<void> {
+    // ① 转发到事件系统（事件链：kernelRegistry → eventSystem）
+    try {
+      await this.eventSystem.publishEvent({
+        type: PluginEventType.SERVICE_REGISTERED,
+        pluginId: '',
+        data,
+        timestamp: new Date(),
+      });
+    } catch (error) {
+      logger.error('Forward serviceRegistered event failed:', { error });
+    }
+
+    // ② 激活挂起插件（重新解析 inject）
+    for (const [pluginId, entry] of this._pendingSdkPlugins) {
+      if (entry.timedOut) continue;
+
+      const { services, missingRequired } = this.sdkAdapter.resolveInject(
+        entry.plugin
+      );
+      if (missingRequired.length === 0) {
+        this._pendingSdkPlugins.delete(pluginId);
+        try {
+          await this.finalizeSdkPluginRegistration(
+            entry.plugin,
+            services,
+            entry.contextExtras
+          );
+          logger.info(
+            `✅ SDK plugin ${pluginId} 服务就绪，已自动激活（响应式加载）`
+          );
+        } catch (error) {
+          logger.error(`SDK plugin ${pluginId} 响应式激活失败`, { error });
+          this._pendingSdkPlugins.set(pluginId, {
+            ...entry,
+            timedOut: true,
+          });
+        }
+      }
+    }
+  }
+
+  /**
+   * 检查挂起插件是否超时（4.4 死锁防护）
+   * 超时的插件标记 timedOut，供管理 UI 展示与手动重试。
+   */
+  checkPendingSdkTimeouts(): string[] {
+    const now = Date.now();
+    const timedOut: string[] = [];
+
+    for (const [pluginId, entry] of this._pendingSdkPlugins) {
+      if (!entry.timedOut && now > entry.deadline) {
+        entry.timedOut = true;
+        timedOut.push(pluginId);
+        logger.error(
+          `SDK plugin ${pluginId} 响应式挂起超时（可能服务级依赖死锁），缺失服务: ${entry.missing.join(', ')}`
+        );
+      }
+    }
+
+    return timedOut;
+  }
+
+  /**
+   * 获取挂起中的 SDK 插件快照（含状态机映射后的状态，供管理 UI 展示）
+   */
+  getPendingSdkPlugins(): Array<{
+    pluginId: string;
+    pluginName: string;
+    missing: string[];
+    createdAt: number;
+    timedOut: boolean;
+    state: string;
+  }> {
+    const result: Array<{
+      pluginId: string;
+      pluginName: string;
+      missing: string[];
+      createdAt: number;
+      timedOut: boolean;
+      state: string;
+    }> = [];
+
+    for (const [pluginId, entry] of this._pendingSdkPlugins) {
+      result.push({
+        pluginId,
+        pluginName: entry.plugin.name,
+        missing: entry.missing,
+        createdAt: entry.createdAt,
+        timedOut: entry.timedOut,
+        state: mapPluginStateToStatus(PLUGIN_PENDING_STATE) as string,
+      });
+    }
+
+    return result;
+  }
+
+  /**
+   * 手动重试挂起的 SDK 插件（4.4 死锁防护：超时后由用户触发）
+   * @param pluginId 插件 ID
+   * @returns 是否已成功激活
+   */
+  async retryPendingSdkPlugin(pluginId: string): Promise<boolean> {
+    const entry = this._pendingSdkPlugins.get(pluginId);
+    if (!entry) return false;
+
+    const { services, missingRequired } = this.sdkAdapter.resolveInject(
+      entry.plugin
+    );
+    if (missingRequired.length > 0) {
+      logger.warn(
+        `SDK plugin ${pluginId} 重试仍缺服务: ${missingRequired.join(', ')}`
+      );
+      return false;
+    }
+
+    this._pendingSdkPlugins.delete(pluginId);
+    await this.finalizeSdkPluginRegistration(
+      entry.plugin,
+      services,
+      entry.contextExtras
+    );
+    return true;
   }
 
   /**
@@ -660,6 +1004,24 @@ export class PluginSystem {
   async unregisterPluginFromSDK(pluginId: string): Promise<void> {
     const plugin = this._sdkPlugins.get(pluginId);
     if (!plugin) return;
+
+    // 生命周期逆序：deactivate → 释放可逆副作用(LIFO) → destroy
+    const context = this._sdkContexts.get(pluginId);
+    if (context) {
+      try {
+        await this.sdkAdapter.runLifecycle('deactivate', plugin, context);
+      } catch (error) {
+        logger.warn(`SDK plugin ${pluginId} deactivate failed`, { error });
+      }
+      // 4.3：可逆副作用按 LIFO 释放（ctx.effect 逆序撤销）
+      await this.sdkAdapter.releaseDisposers(pluginId);
+      try {
+        await this.sdkAdapter.runLifecycle('destroy', plugin, context);
+      } catch (error) {
+        logger.warn(`SDK plugin ${pluginId} destroy failed`, { error });
+      }
+      this._sdkContexts.delete(pluginId);
+    }
 
     try {
       this.registry.unregisterPlugin(pluginId);
@@ -852,6 +1214,11 @@ export class PluginSystem {
       this._pluginsDiscovered = false;
       this._pluginsLoaded = false;
       this._isInitialized = false;
+      this._pendingSdkPlugins.clear();
+      this._sdkPlugins.clear();
+      this._sdkContexts.clear();
+      this._sdkSkills.clear();
+      this._sdkAdapter = null;
 
       logger.info('Plugin system destroyed');
     } catch (error) {

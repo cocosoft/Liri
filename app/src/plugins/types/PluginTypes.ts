@@ -468,6 +468,9 @@ export enum PluginEventType {
 
   /** 配置更新 */
   CONFIG_UPDATED = 'configUpdated',
+
+  /** 内核服务注册（4.4 响应式加载：服务注册后自动激活挂起插件） */
+  SERVICE_REGISTERED = 'serviceRegistered',
 }
 
 /**

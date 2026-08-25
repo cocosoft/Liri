@@ -1,0 +1,7 @@
+# 配置层叠 Bundle：enterprise（企业功能）
+name: enterprise
+description: 企业功能（沙箱、治理、办公）
+variants: [enterprise]
+config:
+  enterprise:
+    enabled: true

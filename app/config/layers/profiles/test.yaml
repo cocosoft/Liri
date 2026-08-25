@@ -1,0 +1,11 @@
+# 配置层叠 Profile：test（自动化测试）
+# 禁用写入、隔离目录、确定性种子（11.9.2 内置 Profile 表）。
+name: test
+bundles:
+  - core
+patches:
+  sandbox:
+    enabled: false
+  test:
+    isolationDir: true
+    deterministicSeed: true

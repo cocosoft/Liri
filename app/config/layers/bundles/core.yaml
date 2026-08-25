@@ -1,0 +1,7 @@
+# 配置层叠 Bundle：core（核心运行时）
+# variants 缺省 = 仅 core 变体加载（11.11 决策）
+name: core
+description: 核心运行时（CLI、基础工具）
+config:
+  server:
+    host: localhost

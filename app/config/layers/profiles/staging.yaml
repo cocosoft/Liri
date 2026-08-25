@@ -1,0 +1,16 @@
+# 配置层叠 Profile：staging（预发验证）
+name: staging
+bundles:
+  - core
+  - chat
+  - ai
+  - channels
+patches:
+  logging:
+    level: info
+  ai:
+    defaultModel: deepseek-chat
+  sandbox:
+    mode: standard
+  server:
+    host: 0.0.0.0

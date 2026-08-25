@@ -444,6 +444,18 @@ export class UnifiedConfigManager {
       });
     }
   }
+
+  /**
+   * 配置层叠解析（步骤 4：ConfigLayers 挂 UnifiedConfigManager 之下，11.2 P1-3）。
+   * 委托 ConfigLayersService 执行 11 层合并 + 归属校验（providerId/modelId 存在性）。
+   * 动态导入避免 @modules/config → layers/ConfigLayersService 循环依赖。
+   */
+  async resolveLayersConfig(
+    opts?: import('./layers/ConfigLayersService').ResolveLayersOptions
+  ): Promise<import('./layers/ConfigLayersService').ResolveLayersResult> {
+    const { resolveLayers } = await import('./layers/ConfigLayersService');
+    return resolveLayers(opts);
+  }
 }
 
 /**

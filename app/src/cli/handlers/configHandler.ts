@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 配置处理器
  * 处理 config 命令组，提供配置的查看、修改、重置等操作
  */
@@ -43,6 +43,15 @@ export class ConfigHandler {
         return true;
       case 'reset':
         await this.handleReset(args);
+        return true;
+      case 'dump':
+        await this.handleDump(args);
+        return true;
+      case 'explain':
+        await this.handleExplain(args);
+        return true;
+      case 'reload':
+        await this.handleReload();
         return true;
       default:
         return false;
@@ -174,13 +183,184 @@ export class ConfigHandler {
     console.log(
       chalk.gray('  config reset [key]        - ', t('config.reset'))
     );
+    console.log(
+      chalk.gray(
+        '  config dump [--profile P] [--layers] - ',
+        '配置层叠合并结果（脱敏）'
+      )
+    );
+    console.log(
+      chalk.gray('  config explain <key>      - ', '追踪单 key 各层值演变')
+    );
+    console.log(
+      chalk.gray(
+        '  config reload             - ',
+        '重读 Profile/Bundle 并重合并'
+      )
+    );
     console.log();
     console.log(chalk.green(t('common.example')));
     console.log(chalk.gray('  config get cli.prompt'));
     console.log(chalk.gray('  config set cli.prompt "pyapp> "'));
     console.log(chalk.gray('  config list'));
+    console.log(chalk.gray('  config dump --profile production --layers'));
+    console.log(chalk.gray('  config explain logging.level'));
     console.log(chalk.cyan('═'.repeat(60)));
   }
+
+  // ─── 配置层叠（步骤 6）──────────────────────────────────────────────
+
+  /**
+   * 输出配置层叠合并结果（脱敏）。
+   * config dump [--profile <name>] [--layers]
+   */
+  async handleDump(args: string[]): Promise<void> {
+    let profileName: string | undefined;
+    let showLayers = false;
+    for (let i = 0; i < args.length; i++) {
+      const a = args[i];
+      if (a === '--profile') {
+        profileName = args[i + 1];
+        i++;
+      } else if (a.startsWith('--profile=')) {
+        profileName = a.slice('--profile='.length);
+      } else if (a === '--layers') {
+        showLayers = true;
+      }
+    }
+
+    try {
+      const { getUnifiedConfigManager } = await import('@modules/config');
+      const { redactConfig } = await import('../../config/ConfigRedactor');
+      const result = await getUnifiedConfigManager().resolveLayersConfig({
+        profileName,
+      });
+
+      if (showLayers) {
+        console.log(chalk.cyan('═'.repeat(60)));
+        console.log(
+          chalk.bold(
+            `  Profile: ${result.profile.name}（${result.selection.source}）`
+          )
+        );
+        console.log(chalk.cyan('═'.repeat(60)));
+        for (const layer of result.layers) {
+          console.log(chalk.cyan(`\n[${layer.name}]`));
+          printConfigTree(redactConfig(layer.config), '');
+        }
+        if (result.notLoadedBundles.length > 0) {
+          console.log(
+            chalk.yellow('\n⚠ 未加载 bundle:'),
+            result.notLoadedBundles
+              .map((b) => `${b.name}(${b.reason})`)
+              .join(', ')
+          );
+        }
+      } else {
+        console.log(chalk.cyan('═'.repeat(60)));
+        console.log(
+          chalk.bold(
+            `  ${t('config.list_header')}（Profile: ${result.profile.name}）`
+          )
+        );
+        console.log(chalk.cyan('═'.repeat(60)));
+        printConfigTree(redactConfig(result.config), '');
+      }
+    } catch (err) {
+      console.log(
+        chalk.red('✕'),
+        `配置层叠解析失败: ${err instanceof Error ? err.message : String(err)}`
+      );
+    }
+  }
+
+  /**
+   * 追踪单 key 在各层的值演变。
+   * config explain <key>
+   */
+  async handleExplain(args: string[]): Promise<void> {
+    const key = args[0];
+    if (!key) {
+      console.log(chalk.yellow('⚠'), '用法: config explain <key>');
+      return;
+    }
+
+    try {
+      const { getUnifiedConfigManager } = await import('@modules/config');
+      const { redactConfig } = await import('../../config/ConfigRedactor');
+      const result = await getUnifiedConfigManager().resolveLayersConfig({});
+
+      console.log(chalk.cyan(`config explain ${key}`));
+      console.log(chalk.gray('  key 在各层的值（自上而下优先级递增）:'));
+      let found = false;
+      for (const layer of result.layers) {
+        const value = getPathValue(layer.config, key);
+        if (value !== undefined) {
+          found = true;
+          console.log(
+            `  ${chalk.cyan(layer.name.padEnd(14))}= ${formatValue(redactConfig({ [key]: value })[key])}`
+          );
+        }
+      }
+      const finalValue = getPathValue(result.config, key);
+      if (!found) {
+        console.log(chalk.yellow('⚠'), `key 未在任何层声明: ${key}`);
+      }
+      console.log(
+        `  ${chalk.green('final'.padEnd(14))}= ${formatValue(finalValue)}`
+      );
+    } catch (err) {
+      console.log(
+        chalk.red('✕'),
+        `配置层叠解析失败: ${err instanceof Error ? err.message : String(err)}`
+      );
+    }
+  }
+
+  /**
+   * 重读 Profile/Bundle 并重新合并。
+   * config reload
+   */
+  async handleReload(): Promise<void> {
+    try {
+      const { getUnifiedConfigManager } = await import('@modules/config');
+      const result = await getUnifiedConfigManager().resolveLayersConfig({});
+      console.log(
+        chalk.green('✓'),
+        `配置已重载（Profile: ${result.profile.name}，层数: ${result.layers.length}）`
+      );
+      if (this.options.verbose) {
+        logger.info('config reload 完成', {
+          profile: result.profile.name,
+          layers: result.layers.map((l) => l.name),
+        });
+      }
+    } catch (err) {
+      console.log(
+        chalk.red('✕'),
+        `配置重载失败: ${err instanceof Error ? err.message : String(err)}`
+      );
+    }
+  }
+}
+
+/**
+ * 从嵌套对象按点号路径取值
+ */
+function getPathValue(obj: Record<string, unknown>, path: string): unknown {
+  const segments = path.split('.');
+  let node: unknown = obj;
+  for (const seg of segments) {
+    if (
+      node === null ||
+      typeof node !== 'object' ||
+      !(seg in (node as Record<string, unknown>))
+    ) {
+      return undefined;
+    }
+    node = (node as Record<string, unknown>)[seg];
+  }
+  return node;
 }
 
 /**

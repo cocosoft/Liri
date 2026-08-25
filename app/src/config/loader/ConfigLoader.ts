@@ -1,5 +1,6 @@
 import { readFileSync, existsSync } from 'fs';
 import { join, extname } from 'path';
+import { load as yamlLoad } from 'js-yaml';
 import {
   AppError,
   ErrorCategory,
@@ -189,42 +190,34 @@ export class ConfigLoader implements IConfigLoader {
     }
   }
 
+  /**
+   * YAML 解析（2026-08-25 升级，P0-1）：
+   * 原手写简化版只支持扁平 key:value，缩进嵌套会被拍平到顶层（嵌套全丢）。
+   * 改为复用项目已有 js-yaml 依赖（CS01 归一化），完整支持嵌套 map/数组/标量。
+   * 顶层必须是 mapping（配置对象）；标量/数组顶层视为非法。
+   */
   private parseYaml(content: string): Record<string, unknown> {
-    const lines = content.split('\n');
-    const result: Record<string, unknown> = {};
-    let currentKey = '';
-    let indentLevel = 0;
-
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (!trimmed || trimmed.startsWith('#')) continue;
-
-      if (trimmed.includes(':')) {
-        const colonIdx = trimmed.indexOf(':');
-        const key = trimmed.slice(0, colonIdx).trim();
-        const value = trimmed.slice(colonIdx + 1).trim();
-
-        const lineIndent = line.length - line.trimLeft().length;
-
-        if (value === '' || value === '|' || value === '>') {
-          currentKey = key;
-          indentLevel = lineIndent;
-        } else {
-          (result as any)[key] = this.parseYamlValue(value);
-        }
-      }
+    let parsed: unknown;
+    try {
+      parsed = yamlLoad(content);
+    } catch (err) {
+      throw new AppError(
+        `Invalid YAML: ${err instanceof Error ? err.message : String(err)}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
-
-    return result;
-  }
-
-  private parseYamlValue(value: string): any {
-    if (value === 'true') return true;
-    if (value === 'false') return false;
-    if (value === 'null' || value === '~') return null;
-    const num = Number(value);
-    if (!isNaN(num) && value.trim() !== '') return num;
-    return value.replace(/^['"]|['"]$/g, '');
+    if (parsed === null || parsed === undefined) return {};
+    if (typeof parsed !== 'object' || Array.isArray(parsed)) {
+      throw new AppError(
+        'Invalid YAML: top-level must be a mapping',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
+    }
+    return parsed as Record<string, unknown>;
   }
 
   private parseEnvContent(content: string): Record<string, unknown> {

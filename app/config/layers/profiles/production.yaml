@@ -1,0 +1,18 @@
+# 配置层叠 Profile：production（生产部署）
+# 受控保护 Profile（11.10）：禁止用户/项目覆盖，确保 CI/CD 各机器一致。
+name: production
+bundles:
+  - core
+  - chat
+  - ai
+  - channels
+  - enterprise
+patches:
+  logging:
+    level: warn
+  ai:
+    defaultModel: deepseek-chat
+  sandbox:
+    mode: strict
+  server:
+    host: 0.0.0.0

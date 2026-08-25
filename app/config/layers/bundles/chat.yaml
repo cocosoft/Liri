@@ -1,0 +1,7 @@
+# 配置层叠 Bundle：chat（聊天与会话）
+name: chat
+description: 聊天与会话
+variants: [coding, enterprise]
+config:
+  chat:
+    enabled: true

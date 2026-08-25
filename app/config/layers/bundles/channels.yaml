@@ -1,0 +1,7 @@
+# 配置层叠 Bundle：channels（渠道）
+name: channels
+description: 渠道（QQ/Telegram/Web）
+variants: [coding, enterprise]
+config:
+  channels:
+    enabled: true

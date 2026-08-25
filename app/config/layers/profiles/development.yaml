@@ -1,0 +1,6 @@
+# 配置层叠 Profile：development（默认空 Profile）
+# 11.9.2 决策：空 Profile（无差异声明），行为与现状完全一致（向后兼容）。
+# debug 日志/热重载 on 等来自内置默认值，非本 Profile 声明。
+name: development
+bundles: []
+patches: {}

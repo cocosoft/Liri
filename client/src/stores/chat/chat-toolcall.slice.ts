@@ -1292,6 +1292,8 @@ export function rebuildBlocksFromContent(
         const todos = args.todos as Array<{
           id?: string;
           name?: string;
+          description?: string;
+          content?: string;
           status?: string;
           dependsOn?: string[];
           activeForm?: string;
@@ -1299,10 +1301,11 @@ export function rebuildBlocksFromContent(
         }>;
         if (Array.isArray(todos) && todos.length > 0) {
           // 兼容 content 字段（TodoWriteTool 内部字段名）和 name 字段
+          // 修复 3（2026-08-25）：补 description 回退（模型常用该字段），减少"步骤 N"无意义名
           const taskName = (
-            t: { name?: string; content?: string },
+            t: { name?: string; content?: string; description?: string },
             idx: number,
-          ) => t.name || t.content || `步骤 ${idx + 1}`;
+          ) => t.name || t.content || t.description || `步骤 ${idx + 1}`;
           const tasks = todos.map((t, idx) => ({
             id: t.id || String(idx + 1),
             name: taskName(t, idx),

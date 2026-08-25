@@ -213,9 +213,14 @@ export class EventBasedStreamAggregator {
               const todos = Array.isArray(args.todos)
                 ? (args.todos as Array<Record<string, unknown>>)
                 : [];
+              // 修复 4（2026-08-25）：空 todos 不建块（对齐 chat-toolcall.slice 的 length>0 守卫），避免空任务卡片
+              if (todos.length === 0) return;
               const tasks = todos.map((t, idx) => ({
                 id: String(t.id || idx + 1),
-                name: String(t.name || t.content || `步骤 ${idx + 1}`),
+                // 修复 3（2026-08-25）：补 description 回退（模型常用该字段），减少"步骤 N"无意义名
+                name: String(
+                  t.name || t.content || t.description || `步骤 ${idx + 1}`,
+                ),
                 status:
                   (t.status as
                     | "pending"

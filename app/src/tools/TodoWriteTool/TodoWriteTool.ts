@@ -857,11 +857,12 @@ export class TodoWriteTool extends BaseTool<Record<string, unknown>> {
         }
 
         case 'write': {
-          const newTodos: Todo[] = (todos as any[]).map((t) => ({
+          const newTodos: Todo[] = (todos as any[]).map((t, i) => ({
             id:
               t.id ||
               `todo_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-            content: t.content,
+            // 修复 3（2026-08-25）：模型缺 content 时用 name/"任务 N"兜底，避免空任务名
+            content: t.content || t.name || `任务 ${i + 1}`,
             status: t.status || 'pending',
             activeForm: t.activeForm || undefined,
             metadata: t.metadata || undefined,

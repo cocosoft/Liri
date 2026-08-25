@@ -126,6 +126,8 @@ User message: {MESSAGE}`;
 interface ParsedSubTaskJson {
   id?: string;
   description?: string;
+  /** 修复 3（2026-08-25）：LLM 可能用 name 字段替代 description */
+  name?: string;
   tier?: string;
   dependsOn?: string[];
 }
@@ -225,7 +227,8 @@ export class TaskDecomposer {
       const subTasks: SubTask[] = (parsed.subTasks || [])
         .map((st: ParsedSubTaskJson, index: number) => ({
           id: st.id || `step-${index + 1}`,
-          description: st.description || '',
+          // 修复 3（2026-08-25）：LLM 缺 description 时用 name 兜底，仍缺用"步骤 N"，避免空名称
+          description: st.description || st.name || `步骤 ${index + 1}`,
           tier: this.normalizeTier(st.tier || ''),
           dependsOn: Array.isArray(st.dependsOn) ? st.dependsOn : [],
           status: 'pending' as const,

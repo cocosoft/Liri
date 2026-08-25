@@ -40,6 +40,14 @@ import type { LandlockPolicy, LandlockRunResult } from './types';
 /** fail-closed：沙箱初始化失败退出码 */
 const EXIT_SANDBOX_INIT_FAILED = 125;
 
+/**
+ * exit 125 归因契约（postmortem 0004）：
+ * 消费者判定"沙箱初始化失败"只看 exit 125，禁止"stderr 前缀 + 非零退出码"。
+ */
+export function isSandboxInitFailure(exitCode: number): boolean {
+  return exitCode === EXIT_SANDBOX_INIT_FAILED;
+}
+
 export interface RunWithLandlockOptions {
   helperPath?: string;
   cwd?: string;
@@ -101,13 +109,7 @@ export async function runWithLandlock(
 
   try {
     // landlock-run [--ro p]... [--rw p]... [--net-connect tcp|udp]... -- /bin/sh -c "<command>"
-    const args = [
-      ...buildLandlockArgv(policy),
-      '--',
-      '/bin/sh',
-      '-c',
-      command,
-    ];
+    const args = [...buildLandlockArgv(policy), '--', '/bin/sh', '-c', command];
     return await new Promise<LandlockRunResult>((resolve) => {
       const child = spawn(helper, args, {
         cwd: options.cwd,
@@ -136,7 +138,7 @@ export async function runWithLandlock(
           stdout,
           stderr,
           exitCode,
-          sandboxInitFailed: exitCode === EXIT_SANDBOX_INIT_FAILED,
+          sandboxInitFailed: isSandboxInitFailure(exitCode),
         });
       });
     });

@@ -84,7 +84,7 @@ export default function DeliverableCard({
 
       {/* 校验结果 */}
       {checks && checks.length > 0 && (
-        <div className="px-3 py-2 border-t border-gray-50 dark:border-gray-750 space-y-1">
+        <div className="px-3 py-2 border-t border-gray-50 dark:border-gray-700 space-y-1">
           {checks.map((check, idx) => (
             <div key={idx} className="flex items-center gap-1.5 text-xs">
               <span

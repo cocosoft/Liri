@@ -580,7 +580,7 @@ function HelpPage() {
                 {/* 分类头部 */}
                 <button
                   onClick={() => toggleCategory(cat.name)}
-                  className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-gray-800 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors"
+                  className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-gray-800 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                 >
                   <span>{cat.name}</span>
                   <span

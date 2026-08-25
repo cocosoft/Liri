@@ -58,7 +58,7 @@ export const TraceCard = memo(function TraceCard({
       <div
         className={`px-4 py-2.5 flex items-center gap-2 cursor-pointer select-none border-b ${
           isDark
-            ? "border-gray-700 hover:bg-gray-750"
+            ? "border-gray-700 hover:bg-gray-700"
             : "border-gray-100 hover:bg-gray-50"
         }`}
         onClick={onToggle}

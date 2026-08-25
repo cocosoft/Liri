@@ -61,7 +61,7 @@ function TableBlock({ content, renderText }: TableBlockProps) {
               className={
                 rowIdx % 2 === 0
                   ? "bg-white dark:bg-gray-800"
-                  : "bg-gray-50 dark:bg-gray-750"
+                  : "bg-gray-50 dark:bg-gray-900"
               }
             >
               {cells.map((cell, cellIdx) => (

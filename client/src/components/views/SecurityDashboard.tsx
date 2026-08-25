@@ -272,7 +272,7 @@ function SecurityDashboard() {
                 {status.recentEvents.map((event) => (
                   <tr
                     key={event.id}
-                    className="hover:bg-gray-50 dark:hover:bg-gray-750"
+                    className="hover:bg-gray-50 dark:hover:bg-gray-700"
                   >
                     <td className="px-4 py-2 whitespace-nowrap text-xs">
                       {new Date(event.timestamp).toLocaleString("zh-CN")}

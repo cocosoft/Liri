@@ -147,6 +147,36 @@ sseService.on("plan:task_card", (data: Record<string, unknown>) => {
   }
   usePlanTaskStore.getState().upsert(planId, taskCard);
 
+  // P0-1 修复（2026-08-25）：按 planId 去重——已存在同 planId 的 task_decomposition 块
+  // 则仅更新该块快照，不再 addMessage 插入新消息。后端 _broadcastTaskCard 可能
+  // 多轮/重复广播（_launchImplicitPdca 无去重），原实现每次 addMessage → 重复卡片。
+  const existingPlanMsg = useChatStore
+    .getState()
+    .messages.find((m) =>
+      m.blocks?.some(
+        (b) => b.type === "task_decomposition" && b.taskCard?.planId === planId,
+      ),
+    );
+  if (existingPlanMsg) {
+    useChatStore.setState({
+      messages: useChatStore.getState().messages.map((m) =>
+        m.id === existingPlanMsg.id
+          ? {
+              ...m,
+              blocks: (m.blocks ?? []).map((b) =>
+                b.type === "task_decomposition" &&
+                b.taskCard?.planId === planId
+                  ? { ...b, taskCard: { ...taskCard, planId } }
+                  : b,
+              ),
+            }
+          : m,
+      ),
+    });
+    planLogger.debug(`[plan:task_card] planId=${planId} 已存在，更新块快照去重`);
+    return;
+  }
+
   // 在聊天流中插入 task_decomposition 消息
   // L4 修复（2026-08-23）：plan_msg 分配 lastEventSeq（当前消息最大 seq）——
   // 原无该字段，历史加载时 setMessages 排序兜底 0 使 plan_msg 跳至会话最前（顺序错位）。

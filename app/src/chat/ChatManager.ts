@@ -639,6 +639,8 @@ export class ChatManagerImpl implements ChatManager {
 
   /** 第一阶段收敛：PDCA 启动器 */
   private _pdcaLauncher: PdcaLauncher | null = null;
+  /** P0-2（2026-08-25）：正在执行隐性 PDCA launch 的会话集合（会话级锁，防重复任务卡片） */
+  private _pdcaLaunchingSessions = new Set<string>();
 
   /**
    * 任务执行门面
@@ -3144,7 +3146,18 @@ export class ChatManagerImpl implements ChatManager {
           }
 
           // 升级通道：检测到目标时自动发起完整 PDCA 循环（仅显式 create_project 路径触发）
+          // P0-2 修复（2026-08-25）：会话级 launch 锁——同一会话上一轮 launch 未完成时
+          // 跳过本次触发，避免多轮消息（hasGoal 持续命中）每轮 new PlanDrivenLoop +
+          // _broadcastTaskCard 产生重复任务卡片
           if (result.hasGoal && session.metadata?.projectId) {
+            if (this._pdcaLaunchingSessions.has(session.id)) {
+              logger.warn('pdca:launch_skip_duplicate', {
+                sessionId: session.id,
+                projectId: session.metadata.projectId,
+              });
+              return;
+            }
+            this._pdcaLaunchingSessions.add(session.id);
             this._pdcaLauncher!.launch(
               session.metadata.projectId as string,
               assistantMessage.content as string,
@@ -3152,7 +3165,13 @@ export class ChatManagerImpl implements ChatManager {
               lastUserContent || undefined,
               // S3（P1-5 §5 S3）：两层分流决策（复杂度门 + 危险工具 + message 粒度 hash 10%）
               this._shouldUsePlanDrivenLoop(lastUserContent || '')
-            ).catch(() => {});
+            )
+              .catch(() => {
+                /* 隐性引擎失败不阻塞消息流 */
+              })
+              .finally(() => {
+                this._pdcaLaunchingSessions.delete(session.id);
+              });
           }
         })
         .catch(() => {

@@ -17,17 +17,8 @@ import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { tryCoerceToolArgs } from './ToolArgCoercer.js';
 import type { ToolSchema } from './ToolArgCoercer.js';
-import {
-  SandboxManagerImpl,
-  createSandboxManager,
-} from '../sandbox/SandboxImpl';
 
 const logger = getLogger('tools:executor');
-import {
-  SandboxPlatform,
-  createDefaultSandboxConfig,
-  createSandboxExecuteOptions,
-} from '../sandbox/SandboxTypes';
 import {
   preExecutionCheck,
   isPathTraversal,
@@ -72,9 +63,6 @@ export class ToolExecutor {
   /** 是否启用Hook系统 */
   private useHooks: boolean = true;
 
-  /** 沙箱管理器 */
-  private sandboxManager: SandboxManagerImpl;
-
   /** CC 并发执行追踪 */
   private concurrentExecutions: Map<string, Promise<ToolResult>> = new Map();
 
@@ -101,7 +89,6 @@ export class ToolExecutor {
     this.governanceManager =
       governanceManager || GovernanceManager.getInstance();
     this.hookManager = ToolHookManager.getInstance();
-    this.sandboxManager = createSandboxManager();
     this.useGovernance = useGovernance;
     this.useHooks = useHooks;
   }
@@ -389,45 +376,6 @@ export class ToolExecutor {
         module: 'tools:executor',
         action: 'executePostToolUseHooks',
       });
-    }
-  }
-
-  /**
-   * 在沙箱中执行命令
-   * @param command 命令参数
-   * @param options 执行选项
-   * @returns 执行结果
-   */
-  private async executeInSandbox(
-    command: string[],
-    options: {
-      cwd?: string;
-      env?: Record<string, string>;
-      timeout?: number;
-    }
-  ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
-    const platform = this.sandboxManager.getCurrentPlatform();
-    const sandboxConfig = createDefaultSandboxConfig(platform);
-    const sandbox = this.sandboxManager.createSandbox(sandboxConfig);
-
-    await sandbox.initialize(sandboxConfig);
-
-    try {
-      const executeOptions = createSandboxExecuteOptions(command, {
-        cwd: options.cwd,
-        env: options.env,
-        timeout: options.timeout,
-      });
-
-      const result = await sandbox.execute(executeOptions);
-
-      return {
-        stdout: result.stdout,
-        stderr: result.stderr,
-        exitCode: result.exitCode,
-      };
-    } finally {
-      await sandbox.close();
     }
   }
 

@@ -122,7 +122,7 @@ const DEFAULT_CONFIG: SandboxConfig = {
 /**
  * 沙箱管理器实现
  */
-export class SandboxManager implements ISandboxManager {
+export class PermissionSandboxManager implements ISandboxManager {
   /**
    * 配置
    */
@@ -290,7 +290,7 @@ export class SandboxIntegrationService {
    * @param sandboxManager 沙箱管理器
    */
   constructor(sandboxManager?: ISandboxManager) {
-    this.sandboxManager = sandboxManager || new SandboxManager();
+    this.sandboxManager = sandboxManager || new PermissionSandboxManager();
   }
 
   /**
@@ -342,7 +342,7 @@ export class SandboxIntegrationService {
 }
 
 // 导出单例
-export const sandboxManager = new SandboxManager();
+export const sandboxManager = new PermissionSandboxManager();
 export const sandboxIntegrationService = new SandboxIntegrationService(
   sandboxManager
 );

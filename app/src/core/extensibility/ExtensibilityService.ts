@@ -338,9 +338,11 @@ export class ExtensibilityService {
 
     // 注册安全性模块
     this.moduleManager.registerLazyModule('security', async () => {
-      const { SandboxManager, PermissionManager, SecurityAudit } =
+      const { PermissionManager, SecurityAudit } =
         await import('../../security/index.js');
-      const sandboxManager = new SandboxManager();
+      // P0 收敛：security/SandboxManager 已删除（零消费遗留），改用 sandbox 模块活跃单例
+      const { SandboxManager } = await import('../../sandbox/index.js');
+      const sandboxManager = SandboxManager.getInstance();
       const permissionManager = new PermissionManager();
       const securityAudit = new SecurityAudit();
       return {

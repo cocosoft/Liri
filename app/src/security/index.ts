@@ -77,8 +77,7 @@ export {
   generateEncryptionKey,
 } from './securityUtils';
 
-// 沙箱管理
-export { SandboxManager } from './SandboxManager';
+// 沙箱管理（security/SandboxManager 已删除：零消费遗留，P0 清理）
 
 // 权限管理
 export { PermissionManager } from './PermissionManager';

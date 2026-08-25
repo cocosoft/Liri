@@ -10,6 +10,13 @@ import { ToolUtils, checkPathAccessibility } from '../utils/ToolUtils';
 import { exec, execSync, ExecOptions } from 'child_process';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { ToolSandboxRouter } from '../sandbox/ToolSandboxRouter';
+import {
+  LandlockDetector,
+  LandlockPolicyBuilder,
+  readLandlockConfig,
+  runWithLandlock,
+} from '../../sandbox/landlock';
+import { SandboxConfigBuilder } from '../../sandbox/SandboxConfigBuilder';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('tools\BashTool\BashTool');
@@ -461,8 +468,8 @@ export class BashTool {
             );
           }
 
-          // 安全命令本地执行
-          const result = await BashTool.executeCommand(command, {
+          // 安全命令本地执行（P1：Landlock 优先路径，兼容优先回退）
+          const result = await BashTool.executeWithLandlock(command, {
             cwd,
             env,
             timeout,
@@ -531,6 +538,64 @@ export class BashTool {
         }
       });
     });
+  }
+
+  /**
+   * 安全命令本地执行（P1/P2，2026-08-25：Landlock 优先路径，兼容优先回退）
+   *
+   * 决策：兼容优先（2026-08-25 用户确认，方案 §4.1）——无 Landlock 内核/helper
+   * 缺失/沙箱初始化失败（exit 125）时回退现有本地执行，保证功能可用性。
+   * 配置（config.json）：
+   * - `sandbox.landlock.enabled`（默认 true）：总开关，false 时完全走本地执行
+   * - `sandbox.landlock.failClosed`（默认 false）：exit 125 时拒绝而非回退
+   *   显式传参 `failClosed` 优先于配置。
+   */
+  static async executeWithLandlock(
+    command: string,
+    options: ExecOptions & { failClosed?: boolean } = {}
+  ): Promise<{ stdout: string; stderr: string }> {
+    const cfg = readLandlockConfig();
+    if (cfg.enabled) {
+      const cap = await LandlockDetector.detect();
+      if (cap.available && cap.abi >= 1) {
+        try {
+          // ExecOptions.cwd 可为 URL，归一化为字符串路径（URL 场景降级 undefined）
+          const cwd =
+            typeof options.cwd === 'string' ? options.cwd : undefined;
+          const permissions = SandboxConfigBuilder.terminalTool(cwd);
+          const policy = LandlockPolicyBuilder.build(permissions, {
+            cwd,
+            abi: cap.abi,
+          });
+          const result = await runWithLandlock(policy, command, {
+            cwd,
+            env: options.env,
+            timeoutMs: options.timeout,
+          });
+          if (!result.sandboxInitFailed) {
+            return { stdout: result.stdout, stderr: result.stderr };
+          }
+          // exit 125：沙箱初始化失败
+          if (options.failClosed ?? cfg.failClosed) {
+            throw new AppError(
+              `Landlock 沙箱初始化失败: ${result.stderr}`,
+              ErrorCategory.EXECUTION,
+              ErrorSeverity.HIGH,
+              '1000'
+            );
+          }
+          logger.warn('landlock: 沙箱初始化失败，回退本地执行（兼容优先）', {
+            stderr: result.stderr,
+          });
+        } catch (error) {
+          if (error instanceof AppError) throw error;
+          logger.warn('landlock: 执行失败，回退本地执行', {
+            error: String(error),
+          });
+        }
+      }
+    }
+    return BashTool.executeCommand(command, options);
   }
 
   /**

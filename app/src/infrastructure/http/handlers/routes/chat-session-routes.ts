@@ -50,6 +50,7 @@ import {
   handleGetSessionMessages,
   handleGetSessionEvents,
   handleGetSessionStats,
+  handleExportSessionEvents,
   handleForkSession,
   handleListSessions,
   handlePruneSession,
@@ -287,6 +288,18 @@ export async function dispatchChatSessionRoutes(
     const sid = requireSessionId(url, /^\/v1\/sessions\/(.+)\/memory$/, res);
     if (sid === null) return true;
     await handleGetSessionMemory(handlerCtx, req, res, sid);
+    return true;
+  }
+  // P7（2026-08-25）：事件导出（jsonl/json，fromSeq/toSeq）
+  // GET /v1/sessions/:id/events/export?format=jsonl|json&fromSeq&toSeq
+  if (method === 'GET' && url.match(/^\/v1\/sessions\/(.+)\/events\/export$/)) {
+    const sid = requireSessionId(
+      url,
+      /^\/v1\/sessions\/(.+)\/events\/export$/,
+      res
+    );
+    if (sid === null) return true;
+    await handleExportSessionEvents(handlerCtx, req, res, sid);
     return true;
   }
   // M1 事件溯源：获取会话事件流

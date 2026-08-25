@@ -968,6 +968,20 @@ export async function* runStreamMessage(
           genErr instanceof Error
             ? genErr.message.slice(0, 200)
             : String(genErr).slice(0, 200);
+        // P0 落盘缺口（2026-08-25）：流式错误写 system/error 事件，保证刷新后回放可见
+        try {
+          const ts = await host.getStreamTailSeq(session.id);
+          await host.appendStreamEvent(session.id, {
+            type: 'system/error',
+            schemaVersion: 1,
+            seq: ts + 1,
+            time: Date.now(),
+            sessionId: session.id,
+            data: { module: 'chat:ChatManager', message: errorMsg },
+          });
+        } catch {
+          // @ignore-catch — 事件追加失败不阻断主流程（CS03）
+        }
         yield {
           type: 'error',
           content: `流式响应中断: ${errorMsg}`,
@@ -1004,6 +1018,23 @@ export async function* runStreamMessage(
               model: options?.model,
             }
           );
+          // P0 落盘缺口（2026-08-25）：终态 status 提示写 assistant/status（非 compaction/心跳类）
+          try {
+            const ts = await host.getStreamTailSeq(session.id);
+            await host.appendStreamEvent(session.id, {
+              type: 'assistant/status',
+              schemaVersion: 1,
+              seq: ts + 1,
+              time: Date.now(),
+              sessionId: session.id,
+              data: {
+                content:
+                  '模型思考过长被输出上限截断，未生成正文。建议增大 maxTokens、减小上下文，或更换输出能力更强的模型后重试。',
+              },
+            });
+          } catch {
+            // @ignore-catch — 事件追加失败不阻断主流程（CS03）
+          }
           yield {
             type: 'status',
             content:
@@ -1030,6 +1061,23 @@ export async function* runStreamMessage(
         nextMaxTokens: retryState.nextMaxTokens,
         previousContentLength: accumulatedContent.length,
       });
+      // P0 落盘缺口（2026-08-25）：retry 终态提示写 assistant/status
+      try {
+        const ts = await host.getStreamTailSeq(session.id);
+        await host.appendStreamEvent(session.id, {
+          type: 'assistant/status',
+          schemaVersion: 1,
+          seq: ts + 1,
+          time: Date.now(),
+          sessionId: session.id,
+          data: {
+            statusType: 'retry',
+            content: `输出截断，正在以更大 token 限制重试（第 ${retryState.retryCount} 次，maxTokens=${retryState.nextMaxTokens}）...`,
+          },
+        });
+      } catch {
+        // @ignore-catch — 事件追加失败不阻断主流程（CS03）
+      }
       yield {
         type: 'status',
         statusType: 'retry',
@@ -1365,6 +1413,34 @@ export async function* runStreamMessage(
           }
           // todo chunk：工具结果含 _todoData 时产出（对齐旧类 _executeToolRound）
           for (const todoData of loop.getPendingTodos()) {
+            // P0 落盘缺口（2026-08-25）：assistant/todo 落盘，data 对齐前端聚合器结构
+            try {
+              const ts = await host.getStreamTailSeq(session.id);
+              await host.appendStreamEvent(session.id, {
+                type: 'assistant/todo',
+                schemaVersion: 1,
+                seq: ts + 1,
+                time: Date.now(),
+                sessionId: session.id,
+                data: {
+                  action: 'write',
+                  taskCard: {
+                    title: todoData.title,
+                    status: todoData.phase,
+                    tasks: todoData.tasks.map((t) => ({
+                      id: t.id,
+                      name: t.name,
+                      status: t.status,
+                      dependsOn: t.dependsOn,
+                      result: t.result,
+                      durationMs: t.durationMs,
+                    })),
+                  },
+                },
+              });
+            } catch {
+              // @ignore-catch — 事件追加失败不阻断工具循环（CS03）
+            }
             yield {
               type: 'todo',
               content: JSON.stringify(todoData),

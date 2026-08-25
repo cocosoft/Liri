@@ -1009,3 +1009,100 @@ export async function handleForkSession(
     }
   }
 }
+
+/**
+ * GET /v1/sessions/:id/events/export?format=jsonl|json&fromSeq&toSeq — P7（2026-08-25）事件导出
+ *
+ * 复用 coreAPI.getSessionEvents 分页拉取全部事件（避免一次拉爆内存），
+ * 序列化为 jsonl（每行一条）或 json（{ events, count }）。
+ *
+ * 响应：
+ *   200: 导出文本（Content-Type: application/x-ndjson 或 application/json）
+ *   400/500: 错误
+ */
+export async function handleExportSessionEvents(
+  ctx: HandlerCtx,
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  sessionId: string
+): Promise<void> {
+  try {
+    const coreAPI = getCoreAPI();
+    await coreAPI.ensureSessionsLoaded();
+
+    const url = new URL(
+      req.url || '/',
+      `http://${req.headers.host || 'localhost'}`
+    );
+    const format = (url.searchParams.get('format') ?? 'jsonl') as
+      | 'jsonl'
+      | 'json';
+    const fromSeqParam = url.searchParams.get('fromSeq');
+    const toSeqParam = url.searchParams.get('toSeq');
+
+    if (format !== 'jsonl' && format !== 'json') {
+      sendBadRequest(res, 'format must be jsonl or json');
+      return;
+    }
+    const fromSeq = fromSeqParam ? Number(fromSeqParam) : undefined;
+    const toSeq = toSeqParam ? Number(toSeqParam) : undefined;
+    if (
+      (fromSeq !== undefined && (!Number.isFinite(fromSeq) || fromSeq < 1)) ||
+      (toSeq !== undefined && (!Number.isFinite(toSeq) || toSeq < 1))
+    ) {
+      sendBadRequest(res, 'fromSeq/toSeq must be positive numbers');
+      return;
+    }
+
+    // 分页拉取全部（limit 上限 10000）
+    const PAGE = 10000;
+    const all: unknown[] = [];
+    let cursor = fromSeq;
+    for (;;) {
+      const page = await coreAPI.getSessionEvents(sessionId, {
+        fromSeq: cursor,
+        toSeq,
+        limit: PAGE,
+      });
+      all.push(...page.events);
+      if (!page.hasMore || page.events.length === 0) break;
+      cursor = (page.events[page.events.length - 1] as { seq: number }).seq + 1;
+      // 防御：连续分页不前进则终止（toSeq 已包含时）
+      if (toSeq !== undefined && cursor > toSeq) break;
+    }
+
+    if (format === 'jsonl') {
+      const body = all
+        .map((e) => JSON.stringify(e))
+        .join('\n')
+        .concat(all.length > 0 ? '\n' : '');
+      res.writeHead(200, {
+        'Content-Type': 'application/x-ndjson',
+        'Content-Disposition': `attachment; filename="events-${sessionId}.jsonl"`,
+      });
+      res.end(body);
+    } else {
+      res.writeHead(200, {
+        'Content-Type': 'application/json',
+        'Content-Disposition': `attachment; filename="events-${sessionId}.json"`,
+      });
+      res.end(JSON.stringify({ events: all, count: all.length }));
+    }
+  } catch (err) {
+    await handleError(err, {
+      module: 'infra:http:session-handlers',
+      action: 'exportSessionEvents',
+      context: { sessionId },
+    });
+    if (!res.headersSent) {
+      try {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({ error: { message: 'Internal server error' } })
+        );
+      } catch {
+        /* res可能已结束, 忽略 */
+      }
+    }
+  }
+}

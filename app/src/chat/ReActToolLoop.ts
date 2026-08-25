@@ -517,6 +517,17 @@ export class ReActToolLoop extends ReActLoop<
             if (this.negotiationState) {
               addPendingQuestion(this.negotiationState, gateQuestion);
             }
+            // P0 落盘缺口（2026-08-25）：assistant/question 落盘（data 对齐前端聚合器结构）
+            await this._appendStreamEvent('assistant/question', {
+              questionId: gateQuestionData.questionId,
+              question: gateQuestionData.question,
+              header: gateQuestionData.header,
+              options: gateQuestionData.options.map((o) => ({
+                label: o.label,
+                description: o.description,
+              })),
+              multiSelect: gateQuestionData.multiSelect,
+            });
             yield { type: 'question', questionData: gateQuestionData };
             const gateIter = this._awaitAnswersWithHeartbeat(
               gateQuestion.id,
@@ -586,6 +597,17 @@ export class ReActToolLoop extends ReActLoop<
               toolCallId: tc.id,
               toolName: tc.name,
               questionId: questionData.questionId,
+            });
+            // P0 落盘缺口（2026-08-25）：assistant/question 落盘（data 对齐前端聚合器结构）
+            await this._appendStreamEvent('assistant/question', {
+              questionId: questionData.questionId,
+              question: questionData.question,
+              header: questionData.header,
+              options: questionData.options.map((o) => ({
+                label: o.label,
+                description: o.description,
+              })),
+              multiSelect: questionData.multiSelect,
             });
             yield { type: 'question', questionData };
             // 迭代消费心跳 generator（★ 禁止 await async generator：直接 await 不执行代码，心跳全丢）
@@ -922,7 +944,11 @@ export class ReActToolLoop extends ReActLoop<
    * 不进事件流，重新打开会话（events 派生）时正文缺失，仅靠 legacy 合并兜底。
    */
   private async _appendStreamEvent(
-    type: 'assistant/text' | 'assistant/thinking' | 'tool/canceled',
+    type:
+      | 'assistant/text'
+      | 'assistant/thinking'
+      | 'tool/canceled'
+      | 'assistant/question',
     data: unknown
   ): Promise<void> {
     const { appendStreamEvent, getStreamTailSeq } = this.ctx;

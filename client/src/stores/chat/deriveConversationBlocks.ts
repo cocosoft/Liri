@@ -228,6 +228,7 @@ export class IncrementalDeriver {
   reset(): void {
     this.state = {
       current: null,
+      lastAssistantMsg: null,
       toolCallSeqMap: new Map(),
       messages: [],
       turn: 0,

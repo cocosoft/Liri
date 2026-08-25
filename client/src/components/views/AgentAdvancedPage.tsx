@@ -5,11 +5,10 @@ import { workspaceService } from "../../services/workspaceService";
 import { configService } from "../../services/configService";
 import AgentStrategySelector from "../Agent/AgentStrategySelector";
 import AgentSwarmView from "../Agent/AgentSwarmView";
-import AgentTrajectoryView from "../Agent/AgentTrajectoryView";
 import AgentIdentityConfig from "../Agent/AgentIdentityConfig";
 import AgentModelBindingConfig from "../Workspace/AgentModelBindingConfig";
 
-type AgentTab = "strategy" | "swarm" | "trajectory" | "identity" | "bindings";
+type AgentTab = "strategy" | "swarm" | "identity" | "bindings";
 
 function AgentAdvancedPage() {
   const config = useConfigStore((s) => s.config);
@@ -60,7 +59,6 @@ function AgentAdvancedPage() {
   const tabs: { key: AgentTab; label: string }[] = [
     { key: "strategy", label: "策略选择" },
     { key: "swarm", label: "Swarm编排" },
-    { key: "trajectory", label: "执行轨迹" },
     { key: "identity", label: "身份配置" },
     { key: "bindings", label: "模型绑定" },
   ];
@@ -140,10 +138,6 @@ function AgentAdvancedPage() {
               agents={swarmAgents}
               onAgentClick={(agent) => void agent}
             />
-          )}
-
-          {activeTab === "trajectory" && (
-            <AgentTrajectoryView isDark={isDark} trajectories={[]} />
           )}
 
           {activeTab === "identity" && (

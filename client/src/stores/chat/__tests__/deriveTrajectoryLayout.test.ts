@@ -21,7 +21,10 @@
 
 import { describe, expect, it } from "vitest";
 import type { LiriEvent } from "@/types";
-import { deriveTrajectoryLayout } from "../deriveTrajectoryLayout";
+import {
+  deriveTrajectoryLayout,
+  flattenLayout,
+} from "../deriveTrajectoryLayout";
 
 const SID = "sid-test";
 
@@ -170,5 +173,54 @@ describe("deriveTrajectoryLayout — M1-8 纯函数", () => {
     const layout = deriveTrajectoryLayout(events);
     expect(layout.tailSeq).toBe(7);
     expect(layout.turns[0].endSeq).toBe(7);
+  });
+});
+
+describe("flattenLayout — P1 虚拟滚动拍平行（2026-08-25）", () => {
+  it("完整 turn → turn-header 行 + 各事件行，key 稳定", () => {
+    const events: LiriEvent[] = [
+      ev(1, "turn/start", { turn: 1 }),
+      ev(2, "user/message", { content: "hi" }),
+      ev(3, "assistant/text", { content: "hello" }),
+      ev(4, "turn/end", { turn: 1, finishReason: "stop" }),
+    ];
+    const layout = deriveTrajectoryLayout(events);
+    const rows = flattenLayout(layout);
+    expect(rows).toHaveLength(3); // 1 turn-header + 2 事件
+    expect(rows[0]).toMatchObject({ kind: "turn-header", key: "turn-1" });
+    expect(rows[1]).toMatchObject({ kind: "event", key: "ev-1-2" });
+    expect(rows[1]).toMatchObject({ event: { seq: 2 } });
+    expect(rows[2]).toMatchObject({ kind: "event", key: "ev-1-3" });
+  });
+
+  it("orphanEvents → 每事件一行，key 含 orphan 前缀", () => {
+    const events: LiriEvent[] = [
+      ev(1, "session/start", { startedAt: 1000 }),
+      ev(2, "system/info", { module: "test", message: "hi" }),
+    ];
+    const layout = deriveTrajectoryLayout(events);
+    const rows = flattenLayout(layout);
+    expect(rows).toHaveLength(2);
+    expect(rows[0].kind).toBe("event");
+    expect(rows[0].key).toContain("orphan-1");
+  });
+
+  it("step 多 cell 只取首个 cell（与旧渲染一致）", () => {
+    const events: LiriEvent[] = [
+      ev(1, "turn/start", { turn: 1 }),
+      ev(2, "user/message", { content: "hi" }),
+      ev(3, "assistant/text", { content: "a" }),
+      ev(4, "assistant/text", { content: "b" }),
+      ev(5, "turn/end", { turn: 1 }),
+    ];
+    const layout = deriveTrajectoryLayout(events);
+    const rows = flattenLayout(layout);
+    // turn-header(1) + 每个事件一个 step（每 step 1 cell）→ 1 + 3 = 4 行
+    expect(rows).toHaveLength(4);
+    expect(rows.filter((r) => r.kind === "event")).toHaveLength(3);
+  });
+
+  it("空 layout → 空 rows", () => {
+    expect(flattenLayout(deriveTrajectoryLayout([]))).toEqual([]);
   });
 });

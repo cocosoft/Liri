@@ -161,3 +161,39 @@ export function deriveTrajectoryLayout(events: LiriEvent[]): TrajectoryLayout {
     tailSeq: events.length > 0 ? events[events.length - 1].seq : 0,
   };
 }
+
+// ─── 拍平行（P1 虚拟滚动：2026-08-25，Turn 头作为独立行参与虚拟化） ───────
+
+export type TrajectoryFlatRow =
+  | { kind: "turn-header"; turn: TrajectoryTurn; key: string }
+  | { kind: "event"; event: LiriEvent; turn?: TrajectoryTurn; key: string };
+
+/**
+ * 将 TrajectoryLayout 拍平为虚拟滚动行列表：
+ *  每个 Turn 先输出 turn-header 行，再输出其 steps 的首 cell 事件行；最后 orphanEvents 各一行。
+ * 与旧渲染（turn.steps 只渲染 cells[0]）保持内容一致。
+ */
+export function flattenLayout(layout: TrajectoryLayout): TrajectoryFlatRow[] {
+  const rows: TrajectoryFlatRow[] = [];
+  for (const turn of layout.turns) {
+    rows.push({ kind: "turn-header", turn, key: `turn-${turn.startSeq}` });
+    for (const step of turn.steps) {
+      const cell = step.cells[0];
+      if (!cell) continue;
+      rows.push({
+        kind: "event",
+        event: cell.event,
+        turn,
+        key: `ev-${turn.startSeq}-${cell.event.seq}`,
+      });
+    }
+  }
+  for (const event of layout.orphanEvents) {
+    rows.push({
+      kind: "event",
+      event,
+      key: `orphan-${event.seq}-${event.type}`,
+    });
+  }
+  return rows;
+}

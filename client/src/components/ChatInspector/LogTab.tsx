@@ -29,14 +29,7 @@ import {
   summarizeResult,
   type LogEvent,
 } from "../../utils/sessionLog";
-
-// ─── 常量 ─────────────────────────────────────────
-
-/** 详情块统一限高（thinking / 参数 / 结果一视同仁） */
-const DETAIL_MAX_HEIGHT = 200;
-/** 判定"内容过长需截断"的启发式阈值 */
-const LONG_TEXT_CHARS = 600;
-const LONG_TEXT_LINES = 12;
+import { ClampedBody } from "../common/ClampedBody";
 
 type LogView = "all" | "thinking" | "tool" | "system" | "failed";
 
@@ -48,60 +41,6 @@ function formatTime(ts: number): string {
   const hh = String(d.getHours()).padStart(2, "0");
   const mm = String(d.getMinutes()).padStart(2, "0");
   return `${hh}:${mm}`;
-}
-
-function isLongText(text: string): boolean {
-  return (
-    text.length > LONG_TEXT_CHARS ||
-    (text.match(/\n/g)?.length ?? 0) > LONG_TEXT_LINES
-  );
-}
-
-// ─── 子组件：限高正文块 ───────────────────────────
-
-function ClampedBody({
-  text,
-  label,
-  noClamp,
-}: {
-  text: string;
-  label?: string;
-  noClamp?: boolean;
-}) {
-  const [showAll, setShowAll] = useState(false);
-  const long = isLongText(text);
-  const clamped = !noClamp && !showAll;
-
-  return (
-    <div className="mt-1">
-      <div
-        className={`relative overflow-hidden rounded bg-gray-50 dark:bg-gray-800 ${
-          clamped ? "max-h-[200px]" : ""
-        }`}
-        style={clamped ? { maxHeight: DETAIL_MAX_HEIGHT } : undefined}
-      >
-        <pre className="text-[11px] leading-relaxed whitespace-pre-wrap break-all text-gray-600 dark:text-gray-300 p-1.5">
-          {text}
-        </pre>
-        {clamped && long && (
-          <div className="absolute bottom-0 inset-x-0 h-8 bg-gradient-to-t from-gray-50 dark:from-gray-800 to-transparent pointer-events-none" />
-        )}
-      </div>
-      {!noClamp && long && (
-        <button
-          onClick={() => setShowAll((s) => !s)}
-          className="text-[10px] text-blue-500 mt-0.5 hover:underline"
-        >
-          {showAll ? "收起 ▲" : "显示全部 ▼"}
-        </button>
-      )}
-      {label && (
-        <span className="text-[10px] text-gray-400 dark:text-gray-500 mr-1">
-          {label}
-        </span>
-      )}
-    </div>
-  );
 }
 
 // ─── 子组件：单条事件 ─────────────────────────────

@@ -25,8 +25,9 @@
  * 点击行后从底部弹出，展示完整 data JSON。
  */
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import type { LiriEvent } from "@/types";
+import { ClampedBody } from "../common/ClampedBody";
 
 interface Props {
   event: LiriEvent;
@@ -34,6 +35,8 @@ interface Props {
 }
 
 export function TrajectoryDetail({ event, onClose }: Props) {
+  const [copied, setCopied] = useState(false);
+
   const jsonText = useMemo(() => {
     try {
       return JSON.stringify(event.data, null, 2);
@@ -46,6 +49,25 @@ export function TrajectoryDetail({ event, onClose }: Props) {
     return new Date(event.time).toLocaleString("zh-CN", { hour12: false });
   }, [event]);
 
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(jsonText);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // @ignore-catch — 剪贴板不可用时静默
+    }
+  };
+
+  // P5（2026-08-25）：工具事件字段分区块（参数 / 结果 / 错误）
+  const data = (event.data ?? {}) as Record<string, unknown>;
+  const hasArgs = typeof data.arguments === "object" && data.arguments !== null;
+  const hasResult = data.result !== undefined && data.result !== null;
+  const hasError = data.error !== undefined && data.error !== null;
+  const stringifyField = (v: unknown): string =>
+    typeof v === "string" ? v : JSON.stringify(v, null, 2);
+  const showFieldSections = hasArgs || hasResult || hasError;
+
   return (
     <div className="border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 max-h-[50%] flex flex-col">
       <header className="flex items-center justify-between px-3 py-2 border-b border-gray-200 dark:border-gray-700">
@@ -57,13 +79,27 @@ export function TrajectoryDetail({ event, onClose }: Props) {
             {event.type}
           </span>
         </div>
-        <button
-          onClick={onClose}
-          className="px-2 py-0.5 text-xs text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 rounded"
-          aria-label="关闭详情"
-        >
-          ✕
-        </button>
+        <div className="flex items-center gap-1 shrink-0">
+          {/* P5：复制 JSON */}
+          <button
+            onClick={handleCopy}
+            className={`px-2 py-0.5 text-xs rounded border transition-colors ${
+              copied
+                ? "text-emerald-600 dark:text-emerald-400 border-emerald-300 dark:border-emerald-700"
+                : "text-gray-600 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-200 dark:hover:bg-gray-700"
+            }`}
+            aria-label="复制 JSON"
+          >
+            {copied ? "已复制 ✓" : "复制 JSON"}
+          </button>
+          <button
+            onClick={onClose}
+            className="px-2 py-0.5 text-xs text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 rounded"
+            aria-label="关闭详情"
+          >
+            ✕
+          </button>
+        </div>
       </header>
       <div className="flex-1 overflow-auto p-3 text-xs">
         <dl className="grid grid-cols-[80px_1fr] gap-x-2 gap-y-1 mb-3">
@@ -96,10 +132,42 @@ export function TrajectoryDetail({ event, onClose }: Props) {
             </>
           )}
         </dl>
-        <div className="text-gray-500 dark:text-gray-400 mb-1">data</div>
-        <pre className="whitespace-pre-wrap break-all font-mono text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-900 p-2 rounded border border-gray-200 dark:border-gray-700">
-          {jsonText}
-        </pre>
+
+        {showFieldSections ? (
+          /* P5：工具事件字段聚焦（参数 / 结果 / 错误分区块） */
+          <div className="space-y-2">
+            {hasArgs && (
+              <div>
+                <div className="text-gray-500 dark:text-gray-400 mb-0.5">
+                  arguments
+                </div>
+                <ClampedBody text={stringifyField(data.arguments)} />
+              </div>
+            )}
+            {hasResult && (
+              <div>
+                <div className="text-gray-500 dark:text-gray-400 mb-0.5">
+                  result
+                </div>
+                <ClampedBody text={stringifyField(data.result)} />
+              </div>
+            )}
+            {hasError && (
+              <div>
+                <div className="text-gray-500 dark:text-gray-400 mb-0.5">
+                  error
+                </div>
+                <ClampedBody text={stringifyField(data.error)} />
+              </div>
+            )}
+          </div>
+        ) : (
+          /* 非工具事件：完整 data 限高展示 */
+          <div>
+            <div className="text-gray-500 dark:text-gray-400 mb-0.5">data</div>
+            <ClampedBody text={jsonText} />
+          </div>
+        )}
       </div>
     </div>
   );

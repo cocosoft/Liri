@@ -7,6 +7,7 @@
 
 import React from "react";
 import { useCallback, useRef, useEffect, useMemo } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { useChatInspectorStore } from "../../stores/chatInspectorStore";
 import type { InspectorTab } from "../../stores/chatInspectorStore";
 import ContextTab from "./ContextTab";
@@ -17,12 +18,31 @@ import { useTrajectoryStore } from "../../stores/chat/trajectoryStore";
 import { TrajectoryFilter } from "../Trajectory/TrajectoryFilter";
 import { TrajectoryRow } from "../Trajectory/TrajectoryRow";
 import { TrajectoryDetail } from "../Trajectory/TrajectoryDetail";
+import { TrajectoryPlayer } from "../Trajectory/TrajectoryPlayer";
 import LogTab from "./LogTab";
 import type { LiriEvent } from "../../types";
 import { categorizeEvent } from "../../types";
-import { deriveTrajectoryLayout } from "../../stores/chat/deriveTrajectoryLayout";
+import { trajectoryService } from "../../services/trajectoryService";
+import {
+  deriveTrajectoryLayout,
+  flattenLayout,
+} from "../../stores/chat/deriveTrajectoryLayout";
 
 // ─── 配置 ─────────────────────────────────────────
+
+// P7（2026-08-25）：来源维度派生映射（对标 DSH 按来源查看，复用 categorizeEvent 而非新加枚举）
+const CATEGORY_TO_SOURCE: Record<string, string> = {
+  conversation: "llm",
+  tool: "tool",
+  context: "system",
+  system: "system",
+  channel: "channel",
+  lifecycle: "system",
+};
+
+function categoryToSource(category: string): string {
+  return CATEGORY_TO_SOURCE[category] ?? "system";
+}
 
 const TABS: { id: InspectorTab; icon: React.ReactNode; label: string }[] = [
   {
@@ -160,7 +180,7 @@ function TrajectoryTabContentImpl() {
 
   const {
     events,
-    tailSeq,
+    liveTailSeq,
     loading,
     error,
     selectedSeq,
@@ -170,6 +190,13 @@ function TrajectoryTabContentImpl() {
     hasMore,
     selectEvent,
     setFilter,
+    playing,
+    playbackSpeed,
+    playbackIndex,
+    togglePlay,
+    setPlaybackSpeed,
+    seekPlayback,
+    advancePlayback,
   } = useTrajectoryStore();
 
   // 会话切换 → 重新加载该会话的事件流
@@ -190,6 +217,22 @@ function TrajectoryTabContentImpl() {
       const set = new Set(filter.types);
       result = result.filter((e) => set.has(e.type));
     }
+    // P7（2026-08-25）：来源过滤（categorizeEvent → source 派生映射）
+    if (filter.sources.length > 0) {
+      const set = new Set(filter.sources);
+      result = result.filter((e) =>
+        set.has(categoryToSource(categorizeEvent(e.type))),
+      );
+    }
+    // P7（2026-08-25）：seq / 时间区间过滤
+    if (filter.minSeq !== undefined)
+      result = result.filter((e) => e.seq >= filter.minSeq!);
+    if (filter.maxSeq !== undefined)
+      result = result.filter((e) => e.seq <= filter.maxSeq!);
+    if (filter.fromTime !== undefined)
+      result = result.filter((e) => e.time >= filter.fromTime!);
+    if (filter.toTime !== undefined)
+      result = result.filter((e) => e.time <= filter.toTime!);
     if (filter.keyword.trim()) {
       const kw = filter.keyword.trim().toLowerCase();
       result = result.filter((e) => {
@@ -200,6 +243,11 @@ function TrajectoryTabContentImpl() {
           typeof data.error === "string" ? data.error : "",
           typeof data.message === "string" ? data.message : "",
           typeof data.result === "string" ? data.result : "",
+          typeof data.toolCallId === "string" ? data.toolCallId : "",
+          typeof data.turn === "number" || typeof data.turn === "string"
+            ? String(data.turn)
+            : "",
+          typeof data.model === "string" ? data.model : "",
         ];
         return candidates.some((c) => c.toLowerCase().includes(kw));
       });
@@ -219,6 +267,29 @@ function TrajectoryTabContentImpl() {
     [filteredEvents],
   );
 
+  // P1（2026-08-25）：轨迹 Tab 虚拟滚动——layout 拍平为行列表，Turn 头作为独立 virtual item
+  const flatRows = useMemo(() => flattenLayout(layout), [layout]);
+  const flatParentRef = useRef<HTMLDivElement>(null);
+  const rowVirtualizer = useVirtualizer({
+    count: flatRows.length,
+    getScrollElement: () => flatParentRef.current,
+    estimateSize: () => 40,
+    overscan: 8,
+    getItemKey: (index) => flatRows[index]?.key ?? index,
+  });
+
+  // P6（2026-08-25）：回放播放定时器——按 speed 倍率推进一行（简化固定间隔）
+  useEffect(() => {
+    if (!playing || flatRows.length === 0) return;
+    const timer = setInterval(
+      () => {
+        advancePlayback(flatRows.length);
+      },
+      Math.max(200, 600 / playbackSpeed),
+    );
+    return () => clearInterval(timer);
+  }, [playing, playbackSpeed, flatRows.length, advancePlayback]);
+
   if (!sessionId) {
     return (
       <div className="p-6 text-sm text-gray-500 dark:text-gray-400 text-center">
@@ -229,11 +300,31 @@ function TrajectoryTabContentImpl() {
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <div className="px-4 py-2 text-xs text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/50">
-        {filteredEvents.length}/{events.length} 条 · tailSeq={tailSeq}
+      <div className="px-4 py-2 text-xs text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/50 flex items-center justify-between">
+        <span>
+          {filteredEvents.length}/{events.length} 条 · tailSeq={liveTailSeq}
+        </span>
+        {/* P7：导出事件（jsonl） */}
+        <button
+          onClick={() => sessionId && trajectoryService.exportEvents(sessionId)}
+          disabled={!sessionId || events.length === 0}
+          className="px-2 py-0.5 text-[10px] rounded border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed"
+          title="导出事件为 JSONL"
+        >
+          导出事件
+        </button>
       </div>
+      <TrajectoryPlayer
+        totalRows={flatRows.length}
+        playing={playing}
+        playbackSpeed={playbackSpeed}
+        playbackIndex={playbackIndex}
+        onToggle={togglePlay}
+        onSpeed={setPlaybackSpeed}
+        onSeek={seekPlayback}
+      />
       <TrajectoryFilter filter={filter} onChange={setFilter} />
-      <div className="flex-1 overflow-y-auto">
+      <div ref={flatParentRef} className="flex-1 overflow-y-auto">
         {loading && events.length === 0 ? (
           <div className="p-4 text-sm text-gray-500 dark:text-gray-400">
             加载中...
@@ -247,66 +338,66 @@ function TrajectoryTabContentImpl() {
             {events.length === 0 ? "暂无事件" : "无匹配事件"}
           </div>
         ) : (
-          <div>
-            {layout.turns.map((turn) => (
-              <div
-                key={`turn-${turn.startSeq}`}
-                className="border-b border-gray-100 dark:border-gray-800"
-              >
-                {/* Turn 分组头：回合号 + 状态标注（规格书 E-2 完成/中断） */}
-                <div className="px-3 py-1.5 text-[11px] flex items-center gap-2 bg-gray-50/80 dark:bg-gray-900/80 sticky top-0 z-10">
-                  <span className="font-semibold text-blue-600 dark:text-blue-400">
-                    Turn {turn.turn}
-                  </span>
-                  <span className="text-gray-400">
-                    seq {turn.startSeq}-{turn.endSeq} · {turn.eventCount} 事件
-                  </span>
-                  {turn.completed ? (
-                    <span className="text-green-600 dark:text-green-400">
-                      已完成
-                    </span>
-                  ) : turn.interrupted ? (
-                    <span className="text-orange-500">已中断</span>
+          <div
+            style={{
+              height: rowVirtualizer.getTotalSize(),
+              position: "relative",
+              width: "100%",
+            }}
+          >
+            {rowVirtualizer.getVirtualItems().map((vi) => {
+              const row = flatRows[vi.index];
+              if (!row) return null;
+              return (
+                <div
+                  key={vi.key}
+                  data-index={vi.index}
+                  ref={rowVirtualizer.measureElement}
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    width: "100%",
+                    transform: `translateY(${vi.start}px)`,
+                  }}
+                >
+                  {row.kind === "turn-header" ? (
+                    /* Turn 分组头（P1：独立 virtual item，不再使用 sticky） */
+                    <div className="px-3 py-1.5 text-[11px] flex items-center gap-2 bg-gray-50/80 dark:bg-gray-900/80 border-b border-gray-100 dark:border-gray-800">
+                      <span className="font-semibold text-blue-600 dark:text-blue-400">
+                        Turn {row.turn.turn}
+                      </span>
+                      <span className="text-gray-400">
+                        seq {row.turn.startSeq}-{row.turn.endSeq} ·{" "}
+                        {row.turn.eventCount} 事件
+                      </span>
+                      {row.turn.completed ? (
+                        <span className="text-green-600 dark:text-green-400">
+                          已完成
+                        </span>
+                      ) : row.turn.interrupted ? (
+                        <span className="text-orange-500">已中断</span>
+                      ) : (
+                        <span className="text-amber-500">进行中</span>
+                      )}
+                    </div>
                   ) : (
-                    <span className="text-amber-500">进行中</span>
+                    <TrajectoryRow
+                      event={row.event}
+                      selected={
+                        row.event.seq === selectedSeq ||
+                        vi.index === playbackIndex
+                      }
+                      onClick={() =>
+                        selectEvent(
+                          row.event.seq === selectedSeq ? null : row.event.seq,
+                        )
+                      }
+                    />
                   )}
                 </div>
-                <div className="divide-y divide-gray-50 dark:divide-gray-800/50">
-                  {turn.steps.map((step, si) => {
-                    const cell = step.cells[0];
-                    if (!cell) return null;
-                    return (
-                      <TrajectoryRow
-                        key={`${turn.startSeq}-${si}-${cell.event.seq}`}
-                        event={cell.event}
-                        selected={cell.event.seq === selectedSeq}
-                        onClick={() =>
-                          selectEvent(
-                            cell.event.seq === selectedSeq
-                              ? null
-                              : cell.event.seq,
-                          )
-                        }
-                      />
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
-            {layout.orphanEvents.length > 0 && (
-              <div className="divide-y divide-gray-50 dark:divide-gray-800/50">
-                {layout.orphanEvents.map((event) => (
-                  <TrajectoryRow
-                    key={`${event.seq}-${event.type}`}
-                    event={event}
-                    selected={event.seq === selectedSeq}
-                    onClick={() =>
-                      selectEvent(event.seq === selectedSeq ? null : event.seq)
-                    }
-                  />
-                ))}
-              </div>
-            )}
+              );
+            })}
           </div>
         )}
         {hasMore && !loading && (

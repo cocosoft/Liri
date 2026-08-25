@@ -5,7 +5,13 @@
  * streamMessage：流式发送主流程（写前持久化 + SSE 消费 + 批量更新 +
  * 无内容兜底 + 检查点恢复），chunk 处理委托 chat-stream-chunk.ts。
  */
-import type { Message, MessageBlock, AttachedImage } from "@/types";
+import type {
+  Message,
+  MessageBlock,
+  AttachedImage,
+  LiriEvent,
+  LiriEventType,
+} from "@/types";
 import {
   chatService,
   enqueueOutbox,
@@ -35,6 +41,32 @@ import {
 import type { MessageSet, MessageGet } from "./chat-message.types";
 import { EventBasedStreamAggregator } from "./streaming/EventBasedStreamAggregator";
 import { trajectoryService } from "@/services/trajectoryService";
+
+// P8（2026-08-25）：稀疏基线——骨架（turn/tool_call/result 全量，重建 toolCallSeqMap）
+// + 最近 N 条完整事件（尾部正文可见），更早正文按需 loadMore，降低长会话常驻内存。
+const SKELETON_TYPES: LiriEventType[] = [
+  "turn/start",
+  "turn/end",
+  "assistant/tool_call",
+  "tool/result",
+];
+const TAIL_COMPLETE_COUNT = 500;
+
+async function loadSparseBaseline(sid: string): Promise<LiriEvent[]> {
+  const skeleton = await trajectoryService.getEvents(sid, {
+    types: SKELETON_TYPES,
+    limit: 10000,
+  });
+  const tailStart = Math.max(1, skeleton.tailSeq - TAIL_COMPLETE_COUNT + 1);
+  const tail = await trajectoryService.getEvents(sid, {
+    fromSeq: tailStart,
+    limit: TAIL_COMPLETE_COUNT,
+  });
+  // 合并 + 按 seq 去重排序
+  const bySeq = new Map<number, LiriEvent>();
+  for (const e of [...skeleton.events, ...tail.events]) bySeq.set(e.seq, e);
+  return Array.from(bySeq.values()).sort((a, b) => a.seq - b.seq);
+}
 
 const logger = createLogger("stores:chat:message");
 
@@ -374,9 +406,7 @@ export async function streamMessageImpl(
     /** P0-1：聚合器健康度标志（false 时最终落盘跳过覆盖，后端权威数据优先） */
     let aggregatorHealthy = true;
     try {
-      const eventsResult = await trajectoryService.getEvents(sid, {
-        limit: 10000,
-      });
+      const eventsResult = { events: await loadSparseBaseline(sid) };
       await streamAggregator.init(eventsResult.events, sid, {
         assistantMessageId: assistantId,
       });

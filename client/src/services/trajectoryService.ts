@@ -30,6 +30,7 @@
 
 import type { LiriEvent, LiriEventType } from "../types";
 import { http as apiHttp } from "./httpClient";
+import { getBackendBaseUrl } from "./backendUrl";
 import { createLogger } from "../utils/logger";
 import { handleClientError } from "../utils/handleError";
 import { getOTelTracing } from "../monitoring/otel";
@@ -136,5 +137,29 @@ export const trajectoryService = {
         }
       },
     );
+  },
+
+  /** 导出会话事件（P7，2026-08-25）：下载 jsonl/json 文件 */
+  exportEvents: (
+    sessionId: string,
+    format: "jsonl" | "json" = "jsonl",
+  ): void => {
+    try {
+      const url = `${getBackendBaseUrl()}/v1/sessions/${encodeURIComponent(
+        sessionId,
+      )}/events/export?format=${format}`;
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `events-${sessionId}.${format}`;
+      a.rel = "noopener";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    } catch (e) {
+      handleClientError(e, {
+        module: "services:trajectory",
+        action: "exportEvents",
+      });
+    }
   },
 };

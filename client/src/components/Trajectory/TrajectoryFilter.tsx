@@ -26,7 +26,7 @@
  */
 
 import { useId } from "react";
-import type { LiriEventCategory } from "@/types";
+import type { LiriEventCategory, LiriEventType } from "@/types";
 import type { TrajectoryFilterState } from "@/stores/chat/trajectoryStore";
 
 const CATEGORY_OPTIONS: Array<{
@@ -69,6 +69,35 @@ const CATEGORY_OPTIONS: Array<{
   },
 ];
 
+// P7（2026-08-25）：常用事件类型快捷过滤
+const TYPE_OPTIONS: Array<{ value: LiriEventType; label: string }> = [
+  { value: "turn/start", label: "turn/start" },
+  { value: "turn/end", label: "turn/end" },
+  { value: "user/message", label: "user" },
+  { value: "assistant/text", label: "text" },
+  { value: "assistant/thinking", label: "thinking" },
+  { value: "assistant/tool_call", label: "tool_call" },
+  { value: "tool/result", label: "result" },
+  { value: "tool/canceled", label: "canceled" },
+  { value: "assistant/status", label: "status" },
+  { value: "assistant/todo", label: "todo" },
+  { value: "assistant/question", label: "question" },
+  { value: "assistant/doc_workflow", label: "doc_workflow" },
+  { value: "assistant/progress", label: "progress" },
+  { value: "assistant/truncation", label: "truncation" },
+  { value: "context/compaction", label: "compaction" },
+  { value: "system/error", label: "error" },
+];
+
+// P7（2026-08-25）：来源维度（对标 DSH 按来源查看，由 categorizeEvent 派生）
+const SOURCE_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: "llm", label: "LLM" },
+  { value: "tool", label: "工具" },
+  { value: "system", label: "系统" },
+  { value: "channel", label: "通道" },
+  { value: "user", label: "用户" },
+];
+
 interface Props {
   filter: TrajectoryFilterState;
   onChange: (patch: Partial<TrajectoryFilterState>) => void;
@@ -83,6 +112,30 @@ export function TrajectoryFilter({ filter, onChange }: Props) {
     else set.add(cat);
     onChange({ categories: Array.from(set) });
   };
+
+  const toggleType = (type: LiriEventType) => {
+    const set = new Set(filter.types);
+    if (set.has(type)) set.delete(type);
+    else set.add(type);
+    onChange({ types: Array.from(set) });
+  };
+
+  const toggleSource = (source: string) => {
+    const set = new Set(filter.sources);
+    if (set.has(source)) set.delete(source);
+    else set.add(source);
+    onChange({ sources: Array.from(set) });
+  };
+
+  const hasAdvancedFilter =
+    filter.keyword.trim() !== "" ||
+    filter.categories.length > 0 ||
+    filter.types.length > 0 ||
+    filter.sources.length > 0 ||
+    filter.minSeq !== undefined ||
+    filter.maxSeq !== undefined ||
+    filter.fromTime !== undefined ||
+    filter.toTime !== undefined;
 
   return (
     <div className="px-3 py-2 border-b border-gray-200 dark:border-gray-700 space-y-2">
@@ -116,17 +169,129 @@ export function TrajectoryFilter({ filter, onChange }: Props) {
           type="text"
           value={filter.keyword}
           onChange={(e) => onChange({ keyword: e.target.value })}
-          placeholder="content / name / error / result"
+          placeholder="content / name / error / result / toolCallId"
           className="flex-1 px-2 py-1 text-xs border border-gray-200 dark:border-gray-700 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
         />
-        {(filter.keyword || filter.categories.length > 0) && (
+        {hasAdvancedFilter && (
           <button
-            onClick={() => onChange({ keyword: "", categories: [] })}
+            onClick={() =>
+              onChange({
+                keyword: "",
+                categories: [],
+                types: [],
+                sources: [],
+                minSeq: undefined,
+                maxSeq: undefined,
+                fromTime: undefined,
+                toTime: undefined,
+              })
+            }
             className="px-2 py-1 text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
           >
             清除
           </button>
         )}
+      </div>
+      {/* P7：来源维度（对标 DSH 按来源查看） */}
+      <div className="flex flex-wrap gap-1">
+        {SOURCE_OPTIONS.map((opt) => {
+          const active = filter.sources.includes(opt.value);
+          return (
+            <button
+              key={opt.value}
+              onClick={() => toggleSource(opt.value)}
+              className={`px-1.5 py-0.5 rounded text-[10px] transition ${
+                active
+                  ? "bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300"
+                  : "bg-gray-50 text-gray-500 hover:bg-gray-100 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
+              }`}
+            >
+              {opt.label}
+            </button>
+          );
+        })}
+      </div>
+      {/* P7：类型多选（低垂果实，store 已有 types 字段） */}
+      <div className="flex flex-wrap gap-1">
+        {TYPE_OPTIONS.map((opt) => {
+          const active = filter.types.includes(opt.value);
+          return (
+            <button
+              key={opt.value}
+              onClick={() => toggleType(opt.value)}
+              className={`px-1.5 py-0.5 rounded text-[10px] font-mono transition ${
+                active
+                  ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300"
+                  : "bg-gray-50 text-gray-500 hover:bg-gray-100 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
+              }`}
+            >
+              {opt.label}
+            </button>
+          );
+        })}
+      </div>
+      {/* P7：seq / 时间区间 */}
+      <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 flex-wrap">
+        <span className="shrink-0">seq</span>
+        <input
+          type="number"
+          value={filter.minSeq ?? ""}
+          onChange={(e) =>
+            onChange({
+              minSeq:
+                e.target.value === "" ? undefined : Number(e.target.value),
+            })
+          }
+          placeholder="min"
+          className="w-16 px-1.5 py-0.5 text-xs border border-gray-200 dark:border-gray-700 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
+        />
+        <span>~</span>
+        <input
+          type="number"
+          value={filter.maxSeq ?? ""}
+          onChange={(e) =>
+            onChange({
+              maxSeq:
+                e.target.value === "" ? undefined : Number(e.target.value),
+            })
+          }
+          placeholder="max"
+          className="w-16 px-1.5 py-0.5 text-xs border border-gray-200 dark:border-gray-700 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
+        />
+        <span className="shrink-0 ml-2">时间</span>
+        <input
+          type="datetime-local"
+          value={
+            filter.fromTime !== undefined
+              ? new Date(filter.fromTime).toISOString().slice(0, 16)
+              : ""
+          }
+          onChange={(e) =>
+            onChange({
+              fromTime: e.target.value
+                ? new Date(e.target.value).getTime()
+                : undefined,
+            })
+          }
+          className="px-1.5 py-0.5 text-xs border border-gray-200 dark:border-gray-700 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
+        />
+        <span>~</span>
+        <input
+          type="datetime-local"
+          value={
+            filter.toTime !== undefined
+              ? new Date(filter.toTime).toISOString().slice(0, 16)
+              : ""
+          }
+          onChange={(e) =>
+            onChange({
+              toTime: e.target.value
+                ? new Date(e.target.value).getTime()
+                : undefined,
+            })
+          }
+          className="px-1.5 py-0.5 text-xs border border-gray-200 dark:border-gray-700 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
+        />
       </div>
     </div>
   );

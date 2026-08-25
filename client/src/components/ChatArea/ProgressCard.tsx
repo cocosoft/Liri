@@ -1,4 +1,5 @@
 import type { ProgressData } from "../../types";
+import { getToolDisplayName } from "../../utils/toolHumanSummary";
 
 interface ProgressCardProps {
   data: ProgressData;
@@ -128,7 +129,9 @@ export default function ProgressCard({ data }: ProgressCardProps) {
                       : "text-gray-600 dark:text-gray-400"
                   }`}
                 >
-                  {step.name}
+                  {/* 修复 6（2026-08-25）：工具名转中文可读（如 todo_write → 待办写入），
+                      currentStep 为工具名，比较仍用原始名保持匹配 */}
+                  {getToolDisplayName(step.name)}
                 </span>
                 {step.name === currentStep && (
                   <span className="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />

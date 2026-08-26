@@ -168,6 +168,8 @@ const RICH_BLOCK_TYPES = new Set<LiriEventType>([
   'assistant/truncation',
   'assistant/deliverable',
   'assistant/diff',
+  // CM-5（2026-08-25）：Code Mode 执行块（无 messageId，归属最近 assistant）
+  'assistant/code_run',
 ]);
 
 function isRichBlockEvent(type: LiriEventType): boolean {
@@ -372,6 +374,16 @@ function applyRichBlock(ev: LiriEvent, agg: Aggregated): void {
         type: 'diff',
         content: (data.diff as string) ?? '',
         diffData: data,
+      });
+      break;
+    }
+    // CM-5（2026-08-25）：Code Mode 执行块（对齐前端 deriveConversationBlocks code_run 分支）
+    case 'assistant/code_run': {
+      blocks.push({
+        id: `blk_${ev.seq}`,
+        type: 'code_run',
+        content: (data.code as string) ?? 'Code Run',
+        codeRunData: data,
       });
       break;
     }

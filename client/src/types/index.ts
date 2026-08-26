@@ -30,6 +30,7 @@ export type {
   InboxBlockData,
   Tool,
   DocWorkflowProgressData,
+  CodeRunBlockData,
 } from "./message";
 
 // ─── 模型与供应商 ───

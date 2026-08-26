@@ -266,6 +266,10 @@ export const FEATURE_FLAGS = {
   /** UDS 收件箱 */
   UDS_INBOX: false,
 
+  // ───── Code Mode（模型生成编排代码沙箱执行，默认关闭）─────
+  /** code_run 工具总开关（默认关闭，显式开启才暴露；CM-1 三轮评审 P0-2） */
+  CODE_MODE: false,
+
   // ───── 工作流脚本 ─────
   /** 工作流脚本 */
   WORKFLOW_SCRIPTS: false,

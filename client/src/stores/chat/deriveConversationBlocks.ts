@@ -867,6 +867,35 @@ function handleEvent(
       break;
     }
 
+    // CM-5（2026-08-25）：Code Mode 执行块——独立块展示代码/状态/输出/内部调用摘要
+    case "assistant/code_run": {
+      ensureCurrent(state, event, sessionId, assistantMessageId);
+      const data = (event.data as MessageBlock["codeRunData"]) ?? {
+        code: "",
+        round: 0,
+        status: "failed",
+      };
+      state.current!.blocks!.push({
+        id: generateBlockId(),
+        type: "code_run",
+        content: data.code || "Code Run",
+        codeRunData: {
+          code: data.code,
+          round: data.round,
+          status: data.status,
+          output: data.output,
+          error: data.error,
+          structuredError: data.structuredError,
+          toolCalls: data.toolCalls,
+          logs: data.logs,
+          durationMs: data.durationMs,
+        },
+        isStreaming: false,
+        groupId: state.currentGroupId,
+      });
+      break;
+    }
+
     // 其他事件不影响对话视图
     default: {
       // system/error, system/warning, system/info, metric/timing,

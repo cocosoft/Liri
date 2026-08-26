@@ -65,7 +65,9 @@ export type LiriEventType =
   | 'session/start'
   | 'session/end'
   // ─── 标题（D5，2026-08-24：标题事件化，log-only 不入消息 surface） ───
-  | 'session/title';
+  | 'session/title'
+  // ─── Code Mode（CM-5，2026-08-25：code_run 执行事件） ───
+  | 'assistant/code_run';
 
 // ─── 事件载荷映射 ───────────────────────────────────────────────────────────
 
@@ -440,6 +442,43 @@ export interface LiriEventMap {
     diff: string;
     language?: string;
     stats?: { additions: number; deletions: number };
+  };
+
+  /**
+   * Code Mode 执行事件（CM-5，2026-08-25）
+   * 记录 code_run 工具执行：每轮代码版本 + 结果 + 内部工具调用摘要（不逐条落 tool_call）。
+   * round 序号同时供轮次计数事件流重建（CM-1 持久化）。
+   */
+  'assistant/code_run': {
+    /** 本轮编排代码（完整版本） */
+    code: string;
+    /** 轮次序号（供轮次计数事件流重建） */
+    round: number;
+    /** 执行结果分类 */
+    status:
+      | 'completed'
+      | 'failed'
+      | 'compiled-error'
+      | 'security-rejected'
+      | 'timeout'
+      | 'canceled';
+    /** 结构化结果（done(result) 携带） */
+    output?: unknown;
+    /** 错误信息 */
+    error?: string;
+    /** 结构化错误（顶层异常帧） */
+    structuredError?: { type: string; message: string; stack?: string };
+    /** 内部工具调用摘要（CM-5：不逐条落独立 tool_call 事件） */
+    toolCalls?: Array<{
+      name: string;
+      argsHash: string;
+      truncatedResult?: string;
+      ok: boolean;
+    }>;
+    /** 用户脚本日志（截断） */
+    logs?: string[];
+    /** 执行耗时（ms） */
+    durationMs?: number;
   };
 }
 

@@ -83,7 +83,8 @@ export interface MessageBlock {
     | "deliverable"
     | "diff"
     | "inbox"
-    | "doc_workflow";
+    | "doc_workflow"
+    | "code_run";
   content: string;
   toolCall?: ToolCall;
   /** 事件派生块字段（后端 EventMessageDeriver.makeBlock）：toolName/args 为 toolCall 的扁平化，加载时归一化 */
@@ -104,6 +105,40 @@ export interface MessageBlock {
   diffData?: DiffData;
   inboxData?: InboxBlockData;
   docWorkflowData?: DocWorkflowProgressData;
+  codeRunData?: CodeRunBlockData;
+}
+
+/** Code Mode 执行块数据（CM-5 读侧：回放展示代码/状态/输出/内部调用摘要） */
+export interface CodeRunBlockData {
+  /** 本轮编排代码 */
+  code: string;
+  /** 轮次序号 */
+  round: number;
+  /** 执行结果分类 */
+  status:
+    | "completed"
+    | "failed"
+    | "compiled-error"
+    | "security-rejected"
+    | "timeout"
+    | "canceled";
+  /** 结构化结果（done(result) 携带） */
+  output?: unknown;
+  /** 错误信息 */
+  error?: string;
+  /** 结构化错误（顶层异常帧） */
+  structuredError?: { type: string; message: string; stack?: string };
+  /** 内部工具调用摘要（CM-5：不逐条落独立 tool_call 事件） */
+  toolCalls?: Array<{
+    name: string;
+    argsHash: string;
+    truncatedResult?: string;
+    ok: boolean;
+  }>;
+  /** 用户脚本日志（截断） */
+  logs?: string[];
+  /** 执行耗时（ms） */
+  durationMs?: number;
 }
 
 export interface TaskCardData {

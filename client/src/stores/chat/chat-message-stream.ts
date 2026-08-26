@@ -682,7 +682,12 @@ export async function streamMessageImpl(
     let finalBlocks: Message["blocks"] = derivedBlocks ?? [];
     if (!controller.signal.aborted) {
       const hasVisibleResult = derivedBlocks.some(
-        (b) => b.type === "text" || b.type === "question" || b.type === "todo",
+        (b) =>
+          b.type === "text" ||
+          b.type === "question" ||
+          b.type === "todo" ||
+          // CM-5（2026-08-25）：code_run 执行块是用户可见成果，避免触发无内容兜底
+          b.type === "code_run",
       );
       if (!hasVisibleResult) {
         noVisibleResultTriggered = true;

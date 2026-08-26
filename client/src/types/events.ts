@@ -59,7 +59,9 @@ export type LiriEventType =
   | "channel/message"
   | "session/start"
   | "session/end"
-  | "session/title";
+  | "session/title"
+  // ─── Code Mode（CM-5，2026-08-25） ───
+  | "assistant/code_run";
 
 // ─── 事件载荷映射 ───────────────────────────────
 
@@ -252,6 +254,29 @@ export interface LiriEventMap {
     diff: string;
     language?: string;
     stats?: { additions: number; deletions: number };
+  };
+  // CM-5（2026-08-25）：Code Mode 执行事件
+  "assistant/code_run": {
+    code: string;
+    round: number;
+    status:
+      | "completed"
+      | "failed"
+      | "compiled-error"
+      | "security-rejected"
+      | "timeout"
+      | "canceled";
+    output?: unknown;
+    error?: string;
+    structuredError?: { type: string; message: string; stack?: string };
+    toolCalls?: Array<{
+      name: string;
+      argsHash: string;
+      truncatedResult?: string;
+      ok: boolean;
+    }>;
+    logs?: string[];
+    durationMs?: number;
   };
 }
 

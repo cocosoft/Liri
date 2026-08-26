@@ -164,8 +164,7 @@ sseService.on("plan:task_card", (data: Record<string, unknown>) => {
           ? {
               ...m,
               blocks: (m.blocks ?? []).map((b) =>
-                b.type === "task_decomposition" &&
-                b.taskCard?.planId === planId
+                b.type === "task_decomposition" && b.taskCard?.planId === planId
                   ? { ...b, taskCard: { ...taskCard, planId } }
                   : b,
               ),
@@ -173,7 +172,9 @@ sseService.on("plan:task_card", (data: Record<string, unknown>) => {
           : m,
       ),
     });
-    planLogger.debug(`[plan:task_card] planId=${planId} 已存在，更新块快照去重`);
+    planLogger.debug(
+      `[plan:task_card] planId=${planId} 已存在，更新块快照去重`,
+    );
     return;
   }
 

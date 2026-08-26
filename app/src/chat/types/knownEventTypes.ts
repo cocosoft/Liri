@@ -38,6 +38,8 @@ export const KNOWN_SESSION_EVENT_TYPES: ReadonlySet<string> = new Set<string>([
   'assistant/todo',
   'assistant/doc_workflow',
   'assistant/truncation',
+  // ─── Code Mode（CM-5，2026-08-25） ───
+  'assistant/code_run',
   // ─── 交付物/diff ───
   'assistant/deliverable',
   'assistant/diff',

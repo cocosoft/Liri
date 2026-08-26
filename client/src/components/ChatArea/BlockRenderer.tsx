@@ -24,6 +24,7 @@ import DeliverableCard from "./DeliverableCard";
 import DiffBlock from "./DiffBlock";
 import InboxBlock from "./InboxBlock";
 import { DocWorkflowProgress } from "./DocWorkflowProgress";
+import CodeRunCard from "./CodeRunCard";
 import { useChatStore } from "../../stores/chat";
 import { createLogger } from "@/utils/logger";
 
@@ -149,6 +150,11 @@ function BlockRenderer({
         );
       }
       return <MissingDataFallback type="doc_workflow" block={block} />;
+    case "code_run":
+      if (block.codeRunData) {
+        return <CodeRunCard data={block.codeRunData} />;
+      }
+      return <MissingDataFallback type="code_run" block={block} />;
     case "text":
     default:
       return (

@@ -10,6 +10,7 @@ import type { MessageBlock } from "../../types";
 import ToolCallGroup from "./ToolCallGroup";
 import MarkdownRenderer from "./MarkdownRenderer";
 import GroupStatusLine from "./GroupStatusLine";
+import CodeRunCard from "./CodeRunCard";
 
 function BlockItem({
   block,
@@ -34,6 +35,10 @@ function BlockItem({
           isStreaming={block.isStreaming ?? false}
           variant="card"
         />
+      ) : null;
+    case "code_run":
+      return block.codeRunData ? (
+        <CodeRunCard data={block.codeRunData} />
       ) : null;
     case "text":
     default:

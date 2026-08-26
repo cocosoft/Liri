@@ -53,6 +53,8 @@ import { MessageToEventMigrator } from '@modules/session/storage/MessageToEventM
 import { ReconcileService } from '@modules/session/reconcile/ReconcileService';
 import { dedupeToolCallBlocks } from '@modules/chat/utils/chatBlocks';
 import type { LiriEvent } from '@modules/chat/types/events';
+import { feature as coreFeature } from '@modules/core';
+import { configureCodeRunner } from '@modules/tools/CodeRunner/CodeRunnerTool';
 import {
   sanitizeApiMessages,
   compressToolHistory,
@@ -556,6 +558,81 @@ export class ChatManagerImpl implements ChatManager {
   }
 
   /**
+   * CM-6（2026-08-25）：Code Mode 自动分流灰度百分比（0~100，默认 0）
+   * 首版默认不自动分流——模型显式选择 code_run 工具优先；
+   * 可通过 CODE_MODE_TRAFFIC_PERCENT 开启灰度（message 粒度 hash，复用 _hashMessage）。
+   */
+  private readonly _codeModeTrafficPercent: number = (() => {
+    const raw = configManager.env('CODE_MODE_TRAFFIC_PERCENT');
+    const val = raw && !isNaN(Number(raw)) ? Number(raw) : 0;
+    return Math.min(100, Math.max(0, val));
+  })();
+
+  /**
+   * CM-6：Code Mode 分流决策（与 _shouldUsePlanDrivenLoop 平级）
+   * CODE_MODE feature 关闭 → 恒 false（不注入 code_run 建议）；
+   * 灰度命中表示"本轮建议走 code_run 编排"（用于与 PDCA launch 互斥）。
+   * 工具注册/模型显式选择 code_run 不受此方法控制（优先级更高）。
+   */
+  private _shouldUseCodeMode(message: string): boolean {
+    if (!coreFeature('CODE_MODE')) return false;
+    if (this._codeModeTrafficPercent >= 100) return true;
+    if (this._codeModeTrafficPercent <= 0) return false;
+    const hash = this._hashMessage(message);
+    const shouldUse = hash < this._codeModeTrafficPercent;
+    logger.info('Code Mode 分流', {
+      messagePreview: message.slice(0, 50),
+      hash,
+      trafficPercent: this._codeModeTrafficPercent,
+      shouldUse,
+    });
+    return shouldUse;
+  }
+
+  /**
+   * CM-6：CodeRunner 运行期依赖接线（CODE_MODE 开启时配置）
+   * readContext 复用 per-session EventLogStorage.read；
+   * writeEvent 复用 appendStreamEvent（seq 取自 EventLogStorage tailSeq）。
+   */
+  private _wireCodeRunnerDeps(): void {
+    if (!coreFeature('CODE_MODE')) return;
+    configureCodeRunner({
+      readContext: async (opts) => {
+        const sid = this._currentSessionId;
+        if (!sid) return { unavailable: true, reason: 'no active session' };
+        const log = this._getOrCreateEventLog(sid);
+        return log.read({ limit: opts?.limit ?? 100 });
+      },
+      writeEvent: async (type, data) => {
+        const sid = this._currentSessionId;
+        if (!sid) return;
+        const log = this._getOrCreateEventLog(sid);
+        const tail = await log.getTailSeq();
+        await this.appendStreamEvent(sid, {
+          type: type as LiriEvent['type'],
+          schemaVersion: 1,
+          seq: tail + 1,
+          time: Date.now(),
+          sessionId: sid,
+          data: data as LiriEvent['data'],
+        });
+      },
+      // CM-1 持久化重建：统计会话事件流中 code_run 事件数作为已用轮次
+      loadUsedRounds: async () => {
+        const sid = this._currentSessionId;
+        if (!sid) return 0;
+        const log = this._getOrCreateEventLog(sid);
+        const events = await log.read({
+          types: ['assistant/code_run' as LiriEvent['type']],
+          limit: 10000,
+        });
+        return events.length;
+      },
+    });
+    logger.info('CodeRunner runtime deps wired (CODE_MODE enabled)');
+  }
+
+  /**
    * P0 修复（2026-08-14 排查）：TAORLoop 按 sessionId 的 Map 缓存——原单例 `_taorLoop`
    * 首次调用固化了 sessionId，若首个检查点 sessionId 为空（脏数据），之后所有会话
    * 共用绑定空 id 的 TAORLoop → steering 队列/检查点跨会话串扰。Map 化 + 非空校验根治。
@@ -720,6 +797,9 @@ export class ChatManagerImpl implements ChatManager {
       messageService: this.messageService,
       persistMessage: (sid, msg) => this._addAndPersistMessage(sid, msg),
     });
+
+    // CM-6：Code Mode 运行期依赖接线（CODE_MODE 开启时）
+    this._wireCodeRunnerDeps();
 
     // 第三阶段收敛：初始化工具执行服务
     this._toolExecutionService = new ToolExecutionService({
@@ -3149,7 +3229,12 @@ export class ChatManagerImpl implements ChatManager {
           // P0-2 修复（2026-08-25）：会话级 launch 锁——同一会话上一轮 launch 未完成时
           // 跳过本次触发，避免多轮消息（hasGoal 持续命中）每轮 new PlanDrivenLoop +
           // _broadcastTaskCard 产生重复任务卡片
-          if (result.hasGoal && session.metadata?.projectId) {
+          // CM-6 互斥（2026-08-25）：Code Mode 分流命中时跳过 PDCA，避免双引擎并发
+          if (
+            result.hasGoal &&
+            session.metadata?.projectId &&
+            !this._shouldUseCodeMode(lastUserContent || '')
+          ) {
             if (this._pdcaLaunchingSessions.has(session.id)) {
               logger.warn('pdca:launch_skip_duplicate', {
                 sessionId: session.id,

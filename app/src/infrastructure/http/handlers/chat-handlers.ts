@@ -1133,9 +1133,19 @@ export async function handleQuestionAnswer(
     const body = await ctx.readRequestBody(req);
     const { questionId, answers, sessionId } = JSON.parse(body);
 
-    if (!questionId || !answers || !Array.isArray(answers)) {
+    // 残余项 3（2026-08-26）：校验加强——questionId 必须为非空字符串，
+    // answers 必须为非空字符串数组（原仅 Array.isArray，字符串/对象可绕过）
+    const validAnswers =
+      Array.isArray(answers) &&
+      answers.length > 0 &&
+      answers.every((a) => typeof a === 'string' && a.trim().length > 0);
+    if (typeof questionId !== 'string' || !questionId.trim() || !validAnswers) {
       res.writeHead(400, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'questionId 和 answers 是必填项' }));
+      res.end(
+        JSON.stringify({
+          error: 'questionId 和 answers（非空字符串数组）为必填项',
+        })
+      );
       return;
     }
 
@@ -1150,8 +1160,16 @@ export async function handleQuestionAnswer(
       sessionId
     );
     if (resolved) {
+      // 残余项 1（2026-08-26）：成功响应带 content 确认文案——激活前端
+      // onQuestionResponse 链路（原只返回 {success:true} 无 content，
+      // QuestionBlock/ChatMessage 的确认消息追加分支永不执行，属死代码）
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ success: true }));
+      res.end(
+        JSON.stringify({
+          success: true,
+          content: '已收到您的回答，正在继续处理…',
+        })
+      );
       return;
     }
 

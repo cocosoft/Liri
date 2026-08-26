@@ -15,6 +15,41 @@ interface QuestionBlockProps {
 // "其他"选项的固定 label
 const OTHER_LABEL = "__other__";
 
+// 残余项 2（2026-08-26）：提交失败本地兜底——答案缓存到 localStorage（outbox），
+// 刷新/切会话后提供重试，避免网络错误/后端 500 导致答案丢失
+const OUTBOX_PREFIX = "pyapp.question_outbox.";
+
+interface OutboxEntry {
+  answers: string[];
+  sessionId?: string;
+  ts: number;
+}
+
+function readOutbox(questionId: string): OutboxEntry | null {
+  try {
+    const raw = localStorage.getItem(OUTBOX_PREFIX + questionId);
+    return raw ? (JSON.parse(raw) as OutboxEntry) : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeOutbox(questionId: string, entry: OutboxEntry): void {
+  try {
+    localStorage.setItem(OUTBOX_PREFIX + questionId, JSON.stringify(entry));
+  } catch {
+    // 忽略（隐私模式等存储不可用时），本次尝试仍保留在组件状态
+  }
+}
+
+function clearOutbox(questionId: string): void {
+  try {
+    localStorage.removeItem(OUTBOX_PREFIX + questionId);
+  } catch {
+    // 忽略
+  }
+}
+
 function QuestionBlock({
   questionData,
   sessionId,
@@ -49,6 +84,10 @@ function QuestionBlock({
   const [interrupted, setInterrupted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
+  // 残余项 2（2026-08-26）：挂载时读取本地 outbox，存在未提交成功的回答则提供重试
+  const [pendingOutbox, setPendingOutbox] = useState<OutboxEntry | null>(() =>
+    readOutbox(questionId),
+  );
 
   const { question, header, options, multiSelect, questionId } = questionData;
 
@@ -74,6 +113,77 @@ function QuestionBlock({
     });
   };
 
+  // 残余项 2（2026-08-26）：提交核心逻辑——失败/异常时写入本地 outbox，
+  // 成功/404（会话中断）时清除；供初次提交与 outbox 重试复用
+  const submitAnswers = async (answers: string[]) => {
+    setSubmitting(true);
+    try {
+      // 提交回答到后端
+      const result = await chatService.submitQuestionAnswer(
+        questionId,
+        answers,
+        sessionId,
+      );
+
+      // 404 = 后端无对应待处理交互（会话中断/后端重启/交互超时），
+      // 锁定并提示"会话已中断"，禁止无限重试（方案 1）
+      if (result.notFound) {
+        clearOutbox(questionId);
+        setPendingOutbox(null);
+        setInterrupted(true);
+        setSubmitted(true);
+        logger.warn("question 块失效：后端无对应交互，锁定", {
+          questionId,
+          sessionId,
+          interruptedAt: new Date().toISOString(),
+        });
+        return;
+      }
+
+      // #9 修复：仅成功才锁定（原失败也 setSubmitted(true)，用户无法重试）
+      if (result.success) {
+        clearOutbox(questionId);
+        setPendingOutbox(null);
+        setSubmitted(true);
+        // BUG-11 修复（2026-08-23）：提交成功立即清除 hasPendingQuestion——
+        // 原实现仅靠 ChatMessage onResponse 回调（依赖后端返回 content，但
+        // handleQuestionAnswer 只返回 {success:true} 无 content，回调永不触发），
+        // 导致"AI 正在等待您的回答"提示一直显示。
+        const sid = sessionId ?? "default";
+        useChatStore.setState((s) => ({
+          hasPendingQuestion: { ...s.hasPendingQuestion, [sid]: false },
+        }));
+        logger.info("question 提交成功，等待后端恢复流", {
+          questionId,
+          sessionId,
+          answerCount: answers.length,
+        });
+        // 非流式路径：后端返回最终响应内容（残余项 1 激活：handleQuestionAnswer
+        // 现返回 content 确认文案），通过回调追加到消息列表
+        if (result.content && onResponse) {
+          onResponse(result.content);
+        }
+      } else {
+        // 提交失败（网络错误/后端 500）：答案缓存到本地 outbox，刷新后仍可重试
+        writeOutbox(questionId, { answers, sessionId, ts: Date.now() });
+        setPendingOutbox({ answers, sessionId, ts: Date.now() });
+        logger.warn("提交回答失败，已缓存到本地 outbox，允许重试", {
+          questionId,
+        });
+      }
+    } catch (e) {
+      // #9 修复：异常不锁定，保留可重试状态；答案写入 outbox 兜底
+      writeOutbox(questionId, { answers, sessionId, ts: Date.now() });
+      setPendingOutbox({ answers, sessionId, ts: Date.now() });
+      logger.error("提交回答异常，已缓存到本地 outbox", {
+        questionId,
+        error: String(e),
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const handleSubmit = async () => {
     // #9 修复：提交期间防重（原双击/连点会重复提交）
     if (submitted || submitting) return;
@@ -95,57 +205,13 @@ function QuestionBlock({
         : selectedLabels;
     }
 
-    setSubmitting(true);
-    try {
-      // 提交回答到后端
-      const result = await chatService.submitQuestionAnswer(
-        questionId,
-        answers,
-        sessionId,
-      );
+    await submitAnswers(answers);
+  };
 
-      // 404 = 后端无对应待处理交互（会话中断/后端重启/交互超时），
-      // 锁定并提示"会话已中断"，禁止无限重试（方案 1）
-      if (result.notFound) {
-        setInterrupted(true);
-        setSubmitted(true);
-        logger.warn("question 块失效：后端无对应交互，锁定", {
-          questionId,
-          sessionId,
-          interruptedAt: new Date().toISOString(),
-        });
-        return;
-      }
-
-      // #9 修复：仅成功才锁定（原失败也 setSubmitted(true)，用户无法重试）
-      if (result.success) {
-        setSubmitted(true);
-        // BUG-11 修复（2026-08-23）：提交成功立即清除 hasPendingQuestion——
-        // 原实现仅靠 ChatMessage onResponse 回调（依赖后端返回 content，但
-        // handleQuestionAnswer 只返回 {success:true} 无 content，回调永不触发），
-        // 导致"AI 正在等待您的回答"提示一直显示。
-        const sid = sessionId ?? "default";
-        useChatStore.setState((s) => ({
-          hasPendingQuestion: { ...s.hasPendingQuestion, [sid]: false },
-        }));
-        logger.info("question 提交成功，等待后端恢复流", {
-          questionId,
-          sessionId,
-          answerCount: answers.length,
-        });
-        // 非流式路径：后端返回了最终响应内容，通过回调追加到消息列表
-        if (result.content && onResponse) {
-          onResponse(result.content);
-        }
-      } else {
-        logger.warn("提交回答失败，未锁定，允许重试", { questionId });
-      }
-    } catch (e) {
-      // #9 修复：异常不锁定，保留可重试状态
-      logger.error("提交回答异常", { questionId, error: String(e) });
-    } finally {
-      setSubmitting(false);
-    }
+  // 重试 outbox 中缓存的回答（不依赖当前 UI 选择状态）
+  const handleRetryOutbox = async () => {
+    if (!pendingOutbox || submitting) return;
+    await submitAnswers(pendingOutbox.answers);
   };
 
   const canSubmit =
@@ -362,6 +428,21 @@ function QuestionBlock({
               {multiSelect && (
                 <span className="text-xs text-gray-400">可多选</span>
               )}
+            </div>
+          )}
+
+          {/* 残余项 2（2026-08-26）：本地 outbox 重试提示——上次提交未成功，
+              回答已保留，提供一键重试（不依赖当前 UI 选择状态） */}
+          {pendingOutbox && !submitted && !interrupted && (
+            <div className="flex items-center justify-between gap-2 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded px-2.5 py-2">
+              <span>⚠️ 上次提交未成功，您的回答已保留</span>
+              <button
+                onClick={handleRetryOutbox}
+                disabled={submitting}
+                className="shrink-0 px-3 py-1 text-xs bg-amber-600 hover:bg-amber-700 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-md transition-colors"
+              >
+                {submitting ? "提交中..." : "重试提交"}
+              </button>
             </div>
           )}
 

@@ -86,6 +86,7 @@ import { isToolEnabled } from './utils/ToolFeatureFlags';
 import { isFeatureEnabled } from '@modules/core';
 import { NodesTool } from './NodesTool/NodesTool';
 import { SleepTool } from './SleepTool/SleepTool.js';
+import { CodeRunnerTool } from './CodeRunner/CodeRunnerTool.js';
 import { MonitorTool } from './MonitorTool/MonitorTool.js';
 import { CodeAnalysisTool } from './CodeAnalysisTool/CodeAnalysisTool';
 import { VoiceInputTool } from './VoiceInputTool/VoiceInputTool';
@@ -564,6 +565,23 @@ export class ToolFactory {
       void handleError(error, {
         module: 'tools:factory',
         action: 'create_sleep_tool',
+      });
+      return null;
+    }
+  }
+
+  /**
+   * 创建 CodeRunner 工具（code_run，Code Mode）
+   * 由 ToolManagerUtils 条件注册（CODE_MODE 开关），此处工厂方法兜底。
+   * @returns CodeRunner工具实例
+   */
+  createCodeRunnerTool(): Tool | null {
+    try {
+      return new CodeRunnerTool();
+    } catch (error) {
+      void handleError(error, {
+        module: 'tools:factory',
+        action: 'create_code_runner_tool',
       });
       return null;
     }

@@ -19,12 +19,17 @@ import {
 import type {
   Plugin as SdkPlugin,
   PluginContext,
+  ToolRegistration,
 } from '../../plugin-sdk/types';
 import {
   KernelServiceRegistry,
   KernelServiceId,
 } from '../api/KernelServiceRegistry';
 import { getServiceProviderPluginId } from '../utils/dependencyResolver';
+import { buildTool } from '@modules/tools/types/Tool';
+import type { ToolParam } from '@modules/tools/types/Tool';
+import { createToolResult } from '@modules/tools/types/ToolResult';
+import { getToolRegistry } from '../../tools/ToolRegistry';
 
 const logger = getLogger('plugins:core:sdkPluginAdapter');
 
@@ -206,6 +211,49 @@ export class SdkPluginAdapter {
   }
 
   /**
+   * 将 SDK 插件声明的工具注册进全局单例 ToolRegistry（PY-0）
+   * ToolRegistration → Tool 适配：
+   * - parameters（JSON Schema properties 风格）→ ToolParam[]
+   * - execute 返回值包成 ToolResult
+   * 冲突语义：onConflict='error'，与已注册工具撞名时报错而非静默覆盖（P0-3）。
+   * @param plugin SDK 插件
+   */
+  registerTools(plugin: SdkPlugin): void {
+    const registrations: ToolRegistration[] = plugin.tools ?? [];
+    if (registrations.length === 0) return;
+
+    const registry = getToolRegistry();
+    for (const registration of registrations) {
+      registry.registerTool(toRegisteredTool(registration), {
+        onConflict: 'error',
+      });
+    }
+    logger.info(
+      `SDK plugin ${plugin.id} registered ${registrations.length} tools`,
+      {
+        names: registrations.map((t) => t.name),
+      }
+    );
+  }
+
+  /**
+   * 注销 SDK 插件的全部工具（全局单例 ToolRegistry 中该插件注册的）
+   * @param plugin SDK 插件
+   */
+  unregisterTools(plugin: SdkPlugin): void {
+    const registrations: ToolRegistration[] = plugin.tools ?? [];
+    if (registrations.length === 0) return;
+
+    const registry = getToolRegistry();
+    for (const registration of registrations) {
+      registry.unregisterTool(registration.name);
+    }
+    logger.info(
+      `SDK plugin ${plugin.id} unregistered ${registrations.length} tools`
+    );
+  }
+
+  /**
    * 执行 SDK 生命周期钩子
    * 映射：initialize↔initialize / activate↔start / deactivate↔stop / destroy↔unload
    * @param phase 生命周期阶段
@@ -233,4 +281,37 @@ export class SdkPluginAdapter {
       );
     }
   }
+}
+
+/** JSON Schema properties 条目 → ToolParam 适配 */
+function toToolParam(name: string, schema: unknown): ToolParam {
+  const s = (schema ?? {}) as Record<string, unknown>;
+  return {
+    name,
+    type: typeof s.type === 'string' ? s.type : 'string',
+    description: typeof s.description === 'string' ? s.description : '',
+    required: s.required === true,
+    default: s.default,
+    enum: Array.isArray(s.enum) ? (s.enum as string[]) : undefined,
+  };
+}
+
+/** ToolRegistration → Tool（buildTool 填充默认方法） */
+function toRegisteredTool(registration: ToolRegistration) {
+  const schema = (registration.parameters ?? {}) as Record<string, unknown>;
+  const params = Object.entries(schema).map(([name, prop]) =>
+    toToolParam(name, prop)
+  );
+
+  return buildTool({
+    name: registration.name,
+    description: registration.description,
+    params,
+    isEnabled: () => true,
+    isConcurrencySafe: () => true,
+    execute: async (input: Record<string, unknown>) => {
+      const result = await registration.execute(input);
+      return createToolResult(result);
+    },
+  });
 }

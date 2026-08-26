@@ -14,6 +14,7 @@ import { resolvePluginsInstalledDir } from '@modules/core';
 import { PluginRegistry } from '../core/PluginRegistry.js';
 import { NpmDistributor } from '../distribution/NpmDistributor.js';
 import { pluginSecurityScanner } from '../utils/pluginSecurityScanner.js';
+import { installPythonPlugin } from './PythonPluginInstaller.js';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('plugins:install:PluginInstallManager');
@@ -192,6 +193,18 @@ export class PluginInstallManager {
 
     // 2026-08-06 清理：原 skipDependencies 依赖安装分支为死代码（deps 恒为空数组），已删除；依赖安装待插件依赖解析机制落地后接入
 
+    // PY-6：Python 插件安装依赖（venv）+ 生成 plugin.json 桥接清单（已定案 b）
+    const pythonInstall = await this.installPythonIfNeeded(targetPath);
+    if (pythonInstall && !pythonInstall.success) {
+      return {
+        success: false,
+        pluginName: options.sourcePath,
+        version: options.version || 'unknown',
+        installPath: targetPath,
+        error: pythonInstall.error ?? 'Python 插件安装失败',
+      };
+    }
+
     const record: InstallRecord = {
       pluginName: options.sourcePath,
       version: options.version || '1.0.0',
@@ -228,6 +241,32 @@ export class PluginInstallManager {
     } catch {
       // @ignore-catch — 安装/卸载操作失败返回 false（失败由调用方提示，不抛错）
       return false;
+    }
+  }
+
+  /**
+   * PY-6：检测并安装 Python 插件（manifest 含 entry.python / type=python）
+   * @param targetPath 插件安装目录
+   * @returns 安装结果（非 Python 插件返回 undefined）
+   */
+  private async installPythonIfNeeded(
+    targetPath: string
+  ): Promise<ReturnType<typeof installPythonPlugin> | undefined> {
+    const manifestPath = path.join(targetPath, 'plugin.json');
+    if (!fs.existsSync(manifestPath)) return undefined;
+
+    try {
+      const parsed = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
+      const base =
+        parsed && typeof parsed.plugin === 'object' && parsed.plugin !== null
+          ? parsed.plugin
+          : parsed;
+      const isPython = base?.entry?.python || base?.type === 'python';
+      if (!isPython) return undefined;
+      return await installPythonPlugin(targetPath, base);
+    } catch (error) {
+      logger.warn('Python 插件检测失败', { targetPath, error });
+      return undefined;
     }
   }
 

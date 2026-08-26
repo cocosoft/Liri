@@ -188,6 +188,12 @@ export interface Plugin {
    */
   __hotDispose?: () => void | Promise<void>;
 
+  /**
+   * 声明式工具注册（PY-0）：插件声明工具列表，宿主经 SdkPluginAdapter
+   * 适配后注册进全局单例 ToolRegistry（getToolRegistry()）。
+   */
+  tools?: ToolRegistration[];
+
   skills?: SkillDefinition[];
 }
 
@@ -232,6 +238,13 @@ export interface PluginManifest {
   author: string;
   type: string;
   main: string;
+  /**
+   * Python 入口（PY-4，与 main 二选一）：{"python": "main.py"} 脚本风格（v1）。
+   * 存在 entry.python 时 Python 插件可省略 main（校验改为「main 或 entry.python 至少其一」）。
+   */
+  entry?: {
+    python?: string;
+  };
   engine?: string;
   dependencies?: string[];
   optionalDependencies?: string[];
@@ -248,9 +261,19 @@ export interface PluginManifest {
   homepage?: string;
   license?: string;
   icon?: string;
+  tools?: PluginToolManifest[];
   skills?: PluginSkillManifest[];
   hooks?: PluginHookManifest[];
   configSchema?: Record<string, unknown>;
+}
+
+/** 工具清单（对应 Plugin.tools 的静态声明） */
+export interface PluginToolManifest {
+  name: string;
+  description: string;
+  parameters?: Record<string, unknown>;
+  /** 入口函数名（Python 插件桥接清单用，TS 插件可省略） */
+  entryFunction?: string;
 }
 
 /** 技能清单 */

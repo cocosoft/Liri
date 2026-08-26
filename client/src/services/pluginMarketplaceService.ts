@@ -14,6 +14,8 @@ export interface MarketplacePlugin {
   repository?: string;
   homepage?: string;
   license?: string;
+  /** 插件类型（PY-6：'python' 表示 Python 插件，市场页显示语言标签） */
+  type?: string;
 }
 
 /** 已安装插件信息（后端 PluginSystem.getPluginInfoList 的 PluginInfo） */

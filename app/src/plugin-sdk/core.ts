@@ -50,6 +50,8 @@ export function createPlugin(definition: {
   destroy?: (context: PluginContext) => Promise<void> | void;
   /** T3.3: 热替换清理钩子（可选） */
   __hotDispose?: () => void | Promise<void>;
+  /** 声明式工具注册（PY-0） */
+  tools?: import('./types').ToolRegistration[];
   skills?: Array<{
     id: string;
     name: string;
@@ -84,6 +86,7 @@ export function createPlugin(definition: {
     deactivate: definition.deactivate,
     destroy: definition.destroy,
     __hotDispose: definition.__hotDispose,
+    tools: definition.tools,
     skills: definition.skills,
   };
 }
@@ -211,10 +214,15 @@ export function validatePluginManifest(
     });
   }
 
-  if (!manifest.main) {
+  // PY-4：main 与 entry.python 二选一（Python 插件可省略 main）
+  const hasMain = typeof manifest.main === 'string' && manifest.main.length > 0;
+  const hasPythonEntry =
+    typeof manifest.entry?.python === 'string' &&
+    manifest.entry.python.length > 0;
+  if (!hasMain && !hasPythonEntry) {
     errors.push({
-      code: 'ERR_MISSING_MAIN',
-      message: '插件入口文件不能为空',
+      code: 'ERR_MISSING_ENTRY',
+      message: '插件入口不能为空：需提供 main 或 entry.python（至少其一）',
       field: 'main',
     });
   }
@@ -226,6 +234,19 @@ export function validatePluginManifest(
           code: 'ERR_MISSING_SKILL_ID',
           message: `技能 #${index + 1} 缺少 ID`,
           field: `skills[${index}].id`,
+        });
+      }
+    }
+  }
+
+  // PY-0：tools 声明校验——数组元素必须有 name
+  if (manifest.tools) {
+    for (const [index, tool] of manifest.tools.entries()) {
+      if (!tool.name) {
+        errors.push({
+          code: 'ERR_MISSING_TOOL_NAME',
+          message: `工具 #${index + 1} 缺少 name`,
+          field: `tools[${index}].name`,
         });
       }
     }

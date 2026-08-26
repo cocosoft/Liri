@@ -27,6 +27,8 @@ export interface MarketplacePlugin {
   repository?: string;
   homepage?: string;
   license?: string;
+  /** 插件类型（PY-6：'python' 表示 Python 插件，市场页据此显示语言标签） */
+  type?: string;
 }
 
 /**
@@ -364,6 +366,7 @@ export class PluginMarketplace {
         repository?: string;
         homepage?: string;
         license?: string;
+        type?: string;
         versions?: MarketPluginVersion[];
       }
 
@@ -382,6 +385,7 @@ export class PluginMarketplace {
           repository: item.repository,
           homepage: item.homepage,
           license: item.license,
+          type: item.type,
         };
         this.plugins.set(plugin.id, plugin);
 

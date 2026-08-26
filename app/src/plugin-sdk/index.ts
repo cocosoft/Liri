@@ -49,6 +49,7 @@ export type {
   PluginManifest,
   PluginSkillManifest,
   PluginSkillParameter,
+  PluginToolManifest,
   PluginHookManifest,
   PluginValidationResult,
   PluginValidationError,

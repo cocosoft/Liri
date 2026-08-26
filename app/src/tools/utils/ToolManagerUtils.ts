@@ -118,6 +118,12 @@ export function getBuiltinToolLoaders(): ToolLoader[] {
     createToolLoader(ToolFactory.prototype.createMonitorTool),
     createToolLoader(ToolFactory.prototype.createTraceRecordingTool),
 
+    // Code Mode（code_run，默认关闭——CODE_MODE=false 时不注册）
+    conditionalTool(
+      coreFeature('CODE_MODE'),
+      createToolLoader(ToolFactory.prototype.createCodeRunnerTool)
+    ),
+
     // 团队与消息工具 (工厂方法内部进行特性开关检查)
     createToolLoader(ToolFactory.prototype.createSendMessageTool),
     createToolLoader(ToolFactory.prototype.createTeamCreateTool),

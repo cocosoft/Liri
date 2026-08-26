@@ -160,7 +160,6 @@ function validateManifest(
       { field: 'description', label: 'description' },
       { field: 'author', label: 'author' },
       { field: 'type', label: 'type' },
-      { field: 'main', label: 'main' },
     ];
 
   for (const { field, label } of requiredFields) {
@@ -171,6 +170,19 @@ function validateManifest(
         code: 'MISSING_REQUIRED_FIELD',
       });
     }
+  }
+
+  // PY-4：main 与 entry.python 二选一（Python 插件可省略 main）
+  const hasMain = typeof manifest.main === 'string' && manifest.main.length > 0;
+  const hasPythonEntry =
+    typeof manifest.entry?.python === 'string' &&
+    manifest.entry.python.length > 0;
+  if (!hasMain && !hasPythonEntry) {
+    errors.push({
+      field: 'main',
+      message: '插件入口不能为空：需提供 main 或 entry.python（至少其一）',
+      code: 'MISSING_ENTRY',
+    });
   }
 
   if (typeof manifest.engine === 'string' && manifest.version) {

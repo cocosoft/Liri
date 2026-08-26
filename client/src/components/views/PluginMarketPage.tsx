@@ -305,6 +305,11 @@ function PluginMarketPage() {
                             官方
                           </span>
                         )}
+                        {plugin.type === "python" && (
+                          <span className="ml-2 px-1.5 py-0.5 text-[10px] rounded bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                            Python
+                          </span>
+                        )}
                       </div>
                       <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                         {plugin.author} · v{plugin.version}

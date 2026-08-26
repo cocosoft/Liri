@@ -13,7 +13,8 @@
 2. **纯类型 + 纯函数**：SDK 中仅包含类型定义和纯工具函数，不含运行时服务依赖
 
 3. **版本兼容**：对 SDK 公开 API 的任何破坏性变更必须：
-   - 更新 `testing/plugin-sdk/api-baseline.test.ts` 中的契约测试
+   - 更新 `app/src/plugin-sdk/__tests__/ManifestLoaderEntry.test.ts` 中的契约测试（manifest 校验/entry.python）
+   - 更新 `app/src/plugins/__tests__/SdkPluginAdapter.test.ts` 中的适配测试（工具注册等）
    - 在发布说明中标注 breaking change
 
 ### 导入路径
@@ -64,4 +65,4 @@
 
 ### 契约测试
 
-每次修改 SDK 后执行：`bun test testing/plugin-sdk/`
+每次修改 SDK 后执行：`bun run test -- --run ManifestLoaderEntry.test.ts SdkPluginAdapter.test.ts`

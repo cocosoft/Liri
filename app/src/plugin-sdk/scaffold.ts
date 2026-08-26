@@ -33,6 +33,8 @@ export interface PluginScaffoldOptions {
   injectOptional?: string[];
   /** 插件名依赖 */
   dependencies?: string[];
+  /** 模板语言（PY-7）：'ts'（默认）| 'python' */
+  language?: 'ts' | 'python';
 }
 
 /** 生成的模板文件 */
@@ -129,15 +131,62 @@ ${options.description ?? ''}
 - ID: \`${options.id}\`
 - 版本: ${options.version ?? '0.1.0'}
 - 类型: ${options.type ?? 'tool'}
-- 入口: index.js
+- 入口: ${options.language === 'python' ? 'main.py（python main.py）' : 'index.js'}
 
 ${injectSection}
 ## 开发
 
-1. 编辑 \`index.js\` 实现插件逻辑
+1. 编辑 \`${options.language === 'python' ? 'main.py' : 'index.js'}\` 实现插件逻辑
 2. 通过 \`context.services\` 访问注入的内核服务
 3. 在 \`inject\` / \`injectOptional\` 中声明依赖的服务
 `;
+}
+
+/** 渲染 Python 插件入口（PY-7：liri SDK 脚本风格） */
+function renderPythonEntry(options: PluginScaffoldOptions): string {
+  const injectComment =
+    options.inject && options.inject.length > 0
+      ? options.inject.map((s) => `    # 注入内核服务: ${s}`).join('\n')
+      : '    # 未声明服务注入，如需注入内核服务可在此添加';
+  return `"""${options.name} — Python 插件入口（liri SDK）"""
+from liri import Plugin, tool
+
+
+@tool(name="${options.id}_hello", description="示例工具：向用户打招呼")
+async def hello(name: str = "world", ctx=None) -> str:
+    return f"Hello, {name}"
+
+
+plugin = Plugin(
+    id="${options.id}",
+    name="${options.name}",
+    version="${options.version ?? '0.1.0'}",
+    tools=[hello],
+${injectComment}
+    inject=${JSON.stringify(options.inject ?? [])},
+    injectOptional=${JSON.stringify(options.injectOptional ?? [])},
+)
+
+# 入口：python main.py（脚本风格，v1）
+plugin.run()
+`;
+}
+
+/** 渲染 Python 插件桥接清单（PY-4 已定案 b：plugin.json） */
+function renderPythonManifest(options: PluginScaffoldOptions): string {
+  const manifest = {
+    id: options.id,
+    name: options.name,
+    version: options.version ?? '0.1.0',
+    description: options.description ?? '',
+    author: options.author ?? '',
+    type: 'python',
+    entry: { python: 'main.py' },
+    python: '>=3.10',
+    inject: options.inject,
+    injectOptional: options.injectOptional,
+  };
+  return `${JSON.stringify(manifest, null, 2)}\n`;
 }
 
 /**
@@ -148,6 +197,32 @@ ${injectSection}
 export function generatePluginTemplate(
   options: PluginScaffoldOptions
 ): ScaffoldFile[] {
+  // PY-7：Python 模板
+  if (options.language === 'python') {
+    const manifest: PluginManifest = {
+      id: options.id,
+      name: options.name,
+      version: options.version ?? '0.1.0',
+      description: options.description ?? '',
+      author: options.author ?? '',
+      type: 'python',
+      main: '',
+      entry: { python: 'main.py' },
+      inject: options.inject,
+      injectOptional: options.injectOptional,
+    };
+    const validation = validatePluginManifest(manifest);
+    if (!validation.valid) {
+      const details = validation.errors.map((e) => e.message).join('; ');
+      throw new Error(`插件清单校验失败: ${details}`);
+    }
+    return [
+      { path: 'plugin.json', content: renderPythonManifest(options) },
+      { path: 'main.py', content: renderPythonEntry(options) },
+      { path: 'README.md', content: renderReadme(options) },
+    ];
+  }
+
   // 契约自检：生成的清单必须通过 validatePluginManifest
   const manifest: PluginManifest = {
     id: options.id,

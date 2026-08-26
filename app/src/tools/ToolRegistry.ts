@@ -15,6 +15,7 @@ import { ToolDefinitionAdapter } from './utils/ToolDefinitionAdapter';
 import type { ToolDefinition, ToolImplementation } from './types/ToolTypes';
 
 import { getLogger } from '@modules/monitoring';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 const logger = getLogger('tools:ToolRegistry');
 
 export interface ToolSchema {
@@ -126,7 +127,24 @@ export class ToolRegistry {
   private aliases: Map<string, string> = new Map();
   private usageStats: Map<string, ToolUsageStats> = new Map();
 
-  registerTool(tool: Tool): void {
+  /**
+   * 注册工具
+   * @param tool 工具实例
+   * @param options 可选：onConflict='error' 时与已注册工具撞名抛出异常（默认 overwrite 兼容现状）
+   */
+  registerTool(
+    tool: Tool,
+    options?: { onConflict?: 'error' | 'overwrite' }
+  ): void {
+    if (this.tools.has(tool.name) && options?.onConflict === 'error') {
+      throw new AppError(
+        `Tool already registered: ${tool.name}`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        'TOOL_ALREADY_REGISTERED'
+      );
+    }
+
     this.tools.set(tool.name, tool);
 
     if (tool.aliases) {
@@ -147,6 +165,24 @@ export class ToolRegistry {
   registerTools(tools: Tool[]): void {
     for (const tool of tools) {
       this.registerTool(tool);
+    }
+  }
+
+  /**
+   * 注销工具（含别名与使用统计）
+   * @param name 工具名
+   */
+  unregisterTool(name: string): void {
+    const tool = this.tools.get(name);
+    if (!tool) return;
+
+    this.tools.delete(name);
+    this.usageStats.delete(name);
+
+    if (tool.aliases) {
+      for (const alias of tool.aliases) {
+        this.aliases.delete(alias);
+      }
     }
   }
 

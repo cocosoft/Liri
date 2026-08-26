@@ -55,6 +55,11 @@ import {
 import type { PluginInfo, SkillInfo } from './types/PluginDisplay.js';
 import type { Plugin, SkillContext } from '@modules/plugin-sdk';
 import { SdkPluginAdapter } from './core/SdkPluginAdapter';
+import {
+  PythonPluginAdapter,
+  type PythonPluginConfig,
+} from './core/PythonPluginAdapter';
+import { resolvePythonPluginConfig } from './install/PythonPluginInstaller';
 import type { ServiceRegisteredEvent } from './api/index.js';
 import {
   mapPluginStateToStatus,
@@ -136,6 +141,9 @@ export class PluginSystem {
 
   /** SDK 适配器（懒创建，依赖 kernelRegistry） */
   private _sdkAdapter: SdkPluginAdapter | null = null;
+
+  /** Python 插件运行时（PY-3：PythonPluginAdapter 实例，key=pluginId） */
+  private _pythonPlugins = new Map<string, PythonPluginAdapter>();
 
   /** 加载期安全降级开关（评审修订 v4：PluginSystem 级配置，默认开启） */
   private _demoteOnLoad: boolean;
@@ -288,6 +296,31 @@ export class PluginSystem {
 
     for (const plugin of plugins) {
       await this.registerPlugin(plugin, !demoted.has(plugin.source));
+    }
+
+    // M1 编排层：自动发现并激活 Python 插件（plugin.json 桥接清单 type:'python' + entry.python）
+    for (const plugin of plugins) {
+      const manifest = plugin.manifest as
+        | (Record<string, unknown> & {
+            entry?: { python?: unknown };
+            type?: unknown;
+          })
+        | undefined;
+      if (
+        manifest &&
+        manifest.type === 'python' &&
+        typeof manifest.entry?.python === 'string'
+      ) {
+        try {
+          await this.registerPythonPluginFromDir(plugin.path);
+        } catch (error) {
+          // 单个 Python 插件失败不阻塞其余插件加载（venv 缺失/损坏等场景降级为日志）
+          logger.error(`Python 插件自动激活失败: ${plugin.id}`, {
+            path: plugin.path,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }
     }
 
     // 评审修订（P0-1）：热加载图数据源接通（过滤 demoted，key 用裸名经 normalize）
@@ -839,6 +872,9 @@ export class PluginSystem {
     await this.sdkAdapter.runLifecycle('initialize', plugin, context);
     await this.sdkAdapter.runLifecycle('activate', plugin, context);
 
+    // PY-0：注册插件声明的工具到全局单例 ToolRegistry（撞名报错，不静默覆盖）
+    this.sdkAdapter.registerTools(plugin);
+
     // 存储技能信息（PluginSystem 本地管理技能粒度）
     if (plugin.skills) {
       for (const skill of plugin.skills) {
@@ -1029,6 +1065,9 @@ export class PluginSystem {
       // 注册表中不存在则忽略
     }
 
+    // PY-0：注销插件注册的工具
+    this.sdkAdapter.unregisterTools(plugin);
+
     // 清理技能
     for (const [id, skill] of this._sdkSkills) {
       if (skill.pluginId === pluginId) this._sdkSkills.delete(id);
@@ -1037,6 +1076,61 @@ export class PluginSystem {
     this._sdkPlugins.delete(pluginId);
 
     logger.info(`Unregistered plugin via SDK: ${pluginId}`);
+  }
+
+  // ==================== Python 插件管理（PY-3/PY-5） ====================
+
+  /**
+   * 注册并激活 Python 插件
+   * @param config Python 插件配置（venv 解释器、入口脚本、注入白名单等）
+   * @returns 已激活的 PythonPluginAdapter
+   */
+  async registerPythonPlugin(
+    config: PythonPluginConfig
+  ): Promise<PythonPluginAdapter> {
+    const adapter = new PythonPluginAdapter(config, getKernelServiceRegistry());
+    await adapter.initialize();
+    await adapter.activate();
+    this._pythonPlugins.set(config.pluginId, adapter);
+    logger.info(`Python plugin registered: ${config.pluginId}`);
+    return adapter;
+  }
+
+  /** 注销 Python 插件（destroy：shutdown RPC + 注销工具） */
+  async unregisterPythonPlugin(pluginId: string): Promise<void> {
+    const adapter = this._pythonPlugins.get(pluginId);
+    if (!adapter) return;
+    await adapter.destroy();
+    this._pythonPlugins.delete(pluginId);
+    logger.info(`Python plugin unregistered: ${pluginId}`);
+  }
+
+  /** 获取全部已注册 Python 插件 */
+  getPythonPlugins(): PythonPluginAdapter[] {
+    return Array.from(this._pythonPlugins.values());
+  }
+
+  /** 获取指定 Python 插件 */
+  getPythonPlugin(pluginId: string): PythonPluginAdapter | undefined {
+    return this._pythonPlugins.get(pluginId);
+  }
+
+  /**
+   * 从插件安装目录发现并激活 Python 插件（M1 编排层）
+   * 解析 plugin.json（type:'python' + entry.python）→ venv 解释器 → 注册激活。
+   * @param pluginDir 插件安装目录（含 PythonPluginInstaller 生成的桥接清单）
+   * @returns 已激活适配器；非 Python 插件返回 undefined
+   */
+  async registerPythonPluginFromDir(
+    pluginDir: string
+  ): Promise<PythonPluginAdapter | undefined> {
+    const config = resolvePythonPluginConfig(pluginDir);
+    if (!config) return undefined;
+    if (this._pythonPlugins.has(config.pluginId)) {
+      logger.warn(`Python plugin 已注册，跳过: ${config.pluginId}`);
+      return this._pythonPlugins.get(config.pluginId);
+    }
+    return this.registerPythonPlugin(config);
   }
 
   // ==================== 技能管理 ====================
@@ -1219,6 +1313,17 @@ export class PluginSystem {
       this._sdkContexts.clear();
       this._sdkSkills.clear();
       this._sdkAdapter = null;
+      // PY-3：销毁全部 Python 插件子进程（shutdown RPC + 注销工具 + 进程回收）
+      for (const adapter of this._pythonPlugins.values()) {
+        try {
+          await adapter.destroy();
+        } catch (error) {
+          logger.warn(`Python plugin ${adapter.getState()} destroy failed`, {
+            error,
+          });
+        }
+      }
+      this._pythonPlugins.clear();
 
       logger.info('Plugin system destroyed');
     } catch (error) {

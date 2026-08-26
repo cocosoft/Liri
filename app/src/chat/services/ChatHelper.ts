@@ -284,7 +284,8 @@ export function getOrCreateSessionMachine(
 export async function persistChatMessage(
   gateway: SessionGateway,
   sessionId: string,
-  message: Message
+  message: Message,
+  options?: { throwOnError?: boolean }
 ): Promise<void> {
   const toolCalls =
     message.tool_calls ||
@@ -316,7 +317,11 @@ export async function persistChatMessage(
   try {
     await gateway.sendMessage(sessionId, unifiedMessage);
   } catch (err) {
-    // 持久化失败不应影响主消息流，已由 Proxy 的 .catch 记录日志
+    // BUG-H 修复（2026-08-26）：调用方要求落盘强一致（如提问回答 throwOnError）时
+    // 必须上抛——原空 catch 吞掉错误，使 _addAndPersistMessage 的 throwOnError 成为死代码，
+    // 前端"显示成功但数据未落盘"。默认仍吞错降级（持久化失败不影响主消息流）。
+    if (options?.throwOnError) throw err;
+    // @ignore-catch — 持久化失败不影响主消息流，已由 Proxy 的 .catch 记录日志
   }
 }
 

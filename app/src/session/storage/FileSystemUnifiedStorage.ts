@@ -82,6 +82,12 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
   private appendCounts: Map<string, number> = new Map();
   /** 累计追加行字节估算（per-session，第 7 条）：长消息会话按体积触发 compact */
   private appendBytes: Map<string, number> = new Map();
+  /**
+   * 已删除会话集合（BUG-I 修复 2026-08-26）：软删除（rename 到 .trash）后，
+   * 活跃流的协作式 abort 可能仍在落盘——persistMessageAppend 的 mkdir recursive
+   * 会在 .trash 外重建目录，导致会话"幽灵复活"。删除后拦截该会话后续落盘。
+   */
+  private deletedSessionIds: Set<string> = new Set();
 
   constructor(config: StorageConfig) {
     this.config = config;
@@ -338,6 +344,15 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
     sessionId: string,
     message: UnifiedMessage
   ): Promise<void> {
+    // BUG-I 修复（2026-08-26）：会话已删除（软删除）后拦截后续落盘，
+    // 防止 mkdir recursive 在 .trash 外重建目录导致"幽灵复活"
+    if (this.deletedSessionIds.has(sessionId)) {
+      logger.warn('deleteSession:已删除会话的活跃流落盘被拦截', {
+        sessionId,
+        messageId: message.id,
+      });
+      return;
+    }
     const dir = sessionDir(this.basePath, sessionId);
     await fs.mkdir(dir, { recursive: true });
     const line = JSON.stringify(message) + '\n';
@@ -348,6 +363,14 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
     sessionId: string,
     messages: UnifiedMessage[]
   ): Promise<void> {
+    // BUG-I 修复（2026-08-26）：同 persistMessageAppend，拦截已删除会话的重写
+    if (this.deletedSessionIds.has(sessionId)) {
+      logger.warn('deleteSession:已删除会话的消息重写被拦截', {
+        sessionId,
+        messageCount: messages.length,
+      });
+      return;
+    }
     const dir = sessionDir(this.basePath, sessionId);
     await fs.mkdir(dir, { recursive: true });
     const data = messages.map((m) => JSON.stringify(m)).join('\n') + '\n';
@@ -480,6 +503,8 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
       );
       await fs.mkdir(path.dirname(trashDir), { recursive: true });
       await fs.rename(dir, trashDir);
+      // BUG-I 修复（2026-08-26）：软删除成功后标记该会话，拦截活跃流后续落盘
+      this.deletedSessionIds.add(sessionId);
     } catch (err) {
       // 目标不存在（会话目录可能已物理删除/损坏隔离）时忽略
       handleError(err, {

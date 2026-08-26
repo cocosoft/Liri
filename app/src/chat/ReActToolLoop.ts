@@ -850,12 +850,13 @@ export class ReActToolLoop extends ReActLoop<
         );
       }
       this.ctx.toolResultRegistry.nextRound(this.ctx.session.id);
-      this.ctx.unifiedTracker.resetStreamTokens();
+      this.ctx.unifiedTracker.resetStreamTokens(this.ctx.session.id);
       const model = this.ctx.options?.model as string | undefined;
       if (model) {
         await this.ctx.unifiedTracker.updateBaselineForRound(
           this.loopState.messages as unknown as Record<string, unknown>[],
-          model
+          model,
+          this.ctx.session.id
         );
       }
 

@@ -141,7 +141,12 @@ export class TeammateManager {
     teammateId: string,
     message: Message
   ): Promise<void> {
-    const handle = this.activeTeammates.get(teammateId);
+    // 缺陷 1 修复（2026-08-26）：先按 ID 精确匹配，未命中再按名字回退——
+    // SendMessageTool 投递时 to 是接收者名字（如 "worker"），而 teammate ID 含
+    // 时间戳不可预测（inprocess-worker-<ts>），原仅 get(id) 恒失败（假投递）
+    const handle =
+      this.activeTeammates.get(teammateId) ??
+      this.findTeammateByName(teammateId);
     if (!handle) {
       throw new AppError(
         `Teammate ${teammateId} not found`,

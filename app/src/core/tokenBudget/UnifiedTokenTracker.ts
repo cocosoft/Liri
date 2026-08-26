@@ -91,18 +91,28 @@ function getModelThresholds(model: string): { warn: number; compact: number } {
 // UnifiedTokenTracker
 // ==========================================
 
+/** 每会话流式状态（并发隔离）——多会话同时流式时互不覆盖 */
+interface StreamSessionState {
+  baselineInputTokens: number;
+  /** 消息总字符数（checkDuringStreaming 回退用，避免正反馈污染） */
+  totalMessageChars: number;
+  estimatedStreamTokens: number;
+  currentModel: string;
+  lastNotifiedSeverity: 'normal' | 'warn' | 'compact';
+  checkInterval: NodeJS.Timeout | null;
+}
+
 export class UnifiedTokenTracker {
   private readonly controller: TokenBudgetController;
   private readonly contextTracker: ContextTracker;
   private calibrationFactor: number = 1.0;
-  private baselineInputTokens: number = 0;
-  /** 消息总字符数（checkDuringStreaming 回退用，避免正反馈污染） */
-  private totalMessageChars: number = 0;
-  private estimatedStreamTokens: number = 0;
   private compactionHistory: Array<CompactionRecord> = [];
+  /** 默认会话流式状态（无 sessionId 调用兼容旧路径，惰性创建） */
+  private defaultSession: StreamSessionState | null = null;
+  /** 按会话隔离的流式状态（并发防污染） */
+  private streamSessions: Map<string, StreamSessionState> = new Map();
+  /** 最近活跃模型（日志/校准用，非流式判断依据） */
   private currentModel: string = '';
-  private lastNotifiedSeverity: 'normal' | 'warn' | 'compact' = 'normal';
-  private checkInterval: NodeJS.Timeout | null = null;
 
   // Fixed overhead (set by caller at construction)
   private readonly overheadSystemPrompt: number;
@@ -146,19 +156,68 @@ export class UnifiedTokenTracker {
   // 请求前评估
   // ==========================================
 
+  /** 开始会话流式监测（并发隔离：每个 session 独立状态，不互相覆盖） */
+  beginStreamSession(sessionId: string, model: string): void {
+    const existing = this.streamSessions.get(sessionId);
+    if (existing) {
+      existing.currentModel = model;
+      return;
+    }
+    this.streamSessions.set(sessionId, {
+      baselineInputTokens: 0,
+      totalMessageChars: 0,
+      estimatedStreamTokens: 0,
+      currentModel: model,
+      lastNotifiedSeverity: 'normal',
+      checkInterval: null,
+    });
+  }
+
+  /** 结束会话流式监测：仅停本会话定时器并移除状态（不再误停其他会话） */
+  endStreamSession(sessionId: string): void {
+    const state = this.streamSessions.get(sessionId);
+    if (state?.checkInterval) {
+      clearInterval(state.checkInterval);
+      state.checkInterval = null;
+    }
+    this.streamSessions.delete(sessionId);
+  }
+
+  /** 解析流式状态：优先会话级，回退默认态（兼容无 sessionId 旧调用） */
+  private streamState(sessionId?: string): StreamSessionState {
+    if (sessionId) {
+      const state = this.streamSessions.get(sessionId);
+      if (state) return state;
+    }
+    if (!this.defaultSession) {
+      this.defaultSession = {
+        baselineInputTokens: 0,
+        totalMessageChars: 0,
+        estimatedStreamTokens: 0,
+        currentModel: this.currentModel,
+        lastNotifiedSeverity: 'normal',
+        checkInterval: null,
+      };
+    }
+    return this.defaultSession;
+  }
+
   /** 请求前评估：估算 input + output 是否超限（2026-08-19 改为异步协作式估算） */
   async checkBeforeRequest(
     messages: readonly { role?: string; content?: string | unknown }[],
     model: string,
-    maxOutputTokens?: number
+    maxOutputTokens?: number,
+    sessionId?: string
   ): Promise<CompactionDecision> {
     try {
       this.currentModel = model;
+      const state = this.streamState(sessionId);
+      state.currentModel = model;
       // 根因①修复：大列表同步估算阻塞事件循环，改用协作式分批估算
-      this.baselineInputTokens =
+      state.baselineInputTokens =
         await estimateMessagesTokensCooperative(messages);
       // 计算消息总字符数（流式水位回退用，避免正反馈污染）
-      this.totalMessageChars = messages.reduce(
+      state.totalMessageChars = messages.reduce(
         (sum, m) =>
           sum + (typeof m.content === 'string' ? m.content.length : 0),
         0
@@ -167,7 +226,7 @@ export class UnifiedTokenTracker {
       const limit = resolveContextWindow(model).tokens;
       const effectiveFactor =
         this.calibrationFactor > 0 ? this.calibrationFactor : 1.2;
-      const estimatedTotal = this.baselineInputTokens + estimatedOutput;
+      const estimatedTotal = state.baselineInputTokens + estimatedOutput;
       const ratio = (estimatedTotal * effectiveFactor) / limit;
 
       const thresholds = getModelThresholds(model);
@@ -203,17 +262,18 @@ export class UnifiedTokenTracker {
   // ==========================================
 
   /** 流式中：优先 tiktoken BPE 精确计数，fallback CJK 感知估算，不再用 chars/4 */
-  onStreamChunk(chunk: string): void {
+  onStreamChunk(chunk: string, sessionId?: string): void {
     try {
+      const state = this.streamState(sessionId);
       const encoder = getCachedTiktokenEncoder();
       if (encoder) {
         const result = encoder.encode(chunk);
-        this.estimatedStreamTokens += Array.isArray(result)
+        state.estimatedStreamTokens += Array.isArray(result)
           ? result.length
           : result.length;
       } else {
         // tiktoken 未加载时回退 CJK 感知估算（≈ 1.5/CJK char，比 chars/4 准确 3-6x）
-        this.estimatedStreamTokens += estimateTokens(chunk);
+        state.estimatedStreamTokens += estimateTokens(chunk);
       }
     } catch (err) {
       logger.warn('unified:onStreamChunk error', { error: String(err) });
@@ -222,20 +282,22 @@ export class UnifiedTokenTracker {
   }
 
   /** 重置流式输出 token 计数器（每轮 LLM 调用前调用） */
-  resetStreamTokens(): void {
-    this.estimatedStreamTokens = 0;
+  resetStreamTokens(sessionId?: string): void {
+    this.streamState(sessionId).estimatedStreamTokens = 0;
   }
 
   /** 更新 per-round baseline（工具执行后消息列表变化时调用） */
   async updateBaselineForRound(
     messages: readonly { role?: string; content?: string | unknown }[],
-    model: string
+    model: string,
+    sessionId?: string
   ): Promise<void> {
-    this.currentModel = model;
+    const state = this.streamState(sessionId);
+    state.currentModel = model;
     // 2026-08-19 根因①修复：工具轮间也改协作式估算，避免 mid-stream 阻塞
-    this.baselineInputTokens =
+    state.baselineInputTokens =
       await estimateMessagesTokensCooperative(messages);
-    this.totalMessageChars = messages.reduce(
+    state.totalMessageChars = messages.reduce(
       (sum, m) => sum + (typeof m.content === 'string' ? m.content.length : 0),
       0
     );
@@ -245,19 +307,21 @@ export class UnifiedTokenTracker {
    *  getUsedBudget() 是会话累计值，会导致 1.3M/200K=674% 的虚高显示。*/
   checkDuringStreaming(
     model: string,
-    _messageCharCount?: number
+    _messageCharCount?: number,
+    sessionId?: string
   ): WatermarkState {
     try {
+      const state = this.streamState(sessionId);
       const limit = resolveContextWindow(model).tokens;
       // 使用 per-round baselineInputTokens（checkBeforeRequest 设置，tiktoken BPE 精确）
       // 不用 getUsedBudget() — 那是会话累计值，跨轮叠加导致 674% 虚高
       const estimatedInput =
-        this.baselineInputTokens > 0
-          ? this.baselineInputTokens
+        state.baselineInputTokens > 0
+          ? state.baselineInputTokens
           : _messageCharCount
             ? Math.ceil(_messageCharCount / 3.5)
             : 0;
-      const estimatedTotal = estimatedInput + this.estimatedStreamTokens;
+      const estimatedTotal = estimatedInput + state.estimatedStreamTokens;
       const ratio = estimatedTotal / limit;
       const thresholds = getModelThresholds(model);
       const severity =
@@ -267,8 +331,9 @@ export class UnifiedTokenTracker {
             ? ('warn' as const)
             : ('normal' as const);
       logger.debug('unified:checkDuringStreaming', {
-        estimatedInput: this.baselineInputTokens,
-        estimatedStreamTokens: this.estimatedStreamTokens,
+        sessionId,
+        estimatedInput: state.baselineInputTokens,
+        estimatedStreamTokens: state.estimatedStreamTokens,
         estimatedTotal,
         ratio: Math.round(ratio * 100) / 100,
         severity,
@@ -276,7 +341,7 @@ export class UnifiedTokenTracker {
       return {
         currentTokens: estimatedTotal,
         contextLimit: limit,
-        outputTokensSoFar: this.estimatedStreamTokens,
+        outputTokensSoFar: state.estimatedStreamTokens,
         ratio,
         severity,
       };
@@ -296,25 +361,31 @@ export class UnifiedTokenTracker {
   }
 
   /** 启动流式检查定时器：每 1.5s 检查水位并通知前端（实时进度条更新） */
-  startStreamingCheck(onNotify: (state: WatermarkState) => void): void {
+  startStreamingCheck(
+    onNotify: (state: WatermarkState) => void,
+    sessionId?: string
+  ): void {
     try {
-      this.checkInterval = setInterval(() => {
+      const state = this.streamState(sessionId);
+      if (state.checkInterval) clearInterval(state.checkInterval);
+      state.checkInterval = setInterval(() => {
         try {
-          const state = this.checkDuringStreaming(
-            this.currentModel,
-            this.totalMessageChars
+          const s = this.checkDuringStreaming(
+            state.currentModel,
+            state.totalMessageChars,
+            sessionId
           );
           // 始终通知前端（进度条实时刷新），store 层有 dedup 保护
-          onNotify(state);
+          onNotify(s);
           // 仅在严重级别变化时记录日志
-          if (state.severity !== this.lastNotifiedSeverity) {
-            this.lastNotifiedSeverity = state.severity;
-            if (state.severity !== 'normal') {
+          if (s.severity !== state.lastNotifiedSeverity) {
+            state.lastNotifiedSeverity = s.severity;
+            if (s.severity !== 'normal') {
               logger.info('unified:streamingWatermark', {
-                severity: state.severity,
-                ratio: Math.round(state.ratio * 100) / 100,
-                currentTokens: state.currentTokens,
-                contextLimit: state.contextLimit,
+                severity: s.severity,
+                ratio: Math.round(s.ratio * 100) / 100,
+                currentTokens: s.currentTokens,
+                contextLimit: s.contextLimit,
               });
             }
           }
@@ -332,11 +403,12 @@ export class UnifiedTokenTracker {
     }
   }
 
-  /** 停止流式检查定时器 */
-  stopStreamingCheck(): void {
-    if (this.checkInterval) {
-      clearInterval(this.checkInterval);
-      this.checkInterval = null;
+  /** 停止流式检查定时器（仅停止本会话的，不再误停其他会话） */
+  stopStreamingCheck(sessionId?: string): void {
+    const state = this.streamState(sessionId);
+    if (state.checkInterval) {
+      clearInterval(state.checkInterval);
+      state.checkInterval = null;
     }
   }
 
@@ -354,8 +426,8 @@ export class UnifiedTokenTracker {
       // 更新校准因子（EMA 平滑 + overhead 修正）
       const overhead = this.overheadSystemPrompt + this.overheadToolDefs;
       const correctedInput = usage.inputTokens - overhead;
-      if (this.baselineInputTokens > 0 && correctedInput > 0) {
-        const raw = correctedInput / this.baselineInputTokens;
+      if (this.streamState().baselineInputTokens > 0 && correctedInput > 0) {
+        const raw = correctedInput / this.streamState().baselineInputTokens;
         if (isFinite(raw) && raw > 0) {
           const oldFactor = this.calibrationFactor;
           this.calibrationFactor =
@@ -435,10 +507,10 @@ export class UnifiedTokenTracker {
     const newWindow = resolveContextWindow(newModel).tokens;
     this.currentModel = newModel;
     this.controller.setModel(newModel);
+    // 流式基线由每轮 checkBeforeRequest/updateBaselineForRound 重新估算（per-session），
+    // 切换模型无需重置（原全局基线重置逻辑已随 per-session 化移除）
     if (this.controller.getUsedBudget() >= newWindow) {
-      this.baselineInputTokens = 0;
-      this.totalMessageChars = 0;
-      this.estimatedStreamTokens = 0;
+      // no-op：预算已满时强制下次请求重新评估（checkBeforeRequest 会重算 baseline）
     }
     // 加载该模型的持久化校准因子（重启后无需从默认重新学习；无记录则用默认 1.2）
     const persisted = getCalibrationFactor(newModel);
@@ -498,8 +570,8 @@ export class UnifiedTokenTracker {
       // 更新校准因子：真实 inputTokens / 估算 baselineInputTokens
       const overhead = this.overheadSystemPrompt + this.overheadToolDefs;
       const correctedInput = usage.inputTokens - overhead;
-      if (this.baselineInputTokens > 0 && correctedInput > 0) {
-        const raw = correctedInput / this.baselineInputTokens;
+      if (this.streamState().baselineInputTokens > 0 && correctedInput > 0) {
+        const raw = correctedInput / this.streamState().baselineInputTokens;
         if (isFinite(raw) && raw > 0) {
           const oldFactor = this.calibrationFactor;
           this.calibrationFactor =
@@ -514,7 +586,7 @@ export class UnifiedTokenTracker {
             raw,
             traceInputTokens: usage.inputTokens,
             traceOutputTokens: usage.outputTokens,
-            baselineInputTokens: this.baselineInputTokens,
+            baselineInputTokens: this.streamState().baselineInputTokens,
             model: usage.model,
           });
         }
@@ -564,12 +636,19 @@ export class UnifiedTokenTracker {
 
   /** 实例级清理 */
   dispose(): void {
-    this.stopStreamingCheck();
-    this.lastNotifiedSeverity = 'normal';
+    // 清理全部会话的流式定时器与状态
+    for (const [sid, state] of this.streamSessions) {
+      if (state.checkInterval) {
+        clearInterval(state.checkInterval);
+        state.checkInterval = null;
+      }
+      this.streamSessions.delete(sid);
+    }
+    if (this.defaultSession?.checkInterval) {
+      clearInterval(this.defaultSession.checkInterval);
+      this.defaultSession.checkInterval = null;
+    }
     this.compactionHistory = [];
-    this.baselineInputTokens = 0;
-    this.totalMessageChars = 0;
-    this.estimatedStreamTokens = 0;
     if (this._unsubscribeTrace) {
       this._unsubscribeTrace();
       this._unsubscribeTrace = null;

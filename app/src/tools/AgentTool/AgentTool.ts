@@ -187,6 +187,62 @@ export class AgentTool implements Tool {
   > = new Map();
 
   /**
+   * 活跃子 agent 的 teammate handle 映射（设计二 2026-08-26）：
+   * 注册时机前移到 execute 入口（agentId 确定后），生命周期绑定执行全程；
+   * 前台在 execute 返回时清理，后台在 bgTask 完成/失败回调中清理。
+   */
+  private agentTeammateHandles: Map<string, string> = new Map();
+
+  /** 注册子 agent 为可寻址 teammate（返回 handleId；失败返回 null 不阻断执行） */
+  private async registerTeammate(
+    agentId: string,
+    name: string | undefined,
+    systemPrompt: string,
+    model?: string
+  ): Promise<string | null> {
+    if (!name) return null;
+    try {
+      const handle = await getTeammateManager().spawnTeammate('in_process', {
+        name,
+        model,
+        systemPrompt,
+      });
+      this.agentTeammateHandles.set(agentId, handle.id);
+      logger.info('子 agent 已注册为可寻址 teammate', {
+        agentId,
+        name,
+        handleId: handle.id,
+      });
+      return handle.id;
+    } catch (error) {
+      // 注册失败（重名/上限）不阻断主流程：子 agent 仅不可寻址
+      logger.warning('子 agent teammate 注册失败（仅不可寻址，不影响执行）', {
+        agentId,
+        name,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return null;
+    }
+  }
+
+  /** 注销子 agent 的 teammate（幂等，失败仅记录） */
+  private async unregisterTeammate(agentId: string): Promise<void> {
+    const handleId = this.agentTeammateHandles.get(agentId);
+    if (!handleId) return;
+    this.agentTeammateHandles.delete(agentId);
+    try {
+      await getTeammateManager().killTeammate(handleId);
+      logger.info('子 agent teammate 已清理', { agentId, handleId });
+    } catch (error) {
+      logger.warning('teammate 清理失败', {
+        agentId,
+        handleId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  /**
    * 构造函数
    * @param config Agent配置
    */
@@ -389,16 +445,19 @@ export class AgentTool implements Tool {
 
   /**
    * 构建工具定义列表（支持 allowedTools/deniedTools 过滤）
+   * @param toolPool 工具池（缺陷 3 修复：子 agent 传排除 AgentTool 自身的池，
+   *                 防止无限嵌套递归；默认全量）
    */
   private buildToolDefinitions(
     allowedTools?: string[],
-    deniedTools?: string[]
+    deniedTools?: string[],
+    toolPool?: Tool[]
   ): Array<{
     name: string;
     description: string;
     parameters: Record<string, unknown>;
   }> {
-    let tools = getAllTools();
+    let tools = toolPool ?? getAllTools();
 
     // 白名单过滤：只保留名称在列表中的工具
     if (allowedTools && allowedTools.length > 0) {
@@ -448,7 +507,9 @@ export class AgentTool implements Tool {
     agentId: string,
     systemPrompt: string,
     isFork: boolean,
-    onProgress?: ToolCallProgress<AgentToolProgress>
+    onProgress: ToolCallProgress<AgentToolProgress> | undefined,
+    teammateHandleId: string | null = null,
+    mailbox: Array<{ role: 'user'; content: string }> = []
   ): Promise<{
     result: string;
     tokenUsage?: {
@@ -457,9 +518,17 @@ export class AgentTool implements Tool {
       totalTokens: number;
     };
   }> {
+    // 缺陷 3 修复（2026-08-26）：子 agent 工具池排除 AgentTool 自身——
+    // 原注入全量工具（含 AgentTool），子 agent 可再调 agent 工具无限嵌套，
+    // 每层独立 LLM 调用 + teammate 注册 + 工具实例，资源消耗无上限
+    const subAgentToolPool = getAllTools().filter(
+      (t) => t.name !== AGENT_TOOL_NAME && t.name !== LEGACY_AGENT_TOOL_NAME
+    );
+
     const toolDefinitions = this.buildToolDefinitions(
       input.allowedTools,
-      input.deniedTools
+      input.deniedTools,
+      subAgentToolPool
     );
 
     const engineInput = {
@@ -474,7 +543,7 @@ export class AgentTool implements Tool {
           parameters: t.parameters,
         },
       })),
-      toolInstances: new Map(getAllTools().map((t) => [t.name, t])),
+      toolInstances: new Map(subAgentToolPool.map((t) => [t.name, t])),
       maxTurns: 50,
       model: input.model,
     };
@@ -501,76 +570,23 @@ export class AgentTool implements Tool {
       });
     };
 
-    // teammate 层消费打通（2026-08-26）：提供 name 时注册为 in-process teammate，
-    // SendMessageTool 可向该 name 投递消息 → mailbox 收集 → 注入子 agent 上下文。
-    // 无 name 时子 agent 仅执行不参与通信（原行为）。
-    let teammateHandleId: string | null = null;
-    const mailbox: Array<{ role: 'user'; content: string }> = [];
-    if (input.name) {
-      try {
-        const handle = await getTeammateManager().spawnTeammate('in_process', {
-          name: input.name,
-          model: input.model,
-          systemPrompt,
-        });
-        teammateHandleId = handle.id;
-        getTeammateManager().onTeammateMessage(handle.id, (message) => {
-          const content =
-            typeof message.content === 'string'
-              ? message.content
-              : JSON.stringify(message.content);
-          mailbox.push({
-            role: 'user',
-            content: `[来自 ${String(message.metadata?.sender ?? 'teammate')} 的消息] ${content}`,
-          });
-          logger.info('teammate 消息已进入子 agent 信箱', {
-            agentId,
-            name: input.name,
-          });
-        });
-        logger.info('子 agent 已注册为可寻址 teammate', {
-          agentId,
-          name: input.name,
-          handleId: handle.id,
-        });
-      } catch (error) {
-        // 注册失败（重名/上限）不阻断主流程：子 agent 仅不可寻址
-        logger.warning('子 agent teammate 注册失败（仅不可寻址，不影响执行）', {
-          agentId,
-          name: input.name,
-          error: error instanceof Error ? error.message : String(error),
-        });
-      }
-    }
+    // 设计二（2026-08-26）：teammate 注册已前移到 execute 入口（agentId 确定后），
+    // 此处仅接收外部传入的 handleId 与 mailbox：投递消息收集 → 注入子 agent 上下文。
+    // 生命周期（注册/清理）由 execute 或后台任务负责，本方法不再自注册/自 kill。
+    const result = await this.engine.execute(
+      {
+        ...engineInput,
+        messageSource: teammateHandleId
+          ? () => mailbox.splice(0, mailbox.length)
+          : undefined,
+      },
+      engineOnProgress
+    );
 
-    try {
-      const result = await this.engine.execute(
-        {
-          ...engineInput,
-          messageSource: teammateHandleId
-            ? () => mailbox.splice(0, mailbox.length)
-            : undefined,
-        },
-        engineOnProgress
-      );
-
-      return {
-        result: result.output,
-        tokenUsage: result.tokenUsage,
-      };
-    } finally {
-      if (teammateHandleId) {
-        await getTeammateManager()
-          .killTeammate(teammateHandleId)
-          .catch((error) => {
-            logger.warning('teammate 清理失败', {
-              agentId,
-              handleId: teammateHandleId,
-              error: error instanceof Error ? error.message : String(error),
-            });
-          });
-      }
-    }
+    return {
+      result: result.output,
+      tokenUsage: result.tokenUsage,
+    };
   }
 
   /**
@@ -852,6 +868,35 @@ export class AgentTool implements Tool {
         }
       }
 
+      // 设计二（2026-08-26）：teammate 注册前移到 execute 入口（systemPrompt 确定后）——
+      // 原在 runWithEngine 内注册+finally kill，后台模式会在主线程返回时被过早清理。
+      // 现注册时机提前，生命周期绑定执行全程（前台 execute 返回清理，后台 bgTask 回调清理）。
+      let teammateHandleId: string | null = null;
+      const mailbox: Array<{ role: 'user'; content: string }> = [];
+      teammateHandleId = await this.registerTeammate(
+        agentId,
+        agentInput.name,
+        systemPrompt,
+        agentInput.model
+      );
+      if (teammateHandleId && agentInput.name) {
+        const handleName = agentInput.name;
+        getTeammateManager().onTeammateMessage(teammateHandleId, (message) => {
+          const content =
+            typeof message.content === 'string'
+              ? message.content
+              : JSON.stringify(message.content);
+          mailbox.push({
+            role: 'user',
+            content: `[来自 ${String(message.metadata?.sender ?? 'teammate')} 的消息] ${content}`,
+          });
+          logger.info('teammate 消息已进入子 agent 信箱', {
+            agentId,
+            name: handleName,
+          });
+        });
+      }
+
       if (agentInput.isolation === 'worktree') {
         systemPrompt +=
           '\n\nThis agent runs in an isolated git worktree.\n' +
@@ -928,9 +973,11 @@ export class AgentTool implements Tool {
           agentId,
           systemPrompt,
           isFork,
-          onProgress
+          onProgress,
+          teammateHandleId,
+          mailbox
         )
-          .then((runResult) => {
+          .then(async (runResult) => {
             bgTask.syncFromBgInfo({
               ...bgInfo,
               status: 'completed',
@@ -944,9 +991,11 @@ export class AgentTool implements Tool {
               durationMs: Date.now() - bgInfo.createdAt,
             });
             this.activeAgents.get(agentId)!.status = 'completed';
+            // 设计二：后台任务完成时才清理 teammate（保留整个后台窗口期的可寻址性）
+            await this.unregisterTeammate(agentId);
             logger.info('Background agent completed', { agentId, taskId });
           })
-          .catch((error) => {
+          .catch(async (error) => {
             handleError(error, {
               module: 'tools:agent',
               action: '后台Agent任务异常',
@@ -959,6 +1008,8 @@ export class AgentTool implements Tool {
               durationMs: Date.now() - bgInfo.createdAt,
             });
             this.activeAgents.get(agentId)!.status = 'failed';
+            // 设计二：失败也清理 teammate
+            await this.unregisterTeammate(agentId);
           });
 
         return {
@@ -999,13 +1050,18 @@ export class AgentTool implements Tool {
           agentId,
           systemPrompt,
           isFork,
-          onProgress
+          onProgress,
+          teammateHandleId,
+          mailbox
         );
         logger.info('Agent engine execution completed', {
           agentId,
           agentType: effectiveType,
         });
       }
+
+      // 设计二：前台执行路径结束后统一清理 teammate（directCall 与 engine 共用）
+      await this.unregisterTeammate(agentId);
 
       // 将子 Agent 的 token 消耗汇聚到父会话的 UnifiedTokenTracker
       if (result.tokenUsage && context?.sessionId) {
@@ -1064,6 +1120,8 @@ export class AgentTool implements Tool {
       };
     } catch (error) {
       this.activeAgents.get(agentId)!.status = 'failed';
+      // 设计二：失败路径同样清理 teammate（防泄漏）
+      await this.unregisterTeammate(agentId);
 
       const errorMessage =
         error instanceof Error ? error.message : String(error);

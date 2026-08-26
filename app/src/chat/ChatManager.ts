@@ -354,9 +354,6 @@ export class ChatManagerImpl implements ChatManager {
    */
   private _checkpointService: ReturnType<typeof createCheckpointService>;
 
-  /** P2-1: 当前流式执行的自动检查点管理器 */
-  private _streamingCheckpoint: StreamingAutoCheckpoint | null = null;
-
   /**
    * LLM客户端
    */
@@ -441,9 +438,24 @@ export class ChatManagerImpl implements ChatManager {
   private contextTracker: ContextTracker = new ContextTracker(100);
 
   /**
-   * 工具循环轮次计数器（每轮工具调用递增）
+   * 会话级工具轮次计数（设计三 2026-08-26）：原全局计数器在并发会话时
+   * turn 编号互相跳变（A 会话 turn 5/7/9，6/8 被 B 占用）。改 per-session Map。
    */
-  private _toolRoundCount: number = 0;
+  private _toolRoundCounts: Map<string, number> = new Map();
+
+  private incToolRound(sessionId: string): number {
+    const next = (this._toolRoundCounts.get(sessionId) ?? 0) + 1;
+    this._toolRoundCounts.set(sessionId, next);
+    return next;
+  }
+
+  private getToolRound(sessionId: string): number {
+    return this._toolRoundCounts.get(sessionId) ?? 0;
+  }
+
+  private clearToolRound(sessionId: string): void {
+    this._toolRoundCounts.delete(sessionId);
+  }
 
   /**
    * 停止钩子管理器（Phase 2：预算检查统一入口）
@@ -872,16 +884,19 @@ export class ChatManagerImpl implements ChatManager {
           string,
           unknown
         >,
-        streamingCheckpoint: this._streamingCheckpoint,
         get toolRoundCount(): number {
-          return managerRef._toolRoundCount;
+          // 设计三：per-session——host 未持有会话时回退当前会话
+          return managerRef.getToolRound(managerRef._currentSessionId ?? '');
         },
         incrementToolRoundCount: (): void => {
-          managerRef._toolRoundCount += 1;
-          logger.debug('chat:toolRoundCount 递增', {
-            currentSessionId: managerRef._currentSessionId,
-            newValue: managerRef._toolRoundCount,
-          });
+          const sid = managerRef._currentSessionId;
+          if (sid) {
+            const next = managerRef.incToolRound(sid);
+            logger.debug('chat:toolRoundCount 递增', {
+              currentSessionId: sid,
+              newValue: next,
+            });
+          }
         },
         get executingPlan(): boolean {
           return managerRef._executingPlan;
@@ -1269,7 +1284,11 @@ export class ChatManagerImpl implements ChatManager {
         }).catch(() => {});
       }
       try {
-        await persistChatMessage(this.sessionGateway, sessionId, message);
+        // BUG-H（2026-08-26）：透传 throwOnError——persistChatMessage 底层
+        // 空 catch 已修复为可上抛，此处才能真正感知落盘失败
+        await persistChatMessage(this.sessionGateway, sessionId, message, {
+          throwOnError: options?.throwOnError,
+        });
       } catch (e) {
         // 问题二-1（2026-08-26）：调用方要求落盘强一致时（如用户回答），
         // 失败必须上抛 → HTTP 层返回失败，前端可感知并重试；否则维持吞错降级
@@ -2399,7 +2418,7 @@ export class ChatManagerImpl implements ChatManager {
 
     this.contextTracker.record({
       timestamp: Date.now(),
-      turnCount: this._toolRoundCount,
+      turnCount: this.getToolRound(sessionId),
       engineName: 'default',
       beforeTokens,
       afterTokens,
@@ -2921,6 +2940,8 @@ export class ChatManagerImpl implements ChatManager {
     if (options?.model) {
       this.unifiedTracker.onModelSwitch(options.model);
     }
+    // 设计一（2026-08-26）：流式监测按会话隔离——多会话并发时水位互不覆盖
+    this.unifiedTracker.beginStreamSession(session.id, options?.model ?? '');
 
     // 中止同一会话的旧流（P1-4: 确定性等待旧流清理，替代硬编码 100ms）
     const existingAbort = this._sessionAbortControllers.get(session.id);
@@ -2932,12 +2953,11 @@ export class ChatManagerImpl implements ChatManager {
     const streamAbortController = new AbortController();
     this._sessionAbortControllers.set(session.id, streamAbortController);
 
-    // P2-1: 初始化流式自动检查点
+    // P2-1: 初始化流式自动检查点（局部实例随流式上下文传递，非全局字段）
     const streamingCheckpoint = new StreamingAutoCheckpoint(
       this._checkpointService,
       session.id
     );
-    this._streamingCheckpoint = streamingCheckpoint;
 
     // 获取会话互斥锁（仅保护工具执行循环，setup 阶段无需锁）
     let mutex = this._sessionMutexes.get(session.id);
@@ -3151,7 +3171,10 @@ export class ChatManagerImpl implements ChatManager {
           time: Date.now(),
           sessionId: session.id,
           data: {
-            turn: persistedTurn > 0 ? persistedTurn : this._toolRoundCount + 1,
+            turn:
+              persistedTurn > 0
+                ? persistedTurn
+                : this.getToolRound(session.id) + 1,
             finishReason: hasFinalToolCalls ? 'tool_use' : 'stop',
           },
         });
@@ -3160,8 +3183,8 @@ export class ChatManagerImpl implements ChatManager {
       }
     }
 
-    // Phase 1c: 停止流式水位监测
-    this.unifiedTracker.stopStreamingCheck();
+    // Phase 1c: 停止流式水位监测（仅停本会话，不再误停其他并发会话）
+    this.unifiedTracker.endStreamSession(session.id);
     // 通知会话状态变化为空闲状态
     this.getSessionMachine(session.id).finish('工具执行完成');
     getOTelTracing().endSpan(streamSpan, SpanStatusCode.OK);
@@ -3307,14 +3330,12 @@ export class ChatManagerImpl implements ChatManager {
     // P4-fix: 等待所有未完成的持久化完成后再返回（WAP 规范）
     await this.flushPendingPersists();
 
-    // P2-1: 流正常结束，清理自动检查点
-    this._streamingCheckpoint = null;
-
     // 修复：每完成一次完整 turn 递增计数，确保 turn 编号唯一（否则恒为 turn=1）
-    this._toolRoundCount += 1;
+    // 设计三：per-session 计数，并发会话互不干扰
+    this.incToolRound(session.id);
     logger.debug('chat:streamFinalize toolRoundCount 递增', {
       sessionId: session.id,
-      newValue: this._toolRoundCount,
+      newValue: this.getToolRound(session.id),
     });
 
     return assistantMessage;
@@ -3582,6 +3603,10 @@ export class ChatManagerImpl implements ChatManager {
     const { checkpoint, stepIndex, completedToolCallIds, generatorState } =
       restoreResult;
 
+    // BUG-A2 修复（2026-08-26）：恢复后同步检查点节奏——新实例 stepIndex=0
+    // 会导致恢复后的全量/delta 检查点时间错位
+    streamingCheckpoint.restoreStepIndex(stepIndex);
+
     // 1. 恢复会话状态
     const session = await this.sessionLifecycle.getOrLoadSession(sessionId);
     session.messages = checkpoint.messages;
@@ -3792,7 +3817,6 @@ export class ChatManagerImpl implements ChatManager {
 
       // 6. 清理
       this._sessionAbortControllers.delete(sessionId);
-      this._streamingCheckpoint = null;
 
       const assistantMessage = this.messageService.createAssistantMessage(
         // 与主链路 StreamPipeline.repairContent 对齐：断线恢复累积的工具轮叙述
@@ -4295,6 +4319,12 @@ export class ChatManagerImpl implements ChatManager {
     void this._deleteSessionCheckpoints(sessionId);
     // 清理协商状态文件（避免残留）
     deleteNegotiationState(sessionId);
+    // BUG-J 修复（2026-08-26）：清理事件日志缓存——原 deleteSession 不删
+    // _eventLogCache，EventLogStorage 实例（文件句柄/seq 状态）常驻内存；
+    // sessionId 复用时会继承旧 seq 计数，导致 events.tail 元数据错位
+    this._eventLogCache.delete(sessionId);
+    // 设计三（2026-08-26）：清理 per-session 轮次计数
+    this.clearToolRound(sessionId);
   }
 
   /**

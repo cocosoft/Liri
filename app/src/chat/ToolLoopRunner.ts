@@ -148,10 +148,14 @@ export interface ToolLoopContext {
     getProviderId(): string;
   };
 
-  // 词元追踪
+  // 词元追踪（设计一 2026-08-26：方法带 sessionId 参数，多会话并发水位隔离）
   unifiedTracker: {
-    resetStreamTokens(): void;
-    updateBaselineForRound(messages: unknown[], model: string): Promise<void>;
+    resetStreamTokens(sessionId?: string): void;
+    updateBaselineForRound(
+      messages: unknown[],
+      model: string,
+      sessionId?: string
+    ): Promise<void>;
   };
   recordChatResponseUsage: (sessionId: string, usage: unknown) => void;
   /** AB-10 修复：工具轮次 LLM 用量上报（区别于 recordChatResponseUsage 的内部记账，此回调转发给 streamMessage 的 onUsage → 前端 usage 事件） */

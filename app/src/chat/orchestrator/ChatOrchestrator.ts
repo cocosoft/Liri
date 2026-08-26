@@ -79,7 +79,6 @@ export interface ChatOrchestratorHost {
   sessionAbortControllers: Map<string, AbortController>;
   currentSessionIdRef: SessionCurrentIdPort;
   pendingInteractions: Map<string, unknown>;
-  streamingCheckpoint: StreamingAutoCheckpoint | null;
   /** 工具轮次计数（sendMessage TAORLoop/计划编排读取） */
   toolRoundCount: number;
   /** 工具轮次计数 +1（流式/非流式完成后调用，确保 turn 编号唯一） */

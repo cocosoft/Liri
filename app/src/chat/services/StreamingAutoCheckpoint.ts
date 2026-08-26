@@ -129,15 +129,25 @@ export class StreamingAutoCheckpoint {
     return checkpoint;
   }
 
-  /** 恢复：从最新自动检查点重建生成器状态 */
+  /** 恢复：从自动检查点链重建完整消息 + 生成器状态 */
   async restore(): Promise<RestoreResult | null> {
-    const latest = await this.checkpointService.getLatestCheckpoint(
+    // BUG-A 修复（2026-08-26）：delta 检查点恢复必须沿父链合并——
+    // 原 restore 只取最新一条检查点，若为 delta（仅存最近 1-2 条增量消息），
+    // resumeStream 用 checkpoint.messages 覆盖会话消息后完整历史丢失。
+    // 现取全部 auto 检查点：从最近 full 快照 + 其后的 delta 增量合并去重。
+    const checkpoints = await this.checkpointService.listCheckpoints(
       this.sessionId
     );
-    if (!latest) return null;
+    const autoCheckpoints = checkpoints
+      .filter(
+        (c) =>
+          (c.metadata as unknown as Record<string, unknown>)?.[META_KEY] ===
+          true
+      )
+      .sort((a, b) => a.createdAt - b.createdAt);
+    if (autoCheckpoints.length === 0) return null;
 
-    const meta = latest.metadata as unknown as Record<string, unknown>;
-    if (!meta?.[META_KEY]) return null;
+    const latest = autoCheckpoints[autoCheckpoints.length - 1];
 
     let state: {
       stepIndex: number;
@@ -159,17 +169,49 @@ export class StreamingAutoCheckpoint {
       return null;
     }
 
+    // 定位最近的全量检查点；无全量则从首个 auto 检查点开始合并
+    const parseMode = (description?: string): 'full' | 'delta' => {
+      try {
+        const autoState = JSON.parse(description || '{}')[DESC_KEY];
+        return autoState?.mode === 'full' ? 'full' : 'delta';
+      } catch {
+        return 'delta';
+      }
+    };
+    let mergeStartIdx = 0;
+    for (let i = autoCheckpoints.length - 1; i >= 0; i--) {
+      if (parseMode(autoCheckpoints[i].description) === 'full') {
+        mergeStartIdx = i;
+        break;
+      }
+    }
+    // 合并：full 快照消息 + 后续 delta 增量，按消息 id 去重
+    const byId = new Map<string, Message>();
+    for (let i = mergeStartIdx; i < autoCheckpoints.length; i++) {
+      for (const msg of autoCheckpoints[i].messages) {
+        byId.set(msg.id, msg);
+      }
+    }
+    const mergedMessages = Array.from(byId.values());
+
     if (isCheckpointLogEnabled()) {
-      logger.info('从自动检查点恢复', {
+      logger.info('从自动检查点链恢复', {
         sessionId: this.sessionId,
         checkpointId: latest.id,
         stepIndex: state.stepIndex,
         completedToolCount: state.completedToolCallIds.length,
+        autoCheckpointCount: autoCheckpoints.length,
+        mergeStartIdx,
+        mergedMessageCount: mergedMessages.length,
+        latestMessageCount: latest.messages.length,
       });
     }
 
     return {
-      checkpoint: latest,
+      checkpoint: {
+        ...latest,
+        messages: mergedMessages,
+      },
       stepIndex: state.stepIndex,
       completedToolCallIds: state.completedToolCallIds,
       generatorState: {
@@ -182,5 +224,15 @@ export class StreamingAutoCheckpoint {
   /** 获取当前步骤序号 */
   get currentStep(): number {
     return this.stepIndex;
+  }
+
+  /**
+   * 恢复 stepIndex（BUG-A2 修复 2026-08-26）：resumeStream 恢复会话后调用，
+   * 新实例默认 stepIndex=0 会导致恢复后的全量/delta 检查点节奏错位
+   *（本应第 11 步全量的被当作第 1 步全量）
+   */
+  restoreStepIndex(stepIndex: number): void {
+    this.stepIndex = stepIndex;
+    this.lastFullStep = stepIndex;
   }
 }

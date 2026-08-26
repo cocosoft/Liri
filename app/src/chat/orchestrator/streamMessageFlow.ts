@@ -685,7 +685,7 @@ export async function* runStreamMessage(
     // （mutexHeld 声明于 try 外，见函数头部 BUG-1 注释）
     while (true) {
       streamHadError = false;
-      host.unifiedTracker.resetStreamTokens();
+      host.unifiedTracker.resetStreamTokens(session.id);
       streamSpan.addEvent('streamMessage.llm.call', {
         'retry.count': retryState.retryCount,
         maxTokens: retryState.nextMaxTokens,
@@ -827,7 +827,7 @@ export async function* runStreamMessage(
             severity: state.severity,
           },
         });
-      });
+      }, session.id);
 
       if (!mutexHeld) {
         logger.info('获取互斥锁(首轮)', { sessionId: session.id });
@@ -875,7 +875,7 @@ export async function* runStreamMessage(
           if (typeof chunk === 'string') {
             countStreamChunk(streamStats, false);
             accumulatedContent += chunk;
-            host.unifiedTracker.onStreamChunk(chunk);
+            host.unifiedTracker.onStreamChunk(chunk, session.id);
 
             // M1 事件溯源：text chunk 追加为 assistant/text 事件
             try {
@@ -904,7 +904,8 @@ export async function* runStreamMessage(
               host.unifiedTracker.onStreamChunk(
                 typeof chunk.content === 'string'
                   ? chunk.content
-                  : JSON.stringify(chunk.content)
+                  : JSON.stringify(chunk.content),
+                session.id
               );
             }
 

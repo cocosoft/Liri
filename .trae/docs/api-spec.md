@@ -217,7 +217,8 @@
 | DELETE | `/v1/sessions/{id}` | ✅ | `sessionService.delete` |
 | POST | `/v1/sessions/{id}/switch` | ✅ | `sessionService.switch` |
 | GET | `/v1/sessions/{id}/messages` | ✅ | `sessionService.getMessages` |
-| GET | `/v1/sessions/{id}/events` | ✅ M1-6 | `trajectoryService.getEvents`（M1-7） |
+| GET | `/v1/sessions/{id}/events` | ✅ M1-6 | `trajectoryService.getEvents`（M1-7；`?fromSeq&toSeq&types&limit&recent`，recent=1 时尾部优先取最后 limit 条——日志/轨迹面板显示最近事件） |
+| GET | `/v1/sessions/{id}/events/export` | ✅ P7 | `trajectoryService.exportEvents`（导出 jsonl/json，`?format=jsonl\|json`） |
 | GET | `/v1/sessions/{id}/stats` | ✅ D7 | `trajectoryService.getSessionStats`（事件投影统计：消息/工具/轮次/压缩，与 `/v1/usage` token 成本维度不同） |
 | POST | `/v1/sessions/{id}/fork` | ✅ D3 | 前端「另存为分支」`sessionService.forkSession`（body `{ boundary?, childTitle? }`；复制 `[1..boundary]` 前缀事件 + 血缘 `parentSessionId/seedLength`，boundary 缺省=tailSeq，open turn 拒绝 400） |
 | POST | `/v1/sessions/{id}/messages` | ✅ 写前持久化 | `chatService.addMessage`（断网 outbox 补发） |

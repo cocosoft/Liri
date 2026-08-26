@@ -24,6 +24,7 @@
  *
  * 纯前端播放器：按拍平行逐行播放（基于事件流，不新增数据源）。
  * - ▶ / ⏸ 播放暂停
+ * - ⏮ / ⏭ 按 turn 边界跳转（P6 补全：由消费方在 flattenLayout 拍平行中计算 turn-header 边界）
  * - 速度 1x / 2x / 4x（播放间隔倍率）
  * - 进度条按行定位（拖动 seek）
  */
@@ -36,6 +37,9 @@ export interface TrajectoryPlayerProps {
   onToggle: () => void;
   onSpeed: (speed: number) => void;
   onSeek: (index: number) => void;
+  /** P6：跳转到上一个 / 下一个 turn 边界（播放暂停时也可用） */
+  onPrevTurn: () => void;
+  onNextTurn: () => void;
 }
 
 const SPEEDS = [1, 2, 4];
@@ -48,6 +52,8 @@ export function TrajectoryPlayer({
   onToggle,
   onSpeed,
   onSeek,
+  onPrevTurn,
+  onNextTurn,
 }: TrajectoryPlayerProps) {
   const progress =
     totalRows > 0 ? Math.round((playbackIndex / totalRows) * 100) : 0;
@@ -67,6 +73,28 @@ export function TrajectoryPlayer({
       >
         {playing ? "⏸" : "▶"}
       </button>
+
+      {/* P6：turn 边界跳转（上/下一个 turn-header） */}
+      <div className="flex items-center gap-1 shrink-0">
+        <button
+          onClick={onPrevTurn}
+          disabled={totalRows === 0}
+          className="shrink-0 w-6 h-6 rounded flex items-center justify-center text-xs text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          aria-label="上一个 turn"
+          title="上一个 turn"
+        >
+          ⏮
+        </button>
+        <button
+          onClick={onNextTurn}
+          disabled={totalRows === 0}
+          className="shrink-0 w-6 h-6 rounded flex items-center justify-center text-xs text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          aria-label="下一个 turn"
+          title="下一个 turn"
+        >
+          ⏭
+        </button>
+      </div>
 
       <div className="flex items-center gap-1 shrink-0">
         {SPEEDS.map((s) => (

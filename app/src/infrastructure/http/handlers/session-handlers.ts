@@ -811,6 +811,7 @@ export async function handleGetSessionMemory(
  *   - toSeq: 结束 seq（包含），默认 Infinity
  *   - types: 逗号分隔的事件类型白名单
  *   - limit: 最大返回数，默认 1000，上限 10000
+ *   - recent: 1/true 时且未传 fromSeq → 尾部优先（最后 limit 条），日志/轨迹面板显示最近事件
  *
  * 响应：
  *   200: { events: LiriEvent[], tailSeq: number, hasMore: boolean }
@@ -838,6 +839,7 @@ export async function handleGetSessionEvents(
     const toSeqParam = url.searchParams.get('toSeq');
     const typesParam = url.searchParams.get('types');
     const limitParam = url.searchParams.get('limit');
+    const recentParam = url.searchParams.get('recent');
 
     const fromSeq = fromSeqParam ? Number(fromSeqParam) : undefined;
     const toSeq = toSeqParam ? Number(toSeqParam) : undefined;
@@ -845,6 +847,7 @@ export async function handleGetSessionEvents(
       ? (typesParam.split(',').filter(Boolean) as LiriEventType[])
       : undefined;
     const limit = limitParam ? Math.min(Number(limitParam), 10000) : 1000;
+    const recent = recentParam === '1' || recentParam === 'true';
 
     // 参数校验
     if (fromSeq !== undefined && (!Number.isFinite(fromSeq) || fromSeq < 1)) {
@@ -866,6 +869,7 @@ export async function handleGetSessionEvents(
       toSeq,
       types,
       limit,
+      recent,
     });
 
     res.writeHead(200, { 'Content-Type': 'application/json' });

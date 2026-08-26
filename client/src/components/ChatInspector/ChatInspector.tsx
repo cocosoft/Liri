@@ -278,6 +278,31 @@ function TrajectoryTabContentImpl() {
     getItemKey: (index) => flatRows[index]?.key ?? index,
   });
 
+  // P6：turn 边界（turn-header 行的拍平行 index 列表），供 ⏮/⏭ 跳转定位
+  const turnIndexes = useMemo(
+    () =>
+      flatRows.reduce<number[]>((acc, row, i) => {
+        if (row.kind === "turn-header") acc.push(i);
+        return acc;
+      }, []),
+    [flatRows],
+  );
+
+  // P6：跳转上一个/下一个 turn 边界（按 turn-header 行 index 定位）
+  const jumpTurn = useCallback(
+    (dir: -1 | 1) => {
+      const cur = playbackIndex;
+      const target =
+        dir === -1
+          ? [...turnIndexes].reverse().find((i) => i < cur)
+          : turnIndexes.find((i) => i > cur);
+      if (target !== undefined) {
+        seekPlayback(target);
+      }
+    },
+    [turnIndexes, playbackIndex, seekPlayback],
+  );
+
   // P6（2026-08-25）：回放播放定时器——按 speed 倍率推进一行（简化固定间隔）
   useEffect(() => {
     if (!playing || flatRows.length === 0) return;
@@ -322,6 +347,8 @@ function TrajectoryTabContentImpl() {
         onToggle={togglePlay}
         onSpeed={setPlaybackSpeed}
         onSeek={seekPlayback}
+        onPrevTurn={() => jumpTurn(-1)}
+        onNextTurn={() => jumpTurn(1)}
       />
       <TrajectoryFilter filter={filter} onChange={setFilter} />
       <div ref={flatParentRef} className="flex-1 overflow-y-auto">

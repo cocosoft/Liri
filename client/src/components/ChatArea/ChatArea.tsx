@@ -18,6 +18,7 @@ import { ContextWatermark } from "../chat/ContextWatermark";
 import VoiceSubtitleOverlay from "../VoiceSubtitleOverlay";
 import VoiceSessionIndicator from "../VoiceSessionIndicator";
 import { createLogger } from "@/utils/logger";
+import { friendlyErrorSummary } from "@/utils/friendlyError";
 import { useNavigate } from "react-router-dom";
 
 const logger = createLogger("components:chatArea");
@@ -251,6 +252,16 @@ function ChatArea({ fluid = false }: { fluid?: boolean }) {
     error && !backendRunning && errorCode === "BACKEND_UNREACHABLE"
       ? t("chat.backendNotRunning")
       : error;
+  // 友好化（2026-08-26）：主文案用小白可读的映射（friendlyError），
+  // 原始技术信息（含 Provider/端点/证书详情）折叠展示，专业用户可展开查看。
+  // 后端未启动分支（i18n 文案已友好）不再二次映射。
+  const errorSummary =
+    displayError && displayError !== error
+      ? displayError
+      : displayError
+        ? friendlyErrorSummary(displayError)
+        : null;
+  const errorDetail = error;
 
   // P2-2 修复：流式期间跳过 sessionUsage 计算（O(n) → O(1)），流式结束后一次性计算
   type SessionUsage =
@@ -470,7 +481,7 @@ function ChatArea({ fluid = false }: { fluid?: boolean }) {
       />
 
       {/* 错误提示 */}
-      {displayError && (
+      {errorSummary && (
         <div
           className={`absolute bottom-[140px] left-0 right-0 z-20 pointer-events-none ${fluid ? "px-4" : "flex justify-center"}`}
         >
@@ -480,9 +491,20 @@ function ChatArea({ fluid = false }: { fluid?: boolean }) {
                 ⚠
               </span>
               <div className="flex-1 min-w-0">
-                <span className="text-sm text-red-700 dark:text-red-300 block">
-                  {displayError}
+                <span className="text-sm text-red-700 dark:text-red-300 block whitespace-pre-line">
+                  {errorSummary}
                 </span>
+                {/* 技术详情（2026-08-26）：折叠展示原始错误，专业用户可展开 */}
+                {errorDetail && errorDetail !== errorSummary && (
+                  <details className="mt-1.5">
+                    <summary className="text-xs text-red-400 dark:text-red-400/80 cursor-pointer hover:text-red-500 select-none">
+                      查看技术详情
+                    </summary>
+                    <pre className="mt-1.5 text-[11px] text-red-500/90 dark:text-red-400/70 whitespace-pre-wrap break-all max-h-40 overflow-y-auto bg-red-100/40 dark:bg-red-900/30 rounded p-2">
+                      {errorDetail}
+                    </pre>
+                  </details>
+                )}
                 <div className="flex items-center gap-2 mt-2">
                   <button
                     onClick={() => void handleRetryError()}
@@ -491,7 +513,11 @@ function ChatArea({ fluid = false }: { fluid?: boolean }) {
                     🔄 {t("common.retry")}
                   </button>
                   <button
-                    onClick={() => navigator.clipboard.writeText(displayError)}
+                    onClick={() =>
+                      navigator.clipboard.writeText(
+                        errorDetail ?? errorSummary ?? "",
+                      )
+                    }
                     className="text-xs px-2 py-1 rounded bg-red-100 dark:bg-red-800/50 text-red-600 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-700/50 transition-colors"
                   >
                     📋 {t("chat.copyMessage")}

@@ -42,6 +42,8 @@ export interface SessionEventsQuery {
   toSeq?: number;
   types?: LiriEventType[];
   limit?: number;
+  /** P8（2026-08-26）：尾部优先——未传 fromSeq 时返回最后 limit 条（日志/轨迹面板显示最近事件） */
+  recent?: boolean;
 }
 
 export interface SessionEventsResponse {
@@ -85,6 +87,7 @@ export const trajectoryService = {
           if (query?.types && query.types.length > 0)
             params.types = query.types.join(",");
           if (query?.limit !== undefined) params.limit = String(query.limit);
+          if (query?.recent) params.recent = "1";
 
           const res = await apiHttp.get<SessionEventsResponse>(
             `/v1/sessions/${sessionId}/events`,

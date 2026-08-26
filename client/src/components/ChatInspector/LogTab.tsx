@@ -30,8 +30,74 @@ import {
   type LogEvent,
 } from "../../utils/sessionLog";
 import { ClampedBody } from "../common/ClampedBody";
+import {
+  deriveTrajectoryLayout,
+  type TrajectoryTurn,
+} from "../../stores/chat/deriveTrajectoryLayout";
 
-type LogView = "all" | "thinking" | "tool" | "system" | "failed";
+type LogView = "all" | "thinking" | "text" | "tool" | "system" | "failed";
+
+/** P1-E：日志视图模式——分组（默认，按 Turn 归组）/ 平铺（现状逐条） */
+type LogViewMode = "group" | "flat";
+
+/** P1-D：分组视图拍平行（虚拟滚动行） */
+type LogFlatRow =
+  | { kind: "group-orphan-header"; key: string }
+  | {
+      kind: "turn-header";
+      turn: TrajectoryTurn;
+      key: string;
+      counts: TurnCounts;
+    }
+  | { kind: "event"; event: LogEvent; key: string };
+
+/** Turn 统计徽标数据 */
+interface TurnCounts {
+  thinking: number;
+  text: number;
+  tool: number;
+  system: number;
+  failed: number;
+}
+
+/** 按事件类型统计 Turn 内事件数（单一数据源：turn.steps → cells → event） */
+function countTurnEvents(turn: TrajectoryTurn): TurnCounts {
+  const counts: TurnCounts = {
+    thinking: 0,
+    text: 0,
+    tool: 0,
+    system: 0,
+    failed: 0,
+  };
+  for (const step of turn.steps) {
+    for (const cell of step.cells) {
+      const e = cell.event;
+      switch (e.type) {
+        case "assistant/thinking":
+          counts.thinking++;
+          break;
+        case "assistant/text":
+          counts.text++;
+          break;
+        case "assistant/tool_call":
+          counts.tool++;
+          break;
+        case "assistant/status":
+          counts.system++;
+          break;
+        default:
+          break;
+      }
+      if (
+        e.type === "tool/result" &&
+        (e.data as { isError?: boolean }).isError
+      ) {
+        counts.failed++;
+      }
+    }
+  }
+  return counts;
+}
 
 // ─── 工具函数 ─────────────────────────────────────
 
@@ -180,26 +246,116 @@ function LogRowImpl({
   event: LogEvent;
   isStreaming: boolean;
 }) {
+  const isSystem = event.kind === "system";
+  // P1-C（2026-08-26）：thinking/text 默认折叠为标题行，点击展开全文；
+  // text（AI 回复）用 💬 图标 + 加粗标题作语义锚点（P0-B）
+  const isCollapsible = event.kind === "thinking" || event.kind === "text";
+  // Hook 必须在任何提前 return 之前无条件调用（react-hooks/rules-of-hooks）
+  const [expanded, setExpanded] = useState(!isCollapsible);
   if (event.kind === "tool" && event.record) {
     return <ToolRow event={event} isStreaming={isStreaming} />;
   }
-  const isSystem = event.kind === "system";
+  const icon = event.kind === "text" ? "💬" : isSystem ? "⚠️" : "💭";
   return (
     <div className="py-1.5 px-3">
-      <div className="flex items-start gap-1.5 text-xs">
+      <button
+        type="button"
+        onClick={isCollapsible ? () => setExpanded((v) => !v) : undefined}
+        className={`w-full text-left flex items-start gap-1.5 text-xs ${
+          isCollapsible
+            ? "cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/40 rounded px-1 -mx-1"
+            : ""
+        }`}
+      >
         <span className="text-gray-400 dark:text-gray-500 font-mono text-[10px] mt-0.5 shrink-0">
           {formatTime(event.time)}
         </span>
-        <span className="shrink-0">{isSystem ? "⚠️" : "💭"}</span>
-        <span className="font-medium text-gray-700 dark:text-gray-300 break-all">
+        <span className="shrink-0">{icon}</span>
+        <span
+          className={`break-all ${
+            event.kind === "text"
+              ? "font-semibold text-gray-800 dark:text-gray-200"
+              : "font-medium text-gray-700 dark:text-gray-300"
+          }`}
+        >
           {event.title}
         </span>
-      </div>
-      {event.content && <ClampedBody text={event.content} />}
+        {isCollapsible && (
+          <span className="ml-auto text-gray-400 dark:text-gray-500 shrink-0 text-[10px] mt-0.5">
+            {expanded ? "收起" : "展开"}
+          </span>
+        )}
+      </button>
+      {event.content && expanded && <ClampedBody text={event.content} />}
     </div>
   );
 }
 const LogRow = React.memo(LogRowImpl);
+
+// P1-D：Turn 分组头（统计徽标 + 完成/中断状态 + 一键折叠整个 turn）
+function TurnHeaderRow({
+  row,
+  collapsed,
+  onToggle,
+}: {
+  row: Extract<LogFlatRow, { kind: "turn-header" }>;
+  collapsed: boolean;
+  onToggle: () => void;
+}) {
+  const { turn, counts } = row;
+  return (
+    <div className="px-3 py-1.5 bg-gray-50/80 dark:bg-gray-900/80 border-b border-gray-100 dark:border-gray-800">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="w-full flex items-center gap-2 text-[11px] text-left"
+      >
+        <span className="font-semibold text-blue-600 dark:text-blue-400 shrink-0">
+          Turn {turn.turn}
+        </span>
+        <span className="text-gray-400 shrink-0 font-mono">
+          seq {turn.startSeq}-{turn.endSeq}
+        </span>
+        {counts.thinking > 0 && (
+          <span className="text-gray-500 dark:text-gray-400 shrink-0">
+            💭 {counts.thinking}
+          </span>
+        )}
+        {counts.text > 0 && (
+          <span className="text-gray-500 dark:text-gray-400 shrink-0">
+            💬 {counts.text}
+          </span>
+        )}
+        {counts.tool > 0 && (
+          <span className="text-gray-500 dark:text-gray-400 shrink-0">
+            🛠 {counts.tool}
+          </span>
+        )}
+        {counts.system > 0 && (
+          <span className="text-gray-400 dark:text-gray-500 shrink-0">
+            ⚠️ {counts.system}
+          </span>
+        )}
+        {counts.failed > 0 && (
+          <span className="text-red-500 shrink-0">❌ {counts.failed}</span>
+        )}
+        {turn.completed ? (
+          <span className="text-green-600 dark:text-green-400 shrink-0">
+            已完成
+          </span>
+        ) : turn.interrupted ? (
+          <span className="text-orange-500 shrink-0">已中断</span>
+        ) : (
+          <span className="text-amber-500 shrink-0">进行中</span>
+        )}
+        <span className="ml-auto text-gray-400 dark:text-gray-500 shrink-0">
+          {collapsed ? "展开 ▸" : "折叠 ▾"}
+        </span>
+      </button>
+    </div>
+  );
+}
+const TurnHeader = React.memo(TurnHeaderRow);
 
 // ─── 主组件 ───────────────────────────────────────
 
@@ -224,7 +380,87 @@ function LogTab() {
     [trajEvents],
   );
 
+  // P1-D：Turn 布局（复用 deriveTrajectoryLayout，CS01 归一化）
+  const layout = useMemo(
+    () => deriveTrajectoryLayout(trajEvents),
+    [trajEvents],
+  );
+
   const [view, setView] = useState<LogView>("all");
+  // P1-E：视图模式（分组默认 / 平铺兜底）
+  const [viewMode, setViewMode] = useState<LogViewMode>("group");
+  // P1-D：折叠的 Turn 集合（按 turn 序号），turn 头可一键折叠整个 turn
+  const [collapsedTurns, setCollapsedTurns] = useState<Set<number>>(new Set());
+
+  const toggleTurn = useCallback((turn: number) => {
+    setCollapsedTurns((prev) => {
+      const next = new Set(prev);
+      if (next.has(turn)) next.delete(turn);
+      else next.add(turn);
+      return next;
+    });
+  }, []);
+
+  // 过滤判定（平铺与分组共用，避免两份 switch 漂移）
+  const passFilter = useCallback(
+    (e: LogEvent) => {
+      switch (view) {
+        case "thinking":
+          return e.kind === "thinking";
+        case "text":
+          return e.kind === "text";
+        case "tool":
+          return e.kind === "tool";
+        case "system":
+          return e.kind === "system";
+        case "failed":
+          return e.status === "failed";
+        default:
+          return true;
+      }
+    },
+    [view],
+  );
+
+  const filtered = useMemo(
+    () => events.filter(passFilter),
+    [events, passFilter],
+  );
+
+  // P1-D：分组视图拍平行——Turn 头（含统计徽标）+ turn 内事件卡片。
+  // 合并器按 turn 内事件子序列运行（buildLogEventsFromEvents），避免跨 turn 错误合并
+  const groupedRows = useMemo(() => {
+    const rows: LogFlatRow[] = [];
+    const orphanLogs = buildLogEventsFromEvents(layout.orphanEvents).filter(
+      passFilter,
+    );
+    if (orphanLogs.length > 0) {
+      rows.push({ kind: "group-orphan-header", key: "orphan-header" });
+      for (const l of orphanLogs)
+        rows.push({ kind: "event", event: l, key: l.key });
+    }
+    for (const turn of layout.turns) {
+      const counts = countTurnEvents(turn);
+      rows.push({
+        kind: "turn-header",
+        turn,
+        key: `turn-${turn.startSeq}`,
+        counts,
+      });
+      if (collapsedTurns.has(turn.turn)) continue;
+      const turnEvents = turn.steps.flatMap((s) => s.cells.map((c) => c.event));
+      const turnLogs = buildLogEventsFromEvents(turnEvents).filter(passFilter);
+      for (const l of turnLogs)
+        rows.push({ kind: "event", event: l, key: l.key });
+    }
+    return rows;
+  }, [layout, passFilter, collapsedTurns]);
+
+  // 当前视图的行（group → 分组行；flat → 过滤后逐条）
+  const rows = useMemo((): LogFlatRow[] => {
+    if (viewMode === "group") return groupedRows;
+    return filtered.map((e) => ({ kind: "event", event: e, key: e.key }));
+  }, [viewMode, groupedRows, filtered]);
 
   // 收起态角标：进行中工具数（历史回放无"进行中"——无 result 的工具已归为"已中断"）
   const runningCount = useMemo(
@@ -243,21 +479,6 @@ function LogTab() {
         .length,
     [events],
   );
-
-  const filtered = useMemo(() => {
-    switch (view) {
-      case "thinking":
-        return events.filter((e) => e.kind === "thinking");
-      case "tool":
-        return events.filter((e) => e.kind === "tool");
-      case "system":
-        return events.filter((e) => e.kind === "system");
-      case "failed":
-        return events.filter((e) => e.status === "failed");
-      default:
-        return events;
-    }
-  }, [events, view]);
 
   const countOf = useCallback(
     (kind: LogView) =>
@@ -288,18 +509,19 @@ function LogTab() {
     if (currentModelName) prevModelRef.current = currentModelName;
   }, [currentModelName]);
 
-  // 虚拟滚动
+  // 虚拟滚动（行 = 分组视图拍平行 或 平铺过滤行）
   const parentRef = useRef<HTMLDivElement>(null);
   const rowVirtualizer = useVirtualizer({
-    count: filtered.length,
+    count: rows.length,
     getScrollElement: () => parentRef.current,
     estimateSize: () => 120,
     overscan: 8,
-    getItemKey: (index) => filtered[index]?.key ?? index,
+    getItemKey: (index) => rows[index]?.key ?? index,
   });
 
   const FILTERS: { id: LogView; label: string }[] = [
     { id: "all", label: "全部" },
+    { id: "text", label: "回复" },
     { id: "tool", label: "工具" },
     { id: "thinking", label: "思考" },
     { id: "system", label: "系统" },
@@ -346,7 +568,7 @@ function LogTab() {
         )}
       </div>
 
-      {/* 过滤标签 */}
+      {/* 过滤标签 + 视图切换 */}
       <div className="px-3 py-1.5 flex items-center gap-1 shrink-0">
         {FILTERS.map((f) => (
           <button
@@ -361,6 +583,15 @@ function LogTab() {
             {f.label} {countOf(f.id)}
           </button>
         ))}
+        <span className="flex-1" />
+        {/* P1-E：视图切换（分组默认 / 平铺兜底） */}
+        <button
+          onClick={() => setViewMode(viewMode === "group" ? "flat" : "group")}
+          className="px-2 py-0.5 rounded text-[11px] text-gray-400 dark:text-gray-500 border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors shrink-0"
+          title="分组视图按 Turn 归组，平铺视图保留精确事件顺序"
+        >
+          {viewMode === "group" ? "平铺视图" : "分组视图"}
+        </button>
       </div>
 
       {/* 模型切换合成事件 */}
@@ -372,7 +603,7 @@ function LogTab() {
 
       {/* 事件流（虚拟滚动） */}
       <div ref={parentRef} className="flex-1 min-h-0 overflow-y-auto">
-        {filtered.length === 0 ? (
+        {rows.length === 0 ? (
           <div className="px-3 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
             {events.length === 0 ? (
               trajLoading ? (
@@ -401,22 +632,38 @@ function LogTab() {
               width: "100%",
             }}
           >
-            {rowVirtualizer.getVirtualItems().map((vi) => (
-              <div
-                key={vi.key}
-                data-index={vi.index}
-                ref={rowVirtualizer.measureElement}
-                style={{
-                  position: "absolute",
-                  top: 0,
-                  left: 0,
-                  width: "100%",
-                  transform: `translateY(${vi.start}px)`,
-                }}
-              >
-                <LogRow event={filtered[vi.index]} isStreaming={isStreaming} />
-              </div>
-            ))}
+            {rowVirtualizer.getVirtualItems().map((vi) => {
+              const row = rows[vi.index];
+              if (!row) return null;
+              return (
+                <div
+                  key={vi.key}
+                  data-index={vi.index}
+                  ref={rowVirtualizer.measureElement}
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    width: "100%",
+                    transform: `translateY(${vi.start}px)`,
+                  }}
+                >
+                  {row.kind === "turn-header" ? (
+                    <TurnHeader
+                      row={row}
+                      collapsed={collapsedTurns.has(row.turn.turn)}
+                      onToggle={() => toggleTurn(row.turn.turn)}
+                    />
+                  ) : row.kind === "group-orphan-header" ? (
+                    <div className="px-3 py-1 bg-gray-100/60 dark:bg-gray-800/40 border-b border-gray-100 dark:border-gray-800 text-[11px] text-gray-400 dark:text-gray-500">
+                      未分组事件
+                    </div>
+                  ) : (
+                    <LogRow event={row.event} isStreaming={isStreaming} />
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
       </div>

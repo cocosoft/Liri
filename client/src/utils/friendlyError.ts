@@ -59,7 +59,7 @@ const SPECIFIC_ERROR_MAP: Array<[RegExp, string]> = [
   ],
   [
     /certificate|ssl|tls|unable to connect|is the computer able to access|FailedToOpenSocket/i,
-    "网络连接异常，无法访问模型 API，请检查本机网络、代理或防火墙配置",
+    "网络连接出现问题，暂时无法连接模型服务。请检查网络后重试；若仍失败，可尝试切换网络（如更换 Wi-Fi 或手机热点）",
   ],
   [
     /api[- ]?key|incorrect.*key|invalid.*key|unauthorized/i,

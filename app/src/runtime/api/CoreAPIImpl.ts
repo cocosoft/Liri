@@ -1673,6 +1673,9 @@ export class CoreAPIImpl implements CoreAPI {
    *
    * 通过 ChatManager 持有的 EventLogStorage 读取事件。
    * 首次访问时若 events.jsonl 不存在但 messages.jsonl 存在，ChatManager 自动触发迁移。
+   *
+   * recent=true（P8 补充，2026-08-26）：未传 fromSeq 时从会话尾部向前取 limit 条
+   * （日志/轨迹面板显示最近事件，避免长会话只看到开头 1000 条）。
    */
   async getSessionEvents(
     sessionId: string,
@@ -1681,6 +1684,7 @@ export class CoreAPIImpl implements CoreAPI {
       toSeq?: number;
       types?: Array<string>;
       limit?: number;
+      recent?: boolean;
     }
   ): Promise<{
     events: Array<LiriEvent>;
@@ -1705,10 +1709,19 @@ export class CoreAPIImpl implements CoreAPI {
       }
     }
 
+    // recent=true 且未传 fromSeq：尾部优先窗口（最后 limit 条），
+    // 覆盖长会话"只看到开头 1000 条"的展示缺口
+    let effectiveFrom = query?.fromSeq;
+    if (query?.recent && effectiveFrom === undefined) {
+      const realTail = await log.getTailSeq();
+      const limit = query?.limit ?? 1000;
+      effectiveFrom = Math.max(1, realTail - limit + 1);
+    }
+
     // types: string[] → LiriEventType[]（HTTP 入参为字符串，运行时已校验）
     const logQuery = query
       ? {
-          fromSeq: query.fromSeq,
+          fromSeq: effectiveFrom,
           toSeq: query.toSeq,
           types: query.types as Array<LiriEvent['type']> | undefined,
           limit: query.limit,

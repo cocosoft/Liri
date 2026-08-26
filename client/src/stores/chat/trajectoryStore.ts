@@ -141,8 +141,11 @@ export const useTrajectoryStore = create<TrajectoryState>((set, get) => ({
     if (get().loading) return;
     set({ loading: true, error: null, sessionId });
     try {
+      // P8（2026-08-26）：recent 尾部优先——长会话不再只看到开头 1000 条，
+      // 日志/轨迹面板显示最近事件（loadMore 仍按后端 tailSeq 分页）
       const result = await trajectoryService.getEvents(sessionId, {
         limit: 1000,
+        recent: true,
       });
       set({
         events: result.events,
@@ -167,13 +170,19 @@ export const useTrajectoryStore = create<TrajectoryState>((set, get) => ({
         fromSeq: tailSeq + 1,
         limit: 1000,
       });
-      set((state) => ({
-        events: [...state.events, ...result.events],
-        tailSeq: result.tailSeq,
-        liveTailSeq: result.tailSeq,
-        hasMore: result.hasMore,
-        loading: false,
-      }));
+      set((state) => {
+        // 双轨（P2）：流式期间 setLiveEvents 已追加的事件可能与 loadMore 返回重叠
+        // （后端落盘与前端流式交错），按 seq 去重后再拼接——验收「loadMore 分页无重复」
+        const seen = new Set(state.events.map((e) => e.seq));
+        const fresh = result.events.filter((e) => !seen.has(e.seq));
+        return {
+          events: [...state.events, ...fresh],
+          tailSeq: result.tailSeq,
+          liveTailSeq: result.tailSeq,
+          hasMore: result.hasMore,
+          loading: false,
+        };
+      });
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       logger.warn("loadMore 失败", { sessionId, error: msg });

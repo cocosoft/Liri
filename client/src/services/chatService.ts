@@ -9,6 +9,7 @@ import { useModelSwitchStore } from "../stores/modelSwitchStore";
 import { useConfigStore } from "../stores/configStore";
 import { createLogger } from "../utils/logger";
 import { handleClientError } from "../utils/handleError";
+import { friendlyErrorSummary } from "../utils/friendlyError";
 import {
   readWithIdleTimeout,
   STREAM_IDLE_TIMEOUT_MS,
@@ -1217,10 +1218,10 @@ export const chatService = {
           };
           return;
         }
-        // 其他网络错误（保留原始消息便于排查）
+        // 其他网络错误（友好化主文案；原始技术信息走日志/错误弹层详情）
         yield {
           type: "error",
-          content: `网络错误: ${errorMessage}`,
+          content: `网络错误: ${friendlyErrorSummary(errorMessage)}`,
           errorCode: "BACKEND_UNREACHABLE",
         };
       } finally {
@@ -1244,7 +1245,7 @@ export const chatService = {
       // 聊天界面无任何可见反馈（用户"无回复"）。统一转为 error chunk 走正常错误渲染。
       yield {
         type: "error",
-        content: `请求失败: ${e instanceof Error ? e.message : String(e)}`,
+        content: `请求失败: ${friendlyErrorSummary(e)}`,
         errorCode: "BACKEND_UNREACHABLE",
       };
     } finally {

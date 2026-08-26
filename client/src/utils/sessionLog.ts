@@ -124,7 +124,7 @@ export function extractToolCalls(messages: Message[]): ToolCallRecord[] {
 
 // ─── 会话日志事件 ─────────────────────────────────
 
-export type LogEventKind = "thinking" | "tool" | "system";
+export type LogEventKind = "thinking" | "text" | "tool" | "system";
 
 export interface LogEvent {
   /** 稳定 React key（block.id / toolCall.id，streaming 不重排） */
@@ -234,21 +234,59 @@ export function buildLogEventsFromEvents(events: LiriEvent[]): LogEvent[] {
   const logEvents: LogEvent[] = [];
   const toolIdxById = new Map<string, number>();
 
+  // P0-A（2026-08-26）：thinking/text chunk 累积器——连续同类型 chunk 合并为一张卡片，
+  // 解决"一段思考被拆成几十条记录"的碎片化；key 用首条 seq 保持稳定（流式追加不重排）。
+  let pending: {
+    kind: "thinking" | "text";
+    messageId?: string;
+    parts: string[];
+    firstSeq: number;
+    time: number;
+  } | null = null;
+
+  const flushPending = () => {
+    if (!pending) return;
+    const content = pending.parts.join("");
+    logEvents.push({
+      key: `evt-${pending.firstSeq}-${pending.kind}`,
+      kind: pending.kind,
+      time: pending.time,
+      title: firstLine(content),
+      content,
+    });
+    pending = null;
+  };
+
   for (const event of events) {
     switch (event.type) {
-      case "assistant/thinking": {
-        const content = (event.data as { content?: string }).content ?? "";
-        if (!content) break;
-        logEvents.push({
-          key: `evt-${event.seq}-thinking`,
-          kind: "thinking",
-          time: event.time,
-          title: firstLine(content),
-          content,
-        });
+      case "assistant/thinking":
+      case "assistant/text": {
+        // P0-B：assistant/text（AI 回复正文）现在也会产出 kind:"text" 的 LogEvent，
+        // 成为日志的语义分隔锚点（"这一轮 AI 最终给了什么"）
+        const d = event.data as { content?: string; messageId?: string };
+        if (!d.content) break;
+        const kind = event.type === "assistant/thinking" ? "thinking" : "text";
+        // 合并条件：同 kind + 同 messageId（历史事件无 messageId 时退化为"相邻同类型"）
+        if (
+          pending &&
+          pending.kind === kind &&
+          (pending.messageId ?? null) === (d.messageId ?? null)
+        ) {
+          pending.parts.push(d.content);
+        } else {
+          flushPending();
+          pending = {
+            kind,
+            messageId: d.messageId,
+            parts: [d.content],
+            firstSeq: event.seq,
+            time: event.time,
+          };
+        }
         break;
       }
       case "assistant/tool_call": {
+        flushPending();
         const d = event.data as {
           toolCallId: string;
           name: string;
@@ -272,6 +310,7 @@ export function buildLogEventsFromEvents(events: LiriEvent[]): LogEvent[] {
         break;
       }
       case "tool/result": {
+        flushPending();
         const d = event.data as {
           toolCallId: string;
           result?: string;
@@ -298,6 +337,7 @@ export function buildLogEventsFromEvents(events: LiriEvent[]): LogEvent[] {
         break;
       }
       case "tool/canceled": {
+        flushPending();
         // B-3（2026-08-23）：工具未完成终态——配对到 tool 记录并置为 canceled
         const d = event.data as { toolCallId: string; reason?: string };
         const idx = toolIdxById.get(d.toolCallId);
@@ -318,6 +358,7 @@ export function buildLogEventsFromEvents(events: LiriEvent[]): LogEvent[] {
         break;
       }
       case "assistant/status": {
+        flushPending();
         const content = (event.data as { content?: string }).content ?? "";
         if (!content) break;
         logEvents.push({
@@ -330,9 +371,12 @@ export function buildLogEventsFromEvents(events: LiriEvent[]): LogEvent[] {
         break;
       }
       default:
+        // 其它事件（turn/start、turn/end 等）同样封口，避免跨段合并
+        flushPending();
         break;
     }
   }
+  flushPending();
   return logEvents;
 }
 

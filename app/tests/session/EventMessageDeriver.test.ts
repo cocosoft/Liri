@@ -55,8 +55,12 @@ describe('deriveMessagesFromEvents', () => {
 
     const asst = messages.find((m) => m.id === 'msg-2');
     expect(asst?.content).toBe('你好，我是 Liri');
+    // FIX(2026-08-23)：text/thinking 流式 delta 合并到相邻同类型 block——
+    // 两个 text chunk 合并为 1 块，最终 thinking / text(合并) / tool_call 共 3 块
     const types = asst?.blocks?.map((b) => b.type);
-    expect(types).toEqual(['thinking', 'text', 'text', 'tool_call']);
+    expect(types).toEqual(['thinking', 'text', 'tool_call']);
+    const textBlock = asst?.blocks?.find((b) => b.type === 'text');
+    expect(textBlock?.content).toBe('你好，我是 Liri');
     expect(asst?.tool_calls?.[0]?.id).toBe('tc-1');
   });
 

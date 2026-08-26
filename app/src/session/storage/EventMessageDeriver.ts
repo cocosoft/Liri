@@ -307,12 +307,24 @@ function applyRichBlock(ev: LiriEvent, agg: Aggregated): void {
       const action = data.action as 'write' | 'update' | undefined;
       if (action === 'write' && data.taskCard) {
         const card = data.taskCard as Record<string, unknown>;
-        blocks.push({
+        const cardTitle = (card.title as string) ?? '';
+        const newBlock = {
           id: `blk_${ev.seq}`,
           type: 'todo',
-          content: (card.title as string) ?? '',
+          content: cardTitle,
           taskCard: card,
-        });
+        };
+        // 任务分解重复修复（2026-08-26）：生产落盘事件 action 恒为 'write'
+        // （streamMessageFlow 硬编码），连续 write 按 title 查重——命中已有
+        // todo 块则全量替换（回放不重复建卡，对齐前端 deriveConversationBlocks）
+        const existingIdx = blocks.findIndex(
+          (b) => b.type === 'todo' && b.content === cardTitle
+        );
+        if (existingIdx !== -1) {
+          blocks[existingIdx] = newBlock;
+        } else {
+          blocks.push(newBlock);
+        }
       } else if (action === 'update' && data.taskId) {
         // 增量更新：找最后一个 todo block，更新其 taskCard.tasks 中对应 task
         const todoBlock = [...blocks]

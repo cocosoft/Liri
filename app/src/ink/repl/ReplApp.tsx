@@ -616,7 +616,7 @@ export const ReplApp: React.FC<ReplAppProps> = ({ chatManager, onExit }) => {
    * 当 LLM 调用 ask_user_question 工具后，用户输入答案并提交时调用
    */
   const handleQuestionAnswer = useCallback(
-    (answer: string) => {
+    async (answer: string) => {
       const qData = currentQuestionRef.current;
       if (!qData || !chatManager) return;
 
@@ -641,7 +641,7 @@ export const ReplApp: React.FC<ReplAppProps> = ({ chatManager, onExit }) => {
       }
 
       logger.info('用户回答问题', { questionId: qData.questionId, answers });
-      const resolved = chatManager.resolveInteraction(
+      const resolved = await chatManager.resolveInteraction(
         qData.questionId,
         answers
       );

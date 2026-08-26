@@ -49,4 +49,6 @@ export interface TodoBlockData {
   tasks: TodoTaskItem[];
   phase: 'planning' | 'executing' | 'done';
   createdAt: number;
+  /** 任务计划稳定标识（2026-08-26：前端按 planId 查重，区分多计划） */
+  planId?: string;
 }

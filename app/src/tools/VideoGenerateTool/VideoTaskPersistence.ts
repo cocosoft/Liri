@@ -20,8 +20,14 @@ const logger = getLogger('tools:videoGenerate');
 /** 持久化的任务状态 */
 export interface VideoTaskRecord {
   id: string;
-  /** pending→queued→running→completed/failed */
-  status: 'pending' | 'queued' | 'running' | 'completed' | 'failed';
+  /** pending→queued→running→completed/failed/cancelled */
+  status:
+    | 'pending'
+    | 'queued'
+    | 'running'
+    | 'completed'
+    | 'failed'
+    | 'cancelled';
   /** 视频生成模式 */
   mode: 'text-to-video' | 'image-to-video';
   prompt: string;

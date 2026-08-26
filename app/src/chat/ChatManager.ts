@@ -1205,7 +1205,8 @@ export class ChatManagerImpl implements ChatManager {
    */
   private async _addAndPersistMessage(
     sessionId: string,
-    message: Message
+    message: Message,
+    options?: { throwOnError?: boolean }
   ): Promise<void> {
     // P1 修复（2026-08-15）：空正文消息告警；2026-08-20 升级为拦截（QQ 空响应事故）：
     // DeepSeek 对"历史含空 assistant 消息/连续多条 assistant"会直接返回空响应
@@ -1270,6 +1271,9 @@ export class ChatManagerImpl implements ChatManager {
       try {
         await persistChatMessage(this.sessionGateway, sessionId, message);
       } catch (e) {
+        // 问题二-1（2026-08-26）：调用方要求落盘强一致时（如用户回答），
+        // 失败必须上抛 → HTTP 层返回失败，前端可感知并重试；否则维持吞错降级
+        if (options?.throwOnError) throw e;
         // @ignore-catch — 持久化失败不阻断主流程，由 handleError 统一记录
         handleError(e, {
           module: 'chat:manager',
@@ -3819,11 +3823,14 @@ export class ChatManagerImpl implements ChatManager {
    * @returns 是否成功解析
    */
   // P0-1: sessionId 可选 — 传入时按会话精确定位；不传时遍历按 questionId 匹配（兼容旧调用方）
-  resolveInteraction(
+  // 问题二-1/2（2026-08-26）：改 async——① 落盘强一致：先 await 持久化用户回答再注入
+  // 循环，失败上抛（HTTP 500，前端可重试），杜绝"显示成功但刷新后回答消失"；
+  // ② entry 不存在（交互超时/中止已清理）时兜底落盘，回答不丢失。
+  async resolveInteraction(
     questionId: string,
     answers: string[],
     sessionId?: string
-  ): boolean {
+  ): Promise<boolean> {
     const entry = sessionId
       ? this._pendingInteractions.get(sessionId)?.questionId === questionId
         ? this._pendingInteractions.get(sessionId)
@@ -3838,19 +3845,46 @@ export class ChatManagerImpl implements ChatManager {
           ([, e]) => e.questionId === questionId
         )?.[0];
       logger.info('解析用户交互', { sessionId: sid, questionId, answers });
-      // R5 修复：将用户回答持久化为会话消息——原实现只把答案注入等待中的
-      // promise，刷新后回答从历史中消失，且 question 块恢复未提交态可重复提交。
-      // _addAndPersistMessage 内部已做错误兜底，此处不阻塞回答注入。
+      // R5 + 问题二-1：先落盘（throwOnError 强一致），成功后才注入循环；
+      // 回答 metadata 记录 questionId，供前端回放时恢复已提交态
       if (sid && answers.length > 0) {
         const answerMsg = this.messageService.createUserMessage(
           answers.join('\n'),
-          { sessionId: sid }
+          {
+            sessionId: sid,
+            metadata: { questionId },
+          }
         );
-        void this._addAndPersistMessage(sid, answerMsg);
+        await this._addAndPersistMessage(sid, answerMsg, {
+          throwOnError: true,
+        });
       }
       entry.resolve(answers);
       if (sid) this._pendingInteractions.delete(sid);
       return true;
+    }
+    // 问题二-2：交互已过期/中止（entry 已清理）→ 回答兜底落盘，不注入循环
+    if (sessionId && answers.length > 0) {
+      try {
+        const answerMsg = this.messageService.createUserMessage(
+          answers.join('\n'),
+          {
+            sessionId,
+            metadata: { questionId },
+          }
+        );
+        await this._addAndPersistMessage(sessionId, answerMsg, {
+          throwOnError: true,
+        });
+        logger.info('交互已过期，回答兜底落盘', { sessionId, questionId });
+        return true;
+      } catch (e) {
+        await handleError(e, {
+          module: 'chat:manager',
+          action: 'resolveInteractionOrphan',
+        });
+        return false;
+      }
     }
     logger.warn('未找到匹配的待处理交互', { questionId });
     return false;

@@ -16,6 +16,7 @@ import { dirname } from 'path';
 import { getLogger } from '@modules/monitoring';
 import { SimpleMutex } from '@modules/core';
 import { handleError } from '@modules/error';
+import { randomUUID } from 'crypto';
 
 const logger = getLogger('tools:todoWrite');
 
@@ -74,6 +75,10 @@ interface TodoRow {
  */
 class TodoManager {
   private todos: Map<string, Todo[]> = new Map();
+  /** 任务计划稳定标识（session_id → planId，2026-08-26：供前端查重区分多计划） */
+  private planIds: Map<string, string> = new Map();
+  /** 任务计划标题（session_id → title，write 时模型传 title/name 则更新） */
+  private planTitles: Map<string, string> = new Map();
   private db: Database;
   private initialized = false;
   private dbMutex = new SimpleMutex();
@@ -256,6 +261,36 @@ class TodoManager {
   }
 
   /**
+   * 获取/创建会话级 planId（2026-08-26：任务计划稳定标识，供前端查重区分多计划）
+   */
+  getPlanId(sessionId: string): string {
+    if (!this.planIds.has(sessionId)) {
+      this.planIds.set(sessionId, randomUUID());
+    }
+    return this.planIds.get(sessionId)!;
+  }
+
+  /**
+   * 更新会话级标题（2026-08-26：write 时模型传 title/name 则更新，否则沿用）
+   */
+  updatePlanTitle(sessionId: string, title?: unknown, name?: unknown): string {
+    const next =
+      (typeof title === 'string' && title.trim() ? title : '') ||
+      (typeof name === 'string' && name.trim() ? name : '') ||
+      this.planTitles.get(sessionId) ||
+      '任务计划';
+    this.planTitles.set(sessionId, next);
+    return next;
+  }
+
+  /**
+   * 获取会话级标题（无则默认）
+   */
+  getPlanTitle(sessionId: string): string {
+    return this.planTitles.get(sessionId) || '任务计划';
+  }
+
+  /**
    * 添加 todo
    */
   addTodo(sessionId: string, content: string, activeForm?: string): Todo {
@@ -415,6 +450,13 @@ export class TodoWriteTool extends BaseTool<Record<string, unknown>> {
       required: false,
       default: '',
     },
+    {
+      name: 'title',
+      type: 'string',
+      description: 'Title of the task plan (optional, used for the TaskCard)',
+      required: false,
+      default: '',
+    },
   ];
 
   /** 工具别名 */
@@ -569,7 +611,8 @@ export class TodoWriteTool extends BaseTool<Record<string, unknown>> {
    */
   private _buildTodoData(
     todos: Todo[],
-    title: string = '任务计划'
+    title: string = '任务计划',
+    planId?: string
   ): Record<string, unknown> {
     const safeTodos = Array.isArray(todos) ? todos : [];
     const allDone =
@@ -586,6 +629,8 @@ export class TodoWriteTool extends BaseTool<Record<string, unknown>> {
     return {
       title,
       phase,
+      // 2026-08-26：透传 planId（前端聚合器/派生器按 planId 查重区分多计划）
+      ...(planId ? { planId } : {}),
       tasks: safeTodos.map((t) => ({
         id: t.id,
         name: t.content,
@@ -714,7 +759,11 @@ export class TodoWriteTool extends BaseTool<Record<string, unknown>> {
 
           // 构建全量 todo 数据供前端流式更新 TaskCard
           const addAllTodos = todoManager.getTodos(session_id as string);
-          const addTodoData = this._buildTodoData(addAllTodos);
+          const addTodoData = this._buildTodoData(
+            addAllTodos,
+            todoManager.getPlanTitle(session_id as string),
+            todoManager.getPlanId(session_id as string)
+          );
 
           return createToolResult(result, {
             newMessages: [
@@ -754,7 +803,11 @@ export class TodoWriteTool extends BaseTool<Record<string, unknown>> {
 
             // 构建全量 todo 数据供前端流式更新 TaskCard
             const updAllTodos = todoManager.getTodos(session_id as string);
-            const updTodoData = this._buildTodoData(updAllTodos);
+            const updTodoData = this._buildTodoData(
+              updAllTodos,
+              todoManager.getPlanTitle(session_id as string),
+              todoManager.getPlanId(session_id as string)
+            );
 
             return createToolResult(result, {
               newMessages: [
@@ -776,7 +829,11 @@ export class TodoWriteTool extends BaseTool<Record<string, unknown>> {
             todoManager.setTodos(session_id as string, sessionTodos);
 
             const fallbackAllTodos = todoManager.getTodos(session_id as string);
-            const fallbackTodoData = this._buildTodoData(fallbackAllTodos);
+            const fallbackTodoData = this._buildTodoData(
+              fallbackAllTodos,
+              todoManager.getPlanTitle(session_id as string),
+              todoManager.getPlanId(session_id as string)
+            );
 
             return createToolResult(
               `Note: todo_id "${todo_id}" not found, auto-matched to latest todo "${latestTodo.id}".\nUpdated todo:\n  ID: ${latestTodo.id}\n  Content: ${latestTodo.content}\n  Status: ${latestTodo.status}`,
@@ -813,7 +870,11 @@ export class TodoWriteTool extends BaseTool<Record<string, unknown>> {
           if (deleted) {
             // 构建全量 todo 数据供前端流式更新 TaskCard
             const delAllTodos = todoManager.getTodos(session_id as string);
-            const delTodoData = this._buildTodoData(delAllTodos);
+            const delTodoData = this._buildTodoData(
+              delAllTodos,
+              todoManager.getPlanTitle(session_id as string),
+              todoManager.getPlanId(session_id as string)
+            );
 
             return createToolResult(`Deleted todo: ${todo_id}`, {
               newMessages: [
@@ -843,7 +904,11 @@ export class TodoWriteTool extends BaseTool<Record<string, unknown>> {
 
           // 构建全量 todo 数据供前端流式更新 TaskCard
           const ccAllTodos = todoManager.getTodos(session_id as string);
-          const ccTodoData = this._buildTodoData(ccAllTodos);
+          const ccTodoData = this._buildTodoData(
+            ccAllTodos,
+            todoManager.getPlanTitle(session_id as string),
+            todoManager.getPlanId(session_id as string)
+          );
 
           return createToolResult(`Cleared ${count} completed todo(s)`, {
             newMessages: [
@@ -898,7 +963,14 @@ export class TodoWriteTool extends BaseTool<Record<string, unknown>> {
               // todos 全 completed 时卡片永不亮"全部完成"徽章（需 status==='done'）
               _todoData: this._buildTodoData(
                 newTodos,
-                (input.name as string) || '任务计划'
+                // 2026-08-26：模型传 title/name 则更新会话标题（schema 新增 title 字段），
+                // 否则沿用上次标题；planId 保证同一会话同一计划标识稳定
+                todoManager.updatePlanTitle(
+                  session_id as string,
+                  input.title,
+                  input.name
+                ),
+                todoManager.getPlanId(session_id as string)
               ),
             },
           });

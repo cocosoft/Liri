@@ -1589,6 +1589,96 @@
       "plan": "项目模块第三轮深挖修复（2026-08-17 E-1 artifacts 双写分流/list 合并、E-2 summaries 读回退、E-8 文件列表限制、E-9 空 rules.md）致行数微超 15 行；后续按 artifact/context/files 子域拆分",
       "expiresAt": "2026-11-30",
       "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-141",
+      "ruleId": "R04-001",
+      "file": "client/src/components/settings/LlamaConfigPanel.tsx",
+      "lines": 1268,
+      "targetLines": 800,
+      "plan": "历史巨型文件批量登记（2026-08-26 治理盲区补录），按模块拆分或重构",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-142",
+      "ruleId": "R04-001",
+      "file": "client/src/stores/chat/chat-message-stream.ts",
+      "lines": 1100,
+      "targetLines": 800,
+      "plan": "历史巨型文件批量登记（2026-08-26 治理盲区补录，P8 稀疏基线 + CM-5 code_run 兜底），按流式编排子模块拆分",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-143",
+      "ruleId": "R04-001",
+      "file": "client/src/stores/chat/deriveConversationBlocks.ts",
+      "lines": 992,
+      "targetLines": 800,
+      "plan": "历史巨型文件批量登记（2026-08-26 治理盲区补录，CM-5 code_run 块分支），按块派生子模块拆分",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-144",
+      "ruleId": "R04-001",
+      "file": "app/src/session/storage/EventMessageDeriver.ts",
+      "lines": 873,
+      "targetLines": 800,
+      "plan": "历史巨型文件批量登记（2026-08-26 治理盲区补录，CM-5 code_run 读侧），按消息/块派生子模块拆分",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-145",
+      "ruleId": "R04-001",
+      "file": "app/src/chat/services/MessageContextPipeline.ts",
+      "lines": 839,
+      "targetLines": 800,
+      "plan": "历史巨型文件批量登记（2026-08-26 治理盲区补录），按上下文/消息管线子模块拆分",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-146",
+      "ruleId": "R04-001",
+      "file": "app/src/ai/local/llama/ModelDownloadService.ts",
+      "lines": 817,
+      "targetLines": 800,
+      "plan": "历史巨型文件批量登记（2026-08-26 治理盲区补录），随 llama 子模块拆分（配置/生命周期/下载/同步）收敛",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-147",
+      "ruleId": "R04-001",
+      "file": "app/src/chat/orchestrator/ChatOrchestrator.ts",
+      "lines": 817,
+      "targetLines": 800,
+      "plan": "历史巨型文件批量登记（2026-08-26 治理盲区补录），按 orchestration 子域拆分",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-148",
+      "ruleId": "R04-001",
+      "file": "client/src/services/sessionService.ts",
+      "lines": 812,
+      "targetLines": 800,
+      "plan": "历史巨型文件批量登记（2026-08-26 治理盲区补录），按会话服务子模块拆分",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-149",
+      "ruleId": "R04-001",
+      "file": "app/src/session/storage/__tests__/EventSourcePhaseA.test.ts",
+      "lines": 803,
+      "targetLines": 800,
+      "plan": "历史巨型测试文件批量登记（2026-08-26 治理盲区补录），按事件源阶段拆分测试",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
     }
   ],
   "barrelExceptions": [

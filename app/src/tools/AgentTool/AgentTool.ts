@@ -38,6 +38,8 @@ import {
 } from './ForkSubagent';
 import { SubAgentEngine, getSubAgentEngine } from './SubAgentEngine';
 import { ParallelOrchestrator } from './ParallelOrchestrator';
+import { agentRegistry } from '../../agent/registry/AgentRegistry';
+import { getTeammateManager } from '../../subagent/TeammateManager';
 import { taskRegistry } from '@modules/tasks/TaskRegistry';
 import {
   resolveModelRoute,
@@ -499,12 +501,76 @@ export class AgentTool implements Tool {
       });
     };
 
-    const result = await this.engine.execute(engineInput, engineOnProgress);
+    // teammate 层消费打通（2026-08-26）：提供 name 时注册为 in-process teammate，
+    // SendMessageTool 可向该 name 投递消息 → mailbox 收集 → 注入子 agent 上下文。
+    // 无 name 时子 agent 仅执行不参与通信（原行为）。
+    let teammateHandleId: string | null = null;
+    const mailbox: Array<{ role: 'user'; content: string }> = [];
+    if (input.name) {
+      try {
+        const handle = await getTeammateManager().spawnTeammate('in_process', {
+          name: input.name,
+          model: input.model,
+          systemPrompt,
+        });
+        teammateHandleId = handle.id;
+        getTeammateManager().onTeammateMessage(handle.id, (message) => {
+          const content =
+            typeof message.content === 'string'
+              ? message.content
+              : JSON.stringify(message.content);
+          mailbox.push({
+            role: 'user',
+            content: `[来自 ${String(message.metadata?.sender ?? 'teammate')} 的消息] ${content}`,
+          });
+          logger.info('teammate 消息已进入子 agent 信箱', {
+            agentId,
+            name: input.name,
+          });
+        });
+        logger.info('子 agent 已注册为可寻址 teammate', {
+          agentId,
+          name: input.name,
+          handleId: handle.id,
+        });
+      } catch (error) {
+        // 注册失败（重名/上限）不阻断主流程：子 agent 仅不可寻址
+        logger.warning('子 agent teammate 注册失败（仅不可寻址，不影响执行）', {
+          agentId,
+          name: input.name,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
 
-    return {
-      result: result.output,
-      tokenUsage: result.tokenUsage,
-    };
+    try {
+      const result = await this.engine.execute(
+        {
+          ...engineInput,
+          messageSource: teammateHandleId
+            ? () => mailbox.splice(0, mailbox.length)
+            : undefined,
+        },
+        engineOnProgress
+      );
+
+      return {
+        result: result.output,
+        tokenUsage: result.tokenUsage,
+      };
+    } finally {
+      if (teammateHandleId) {
+        await getTeammateManager()
+          .killTeammate(teammateHandleId)
+          .catch((error) => {
+            logger.warning('teammate 清理失败', {
+              agentId,
+              handleId: teammateHandleId,
+              error: error instanceof Error ? error.message : String(error),
+            });
+          });
+      }
+    }
   }
 
   /**
@@ -756,6 +822,35 @@ export class AgentTool implements Tool {
       let systemPrompt =
         builtInAgent?.systemPrompt ||
         this.getDefaultSystemPrompt(effectiveType);
+
+      // 2026-08-26（模块集成）：子 agent 接入 agent 管理模块——
+      // subagent_type 非内置类型时，从 AgentRegistry 查找用户自定义 agent
+      //（匹配 agentId/name/role），使用其 systemPrompt 与推荐模型。
+      // 此前仅硬编码 6 种内置类型，用户通过 AgentPage 配置的自定义 agent
+      // 无法被子 agent 工具使用（断裂点 2）。
+      if (effectiveType === 'custom' && agentInput.subagent_type) {
+        const regType = String(agentInput.subagent_type);
+        const customAgent =
+          agentRegistry.getAgent(regType) ||
+          agentRegistry
+            .listAll()
+            .find((a) => a.name === regType || a.role === regType);
+        if (customAgent) {
+          if (customAgent.systemPrompt) {
+            systemPrompt = customAgent.systemPrompt;
+          }
+          if (customAgent.model && !agentInput.model) {
+            agentInput.model = customAgent.model;
+          }
+          logger.info('AgentTool 使用自定义 agent', {
+            agentId,
+            customId: customAgent.agentId,
+            name: customAgent.name,
+            role: customAgent.role,
+            hasSystemPrompt: !!customAgent.systemPrompt,
+          });
+        }
+      }
 
       if (agentInput.isolation === 'worktree') {
         systemPrompt +=

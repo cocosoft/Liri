@@ -24,7 +24,27 @@ function QuestionBlock({
   const [otherText, setOtherText] = useState<string>("");
   // M5 修复：无选项时的自由文本回答
   const [freeText, setFreeText] = useState<string>("");
-  const [submitted, setSubmitted] = useState(false);
+  // 问题二-3（2026-08-26）：刷新/回放后恢复已提交态——检查会话消息中是否有
+  // metadata.questionId 匹配的回答（后端落盘 user 消息时写入 metadata）
+  const [answeredFromHistory] = useState<string | null>(() => {
+    if (!sessionId) return null;
+    try {
+      const match = useChatStore
+        .getState()
+        .messages.find(
+          (m) =>
+            m.role === "user" &&
+            (m.metadata as Record<string, unknown> | undefined)?.questionId ===
+              questionId,
+        );
+      return match && typeof match.content === "string" ? match.content : null;
+    } catch {
+      return null;
+    }
+  });
+  const [submitted, setSubmitted] = useState<boolean>(
+    () => answeredFromHistory !== null,
+  );
   // 会话中断态：后端无对应待处理交互（重启/超时/abort 已清理），锁定且不可重试
   const [interrupted, setInterrupted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -158,6 +178,16 @@ function QuestionBlock({
           <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
             {question}
           </p>
+
+          {/* 问题二-3（2026-08-26）：回放/刷新后显示已回答摘要（恢复已提交态） */}
+          {submitted && answeredFromHistory && (
+            <div className="text-xs text-gray-600 dark:text-gray-400 bg-blue-100/60 dark:bg-blue-900/30 rounded-md px-3 py-2">
+              <span className="font-medium text-blue-700 dark:text-blue-300">
+                您已回答：
+              </span>
+              {answeredFromHistory}
+            </div>
+          )}
 
           {/* 选项列表 */}
           {validOptions.length > 0 ? (

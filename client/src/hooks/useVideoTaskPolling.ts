@@ -39,6 +39,7 @@ export function useVideoTaskPolling(
   const activeTasks = useMediaStore((s) => s.activeTasks);
   const updateTask = useMediaStore((s) => s.updateTask);
   const addTask = useMediaStore((s) => s.addTask);
+  const removeTask = useMediaStore((s) => s.removeTask);
   const setActiveTasks = useMediaStore((s) => s.setActiveTasks);
 
   const timers = useRef<Map<string, ReturnType<typeof setInterval>>>(new Map());
@@ -65,6 +66,30 @@ export function useVideoTaskPolling(
           completedAt: t.completedAt || null,
         }));
         setActiveTasks(mapped);
+
+        // 次要项（2026-08-26）：刷新后恢复 generationTasks 展示条目。
+        // 此前仅填 activeTasks（轮询内部态），任务栏展示源 generationTasks
+        // 为空 → 恢复的视频任务 UI 不可见、完成回调落空
+        const gen = useMediaStore.getState().generationTasks;
+        for (const t of mapped) {
+          if (!gen.some((g) => g.remoteTaskId === t.taskId)) {
+            useMediaStore.getState().addGenerationTask({
+              id: t.taskId,
+              type: "video",
+              status:
+                t.status === "completed" || t.status === "failed"
+                  ? t.status
+                  : "running",
+              progress: t.progress,
+              prompt: t.prompt,
+              sourceImageUrl: t.sourceImageUrl,
+              resultUrl: t.resultVideoUrl,
+              remoteTaskId: t.taskId,
+              error: t.error,
+              createdAt: Date.now(),
+            });
+          }
+        }
         logger.info("恢复活跃任务", { count: mapped.length });
       }
     } catch (e) {
@@ -100,8 +125,37 @@ export function useVideoTaskPolling(
             completedAt: response.completedAt || null,
           });
 
-          // 完成或失败时停止轮询
-          if (response.status === "completed" || response.status === "failed") {
+          // BUG-A/B（2026-08-26）：同步写回 generationTasks（按 remoteTaskId 匹配）。
+          // 此前 progress/resultVideoUrl 只进 activeTasks（轮询内部态），展示源
+          // generationTasks 永远卡 30% / 完成无结果 / 失败不消失。
+          const gt = useMediaStore
+            .getState()
+            .generationTasks.find((t) => t.remoteTaskId === taskId);
+          if (gt) {
+            const genStatus =
+              response.status === "completed"
+                ? "completed"
+                : response.status === "failed"
+                  ? "failed"
+                  : "running";
+            const patch: {
+              status: "running" | "completed" | "failed";
+              progress: number;
+              resultUrl?: string;
+              error?: string;
+            } = { status: genStatus, progress: response.progress || 0 };
+            if (response.resultVideoUrl)
+              patch.resultUrl = response.resultVideoUrl;
+            if (response.error) patch.error = response.error;
+            useMediaStore.getState().updateGenerationTask(gt.id, patch);
+          }
+
+          // 完成/失败/取消时停止轮询
+          if (
+            response.status === "completed" ||
+            response.status === "failed" ||
+            response.status === "cancelled"
+          ) {
             stopPolling(taskId);
             // 通知外部（如刷新画廊）
             if (response.status === "completed" && onTaskCompleted) {
@@ -148,6 +202,23 @@ export function useVideoTaskPolling(
       startPolling(taskId);
     },
     [addTask, startPolling],
+  );
+
+  /** 取消任务（P2，2026-08-26）：后端标记 cancelled + 本地同步 + 停止轮询 */
+  const cancelTask = useCallback(
+    async (taskId: string) => {
+      stopPolling(taskId);
+      updateTask(taskId, { status: "cancelled", error: "用户取消" });
+      // 次要项（2026-08-26）：从 activeTasks 移除，避免任务栏空占位
+      // （任务栏判定含 activeTasks.length，残留 cancelled 条目会导致底部空栏）
+      removeTask(taskId);
+      try {
+        await videoService.cancelVideoTask(taskId);
+      } catch (e) {
+        logger.warn("取消任务请求失败", { taskId, error: String(e) });
+      }
+    },
+    [stopPolling, updateTask, removeTask],
   );
 
   // ──── Effects ────
@@ -197,5 +268,5 @@ export function useVideoTaskPolling(
     };
   }, [startPolling]);
 
-  return { activeTasks, submitTask, restoreActiveTasks };
+  return { activeTasks, submitTask, cancelTask, restoreActiveTasks };
 }

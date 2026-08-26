@@ -6,13 +6,10 @@
 
 import { readFileSync, existsSync, writeFileSync } from 'fs';
 import { dirname, join } from 'path';
-import { fileURLToPath } from 'url';
 import { load, dump } from 'js-yaml';
 
 import { handleError } from '@modules/error';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+import { resolveProjectRoot } from '@modules/core/paths';
 
 export interface ModelYamlConfig {
   displayName: string;
@@ -46,7 +43,10 @@ const INLINE_FALLBACK: DefaultModelsData = {
 
 let cachedDefaultModels: DefaultModelsData | null = null;
 
-const DEFAULT_MODELS_YAML_PATH = join(__dirname, 'models.default.yaml');
+const DEFAULT_MODELS_YAML_PATH = join(
+  resolveProjectRoot(),
+  'app/src/ai/config/models.default.yaml'
+);
 
 /**
  * 尝试找到 YAML 文件的路径

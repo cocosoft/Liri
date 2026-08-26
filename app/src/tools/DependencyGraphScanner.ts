@@ -1,4 +1,4 @@
-﻿/**
+/**
  * O-01 阶段一：依赖图扫描工具
  *
  * 扫描 app/src/ 下所有 .ts 文件的 import 语句，
@@ -14,23 +14,20 @@ import {
   readdirSync,
 } from 'fs';
 import { join, relative, resolve, dirname, sep } from 'path';
-import { fileURLToPath } from 'url';
 import {
   MODULE_DEFINITIONS,
   MODULE_INITIALIZATION_ORDER,
 } from '@modules/modules/ModuleDefinitions';
 import { getLogger } from '@modules/monitoring';
 import { resolveCacheDir } from '@modules/core';
+import { resolveProjectRoot } from '@modules/core/paths';
 
 const logger = getLogger('DependencyGraphScanner');
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-const SRC_ROOT = resolve(__dirname, '..');
+const SRC_ROOT = join(resolveProjectRoot(), 'app/src');
 
 /**
- * 已知风险：使用 __dirname 扫描源码目录
- * 此工具仅开发时使用，编译为独立 exe 前需移除 __dirname 依赖
+ * SRC_ROOT 基于 resolveProjectRoot()（check:paths 合规）；此工具仅开发时使用
  */
 /** @modules/xxx 到 module ID 的映射（基于 tsconfig paths） */
 const MODULE_ALIAS_MAP: Record<string, string> = {

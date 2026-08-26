@@ -8,10 +8,11 @@
  *   - video_card_margin 计算 uiAspectRatio 防止布局不齐
  */
 
-import React, { useRef, useEffect, useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import type { GalleryItem } from "../../../stores/mediaStore";
 import { ActionMenu } from "./ActionMenu";
 import { getCachedThumb, generateAndCacheThumb } from "./thumbCache";
+import { useInfiniteScroll } from "../../../hooks/useInfiniteScroll";
 
 interface Props {
   items: GalleryItem[];
@@ -25,6 +26,10 @@ interface Props {
   disabled?: boolean;
   /** 滚动容器 ref（供外部保存/恢复滚动位置） */
   scrollRef?: React.Ref<HTMLDivElement>;
+  /** P0-3（2026-08-26）：右键菜单触发点 */
+  onContextMenu?: (e: React.MouseEvent, item: GalleryItem) => void;
+  /** P2（2026-08-26）：图片拖拽（与 GridView 一致） */
+  onDragStart?: (e: React.DragEvent, item: GalleryItem) => void;
 }
 
 /**
@@ -89,37 +94,14 @@ export const MasonryGallery: React.FC<Props> = ({
   onLoadMore,
   disabled = false,
   scrollRef,
+  onContextMenu,
+  onDragStart,
 }) => {
   const sentinelRef = useRef<HTMLDivElement>(null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
-  const preventImmediateRef = useRef(false);
 
-  // 无限滚动：观察 sentinel 触底
-  useEffect(() => {
-    const sentinel = sentinelRef.current;
-    if (!sentinel || !hasMore) return;
-
-    // loading → false 时短暂冷却，防止 observer 重建后立即触发
-    if (preventImmediateRef.current) {
-      const timer = setTimeout(() => {
-        preventImmediateRef.current = false;
-      }, 300);
-      return () => clearTimeout(timer);
-    }
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting && hasMore && !loading) {
-          preventImmediateRef.current = true;
-          onLoadMore();
-        }
-      },
-      { root: sentinel.parentElement, rootMargin: "200px" },
-    );
-
-    observer.observe(sentinel);
-    return () => observer.disconnect();
-  }, [hasMore, loading, onLoadMore]);
+  // 无限滚动：观察 sentinel 触底（共享 hook，P0-4）
+  useInfiniteScroll(sentinelRef, hasMore, loading, onLoadMore);
 
   return (
     <div className="h-full overflow-y-auto p-3 pb-20" ref={scrollRef}>
@@ -135,6 +117,9 @@ export const MasonryGallery: React.FC<Props> = ({
             <div
               key={item.id}
               onClick={() => !disabled && onSelect(item.id)}
+              onContextMenu={(e) => onContextMenu?.(e, item)}
+              draggable={item.type === "image"}
+              onDragStart={(e) => onDragStart?.(e, item)}
               onMouseEnter={() => setHoveredId(item.id)}
               onMouseLeave={() => setHoveredId(null)}
               className="group relative mb-2 cursor-pointer overflow-hidden rounded-lg border-2 transition-all"
@@ -157,6 +142,7 @@ export const MasonryGallery: React.FC<Props> = ({
                 {item.type === "video" ? (
                   <video
                     src={item.url}
+                    poster={item.thumbnailUrl}
                     muted
                     loop
                     playsInline
@@ -167,7 +153,7 @@ export const MasonryGallery: React.FC<Props> = ({
                       e.currentTarget.pause();
                       e.currentTarget.currentTime = 0;
                     }}
-                    preload="auto"
+                    preload="metadata"
                     onLoadedData={(e) => {
                       // 加载完成后 seek 到第 0.1 秒抓取缩略图帧
                       const video = e.currentTarget as HTMLVideoElement;

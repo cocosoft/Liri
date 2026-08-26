@@ -465,7 +465,7 @@ export interface ChatManager {
     questionId: string,
     answers: string[],
     sessionId?: string
-  ): boolean;
+  ): Promise<boolean>;
 
   /**
    * P1-5: 检查指定会话是否有活跃的流式请求

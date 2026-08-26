@@ -28,7 +28,8 @@ export interface GalleryItem {
 /** 视频异步任务（向后兼容） */
 export interface VideoTaskItem {
   taskId: string;
-  status: "pending" | "queued" | "running" | "completed" | "failed";
+  status:
+    "pending" | "queued" | "running" | "completed" | "failed" | "cancelled";
   mode: "text-to-video" | "image-to-video";
   progress: number;
   sourceImageUrl: string | null;
@@ -48,6 +49,10 @@ export interface GenerationTask {
   prompt: string;
   sourceImageUrl: string | null;
   resultUrl: string | null;
+  /** BUG-8（2026-08-26）：多图生成全量结果（resultUrl 为首张） */
+  images?: string[];
+  /** P2（2026-08-26）：后端视频任务 taskId（generationTask.id 为本地 vid_xxx） */
+  remoteTaskId?: string;
   error: string | null;
   createdAt: number;
 }
@@ -267,11 +272,17 @@ export const useMediaStore = create<MediaStore>()((set, get) => ({
     }),
 
   removeGalleryItem: (id) =>
-    set((s) => ({
-      galleryItems: s.galleryItems.filter((item) => item.id !== id),
-      selectedId: s.selectedId === id ? null : s.selectedId,
-      selectedImageUrl: s.selectedId === id ? null : s.selectedImageUrl,
-    })),
+    set((s) => {
+      // BUG-12（2026-08-26）：删除时同步清理收藏，避免收藏虚高/对不上
+      const nextFavs = new Set(s.favoriteIds);
+      nextFavs.delete(id);
+      return {
+        galleryItems: s.galleryItems.filter((item) => item.id !== id),
+        selectedId: s.selectedId === id ? null : s.selectedId,
+        selectedImageUrl: s.selectedId === id ? null : s.selectedImageUrl,
+        favoriteIds: nextFavs,
+      };
+    }),
 
   addTask: (task) => set((s) => ({ activeTasks: [task, ...s.activeTasks] })),
 

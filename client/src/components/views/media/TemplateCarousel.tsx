@@ -41,14 +41,25 @@ export const TemplateCarousel: React.FC<{ isDark: boolean }> = ({ isDark }) => {
   const handleClick = (tmpl: TemplateInfo) => {
     selectTemplate(tmpl.id);
 
-    // 通过信令触发 BottomInputBar
     if (selectedId) {
       const item = useMediaStore.getState().getSelectedItem();
-      setIntendedAction({
-        type: tmpl.type === "i2i2v" ? "generate-video" : "edit-image",
-        sourceImage: item ? { id: item.id, url: item.url } : null,
-        autoSubmit: false,
-      });
+      if (item) {
+        if (tmpl.type === "i2i") {
+          // BUG-7（2026-08-26）：i2i 语义 = 用参考图生成，而非"编辑图片"
+          useMediaStore.getState().setMode("image");
+          useMediaStore.getState().setSelectedImage(item.url, item.id);
+          if (tmpl.promptTemplate) {
+            useMediaStore.getState().setPrompt(tmpl.promptTemplate);
+          }
+          return;
+        }
+        // i2i2v → 图生视频
+        setIntendedAction({
+          type: "generate-video",
+          sourceImage: { id: item.id, url: item.url },
+          autoSubmit: false,
+        });
+      }
     }
 
     // 填入模板 prompt 到输入框

@@ -627,6 +627,8 @@ export class CoreAPIImpl implements CoreAPI {
         maxTokens: request.max_tokens,
         top_p: request.top_p,
         systemPrompt: request.systemPrompt,
+        // P0-1（2026-08-26）：流中断续写（从断点继续而非从头重发）
+        continueFrom: request.continue_from,
         onUsage: (usage) => {
           // AB-10 修复：累加而非覆盖——主回复 + 各工具轮次 LLM 调用都会回调，
           // 累加后 usage SSE 事件反映整轮消息的完整用量
@@ -2510,11 +2512,11 @@ export class CoreAPIImpl implements CoreAPI {
    * 解析待处理的用户交互（question 回答）
    * 当 LLM 通过 ask_user_question 工具向用户提问后，前端调用此方法提交回答
    */
-  resolveInteraction(
+  async resolveInteraction(
     questionId: string,
     answers: string[],
     sessionId?: string
-  ): boolean {
+  ): Promise<boolean> {
     return this.chatManager.resolveInteraction(questionId, answers, sessionId);
   }
 

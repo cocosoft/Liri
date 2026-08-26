@@ -16,10 +16,12 @@ import { useNavigate } from "react-router-dom";
 import { useConfigStore } from "../../stores/configStore";
 import { useRootStore } from "../../stores/root-store";
 import { useMediaStore, type GalleryItem } from "../../stores/mediaStore";
+import { useShallow } from "zustand/shallow";
 import { useVideoTaskPolling } from "../../hooks/useVideoTaskPolling";
+import { useInfiniteScroll } from "../../hooks/useInfiniteScroll";
 import { useSessionContextSync } from "../../hooks/useSessionContextSync";
 import { GallerySearchBar } from "./media/GallerySearchBar";
-import { TaskList, GenerationTaskList } from "./media/TaskCard";
+import { GenerationTaskList } from "./media/TaskCard";
 import { TemplateCarousel } from "./media/TemplateCarousel";
 import { MasonryGallery } from "./media/MasonryGallery";
 import { BottomInputBar } from "./media/BottomInputBar";
@@ -51,6 +53,23 @@ type SortBy = "date_desc" | "date_asc" | "name";
 function extractFileName(url: string): string {
   const parts = url.split("/");
   return parts[parts.length - 1] || url;
+}
+
+/**
+ * 长宽比 → 像素 size（长边 1024，8 的倍数对齐）
+ * 2026-08-26：图片生成后端 size 为像素格式（如 "1024x576"），
+ * 长宽比选择器/自定义比例经此映射后生效
+ */
+function ratioToSize(ratio: string): string {
+  const [w, h] = ratio.split(":").map(Number);
+  if (!w || !h || w < 1 || h < 1) return "1024x1024";
+  const LONG = 1024;
+  if (w >= h) {
+    const height = Math.max(8, Math.round((LONG * h) / w / 8) * 8);
+    return `${LONG}x${height}`;
+  }
+  const width = Math.max(8, Math.round((LONG * w) / h / 8) * 8);
+  return `${width}x${LONG}`;
 }
 
 /** 从文件名提取格式 */
@@ -168,6 +187,7 @@ function MediaPage() {
   const searchParams = useMediaStore((s) => s.searchParams);
 
   const selectMedia = useMediaStore((s) => s.selectMedia);
+  const clearSelectedImage = useMediaStore((s) => s.clearSelectedImage);
   const setSearchParams = useMediaStore((s) => s.setSearchParams);
   const removeGalleryItem = useMediaStore((s) => s.removeGalleryItem);
 
@@ -195,12 +215,16 @@ function MediaPage() {
   });
 
   /** P0-3：prompt/size/style/editingImage 变更时触发保存 */
-  const mediaState = useMediaStore((s) => ({
-    prompt: s.prompt,
-    size: s.params.aspectRatio,
-    style: s.params.style,
-    editingImageUrl: s.editingImage?.url,
-  }));
+  // useShallow（2026-08-26）：selector 返回新对象字面量会导致 zustand v5 内部
+  // useSyncExternalStore getSnapshot 不稳定 → "Maximum update depth exceeded" 无限重渲染
+  const mediaState = useMediaStore(
+    useShallow((s) => ({
+      prompt: s.prompt,
+      size: s.params.aspectRatio,
+      style: s.params.style,
+      editingImageUrl: s.editingImage?.url,
+    })),
+  );
   const prevMediaStateRef = useRef(mediaState);
   useEffect(() => {
     const prev = prevMediaStateRef.current;
@@ -221,7 +245,6 @@ function MediaPage() {
     }
   }, [mediaState, scheduleSave]);
   const setIntendedAction = useMediaStore((s) => s.setIntendedAction);
-  const clearSelectedImage = useMediaStore((s) => s.clearSelectedImage);
   const editingImage = useMediaStore((s) => s.editingImage);
   const isEditing = useMediaStore((s) => s.isEditing);
   const setEditingImage = useMediaStore((s) => s.setEditingImage);
@@ -261,6 +284,8 @@ function MediaPage() {
 
   // 编辑会话竞态保护：每次打开编辑时 +1
   const editSessionRef = useRef(0);
+  /** 竞态保护修正（2026-08-26）：记录打开的编辑 session，关闭时比较 */
+  const openedEditSessionRef = useRef(0);
 
   // 画廊滚动位置保存/恢复
   const galleryScrollRef = useRef<HTMLDivElement | null>(null);
@@ -328,6 +353,15 @@ function MediaPage() {
 
   // 右键菜单
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
+  // P0-3（2026-08-26）：右键触发点——瀑布流/网格卡片 onContextMenu 调用，
+  // 此前 ContextMenu 组件完整但无任何触发点（死代码）
+  const handleContextMenu = useCallback(
+    (e: React.MouseEvent, item: GalleryItem) => {
+      e.preventDefault();
+      setContextMenu({ x: e.clientX, y: e.clientY, item });
+    },
+    [],
+  );
 
   // ──── 紧凑/完整模式 ────
   const isCompact = selectedId === null;
@@ -343,6 +377,33 @@ function MediaPage() {
     } else if (filterType !== "all") {
       items = items.filter((item) => item.type === filterType);
     }
+
+    // P0-1（2026-08-26）：关键词 + 日期范围过滤（前端）
+    const keyword = searchParams.keyword.trim().toLowerCase();
+    if (keyword) {
+      items = items.filter((item) => {
+        const name = extractFileName(item.url).toLowerCase();
+        const alt = (item.alt || "").toLowerCase();
+        return name.includes(keyword) || alt.includes(keyword);
+      });
+    }
+    if (searchParams.dateRange !== "all") {
+      const now = new Date();
+      const cutoff = new Date();
+      if (searchParams.dateRange === "today") {
+        cutoff.setHours(0, 0, 0, 0);
+      } else if (searchParams.dateRange === "7days") {
+        cutoff.setDate(now.getDate() - 7);
+      } else if (searchParams.dateRange === "30days") {
+        cutoff.setDate(now.getDate() - 30);
+      }
+      items = items.filter((item) => {
+        const dateStr = extractDate(item.url);
+        if (!dateStr) return false;
+        return new Date(`${dateStr}T00:00:00`) >= cutoff;
+      });
+    }
+
     return [...items].sort((a, b) => {
       if (sortBy === "name") {
         return extractFileName(a.url).localeCompare(extractFileName(b.url));
@@ -356,7 +417,14 @@ function MediaPage() {
         ? dateB.localeCompare(dateA)
         : dateA.localeCompare(dateB);
     });
-  }, [galleryItems, filterType, sortBy, favoriteIds]);
+  }, [
+    galleryItems,
+    filterType,
+    sortBy,
+    favoriteIds,
+    searchParams.keyword,
+    searchParams.dateRange,
+  ]);
 
   // ──── 类型计数 ────
   const typeCounts = useMemo(() => {
@@ -366,7 +434,8 @@ function MediaPage() {
       all: galleryItems.length,
       images,
       videos,
-      favorites: favoriteIds.size,
+      // BUG-13（2026-08-26）：按已加载页内收藏计，避免含未加载分页导致虚高
+      favorites: galleryItems.filter((i) => favoriteIds.has(i.id)).length,
     };
   }, [galleryItems, favoriteIds]);
 
@@ -385,6 +454,14 @@ function MediaPage() {
           const p = new URLSearchParams();
           p.set("pageSize", String(PAGE_SIZE));
           p.set("page", String(page));
+          // P0-1 第二阶段：keyword 透传后端过滤（本地过滤保留做即时反馈）
+          const kw = searchParams.keyword.trim();
+          if (kw) p.set("keyword", kw);
+          // BUG-E（2026-08-26）：dateRange 透传后端按 mtime 过滤，
+          // 否则 hasMore 基于全量分页判断 → 筛选下无限滚动空转
+          if (searchParams.dateRange !== "all") {
+            p.set("dateRange", searchParams.dateRange);
+          }
           return p.toString();
         };
 
@@ -411,7 +488,10 @@ function MediaPage() {
           id: `vid:${vid.path || vid.url}`,
           type: "video" as const,
           url: vid.url,
-          thumbnailUrl: vid.url,
+          // BUG-5/10（2026-08-26）：视频 poster 用后端缩略图端点（mtime 缓存）
+          thumbnailUrl: vid.url.startsWith("/v1/videos/static/")
+            ? `/v1/videos/thumbnail?path=${encodeURIComponent(vid.url.slice("/v1/videos/static/".length))}`
+            : vid.url,
           duration: vid.duration,
           width: vid.width,
           height: vid.height,
@@ -447,16 +527,20 @@ function MediaPage() {
         });
       } catch (e) {
         logger.warn("加载图库失败", { error: String(e) });
+        // BUG-D（2026-08-26）：append 失败也必须重置 loading，
+        // 否则 galleryLoading 永久 true → 无限滚动死锁无法重试
         if (!append) {
           useMediaStore.setState({
             galleryItems: [],
             galleryLoading: false,
             galleryHasMore: false,
           });
+        } else {
+          useMediaStore.setState({ galleryLoading: false });
         }
       }
     },
-    [galleryHasMore],
+    [galleryHasMore, searchParams.keyword, searchParams.dateRange],
   );
 
   useEffect(() => {
@@ -466,10 +550,28 @@ function MediaPage() {
     }
   }, [loadGallery]);
 
+  // P0-1（2026-08-26）：搜索变更 → 重置分页并重新加载第一页
+  // 避免"本地过滤 N 条 + 翻页返回未过滤数据"错位
+  const prevSearchKeyRef = useRef(
+    `${searchParams.keyword}|${searchParams.dateRange}`,
+  );
+  useEffect(() => {
+    const key = `${searchParams.keyword}|${searchParams.dateRange}`;
+    if (prevSearchKeyRef.current === key) return;
+    prevSearchKeyRef.current = key;
+    imgPageRef.current = 1;
+    vidPageRef.current = 1;
+    loadGallery(false);
+  }, [searchParams.keyword, searchParams.dateRange, loadGallery]);
+
   // 监听对话中 AI 生图完成事件（chatService 派发 pyapp:image_generated），
   // 自动刷新媒体库，与 ImagePage 的 useImageGallery 保持一致行为。
   useEffect(() => {
     const handler = () => {
+      // 次要项（2026-08-26）：保存滚动位置，刷新后恢复，避免浏览深页被拉回顶部
+      if (galleryScrollRef.current) {
+        pendingScrollTopRef.current = galleryScrollRef.current.scrollTop;
+      }
       loadGallery();
     };
     window.addEventListener("pyapp:image_generated", handler);
@@ -479,14 +581,31 @@ function MediaPage() {
   }, [loadGallery]);
 
   // ──── 轮询 ────
-  const handleTaskCompleted = useCallback(() => {
-    loadGallery();
-  }, [loadGallery]);
-
-  const { activeTasks, submitTask } = useVideoTaskPolling(handleTaskCompleted);
-  const generating = activeTasks.some((t) =>
-    ["pending", "queued", "running"].includes(t.status),
+  // P0-2（2026-08-26）：onTaskCompleted 携带 taskId——同步 generationTask 为 completed
+  // （此前只 loadGallery 不更新任务 → 视频任务永远卡"生成中"），再刷新画廊
+  const handleTaskCompleted = useCallback(
+    (taskId: string) => {
+      // P2（2026-08-26）：generationTask.id 是本地 vid_xxx，回调携带后端 UUID，
+      // 先按 remoteTaskId 匹配，找不到再按 id 匹配
+      const tasks = useMediaStore.getState().generationTasks;
+      const matched = tasks.find(
+        (t) => t.remoteTaskId === taskId || t.id === taskId,
+      );
+      const targetId = matched ? matched.id : taskId;
+      updateGenerationTask(targetId, { status: "completed", progress: 100 });
+      loadGallery();
+    },
+    [updateGenerationTask, loadGallery],
   );
+
+  const { activeTasks, submitTask, cancelTask } =
+    useVideoTaskPolling(handleTaskCompleted);
+  // 次要项（2026-08-26）：图片生成中（generationTasks running）也计入，
+  // 此前仅统计视频 activeTasks → 图片生成时按钮不禁用可重复提交
+  const generating =
+    activeTasks.some((t) =>
+      ["pending", "queued", "running"].includes(t.status),
+    ) || generationTasks.some((t) => t.status === "running");
 
   // ──── 选中项切换时重置视频元数据 + 拉取图片元数据 ────
   useEffect(() => {
@@ -579,6 +698,12 @@ function MediaPage() {
         );
         return;
       }
+      // i2i 竞态（2026-08-26）：选中参考图但元数据异步未就绪时拦截，
+      // 否则 inputImage 缺失 → 退化文生图
+      if (selectedImageUrl && !imageMeta?.path) {
+        addToast("info", "正在加载参考图信息，请稍后重试");
+        return;
+      }
       // 图片生成（纳入任务队列）
       const taskId = `img_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
       addGenerationTask({
@@ -594,7 +719,11 @@ function MediaPage() {
       });
 
       try {
-        const genOptions: Record<string, unknown> = { n: params.count || 1 };
+        // 2026-08-26：长宽比 → 像素 size 传给后端（此前仅传 n，尺寸选择不生效）
+        const genOptions: Record<string, unknown> = {
+          n: params.count || 1,
+          size: ratioToSize(params.aspectRatio || "1:1"),
+        };
         if (selectedImageUrl && imageMeta?.path) {
           genOptions.inputImage = imageMeta.path;
         }
@@ -603,14 +732,34 @@ function MediaPage() {
           genOptions as Parameters<typeof imageService.generate>[1],
         );
         if (result.images?.length > 0) {
+          const urls = result.images.map((img) => img.url);
           updateGenerationTask(taskId, {
             status: "completed",
             progress: 100,
-            resultUrl: result.images[0].url,
+            resultUrl: urls[0],
+            // BUG-8（2026-08-26）：多图全量存入，不再只保留首张
+            images: urls,
           });
-          addToast("success", `已生成 ${result.images.length} 张图片`);
-          loadGallery();
+          addToast("success", `已生成 ${urls.length} 张图片`);
+          // BUG-9（2026-08-26）：loadGallery 完成后自动选中首张新图
+          // BUG-F（2026-08-26）：仅调用一次，此前 719/721 双重加载导致重复请求 + 竞态
+          loadGallery().then(() => {
+            const first = useMediaStore
+              .getState()
+              .galleryItems.find((i) => i.url === urls[0]);
+            if (first) {
+              useMediaStore.getState().setSelectedImage(first.url, first.id);
+            }
+          });
           useMediaStore.getState().setPrompt("");
+        } else {
+          // P0-2（2026-08-26，BUG-14）：空结果兜底——此前无 else 分支导致任务永远 running
+          updateGenerationTask(taskId, {
+            status: "failed",
+            progress: 0,
+            error: "生成返回空结果，请重试或更换模型",
+          });
+          addToast("error", "图片生成失败：模型返回空结果");
         }
       } catch (e) {
         const errMsg = e instanceof Error ? e.message : String(e);
@@ -656,9 +805,20 @@ function MediaPage() {
           aspectRatio: params.aspectRatio || "16:9",
         });
         if (result.taskId) {
-          updateGenerationTask(taskId, { progress: 30 });
+          // P2：记录后端 taskId（generationTask.id 是本地 vid_xxx，回调时需关联）
+          updateGenerationTask(taskId, {
+            progress: 30,
+            remoteTaskId: result.taskId,
+          });
           submitTask(result.taskId);
           useMediaStore.getState().setPrompt("");
+        } else {
+          // 次要项（2026-08-26）：异常响应兜底，避免任务卡 running
+          updateGenerationTask(taskId, {
+            status: "failed",
+            error: "视频任务创建失败：未返回任务 ID",
+          });
+          addToast("error", "视频生成失败：未返回任务 ID");
         }
       } catch (e) {
         const errMsg = e instanceof Error ? e.message : String(e);
@@ -722,6 +882,12 @@ function MediaPage() {
       await deleteMediaItem(currentItem);
       removeGalleryItem(currentItem.id);
       addToast("success", "图片已删除");
+      // BUG-11（2026-08-26）：删除后选中相邻项，保留查看上下文
+      const siblings = galleryItems.filter((i) => i.type === "image");
+      const next = siblings[lightboxIndex + 1] || siblings[lightboxIndex - 1];
+      if (next) {
+        useMediaStore.getState().setSelectedImage(next.url, next.id);
+      }
       setLightboxOpen(false);
     } catch {
       addToast("error", "删除失败，请重试");
@@ -886,7 +1052,9 @@ function MediaPage() {
                 active={filterType === "all"}
                 onClick={() => {
                   setFilterType("all");
-                  selectMedia("");
+                  // BUG-C（2026-08-26）：selectMedia("") 会把 selectedId 置为 ""（≠ null）
+                  // → isCompact 恒 false，右侧空预览区卡死；改用 clearSelectedImage 置 null
+                  clearSelectedImage();
                 }}
               />
               <FilterTab
@@ -895,7 +1063,7 @@ function MediaPage() {
                 active={filterType === "image"}
                 onClick={() => {
                   setFilterType("image");
-                  selectMedia("");
+                  clearSelectedImage();
                 }}
               />
               <FilterTab
@@ -904,7 +1072,7 @@ function MediaPage() {
                 active={filterType === "video"}
                 onClick={() => {
                   setFilterType("video");
-                  selectMedia("");
+                  clearSelectedImage();
                 }}
               />
               <FilterTab
@@ -913,7 +1081,7 @@ function MediaPage() {
                 active={filterType === "favorites"}
                 onClick={() => {
                   setFilterType("favorites");
-                  selectMedia("");
+                  clearSelectedImage();
                 }}
               />
 
@@ -1017,6 +1185,8 @@ function MediaPage() {
                 onLoadMore={() => loadGallery(true)}
                 disabled={isEditing}
                 scrollRef={galleryScrollRef}
+                onContextMenu={handleContextMenu}
+                onDragStart={handleDragStart}
               />
             ) : (
               <GridView
@@ -1030,6 +1200,11 @@ function MediaPage() {
                 onToggleFavorite={toggleFavorite}
                 onDragStart={handleDragStart}
                 onCompareToggle={handleCompareToggle}
+                onContextMenu={handleContextMenu}
+                hasMore={galleryHasMore}
+                loading={galleryLoading}
+                onLoadMore={() => loadGallery(true)}
+                disabled={isEditing}
               />
             )}
           </div>
@@ -1135,7 +1310,10 @@ function MediaPage() {
                         icon="✏️"
                         isDark={isDark}
                         onClick={() => {
-                          editSessionRef.current++;
+                          // 竞态保护修正（2026-08-26）：记录本次打开的 session，
+                          // 关闭时比较是否仍是同一 session（此前恒真，保护失效）
+                          openedEditSessionRef.current =
+                            ++editSessionRef.current;
                           setEditingImage({
                             id: selectedItem.id,
                             url: selectedItem.url,
@@ -1257,12 +1435,21 @@ function MediaPage() {
           <div className="max-w-3xl mx-auto">
             <GenerationTaskList
               tasks={generationTasks}
-              onDelete={(id) => removeGenerationTask(id)}
+              onDelete={(id) => {
+                const task = generationTasks.find((t) => t.id === id);
+                // P2（2026-08-26）：删除进行中的视频任务时，同步取消后端任务
+                if (
+                  task?.type === "video" &&
+                  task.remoteTaskId &&
+                  ["pending", "queued", "running"].includes(task.status)
+                ) {
+                  cancelTask(task.remoteTaskId);
+                }
+                removeGenerationTask(id);
+              }}
             />
-            <TaskList
-              tasks={activeTasks}
-              onDelete={(taskId) => useMediaStore.getState().removeTask(taskId)}
-            />
+            {/* P0-2（2026-08-26）：展示源收敛——activeTasks 仅作轮询内部状态（信息为空），
+                任务进度/完成态统一由 generationTasks 展示，移除 TaskList 重复渲染（双卡问题） */}
           </div>
         </div>
       )}
@@ -1281,10 +1468,10 @@ function MediaPage() {
           imageId={editingImage.id}
           onSaveSuccess={() => addToast("success", "图片已保存")}
           onClose={() => {
-            const sessionId = editSessionRef.current;
             setEditingImage(null);
-            // 竞态保护：只有当前 session 才刷新画廊
-            if (sessionId === editSessionRef.current) {
+            // 竞态保护修正（2026-08-26）：仅当仍是本 session 打开时才刷新画廊
+            // （此前读取当前值比较恒真，保护逻辑失效）
+            if (openedEditSessionRef.current === editSessionRef.current) {
               // 保存当前滚动位置，loadGallery 完成后自动恢复
               if (galleryScrollRef.current) {
                 pendingScrollTopRef.current =
@@ -1305,7 +1492,7 @@ function MediaPage() {
           initialIndex={lightboxIndex}
           onClose={() => {
             setLightboxOpen(false);
-            clearSelectedImage();
+            // BUG-11（2026-08-26）：仅关闭 lightbox，保留选中项上下文（预览区继续显示）
           }}
           onDelete={handleLightboxDelete}
         />
@@ -1322,7 +1509,23 @@ function MediaPage() {
             setContextMenu(null);
             const item = contextMenu.item;
             if (action === "download") {
-              window.open(item.url, "_blank");
+              // P2（2026-08-26）：下载改 blob 保存，替代直接打开新标签页
+              fetch(item.url)
+                .then((resp) => resp.blob())
+                .then((blob) => {
+                  const objUrl = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = objUrl;
+                  a.download = extractFileName(item.url) || "download";
+                  document.body.appendChild(a);
+                  a.click();
+                  a.remove();
+                  URL.revokeObjectURL(objUrl);
+                })
+                .catch(() => {
+                  // 降级：直接打开
+                  window.open(item.url, "_blank");
+                });
             } else if (action === "delete") {
               handleDeleteItem(item);
             } else if (action === "edit" || action === "generate-video") {
@@ -1339,7 +1542,28 @@ function MediaPage() {
                 })
                 .catch(() => {});
             } else if (action === "extract-audio") {
-              addToast("info", "音频提取功能开发中");
+              // P0-3 第二步（2026-08-26）：接通 POST /v1/videos/extract-audio
+              if (item.type !== "video") return;
+              const relPath = item.url.startsWith("/v1/videos/static/")
+                ? decodeURIComponent(
+                    item.url.slice("/v1/videos/static/".length),
+                  )
+                : item.url;
+              http
+                .post<{ success: boolean; url: string }>(
+                  `/v1/videos/extract-audio?path=${encodeURIComponent(relPath)}`,
+                )
+                .then((r) => {
+                  if (r.ok && r.data?.url) {
+                    addToast("success", "音频已提取");
+                    window.open(r.data.url, "_blank");
+                  } else {
+                    addToast("error", "音频提取失败");
+                  }
+                })
+                .catch((e) =>
+                  addToast("error", `音频提取失败：${friendlyErrorSummary(e)}`),
+                );
             }
           }}
         />
@@ -1548,6 +1772,14 @@ const GridView: React.FC<{
   onToggleFavorite?: (id: string) => void;
   onDragStart?: (e: React.DragEvent, item: GalleryItem) => void;
   onCompareToggle?: (id: string) => void;
+  /** P0-3（2026-08-26）：右键菜单触发点 */
+  onContextMenu?: (e: React.MouseEvent, item: GalleryItem) => void;
+  /** P0-4（2026-08-26）：无限滚动分页 */
+  hasMore?: boolean;
+  loading?: boolean;
+  onLoadMore?: () => void;
+  /** 编辑锁：true 时禁用点击（与 MasonryGallery 一致） */
+  disabled?: boolean;
 }> = ({
   items,
   selectedId,
@@ -1559,128 +1791,150 @@ const GridView: React.FC<{
   onToggleFavorite,
   onDragStart,
   onCompareToggle,
-}) => (
-  <div className="h-full overflow-y-auto p-3">
-    <div className="grid grid-cols-3 gap-2">
-      {items.map((item) => {
-        const selected = batchMode
-          ? selectedIds?.has(item.id)
-          : selectedId === item.id;
-        const isFav = favoriteIds?.has(item.id);
-        const fileName = extractFileName(item.url);
-        const fileDate = extractDate(item.url);
+  onContextMenu,
+  hasMore = false,
+  loading = false,
+  onLoadMore,
+  disabled = false,
+}) => {
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  // P0-4：复用共享无限滚动 hook（与 MasonryGallery 一致）
+  useInfiniteScroll(sentinelRef, hasMore, loading, onLoadMore ?? (() => {}));
 
-        return (
-          <div
-            key={item.id}
-            onClick={() => onSelect(item.id)}
-            onContextMenu={(e) => {
-              e.preventDefault();
-              onSelect(item.id);
-            }}
-            draggable={item.type === "image"}
-            onDragStart={(e) => onDragStart?.(e, item)}
-            className={`relative cursor-pointer rounded-lg border-2 p-1.5 transition-all ${
-              selected
-                ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
-                : isDark
-                  ? "border-gray-700 bg-gray-800 hover:border-gray-500"
-                  : "border-gray-200 bg-white hover:border-gray-400"
-            }`}
-            style={{
-              contentVisibility: "auto",
-              containIntrinsicSize: "auto 150px",
-            }}
-          >
-            {/* 批量选择复选框 */}
-            {batchMode && (
-              <div className="absolute left-1.5 top-1.5 z-10">
-                <input
-                  type="checkbox"
-                  checked={selected || false}
-                  onChange={() => onSelect(item.id)}
-                  className="h-3.5 w-3.5 accent-blue-500"
-                />
-              </div>
-            )}
+  return (
+    <div className="h-full overflow-y-auto p-3">
+      {/* P2（2026-08-26）：响应式列数，替代固定 3 列 */}
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+        {items.map((item) => {
+          const selected = batchMode
+            ? selectedIds?.has(item.id)
+            : selectedId === item.id;
+          const isFav = favoriteIds?.has(item.id);
+          const fileName = extractFileName(item.url);
+          const fileDate = extractDate(item.url);
 
-            {/* 收藏星标 + 对比按钮 */}
-            {!batchMode && (
-              <div className="absolute right-1 top-1 z-10 flex gap-0.5">
-                {onToggleFavorite && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onToggleFavorite(item.id);
-                    }}
-                    className={`rounded bg-black/30 p-0.5 text-[10px] transition-colors hover:bg-black/50 ${
-                      isFav ? "text-yellow-400" : "text-white/60"
-                    }`}
-                    title={isFav ? "取消收藏" : "收藏"}
-                  >
-                    {isFav ? "★" : "☆"}
-                  </button>
-                )}
-                {onCompareToggle && item.type === "image" && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onCompareToggle(item.id);
-                    }}
-                    className="rounded bg-black/30 p-0.5 text-[10px] text-white/60 transition-colors hover:bg-black/50"
-                    title="加入对比"
-                  >
-                    ◧
-                  </button>
-                )}
-              </div>
-            )}
-
-            {/* 缩略图 */}
-            <div className="mb-1 aspect-square overflow-hidden rounded bg-gray-100 dark:bg-gray-700">
-              {item.type === "video" ? (
-                <video
-                  src={item.url}
-                  muted
-                  className="h-full w-full object-cover"
-                  onMouseEnter={(e) => e.currentTarget.play()}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.pause();
-                    e.currentTarget.currentTime = 0;
-                  }}
-                />
-              ) : (
-                <img
-                  src={item.thumbnailUrl || item.url}
-                  alt={item.alt || ""}
-                  loading="lazy"
-                  className="h-full w-full object-cover"
-                />
+          return (
+            <div
+              key={item.id}
+              onClick={() => !disabled && onSelect(item.id)}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                onContextMenu?.(e, item);
+              }}
+              draggable={item.type === "image"}
+              onDragStart={(e) => onDragStart?.(e, item)}
+              className={`relative cursor-pointer rounded-lg border-2 p-1.5 transition-all ${
+                selected
+                  ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
+                  : isDark
+                    ? "border-gray-700 bg-gray-800 hover:border-gray-500"
+                    : "border-gray-200 bg-white hover:border-gray-400"
+              }`}
+              style={{
+                contentVisibility: "auto",
+                containIntrinsicSize: "auto 150px",
+              }}
+            >
+              {/* 批量选择复选框 */}
+              {batchMode && (
+                <div className="absolute left-1.5 top-1.5 z-10">
+                  <input
+                    type="checkbox"
+                    checked={selected || false}
+                    onChange={() => onSelect(item.id)}
+                    className="h-3.5 w-3.5 accent-blue-500"
+                  />
+                </div>
               )}
-            </div>
 
-            <div className="overflow-hidden">
-              <p
-                className="truncate text-[10px] font-medium text-gray-700 dark:text-gray-300"
-                title={fileName}
-              >
-                {fileName}
-              </p>
-              <p className="text-[10px] text-gray-400 dark:text-gray-500">
-                {item.type === "video" ? "视频" : "图片"} · {fileDate}
-              </p>
+              {/* 收藏星标 + 对比按钮 */}
+              {!batchMode && (
+                <div className="absolute right-1 top-1 z-10 flex gap-0.5">
+                  {onToggleFavorite && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onToggleFavorite(item.id);
+                      }}
+                      className={`rounded bg-black/30 p-0.5 text-[10px] transition-colors hover:bg-black/50 ${
+                        isFav ? "text-yellow-400" : "text-white/60"
+                      }`}
+                      title={isFav ? "取消收藏" : "收藏"}
+                    >
+                      {isFav ? "★" : "☆"}
+                    </button>
+                  )}
+                  {onCompareToggle && item.type === "image" && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onCompareToggle(item.id);
+                      }}
+                      className="rounded bg-black/30 p-0.5 text-[10px] text-white/60 transition-colors hover:bg-black/50"
+                      title="加入对比"
+                    >
+                      ◧
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {/* 缩略图 */}
+              <div className="mb-1 aspect-square overflow-hidden rounded bg-gray-100 dark:bg-gray-700">
+                {item.type === "video" ? (
+                  <video
+                    src={item.url}
+                    poster={item.thumbnailUrl}
+                    muted
+                    preload="metadata"
+                    className="h-full w-full object-cover"
+                    onMouseEnter={(e) => e.currentTarget.play()}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.pause();
+                      e.currentTarget.currentTime = 0;
+                    }}
+                  />
+                ) : (
+                  <img
+                    src={item.thumbnailUrl || item.url}
+                    alt={item.alt || ""}
+                    loading="lazy"
+                    className="h-full w-full object-cover"
+                  />
+                )}
+              </div>
+
+              <div className="overflow-hidden">
+                <p
+                  className="truncate text-[10px] font-medium text-gray-700 dark:text-gray-300"
+                  title={fileName}
+                >
+                  {fileName}
+                </p>
+                <p className="text-[10px] text-gray-400 dark:text-gray-500">
+                  {item.type === "video" ? "视频" : "图片"} · {fileDate}
+                </p>
+              </div>
             </div>
-          </div>
-        );
-      })}
-    </div>
-    {items.length === 0 && (
-      <div className="flex items-center justify-center py-12 text-xs text-gray-400">
-        暂无内容
+          );
+        })}
       </div>
-    )}
-  </div>
-);
+      {items.length === 0 && (
+        <div className="flex items-center justify-center py-12 text-xs text-gray-400">
+          暂无内容
+        </div>
+      )}
+
+      {/* 触底哨兵 + 加载指示器（P0-4 无限滚动） */}
+      <div ref={sentinelRef} className="h-1" />
+      {loading && (
+        <div className="flex items-center justify-center py-4">
+          <span className="text-xs text-gray-400">加载更多…</span>
+        </div>
+      )}
+    </div>
+  );
+};
 
 export default MediaPage;
 

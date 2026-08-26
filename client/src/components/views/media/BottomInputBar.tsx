@@ -5,8 +5,181 @@
  * 提示词输入 + 动态参数（时长/数量/宽高比）+ 生成按钮
  */
 
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useMediaStore } from "../../../stores/mediaStore";
+
+/**
+ * 长宽比选项（含面向小白用户的语义标签）
+ * 2026-08-26：示意图帮助理解 16:9（横）与 9:16（竖）的区别
+ */
+const RATIO_OPTIONS: { value: string; label: string; hint: string }[] = [
+  { value: "16:9", label: "16:9", hint: "横屏" },
+  { value: "9:16", label: "9:16", hint: "竖屏" },
+  { value: "1:1", label: "1:1", hint: "方形" },
+  { value: "2:3", label: "2:3", hint: "竖版" },
+  { value: "3:2", label: "3:2", hint: "横版" },
+];
+
+/** 按真实宽高比渲染的迷你矩形示意图 */
+const RatioGlyph: React.FC<{ ratio: string }> = ({ ratio }) => {
+  const [w, h] = ratio.split(":").map(Number);
+  const H = 14;
+  const width = H * (w / h);
+  return (
+    <span
+      className="inline-block shrink-0 rounded-sm border border-current"
+      style={{ width, height: H, opacity: 0.85 }}
+      aria-hidden
+    />
+  );
+};
+
+/** 长宽比下拉（示意图 + 标签 + 语义提示 + 自定义尺寸） */
+const AspectRatioSelect: React.FC<{
+  value: string;
+  isDark: boolean;
+  onChange: (v: string) => void;
+}> = ({ value, isDark, onChange }) => {
+  const [open, setOpen] = useState(false);
+  const [customMode, setCustomMode] = useState(false);
+  const [customW, setCustomW] = useState("16");
+  const [customH, setCustomH] = useState("9");
+
+  // 当前值是否来自预设列表（否则视为自定义比例）
+  const isCustom = !RATIO_OPTIONS.some((o) => o.value === value);
+  const current = RATIO_OPTIONS.find((o) => o.value === value);
+
+  const openCustom = () => {
+    const [w = "16", h = "9"] = value.split(":");
+    setCustomW(w);
+    setCustomH(h);
+    setCustomMode(true);
+  };
+
+  const applyCustom = () => {
+    const w = Math.max(1, Math.min(100, parseInt(customW, 10) || 1));
+    const h = Math.max(1, Math.min(100, parseInt(customH, 10) || 1));
+    onChange(`${w}:${h}`);
+    setCustomMode(false);
+    setOpen(false);
+  };
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        title="选择图片/视频长宽比"
+        className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs ${
+          isDark
+            ? "border-gray-600 bg-gray-700 text-gray-200"
+            : "border-gray-200 bg-gray-100 text-gray-600"
+        }`}
+      >
+        <RatioGlyph ratio={value} />
+        <span>{current ? current.label : "自定义"}</span>
+        <span className="text-[10px] text-gray-400">
+          {current ? current.hint : value}
+        </span>
+        <span className="text-[8px] opacity-60">▼</span>
+      </button>
+
+      {open && (
+        <>
+          {/* 点击空白关闭 */}
+          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+          <div
+            className={`absolute bottom-full left-0 z-20 mb-1 w-36 rounded-lg border p-1 shadow-lg ${
+              isDark
+                ? "border-gray-600 bg-gray-800"
+                : "border-gray-200 bg-white"
+            }`}
+          >
+            {RATIO_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => {
+                  onChange(opt.value);
+                  setCustomMode(false);
+                  setOpen(false);
+                }}
+                className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs hover:bg-gray-100 dark:hover:bg-gray-700 ${
+                  opt.value === value
+                    ? "text-blue-600 dark:text-blue-400"
+                    : isDark
+                      ? "text-gray-200"
+                      : "text-gray-600"
+                }`}
+              >
+                <RatioGlyph ratio={opt.value} />
+                <span>{opt.label}</span>
+                <span className="text-[10px] text-gray-400">{opt.hint}</span>
+              </button>
+            ))}
+
+            {/* 自定义尺寸 */}
+            <div className="my-1 border-t border-gray-200 dark:border-gray-600" />
+            {customMode ? (
+              <div className="flex items-center gap-1 px-1 py-1">
+                <input
+                  type="number"
+                  min={1}
+                  max={100}
+                  value={customW}
+                  onChange={(e) => setCustomW(e.target.value)}
+                  className={`w-10 rounded border px-1 py-0.5 text-center text-xs ${
+                    isDark
+                      ? "border-gray-600 bg-gray-700 text-gray-200"
+                      : "border-gray-300 bg-white text-gray-700"
+                  }`}
+                />
+                <span className="text-xs text-gray-400">:</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={100}
+                  value={customH}
+                  onChange={(e) => setCustomH(e.target.value)}
+                  className={`w-10 rounded border px-1 py-0.5 text-center text-xs ${
+                    isDark
+                      ? "border-gray-600 bg-gray-700 text-gray-200"
+                      : "border-gray-300 bg-white text-gray-700"
+                  }`}
+                />
+                <button
+                  type="button"
+                  onClick={applyCustom}
+                  className="ml-auto rounded bg-blue-500 px-2 py-0.5 text-xs text-white hover:bg-blue-600"
+                >
+                  应用
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={openCustom}
+                className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs hover:bg-gray-100 dark:hover:bg-gray-700 ${
+                  isCustom
+                    ? "text-blue-600 dark:text-blue-400"
+                    : isDark
+                      ? "text-gray-200"
+                      : "text-gray-600"
+                }`}
+              >
+                <span className="inline-block h-3.5 w-4 shrink-0 rounded-sm border border-dashed border-current opacity-85" />
+                <span>自定义</span>
+                {isCustom && (
+                  <span className="text-[10px] text-gray-400">{value}</span>
+                )}
+              </button>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
 
 /**
  * 图片|视频 模式切换
@@ -173,21 +346,12 @@ export const BottomInputBar: React.FC<{
               </select>
             )}
 
-            <select
+            {/* 2026-08-26：长宽比选择器带按比例示意图，帮助区分横屏/竖屏 */}
+            <AspectRatioSelect
               value={params.aspectRatio || "16:9"}
-              onChange={(e) => setParams({ aspectRatio: e.target.value })}
-              className={`rounded-full border px-2.5 py-1 text-xs ${
-                isDark
-                  ? "border-gray-600 bg-gray-700 text-gray-200"
-                  : "border-gray-200 bg-gray-100 text-gray-600"
-              }`}
-            >
-              <option value="16:9">16:9</option>
-              <option value="9:16">9:16</option>
-              <option value="1:1">1:1</option>
-              <option value="2:3">2:3</option>
-              <option value="3:2">3:2</option>
-            </select>
+              isDark={isDark}
+              onChange={(v) => setParams({ aspectRatio: v })}
+            />
 
             <button
               onClick={onGenerate}

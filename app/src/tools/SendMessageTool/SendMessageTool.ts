@@ -48,7 +48,13 @@ import type {
   ToolCallProgress,
   ToolResult,
 } from '../types';
-import { createToolResult } from '../types/ToolResult';
+import { createToolResult, ErrorLevel } from '../types/ToolResult';
+import { getTeammateManager } from '../../subagent/TeammateManager';
+import type {
+  Message,
+  MessageRole,
+  MessageType,
+} from '../../chat/types/message';
 
 export class SendMessageTool extends BaseTool {
   name = 'send_message';
@@ -84,11 +90,57 @@ export class SendMessageTool extends BaseTool {
     context: ToolUseContext,
     onProgress?: ToolCallProgress<any>
   ): Promise<ToolResult<unknown>> {
-    const result = sendMessage({
-      to: input.to as string,
-      message: input.message as string,
-      priority: input.priority as 'normal' | 'high' | 'low' | undefined,
-    });
-    return createToolResult(JSON.stringify(result, null, 2));
+    const to = String(input.to ?? '').trim();
+    const messageContent = String(input.message ?? '').trim();
+    if (!to || !messageContent) {
+      return createToolResult(null, {
+        errorLevel: ErrorLevel.RECOVERABLE,
+        error: 'to 和 message 为必填项',
+      });
+    }
+
+    const message: Message = {
+      id: `msg_${randomUUID().substring(0, 8)}`,
+      role: 'user' as MessageRole,
+      type: 'message' as MessageType,
+      content: messageContent,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      metadata: {
+        sender: (context.sessionId as string) || 'main',
+        receiver: to,
+        type: 'direct',
+      },
+    };
+
+    // 2026-08-26（残留修复）：真实投递到 teammate 体系——
+    // 原实现只往内存数组 push 并恒返回 delivered:true（假成功），
+    // 不检查接收者、不接入 MailboxSystem/MessageBus。
+    try {
+      await getTeammateManager().sendMessageToTeammate(to, message);
+      return createToolResult(
+        JSON.stringify(
+          {
+            messageId: message.id,
+            to,
+            delivered: true,
+            timestamp: message.createdAt.getTime(),
+          },
+          null,
+          2
+        )
+      );
+    } catch (e) {
+      // 接收者不存在 / 投递失败 → 诚实反馈失败（可恢复，模型可重试或换接收者）
+      return createToolResult(null, {
+        errorLevel: ErrorLevel.RECOVERABLE,
+        error: `消息投递失败：${e instanceof Error ? e.message : String(e)}`,
+        metadata: {
+          messageId: message.id,
+          to,
+          delivered: false,
+        },
+      });
+    }
   }
 }

@@ -74,6 +74,8 @@ export interface ChatRequest {
   max_tokens?: number;
   /** 自定义系统提示词（覆盖默认） */
   systemPrompt?: string;
+  /** P0-1（2026-08-26）：流中断续写——携带已生成内容，请求从断点继续而非从头重发 */
+  continue_from?: { content: string; messageId?: string };
 }
 
 /** 聊天响应 */
@@ -184,6 +186,7 @@ export interface ChatStreamChunk {
     | 'AUTH_ERROR'
     | 'QUOTA_EXCEEDED'
     | 'CONNECTION_RESET'
+    | 'STREAM_INTERRUPTED'
     | 'BACKEND_UNREACHABLE';
   /** 前端导航/提示元数据（如 create_project 完成后建议跳转到项目页） */
   _meta?: Record<string, unknown>;
@@ -342,7 +345,7 @@ export interface CoreAPI {
     questionId: string,
     answers: string[],
     sessionId?: string
-  ): boolean;
+  ): Promise<boolean>;
 
   // ========== 工具 ==========
 

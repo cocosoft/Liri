@@ -1142,7 +1142,13 @@ export async function handleQuestionAnswer(
     const coreAPI = getCoreAPI();
 
     // P0-1: 传 sessionId 精确定位，多会话并行不串扰
-    const resolved = coreAPI.resolveInteraction(questionId, answers, sessionId);
+    // 问题二-1（2026-08-26）：await 落盘强一致——落盘失败上抛 → 500，
+    // 前端显示"保存失败"可重试，杜绝"显示成功但刷新后回答消失"
+    const resolved = await coreAPI.resolveInteraction(
+      questionId,
+      answers,
+      sessionId
+    );
     if (resolved) {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: true }));

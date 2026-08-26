@@ -462,6 +462,31 @@ export async function* runStreamMessage(
     streamSpan.addEvent('streamMessage.pipeline.imagesRegistered');
     host.sanitizeApiMessages(apiMessages);
 
+    // P0-1（2026-08-26）：流中断续写——前端重试时携带已生成内容（continueFrom），
+    // 注入"已生成 assistant 内容 + 请继续"到请求消息，模型从断点继续而非从头重发
+    if (options?.continueFrom?.content) {
+      apiMessages = [
+        ...apiMessages,
+        { role: 'assistant', content: options.continueFrom.content },
+        {
+          role: 'user',
+          content:
+            '输出已中断。请从中断处继续刚才的回答，不要重复已生成的内容。',
+        },
+      ];
+      pipeline.ctx.apiMessages = apiMessages;
+      // P2（2026-08-26）：恢复路径可观测性——与前端 [streamMessage-outer] 日志可关联
+      streamSpan.addEvent('streamMessage.continue', {
+        'continueFrom.contentLength': options.continueFrom.content.length,
+        'continueFrom.messageId': options.continueFrom.messageId ?? '',
+        'message.count': apiMessages.length,
+      });
+      logger.info('streamMessage:continue_from 注入续写', {
+        sessionId: session.id,
+        contentLength: options.continueFrom.content.length,
+      });
+    }
+
     // 工具定义
     const toolRegistry = host.getToolRegistry();
     const toolDefinitions: ToolDefinition[] = toolRegistry
@@ -986,6 +1011,9 @@ export async function* runStreamMessage(
           type: 'error',
           content: `流式响应中断: ${errorMsg}`,
           sessionId: session.id,
+          // P1-1（2026-08-26）：结构化错误码——前端据此识别"可恢复的流中断"并触发
+          // 自动恢复（reconnect/resume/续写），避免字符串匹配（CS02）
+          errorCode: 'STREAM_INTERRUPTED',
         } as ChatStreamChunk;
       }
 
@@ -1055,6 +1083,14 @@ export async function* runStreamMessage(
 
       if (!retryState.shouldRetry) break;
 
+      // P2（2026-08-26）：截断重试可观测性——记录 max_tokens 续写重试轮次与累计内容
+      streamSpan.addEvent('streamMessage.maxTokensRetry', {
+        'retry.count': retryState.retryCount,
+        'next.maxTokens': retryState.nextMaxTokens,
+        'accumulated.contentLength': accumulatedContent.length,
+        continueInjected: accumulatedContent.length > 0,
+      });
+
       logger.info('maxOutputRetry: retrying with increased maxTokens', {
         sessionId: session.id,
         retryCount: retryState.retryCount,
@@ -1084,7 +1120,20 @@ export async function* runStreamMessage(
         content: `输出截断，正在以更大 token 限制重试（第 ${retryState.retryCount} 次，maxTokens=${retryState.nextMaxTokens}）...`,
         sessionId: session.id,
       } as ChatStreamChunk;
-      accumulatedContent = '';
+      // P0-2（2026-08-26）：截断重试改为"续写"而非"从头重发"——
+      // ① 不再清空 accumulatedContent（原置空导致前端已显示内容"闪断重来"）；
+      // ② 把已生成内容作为 assistant 上下文追加，指示模型从中断处继续，不重复已生成内容。
+      if (accumulatedContent.length > 0) {
+        apiMessages = [
+          ...apiMessages,
+          { role: 'assistant', content: accumulatedContent },
+          {
+            role: 'user',
+            content:
+              '输出已截断。请从中断处继续刚才的回答，不要重复已生成的内容。',
+          },
+        ];
+      }
     }
 
     // M1 事件溯源：流式正常结束追加 turn/end 事件
@@ -1427,6 +1476,8 @@ export async function* runStreamMessage(
                   taskCard: {
                     title: todoData.title,
                     status: todoData.phase,
+                    // 2026-08-26：透传 planId，回放派生器按 planId/title 查重
+                    planId: todoData.planId,
                     tasks: todoData.tasks.map((t) => ({
                       id: t.id,
                       name: t.name,

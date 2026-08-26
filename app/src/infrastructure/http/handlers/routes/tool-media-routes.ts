@@ -39,9 +39,11 @@ import {
 import {
   handleVideoBySourceImage,
   handleVideoDelete,
+  handleVideoExtractAudio,
   handleVideoList,
   handleVideoMetadata,
   handleVideoStatic,
+  handleVideoThumbnail,
 } from '../video-handlers';
 import { handleAudioStatic } from '../audio-handlers';
 import { handleMedia } from '../media-template-handlers';
@@ -110,6 +112,10 @@ export async function dispatchToolMediaRoutes(
     await handleVideoBySourceImage(handlerCtx, req, res);
     return true;
   }
+  if (method === 'GET' && url.startsWith('/v1/videos/thumbnail')) {
+    await handleVideoThumbnail(handlerCtx, req, res);
+    return true;
+  }
   if (method === 'GET' && url.startsWith('/v1/videos/static/')) {
     const filePath = url.slice('/v1/videos/static/'.length);
     await handleVideoStatic(handlerCtx, req, res, decodeURIComponent(filePath));
@@ -117,6 +123,10 @@ export async function dispatchToolMediaRoutes(
   }
   if (method === 'DELETE' && url.startsWith('/v1/videos/delete')) {
     await handleVideoDelete(handlerCtx, req, res);
+    return true;
+  }
+  if (method === 'POST' && url.startsWith('/v1/videos/extract-audio')) {
+    await handleVideoExtractAudio(handlerCtx, req, res);
     return true;
   }
 

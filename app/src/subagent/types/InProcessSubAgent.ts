@@ -28,6 +28,8 @@ export class InProcessSubAgent implements SubAgent {
 
   private messageQueue: any[] = [];
   private context: any;
+  /** 消息订阅者（sendMessage 时同步通知，供 teammate 体系消费投递） */
+  private messageSubscribers: Array<(message: any) => void> = [];
 
   /**
    * 构造函数
@@ -222,12 +224,37 @@ export class InProcessSubAgent implements SubAgent {
   }
 
   /**
+   * 订阅消息（返回取消订阅函数）
+   * @param callback 消息回调
+   */
+  onMessage(callback: (message: any) => void): () => void {
+    this.messageSubscribers.push(callback);
+    return () => {
+      this.messageSubscribers = this.messageSubscribers.filter(
+        (cb) => cb !== callback
+      );
+    };
+  }
+
+  /**
    * 发送消息
    * @param message 消息
    */
   async sendMessage(message: any): Promise<void> {
     try {
       this.messageQueue.push(message);
+      // 同步通知订阅者（如 InProcessTeammateBackend 挂的 onMessage 回调），
+      // 使投递消息可被外部消费（此前仅入队无人通知，消息断点）
+      for (const subscriber of this.messageSubscribers) {
+        try {
+          subscriber(message);
+        } catch (error) {
+          logger.error(
+            `Message subscriber error in InProcessSubAgent ${this.id}:`,
+            { error }
+          );
+        }
+      }
       logger.info(`Message sent to InProcessSubAgent ${this.id}:`, { message });
     } catch (error) {
       logger.error(`Error sending message to InProcessSubAgent ${this.id}:`, {

@@ -5,7 +5,7 @@
  * 支持关键词搜索 + 日期范围筛选
  */
 
-import React from "react";
+import React, { useEffect, useRef, useState } from "react";
 import type { GallerySearchParams } from "../../../stores/mediaStore";
 
 interface GallerySearchBarProps {
@@ -29,6 +29,33 @@ export const GallerySearchBar: React.FC<GallerySearchBarProps> = ({
   onChange,
   onRefresh,
 }) => {
+  // P0-1（2026-08-26）：关键词 300ms 防抖，避免每键触发 store 更新 + 画廊重新加载
+  const [inputValue, setInputValue] = useState(params.keyword);
+  const skipFirstSubmit = useRef(true);
+  /** 上次已提交到 store 的值（用于区分"外部修改"与"自身防抖提交"，避免回显覆盖输入） */
+  const lastCommittedRef = useRef(params.keyword);
+
+  // 次要项（2026-08-26）：外部 setSearchParams 修改后回显（如清空/恢复场景）。
+  // 仅当 store 值不是本组件上次提交的值时才回显，防止防抖滞后导致覆盖正在输入的文本
+  useEffect(() => {
+    if (params.keyword !== lastCommittedRef.current) {
+      lastCommittedRef.current = params.keyword;
+      setInputValue(params.keyword);
+    }
+  }, [params.keyword]);
+
+  useEffect(() => {
+    if (skipFirstSubmit.current) {
+      skipFirstSubmit.current = false;
+      return;
+    }
+    const timer = setTimeout(() => {
+      lastCommittedRef.current = inputValue;
+      onChange({ keyword: inputValue });
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [inputValue, onChange]);
+
   return (
     <div className="flex items-center gap-2">
       {/* 搜索框 */}
@@ -36,8 +63,8 @@ export const GallerySearchBar: React.FC<GallerySearchBarProps> = ({
         <input
           type="text"
           placeholder="搜索图片…"
-          value={params.keyword}
-          onChange={(e) => onChange({ keyword: e.target.value })}
+          value={inputValue}
+          onChange={(e) => setInputValue(e.target.value)}
           className="w-full rounded-md border border-gray-300 bg-white px-3 py-1.5 pl-8 text-sm text-gray-700 placeholder-gray-400 focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:placeholder-gray-500"
         />
         <svg

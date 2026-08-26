@@ -28,6 +28,7 @@ const STATUS_CONFIG: Record<
   running: { label: "生成中", color: "text-blue-500", icon: "🔄" },
   completed: { label: "已完成", color: "text-green-500", icon: "✅" },
   failed: { label: "失败", color: "text-red-500", icon: "❌" },
+  cancelled: { label: "已取消", color: "text-gray-500", icon: "⏹️" },
 };
 
 /** 格式化排队位置（简化为显示状态） */
@@ -211,16 +212,57 @@ const GenTaskCard: React.FC<GenTaskCardProps> = ({ task, onDelete }) => {
             />
           </div>
         )}
+        {/* BUG-8（2026-08-26）：多图生成全量展示，可点击查看/保存 */}
+        {isDone && task.images && task.images.length > 0 && (
+          <div className="mt-1 flex flex-wrap gap-1">
+            {task.images.map((url, i) => (
+              <a
+                key={i}
+                href={url}
+                target="_blank"
+                rel="noreferrer"
+                title="查看图片"
+              >
+                <img
+                  src={url}
+                  alt=""
+                  className="h-10 w-10 rounded object-cover"
+                  loading="lazy"
+                />
+              </a>
+            ))}
+          </div>
+        )}
+        {/* BUG-B（2026-08-26）：视频完成卡片展示结果（resultUrl 缩略图可点击） */}
+        {isDone && task.type === "video" && task.resultUrl && (
+          <div className="mt-1">
+            <a
+              href={task.resultUrl}
+              target="_blank"
+              rel="noreferrer"
+              title="查看视频"
+            >
+              <video
+                src={task.resultUrl}
+                muted
+                preload="metadata"
+                className="h-10 w-10 rounded object-cover"
+              />
+            </a>
+          </div>
+        )}
         {task.error && (
           <p className="truncate text-[10px] text-red-400" title={task.error}>
             {task.error.slice(0, 60)}
           </p>
         )}
       </div>
-      {(isDone || task.status === "failed") && onDelete && (
+      {/* P0-2（2026-08-26）：running 任务也可删除（取消/清理语义），不再仅完成/失败可删 */}
+      {onDelete && (
         <button
           onClick={() => onDelete(task.id)}
           className="text-xs text-gray-400 hover:text-red-500"
+          title={isDone || task.status === "failed" ? "删除" : "取消"}
         >
           ✕
         </button>

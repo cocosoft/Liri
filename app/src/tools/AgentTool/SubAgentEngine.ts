@@ -109,6 +109,11 @@ export interface SubAgentRequest {
   maxTurns?: number;
   /** 模型覆盖 */
   model?: string;
+  /**
+   * 外部消息源（teammate 体系集成）：执行期间每轮 LLM 调用前拉取，
+   * 将投递给该子 agent 的消息注入上下文（如 SendMessageTool 的消息）
+   */
+  messageSource?: () => ChatMessage[];
 }
 
 /**
@@ -274,6 +279,23 @@ export class SubAgentEngine {
               totalTokens: totalPromptTokens + totalCompletionTokens,
             },
             error: 'Execution aborted by user',
+          });
+        }
+
+        // 外部消息注入（teammate 体系）：每轮 LLM 调用前拉取投递的消息追加进上下文，
+        // 使子 agent 能感知并响应 SendMessageTool 等投递的旁路消息
+        const incomingMessages = request.messageSource?.() ?? [];
+        if (incomingMessages.length > 0) {
+          messages.push(...incomingMessages);
+          logger.info('SubAgent 收到外部消息', {
+            agentId,
+            turn,
+            count: incomingMessages.length,
+          });
+          safePublish(AgentEventType.THINKING_DELTA, {
+            agentId,
+            content: `[收到 ${incomingMessages.length} 条外部消息]`,
+            turn,
           });
         }
 

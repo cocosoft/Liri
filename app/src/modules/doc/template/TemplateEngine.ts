@@ -6,7 +6,8 @@
 
 import { getLogger } from '@modules/monitoring';
 import { readFileSync, existsSync } from 'fs';
-import { resolve, dirname } from 'path';
+import { resolve, dirname, join } from 'path';
+import { resolveProjectRoot } from '@modules/core/paths';
 import Handlebars from 'handlebars';
 
 const logger = getLogger('doc:template');
@@ -190,19 +191,15 @@ export class TemplateEngine {
 
   /**
    * 解析模板文件所在目录的绝对路径
-   * 优先 import.meta.dir（Bun ESM），回退到 __dirname（CJS 兼容）
+   * 优先 import.meta.dir（Bun ESM），回退到项目源码目录（resolveProjectRoot，CS/check:paths 合规）
    */
   private resolveTemplateDir(): string {
     // Bun ESM 环境
     if (typeof (import.meta as any).dir === 'string') {
       return (import.meta as any).dir as string;
     }
-    // Node.js CJS 回退
-    if (typeof __dirname === 'string') {
-      return __dirname;
-    }
-    // 最后的回退
-    return process.cwd();
+    // 非 Bun 环境：模板位于项目源码目录（打包后模板随资源发布，落点由打包机制另行处理）
+    return join(resolveProjectRoot(), 'app/src/modules/doc/template');
   }
 
   /**

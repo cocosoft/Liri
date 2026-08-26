@@ -23,6 +23,7 @@
  */
 
 import { ReActLoop } from '../query/ReActLoop.js';
+import { createErrorRecoveryManager } from '../query/ErrorRecoveryManager.js';
 import type {
   ReActLoopConfig,
   ReasonResult,
@@ -119,6 +120,9 @@ export class ReActToolLoop extends ReActLoop<
 
   private loopState: ReActToolLoopState;
 
+  /** P1-2（2026-08-26）：LLM 调用错误恢复判定（复用 TAOR 的 errorRecovery，CS01） */
+  private readonly _llmRecovery = createErrorRecoveryManager();
+
   /** P1-3（2026-08-23）：当前工具轮 assistant 消息 id——工具轮入口（首次 _streamLlm 前）预分配，
    *  chunk 事件写入与 createAssistantMessage 复用（N4/A3） */
   private _activeToolRoundMessageId = '';
@@ -126,6 +130,11 @@ export class ReActToolLoop extends ReActLoop<
   /** v3：交互心跳间隔（前端 STREAM_IDLE_TIMEOUT_MS=60s，10s 留 5 次余量）+ 最大等待（防资源泄漏） */
   private static readonly INTERACTION_HEARTBEAT_MS = 10_000;
   private static readonly INTERACTION_MAX_WAIT_MS = 10 * 60_000;
+  /** 观察点修复（2026-08-26）：会话级总时长上限（默认 3 小时，env 可覆盖） */
+  private static readonly MAX_TOTAL_DURATION_MS =
+    Number(process.env.REACT_LOOP_MAX_DURATION_MS) || 3 * 60 * 60 * 1000;
+  /** 会话开始时间（总时长上限检查用） */
+  private readonly startedAt = Date.now();
   /** 实例级可配置（测试缩短心跳间隔用），默认取 static 常量 */
   private heartbeatMs: number;
   private maxWaitMs: number;
@@ -882,6 +891,16 @@ export class ReActToolLoop extends ReActLoop<
   ): boolean {
     // 4. 循环检测触发后停止
     if (this.loopState.loopDetected) return false;
+    // 观察点修复（2026-08-26）：会话级总时长上限——300 轮 × 每轮 LLM 可达数小时，
+    // 防极端长任务资源占用。env REACT_LOOP_MAX_DURATION_MS 可覆盖，默认 3 小时。
+    if (Date.now() - this.startedAt > ReActToolLoop.MAX_TOTAL_DURATION_MS) {
+      logger.warn('reactToolLoop:max_total_duration_reached', {
+        sessionId: this.ctx.session.id,
+        durationMs: Date.now() - this.startedAt,
+        maxMs: ReActToolLoop.MAX_TOTAL_DURATION_MS,
+      });
+      return false;
+    }
     return result.toolCalls.length > 0;
   }
 
@@ -1063,13 +1082,35 @@ export class ReActToolLoop extends ReActLoop<
   private async *_consumeStreamingLlm(
     retried: boolean
   ): AsyncGenerator<ReActEvent, ChatResponse> {
-    const iter = this._streamLlm(retried);
-    let r = await iter.next();
-    while (!r.done) {
-      yield r.value;
-      r = await iter.next();
+    try {
+      const iter = this._streamLlm(retried);
+      let r = await iter.next();
+      while (!r.done) {
+        yield r.value;
+        r = await iter.next();
+      }
+      return r.value;
+    } catch (error) {
+      // P1-2（2026-08-26）：LLM 流中断兜底——复用 TAOR errorRecovery 判定，
+      // 网络/服务端/限流/超时等瞬态错误重试一次（走非流式，避免流式事件重复）；
+      // abort 类（上下文溢出等需上层降级）才抛出。
+      const e = error instanceof Error ? error : new Error(String(error));
+      const recovery = this._llmRecovery.assess(e, {
+        turnCount: this.loopState.toolTurnCount,
+        tokenUsage: 0,
+      });
+      if (recovery.action !== 'abort') {
+        logger.warn('reactToolLoop:llm_interrupt_retry', {
+          sessionId: this.ctx.session.id,
+          error: e.message.slice(0, 200),
+          action: recovery.action,
+          turnCount: this.loopState.toolTurnCount,
+        });
+        // 非流式重试一次：优先保证 agent 循环继续（长程任务无人值守前提）
+        return await this._callLlmNonStreaming();
+      }
+      throw error;
     }
-    return r.value;
   }
 
   /** usage 上报（对齐旧类：recordChatResponseUsage + onToolUsage + trackUsage） */

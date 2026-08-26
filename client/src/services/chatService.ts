@@ -799,6 +799,8 @@ export const chatService = {
       /** P0: 可恢复错误（CONNECTION_RESET）时向外抛 StreamConnectionError，
        *  供 streamMessageWithReconnect 捕获进入检查点重试。默认 false 保持原行为。 */
       throwOnRecoverable?: boolean;
+      /** P0-1（2026-08-26）：流中断续写——携带已生成内容，请求从断点继续而非从头重发 */
+      continueFrom?: { content: string; messageId?: string };
     },
   ): AsyncGenerator<StreamChunk, void, unknown> {
     const otel = getOTelTracing();
@@ -826,6 +828,9 @@ export const chatService = {
       if (options?.messageId) body.message_id = options.messageId;
       if (options?.assistantMessageId)
         body.assistant_message_id = options.assistantMessageId;
+      // P0-1（2026-08-26）：流中断续写（从断点继续而非从头重发）
+      if (options?.continueFrom?.content)
+        body.continue_from = options.continueFrom;
       if (workspacePath) body.workspace_path = workspacePath;
       if (options?.workMode) body.work_mode = options.workMode;
       if (options?.images && options.images.length > 0)
@@ -931,11 +936,25 @@ export const chatService = {
                   .result_data as Record<string, unknown>,
               };
             } else if (pyappType === "error") {
+              const sseErrorCode = chunk.__pyapp_error_code;
               yield {
                 type: "error",
                 content: chunk.choices?.[0]?.delta?.content || "Unknown error",
-                errorCode: chunk.__pyapp_error_code || "UNKNOWN",
+                errorCode: sseErrorCode || "UNKNOWN",
               };
+              // P1-1（2026-08-26）：后端"流式响应中断"（STREAM_INTERRUPTED）是
+              // 可恢复的 provider 中断——抛 StreamConnectionError 让
+              // streamMessageWithReconnect 走检查点/续写恢复（此前仅 yield 不 throw，
+              // 恢复链路成为死代码）。先 yield 保留现有错误提示，再 throw。
+              if (
+                options?.throwOnRecoverable &&
+                sseErrorCode === "STREAM_INTERRUPTED"
+              ) {
+                throw new StreamConnectionError(
+                  "STREAM_INTERRUPTED",
+                  chunk.choices?.[0]?.delta?.content || "流式响应中断",
+                );
+              }
             } else if (pyappType === "tool_call") {
               const tc = chunk.choices?.[0]?.delta?.tool_calls?.[0];
               if (tc) {
@@ -1171,7 +1190,15 @@ export const chatService = {
           errorMessage.includes("ECONNRESET") ||
           errorMessage.includes("socket hang up") ||
           errorMessage.toLowerCase().includes("aborted") ||
-          errorMessage.toLowerCase().includes("network connection was lost");
+          errorMessage.toLowerCase().includes("network connection was lost") ||
+          // P1-1（2026-08-26）：瞬态网络/TLS 错误（与后端 provider 错误同源）——
+          // SSL 证书/CDN 边缘节点/FailedToOpenSocket/URL 解析错误均属可恢复。
+          // 注意：不加 abort/timeout（AbortError 与 TimeoutError 已有独立分支，避免误判主动取消）
+          errorMessage.toLowerCase().includes("certificate") ||
+          errorMessage.toLowerCase().includes("ssl") ||
+          errorMessage.toLowerCase().includes("tls") ||
+          errorMessage.toLowerCase().includes("failedtoopensocket") ||
+          errorMessage.toLowerCase().includes("was there a typo");
         if (isConnectionReset) {
           // P0-fix: 中断时失效会话缓存，确保下次切换从后端读取最新消息
           if (sessionId) {
@@ -1276,6 +1303,10 @@ export const chatService = {
     let receivedTextChars = 0;
     let receivedToolCalls = 0;
     let receivedThinkingBlocks = 0;
+    // P0-1（2026-08-26）：已接收正文全文——中断重试时作为 continueFrom 传给后端续写
+    let receivedText = "";
+    let pendingContinueFrom: { content: string; messageId?: string } | null =
+      null;
 
     while (retryCount <= maxRetries) {
       // 恢复路径：直接 fetch resume 端点
@@ -1402,10 +1433,13 @@ export const chatService = {
               ...options,
               // P0: 断线时向外抛 StreamConnectionError 进入本函数 catch 重试
               throwOnRecoverable: true,
+              // P0-1（2026-08-26）：中断续写——携带已生成内容，请求从断点继续而非从头
+              continueFrom: pendingContinueFrom ?? undefined,
             },
           )) {
             if (chunk.type === "text" && chunk.content) {
               receivedTextChars += chunk.content.length;
+              receivedText += chunk.content;
             } else if (chunk.type === "tool_call") {
               receivedToolCalls++;
             } else if (chunk.type === "thinking" && chunk.content) {
@@ -1417,6 +1451,22 @@ export const chatService = {
         } catch (err: unknown) {
           const e = err as Error & { name?: string };
           if (e.name === "AbortError") return;
+          // P0-1（2026-08-26）：后端"流式响应中断"（STREAM_INTERRUPTED）——
+          // 已生成正文的，重试改走"续写"（continueFrom），避免从头重发重复内容
+          if (
+            e instanceof StreamConnectionError &&
+            e.errorCode === "STREAM_INTERRUPTED" &&
+            receivedText.length > 0
+          ) {
+            pendingContinueFrom = {
+              content: receivedText,
+              messageId: options?.assistantMessageId,
+            };
+            logger.info("[streamMessage-outer] 流中断，重试走续写", {
+              sessionId,
+              receivedTextLength: receivedText.length,
+            });
+          }
           // streamMessage 本身已 yield error chunk，此处进入重试
         }
       }

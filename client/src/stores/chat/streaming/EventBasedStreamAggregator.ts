@@ -209,43 +209,13 @@ export class EventBasedStreamAggregator {
           if (chunk.toolCall.name === "todo_write") {
             const args = chunk.toolCall.arguments as
               Record<string, unknown> | undefined;
-            if (args?.action === "write" && args?.todos) {
-              const todos = Array.isArray(args.todos)
-                ? (args.todos as Array<Record<string, unknown>>)
-                : [];
-              // 修复 4（2026-08-25）：空 todos 不建块（对齐 chat-toolcall.slice 的 length>0 守卫），避免空任务卡片
-              if (todos.length === 0) return;
-              const tasks = todos.map((t, idx) => ({
-                id: String(t.id || idx + 1),
-                // 修复 3（2026-08-25）：补 description 回退（模型常用该字段），减少"步骤 N"无意义名
-                name: String(
-                  t.name || t.content || t.description || `步骤 ${idx + 1}`,
-                ),
-                status:
-                  (t.status as
-                    | "pending"
-                    | "in_progress"
-                    | "completed"
-                    | "failed"
-                    | "blocked"
-                    | "skipped") || "pending",
-                dependsOn: (t.dependsOn as string[]) || [],
-              }));
-              const title = String(
-                args?.title ||
-                  (typeof args?.description === "string"
-                    ? args.description
-                    : "") ||
-                  `任务 (${todos.length} 步)`,
-              );
-              this.appendEvent({
-                type: "assistant/todo",
-                data: {
-                  action: "write",
-                  taskCard: { title, status: "planning", tasks },
-                },
-              });
-            } else if (args?.action === "update") {
+            // 2026-08-26（残留修复）：write 事件不再从 tool_call 参数解析生成——
+            // 后端每次 todo_write 都会额外发 todo chunk（携带权威 todoData，
+            // 含 planId + 统一 title），write 唯一来源 = todo chunk。
+            // 此前两条 write 事件 title 来源不同（tool_call 参数默认
+            // '任务 (N 步)' vs 后端默认 '任务计划'），派生器按 title 查重
+            // 恒失败 → 双卡片依旧。update 仍需实时解析（增量语义，todo chunk 不带）。
+            if (args?.action === "update") {
               const taskId = String(
                 args.todo_id ?? args.todoId ?? args.id ?? "",
               );

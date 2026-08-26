@@ -100,7 +100,8 @@ function withListCache(
 /** 视频任务详情 */
 interface VideoTaskDetail {
   taskId: string;
-  status: "pending" | "queued" | "running" | "completed" | "failed";
+  status:
+    "pending" | "queued" | "running" | "completed" | "failed" | "cancelled";
   mode?: string;
   progress?: number;
   sourceImageUrl?: string | null;
@@ -218,18 +219,7 @@ export const videoService = {
   /**
    * 查询单个任务状态
    */
-  async getVideoTask(taskId: string): Promise<{
-    taskId: string;
-    status: "pending" | "queued" | "running" | "completed" | "failed";
-    mode?: string;
-    progress?: number;
-    sourceImageUrl?: string | null;
-    resultVideoUrl?: string | null;
-    prompt?: string;
-    error?: string | null;
-    createdAt?: string;
-    completedAt?: string | null;
-  }> {
+  async getVideoTask(taskId: string): Promise<VideoTaskDetail> {
     const res = await http.get<VideoTaskDetail>(
       `/v1/video/tasks/${encodeURIComponent(taskId)}`,
     );
@@ -237,6 +227,19 @@ export const videoService = {
       throw new Error(String(res.error || "查询任务失败"));
     }
     return res.data as unknown as VideoTaskDetail;
+  },
+
+  /**
+   * 取消视频生成任务（P2，2026-08-26）
+   */
+  async cancelVideoTask(taskId: string): Promise<{ success: boolean }> {
+    const res = await http.post<{ success: boolean }>(
+      `/v1/video/tasks/${encodeURIComponent(taskId)}/cancel`,
+    );
+    if (!res.ok) {
+      throw new Error(String(res.error || "取消任务失败"));
+    }
+    return res.data as { success: boolean };
   },
 
   /**

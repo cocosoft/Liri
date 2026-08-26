@@ -177,6 +177,9 @@
 |------|------|----------|-----------|
 | POST | `/v1/chat/completions` | ✅ | `chatService.sendMessage`, `chatService.streamMessage` |
 
+> P0-1（2026-08-26）：请求体新增可选 `continue_from: { content, messageId? }`——流中断续写：后端把已生成内容作为 assistant 上下文注入，"请从中断处继续"，用于自动恢复而非从头重发。
+> P1-1（2026-08-26）：SSE 事件 `__pyapp_error_code` 新增 `STREAM_INTERRUPTED`——前端据此识别"可恢复的流中断"并触发自动续写/重试。
+
 #### §3.5.1 SSE 流式事件协议（P2-4 固化）
 
 `POST /v1/chat/completions`（`stream:true`）以 SSE 返回，每行 `data: <JSON>`。前端解析：[parseSseChunk](client/src/services/chatService.ts)、[chat-message.slice.ts streamMessage](client/src/stores/chat/chat-message.slice.ts)。
@@ -638,6 +641,33 @@ data: {"type":"done","result":{...}}
 | 方法 | 路径 | 描述 |
 |------|------|------|
 | **GET** | `/v1/usage` | 获取用量统计（支持 ?range=today\|7d\|30d&sessionId=） |
+
+### §3.30 媒体（Media，2026-08-26 新增登记）
+
+> 路由注册：`tool-media-routes.ts`（`dispatchToolMediaRoutes`）。
+> 此前 images/videos 端点未登记，属已知缺口（§5），本次一并补齐。
+
+| 方法 | 路径 | 后端状态 | 前端调用方 |
+|------|------|----------|-----------|
+| GET | `/v1/images/list?page=&pageSize=&keyword=&dateRange=` | ✅ | `MediaPage.loadGallery`（keyword/dateRange 2026-08-26 新增：文件名/mtime 过滤） |
+| GET | `/v1/images/metadata?path=` | ✅ | `MediaPage`（imageService） |
+| GET | `/v1/images/static/*` | ✅ | 画廊 img src |
+| POST | `/v1/images/upload` | ✅ | `imageService.upload` |
+| DELETE | `/v1/images/delete?path=` | ✅ | `MediaPage.handleDeleteItem` |
+| GET | `/v1/videos/list?page=&pageSize=&keyword=&dateRange=` | ✅ | `MediaPage.loadGallery`（keyword/dateRange 2026-08-26 新增） |
+| GET | `/v1/videos/metadata?path=` | ✅ | `MediaPage` |
+| GET | `/v1/videos/by-source-image?path=` | ✅ | 图生视频关联 |
+| GET | `/v1/videos/thumbnail?path=` | ✅ 2026-08-26 新增 | 画廊视频 poster（ffmpeg 截帧 + mtime 缓存） |
+| GET | `/v1/videos/static/*` | ✅ | 画廊 video src（支持 Range） |
+| DELETE | `/v1/videos/delete?path=` | ✅ | `MediaPage.handleDeleteItem` |
+| **POST** | `/v1/videos/extract-audio?path=` | ✅ 2026-08-26 新增 | `MediaPage` 右键菜单"提取音频" |
+| POST | `/v1/video/tasks/:id/cancel` | ✅ 2026-08-26 新增 | `videoService.cancelVideoTask`（取消视频生成） |
+| GET | `/v1/audio/static/*` | ✅ | 提取音频后播放/下载 |
+
+**`POST /v1/videos/extract-audio` 说明**（P0-3 第二步）：
+- `path` 参数与 delete 一致：相对 `~/.pyapp/media/video/` 的文件名或绝对路径
+- 后端 `videoProcessor.extractAudio`（ffmpeg）转码为 16kHz 单声道 WAV
+- 输出到 `~/.pyapp/media/audio/`，返回 `{ success, url: '/v1/audio/static/<name>.wav', path }`
 
 ---
 

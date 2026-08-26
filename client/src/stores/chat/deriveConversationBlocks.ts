@@ -667,12 +667,18 @@ function handleEvent(
       };
 
       if (data.action === "write" && data.taskCard) {
-        state.current!.blocks!.push({
+        // 任务分解重复修复（2026-08-26）：后端 tool_call + todo 双通道各产一条
+        // action:"write" 事件（tool_call 无 planId、todo 带 planId，title 相同）。
+        // 此前无条件 push → 同计划建两个卡片。改为按 planId/title 查重：
+        // 命中已有 todo 块 → 全量替换（新引用触发重渲染）；未命中 → 新建。
+        const cardTitle = data.taskCard.title;
+        const blocks = state.current!.blocks!;
+        const newBlock: MessageBlock = {
           id: generateBlockId(),
           type: "todo",
-          content: data.taskCard.title,
+          content: cardTitle,
           taskCard: {
-            title: data.taskCard.title,
+            title: cardTitle,
             status: data.taskCard.status,
             tasks: data.taskCard.tasks.map((t) => ({
               id: t.id,
@@ -686,7 +692,20 @@ function handleEvent(
           },
           isStreaming: false,
           groupId: state.currentGroupId,
-        });
+        };
+        const planId = data.taskCard.planId;
+        const existingIdx = blocks.findIndex(
+          (b) =>
+            b.type === "todo" &&
+            b.taskCard &&
+            ((planId && b.taskCard.planId === planId) ||
+              b.content === cardTitle),
+        );
+        if (existingIdx !== -1) {
+          blocks[existingIdx] = newBlock;
+        } else {
+          blocks.push(newBlock);
+        }
       } else if (data.action === "update" && data.taskId) {
         // BUG-2+8 修复（2026-08-23）：① 按 taskId 跨所有 todo 块查找——原
         // reverse().find 只命中最后一个 todo 块，多块时更新落错块、跨 turn 静默丢失；

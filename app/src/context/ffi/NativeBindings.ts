@@ -13,6 +13,7 @@
 
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
+import { resolveProjectRoot } from '@modules/core/paths';
 
 const logger = getLogger('context:ffi');
 
@@ -52,16 +53,8 @@ function loadNative(): NativeModule | null {
     const ext =
       platform === 'win32' ? '.dll' : platform === 'darwin' ? '.dylib' : '.so';
 
-    // 相对于 native/ 目录的 target/release/
-    const nativeDir = path.join(
-      __dirname,
-      '..',
-      '..',
-      '..',
-      '..',
-      '..',
-      'native'
-    );
+    // 相对于仓库根 native/ 目录的 target/release/（resolveProjectRoot 返回仓库根）
+    const nativeDir = path.join(resolveProjectRoot(), 'native');
     const libPath = path.join(
       nativeDir,
       'target',

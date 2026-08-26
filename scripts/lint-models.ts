@@ -59,6 +59,10 @@ const IGNORE_PATH_FRAGMENTS = [
   'ai/ModelManagementBootstrap.ts',
   'plugins/provider/ProviderDiscovery.ts',
   'client/src/config/providerPresets.ts',
+  // 模型预设数据（定价表/本地下载清单/推荐列表，产品数据非业务逻辑判断）
+  'ai/config/official-pricing-data.ts',
+  'ai/local/llama/ModelDownloadService.ts',
+  'ai/local/llama/ModelRecommender.ts',
   // 模型名关键词分级/模型族判断（协议适配）
   'ai/models/ModelAliases.ts',
   'services/prompt/PromptAssembler.ts',

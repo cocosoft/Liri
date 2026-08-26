@@ -17,6 +17,7 @@ import React, {
 import { useTranslation } from "react-i18next";
 import { useConfigStore } from "../../stores/configStore";
 import { useTranslateStore } from "../../stores/translateStore";
+import { useShallow } from "zustand/shallow";
 import { useSessionContextSync } from "../../hooks/useSessionContextSync";
 import { translateService } from "../../services/translateService";
 import type { AlternativeTranslation } from "../../services/translateService";
@@ -613,11 +614,15 @@ function TranslatePage() {
   });
 
   /** P0-3：sourceLang/targetLang/sourceText 变更时触发保存 */
-  const translateState = useTranslateStore((s) => ({
-    sourceLang: s.sourceLang,
-    targetLang: s.targetLang,
-    sourceText: s.sourceText,
-  }));
+  // useShallow（2026-08-26）：selector 返回新对象字面量导致 zustand v5 getSnapshot 不稳定
+  // → "Maximum update depth exceeded" 无限重渲染（与 MediaPage 同源修复）
+  const translateState = useTranslateStore(
+    useShallow((s) => ({
+      sourceLang: s.sourceLang,
+      targetLang: s.targetLang,
+      sourceText: s.sourceText,
+    })),
+  );
   const prevTranslateStateRef = useRef(translateState);
   useEffect(() => {
     const prev = prevTranslateStateRef.current;

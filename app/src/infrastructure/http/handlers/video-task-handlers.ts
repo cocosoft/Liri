@@ -238,6 +238,37 @@ async function handleListTasks(
 }
 
 /**
+ * POST /v1/video/tasks/:id/cancel
+ * 取消视频生成任务（P2，2026-08-26）
+ *
+ * 通过 VideoGenerateTool.cancelTask 标记 cancelled 状态并丢弃后续结果，
+ * 前端轮询读取到 cancelled 后停止（不再显示"生成中"）。
+ * → 200 { success, taskId, status: 'cancelled' }
+ */
+async function handleCancelTask(
+  ctx: HandlerCtx,
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const url = (req.url || '/').split('?')[0];
+    const taskId = extractTaskId(url);
+    if (!taskId) {
+      json(res, 400, { error: 'Missing task id' });
+      return;
+    }
+
+    const { VideoGenerateTool } =
+      await import('@modules/tools/VideoGenerateTool/VideoGenerateTool');
+    VideoGenerateTool.cancelTask(taskId);
+    json(res, 200, { success: true, taskId, status: 'cancelled' });
+  } catch (err) {
+    await handleError(err, { module: 'api:videoTasks', action: 'cancelTask' });
+    json(res, 500, { error: 'Internal server error' });
+  }
+}
+
+/**
  * Video Task API 路由分发
  */
 export async function handleVideoTasks(
@@ -263,6 +294,11 @@ export async function handleVideoTasks(
   const taskId = extractTaskId(url);
   if (taskId && method === 'GET') {
     return handleGetTask(ctx, req, res);
+  }
+
+  // POST /v1/video/tasks/:id/cancel（P2，2026-08-26）
+  if (taskId && method === 'POST' && url.endsWith('/cancel')) {
+    return handleCancelTask(ctx, req, res);
   }
 
   // POST /v1/video/tasks

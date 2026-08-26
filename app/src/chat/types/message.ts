@@ -761,6 +761,11 @@ export interface StreamMessageOptions extends SendMessageOptions {
    * 错误回调
    */
   onError?: (error: Error) => void;
+
+  /**
+   * P0-1（2026-08-26）：流中断续写——携带已生成内容，请求从断点继续而非从头重发
+   */
+  continueFrom?: { content: string; messageId?: string };
 }
 
 /**

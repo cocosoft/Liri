@@ -550,7 +550,7 @@ export async function handleImageList(
     );
 
     // 收集所有图片根目录下的文件（记录绝对路径用于工具调用，相对路径用于 URL 构造）
-    const files: Array<{
+    let files: Array<{
       relativePath: string;
       absolutePath: string;
       urlPrefix: string;
@@ -583,6 +583,38 @@ export async function handleImageList(
 
     // 按路径排序
     files.sort((a, b) => b.relativePath.localeCompare(a.relativePath));
+
+    // P0-1 第二阶段（2026-08-26）：keyword 文件名过滤（不区分大小写）
+    const keyword = (urlObj.searchParams.get('keyword') || '')
+      .trim()
+      .toLowerCase();
+    if (keyword) {
+      files = files.filter((f) =>
+        path.basename(f.relativePath).toLowerCase().includes(keyword)
+      );
+    }
+
+    // BUG-E（2026-08-26）：dateRange 按文件 mtime 过滤（today/7days/30days），
+    // 与前端 GallerySearchBar 语义一致，避免分页 hasMore 失真导致无限滚动空转
+    const dateRange = urlObj.searchParams.get('dateRange') || 'all';
+    if (dateRange !== 'all') {
+      const now = Date.now();
+      let cutoffMs = 0;
+      if (dateRange === 'today') {
+        cutoffMs = new Date(new Date().setHours(0, 0, 0, 0)).getTime();
+      } else if (dateRange === '7days') {
+        cutoffMs = now - 7 * 24 * 3600 * 1000;
+      } else if (dateRange === '30days') {
+        cutoffMs = now - 30 * 24 * 3600 * 1000;
+      }
+      files = files.filter((f) => {
+        try {
+          return fs.statSync(f.absolutePath).mtimeMs >= cutoffMs;
+        } catch {
+          return false;
+        }
+      });
+    }
 
     const total = files.length;
     const startIdx = (page - 1) * pageSize;

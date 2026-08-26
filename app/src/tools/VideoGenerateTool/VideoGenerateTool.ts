@@ -180,6 +180,36 @@ export class VideoGenerateTool extends BaseTool {
     return getVideoTaskPersistence();
   }
 
+  // ----- 任务取消（P2，2026-08-26）-----
+
+  /** 已取消任务集合（内存标记；取消后即使生成返回也丢弃结果） */
+  private static cancelledTasks = new Set<string>();
+
+  /** 取消任务：标记 cancelled 状态 + 后续结果丢弃（不再标记 completed） */
+  static cancelTask(taskId: string): void {
+    VideoGenerateTool.cancelledTasks.add(taskId);
+    try {
+      VideoGenerateTool.getPersistence().update(taskId, {
+        status: 'cancelled',
+        error: '用户取消',
+        completedAt: Date.now(),
+      });
+    } catch {
+      // 任务记录不存在时忽略
+    }
+    globalEventBus.publish(SystemEvents.TASK_FAILED, {
+      taskId,
+      taskType: 'video_generation',
+      error: '用户取消',
+    });
+    logger.info('VideoGenerateTool 任务已取消', { taskId });
+  }
+
+  /** 任务是否已被取消 */
+  static isCancelled(taskId: string): boolean {
+    return VideoGenerateTool.cancelledTasks.has(taskId);
+  }
+
   // ================================================================
   //  入口
   // ================================================================
@@ -264,6 +294,11 @@ export class VideoGenerateTool extends BaseTool {
 
     // 定时更新进度：基于已用时间 + 对数曲线模拟（上限 90%，完成时跳到 100%）
     const progressInterval = setInterval(() => {
+      // P2 取消：停止进度更新（任务已标记 cancelled）
+      if (VideoGenerateTool.isCancelled(taskId)) {
+        clearInterval(progressInterval);
+        return;
+      }
       const elapsed = Date.now() - startedAt;
       // 对数曲线：前期快、后期慢，更接近真实生成感知
       const raw = Math.log(1 + (elapsed / estimatedMs) * 9) / Math.log(10);
@@ -281,6 +316,12 @@ export class VideoGenerateTool extends BaseTool {
       .then(async (result) => {
         clearInterval(progressInterval);
         clearTimeout(maxTimer);
+
+        // P2 取消：任务已取消 → 丢弃结果，不标记 completed
+        if (VideoGenerateTool.isCancelled(taskId)) {
+          logger.info('VideoGenerateTool 任务已取消，结果丢弃', { taskId });
+          return;
+        }
 
         if (result.success) {
           // 先跳到 95% 让用户感知即将完成
@@ -373,6 +414,9 @@ export class VideoGenerateTool extends BaseTool {
       .catch(async (error) => {
         clearInterval(progressInterval);
         clearTimeout(maxTimer);
+
+        // P2 取消：取消导致的异常不重复标记失败
+        if (VideoGenerateTool.isCancelled(taskId)) return;
 
         const errorMsg = error instanceof Error ? error.message : String(error);
         await handleError(error, {

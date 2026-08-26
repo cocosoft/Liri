@@ -13,10 +13,12 @@
 import type http from 'http';
 import fs from 'fs';
 import path from 'path';
+import { randomUUID } from 'crypto';
 import type { HandlerCtx } from './handler-utils';
 import { handleError } from '@modules/error';
 import { resolveMediaDir, isPathWithin } from '@modules/core/paths';
 import { ffmpegWrapper } from '../../../media/ffmpeg/FFmpegWrapper';
+import { videoProcessor } from '../../../media/video/VideoProcessor';
 
 /** 视频根目录（AI 生成持久化） */
 const VIDEOS_ROOT = path.join(resolveMediaDir(), 'video');
@@ -538,6 +540,38 @@ export async function handleVideoList(
       }
     });
 
+    // P0-1 第二阶段（2026-08-26）：keyword 文件名过滤（不区分大小写）
+    const keyword = (urlObj.searchParams.get('keyword') || '')
+      .trim()
+      .toLowerCase();
+    if (keyword) {
+      dbVideos = dbVideos.filter((v) =>
+        path.basename(v.absolutePath).toLowerCase().includes(keyword)
+      );
+    }
+
+    // BUG-E（2026-08-26）：dateRange 按文件 mtime 过滤（today/7days/30days），
+    // 与前端 GallerySearchBar 语义一致，避免分页 hasMore 失真导致无限滚动空转
+    const dateRange = urlObj.searchParams.get('dateRange') || 'all';
+    if (dateRange !== 'all') {
+      const now = Date.now();
+      let cutoffMs = 0;
+      if (dateRange === 'today') {
+        cutoffMs = new Date(new Date().setHours(0, 0, 0, 0)).getTime();
+      } else if (dateRange === '7days') {
+        cutoffMs = now - 7 * 24 * 3600 * 1000;
+      } else if (dateRange === '30days') {
+        cutoffMs = now - 30 * 24 * 3600 * 1000;
+      }
+      dbVideos = dbVideos.filter((v) => {
+        try {
+          return fs.statSync(v.absolutePath).mtimeMs >= cutoffMs;
+        } catch {
+          return false;
+        }
+      });
+    }
+
     const total = dbVideos.length;
     const startIdx = (page - 1) * pageSize;
     const paged = dbVideos.slice(startIdx, startIdx + pageSize);
@@ -645,6 +679,162 @@ export async function handleVideoDelete(
     res.end(JSON.stringify({ success: true, path: filePath }));
   } catch (err) {
     await handleError(err, { module: 'infra:http', action: 'video_delete' });
+    if (!res.headersSent) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Internal server error' }));
+    }
+  }
+}
+
+/**
+ * POST /v1/videos/extract-audio?path=fileName.mp4
+ * 从视频中提取音频（P0-3 第二步，2026-08-26）
+ *
+ * 仿字幕管线路径处理（media-handlers handleMediaSubtitleGenerate）：
+ * 用 videoProcessor.extractAudio 转码为 16kHz 单声道 WAV，
+ * 输出到音频目录 ~/.pyapp/media/audio/，返回 /v1/audio/static/ 可访问 URL。
+ */
+export async function handleVideoExtractAudio(
+  ctx: HandlerCtx,
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const rawUrl = req.url || '/';
+    const urlObj = new URL(rawUrl, `http://${req.headers.host || 'localhost'}`);
+    const filePath = urlObj.searchParams.get('path');
+
+    if (!filePath) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Missing path parameter' }));
+      return;
+    }
+
+    // 安全检查（与 handleVideoDelete 一致）
+    if (!isVideoRootSafe(filePath)) {
+      res.writeHead(403, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Access denied' }));
+      return;
+    }
+
+    const fullPath = resolveVideoPath(filePath);
+    if (!fullPath || !fs.existsSync(fullPath)) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Video not found' }));
+      return;
+    }
+
+    // 输出到音频目录（与 handleAudioStatic 的 AUDIO_ROOT 一致）
+    const audioDir = path.join(resolveMediaDir(), 'audio');
+    if (!fs.existsSync(audioDir)) {
+      fs.mkdirSync(audioDir, { recursive: true });
+    }
+    const baseName = path.basename(fullPath, path.extname(fullPath));
+    const outName = `${baseName}_audio_${randomUUID().slice(0, 8)}.wav`;
+    const outPath = path.join(audioDir, outName);
+
+    const success = await videoProcessor.extractAudio(fullPath, outPath);
+    if (!success || !fs.existsSync(outPath)) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: '音频提取失败，请确认 ffmpeg 已安装' }));
+      return;
+    }
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(
+      JSON.stringify({
+        success: true,
+        url: `/v1/audio/static/${outName}`,
+        path: outPath,
+      })
+    );
+  } catch (err) {
+    await handleError(err, {
+      module: 'infra:http',
+      action: 'video_extract_audio',
+    });
+    if (!res.headersSent) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Internal server error' }));
+    }
+  }
+}
+
+/**
+ * GET /v1/videos/thumbnail?path=fileName.mp4
+ * 生成/返回视频缩略图（JPG），供画廊 poster 使用（2026-08-26）
+ *
+ * 复用 videoProcessor.extractThumbnail（ffmpeg 截帧，-ss 1s -vframes 1）。
+ * 缓存：缩略图写入 ~/.pyapp/media/video/thumbs/，视频 mtime 变化时重新生成。
+ */
+export async function handleVideoThumbnail(
+  ctx: HandlerCtx,
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const rawUrl = req.url || '/';
+    const urlObj = new URL(rawUrl, `http://${req.headers.host || 'localhost'}`);
+    const filePath = urlObj.searchParams.get('path');
+
+    if (!filePath) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Missing path parameter' }));
+      return;
+    }
+
+    // 安全检查（与 handleVideoDelete 一致）
+    if (!isVideoRootSafe(filePath)) {
+      res.writeHead(403, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Access denied' }));
+      return;
+    }
+
+    const fullPath = resolveVideoPath(filePath);
+    if (!fullPath || !fs.existsSync(fullPath)) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Video not found' }));
+      return;
+    }
+
+    const videoMtime = fs.statSync(fullPath).mtimeMs;
+
+    // 缩略图目录（视频目录下 thumbs/，与 VIDEOS_ROOT 同根）
+    const thumbsDir = path.join(VIDEOS_ROOT, 'thumbs');
+    if (!fs.existsSync(thumbsDir)) {
+      fs.mkdirSync(thumbsDir, { recursive: true });
+    }
+    const thumbPath = path.join(
+      thumbsDir,
+      `${path.basename(fullPath, path.extname(fullPath))}.jpg`
+    );
+
+    // 缓存命中：缩略图存在且不比视频旧
+    if (
+      !fs.existsSync(thumbPath) ||
+      fs.statSync(thumbPath).mtimeMs < videoMtime
+    ) {
+      const ok = await videoProcessor.extractThumbnail(fullPath, thumbPath, 1);
+      if (!ok || !fs.existsSync(thumbPath)) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({ error: '缩略图生成失败，请确认 ffmpeg 已安装' })
+        );
+        return;
+      }
+    }
+
+    res.writeHead(200, {
+      'Content-Type': 'image/jpeg',
+      'Access-Control-Allow-Origin': '*',
+      'Cache-Control': 'public, max-age=3600',
+    });
+    res.end(fs.readFileSync(thumbPath));
+  } catch (err) {
+    await handleError(err, {
+      module: 'infra:http',
+      action: 'video_thumbnail',
+    });
     if (!res.headersSent) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: 'Internal server error' }));

@@ -241,10 +241,15 @@ function KnowledgeEditor({
               (e.target as HTMLSelectElement).value = "";
               try {
                 const title = `${tpl.name} - ${new Date().toLocaleDateString("zh-CN")}`;
+                // KB-TPL（2026-08-27）：后端 create 按 category 路由到 base 目录——
+                // 此前不传 category 文档落到根目录，但 newFile.base 却用当前 base，
+                // 导致新建文档出现在错误的知识库下
                 const doc = await knowledgeService.create({
                   title,
                   content: tpl.content,
                   tags: [tpl.name],
+                  // 空 base / "根目录" 时回退 undefined（后端走根目录）
+                  category: file.base !== "根目录" ? file.base : undefined,
                 });
                 const newFile: KnowledgeFile = {
                   id: doc.id,

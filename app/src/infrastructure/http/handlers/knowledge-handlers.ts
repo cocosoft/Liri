@@ -1504,7 +1504,9 @@ export async function handleUpdateKnowledgeDoc(
     const newContent = [
       '---',
       title ? `title: "${title.replace(/"/g, '\\"')}"` : 'title: "未命名文档"',
-      `updatedAt: "${new Date().toISOString()}"`,
+      // KB-P2-14（2026-08-27）：新建分支时间戳与主分支 KB-P1-6 统一为
+      // `updated_at: 数字`，避免 frontmatter 里 updatedAt: "ISO" 与数字格式并存
+      `updated_at: ${Date.now()}`,
       '---',
       '',
       content,

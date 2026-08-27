@@ -3,7 +3,7 @@
  *
  * P0-4: 查看快照列表、对比版本差异、恢复历史版本
  */
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { knowledgeService } from "../../services/knowledgeService";
 import { toastError } from "../../stores/toastStore";
 
@@ -43,6 +43,18 @@ function VersionHistory({
     }
   }, [open]);
 
+  // KB-VH（2026-08-27）：切换文档时 title 变化但组件复用不重新挂载，
+  // 若不重置状态会显示上一个文档的快照/选中版本
+  const prevTitleRef = useRef(title);
+  useEffect(() => {
+    if (prevTitleRef.current === title) return;
+    prevTitleRef.current = title;
+    setSnapshots([]);
+    setSelectedSnapshot(null);
+    setSnapshotContent(null);
+    setOpen(false);
+  }, [title]);
+
   async function loadSnapshots() {
     setLoading(true);
     try {
@@ -69,27 +81,32 @@ function VersionHistory({
     if (!selectedSnapshot || !confirm("确定恢复到此版本？当前内容将被覆盖。"))
       return;
     setRestoring(true);
-    const content = await knowledgeService.restoreSnapshot(
-      title,
-      selectedSnapshot,
-    );
-    setRestoring(false);
-    if (content !== null) {
-      setOpen(false);
-      onRestored?.(content);
-    } else {
-      toastError(new Error("恢复失败"));
+    try {
+      const content = await knowledgeService.restoreSnapshot(
+        title,
+        selectedSnapshot,
+      );
+      if (content !== null) {
+        setOpen(false);
+        onRestored?.(content);
+      } else {
+        toastError(new Error("恢复失败"));
+      }
+    } catch (err) {
+      // KB-VH（2026-08-27）：restoreSnapshot 失败时兜底提示，避免 unhandled rejection
+      toastError(err instanceof Error ? err : new Error("恢复失败"));
+    } finally {
+      setRestoring(false);
     }
   }
 
   function parseSnapshotTime(name: string): string {
-    // snapshot_2026-07-12T05-30-00-000Z.md
-    const m = name.match(/snapshot_(.+)\.md$/);
+    // snapshot_2026-07-12T05-30-00-000Z.md → 2026-07-12 05:30:00.000
+    const m = name.match(
+      /snapshot_(\d{4}-\d{2}-\d{2})T(\d{2})-(\d{2})-(\d{2})-(\d{3})Z\.md$/,
+    );
     if (!m) return name;
-    return m[1]
-      .replace(/T/, " ")
-      .replace(/-/g, (c, i) => (i >= 10 ? ":" : c))
-      .replace("Z", "");
+    return `${m[1]} ${m[2]}:${m[3]}:${m[4]}.${m[5]}`;
   }
 
   if (!open) {

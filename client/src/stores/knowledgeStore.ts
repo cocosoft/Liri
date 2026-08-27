@@ -39,6 +39,9 @@ interface SearchState {
   listResults: KnowledgeFile[];
   /** 侧边栏是否正在搜索 */
   isListSearching: boolean;
+  /** KB-TAGSEARCH（2026-08-27）：外部触发的搜索请求序号（标签点击等）——
+   *  自增后 hook 监听并执行真实搜索，避免「只改 query 不搜索」导致显示未找到 */
+  requestSeq: number;
 }
 
 // ── 列表状态（P3-1：由 useKnowledgeBaseList 的 useReducer 收编） ──
@@ -107,7 +110,9 @@ export type KnowledgeListAction =
   | { type: "CLEAR_COMPILE" }
   | { type: "SET_SEARCH_TAGS"; tags: string[] }
   | { type: "SET_PAGE"; page: number }
-  | { type: "REFRESH_LIST" };
+  | { type: "REFRESH_LIST" }
+  /** KB-TAGSEARCH（2026-08-27）：标签点击触发的搜索请求（设置 query + 递增请求序号） */
+  | { type: "SEARCH_REQUEST"; query: string };
 
 /** 列表初始状态 */
 export function createInitialListState(): KnowledgeListState {
@@ -255,6 +260,15 @@ function applyListAction(
         list: { ...list, refreshTick: list.refreshTick + 1 },
         search,
       };
+    case "SEARCH_REQUEST":
+      return {
+        list,
+        search: {
+          ...search,
+          query: action.query,
+          requestSeq: search.requestSeq + 1,
+        },
+      };
     default:
       return { list, search };
   }
@@ -314,7 +328,7 @@ export const useKnowledgeStore = create<KnowledgeStore>()((set) => ({
   editorDraft: null,
   setEditorDraft: (draft) => set({ editorDraft: draft }),
 
-  search: { query: "", listResults: [], isListSearching: false },
+  search: { query: "", listResults: [], isListSearching: false, requestSeq: 0 },
   setSearch: (partial) =>
     set((state) => ({ search: { ...state.search, ...partial } })),
 

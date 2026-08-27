@@ -5,6 +5,8 @@
  */
 import type { KnowledgeBase } from "../../types";
 import { knowledgeService } from "../../services/knowledgeService";
+import { useState } from "react";
+import { toastError } from "../../stores/toastStore";
 
 interface BatchActionBarProps {
   isDark: boolean;
@@ -26,23 +28,39 @@ function BatchActionBar({
   onRefresh,
 }: BatchActionBarProps) {
   const count = selectedFileIds.size;
+  // KB-BATCH（2026-08-27）：批量操作期间禁用按钮 + 失败提示，避免 unhandled rejection
+  const [busy, setBusy] = useState(false);
   if (count === 0) return null;
 
   async function handleMove(target: string) {
-    if (!target || count === 0) return;
-    for (const id of selectedFileIds) {
-      await knowledgeService.updateDoc(id, "", undefined, { base: target });
+    if (!target || count === 0 || busy) return;
+    setBusy(true);
+    try {
+      for (const id of selectedFileIds) {
+        await knowledgeService.updateDoc(id, "", undefined, { base: target });
+      }
+      onClearSelection();
+      onRefresh();
+    } catch (err) {
+      toastError(err instanceof Error ? err : new Error("批量移动失败"));
+    } finally {
+      setBusy(false);
     }
-    onClearSelection();
-    onRefresh();
   }
 
   async function handleBatchDelete() {
     if (!confirm(`确定要删除选中的 ${count} 个文档吗？此操作不可撤销。`))
       return;
-    await knowledgeService.batchDelete([...selectedFileIds]);
-    onClearSelection();
-    onRefresh();
+    setBusy(true);
+    try {
+      await knowledgeService.batchDelete([...selectedFileIds]);
+      onClearSelection();
+      onRefresh();
+    } catch (err) {
+      toastError(err instanceof Error ? err : new Error("批量删除失败"));
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (

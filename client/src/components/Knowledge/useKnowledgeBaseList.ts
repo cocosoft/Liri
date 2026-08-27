@@ -148,6 +148,22 @@ export function useKnowledgeBaseList(opts: UseKnowledgeBaseListOpts) {
     [dispatchList],
   );
 
+  // KB-TAGSEARCH（2026-08-27）：标签点击只 setSearch({query}) 不触发真实搜索，
+  // 右侧会误显示「未找到匹配文档」。监听 requestSeq 自增并复用 handleSearch 执行搜索
+  const searchRequestSeq = search.requestSeq;
+  const lastSearchRequestRef = useRef(searchRequestSeq);
+  useEffect(() => {
+    if (
+      searchRequestSeq === 0 ||
+      searchRequestSeq === lastSearchRequestRef.current
+    )
+      return;
+    lastSearchRequestRef.current = searchRequestSeq;
+    handleSearch(search.query, selectedBase ?? null);
+    // selectedBase 变化不触发（requestSeq 未变），handleSearch 稳定
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchRequestSeq]);
+
   // ── 编译 ──
   async function handleCompile() {
     dispatchList({ type: "SET_COMPILE_STATUS", status: "compiling" });

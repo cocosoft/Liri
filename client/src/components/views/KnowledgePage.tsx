@@ -698,7 +698,13 @@ function KnowledgePage() {
                               <button
                                 key={idx}
                                 onClick={() => {
-                                  setSearch({ query: tag });
+                                  // KB-TAGSEARCH（2026-08-27）：派发 SEARCH_REQUEST，
+                                  // hook 监听后执行真实搜索——此前只 setSearch 导致
+                                  // 右侧误显示「未找到匹配文档」
+                                  dispatchList({
+                                    type: "SEARCH_REQUEST",
+                                    query: tag,
+                                  });
                                 }}
                                 title={`点击筛选: ${tag}`}
                                 className={`px-2 py-0.5 text-[10px] rounded-full cursor-pointer transition-colors ${

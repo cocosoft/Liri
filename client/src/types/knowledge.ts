@@ -4,6 +4,8 @@ export interface KnowledgeItem {
   content: string;
   tags: string[];
   source?: KnowledgeSource;
+  /** KB-TPL（2026-08-27）：创建文档时的归属目录（后端 create 按 category 路由到 base） */
+  category?: string;
   created_at: number;
   updated_at: number;
 }

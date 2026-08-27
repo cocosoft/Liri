@@ -1,5 +1,12 @@
 import { defineConfig, devices } from "@playwright/test";
 
+// 端口归一化（2026-08-27）：后端 HTTP 端口运行时事实来源为 LIRI_HTTP_PORT
+// （shell/CI 注入或 app/.env），fallback 默认 18990（与后端 app/src/core/ports.ts
+// 一致）。变更端口只需设置 LIRI_HTTP_PORT，webServer 就绪 URL 与后端进程
+// 自动跟随，避免后端监听端口与就绪 URL 不一致导致等待超时。
+const _backendPort = process.env.LIRI_HTTP_PORT || "18990";
+const _backendReadyUrl = `http://127.0.0.1:${_backendPort}/v1/health/report`;
+
 export default defineConfig({
   testDir: "./e2e",
   timeout: 30_000,
@@ -22,9 +29,16 @@ export default defineConfig({
       // LocalHTTPService 的健康端点为 /v1/health/report（就绪前也返回 200），
       // 18990 上不存在 /health（那是 daemon 模式 9090 HealthServer 的端点），
       // 原 404 不在 Playwright 就绪状态码列表导致 webServer 等待超时（2026-08-15 修复）
-      url: "http://127.0.0.1:18990/v1/health/report",
+      url: _backendReadyUrl,
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,
+      // 2026-08-27 修复：CI 复制 app/.env.example 后 LIRI_HTTP_PORT=7890 生效，
+      // 后端监听 7890 与就绪 URL（18990）不符，导致 webServer 等待超时。
+      // 归一化：显式注入 LIRI_HTTP_PORT（随 _backendPort），保证后端监听端口
+      // 与就绪 URL、client Vite proxy target 三者一致（跨平台生效）。
+      env: {
+        LIRI_HTTP_PORT: _backendPort,
+      },
     },
     {
       command: "bun run dev",

@@ -19,6 +19,7 @@ import { configManager } from '@modules/config';
 import { upgradeSTTStreamConnection } from '../../voice/STTStreamServer';
 import { setAnalyticsDependencies } from './handlers/analytics-handlers';
 import { setupInfrastructureDiagnostics } from '@modules/diagnostics/infrastructure-diagnostics';
+import { DEFAULT_HTTP_PORT } from '@modules/core/ports';
 import {
   HandlerCtx,
   createHandlerCtx,
@@ -458,7 +459,7 @@ export function getLocalHTTPService(): LocalHTTPService {
   if (!_localHTTPService) {
     _localHTTPService = new LocalHTTPService({
       host: '127.0.0.1',
-      port: 18990,
+      port: DEFAULT_HTTP_PORT,
     });
   }
   return _localHTTPService;

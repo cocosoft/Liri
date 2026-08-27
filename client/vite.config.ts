@@ -1,6 +1,15 @@
-import { defineConfig } from "vite";
+import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
+
+// 端口归一化（2026-08-27）：后端 HTTP 端口运行时事实来源为 LIRI_HTTP_PORT
+// （app/.env 定义、后端 main.ts 读取），此处 proxy target 跟随同一变量。
+// fallback 默认 18990（与 app/src/core/ports.ts / client/src/services/backendUrl.ts 一致），
+// 变更端口只需修改 app/.env 的 LIRI_HTTP_PORT，全链路自动跟随。
+const _backendPort =
+  Number(loadEnv("", path.resolve(__dirname, "../app"), "").LIRI_HTTP_PORT) ||
+  18990;
+const BACKEND_TARGET = `http://127.0.0.1:${_backendPort}`;
 
 export default defineConfig({
   plugins: [react()],
@@ -61,7 +70,7 @@ export default defineConfig({
     },
     proxy: {
       "/api": {
-        target: "http://127.0.0.1:18990",
+        target: BACKEND_TARGET,
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, ""),
         configure: (proxy) => {
@@ -76,7 +85,7 @@ export default defineConfig({
         },
       },
       "/v1": {
-        target: "http://127.0.0.1:18990",
+        target: BACKEND_TARGET,
         changeOrigin: true,
         // 3.4/P1-1：启用 WebSocket 升级转发（流式 STT 端点 /v1/voice/stt）
         ws: true,

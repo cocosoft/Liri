@@ -84,6 +84,8 @@ import {
 import { contextManager } from './context/ContextManager.js';
 // AC-7：type-only 导入，信号处理中同步强关 HTTP（零运行时依赖，无循环引用）
 import type { LocalHTTPService } from './infrastructure/http/LocalHTTPService.js';
+// 端口单一事实来源（默认值），运行时由 LIRI_HTTP_PORT 覆盖
+import { DEFAULT_HTTP_PORT } from './core/ports.js';
 
 /**
  * 当前实例的 HTTP 服务引用（AC-7）
@@ -947,7 +949,7 @@ async function launchREPL(options: LaunchOptions): Promise<void> {
   const httpPort =
     parseHttpPortFromArgs(options.args) ||
     parseInt(process.env.LIRI_HTTP_PORT ?? '', 10) ||
-    18990;
+    DEFAULT_HTTP_PORT;
   process.env.LIRI_HTTP_PORT = String(httpPort);
   // 监听地址：默认 127.0.0.1（本地/桌面场景），Docker 部署设置 LIRI_HTTP_HOST=0.0.0.0
   const httpHost = process.env.LIRI_HTTP_HOST?.trim() || '127.0.0.1';
@@ -1152,7 +1154,7 @@ async function launchDaemon(options: LaunchOptions): Promise<void> {
   const httpPort =
     parseHttpPortFromArgs(options.args) ||
     parseInt(process.env.LIRI_HTTP_PORT ?? '', 10) ||
-    18990;
+    DEFAULT_HTTP_PORT;
   process.env.LIRI_HTTP_PORT = String(httpPort);
   const httpHost = process.env.LIRI_HTTP_HOST?.trim() || '127.0.0.1';
 

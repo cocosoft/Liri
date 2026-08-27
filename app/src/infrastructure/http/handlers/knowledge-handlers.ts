@@ -64,6 +64,10 @@ export async function handleListKnowledge(
 
     const parsedUrl = new URL(req.url || '', 'http://localhost');
     const baseFilter = parsedUrl.searchParams.get('base');
+    // KB-P1-7.5（2026-08-27）：includeContent=false 时裁剪 content（列表场景用），
+    // 默认 true 保持完整返回（详情/编辑器依赖），向后兼容
+    const includeContent =
+      parsedUrl.searchParams.get('includeContent') !== 'false';
     const offset = Math.max(
       0,
       parseInt(parsedUrl.searchParams.get('offset') || '0', 10) || 0
@@ -141,7 +145,8 @@ export async function handleListKnowledge(
         title: doc.title || '',
         // KB-A（2026-08-27）：返回完整内容——原 slice(0,500) 截断版被编辑器/详情直接使用，
         // 保存会把长文档截断丢数据；完整返回仅增大响应体，后端 buildIndex 本就已读全文
-        content,
+        // KB-P1-7.5：includeContent=false 时裁剪为 200 字符摘要（列表优化）
+        content: includeContent ? content : content.slice(0, 200),
         category,
         tags,
         docPath,
@@ -204,6 +209,7 @@ export async function handleSearchKnowledge(
       await import('@modules/docs/FileDocsProvider');
     const { getDefaultKnowledgeBaseRegistry } =
       await import('@modules/knowledge/KnowledgeBaseRegistry');
+    const { parseFrontmatter } = await import('@modules/knowledge/frontmatter');
     const { stat, open } = await import('fs/promises');
     const { join } = await import('path');
     const registry = getDefaultKnowledgeBaseRegistry();
@@ -247,17 +253,12 @@ export async function handleSearchKnowledge(
               head.length,
               0
             );
-            const fmMatch = head
-              .toString('utf-8', 0, bytesRead)
-              .match(/^---\n([\s\S]*?)\n---/);
-            const sourceLine = fmMatch?.[1]
-              .split('\n')
-              .find((l: string) => l.trim().startsWith('source:'));
-            if (sourceLine) {
-              const val =
-                sourceLine.split(':')[1]?.trim().replace(/"/g, '') || '';
-              if (val) source = val;
-            }
+            // KB-P1-8（2026-08-27）：改用公共 parseFrontmatter——原手写
+            // `split(':')[1]` 在值含冒号时拆错；head 仅 2048B 覆盖 frontmatter 足够
+            const parsed = parseFrontmatter(
+              head.toString('utf-8', 0, bytesRead)
+            );
+            if (parsed?.source) source = parsed.source;
           } finally {
             await fileHandle.close();
           }
@@ -1180,7 +1181,9 @@ export async function handleImportFromFile(
       rawContent = await readFile(filePath, 'utf-8');
     }
 
-    const targetBase = baseName || 'default';
+    // KB-IMP（2026-08-27）：targetBase 为自由文本，直接 join 可注入 ../../xxx 逃逸
+    // 知识库根目录写任意位置——与 upload/update/create 一致走 sanitizeBaseName
+    const targetBase = sanitizeBaseName(baseName || 'default');
     const registry = getDefaultKnowledgeBaseRegistry();
     const knowledgeRoot = registry.getKnowledgeRoot();
     const baseDir = join(knowledgeRoot, targetBase);

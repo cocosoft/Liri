@@ -92,4 +92,15 @@ describe("knowledgeStore list slice (P3-1 收编)", () => {
     expect(useKnowledgeStore.getState().list.compileStatus).toBe("idle");
     expect(useKnowledgeStore.getState().list.compileMessage).toBe("");
   });
+
+  it("REFRESH_LIST 递增 refreshTick（KB-保存/删除后列表重载信号）", () => {
+    const s = useKnowledgeStore.getState();
+    expect(s.list.refreshTick).toBe(0);
+    s.dispatchList({ type: "REFRESH_LIST" });
+    expect(useKnowledgeStore.getState().list.refreshTick).toBe(1);
+    s.dispatchList({ type: "REFRESH_LIST" });
+    expect(useKnowledgeStore.getState().list.refreshTick).toBe(2);
+    // 不触碰其他 slice
+    expect(useKnowledgeStore.getState().list.files).toHaveLength(0);
+  });
 });

@@ -27,11 +27,14 @@ async function fetchFiles(
   base?: string,
   offset?: number,
   limit?: number,
+  includeContent?: boolean,
 ): Promise<{ items: KnowledgeFile[]; total: number }> {
   const params = new URLSearchParams();
   if (base) params.set("base", base);
   if (offset !== undefined) params.set("offset", String(offset));
   if (limit !== undefined) params.set("limit", String(limit));
+  // KB-P1-7.5：列表优化——includeContent=false 时后端裁剪 content 字段
+  if (includeContent === false) params.set("includeContent", "false");
   const qs = params.toString();
   const url = qs ? `/v1/knowledge?${qs}` : "/v1/knowledge";
   const res = await http.get<{ items: KnowledgeFile[]; total: number }>(url);
@@ -125,8 +128,9 @@ export const knowledgeService = {
     base?: string,
     offset?: number,
     limit?: number,
+    includeContent?: boolean,
   ): Promise<{ items: KnowledgeFile[]; total: number }> => {
-    return fetchFiles(base, offset, limit);
+    return fetchFiles(base, offset, limit, includeContent);
   },
 
   /** P3-2: 按 docPath 从列表接口拉取真实文件元数据（搜索结果占位元数据的统一获取通道） */

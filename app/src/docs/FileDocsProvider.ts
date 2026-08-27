@@ -6,6 +6,7 @@
 import { readFile, readdir, stat } from 'fs/promises';
 import { join, relative, basename, dirname } from 'path';
 import { resolvePyappHome } from '@modules/core';
+import { parseTags } from '@modules/knowledge/frontmatter';
 
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
@@ -88,6 +89,7 @@ export class FileDocsProvider {
 
   /**
    * 解析 frontmatter tags（支持 `tags: ["a","b"]` / `[a, b]` / `a, b` 格式）
+   * KB-P1-8（2026-08-27）：委托公共 parseTags，收敛重复实现
    */
   private parseFrontmatterTags(content: string): string[] {
     const fmMatch = content.match(/^---\n([\s\S]*?)\n---/);
@@ -98,23 +100,7 @@ export class FileDocsProvider {
     if (!tagsLine) return [];
     const val = tagsLine.split(':').slice(1).join(':').trim();
     if (!val) return [];
-    if (val.startsWith('[') && val.endsWith(']')) {
-      try {
-        const parsed = JSON.parse(val);
-        if (Array.isArray(parsed)) return parsed.map(String);
-      } catch {
-        // fallthrough to manual split
-      }
-      return val
-        .slice(1, -1)
-        .split(',')
-        .map((t) => t.trim().replace(/^['"]|['"]$/g, ''))
-        .filter(Boolean);
-    }
-    return val
-      .split(',')
-      .map((t) => t.trim().replace(/^['"]|['"]$/g, ''))
-      .filter(Boolean);
+    return parseTags(val);
   }
 
   /**

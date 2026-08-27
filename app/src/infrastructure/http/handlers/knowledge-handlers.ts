@@ -29,6 +29,24 @@ function sanitizeBaseName(name: string | undefined | null): string {
   return cleaned || 'default';
 }
 
+/**
+ * KB-DOC（2026-08-27）：docPath 相对路径校验——delete/trash/update/batch 等
+ * handler 直接 join(knowledgeRoot, docPath) 可被 ../ 逃逸根目录越权读写。
+ * resolve 后必须仍在知识库根目录内，否则抛错。
+ */
+async function assertDocPathWithin(
+  knowledgeRoot: string,
+  docPath: string
+): Promise<string> {
+  const { resolve, relative, isAbsolute } = await import('path');
+  const resolved = resolve(knowledgeRoot, docPath);
+  const rel = relative(knowledgeRoot, resolved);
+  if (isAbsolute(rel) || rel.startsWith('..')) {
+    throw new Error('非法文档路径：逃逸知识库根目录');
+  }
+  return resolved;
+}
+
 // KB-P2-13（2026-08-27）：digest 全量重建 debounce——原每次保存串行 await 全量重建，
 // 文档多时保存变慢；合并 500ms 内多次写操作（连续保存/标签/移动）为一次重建
 let digestTimer: ReturnType<typeof setTimeout> | null = null;
@@ -168,6 +186,69 @@ export async function handleListKnowledge(
         total,
         offset,
         limit,
+      })
+    );
+  } catch (err) {
+    sendError(res, err);
+  }
+}
+
+/**
+ * 处理单文档读取请求 GET /v1/knowledge/doc?docPath=<相对路径>
+ *
+ * KB-DOC（2026-08-27）：编辑器/详情按需拉全文的通道——列表接口 includeContent=false
+ * 裁剪 content 后，前端打开文档时经此接口获取完整内容，避免 KB-A 全量返回的性能
+ * 问题。同时作为 docPath 路径校验的统一入口（assertDocPathWithin）。
+ */
+export async function handleGetKnowledgeDoc(
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const parsedUrl = new URL(req.url || '', 'http://localhost');
+    const docPath = parsedUrl.searchParams.get('docPath');
+    if (!docPath) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: 'docPath required' } }));
+      return;
+    }
+
+    const { getDefaultKnowledgeBaseRegistry } =
+      await import('@modules/knowledge/KnowledgeBaseRegistry');
+    const { readFile, stat } = await import('fs/promises');
+    const { existsSync } = await import('fs');
+    const { parseFrontmatter } = await import('@modules/knowledge/frontmatter');
+
+    const registry = getDefaultKnowledgeBaseRegistry();
+    const knowledgeRoot = registry.getKnowledgeRoot();
+    // KB-DOC：路径校验（防 ../ 逃逸）+ 解析绝对路径
+    const fullPath = await assertDocPathWithin(knowledgeRoot, docPath);
+
+    if (!existsSync(fullPath)) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: '文档不存在' } }));
+      return;
+    }
+
+    const content = await readFile(fullPath, 'utf-8');
+    const fileStat = await stat(fullPath);
+    const parsed = parseFrontmatter(content);
+    const h1 = content.match(/^#\s+(.+)$/m);
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(
+      JSON.stringify({
+        id: docPath,
+        title: parsed?.title ?? h1?.[1]?.trim() ?? '未命名文档',
+        content,
+        category: parsed?.category ?? '根目录',
+        tags: parsed?.tags ?? [],
+        docPath,
+        size: fileStat.size,
+        updated_at: fileStat.mtimeMs,
+        created_at: fileStat.birthtimeMs,
+        source: parsed?.source ?? 'manual',
+        base: docPath.split(/[/\\]/)[0],
       })
     );
   } catch (err) {
@@ -410,13 +491,16 @@ export async function handleDeleteKnowledge(
     const { getDefaultKnowledgeBaseRegistry } =
       await import('@modules/knowledge/KnowledgeBaseRegistry');
     const { unlink } = await import('fs/promises');
-    const { join } = await import('path');
     const { existsSync } = await import('fs');
     const { knowledgeDocsProvider } =
       await import('@modules/docs/FileDocsProvider');
 
     const registry = getDefaultKnowledgeBaseRegistry();
-    const filePath = join(registry.getKnowledgeRoot(), knowledgeId);
+    // KB-DOC（2026-08-27）：knowledgeId 来自 URL，直接 join 可 ../ 逃逸根目录越权删除
+    const filePath = await assertDocPathWithin(
+      registry.getKnowledgeRoot(),
+      knowledgeId
+    );
 
     if (existsSync(filePath)) {
       await unlink(filePath);
@@ -1273,7 +1357,8 @@ export async function handleUpdateKnowledgeDoc(
     const registry = getDefaultKnowledgeBaseRegistry();
     const knowledgeRoot = registry.getKnowledgeRoot();
     let effectiveDocPath = docPath;
-    const filePath = join(knowledgeRoot, docPath);
+    // KB-DOC（2026-08-27）：docPath 来自请求体，先校验再 join，防止 ../ 逃逸根目录
+    const filePath = await assertDocPathWithin(knowledgeRoot, docPath);
 
     // P2-4: 移动文档到目标知识库（base 语义与 list 的 baseName 一致）
     if (base !== undefined) {
@@ -1463,7 +1548,6 @@ export async function handleBatchDeleteKnowledge(
     const { getDefaultKnowledgeBaseRegistry } =
       await import('@modules/knowledge/KnowledgeBaseRegistry');
     const { unlink } = await import('fs/promises');
-    const { join } = await import('path');
     const { existsSync } = await import('fs');
     const { knowledgeDocsProvider } =
       await import('@modules/docs/FileDocsProvider');
@@ -1473,7 +1557,8 @@ export async function handleBatchDeleteKnowledge(
 
     let deleted = 0;
     for (const id of ids) {
-      const filePath = join(knowledgeRoot, id);
+      // KB-DOC（2026-08-27）：ids 来自请求体，防 ../ 逃逸根目录批量删除
+      const filePath = await assertDocPathWithin(knowledgeRoot, id);
       if (existsSync(filePath)) {
         await unlink(filePath);
         deleted++;
@@ -1521,8 +1606,8 @@ export async function handleBatchTagKnowledge(
 
     const { getDefaultKnowledgeBaseRegistry } =
       await import('@modules/knowledge/KnowledgeBaseRegistry');
+    const { parseTags } = await import('@modules/knowledge/frontmatter');
     const { readFile, writeFile } = await import('fs/promises');
-    const { join } = await import('path');
     const { existsSync } = await import('fs');
     const { knowledgeDocsProvider } =
       await import('@modules/docs/FileDocsProvider');
@@ -1532,7 +1617,8 @@ export async function handleBatchTagKnowledge(
 
     let updated = 0;
     for (const id of ids) {
-      const filePath = join(knowledgeRoot, id);
+      // KB-DOC（2026-08-27）：ids 来自请求体，防 ../ 逃逸根目录批量打标签
+      const filePath = await assertDocPathWithin(knowledgeRoot, id);
       if (!existsSync(filePath)) continue;
 
       const content = await readFile(filePath, 'utf-8');
@@ -1549,21 +1635,30 @@ export async function handleBatchTagKnowledge(
       const existingTags: string[] = [];
 
       if (existingTagLine) {
-        const tagMatch = existingTagLine.match(/\[([^\]]*)\]/);
-        if (tagMatch) {
-          const rawTags = tagMatch[1]
-            .split(',')
-            .map((t) => t.trim().replace(/"/g, ''));
-          existingTags.push(...rawTags.filter(Boolean));
-        }
+        // KB-BT（2026-08-27）：改用公共 parseTags 解析现有 tags，收敛第三处手写正则
+        const existingVal = existingTagLine
+          .split(':')
+          .slice(1)
+          .join(':')
+          .trim();
+        existingTags.push(...parseTags(existingVal));
       }
 
       const mergedTags = [...new Set([...existingTags, ...tags])];
       const tagStr = mergedTags.map((t) => `"${t}"`).join(', ');
 
-      const newFmLines = existingTagLine
-        ? fmLines.map((l) => (l.startsWith('tags:') ? `tags: [${tagStr}]` : l))
-        : [...fmLines, `tags: [${tagStr}]`];
+      // KB-BT（2026-08-27）：批量打标签同步刷新 updated_at（与 update-doc 分支
+      // KB-P1-6 一致，旧文件 updatedAt: ISO 一并收敛为数字格式）
+      const newFmLines = (
+        existingTagLine
+          ? fmLines.map((l) =>
+              l.startsWith('tags:') ? `tags: [${tagStr}]` : l
+            )
+          : [...fmLines, `tags: [${tagStr}]`]
+      ).filter(
+        (l) => !l.startsWith('updated_at:') && !l.startsWith('updatedAt:')
+      );
+      newFmLines.push(`updated_at: ${Date.now()}`);
 
       const newContent = [
         '---',
@@ -1706,7 +1801,8 @@ export async function handleTrashKnowledge(
 
     const registry = getDefaultKnowledgeBaseRegistry();
     const root = registry.getKnowledgeRoot();
-    const src = join(root, docPath);
+    // KB-DOC（2026-08-27）：docPath 来自请求体，防 ../ 逃逸根目录移入回收站
+    const src = await assertDocPathWithin(root, docPath);
     const trashDir = join(root, '.knowledge-trash');
     await mkdir(trashDir, { recursive: true });
 
@@ -1747,7 +1843,8 @@ export async function handleRestoreTrash(
     const registry = getDefaultKnowledgeBaseRegistry();
     const root = registry.getKnowledgeRoot();
     const src = join(root, '.knowledge-trash', docPath.replace(/[/\\]/g, '_'));
-    const dest = join(root, docPath);
+    // KB-DOC（2026-08-27）：docPath 来自请求体，防 ../ 逃逸根目录恢复文件
+    const dest = await assertDocPathWithin(root, docPath);
     await rename(src, dest);
     // KB-P0-1（2026-08-27）：restore 后清缓存 + 广播，回收站文档恢复后立即可见
     knowledgeDocsProvider.clearCache();

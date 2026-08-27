@@ -154,28 +154,39 @@ function KnowledgePage() {
     setEditor({ isEditing: false, editTitle: "", editContent: "" });
   }
 
-  function handleSelectFile(file: KnowledgeFile) {
+  async function handleSelectFile(file: KnowledgeFile) {
     if (selectedFile?.id === file.id) return;
-    setView({ selectedFile: file });
+    // KB-DOC（2026-08-27）：列表接口 includeContent=false 只返回裁剪内容（200 字符），
+    // 打开文档时按 docPath 拉全文，保证编辑器/详情看到完整内容
+    let full = file;
+    try {
+      const doc = await knowledgeService.getDoc(file.docPath || file.id);
+      if (doc) {
+        full = { ...file, ...doc };
+      } else {
+        // getDoc 未命中时退回列表接口拉真实元数据（P3-2 通道，含完整 content），
+        // 防止以裁剪内容进入编辑器后保存导致数据丢失
+        const real = await knowledgeService.getFileByDocPath(
+          file.docPath || file.id,
+          file.base || undefined,
+        );
+        if (real) full = { ...file, ...real };
+      }
+    } catch {
+      // 两次拉取均失败时退回列表项
+    }
+    setView({ selectedFile: full });
     setEditor({
       isEditing: false,
-      editTitle: file.title,
-      editContent: file.content,
+      editTitle: full.title,
+      editContent: full.content,
     });
   }
 
   /** P0-5 + P3-2: 搜索结果元数据为列表占位时，按 docPath 拉真实元数据（统一走 knowledgeService.getFileByDocPath） */
   async function handleSelectSearchHit(hit: KnowledgeFile) {
-    try {
-      const real = await knowledgeService.getFileByDocPath(
-        hit.docPath,
-        hit.base || undefined,
-      );
-      handleSelectFile(real ?? hit);
-    } catch {
-      // 拉取失败时退回搜索命中本身
-      handleSelectFile(hit);
-    }
+    // KB-DOC：handleSelectFile 已通过 getDoc 拉全文 + 真实元数据，不再需要 getFileByDocPath
+    await handleSelectFile(hit);
   }
 
   function startEditing() {

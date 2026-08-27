@@ -146,6 +146,17 @@ export const knowledgeService = {
     }
   },
 
+  /** KB-DOC（2026-08-27）：按 docPath 获取单文档完整内容（编辑器/详情按需拉全文） */
+  getDoc: async (docPath: string): Promise<KnowledgeFile | null> => {
+    const params = new URLSearchParams();
+    params.set("docPath", docPath);
+    const res = await http.get<KnowledgeFile>(
+      `/v1/knowledge/doc?${params.toString()}`,
+    );
+    if (!res.ok) return null;
+    return res.data ?? null;
+  },
+
   listBases: async (): Promise<KnowledgeBase[]> => {
     const res = await http.get<KnowledgeBase[]>("/v1/knowledge/bases");
     return unwrap(res, "KNOWLEDGE_LIST_BASES");

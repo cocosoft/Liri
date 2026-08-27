@@ -48,6 +48,7 @@ import {
   handleExportKnowledge,
   handleExportToNotebook,
   handleGetRawFiles,
+  handleGetKnowledgeDoc,
   handleImportFromFile,
   handleKnowledgeCompile,
   handleKnowledgeCompileStatus,
@@ -170,6 +171,11 @@ export async function dispatchKnowledgeRoutes(
   // ---- Knowledge ----
   if (method === 'GET' && url === '/v1/knowledge') {
     await handleListKnowledge(req, res);
+    return true;
+  }
+  // KB-DOC（2026-08-27）：单文档读取（编辑器/详情按需拉全文）
+  if (method === 'GET' && url === '/v1/knowledge/doc') {
+    await handleGetKnowledgeDoc(req, res);
     return true;
   }
   if (method === 'POST' && url === '/v1/knowledge/search') {

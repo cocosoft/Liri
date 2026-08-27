@@ -100,10 +100,13 @@ export function useKnowledgeBaseList(opts: UseKnowledgeBaseListOpts) {
 
   async function loadFiles() {
     try {
+      // KB-DOC（2026-08-27）：列表不需要全文，includeContent=false 让后端裁剪
+      // content（200 字符），文档打开时再由 KnowledgePage 走 getDoc 拉全文
       const data = await knowledgeService.listFiles(
         selectedBase || undefined,
         page * pageSize,
         pageSize,
+        false,
       );
       dispatchList({ type: "SET_FILES", files: data.items, total: data.total });
     } catch (err) {

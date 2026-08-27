@@ -25,6 +25,11 @@ use std::path::PathBuf;
 use tauri::Manager;
 use tracing::info;
 
+/// 后端默认 HTTP 端口（与 app/src/core/ports.ts 的 DEFAULT_HTTP_PORT 一致）。
+/// 运行时实际端口由后端 LIRI_HTTP_PORT 决定；前端 app_config 仅在用户显式设置时
+/// 覆盖此默认值。
+pub const DEFAULT_HTTP_PORT: u16 = 18990;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AppConfig {
@@ -34,14 +39,20 @@ pub struct AppConfig {
     pub http_port: u16,
     #[serde(alias = "first_run_completed")]
     pub first_run_completed: bool,
+    /// 用户是否显式设置过 http_port（设置页/首次引导保存时置 true）。
+    /// None/false → 强制使用默认端口（后端为事实来源），
+    /// 防止持久化的旧配置（如 Clash 代理冲突端口 7890）覆盖默认 18990 导致前端断路。
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub http_port_user_set: Option<bool>,
 }
 
 impl Default for AppConfig {
     fn default() -> Self {
         Self {
             data_dir: String::new(),
-            http_port: 18990,
+            http_port: DEFAULT_HTTP_PORT,
             first_run_completed: false,
+            http_port_user_set: None,
         }
     }
 }
@@ -127,6 +138,20 @@ fn load_config_inner(app_handle: &tauri::AppHandle) -> AppConfig {
             Err(e) => {
                 info!("Failed to resolve safe data_dir (keeping empty): {}", e);
             }
+        }
+    }
+
+    // P0-0 端口校准（2026-08-27）：http_port 仅当用户显式设置（设置页/首次引导
+    // 保存置 http_port_user_set=true）时生效。旧配置残留（如 Clash/V2Ray 代理默认
+    // 端口 7890）无标记 → 强制回默认 18990（后端为事实来源）并写回迁移，
+    // 避免前端请求打到代理端口导致全链路 ERR_CONNECTION_REFUSED。
+    if config.http_port_user_set != Some(true) && config.http_port != DEFAULT_HTTP_PORT {
+        config.http_port = DEFAULT_HTTP_PORT;
+        config.http_port_user_set = Some(false);
+        if let Err(e) = save_config_inner(app_handle, &config) {
+            info!("Failed to persist normalized http_port: {}", e);
+        } else {
+            info!("Normalized and persisted http_port: {}", config.http_port);
         }
     }
 

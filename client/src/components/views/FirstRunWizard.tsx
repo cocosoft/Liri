@@ -35,9 +35,11 @@ export function FirstRunWizard({ onComplete }: FirstRunWizardProps) {
     setError(null);
 
     try {
+      // P0-0 端口校准（2026-08-27）：首次引导保存即"用户显式设置"，置标记生效
       await appConfigService.completeFirstRun({
         dataDir,
         httpPort,
+        httpPortUserSet: true,
       });
 
       checkBackendStatus();

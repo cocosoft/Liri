@@ -20,7 +20,13 @@ import {
 } from './AutoCompactionPolicy';
 import { applyMicroCompaction } from './MicroCompactionEngine';
 import { snipMessages } from './SnipEngine';
-import { ensureTrailingUserMessage } from './toolPairIntegrity';
+import {
+  ensureTrailingUserMessage,
+  collectToolCallIds,
+  collectToolResultIds,
+  stripUnpairedToolResults,
+  stripUnpairedToolCalls,
+} from './toolPairIntegrity';
 import { hookRegistry } from '../hooks/CompactionHooks';
 import { compactionMetricsTracker } from './CompactionMetrics';
 import { compactionLockStore } from './CompactionLockStore';
@@ -74,9 +80,36 @@ export interface CompactionContext {
   configOverride?: number;
 }
 
+/**
+ * P1-2（2026-08-27）：摘要调用信封——记录 Tier3 摘要生成的模型调用信息，
+ * 使一次摘要请求可从日志/事件重建（对标 dsh compaction/summary 的
+ * provider/model/maxTokens/usage + llmStreamCall 标记）。
+ */
+export interface CompactionSummaryEnvelope {
+  /** 摘要调用使用的模型名 */
+  model: string;
+  /** 生成上限（max_tokens） */
+  maxTokens?: number;
+  /** 摘要调用的 token 使用（provider 返回） */
+  usage?: {
+    promptTokens?: number;
+    completionTokens?: number;
+    totalTokens?: number;
+  };
+  /** 是否使用了结构化 5 字段摘要（false = 回退纯文本） */
+  structured: boolean;
+}
+
 export interface CompactionOrchestratorOptions {
   policy?: AutoCompactionPolicy;
 }
+
+/** 压缩执行结果（P1-2 扩展：success 时携带摘要调用信封供事件重建） */
+export type CompactionOutcome = {
+  messages: ChatMessage[];
+  applied: boolean;
+  summaryEnvelope?: CompactionSummaryEnvelope;
+};
 
 export class CompactionOrchestrator {
   private policy: AutoCompactionPolicy;
@@ -100,7 +133,7 @@ export class CompactionOrchestrator {
     messages: ChatMessage[],
     ctx: CompactionContext,
     options?: { skipTier3Sync?: boolean; preEvaluated?: AutoCompactionDecision }
-  ): Promise<{ messages: ChatMessage[]; applied: boolean }> {
+  ): Promise<CompactionOutcome> {
     // 防止双管线并发压缩同一会话（P2-5：内存 + 磁盘双层锁，崩溃残留锁自动清除）
     let lockCompactionId: string | undefined;
     if (ctx.sessionId) {
@@ -170,7 +203,7 @@ export class CompactionOrchestrator {
       // 为同步毫秒级不受限——原实现 Promise.race 对"整个 _doCompact"超时，Tier2
       // 已完成但 Tier3 未完成时整个结果被丢弃（Tier2 成果白费 + 返回未压缩），
       // 且旧代码 signal 未透传导致 Tier3 僵尸请求继续跑。见 _runFullCompactionWithTimeout。
-      let result: { messages: ChatMessage[]; applied: boolean };
+      let result: CompactionOutcome;
       try {
         result = await this._doCompact(
           messages,
@@ -300,7 +333,7 @@ export class CompactionOrchestrator {
     decision: ReturnType<AutoCompactionPolicy['evaluate']>,
     startTime: number,
     options?: { skipTier3Sync?: boolean }
-  ): Promise<{ messages: ChatMessage[]; applied: boolean }> {
+  ): Promise<CompactionOutcome> {
     const beforeTokens = decision.snapshot.tokens;
 
     // Run before hooks
@@ -313,7 +346,7 @@ export class CompactionOrchestrator {
       sessionId: ctx.sessionId,
     });
 
-    let result: { messages: ChatMessage[]; applied: boolean };
+    let result: CompactionOutcome;
     let tier: 1 | 2 | 3;
     let triggerLabel: string;
 
@@ -450,24 +483,22 @@ export class CompactionOrchestrator {
   private async _runFullCompactionWithTimeout(
     messages: ChatMessage[],
     ctx: CompactionContext
-  ): Promise<{ messages: ChatMessage[]; applied: boolean }> {
+  ): Promise<CompactionOutcome> {
     const abortCtrl = new AbortController();
     let timeoutId: ReturnType<typeof setTimeout> | undefined;
     try {
       return await Promise.race([
         this.runFullCompaction(messages, ctx, abortCtrl.signal),
-        new Promise<{ messages: ChatMessage[]; applied: boolean }>(
-          (resolve) => {
-            timeoutId = setTimeout(() => {
-              abortCtrl.abort();
-              logger.warn('compaction:❌tier3 超时（保留 tier2 结果）', {
-                sessionId: ctx.sessionId,
-                timeoutMs: COMPACTION_TIMEOUT_MS,
-              });
-              resolve({ messages, applied: false });
-            }, COMPACTION_TIMEOUT_MS);
-          }
-        ),
+        new Promise<CompactionOutcome>((resolve) => {
+          timeoutId = setTimeout(() => {
+            abortCtrl.abort();
+            logger.warn('compaction:❌tier3 超时（保留 tier2 结果）', {
+              sessionId: ctx.sessionId,
+              timeoutMs: COMPACTION_TIMEOUT_MS,
+            });
+            resolve({ messages, applied: false });
+          }, COMPACTION_TIMEOUT_MS);
+        }),
       ]);
     } finally {
       if (timeoutId !== undefined) clearTimeout(timeoutId);
@@ -483,7 +514,7 @@ export class CompactionOrchestrator {
     messages: ChatMessage[],
     ctx: CompactionContext,
     signal?: AbortSignal
-  ): Promise<{ messages: ChatMessage[]; applied: boolean }> {
+  ): Promise<CompactionOutcome> {
     try {
       // C1 修复（压缩链路排查 2026-08-13）：保留头部连续的 system 消息（system prompt
       // 应在列表开头），而非仅取前 2 条过滤——原实现若前 2 条无 system（被 isTaskMessage
@@ -561,7 +592,11 @@ export class CompactionOrchestrator {
       let compacted: ChatMessage[] = [
         ...headMessages,
         {
-          role: 'system',
+          // P1-1 修复（2026-08-27）：摘要注入 role 改为 user——原用 system 使摘要与
+          // 主 system prompt 并列，部分模型只认最后一条 system → 输出规范
+          // （think/response 格式）丢失、把思考当正文（"降智"）。历史摘要不是系统
+          // 规范，以 user 消息注入并保留 `<system-info>` 标记供前端/模型识别。
+          role: 'user',
           content: summary,
         } as ChatMessage,
         ...tailMessages,
@@ -570,6 +605,18 @@ export class CompactionOrchestrator {
       // 压缩结果尾部若为 assistant（如本轮 user 被 isTaskMessage 过滤），OpenAI/DeepSeek
       // 会返回 400 "Conversation ended with assistant message"。
       compacted = ensureTrailingUserMessage(compacted);
+
+      // P2-1（2026-08-27）：压缩产物 tool 配对完整性——tail 若含孤立的 tool_call/
+      // tool_result（其配对消息已被压缩掉），模型收到"无配对的工具消息"会污染上下文
+      // （重演"连续 assistant/空 assistant"空响应）。基于压缩后集合剥离孤立项
+      // （对标 dsh toolPairingBalancedAfter 拒绝 unbalanced range）。
+      {
+        const pairedCallIds = collectToolCallIds(compacted);
+        compacted = stripUnpairedToolResults(compacted, pairedCallIds);
+        const pairedResultIds = collectToolResultIds(compacted);
+        compacted = stripUnpairedToolCalls(compacted, pairedResultIds);
+        compacted = ensureTrailingUserMessage(compacted);
+      }
 
       // P1-2（有效性硬校验，对齐 deepseek-harness region.ts）：
       // ① 摘要本身必须小于被压缩内容——framed summary >= shadowed content 则拒绝，
@@ -601,7 +648,32 @@ export class CompactionOrchestrator {
         return { messages, applied: false };
       }
 
-      return { messages: compacted, applied: true };
+      // P1-2（2026-08-27）：成功返回携带摘要调用信封——从 provider 返回的 usage
+      // 提取 token 计数，配合 model/maxTokens/structured 使本次摘要请求可从事件重建。
+      const respUsage = (
+        response as unknown as {
+          usage?: Record<string, number>;
+        }
+      )?.usage;
+      return {
+        messages: compacted,
+        applied: true,
+        summaryEnvelope: {
+          model: ctx.model,
+          maxTokens: 2560,
+          usage: {
+            promptTokens:
+              respUsage?.prompt_tokens ?? respUsage?.inputTokens ?? 0,
+            completionTokens:
+              respUsage?.completion_tokens ?? respUsage?.outputTokens ?? 0,
+            totalTokens:
+              respUsage?.total_tokens ??
+              (respUsage?.prompt_tokens ?? 0) +
+                (respUsage?.completion_tokens ?? 0),
+          },
+          structured: !!structured,
+        },
+      };
     } catch (err) {
       await handleError(err, { module: 'context:compaction', action: 'full' });
       return { messages, applied: false };

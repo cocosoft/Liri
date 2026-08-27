@@ -513,9 +513,12 @@ function SettingsPage() {
     setPortSaved(false);
     setError(null);
     try {
+      // P0-0 端口校准（2026-08-27）：设置页保存即"用户显式设置"，
+      // 置 httpPortUserSet=true 使其在下次启动时生效（否则后端事实来源 18990 优先）
       await appConfigService.set({
         ...(await appConfigService.get()),
         httpPort: port,
+        httpPortUserSet: true,
       });
       setBackendUrlPort(port);
       if (

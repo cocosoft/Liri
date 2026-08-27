@@ -216,6 +216,37 @@ export async function* runStreamMessage(
         beforeMessageCount: session.messages.length,
         afterMessageCount: preCompactResult.messages.length,
       });
+      // P1-3（2026-08-27）：trigger 决策下压缩未应用 → 写 failed 事件。
+      // 压缩锁已由 CompactionLockStore 磁盘锁覆盖崩溃残留检测；本项补齐"失败尝试
+      // 以事件可见"（对标 dsh compaction/end(error)）——压缩触发但未降体积/异常时
+      // 可从事件溯源判定，而非仅 warn 日志。
+      if (!preCompactResult.applied && preCompactEval.decision === 'trigger') {
+        try {
+          const ts = await host.getStreamTailSeq(session.id);
+          await host.appendStreamEvent(session.id, {
+            type: 'context/compaction',
+            schemaVersion: 1,
+            seq: ts + 1,
+            time: Date.now(),
+            sessionId: session.id,
+            data: {
+              phase: 'failed',
+              beforeTokens: preCompactEval.snapshot.tokens,
+              afterTokens: estimateMessagesTokens(
+                session.messages as unknown as ChatMessage[]
+              ),
+              message:
+                '压缩触发（trigger）但未应用——Tier1/2/3 未降体积或异常，上下文将走截断兜底',
+            },
+          });
+        } catch (err) {
+          // @ignore-catch — 失败事件写入失败不阻断主流程（CS03）
+          logger.warn('compaction:failed 事件写入失败', {
+            sessionId: session.id,
+            error: err instanceof Error ? err.message : String(err),
+          });
+        }
+      }
       if (preCompactResult.applied) {
         // A-1/A-4（2026-08-23）：压缩 applied 时写 context/compaction 事件 + 持久化区间表；
         // **事件写成功才提交投影压缩**（写回 session.messages），失败则不提交 + 告警（A-4）。
@@ -281,6 +312,9 @@ export async function* runStreamMessage(
                   afterTokens: estimateMessagesTokens(
                     preCompactResult.messages as unknown as ChatMessage[]
                   ),
+                  // P1-2（2026-08-27）：摘要调用信封——model/usage/structured
+                  // 使本次摘要请求可从事件重建（对标 dsh compaction/summary）
+                  summaryEnvelope: preCompactResult.summaryEnvelope,
                 },
               });
               if (!appendResult.ok) {
@@ -365,24 +399,64 @@ export async function* runStreamMessage(
         messageCount: session.messages.length,
         preCompacted,
       });
-      const buildPromise = _buildApiMessagesForStream(session.messages);
+      const buildPromise = _buildApiMessagesForStream(session.messages)
+        // P0-1 修复（2026-08-27）：构建失败不再静默中断——原 buildPromise reject →
+        // Promise.race reject → 整条流式在压缩占位块后静默中断（模型未被调用）。
+        // 现捕获错误 → 产出可见 error 状态块 → 抛明确错误由上层落盘 error/finishReason。
+        .then((value) => ({ ok: true as const, value }))
+        .catch((error) => ({
+          ok: false as const,
+          value: null as never,
+          error: error instanceof Error ? error.message : String(error),
+        }));
+      // P0-2 修复（2026-08-27）：构建总超时守卫——原 Promise.race 循环仅产生心跳，
+      // _buildApiMessagesForStream 若挂起会无限循环；超过上限后中止并抛错。
+      const BUILD_TIMEOUT_MS = 120_000;
+      const buildDeadline = Date.now() + BUILD_TIMEOUT_MS;
       while (true) {
+        if (Date.now() > buildDeadline) {
+          yield {
+            type: 'status',
+            statusType: 'compaction',
+            phase: 'error',
+            content: '上下文构建超时，已中止本次回复',
+            sessionId: session.id,
+          } as ChatStreamChunk;
+          throw new Error(
+            `上下文构建超时（>${BUILD_TIMEOUT_MS / 1000}s），已中止本次回复`
+          );
+        }
         const settled = await Promise.race([
-          buildPromise.then((v) => ({ done: true as const, value: v })),
-          sleep(10_000).then(() => ({ done: false as const, value: null })),
+          buildPromise,
+          sleep(10_000).then(() => ({
+            ok: false as const,
+            value: null as never,
+            timedOut: true as const,
+          })),
         ]);
-        if (settled.done) {
+        if ('timedOut' in settled) {
+          buildHeartbeatCount++;
+          yield {
+            type: 'status',
+            statusType: 'compaction',
+            phase: 'compacting',
+            content: '正在读取上下文...',
+            sessionId: session.id,
+          } as ChatStreamChunk;
+          continue;
+        }
+        if (settled.ok) {
           apiMessages = settled.value;
           break;
         }
-        buildHeartbeatCount++;
         yield {
           type: 'status',
           statusType: 'compaction',
-          phase: 'compacting',
-          content: '正在读取上下文...',
+          phase: 'error',
+          content: `上下文构建失败：${settled.error}`,
           sessionId: session.id,
         } as ChatStreamChunk;
+        throw new Error(`上下文构建失败：${settled.error}`);
       }
       // 2026-08-20 QQ 空响应事故防御：发送前清洗历史污染。
       // 根因：旧版 persistMessages 全量重写 bug（P0-2 修复前）在渠道会话落盘了

@@ -272,7 +272,54 @@ export class StreamPipeline {
           reason: 'orchestrator_not_applied',
         });
         const maxCtx = resolveMaxContextTokens(options?.model);
-        await this._truncateApiMessages(maxCtx, session.id);
+        const afterTokens = estimateMessagesTokens(this.ctx.apiMessages);
+        // P1-4（2026-08-27）：context-overflow 强触发——常规评估未压缩但确认超窗口时，
+        // 以 trigger 决策强制再跑一次 Tier1/2（毫秒级，仍 skipTier3Sync），
+        // 截断仅作最后兜底，避免"确认溢出却只截断丢信息"（对标 dsh context-overflow trigger）。
+        if (maxCtx > 0 && afterTokens > maxCtx) {
+          const forced = await compactionOrchestrator.compact(
+            this.ctx.apiMessages as unknown as ChatMessage[],
+            { model: options?.model || '', sessionId: session.id },
+            {
+              skipTier3Sync: true,
+              preEvaluated: {
+                decision: 'trigger' as const,
+                snapshot: {
+                  tokens: afterTokens,
+                  maxTokens: maxCtx,
+                  ratio: maxCtx > 0 ? afterTokens / maxCtx : 0,
+                },
+              },
+            }
+          );
+          if (forced.applied) {
+            this.ctx.apiMessages = forced.messages as unknown as Record<
+              string,
+              unknown
+            >[];
+            logger.warn(
+              'compaction:context_overflow — 强制压缩生效（截断前压缩）',
+              {
+                sessionId: session.id,
+                beforeTokens: afterTokens,
+                afterTokens: estimateMessagesTokens(this.ctx.apiMessages),
+                maxCtx,
+              }
+            );
+          } else {
+            logger.warn(
+              'compaction:context_overflow — 强制压缩仍无效，执行截断兜底',
+              {
+                sessionId: session.id,
+                tokens: afterTokens,
+                maxCtx,
+              }
+            );
+            await this._truncateApiMessages(maxCtx, session.id);
+          }
+        } else {
+          await this._truncateApiMessages(maxCtx, session.id);
+        }
       }
     } catch (compErr) {
       span.addEvent('compaction.failed', {

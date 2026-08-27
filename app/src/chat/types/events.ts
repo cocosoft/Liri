@@ -177,6 +177,17 @@ export interface LiriEventMap {
     summary?: string;
     /** 投影 summary 消息的真实 id（派生器合成 summary 消息时复用，T-D 对账跳过其 lastEventSeq 比对） */
     summaryMessageId?: string;
+    /** P1-2（2026-08-27）：摘要调用信封（model/usage/structured，使本次摘要请求可从事件重建） */
+    summaryEnvelope?: {
+      model: string;
+      maxTokens?: number;
+      usage?: {
+        promptTokens?: number;
+        completionTokens?: number;
+        totalTokens?: number;
+      };
+      structured: boolean;
+    };
   };
 
   /** 压缩后的摘要 */
@@ -282,8 +293,8 @@ export interface LiriEventMap {
     content: string;
     /** 状态子类型（compaction/watermark/reconnect/error 等，缺省为普通提示） */
     statusType?: 'compaction' | 'watermark' | 'reconnect' | 'error' | string;
-    /** 阶段（compaction 使用：compacting/done） */
-    phase?: 'compacting' | 'done';
+    /** 阶段（compaction 使用：compacting/done/error） */
+    phase?: 'compacting' | 'done' | 'error';
     /** 工具状态块关联的 toolCallId（C-1 schema 对齐前端 P1-6：按 toolCallId 去重） */
     toolCallId?: string;
     /** 结构化水位数据（statusType='watermark' 时存在，C-1 schema 对齐前端 P1-3） */

@@ -5,6 +5,12 @@ export interface AppConfig {
   dataDir: string;
   httpPort: number;
   firstRunCompleted: boolean;
+  /**
+   * P0-0 端口校准（2026-08-27）：用户是否显式设置过 httpPort。
+   * 未置 true 时后端为端口事实来源（默认 18990），
+   * 防止持久化的旧配置（如代理冲突端口 7890）覆盖默认端口导致前端断路。
+   */
+  httpPortUserSet?: boolean;
 }
 
 const isTauri =

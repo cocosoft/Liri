@@ -23,13 +23,17 @@ export const COMPACTION_USER_PROMPT = `Summarize the conversation so far. Output
   "current_state": "<max 300 chars — what has been completed, current progress, files created/modified>",
   "important_discoveries": "<max 300 chars — technical constraints, key decisions, errors encountered and how they were resolved>",
   "next_steps": "<max 200 chars — what to do next, blocked items, priorities>",
-  "context_to_preserve": "<max 300 chars — user preferences, domain details, commitments made to the user>"
+  "context_to_preserve": "<max 300 chars — user preferences, domain details, commitments made to the user, and the output format requirements from the original system prompt (e.g. thinking goes inside think tags, final answer in the response)>"
 }
 
-CRITICAL: Return valid JSON only. No markdown, no explanation, just the JSON object.`;
+CRITICAL: Return valid JSON only. No markdown, no explanation, just the JSON object.
+
+P1-1（2026-08-27）：在 context_to_preserve 中必须保留原系统提示词的输出格式要求
+（think/response 分隔、回答语言等），因为本摘要会替换早期历史而系统提示词本身
+不会重复注入——格式要求丢失会导致模型把思考当正文输出。`;
 
 export const COMPACTION_TEMPLATE = `<system-info>
-Here is a structured summary of your previous work in this conversation. Use this context to continue the task without repeating completed steps.
+This is a COMPRESSED SUMMARY of earlier conversation history — NOT system instructions. The original system prompt (roles, output format, think/response rules) remains authoritative. Use this summary only as context to continue the task without repeating completed steps.
 
 ## Task Overview
 {task_overview}

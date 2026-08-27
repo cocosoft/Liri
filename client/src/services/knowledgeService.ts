@@ -438,6 +438,10 @@ export const knowledgeService = {
     consistencyWarnings: number;
     qualityIssues: number;
     lintScore: number;
+    // KB-P2-12（2026-08-27）：统计面板聚合字段（原 store.items 全量拉取改为单接口聚合）
+    sourceDistribution: { source: string; count: number }[];
+    tagDistribution: { tag: string; count: number }[];
+    recentItems: { id: string; title: string; updated_at: number }[];
   }> => {
     const res = await http.get<{
       totalDocs: number;
@@ -449,6 +453,9 @@ export const knowledgeService = {
       consistencyWarnings: number;
       qualityIssues: number;
       lintScore: number;
+      sourceDistribution: { source: string; count: number }[];
+      tagDistribution: { tag: string; count: number }[];
+      recentItems: { id: string; title: string; updated_at: number }[];
     }>("/v1/knowledge/health");
     const data = unwrap(res, "KNOWLEDGE_HEALTH");
     return data;

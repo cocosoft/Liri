@@ -8,16 +8,7 @@
  *       搜索状态统一为 search slice（query/listResults/isListSearching），消除双轨同步。
  */
 import { create } from "zustand";
-import { knowledgeService } from "../services/knowledgeService";
-import { handleClientError } from "@/utils/handleError";
-import type {
-  KnowledgeItem,
-  KnowledgeFile,
-  KnowledgeBase,
-  KnowledgeSortBy,
-} from "../types";
-
-export type { KnowledgeItem };
+import type { KnowledgeFile, KnowledgeBase, KnowledgeSortBy } from "../types";
 
 // ── 子状态接口 ──────────────────────────────────────────
 
@@ -270,11 +261,6 @@ function applyListAction(
 }
 
 interface KnowledgeStore {
-  items: KnowledgeItem[];
-  isLoading: boolean;
-  error: string | null;
-  loadItems: () => Promise<void>;
-
   view: ViewState;
   setView: (partial: Partial<ViewState>) => void;
 
@@ -306,25 +292,6 @@ interface KnowledgeStore {
 }
 
 export const useKnowledgeStore = create<KnowledgeStore>()((set) => ({
-  items: [],
-  isLoading: false,
-  error: null,
-
-  loadItems: async () => {
-    set({ isLoading: true, error: null });
-    try {
-      const items = await knowledgeService.list();
-      set({ items, isLoading: false });
-    } catch (e) {
-      handleClientError(
-        e,
-        { module: "stores:knowledgeStore", action: "loadItems" },
-        "warn",
-      );
-      set({ error: String(e), isLoading: false });
-    }
-  },
-
   view: {
     selectedBase: null,
     selectedFile: null,

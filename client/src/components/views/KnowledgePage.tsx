@@ -80,8 +80,6 @@ function KnowledgePage() {
   const search = useKnowledgeStore((s) => s.search);
   const setSearch = useKnowledgeStore((s) => s.setSearch);
   const clearSearch = useKnowledgeStore((s) => s.clearSearch);
-  const loadItems = useKnowledgeStore((s) => s.loadItems);
-  const items = useKnowledgeStore((s) => s.items);
   // KB：列表刷新信号——保存/删除/trash 后递增，useKnowledgeBaseList 监听并重载左侧列表
   const dispatchList = useKnowledgeStore((s) => s.dispatchList);
 
@@ -334,10 +332,7 @@ function KnowledgePage() {
           </div>
           {/* U4: 统计徽章 */}
           <button
-            onClick={() => {
-              loadItems();
-              setShowStats(true);
-            }}
+            onClick={() => setShowStats(true)}
             className={`text-xs ${textSecondary} hover:text-blue-500 dark:hover:text-blue-400 transition-colors flex items-center gap-1`}
             title="知识统计"
           >
@@ -362,7 +357,7 @@ function KnowledgePage() {
                 >
                   ✕
                 </button>
-                <StatsPanel isDark={isDark} items={items} />
+                <StatsPanel isDark={isDark} />
               </div>
             </div>
           </div>
@@ -502,10 +497,7 @@ function KnowledgePage() {
                         上传文档
                       </button>
                       <button
-                        onClick={() => {
-                          loadItems();
-                          setShowStats(true);
-                        }}
+                        onClick={() => setShowStats(true)}
                         className="px-3 py-1.5 text-xs border rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                       >
                         查看统计

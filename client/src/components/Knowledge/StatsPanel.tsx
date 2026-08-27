@@ -4,7 +4,6 @@
  * 从 KnowledgePage.tsx 中抽取独立组件 (CS09)。
  */
 import { useState, useEffect } from "react";
-import type { KnowledgeItem } from "../../types";
 import { knowledgeService } from "../../services/knowledgeService";
 
 interface HealthMetrics {
@@ -17,14 +16,17 @@ interface HealthMetrics {
   consistencyWarnings: number;
   qualityIssues: number;
   lintScore: number;
+  // KB-P2-12（2026-08-27）：统计面板聚合字段——来源/标签/最近更新
+  sourceDistribution: { source: string; count: number }[];
+  tagDistribution: { tag: string; count: number }[];
+  recentItems: { id: string; title: string; updated_at: number }[];
 }
 
 interface StatsPanelProps {
   isDark: boolean;
-  items: KnowledgeItem[];
 }
 
-function StatsPanel({ isDark, items }: StatsPanelProps) {
+function StatsPanel({ isDark }: StatsPanelProps) {
   const [health, setHealth] = useState<HealthMetrics | null>(null);
   const textPrimary = isDark ? "text-gray-100" : "text-gray-900";
   const textSecondary = isDark ? "text-gray-400" : "text-gray-500";
@@ -39,22 +41,12 @@ function StatsPanel({ isDark, items }: StatsPanelProps) {
       .catch(() => setHealth(null));
   }, []);
 
-  const totalItems = items.length;
-  const totalCategories = new Set(items.flatMap((i) => i.tags || [])).size;
-  const recentItems = [...items]
-    .sort((a, b) => (b.updated_at || 0) - (a.updated_at || 0))
-    .slice(0, 10);
-
-  // 来源分布统计 (W7: 使用类型安全的 source 字段)
-  const sourceDistribution = (() => {
-    const dist: Record<string, number> = {};
-    for (const item of items) {
-      const s = item.source ?? "unknown";
-      dist[s] = (dist[s] || 0) + 1;
-    }
-    return Object.entries(dist).sort(([, a], [, b]) => b - a);
-  })();
-  const maxSourceCount = Math.max(1, ...sourceDistribution.map(([, c]) => c));
+  // KB-P2-12（2026-08-27）：统计数据全部来自 health 聚合接口，不再依赖 store.items 全量拉取
+  const totalItems = health?.totalDocs ?? 0;
+  const totalCategories = health?.tagDistribution.length ?? 0;
+  const recentItems = health?.recentItems ?? [];
+  const sourceDistribution = health?.sourceDistribution ?? [];
+  const maxSourceCount = Math.max(1, ...sourceDistribution.map((s) => s.count));
 
   return (
     <div className="flex-1 overflow-y-auto p-6">
@@ -215,7 +207,7 @@ function StatsPanel({ isDark, items }: StatsPanelProps) {
               来源分布
             </h3>
             <div className="space-y-2">
-              {sourceDistribution.map(([source, count]) => (
+              {sourceDistribution.map(({ source, count }) => (
                 <div key={source} className="flex items-center gap-2">
                   <span className="text-[10px] text-gray-500 dark:text-gray-400 w-16 truncate">
                     {source === "manual"
@@ -284,22 +276,15 @@ function StatsPanel({ isDark, items }: StatsPanelProps) {
             <p className={`text-sm ${textSecondary}`}>暂无标签</p>
           ) : (
             <div className="flex flex-wrap gap-2">
-              {Array.from(new Set(items.flatMap((i) => i.tags || []))).map(
-                (tag) => {
-                  const count = items.filter((i) =>
-                    (i.tags || []).includes(tag),
-                  ).length;
-                  return (
-                    <span
-                      key={tag}
-                      className="inline-flex items-center gap-1 px-2.5 py-1 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-full"
-                    >
-                      {tag}
-                      <span className="opacity-70">({count})</span>
-                    </span>
-                  );
-                },
-              )}
+              {(health?.tagDistribution ?? []).map(({ tag, count }) => (
+                <span
+                  key={tag}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-full"
+                >
+                  {tag}
+                  <span className="opacity-70">({count})</span>
+                </span>
+              ))}
             </div>
           )}
         </div>

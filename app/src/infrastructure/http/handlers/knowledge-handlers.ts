@@ -1710,6 +1710,63 @@ export async function handleKnowledgeHealth(
       )
     );
 
+    // KB-P2-12（2026-08-27）：统计面板聚合字段——来源/标签/最近更新。
+    // 前端统计弹窗不再全量拉列表（store.items 双轨），改由本接口单次聚合：
+    // sourceDistribution/tagDistribution 由 buildIndex（frontmatter 已解析 source/tags）派生；
+    // recentItems 按文件 mtime 取最近 10 条
+    const { knowledgeDocsProvider } =
+      await import('@modules/docs/FileDocsProvider');
+    const { stat } = await import('fs/promises');
+    const { join } = await import('path');
+    const { getDefaultKnowledgeBaseRegistry } =
+      await import('@modules/knowledge/KnowledgeBaseRegistry');
+
+    const knowledgeRoot = getDefaultKnowledgeBaseRegistry().getKnowledgeRoot();
+    const docs = await knowledgeDocsProvider.buildIndex();
+    const docMeta = await Promise.all(
+      docs.map(async (doc) => {
+        let updatedAt = 0;
+        try {
+          const fileStat = await stat(join(knowledgeRoot, doc.relativePath));
+          updatedAt = fileStat.mtimeMs;
+        } catch {
+          // 文件可能已移动，保持默认 0
+        }
+        return {
+          id: doc.relativePath,
+          title: doc.title || '',
+          source: doc.source || 'manual',
+          tags: doc.tags ?? [],
+          updatedAt,
+        };
+      })
+    );
+
+    const sourceDistribution = [...new Set(docMeta.map((d) => d.source))].map(
+      (source) => ({
+        source,
+        count: docMeta.filter((d) => d.source === source).length,
+      })
+    );
+    const tagCount = new Map<string, number>();
+    for (const d of docMeta) {
+      for (const tag of d.tags) {
+        tagCount.set(tag, (tagCount.get(tag) ?? 0) + 1);
+      }
+    }
+    const tagDistribution = [...tagCount.entries()].map(([tag, count]) => ({
+      tag,
+      count,
+    }));
+    const recentItems = [...docMeta]
+      .sort((a, b) => b.updatedAt - a.updatedAt)
+      .slice(0, 10)
+      .map(({ id, title, updatedAt }) => ({
+        id,
+        title,
+        updated_at: updatedAt,
+      }));
+
     const metrics = {
       totalDocs: lintResult.totalDocs,
       totalIssues: summary.totalIssues,
@@ -1720,6 +1777,9 @@ export async function handleKnowledgeHealth(
       consistencyWarnings: summary.byCategory['consistency'] ?? 0,
       qualityIssues: summary.byCategory['quality'] ?? 0,
       lintScore,
+      sourceDistribution,
+      tagDistribution,
+      recentItems,
       lastLintAt: new Date().toISOString(),
     };
 
@@ -1887,7 +1947,9 @@ export async function handleExportKnowledge(
       const entries = await readdir(dir, { withFileTypes: true });
       const result: { path: string; content: string }[] = [];
       for (const entry of entries) {
-        if (entry.name.startsWith('.')) continue;
+        // KB-EXPORT（2026-08-27）：与 FileDocsProvider 扫描一致，跳过 raw/ 源目录——
+        // 否则上传二进制文件生成的伴侣 md 会被打进 ZIP 导出
+        if (entry.name.startsWith('.') || entry.name === 'raw') continue;
         const fullPath = join(dir, entry.name);
         const relPath = prefix ? `${prefix}/${entry.name}` : entry.name;
         if (entry.isDirectory()) {

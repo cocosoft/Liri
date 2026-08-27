@@ -55,11 +55,10 @@ export class InProcessTeammateBackend extends BaseTeammateBackend {
     return undefined;
   }
 
-  override async restart(handle: TeammateHandle): Promise<void> {
-    const config = handle.config;
-    await this.kill(handle);
-    await this.spawn(config);
-  }
+  // BUG 1 修复（2026-08-27）：删除 restart override——原实现 kill+spawn 生成
+  // 含时间戳的新 handle id，TeammateManager.activeTeammates 仍持有旧 handle，
+  // 重启后新 agent 脱离管理（泄漏）且消息投递给已停止的旧 agent。
+  // 基类 BaseTeammateBackend.restart 为"同 handle 重建 agent"，语义正确。
 
   override async isHealthy(handle: TeammateHandle): Promise<boolean> {
     if (handle.status !== 'running') {

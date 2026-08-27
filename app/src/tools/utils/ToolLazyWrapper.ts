@@ -109,6 +109,19 @@ export class ToolLazyWrapper implements Tool {
   }
 
   validateInput?(input: any): ValidationResult {
+    // BUG 4 修复（2026-08-27）：已加载工具委托真实校验，不再恒放行——
+    // 原实现使权限/调度前置拦截层永远拿到"通过"（AgentTool 的必填校验被绕过）。
+    // 懒加载未加载时仍由 execute 内部校验兜底（保持懒加载语义）。
+    if (this.loader.isLoaded()) {
+      try {
+        const realTool = this.loader.getSync();
+        if (typeof realTool.validateInput === 'function') {
+          return realTool.validateInput(input);
+        }
+      } catch {
+        // 忽略：加载异常按放行处理
+      }
+    }
     return { result: true };
   }
 

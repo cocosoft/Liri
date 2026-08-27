@@ -81,6 +81,9 @@ export class InProcessSubAgent implements SubAgent {
       // 清理资源
       this.messageQueue = [];
       this.context = {};
+      // N3 修复（2026-08-27）：清理消息订阅者——原 stop 后 messageSubscribers
+      // 残留，TERMINATED 重启后旧闭包仍收到 sendMessage 幽灵通知
+      this.messageSubscribers = [];
 
       this.status = SubAgentStatus.TERMINATED;
       logger.info(`InProcessSubAgent ${this.id} stopped`);
@@ -242,9 +245,9 @@ export class InProcessSubAgent implements SubAgent {
    */
   async sendMessage(message: any): Promise<void> {
     try {
-      this.messageQueue.push(message);
-      // 同步通知订阅者（如 InProcessTeammateBackend 挂的 onMessage 回调），
-      // 使投递消息可被外部消费（此前仅入队无人通知，消息断点）
+      // BUG 11 修复（2026-08-27）：不再写入 messageQueue（receiveMessage 无活跃调用方，
+      // 双通道会重复消费）——消息只经 subscribers 单通道投递（mailbox → engine）
+      // 同步通知订阅者（如 InProcessTeammateBackend 挂的 onMessage 回调）
       for (const subscriber of this.messageSubscribers) {
         try {
           subscriber(message);

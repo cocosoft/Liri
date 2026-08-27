@@ -170,10 +170,6 @@ export {
   getNotifications,
 } from './PushNotificationTool/PushNotificationTool';
 export {
-  sendMessage,
-  getMessageHistory,
-} from './SendMessageTool/SendMessageTool';
-export {
   askUserQuestion,
   validateOptions,
 } from './AskUserQuestionTool/AskUserQuestionTool';

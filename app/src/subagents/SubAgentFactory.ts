@@ -433,8 +433,12 @@ export class SubAgentManagerImpl implements SubAgentManager {
       return false;
     }
 
-    await subAgent.stop();
-    this.subAgents.delete(subAgentId);
+    // N4 修复（2026-08-27）：stop 抛错时也确保删除 Map 条目，避免残留
+    try {
+      await subAgent.stop();
+    } finally {
+      this.subAgents.delete(subAgentId);
+    }
     return true;
   }
 
@@ -443,9 +447,10 @@ export class SubAgentManagerImpl implements SubAgentManager {
    * @returns 清除结果
    */
   async clearSubAgents(): Promise<boolean> {
-    for (const subAgent of this.subAgents.values()) {
-      await subAgent.stop();
-    }
+    // N4 修复（2026-08-27）：单个失败不中断后续清理，最终统一清空 Map
+    await Promise.allSettled(
+      Array.from(this.subAgents.values()).map((subAgent) => subAgent.stop())
+    );
     this.subAgents.clear();
     return true;
   }

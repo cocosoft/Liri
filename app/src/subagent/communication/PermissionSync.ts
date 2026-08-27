@@ -36,6 +36,12 @@ export class PermissionSync {
       logger.info(`Permission request ${requestId} cached:`, {
         cachedResponse,
       });
+      // 矛盾修复（2026-08-27）：缓存命中时也登记 pending——原直接 return 不写
+      // pendingRequests，导致 receivePermissionResponse/getPermissionResponse 无法定位
+      // 该请求（响应被丢弃、永远取不到）
+      if (!this.pendingRequests.has(requestId)) {
+        this.pendingRequests.set(requestId, request);
+      }
       return requestId;
     }
 
@@ -76,7 +82,12 @@ export class PermissionSync {
     if (request) {
       // 检查缓存
       const cacheKey = this.generateCacheKey(request);
-      return this.permissionCache.get(cacheKey) ?? undefined;
+      const cached = this.permissionCache.get(cacheKey) ?? undefined;
+      if (cached) {
+        // 矛盾修复：响应已取得，清理 pending 防止缓存命中请求永久驻留
+        this.pendingRequests.delete(requestId);
+      }
+      return cached;
     }
 
     return undefined;

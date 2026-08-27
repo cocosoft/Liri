@@ -11,6 +11,7 @@
  */
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
+import { globalEventBus } from '../core/events/EventBus.js';
 
 const logger = getLogger('subagents:eventPump');
 
@@ -83,6 +84,10 @@ export class SubAgentEventPump {
   /** 注销 */
   unregister(subAgentId: string): void {
     this.polling.delete(subAgentId);
+    // A 修复（2026-08-27）：polling 空时自动停止定时器，避免 setInterval 常驻进程
+    if (this.polling.size === 0) {
+      this.stop();
+    }
   }
 
   /** 设置状态变更回调 */
@@ -154,6 +159,12 @@ export class SubAgentEventPump {
     };
     try {
       this.onStatusChange?.(event);
+      // 事件泵修复（2026-08-27）：发布到 globalEventBus（对齐注释声明）——
+      // 原实现事件无消费者（setOnStatusChange 无调用点），UI/监控收不到子代理状态
+      globalEventBus.publish(
+        'subagent_status',
+        event as unknown as Record<string, unknown>
+      );
     } catch (err) {
       handleError(err, {
         module: 'subagents:eventPump',

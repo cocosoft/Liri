@@ -172,7 +172,23 @@ export class MessageBus {
    * @returns 是否匹配
    */
   private matchesWildcard(topic: string, wildcardTopic: string): boolean {
-    const regex = new RegExp(`^${wildcardTopic.replace(/\*/g, '.*')}$`);
+    // 残留 13 修复（2026-08-27）：先转义正则特殊字符再展开通配符
+    const escaped = wildcardTopic
+      .replace(/\\/g, '\\\\')
+      .replace(/\./g, '\\.')
+      .replace(/\+/g, '\\+')
+      .replace(/\?/g, '\\?')
+      .replace(/\^/g, '\\^')
+      .replace(/\$/g, '\\$')
+      .replace(/\{/g, '\\{')
+      .replace(/\}/g, '\\}')
+      .replace(/\(/g, '\\(')
+      .replace(/\)/g, '\\)')
+      .replace(/\|/g, '\\|')
+      .replace(/\[/g, '\\[')
+      .replace(/\]/g, '\\]')
+      .replace(/\*/g, '.*');
+    const regex = new RegExp(`^${escaped}$`);
     return regex.test(topic);
   }
 

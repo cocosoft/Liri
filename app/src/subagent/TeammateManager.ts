@@ -129,10 +129,14 @@ export class TeammateManager {
       );
     }
 
-    await handle.backend.kill(handle);
-    this.activeTeammates.delete(teammateId);
-    this.teamMembers.delete(teammateId);
-    this.messageHistory.delete(teammateId);
+    try {
+      await handle.backend.kill(handle);
+    } finally {
+      // kill 异常路径清理（2026-08-27）：agent.stop 抛错时也确保不残留
+      this.activeTeammates.delete(teammateId);
+      this.teamMembers.delete(teammateId);
+      this.messageHistory.delete(teammateId);
+    }
 
     logger.info(`Teammate ${teammateId} terminated`);
   }
@@ -157,8 +161,10 @@ export class TeammateManager {
     }
 
     await handle.backend.sendMessage(handle, message);
-    this.updateLastActive(teammateId);
-    this.recordMessage(teammateId, message);
+    // BUG 8 修复（2026-08-27）：统计按 handle.id 更新——原用传入的 teammateId
+    //（名字）作 key，teamMembers 以 handle.id 为 key，lastActiveAt/messageCount 永不更新
+    this.updateLastActive(handle.id);
+    this.recordMessage(handle.id, message);
   }
 
   async broadcastMessage(message: Message): Promise<void> {
@@ -316,6 +322,9 @@ export class TeammateManager {
     if (status === 'stopped' || status === 'error') {
       this.activeTeammates.delete(teammateId);
       this.teamMembers.delete(teammateId);
+      // N2 修复（2026-08-27）：非 killTeammate 路径（agent 自发停止）同样清理
+      // messageHistory——原只删 activeTeammates/teamMembers，Map 残留
+      this.messageHistory.delete(teammateId);
     }
   }
 

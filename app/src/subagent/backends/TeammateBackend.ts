@@ -104,7 +104,12 @@ export abstract class BaseTeammateBackend implements TeammateBackend {
       this.updateStatus(handle, 'running');
       return handle;
     } catch (error) {
+      // BUG 7 修复（2026-08-27）：createAgent 失败时清理已注册的 handle
+      //（原残留：manager 因 await 抛错不持有，backend 内部 Map 永久残留）
       this.updateStatus(handle, 'error');
+      this.handles.delete(handle.id);
+      this.messageHandlers.delete(handle.id);
+      this.statusHandlers.delete(handle.id);
       throw error;
     }
   }
@@ -116,10 +121,12 @@ export abstract class BaseTeammateBackend implements TeammateBackend {
       if (handle.agent) {
         await handle.agent.stop?.();
       }
+      // BUG 14 修复（2026-08-27）：先发 stopped 事件再删 statusHandlers——
+      // 原顺序导致 TeammateManager.handleStatusChange 永远收不到 stopped
+      this.updateStatus(handle, 'stopped');
       this.handles.delete(handle.id);
       this.messageHandlers.delete(handle.id);
       this.statusHandlers.delete(handle.id);
-      this.updateStatus(handle, 'stopped');
     } catch (error) {
       this.updateStatus(handle, 'error');
       throw error;
@@ -141,6 +148,14 @@ export abstract class BaseTeammateBackend implements TeammateBackend {
       await agent.sendMessage(message);
     } else if (typeof agent.handleMessage === 'function') {
       await agent.handleMessage(message);
+    } else {
+      // BUG 10 修复（2026-08-27）：无消息处理函数时抛错而非静默成功
+      throw new AppError(
+        `Teammate ${handle.name} 不支持消息投递（无 sendMessage/handleMessage）`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
     }
   }
 

@@ -509,9 +509,14 @@ export class AgentTool implements Tool {
     isFork: boolean,
     onProgress: ToolCallProgress<AgentToolProgress> | undefined,
     teammateHandleId: string | null = null,
-    mailbox: Array<{ role: 'user'; content: string }> = []
+    mailbox: Array<{ role: 'user'; content: string }> = [],
+    toolContext?: ToolUseContext
   ): Promise<{
     result: string;
+    // N1 修复（2026-08-27）：透出 engine 完成状态——原只返回 result/tokenUsage，
+    // 中断（abort）结果被上层无条件覆盖为 completed，被停止的任务显示"已完成"
+    completed: boolean;
+    error?: string;
     tokenUsage?: {
       promptTokens: number;
       completionTokens: number;
@@ -546,6 +551,8 @@ export class AgentTool implements Tool {
       toolInstances: new Map(subAgentToolPool.map((t) => [t.name, t])),
       maxTurns: 50,
       model: input.model,
+      // BUG 5 修复（2026-08-27）：透传父级工具上下文（sessionId/权限域）给子代理内部工具调用
+      toolContext,
     };
 
     const engineOnProgress = (event: {
@@ -585,6 +592,8 @@ export class AgentTool implements Tool {
 
     return {
       result: result.output,
+      completed: result.completed,
+      error: result.error,
       tokenUsage: result.tokenUsage,
     };
   }
@@ -596,7 +605,7 @@ export class AgentTool implements Tool {
     input: AgentInput,
     agentId: string,
     systemPrompt: string
-  ): Promise<{ result: string }> {
+  ): Promise<{ result: string; completed: true }> {
     const { providerRegistry } =
       await import('../../ai/providers/ProviderRegistry');
     const agentModel = await resolveModelRoute(RouteKey.CHAT);
@@ -655,6 +664,7 @@ export class AgentTool implements Tool {
 
     if (toolCalls && toolCalls.length > 0) {
       return {
+        completed: true,
         result:
           `Agent [${agentId}] completed task with tool calls:\n\n` +
           `Type: ${input.subagent_type || 'general'}\n` +
@@ -665,6 +675,7 @@ export class AgentTool implements Tool {
     }
 
     return {
+      completed: true,
       result:
         `Agent [${agentId}] completed task:\n\n` +
         `Type: ${input.subagent_type || 'general'}\n` +
@@ -873,12 +884,18 @@ export class AgentTool implements Tool {
       // 现注册时机提前，生命周期绑定执行全程（前台 execute 返回清理，后台 bgTask 回调清理）。
       let teammateHandleId: string | null = null;
       const mailbox: Array<{ role: 'user'; content: string }> = [];
-      teammateHandleId = await this.registerTeammate(
-        agentId,
-        agentInput.name,
-        systemPrompt,
-        agentInput.model
-      );
+      // BUG 6 修复（2026-08-27）：simple task（runDirectCall，无 SubAgentEngine
+      // messageSource 消费）不注册 teammate——原注册后 mailbox 无人消费，消息堆积丢弃
+      const isSimpleTaskNow =
+        agentInput.prompt.length < 500 && !isFork && !agentInput.subagent_type;
+      if (!isSimpleTaskNow) {
+        teammateHandleId = await this.registerTeammate(
+          agentId,
+          agentInput.name,
+          systemPrompt,
+          agentInput.model
+        );
+      }
       if (teammateHandleId && agentInput.name) {
         const handleName = agentInput.name;
         getTeammateManager().onTeammateMessage(teammateHandleId, (message) => {
@@ -940,6 +957,8 @@ export class AgentTool implements Tool {
       if (isBackground) {
         if (!this.config.allowBackground) {
           logger.warning('Background execution disabled', { agentId });
+          // 泄漏修复（2026-08-27）：该分支 return 前清理已注册的 teammate
+          await this.unregisterTeammate(agentId);
           return {
             status: ToolExecutionStatus.FAILURE,
             result: null,
@@ -975,13 +994,20 @@ export class AgentTool implements Tool {
           isFork,
           onProgress,
           teammateHandleId,
-          mailbox
+          mailbox,
+          context
         )
           .then(async (runResult) => {
+            // N1 修复（2026-08-27）：按 engine 真实结果置状态——原无条件置
+            // 'completed'，被 stopAgent 中止的后台任务在任务列表显示"已完成"
+            const taskCompleted = runResult.completed;
             bgTask.syncFromBgInfo({
               ...bgInfo,
-              status: 'completed',
+              status: taskCompleted ? 'completed' : 'failed',
               result: runResult.result,
+              error: taskCompleted
+                ? undefined
+                : runResult.error || 'Agent execution stopped',
               tokenUsage: runResult.tokenUsage || {
                 promptTokens: 0,
                 completionTokens: 0,
@@ -990,9 +1016,13 @@ export class AgentTool implements Tool {
               completedAt: Date.now(),
               durationMs: Date.now() - bgInfo.createdAt,
             });
-            this.activeAgents.get(agentId)!.status = 'completed';
+            this.activeAgents.get(agentId)!.status = taskCompleted
+              ? 'completed'
+              : 'failed';
             // 设计二：后台任务完成时才清理 teammate（保留整个后台窗口期的可寻址性）
             await this.unregisterTeammate(agentId);
+            // 残留 9 修复：后台完成也清理 activeAgents 条目
+            this.cleanupCompletedAgents();
             logger.info('Background agent completed', { agentId, taskId });
           })
           .catch(async (error) => {
@@ -1010,6 +1040,8 @@ export class AgentTool implements Tool {
             this.activeAgents.get(agentId)!.status = 'failed';
             // 设计二：失败也清理 teammate
             await this.unregisterTeammate(agentId);
+            // 残留 9 修复：后台失败也清理 activeAgents 条目
+            this.cleanupCompletedAgents();
           });
 
         return {
@@ -1033,12 +1065,16 @@ export class AgentTool implements Tool {
         };
       }
 
-      const isSimpleTask =
-        agentInput.prompt.length < 500 && !isFork && !agentInput.subagent_type;
+      // N6 修复（2026-08-27）：复用 execute 入口的 isSimpleTaskNow（889 行），
+      // 原此处重复计算同一条件（仅冗余，无行为差异）
+      let result: {
+        result: string;
+        completed: boolean;
+        error?: string;
+        tokenUsage?: any;
+      };
 
-      let result: { result: string; tokenUsage?: any };
-
-      if (isSimpleTask) {
+      if (isSimpleTaskNow) {
         result = await this.runDirectCall(agentInput, agentId, systemPrompt);
         logger.info('Agent direct call completed', {
           agentId,
@@ -1052,7 +1088,8 @@ export class AgentTool implements Tool {
           isFork,
           onProgress,
           teammateHandleId,
-          mailbox
+          mailbox,
+          context
         );
         logger.info('Agent engine execution completed', {
           agentId,
@@ -1085,32 +1122,40 @@ export class AgentTool implements Tool {
         }
       }
 
-      this.activeAgents.get(agentId)!.status = 'completed';
+      // N1 修复（2026-08-27）：按 engine 真实结果置状态——原无条件置
+      // 'completed'，被 stopAgent 中止的任务显示"已完成"
+      this.activeAgents.get(agentId)!.status = result.completed
+        ? 'completed'
+        : 'failed';
 
       onProgress?.({
         toolUseID: agentId,
         data: {
           type: 'agent_tool',
           agentName: agentInput.name || agentId,
-          action: 'complete',
-          message: 'Agent task completed successfully',
+          action: result.completed ? 'complete' : 'error',
+          message: result.completed
+            ? 'Agent task completed successfully'
+            : result.error || 'Agent execution stopped',
           isRunning: false,
           isComplete: true,
         },
       });
 
       return {
-        status: ToolExecutionStatus.SUCCESS,
+        status: result.completed
+          ? ToolExecutionStatus.SUCCESS
+          : ToolExecutionStatus.FAILURE,
         result: result.result,
-        error: undefined,
+        error: result.completed ? undefined : result.error,
         executionTime: Date.now() - startTime,
         output: result.result || '',
-        errorOutput: '',
+        errorOutput: result.completed ? '' : result.error || '',
         progress: [],
         metadata: {
           agentId,
           agentType: effectiveType,
-          completed: true,
+          completed: result.completed,
           isFork,
           tokenUsage: result.tokenUsage,
         },
@@ -1160,6 +1205,9 @@ export class AgentTool implements Tool {
         toolName: this.name,
         timestamp: Date.now(),
       };
+    } finally {
+      // 残留 9 修复（2026-08-27）：清理 completed/failed 条目，防 activeAgents 长期增长
+      this.cleanupCompletedAgents();
     }
   }
 

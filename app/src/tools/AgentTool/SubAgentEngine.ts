@@ -12,6 +12,7 @@
 import { randomUUID } from 'crypto';
 import type { ChatMessage, ChatResponse, ToolDefinition } from '@modules/ai';
 import type { Tool } from '../types/Tool';
+import type { ToolUseContext } from '../types/ToolUseContext';
 import { ToolExecutionStatus } from '../types/ToolResult';
 import type { AIProvider } from '@modules/ai';
 import { providerRegistry } from '@modules/ai';
@@ -110,10 +111,22 @@ export interface SubAgentRequest {
   /** 模型覆盖 */
   model?: string;
   /**
+   * 父级工具上下文透传（BUG 5 修复 2026-08-27）：子代理内部工具调用携带
+   * 真实 sessionId/权限上下文——原恒传 { messages: [] }，依赖 context.sessionId
+   * 的工具行为异常（send_message 的 sender 恒 'main'、权限拦截失准）
+   */
+  toolContext?: ToolUseContext;
+  /**
    * 外部消息源（teammate 体系集成）：执行期间每轮 LLM 调用前拉取，
    * 将投递给该子 agent 的消息注入上下文（如 SendMessageTool 的消息）
    */
   messageSource?: () => ChatMessage[];
+  /**
+   * 外部取消信号（BUG 15 修复 2026-08-27）：调用方（如 ParallelOrchestrator.abortAll）
+   * 传入 AbortSignal，引擎在循环与工具调用间响应取消——原 ParallelOrchestrator
+   * 创建的 AbortController 无法传入 engine，abortAll() 形同虚设
+   */
+  signal?: AbortSignal;
 }
 
 /**
@@ -190,6 +203,22 @@ export class SubAgentEngine {
 
     this.activeAgents.set(agentId, { abortController, startTime });
 
+    // BUG 15 修复（2026-08-27）：接入外部取消信号——调用方（如
+    // ParallelOrchestrator.abortAll）通过 request.signal 取消任务时，联动中止
+    // 内部 abortController，使循环检测与工具调用中断路径生效
+    const externalSignal = request.signal;
+    if (externalSignal) {
+      if (externalSignal.aborted) {
+        abortController.abort();
+      } else {
+        externalSignal.addEventListener(
+          'abort',
+          () => abortController.abort(),
+          { once: true }
+        );
+      }
+    }
+
     // P2-13: 注册子代理到事件泵（500ms 轮询 + 2s 心跳）
     let eventPumpStarted = false;
     try {
@@ -197,7 +226,8 @@ export class SubAgentEngine {
         await import('../../subagents/SubAgentEventPump');
       const pump = getSubAgentEventPump();
       pump.register(agentId);
-      if (!pump['pollTimer']) pump.start();
+      // A 修复（2026-08-27）：start 幂等（内部先 stop 再启动），去掉私有字段字符串索引 hack
+      pump.start();
       eventPumpStarted = true;
     } catch (err) {
       handleError(err, {
@@ -266,7 +296,30 @@ export class SubAgentEngine {
             error: 'Execution aborted by user',
           });
 
+          // N1 修复（2026-08-27）：中断时通知进度回调——原 abort 分支只有
+          // safePublish，UI 停留在 running 直至被上层覆盖为 completed
+          onProgress?.({
+            agentId,
+            type: 'error',
+            message: '子代理执行被中断',
+          });
+
           clearTimeout(timeoutTimer);
+          this.activeAgents.delete(agentId);
+          // BUG 2 修复（2026-08-27）：中断分支清理事件泵——原残留 polling entry
+          if (eventPumpStarted) {
+            try {
+              const { getSubAgentEventPump } =
+                await import('../../subagents/SubAgentEventPump');
+              getSubAgentEventPump().fail(agentId);
+              getSubAgentEventPump().unregister(agentId);
+            } catch (err) {
+              handleError(err, {
+                module: 'tools:AgentTool:SubAgentEngine',
+                action: 'eventPumpAbortCleanup',
+              });
+            }
+          }
           otel.endSpan(execSpan, SpanStatusCode.ERROR, 'aborted');
           return this.buildResult(agentId, startTime, {
             completed: false,
@@ -393,7 +446,8 @@ export class SubAgentEngine {
 
             const toolResult = await this.executeToolCall(
               toolCall,
-              request.toolInstances
+              request.toolInstances,
+              request.toolContext
             );
 
             messages.push({
@@ -466,6 +520,7 @@ export class SubAgentEngine {
               const { getSubAgentEventPump } =
                 await import('../../subagents/SubAgentEventPump');
               getSubAgentEventPump().complete(agentId);
+              getSubAgentEventPump().unregister(agentId);
             } catch (err) {
               handleError(err, {
                 module: 'tools:AgentTool:SubAgentEngine',
@@ -492,6 +547,21 @@ export class SubAgentEngine {
 
       this.activeAgents.delete(agentId);
       clearTimeout(timeoutTimer);
+      // 新发现修复（2026-08-27）：max turns 出口清理事件泵（第 4 个出口）——
+      // 原遗漏导致 polling 永久残留 running 条目，2s 后误报 stale
+      if (eventPumpStarted) {
+        try {
+          const { getSubAgentEventPump } =
+            await import('../../subagents/SubAgentEventPump');
+          getSubAgentEventPump().fail(agentId);
+          getSubAgentEventPump().unregister(agentId);
+        } catch (err) {
+          handleError(err, {
+            module: 'tools:AgentTool:SubAgentEngine',
+            action: 'eventPumpMaxTurns',
+          });
+        }
+      }
 
       // 发射执行结束事件（达到最大轮次）
       safePublish(AgentEventType.EXECUTE_END, {
@@ -526,6 +596,7 @@ export class SubAgentEngine {
           const { getSubAgentEventPump } =
             await import('../../subagents/SubAgentEventPump');
           getSubAgentEventPump().fail(agentId);
+          getSubAgentEventPump().unregister(agentId);
         } catch (err) {
           handleError(err, {
             module: 'tools:AgentTool:SubAgentEngine',
@@ -659,7 +730,8 @@ export class SubAgentEngine {
    */
   private async executeToolCall(
     toolCall: { id: string; name: string; arguments: Record<string, unknown> },
-    toolInstances: Map<string, Tool>
+    toolInstances: Map<string, Tool>,
+    toolContext?: ToolUseContext
   ): Promise<string> {
     const tool = toolInstances.get(toolCall.name);
     if (!tool) {
@@ -674,7 +746,19 @@ export class SubAgentEngine {
         typeof toolCall.arguments === 'string'
           ? JSON.parse(toolCall.arguments)
           : (toolCall.arguments as Record<string, unknown>);
-      const result = await tool.execute(parsedArgs, { messages: [] } as any);
+      // BUG 5 修复（2026-08-27）：透传真实工具上下文（原伪造 { messages: [] }）
+      // N5 补充（2026-08-27）：调用方未传 toolContext（如 ParallelOrchestrator）时
+      // 显式告警暴露，避免静默伪造导致依赖 sessionId 的工具行为失真
+      const resolvedContext = toolContext ?? ({} as unknown as ToolUseContext);
+      if (!toolContext) {
+        logger.warn(
+          'executeToolCall 缺少工具上下文（toolContext），使用空上下文',
+          {
+            toolName: toolCall.name,
+          }
+        );
+      }
+      const result = await tool.execute(parsedArgs, resolvedContext);
       const output = result.output || result.result || JSON.stringify(result);
 
       if (typeof output === 'string') return output;

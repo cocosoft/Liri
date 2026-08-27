@@ -152,6 +152,9 @@ export class ParallelOrchestrator {
         toolInstances: new Map<string, Tool>(),
         maxTurns: 20,
         model: model || task.model,
+        // BUG 15 修复（2026-08-27）：把外部 AbortController 传入 engine——
+        // 原 abortAll() abort 的 controller 无人监听，取消形同虚设
+        signal: abortController.signal,
       };
 
       // 通过 SubAgentEngine 执行

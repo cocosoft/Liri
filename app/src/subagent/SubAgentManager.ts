@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 子agent管理核心
  */
 import {
@@ -88,11 +88,10 @@ export class SubAgentManager {
         );
     }
 
-    // 保存子agent
-    this.subAgents.set(config.id, subAgent);
-
-    // 启动子agent
+    // B 修复（2026-08-27）：先启动成功再入 Map——原 set 在 start() 前，
+    // start 抛错时 Map 残留未启动实例
     await subAgent.start();
+    this.subAgents.set(config.id, subAgent);
 
     return subAgent;
   }
@@ -147,8 +146,12 @@ export class SubAgentManager {
       );
     }
 
-    await subAgent.stop();
-    this.subAgents.delete(id);
+    // N4 修复（2026-08-27）：stop 抛错时也确保删除 Map 条目，避免残留
+    try {
+      await subAgent.stop();
+    } finally {
+      this.subAgents.delete(id);
+    }
   }
 
   /**
@@ -256,9 +259,8 @@ export class SubAgentManager {
    */
   async cleanup(): Promise<void> {
     const subAgentIds = Array.from(this.subAgents.keys());
-    for (const id of subAgentIds) {
-      await this.stopSubAgent(id);
-    }
+    // N4 修复（2026-08-27）：单个失败不中断后续清理（allSettled 语义）
+    await Promise.allSettled(subAgentIds.map((id) => this.stopSubAgent(id)));
   }
 
   /**

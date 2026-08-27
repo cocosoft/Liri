@@ -33,15 +33,19 @@ function sanitizeBaseName(name: string | undefined | null): string {
  * KB-DOC（2026-08-27）：docPath 相对路径校验——delete/trash/update/batch 等
  * handler 直接 join(knowledgeRoot, docPath) 可被 ../ 逃逸根目录越权读写。
  * resolve 后必须仍在知识库根目录内，否则抛错。
+ *
+ * KB-DOC-FIX（2026-08-27）：逃逸判断必须段感知——`rel.startsWith('..')` 会误杀
+ * 根内合法目录名 `..evil/`（relative 返回 `..evil\x.md` 同样以 `..` 开头）；
+ * 仅当 rel 恰为 `..` 或以 `..` + 分隔符开头才是真正逃逸到父目录。
  */
-async function assertDocPathWithin(
+export async function assertDocPathWithin(
   knowledgeRoot: string,
   docPath: string
 ): Promise<string> {
-  const { resolve, relative, isAbsolute } = await import('path');
+  const { resolve, relative, isAbsolute, sep } = await import('path');
   const resolved = resolve(knowledgeRoot, docPath);
   const rel = relative(knowledgeRoot, resolved);
-  if (isAbsolute(rel) || rel.startsWith('..')) {
+  if (isAbsolute(rel) || rel === '..' || rel.startsWith(`..${sep}`)) {
     throw new Error('非法文档路径：逃逸知识库根目录');
   }
   return resolved;

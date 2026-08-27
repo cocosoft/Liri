@@ -713,9 +713,16 @@ async function startDeferredPrefetches(): Promise<void> {
           await semanticStore.load();
 
           // 初始化语义索引增量更新器（监听 knowledge:changed 事件）
+          // KB-SEM（2026-08-27）：传入知识库根目录，updater 归一化路径与 builder 一致
+          const { getDefaultKnowledgeBaseRegistry } =
+            await import('@modules/knowledge/KnowledgeBaseRegistry.js');
           const semanticIndexUpdater = new SemanticIndexUpdater(
             globalEmbeddingManager,
-            { indexDir },
+            {
+              indexDir,
+              knowledgeRoot:
+                getDefaultKnowledgeBaseRegistry().getKnowledgeRoot(),
+            },
             globalEventBus
           );
           await semanticIndexUpdater.initialize();

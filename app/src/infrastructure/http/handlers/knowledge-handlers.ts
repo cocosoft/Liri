@@ -14,6 +14,20 @@ import { SandboxPermission } from '@modules/sandbox/SandboxTypes';
 import { sanitizeFileName } from '@modules/services/file/fileNaming';
 
 import { handleError } from '@modules/error';
+import { globalEventBus } from '@modules/core';
+
+/**
+ * KB-SEM（2026-08-27）：发布全局 knowledge:changed 事件，驱动语义索引增量更新。
+ * broadcastEvent 仅走 websocket 通知（前端刷新用），进不了 globalEventBus；
+ * SemanticIndexUpdater 只订阅 knowledge:changed——此前前端所有写操作都不触发
+ * 语义索引更新（事件断链）。此处统一补发全局事件。
+ */
+function publishKnowledgeChanged(
+  action: 'created' | 'updated' | 'deleted',
+  filePath: string
+): void {
+  globalEventBus.publish('knowledge:changed', { action, filePath });
+}
 
 /**
  * B-D1 修复：知识库 baseName 防路径穿越。
@@ -428,6 +442,7 @@ export async function handleCreateKnowledge(
       })
     );
     broadcastEvent('knowledge:created', { id: docPath, title });
+    publishKnowledgeChanged('created', filePath);
   } catch (err) {
     sendError(res, err);
   }
@@ -448,12 +463,15 @@ export async function handleUpdateKnowledge(
     const { getDefaultKnowledgeBaseRegistry } =
       await import('@modules/knowledge/KnowledgeBaseRegistry');
     const { writeFile } = await import('fs/promises');
-    const { join } = await import('path');
     const { knowledgeDocsProvider } =
       await import('@modules/docs/FileDocsProvider');
 
     const registry = getDefaultKnowledgeBaseRegistry();
-    const filePath = join(registry.getKnowledgeRoot(), knowledgeId);
+    // KB-DOC（2026-08-27）：knowledgeId 来自 URL，补 assertDocPathWithin 防 ../ 逃逸
+    const filePath = await assertDocPathWithin(
+      registry.getKnowledgeRoot(),
+      knowledgeId
+    );
 
     let fileContent: string;
     if (title && content) {
@@ -477,6 +495,7 @@ export async function handleUpdateKnowledge(
       })
     );
     broadcastEvent('knowledge:updated', { id: knowledgeId });
+    publishKnowledgeChanged('updated', filePath);
   } catch (err) {
     sendError(res, err);
   }
@@ -514,6 +533,7 @@ export async function handleDeleteKnowledge(
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ success: true }));
     broadcastEvent('knowledge:deleted', { id: knowledgeId });
+    publishKnowledgeChanged('deleted', filePath);
   } catch (err) {
     sendError(res, err);
   }
@@ -1496,6 +1516,7 @@ export async function handleUpdateKnowledgeDoc(
             })
           );
           broadcastEvent('knowledge:updated', { id: effectiveDocPath });
+          publishKnowledgeChanged('updated', effectiveFilePath);
           return;
         }
       }
@@ -1526,6 +1547,7 @@ export async function handleUpdateKnowledgeDoc(
       })
     );
     broadcastEvent('knowledge:updated', { id: effectiveDocPath });
+    publishKnowledgeChanged('updated', effectiveFilePath);
   } catch (err) {
     sendError(res, err);
   }
@@ -1562,19 +1584,25 @@ export async function handleBatchDeleteKnowledge(
     const knowledgeRoot = registry.getKnowledgeRoot();
 
     let deleted = 0;
+    const deletedPaths: string[] = [];
     for (const id of ids) {
       // KB-DOC（2026-08-27）：ids 来自请求体，防 ../ 逃逸根目录批量删除
       const filePath = await assertDocPathWithin(knowledgeRoot, id);
       if (existsSync(filePath)) {
         await unlink(filePath);
         deleted++;
+        deletedPaths.push(filePath);
       }
     }
 
     knowledgeDocsProvider.clearCache();
-    // KB-P2-11（2026-08-27）：批量删除广播事件，多窗口/托盘场景同步
+    // KB-P2-11（2026-08-27）：批量删除广播事件，多窗口/托盘场景同步；
+    // KB-SEM：同步发布 knowledge:changed 驱动语义索引清理
     for (const id of ids) {
       broadcastEvent('knowledge:deleted', { id });
+    }
+    for (const p of deletedPaths) {
+      publishKnowledgeChanged('deleted', p);
     }
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -1622,6 +1650,7 @@ export async function handleBatchTagKnowledge(
     const knowledgeRoot = registry.getKnowledgeRoot();
 
     let updated = 0;
+    const updatedPaths: string[] = [];
     for (const id of ids) {
       // KB-DOC（2026-08-27）：ids 来自请求体，防 ../ 逃逸根目录批量打标签
       const filePath = await assertDocPathWithin(knowledgeRoot, id);
@@ -1675,12 +1704,17 @@ export async function handleBatchTagKnowledge(
 
       await writeFile(filePath, newContent, 'utf-8');
       updated++;
+      updatedPaths.push(filePath);
     }
 
     knowledgeDocsProvider.clearCache();
-    // KB-P2-11（2026-08-27）：批量标签更新广播事件，多窗口/托盘场景同步
+    // KB-P2-11（2026-08-27）：批量标签更新广播事件，多窗口/托盘场景同步；
+    // KB-SEM：同步发布 knowledge:changed 驱动语义索引增量更新
     for (const id of ids) {
       broadcastEvent('knowledge:updated', { id });
+    }
+    for (const p of updatedPaths) {
+      publishKnowledgeChanged('updated', p);
     }
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -1881,6 +1915,8 @@ export async function handleTrashKnowledge(
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ trashed: true }));
     broadcastEvent('knowledge:deleted', { id: docPath });
+    // KB-SEM：移入回收站 = 文档移除，驱动语义索引清理
+    publishKnowledgeChanged('deleted', src);
   } catch (err) {
     sendError(res, err);
   }
@@ -1918,6 +1954,8 @@ export async function handleRestoreTrash(
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ restored: true }));
     broadcastEvent('knowledge:created', { id: docPath });
+    // KB-SEM：恢复文档 = 新增，驱动语义索引增量更新
+    publishKnowledgeChanged('created', dest);
   } catch (err) {
     sendError(res, err);
   }

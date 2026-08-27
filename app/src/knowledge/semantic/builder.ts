@@ -119,11 +119,25 @@ export class IndexBuilder {
           for (const entry of store.all) {
             existingMtims.set(entry.path, entry.mtimeMs);
           }
+          // KB-SEM（2026-08-27）：原实现 `existing === undefined` 只按 path 过滤，
+          // 文件修改后旧 chunk 永不更新；改为 path + 真实文件 mtime 双重比较
           toEmbed = chunks.filter((c) => {
             const existing = existingMtims.get(c.path);
-            // 如果文件已有索引且未修改，跳过
-            return existing === undefined;
+            // 未索引，或文件 mtime 已变化 → 重新嵌入
+            return existing === undefined || existing !== c.mtimeMs;
           });
+
+          // 删除清理：索引中存在但当前目录已不存在的文件，移除其旧条目
+          // （原增量只 add 不删，已删除文档的 chunk 永久残留可被搜索命中）
+          const currentPaths = new Set(chunks.map((c) => c.path));
+          const stalePaths = [...existingMtims.keys()].filter(
+            (p) => !currentPaths.has(p)
+          );
+          if (stalePaths.length > 0) {
+            const staleSet = new Set(stalePaths);
+            const remaining = store.all.filter((e) => !staleSet.has(e.path));
+            await store.replaceAll(remaining);
+          }
         }
       }
 
@@ -203,7 +217,9 @@ export class IndexBuilder {
           endLine: chunk.endLine,
           text: chunk.text,
           embedding: emb,
-          mtimeMs: Date.now(),
+          // KB-SEM（2026-08-27）：存真实文件 mtime（chunk.mtimeMs）而非嵌入时间，
+          // 否则增量 mtime 比较永远失效
+          mtimeMs: chunk.mtimeMs ?? Date.now(),
         });
         embeddedCount++;
       }

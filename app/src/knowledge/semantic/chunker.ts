@@ -48,6 +48,8 @@ export interface CodeChunk {
   parentChunkId?: string;
   /** 标题上下文，如 "## 安装指南 > ### Docker 部署" */
   contextHeader?: string;
+  /** KB-SEM（2026-08-27）：源文件修改时间（ms），用于增量构建判断文件是否变化 */
+  mtimeMs?: number;
 }
 
 /** 跳过原因 */
@@ -214,6 +216,12 @@ export async function chunkDirectory(
           onSkip?.(relPath, 'defaultDir');
           continue;
         }
+        // KB-SEM（2026-08-27）：知识库内部 raw/ 源目录不索引（上传二进制伴侣 md），
+        // 与 FileDocsProvider 扫描一致；.knowledge-trash 已由 . 前缀过滤覆盖
+        if (entry.name === 'raw') {
+          onSkip?.(relPath, 'defaultDir');
+          continue;
+        }
         await walk(fullPath);
         continue;
       }
@@ -255,6 +263,8 @@ export async function chunkDirectory(
         const fileChunks = useAutoChunk
           ? autoChunk(content, relPath, opts)
           : chunkText(content, relPath, windowLines, overlap, maxChunkChars);
+        // KB-SEM（2026-08-27）：携带真实文件 mtime，供增量构建比较文件是否修改
+        for (const c of fileChunks) c.mtimeMs = stat.mtimeMs;
         chunks.push(...fileChunks);
       }
     }

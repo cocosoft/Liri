@@ -11,6 +11,9 @@ export interface SemanticIndexStatus {
   chunkCount: number;
   lastIndexedAt?: number;
   sizeBytes?: number;
+  /** KB-SEM（2026-08-27）：实际构建所用嵌入模型（来自索引 meta） */
+  provider?: string;
+  model?: string;
 }
 
 export interface SemanticSearchResult {

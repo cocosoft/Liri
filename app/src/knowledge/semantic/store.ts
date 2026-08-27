@@ -129,6 +129,11 @@ export class SemanticStore {
     return this.entries;
   }
 
+  /** 向量维度（用于检测索引与查询模型不一致） */
+  get dimension(): number {
+    return this.dim;
+  }
+
   /**
    * 添加条目
    */
@@ -222,6 +227,41 @@ export class SemanticStore {
   clear(): void {
     this.entries = [];
     this.dim = 0;
+  }
+
+  /**
+   * 整体替换索引（原子重写 JSONL + meta）
+   *
+   * KB-SEM（2026-08-27）：替代「clear 内存 + add 追加」的组合——add 是磁盘 append，
+   * 先清内存再 add 会导致旧条目残留 + 重复累积。replaceAll 通过写临时文件后 rename
+   * 原子替换整个索引文件，供删除/增量更新使用。
+   */
+  async replaceAll(entries: readonly IndexEntry[]): Promise<void> {
+    const snapshot = entries.map((e) => e);
+    this.entries = snapshot;
+    this.dim =
+      snapshot.length > 0 && snapshot[0] ? snapshot[0].embedding.length : 0;
+
+    await fs.mkdir(this.indexDir, { recursive: true });
+    const dataPath = path.join(this.indexDir, DATA_FILE);
+    const tmpPath = `${dataPath}.tmp`;
+    const lines = snapshot.map((e) => serializeEntry(e));
+    await fs.writeFile(
+      tmpPath,
+      lines.length > 0 ? lines.join('\n') + '\n' : '',
+      'utf8'
+    );
+    await fs.rename(tmpPath, dataPath);
+
+    if (snapshot.length > 0 && this.dim > 0) {
+      await writeIndexMeta(this.indexDir, {
+        provider: this.identity.provider,
+        model: this.identity.model,
+        version: STORE_VERSION,
+        dim: this.dim,
+        updatedAt: new Date().toISOString(),
+      });
+    }
   }
 }
 

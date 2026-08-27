@@ -54,12 +54,11 @@ export class JsonlVectorStore implements IVectorStore {
   }
 
   async deleteByPath(path: string): Promise<void> {
-    // JSONL 模式下删除通过重建实现（非原地删除）
+    // KB-SEM（2026-08-27）：改为原子重写整个 JSONL——
+    // 原实现「内存 filter + clear + add」因 add 是磁盘 append 会残留旧条目 +
+    // 重复累积；replaceAll 写临时文件后 rename 原子替换
     const all = this.store.all.filter((e) => e.path !== path);
-    this.store.clear();
-    if (all.length > 0) {
-      await this.store.add(all);
-    }
+    await this.store.replaceAll(all);
   }
 
   async clear(): Promise<void> {

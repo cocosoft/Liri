@@ -55,6 +55,8 @@ export interface KnowledgeChangedEvent {
 export interface SemanticIndexUpdaterOptions {
   /** 索引存储目录 */
   indexDir: string;
+  /** 知识库根目录（用于把绝对 filePath 归一化为相对知识根的路径，与 builder 一致） */
+  knowledgeRoot?: string;
   /** 嵌入 Provider ID */
   embedProvider?: string;
   /** 嵌入模型名称 */
@@ -74,7 +76,10 @@ export interface SemanticIndexUpdaterOptions {
 export class SemanticIndexUpdater {
   private store: IVectorStore;
   private embeddingManager: EmbeddingManager;
-  private options: Required<SemanticIndexUpdaterOptions>;
+  private options: Omit<
+    Required<SemanticIndexUpdaterOptions>,
+    'knowledgeRoot'
+  > & { knowledgeRoot?: string };
   private initialized = false;
 
   constructor(
@@ -99,7 +104,17 @@ export class SemanticIndexUpdater {
 
     eventBus?.subscribe('knowledge:changed', (event: unknown) => {
       const evt = event as KnowledgeChangedEvent;
-      if (evt.action !== 'deleted') {
+      if (evt.action === 'deleted') {
+        // KB-SEM（2026-08-27）：删除事件不再忽略——HTTP 层 trash/delete 已接入，
+        // 同步清理索引中该文件的旧条目（原实现只增不删，已删文档可被搜索命中）
+        this.removeFromIndex(evt.filePath).catch((err) => {
+          void handleError(err, {
+            module: 'knowledge:semantic',
+            action: 'remove_index',
+            context: { filePath: evt.filePath },
+          });
+        });
+      } else {
         this.appendIndex(evt.filePath).catch((err) => {
           void handleError(err, {
             module: 'knowledge:semantic',
@@ -123,6 +138,31 @@ export class SemanticIndexUpdater {
   }
 
   /**
+   * 从绝对路径提取索引相对路径
+   *
+   * KB-SEM（2026-08-27）：优先相对知识库根目录（与 builder 的 chunk.path 约定一致），
+   * 原实现相对 indexDir 父目录（~/.pyapp/data），导致 updater 与 builder 的
+   * entry.path 不一致，KnowledgeRouter 按 docPath 映射标题时无法命中
+   */
+  private toRelPath(filePath: string): string {
+    const base =
+      this.options.knowledgeRoot ?? resolve(this.options.indexDir, '..');
+    return relative(base, filePath).replace(/\\/g, '/');
+  }
+
+  /**
+   * 从索引中移除单个文件的全部条目（deleted 事件）
+   */
+  async removeFromIndex(filePath: string): Promise<void> {
+    if (!this.initialized) {
+      await this.initialize();
+    }
+    const relPath = this.toRelPath(filePath);
+    await this.store.deleteByPath(relPath);
+    logger.info('语义索引删除条目完成', { filePath, relPath });
+  }
+
+  /**
    * 对单个知识文件进行增量索引
    */
   async appendIndex(filePath: string): Promise<void> {
@@ -134,9 +174,8 @@ export class SemanticIndexUpdater {
       const content = await readFile(filePath, 'utf-8');
       const fileStat = await stat(filePath);
 
-      // 从绝对路径提取相对路径（相对于 indexDir 的父目录）
-      const indexParent = resolve(this.options.indexDir, '..');
-      const relPath = relative(indexParent, filePath).replace(/\\/g, '/');
+      // 从绝对路径提取相对路径（相对于知识库根目录，与 builder 一致）
+      const relPath = this.toRelPath(filePath);
 
       // 分块（使用自适应策略：标题感知 → 行窗口 fallback）
       const chunks = autoChunk(content, relPath, {

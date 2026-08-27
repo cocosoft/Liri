@@ -55,6 +55,13 @@ function QuestionBlock({
   sessionId,
   onResponse,
 }: QuestionBlockProps) {
+  // TDZ 修复（2026-08-27）：questionId 等字段必须在任何 useState 之前解构——
+  // 原解构在函数体末尾（92 行），而 answeredFromHistory/pendingOutbox 的惰性
+  // 初始化器（64/88 行）先访问 questionId → ReferenceError: Cannot access
+  // 'questionId' before initialization → ErrorBoundary 捕获 → 面板显示
+  // "消息渲染异常 暂无数据"
+  const { question, header, options, multiSelect, questionId } = questionData;
+
   const [selectedLabels, setSelectedLabels] = useState<string[]>([]);
   const [otherText, setOtherText] = useState<string>("");
   // M5 修复：无选项时的自由文本回答
@@ -88,8 +95,6 @@ function QuestionBlock({
   const [pendingOutbox, setPendingOutbox] = useState<OutboxEntry | null>(() =>
     readOutbox(questionId),
   );
-
-  const { question, header, options, multiSelect, questionId } = questionData;
 
   // 过滤空 label 选项（LLM 调用错误时常见），同时保留原始顺序
   const validOptions = options.filter(

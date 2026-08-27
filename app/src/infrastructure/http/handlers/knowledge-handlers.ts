@@ -666,7 +666,11 @@ export async function handleSaveFromChat(
       .filter(Boolean)
       .join('\n');
 
-    const fileContent = `${frontmatter}${content}\n`;
+    // KB-SMOKE（2026-08-27）：filter(Boolean) 会剔除末尾空串，frontmatter join 后
+    // 以 `---` 结尾无换行，content 直接粘连成 `---## 二级开头`——frontmatter 闭合
+    // 行与正文同行导致后续 indexOf('---') 匹配失败、PUT 走主分支产生重复 frontmatter。
+    // 显式补两个换行保证 frontmatter 与正文分行。
+    const fileContent = `${frontmatter}\n\n${content}\n`;
     await writeFile(filePath, fileContent, 'utf-8');
     knowledgeDocsProvider.clearCache();
 
@@ -782,9 +786,11 @@ export async function handleKnowledgeUpload(
         .filter(Boolean)
         .join('\n');
 
+      // KB-SMOKE（2026-08-27）：frontmatter join 后以 --- 结尾无换行，直接拼 rawContent
+      // 会粘连成 `---## 正文`（frontmatter 闭合行与正文同行）——显式补两个换行
       const fileContent = rawContent.startsWith('---')
         ? rawContent
-        : `${frontmatter}${rawContent}\n`;
+        : `${frontmatter}\n\n${rawContent}\n`;
 
       await writeFile(fullPath, fileContent, 'utf-8');
     } else if (BINARY_EXTENSIONS.has(ext)) {
@@ -1203,7 +1209,8 @@ export async function handleImportFromFile(
       ]
         .filter(Boolean)
         .join('\n');
-      await writeFile(fullPath, `${frontmatter}${rawContent}\n`, 'utf-8');
+      // KB-SMOKE（2026-08-27）：frontmatter 与正文之间显式补换行，避免粘连成 `---## 正文`
+      await writeFile(fullPath, `${frontmatter}\n\n${rawContent}\n`, 'utf-8');
     } else {
       await writeFile(fullPath, rawContent, 'utf-8');
     }

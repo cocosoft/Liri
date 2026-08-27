@@ -29,6 +29,26 @@ function sanitizeBaseName(name: string | undefined | null): string {
   return cleaned || 'default';
 }
 
+// KB-P2-13（2026-08-27）：digest 全量重建 debounce——原每次保存串行 await 全量重建，
+// 文档多时保存变慢；合并 500ms 内多次写操作（连续保存/标签/移动）为一次重建
+let digestTimer: ReturnType<typeof setTimeout> | null = null;
+function scheduleDigestRebuild(): void {
+  if (digestTimer) clearTimeout(digestTimer);
+  digestTimer = setTimeout(async () => {
+    digestTimer = null;
+    try {
+      const { getDefaultDigestService } =
+        await import('@modules/knowledge/KnowledgeDigestService');
+      await getDefaultDigestService().buildDigest();
+    } catch (err) {
+      handleError(err, {
+        module: 'infrastructure:http:handlers:knowledge-handlers',
+        action: 'digestRebuildFailed',
+      });
+    }
+  }, 500);
+}
+
 export async function handleListKnowledge(
   req: http.IncomingMessage,
   res: http.ServerResponse
@@ -38,6 +58,7 @@ export async function handleListKnowledge(
       await import('@modules/docs/FileDocsProvider');
     const { getDefaultKnowledgeBaseRegistry } =
       await import('@modules/knowledge/KnowledgeBaseRegistry');
+    const { parseFrontmatter } = await import('@modules/knowledge/frontmatter');
     const { stat } = await import('fs/promises');
     const { join } = await import('path');
 
@@ -59,6 +80,32 @@ export async function handleListKnowledge(
     const knowledgeRoot = registry.getKnowledgeRoot();
 
     const docs = await knowledgeDocsProvider.buildIndex();
+    // KB-P1-7（2026-08-27）：stat 并行化——原 for 内串行 await stat，
+    // 文档多时列表延迟显著；先 Promise.all 并行采集元数据再组装
+    const statResults = await Promise.all(
+      docs.map(async (doc) => {
+        const docPath = doc.relativePath || '';
+        const fullPath = join(knowledgeRoot, docPath);
+        try {
+          const fileStat = await stat(fullPath);
+          return {
+            docPath,
+            size: fileStat.size,
+            updatedAt: fileStat.mtimeMs,
+            createdAt: fileStat.birthtimeMs,
+          };
+        } catch (err) {
+          // 文件可能已被移动，使用默认值
+
+          handleError(err, {
+            module: 'infrastructure:http:handlers:knowledge-handlers',
+            action: 'fileMovedFallback',
+          });
+          return { docPath, size: 0, updatedAt: 0, createdAt: 0 };
+        }
+      })
+    );
+    const statMap = new Map(statResults.map((r) => [r.docPath, r]));
     const result = [];
 
     for (let i = 0; i < docs.length; i++) {
@@ -68,72 +115,39 @@ export async function handleListKnowledge(
 
       if (baseFilter && baseName !== baseFilter) continue;
 
-      let size = 0;
-      let updatedAt = 0;
+      const meta = statMap.get(docPath) ?? {
+        size: 0,
+        updatedAt: 0,
+        createdAt: 0,
+      };
+      const size = meta.size;
+      const updatedAt = meta.updatedAt;
+      const createdAt = meta.createdAt;
       let source = 'manual';
 
-      const fullPath = join(knowledgeRoot, docPath);
-      try {
-        const fileStat = await stat(fullPath);
-        size = fileStat.size;
-        updatedAt = fileStat.mtimeMs;
-      } catch (err) {
-        // 文件可能已被移动，使用默认值
-
-        handleError(err, {
-          module: 'infrastructure:http:handlers:knowledge-handlers',
-          action: 'fileMovedFallback',
-        });
-      }
-
       const content = doc.content || '';
+      // KB-P1-8（2026-08-27）：使用公共 frontmatter parser，收敛重复手写解析
+      const parsed = parseFrontmatter(content);
       let category = doc.category || '根目录';
       let tags: string[] = [];
-      const fmMatch = content.match(/^---\n([\s\S]*?)\n---/);
-      if (fmMatch) {
-        const fmLines = fmMatch[1].split('\n');
-        for (const line of fmLines) {
-          if (line.startsWith('source:')) {
-            const val = line.split(':')[1]?.trim().replace(/"/g, '') || '';
-            if (val) source = val;
-          } else if (line.startsWith('category:')) {
-            const val = line.split(':')[1]?.trim().replace(/"/g, '') || '';
-            if (val) category = val;
-          } else if (line.startsWith('tags:')) {
-            const val = line.split(':').slice(1).join(':').trim();
-            if (val) {
-              if (val.startsWith('[') && val.endsWith(']')) {
-                try {
-                  const parsed = JSON.parse(val);
-                  if (Array.isArray(parsed)) tags = parsed.map(String);
-                } catch {
-                  tags = val
-                    .slice(1, -1)
-                    .split(',')
-                    .map((t) => t.trim().replace(/^['"]|['"]$/g, ''))
-                    .filter(Boolean);
-                }
-              } else {
-                tags = val
-                  .split(',')
-                  .map((t) => t.trim().replace(/^['"]|['"]$/g, ''))
-                  .filter(Boolean);
-              }
-            }
-          }
-        }
+      if (parsed) {
+        if (parsed.source) source = parsed.source;
+        if (parsed.category) category = parsed.category;
+        if (parsed.tags.length > 0) tags = parsed.tags;
       }
 
       result.push({
         id: docPath,
         title: doc.title || '',
-        content: content.slice(0, 500) || '',
+        // KB-A（2026-08-27）：返回完整内容——原 slice(0,500) 截断版被编辑器/详情直接使用，
+        // 保存会把长文档截断丢数据；完整返回仅增大响应体，后端 buildIndex 本就已读全文
+        content,
         category,
         tags,
         docPath,
         size,
         updated_at: updatedAt,
-        created_at: 0,
+        created_at: createdAt,
         source,
         base: baseName,
       });
@@ -291,16 +305,20 @@ export async function handleCreateKnowledge(
     }
     const { getDefaultKnowledgeBaseRegistry } =
       await import('@modules/knowledge/KnowledgeBaseRegistry');
+    const { knowledgeDocsProvider } =
+      await import('@modules/docs/FileDocsProvider');
     const { writeFile, mkdir } = await import('fs/promises');
     const { join, relative } = await import('path');
 
     const registry = getDefaultKnowledgeBaseRegistry();
     const knowledgeRoot = registry.getKnowledgeRoot();
     // P2-3: 与列表 docPath 语义统一（相对路径）；"根目录"不建子目录
+    // KB-P0-3（2026-08-27）：category 为自由文本（前端可手动输入），
+    // 直接 join(knowledgeRoot, category) 可注入 ../../xxx 逃逸根目录——统一走 sanitizeBaseName
     const useRootDir = !category || category === '根目录';
     const targetDir = useRootDir
       ? knowledgeRoot
-      : join(knowledgeRoot, category);
+      : join(knowledgeRoot, sanitizeBaseName(category));
     await mkdir(targetDir, { recursive: true });
     const fileName = `${title.replace(/[\\/:*?"<>|]/g, '_')}.md`;
     const filePath = join(targetDir, fileName);
@@ -308,6 +326,8 @@ export async function handleCreateKnowledge(
       ? `# ${title}\n\n${content}\n`
       : `# ${title}\n\n`;
     await writeFile(filePath, fileContent, 'utf-8');
+    // KB-P0-2（2026-08-27）：创建后清缓存，否则新建文档要等其它操作触发清缓存才出现在列表
+    knowledgeDocsProvider.clearCache();
     const docPath = relative(knowledgeRoot, filePath);
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(
@@ -681,9 +701,15 @@ export async function handleKnowledgeUpload(
 ): Promise<void> {
   try {
     const body = await readRequestBody(req);
-    const { baseName, filename, data, tags, category } = JSON.parse(body);
+    const {
+      baseName: rawBaseName,
+      filename,
+      data,
+      tags,
+      category,
+    } = JSON.parse(body);
 
-    if (!baseName || !filename || !data) {
+    if (!rawBaseName || !filename || !data) {
       res.writeHead(400, { 'Content-Type': 'application/json' });
       res.end(
         JSON.stringify({
@@ -692,6 +718,10 @@ export async function handleKnowledgeUpload(
       );
       return;
     }
+
+    // KB-P0-3（2026-08-27）：baseName 为自由文本，直接 join 可注入 ../../xxx 逃逸
+    // 知识库根目录写任意位置——解构后统一清洗，后续所有 baseName 引用均为安全值
+    const baseName = sanitizeBaseName(rawBaseName);
 
     const { getDefaultKnowledgeBaseRegistry } =
       await import('@modules/knowledge/KnowledgeBaseRegistry');
@@ -1224,8 +1254,6 @@ export async function handleUpdateKnowledgeDoc(
 
     const { getDefaultKnowledgeBaseRegistry } =
       await import('@modules/knowledge/KnowledgeBaseRegistry');
-    const { getDefaultDigestService } =
-      await import('@modules/knowledge/KnowledgeDigestService');
     const { readFile, writeFile, mkdir, rename } = await import('fs/promises');
     const { join, relative, basename, dirname } = await import('path');
     const { existsSync } = await import('fs');
@@ -1244,7 +1272,9 @@ export async function handleUpdateKnowledgeDoc(
         docPath.lastIndexOf('\\')
       );
       const currentBase = sepIdx === -1 ? '' : docPath.slice(0, sepIdx);
-      const targetBase = base === '根目录' ? '' : base;
+      // KB-P0-3（2026-08-27）：base 移动目标为自由文本，防路径穿越逃逸根目录
+      const targetBase =
+        !base || base === '根目录' ? '' : sanitizeBaseName(base);
       if (targetBase !== currentBase && existsSync(filePath)) {
         const fileName = basename(docPath);
         const newPath = targetBase
@@ -1280,6 +1310,12 @@ export async function handleUpdateKnowledgeDoc(
               continue;
             } else if (hasCategory && line.startsWith('category:')) {
               continue;
+            } else if (
+              line.startsWith('updated_at:') ||
+              line.startsWith('updatedAt:')
+            ) {
+              // KB-P1-6（2026-08-27）：跳过旧时间戳行，末尾统一写入新值
+              continue;
             } else {
               frontmatterLines.push(line);
             }
@@ -1292,9 +1328,53 @@ export async function handleUpdateKnowledgeDoc(
           if (hasCategory) {
             frontmatterLines.push(`category: "${category}"`);
           }
+          // KB-P1-6（2026-08-27）：保存/标签更新时刷新 frontmatter 时间戳，
+          // 统一 updated_at 数字格式（旧文件 updatedAt: "ISO" 一并收敛）
+          frontmatterLines.push(`updated_at: ${Date.now()}`);
 
           const restLines = lines.slice(endIdx + 1);
-          const bodyContent = content || restLines.join('\n').trim();
+
+          // KB-C（2026-08-27）：编辑器 content 为文件全文（含旧 frontmatter），
+          // 直接写入会与下方新 frontmatter 重复；若 content 自带 frontmatter 则剥离
+          let bodyContent: string;
+          if (content) {
+            const cLines = content.split('\n');
+            if (cLines[0]?.trim() === '---') {
+              const cEnd = cLines.indexOf('---', 1);
+              bodyContent =
+                cEnd !== -1
+                  ? cLines
+                      .slice(cEnd + 1)
+                      .join('\n')
+                      .trim()
+                  : content.trim();
+            } else {
+              bodyContent = content.trim();
+            }
+          } else {
+            bodyContent = restLines.join('\n').trim();
+          }
+
+          // KB-B（2026-08-27）：列表 title 来自正文首个 H1（FileDocsProvider.extractTitle），
+          // 仅改 frontmatter title 列表不更新——同步替换正文 H1 保证显示名一致
+          // KB-P0-4（2026-08-27）：边界修复——若正文首个非空行不是 H1（## 二级/直接段落），
+          // 原逻辑不替换也不插入导致列表仍不更新；现改为在开头插入 H1
+          if (title) {
+            const bodyLines = bodyContent.split('\n');
+            let h1Replaced = false;
+            for (let i = 0; i < bodyLines.length; i++) {
+              if (bodyLines[i].trim() === '') continue;
+              if (bodyLines[i].trim().startsWith('# ')) {
+                bodyLines[i] = `# ${title}`;
+                h1Replaced = true;
+              }
+              break;
+            }
+            bodyContent = h1Replaced
+              ? bodyLines.join('\n').trim()
+              : `# ${title}\n\n${bodyContent}`;
+          }
+
           const newContent = [
             '---',
             ...frontmatterLines,
@@ -1306,18 +1386,8 @@ export async function handleUpdateKnowledgeDoc(
 
           await writeFile(effectiveFilePath, newContent, 'utf-8');
           knowledgeDocsProvider.clearCache();
-
-          try {
-            const digestService = getDefaultDigestService();
-            await digestService.buildDigest();
-          } catch (err) {
-            // 摘要重建失败不影响主流程
-
-            handleError(err, {
-              module: 'infrastructure:http:handlers:knowledge-handlers',
-              action: 'digestRebuildFailed',
-            });
-          }
+          // KB-P2-13（2026-08-27）：digest 重建改为 debounce（500ms 合并），不再每次串行全量
+          scheduleDigestRebuild();
 
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(
@@ -1344,18 +1414,8 @@ export async function handleUpdateKnowledgeDoc(
 
     await writeFile(effectiveFilePath, newContent, 'utf-8');
     knowledgeDocsProvider.clearCache();
-
-    try {
-      const digestService = getDefaultDigestService();
-      await digestService.buildDigest();
-    } catch (err) {
-      // 摘要重建失败不影响主流程
-
-      handleError(err, {
-        module: 'infrastructure:http:handlers:knowledge-handlers',
-        action: 'digestRebuildFailed',
-      });
-    }
+    // KB-P2-13（2026-08-27）：digest 重建改为 debounce（500ms 合并），不再每次串行全量
+    scheduleDigestRebuild();
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(
@@ -1411,6 +1471,10 @@ export async function handleBatchDeleteKnowledge(
     }
 
     knowledgeDocsProvider.clearCache();
+    // KB-P2-11（2026-08-27）：批量删除广播事件，多窗口/托盘场景同步
+    for (const id of ids) {
+      broadcastEvent('knowledge:deleted', { id });
+    }
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ deleted }));
@@ -1503,6 +1567,10 @@ export async function handleBatchTagKnowledge(
     }
 
     knowledgeDocsProvider.clearCache();
+    // KB-P2-11（2026-08-27）：批量标签更新广播事件，多窗口/托盘场景同步
+    for (const id of ids) {
+      broadcastEvent('knowledge:updated', { id });
+    }
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ updated }));
@@ -1621,6 +1689,8 @@ export async function handleTrashKnowledge(
 
     const { getDefaultKnowledgeBaseRegistry } =
       await import('@modules/knowledge/KnowledgeBaseRegistry');
+    const { knowledgeDocsProvider } =
+      await import('@modules/docs/FileDocsProvider');
     const { rename, mkdir } = await import('fs/promises');
     const { join } = await import('path');
 
@@ -1632,9 +1702,13 @@ export async function handleTrashKnowledge(
 
     const dest = join(trashDir, docPath.replace(/[/\\]/g, '_'));
     await rename(src, dest);
+    // KB-P0-1（2026-08-27）：trash 后清缓存 + 广播，与 delete/update 分支一致，
+    // 否则 buildIndex 返回旧缓存，前端 REFRESH_LIST 拉到回收站中的过期数据
+    knowledgeDocsProvider.clearCache();
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ trashed: true }));
+    broadcastEvent('knowledge:deleted', { id: docPath });
   } catch (err) {
     sendError(res, err);
   }
@@ -1655,6 +1729,8 @@ export async function handleRestoreTrash(
 
     const { getDefaultKnowledgeBaseRegistry } =
       await import('@modules/knowledge/KnowledgeBaseRegistry');
+    const { knowledgeDocsProvider } =
+      await import('@modules/docs/FileDocsProvider');
     const { rename } = await import('fs/promises');
     const { join } = await import('path');
 
@@ -1663,9 +1739,12 @@ export async function handleRestoreTrash(
     const src = join(root, '.knowledge-trash', docPath.replace(/[/\\]/g, '_'));
     const dest = join(root, docPath);
     await rename(src, dest);
+    // KB-P0-1（2026-08-27）：restore 后清缓存 + 广播，回收站文档恢复后立即可见
+    knowledgeDocsProvider.clearCache();
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ restored: true }));
+    broadcastEvent('knowledge:created', { id: docPath });
   } catch (err) {
     sendError(res, err);
   }

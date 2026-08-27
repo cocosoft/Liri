@@ -80,6 +80,8 @@ export interface KnowledgeListState {
   total: number;
   page: number;
   pageSize: number;
+  /** KB-前端刷新信号：保存/删除等操作后递增，hook 监听并重载列表 */
+  refreshTick: number;
 }
 
 /** 列表操作（与 P3-1 前 useKnowledgeBaseList 的 ListAction 语义一致） */
@@ -113,7 +115,8 @@ export type KnowledgeListAction =
   | { type: "SET_COMPILE_MESSAGE"; message: string }
   | { type: "CLEAR_COMPILE" }
   | { type: "SET_SEARCH_TAGS"; tags: string[] }
-  | { type: "SET_PAGE"; page: number };
+  | { type: "SET_PAGE"; page: number }
+  | { type: "REFRESH_LIST" };
 
 /** 列表初始状态 */
 export function createInitialListState(): KnowledgeListState {
@@ -141,6 +144,7 @@ export function createInitialListState(): KnowledgeListState {
     total: 0,
     page: 0,
     pageSize: 50,
+    refreshTick: 0,
   };
 }
 
@@ -255,6 +259,11 @@ function applyListAction(
       return { list: { ...list, searchTags: action.tags }, search };
     case "SET_PAGE":
       return { list: { ...list, page: action.page }, search };
+    case "REFRESH_LIST":
+      return {
+        list: { ...list, refreshTick: list.refreshTick + 1 },
+        search,
+      };
     default:
       return { list, search };
   }
@@ -265,11 +274,6 @@ interface KnowledgeStore {
   isLoading: boolean;
   error: string | null;
   loadItems: () => Promise<void>;
-  createItem: (
-    item: Omit<KnowledgeItem, "id" | "created_at" | "updated_at">,
-  ) => Promise<void>;
-  updateItem: (id: string, updates: Partial<KnowledgeItem>) => Promise<void>;
-  deleteItem: (id: string) => Promise<void>;
 
   view: ViewState;
   setView: (partial: Partial<ViewState>) => void;
@@ -318,50 +322,6 @@ export const useKnowledgeStore = create<KnowledgeStore>()((set) => ({
         "warn",
       );
       set({ error: String(e), isLoading: false });
-    }
-  },
-
-  createItem: async (item) => {
-    try {
-      const created = await knowledgeService.create(item);
-      set((state) => ({ items: [...state.items, created] }));
-    } catch (e) {
-      handleClientError(
-        e,
-        { module: "stores:knowledgeStore", action: "createItem" },
-        "warn",
-      );
-      set({ error: String(e) });
-    }
-  },
-
-  updateItem: async (id, updates) => {
-    try {
-      const updated = await knowledgeService.update(id, updates);
-      set((state) => ({
-        items: state.items.map((i) => (i.id === id ? updated : i)),
-      }));
-    } catch (e) {
-      handleClientError(
-        e,
-        { module: "stores:knowledgeStore", action: "updateItem" },
-        "warn",
-      );
-      set({ error: String(e) });
-    }
-  },
-
-  deleteItem: async (id) => {
-    try {
-      await knowledgeService.delete(id);
-      set((state) => ({ items: state.items.filter((i) => i.id !== id) }));
-    } catch (e) {
-      handleClientError(
-        e,
-        { module: "stores:knowledgeStore", action: "deleteItem" },
-        "warn",
-      );
-      set({ error: String(e) });
     }
   },
 

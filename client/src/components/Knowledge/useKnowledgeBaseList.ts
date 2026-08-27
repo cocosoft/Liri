@@ -76,6 +76,14 @@ export function useKnowledgeBaseList(opts: UseKnowledgeBaseListOpts) {
   useEffect(() => {
     if (selectedBase !== undefined) loadFiles();
   }, [selectedBase]);
+  // KB-前端刷新信号：编辑保存/删除/标签更新后递增 refreshTick，重载列表保证左侧名称同步
+  const refreshTick = list.refreshTick;
+  const refreshTickRef = useRef(refreshTick);
+  useEffect(() => {
+    if (refreshTick === refreshTickRef.current) return;
+    refreshTickRef.current = refreshTick;
+    loadFiles();
+  }, [refreshTick]);
 
   async function loadBases() {
     dispatchList({ type: "SET_LOADING", loading: true });

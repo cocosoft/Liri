@@ -54,8 +54,26 @@ export class FileDocsProvider {
 
   /**
    * 从 markdown 内容中提取标题
+   * KB-P1-5（2026-08-27）：优先读 frontmatter title，回退正文首个 H1——
+   * 统一 title 事实来源（upload/save-from-chat 写入 frontmatter title，
+   * 正文无 H1 时列表不再显示"未命名文档"）
    */
   private extractTitle(content: string): string {
+    const fmMatch = content.match(/^---\n([\s\S]*?)\n---/);
+    if (fmMatch) {
+      const titleLine = fmMatch[1]
+        .split('\n')
+        .find((l) => l.trim().startsWith('title:'));
+      if (titleLine) {
+        const val = titleLine
+          .split(':')
+          .slice(1)
+          .join(':')
+          .trim()
+          .replace(/^["']|["']$/g, '');
+        if (val) return val;
+      }
+    }
     const match = content.match(/^#\s+(.+)$/m);
     return match ? match[1].trim() : '未命名文档';
   }
@@ -249,6 +267,10 @@ export class FileDocsProvider {
       } catch {
         continue;
       }
+
+      // KB-P0-1（2026-08-27）：跳过隐藏目录（回收站 .knowledge-trash/）与 raw/ 源目录，
+      // 避免回收站文档与上传伴侣文件混入正式知识列表
+      if (entry.startsWith('.') || entry === 'raw') continue;
 
       if (stats.isDirectory()) {
         await this.scanDirectory(fullPath, sourceRoot, entries);

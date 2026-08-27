@@ -82,6 +82,8 @@ function KnowledgePage() {
   const clearSearch = useKnowledgeStore((s) => s.clearSearch);
   const loadItems = useKnowledgeStore((s) => s.loadItems);
   const items = useKnowledgeStore((s) => s.items);
+  // KB：列表刷新信号——保存/删除/trash 后递增，useKnowledgeBaseList 监听并重载左侧列表
+  const dispatchList = useKnowledgeStore((s) => s.dispatchList);
 
   const { toasts, show: showToast, dismiss } = useToast(3000);
   const [showStats, setShowStats] = useState(false);
@@ -198,8 +200,12 @@ function KnowledgePage() {
         selectedFile.title,
         { tags },
       );
-      setView({ selectedFile: { ...selectedFile, tags } });
+      setView({
+        selectedFile: { ...selectedFile, tags },
+      });
       setEditor({ editingTags: false });
+      // KB：标签保存后刷新列表，元数据同步
+      dispatchList({ type: "REFRESH_LIST" });
     } catch (err) {
       logger.error("保存标签失败", err);
     }
@@ -242,6 +248,8 @@ function KnowledgePage() {
         },
       });
       setEditor({ isEditing: false });
+      // KB：保存后刷新左侧列表，保证标题/元数据同步（此前仅更新右侧选中项）
+      dispatchList({ type: "REFRESH_LIST" });
     } catch (err) {
       logger.error("保存失败", err);
     }
@@ -253,6 +261,8 @@ function KnowledgePage() {
       await knowledgeService.delete(selectedFile.id);
       setView({ selectedFile: null });
       setEditor({ isEditing: false });
+      // KB：删除后刷新左侧列表，避免残留旧项
+      dispatchList({ type: "REFRESH_LIST" });
     } catch (err) {
       logger.error("删除失败", err);
     }
@@ -567,6 +577,8 @@ function KnowledgePage() {
                         if (ok) {
                           setView({ selectedFile: null });
                           setEditor({ isEditing: false });
+                          // KB：trash 后刷新左侧列表
+                          dispatchList({ type: "REFRESH_LIST" });
                         }
                       }}
                       onDelete={handleDeleteFile}

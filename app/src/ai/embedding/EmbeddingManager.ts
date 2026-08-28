@@ -63,6 +63,9 @@ export class EmbeddingManager {
         new OpenAIEmbeddingProvider({
           apiKey: resolved.apiKey,
           baseURL: resolved.baseUrl,
+          // KB-EMBED-MODEL（2026-08-28）：必须传任务分工配置的模型 ID（如 BAAI/bge-m3），
+          // 否则默认 text-embedding-3-small 请求硅基流动等 Provider 会报模型不存在
+          model: resolved.model,
           ...(config?.openai || {}),
         })
       );
@@ -92,6 +95,7 @@ export class EmbeddingManager {
     type: 'openai' | 'local';
     baseUrl?: string;
     apiKey?: string;
+    model?: string;
   }> {
     // 优先使用构造参数中明确的 defaultProvider
     if (config?.defaultProvider === 'local') {
@@ -149,7 +153,7 @@ export class EmbeddingManager {
       baseUrl: baseUrl || '(env 未配置，将使用默认)',
       hasApiKey: !!apiKey,
     });
-    return { type: 'openai', apiKey, baseUrl };
+    return { type: 'openai', apiKey, baseUrl, model: modelId };
   }
 
   /**

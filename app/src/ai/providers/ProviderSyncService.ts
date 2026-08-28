@@ -87,6 +87,20 @@ function syncOneProvider(record: ProviderRecord): void {
       configurable: true,
       enumerable: true,
     },
+    // KB-EMBED-FIX（2026-08-28）：把 DB 凭据直接挂到实例上——
+    // BaseAIProvider.setApiKey 是空实现（子类按需覆盖），且 EmbeddingManager
+    // _resolveEmbeddingProvider 直接读 provider.apiKey/baseUrl 字段；此前拿不到
+    // DB 值，嵌入任务静默降级 local(Ollama) 后失败（已配置却"不可用"的根因）
+    apiKey: {
+      value: config.apiKey,
+      configurable: true,
+      enumerable: true,
+    },
+    baseUrl: {
+      value: config.baseUrl,
+      configurable: true,
+      enumerable: true,
+    },
   });
 
   if (providerRegistry.has(registryId)) {

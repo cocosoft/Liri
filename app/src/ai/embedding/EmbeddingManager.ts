@@ -132,9 +132,23 @@ export class EmbeddingManager {
 
     // 无 API key 时降级到本地
     if (!apiKey) {
+      // KB-EMBED-LOG（2026-08-28）：记录降级原因——排查"已配置嵌入模型却报
+      // embedding 失败"时，此日志直接揭示是否因拿不到 provider 凭据降级到本地
+      logger.warning('嵌入 Provider 无 API Key，降级到本地(Ollama)', {
+        modelId,
+        providerId: pid,
+        hasInstanceApiKey: !!providerCreds.apiKey,
+        hasEnvApiKey: !!configManager.env(`${upper}_API_KEY`),
+      });
       return { type: 'local' };
     }
 
+    logger.info('嵌入任务解析为远端 OpenAI-compat Provider', {
+      modelId,
+      providerId: pid,
+      baseUrl: baseUrl || '(env 未配置，将使用默认)',
+      hasApiKey: !!apiKey,
+    });
     return { type: 'openai', apiKey, baseUrl };
   }
 

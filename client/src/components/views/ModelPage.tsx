@@ -176,7 +176,11 @@ function ProviderPage() {
   const handleSave = useCallback(
     async (data: ProviderFormData) => {
       if (editingId) {
-        await store.updateProvider(editingId, data);
+        // D9 乐观并发：携带编辑前读取的 updatedAt 作为版本 token，stale write 会被后端 409 拒绝
+        await store.updateProvider(editingId, {
+          ...data,
+          expectedRevision: editorProvider?.updatedAt,
+        });
       } else {
         await store.createProvider(data);
       }
@@ -185,7 +189,7 @@ function ProviderPage() {
       setEditingId(null);
       setInitialFormData(undefined);
     },
-    [editingId, store],
+    [editingId, editorProvider, store],
   );
 
   const handleDelete = useCallback(

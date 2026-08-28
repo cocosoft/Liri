@@ -30,6 +30,11 @@ import { resolveDbPath } from '@modules/core';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import {
+  credentialStore,
+  CRED_STORED_MARKER,
+  normalizeApiKey,
+} from '../credentials/CredentialStore.js';
 
 const logger = getLogger('ai:provider-manager');
 
@@ -127,7 +132,14 @@ export interface UpdateProviderParams {
   name?: string;
   providerType?: ProviderType;
   baseUrl?: string;
-  apiKey?: string;
+  /**
+   * API Key（P0 凭据迁移 2026-08-28）
+   * - undefined → 不修改
+   * - ''（空串）→ 保留现有凭据（前端编辑表单不误清）
+   * - null → 显式清除凭据
+   * - 非空 → 更新凭据（存入独立 CredentialStore，DB 仅存占位标记）
+   */
+  apiKey?: string | null;
   modelsUrl?: string;
   headers?: Record<string, string>;
   isActive?: boolean;
@@ -137,6 +149,8 @@ export interface UpdateProviderParams {
   iconColor?: string;
   requiresAuth?: boolean;
   category?: ProviderCategory;
+  /** D9 乐观并发：更新前读取到的 updated_at（秒级）。提供时做版本校验，stale write 拒绝 */
+  expectedRevision?: number;
 }
 
 /** 供应商列表查询过滤器 */
@@ -196,6 +210,8 @@ export class ProviderManager {
       });
 
       await this.createTables();
+      // P0 凭据迁移：DB 中遗留明文 key 迁入独立 CredentialStore
+      await this.migrateLegacyApiKeys();
       this.initialized = true;
       logger.info('ProviderManager 初始化完成');
     } catch (error) {
@@ -266,13 +282,17 @@ export class ProviderManager {
     logger.info('providers 表创建/验证完成');
   }
 
-  /** 执行 SQL run */
-  private runAsync(sql: string, params?: unknown[]): Promise<void> {
-    return new Promise<void>((resolve, reject) => {
-      this.db!.run(sql, params || [], (err: Error | null) => {
-        if (err) reject(err);
-        else resolve();
-      });
+  /** 执行 SQL run，返回受影响行数（changes） */
+  private runAsync(sql: string, params?: unknown[]): Promise<number> {
+    return new Promise<number>((resolve, reject) => {
+      this.db!.run(
+        sql,
+        params || [],
+        function (this: { changes: number }, err: Error | null) {
+          if (err) reject(err);
+          else resolve(this.changes ?? 0);
+        }
+      );
     });
   }
 
@@ -386,6 +406,23 @@ export class ProviderManager {
     const id = randomUUID();
     const now = Math.floor(Date.now() / 1000);
 
+    // P0 凭据迁移：密钥校验后存入独立 CredentialStore，DB 仅存占位标记
+    const hasKey = !!params.apiKey;
+    if (hasKey) {
+      const check = normalizeApiKey(params.apiKey!);
+      if (!check.ok) {
+        throw new AppError(
+          check.reason === 'empty'
+            ? 'API Key 为空'
+            : 'API Key 包含无法写入 HTTP 请求头的字符（仅允许可打印 ASCII）',
+          ErrorCategory.VALIDATION,
+          ErrorSeverity.MEDIUM,
+          'INVALID_API_KEY'
+        );
+      }
+      credentialStore.set(id, check.value);
+    }
+
     await this.runAsync(
       `INSERT INTO ${PROVIDERS_TABLE}
        (id, name, provider_type, base_url, api_key, models_url, headers, is_active, sort_index, requires_auth, notes, icon, icon_color, category, created_at, updated_at)
@@ -395,7 +432,7 @@ export class ProviderManager {
         params.name,
         params.providerType,
         params.baseUrl,
-        params.apiKey || null,
+        hasKey ? CRED_STORED_MARKER : null,
         params.modelsUrl || null,
         JSON.stringify(params.headers || {}),
         params.requiresAuth !== false ? 1 : 0,
@@ -441,8 +478,28 @@ export class ProviderManager {
       values.push(params.baseUrl);
     }
     if (params.apiKey !== undefined) {
-      fields.push('api_key = ?');
-      values.push(params.apiKey || null);
+      // P0 凭据迁移：undefined=不改；''=保留；null=清除；非空=校验后设置（存 CredentialStore）
+      if (params.apiKey === null) {
+        credentialStore.unset(id);
+        fields.push('api_key = ?');
+        values.push(null);
+      } else if (params.apiKey !== '') {
+        const check = normalizeApiKey(params.apiKey);
+        if (!check.ok) {
+          throw new AppError(
+            check.reason === 'empty'
+              ? 'API Key 为空'
+              : 'API Key 包含无法写入 HTTP 请求头的字符（仅允许可打印 ASCII）',
+            ErrorCategory.VALIDATION,
+            ErrorSeverity.MEDIUM,
+            'INVALID_API_KEY'
+          );
+        }
+        credentialStore.set(id, check.value);
+        fields.push('api_key = ?');
+        values.push(CRED_STORED_MARKER);
+      }
+      // 空串：保留现有凭据，不动 api_key 列
     }
     if (params.modelsUrl !== undefined) {
       fields.push('models_url = ?');
@@ -489,10 +546,28 @@ export class ProviderManager {
     values.push(now);
     values.push(id);
 
-    await this.runAsync(
-      `UPDATE ${PROVIDERS_TABLE} SET ${fields.join(', ')} WHERE id = ?`,
+    // D9 乐观并发（2026-08-28）：客户端携带 expectedRevision（更新前读取的 updated_at），
+    // 写入时 WHERE 版本校验，stale write（0 行受影响）拒绝
+    let whereClause = 'WHERE id = ?';
+    if (params.expectedRevision !== undefined) {
+      whereClause += ' AND updated_at = ?';
+      values.push(params.expectedRevision);
+    }
+
+    const changes = await this.runAsync(
+      `UPDATE ${PROVIDERS_TABLE} SET ${fields.join(', ')} ${whereClause}`,
       values
     );
+
+    if (params.expectedRevision !== undefined && changes === 0) {
+      throw new AppError(
+        '供应商已被其他会话修改，请刷新后重试',
+        ErrorCategory.OPERATION,
+        ErrorSeverity.MEDIUM,
+        'PROVIDER_STALE_WRITE',
+        { providerId: id }
+      );
+    }
 
     logger.info(`供应商已更新: ${id}`);
     return this.getProvider(id);
@@ -552,6 +627,58 @@ export class ProviderManager {
       count: r.count,
       active: r.active,
     }));
+  }
+
+  // ─── P0 凭据迁移（2026-08-28）───────────────────────
+
+  /** 是否为"已存凭据"占位（真实密钥在 CredentialStore） */
+  isStoredMarker(apiKey: string | undefined): boolean {
+    return apiKey === CRED_STORED_MARKER;
+  }
+
+  /** Provider 是否已配置 API Key */
+  async hasStoredApiKey(id: string): Promise<boolean> {
+    this.ensureInitialized();
+    const record = await this.getProvider(id);
+    if (!record) return false;
+    if (this.isStoredMarker(record.apiKey)) {
+      return credentialStore.has(id);
+    }
+    return !!record.apiKey;
+  }
+
+  /**
+   * 迁移遗留明文 API Key：DB 中 api_key 非空且非占位的记录
+   * → 写入 CredentialStore → DB 改写占位标记。幂等。
+   */
+  private async migrateLegacyApiKeys(): Promise<void> {
+    try {
+      const rows = await this.allAsync<Record<string, unknown>>(
+        `SELECT id, api_key FROM ${PROVIDERS_TABLE}
+         WHERE api_key IS NOT NULL AND api_key != '' AND api_key != ?`,
+        [CRED_STORED_MARKER]
+      );
+      if (rows.length === 0) return;
+
+      let migrated = 0;
+      for (const row of rows) {
+        const id = row.id as string;
+        const key = row.api_key as string;
+        if (!key) continue;
+        credentialStore.set(id, key);
+        await this.runAsync(
+          `UPDATE ${PROVIDERS_TABLE} SET api_key = ?, updated_at = ? WHERE id = ?`,
+          [CRED_STORED_MARKER, Math.floor(Date.now() / 1000), id]
+        );
+        migrated++;
+      }
+      logger.info(`已迁移 ${migrated} 条遗留明文 API Key 到 CredentialStore`);
+    } catch (err) {
+      void handleError(err, {
+        module: 'ai:provider',
+        action: 'migrateLegacyApiKeys',
+      });
+    }
   }
 }
 

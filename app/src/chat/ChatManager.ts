@@ -1249,6 +1249,18 @@ export class ChatManagerImpl implements ChatManager {
       }
     }
     const session = this._chatSessions.get(sessionId);
+    // D5 消息级模型落盘兜底：assistant 消息未携带 model 时，回填会话当前模型
+    //（覆盖流式管线/工具循环等未显式写 model 的落盘路径）
+    if (
+      message.role === 'assistant' &&
+      !message.metadata?.model &&
+      session?.metadata?.model
+    ) {
+      message.metadata = {
+        ...(message.metadata ?? {}),
+        model: session.metadata.model,
+      };
+    }
     if (session) {
       // B4（2026-08-23）：流式结束复用占位对象——updateMessageBlocks 已创建同 id 占位
       //（前端 messageId 透传），此处更新该对象而非新建 push，避免内存/磁盘双条同 id

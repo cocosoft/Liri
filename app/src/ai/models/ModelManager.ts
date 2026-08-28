@@ -245,70 +245,18 @@ export class ModelManager {
     return { ...this.config };
   }
 
-  // ─── @deprecated — 以模型层级为区分的方法（继承自旧 Cluade 时代）────
+  // ─── @deprecated — 模型默认值兼容层（DB 驱动，无模型名硬编码）────
 
   /** @deprecated 用 getDefaultModel() 替代 */
   private _legacyDefault(): string {
-    return (
-      configManager.env('DEFAULT_MODEL') ||
-      configManager.env('ANTHROPIC_DEFAULT_SONNET_MODEL') ||
-      this.modelStrings.sonnet46 ||
-      ''
-    );
-  }
-
-  /** @deprecated 用 getDefaultModel() 替代 */
-  getBestModel(): string {
-    return this._legacyDefault();
-  }
-
-  /** @deprecated 用 getDefaultModel() 替代 */
-  getSmallFastModel(): string {
-    return (
-      configManager.env('DEFAULT_FAST_MODEL') ||
-      configManager.env('ANTHROPIC_DEFAULT_HAIKU_MODEL') ||
-      this.modelStrings.haiku45 ||
-      ''
-    );
+    return configManager.env('DEFAULT_MODEL') || '';
   }
 
   /** @deprecated 用 getDefaultModel() 替代 */
   getDefaultMainLoopModel(): string {
     if (this.config.modelOverride)
       return this.parseModel(this.config.modelOverride);
-    return (
-      configManager.env('DEFAULT_MODEL') ||
-      configManager.env('ANTHROPIC_DEFAULT_SONNET_MODEL') ||
-      this.modelStrings.sonnet46 ||
-      ''
-    );
-  }
-
-  /** @deprecated */
-  getDefaultOpusModel(): string {
-    return (
-      configManager.env('ANTHROPIC_DEFAULT_OPUS_MODEL') ||
-      this.modelStrings.opus46 ||
-      ''
-    );
-  }
-
-  /** @deprecated */
-  getDefaultSonnetModel(): string {
-    return (
-      process.env.ANTHROPIC_DEFAULT_SONNET_MODEL ||
-      this.modelStrings.sonnet46 ||
-      ''
-    );
-  }
-
-  /** @deprecated */
-  getDefaultHaikuModel(): string {
-    return (
-      configManager.env('ANTHROPIC_DEFAULT_HAIKU_MODEL') ||
-      this.modelStrings.haiku45 ||
-      ''
-    );
+    return configManager.env('DEFAULT_MODEL') || '';
   }
 
   /** @deprecated 用 getDefaultModel() 替代 */
@@ -329,22 +277,6 @@ export class ModelManager {
       return true;
     }
     return false;
-  }
-
-  /** @deprecated */
-  getFallbackModel(): string {
-    const fallback = configManager.env('Liri_FALLBACK_MODEL');
-    if (fallback) return fallback;
-    return this.getSmallFastModel();
-  }
-
-  /** @deprecated */
-  getModelWithFallback(primary?: string): {
-    primary: string;
-    fallback: string;
-  } {
-    const main = primary || this.getDefaultMainLoopModel();
-    return { primary: main, fallback: this.getFallbackModel() };
   }
 }
 

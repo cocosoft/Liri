@@ -16,6 +16,10 @@ import {
 } from './cleanup';
 import { cleanupOldVersions } from './nativeInstaller';
 import { transcriptArchiver } from '../../core/delivery/archiver/TranscriptArchiver';
+import {
+  credentialStore,
+  CRED_STORED_MARKER,
+} from '../../ai/credentials/CredentialStore';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 
@@ -116,7 +120,12 @@ async function refreshBalancesInBackground(): Promise<void> {
 
     for (const p of activeProviders) {
       try {
-        const result = await checkBalance(p.baseUrl, p.apiKey || '');
+        const result = await checkBalance(
+          p.baseUrl,
+          p.apiKey === CRED_STORED_MARKER
+            ? credentialStore.get(p.id) || ''
+            : p.apiKey || '',
+        );
         if (result.success && result.data.length > 0) {
           const d = result.data[0];
           const remaining = d.remaining ?? null;

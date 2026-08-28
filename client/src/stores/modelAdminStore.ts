@@ -5,6 +5,7 @@
 
 import { create } from "zustand";
 import { providerService } from "../services/providerService";
+import { sseService } from "../services/sseService";
 import type {
   ProviderInfo,
   ProviderFormData,
@@ -212,3 +213,11 @@ export const useModelAdminStore = create<ModelAdminState>((set) => ({
 
   clearError: () => set({ error: null }),
 }));
+
+// P0 补齐（对齐 dsh llm/adapters-updated）：Provider 拓扑变更事件 → 刷新列表。
+// 本地 CRUD 操作后 store 已自行 list() 刷新；此订阅覆盖后台任务/多端变更等外部场景。
+if (typeof window !== "undefined") {
+  sseService.on("providers:changed", () => {
+    useModelAdminStore.getState().loadProviders();
+  });
+}

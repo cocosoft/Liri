@@ -414,6 +414,19 @@ export async function initializeModelManagementServices(): Promise<void> {
     });
   }
 
+  // D9 观察者/进程级 HMR（2026-08-28）：启动拓扑观察器，
+  // 后续任何写入路径（API/本地同步/迁移/外部直写）变更 DB 都自动同步运行时，无需重启
+  try {
+    const { providerTopologyWatcher } =
+      await import('@modules/ai/providers/TopologyWatcher.js');
+    await providerTopologyWatcher.start();
+  } catch (err) {
+    void handleError(err, {
+      module: 'ai:modelManagementBootstrap',
+      action: 'startTopologyWatcher',
+    });
+  }
+
   if (initialized > 0 || synced > 0) {
     logger.info(
       `模型管理模块: ${initialized} DB服务, ${seeded} seed, ${synced} 已同步`

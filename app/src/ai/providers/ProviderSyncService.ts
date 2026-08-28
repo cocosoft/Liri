@@ -33,6 +33,10 @@ import { createProviderByType } from './ProviderFactory';
 import type { AIProvider, ProviderConfig } from './AIProvider';
 import type { ProviderRecord } from './ProviderManager';
 import { ModelRegistry } from '../models/ModelRegistry';
+import {
+  credentialStore,
+  CRED_STORED_MARKER,
+} from '../credentials/CredentialStore';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
@@ -40,10 +44,15 @@ const logger = getLogger('ai:provider-sync');
 
 /**
  * 将 DB ProviderRecord 转换为 ProviderConfig
+ * P0 凭据迁移（2026-08-28）：DB api_key 为占位标记时，
+ * 真实密钥从独立 CredentialStore 读取。
  */
-function recordToConfig(record: ProviderRecord): ProviderConfig {
+export function recordToConfig(record: ProviderRecord): ProviderConfig {
   const config: ProviderConfig = {
-    apiKey: record.apiKey || '',
+    apiKey:
+      record.apiKey === CRED_STORED_MARKER
+        ? credentialStore.get(record.id) || ''
+        : record.apiKey || '',
     baseUrl: record.baseUrl,
   };
 
@@ -112,11 +121,8 @@ function syncOneProvider(record: ProviderRecord): void {
     },
   });
 
-  if (providerRegistry.has(registryId)) {
-    providerRegistry.unregister(registryId);
-  }
-
-  providerRegistry.register(wrapped);
+  // 原子替换：同 id 覆盖，无 unregister→register 间隙，保留默认 provider 状态
+  providerRegistry.replace(wrapped);
 
   // 注册类型别名，使 getByModel() 能通过 providerType 精确查找 DB 同步的 Provider
   providerRegistry.setProviderTypeAlias(record.providerType, registryId);

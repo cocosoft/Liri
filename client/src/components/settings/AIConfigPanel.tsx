@@ -5,6 +5,7 @@ import { ConfigSection, ToggleConfig } from "./ConfigComponents";
 import { useModelAdminStore } from "../../stores/modelAdminStore";
 import { useModelStore } from "../../stores/modelStore";
 import { modelService } from "../../services/modelService";
+import { configService } from "../../services/configService";
 import { PROVIDER_TYPE_LABELS } from "../../config/providerPresets";
 import { handleClientError } from "../../utils/handleError";
 
@@ -38,6 +39,38 @@ function AIConfigPanel({ isDark, collapsible }: AIConfigProps) {
   );
   const [detecting, setDetecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** D3 自愈开关：未知模型自动登记并放行 */
+  const [autoRegisterUnknown, setAutoRegisterUnknown] = useState(false);
+  const [configSaving, setConfigSaving] = useState(false);
+
+  const loadConfigFlag = useCallback(async () => {
+    try {
+      const res = (await configService.get(
+        "ai.autoRegisterUnknownModels",
+      )) as { value?: boolean } | undefined;
+      setAutoRegisterUnknown(!!res?.value);
+    } catch {
+      // @ignore-catch: 读取失败保持默认
+    }
+  }, []);
+
+  const handleToggleAutoRegister = async (next: boolean) => {
+    const prev = autoRegisterUnknown;
+    setAutoRegisterUnknown(next); // 乐观更新
+    setConfigSaving(true);
+    try {
+      await configService.set("ai.autoRegisterUnknownModels", next);
+    } catch (e) {
+      setAutoRegisterUnknown(prev); // 失败回滚
+      handleClientError(e, {
+        module: "settings:ai",
+        action: "set_auto_register_unknown",
+      });
+      setError(e instanceof Error ? e.message : "保存模型策略失败");
+    } finally {
+      setConfigSaving(false);
+    }
+  };
 
   const loadStatus = useCallback(async () => {
     try {
@@ -55,12 +88,17 @@ function AIConfigPanel({ isDark, collapsible }: AIConfigProps) {
   const load = useCallback(async () => {
     setError(null);
     try {
-      await Promise.all([loadProviders(), loadModels(), loadStatus()]);
+      await Promise.all([
+        loadProviders(),
+        loadModels(),
+        loadStatus(),
+        loadConfigFlag(),
+      ]);
     } catch (e) {
       handleClientError(e, { module: "settings:ai", action: "load" });
       setError(e instanceof Error ? e.message : "加载 AI 配置失败");
     }
-  }, [loadProviders, loadModels, loadStatus]);
+  }, [loadProviders, loadModels, loadStatus, loadConfigFlag]);
 
   useEffect(() => {
     void load();
@@ -143,9 +181,11 @@ function AIConfigPanel({ isDark, collapsible }: AIConfigProps) {
             </div>
             <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 truncate">
               {provider.baseUrl}
-              {provider.requiresAuth && provider.apiKey
-                ? ` · ${provider.apiKey.substring(0, 8)}...`
-                : ""}
+              {provider.requiresAuth && provider.hasKey
+                ? " · API Key 已配置"
+                : provider.requiresAuth
+                  ? " · 未配置 API Key"
+                  : ""}
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
@@ -197,6 +237,33 @@ function AIConfigPanel({ isDark, collapsible }: AIConfigProps) {
               {detecting ? "检测中…" : "🔍 检测本地服务"}
             </button>
           )}
+        </div>
+
+        {/* 模型策略：D3 自愈开关（ai.autoRegisterUnknownModels） */}
+        <div
+          className={`p-3 rounded-lg border ${
+            isDark ? "border-gray-700 bg-gray-800/50" : "border-gray-200 bg-white"
+          }`}
+        >
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-sm font-medium">未知模型自动登记</div>
+              <div
+                className={`text-xs mt-0.5 ${
+                  isDark ? "text-gray-400" : "text-gray-500"
+                }`}
+              >
+                使用未登记的模型时，自动登记为自定义模型并放行本次请求（自愈模式）。
+                关闭则拒绝调用并提示到模型管理登记。
+              </div>
+            </div>
+            <ToggleConfig
+              isDark={isDark}
+              checked={autoRegisterUnknown}
+              onChange={(v) => void handleToggleAutoRegister(v)}
+              disabled={configSaving}
+            />
+          </div>
         </div>
 
         {/* 本地推理 Provider */}

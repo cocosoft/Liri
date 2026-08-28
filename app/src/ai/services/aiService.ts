@@ -85,7 +85,7 @@ export class AIServiceImpl implements AIService {
     model: string = this.config.defaultModel,
     options: Partial<AIRequestParams> = {}
   ): Promise<AIResponse> {
-    const client = this.getClientForModel(model);
+    const client = await this.getClientForModel(model);
     const chatMessages = this.convertToChatMessages(messages);
     const resolvedModel = options.model || model;
     const startTime = Date.now();
@@ -132,7 +132,7 @@ export class AIServiceImpl implements AIService {
     model: string = this.config.defaultModel,
     options: Partial<AIRequestParams> = {}
   ): AsyncGenerator<AIResponse> {
-    const client = this.getClientForModel(model);
+    const client = await this.getClientForModel(model);
     const chatMessages = this.convertToChatMessages(messages);
     const resolvedModel = options.model || model;
     const startTime = Date.now();
@@ -232,7 +232,7 @@ export class AIServiceImpl implements AIService {
     return { ...this.config };
   }
 
-  private getClientForModel(model: string): AIProvider {
+  private async getClientForModel(model: string): Promise<AIProvider> {
     // 模型名为空时，回退到 ProviderRegistry 的默认 Provider
     // 这是"数出同源"设计：DB 是 Provider 的唯一来源，运行时通过 ProviderRegistry 获取
     if (!model) {
@@ -261,8 +261,31 @@ export class AIServiceImpl implements AIService {
       });
     }
 
+    // D3 产品决策（2026-08-28）：保持 DB 强一致，未知模型默认拒绝调用；
+    // 开启 ai.autoRegisterUnknownModels 时进入自愈中间态：
+    // 自动登记为自定义模型（is_custom=1）并放行本次请求，减少人工登记摩擦。
+    const autoRegister = configManager.getConfigValue<boolean>(
+      'ai.autoRegisterUnknownModels'
+    );
+    if (autoRegister) {
+      const registered = await this.autoRegisterModel(model);
+      if (registered) {
+        const retryResolved = providerRegistry.getByModel(model);
+        if (retryResolved) return retryResolved;
+        const retryProviderId = providerRegistry.resolveModelToProviderId(model);
+        if (retryProviderId) {
+          return providerRegistry.getOrCreate(retryProviderId, {
+            apiKey: this.config.apiKey,
+            baseUrl: this.config.baseUrl,
+          });
+        }
+      }
+      logger.warn('自动登记未知模型后仍无法路由，转为拒绝', { model });
+    }
+
     // 映射表无匹配时，抛明确错误而非静默 fallback 到 openai
-    const msg = `未知模型 "${model}"，无法匹配到对应的 AI Provider。请检查模型名拼写或配置新的 Provider。`;
+    // 报错中引导登记路径（模型管理→添加模型/拉取模型列表）
+    const msg = `模型 "${model}" 未在模型注册表（model_registry）中登记，无法匹配对应的 AI Provider。请到「模型管理 → 添加模型」登记该模型（或在供应商中先拉取模型列表），登记后即可使用。`;
     void handleError(new Error(msg), {
       module: 'ai:service',
       action: 'getClientForModel',
@@ -270,6 +293,69 @@ export class AIServiceImpl implements AIService {
     throw AppError.fromCode(ErrorCodes.INVALID_INPUT, {
       context: { message: msg },
     });
+  }
+
+  /**
+   * D3 自愈：未知模型自动登记为自定义模型（is_custom=1，pricingSource=manual）。
+   * 登记到默认 Provider 名下并刷新运行时映射；失败不抛（走拒绝路径）。
+   */
+  private async autoRegisterModel(model: string): Promise<boolean> {
+    try {
+      const providerType = await this.resolveDefaultProviderType();
+      const { modelPricingService } =
+        await import('../models/ModelPricingService.js');
+      await modelPricingService.initialize();
+      await modelPricingService.upsertPricing({
+        modelId: model,
+        displayName: model,
+        contextWindow: 200000,
+        maxOutputTokens: 4096,
+        inputCostPerMillion: 0,
+        outputCostPerMillion: 0,
+        pricingSource: 'manual',
+        isCustom: true,
+        enabled: true,
+        providerId: providerType || undefined,
+      });
+      // 刷新运行时映射（model_registry → ProviderRegistry 模型路由）
+      const { syncDBProvidersToRegistry } =
+        await import('../providers/ProviderSyncService.js');
+      await syncDBProvidersToRegistry();
+      logger.warn('未知模型已自动登记为自定义模型并放行', {
+        model,
+        providerType,
+      });
+      return true;
+    } catch (err) {
+      void handleError(err, {
+        module: 'ai:service',
+        action: 'autoRegisterModel',
+        context: { model },
+      });
+      return false;
+    }
+  }
+
+  /** 解析默认 Provider 的 providerType（DB 优先，兜底注册到首个活跃 Provider） */
+  private async resolveDefaultProviderType(): Promise<string | undefined> {
+    try {
+      const { providerManager } = await import('../providers/ProviderManager.js');
+      await providerManager.initialize();
+      const providers = await providerManager.listProviders({ isActive: true });
+      if (providers.length === 0) return undefined;
+      const defaultRegistryId =
+        providerRegistry.getDefaultProvider()?.id ?? '';
+      const defaultUuid = defaultRegistryId.replace(/^db:/, '');
+      const match = providers.find(
+        (p) =>
+          p.id === defaultUuid ||
+          p.providerType === defaultRegistryId ||
+          p.providerType === defaultUuid
+      );
+      return match?.providerType ?? providers[0]?.providerType;
+    } catch {
+      return undefined;
+    }
   }
 }
 

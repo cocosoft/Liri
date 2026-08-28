@@ -119,7 +119,8 @@ const VIOLATION_PATTERNS: Array<{ pattern: RegExp; message: string }> = [
   },
   // 4. 代称 env 变量
   {
-    pattern: /LIRI_DEFAULT_(?:HAIKU|OPUS|SONNET)_MODEL|VERTEX_REGION_CLAUDE/i,
+    pattern:
+      /LIRI_DEFAULT_(?:HAIKU|OPUS|SONNET)_MODEL|ANTHROPIC_DEFAULT_(?:HAIKU|OPUS|SONNET)_MODEL|VERTEX_REGION_CLAUDE/i,
     message: 'Claude 代称环境变量名',
   },
   // 5. 模型属性硬编码表

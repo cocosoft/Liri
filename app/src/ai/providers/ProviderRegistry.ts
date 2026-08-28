@@ -37,6 +37,21 @@ export class ProviderRegistry {
     }
   }
 
+  /**
+   * 原子替换已注册的 Provider（同 id 覆盖，单次 Map 操作无 unregister→register 间隙）。
+   * 与 register() 的区别：替换已存在 provider 时保留默认状态，避免默认 provider 漂移。
+   */
+  replace(provider: AIProvider): void {
+    const existed = this.providers.has(provider.id);
+    this.providers.set(provider.id, provider);
+    if (!existed && !this.defaultProviderId) {
+      this.defaultProviderId = provider.id;
+    }
+    logger.info(
+      `Provider replaced: ${provider.id} (${provider.displayName})`
+    );
+  }
+
   unregister(providerId: string): boolean {
     const removed = this.providers.delete(providerId);
     if (removed) {

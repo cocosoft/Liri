@@ -532,6 +532,11 @@ export function buildAssistantMessage(
     { sessionId: session.id }
   );
   assistantMsg.sessionId = session.id;
+  // D5 消息级模型落盘：携带本次请求实际使用的模型（response.model）
+  assistantMsg.metadata = {
+    ...assistantMsg.metadata,
+    model: response.model || session.metadata.model || undefined,
+  };
   if (response.tool_calls && response.tool_calls.length > 0) {
     const toolCallsData = response.tool_calls.map((tc: ParsedToolCall) => ({
       id: tc.id,

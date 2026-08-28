@@ -26,8 +26,45 @@
  */
 
 import type http from 'http';
-import { handleError } from '@modules/error';
+import { handleError, AppError } from '@modules/error';
 import { parseBody, sendJson, sendError } from './utils.js';
+import type { ProviderRecord } from '../providers/ProviderManager.js';
+import {
+  credentialStore,
+  CRED_STORED_MARKER,
+} from '../credentials/CredentialStore.js';
+import { broadcastEvent } from '@modules/infrastructure/http/LocalHTTPServiceSSE.js';
+
+/** 掩码常量：已配置凭据时不泄露任何密钥字符 */
+const MASKED_KEY = '••••••••';
+
+/** 广播 Provider 拓扑变更（对齐 dsh llm/adapters-updated，前端订阅刷新） */
+function notifyProvidersChanged(action: string, providerId: string): void {
+  try {
+    broadcastEvent('providers:changed', { action, providerId });
+  } catch {
+    // @ignore-catch: SSE 不可用不影响写操作结果
+  }
+}
+
+/** 解析 Provider 的真实 API Key（P0 凭据迁移：DB 占位 → CredentialStore） */
+function resolveRealApiKey(p: ProviderRecord): string {
+  return p.apiKey === CRED_STORED_MARKER
+    ? credentialStore.get(p.id) || ''
+    : p.apiKey || '';
+}
+
+/** 脱敏 Provider 记录：不向客户端泄露明文密钥，附 hasKey 状态 */
+function sanitizeProvider(p: ProviderRecord): ProviderRecord & {
+  hasKey: boolean;
+} {
+  const realKey = resolveRealApiKey(p);
+  return {
+    ...p,
+    apiKey: realKey ? MASKED_KEY : undefined,
+    hasKey: !!realKey,
+  };
+}
 
 export async function handleListProviders(
   _req: http.IncomingMessage,
@@ -37,7 +74,7 @@ export async function handleListProviders(
     const { providerManager } = await import('../providers/ProviderManager.js');
     await providerManager.initialize();
     const providers = await providerManager.listProviders();
-    sendJson(res, { data: providers });
+    sendJson(res, { data: providers.map(sanitizeProvider) });
   } catch (err) {
     await handleError(err, {
       module: 'ai:modelManagement',
@@ -61,7 +98,7 @@ export async function handleGetProvider(
       sendError(res, '供应商不存在', 404);
       return;
     }
-    sendJson(res, { data: p });
+    sendJson(res, { data: sanitizeProvider(p) });
   } catch (err) {
     await handleError(err, {
       module: 'ai:modelManagement',
@@ -95,8 +132,9 @@ export async function handleAddProvider(
     const { registerProviderFromDB } =
       await import('../providers/ProviderSyncService.js');
     await registerProviderFromDB(created.id);
+    notifyProvidersChanged('create', created.id);
 
-    sendJson(res, { data: created }, 201);
+    sendJson(res, { data: sanitizeProvider(created) }, 201);
   } catch (err) {
     await handleError(err, {
       module: 'ai:modelManagement',
@@ -116,7 +154,12 @@ export async function handleUpdateProvider(
     const body = (await parseBody(req)) as Record<string, unknown>;
     const { providerManager } = await import('../providers/ProviderManager.js');
     await providerManager.initialize();
-    const updated = await providerManager.updateProvider(id, body);
+    const { expectedRevision, ...rest } = body;
+    const updated = await providerManager.updateProvider(id, {
+      ...rest,
+      expectedRevision:
+        typeof expectedRevision === 'number' ? expectedRevision : undefined,
+    });
     if (!updated) {
       sendError(res, '供应商不存在', 404);
       return;
@@ -126,9 +169,15 @@ export async function handleUpdateProvider(
     const { registerProviderFromDB } =
       await import('../providers/ProviderSyncService.js');
     await registerProviderFromDB(id);
+    notifyProvidersChanged('update', id);
 
-    sendJson(res, { data: updated });
+    sendJson(res, { data: sanitizeProvider(updated) });
   } catch (err) {
+    if (err instanceof AppError && err.code === 'PROVIDER_STALE_WRITE') {
+      // D9 乐观并发：stale write 冲突 → 409，前端提示刷新
+      sendError(res, err.message, 409);
+      return;
+    }
     await handleError(err, {
       module: 'ai:modelManagement',
       action: 'updateProvider',
@@ -156,6 +205,7 @@ export async function handleDeleteProvider(
       sendError(res, '供应商不存在', 404);
       return;
     }
+    notifyProvidersChanged('delete', id);
     sendJson(res, { success: true });
   } catch (err) {
     await handleError(err, {
@@ -191,8 +241,9 @@ export async function handleToggleProvider(
     } else {
       unregisterProviderFromRegistry(id);
     }
+    notifyProvidersChanged(newActive ? 'enable' : 'disable', id);
 
-    sendJson(res, { data: updated });
+    sendJson(res, { data: updated ? sanitizeProvider(updated) : undefined });
   } catch (err) {
     await handleError(err, {
       module: 'ai:modelManagement',
@@ -242,7 +293,8 @@ export async function handleProviderTest(
       sendError(res, '供应商不存在', 404);
       return;
     }
-    if (p.requiresAuth && !p.apiKey) {
+    const apiKey = resolveRealApiKey(p);
+    if (p.requiresAuth && !apiKey) {
       sendError(res, '供应商需要 API Key 但未设置', 400);
       return;
     }
@@ -284,12 +336,13 @@ export async function handleProviderModels(
     // 本地供应商跳过 API Key 校验
     // 云供应商需要 API Key（除非 requiresAuth 为 false）
     const isLocal = isLocalProvider(p.providerType);
-    if (!isLocal && p.requiresAuth && !p.apiKey) {
+    const realKey = resolveRealApiKey(p);
+    if (!isLocal && p.requiresAuth && !realKey) {
       sendError(res, '供应商需要 API Key 但未设置', 400);
       return;
     }
 
-    const apiKey = p.requiresAuth ? p.apiKey || '' : '';
+    const apiKey = p.requiresAuth ? realKey : '';
     // 传递 providerType 和分页参数到 fetchModels
     const result = await fetchModels(
       p.baseUrl,

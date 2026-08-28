@@ -5,7 +5,8 @@
 
 import { useCallback, useState } from "react";
 import type { ProviderFormData, ProviderInfo } from "../../types";
-import { PROVIDER_TYPE_LABELS } from "../../config/providerPresets";
+import { PROVIDER_FORM_SCHEMA } from "./ProviderFormSchema";
+import SchemaFormField from "./SchemaFormField";
 
 interface ProviderEditorModalProps {
   /** 编辑模式传入 Provider，新增模式传 null */
@@ -31,6 +32,7 @@ export default function ProviderEditorModal({
     providerType:
       provider?.providerType ?? initialFormData?.providerType ?? "custom",
     baseUrl: provider?.baseUrl ?? initialFormData?.baseUrl ?? "",
+    // P0 凭据迁移：不回填旧 key（write-only），编辑时留空=保留现有
     apiKey: initialFormData?.apiKey ?? "",
     modelsUrl: provider?.modelsUrl ?? initialFormData?.modelsUrl ?? "",
     notes: provider?.notes ?? initialFormData?.notes ?? "",
@@ -40,9 +42,15 @@ export default function ProviderEditorModal({
     iconColor: provider?.iconColor ?? initialFormData?.iconColor,
     category: provider?.category ?? initialFormData?.category,
   }));
+  /** P0 凭据迁移：编辑模式显式清除已配置凭据 */
+  const [clearApiKey, setClearApiKey] = useState(false);
 
   const handleFieldChange = useCallback(
     (field: keyof ProviderFormData, value: string | boolean) => {
+      if (field === "apiKey") {
+        // 用户重新输入 key 时取消"清除"意图
+        setClearApiKey(false);
+      }
       setFormData((prev) => ({ ...prev, [field]: value }));
     },
     [],
@@ -50,8 +58,11 @@ export default function ProviderEditorModal({
 
   const handleSave = useCallback(() => {
     if (!formData.name.trim()) return;
-    onSave(formData);
-  }, [formData, onSave]);
+    onSave({
+      ...formData,
+      apiKey: clearApiKey ? null : formData.apiKey,
+    });
+  }, [formData, onSave, clearApiKey]);
 
   return (
     <div
@@ -67,89 +78,28 @@ export default function ProviderEditorModal({
         </h3>
 
         <div className="space-y-3">
-          <div>
-            <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-              名称 *
-            </label>
-            <input
-              type="text"
-              value={formData.name}
-              onChange={(e) => handleFieldChange("name", e.target.value)}
-              placeholder="例如: DeepSeek"
-              className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-              类型
-            </label>
-            <select
-              value={formData.providerType}
-              onChange={(e) =>
-                handleFieldChange("providerType", e.target.value)
+          {/* D10：schema 驱动渲染，字段定义见 PROVIDER_FORM_SCHEMA */}
+          {PROVIDER_FORM_SCHEMA.map((field) => (
+            <SchemaFormField
+              key={field.key}
+              field={field}
+              value={formData[field.key]}
+              isDark={isDark}
+              onChange={(v) => handleFieldChange(field.key, v)}
+              credential={
+                field.credentialControl
+                  ? {
+                      hasKey: !!provider?.hasKey,
+                      clearApiKey,
+                      onToggleClear: () => {
+                        setClearApiKey(true);
+                        setFormData((prev) => ({ ...prev, apiKey: "" }));
+                      },
+                    }
+                  : undefined
               }
-              className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm"
-            >
-              {Object.entries(PROVIDER_TYPE_LABELS).map(([k, v]) => (
-                <option key={k} value={k}>
-                  {v}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-              Base URL *
-            </label>
-            <input
-              type="text"
-              value={formData.baseUrl}
-              onChange={(e) => handleFieldChange("baseUrl", e.target.value)}
-              placeholder="https://api.deepseek.com"
-              className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm"
             />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-              API Key
-            </label>
-            <input
-              type="password"
-              value={formData.apiKey}
-              onChange={(e) => handleFieldChange("apiKey", e.target.value)}
-              placeholder="sk-..."
-              className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-              备注
-            </label>
-            <input
-              type="text"
-              value={formData.notes}
-              onChange={(e) => handleFieldChange("notes", e.target.value)}
-              placeholder="可选备注"
-              className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm"
-            />
-          </div>
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              id="requiresAuth"
-              checked={!formData.requiresAuth}
-              onChange={(e) =>
-                handleFieldChange("requiresAuth", !e.target.checked)
-              }
-              className="rounded"
-            />
-            <label
-              htmlFor="requiresAuth"
-              className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"} cursor-pointer`}
-            >
-              本地供应商（无需 API Key，如 Ollama / LM Studio）
-            </label>
-          </div>
+          ))}
         </div>
 
         <div className="flex gap-2 mt-5">

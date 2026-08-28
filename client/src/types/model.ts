@@ -40,7 +40,10 @@ export interface ProviderInfo {
   name: string;
   providerType: string;
   baseUrl: string;
+  /** P0 凭据迁移：已配置时为脱敏掩码（非明文），未配置为 undefined */
   apiKey?: string;
+  /** P0 凭据迁移：真实凭据是否已配置（安全判断用，替代 apiKey truthy） */
+  hasKey?: boolean;
   modelsUrl?: string;
   isActive: boolean;
   sortIndex: number;
@@ -57,13 +60,20 @@ export interface ProviderFormData {
   name: string;
   providerType: string;
   baseUrl: string;
-  apiKey: string;
+  /**
+   * P0 凭据迁移：
+   * - 新增时：传新 key
+   * - 编辑时：非空=更新 key；空串=保留现有；null=清除
+   */
+  apiKey: string | null;
   modelsUrl: string;
   notes: string;
   requiresAuth: boolean;
   icon?: string;
   iconColor?: string;
   category?: ProviderCategory;
+  /** D9 乐观并发：编辑时携带更新前读取的 updatedAt，后端 stale write 拒绝返回 409 */
+  expectedRevision?: number;
 }
 
 export interface ProviderPreset {

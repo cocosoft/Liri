@@ -118,11 +118,15 @@ export const semanticService = {
     }
   },
 
-  /** 语义搜索 */
+  /**
+   * 语义搜索。返回 null 表示搜索失败（嵌入服务不可用/维度不匹配等），
+   * 空数组表示确实无匹配结果——调用方可区分，不再误报"无搜索结果"
+   * KB-SEM-P2-1（2026-08-28）
+   */
   search: async (
     query: string,
     topK: number = 10,
-  ): Promise<SemanticSearchResult[]> => {
+  ): Promise<SemanticSearchResult[] | null> => {
     try {
       const res = await http.get<SemanticSearchResult[]>(
         `/v1/semantic/search?q=${encodeURIComponent(query)}&topK=${topK}`,
@@ -136,7 +140,7 @@ export const semanticService = {
       return [];
     } catch (e) {
       handleClientError(e, { module: "services:semantic", action: "search" });
-      return [];
+      return null;
     }
   },
 };

@@ -21,6 +21,8 @@ export default function SemanticIndexPage() {
     [],
   );
   const [searching, setSearching] = useState(false);
+  // KB-SEM-P2-1（2026-08-28）：搜索失败与"无结果"区分显示
+  const [searchError, setSearchError] = useState("");
 
   const loadStatus = useCallback(async () => {
     setLoading(true);
@@ -109,9 +111,18 @@ export default function SemanticIndexPage() {
     const q = searchQuery.trim();
     if (!q || searching) return;
     setSearching(true);
+    setSearchError("");
     const results = await semanticService.search(q);
-    setSearchResults(results);
     setSearching(false);
+    if (results === null) {
+      // KB-SEM-P2-1：搜索失败（嵌入服务不可用/维度不匹配），明确提示而非"无结果"
+      setSearchError(
+        "搜索失败：嵌入服务不可用或索引模型不匹配，请检查嵌入配置后重试",
+      );
+      setSearchResults([]);
+      return;
+    }
+    setSearchResults(results);
   };
 
   const formatBytes = (bytes: number | undefined): string => {
@@ -253,9 +264,18 @@ export default function SemanticIndexPage() {
             </div>
           )}
 
-          {searchQuery.trim() && !searching && searchResults.length === 0 && (
-            <p className="mt-3 text-sm text-gray-400">无搜索结果</p>
+          {searchError && (
+            <p className="mt-3 text-sm text-red-500 dark:text-red-400">
+              {searchError}
+            </p>
           )}
+
+          {!searchError &&
+            searchQuery.trim() &&
+            !searching &&
+            searchResults.length === 0 && (
+              <p className="mt-3 text-sm text-gray-400">无搜索结果</p>
+            )}
         </div>
 
         {/* 最后更新时间 */}

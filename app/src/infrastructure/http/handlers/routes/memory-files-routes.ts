@@ -56,6 +56,7 @@ import {
 import {
   handleBuildSemanticIndex,
   handleClearSemanticIndex,
+  handleGetSemanticBuildTask,
   handleGetSemanticIndexStatus,
   handleSearchSemantic,
 } from '../semantic-index-handlers';
@@ -202,6 +203,10 @@ export async function dispatchMemoryFilesRoutes(
   // ---- Semantic Index ----
   if (method === 'POST' && url === '/v1/semantic/index') {
     await handleBuildSemanticIndex(req, res);
+    return true;
+  }
+  if (method === 'GET' && url === '/v1/semantic/index/task') {
+    await handleGetSemanticBuildTask(req, res);
     return true;
   }
   if (method === 'GET' && url === '/v1/semantic/search') {

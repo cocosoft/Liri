@@ -22,13 +22,106 @@
 import type http from 'http';
 import { sendError, readRequestBody } from './handler-utils';
 import { getLogger } from '@modules/monitoring';
+import { randomUUID } from 'node:crypto';
 
 const logger = getLogger('http:semanticIndex');
+
+// ── 语义索引构建任务管理（KB-SEM-P13：异步构建 + 进度轮询） ────────────
+
+interface BuildTask {
+  id: string;
+  status: 'running' | 'done' | 'error';
+  phase: string;
+  done: number;
+  total: number;
+  startedAt: number;
+  finishedAt?: number;
+  result?: {
+    ok: boolean;
+    chunkCount: number;
+    embeddedCount: number;
+    skippedCount: number;
+    durationMs: number;
+    indexDir: string;
+    error?: string;
+  };
+  error?: string;
+}
+
+/** 进行中的构建任务（保留最近 MAX_TASKS 个供前端轮询最终结果） */
+const buildTasks = new Map<string, BuildTask>();
+const MAX_TASKS = 20;
+
+function addBuildTask(task: BuildTask): void {
+  buildTasks.set(task.id, task);
+  // 超出上限时清理最早完成/失败的任务
+  if (buildTasks.size > MAX_TASKS) {
+    const oldest = [...buildTasks.values()].sort(
+      (a, b) => (a.finishedAt ?? a.startedAt) - (b.finishedAt ?? b.startedAt)
+    )[0];
+    if (oldest) buildTasks.delete(oldest.id);
+  }
+}
+
+/** 若已有 running 任务则返回其 taskId（幂等，避免重复构建） */
+function findRunningTask(): string | null {
+  for (const t of buildTasks.values()) {
+    if (t.status === 'running') return t.id;
+  }
+  return null;
+}
+
+// ── 搜索共享单例（KB-SEM-P13：避免每次请求全量解析 JSONL） ─────────────
+
+let sharedStore:
+  | import('@modules/knowledge/semantic/store').SemanticStore
+  | null = null;
+let sharedStoreDir = '';
+let sharedStoreStamp = '';
+
+/**
+ * 获取共享 SemanticStore。通过比对 index.meta.json 的 updatedAt 判断索引是否
+ * 变化，变化才重新 load——保证复用缓存的同时索引更新后立即可见
+ */
+async function getSharedStore(
+  indexDir: string
+): Promise<import('@modules/knowledge/semantic/store').SemanticStore> {
+  const { SemanticStore, readIndexMeta } =
+    await import('@modules/knowledge/semantic/store');
+  const meta = await readIndexMeta(indexDir);
+  const stamp = meta?.updatedAt ?? '';
+  if (
+    sharedStore &&
+    sharedStoreDir === indexDir &&
+    sharedStoreStamp === stamp
+  ) {
+    return sharedStore;
+  }
+  const store = new SemanticStore(indexDir, {
+    provider: 'local',
+    model: 'nomic-embed-text',
+  });
+  await store.load();
+  sharedStore = store;
+  sharedStoreDir = indexDir;
+  sharedStoreStamp = stamp;
+  return store;
+}
+
+/** 索引被清空/重建时使缓存失效 */
+function resetSharedStore(): void {
+  sharedStore = null;
+  sharedStoreDir = '';
+  sharedStoreStamp = '';
+}
 
 // ========== SemanticIndex Handlers ==========
 
 /**
- * 构建语义索引
+ * 构建语义索引（异步任务）
+ *
+ * KB-SEM-P13（2026-08-27）：原实现同步阻塞——大目录构建数分钟，前端 HTTP 超时
+ * 后误报"构建失败"但后端仍在构建。改为后台任务立即返回 taskId，前端轮询进度。
  */
 export async function handleBuildSemanticIndex(
   req: http.IncomingMessage,
@@ -46,18 +139,87 @@ export async function handleBuildSemanticIndex(
     // 在用户点"构建索引"（传空）时扫整个 ~/.pyapp 数据目录，索引与知识库完全脱节
     const effectiveRoot =
       rootDir || getDefaultKnowledgeBaseRegistry().getKnowledgeRoot();
-    const result = await builder.build({
-      rootDir: effectiveRoot,
-      incremental,
-      embedProvider: 'local',
-      onProgress: (phase, done, total) => {
-        // 进度日志节流：embedding 阶段每 100 条或最后一条才记录，避免高频刷屏
-        if (phase === 'embedding' && done < total && done % 100 !== 0) return;
-        logger.info(`Semantic index building: ${phase} ${done}/${total}`);
-      },
-    });
+
+    // 幂等：已有进行中任务则直接返回其 taskId
+    const runningId = findRunningTask();
+    if (runningId) {
+      res.writeHead(202, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ taskId: runningId }));
+      return;
+    }
+
+    const taskId = randomUUID();
+    const task: BuildTask = {
+      id: taskId,
+      status: 'running',
+      phase: 'chunking',
+      done: 0,
+      total: 1,
+      startedAt: Date.now(),
+    };
+    addBuildTask(task);
+
+    void (async () => {
+      try {
+        const result = await builder.build({
+          rootDir: effectiveRoot,
+          incremental,
+          embedProvider: 'local',
+          onProgress: (phase, done, total) => {
+            task.phase = phase;
+            task.done = done;
+            task.total = total;
+            // 进度日志节流：embedding 阶段每 100 条或最后一条才记录，避免高频刷屏
+            if (phase === 'embedding' && done < total && done % 100 !== 0)
+              return;
+            logger.info(`Semantic index building: ${phase} ${done}/${total}`);
+          },
+        });
+        task.status = result.ok ? 'done' : 'error';
+        task.result = result;
+        task.error = result.ok ? undefined : result.error;
+      } catch (err) {
+        task.status = 'error';
+        task.error = err instanceof Error ? err.message : String(err);
+      } finally {
+        task.finishedAt = Date.now();
+        // 构建完成/失败后，清空共享 store 缓存（索引已变化）
+        resetSharedStore();
+      }
+    })();
+
+    res.writeHead(202, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ taskId }));
+  } catch (err) {
+    sendError(res, err);
+  }
+}
+
+/**
+ * 查询构建任务进度 GET /v1/semantic/index/task?taskId=xxx
+ */
+export async function handleGetSemanticBuildTask(
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const urlObj = new URL(req.url!, `http://${req.headers.host}`);
+    const taskId = urlObj.searchParams.get('taskId');
+    if (!taskId) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({ error: { message: 'taskId parameter is required' } })
+      );
+      return;
+    }
+    const task = buildTasks.get(taskId);
+    if (!task) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: '任务不存在或已过期' } }));
+      return;
+    }
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify(result));
+    res.end(JSON.stringify(task));
   } catch (err) {
     sendError(res, err);
   }
@@ -84,18 +246,13 @@ export async function handleSearchSemantic(
       return;
     }
 
-    const { SemanticStore } = await import('@modules/knowledge/semantic/store');
     const { globalEmbeddingManager } =
       await import('@modules/ai/embedding/EmbeddingManager');
     const { resolveDataSubDir } = await import('@modules/core/paths');
     const indexDir = resolveDataSubDir('semantic-index');
-    // KB-SEM（2026-08-27）：provider/model 与构建/增量更新统一为 local/nomic-embed-text，
-    // 原实现硬编码 ollama/all-minilm 造成三处配置漂移
-    const store = new SemanticStore(indexDir, {
-      provider: 'local',
-      model: 'nomic-embed-text',
-    });
-    await store.load();
+    // KB-SEM-P13（2026-08-27）：复用共享单例——原实现每次请求 new SemanticStore
+    // + load() 全量解析 JSONL，文档多时搜索慢
+    const store = await getSharedStore(indexDir);
 
     await globalEmbeddingManager.initialize();
     const embedding = await globalEmbeddingManager.embedOne(query);
@@ -195,6 +352,8 @@ export async function handleClearSemanticIndex(
       await import('@modules/knowledge/semantic/store');
     const { resolveDataSubDir } = await import('@modules/core/paths');
     await wipeStoreFiles(resolveDataSubDir('semantic-index'));
+    // KB-SEM-P13：索引已清空，共享 store 缓存失效
+    resetSharedStore();
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ success: true }));
   } catch (err) {

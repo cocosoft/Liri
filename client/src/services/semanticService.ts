@@ -34,6 +34,19 @@ export interface IndexBuildResult {
   error?: string;
 }
 
+/** KB-SEM-P13：语义索引构建任务状态（异步构建 + 进度轮询） */
+export interface SemanticBuildTask {
+  id: string;
+  status: "running" | "done" | "error";
+  phase: string;
+  done: number;
+  total: number;
+  startedAt: number;
+  finishedAt?: number;
+  result?: IndexBuildResult;
+  error?: string;
+}
+
 export const semanticService = {
   /** 获取语义索引状态 */
   getStatus: async (): Promise<SemanticIndexStatus> => {
@@ -55,18 +68,37 @@ export const semanticService = {
     }
   },
 
-  /** 构建语义索引 */
-  buildIndex: async (rootDir?: string): Promise<IndexBuildResult | null> => {
+  /**
+   * 启动语义索引构建（异步任务，立即返回 taskId，前端轮询 getBuildTask 查看进度）
+   * KB-SEM-P13：原 buildIndex 同步阻塞——大目录构建数分钟，HTTP 超时后误报失败
+   */
+  startBuild: async (rootDir?: string): Promise<string | null> => {
     try {
-      const res = await http.post<IndexBuildResult>("/v1/semantic/index", {
+      const res = await http.post<{ taskId: string }>("/v1/semantic/index", {
         rootDir: rootDir || "",
         incremental: true,
       });
-      return (res ?? null) as IndexBuildResult | null;
+      return res?.taskId ?? null;
     } catch (e) {
       handleClientError(e, {
         module: "services:semantic",
-        action: "buildIndex",
+        action: "startBuild",
+      });
+      return null;
+    }
+  },
+
+  /** 查询语义索引构建任务进度 */
+  getBuildTask: async (taskId: string): Promise<SemanticBuildTask | null> => {
+    try {
+      const res = await http.get<SemanticBuildTask>(
+        `/v1/semantic/index/task?taskId=${encodeURIComponent(taskId)}`,
+      );
+      return (res ?? null) as SemanticBuildTask | null;
+    } catch (e) {
+      handleClientError(e, {
+        module: "services:semantic",
+        action: "getBuildTask",
       });
       return null;
     }

@@ -35,21 +35,64 @@ export default function SemanticIndexPage() {
 
   const handleBuild = async () => {
     setBuilding(true);
-    setBuildMsg("正在构建语义索引...");
-    const result = await semanticService.buildIndex();
-    if (result) {
-      if (result.ok) {
-        setBuildMsg(
-          `✅ 构建完成 — ${result.chunkCount} 个分块, ${result.embeddedCount} 个嵌入, 耗时 ${(result.durationMs / 1000).toFixed(1)}s`,
-        );
-      } else {
-        setBuildMsg(`❌ ${result.error || "构建失败"}`);
-      }
-    } else {
+    setBuildMsg("正在启动构建...");
+    // KB-SEM-P13：异步任务 + 轮询进度，避免大目录构建时 HTTP 超时误报失败
+    const taskId = await semanticService.startBuild();
+    if (!taskId) {
       setBuildMsg("❌ 构建请求失败");
+      setBuilding(false);
+      return;
     }
-    setBuilding(false);
-    loadStatus();
+    const phaseLabel = (phase: string): string => {
+      const labels: Record<string, string> = {
+        chunking: "分块",
+        filtering: "过滤",
+        embedding: "嵌入",
+        storing: "存储",
+      };
+      return labels[phase] ?? phase;
+    };
+    const poll = async (): Promise<void> => {
+      const task = await semanticService.getBuildTask(taskId);
+      if (!task) {
+        setBuildMsg("❌ 获取构建进度失败");
+        setBuilding(false);
+        return;
+      }
+      if (task.status === "running") {
+        const pct =
+          task.total > 0
+            ? `${Math.round((task.done / task.total) * 100)}%`
+            : "";
+        setBuildMsg(
+          `构建中... ${phaseLabel(task.phase)} ${task.done}/${task.total} ${pct}`,
+        );
+        setTimeout(poll, 1000);
+        return;
+      }
+      if (task.status === "error") {
+        setBuildMsg(`❌ ${task.error || "构建失败"}`);
+        setBuilding(false);
+        loadStatus();
+        return;
+      }
+      // done
+      const r = task.result;
+      if (r) {
+        if (r.ok) {
+          setBuildMsg(
+            `✅ 构建完成 — ${r.chunkCount} 个分块, ${r.embeddedCount} 个嵌入, 耗时 ${(r.durationMs / 1000).toFixed(1)}s`,
+          );
+        } else {
+          setBuildMsg(`❌ ${r.error || "构建失败"}`);
+        }
+      } else {
+        setBuildMsg("❌ 构建失败（无结果）");
+      }
+      setBuilding(false);
+      loadStatus();
+    };
+    void poll();
   };
 
   const handleClear = async () => {

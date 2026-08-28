@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { semanticService } from "../../services/semanticService";
 import type {
   SemanticIndexStatus,
@@ -23,12 +23,25 @@ export default function SemanticIndexPage() {
   const [searching, setSearching] = useState(false);
   // KB-SEM-P2-1（2026-08-28）：搜索失败与"无结果"区分显示
   const [searchError, setSearchError] = useState("");
+  // F4：构建轮询定时器引用（卸载时清理，防卸载后 setState / 并行构建）
+  const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    return () => {
+      if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
+    };
+  }, []);
 
   const loadStatus = useCallback(async () => {
     setLoading(true);
-    const s = await semanticService.getStatus();
-    setStatus(s);
-    setLoading(false);
+    try {
+      const s = await semanticService.getStatus();
+      // S1：getStatus 失败返回 null，与"索引不存在"（exists:false）区分
+      setStatus(s);
+    } catch {
+      setStatus(null);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -36,6 +49,7 @@ export default function SemanticIndexPage() {
   }, [loadStatus]);
 
   const handleBuild = async () => {
+    if (building) return; // F4：防重，避免并行构建
     setBuilding(true);
     setBuildMsg("正在启动构建...");
     // KB-SEM-P13：异步任务 + 轮询进度，避免大目录构建时 HTTP 超时误报失败
@@ -69,7 +83,8 @@ export default function SemanticIndexPage() {
         setBuildMsg(
           `构建中... ${phaseLabel(task.phase)} ${task.done}/${task.total} ${pct}`,
         );
-        setTimeout(poll, 1000);
+        // F4：定时器存 ref，卸载时由 cleanup 清除
+        pollTimerRef.current = setTimeout(poll, 1000);
         return;
       }
       if (task.status === "error") {
@@ -107,9 +122,15 @@ export default function SemanticIndexPage() {
     loadStatus();
   };
 
+  // L8：搜索期间输入框可改——用 ref 记录最新输入，结果返回时校验是否仍对应本次 query
+  const searchQueryRef = useRef(searchQuery);
+  searchQueryRef.current = searchQuery;
+
   const handleSearch = async () => {
     const q = searchQuery.trim();
-    if (!q || searching) return;
+    // KB-S1：去掉 searching 门闩 —— 请求期间可修改关键词并发起新搜索，
+    // 过期响应由下方 L8 queryRef 校验丢弃（原实现把新搜索直接 return 吞掉，按钮也无 loading 感知）
+    if (!q) return;
     setSearching(true);
     setSearchError("");
     const results = await semanticService.search(q);
@@ -122,6 +143,8 @@ export default function SemanticIndexPage() {
       setSearchResults([]);
       return;
     }
+    // L8：请求期间输入已变化 → 丢弃过期结果，避免旧结果配新词
+    if (searchQueryRef.current.trim() !== q) return;
     setSearchResults(results);
   };
 
@@ -187,7 +210,15 @@ export default function SemanticIndexPage() {
               </div>
             </div>
           ) : (
-            <p className="text-sm text-gray-400">无法获取状态</p>
+            <div className="text-sm">
+              <p className="text-red-500 dark:text-red-400">状态获取失败</p>
+              <button
+                onClick={() => void loadStatus()}
+                className="mt-1 text-xs text-blue-500 dark:text-blue-400 underline"
+              >
+                重试
+              </button>
+            </div>
           )}
 
           {/* 操作按钮 */}
@@ -231,7 +262,7 @@ export default function SemanticIndexPage() {
             />
             <button
               onClick={handleSearch}
-              disabled={searching || !searchQuery.trim()}
+              disabled={!searchQuery.trim()}
               className="px-4 py-2 text-sm bg-gray-600 hover:bg-gray-700 disabled:opacity-50 text-white rounded"
             >
               {searching ? "搜索中..." : "搜索"}

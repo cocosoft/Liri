@@ -192,6 +192,8 @@ class SSEService {
         "session:created",
         "session:deleted",
         "session:cleared",
+        // P0 补齐（对齐 dsh llm/adapters-updated）：Provider 拓扑变更 → 前端刷新模型管理页
+        "providers:changed",
       ];
       logger.info(`[connect] 注册进度事件监听 count=${progressEvents.length}`);
       for (const evt of progressEvents) {

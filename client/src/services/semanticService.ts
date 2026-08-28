@@ -48,8 +48,8 @@ export interface SemanticBuildTask {
 }
 
 export const semanticService = {
-  /** 获取语义索引状态 */
-  getStatus: async (): Promise<SemanticIndexStatus> => {
+  /** 获取语义索引状态；失败返回 null（与"索引不存在"区分，供 UI 展示错误态） */
+  getStatus: async (): Promise<SemanticIndexStatus | null> => {
     try {
       const res = await http.get<SemanticIndexStatus>(
         "/v1/semantic/index/status",
@@ -64,7 +64,8 @@ export const semanticService = {
         module: "services:semantic",
         action: "getStatus",
       });
-      return { exists: false, docCount: 0, chunkCount: 0 };
+      // S1：不再把网络故障伪装成"无索引"，由组件区分展示
+      return null;
     }
   },
 

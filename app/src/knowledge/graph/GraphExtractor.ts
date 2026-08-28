@@ -104,19 +104,52 @@ export async function extractGraph(
     ];
 
     logger.info('图谱提取中', { domain, contentLength: content.length });
-    const response = await aiService.generate(messages, modelName);
-    const rawOutput = response.content.trim();
 
-    // 3. 解析 JSON 结果
-    const jsonMatch = rawOutput.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      logger.warn('图谱提取失败：无法解析 JSON', {
-        rawPreview: rawOutput.slice(0, 200),
+    // 3. 调用 LLM 并解析 JSON（长文档输出易被 max_tokens 截断导致解析失败，
+    //    失败时翻倍 max_tokens 重试一次，提高提取成功率）
+    let extracted: ExtractionResult | null = null;
+    let maxTokens = 8192;
+    for (let attempt = 1; attempt <= 2 && !extracted; attempt++) {
+      const response = await aiService.generate(messages, modelName, {
+        max_tokens: maxTokens,
       });
-      return null;
+      const rawOutput = response.content.trim();
+      const jsonMatch = rawOutput.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        if (attempt < 2) {
+          maxTokens *= 2;
+          logger.warn('图谱提取 JSON 不完整，翻倍 max_tokens 重试', {
+            attempt,
+            maxTokens,
+          });
+          continue;
+        }
+        logger.warn('图谱提取失败：无法解析 JSON', {
+          rawPreview: rawOutput.slice(0, 200),
+        });
+        return null;
+      }
+      try {
+        extracted = JSON.parse(jsonMatch[0]) as ExtractionResult;
+      } catch (err) {
+        if (attempt < 2) {
+          maxTokens *= 2;
+          logger.warn('图谱提取 JSON 解析失败，翻倍 max_tokens 重试', {
+            attempt,
+            maxTokens,
+            error: (err as Error).message,
+          });
+          continue;
+        }
+        logger.warn('图谱提取失败，跳过该文档', {
+          error: (err as Error).message,
+          domain,
+        });
+        otel.recordError(span, err as Error);
+        return null;
+      }
     }
-
-    const extracted: ExtractionResult = JSON.parse(jsonMatch[0]);
+    if (!extracted) return null;
 
     // 4. 写入 kg_edges 表
     let edgeCount = 0;
@@ -171,5 +204,11 @@ export class GraphExtractor {
     domain: string
   ): Promise<ExtractionResult | null> {
     return extractGraph(this.aiService, this.knowledgeGraph, content, domain);
+  }
+
+  /** 查询指定域是否已存在图谱数据（用于判断是否需要全量构建） */
+  async hasDomainEdges(domain: string): Promise<boolean> {
+    const edges = await this.knowledgeGraph.queryEdges({ domain, limit: 1 });
+    return edges.length > 0;
   }
 }

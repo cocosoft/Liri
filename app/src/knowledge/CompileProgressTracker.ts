@@ -19,6 +19,15 @@ export interface CompileProgress {
   startedAt: number;
   /** 最近一次错误信息 */
   lastError: string | null;
+  /**
+   * 编译结果摘要（done 后返回，供前端展示）
+   * KB-COMPILE-ASYNC（2026-08-28）
+   */
+  result: {
+    compiled: number;
+    skipped: number;
+    errors: number;
+  } | null;
 }
 
 let currentProgress: CompileProgress = {
@@ -27,6 +36,7 @@ let currentProgress: CompileProgress = {
   total: 0,
   startedAt: 0,
   lastError: null,
+  result: null,
 };
 
 /** 开始新一轮编译 */
@@ -37,6 +47,7 @@ export function startCompileProgress(total: number): void {
     total,
     startedAt: Date.now(),
     lastError: null,
+    result: null,
   };
   try {
     broadcastEvent('knowledge:compile:started', { total });
@@ -61,17 +72,23 @@ export function updateCompileProgress(current: number, error?: string): void {
 }
 
 /** 编译完成 */
-export function finishCompileProgress(): void {
+export function finishCompileProgress(result?: {
+  compiled: number;
+  skipped: number;
+  errors: number;
+}): void {
   currentProgress.status = 'done';
+  currentProgress.result = result ?? null;
   try {
     broadcastEvent('knowledge:compile:completed', {
       total: currentProgress.total,
+      result,
       durationMs: Date.now() - currentProgress.startedAt,
     });
   } catch {
     /* SSE 不可用 */
   }
-  // 30 秒后重置为 idle
+  // 60 秒后重置为 idle（前端轮询完成/超时后恢复，避免过早重置导致结果丢失）
   setTimeout(() => {
     if (currentProgress.status === 'done') {
       currentProgress = {
@@ -80,9 +97,10 @@ export function finishCompileProgress(): void {
         total: 0,
         startedAt: 0,
         lastError: null,
+        result: null,
       };
     }
-  }, 30000);
+  }, 60000);
 }
 
 /** 编译异常中止 */

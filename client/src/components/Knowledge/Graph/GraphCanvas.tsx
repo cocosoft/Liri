@@ -1,4 +1,4 @@
-import { memo, useRef, useEffect, useState, useCallback } from "react";
+import { memo, useRef, useEffect, useState, useCallback, useMemo } from "react";
 import type { GraphEdge } from "../../../types/project";
 
 interface GraphCanvasProps {
@@ -6,6 +6,8 @@ interface GraphCanvasProps {
   focusNode?: string;
   onFocusNode: (node: string | null) => void;
   isDark: boolean;
+  /** 搜索高亮关键词（匹配实体名） */
+  highlight?: string;
 }
 
 interface LayoutNode {
@@ -35,6 +37,7 @@ export const GraphCanvas = memo(function GraphCanvas({
   focusNode,
   onFocusNode,
   isDark,
+  highlight = "",
 }: GraphCanvasProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const [nodes, setNodes] = useState<LayoutNode[]>([]);
@@ -54,7 +57,11 @@ export const GraphCanvas = memo(function GraphCanvas({
 
   // Simple force layout
   useEffect(() => {
-    if (edges.length === 0) return;
+    // KB-G1：边清空时重置节点，避免"有边库切到无边库"旧节点残留画布
+    if (edges.length === 0) {
+      setNodes([]);
+      return;
+    }
 
     // Collect unique nodes
     const nodeMap = new Map<string, LayoutNode>();
@@ -142,7 +149,8 @@ export const GraphCanvas = memo(function GraphCanvas({
 
     runSim();
     setNodes(nodesArr);
-  }, [edges, dim, focusNode]);
+    // KB-C12：focusNode 仅影响视觉高亮不参与布局，从 deps 移除避免点击聚焦触发 50 迭代重排导致节点跳动
+  }, [edges, dim]);
 
   const handleNodeClick = useCallback(
     (nodeId: string) => {
@@ -151,21 +159,33 @@ export const GraphCanvas = memo(function GraphCanvas({
     [focusNode, onFocusNode],
   );
 
-  const domainColors = new Map<string, string>();
-  let colorIdx = 0;
-  for (const n of nodes) {
-    if (n.domain && !domainColors.has(n.domain)) {
-      domainColors.set(
-        n.domain,
-        DOMAIN_COLORS[colorIdx % DOMAIN_COLORS.length]!,
-      );
-      colorIdx++;
+  // KB-L12：domain→颜色映射用 useMemo 缓存（原每次渲染重建 Map）
+  const domainColors = useMemo(() => {
+    const map = new Map<string, string>();
+    let colorIdx = 0;
+    for (const n of nodes) {
+      if (n.domain && !map.has(n.domain)) {
+        map.set(n.domain, DOMAIN_COLORS[colorIdx % DOMAIN_COLORS.length]!);
+        colorIdx++;
+      }
     }
-  }
+    return map;
+  }, [nodes]);
 
   const focusEdges = focusNode
     ? edges.filter((e) => e.from === focusNode || e.to === focusNode)
     : null;
+
+  const hl = highlight.trim().toLowerCase();
+  const highlightNodes = useMemo(() => {
+    const set = new Set<string>();
+    if (!hl) return set;
+    for (const e of edges) {
+      if (e.from.toLowerCase().includes(hl)) set.add(e.from);
+      if (e.to.toLowerCase().includes(hl)) set.add(e.to);
+    }
+    return set;
+  }, [edges, hl]);
 
   const bgColor = isDark ? "#1f2937" : "#f9fafb";
   const edgeColor = isDark ? "#374151" : "#d1d5db";
@@ -187,6 +207,12 @@ export const GraphCanvas = memo(function GraphCanvas({
         const to = nodes.find((n) => n.id === e.to);
         if (!from || !to) return null;
         const isFocus = focusEdges?.some((fe) => fe.id === e.id);
+        // 高亮模式下：端点命中关键词的边加粗高亮，仅关系类型命中的边淡化
+        const edgeStrong =
+          isFocus ||
+          !hl ||
+          highlightNodes.has(e.from) ||
+          highlightNodes.has(e.to);
         return (
           <line
             key={e.id}
@@ -194,9 +220,11 @@ export const GraphCanvas = memo(function GraphCanvas({
             y1={from.y}
             x2={to.x}
             y2={to.y}
-            stroke={isFocus ? edgeFocus : edgeColor}
-            strokeWidth={isFocus ? 2 : 0.5}
-            strokeOpacity={focusNode && !isFocus ? 0.1 : 0.6}
+            stroke={isFocus || (hl && !edgeStrong) ? edgeFocus : edgeColor}
+            strokeWidth={isFocus ? 2 : edgeStrong ? 1 : 0.5}
+            strokeOpacity={
+              focusNode && !isFocus ? 0.1 : edgeStrong ? 0.6 : 0.15
+            }
           />
         );
       })}
@@ -204,9 +232,12 @@ export const GraphCanvas = memo(function GraphCanvas({
       {/* Nodes */}
       {nodes.map((n) => {
         const isFocus = n.id === focusNode;
+        const isHl = hl !== "" && highlightNodes.has(n.id);
+        const dimmed = hl !== "" && !isHl;
         const color = n.domain
           ? (domainColors.get(n.domain) ?? "#6b7280")
           : "#6b7280";
+        const showLabel = isFocus || isHl || !(focusNode || hl !== "");
         return (
           <g
             key={n.id}
@@ -216,20 +247,23 @@ export const GraphCanvas = memo(function GraphCanvas({
             <circle
               cx={n.x}
               cy={n.y}
-              r={isFocus ? NODE_RADIUS + 3 : NODE_RADIUS}
-              fill={color}
-              stroke={isFocus ? "#fff" : "none"}
-              strokeWidth={isFocus ? 2 : 0}
-              opacity={focusNode && !isFocus ? 0.3 : 0.85}
+              r={
+                isFocus ? NODE_RADIUS + 3 : isHl ? NODE_RADIUS + 2 : NODE_RADIUS
+              }
+              fill={isHl ? "#f59e0b" : color}
+              stroke={isFocus || isHl ? "#fff" : "none"}
+              strokeWidth={isFocus || isHl ? 2 : 0}
+              opacity={focusNode && !isFocus ? 0.3 : dimmed ? 0.2 : 0.85}
             />
-            {(isFocus || !focusNode) && (
+            {showLabel && (
               <text
                 x={n.x}
                 y={n.y + NODE_RADIUS + 10}
                 textAnchor="middle"
                 fontSize="9"
                 fill={textColor}
-                opacity={0.8}
+                opacity={isHl ? 1 : 0.8}
+                fontWeight={isHl ? 600 : 400}
               >
                 {n.id.length > 20 ? n.id.slice(0, 18) + "…" : n.id}
               </text>

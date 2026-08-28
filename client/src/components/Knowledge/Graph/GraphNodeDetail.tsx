@@ -58,6 +58,14 @@ export const GraphNodeDetail = memo(function GraphNodeDetail({
                 </span>
               </div>
             ))}
+            {/* KB-L13：截断提示，避免"出边 (N)"与实际展示条数不符 */}
+            {outgoing.length > 10 && (
+              <div
+                className={`text-[10px] ${isDark ? "text-gray-600" : "text-gray-400"}`}
+              >
+                还有 {outgoing.length - 10} 条
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -85,6 +93,14 @@ export const GraphNodeDetail = memo(function GraphNodeDetail({
                 </span>
               </div>
             ))}
+            {/* KB-L13：截断提示 */}
+            {incoming.length > 10 && (
+              <div
+                className={`text-[10px] ${isDark ? "text-gray-600" : "text-gray-400"}`}
+              >
+                还有 {incoming.length - 10} 条
+              </div>
+            )}
           </div>
         </div>
       )}

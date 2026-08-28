@@ -32,7 +32,8 @@ import { FileSource } from '@modules/services/file/types';
 import { IndexManager } from './IndexManager';
 import { WikiLinter, defaultRules } from './lint/WikiLinter';
 import { providerRegistry, modelRouter } from '@modules/ai';
-import type { GraphExtractor } from './graph/GraphExtractor';
+import { GraphExtractor } from './graph/GraphExtractor';
+import { KnowledgeGraph } from './graph/KnowledgeGraph';
 import {
   startCompileProgress,
   updateCompileProgress,
@@ -250,8 +251,12 @@ export class KnowledgeCompiler {
       }
     }
 
-    // W9: 编译完成
-    finishCompileProgress();
+    // W9: 编译完成（KB-COMPILE-ASYNC：携带结果摘要，供前端进度轮询展示）
+    finishCompileProgress({
+      compiled: result.compiled,
+      skipped: result.skipped,
+      errors: result.errors.length,
+    });
 
     // 持久化编译状态快照
     await this.saveCompileState(newState);
@@ -305,16 +310,31 @@ export class KnowledgeCompiler {
     }
 
     // LLM 图谱自动提取（编译后）
-    if (this.graphExtractor && result.pagesCreated > 0) {
-      logger.info('开始图谱自动提取');
+    // 触发条件：本次有新编译页面（增量提取新页面），或全部跳过但 knowledge
+    // 域尚无图谱数据（从既有编译页面全量构建，避免图谱永远为空）
+    if (this.graphExtractor && result.totalFound > 0) {
+      const incremental = result.pagesCreated > 0;
       try {
-        // 对编译产出的页面进行图谱提取
-        for (const compiledFile of result.compiledFiles ?? []) {
-          try {
-            const content = await readFile(compiledFile, 'utf-8');
-            await this.graphExtractor.extract(content, 'knowledge');
-          } catch {
-            // 单个文件提取失败不阻塞
+        const hasKnowledgeEdges =
+          await this.graphExtractor.hasDomainEdges('knowledge');
+        if (incremental || !hasKnowledgeEdges) {
+          const pagesToExtract = incremental
+            ? (result.compiledFiles ?? [])
+            : await this.collectExistingPages(rawFiles);
+          if (pagesToExtract.length > 0) {
+            logger.info('开始图谱自动提取', {
+              pages: pagesToExtract.length,
+              mode: incremental ? 'incremental' : 'initial-build',
+            });
+            // 对页面进行图谱提取
+            for (const compiledFile of pagesToExtract) {
+              try {
+                const content = await readFile(compiledFile, 'utf-8');
+                await this.graphExtractor.extract(content, 'knowledge');
+              } catch {
+                // 单个文件提取失败不阻塞
+              }
+            }
           }
         }
       } catch (err) {
@@ -352,6 +372,31 @@ export class KnowledgeCompiler {
     }
 
     return files.sort();
+  }
+
+  /**
+   * 收集既有编译产物页面（全量图谱构建用）
+   * 通过 raw 文件的 companion .meta.json 获取其生成的页面列表
+   */
+  private async collectExistingPages(rawFiles: string[]): Promise<string[]> {
+    const pages: string[] = [];
+    for (const rawFile of rawFiles) {
+      const metaFile = `${rawFile}.meta.json`;
+      if (!existsSync(metaFile)) continue;
+      try {
+        const meta = JSON.parse(await readFile(metaFile, 'utf-8'));
+        if (Array.isArray(meta.pages)) {
+          for (const page of meta.pages) {
+            if (typeof page === 'string' && !pages.includes(page)) {
+              pages.push(page);
+            }
+          }
+        }
+      } catch {
+        // 忽略损坏的 meta 文件
+      }
+    }
+    return pages;
   }
 
   /**
@@ -774,6 +819,9 @@ export async function runKnowledgeCompile(
   aiService: AIService,
   options?: CompileOptions
 ): Promise<CompileResult> {
-  const compiler = new KnowledgeCompiler(aiService);
+  const graph = new KnowledgeGraph();
+  await graph.init();
+  const graphExtractor = new GraphExtractor(aiService, graph);
+  const compiler = new KnowledgeCompiler(aiService, graphExtractor);
   return compiler.compile(options);
 }

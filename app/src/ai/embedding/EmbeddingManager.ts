@@ -15,6 +15,9 @@ import type { OpenAIEmbeddingConfig } from './providers/OpenAIEmbeddingProvider'
 import { configManager } from '@modules/config';
 import { providerRegistry } from '@modules/ai';
 import { resolveModelRoute, RouteKey } from '@modules/ai';
+import { getLogger } from '@modules/monitoring';
+
+const logger = getLogger('ai:embedding:EmbeddingManager');
 
 /**
  * 嵌入模型配置
@@ -71,6 +74,13 @@ export class EmbeddingManager {
       : 'local';
 
     this.initialized = true;
+    // KB-SEM-LOG（2026-08-28）：记录最终选中的嵌入提供者——排查"嵌入服务不可用"
+    // 时先看此日志确认走 local(Ollama) 还是远端 OpenAI-compat
+    logger.info('EmbeddingManager 初始化完成', {
+      resolvedType: resolved.type,
+      defaultProviderId: this.defaultProviderId,
+      registered: [...this.providers.keys()],
+    });
   }
 
   /**

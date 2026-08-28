@@ -9,6 +9,9 @@ import {
   EmbeddingResult,
 } from '../EmbeddingBase';
 import { configManager } from '@modules/config';
+import { getLogger } from '@modules/monitoring';
+
+const logger = getLogger('ai:embedding:providers:OpenAIEmbeddingProvider');
 
 /**
  * OpenAI 嵌入模型配置
@@ -70,17 +73,34 @@ export class OpenAIEmbeddingProvider extends EmbeddingBase {
       body.dimensions = dimensions;
     }
 
-    const response = await fetch(`${this.baseURL}/embeddings`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${this.apiKey}`,
-      },
-      body: JSON.stringify(body),
-    });
+    let response: Response;
+    try {
+      response = await fetch(`${this.baseURL}/embeddings`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${this.apiKey}`,
+        },
+        body: JSON.stringify(body),
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      logger.error('OpenAI Embedding 请求失败（网络/连接错误）', {
+        baseURL: this.baseURL,
+        model,
+        error: msg,
+      });
+      throw new Error(`OpenAI Embedding 请求失败: ${msg}`);
+    }
 
     if (!response.ok) {
       const error = await response.text();
+      logger.error('OpenAI Embedding API 错误', {
+        status: response.status,
+        baseURL: this.baseURL,
+        model,
+        response: error.slice(0, 500),
+      });
       throw new Error(
         `OpenAI Embedding API 错误 (${response.status}): ${error}`
       );

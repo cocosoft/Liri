@@ -93,6 +93,11 @@ export class IndexBuilder {
       const chunkOpts = config.chunkOptions ?? {};
       const chunks = await chunkDirectory(rootDir, chunkOpts);
       config.onProgress?.('chunking', chunks.length, chunks.length);
+      // KB-SEM-LOG（2026-08-28）：分块完成统计，排查"构建极慢/无分块"先看此日志
+      logger.info('语义索引分块完成', {
+        rootDir,
+        chunks: chunks.length,
+      });
 
       if (chunks.length === 0) {
         return {
@@ -143,6 +148,14 @@ export class IndexBuilder {
 
       const skippedCount = chunks.length - toEmbed.length;
       config.onProgress?.('filtering', chunks.length, chunks.length);
+      // KB-SEM-LOG（2026-08-28）：增量过滤结果——新增需嵌入数 / 跳过未变数 /
+      // 清理的已删除文件数，排查增量不生效问题先看此日志
+      logger.info('语义索引增量过滤完成', {
+        incremental,
+        totalChunks: chunks.length,
+        toEmbed: toEmbed.length,
+        skipped: skippedCount,
+      });
 
       if (toEmbed.length === 0) {
         return {

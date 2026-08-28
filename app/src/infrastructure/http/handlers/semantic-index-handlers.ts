@@ -143,6 +143,7 @@ export async function handleBuildSemanticIndex(
     // 幂等：已有进行中任务则直接返回其 taskId
     const runningId = findRunningTask();
     if (runningId) {
+      logger.info('语义索引构建已有进行中任务，复用', { taskId: runningId });
       res.writeHead(202, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ taskId: runningId }));
       return;
@@ -158,6 +159,11 @@ export async function handleBuildSemanticIndex(
       startedAt: Date.now(),
     };
     addBuildTask(task);
+    logger.info('语义索引构建任务启动', {
+      taskId,
+      rootDir: effectiveRoot,
+      incremental,
+    });
 
     void (async () => {
       try {
@@ -178,9 +184,27 @@ export async function handleBuildSemanticIndex(
         task.status = result.ok ? 'done' : 'error';
         task.result = result;
         task.error = result.ok ? undefined : result.error;
+        if (result.ok) {
+          logger.info('语义索引构建任务完成', {
+            taskId,
+            chunkCount: result.chunkCount,
+            embeddedCount: result.embeddedCount,
+            skippedCount: result.skippedCount,
+            durationMs: result.durationMs,
+          });
+        } else {
+          logger.error('语义索引构建任务失败（构建器返回错误）', {
+            taskId,
+            error: result.error,
+          });
+        }
       } catch (err) {
         task.status = 'error';
         task.error = err instanceof Error ? err.message : String(err);
+        logger.error('语义索引构建任务异常', {
+          taskId,
+          error: task.error,
+        });
       } finally {
         task.finishedAt = Date.now();
         // 构建完成/失败后，清空共享 store 缓存（索引已变化）

@@ -180,12 +180,22 @@ export class LocalEmbeddingProvider extends EmbeddingBase {
         embeddings.push(json.embedding);
         totalTokens += json.embedding.length;
       } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
         await handleError(err, {
           module: 'ai:embedding',
           action: 'embedOllama_fetch',
         });
-        // 单条失败不中断整体，注入零向量占位
-        embeddings.push(new Array(this.dimensions || 768).fill(0));
+        // KB-SEM-FIX（2026-08-28）：不再注入零向量占位——Ollama 不可用时原实现
+        // 静默建出全零索引（搜索全无结果且无任何提示），改为抛错让上层（builder
+        // 熔断机制）显式中止，与 OpenAI 远端路径行为一致
+        logger.error('本地嵌入(Ollama)调用失败，中止当前批次', {
+          baseUrl: this.config.baseUrl,
+          model: this.config.model,
+          error: msg,
+        });
+        throw new Error(
+          `本地嵌入失败（Ollama ${this.config.baseUrl}, model=${this.config.model}）: ${msg}`
+        );
       } finally {
         clearTimeout(
           (controller as unknown as Record<string, unknown>)._timer as
@@ -258,14 +268,21 @@ export class LocalEmbeddingProvider extends EmbeddingBase {
           totalTokens += json.usage.total_tokens;
         }
       } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
         await handleError(err, {
           module: 'ai:embedding',
           action: 'embedOpenAICompat_fetch',
         });
-        // 批次失败不中断整体，为每个文本注入零向量占位
-        for (const _text of batch) {
-          embeddings.push(new Array(this.dimensions || 768).fill(0));
-        }
+        // KB-SEM-FIX（2026-08-28）：同 Ollama 路径——不再注入零向量占位，
+        // 失败抛错让上层熔断可见
+        logger.error('本地嵌入(OpenAI-compat)调用失败，中止当前批次', {
+          baseUrl: this.config.baseUrl,
+          model: this.config.model,
+          error: msg,
+        });
+        throw new Error(
+          `本地嵌入失败（OpenAI-compat ${this.config.baseUrl}, model=${this.config.model}）: ${msg}`
+        );
       } finally {
         clearTimeout(
           (controller as unknown as Record<string, unknown>)._timer as

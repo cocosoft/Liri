@@ -187,6 +187,55 @@ function ChatArea({ fluid = false }: { fluid?: boolean }) {
     }
   };
 
+  /**
+   * 错误面板继续（2026-08-29）：异常后基于已落盘上下文续写——
+   * ① 先 flush 待保存 blocks（写前持久化：异常时上下文落盘，确保继续基于完整状态）
+   * ② 再以最后 assistant 消息（含已生成的部分内容）为引用发送"请继续"，
+   *    后端基于整轮上下文接着输出（区别于"重试"从头重新生成）。
+   */
+  const handleContinueError = async () => {
+    // ① 异常时上下文落盘（flushPendingSaves 内置 3s 超时保护）
+    try {
+      await useChatStore.getState().flushPendingSaves();
+      logger.debug("handleContinueError: 上下文已落盘");
+    } catch (e) {
+      logger.warn("handleContinueError: flushPendingSaves 失败", {
+        error: e instanceof Error ? e.message : String(e),
+      });
+    }
+    // ② 清除错误显示（无论是否可继续）
+    useChatStore.setState({ error: null, errorCode: null });
+    // ③ 找最后 assistant 消息（含已生成的部分内容）继续生成
+    const { messages } = useChatStore.getState();
+    const lastAssistant = [...messages]
+      .reverse()
+      .find((m) => m.role === "assistant");
+    if (!lastAssistant) {
+      // 边界：无已生成内容（纯后端不可达提示），无从继续，提示用户用重试
+      logger.warn("handleContinueError: 无 assistant 消息可继续，仅清除错误", {
+        messageCount: messages.length,
+      });
+      return;
+    }
+    logger.info("handleContinueError: 基于已落盘上下文继续生成", {
+      assistantMsgId: lastAssistant.id,
+      sessionId: lastAssistant.session_id,
+      messageCount: messages.length,
+    });
+    try {
+      await useChatStore
+        .getState()
+        .continueGeneration(lastAssistant.id, lastAssistant.session_id);
+      logger.info("handleContinueError: 继续生成已触发", {
+        assistantMsgId: lastAssistant.id,
+      });
+    } catch (e) {
+      logger.warn("handleContinueError: 继续生成异常", {
+        error: e instanceof Error ? e.message : String(e),
+      });
+    }
+  };
+
   const handleCreateSession = () => {
     // W1 修复：失败已在 createChatSession 内 toast + 记录，这里仅防 unhandledRejection
     createSession(t("chat.newSession")).catch(() => {});
@@ -511,6 +560,12 @@ function ChatArea({ fluid = false }: { fluid?: boolean }) {
                     className="text-xs px-2 py-1 rounded bg-red-100 dark:bg-red-800/50 text-red-600 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-700/50 transition-colors"
                   >
                     🔄 {t("common.retry")}
+                  </button>
+                  <button
+                    onClick={() => void handleContinueError()}
+                    className="text-xs px-2 py-1 rounded bg-red-100 dark:bg-red-800/50 text-red-600 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-700/50 transition-colors"
+                  >
+                    ▶ {t("chat.continueGenerate")}
                   </button>
                   <button
                     onClick={() =>

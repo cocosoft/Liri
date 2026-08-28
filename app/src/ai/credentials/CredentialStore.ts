@@ -32,7 +32,13 @@
  * - 掩码工具 maskKey() 供 HTTP 层脱敏返回
  */
 
-import { existsSync, readFileSync, writeFileSync, mkdirSync, chmodSync } from 'fs';
+import {
+  existsSync,
+  readFileSync,
+  writeFileSync,
+  mkdirSync,
+  chmodSync,
+} from 'fs';
 import { dirname, join } from 'path';
 import { resolvePyappHome } from '@modules/core/paths';
 import { getLogger } from '@modules/monitoring';
@@ -152,7 +158,7 @@ export class CredentialStore {
       writeFileSync(
         this.filePath,
         JSON.stringify(Object.fromEntries(this.cache), null, 2),
-        'utf-8',
+        'utf-8'
       );
       try {
         chmodSync(this.filePath, 0o600);

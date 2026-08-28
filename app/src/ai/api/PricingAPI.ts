@@ -253,7 +253,7 @@ export async function handleBatchBalances(
               p.baseUrl,
               p.apiKey === CRED_STORED_MARKER
                 ? credentialStore.get(p.id) || ''
-                : p.apiKey || '',
+                : p.apiKey || ''
             );
             if (result.success && result.data.length > 0) {
               const d = result.data[0];

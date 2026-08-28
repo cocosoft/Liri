@@ -133,9 +133,8 @@ export class ProviderTopologyWatcher {
 
     // 前端 HMR：广播 providers:changed（对齐 dsh llm/adapters-updated）
     try {
-      const { broadcastEvent } = await import(
-        '@modules/infrastructure/http/LocalHTTPServiceSSE.js'
-      );
+      const { broadcastEvent } =
+        await import('@modules/infrastructure/http/LocalHTTPServiceSSE.js');
       broadcastEvent('providers:changed', { action: 'sync', providerId: '' });
     } catch {
       // @ignore-catch: SSE 不可用不影响同步

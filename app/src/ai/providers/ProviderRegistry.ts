@@ -47,9 +47,7 @@ export class ProviderRegistry {
     if (!existed && !this.defaultProviderId) {
       this.defaultProviderId = provider.id;
     }
-    logger.info(
-      `Provider replaced: ${provider.id} (${provider.displayName})`
-    );
+    logger.info(`Provider replaced: ${provider.id} (${provider.displayName})`);
   }
 
   unregister(providerId: string): boolean {

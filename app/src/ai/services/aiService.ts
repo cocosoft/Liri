@@ -272,7 +272,8 @@ export class AIServiceImpl implements AIService {
       if (registered) {
         const retryResolved = providerRegistry.getByModel(model);
         if (retryResolved) return retryResolved;
-        const retryProviderId = providerRegistry.resolveModelToProviderId(model);
+        const retryProviderId =
+          providerRegistry.resolveModelToProviderId(model);
         if (retryProviderId) {
           return providerRegistry.getOrCreate(retryProviderId, {
             apiKey: this.config.apiKey,
@@ -339,12 +340,12 @@ export class AIServiceImpl implements AIService {
   /** 解析默认 Provider 的 providerType（DB 优先，兜底注册到首个活跃 Provider） */
   private async resolveDefaultProviderType(): Promise<string | undefined> {
     try {
-      const { providerManager } = await import('../providers/ProviderManager.js');
+      const { providerManager } =
+        await import('../providers/ProviderManager.js');
       await providerManager.initialize();
       const providers = await providerManager.listProviders({ isActive: true });
       if (providers.length === 0) return undefined;
-      const defaultRegistryId =
-        providerRegistry.getDefaultProvider()?.id ?? '';
+      const defaultRegistryId = providerRegistry.getDefaultProvider()?.id ?? '';
       const defaultUuid = defaultRegistryId.replace(/^db:/, '');
       const match = providers.find(
         (p) =>

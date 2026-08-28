@@ -57,12 +57,28 @@ export class AIServiceImpl implements AIService {
   }
 
   private convertToChatMessages(messages: AIMessage[]): ChatMessage[] {
-    return messages.map((msg) => ({
-      role: msg.role as ChatMessage['role'],
-      content: msg.content,
-      tool_calls: msg.tool_calls,
-      tool_call_id: msg.tool_call_id,
-    }));
+    return messages.map((msg) => {
+      // KB-COMPACT-TOOLCALLID（2026-08-29）：tool 消息配对 ID 归一化——
+      // 兼容内部消息模型（驼峰 toolCallId / metadata 内嵌），与主链路
+      // ChatManager.prepareApiMessages 的映射一致。此前 compaction 后台压缩
+      // 直传 session.messages（内部格式）经本函数后 tool 消息丢 tool_call_id，
+      // provider 返回 400 "missing field tool_call_id"，tier3 摘要永久失败。
+      const raw = msg as unknown as {
+        toolCallId?: string;
+        metadata?: { toolCallId?: string; tool_call_id?: string };
+      };
+      const toolCallId =
+        msg.tool_call_id ||
+        raw.toolCallId ||
+        raw.metadata?.toolCallId ||
+        raw.metadata?.tool_call_id;
+      return {
+        role: msg.role as ChatMessage['role'],
+        content: msg.content,
+        tool_calls: msg.tool_calls,
+        tool_call_id: toolCallId,
+      };
+    });
   }
 
   private convertToAIResponse(

@@ -961,8 +961,16 @@ export abstract class BaseAIProvider implements AIProvider {
       // 不应触发全局 unhandledRejection；实际错误仍由 race 正常传递
       timeoutPromise.catch(() => {});
 
+      // KB-INTERRUPT-ORPHAN（2026-08-29）：孤儿 read() promise 防护——
+      // race 超时/取消胜出后，仍 pending 的 reader.read() 会在 reader.cancel()/
+      // releaseLock() 时以 AbortError/TimeoutError reject，且该 rejection 无人消费
+      // （race 已 settle）→ 全局 unhandledRejection（实测 16:17 ERR_STREAM_RELEASE_LOCK、
+      // 16:50 TimeoutError）。挂 noop catch 使其成为消费过的 promise，错误仍由 race 传递。
+      const readPromise = reader.read();
+      readPromise.catch(() => {});
+
       const result = (await Promise.race([
-        reader.read(),
+        readPromise,
         timeoutPromise,
       ])) as ReadableStreamReadResult<Uint8Array>;
       clearTimeout(timer);

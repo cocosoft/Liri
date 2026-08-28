@@ -1026,6 +1026,25 @@ export class ReActToolLoop extends ReActLoop<
       }
     );
     const textChunks: string[] = [];
+    // KB-EVENT-BATCH（2026-08-29）：工具轮 thinking 事件防抖合并——推理模型
+    // thinking chunk 逐条落盘使 events.jsonl 膨胀，会话加载 O(N²) 卡死。
+    const THINKING_BATCH_SIZE = 50;
+    const THINKING_BATCH_MS = 2000;
+    let thinkingAccum: string[] = [];
+    let lastThinkingFlushAt = Date.now();
+    const flushThinkingEvents = async () => {
+      if (thinkingAccum.length === 0) return;
+      const joined = thinkingAccum.join('');
+      thinkingAccum = [];
+      lastThinkingFlushAt = Date.now();
+      try {
+        await this._appendStreamEvent('assistant/thinking', {
+          content: joined,
+        });
+      } catch {
+        // @ignore-catch — 事件追加失败不阻断流式（CS03）
+      }
+    };
     let next = await gen.next();
     while (!next.done) {
       const chunk = next.value;
@@ -1045,12 +1064,23 @@ export class ReActToolLoop extends ReActLoop<
           content: chunk.content,
           messageId: this._activeToolRoundMessageId,
         };
-        await this._appendStreamEvent('assistant/thinking', {
-          content: chunk.content,
-        });
+        // KB-EVENT-BATCH：thinking 防抖合并落盘
+        const thinkingContent =
+          typeof chunk.content === 'string'
+            ? chunk.content
+            : JSON.stringify(chunk.content);
+        thinkingAccum.push(thinkingContent);
+        if (
+          thinkingAccum.length >= THINKING_BATCH_SIZE ||
+          Date.now() - lastThinkingFlushAt >= THINKING_BATCH_MS
+        ) {
+          await flushThinkingEvents();
+        }
       }
       next = await gen.next();
     }
+    // 流结束：flush 剩余 thinking 增量（KB-EVENT-BATCH）
+    await flushThinkingEvents();
     const final = next.value as ChatResponse;
     const rawContent = final.content ?? textChunks.join('');
 

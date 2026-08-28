@@ -944,6 +944,32 @@ export async function* runStreamMessage(
       }
 
       try {
+        // KB-EVENT-BATCH（2026-08-29）：thinking 事件防抖合并——推理模型 thinking
+        // chunk 可达数十万条，逐条落盘使 events.jsonl 膨胀到 90MB+，会话加载 O(N²)
+        // 卡死（"重启后打不开"）。累积后按条数/时间合并为一条事件，内容全保留。
+        const THINKING_BATCH_SIZE = 50;
+        const THINKING_BATCH_MS = 2000;
+        let thinkingAccum: string[] = [];
+        let lastThinkingFlushAt = Date.now();
+        const flushThinkingEvents = async () => {
+          if (thinkingAccum.length === 0) return;
+          const joined = thinkingAccum.join('');
+          thinkingAccum = [];
+          lastThinkingFlushAt = Date.now();
+          try {
+            const ts = await host.getStreamTailSeq(session.id);
+            await host.appendStreamEvent(session.id, {
+              type: 'assistant/thinking',
+              schemaVersion: 1,
+              seq: ts + 1,
+              time: Date.now(),
+              sessionId: session.id,
+              data: { content: joined, messageId: assistantMessageId },
+            });
+          } catch {
+            // @ignore-catch — 事件追加失败不阻断流式（CS03）
+          }
+        };
         while (!result.done) {
           const chunk = result.value as string | ThinkingProviderChunk;
           if (typeof chunk === 'string') {
@@ -983,26 +1009,17 @@ export async function* runStreamMessage(
               );
             }
 
-            // M1 事件溯源：thinking chunk 追加为 assistant/thinking 事件
-            try {
-              const ts = await host.getStreamTailSeq(session.id);
-              const thinkingContent =
-                typeof chunk.content === 'string'
-                  ? chunk.content
-                  : JSON.stringify(chunk.content);
-              await host.appendStreamEvent(session.id, {
-                type: 'assistant/thinking',
-                schemaVersion: 1,
-                seq: ts + 1,
-                time: Date.now(),
-                sessionId: session.id,
-                data: {
-                  content: thinkingContent,
-                  messageId: assistantMessageId,
-                },
-              });
-            } catch {
-              // @ignore-catch — 事件追加失败不阻断流式
+            // M1 事件溯源：thinking chunk 防抖合并落盘（KB-EVENT-BATCH）
+            const thinkingContent =
+              typeof chunk.content === 'string'
+                ? chunk.content
+                : JSON.stringify(chunk.content);
+            thinkingAccum.push(thinkingContent);
+            if (
+              thinkingAccum.length >= THINKING_BATCH_SIZE ||
+              Date.now() - lastThinkingFlushAt >= THINKING_BATCH_MS
+            ) {
+              await flushThinkingEvents();
             }
 
             const thinkingChunk: ChatStreamChunk = {
@@ -1015,6 +1032,8 @@ export async function* runStreamMessage(
           }
           result = await gen.next();
         }
+        // 流结束：flush 剩余 thinking 增量（KB-EVENT-BATCH）
+        await flushThinkingEvents();
       } catch (genErr) {
         // 错误校准（估算 vs 真实对比 + 400 自动回写 DB）
         await applyErrorCalibration(

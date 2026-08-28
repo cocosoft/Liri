@@ -594,6 +594,16 @@ export class EventLogStorage {
         if (!line.trim()) continue;
         if (results.length >= limit) break;
 
+        // KB-EVENT-READ（2026-08-29）：fromSeq 之前行快速跳过——分页读取
+        // （getMessages/ChatManager 循环 read）原对每行 JSON.parse 全量解析，
+        // 40 万行事件（thinking 写放大）下 O(N²) 卡死（"重启后打不开"）。
+        // JSON 中 "seq" 紧跟行首，正则提取即可跳过范围外行，仅范围内行完整解析。
+        if (fromSeq > 1) {
+          const seqMatch = line.match(/"seq":(\d+)/);
+          if (!seqMatch) continue; // 非事件行/损坏行交下方 try 兜底
+          if (parseInt(seqMatch[1], 10) < fromSeq) continue;
+        }
+
         try {
           const event = JSON.parse(line) as unknown;
           if (!isLiriEvent(event)) {

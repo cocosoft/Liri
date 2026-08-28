@@ -593,6 +593,26 @@ export async function handleSaveTasks(
     const body = (await parseBody(req)) as Record<string, unknown>;
     const { modelRouter } = await import('../modelRouter.js');
     await modelRouter.setTasks(body);
+    // KB-TASK-FIX（2026-08-28）：任务分工变更后刷新运行时缓存——
+    // 原实现只写 DB + _taskCache，resolveAsync 的 UUID 兜底走 ModelPricingService
+    // 内存缓存（未刷新则查不到新 UUID → 返回空 → 调用方回退默认 provider，
+    // 曾导致知识库编译回退到本地 llama.cpp 报 "Unable to connect"）。
+    // 与 handleUpdateModel 的刷新逻辑保持一致。
+    await modelRouter.invalidateUuidCache().catch((err: unknown) => {
+      void handleError(err, {
+        module: 'ai:modelManagement',
+        action: 'saveTasks:invalidateUuidCache',
+      });
+    });
+    const { ModelRegistry } = await import('../models/ModelRegistry.js');
+    ModelRegistry.getInstance()
+      .refreshDbPricing()
+      .catch((err: unknown) => {
+        void handleError(err, {
+          module: 'ai:modelManagement',
+          action: 'saveTasks:refreshDbPricing',
+        });
+      });
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({ success: true }));
   } catch (err) {

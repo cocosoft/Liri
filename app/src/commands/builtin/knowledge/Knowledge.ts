@@ -248,7 +248,12 @@ const knowledgeCommand = {
 
     const roots = knowledgeDocsProvider.getDocsRoots();
     const root = roots[0];
-    const safeTitle = sanitizeFileName(actualTitle);
+    // KB-DOC-NAME（2026-08-28，Liri 第五轮导出发现）：命名契约与 KnowledgeBaseWriter
+    // 保持一致（sanitize 后空格→下划线 + 100 截断），否则同一标题经命令/工具/API
+    // 不同入口创建会落到不同文件名（my doc.md vs my_doc.md），产生重复文档。
+    const safeTitle = sanitizeFileName(actualTitle)
+      .replace(/\s+/g, '_')
+      .slice(0, 100);
     const fileName = `${safeTitle}.md`;
     const filePath = join(root, fileName);
 
@@ -364,8 +369,24 @@ const knowledgeCommand = {
    * 删除文档
    */
   async deleteDoc(title: string): Promise<CommandResult> {
+    // KB-DELETE-CONFIRM（2026-08-28，Liri 第五轮导出发现）：终端删除不可恢复，
+    // 必须显式追加 --force 确认后才执行 unlink，防止误触直接删档
+    const forceMatch = title.match(/^(.*?)\s+--force\s*$/);
+    const target = forceMatch ? forceMatch[1].trim() : title;
+    if (!forceMatch) {
+      return {
+        success: false,
+        type: 'text',
+        message: [
+          `⚠️ 删除文档"${target}"将不可恢复。`,
+          '',
+          `确认删除请使用：/knowledge delete "${target}" --force`,
+        ].join('\n'),
+      };
+    }
+
     const docs = await knowledgeDocsProvider.buildIndex();
-    const lowerTitle = title.toLowerCase();
+    const lowerTitle = target.toLowerCase();
 
     const doc = docs.find(
       (d) =>
@@ -378,7 +399,7 @@ const knowledgeCommand = {
       return {
         success: false,
         type: 'text',
-        message: `未找到文档"${title}"。请使用 /knowledge list 查看所有文档。`,
+        message: `未找到文档"${target}"。请使用 /knowledge list 查看所有文档。`,
       };
     }
 
@@ -411,8 +432,11 @@ const knowledgeCommand = {
     const { getKnowledgeRouter } =
       await import('@modules/knowledge/KnowledgeRouter.js');
     const router = await getKnowledgeRouter();
+    // KB-SEARCH-PAGE（2026-08-28，Liri 第五轮导出发现）：router.search 按 maxResults
+    // 截断返回，原实现按截断后长度算 totalPages 永远 ≤ 2，无法翻到第 3 页。
+    // 修复：多取一条探测是否还有更多页，不再显示错误的总页数。
     const allResults = await router.search(query, {
-      maxResults: offset + pageSize,
+      maxResults: offset + pageSize + 1,
     });
 
     if (allResults.length === 0) {
@@ -423,11 +447,13 @@ const knowledgeCommand = {
       };
     }
 
-    const totalPages = Math.ceil(allResults.length / pageSize);
+    const hasMore = allResults.length > offset + pageSize;
     const pageResults = allResults.slice(offset, offset + pageSize);
+    const shown = pageResults.length;
+    const totalLabel = hasMore ? `${offset + shown}+` : `${allResults.length}`;
 
     const lines = [
-      `🔍 找到 ${allResults.length} 个与"${query}"相关的文档（第 ${page}/${totalPages} 页）`,
+      `🔍 找到 ${totalLabel} 个与"${query}"相关的文档（第 ${page} 页）`,
       '',
       ...pageResults.map((result, i) => {
         const category =
@@ -438,7 +464,7 @@ const knowledgeCommand = {
       }),
     ];
 
-    if (page < totalPages) {
+    if (hasMore) {
       lines.push(
         '',
         `📄 更多结果请使用：/knowledge search "${query}" --page ${page + 1}`

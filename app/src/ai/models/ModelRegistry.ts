@@ -284,6 +284,22 @@ export class ModelRegistry {
     return this.providerConfigs.get(providerId);
   }
 
+  /**
+   * 运行时注册 Provider 凭据（KB-PROV-FIX，2026-08-28）
+   *
+   * providerConfigs 原只从 providers.yaml 加载；DB 同步的 Provider（DeepSeek/
+   * SiliconFlow 等）在 syncDBProvidersToRegistry 时把 apiKey/baseUrl 写入这里，
+   * 使 OpenAIProvider 构造时 resolveApiKey()/resolveBaseUrl() 能取到 DB 值
+   * （DB 是唯一事实来源，避免空 key 或回退默认 baseUrl 导致连接失败）。
+   */
+  setProviderConfig(providerId: string, cfg: Partial<ProviderConfig>): void {
+    const existing = this.providerConfigs.get(providerId) ?? {};
+    this.providerConfigs.set(providerId, {
+      ...existing,
+      ...cfg,
+    } as ProviderConfig);
+  }
+
   getAllProviderConfigs(): Map<string, ProviderConfig> {
     return new Map(this.providerConfigs);
   }

@@ -32,6 +32,7 @@ import { providerRegistry } from './ProviderRegistry';
 import { createProviderByType } from './ProviderFactory';
 import type { AIProvider, ProviderConfig } from './AIProvider';
 import type { ProviderRecord } from './ProviderManager';
+import { ModelRegistry } from '../models/ModelRegistry';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
@@ -62,6 +63,14 @@ function syncOneProvider(record: ProviderRecord): void {
   // 用 DB 的 UUID 作为 registry 中的 ID
   const registryId = `db:${record.id}`;
   const config = recordToConfig(record);
+  // KB-PROV-FIX（2026-08-28）：在 createProviderByType 之前把 DB 凭据写入
+  // ModelRegistry.providerConfigs——OpenAIProvider 构造时 resolveApiKey()/
+  // resolveBaseUrl() 从 providerConfigs 读（YAML 无 DB provider 配置），
+  // 否则 this.apiKey 为空、baseUrl 回退 OpenAI 官方默认 → 连接失败
+  ModelRegistry.getInstance().setProviderConfig(record.providerType, {
+    apiKey: config.apiKey,
+    baseUrl: config.baseUrl,
+  });
   const provider = createProviderByType(record.providerType, config);
 
   if (!provider) {
@@ -105,12 +114,6 @@ function syncOneProvider(record: ProviderRecord): void {
 
   if (providerRegistry.has(registryId)) {
     providerRegistry.unregister(registryId);
-  }
-
-  // 从 DB 配置设置 API Key（createProviderByType 未将 config.apiKey 传递给 Provider 构造函数）
-  const wrappedRecord = wrapped as unknown as Record<string, unknown>;
-  if (config.apiKey && typeof wrappedRecord.setApiKey === 'function') {
-    (wrappedRecord.setApiKey as (key: string) => void)(config.apiKey);
   }
 
   providerRegistry.register(wrapped);

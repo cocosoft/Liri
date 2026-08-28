@@ -11,7 +11,9 @@ import { useKnowledgeStore } from "../../stores/knowledgeStore";
 import { useConfigStore } from "../../stores/configStore";
 import { useRootStore } from "../../stores/root-store";
 import { knowledgeService } from "../../services/knowledgeService";
-import type { KnowledgeFile } from "../../types";
+import type { KnowledgeFile, KnowledgeSearchHit } from "../../types";
+import { SearchHitCard } from "../Knowledge/SearchHitCard";
+import { toastError } from "../../stores/toastStore";
 import { createLogger } from "@/utils/logger";
 import { useToast, ToastContainer } from "../../hooks/useToast";
 
@@ -87,10 +89,28 @@ function KnowledgePage() {
   const [showStats, setShowStats] = useState(false);
   // P1-3: 列表真实总数（与侧边栏分页列表口径一致，替代 store.items 全量计数）
   const [listTotal, setListTotal] = useState(0);
+  // KB-R3：内联 VersionHistory 面板锚点（菜单"历史版本"滚动定位）
+  const versionHistoryRef = useRef<HTMLDivElement | null>(null);
+  // KB-L1：文档选择请求序号（快速切换时丢弃过期响应）
+  const selectFileSeqRef = useRef(0);
 
   // P1-1: activeTab 由 URL query 驱动（?tab=xxx），根治"全局 store 残留"类问题
   const [searchParams, setSearchParams] = useSearchParams();
-  const activeTab = (searchParams.get("tab") ?? "knowledge") as KnowledgeTabKey;
+  // KB-P3：非法 ?tab= 参数校验，回退到 knowledge，避免整页空白无回退
+  const TAB_KEYS: KnowledgeTabKey[] = [
+    "knowledge",
+    "semantic",
+    "faq",
+    "graph",
+    "config",
+    "datasources",
+  ];
+  const rawTab = searchParams.get("tab") ?? "knowledge";
+  const activeTab: KnowledgeTabKey = TAB_KEYS.includes(
+    rawTab as KnowledgeTabKey,
+  )
+    ? (rawTab as KnowledgeTabKey)
+    : "knowledge";
 
   const { selectedBase, selectedFile, isInitialLoading } = view;
 
@@ -150,15 +170,20 @@ function KnowledgePage() {
     setView({ selectedBase: baseName, selectedFile: null });
     // P2-9: 清空编辑器草稿，避免残留内容误存到其他知识库
     setEditor({ isEditing: false, editTitle: "", editContent: "" });
+    // KB-C4：切库清空搜索结果与查询 —— 旧库结果用新 base 打开会元数据错位
+    clearSearch();
   }
 
   async function handleSelectFile(file: KnowledgeFile) {
     if (selectedFile?.id === file.id) return;
+    // KB-L1：快速连续切换文档时，丢弃过期请求返回（防慢响应覆盖新选中项）
+    const seq = ++selectFileSeqRef.current;
     // KB-DOC（2026-08-27）：列表接口 includeContent=false 只返回裁剪内容（200 字符），
     // 打开文档时按 docPath 拉全文，保证编辑器/详情看到完整内容
     let full = file;
     try {
       const doc = await knowledgeService.getDoc(file.docPath || file.id);
+      if (seq !== selectFileSeqRef.current) return; // KB-L1
       if (doc) {
         full = { ...file, ...doc };
       } else {
@@ -169,10 +194,16 @@ function KnowledgePage() {
           file.base || undefined,
         );
         if (real) full = { ...file, ...real };
+        else {
+          // KB-P4：双通道均未取到全文，明确提示，禁止静默以裁剪内容进入编辑器
+          toastError("无法获取文档全文，当前为截断预览，请勿直接保存");
+        }
       }
     } catch {
-      // 两次拉取均失败时退回列表项
+      // KB-P4：拉取异常同样明确提示（原静默降级可能被保存覆盖全文）
+      toastError("获取文档全文失败，请检查后端连接后重试");
     }
+    if (seq !== selectFileSeqRef.current) return; // KB-L1：过期响应丢弃
     setView({ selectedFile: full });
     setEditor({
       isEditing: false,
@@ -182,9 +213,10 @@ function KnowledgePage() {
   }
 
   /** P0-5 + P3-2: 搜索结果元数据为列表占位时，按 docPath 拉真实元数据（统一走 knowledgeService.getFileByDocPath） */
-  async function handleSelectSearchHit(hit: KnowledgeFile) {
+  async function handleSelectSearchHit(hit: KnowledgeSearchHit) {
+    // KB-C2：hit 保留完整 file 元数据（score/matchType/domain 仅用于卡片展示），选中仍打开文档
     // KB-DOC：handleSelectFile 已通过 getDoc 拉全文 + 真实元数据，不再需要 getFileByDocPath
-    await handleSelectFile(hit);
+    await handleSelectFile(hit.file);
   }
 
   function startEditing() {
@@ -266,6 +298,9 @@ function KnowledgePage() {
 
   async function handleDeleteFile() {
     if (!selectedFile) return;
+    // KB-P1：删除无确认 + HTTP 硬删不可恢复，误触即永久丢失；与 FAQ/数据源删除一致加确认
+    if (!window.confirm(`确定删除「${selectedFile.title}」？此操作不可恢复。`))
+      return;
     try {
       await knowledgeService.delete(selectedFile.id);
       setView({ selectedFile: null });
@@ -287,7 +322,8 @@ function KnowledgePage() {
   }
 
   // ── U1: 搜索结果计算 ──
-  const isSearchActive = search.query.trim().length > 0;
+  // KB-C3：isSearchActive 表示"已提交搜索"（区分输入框有字，避免敲字即切走文档视图）
+  const isSearchActive = search.hasSearched;
   const searchResults = search.listResults;
 
   const tabs: { key: KnowledgeTabKey; label: string }[] = [
@@ -408,10 +444,24 @@ function KnowledgePage() {
                           d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
                         />
                       </svg>
-                      <p className="text-sm">未找到匹配文档</p>
-                      <p className="text-xs mt-1 opacity-60">
-                        试试缩短关键词、调整分类筛选
-                      </p>
+                      {/* KB-P2：搜索失败 ≠ 真实无结果 —— 优先显示错误而非"未找到匹配文档" */}
+                      {search.searchError ? (
+                        <>
+                          <p className="text-sm text-red-500 dark:text-red-400">
+                            {search.searchError}
+                          </p>
+                          <p className="text-xs mt-1 opacity-60">
+                            可稍后重试，或清除搜索返回文档列表
+                          </p>
+                        </>
+                      ) : (
+                        <>
+                          <p className="text-sm">未找到匹配文档</p>
+                          <p className="text-xs mt-1 opacity-60">
+                            试试缩短关键词、调整分类筛选
+                          </p>
+                        </>
+                      )}
                       <button
                         onClick={clearSearch}
                         className="mt-2 text-xs text-blue-500 hover:text-blue-600 dark:text-blue-400"
@@ -433,31 +483,14 @@ function KnowledgePage() {
                         </button>
                       </div>
                       {searchResults.map((result, idx) => (
-                        <div
-                          key={result.id}
-                          className="p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-700 cursor-pointer transition-colors"
+                        // KB-C2：启用 SearchHitCard（分数/匹配类型/domain 徽章），原死代码组件
+                        <SearchHitCard
+                          key={result.file.id}
+                          hit={result}
+                          index={idx}
+                          isDark={isDark}
                           onClick={() => handleSelectSearchHit(result)}
-                        >
-                          <div className="flex items-center justify-between mb-1">
-                            <h4
-                              className={`text-sm font-medium ${textPrimary} truncate`}
-                            >
-                              #{idx + 1} {result.title || "未命名文档"}
-                            </h4>
-                          </div>
-                          <p
-                            className={`text-xs ${textSecondary} line-clamp-2`}
-                          >
-                            {result.content?.slice(0, 200) || "无内容"}
-                          </p>
-                          <div className="flex items-center gap-2 mt-1.5">
-                            {result.category && (
-                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400">
-                                {result.category}
-                              </span>
-                            )}
-                          </div>
-                        </div>
+                        />
                       ))}
                     </div>
                   )}
@@ -571,7 +604,13 @@ function KnowledgePage() {
                           "_blank",
                         )
                       }
-                      onVersionHistory={() => {}} // VersionHistory rendered inline below
+                      onVersionHistory={() =>
+                        // KB-R3：菜单"历史版本"滚动定位到下方内联 VersionHistory（原死按钮无反馈）
+                        versionHistoryRef.current?.scrollIntoView({
+                          behavior: "smooth",
+                          block: "start",
+                        })
+                      }
                       onTrash={async () => {
                         if (!selectedFile) return;
                         const ok = await knowledgeService.trash(
@@ -597,20 +636,22 @@ function KnowledgePage() {
                   </div>
 
                   {selectedFile.title && (
-                    <VersionHistory
-                      isDark={isDark}
-                      title={selectedFile.title}
-                      currentContent={selectedFile.content}
-                      onRestored={(content) => {
-                        // P2-5: 恢复成功后刷新当前文档内容
-                        const updated = { ...selectedFile, content };
-                        setView({ selectedFile: updated });
-                        setEditor({
-                          editTitle: updated.title,
-                          editContent: content,
-                        });
-                      }}
-                    />
+                    <div ref={versionHistoryRef}>
+                      <VersionHistory
+                        isDark={isDark}
+                        title={selectedFile.title}
+                        currentContent={selectedFile.content}
+                        onRestored={(content) => {
+                          // P2-5: 恢复成功后刷新当前文档内容
+                          const updated = { ...selectedFile, content };
+                          setView({ selectedFile: updated });
+                          setEditor({
+                            editTitle: updated.title,
+                            editContent: content,
+                          });
+                        }}
+                      />
+                    </div>
                   )}
 
                   <div className={`mt-8 pt-4 border-t ${borderColor}`}>
@@ -759,7 +800,7 @@ function KnowledgePage() {
           style={{ display: activeTab === "graph" ? "flex" : "none" }}
           className="flex-1 overflow-hidden"
         >
-          <GraphPage isDark={isDark} />
+          <GraphPage isDark={isDark} active={activeTab === "graph"} />
         </div>
 
         {/* ── RAG 配置 Tab（P1-1 页内化） ── */}

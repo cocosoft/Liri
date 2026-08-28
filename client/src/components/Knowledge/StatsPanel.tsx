@@ -3,7 +3,7 @@
  *
  * 从 KnowledgePage.tsx 中抽取独立组件 (CS09)。
  */
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { knowledgeService } from "../../services/knowledgeService";
 
 interface HealthMetrics {
@@ -28,25 +28,84 @@ interface StatsPanelProps {
 
 function StatsPanel({ isDark }: StatsPanelProps) {
   const [health, setHealth] = useState<HealthMetrics | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const textPrimary = isDark ? "text-gray-100" : "text-gray-900";
   const textSecondary = isDark ? "text-gray-400" : "text-gray-500";
   const borderColor = isDark ? "border-gray-700" : "border-gray-200";
   const dividerColor = isDark ? "divide-gray-700" : "divide-gray-100";
   const cardBg = isDark ? "bg-gray-800" : "bg-white";
 
-  useEffect(() => {
+  const load = useCallback(() => {
+    setLoading(true);
+    setError(false);
     knowledgeService
       .health()
-      .then(setHealth)
-      .catch(() => setHealth(null));
+      .then((h) => setHealth(h))
+      .catch(() => {
+        // 加载失败与"空知识库"（health 正常返回全 0）区分
+        setHealth(null);
+        setError(true);
+      })
+      .finally(() => setLoading(false));
   }, []);
 
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  if (loading) {
+    return (
+      <div className="flex-1 overflow-y-auto p-6">
+        <div className="max-w-3xl mx-auto">
+          <div className="animate-pulse space-y-4">
+            <div className="grid grid-cols-3 gap-4">
+              {[0, 1, 2].map((i) => (
+                <div
+                  key={i}
+                  className={`h-20 rounded-lg ${cardBg} border ${borderColor}`}
+                />
+              ))}
+            </div>
+            <div
+              className={`h-40 rounded-lg ${cardBg} border ${borderColor}`}
+            />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !health) {
+    return (
+      <div className="flex-1 overflow-y-auto p-6">
+        <div className="max-w-3xl mx-auto text-center py-16">
+          <p className={`text-sm ${isDark ? "text-red-400" : "text-red-600"}`}>
+            统计信息加载失败
+          </p>
+          <button
+            onClick={load}
+            className={`mt-3 text-xs px-3 py-1.5 rounded border ${
+              isDark
+                ? "border-gray-600 text-gray-300 hover:bg-gray-700"
+                : "border-gray-300 text-gray-600 hover:bg-gray-100"
+            }`}
+          >
+            重试
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   // KB-P2-12（2026-08-27）：统计数据全部来自 health 聚合接口，不再依赖 store.items 全量拉取
-  const totalItems = health?.totalDocs ?? 0;
-  const totalCategories = health?.tagDistribution.length ?? 0;
-  const recentItems = health?.recentItems ?? [];
-  const sourceDistribution = health?.sourceDistribution ?? [];
+  const totalItems = health.totalDocs ?? 0;
+  const totalCategories = health.tagDistribution.length ?? 0;
+  const recentItems = health.recentItems ?? [];
+  const sourceDistribution = health.sourceDistribution ?? [];
   const maxSourceCount = Math.max(1, ...sourceDistribution.map((s) => s.count));
+  // L2：lintScore 越界防护（SVG 圆环需要 0-100）
+  const lintScore = Math.max(0, Math.min(100, health.lintScore ?? 0));
 
   return (
     <div className="flex-1 overflow-y-auto p-6">
@@ -65,7 +124,8 @@ function StatsPanel({ isDark }: StatsPanelProps) {
                 </span>
               </div>
               <div className="flex justify-between items-center">
-                <span className={`text-sm ${textSecondary}`}>标签分类数</span>
+                {/* KB-L10：数据实为 tagDistribution（标签分布），文案不再误称"分类" */}
+                <span className={`text-sm ${textSecondary}`}>标签数</span>
                 <span className={`text-sm font-medium ${textPrimary}`}>
                   {totalCategories}
                 </span>
@@ -82,7 +142,7 @@ function StatsPanel({ isDark }: StatsPanelProps) {
               <div className="flex flex-col items-center">
                 <div
                   className="relative w-20 h-20 mb-2"
-                  title={`Lint 分数: ${health.lintScore}/100`}
+                  title={`Lint 分数: ${lintScore}/100`}
                 >
                   <svg className="w-20 h-20 -rotate-90" viewBox="0 0 36 36">
                     <circle
@@ -99,27 +159,27 @@ function StatsPanel({ isDark }: StatsPanelProps) {
                       r="15.5"
                       fill="none"
                       stroke={
-                        health.lintScore >= 80
+                        lintScore >= 80
                           ? "#22c55e"
-                          : health.lintScore >= 50
+                          : lintScore >= 50
                             ? "#eab308"
                             : "#ef4444"
                       }
                       strokeWidth="3"
-                      strokeDasharray={`${health.lintScore} ${100 - health.lintScore}`}
+                      strokeDasharray={`${lintScore} ${100 - lintScore}`}
                       strokeLinecap="round"
                     />
                   </svg>
                   <span
                     className={`absolute inset-0 flex items-center justify-center text-lg font-bold ${textPrimary}`}
                   >
-                    {health.lintScore}
+                    {lintScore}
                   </span>
                 </div>
                 <span className="text-[10px] text-gray-500 dark:text-gray-400">
-                  {health.lintScore >= 80
+                  {lintScore >= 80
                     ? "优秀"
-                    : health.lintScore >= 50
+                    : lintScore >= 50
                       ? "中等"
                       : "待改善"}
                 </span>

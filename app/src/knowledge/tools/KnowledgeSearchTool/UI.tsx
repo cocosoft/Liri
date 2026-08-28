@@ -3,36 +3,8 @@
 
 import React from 'react';
 import { Text, Box } from '../../../components/ink.js';
-
-interface KnowledgeSearchItem {
-  docPath: string;
-  title: string;
-  score: number;
-  category: string;
-  snippet: string;
-  matchType?: string;
-}
-
-interface KnowledgeSearchOutput {
-  query?: string;
-  items?: KnowledgeSearchItem[];
-  total?: number;
-  tookMs?: number;
-}
-
-function parseOutput(output: any): KnowledgeSearchOutput {
-  if (typeof output === 'string') {
-    try {
-      return JSON.parse(output);
-    } catch {
-      return { items: [] };
-    }
-  }
-  if (Array.isArray(output)) {
-    return { items: output };
-  }
-  return output || { items: [] };
-}
+import { parseToolOutput } from '../parseToolOutput.js';
+import type { KnowledgeSearchOutput } from '../types.js';
 
 function scoreColor(score: number): string {
   if (score >= 0.7) return 'green';
@@ -65,31 +37,35 @@ export function renderToolUseMessage(
 }
 
 export function renderToolResultMessage(
-  output: any,
-  _progressMessages: any[],
+  output: unknown,
+  _progressMessages: unknown[],
   { verbose }: { verbose: boolean }
 ): React.ReactNode {
-  const parsed = parseOutput(output);
-  const items = parsed.items ?? [];
-  const total = parsed.total ?? items.length;
+  // 工具 result 为 unknown：实际契约是 KnowledgeRoute[]（数组），防御对象包裹形式
+  const parsed = parseToolOutput(output);
+  const obj = Array.isArray(parsed)
+    ? undefined
+    : (parsed as {
+        query?: string;
+        items?: KnowledgeSearchOutput;
+        total?: number;
+        tookMs?: number;
+      });
+  const items = Array.isArray(parsed)
+    ? (parsed as KnowledgeSearchOutput)
+    : (obj?.items ?? []);
+  const total = Array.isArray(parsed)
+    ? items.length
+    : (obj?.total ?? items.length);
+  const query = obj?.query;
+  const tookMs = obj?.tookMs;
 
   if (items.length === 0) {
+    // P2-3：搜索无结果 ≠ 知识库为空，不做空库断言（工具未提供空库标记）
     return (
-      <Box flexDirection="column">
-        <Box flexDirection="row">
-          <Text dimColor>No knowledge found</Text>
-          {parsed.query && <Text dimColor> for "{parsed.query}"</Text>}
-        </Box>
-        {(!parsed.total || parsed.total === 0) && (
-          <Box marginTop={1} flexDirection="column">
-            <Text dimColor>知识库当前为空。添加知识的方法：</Text>
-            <Box marginLeft={2}>
-              <Text dimColor> 1. 使用 knowledge_write 工具写入</Text>
-              <Text dimColor> 2. 将 .md 文件放入 ~/.pyapp/knowledge/ 目录</Text>
-              <Text dimColor> 3. 使用 knowledge_import 批量导入</Text>
-            </Box>
-          </Box>
-        )}
+      <Box flexDirection="row">
+        <Text dimColor>No knowledge found</Text>
+        {query && <Text dimColor> for "{query}"</Text>}
       </Box>
     );
   }
@@ -100,13 +76,13 @@ export function renderToolResultMessage(
         <Box flexDirection="row">
           <Text bold>{total}</Text>
           <Text> results</Text>
-          {parsed.query && (
+          {query && (
             <Text>
               {' '}
-              for <Text italic>{parsed.query}</Text>
+              for <Text italic>{query}</Text>
             </Text>
           )}
-          {parsed.tookMs != null && <Text dimColor> ({parsed.tookMs}ms)</Text>}
+          {tookMs != null && <Text dimColor> ({tookMs}ms)</Text>}
         </Box>
         <Box marginTop={1} marginLeft={2} flexDirection="column">
           {items.slice(0, 10).map((item, i) => (
@@ -115,7 +91,7 @@ export function renderToolResultMessage(
                 <Text bold>{item.title}</Text>
                 <Text color={scoreColor(item.score)}>
                   {' '}
-                  [{item.score.toFixed(2)}]
+                  [{Number.isFinite(item.score) ? item.score.toFixed(2) : '0'}]
                 </Text>
                 {item.category && <Text dimColor> {item.category}</Text>}
               </Box>
@@ -132,10 +108,10 @@ export function renderToolResultMessage(
       <Box flexDirection="row">
         <Text bold>{total}</Text>
         <Text> knowledge results</Text>
-        {parsed.query && (
+        {query && (
           <Text>
             {' '}
-            for <Text italic>{parsed.query}</Text>
+            for <Text italic>{query}</Text>
           </Text>
         )}
       </Box>
@@ -146,7 +122,7 @@ export function renderToolResultMessage(
               <Text bold>{item.title}</Text>
               <Text color={scoreColor(item.score)}>
                 {' '}
-                [{item.score.toFixed(2)}]
+                [{Number.isFinite(item.score) ? item.score.toFixed(2) : '0'}]
               </Text>
             </Box>
             <Text dimColor>{item.snippet?.slice(0, 120)}</Text>

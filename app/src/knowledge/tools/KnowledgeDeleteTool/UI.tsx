@@ -1,16 +1,7 @@
 import React from 'react';
 import { Text, Box } from '../../../components/ink.js';
-
-function parseOutput(output: any): any {
-  if (typeof output === 'string') {
-    try {
-      return JSON.parse(output);
-    } catch {
-      return {};
-    }
-  }
-  return output || {};
-}
+import { parseToolOutput } from '../parseToolOutput.js';
+import type { KnowledgeDeleteOutput } from '../types.js';
 
 export function renderToolUseMessage(
   input: Partial<{ title: string; docPath: string }>,
@@ -35,23 +26,23 @@ export function renderToolUseMessage(
 }
 
 export function renderToolResultMessage(
-  output: any,
-  _progressMessages: any[],
-  { verbose }: { verbose: boolean }
+  output: unknown,
+  _progressMessages: unknown[],
+  _options: { verbose: boolean }
 ): React.ReactNode {
-  const parsed = parseOutput(output);
-  const title = parsed.title || parsed.filePath || parsed.docPath || 'Unknown';
-  const candidates = parsed.candidates;
-
-  if (candidates && Array.isArray(candidates) && candidates.length > 1) {
+  // 工具契约：候选列表 result 为数组 [{ title, docPath }]；删除成功 result 为 { title, filePath }
+  const parsed = parseToolOutput(output) as KnowledgeDeleteOutput;
+  if (Array.isArray(parsed)) {
+    const multi = parsed.length > 1;
     return (
       <Box flexDirection="column">
         <Box flexDirection="row">
-          <Text color="yellow">Multiple matches for </Text>
-          <Text bold>{title}</Text>
+          <Text color="yellow">
+            {multi ? `Multiple matches (${parsed.length})` : 'No exact match'}
+          </Text>
         </Box>
         <Box marginTop={1} marginLeft={2} flexDirection="column">
-          {candidates.map((c: any, i: number) => (
+          {parsed.map((c, i) => (
             <Text key={i} dimColor>
               [{i + 1}] {c.title || c.docPath || c.filePath}
               {c.category ? ` (${c.category})` : ''}
@@ -59,16 +50,19 @@ export function renderToolResultMessage(
           ))}
         </Box>
         <Box marginTop={1}>
-          <Text dimColor>Specify the exact docPath to delete.</Text>
+          <Text dimColor>
+            Not deleted. Specify the exact docPath to delete.
+          </Text>
         </Box>
       </Box>
     );
   }
 
+  const title = parsed.title || parsed.filePath || '';
   return (
     <Box flexDirection="row">
-      <Text color="red">Deleted: </Text>
-      <Text bold>{title}</Text>
+      <Text color="green">Deleted: </Text>
+      <Text bold>{title || 'document'}</Text>
     </Box>
   );
 }

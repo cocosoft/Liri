@@ -35,20 +35,33 @@ function BatchActionBar({
   async function handleMove(target: string) {
     if (!target || count === 0 || busy) return;
     setBusy(true);
+    const ids = [...selectedFileIds];
+    const failed: string[] = [];
     try {
-      for (const id of selectedFileIds) {
-        await knowledgeService.updateDoc(id, "", undefined, { base: target });
+      for (const id of ids) {
+        try {
+          await knowledgeService.updateDoc(id, "", undefined, { base: target });
+        } catch {
+          // 逐条失败收集，避免"部分成功"无明细
+          failed.push(id);
+        }
       }
       onClearSelection();
       onRefresh();
-    } catch (err) {
-      toastError(err instanceof Error ? err : new Error("批量移动失败"));
+      if (failed.length > 0) {
+        // Phase 2-11：明确"成功 N/M 条"，失败明细可排查
+        toastError(
+          `批量移动: 成功 ${ids.length - failed.length}/${ids.length} 条` +
+            (failed.length > 0 ? `，失败 ${failed.length} 条` : ""),
+        );
+      }
     } finally {
       setBusy(false);
     }
   }
 
   async function handleBatchDelete() {
+    if (busy) return; // F8：移动/删除进行中防并发
     if (!confirm(`确定要删除选中的 ${count} 个文档吗？此操作不可撤销。`))
       return;
     setBusy(true);
@@ -79,7 +92,8 @@ function BatchActionBar({
       <div className="flex items-center gap-1.5">
         <button
           onClick={onOpenBatchTag}
-          className={`px-2 py-0.5 text-[10px] rounded ${
+          disabled={busy}
+          className={`px-2 py-0.5 text-[10px] rounded disabled:opacity-40 ${
             isDark
               ? "bg-blue-800 text-blue-200 hover:bg-blue-700"
               : "bg-blue-200 text-blue-700 hover:bg-blue-300"
@@ -89,13 +103,14 @@ function BatchActionBar({
         </button>
         <select
           value=""
+          disabled={busy}
           onChange={async (e) => {
             const target = e.target.value;
             if (!target) return;
             (e.target as HTMLSelectElement).value = "";
             await handleMove(target);
           }}
-          className={`text-[10px] px-1.5 py-0.5 rounded ${
+          className={`text-[10px] px-1.5 py-0.5 rounded disabled:opacity-40 ${
             isDark
               ? "bg-gray-700 border-gray-600 text-gray-300"
               : "bg-gray-100 border-gray-300 text-gray-600"
@@ -112,7 +127,8 @@ function BatchActionBar({
         </select>
         <button
           onClick={handleBatchDelete}
-          className={`px-2 py-0.5 text-[10px] rounded ${
+          disabled={busy}
+          className={`px-2 py-0.5 text-[10px] rounded disabled:opacity-40 ${
             isDark
               ? "bg-red-900/50 text-red-300 hover:bg-red-800/60"
               : "bg-red-100 text-red-600 hover:bg-red-200"

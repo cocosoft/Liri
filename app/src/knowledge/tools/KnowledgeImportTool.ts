@@ -58,7 +58,8 @@ export class KnowledgeImportTool implements Tool {
       required: false,
     },
   ];
-  public aliases: string[] = ['knowledge_restore', 'kb_import'];
+  // 注意：alias 不得与其他工具 name/alias 重复（原 'knowledge_restore' 与恢复工具冲突，已移除）
+  public aliases: string[] = ['kb_import', 'kb_import_batch'];
   public searchTips: string[] = [
     'knowledge',
     'import',
@@ -219,6 +220,7 @@ export class KnowledgeImportTool implements Tool {
 
     return {
       status: ToolExecutionStatus.SUCCESS,
+      result: { imported, skipped, total: docs.length },
       output: JSON.stringify({ imported, skipped, total: docs.length }),
       executionTime: Date.now() - startTime,
       error: '',
@@ -320,6 +322,7 @@ export class KnowledgeImportTool implements Tool {
 
     return {
       status: ToolExecutionStatus.SUCCESS,
+      result: { imported, skipped, total: mdFiles.length },
       output: JSON.stringify({ imported, skipped, total: mdFiles.length }),
       executionTime: Date.now() - startTime,
       error: '',

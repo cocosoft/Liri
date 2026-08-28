@@ -7,8 +7,8 @@
  *       与 KnowledgePage 右侧面板同源，不再手动同步。
  */
 import { useEffect, useCallback, useRef } from "react";
-import type { KnowledgeFile } from "../../types";
 import { knowledgeService } from "../../services/knowledgeService";
+import { useCompilePolling } from "./useCompilePolling";
 import {
   useKnowledgeStore,
   type KnowledgeListAction,
@@ -54,6 +54,7 @@ export function useKnowledgeBaseList(opts: UseKnowledgeBaseListOpts) {
     batchTagInput,
     batchTagStatus,
     compileStatus,
+    compileProgress,
     compileMessage,
     searchTags,
     total,
@@ -68,14 +69,45 @@ export function useKnowledgeBaseList(opts: UseKnowledgeBaseListOpts) {
 
   // P2-8: 搜索竞态序号，只采纳最后一次请求的结果
   const searchSeqRef = useRef(0);
+  // KB-C5：重命名知识库 in-flight 防重（Enter 提交后 blur 二次进入）
+  const renameInFlightRef = useRef(false);
 
   // ── 数据加载 ──
   useEffect(() => {
     loadBases();
   }, []);
+  // C5/B1：切 base 时若不在第 1 页则重置 page（由下方 [page] effect 触发加载），
+  // 否则直接加载——避免第 3 页切到 1 页新库越界返回空列表
   useEffect(() => {
-    if (selectedBase !== undefined) loadFiles();
+    if (selectedBase === undefined) return;
+    if (page !== 0) {
+      dispatchList({ type: "SET_PAGE", page: 0 });
+    } else {
+      loadFiles();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedBase]);
+  // C5：分页按钮 dispatch(SET_PAGE) 后由本 effect 触发加载，消除 stale-page
+  //（原实现按钮内 dispatch + loadFiles()，loadFiles 闭包捕获旧 page）
+  const prevPageRef = useRef(page);
+  useEffect(() => {
+    if (page === prevPageRef.current) return;
+    prevPageRef.current = page;
+    loadFiles();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page]);
+  // KB-C6：排序下移服务端后，sortBy 变化需重新加载（原客户端排序即时生效）
+  const prevSortByRef = useRef(sortBy);
+  useEffect(() => {
+    if (sortBy === prevSortByRef.current) return;
+    prevSortByRef.current = sortBy;
+    if (page !== 0) {
+      dispatchList({ type: "SET_PAGE", page: 0 });
+    } else {
+      loadFiles();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sortBy]);
   // KB-前端刷新信号：编辑保存/删除/标签更新后递增 refreshTick，重载列表保证左侧名称同步
   const refreshTick = list.refreshTick;
   const refreshTickRef = useRef(refreshTick);
@@ -102,15 +134,19 @@ export function useKnowledgeBaseList(opts: UseKnowledgeBaseListOpts) {
     try {
       // KB-DOC（2026-08-27）：列表不需要全文，includeContent=false 让后端裁剪
       // content（200 字符），文档打开时再由 KnowledgePage 走 getDoc 拉全文
+      // KB-C6：排序下移服务端（sortBy 透传），修复原前端仅排当前页跨页错乱
       const data = await knowledgeService.listFiles(
         selectedBase || undefined,
         page * pageSize,
         pageSize,
         false,
+        sortBy,
       );
       dispatchList({ type: "SET_FILES", files: data.items, total: data.total });
     } catch (err) {
       logger.error("加载知识文件失败", err);
+      // F1（Liri 第四轮确认遗漏）：加载失败≠空库——明确提示，避免误判"知识库为空"
+      toastError("加载知识文件失败，请检查后端连接后重试");
       dispatchList({ type: "SET_FILES", files: [], total: 0 });
     }
   }
@@ -125,6 +161,9 @@ export function useKnowledgeBaseList(opts: UseKnowledgeBaseListOpts) {
     async (query: string, base: string | null, searchTags?: string[]) => {
       if (!query.trim()) return;
       const seq = ++searchSeqRef.current;
+      // KB-C3/KB-P2：发起搜索 → 标记已提交并清除上次错误（失败时由 catch 重新设置）
+      dispatchList({ type: "SET_SEARCH_SUBMITTED", submitted: true });
+      dispatchList({ type: "SET_SEARCH_ERROR", error: null });
       dispatchList({ type: "SET_SEARCHING", searching: true });
       try {
         const hits = await knowledgeService.hybridSearch(
@@ -134,13 +173,16 @@ export function useKnowledgeBaseList(opts: UseKnowledgeBaseListOpts) {
           searchTags,
         );
         if (seq !== searchSeqRef.current) return; // P2-8: 过期响应丢弃
-        const mapped: KnowledgeFile[] = hits.map((hit) => ({
-          ...hit.file,
-        }));
-        dispatchList({ type: "SET_SEARCH_RESULTS", results: mapped });
+        // KB-C2：保留 KnowledgeSearchHit 元数据（score/matchType/domain），供 SearchHitCard 渲染
+        dispatchList({ type: "SET_SEARCH_RESULTS", results: hits });
       } catch (err) {
         if (seq !== searchSeqRef.current) return; // P2-8: 过期响应丢弃
         logger.error("搜索失败", err);
+        // KB-P2：搜索失败 ≠ 真实无结果 —— 明确提示，避免右侧误显示"未找到匹配文档"
+        dispatchList({
+          type: "SET_SEARCH_ERROR",
+          error: "搜索失败，请检查后端连接后重试",
+        });
         dispatchList({ type: "SET_SEARCH_RESULTS", results: [] });
       }
     },
@@ -164,30 +206,49 @@ export function useKnowledgeBaseList(opts: UseKnowledgeBaseListOpts) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchRequestSeq]);
 
-  // ── 编译 ──
-  async function handleCompile() {
-    dispatchList({ type: "SET_COMPILE_STATUS", status: "compiling" });
-    dispatchList({ type: "SET_COMPILE_MESSAGE", message: "" });
-    try {
-      const result = await knowledgeService.triggerCompile(false);
-      dispatchList({ type: "SET_COMPILE_STATUS", status: "success" });
-      const msg = `编译完成: ${result.compiled} 个成功, ${result.skipped} 个跳过`;
+  // ── 编译（Phase 0：统一 useCompilePolling，修复 C1/C2/C3 竞态/超时误报）──
+  // Phase 2-13：CLEAR_COMPILE 定时器存 ref，卸载时清理
+  const compileClearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+  useEffect(() => {
+    return () => {
+      if (compileClearTimerRef.current) {
+        clearTimeout(compileClearTimerRef.current);
+      }
+    };
+  }, []);
+  const { start: startCompile } = useCompilePolling({
+    onProgress: (progress) =>
+      dispatchList({ type: "SET_COMPILE_PROGRESS", progress }),
+    onResult: (r) => {
       dispatchList({
-        type: "SET_COMPILE_MESSAGE",
-        message: result.errors?.length
-          ? `${msg}, ${result.errors.length} 个错误`
-          : msg,
+        type: "SET_COMPILE_STATUS",
+        status: r.hasError ? "error" : "success",
       });
+      dispatchList({ type: "SET_COMPILE_MESSAGE", message: r.message });
+    },
+    onFinished: () => {
       loadFiles();
-    } catch (err) {
-      dispatchList({ type: "SET_COMPILE_STATUS", status: "error" });
-      dispatchList({
-        type: "SET_COMPILE_MESSAGE",
-        message:
-          "编译失败: " + (err instanceof Error ? err.message : "未知错误"),
-      });
+      // 成功/失败消息展示 5 秒后清除
+      compileClearTimerRef.current = setTimeout(
+        () => dispatchList({ type: "CLEAR_COMPILE" }),
+        5000,
+      );
+    },
+  });
+
+  async function handleCompile() {
+    // 防重：store 状态 + hook 模块级互斥（两处编译入口共用）
+    if (useKnowledgeStore.getState().list.compileStatus === "compiling") return;
+    dispatchList({ type: "SET_COMPILE_STATUS", status: "compiling" });
+    dispatchList({ type: "SET_COMPILE_PROGRESS", progress: 0 });
+    dispatchList({ type: "SET_COMPILE_MESSAGE", message: "" });
+    const started = await startCompile();
+    if (!started) {
+      // 被其他入口（如抽屉"全部编译"）的互斥挡住，复位状态
+      dispatchList({ type: "SET_COMPILE_STATUS", status: "idle" });
     }
-    setTimeout(() => dispatchList({ type: "CLEAR_COMPILE" }), 4000);
   }
 
   // ── 创建/删除/重命名知识库 ──
@@ -269,17 +330,22 @@ export function useKnowledgeBaseList(opts: UseKnowledgeBaseListOpts) {
   }
 
   async function handleRenameBase(name: string) {
+    // KB-C5：Enter 提交后 input 卸载触发 blur 会二次进入，防重避免重复提交
+    if (renameInFlightRef.current) return;
     const label = editLabel.trim();
     if (!label || label === bases.find((b) => b.name === name)?.label) {
       dispatchList({ type: "CANCEL_EDIT_BASE" });
       return;
     }
+    renameInFlightRef.current = true;
     try {
       await knowledgeService.updateBase(name, { label });
       dispatchList({ type: "CANCEL_EDIT_BASE" });
       await loadBases();
     } catch (err) {
       logger.error("重命名知识库失败", err);
+    } finally {
+      renameInFlightRef.current = false;
     }
   }
 
@@ -327,6 +393,7 @@ export function useKnowledgeBaseList(opts: UseKnowledgeBaseListOpts) {
     batchTagInput,
     batchTagStatus,
     compileStatus,
+    compileProgress,
     compileMessage,
     searchTags,
     total,

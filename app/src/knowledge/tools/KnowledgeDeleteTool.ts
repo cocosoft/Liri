@@ -253,6 +253,7 @@ export class KnowledgeDeleteTool implements Tool {
 
     return {
       status: ToolExecutionStatus.SUCCESS,
+      result: { title: doc.title, filePath },
       output: `Document "${doc.title}" deleted successfully.`,
       executionTime: Date.now() - startTime,
       error: '',
@@ -296,6 +297,7 @@ export class KnowledgeDeleteTool implements Tool {
 
     return {
       status: ToolExecutionStatus.SUCCESS,
+      result: { title: doc.title, filePath },
       executionTime: Date.now() - startTime,
       output: `Document "${doc.title}" deleted successfully.`,
       errorOutput: '',

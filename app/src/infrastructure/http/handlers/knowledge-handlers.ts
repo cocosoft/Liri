@@ -115,6 +115,11 @@ export async function handleListKnowledge(
         parseInt(parsedUrl.searchParams.get('limit') || '50', 10) || 50
       )
     );
+    // KB-C6：排序下移服务端（updated/title/created），先全局排序再分页，
+    // 修复原前端仅排当前页导致跨页顺序错乱
+    const sortBy = parsedUrl.searchParams.get('sortBy') || 'updated';
+    // KB-L2：按 docPath 精确过滤（getFileByDocPath 单文档查询，避免前端全量拉取）
+    const docPathFilter = parsedUrl.searchParams.get('docPath');
 
     const registry = getDefaultKnowledgeBaseRegistry();
     const knowledgeRoot = registry.getKnowledgeRoot();
@@ -154,6 +159,8 @@ export async function handleListKnowledge(
       const baseName = docPath.split(/[/\\]/)[0];
 
       if (baseFilter && baseName !== baseFilter) continue;
+      // KB-L2：docPath 精确过滤
+      if (docPathFilter && docPath !== docPathFilter) continue;
 
       const meta = statMap.get(docPath) ?? {
         size: 0,
@@ -195,7 +202,13 @@ export async function handleListKnowledge(
     }
 
     const total = result.length;
-    const paged = result.slice(offset, offset + limit);
+    // KB-C6：全局排序后再分页（默认最近更新倒序；title 中文感知；created 按创建倒序）
+    const sorted = [...result].sort((a, b) => {
+      if (sortBy === 'title') return a.title.localeCompare(b.title, 'zh');
+      if (sortBy === 'created') return b.created_at - a.created_at;
+      return b.updated_at - a.updated_at;
+    });
+    const paged = sorted.slice(offset, offset + limit);
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(
@@ -1050,10 +1063,30 @@ export async function handleKnowledgeCompile(
     const { runKnowledgeCompile } =
       await import('@modules/knowledge/KnowledgeCompiler');
 
-    const result = await runKnowledgeCompile(aiService, { force: !!force });
+    // KB-COMPILE-ASYNC（2026-08-28）：编译耗时较长（几十秒~数分钟），
+    // 同步 await 会长时间占用事件循环（compile-status 也无法响应）。
+    // 改为后台执行 + 立即返回 202，前端轮询 GET /v1/knowledge/compile-status
+    // 显示实时进度（current/total），避免用户不知情。
+    setImmediate(async () => {
+      try {
+        await runKnowledgeCompile(aiService, { force: !!force });
+      } catch (err) {
+        handleError(err, {
+          module: 'infrastructure:http:handlers:knowledge-handlers',
+          action: 'compile:background',
+        });
+      }
+    });
 
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify(result));
+    res.writeHead(202, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(
+      JSON.stringify({
+        success: true,
+        started: true,
+        async: true,
+        message: '编译已启动，可通过 /v1/knowledge/compile-status 查询进度',
+      })
+    );
   } catch (err) {
     sendError(res, err);
   }
@@ -1522,6 +1555,14 @@ export async function handleUpdateKnowledgeDoc(
       }
     }
 
+    // P1-6（2026-08-28，Liri 复查发现）：文件存在但无 frontmatter（如新建文档）时，
+    // 原兜底分支用空 content 覆盖写入 → 批量移动/仅改 base 会清空正文。
+    // 修复：文件存在且未显式传 content → 保留原文件全文作为正文，仅应用 title/base 变更。
+    let bodyContent = content ?? '';
+    if (!content && existsSync(effectiveFilePath)) {
+      bodyContent = (await readFile(effectiveFilePath, 'utf-8')).trim();
+    }
+
     const newContent = [
       '---',
       title ? `title: "${title.replace(/"/g, '\\"')}"` : 'title: "未命名文档"',
@@ -1530,7 +1571,7 @@ export async function handleUpdateKnowledgeDoc(
       `updated_at: ${Date.now()}`,
       '---',
       '',
-      content,
+      bodyContent,
       '',
     ].join('\n');
 

@@ -43,10 +43,14 @@ describe("knowledgeStore list slice (P3-1 收编)", () => {
   it("SET_SEARCHING + SET_SEARCH_RESULTS → listResults 落地且搜索态关闭", () => {
     const s = useKnowledgeStore.getState();
     s.dispatchList({ type: "SET_SEARCHING", searching: true });
-    s.dispatchList({ type: "SET_SEARCH_RESULTS", results: [makeFile("a")] });
+    // KB-C2：listResults 现为 KnowledgeSearchHit（含 file/score/matchType）
+    s.dispatchList({
+      type: "SET_SEARCH_RESULTS",
+      results: [{ file: makeFile("a"), score: 0.9, matchType: "keyword" }],
+    });
     const { search } = useKnowledgeStore.getState();
     expect(search.listResults).toHaveLength(1);
-    expect(search.listResults[0].docPath).toBe("a.md");
+    expect(search.listResults[0].file.docPath).toBe("a.md");
     expect(search.isListSearching).toBe(false);
   });
 

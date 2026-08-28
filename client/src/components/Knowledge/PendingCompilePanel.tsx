@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { knowledgeService } from "../../services/knowledgeService";
+import { useCompilePolling } from "./useCompilePolling";
 import { formatFileSize, formatDate } from "./shared/utils";
 
 interface RawFileInfo {
@@ -31,9 +32,10 @@ function PendingCompilePanel({
   const [compileResult, setCompileResult] = useState<{
     message: string;
     hasError: boolean;
-    failedDocs?: string[];
   } | null>(null);
   const [expanded, setExpanded] = useState(false);
+  // L7：首次加载标记（仅初始化展开态，刷新不覆盖用户操作）
+  const firstLoadRef = useRef(true);
 
   const bgClass = isDark ? "bg-gray-800" : "bg-gray-50";
   const textPrimary = isDark ? "text-gray-100" : "text-gray-900";
@@ -47,7 +49,11 @@ function PendingCompilePanel({
     try {
       const result = await knowledgeService.getRawFiles();
       setRawFiles(result.files);
-      setExpanded(result.files.length > 0);
+      // L7：仅首次加载按数据量初始化展开态，刷新不覆盖用户手动收起
+      if (firstLoadRef.current) {
+        firstLoadRef.current = false;
+        setExpanded(result.files.length > 0);
+      }
     } catch {
       setRawFiles([]);
     } finally {
@@ -59,46 +65,25 @@ function PendingCompilePanel({
     loadRawFiles();
   }, [loadRawFiles]);
 
+  // Phase 0：编译"触发 + 状态机轮询"收敛到 useCompilePolling（C1/C2/C3）
+  const { start: startCompile } = useCompilePolling({
+    onProgress: (p) => setCompileProgress(p),
+    onResult: (r) =>
+      setCompileResult({ message: r.message, hasError: r.hasError }),
+    onFinished: async () => {
+      setCompiling(false);
+      await loadRawFiles();
+      onCompileComplete?.();
+    },
+  });
+
   async function handleCompileAll() {
+    if (compiling) return;
     setCompiling(true);
     setCompileProgress(0);
     setCompileResult(null);
-
-    // W9: 轮询真实编译进度（每 500ms 查询一次）
-    const progressTimer = setInterval(async () => {
-      try {
-        const status = await knowledgeService.getCompileStatus();
-        if (status.total > 0) {
-          setCompileProgress(Math.round((status.current / status.total) * 100));
-        }
-      } catch {
-        // 轮询失败静默忽略
-      }
-    }, 500);
-
-    try {
-      const result = await knowledgeService.triggerCompile(false);
-      clearInterval(progressTimer);
-      setCompileProgress(100);
-      const hasError = (result.errors?.length ?? 0) > 0;
-      const msg = `编译完成: ${result.compiled} 个成功, ${result.skipped} 个跳过${hasError ? `, ${result.errors?.length} 个错误` : ""}`;
-      setCompileResult({
-        message: msg,
-        hasError,
-        failedDocs: [],
-      });
-      await loadRawFiles();
-      onCompileComplete?.();
-    } catch (err) {
-      clearInterval(progressTimer);
-      setCompileResult({
-        message:
-          "编译失败: " + (err instanceof Error ? err.message : "未知错误"),
-        hasError: true,
-      });
-    } finally {
-      setCompiling(false);
-    }
+    const started = await startCompile();
+    if (!started) setCompiling(false); // 被顶栏编译入口的互斥挡住
   }
 
   if (!expanded && rawFiles.length === 0) return null;
@@ -292,11 +277,6 @@ function PendingCompilePanel({
               }`}
             >
               {compileResult.message}
-            </div>
-          )}
-          {compileResult?.failedDocs && compileResult.failedDocs.length > 0 && (
-            <div className="mt-1 text-xs text-red-500 dark:text-red-400">
-              失败的文件: {compileResult.failedDocs.join(", ")}
             </div>
           )}
         </div>

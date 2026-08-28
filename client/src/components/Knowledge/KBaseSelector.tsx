@@ -56,24 +56,11 @@ function KBaseSelector({
         </button>
         {bases.map((base) => (
           <div key={base.name} className="relative group flex-shrink-0">
-            <button
-              onClick={() => {
-                if (editingBase === base.name) {
-                  onRenameBase(base.name);
-                } else {
-                  onSelectBase(base.name);
-                }
-              }}
-              onDoubleClick={() => onStartEdit(base.name, base.label)}
-              className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                selectedBase === base.name
-                  ? "bg-blue-500 text-white"
-                  : isDark
-                    ? "bg-gray-700 text-gray-300 hover:bg-gray-600"
-                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-              }`}
-            >
-              {editingBase === base.name ? (
+            {editingBase === base.name ? (
+              // KB-C5：编辑态用 span 包裹 input（不嵌套 <button>，避免非法嵌套 + Enter/blur/click 三入口重复提交）
+              <span
+                className={`inline-flex items-center px-1 py-1 text-xs font-medium ${isDark ? "text-gray-300" : "text-gray-700"}`}
+              >
                 <input
                   type="text"
                   value={editLabel}
@@ -85,20 +72,29 @@ function KBaseSelector({
                   }}
                   className="w-16 bg-transparent border-b border-current outline-none text-center"
                   autoFocus
-                  onClick={(e) => e.stopPropagation()}
                 />
-              ) : (
-                <>
-                  {base.icon && <span className="mr-1">{base.icon}</span>}
-                  {base.label}
-                  <span
-                    className={`ml-1 ${selectedBase === base.name ? "text-blue-200" : textMuted}`}
-                  >
-                    {base.docCount}
-                  </span>
-                </>
-              )}
-            </button>
+              </span>
+            ) : (
+              <button
+                onClick={() => onSelectBase(base.name)}
+                onDoubleClick={() => onStartEdit(base.name, base.label)}
+                className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                  selectedBase === base.name
+                    ? "bg-blue-500 text-white"
+                    : isDark
+                      ? "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                }`}
+              >
+                {base.icon && <span className="mr-1">{base.icon}</span>}
+                {base.label}
+                <span
+                  className={`ml-1 ${selectedBase === base.name ? "text-blue-200" : textMuted}`}
+                >
+                  {base.docCount}
+                </span>
+              </button>
+            )}
             {base.source === "user" && (
               <div className="absolute -top-1 -right-1 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                 {onCloneBase && (

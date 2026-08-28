@@ -4,7 +4,6 @@ import { X, Eye, Edit3 } from "lucide-react";
 
 interface FAQEditorProps {
   isDark: boolean;
-  base: string;
   entry?: FAQEntry; // undefined = 创建模式
   onSave: (data: {
     question: string;

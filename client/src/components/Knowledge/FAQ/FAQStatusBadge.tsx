@@ -3,12 +3,10 @@ import type { FAQEntry } from "../../../types/knowledge";
 
 interface FAQStatusBadgeProps {
   status: FAQEntry["embeddingStatus"];
-  onRetry?: () => void;
 }
 
 export const FAQStatusBadge = memo(function FAQStatusBadge({
   status,
-  onRetry,
 }: FAQStatusBadgeProps) {
   switch (status) {
     case "done":
@@ -27,17 +25,11 @@ export const FAQStatusBadge = memo(function FAQStatusBadge({
         </span>
       );
     case "failed":
+      // 后端暂无 re-embed 端点：不渲染可点击重试入口（原空实现按钮点了无反应）
       return (
-        <button
-          title="嵌入失败，点击重试"
-          onClick={(e) => {
-            e.stopPropagation();
-            onRetry?.();
-          }}
-          className="text-xs hover:scale-110 transition-transform cursor-pointer"
-        >
+        <span title="嵌入失败（暂不支持手动重试）" className="text-xs cursor-default">
           ❌
-        </button>
+        </span>
       );
     default:
       return null;

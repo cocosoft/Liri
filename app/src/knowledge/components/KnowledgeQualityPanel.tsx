@@ -103,7 +103,11 @@ export function KnowledgeCompileBadge({
   const statusText: Record<string, string> = {
     idle: 'Idle',
     compiling: 'Compiling...',
-    done: `Compiled ${compiled ?? 0}/${total ?? 0}`,
+    // P3-3：compiled/total 缺失时避免显示 "Compiled 0/0"
+    done:
+      compiled != null && total != null
+        ? `Compiled ${compiled}/${total}`
+        : 'Compiled',
     error: `Failed (${errors ?? 0} errors)`,
   };
 

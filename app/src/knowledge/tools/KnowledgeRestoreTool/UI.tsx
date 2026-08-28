@@ -1,16 +1,7 @@
 import React from 'react';
 import { Text, Box } from '../../../components/ink.js';
-
-function parseOutput(output: any): any {
-  if (typeof output === 'string') {
-    try {
-      return JSON.parse(output);
-    } catch {
-      return {};
-    }
-  }
-  return output || {};
-}
+import { parseToolOutput } from '../parseToolOutput.js';
+import type { KnowledgeRestoreOutput } from '../types.js';
 
 export function renderToolUseMessage(
   input: Partial<{ title: string; snapshot: string }>,
@@ -43,13 +34,14 @@ export function renderToolUseMessage(
 }
 
 export function renderToolResultMessage(
-  output: any,
-  _progressMessages: any[],
+  output: unknown,
+  _progressMessages: unknown[],
   { verbose }: { verbose: boolean }
 ): React.ReactNode {
-  const parsed = parseOutput(output);
+  // 工具契约：result = { title, snapshot }
+  const parsed = parseToolOutput(output) as KnowledgeRestoreOutput;
   const title = parsed.title || '';
-  const snapshot = parsed.snapshot || parsed.version || '';
+  const snapshot = parsed.snapshot || '';
 
   if (verbose && snapshot) {
     return (

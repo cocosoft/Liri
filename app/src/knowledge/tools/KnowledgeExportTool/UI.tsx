@@ -1,16 +1,7 @@
 import React from 'react';
 import { Text, Box } from '../../../components/ink.js';
-
-function parseOutput(output: any): any {
-  if (typeof output === 'string') {
-    try {
-      return JSON.parse(output);
-    } catch {
-      return {};
-    }
-  }
-  return output || {};
-}
+import { parseToolOutput } from '../parseToolOutput.js';
+import type { KnowledgeExportOutput } from '../types.js';
 
 export function renderToolUseMessage(
   input: Partial<{ format: string }>,
@@ -34,28 +25,14 @@ export function renderToolUseMessage(
 }
 
 export function renderToolResultMessage(
-  output: any,
-  _progressMessages: any[],
-  { verbose }: { verbose: boolean }
+  output: unknown,
+  _progressMessages: unknown[],
+  _options: { verbose: boolean }
 ): React.ReactNode {
-  const parsed = parseOutput(output);
-  const count = parsed.count ?? parsed.exported ?? 0;
-  const outputPath = parsed.outputPath || parsed.path || '';
-
-  if (verbose && outputPath) {
-    return (
-      <Box flexDirection="column">
-        <Box flexDirection="row">
-          <Text color="green">Exported: </Text>
-          <Text bold>{count}</Text>
-          <Text> documents</Text>
-        </Box>
-        <Box marginTop={1}>
-          <Text dimColor>Output: {outputPath}</Text>
-        </Box>
-      </Box>
-    );
-  }
+  // 工具契约：result = { exported, targetDir, format }
+  const parsed = parseToolOutput(output) as KnowledgeExportOutput;
+  const count = parsed.exported ?? 0;
+  const outputPath = parsed.targetDir || '';
 
   return (
     <Box flexDirection="column">

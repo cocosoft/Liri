@@ -28,6 +28,8 @@ function VersionHistory({
   const [snapshotContent, setSnapshotContent] = useState<string | null>(null);
   const [restoring, setRestoring] = useState(false);
   const [viewMode, setViewMode] = useState<"side" | "inline">("side");
+  // KB-R4：快照请求序号，丢弃在飞过期响应（切文档后旧请求返回不得覆盖新文档快照）
+  const loadSeqRef = useRef(0);
 
   const bgClass = isDark ? "bg-gray-800" : "bg-white";
   const borderColor = isDark ? "border-gray-700" : "border-gray-200";
@@ -56,11 +58,16 @@ function VersionHistory({
   }, [title]);
 
   async function loadSnapshots() {
+    const seq = ++loadSeqRef.current;
     setLoading(true);
     try {
       const list = await knowledgeService.listSnapshots(title);
+      if (seq !== loadSeqRef.current) return; // KB-R4：过期响应丢弃
       setSnapshots(list);
     } catch {
+      if (seq !== loadSeqRef.current) return;
+      // KB-V1：加载失败明确提示（原静默 setSnapshots([]) 显示"历史版本 (0)"误导为无版本）
+      toastError("加载版本历史失败，请稍后重试");
       setSnapshots([]);
     } finally {
       setLoading(false);
@@ -73,6 +80,8 @@ function VersionHistory({
       const content = await knowledgeService.getSnapshotContent(title, name);
       setSnapshotContent(content);
     } catch {
+      // KB-V1：读取失败明确提示（原静默无任何反馈）
+      toastError("读取快照内容失败，请稍后重试");
       setSnapshotContent(null);
     }
   }

@@ -58,6 +58,7 @@ function KnowledgeBaseList({
     batchTagInput,
     batchTagStatus,
     compileStatus,
+    compileProgress,
     compileMessage,
     searchTags,
     total,
@@ -86,9 +87,11 @@ function KnowledgeBaseList({
   }, [total, onTotalChange]);
 
   // ── 计算显示列表 ──
-  const isSearchActive =
-    searchQuery.trim().length > 0 && searchResults.length > 0;
-  const baseList = isSearchActive ? searchResults : files;
+  // C4：搜索激活只取决于输入是否非空（不依赖结果数），
+  // 否则搜索 0 命中时会回退展示全部文档，误以为"搜索命中很多"
+  const isSearchActive = searchQuery.trim().length > 0;
+  // KB-C2：搜索结果含 score/matchType 元数据，列表侧只展示 file 部分（元数据由右侧 SearchHitCard 展示）
+  const baseList = isSearchActive ? searchResults.map((r) => r.file) : files;
   const filteredBySource =
     !isSearchActive && selectedSource
       ? baseList.filter((f) => f.source === selectedSource)
@@ -97,11 +100,9 @@ function KnowledgeBaseList({
     !isSearchActive && selectedCategory
       ? filteredBySource.filter((f) => f.category === selectedCategory)
       : filteredBySource;
-  const sortedFiles = [...filteredByCategory].sort((a, b) => {
-    if (sortBy === "title") return a.title.localeCompare(b.title);
-    if (sortBy === "created") return (b.created_at || 0) - (a.created_at || 0);
-    return (b.updated_at || 0) - (a.updated_at || 0);
-  });
+  // KB-C6：排序已下移服务端（listFiles 传 sortBy，先全局排序再分页），
+  // 此处不再客户端排序——原实现只排当前页，跨页顺序错乱
+  const sortedFiles = filteredByCategory;
 
   const categories = [
     ...new Set(files.map((f) => f.category).filter(Boolean)),
@@ -234,36 +235,53 @@ function KnowledgeBaseList({
         categories={categories}
         docCount={sortedFiles.length}
         selectedBase={selectedBase}
+        searchActive={isSearchActive}
         onSearchQueryChange={(q) =>
           dispatch({ type: "SET_SEARCH_QUERY", query: q })
         }
         onSearch={handleSearch}
         onSortByChange={(s) => dispatch({ type: "SET_SORT_BY", sortBy: s })}
-        onSourceChange={(s) => dispatch({ type: "SET_SOURCE", source: s })}
-        onCategoryChange={(c) =>
-          dispatch({ type: "SET_CATEGORY", category: c })
-        }
+        onSourceChange={(s) => {
+          dispatch({ type: "SET_SOURCE", source: s });
+          // B1：切分类/来源时重置到第 1 页，避免残留页码越界
+          if (page !== 0) dispatch({ type: "SET_PAGE", page: 0 });
+        }}
+        onCategoryChange={(c) => {
+          dispatch({ type: "SET_CATEGORY", category: c });
+          if (page !== 0) dispatch({ type: "SET_PAGE", page: 0 });
+        }}
         onSearchTagsChange={(tags) =>
           dispatch({ type: "SET_SEARCH_TAGS", tags })
         }
         searchTags={searchTags}
       />
 
-      {/* 编译状态 */}
+      {/* 编译状态（KB-COMPILE-ASYNC：显示实时进度条） */}
       {compileStatus !== "idle" && (
         <div className="px-4 pb-2">
-          <div
-            className={`text-xs px-2 py-1 rounded ${compileStatus === "compiling" ? "bg-blue-100 dark:bg-blue-900/30 text-blue-600" : compileStatus === "success" ? "bg-green-100 dark:bg-green-900/30 text-green-600" : "bg-red-100 dark:bg-red-900/30 text-red-600"}`}
-          >
-            {compileStatus === "compiling" ? (
-              <>
-                <span className="animate-spin w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full inline-block mr-1" />
-                编译中...
-              </>
-            ) : (
-              compileMessage
-            )}
-          </div>
+          {compileStatus === "compiling" ? (
+            <div className="rounded bg-blue-100 dark:bg-blue-900/30 text-blue-600 p-2">
+              <div className="flex items-center justify-between text-xs mb-1">
+                <span className="flex items-center">
+                  <span className="animate-spin w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full inline-block mr-1.5" />
+                  编译中...
+                </span>
+                <span>{compileProgress}%</span>
+              </div>
+              <div className="w-full h-1.5 bg-blue-200 dark:bg-blue-900/50 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-blue-500 rounded-full transition-all duration-500"
+                  style={{ width: `${compileProgress}%` }}
+                />
+              </div>
+            </div>
+          ) : (
+            <div
+              className={`text-xs px-2 py-1 rounded ${compileStatus === "success" ? "bg-green-100 dark:bg-green-900/30 text-green-600" : "bg-red-100 dark:bg-red-900/30 text-red-600"}`}
+            >
+              {compileMessage}
+            </div>
+          )}
         </div>
       )}
 
@@ -342,7 +360,8 @@ function KnowledgeBaseList({
                   onClick={() => dispatch({ type: "OPEN_CREATE_MODAL" })}
                   className="px-3 py-1.5 text-xs border rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                 >
-                  新建文档
+                  {/* KB-C7：此按钮打开的是"新建知识库"弹窗，文案与行为对齐（原"新建文档"误导） */}
+                  新建知识库
                 </button>
               </div>
             )}
@@ -413,32 +432,28 @@ function KnowledgeBaseList({
             </span>
             <div className="flex items-center gap-1">
               <button
-                onClick={() => {
-                  dispatch({ type: "SET_PAGE", page: 0 });
-                  loadFiles();
-                }}
+                onClick={() => dispatch({ type: "SET_PAGE", page: 0 })}
                 disabled={page === 0}
                 className="text-[10px] px-1.5 py-0.5 rounded border disabled:opacity-30"
               >
                 首页
               </button>
               <button
-                onClick={() => {
-                  const p = Math.max(0, page - 1);
-                  dispatch({ type: "SET_PAGE", page: p });
-                  loadFiles();
-                }}
+                onClick={() =>
+                  dispatch({ type: "SET_PAGE", page: Math.max(0, page - 1) })
+                }
                 disabled={page === 0}
                 className="text-[10px] px-1.5 py-0.5 rounded border disabled:opacity-30"
               >
                 上一页
               </button>
               <button
-                onClick={() => {
-                  const p = Math.min(Math.ceil(total / pageSize) - 1, page + 1);
-                  dispatch({ type: "SET_PAGE", page: p });
-                  loadFiles();
-                }}
+                onClick={() =>
+                  dispatch({
+                    type: "SET_PAGE",
+                    page: Math.min(Math.ceil(total / pageSize) - 1, page + 1),
+                  })
+                }
                 disabled={(page + 1) * pageSize >= total}
                 className="text-[10px] px-1.5 py-0.5 rounded border disabled:opacity-30"
               >

@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { knowledgeService } from "../../services/knowledgeService";
 import { readFileAsBase64 } from "../../utils/format";
 import { handleClientError } from "../../utils/handleError";
@@ -53,6 +53,14 @@ function FileUploadZone({
   // P1-2 瘦身：上传区默认折叠为小按钮
   const [collapsed, setCollapsed] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // F6：卸载守卫，防止异步上传完成/定时器在组件卸载后 setState
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   const borderDragClass = isDragOver
     ? "border-blue-400 bg-blue-50 dark:bg-blue-900/20"
@@ -124,13 +132,15 @@ function FileUploadZone({
               lastErrorMessage = err.message;
             }
           }
-          // 更新进度
+          // 更新进度（F6：卸载后不再 setState）
           const done = successCount + errorCount;
-          setUploadState({
-            status: "uploading",
-            message: `上传中... (${done}/${files.length})`,
-            progress: Math.round((done / files.length) * 100),
-          });
+          if (mountedRef.current) {
+            setUploadState({
+              status: "uploading",
+              message: `上传中... (${done}/${files.length})`,
+              progress: Math.round((done / files.length) * 100),
+            });
+          }
         }
       }
 
@@ -141,13 +151,21 @@ function FileUploadZone({
     const { successCount, errorCount, lastErrorMessage } =
       await uploadWithConcurrency(validFiles, 5);
 
+    if (!mountedRef.current) return; // F6：组件已卸载，不再更新状态
+
     if (successCount > 0) {
+      // F6：上传期间切换了知识库时，不刷新当前库（文件在 targetBase 下），
+      // 并在消息中明确文件归属，避免"上传了却看不到"
+      const baseSwitched = baseName !== targetBase;
       setUploadState({
         status: "success",
-        message: `上传完成: ${successCount} 个文件成功${errorCount > 0 ? `, ${errorCount} 个失败` : ""}`,
+        message:
+          `上传完成: ${successCount} 个文件成功` +
+          (errorCount > 0 ? `, ${errorCount} 个失败` : "") +
+          (baseSwitched ? `（已上传至「${targetBase}」，当前已切换知识库）` : ""),
         progress: 100,
       });
-      onUploadComplete();
+      if (!baseSwitched) onUploadComplete();
     } else {
       setUploadState({
         status: "error",
@@ -157,7 +175,9 @@ function FileUploadZone({
     }
 
     setTimeout(() => {
-      setUploadState({ status: "idle", message: "", progress: 0 });
+      if (mountedRef.current) {
+        setUploadState({ status: "idle", message: "", progress: 0 });
+      }
     }, 3000);
   }
 

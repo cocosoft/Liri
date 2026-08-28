@@ -48,7 +48,9 @@ export function ProgressBar({
   color = 'green',
   showLabel = true,
 }: ProgressBarProps): React.ReactNode {
-  const ratio = Math.min(1, Math.max(0, percent / 100));
+  // P3-3 根因防护：percent 先归一化到 [0,100]，条与 label 使用同一值（原实现条已 clamp 但 label 显示原始值，>100% 时条满而 label 溢出）
+  const clamped = Math.min(100, Math.max(0, percent));
+  const ratio = clamped / 100;
   const whole = Math.floor(ratio * width);
 
   let segments = [BLOCKS[BLOCKS.length - 1].repeat(whole)];
@@ -69,7 +71,7 @@ export function ProgressBar({
   return (
     <Box>
       <Text color={color as Color}>{bar}</Text>
-      {showLabel && <Text> {percent}%</Text>}
+      {showLabel && <Text> {clamped}%</Text>}
     </Box>
   );
 }
@@ -89,7 +91,9 @@ export function ProgressBarEx({
   filledColor,
   emptyColor,
 }: ProgressBarExProps): React.ReactNode {
-  const ratio = Math.min(1, Math.max(0, percent / 100));
+  // P3-3 根因防护：与 ProgressBar 一致，percent 归一化后 label/条同值
+  const clamped = Math.min(100, Math.max(0, percent));
+  const ratio = clamped / 100;
   const whole = Math.floor(ratio * width);
 
   let segments = [BLOCKS[BLOCKS.length - 1].repeat(whole)];
@@ -111,7 +115,7 @@ export function ProgressBarEx({
     <Box flexDirection="column">
       {label && (
         <Text>
-          {label}: {percent}%
+          {label}: {clamped}%
         </Text>
       )}
       <Box>
@@ -121,7 +125,7 @@ export function ProgressBarEx({
         >
           {bar}
         </Text>
-        {showLabel && <Text> {percent}%</Text>}
+        {showLabel && <Text> {clamped}%</Text>}
       </Box>
     </Box>
   );

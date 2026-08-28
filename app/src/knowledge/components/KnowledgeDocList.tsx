@@ -9,7 +9,11 @@
 
 import React from 'react';
 import { Text, Box } from '../../components/ink.js';
-import { Table, TableColumn } from '../../components/ui/Table.js';
+import {
+  Table,
+  TableColumn,
+  truncateToWidth,
+} from '../../components/ui/Table.js';
 
 export interface KnowledgeDocSummary {
   title: string;
@@ -48,7 +52,8 @@ export function KnowledgeDocList({
   ];
 
   const rows = docs.slice(0, 20).map((d) => ({
-    title: d.title.slice(0, 28),
+    // P3-1：按显示宽度截断，中文标题不撑破列宽
+    title: truncateToWidth(d.title, 28),
     category: d.category,
     wordCount: String(d.wordCount),
     lastModified: d.lastModified?.slice(0, 10) || '',

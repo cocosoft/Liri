@@ -32,7 +32,7 @@ import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-import { resolveDataSubDir } from '@modules/core';
+import { resolvePyappHome } from '@modules/core';
 import { sanitizeFileName } from '@modules/services/file/fileNaming';
 
 const logger = getLogger('knowledge:tools:knowledgeExportTool');
@@ -72,7 +72,7 @@ export class KnowledgeExportTool implements Tool {
     const format = ((input.format as string) || '').toLowerCase();
     const targetDir =
       (input.targetDir as string) ||
-      join(resolveDataSubDir(''), '..', '..', 'exports', 'knowledge');
+      join(resolvePyappHome(), 'exports', 'knowledge');
 
     if (format !== 'markdown' && format !== 'json') {
       return {
@@ -145,6 +145,7 @@ export class KnowledgeExportTool implements Tool {
 
       return {
         status: ToolExecutionStatus.SUCCESS,
+        result: { exported: docs.length, targetDir, format },
         output: JSON.stringify({ exported: docs.length, targetDir, format }),
         executionTime: Date.now() - startTime,
         error: '',

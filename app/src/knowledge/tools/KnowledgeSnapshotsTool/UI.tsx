@@ -1,15 +1,17 @@
 import React from 'react';
 import { Text, Box } from '../../../components/ink.js';
+import { parseToolOutput } from '../parseToolOutput.js';
+import type { KnowledgeSnapshotsOutput } from '../types.js';
 
-function parseOutput(output: any): any {
-  if (typeof output === 'string') {
-    try {
-      return JSON.parse(output);
-    } catch {
-      return {};
-    }
+/** 快照条目显示名：工具 result 直接是文件名数组（字符串元素），兼容对象形式 */
+function snapshotLabel(s: unknown, i: number): string {
+  if (typeof s === 'string') return s;
+  if (s && typeof s === 'object') {
+    const o = s as { filename?: unknown; name?: unknown };
+    if (typeof o.filename === 'string') return o.filename;
+    if (typeof o.name === 'string') return o.name;
   }
-  return output || {};
+  return `snapshot_${i}`;
 }
 
 export function renderToolUseMessage(
@@ -35,13 +37,16 @@ export function renderToolUseMessage(
 }
 
 export function renderToolResultMessage(
-  output: any,
-  _progressMessages: any[],
+  output: unknown,
+  _progressMessages: unknown[],
   { verbose }: { verbose: boolean }
 ): React.ReactNode {
-  const parsed = parseOutput(output);
-  const title = parsed.title || '';
-  const snapshots = parsed.snapshots || parsed.versions || [];
+  // 工具契约：result 直接是 string[]（文件名）；兼容对象包裹形式 { snapshots } / { versions }
+  const parsed = parseToolOutput(output) as KnowledgeSnapshotsOutput;
+  const snapshots = Array.isArray(parsed)
+    ? parsed
+    : (parsed.snapshots ?? parsed.versions ?? []);
+  const title = Array.isArray(parsed) ? '' : (parsed.title ?? '');
 
   if (!Array.isArray(snapshots) || snapshots.length === 0) {
     return (
@@ -66,11 +71,10 @@ export function renderToolResultMessage(
           )}
         </Box>
         <Box marginTop={1} marginLeft={2} flexDirection="column">
-          {snapshots.slice(0, 10).map((s: any, i: number) => (
+          {snapshots.slice(0, 10).map((s, i) => (
             <Box key={i} flexDirection="row">
               <Text dimColor>[{i + 1}]</Text>
-              <Text> {s.filename || s.name || `snapshot_${i}`}</Text>
-              {s.timestamp && <Text dimColor> ({s.timestamp})</Text>}
+              <Text> {snapshotLabel(s, i)}</Text>
             </Box>
           ))}
           {snapshots.length > 10 && (
@@ -94,9 +98,9 @@ export function renderToolResultMessage(
         )}
       </Box>
       <Box marginTop={1} marginLeft={2} flexDirection="column">
-        {snapshots.slice(0, 5).map((s: any, i: number) => (
+        {snapshots.slice(0, 5).map((s, i) => (
           <Text key={i} dimColor>
-            {s.filename || s.name || `snapshot_${i}`}
+            {snapshotLabel(s, i)}
           </Text>
         ))}
         {snapshots.length > 5 && (

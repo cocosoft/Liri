@@ -26,13 +26,17 @@ function BatchTagModal({
     : "bg-white border-gray-300 text-gray-900 placeholder-gray-400";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+      onClick={onClose}
+    >
       <div
         className={`w-72 p-4 rounded-xl shadow-xl ${
           isDark
             ? "bg-gray-800 border border-gray-700"
             : "bg-white border border-gray-200"
         }`}
+        onClick={(e) => e.stopPropagation()}
       >
         <h3
           className={`text-sm font-semibold mb-1 ${isDark ? "text-gray-100" : "text-gray-900"}`}
@@ -51,7 +55,8 @@ function BatchTagModal({
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();
-              onSave();
+              // 防重：保存中 Enter 不重复提交（与保存按钮 disabled 对齐）
+              if (status !== "saving") onSave();
             }
             if (e.key === "Escape") onClose();
           }}

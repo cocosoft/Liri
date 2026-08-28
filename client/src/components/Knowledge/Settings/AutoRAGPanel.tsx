@@ -16,7 +16,9 @@ export const AutoRAGPanel = memo(function AutoRAGPanel({
   const [edited, setEdited] = useState<KnowledgeConfigData | null>(null);
   const [error, setError] = useState("");
 
-  useEffect(() => {
+  const load = useCallback(() => {
+    setLoading(true);
+    setError("");
     knowledgeConfigService
       .get()
       .then((c) => {
@@ -26,6 +28,10 @@ export const AutoRAGPanel = memo(function AutoRAGPanel({
       .catch((e) => setError(e instanceof Error ? e.message : "加载失败"))
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
 
   const handleSave = useCallback(async () => {
     if (!edited) return;
@@ -57,6 +63,28 @@ export const AutoRAGPanel = memo(function AutoRAGPanel({
     return (
       <div className="flex items-center justify-center py-8">
         <Loader2 size={18} className="animate-spin text-gray-400" />
+      </div>
+    );
+  }
+
+  // F5：加载失败时不渲染可编辑表单（保存会被 if(!edited) 静默丢弃），
+  // 改为只读错误态 + 重试，保证"能编辑 ⇒ 必有可保存的源数据"
+  if (!edited) {
+    return (
+      <div className="space-y-3 p-1">
+        <div className="text-xs text-red-500 bg-red-500/10 rounded px-3 py-2">
+          配置加载失败：{error || "未知错误"}
+        </div>
+        <button
+          onClick={load}
+          className={`text-xs px-3 py-1.5 rounded border ${
+            isDark
+              ? "border-gray-600 text-gray-300 hover:bg-gray-700"
+              : "border-gray-300 text-gray-600 hover:bg-gray-100"
+          }`}
+        >
+          重新加载
+        </button>
       </div>
     );
   }
@@ -209,7 +237,9 @@ export const AutoRAGPanel = memo(function AutoRAGPanel({
                         ...edited,
                         vectorStore: {
                           ...(vs ?? { type: "jsonl", topK: 10, minScore: 0.3 }),
-                          topK: parseInt(e.target.value) || 10,
+                          topK: Number.isNaN(parseInt(e.target.value))
+                            ? 10
+                            : parseInt(e.target.value),
                         },
                       }
                     : null,
@@ -237,7 +267,9 @@ export const AutoRAGPanel = memo(function AutoRAGPanel({
                         ...edited,
                         vectorStore: {
                           ...(vs ?? { type: "jsonl", topK: 10, minScore: 0.3 }),
-                          minScore: parseFloat(e.target.value) || 0.3,
+                          minScore: Number.isNaN(parseFloat(e.target.value))
+                            ? 0.3
+                            : parseFloat(e.target.value),
                         },
                       }
                     : null,
@@ -274,7 +306,9 @@ export const AutoRAGPanel = memo(function AutoRAGPanel({
                       ...edited,
                       compiler: {
                         ...edited.compiler,
-                        maxPagesPerFile: parseInt(e.target.value) || 8,
+                        maxPagesPerFile: Number.isNaN(parseInt(e.target.value))
+                          ? 8
+                          : parseInt(e.target.value),
                       },
                     }
                   : null,

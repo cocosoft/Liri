@@ -1,16 +1,7 @@
 import React from 'react';
 import { Text, Box } from '../../../components/ink.js';
-
-function parseOutput(output: any): any {
-  if (typeof output === 'string') {
-    try {
-      return JSON.parse(output);
-    } catch {
-      return {};
-    }
-  }
-  return output || {};
-}
+import { parseToolOutput } from '../parseToolOutput.js';
+import type { KnowledgeImportOutput } from '../types.js';
 
 export function renderToolUseMessage(
   input: Partial<{ source: string }>,
@@ -35,46 +26,22 @@ export function renderToolUseMessage(
 }
 
 export function renderToolResultMessage(
-  output: any,
-  _progressMessages: any[],
-  { verbose }: { verbose: boolean }
+  output: unknown,
+  _progressMessages: unknown[],
+  _options: { verbose: boolean }
 ): React.ReactNode {
-  const parsed = parseOutput(output);
-  const imported = parsed.imported ?? parsed.count ?? 0;
+  // 工具契约：result = { imported, skipped, total }
+  const parsed = parseToolOutput(output) as KnowledgeImportOutput;
+  const imported = parsed.imported ?? 0;
   const skipped = parsed.skipped ?? 0;
-  const errors = parsed.errors ?? 0;
-
-  if (verbose && parsed.files && Array.isArray(parsed.files)) {
-    return (
-      <Box flexDirection="column">
-        <Box flexDirection="row">
-          <Text color="green">Imported: </Text>
-          <Text bold>{imported}</Text>
-          <Text> documents</Text>
-          {skipped > 0 && <Text dimColor> ({skipped} skipped)</Text>}
-          {errors > 0 && <Text color="red"> ({errors} errors)</Text>}
-        </Box>
-        <Box marginTop={1} marginLeft={2} flexDirection="column">
-          {parsed.files.slice(0, 10).map((f: string, i: number) => (
-            <Text key={i} dimColor>
-              {f}
-            </Text>
-          ))}
-          {parsed.files.length > 10 && (
-            <Text dimColor>... {parsed.files.length - 10} more files</Text>
-          )}
-        </Box>
-      </Box>
-    );
-  }
 
   return (
     <Box flexDirection="row">
       <Text color="green">Imported: </Text>
       <Text bold>{imported}</Text>
       <Text> documents</Text>
+      {parsed.total != null && <Text dimColor> (of {parsed.total})</Text>}
       {skipped > 0 && <Text dimColor> ({skipped} skipped)</Text>}
-      {errors > 0 && <Text color="red"> ({errors} errors)</Text>}
     </Box>
   );
 }

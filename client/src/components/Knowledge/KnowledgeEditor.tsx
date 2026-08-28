@@ -9,6 +9,7 @@ import EditorToolbar from "./EditorToolbar";
 import MarkdownRenderer from "../ChatArea/MarkdownRenderer";
 import { useKnowledgeStore } from "../../stores/knowledgeStore";
 import { knowledgeService } from "../../services/knowledgeService";
+import { toastError } from "../../stores/toastStore";
 import type { KnowledgeFile } from "../../types";
 
 type ViewMode = "edit" | "preview" | "split";
@@ -85,9 +86,12 @@ function KnowledgeEditor({
   const editorDraft = useKnowledgeStore((s) => s.editorDraft);
   const setEditorDraft = useKnowledgeStore((s) => s.setEditorDraft);
 
+  // KB-E1：草稿按 fileId 绑定 —— 仅当草稿属于当前文档时才恢复，否则直接用文件内容
+  //（修复原实现：全局草稿导致打开文档 B 首帧闪烁 A 的草稿、且 A 草稿被无条件清空丢失）
+  const initialDraft = editorDraft?.fileId === file.id ? editorDraft : null;
   const [state, dispatch] = useReducer(editorReducer, {
-    title: editorDraft?.title ?? file.title ?? "",
-    content: editorDraft?.content ?? file.content ?? "",
+    title: initialDraft?.title ?? file.title ?? "",
+    content: initialDraft?.content ?? file.content ?? "",
     viewMode: "split",
     saving: false,
     autoSaved: false,
@@ -97,14 +101,18 @@ function KnowledgeEditor({
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // W5: 同步 file prop 变化（切换文档时）
+  // KB-E1：切换文档时仅当新文档有匹配草稿才恢复，否则 RESET 为文件内容；
+  // 用 getState() 读取草稿（避免加入 deps 造成 auto-save 写草稿 → effect 触发循环），且不再无条件清空草稿
   useEffect(() => {
+    const draft = useKnowledgeStore.getState().editorDraft;
+    const draftForFile = draft?.fileId === file.id ? draft : null;
     dispatch({
       type: "RESET",
-      title: file.title ?? "",
-      content: file.content ?? "",
+      title: draftForFile?.title ?? file.title ?? "",
+      content: draftForFile?.content ?? file.content ?? "",
     });
-    setEditorDraft(null);
+    // 仅以 file.id 为依赖：文件内容在挂载后不变，title/content 变化是编辑动作，不应触发重置
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [file.id]);
 
   // W5: 500ms auto-save 草稿到 store
@@ -112,7 +120,7 @@ function KnowledgeEditor({
     if (!content.trim()) return;
     if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
     autoSaveTimer.current = setTimeout(() => {
-      setEditorDraft({ title, content });
+      setEditorDraft({ fileId: file.id, title, content });
       dispatch({ type: "SET_AUTO_SAVED", autoSaved: true });
       setTimeout(
         () => dispatch({ type: "SET_AUTO_SAVED", autoSaved: false }),
@@ -122,18 +130,18 @@ function KnowledgeEditor({
     return () => {
       if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
     };
-  }, [title, content, setEditorDraft]);
+  }, [title, content, file.id, setEditorDraft]);
 
-  // W5: unmount 前显式保存草稿
+  // W5: unmount 前显式保存草稿（带 fileId 归属）
   useEffect(() => {
     return () => {
       const isDirty =
         title !== (file.title ?? "") || content !== (file.content ?? "");
       if (isDirty && content.trim()) {
-        setEditorDraft({ title, content });
+        setEditorDraft({ fileId: file.id, title, content });
       }
     };
-  }, [title, content, file.title, file.content, setEditorDraft]);
+  }, [title, content, file.id, file.title, file.content, setEditorDraft]);
 
   const inputBg = isDark
     ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400"
@@ -149,6 +157,11 @@ function KnowledgeEditor({
       await onSave(title.trim(), content.trim());
       // 保存成功后清除草稿
       setEditorDraft(null);
+    } catch (err) {
+      // Phase 2-10：保存失败明确提示（原静默）
+      toastError(
+        "保存失败: " + (err instanceof Error ? err.message : "未知错误"),
+      );
     } finally {
       dispatch({ type: "SET_SAVING", saving: false });
     }
@@ -265,8 +278,12 @@ function KnowledgeEditor({
                   base: file.base || "",
                 };
                 onFileCreated?.(newFile);
-              } catch {
-                // 创建失败静默忽略
+              } catch (err) {
+                // Phase 2-10：模板新建失败明确提示（原静默）
+                toastError(
+                  "模板新建失败: " +
+                    (err instanceof Error ? err.message : "未知错误"),
+                );
               }
             }}
             className={`text-xs px-2 py-1 rounded border ${isDark ? "bg-gray-700 border-gray-600 text-gray-300" : "bg-white border-gray-300 text-gray-600"} focus:outline-none`}

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   datasourceService,
   type DataSourceConfig,
@@ -24,6 +24,9 @@ export function DataSourcePage({ isDark }: DataSourcePageProps) {
   const [showEditor, setShowEditor] = useState(false);
   const [syncing, setSyncing] = useState<string | null>(null);
   const [syncResult, setSyncResult] = useState<SyncResult | null>(null);
+  const [saving, setSaving] = useState(false); // F7：保存防重
+  // L5：同步竞态序号——多源可并行同步，只采纳最近一次的结果
+  const syncSeqRef = useRef(0);
 
   // Editor form state
   const [form, setForm] = useState({
@@ -39,6 +42,7 @@ export function DataSourcePage({ isDark }: DataSourcePageProps) {
     setLoading(true);
     try {
       setConfigs(await datasourceService.list());
+      setError(""); // D2：成功后清理错误提示
     } catch (e) {
       setError(e instanceof Error ? e.message : "加载失败");
     } finally {
@@ -51,21 +55,27 @@ export function DataSourcePage({ isDark }: DataSourcePageProps) {
   }, [load]);
 
   const handleSave = useCallback(async () => {
+    if (saving) return; // F7：防重，避免重复创建数据源
+    setSaving(true);
+    setError("");
     try {
       await datasourceService.create(form);
       setShowEditor(false);
-      load();
+      await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : "保存失败");
+    } finally {
+      setSaving(false);
     }
-  }, [form, load]);
+  }, [form, load, saving]);
 
   const handleDelete = useCallback(
     async (type: string) => {
       if (!confirm(`确定删除数据源 "${type}"？`)) return;
       try {
         await datasourceService.delete(type);
-        load();
+        // KB-D1：await 刷新，保证删除成功后列表与错误清理时序确定
+        await load();
       } catch (e) {
         setError(e instanceof Error ? e.message : "删除失败");
       }
@@ -74,15 +84,20 @@ export function DataSourcePage({ isDark }: DataSourcePageProps) {
   );
 
   const handleSync = useCallback(async (type: string) => {
+    const seq = ++syncSeqRef.current;
     setSyncing(type);
     setSyncResult(null);
     try {
       const r = await datasourceService.sync(type);
-      setSyncResult(r);
+      // L5：仅当仍是最近一次同步时更新结果，避免多源并行时慢响应覆盖快响应
+      if (seq === syncSeqRef.current) setSyncResult(r);
+      setError("");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "同步失败");
+      if (seq === syncSeqRef.current) {
+        setError(e instanceof Error ? e.message : "同步失败");
+      }
     } finally {
-      setSyncing(null);
+      if (seq === syncSeqRef.current) setSyncing(null);
     }
   }, []);
 
@@ -282,7 +297,9 @@ export function DataSourcePage({ isDark }: DataSourcePageProps) {
                   onChange={(e) =>
                     setForm({
                       ...form,
-                      intervalMs: (parseInt(e.target.value) || 60) * 60000,
+                      // L5：同步间隔下限 5 分钟，防止 0 分钟疯狂轮询
+                      intervalMs:
+                        Math.max(5, parseInt(e.target.value) || 60) * 60000,
                     })
                   }
                   min={5}
@@ -320,10 +337,10 @@ export function DataSourcePage({ isDark }: DataSourcePageProps) {
               </button>
               <button
                 onClick={handleSave}
-                disabled={!form.url}
+                disabled={!form.url || saving}
                 className={`text-xs px-4 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50`}
               >
-                添加
+                {saving ? "添加中..." : "添加"}
               </button>
             </div>
           </div>

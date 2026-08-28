@@ -1,16 +1,7 @@
 import React from 'react';
 import { Text, Box } from '../../../components/ink.js';
-
-function parseOutput(output: any): any {
-  if (typeof output === 'string') {
-    try {
-      return JSON.parse(output);
-    } catch {
-      return {};
-    }
-  }
-  return output || {};
-}
+import { parseToolOutput } from '../parseToolOutput.js';
+import type { KnowledgeWriteOutput } from '../types.js';
 
 export function renderToolUseMessage(
   input: Partial<{ title: string }>,
@@ -35,34 +26,28 @@ export function renderToolUseMessage(
 }
 
 export function renderToolResultMessage(
-  output: any,
-  _progressMessages: any[],
-  { verbose }: { verbose: boolean }
+  output: unknown,
+  _progressMessages: unknown[],
+  _options: { verbose: boolean }
 ): React.ReactNode {
-  const parsed = parseOutput(output);
-  const title = parsed.title || parsed.filePath || 'Unknown';
-  const isNew = parsed.isNew ?? parsed.created;
+  // 工具契约：result = { success, filePath, action: 'created' | 'updated' | 'skipped' }
+  const parsed = parseToolOutput(output) as KnowledgeWriteOutput;
+  const action = parsed.action || 'updated';
+  const title = parsed.filePath
+    ? String(parsed.filePath).split(/[\\/]/).pop()!
+    : 'Unknown';
+  const actionLabel =
+    action === 'created'
+      ? 'Created'
+      : action === 'skipped'
+        ? 'Skipped'
+        : 'Updated';
   const status = parsed.success !== false ? 'green' : 'red';
-
-  if (verbose && parsed.content) {
-    return (
-      <Box flexDirection="column">
-        <Box flexDirection="row">
-          <Text color={status}>{isNew ? 'Created' : 'Updated'}: </Text>
-          <Text bold>{title}</Text>
-        </Box>
-        <Box marginTop={1} marginLeft={2}>
-          <Text dimColor>{String(parsed.content).slice(0, 200)}</Text>
-        </Box>
-      </Box>
-    );
-  }
 
   return (
     <Box flexDirection="row">
-      <Text color={status}>{isNew ? 'Created' : 'Updated'}: </Text>
+      <Text color={status}>{actionLabel}: </Text>
       <Text bold>{title}</Text>
-      {parsed.wordCount && <Text dimColor> ({parsed.wordCount} words)</Text>}
     </Box>
   );
 }

@@ -28,6 +28,8 @@ async function fetchFiles(
   offset?: number,
   limit?: number,
   includeContent?: boolean,
+  sortBy?: string,
+  docPath?: string,
 ): Promise<{ items: KnowledgeFile[]; total: number }> {
   const params = new URLSearchParams();
   if (base) params.set("base", base);
@@ -35,6 +37,10 @@ async function fetchFiles(
   if (limit !== undefined) params.set("limit", String(limit));
   // KB-P1-7.5：列表优化——includeContent=false 时后端裁剪 content 字段
   if (includeContent === false) params.set("includeContent", "false");
+  // KB-C6：排序下移服务端（updated/title/created）
+  if (sortBy) params.set("sortBy", sortBy);
+  // KB-L2：docPath 精确过滤（getFileByDocPath 单文档查询，避免全量拉取）
+  if (docPath) params.set("docPath", docPath);
   const qs = params.toString();
   const url = qs ? `/v1/knowledge?${qs}` : "/v1/knowledge";
   const res = await http.get<{ items: KnowledgeFile[]; total: number }>(url);
@@ -113,7 +119,7 @@ export const knowledgeService = {
         // P2-7: 优先使用后端真实元数据，缺失时回退默认值
         size: r.size ?? 0,
         updated_at: r.updated_at ?? 0,
-        created_at: 0,
+        created_at: r.created_at ?? 0, // KB-L4：透传后端字段，缺失回退 0（原硬编码 0）
         source: r.source ?? "manual",
         base: base ?? "",
       },
@@ -129,8 +135,10 @@ export const knowledgeService = {
     offset?: number,
     limit?: number,
     includeContent?: boolean,
+    // KB-C6：排序下移服务端（updated/title/created）
+    sortBy?: string,
   ): Promise<{ items: KnowledgeFile[]; total: number }> => {
-    return fetchFiles(base, offset, limit, includeContent);
+    return fetchFiles(base, offset, limit, includeContent, sortBy);
   },
 
   /** P3-2: 按 docPath 从列表接口拉取真实文件元数据（搜索结果占位元数据的统一获取通道） */
@@ -139,8 +147,9 @@ export const knowledgeService = {
     base?: string,
   ): Promise<KnowledgeFile | null> => {
     try {
-      const { items } = await fetchFiles(base, 0, 100000);
-      return items.find((i) => i.docPath === docPath) ?? null;
+      // KB-L2：后端 docPath 精确过滤（limit=1），不再全量拉取 100000 条再 find
+      const { items } = await fetchFiles(base, 0, 1, true, undefined, docPath);
+      return items[0] ?? null;
     } catch {
       return null;
     }
@@ -303,25 +312,34 @@ export const knowledgeService = {
     });
   },
 
-  /** 触发知识库编译 */
+  /**
+   * 触发知识库编译
+   * KB-COMPILE-ASYNC（2026-08-28）：后端改为异步启动（202 立即返回），
+   * 真实结果需轮询 getCompileStatus()（status=done 后取 result）。
+   */
   triggerCompile: async (
     force?: boolean,
-  ): Promise<{ compiled: number; skipped: number; errors: string[] }> => {
+  ): Promise<{ success: boolean; started: boolean; message?: string }> => {
     const res = await http.post<{
-      compiled: number;
-      skipped: number;
-      errors: string[];
+      success: boolean;
+      started: boolean;
+      message?: string;
     }>("/v1/knowledge/compile", { force });
     return unwrap(res, "KNOWLEDGE_COMPILE");
   },
 
-  /** W9: 获取编译进度 */
+  /** W9: 获取编译进度（done 后 result 含成功/跳过/错误统计） */
   getCompileStatus: async (): Promise<{
     status: "idle" | "compiling" | "done";
     current: number;
     total: number;
     startedAt: number;
     lastError: string | null;
+    result: {
+      compiled: number;
+      skipped: number;
+      errors: number;
+    } | null;
   }> => {
     const res = await http.get<{
       status: "idle" | "compiling" | "done";
@@ -329,6 +347,11 @@ export const knowledgeService = {
       total: number;
       startedAt: number;
       lastError: string | null;
+      result: {
+        compiled: number;
+        skipped: number;
+        errors: number;
+      } | null;
     }>("/v1/knowledge/compile-status");
     return unwrap(res, "KNOWLEDGE_COMPILE_STATUS");
   },

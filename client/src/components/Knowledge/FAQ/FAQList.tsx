@@ -10,7 +10,6 @@ interface FAQListProps {
   onToggleAll: () => void;
   onEdit: (entry: FAQEntry) => void;
   onDelete: (id: string) => void;
-  onRetryEmbed: (id: string) => void;
   isDark: boolean;
 }
 
@@ -21,7 +20,6 @@ export const FAQList = memo(function FAQList({
   onToggleAll,
   onEdit,
   onDelete,
-  onRetryEmbed,
   isDark,
 }: FAQListProps) {
   if (entries.length === 0) {
@@ -84,7 +82,8 @@ export const FAQList = memo(function FAQList({
             <p
               className={`text-xs mt-0.5 line-clamp-1 ${isDark ? "text-gray-500" : "text-gray-400"}`}
             >
-              {entry.answer.slice(0, 100)}
+              {/* L1：answer 可能缺失，空值兜底避免 slice TypeError */}
+              {(entry.answer ?? "").slice(0, 100)}
             </p>
             <div className="flex items-center gap-1.5 mt-1 flex-wrap">
               {entry.tags.map((t) => (
@@ -106,10 +105,7 @@ export const FAQList = memo(function FAQList({
           </div>
 
           <div className="w-12 flex justify-center shrink-0">
-            <FAQStatusBadge
-              status={entry.embeddingStatus}
-              onRetry={() => onRetryEmbed(entry.id)}
-            />
+            <FAQStatusBadge status={entry.embeddingStatus} />
           </div>
 
           <div className="w-14 flex items-center justify-center gap-1 shrink-0">

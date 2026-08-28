@@ -8,7 +8,12 @@
  *       搜索状态统一为 search slice（query/listResults/isListSearching），消除双轨同步。
  */
 import { create } from "zustand";
-import type { KnowledgeFile, KnowledgeBase, KnowledgeSortBy } from "../types";
+import type {
+  KnowledgeFile,
+  KnowledgeBase,
+  KnowledgeSortBy,
+  KnowledgeSearchHit,
+} from "../types";
 
 // ── 子状态接口 ──────────────────────────────────────────
 
@@ -28,6 +33,8 @@ interface EditorState {
 }
 
 interface EditorDraft {
+  /** KB-E1：草稿归属的文档 id —— 打开其他文档时不得恢复/清除本草稿 */
+  fileId: string;
   title: string;
   content: string;
 }
@@ -35,13 +42,17 @@ interface EditorDraft {
 interface SearchState {
   /** 搜索框当前输入（侧边栏 + 标签点击共用，P3-1 后为唯一事实） */
   query: string;
-  /** 侧边栏搜索结果列表（供右侧面板展示） */
-  listResults: KnowledgeFile[];
+  /** 侧边栏搜索结果列表（KB-C2：保留 score/matchType/domain 元数据，供 SearchHitCard 渲染） */
+  listResults: KnowledgeSearchHit[];
   /** 侧边栏是否正在搜索 */
   isListSearching: boolean;
   /** KB-TAGSEARCH（2026-08-27）：外部触发的搜索请求序号（标签点击等）——
    *  自增后 hook 监听并执行真实搜索，避免「只改 query 不搜索」导致显示未找到 */
   requestSeq: number;
+  /** KB-C3：是否已提交过搜索（区分「输入框有字」与「已发起搜索」，避免敲字即切走文档视图） */
+  hasSearched: boolean;
+  /** KB-P2：搜索失败错误信息（区分「真实无结果」与「搜索失败」） */
+  searchError: string | null;
 }
 
 // ── 列表状态（P3-1：由 useKnowledgeBaseList 的 useReducer 收编） ──
@@ -69,6 +80,7 @@ export interface KnowledgeListState {
   batchTagInput: string;
   batchTagStatus: ListSaveStatus;
   compileStatus: ListCompileStatus;
+  compileProgress: number;
   compileMessage: string;
   searchTags: string[];
   total: number;
@@ -85,7 +97,7 @@ export type KnowledgeListAction =
   | { type: "SET_LOADING"; loading: boolean }
   | { type: "SET_SEARCHING"; searching: boolean }
   | { type: "SET_SEARCH_QUERY"; query: string }
-  | { type: "SET_SEARCH_RESULTS"; results: KnowledgeFile[] }
+  | { type: "SET_SEARCH_RESULTS"; results: KnowledgeSearchHit[] }
   | { type: "OPEN_CREATE_MODAL" }
   | { type: "CLOSE_CREATE_MODAL" }
   | { type: "SET_NEW_BASE"; field: "name" | "label" | "icon"; value: string }
@@ -106,13 +118,18 @@ export type KnowledgeListAction =
       type: "SET_COMPILE_STATUS";
       status: ListCompileStatus;
     }
+  | { type: "SET_COMPILE_PROGRESS"; progress: number }
   | { type: "SET_COMPILE_MESSAGE"; message: string }
   | { type: "CLEAR_COMPILE" }
   | { type: "SET_SEARCH_TAGS"; tags: string[] }
   | { type: "SET_PAGE"; page: number }
   | { type: "REFRESH_LIST" }
   /** KB-TAGSEARCH（2026-08-27）：标签点击触发的搜索请求（设置 query + 递增请求序号） */
-  | { type: "SEARCH_REQUEST"; query: string };
+  | { type: "SEARCH_REQUEST"; query: string }
+  /** KB-C3：标记搜索是否已提交（输入 ≠ 已提交） */
+  | { type: "SET_SEARCH_SUBMITTED"; submitted: boolean }
+  /** KB-P2：设置搜索失败错误信息（null = 无错误） */
+  | { type: "SET_SEARCH_ERROR"; error: string | null };
 
 /** 列表初始状态 */
 export function createInitialListState(): KnowledgeListState {
@@ -135,6 +152,7 @@ export function createInitialListState(): KnowledgeListState {
     batchTagInput: "",
     batchTagStatus: "idle",
     compileStatus: "idle",
+    compileProgress: 0,
     compileMessage: "",
     searchTags: [],
     total: 0,
@@ -244,11 +262,18 @@ function applyListAction(
       return { list: { ...list, batchTagStatus: action.status }, search };
     case "SET_COMPILE_STATUS":
       return { list: { ...list, compileStatus: action.status }, search };
+    case "SET_COMPILE_PROGRESS":
+      return { list: { ...list, compileProgress: action.progress }, search };
     case "SET_COMPILE_MESSAGE":
       return { list: { ...list, compileMessage: action.message }, search };
     case "CLEAR_COMPILE":
       return {
-        list: { ...list, compileStatus: "idle", compileMessage: "" },
+        list: {
+          ...list,
+          compileStatus: "idle",
+          compileProgress: 0,
+          compileMessage: "",
+        },
         search,
       };
     case "SET_SEARCH_TAGS":
@@ -267,8 +292,14 @@ function applyListAction(
           ...search,
           query: action.query,
           requestSeq: search.requestSeq + 1,
+          // KB-C3：标签点击即视为提交搜索
+          hasSearched: true,
         },
       };
+    case "SET_SEARCH_SUBMITTED":
+      return { list, search: { ...search, hasSearched: action.submitted } };
+    case "SET_SEARCH_ERROR":
+      return { list, search: { ...search, searchError: action.error } };
     default:
       return { list, search };
   }
@@ -288,7 +319,7 @@ interface KnowledgeStore {
   setSearch: (partial: Partial<SearchState>) => void;
   /** 设置侧边栏搜索结果 */
   setListSearch: (
-    results: KnowledgeFile[],
+    results: KnowledgeSearchHit[],
     query: string,
     searching: boolean,
   ) => void;
@@ -299,10 +330,6 @@ interface KnowledgeStore {
   list: KnowledgeListState;
   /** 列表操作（P3-1：原 useReducer dispatch 收编） */
   dispatchList: (action: KnowledgeListAction) => void;
-
-  notification: { type: "success" | "error"; message: string } | null;
-  showNotification: (type: "success" | "error", message: string) => void;
-  clearNotification: () => void;
 }
 
 export const useKnowledgeStore = create<KnowledgeStore>()((set) => ({
@@ -328,7 +355,14 @@ export const useKnowledgeStore = create<KnowledgeStore>()((set) => ({
   editorDraft: null,
   setEditorDraft: (draft) => set({ editorDraft: draft }),
 
-  search: { query: "", listResults: [], isListSearching: false, requestSeq: 0 },
+  search: {
+    query: "",
+    listResults: [],
+    isListSearching: false,
+    requestSeq: 0,
+    hasSearched: false,
+    searchError: null,
+  },
   setSearch: (partial) =>
     set((state) => ({ search: { ...state.search, ...partial } })),
 
@@ -349,14 +383,13 @@ export const useKnowledgeStore = create<KnowledgeStore>()((set) => ({
         query: "",
         listResults: [],
         isListSearching: false,
+        // KB-C3/KB-P2：清空搜索同时复位已提交标志与错误
+        hasSearched: false,
+        searchError: null,
       },
     })),
 
   list: createInitialListState(),
   dispatchList: (action) =>
     set((state) => applyListAction(state.list, state.search, action)),
-
-  notification: null,
-  showNotification: (type, message) => set({ notification: { type, message } }),
-  clearNotification: () => set({ notification: null }),
 }));

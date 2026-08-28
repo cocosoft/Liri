@@ -22,6 +22,8 @@ export interface KnowledgeSearchResult {
   /** P2-7: 后端补充的真实文件元数据 */
   size?: number;
   updated_at?: number;
+  /** KB-L4：创建时间（后端 search 可选补充；缺失时前端回退 0，不再硬编码语义） */
+  created_at?: number;
   source?: KnowledgeSource;
 }
 

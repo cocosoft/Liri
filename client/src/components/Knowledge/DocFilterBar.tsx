@@ -17,12 +17,15 @@ function FilterPopover({
   selectedSource,
   onSortByChange,
   onSourceChange,
+  disabled,
 }: {
   isDark: boolean;
   sortBy: SortBy;
   selectedSource: string | null;
   onSortByChange: (sortBy: SortBy) => void;
   onSourceChange: (source: string | null) => void;
+  /** KB-C11：搜索激活时来源筛选不生效，禁用避免"高亮选中但实际被绕过" */
+  disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -96,7 +99,8 @@ function FilterPopover({
                 const val = e.target.value;
                 onSourceChange(val === "all" ? null : val);
               }}
-              className={`w-full text-xs px-1.5 py-1 rounded border ${inputBg} focus:outline-none cursor-pointer`}
+              disabled={disabled}
+              className={`w-full text-xs px-1.5 py-1 rounded border ${inputBg} focus:outline-none cursor-pointer ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
             >
               <option value="all">全部来源</option>
               <option value="manual">手动创建</option>
@@ -128,6 +132,8 @@ interface DocFilterBarProps {
   onCategoryChange: (category: string | null) => void;
   onSearchTagsChange?: (tags: string[]) => void;
   searchTags?: string[];
+  /** KB-C11：搜索激活时来源/分类筛选不生效，UI 置灰/隐藏避免误导 */
+  searchActive?: boolean;
 }
 
 function DocFilterBar({
@@ -146,6 +152,7 @@ function DocFilterBar({
   onCategoryChange,
   onSearchTagsChange,
   searchTags,
+  searchActive = false,
 }: DocFilterBarProps) {
   const textMuted = isDark ? "text-gray-500" : "text-gray-400";
   const inputBg = isDark
@@ -154,7 +161,8 @@ function DocFilterBar({
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      if (e.key === "Enter") {
+      // 空输入按 Enter 不触发无效搜索
+      if (e.key === "Enter" && searchQuery.trim()) {
         onSearch(searchQuery, selectedBase, searchTags);
       }
     },
@@ -204,12 +212,13 @@ function DocFilterBar({
             selectedSource={selectedSource}
             onSortByChange={onSortByChange}
             onSourceChange={onSourceChange}
+            disabled={searchActive}
           />
         </div>
       </div>
 
-      {/* 分类筛选 */}
-      {categories.length > 0 && (
+      {/* 分类筛选（KB-C11：搜索激活时筛选不生效，隐藏避免高亮误导） */}
+      {!searchActive && categories.length > 0 && (
         <div className="flex gap-1.5 overflow-x-auto pb-0.5 scrollbar-thin">
           <button
             onClick={() => onCategoryChange(null)}

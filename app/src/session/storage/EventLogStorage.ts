@@ -610,7 +610,10 @@ export class EventLogStorage {
         // 载入长会话时排除 assistant/thinking 等高频细节事件，不 parse 直接跳过。
         if (excludeTypes && excludeTypes.length > 0) {
           const typeMatch = line.match(/"type":"([^"]+)"/);
-          if (typeMatch && excludeTypes.includes(typeMatch[1] as LiriEventType)) {
+          if (
+            typeMatch &&
+            excludeTypes.includes(typeMatch[1] as LiriEventType)
+          ) {
             continue;
           }
         }

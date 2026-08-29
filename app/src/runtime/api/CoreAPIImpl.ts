@@ -1521,7 +1521,9 @@ export class CoreAPIImpl implements CoreAPI {
    * 优先，回退 timestamp（投影/内存 fallback 路径无 lastEventSeq）。不传 limit 时
    * 返回全量（行为不变），小会话前端传大 limit 也等效全量。
    */
-  private _paginateMessages<T extends { lastEventSeq?: number; timestamp?: number }>(
+  private _paginateMessages<
+    T extends { lastEventSeq?: number; timestamp?: number },
+  >(
     messages: T[],
     query?: { limit?: number; before?: number }
   ): { messages: T[]; hasMore: boolean } {

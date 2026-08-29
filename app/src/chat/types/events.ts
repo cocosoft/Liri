@@ -14,7 +14,7 @@
  * 事件流是真相源，messages.jsonl 仅为兼容期保留。
  */
 
-import type { DataAttachment } from '@modules/core/data-models';
+import type { DataAttachment } from '@modules/core';
 
 // ─── 事件类型枚举 ─────────────────────────────────────────────────────────────
 

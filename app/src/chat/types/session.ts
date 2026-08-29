@@ -3,7 +3,7 @@
  *
  * 统一使用 {@link DataSessionStatus}（10 态标准词表，含 RUNNING/COMPLETED/ERROR/ABORTED）
  */
-import { DataSessionStatus } from '@modules/core/data-models';
+import { DataSessionStatus } from '@modules/core';
 
 export { DataSessionStatus };
 

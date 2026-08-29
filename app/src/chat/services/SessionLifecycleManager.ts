@@ -41,7 +41,7 @@ import { eventNotificationService } from './EventNotificationService.js';
 import { clearPathCheckCache } from './PathGuardService';
 import { getLocalSession, mapSessionStatusToState } from './ChatHelper';
 import type { ChatSession, CreateSessionParams } from '../types/session.js';
-import { DataSessionStatus } from '@modules/core/data-models';
+import { DataSessionStatus } from '@modules/core';
 import type { Message } from '../types/message.js';
 
 const logger = getLogger('chat:sessionLifecycle');

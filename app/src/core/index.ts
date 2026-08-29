@@ -81,6 +81,14 @@ export {
   type FeatureFlag,
 } from './featureFlags';
 
+// 2026-08-29 R03-002 收敛：子模块统一出口
+export * from './data-models';
+export * from './ports';
+export type { HealthStatus, UnifiedHealthStatus } from './health';
+export { HEALTH_SEVERITY, isAcceptable, mergeHealthStatuses } from './health';
+export * from './performance';
+export { getBuildVariant } from './featureFlags';
+
 // ==================== 交付模块（从 delivery/ 迁移） ====================
 export * from './delivery/index';
 

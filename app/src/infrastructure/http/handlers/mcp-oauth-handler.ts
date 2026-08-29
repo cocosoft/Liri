@@ -13,7 +13,7 @@ import type { MCPOAuthConfig } from '@modules/services/mcp/auth/types';
 import type { McpOAuthConfig } from '@modules/services/mcp/types';
 import { readMcpConfig } from '@modules/mcp';
 import { configManager } from '@modules/config';
-import { DEFAULT_HTTP_PORT } from '@modules/core/ports';
+import { DEFAULT_HTTP_PORT } from '@modules/core';
 
 /**
  * 通过 OAuth Discovery 将 McpOAuthConfig 解析为 MCPOAuthConfig

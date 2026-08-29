@@ -30,7 +30,7 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { createCheckpointService } from './SessionCheckpointService.js';
 import { getLocalSession } from './ChatHelper';
 import type { ChatSession, CreateSessionParams } from '../types/session.js';
-import { DataSessionStatus } from '@modules/core/data-models';
+import { DataSessionStatus } from '@modules/core';
 
 /**
  * ResumeCoordinator 门面依赖

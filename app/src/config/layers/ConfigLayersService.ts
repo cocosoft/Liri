@@ -23,7 +23,7 @@ import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { load as yamlLoad } from 'js-yaml';
 import { resolvePyappHome } from '@modules/core';
-import { getBuildVariant } from '@modules/core/featureFlags';
+import { getBuildVariant } from '@modules/core';
 import { configManager } from '@modules/config';
 import { providerRegistry } from '@modules/ai';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';

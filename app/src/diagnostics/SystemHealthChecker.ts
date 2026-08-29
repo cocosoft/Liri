@@ -16,7 +16,7 @@ import { probeExternalModule } from '@modules/utils/externalDeps';
 
 const execAsync = promisify(exec);
 
-import type { HealthStatus } from '@modules/core/health/types.js';
+import type { HealthStatus } from '@modules/core';
 export type { HealthStatus };
 
 /**

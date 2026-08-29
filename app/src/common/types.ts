@@ -271,7 +271,7 @@ export interface CpuMetrics {
   system: number;
 }
 
-import type { HealthStatus as CoreHealthStatus } from '@modules/core/health/types.js';
+import type { HealthStatus as CoreHealthStatus } from '@modules/core';
 
 /**
  * 健康检查类型

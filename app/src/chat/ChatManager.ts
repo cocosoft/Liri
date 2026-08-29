@@ -104,7 +104,7 @@ import type {
 } from './types/message.js';
 import { createSystemMessage } from './types/message.js';
 import type { ChatSession, CreateSessionParams } from './types/session.js';
-import { DataSessionStatus } from '@modules/core/data-models';
+import { DataSessionStatus } from '@modules/core';
 import type { ToolCall, ToolResult, ToolIntegration } from './types/tool.js';
 import { getToolCallName } from './types/tool.js';
 import {

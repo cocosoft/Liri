@@ -1,6 +1,6 @@
 import { getLogger } from '@modules/monitoring';
 import { getMonitoringService } from '@modules/monitoring';
-import type { HealthStatus as HealthStatusValue } from '@modules/core/health/types.js';
+import type { HealthStatus as HealthStatusValue } from '@modules/core';
 import type { IPCService } from './IPCService';
 import { taskRegistry } from '@modules/tasks';
 import { BaseTask } from '@modules/tasks';

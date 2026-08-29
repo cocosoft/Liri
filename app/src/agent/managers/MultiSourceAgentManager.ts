@@ -11,7 +11,7 @@ import { AgentSourceManager } from './AgentSourceManager';
 import { AgentConfigManager } from './AgentConfigManager';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
-import type { HealthStatus as HealthStatusValue } from '@modules/core/health/types.js';
+import type { HealthStatus as HealthStatusValue } from '@modules/core';
 
 const logger = getLogger('agent:managers:multiSourceAgentManager');
 

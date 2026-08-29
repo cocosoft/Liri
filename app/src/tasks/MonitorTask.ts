@@ -13,7 +13,7 @@ import { BaseTask } from './BaseTask';
 
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-import { DEFAULT_HTTP_PORT } from '@modules/core/ports';
+import { DEFAULT_HTTP_PORT } from '@modules/core';
 const logger = getLogger('tasks:MonitorTask');
 
 export interface MonitorTarget {

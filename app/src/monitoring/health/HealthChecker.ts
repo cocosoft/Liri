@@ -1,4 +1,4 @@
-import type { HealthStatus } from '@modules/core/health/types.js';
+import type { HealthStatus } from '@modules/core';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('monitoring:health:HealthChecker');

@@ -19,7 +19,7 @@ import { configManager } from '@modules/config';
 import { upgradeSTTStreamConnection } from '../../voice/STTStreamServer';
 import { setAnalyticsDependencies } from './handlers/analytics-handlers';
 import { setupInfrastructureDiagnostics } from '@modules/diagnostics/infrastructure-diagnostics';
-import { DEFAULT_HTTP_PORT } from '@modules/core/ports';
+import { DEFAULT_HTTP_PORT } from '@modules/core';
 import {
   HandlerCtx,
   createHandlerCtx,

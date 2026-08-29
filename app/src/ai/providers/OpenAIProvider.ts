@@ -414,9 +414,7 @@ export class OpenAIProvider extends BaseAIProvider {
 
         const decoder = new TextDecoder();
         let buffer = '';
-        let lastUsage:
-          | import('@modules/ai/models/types').ChatResponse['usage']
-          | undefined;
+        let lastUsage: import('@modules/ai').ChatResponse['usage'] | undefined;
         // 流式 tool_calls 累积（按 index 合并分片）
         const pendingToolCalls = new Map<
           number,
@@ -448,7 +446,7 @@ export class OpenAIProvider extends BaseAIProvider {
 
               // 提取 usage 字段（通常在流式响应的最后一个 chunk 中出现）
               const usage = parsed['usage'] as
-                | import('@modules/ai/models/types').ChatResponse['usage']
+                | import('@modules/ai').ChatResponse['usage']
                 | undefined;
               if (usage) {
                 lastUsage = usage;

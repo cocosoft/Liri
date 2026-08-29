@@ -23,7 +23,7 @@
  */
 
 import { AIModelType } from '@modules/ai';
-import type { ParsedToolCall } from '@modules/ai/models/types';
+import type { ParsedToolCall } from '@modules/ai';
 import type { HooksSettings } from '@modules/types';
 import type { SkillLifecycleManager } from '@modules/tools/AgentTool/SkillLifecycleManager';
 

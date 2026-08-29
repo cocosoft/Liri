@@ -2373,7 +2373,7 @@ export class CoreAPIImpl implements CoreAPI {
         async (messages) => {
           const llmClient = this.chatManager.getLLMClient();
           const response = await llmClient.sendMessage(
-            messages as import('@modules/ai/models/types').ChatMessage[],
+            messages as import('@modules/ai').ChatMessage[],
             {}
           );
           return response?.content || null;

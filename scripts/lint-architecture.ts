@@ -879,6 +879,8 @@ class ArchitectureLinter {
             'services/compact/ContextEngine.ts',
             'subagent/SubAgentCommunicator.ts',
             'ui/components/Messages.tsx',
+            // 2026-08-29 治理：core/types.ts 是 LLM 协议层 Message（snake_case 工具字段），领域变体
+            'core/types.ts',
         ];
 
         // 收集所有导出 Message 类型的文件
@@ -889,6 +891,8 @@ class ArchitectureLinter {
 
             // 跳过规范路径
             if (canonicalPaths.some(p => relPath.includes(p))) continue;
+            // 跳过类型中心目录自身（src/types/ 是类型定义来源，其 Message 非"自定"违规）
+            if (relPath.startsWith('types/')) continue;
 
             // 跳过已知例外
             if (knownExceptions.some(e => relPath.includes(e))) continue;
@@ -976,6 +980,57 @@ class ArchitectureLinter {
             'services/compact/ContextEngine.ts',
             // UI 组件消息
             'ui/components/Messages.tsx',
+            // 2026-08-29 R05-013 治理：领域变体（class 实现 vs interface 契约 / 协议类型 / 语义不同），
+            // 与类型中心同名但结构/语义各异，各自为领域事实源
+            //   - PluginLoader/PluginRegistry/PluginManager/ToolManager/SessionManager/Session：class 实现 vs 类型中心 interface 契约
+            //   - ToolContext/ConversationMessage/PluginSource/Task/Command/PermissionContext/ToolResult/Tool/TaskState：语义不同的领域模型
+            //   - ToolPermissionContext：核心字段一致但精度不同，事实源为 tools/types/PermissionContext.ts
+            'agent/managers/PluginLoader.ts',
+            'core/extensibility/PluginLoader.ts',
+            'plugins/core/PluginLoader.ts',
+            'plugins/core/PluginRegistry.ts',
+            'plugins/managers/PluginManager.ts',
+            'agent/trajectory.ts',
+            'analytics/InsightsEngine.ts',
+            'ai/interfaces/QueryInterfaces.ts',
+            'chat/tool/SmartToolIntegrator.ts',
+            'tools/types/Tool.ts',
+            'tools/legacy_types.ts',
+            'tools/core/ToolManager.ts',
+            'tools/ToolManager.ts',
+            'tools/extensions/ExtendedToolOptions.ts',
+            'tools/extensions/WorkerPool.ts',
+            'tools/TaskTool/types.ts',
+            'bootstrap/StartupConfig.ts',
+            'plugins/categories/PluginCategories.ts',
+            'bridge/managers/SessionManager.ts',
+            'chat/types/session.ts',
+            'session/SessionManager.ts',
+            'session/models/Session.ts',
+            'chronos/service/TaskExpirationService.ts',
+            'daemon/types.ts',
+            'tasks/types.ts',
+            'lsp/types.ts',
+            'permission/permissions.ts',
+            'permission/utils/RuleMatcher.ts',
+            'system/state/types.ts',
+            'tools/types/PermissionContext.ts',
+            'security/PermissionManager.ts',
+            // 2026-08-29 R05-013 治理（二）：模块事实源 vs 类型中心死类型——冲突根源在类型中心
+            //   - chat/types/message.ts 是会话消息事实规范（@deprecated 迁 DataMessage 中），不应被报
+            //   - utils/config.d.ts|config.ts 是 AppConfig 配置事实源；utils/settings/types.ts 是 HooksSettings 事实源（类型中心版为空壳/同构副本）
+            //   - plugin-sdk/types.ts|plugins/types/Plugin.ts|plugins/utils/schemas.ts：PluginManifest/CommandMetadata 插件清单，schemas 为 zod 校验事实源
+            //   - session/types/Message.ts：会话存储消息模型；plugins/PluginLoader.ts：插件加载器（与已豁免的 plugins/core 同类）
+            //   待专项：清理类型中心零消费死类型（Message/ContentBlock/Tool/Session/Command/AppConfig/HooksSettings 等），使 @modules/types 收缩
+            'chat/types/message.ts',
+            'session/types/Message.ts',
+            'plugin-sdk/types.ts',
+            'plugins/types/Plugin.ts',
+            'plugins/utils/schemas.ts',
+            'plugins/PluginLoader.ts',
+            'utils/config.d.ts',
+            'utils/config.ts',
+            'utils/settings/types.ts',
         ];
 
         let conflictCount = 0;

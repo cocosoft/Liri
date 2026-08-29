@@ -53,9 +53,9 @@ import { FileTypeDetector } from '@modules/tools/converter/engine/FileTypeDetect
 import { createPermissionManager } from '@modules/permission/PermissionManager';
 import type { ChatManager } from '@modules/chat';
 import { createChatManager } from '@modules/chat';
-import { MessageToEventMigrator } from '@modules/session/storage/MessageToEventMigrator';
-import { EventLogStorage } from '@modules/session/storage/EventLogStorage';
-import { deriveMessagesFromEvents } from '@modules/session/storage/EventMessageDeriver';
+import { MessageToEventMigrator } from '@modules/session';
+import { EventLogStorage } from '@modules/session';
+import { deriveMessagesFromEvents } from '@modules/session';
 // E-1 接入（2026-08-23）：工具完成自动记录交付物（复用 ExecutionPhaseTracker，此前无生产实例）
 import { ExecutionPhaseTracker } from '@modules/session/ExecutionPhaseTracker';
 // E-1 diff（2026-08-23）：文件变更前后 unified diff 计算

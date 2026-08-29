@@ -27,8 +27,8 @@ import { handleError } from '@modules/error';
 import type { Message } from '@modules/chat/types/message';
 import { MessageRole } from '@modules/chat/types/message';
 import type { LiriEvent, LiriEventType } from '@modules/chat/types/events';
-import type { EventLogQuery } from '@modules/session/storage/EventLogStorage';
-import { deriveSessionStats } from '@modules/session/storage/EventMessageDeriver';
+import type { EventLogQuery } from '@modules/session';
+import { deriveSessionStats } from '@modules/session';
 import {
   tryParseJson,
   sendBadRequest,

@@ -28,7 +28,7 @@
  */
 
 import { getLogger } from '@modules/monitoring';
-import { mergeCompactionRanges } from '@modules/session/storage/EventMessageDeriver';
+import { mergeCompactionRanges } from '@modules/session';
 import {
   handleError,
   AppError,

@@ -107,6 +107,18 @@ export {
 export type { SessionMessage } from './models/SessionMessage.js';
 
 /**
+ * 会话存储（2026-08-29 R03-002 收敛：storage 子目录统一出口）
+ */
+export { EventLogStorage } from './storage/EventLogStorage.js';
+export type { EventLogQuery } from './storage/EventLogStorage.js';
+export { MessageToEventMigrator } from './storage/MessageToEventMigrator.js';
+export {
+  mergeCompactionRanges,
+  deriveSessionStats,
+  deriveMessagesFromEvents,
+} from './storage/EventMessageDeriver.js';
+
+/**
  * 上下文修剪系统
  */
 export * from './pruning/index.js';

@@ -16,6 +16,7 @@ import type {
   SessionFilter,
   SessionStats,
 } from '../types/Session.js';
+import { SessionStatus } from '../types/Session.js';
 import type { UnifiedMessage } from '../types/Message.js';
 import { AtomicWriter } from '../persistence/AtomicWriter.js';
 import { handleError } from '@modules/error';
@@ -773,33 +774,47 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
       if (!session) {
         return {
           totalSessions: 0,
+          activeSessions: 0,
+          archivedSessions: 0,
+          averageSessionDuration: 0,
           totalMessages: 0,
           sessions: [],
-        } as unknown as SessionStats;
+        };
       }
       // P1-3：按需加载，保证消息数真实
       await this.ensureMessagesLoaded(sessionId);
       const msgs = this.messages.get(sessionId) ?? [];
       return {
         totalSessions: 1,
+        activeSessions: session.status === SessionStatus.ACTIVE ? 1 : 0,
+        archivedSessions: session.status === SessionStatus.ARCHIVED ? 1 : 0,
+        averageSessionDuration: 0,
         totalMessages: msgs.length,
         sessions: [session.id],
-      } as unknown as SessionStats;
+      };
     }
 
     let totalMessages = 0;
     // P1-fix（H3）：P1-3 懒加载后 messages Map 仅含已访问会话，直接遍历
     // 会虚低。改为遍历全部会话键逐个计数（getSessionMessageCount 内部
     // 触发按需加载，且受 MESSAGE_CACHE_MAX 逐出保护）。
+    let activeCount = 0;
+    let archivedCount = 0;
     for (const sessionId of this.sessions.keys()) {
       totalMessages += await this.getSessionMessageCount(sessionId);
+      const s = this.sessions.get(sessionId);
+      if (s?.status === SessionStatus.ACTIVE) activeCount++;
+      else if (s?.status === SessionStatus.ARCHIVED) archivedCount++;
     }
 
     return {
       totalSessions: this.sessions.size,
+      activeSessions: activeCount,
+      archivedSessions: archivedCount,
+      averageSessionDuration: 0,
       totalMessages,
       sessions: Array.from(this.sessions.keys()),
-    } as unknown as SessionStats;
+    };
   }
 
   async getSessionMessageCount(sessionId: string): Promise<number> {

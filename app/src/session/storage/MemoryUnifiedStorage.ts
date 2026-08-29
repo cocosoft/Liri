@@ -88,13 +88,34 @@ export class MemoryUnifiedStorage implements UnifiedSessionStorage {
   ): Promise<UnifiedMessage[]> {
     const msgs = this.messages.get(sessionId) ?? [];
     let result = msgs.map((m) => ({ ...m }));
-
-    if (options) {
-      if (options.limit) {
-        result = result.slice(-options.limit);
-      }
+    // KB-MEM-QUERY（2026-08-29 专项审查）：对齐 FileSystemUnifiedStorage 的 P1-13——
+    // 此前仅处理 limit，startDate/endDate/offset/types/roles/parentUuid 被静默吞掉
+    if (options?.startDate !== undefined) {
+      result = result.filter((m) => m.timestamp >= options.startDate!);
     }
-
+    if (options?.endDate !== undefined) {
+      result = result.filter((m) => m.timestamp <= options.endDate!);
+    }
+    if (options?.types?.length) {
+      const typeSet = new Set(options.types);
+      result = result.filter((m) => typeSet.has(m.type));
+    }
+    if (options?.roles?.length) {
+      const roleSet = new Set(options.roles);
+      result = result.filter(
+        (m) => m.role !== undefined && roleSet.has(m.role)
+      );
+    }
+    if (options?.parentUuid !== undefined) {
+      result = result.filter((m) => m.parentUuid === options.parentUuid);
+    }
+    // 分页语义：offset 表示从最新一条往前跳过 N 条，limit 取最近 N 条
+    if (options?.offset) {
+      result = result.slice(0, Math.max(0, result.length - options.offset));
+    }
+    if (options?.limit) {
+      result = result.slice(-options.limit);
+    }
     return result;
   }
 

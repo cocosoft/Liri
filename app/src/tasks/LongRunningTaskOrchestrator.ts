@@ -37,7 +37,7 @@ import {
   throwIfAborted,
   registerIsolationToScope,
 } from '../agent/AgentIsolation';
-import { EffectScope } from '@modules/context/EffectScope';
+import { EffectScope } from '@modules/context';
 import { computeToolNames, resolveToolsets } from '../tools/toolsets';
 import { generateAuditReport } from './AuditReport';
 import type { AuditReport } from './AuditReport';

@@ -8,7 +8,7 @@
 import { mkdirSync, existsSync, rmSync } from 'fs';
 import { resolvePyappHome } from '@modules/core';
 import { join } from 'path';
-import type { EffectScope } from '@modules/context/EffectScope';
+import type { EffectScope } from '@modules/context';
 
 export interface AgentIsolation {
   /** 取消信号控制器 */

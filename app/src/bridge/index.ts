@@ -5,3 +5,7 @@ export {
   type ModuleBridgeInitConfig,
 } from './ModuleBridgeInit.js';
 export { setupModuleBridgeOnStartup } from './ModuleBridgeSetup.js';
+
+export * from './sessions';
+
+export * from './BridgeMain.js';

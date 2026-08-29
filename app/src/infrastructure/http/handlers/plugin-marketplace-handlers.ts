@@ -143,7 +143,7 @@ export async function handlePluginInstall(
   pluginId: string
 ): Promise<void> {
   try {
-    const { NpmDistributor } = await import('@modules/plugins/distribution');
+    const { NpmDistributor } = await import('@modules/plugins');
     const { pluginSystem } = await import('@modules/plugins');
 
     const distributor = new NpmDistributor();
@@ -193,7 +193,7 @@ export async function handlePluginUninstall(
   pluginId: string
 ): Promise<void> {
   try {
-    const { NpmDistributor } = await import('@modules/plugins/distribution');
+    const { NpmDistributor } = await import('@modules/plugins');
     const { pluginSystem } = await import('@modules/plugins');
 
     try {

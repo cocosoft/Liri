@@ -37,7 +37,7 @@ import {
   readPdcaCheckpoint,
   writePdcaCheckpoint,
   syncPdcaWorkItemStatus,
-} from '@modules/tasks/PdcaWorkItemBridge';
+} from '@modules/tasks';
 import type { PdcaMetrics } from '@modules/tasks/LongRunningTaskOrchestrator';
 
 const logger = getLogger('pdca:handlers');

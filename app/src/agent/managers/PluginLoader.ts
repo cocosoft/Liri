@@ -6,7 +6,7 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { handleError } from '@modules/error/handleError';
 import { pluginSystem } from '@modules/plugins';
 import { PluginState } from '@modules/plugins/types/PluginTypes';
-import { EffectScope } from '@modules/context/EffectScope';
+import { EffectScope } from '@modules/context';
 
 const logger = getLogger('agent:managers:pluginLoader');
 

@@ -100,3 +100,5 @@ export type { ToolUseBlock } from './types/ToolUseBlock';
 
 const chatService = createChatService();
 export default chatService;
+
+export * from './ChatManagerInterface.js';

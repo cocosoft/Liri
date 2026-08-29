@@ -18,7 +18,7 @@ import type { IChannelPlugin } from '../types/IChannel';
 import { channelEventBus, ChannelEvents } from '../events/ChannelEventBus';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-import { dependencyRegistry } from '@modules/context/DependencyRegistry';
+import { dependencyRegistry } from '@modules/context';
 
 const logger = getLogger('channels:registry');
 

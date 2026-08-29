@@ -3,7 +3,7 @@ import {
   readPdcaCheckpoint,
   listPdcaCheckpoints,
   PDCA_TERMINAL_PHASES,
-} from '@modules/tasks/PdcaWorkItemBridge.js';
+} from '@modules/tasks';
 import { getOrCreateOrchestrator, getOrchestrator } from '@modules/tasks';
 import { handleError } from '@modules/error';
 

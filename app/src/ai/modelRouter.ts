@@ -48,10 +48,7 @@ import { SpanStatusCode } from '@opentelemetry/api';
 import { ModelRegistry } from '@modules/ai';
 import type { APIProvider } from '@modules/ai';
 import type { AppModelConfigService } from './models/AppModelConfigService';
-import {
-  dependencyRegistry,
-  DepChange,
-} from '@modules/context/DependencyRegistry';
+import { dependencyRegistry, DepChange } from '@modules/context';
 
 const logger = getLogger('ai:model-router');
 

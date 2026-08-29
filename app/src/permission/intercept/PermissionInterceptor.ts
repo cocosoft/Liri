@@ -32,10 +32,7 @@
  * 避免"两个拒绝入口、两套错误信息"。
  */
 
-import {
-  dependencyRegistry,
-  DepRegistry,
-} from '@modules/context/DependencyRegistry';
+import { dependencyRegistry, DepRegistry } from '@modules/context';
 import { createDenyDecision } from '../PermissionResult.js';
 import { getLogger } from '@modules/monitoring';
 

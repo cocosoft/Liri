@@ -7,7 +7,7 @@ import { metrics } from '@opentelemetry/api';
 import type { ObservableGauge } from '@opentelemetry/api';
 import { createLogger, LogLevel } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-import { recordBackgroundTask } from '@modules/monitoring/BackgroundTaskEvent';
+import { recordBackgroundTask } from '@modules/monitoring';
 
 const logger = createLogger({
   module: 'cost:metrics-bridge',

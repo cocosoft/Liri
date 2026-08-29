@@ -16,7 +16,7 @@ import {
   ErrorSeverity,
   handleError,
 } from '@modules/error';
-import { EffectScope } from '@modules/context/EffectScope';
+import { EffectScope } from '@modules/context';
 
 const logger = getLogger('plugins:core:pluginLifecycleManager');
 

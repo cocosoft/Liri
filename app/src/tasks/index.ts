@@ -222,3 +222,7 @@ export type { TaskListViewItem, TaskListViewConfig } from './TaskListView';
 // P3-2: 跨进程调度锁
 export { CrossProcessLock, createCronLock } from './CrossProcessLock';
 export type { CrossProcessLockOptions } from './CrossProcessLock';
+
+export * from './cron';
+
+export * from './PdcaWorkItemBridge.js';

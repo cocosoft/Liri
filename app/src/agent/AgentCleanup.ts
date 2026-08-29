@@ -8,7 +8,7 @@ import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 import { existsSync, unlinkSync } from 'fs';
 import { join } from 'path';
-import type { EffectScope } from '@modules/context/EffectScope';
+import type { EffectScope } from '@modules/context';
 
 const logger = getLogger('agent:agentCleanup');
 

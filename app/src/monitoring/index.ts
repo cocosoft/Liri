@@ -312,3 +312,5 @@ export type {
   SessionSummary,
   SessionDetail,
 } from './llm/LLMTracker.js';
+
+export * from './BackgroundTaskEvent.js';

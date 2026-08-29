@@ -5,7 +5,7 @@
  * 子命令：list / set / current / preview / import / reset / help
  */
 import type { CommandContext, CommandResult } from '@modules/commands';
-import { ThemeManager } from '@modules/ui/ThemeManager';
+import { ThemeManager } from '@modules/ui';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('commands:builtin:theme:Theme');

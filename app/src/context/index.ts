@@ -78,3 +78,7 @@ export type {
   CompressionRequest,
   CompressionResult,
 } from './ContextEnginePlugin';
+
+export * from './EffectScope.js';
+
+export * from './DependencyRegistry.js';

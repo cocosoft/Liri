@@ -7,7 +7,7 @@ import { AgentSwarmManager, SwarmTask, SwarmResult } from './swarms';
 import { feature } from '../core/featureFlags';
 import { configManager } from '@modules/config';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-import { EffectScope } from '@modules/context/EffectScope';
+import { EffectScope } from '@modules/context';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('agent/AgentRunner');
 

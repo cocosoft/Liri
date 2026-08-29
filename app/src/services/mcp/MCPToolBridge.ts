@@ -12,7 +12,7 @@ import { getToolManager } from '@modules/tools/ToolManager';
 import { mcpToolRegistry } from './MCPToolRegistry';
 import { McpToolWrapper } from './McpToolWrapper';
 import { mcpConnectionManager } from './MCPConnectionManager';
-import { dependencyRegistry } from '@modules/context/DependencyRegistry';
+import { dependencyRegistry } from '@modules/context';
 import type { Tool } from '@modules/tools/types/Tool';
 
 /**

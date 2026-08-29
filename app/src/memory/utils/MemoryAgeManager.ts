@@ -6,7 +6,7 @@
 
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-import { recordBackgroundTask } from '@modules/monitoring/BackgroundTaskEvent';
+import { recordBackgroundTask } from '@modules/monitoring';
 
 const logger = getLogger('memory:utils:memoryAgeManager');
 

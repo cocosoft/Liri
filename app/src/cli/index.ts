@@ -1186,3 +1186,5 @@ function findFilesByPattern(pattern: string): string[] {
   traverse(resolvedBasePath);
   return files;
 }
+
+export * from './banner';

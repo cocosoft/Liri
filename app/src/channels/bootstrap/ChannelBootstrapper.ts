@@ -5,7 +5,7 @@
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { channelRegistry } from '../registry/ChannelRegistry';
-import { EffectScope } from '@modules/context/EffectScope';
+import { EffectScope } from '@modules/context';
 import type { IChannelPlugin } from '../types/IChannel';
 
 const logger = getLogger('channels:bootstrap');

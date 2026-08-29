@@ -172,3 +172,7 @@ export function isChronosActive(): boolean {
 // P2-10: Cron 防注入扫描器导出
 export { CronInjectionScanner } from './CronInjectionScanner';
 export type { ScanResult } from './CronInjectionScanner';
+
+export * from './autoDream';
+
+export * from './delivery';

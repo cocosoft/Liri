@@ -23,3 +23,5 @@
  */
 
 export * as ink from './ink';
+
+export * from './ThemeManager.js';

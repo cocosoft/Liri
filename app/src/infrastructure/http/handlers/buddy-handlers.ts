@@ -166,7 +166,7 @@ export async function handleGetBackgroundStatus(
     ] = await Promise.all([
       import('@modules/buddy/dreamLogStore'),
       import('@modules/buddy/growthPersistence'),
-      import('@modules/monitoring/BackgroundTaskEvent'),
+      import('@modules/monitoring'),
     ]);
 
     const dreamStats = await getDreamStats();

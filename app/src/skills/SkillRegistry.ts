@@ -4,7 +4,7 @@
  */
 
 import type { Skill } from './types';
-import { EffectScope } from '@modules/context/EffectScope';
+import { EffectScope } from '@modules/context';
 import { handleError } from '@modules/error/handleError';
 
 /**

@@ -1412,3 +1412,7 @@ export { default as PluginLifecycleManager } from './core/PluginLifecycleManager
 export { default as PluginDependencyManager } from './management/PluginDependencyManager';
 export { default as PluginConfigManager } from './management/PluginConfigManager';
 export { default as PluginEventSystem } from './core/PluginEventSystem';
+
+export * from './bundled';
+
+export * from './distribution';

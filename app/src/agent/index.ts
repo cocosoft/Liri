@@ -273,3 +273,11 @@ export type {
 
 const agentService = createAgentService();
 export default agentService;
+
+export * from './trajectory.js';
+
+export * from './events';
+
+export * from './compact';
+
+export * from './TitleGenerator.js';

@@ -3,7 +3,7 @@
  * 生成当前会话的摘要，提取关键信息和决策点
  */
 import type { CommandContext } from '@modules/commands';
-import type { SessionMessage } from '@modules/session/models/SessionMessage';
+import type { SessionMessage } from '@modules/session';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('commands:builtin:brief:Brief');

@@ -92,15 +92,19 @@ export type {
   TrackerConfig,
   TokenBudgetAlert,
 } from './TokenTracker.js';
-export {
-  createEmptyTokenUsage,
-  accumulateTokenUsage,
-} from './models/SessionTokenUsage.js';
+/**
+ * 会话模型（2026-08-29 R03-002 收敛：显式 re-export，避免与 types 链的 MessageType/SessionMetadata 歧义）
+ */
 export type {
   SessionTokenUsage,
   TokenCostStatus,
   SessionTokenSnapshot,
 } from './models/SessionTokenUsage.js';
+export {
+  createEmptyTokenUsage,
+  accumulateTokenUsage,
+} from './models/SessionTokenUsage.js';
+export type { SessionMessage } from './models/SessionMessage.js';
 
 /**
  * 上下文修剪系统

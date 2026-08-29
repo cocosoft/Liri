@@ -3,7 +3,7 @@
  * 支持用户选择压缩范围、方向控制、用户反馈、保留消息、边界检测
  */
 
-import type { SessionMessage } from '@modules/session/models/SessionMessage';
+import type { SessionMessage } from '@modules/session';
 import type { CompactionResult, CompactConversationOptions } from './types';
 import { groupMessagesByApiRound } from './grouping';
 import { getPartialCompactPrompt } from './prompt';

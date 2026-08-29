@@ -8,7 +8,7 @@ import { BaseTool } from '../BaseTool';
 import chatService from '@modules/chat';
 import type { ToolUseContext, ToolResult } from '../types';
 import { ToolParam, ToolTag } from '../types/Tool';
-import type { SessionMessage } from '@modules/session/models/SessionMessage';
+import type { SessionMessage } from '@modules/session';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('tools:BriefTool:BriefTool');

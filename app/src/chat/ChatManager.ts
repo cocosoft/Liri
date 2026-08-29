@@ -215,7 +215,7 @@ import {
   type CompactBoundary,
   type CompactArtifact,
 } from '../services/compact/CompactService.js';
-import type { SessionMessage } from '@modules/session/models/SessionMessage';
+import type { SessionMessage } from '@modules/session';
 import {
   SessionGateway,
   createSessionGateway,

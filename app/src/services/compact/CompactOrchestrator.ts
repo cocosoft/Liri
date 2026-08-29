@@ -4,7 +4,7 @@
  * 所有压缩操作记录原始 Token 数和压缩后 Token 数
  */
 
-import type { SessionMessage } from '@modules/session/models/SessionMessage';
+import type { SessionMessage } from '@modules/session';
 import type { Message } from '@modules/chat/types/message';
 import { shouldAutoCompact, CompactCircuitBreaker } from './autoCompact';
 import { ReactiveCompactService } from './reactiveCompact';

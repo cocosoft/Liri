@@ -11,7 +11,7 @@ import { ToolParam, ToolTag } from '../types/Tool';
 import type { ToolUseContext, ToolResult } from '../types';
 import { createToolResult } from '../types/ToolResult';
 import chatService from '@modules/chat';
-import type { SessionMessage } from '@modules/session/models/SessionMessage';
+import type { SessionMessage } from '@modules/session';
 import { resolveDataDir } from '@modules/core';
 
 import { getLogger } from '@modules/monitoring';

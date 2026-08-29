@@ -3,7 +3,7 @@
  * 根据API响应动态压缩上下文
  */
 
-import type { SessionMessage } from '../session/models/SessionMessage';
+import type { SessionMessage } from '../session/index';
 import {
   createContextCollapser,
   type ContextCollapser,

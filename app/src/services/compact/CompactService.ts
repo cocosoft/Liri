@@ -4,7 +4,7 @@
  * 使用API轮次分组(groupMessagesByApiRound)确保压缩边界的语义完整性。
  */
 
-import type { SessionMessage } from '@modules/session/models/SessionMessage';
+import type { SessionMessage } from '@modules/session';
 import type { AIService, AIMessage } from '@modules/ai';
 import { AIMessageRole, AIModelType } from '@modules/ai';
 import { groupMessagesByApiRound, getMessageTextContent } from './grouping';

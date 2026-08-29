@@ -31,7 +31,7 @@ import {
   type CompactBoundary,
   type CompactArtifact,
 } from '../../services/compact/CompactService.js';
-import type { SessionMessage } from '@modules/session/models/SessionMessage';
+import type { SessionMessage } from '@modules/session';
 import type { ChatSession } from '../types/session.js';
 import { getLocalSession } from './ChatHelper';
 import type { SessionCurrentIdPort } from './SessionLifecycleManager';

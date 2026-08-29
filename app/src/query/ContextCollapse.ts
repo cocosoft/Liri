@@ -3,7 +3,7 @@
  * 将长上下文折叠为摘要，保留关键信息
  */
 
-import type { SessionMessage } from '../session/models/SessionMessage';
+import type { SessionMessage } from '../session/index';
 import type { AIMessage } from '../ai/models/types';
 import { AIMessageRole } from '../ai/models/types';
 import { roughTokenCountEstimationForMessages } from '../services/compact/utils';

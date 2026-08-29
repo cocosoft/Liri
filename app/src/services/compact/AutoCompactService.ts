@@ -5,7 +5,7 @@
  */
 
 import type { Message } from '@modules/chat/types/message';
-import type { SessionMessage } from '@modules/session/models/SessionMessage';
+import type { SessionMessage } from '@modules/session';
 import type {
   AutoCompactOptions,
   CompactState,

@@ -9,8 +9,7 @@
 import { BaseTool } from '../BaseTool';
 import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';
 import { channelRegistry } from '@modules/channels';
-import { ChannelHealthMonitor } from '../../channels/monitoring/ChannelHealthMonitor';
-import { ChannelLogManager } from '../../channels/log/ChannelLogManager';
+import { ChannelHealthMonitor, ChannelLogManager } from '@modules/channels';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('tools:ChannelManagerTool:ChannelManagerTool');

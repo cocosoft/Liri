@@ -24,3 +24,6 @@
  */
 
 export * from './DiagnosticsService';
+
+// 2026-08-30 R03-002 收敛：infrastructure-diagnostics 统一出口
+export { setupInfrastructureDiagnostics } from './infrastructure-diagnostics';

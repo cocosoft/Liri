@@ -28,7 +28,22 @@ import { resolve, extname, basename, dirname } from 'path';
 import { getLogger } from '@modules/monitoring';
 import type { PluginState } from '../types/PluginTypes';
 import { PluginManager } from '../managers/PluginManager';
-const pluginManager = PluginManager.getInstance();
+// 惰性初始化：顶层 PluginManager.getInstance() 会在 plugins 模块半初始化时触发 TDZ（循环导入）
+let _pluginManager: PluginManager | undefined;
+function getPluginManager(): PluginManager {
+  _pluginManager ??= PluginManager.getInstance();
+  return _pluginManager;
+}
+const pluginManager = new Proxy({} as PluginManager, {
+  get(_, prop: keyof PluginManager) {
+    const instance = getPluginManager();
+    const value = instance[prop];
+    if (typeof value === 'function') {
+      return value.bind(instance);
+    }
+    return value;
+  },
+});
 import {
   ActivationContextManager,
   type ActivationContext,

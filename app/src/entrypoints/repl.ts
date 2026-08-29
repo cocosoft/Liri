@@ -45,7 +45,7 @@ import { SubAgentManager } from '../subagent/SubAgentManager.js';
 import { SubAgentFactory } from '../subagent/SubAgentFactory.js';
 import { isOfflineMode } from './shared-state.js';
 import { channelRegistry } from '../channels/index.js';
-import { channelBootstrapper } from '../channels/bootstrap/ChannelBootstrapper.js';
+import { channelBootstrapper } from '@modules/channels';
 import { handleError } from '@modules/error';
 
 const logger = getLogger('repl');

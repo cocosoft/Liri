@@ -37,7 +37,7 @@ import { probeExternalModule } from './utils/externalDeps.js';
 import {
   startMdmPrefetch,
   ensureMdmPrefetchCompleted,
-} from './infrastructure/startup/MdmPrefetch';
+} from '@modules/infrastructure';
 import {
   installExitRecorder,
   logStartupContext,
@@ -48,7 +48,7 @@ import { initAppStateMachine } from './state/app/AppLifecycle.js';
 import {
   startKeychainPrefetch,
   ensureKeychainPrefetchCompleted,
-} from './infrastructure/startup/KeychainPrefetch';
+} from '@modules/infrastructure';
 import {
   existsSync,
   mkdirSync,
@@ -77,13 +77,10 @@ import {
   injectTrustedWorkspaceFromEnv,
 } from './config/index.js';
 import { isOfflineMode, setOfflineMode } from './entrypoints/shared-state.js';
-import {
-  hydrateOnStartup,
-  serializeOnShutdownSync,
-} from './context/persistence/ContextPersistenceLifecycle.js';
+import { hydrateOnStartup, serializeOnShutdownSync } from '@modules/context';
 import { contextManager } from './context/ContextManager.js';
 // AC-7：type-only 导入，信号处理中同步强关 HTTP（零运行时依赖，无循环引用）
-import type { LocalHTTPService } from './infrastructure/http/LocalHTTPService.js';
+import type { LocalHTTPService } from '@modules/infrastructure';
 // 端口单一事实来源（默认值），运行时由 LIRI_HTTP_PORT 覆盖
 import { DEFAULT_HTTP_PORT } from './core/ports.js';
 

@@ -24,7 +24,7 @@
  */
 
 import type http from 'http';
-import type { MigrateProgress } from '@modules/ai/local/llama/LlamaCppServerManager';
+import type { MigrateProgress } from '@modules/ai';
 import {
   AppError,
   ErrorCategory,

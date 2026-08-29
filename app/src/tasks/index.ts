@@ -182,7 +182,7 @@ export type {
   MemoryReviewTarget,
   ConfigReviewTarget,
   CuratorScopeConfig,
-} from '../tools/AgentTool/CuratorReviewScope';
+} from '@modules/tools';
 
 // CG3 自主执行闭环
 export {

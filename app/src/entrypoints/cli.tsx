@@ -28,7 +28,7 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 import { configManager } from '@modules/config';
 import { init } from './init.js';
-import { createMcpCommand } from '@modules/mcp/cli/mcpCommand.js';
+import { createMcpCommand } from '@modules/mcp';
 import {
   eagerParseCliFlag,
   extractArgsAfterDoubleDash,
@@ -36,7 +36,7 @@ import {
   validateArgs,
   normalizeArgs,
 } from '@modules/utils/cliArgs.js';
-import { generateBanner, getVersionString } from '@modules/cli/banner/index.js';
+import { generateBanner, getVersionString } from '@modules/cli';
 import { setCliMain } from '../main.js';
 
 // 注册 CLI 主函数回调（DI 模式，避免 main.ts → cli.tsx 循环依赖）

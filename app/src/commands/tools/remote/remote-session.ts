@@ -3,7 +3,7 @@
  * 提供SSH和直接连接的命令行接口
  */
 
-import { TerminalUIIntegration } from '@modules/ui/TerminalUIIntegration.js';
+import { TerminalUIIntegration } from '@modules/ui';
 import { configManager } from '@modules/config';
 import {
   RemoteSessionManager,
@@ -11,7 +11,7 @@ import {
   createRemoteSessionConfig,
 } from '@modules/remote/RemoteSessionManager.js';
 import { SSHConfig } from '@modules/remote/SSHConnection.js';
-import { TerminalComponents } from '@modules/ui/TerminalComponents.js';
+import { TerminalComponents } from '@modules/ui';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('RemoteSession');
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';

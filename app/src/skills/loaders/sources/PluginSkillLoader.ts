@@ -10,7 +10,12 @@ import { existsSync } from 'fs';
 import { PluginManager } from '@modules/plugins';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('skills:pluginLoader');
-const pluginManager = PluginManager.getInstance();
+// 惰性初始化：顶层 PluginManager.getInstance() 会在 plugins 模块半初始化时触发 TDZ（循环导入）
+let _pluginManager: PluginManager | undefined;
+function getPluginManager(): PluginManager {
+  _pluginManager ??= PluginManager.getInstance();
+  return _pluginManager;
+}
 
 /**
  * 插件技能加载器
@@ -26,7 +31,7 @@ export class PluginSkillLoader extends SkillLoader {
 
     try {
       // 获取所有插件
-      const plugins = pluginManager.getAllPlugins();
+      const plugins = getPluginManager().getAllPlugins();
 
       for (const plugin of plugins) {
         const pluginId = plugin.repository;

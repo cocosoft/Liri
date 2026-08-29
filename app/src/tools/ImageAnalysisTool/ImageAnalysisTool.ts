@@ -23,7 +23,7 @@ import { providerRegistry } from '@modules/ai';
 import { RouteKey } from '@modules/ai';
 import { imageSanitizationPolicy } from '../../security/policy/ImageSanitizationPolicy';
 import { KnowledgeBaseWriter } from '../../knowledge/KnowledgeBaseWriter';
-import { WorkerGuard } from '../../ai/python/WorkerGuard';
+import { WorkerGuard } from '@modules/ai';
 import { imageDownloader } from '@modules/chat';
 
 /**

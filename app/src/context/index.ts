@@ -99,3 +99,9 @@ export {
 } from './window/ContextWindowResolver';
 export type { CompactionContext } from './compaction/CompactionOrchestrator';
 export { asyncContextStorage } from './AsyncContextStorage';
+
+// 2026-08-30 R03-002 收敛：persistence 子路径统一出口
+export {
+  hydrateOnStartup,
+  serializeOnShutdownSync,
+} from './persistence/ContextPersistenceLifecycle.js';

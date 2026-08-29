@@ -24,7 +24,7 @@
  * 已迁移至 channels/ ChannelRegistry API
  */
 import type { Command } from '@modules/commands';
-import { channelRegistry } from '../../../channels/registry/ChannelRegistry';
+import { channelRegistry } from '@modules/channels';
 
 /**
  * 网关命令

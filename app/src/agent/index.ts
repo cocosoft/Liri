@@ -295,3 +295,6 @@ export type { BuiltInAgentDefinition } from './models/types.js';
 export { OrchestrationEventType } from './events/OrchestrationEvents.js';
 export type * from './events/OrchestrationEvents.js';
 export { extractKeyPaths } from './compact/utils';
+
+// 2026-08-30 R03-002 收敛：events 子路径统一出口
+export { AgentEventType } from './events/types.js';

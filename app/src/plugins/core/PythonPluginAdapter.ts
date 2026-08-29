@@ -17,8 +17,8 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import {
   JsonRpcBridge,
   BRIDGE_PROTOCOL_VERSION,
-} from '../../ai/python/JsonRpcBridge';
-import { WorkerGuard } from '../../ai/python/WorkerGuard';
+  WorkerGuard,
+} from '@modules/ai';
 import { getToolRegistry } from '../../tools/ToolRegistry';
 import { buildTool } from '../../tools/types/Tool';
 import type { ToolParam } from '../../tools/types/Tool';

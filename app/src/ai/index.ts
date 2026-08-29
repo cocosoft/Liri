@@ -411,3 +411,13 @@ export type { RerankRequest, RerankResult } from './providers/AIProvider.js';
 export * from './tokenizer';
 export { translationService } from './translation';
 export type { TranslateRequest } from './translation';
+
+// 2026-08-30 R03-002 收敛：python / local 子路径统一出口
+export { JsonRpcBridge, BRIDGE_PROTOCOL_VERSION } from './python/JsonRpcBridge';
+export type {
+  JsonRpcResponse,
+  JsonRpcBridgeOptions,
+} from './python/JsonRpcBridge';
+export { WorkerGuard } from './python/WorkerGuard';
+export type { WorkerGuardConfig } from './python/WorkerGuard';
+export type { MigrateProgress } from './local/llama/LlamaCppServerManager';

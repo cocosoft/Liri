@@ -5,7 +5,7 @@
 
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { handleError } from '@modules/error/handleError';
-import { CacheFactory } from '@modules/cache/CacheFactory';
+import { CacheFactory } from '@modules/cache';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('utils:networkManager');

@@ -24,3 +24,12 @@ export type {
   ChannelHealthReport,
   ChannelHealthMonitorConfig,
 } from './ChannelHealthMonitor';
+
+// 2026-08-30 R03-002 收敛：MessageTraceBuffer 统一出口
+export { messageTraceBuffer } from './MessageTraceBuffer';
+export type {
+  TraceStageStatus,
+  MessageTraceStage,
+  MessageTraceStatus,
+  MessageTrace,
+} from './MessageTraceBuffer';

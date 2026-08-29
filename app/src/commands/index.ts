@@ -180,3 +180,8 @@ export { gatewayCommand } from './builtin/gateway/index.js';
 
 // Cron 定时作业管理命令
 export { cronCommand } from './cron/index.js';
+
+// 2026-08-30 R03-002 收敛：builtin 子路径统一出口
+export { getDiff } from './builtin/diff/Diff.js';
+export type { DiffResult } from './builtin/diff/Diff.js';
+export { reviewCommand } from './builtin/command-registry.js';

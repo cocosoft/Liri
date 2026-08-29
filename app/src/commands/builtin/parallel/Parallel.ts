@@ -7,7 +7,13 @@ import type { ToolUseContext } from '@modules/tools/types/ToolUseContext.js';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('commands:builtin:parallel:Parallel');
 
-const toolManager = createToolManager();
+// 惰性初始化：顶层 createToolManager() 会触发 StartupProfiler 的
+// DETAILED_PROFILING TDZ（循环导入）。首次使用时才创建。
+let _toolManager: ReturnType<typeof createToolManager> | undefined;
+function getToolManager() {
+  _toolManager ??= createToolManager();
+  return _toolManager;
+}
 
 /**
  * 解析后的选项
@@ -72,7 +78,7 @@ const parallelCommand = {
     }
 
     // 解析选项和任务
-    const { options, tasks } = this.parseOptions(toolManager, args);
+    const { options, tasks } = this.parseOptions(getToolManager(), args);
 
     if (tasks.length === 0) {
       return {
@@ -147,11 +153,11 @@ const parallelCommand = {
           break;
         }
 
-        const tool = toolManager.getTool(task.toolName);
+        const tool = getToolManager().getTool(task.toolName);
         if (!tool) {
           return {
             success: false,
-            message: `错误: 工具 "${task.toolName}" 不存在。可用工具: ${toolManager
+            message: `错误: 工具 "${task.toolName}" 不存在。可用工具: ${getToolManager()
               .getAllTools()
               .map((t) => t.name)
               .join(', ')}`,

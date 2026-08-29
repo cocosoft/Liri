@@ -26,7 +26,7 @@ import {
 import { withRetry } from '@modules/utils/withRetry';
 import { trackUsage } from '@modules/ai';
 import { globalEventBus } from '../../core/events/EventBus.js';
-import { AgentEventType } from '../../agent/events/types.js';
+import { AgentEventType } from '@modules/agent';
 
 import { getLogger } from '@modules/monitoring';
 import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';

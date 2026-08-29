@@ -25,3 +25,15 @@
 export * as ink from './ink';
 
 export * from './ThemeManager.js';
+
+// 2026-08-30 R03-002 收敛：终端 UI 统一出口
+export {
+  TerminalUIIntegration,
+  createTerminalUIIntegration,
+} from './TerminalUIIntegration';
+export type {
+  TerminalIntegrationConfig,
+  TerminalSession,
+} from './TerminalUIIntegration';
+export { TerminalComponents } from './TerminalComponents';
+export type { TableColumn, TableRow } from './TerminalComponents';

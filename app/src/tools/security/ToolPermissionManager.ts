@@ -3,7 +3,7 @@
  * 保留向后兼容 API，实际逻辑委托到统一的 PermissionManager
  */
 
-import { createPermissionManager } from '@modules/permission/PermissionManager';
+import { createPermissionManager } from '@modules/permission';
 import type { ToolExecutionContext, ToolPermission } from '../types/ToolTypes';
 
 export interface PermissionValidationResult {

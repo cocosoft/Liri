@@ -7,7 +7,7 @@
  * 最终目标：取代 TokenBudgetController 成为唯一的 token 预算管理入口。
  */
 
-import type { ContextTracker } from '../../query/context/ContextTracker';
+import type { ContextTracker } from '@modules/query';
 import { extractUsage } from '@modules/ai';
 import { estimateTokens, estimateMessagesTokensCooperative } from '@modules/ai';
 import { getCachedTiktokenEncoder } from '@modules/ai';

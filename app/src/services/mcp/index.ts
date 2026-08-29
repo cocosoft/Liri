@@ -26,10 +26,7 @@
 
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-import {
-  profilePhaseStart,
-  profilePhaseEnd,
-} from '@modules/performance/StartupProfiler';
+import { profilePhaseStart, profilePhaseEnd } from '@modules/performance';
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { resolvePyappHome } from '@modules/core/paths';

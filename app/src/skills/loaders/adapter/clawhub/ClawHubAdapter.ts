@@ -38,7 +38,7 @@ import { ClawHubConverter } from './ClawHubConverter';
 import { ClawHubAPIClient } from './ClawHubAPIClient';
 import { ClawHubInstaller } from './ClawHubInstaller';
 import { getLogger } from '@modules/monitoring';
-import type { PluginRegistry } from '@modules/plugins/core/PluginRegistry';
+import type { PluginRegistry } from '@modules/plugins';
 
 const logger = getLogger('skills:clawHubAdapter');
 

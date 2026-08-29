@@ -41,6 +41,10 @@ import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { trackUsage } from '@modules/ai';
 import { createHash } from 'crypto';
+import {
+  encodePayload,
+  decodePayload,
+} from '@modules/utils/MemoryFileEnvelope';
 
 // P2-6: LLM 精选记忆检索
 import {
@@ -1026,7 +1030,14 @@ export class MemoryManagerImpl {
         this.relationGraphPath,
         'utf8'
       );
-      const relations = JSON.parse(content);
+      const result = decodePayload(content);
+      if (result.status === 'corrupt') {
+        logger.warn('记忆关系图文件校验失败（checksum 不匹配），已忽略', {
+          path: this.relationGraphPath,
+        });
+        return;
+      }
+      const relations = JSON.parse(result.payload);
       memoryRelationGraph.deserialize(relations);
     } catch (err) {
       // 文件不存在或解析失败时使用空关联图
@@ -1043,7 +1054,7 @@ export class MemoryManagerImpl {
       const tmpPath = this.relationGraphPath + '.tmp';
       await fs.promises.writeFile(
         tmpPath,
-        JSON.stringify(relations, null, 2),
+        encodePayload(JSON.stringify(relations)),
         'utf8'
       );
       await fs.promises.rename(tmpPath, this.relationGraphPath);

@@ -8,6 +8,10 @@ import { existsSync, readFileSync } from 'fs';
 import { MemoryPrefetchQueue } from '../services/MemoryPrefetchQueue';
 import { resolveDataDir, resolvePyappHome } from '@modules/core';
 import { handleError } from '@modules/error/handleError';
+import {
+  encodePayload,
+  decodePayload,
+} from '@modules/utils/MemoryFileEnvelope';
 
 const logger = getLogger('memory:retriever');
 
@@ -917,7 +921,11 @@ export class MemoryRetrieverImpl implements MemoryRetriever {
 
       // 原子写入：先写 .tmp 文件，再 rename 为最终路径
       const tmpPath = this.indexFilePath + '.tmp';
-      await fs.writeFile(tmpPath, JSON.stringify(indexData, null, 2), 'utf8');
+      await fs.writeFile(
+        tmpPath,
+        encodePayload(JSON.stringify(indexData)),
+        'utf8'
+      );
       await fs.rename(tmpPath, this.indexFilePath);
     } catch (error) {
       await handleError(error, {
@@ -945,7 +953,14 @@ export class MemoryRetrieverImpl implements MemoryRetriever {
       }
 
       const content = await fs.readFile(this.indexFilePath, 'utf8');
-      const indexData = JSON.parse(content);
+      const result = decodePayload(content);
+      if (result.status === 'corrupt') {
+        logger.warn('记忆索引文件校验失败（checksum 不匹配），已忽略', {
+          path: this.indexFilePath,
+        });
+        return;
+      }
+      const indexData = JSON.parse(result.payload);
 
       if (indexData.memories && Array.isArray(indexData.memories)) {
         this.memoryIndex.clear();

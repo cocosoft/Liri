@@ -13,7 +13,11 @@ export * from './SessionStoragePortable.js';
 export * from './UnifiedStorageAdapter.js';
 export * from './eventSanitize.js';
 // StorageFactory（class）与 UnifiedStorage（interface 同名）→ 显式分离避免歧义
-export { registerStorage, StorageFactory, createStorageFactory } from './StorageFactory.js';
+export {
+  registerStorage,
+  StorageFactory,
+  createStorageFactory,
+} from './StorageFactory.js';
 export type {
   StorageConfig,
   Transaction,

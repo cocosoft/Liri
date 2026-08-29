@@ -14,7 +14,7 @@ import type { LiriEvent } from './types/events.js';
 import type { ToolCall, ToolResult, ToolIntegration } from './types/tool.js';
 import type { MessageService } from './services/MessageService.js';
 import type { StreamService } from './services/StreamService.js';
-import type { SessionGateway } from '@modules/session/SessionGateway';
+import type { SessionGateway } from '@modules/session';
 import type { ToolAwareClient } from '@modules/ai';
 import type { ToolRegistry } from '@modules/tools/ToolRegistry';
 import type { IToolExecutor } from '@modules/ai';

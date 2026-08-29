@@ -33,7 +33,7 @@ import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError, AppError, ErrorCodes } from '@modules/error';
 import { SimpleMutex } from '@modules/core';
 import { resolveDataDir } from '@modules/core/paths';
-import { SessionGateway } from '@modules/session/SessionGateway';
+import { SessionGateway } from '@modules/session';
 import { HookChainManager } from '@modules/hooks/core/HookChainManager.js';
 import { SessionAccessFacade } from './SessionAccessFacade';
 import { MessageService } from './MessageService.js';

@@ -12,8 +12,8 @@ import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';
 import {
   SessionGateway,
   createSessionGateway,
-} from '../../session/SessionGateway';
-import type { SessionGatewayConfig } from '../../session/SessionGateway';
+} from '../../session/index';
+import type { SessionGatewayConfig } from '../../session/index';
 import { SessionType, SessionStatus } from '../../session/types/Session';
 
 import { getLogger } from '@modules/monitoring';

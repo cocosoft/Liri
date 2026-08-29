@@ -219,7 +219,7 @@ import type { SessionMessage } from '@modules/session';
 import {
   SessionGateway,
   createSessionGateway,
-} from '@modules/session/SessionGateway';
+} from '@modules/session';
 import type {
   UnifiedMessage,
   FrontendMessageBlock,

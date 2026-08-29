@@ -20,7 +20,7 @@ import type {
   FrontendMessageBlock,
   MessageMetadata,
 } from '@modules/session/types/Message';
-import type { SessionGateway } from '@modules/session/SessionGateway';
+import type { SessionGateway } from '@modules/session';
 import { SessionStateMachine } from '../../state/session/SessionStateMachine.js';
 import { getAIModelManager } from '@modules/ai';
 

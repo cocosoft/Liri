@@ -913,7 +913,7 @@ async function _injectInboxBlock(
 ): Promise<void> {
   const { randomUUID } = await import('crypto');
   const { createSessionGateway } =
-    await import('@modules/session/SessionGateway.js');
+    await import('@modules/session');
 
   const gateway = createSessionGateway();
   const allMessages = await gateway.getMessages(sessionId);

@@ -1750,6 +1750,26 @@ class ArchitectureLinter {
             const relPath = relative(process.cwd(), file);
             const lines = content.split('\n');
 
+            // 收集本文件 import 的符号名（import { x, y } / import x），
+            // 用于排除 "return 外部函数(...)" 的正常实现（非薄转发）
+            const importedNames = new Set<string>();
+            for (const im of content.matchAll(/import\s+(?:type\s+)?\{([^}]+)\}\s+from/g)) {
+                for (const part of im[1].split(',')) {
+                    const raw = part.trim();
+                    if (!raw) continue;
+                    // 取本文件实际使用的名字（import { x as y } → y）
+                    importedNames.add(raw.includes(' as ') ? raw.split(/\s+as\s+/)[1].trim() : raw);
+                }
+            }
+            for (const im of content.matchAll(/import\s+(?:type\s+)?(\w+)\s+from\s/g)) {
+                if (im[1] && im[1] !== 'type') importedNames.add(im[1]);
+            }
+
+            // 收集本文件顶层 export 的函数/const（return 转发到它们是公开 API 包装，非薄转发）
+            const localExports = new Set<string>();
+            for (const ex of content.matchAll(/export\s+(?:async\s+)?function\s+(\w+)/g)) localExports.add(ex[1]);
+            for (const ex of content.matchAll(/export\s+const\s+(\w+)\s*=/g)) localExports.add(ex[1]);
+
             // 查找方法签名，然后检查方法体是否只有一行 return
             // 匹配: private/public/protected/async methodName(...) ... {
             const methodRegex = /(?:private|public|protected|async|\s)+(?:static\s+)?(\w+)\s*\([^)]*\)[^{]*\{/g;
@@ -1761,6 +1781,31 @@ class ArchitectureLinter {
                 const methodName = match[1];
                 // 过滤保留字，排除 if/for/while 等控制流语句被误判为方法
                 if (RESERVED_WORDS.has(methodName)) continue;
+
+                // 方法名是 import 符号且本文件无同名定义（export）→ import 绑定被误当方法
+                if (importedNames.has(methodName) && !localExports.has(methodName)) continue;
+                // 顶层 export 函数/const（公开 API，可能被其他模块引用）→ 非薄转发
+                if (localExports.has(methodName)) continue;
+                // 编译产物（含 $[N] = 临时变量，如 Babel/SWC 输出）→ 跳过整文件
+                if (/\$\[\d+\]\s*=/.test(content)) continue;
+
+                // R06-006-2 误报修复（2026-08-29）：区分真实方法声明 vs 调用/参数/赋值/getter
+                // 1) 匹配位置所在行为注释 → 跳过
+                const lineStart = contentCopy.lastIndexOf('\n', match.index - 1) + 1;
+                const linePrefix = contentCopy.slice(lineStart, match.index).trimStart();
+                if (linePrefix.startsWith('//') || linePrefix.startsWith('*') || linePrefix.startsWith('/*')) continue;
+                // 2) 前一个单词为 return/const/get/set/new 等 → 非方法声明（调用/赋值/getter）
+                const prefixText = contentCopy.slice(0, match.index);
+                const prevWord = (prefixText.match(/([A-Za-z_$][\w$]*)\s*$/) || [])[1];
+                const callPrefixWords = new Set(['return', 'const', 'let', 'var', 'await', 'typeof', 'new', 'delete', 'void', 'throw', 'get', 'set', 'if', 'else', 'for', 'while', 'do', 'switch', 'case', 'catch', 'finally', 'yield', 'in', 'of']);
+                if (prevWord && callPrefixWords.has(prevWord)) continue;
+                // 3) 前一个非空白字符为 = ( , ! ? : ; 等 → 调用/参数/赋值
+                const prevChar = prefixText.trimEnd().slice(-1);
+                if (['=', '(', ',', '!', '?', ':', ';', '&', '|', '+', '-', '*', '/', '%', '<', '>', '[', ']'].includes(prevChar)) continue;
+
+                // 方法在本文件内被调用（出现 ≥2 次：定义 1 + 调用 ≥1）→ 活跃，非僵尸薄转发
+                const nameOccurrences = (content.match(new RegExp(`\\b${methodName}\\s*\\(`, 'g')) || []).length;
+                if (nameOccurrences > 1) continue;
                 const bodyStart = match.index + match[0].length;
                 const bodyMatch = contentCopy.slice(bodyStart);
 
@@ -1779,8 +1824,14 @@ class ArchitectureLinter {
                 // 僵尸方法：方法体仅一行 return xxx() 且无其他逻辑
                 if (bodyLines.length === 1) {
                     const singleLine = bodyLines[0].trim();
-                    if (/^return\s+\w+\(/.test(singleLine) && !singleLine.includes('if') && !singleLine.includes('try') && !singleLine.includes('await')) {
-                        // 排除一些合理的一行方法（如 getter）
+                    const retTarget = /^return\s+(\w+)\(/.exec(singleLine);
+                    if (retTarget && !singleLine.includes('if') && !singleLine.includes('try') && !singleLine.includes('await')) {
+                        // 排除合理的一行方法：
+                        // 1) return 目标是本文件 import 的符号（外部库/其他模块函数，属正常实现而非薄转发）
+                        if (importedNames.has(retTarget[1])) continue;
+                        // 2) return 目标是本文件顶层 export 的符号（公开 API 内部复用，如 semver gt→compare）
+                        if (localExports.has(retTarget[1])) continue;
+                        // 3) 其余保留为疑似薄转发
                         const fullLine = lines[lines.length - 1]; // 近似行号
                         this.violations.push({
                             ruleId: 'R06-006-2',

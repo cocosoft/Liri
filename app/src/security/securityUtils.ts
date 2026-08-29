@@ -499,10 +499,6 @@ export class OutputEncoder {
       .replace(/\//g, '&#x2F;');
   }
 
-  static encodeUrl(input: string): string {
-    return encodeURIComponent(input);
-  }
-
   static encodeJavaScript(input: string): string {
     return input
       .replace(/\\/g, '\\\\')

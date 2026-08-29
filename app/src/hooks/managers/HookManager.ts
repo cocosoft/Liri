@@ -477,11 +477,4 @@ export class HookManager {
   public getSecurityManager() {
     return this.hookExecutor.getSecurityManager();
   }
-
-  /**
-   * 获取诊断管理器
-   */
-  public getDiagnosticManager() {
-    return require('../utils/DiagnosticManager').diagnosticManager;
-  }
 }

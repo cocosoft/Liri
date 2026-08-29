@@ -119,13 +119,6 @@ export class CommandTTSProvider implements TTSProvider {
   readonly supportedFormats = ['wav'];
 
   /**
-   * 获取系统可用的 TTS 命令类型
-   */
-  static getBackend(): CommandBackend {
-    return detectCommandBackend();
-  }
-
-  /**
    * 检查系统是否支持命令 TTS
    */
   static isAvailable(): boolean {

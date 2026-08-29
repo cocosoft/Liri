@@ -5,7 +5,7 @@
 
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
-import { AgentDefinition } from '../models/types';
+import { AgentDefinition, AgentSource } from '../models/types';
 import { getBuiltInAgents } from '../strategies/agentStrategy';
 import { loadPluginAgents as loadPluginAgentsFromPlugins } from '@modules/utils/plugins/loadPluginAgents';
 
@@ -19,17 +19,6 @@ import {
 import { DirectoryWatcher, WatchEvent } from '../utils/directoryWatcher';
 import { join } from 'node:path';
 import { resolvePyappHome, resolveDataDir } from '@modules/core';
-
-/**
- * Agent源类型
- */
-export type AgentSource =
-  | 'built-in'
-  | 'user'
-  | 'project'
-  | 'local'
-  | 'managed'
-  | 'plugin';
 
 /**
  * Agent源优先级

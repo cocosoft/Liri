@@ -31,7 +31,6 @@ export {
   ACP_PROVENANCE_MODE_VALUES,
   ACP_AGENT_INFO,
   normalizeText,
-  isBlank,
   truncateText,
   createSharedRecord,
   generateSessionId,

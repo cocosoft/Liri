@@ -34,7 +34,7 @@ export type {
   AcpApprovalClass,
 } from './types.js';
 
-export { normalizeText, isBlank, truncateText } from './normalize-text.js';
+export { normalizeText, truncateText } from './normalize-text.js';
 export { createSharedRecord } from './record-shared.js';
 export type { SharedRecord } from './record-shared.js';
 export {

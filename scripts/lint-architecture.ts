@@ -501,6 +501,21 @@ class ArchitectureLinter {
             'PluginSkillManifest', 'PluginSkillParameter', 'PluginHookManifest',
             'PlanStep', 'ConfigValidationError', 'RiskLevel', 'SimpleCommand',
             'PermissionBehavior', 'ToolSchema',
+            // R02-002 专项（2026-08-29）— 双轨/领域变体，同名不同结构，需架构决策后统一，暂登记豁免
+            //   - agent 双轨：src/models/types.ts ↔ agent/models/types.ts（AgentTask/AgentResponse/AgentStrategy/AgentContext/AgentState）
+            //   - AcpSessionManager: acp/control-plane/manager.ts ↔ runtime/acp/session.ts
+            //   - ExploreAgentStrategy: agent/builtin/ExploreAgent.ts ↔ agent/strategies/ExploreAgentStrategy.ts
+            //   - AgentResult: agent/AgentRunner.ts ↔ runtime/api/CoreAPI.ts（内部模型 vs 线格式 DTO）
+            //   - OAuthConfig: oauth/types/OAuthTypes.ts ↔ system/auth/oauth-types.ts
+            //   - ThemeColors: ui/ThemeManager.ts ↔ system/theme/ThemeManager.ts
+            //   - NotificationItem: runtime/NotificationPersistence.ts ↔ components/ui/Notification.tsx
+            //   - ProgressEvent: query/QueryEngine.ts ↔ runtime/api/CoreAPI.ts
+            //   - generateSessionId: acp/runtime/session-identity.ts ↔ system/state/types.ts（不同 ID 格式，不可合并）
+            //   - UsageInfo: chat/types/message.ts ↔ runtime/api/CoreAPI.ts（内部 cache*InputTokens vs 线格式 cacheReadTokens，前端 client 消费线格式，不可改名合并）
+            'AgentTask', 'AgentResponse', 'AgentStrategy', 'AgentContext',
+            'AgentState', 'AgentResult', 'AcpSessionManager', 'OAuthConfig',
+            'ThemeColors', 'NotificationItem', 'ProgressEvent', 'generateSessionId',
+            'ExploreAgentStrategy', 'UsageInfo',
         ]);
 
         for (const file of this.allFiles) {

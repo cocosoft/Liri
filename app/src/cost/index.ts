@@ -34,6 +34,14 @@ export {
 } from './ModelPricing.js';
 export type { ModelPricing } from './ModelPricing.js';
 
+// 2026-08-29 R03-002 收敛：成本计算统一出口
+export {
+  calculateCost,
+  calculateTotalCost,
+  roundCost,
+} from './calculateCost.js';
+export type { CostBreakdown } from './calculateCost.js';
+
 // 导出成本跟踪器
 export * from './CostTracker.js';
 

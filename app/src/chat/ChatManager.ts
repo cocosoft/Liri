@@ -87,8 +87,8 @@ import { WorkItemStore } from '../workspace/WorkItemStore.js';
 import { resolveDataDir } from '@modules/core/paths';
 import { join } from 'path';
 import { getModelPricing } from '@modules/cost';
-// eslint-disable-next-line module-registry/no-direct-module-import
-import { calculateTotalCost } from '@modules/cost/calculateCost.js';
+
+import { calculateTotalCost } from '@modules/cost';
 
 import type { ChatManager } from './ChatManagerInterface.js';
 

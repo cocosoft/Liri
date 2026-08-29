@@ -13,8 +13,8 @@ import {
 } from './ModelConfigs.js';
 import { priceManager } from '@modules/core/tokenBudget/PriceManager';
 import { getCacheEfficiency as getCacheEfficiencyFromBudget } from '@modules/core/tokenBudget/CacheAwareBudget';
-// eslint-disable-next-line module-registry/no-direct-module-import
-import { calculateTotalCost } from '@modules/cost/calculateCost.js';
+
+import { calculateTotalCost } from '@modules/cost';
 import type { ModelPricing } from '@modules/cost';
 
 /**

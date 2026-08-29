@@ -22,8 +22,8 @@ import {
 } from './ModelConfigs.js';
 import { ModelRegistry } from './ModelRegistry.js';
 import { configManager } from '@modules/config';
-// eslint-disable-next-line module-registry/no-direct-module-import
-import { calculateTotalCost } from '@modules/cost/calculateCost.js';
+
+import { calculateTotalCost } from '@modules/cost';
 import type { ModelPricing } from '@modules/cost';
 
 export type SubscriptionType =

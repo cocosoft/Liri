@@ -13,7 +13,7 @@
  */
 
 import { AnalyticsEventQueue } from './AnalyticsEventQueue';
-import { calculateTotalCost } from '../cost/calculateCost.js';
+import { calculateTotalCost } from '@modules/cost';
 import { getModelPricing } from '../cost/ModelPricing.js';
 import type { ModelPricing } from '../cost/ModelPricing.js';
 import { globalEventBus, SystemEvents } from '../core/events/EventBus';

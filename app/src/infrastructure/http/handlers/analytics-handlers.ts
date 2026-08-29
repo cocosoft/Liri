@@ -367,8 +367,7 @@ export async function handleAnalyticsDashboard(
     // 会话统计：优先持久化 session_cost_summaries（重启不清零），回退内存
     let persistedSessionCount: { total: number; active: number } | null = null;
     try {
-      const { getCostRecordRepository } =
-        await import('@modules/cost/CostRecordRepository');
+      const { getCostRecordRepository } = await import('@modules/cost');
       const repo = getCostRecordRepository();
       persistedSessionCount = {
         total: await repo.countSessionSummaries(),

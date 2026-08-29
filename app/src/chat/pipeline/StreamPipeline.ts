@@ -29,8 +29,8 @@ import {
 import { stripBareExploration } from '../services/bareExplorationStripper';
 import { repairImageUrls } from '../services/ChatHelper';
 import { StreamingToolCallScrubber } from '../../streaming/scrubbers/StreamingToolCallScrubber';
-import { getModelPricing } from '../../cost/ModelPricing';
-import { calculateTotalCost } from '../../cost/calculateCost';
+import { getModelPricing } from '@modules/cost';
+import { calculateTotalCost } from '@modules/cost';
 import { compactionOrchestrator } from '../../context/compaction/CompactionOrchestrator';
 import { validatePathsInOutput } from '../services/PathGuardService';
 import type { ChatSession } from '../types/session.js';

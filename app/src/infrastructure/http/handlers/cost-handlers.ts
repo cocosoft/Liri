@@ -45,7 +45,7 @@ export async function handleWorkspaceCostReport(
     > = {};
 
     try {
-      const { costTracker } = await import('@modules/cost/CostTracker');
+      const { costTracker } = await import('@modules/cost');
       totalCostUSD = costTracker.getTotalCostUSD();
       totalInputTokens = costTracker.getTotalInputTokens();
       totalOutputTokens = costTracker.getTotalOutputTokens();
@@ -223,8 +223,7 @@ export async function handleGlobalCostSummary(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { getCostRecordRepository } =
-      await import('@modules/cost/CostRecordRepository');
+    const { getCostRecordRepository } = await import('@modules/cost');
     const repo = getCostRecordRepository();
 
     const now = Date.now();
@@ -331,8 +330,7 @@ export async function handleGlobalCostRecords(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { getCostRecordRepository } =
-      await import('@modules/cost/CostRecordRepository');
+    const { getCostRecordRepository } = await import('@modules/cost');
     const repo = getCostRecordRepository();
 
     const url = new URL(req.url || '', 'http://localhost');
@@ -375,8 +373,7 @@ export async function handleGlobalCostRange(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { getCostRecordRepository } =
-      await import('@modules/cost/CostRecordRepository');
+    const { getCostRecordRepository } = await import('@modules/cost');
     const repo = getCostRecordRepository();
 
     const url = new URL(req.url || '', 'http://localhost');
@@ -423,8 +420,7 @@ export async function handleCostReconcile(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { getCostRecordRepository } =
-      await import('@modules/cost/CostRecordRepository');
+    const { getCostRecordRepository } = await import('@modules/cost');
     const repo = getCostRecordRepository();
 
     const url = new URL(req.url || '', 'http://localhost');

@@ -13,8 +13,8 @@ import type { IPriceProvider, PricingResult } from './providers/IPriceProvider';
 import { ConfigPriceProvider } from './providers/ConfigPriceProvider';
 import type { ModelPriceTable } from './types';
 import { ModelRegistry } from '@modules/ai';
-// eslint-disable-next-line module-registry/no-direct-module-import
-import { calculateCost } from '@modules/cost/calculateCost.js';
+
+import { calculateCost } from '@modules/cost';
 import type { ModelPricing } from '@modules/cost';
 
 import { getLogger } from '@modules/monitoring';

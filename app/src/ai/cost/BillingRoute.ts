@@ -4,8 +4,8 @@
  * 实现多模型 → 多定价策略的动态路由
  */
 import type { ModelTokenUsage } from '../../cost/types';
-// eslint-disable-next-line module-registry/no-direct-module-import
-import { calculateTotalCost } from '@modules/cost/calculateCost.js';
+
+import { calculateTotalCost } from '@modules/cost';
 import type { ModelPricing } from '@modules/cost';
 
 /**

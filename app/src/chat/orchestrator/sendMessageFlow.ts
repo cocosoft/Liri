@@ -49,8 +49,8 @@ import { StreamingToolCallScrubber } from '../../streaming/scrubbers/StreamingTo
 import { validatePathsInOutput } from '../services/PathGuardService';
 import { trackUsage } from '@modules/ai';
 import { getModelPricing } from '@modules/cost';
-// eslint-disable-next-line module-registry/no-direct-module-import
-import { calculateTotalCost } from '@modules/cost/calculateCost.js';
+
+import { calculateTotalCost } from '@modules/cost';
 import { compactionOrchestrator } from '../../context/compaction/CompactionOrchestrator';
 import { resolveOutputDir } from '@modules/core/paths';
 import { agentTelemetry } from '../../agent/AgentTelemetry.js';

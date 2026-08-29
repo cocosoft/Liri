@@ -88,7 +88,7 @@ export {
   useFormattedCostSummary,
   useTotalCost,
   useModelUsage,
-} from '../cost/useCostSummary';
+} from '@modules/cost';
 
 // 其他增强Hook
 export { useVoice } from './useVoice';

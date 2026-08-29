@@ -61,11 +61,11 @@ async function getUsageStatsService() {
 
 async function getOrInitCostTracker(sessionId?: string) {
   if (!_costTracker) {
-    const mod = await import('@modules/cost/CostTracker');
+    const mod = await import('@modules/cost');
     _costTracker = mod.costTracker;
   }
   if (!_costRecordRepo) {
-    const mod = await import('@modules/cost/CostRecordRepository');
+    const mod = await import('@modules/cost');
     _costRecordRepo = mod.getCostRecordRepository();
   }
   await _costRecordRepo.initDatabase();

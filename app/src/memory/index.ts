@@ -25,8 +25,8 @@ export {
   createMemoryTool,
   MemoryGetTool,
   createMemoryGetTool,
-  SearchTool,
 } from './tools';
+export type { SearchTool } from './tools';
 
 export * from './consolidation';
 export * from './indexer';

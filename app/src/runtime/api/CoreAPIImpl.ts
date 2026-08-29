@@ -1405,8 +1405,10 @@ export class CoreAPIImpl implements CoreAPI {
     }>;
     hasMore: boolean;
   }> {
-    // P2-1（2026-08-23）：优先 events 统一派生（评审 G7）——events 含 v1（messageId）事件时
-    // 用派生结果（事件聚合 + 投影覆盖），否则回退投影（存量 v0 会话安全兼容）。
+    // P2-1（2026-08-23）：优先 events 统一派生（评审 G7）——事件聚合为基线 +
+    // 投影做版本覆盖。事件派生返回 user/assistant 聚合消息（tool 信息嵌入 blocks），
+    // 与前端渲染契约一致；投影（messages.jsonl）含独立 tool 消息（1601/1634）且
+    // lastEventSeq 覆盖低，不宜作主源（方案 B 验证否决，2026-08-29）。
     try {
       const derived = await this._deriveSessionMessagesFromEvents(sessionId);
       if (derived) {
@@ -1420,7 +1422,7 @@ export class CoreAPIImpl implements CoreAPI {
       // @ignore-catch — 派生失败回退投影路径
     }
 
-    // 优先从持久化存储读取，确保 blocks 完整
+    // 投影兜底（事件派生为空/失败：存量 v0 会话等）
     try {
       const gateway = this.chatManager.getSessionGateway();
       if (gateway) {
@@ -1446,6 +1448,8 @@ export class CoreAPIImpl implements CoreAPI {
             toolCallId: m.metadata?.toolCallId as string | undefined,
             blocks: m.blocks as Array<Record<string, unknown>> | undefined,
             metadata: m.metadata as Record<string, unknown> | undefined,
+            // 分页游标透传（方案 C）
+            lastEventSeq: m.lastEventSeq,
           }));
           return this._paginateMessages(
             dedupeMessagesToolCallBlocks(mapped),

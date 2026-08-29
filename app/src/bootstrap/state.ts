@@ -6,11 +6,11 @@
  */
 
 import { profileCheckpoint } from '../performance/StartupProfiler.js';
-import { generateSessionId } from '@modules/system/state/index.js';
+import { generateSystemSessionId } from '@modules/system/state/index.js';
 import type { SessionId } from '@modules/system/state/index.js';
 import { configManager } from '@modules/config';
 export type { SessionId };
-export { generateSessionId };
+export { generateSystemSessionId };
 
 /**
  * 慢操作记录
@@ -69,7 +69,7 @@ let startupState: AppStartupState = {
   originalCwd: configManager.env('LIRI_PROJECT_DIR') || process.cwd(),
   projectRoot: configManager.env('LIRI_PROJECT_DIR') || process.cwd(),
   cwd: configManager.env('LIRI_PROJECT_DIR') || process.cwd(),
-  sessionId: generateSessionId(),
+  sessionId: generateSystemSessionId(),
   parentSessionId: undefined,
   isInteractive: true,
   clientType: 'cli',
@@ -287,7 +287,7 @@ export function resetStartupState(): void {
     originalCwd: configManager.env('LIRI_PROJECT_DIR') || process.cwd(),
     projectRoot: configManager.env('LIRI_PROJECT_DIR') || process.cwd(),
     cwd: configManager.env('LIRI_PROJECT_DIR') || process.cwd(),
-    sessionId: generateSessionId(),
+    sessionId: generateSystemSessionId(),
     parentSessionId: undefined,
     isInteractive: true,
     clientType: 'cli',

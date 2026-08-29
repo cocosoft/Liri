@@ -70,7 +70,7 @@ export type {
   TaskState,
   SessionId,
 } from './types';
-export { generateSessionId } from './types';
+export { generateSystemSessionId } from './types';
 
 // Buddy/Companion 状态（从 state/ 迁移）
 export {

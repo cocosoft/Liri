@@ -501,12 +501,6 @@ class ArchitectureLinter {
             'PluginSkillManifest', 'PluginSkillParameter', 'PluginHookManifest',
             'PlanStep', 'ConfigValidationError', 'RiskLevel', 'SimpleCommand',
             'PermissionBehavior', 'ToolSchema',
-            // R02-002 双轨收敛专项（2026-08-29）— 已收敛 11 个双轨（删除孤儿定义/re-export 统一/内部化），从豁免移出
-            //   仅剩 3 个仍为双轨，暂登记豁免：
-            //   - AgentState: agent/models/types.ts(enum) ↔ agent/AgentRunner.ts(type 联合)，双方活跃，待架构决策
-            //   - generateSessionId: acp/runtime/session-identity.ts ↔ system/state/types.ts（不同 ID 格式，不可合并）
-            //   - UsageInfo: chat/types/message.ts ↔ runtime/api/CoreAPI.ts（内部 cache*InputTokens vs 线格式 cacheReadTokens，前端 client 消费线格式，不可改名合并）
-            'AgentState', 'generateSessionId', 'UsageInfo',
         ]);
 
         for (const file of this.allFiles) {

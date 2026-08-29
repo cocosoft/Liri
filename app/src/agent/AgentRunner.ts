@@ -21,7 +21,7 @@ export type AgentModel = string; // 模型 ID，由配置/模型体系提供（D
 
 export type AgentIsolationMode = 'worktree' | 'remote' | 'none';
 
-export type AgentState =
+export type AgentRunnerState =
   | 'pending'
   | 'running'
   | 'completed'
@@ -41,7 +41,7 @@ export interface AgentTaskInput {
 
 export interface AgentProgress {
   agentId: string;
-  state: AgentState;
+  state: AgentRunnerState;
   progress: number;
   message: string;
   startTime: number;
@@ -55,7 +55,7 @@ export interface AgentSummary {
   durationMs: number;
   tokensUsed: number;
   costUSD: number;
-  state: AgentState;
+  state: AgentRunnerState;
 }
 
 export interface SwarmExecutionResult {
@@ -114,7 +114,7 @@ export class AgentRunner {
     result: string,
     tokensUsed: number = 0,
     costUSD: number = 0,
-    state: AgentState = 'completed'
+    state: AgentRunnerState = 'completed'
   ): AgentSummary {
     const progress = this.activeAgents.get(agentId);
     const durationMs = progress ? Date.now() - progress.startTime : 0;

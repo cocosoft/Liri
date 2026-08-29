@@ -102,7 +102,7 @@ export type SessionId = string;
 /**
  * 生成会话ID
  */
-export function generateSessionId(): SessionId {
+export function generateSystemSessionId(): SessionId {
   const timestamp = Date.now().toString(36);
   const random = Math.random().toString(36).substring(2, 10);
   return `sess_${timestamp}_${random}`;

@@ -91,7 +91,7 @@ export interface ChatResponse {
 
 /** 流式聊天数据块 */
 /** Token 用量信息 */
-export interface UsageInfo {
+export interface StreamUsageInfo {
   inputTokens: number;
   outputTokens: number;
   totalTokens: number;
@@ -140,7 +140,7 @@ export interface ChatStreamChunk {
   messageId?: string;
   /** 仅当 type='status' 且为工具状态块时存在：关联的 toolCallId（前端按 toolCallId 去重，CS02） */
   toolCallId?: string;
-  usage?: UsageInfo;
+  usage?: StreamUsageInfo;
   /** 仅在 type='question' 时存在 */
   questionData?: QuestionData;
   /** 仅在 type='todo' 时存在 */

@@ -36,19 +36,27 @@
 import { getMetricsService } from '@modules/monitoring';
 import type { CounterMetric, HistogramMetric } from '@modules/monitoring';
 
-/** 入站消息总数（全局计数，入口处 +1） */
-const inboundTotal = getMetricsService().createCounter({
-  name: 'channels.message.inbound_total',
-  description: '渠道入站消息总数',
-  labels: { module: 'channels:routing' },
-});
+// 惰性初始化：顶层 getMetricsService() 会在 monitoring 模块半初始化时触发 TDZ（循环导入）。
+// 指标在首次记录时创建并缓存。
+let _inboundTotal: CounterMetric | undefined;
+function getInboundTotal(): CounterMetric {
+  _inboundTotal ??= getMetricsService().createCounter({
+    name: 'channels.message.inbound_total',
+    description: '渠道入站消息总数',
+    labels: { module: 'channels:routing' },
+  });
+  return _inboundTotal;
+}
 
-/** 广播总数（全局计数，broadcast 调用时 +1） */
-const broadcastTotal = getMetricsService().createCounter({
-  name: 'channels.delivery.broadcast_total',
-  description: '渠道广播总数',
-  labels: { module: 'channels:delivery' },
-});
+let _broadcastTotal: CounterMetric | undefined;
+function getBroadcastTotal(): CounterMetric {
+  _broadcastTotal ??= getMetricsService().createCounter({
+    name: 'channels.delivery.broadcast_total',
+    description: '渠道广播总数',
+    labels: { module: 'channels:delivery' },
+  });
+  return _broadcastTotal;
+}
 
 /** 按 reason 懒建的消息拒绝/跳过计数缓存 */
 const rejectedCounters = new Map<string, CounterMetric>();
@@ -64,7 +72,7 @@ const sendHistograms = new Map<string, HistogramMetric>();
  * 在 routeChannelMessage 入口调用。
  */
 export function recordInboundMessage(): void {
-  inboundTotal.inc();
+  getInboundTotal().inc();
 }
 
 /**
@@ -150,5 +158,5 @@ export function recordDeliverySendLatency(
  * 在 DeliveryRouter.broadcast 调用时 +1。
  */
 export function recordBroadcast(): void {
-  broadcastTotal.inc();
+  getBroadcastTotal().inc();
 }

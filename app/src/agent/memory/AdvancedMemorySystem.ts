@@ -2,6 +2,7 @@ import { AgentMemory, AgentMemoryScope } from '../models/types';
 import { AgentMemoryImpl, MemoryItem } from './agentMemory';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
+import { embedText, pseudoVector } from './MemoryVectorizer';
 
 const logger = getLogger('agent:memory:advancedMemorySystem');
 
@@ -102,8 +103,29 @@ export class AdvancedMemorySystem {
   }
 
   add(key: string, value: unknown, tags?: string[]): void {
+    this.addWithVector(key, value, this.vectorize(value), tags);
+  }
+
+  /**
+   * 异步写入（L3 短板补齐：真实 embedding 优先）
+   * 与 add 语义一致，但向量来自真实 embedding（无服务时回退伪向量）。
+   */
+  async addAsync(key: string, value: unknown, tags?: string[]): Promise<void> {
+    const text = typeof value === 'string' ? value : JSON.stringify(value);
+    const vector = await embedText(text);
+    this.addWithVector(key, value, vector, tags);
+  }
+
+  /**
+   * 写入核心：按重要度分层 + 写入向量索引 + 记录版本
+   */
+  private addWithVector(
+    key: string,
+    value: unknown,
+    vector: number[] | null,
+    tags?: string[]
+  ): void {
     const importance = this.calculateImportance(value);
-    const vector = this.vectorize(value);
 
     if (importance >= this.importanceThreshold) {
       this.longTermMemory.add(key, value, tags);
@@ -162,13 +184,36 @@ export class AdvancedMemorySystem {
   search(query: string, options: SearchOptions = {}): MemoryEntry[] {
     const queryVector = this.vectorize(query);
     if (!queryVector) return [];
+    return this.searchWithVector(queryVector, options);
+  }
 
+  /**
+   * 异步语义检索（L3 短板补齐：真实 embedding 优先）
+   * 与 search 语义一致，但查询向量来自真实 embedding。
+   */
+  async searchAsync(
+    query: string,
+    options: SearchOptions = {}
+  ): Promise<MemoryEntry[]> {
+    const queryVector = await embedText(query);
+    return this.searchWithVector(queryVector, options);
+  }
+
+  /**
+   * 检索核心：余弦相似度 + 维度匹配过滤（真实向量与伪向量维度不同，互不混算）
+   */
+  private searchWithVector(
+    queryVector: number[],
+    options: SearchOptions = {}
+  ): MemoryEntry[] {
     const limit = options.limit || 10;
     const threshold = options.threshold || 0.5;
 
     const scored: Array<{ entry: MemoryEntry; score: number }> = [];
 
     for (const [, vector] of this.vectorIndex) {
+      // 维度不匹配（伪向量 64 维 vs 真实 embedding）→ 跳过，避免跨维度误算
+      if (vector.vector.length !== queryVector.length) continue;
       const score = this.cosineSimilarity(queryVector, vector.vector);
 
       if (score >= threshold) {
@@ -403,16 +448,7 @@ export class AdvancedMemorySystem {
     try {
       const str =
         typeof content === 'string' ? content : JSON.stringify(content);
-      const hash = this.simpleHash(str);
-      const vector: number[] = [];
-      let seed = hash;
-
-      for (let i = 0; i < 64; i++) {
-        seed = (seed * 1103515245 + 12345) & 0x7fffffff;
-        vector.push((seed % 1000) / 1000);
-      }
-
-      return vector;
+      return pseudoVector(str);
     } catch {
       return null;
     }
@@ -433,16 +469,6 @@ export class AdvancedMemorySystem {
 
     const magnitude = Math.sqrt(normA) * Math.sqrt(normB);
     return magnitude > 0 ? dotProduct / magnitude : 0;
-  }
-
-  private simpleHash(str: string): number {
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-      const char = str.charCodeAt(i);
-      hash = (hash << 5) - hash + char;
-      hash = hash & hash;
-    }
-    return Math.abs(hash);
   }
 
   private getTimestamp(value: unknown): number | null {

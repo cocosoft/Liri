@@ -5,7 +5,13 @@
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 import { AgentMemory, AgentMemoryScope } from '../models/types';
-import { writeFileSync, readFileSync, existsSync, mkdirSync } from 'fs';
+import {
+  writeFileSync,
+  readFileSync,
+  existsSync,
+  mkdirSync,
+  renameSync,
+} from 'fs';
 import { join } from 'path';
 
 const logger = getLogger('agent:memory:agentMemory');
@@ -135,15 +141,15 @@ export class AgentMemoryImpl implements AgentMemory {
 
   /**
    * 立即同步保存（进程退出等关键节点使用）
+   * 原子写：先写临时文件再 rename 替换，避免写一半崩溃导致文件损坏
+   * （对标报告 L1 短板补齐：存储工程化）
    */
   flushSyncSave(): void {
     if (!this.memoryPath) return;
     try {
-      writeFileSync(
-        this.memoryPath,
-        JSON.stringify(this.data, null, 2),
-        'utf-8'
-      );
+      const tmpPath = `${this.memoryPath}.tmp`;
+      writeFileSync(tmpPath, JSON.stringify(this.data, null, 2), 'utf-8');
+      renameSync(tmpPath, this.memoryPath);
     } catch (error) {
       handleError(error, {
         module: 'agent:memory',

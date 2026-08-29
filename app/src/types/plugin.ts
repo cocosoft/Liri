@@ -1,5 +1,14 @@
 /**
- * 插件类型定义（P0 类型统一 — 从 @modules/plugins/types/PluginTypes 引用核心类型）
+ * 插件类型定义（2026-08-29 类型中心收缩）
+ *
+ * 仅保留有真实消费方的类型：
+ *   - LoadedPlugin：re-export @modules/plugins/types/PluginTypes（loadPluginAgents/AppState 消费）
+ *   - PluginError：re-export @modules/error（AppState 消费）
+ *   - PluginManifest/PluginHooks/PluginMcpServer：plugins/types/PluginTypes.ts 消费 PluginManifest
+ *
+ * 已删除零消费 interface（PluginLoader/PluginRegistry/PluginManager/PluginSource/
+ * CommandMetadata/BuiltinPluginDefinition/PluginSourceType）——插件领域事实类型在
+ * @modules/plugins/types（class 实现）与 plugins/utils/schemas（zod 校验事实源）。
  */
 
 // === 从 PluginTypes 导入并重导出核心类型 ===
@@ -7,12 +16,7 @@ import type { LoadedPlugin } from '@modules/plugins/types/PluginTypes.js';
 export type { LoadedPlugin };
 
 import { PluginError } from '@modules/error';
-
-import { getLogger } from '@modules/monitoring';
-const logger = getLogger('types\plugin');
 export { PluginError };
-
-// ====================================
 
 /**
  * 插件清单
@@ -54,88 +58,4 @@ export interface PluginMcpServer {
   url: string;
   description?: string;
   [key: string]: unknown;
-}
-
-/**
- * 内置插件定义
- */
-export interface BuiltinPluginDefinition {
-  name: string;
-  description: string;
-  version: string;
-  defaultEnabled?: boolean;
-  isAvailable?: () => boolean;
-  skills?: unknown[];
-  hooks?: PluginHooks;
-  mcpServers?: PluginMcpServer[];
-}
-
-/**
- * 命令元数据
- */
-export interface CommandMetadata {
-  name: string;
-  description: string;
-  aliases?: string[];
-  args?: Array<{
-    name: string;
-    type: string;
-    description: string;
-    required: boolean;
-    default?: any;
-  }>;
-  [key: string]: unknown;
-}
-
-/**
- * 插件源类型
- */
-export type PluginSourceType = 'local' | 'git' | 'github' | 'npm';
-
-/**
- * 插件源配置
- */
-export interface PluginSource {
-  type: PluginSourceType;
-  url: string;
-  version?: string;
-  branch?: string;
-  name?: string;
-}
-
-/**
- * 插件加载器
- */
-export interface PluginLoader {
-  load(pluginPath: string | PluginSource): Promise<LoadedPlugin>;
-  loadAll(pluginPaths: Array<string | PluginSource>): Promise<LoadedPlugin[]>;
-  clearCache(): void;
-}
-
-/**
- * 插件注册表
- */
-export interface PluginRegistry {
-  register(plugin: LoadedPlugin): void;
-  unregister(pluginName: string): void;
-  get(pluginName: string): LoadedPlugin | undefined;
-  getAll(): LoadedPlugin[];
-  getEnabled(): LoadedPlugin[];
-  getDisabled(): LoadedPlugin[];
-  clear(): void;
-}
-
-/**
- * 插件管理器
- */
-export interface PluginManager {
-  addPluginSource(source: PluginSource): void;
-  loadPlugins(): Promise<void>;
-  enablePlugin(pluginName: string): Promise<void>;
-  disablePlugin(pluginName: string): Promise<void>;
-  getPlugins(): { enabled: LoadedPlugin[]; disabled: LoadedPlugin[] };
-  getPlugin(pluginName: string): LoadedPlugin | undefined;
-  getAllPlugins(): LoadedPlugin[];
-  registerBuiltinPlugin(plugin: LoadedPlugin): void;
-  clearCache(): void;
 }

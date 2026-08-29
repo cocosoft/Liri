@@ -298,7 +298,7 @@ export async function init(): Promise<void> {
 
         try {
           // 根据 GlobalConfig.channels 决定 Gateway 通道服务启停
-          const { configManager } = await import('../config/ConfigManager.js');
+          const { configManager } = await import('@modules/config');
           const globalConfig = configManager.getGlobalConfig();
           const channelsConfig = globalConfig.channels;
 

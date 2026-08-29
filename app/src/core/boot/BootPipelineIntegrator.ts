@@ -258,7 +258,7 @@ export function registerStandardHandlers(): void {
       try {
         const { SmartRouter } = await import('@modules/ai');
         const { providerRegistry } = await import('@modules/ai');
-        const { configManager } = await import('@modules/config/ConfigManager');
+        const { configManager } = await import('@modules/config');
 
         const routerCfg =
           (configManager.getConfigValue<Record<string, unknown>>(
@@ -384,8 +384,7 @@ export function registerStandardHandlers(): void {
               await import('../../runtime/api/CoreAPIImpl.js');
             getCoreAPI();
 
-            const { configManager } =
-              await import('@modules/config/ConfigManager');
+            const { configManager } = await import('@modules/config');
             const globalConfig = configManager.getGlobalConfig();
             const channelsConfig = globalConfig.channels;
 

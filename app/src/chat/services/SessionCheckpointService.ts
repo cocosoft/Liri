@@ -8,7 +8,7 @@ import type {
 } from '../types/checkpoint';
 import type { CheckpointStorage } from '../types/checkpoint';
 import { getLogger } from '@modules/monitoring';
-import { isCheckpointLogEnabled } from '../../config/settings/CheckpointLogConfig';
+import { isCheckpointLogEnabled } from '@modules/config';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 const logger = getLogger('chat:sessionCheckpoint');

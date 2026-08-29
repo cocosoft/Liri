@@ -247,3 +247,13 @@ export function resetConfigToDefaults(): void {
 
 // ==================== 企业版模块（从 enterprise/ 迁移） ====================
 export * from './enterprise/index.js';
+
+// 2026-08-29 R03-002 收敛：reloader / schema / checkpoint 统一出口
+export { ConfigReloader, ConfigWatcher } from './ConfigReloader';
+export type { ConfigReloadTarget } from './ConfigReloader';
+export { ConfigDocGenerator } from './schema/ConfigDocGenerator';
+export { configSchema } from './schema/ConfigSchema';
+export {
+  isCheckpointLogEnabled,
+  refreshCheckpointLogConfig,
+} from './settings/CheckpointLogConfig';

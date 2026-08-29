@@ -24,7 +24,7 @@ import type { HandlerCtx } from './handler-utils';
 import { broadcastEvent } from './handler-utils';
 import { handleError } from '@modules/error';
 import { getLogger } from '@modules/monitoring';
-import { refreshCheckpointLogConfig } from '@modules/config/settings/CheckpointLogConfig';
+import { refreshCheckpointLogConfig } from '@modules/config';
 
 const logger = getLogger('http:config');
 
@@ -36,7 +36,7 @@ export async function handleListConfig(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { configManager } = await import('@modules/config/ConfigManager');
+    const { configManager } = await import('@modules/config');
     const globalConfig = configManager.getGlobalConfig();
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(globalConfig || {}));
@@ -56,7 +56,7 @@ export async function handleGetConfig(
   key: string
 ): Promise<void> {
   try {
-    const { configManager } = await import('@modules/config/ConfigManager');
+    const { configManager } = await import('@modules/config');
     const value = configManager.getConfigValue(key);
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ key, value }));
@@ -78,7 +78,7 @@ export async function handleSetConfig(
   try {
     const body = await ctx.readRequestBody(req);
     const { value } = JSON.parse(body);
-    const { configManager } = await import('@modules/config/ConfigManager');
+    const { configManager } = await import('@modules/config');
     configManager.setConfigValue(key, value);
     // P2（08-09）：检查点日志开关变更时刷新缓存
     if (key === 'checkpointLog') {
@@ -112,7 +112,7 @@ export async function handleDeleteConfig(
   key: string
 ): Promise<void> {
   try {
-    const { configManager } = await import('@modules/config/ConfigManager');
+    const { configManager } = await import('@modules/config');
     // ConfigManager 没有 deleteConfigValue，通过 saveGlobalConfig 移除 key
     const { getConfig } = await import('@modules/config');
     const current = { ...(getConfig() as Record<string, unknown>) };
@@ -214,7 +214,7 @@ export async function handleRouterUpdateConfig(
     router.updateConfig(config);
 
     // 持久化到 GlobalConfig.models.router，使重启后配置不丢失
-    const { configManager } = await import('@modules/config/ConfigManager');
+    const { configManager } = await import('@modules/config');
     configManager.saveGlobalConfig((globalCfg) => ({
       ...globalCfg,
       models: {
@@ -257,7 +257,7 @@ export async function handleGetSettings(
   namespace: string
 ): Promise<void> {
   try {
-    const { configManager } = await import('@modules/config/ConfigManager');
+    const { configManager } = await import('@modules/config');
     const settingsKey = `settings.${namespace}`;
     const value = configManager.getConfigValue(settingsKey);
     res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -281,7 +281,7 @@ export async function handleSetSettings(
   try {
     const body = await ctx.readRequestBody(req);
     const values = JSON.parse(body || '{}');
-    const { configManager } = await import('@modules/config/ConfigManager');
+    const { configManager } = await import('@modules/config');
     const settingsKey = `settings.${namespace}`;
     configManager.setConfigValue(settingsKey, values);
     res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -553,10 +553,9 @@ export async function handleSetDataDirectory(
     setUserDataDirOverride(resolvedDir);
 
     // 持久化：ConfigManager（新） + settings.json（向后兼容）
-    const { configManager } = await import('@modules/config/ConfigManager');
+    const { configManager } = await import('@modules/config');
     configManager.setConfigValue('system.dataDirectory', resolvedDir);
-    const { updateUserSettings } =
-      await import('@modules/config/settings/userSettings');
+    const { updateUserSettings } = await import('@modules/config');
     await updateUserSettings({ dataDirectory: resolvedDir });
 
     res.writeHead(200, { 'Content-Type': 'application/json' });

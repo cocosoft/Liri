@@ -24,7 +24,7 @@ import { handleError } from '@modules/error';
 import type { AIService, AIMessage } from '@modules/ai';
 import { AIMessageRole } from '@modules/ai';
 import { resolvePyappHome } from '@modules/core';
-import { configManager } from '@modules/config/ConfigManager';
+import { configManager } from '@modules/config';
 
 const logger = getLogger('knowledge:ingestion:fileIngestionService');
 

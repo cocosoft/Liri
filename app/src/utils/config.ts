@@ -4,7 +4,7 @@
  */
 
 import { join } from 'path';
-import { configManager } from '../config/ConfigManager.js';
+import { configManager } from '@modules/config';
 import type { GlobalConfig } from '../config/types.js';
 import { profileCheckpoint } from '../performance/StartupProfiler.js';
 import { resolvePyappHome } from '@modules/core';

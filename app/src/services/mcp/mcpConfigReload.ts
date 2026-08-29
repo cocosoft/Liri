@@ -36,8 +36,8 @@ import {
   enhancedMcpConfigManager,
   EnhancedMCPConfigManager,
 } from './EnhancedMCPConfigManager';
-import { ConfigReloader } from '@modules/config/ConfigReloader';
-import type { ConfigReloadTarget } from '@modules/config/ConfigReloader';
+import { ConfigReloader } from '@modules/config';
+import type { ConfigReloadTarget } from '@modules/config';
 import { resolvePyappHome, resolveProjectRoot } from '@modules/core/paths';
 
 /** 匹配 MCP 三层配置文件（Windows/Unix 路径分隔符兼容） */

@@ -30,7 +30,7 @@ import { join } from 'path';
 import { readdir, readFile, unlink } from 'fs/promises';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-import { isCheckpointLogEnabled } from '../config/settings/CheckpointLogConfig';
+import { isCheckpointLogEnabled } from '@modules/config';
 import type { DreamCycleRecord } from './types';
 
 const logger = getLogger('dream:checkpoint');

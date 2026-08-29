@@ -35,7 +35,7 @@
 
 import { readFileSync } from 'fs';
 import crypto from 'crypto';
-import { ConfigWatcher } from '@modules/config/ConfigReloader';
+import { ConfigWatcher } from '@modules/config';
 import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('skills:hotreload');

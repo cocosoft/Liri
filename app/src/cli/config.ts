@@ -14,7 +14,7 @@ import {
   loadUserSettings,
   saveUserSettings,
   getUserSettingsPath,
-} from '@modules/config/settings/userSettings';
+} from '@modules/config';
 
 const logger = getLogger('cli:config');
 

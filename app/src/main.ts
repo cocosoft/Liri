@@ -1705,7 +1705,7 @@ export async function launch(options: LaunchOptions): Promise<void> {
       async () => {
         const { SmartRouter } = await import('@modules/ai');
         const { providerRegistry } = await import('@modules/ai');
-        const { configManager } = await import('@modules/config/ConfigManager');
+        const { configManager } = await import('@modules/config');
 
         // 从 DB 动态获取 tiers 默认值（替代空字符串）
         const dbTiers = await resolveDefaultTiersFromDb();

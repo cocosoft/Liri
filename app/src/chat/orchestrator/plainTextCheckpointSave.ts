@@ -28,7 +28,7 @@
 
 import { getLogger } from '@modules/monitoring';
 import { PlainTextCheckpoint } from '../services/PlainTextCheckpoint.js';
-import { isCheckpointLogEnabled } from '../../config/settings/CheckpointLogConfig';
+import { isCheckpointLogEnabled } from '@modules/config';
 import type { ChatSession } from '../types/session.js';
 import type { ParsedToolCall } from '@modules/ai';
 

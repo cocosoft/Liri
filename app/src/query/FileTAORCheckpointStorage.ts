@@ -11,7 +11,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { resolveDataDir } from '@modules/core';
 import { getLogger } from '@modules/monitoring';
-import { isCheckpointLogEnabled } from '../config/settings/CheckpointLogConfig';
+import { isCheckpointLogEnabled } from '@modules/config';
 import { randomUUID } from 'crypto';
 
 import type { TAORCheckpoint, CheckpointStorage } from './types.js';

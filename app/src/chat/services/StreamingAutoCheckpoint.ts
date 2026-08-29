@@ -12,7 +12,7 @@
  */
 
 import { getLogger } from '@modules/monitoring';
-import { isCheckpointLogEnabled } from '../../config/settings/CheckpointLogConfig';
+import { isCheckpointLogEnabled } from '@modules/config';
 import { handleError } from '@modules/error';
 import type { SessionCheckpointService } from './SessionCheckpointService';
 import type { SessionCheckpoint } from '../types/checkpoint';

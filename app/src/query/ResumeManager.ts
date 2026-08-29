@@ -7,7 +7,7 @@
 
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-import { isCheckpointLogEnabled } from '../config/settings/CheckpointLogConfig';
+import { isCheckpointLogEnabled } from '@modules/config';
 import { EventEmitter } from 'events';
 import { FileTAORCheckpointStorage } from './FileTAORCheckpointStorage.js';
 import { DBTAORCheckpointStorage } from './DBTAORCheckpointStorage.js';

@@ -10,7 +10,7 @@
 import { Database } from '@modules/core/external/sqlite3';
 import { resolveDbPath } from '@modules/core';
 import { getLogger } from '@modules/monitoring';
-import { isCheckpointLogEnabled } from '../config/settings/CheckpointLogConfig';
+import { isCheckpointLogEnabled } from '@modules/config';
 import {
   AppError,
   ErrorCategory,

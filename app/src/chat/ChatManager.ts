@@ -3539,8 +3539,7 @@ export class ChatManagerImpl implements ChatManager {
       );
       // P0b-3: 同步广播到全局 SSE 事件总线，前端 worktree 同步创建
       try {
-        const { broadcastEvent } =
-          await import('../infrastructure/http/LocalHTTPServiceSSE');
+        const { broadcastEvent } = await import('@modules/infrastructure');
         await broadcastEvent('project:auto_created', autoCreatedPayload);
         logger.info('P0 自动建项目事件：SSE 广播完成', autoCreatedPayload);
       } catch (e) {

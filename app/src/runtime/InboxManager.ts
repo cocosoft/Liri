@@ -14,7 +14,7 @@ import { handleError } from '@modules/error';
 import { Database } from '@modules/core/external/sqlite3';
 import { resolveDbPath } from '@modules/core/paths';
 import { randomUUID } from 'crypto';
-import { broadcastEvent } from '../infrastructure/http/LocalHTTPServiceSSE.js';
+import { broadcastEvent } from '@modules/infrastructure';
 import type { FrontendMessageBlock } from '@modules/session/types/Message.js';
 
 const logger = getLogger('runtime:inbox');

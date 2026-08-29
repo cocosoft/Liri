@@ -15,7 +15,7 @@
  *   - v1.1: queueId → SSE 实时推送进度
  */
 
-import { broadcastEvent } from '@modules/infrastructure/http/LocalHTTPServiceSSE.js';
+import { broadcastEvent } from '@modules/infrastructure';
 
 export type TaskStatus =
   | 'pending'

@@ -580,8 +580,7 @@ export class PlanDrivenLoop {
     payload: Record<string, unknown>
   ): Promise<void> {
     try {
-      const { broadcastEvent } =
-        await import('@modules/infrastructure/http/LocalHTTPServiceSSE.js');
+      const { broadcastEvent } = await import('@modules/infrastructure');
       await broadcastEvent(event, payload);
     } catch {
       // @ignore-catch — SSE 广播失败不影响任务执行

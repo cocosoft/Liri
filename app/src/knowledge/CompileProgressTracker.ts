@@ -6,7 +6,7 @@
  * v1.1: 接入 SSE 实时推送，每次进度更新广播到前端。
  */
 
-import { broadcastEvent } from '@modules/infrastructure/http/LocalHTTPServiceSSE.js';
+import { broadcastEvent } from '@modules/infrastructure';
 
 export interface CompileProgress {
   /** 当前状态：idle / compiling / done */

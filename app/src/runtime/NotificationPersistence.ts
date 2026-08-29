@@ -9,7 +9,7 @@ import { getLogger } from '@modules/monitoring';
 import { Database } from '@modules/core/external/sqlite3';
 import { resolveDbPath } from '@modules/core/paths';
 import { randomUUID } from 'crypto';
-import { broadcastEvent } from '../infrastructure/http/LocalHTTPServiceSSE.js';
+import { broadcastEvent } from '@modules/infrastructure';
 
 const logger = getLogger('runtime:notification');
 

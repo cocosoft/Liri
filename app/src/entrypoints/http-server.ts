@@ -5,7 +5,7 @@
  * 仅在需要时通过动态 import() 加载 LocalHTTPService。
  */
 
-import type { LocalHTTPService } from '../infrastructure/http/LocalHTTPService';
+import type { LocalHTTPService } from '@modules/infrastructure';
 
 /**
  * 启动 LocalHTTPService
@@ -19,7 +19,7 @@ export async function startHTTPServer(
 ): Promise<LocalHTTPService> {
   // 使用相对路径动态导入，避免 @modules 别名在 Bun 动态 import 下的潜在问题
   const { LocalHTTPService: LocalHTTPServiceImpl } =
-    await import('../infrastructure/http/LocalHTTPService');
+    await import('@modules/infrastructure');
 
   const service = new LocalHTTPServiceImpl({ host, port });
   await service.start();

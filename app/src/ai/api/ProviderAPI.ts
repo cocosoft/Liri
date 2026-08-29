@@ -33,7 +33,7 @@ import {
   credentialStore,
   CRED_STORED_MARKER,
 } from '../credentials/CredentialStore.js';
-import { broadcastEvent } from '@modules/infrastructure/http/LocalHTTPServiceSSE.js';
+import { broadcastEvent } from '@modules/infrastructure';
 
 /** 掩码常量：已配置凭据时不泄露任何密钥字符 */
 const MASKED_KEY = '••••••••';

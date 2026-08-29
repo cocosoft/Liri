@@ -24,3 +24,9 @@
 
 export { LocalHTTPService } from './LocalHTTPService';
 export type { LocalHTTPConfig } from './LocalHTTPService';
+export {
+  broadcastEvent,
+  handleEvents,
+  stopSSE,
+  getSSEClientCount,
+} from './LocalHTTPServiceSSE';

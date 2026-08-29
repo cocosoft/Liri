@@ -12,7 +12,7 @@
  */
 
 import { getLogger } from '@modules/monitoring';
-import { broadcastEvent } from '@modules/infrastructure/http/LocalHTTPServiceSSE.js';
+import { broadcastEvent } from '@modules/infrastructure';
 import { markAppError } from '../../state/app/AppLifecycle.js';
 import { SessionStatus } from '../types/Session';
 import type { UnifiedSession } from '../types/Session';

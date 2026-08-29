@@ -47,7 +47,7 @@ import { globalEventBus, SystemEvents } from '@modules/core';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-import { broadcastEvent } from '@modules/infrastructure/http/LocalHTTPServiceSSE.js';
+import { broadcastEvent } from '@modules/infrastructure';
 import { DreamTransaction, fileTx, TxOperation } from './DreamTransaction';
 import { join } from 'path';
 import { mkdir, writeFile, unlink } from 'fs/promises';

@@ -92,8 +92,14 @@ export class AutoUpdater {
   }
 
   private detectVersion(): string {
-    const pkgPath = join(resolveProjectRoot(), 'package.json');
-    if (existsSync(pkgPath)) {
+    // KB-AUTOUPDATE-PATH（2026-08-29）：版本文件在 app/package.json（仓库根无 package.json），
+    // 原实现读根目录恒返回 0.0.0
+    const candidates = [
+      join(resolveProjectRoot(), 'app', 'package.json'),
+      join(resolveProjectRoot(), 'package.json'),
+    ];
+    for (const pkgPath of candidates) {
+      if (!existsSync(pkgPath)) continue;
       try {
         const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'));
         return pkg.version || '0.0.0';
@@ -111,6 +117,30 @@ export class AutoUpdater {
   }
 
   private async fetchLatestVersion(): Promise<string> {
-    return '0.0.0';
+    // KB-AUTOUPDATE-FETCH（2026-08-29）：桩实现 → 真实获取远端版本号。
+    // 与 apply() 的 git pull 机制一致：fetch 远端 main 后读远端 package.json 的 version。
+    // 无 remote / 网络失败时返回当前版本（按无更新处理，check() 不误报）。
+    try {
+      execSync('git fetch origin main --quiet', {
+        stdio: 'pipe',
+        timeout: 30000,
+      });
+      const remotePkg = execSync('git show origin/main:app/package.json', {
+        encoding: 'utf-8',
+        stdio: ['ignore', 'pipe', 'pipe'],
+      }) as unknown as string;
+      const parsed = JSON.parse(remotePkg) as { version?: string };
+      const version = parsed.version || this.currentVersion;
+      logger.info('[AutoUpdater] 远端版本', {
+        remote: version,
+        current: this.currentVersion,
+      });
+      return version;
+    } catch (e) {
+      logger.warn('[AutoUpdater] 获取远端版本失败，按无更新处理', {
+        error: e instanceof Error ? e.message : String(e),
+      });
+      return this.currentVersion;
+    }
   }
 }

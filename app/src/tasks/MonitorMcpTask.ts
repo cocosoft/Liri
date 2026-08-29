@@ -25,7 +25,7 @@ export interface McpStatus {
 export class MonitorMcpTask extends BaseTask {
   readonly type = TaskType.MONITOR_MCP;
   private config: McpMonitorConfig;
-  private checkIntervalId?: number;
+  private checkIntervalId?: ReturnType<typeof setInterval>;
   private statusHistory: McpStatus[] = [];
 
   constructor(
@@ -43,7 +43,7 @@ export class MonitorMcpTask extends BaseTask {
 
     const checkInterval = this.config.checkInterval || 5000;
 
-    this.checkIntervalId = window.setInterval(async () => {
+    this.checkIntervalId = setInterval(async () => {
       if (this.abortController.signal.aborted) {
         return;
       }
@@ -109,13 +109,62 @@ export class MonitorMcpTask extends BaseTask {
   }
 
   private async pingServer(): Promise<McpStatus> {
-    return {
-      serverUrl: this.config.serverUrl,
-      isOnline: true,
-      latency: 0,
-      resourceCount: Math.floor(Math.random() * 10) + 1,
-      lastCheckTime: Date.now(),
-    };
+    const url = this.config.serverUrl;
+    const timeout = this.config.timeout ?? 5000;
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeout);
+    const startTime = Date.now();
+
+    try {
+      const res = await fetch(url, {
+        method: 'GET',
+        headers: { Accept: 'application/json' },
+        signal: controller.signal,
+      });
+      const latency = Date.now() - startTime;
+
+      // 资源数防御性提取：响应体 JSON 中常见字段；取不到则不填（不造假数据）
+      let resourceCount: number | undefined;
+      try {
+        const contentType = res.headers.get('content-type') || '';
+        if (contentType.includes('json')) {
+          const body = await res.json();
+          if (typeof body.resourceCount === 'number') {
+            resourceCount = body.resourceCount;
+          } else if (Array.isArray(body.resources)) {
+            resourceCount = body.resources.length;
+          } else if (Array.isArray(body.data)) {
+            resourceCount = body.data.length;
+          }
+        }
+      } catch {
+        // @ignore-catch: 响应非 JSON，resourceCount 留空（不造假数据）
+      }
+
+      return {
+        serverUrl: url,
+        // 收到任何 HTTP 响应即视为服务可达（MCP 端点可能对 GET 返回 405/404 但服务在线）
+        isOnline: true,
+        latency,
+        resourceCount,
+        lastCheckTime: Date.now(),
+      };
+    } catch (err) {
+      // KB-MCP-PING-LOG（2026-08-29）：真实探测——超时/网络失败记录后判离线
+      logger.warn('MCP 服务器探测失败', {
+        serverUrl: url,
+        error: err instanceof Error ? err.message : String(err),
+      });
+      return {
+        serverUrl: url,
+        isOnline: false,
+        latency: Date.now() - startTime,
+        lastCheckTime: Date.now(),
+      };
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
   getStatusHistory(): McpStatus[] {

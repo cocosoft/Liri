@@ -14,13 +14,13 @@
  */
 import { getLogger } from '@modules/monitoring';
 import { resolveSessionsDir } from '@modules/core/paths';
-import { SessionMemoryManager } from '../../session/memory/SessionMemoryManager';
+import { SessionMemoryManager } from '@modules/session';
 import { globalEmbeddingManager } from '@modules/ai';
-import { SessionActivityTracker } from '../../session/activity/SessionActivityTracker';
-import { SessionStateHydrator } from '../../session/hydration/SessionStateHydrator';
-import { SessionMemoryExtractor } from '../../session/memory/SessionMemoryExtractor';
-import type { MemoryExtractionLLM } from '../../session/memory/SessionMemoryExtractor';
-import { MEMORY_TEMPLATE } from '../../session/memory/memoryTemplate';
+import { SessionActivityTracker } from '@modules/session';
+import { SessionStateHydrator } from '@modules/session';
+import { SessionMemoryExtractor } from '@modules/session';
+import type { MemoryExtractionLLM } from '@modules/session';
+import { MEMORY_TEMPLATE } from '@modules/session';
 import type { ChatSession } from '../types/session';
 
 const logger = getLogger('chat:session-facade');

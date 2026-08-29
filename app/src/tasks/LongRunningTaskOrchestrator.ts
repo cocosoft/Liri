@@ -44,7 +44,7 @@ import type { AuditReport } from './AuditReport';
 import { formatReviewSummary } from './PlanReview';
 import type { PlanReview, ReviewDecision } from './PlanReview';
 // E-4（2026-08-23，T-G）：PDCA 旁路轨迹文件（子步骤完整轨迹，会话外诊断数据）
-import { TrajectoryTrailRecorder } from '@modules/session/trajectory/TrajectoryTrailRecorder';
+import { TrajectoryTrailRecorder } from '@modules/session';
 import { createReviewGate } from './review/ReviewGate.js';
 import type { ReviewGate, ReviewGateContext } from './review/ReviewGate.js';
 import { TAORLoop, createTAORLoopDeps } from '../query/TAORLoop.js';

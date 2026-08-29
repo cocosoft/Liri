@@ -50,7 +50,7 @@ import {
 } from './services/ChatHelper';
 import { EventLogStorage } from '@modules/session';
 import { MessageToEventMigrator } from '@modules/session';
-import { ReconcileService } from '@modules/session/reconcile/ReconcileService';
+import { ReconcileService } from '@modules/session';
 import { dedupeToolCallBlocks } from '@modules/chat/utils/chatBlocks';
 import type { LiriEvent } from '@modules/chat/types/events';
 import { feature as coreFeature } from '@modules/core';

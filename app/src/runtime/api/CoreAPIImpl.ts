@@ -57,7 +57,7 @@ import { MessageToEventMigrator } from '@modules/session';
 import { EventLogStorage } from '@modules/session';
 import { deriveMessagesFromEvents } from '@modules/session';
 // E-1 接入（2026-08-23）：工具完成自动记录交付物（复用 ExecutionPhaseTracker，此前无生产实例）
-import { ExecutionPhaseTracker } from '@modules/session/ExecutionPhaseTracker';
+import { ExecutionPhaseTracker } from '@modules/session';
 // E-1 diff（2026-08-23）：文件变更前后 unified diff 计算
 import { computeUnifiedDiff } from '@modules/chat/utils/unifiedDiff';
 import { dedupeMessagesToolCallBlocks } from '@modules/chat/utils/chatBlocks';

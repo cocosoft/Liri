@@ -3,8 +3,8 @@
  * 将 SessionLifecycleEventBus 的事件映射到 SessionStateMachine 的状态变化
  */
 
-import type { SessionLifecycleEventBus } from '@modules/session/lifecycle/SessionLifecycleEventBus';
-import type { SessionLifecycleEvent } from '@modules/session/lifecycle/SessionLifecycleEvent';
+import type { SessionLifecycleEventBus } from '@modules/session';
+import type { SessionLifecycleEvent } from '@modules/session';
 import type { EventSubscription } from '@modules/core';
 import { SessionStateMachine } from '../../state/session/SessionStateMachine.js';
 import { handleError } from '@modules/error';

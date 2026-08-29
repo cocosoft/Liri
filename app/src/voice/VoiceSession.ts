@@ -24,7 +24,7 @@ import { OpenAIRealtimeAdapter } from './OpenAIRealtimeAdapter';
 import { globalToolManager } from '@modules/tools';
 import type { ToolExecutorDelegate } from './VoiceToolBridge';
 import type { SessionManager } from '@modules/session';
-import type { TranscriptManager } from '@modules/session/TranscriptManager';
+import type { TranscriptManager } from '@modules/session';
 import { MessageType, MessageRole } from '@modules/session/types/Message';
 import type { UnifiedMessage } from '@modules/session/types/Message';
 import { MemoryManagerImpl } from '../memory/MemoryManager';

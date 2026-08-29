@@ -6,8 +6,8 @@
 import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error';
-import { ResetPolicyDecider } from '@modules/session/policy/ResetPolicyDecider';
-import type { ResetPolicy } from '@modules/session/policy/ResetPolicy';
+import { ResetPolicyDecider } from '@modules/session';
+import type { ResetPolicy } from '@modules/session';
 
 const logger = getLogger('core:sessionSupervisor');
 

@@ -9,7 +9,7 @@ import type {
   SessionStore as SessionSupervisorStore,
   SessionSummary,
 } from './SessionSupervisor';
-import type { SessionStore } from '@modules/session/SessionStore';
+import type { SessionStore } from '@modules/session';
 
 export function createSupervisorStore(
   sessionStore: SessionStore

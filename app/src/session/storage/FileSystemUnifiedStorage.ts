@@ -503,6 +503,15 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
   }
 
   async updateSession(session: UnifiedSession): Promise<void> {
+    // KB-SESSION-UPDATE-INTERCEPT（2026-08-29 专项审查）：与 persistMessageAppend 的
+    // BUG-I 拦截对齐——已软删除会话的元数据更新若落盘，persistSession 的 mkdir
+    // recursive 会在 .trash 外重建目录导致"幽灵复活"
+    if (this.deletedSessionIds.has(session.id)) {
+      logger.warn('deleteSession:已删除会话的元数据更新被拦截', {
+        sessionId: session.id,
+      });
+      return;
+    }
     this.sessions.set(session.id, { ...session });
     await this.persistSession(session);
   }
@@ -717,6 +726,15 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
     sessionId: string,
     messages: UnifiedMessage[]
   ): Promise<void> {
+    // KB-SESSION-BATCH-INTERCEPT（2026-08-29 专项审查）：与 persistMessageAppend 的
+    // BUG-I 拦截对齐——批量追加此前自写 append 绕过拦截，已删除会话落盘会"幽灵复活"
+    if (this.deletedSessionIds.has(sessionId)) {
+      logger.warn('deleteSession:已删除会话的批量消息落盘被拦截', {
+        sessionId,
+        messageCount: messages.length,
+      });
+      return;
+    }
     // P1-3：按需加载
     await this.ensureMessagesLoaded(sessionId);
     return this.enqueueWrite(sessionId, async () => {

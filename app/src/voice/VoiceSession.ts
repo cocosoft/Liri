@@ -23,7 +23,7 @@ import { GeminiLiveAdapter } from './GeminiLiveAdapter';
 import { OpenAIRealtimeAdapter } from './OpenAIRealtimeAdapter';
 import { globalToolManager } from '../tools/core/ToolManager';
 import type { ToolExecutorDelegate } from './VoiceToolBridge';
-import type { SessionManager } from '@modules/session/SessionManager';
+import type { SessionManager } from '@modules/session';
 import type { TranscriptManager } from '@modules/session/TranscriptManager';
 import { MessageType, MessageRole } from '@modules/session/types/Message';
 import type { UnifiedMessage } from '@modules/session/types/Message';

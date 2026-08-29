@@ -34,7 +34,7 @@
 import { readFile, mkdir, rm, unlink } from 'fs/promises';
 import { join } from 'path';
 import crypto from 'crypto';
-import { AtomicWriter } from '@modules/session/persistence/AtomicWriter';
+import { AtomicWriter } from '@modules/session';
 import { resolveDataSubDir } from '@modules/core';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { handleError } from '@modules/error/handleError';

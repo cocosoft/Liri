@@ -216,10 +216,7 @@ import {
   type CompactArtifact,
 } from '../services/compact/CompactService.js';
 import type { SessionMessage } from '@modules/session';
-import {
-  SessionGateway,
-  createSessionGateway,
-} from '@modules/session';
+import { SessionGateway, createSessionGateway } from '@modules/session';
 import type {
   UnifiedMessage,
   FrontendMessageBlock,

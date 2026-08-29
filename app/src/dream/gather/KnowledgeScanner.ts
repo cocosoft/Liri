@@ -29,7 +29,7 @@ import { stat, readFile, mkdir } from 'fs/promises';
 import { join, relative } from 'path';
 import { createHash } from 'crypto';
 import { resolvePyappHome } from '@modules/core';
-import { AtomicWriter } from '@modules/session/persistence/AtomicWriter';
+import { AtomicWriter } from '@modules/session';
 import type { KnowledgeDelta } from '../types';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';

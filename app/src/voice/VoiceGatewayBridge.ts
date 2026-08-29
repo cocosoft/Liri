@@ -10,7 +10,7 @@ import { upgradeToVoiceConnection } from './upgrade';
 import { VoiceSession } from './VoiceSession';
 import type { SessionIntegrationOptions } from './VoiceSession';
 import type { VoiceConnection } from './types';
-import type { SessionManager } from '@modules/session/SessionManager';
+import type { SessionManager } from '@modules/session';
 import type { TranscriptManager } from '@modules/session/TranscriptManager';
 import { withTraceContextFromRequestResult } from '../monitoring/tracing/traceContextExtractor';
 

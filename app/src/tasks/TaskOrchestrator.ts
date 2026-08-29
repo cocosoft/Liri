@@ -317,8 +317,7 @@ export class TaskOrchestrator {
   async resolveWorkspaceId(sessionId: string): Promise<string | undefined> {
     if (!sessionId) return undefined;
     try {
-      const { createSessionGateway } =
-        await import('@modules/session');
+      const { createSessionGateway } = await import('@modules/session');
       const session = await createSessionGateway().getSession(sessionId);
       return session?.metadata?.workspaceId;
     } catch (err) {

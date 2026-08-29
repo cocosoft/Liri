@@ -16,7 +16,7 @@
 import { getLogger } from '@modules/monitoring';
 import { getMetricsService } from '@modules/monitoring';
 import type { MetricsService } from '@modules/monitoring';
-import { SessionManager } from '@modules/session/SessionManager';
+import { SessionManager } from '@modules/session';
 import { getAlertManager, AlertLevel } from '@modules/monitoring';
 import { getOTelTracing } from '@modules/monitoring';
 

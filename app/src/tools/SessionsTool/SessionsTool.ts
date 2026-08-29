@@ -9,10 +9,7 @@ import * as crypto from 'crypto';
 
 import { BaseTool } from '../BaseTool';
 import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';
-import {
-  SessionGateway,
-  createSessionGateway,
-} from '../../session/index';
+import { SessionGateway, createSessionGateway } from '../../session/index';
 import type { SessionGatewayConfig } from '../../session/index';
 import { SessionType, SessionStatus } from '../../session/types/Session';
 

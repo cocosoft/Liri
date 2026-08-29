@@ -31,7 +31,7 @@ import {
   resolveUserProfilePath,
   resolvePyappHome,
 } from '@modules/core';
-import { AtomicWriter } from '@modules/session/persistence/AtomicWriter';
+import { AtomicWriter } from '@modules/session';
 import { join } from 'path';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('dream:reflect:personality');

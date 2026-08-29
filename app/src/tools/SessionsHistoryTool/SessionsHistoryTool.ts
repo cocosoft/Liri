@@ -6,10 +6,7 @@
 
 import { BaseTool } from '../BaseTool';
 import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';
-import {
-  SessionGateway,
-  createSessionGateway,
-} from '../../session/index';
+import { SessionGateway, createSessionGateway } from '../../session/index';
 import type { UnifiedMessage } from '../../session/types/Message';
 import { MessageType } from '../../session/types/Message';
 

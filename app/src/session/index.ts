@@ -119,6 +119,11 @@ export {
 } from './storage/EventMessageDeriver.js';
 
 /**
+ * 持久化原语（2026-08-29 R03-002 收敛：persistence 子目录统一出口）
+ */
+export { AtomicWriter, AtomicWriteError } from './persistence/index.js';
+
+/**
  * 上下文修剪系统
  */
 export * from './pruning/index.js';

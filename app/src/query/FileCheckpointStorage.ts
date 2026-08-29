@@ -115,7 +115,12 @@ export class FileCheckpointStorage implements CheckpointStorage {
         'utf-8'
       );
       return JSON.parse(content) as SessionCheckpoint;
-    } catch {
+    } catch (loadErr) {
+      // KB-CKPT-LOAD（2026-08-29）：检查点文件读取/解析失败静默 null → 恢复数据丢失
+      logger.warn('检查点加载失败（loadCheckpoint）', {
+        checkpointId,
+        error: loadErr instanceof Error ? loadErr.message : String(loadErr),
+      });
       return null;
     }
   }
@@ -138,13 +143,24 @@ export class FileCheckpointStorage implements CheckpointStorage {
             'utf-8'
           );
           checkpoints.push(JSON.parse(content) as SessionCheckpoint);
-        } catch {
+        } catch (entryErr) {
+          // KB-CKPT-ENTRY（2026-08-29）：单个检查点文件解析失败 → 该条静默丢弃
+          logger.warn('检查点文件解析失败，跳过该条', {
+            sessionId,
+            error:
+              entryErr instanceof Error ? entryErr.message : String(entryErr),
+          });
           continue;
         }
       }
 
       return checkpoints.sort((a, b) => b.createdAt - a.createdAt);
-    } catch {
+    } catch (listErr) {
+      // KB-CKPT-LIST（2026-08-29）：检查点列表加载失败静默 [] → 恢复状态丢失
+      logger.warn('检查点列表加载失败', {
+        sessionId,
+        error: listErr instanceof Error ? listErr.message : String(listErr),
+      });
       return [];
     }
   }
@@ -180,7 +196,13 @@ export class FileCheckpointStorage implements CheckpointStorage {
       for (const file of matched) {
         try {
           await fs.promises.unlink(path.join(this.storageDir, file));
-        } catch {
+        } catch (delErr) {
+          // KB-CKPT-DEL-ENTRY（2026-08-29）：单文件删除失败静默 continue → 残留检查点
+          logger.warn('删除检查点文件失败，跳过', {
+            sessionId,
+            file,
+            error: delErr instanceof Error ? delErr.message : String(delErr),
+          });
           continue;
         }
       }
@@ -200,7 +222,12 @@ export class FileCheckpointStorage implements CheckpointStorage {
         `^checkpoint-${escapeRegex(sessionId)}-.+\\.json$`
       );
       return files.filter((f) => pattern.test(f)).length;
-    } catch {
+    } catch (countErr) {
+      // KB-CKPT-COUNT（2026-08-29）：计数失败静默 0 → 检查点数量失真
+      logger.warn('检查点计数失败，按 0 处理', {
+        sessionId,
+        error: countErr instanceof Error ? countErr.message : String(countErr),
+      });
       return 0;
     }
   }
@@ -230,13 +257,26 @@ export class FileCheckpointStorage implements CheckpointStorage {
             await fs.promises.unlink(filePath);
             count++;
           }
-        } catch {
+        } catch (cleanErr) {
+          // KB-CKPT-CLEAN-ENTRY（2026-08-29）：单文件清理失败静默 continue → 残留检查点
+          logger.warn('清理过期检查点失败，跳过', {
+            file,
+            error:
+              cleanErr instanceof Error ? cleanErr.message : String(cleanErr),
+          });
           continue;
         }
       }
 
       return count;
-    } catch {
+    } catch (cleanOuterErr) {
+      // KB-CKPT-CLEAN（2026-08-29）：清理过程失败静默 0 → 过期检查点残留不可知
+      logger.warn('清理过期检查点失败', {
+        error:
+          cleanOuterErr instanceof Error
+            ? cleanOuterErr.message
+            : String(cleanOuterErr),
+      });
       return 0;
     }
   }

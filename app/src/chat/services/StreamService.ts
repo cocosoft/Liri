@@ -196,8 +196,12 @@ export class StreamServiceImpl implements StreamService {
           if (parsedData.model) {
             model = parsedData.model;
           }
-        } catch (error) {
-          // 忽略解析错误
+        } catch (parseErr) {
+          // KB-STREAM-PARSE（2026-08-29）：SSE 数据块解析失败静默 → 消息/模型/用量丢失
+          logger.warn('SSE 数据块解析失败，忽略该块', {
+            error:
+              parseErr instanceof Error ? parseErr.message : String(parseErr),
+          });
         }
       }
     }

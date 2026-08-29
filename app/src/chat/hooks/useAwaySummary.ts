@@ -60,6 +60,9 @@ export function useAwaySummary(
       if (result && options.onSummaryGenerated) {
         options.onSummaryGenerated(result.summary);
       }
+    } catch {
+      // @ignore-catch: 摘要生成失败由 finally 复位生成标志（前端 hook 无日志设施、
+      // no-console 约束，失败不应产生 unhandled rejection）；onSummaryGenerated 由调用方决定是否提示
     } finally {
       isGeneratingRef.current = false;
     }

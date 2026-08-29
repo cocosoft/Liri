@@ -365,8 +365,13 @@ async function handleStreamingChat(
     if (activeSessionId) {
       try {
         getCoreAPI().chatManager?.abortSessionStream(activeSessionId);
-      } catch {
-        // 静默处理 — coreAPI 可能尚未初始化
+      } catch (abortErr) {
+        // @ignore-catch: coreAPI 可能尚未初始化（防御探测），abort 失败不处理
+        logger.debug('客户端断开中止流失败（coreAPI 未就绪）', {
+          sessionId: activeSessionId,
+          error:
+            abortErr instanceof Error ? abortErr.message : String(abortErr),
+        });
       }
     }
   });
@@ -1075,8 +1080,12 @@ export async function handleResumeChat(
   res.on('close', () => {
     try {
       getCoreAPI().chatManager?.abortSessionStream(sessionId);
-    } catch {
-      /* 静默处理 */
+    } catch (abortErr) {
+      // @ignore-catch: coreAPI 可能尚未初始化（防御探测），abort 失败不处理
+      logger.debug('客户端断开中止流失败（coreAPI 未就绪）', {
+        sessionId,
+        error: abortErr instanceof Error ? abortErr.message : String(abortErr),
+      });
     }
   });
 

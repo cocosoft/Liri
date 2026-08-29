@@ -274,7 +274,7 @@ export async function handleMediaSubtitleGenerate(
         try {
           unlinkSync(inputPath);
         } catch (_err) {
-          /* 清理失败不影响主流程 */
+          // @ignore-catch: 临时文件清理失败不影响主流程（残留由系统临时目录回收）
         }
       } else {
         audioPath = inputPath;
@@ -320,7 +320,7 @@ export async function handleMediaSubtitleGenerate(
       try {
         unlinkSync(audioPath);
       } catch (_err) {
-        /* 清理失败不影响主流程 */
+        // @ignore-catch: 临时音频文件清理失败不影响主流程（残留由系统临时目录回收）
       }
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -341,7 +341,7 @@ export async function handleMediaSubtitleGenerate(
       try {
         unlinkSync(inputPath);
       } catch (_err) {
-        /* ignore */
+        // @ignore-catch: 临时文件清理失败不影响主流程（错误已由上层抛出处理）
       }
       throw err;
     }

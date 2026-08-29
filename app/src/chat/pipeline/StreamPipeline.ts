@@ -599,7 +599,12 @@ export class StreamPipeline {
             u.cache_creation_input_tokens ?? u.cacheCreationInputTokens ?? 0,
             u.cache_read_input_tokens ?? u.cacheReadInputTokens ?? 0
           );
-        } catch {
+        } catch (costErr) {
+          // KB-COST-CALC（2026-08-29）：成本计算失败记 0 → 成本统计失真且无法追溯
+          logger.warn('成本计算失败，按 0 处理', {
+            model: options.model ?? '',
+            error: costErr instanceof Error ? costErr.message : String(costErr),
+          });
           return 0;
         }
       })(),

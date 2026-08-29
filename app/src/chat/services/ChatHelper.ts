@@ -184,14 +184,25 @@ export function resolveMaxContextTokens(model?: string): number {
       } = require('../../context/window/ContextWindowResolver');
       const ctx = resolveContextWindow(model);
       if (ctx.tokens > 0) return ctx.tokens;
-    } catch {
-      // 回退到 AIModelManager
+    } catch (ctxErr) {
+      // KB-CTXWINDOW-LOG（2026-08-29）：ContextWindowResolver 解析失败 → 回退，但需记录
+      logger.warn(
+        '上下文窗口解析失败（ContextWindowResolver），回退 AIModelManager',
+        {
+          model,
+          error: ctxErr instanceof Error ? ctxErr.message : String(ctxErr),
+        }
+      );
     }
     try {
       const ctx = getAIModelManager().getContextWindow(model);
       if (ctx > 0) return ctx;
-    } catch {
-      // 模型未注册等情况
+    } catch (mgrErr) {
+      // KB-CTXWINDOW-LOG2（2026-08-29）：AIModelManager 也失败 → 默认 128k 无任何痕迹
+      logger.warn('上下文窗口解析失败（AIModelManager），使用默认 128k', {
+        model,
+        error: mgrErr instanceof Error ? mgrErr.message : String(mgrErr),
+      });
     }
   }
   return 128_000;

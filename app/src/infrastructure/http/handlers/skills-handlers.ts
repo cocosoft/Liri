@@ -144,8 +144,13 @@ export async function handleListSystemSkills(
         if (skill && skill.isEnabled && !skill.isEnabled()) {
           return 'disabled';
         }
-      } catch {
-        // 状态解析异常时默认 enabled
+      } catch (statusErr) {
+        // KB-SKILL-STATUS（2026-08-29）：状态解析异常默认 enabled → 真实状态不可见
+        logger.warn('技能状态解析异常，默认 enabled', {
+          name,
+          error:
+            statusErr instanceof Error ? statusErr.message : String(statusErr),
+        });
       }
       return 'enabled';
     };
@@ -189,7 +194,13 @@ export async function handleListSystemSkills(
               const st = await stat(skillMdPath);
               createdAt = st.birthtimeMs;
               updatedAt = st.mtimeMs;
-            } catch (_err) {
+            } catch (statErr) {
+              // KB-SKILL-STAT（2026-08-29）：stat 失败用默认时间戳（多为 ENOENT）
+              logger.debug('技能文件 stat 失败，使用默认时间', {
+                name,
+                error:
+                  statErr instanceof Error ? statErr.message : String(statErr),
+              });
               /* use defaults */
             }
 
@@ -238,7 +249,13 @@ export async function handleListSystemSkills(
             const st = await stat(filePath);
             createdAt = st.birthtimeMs;
             updatedAt = st.mtimeMs;
-          } catch (_err) {
+          } catch (statErr) {
+            // KB-SKILL-STAT（2026-08-29）：stat 失败用默认时间戳（多为 ENOENT）
+            logger.debug('技能文件 stat 失败，使用默认时间', {
+              name,
+              error:
+                statErr instanceof Error ? statErr.message : String(statErr),
+            });
             /* use defaults */
           }
 
@@ -258,7 +275,12 @@ export async function handleListSystemSkills(
             filePath,
             frontmatter: { author, version, category },
           });
-        } catch (_err) {
+        } catch (fileErr) {
+          // KB-SKILL-MALFORMED（2026-08-29）：技能文件解析失败静默跳过 → 技能列表缺失
+          logger.warn('技能文件解析失败，跳过', {
+            name,
+            error: fileErr instanceof Error ? fileErr.message : String(fileErr),
+          });
           /* skip malformed files */
         }
       }
@@ -481,7 +503,12 @@ export async function handleSystemSkillContent(
           linkedFiles.push(entry.name);
         }
       }
-    } catch (_err) {
+    } catch (scanErr) {
+      // KB-SKILL-SCAN（2026-08-29）：关联文件扫描失败静默 → 链接文件列表缺失
+      logger.debug('技能关联文件扫描失败', {
+        skillId,
+        error: scanErr instanceof Error ? scanErr.message : String(scanErr),
+      });
       /* ignore */
     }
 
@@ -1094,8 +1121,13 @@ export async function handleGetSkillDetail(
     let remoteVersion: string | null = null;
     try {
       remoteVersion = await adapter.getRemoteVersion(skillId);
-    } catch {
-      // 远端不可达时前端降级为"未知"，不显示"有更新"
+    } catch (remoteErr) {
+      // KB-SKILL-REMOTE（2026-08-29）：远端不可达降级"未知"，记录便于排查网络/源问题
+      logger.debug('技能远端版本获取失败', {
+        skillId,
+        error:
+          remoteErr instanceof Error ? remoteErr.message : String(remoteErr),
+      });
     }
 
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });

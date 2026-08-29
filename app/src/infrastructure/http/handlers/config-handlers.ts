@@ -23,7 +23,10 @@ import type http from 'http';
 import type { HandlerCtx } from './handler-utils';
 import { broadcastEvent } from './handler-utils';
 import { handleError } from '@modules/error';
+import { getLogger } from '@modules/monitoring';
 import { refreshCheckpointLogConfig } from '@modules/config/settings/CheckpointLogConfig';
+
+const logger = getLogger('http:config');
 
 // ========== Config Handlers ==========
 
@@ -402,13 +405,24 @@ function rollbackMigration(
           } else {
             fs.unlinkSync(entryPath);
           }
-        } catch (_err) {
-          // 静默忽略清理中的个别错误
+        } catch (cleanErr) {
+          // KB-CONFIG-CLEAN（2026-08-29）：清理个别条目失败静默 → 磁盘残留不可知
+          logger.warn('配置迁移清理单个条目失败', {
+            entryPath,
+            error:
+              cleanErr instanceof Error ? cleanErr.message : String(cleanErr),
+          });
         }
       }
     }
-  } catch (_err) {
-    // 回滚清理失败不影响主流程，数据保留在原目录
+  } catch (rollbackErr) {
+    // KB-CONFIG-ROLLBACK（2026-08-29）：回滚清理失败静默 → 数据残留原目录不可知
+    logger.warn('配置迁移回滚清理失败（数据保留在原目录）', {
+      error:
+        rollbackErr instanceof Error
+          ? rollbackErr.message
+          : String(rollbackErr),
+    });
   }
 }
 
@@ -486,8 +500,13 @@ export async function handleSetDataDirectory(
           Date.now().toString(),
           'utf-8'
         );
-      } catch (_err) {
-        // 非致命：令牌写入失败不影响迁移
+      } catch (tokenErr) {
+        // KB-CONFIG-TOKEN（2026-08-29）：迁移令牌写入失败静默 → 迁移中断后无法识别残留
+        logger.warn('迁移令牌写入失败', {
+          resolvedDir,
+          error:
+            tokenErr instanceof Error ? tokenErr.message : String(tokenErr),
+        });
       }
 
       migrationResult = copyDirectory(currentDir, resolvedDir, fs, path);
@@ -520,8 +539,13 @@ export async function handleSetDataDirectory(
           Date.now().toString(),
           'utf-8'
         );
-      } catch (_err) {
-        // 非致命：标记写入失败不影响目录切换
+      } catch (commitErr) {
+        // KB-CONFIG-COMMIT（2026-08-29）：完成标记写入失败静默 → 下次迁移可能重复执行
+        logger.warn('迁移完成标记写入失败', {
+          resolvedDir,
+          error:
+            commitErr instanceof Error ? commitErr.message : String(commitErr),
+        });
       }
     }
 

@@ -1055,7 +1055,12 @@ export class SessionGateway {
       };
       getFTS5SearchEngine().index(doc);
     } catch (err) {
-      // FTS5 索引失败不应影响消息写入主流程
+      // KB-FTS-INDEX-LOG（2026-08-29）：单条消息索引失败静默 → 搜索漏索引无日志
+      logger.warn('FTS 索引写入失败', {
+        sessionId,
+        messageId: message.id,
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
   }
 
@@ -1143,7 +1148,10 @@ export class SessionGateway {
       try {
         getFTS5SearchEngine().saveToDisk(savePath);
       } catch (err) {
-        // 持久化失败不影响主流程
+        // KB-FTS-SAVE-LOG（2026-08-29）：定时持久化失败静默 → 索引丢失无任何痕迹
+        logger.warn('FTS 索引定期持久化失败', {
+          error: err instanceof Error ? err.message : String(err),
+        });
       }
     }, SessionGateway.FTS_SAVE_INTERVAL_MS);
     // P1-14 修复：unref 避免进程被 FTS 定时器钉住（close() 仍会 clear）
@@ -1744,7 +1752,10 @@ export class SessionGateway {
     try {
       getFTS5SearchEngine().saveToDisk(this.getFTSIndexPath());
     } catch (err) {
-      // 关闭时持久化失败不影响后续关闭流程
+      // KB-FTS-CLOSE-LOG（2026-08-29）：关闭时 FTS 索引持久化失败静默 → 索引损坏无从排查
+      logger.warn('FTS 索引关闭持久化失败', {
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
 
     for (const remoteSession of this.remoteSessions.values()) {

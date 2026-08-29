@@ -3,6 +3,8 @@
  * 对标 DingTalk monitor.ts 模式
  */
 
+import { emitToListeners } from '../monitorEmit';
+
 export type MonitorEvent =
   | 'connected'
   | 'disconnected'
@@ -47,13 +49,7 @@ export class WeComMonitor {
   }
 
   private emit(event: MonitorEvent, data?: unknown): void {
-    for (const listener of this.listeners) {
-      try {
-        listener(event, data);
-      } catch {
-        /* 忽略监听器异常 */
-      }
-    }
+    emitToListeners(this.listeners, event, data);
   }
 
   markConnected(): void {

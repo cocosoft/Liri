@@ -741,7 +741,7 @@ export async function handleListProjectFiles(
           try {
             size = _stat(full).size;
           } catch {
-            /* 忽略 */
+            // @ignore-catch: stat 探测失败（ENOENT 等）时文件大小留 0
           }
           files.push({
             name: relPath,

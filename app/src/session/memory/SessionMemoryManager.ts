@@ -460,7 +460,13 @@ export class SessionMemoryManager {
           try {
             args = JSON.parse(tc.function.arguments);
           } catch (err) {
-            // 参数解析失败，跳过
+            // KB-MEM-ARG-PARSE（2026-08-29）：工具参数解析失败 → 该工具的 file_change
+            // 记忆提取静默丢失
+            logger.warn('工具调用参数解析失败，跳过记忆提取', {
+              sessionId,
+              toolName: tc.function.name,
+              error: err instanceof Error ? err.message : String(err),
+            });
           }
 
           const filePath = (args.filePath ?? args.path ?? args.file) as

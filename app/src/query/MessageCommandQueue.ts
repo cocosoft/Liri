@@ -133,8 +133,12 @@ export class MessageCommandQueue {
     for (const l of this.listeners) {
       try {
         l(entry, action);
-      } catch {
-        /* best-effort */
+      } catch (lErr) {
+        // KB-QUEUE-NOTIFY（2026-08-29）：单条监听器异常静默 → 后续监听器也会被中断
+        logger.warn('消息队列监听器回调异常', {
+          action,
+          error: lErr instanceof Error ? lErr.message : String(lErr),
+        });
       }
     }
   }

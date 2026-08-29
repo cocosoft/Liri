@@ -183,8 +183,11 @@ export class OrchestrationHistoryAdapter {
           if (since !== undefined && record.timestamp <= since) continue;
           records.unshift(record);
           if (records.length >= limit) break;
-        } catch (_err) {
-          // 跳过损坏的行
+        } catch (recErr) {
+          // KB-ORCH-BADLINE（2026-08-29）：历史记录损坏行静默跳过 → 数据损坏不可感知
+          logger.warn('编排历史损坏行跳过', {
+            error: recErr instanceof Error ? recErr.message : String(recErr),
+          });
         }
       }
 

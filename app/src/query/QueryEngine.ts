@@ -1586,7 +1586,10 @@ export function createQueryEngine(
   try {
     engine.setQueryLogStore(getQueryLogStore());
   } catch (err) {
-    // 接线失败不阻塞引擎创建（查询日志为辅助功能）
+    // KB-QENGINE-WIRE（2026-08-29）：查询日志接线失败 → 工具统计不落库且无线索
+    logger.warn('查询日志存储接线失败（统计将不落库）', {
+      error: err instanceof Error ? err.message : String(err),
+    });
   }
 
   // 注册 AI 调用聚合日志 Hook（在每次 AI 调用后输出汇总日志）
@@ -1597,7 +1600,10 @@ export function createQueryEngine(
       { priority: 100 }
     );
   } catch (err) {
-    // Hook 注册失败不阻塞引擎创建
+    // KB-QENGINE-HOOK（2026-08-29）：Hook 注册失败 → 调用汇总日志缺失且无线索
+    logger.warn('PostCallSummary Hook 注册失败', {
+      error: err instanceof Error ? err.message : String(err),
+    });
   }
 
   return engine;

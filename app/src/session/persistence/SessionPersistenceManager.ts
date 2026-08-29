@@ -195,7 +195,14 @@ export class SessionPersistenceManager {
 
       this.snapshots.delete(snapshotId);
       return true;
-    } catch {
+    } catch (err) {
+      // KB-SNAP-DELETE-LOG（2026-08-29）：existsSync 已预检查，此处为权限/IO 真实错误，
+      // 静默返回 false 无法排查
+      logger.warn('删除会话快照失败', {
+        filePath,
+        snapshotId,
+        error: err instanceof Error ? err.message : String(err),
+      });
       return false;
     }
   }

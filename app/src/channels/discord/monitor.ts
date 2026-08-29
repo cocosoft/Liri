@@ -3,6 +3,8 @@
  * 对标 OpenClaw extensions/discord/src/monitor.ts
  */
 
+import { emitToListeners } from '../monitorEmit';
+
 export type MonitorEvent =
   | 'connected'
   | 'disconnected'
@@ -50,13 +52,7 @@ export class DiscordMonitor {
   }
 
   private emit(event: MonitorEvent, data?: unknown): void {
-    for (const listener of this.listeners) {
-      try {
-        listener(event, data);
-      } catch {
-        /* ignore */
-      }
-    }
+    emitToListeners(this.listeners, event, data);
   }
 
   markConnected(): void {

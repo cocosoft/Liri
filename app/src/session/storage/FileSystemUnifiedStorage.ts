@@ -322,8 +322,15 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
       try {
         const msg = JSON.parse(line) as UnifiedMessage;
         diskCount.set(msg.id, (diskCount.get(msg.id) ?? 0) + 1);
-      } catch {
-        // 坏行不计入（解析失败，非本方案可定位范围）
+      } catch (badLineErr) {
+        // KB-FS-BADLINE（2026-08-29）：坏行静默不计入 → 消息去重统计失真且不可感知
+        logger.warn('消息行解析失败，坏行不计入去重统计', {
+          sessionId: _sessionId,
+          error:
+            badLineErr instanceof Error
+              ? badLineErr.message
+              : String(badLineErr),
+        });
       }
     }
     const memoryIds = new Set(memoryMsgs.map((m) => m.id));

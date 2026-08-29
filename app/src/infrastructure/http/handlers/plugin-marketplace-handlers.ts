@@ -200,7 +200,7 @@ export async function handlePluginUninstall(
       await pluginSystem.stopPlugin(pluginId);
       await pluginSystem.unloadPlugin(pluginId);
     } catch {
-      // 插件未加载时忽略
+      // @ignore-catch: 插件未加载时忽略（卸载不存在的插件为预期场景）
     }
 
     const distributor = new NpmDistributor();

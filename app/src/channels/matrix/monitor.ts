@@ -3,6 +3,8 @@
  * 对标 OpenClaw extensions/matrix/src/monitor.ts
  */
 
+import { emitToListeners } from '../monitorEmit';
+
 export type MonitorEvent =
   | 'connected'
   | 'disconnected'
@@ -55,13 +57,7 @@ export class MatrixMonitor {
   }
 
   private emit(event: MonitorEvent, data?: unknown): void {
-    for (const listener of this.listeners) {
-      try {
-        listener(event, data);
-      } catch {
-        /* ignore */
-      }
-    }
+    emitToListeners(this.listeners, event, data);
   }
 
   markConnected(): void {

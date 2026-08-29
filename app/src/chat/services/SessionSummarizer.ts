@@ -166,8 +166,12 @@ export class SessionSummarizer {
           if (llmSummary && llmSummary.length > 5) {
             summary = llmSummary;
           }
-        } catch {
-          /* LLM 失败回退提取式 */
+        } catch (llmErr) {
+          // KB-SUMM-LLM（2026-08-29）：LLM 摘要失败回退提取式——质量降级事件需可排查
+          logger.warn('LLM 摘要生成失败，回退提取式', {
+            sessionId: session.id,
+            error: llmErr instanceof Error ? llmErr.message : String(llmErr),
+          });
         }
       }
 
@@ -231,8 +235,13 @@ ${phaseText}`;
               phaseSummary = `项目阶段性小结（最近 ${recentSummaries.length} 次会话）：
 ${llmPhaseSummary}`;
             }
-          } catch {
-            /* LLM 失败回退拼接 */
+          } catch (phaseErr) {
+            // KB-SUMM-PHASE（2026-08-29）：LLM 阶段性小结失败回退拼接——质量降级需可排查
+            logger.warn('LLM 阶段性小结生成失败，回退拼接', {
+              sessionId: session.id,
+              error:
+                phaseErr instanceof Error ? phaseErr.message : String(phaseErr),
+            });
           }
         }
 
@@ -298,7 +307,12 @@ ${llmPhaseSummary}`;
     if (existsSync(summariesPath)) {
       try {
         return JSON.parse(readFileSync(summariesPath, 'utf-8'));
-      } catch {
+      } catch (readErr) {
+        // KB-SUMM-LOAD（2026-08-29）：summaries.json 损坏 → 摘要数据静默丢失
+        logger.warn('摘要文件读取/解析失败，返回空', {
+          summariesPath,
+          error: readErr instanceof Error ? readErr.message : String(readErr),
+        });
         return [];
       }
     }
@@ -322,7 +336,12 @@ ${llmPhaseSummary}`;
       } finally {
         await itemStore.close().catch(() => {});
       }
-    } catch {
+    } catch (loadErr) {
+      // KB-SUMM-DB（2026-08-29）：items.db 回退路径失败 → 摘要静默丢失
+      logger.warn('摘要加载（items.db 回退路径）失败，返回空', {
+        projectId,
+        error: loadErr instanceof Error ? loadErr.message : String(loadErr),
+      });
       return [];
     }
   }

@@ -345,8 +345,13 @@ export class EventLogStorage {
               maxTurn = turn;
             }
           }
-        } catch {
-          // 损坏行跳过（不影响其他事件）
+        } catch (parseErr) {
+          // KB-EVENTLOG-BADLINE（2026-08-29）：损坏行静默跳过 → 数据损坏不可感知
+          logger.warn('事件日志损坏行跳过（getMaxTurn）', {
+            sessionId: this.sessionId,
+            error:
+              parseErr instanceof Error ? parseErr.message : String(parseErr),
+          });
         }
       }
     } catch (e) {
@@ -868,8 +873,16 @@ export class EventLogStorage {
             sanitizeEvent(event);
             return event;
           }
-        } catch {
-          // 损坏行跳过
+        } catch (badLineErr) {
+          // KB-EVENTLOG-BADLINE2（2026-08-29）：损坏行静默跳过 → 数据损坏不可感知
+          logger.warn('事件日志损坏行跳过（readBySeq）', {
+            sessionId: this.sessionId,
+            seq,
+            error:
+              badLineErr instanceof Error
+                ? badLineErr.message
+                : String(badLineErr),
+          });
         }
       }
     } catch (e) {

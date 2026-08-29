@@ -3,6 +3,8 @@
  * 对标 OpenClaw extensions/irc/src/monitor.ts
  */
 
+import { emitToListeners } from '../monitorEmit';
+
 export type MonitorEvent =
   | 'connected'
   | 'disconnected'
@@ -47,13 +49,7 @@ export class IrcMonitor {
   }
 
   private emit(event: MonitorEvent, data?: unknown): void {
-    for (const listener of this.listeners) {
-      try {
-        listener(event, data);
-      } catch {
-        /* 忽略监听器异常 */
-      }
-    }
+    emitToListeners(this.listeners, event, data);
   }
 
   markConnected(): void {

@@ -174,7 +174,14 @@ export class StreamingAutoCheckpoint {
       try {
         const autoState = JSON.parse(description || '{}')[DESC_KEY];
         return autoState?.mode === 'full' ? 'full' : 'delta';
-      } catch {
+      } catch (parseErr) {
+        // KB-CKPT-MODE-LOG（2026-08-29）：与上方 restoreParseDescription 的 handleError
+        // 处理不一致——此处分支静默回退 delta
+        logger.warn('检查点 mode 解析失败，回退 delta', {
+          sessionId: this.sessionId,
+          error:
+            parseErr instanceof Error ? parseErr.message : String(parseErr),
+        });
         return 'delta';
       }
     };

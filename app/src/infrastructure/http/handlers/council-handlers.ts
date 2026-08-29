@@ -310,7 +310,7 @@ export async function handleSubmitStatement(
           timestamp: Date.now(),
         });
       } catch (_err) {
-        // emit 失败不阻塞请求
+        // @ignore-catch: emit 失败不阻塞请求（事件总线发送为辅助动作，无 logger 依赖）
       }
     }
 

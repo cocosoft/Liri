@@ -139,7 +139,13 @@ export class SessionArtifacts {
           storeZone: 'artifact',
         });
       } catch (err) {
-        // 注册失败不影响主流程
+        // KB-ARTIFACT-REG-LOG（2026-08-29）：制品注册 FileRegistry 失败静默 →
+        // 文件在磁盘但搜索不到（制品索引缺失）且无排查线索
+        logger.warn('会话制品注册到 FileRegistry 失败', {
+          sessionId,
+          finalFilename,
+          error: err instanceof Error ? err.message : String(err),
+        });
       }
     });
 

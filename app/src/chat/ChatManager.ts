@@ -1668,8 +1668,14 @@ export class ChatManagerImpl implements ChatManager {
         Promise.all(promises),
         new Promise<void>((resolve) => setTimeout(resolve, 3000)),
       ]);
-    } catch {
-      // 持久化超时，不阻断主流程
+    } catch (persistErr) {
+      // KB-PERSIST-CATCH（2026-08-29）：WAP 关键路径——落盘失败/超时静默会掩盖
+      // 数据未持久化，必须记录
+      logger.warn('待持久化消息落盘失败/超时', {
+        count: promises.length,
+        error:
+          persistErr instanceof Error ? persistErr.message : String(persistErr),
+      });
     }
   }
 

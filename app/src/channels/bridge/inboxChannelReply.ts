@@ -30,6 +30,7 @@ import { getLogger } from '@modules/monitoring';
 import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error';
+import { withRetry, RetryableError } from '@modules/utils/withRetry';
 import type { InboxItem } from '@modules/runtime/InboxManager.js';
 import { channelRegistry } from '../registry/ChannelRegistry';
 import { channelBootstrapper } from '../bootstrap/ChannelBootstrapper';
@@ -287,16 +288,26 @@ async function _retryWithBackoff(
   maxRetries: number,
   delays: number[]
 ): Promise<{ success: boolean }> {
-  for (let i = 0; i < maxRetries; i++) {
-    try {
-      await new Promise((r) => setTimeout(r, delays[i] || 15000));
-      const ok = await fn();
-      if (ok) return { success: true };
-    } catch {
-      // continue to next retry
-    }
+  // KB-R01-RETRY（2026-08-29）：自建 for 循环重试 → withRetry 标准实现。
+  // fn 返回 false（发送失败）时抛 RetryableError → isRetryableError 命中重试；
+  // 退避对齐原 delays 序列（首延迟 delays[0]，封顶末位 delays[last]）。
+  try {
+    await withRetry(
+      async () => {
+        const ok = await fn();
+        if (!ok) throw new RetryableError('send failed');
+      },
+      {
+        maxRetries: maxRetries - 1,
+        initialDelayMs: delays[0] ?? 1000,
+        backoffMultiplier: 2,
+        maxDelayMs: delays[delays.length - 1] ?? 15000,
+      }
+    );
+    return { success: true };
+  } catch {
+    return { success: false };
   }
-  return { success: false };
 }
 
 async function _writeDeadLetter(inboxItem: InboxItem): Promise<void> {

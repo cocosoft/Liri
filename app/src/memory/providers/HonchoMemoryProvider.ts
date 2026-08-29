@@ -19,6 +19,7 @@ import type {
 } from './ExternalMemoryProvider';
 import { configManager } from '@modules/config';
 import { getLogger } from '@modules/monitoring';
+import { withRetry, RetryableError } from '@modules/utils/withRetry';
 const logger = getLogger('memory:providers:honcho');
 
 export interface HonchoConfig {
@@ -177,35 +178,49 @@ export class HonchoMemoryProvider implements ExternalMemoryProvider {
       ...(options.headers as Record<string, string>),
     };
 
-    let lastError: Error | null = null;
-    for (let attempt = 0; attempt <= this.config.maxRetries; attempt++) {
-      try {
+    // KB-R01-RETRY（2026-08-29）：自建 for 循环重试 → withRetry 标准实现。
+    // HTTP 非 ok / 超时抛 RetryableError（携带 statusCode）→ isRetryableError 命中重试；
+    // 退避对齐原 2^attempt*500（initialDelayMs=500, multiplier=2）。
+    return withRetry(
+      async () => {
         const controller = new AbortController();
         const timer = setTimeout(
           () => controller.abort(),
           this.config.timeoutMs
         );
-
-        const res = await fetch(url, {
-          ...options,
-          headers,
-          signal: controller.signal,
-        });
-        clearTimeout(timer);
-
-        if (!res.ok) {
-          throw new Error(`Honcho HTTP ${res.status}: ${res.statusText}`);
+        try {
+          const res = await fetch(url, {
+            ...options,
+            headers,
+            signal: controller.signal,
+          });
+          if (!res.ok) {
+            throw new RetryableError(
+              `Honcho HTTP ${res.status}: ${res.statusText}`,
+              undefined,
+              res.status
+            );
+          }
+          return (await res.json()) as T;
+        } catch (err) {
+          // 超时（AbortError）也按可重试处理（原实现无条件重试，保持语义）
+          if (err instanceof Error && err.name === 'AbortError') {
+            throw new RetryableError(
+              `Honcho request timeout (${this.config.timeoutMs}ms)`,
+              err
+            );
+          }
+          throw err;
+        } finally {
+          clearTimeout(timer);
         }
-
-        return (await res.json()) as T;
-      } catch (err) {
-        lastError = err as Error;
-        if (attempt < this.config.maxRetries) {
-          await new Promise((r) => setTimeout(r, Math.pow(2, attempt) * 500));
-        }
+      },
+      {
+        maxRetries: this.config.maxRetries,
+        initialDelayMs: 500,
+        backoffMultiplier: 2,
+        maxDelayMs: 10_000,
       }
-    }
-
-    throw lastError ?? new Error('Honcho request failed');
+    );
   }
 }

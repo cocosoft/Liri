@@ -8,6 +8,10 @@ import type { Message, AttachedImage } from "@/types";
 import type { FileSlice } from "./chat-file.slice";
 export interface MessageSlice {
   messages: Message[];
+  /** KB-LONG-SESSION（2026-08-29）：长会话分页——是否还有更早历史消息（首次载入超阈值时） */
+  hasOlder: boolean;
+  /** 加载更早历史消息进行中（防重） */
+  loadingOlder: boolean;
   isSending: boolean;
   isInputBlocked: boolean;
   isStreaming: boolean;
@@ -101,6 +105,10 @@ export interface MessageSlice {
    */
   clearSessionMessages: () => Promise<void>;
   setMessages: (messages: Message[]) => void;
+  /** KB-LONG-SESSION（2026-08-29）：设置"是否还有更早历史"标记（会话载入分页后） */
+  setHasOlder: (hasOlder: boolean) => void;
+  /** KB-LONG-SESSION（2026-08-29）：加载更早历史消息（before=最早消息 lastEventSeq），拼接到头部 */
+  loadOlderMessages: () => Promise<void>;
   setReplyMessage: (message: Message | null) => void;
   /** 设置待编辑消息 */
   setEditTarget: (message: Message | null) => void;

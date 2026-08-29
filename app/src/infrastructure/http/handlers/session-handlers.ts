@@ -207,9 +207,17 @@ export async function handleGetSessionMessages(
     const coreAPI = getCoreAPI();
     // P1-21：启动后首个请求（前端最常见动作）若命中本 handler，确保会话已加载
     await coreAPI.ensureSessionsLoaded();
-    const messages = await coreAPI.getSessionMessages(sessionId);
+    // KB-LONG-SESSION（2026-08-29）：分页参数——limit 传 >0 时取末尾 limit 条，
+    // before 为 lastEventSeq 游标（加载更早历史）。不传 limit 返回全量（行为不变）。
+    const url = new URL(req.url ?? '', 'http://localhost');
+    const limitParam = url.searchParams.get('limit');
+    const beforeParam = url.searchParams.get('before');
+    const result = await coreAPI.getSessionMessages(sessionId, {
+      limit: limitParam ? parseInt(limitParam, 10) : undefined,
+      before: beforeParam ? parseInt(beforeParam, 10) : undefined,
+    });
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify(messages));
+    res.end(JSON.stringify(result));
   } catch (err) {
     await handleError(err, { module: 'infra:http', action: 'handler_error' });
     if (!res.headersSent) {
@@ -288,7 +296,7 @@ export async function handleAddSessionMessage(
       return;
     }
     const fromDisk = await coreAPI.getSessionMessages(sessionId);
-    const existing = fromDisk.find((m) => m.id === data.id);
+    const existing = fromDisk.messages.find((m) => m.id === data.id);
     if (existing) {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(

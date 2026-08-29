@@ -588,7 +588,12 @@ export const sessionService = {
    */
   loadConversation: (
     sessionId: string,
-  ): Promise<{ messages: Message[]; source: "events" | "legacy" }> => {
+    options?: { limit?: number; before?: number },
+  ): Promise<{
+    messages: Message[];
+    source: "events" | "legacy";
+    hasMore: boolean;
+  }> => {
     return getOTelTracing().asyncWrap(
       "services:session:loadConversation",
       async () => {
@@ -596,22 +601,31 @@ export const sessionService = {
         // 后端 getSessionMessages 已实现"事件派生优先（事件聚合 + 投影覆盖）+ 投影兜底"，
         // 前端不再自行 events 派生 / 3 信号损坏检测 / legacy 合并 / 10 分钟匹配窗。
         try {
-          const res = await apiHttp.get<Message[]>(
-            `/v1/sessions/${sessionId}/messages`,
+          // KB-LONG-SESSION（2026-08-29）：长会话分页——limit >0 时后端只返回末尾 limit 条
+          // （hasMore=true 表示还有更早），前端"加载更早"用 before=最早消息 lastEventSeq 续拉。
+          const qs = new URLSearchParams();
+          if (options?.limit != null) qs.set("limit", String(options.limit));
+          if (options?.before != null) qs.set("before", String(options.before));
+          const queryStr = qs.toString();
+          const res = await apiHttp.get<Message[] | { messages: Message[]; hasMore: boolean }>(
+            `/v1/sessions/${sessionId}/messages${queryStr ? `?${queryStr}` : ""}`,
           );
-          if (res.ok && Array.isArray(res.data)) {
-            // 评审 #3：排序键 = 首事件 seq——后端派生（EventMessageDeriver）已按首事件 seq 升序
-            // 返回（纯投影按 lastEventSeq 插入），前端**不再二次 timestamp 排序**（否则可能
-            // 打乱派生顺序，尤其 timestamp 相同/缺失的异常消息）。
-            const messages = res.data.slice();
+          if (res.ok && res.data) {
+            // 兼容旧格式（纯数组）与新格式（{ messages, hasMore }）
+            const data = res.data;
+            const messages = Array.isArray(data) ? data.slice() : (data.messages ?? []).slice();
+            const hasMore = !Array.isArray(data) ? data.hasMore === true : false;
             if (messages.length > 0) {
               setSessionCache(sessionId, messages);
             }
             logger.info("loadConversation: 消费后端派生结果", {
               sessionId,
               messageCount: messages.length,
+              hasMore,
+              limit: options?.limit ?? null,
+              before: options?.before ?? null,
             });
-            return { messages, source: "events" };
+            return { messages, source: "events", hasMore };
           }
           logger.warn("loadConversation 获取会话消息失败", {
             sessionId,
@@ -627,7 +641,7 @@ export const sessionService = {
         // 回退：投影路径（后端 getMessages 已派生/投影，importLegacyMessages 规整）
         const rawFallback = await sessionService.getMessages(sessionId);
         const fallbackMessages = importLegacyMessages(rawFallback);
-        return { messages: fallbackMessages, source: "legacy" };
+        return { messages: fallbackMessages, source: "legacy", hasMore: false };
       },
     );
   },

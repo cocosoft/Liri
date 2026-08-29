@@ -382,17 +382,24 @@ export interface CoreAPI {
   /** 获取会话信息 */
   getSession(sessionId: string): Promise<SessionInfo | undefined>;
 
-  /** 获取会话消息列表 */
-  getSessionMessages(sessionId: string): Promise<
-    Array<{
+  /** 获取会话消息列表
+   * @param query.limit 分页大小（传 >0 时启用分页，取末尾 limit 条；不传返回全量，行为不变）
+   * @param query.before lastEventSeq 游标（可选，返回该游标之前的消息）
+   */
+  getSessionMessages(
+    sessionId: string,
+    query?: { limit?: number; before?: number }
+  ): Promise<{
+    messages: Array<{
       id: string;
       role: string;
       content: string;
       timestamp: number;
       tool_calls?: Array<Record<string, unknown>>;
       blocks?: Array<Record<string, unknown>>;
-    }>
-  >;
+    }>;
+    hasMore: boolean;
+  }>;
 
   /**
    * M1 事件溯源：获取会话事件流

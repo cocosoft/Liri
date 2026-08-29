@@ -588,3 +588,47 @@ export function resumeRecoveryImpl(
   set({ recoverySessionId: null });
   // 不清除后端检查点 — resume 端点需要它来恢复生成器状态
 }
+
+/**
+ * KB-LONG-SESSION（2026-08-29）：长会话分页——加载更早历史消息。
+ * 首次载入会话时 limit=MESSAGE_PAGE_LIMIT（超过才分页，小会话等效全量）；
+ * hasOlder=true 时用户点"加载更早消息"触发：before=最早消息 lastEventSeq，
+ * 后端返回更早 limit 条 → 拼接到消息列表头部。
+ */
+export const MESSAGE_PAGE_LIMIT = 100;
+
+export async function loadOlderMessagesImpl(
+  set: MessageSet,
+  get: MessageGet,
+): Promise<void> {
+  const state = get();
+  if (state.loadingOlder || !state.hasOlder) return;
+  const sessionId = state.messages[0]?.session_id;
+  const before = state.messages[0]?.lastEventSeq;
+  if (!sessionId || before == null) return;
+
+  set({ loadingOlder: true });
+  try {
+    const { messages: older, hasMore } = await sessionService.loadConversation(
+      sessionId,
+      { limit: MESSAGE_PAGE_LIMIT, before },
+    );
+    if (older.length > 0) {
+      // 更早历史在前，与当前消息拼接（后端已按 lastEventSeq 升序返回）
+      set({
+        messages: [...older, ...get().messages],
+        hasOlder: hasMore,
+        loadingOlder: false,
+      });
+    } else {
+      set({ hasOlder: false, loadingOlder: false });
+    }
+  } catch (e) {
+    handleClientError(
+      e,
+      { module: "stores:chat:message", action: "loadOlderMessages" },
+      "warn",
+    );
+    set({ loadingOlder: false });
+  }
+}

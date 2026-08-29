@@ -6,6 +6,7 @@ import type { Message } from "../../types";
 import { SkeletonMessageList } from "../common/Skeleton";
 import { useSessionStore } from "../../stores/sessionStore";
 import { useChatInspectorStore } from "../../stores/chatInspectorStore";
+import { useChatStore } from "../../stores/chat";
 import { ErrorBoundary } from "../common/ErrorBoundary";
 import { shouldShowDateSeparator, formatDateLabel } from "./dateUtils";
 import { VirtualScrollProvider } from "./VirtualScrollContext";
@@ -244,6 +245,10 @@ export default function ChatMessageList({
 }: ChatMessageListProps) {
   const { t } = useTranslation();
   const switching = useSessionStore((s) => s.switching);
+  // KB-LONG-SESSION（2026-08-29）：长会话分页——"加载更早消息"状态与动作
+  const hasOlder = useChatStore((s) => s.hasOlder);
+  const loadingOlder = useChatStore((s) => s.loadingOlder);
+  const loadOlderMessages = useChatStore((s) => s.loadOlderMessages);
 
   // W3：虚拟滚动——仅渲染视口 ± overscan 内的消息，长会话不再全量挂载
   // （每条消息含 KaTeX/mermaid/代码高亮，几千条时全量渲染导致首屏/切换卡顿）
@@ -574,6 +579,19 @@ export default function ChatMessageList({
                   d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
                 />
               </svg>
+            </button>
+          </div>
+        )}
+
+        {/* KB-LONG-SESSION（2026-08-29）：长会话分页——还有更早历史时显示"加载更早消息" */}
+        {hasOlder && (
+          <div className="flex justify-center py-2">
+            <button
+              onClick={() => void loadOlderMessages()}
+              disabled={loadingOlder}
+              className="text-xs px-3 py-1.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50 transition-colors"
+            >
+              {loadingOlder ? "加载中…" : "↑ 加载更早消息"}
             </button>
           </div>
         )}

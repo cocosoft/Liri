@@ -80,14 +80,29 @@ async function restoreMessagesToCurrentSession(
       if (cached) {
         if (!stillCurrent()) return;
         await chatCoordinator.loadMessages(cached);
+        // 缓存为全量消息，无更早历史
+        const { useChatStore } = await import("@/stores/chat");
+        useChatStore.getState().setHasOlder(false);
       } else {
         // M2-3：优先从 events 派生，回退到 legacy messages
-        const { messages } = await sessionService.loadConversation(curId);
+        // KB-LONG-SESSION（2026-08-29）：长会话分页——传 limit 触发后端分页，
+        // hasMore=true 时前端显示"加载更早消息"（阈值：超过 MESSAGE_PAGE_LIMIT 才分页）
+        const { MESSAGE_PAGE_LIMIT } = await import(
+          "@/stores/chat/chat-message-actions"
+        );
+        const { messages, hasMore } = await sessionService.loadConversation(
+          curId,
+          { limit: MESSAGE_PAGE_LIMIT },
+        );
         if (!stillCurrent()) return; // ④ 网络 await 后校验（关键窗口）
         await chatCoordinator.loadMessages(messages);
+        const { useChatStore } = await import("@/stores/chat");
+        useChatStore.getState().setHasOlder(hasMore);
       }
     } else {
       await chatCoordinator.clearMessages().catch(() => {});
+      const { useChatStore } = await import("@/stores/chat");
+      useChatStore.getState().setHasOlder(false);
     }
   } catch {
     await chatCoordinator.clearMessages().catch(() => {});

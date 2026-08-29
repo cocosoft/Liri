@@ -39,6 +39,7 @@ import {
   dismissRecoveryImpl,
   resumeRecoveryImpl,
   continueGenerationImpl,
+  loadOlderMessagesImpl,
 } from "./chat-message-actions";
 
 const logger = createLogger("stores:chat:message");
@@ -132,6 +133,8 @@ export const createMessageSlice: StateCreator<
 
   return {
     messages: [],
+    hasOlder: false,
+    loadingOlder: false,
     isSending: false,
     isInputBlocked: false,
     isStreaming: false,
@@ -265,6 +268,14 @@ export const createMessageSlice: StateCreator<
 
     setMessages: (messages: Message[]) => {
       setMessagesImpl(messageSet, messageGet, messages);
+    },
+
+    setHasOlder: (hasOlder: boolean) => {
+      set({ hasOlder });
+    },
+
+    loadOlderMessages: async () => {
+      await loadOlderMessagesImpl(messageSet, messageGet);
     },
 
     setReplyMessage: (replyMessage: Message | null) => {

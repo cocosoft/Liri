@@ -1391,18 +1391,20 @@ export class CoreAPIImpl implements CoreAPI {
     };
   }
 
-  async getSessionMessages(sessionId: string): Promise<
-    Array<{
+  async getSessionMessages(
+    sessionId: string,
+    query?: { limit?: number; before?: number }
+  ): Promise<{
+    messages: Array<{
       id: string;
       role: string;
       content: string;
       timestamp: number;
       tool_calls?: Array<Record<string, unknown>>;
-      toolCallId?: string;
       blocks?: Array<Record<string, unknown>>;
-      metadata?: Record<string, unknown>;
-    }>
-  > {
+    }>;
+    hasMore: boolean;
+  }> {
     // P2-1（2026-08-23）：优先 events 统一派生（评审 G7）——events 含 v1（messageId）事件时
     // 用派生结果（事件聚合 + 投影覆盖），否则回退投影（存量 v0 会话安全兼容）。
     try {
@@ -1412,7 +1414,7 @@ export class CoreAPIImpl implements CoreAPI {
           sessionId,
           derived as unknown as UnifiedMessage[]
         );
-        return derived;
+        return this._paginateMessages(derived, query);
       }
     } catch {
       // @ignore-catch — 派生失败回退投影路径
@@ -1445,7 +1447,10 @@ export class CoreAPIImpl implements CoreAPI {
             blocks: m.blocks as Array<Record<string, unknown>> | undefined,
             metadata: m.metadata as Record<string, unknown> | undefined,
           }));
-          return dedupeMessagesToolCallBlocks(mapped);
+          return this._paginateMessages(
+            dedupeMessagesToolCallBlocks(mapped),
+            query
+          );
         }
       }
     } catch (_err) {
@@ -1455,7 +1460,7 @@ export class CoreAPIImpl implements CoreAPI {
     // fallback: 从内存缓存读取
     const session = this.sessionManager.getSession(sessionId);
     if (!session) {
-      return [];
+      return { messages: [], hasMore: false };
     }
 
     // T1.3（2026-08-23）：内存 fallback 返回前 blocks 去重（同 toolCallId 合并，终态优先）
@@ -1507,7 +1512,31 @@ export class CoreAPIImpl implements CoreAPI {
         metadata: msg.metadata as Record<string, unknown> | undefined,
       };
     });
-    return dedupeMessagesToolCallBlocks(mapped);
+    return this._paginateMessages(dedupeMessagesToolCallBlocks(mapped), query);
+  }
+
+  /**
+   * KB-LONG-SESSION（2026-08-29）：getSessionMessages 分页——消息按首事件 seq 升序，
+   * 取末尾 limit 条（最近的），hasMore 精确表示是否还有更早。排序键 lastEventSeq
+   * 优先，回退 timestamp（投影/内存 fallback 路径无 lastEventSeq）。不传 limit 时
+   * 返回全量（行为不变），小会话前端传大 limit 也等效全量。
+   */
+  private _paginateMessages<T extends { lastEventSeq?: number; timestamp?: number }>(
+    messages: T[],
+    query?: { limit?: number; before?: number }
+  ): { messages: T[]; hasMore: boolean } {
+    const limit = query?.limit;
+    if (limit == null || limit <= 0) {
+      return { messages, hasMore: false };
+    }
+    const key = (m: T): number => m.lastEventSeq ?? m.timestamp ?? 0;
+    let filtered = messages;
+    if (query?.before != null) {
+      filtered = filtered.filter((m) => key(m) < (query.before as number));
+    }
+    const hasMore = filtered.length > limit;
+    const page = filtered.slice(filtered.length - limit);
+    return { messages: page, hasMore };
   }
 
   /**

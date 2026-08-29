@@ -12,9 +12,27 @@ import {
   mkdirSync,
   renameSync,
 } from 'fs';
+import { createHash } from 'crypto';
+import { gzipSync, gunzipSync } from 'zlib';
 import { join } from 'path';
 
 const logger = getLogger('agent:memory:agentMemory');
+
+/** 记忆文件格式版本（信封格式 v1：checksum + 可选 gzip） */
+const MEMORY_FILE_VERSION = 1;
+/** 压缩阈值：payload 超过该字节数才 gzip 压缩（小文件 base64 膨胀无收益） */
+const COMPRESS_THRESHOLD = 1024;
+
+/** 记忆文件信封格式 */
+interface MemoryFileEnvelope {
+  version: number;
+  /** payload 的 sha256 校验和（防损坏检测） */
+  checksum: string;
+  /** 压缩方式：'gzip' | 'none' */
+  compressed: 'gzip' | 'none';
+  /** 内容：明文 JSON 字符串，或 gzip 后的 base64 */
+  data: string;
+}
 
 /**
  * 内存项接口
@@ -141,14 +159,14 @@ export class AgentMemoryImpl implements AgentMemory {
 
   /**
    * 立即同步保存（进程退出等关键节点使用）
-   * 原子写：先写临时文件再 rename 替换，避免写一半崩溃导致文件损坏
+   * 原子写（tmp + rename）+ 信封格式（checksum 校验 + 可选 gzip 压缩）
    * （对标报告 L1 短板补齐：存储工程化）
    */
   flushSyncSave(): void {
     if (!this.memoryPath) return;
     try {
       const tmpPath = `${this.memoryPath}.tmp`;
-      writeFileSync(tmpPath, JSON.stringify(this.data, null, 2), 'utf-8');
+      writeFileSync(tmpPath, this.encodeFile(this.data), 'utf-8');
       renameSync(tmpPath, this.memoryPath);
     } catch (error) {
       handleError(error, {
@@ -159,13 +177,68 @@ export class AgentMemoryImpl implements AgentMemory {
   }
 
   /**
+   * 编码为信封格式：payload（JSON）→ 可选 gzip → checksum → 信封 JSON。
+   * 大文件（> COMPRESS_THRESHOLD）gzip 压缩，小文件保持明文（base64 膨胀无收益）。
+   */
+  private encodeFile(data: Record<string, MemoryItem>): string {
+    const payload = JSON.stringify(data);
+    const shouldCompress = payload.length > COMPRESS_THRESHOLD;
+    const envelope: MemoryFileEnvelope = {
+      version: MEMORY_FILE_VERSION,
+      compressed: shouldCompress ? 'gzip' : 'none',
+      checksum: createHash('sha256').update(payload, 'utf-8').digest('hex'),
+      data: shouldCompress
+        ? gzipSync(Buffer.from(payload, 'utf-8')).toString('base64')
+        : payload,
+    };
+    return JSON.stringify(envelope);
+  }
+
+  /**
+   * 解码信封格式：校验 checksum → 解压 → JSON.parse。
+   * 兼容旧格式：无信封字段（checksum/data）的直接按明文内存对象解析。
+   * checksum 不匹配视为文件损坏 → 返回空并告警（避免用脏数据）。
+   */
+  private decodeFile(raw: string): Record<string, MemoryItem> {
+    const parsed = JSON.parse(raw) as unknown;
+
+    // 旧格式兼容：非信封（无 checksum/data 字段）→ 直接是内存对象
+    if (
+      typeof parsed !== 'object' ||
+      parsed === null ||
+      !('checksum' in parsed) ||
+      !('data' in parsed)
+    ) {
+      return parsed as Record<string, MemoryItem>;
+    }
+
+    const envelope = parsed as MemoryFileEnvelope;
+    const payload =
+      envelope.compressed === 'gzip'
+        ? gunzipSync(Buffer.from(envelope.data, 'base64')).toString('utf-8')
+        : envelope.data;
+    const actualChecksum = createHash('sha256')
+      .update(payload, 'utf-8')
+      .digest('hex');
+
+    if (actualChecksum !== envelope.checksum) {
+      logger.warn('记忆文件校验失败（checksum 不匹配），可能已损坏', {
+        path: this.memoryPath,
+      });
+      return {};
+    }
+
+    return JSON.parse(payload) as Record<string, MemoryItem>;
+  }
+
+  /**
    * 从文件加载内存
    */
   load(): void {
     if (this.memoryPath && existsSync(this.memoryPath)) {
       try {
-        const data = readFileSync(this.memoryPath, 'utf-8');
-        this.data = JSON.parse(data);
+        const raw = readFileSync(this.memoryPath, 'utf-8');
+        this.data = this.decodeFile(raw);
       } catch (error) {
         handleError(error, { module: 'agent:memory', action: '加载Agent内存' });
         this.data = {};

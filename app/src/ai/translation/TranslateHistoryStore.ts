@@ -11,7 +11,7 @@
 import { Database } from '../../core/external/sqlite3';
 import { randomUUID } from 'crypto';
 import { resolveDbPath } from '../../core/paths';
-import { getLogger } from '../../monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '../../error/handleError';
 import type {
   TranslateHistoryRecord,

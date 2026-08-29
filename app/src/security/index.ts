@@ -234,6 +234,13 @@ export type {
   ContextFileType,
   ContextFileEntry,
 } from './injection';
+export {
+  PromptInjectionDetector,
+  getPromptInjectionDetector,
+  resetPromptInjectionDetector,
+  UnicodeSanitizer,
+  getUnicodeSanitizer,
+} from './injection';
 export type {
   SecurityPatternEntry,
   PatternUpdateEvent,

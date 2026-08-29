@@ -9,7 +9,7 @@
  */
 
 import { randomUUID } from 'crypto';
-import { getLogger } from '../../monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '../../error/types';
 import { handleError } from '../../error/handleError';
 import { modelRouter } from '../modelRouter';

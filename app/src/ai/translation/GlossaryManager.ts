@@ -11,7 +11,7 @@
 import { writeFileSync, readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { resolveDataSubDir } from '../../core/paths';
-import { getLogger } from '../../monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '../../error/handleError';
 
 const logger = getLogger('ai:glossary');

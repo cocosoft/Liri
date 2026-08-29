@@ -527,6 +527,10 @@ class ArchitectureLinter {
             // 无统一收益（子代理 18 组核查确认）
             'MemoryItem', 'BatchResult', 'PipelineContext', 'RestoreResult',
             'SyncResult', 'WRITE_TOOLS', 'VoiceState', 'TaskQueue', 'LanguagePack',
+            // R02-002 阈值治理（2026-08-29）：PdcaPhase 纯领域变体——ai(modelRouter) 4 值
+            // 模型路由阶段、tasks(LongRunningTaskOrchestrator) 7 值任务编排阶段、
+            // workspace(ProjectItemStore) 数据字段阶段，值域/语义各自独立，无统一收益
+            'PdcaPhase',
         ]);
 
         for (const file of this.allFiles) {

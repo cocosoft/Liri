@@ -1,4 +1,4 @@
-﻿import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { buildEnvironmentHints, buildPlatformContext } from './PlatformHints';
 import {
   getModelGuidance,
@@ -6,8 +6,8 @@ import {
   type ModelGuidanceConfig,
   type ModelGuidanceMode,
 } from './ModelGuidance';
-import { getPromptInjectionDetector } from '../../security/injection/PromptInjectionDetector';
-import { getUnicodeSanitizer } from '../../security/injection/UnicodeSanitizer';
+import { getPromptInjectionDetector } from '@modules/security';
+import { getUnicodeSanitizer } from '@modules/security';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('ai\prompts\SystemPromptBuilder');

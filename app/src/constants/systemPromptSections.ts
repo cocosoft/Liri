@@ -26,7 +26,7 @@ import {
   getCurrentKnowledgeQuery,
 } from '@modules/services/prompt/KnowledgePromptProvider';
 import { generateDigestContext } from '@modules/knowledge/KnowledgeDigestInjector';
-import { truncateMemoryContent } from '@modules/memory/MemoryTruncation';
+import { truncateMemoryContent } from '@modules/memory';
 import { getGitInfo } from '@modules/context';
 import { readProjectFiles } from '@modules/context';
 import { basename, join } from 'path';

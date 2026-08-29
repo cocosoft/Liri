@@ -33,8 +33,8 @@ import type {
   CommandType,
   CommandResult,
 } from '@modules/commands';
-import { createChatManager } from '@modules/chat/ChatManager.js';
-import type { ChatManager } from '@modules/chat/ChatManagerInterface';
+import { createChatManager } from '@modules/chat';
+import type { ChatManager } from '@modules/chat';
 import type { ChatSession } from '@modules/chat/types/session';
 
 class SessionCommand implements Command {

@@ -101,3 +101,25 @@ export {
   getFrozenSnapshotService,
   resetFrozenSnapshotService,
 } from './FrozenSnapshotService';
+
+// 2026-08-29 R03-002 收敛：truncation / freshness / auto / scanner 统一出口
+export {
+  truncateMemoryContent,
+  MAX_MEMORY_LINES,
+  MAX_MEMORY_BYTES,
+} from './MemoryTruncation';
+export type { TruncationResult } from './MemoryTruncation';
+export { getMemoryFreshness } from './MemoryFreshness';
+export { isAutoMemoryEnabled, getAutoMemPath } from './AutoMemory';
+export {
+  MemorySecretScanner,
+  scanForSecrets,
+  containsSecrets,
+  sanitizeSecrets,
+  scanMemoryContent,
+  validateMemoryContent,
+} from './scanners/MemorySecretScanner';
+export type {
+  SecretMatch,
+  SecretScanResult,
+} from './scanners/MemorySecretScanner';

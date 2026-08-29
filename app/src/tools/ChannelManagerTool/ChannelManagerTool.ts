@@ -8,7 +8,7 @@
  */
 import { BaseTool } from '../BaseTool';
 import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';
-import { channelRegistry } from '../../channels/registry/ChannelRegistry';
+import { channelRegistry } from '@modules/channels';
 import { ChannelHealthMonitor } from '../../channels/monitoring/ChannelHealthMonitor';
 import { ChannelLogManager } from '../../channels/log/ChannelLogManager';
 

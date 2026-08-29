@@ -90,8 +90,7 @@ export async function startCronEngine(): Promise<StartCronEngineResult> {
         job.origin?.platform &&
         job.origin?.chatId
       ) {
-        const { channelRegistry } =
-          await import('../../channels/registry/ChannelRegistry');
+        const { channelRegistry } = await import('@modules/channels');
         const platform = job.origin.platform;
         const chatId = job.origin.chatId;
         const channel = channelRegistry.get(platform);
@@ -121,8 +120,7 @@ export async function startCronEngine(): Promise<StartCronEngineResult> {
         });
         const channelSession = sessions.length > 0 ? sessions[0] : undefined;
         if (channelSession) {
-          const { channelRegistry } =
-            await import('../../channels/registry/ChannelRegistry');
+          const { channelRegistry } = await import('@modules/channels');
           const channel = channelRegistry.get(channelSession.channelId);
           if (channel?.enabled) {
             await channel.sendMessage(channelSession.conversationId, message);

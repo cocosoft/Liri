@@ -32,7 +32,7 @@
 
 import { BaseTool } from '../BaseTool';
 import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';
-import { channelRegistry } from '../../channels/registry/ChannelRegistry';
+import { channelRegistry } from '@modules/channels';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('tools:ChannelTool:ChannelTool');

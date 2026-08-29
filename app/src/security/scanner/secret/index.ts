@@ -34,11 +34,11 @@ export {
   sanitizeSecrets,
   scanMemoryContent,
   validateMemoryContent,
-} from '@modules/memory/scanners/MemorySecretScanner';
+} from '@modules/memory';
 export type {
   SecretMatch as MemorySecretMatch,
   SecretScanResult,
-} from '@modules/memory/scanners/MemorySecretScanner';
+} from '@modules/memory';
 
 export { scanForSecrets as scanTeamMemForSecrets } from '@modules/services/teamMemorySync/SecretScanner';
 export type { SecretMatch as TeamMemSecretMatch } from '@modules/services/teamMemorySync/SecretScanner';

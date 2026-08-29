@@ -8,12 +8,9 @@ import {
   truncateMemoryContent,
   MAX_MEMORY_LINES,
   MAX_MEMORY_BYTES,
-} from '@modules/memory/MemoryTruncation';
-import { getMemoryFreshness } from '@modules/memory/MemoryFreshness';
-import {
-  isAutoMemoryEnabled,
-  getAutoMemPath,
-} from '@modules/memory/AutoMemory';
+} from '@modules/memory';
+import { getMemoryFreshness } from '@modules/memory';
+import { isAutoMemoryEnabled, getAutoMemPath } from '@modules/memory';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('commands:builtin:memory:memoryCmd');

@@ -19,7 +19,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 import type { Command } from '@modules/commands';
-import { createChatManager } from '@modules/chat/ChatManager.js';
+import { createChatManager } from '@modules/chat';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('commands:builtin:checkpoint:index');

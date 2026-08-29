@@ -173,6 +173,12 @@ class ArchitectureLinter {
         // 模式1：类名包含 EventBus（自建事件总线）
         const eventBusClassMatch = content.match(/\bclass\s+(\w*EventBus\w*)\s*[\{<]/);
         if (eventBusClassMatch) {
+            // KB-LINT-EVENTBUS-WRAPPER（2026-08-29）：类名含 EventBus 但内部委托
+            // globalEventBus（标准总线）的"类型安全包装"（如 UiEventBus）不是竞争
+            // 事件总线——纯启发式按类名误报。检测到委托标准总线则跳过。
+            if (/globalEventBus\.(publish|subscribe)/.test(content)) {
+                return null;
+            }
             result.isEventBus = true;
             result.className = eventBusClassMatch[1];
             result.hasSelfBuiltDispatch = true;
@@ -1222,6 +1228,12 @@ class ArchitectureLinter {
     /** R01-005: 检查健康检查是否统一注册到 HealthChecker */
     async checkHealthCheckRegistration(): Promise<void> {
         const canonicalPath = 'monitoring/health/HealthChecker';
+        // KB-LINT-HEALTH-ENDPOINT（2026-08-29）：/health 对外 HTTP 端点（daemon 健康
+        // 服务器、健康数据路由）是"消费方"而非"自建检查逻辑"，豁免
+        const knownHealthEndpointFiles = [
+            'daemon\\HealthServer.ts',
+            'auth-access-routes.ts',
+        ];
         let healthCheckCount = 0;
         const violatingFiles: Array<{ file: string; line: number }> = [];
 
@@ -1241,6 +1253,12 @@ class ArchitectureLinter {
                 // 检测自建健康检查模式: registerHealthCheck / addHealthCheck / healthCheck()
                 const selfBuilt = /(register|add|create)HealthCheck\s*\(/.test(line);
                 if (selfBuilt) {
+                    // KB-LINT-HEALTHCHECK-ADAPTER（2026-08-29）：已 import 标准
+                    // HealthChecker 的适配层（如 doctor-health 代理 registerCheck 到
+                    // monitoring）不算自建——统一视图已建立
+                    if (content.includes('monitoring/health/HealthChecker')) {
+                        continue;
+                    }
                     violatingFiles.push({ file: relative(process.cwd(), file), line: lineNum });
                     healthCheckCount++;
                     continue;
@@ -1248,6 +1266,9 @@ class ArchitectureLinter {
 
                 // 检测自建 /health 端点
                 if (/['"`]\/health['"`]/.test(line) && !content.includes(canonicalPath)) {
+                    if (knownHealthEndpointFiles.some(e => file.includes(e))) {
+                        continue;
+                    }
                     violatingFiles.push({ file: relative(process.cwd(), file), line: lineNum });
                     healthCheckCount++;
                     continue;

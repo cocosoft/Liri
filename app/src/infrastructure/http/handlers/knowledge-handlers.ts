@@ -306,7 +306,7 @@ export async function handleSearchKnowledge(
 
     // 解析 URL 查询参数（base, domain, tags 等）
     const url = new URL(req.url!, `http://${req.headers.host ?? 'localhost'}`);
-    const _base = url.searchParams.get('base') ?? undefined;
+    const base = url.searchParams.get('base') ?? undefined;
     const domain = url.searchParams.get('domain') ?? undefined;
     const urlTags = url.searchParams
       .get('tags')
@@ -333,16 +333,25 @@ export async function handleSearchKnowledge(
       ...(domain ? ({ domain } as any) : {}),
     });
 
-    // P2-2: 按标签过滤（大小写不敏感）
-    const filtered = filterTags?.length
-      ? routes.filter((route: any) =>
-          filterTags.some((t: string) =>
-            (route.tags ?? []).some(
-              (tag: string) => tag.toLowerCase() === t.toLowerCase()
+    // KB-SEARCH-BASE（2026-08-29 导出复核）：前端 hybridSearch 传 base 期望库内搜索，
+    // 原 _base 解析后未使用（死变量）→ 结果混入其他库文档。按 docPath 前缀过滤。
+    const inBase = (route: any): boolean => {
+      if (!base || base === '根目录') return true;
+      const dp: string = route.docPath ?? '';
+      return dp === base || dp.startsWith(`${base}/`);
+    };
+    // P2-2: 按标签过滤（大小写不敏感）+ base 过滤
+    const filtered = (
+      filterTags?.length
+        ? routes.filter((route: any) =>
+            filterTags.some((t: string) =>
+              (route.tags ?? []).some(
+                (tag: string) => tag.toLowerCase() === t.toLowerCase()
+              )
             )
           )
-        )
-      : routes;
+        : routes
+    ).filter(inBase);
 
     // P2-7: 补充 size/updated_at/source（stat + frontmatter 头部解析）
     const result = await Promise.all(
@@ -421,6 +430,7 @@ export async function handleCreateKnowledge(
     const { knowledgeDocsProvider } =
       await import('@modules/docs/FileDocsProvider');
     const { writeFile, mkdir } = await import('fs/promises');
+    const { existsSync } = await import('fs');
     const { join, relative } = await import('path');
 
     const registry = getDefaultKnowledgeBaseRegistry();
@@ -435,6 +445,20 @@ export async function handleCreateKnowledge(
     await mkdir(targetDir, { recursive: true });
     const fileName = `${title.replace(/[\\/:*?"<>|]/g, '_')}.md`;
     const filePath = join(targetDir, fileName);
+    // KB-UNIQUE（2026-08-29 导出复核）：同名文档禁止静默覆盖——前端新建前未查重时，
+    // writeFile 会直接覆盖旧文档正文（数据丢失）。返回 409 冲突让前端提示改标题。
+    if (existsSync(filePath)) {
+      res.writeHead(409, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          error: {
+            message: `文档 "${title}" 已存在，请更换标题后再试`,
+            code: 'KNOWLEDGE_DUPLICATE_TITLE',
+          },
+        })
+      );
+      return;
+    }
     const fileContent = content
       ? `# ${title}\n\n${content}\n`
       : `# ${title}\n\n`;

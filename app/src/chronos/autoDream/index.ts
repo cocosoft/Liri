@@ -58,6 +58,9 @@ export {
   addDreamTurn,
   onDreamEvent,
   offDreamEvent,
+  abortAutoDream,
+  isAutoDreamRunning,
+  runKnowledgeRain,
 } from './AutoDream';
 export type {
   DreamTask,

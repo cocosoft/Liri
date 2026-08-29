@@ -5,7 +5,7 @@ import {
   DeliveryManager,
   type DeliveryPlan,
   type DeliveryResult,
-} from '../chronos/delivery/DeliveryManager';
+} from '@modules/chronos';
 
 const logger = getLogger('tasks:deliveryAdapter');
 

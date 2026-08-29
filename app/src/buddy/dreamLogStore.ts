@@ -7,7 +7,7 @@
  * 持久化到 ~/.pyapp/data/buddy-dream-log.jsonl（追加式，重启不丢失）。
  */
 
-import type { DreamEvent } from '../chronos/autoDream/AutoDream';
+import type { DreamEvent } from '@modules/chronos';
 import { readFile, writeFile, mkdir } from 'fs/promises';
 import { dirname } from 'path';
 import { resolveDataDir } from '@modules/core/paths';

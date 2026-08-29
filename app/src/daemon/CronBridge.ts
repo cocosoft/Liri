@@ -1,7 +1,7 @@
 import { getLogger } from '../monitoring/logs/Logger';
 import { getMonitoringService } from '../monitoring/MonitoringService';
-import { createSqliteCronStore } from '../chronos/service/SqliteCronStore';
-import { nextCronRunMs } from '../chronos/CronTasks';
+import { createSqliteCronStore } from '@modules/chronos';
+import { nextCronRunMs } from '@modules/chronos';
 import { startHealthServer, stopHealthServer } from './HealthServer';
 import type { TaskQueue } from './TaskQueue';
 import { TaskPriority } from './types';

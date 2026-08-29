@@ -38,7 +38,7 @@ import {
   initAutoDream,
   abortAutoDream,
   isAutoDreamRunning,
-} from '../chronos/autoDream/AutoDream';
+} from '@modules/chronos';
 import { globalEventBus, SystemEvents } from '@modules/core';
 import { getLogger } from '@modules/monitoring';
 import { recordBackgroundTask } from '@modules/monitoring';

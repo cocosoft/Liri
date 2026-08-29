@@ -33,10 +33,7 @@ import { SessionContentGatherer } from './gather/SessionContentGatherer';
 import { KnowledgeScanner } from './gather/KnowledgeScanner';
 import { PersonalityReflector } from './reflect/PersonalityReflector';
 import { DreamPersistence } from './DreamPersistence';
-import {
-  executeAutoDream,
-  runKnowledgeRain,
-} from '../chronos/autoDream/AutoDream';
+import { executeAutoDream, runKnowledgeRain } from '@modules/chronos';
 import {
   resolveDataSubDir,
   resolveSoulPath,

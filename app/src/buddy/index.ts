@@ -116,4 +116,4 @@ export type {
   DreamEvent,
   DreamEventType,
   DreamEventCallback,
-} from '@modules/chronos/autoDream/AutoDream';
+} from '@modules/chronos';

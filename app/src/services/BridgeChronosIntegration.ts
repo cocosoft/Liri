@@ -1,4 +1,4 @@
-import { PushNotificationService } from '../chronos/ChronosRemoteTrigger';
+import { PushNotificationService } from '@modules/chronos';
 
 export interface BridgeChronosIntegration {
   notifyBridgeSessionStart(sessionId: string): Promise<boolean>;

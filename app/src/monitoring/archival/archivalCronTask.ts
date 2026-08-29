@@ -13,11 +13,7 @@ import type {
   CleanupResult,
 } from './DataArchivalStrategy.js';
 import { computeNextCronRunMs } from '@modules/tasks/cron/CronParser';
-import {
-  addCronTask,
-  removeCronTasks,
-  updateCronTask,
-} from '../../chronos/CronTasks.js';
+import { addCronTask, removeCronTasks, updateCronTask } from '@modules/chronos';
 import { getLogger } from '../logs/Logger.js';
 import { handleError } from '@modules/error';
 import { IncidentManager } from '../incidents/IncidentManager.js';

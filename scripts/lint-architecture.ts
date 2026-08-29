@@ -829,7 +829,13 @@ class ArchitectureLinter {
             if (nonReExportLines.length > 0) continue; // 不是 barrel 文件
 
             // 跳过公认的模块入口 barrel 文件
-            const relFile = relative(process.cwd(), file);
+            // KB-LINT-RELPATH（2026-08-29）：relFile 归一化为 src 相对路径——
+            // lint 在仓库根运行时 relative(cwd, file) 带 'app\\' 前缀，导致
+            // allowedModuleDirs（'src\\...'）豁免失效，把合法的模块入口 barrel
+            // 误报为薄桶/barrel（R07-003 的 18 个薄桶全是此类误报）。
+            const rawRel = relative(process.cwd(), file);
+            const srcIdx = rawRel.indexOf('src\\');
+            const relFile = srcIdx >= 0 ? rawRel.slice(srcIdx) : rawRel;
             if (allowedModuleDirs.some(dir => relFile.startsWith(dir))) {
                 continue;
             }
@@ -1914,7 +1920,11 @@ class ArchitectureLinter {
         for (const file of this.allFiles) {
             const basename = file.split(/[/\\]/).pop() || '';
             if (basename !== 'index.ts' && basename !== 'index.tsx') continue;
-            const relFile = relative(process.cwd(), file);
+            // KB-LINT-RELPATH（2026-08-29）：relFile 归一化为 src 相对路径（同 checkBarrelFiles）——
+            // 仓库根运行时避免 'app\\' 前缀导致模块入口豁免失效
+            const rawRel = relative(process.cwd(), file);
+            const srcIdx = rawRel.indexOf('src\\');
+            const relFile = srcIdx >= 0 ? rawRel.slice(srcIdx) : rawRel;
             if (allowedModuleDirs.some(dir => relFile.startsWith(dir))) continue;
 
             const content = readFileSync(file, 'utf-8');

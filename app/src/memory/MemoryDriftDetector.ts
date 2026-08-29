@@ -37,7 +37,12 @@ export class MemoryDriftDetector {
       };
       this.snapshots.set(filePath, snap);
       return snap;
-    } catch {
+    } catch (err) {
+      // KB-DRIFT-SNAP-LOG（2026-08-29）：快照读取失败静默 null → 漂移检测跳过该文件
+      logger.warn('记忆快照读取失败', {
+        filePath,
+        error: err instanceof Error ? err.message : String(err),
+      });
       return null;
     }
   }

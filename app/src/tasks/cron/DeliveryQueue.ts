@@ -423,7 +423,17 @@ export class DeliveryQueue {
   startAutoRetry(intervalMs: number = 5000): void {
     if (this.processingTimer) return;
     this.processingTimer = setInterval(() => {
-      void this.processNext();
+      // KB-CRON-DELIVERY-PN（2026-08-29）：processNext 的 getPending() 在 try 外，
+      // SQLite 查询失败会 reject → 每 5s tick 产生 unhandled rejection
+      void this.processNext().catch((e) => {
+        void handleError(e, {
+          module: 'tasks:cron:deliveryQueue',
+          action: 'processNext',
+        });
+        logger.error('重试投递处理失败', {
+          error: e instanceof Error ? e.message : String(e),
+        });
+      });
     }, intervalMs);
   }
 

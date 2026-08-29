@@ -1050,7 +1050,16 @@ export class TeamMemoryService {
               ...memory,
               content: this.securityIntegration!.decrypt(memory.content),
             };
-          } catch {
+          } catch (decryptErr) {
+            // KB-MEM-DECRYPT-LOG（2026-08-29）：解密失败静默返回未解密内容 →
+            // 用户看到乱码且批量场景无法定位是哪条记忆
+            logger.error('记忆解密失败，返回原始内容', {
+              memoryId: memory.id,
+              error:
+                decryptErr instanceof Error
+                  ? decryptErr.message
+                  : String(decryptErr),
+            });
             return memory;
           }
         }

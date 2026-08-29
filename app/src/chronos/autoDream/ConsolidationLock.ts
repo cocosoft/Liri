@@ -37,6 +37,14 @@ export async function readLastConsolidatedAt(): Promise<number> {
     const s = await stat(lockPath());
     return s.mtimeMs;
   } catch (err) {
+    // KB-LOCK-STAT-LOG（2026-08-29）：stat 失败除 ENOENT（从未整合）外静默返回 0
+    // → 语义变成"从未整合过"，可能触发不必要全量整合且无排查线索
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+      return 0;
+    }
+    logger.warn('读取整合时间失败', {
+      error: err instanceof Error ? err.message : String(err),
+    });
     return 0;
   }
 }
@@ -82,6 +90,11 @@ export async function tryAcquireConsolidationLock(): Promise<number | null> {
   try {
     verify = await readFile(path, 'utf8');
   } catch (err) {
+    // KB-LOCK-VERIFY-LOG（2026-08-29）：锁写入后验证读取失败静默 return null
+    // → "获取锁失败"，但刚 writeFile 成功，错误无日志（与 rollback 的 handleError 不一致）
+    logger.warn('整合锁验证读取失败，视为未获取', {
+      error: err instanceof Error ? err.message : String(err),
+    });
     return null;
   }
   if (parseInt(verify.trim(), 10) !== process.pid) return null;

@@ -51,7 +51,12 @@ export class SteeringBridge {
       const { getGlobalSteeringManager } =
         await import('../../query/SteeringManager');
       return getGlobalSteeringManager().hasPending();
-    } catch {
+    } catch (err) {
+      // KB-STEER-BRIDGE-LOG（2026-08-29）：import 失败静默返回 false → TAORLoop
+      // 跳过 steering 注入，且无排查线索（与 queueFailed 的 cg3Log 处理一致）
+      cg3Log('tasks:steering:bridge', 'error', 'hasPendingFailed', {
+        error: String(err),
+      });
       return false;
     }
   }
@@ -62,7 +67,10 @@ export class SteeringBridge {
       const { getGlobalSteeringManager } =
         await import('../../query/SteeringManager');
       return getGlobalSteeringManager().pendingCount;
-    } catch {
+    } catch (err) {
+      cg3Log('tasks:steering:bridge', 'error', 'pendingCountFailed', {
+        error: String(err),
+      });
       return 0;
     }
   }

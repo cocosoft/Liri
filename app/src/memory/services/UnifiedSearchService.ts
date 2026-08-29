@@ -3,6 +3,9 @@ import type {
   IKnowledgeSearch,
 } from '../../docs/knowledge-types';
 import type { Memory } from '../types/Memory';
+import { getLogger } from '@modules/monitoring';
+
+const logger = getLogger('memory:services:unifiedSearch');
 
 export interface MemorySearchProvider {
   getRelevantMemories(query: string, limit?: number): Promise<Memory[]>;
@@ -112,7 +115,13 @@ export class UnifiedSearchService {
           isKnowledgeDoc: route.isKnowledgeDoc,
         },
       }));
-    } catch {
+    } catch (err) {
+      // KB-UNIFIED-SEARCH-LOG（2026-08-29）：检索失败静默返回 [] → 用户无法区分
+      // "确实没找到"与"检索服务挂了"，结果被静默降级为空
+      logger.warn('统一搜索（知识库）失败，返回空结果', {
+        query,
+        error: err instanceof Error ? err.message : String(err),
+      });
       return [];
     }
   }
@@ -186,7 +195,13 @@ export class UnifiedSearchService {
           updatedAt: memory.updatedAt?.toISOString(),
         },
       }));
-    } catch {
+    } catch (err) {
+      // KB-UNIFIED-SEARCH-LOG（2026-08-29）：检索失败静默返回 [] → 用户无法区分
+      // "确实没找到"与"检索服务挂了"，结果被静默降级为空
+      logger.warn('统一搜索（记忆）失败，返回空结果', {
+        query,
+        error: err instanceof Error ? err.message : String(err),
+      });
       return [];
     }
   }

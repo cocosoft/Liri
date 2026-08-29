@@ -120,7 +120,13 @@ export class HonchoMemoryProvider implements ExternalMemoryProvider {
         updatedAt: Number(data.updated_at ?? Date.now()),
         metadata: (data.metadata as Record<string, unknown>) || {},
       };
-    } catch {
+    } catch (err) {
+      // KB-MEM-GET-LOG（2026-08-29）：外部记忆服务请求失败静默返回 null →
+      // 记忆读取静默降级为空，与 syncMemories 的 warn 处理不一致
+      logger.warn('Honcho getMemory failed', {
+        id,
+        error: err instanceof Error ? err.message : String(err),
+      });
       return null;
     }
   }

@@ -150,7 +150,13 @@ export class CronTaskStore {
           this.tasks.set(task.id, task);
         }
       }
-    } catch {
+    } catch (loadErr) {
+      // KB-CRON-STORE-LOAD（2026-08-29）：任务文件读取/解析失败静默 clear() 全部
+      // 内存任务 → 已持久化任务全部"消失"且无任何记录可排查
+      logger.error('任务文件加载失败，已清空内存任务', {
+        storePath: this.storePath,
+        error: loadErr instanceof Error ? loadErr.message : String(loadErr),
+      });
       this.tasks.clear();
     }
   }

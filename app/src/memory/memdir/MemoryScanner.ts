@@ -204,7 +204,12 @@ export class MemdirMemoryScanner {
         .map((r) => r.value)
         .sort((a, b) => b.mtimeMs - a.mtimeMs)
         .slice(0, MAX_MEMORY_FILES);
-    } catch {
+    } catch (err) {
+      // KB-MEM-SCAN-LOG（2026-08-29）：记忆头扫描失败静默 [] → 记忆清单为空，
+      // 用户看到"无记忆"且无排查线索
+      logger.warn('记忆头扫描失败，返回空清单', {
+        error: err instanceof Error ? err.message : String(err),
+      });
       return [];
     }
   }

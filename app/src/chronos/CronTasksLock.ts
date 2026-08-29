@@ -56,7 +56,13 @@ function readLockFile(dir?: string): SchedulerLock | undefined {
       return undefined;
     }
     return parsed as SchedulerLock;
-  } catch {
+  } catch (err) {
+    // KB-LOCK-READ-LOG（2026-08-29）：锁文件读取/解析失败（损坏、权限）静默返回
+    // undefined 会让调用方认为"无锁"直接获取 → 多实例并发调度锁失效且无任何线索
+    logger.warn('锁文件读取/解析失败，按无锁处理', {
+      lockPath,
+      error: err instanceof Error ? err.message : String(err),
+    });
     return undefined;
   }
 }

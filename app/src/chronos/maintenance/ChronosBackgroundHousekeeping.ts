@@ -173,7 +173,17 @@ export function startBackgroundHousekeeping(): void {
 
   isRunning = true;
   dreamEngine = new DreamEngine();
-  void dreamEngine.start();
+  // KB-CRON-ENGINE-START（2026-08-29）：start() 内部无 try/catch（recoverCheckpoints/
+  // initAutoDream/scheduler.start 任一 reject）→ 裸调用产生 unhandled rejection
+  void dreamEngine.start().catch((e) => {
+    void handleError(e, {
+      module: 'chronos:housekeeping',
+      action: 'dreamEngine.start',
+    });
+    logger.error('梦境引擎启动失败', {
+      error: e instanceof Error ? e.message : String(e),
+    });
+  });
   initBuddyDreamIntegration();
   initBuddyTaskGrowthIntegration();
   initBuddyCronFeedbackIntegration();

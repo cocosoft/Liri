@@ -97,7 +97,13 @@ export class AutoUpdater {
       try {
         const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'));
         return pkg.version || '0.0.0';
-      } catch {
+      } catch (e) {
+        // KB-AUTOUPDATE-VER（2026-08-29）：package.json 读取/解析失败静默 0.0.0 →
+        // 版本比较把当前版本当"不存在"，可能触发错误更新判定且无排查线索
+        logger.warn('[AutoUpdater] 读取 package.json 失败，版本按 0.0.0 处理', {
+          pkgPath,
+          error: e instanceof Error ? e.message : String(e),
+        });
         return '0.0.0';
       }
     }

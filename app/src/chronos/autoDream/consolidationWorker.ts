@@ -60,7 +60,13 @@ function isTimeUp(): boolean {
 async function safeReadFile(filePath: string): Promise<string | null> {
   try {
     return await readFile(filePath, 'utf-8');
-  } catch {
+  } catch (readErr) {
+    // KB-CONSOLIDATE-READ（2026-08-29）：与 safeWriteFile 的写日志对称——
+    // 读取失败（权限/编码/IO）静默返回 null 会按"文件不存在"处理，记忆内容丢失无排查线索
+    logger.warn('记忆整合: 文件读取失败', {
+      filePath,
+      error: readErr instanceof Error ? readErr.message : String(readErr),
+    });
     return null;
   }
 }

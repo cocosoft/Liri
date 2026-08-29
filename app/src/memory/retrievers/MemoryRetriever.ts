@@ -361,7 +361,12 @@ export class MemoryRetrieverImpl implements MemoryRetriever {
     try {
       const provider = await globalEmbeddingManager.getProvider();
       return provider.modelName;
-    } catch {
+    } catch (err) {
+      // KB-EMB-MODEL-LOG（2026-08-29）：模型名获取失败静默 'unknown' 写入索引元数据
+      // → 后续排查看不到真实模型名
+      logger.warn('获取嵌入模型名失败，索引将标记为 unknown', {
+        error: err instanceof Error ? err.message : String(err),
+      });
       return 'unknown';
     }
   }

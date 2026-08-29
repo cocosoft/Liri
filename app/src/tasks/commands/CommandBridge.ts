@@ -61,7 +61,12 @@ export class CommandBridge {
       const { getGlobalMessageQueue } =
         await import('../../query/MessageCommandQueue');
       return getGlobalMessageQueue().pendingCount;
-    } catch {
+    } catch (err) {
+      // KB-CMD-BRIDGE-LOG（2026-08-29）：动态 import 失败静默返回 0 → 上层误判
+      // "队列为空"跳过命令消费，且无排查线索（与 enqueueFailed 的 cg3Log 处理一致）
+      cg3Log('tasks:commands:bridge', 'error', 'pendingCountFailed', {
+        error: String(err),
+      });
       return 0;
     }
   }
@@ -72,7 +77,10 @@ export class CommandBridge {
       const { getGlobalMessageQueue } =
         await import('../../query/MessageCommandQueue');
       return getGlobalMessageQueue().countByPriority();
-    } catch {
+    } catch (err) {
+      cg3Log('tasks:commands:bridge', 'error', 'countByPriorityFailed', {
+        error: String(err),
+      });
       return { now: 0, next: 0, later: 0 };
     }
   }

@@ -14,6 +14,9 @@ import {
   readdirSync,
 } from 'fs';
 import { resolveDataSubDir } from '@modules/core';
+import { getLogger } from '@modules/monitoring';
+
+const logger = getLogger('tasks:pdcaBridge');
 
 const PDCA_CHECKPOINT_DIR = join(resolveDataSubDir('pdca'));
 const WORKITEM_DIR = join(resolveDataSubDir('workitems'));
@@ -61,7 +64,13 @@ function readJson<T>(filePath: string): T | null {
   if (!existsSync(filePath)) return null;
   try {
     return JSON.parse(readFileSync(filePath, 'utf-8'));
-  } catch {
+  } catch (err) {
+    // KB-PDCA-READ-LOG（2026-08-29）：文件损坏/读取失败静默返回 null → 上层按
+    // "无文件"处理，工作项丢失无提示
+    logger.warn('PDCA/WorkItem 文件读取失败，按无文件处理', {
+      filePath,
+      error: err instanceof Error ? err.message : String(err),
+    });
     return null;
   }
 }

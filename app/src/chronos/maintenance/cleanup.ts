@@ -51,6 +51,14 @@ async function isLockStale(lockPath: string): Promise<boolean> {
     // 锁文件无有效 PID：仅按年龄判断
     return Date.now() - s.mtimeMs > CLEANUP_INTERVAL_MS;
   } catch (err) {
+    // KB-CLEANUP-LOCK-LOG（2026-08-29）：stat 失败除 ENOENT（无锁文件=可清理）
+    // 外静默判定"锁已过期" → 多实例可能同时进入清理流程且无排查线索
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+      return true;
+    }
+    logger.warn('清理锁检查失败，按过期处理', {
+      error: err instanceof Error ? err.message : String(err),
+    });
     return true;
   }
 }

@@ -165,6 +165,7 @@ export class MemoryProviderEngine {
 
   dispose(): void {
     for (const p of this.providers.values()) {
+      // @ignore-catch: 释放外部 provider 资源失败可忽略（进程退出阶段，泄漏已无实际影响）
       p.dispose().catch(() => {});
     }
     this.providers.clear();
@@ -182,6 +183,8 @@ async function withTimeout<T>(
     ]);
     return result;
   } catch {
+    // @ignore-catch: 失败与超时统一返回 null 是工具函数的预期语义（无 logger 依赖，
+    // 调用方拿到 null 后自行区分/记录）
     return null;
   }
 }

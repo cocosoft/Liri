@@ -4,7 +4,7 @@
  */
 import type { CommandContext, CommandResult } from '@modules/commands';
 import { getLogger } from '@modules/monitoring';
-import { NpmDistributor } from '@modules/plugins/distribution/NpmDistributor';
+import { NpmDistributor } from '@modules/plugins';
 
 const logger = getLogger('Plugins');
 

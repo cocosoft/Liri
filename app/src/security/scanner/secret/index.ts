@@ -48,10 +48,10 @@ export {
   checkTeamMemSecrets,
 } from '@modules/services/teamMemorySync/TeamMemSecretGuard';
 
-export { PluginSecurityScanner } from '@modules/plugins/utils/pluginSecurityScanner';
+export { PluginSecurityScanner } from '@modules/plugins';
 export type {
   SecurityIssue,
   SecurityScanResult as PluginSecurityScanResult,
   DangerPattern,
   RiskLevel,
-} from '@modules/plugins/utils/pluginSecurityScanner';
+} from '@modules/plugins';

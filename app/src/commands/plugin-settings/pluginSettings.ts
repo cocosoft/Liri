@@ -4,16 +4,10 @@
  */
 
 import type { CommandContext, CommandResult } from '@modules/commands';
-import { PluginRegistry } from '@modules/plugins/core/PluginRegistry.js';
-import {
-  readPluginConfig,
-  writePluginConfig,
-} from '@modules/plugins/utils/pluginSettings.js';
-import {
-  validatePluginConfig,
-  mergeWithDefaults,
-} from '@modules/plugins/utils/pluginConfigSchema.js';
-import type { PluginConfigSchema } from '@modules/plugins/utils/pluginConfigSchema.js';
+import { PluginRegistry } from '@modules/plugins';
+import { readPluginConfig, writePluginConfig } from '@modules/plugins';
+import { validatePluginConfig, mergeWithDefaults } from '@modules/plugins';
+import type { PluginConfigSchema } from '@modules/plugins';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('commands:plugin-settings:pluginSettings');

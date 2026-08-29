@@ -7,7 +7,7 @@ import {
 import { validateSkillFrontmatter } from '@modules/skills/utils/skillValidator';
 import { join, resolve, sep } from 'path';
 import { existsSync } from 'fs';
-import { PluginManager } from '@modules/plugins/managers/PluginManager';
+import { PluginManager } from '@modules/plugins';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('skills:pluginLoader');
 const pluginManager = PluginManager.getInstance();

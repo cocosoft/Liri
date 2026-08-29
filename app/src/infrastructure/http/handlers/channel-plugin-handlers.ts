@@ -32,8 +32,7 @@ export async function handleListChannelPlugins(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { NpmDistributor } =
-      await import('@modules/plugins/distribution/NpmDistributor');
+    const { NpmDistributor } = await import('@modules/plugins');
     const distributor = new NpmDistributor();
     const installed = await distributor.listInstalled();
 
@@ -71,8 +70,7 @@ export async function handleInstallChannelPlugin(
       return;
     }
 
-    const { NpmDistributor } =
-      await import('@modules/plugins/distribution/NpmDistributor');
+    const { NpmDistributor } = await import('@modules/plugins');
     const distributor = new NpmDistributor();
     const result = await distributor.install(packageName);
 
@@ -109,8 +107,7 @@ export async function handleUninstallChannelPlugin(
   pluginName: string
 ): Promise<void> {
   try {
-    const { NpmDistributor } =
-      await import('@modules/plugins/distribution/NpmDistributor');
+    const { NpmDistributor } = await import('@modules/plugins');
     const distributor = new NpmDistributor();
     await distributor.remove(pluginName);
 

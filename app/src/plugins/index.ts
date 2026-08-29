@@ -1414,5 +1414,20 @@ export { default as PluginConfigManager } from './management/PluginConfigManager
 export { default as PluginEventSystem } from './core/PluginEventSystem';
 
 export * from './bundled';
-
 export * from './distribution';
+
+// 2026-08-29 R03-002 收敛：utils / managers 统一出口
+export { PluginSecurityScanner } from './utils/pluginSecurityScanner';
+export type {
+  SecurityIssue,
+  SecurityScanResult,
+  DangerPattern,
+  RiskLevel,
+} from './utils/pluginSecurityScanner';
+export { readPluginConfig, writePluginConfig } from './utils/pluginSettings.js';
+export {
+  validatePluginConfig,
+  mergeWithDefaults,
+} from './utils/pluginConfigSchema.js';
+export type { PluginConfigSchema } from './utils/pluginConfigSchema.js';
+export { PluginManager } from './managers/PluginManager';

@@ -943,33 +943,35 @@ export async function* runStreamMessage(
         }
       }
 
+      // KB-EVENT-BATCH（2026-08-29）：thinking 事件防抖合并——推理模型 thinking
+      // chunk 可达数十万条，逐条落盘使 events.jsonl 膨胀到 90MB+，会话加载 O(N²)
+      // 卡死（"重启后打不开"）。累积后按条数/时间合并为一条事件，内容全保留。
+      // 声明在 try 外：catch（流中断）路径也需 flush（KB-EVENT-BATCH-FLUSH）。
+      const THINKING_BATCH_SIZE = 50;
+      const THINKING_BATCH_MS = 2000;
+      let thinkingAccum: string[] = [];
+      let lastThinkingFlushAt = Date.now();
+      const flushThinkingEvents = async () => {
+        if (thinkingAccum.length === 0) return;
+        const joined = thinkingAccum.join('');
+        thinkingAccum = [];
+        lastThinkingFlushAt = Date.now();
+        try {
+          const ts = await host.getStreamTailSeq(session.id);
+          await host.appendStreamEvent(session.id, {
+            type: 'assistant/thinking',
+            schemaVersion: 1,
+            seq: ts + 1,
+            time: Date.now(),
+            sessionId: session.id,
+            data: { content: joined, messageId: assistantMessageId },
+          });
+        } catch {
+          // @ignore-catch — 事件追加失败不阻断流式（CS03）
+        }
+      };
+
       try {
-        // KB-EVENT-BATCH（2026-08-29）：thinking 事件防抖合并——推理模型 thinking
-        // chunk 可达数十万条，逐条落盘使 events.jsonl 膨胀到 90MB+，会话加载 O(N²)
-        // 卡死（"重启后打不开"）。累积后按条数/时间合并为一条事件，内容全保留。
-        const THINKING_BATCH_SIZE = 50;
-        const THINKING_BATCH_MS = 2000;
-        let thinkingAccum: string[] = [];
-        let lastThinkingFlushAt = Date.now();
-        const flushThinkingEvents = async () => {
-          if (thinkingAccum.length === 0) return;
-          const joined = thinkingAccum.join('');
-          thinkingAccum = [];
-          lastThinkingFlushAt = Date.now();
-          try {
-            const ts = await host.getStreamTailSeq(session.id);
-            await host.appendStreamEvent(session.id, {
-              type: 'assistant/thinking',
-              schemaVersion: 1,
-              seq: ts + 1,
-              time: Date.now(),
-              sessionId: session.id,
-              data: { content: joined, messageId: assistantMessageId },
-            });
-          } catch {
-            // @ignore-catch — 事件追加失败不阻断流式（CS03）
-          }
-        };
         while (!result.done) {
           const chunk = result.value as string | ThinkingProviderChunk;
           if (typeof chunk === 'string') {
@@ -1035,6 +1037,17 @@ export async function* runStreamMessage(
         // 流结束：flush 剩余 thinking 增量（KB-EVENT-BATCH）
         await flushThinkingEvents();
       } catch (genErr) {
+        // KB-EVENT-BATCH-FLUSH（2026-08-29）：流中断/异常时 flush 防抖缓冲的
+        // thinking——原仅在正常结束路径 flush，中断（网络断/超时/abort）时最后
+        // 一批 thinking chunk 丢失且无日志。flush 后记录中断落盘。
+        try {
+          await flushThinkingEvents();
+          logger.warn('streamMessage:流中断，thinking 防抖缓冲已落盘', {
+            sessionId: session.id,
+          });
+        } catch {
+          // @ignore-catch — flush 失败不阻断错误处理主流程
+        }
         // 错误校准（估算 vs 真实对比 + 400 自动回写 DB）
         await applyErrorCalibration(
           genErr,

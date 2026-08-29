@@ -1077,7 +1077,14 @@ export class ReActToolLoop extends ReActLoop<
           await flushThinkingEvents();
         }
       }
-      next = await gen.next();
+      try {
+        next = await gen.next();
+      } catch (err) {
+        // KB-EVENT-BATCH-FLUSH（2026-08-29）：流中断/异常时 flush thinking 防抖缓冲，
+        // 避免最后一批 thinking 丢失（原异常路径直接跳过 flush），再传播异常。
+        await flushThinkingEvents().catch(() => {});
+        throw err;
+      }
     }
     // 流结束：flush 剩余 thinking 增量（KB-EVENT-BATCH）
     await flushThinkingEvents();

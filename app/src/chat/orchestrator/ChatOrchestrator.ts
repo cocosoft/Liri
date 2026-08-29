@@ -51,7 +51,7 @@ import type { SessionCurrentIdPort } from '../services/SessionLifecycleManager.j
 import type { MessageService } from '../services/MessageService.js';
 import type { UnifiedTokenTracker } from '../../core/tokenBudget/UnifiedTokenTracker.js';
 import type { ImageContextService } from '../services/ImageContextService.js';
-import type { HookChainManager } from '@modules/hooks/core/HookChainManager.js';
+import type { HookChainManager } from '@modules/hooks';
 import type { StreamingAutoCheckpoint } from '../services/StreamingAutoCheckpoint.js';
 import type { MaxOutputRetryState } from '@modules/ai';
 import type { DegradationState } from '@modules/ai';

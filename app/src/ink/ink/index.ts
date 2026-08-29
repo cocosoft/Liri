@@ -34,7 +34,7 @@ export { NoSelect } from './components/NoSelect';
 export { RawAnsi } from './components/RawAnsi';
 export { useInput } from './hooks/use-input';
 export { useApp } from './hooks/use-app';
-export { useTerminalSize } from '../../hooks/useTerminalSize';
+export { useTerminalSize } from '@modules/hooks';
 
 // 导出渲染函数
 export { default as render, renderSync, createRoot } from './root';

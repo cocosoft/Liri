@@ -6,7 +6,7 @@
 import type { ChatManager } from '../chat/ChatManager';
 import type { AnalyticsService } from '../analytics';
 import type { CostAnalyticsTracker } from '../analytics/CostAnalyticsTracker';
-import type { PostSamplingHookManager } from '../hooks/managers/PostSamplingHookManager';
+import type { PostSamplingHookManager } from '@modules/hooks';
 import type { TokenBudgetController } from '../core/tokenBudget/TokenBudgetController.js';
 import type { StopHookManager } from './StopHooks';
 import type { QueryConfigManager } from './config';

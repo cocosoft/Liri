@@ -33,7 +33,6 @@ export { HookChain } from './core/HookChain';
 export { HookChainManager } from './core/HookChainManager';
 
 export { useTerminalSize } from './useTerminalSize';
-
 export {
   createInputBufferStore,
   getDefaultInputBuffer,
@@ -102,3 +101,10 @@ export {
   usePluginInstallationNotification,
   useTaskCompletionNotification,
 } from './notifs';
+
+// 2026-08-29 R03-002 收敛：managers / cli / postSampling 统一出口
+export { ToolHookManager } from './managers/ToolHookManager';
+export { PostSamplingHookManager } from './managers/PostSamplingHookManager';
+export { createPostSamplingHookManager } from './managers/PostSamplingHookManager';
+export { createPostCallSummaryHook } from './postSampling/PostCallSummaryHook';
+export { initHooksCommand } from './cli/hooks';

@@ -35,7 +35,7 @@ import {
 } from 'fs';
 import { join, resolve } from 'path';
 import { execSync } from 'child_process';
-import { initHooksCommand } from '../hooks/cli/hooks';
+import { initHooksCommand } from '@modules/hooks';
 import { getHelpSystem } from '../docs/HelpSystem';
 import { getToolGuideSystem } from '../docs/ToolGuide';
 import { getPluginDevGuideSystem } from '../docs/PluginDevGuide';

@@ -10,7 +10,7 @@ import {
   createPermissionManager,
 } from '../permission/PermissionManager';
 import { GovernanceManager } from '../governance/managers/GovernanceManager';
-import { ToolHookManager } from '../hooks/managers/ToolHookManager';
+import { ToolHookManager } from '@modules/hooks';
 import { ToolHookContext } from '../hooks/types/ToolHooks';
 import { v4 as uuidv4 } from 'uuid';
 import { getLogger } from '@modules/monitoring';

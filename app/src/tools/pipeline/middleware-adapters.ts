@@ -18,7 +18,7 @@ import {
   PermissionManager,
   createPermissionManager,
 } from '../../permission/PermissionManager';
-import { ToolHookManager } from '../../hooks/managers/ToolHookManager';
+import { ToolHookManager } from '@modules/hooks';
 import type { ToolHookContext } from '../../hooks/types/ToolHooks';
 
 // ── Permission 中间件适配器 ───────────────────────────────────────────

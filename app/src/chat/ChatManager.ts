@@ -126,7 +126,7 @@ import { createCheckpointService } from './services/SessionCheckpointService.js'
 import { StreamingAutoCheckpoint } from './services/StreamingAutoCheckpoint.js';
 import { PlainTextCheckpoint } from './services/PlainTextCheckpoint.js';
 import { isCheckpointLogEnabled } from '../config/settings/CheckpointLogConfig';
-import { HookChainManager } from '@modules/hooks/core/HookChainManager.js';
+import { HookChainManager } from '@modules/hooks';
 import {
   recursivelySanitizeUnicode,
   sanitizeHTML,

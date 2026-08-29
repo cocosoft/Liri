@@ -10,7 +10,7 @@ import type { ChatSession } from '../chat/types/session.js';
 import {
   PostSamplingHookManager,
   createPostSamplingHookManager,
-} from '../hooks/managers/PostSamplingHookManager.js';
+} from '@modules/hooks';
 
 /**
  * QueryEngine 所需的 ChatManager 最小接口
@@ -46,7 +46,7 @@ import {
   createCostAnalyticsTracker,
   setCostAnalyticsTracker,
 } from '../analytics/CostAnalyticsTracker.js';
-import { createPostCallSummaryHook } from '../hooks/postSampling/PostCallSummaryHook.js';
+import { createPostCallSummaryHook } from '@modules/hooks';
 import {
   withRetry,
   categorizeAPIError,

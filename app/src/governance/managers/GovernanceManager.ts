@@ -14,7 +14,7 @@ import {
   PermissionManager,
   createPermissionManager,
 } from '@modules/permission/PermissionManager';
-import { ToolHookManager } from '@modules/hooks/managers/ToolHookManager';
+import { ToolHookManager } from '@modules/hooks';
 import { SandboxManager } from '@modules/sandbox';
 import { ToolFilterManager } from '@modules/tools';
 import { ToolRegistry, createToolRegistry } from '@modules/tools';

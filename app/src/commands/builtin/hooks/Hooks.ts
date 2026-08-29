@@ -49,8 +49,7 @@ async function getCoreHooks(): Promise<HookInfo[]> {
  */
 async function getConfiguredHooks(): Promise<HookInfo[]> {
   try {
-    const { HookChainManager } =
-      await import('@modules/hooks/core/HookChainManager.js');
+    const { HookChainManager } = await import('@modules/hooks');
     const manager = HookChainManager.getInstance();
     const entries = manager.getAllEntries();
 

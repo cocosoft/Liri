@@ -5,9 +5,9 @@
  * 用法：import { BaseTask, LocalBashTask, TaskRegistry } from '@modules/commands/task-unified';
  */
 
-export { BaseTask } from '@modules/tasks/BaseTask';
-export { LocalBashTask, looksLikePrompt } from '@modules/tasks/LocalBashTask';
-export type { LocalBashTaskOptions } from '@modules/tasks/LocalBashTask';
-export { TaskRegistry } from '@modules/tasks/TaskRegistry';
+export { BaseTask } from '@modules/tasks';
+export { LocalBashTask, looksLikePrompt } from '@modules/tasks';
+export type { LocalBashTaskOptions } from '@modules/tasks';
+export { TaskRegistry } from '@modules/tasks';
 export { TaskStatus } from '@modules/tasks/types';
 export type { TaskState } from '@modules/tasks/types';

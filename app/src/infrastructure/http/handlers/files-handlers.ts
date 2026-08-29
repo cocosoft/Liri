@@ -23,9 +23,9 @@ import type http from 'http';
 import type { Dirent } from 'fs';
 import path from 'path';
 import type { HandlerCtx } from './handler-utils';
-import { SandboxPermission } from '@modules/sandbox/SandboxTypes';
+import { SandboxPermission } from '@modules/sandbox';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
-import { createChatManager } from '@modules/chat/ChatManager';
+import { createChatManager } from '@modules/chat';
 import {
   attachmentManager,
   AttachmentSource,

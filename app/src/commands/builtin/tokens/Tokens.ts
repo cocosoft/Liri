@@ -131,8 +131,7 @@ function showHelp(): CommandResult {
  * 处理 --breakdown 模式
  */
 async function handleBreakdown(): Promise<CommandResult> {
-  const { getCostRecordRepository } =
-    await import('@modules/cost/CostRecordRepository.js');
+  const { getCostRecordRepository } = await import('@modules/cost');
   const { getCostAnalyticsTracker } =
     await import('@modules/analytics/CostAnalyticsTracker.js');
 
@@ -155,8 +154,7 @@ async function handleBreakdown(): Promise<CommandResult> {
  * 处理 --json 模式
  */
 async function handleJson(): Promise<CommandResult> {
-  const { getCostRecordRepository } =
-    await import('@modules/cost/CostRecordRepository.js');
+  const { getCostRecordRepository } = await import('@modules/cost');
   const { getCostAnalyticsTracker } =
     await import('@modules/analytics/CostAnalyticsTracker.js');
 
@@ -220,8 +218,7 @@ async function handleReset(): Promise<CommandResult> {
  * 处理默认模式 — 显示汇总概览
  */
 async function handleOverview(): Promise<CommandResult> {
-  const { getCostRecordRepository } =
-    await import('@modules/cost/CostRecordRepository.js');
+  const { getCostRecordRepository } = await import('@modules/cost');
   const { getCostAnalyticsTracker } =
     await import('@modules/analytics/CostAnalyticsTracker.js');
 

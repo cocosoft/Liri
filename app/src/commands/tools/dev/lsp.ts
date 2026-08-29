@@ -8,7 +8,7 @@ import { extname, resolve } from 'path';
 import { resolveProjectRoot } from '@modules/core';
 import type { Command } from '@modules/commands';
 import { getToolManager } from '@modules/tools/ToolManager.js';
-import { feature } from '@modules/core/featureFlags.js';
+import { feature } from '@modules/core';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('commands:tools:dev:lsp');

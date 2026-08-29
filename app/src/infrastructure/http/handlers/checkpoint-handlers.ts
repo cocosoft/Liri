@@ -29,7 +29,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { TAORLoop } from '../../../query/TAORLoop.js';
 import type { HandlerCtx } from './handler-utils';
-import { createChatManager } from '@modules/chat/ChatManager';
+import { createChatManager } from '@modules/chat';
 
 /** 活跃的 TAORLoop 实例注册表（由 ChatManager 和 PDCA 注册） */
 const activeLoops = new Map<string, TAORLoop>();

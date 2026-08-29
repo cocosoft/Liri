@@ -118,7 +118,7 @@ export async function handleCreateCron(
       return;
     }
 
-    const { parseSchedule } = await import('@modules/chronos/cron');
+    const { parseSchedule } = await import('@modules/chronos');
     const { computeNextCronRun } =
       await import('@modules/tasks/cron/CronParser');
     const { CronJobStore } = await import('@modules/tasks/cron/CronJobStore');

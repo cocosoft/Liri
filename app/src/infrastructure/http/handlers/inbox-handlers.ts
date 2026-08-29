@@ -21,7 +21,7 @@ import {
   type InboxItemStatus,
   type InboxItemType,
 } from '@modules/runtime/InboxManager.js';
-import { getApprovedCommandRegistry } from '@modules/permission/ApprovedCommandRegistry';
+import { getApprovedCommandRegistry } from '@modules/permission';
 
 const logger = getLogger('http:inbox');
 
@@ -240,8 +240,7 @@ export async function handleReplyInbox(
       const sessionId = current.sessionId;
       if (taskId && sessionId) {
         try {
-          const { getOrCreateOrchestrator } =
-            await import('@modules/tasks/LongRunningTaskOrchestrator.js');
+          const { getOrCreateOrchestrator } = await import('@modules/tasks');
           const orchestrator = getOrCreateOrchestrator(taskId);
           if (orchestrator) {
             if (reply === 'approve' || selectedOption === 'approve') {
@@ -402,8 +401,7 @@ export async function handleUndoApproval(
     // 如果 PDCA 审批已被触发恢复，尝试暂停
     if (item.source === 'pdca' && item.metadata?.taskId) {
       try {
-        const { getOrCreateOrchestrator } =
-          await import('@modules/tasks/LongRunningTaskOrchestrator.js');
+        const { getOrCreateOrchestrator } = await import('@modules/tasks');
         const orch = getOrCreateOrchestrator(item.metadata.taskId as string);
         if (orch) {
           await orch.abort();

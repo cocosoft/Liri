@@ -36,8 +36,8 @@ import { cronToHuman } from './cron';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 import { CronFileWatcher, cronFileWatcher } from './watcher/CronFileWatcher';
-import { taskRegistry } from '@modules/tasks/TaskRegistry';
-import { BaseTask } from '@modules/tasks/BaseTask';
+import { taskRegistry } from '@modules/tasks';
+import { BaseTask } from '@modules/tasks';
 import { TaskType, TaskStatus } from '@modules/tasks/types';
 import { globalEventBus, SystemEvents } from '@modules/core';
 

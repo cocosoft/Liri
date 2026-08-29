@@ -8,9 +8,9 @@
 import { Tool, ToolParam } from '../types/Tool';
 import { ToolResult, createToolResult } from '../types/ToolResult';
 import { ToolUseContext } from '../types/ToolUseContext';
-import { taskRegistry, DisplayStatus } from '@modules/tasks/TaskRegistry';
+import { taskRegistry, DisplayStatus } from '@modules/tasks';
 import { TaskStatus } from '@modules/tasks/types';
-import { NoteTask } from '@modules/tasks/NoteTask';
+import { NoteTask } from '@modules/tasks';
 
 const TASK_TOOL_PARAMS: ToolParam[] = [
   {

@@ -208,8 +208,7 @@ export async function handlePdcaStart(
     };
     writeWorkItem(workItem);
 
-    const { getOrCreateOrchestrator } =
-      await import('@modules/tasks/LongRunningTaskOrchestrator');
+    const { getOrCreateOrchestrator } = await import('@modules/tasks');
     const orchestrator = getOrCreateOrchestrator(taskId);
 
     // 异步执行 PDCA，不阻塞 HTTP 响应
@@ -276,7 +275,7 @@ export async function handlePdcaStatus(
   try {
     let orchestrator: OrchestratorLike | null = null;
     try {
-      const mod = await import('@modules/tasks/LongRunningTaskOrchestrator');
+      const mod = await import('@modules/tasks');
       orchestrator = (mod.getOrchestrator(taskId) ??
         null) as OrchestratorLike | null;
     } catch (err) {
@@ -316,7 +315,7 @@ export async function handlePdcaAudit(
   try {
     let orchestrator: OrchestratorLike | null = null;
     try {
-      const m = await import('@modules/tasks/LongRunningTaskOrchestrator');
+      const m = await import('@modules/tasks');
       orchestrator = (m.getOrchestrator(taskId) ??
         null) as OrchestratorLike | null;
     } catch (err) {
@@ -350,7 +349,7 @@ export async function handlePdcaReviewStep(
   try {
     let orchestrator: OrchestratorLike | null = null;
     try {
-      const m = await import('@modules/tasks/LongRunningTaskOrchestrator');
+      const m = await import('@modules/tasks');
       orchestrator = (m.getOrchestrator(taskId) ??
         null) as OrchestratorLike | null;
     } catch (err) {
@@ -387,7 +386,7 @@ export async function handlePdcaDecideStep(
     const { decision } = JSON.parse(body);
     let orchestrator: OrchestratorLike | null = null;
     try {
-      const m = await import('@modules/tasks/LongRunningTaskOrchestrator');
+      const m = await import('@modules/tasks');
       orchestrator = (m.getOrchestrator(taskId) ??
         null) as OrchestratorLike | null;
     } catch (err) {
@@ -433,7 +432,7 @@ export async function handlePdcaList(
 
     let list: unknown[] = [];
     try {
-      const m = await import('@modules/tasks/LongRunningTaskOrchestrator');
+      const m = await import('@modules/tasks');
       list = m
         .getAllOrchestrators()
         .map((o: unknown) => (o as OrchestratorLike).getStatus());
@@ -476,7 +475,7 @@ export async function handlePdcaMetrics(
   try {
     let tasks: Array<{ taskId: string; metrics: PdcaMetrics }> = [];
     try {
-      const m = await import('@modules/tasks/LongRunningTaskOrchestrator');
+      const m = await import('@modules/tasks');
       tasks = m.getAllOrchestrators().map((o) => {
         const status = o.getStatus() as { taskId?: string };
         return {
@@ -545,7 +544,7 @@ export async function handlePdcaConfirm(
   try {
     let orchestrator: OrchestratorLike | null = null;
     try {
-      const m = await import('@modules/tasks/LongRunningTaskOrchestrator');
+      const m = await import('@modules/tasks');
       orchestrator = (m.getOrchestrator(taskId) ??
         null) as OrchestratorLike | null;
     } catch (err) {

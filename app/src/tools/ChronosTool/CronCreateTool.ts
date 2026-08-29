@@ -180,7 +180,7 @@ export class CronCreateTool {
           }
 
           // 解析调度
-          const { parseSchedule } = await import('@modules/chronos/cron');
+          const { parseSchedule } = await import('@modules/chronos');
           const { computeNextCronRun } =
             await import('@modules/tasks/cron/CronParser');
           const { CronJobStore } =

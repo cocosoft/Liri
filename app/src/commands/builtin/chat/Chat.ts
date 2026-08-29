@@ -8,7 +8,7 @@ import { getLogger } from '@modules/monitoring';
 import { modelManager } from '@modules/ai';
 import { providerRegistry } from '@modules/ai';
 import { ToolAwareClient } from '@modules/ai';
-import { costTracker } from '@modules/cost/CostTracker.js';
+import { costTracker } from '@modules/cost';
 import { getConfig, configManager } from '@modules/config/index.js';
 import { ToolRegistry } from '@modules/tools/index.js';
 import { FileReadTool } from '@modules/tools/FileReadTool/FileReadTool.js';

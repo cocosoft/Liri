@@ -12,7 +12,7 @@ import {
 } from './handler-utils';
 import { handleError } from '@modules/error';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
-import { SandboxPermission } from '@modules/sandbox/SandboxTypes';
+import { SandboxPermission } from '@modules/sandbox';
 
 /** v1.3: 后端 MemoryType → 前端类型名映射 */
 const MEMORY_TYPE_TO_FRONTEND: Record<string, string> = {
@@ -25,15 +25,14 @@ const MEMORY_TYPE_TO_FRONTEND: Record<string, string> = {
 
 // ---- Memory Manager Singleton ----
 
-let memoryManagerInstance:
-  | import('@modules/memory/MemoryManager').MemoryManagerImpl
-  | null = null;
+let memoryManagerInstance: import('@modules/memory').MemoryManagerImpl | null =
+  null;
 
 async function getMemoryManager(): Promise<
-  import('@modules/memory/MemoryManager').MemoryManagerImpl
+  import('@modules/memory').MemoryManagerImpl
 > {
   if (!memoryManagerInstance) {
-    const { MemoryManagerImpl } = await import('@modules/memory/MemoryManager');
+    const { MemoryManagerImpl } = await import('@modules/memory');
     memoryManagerInstance = new MemoryManagerImpl();
   }
   return memoryManagerInstance;

@@ -13,7 +13,7 @@ import type {
   ValidationResult,
 } from '../types';
 import { createToolResult } from '../types/ToolResult';
-import { taskRegistry } from '@modules/tasks/TaskRegistry';
+import { taskRegistry } from '@modules/tasks';
 import { TaskStatus } from '@modules/tasks/types';
 
 import { getLogger } from '@modules/monitoring';

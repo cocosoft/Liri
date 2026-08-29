@@ -15,7 +15,7 @@ import type { ModelPriceTable } from './types';
 import { ModelRegistry } from '@modules/ai';
 // eslint-disable-next-line module-registry/no-direct-module-import
 import { calculateCost } from '@modules/cost/calculateCost.js';
-import type { ModelPricing } from '@modules/cost/ModelPricing.js';
+import type { ModelPricing } from '@modules/cost';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('core:tokenBudget:PriceManager');

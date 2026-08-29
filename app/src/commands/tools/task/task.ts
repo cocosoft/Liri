@@ -4,10 +4,10 @@
  */
 
 import type { Command } from '@modules/commands';
-import { taskRegistry } from '@modules/tasks/TaskRegistry.js';
+import { taskRegistry } from '@modules/tasks';
 import { TaskStatus } from '@modules/tasks/types.js';
-import { BaseTask } from '@modules/tasks/BaseTask.js';
-import { NoteTask } from '@modules/tasks/NoteTask.js';
+import { BaseTask } from '@modules/tasks';
+import { NoteTask } from '@modules/tasks';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('commands:tools:task:task');

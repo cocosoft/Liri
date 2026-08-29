@@ -657,8 +657,7 @@ export class ModelRouter {
     svc: AppModelConfigService
   ): Promise<void> {
     try {
-      const { configManager } =
-        await import('@modules/config/ConfigManager.js');
+      const { configManager } = await import('@modules/config');
 
       const models = configManager.getConfigValue<{
         current?: string;

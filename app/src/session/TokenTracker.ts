@@ -21,7 +21,7 @@ import { globalEventBus, SystemEvents } from '../core/events/EventBus';
 import type { CostRecordedEvent } from '../core/events/EventBus';
 // eslint-disable-next-line module-registry/no-direct-module-import
 import { calculateTotalCost } from '@modules/cost/calculateCost.js';
-import type { ModelPricing } from '@modules/cost/ModelPricing.js';
+import type { ModelPricing } from '@modules/cost';
 
 const logger = getLogger('session:tokenTracker');
 

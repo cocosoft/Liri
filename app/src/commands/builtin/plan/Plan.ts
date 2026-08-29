@@ -1,7 +1,7 @@
 import type { CommandContext, CommandResult } from '@modules/commands';
-import { taskRegistry } from '@modules/tasks/TaskRegistry.js';
+import { taskRegistry } from '@modules/tasks';
 import { TaskStatus } from '@modules/tasks/types.js';
-import { NoteTask } from '@modules/tasks/NoteTask.js';
+import { NoteTask } from '@modules/tasks';
 
 function statusIcon(s: TaskStatus): string {
   switch (s) {

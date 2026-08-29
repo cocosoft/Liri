@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { useSettings } from '@modules/hooks/useSettings';
+import { useSettings } from '@modules/hooks';
 import { SettingRow } from './SettingRow';
 import { ButtonGroup } from './ButtonGroup';
 

@@ -9,8 +9,8 @@
  */
 import type { ChatSession } from '../types/session';
 import type { SendMessageOptions } from '../types/message';
-import { taskRegistry } from '@modules/tasks/TaskRegistry';
-import { taskOrchestrator } from '@modules/tasks/TaskOrchestrator';
+import { taskRegistry } from '@modules/tasks';
+import { taskOrchestrator } from '@modules/tasks';
 
 export interface ITaskFacade {
   /**

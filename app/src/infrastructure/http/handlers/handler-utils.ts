@@ -37,8 +37,8 @@ import {
   resolveAttachmentsDir,
   resolvePyappHome,
 } from '@modules/core';
-import { globalWorkspaceManager } from '@modules/sandbox/WorkspaceManager';
-import { SandboxPermission } from '@modules/sandbox/SandboxTypes';
+import { globalWorkspaceManager } from '@modules/sandbox';
+import { SandboxPermission } from '@modules/sandbox';
 
 const logger = getLogger('http:handlerUtils');
 

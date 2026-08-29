@@ -8,13 +8,13 @@ import type {
   BackgroundTaskInfo,
   BackgroundTaskStatus,
 } from '@modules/tasks/types.js';
-import { taskRegistry } from '@modules/tasks/TaskRegistry.js';
+import { taskRegistry } from '@modules/tasks';
 import {
   TaskType,
   TaskStatus,
   isTerminalTaskStatus,
 } from '@modules/tasks/types.js';
-import type { BaseTask } from '@modules/tasks/BaseTask.js';
+import type { BaseTask } from '@modules/tasks';
 
 import { handleError } from '@modules/error';
 import { getLogger } from '@modules/monitoring';

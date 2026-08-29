@@ -6,7 +6,7 @@
 
 import type { Command } from '@modules/commands';
 import { getToolManager } from '@modules/tools/ToolManager.js';
-import { feature } from '@modules/core/featureFlags.js';
+import { feature } from '@modules/core';
 import { notebookManager } from '@modules/tools/notebook/NotebookManager.js';
 
 import { getLogger } from '@modules/monitoring';

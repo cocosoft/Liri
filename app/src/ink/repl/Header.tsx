@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Text } from '../../ink';
-import type { ChatManager } from '@modules/chat/ChatManager';
+import type { ChatManager } from '@modules/chat';
 import {
   getTotalInputTokens,
   getTotalOutputTokens,
   getTotalCacheReadInputTokens,
   getTotalCacheCreationInputTokens,
   getTotalCostUSD,
-} from '@modules/cost/CostTracker.js';
+} from '@modules/cost';
 
 interface HeaderProps {
   chatManager: ChatManager;

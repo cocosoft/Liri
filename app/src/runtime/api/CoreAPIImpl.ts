@@ -51,8 +51,8 @@ import type {
 import { getConverterEngine } from '@modules/tools/converter/engine/ConverterEngine';
 import { FileTypeDetector } from '@modules/tools/converter/engine/FileTypeDetector';
 import { createPermissionManager } from '@modules/permission/PermissionManager';
-import type { ChatManager } from '@modules/chat/ChatManager';
-import { createChatManager } from '@modules/chat/ChatManager';
+import type { ChatManager } from '@modules/chat';
+import { createChatManager } from '@modules/chat';
 import { MessageToEventMigrator } from '@modules/session/storage/MessageToEventMigrator';
 import { EventLogStorage } from '@modules/session/storage/EventLogStorage';
 import { deriveMessagesFromEvents } from '@modules/session/storage/EventMessageDeriver';

@@ -25,7 +25,7 @@ import {
   createHandlerCtx,
   setBroadcastHandler,
 } from './handlers/handler-utils';
-import { SandboxPermission } from '@modules/sandbox/SandboxTypes';
+import { SandboxPermission } from '@modules/sandbox';
 import { dispatchRoute } from './handlers/route-table';
 import {
   verifyRequestAuth,

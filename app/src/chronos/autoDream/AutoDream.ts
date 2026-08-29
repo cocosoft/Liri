@@ -17,12 +17,12 @@ import { configManager } from '@modules/config';
 import { buildConsolidationPrompt } from './ConsolidationPrompt';
 import { DreamAgentExecutor } from './DreamAgentExecutor';
 import type { DreamExecutionResult } from './DreamAgentExecutor';
-import { taskRegistry } from '@modules/tasks/TaskRegistry';
+import { taskRegistry } from '@modules/tasks';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 
 const logger = getLogger('AutoDream');
-import { BaseTask } from '@modules/tasks/BaseTask';
+import { BaseTask } from '@modules/tasks';
 import { TaskType, TaskStatus } from '@modules/tasks/types';
 import { globalEventBus, SystemEvents } from '@modules/core';
 

@@ -1370,6 +1370,25 @@ class ArchitectureLinter {
             '/node_modules/', // 跳过
         ];
 
+        // 规范子入口豁免（2026-08-29）：项目规则/架构文档指定的唯一入口子路径，非违规
+        //   - core/paths：路径注册表唯一入口（project_rules §1.13）
+        //   - error/handleError：错误处理唯一入口（§1.9）；error/types：AppError 标准错误类
+        //   - monitoring/logs：Logger 唯一入口（§1.8）
+        //   - core/events：全局事件总线；monitoring/otel：可观测性
+        //   - */types：类型子路径（TS 生态普遍模式，类型导出通常不并入 index）
+        const canonicalEntryKeys = new Set([
+            'core/paths', 'core/events', 'core/external', 'core/tokenBudget',
+            'error/handleError', 'error/types',
+            'monitoring/logs', 'monitoring/otel', 'monitoring/health',
+        ]);
+
+        // 目标模块无 index.ts（无统一出口）→ 子路径导入是唯一方式，非违规（2026-08-29）
+        // 现状：services/utils/runtime/gateway/llm/remote/subagent/skillCode 均无 index.ts
+        const moduleHasIndex = new Map<string, boolean>();
+        for (const m of moduleRoots) {
+            moduleHasIndex.set(m, existsSync(join(this.srcPath, m, 'index.ts')));
+        }
+
         const violations: Array<{ importer: string; targetModule: string; subDir: string }> = [];
 
         for (const file of this.allFiles) {
@@ -1392,8 +1411,13 @@ class ArchitectureLinter {
                 if (targetModule === importerModule) continue;
                 // 如果目标不在已知模块根中，跳过（可能是第三方包）
                 if (!moduleRoots.has(targetModule)) continue;
+                // 目标模块无 index.ts（无统一出口）→ 子路径导入是唯一方式，合法
+                if (!moduleHasIndex.get(targetModule)) continue;
                 // 如果 subPath 是 index 或 index.js，不算违规
                 if (subPath === 'index' || subPath === 'index.js') continue;
+                // 规范子入口豁免：类型子路径（*/types）与唯一入口白名单（core/paths 等）
+                if (subPath.startsWith('types') || subPath.startsWith('types/')) continue;
+                if (canonicalEntryKeys.has(`${targetModule}/${subPath.split('/')[0]}`)) continue;
 
                 violations.push({
                     importer: relPath,
@@ -1420,6 +1444,11 @@ class ArchitectureLinter {
                 // 如果目标是不同类型模块或非模块根，跳过
                 if (!moduleRoots.has(targetModule)) continue;
                 if (targetModule === importerModule) continue; // 同模块，跳过
+                // 目标模块无 index.ts（无统一出口）→ 子路径导入是唯一方式，合法
+                if (!moduleHasIndex.get(targetModule)) continue;
+                // 规范子入口豁免：类型子路径与唯一入口白名单（与 @modules/ 分支一致）
+                if (subDir === 'types') continue;
+                if (canonicalEntryKeys.has(`${targetModule}/${subDir}`)) continue;
 
                 // 跳过 index 入口
                 const fileName = parts[parts.length - 1];

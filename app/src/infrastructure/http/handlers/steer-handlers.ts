@@ -92,7 +92,7 @@ export async function handleSteerSession(
 
     // 注入 steering 消息到 TAORLoop
     try {
-      const { createChatManager } = await import('@modules/chat/ChatManager');
+      const { createChatManager } = await import('@modules/chat');
       // Note: 无法获取运行中的 ChatManager 单例，steering 注入当前不可用
       // TODO: 通过 DI 容器获取 ChatManager 实例
       const chatManager = createChatManager();

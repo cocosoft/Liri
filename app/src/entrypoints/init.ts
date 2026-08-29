@@ -26,10 +26,7 @@
 
 import { configManager, enableConfigs } from '@modules/config';
 import { initializeCommands } from '@modules/commands';
-import {
-  profileCheckpoint,
-  profileReport,
-} from '@modules/performance/StartupProfiler.js';
+import { profileCheckpoint, profileReport } from '@modules/performance';
 // @ts-ignore
 import * as gracefulShutdownModule from '@modules/utils/gracefulShutdown.js';
 const { gracefulShutdown, setupGracefulShutdown, registerShutdownHandler } =

@@ -5,7 +5,7 @@
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('StartupPrefetcher');
-import { profileCheckpoint } from '@modules/performance/StartupProfiler.js';
+import { profileCheckpoint } from '@modules/performance';
 import {
   getStartupState,
   getSessionId,

@@ -7,7 +7,7 @@
  * /voice enable / disable / status / help
  */
 
-import { configManager } from '@modules/config/ConfigManager.js';
+import { configManager } from '@modules/config';
 import { getLogger } from '@modules/monitoring';
 import type { CommandContext } from '@modules/commands';
 import { createVoiceServiceBridge } from '../../../voice/VoiceServiceBridge';

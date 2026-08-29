@@ -10,7 +10,7 @@ import {
   addCronTask,
   removeCronTasks,
 } from '@modules/chronos/CronTasks';
-import { cronToHuman, parseCronExpression } from '@modules/chronos/cron';
+import { cronToHuman, parseCronExpression } from '@modules/chronos';
 import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('ChronosCLI');

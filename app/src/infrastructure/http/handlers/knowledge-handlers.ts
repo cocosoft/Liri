@@ -10,7 +10,7 @@ import {
   checkFilePathPermission,
   notifyFileChanged,
 } from './handler-utils';
-import { SandboxPermission } from '@modules/sandbox/SandboxTypes';
+import { SandboxPermission } from '@modules/sandbox';
 import { sanitizeFileName } from '@modules/services/file/fileNaming';
 
 import { handleError } from '@modules/error';

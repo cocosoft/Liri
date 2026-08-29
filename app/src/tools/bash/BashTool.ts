@@ -54,7 +54,7 @@ import {
   ApprovedCommandRegistry,
   getApprovedCommandRegistry,
   hashCommandForExecution,
-} from '@modules/permission/ApprovedCommandRegistry';
+} from '@modules/permission';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('tools\bash\BashTool');

@@ -7,7 +7,7 @@ import { priceManager } from './PriceManager';
 import type { ModelPriceTable, TokenUsageDetail } from './types';
 // eslint-disable-next-line module-registry/no-direct-module-import
 import { calculateTotalCost } from '@modules/cost/calculateCost.js';
-import type { ModelPricing } from '@modules/cost/ModelPricing.js';
+import type { ModelPricing } from '@modules/cost';
 
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';

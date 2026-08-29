@@ -19,11 +19,8 @@ import {
   SandboxPermission,
   createDefaultSandboxConfig,
   createSandboxExecuteOptions,
-} from '@modules/sandbox/SandboxTypes';
-import type {
-  Sandbox,
-  SandboxExecuteResult,
-} from '@modules/sandbox/SandboxTypes';
+} from '@modules/sandbox';
+import type { Sandbox, SandboxExecuteResult } from '@modules/sandbox';
 
 const logger = getLogger('tools:sandboxRouter');
 

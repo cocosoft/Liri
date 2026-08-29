@@ -2,8 +2,8 @@ import { getLogger } from '@modules/monitoring';
 import { getMonitoringService } from '@modules/monitoring';
 import type { HealthStatus as HealthStatusValue } from '@modules/core/health/types.js';
 import type { IPCService } from './IPCService';
-import { taskRegistry } from '@modules/tasks/TaskRegistry';
-import { BaseTask } from '@modules/tasks/BaseTask';
+import { taskRegistry } from '@modules/tasks';
+import { BaseTask } from '@modules/tasks';
 import { TaskType, TaskStatus } from '@modules/tasks/types';
 import { globalEventBus, SystemEvents } from '@modules/core';
 

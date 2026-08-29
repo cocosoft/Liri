@@ -11,7 +11,7 @@
 import { getLogger } from '@modules/monitoring/logs/Logger.js';
 import { handleError } from '@modules/error/handleError';
 import { initModuleBridge } from './ModuleBridgeInit.js';
-import { createAcpWebSocketServer } from '@modules/acp/server.js';
+import { createAcpWebSocketServer } from '@modules/acp';
 import type { ModuleBridgeDependencies } from './ModuleBridgeRuntime.js';
 import type { AcpWebSocketServerConfig } from '@modules/acp/types.js';
 import { configManager } from '@modules/config';

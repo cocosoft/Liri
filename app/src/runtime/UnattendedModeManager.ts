@@ -8,7 +8,7 @@
  */
 
 import { getLogger } from '@modules/monitoring';
-import { FEATURE_FLAGS } from '@modules/core/featureFlags.js';
+import { FEATURE_FLAGS } from '@modules/core';
 import { inboxManager } from '@modules/runtime/InboxManager.js';
 import type { InboxItemType } from '@modules/runtime/InboxManager.js';
 

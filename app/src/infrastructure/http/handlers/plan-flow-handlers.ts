@@ -33,8 +33,7 @@ export async function handleListPlans(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { taskOrchestrator } =
-      await import('@modules/tasks/TaskOrchestrator');
+    const { taskOrchestrator } = await import('@modules/tasks');
     await taskOrchestrator['initialize']();
     const url = new URL(req.url ?? '', 'http://localhost');
     const workspaceId = url.searchParams.get('workspaceId');
@@ -56,8 +55,7 @@ export async function handleCreatePlan(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { taskOrchestrator } =
-      await import('@modules/tasks/TaskOrchestrator');
+    const { taskOrchestrator } = await import('@modules/tasks');
     const body = await readRequestBody(req);
     const { description, steps, sessionId, workspaceId } = JSON.parse(body);
     const plan = taskOrchestrator.createPlan(
@@ -85,8 +83,7 @@ export async function handleGetPlan(
   planId: string
 ): Promise<void> {
   try {
-    const { taskOrchestrator } =
-      await import('@modules/tasks/TaskOrchestrator');
+    const { taskOrchestrator } = await import('@modules/tasks');
     const plan = taskOrchestrator.getPlan(planId);
     if (!plan) {
       res.writeHead(404);
@@ -110,8 +107,7 @@ export async function handleExecutePlan(
   planId: string
 ): Promise<void> {
   try {
-    const { taskOrchestrator } =
-      await import('@modules/tasks/TaskOrchestrator');
+    const { taskOrchestrator } = await import('@modules/tasks');
     const plan = taskOrchestrator.getPlan(planId);
     if (!plan) {
       res.writeHead(404);
@@ -141,8 +137,7 @@ export async function handleAbortPlan(
   planId: string
 ): Promise<void> {
   try {
-    const { taskOrchestrator } =
-      await import('@modules/tasks/TaskOrchestrator');
+    const { taskOrchestrator } = await import('@modules/tasks');
     const plan = taskOrchestrator.getPlan(planId);
     if (!plan) {
       res.writeHead(404);
@@ -192,8 +187,7 @@ export async function handleGetPlanDAG(
   planId: string
 ): Promise<void> {
   try {
-    const { taskOrchestrator } =
-      await import('@modules/tasks/TaskOrchestrator');
+    const { taskOrchestrator } = await import('@modules/tasks');
     const plan = taskOrchestrator.getPlan(planId);
     if (!plan) {
       res.writeHead(404, { 'Content-Type': 'application/json' });

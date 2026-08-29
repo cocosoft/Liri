@@ -34,10 +34,10 @@
 import type http from 'http';
 import { sendError, readRequestBody } from './handler-utils';
 import { configManager } from '@modules/config';
-import { SandboxManager } from '@modules/sandbox/SandboxManager';
-import { processRegistry } from '@modules/sandbox/ProcessRegistry';
-import { resourceLimitManager } from '@modules/sandbox/ResourceLimitManager';
-import { globalWorkspaceManager } from '@modules/sandbox/WorkspaceManager';
+import { SandboxManager } from '@modules/sandbox';
+import { processRegistry } from '@modules/sandbox';
+import { resourceLimitManager } from '@modules/sandbox';
+import { globalWorkspaceManager } from '@modules/sandbox';
 import { securityIntegrationService } from '@modules/security/SecurityIntegration';
 
 /** 沙箱权限级别（与 PERMISSION_SANDBOX_DEFAULT 取值一致） */

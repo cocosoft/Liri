@@ -9,13 +9,13 @@
 import type { Command } from '@modules/commands';
 import { getToolManager } from '@modules/tools/ToolManager.js';
 import { AgentTool } from '@modules/tools/AgentTool/AgentTool.js';
-import { taskRegistry } from '@modules/tasks/TaskRegistry.js';
+import { taskRegistry } from '@modules/tasks';
 import {
   TaskStatus,
   type BackgroundTaskInfo,
   type BackgroundTaskStatus,
 } from '@modules/tasks/types.js';
-import type { BaseTask } from '@modules/tasks/BaseTask.js';
+import type { BaseTask } from '@modules/tasks';
 import { getSubAgentEngine } from '@modules/tools/AgentTool/SubAgentEngine.js';
 
 import { getLogger } from '@modules/monitoring';

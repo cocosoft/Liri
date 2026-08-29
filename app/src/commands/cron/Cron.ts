@@ -15,7 +15,7 @@ import {
   parseSchedule,
   scheduleToCron,
   scheduleToDisplayText,
-} from '@modules/chronos/cron';
+} from '@modules/chronos';
 import { resolveDbPath } from '@modules/core';
 import { configManager } from '@modules/config';
 

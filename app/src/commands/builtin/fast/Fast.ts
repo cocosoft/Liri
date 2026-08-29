@@ -9,7 +9,7 @@
  * 更短的响应时间，状态持久化到 ConfigManager。
  */
 
-import { configManager } from '@modules/config/ConfigManager.js';
+import { configManager } from '@modules/config';
 import type { CommandContext, CommandResult } from '@modules/commands';
 
 import { getLogger } from '@modules/monitoring';

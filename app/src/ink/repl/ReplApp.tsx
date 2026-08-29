@@ -11,14 +11,14 @@ import {
   getTotalOutputTokens,
   getTotalCacheReadInputTokens,
   getTotalCacheCreationInputTokens,
-} from '@modules/cost/CostTracker.js';
+} from '@modules/cost';
 import type {
   DisplayMessage,
   StreamStats,
   StreamState,
   ToolCallInfo,
 } from './types';
-import type { ChatManager } from '@modules/chat/ChatManager';
+import type { ChatManager } from '@modules/chat';
 import type {
   ChatStreamChunk,
   QuestionData,

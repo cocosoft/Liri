@@ -9,7 +9,7 @@
  * cc_code/backend/hooks/useVimInput.ts 驱动。
  */
 
-import { configManager } from '@modules/config/ConfigManager.js';
+import { configManager } from '@modules/config';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('commands:builtin:vim:Vim');

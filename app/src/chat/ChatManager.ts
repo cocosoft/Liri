@@ -80,13 +80,13 @@ import { PdcaLauncher } from './launchers/PdcaLauncher';
 import { ChatOrchestrator } from './orchestrator/ChatOrchestrator.js';
 
 const logger = getLogger('chat:manager');
-import { SimpleMutex } from '@modules/core/SimpleMutex';
+import { SimpleMutex } from '@modules/core';
 import { ImplicitEngineHook } from '../project/ImplicitEngineHook';
 import { createProjectStore } from '../workspace/ProjectStore.js';
 import { WorkItemStore } from '../workspace/WorkItemStore.js';
 import { resolveDataDir } from '@modules/core/paths';
 import { join } from 'path';
-import { getModelPricing } from '@modules/cost/ModelPricing.js';
+import { getModelPricing } from '@modules/cost';
 // eslint-disable-next-line module-registry/no-direct-module-import
 import { calculateTotalCost } from '@modules/cost/calculateCost.js';
 
@@ -247,8 +247,8 @@ import {
 } from '@modules/security';
 import type { FileOperation, FileChange } from '@modules/security';
 import { FILE_WRITE_TOOL_NAME, FILE_EDIT_TOOL_NAME } from '@modules/constants';
-import { taskRegistry } from '@modules/tasks/TaskRegistry';
-import { taskOrchestrator } from '@modules/tasks/TaskOrchestrator';
+import { taskRegistry } from '@modules/tasks';
+import { taskOrchestrator } from '@modules/tasks';
 
 /**
  * 聊天管理器实现
@@ -2657,8 +2657,7 @@ export class ChatManagerImpl implements ChatManager {
     sessionId: string
   ): Promise<void> {
     try {
-      const { MemoryManagerImpl } =
-        await import('@modules/memory/MemoryManager');
+      const { MemoryManagerImpl } = await import('@modules/memory');
       const mm = new MemoryManagerImpl();
       const memorableContent = `用户: ${userContent}\n助手: ${assistantContent}`;
       await mm.createMemory({

@@ -30,7 +30,7 @@
 
 import type http from 'http';
 import { sendError } from './handler-utils';
-import { taskRegistry } from '@modules/tasks/TaskRegistry';
+import { taskRegistry } from '@modules/tasks';
 import { handleError } from '@modules/error';
 
 export async function handleListTasks(

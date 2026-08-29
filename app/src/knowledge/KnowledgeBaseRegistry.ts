@@ -11,7 +11,7 @@ import { readFile, writeFile, mkdir, readdir, rename, cp } from 'fs/promises';
 import { existsSync } from 'fs';
 import { getLogger } from '@modules/monitoring';
 import { resolvePyappHome } from '@modules/core';
-import { SimpleMutex } from '@modules/core/SimpleMutex';
+import { SimpleMutex } from '@modules/core';
 
 export interface KnowledgeBaseMeta {
   label: string;

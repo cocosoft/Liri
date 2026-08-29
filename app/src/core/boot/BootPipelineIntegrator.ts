@@ -14,7 +14,7 @@ import { getLogger } from '@modules/monitoring';
 import { BootPhase } from './BootPhase';
 import { bootPipeline } from './BootPipeline';
 import type { BootContext } from './BootPipeline';
-import type { RouterTier } from '@modules/ai/router';
+import type { RouterTier } from '@modules/ai';
 import { configManager } from '@modules/config';
 import { handleError } from '@modules/error';
 
@@ -483,8 +483,7 @@ export function registerStandardHandlers(): void {
       }
 
       try {
-        const { profileReport } =
-          await import('@modules/performance/StartupProfiler.js');
+        const { profileReport } = await import('@modules/performance');
         profileReport();
       } catch (err) {
         // profiler 可能未启用，跳过

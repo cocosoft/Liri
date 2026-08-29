@@ -5,10 +5,7 @@
 import { Tool } from '@modules/tools/types/Tool';
 import { PermissionDecision } from '@modules/permission/types/PermissionDecision';
 import { ToolHookResult } from '@modules/hooks/types/ToolHooks';
-import {
-  SandboxCheckResult,
-  SandboxViolationEvent,
-} from '@modules/sandbox/SandboxTypes';
+import { SandboxCheckResult, SandboxViolationEvent } from '@modules/sandbox';
 
 /**
  * 工具执行状态

@@ -1,4 +1,4 @@
-import { createChatManager } from '@modules/chat/ChatManager.js';
+import { createChatManager } from '@modules/chat';
 import type { CommandContext } from '@modules/commands';
 
 import { getLogger } from '@modules/monitoring';

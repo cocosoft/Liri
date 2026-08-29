@@ -6,7 +6,7 @@
 import type { ModelTokenUsage } from '../../cost/types';
 // eslint-disable-next-line module-registry/no-direct-module-import
 import { calculateTotalCost } from '@modules/cost/calculateCost.js';
-import type { ModelPricing } from '@modules/cost/ModelPricing.js';
+import type { ModelPricing } from '@modules/cost';
 
 /**
  * 计费路由决策

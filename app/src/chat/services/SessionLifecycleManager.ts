@@ -31,7 +31,7 @@ import { join } from 'path';
 import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError, AppError, ErrorCodes } from '@modules/error';
-import { SimpleMutex } from '@modules/core/SimpleMutex';
+import { SimpleMutex } from '@modules/core';
 import { resolveDataDir } from '@modules/core/paths';
 import { SessionGateway } from '@modules/session/SessionGateway';
 import { HookChainManager } from '@modules/hooks/core/HookChainManager.js';

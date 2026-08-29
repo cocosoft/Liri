@@ -20,15 +20,15 @@ import {
   getMemoryQueryProvider,
   getCurrentSessionContext,
 } from '@modules/services/prompt/MemoryPromptProvider';
-import { getFrozenSnapshotService } from '@modules/memory/FrozenSnapshotService';
+import { getFrozenSnapshotService } from '@modules/memory';
 import {
   getKnowledgeQueryProvider,
   getCurrentKnowledgeQuery,
 } from '@modules/services/prompt/KnowledgePromptProvider';
 import { generateDigestContext } from '@modules/knowledge/KnowledgeDigestInjector';
 import { truncateMemoryContent } from '@modules/memory/MemoryTruncation';
-import { getGitInfo } from '@modules/context/GitDetector';
-import { readProjectFiles } from '@modules/context/ProjectFileReader';
+import { getGitInfo } from '@modules/context';
+import { readProjectFiles } from '@modules/context';
 import { basename, join } from 'path';
 import { resolveProjectRoot } from '@modules/core';
 import { resolveDataDir } from '@modules/core/paths';
@@ -39,10 +39,7 @@ import { SkillInjectionService } from '@modules/skills/services/SkillInjectionSe
 import { SkillRegistry } from '@modules/skills/SkillRegistry';
 import { getSkillHub } from '@modules/skills/SkillHub';
 import { loadBuiltinEnabled } from '@modules/skills/BuiltinEnabledStore';
-import {
-  BUILTIN_EXAMPLES,
-  renderFewShotPrompt,
-} from '@modules/tools/FewShotRegistry';
+import { BUILTIN_EXAMPLES, renderFewShotPrompt } from '@modules/tools';
 import {
   getPunctuationHint,
   resolveLanguage,

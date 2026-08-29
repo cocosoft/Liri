@@ -4,10 +4,7 @@ import {
   listPdcaCheckpoints,
   PDCA_TERMINAL_PHASES,
 } from '@modules/tasks/PdcaWorkItemBridge.js';
-import {
-  getOrCreateOrchestrator,
-  getOrchestrator,
-} from '@modules/tasks/LongRunningTaskOrchestrator.js';
+import { getOrCreateOrchestrator, getOrchestrator } from '@modules/tasks';
 import { handleError } from '@modules/error';
 
 function phaseLabel(phase: unknown): string {

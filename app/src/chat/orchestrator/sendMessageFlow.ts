@@ -48,7 +48,7 @@ import { stripBareExploration } from '../services/bareExplorationStripper';
 import { StreamingToolCallScrubber } from '../../streaming/scrubbers/StreamingToolCallScrubber';
 import { validatePathsInOutput } from '../services/PathGuardService';
 import { trackUsage } from '@modules/ai';
-import { getModelPricing } from '@modules/cost/ModelPricing.js';
+import { getModelPricing } from '@modules/cost';
 // eslint-disable-next-line module-registry/no-direct-module-import
 import { calculateTotalCost } from '@modules/cost/calculateCost.js';
 import { compactionOrchestrator } from '../../context/compaction/CompactionOrchestrator';

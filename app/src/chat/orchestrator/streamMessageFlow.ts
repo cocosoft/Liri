@@ -36,7 +36,7 @@ import {
   ErrorSeverity,
 } from '@modules/error';
 import { configManager } from '@modules/config';
-import { SimpleMutex } from '@modules/core/SimpleMutex';
+import { SimpleMutex } from '@modules/core';
 import { PlainTextCheckpoint } from '../services/PlainTextCheckpoint.js';
 import { StreamingAutoCheckpoint } from '../services/StreamingAutoCheckpoint.js';
 import {

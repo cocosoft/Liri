@@ -14,9 +14,9 @@ import type {
   ValidationResult,
 } from '../types';
 import { createToolResult } from '../types/ToolResult';
-import { taskRegistry } from '@modules/tasks/TaskRegistry';
+import { taskRegistry } from '@modules/tasks';
 import { TaskStatus, isTerminalTaskStatus } from '@modules/tasks/types';
-import type { BaseTask } from '@modules/tasks/BaseTask';
+import type { BaseTask } from '@modules/tasks';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 import { getLogger } from '@modules/monitoring';

@@ -27,8 +27,8 @@ import {
   AttachmentSource,
 } from '@modules/components/attachments';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
-import { createChatManager } from '@modules/chat/ChatManager';
-import { SandboxPermission } from '@modules/sandbox/SandboxTypes';
+import { createChatManager } from '@modules/chat';
+import { SandboxPermission } from '@modules/sandbox';
 
 // ========== File Upload Handlers ==========
 

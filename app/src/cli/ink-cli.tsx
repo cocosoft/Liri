@@ -14,7 +14,7 @@ import { getLogger } from '@modules/monitoring';
 import { SkillRegistry } from '@modules/skills/SkillRegistry';
 import { BundledSkillLoader } from '@modules/skills/loaders/sources/BundledSkillLoader';
 import { getToolManager } from '@modules/tools/ToolManager';
-import { profileReport } from '@modules/performance/StartupProfiler.js';
+import { profileReport } from '@modules/performance';
 import { CompanionSprite } from '@modules/buddy/CompanionSprite';
 import { useBuddyNotification } from '@modules/buddy/useBuddyNotification';
 import { TaskListV2 } from '@modules/components/TaskListV2';
@@ -281,7 +281,7 @@ const TasksView = ({
   useEffect(() => {
     const loadTasks = async () => {
       try {
-        const { taskRegistry } = await import('@modules/tasks/TaskRegistry');
+        const { taskRegistry } = await import('@modules/tasks');
         const allTasks = taskRegistry.getAllTasks();
         const groups: TaskGroup[] = [];
         const statusOrder = ['running', 'pending', 'completed', 'failed'];

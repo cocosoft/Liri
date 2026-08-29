@@ -3,7 +3,6 @@
  * 提供消息的格式化、解析和安全过滤功能
  */
 
-import type { Message } from '@modules/types/message.js';
 import {
   AppError,
   ErrorCategory,
@@ -86,64 +85,6 @@ const DEFAULT_FILTER_OPTIONS: MessageFilterOptions = {
  */
 export function createBridgeMessageId(): string {
   return `bridge_msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-}
-
-/**
- * 从Message创建桥接消息
- * @param message 源消息
- * @returns 桥接消息
- */
-export function createBridgeMessageFromMessage(
-  message: Message,
-  options: MessageFormatOptions = DEFAULT_FORMAT_OPTIONS
-): BridgeMessage {
-  const formatOptions = { ...DEFAULT_FORMAT_OPTIONS, ...options };
-
-  let content =
-    typeof message.content === 'string'
-      ? message.content
-      : JSON.stringify(message.content);
-
-  if (formatOptions.maxLength && content.length > formatOptions.maxLength) {
-    if (formatOptions.truncateContent) {
-      content =
-        content.substring(0, formatOptions.maxLength) + '...[truncated]';
-    }
-  }
-
-  return {
-    id: createBridgeMessageId(),
-    type: determineMessageType(message),
-    content,
-    timestamp: message.timestamp || Date.now(),
-    metadata: formatOptions.includeMetadata
-      ? {
-          role: message.role,
-          ...message.metadata,
-        }
-      : undefined,
-  };
-}
-
-/**
- * 确定消息类型
- * @param message 消息
- * @returns 消息类型
- */
-function determineMessageType(message: Message): BridgeMessageType {
-  if (message.role === 'user') {
-    return 'text';
-  }
-
-  if (message.role === 'assistant') {
-    return 'text';
-  }
-
-  if (message.role === 'system') {
-    return 'system';
-  }
-
-  return 'text';
 }
 
 /**
@@ -277,19 +218,6 @@ export function formatMessages(
   options: MessageFormatOptions = DEFAULT_FORMAT_OPTIONS
 ): string[] {
   return messages.map((msg) => formatBridgeMessage(msg, options));
-}
-
-/**
- * 创建批量消息
- * @param messages 源消息数组
- * @param options 格式化选项
- * @returns 桥接消息数组
- */
-export function createBatchBridgeMessages(
-  messages: Message[],
-  options: MessageFormatOptions = DEFAULT_FORMAT_OPTIONS
-): BridgeMessage[] {
-  return messages.map((msg) => createBridgeMessageFromMessage(msg, options));
 }
 
 /**

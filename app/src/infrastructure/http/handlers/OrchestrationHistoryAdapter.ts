@@ -41,45 +41,53 @@ export interface OrchestrationHistoryQueryResult {
 }
 
 /** 需要记录的编排事件类型列表 */
-const RECORDED_EVENT_TYPES: ReadonlySet<string> = new Set([
-  OrchestrationEventType.COUNCIL_START,
-  OrchestrationEventType.COUNCIL_ROUND_START,
-  OrchestrationEventType.COUNCIL_AGENT_SPEAKING,
-  OrchestrationEventType.COUNCIL_AGENT_DELTA,
-  OrchestrationEventType.COUNCIL_ROUND,
-  OrchestrationEventType.COUNCIL_END,
-  OrchestrationEventType.COUNCIL_DETAIL,
+// 惰性求值：顶层构造 Set 会立即引用 @modules/agent 的枚举，在本模块被
+// agent 求值链提前加载时触发 OrchestrationEventType 的 TDZ（循环导入）。
+let _recordedEventTypes: ReadonlySet<string> | undefined;
+function getRecordedEventTypes(): ReadonlySet<string> {
+  if (!_recordedEventTypes) {
+    _recordedEventTypes = new Set([
+      OrchestrationEventType.COUNCIL_START,
+      OrchestrationEventType.COUNCIL_ROUND_START,
+      OrchestrationEventType.COUNCIL_AGENT_SPEAKING,
+      OrchestrationEventType.COUNCIL_AGENT_DELTA,
+      OrchestrationEventType.COUNCIL_ROUND,
+      OrchestrationEventType.COUNCIL_END,
+      OrchestrationEventType.COUNCIL_DETAIL,
 
-  OrchestrationEventType.ORCH_START,
-  OrchestrationEventType.ORCH_TASK_START,
-  OrchestrationEventType.ORCH_TASK_PROGRESS,
-  OrchestrationEventType.ORCH_TASK_END,
-  OrchestrationEventType.ORCH_STEP_START,
-  OrchestrationEventType.ORCH_STEP_DELTA,
-  OrchestrationEventType.ORCH_STEP_COMPLETED,
-  OrchestrationEventType.ORCH_END,
+      OrchestrationEventType.ORCH_START,
+      OrchestrationEventType.ORCH_TASK_START,
+      OrchestrationEventType.ORCH_TASK_PROGRESS,
+      OrchestrationEventType.ORCH_TASK_END,
+      OrchestrationEventType.ORCH_STEP_START,
+      OrchestrationEventType.ORCH_STEP_DELTA,
+      OrchestrationEventType.ORCH_STEP_COMPLETED,
+      OrchestrationEventType.ORCH_END,
 
-  OrchestrationEventType.PLAN_START,
-  OrchestrationEventType.PLAN_STEP_START,
-  OrchestrationEventType.PLAN_STEP_COMPLETED,
-  OrchestrationEventType.PLAN_PROGRESS,
-  OrchestrationEventType.PLAN_COMPLETED,
+      OrchestrationEventType.PLAN_START,
+      OrchestrationEventType.PLAN_STEP_START,
+      OrchestrationEventType.PLAN_STEP_COMPLETED,
+      OrchestrationEventType.PLAN_PROGRESS,
+      OrchestrationEventType.PLAN_COMPLETED,
 
-  OrchestrationEventType.CHAIN_START,
-  OrchestrationEventType.CHAIN_STEP,
-  OrchestrationEventType.CHAIN_END,
+      OrchestrationEventType.CHAIN_START,
+      OrchestrationEventType.CHAIN_STEP,
+      OrchestrationEventType.CHAIN_END,
 
-  OrchestrationEventType.SWARM_DISPATCH,
-  OrchestrationEventType.SWARM_AGENT_STATUS,
-  OrchestrationEventType.SWARM_COMPLETE,
+      OrchestrationEventType.SWARM_DISPATCH,
+      OrchestrationEventType.SWARM_AGENT_STATUS,
+      OrchestrationEventType.SWARM_COMPLETE,
 
-  AgentEventType.THINKING_START,
-  AgentEventType.THINKING_DELTA,
-  AgentEventType.THINKING_END,
-  AgentEventType.TOOL_CALL_START,
-  AgentEventType.TOOL_CALL_DELTA,
-  AgentEventType.TOOL_CALL_END,
-]);
+      AgentEventType.THINKING_START,
+      AgentEventType.THINKING_DELTA,
+      AgentEventType.THINKING_END,
+      AgentEventType.TOOL_CALL_START,
+      AgentEventType.TOOL_CALL_DELTA,
+      AgentEventType.TOOL_CALL_END,
+    ]);
+  }
+  return _recordedEventTypes;
+}
 
 /** JSONL 文件名后缀 */
 const HISTORY_FILE_SUFFIX = '_orchestration_history.jsonl';
@@ -115,7 +123,7 @@ export class OrchestrationHistoryAdapter {
     }
 
     // 订阅所有需要记录的事件类型
-    for (const eventType of RECORDED_EVENT_TYPES) {
+    for (const eventType of getRecordedEventTypes()) {
       const sub = globalEventBus.subscribe(eventType, (payload: unknown) => {
         // 从 payload 中提取 itemId（各事件可能在不同字段）
         const itemId = this.extractItemId(payload, eventType);

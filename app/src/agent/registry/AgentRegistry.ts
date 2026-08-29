@@ -294,4 +294,20 @@ export function getAgentRegistry(cacheTTL?: number): AgentRegistry {
 }
 
 /** 全局默认 AgentRegistry 单例 */
-export const agentRegistry = AgentRegistry.getInstance();
+// 惰性初始化：模块顶层直接 AgentRegistry.getInstance() 会在本模块被
+// core/workspace 求值链提前加载时触发类 TDZ（循环导入）。
+let _agentRegistry: AgentRegistry | undefined;
+function getDefaultAgentRegistry(): AgentRegistry {
+  _agentRegistry ??= AgentRegistry.getInstance();
+  return _agentRegistry;
+}
+export const agentRegistry = new Proxy({} as AgentRegistry, {
+  get(_, prop: keyof AgentRegistry) {
+    const instance = getDefaultAgentRegistry();
+    const value = instance[prop];
+    if (typeof value === 'function') {
+      return value.bind(instance);
+    }
+    return value;
+  },
+});

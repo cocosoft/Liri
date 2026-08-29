@@ -53,7 +53,7 @@ export {
 export {
   ChronosRemoteTrigger,
   PushNotificationService,
-  DEFAULT_TRIGGER_CONFIG,
+  getDefaultTriggerConfig,
 } from './ChronosRemoteTrigger';
 export type {
   RemoteTriggerConfig,

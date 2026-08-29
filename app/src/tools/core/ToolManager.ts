@@ -85,4 +85,20 @@ export class ToolManager {
   }
 }
 
-export const globalToolManager = new ToolManager();
+// 惰性初始化：顶层 new ToolManager() 会在构造期触发 StartupProfiler 的
+// DETAILED_PROFILING TDZ（循环导入）。首次访问时才实例化。
+let _globalToolManager: ToolManager | undefined;
+function getGlobalToolManager(): ToolManager {
+  _globalToolManager ??= new ToolManager();
+  return _globalToolManager;
+}
+export const globalToolManager = new Proxy({} as ToolManager, {
+  get(_, prop: keyof ToolManager) {
+    const instance = getGlobalToolManager();
+    const value = instance[prop];
+    if (typeof value === 'function') {
+      return value.bind(instance);
+    }
+    return value;
+  },
+});

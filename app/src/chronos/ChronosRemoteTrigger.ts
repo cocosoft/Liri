@@ -17,12 +17,19 @@ export interface RemoteTriggerConfig {
   enabled: boolean;
 }
 
-export const DEFAULT_TRIGGER_CONFIG: RemoteTriggerConfig = {
-  webhookUrl: configManager.env('CHRONOS_WEBHOOK_URL'),
-  webhookSecret: configManager.env('CHRONOS_WEBHOOK_SECRET'),
-  allowedEvents: ['push', 'schedule', 'manual'],
-  enabled: configManager.env('CHRONOS_REMOTE_TRIGGER_ENABLED') === 'true',
-};
+/**
+ * 默认远程触发配置。
+ * 惰性求值：configManager 是懒初始化的单例，在模块顶层访问它会在
+ * paths.ts 初始化前触发 ConfigManager 构造（循环导入 TDZ）。
+ */
+export function getDefaultTriggerConfig(): RemoteTriggerConfig {
+  return {
+    webhookUrl: configManager.env('CHRONOS_WEBHOOK_URL'),
+    webhookSecret: configManager.env('CHRONOS_WEBHOOK_SECRET'),
+    allowedEvents: ['push', 'schedule', 'manual'],
+    enabled: configManager.env('CHRONOS_REMOTE_TRIGGER_ENABLED') === 'true',
+  };
+}
 
 export interface TriggerResult {
   success: boolean;
@@ -37,7 +44,7 @@ export class ChronosRemoteTrigger {
   private pendingTasks: Map<string, Promise<TriggerResult>> = new Map();
 
   constructor(config?: Partial<RemoteTriggerConfig>) {
-    this.config = { ...DEFAULT_TRIGGER_CONFIG, ...config };
+    this.config = { ...getDefaultTriggerConfig(), ...config };
   }
 
   get isEnabled(): boolean {

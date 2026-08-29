@@ -759,5 +759,21 @@ export function createAIAgent(config: Partial<AgentConfig> = {}): AIAgent {
 
 /**
  * AI代理实例
+ * 惰性初始化：顶层 createAIAgent() 会在构造期加载策略模块（GeneralAgentStrategy 等），
+ * 在 agent 模块半初始化时触发 TDZ（循环导入）。首次访问时才创建。
  */
-export const aiAgent = createAIAgent();
+let _aiAgent: AIAgent | undefined;
+function getAIAgent(): AIAgent {
+  _aiAgent ??= createAIAgent();
+  return _aiAgent;
+}
+export const aiAgent = new Proxy({} as AIAgent, {
+  get(_, prop: keyof AIAgent) {
+    const instance = getAIAgent();
+    const value = instance[prop];
+    if (typeof value === 'function') {
+      return value.bind(instance);
+    }
+    return value;
+  },
+});

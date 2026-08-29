@@ -70,6 +70,8 @@ const DEFAULT_AGENTS: CouncilAgentRole[] = [
 
 // ============================================================
 // 将默认 Agent 注册到 AgentRegistry（启动时引导）
+// 惰性：顶层直接调用会在 agent 模块半初始化时触发 AgentRegistry TDZ
+//（循环导入），改由 loadAgents 首次访问 registry 前触发。
 // ============================================================
 
 function bootstrapAgentRegistry(): void {
@@ -89,7 +91,6 @@ function bootstrapAgentRegistry(): void {
     }))
   );
 }
-bootstrapAgentRegistry();
 
 // ============================================================
 // 简易缓存（Map 实现，最大 15 条）
@@ -308,6 +309,7 @@ export class CouncilOrchestrator {
     }
 
     // 数据库无数据或无配置 → 尝试 AgentRegistry
+    bootstrapAgentRegistry();
     const registry = getAgentRegistry();
     const registered = registry.discoverAgents();
     if (registered.length > 0) {

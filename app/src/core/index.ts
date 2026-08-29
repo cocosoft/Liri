@@ -22,10 +22,14 @@
 /**
  * 核心模块统一入口
  * 导出所有核心相关的类型、类和函数
+ *
+ * 注意：paths 必须最先求值——后续导出（system/state → monitoring → config）
+ * 可能在模块顶层访问 configManager/路径函数，若 paths 尚未初始化会触发
+ * userDataDirOverride 的 TDZ（循环导入）。
  */
 
-export * from '@modules/system/state';
 export * from './paths';
+export * from '@modules/system/state';
 export * from './seedSync';
 export type { Message, ToolCall, ToolResult, ToolContext } from './types';
 export * from './events/EventBus';

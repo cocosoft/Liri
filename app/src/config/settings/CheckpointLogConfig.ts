@@ -16,7 +16,15 @@
 import { readFileSync, existsSync } from 'fs';
 import { resolveUserConfigPath } from '@modules/core';
 
-const CONFIG_PATH = resolveUserConfigPath();
+/**
+ * 惰性解析配置路径。
+ * 不在模块顶层调用 resolveUserConfigPath()——否则当本模块被
+ * core → system/state → monitoring → config 链在 paths.ts 初始化
+ * 前加载时，会触发 userDataDirOverride 的 TDZ（循环导入）。
+ */
+function getConfigPath(): string {
+  return resolveUserConfigPath();
+}
 
 /** 缓存：上次读取的时间戳和值 */
 let cachedAt = 0;
@@ -34,10 +42,10 @@ export function isCheckpointLogEnabled(): boolean {
   }
 
   try {
-    if (!existsSync(CONFIG_PATH)) {
+    if (!existsSync(getConfigPath())) {
       cachedValue = false;
     } else {
-      const raw = readFileSync(CONFIG_PATH, 'utf-8');
+      const raw = readFileSync(getConfigPath(), 'utf-8');
       const config = JSON.parse(raw) as Record<string, unknown>;
       cachedValue = config.checkpointLog === true;
     }

@@ -23,14 +23,18 @@ export interface MonitorTarget {
   timeoutMs: number;
 }
 
-export const DEFAULT_MONITOR_TARGETS: MonitorTarget[] = [
-  {
-    name: 'mcp-server',
-    url: `http://localhost:${DEFAULT_HTTP_PORT}/health`,
-    checkIntervalMs: 30_000,
-    timeoutMs: 5000,
-  },
-];
+// 惰性求值：顶层构造会立即引用 @modules/core 的 DEFAULT_HTTP_PORT，
+// 在本模块被 core 求值链提前加载时触发 TDZ（循环导入）。
+export function getDefaultMonitorTargets(): MonitorTarget[] {
+  return [
+    {
+      name: 'mcp-server',
+      url: `http://localhost:${DEFAULT_HTTP_PORT}/health`,
+      checkIntervalMs: 30_000,
+      timeoutMs: 5000,
+    },
+  ];
+}
 
 export class MonitorTask extends BaseTask {
   readonly type = TaskType.MONITOR_MCP;
@@ -43,7 +47,7 @@ export class MonitorTask extends BaseTask {
     id: string,
     description: string,
     outputFile: string,
-    targets: MonitorTarget[] = DEFAULT_MONITOR_TARGETS
+    targets: MonitorTarget[] = getDefaultMonitorTargets()
   ) {
     super(id, description, outputFile, TaskType.MONITOR_MCP);
     this.targets = targets;

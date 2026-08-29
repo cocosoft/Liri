@@ -381,7 +381,24 @@ class TodoManager {
 }
 
 // 全局 Todo 管理器（现在带 SQLite 持久化）
-const todoManager = new TodoManager();
+// 惰性初始化：本模块可能在 core 求值完成前被加载（tools barrel 链路），
+// 顶层直接 new TodoManager() 会触发 resolveDbPath 的 TDZ（循环导入）。
+let _todoManager: TodoManager | undefined;
+function getTodoManager(): TodoManager {
+  _todoManager ??= new TodoManager();
+  return _todoManager;
+}
+// 惰性代理：方法调用时绑定 this 到实际实例（与 LogConfig.ts 的 logConfigManager 一致）
+const todoManager = new Proxy({} as TodoManager, {
+  get(_, prop: keyof TodoManager) {
+    const instance = getTodoManager();
+    const value = instance[prop];
+    if (typeof value === 'function') {
+      return value.bind(instance);
+    }
+    return value;
+  },
+});
 
 /**
  * TodoWriteTool实现

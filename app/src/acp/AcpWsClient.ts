@@ -36,7 +36,23 @@ import {
   encodeWebSocketFrame,
 } from './websocket.js';
 
-const logger: ILogger = resolveLogger('acp');
+// 惰性获取 Logger：顶层 resolveLogger() 会在 core/spi/LoggerService 半初始化时
+// 触发 _loggerService 的 TDZ（循环导入）。首次使用时才解析。
+let _logger: ILogger | undefined;
+function getLoggerInstance(): ILogger {
+  _logger ??= resolveLogger('acp');
+  return _logger;
+}
+const logger: ILogger = new Proxy({} as ILogger, {
+  get(_, prop: keyof ILogger) {
+    const instance = getLoggerInstance();
+    const value = instance[prop];
+    if (typeof value === 'function') {
+      return value.bind(instance);
+    }
+    return value;
+  },
+});
 
 /**
  * ACP 客户端消息结构

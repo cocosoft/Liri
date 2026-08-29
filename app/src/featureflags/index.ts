@@ -116,11 +116,25 @@ export function conditionalImport<T>(
 }
 
 export type { FeatureName } from './types.js';
-export const FEATURE_LIST = Object.entries(LEGACY_FLAG_MAP).map(
-  ([name, mapping]) => ({
-    name,
-    description: '',
-    defaultValue: coreFeature(mapping.flag as FeatureFlag),
-    envVar: mapping.envVar,
-  })
-);
+
+interface FeatureListItem {
+  name: string;
+  description: string;
+  defaultValue: boolean;
+  envVar: string;
+}
+
+// 惰性求值：顶层构造 FEATURE_LIST 会立即调用 coreFeature()，在本模块被
+// core 求值链提前加载时会触发 core/featureFlags 的 FEATURE_FLAGS TDZ。
+let _featureList: FeatureListItem[] | undefined;
+export function getFeatureList(): FeatureListItem[] {
+  if (!_featureList) {
+    _featureList = Object.entries(LEGACY_FLAG_MAP).map(([name, mapping]) => ({
+      name,
+      description: '',
+      defaultValue: coreFeature(mapping.flag as FeatureFlag),
+      envVar: mapping.envVar,
+    }));
+  }
+  return _featureList;
+}

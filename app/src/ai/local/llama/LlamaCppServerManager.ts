@@ -611,13 +611,21 @@ export class LlamaCppServerManager {
     if (this.logPollingTimer) return;
     let lastSize = this.getLogSize();
     this.logPollingTimer = setInterval(() => {
-      const currentSize = this.getLogSize();
-      if (currentSize > lastSize) {
-        const newContent = this.getLogSincePosition(lastSize);
-        if (newContent) {
-          this.logEventEmitter.emit('log', newContent);
+      try {
+        const currentSize = this.getLogSize();
+        if (currentSize > lastSize) {
+          const newContent = this.getLogSincePosition(lastSize);
+          if (newContent) {
+            this.logEventEmitter.emit('log', newContent);
+          }
+          lastSize = currentSize;
         }
-        lastSize = currentSize;
+      } catch (pollErr) {
+        // KB-R08-POLL（2026-08-29）：日志轮询异常记录（R08-002 后台循环必须有
+        // fail 日志落盘——getLogSize 内部已兜底，此 catch 覆盖未来改动的异常路径）
+        logger.warn('llama-server 日志轮询异常', {
+          error: pollErr instanceof Error ? pollErr.message : String(pollErr),
+        });
       }
     }, 300);
     logger.info('llama-server 日志轮询模式已启动（300ms 间隔）');

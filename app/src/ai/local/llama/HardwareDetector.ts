@@ -5,14 +5,12 @@
  * 设计文档：dev_docs/20260819/llama_cpp模型目录配置与迁移功能设计方案.md
  */
 
-import { Logger, LogLevel } from '@modules/monitoring/logs/Logger';
+import { getLogger } from '@modules/monitoring';
 import { execSync } from 'child_process';
 import { existsSync, readFileSync } from 'fs';
 
-const logger = new Logger({
-  level: LogLevel.INFO,
-  module: 'ai:llama:hardware',
-});
+// KB-R11-LOGGER（2026-08-29）：new Logger 直接构造 → getLogger 门面（R11-001 合规）
+const logger = getLogger('ai:llama:hardware');
 
 export interface HardwareInfo {
   platform: 'win32' | 'darwin' | 'linux';

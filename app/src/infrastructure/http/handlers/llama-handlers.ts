@@ -31,8 +31,11 @@ import {
   ErrorSeverity,
   handleError,
 } from '@modules/error';
+import { getLogger } from '@modules/monitoring';
 import { resolveLlamaModelsDir } from '@modules/core/paths';
 import { sendError, readRequestBody } from './handler-utils';
+
+const logger = getLogger('http:llama');
 
 /**
  * GET /v1/llama/status — 查询 llama.cpp 集成状态
@@ -316,11 +319,22 @@ export async function handleLlamaLogsStream(
 
   // 保持连接，每30秒发送心跳
   const heartbeat = setInterval(() => {
-    if (res.writableEnded) {
+    try {
+      if (res.writableEnded) {
+        clearInterval(heartbeat);
+        return;
+      }
+      res.write(`event: ping\ndata: {}\n\n`);
+    } catch (heartbeatErr) {
+      // KB-R08-HEARTBEAT（2026-08-29）：SSE 心跳写入异常（连接已断）——终止心跳并记录
       clearInterval(heartbeat);
-      return;
+      logger.warn('SSE 心跳写入失败，终止心跳', {
+        error:
+          heartbeatErr instanceof Error
+            ? heartbeatErr.message
+            : String(heartbeatErr),
+      });
     }
-    res.write(`event: ping\ndata: {}\n\n`);
   }, 30000);
 }
 

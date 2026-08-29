@@ -24,7 +24,7 @@ import { RouteKey } from '@modules/ai';
 import { imageSanitizationPolicy } from '../../security/policy/ImageSanitizationPolicy';
 import { KnowledgeBaseWriter } from '../../knowledge/KnowledgeBaseWriter';
 import { WorkerGuard } from '../../ai/python/WorkerGuard';
-import { imageDownloader } from '../../chat/services/ImageDownloader';
+import { imageDownloader } from '@modules/chat';
 
 /**
  * 分析操作类型

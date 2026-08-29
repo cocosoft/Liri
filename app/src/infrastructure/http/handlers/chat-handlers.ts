@@ -35,7 +35,7 @@ import type {
   ChatRequest,
   ChatStreamChunk,
 } from '@modules/runtime/api/CoreAPI';
-import { eventNotificationService } from '@modules/chat/services/EventNotificationService';
+import { eventNotificationService } from '@modules/chat';
 import { DEFAULT_MODEL_SENTINEL } from '@modules/constants/common.js';
 
 const logger = getLogger('http:chat');

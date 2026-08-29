@@ -70,6 +70,8 @@ export type { Plan, PlanStep, PlanProgress } from './TaskOrchestrator';
 export { SqliteTaskStore, createSqliteTaskStore } from './db/SqliteTaskStore';
 export type { TaskRun, SearchResult } from './db/SqliteTaskStore';
 export { SCHEMA, FTS5_SCHEMA, TABLE_NAMES } from './db/schema';
+export { goalMetricsService } from './db/GoalMetricsService';
+export type { GoalMetricsService as GoalMetricsServiceType } from './db/GoalMetricsService';
 
 // 导出任务流编排
 export { TaskFlowRegistry, taskFlowRegistry } from './TaskFlowRegistry';
@@ -158,7 +160,11 @@ export {
   getOrchestrator,
   getAllOrchestrators,
 } from './LongRunningTaskOrchestrator';
-export type { PdcaPhase, PdcaStatus } from './LongRunningTaskOrchestrator';
+export type {
+  PdcaPhase,
+  PdcaStatus,
+  PdcaMetrics,
+} from './LongRunningTaskOrchestrator';
 export { generateAuditReport } from './AuditReport';
 export type { AuditReport, AuditStepEntry } from './AuditReport';
 export {
@@ -169,10 +175,7 @@ export {
 export type { PlanReview, ReviewIssue, ReviewDecision } from './PlanReview';
 
 // 导出 Curator 审查范围扩展
-export {
-  CuratorReviewScope,
-  curatorReviewScope,
-} from '../tools/AgentTool/CuratorReviewScope';
+export { CuratorReviewScope, curatorReviewScope } from '@modules/tools';
 export type {
   ExtendedReviewResult,
   FileReviewTarget,

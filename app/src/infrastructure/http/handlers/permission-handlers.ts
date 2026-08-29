@@ -29,19 +29,20 @@
 
 import type http from 'http';
 import { sendError, readRequestBody } from './handler-utils';
-import { PermissionManager } from '@modules/permission/PermissionManager';
 import {
   PermissionBehavior,
   PermissionRule,
 } from '@modules/permission/types/PermissionRule';
-import { createFineGrainedPermissionManager } from '@modules/permission/FineGrainedPermissionManager';
-import { shadowedRuleDetector, permissionMetrics } from '@modules/permission';
 import {
+  shadowedRuleDetector,
+  permissionMetrics,
+  PermissionManager,
+  createFineGrainedPermissionManager,
   ResourceType,
   OperationType,
   PermissionAction,
   RoleType,
-} from '@modules/permission/Permission';
+} from '@modules/permission';
 
 const VALID_BEHAVIORS: string[] = ['allow', 'deny', 'ask'];
 

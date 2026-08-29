@@ -9,9 +9,9 @@
  */
 
 import { getLogger } from '@modules/monitoring';
-import { CronJobStore } from '@modules/tasks/cron/CronJobStore';
+import { CronJobStore } from '@modules/tasks';
 import { resolveDbPath } from '@modules/core';
-import { computeNextCronRunMs } from '@modules/tasks/cron/CronParser';
+import { computeNextCronRunMs } from '@modules/tasks';
 import { AIScheduleIndex, type AIScheduleEvent } from './AIScheduleIndex';
 import { EventStatus } from './types';
 import type { CalendarEvent } from './types';

@@ -7,8 +7,7 @@ import type { Plugin, PluginMetadata } from '../types';
 import { PluginStatus } from '../types/Plugin.js';
 import type { IPluginAPI } from '../api/PluginAPI.js';
 import { getLogger } from '@modules/monitoring';
-import { ImageGenerateTool } from '../../tools/ImageGenerateTool/ImageGenerateTool.js';
-import { ImageAnalysisTool } from '../../tools/ImageAnalysisTool/ImageAnalysisTool.js';
+import { ImageGenerateTool, ImageAnalysisTool } from '@modules/tools';
 import type { ToolUseContext } from '../../tools/types/ToolUseContext';
 
 const logger = getLogger('plugins:bundled:mediaPlugin');

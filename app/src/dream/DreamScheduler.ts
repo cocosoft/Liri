@@ -27,7 +27,7 @@
 
 import { DreamIdleDetector } from './DreamIdleDetector';
 import { DreamPersistence } from './DreamPersistence';
-import { computeNextCronRunMs } from '@modules/tasks/cron/CronParser';
+import { computeNextCronRunMs } from '@modules/tasks';
 import type { DreamSchedulerConfig, DreamTriggerSource } from './types';
 import { DEFAULT_DREAM_SCHEDULER_CONFIG } from './types';
 import { getLogger } from '@modules/monitoring';

@@ -6,8 +6,7 @@ import type http from 'http';
 import type { HandlerCtx } from './handler-utils';
 import { handleError } from '@modules/error';
 import { queryAuditLogs, getAuditLogStats } from '@modules/security';
-import { denialTracker } from '@modules/permission';
-import { PermissionManager } from '@modules/permission/PermissionManager';
+import { denialTracker, PermissionManager } from '@modules/permission';
 
 /**
  * GET /v1/security/dashboard — 安全仪表盘数据

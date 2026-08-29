@@ -11,7 +11,7 @@
 
 import { getLogger } from '@modules/monitoring';
 import type { EventSubscription } from '@modules/core/events/EventBus';
-import { CronJobStore } from '@modules/tasks/cron/CronJobStore';
+import { CronJobStore } from '@modules/tasks';
 import { resolveDbPath } from '@modules/core';
 import {
   getCalendarEventBus,

@@ -27,7 +27,7 @@
  *
  */
 
-import type { ChatMessage } from '../tools/repair/types';
+import type { RepairChatMessage as ChatMessage } from '@modules/tools';
 
 /** 推理清理结果 */
 export interface ReasoningPruneResult {

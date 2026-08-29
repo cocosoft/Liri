@@ -3,14 +3,15 @@
  * 融合快速权限管理与细粒度权限控制
  */
 import type { CommandContext, CommandResult } from '@modules/commands';
-import { createFineGrainedPermissionManager } from '@modules/permission/FineGrainedPermissionManager.js';
 import {
+  PERMISSION_MODES,
+  PERMISSION_MODE_NAMES,
+  createFineGrainedPermissionManager,
   PermissionAction,
   ResourceType,
   OperationType,
-} from '@modules/permission/Permission.js';
-import { PERMISSION_MODES, PERMISSION_MODE_NAMES } from '@modules/permission';
-import { permissionModeIntegrationService } from '@modules/chat/services/PermissionModeIntegrationService.js';
+} from '@modules/permission';
+import { permissionModeIntegrationService } from '@modules/chat';
 import { completeSecuritySystem } from '@modules/security';
 
 import { handleError } from '@modules/error';

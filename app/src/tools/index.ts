@@ -353,3 +353,23 @@ export type {
   FileInfo,
   ConversionOptions,
 } from './converter/engine/types';
+
+// 2026-08-30 R03-002 收敛：工具子路径统一出口
+export { CanvasTool } from './CanvasTool/CanvasTool';
+export { ImageGenerateTool } from './ImageGenerateTool/ImageGenerateTool';
+export { ImageAnalysisTool } from './ImageAnalysisTool/ImageAnalysisTool';
+export {
+  CuratorReviewScope,
+  curatorReviewScope,
+} from './AgentTool/CuratorReviewScope';
+export type {
+  ExtendedReviewResult,
+  FileReviewTarget,
+  MemoryReviewTarget,
+  ConfigReviewTarget,
+  CuratorScopeConfig,
+} from './AgentTool/CuratorReviewScope';
+export type {
+  ToolCall as RepairToolCall,
+  ChatMessage as RepairChatMessage,
+} from './repair/types';

@@ -35,7 +35,10 @@ import {
   shrinkOversizedToolResults,
   shrinkOversizedToolCallArgs,
 } from './shrink';
-import type { ToolCall, ChatMessage } from '../tools/repair/types';
+import type {
+  RepairToolCall as ToolCall,
+  RepairChatMessage as ChatMessage,
+} from '@modules/tools';
 
 let _stampSeq = 0;
 

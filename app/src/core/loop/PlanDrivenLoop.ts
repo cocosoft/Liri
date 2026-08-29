@@ -23,7 +23,7 @@ import type { TAORLoopDeps } from '@modules/query';
 import { TaskDecomposer, MAX_SUBTASKS } from '@modules/ai';
 import type { DecompositionResult } from '@modules/ai';
 import { taskOrchestrator } from '../../tasks/TaskOrchestrator.js';
-import { goalMetricsService } from '../../tasks/db/GoalMetricsService.js';
+import { goalMetricsService } from '@modules/tasks';
 import type { Plan, PlanProgress } from '../../tasks/TaskOrchestrator.js';
 import type { AIProvider } from '@modules/ai';
 

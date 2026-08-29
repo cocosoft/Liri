@@ -5,7 +5,7 @@
 
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-import { RuleManager } from '@modules/permission/RuleManager';
+import { RuleManager } from '@modules/permission';
 import { PermissionBehavior } from '@modules/permission/types/PermissionRule';
 
 const logger = getLogger('PermissionManager');

@@ -6,7 +6,7 @@ import type { Plugin, PluginMetadata } from '../types';
 import { PluginStatus } from '../types/Plugin.js';
 import type { IPluginAPI } from '../api/PluginAPI.js';
 import { getLogger } from '@modules/monitoring';
-import { CanvasTool } from '../../tools/CanvasTool/CanvasTool.js';
+import { CanvasTool } from '@modules/tools';
 
 const logger = getLogger('plugins:bundled:canvasToolPlugin');
 

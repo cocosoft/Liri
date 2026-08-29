@@ -27,7 +27,10 @@
  *
  */
 
-import type { ToolCall, ChatMessage } from '../tools/repair/types';
+import type {
+  RepairToolCall as ToolCall,
+  RepairChatMessage as ChatMessage,
+} from '@modules/tools';
 
 /** 检查 JSON 字符串是否完整可解析 */
 export function looksLikeCompleteJson(s: string): boolean {

@@ -5,12 +5,8 @@
  */
 
 import type { CommandContext, CommandResult } from '@modules/commands';
-import { CronJobStore } from '@modules/tasks/cron/CronJobStore';
-import type {
-  CronJob,
-  CronSchedule,
-  CronJobFilter,
-} from '@modules/tasks/cron/types';
+import { CronJobStore } from '@modules/tasks';
+import type { CronJob, CronSchedule, CronJobFilter } from '@modules/tasks';
 import {
   parseSchedule,
   scheduleToCron,

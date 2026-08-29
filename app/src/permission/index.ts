@@ -151,3 +151,21 @@ export {
   PermissionMetricsStore,
   permissionMetrics,
 } from './metrics/PermissionMetricsStore';
+
+// 2026-08-30 R03-002 收敛：PermissionManager / FineGrainedPermissionManager / RuleManager / Permission 统一出口
+export {
+  PermissionManager,
+  createPermissionManager,
+} from './PermissionManager';
+export {
+  FineGrainedPermissionManager,
+  createFineGrainedPermissionManager,
+} from './FineGrainedPermissionManager';
+export { RuleManager, deduplicateRules } from './RuleManager';
+export type { RuleContext } from './RuleManager';
+export {
+  ResourceType,
+  OperationType,
+  PermissionAction,
+  RoleType,
+} from './Permission';

@@ -2,7 +2,7 @@ import { AutoCompactService } from '@modules/services/compact/AutoCompactService
 import {
   SessionCheckpointService as RealCheckpointService,
   getCheckpointService,
-} from '@modules/chat/services/SessionCheckpointService';
+} from '@modules/chat';
 import type {
   SessionCheckpointService,
   SessionCheckpointHandle,

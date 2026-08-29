@@ -6,7 +6,7 @@
 
 import { ChatManagerImpl } from '../chat/ChatManager.js';
 import { QueryEngine, type QueryEngineConfig } from '@modules/query';
-import { MessageServiceImpl } from '../chat/services/MessageService.js';
+import { MessageServiceImpl } from '@modules/chat';
 import { ErrorHandler } from '@modules/core';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('tools:enhancedSystem');

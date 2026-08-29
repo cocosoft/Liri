@@ -12,7 +12,7 @@ import type {
   ArchiveResult,
   CleanupResult,
 } from './DataArchivalStrategy.js';
-import { computeNextCronRunMs } from '@modules/tasks/cron/CronParser';
+import { computeNextCronRunMs } from '@modules/tasks';
 import { addCronTask, removeCronTasks, updateCronTask } from '@modules/chronos';
 import { getLogger } from '../logs/Logger.js';
 import { handleError } from '@modules/error';

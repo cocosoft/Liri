@@ -13,7 +13,7 @@ import {
 import {
   PermissionManager,
   createPermissionManager,
-} from '@modules/permission/PermissionManager';
+} from '@modules/permission';
 import { ToolHookManager } from '@modules/hooks';
 import { SandboxManager } from '@modules/sandbox';
 import { ToolFilterManager } from '@modules/tools';

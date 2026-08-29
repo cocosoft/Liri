@@ -29,7 +29,7 @@
  */
 
 import { getLogger } from '@modules/monitoring';
-import type { ChatMessage } from '../tools/repair/types';
+import type { RepairChatMessage as ChatMessage } from '@modules/tools';
 import { healLoadedMessages } from './healing';
 import { looksLikeCompleteJson } from './shrink';
 import { estimateMessagesTokens } from '@modules/ai';

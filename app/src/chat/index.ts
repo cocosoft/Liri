@@ -102,3 +102,40 @@ const chatService = createChatService();
 export default chatService;
 
 export * from './ChatManagerInterface.js';
+
+// 2026-08-30 R03-002 收敛：services / utils 子路径统一出口
+export {
+  EventNotificationService,
+  eventNotificationService,
+  EventType,
+} from './services/EventNotificationService';
+export type {
+  EventData,
+  EventListener as EventNotificationListener,
+} from './services/EventNotificationService';
+export {
+  PermissionModeIntegrationService,
+  permissionModeIntegrationService,
+} from './services/PermissionModeIntegrationService';
+export type { PermissionModeChangedEvent } from './services/PermissionModeIntegrationService';
+export {
+  SessionCheckpointService,
+  getCheckpointService,
+  createCheckpointService,
+} from './services/SessionCheckpointService';
+export {
+  MessageServiceImpl,
+  createMessageService,
+} from './services/MessageService';
+export type { MessageService } from './services/MessageService';
+export { ImageDownloader, imageDownloader } from './services/ImageDownloader';
+export type {
+  ImageDownloadResult,
+  ImageDownloadConfig,
+} from './services/ImageDownloader';
+export { computeUnifiedDiff } from './utils/unifiedDiff';
+export type { FileDiffResult } from './utils/unifiedDiff';
+export {
+  dedupeToolCallBlocks,
+  dedupeMessagesToolCallBlocks,
+} from './utils/chatBlocks';

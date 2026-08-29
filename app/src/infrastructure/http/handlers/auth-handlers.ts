@@ -22,8 +22,7 @@
 import type http from 'http';
 import { sendError, readRequestBody } from './handler-utils';
 import { AuthUserStore } from '../auth/AuthUserStore';
-import { PermissionManager } from '@modules/permission/PermissionManager';
-import { RoleType } from '@modules/permission/Permission';
+import { PermissionManager, RoleType } from '@modules/permission';
 
 // 演进项（真实用户体系基础）：用户持久化到 {data}/auth/users.json（密码哈希），
 // tokens 保持内存（重启后需重新登录）

@@ -50,17 +50,21 @@ import type {
 } from '@modules/tools';
 import { getConverterEngine } from '@modules/tools';
 import { FileTypeDetector } from '@modules/tools';
-import { createPermissionManager } from '@modules/permission/PermissionManager';
+import { createPermissionManager } from '@modules/permission';
 import type { ChatManager } from '@modules/chat';
-import { createChatManager } from '@modules/chat';
+import {
+  createChatManager,
+  computeUnifiedDiff,
+  dedupeMessagesToolCallBlocks,
+  eventNotificationService,
+} from '@modules/chat';
 import { MessageToEventMigrator } from '@modules/session';
 import { EventLogStorage } from '@modules/session';
 import { deriveMessagesFromEvents } from '@modules/session';
 // E-1 接入（2026-08-23）：工具完成自动记录交付物（复用 ExecutionPhaseTracker，此前无生产实例）
 import { ExecutionPhaseTracker } from '@modules/session';
 // E-1 diff（2026-08-23）：文件变更前后 unified diff 计算
-import { computeUnifiedDiff } from '@modules/chat/utils/unifiedDiff';
-import { dedupeMessagesToolCallBlocks } from '@modules/chat/utils/chatBlocks';
+
 import type { LiriEvent } from '@modules/chat/types/events';
 import type { SessionManager } from '@modules/chat/types/session';
 import type {
@@ -91,7 +95,6 @@ import { getToolManager } from '@modules/tools';
 import { getTitleGenerator } from '@modules/agent';
 
 // [v1.2] costTracker.addCost / recordCost / getCostMetricsBridge 已迁移到 COST_RECORDED 事件订阅者（cost/index.ts）
-import { eventNotificationService } from '@modules/chat/services/EventNotificationService';
 
 const logger = getLogger('runtime:api:CoreAPIImpl');
 

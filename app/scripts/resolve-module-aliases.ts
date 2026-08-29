@@ -57,7 +57,6 @@ const ALIAS_MAP: Record<string, string> = {
   '@modules/tasks': 'tasks',
   '@modules/ui': 'ui',
   '@modules/ink': 'ink',
-  '@modules/models': 'models',
   '@modules/monitoring': 'monitoring',
   '@modules/utils': 'utils',
   '@modules/diagnostics': 'diagnostics',

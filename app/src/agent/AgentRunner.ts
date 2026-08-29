@@ -58,14 +58,6 @@ export interface AgentSummary {
   state: AgentState;
 }
 
-export interface AgentResult {
-  agentId: string;
-  content: string;
-  state: AgentState;
-  summary: AgentSummary;
-  progress: AgentProgress;
-}
-
 export interface SwarmExecutionResult {
   results: SwarmResult[];
   summary: {

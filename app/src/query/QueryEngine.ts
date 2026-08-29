@@ -119,7 +119,7 @@ export interface SessionState {
 /**
  * 进度事件接口
  */
-export interface ProgressEvent {
+interface ProgressEvent {
   type:
     | 'query_start'
     | 'query_end'

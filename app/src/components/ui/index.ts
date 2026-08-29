@@ -77,13 +77,6 @@ export {
   type MessageInstance,
 } from './Message.js';
 export {
-  Notification,
-  notification,
-  createNotification,
-  type NotificationProps,
-  type NotificationItem,
-} from './Notification.js';
-export {
   ChatMessage,
   createChatMessage,
   type ChatMessageProps,

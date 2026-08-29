@@ -28,4 +28,4 @@ export {
   createThemeManager,
 } from './ThemeManager';
 
-export type { Theme, ThemeColors } from './ThemeManager';
+export type { Theme } from './ThemeManager';

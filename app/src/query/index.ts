@@ -40,7 +40,6 @@ export type {
   QueryResult,
   SDKMessage,
   SessionState,
-  ProgressEvent,
   QueryError,
 } from './QueryEngine.js';
 export { QueryState, QueryErrorType } from './QueryEngine.js';

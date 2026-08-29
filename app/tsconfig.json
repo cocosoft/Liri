@@ -109,8 +109,6 @@
       "@modules/ui/*": ["ui/*"],
       "@modules/ink": ["ink"],
       "@modules/ink/*": ["ink/*"],
-      "@modules/models": ["models"],
-      "@modules/models/*": ["models/*"],
       "@modules/monitoring": ["monitoring"],
       "@modules/monitoring/*": ["monitoring/*"],
       "@modules/utils": ["utils"],

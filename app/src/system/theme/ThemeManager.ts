@@ -9,7 +9,7 @@ import chalk from 'chalk';
 
 const logger = getLogger('system:theme');
 
-export interface ThemeColors {
+interface ThemeColors {
   primary: string;
   secondary: string;
   success: string;

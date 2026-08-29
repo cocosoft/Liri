@@ -55,15 +55,7 @@ export type SubscriptionType = 'pro' | 'max' | 'team' | 'enterprise' | null;
 export type RateLimitTier = string | null;
 export type BillingType = string | null;
 
-export interface OAuthConfig {
-  authorizeUrl: string;
-  tokenUrl: string;
-  profileUrl: string;
-  successUrl: string;
-  manualRedirectUrl: string;
-  clientId: string;
-  scopes: string[];
-}
+export type { OAuthConfig } from '@modules/oauth/types';
 
 export interface OAuthProfileInfo {
   subscriptionType: SubscriptionType;

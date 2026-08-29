@@ -6,7 +6,8 @@ import { CompletionItem } from './Completion.js';
 import { Diagnostic } from './Diagnostic.js';
 import { Position, Range, Location, ServerStatus } from './LSPTypes.js';
 
-export { Position, Range, Location, ServerStatus } from './LSPTypes.js';
+export type { Position, Range, Location } from './LSPTypes.js';
+export { ServerStatus } from './LSPTypes.js';
 
 export interface LSPTool {
   /**

@@ -35,11 +35,8 @@ export type {
 export { BaseTask } from './BaseTask';
 
 // 导出本地Bash任务
-export {
-  looksLikePrompt,
-  LocalBashTaskOptions,
-  LocalBashTask,
-} from './LocalBashTask';
+export { looksLikePrompt, LocalBashTask } from './LocalBashTask';
+export type { LocalBashTaskOptions } from './LocalBashTask';
 
 // 导出轻量笔记任务
 export { NoteTask } from './NoteTask';

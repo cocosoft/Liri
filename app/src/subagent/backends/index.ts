@@ -22,7 +22,8 @@
  * Teammate后端模块导出
  */
 
-export {
+export { BaseTeammateBackend } from './TeammateBackend';
+export type {
   TeammateBackend,
   TeammateBackendFactory,
   TeammateConfig,
@@ -31,7 +32,6 @@ export {
   TeammateBackendType,
   MessageHandler,
   TeammateStatusHandler,
-  BaseTeammateBackend,
 } from './TeammateBackend';
 
 export {

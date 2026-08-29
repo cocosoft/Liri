@@ -22,8 +22,8 @@ export { handleVimKey, createVimState } from './vimInput';
 export type { VimState, VimMode, VimOperator, VimContext } from './vimInput';
 export { useVimInput } from './useVimInput';
 export type { UseVimInputOptions, VimInputResult } from './useVimInput';
+export type { Register as VimRegisters } from './registers';
 export {
-  Register as VimRegisters,
   createVimRegisters,
   registerManager as vimRegisters,
 } from './registers';

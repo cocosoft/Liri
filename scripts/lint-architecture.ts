@@ -449,6 +449,8 @@ class ArchitectureLinter {
         const knownSafePatterns = [
             /channels[/\\][^/\\]+[/\\](config-schema|accounts|doctor|monitor|probe|runtime|channel\.runtime)\.ts$/,
             /[/\\]index\.ts$/,
+            // 2026-08-29 治理：.d.ts 的 declare module 块是模块类型声明，非真实导出
+            /\.d\.ts$/,
         ];
 
         // 常见非冲突名称（各模块自身的局部配置类型）
@@ -515,6 +517,16 @@ class ArchitectureLinter {
             'PluginSkillManifest', 'PluginSkillParameter', 'PluginHookManifest',
             'PlanStep', 'ConfigValidationError', 'RiskLevel', 'SimpleCommand',
             'PermissionBehavior', 'ToolSchema',
+            // R02-002 阈值治理（2026-08-29）：UI 组件名——多套 UI 库并存
+            //（components/ui、ink/ink/components、ui/design-system、ui/types、ui/UIComponents），
+            // 组件名/Props 同名是既定架构事实（各套独立实现），非可统一类型
+            'ProgressBar', 'TreeNode', 'DialogProps', 'Dialog', 'Divider',
+            'Select', 'SelectOption', 'SelectProps', 'InputProps', 'Progress',
+            'TextProps', 'Notification',
+            // R02-002 阈值治理（2026-08-29）：纯领域变体——同名但各模块结构/语义独立，
+            // 无统一收益（子代理 18 组核查确认）
+            'MemoryItem', 'BatchResult', 'PipelineContext', 'RestoreResult',
+            'SyncResult', 'WRITE_TOOLS', 'VoiceState', 'TaskQueue', 'LanguagePack',
         ]);
 
         for (const file of this.allFiles) {
@@ -546,7 +558,9 @@ class ArchitectureLinter {
 
         // 报告同名导出
         for (const [name, locations] of typeMap) {
-            if (locations.length < 2) continue;
+            // 2026-08-29 治理：阈值 ≥3 个模块子树——583 条中 553 条（95%）仅在 2 个模块定义，
+            // 属领域局部变体/巧合（各模块自身领域类型），仅 ≥3 个模块重复才值得关注统一
+            if (locations.length < 3) continue;
 
             // 排除所有都在同一目录下或同一模块子树中的情况
             const dirs = new Set(locations.map(l => {

@@ -416,6 +416,12 @@ export class EventLogStorage {
       // 写入前读磁盘 lastKnown（events.tail meta）——多进程/多实例各自持有
       // per-session EventLogStorage（mutex 互不共享）时，内存 tailSeq 可能落后
       // 于磁盘，直接写入会产生重复/乱序 seq。先对齐再走守卫。
+      // KB-EVENT-TAIL-INIT（2026-08-29）：meta 缺失/未初始化时（A-6 之前旧文件、
+      // meta 写失败、meta 被清理）append 不自我初始化——tailSeq=0 会绕过 seq
+      // 守卫写入与盘上重复的 seq。文件存在时先扫描真实最大 seq 再走守卫。
+      if (!this.tailSeqInitialized && this.exists()) {
+        await this.getTailSeq();
+      }
       const persisted = await this.readPersistedTailSeq();
       if (persisted > this.tailSeq) {
         logger.warn('event-log: 内存 tailSeq 落后磁盘 lastKnown，对齐后写入', {
@@ -608,8 +614,11 @@ export class EventLogStorage {
         // JSON 中 "seq" 紧跟行首，正则提取即可跳过范围外行，仅范围内行完整解析。
         if (fromSeq > 1) {
           const seqMatch = line.match(/"seq":(\d+)/);
-          if (!seqMatch) continue; // 非事件行/损坏行交下方 try 兜底
-          if (parseInt(seqMatch[1], 10) < fromSeq) continue;
+          // 能提取 seq 且小于 fromSeq 才快速跳过；提取失败（损坏行/拼接行）不跳过，
+          // 交下方 try 走 splitJsonLine 拆分恢复（2026-08-24 根因修复）。
+          // 原实现 continue 使分页读取（fromSeq>1，40 万行会话常态路径）下损坏行
+          // 不参与恢复，行内可恢复事件（含跨实例并发拼接场景）静默丢失。
+          if (seqMatch && parseInt(seqMatch[1], 10) < fromSeq) continue;
         }
         // KB-EVENT-READ-EXCL（2026-08-29）：excludeTypes 行级快速跳过——
         // 载入长会话时排除 assistant/thinking 等高频细节事件，不 parse 直接跳过。
@@ -1117,8 +1126,6 @@ export class EventLogStorage {
       }
 
       const text = buf.toString('utf-8');
-      // 末尾无换行 → 最后一条记录可能半写
-      const endsWithNewline = text.endsWith('\n');
       // 逐行解析，最后一条完整行的结束字节偏移
       let lastCompleteEnd = 0;
       let lineStart = 0;
@@ -1147,12 +1154,11 @@ export class EventLogStorage {
       if (lastTrimmed.length > 0) {
         try {
           JSON.parse(lastTrimmed);
-          // 可解析但无换行结尾：半写风险（写盘未完成换行），仍算 torn 以安全截断
-          if (!endsWithNewline) {
-            sawTorn = true;
-            // lastCompleteEnd 已是最后一个完整行末尾；若尾行可解析且是唯一记录则保留
-            if (lastCompleteEnd === 0) lastCompleteEnd = text.length;
-          }
+          // KB-TORN-PRESERVE（2026-08-29）：可解析尾行 = JSON 内容完整（半写内容
+          // 不可能 parse 成功），无换行仅缺 '\n' 终止符，非数据损坏。原实现把
+          // "可解析但无换行"判为 torn 并截断（lastCompleteEnd 停在倒数第二行），
+          // 丢弃了完整事件（外部工具/异常落盘的假阳性）。改为整条保留。
+          lastCompleteEnd = text.length;
         } catch {
           // 尾行不可解析 → 明确的半写 torn
           sawTorn = true;

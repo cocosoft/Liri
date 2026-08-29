@@ -45,6 +45,8 @@ export class MemoryStorage implements SessionStorage {
       session.addMessage(message);
       this.sessions.set(sessionId, session);
     }
+    // @ignore-catch: 会话不存在时消息静默丢弃（内存存储无持久化依赖，本文件无 logger；
+    // 调用方应先 saveSession——若需排查顺序 bug 可在上层校验）
   }
 
   /**
@@ -105,6 +107,7 @@ export class MemoryStorage implements SessionStorage {
       session.updateMetadata(metadata);
       this.sessions.set(sessionId, session);
     }
+    // @ignore-catch: 会话不存在时元数据静默丢弃（内存存储无持久化依赖，本文件无 logger）
   }
 
   /**

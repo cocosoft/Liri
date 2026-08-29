@@ -199,6 +199,11 @@ export class UnifiedStorageAdapter implements SessionStorage {
     if (options?.offset) queryOptions.offset = options.offset;
     if (options?.since) queryOptions.startDate = options.since.getTime();
     if (options?.until) queryOptions.endDate = options.until.getTime();
+    // KB-ADAPTER-TYPES（2026-08-29）：options.types 此前被静默丢弃——按消息类型
+    // 过滤的旧链调用方拿到全量消息。补透传（旧接口 string[]，底层按 MessageType 匹配）
+    if (options?.types?.length) {
+      queryOptions.types = options.types as UnifiedMsgType[];
+    }
 
     const unifiedMessages = await this.storage.getMessages(
       sessionId,
@@ -279,20 +284,15 @@ export class UnifiedStorageAdapter implements SessionStorage {
   }
 
   async compactSession(sessionId: string): Promise<void> {
-    logger.debug('compactSession:桥接 UnifiedSessionStorage（旧接口 → 新链）', {
+    // KB-ADAPTER-COMPACT（2026-08-29）：原实现"删除最早一半消息"是数据破坏性操作
+    // （物理删除无 .trash/.bak 回收，会话历史被静默砍半且无恢复路径）。
+    // UnifiedSessionStorage 接口无 compact 能力，底层 FileSystemUnifiedStorage 已按
+    // 追加阈值（appendRewriteInterval/appendRewriteBytes）自动 compact + 加载时
+    // 反向去重。适配层改为 no-op 委托，由底层自动管理，不再破坏数据。
+    const count = (await this.storage.getMessages(sessionId)).length;
+    logger.info('compactSession:桥接层无独立 compact 能力，委托底层自动管理', {
       sessionId,
+      messageCount: count,
     });
-    const session = await this.storage.getSession(sessionId);
-    if (!session) return;
-
-    const messages = await this.storage.getMessages(sessionId);
-    if (messages.length > 1) {
-      const keepCount = Math.ceil(messages.length / 2);
-      const toDelete = messages.slice(0, messages.length - keepCount);
-      await this.storage.deleteMessages(
-        sessionId,
-        toDelete.map((m) => m.id)
-      );
-    }
   }
 }

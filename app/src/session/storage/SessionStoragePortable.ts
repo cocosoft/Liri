@@ -46,7 +46,14 @@ export class SessionStoragePortable {
     const dir = join(fullPath, '..');
     if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
     // BUG-J 修复：原子写入，避免进程崩溃导致半写文件
-    const tmpPath = fullPath + '.tmp.' + Date.now();
+    // KB-PORTABLE-TMP（2026-08-29）：tmp 名加随机后缀——原用 Date.now()，
+    // 同毫秒并发写同目标（跨进程）会互相覆盖；且崩溃残留 .tmp.<ts> 无法区分
+    const tmpPath =
+      fullPath +
+      '.tmp.' +
+      Date.now() +
+      '-' +
+      Math.random().toString(36).slice(2);
     writeFileSync(tmpPath, JSON.stringify(data, null, 2), 'utf-8');
     renameSync(tmpPath, fullPath);
   }

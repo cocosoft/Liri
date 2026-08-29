@@ -119,7 +119,22 @@ export class MessageToEventMigrator {
    * 若 events.jsonl 已存在（已迁移过），即使 messages.jsonl 存在也不迁移
    */
   needsMigration(): boolean {
-    return existsSync(this.messagesFilePath) && !this.eventLog.exists();
+    // 主判定：messages.jsonl 存在且 events.jsonl 不存在 → 全新迁移
+    if (existsSync(this.messagesFilePath) && !this.eventLog.exists()) {
+      return true;
+    }
+    // KB-MIG-REENTER（2026-08-29）：迁移中途崩溃（appendBatch 逐条 appendFile
+    // 写一半进程被杀）→ events.jsonl 半成品存在但 messages.jsonl.bak 未备份
+    // （备份 = 迁移成功标记）→ 判定为"未完成迁移"，migrate() 先清理半成品再重来，
+    // 杜绝该会话后段消息永久停留在未迁移状态（事件流不完整、数据语义断裂）。
+    if (
+      existsSync(this.messagesFilePath) &&
+      this.eventLog.exists() &&
+      !existsSync(this.messagesBackupPath)
+    ) {
+      return true;
+    }
+    return false;
   }
 
   /**
@@ -157,6 +172,13 @@ export class MessageToEventMigrator {
       sessionId: this.sessionId,
       messagesFilePath: this.messagesFilePath,
     });
+
+    // KB-MIG-REENTER（2026-08-29）：续迁场景（半成品 events.jsonl 存在且
+    // messages.jsonl.bak 未备份）——先清理半成品，避免 appendBatch 追加时
+    // seq 与半成品冲突（重复 seq/乱序）。
+    if (this.eventLog.exists() && !existsSync(this.messagesBackupPath)) {
+      await this.cleanupFailedMigration();
+    }
 
     // Step 1: 读取全部消息（按文件顺序）
     const messages = await this.readAllMessages();
@@ -303,7 +325,12 @@ export class MessageToEventMigrator {
       const callSeq = typeof meta.callSeq === 'number' ? meta.callSeq : -1;
       events.push({
         type: 'tool/result',
-        schemaVersion: parentMsgId ? 1 : undefined,
+        // KB-MIG-SCHEMA（2026-08-29）：原 `schemaVersion: parentMsgId ? 1 : undefined`
+        // 在 v0 数据无 parent 来源时产生"键存在但值 undefined"→ sanitizeEvent 的
+        // assertJsonValue 拒绝（undefined 不可 JSON 序列化）→ append 拒绝 → 迁移死锁
+        // （反复 cleanupFailedMigration 删 events.jsonl 再重试）。条件展开仅在
+        // 有 parent 时携带该键。
+        ...(parentMsgId ? { schemaVersion: 1 } : {}),
         seq: seq++,
         time,
         sessionId,

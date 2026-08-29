@@ -47,11 +47,17 @@ export function extractJsonStringField(
  */
 export function readLiteSessionMeta(filePath: string): LiteSessionMeta | null {
   try {
-    // 只读头部 64KB
-    const fd = require('fs').openSync(filePath, 'r');
-    const buf = Buffer.alloc(LITE_READ_BUF_SIZE);
-    require('fs').readSync(fd, buf, 0, LITE_READ_BUF_SIZE, 0);
-    require('fs').closeSync(fd);
+    // 只读头部 64KB（KB-LITE-FD：readSync 抛错时 fd 必须关闭，否则批量读 N 会话
+    // 泄漏 fd 最终触发 EMFILE——open/read 包 try/finally）
+    const fsMod = require('fs');
+    const fd = fsMod.openSync(filePath, 'r');
+    let buf: Buffer;
+    try {
+      buf = Buffer.alloc(LITE_READ_BUF_SIZE);
+      fsMod.readSync(fd, buf, 0, LITE_READ_BUF_SIZE, 0);
+    } finally {
+      fsMod.closeSync(fd);
+    }
     const raw = buf.toString('utf-8');
 
     const title = extractJsonStringField(raw, 'title');

@@ -11,6 +11,7 @@ import type {
   SessionListOptions,
 } from '../SessionStorage';
 import { resolveSessionsDir } from '@modules/core';
+import { AtomicWriter } from '../persistence/AtomicWriter.js';
 
 const logger = getLogger('session:storage');
 
@@ -23,6 +24,7 @@ export class FileSystemStorage implements SessionStorage {
    * 存储根目录
    */
   private rootDir: string;
+  private writer: AtomicWriter;
 
   /**
    * 构造函数
@@ -30,6 +32,7 @@ export class FileSystemStorage implements SessionStorage {
    */
   constructor(rootDir: string = resolveSessionsDir()) {
     this.rootDir = rootDir;
+    this.writer = new AtomicWriter();
   }
 
   /**
@@ -173,16 +176,28 @@ export class FileSystemStorage implements SessionStorage {
       const content = await fs.readFile(messagesFilePath, 'utf-8');
       const lines = content.trim().split('\n');
 
+      let badLines = 0;
       let messages = lines
         .map((line) => {
           try {
             const data = JSON.parse(line);
             return SessionMessage.fromJSON(data);
           } catch {
+            // KB-FS-LOAD-BADLINE（2026-08-29）：坏行静默跳过 → 数据损坏不可感知
+            // （与 compactSession 的 badLines 计数对齐）
+            badLines++;
             return null;
           }
         })
         .filter((msg): msg is SessionMessage => msg !== null);
+      if (badLines > 0) {
+        logger.warn('loadMessages:存在损坏行，已跳过', {
+          sessionId,
+          badLines,
+          totalLines: lines.length,
+          messagesFilePath,
+        });
+      }
 
       // 应用过滤选项
       if (options) {
@@ -279,6 +294,16 @@ export class FileSystemStorage implements SessionStorage {
       const data = JSON.parse(content);
       return SessionMetadata.fromJSON(data);
     } catch (error) {
+      // KB-FS-META（2026-08-29）：ENOENT（元数据不存在，预期）与 JSON 损坏
+      // （断电半写，数据问题）此前混为一谈静默返回 null → 标题/模式/tags 丢失
+      // 不可感知。区分：非 ENOENT 记录 warn。
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+        logger.warn('loadMetadata:读取/解析失败', {
+          sessionId,
+          metadataFilePath,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
       return null;
     }
   }
@@ -453,7 +478,9 @@ export class FileSystemStorage implements SessionStorage {
     const compactedData =
       compacted.map((m) => JSON.stringify(m.toJSON())).join('\n') + '\n';
     try {
-      await fs.writeFile(messagesFilePath, compactedData, 'utf-8');
+      // KB-FS-COMPACT-ATOMIC（2026-08-29）：原直接 writeFile 覆盖——写入中途崩溃
+      // → messages.jsonl 半写损坏且无可恢复备份。改为 AtomicWriter（tmp+rename 原子替换）
+      await this.writer.write(messagesFilePath, compactedData);
       logger.info('compactSession:完成', {
         sessionId,
         beforeLines: lines.length,

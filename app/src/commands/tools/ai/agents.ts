@@ -14,7 +14,7 @@
 
 import type { Command } from '@modules/commands';
 import { getToolManager } from '@modules/tools';
-import { AgentTool } from '@modules/tools/AgentTool/AgentTool.js';
+import { AgentTool } from '@modules/tools';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('commands:tools:ai:agents');

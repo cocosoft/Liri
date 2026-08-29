@@ -5,7 +5,7 @@
  */
 
 import type { Command, CommandImplementation } from '@modules/commands';
-import { grep, type GrepOutputMode } from '@modules/tools/GrepTool/grep.js';
+import { grep, type GrepOutputMode } from '@modules/tools';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('commands:tools:system:grep');

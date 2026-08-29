@@ -7,7 +7,7 @@
 import type { Command } from '@modules/commands';
 import { getToolManager } from '@modules/tools';
 import { feature } from '@modules/core';
-import { notebookManager } from '@modules/tools/notebook/NotebookManager.js';
+import { notebookManager } from '@modules/tools';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('commands:tools:dev:notebook');

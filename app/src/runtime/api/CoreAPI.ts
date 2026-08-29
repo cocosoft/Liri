@@ -24,10 +24,7 @@
  * 统一的应用门面，为所有外部入口（CLI、Bridge、通道插件）提供一致的功能入口
  liriliri*/
 
-import type {
-  ConversionResult,
-  FileInfo,
-} from '@modules/tools/converter/engine/types';
+import type { ConversionResult, FileInfo } from '@modules/tools';
 import type { TodoBlockData } from './todo-types';
 import type { DocWorkflowProgressData } from '@modules/doc/types/outline';
 import type { LiriEvent } from '@modules/chat/types/events';

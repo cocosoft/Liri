@@ -971,8 +971,7 @@ export async function handleKnowledgeUpload(
       await writeFile(join(rawDir, originalRawName), rawBuffer);
 
       // 2. 使用 ConverterEngine 提取文本
-      const { getConverterEngine } =
-        await import('@modules/tools/converter/engine/ConverterEngine');
+      const { getConverterEngine } = await import('@modules/tools');
       const engine = getConverterEngine();
       const fileInfo = engine.getDetector().detect(filename, rawBuffer.length);
       const result = await engine.convertContent(fileInfo, rawBuffer);
@@ -1359,8 +1358,7 @@ export async function handleImportFromFile(
     let rawContent: string;
 
     if (BINARY_EXTENSIONS.has(ext)) {
-      const { getConverterEngine } =
-        await import('@modules/tools/converter/engine/ConverterEngine');
+      const { getConverterEngine } = await import('@modules/tools');
       const engine = getConverterEngine();
       const result = await engine.convertFile(filePath);
       rawContent = result.markdown;

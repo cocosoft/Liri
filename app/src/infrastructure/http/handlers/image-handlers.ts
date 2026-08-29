@@ -687,8 +687,7 @@ export async function handleImageDelete(
     }
 
     // Phase 2: 检查是否有视频任务引用了此图片，清除引用
-    const { getVideoTaskPersistence } =
-      await import('@modules/tools/VideoGenerateTool/VideoTaskPersistence');
+    const { getVideoTaskPersistence } = await import('@modules/tools');
     const persistence = getVideoTaskPersistence();
 
     // 查找引用此图片路径的任务（sourceImageUrl 中可能含文件路径片段）

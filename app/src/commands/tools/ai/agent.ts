@@ -8,7 +8,7 @@
 
 import type { Command } from '@modules/commands';
 import { getToolManager } from '@modules/tools';
-import { AgentTool } from '@modules/tools/AgentTool/AgentTool.js';
+import { AgentTool } from '@modules/tools';
 import { taskRegistry } from '@modules/tasks';
 import {
   TaskStatus,
@@ -16,7 +16,7 @@ import {
   type BackgroundTaskStatus,
 } from '@modules/tasks/types.js';
 import type { BaseTask } from '@modules/tasks';
-import { getSubAgentEngine } from '@modules/tools/AgentTool/SubAgentEngine.js';
+import { getSubAgentEngine } from '@modules/tools';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('commands:tools:ai:agent');

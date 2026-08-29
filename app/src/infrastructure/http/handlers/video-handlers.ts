@@ -450,8 +450,7 @@ export async function handleVideoBySourceImage(
     }
 
     // 使用 VideoTaskPersistence 查询
-    const { getVideoTaskPersistence } =
-      await import('@modules/tools/VideoGenerateTool/VideoTaskPersistence');
+    const { getVideoTaskPersistence } = await import('@modules/tools');
     const persistence = getVideoTaskPersistence();
 
     const tasks = persistence.listBySourceImagePath(imagePath);

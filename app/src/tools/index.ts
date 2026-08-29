@@ -323,3 +323,33 @@ export { ParallelExecutor } from './executor/ParallelExecutor';
 export { ToolCallPartitioner } from './orchestration/Partitioner';
 export { SubAgentEngine, getSubAgentEngine } from './AgentTool/SubAgentEngine';
 export type { SkillDefinition } from './SkillTool/types';
+
+// 2026-08-29 R03-002 收敛二期：工具子目录统一出口
+export { FileReadTool } from './FileReadTool/FileReadTool';
+export { FileWriteTool } from './FileWriteTool/FileWriteTool';
+export { FileEditTool } from './FileEditTool/FileEditTool';
+export { BashTool } from './bash/BashTool';
+export { createPowerShellTool } from './PowerShellTool/PowerShellTool';
+export { GlobTool } from './search/GlobTool';
+export { GrepTool } from './GrepTool/GrepTool';
+export { createWebSearchTool } from './WebSearchTool/WebSearchTool';
+export { createWebFetchTool } from './WebFetchTool/WebFetchTool';
+export { TimeTool } from './TimeTool/TimeTool';
+export { AgentTool } from './AgentTool/AgentTool';
+export { CuratorScheduler } from './AgentTool/CuratorScheduler';
+export { SkillLifecycleManager } from './AgentTool/SkillLifecycleManager';
+export { notebookManager } from './notebook/NotebookManager';
+export { toolCacheManager } from './cache/ToolCacheManager';
+export { createToolScheduler } from './scheduler/ToolScheduler';
+export { getVideoTaskPersistence } from './VideoGenerateTool/VideoTaskPersistence';
+export { getMediaTemplates } from './VideoGenerateTool/MediaTemplates';
+export { configureCodeRunner } from './CodeRunner/CodeRunnerTool';
+export { getConverterEngine } from './converter/engine/ConverterEngine';
+export { FileTypeDetector } from './converter/engine/FileTypeDetector';
+export { VERIFICATION_AGENT_DEFINITION } from './AgentTool/strategies/VerificationStrategy';
+export { STATUSLINE_SETUP_AGENT_DEFINITION } from './AgentTool/strategies/StatuslineStrategy';
+export type {
+  ConversionResult,
+  FileInfo,
+  ConversionOptions,
+} from './converter/engine/types';

@@ -3,8 +3,8 @@
  */
 
 import { BuiltInAgentDefinition } from './types';
-import { VERIFICATION_AGENT_DEFINITION } from '@modules/tools/AgentTool/strategies/VerificationStrategy';
-import { STATUSLINE_SETUP_AGENT_DEFINITION } from '@modules/tools/AgentTool/strategies/StatuslineStrategy';
+import { VERIFICATION_AGENT_DEFINITION } from '@modules/tools';
+import { STATUSLINE_SETUP_AGENT_DEFINITION } from '@modules/tools';
 
 /**
  * 获取内置Agent列表

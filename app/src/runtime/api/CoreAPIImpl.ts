@@ -47,9 +47,9 @@ import type {
   ConversionResult,
   FileInfo,
   ConversionOptions,
-} from '@modules/tools/converter/engine/types';
-import { getConverterEngine } from '@modules/tools/converter/engine/ConverterEngine';
-import { FileTypeDetector } from '@modules/tools/converter/engine/FileTypeDetector';
+} from '@modules/tools';
+import { getConverterEngine } from '@modules/tools';
+import { FileTypeDetector } from '@modules/tools';
 import { createPermissionManager } from '@modules/permission/PermissionManager';
 import type { ChatManager } from '@modules/chat';
 import { createChatManager } from '@modules/chat';
@@ -68,8 +68,8 @@ import type {
   FrontendMessageBlock,
 } from '@modules/session/types/Message';
 import type { Message } from '@modules/chat/types/message';
-import type { ToolManager } from '@modules/tools/core/ToolManager';
-import { globalToolManager } from '@modules/tools/core/ToolManager';
+import type { ToolManager } from '@modules/tools';
+import { globalToolManager } from '@modules/tools';
 import type { Coordinator } from '@modules/core';
 import { coordinator as defaultCoordinator } from '@modules/core';
 import { getLogger } from '@modules/monitoring';

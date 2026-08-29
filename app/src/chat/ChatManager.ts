@@ -54,7 +54,7 @@ import { ReconcileService } from '@modules/session/reconcile/ReconcileService';
 import { dedupeToolCallBlocks } from '@modules/chat/utils/chatBlocks';
 import type { LiriEvent } from '@modules/chat/types/events';
 import { feature as coreFeature } from '@modules/core';
-import { configureCodeRunner } from '@modules/tools/CodeRunner/CodeRunnerTool';
+import { configureCodeRunner } from '@modules/tools';
 import {
   sanitizeApiMessages,
   compressToolHistory,

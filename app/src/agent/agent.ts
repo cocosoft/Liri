@@ -28,8 +28,8 @@ import {
 import { writeFileSync, readFileSync, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { resolveSessionsDir } from '@modules/core';
-import { CuratorScheduler } from '@modules/tools/AgentTool/CuratorScheduler';
-import { SkillLifecycleManager } from '@modules/tools/AgentTool/SkillLifecycleManager';
+import { CuratorScheduler } from '@modules/tools';
+import { SkillLifecycleManager } from '@modules/tools';
 import { InternalEventBus } from './events';
 
 /**

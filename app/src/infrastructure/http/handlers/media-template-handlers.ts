@@ -11,7 +11,7 @@
 import type http from 'http';
 import type { HandlerCtx } from './handler-utils';
 import { handleError } from '@modules/error';
-import { getMediaTemplates } from '@modules/tools/VideoGenerateTool/MediaTemplates';
+import { getMediaTemplates } from '@modules/tools';
 
 /** 发送 JSON 响应 */
 function json(res: http.ServerResponse, status: number, data: unknown): void {

@@ -1,6 +1,6 @@
 import type { CommandContext, CommandResult } from '@modules/commands';
-import { getConverterEngine } from '@modules/tools/converter/engine/ConverterEngine.js';
-import { FileTypeDetector } from '@modules/tools/converter/engine/FileTypeDetector.js';
+import { getConverterEngine } from '@modules/tools';
+import { FileTypeDetector } from '@modules/tools';
 import * as fs from 'fs';
 import * as path from 'path';
 

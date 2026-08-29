@@ -13,7 +13,7 @@
 import type http from 'http';
 import type { HandlerCtx } from './handler-utils';
 import { handleError } from '@modules/error';
-import { getVideoTaskPersistence } from '@modules/tools/VideoGenerateTool/VideoTaskPersistence';
+import { getVideoTaskPersistence } from '@modules/tools';
 import type { ToolUseContext } from '@modules/tools/types/Tool';
 
 /** 从 URL 路径中提取 taskId（/v1/video/tasks/{id}） */

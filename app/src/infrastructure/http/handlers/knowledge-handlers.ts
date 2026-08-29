@@ -1984,7 +1984,7 @@ export async function handleTrashKnowledge(
     const { knowledgeDocsProvider } =
       await import('@modules/docs/FileDocsProvider');
     const { rename, mkdir } = await import('fs/promises');
-    const { join } = await import('path');
+    const { join, relative } = await import('path');
 
     const registry = getDefaultKnowledgeBaseRegistry();
     const root = registry.getKnowledgeRoot();
@@ -1993,7 +1993,10 @@ export async function handleTrashKnowledge(
     const trashDir = join(root, '.knowledge-trash');
     await mkdir(trashDir, { recursive: true });
 
-    const dest = join(trashDir, docPath.replace(/[/\\]/g, '_'));
+    // KB-TRASH-COLLISION（2026-08-29 导出复核）：保留相对目录层级而非拍平——
+    // 原 docPath.replace(/[/\\]/g,'_') 使 a/b/c.md 与 a_b/c.md 碰撞（后者覆盖前者，
+    // restore 也无法区分）。relative(root, src) 为 root 内无 .. 的相对路径，天然不碰撞。
+    const dest = join(trashDir, relative(root, src));
     await rename(src, dest);
     // KB-P0-1（2026-08-27）：trash 后清缓存 + 广播，与 delete/update 分支一致，
     // 否则 buildIndex 返回旧缓存，前端 REFRESH_LIST 拉到回收站中的过期数据
@@ -2026,14 +2029,18 @@ export async function handleRestoreTrash(
       await import('@modules/knowledge/KnowledgeBaseRegistry');
     const { knowledgeDocsProvider } =
       await import('@modules/docs/FileDocsProvider');
-    const { rename } = await import('fs/promises');
-    const { join } = await import('path');
+    const { rename, mkdir } = await import('fs/promises');
+    const { join, relative, dirname } = await import('path');
 
     const registry = getDefaultKnowledgeBaseRegistry();
     const root = registry.getKnowledgeRoot();
-    const src = join(root, '.knowledge-trash', docPath.replace(/[/\\]/g, '_'));
     // KB-DOC（2026-08-27）：docPath 来自请求体，防 ../ 逃逸根目录恢复文件
     const dest = await assertDocPathWithin(root, docPath);
+    // KB-TRASH-COLLISION：与 trash 对称——回收站保留相对目录层级，反查源路径
+    const src = join(root, '.knowledge-trash', relative(root, dest));
+    // KB-TRASH-RESTORE-DIR（2026-08-29）：目标父目录可能已被删除（如所属 base 被删），
+    // 直接 rename 会 ENOENT——先重建目录层级再恢复。
+    await mkdir(dirname(dest), { recursive: true });
     await rename(src, dest);
     // KB-P0-1（2026-08-27）：restore 后清缓存 + 广播，回收站文档恢复后立即可见
     knowledgeDocsProvider.clearCache();

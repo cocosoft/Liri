@@ -13,7 +13,7 @@
  */
 
 import { Span, SpanStatusCode } from '@opentelemetry/api';
-import { OrchestrationEventType } from '@modules/agent/events/OrchestrationEvents';
+import { OrchestrationEventType } from '@modules/agent';
 import { globalEventBus } from './EventBus';
 import { getOTelTracing } from '@modules/monitoring';
 import {

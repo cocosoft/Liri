@@ -19,14 +19,14 @@ import type {
 } from './CouncilTypes.js';
 import type { CouncilConfig } from './CouncilEngine.js';
 import { globalEventBus } from '../core/events/EventBus.js';
-import { OrchestrationEventType } from '../agent/events/OrchestrationEvents.js';
+import { OrchestrationEventType } from '@modules/agent';
 import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error/handleError';
 import aiService, { type AIMessage, AIMessageRole } from '@modules/ai';
 import { getAgentRoleStore } from './AgentRoleStore.js';
-import { getAgentRegistry } from '../agent/registry/AgentRegistry.js';
-import type { AgentDefinition } from '../agent/registry/AgentRegistry.js';
+import { getAgentRegistry } from '@modules/agent';
+import type { AgentDefinition } from '@modules/agent';
 
 const logger = getLogger('CouncilOrchestrator');
 

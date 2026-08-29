@@ -21,7 +21,7 @@ import { getLogger } from '@modules/monitoring';
 import { configManager } from '@modules/config';
 import { parseReviewFromText } from '../PlanReview.js';
 import type { PlanReview, ReviewDecision, ReviewIssue } from '../PlanReview.js';
-import type { AgentIsolation } from '../../agent/AgentIsolation.js';
+import type { AgentIsolation } from '@modules/agent';
 import type { VerifierAgent } from '@modules/query';
 import type { PlanStep } from '../TaskOrchestrator.js';
 

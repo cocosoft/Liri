@@ -36,7 +36,7 @@ import {
   createAgentIsolation,
   throwIfAborted,
   registerIsolationToScope,
-} from '../agent/AgentIsolation';
+} from '@modules/agent';
 import { EffectScope } from '@modules/context';
 import { computeToolNames, resolveToolsets } from '../tools/toolsets';
 import { generateAuditReport } from './AuditReport';

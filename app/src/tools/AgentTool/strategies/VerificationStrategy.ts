@@ -8,7 +8,7 @@
  * - 输出 PASS/FAIL/PARTIAL 结论
  */
 
-import type { BuiltInAgentDefinition } from '../../../agent/models/types';
+import type { BuiltInAgentDefinition } from '@modules/agent';
 
 export const VERIFICATION_AGENT_TYPE = 'verification';
 

@@ -8,7 +8,7 @@
  * 可选对接 OTel Metrics（通过 OTelMetrics 实例）。
  */
 
-import { OrchestrationEventType } from '@modules/agent/events/OrchestrationEvents';
+import { OrchestrationEventType } from '@modules/agent';
 import { globalEventBus, type EventSubscription } from './EventBus';
 import type { OTelMetrics } from '@modules/monitoring/otel/OTelMetrics';
 import { getLogger } from '@modules/monitoring';

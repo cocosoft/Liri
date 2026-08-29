@@ -29,8 +29,8 @@ import type { PlanReview } from './PlanReview';
 import type { ReviewDecision } from './PlanReview';
 
 import { globalEventBus } from '../core/events/EventBus.js';
-import { OrchestrationEventType as OrchEvent } from '../agent/events/OrchestrationEvents.js';
-import type { PlanProgressData } from '../agent/events/OrchestrationEvents.js';
+import { OrchestrationEventType as OrchEvent } from '@modules/agent';
+import type { PlanProgressData } from '@modules/agent';
 
 import { getLogger } from '@modules/monitoring';
 import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';

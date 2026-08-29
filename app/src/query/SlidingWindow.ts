@@ -12,7 +12,7 @@
 
 import { getLogger } from '@modules/monitoring';
 import type { ChatMessage } from '@modules/ai';
-import { extractKeyPaths } from '@modules/agent/compact/utils';
+import { extractKeyPaths } from '@modules/agent';
 
 const logger = getLogger('query:slidingWindow');
 

@@ -4,7 +4,7 @@
  * 判断哪些 tool call 可以安全并行，哪些必须串行。
  * 参考 hermes run_agent.py 的 _PARALLEL_SAFE_TOOLS / _NEVER_PARALLEL_TOOLS / _PATH_SCOPED_TOOLS 设计。
  */
-import type { ToolCallItem } from '../agent/ToolCallBatch';
+import type { ToolCallItem } from '@modules/agent';
 
 /** 必须串行执行的工具（交互型 / 用户面朝工具） */
 const NEVER_PARALLEL_TOOLS = new Set([

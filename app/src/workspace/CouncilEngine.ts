@@ -21,12 +21,12 @@ import type {
   ConsensusResult,
 } from './CouncilTypes.js';
 import { globalEventBus } from '../core/events/EventBus.js';
-import { OrchestrationEventType } from '../agent/events/OrchestrationEvents.js';
+import { OrchestrationEventType } from '@modules/agent';
 import type {
   CouncilRoundStartData,
   CouncilAgentSpeakingData,
   CouncilAgentDeltaData,
-} from '../agent/events/OrchestrationEvents.js';
+} from '@modules/agent';
 import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error/handleError';

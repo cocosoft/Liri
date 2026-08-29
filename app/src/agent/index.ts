@@ -281,3 +281,17 @@ export * from './events';
 export * from './compact';
 
 export * from './TitleGenerator.js';
+
+// 2026-08-29 R03-002 收敛：telemetry / trajectory / isolation 统一出口
+export { agentTelemetry } from './AgentTelemetry.js';
+export { trajectoryRecorder } from './trajectory/TrajectoryRecorder.js';
+export type { AgentIsolation } from './AgentIsolation.js';
+export {
+  createAgentIsolation,
+  throwIfAborted,
+  registerIsolationToScope,
+} from './AgentIsolation.js';
+export type { BuiltInAgentDefinition } from './models/types.js';
+export { OrchestrationEventType } from './events/OrchestrationEvents.js';
+export type * from './events/OrchestrationEvents.js';
+export { extractKeyPaths } from './compact/utils';

@@ -9,13 +9,13 @@
 import { randomUUID } from 'crypto';
 import { SubAgentEngine, getSubAgentEngine } from './SubAgentEngine';
 import { globalEventBus } from '../../core/events/EventBus.js';
-import { OrchestrationEventType } from '../../agent/events/OrchestrationEvents.js';
+import { OrchestrationEventType } from '@modules/agent';
 import type {
   ParallelStartData,
   ParallelEndData,
   ParallelTaskStartData,
   ParallelTaskCompleteData,
-} from '../../agent/events/OrchestrationEvents.js';
+} from '@modules/agent';
 import type { SubTask } from './types';
 import type { Tool } from '../types/Tool';
 import type { ToolDefinition } from '@modules/ai';

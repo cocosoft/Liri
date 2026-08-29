@@ -7,7 +7,7 @@
  * - 更新 ~/.claude/settings.json 中的 statusLine 设置
  */
 
-import type { BuiltInAgentDefinition } from '../../../agent/models/types';
+import type { BuiltInAgentDefinition } from '@modules/agent';
 
 export const STATUSLINE_SETUP_AGENT_TYPE = 'statusline-setup';
 

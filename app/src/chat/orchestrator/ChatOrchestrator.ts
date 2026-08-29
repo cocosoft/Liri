@@ -442,8 +442,7 @@ export class ChatOrchestrator {
       try {
         // telemetry 初始化
         if (this.host.ENABLE_TRAJECTORY) {
-          const { trajectoryRecorder } =
-            await import('../../agent/trajectory/TrajectoryRecorder');
+          const { trajectoryRecorder } = await import('@modules/agent');
           try {
             trajectoryRecorder.startSession(session.id, options?.model);
           } catch (err) {

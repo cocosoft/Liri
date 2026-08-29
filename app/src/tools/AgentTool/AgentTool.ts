@@ -38,7 +38,7 @@ import {
 } from './ForkSubagent';
 import { SubAgentEngine, getSubAgentEngine } from './SubAgentEngine';
 import { ParallelOrchestrator } from './ParallelOrchestrator';
-import { agentRegistry } from '../../agent/registry/AgentRegistry';
+import { agentRegistry } from '@modules/agent';
 import { getTeammateManager } from '../../subagent/TeammateManager';
 import { taskRegistry } from '@modules/tasks';
 import { resolveModelRoute, RouteKey } from '@modules/ai';

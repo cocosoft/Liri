@@ -13,8 +13,8 @@ import { existsSync, mkdirSync, appendFileSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { randomUUID } from 'crypto';
 import { globalEventBus } from '../../../core/events/EventBus.js';
-import { OrchestrationEventType } from '../../../agent/events/OrchestrationEvents.js';
-import { AgentEventType } from '../../../agent/events/types.js';
+import { OrchestrationEventType } from '@modules/agent';
+import { AgentEventType } from '@modules/agent';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('http:orchHistory');
 

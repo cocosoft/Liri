@@ -335,6 +335,7 @@ export type {
 export { UsageTracker } from './UsageTracker';
 export type { TrackUsageParams } from './UsageTracker';
 export { trackUsage } from './UsageTracker';
+export { extractModelFromResponse } from './UsageTracker';
 
 export {
   PriorityBasedFailover,

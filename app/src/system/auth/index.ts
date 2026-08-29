@@ -56,7 +56,7 @@ export {
   generateCodeVerifier,
   generateCodeChallenge,
   generateState,
-} from '@modules/oauth/utils/OAuthCrypto';
+} from '@modules/oauth';
 
 export { getOauthConfig } from './oauthConfig.js';
 

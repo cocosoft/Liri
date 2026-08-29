@@ -8,10 +8,10 @@ import * as readline from 'readline';
 import { getLogger } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { ErrorCodes } from '@modules/error';
-import { oauthService } from '@modules/oauth/services/OAuthService';
-import { createGitHubOAuthProvider } from '@modules/oauth/providers/GitHubOAuthProvider';
-import { createGoogleOAuthProvider } from '@modules/oauth/providers/GoogleOAuthProvider';
-import { AuthorizationCodeFlow } from '@modules/oauth/flows/AuthorizationCodeFlow';
+import { oauthService } from '@modules/oauth';
+import { createGitHubOAuthProvider } from '@modules/oauth';
+import { createGoogleOAuthProvider } from '@modules/oauth';
+import { AuthorizationCodeFlow } from '@modules/oauth';
 import type { OAuthConfig } from '@modules/oauth/types';
 import { configManager } from '@modules/config';
 

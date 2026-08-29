@@ -10,7 +10,7 @@ import type { ChatSession } from '../types/session.js';
 import type { Message } from '../types/message.js';
 import type { ToolAwareClient } from '@modules/ai';
 import { trackUsage } from '@modules/ai';
-import { extractModelFromResponse } from '@modules/ai/UsageTracker';
+import { extractModelFromResponse } from '@modules/ai';
 
 const logger = getLogger('chat:summarizer');
 

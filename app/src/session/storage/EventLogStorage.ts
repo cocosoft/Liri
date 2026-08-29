@@ -63,6 +63,8 @@ export interface EventLogQuery {
   toSeq?: number;
   /** 类型过滤（白名单），默认不过滤 */
   types?: LiriEventType[];
+  /** 类型排除（黑名单，行级快速跳过，不 parse——用于载入跳过 thinking 等高频细节事件） */
+  excludeTypes?: LiriEventType[];
   /** 最大返回数，默认 1000，上限 10000 */
   limit?: number;
 }
@@ -584,6 +586,7 @@ export class EventLogStorage {
     const fromSeq = query?.fromSeq ?? 1;
     const toSeq = query?.toSeq ?? Number.MAX_SAFE_INTEGER;
     const types = query?.types;
+    const excludeTypes = query?.excludeTypes;
     const limit = Math.min(query?.limit ?? 1000, 10000);
 
     const results: LiriEvent[] = [];
@@ -602,6 +605,14 @@ export class EventLogStorage {
           const seqMatch = line.match(/"seq":(\d+)/);
           if (!seqMatch) continue; // 非事件行/损坏行交下方 try 兜底
           if (parseInt(seqMatch[1], 10) < fromSeq) continue;
+        }
+        // KB-EVENT-READ-EXCL（2026-08-29）：excludeTypes 行级快速跳过——
+        // 载入长会话时排除 assistant/thinking 等高频细节事件，不 parse 直接跳过。
+        if (excludeTypes && excludeTypes.length > 0) {
+          const typeMatch = line.match(/"type":"([^"]+)"/);
+          if (typeMatch && excludeTypes.includes(typeMatch[1] as LiriEventType)) {
+            continue;
+          }
         }
 
         try {

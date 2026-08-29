@@ -1533,10 +1533,17 @@ export class CoreAPIImpl implements CoreAPI {
     if (!eventLog.exists()) return null;
 
     // 循环拉取 events（G5：read limit≤10000 无分页，防静默截断）
+    // KB-LONG-SESSION（2026-08-29）：排除 assistant/thinking 高频细节事件——
+    // 长会话 events.jsonl 中 thinking 占 90%+，载入跳过可降事件处理量一个量级，
+    // 派生消息不依赖 thinking（thinking 块仅回放展示用，流式时已实时推送）。
     const events: LiriEvent[] = [];
     let fromSeq = 1;
     for (;;) {
-      const batch = await eventLog.read({ fromSeq, limit: 10000 });
+      const batch = await eventLog.read({
+        fromSeq,
+        limit: 10000,
+        excludeTypes: ['assistant/thinking'],
+      });
       events.push(...batch);
       if (batch.length < 10000) break;
       fromSeq = batch[batch.length - 1].seq + 1;

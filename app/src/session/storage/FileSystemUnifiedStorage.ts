@@ -477,7 +477,9 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
     // 落盘；真正的僵尸（文件确实丢失）仍由 K-6 防护保留。
     const msgPath = messagesFilePath(this.basePath, session.id);
     if (!existsSync(msgPath)) {
-      await fs.mkdir(sessionDir(this.basePath, session.id), { recursive: true });
+      await fs.mkdir(sessionDir(this.basePath, session.id), {
+        recursive: true,
+      });
       await fs.writeFile(msgPath, '', 'utf-8');
     }
     return session.id;

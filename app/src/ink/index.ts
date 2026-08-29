@@ -51,3 +51,7 @@ export { useInput } from './ink/hooks/use-input';
 export { useApp } from './ink/hooks/use-app';
 export { useTerminalSize } from '../hooks/useTerminalSize';
 export { default as render, renderSync, createRoot } from './ink/root';
+
+// 2026-08-30 R03-002 收敛：ink 内部子路径统一出口
+export type { Key } from './ink/events/input-event';
+export type { Styles } from './ink/styles';

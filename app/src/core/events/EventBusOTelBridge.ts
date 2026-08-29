@@ -15,11 +15,11 @@
 import { Span, SpanStatusCode } from '@opentelemetry/api';
 import { OrchestrationEventType } from '@modules/agent';
 import { globalEventBus } from './EventBus';
-import { getOTelTracing } from '@modules/monitoring';
 import {
+  getOTelTracing,
   isSpanCovered,
   markSpanCovered,
-} from '@modules/monitoring/tracing/SpanCoverageRegistry';
+} from '@modules/monitoring';
 
 /** Span 映射配置 */
 interface SpanMapping {

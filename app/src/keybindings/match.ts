@@ -1,7 +1,7 @@
-import type { Key } from '../ink/ink/events/input-event.js';
+import type { Key } from '@modules/ink';
 import type { ParsedKeystroke, ParsedBinding } from './types.js';
 
-export type { Key as InkKey } from '../ink/ink/events/input-event.js';
+export type { Key as InkKey } from '@modules/ink';
 
 const KEY_NAME_MAP: Record<string, string | undefined> = {
   return: 'enter',

@@ -26,7 +26,7 @@ import { promisify } from 'util';
 import * as path from 'path';
 import { realpathSync, existsSync } from 'fs';
 import { DELETION_RULES } from '../../security/patterns/dangerousCommands';
-import { SandboxSecurityChecker } from '@modules/sandbox/SandboxSecurityChecker';
+import { SandboxSecurityChecker } from '@modules/sandbox';
 import { completeSecuritySystem } from '@modules/security';
 import { configManager } from '@modules/config';
 import type { PermissionConfig } from '@modules/config/types';

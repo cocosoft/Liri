@@ -33,3 +33,16 @@ export type {
   SpanContext,
   SpanType,
 } from './SessionTracing.js';
+
+// 2026-08-30 R03-002 收敛：traceContextExtractor / SpanCoverageRegistry 统一出口
+export {
+  withTraceContextFromRequest,
+  withTraceContextFromRequestResult,
+  extractTraceContextFromRequest,
+} from './traceContextExtractor.js';
+export {
+  isSpanCovered,
+  markSpanCovered,
+  dedupStartSpan,
+  clearSpanCoverage,
+} from './SpanCoverageRegistry.js';

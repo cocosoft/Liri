@@ -11,7 +11,7 @@ import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { recordBackgroundTask } from '@modules/monitoring';
 import type { CompileResult } from './KnowledgeCompiler';
-import { sleepMonitor, SLEEP_EVENTS } from '@modules/core/sleep/SleepMonitor';
+import { sleepMonitor, SLEEP_EVENTS } from '@modules/core';
 import { globalEventBus } from '@modules/core/events/EventBus';
 import type { EventSubscription } from '@modules/core/events/EventBus';
 

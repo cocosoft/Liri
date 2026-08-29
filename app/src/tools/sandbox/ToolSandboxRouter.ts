@@ -13,8 +13,6 @@ import { handleError } from '@modules/error/handleError';
 import {
   SandboxManagerImpl,
   createSandboxManager,
-} from '@modules/sandbox/SandboxImpl';
-import {
   SandboxPlatform,
   SandboxPermission,
   createDefaultSandboxConfig,

@@ -28,12 +28,14 @@ import { createKnowledgeImportTool } from '../knowledge/tools/KnowledgeImportToo
 import { createKnowledgeExportTool } from '../knowledge/tools/KnowledgeExportTool';
 import { createKnowledgeSnapshotsTool } from '../knowledge/tools/KnowledgeSnapshotsTool';
 import { createKnowledgeRestoreTool } from '../knowledge/tools/KnowledgeRestoreTool';
-import { createUnifiedSearchTool } from '../memory/tools/UnifiedSearchTool';
-import { createMemoryTool } from '../memory/tools/MemoryTool';
-import { createMemoryGetTool } from '../memory/tools/MemoryGetTool';
-import { SearchToolImpl } from '../memory/tools/SearchTool';
-import { createUnifiedSearchService } from '../memory/services/UnifiedSearchService';
-import { MemoryManagerImpl } from '../memory/MemoryManager';
+import {
+  MemoryManagerImpl,
+  createMemoryTool,
+  createMemoryGetTool,
+  createUnifiedSearchTool,
+  SearchToolImpl,
+  createUnifiedSearchService,
+} from '@modules/memory';
 
 const logger = getLogger('tools:factory');
 import { PowerShellTool } from './PowerShellTool/PowerShellTool';

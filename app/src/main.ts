@@ -43,7 +43,7 @@ import {
   logStartupContext,
   readLastExit,
   recordAbnormalExit,
-} from './core/exit/ExitRecorder.js';
+} from '@modules/core';
 import { initAppStateMachine } from './state/app/AppLifecycle.js';
 import {
   startKeychainPrefetch,

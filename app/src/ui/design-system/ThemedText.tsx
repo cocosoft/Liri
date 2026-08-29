@@ -5,7 +5,7 @@
 
 import React from 'react';
 import { Text } from '@modules/ink';
-import type { Styles } from '@modules/ink/ink/styles';
+import type { Styles } from '@modules/ink';
 import { TextProps } from '../types/UITypes';
 import { useTheme } from './ThemeProvider';
 

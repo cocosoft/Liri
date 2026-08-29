@@ -171,6 +171,17 @@ export type {
   SpanType,
 } from './tracing/index.js';
 
+// 2026-08-30 R03-002 收敛：traceContextExtractor / SpanCoverageRegistry 统一出口
+export {
+  withTraceContextFromRequest,
+  withTraceContextFromRequestResult,
+  extractTraceContextFromRequest,
+  isSpanCovered,
+  markSpanCovered,
+  dedupStartSpan,
+  clearSpanCoverage,
+} from './tracing/index.js';
+
 // 告警系统
 export {
   AlertManager,

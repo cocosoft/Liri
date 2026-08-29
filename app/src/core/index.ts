@@ -133,3 +133,20 @@ export {
   createMemoryCache,
 } from './utils/Performance';
 export { LazyModuleLoader } from './utils/LazyModuleLoader';
+
+// 2026-08-30 R03-002 收敛：sleep / exit 统一出口
+export { sleepMonitor, SLEEP_EVENTS } from './sleep/SleepMonitor';
+export type { SleepInfo, TickResult } from './sleep/SleepMonitor';
+export {
+  installExitRecorder,
+  logStartupContext,
+  readLastExit,
+  recordAbnormalExit,
+  recordExit,
+  isAbnormalExit,
+} from './exit/ExitRecorder';
+export type {
+  ExitReason,
+  ExitRecord,
+  AbnormalExitRecord,
+} from './exit/ExitRecorder';

@@ -22,7 +22,7 @@ import { BaseTool } from '../BaseTool';
 import type { ToolParam, ToolResult, ToolUseContext } from '../types/index';
 import { getLogger } from '@modules/monitoring';
 import { getToolRegistry } from '../ToolRegistry';
-import { PermissionManager } from '@modules/permission/PermissionManager';
+import { PermissionManager } from '@modules/permission';
 
 import { validateCodeRunnerCode } from './staticValidation';
 import { runCodeRunnerSafely } from './LinuxSandboxRunner';

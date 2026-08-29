@@ -126,3 +126,13 @@ export { DockerWorkspace } from './adapters/DockerWorkspace';
 export { SSHWorkspace } from './adapters/SSHWorkspace';
 
 export { SandboxConfigBuilder } from './SandboxConfigBuilder';
+
+// 2026-08-30 R03-002 收敛：SandboxImpl / landlock 统一出口
+export { SandboxManagerImpl, createSandboxManager } from './SandboxImpl';
+export { LandlockDetector } from './landlock';
+export {
+  buildLandlockArgv,
+  runWithLandlock,
+  isSandboxInitFailure,
+} from './landlock';
+export type { LandlockPolicy } from './landlock';

@@ -20,9 +20,8 @@ import { spawn } from 'child_process';
 import { join, dirname } from 'path';
 import { homedir } from 'os';
 
-import { LandlockDetector } from '@modules/sandbox/landlock/LandlockDetector';
-import { buildLandlockArgv } from '@modules/sandbox/landlock/runWithLandlock';
-import type { LandlockPolicy } from '@modules/sandbox/landlock/types';
+import { LandlockDetector, buildLandlockArgv } from '@modules/sandbox';
+import type { LandlockPolicy } from '@modules/sandbox';
 import { getLogger } from '@modules/monitoring';
 
 import {

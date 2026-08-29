@@ -7,13 +7,12 @@
  * 零第三方依赖
  */
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger, withTraceContextFromRequest } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 import type { IncomingMessage, ServerResponse } from 'http';
 import type { Socket } from 'net';
 import { createHash, randomUUID } from 'crypto';
 import type { WakeDetectionResult } from './types';
-import { withTraceContextFromRequest } from '../monitoring/tracing/traceContextExtractor';
 
 const logger = getLogger('voice:wakews');
 

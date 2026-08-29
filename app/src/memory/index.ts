@@ -123,3 +123,19 @@ export type {
   SecretMatch,
   SecretScanResult,
 } from './scanners/MemorySecretScanner';
+
+// 2026-08-30 R03-002 收敛：tools / services / integrations 统一出口
+export { SearchToolImpl } from './tools/SearchTool';
+export {
+  UnifiedSearchTool,
+  createUnifiedSearchTool,
+} from './tools/UnifiedSearchTool';
+export { MemoryIntegration } from './integrations/MemoryIntegration';
+export {
+  UnifiedSearchService,
+  createUnifiedSearchService,
+} from './services/UnifiedSearchService';
+export type {
+  MemorySearchProvider,
+  UnifiedSearchResult,
+} from './services/UnifiedSearchService';

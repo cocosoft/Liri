@@ -4,7 +4,10 @@
  * 在 GatewayServer 的 /voice 端点上创建 VoiceSession
  */
 
-import { getLogger } from '@modules/monitoring';
+import {
+  getLogger,
+  withTraceContextFromRequestResult,
+} from '@modules/monitoring';
 import type { IncomingMessage, ServerResponse } from 'http';
 import { upgradeToVoiceConnection } from './upgrade';
 import { VoiceSession } from './VoiceSession';
@@ -12,7 +15,6 @@ import type { SessionIntegrationOptions } from './VoiceSession';
 import type { VoiceConnection } from './types';
 import type { SessionManager } from '@modules/session';
 import type { TranscriptManager } from '@modules/session';
-import { withTraceContextFromRequestResult } from '../monitoring/tracing/traceContextExtractor';
 
 const logger = getLogger('voice:gatewayBridge');
 

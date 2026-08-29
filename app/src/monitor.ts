@@ -5,7 +5,7 @@
 
 import { handleError } from '@modules/error';
 import { getMonitoringService } from './monitoring/index.js';
-import { getProcessCpuPercent } from './monitoring/metrics/SystemMetricsCollector.js';
+import { getProcessCpuPercent } from '@modules/monitoring';
 
 function monitor() {
   console.log('=== Liri 监控面板 ===');

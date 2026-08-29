@@ -7,7 +7,7 @@ import type { TaskQueue } from './TaskQueue';
 import { TaskPriority } from './types';
 import type { ManagedProcess } from './ProcessManager';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-import { sleepMonitor, SLEEP_EVENTS } from '@modules/core/sleep/SleepMonitor';
+import { sleepMonitor, SLEEP_EVENTS } from '@modules/core';
 import { globalEventBus } from '../core/events/EventBus';
 import { broadcastEvent } from '@modules/infrastructure';
 import type { EventSubscription } from '../core/events/EventBus';

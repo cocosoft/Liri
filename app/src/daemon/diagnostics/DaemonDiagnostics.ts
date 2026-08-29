@@ -6,8 +6,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { execSync } from 'child_process';
-import { DiskSpaceMonitor } from '../../core/delivery/monitor/DiskSpaceMonitor';
-import { resolvePyappHome } from '@modules/core';
+import { DiskSpaceMonitor, resolvePyappHome } from '@modules/core';
 import { configManager } from '@modules/config';
 
 import { getLogger } from '@modules/monitoring';

@@ -1,5 +1,5 @@
 import { PerformanceOptimizer } from './PerformanceOptimizer.js';
-import { getProcessCpuPercent } from '../monitoring/metrics/SystemMetricsCollector.js';
+import { getProcessCpuPercent } from '@modules/monitoring';
 
 export interface EnhancedPerformanceMetrics {
   timestamp: Date;

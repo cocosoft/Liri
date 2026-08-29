@@ -31,7 +31,7 @@ import { exec, ExecOptions } from 'child_process';
 import { promisify } from 'util';
 import { analyzeBashCommandType, isSilentBashCommand } from './BashSemantics';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-import { SandboxSecurityChecker } from '@modules/sandbox/SandboxSecurityChecker';
+import { SandboxSecurityChecker } from '@modules/sandbox';
 import { completeSecuritySystem } from '@modules/security';
 
 // ── K-5 内存阈值治理：BashTool 大输出源头截断常量 ──────────────

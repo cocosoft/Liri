@@ -126,7 +126,13 @@ export class KnowledgeRouter implements IKnowledgeSearch {
   private knownUsernames: string[];
   private docs: WeightedDoc[] = [];
   private initialized: boolean = false;
-  private embeddingManager: EmbeddingManager;
+  private _embeddingManager?: EmbeddingManager;
+
+  /** 惰性 embeddingManager：首次使用才读取 globalEmbeddingManager（避免循环导入 TDZ） */
+  private get embeddingManager(): EmbeddingManager {
+    this._embeddingManager ??= globalEmbeddingManager;
+    return this._embeddingManager;
+  }
   private hybridConfig: Required<HybridConfig>;
   /**
    * @deprecated 使用 vectorStore 替代。保留以兼容旧调用方。
@@ -167,7 +173,9 @@ export class KnowledgeRouter implements IKnowledgeSearch {
   ) {
     this.providers = Array.isArray(providers) ? providers : [providers];
     this.knownUsernames = knownUsernames;
-    this.embeddingManager = embeddingManager ?? globalEmbeddingManager;
+    // 惰性绑定：globalEmbeddingManager 属 @modules/ai 顶层值，构造期间可能因循环导入未初始化，
+    // 延迟到首次使用时求值（TDZ 修复）
+    if (embeddingManager) this._embeddingManager = embeddingManager;
     this.semanticStore = semanticStore;
     this.vectorStore = vectorStore;
     this.knowledgeGraph = knowledgeGraph;

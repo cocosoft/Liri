@@ -258,10 +258,19 @@ export default {
   initializeToolSystem,
   shutdownToolSystem,
   getToolSystemStatus,
-  ToolManager: globalToolManager,
-  ToolExecutor: globalToolExecutor,
-  ToolPermissionManager: globalToolPermissionManager,
-  ToolMonitor: globalToolMonitor,
+  // 惰性 getter：global* 单例所在模块可能在循环导入中尚未完成求值，延迟到访问时读取（TDZ 修复）
+  get ToolManager() {
+    return globalToolManager;
+  },
+  get ToolExecutor() {
+    return globalToolExecutor;
+  },
+  get ToolPermissionManager() {
+    return globalToolPermissionManager;
+  },
+  get ToolMonitor() {
+    return globalToolMonitor;
+  },
   version: TOOL_SYSTEM_VERSION,
 };
 

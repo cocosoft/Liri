@@ -17,6 +17,13 @@ import { handleError } from '@modules/error';
 import { globalEventBus } from '@modules/core';
 
 /**
+ * KB-SEARCH-REUSE（2026-08-29 导出复核）：搜索 KnowledgeRouter 单例——
+ * 原每次搜索 new KnowledgeRouter 导致每次 buildIndex 重建索引（文档多时搜索卡顿）。
+ * 首次构造后复用，并注入 globalEventBus 订阅 knowledge:changed 保持索引增量更新。
+ */
+let _knowledgeSearchRouter: unknown = null;
+
+/**
  * KB-SEM（2026-08-27）：发布全局 knowledge:changed 事件，驱动语义索引增量更新。
  * broadcastEvent 仅走 websocket 通知（前端刷新用），进不了 globalEventBus；
  * SemanticIndexUpdater 只订阅 knowledge:changed——此前前端所有写操作都不触发
@@ -327,7 +334,20 @@ export async function handleSearchKnowledge(
     const registry = getDefaultKnowledgeBaseRegistry();
     const knowledgeRoot = registry.getKnowledgeRoot();
 
-    const router = new KnowledgeRouter(knowledgeDocsProvider);
+    // KB-SEARCH-REUSE：复用单例避免每次搜索重建索引；注入 globalEventBus
+    // 订阅 knowledge:changed，知识变更后索引自动更新（created/updated 全量刷新、
+    // deleted 增量移除），解决单例复用后的索引陈旧问题。
+    if (!_knowledgeSearchRouter) {
+      _knowledgeSearchRouter = new KnowledgeRouter(
+        knowledgeDocsProvider,
+        undefined,
+        [],
+        undefined,
+        undefined,
+        globalEventBus
+      );
+    }
+    const router = _knowledgeSearchRouter as InstanceType<typeof KnowledgeRouter>;
     const routes = await router.search(query, {
       maxResults: 20,
       ...(domain ? ({ domain } as any) : {}),

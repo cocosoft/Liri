@@ -99,8 +99,7 @@ async function probeOllamaContextLength(
  */
 export async function syncOllamaModelsToRegistry(): Promise<number> {
   try {
-    const { providerManager } =
-      await import('@modules/ai/providers/ProviderManager.js');
+    const { providerManager } = await import('@modules/ai');
     await providerManager.initialize();
     const provider = (await providerManager.listProviders()).find(
       (p) => p.providerType === OLLAMA_PROVIDER_TYPE
@@ -119,8 +118,7 @@ export async function syncOllamaModelsToRegistry(): Promise<number> {
     }
     const localNames = new Set(tags.map((t) => t.name));
 
-    const { modelPricingService } =
-      await import('@modules/ai/models/ModelPricingService.js');
+    const { modelPricingService } = await import('@modules/ai');
     await modelPricingService.initialize();
 
     const existingModels = await modelPricingService.getAllPricing();
@@ -174,8 +172,7 @@ export async function syncOllamaModelsToRegistry(): Promise<number> {
     }
 
     if (registered > 0 || updated > 0 || removed > 0) {
-      const { ModelRegistry } =
-        await import('@modules/ai/models/ModelRegistry.js');
+      const { ModelRegistry } = await import('@modules/ai');
       ModelRegistry.getInstance()
         .refreshDbPricing()
         .catch((er: unknown) => {
@@ -211,8 +208,7 @@ export async function syncOllamaModelsToRegistry(): Promise<number> {
  */
 export async function ensureOllamaProviderRegistered(): Promise<boolean> {
   try {
-    const { providerManager } =
-      await import('@modules/ai/providers/ProviderManager.js');
+    const { providerManager } = await import('@modules/ai');
     await providerManager.initialize();
 
     const existing = await providerManager.listProviders();
@@ -242,8 +238,7 @@ export async function ensureOllamaProviderRegistered(): Promise<boolean> {
       return false;
     }
 
-    const { syncDBProvidersToRegistry } =
-      await import('@modules/ai/providers/ProviderSyncService.js');
+    const { syncDBProvidersToRegistry } = await import('@modules/ai');
     await syncDBProvidersToRegistry();
 
     // 本地真实模型同步到 model_registry（幂等）

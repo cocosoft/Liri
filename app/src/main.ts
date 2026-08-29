@@ -1249,8 +1249,7 @@ async function resolveDefaultTiersFromDb(): Promise<
   };
 
   try {
-    const { modelPricingService } =
-      await import('@modules/ai/models/ModelPricingService');
+    const { modelPricingService } = await import('@modules/ai');
     await modelPricingService.initialize();
     const allModels = await modelPricingService.getAllPricing();
     const enabled = allModels.filter((m) => m.enabled && m.modelId);
@@ -1591,18 +1590,16 @@ export async function launch(options: LaunchOptions): Promise<void> {
 
     // T1.25: 加载模型配置
     await wrapInit('模型配置', async () => {
-      const { ModelRegistry } =
-        await import('@modules/ai/models/ModelRegistry');
+      const { ModelRegistry } = await import('@modules/ai');
       const registry = ModelRegistry.getInstance();
 
       // 初始化 DB（创建 model_registry 表、从 YAML 种子）
-      const { modelPricingService } =
-        await import('@modules/ai/models/ModelPricingService.js').catch(() => {
-          return {
-            modelPricingService:
-              null as unknown as import('@modules/ai/models/ModelPricingService.js').ModelPricingService,
-          };
-        });
+      const { modelPricingService } = await import('@modules/ai').catch(() => {
+        return {
+          modelPricingService:
+            null as unknown as import('@modules/ai').ModelPricingService,
+        };
+      });
       if (modelPricingService) {
         await modelPricingService.initialize();
         const hasDbData = await registry.loadModelsFromDb();
@@ -1706,9 +1703,8 @@ export async function launch(options: LaunchOptions): Promise<void> {
     await wrapInit(
       'SmartRouter',
       async () => {
-        const { SmartRouter } = await import('@modules/ai/router/SmartRouter');
-        const { providerRegistry } =
-          await import('@modules/ai/providers/ProviderRegistry');
+        const { SmartRouter } = await import('@modules/ai');
+        const { providerRegistry } = await import('@modules/ai');
         const { configManager } = await import('@modules/config/ConfigManager');
 
         // 从 DB 动态获取 tiers 默认值（替代空字符串）

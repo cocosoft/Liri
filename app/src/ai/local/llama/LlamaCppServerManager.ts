@@ -1520,8 +1520,7 @@ export async function syncLlamaModelsToRegistry(): Promise<number> {
     const status = await llamaCppServerManager.getStatus();
     if (!status.running) return 0;
 
-    const { providerManager } =
-      await import('@modules/ai/providers/ProviderManager.js');
+    const { providerManager } = await import('@modules/ai');
     await providerManager.initialize();
     const provider = (await providerManager.listProviders()).find(
       (p) => p.providerType === LLAMACPP_PROVIDER_TYPE
@@ -1537,8 +1536,7 @@ export async function syncLlamaModelsToRegistry(): Promise<number> {
     const contextWindow =
       probedNctx ?? llamaCppServerManager.getConfig().contextWindow;
 
-    const { modelPricingService } =
-      await import('@modules/ai/models/ModelPricingService.js');
+    const { modelPricingService } = await import('@modules/ai');
     await modelPricingService.initialize();
 
     let registered = 0;
@@ -1601,8 +1599,7 @@ export async function syncLlamaModelsToRegistry(): Promise<number> {
     }
 
     if (registered > 0 || updated > 0 || removed > 0) {
-      const { ModelRegistry } =
-        await import('@modules/ai/models/ModelRegistry.js');
+      const { ModelRegistry } = await import('@modules/ai');
       ModelRegistry.getInstance()
         .refreshDbPricing()
         .catch((er: unknown) => {

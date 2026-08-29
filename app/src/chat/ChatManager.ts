@@ -4549,8 +4549,7 @@ export class ChatManagerImpl implements ChatManager {
     if (resolvedProvider && resolvedProvider.id !== currentProviderId) {
       return new ToolAwareClient(
         resolvedProvider,
-        this
-          .toolRegistry as unknown as import('@modules/ai/interfaces/ToolExecutor').ToolRegistry,
+        this.toolRegistry as unknown as import('@modules/ai').ToolRegistry,
         this.toolExecutor
       );
     }

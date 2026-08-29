@@ -236,10 +236,8 @@ export async function handleGlobalCostSummary(
     const { getDailyCostCache } = await import('@modules/cost/DailyCostCache');
     const dailyCache = getDailyCostCache();
 
-    const { modelPricingService } =
-      await import('@modules/ai/models/ModelPricingService');
-    const { providerManager } =
-      await import('@modules/ai/providers/ProviderManager');
+    const { modelPricingService } = await import('@modules/ai');
+    const { providerManager } = await import('@modules/ai');
     await Promise.all([
       modelPricingService.initialize(),
       providerManager.initialize(),

@@ -282,8 +282,7 @@ export class CoreAPIImpl implements CoreAPI {
 
     try {
       // 从 DB 同步所有活跃 Provider 到运行时 ProviderRegistry
-      const { syncDBProvidersToRegistry } =
-        await import('@modules/ai/providers/ProviderSyncService.js');
+      const { syncDBProvidersToRegistry } = await import('@modules/ai');
       await syncDBProvidersToRegistry();
 
       // 从 ModelRouter 获取当前全局模型，按模型匹配 Provider
@@ -302,8 +301,7 @@ export class CoreAPIImpl implements CoreAPI {
 
       // DB 中无 Provider 时，从环境变量检测创建
       if (!provider) {
-        const { detectUnifiedProviders } =
-          await import('@modules/ai/providers/detectUnifiedProviders.js');
+        const { detectUnifiedProviders } = await import('@modules/ai');
         const envProviders = detectUnifiedProviders();
         const envProvider = envProviders[0];
 
@@ -330,7 +328,7 @@ export class CoreAPIImpl implements CoreAPI {
 
       const llmClient = new ToolAwareClient(
         provider,
-        registry as unknown as import('@modules/ai/interfaces/ToolExecutor').ToolRegistry,
+        registry as unknown as import('@modules/ai').ToolRegistry,
         null
       );
 

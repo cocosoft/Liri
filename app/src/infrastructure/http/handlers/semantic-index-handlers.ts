@@ -270,8 +270,7 @@ export async function handleSearchSemantic(
       return;
     }
 
-    const { globalEmbeddingManager } =
-      await import('@modules/ai/embedding/EmbeddingManager');
+    const { globalEmbeddingManager } = await import('@modules/ai');
     const { resolveDataSubDir } = await import('@modules/core/paths');
     const indexDir = resolveDataSubDir('semantic-index');
     // KB-SEM-P13（2026-08-27）：复用共享单例——原实现每次请求 new SemanticStore

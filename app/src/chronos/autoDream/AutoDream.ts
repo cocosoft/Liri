@@ -504,7 +504,7 @@ export async function runKnowledgeRain(): Promise<void> {
 
   logger.info('发现待编译原始文件', { count: compileCandidates.length });
 
-  const { aiService } = await import('@modules/ai/services/aiService');
+  const { aiService } = await import('@modules/ai');
   const { runKnowledgeCompile } =
     await import('../../knowledge/KnowledgeCompiler');
 

@@ -8,10 +8,7 @@
 
 import { ModelRegistry } from '@modules/ai';
 import { getModelConfigById } from '@modules/ai';
-import type {
-  BillingMode,
-  TimeBasedPrice,
-} from '@modules/ai/models/ModelPricingService';
+import type { BillingMode, TimeBasedPrice } from '@modules/ai';
 
 import { handleError } from '@modules/error';
 

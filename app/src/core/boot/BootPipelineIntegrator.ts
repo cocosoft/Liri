@@ -210,19 +210,17 @@ export function registerStandardHandlers(): void {
 
       // T1.25: 加载模型配置
       try {
-        const { ModelRegistry } =
-          await import('@modules/ai/models/ModelRegistry');
+        const { ModelRegistry } = await import('@modules/ai');
         const registry = ModelRegistry.getInstance();
 
         // 初始化 DB
-        const { modelPricingService } =
-          await import('@modules/ai/models/ModelPricingService.js').catch(
-            () => ({
-              modelPricingService: null as unknown as {
-                initialize: () => Promise<void>;
-              },
-            })
-          );
+        const { modelPricingService } = await import('@modules/ai').catch(
+          () => ({
+            modelPricingService: null as unknown as {
+              initialize: () => Promise<void>;
+            },
+          })
+        );
         if (modelPricingService) {
           await modelPricingService.initialize();
           const hasDbData = await registry.loadModelsFromDb();
@@ -258,9 +256,8 @@ export function registerStandardHandlers(): void {
 
       // T1.8: 初始化 SmartRouter 智能路由
       try {
-        const { SmartRouter } = await import('@modules/ai/router/SmartRouter');
-        const { providerRegistry } =
-          await import('@modules/ai/providers/ProviderRegistry');
+        const { SmartRouter } = await import('@modules/ai');
+        const { providerRegistry } = await import('@modules/ai');
         const { configManager } = await import('@modules/config/ConfigManager');
 
         const routerCfg =

@@ -41,10 +41,7 @@ import { ParallelOrchestrator } from './ParallelOrchestrator';
 import { agentRegistry } from '../../agent/registry/AgentRegistry';
 import { getTeammateManager } from '../../subagent/TeammateManager';
 import { taskRegistry } from '@modules/tasks';
-import {
-  resolveModelRoute,
-  RouteKey,
-} from '@modules/ai/router/resolveModelRoute.js';
+import { resolveModelRoute, RouteKey } from '@modules/ai';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { BackgroundAgentTask } from '@modules/tasks';
 import type { BackgroundTaskInfo } from '@modules/tasks/types';

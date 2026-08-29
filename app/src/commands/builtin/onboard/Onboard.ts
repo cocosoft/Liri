@@ -1285,8 +1285,7 @@ export async function runOnboard(
 
     // 刷新 Provider 密钥（立即生效，无需重启）
     try {
-      const { providerRegistry } =
-        await import('@modules/ai/providers/ProviderRegistry');
+      const { providerRegistry } = await import('@modules/ai');
       if (providerRegistry.has(selectedProvider)) {
         const provider = providerRegistry.get(selectedProvider);
         provider.setApiKey?.(apiKey);

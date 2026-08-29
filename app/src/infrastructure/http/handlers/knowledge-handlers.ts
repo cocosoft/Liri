@@ -1105,7 +1105,7 @@ export async function handleKnowledgeCompile(
     const body = await readRequestBody(req);
     const { force } = JSON.parse(body);
 
-    const { aiService } = await import('@modules/ai/services/aiService');
+    const { aiService } = await import('@modules/ai');
     const { runKnowledgeCompile } =
       await import('@modules/knowledge/KnowledgeCompiler');
 

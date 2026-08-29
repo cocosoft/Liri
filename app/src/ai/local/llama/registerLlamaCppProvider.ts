@@ -51,8 +51,7 @@ export async function ensureLlamaCppProviderRegistered(): Promise<boolean> {
     const host = status.host || '127.0.0.1';
     const baseUrl = `http://${host}:${status.port}/v1`;
 
-    const { providerManager } =
-      await import('@modules/ai/providers/ProviderManager.js');
+    const { providerManager } = await import('@modules/ai');
     await providerManager.initialize();
 
     const existing = await providerManager.listProviders();
@@ -77,8 +76,7 @@ export async function ensureLlamaCppProviderRegistered(): Promise<boolean> {
       logger.info(`llamacpp provider 已注册: ${baseUrl}`);
     }
 
-    const { syncDBProvidersToRegistry } =
-      await import('@modules/ai/providers/ProviderSyncService.js');
+    const { syncDBProvidersToRegistry } = await import('@modules/ai');
     await syncDBProvidersToRegistry();
 
     // GGUF 模型同步到 model_registry（幂等），使模型可在应用列表/任务分工中使用

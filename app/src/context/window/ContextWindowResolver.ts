@@ -12,7 +12,7 @@
 import { getLogger } from '@modules/monitoring';
 import { Database } from '@modules/core/external/sqlite3';
 import { resolveDbPath } from '@modules/core';
-import { ModelRegistry } from '@modules/ai/models/ModelRegistry';
+import { ModelRegistry } from '@modules/ai';
 
 const logger = getLogger('context:window');
 

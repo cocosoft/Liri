@@ -178,8 +178,7 @@ function handleAll(): CommandResult {
  */
 async function handleProviders(): Promise<CommandResult> {
   try {
-    const { providerManager } =
-      await import('@modules/ai/providers/ProviderManager.js');
+    const { providerManager } = await import('@modules/ai');
     await providerManager.initialize();
     const providers = await providerManager.listProviders();
 

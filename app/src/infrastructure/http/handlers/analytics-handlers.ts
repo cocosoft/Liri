@@ -351,13 +351,10 @@ export async function handleAnalyticsDashboard(
 
     // 延迟百分位：优先持久化 model_usage_logs.latency_ms（重启不清零），回退内存
     let persistedLatencyStats: Awaited<
-      ReturnType<
-        import('@modules/ai/models/UsageStatsService').UsageStatsService['getLatencyStats']
-      >
+      ReturnType<import('@modules/ai').UsageStatsService['getLatencyStats']>
     > | null = null;
     try {
-      const { usageStatsService } =
-        await import('@modules/ai/models/UsageStatsService');
+      const { usageStatsService } = await import('@modules/ai');
       await usageStatsService.initialize();
       persistedLatencyStats = await usageStatsService.getLatencyStats();
     } catch (err) {

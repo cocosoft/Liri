@@ -697,8 +697,7 @@ async function startDeferredPrefetches(): Promise<void> {
             await import('@modules/knowledge/semantic/store.js');
           const { SemanticIndexUpdater } =
             await import('@modules/knowledge/SemanticIndexUpdater.js');
-          const { globalEmbeddingManager } =
-            await import('@modules/ai/embedding/EmbeddingManager.js');
+          const { globalEmbeddingManager } = await import('@modules/ai');
           const { resolveDataSubDir } = await import('@modules/core/paths.js');
 
           // 创建共享 SemanticStore（路径与 SemanticIndexUpdater 保持一致）

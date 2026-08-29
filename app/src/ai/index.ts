@@ -388,5 +388,14 @@ export {
 } from './formatters';
 export type { FormatContext, FormatResult } from './formatters';
 
-const aiService = createAIService();
-export default aiService;
+// 2026-08-29 R03-002 收敛：深层导入符号统一出口（named + default 兼容）
+export { aiService } from './services/aiService.js';
+export { aiService as default } from './services/aiService.js';
+export { providerTopologyWatcher } from './providers/TopologyWatcher.js';
+export { syncDBProvidersToRegistry } from './providers/ProviderSyncService.js';
+export { getCapabilityService } from './services/CapabilityService.js';
+export type {
+  BillingMode,
+  TimeBasedPrice,
+} from './models/ModelPricingService.js';
+export type { RerankRequest, RerankResult } from './providers/AIProvider.js';

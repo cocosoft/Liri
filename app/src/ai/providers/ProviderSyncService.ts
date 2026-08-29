@@ -193,8 +193,7 @@ async function syncModelToProviderMappings(
   providerRecords: ProviderRecord[]
 ): Promise<void> {
   try {
-    const { modelPricingService } =
-      await import('@modules/ai/models/ModelPricingService.js');
+    const { modelPricingService } = await import('@modules/ai');
     await modelPricingService.initialize();
     const allModels = await modelPricingService.getAllPricing();
 

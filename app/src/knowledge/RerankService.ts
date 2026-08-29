@@ -21,11 +21,8 @@
  */
 
 import { modelRouter } from '@modules/ai';
-import { providerRegistry } from '@modules/ai/providers/ProviderRegistry';
-import type {
-  RerankRequest,
-  RerankResult,
-} from '@modules/ai/providers/AIProvider';
+import { providerRegistry } from '@modules/ai';
+import type { RerankRequest, RerankResult } from '@modules/ai';
 import { LogLevel } from '@modules/monitoring';
 import { OTelAwareLogger } from '@modules/monitoring/logs/OTelAwareLogger';
 import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing';

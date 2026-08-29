@@ -135,8 +135,7 @@ export class ModelRegistry {
    * @returns true 表示成功从 DB 加载了数据，false 表示 DB 为空
    */
   async loadModelsFromDb(): Promise<boolean> {
-    const { modelPricingService } =
-      await import('@modules/ai/models/ModelPricingService.js');
+    const { modelPricingService } = await import('@modules/ai');
     await modelPricingService.initialize();
     const all = await modelPricingService.getAllPricing();
 
@@ -199,8 +198,7 @@ export class ModelRegistry {
     const span = otel.startSpan('model.registry.loadPricing', {});
 
     try {
-      const { modelPricingService } =
-        await import('@modules/ai/models/ModelPricingService.js');
+      const { modelPricingService } = await import('@modules/ai');
       await modelPricingService.initialize();
       const all = await modelPricingService.getAllPricing();
       this.dbPricing.clear();
@@ -406,8 +404,7 @@ export class ModelRegistry {
     timeBasedPricing: TimeBasedPrice[];
   } | null> {
     try {
-      const { modelPricingService } =
-        await import('@modules/ai/models/ModelPricingService.js');
+      const { modelPricingService } = await import('@modules/ai');
       // 确保已初始化
       await modelPricingService.initialize();
       const dbPricing = await modelPricingService.getPricing(modelName);

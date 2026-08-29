@@ -331,7 +331,7 @@ export async function startCompileScheduler(): Promise<{
   stop: () => void;
 } | null> {
   try {
-    const { aiService } = await import('@modules/ai/services/aiService');
+    const { aiService } = await import('@modules/ai');
     const defaultModel = aiService.getDefaultModel();
     if (!defaultModel) {
       logger.warning(

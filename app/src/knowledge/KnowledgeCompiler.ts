@@ -18,7 +18,7 @@ import { join, dirname } from 'path';
 import { existsSync } from 'fs';
 import { LogLevel } from '@modules/monitoring';
 import { OTelAwareLogger } from '@modules/monitoring/logs/OTelAwareLogger';
-import { LLMPerformanceMonitor } from '@modules/ai/utils/LLMPerformanceMonitor';
+import { LLMPerformanceMonitor } from '@modules/ai';
 import { handleError } from '@modules/error';
 import type { AIService, AIMessage } from '@modules/ai';
 import { AIMessageRole } from '@modules/ai';

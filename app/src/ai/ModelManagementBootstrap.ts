@@ -33,7 +33,7 @@
 
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-import type { ProviderType } from '@modules/ai/providers/ProviderManager.js';
+import type { ProviderType } from '@modules/ai';
 
 const logger = getLogger('ai:modelManagementBootstrap');
 
@@ -168,8 +168,7 @@ const REFERENCED_PROVIDER_PRESETS: Array<{
  */
 async function seedEnvProvidersToDB(dedupNames: Set<string>): Promise<number> {
   try {
-    const { providerManager } =
-      await import('@modules/ai/providers/ProviderManager.js');
+    const { providerManager } = await import('@modules/ai');
     await providerManager.initialize();
 
     let seeded = 0;
@@ -223,11 +222,9 @@ async function ensureReferencedProviders(
   dedupNames: Set<string>
 ): Promise<number> {
   try {
-    const { modelPricingService } =
-      await import('@modules/ai/models/ModelPricingService.js');
+    const { modelPricingService } = await import('@modules/ai');
     await modelPricingService.initialize();
-    const { providerManager } =
-      await import('@modules/ai/providers/ProviderManager.js');
+    const { providerManager } = await import('@modules/ai');
     await providerManager.initialize();
 
     // 1. 收集 model_registry 引用的所有 provider_id（去重）
@@ -294,8 +291,7 @@ export async function initializeModelManagementServices(): Promise<void> {
   const services: Array<{ name: string; init: () => Promise<void> }> = [];
 
   try {
-    const { providerManager } =
-      await import('@modules/ai/providers/ProviderManager.js');
+    const { providerManager } = await import('@modules/ai');
     services.push({
       name: 'ProviderManager',
       init: () => providerManager.initialize(),
@@ -305,8 +301,7 @@ export async function initializeModelManagementServices(): Promise<void> {
   }
 
   try {
-    const { usageStatsService } =
-      await import('@modules/ai/models/UsageStatsService.js');
+    const { usageStatsService } = await import('@modules/ai');
     services.push({
       name: 'UsageStatsService',
       init: () => usageStatsService.initialize(),
@@ -319,8 +314,7 @@ export async function initializeModelManagementServices(): Promise<void> {
   }
 
   try {
-    const { modelPricingService } =
-      await import('@modules/ai/models/ModelPricingService.js');
+    const { modelPricingService } = await import('@modules/ai');
     services.push({
       name: 'ModelPricingService',
       init: () => modelPricingService.initialize(),
@@ -333,8 +327,7 @@ export async function initializeModelManagementServices(): Promise<void> {
   }
 
   try {
-    const { appModelConfigService } =
-      await import('@modules/ai/models/AppModelConfigService.js');
+    const { appModelConfigService } = await import('@modules/ai');
     services.push({
       name: 'AppModelConfigService',
       init: () => appModelConfigService.initialize(),
@@ -347,8 +340,7 @@ export async function initializeModelManagementServices(): Promise<void> {
   }
 
   try {
-    const { getCapabilityService } =
-      await import('@modules/ai/services/CapabilityService.js');
+    const { getCapabilityService } = await import('@modules/ai');
     const capabilityService = getCapabilityService();
     services.push({
       name: 'CapabilityService',
@@ -382,8 +374,7 @@ export async function initializeModelManagementServices(): Promise<void> {
   let seeded = 0;
   let referenced = 0;
   try {
-    const { providerManager } =
-      await import('@modules/ai/providers/ProviderManager.js');
+    const { providerManager } = await import('@modules/ai');
     await providerManager.initialize();
     const existing = await providerManager.listProviders();
     const dedupNames = new Set(
@@ -401,8 +392,7 @@ export async function initializeModelManagementServices(): Promise<void> {
   // 同步 DB Provider 到 ProviderRegistry（chat 可用）
   let synced = 0;
   try {
-    const { syncDBProvidersToRegistry } =
-      await import('@modules/ai/providers/ProviderSyncService.js');
+    const { syncDBProvidersToRegistry } = await import('@modules/ai');
     synced = await syncDBProvidersToRegistry();
     if (synced > 0) {
       logger.info(`已同步 ${synced} 个 DB 供应商到 ProviderRegistry`);
@@ -417,8 +407,7 @@ export async function initializeModelManagementServices(): Promise<void> {
   // D9 观察者/进程级 HMR（2026-08-28）：启动拓扑观察器，
   // 后续任何写入路径（API/本地同步/迁移/外部直写）变更 DB 都自动同步运行时，无需重启
   try {
-    const { providerTopologyWatcher } =
-      await import('@modules/ai/providers/TopologyWatcher.js');
+    const { providerTopologyWatcher } = await import('@modules/ai');
     await providerTopologyWatcher.start();
   } catch (err) {
     void handleError(err, {

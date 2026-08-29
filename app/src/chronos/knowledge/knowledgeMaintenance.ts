@@ -89,7 +89,7 @@ export async function runKnowledgeMaintenance(): Promise<KnowledgeMaintenanceRes
       compileCandidates: compileCandidates.length,
     });
 
-    const { aiService } = await import('@modules/ai/services/aiService');
+    const { aiService } = await import('@modules/ai');
     const { runKnowledgeCompile } =
       await import('../../knowledge/KnowledgeCompiler');
     const { runKnowledgeLint } =

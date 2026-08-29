@@ -81,8 +81,7 @@ export const ReplApp: React.FC<ReplAppProps> = ({ chatManager, onExit }) => {
   useEffect(() => {
     (async () => {
       try {
-        const { resolveModelRoute, RouteKey } =
-          await import('@modules/ai/router/resolveModelRoute.js');
+        const { resolveModelRoute, RouteKey } = await import('@modules/ai');
         const initialModel = await resolveModelRoute(RouteKey.CHAT);
         setModelName(initialModel);
 

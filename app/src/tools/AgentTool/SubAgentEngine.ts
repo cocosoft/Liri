@@ -16,10 +16,7 @@ import type { ToolUseContext } from '../types/ToolUseContext';
 import { ToolExecutionStatus } from '../types/ToolResult';
 import type { AIProvider } from '@modules/ai';
 import { providerRegistry } from '@modules/ai';
-import {
-  resolveModelRoute,
-  RouteKey,
-} from '@modules/ai/router/resolveModelRoute.js';
+import { resolveModelRoute, RouteKey } from '@modules/ai';
 import {
   AppError,
   ErrorCategory,

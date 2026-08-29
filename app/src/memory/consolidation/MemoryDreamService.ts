@@ -344,21 +344,38 @@ export async function runMemoryDream(
         continue;
       }
 
-      for (const m of batch) {
-        await memoryManager.deleteMemory(m.id);
-      }
-
+      // KB-MEM-TXN（2026-08-29）：先建后删——原实现先 deleteMemory 全部旧记忆再
+      // createMemory，中途失败/进程中断 → 原记忆已删、新记忆未写（该组记忆永久丢失）。
+      // 改为全部新记忆创建成功后，才删除旧记忆；中途失败保留原记忆（宁可重复，不可丢失）。
+      let createdAll = true;
       for (const item of refined) {
         if (!item.content?.trim()) continue;
-        await memoryManager.createMemory({
-          content: item.content.trim(),
-          metadata: createMemoryMetadata({
-            name: `精炼${typeName}`,
-            type,
-            tags: item.tags || [],
-            priority: 12,
-          }),
-        });
+        try {
+          await memoryManager.createMemory({
+            content: item.content.trim(),
+            metadata: createMemoryMetadata({
+              name: `精炼${typeName}`,
+              type,
+              tags: item.tags || [],
+              priority: 12,
+            }),
+          });
+        } catch (createErr) {
+          createdAll = false;
+          logger.warn('Dream精炼: 新记忆创建失败，保留原记忆避免丢失', {
+            typeName,
+            error:
+              createErr instanceof Error
+                ? createErr.message
+                : String(createErr),
+          });
+          break;
+        }
+      }
+      if (createdAll) {
+        for (const m of batch) {
+          await memoryManager.deleteMemory(m.id);
+        }
       }
 
       const mergedPairs = batch.length - refined.length;

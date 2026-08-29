@@ -80,7 +80,13 @@ async function safeWriteFile(
       filesTouched.push(relPath);
     }
     return true;
-  } catch {
+  } catch (writeErr) {
+    // KB-CONSOLIDATE-LOG（2026-08-29）：写盘失败静默返回 false 且无日志——
+    // 调用方不检查返回值导致 Worker 误报成功、整合结果丢失。补日志便于排查。
+    logger.warn('记忆整合: 文件写入失败', {
+      filePath,
+      error: writeErr instanceof Error ? writeErr.message : String(writeErr),
+    });
     return false;
   }
 }
@@ -210,7 +216,10 @@ async function phase3Consolidate(): Promise<number> {
 
   if (!existingEntrypoint) {
     const defaultIndex = `# 记忆索引\n\n_自动生成于 ${new Date().toISOString().split('T')[0]}_\n\n`;
-    await safeWriteFile(entrypointPath, defaultIndex);
+    const ok = await safeWriteFile(entrypointPath, defaultIndex);
+    if (!ok) {
+      logger.warn('记忆整合: 初始 index.md 写入失败', { entrypointPath });
+    }
     insightsGenerated++;
     sendProgress(60, '已创建初始 index.md');
   }

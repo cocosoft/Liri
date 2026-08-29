@@ -10,6 +10,7 @@ import { handleError } from '@modules/error';
 import { getLogger } from '@modules/monitoring';
 import { resolveMemoryDir, resolveDbPath } from '@modules/core';
 import { Database } from '@modules/core/external/sqlite3';
+import { registerShutdownHandler } from '@modules/utils/gracefulShutdown';
 import { getMemoryDriftDetector } from '../MemoryDriftDetector';
 
 const storeLogger = getLogger('memory:stores');
@@ -331,6 +332,12 @@ export class MemoryStoreImpl implements MemoryStore {
     private dbPath: string = resolveDbPath()
   ) {
     this.memoryDir = memoryDir;
+
+    // KB-MEM-FLUSH-EXIT（2026-08-29）：saveMemory 仅入 pendingBatch + 1s 延时写，
+    // 进程正常退出（SIGINT/SIGTERM/uncaughtException）时若 1s 窗口未到，
+    // 内存队列中的记忆会静默丢失。注册退出钩子兜底 flush。
+    // 多实例时各注册一个 handler，flushBatch 空队列时直接返回，无副作用。
+    registerShutdownHandler(() => this.flushBatch());
   }
 
   /**

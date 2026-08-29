@@ -513,144 +513,158 @@ export class CronScheduler {
       this.inFlightJobs.delete(job.id);
     }
 
-    // NEW-BUG-4 fix: 从 DB 重读 consecutiveErrors，避免使用内存中的 stale 值
-    //（recoverInterruptedJobs 已通过 atomicRecoverJob 更新 DB，但 job 对象未刷新）
-    const freshJob = await this.store.getJob(job.id);
-    const prevErrorCount =
-      freshJob?.consecutiveErrors ?? job.consecutiveErrors ?? 0;
-    const prevSkippedCount =
-      freshJob?.consecutiveSkipped ?? job.consecutiveSkipped ?? 0;
-    const maxErrors = job.maxConsecutiveErrors ?? 10;
+    // KB-CRON-STORE（2026-08-29）：store 写段（getJob/markJobRun/updateConsecutiveErrors/
+    // updateNextRun/disableJob/incrementRepeatCompleted/completeJob）原在 try/catch 外——
+    // DB 写失败 → runJob reject → tick 的 fire-and-forget 无 .catch → unhandled rejection
+    // + 执行结果未落盘。整体包 try/catch：失败记录日志不抛，结果仍返回（至少已产出）。
+    try {
+      // NEW-BUG-4 fix: 从 DB 重读 consecutiveErrors，避免使用内存中的 stale 值
+      //（recoverInterruptedJobs 已通过 atomicRecoverJob 更新 DB，但 job 对象未刷新）
+      const freshJob = await this.store.getJob(job.id);
+      const prevErrorCount =
+        freshJob?.consecutiveErrors ?? job.consecutiveErrors ?? 0;
+      const prevSkippedCount =
+        freshJob?.consecutiveSkipped ?? job.consecutiveSkipped ?? 0;
+      const maxErrors = job.maxConsecutiveErrors ?? 10;
 
-    // 持久化执行结果
-    await this.store.markJobRun(job.id, result.success, result.error);
+      // 持久化执行结果
+      await this.store.markJobRun(job.id, result.success, result.error);
 
-    if (result.success) {
-      // 成功：重置连续错误计数
-      await this.store.updateConsecutiveErrors(job.id, 0, 0, 0);
+      if (result.success) {
+        // 成功：重置连续错误计数
+        await this.store.updateConsecutiveErrors(job.id, 0, 0, 0);
 
-      // BUG-3 fix: 成功后计算并更新下次运行时间（was: 执行前提前更新，失败时会错过调度）
-      const nextRun = this.computeNextRun(job);
-      if (nextRun) {
-        await this.store.updateNextRun(job.id, nextRun);
+        // BUG-3 fix: 成功后计算并更新下次运行时间（was: 执行前提前更新，失败时会错过调度）
+        const nextRun = this.computeNextRun(job);
+        if (nextRun) {
+          await this.store.updateNextRun(job.id, nextRun);
+        }
+      } else {
+        // 失败：递增连续错误计数
+        const newErrors = prevErrorCount + 1;
+        await this.store.updateConsecutiveErrors(
+          job.id,
+          newErrors,
+          prevSkippedCount,
+          job.scheduleErrorCount ?? 0
+        );
+
+        // 达到阈值自动禁用
+        if (newErrors >= maxErrors) {
+          const reason = `连续失败 ${newErrors} 次（上限 ${maxErrors}）`;
+          await this.store.disableJob(job.id, reason);
+          logger.warning(`[CronScheduler] 作业已自动禁用: ${reason}`, {
+            jobId: job.id,
+            name: job.name,
+          });
+        }
+
+        // 失败告警（独立于自动禁用，提前触发）
+        if (this.alertService) {
+          this.alertService.check(job, newErrors, prevSkippedCount);
+        }
       }
-    } else {
-      // 失败：递增连续错误计数
-      const newErrors = prevErrorCount + 1;
-      await this.store.updateConsecutiveErrors(
-        job.id,
-        newErrors,
-        prevSkippedCount,
-        job.scheduleErrorCount ?? 0
-      );
 
-      // 达到阈值自动禁用
-      if (newErrors >= maxErrors) {
-        const reason = `连续失败 ${newErrors} 次（上限 ${maxErrors}）`;
-        await this.store.disableJob(job.id, reason);
-        logger.warning(`[CronScheduler] 作业已自动禁用: ${reason}`, {
+      // 更新重复计数
+      await this.store.incrementRepeatCompleted(job.id);
+
+      // 投递结果（静默任务跳过通知）
+      let deliveryError: string | undefined;
+      let nextRunAtMs: number | undefined;
+      if (job.silent) {
+        logger.info('[CronScheduler] 静默任务完成（跳过通知）', {
           jobId: job.id,
           name: job.name,
         });
       }
+      if (this.callbacks.dispatchDelivery && !job.silent) {
+        try {
+          await this.callbacks.dispatchDelivery(job, result);
+        } catch (deliveryError_) {
+          deliveryError =
+            deliveryError_ instanceof Error
+              ? deliveryError_.message
+              : String(deliveryError_);
+          handleError(deliveryError_, {
+            module: 'tasks:cron:scheduler',
+            action: '投递失败',
+            context: { jobId: job.id },
+          });
+          await this.store.markJobRun(
+            job.id,
+            result.success,
+            result.error,
+            deliveryError
+          );
 
-      // 失败告警（独立于自动禁用，提前触发）
-      if (this.alertService) {
-        this.alertService.check(job, newErrors, prevSkippedCount);
-      }
-    }
-
-    // 更新重复计数
-    await this.store.incrementRepeatCompleted(job.id);
-
-    // 投递结果（静默任务跳过通知）
-    let deliveryError: string | undefined;
-    let nextRunAtMs: number | undefined;
-    if (job.silent) {
-      logger.info('[CronScheduler] 静默任务完成（跳过通知）', {
-        jobId: job.id,
-        name: job.name,
-      });
-    }
-    if (this.callbacks.dispatchDelivery && !job.silent) {
-      try {
-        await this.callbacks.dispatchDelivery(job, result);
-      } catch (deliveryError_) {
-        deliveryError =
-          deliveryError_ instanceof Error
-            ? deliveryError_.message
-            : String(deliveryError_);
-        handleError(deliveryError_, {
-          module: 'tasks:cron:scheduler',
-          action: '投递失败',
-          context: { jobId: job.id },
-        });
-        await this.store.markJobRun(
-          job.id,
-          result.success,
-          result.error,
-          deliveryError
-        );
-
-        // 将失败投递加入重试队列
-        if (this.deliveryQueue) {
-          try {
-            await this.deliveryQueue.enqueue(job, result, deliveryError);
-            logger.info('[CronScheduler] 投递已加入重试队列', {
-              jobId: job.id,
-            });
-          } catch (queueError) {
-            logger.error('[CronScheduler] 加入重试队列失败', {
-              jobId: job.id,
-              error:
-                queueError instanceof Error
-                  ? queueError.message
-                  : String(queueError),
-            });
+          // 将失败投递加入重试队列
+          if (this.deliveryQueue) {
+            try {
+              await this.deliveryQueue.enqueue(job, result, deliveryError);
+              logger.info('[CronScheduler] 投递已加入重试队列', {
+                jobId: job.id,
+              });
+            } catch (queueError) {
+              logger.error('[CronScheduler] 加入重试队列失败', {
+                jobId: job.id,
+                error:
+                  queueError instanceof Error
+                    ? queueError.message
+                    : String(queueError),
+              });
+            }
           }
         }
       }
-    }
 
-    // 重复次数已达上限时标记完成
-    if (
-      job.repeat.times !== null &&
-      job.repeat.completed + 1 >= job.repeat.times
-    ) {
-      await this.completeJob(job.id);
-    }
-
-    // 记录运行日志
-    if (this.runLog) {
-      const nextRun = job.nextRunAt;
-      if (nextRun) {
-        nextRunAtMs = new Date(nextRun).getTime();
+      // 重复次数已达上限时标记完成
+      if (
+        job.repeat.times !== null &&
+        job.repeat.completed + 1 >= job.repeat.times
+      ) {
+        await this.completeJob(job.id);
       }
-      await this.runLog
-        .recordRun(
-          job,
-          result,
-          startTime,
-          nextRunAtMs,
-          undefined,
-          job.sessionKey,
-          deliveryError
-        )
-        .catch((logErr) => {
-          logger.warning('[CronScheduler] 记录运行日志失败', {
-            jobId: job.id,
-            error: logErr instanceof Error ? logErr.message : String(logErr),
+
+      // 记录运行日志
+      if (this.runLog) {
+        const nextRun = job.nextRunAt;
+        if (nextRun) {
+          nextRunAtMs = new Date(nextRun).getTime();
+        }
+        await this.runLog
+          .recordRun(
+            job,
+            result,
+            startTime,
+            nextRunAtMs,
+            undefined,
+            job.sessionKey,
+            deliveryError
+          )
+          .catch((logErr) => {
+            logger.warning('[CronScheduler] 记录运行日志失败', {
+              jobId: job.id,
+              error: logErr instanceof Error ? logErr.message : String(logErr),
+            });
           });
-        });
+      }
+
+      logger.info('[CronScheduler] 作业执行完毕', {
+        jobId: job.id,
+        success: result.success,
+        durationMs: result.durationMs,
+      });
+
+      return result;
+    } catch (storeErr) {
+      handleError(storeErr, {
+        module: 'tasks:cron:scheduler',
+        action: '作业结果落盘失败（store 写）',
+        context: { jobId: job.id },
+      });
+      // 落盘失败不吞执行结果，仍返回给调用方（结果至少已产出）
+      return result;
     }
-
-    logger.info('[CronScheduler] 作业执行完毕', {
-      jobId: job.id,
-      success: result.success,
-      durationMs: result.durationMs,
-    });
-
-    return result;
   }
 
   /** 带超时的作业执行 */

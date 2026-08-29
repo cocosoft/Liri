@@ -5,8 +5,8 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { BridgeMain } from '@modules/bridge';
-import { type BridgeSession } from '@modules/bridge/sessions/MultiSessionManager';
-import { type BridgeMessage } from '@modules/bridge/messaging/BridgeMessaging';
+import { type BridgeSession } from '@modules/bridge';
+import { type BridgeMessage } from '@modules/bridge';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('hooks:useReplBridge');

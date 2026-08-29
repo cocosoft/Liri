@@ -3,13 +3,10 @@
  * 管理远程控制桥接连接，对标 CC 的 /remote-control (rc) 命令
  */
 import { feature } from '@modules/core';
-import {
-  bridgeStateStore,
-  type BridgeState,
-} from '@modules/bridge/state/BridgeStateStore.js';
-import { readBridgeConfig } from '@modules/bridge/utils/bridgeConfig.js';
+import { bridgeStateStore, type BridgeState } from '@modules/bridge';
+import { readBridgeConfig } from '@modules/bridge';
 import { createBridgeMain, type BridgeMain } from '@modules/bridge';
-import { createDummySpawner } from '@modules/bridge/sessions/MultiSessionManager.js';
+import { createDummySpawner } from '@modules/bridge';
 import type { CommandContext, CommandResult } from '@modules/commands';
 import { getLogger } from '@modules/monitoring';
 

@@ -5,7 +5,7 @@
  */
 
 import type { Command } from '@modules/commands';
-import { getToolManager } from '@modules/tools/ToolManager.js';
+import { getToolManager } from '@modules/tools';
 import { feature } from '@modules/core';
 import { notebookManager } from '@modules/tools/notebook/NotebookManager.js';
 

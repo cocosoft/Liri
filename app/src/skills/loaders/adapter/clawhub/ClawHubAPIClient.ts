@@ -30,7 +30,7 @@ import http from 'http';
 import { getLogger } from '@modules/monitoring';
 import type { ThirdPartySkillSearchResult } from '../ThirdPartySkillAdapter';
 import type { ClawHubSkillMeta } from './ClawHubMeta';
-import { checkSsrf } from '../../../../tools/WebFetchTool/ssrf';
+import { checkSsrf } from '@modules/tools';
 
 const logger = getLogger('skills:clawHubApi');
 

@@ -30,7 +30,7 @@ import { commandExecutor } from '../commands/executor/index.js';
 import type { CommandContext } from '../commands/types/index.js';
 import type { ChatManager } from '../chat/ChatManager.js';
 import { providerRegistry } from '@modules/ai';
-import { getToolManager } from '../tools/ToolManager.js';
+import { getToolManager } from '@modules/tools';
 import { getLogger } from '../monitoring/logs/Logger.js';
 import { historyManager } from '../utils/history.js';
 import { commandRegistry } from '../commands/registry/index.js';

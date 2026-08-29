@@ -275,7 +275,7 @@ console.log(result);`,
     examples: [
       {
         title: '使用工具管理器',
-        code: `import { createToolManager } from '../tools/ToolManager';
+        code: `import { createToolManager } from '@modules/tools';
 
 const toolManager = createToolManager();
 

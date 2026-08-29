@@ -21,7 +21,7 @@ import { GrepTool } from '@modules/tools/GrepTool/GrepTool.js';
 import { createWebSearchTool } from '@modules/tools/WebSearchTool/WebSearchTool.js';
 import { createWebFetchTool } from '@modules/tools/WebFetchTool/WebFetchTool.js';
 import { TimeTool } from '@modules/tools/TimeTool/TimeTool.js';
-import { ToolExecutor } from '@modules/tools/ToolExecutor.js';
+import { ToolExecutor } from '@modules/tools';
 import { resolveModelRoute, RouteKey } from '@modules/ai';
 import { handleError } from '@modules/error';
 

@@ -163,7 +163,7 @@ export function extractTodoData(toolResult: ToolResult): TodoBlockData | null {
   return null;
 }
 
-import { ImageUrlHelper } from '../../tools/ImageUrlHelper';
+import { ImageUrlHelper } from '@modules/tools';
 
 /**
  * 修复 AI 响应中错误的图片 URL

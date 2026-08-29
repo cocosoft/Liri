@@ -296,7 +296,7 @@ export type {
 // P2-2: 工具参数类型强制
 export { coerceToolArgs, tryCoerceToolArgs } from './ToolArgCoercer';
 export type {
-  ToolSchema,
+  ToolSchema as ArgCoercerToolSchema,
   ToolProperty,
   CoerceResult,
   CoerceChange,
@@ -310,3 +310,16 @@ export {
   getFewShotToolNames,
 } from './FewShotRegistry';
 export type { ToolExample, FewShotEntry } from './FewShotRegistry';
+
+// 2026-08-29 R03-002 收敛：跨模块导入统一出口（原从子路径导入的符号）
+export { getToolManager, createToolManager } from './ToolManager';
+export type { ToolSchema } from './ToolRegistry';
+export { createToolRegistry } from './ToolRegistry';
+export { ToolFilterManager } from './ToolFilterManager';
+export { filterToolsByTask } from './toolCategories';
+export { checkSsrf } from './WebFetchTool/ssrf';
+export { ImageUrlHelper } from './ImageUrlHelper';
+export { ParallelExecutor } from './executor/ParallelExecutor';
+export { ToolCallPartitioner } from './orchestration/Partitioner';
+export { SubAgentEngine, getSubAgentEngine } from './AgentTool/SubAgentEngine';
+export type { SkillDefinition } from './SkillTool/types';

@@ -20,7 +20,7 @@ import type { Skill } from '@modules/skills/types';
 import { BaseThirdPartyAdapter } from './BaseThirdPartyAdapter';
 import type { ThirdPartySkillSearchResult } from './ThirdPartySkillAdapter';
 import type { InstalledThirdPartySkill, ThirdPartySkillMeta } from './types';
-import { checkSsrf } from '../../../tools/WebFetchTool/ssrf';
+import { checkSsrf } from '@modules/tools';
 
 const logger = getLogger('skills:remoteHubAdapter');
 

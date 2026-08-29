@@ -21,7 +21,7 @@ import type {
 } from './types';
 import { GeminiLiveAdapter } from './GeminiLiveAdapter';
 import { OpenAIRealtimeAdapter } from './OpenAIRealtimeAdapter';
-import { globalToolManager } from '../tools/core/ToolManager';
+import { globalToolManager } from '@modules/tools';
 import type { ToolExecutorDelegate } from './VoiceToolBridge';
 import type { SessionManager } from '@modules/session';
 import type { TranscriptManager } from '@modules/session/TranscriptManager';

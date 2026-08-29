@@ -16,7 +16,7 @@ import type { MessageService } from './services/MessageService.js';
 import type { StreamService } from './services/StreamService.js';
 import type { SessionGateway } from '@modules/session';
 import type { ToolAwareClient } from '@modules/ai';
-import type { ToolRegistry } from '@modules/tools/ToolRegistry';
+import type { ToolRegistry } from '@modules/tools';
 import type { IToolExecutor } from '@modules/ai';
 import type { QueryEngine, QueryEngineConfig } from '../query/QueryEngine.js';
 import type {

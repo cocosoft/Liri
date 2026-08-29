@@ -5,7 +5,7 @@
 
 import type { Skill, SkillContext, SkillResult } from './types';
 import { SkillRegistry } from './SkillRegistry';
-import { ParallelExecutor } from '../tools/executor/ParallelExecutor';
+import { ParallelExecutor } from '@modules/tools';
 
 import { getLogger, getOTelTracing } from '@modules/monitoring';
 const logger = getLogger('skills:SkillExecutor');

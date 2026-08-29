@@ -5,7 +5,7 @@
  * 先完整功能映射，再评估修剪
  */
 import type { CommandContext, CommandResult } from '@modules/commands';
-import { getToolManager } from '@modules/tools/ToolManager.js';
+import { getToolManager } from '@modules/tools';
 
 import { handleError } from '@modules/error';
 import { getLogger } from '@modules/monitoring';

@@ -225,7 +225,7 @@ const App = () => {
         registry.registerBatch(loadedSkills);
         setSkills(registry.getAll());
 
-        const { getToolManager } = await import('../tools/ToolManager');
+        const { getToolManager } = await import('@modules/tools');
         const toolManager = getToolManager();
         setTools((toolManager as any).getTools());
       } catch (error) {

@@ -87,7 +87,7 @@ import { SmartRouter } from '@modules/ai';
 import type { RouteDecision } from '@modules/ai';
 import { ToolAwareClient } from '@modules/ai';
 import { providerRegistry } from '@modules/ai';
-import { getToolManager } from '@modules/tools/ToolManager';
+import { getToolManager } from '@modules/tools';
 import { getTitleGenerator } from '@modules/agent';
 
 // [v1.2] costTracker.addCost / recordCost / getCostMetricsBridge 已迁移到 COST_RECORDED 事件订阅者（cost/index.ts）

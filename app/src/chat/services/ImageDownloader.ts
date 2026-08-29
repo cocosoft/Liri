@@ -9,7 +9,7 @@ import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 import { resolveCacheDir } from '@modules/core/paths';
 import { withRetry } from '@modules/utils/withRetry';
-import { checkSsrf } from '../../tools/WebFetchTool/ssrf';
+import { checkSsrf } from '@modules/tools';
 import { imageFormatDetector } from '../../media/image/ImageFormatDetector';
 import * as crypto from 'crypto';
 import * as dns from 'dns';

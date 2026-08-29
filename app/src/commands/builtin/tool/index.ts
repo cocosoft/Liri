@@ -23,7 +23,7 @@
  * 管理工具
  */
 import type { Command } from '@modules/commands';
-import { getToolManager } from '@modules/tools/ToolManager.js';
+import { getToolManager } from '@modules/tools';
 
 /**
  * 工具命令

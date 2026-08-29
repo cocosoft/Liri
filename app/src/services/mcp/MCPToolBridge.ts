@@ -8,7 +8,7 @@ import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 
 const logger = getLogger('services:mcp:toolBridge');
-import { getToolManager } from '@modules/tools/ToolManager';
+import { getToolManager } from '@modules/tools';
 import { mcpToolRegistry } from './MCPToolRegistry';
 import { McpToolWrapper } from './McpToolWrapper';
 import { mcpConnectionManager } from './MCPConnectionManager';

@@ -95,9 +95,7 @@ function handleSession(): CommandResult {
  */
 async function handleTools(): Promise<CommandResult> {
   try {
-    const toolManager = (
-      await import('@modules/tools/ToolManager.js')
-    ).getToolManager();
+    const toolManager = (await import('@modules/tools')).getToolManager();
     const tools = toolManager.getAllTools();
     const toolNames = tools.map((t: { name: string }) => t.name).sort();
     const categories = new Map<string, number>();

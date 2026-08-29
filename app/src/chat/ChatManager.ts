@@ -148,7 +148,7 @@ import {
   type DegradationState,
 } from '@modules/ai';
 import type { IToolExecutor } from '@modules/ai';
-import type { ToolRegistry, ToolSchema } from '@modules/tools/ToolRegistry';
+import type { ToolRegistry, ToolSchema } from '@modules/tools';
 import type {
   ChatMessage,
   ParsedToolCall,

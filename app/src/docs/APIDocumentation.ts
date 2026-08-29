@@ -6,7 +6,7 @@
 
 import { Tool } from '../tools/types/Tool';
 import { Command } from '../commands/types/index';
-import { SkillDefinition } from '../tools/SkillTool/types';
+import { SkillDefinition } from '@modules/tools';
 
 export interface APIDoc {
   title: string;

@@ -75,7 +75,7 @@ import { trajectoryRuntime } from '../../core/trajectory/TrajectoryRuntime.js';
 import { agentTelemetry } from '../../agent/AgentTelemetry.js';
 import type { ChatOrchestratorHost } from './ChatOrchestrator.js';
 import { getToolExecErrorMessage } from './toolErrorMessages.js';
-import { filterToolsByTask } from '../../tools/toolCategories.js';
+import { filterToolsByTask } from '@modules/tools';
 import { isLocalLlmEndpoint } from '../services/ChatHelper.js';
 import type { Message, StreamMessageOptions } from '../types/message.js';
 import type { ChatResponse } from '../types/message.js';

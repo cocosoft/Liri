@@ -4,7 +4,7 @@
  */
 
 import type { Command, CommandImplementation } from '@modules/commands';
-import { getToolManager } from '@modules/tools/ToolManager.js';
+import { getToolManager } from '@modules/tools';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('commands:tools:system:bash');

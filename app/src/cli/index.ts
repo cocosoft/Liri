@@ -431,7 +431,7 @@ program
       console.log();
 
       // 动态导入工具管理器
-      const { createToolManager } = await import('../tools/ToolManager');
+      const { createToolManager } = await import('@modules/tools');
       const toolManager = createToolManager();
 
       const tools = toolManager.getAllTools();
@@ -472,7 +472,7 @@ program
       console.log();
 
       // 动态导入工具管理器
-      const { createToolManager } = await import('../tools/ToolManager');
+      const { createToolManager } = await import('@modules/tools');
       const toolManager = createToolManager();
 
       const tool = toolManager.getTool(name);

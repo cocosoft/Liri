@@ -74,7 +74,7 @@ import {
   type StopHookContext,
   type StopHookReason,
 } from './StopHooks.js';
-import { ToolCallPartitioner } from '../tools/orchestration/Partitioner.js';
+import { ToolCallPartitioner } from '@modules/tools';
 import { ToolCallTracker } from '../utils/ToolCallTracker.js';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';

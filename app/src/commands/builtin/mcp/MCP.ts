@@ -373,7 +373,7 @@ const mcpCommand = {
     }
 
     try {
-      const { getToolManager } = await import('@modules/tools/ToolManager.js');
+      const { getToolManager } = await import('@modules/tools');
       const parts = args.trim().split(/\s+/);
       const action = parts[0];
       const params = parts.slice(1).join(' ');

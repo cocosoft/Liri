@@ -31,7 +31,7 @@ import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { SimpleMutex } from '@modules/core';
 import type { ToolAwareClient } from '@modules/ai';
-import type { ToolRegistry } from '@modules/tools/ToolRegistry';
+import type { ToolRegistry } from '@modules/tools';
 import type { ChatMessage, ToolDefinition, ParsedToolCall } from '@modules/ai';
 import type {
   ChatStreamChunk,

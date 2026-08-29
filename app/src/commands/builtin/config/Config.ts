@@ -1,6 +1,6 @@
 //
 import type { CommandContext } from '@modules/commands';
-import { getToolManager } from '@modules/tools/ToolManager';
+import { getToolManager } from '@modules/tools';
 import { ConfigDocGenerator, configSchema } from '@modules/config/schema';
 
 import { getLogger } from '@modules/monitoring';

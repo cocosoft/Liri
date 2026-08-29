@@ -1,4 +1,4 @@
-import { getToolManager } from '@modules/tools/ToolManager.js';
+import { getToolManager } from '@modules/tools';
 import type { CommandContext } from '@modules/commands';
 const call = async (
   args: string,

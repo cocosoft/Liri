@@ -23,10 +23,7 @@ import { globalEventBus } from '../../core/events/EventBus';
 import { OrchestrationEventType } from '../events/OrchestrationEvents';
 import type { Tool } from '../../tools/types/Tool';
 import type { ToolDefinition } from '@modules/ai';
-import {
-  SubAgentEngine,
-  getSubAgentEngine,
-} from '../../tools/AgentTool/SubAgentEngine';
+import { SubAgentEngine, getSubAgentEngine } from '@modules/tools';
 
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';

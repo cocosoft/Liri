@@ -164,7 +164,7 @@ export async function init(): Promise<void> {
         getStartupChainProfiler().markPhaseStart('tool_init');
         const startTime = Date.now();
         try {
-          const { createToolManager } = await import('../tools/ToolManager.js');
+          const { createToolManager } = await import('@modules/tools');
           createToolManager();
           const duration = Date.now() - startTime;
           if (duration > 1500) {

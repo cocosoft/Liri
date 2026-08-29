@@ -8,7 +8,7 @@
  * P1-5: 集成 CascadeAbortManager 实现级联中止——
  *   Bash/Write/Permission 错误 → AbortController 级联中止兄弟工具（≤500ms）
  */
-import { ToolCallPartitioner } from '../tools/orchestration/Partitioner.js';
+import { ToolCallPartitioner } from '@modules/tools';
 import type { ToolUseBlock } from '../chat/types/ToolUseBlock.js';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';

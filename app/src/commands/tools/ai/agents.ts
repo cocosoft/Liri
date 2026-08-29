@@ -13,7 +13,7 @@
  */
 
 import type { Command } from '@modules/commands';
-import { getToolManager } from '@modules/tools/ToolManager.js';
+import { getToolManager } from '@modules/tools';
 import { AgentTool } from '@modules/tools/AgentTool/AgentTool.js';
 
 import { getLogger } from '@modules/monitoring';

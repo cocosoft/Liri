@@ -150,8 +150,13 @@ export class ModelDownloadService {
               const speedMBs = elapsedMs > 0 ? mb / (elapsedMs / 1000) : 0;
               emitProgress(mb, speedMBs);
             }
-          } catch {
-            // 忽略轮询错误
+          } catch (pollErr) {
+            // KB-R08-POLL-PROGRESS（2026-08-29）：下载进度轮询异常记录（R08-002 后台
+            // 循环 fail 事件落盘——原 catch 静默忽略）
+            logger.warn('模型下载进度轮询异常', {
+              error:
+                pollErr instanceof Error ? pollErr.message : String(pollErr),
+            });
           }
         }, 2000);
       }

@@ -15,7 +15,7 @@ import { createAcpWebSocketServer } from '@modules/acp';
 import type { ModuleBridgeDependencies } from './ModuleBridgeRuntime.js';
 import type { AcpWebSocketServerConfig } from '@modules/acp/types.js';
 import { configManager } from '@modules/config';
-import type { AcpRuntime } from '@modules/acp/runtime/types.js';
+import type { AcpRuntime } from '@modules/acp';
 
 const logger = getLogger('bridge:moduleSetup');
 

@@ -5,7 +5,7 @@
  * 供应用启动流程调用，完成模块操作能力的 ACP 暴露。
  */
 
-import { getAcpRuntimeRegistry } from '@modules/acp/runtime/registry.js';
+import { getAcpRuntimeRegistry } from '@modules/acp';
 import {
   ModuleBridgeRuntime,
   setDefaultModuleBridge,

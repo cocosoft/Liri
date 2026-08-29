@@ -25,7 +25,7 @@ import type {
   AcpRuntimeStatus,
   AcpRuntimeCapabilities,
   AcpRuntimeDoctorReport,
-} from '@modules/acp/runtime/types.js';
+} from '@modules/acp';
 
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';

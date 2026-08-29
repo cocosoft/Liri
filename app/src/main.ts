@@ -1187,6 +1187,25 @@ async function launchDaemon(options: LaunchOptions): Promise<void> {
     }
   }
 
+  // DAEMON 常驻模式下启动全局 Cron 调度器（此前 DAEMON 只起 HTTP，定时任务全挂）
+  // KB-CRON-DAEMON（2026-08-29）：复用 startCronEngine（REPL 同款 AI 执行器 + SQLite 持久化）
+  try {
+    const { startCronEngine } = await import('./tasks/cron/startCronEngine');
+    const cronEngineResult = await startCronEngine();
+    if (cronEngineResult.realExecutor) {
+      logger.info('Cron 调度器已启动（AI 执行引擎就绪）', {
+        providerName: cronEngineResult.providerName,
+      });
+    } else {
+      logger.warn('Cron 调度器已启动（默认执行模式 — 无 AI Provider 可用）');
+    }
+  } catch (err) {
+    // @ignore-catch — cron 启动失败不阻塞 DAEMON 常驻
+    logger.error('Cron 调度器启动失败', {
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+
   // 永远挂住直到 SIGINT/SIGTERM
   logger.info('DAEMON 模式常驻：等待信号退出（SIGINT/SIGTERM）');
   await new Promise<void>((resolve) => {

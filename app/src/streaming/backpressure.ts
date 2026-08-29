@@ -288,7 +288,11 @@ export async function readWithBackpressure<T>(
 
   try {
     while (true) {
-      const { done, value } = await reader.read();
+      // KB-ORPHAN-FIX（2026-08-29）：流被外部 abort/cancel 时 pending read() 在
+      // finally releaseLock() reject 成孤儿——挂 noop catch 防 unhandledRejection
+      const readPromise = reader.read();
+      readPromise.catch(() => {});
+      const { done, value } = await readPromise;
       if (done) break;
 
       controller.enqueue();

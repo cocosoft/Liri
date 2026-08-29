@@ -304,7 +304,11 @@ export class StreamableHttpTransport {
       while (true) {
         if (this.closed) break;
 
-        const { done, value } = await reader.read();
+        // KB-ORPHAN-FIX（2026-08-29）：流被关闭/abort 时 pending read() 在
+        // finally releaseLock() reject 成孤儿——挂 noop catch 防 unhandledRejection
+        const readPromise = reader.read();
+        readPromise.catch(() => {});
+        const { done, value } = await readPromise;
         if (done) break;
 
         buffer += decoder.decode(value, { stream: true });

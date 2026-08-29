@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 流服务
  * 负责处理流式响应、解析流数据、累积流数据
  */
@@ -117,7 +117,12 @@ export class StreamServiceImpl implements StreamService {
 
     try {
       while (true) {
-        const { done, value } = await reader.read();
+        // KB-ORPHAN-FIX（2026-08-29）：流被外部 abort/cancel 时，pending 的 read()
+        // 在 finally releaseLock() 会以 AbortError reject 成孤儿 rejection——
+        // 挂 noop catch 防 unhandledRejection（与 BaseAIProvider.readStreamChunkWithTimeout 一致）
+        const readPromise = reader.read();
+        readPromise.catch(() => {});
+        const { done, value } = await readPromise;
 
         if (done) {
           break;

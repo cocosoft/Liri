@@ -347,7 +347,9 @@ export async function handleSearchKnowledge(
         globalEventBus
       );
     }
-    const router = _knowledgeSearchRouter as InstanceType<typeof KnowledgeRouter>;
+    const router = _knowledgeSearchRouter as InstanceType<
+      typeof KnowledgeRouter
+    >;
     const routes = await router.search(query, {
       maxResults: 20,
       ...(domain ? ({ domain } as any) : {}),

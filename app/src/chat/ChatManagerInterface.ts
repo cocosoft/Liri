@@ -18,7 +18,7 @@ import type { SessionGateway } from '@modules/session';
 import type { ToolAwareClient } from '@modules/ai';
 import type { ToolRegistry } from '@modules/tools';
 import type { IToolExecutor } from '@modules/ai';
-import type { QueryEngine, QueryEngineConfig } from '../query/QueryEngine.js';
+import type { QueryEngine, QueryEngineConfig } from '@modules/query';
 import type {
   CompactServiceImpl,
   CompactBoundary,

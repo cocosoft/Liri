@@ -167,7 +167,7 @@ import {
   QueryEngine,
   createQueryEngine,
   type QueryEngineConfig,
-} from '../query/QueryEngine.js';
+} from '@modules/query';
 import {
   TokenBudgetController,
   TokenBudgetStatus,
@@ -175,19 +175,19 @@ import {
   getDefaultTokenBudget,
 } from '../core/tokenBudget/TokenBudgetController.js';
 import { UnifiedTokenTracker } from '../core/tokenBudget/UnifiedTokenTracker.js';
-import { ContextTracker } from '../query/context/ContextTracker.js';
+import { ContextTracker } from '@modules/query';
 import { compactionOrchestrator } from '../context/compaction/CompactionOrchestrator.js';
 import { estimateMessagesTokens } from '@modules/ai';
 import { yieldToEventLoop } from '@modules/ai';
-import { FileCheckpointStorage } from '../query/FileCheckpointStorage.js';
+import { FileCheckpointStorage } from '@modules/query';
 import {
   StopHookManager,
   createStopHookManager,
   DEFAULT_STOP_HOOK_PRIORITIES,
-} from '../query/StopHooks.js';
-import type { StopHookReason } from '../query/StopHooks.js';
-import { TAORLoop, createTAORLoop } from '../query/TAORLoop.js';
-import type { TAORLoopConfig } from '../query/TAORLoop.js';
+} from '@modules/query';
+import type { StopHookReason } from '@modules/query';
+import { TAORLoop, createTAORLoop } from '@modules/query';
+import type { TAORLoopConfig } from '@modules/query';
 import {
   PlanDrivenLoop,
   classifyTaskComplexity,
@@ -202,9 +202,9 @@ import { ToolExecutionService } from './services/ToolExecutionService.js';
 import type { ToolExecutionDeps } from './services/ToolExecutionService.js';
 import { StreamPipeline } from './pipeline/StreamPipeline.js';
 import type { PipelineContext } from './pipeline/StreamPipeline.js';
-import { LoopDetector } from '../query/LoopDetector.js';
-import { createChatManagerTAORDeps } from '../query/ChatManagerTAORAdapter.js';
-import type { ChatManagerTAORContext } from '../query/ChatManagerTAORAdapter.js';
+import { LoopDetector } from '@modules/query';
+import { createChatManagerTAORDeps } from '@modules/query';
+import type { ChatManagerTAORContext } from '@modules/query';
 import { agentTelemetry } from '../agent/AgentTelemetry.js';
 import { trajectoryRecorder } from '../agent/trajectory/TrajectoryRecorder.js';
 import { trajectoryRuntime } from '../core/trajectory/TrajectoryRuntime.js';
@@ -929,7 +929,7 @@ export class ChatManagerImpl implements ChatManager {
         buildToolDefinitions: (schemas: unknown[]) =>
           this._buildToolDefinitions(schemas as ToolSchema[]),
         loopDetector: this
-          ._loopDetector as import('../query/LoopDetector.js').LoopDetector,
+          ._loopDetector as import('@modules/query').LoopDetector,
         addAndPersistMessage: (sid, msg) =>
           this._addAndPersistMessage(sid, msg),
         appendStreamEvent: (sid, event) => this.appendStreamEvent(sid, event),

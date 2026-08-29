@@ -27,7 +27,7 @@
  */
 
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { TAORLoop } from '../../../query/TAORLoop.js';
+import { TAORLoop } from '@modules/query';
 import type { HandlerCtx } from './handler-utils';
 import { createChatManager } from '@modules/chat';
 

@@ -18,8 +18,8 @@
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { getOTelTracing } from '@modules/monitoring/otel';
-import { TAORLoop } from '../../query/TAORLoop.js';
-import type { TAORLoopDeps } from '../../query/TAORLoop.js';
+import { TAORLoop } from '@modules/query';
+import type { TAORLoopDeps } from '@modules/query';
 import { TaskDecomposer, MAX_SUBTASKS } from '@modules/ai';
 import type { DecompositionResult } from '@modules/ai';
 import { taskOrchestrator } from '../../tasks/TaskOrchestrator.js';

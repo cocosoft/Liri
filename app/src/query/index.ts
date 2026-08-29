@@ -235,3 +235,9 @@ export type {
 } from './QueryLogTypes.js';
 export { SlowQueryDetector } from './SlowQueryDetector.js';
 export type { SlowQueryRecord, SlowQueryReport } from './SlowQueryDetector.js';
+
+// 2026-08-29 R03-002 收敛：统一出口补充
+export { createErrorRecoveryManager } from './ErrorRecoveryManager.js';
+export { ContextTracker } from './context/ContextTracker.js';
+export { LoopDetector } from './LoopDetector.js';
+export { truncateToolResult } from './ToolResultTruncator.js';

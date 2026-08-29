@@ -22,8 +22,8 @@
  *  G. 流式检查点（streamingCheckpoint.onToolCompleted）+ completedToolCallIds 维护
  */
 
-import { ReActLoop } from '../query/ReActLoop.js';
-import { createErrorRecoveryManager } from '../query/ErrorRecoveryManager.js';
+import { ReActLoop } from '@modules/query';
+import { createErrorRecoveryManager } from '@modules/query';
 import type {
   ReActLoopConfig,
   ReasonResult,
@@ -31,7 +31,7 @@ import type {
   ToolCallEntry,
   ToolResultEntry,
   ReActEvent,
-} from '../query/ReActLoop.js';
+} from '@modules/query';
 import type { ToolLoopContext, ToolLoopInput } from './ToolLoopRunner.js';
 import type { ToolCall, ToolResult } from './types/tool.js';
 import type { ChatResponse, ChatMessage } from '@modules/ai';

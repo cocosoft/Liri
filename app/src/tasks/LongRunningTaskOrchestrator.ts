@@ -47,10 +47,10 @@ import type { PlanReview, ReviewDecision } from './PlanReview';
 import { TrajectoryTrailRecorder } from '@modules/session';
 import { createReviewGate } from './review/ReviewGate.js';
 import type { ReviewGate, ReviewGateContext } from './review/ReviewGate.js';
-import { TAORLoop, createTAORLoopDeps } from '../query/TAORLoop.js';
-import type { TAORLoopDeps } from '../query/TAORLoop.js';
-import { VerifierAgent, createVerifierAgent } from '../query/VerifierAgent.js';
-import type { VerificationResult } from '../query/VerifierAgent.js';
+import { TAORLoop, createTAORLoopDeps } from '@modules/query';
+import type { TAORLoopDeps } from '@modules/query';
+import { VerifierAgent, createVerifierAgent } from '@modules/query';
+import type { VerificationResult } from '@modules/query';
 import { FileLockManager, fileLockManager } from './FileLockManager.js';
 import { inboxManager } from '@modules/runtime/InboxManager.js';
 import {

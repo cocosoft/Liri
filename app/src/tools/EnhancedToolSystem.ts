@@ -5,7 +5,7 @@
  */
 
 import { ChatManagerImpl } from '../chat/ChatManager.js';
-import { QueryEngine, type QueryEngineConfig } from '../query/QueryEngine.js';
+import { QueryEngine, type QueryEngineConfig } from '@modules/query';
 import { MessageServiceImpl } from '../chat/services/MessageService.js';
 import { ErrorHandler } from '../core/utils/ErrorHandler.js';
 import { getLogger } from '@modules/monitoring';

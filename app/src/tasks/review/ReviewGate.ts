@@ -22,7 +22,7 @@ import { configManager } from '@modules/config';
 import { parseReviewFromText } from '../PlanReview.js';
 import type { PlanReview, ReviewDecision, ReviewIssue } from '../PlanReview.js';
 import type { AgentIsolation } from '../../agent/AgentIsolation.js';
-import type { VerifierAgent } from '../../query/VerifierAgent.js';
+import type { VerifierAgent } from '@modules/query';
 import type { PlanStep } from '../TaskOrchestrator.js';
 
 const logger = getLogger('tasks:reviewGate');

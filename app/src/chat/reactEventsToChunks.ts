@@ -7,7 +7,7 @@
  */
 
 import type { ChatStreamChunk } from '@modules/runtime/api/CoreAPI.js';
-import type { ReActEvent } from '../query/ReActLoop.js';
+import type { ReActEvent } from '@modules/query';
 
 /**
  * BUG-10 审查补充（2026-08-23）：tool_progress 透传节流。

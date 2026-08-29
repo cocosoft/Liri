@@ -316,12 +316,10 @@ export async function handleAnalyticsDashboard(
 
     // 工具调用统计：优先持久化 query_logs（重启不清零），回退内存累计器
     let persistedToolStats: Awaited<
-      ReturnType<
-        import('@modules/query/QueryLogStore').QueryLogStore['getToolStats']
-      >
+      ReturnType<import('@modules/query').QueryLogStore['getToolStats']>
     > | null = null;
     try {
-      const { getQueryLogStore } = await import('@modules/query/QueryLogStore');
+      const { getQueryLogStore } = await import('@modules/query');
       persistedToolStats = await getQueryLogStore().getToolStats();
     } catch (err) {
       // 查询日志不可用时回退内存统计
@@ -335,12 +333,10 @@ export async function handleAnalyticsDashboard(
 
     // 错误统计：优先持久化 query_logs（重启不清零），回退内存事件
     let persistedErrorStats: Awaited<
-      ReturnType<
-        import('@modules/query/QueryLogStore').QueryLogStore['getErrorStats']
-      >
+      ReturnType<import('@modules/query').QueryLogStore['getErrorStats']>
     > | null = null;
     try {
-      const { getQueryLogStore } = await import('@modules/query/QueryLogStore');
+      const { getQueryLogStore } = await import('@modules/query');
       persistedErrorStats = await getQueryLogStore().getErrorStats();
     } catch (err) {
       void handleError(err, {

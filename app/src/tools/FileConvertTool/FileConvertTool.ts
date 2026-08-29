@@ -13,7 +13,7 @@ import type {
 import { createToolResult } from '../types/ToolResult';
 import { getConverterEngine } from '../../tools/converter/engine/ConverterEngine';
 import { FileTypeDetector } from '../../tools/converter/engine/FileTypeDetector';
-import { truncateToolResult } from '../../query/ToolResultTruncator';
+import { truncateToolResult } from '@modules/query';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('tools:FileConvertTool:FileConvertTool');

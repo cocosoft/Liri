@@ -4,7 +4,7 @@ import { handleError } from '@modules/error';
 import { SessionStore } from './SessionStore';
 import { SessionPruner } from './SessionPruner';
 import type { PrunerOptions } from './SessionPruner';
-import { FileCheckpointStorage } from '../query/FileCheckpointStorage.js';
+import { FileCheckpointStorage } from '@modules/query';
 import { SessionLock } from './SessionLock';
 import type { LockOptions } from './SessionLock';
 import { SessionMigration } from './SessionMigration';

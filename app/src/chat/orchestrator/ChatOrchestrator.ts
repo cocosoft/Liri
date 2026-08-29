@@ -64,8 +64,8 @@ import { recursivelySanitizeUnicode } from '@modules/utils/sanitization.js';
 import { SensitiveErrorType } from '@modules/security';
 import { trajectoryRuntime } from '../../core/trajectory/TrajectoryRuntime.js';
 import type { SessionCheckpointService } from '../services/SessionCheckpointService.js';
-import type { ChatManagerTAORContext } from '../../query/ChatManagerTAORAdapter.js';
-import type { LoopDetector } from '../../query/LoopDetector.js';
+import type { ChatManagerTAORContext } from '@modules/query';
+import type { LoopDetector } from '@modules/query';
 
 const logger = getLogger('chat:orchestrator');
 

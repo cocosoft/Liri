@@ -8,7 +8,7 @@ import * as os from 'os';
 import { getLogger } from '@modules/monitoring';
 import { createCliConfigManager } from '@modules/cli/config';
 import { createSessionGateway } from '@modules/session';
-import { SlowQueryDetector } from '@modules/query/SlowQueryDetector';
+import { SlowQueryDetector } from '@modules/query';
 
 const logger = getLogger('diagnoseHandler');
 

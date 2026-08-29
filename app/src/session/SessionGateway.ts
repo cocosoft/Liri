@@ -14,7 +14,7 @@ import { TrajectoryTrailRecorder } from './trajectory/TrajectoryTrailRecorder';
 import { resolveSessionsDir, resolveDataDir } from '@modules/core';
 import { asyncContextStorage } from '../context/AsyncContextStorage';
 import { resolveContextWindow } from '../context/window/ContextWindowResolver';
-import { FileCheckpointStorage } from '../query/FileCheckpointStorage.js';
+import { FileCheckpointStorage } from '@modules/query';
 import type { SessionContext } from '../context/types/Context';
 import {
   createTranscriptManager,

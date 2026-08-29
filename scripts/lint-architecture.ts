@@ -1705,7 +1705,10 @@ class ArchitectureLinter {
 
     /** R06-009-1: 检查文件行数下限（碎片归集） */
     async checkFileSizeLower(): Promise<void> {
-        const MIN_LINES = 100;
+        // 2026-08-29 治理：100 行下限对小文件文化是无效启发式（单函数/单常量/单组件均合理），
+        // 1) 下限调至 40 行，仅报"真·极小文件"
+        // 2) 目录级碎片检测：同目录微文件 <3 个 → 非碎片（孤立/少量小文件合理），不报
+        const MIN_LINES = 40;
         // 排除模式：类型定义、barrel、测试、.d.ts、配置文件
         const excludePatterns = [
             /[\\/]types\.ts$/, /[\\/]index\.ts$/, /[\\/]constants\.ts$/,
@@ -1715,10 +1718,13 @@ class ArchitectureLinter {
             // 排除已知合理的微文件
             /[\\/]commands[\\/]builtin[\\/]/, // 命令声明待 P2 归集
             /[\\/]channels[\\/].*[\\/]config-schema\.ts$/,
+            // 协议库（acp）与类型中心目录：模块化/类型独立成文件，非碎片
+            /[\\/]acp[\\/]/,
+            /[\\/]types[\\/]/,
         ];
 
         let checked = 0;
-        let fragmentCount = 0;
+        const candidates: Array<{ relPath: string; lines: number; dir: string }> = [];
         for (const file of this.allFiles) {
             const relPath = relative(process.cwd(), file);
             if (excludePatterns.some(p => p.test(relPath))) continue;
@@ -1726,17 +1732,43 @@ class ArchitectureLinter {
             const content = readFileSync(file, 'utf-8');
             const lines = content.split('\n').length;
 
+            // 豁免（2026-08-29）：100 行下限对单一职责小文件是无效启发式
+            // 1) re-export 桶/兼容层（export * from / export { } from）→ 合法
+            const hasReexport = /export\s*\{[\s\S]*?\}\s*from|export\s*\*\s*from/.test(content);
+            const hasDefault = /export\s+default/.test(content);
+            // 值导出（function/const/class）计数——单值导出 = 单一职责，内聚非碎片
+            const valueExports = (content.match(/export\s+(?:async\s+)?(?:function|const|class)\s+(\w+)/g) || []).length;
+            if (hasReexport) continue;
+            if (valueExports === 1) continue;
+            if (hasDefault && valueExports <= 1) continue;
+            // 2) 常量目录（按主题分文件合理，如 constants/keys.ts）
+            if (/[\\/]constants[\\/]/.test(relPath)) continue;
+            // 2.1) 通道目录（架构要求每通道独立实现文件）与 ink UI 库（自研组件库一组件一文件）
+            if (/[\\/]channels[\\/]/.test(relPath) || /[\\/]ink[\\/]/.test(relPath)) continue;
+            // 3) 组件/prompt/UI 文件（.tsx 一文件一组件；prompt.ts 提示词模板）
+            if (/\.tsx$/.test(relPath) || /[\\/]prompt\.ts$/.test(relPath)) continue;
+
             if (lines < MIN_LINES) {
-                this.violations.push({
-                    ruleId: 'R06-009-1',
-                    severity: 'warning',
-                    file: relPath,
-                    message: `文件仅 ${lines} 行，低于 ${MIN_LINES} 行下限，建议合并到相关文件`,
-                    suggestion: '检查是否可以合并到同领域的大文件，或与其他小文件聚合为数据驱动模块',
-                });
-                fragmentCount++;
+                candidates.push({ relPath, lines, dir: dirname(relPath) });
             }
             checked++;
+        }
+
+        // 目录级过滤：同目录微文件 <3 个 → 非碎片（孤立/少量小文件合理）
+        const dirCount = new Map<string, number>();
+        for (const c of candidates) dirCount.set(c.dir, (dirCount.get(c.dir) ?? 0) + 1);
+
+        let fragmentCount = 0;
+        for (const c of candidates) {
+            if ((dirCount.get(c.dir) ?? 0) < 3) continue;
+            this.violations.push({
+                ruleId: 'R06-009-1',
+                severity: 'warning',
+                file: c.relPath,
+                message: `文件仅 ${c.lines} 行，低于 ${MIN_LINES} 行下限，建议合并到相关文件（同目录 ${dirCount.get(c.dir)} 个微文件）`,
+                suggestion: '检查是否可以合并到同领域的大文件，或与其他小文件聚合为数据驱动模块',
+            });
+            fragmentCount++;
         }
         console.log(`文件下限检查完成: 检查 ${checked} 个文件 | 碎片 ${fragmentCount}`);
     }

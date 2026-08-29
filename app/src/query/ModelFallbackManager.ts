@@ -29,7 +29,7 @@
 
 /** 故障转移配置 */
 import { getLogger } from '@modules/monitoring';
-import { resolveContextWindowAsync } from '@modules/context/window/ContextWindowResolver';
+import { resolveContextWindowAsync } from '@modules/context';
 const logger = getLogger('query:ModelFallbackManager');
 
 interface FallbackConfig {

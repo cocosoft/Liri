@@ -34,7 +34,7 @@ import { MemoryIntegration } from '../memory/integrations/MemoryIntegration.js';
 import {
   compactionOrchestrator,
   type CompactionContext,
-} from '../context/compaction/CompactionOrchestrator';
+} from '@modules/context';
 import type { ChatMessage } from '@modules/ai';
 import { AnalyticsService, analyticsService } from '../analytics/index.js';
 import {

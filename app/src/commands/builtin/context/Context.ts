@@ -2,10 +2,10 @@
  * 上下文管理命令实现
  */
 import type { CommandContext, CommandResult } from '@modules/commands';
-import { compactionMetricsTracker } from '../../../context/compaction/CompactionMetrics';
+import { compactionMetricsTracker } from '@modules/context';
 import { estimateMessagesTokens } from '@modules/ai';
-import { autoCompactionPolicy } from '../../../context/compaction/AutoCompactionPolicy';
-import type { ContextSnapshot } from '../../../context/compaction/CompactionMetrics';
+import { autoCompactionPolicy } from '@modules/context';
+import type { ContextSnapshot } from '@modules/context';
 import { analyzeContextUsage, formatWalletBreakdown } from './ContextWallet';
 
 import { getLogger } from '@modules/monitoring';

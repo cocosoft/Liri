@@ -37,7 +37,7 @@ import type {
   ChatStreamChunk,
   QuestionData,
 } from '@modules/runtime/api/CoreAPI.js';
-import { compactionOrchestrator } from '../../context/compaction/CompactionOrchestrator';
+import { compactionOrchestrator } from '@modules/context';
 import type {
   Message,
   SendMessageOptions,

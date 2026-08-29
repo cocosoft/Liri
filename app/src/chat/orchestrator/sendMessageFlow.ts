@@ -51,7 +51,7 @@ import { trackUsage } from '@modules/ai';
 import { getModelPricing } from '@modules/cost';
 
 import { calculateTotalCost } from '@modules/cost';
-import { compactionOrchestrator } from '../../context/compaction/CompactionOrchestrator';
+import { compactionOrchestrator } from '@modules/context';
 import { resolveOutputDir } from '@modules/core/paths';
 import { agentTelemetry } from '../../agent/AgentTelemetry.js';
 import { trajectoryRecorder } from '../../agent/trajectory/TrajectoryRecorder';

@@ -31,7 +31,7 @@ import { repairImageUrls } from '../services/ChatHelper';
 import { StreamingToolCallScrubber } from '../../streaming/scrubbers/StreamingToolCallScrubber';
 import { getModelPricing } from '@modules/cost';
 import { calculateTotalCost } from '@modules/cost';
-import { compactionOrchestrator } from '../../context/compaction/CompactionOrchestrator';
+import { compactionOrchestrator } from '@modules/context';
 import { validatePathsInOutput } from '../services/PathGuardService';
 import type { ChatSession } from '../types/session.js';
 import type { Message, StreamMessageOptions } from '../types/message.js';

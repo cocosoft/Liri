@@ -12,8 +12,8 @@ import { handleError } from '@modules/error';
 // E-4（2026-08-23，T-G）：会话删除时清理 PDCA 旁路轨迹文件
 import { TrajectoryTrailRecorder } from './trajectory/TrajectoryTrailRecorder';
 import { resolveSessionsDir, resolveDataDir } from '@modules/core';
-import { asyncContextStorage } from '../context/AsyncContextStorage';
-import { resolveContextWindow } from '../context/window/ContextWindowResolver';
+import { asyncContextStorage } from '@modules/context';
+import { resolveContextWindow } from '@modules/context';
 import { FileCheckpointStorage } from '@modules/query';
 import type { SessionContext } from '../context/types/Context';
 import {

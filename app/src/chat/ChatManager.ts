@@ -176,7 +176,7 @@ import {
 } from '../core/tokenBudget/TokenBudgetController.js';
 import { UnifiedTokenTracker } from '../core/tokenBudget/UnifiedTokenTracker.js';
 import { ContextTracker } from '@modules/query';
-import { compactionOrchestrator } from '../context/compaction/CompactionOrchestrator.js';
+import { compactionOrchestrator } from '@modules/context';
 import { estimateMessagesTokens } from '@modules/ai';
 import { yieldToEventLoop } from '@modules/ai';
 import { FileCheckpointStorage } from '@modules/query';

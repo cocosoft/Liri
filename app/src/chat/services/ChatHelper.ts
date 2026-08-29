@@ -179,9 +179,7 @@ export function repairImageUrls(content: string): string {
 export function resolveMaxContextTokens(model?: string): number {
   if (model) {
     try {
-      const {
-        resolveContextWindow,
-      } = require('../../context/window/ContextWindowResolver');
+      const { resolveContextWindow } = require('@modules/context');
       const ctx = resolveContextWindow(model);
       if (ctx.tokens > 0) return ctx.tokens;
     } catch (ctxErr) {

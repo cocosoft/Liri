@@ -11,7 +11,7 @@ import type { ContextTracker } from '../../query/context/ContextTracker';
 import { extractUsage } from '@modules/ai';
 import { estimateTokens, estimateMessagesTokensCooperative } from '@modules/ai';
 import { getCachedTiktokenEncoder } from '@modules/ai';
-import { resolveContextWindow } from '../../context/window/ContextWindowResolver';
+import { resolveContextWindow } from '@modules/context';
 import { getLogger } from '../../monitoring/logs/Logger';
 import { handleError } from '@modules/error';
 import {

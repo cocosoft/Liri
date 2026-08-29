@@ -67,8 +67,8 @@ import {
   logFinalRawResponse,
 } from './preSendContextProtection.js';
 import { savePlainTextCheckpoint } from './plainTextCheckpointSave.js';
-import { compactionOrchestrator } from '../../context/compaction/CompactionOrchestrator';
-import { autoCompactionPolicy } from '../../context/compaction/AutoCompactionPolicy';
+import { compactionOrchestrator } from '@modules/context';
+import { autoCompactionPolicy } from '@modules/context';
 import { getOTelTracing } from '@modules/monitoring';
 import { trajectoryRecorder } from '../../agent/trajectory/TrajectoryRecorder';
 import { trajectoryRuntime } from '../../core/trajectory/TrajectoryRuntime.js';

@@ -44,7 +44,7 @@ import {
   parsePromptTokensFromError,
   parseContextLimitFromError,
   calibrateContextWindow,
-} from '../../context/window/ContextWindowResolver';
+} from '@modules/context';
 import type { ChatOrchestratorHost } from './ChatOrchestrator.js';
 import type { StreamMessageOptions } from '../types/message.js';
 import type { ChatSession } from '../types/session.js';

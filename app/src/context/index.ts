@@ -82,3 +82,20 @@ export type {
 export * from './EffectScope.js';
 
 export * from './DependencyRegistry.js';
+
+// 2026-08-29 R03-002 收敛：compaction / window / async 统一出口
+export { compactionOrchestrator } from './compaction/CompactionOrchestrator';
+export { autoCompactionPolicy } from './compaction/AutoCompactionPolicy';
+export {
+  compactionMetricsTracker,
+  type ContextSnapshot,
+} from './compaction/CompactionMetrics';
+export {
+  resolveContextWindow,
+  resolveContextWindowAsync,
+  parsePromptTokensFromError,
+  parseContextLimitFromError,
+  calibrateContextWindow,
+} from './window/ContextWindowResolver';
+export type { CompactionContext } from './compaction/CompactionOrchestrator';
+export { asyncContextStorage } from './AsyncContextStorage';

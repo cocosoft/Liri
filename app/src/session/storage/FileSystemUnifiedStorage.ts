@@ -471,6 +471,15 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
     this.sessions.set(session.id, { ...session });
     this.messages.set(session.id, []);
     await this.persistSession(session);
+    // KB-SESSION-INIT（2026-08-29）：创建即建空 messages.jsonl——原懒创建（首条消息
+    // append 才建文件）使"新建未发消息"的合法空会话无消息文件，被 K-6 误判为僵尸会话
+    // 软删除（重启后用户新建的空会话消失）。与 Write-Ahead 一致：元数据与消息文件同时
+    // 落盘；真正的僵尸（文件确实丢失）仍由 K-6 防护保留。
+    const msgPath = messagesFilePath(this.basePath, session.id);
+    if (!existsSync(msgPath)) {
+      await fs.mkdir(sessionDir(this.basePath, session.id), { recursive: true });
+      await fs.writeFile(msgPath, '', 'utf-8');
+    }
     return session.id;
   }
 

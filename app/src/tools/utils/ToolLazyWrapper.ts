@@ -5,7 +5,7 @@
  * getInfo() 直接返回元信息，不触发加载。
  */
 
-import { LazyModuleLoader } from '../../core/utils/LazyModuleLoader';
+import { LazyModuleLoader } from '@modules/core';
 import type { Tool, ToolInfo, ToolParam } from '../types/Tool';
 import type { ToolUseContext } from '../types/ToolUseContext';
 import type { ToolResult } from '../types/ToolResult';

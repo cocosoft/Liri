@@ -19,7 +19,7 @@ import {
   ErrorSeverity,
   handleError,
 } from '@modules/error';
-import { ErrorHandler } from '../../core/utils/ErrorHandler.js';
+import { ErrorHandler } from '@modules/core';
 import { convergenceDetector } from '../services/ConvergenceDetector.js';
 import { eventNotificationService } from '../services/EventNotificationService.js';
 import { toolResultRegistry } from '../../tool/ToolResultRegistry.js';

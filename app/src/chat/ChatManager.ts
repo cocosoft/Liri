@@ -193,8 +193,8 @@ import {
   classifyTaskComplexity,
   hasDangerousToolIntent,
   isEligibleForFastPath,
-} from '../core/loop/PlanDrivenLoop.js';
-import type { PlanDrivenLoopResult } from '../core/loop/PlanDrivenLoop.js';
+} from '@modules/core';
+import type { PlanDrivenLoopResult } from '@modules/core';
 import { ReActToolLoop } from './ReActToolLoop.js';
 import type { ToolLoopContext } from './ToolLoopRunner.js';
 import { withToolTimeout } from './services/ToolTimeoutWrapper.js';
@@ -207,8 +207,8 @@ import { createChatManagerTAORDeps } from '@modules/query';
 import type { ChatManagerTAORContext } from '@modules/query';
 import { agentTelemetry } from '../agent/AgentTelemetry.js';
 import { trajectoryRecorder } from '../agent/trajectory/TrajectoryRecorder.js';
-import { trajectoryRuntime } from '../core/trajectory/TrajectoryRuntime.js';
-import { ErrorHandler } from '../core/utils/ErrorHandler.js';
+import { trajectoryRuntime } from '@modules/core';
+import { ErrorHandler } from '@modules/core';
 import { convergenceDetector } from './services/ConvergenceDetector.js';
 import {
   CompactServiceImpl,

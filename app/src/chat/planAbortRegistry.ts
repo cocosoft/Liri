@@ -29,7 +29,7 @@
  * 同一会话并发 loop：后注册覆盖（前一个视为已结束，由 run 结束清理兜底）。
  */
 
-import type { PlanDrivenLoop } from '../core/loop/PlanDrivenLoop.js';
+import type { PlanDrivenLoop } from '@modules/core';
 
 const loopBySession = new Map<string, PlanDrivenLoop>();
 

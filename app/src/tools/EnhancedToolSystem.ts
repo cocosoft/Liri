@@ -7,7 +7,7 @@
 import { ChatManagerImpl } from '../chat/ChatManager.js';
 import { QueryEngine, type QueryEngineConfig } from '@modules/query';
 import { MessageServiceImpl } from '../chat/services/MessageService.js';
-import { ErrorHandler } from '../core/utils/ErrorHandler.js';
+import { ErrorHandler } from '@modules/core';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('tools:enhancedSystem');
 import {
@@ -15,7 +15,7 @@ import {
   createPerformanceProfiler,
   MemoryCache,
   createMemoryCache,
-} from '../core/utils/Performance.js';
+} from '@modules/core';
 import {
   PluginLoader,
   createPluginLoader,

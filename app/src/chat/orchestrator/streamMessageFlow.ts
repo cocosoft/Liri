@@ -71,7 +71,7 @@ import { compactionOrchestrator } from '@modules/context';
 import { autoCompactionPolicy } from '@modules/context';
 import { getOTelTracing } from '@modules/monitoring';
 import { trajectoryRecorder } from '../../agent/trajectory/TrajectoryRecorder';
-import { trajectoryRuntime } from '../../core/trajectory/TrajectoryRuntime.js';
+import { trajectoryRuntime } from '@modules/core';
 import { agentTelemetry } from '../../agent/AgentTelemetry.js';
 import type { ChatOrchestratorHost } from './ChatOrchestrator.js';
 import { getToolExecErrorMessage } from './toolErrorMessages.js';

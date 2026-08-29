@@ -109,3 +109,23 @@ export {
   ErrorSeverity,
   ERROR_SERVICE_ID,
 } from './spi';
+
+// 2026-08-29 R03-002 收敛：loop / trajectory / utils 统一出口
+export {
+  PlanDrivenLoop,
+  classifyTaskComplexity,
+  hasDangerousToolIntent,
+  isEligibleForFastPath,
+} from './loop/PlanDrivenLoop';
+export type { PlanDrivenLoopResult } from './loop/PlanDrivenLoop';
+export { trajectoryRuntime } from './trajectory/TrajectoryRuntime';
+export { ErrorHandler } from './utils/ErrorHandler';
+export {
+  getPerformanceProfiler,
+  performanceUtils,
+  PerformanceProfiler,
+  createPerformanceProfiler,
+  MemoryCache,
+  createMemoryCache,
+} from './utils/Performance';
+export { LazyModuleLoader } from './utils/LazyModuleLoader';

@@ -62,7 +62,7 @@ import type { Span } from '@opentelemetry/api';
 import { securityService } from '../services/SecurityService.js';
 import { recursivelySanitizeUnicode } from '@modules/utils/sanitization.js';
 import { SensitiveErrorType } from '@modules/security';
-import { trajectoryRuntime } from '../../core/trajectory/TrajectoryRuntime.js';
+import { trajectoryRuntime } from '@modules/core';
 import type { SessionCheckpointService } from '../services/SessionCheckpointService.js';
 import type { ChatManagerTAORContext } from '@modules/query';
 import type { LoopDetector } from '@modules/query';

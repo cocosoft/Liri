@@ -6,8 +6,8 @@
 import fs from 'fs';
 import path from 'path';
 import { resolveLogsDir } from '@modules/core';
-import { getPerformanceProfiler } from '../core/utils/Performance.js';
-import { performanceUtils } from '../core/utils/Performance.js';
+import { getPerformanceProfiler } from '@modules/core';
+import { performanceUtils } from '@modules/core';
 import { configManager } from '@modules/config';
 import { profileCheckpoint } from '../performance/StartupProfiler.js';
 import { getLogger, Logger } from '@modules/monitoring';

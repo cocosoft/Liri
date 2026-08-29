@@ -9,14 +9,8 @@ import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error/handleError';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-import {
-  resolveModelRoute,
-  RouteKey,
-} from '../../ai/router/resolveModelRoute.js';
-import type {
-  ImageGenerationParams,
-  ImageGenerationResult,
-} from '../../ai/providers/AIProvider';
+import { resolveModelRoute, RouteKey } from '@modules/ai';
+import type { ImageGenerationParams, ImageGenerationResult } from '@modules/ai';
 import type {
   ImageGenerationProvider,
   ImageGenerationConfig,

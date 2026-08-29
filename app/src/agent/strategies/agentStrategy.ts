@@ -11,7 +11,7 @@ import type {
   AgentTool,
 } from '../models/types';
 import { AgentState } from '../models/types';
-import type { ToolDefinition } from '../../ai/models/types';
+import type { ToolDefinition } from '@modules/ai';
 import aiService from '@modules/ai';
 import { AIMessageRole } from '@modules/ai';
 import { assembleSystemPrompt } from '@modules/services/prompt/PromptAssembler';

@@ -40,7 +40,7 @@ export type {
 } from './RetryPolicy.js';
 
 // Phase 3: 自动编排
-export { TaskDecomposer } from './TaskDecomposer.js';
+export { TaskDecomposer, MAX_SUBTASKS } from './TaskDecomposer.js';
 export type { SubTask, DecompositionResult } from './TaskDecomposer.js';
 export { OrchEngine } from './OrchEngine.js';
 export type { OrchResult, SubTaskResult } from './OrchEngine.js';

@@ -13,8 +13,8 @@
 
 import type http from 'http';
 import type { HandlerCtx } from './handler-utils';
-import { translationService } from '../../../ai/translation/TranslationService';
-import type { TranslateRequest } from '../../../ai/translation/types';
+import { translationService } from '@modules/ai';
+import type { TranslateRequest } from '@modules/ai';
 
 /**
  * POST /v1/translate

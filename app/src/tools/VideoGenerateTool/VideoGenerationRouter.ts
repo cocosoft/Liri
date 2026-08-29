@@ -6,10 +6,7 @@
  */
 
 import { getLogger } from '@modules/monitoring';
-import type {
-  VideoGenerationParams,
-  VideoGenerationResult,
-} from '../../ai/providers/AIProvider';
+import type { VideoGenerationParams, VideoGenerationResult } from '@modules/ai';
 import { RegistryVideoProvider } from './providers/RegistryVideoProvider';
 import { handleError } from '@modules/error/handleError';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';

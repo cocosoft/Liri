@@ -11,15 +11,12 @@ import type {
   ImageGenerationParams,
   ImageGenerationResult,
   AIProvider,
-} from '../../../ai/providers/AIProvider';
+} from '@modules/ai';
 import type { ImageGenerationProvider, CostEstimate } from '../types';
 import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 import { SpanStatusCode } from '@opentelemetry/api';
-import {
-  resolveModelRoute,
-  RouteKey,
-} from '../../../ai/router/resolveModelRoute.js';
+import { resolveModelRoute, RouteKey } from '@modules/ai';
 
 const logger = getLogger('tools:imageGenerate');
 

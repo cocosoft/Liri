@@ -24,7 +24,7 @@ import {
   handleError,
 } from '@modules/error';
 import { withRetry } from '@modules/utils/withRetry';
-import { trackUsage } from '../../ai/UsageTracker';
+import { trackUsage } from '@modules/ai';
 import { globalEventBus } from '../../core/events/EventBus.js';
 import { AgentEventType } from '../../agent/events/types.js';
 

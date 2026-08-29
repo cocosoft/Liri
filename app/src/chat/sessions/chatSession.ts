@@ -12,7 +12,7 @@ import {
 import { ChatHistory } from '../history/chatHistory';
 import aiService from '@modules/ai';
 import { AIMessageRole } from '@modules/ai';
-import type { ToolDefinition } from '../../ai/models/types';
+import type { ToolDefinition } from '@modules/ai';
 
 /**
  * 聊天会话类

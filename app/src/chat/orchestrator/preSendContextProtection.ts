@@ -34,7 +34,7 @@ import { getLogger } from '@modules/monitoring';
 import {
   estimateMessagesTokens,
   estimateMessagesTokensCooperative,
-} from '../../ai/tokenizer/TokenEstimator';
+} from '@modules/ai';
 import {
   resolveMaxContextTokens,
   isLocalLlmEndpoint,

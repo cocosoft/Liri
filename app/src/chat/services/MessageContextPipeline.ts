@@ -19,7 +19,7 @@ import {
   estimateMessagesTokens,
   estimateMessagesTokensCooperative,
   yieldToEventLoop,
-} from '../../ai/tokenizer/TokenEstimator';
+} from '@modules/ai';
 import { isLocalLlmEndpoint, sanitizePass } from './ChatHelper';
 import { assembleSystemPrompt } from '@modules/services/prompt/PromptAssembler';
 import { setCurrentKnowledgeQuery } from '@modules/services/prompt/KnowledgePromptProvider';

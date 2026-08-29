@@ -17,15 +17,9 @@ import { registerGeneratedMedia } from '@modules/services/file/registerMediaFile
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-import { providerRegistry } from '../../ai/providers/ProviderRegistry';
-import type {
-  AIProvider,
-  VideoGenerationResult,
-} from '../../ai/providers/AIProvider';
-import {
-  resolveModelRoute,
-  RouteKey,
-} from '../../ai/router/resolveModelRoute.js';
+import { providerRegistry } from '@modules/ai';
+import type { AIProvider, VideoGenerationResult } from '@modules/ai';
+import { resolveModelRoute, RouteKey } from '@modules/ai';
 import { VideoGenerationRouter } from './VideoGenerationRouter';
 import { RegistryVideoProvider } from './providers/RegistryVideoProvider';
 import { randomUUID } from 'crypto';

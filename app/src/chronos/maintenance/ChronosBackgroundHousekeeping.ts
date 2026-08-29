@@ -16,10 +16,7 @@ import {
 } from './cleanup';
 import { cleanupOldVersions } from './nativeInstaller';
 import { transcriptArchiver } from '../../core/delivery/archiver/TranscriptArchiver';
-import {
-  credentialStore,
-  CRED_STORED_MARKER,
-} from '../../ai/credentials/CredentialStore';
+import { credentialStore, CRED_STORED_MARKER } from '@modules/ai';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 

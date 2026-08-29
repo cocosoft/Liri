@@ -16,8 +16,8 @@ import {
 } from './models/types';
 import { StrategyFactory } from './strategies/agentStrategy';
 import { createAgentMemory } from './memory/agentMemory';
-import { AIModelType, AIMessageRole } from '../ai';
-import aiService from '../ai';
+import { AIModelType, AIMessageRole } from '@modules/ai';
+import aiService from '@modules/ai';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('agent:agent');
 import {

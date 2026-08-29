@@ -2,8 +2,8 @@
  * ContextStatsService — 上下文实时统计（Phase 6 轻量版）
  * /context stats 命令支持
  */
-import type { ChatMessage } from '../../ai/models/types';
-import { estimateMessagesTokens } from '../../ai/tokenizer/TokenEstimator';
+import type { ChatMessage } from '@modules/ai';
+import { estimateMessagesTokens } from '@modules/ai';
 import { compactionMetricsTracker } from '../compaction/CompactionMetrics';
 import {
   resolveContextWindow,

@@ -239,7 +239,7 @@ export class LongRunningTaskOrchestrator {
     this.executor =
       executor ??
       (async (params) => {
-        const { createAIService } = await import('../ai');
+        const { createAIService } = await import('@modules/ai');
         const service = createAIService({
           defaultModel: '',
           apiKey: configManager.env('ANTHROPIC_API_KEY') || '',

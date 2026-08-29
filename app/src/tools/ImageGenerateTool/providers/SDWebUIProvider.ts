@@ -4,10 +4,7 @@
  * 默认地址 http://localhost:7860，免费无限制
  */
 
-import type {
-  ImageGenerationParams,
-  ImageGenerationResult,
-} from '../../../ai/providers/AIProvider';
+import type { ImageGenerationParams, ImageGenerationResult } from '@modules/ai';
 import type {
   ImageGenerationProvider,
   CostEstimate,

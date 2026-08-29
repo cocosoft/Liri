@@ -47,7 +47,7 @@ import { BackgroundAgentTask } from '@modules/tasks';
 import type { BackgroundTaskInfo } from '@modules/tasks/types';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-import { trackUsage } from '../../ai/UsageTracker';
+import { trackUsage } from '@modules/ai';
 import { subAgentTokenListeners } from '../../core/tokenBudget/SubAgentTokenBridge';
 
 /**
@@ -603,8 +603,7 @@ export class AgentTool implements Tool {
     agentId: string,
     systemPrompt: string
   ): Promise<{ result: string; completed: true }> {
-    const { providerRegistry } =
-      await import('../../ai/providers/ProviderRegistry');
+    const { providerRegistry } = await import('@modules/ai');
     const agentModel = await resolveModelRoute(RouteKey.CHAT);
     const llmClient = agentModel
       ? providerRegistry.getByModel(agentModel)

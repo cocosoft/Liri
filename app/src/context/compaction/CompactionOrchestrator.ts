@@ -11,8 +11,8 @@
  *   4. trigger → 执行 Tier 2（Snip），无效则 Tier 3（LLM Full）
  *   5. 每次压缩前后调用 hookRegistry + compactionMetricsTracker
  */
-import type { ChatMessage } from '../../ai/models/types';
-import { estimateMessagesTokens } from '../../ai/tokenizer/TokenEstimator';
+import type { ChatMessage } from '@modules/ai';
+import { estimateMessagesTokens } from '@modules/ai';
 import {
   AutoCompactionPolicy,
   autoCompactionPolicy,
@@ -43,7 +43,7 @@ let cachedAiModule: {
 
 async function getAiService() {
   if (!cachedAiModule) {
-    const mod = (await import('../../ai/index')) as {
+    const mod = (await import('@modules/ai')) as {
       default: { generate: Function };
       AIMessageRole: Record<string, string>;
     };

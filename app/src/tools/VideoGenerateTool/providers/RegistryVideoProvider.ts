@@ -10,7 +10,7 @@ import type {
   VideoGenerationParams,
   VideoGenerationResult,
   AIProvider,
-} from '../../../ai/providers/AIProvider';
+} from '@modules/ai';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('tools:videoGenerate');
 

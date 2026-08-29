@@ -5,7 +5,7 @@
  * 裁剪中间轮次，保留头部 N 轮 + 尾部 N 轮
  * 零 LLM 调用
  */
-import type { ChatMessage } from '../../ai/models/types';
+import type { ChatMessage } from '@modules/ai';
 import {
   ensureTrailingUserMessage,
   stripUnpairedToolCalls,

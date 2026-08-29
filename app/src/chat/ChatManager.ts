@@ -140,13 +140,13 @@ import {
   createMaxOutputRetryState,
   advanceMaxOutputRetry,
   type MaxOutputRetryState,
-} from '../ai/MaxOutputRetryHandler';
+} from '@modules/ai';
 import {
   createDegradationState,
   tryDegradeContext,
   getDegradationWarning,
   type DegradationState,
-} from '../ai/ContextDegradation';
+} from '@modules/ai';
 import type { IToolExecutor } from '@modules/ai';
 import type { ToolRegistry, ToolSchema } from '@modules/tools/ToolRegistry';
 import type {
@@ -177,8 +177,8 @@ import {
 import { UnifiedTokenTracker } from '../core/tokenBudget/UnifiedTokenTracker.js';
 import { ContextTracker } from '../query/context/ContextTracker.js';
 import { compactionOrchestrator } from '../context/compaction/CompactionOrchestrator.js';
-import { estimateMessagesTokens } from '../ai/tokenizer/TokenEstimator';
-import { yieldToEventLoop } from '../ai/tokenizer/TokenEstimator';
+import { estimateMessagesTokens } from '@modules/ai';
+import { yieldToEventLoop } from '@modules/ai';
 import { FileCheckpointStorage } from '../query/FileCheckpointStorage.js';
 import {
   StopHookManager,
@@ -1138,11 +1138,11 @@ export class ChatManagerImpl implements ChatManager {
       sendModelRequest: async (messages, opts) => {
         const client = this.getClientForModel(options?.model);
         const response = await client.sendMessage(
-          messages as unknown as import('../ai/models/types').ChatMessage[],
+          messages as unknown as import('@modules/ai').ChatMessage[],
           {
             ...options,
             tools: (opts?.tools as Array<Record<string, unknown>>)?.length
-              ? (opts?.tools as unknown as import('../ai/models/types').ToolDefinition[])
+              ? (opts?.tools as unknown as import('@modules/ai').ToolDefinition[])
               : undefined,
           }
         );
@@ -1152,7 +1152,7 @@ export class ChatManagerImpl implements ChatManager {
               ? response.content
               : JSON.stringify(response.content),
           tool_calls: response.tool_calls?.map(
-            (tc: import('../ai/models/types').ParsedToolCall) => ({
+            (tc: import('@modules/ai').ParsedToolCall) => ({
               id: tc.id,
               name: tc.name,
               arguments:
@@ -1843,7 +1843,7 @@ export class ChatManagerImpl implements ChatManager {
     ToolAwareClient | undefined
   > {
     try {
-      const { modelRouter } = await import('../ai/modelRouter.js');
+      const { modelRouter } = await import('@modules/ai');
       const modelName = modelRouter.resolve('default');
       if (modelName) return this.getClientForModel(modelName);
     } catch {

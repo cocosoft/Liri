@@ -3,7 +3,7 @@
  */
 import type { CommandContext, CommandResult } from '@modules/commands';
 import { compactionMetricsTracker } from '../../../context/compaction/CompactionMetrics';
-import { estimateMessagesTokens } from '../../../ai/tokenizer/TokenEstimator';
+import { estimateMessagesTokens } from '@modules/ai';
 import { autoCompactionPolicy } from '../../../context/compaction/AutoCompactionPolicy';
 import type { ContextSnapshot } from '../../../context/compaction/CompactionMetrics';
 import { analyzeContextUsage, formatWalletBreakdown } from './ContextWallet';

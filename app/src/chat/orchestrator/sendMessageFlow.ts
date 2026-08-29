@@ -31,7 +31,7 @@ import { join, isAbsolute, resolve } from 'path';
 import { existsSync } from 'fs';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-import { estimateMessagesTokens } from '../../ai/tokenizer/TokenEstimator';
+import { estimateMessagesTokens } from '@modules/ai';
 import { resolveMaxContextTokens } from '../services/ChatHelper';
 import {
   repairImageUrls,

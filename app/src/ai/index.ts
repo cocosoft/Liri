@@ -66,6 +66,10 @@ export type {
   ProviderValidationResult,
   ChatOptions,
   ThinkingProviderChunk,
+  ImageGenerationParams,
+  ImageGenerationResult,
+  VideoGenerationParams,
+  VideoGenerationResult,
 } from './providers/AIProvider';
 export {
   ProviderRegistry,
@@ -244,6 +248,8 @@ export type {
 } from './router';
 export { ALL_ROUTER_TIERS } from './router';
 export { resolveModelRoute, RouteKey } from './router';
+export { TaskDecomposer, MAX_SUBTASKS } from './router';
+export type { SubTask, DecompositionResult } from './router';
 
 // middleware/ — 统一中间件管道
 export {
@@ -399,3 +405,8 @@ export type {
   TimeBasedPrice,
 } from './models/ModelPricingService.js';
 export type { RerankRequest, RerankResult } from './providers/AIProvider.js';
+
+// 2026-08-29 R03-002 收敛：tokenizer / translation 统一出口
+export * from './tokenizer';
+export { translationService } from './translation';
+export type { TranslateRequest } from './translation';

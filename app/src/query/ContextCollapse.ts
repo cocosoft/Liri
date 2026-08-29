@@ -4,8 +4,8 @@
  */
 
 import type { SessionMessage } from '../session/index';
-import type { AIMessage } from '../ai/models/types';
-import { AIMessageRole } from '../ai/models/types';
+import type { AIMessage } from '@modules/ai';
+import { AIMessageRole } from '@modules/ai';
 import { roughTokenCountEstimationForMessages } from '../services/compact/utils';
 
 export interface CollapseOptions {

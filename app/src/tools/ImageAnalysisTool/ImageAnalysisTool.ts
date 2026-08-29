@@ -19,8 +19,8 @@ import { BaseTool } from '../BaseTool';
 import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';
 import { ImageProcessor } from '../../media/image/ImageProcessor';
 import { imageFormatDetector } from '../../media/image/ImageFormatDetector';
-import { providerRegistry } from '../../ai/providers/ProviderRegistry';
-import { RouteKey } from '../../ai/router/routes.js';
+import { providerRegistry } from '@modules/ai';
+import { RouteKey } from '@modules/ai';
 import { imageSanitizationPolicy } from '../../security/policy/ImageSanitizationPolicy';
 import { KnowledgeBaseWriter } from '../../knowledge/KnowledgeBaseWriter';
 import { WorkerGuard } from '../../ai/python/WorkerGuard';
@@ -888,7 +888,7 @@ export class ImageAnalysisTool extends BaseTool {
       undefined;
 
     try {
-      const { ModelRouter } = await import('../../ai/modelRouter.js');
+      const { ModelRouter } = await import('@modules/ai');
       const tasks = ModelRouter.getInstance().getTasks();
 
       // OCR 降级策略：OCR 未配置时回退到识图(vision)模型
@@ -997,7 +997,7 @@ export class ImageAnalysisTool extends BaseTool {
       const providerType = provider.id.startsWith('db:')
         ? provider.id.slice(3)
         : provider.id;
-      const { ModelRouter } = await import('../../ai/modelRouter.js');
+      const { ModelRouter } = await import('@modules/ai');
       const mr = ModelRouter.getInstance();
       const resolveRoute =
         actualTaskType === 'vision' && route === RouteKey.IMAGE_OCR

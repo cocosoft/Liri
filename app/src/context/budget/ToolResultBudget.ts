@@ -6,7 +6,7 @@
  * v2.1: 增加 token-aware 截断（在字符预算基础上增加 token 预算检查）。
  */
 import { getLogger } from '@modules/monitoring';
-import { estimateTokens } from '../../ai/tokenizer/TokenEstimator';
+import { estimateTokens } from '@modules/ai';
 
 const logger = getLogger('context:budget');
 

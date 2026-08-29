@@ -8,7 +8,7 @@ import {
   SPAN_ATTRIBUTE_KEYS,
   type SessionSpanContext,
   type SessionSpanAttributes,
-} from '../ai/telemetry/SessionSpanTracer';
+} from '@modules/ai';
 import type { ChannelId, MessageContext } from './types/IChannel';
 
 /**

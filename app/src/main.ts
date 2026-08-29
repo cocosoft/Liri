@@ -1712,8 +1712,8 @@ export async function launch(options: LaunchOptions): Promise<void> {
 
         // 从 configManager 读取路由配置，若无则使用默认值
         const savedRouter = (configManager.getGlobalConfig().models?.router ??
-          {}) as Partial<import('@modules/ai/router/types').RouterConfig>;
-        const routerConfig: import('@modules/ai/router/types').RouterConfig = {
+          {}) as Partial<import('@modules/ai').RouterConfig>;
+        const routerConfig: import('@modules/ai').RouterConfig = {
           enabled: savedRouter.enabled !== false,
           defaultTier: savedRouter.defaultTier || 'medium',
           sessionSticky: savedRouter.sessionSticky !== false,

@@ -5,7 +5,7 @@
  * 将超时（TTL 过期）的 tool_result 内容替换为占位符
  * 零 LLM 调用，O(n) 复杂度
  */
-import type { ChatMessage } from '../../ai/models/types';
+import type { ChatMessage } from '@modules/ai';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('context:compaction:micro');
 

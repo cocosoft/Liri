@@ -12,7 +12,7 @@ import { getLogger } from '@modules/monitoring';
 import { resolveSessionsDir } from '@modules/core/paths';
 import { configManager } from '@modules/config';
 import { SessionMemoryManager } from '../memory/SessionMemoryManager';
-import { globalEmbeddingManager } from '../../ai/embedding/EmbeddingManager';
+import { globalEmbeddingManager } from '@modules/ai';
 import { SessionActivityTracker } from '../activity/SessionActivityTracker';
 import { SessionStateHydrator } from '../hydration/SessionStateHydrator';
 import type { ChatSession } from '../../chat/types/session';

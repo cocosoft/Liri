@@ -26,6 +26,10 @@ export type {
   ThinkingProviderChunk,
   RerankRequest,
   RerankResult,
+  ImageGenerationParams,
+  ImageGenerationResult,
+  VideoGenerationParams,
+  VideoGenerationResult,
 } from './AIProvider';
 export { ProviderRegistry, providerRegistry } from './ProviderRegistry';
 export { AnthropicProvider } from './AnthropicProvider';

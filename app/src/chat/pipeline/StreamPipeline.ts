@@ -19,7 +19,7 @@ import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { getOTelTracing } from '@modules/monitoring/otel';
 import { trackUsage } from '@modules/ai';
-import { estimateMessagesTokens } from '../../ai/tokenizer/TokenEstimator';
+import { estimateMessagesTokens } from '@modules/ai';
 import { resolveMaxContextTokens } from '../services/ChatHelper';
 import {
   ensureThinkResponseTags,

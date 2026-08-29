@@ -97,7 +97,7 @@ export interface ChatResponse {
   timestamp: number;
   finishReason?: string;
   /** 工具调用列表（当 LLM 返回 function calling 时由流式 chunk 传递） */
-  toolCalls?: import('../../ai/models/types').ParsedToolCall[];
+  toolCalls?: import('@modules/ai').ParsedToolCall[];
 }
 
 /**

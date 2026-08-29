@@ -29,7 +29,7 @@
  */
 
 import { test } from 'bun:test';
-import type { ImageGenerationResult } from '../../../ai/providers/AIProvider';
+import type { ImageGenerationResult } from '@modules/ai';
 
 /** 检查是否应该跳过 Live 测试 */
 export function skipIfNotConfigured(envKey: string): boolean {

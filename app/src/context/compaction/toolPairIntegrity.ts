@@ -4,7 +4,7 @@
  *
  * 确保压缩后 tool_call ↔ tool_result 配对完整
  */
-import type { ChatMessage } from '../../ai/models/types';
+import type { ChatMessage } from '@modules/ai';
 
 /**
  * 收集所有 tool_call 引用 ID（调用声明 + 结果标注的 tool_call_id 并集）

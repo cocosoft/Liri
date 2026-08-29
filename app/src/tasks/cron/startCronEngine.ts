@@ -21,11 +21,9 @@ export async function startCronEngine(): Promise<StartCronEngineResult> {
     const { ensureGlobalCronSchedulerStarted } =
       await import('./GlobalCronScheduler');
     const { createCronExecutor } = await import('./CronExecutor');
-    const { modelRouter } = await import('../../ai/modelRouter.js');
-    const { resolveModelRoute, RouteKey } =
-      await import('../../ai/router/resolveModelRoute.js');
-    const { providerRegistry } =
-      await import('../../ai/providers/ProviderRegistry.js');
+    const { modelRouter } = await import('@modules/ai');
+    const { resolveModelRoute, RouteKey } = await import('@modules/ai');
+    const { providerRegistry } = await import('@modules/ai');
 
     const cronModel =
       (await resolveModelRoute(RouteKey.SCHEDULED)) ||

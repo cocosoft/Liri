@@ -48,7 +48,7 @@ import {
   markMessageProcessed,
 } from '../dedup/index';
 import type { MessageContext } from '../types/IChannel';
-import type { SessionSpanContext } from '../../ai/telemetry/SessionSpanTracer';
+import type { SessionSpanContext } from '@modules/ai';
 import { channelSessionManager } from '../session/ChannelSessionManager';
 import { isBridgeEnabled } from '../setupChannels';
 // 2026-08-06 接入（P0-2）：DM 策略授权引擎（pairing/allowlist/open）

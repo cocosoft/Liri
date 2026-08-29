@@ -28,11 +28,8 @@
 
 import { BaseTool } from '../BaseTool';
 import type { ToolUseContext, ToolResult, ToolParam } from '../types';
-import {
-  resolveModelRoute,
-  RouteKey,
-} from '../../ai/router/resolveModelRoute.js';
-import { providerRegistry } from '../../ai/providers/ProviderRegistry';
+import { resolveModelRoute, RouteKey } from '@modules/ai';
+import { providerRegistry } from '@modules/ai';
 import { getLogger } from '@modules/monitoring';
 import { resolveTempDir } from '@modules/core/paths';
 import * as path from 'path';

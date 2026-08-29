@@ -6,7 +6,7 @@ import { AdvancedMemorySystem } from './memory/AdvancedMemorySystem';
 import { AgentUIManager } from './ui/AgentUIManager';
 import { AIAgentImpl } from './agent';
 import { AgentConfig, AgentState, AgentTask } from './models/types';
-import { AIModelType } from '../ai/models/types';
+import { AIModelType } from '@modules/ai';
 
 export class AgentModuleTest {
   private sourceManager: AgentSourceManager;

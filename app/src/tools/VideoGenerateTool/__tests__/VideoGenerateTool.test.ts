@@ -24,7 +24,7 @@ import { describe, test, expect, beforeAll } from 'bun:test';
 import { VideoGenerateTool } from '../VideoGenerateTool';
 import { VideoGenerationRouter } from '../VideoGenerationRouter';
 import { RegistryVideoProvider } from '../providers/RegistryVideoProvider';
-import type { AIProvider } from '../../../ai/providers/AIProvider';
+import type { AIProvider } from '@modules/ai';
 import { syncDBProvidersToRegistry } from '../../../ai/providers/ProviderSyncService';
 import { resolveDbPath } from '../../../core/paths';
 import { ModelRouter } from '../../../ai/modelRouter';

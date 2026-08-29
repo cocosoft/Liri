@@ -25,7 +25,7 @@ import { load as yamlLoad } from 'js-yaml';
 import { resolvePyappHome } from '@modules/core';
 import { getBuildVariant } from '@modules/core/featureFlags';
 import { configManager } from '@modules/config';
-import { providerRegistry } from '../../ai/providers/ProviderRegistry';
+import { providerRegistry } from '@modules/ai';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { getLogger } from '@modules/monitoring';
 

@@ -15,7 +15,7 @@
 import { getLogger } from '@modules/monitoring';
 import { resolveSessionsDir } from '@modules/core/paths';
 import { SessionMemoryManager } from '../../session/memory/SessionMemoryManager';
-import { globalEmbeddingManager } from '../../ai/embedding/EmbeddingManager';
+import { globalEmbeddingManager } from '@modules/ai';
 import { SessionActivityTracker } from '../../session/activity/SessionActivityTracker';
 import { SessionStateHydrator } from '../../session/hydration/SessionStateHydrator';
 import { SessionMemoryExtractor } from '../../session/memory/SessionMemoryExtractor';

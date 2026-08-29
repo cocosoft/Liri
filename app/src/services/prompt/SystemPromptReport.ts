@@ -1,7 +1,7 @@
 import type { SystemPromptSection } from '@modules/constants/systemPromptSections';
 import type { PromptMode } from './types';
-import { getCachedTiktokenEncoder } from '../../ai/tokenizer/TiktokenEstimator';
-import { estimateTokens } from '../../ai/tokenizer/TokenEstimator';
+import { getCachedTiktokenEncoder } from '@modules/ai';
+import { estimateTokens } from '@modules/ai';
 
 export interface SectionReportEntry {
   name: string;

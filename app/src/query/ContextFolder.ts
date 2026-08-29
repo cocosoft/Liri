@@ -32,7 +32,7 @@ import { getLogger } from '@modules/monitoring';
 import type { ChatMessage } from '../tools/repair/types';
 import { healLoadedMessages } from './healing';
 import { looksLikeCompleteJson } from './shrink';
-import { estimateMessagesTokens } from '../ai/tokenizer/TokenEstimator';
+import { estimateMessagesTokens } from '@modules/ai';
 
 const logger = getLogger('query:contextFolder');
 

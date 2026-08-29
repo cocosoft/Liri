@@ -18,8 +18,8 @@ import { handleError } from '@modules/error/handleError';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { BaseTool } from '../BaseTool';
 import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';
-import { providerRegistry } from '../../ai/providers/ProviderRegistry';
-import type { AIProvider } from '../../ai/providers/AIProvider';
+import { providerRegistry } from '@modules/ai';
+import type { AIProvider } from '@modules/ai';
 import { imageSanitizationPolicy } from '../../security/policy/ImageSanitizationPolicy';
 import { resolveOutputDir } from '@modules/core';
 import { registerGeneratedMedia } from '@modules/services/file/registerMediaFile';
@@ -27,10 +27,7 @@ import { ImageGenerationRouter } from './ImageGenerationRouter';
 import type { CostRecord } from './types';
 import { RegistryImageProvider } from './providers/RegistryImageProvider';
 import { ImageUrlHelper } from '../ImageUrlHelper';
-import {
-  resolveModelRoute,
-  RouteKey,
-} from '../../ai/router/resolveModelRoute.js';
+import { resolveModelRoute, RouteKey } from '@modules/ai';
 
 const logger = getLogger('tools:imageGenerate');
 

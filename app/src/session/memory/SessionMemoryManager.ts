@@ -27,8 +27,8 @@ import {
 } from 'fs';
 import { dirname, join } from 'path';
 import { getLogger } from '@modules/monitoring';
-import type { EmbeddingManager } from '../../ai/embedding/EmbeddingManager';
-import type { ChatMessage } from '../../ai/models/types';
+import type { EmbeddingManager } from '@modules/ai';
+import type { ChatMessage } from '@modules/ai';
 
 const logger = getLogger('session:memory');
 

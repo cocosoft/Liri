@@ -4,7 +4,7 @@
  * 按静态/动态/技能/tools 分类的 Token 消耗分解。
  * 对标 cc_code context_breakdown — 8类分解 + 建议生成。
  */
-import { getCachedTiktokenEncoder } from '../../ai/tokenizer/TiktokenEstimator';
+import { getCachedTiktokenEncoder } from '@modules/ai';
 
 export interface CategoryBreakdown {
   category: string;

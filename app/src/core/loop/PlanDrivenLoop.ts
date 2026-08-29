@@ -20,15 +20,12 @@ import { handleError } from '@modules/error';
 import { getOTelTracing } from '@modules/monitoring/otel';
 import { TAORLoop } from '../../query/TAORLoop.js';
 import type { TAORLoopDeps } from '../../query/TAORLoop.js';
-import {
-  TaskDecomposer,
-  MAX_SUBTASKS,
-} from '../../ai/router/TaskDecomposer.js';
-import type { DecompositionResult } from '../../ai/router/TaskDecomposer.js';
+import { TaskDecomposer, MAX_SUBTASKS } from '@modules/ai';
+import type { DecompositionResult } from '@modules/ai';
 import { taskOrchestrator } from '../../tasks/TaskOrchestrator.js';
 import { goalMetricsService } from '../../tasks/db/GoalMetricsService.js';
 import type { Plan, PlanProgress } from '../../tasks/TaskOrchestrator.js';
-import type { AIProvider } from '../../ai/providers/AIProvider.js';
+import type { AIProvider } from '@modules/ai';
 
 const logger = getLogger('core:planDrivenLoop');
 

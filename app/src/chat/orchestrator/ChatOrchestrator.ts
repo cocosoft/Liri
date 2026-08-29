@@ -53,8 +53,8 @@ import type { UnifiedTokenTracker } from '../../core/tokenBudget/UnifiedTokenTra
 import type { ImageContextService } from '../services/ImageContextService.js';
 import type { HookChainManager } from '@modules/hooks/core/HookChainManager.js';
 import type { StreamingAutoCheckpoint } from '../services/StreamingAutoCheckpoint.js';
-import type { MaxOutputRetryState } from '../../ai/MaxOutputRetryHandler';
-import type { DegradationState } from '../../ai/ContextDegradation';
+import type { MaxOutputRetryState } from '@modules/ai';
+import type { DegradationState } from '@modules/ai';
 import type { SessionMemoryManager } from '../services/SessionMemoryManager.js';
 import type { SessionSummarizer } from '../services/SessionSummarizer.js';
 import type { PdcaLauncher } from '../launchers/PdcaLauncher.js';

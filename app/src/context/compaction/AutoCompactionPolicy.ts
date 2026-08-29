@@ -55,7 +55,7 @@
 import {
   estimateMessagesTokens,
   estimateMessagesTokensCooperative,
-} from '../../ai/tokenizer/TokenEstimator';
+} from '@modules/ai';
 import { resolveContextWindow } from '../window/ContextWindowResolver';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '../../error/handleError';

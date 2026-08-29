@@ -10,7 +10,7 @@
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import type { ToolCall, ToolResult } from '../chat/types/tool.js';
-import type { ChatMessage, ToolDefinition } from '../ai/models/types';
+import type { ChatMessage, ToolDefinition } from '@modules/ai';
 import type { TAORLoopDeps } from './TAORLoop.js';
 import { createTAORLoopDeps } from './TAORLoop.js';
 import { CascadeAbortManager } from './CascadeAbortManager.js';

@@ -35,7 +35,7 @@ import {
   compactionOrchestrator,
   type CompactionContext,
 } from '../context/compaction/CompactionOrchestrator';
-import type { ChatMessage } from '../ai/models/types';
+import type { ChatMessage } from '@modules/ai';
 import { AnalyticsService, analyticsService } from '../analytics/index.js';
 import {
   AnalyticsEventQueue,

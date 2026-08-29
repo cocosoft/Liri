@@ -161,6 +161,11 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
     for (const entry of entries) {
       if (!entry.isDirectory()) continue;
       const sessionId = entry.name;
+      // KB-SCAN-SKIP（2026-08-29 进一步排查）：跳过系统目录——.trash（软删除回收站）、
+      // .corrupt（损坏隔离）、pid（PID 占位）。原实现把它们当会话扫描：读 session.json
+      // ENOENT 后尝试"隔离"整个 .trash 到 .corrupt（侥幸失败，若成功会错位 71 个回收站
+      // 会话），且每次启动刷 ENOENT warn 噪音（.trash/pid）。
+      if (sessionId.startsWith('.') || sessionId === 'pid') continue;
       const filePath = sessionFilePath(this.basePath, sessionId);
       try {
         const data = await fs.readFile(filePath, 'utf-8');

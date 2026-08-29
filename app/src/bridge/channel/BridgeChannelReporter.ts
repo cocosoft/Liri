@@ -10,7 +10,7 @@
 
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-import { channelRegistry } from '@modules/channels/registry/ChannelRegistry';
+import { channelRegistry } from '@modules/channels';
 import type { ChannelId } from '@modules/channels/types';
 
 const logger = getLogger('bridge:channel:bridgeChannelReporter');

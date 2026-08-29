@@ -243,4 +243,14 @@ export type {
 } from './bootstrap/index.js';
 export { setupChannelsFromConfig } from './setupChannels.js';
 
+// 2026-08-29 R03-002 收敛：base / accounts 统一出口
+export { BaseChannelPlugin } from './base';
+export type { ChannelPluginState } from './base';
+export { MultiAccountManager } from './accounts';
+export type {
+  NamedAccount,
+  ResolvedAccount,
+  AccountRegistrationOptions,
+} from './accounts';
+
 export * from './monitoring/index.js';

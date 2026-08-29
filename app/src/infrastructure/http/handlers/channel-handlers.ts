@@ -222,8 +222,7 @@ export async function handleListChannels(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { channelRegistry } =
-      await import('@modules/channels/registry/ChannelRegistry');
+    const { channelRegistry } = await import('@modules/channels');
     const { ALL_CHANNEL_DEFS } =
       await import('@modules/channels/setupChannels');
 
@@ -285,8 +284,7 @@ export async function handleGetChannel(
   channelId: string
 ): Promise<void> {
   try {
-    const { channelRegistry } =
-      await import('@modules/channels/registry/ChannelRegistry');
+    const { channelRegistry } = await import('@modules/channels');
     const channel = channelRegistry.get(channelId);
     if (!channel) {
       res.writeHead(404, { 'Content-Type': 'application/json' });
@@ -320,8 +318,7 @@ export async function handleToggleChannel(
   try {
     const body = await readRequestBody(req);
     const { enabled } = JSON.parse(body);
-    const { channelRegistry } =
-      await import('@modules/channels/registry/ChannelRegistry');
+    const { channelRegistry } = await import('@modules/channels');
     const channel = channelRegistry.get(channelId);
     if (!channel) {
       // 尝试动态注册（可能 registry 状态已丢失）
@@ -372,8 +369,7 @@ export async function handleDeleteChannel(
   broadcastEvent?: (event: string, data: Record<string, unknown>) => void
 ): Promise<void> {
   try {
-    const { channelRegistry } =
-      await import('@modules/channels/registry/ChannelRegistry');
+    const { channelRegistry } = await import('@modules/channels');
     const result = channelRegistry.unregister(channelId);
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ success: result }));
@@ -410,8 +406,7 @@ export async function handleUpdateChannel(
       return;
     }
 
-    const { channelRegistry } =
-      await import('@modules/channels/registry/ChannelRegistry');
+    const { channelRegistry } = await import('@modules/channels');
     const channel = channelRegistry.get(channelId);
     if (!channel) {
       // 尝试动态注册：前端凭据足够时自动创建并注册通道插件
@@ -492,8 +487,7 @@ export async function handleApplyChannelConfig(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { channelRegistry } =
-      await import('@modules/channels/registry/ChannelRegistry');
+    const { channelRegistry } = await import('@modules/channels');
 
     // 获取所有已持久化的配置
     const savedConfigs = channelRegistry.getAllConfigs();
@@ -592,7 +586,7 @@ async function tryDynamicRegister(
 
     // 1. 注册到 ChannelRegistry
     const { channelRegistry, adaptPluginToInterface } =
-      await import('@modules/channels/registry/ChannelRegistry');
+      await import('@modules/channels');
     channelRegistry.register(adaptPluginToInterface(plugin));
 
     // 2. 注册到 ChannelBootstrapper
@@ -817,8 +811,7 @@ let _healthMonitorPromise: Promise<unknown> | null = null;
 async function getChannelHealthMonitor(): Promise<ChannelHealthMonitorLike> {
   if (!_healthMonitorPromise) {
     _healthMonitorPromise = (async () => {
-      const { channelRegistry } =
-        await import('@modules/channels/registry/ChannelRegistry');
+      const { channelRegistry } = await import('@modules/channels');
       const { ChannelHealthMonitor } =
         await import('@modules/channels/monitoring/ChannelHealthMonitor');
       const monitor = new ChannelHealthMonitor(channelRegistry, {

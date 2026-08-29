@@ -11,7 +11,7 @@ import type {
   MessageContext,
   SendResult,
 } from '@modules/channels/types';
-import { channelRegistry } from '@modules/channels/registry/ChannelRegistry';
+import { channelRegistry } from '@modules/channels';
 import { ChannelBridgeAdapter } from './ChannelBridgeAdapter';
 import type { Coordinator, CoordinatorTask } from '@modules/core';
 

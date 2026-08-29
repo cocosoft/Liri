@@ -5,7 +5,7 @@
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 import { globalEventBus, SystemEvents } from '@modules/core';
-import { channelRegistry } from '@modules/channels/registry/ChannelRegistry';
+import { channelRegistry } from '@modules/channels';
 
 const logger = getLogger('chronos:taskResultDeliverer');
 

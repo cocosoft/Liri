@@ -18,7 +18,7 @@ import {
   ErrorSeverity,
   handleError,
 } from '@modules/error';
-import { channelRegistry } from '@modules/channels/registry/ChannelRegistry';
+import { channelRegistry } from '@modules/channels';
 import type { ChannelId, MessageContext } from '@modules/channels/types';
 import type {
   Coordinator,

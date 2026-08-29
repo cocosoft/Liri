@@ -389,10 +389,8 @@ export async function tryDynamicRegister(
     }
 
     // 1. 注册到 ChannelRegistry
-    const { channelRegistry } =
-      await import('@modules/channels/registry/ChannelRegistry');
-    const { adaptPluginToInterface } =
-      await import('@modules/channels/registry/ChannelRegistry');
+    const { channelRegistry } = await import('@modules/channels');
+    const { adaptPluginToInterface } = await import('@modules/channels');
     channelRegistry.register(adaptPluginToInterface(plugin));
 
     // 2. 注册到 ChannelBootstrapper

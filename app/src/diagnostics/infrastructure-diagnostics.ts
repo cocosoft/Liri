@@ -191,8 +191,7 @@ export function setupInfrastructureDiagnostics(): void {
       }
 
       try {
-        const { channelRegistry } =
-          await import('@modules/channels/registry/ChannelRegistry');
+        const { channelRegistry } = await import('@modules/channels');
         providerInfo.channelNames = channelRegistry
           .getAll()
           .map((ch) => ch.name);

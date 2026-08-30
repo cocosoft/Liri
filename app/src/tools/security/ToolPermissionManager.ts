@@ -40,6 +40,16 @@ export class ToolPermissionManager {
   }
 }
 
-export const globalToolPermissionManager = new ToolPermissionManager();
+/**
+ * 全局工具权限管理器实例（惰性初始化）
+ * 避免模块加载时立即实例化触发 TDZ（循环导入，与 logConfigManager 模式一致）
+ */
+let _globalToolPermissionManager: ToolPermissionManager | undefined;
+export function getGlobalToolPermissionManager(): ToolPermissionManager {
+  if (!_globalToolPermissionManager) {
+    _globalToolPermissionManager = new ToolPermissionManager();
+  }
+  return _globalToolPermissionManager;
+}
 
 export default ToolPermissionManager;

@@ -431,4 +431,17 @@ export function createAIServiceWithScrubbing(
   return service;
 }
 
-export const aiService = createAIService();
+/**
+ * 全局 AI 服务实例（惰性代理）
+ * 避免模块加载时立即 createAIService() 触发 TDZ（循环导入，与 logConfigManager 模式一致）。
+ * 首次访问任一成员时才真正实例化，消费方用法不变。
+ */
+let _aiService: AIService | undefined;
+
+export const aiService = new Proxy({} as AIService, {
+  get(_target, prop: keyof AIService, receiver) {
+    _aiService ??= createAIService();
+    const value = Reflect.get(_aiService, prop, _aiService);
+    return typeof value === 'function' ? value.bind(_aiService) : value;
+  },
+});

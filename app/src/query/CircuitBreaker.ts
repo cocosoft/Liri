@@ -34,7 +34,7 @@
 
 import { getLogger } from '@modules/monitoring';
 import {
-  LOOP_OBSERVE_ONLY,
+  isLoopObserveOnly,
   LOOP_GLOBAL_BREAKER_THRESHOLD,
 } from './loop-config.js';
 
@@ -261,7 +261,7 @@ export class CircuitBreaker {
     this.sameCallSameResultCount.set(key, count);
 
     if (count >= this.config.sameCallSameResultThreshold) {
-      if (LOOP_OBSERVE_ONLY) {
+      if (isLoopObserveOnly()) {
         logger.warn(
           `[OBSERVE] CircuitBreaker 本应全局熔断: ${toolName} x${count}`
         );

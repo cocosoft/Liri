@@ -255,41 +255,54 @@ export class LazyLoadingManager {
 }
 
 /**
- * 全局缓存管理器实例
+ * 全局缓存管理器实例（惰性初始化）
+ * 避免模块加载时立即实例化触发 TDZ（循环导入，与 logConfigManager 模式一致）
  */
-export const globalCacheManager = new CacheManager();
+let _globalCacheManager: CacheManager<unknown> | undefined;
+export function getGlobalCacheManager(): CacheManager<unknown> {
+  if (!_globalCacheManager) {
+    _globalCacheManager = new CacheManager();
+  }
+  return _globalCacheManager;
+}
 
 /**
- * 全局延迟加载管理器实例
+ * 全局延迟加载管理器实例（惰性初始化）
  */
-export const globalLazyLoadingManager = new LazyLoadingManager();
+let _globalLazyLoadingManager: LazyLoadingManager | undefined;
+export function getGlobalLazyLoadingManager(): LazyLoadingManager {
+  if (!_globalLazyLoadingManager) {
+    _globalLazyLoadingManager = new LazyLoadingManager();
+  }
+  return _globalLazyLoadingManager;
+}
 
 /**
  * 获取缓存
  */
 export function getCache<T>(key: string): T | null {
-  return globalCacheManager.get(key) as T | null;
+  return getGlobalCacheManager().get(key) as T | null;
 }
 
 /**
  * 设置缓存
  */
 export function setCache<T>(key: string, value: T, expiryMs?: number): void {
-  globalCacheManager.set(key, value, expiryMs);
+  getGlobalCacheManager().set(key, value, expiryMs);
 }
 
 /**
  * 删除缓存
  */
 export function deleteCache(key: string): void {
-  globalCacheManager.delete(key);
+  getGlobalCacheManager().delete(key);
 }
 
 /**
  * 清空缓存
  */
 export function clearCache(): void {
-  globalCacheManager.clear();
+  getGlobalCacheManager().clear();
 }
 
 /**
@@ -300,7 +313,7 @@ export async function lazyLoad<T>(
   loader: () => Promise<T>,
   options: LazyLoadingOptions = {}
 ): Promise<T> {
-  return globalLazyLoadingManager.lazyLoad(key, loader, options);
+  return getGlobalLazyLoadingManager().lazyLoad(key, loader, options);
 }
 
 /**
@@ -311,5 +324,5 @@ export async function preload<T>(
   loader: () => Promise<T>,
   options: LazyLoadingOptions = {}
 ): Promise<void> {
-  return globalLazyLoadingManager.preload(key, loader, options);
+  return getGlobalLazyLoadingManager().preload(key, loader, options);
 }

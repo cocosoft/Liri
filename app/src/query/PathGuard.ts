@@ -32,7 +32,7 @@
 
 import { configManager } from '@modules/config';
 import { getLogger } from '@modules/monitoring';
-import { LOOP_OBSERVE_ONLY } from './loop-config.js';
+import { isLoopObserveOnly } from './loop-config.js';
 
 const logger = getLogger('query:pathGuard');
 
@@ -171,7 +171,7 @@ export class PathGuard {
     const result = isWrite ? this.checkWrite(path) : this.checkRead(path);
 
     // observeOnly 模式：降级为警告（不阻断）
-    if (!result.allowed && LOOP_OBSERVE_ONLY) {
+    if (!result.allowed && isLoopObserveOnly()) {
       logger.warn(`[OBSERVE] PathGuard 本应拦截工具调用`, {
         tool: toolName,
         path,

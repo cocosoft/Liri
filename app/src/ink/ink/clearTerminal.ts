@@ -72,4 +72,6 @@ export function getClearTerminalSequence(): string {
 /**
  * Clears the terminal screen. On supported terminals, also clears scrollback.
  */
-export const clearTerminal = getClearTerminalSequence();
+export function clearTerminal(): string {
+  return getClearTerminalSequence();
+}

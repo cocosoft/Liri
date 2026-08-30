@@ -21,14 +21,17 @@ export interface StorageConfig {
   enabled: boolean;
 }
 
-export const DEFAULT_STORAGE_CONFIG: StorageConfig = {
-  baseDir:
-    configManager.env('ANALYTICS_STORAGE_DIR') ||
-    resolveDataSubDir('analytics'),
-  maxFileSize: 50 * 1024 * 1024,
-  rotationCount: 5,
-  enabled: configManager.env('ANALYTICS_PERSISTENCE_ENABLED') !== 'false',
-};
+// 惰性计算：避免模块加载时立即访问 configManager 触发 TDZ（循环导入）
+export function getDefaultStorageConfig(): StorageConfig {
+  return {
+    baseDir:
+      configManager.env('ANALYTICS_STORAGE_DIR') ||
+      resolveDataSubDir('analytics'),
+    maxFileSize: 50 * 1024 * 1024,
+    rotationCount: 5,
+    enabled: configManager.env('ANALYTICS_PERSISTENCE_ENABLED') !== 'false',
+  };
+}
 
 export class AnalyticsPersistenceService {
   private config: StorageConfig;
@@ -37,7 +40,7 @@ export class AnalyticsPersistenceService {
   private initialized: boolean = false;
 
   constructor(config?: Partial<StorageConfig>) {
-    this.config = { ...DEFAULT_STORAGE_CONFIG, ...config };
+    this.config = { ...getDefaultStorageConfig(), ...config };
     this.currentFile = this.getLogFilePath(0);
   }
 

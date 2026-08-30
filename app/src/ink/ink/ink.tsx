@@ -45,6 +45,7 @@ import Output from './output.js';
 import type { ParsedKey } from './parse-keypress.js';
 import reconciler, {
   dispatcher,
+  ensureDevtoolsConnected,
   getLastCommitMs,
   getLastYogaMs,
   isDebugRepaintsEnabled,
@@ -93,7 +94,7 @@ import {
   updateSelection,
 } from './selection.js';
 import {
-  SYNC_OUTPUT_SUPPORTED,
+  isSyncOutputSupported,
   supportsExtendedKeys,
   type Terminal,
   writeDiffToTerminal,
@@ -332,6 +333,7 @@ export default class Ink {
       }
     };
 
+    ensureDevtoolsConnected();
     this.container = reconciler.createContainer(
       this.rootNode,
       LegacyRoot,
@@ -727,8 +729,8 @@ export default class Ink {
       // DECSTBM needs BSU/ESU atomicity — without it the outer terminal
       // renders the scrolled-but-not-yet-repainted intermediate state.
       // tmux is the main case (re-emits DECSTBM with its own timing and
-      // doesn't implement DEC 2026, so SYNC_OUTPUT_SUPPORTED is false).
-      SYNC_OUTPUT_SUPPORTED
+      // doesn't implement DEC 2026, so isSyncOutputSupported() is false).
+      isSyncOutputSupported()
     );
     const diffMs = performance.now() - tDiff;
     // Swap buffers
@@ -894,7 +896,7 @@ export default class Ink {
     writeDiffToTerminal(
       this.terminal,
       optimized,
-      this.altScreenActive && !SYNC_OUTPUT_SUPPORTED
+      this.altScreenActive && !isSyncOutputSupported()
     );
     const writeMs = performance.now() - tWrite;
 

@@ -120,7 +120,10 @@ function getLocalOauthConfig(): OauthConfig {
 const OAUTH_CONFIGS: Record<OauthConfigType, OauthConfig> = {
   prod: PROD_OAUTH_CONFIG,
   staging: STAGING_OAUTH_CONFIG,
-  local: getLocalOauthConfig(),
+  // 惰性求值：避免模块加载时立即访问 configManager 触发 TDZ（循环导入）
+  get local() {
+    return getLocalOauthConfig();
+  },
 };
 
 export function loadOauthConfig(): OauthConfig {

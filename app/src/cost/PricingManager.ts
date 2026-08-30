@@ -318,22 +318,29 @@ export class PricingManager {
 }
 
 /**
- * 全局定价管理器实例
+ * 全局定价管理器实例（惰性初始化）
+ * 避免模块加载时立即实例化触发 TDZ（循环导入，与 logConfigManager 模式一致）
  */
-export const pricingManager = new PricingManager();
+let _pricingManager: PricingManager | undefined;
+export function getPricingManager(): PricingManager {
+  if (!_pricingManager) {
+    _pricingManager = new PricingManager();
+  }
+  return _pricingManager;
+}
 
 /**
  * 获取当前定价
  */
 export function getCurrentPricing(): Record<string, ModelPricing> {
-  return pricingManager.getCurrentPricing();
+  return getPricingManager().getCurrentPricing();
 }
 
 /**
  * 获取模型定价
  */
 export function getModelPricing(modelName: string): ModelPricing | undefined {
-  return pricingManager.getModelPricing(modelName);
+  return getPricingManager().getModelPricing(modelName);
 }
 
 /**
@@ -343,7 +350,7 @@ export function setModelPricing(
   modelName: string,
   pricing: ModelPricing
 ): void {
-  pricingManager.setModelPricing(modelName, pricing);
+  getPricingManager().setModelPricing(modelName, pricing);
 }
 
 /**
@@ -353,7 +360,7 @@ export function updatePricing(
   pricing: Record<string, ModelPricing>,
   description: string
 ): void {
-  pricingManager.updatePricing(pricing, description);
+  getPricingManager().updatePricing(pricing, description);
 }
 
 /**
@@ -363,42 +370,42 @@ export function addModelPricing(
   modelName: string,
   pricing: ModelPricing
 ): void {
-  pricingManager.addModelPricing(modelName, pricing);
+  getPricingManager().addModelPricing(modelName, pricing);
 }
 
 /**
  * 删除模型定价
  */
 export function removeModelPricing(modelName: string): void {
-  pricingManager.removeModelPricing(modelName);
+  getPricingManager().removeModelPricing(modelName);
 }
 
 /**
  * 获取当前版本
  */
 export function getPricingVersion(): string {
-  return pricingManager.getVersion();
+  return getPricingManager().getVersion();
 }
 
 /**
  * 获取更新历史
  */
 export function getPricingUpdateHistory(): PricingVersion[] {
-  return pricingManager.getUpdateHistory();
+  return getPricingManager().getUpdateHistory();
 }
 
 /**
  * 回滚到指定版本
  */
 export function rollbackToVersion(version: string): boolean {
-  return pricingManager.rollbackToVersion(version);
+  return getPricingManager().rollbackToVersion(version);
 }
 
 /**
  * 导出定价配置
  */
 export function exportPricing(): string {
-  return pricingManager.exportPricing();
+  return getPricingManager().exportPricing();
 }
 
 /**
@@ -408,5 +415,5 @@ export async function importPricing(
   json: string,
   description: string
 ): Promise<boolean> {
-  return pricingManager.importPricing(json, description);
+  return getPricingManager().importPricing(json, description);
 }

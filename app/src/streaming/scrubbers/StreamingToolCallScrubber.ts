@@ -25,10 +25,13 @@ import { configManager } from '@modules/config';
 import type { StreamChunk } from '../types';
 
 // ─── 调试日志 ────────────────────────────────────────
-const DEBUG = configManager.env('DEBUG_TOOL_SCRUBBER') === '1';
+// 惰性读取：避免模块加载时立即访问 configManager 触发 TDZ（循环导入）
+function isDebugEnabled(): boolean {
+  return configManager.env('DEBUG_TOOL_SCRUBBER') === '1';
+}
 
 function dbg(msg: string, detail?: Record<string, unknown>) {
-  if (!DEBUG) return;
+  if (!isDebugEnabled()) return;
   const ts = new Date().toISOString().slice(11, 23);
   const extra = detail ? ` ${JSON.stringify(detail)}` : '';
   // eslint-disable-next-line no-console
@@ -147,7 +150,7 @@ export class StreamingToolCallScrubber {
     }
 
     let content = this.openBuffer + this.closeBuffer + chunk.content;
-    if (DEBUG && this.openBuffer) {
+    if (isDebugEnabled() && this.openBuffer) {
       dbg('RESOLVE pending', {
         bufferedLen: this.openBuffer.length,
         chunkLen: chunk.content?.length ?? 0,

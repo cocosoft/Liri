@@ -57,63 +57,80 @@ export interface AppStartupState {
 
 let slowOperations: SlowOperation[] = [];
 
-let startupState: AppStartupState = {
-  configInitialized: false,
-  analyticsInitialized: false,
-  authInitialized: false,
-  pluginsInitialized: false,
-  skillsInitialized: false,
-  startTime: Date.now(),
-  phase: 'initializing',
+let startupState: AppStartupState | undefined;
 
-  originalCwd: configManager.env('LIRI_PROJECT_DIR') || process.cwd(),
-  projectRoot: configManager.env('LIRI_PROJECT_DIR') || process.cwd(),
-  cwd: configManager.env('LIRI_PROJECT_DIR') || process.cwd(),
-  sessionId: generateSystemSessionId(),
-  parentSessionId: undefined,
-  isInteractive: true,
-  clientType: 'cli',
-  sessionSource: undefined,
-  flagSettingsPath: undefined,
-  flagSettingsInline: null,
-  allowedSettingSources: ['userSettings', 'projectSettings', 'localSettings'],
-  totalCostUSD: 0,
-  totalAPIDuration: 0,
-  totalToolDuration: 0,
-  lastInteractionTime: Date.now(),
-  sessionTrustAccepted: false,
-  sessionPersistenceDisabled: false,
-  isRemoteMode: false,
-  mainThreadAgentType: undefined,
-};
+/**
+ * 创建初始启动状态（惰性执行）
+ * 避免模块加载时立即访问 configManager 触发 TDZ（循环导入）
+ */
+function createInitialStartupState(): AppStartupState {
+  return {
+    configInitialized: false,
+    analyticsInitialized: false,
+    authInitialized: false,
+    pluginsInitialized: false,
+    skillsInitialized: false,
+    startTime: Date.now(),
+    phase: 'initializing',
+
+    originalCwd: configManager.env('LIRI_PROJECT_DIR') || process.cwd(),
+    projectRoot: configManager.env('LIRI_PROJECT_DIR') || process.cwd(),
+    cwd: configManager.env('LIRI_PROJECT_DIR') || process.cwd(),
+    sessionId: generateSystemSessionId(),
+    parentSessionId: undefined,
+    isInteractive: true,
+    clientType: 'cli',
+    sessionSource: undefined,
+    flagSettingsPath: undefined,
+    flagSettingsInline: null,
+    allowedSettingSources: ['userSettings', 'projectSettings', 'localSettings'],
+    totalCostUSD: 0,
+    totalAPIDuration: 0,
+    totalToolDuration: 0,
+    lastInteractionTime: Date.now(),
+    sessionTrustAccepted: false,
+    sessionPersistenceDisabled: false,
+    isRemoteMode: false,
+    mainThreadAgentType: undefined,
+  };
+}
+
+/** 确保启动状态已初始化（首次访问时惰性创建） */
+function ensureStartupState(): AppStartupState {
+  if (!startupState) {
+    startupState = createInitialStartupState();
+  }
+  return startupState;
+}
 
 /**
  * 获取启动状态
  */
 export function getStartupState(): AppStartupState {
-  return { ...startupState };
+  return { ...ensureStartupState() };
 }
 
 /**
  * 更新启动状态
  */
 export function updateStartupState(updates: Partial<AppStartupState>): void {
-  startupState = { ...startupState, ...updates };
-  profileCheckpoint(`startup_state_${startupState.phase}`);
+  const current = ensureStartupState();
+  startupState = { ...current, ...updates };
+  profileCheckpoint(`startup_state_${ensureStartupState().phase}`);
 }
 
 /**
  * 获取原始工作目录
  */
 export function getOriginalCwd(): string {
-  return startupState.originalCwd;
+  return ensureStartupState().originalCwd;
 }
 
 /**
  * 获取项目根目录
  */
 export function getProjectRoot(): string {
-  return startupState.projectRoot;
+  return ensureStartupState().projectRoot;
 }
 
 /**
@@ -127,7 +144,7 @@ export function setProjectRoot(root: string): void {
  * 获取当前工作目录
  */
 export function getCwd(): string {
-  return startupState.cwd;
+  return ensureStartupState().cwd;
 }
 
 /**
@@ -141,14 +158,14 @@ export function setCwd(cwd: string): void {
  * 获取会话ID
  */
 export function getSessionId(): SessionId {
-  return startupState.sessionId;
+  return ensureStartupState().sessionId;
 }
 
 /**
  * 获取父会话ID
  */
 export function getParentSessionId(): SessionId | undefined {
-  return startupState.parentSessionId;
+  return ensureStartupState().parentSessionId;
 }
 
 /**
@@ -162,50 +179,51 @@ export function setParentSessionId(parentId: SessionId | undefined): void {
  * 获取标志设置路径
  */
 export function getFlagSettingsPath(): string | undefined {
-  return startupState.flagSettingsPath;
+  return ensureStartupState().flagSettingsPath;
 }
 
 /**
  * 获取标志设置内联内容
  */
 export function getFlagSettingsInline(): Record<string, unknown> | null {
-  return startupState.flagSettingsInline;
+  return ensureStartupState().flagSettingsInline;
 }
 
 /**
  * 获取允许的设置源
  */
 export function getAllowedSettingSources(): string[] {
-  return startupState.allowedSettingSources;
+  return ensureStartupState().allowedSettingSources;
 }
 
 /**
  * 检查是否使用Cowork插件
  */
 export function getUseCoworkPlugins(): boolean {
-  return startupState.clientType === 'cowork';
+  return ensureStartupState().clientType === 'cowork';
 }
 
 /**
  * 增加API成本
  */
 export function addCostUSD(cost: number): void {
-  startupState.totalCostUSD += cost;
-  startupState.lastInteractionTime = Date.now();
+  const state = ensureStartupState();
+  state.totalCostUSD += cost;
+  state.lastInteractionTime = Date.now();
 }
 
 /**
  * 增加API持续时间
  */
 export function addAPIDuration(duration: number): void {
-  startupState.totalAPIDuration += duration;
+  ensureStartupState().totalAPIDuration += duration;
 }
 
 /**
  * 增加工具持续时间
  */
 export function addToolDuration(duration: number): void {
-  startupState.totalToolDuration += duration;
+  ensureStartupState().totalToolDuration += duration;
 }
 
 /**
@@ -276,34 +294,7 @@ export function markStartupError(error: string): void {
  * 重置启动状态
  */
 export function resetStartupState(): void {
-  startupState = {
-    configInitialized: false,
-    analyticsInitialized: false,
-    authInitialized: false,
-    pluginsInitialized: false,
-    skillsInitialized: false,
-    startTime: Date.now(),
-    phase: 'initializing',
-    originalCwd: configManager.env('LIRI_PROJECT_DIR') || process.cwd(),
-    projectRoot: configManager.env('LIRI_PROJECT_DIR') || process.cwd(),
-    cwd: configManager.env('LIRI_PROJECT_DIR') || process.cwd(),
-    sessionId: generateSystemSessionId(),
-    parentSessionId: undefined,
-    isInteractive: true,
-    clientType: 'cli',
-    sessionSource: undefined,
-    flagSettingsPath: undefined,
-    flagSettingsInline: null,
-    allowedSettingSources: ['userSettings', 'projectSettings', 'localSettings'],
-    totalCostUSD: 0,
-    totalAPIDuration: 0,
-    totalToolDuration: 0,
-    lastInteractionTime: Date.now(),
-    sessionTrustAccepted: false,
-    sessionPersistenceDisabled: false,
-    isRemoteMode: false,
-    mainThreadAgentType: undefined,
-  };
+  startupState = createInitialStartupState();
   profileCheckpoint('startup_state_reset');
 }
 

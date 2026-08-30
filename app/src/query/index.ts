@@ -193,7 +193,7 @@ export type {
   ToolErrorSummary,
 } from './ToolErrorCollector.js';
 export {
-  LOOP_OBSERVE_ONLY,
+  isLoopObserveOnly,
   LOOP_UNKNOWN_TOOL_WARNING,
   LOOP_UNKNOWN_TOOL_CRITICAL,
   LOOP_GLOBAL_BREAKER_THRESHOLD,

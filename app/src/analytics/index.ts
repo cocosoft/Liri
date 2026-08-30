@@ -31,7 +31,7 @@ export { AnalyticsService, analyticsService } from './AnalyticsService.js';
 
 export {
   AnalyticsPersistenceService,
-  DEFAULT_STORAGE_CONFIG,
+  getDefaultStorageConfig,
 } from './AnalyticsPersistenceService.js';
 
 export {
@@ -76,7 +76,7 @@ export type { PassType, PassDefinition, PassBalance } from './PassesService.js';
 export {
   DatadogMetricsClient,
   getDatadogClient,
-  DEFAULT_DATADOG_CONFIG,
+  getDefaultDatadogConfig,
 } from './DatadogMetricsClient.js';
 
 export type {

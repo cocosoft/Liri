@@ -56,18 +56,24 @@ function parsePositiveIntEnv(
   return parsed;
 }
 
-/** 桶容量（burst 上限） */
-const BUCKET_CAPACITY = parsePositiveIntEnv(
-  configManager.env('CHANNEL_RATE_LIMIT_CAPACITY'),
-  10,
-  'CHANNEL_RATE_LIMIT_CAPACITY'
-);
-/** 补充速率：每 REFILL_MS 恢复一个 token */
-const REFILL_MS = parsePositiveIntEnv(
-  configManager.env('CHANNEL_RATE_LIMIT_REFILL_MS'),
-  60000,
-  'CHANNEL_RATE_LIMIT_REFILL_MS'
-);
+/**
+ * 桶容量（burst 上限）— 惰性读取，避免模块加载时立即访问 configManager 触发 TDZ（循环导入）
+ */
+function getBucketCapacity(): number {
+  return parsePositiveIntEnv(
+    configManager.env('CHANNEL_RATE_LIMIT_CAPACITY'),
+    10,
+    'CHANNEL_RATE_LIMIT_CAPACITY'
+  );
+}
+/** 补充速率：每 REFILL_MS 恢复一个 token — 惰性读取，同上 */
+function getRefillMs(): number {
+  return parsePositiveIntEnv(
+    configManager.env('CHANNEL_RATE_LIMIT_REFILL_MS'),
+    60000,
+    'CHANNEL_RATE_LIMIT_REFILL_MS'
+  );
+}
 
 const buckets = new Map<string, TokenBucket>();
 
@@ -76,7 +82,7 @@ setInterval(() => {
   const now = Date.now();
   for (const [key, bucket] of buckets) {
     // 超过 3 个 refill 周期未使用 → 回收
-    if (now - bucket.lastRefill > REFILL_MS * 3) {
+    if (now - bucket.lastRefill > getRefillMs() * 3) {
       buckets.delete(key);
     }
   }
@@ -96,17 +102,18 @@ export function checkRateLimit(channel: string, sender: string): boolean {
   const now = Date.now();
   let bucket = buckets.get(key);
   if (!bucket) {
-    bucket = { tokens: BUCKET_CAPACITY, lastRefill: now };
+    bucket = { tokens: getBucketCapacity(), lastRefill: now };
     buckets.set(key, bucket);
   }
 
   // 补充 token
-  if (now - bucket.lastRefill >= REFILL_MS) {
+  const refillMs = getRefillMs();
+  if (now - bucket.lastRefill >= refillMs) {
     const elapsed = now - bucket.lastRefill;
-    const refill = Math.floor(elapsed / REFILL_MS);
+    const refill = Math.floor(elapsed / refillMs);
     if (refill > 0) {
-      bucket.tokens = Math.min(BUCKET_CAPACITY, bucket.tokens + refill);
-      bucket.lastRefill += refill * REFILL_MS;
+      bucket.tokens = Math.min(getBucketCapacity(), bucket.tokens + refill);
+      bucket.lastRefill += refill * refillMs;
     }
   }
 

@@ -180,9 +180,12 @@ export function hasCursorUpViewportYankBug(): boolean {
   return process.platform === 'win32' || !!configManager.env('WT_SESSION');
 }
 
-// Computed once at module load — terminal capabilities don't change mid-session.
+// 惰性执行：避免模块加载时立即访问 configManager 触发 TDZ（循环导入）。
+// 终端能力不中途变化，但读取环境变量须推迟到首次访问。
 // Exported so callers can pass a sync-skip hint gated to specific modes.
-export const SYNC_OUTPUT_SUPPORTED = isSynchronizedOutputSupported();
+export function isSyncOutputSupported(): boolean {
+  return isSynchronizedOutputSupported();
+}
 
 export type Terminal = {
   stdout: Writable;

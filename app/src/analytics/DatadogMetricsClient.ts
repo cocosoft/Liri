@@ -1,4 +1,4 @@
-﻿import { configManager } from '@modules/config';
+import { configManager } from '@modules/config';
 import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('DatadogMetricsClient');
@@ -15,22 +15,25 @@ export interface DatadogConfig {
   batchSize: number;
 }
 
-export const DEFAULT_DATADOG_CONFIG: DatadogConfig = {
-  apiKey: configManager.env('DD_API_KEY') || '',
-  appKey: configManager.env('DD_APP_KEY') || '',
-  site: configManager.env('DD_SITE') || 'datadoghq.com',
-  serviceName: configManager.env('DD_SERVICE') || 'Liri',
-  env: configManager.env('DD_ENV') || 'production',
-  version: configManager.env('DD_VERSION') || '1.0.0',
-  enabled:
-    configManager.env('DD_ENABLED') === 'true' ||
-    !!configManager.env('DD_API_KEY'),
-  flushInterval: parseInt(
-    configManager.env('DD_FLUSH_INTERVAL') || '10000',
-    10
-  ),
-  batchSize: parseInt(configManager.env('DD_BATCH_SIZE') || '100', 10),
-};
+// 惰性计算：避免模块加载时立即访问 configManager 触发 TDZ（循环导入）
+export function getDefaultDatadogConfig(): DatadogConfig {
+  return {
+    apiKey: configManager.env('DD_API_KEY') || '',
+    appKey: configManager.env('DD_APP_KEY') || '',
+    site: configManager.env('DD_SITE') || 'datadoghq.com',
+    serviceName: configManager.env('DD_SERVICE') || 'Liri',
+    env: configManager.env('DD_ENV') || 'production',
+    version: configManager.env('DD_VERSION') || '1.0.0',
+    enabled:
+      configManager.env('DD_ENABLED') === 'true' ||
+      !!configManager.env('DD_API_KEY'),
+    flushInterval: parseInt(
+      configManager.env('DD_FLUSH_INTERVAL') || '10000',
+      10
+    ),
+    batchSize: parseInt(configManager.env('DD_BATCH_SIZE') || '100', 10),
+  };
+}
 
 export interface DatadogMetric {
   name: string;
@@ -66,7 +69,7 @@ export class DatadogMetricsClient {
   private hostname: string;
 
   constructor(config?: Partial<DatadogConfig>) {
-    this.config = { ...DEFAULT_DATADOG_CONFIG, ...config };
+    this.config = { ...getDefaultDatadogConfig(), ...config };
     this.hostname =
       configManager.env('HOSTNAME') ||
       configManager.env('COMPUTERNAME') ||

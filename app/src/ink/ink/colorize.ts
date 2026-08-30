@@ -56,11 +56,15 @@ function clampChalkLevelForTmux(): boolean {
   }
   return false;
 }
-// Computed once at module load — terminal/tmux environment doesn't change mid-session.
-// Order matters: boost first so the tmux clamp can re-clamp if tmux is running
-// inside a VS Code terminal. Exported for debugging — tree-shaken if unused.
-export const CHALK_BOOSTED_FOR_XTERMJS = boostChalkLevelForXtermJs();
-export const CHALK_CLAMPED_FOR_TMUX = clampChalkLevelForTmux();
+// 惰性执行：避免模块加载时立即访问 configManager 触发 TDZ（循环导入）。
+// 首次 colorize 时按终端环境调校 chalk 等级（一次即可，终端环境不中途变化）。
+let _chalkTuned = false;
+function tuneChalkLevelsOnce(): void {
+  if (_chalkTuned) return;
+  _chalkTuned = true;
+  boostChalkLevelForXtermJs();
+  clampChalkLevelForTmux();
+}
 
 export type ColorType = 'foreground' | 'background';
 
@@ -72,6 +76,7 @@ export const colorize = (
   color: string | undefined,
   type: ColorType
 ): string => {
+  tuneChalkLevelsOnce();
   if (!color) {
     return str;
   }

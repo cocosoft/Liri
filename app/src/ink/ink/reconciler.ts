@@ -43,7 +43,13 @@ import applyStyles, { type Styles, type TextStyles } from './styles.js';
 // We need to conditionally perform devtools connection to avoid
 // accidentally breaking other third-party code.
 // See https://github.com/vadimdemedes/ink/issues/384
-if (configManager.env('NODE_ENV') === 'development') {
+// 惰性执行：避免模块加载时立即访问 configManager 触发 TDZ（循环导入）。
+// 首次创建容器时连接一次。
+let _devtoolsConnected = false;
+function maybeConnectDevtools(): void {
+  if (_devtoolsConnected) return;
+  _devtoolsConnected = true;
+  if (configManager.env('NODE_ENV') !== 'development') return;
   try {
     void import('./devtools.js');
   } catch (error) {
@@ -62,6 +68,11 @@ $ npm install --save-dev react-devtools-core
       throw error;
     }
   }
+}
+
+/** 确保 devtools 已尝试连接（供渲染入口在运行时触发） */
+export function ensureDevtoolsConnected(): void {
+  maybeConnectDevtools();
 }
 
 // --
@@ -196,7 +207,10 @@ export function isDebugRepaintsEnabled(): boolean {
 export const dispatcher = new Dispatcher();
 
 // --- COMMIT INSTRUMENTATION (temp debugging) ---
-const COMMIT_LOG = configManager.env('PYAPP_COMMIT_LOG');
+// 惰性读取：避免模块加载时立即访问 configManager 触发 TDZ（循环导入）
+function getCommitLogPath(): string | undefined {
+  return configManager.env('PYAPP_COMMIT_LOG');
+}
 let _commits = 0;
 let _lastLog = 0;
 let _lastCommitAt = 0;
@@ -232,7 +246,7 @@ export function resetProfileCounters(): void {
 const reconciler: any = createReconciler({
   getRootHostContext: () => ({ isInsideText: false }),
   prepareForCommit: () => {
-    if (COMMIT_LOG) _prepareAt = performance.now();
+    if (getCommitLogPath()) _prepareAt = performance.now();
     return null;
   },
   preparePortalMount: () => null,
@@ -240,7 +254,7 @@ const reconciler: any = createReconciler({
   resetAfterCommit(rootNode: any) {
     _lastCommitMs = _commitStart > 0 ? performance.now() - _commitStart : 0;
     _commitStart = 0;
-    if (COMMIT_LOG) {
+    if (getCommitLogPath()) {
       const now = performance.now();
       _commits++;
       const gap = _lastCommitAt > 0 ? now - _lastCommitAt : 0;
@@ -249,14 +263,14 @@ const reconciler: any = createReconciler({
       const reconcileMs = _prepareAt > 0 ? now - _prepareAt : 0;
       if (gap > 30 || reconcileMs > 20 || _createCount > 50) {
         appendFileSync(
-          COMMIT_LOG,
+          getCommitLogPath()!,
           `${now.toFixed(1)} gap=${gap.toFixed(1)}ms reconcile=${reconcileMs.toFixed(1)}ms creates=${_createCount}\n`
         );
       }
       _createCount = 0;
       if (now - _lastLog > 1000) {
         appendFileSync(
-          COMMIT_LOG,
+          getCommitLogPath()!,
           `${now.toFixed(1)} commits=${_commits}/s maxGap=${_maxGapMs.toFixed(1)}ms\n`
         );
         _commits = 0;
@@ -264,16 +278,16 @@ const reconciler: any = createReconciler({
         _lastLog = now;
       }
     }
-    const _t0 = COMMIT_LOG ? performance.now() : 0;
+    const _t0 = getCommitLogPath() ? performance.now() : 0;
     if (typeof rootNode.onComputeLayout === 'function') {
       rootNode.onComputeLayout();
     }
-    if (COMMIT_LOG) {
+    if (getCommitLogPath()) {
       const layoutMs = performance.now() - _t0;
       if (layoutMs > 20) {
         const c = getYogaCounters();
         appendFileSync(
-          COMMIT_LOG,
+          getCommitLogPath()!,
           `${_t0.toFixed(1)} SLOW_YOGA ${layoutMs.toFixed(1)}ms visited=${c.visited} measured=${c.measured} hits=${c.cacheHits} live=${c.live}\n`
         );
       }
@@ -290,13 +304,13 @@ const reconciler: any = createReconciler({
       return;
     }
 
-    const _tr = COMMIT_LOG ? performance.now() : 0;
+    const _tr = getCommitLogPath() ? performance.now() : 0;
     rootNode.onRender?.();
-    if (COMMIT_LOG) {
+    if (getCommitLogPath()) {
       const renderMs = performance.now() - _tr;
       if (renderMs > 10) {
         appendFileSync(
-          COMMIT_LOG,
+          getCommitLogPath()!,
           `${_tr.toFixed(1)} SLOW_PAINT ${renderMs.toFixed(1)}ms\n`
         );
       }
@@ -339,7 +353,7 @@ const reconciler: any = createReconciler({
         : originalType;
 
     const node = createNode(type);
-    if (COMMIT_LOG) _createCount++;
+    if (getCommitLogPath()) _createCount++;
 
     for (const [key, value] of Object.entries(newProps)) {
       applyProp(node, key, value);

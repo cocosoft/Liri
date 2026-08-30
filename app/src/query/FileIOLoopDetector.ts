@@ -35,7 +35,7 @@
 import { READ_TOOLS, WRITE_TOOLS } from './tool-constants.js';
 import { getLogger } from '@modules/monitoring';
 import {
-  LOOP_OBSERVE_ONLY,
+  isLoopObserveOnly,
   LOOP_FILE_IO_WARNING,
   LOOP_FILE_IO_BLOCK,
 } from './loop-config.js';
@@ -194,7 +194,7 @@ export class FileIOLoopDetector {
    * observeOnly guard：将阻断降级为警告
    */
   private _applyObserveOnly(result: FileIOBlockResult): FileIOBlockResult {
-    if (result.blocked && LOOP_OBSERVE_ONLY) {
+    if (result.blocked && isLoopObserveOnly()) {
       logger.warn(`[OBSERVE] FileIOLoopDetector 本应拦截: ${result.message}`);
       return { blocked: false, warning: true, message: result.message };
     }

@@ -422,9 +422,16 @@ export class CostMonitor {
 }
 
 /**
- * 全局成本监控器实例
+ * 全局成本监控器实例（惰性初始化）
+ * 避免模块加载时立即实例化触发 TDZ（循环导入，与 logConfigManager 模式一致）
  */
-export const costMonitor = new CostMonitor();
+let _costMonitor: CostMonitor | undefined;
+export function getCostMonitor(): CostMonitor {
+  if (!_costMonitor) {
+    _costMonitor = new CostMonitor();
+  }
+  return _costMonitor;
+}
 
 /**
  * 记录成本数据
@@ -435,63 +442,66 @@ export function recordCost(
   outputTokens: number,
   webSearchRequests: number = 0
 ): void {
-  costMonitor.recordCost(cost, inputTokens, outputTokens, webSearchRequests);
+  getCostMonitor().recordCost(
+    cost,
+    inputTokens,
+    outputTokens,
+    webSearchRequests
+  );
 }
 
 /**
  * 获取当前周期成本
  */
 export function getCurrentPeriodCost(): number {
-  return costMonitor.getCurrentPeriodCost();
+  return getCostMonitor().getCurrentPeriodCost();
 }
 
 /**
  * 获取告警历史
  */
 export function getAlertHistory(limit: number = 100): AlertRecord[] {
-  return costMonitor.getAlertHistory(limit);
+  return getCostMonitor().getAlertHistory(limit);
 }
 
 /**
  * 获取最近的告警
  */
 export function getRecentAlerts(level?: AlertLevel): AlertRecord[] {
-  return costMonitor.getRecentAlerts(level);
+  return getCostMonitor().getRecentAlerts(level);
 }
 
 /**
  * 重置成本周期
  */
 export function resetCostPeriod(): void {
-  costMonitor.resetPeriod();
+  getCostMonitor().resetPeriod();
 }
 
 /**
  * 添加告警规则
  */
 export function addAlertRule(rule: AlertRule): void {
-  costMonitor.addRule(rule);
+  getCostMonitor().addRule(rule);
 }
 
 /**
  * 获取告警规则
  */
 export function getAlertRules(): AlertRule[] {
-  return costMonitor.getRules();
+  return getCostMonitor().getRules();
 }
 
 /**
  * 获取监控统计信息
  */
-export function getMonitorStats(): ReturnType<
-  typeof costMonitor.getMonitorStats
-> {
-  return costMonitor.getMonitorStats();
+export function getMonitorStats(): ReturnType<CostMonitor['getMonitorStats']> {
+  return getCostMonitor().getMonitorStats();
 }
 
 /**
  * 注册告警监听器
  */
 export function onAlert(listener: (alert: AlertRecord) => void): void {
-  costMonitor.onAlert(listener);
+  getCostMonitor().onAlert(listener);
 }

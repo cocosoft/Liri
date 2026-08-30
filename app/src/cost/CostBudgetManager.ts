@@ -5,7 +5,7 @@
 
 import { formatCost } from './ModelPricing';
 import { costTracker } from './CostTracker';
-import { costMonitor, AlertLevel, type AlertRule } from './CostMonitor';
+import { getCostMonitor, AlertLevel, type AlertRule } from './CostMonitor';
 
 /**
  * 预算周期类型
@@ -234,16 +234,16 @@ export class CostBudgetManager {
       enabled: true,
     };
 
-    costMonitor.addRule(warningRule);
-    costMonitor.addRule(criticalRule);
+    getCostMonitor().addRule(warningRule);
+    getCostMonitor().addRule(criticalRule);
   }
 
   /**
    * 移除预算告警规则
    */
   private removeAlertRulesForBudget(budgetId: string): void {
-    costMonitor.removeRule(`budget-${budgetId}-warning`);
-    costMonitor.removeRule(`budget-${budgetId}-critical`);
+    getCostMonitor().removeRule(`budget-${budgetId}-warning`);
+    getCostMonitor().removeRule(`budget-${budgetId}-critical`);
   }
 
   /**

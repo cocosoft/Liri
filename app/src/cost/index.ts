@@ -132,8 +132,8 @@ const logger = getLogger('cost:index');
  */
 export async function initializeCostTrackingSystem(): Promise<void> {
   try {
-    const { pricingManager } = await import('./PricingManager.js');
-    const { costMonitor } = await import('./CostMonitor.js');
+    const { getPricingManager } = await import('./PricingManager.js');
+    const { getCostMonitor } = await import('./CostMonitor.js');
     const { costTracker } = await import('./CostTracker.js');
     const { getCostRecordRepository } =
       await import('./CostRecordRepository.js');
@@ -141,10 +141,10 @@ export async function initializeCostTrackingSystem(): Promise<void> {
     // 初始化账单访问控制已通过单例完成
 
     // 初始化定价管理器
-    pricingManager.updatePricing({}, '成本跟踪系统初始化');
+    getPricingManager().updatePricing({}, '成本跟踪系统初始化');
 
     // 初始化成本监控
-    costMonitor.setConfig({
+    getCostMonitor().setConfig({
       enabled: true,
       checkInterval: 60 * 1000,
     });

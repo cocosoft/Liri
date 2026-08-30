@@ -4,7 +4,7 @@
  * 监听成本监控告警，触发对应的 Hook 事件
  */
 
-import { costMonitor, AlertLevel, type AlertRecord } from './CostMonitor';
+import { getCostMonitor, AlertLevel, type AlertRecord } from './CostMonitor';
 import { HookChainManager } from '@modules/hooks';
 import { getLogger } from '../monitoring/logs/Logger';
 import { handleError } from '@modules/error';
@@ -44,7 +44,7 @@ export class CostHookDispatcher {
   initialize(): void {
     if (this.initialized) return;
 
-    costMonitor.onAlert((alert: AlertRecord) => {
+    getCostMonitor().onAlert((alert: AlertRecord) => {
       this.handleCostAlert(alert);
     });
 

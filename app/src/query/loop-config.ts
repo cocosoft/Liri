@@ -27,9 +27,19 @@ const logger = getLogger('query:loopConfig');
 
 // ─── 全局 observeOnly 模式 ─────────────────────────────
 
-/** 全局 observeOnly 模式（不阻断，仅记录日志） */
-export const LOOP_OBSERVE_ONLY =
-  configManager.env('LOOP_OBSERVE_ONLY') === 'true';
+// 惰性读取：避免模块加载时立即访问 configManager 触发 TDZ（循环导入）
+let _loopObserveOnly: boolean | undefined;
+let _configLogged = false;
+export function isLoopObserveOnly(): boolean {
+  if (_loopObserveOnly === undefined) {
+    _loopObserveOnly = configManager.env('LOOP_OBSERVE_ONLY') === 'true';
+  }
+  if (!_configLogged) {
+    _configLogged = true;
+    logLoopConfig();
+  }
+  return _loopObserveOnly;
+}
 
 // ─── 阈值环境变量 ──────────────────────────────────────
 
@@ -114,34 +124,36 @@ export const LOOP_NO_TOOL_CALL_CRITICAL = envInt(
  * @returns true 表示应阻断（非 observeOnly 模式），false 表示应放行（observeOnly 模式）
  */
 export function observeOnlyGuard(component: string, message: string): boolean {
-  if (LOOP_OBSERVE_ONLY) {
+  if (isLoopObserveOnly()) {
     logger.warn(`[OBSERVE] ${component} 本应阻断: ${message}`);
     return false;
   }
   return true;
 }
 
-// ─── 启动时日志 ────────────────────────────────────────
+// ─── 启动时日志（惰性执行，首次读取配置时输出一次） ───
 
-if (LOOP_OBSERVE_ONLY) {
-  logger.warn('Loop observeOnly 模式已启用——所有检测器仅记录日志，不阻断');
+function logLoopConfig(): void {
+  if (isLoopObserveOnly()) {
+    logger.warn('Loop observeOnly 模式已启用——所有检测器仅记录日志，不阻断');
+  }
+
+  logger.info('Loop 灰度配置已加载', {
+    observeOnly: isLoopObserveOnly(),
+    thresholds: {
+      unknownToolWarning: LOOP_UNKNOWN_TOOL_WARNING,
+      unknownToolCritical: LOOP_UNKNOWN_TOOL_CRITICAL,
+      globalBreaker: LOOP_GLOBAL_BREAKER_THRESHOLD,
+      fileIOWarning: LOOP_FILE_IO_WARNING,
+      fileIOBlock: LOOP_FILE_IO_BLOCK,
+      minTokenDelta: LOOP_MIN_TOKEN_DELTA,
+      diminishingTurns: LOOP_DIMINISH_TURNS_THRESHOLD,
+      compactRoundsKeep: LOOP_COMPACT_ROUNDS_KEEP,
+      genericRepeatWarning: LOOP_GENERIC_REPEAT_WARNING,
+      genericRepeatCritical: LOOP_GENERIC_REPEAT_CRITICAL,
+      pingPongThreshold: LOOP_PING_PONG_THRESHOLD,
+      noToolCallWarning: LOOP_NO_TOOL_CALL_WARNING,
+      noToolCallCritical: LOOP_NO_TOOL_CALL_CRITICAL,
+    },
+  });
 }
-
-logger.info('Loop 灰度配置已加载', {
-  observeOnly: LOOP_OBSERVE_ONLY,
-  thresholds: {
-    unknownToolWarning: LOOP_UNKNOWN_TOOL_WARNING,
-    unknownToolCritical: LOOP_UNKNOWN_TOOL_CRITICAL,
-    globalBreaker: LOOP_GLOBAL_BREAKER_THRESHOLD,
-    fileIOWarning: LOOP_FILE_IO_WARNING,
-    fileIOBlock: LOOP_FILE_IO_BLOCK,
-    minTokenDelta: LOOP_MIN_TOKEN_DELTA,
-    diminishingTurns: LOOP_DIMINISH_TURNS_THRESHOLD,
-    compactRoundsKeep: LOOP_COMPACT_ROUNDS_KEEP,
-    genericRepeatWarning: LOOP_GENERIC_REPEAT_WARNING,
-    genericRepeatCritical: LOOP_GENERIC_REPEAT_CRITICAL,
-    pingPongThreshold: LOOP_PING_PONG_THRESHOLD,
-    noToolCallWarning: LOOP_NO_TOOL_CALL_WARNING,
-    noToolCallCritical: LOOP_NO_TOOL_CALL_CRITICAL,
-  },
-});

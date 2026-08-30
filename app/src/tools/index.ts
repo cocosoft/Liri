@@ -36,7 +36,7 @@ import { ToolRegistry, setToolRegistry, getToolRegistry } from './ToolRegistry';
 import { ToolExecutor, globalToolExecutor } from './executor/ToolExecutor';
 import {
   ToolPermissionManager,
-  globalToolPermissionManager,
+  getGlobalToolPermissionManager,
 } from './security/ToolPermissionManager';
 import { ToolMonitor, globalToolMonitor } from './monitoring/ToolMonitor';
 
@@ -46,7 +46,7 @@ export { ToolRegistry, setToolRegistry, getToolRegistry };
 export { ToolExecutor, globalToolExecutor };
 
 // 导出安全组件
-export { ToolPermissionManager, globalToolPermissionManager };
+export { ToolPermissionManager, getGlobalToolPermissionManager };
 
 // 导出监控组件
 export { ToolMonitor, globalToolMonitor };
@@ -122,7 +122,7 @@ export function getToolSystemStatus(): {
       concurrentExecutions: globalToolExecutor.getConcurrentExecutionCount(),
       activeExecutions: globalToolExecutor.getActiveExecutionIds(),
     },
-    permissionManager: globalToolPermissionManager.getConfig(),
+    permissionManager: getGlobalToolPermissionManager().getConfig(),
     monitor: globalToolMonitor.getStatus(),
   };
 }
@@ -266,7 +266,7 @@ export default {
     return globalToolExecutor;
   },
   get ToolPermissionManager() {
-    return globalToolPermissionManager;
+    return getGlobalToolPermissionManager();
   },
   get ToolMonitor() {
     return globalToolMonitor;

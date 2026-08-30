@@ -56,10 +56,14 @@ COPY --from=native-builder /libliri_native.so native/target/release/libliri_nati
 RUN bun run scripts/build-variant.ts --variant=coding
 
 # 打包（bun build 原生支持 tsconfig paths，--target=bun 需要 --outdir）
+# --external yoga-layout（2026-08-30）：yoga-layout dist/src/index.js 含 top-level await，
+# bun build --target=bun 不支持 → 与 package.json build 脚本一致 external 跳过（运行时由
+# node_modules 提供）。缺失时 Deploy Docker 的 Build and push 步骤失败（同 CI Test build 步骤）。
 RUN bun build \
     --target=bun \
     --external pdfjs-dist \
     --external sharp \
+    --external yoga-layout \
     --outdir=/app/dist \
     src/pyapp.ts
 

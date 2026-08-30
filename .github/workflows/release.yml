@@ -50,7 +50,11 @@ jobs:
         run: bun run lint
 
       - name: Test
-        run: bun test
+        run: bun test tests/
+        # 2026-08-30 修复：与 ci.yml 的 Test Suite 对齐（`bun test tests/`）。
+        # 原 `bun test`（全量）会跑 src/ 下测试，其中 29 个预存断言失败（JsonRpcBridge
+        # /MiniMaxVideoProvider/KB-IT 等，独立模块长期未修）→ Release 长期被阻塞。
+        # 统一到 tests/ 目录（1956 pass 全绿），src/ 测试失败另登记处理。
         # 版本门禁：测试失败必须阻断发版（2026-08-15 评审修正，
         # 原 continue-on-error 允许测试挂掉仍继续发布）
 

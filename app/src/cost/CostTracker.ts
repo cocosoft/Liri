@@ -356,9 +356,21 @@ export class CostTracker {
 }
 
 /**
- * 全局成本跟踪器实例
+ * 全局成本跟踪器实例（惰性单例）
+ *
+ * 不用模块级 `new CostTracker()`：类字段 `otelLogger = new OTelAwareLogger(...)`
+ * 在实例化时加载 Logger→LogConfig→core 桶，模块加载期实例化会引入 ESM 循环
+ * （core/index → PlanDrivenLoop → tasks/cost 桶 → costTracker TDZ，实测 planDrivenLoop
+ * 测试暴露）。首次属性访问才实例化，对齐 systemPromptSections 的 skillRegistry 惰性 Proxy 模式。
  */
-export const costTracker = new CostTracker();
+let _costTracker: CostTracker | undefined;
+export const costTracker = new Proxy({} as CostTracker, {
+  get(_target, prop: keyof CostTracker, receiver) {
+    _costTracker ??= new CostTracker();
+    const value = Reflect.get(_costTracker, prop, _costTracker);
+    return typeof value === 'function' ? value.bind(_costTracker) : value;
+  },
+});
 
 /**
  * 添加成本

@@ -5,6 +5,9 @@
 
 import { Skill, SkillSource, SkillLoadMethod } from '@modules/skills/types';
 import { SkillLoader } from '../SkillLoader';
+import { getLogger } from '@modules/monitoring';
+
+const logger = getLogger('skills:bundledLoader');
 
 /**
  * 内置技能定义
@@ -559,7 +562,7 @@ Do NOT include extraneous files (README.md, CHANGELOG.md, INSTALLATION_GUIDE.md,
  */
 export class BundledSkillLoader extends SkillLoader {
   async loadSkills(): Promise<Skill[]> {
-    return bundledSkills.map(
+    const loaded = bundledSkills.map(
       (def): Skill => ({
         name: def.name,
         description: def.description,
@@ -582,6 +585,8 @@ export class BundledSkillLoader extends SkillLoader {
         },
       })
     );
+    logger.info('BundledSkillLoader.loadSkills', { count: loaded.length });
+    return loaded;
   }
 
   getSource(): SkillSource {

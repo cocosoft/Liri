@@ -321,7 +321,8 @@ export async function handleAddSessionMessage(
         ...(data.metadata && typeof data.metadata === 'object'
           ? (data.metadata as Record<string, unknown>)
           : {}),
-        replyToId: data.replyToId || undefined,
+        // 2026-08-30：replyToId 有值才写入（undefined 键在 D1 无损 JSON 校验下会拒绝事件）
+        ...(data.replyToId ? { replyToId: data.replyToId } : {}),
         persistedBy: 'frontend-write-ahead',
       },
     };

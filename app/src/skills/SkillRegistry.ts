@@ -6,6 +6,9 @@
 import type { Skill } from './types';
 import { EffectScope } from '@modules/context';
 import { handleError } from '@modules/error/handleError';
+import { getLogger } from '@modules/monitoring';
+
+const logger = getLogger('skills:SkillRegistry');
 
 /**
  * 技能注册表
@@ -108,6 +111,7 @@ export class SkillRegistry {
       skill.isEnabled = () => this.enabledState.get(skill.name) !== false;
       this.emit('skill-updated', skill);
     }
+    logger.info('SkillRegistry.setEnabled', { skillName, enabled });
   }
 
   /**
@@ -125,6 +129,11 @@ export class SkillRegistry {
       this.scopes.set(skill.name, new EffectScope());
     }
     this.emit('registered', skill);
+    logger.info('SkillRegistry.register', {
+      skillName: skill.name,
+      source: skill.source,
+      implKind: skill.impl.kind,
+    });
   }
 
   /**

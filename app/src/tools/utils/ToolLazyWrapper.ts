@@ -53,6 +53,16 @@ export class ToolLazyWrapper implements Tool {
   }
 
   getInfo(): ToolInfo {
+    // T3a（2026-08-30）：已加载工具委托真实实例的 getInfo()（动态最新，如 SkillTool 的
+    // 技能清单），未加载仍返回注册时快照（不破坏懒加载语义、不触发加载）。
+    // 对齐 validateInput 的 BUG-4 修复模式（isLoaded 时委托真实逻辑）。
+    if (this.loader.isLoaded()) {
+      try {
+        return this.loader.getSync().getInfo();
+      } catch {
+        // 加载异常回退快照
+      }
+    }
     return this.metadata;
   }
 

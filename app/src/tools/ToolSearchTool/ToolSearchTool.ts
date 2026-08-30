@@ -297,6 +297,30 @@ export class ToolSearchTool extends BaseTool<
         }
       }
 
+      // A 项（2026-08-30）：未命中时给出候选提示——模型反复换词搜索同一目标
+      //（如 select:skills_list 连续 40+ 轮全空）是工具死循环的放大器。返回
+      // 相近工具名（子串匹配）或非延迟工具示例，引导模型一次定位或放弃。
+      let hint = '';
+      if (found.length === 0) {
+        const lower = requested.map((r) => r.toLowerCase());
+        const candidates = allTools
+          .map((t) => t.name)
+          .filter((name) =>
+            lower.some(
+              (r) =>
+                name.toLowerCase().includes(r) || r.includes(name.toLowerCase())
+            )
+          )
+          .slice(0, 5);
+        const fallback = allTools
+          .filter((t) => !isDeferredTool(t))
+          .map((t) => t.name)
+          .slice(0, 10);
+        const hintList = candidates.length > 0 ? candidates : fallback;
+        hint =
+          hintList.length > 0 ? `；可用工具示例: ${hintList.join(', ')}` : '';
+      }
+
       return createToolResult(
         {
           matches: found,
@@ -310,7 +334,7 @@ export class ToolSearchTool extends BaseTool<
               content:
                 found.length > 0
                   ? `已选择工具: ${found.join(', ')}`
-                  : `未找到匹配的工具: ${requested.join(', ')}`,
+                  : `未找到匹配的工具: ${requested.join(', ')}${hint}`,
             },
           ],
         }

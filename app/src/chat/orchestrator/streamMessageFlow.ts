@@ -1584,7 +1584,9 @@ export async function* runStreamMessage(
                     title: todoData.title,
                     status: todoData.phase,
                     // 2026-08-26：透传 planId，回放派生器按 planId/title 查重
-                    planId: todoData.planId,
+                    // 2026-08-30：planId 可选，undefined 键触发 D1 无损 JSON 校验拒绝
+                    //（event.data.taskCard.planId: undefined → invalid-event）
+                    ...(todoData.planId ? { planId: todoData.planId } : {}),
                     tasks: todoData.tasks.map((t) => ({
                       id: t.id,
                       name: t.name,

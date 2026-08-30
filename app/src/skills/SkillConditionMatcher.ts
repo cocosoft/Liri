@@ -4,6 +4,10 @@
  * 评估技能文件中的 front matter 条件，决定技能是否应在当前上下文启用
  */
 
+import { getLogger } from '@modules/monitoring';
+
+const logger = getLogger('skills:conditionMatcher');
+
 /**
  * 条件上下文
  * 包含评估技能条件所需的所有运行时信息
@@ -43,6 +47,7 @@ export class SkillConditionMatcher {
    */
   updateContext(updates: Partial<ConditionContext>): void {
     this.context = { ...this.context, ...updates };
+    logger.info('SkillConditionMatcher.updateContext', { updates });
   }
 
   /**

@@ -6,6 +6,7 @@ import { resolve, relative, isAbsolute } from 'path';
 import type { SkillDefinition } from '../utils/skillParser';
 import { SkillParser } from '../utils/skillParser';
 import { getLogger } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 const logger = getLogger('skills:tool');
 
 /**
@@ -200,6 +201,12 @@ export class SkillTool {
         generatedPrompt: processedContent,
       };
     } catch (error) {
+      // §1.9：统一 handleError（Logger + ErrorTracker），技能执行失败以结构化结果返回
+      await handleError(error, {
+        module: 'skills:tool',
+        action: 'execute',
+        context: { skillName: context.skill.name },
+      }).catch(() => {});
       return {
         success: false,
         error: error instanceof Error ? error.message : String(error),

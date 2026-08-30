@@ -38,6 +38,7 @@ import {
 } from 'fs';
 import { resolveUserSkillsDir } from '@modules/core';
 import { getLogger } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 const logger = getLogger('skills:builtinEnabled');
 
 const FILE_NAME = 'builtin-enabled.json';
@@ -61,7 +62,11 @@ export function loadBuiltinEnabled(dir?: string): Map<string, boolean> {
     >;
     return new Map(Object.entries(raw));
   } catch (error) {
-    logger.warn('内置技能启用状态文件损坏，按默认启用处理', error as Error);
+    // §1.9：统一 handleError；文件损坏降级为默认启用
+    handleError(error, {
+      module: 'skills:builtinEnabled',
+      action: 'load',
+    }).catch(() => {});
     return new Map();
   }
 }
@@ -85,6 +90,10 @@ export function persistBuiltinEnabled(
     );
     renameSync(tmpPath, filePath);
   } catch (error) {
-    logger.error('内置技能启用状态持久化失败', error as Error);
+    // §1.9：统一 handleError；持久化失败不阻断主流程
+    handleError(error, {
+      module: 'skills:builtinEnabled',
+      action: 'persist',
+    }).catch(() => {});
   }
 }

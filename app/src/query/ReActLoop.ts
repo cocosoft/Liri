@@ -19,6 +19,7 @@
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import type { QuestionData } from '@modules/runtime/api/CoreAPI.js';
+import { buildRoundSignature, isRepeatedLoop } from './loopGuard.js';
 
 const logger = getLogger('query:reactLoop');
 
@@ -102,11 +103,17 @@ export interface ReActLoopConfig {
   abortSignal?: AbortSignal;
   /** 最大连续 all-invalid 轮数（熔断器），0=禁用 */
   maxConsecutiveInvalidTurns: number;
+  /**
+   * D 项（2026-08-30）：无进展熔断阈值——连续 N 轮"工具名+状态"签名完全相同
+   * 视为无进展死循环（实测 skills_list 反复搜索 249 轮），0=禁用
+   */
+  maxRepeatedRounds?: number;
 }
 
 const DEFAULT_CONFIG: ReActLoopConfig = {
   maxIterations: 30,
   maxConsecutiveInvalidTurns: 3,
+  maxRepeatedRounds: 3,
 };
 
 // ==========================================
@@ -121,6 +128,9 @@ export abstract class ReActLoop<
   protected config: ReActLoopConfig;
   protected state: ReActState;
   protected consecutiveInvalidTurns = 0;
+
+  /** D 项（2026-08-30）：无进展熔断——最近 N 轮工具+状态签名窗口 */
+  private recentRoundSignatures: string[] = [];
 
   constructor(config?: Partial<ReActLoopConfig>) {
     this.config = { ...DEFAULT_CONFIG, ...config };
@@ -369,6 +379,35 @@ export abstract class ReActLoop<
           };
         }
         yield { type: 'acting_end', result: actResult };
+
+        // --- D 项（2026-08-30）：无进展熔断 ---
+        // 连续 maxRepeatedRounds 轮"工具名+状态"签名完全相同 → 视为死循环。
+        // 实测案例：模型反复 tool_search select:skills_list 等（组合略有变化但
+        // 无实质进展）跑满 249 轮——all-error 熔断（config list 成功）与
+        // maxIterations（300）均未拦截。签名重复检测在轮级提前终止。
+        const repeatedThreshold = this.config.maxRepeatedRounds ?? 3;
+        if (repeatedThreshold > 0) {
+          const sig = buildRoundSignature(actResult);
+          this.recentRoundSignatures.push(sig);
+          if (this.recentRoundSignatures.length > repeatedThreshold) {
+            this.recentRoundSignatures.shift();
+          }
+          if (isRepeatedLoop(this.recentRoundSignatures, repeatedThreshold)) {
+            logger.warn('reActLoop:no_progress_loop', {
+              iteration: this.state.iteration,
+              repeatedRounds: repeatedThreshold,
+              lastSignature: sig,
+            });
+            this.state.phase = 'error';
+            this.state.lastError =
+              'no_progress_loop: repeated tool rounds without progress';
+            yield {
+              type: 'error',
+              message: this.state.lastError,
+            };
+            return this.finalize(this.state, context);
+          }
+        }
 
         // --- Advance iteration ---
         this.state.iteration++;

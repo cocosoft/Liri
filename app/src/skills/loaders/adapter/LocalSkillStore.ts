@@ -30,6 +30,7 @@ import { join } from 'path';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { resolveVendorSkillsDir } from '@modules/core';
 import { getLogger } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import type { InstalledThirdPartySkill, LocalSkillSearchResult } from './types';
 
 const logger = getLogger('skills:localStore');
@@ -131,7 +132,11 @@ export class LocalSkillStore<
       this.initialized = true;
       logger.debug(`LocalSkillStore 初始化完成: ${this.skillsPath}`);
     } catch (error) {
-      logger.error('LocalSkillStore 初始化失败', error as Error);
+      // §1.9：统一 handleError 后上抛（初始化失败属致命，调用方决定降级）
+      await handleError(error, {
+        module: 'skills:localStore',
+        action: 'initialize',
+      }).catch(() => {});
       throw error;
     }
   }
@@ -158,7 +163,11 @@ export class LocalSkillStore<
           `已加载技能索引，共 ${Object.keys(this.index.skills).length} 个技能`
         );
       } catch (error) {
-        logger.warn('技能索引文件损坏，将重新创建', error as Error);
+        // §1.9：统一 handleError；索引损坏降级重建（数据可恢复，非致命）
+        handleError(error, {
+          module: 'skills:localStore',
+          action: 'loadIndex',
+        }).catch(() => {});
         this.index = {
           version: INDEX_VERSION,
           updatedAt: Date.now(),

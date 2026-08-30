@@ -15,6 +15,7 @@
 import { join } from 'path';
 import { existsSync, mkdirSync, writeFileSync } from 'fs';
 import { getLogger } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 import { SkillSource, SkillLoadMethod } from '@modules/skills/types';
 import type { Skill } from '@modules/skills/types';
 import { BaseThirdPartyAdapter } from './BaseThirdPartyAdapter';
@@ -196,7 +197,12 @@ export class RemoteSkillHubAdapter extends BaseThirdPartyAdapter<RemoteSkillData
           this.catalogCache.set(config.id, catalog);
           logger.debug(`已加载目录: ${config.name} (${catalog.length} 个技能)`);
         } catch (error) {
-          logger.warn(`加载目录失败: ${config.name}`, error as Error);
+          // §1.9：统一 handleError；单个目录加载失败降级为空目录（其余继续）
+          handleError(error, {
+            module: 'skills:remoteHubAdapter',
+            action: 'refreshCatalogs',
+            context: { configName: config.name },
+          }).catch(() => {});
           this.catalogCache.set(config.id, []);
         }
       })
@@ -241,7 +247,12 @@ export class RemoteSkillHubAdapter extends BaseThirdPartyAdapter<RemoteSkillData
 
         return catalog.skills;
       } catch (error) {
-        logger.warn(`获取目录失败: ${url}`, error as Error);
+        // §1.9：统一 handleError；远程目录获取失败跳过该 URL（尝试下一镜像）
+        handleError(error, {
+          module: 'skills:remoteHubAdapter',
+          action: 'fetchCatalog',
+          context: { url },
+        }).catch(() => {});
         continue;
       }
     }

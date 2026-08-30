@@ -43,6 +43,7 @@ import {
   stripThinkResponseTags,
   stripOrphanToolTags,
   truncateApiMessages,
+  sanitizeApiMessages,
 } from './services/MessageContextPipeline';
 import { StreamingToolCallScrubber } from '../streaming/scrubbers/StreamingToolCallScrubber';
 import { stripBareExploration } from './services/bareExplorationStripper';
@@ -259,6 +260,13 @@ export class ReActToolLoop extends ReActLoop<
           session.id,
           (this.ctx.options?.maxTokens as number | undefined) ?? undefined
         );
+        // PAIR-GUARD（2026-08-30）：发送前无条件配对清理——truncateApiMessages 未超限时
+        // 早退（不执行内部 sanitize），历史残留/事件派生可能产生"assistant tool_calls 无配对
+        // tool 消息"→ OpenAI 400 "insufficient tool messages following tool_calls"。
+        // 删除不完整 assistant 而非补占位，保守且与 OpenAI 配对约束一致（sanitize 幂等）。
+        sanitizeApiMessages(
+          this.loopState.messages as unknown as Record<string, unknown>[]
+        );
       }
     } catch {
       // 压缩/截断失败不阻断工具循环（@ignore-catch，CS03）
@@ -470,6 +478,30 @@ export class ReActToolLoop extends ReActLoop<
       }
 
       for (const tc of calls) {
+        // PAIR-FILL（2026-08-30）：被跳过工具必须回填 processedResults——assistant 消息
+        // 携带全部 tool_calls，若部分调用无 tool 结果消息，OpenAI 兼容 API 返回 400
+        // "tool_calls must be followed by tool messages"（reactLoop:[reasoning] 400 根因）。
+        // 与成功分支的 processedResults.push 对称，保证 buildToolRoundMessages 配对完整。
+        const recordSkippedTool = (error: string) => {
+          results.push({
+            toolCallId: tc.id,
+            name: tc.name,
+            status: 'error' as const,
+            error,
+          });
+          processedResults.push({
+            normalizedToolCall: {
+              id: tc.id,
+              name: tc.name,
+              arguments: tc.input,
+            },
+            result: {
+              toolCallId: tc.id,
+              toolName: tc.name,
+              error,
+            },
+          });
+        };
         // DecisionGate 门控检查（设计方案 §5.3）：执行前检查是否需要用户确认
         if (this.gateTier) {
           const gateQuestion = decisionGateCheck(
@@ -499,12 +531,7 @@ export class ReActToolLoop extends ReActLoop<
                 sessionId: this.ctx.session.id,
                 toolName: tc.name,
               });
-              results.push({
-                toolCallId: tc.id,
-                name: tc.name,
-                status: 'error' as const,
-                error: '已有待处理交互，决策门控被跳过',
-              });
+              recordSkippedTool('已有待处理交互，决策门控被跳过');
               continue;
             }
             let gateResolve!: (answers: string[]) => void;
@@ -563,12 +590,7 @@ export class ReActToolLoop extends ReActLoop<
                 toolCallId: tc.id,
                 toolName: tc.name,
               });
-              results.push({
-                toolCallId: tc.id,
-                name: tc.name,
-                status: 'error' as const,
-                error: '用户取消执行',
-              });
+              recordSkippedTool('用户取消执行');
               continue;
             }
           }
@@ -581,6 +603,13 @@ export class ReActToolLoop extends ReActLoop<
             this.input.interactionContext &&
             calls.indexOf(tc) === this.input.interactionContext.interactionIdx;
           if (isRecovery) {
+            // 2026-08-30 修复：input 可能为深冻结对象（响应/状态冻结）——注入 _userAnswers
+            // 前确保可扩展，避免 "Attempting to define property on object that is not extensible"
+            // 导致整轮工具执行失败（reactLoop:[acting] 冻结错误 → all-tools-failed）。
+            const inputObj = tc.input as Record<string, unknown>;
+            if (!Object.isExtensible(inputObj)) {
+              tc.input = { ...inputObj };
+            }
             (tc.input as Record<string, unknown>)._userAnswers =
               this.input.interactionContext!.userAnswers;
           } else {
@@ -591,12 +620,7 @@ export class ReActToolLoop extends ReActLoop<
                 toolName: tc.name,
                 toolCallId: tc.id,
               });
-              results.push({
-                toolCallId: tc.id,
-                name: tc.name,
-                status: 'error' as const,
-                error: '已有待处理交互，本次提问被拒绝',
-              });
+              recordSkippedTool('已有待处理交互，本次提问被拒绝');
               continue;
             }
             const { questionData, promise } = this._registerInteraction(tc);
@@ -631,6 +655,11 @@ export class ReActToolLoop extends ReActLoop<
             }
             const answers = answersResult.value; // string[] | undefined
             if (answers) {
+              // 2026-08-30 修复：input 冻结保护（同 isRecovery 分支，防止修改不可扩展对象）
+              const inputObj = tc.input as Record<string, unknown>;
+              if (!Object.isExtensible(inputObj)) {
+                tc.input = { ...inputObj };
+              }
               (tc.input as Record<string, unknown>)._userAnswers = answers;
             }
           }

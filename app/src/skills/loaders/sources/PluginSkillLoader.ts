@@ -9,6 +9,7 @@ import { join, resolve, sep } from 'path';
 import { existsSync } from 'fs';
 import { PluginManager } from '@modules/plugins';
 import { getLogger } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 const logger = getLogger('skills:pluginLoader');
 // 惰性初始化：顶层 PluginManager.getInstance() 会在 plugins 模块半初始化时触发 TDZ（循环导入）
 let _pluginManager: PluginManager | undefined;
@@ -96,15 +97,22 @@ export class PluginSkillLoader extends SkillLoader {
 
               skills.push(skill);
             } catch (error) {
-              logger.error(`Error loading skill from plugin ${pluginId}:`, {
-                error,
-              });
+              // §1.9：统一 handleError；单技能加载失败跳过，不阻断其余
+              handleError(error, {
+                module: 'skills:pluginLoader',
+                action: 'loadSkill',
+                context: { pluginId },
+              }).catch(() => {});
             }
           }
         }
       }
     } catch (error) {
-      logger.error('Error loading plugin skills:', { error });
+      // §1.9：统一 handleError；插件技能整体加载失败不抛出（调用方拿部分结果）
+      handleError(error, {
+        module: 'skills:pluginLoader',
+        action: 'loadPluginSkills',
+      }).catch(() => {});
     }
 
     return skills;

@@ -81,6 +81,11 @@ export function getBuiltinToolLoaders(): ToolLoader[] {
     createToolLoader(ToolFactory.prototype.createTaskUpdateStatusTool),
     createToolLoader(ToolFactory.prototype.createTaskGetListTool),
     createToolLoader(ToolFactory.prototype.createSkillTool),
+    // T9'（2026-08-30）：skills_list / skill_view 注册进 ToolManager loaders——
+    // 此前仅存在于 getAllBaseTools() 工具池路径，未进入 ToolRegistry，导致
+    // tool_search 搜不到 → 模型按 <available_skills> 引导反复搜索 → 工具循环
+    createToolLoader(ToolFactory.prototype.createSkillListTool),
+    createToolLoader(ToolFactory.prototype.createSkillViewTool),
     createToolLoader(ToolFactory.prototype.createWebFetchTool),
     createToolLoader(ToolFactory.prototype.createWebSearchTool),
     createToolLoader(ToolFactory.prototype.createAgentTool),

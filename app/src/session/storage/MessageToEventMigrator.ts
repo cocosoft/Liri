@@ -294,6 +294,16 @@ export class MessageToEventMigrator {
     if (message.role === 'user') {
       // P1-5 缺口修复（2026-08-23）：user 分支透传 messageId（message.id），
       // 非流式落盘/恢复重建的用户消息参与 v1 事件聚合，不再只能靠投影兜底。
+      // F4（2026-08-25）+ 2026-08-30 补修：replyToId 有值才写入（undefined 键会触发
+      // D1 无损 JSON 校验拒绝（event.data.replyToId: undefined）→ invalid-event → pendingRepair）。
+      // 同时兼容顶层与 metadata 两处来源——session-handlers 写前落盘将 replyToId
+      // 存入 metadata.replyToId（顶层无该键），仅读顶层会导致数据丢失 + undefined 键。
+      const msgWithReply = message as unknown as {
+        replyToId?: string;
+        metadata?: { replyToId?: string };
+      };
+      const replyToId =
+        msgWithReply.replyToId || msgWithReply.metadata?.replyToId || '';
       events.push({
         type: 'user/message',
         schemaVersion: 1,
@@ -303,8 +313,7 @@ export class MessageToEventMigrator {
         data: {
           content: this.extractStringContent(message.content),
           messageId: message.id,
-          // F4（2026-08-25）：透传 replyToId，刷新后回复引用（被回复标记/跳转）不丢失
-          replyToId: (message as { replyToId?: string }).replyToId || undefined,
+          ...(replyToId ? { replyToId } : {}),
         },
       });
     } else if (message.role === 'assistant') {
@@ -339,7 +348,9 @@ export class MessageToEventMigrator {
           toolCallId: message.toolCallId,
           result: this.extractStringContent(message.content),
           isError: this.isToolError(message),
-          messageId: parentMsgId,
+          // 2026-08-30：parentMsgId 可选——v0 数据无 parent 来源时 undefined 键会触发
+          // D1 无损 JSON 校验拒绝（event.data.messageId: undefined → invalid-event）
+          ...(parentMsgId ? { messageId: parentMsgId } : {}),
         },
       });
     }

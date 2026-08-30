@@ -21,7 +21,9 @@ import type {
   SkillSource,
 } from './types';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger, getOTelTracing } from '@modules/monitoring';
+import { handleError } from '@modules/error';
+import { getSkillRegistryLazy } from './skillRegistryAccess';
 const logger = getLogger('tools:SkillTool:SkillTool');
 
 /**
@@ -78,6 +80,11 @@ export class SkillTool implements Tool {
    */
   constructor() {
     this.registerBuiltinSkills();
+    // T3b 预热（2026-08-30）：getSkillRegistryLazy 为"异步 import + 同步读缓存"，
+    // 若 getInfo() 首次调用前未触发预热会读到 null → 回退静态描述（冷启动时序缺陷，
+    // 实测 bun test 直接 new SkillTool() + getInfo() 拿到静态描述）。构造时触发
+    // 异步预热，后续 getInfo() 即可读到真实 registry（生产 ToolManager 注册亦受益）。
+    getSkillRegistryLazy();
   }
 
   /**
@@ -131,7 +138,7 @@ export class SkillTool implements Tool {
   getInfo(): ToolInfo {
     return {
       name: this.name,
-      description: this.description,
+      description: this.buildDynamicDescription(),
       params: this.params,
       aliases: undefined,
       searchTips: undefined,
@@ -144,6 +151,31 @@ export class SkillTool implements Tool {
       interruptBehavior: 'block',
       tags: [ToolTag.AGENT],
     };
+  }
+
+  /**
+   * T3b（2026-08-30）：动态描述——同步读 registry 构建紧凑技能名清单，供模型感知
+   * 可调用技能（BUG-6）。M-1：getInfo 为同步接口，不依赖 async ensureSyncedFromRegistry
+   * （后者仅 execute 时调用）；M-2：仅列技能名，描述详情保留在注入块（避免 token 双份）。
+   * 配合 ToolLazyWrapper.getInfo() 穿透（T3a），每次请求取到最新清单。
+   */
+  private buildDynamicDescription(): string {
+    try {
+      const registry = getSkillRegistryLazy();
+      const names =
+        registry
+          ?.getAll({ includeDisabled: false })
+          .filter((s) => s.impl.kind === 'prompt')
+          .map((s) => s.name) ?? [];
+      if (names.length === 0) return this.description;
+      const list =
+        names.slice(0, 15).join(', ') +
+        (names.length > 15 ? `, +${names.length - 15} more` : '');
+      return `Execute a registered skill. Available: ${list}. 技能名可从上下文 <available_skills> 获取。`;
+    } catch {
+      // registry 不可用回退静态描述
+      return this.description;
+    }
   }
 
   /**
@@ -424,11 +456,14 @@ export class SkillTool implements Tool {
     });
 
     try {
-      const result = await this.executeSkill(
-        skill,
-        skillInput.arguments,
-        context
-      );
+      // 2026-08-30 可观测性：技能执行统一 OTel span（技能名维度，对齐 SkillExecutor）
+      const result = await getOTelTracing().wrap(
+        {
+          name: 'skill.execute',
+          attributes: { 'skills.name': skillInput.name },
+        },
+        () => this.executeSkill(skill, skillInput.arguments, context)
+      )();
 
       this.activeExecutions.get(executionId)!.status = 'completed';
 
@@ -451,6 +486,13 @@ export class SkillTool implements Tool {
       };
     } catch (error) {
       this.activeExecutions.get(executionId)!.status = 'failed';
+
+      // 2026-08-30 §1.9：统一 handleError（Logger + ErrorTracker），工具失败以结构化结果返回
+      await handleError(error, {
+        module: 'tools:SkillTool:SkillTool',
+        action: 'execute',
+        context: { skillName: skill.name },
+      }).catch(() => {});
 
       const errorMessage =
         error instanceof Error ? error.message : String(error);

@@ -43,6 +43,8 @@ import { WebFetchTool } from './WebFetchTool/WebFetchTool';
 import { WebSearchTool } from './WebSearchTool/WebSearchTool';
 import { AgentTool } from './AgentTool/AgentTool';
 import { SkillTool } from './SkillTool/SkillTool';
+import { SkillListTool } from './SkillTool/SkillListTool';
+import { SkillViewTool } from './SkillTool/SkillViewTool';
 import { TaskStopTool } from './TaskTool/TaskStopTool';
 import {
   TaskCreateListTool,
@@ -428,6 +430,24 @@ export class ToolFactory {
    */
   createSkillTool(): Tool {
     return new SkillTool();
+  }
+
+  /**
+   * 创建SkillList工具（skills_list，T9' 渐进式披露 tier 1）
+   * 2026-08-30：注册进 ToolManager loaders——此前仅存在于 getAllBaseTools()
+   * 工具池路径，未进入 ToolRegistry，导致 tool_search 搜不到 → 模型反复搜索死循环
+   * @returns SkillListTool实例
+   */
+  createSkillListTool(): Tool {
+    return new SkillListTool();
+  }
+
+  /**
+   * 创建SkillView工具（skill_view，T9' 渐进式披露 tier 2-3）
+   * @returns SkillViewTool实例
+   */
+  createSkillViewTool(): Tool {
+    return new SkillViewTool();
   }
 
   /**
@@ -1173,6 +1193,9 @@ export function getAllBaseTools(): Tool[] {
     tools.push(unifiedSearchTool);
   }
   tools.push(new SkillTool());
+  // T9'（2026-08-30）：hermes 渐进式披露——skills_list 列元数据 + skill_view 按需加载全文
+  tools.push(new SkillListTool());
+  tools.push(new SkillViewTool());
   tools.push(
     new PlanTool() as unknown as Tool<unknown, unknown, ToolProgressData>
   );

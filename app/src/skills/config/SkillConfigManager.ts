@@ -6,6 +6,9 @@ import fs from 'fs';
 import path from 'path';
 import { resolvePyappHome } from '@modules/core';
 import { configManager } from '@modules/config';
+import { getLogger } from '@modules/monitoring';
+
+const logger = getLogger('skills:configManager');
 
 /**
  * 技能源类型
@@ -62,6 +65,9 @@ export class SkillConfigManager {
    */
   registerSource(config: SkillSourceConfig): void {
     this.sources.set(config.name, config);
+    logger.info('SkillConfigManager.registerSource', {
+      sourceName: config.name,
+    });
   }
 
   /**

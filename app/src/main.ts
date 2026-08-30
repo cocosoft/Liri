@@ -1417,6 +1417,23 @@ export async function launch(options: LaunchOptions): Promise<void> {
     });
 
     process.on('unhandledRejection', (reason: unknown) => {
+      // ABORT-HANDLER（2026-08-30）：AbortError 是用户停止/会话切换/压缩超时等
+      // 预期中断在 abort 风暴（多流 promise 同时 settle）时产生的孤儿 rejection，
+      // 非缺陷（实测循环期间 05:34 一次）。降级 warn 记录，不报 ErrorTracker——
+      // 避免"正常取消操作"被误报为错误污染告警；@ignore-catch 等价说明（预期路径）。
+      const isAbort =
+        (reason instanceof DOMException && reason.name === 'AbortError') ||
+        (reason instanceof Error &&
+          (reason.name === 'AbortError' ||
+            reason.message?.includes('aborted')));
+
+      if (isAbort) {
+        logger.warn('unhandledRejection（AbortError 预期中断）', {
+          reason: String(reason),
+        });
+        return;
+      }
+
       writeCrashDump('unhandledRejection', reason);
       logger.error('unhandledRejection', { reason: String(reason) });
 

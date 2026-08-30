@@ -304,6 +304,32 @@ export async function loadSharedContext(
  *  阶段 4：上下文压缩（CompactionOrchestrator 三级渐进）
  * =================================================================== */
 
+/**
+ * T5（2026-08-30）：技能块注入辅助——在未经过 truncateApiMessages 的发送路径
+ * 补一次注入（BUG-3）。复用 SkillInjectionService（幂等，T1 保证恒 1 块）。
+ */
+async function injectSkillsBlock(
+  apiMessages: Record<string, unknown>[]
+): Promise<void> {
+  try {
+    const { skillInjectionService } =
+      await import('@modules/constants/systemPromptSections');
+    await skillInjectionService.ensureFresh();
+    const injected = skillInjectionService.injectSkillsIntoMessageHistory(
+      apiMessages as Array<{
+        role: string;
+        content: string;
+        metadata?: Record<string, unknown>;
+      }>
+    );
+    apiMessages.length = 0;
+    for (const msg of injected)
+      apiMessages.push(msg as Record<string, unknown>);
+  } catch {
+    // @ignore-catch — 注入失败不阻塞主流程（与 truncateApiMessages 内行为一致）
+  }
+}
+
 export async function compactContext(
   ctx: SendMessageContext
 ): Promise<Record<string, unknown>[]> {
@@ -347,6 +373,10 @@ export async function compactContext(
         session.id,
         options?.maxTokens
       );
+    } else {
+      // T5（2026-08-30）：压缩成功且未超限 → 不经过 truncateApiMessages（技能注入缺失，
+      // BUG-3）。补一次注入；T1 幂等保证历史中恒 1 块，不重复。
+      await injectSkillsBlock(ctx.apiMessages);
     }
   } else {
     const maxCtx = resolveMaxContextTokens(options?.model);

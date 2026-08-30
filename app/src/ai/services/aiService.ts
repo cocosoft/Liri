@@ -72,9 +72,19 @@ export class AIServiceImpl implements AIService {
         raw.toolCallId ||
         raw.metadata?.toolCallId ||
         raw.metadata?.tool_call_id;
+      // CONTENT-NORMALIZE（2026-08-30）：后台压缩等内部消息路径（session.messages）的
+      // tool 消息 content 是 ContentBlock[]（含 {type:'tool_result', value, toolCallId}），
+      // 原样透传给 OpenAI 兼容 API 会 400 "unknown variant 'tool_result'"。
+      // 对齐主链路 prepareApiMessages 的归一化：非字符串 content 统一 JSON.stringify。
+      const content =
+        typeof msg.content === 'string' ||
+        msg.content === null ||
+        msg.content === undefined
+          ? msg.content
+          : JSON.stringify(msg.content);
       return {
         role: msg.role as ChatMessage['role'],
-        content: msg.content,
+        content,
         tool_calls: msg.tool_calls,
         tool_call_id: toolCallId,
       };

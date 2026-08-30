@@ -3,6 +3,7 @@ import { SkillLoader } from '../SkillLoader';
 import { createSkillCommand } from '@modules/skills/utils/skillParser';
 import { getMCPServerManager } from '@modules/services/mcp/MCPServerManager.js';
 import { getLogger } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 const logger = getLogger('skills:mcpLoader');
 
 /**
@@ -43,7 +44,11 @@ export class MCPSkillLoader extends SkillLoader {
         }
       }
     } catch (error) {
-      logger.error('Error loading MCP skills:', { error });
+      // §1.9：统一 handleError；MCP 技能加载失败不抛出（调用方拿部分结果）
+      handleError(error, {
+        module: 'skills:mcpLoader',
+        action: 'loadSkills',
+      }).catch(() => {});
     }
 
     return skills;

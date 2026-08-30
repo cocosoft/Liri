@@ -340,6 +340,10 @@ async function fetchWithRetry(
   const RETRYABLE_STATUSES = new Set([429, 503, 504]);
   const MAX_RETRIES = 3;
   const BASE_BACKOFF_MS = 1000;
+  // 启动窗口专用退避（2026-08-30）：503「Service starting」与连接拒绝
+  // （Failed to fetch）多发生在后端重启/启动间隙（实测 10-11s），标准退避
+  // 1s+2s+4s≈7s 窗口不足 → 重试耗尽仍报错。改用 2s 起底（2+4+8=14s）覆盖。
+  const STARTUP_BACKOFF_MS = 2000;
 
   const method = (options.method ?? "GET").toUpperCase();
   const isIdempotent = method !== "POST" && method !== "PATCH";
@@ -364,7 +368,9 @@ async function fetchWithRetry(
         RETRYABLE_STATUSES.has(res.status) &&
         attempt < effectiveMaxRetries
       ) {
-        const delay = BASE_BACKOFF_MS * Math.pow(2, attempt);
+        // 503 视为服务启动中，用启动窗口退避（覆盖后端 10-15s 就绪时间）
+        const base = res.status === 503 ? STARTUP_BACKOFF_MS : BASE_BACKOFF_MS;
+        const delay = base * Math.pow(2, attempt);
         await new Promise((r) => setTimeout(r, delay));
         continue;
       }
@@ -399,9 +405,10 @@ async function fetchWithRetry(
         };
       }
 
-      // 网络错误：幂等方法重试；POST/PATCH 不重试（防副作用重复）
+      // 网络错误：幂等方法重试；POST/PATCH 不重试（防副作用重复）。
+      // 连接拒绝（Failed to fetch）多发生在后端重启间隙，用启动窗口退避。
       if (attempt < effectiveMaxRetries) {
-        const delay = BASE_BACKOFF_MS * Math.pow(2, attempt);
+        const delay = STARTUP_BACKOFF_MS * Math.pow(2, attempt);
         await new Promise((r) => setTimeout(r, delay));
         continue;
       }

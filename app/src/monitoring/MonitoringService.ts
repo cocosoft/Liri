@@ -80,6 +80,11 @@ export class MonitoringService {
   private performanceProfiler = getPerformanceProfiler();
   private presetLoader: AlertPresetLoader;
   private backupManager: BackupManager;
+  /** 内存告警冷却（2026-08-30）：Bun 进程 RSS 基线高（>1GB 常态），
+   * 每次采集（5s）都超阈值会连续刷屏 warn（实测 05:58 每 5s 一条）。
+   * 冷却窗口内同告警只报一次，保留真实告警能力同时去噪。 */
+  private lastMemoryAlertAt = 0;
+  private readonly MEMORY_ALERT_COOLDOWN_MS = 60_000;
 
   constructor(config: Partial<MonitoringConfig> = {}) {
     this.config = {
@@ -389,10 +394,14 @@ export class MonitoringService {
     memoryUsage: NodeJS.MemoryUsage,
     cpuUsage: NodeJS.CpuUsage
   ): void {
-    // 检查内存使用
+    // 检查内存使用（冷却 60s 去重，避免 RSS 基线高的 Bun 应用连续刷屏）
     if (memoryUsage.rss > this.config.alertThresholds.memoryUsage) {
-      const alert = `内存使用超过阈值: ${(memoryUsage.rss / 1024 / 1024).toFixed(2)} MB`;
-      this.addAlert(alert);
+      const now = Date.now();
+      if (now - this.lastMemoryAlertAt >= this.MEMORY_ALERT_COOLDOWN_MS) {
+        this.lastMemoryAlertAt = now;
+        const alert = `内存使用超过阈值: ${(memoryUsage.rss / 1024 / 1024).toFixed(2)} MB`;
+        this.addAlert(alert);
+      }
     }
 
     // 检查CPU使用（正确计算方式）

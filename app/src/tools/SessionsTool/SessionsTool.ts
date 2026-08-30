@@ -17,6 +17,14 @@ import { getLogger } from '@modules/monitoring';
 const logger = getLogger('tools:SessionsTool:SessionsTool');
 
 /**
+ * B 项（2026-08-30）：缺 sessionId 时的引导文案——日志实测模型反复调用
+ * sessions status 因缺 sessionId 失败（"sessionId is required"），但不给任何
+ * 下一步指引 → 反复重试叠加工具循环。统一文案引导先 list 获取 id。
+ */
+const SESSION_ID_REQUIRED_HINT =
+  'Use sessions action=list to get available session ids first.';
+
+/**
  * 会话信息接口
  */
 export interface SessionInfo {
@@ -341,7 +349,7 @@ export class SessionsTool extends BaseTool {
     if (!sessionId) {
       return {
         success: false,
-        error: 'sessionId is required for status action',
+        error: `sessionId is required for status action. ${SESSION_ID_REQUIRED_HINT}`,
       };
     }
 
@@ -376,7 +384,7 @@ export class SessionsTool extends BaseTool {
     if (!sessionId) {
       return {
         success: false,
-        error: 'sessionId is required for history action',
+        error: `sessionId is required for history action. ${SESSION_ID_REQUIRED_HINT}`,
       };
     }
 
@@ -417,7 +425,7 @@ export class SessionsTool extends BaseTool {
     if (!params.sessionId) {
       return {
         success: false,
-        error: 'sessionId is required for yield action',
+        error: `sessionId is required for yield action. ${SESSION_ID_REQUIRED_HINT}`,
       };
     }
 
@@ -490,7 +498,7 @@ export class SessionsTool extends BaseTool {
     if (!params.sessionId) {
       return {
         success: false,
-        error: 'sessionId is required for send action',
+        error: `sessionId is required for send action. ${SESSION_ID_REQUIRED_HINT}`,
       };
     }
 
@@ -532,7 +540,7 @@ export class SessionsTool extends BaseTool {
     if (!params.sessionId) {
       return {
         success: false,
-        error: 'sessionId is required for delete action',
+        error: `sessionId is required for delete action. ${SESSION_ID_REQUIRED_HINT}`,
       };
     }
 

@@ -259,6 +259,19 @@ export function extractCurrentGoal(
 // ============================================================
 
 /**
+ * T1/T4（2026-08-30）：技能注入块识别（metadata 标记 + 内容级兜底，
+ * 与 SkillInjectionService.injectSkillsIntoMessageHistory 幂等判定一致）
+ */
+function isSkillsInjection(msg: Record<string, unknown>): boolean {
+  const meta = msg.metadata as Record<string, unknown> | undefined;
+  if (meta?.__skills_injection === true) return true;
+  return (
+    typeof msg.content === 'string' &&
+    msg.content.includes('<available_skills>')
+  );
+}
+
+/**
  * 上下文长度保护：估算 apiMessages 的 Token 数，超限则优先使用 AI 摘要压缩，
  * 压缩失败或压缩不足时退化为截断旧消息（保留 system prompt + 最近 N 条消息）。
  * 截断后重新 sanitize 以修复 tool/tool_calls 配对完整性。
@@ -286,9 +299,13 @@ export async function truncateApiMessages(
       }>
     );
     // 直接替换数组内容（保持引用）
+    // 2026-08-30 修复：injectSkillsIntoMessageHistory 在 active 空/prompt 空时返回
+    // **原数组引用**——`apiMessages.length = 0` 后再遍历同引用的 injected 会把
+    // 数组自我清空（实测 T4 注入后 []）。**先展开复制再清空**（展开必须发生在
+    // 清空之前，否则同引用下展开到的也是已清空的数组）。
+    const toPush = [...injected];
     apiMessages.length = 0;
-    for (const msg of injected)
-      apiMessages.push(msg as Record<string, unknown>);
+    for (const msg of toPush) apiMessages.push(msg as Record<string, unknown>);
   } catch (err) {
     // Skills 注入失败不阻塞主流程
     await handleError(err, {
@@ -356,6 +373,9 @@ export async function truncateApiMessages(
   for (let i = 0; i < nonSystemMessages.length - protectedCount; i++) {
     if (currentTokens <= SAFE_LIMIT) break;
     const msg = nonSystemMessages[i] as Record<string, unknown>;
+    // T4（2026-08-30）：注入块截断保护——技能注入块是长 user 消息，
+    // 第一遍"优先丢长消息"不丢它（否则注入即删，BUG-4）
+    if (isSkillsInjection(msg)) continue;
     const msgTokens = estimateMessagesTokens([msg as never]);
     if (isShortUserMsg(msg)) continue;
     currentTokens -= msgTokens;
@@ -366,7 +386,25 @@ export async function truncateApiMessages(
       await yieldToEventLoop();
     }
   }
-  // 第二遍：仍超限则也丢短 user 消息（修复 BUG：此前短消息 continue 导致 toDrop 恒空、截断零生效）
+  // 第二遍：仍超限则优先丢注入块（技能索引价值低于用户消息，极端超限兜底），
+  // 再丢短 user 消息（修复 BUG：此前短消息 continue 导致 toDrop 恒空、截断零生效）
+  if (currentTokens > SAFE_LIMIT) {
+    batchStart = Date.now();
+    for (let i = 0; i < nonSystemMessages.length - protectedCount; i++) {
+      if (currentTokens <= SAFE_LIMIT) break;
+      if (toDrop.has(i)) continue;
+      const msg = nonSystemMessages[i] as Record<string, unknown>;
+      if (!isSkillsInjection(msg)) continue;
+      const msgTokens = estimateMessagesTokens([msg as never]);
+      currentTokens -= msgTokens;
+      toDrop.add(i);
+      if (++dropCount % 25 === 0) {
+        logger.debug('drop_batch', { pass: '2a', ms: Date.now() - batchStart });
+        batchStart = Date.now();
+        await yieldToEventLoop();
+      }
+    }
+  }
   if (currentTokens > SAFE_LIMIT) {
     batchStart = Date.now();
     for (let i = 0; i < nonSystemMessages.length - protectedCount; i++) {

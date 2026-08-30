@@ -5,6 +5,9 @@
  */
 import type { Skill, SkillSource } from './types';
 import type { SkillRegistry } from './SkillRegistry';
+import { getLogger } from '@modules/monitoring';
+
+const logger = getLogger('skills:SkillHub');
 
 /**
  * 技能条目（Hub 中的元数据）
@@ -63,6 +66,7 @@ export class SkillHub {
     registry.on('skill-updated', refresh);
 
     refresh();
+    logger.info('SkillHub.bindTo', { bound: true });
   }
 
   /**

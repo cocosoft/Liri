@@ -5,6 +5,9 @@
  * S1-2：shell 执行已永久禁用（此前 enableShellExecution 预留入口，无真实能力需求）。
  */
 import { configManager } from '@modules/config';
+import { getLogger } from '@modules/monitoring';
+
+const logger = getLogger('skills:preprocessor');
 
 /**
  * 预处理选项
@@ -71,7 +74,12 @@ export class SkillPreprocessor {
    */
   preprocess(content: string): string {
     // S1-2：shell 执行永久禁用，仅做模板变量替换
-    return this.resolveTemplateVariables(content);
+    const result = this.resolveTemplateVariables(content);
+    logger.debug('SkillPreprocessor.preprocess', {
+      inChars: content.length,
+      outChars: result.length,
+    });
+    return result;
   }
 
   /**

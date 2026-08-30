@@ -13,6 +13,7 @@ import {
 import { validateSkillFrontmatter } from '@modules/skills/utils/skillValidator';
 import { join } from 'path';
 import { getLogger } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 const logger = getLogger('skills:fileLoader');
 
 /** 文件系统加载器配置 */
@@ -98,9 +99,12 @@ export class FileSkillLoader extends SkillLoader {
         }
       }
     } catch (error) {
-      logger.error(`Error loading skills from directory ${directory}:`, {
-        error,
-      });
+      // §1.9：统一 handleError；目录加载失败不抛出（其余目录继续）
+      handleError(error, {
+        module: 'skills:fileLoader',
+        action: 'loadDirectory',
+        context: { directory },
+      }).catch(() => {});
     }
   }
 
@@ -136,6 +140,7 @@ export class FileSkillLoader extends SkillLoader {
 
       return null;
     } catch (err) {
+      // @ignore-catch — 目录条目读取失败跳过该条目（其余继续扫描）
       return null;
     }
   }
@@ -151,6 +156,7 @@ export class FileSkillLoader extends SkillLoader {
     try {
       await fs.access(filePath);
     } catch (err) {
+      // @ignore-catch — 文件不存在属正常扫描场景，返回 null 跳过
       return null;
     }
 
@@ -176,7 +182,12 @@ export class FileSkillLoader extends SkillLoader {
         loadedFrom: this.config.loadedFrom,
       });
     } catch (error) {
-      logger.error(`Error loading skill from ${filePath}:`, { error });
+      // §1.9：统一 handleError；单技能解析失败返回 null（不阻断其余）
+      handleError(error, {
+        module: 'skills:fileLoader',
+        action: 'loadSkillFromFile',
+        context: { filePath },
+      }).catch(() => {});
       return null;
     }
   }

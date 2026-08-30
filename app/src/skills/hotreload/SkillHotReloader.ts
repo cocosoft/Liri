@@ -37,6 +37,7 @@ import { readFileSync } from 'fs';
 import crypto from 'crypto';
 import { ConfigWatcher } from '@modules/config';
 import { getLogger } from '@modules/monitoring';
+import { handleError } from '@modules/error';
 
 const logger = getLogger('skills:hotreload');
 
@@ -114,7 +115,12 @@ export class SkillHotReloader {
     try {
       content = readFileSync(filePath, 'utf-8');
     } catch (error) {
-      logger.error('技能文件读取失败', { filePath, error: String(error) });
+      // §1.9：统一 handleError；技能文件读取失败以校验失败结果返回
+      handleError(error, {
+        module: 'skills:hotreload',
+        action: 'readFile',
+        context: { filePath },
+      }).catch(() => {});
       return { valid: false, errors: [`读取失败: ${String(error)}`] };
     }
 
@@ -139,11 +145,12 @@ export class SkillHotReloader {
       }
       return result;
     } catch (error) {
-      // handler 抛错 = 无法判定 → 保守拒绝（保留旧定义）
-      logger.error('技能热重载异常，保守拒绝', {
-        filePath,
-        error: String(error),
-      });
+      // handler 抛错 = 无法判定 → 保守拒绝（保留旧定义）；§1.9 统一 handleError
+      handleError(error, {
+        module: 'skills:hotreload',
+        action: 'reloadFile',
+        context: { filePath },
+      }).catch(() => {});
       return { valid: false, errors: [String(error)] };
     }
   }

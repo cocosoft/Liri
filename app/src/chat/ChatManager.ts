@@ -333,7 +333,10 @@ export class ChatManagerImpl implements ChatManager {
 
   /**
    * 传统工具循环最大轮次（防止无 TAORLoop 保护时的死循环）
-   * 可通过环境变量 MAX_TAOR_TURNS 或 MAX_TOOL_TURNS 覆盖，默认 300
+   * 可通过环境变量 MAX_TAOR_TURNS 或 MAX_TOOL_TURNS 覆盖。
+   * 2026-08-30 循环治理：默认 300 → 30——实测工具死循环跑满 249 轮，
+   * 300 上限形同虚设；30 覆盖正常多轮工具任务（QueryEngine 默认 10），
+   * 复杂长任务可经 env 调高或走 TAORLoop（独立上限 MAX_TAOR_TURNS）。
    */
   private readonly MAX_TOOL_TURNS = (() => {
     const env =
@@ -343,7 +346,7 @@ export class ChatManagerImpl implements ChatManager {
       const val = parseInt(env, 10);
       if (!isNaN(val) && val > 0) return val;
     }
-    return 300;
+    return 30;
   })();
 
   /**

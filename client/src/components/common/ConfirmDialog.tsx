@@ -1,3 +1,5 @@
+import { useState } from "react";
+
 interface ConfirmDialogProps {
   open: boolean;
   title: string;
@@ -19,6 +21,16 @@ function ConfirmDialog({
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
+  // P3-1 修复（前端交互专项 2026-08-30）：确认按钮防连点——连点会并发触发两次
+  // onConfirm（如删除会话第二次 404 报错）。点击后锁 300ms 并置 disabled。
+  const [confirming, setConfirming] = useState(false);
+  const handleConfirm = () => {
+    if (confirming) return;
+    setConfirming(true);
+    onConfirm();
+    setTimeout(() => setConfirming(false), 300);
+  };
+
   if (!open) return null;
 
   return (
@@ -39,8 +51,9 @@ function ConfirmDialog({
             {cancelText}
           </button>
           <button
-            onClick={onConfirm}
-            className={`px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors ${
+            onClick={handleConfirm}
+            disabled={confirming}
+            className={`px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors disabled:opacity-50 ${
               variant === "danger"
                 ? "bg-red-500 hover:bg-red-600"
                 : "bg-blue-500 hover:bg-blue-600"

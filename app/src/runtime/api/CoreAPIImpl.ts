@@ -2412,6 +2412,25 @@ export class CoreAPIImpl implements CoreAPI {
           // 原 catch 分支的"首条消息前 30 字符"兜底永远不会执行。
           // 降级标题直接在此生成，LLM 失败时不再停留在"新对话"。
           userMessage.slice(0, 30) + (userMessage.length > 30 ? '…' : '');
+        // P3-2 修复（前端交互专项 2026-08-30）：提交前复查 titleStage——
+        // shouldAutoTitle 只在生成前检查（起点），LLM 生成期间（2~30s）用户手动
+        // 重命名会把 titleStage 置为 manual，此时无条件 rename 会用 AI 标题覆盖
+        // 用户标题。此处复查不能用 shouldAutoTitle（自身 _titleInFlight 会自阻塞），
+        // 直接读 titleStage：manual/final 均跳过 AI 提交。
+        const aiSession = this.chatManager
+          .getSessions()
+          .find((s) => s.id === sessionId);
+        const aiMeta = aiSession?.metadata as
+          | Record<string, unknown>
+          | undefined;
+        const aiStage = aiMeta?.titleStage;
+        if (aiStage === 'manual' || aiStage === 'final') {
+          logger.info('Auto title skipped: user renamed during generation', {
+            sessionId,
+            stage: aiStage,
+          });
+          return;
+        }
         // AI 精化完成 → source='ai' → titleStage='final'（不再覆盖）
         await this.renameSession(sessionId, title, 'ai');
         logger.info('Auto-generated session title', { sessionId, title });

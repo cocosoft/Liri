@@ -260,6 +260,19 @@ export default function ChatMessageList({
     getItemKey: (index) => messages[index]?.id ?? index,
   });
 
+  // P3-5 修复（前端交互专项 2026-08-30）："加载更早消息"把更早消息前插到数组头，
+  // tanstack-virtual 的测量缓存按索引存储（getItemKey 只保证 React 元素稳定），
+  // 前插后所有后续索引整体后移 → 已测量高度被错误复用 → 滚动闪跳/高度抖动。
+  // 检测 messages 首条 id 变化（前插/切会话）时重测可见项高度，修正缓存错位。
+  const firstMessageId = messages[0]?.id;
+  const prevFirstIdRef = useRef(firstMessageId);
+  useEffect(() => {
+    if (prevFirstIdRef.current !== firstMessageId) {
+      virtualizer.measure();
+    }
+    prevFirstIdRef.current = firstMessageId;
+  }, [firstMessageId, virtualizer]);
+
   // P0-2 防御：消息区内容与当前会话一致性校验——渲染层兜底，不依赖 store 守卫。
   // 若 messages 首条 session_id 与 currentSessionId 不一致（切换竞态/数据错位），
   // 按"加载中"处理（骨架屏）而非渲染可能错位的旧会话消息。

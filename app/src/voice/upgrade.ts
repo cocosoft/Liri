@@ -261,11 +261,26 @@ export function upgradeToVoiceConnection(
 
   const acceptKey = generateAcceptKey(key);
 
-  res.writeHead(101, {
+  // WS 握手鉴权（加固部署专项，2026-08-30）：客户端可通过 Sec-WebSocket-Protocol
+  // 子协议携带密钥（liri-auth-<secret>）。RFC 6455 要求：客户端指定了子协议时，
+  // 服务端必须在 101 响应中回传选中的子协议，否则浏览器判定握手失败。
+  const clientProtocols =
+    (req.headers['sec-websocket-protocol'] as string | undefined)
+      ?.split(',')
+      .map((s) => s.trim())
+      .filter(Boolean) ?? [];
+  const selectedProtocol = clientProtocols[0];
+
+  const upgradeHeaders: Record<string, string> = {
     Upgrade: 'websocket',
     Connection: 'Upgrade',
     'Sec-WebSocket-Accept': acceptKey,
-  });
+  };
+  if (selectedProtocol) {
+    upgradeHeaders['Sec-WebSocket-Protocol'] = selectedProtocol;
+  }
+
+  res.writeHead(101, upgradeHeaders);
 
   const rawSocket = res.socket as Socket | undefined;
   if (!rawSocket) {

@@ -163,6 +163,28 @@ export class LocalHTTPService {
           return;
         }
 
+        // WS 握手鉴权（加固部署专项，2026-08-30）：浏览器 WebSocket API 无法携带
+        // 自定义 header，密钥通过 Sec-WebSocket-Protocol 子协议（liri-auth-<secret>）
+        // 或标准 X-API-Key/Bearer 头传递。apiSecret 未配置（非加固部署）时放行。
+        if (this.apiSecret) {
+          const clientProtocols =
+            (req.headers['sec-websocket-protocol'] as string | undefined)
+              ?.split(',')
+              .map((s) => s.trim()) ?? [];
+          const viaSubProtocol = clientProtocols.includes(
+            `liri-auth-${this.apiSecret}`
+          );
+          const viaHeader = verifyRequestAuth(req, this.apiSecret);
+          if (!viaSubProtocol && !viaHeader) {
+            logger.warn('WS 升级鉴权失败', { url: req.url });
+            socket.write(
+              'HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n'
+            );
+            socket.destroy();
+            return;
+          }
+        }
+
         // 将 upgrade 首包放回 socket 缓冲，保证首个 WS 帧不丢失
         if (head && head.length > 0) {
           socket.unshift(head);

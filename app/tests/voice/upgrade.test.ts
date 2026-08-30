@@ -18,7 +18,6 @@ import {
 const MAGIC_GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
 
 describe('isWebSocketUpgrade', () => {
-
   it('检测 Upgrade: websocket 请求头', () => {
     const req = { headers: { upgrade: 'websocket' } } as IncomingMessage;
     expect(isWebSocketUpgrade(req)).toBe(true);
@@ -41,7 +40,6 @@ describe('isWebSocketUpgrade', () => {
 });
 
 describe('parseFrame', () => {
-
   it('缓冲区长度不足 2 字节返回 null', () => {
     expect(parseFrame(Buffer.from([0x81]))).toBeNull();
   });
@@ -109,7 +107,6 @@ describe('parseFrame', () => {
 });
 
 describe('buildFrame', () => {
-
   it('构建短负载帧（≤125 字节）', () => {
     const payload = Buffer.from('test');
     const frame = buildFrame(0x1, payload);
@@ -135,7 +132,6 @@ describe('buildFrame', () => {
 });
 
 describe('upgradeToVoiceConnection', () => {
-
   it('缺少 Sec-WebSocket-Key 返回 null', () => {
     const req = { headers: {} } as IncomingMessage;
     const res = {
@@ -163,5 +159,42 @@ describe('upgradeToVoiceConnection', () => {
     expect(expectedAccept).toBeTruthy();
     expect(expectedAccept.length).toBeGreaterThan(0);
     expect(expectedAccept).toMatch(/^[A-Za-z0-9+/=]+$/);
+  });
+
+  it('客户端携带子协议时 101 响应回传（RFC 6455）', () => {
+    const req = {
+      headers: {
+        'sec-websocket-key': 'dGhlIHNhbXBsZSBub25jZQ==',
+        'sec-websocket-protocol': 'liri-auth-secret-123',
+      },
+    } as unknown as IncomingMessage;
+    let capturedHeaders: Record<string, unknown> | null = null;
+    const res = {
+      writeHead: (_code: number, headers: Record<string, unknown>) => {
+        capturedHeaders = headers;
+      },
+      end: () => {},
+    } as unknown as ServerResponse;
+    upgradeToVoiceConnection(req, res);
+    expect(capturedHeaders).not.toBeNull();
+    expect(capturedHeaders!['Sec-WebSocket-Protocol']).toBe(
+      'liri-auth-secret-123'
+    );
+  });
+
+  it('客户端未携带子协议时 101 响应不带该头', () => {
+    const req = {
+      headers: { 'sec-websocket-key': 'dGhlIHNhbXBsZSBub25jZQ==' },
+    } as unknown as IncomingMessage;
+    let capturedHeaders: Record<string, unknown> | null = null;
+    const res = {
+      writeHead: (_code: number, headers: Record<string, unknown>) => {
+        capturedHeaders = headers;
+      },
+      end: () => {},
+    } as unknown as ServerResponse;
+    upgradeToVoiceConnection(req, res);
+    expect(capturedHeaders).not.toBeNull();
+    expect(capturedHeaders!['Sec-WebSocket-Protocol']).toBeUndefined();
   });
 });

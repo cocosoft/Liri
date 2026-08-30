@@ -1,4 +1,5 @@
 import { httpLegacy as http, http as apiHttp } from "./httpClient";
+import { getApiSecret } from "./backendUrl";
 import { getOTelTracing } from "../monitoring/otel";
 
 // STTResult、STTSegment、VoiceSession 来自共享类型定义
@@ -708,8 +709,13 @@ export function createSTTStream(options?: {
 }): Promise<STTStreamClient> {
   return new Promise((resolve, reject) => {
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    // 加固部署鉴权专项（2026-08-30）：浏览器 WebSocket API 无法携带自定义 header，
+    // 密钥经 Sec-WebSocket-Protocol 子协议（liri-auth-<secret>）传递，不进 URL/日志。
+    const secret = getApiSecret();
+    const subProtocols = secret ? [`liri-auth-${secret}`] : undefined;
     const ws = new WebSocket(
       `${protocol}//${window.location.host}/v1/voice/stt`,
+      subProtocols,
     );
 
     const interimCbs: Array<(text: string) => void> = [];

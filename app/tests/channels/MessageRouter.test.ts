@@ -50,6 +50,14 @@ function makeMessage(overrides: Partial<MessageContext> = {}): MessageContext {
 
 const chatStub = {
   chat: async (): Promise<{ content: string }> => ({ content: 'pong' }),
+  /**
+   * 流式并轨（2026-08-20）：渠道消息主路径走 chatStream。
+   * mock 产出 text chunk + generator return（最终 ChatResponse）。
+   */
+  chatStream: async function* chatStream() {
+    yield { type: 'text', content: 'pong' } as const;
+    return { content: 'pong', finishReason: 'stop' };
+  },
 };
 
 describe('validateInboundFrame（4.11）', () => {

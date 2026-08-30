@@ -10,6 +10,11 @@
  * - P3.1：三级信任行为（development/work/chat）
  * - P3.2：场景联动（CLI --trust-level → config → SecurityIntegration 回退）
  * - 零影响保证：不配置时安全行为不变
+ *
+ * 已知脆弱性（2026-08-30 记录）：本测试经 configManager.setConfigValue 操作真实全局
+ * 配置（~/.pyapp/config.json），非进程内隔离——并发/残留状态可致偶发失败
+ * （如 getDefaultTrustLevel / isWithinWorkingDirectory，单独重跑即恢复）。
+ * 详见 dev_docs/error_repairs/预存错误与待处理问题.md（第七十一次补记 / 前端遗留专项）。
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'bun:test';

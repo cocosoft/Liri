@@ -35,6 +35,7 @@ import {
   handleCreateWorkItem,
   handleCreateWorkspaceSession,
   handleDeleteTask,
+  handleDeleteWorkspace,
   handleDetectLiriDir,
   handleGetChangeSet,
   handleGetChangeSetSummary,
@@ -70,6 +71,11 @@ export async function dispatchWorkspaceRoutes(
   // ---- Workspaces ----
   if (method === 'GET' && url === '/v1/workspaces') {
     await handleListWorkspaces(handlerCtx, req, res);
+    return true;
+  }
+  if (method === 'DELETE' && url.match(/^\/v1\/workspaces\/(.+)$/)) {
+    const workspaceId = url.match(/^\/v1\/workspaces\/(.+)$/)![1];
+    await handleDeleteWorkspace(handlerCtx, req, res, workspaceId);
     return true;
   }
 

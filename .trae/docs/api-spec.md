@@ -671,6 +671,19 @@ data: {"type":"done","result":{...}}
 
 ---
 
+### §3.31 Workspaces（2026-08-30 新增登记）
+
+> 路由注册：`workspace-routes.ts`（`dispatchWorkspaceRoutes`）。
+> 其余 `/v1/workspaces/*` 端点（list/sessions/items/tasks/config/rules/liri/changesets 等）未在清单收录，属已知缺口（§5 待补齐登记）。
+
+| 方法 | 路径 | 后端状态 | 前端调用方 |
+|------|------|----------|-----------|
+| DELETE | `/v1/workspaces/:id` | ✅ 2026-08-30 新增 | `workspaceService.deleteWorkspace`（workspaceSlice.deleteWorkspace → ProjectsPage「删除项目 / 撤销创建」、WorkspaceSwitcher） |
+
+**说明**：按 `meta.id`（`ws_*`）匹配工作空间，删除其物理目录 + `.workspace.json` 元数据；不存在返回 404。修复前端删除项目后本地工作空间目录残留（此前 404 被 workspaceSlice catch 吞掉）。
+
+---
+
 ## §4 前端服务 → 后端接口映射表（三级降级全景）
 
 | 前端服务 | 方法 | HTTP 路径 | Tauri IPC 命令 | IPC 状态 |

@@ -78,6 +78,54 @@ export async function handleListWorkspaces(
 // ========== Workspace Session Handlers ==========
 
 /**
+ * 删除工作空间（物理目录 + .workspace.json 元数据）
+ * DELETE /v1/workspaces/:id
+ * 前端「删除项目 / 撤销创建」在 deleteProject 后调用，清理本地工作空间目录残留
+ * （此前后端无此路由 → 404 → workspaceSlice 仅 warn 并清前端状态，目录残留）。
+ */
+export async function handleDeleteWorkspace(
+  ctx: HandlerCtx,
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  workspaceId: string
+): Promise<void> {
+  try {
+    const { buildEntries, deleteWorkspace: removeWorkspace } =
+      await import('@modules/workspaces/WorkspaceStorage');
+    const entries = await buildEntries();
+    const entry = entries.find((e) => e.meta.id === workspaceId);
+
+    if (!entry) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: '工作空间不存在' } }));
+      return;
+    }
+
+    await removeWorkspace(entry.path);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ success: true }));
+  } catch (err) {
+    await handleError(err, {
+      module: 'infra:http',
+      action: 'workspace_delete',
+    });
+    if (!res.headersSent) {
+      try {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({ error: { message: 'Internal server error' } })
+        );
+      } catch (_err) {
+        handleError(_err, {
+          module: 'infrastructure:http:handlers:workspaces-handlers',
+          action: 'responseAlreadyEnded',
+        });
+      }
+    }
+  }
+}
+
+/**
  * 列出工作空间下的所有会话
  * GET /v1/workspaces/:id/sessions
  */

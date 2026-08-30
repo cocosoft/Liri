@@ -4,7 +4,7 @@
  * 覆盖 ffmpegPipeConvert 参数组装 + transcodeToPcm16 固定参数委托。
  */
 
-import { describe, it, expect, mock } from 'bun:test';
+import { describe, it, expect, mock, afterAll } from 'bun:test';
 import { EventEmitter } from 'events';
 
 type FakeProc = {
@@ -18,30 +18,33 @@ type FakeProc = {
 const spawnCalls: Array<{ cmd: string; args: string[] }> = [];
 const procs: FakeProc[] = [];
 
-mock.module('child_process', () => {
-  return {
-    spawn: (cmd: string, args: string[]) => {
-      spawnCalls.push({ cmd, args });
-      const stdout = new EventEmitter();
-      const stderr = new EventEmitter();
-      const stdin = { write: mock(), end: mock() };
-      const handlers: Record<string, (payload: unknown) => void> = {};
-      const proc = {
-        stdin,
-        stdout,
-        stderr,
-        on: (evt: string, cb: (payload: unknown) => void) => {
-          handlers[evt] = cb;
-          return proc;
-        },
-        _emit: (evt: string, ...payload: unknown[]) => {
-          handlers[evt]?.(payload[0]);
-        },
-      } as FakeProc;
-      procs.push(proc);
-      return proc;
-    },
-  };
+mock.module('child_process', () => ({
+  spawn: (cmd: string, args: string[]) => {
+    spawnCalls.push({ cmd, args });
+    const stdout = new EventEmitter();
+    const stderr = new EventEmitter();
+    const stdin = { write: mock(), end: mock() };
+    const handlers: Record<string, (payload: unknown) => void> = {};
+    const proc = {
+      stdin,
+      stdout,
+      stderr,
+      on: (evt: string, cb: (payload: unknown) => void) => {
+        handlers[evt] = cb;
+        return proc;
+      },
+      _emit: (evt: string, ...payload: unknown[]) => {
+        handlers[evt]?.(payload[0]);
+      },
+    } as FakeProc;
+    procs.push(proc);
+    return proc;
+  },
+}));
+
+// 文件结束后恢复真实 child_process（避免 mock 泄漏污染同进程其他测试文件）
+afterAll(() => {
+  mock.module('child_process', () => require('child_process'));
 });
 
 import {

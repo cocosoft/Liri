@@ -11,7 +11,7 @@
  * 路径隔离：通过 LIRI_DATA_DIR 指向临时目录，不污染真实数据目录。
  */
 
-import { describe, it, expect, mock, beforeEach, afterEach } from 'bun:test';
+import { describe, it, expect, mock, beforeEach, afterEach, afterAll } from 'bun:test';
 import { EventEmitter } from 'events';
 import { existsSync, mkdtempSync, rmSync, writeFileSync, mkdirSync } from 'fs';
 import { tmpdir } from 'os';
@@ -62,6 +62,11 @@ mock.module('child_process', () => ({
     return proc;
   },
 }));
+
+// 文件结束后恢复真实 child_process（避免 mock 泄漏污染同进程其他测试文件）
+afterAll(() => {
+  mock.module('child_process', () => require('child_process'));
+});
 
 // ── fetch mock 工具 ─────────────────────────────────────────
 

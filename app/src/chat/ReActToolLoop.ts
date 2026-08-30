@@ -67,7 +67,6 @@ import {
 } from './services/NegotiationState';
 // 工具轮内上下文压缩（2026-08-23）：复用主流程压缩策略/编排器，
 // 防止长工具会话消息膨胀导致 LLM 请求超限（deepseek 1M 窗口请求 1.78M 实测）
-import { autoCompactionPolicy } from '@modules/context';
 import { compactionOrchestrator } from '@modules/context';
 
 const logger = getLogger('chat:reactToolLoop');
@@ -222,7 +221,7 @@ export class ReActToolLoop extends ReActLoop<
       const { session } = this.ctx;
       const model = (this.ctx.options?.model as string | undefined) ?? '';
       if (this.loopState.messages.length > 0) {
-        const evalResult = await autoCompactionPolicy.evaluateAsync(
+        const evalResult = await this.ctx.unifiedTracker.checkBeforeRequest(
           this.loopState.messages as unknown as ChatMessage[],
           model
         );

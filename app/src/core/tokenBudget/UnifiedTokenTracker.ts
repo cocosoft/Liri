@@ -9,7 +9,7 @@
 
 import type { ContextTracker } from '@modules/query';
 import { extractUsage } from '@modules/ai';
-import { estimateTokens, estimateMessagesTokensCooperative } from '@modules/ai';
+import { estimateTokens, estimateMessagesTokensCooperative, estimateMessagesTokens } from '@modules/ai';
 import { getCachedTiktokenEncoder } from '@modules/ai';
 import { resolveContextWindow } from '@modules/context';
 import { getLogger } from '../../monitoring/logs/Logger';
@@ -45,6 +45,10 @@ export interface WatermarkState {
 export interface CompactionDecision {
   decision: 'trigger' | 'warn' | 'skip';
   beforeTokens: number;
+  /** 决策快照（C7 收敛：由 AutoCompactionPolicy 迁移而来，供调用方显示水位/日志） */
+  snapshot: { tokens: number; maxTokens: number; ratio: number };
+  /** 决策原因（如消息数兜底强制触发 / 反抖动跳过） */
+  reason?: string;
 }
 
 export interface CompactionRecord {
@@ -76,12 +80,51 @@ const MODEL_THRESHOLD_PRESETS: Record<
 };
 
 /** 最长前缀优先匹配 */
-function getModelThresholds(model: string): { warn: number; compact: number } {
+export function getModelThresholds(
+  model: string
+): { warn: number; compact: number } {
   const sorted = Object.keys(MODEL_THRESHOLD_PRESETS).sort(
     (a, b) => b.length - a.length
   );
   const matched = sorted.find((k) => model.startsWith(k));
   return MODEL_THRESHOLD_PRESETS[matched || 'default'];
+}
+
+/** 消息数兜底阈值（C7 收敛：checkBeforeRequest 与 fallback 评估共享） */
+const MESSAGE_COUNT_FALLBACK = 50;
+
+/**
+ * 纯评估 fallback（C7 收敛）：无 UnifiedTokenTracker 实例时的同步兜底评估。
+ * 与 checkBeforeRequest 共享阈值表（getModelThresholds）与消息数兜底，
+ * 仅不参与校准因子与反抖动状态。正常路径（调用方持有 unifiedTracker）不使用。
+ */
+export function evaluateCompactionFallback(
+  messages: readonly { role?: string; content?: string | unknown }[],
+  model: string
+): CompactionDecision {
+  const estimatedTotal = estimateMessagesTokens(messages);
+  const limit = resolveContextWindow(model).tokens;
+  const ratio = limit > 0 ? estimatedTotal / limit : 0;
+  const thresholds = getModelThresholds(model);
+
+  let decision: 'trigger' | 'warn' | 'skip';
+  let reason: string | undefined;
+  if (messages.length > MESSAGE_COUNT_FALLBACK && ratio > 0.3 && ratio < 0.5) {
+    decision = 'trigger';
+    reason = `message count ${messages.length} > ${MESSAGE_COUNT_FALLBACK} (token ratio ${(ratio * 100).toFixed(1)}% below warn, estimation may be off — forcing trigger for safety)`;
+  } else if (ratio >= thresholds.compact) {
+    decision = 'trigger';
+  } else if (ratio >= thresholds.warn) {
+    decision = 'warn';
+  } else {
+    decision = 'skip';
+  }
+  return {
+    decision,
+    beforeTokens: estimatedTotal,
+    snapshot: { tokens: estimatedTotal, maxTokens: limit, ratio },
+    reason,
+  };
 }
 
 // ==========================================
@@ -144,7 +187,7 @@ export class UnifiedTokenTracker {
     this._subscribeSubAgentUsage();
   }
 
-  /** 获取当前校准因子（供 AutoCompactionPolicy 同步） */
+  /** 获取当前校准因子（供调用方诊断/日志；C7 收敛后评估在内部闭环，无需外部同步） */
   getCalibrationFactor(): number {
     return this.calibrationFactor;
   }
@@ -224,18 +267,40 @@ export class UnifiedTokenTracker {
       const effectiveFactor =
         this.calibrationFactor > 0 ? this.calibrationFactor : 1.2;
       const estimatedTotal = state.baselineInputTokens + estimatedOutput;
-      const ratio = (estimatedTotal * effectiveFactor) / limit;
-
+      // C7 收敛（自 AutoCompactionPolicy）：修正后 tokens + 决策快照（调用方显示水位用）
+      const tokens = Math.round(estimatedTotal * effectiveFactor);
+      const ratio = limit > 0 ? tokens / limit : 0;
+      const snapshot = { tokens, maxTokens: limit, ratio };
       const thresholds = getModelThresholds(model);
-      const decision: CompactionDecision =
-        ratio >= thresholds.compact
-          ? { decision: 'trigger', beforeTokens: estimatedTotal }
-          : ratio >= thresholds.warn
-            ? { decision: 'warn', beforeTokens: estimatedTotal }
-            : { decision: 'skip', beforeTokens: estimatedTotal };
+
+      let decision: 'trigger' | 'warn' | 'skip';
+      let reason: string | undefined;
+
+      // 消息数兜底：token 估算严重偏低时（消息数已达上限但 ratio 处于可疑区间），
+      // 强制 trigger 启动完整压缩管线，防止压缩永远不触发（水位过低 <30% 时即使
+      // 估算偏差 3 倍也不会超限，无需强制；仅 0.3-0.5 可疑区间强制）。
+      if (
+        messages.length > MESSAGE_COUNT_FALLBACK &&
+        ratio > 0.3 &&
+        ratio < 0.5
+      ) {
+        decision = 'trigger';
+        reason = `message count ${messages.length} > ${MESSAGE_COUNT_FALLBACK} (token ratio ${(ratio * 100).toFixed(1)}% below warn, estimation may be off — forcing trigger for safety)`;
+      } else if (ratio >= thresholds.compact) {
+        if (this.shouldSkipDueToAntiFlapping()) {
+          decision = 'skip';
+          reason = 'anti-flapping: last compactions each saved < 10%';
+        } else {
+          decision = 'trigger';
+        }
+      } else if (ratio >= thresholds.warn) {
+        decision = 'warn';
+      } else {
+        decision = 'skip';
+      }
 
       logger.info('unified:checkBeforeRequest', {
-        decision: decision.decision,
+        decision,
         ratio: Math.round(ratio * 100) / 100,
         estimatedTotal,
         contextLimit: limit,
@@ -243,14 +308,19 @@ export class UnifiedTokenTracker {
         calibrationFactor: Math.round(this.calibrationFactor * 100) / 100,
         warnThreshold: thresholds.warn,
         compactThreshold: thresholds.compact,
+        reason,
       });
-      return decision;
+      return { decision, beforeTokens: estimatedTotal, snapshot, reason };
     } catch (err) {
       handleError(err, {
         module: 'core:tokenBudget',
         action: 'check_before_request',
       });
-      return { decision: 'skip', beforeTokens: 0 };
+      return {
+        decision: 'skip',
+        beforeTokens: 0,
+        snapshot: { tokens: 0, maxTokens: 0, ratio: 0 },
+      };
     }
   }
 

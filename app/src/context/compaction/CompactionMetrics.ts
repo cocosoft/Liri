@@ -8,7 +8,7 @@
  *   /context debug    — 压缩决策树打印
  */
 import { getLogger } from '@modules/monitoring';
-import { autoCompactionPolicy } from './AutoCompactionPolicy';
+import { getModelThresholds } from '@modules/core/tokenBudget/UnifiedTokenTracker';
 const logger = getLogger('context:compaction:diag');
 
 const MAX_HISTORY_ENTRIES = 50;
@@ -133,16 +133,14 @@ class CompactionMetricsTracker {
     // C8 修复（压缩链路排查 2026-08-13）：阈值动态读取——小窗口模型（<128K）
     // 触发水位 60%/70%，大窗口 85%/92%（AutoCompactionPolicy 构造默认），
     // 不再硬编码文案（原 85/92% 对 llama.cpp 等小窗口模型失真）。
-    const { warnRatio, blockRatio } = autoCompactionPolicy.getThresholds(model);
+    // C7 收敛：阈值统一取自 UnifiedTokenTracker.getModelThresholds（模型前缀表）
+    const { warn: warnRatio, compact: blockRatio } = getModelThresholds(model);
     const warnPct = Math.round(warnRatio * 100);
     const blockPct = Math.round(blockRatio * 100);
     // 大窗口（默认任务 200K）阈值用于对比说明；'default' 为任务路由名，非具体模型
-    const largeWarn = Math.round(
-      autoCompactionPolicy.getThresholds('default').warnRatio * 100
-    );
-    const largeBlock = Math.round(
-      autoCompactionPolicy.getThresholds('default').blockRatio * 100
-    );
+    const large = getModelThresholds('default');
+    const largeWarn = Math.round(large.warn * 100);
+    const largeBlock = Math.round(large.compact * 100);
 
     // 阈值渲染日志（C8 观察用）：记录 model 入参、原始小数阈值、渲染后百分比与窗口对比，
     // 便于核对 /context debug 输出与实际触发水位（evaluate 的 warnRatio/blockRatio）一致
@@ -164,7 +162,7 @@ class CompactionMetricsTracker {
     return [
       '## Compaction Debug Tree',
       '',
-      '### AutoCompactionPolicy',
+      '### Compaction Thresholds（C7 收敛：UnifiedTokenTracker）',
       `  < ${warnPct}% → skip`,
       `  ${warnPct}-${blockPct}% → warn → recommend MicroCompact (Tier 1) or Snip (Tier 2)`,
       `  > ${blockPct}% → trigger → Full Compaction (Tier 3)`,

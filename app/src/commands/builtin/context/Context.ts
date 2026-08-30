@@ -4,7 +4,6 @@
 import type { CommandContext, CommandResult } from '@modules/commands';
 import { compactionMetricsTracker } from '@modules/context';
 import { estimateMessagesTokens } from '@modules/ai';
-import { autoCompactionPolicy } from '@modules/context';
 import type { ContextSnapshot } from '@modules/context';
 import { analyzeContextUsage, formatWalletBreakdown } from './ContextWallet';
 

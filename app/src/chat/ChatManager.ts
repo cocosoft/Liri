@@ -790,6 +790,8 @@ export class ChatManagerImpl implements ChatManager {
       this.tokenBudget,
       new ContextTracker()
     );
+    // C7 收敛：压缩评估统一走 UnifiedTokenTracker（注入到单例编排器）
+    compactionOrchestrator.setTracker(this.unifiedTracker);
     this.stopHookManager = createStopHookManager();
     this._registerStopHooks();
 
@@ -2691,14 +2693,11 @@ export class ChatManagerImpl implements ChatManager {
 
     const totalTokens = inputTokens + outputTokens;
     this.tokenBudget.consumeTokens(totalTokens);
-    // Phase 1c: 同步校准因子到 UnifiedTokenTracker
+    // Phase 1c: 同步校准因子到 UnifiedTokenTracker（C7 收敛：评估统一在
+    // UnifiedTokenTracker 内部闭环，不再同步到 AutoCompactionPolicy）
     this.unifiedTracker.recordPostRequest({
       usage: { inputTokens, outputTokens, totalTokens },
     });
-    // 同步校准因子到 AutoCompactionPolicy（使压缩决策阈值更准确）
-    compactionOrchestrator
-      .getPolicy()
-      .setCalibrationFactor(this.unifiedTracker.getCalibrationFactor());
   }
 
   /**

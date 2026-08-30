@@ -284,6 +284,7 @@ export class StreamPipeline {
               skipTier3Sync: true,
               preEvaluated: {
                 decision: 'trigger' as const,
+                beforeTokens: afterTokens,
                 snapshot: {
                   tokens: afterTokens,
                   maxTokens: maxCtx,

@@ -1,11 +1,11 @@
 /**
  * CompactionOrchestrator — 压缩编排器（Phase 5 集成回线）
  *
- * 串联 AutoCompactionPolicy → MicroCompactionEngine / SnipEngine / LLM Full
+ * 串联 UnifiedTokenTracker 评估 → MicroCompactionEngine / SnipEngine / LLM Full
  * 注入 CompactionHooks 生命周期 + CompactionMetrics 追踪
  *
- * 管线：
- *   1. AutoCompactionPolicy.evaluate() → skip / warn / trigger
+ * 管线（C7 收敛 2026-08-30：评估统一走 UnifiedTokenTracker.checkBeforeRequest）：
+ *   1. UnifiedTokenTracker.checkBeforeRequest() → skip / warn / trigger
  *   2. skip → 返回原消息
  *   3. warn → 尝试 Tier 1（Micro），无效则 Tier 2（Snip）
  *   4. trigger → 执行 Tier 2（Snip），无效则 Tier 3（LLM Full）
@@ -14,10 +14,10 @@
 import type { ChatMessage } from '@modules/ai';
 import { estimateMessagesTokens } from '@modules/ai';
 import {
-  AutoCompactionPolicy,
-  autoCompactionPolicy,
-  type AutoCompactionDecision,
-} from './AutoCompactionPolicy';
+  type CompactionDecision,
+  type UnifiedTokenTracker,
+  evaluateCompactionFallback,
+} from '@modules/core/tokenBudget/UnifiedTokenTracker';
 import { applyMicroCompaction } from './MicroCompactionEngine';
 import { snipMessages } from './SnipEngine';
 import {
@@ -101,7 +101,8 @@ export interface CompactionSummaryEnvelope {
 }
 
 export interface CompactionOrchestratorOptions {
-  policy?: AutoCompactionPolicy;
+  /** C7 收敛：评估统一走 UnifiedTokenTracker（checkBeforeRequest），不再使用 AutoCompactionPolicy */
+  tracker?: UnifiedTokenTracker;
 }
 
 /** 压缩执行结果（P1-2 扩展：success 时携带摘要调用信封供事件重建） */
@@ -112,10 +113,47 @@ export type CompactionOutcome = {
 };
 
 export class CompactionOrchestrator {
-  private policy: AutoCompactionPolicy;
+  /** C7 收敛：评估统一走 UnifiedTokenTracker.checkBeforeRequest（含校准因子/反抖动/消息数兜底） */
+  private tracker: UnifiedTokenTracker | null = null;
 
   constructor(options: CompactionOrchestratorOptions = {}) {
-    this.policy = options.policy ?? autoCompactionPolicy;
+    this.tracker = options.tracker ?? null;
+  }
+
+  /** 设置评估 tracker（C7 收敛：ChatManager 初始化时注入其 unifiedTracker 实例） */
+  setTracker(tracker: UnifiedTokenTracker): void {
+    this.tracker = tracker;
+  }
+
+  /**
+   * 压缩评估统一入口（C7 收敛）：优先 UnifiedTokenTracker.checkBeforeRequest（异步协作式估算
+   * + 校准因子 + 反抖动），无 tracker 时回退 evaluateCompactionFallback（纯函数兜底）。
+   */
+  private async evaluateCompaction(
+    messages: ChatMessage[],
+    ctx: CompactionContext,
+    tracker?: UnifiedTokenTracker
+  ): Promise<CompactionDecision> {
+    const active = tracker ?? this.tracker;
+    if (active) {
+      return active.checkBeforeRequest(messages, ctx.model);
+    }
+    // 无 tracker 异常兜底（正常路径 ChatManager 已注入）：纯函数评估，不参与校准/反抖动
+    logger.warn('compaction:evaluate_fallback — 无 UnifiedTokenTracker，使用纯函数兜底评估', {
+      sessionId: ctx.sessionId,
+      model: ctx.model,
+    });
+    return evaluateCompactionFallback(messages, ctx.model);
+  }
+
+  /** 记录反抖动数据（C7 收敛：委托 UnifiedTokenTracker.recordCompaction） */
+  private recordSaving(savingPercent: number, beforeTokens: number, afterTokens: number): void {
+    if (this.tracker) {
+      this.tracker.recordCompaction(beforeTokens, afterTokens);
+    } else if (savingPercent >= 10) {
+      // 无 tracker 时仅记录日志（反抖动由 Unified 接管，此处无状态可写）
+      logger.debug('compaction:no_tracker_saving_skipped', { savingPercent });
+    }
   }
 
   /**
@@ -132,7 +170,11 @@ export class CompactionOrchestrator {
   async compact(
     messages: ChatMessage[],
     ctx: CompactionContext,
-    options?: { skipTier3Sync?: boolean; preEvaluated?: AutoCompactionDecision }
+    options?: {
+      skipTier3Sync?: boolean;
+      preEvaluated?: CompactionDecision;
+      tracker?: UnifiedTokenTracker;
+    }
   ): Promise<CompactionOutcome> {
     // 防止双管线并发压缩同一会话（P2-5：内存 + 磁盘双层锁，崩溃残留锁自动清除）
     let lockCompactionId: string | undefined;
@@ -179,7 +221,7 @@ export class CompactionOrchestrator {
       // 传入 preEvaluated（调用方协作式异步评估）时直接复用，跳过内部二次同步评估
       const decision =
         options?.preEvaluated ??
-        this.policy.evaluate(messages, ctx.model, ctx.configOverride);
+        (await this.evaluateCompaction(messages, ctx, options?.tracker));
       // 排查日志：决策汇总（skip/warn/trigger 三态 + 阈值快照）
       logger.info('compaction:决策', {
         decision: decision.decision,
@@ -330,7 +372,7 @@ export class CompactionOrchestrator {
   private async _doCompact(
     messages: ChatMessage[],
     ctx: CompactionContext,
-    decision: ReturnType<AutoCompactionPolicy['evaluate']>,
+    decision: CompactionDecision,
     startTime: number,
     options?: { skipTier3Sync?: boolean }
   ): Promise<CompactionOutcome> {
@@ -383,7 +425,10 @@ export class CompactionOrchestrator {
 
       // Tier 2 无效或仍超限 → 尝试 Tier 3 LLM Full Compaction（带独立超时，
       // 超时只中断 LLM 调用并保留 Tier2 结果，不再丢弃整个压缩成果）
-      if (!result.applied || this.isStillOverBudget(result.messages, ctx)) {
+      if (
+        !result.applied ||
+        (await this.isStillOverBudget(result.messages, ctx))
+      ) {
         logger.info('compaction:escalating_to_tier3', {
           reason: result.applied ? 'snip_insufficient' : 'snip_no_effect',
           beforeTokens,
@@ -431,9 +476,9 @@ export class CompactionOrchestrator {
         : 0;
     const durationMs = Date.now() - startTime;
 
-    // 记录反抖动数据（Tier 2 及以上）
+    // 记录反抖动数据（Tier 2 及以上）——C7 收敛：委托 UnifiedTokenTracker.recordCompaction
     if (tier >= 2) {
-      this.policy.recordSaving(savingPercent);
+      this.recordSaving(savingPercent, beforeTokens, afterTokens);
     }
 
     // Run tier trigger hook
@@ -682,27 +727,14 @@ export class CompactionOrchestrator {
 
   /**
    * 检查压缩后是否仍超出预算（用于判断是否需要升到 Tier 3）
+   * C7 收敛：评估统一走 UnifiedTokenTracker.checkBeforeRequest（异步）
    */
-  private isStillOverBudget(
+  private async isStillOverBudget(
     messages: ChatMessage[],
     ctx: CompactionContext
-  ): boolean {
-    const decision = this.policy.evaluate(
-      messages,
-      ctx.model,
-      ctx.configOverride
-    );
+  ): Promise<boolean> {
+    const decision = await this.evaluateCompaction(messages, ctx);
     return decision.decision === 'trigger';
-  }
-
-  /** 获取当前压缩策略 */
-  getPolicy(): AutoCompactionPolicy {
-    return this.policy;
-  }
-
-  /** 重置压缩状态（新会话开始时调用） */
-  reset(): void {
-    this.policy.reset();
   }
 }
 

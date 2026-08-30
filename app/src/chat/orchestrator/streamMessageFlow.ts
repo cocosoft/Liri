@@ -68,7 +68,7 @@ import {
 } from './preSendContextProtection.js';
 import { savePlainTextCheckpoint } from './plainTextCheckpointSave.js';
 import { compactionOrchestrator } from '@modules/context';
-import { autoCompactionPolicy } from '@modules/context';
+import { getModelThresholds } from '@modules/core/tokenBudget/UnifiedTokenTracker';
 import { getOTelTracing } from '@modules/monitoring';
 import { trajectoryRecorder } from '@modules/agent';
 import { trajectoryRuntime } from '@modules/core';
@@ -173,7 +173,7 @@ export async function* runStreamMessage(
       model: options?.model ?? 'unknown',
       messageCount: session.messages.length,
     });
-    const preCompactEval = await autoCompactionPolicy.evaluateAsync(
+    const preCompactEval = await host.unifiedTracker.checkBeforeRequest(
       session.messages as unknown as ChatMessage[],
       options?.model || ''
     );
@@ -1701,15 +1701,13 @@ export async function* runStreamMessage(
     // 长度守卫（compactSessionInBackground 内部）防覆盖压缩期间新增消息。
     // 前端可见性（2026-08-19）：水位接近触发阈值（复用 policy 真实阈值，CS01 不重复定义）
     // 时发射"后台压缩进行中"状态块，提示用户上下文较长已进入后台压缩
-    const bgThresholds = autoCompactionPolicy.getThresholds(
-      options?.model || ''
-    );
+    const bgThresholds = getModelThresholds(options?.model || '');
     const bgTokens = estimateMessagesTokens(
       session.messages as unknown as ChatMessage[]
     );
     const bgMax = resolveMaxContextTokens(options?.model);
     const bgRatio = bgMax > 0 ? bgTokens / bgMax : 0;
-    if (bgRatio >= bgThresholds.warnRatio) {
+    if (bgRatio >= bgThresholds.warn) {
       yield {
         type: 'status',
         statusType: 'compaction',

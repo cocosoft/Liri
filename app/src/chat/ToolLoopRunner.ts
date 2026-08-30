@@ -39,6 +39,7 @@ import type { ToolCall, ToolResult } from './types/tool.js';
 import type { Message } from './types/message.js';
 import type { ChatSession } from './types/session.js';
 import type { ToolCallEventDetail } from './types/message.js';
+import type { UnifiedTokenTracker } from '@modules/core/tokenBudget/UnifiedTokenTracker';
 
 /* ===================================================================
  *  ToolLoopContext — 工具循环所需的全部外部依赖
@@ -149,14 +150,8 @@ export interface ToolLoopContext {
   };
 
   // 词元追踪（设计一 2026-08-26：方法带 sessionId 参数，多会话并发水位隔离）
-  unifiedTracker: {
-    resetStreamTokens(sessionId?: string): void;
-    updateBaselineForRound(
-      messages: unknown[],
-      model: string,
-      sessionId?: string
-    ): Promise<void>;
-  };
+  // C7 收敛：完整 UnifiedTokenTracker 类型——工具轮内压缩评估需 checkBeforeRequest
+  unifiedTracker: UnifiedTokenTracker;
   recordChatResponseUsage: (sessionId: string, usage: unknown) => void;
   /** AB-10 修复：工具轮次 LLM 用量上报（区别于 recordChatResponseUsage 的内部记账，此回调转发给 streamMessage 的 onUsage → 前端 usage 事件） */
   onToolUsage?: (usage: Record<string, unknown>) => void;

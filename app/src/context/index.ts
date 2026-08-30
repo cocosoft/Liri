@@ -84,8 +84,8 @@ export * from './EffectScope.js';
 export * from './DependencyRegistry.js';
 
 // 2026-08-29 R03-002 收敛：compaction / window / async 统一出口
+// C7 收敛（2026-08-30）：AutoCompactionPolicy 已删除，评估统一走 UnifiedTokenTracker
 export { compactionOrchestrator } from './compaction/CompactionOrchestrator';
-export { autoCompactionPolicy } from './compaction/AutoCompactionPolicy';
 export {
   compactionMetricsTracker,
   type ContextSnapshot,

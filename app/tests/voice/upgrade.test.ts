@@ -141,7 +141,7 @@ describe('upgradeToVoiceConnection', () => {
     const res = {
       writeHead: () => {},
       end: () => {},
-    } as ServerResponse;
+    } as unknown as ServerResponse;
     expect(upgradeToVoiceConnection(req, res)).toBeNull();
   });
 
@@ -150,7 +150,7 @@ describe('upgradeToVoiceConnection', () => {
     const res = {
       writeHead: () => {},
       end: () => {},
-    } as ServerResponse;
+    } as unknown as ServerResponse;
     expect(upgradeToVoiceConnection(req, res)).toBeNull();
   });
 

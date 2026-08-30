@@ -82,12 +82,12 @@ describe('SleepMonitor', () => {
   test('detected 发布事件，resolve 发布 resolved 事件（含 runMissed）', () => {
     const detected: unknown[] = [];
     const resolved: unknown[] = [];
-    const sub1 = globalEventBus.subscribe(SLEEP_EVENTS.DETECTED, (d) =>
-      detected.push(d)
-    );
-    const sub2 = globalEventBus.subscribe(SLEEP_EVENTS.RESOLVED, (d) =>
-      resolved.push(d)
-    );
+    const sub1 = globalEventBus.subscribe(SLEEP_EVENTS.DETECTED, (d) => {
+      detected.push(d);
+    });
+    const sub2 = globalEventBus.subscribe(SLEEP_EVENTS.RESOLVED, (d) => {
+      resolved.push(d);
+    });
 
     monitor.detectTick(1000);
     fakeNow += 3 * 60 * 60 * 1000;
@@ -105,9 +105,9 @@ describe('SleepMonitor', () => {
 
   test('未暂停时 resolve 为空操作（不发布事件）', () => {
     const resolved: unknown[] = [];
-    const sub = globalEventBus.subscribe(SLEEP_EVENTS.RESOLVED, (d) =>
-      resolved.push(d)
-    );
+    const sub = globalEventBus.subscribe(SLEEP_EVENTS.RESOLVED, (d) => {
+      resolved.push(d);
+    });
     monitor.resolve(true);
     expect(resolved).toHaveLength(0);
     sub.unsubscribe();
@@ -115,9 +115,9 @@ describe('SleepMonitor', () => {
 
   test('检测一次只广播一次（幂等）', () => {
     const detected: unknown[] = [];
-    const sub = globalEventBus.subscribe(SLEEP_EVENTS.DETECTED, (d) =>
-      detected.push(d)
-    );
+    const sub = globalEventBus.subscribe(SLEEP_EVENTS.DETECTED, (d) => {
+      detected.push(d);
+    });
     monitor.detectTick(1000);
     fakeNow += 5 * 60 * 60 * 1000;
     monitor.detectTick(1000);

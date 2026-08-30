@@ -102,7 +102,8 @@ describe('logger', () => {
 
   it('should filter out undefined/null args', () => {
     const spy = spyOn(console, 'info').mockImplementation(() => {});
-    logger.info('a', undefined, 'b', null, 'c');
+    // Logger.info 签名为 (message, meta?)；多余参数运行时被忽略，仅保留 meta 位置验证过滤
+    logger.info('a', undefined);
     const callArg = spy.mock.calls[0][0] as string;
     const parsed = JSON.parse(callArg);
     expect(parsed.level).toBe('info');

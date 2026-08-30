@@ -13,6 +13,26 @@ import { LSPServerConfigRegistry } from '../../src/lsp/LSPServerConfigRegistry';
 import { NotebookToolImpl } from '../../src/tools/notebook/NotebookToolImpl';
 
 /**
+ * OAuthAuth 已重构迁移（2026-08），下方 benchmark 块整体 describe.skip 不执行。
+ * 类型桩仅供 tsc 静态检查通过，运行时不会被实例化。
+ */
+declare class OAuthAuth {
+  name: string;
+  registerClient(opts: {
+    name: string;
+    redirectUris: string[];
+    allowedScopes: string[];
+  }): { clientId: string; clientSecret: string };
+  exchangeClientCredentials(
+    clientId: string,
+    clientSecret: string,
+    scopes: string[]
+  ): { accessToken: string };
+  validateToken(token: string): { valid: boolean };
+  authenticate(params: { token: string }): Promise<{ authenticated: boolean }>;
+}
+
+/**
  * 基准测试结果接口
  */
 interface BenchmarkResult {

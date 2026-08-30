@@ -152,7 +152,7 @@ describe('BaseThirdPartyAdapter（阶段 1）', () => {
   });
 
   it('searchSkills 本地过滤生效（P2-7：searchLocal 收到 options）', async () => {
-    await adapter.localStore.addSkill(
+    await adapter.getLocalStore().addSkill(
       makeInstalled('local-1', {
         installPath: join(dir, 'local-1'),
         meta: { id: 'local-1', name: 'local-one', version: '1.0.0', description: 'a', author: 't' },
@@ -195,7 +195,7 @@ describe('BaseThirdPartyAdapter（阶段 1）', () => {
     const installPath = join(dir, 'real-skill');
     mkdirSync(installPath, { recursive: true });
     writeFileSync(join(installPath, 'SKILL.md'), '# Old Version', 'utf-8');
-    await adapter.localStore.addSkill(
+    await adapter.getLocalStore().addSkill(
       makeInstalled('real-skill', { installPath, sourceUrl: 'https://hub.example.com/real-skill' })
     );
 
@@ -203,7 +203,7 @@ describe('BaseThirdPartyAdapter（阶段 1）', () => {
     expect(updated).not.toBeNull();
 
     // 索引更新为新版本
-    const indexed = await adapter.localStore.getSkill('real-skill');
+    const indexed = await adapter.getLocalStore().getSkill('real-skill');
     expect(indexed?.meta.version).toBe('2.0.0');
     // 正式目录内容为新版本
     expect(readFileSync(join(installPath, 'SKILL.md'), 'utf-8')).toBe('# New Version');
@@ -216,7 +216,7 @@ describe('BaseThirdPartyAdapter（阶段 1）', () => {
     const installPath = join(dir, 'real-skill');
     mkdirSync(installPath, { recursive: true });
     writeFileSync(join(installPath, 'SKILL.md'), '# Old Version', 'utf-8');
-    await adapter.localStore.addSkill(
+    await adapter.getLocalStore().addSkill(
       makeInstalled('real-skill', { installPath, sourceUrl: 'https://hub.example.com/real-skill' })
     );
 
@@ -246,7 +246,7 @@ describe('BaseThirdPartyAdapter（阶段 1）', () => {
   it('5.5：initialize 时正式目录缺失且 .bak 存在 → 自动还原，.tmp 残留被清理', async () => {
     const crashPath = join(dir, 'crash-skill');
     // 索引指向 crashPath（正式目录缺失 → 模拟 updateSkill 中断）
-    await adapter.localStore.addSkill(
+    await adapter.getLocalStore().addSkill(
       makeInstalled('crash-skill', { installPath: crashPath })
     );
 

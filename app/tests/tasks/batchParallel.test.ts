@@ -34,9 +34,13 @@ function makeFakeLoop(tracker: { active: number; maxActive: number }) {
   } as never;
 }
 
-type OrchestratorWithPrivates = LongRunningTaskOrchestrator & {
+// 注：不能写成 LongRunningTaskOrchestrator & {...} 交集——其 planId 为 private 成员，
+// 交集会因 private 标识符冲突被化简为 never。此处用独立接口，配合构造处的
+// `as unknown as` 双重断言访问私有字段（仅测试私有细节用）。
+type OrchestratorWithPrivates = {
   planId: string | null;
   setTAORLoopFactory: (f: (sessionId: string) => never) => void;
+  executeAllSteps: () => Promise<unknown>;
 };
 
 function makeOrchestrator(): OrchestratorWithPrivates {

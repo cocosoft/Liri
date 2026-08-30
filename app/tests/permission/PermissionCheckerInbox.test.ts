@@ -81,7 +81,7 @@ beforeEach(() => {
   inboxManager.submit = (async (item: SubmittedItem) => {
     submittedItems.push(item);
     return { id: 'mock-approval', status: 'pending' };
-  }) as typeof inboxManager.submit;
+  }) as unknown as typeof inboxManager.submit;
   originalIsUnattended = unattendedMode.isUnattended;
   originalShouldAutoApprove = unattendedMode.shouldAutoApprove;
   // 默认交互模式（非无人值守）

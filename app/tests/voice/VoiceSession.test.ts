@@ -26,19 +26,19 @@ function createMockConnection(id: string = 'test-conn'): VoiceConnection {
 
   return {
     id,
+    connectedAt: Date.now(),
     send: (event: VoiceServerEvent) => {},
     onMessage: (handler: (event: VoiceClientEvent) => void) => {
       handlers.message.push(handler);
     },
+    onBinary: () => {},
     onClose: (handler: (code: number, reason: string) => void) => {
       handlers.close.push(handler);
     },
     onError: (handler: (error: Error) => void) => {
       handlers.error.push(handler);
     },
-    get handlers() {
-      return handlers;
-    },
+    close: () => {},
   };
 }
 

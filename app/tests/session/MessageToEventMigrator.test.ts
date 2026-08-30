@@ -53,7 +53,7 @@ describe('MessageToEventMigrator.convertMessage replyToId 修复（D1 undefined 
   });
 
   it('user 无 replyToId → 事件 data 不含 replyToId 键（防 undefined 键）', () => {
-    const { events } = convert({ role: 'user' });
+    const { events } = convert({ role: 'user' } as unknown as Partial<Message>);
     const userEvent = events.find((e) => e.type === 'user/message');
     const data = userEvent!.data as Record<string, unknown>;
     expect(Object.prototype.hasOwnProperty.call(data, 'replyToId')).toBe(false);

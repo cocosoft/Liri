@@ -35,8 +35,8 @@ describe('parseEnvLayer（11.12 定案：__ 嵌套 + 敏感过滤）', () => {
     setEnv('PYAPP_AI__APIKEY', 'sk-123');
     setEnv('PYAPP_AI__MODEL', 'gpt-4');
     const layer = parseEnvLayer();
-    expect(layer.ai.apiKey).toBeUndefined(); // 敏感跳过
-    expect(layer.ai.model).toBe('gpt-4'); // 非敏感保留
+    expect((layer.ai as { apiKey?: string }).apiKey).toBeUndefined(); // 敏感跳过
+    expect((layer.ai as { model?: string }).model).toBe('gpt-4'); // 非敏感保留
   });
 
   it('非 PYAPP_ 前缀忽略', () => {

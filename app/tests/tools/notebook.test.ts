@@ -12,7 +12,7 @@ import { randomUUID } from 'crypto';
 import { NotebookImpl } from '../../src/tools/notebook/types/Notebook.js';
 import { CodeCellImpl, MarkdownCellImpl } from '../../src/tools/notebook/types/Cell.js';
 import { NotebookManager } from '../../src/tools/notebook/NotebookManager.js';
-import { CellExecutionState } from '../../src/tools/notebook/types/NotebookTool.js';
+import { CellExecutionState, type CodeCell } from '../../src/tools/notebook/types/NotebookTool.js';
 import { NotebookToolImpl } from '../../src/tools/notebook/NotebookToolImpl.js';
 import { REPLToolImpl } from '../../src/tools/repl/REPLToolImpl.js';
 import { REPLSessionStatus } from '../../src/tools/repl/types/REPLTool.js';
@@ -23,6 +23,10 @@ import { FileRegistry } from '../../src/services/file/FileRegistry.js';
 import { notebookManager } from '../../src/tools/notebook/NotebookManager.js';
 import { JupyterNotebookConverter } from '../../src/tools/notebook/JupyterNotebookConverter.js';
 import { notebookCommand } from '../../src/commands/tools/dev/notebook.js';
+
+// bun 运行时全局 Bun 的 sleep API（src/ink/ink/global.d.ts 的全局 Bun 声明
+// 仅含 stringWidth/wrapAnsi/file，此处按需补充本文件用到的子集）
+declare const Bun: { sleep(ms: number): Promise<void> };
 
 describe('NotebookImpl', () => {
 
@@ -99,7 +103,7 @@ describe('NotebookImpl', () => {
     const nb = new NotebookImpl('nb-1', 'Test');
     nb.addCell(new CodeCellImpl('c1', 'code1', 'js'));
 
-    const updated = nb.updateCell('c1', { code: 'updated_code' });
+    const updated = nb.updateCell('c1', { code: 'updated_code' } as Partial<CodeCell>);
     expect(updated).toBe(true);
     expect((nb.cells[0] as any).code).toBe('updated_code');
   });
@@ -160,10 +164,10 @@ describe('CodeCellImpl', () => {
 
   it('添加输出', () => {
     const cell = new CodeCellImpl('c1', 'print(1)', 'python');
-    cell.addOutput({ type: 'text', data: '1', metadata: {} });
+    cell.addOutput({ type: 'text', content: '1', metadata: {} });
     expect(cell.output).toBeDefined();
     expect(cell.output!.length).toBe(1);
-    expect(cell.output![0].data).toBe('1');
+    expect(cell.output![0].content).toBe('1');
 
     cell.clearOutput();
     expect(cell.output!.length).toBe(0);
@@ -229,7 +233,7 @@ describe('NotebookManager', () => {
   });
 
   it('保存和加载 Notebook', () => {
-    const nb = manager.createNotebook('persist-test');
+    const nb = manager.createNotebook('persist-test') as NotebookImpl;
     nb.addCell(new CodeCellImpl('c1', 'print("hello")', 'python'));
 
     manager.saveNotebook(nb);
@@ -348,8 +352,9 @@ describe('Notebook Feature 开关 (P0-2)', () => {
     const prev = process.env.FEATURE_NOTEBOOK;
     delete process.env.FEATURE_NOTEBOOK; // 默认 NOTEBOOK: false
     try {
-      const cmd = await notebookCommand.load();
-      const result = await cmd.execute('');
+      // load 为 Command 接口可选属性、execute 需 context 参数：非空断言 + 空 context
+      const cmd = await notebookCommand.load!();
+      const result = await cmd.execute!('', {});
       expect(result.success).toBe(false);
       expect(result.error).toContain('Notebook 功能未启用');
     } finally {
@@ -362,8 +367,8 @@ describe('Notebook Feature 开关 (P0-2)', () => {
     const prev = process.env.FEATURE_NOTEBOOK;
     process.env.FEATURE_NOTEBOOK = 'true';
     try {
-      const cmd = await notebookCommand.load();
-      const result = await cmd.execute('');
+      const cmd = await notebookCommand.load!();
+      const result = await cmd.execute!('', {});
       expect(result.success).toBe(true);
       expect(result.message).toContain('notebook help');
     } finally {
@@ -478,7 +483,7 @@ describe('JupyterNotebookConverter (P1-1 标准 nbformat 对齐)', () => {
     const dir = join(tmpdir(), `pyapp-notebook-p1-${randomUUID()}`);
     try {
       const manager = new NotebookManager(dir);
-      const nb = manager.createNotebook('p1-test');
+      const nb = manager.createNotebook('p1-test') as NotebookImpl;
       nb.addCell(new CodeCellImpl('c1', 'print("hi")', 'python'));
       manager.saveNotebook(nb);
 

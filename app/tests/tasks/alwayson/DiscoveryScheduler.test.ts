@@ -10,7 +10,7 @@ describe('DiscoveryScheduler', () => {
   beforeEach(() => {
     tickCount = 0;
     // Create with 100ms interval for fast tests
-    scheduler = new DiscoveryScheduler(0.001, () => {
+    scheduler = new DiscoveryScheduler(0.001, async () => {
       tickCount++;
     });
   });

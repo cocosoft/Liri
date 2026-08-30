@@ -37,7 +37,6 @@ describe('AITracePlugin 集成测试', () => {
       mode: 'all',
       slowThresholdMs: 30000,
       liveViewPort: 0,
-      enabled: true,
     };
 
     const plugin = new AITracePlugin(config);
@@ -52,7 +51,6 @@ describe('AITracePlugin 集成测试', () => {
       mode: 'all',
       slowThresholdMs: 30000,
       liveViewPort: 0,
-      enabled: true,
     });
 
     plugin.start();
@@ -69,9 +67,7 @@ describe('AITracePlugin 集成测试', () => {
       mode: 'all',
       slowThresholdMs: 30000,
       liveViewPort: 0,
-      enabled: false,
     });
-
     // start() 仍可被调用但插件标记为未运行
     plugin.start();
     expect(plugin.getStatus().running).toBe(true); // start() 强制启动
@@ -86,7 +82,6 @@ describe('AITracePlugin 集成测试', () => {
       mode: 'error-only',
       slowThresholdMs: 30000,
       liveViewPort: 0,
-      enabled: true,
     });
 
     plugin.start();
@@ -107,7 +102,6 @@ describe('AITracePlugin 集成测试', () => {
       mode: 'all',
       slowThresholdMs: 30000,
       liveViewPort: 0,
-      enabled: true,
     });
 
     plugin.start();

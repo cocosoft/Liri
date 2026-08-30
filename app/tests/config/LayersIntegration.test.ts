@@ -6,6 +6,15 @@ import { describe, expect, it } from 'bun:test';
 import { loadProfile, selectProfile } from '../../src/config/layers/ProfileManager';
 import { loadBundles } from '../../src/config/layers/BundleManager';
 
+/** 断言辅助：patches 为 Record<string, unknown>，按内置 YAML 预期形状精化类型 */
+function patches(p: Record<string, unknown>) {
+  return p as {
+    logging: { level: string };
+    sandbox: { mode: string; enabled: boolean };
+    test: { deterministicSeed: boolean };
+  };
+}
+
 describe('配置层叠集成（内置 YAML 文件）', () => {
   it('selectProfile 优先级：CLI > env > 默认 development', () => {
     expect(selectProfile({ cli: 'production' }).name).toBe('production');
@@ -27,8 +36,8 @@ describe('配置层叠集成（内置 YAML 文件）', () => {
     expect(p.source).toBe('builtin');
     expect(p.protected).toBe(true);
     expect(p.bundles).toEqual(['core', 'chat', 'ai', 'channels', 'enterprise']);
-    expect(p.patches.logging.level).toBe('warn');
-    expect(p.patches.sandbox.mode).toBe('strict');
+    expect(patches(p.patches).logging.level).toBe('warn');
+    expect(patches(p.patches).sandbox.mode).toBe('strict');
   });
 
   it('受控保护：production 禁止用户覆盖（无 allowOverride）', () => {
@@ -39,14 +48,14 @@ describe('配置层叠集成（内置 YAML 文件）', () => {
 
   it('staging 加载内置 YAML', () => {
     const p = loadProfile('staging');
-    expect(p.patches.logging.level).toBe('info');
-    expect(p.patches.sandbox.mode).toBe('standard');
+    expect(patches(p.patches).logging.level).toBe('info');
+    expect(patches(p.patches).sandbox.mode).toBe('standard');
   });
 
   it('test 加载内置 YAML', () => {
     const p = loadProfile('test');
-    expect(p.patches.test.deterministicSeed).toBe(true);
-    expect(p.patches.sandbox.enabled).toBe(false);
+    expect(patches(p.patches).test.deterministicSeed).toBe(true);
+    expect(patches(p.patches).sandbox.enabled).toBe(false);
   });
 
   it('BundleManager：core 变体加载 core（variants 缺省 core-only），过滤 ai', () => {
@@ -58,7 +67,7 @@ describe('配置层叠集成（内置 YAML 文件）', () => {
     expect(notLoaded.map((n) => n.name).sort()).toEqual(['ai', 'channels']);
     expect(notLoaded.every((n) => n.reason === 'variants-mismatch')).toBe(true);
     // config: 包装层剥离（11.12 P0）：core bundle 的 config.server.host 直接可用
-    expect(bundles[0].config.server.host).toBe('localhost');
+    expect((bundles[0].config as { server: { host: string } }).server.host).toBe('localhost');
   });
 
   it('BundleManager：coding 变体加载 core/ai/channels，过滤 enterprise', () => {

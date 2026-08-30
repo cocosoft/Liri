@@ -11,7 +11,7 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { LongRunningTaskOrchestrator } from '../../src/tasks/LongRunningTaskOrchestrator';
-import type { PlanReview } from '../../src/tasks/PlanReview';
+import type { PlanReview, ReviewDecision } from '../../src/tasks/PlanReview';
 import { taskOrchestrator } from '../../src/tasks/TaskOrchestrator';
 
 // 隔离计划持久化目录：测试计划写入临时目录，避免污染用户数据（~/.pyapp/data/plans/）
@@ -23,9 +23,14 @@ type EscalationRecord = {
   defects: string[];
 };
 
-type OrchestratorWithPrivates = LongRunningTaskOrchestrator & {
+// 注：不能写成 LongRunningTaskOrchestrator & {...} 交集——其 planId/_lastEscalations
+// 为 private 成员，交集会因 private 标识符冲突被化简为 never。此处用独立接口，
+// 配合构造处的 `as unknown as` 双重断言访问私有字段（仅测试私有细节用）。
+type OrchestratorWithPrivates = {
   planId: string | null;
   _lastEscalations: EscalationRecord[];
+  decideStep: (stepId: string, decision: ReviewDecision) => Promise<void>;
+  executePlanPhase: (description: string, sessionId: string) => Promise<unknown>;
 };
 
 describe('阶段回退增量 replan（D5/M6）', () => {

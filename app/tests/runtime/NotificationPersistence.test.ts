@@ -20,6 +20,10 @@ import {
 } from '../../src/runtime/NotificationPersistence.js';
 import { handleCreateNotification } from '../../src/infrastructure/http/handlers/notification-handlers.js';
 
+// bun 运行时全局 Bun 的 sleep API（src/ink/ink/global.d.ts 的全局 Bun 声明
+// 仅含 stringWidth/wrapAnsi/file，此处按需补充本文件用到的子集）
+declare const Bun: { sleep(ms: number): Promise<void> };
+
 /** 构造注入 body 的 mock req（支持 readRequestBody 的 data/end 事件） */
 function makeReq(body: string): http.IncomingMessage {
   return {
@@ -157,7 +161,11 @@ describe('NotificationPersistence 收件箱化断言', () => {
     const db = (await (
       persistence as unknown as { _getDb(): Promise<unknown> }
     )._getDb()) as {
-      run: (sql: string, cb: (err: Error | null) => void) => void;
+      run: (
+        sql: string,
+        params: unknown[],
+        cb: (err: Error | null) => void
+      ) => void;
     };
     const ts = Math.floor(Date.now() / 1000);
     await new Promise<void>((resolve, reject) => {

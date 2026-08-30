@@ -181,6 +181,7 @@ describe('T3a ToolLazyWrapper 穿透（P0-1）', () => {
         concurrencySafe: true,
         deferred: false,
         alwaysLoad: false,
+        interruptBehavior: 'block',
       };
     }
     isEnabled(): boolean {
@@ -196,7 +197,7 @@ describe('T3a ToolLazyWrapper 穿透（P0-1）', () => {
       return true;
     }
     async execute(_i: unknown): Promise<ToolResult<unknown>> {
-      return { toolCallId: '', toolName: 'fake', result: null };
+      return { toolName: 'fake', result: null };
     }
   }
 
@@ -214,6 +215,7 @@ describe('T3a ToolLazyWrapper 穿透（P0-1）', () => {
         concurrencySafe: true,
         deferred: false,
         alwaysLoad: false,
+        interruptBehavior: 'block',
       },
       loader
     );
@@ -222,7 +224,7 @@ describe('T3a ToolLazyWrapper 穿透（P0-1）', () => {
     expect(wrapper.getInfo().description).toBe('static-desc');
 
     // 加载后 → 委托真实实例 getInfo（动态最新）
-    await wrapper.execute({});
+    await wrapper.execute({}, {} as unknown as ToolUseContext);
     expect(wrapper.getInfo().description).toBe('dynamic-desc');
   });
 });

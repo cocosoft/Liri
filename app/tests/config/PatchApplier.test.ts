@@ -5,12 +5,20 @@
 import { describe, expect, it } from 'bun:test';
 import { applyPatch, applyPatches } from '../../src/config/layers/PatchApplier';
 
+/** 断言辅助：applyPatch 返回 Record<string, unknown>，按测试预期形状精化类型 */
+function cfg(config: Record<string, unknown>) {
+  return config as {
+    ai: { defaultModel?: string; providers?: string[]; provider?: string };
+    server: { port: number };
+  };
+}
+
 describe('PatchApplier 墓碑删除（11.1 P0-3 决策，方案 C）', () => {
   it('普通 key 覆盖（深合并）', () => {
     const base = { ai: { defaultModel: 'a' }, server: { port: 8080 } };
     const { config } = applyPatch(base, { ai: { defaultModel: 'b' } });
-    expect(config.ai.defaultModel).toBe('b');
-    expect(config.server.port).toBe(8080); // 未涉及 key 保留
+    expect(cfg(config).ai.defaultModel).toBe('b');
+    expect(cfg(config).server.port).toBe(8080); // 未涉及 key 保留
   });
 
   it('删除标记穿透低层值（跨层删除，验收标准 6）', () => {
@@ -19,9 +27,9 @@ describe('PatchApplier 墓碑删除（11.1 P0-3 决策，方案 C）', () => {
     const { config, deletedKeys } = applyPatch(base, {
       ai: { defaultModel: null },
     });
-    expect(config.ai.defaultModel).toBeUndefined(); // 物理移除，非 null
+    expect(cfg(config).ai.defaultModel).toBeUndefined(); // 物理移除，非 null
     expect('defaultModel' in (config.ai as object)).toBe(false);
-    expect(config.ai.providers).toEqual(['p1']); // 兄弟 key 保留
+    expect(cfg(config).ai.providers).toEqual(['p1']); // 兄弟 key 保留
     expect(deletedKeys).toEqual(['ai.defaultModel']);
   });
 
@@ -60,8 +68,8 @@ describe('PatchApplier 墓碑删除（11.1 P0-3 决策，方案 C）', () => {
       { ai: { defaultModel: 'b' } }, // patch1: 覆盖
       { ai: { defaultModel: null } }, // patch2: 删除（后层生效）
     ]);
-    expect(config.ai.defaultModel).toBeUndefined();
-    expect(config.ai.provider).toBe('p1');
+    expect(cfg(config).ai.defaultModel).toBeUndefined();
+    expect(cfg(config).ai.provider).toBe('p1');
     expect(deletedKeys).toEqual(['ai.defaultModel']);
   });
 

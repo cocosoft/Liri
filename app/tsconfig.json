@@ -154,6 +154,6 @@
       "@shared/*": ["../../shared/*"]
     }
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "tests/**/*"],
   "exclude": ["node_modules", "dist", "packages", "src/**/__tests__", "src/**/tests", "src/**/*.test.ts", "src/**/*.test.tsx", "src/**/*ModuleTest.ts"]
 }

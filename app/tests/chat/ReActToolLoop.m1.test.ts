@@ -171,7 +171,7 @@ describe('ReActToolLoop M1 细化', () => {
     await new Promise((r) => setTimeout(r, 10));
     const entry = ctx.pendingInteractions.get('sess-m1');
     expect(entry).toBeTruthy();
-    entry.resolve(['用户选择 A']);
+    entry!.resolve(['用户选择 A']);
     await runPromise;
     expect(executed[0]?.name).toBe('ask_user');
     expect((executed[0]?.args as Record<string, unknown>)?._userAnswers).toEqual([

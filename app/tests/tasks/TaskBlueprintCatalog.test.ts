@@ -66,10 +66,17 @@ describe('TaskBlueprintCatalog — 任务蓝图目录', () => {
         id: 'test',
         name: 'Test',
         description: 'Test blueprint',
-        category: 'test',
+        category: 'research',
         slots: [
-          { name: 'name', type: 'text', label: 'Name', required: true },
+          {
+            name: 'name',
+            type: 'text',
+            label: 'Name',
+            description: '要填入的名称',
+            required: true,
+          },
         ],
+        defaultCron: '0 9 * * *',
         promptTemplate: 'Hello, {name}!',
       };
       const result = renderBlueprintPrompt(blueprint, { name: 'World' });
@@ -82,11 +89,24 @@ describe('TaskBlueprintCatalog — 任务蓝图目录', () => {
         id: 'test2',
         name: 'Test2',
         description: 'Test',
-        category: 'test',
+        category: 'research',
         slots: [
-          { name: 'greeting', type: 'text', label: 'Greeting', required: true },
-          { name: 'suffix', type: 'text', label: 'Suffix', required: false },
+          {
+            name: 'greeting',
+            type: 'text',
+            label: 'Greeting',
+            description: '问候语',
+            required: true,
+          },
+          {
+            name: 'suffix',
+            type: 'text',
+            label: 'Suffix',
+            description: '结尾后缀',
+            required: false,
+          },
         ],
+        defaultCron: '0 17 * * *',
         promptTemplate: '{greeting}! {suffix} end',
       };
       const result = renderBlueprintPrompt(blueprint, { greeting: 'Hi' });

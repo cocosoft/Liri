@@ -214,7 +214,7 @@ describe('ensureBinary（下载 + 解压）', () => {
           arrayBuffer: async () => zipBuf,
         });
       });
-      globalThis.fetch = fetchMock as typeof fetch;
+      globalThis.fetch = fetchMock as unknown as typeof fetch;
 
       const mgr = new LlamaCppServerManager();
       await mgr.ensureBinary();
@@ -243,7 +243,7 @@ describe('ensureBinary（下载 + 解压）', () => {
           status: 200,
           arrayBuffer: async () => zip.toBuffer(),
         }),
-      ) as typeof fetch;
+      ) as unknown as typeof fetch;
 
       const mgr = new LlamaCppServerManager();
       await mgr.ensureBinary();
@@ -262,7 +262,7 @@ describe('ensureBinary（下载 + 解压）', () => {
   it('下载返回非 2xx 时抛错', async () => {
     globalThis.fetch = mock(() =>
       Promise.resolve({ ok: false, status: 404 }),
-    ) as typeof fetch;
+    ) as unknown as typeof fetch;
 
     const mgr = new LlamaCppServerManager();
     await expect(mgr.ensureBinary()).rejects.toThrow(/下载失败 HTTP 404/);
@@ -386,7 +386,7 @@ describe('start（拉起子进程）', () => {
         arrayBuffer: async () => zipBuf,
       });
     });
-    globalThis.fetch = fetchMock as typeof fetch;
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
 
     // H 类补充 #2：显式选不常被占用的 29711（配合 checkPortAvailable mock 形成双保险）
     const mgr = new LlamaCppServerManager(() => ({
@@ -427,7 +427,7 @@ describe('start（拉起子进程）', () => {
         status: 200,
         arrayBuffer: async () => zipBuf,
       });
-    }) as typeof fetch;
+    }) as unknown as typeof fetch;
 
     const mgr = new LlamaCppServerManager(() => ({
       model: '/tmp/models/x.gguf',
@@ -458,7 +458,7 @@ describe('崩溃退避重启', () => {
         status: 200,
         arrayBuffer: async () => zipBuf,
       });
-    }) as typeof fetch;
+    }) as unknown as typeof fetch;
 
     const mgr = new LlamaCppServerManager(() => ({
       port: 29711,
@@ -495,7 +495,7 @@ describe('崩溃退避重启', () => {
         status: 200,
         arrayBuffer: async () => zipBuf,
       });
-    }) as typeof fetch;
+    }) as unknown as typeof fetch;
 
     const mgr = new LlamaCppServerManager(() => ({
       port: 29711,

@@ -13,6 +13,12 @@ import type { ReActEvent } from '../../src/query/ReActLoop.js';
 import type { ToolLoopContext } from '../../src/chat/ToolLoopRunner.js';
 import type { ChatResponse, ChatMessage } from '@modules/ai';
 
+// expect 的 stringContaining 类型被 src/ink/ink/global.d.ts 的旧 bun:test 声明
+// （expect(value: unknown): any）合并覆盖，运行时 bun 支持该匹配器，此处仅补类型
+const stringContaining = (expect as unknown as {
+  stringContaining: (str: string) => unknown;
+}).stringContaining;
+
 function makeCtx(overrides: Partial<ToolLoopContext> = {}): ToolLoopContext {
   const session = { id: 'sess-test' };
   const ctx = {
@@ -99,7 +105,17 @@ describe('ReActToolLoop (M1a)', () => {
   });
 
   it('工具轮：reason 产出 tool_calls → act 执行 → 事件流含 tool_start/tool_end', async () => {
-    const toolCalls: Array<{ phase: string; toolName: string; id: string }> = [];
+    const toolCalls: Array<{
+      phase: string;
+      toolName: string;
+      id: string;
+      detail?: {
+        args?: Record<string, unknown>;
+        ok?: boolean;
+        message?: string;
+        result?: unknown;
+      };
+    }> = [];
     const ctx = makeCtx({
       activeClient: {
         streamMessage: async function* (
@@ -126,7 +142,12 @@ describe('ReActToolLoop (M1a)', () => {
         name: string;
         arguments: Record<string, unknown>;
         sessionId?: string;
-      }) => ({ result: 'file content', error: undefined }),
+      }) => ({
+        toolCallId: tc.id,
+        toolName: tc.name,
+        result: 'file content',
+        error: undefined,
+      }),
       onToolCall: (
         phase: string,
         toolName: string,
@@ -166,7 +187,7 @@ describe('ReActToolLoop (M1a)', () => {
         id: 'tc1',
         detail: {
           ok: true,
-          message: expect.stringContaining('成功') as string,
+          message: stringContaining('成功') as string,
           result: 'file content',
         },
       },
@@ -186,7 +207,14 @@ describe('ReActToolLoop (M1a)', () => {
           }) as ChatResponse,
         getProviderId: () => 'mock',
       } as never,
-      executeTool: async () => ({
+      executeTool: async (tc: {
+        id: string;
+        name: string;
+        arguments: Record<string, unknown>;
+        sessionId?: string;
+      }) => ({
+        toolCallId: tc.id,
+        toolName: tc.name,
         result: { files: ['a.ts', 'b.ts'], total: 2 },
         error: undefined,
       }),
@@ -221,7 +249,14 @@ describe('ReActToolLoop (M1a)', () => {
           }) as ChatResponse,
         getProviderId: () => 'mock',
       } as never,
-      executeTool: async () => ({
+      executeTool: async (tc: {
+        id: string;
+        name: string;
+        arguments: Record<string, unknown>;
+        sessionId?: string;
+      }) => ({
+        toolCallId: tc.id,
+        toolName: tc.name,
         result: { pendingApproval: true },
         error: undefined,
       }),
@@ -250,7 +285,17 @@ describe('ReActToolLoop (M1a)', () => {
           }) as ChatResponse,
         getProviderId: () => 'mock',
       } as never,
-      executeTool: async () => ({ result: undefined, error: 'boom' }),
+      executeTool: async (tc: {
+        id: string;
+        name: string;
+        arguments: Record<string, unknown>;
+        sessionId?: string;
+      }) => ({
+        toolCallId: tc.id,
+        toolName: tc.name,
+        result: undefined,
+        error: 'boom',
+      }),
     });
     const loop = new ReActToolLoop(ctx, makeInput(), { maxIterations: 3 });
     const events: ReActEvent[] = [];
@@ -344,7 +389,12 @@ describe('ReActToolLoop (M1a)', () => {
         sessionId?: string;
       }) => {
         if (capture) capture.executedArgs = tc.arguments;
-        return { result: 'answered', error: undefined };
+        return {
+          toolCallId: tc.id,
+          toolName: tc.name,
+          result: 'answered',
+          error: undefined,
+        };
       },
     });
   }
@@ -395,7 +445,7 @@ describe('ReActToolLoop (M1a)', () => {
       received.push(r.value);
       r = await iter.next();
     }
-    received.push(r.value);
+    received.push(r.value as ReActEvent);
     // ① 首个事件应为 question，且 pendingInteractions 已注册
     expect(r.value.type).toBe('question');
     const entry = (

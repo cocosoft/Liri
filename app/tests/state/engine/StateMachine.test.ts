@@ -17,7 +17,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
 import { StateMachine, computeDefaultTerminal } from '../../../src/state/engine/StateMachine.js';
 import { StateMachineRegistry } from '../../../src/state/engine/StateMachineRegistry.js';
 import { IllegalTransitionError, InvalidSnapshotError } from '../../../src/state/errors.js';
-import type { TransitionRules, StateSnapshot } from '../../../src/state/engine/types.js';
+import type { TransitionRules, StateSnapshot, TransitionRecord } from '../../../src/state/engine/types.js';
 
 // ============================================================
 // 测试用状态枚举
@@ -190,7 +190,7 @@ describe('状态转换', () => {
   it('getHistory 应返回不可变副本', () => {
     sm.transition(TestState.RUNNING);
     const history = sm.getHistory();
-    history.push({} as any);
+    (history as TransitionRecord<TestState>[]).push({} as any);
     expect(sm.getHistory().length).toBe(1);
   });
 

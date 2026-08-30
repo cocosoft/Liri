@@ -428,7 +428,10 @@ describe('VoiceInputTool', () => {
       const result = await tool.execute({ action: 'stop' });
 
       expect(result.status).toBe('success');
-      expect(result.text || result.output).toBeDefined();
+      // 识别结果经 result.result.text（成功路径）或 result.output 返回
+      expect(
+        (result.result as { text?: string } | null)?.text || result.output
+      ).toBeDefined();
     });
 
     it('正常 stop 应调用 recognize', async () => {

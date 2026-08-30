@@ -19,7 +19,11 @@
  *   await server.stop();
  */
 
-import type { Server } from 'bun';
+/** Bun.serve 返回的 Server 最小形状（项目不引入 @types/bun，本地声明避免全局类型污染） */
+interface BunServer {
+  port: number;
+  stop(): void;
+}
 
 // ============================================================
 // Types
@@ -60,7 +64,7 @@ export interface RecordedRequest {
 // ============================================================
 
 export class MockLLMServer {
-  private server: Server | null = null;
+  private server: BunServer | null = null;
   private port: number = 0;
   private responses: MockResponse[] = [];
   private errors: MockError[] = [];
@@ -110,7 +114,13 @@ export class MockLLMServer {
   /** 启动服务 */
   async start(port: number = 0): Promise<void> {
     this.port = port;
-    this.server = Bun.serve({
+    this.server = (Bun as unknown as {
+      serve(options: {
+        port: number;
+        hostname: string;
+        fetch: (req: Request) => Promise<Response> | Response;
+      }): BunServer;
+    }).serve({
       port: this.port,
       hostname: '127.0.0.1',
       fetch: (req: Request) => this.handleRequest(req),
@@ -211,7 +221,15 @@ export class MockLLMServer {
     const content = mr.content || '';
     const toolCalls = mr.toolCalls || [];
 
-    const choice: Record<string, unknown> = {
+    const choice: {
+      index: number;
+      message: {
+        role: string;
+        content: string | null;
+        tool_calls?: unknown[];
+      };
+      finish_reason: string;
+    } = {
       index: 0,
       message: {
         role: 'assistant',

@@ -7,6 +7,15 @@ import { resolveConfigLayers, collectLeafPaths } from '../../src/config/layers/C
 import type { LayerProfile } from '../../src/config/layers/ProfileManager';
 import type { LayerBundle } from '../../src/config/layers/BundleManager';
 
+/** 断言辅助：resolveConfigLayers 返回 config: Record<string, unknown>，按测试预期形状精化类型 */
+function cfg(config: Record<string, unknown>) {
+  return config as {
+    logging: { level: string };
+    server: { port: number };
+    ai: { defaultModel?: string; providerId?: string };
+  };
+}
+
 const profile: LayerProfile = {
   name: 'production',
   bundles: ['core', 'ai'],
@@ -33,8 +42,8 @@ describe('ConfigLayers 11 层合并', () => {
       userSettings: { logging: { level: 'info' } },
       cliPatch: { logging: { level: 'error' } },
     });
-    expect(result.config.logging.level).toBe('error'); // CLI patch 最高
-    expect(result.config.server.port).toBe(8080); // 默认值保留
+    expect(cfg(result.config).logging.level).toBe('error'); // CLI patch 最高
+    expect(cfg(result.config).server.port).toBe(8080); // 默认值保留
     // 层序检查
     const names = result.layers.map((l) => l.name);
     expect(names).toEqual(['default', 'bundle', 'profile-patch', 'user', 'cli-patch']);
@@ -42,8 +51,8 @@ describe('ConfigLayers 11 层合并', () => {
 
   it('Bundle 后声明胜（ai 覆盖 core 的 ai.defaultModel）', () => {
     const result = resolveConfigLayers(baseInput);
-    expect(result.config.ai.defaultModel).toBe('b'); // ai bundle 后声明
-    expect(result.config.ai.providerId).toBe('p1');
+    expect(cfg(result.config).ai.defaultModel).toBe('b'); // ai bundle 后声明
+    expect(cfg(result.config).ai.providerId).toBe('p1');
   });
 
   it('policy 保护：policy 声明 key 不被 Home/env/CLI 覆盖', () => {
@@ -54,7 +63,7 @@ describe('ConfigLayers 11 层合并', () => {
       envLayer: { logging: { level: 'info' } },
       cliPatch: { logging: { level: 'error' } },
     });
-    expect(result.config.logging.level).toBe('warn'); // policy 锁定
+    expect(cfg(result.config).logging.level).toBe('warn'); // policy 锁定
   });
 
   it('policy 保护：未声明 key 仍可被 CLI patch 覆盖', () => {
@@ -63,8 +72,8 @@ describe('ConfigLayers 11 层合并', () => {
       policySettings: { logging: { level: 'warn' } },
       cliPatch: { server: { port: 9999 } },
     });
-    expect(result.config.logging.level).toBe('warn'); // policy 锁定
-    expect(result.config.server.port).toBe(9999); // 非 policy key 可覆盖
+    expect(cfg(result.config).logging.level).toBe('warn'); // policy 锁定
+    expect(cfg(result.config).server.port).toBe(9999); // 非 policy key 可覆盖
   });
 
   it('locked 模式：忽略 用户/项目/本地/Home/env/CLI patch', () => {
@@ -76,7 +85,7 @@ describe('ConfigLayers 11 层合并', () => {
       envLayer: { logging: { level: 'info' } },
       cliPatch: { logging: { level: 'error' } },
     });
-    expect(result.config.logging.level).toBe('warn'); // Profile patch 值，未被覆盖
+    expect(cfg(result.config).logging.level).toBe('warn'); // Profile patch 值，未被覆盖
     const names = result.layers.map((l) => l.name);
     expect(names).not.toContain('user');
     expect(names).not.toContain('home-patch');
@@ -89,8 +98,8 @@ describe('ConfigLayers 11 层合并', () => {
       ...baseInput,
       cliPatch: { ai: { defaultModel: null } },
     });
-    expect(result.config.ai.defaultModel).toBeUndefined(); // 物理移除
-    expect(result.config.ai.providerId).toBe('p1'); // 兄弟 key 保留
+    expect(cfg(result.config).ai.defaultModel).toBeUndefined(); // 物理移除
+    expect(cfg(result.config).ai.providerId).toBe('p1'); // 兄弟 key 保留
     expect(result.deletedKeys).toContain('cli-patch:ai.defaultModel');
   });
 

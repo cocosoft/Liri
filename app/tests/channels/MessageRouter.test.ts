@@ -55,7 +55,7 @@ const chatStub = {
    * mock 产出 text chunk + generator return（最终 ChatResponse）。
    */
   chatStream: async function* chatStream() {
-    yield { type: 'text', content: 'pong' } as const;
+    yield { type: 'text', content: 'pong', sessionId: '' } as const;
     return { content: 'pong', finishReason: 'stop' };
   },
 };
@@ -111,6 +111,10 @@ describe('routeChannelMessage 安全拦截（4.11）', () => {
           chat: async () => {
             chatCalled = true;
             return { content: 'x' };
+          },
+          chatStream: async function* () {
+            yield { type: 'text', content: 'x', sessionId: '' } as const;
+            return { content: 'x', finishReason: 'stop' };
           },
         },
         channelName: 'telegram',

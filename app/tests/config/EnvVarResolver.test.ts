@@ -57,11 +57,11 @@ describe('resolveEnvVars（递归对象）', () => {
       nested: { deep: '${API_KEY}' },
     };
     const out = resolveEnvVars(config, { env });
-    expect(out.server.port).toBe('8080');
+    expect((out.server as { port: string }).port).toBe('8080');
     expect(out.list).toEqual(['sk-123', 'plain']);
     expect(out.num).toBe(42);
     expect(out.flag).toBe(true);
-    expect(out.nested.deep).toBe('sk-123');
+    expect((out.nested as { deep: string }).deep).toBe('sk-123');
   });
 
   it('不可变：不修改原对象', () => {

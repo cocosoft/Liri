@@ -234,9 +234,9 @@ describe('性能优化系统', () => {
 
     it('应该能够使用记忆函数', () => {
       let callCount = 0;
-      const memoizedFn = memoize((x: number) => {
+      const memoizedFn = memoize((x: unknown) => {
         callCount++;
-        return x * 2;
+        return (x as number) * 2;
       });
       const result1 = memoizedFn(5);
       const result2 = memoizedFn(5);

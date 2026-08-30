@@ -21,6 +21,7 @@ function makeProvider(
   return {
     providerType: 'test',
     sourceUrl: 'https://example.com/pricing',
+    updatedAt: '2026-08-31',
     models: [
       {
         modelId: 'test-model',

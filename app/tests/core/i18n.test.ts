@@ -13,6 +13,7 @@ import {
   t,
 } from '../../src/system/i18n/extended.js';
 import type { Locale, TranslationMap } from '../../src/system/i18n/types.js';
+import type { TranslationEntry } from '../../src/system/i18n/extended.js';
 
 describe('I18nRegistry', () => {
 
@@ -218,7 +219,7 @@ describe('I18nTranslationRegistry', () => {
     registry.registerBatch([
       { key: 'a', zh: 'A' },
       { key: 'b', zh: 'B' },
-    ]);
+    ] as TranslationEntry[]);
     expect(registry.getKeys()).toEqual(['a', 'b']);
   });
 
@@ -228,7 +229,7 @@ describe('I18nTranslationRegistry', () => {
     registry.registerBatch([
       { key: 'a', zh: 'A中文', en: 'AEnglish' },
       { key: 'b', zh: 'B中文', ja: 'B日本語' },
-    ]);
+    ] as TranslationEntry[]);
 
     const stats = registry.getStats();
     expect(stats.total).toBe(2);
@@ -265,7 +266,7 @@ describe('I18nTranslationRegistry', () => {
     const registry = new I18nTranslationRegistry();
 
     registry.setLocale('zh');
-    registry.register({ key: 'test', zh: '测试' });
+    registry.register({ key: 'test', zh: '测试' } as TranslationEntry);
     expect(registry.t('test')).toBe('测试');
 
     registry.clear();

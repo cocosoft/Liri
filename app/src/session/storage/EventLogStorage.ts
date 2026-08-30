@@ -53,6 +53,20 @@ const APPEND_FAIL_THRESHOLD = 5;
 /** 熔断持续时长：暂停对账/重试 5 分钟，防风暴（方案 T-B#1，评审 v0.3#11） */
 const APPEND_CIRCUIT_DURATION_MS = 5 * 60_000;
 
+/**
+ * P1-2（2026-08-30）：事件快照缓存默认上限。
+ *
+ * 超过则禁用快照（回落流式分页读取，保持既有 regex-skip 优化），
+ * 防超长会话（40 万行量级）全量驻内存放大。事件不可变 + append-only
+ * 使缓存可安全共享；上限仅约束"是否建快照"，不影响读取正确性。
+ * 构造参数可覆盖（测试注入小上限，避免写 15 万行文件）。
+ */
+const SNAPSHOT_MAX_EVENTS = 150_000;
+/** P1-7（2026-08-30）：快照累计字节上限（buildSnapshot 扫描累计 line.length；append 增量按 JSON.stringify 长度近似） */
+const SNAPSHOT_MAX_BYTES = 200 * 1024 * 1024;
+/** P0-3/P1-5（2026-08-30）：stale/IO 失败后的重建冷却期，防跨实例持续写期间反复全量扫描 */
+const SNAPSHOT_COOLDOWN_MS = 5_000;
+
 // ─── 类型定义 ───────────────────────────────────────────────────────────────
 
 /** 事件日志查询参数 */
@@ -150,6 +164,33 @@ export function splitJsonLine(line: string): unknown[] {
   return results;
 }
 
+/**
+ * P1-2（2026-08-30）：从事件快照内存过滤（对齐 read() 的过滤语义）
+ *
+ * 快照内事件已深冻结（D1），直接共享引用；返回新数组（浅拷贝事件引用），
+ * 调用方对其排序/修改不影响缓存。顺序保持快照 seq 升序。
+ */
+export function filterSnapshotEvents(
+  snapshot: LiriEvent[],
+  q: {
+    fromSeq: number;
+    toSeq: number;
+    types?: LiriEventType[];
+    excludeTypes?: LiriEventType[];
+    limit: number;
+  }
+): LiriEvent[] {
+  const results: LiriEvent[] = [];
+  for (const ev of snapshot) {
+    if (results.length >= q.limit) break;
+    if (ev.seq < q.fromSeq || ev.seq > q.toSeq) continue;
+    if (q.types && !q.types.includes(ev.type)) continue;
+    if (q.excludeTypes && q.excludeTypes.includes(ev.type)) continue;
+    results.push(ev);
+  }
+  return results;
+}
+
 // ─── EventLogStorage ────────────────────────────────────────────────────────
 
 /**
@@ -179,6 +220,31 @@ export class EventLogStorage {
   private maxTurn: number | null = null;
 
   /**
+   * P1-2（2026-08-30）：全量事件快照缓存（对齐 deepseek-harness eventsSnapshot）。
+   *
+   * 事件不可变（D1 深冻结）+ append-only 使缓存可安全共享：命中时免重复
+   * 磁盘扫描 + 行级 JSON 解析（长会话分页读取的核心开销）。有序数组的
+   * **尾元素 seq 即快照覆盖范围**（snapshotTail，新鲜度判定基准之一）。
+   * 超限（条数/字节）置 snapshotIneligible 防内存放大。
+   */
+  private eventsSnapshot: LiriEvent[] | null = null;
+  /** P1-2：快照不可建标记（超上限后置位——事件只会更多，永久禁用；trimEvents 后重置） */
+  private snapshotIneligible = false;
+  /** P1-2：快照累计字节（buildSnapshot 按 line.length 累计；append 增量按 JSON.stringify 近似） */
+  private snapshotBytes = 0;
+  /** P0-3（2026-08-30）：stale/IO 失败后的重建冷却截止时间戳（0=不在冷却） */
+  private snapshotCooldownUntil = 0;
+  /** 快照条数上限（构造可注入，测试用小值避免写大文件） */
+  private readonly maxSnapshotEvents: number;
+  /** 快照字节上限（构造可注入） */
+  private readonly maxSnapshotBytes: number;
+  /**
+   * P2-E（2026-08-30）：buildSnapshot"扫描后-提交前"挂起点。
+   * 生产为空；测试注入用于构造"扫描期间 append"并发竞态。
+   */
+  private readonly snapshotPreCommitHook?: () => Promise<void>;
+
+  /**
    * D4-4（2026-08-24）：崩溃修复已检查标记——首次 read 时自动执行 torn-tail 截断
    * + 合成 closers；内存标记防重复扫描（每次进程生命周期仅一次）。
    */
@@ -202,8 +268,24 @@ export class EventLogStorage {
      * join(sessionsRoot, worktreeHash, sessionId)，用于与存储层 basePath 统一
      * （fork 场景：源/子会话事件与 session.json 同目录）及测试隔离。
      */
-    private readonly sessionsRoot?: string
+    private readonly sessionsRoot?: string,
+    /**
+     * P1-6（2026-08-30）：快照条数上限可注入（测试用小值，避免写 15 万行文件）；
+     * 默认 SNAPSHOT_MAX_EVENTS。
+     */
+    maxSnapshotEvents: number = SNAPSHOT_MAX_EVENTS,
+    /**
+     * P1-7（2026-08-30）：快照字节上限可注入；默认 SNAPSHOT_MAX_BYTES。
+     */
+    maxSnapshotBytes: number = SNAPSHOT_MAX_BYTES,
+    /**
+     * P2-E（2026-08-30）：buildSnapshot"扫描后-提交前"挂起点（测试构造并发竞态用）。
+     */
+    snapshotPreCommitHook?: () => Promise<void>
   ) {
+    this.maxSnapshotEvents = maxSnapshotEvents;
+    this.maxSnapshotBytes = maxSnapshotBytes;
+    this.snapshotPreCommitHook = snapshotPreCommitHook;
     this.sessionDir = sessionsRoot
       ? join(sessionsRoot, worktreeHash, sessionId)
       : this.buildSessionDir();
@@ -441,7 +523,9 @@ export class EventLogStorage {
       let toWrite = frozen;
       if (frozen.seq <= tailSeq) {
         const correctedSeq = tailSeq + 1;
-        toWrite = { ...frozen, seq: correctedSeq } as LiriEvent;
+        // P1-2：seq 纠正新建对象需浅冻结（data 与 frozen 共享，已深冻结），
+        // 维持"落盘对象冻结"契约（D1），快照缓存可直接共享安全引用
+        toWrite = Object.freeze({ ...frozen, seq: correctedSeq }) as LiriEvent;
         logger.warn('event-log: seq 冲突自动纠正', {
           sessionId: this.sessionId,
           fromSeq: frozen.seq,
@@ -462,6 +546,21 @@ export class EventLogStorage {
         await this.writePersistedTailSeq(toWrite.seq as number);
         // A-5（2026-08-23）：写入成功 → 连续失败计数清零（熔断自动解除）
         this.appendFailCount = 0;
+        // P1-2：快照增量扩展（toWrite 已冻结，与落盘对象一致，直接共享引用）
+        // P1-B（2026-08-30）：增量扩展同样受双上限守卫——超限置 ineligible 并清空，
+        // 防快照无限增长违背双上限设计（复用 line.length 免二次序列化）
+        if (this.eventsSnapshot) {
+          this.eventsSnapshot.push(toWrite);
+          this.snapshotBytes += line.length;
+          if (
+            this.eventsSnapshot.length > this.maxSnapshotEvents ||
+            this.snapshotBytes > this.maxSnapshotBytes
+          ) {
+            this.snapshotIneligible = true;
+            this.eventsSnapshot = null;
+            this.snapshotBytes = 0;
+          }
+        }
         return { ok: true, tailSeq: this.tailSeq };
       } catch (e) {
         // A-5（2026-08-23）：append 失败 → 节流告警 + 熔断（结构化告警由 handleError 发布）
@@ -600,6 +699,40 @@ export class EventLogStorage {
     const excludeTypes = query?.excludeTypes;
     const limit = Math.min(query?.limit ?? 1000, 10000);
 
+    // P1-2（2026-08-30）：事件快照缓存（对齐 deepseek-harness eventsSnapshot）。
+    // append-only + 深冻结事件使内存快照可安全共享：
+    //   ① 命中 → 内存过滤直接返回（免磁盘扫描 + 行级 JSON 解析）
+    //   ② 未命中且从头读（fromSeq<=1）→ 全量扫描建快照；超上限/失败置
+    //      snapshotIneligible 回落到原路径，防每次重复全量扫描
+    //   ③ 其余（分页续读 / 不可建快照）→ 原磁盘流式路径
+    const snapshot = await this.getFreshSnapshot();
+    if (snapshot) {
+      return filterSnapshotEvents(snapshot, {
+        fromSeq,
+        toSeq,
+        types,
+        excludeTypes,
+        limit,
+      });
+    }
+    if (
+      fromSeq <= 1 &&
+      !this.snapshotIneligible &&
+      Date.now() >= this.snapshotCooldownUntil
+    ) {
+      const built = await this.buildSnapshot();
+      if (built) {
+        this.eventsSnapshot = built;
+        return filterSnapshotEvents(built, {
+          fromSeq,
+          toSeq,
+          types,
+          excludeTypes,
+          limit,
+        });
+      }
+    }
+
     const results: LiriEvent[] = [];
 
     try {
@@ -673,6 +806,9 @@ export class EventLogStorage {
             sanitizeEvent(obj);
             if (obj.seq < fromSeq || obj.seq > toSeq) continue;
             if (types && !types.includes(obj.type)) continue;
+            // T7/P0-4（2026-08-30）：既有 bug 修复——损坏行恢复的事件此前漏查
+            // excludeTypes，与正常行/快照路径语义不一致（恢复出的 thinking 会被多返回）
+            if (excludeTypes && excludeTypes.includes(obj.type)) continue;
             results.push(obj);
             recovered++;
           }
@@ -747,6 +883,11 @@ export class EventLogStorage {
       // 重置 tailSeq（内存 + 持久化同步）
       this.tailSeq = maxSeq;
       await this.writePersistedTailSeq(maxSeq);
+      // P1-2：物理裁剪后事件集合已变，快照失效（并允许重新评估快照资格）
+      this.eventsSnapshot = null;
+      this.snapshotIneligible = false;
+      this.snapshotBytes = 0;
+      this.snapshotCooldownUntil = 0;
       logger.info('event-log: 事件日志物理裁剪完成', {
         sessionId: this.sessionId,
         beforeSeq,
@@ -828,6 +969,11 @@ export class EventLogStorage {
       target.tailSeq = maxCopiedSeq;
       target.tailSeqInitialized = true;
       await target.writePersistedTailSeq(maxCopiedSeq);
+      // P1-2：目标文件被整体覆盖（原子写），其快照失效
+      target.eventsSnapshot = null;
+      target.snapshotIneligible = false;
+      target.snapshotBytes = 0;
+      target.snapshotCooldownUntil = 0;
 
       logger.info('event-log: copyPrefix 完成', {
         sessionId: this.sessionId,
@@ -959,6 +1105,155 @@ export class EventLogStorage {
    */
   private async ensureSessionDir(): Promise<void> {
     await fs.mkdir(this.sessionDir, { recursive: true });
+  }
+
+  /**
+   * P1-2（2026-08-30）：读取事件快照（新鲜度校验通过才返回）
+   *
+   * 新鲜度判定（P0-2 + P1-A 修正，v3）：
+   *   fresh = (diskTail === memoryTailSeq) && (snapshotTail === memoryTailSeq)
+   * - diskTail：O(1) 读文件尾（scanTailForMaxSeq，读末尾 64KB）——跨实例追加即使
+   *   对方 meta 写失败也能探测（diskTail 更大 → stale，消除 P1-A 盲区）
+   * - snapshotTail：快照尾元素 seq（有序数组天然携带覆盖范围）
+   * - memoryTailSeq：本实例已确认落盘的日志末尾（append 同步更新）
+   * persisted（events.tail meta）降级为日志参考，不再参与判定。
+   *
+   * 失效场景：trimEvents / commitTornRepair / copyPrefixTo（目标）已显式清空；
+   * 此处探测到 stale 时置冷却（P0-3），避免跨实例持续写期间反复全量重建。
+   */
+  private async getFreshSnapshot(): Promise<LiriEvent[] | null> {
+    if (!this.eventsSnapshot) return null;
+    const snapshotTail =
+      this.eventsSnapshot[this.eventsSnapshot.length - 1]?.seq ?? 0;
+    const staleReason = await this.snapshotStaleReason(snapshotTail);
+    if (staleReason) {
+      logger.warn('event-log: 事件快照过期，失效并回退磁盘读取', {
+        sessionId: this.sessionId,
+        snapshotTailSeq: snapshotTail,
+        memoryTailSeq: this.tailSeq,
+        staleReason,
+      });
+      this.eventsSnapshot = null;
+      this.snapshotBytes = 0;
+      this.snapshotIneligible = false;
+      this.snapshotCooldownUntil = Date.now() + SNAPSHOT_COOLDOWN_MS;
+      return null;
+    }
+    return this.eventsSnapshot;
+  }
+
+  /**
+   * P0-2/P1-A（2026-08-30）：快照失效原因判定（返回 null = fresh）
+   *
+   * - 'memory-not-init'：内存 tailSeq 未初始化，无法判定（本实例重启后首次读）
+   * - 'snapshot-behind-memory'：快照覆盖 < 内存 tailSeq（buildSnapshot 扫描期间
+   *   append 竞态 / 增量丢失）
+   * - 'disk-ahead'：磁盘尾 > 内存 tailSeq（跨实例追加；含对方 meta 写失败场景，
+   *   因为判定不依赖 meta）
+   * - 'disk-behind'：磁盘尾 < 内存 tailSeq（文件被外部截断/回滚，罕见；保守失效）
+   * - 'disk-read-error'：读文件尾失败（保守失效，回退磁盘路径）
+   */
+  private async snapshotStaleReason(
+    snapshotTail: number
+  ): Promise<string | null> {
+    if (!this.tailSeqInitialized) return 'memory-not-init';
+    if (snapshotTail !== this.tailSeq) return 'snapshot-behind-memory';
+    let diskTail: number;
+    try {
+      diskTail = await this.scanTailForMaxSeq();
+    } catch {
+      return 'disk-read-error';
+    }
+    if (diskTail !== this.tailSeq) {
+      return diskTail > this.tailSeq ? 'disk-ahead' : 'disk-behind';
+    }
+    return null;
+  }
+
+  /**
+   * P1-2（2026-08-30）：全量扫描建快照（对齐 read() 的解析/校验/冻结语义，不递归调 read）
+   *
+   * - 双上限（P1-7）：事件条数 or 累计字节超限 → 永久 ineligible（事件只会更多）
+   * - tailSeq 只前进不回退（P0-1）
+   * - 扫描期间 append 竞态（P1-A）→ 本次快照作废 + 冷却，由下次 read 重建
+   * - IO 失败 → 冷却重试，不永久禁用（P1-5）
+   * - snapshotPreCommitHook（P2-E）：扫描后-提交前可注入挂起点（测试构造竞态用）
+   * - 失败不抛错（CS03）
+   */
+  private async buildSnapshot(): Promise<LiriEvent[] | null> {
+    try {
+      const events: LiriEvent[] = [];
+      let bytes = 0;
+      const rl = this.createReadlineInterface();
+      for await (const line of rl) {
+        if (!line.trim()) continue;
+        bytes += line.length;
+        try {
+          const event = JSON.parse(line) as unknown;
+          if (!isLiriEvent(event)) continue;
+          const readable = assertEventReadable(event);
+          if (!readable.ok) continue;
+          sanitizeEvent(event);
+          events.push(event);
+        } catch {
+          // 损坏行：按 JSON 边界拆分恢复（与 read() 原路径一致）
+          for (const obj of splitJsonLine(line)) {
+            if (!isLiriEvent(obj)) continue;
+            const readable = assertEventReadable(obj);
+            if (!readable.ok) continue;
+            sanitizeEvent(obj);
+            events.push(obj);
+          }
+        }
+        if (
+          events.length > this.maxSnapshotEvents ||
+          bytes > this.maxSnapshotBytes
+        ) {
+          this.snapshotIneligible = true;
+          logger.debug('event-log: 会话事件超快照上限，禁用快照', {
+            sessionId: this.sessionId,
+            maxEvents: this.maxSnapshotEvents,
+            maxBytes: this.maxSnapshotBytes,
+            events: events.length,
+            bytes,
+          });
+          return null;
+        }
+      }
+      if (events.length === 0) return null;
+      events.sort((a, b) => a.seq - b.seq);
+      const snapTail = events[events.length - 1].seq;
+      // P2-E：可注入挂起点（扫描后-提交前），测试构造"扫描期间 append"竞态
+      if (this.snapshotPreCommitHook) {
+        await this.snapshotPreCommitHook();
+      }
+      // P1-A：扫描期间 append 已推进 tailSeq → 快照不完整，本次作废 + 冷却
+      if (this.tailSeqInitialized && this.tailSeq > snapTail) {
+        logger.debug('event-log: 扫描期间有增量 append，本次快照作废', {
+          sessionId: this.sessionId,
+          snapTail,
+          tailSeq: this.tailSeq,
+        });
+        this.snapshotCooldownUntil = Date.now() + SNAPSHOT_COOLDOWN_MS;
+        return null;
+      }
+      // P0-1：tailSeq 只前进不回退
+      if (snapTail > this.tailSeq) {
+        this.tailSeq = snapTail;
+        this.tailSeqInitialized = true;
+      }
+      this.snapshotBytes = bytes;
+      return events;
+    } catch (e) {
+      await handleError(e, {
+        module: 'session:event-log',
+        action: 'buildSnapshot',
+        context: { sessionId: this.sessionId },
+      }).catch(() => {});
+      // P1-5：IO 失败走冷却重试，不永久禁用（区别于超上限的永久 ineligible）
+      this.snapshotCooldownUntil = Date.now() + SNAPSHOT_COOLDOWN_MS;
+      return null;
+    }
   }
 
   /**
@@ -1198,6 +1493,11 @@ export class EventLogStorage {
       this.tailSeq = 0;
       this.tailSeqInitialized = false;
       this.maxTurn = null;
+      // P1-2：文件被截断，快照失效
+      this.eventsSnapshot = null;
+      this.snapshotIneligible = false;
+      this.snapshotBytes = 0;
+      this.snapshotCooldownUntil = 0;
       const realTail = await this.getTailSeq(true);
       logger.warn('event-log: torn tail 已截断修复', {
         sessionId: this.sessionId,

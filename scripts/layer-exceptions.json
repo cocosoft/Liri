@@ -1679,6 +1679,56 @@
       "plan": "历史巨型测试文件批量登记（2026-08-26 治理盲区补录），按事件源阶段拆分测试",
       "expiresAt": "2026-11-30",
       "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-150",
+      "ruleId": "R04-001",
+      "file": "app/src/infrastructure/http/handlers/video-handlers.ts",
+      "lines": 843,
+      "targetLines": 800,
+      "plan": "历史巨型文件批量登记（2026-08-30 CI file size check 治理补录），按视频任务子域拆分",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-151",
+      "ruleId": "R04-001",
+      "file": "app/src/session/storage/FileSystemUnifiedStorage.ts",
+      "lines": 843,
+      "targetLines": 800,
+      "plan": "历史巨型文件批量登记（2026-08-30 CI file size check 治理补录），按读写/索引/清理子模块拆分",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-152",
+      "ruleId": "R04-001",
+      "file": "app/src/knowledge/KnowledgeCompiler.ts",
+      "lines": 828,
+      "targetLines": 800,
+      "plan": "历史巨型文件批量登记（2026-08-30 CI file size check 治理补录），按编译管线子模块拆分",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-153",
+      "ruleId": "R04-001",
+      "file": "app/src/tools/AgentTool/SubAgentEngine.ts",
+      "lines": 818,
+      "targetLines": 800,
+      "plan": "历史巨型文件批量登记（2026-08-30 CI file size check 治理补录），按子代理生命周期子模块拆分",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-154",
+      "ruleId": "R04-001",
+      "file": "app/src/tasks/cron/CronScheduler.ts",
+      "lines": 803,
+      "targetLines": 800,
+      "plan": "历史巨型文件批量登记（2026-08-30 CI file size check 治理补录），按调度/执行/持久化子模块拆分",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
     }
   ],
   "barrelExceptions": [

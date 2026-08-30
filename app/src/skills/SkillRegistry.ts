@@ -132,7 +132,9 @@ export class SkillRegistry {
     logger.info('SkillRegistry.register', {
       skillName: skill.name,
       source: skill.source,
-      implKind: skill.impl.kind,
+      // 2026-08-30：impl 可选（测试 mock/部分技能可能无 impl）——可选访问防
+      // "undefined is not an object (evaluating 'skill.impl.kind')"（SkillLifecycle 测试回归）
+      implKind: skill.impl?.kind,
     });
   }
 

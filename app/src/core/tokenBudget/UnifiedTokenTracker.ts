@@ -9,7 +9,11 @@
 
 import type { ContextTracker } from '@modules/query';
 import { extractUsage } from '@modules/ai';
-import { estimateTokens, estimateMessagesTokensCooperative, estimateMessagesTokens } from '@modules/ai';
+import {
+  estimateTokens,
+  estimateMessagesTokensCooperative,
+  estimateMessagesTokens,
+} from '@modules/ai';
 import { getCachedTiktokenEncoder } from '@modules/ai';
 import { resolveContextWindow } from '@modules/context';
 import { getLogger } from '../../monitoring/logs/Logger';
@@ -80,9 +84,10 @@ const MODEL_THRESHOLD_PRESETS: Record<
 };
 
 /** 最长前缀优先匹配 */
-export function getModelThresholds(
-  model: string
-): { warn: number; compact: number } {
+export function getModelThresholds(model: string): {
+  warn: number;
+  compact: number;
+} {
   const sorted = Object.keys(MODEL_THRESHOLD_PRESETS).sort(
     (a, b) => b.length - a.length
   );

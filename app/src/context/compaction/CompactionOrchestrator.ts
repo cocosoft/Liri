@@ -139,15 +139,22 @@ export class CompactionOrchestrator {
       return active.checkBeforeRequest(messages, ctx.model);
     }
     // 无 tracker 异常兜底（正常路径 ChatManager 已注入）：纯函数评估，不参与校准/反抖动
-    logger.warn('compaction:evaluate_fallback — 无 UnifiedTokenTracker，使用纯函数兜底评估', {
-      sessionId: ctx.sessionId,
-      model: ctx.model,
-    });
+    logger.warn(
+      'compaction:evaluate_fallback — 无 UnifiedTokenTracker，使用纯函数兜底评估',
+      {
+        sessionId: ctx.sessionId,
+        model: ctx.model,
+      }
+    );
     return evaluateCompactionFallback(messages, ctx.model);
   }
 
   /** 记录反抖动数据（C7 收敛：委托 UnifiedTokenTracker.recordCompaction） */
-  private recordSaving(savingPercent: number, beforeTokens: number, afterTokens: number): void {
+  private recordSaving(
+    savingPercent: number,
+    beforeTokens: number,
+    afterTokens: number
+  ): void {
     if (this.tracker) {
       this.tracker.recordCompaction(beforeTokens, afterTokens);
     } else if (savingPercent >= 10) {

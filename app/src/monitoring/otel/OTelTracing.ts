@@ -22,9 +22,9 @@ import {
   ATTR_SERVICE_VERSION,
 } from '@opentelemetry/semantic-conventions';
 import { logForDebugging } from '@modules/utils/debug.js';
-import { errorMessage } from '@modules/error';
+import { errorMessage } from '@modules/error/utils.js';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring/logs/Logger.js';
 import { APP_VERSION } from '@modules/constants/common';
 const logger = getLogger('monitoring\otel\OTelTracing');
 

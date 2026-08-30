@@ -43,7 +43,7 @@ import type {
   ContextStats,
   TokenUsage,
 } from './types';
-import { estimateTokens } from '@modules/ai';
+import { estimateTokens } from '@modules/ai/tokenizer/TokenEstimator.js';
 import { getLogger } from '../../monitoring/logs/Logger';
 const logger = getLogger('tokenBudget:controller');
 

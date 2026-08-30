@@ -6,11 +6,11 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { getLogger } from '../../monitoring/logs/Logger.js';
-import { handleError } from '@modules/error';
+import { handleError } from '@modules/error/handleError.js';
 
 const logger = getLogger('ProjectSettings');
 import { deepMerge } from '@modules/utils/common.js';
-import { resolveProjectSettingsPath } from '@modules/core';
+import { resolveProjectSettingsPath } from '@modules/core/paths.js';
 
 /**
  * 获取项目设置文件路径

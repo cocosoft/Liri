@@ -28,8 +28,12 @@ import {
 } from './types.js';
 import { ConfigValidator } from './ConfigValidator.js';
 import { ConfigMigration } from './ConfigMigration.js';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-import { handleError } from '@modules/error';
+import {
+  AppError,
+  ErrorCategory,
+  ErrorSeverity,
+} from '@modules/error/types.js';
+import { handleError } from '@modules/error/handleError.js';
 import { ConfigSnapshot, createDefaultConfigSnapshot } from './ConfigSnapshot';
 import { ConfigRecovery } from './ConfigRecovery';
 import { redactConfig } from './ConfigRedactor';
@@ -46,7 +50,7 @@ import {
   resolveUserConfigPath,
   resolvePyappHome,
   ensureDir,
-} from '@modules/core';
+} from '@modules/core/paths.js';
 import {
   setRuntimeConfigSnapshot,
   clearRuntimeConfigSnapshot,

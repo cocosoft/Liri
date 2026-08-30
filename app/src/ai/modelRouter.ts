@@ -41,14 +41,17 @@
  *   仅由 ModelManagementAPI 使用，不参与运行时 chat 请求。
  */
 
-import { handleError } from '@modules/error';
-import { getLogger } from '@modules/monitoring';
+import { handleError } from '@modules/error/handleError.js';
+import { getLogger } from '@modules/monitoring/logs/Logger.js';
 import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
 import { SpanStatusCode } from '@opentelemetry/api';
-import { ModelRegistry } from '@modules/ai';
-import type { APIProvider } from '@modules/ai';
+import { ModelRegistry } from './models/ModelRegistry.js';
+import type { APIProvider } from './models/ModelConfigs.js';
 import type { AppModelConfigService } from './models/AppModelConfigService';
-import { dependencyRegistry, DepChange } from '@modules/context';
+import {
+  dependencyRegistry,
+  DepChange,
+} from '@modules/context/DependencyRegistry.js';
 
 const logger = getLogger('ai:model-router');
 

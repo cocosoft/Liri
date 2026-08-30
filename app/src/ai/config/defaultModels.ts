@@ -8,7 +8,7 @@ import { readFileSync, existsSync, writeFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { load, dump } from 'js-yaml';
 
-import { handleError } from '@modules/error';
+import { handleError } from '@modules/error/handleError.js';
 import { resolveProjectRoot } from '@modules/core/paths';
 
 export interface ModelYamlConfig {

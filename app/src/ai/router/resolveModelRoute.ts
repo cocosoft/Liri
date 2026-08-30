@@ -33,7 +33,7 @@
 import { RouteKey, ROUTE_TO_TASK } from './routes.js';
 import type { RouteKey as RouteKeyType } from './routes.js';
 
-import { handleError } from '@modules/error';
+import { handleError } from '@modules/error/handleError.js';
 
 /** 延迟获取 ModelRouter 实例，避免循环依赖（resolveModelRoute → modelRouter → @modules/ai → BaseAIProvider → resolveModelRoute） */
 async function getModelRouter() {

@@ -63,14 +63,28 @@ describe('BaseAIProvider.readStreamChunkWithTimeout', () => {
     const provider = makeProvider();
 
     let canceled = 0;
+    let calls = 0;
     const reader = {
-      read: () => new Promise<never>(() => {}), // 永不 resolve（真挂起）
+      async read() {
+        calls++;
+        // 首块正常返回（首 chunk 有 120s TTFB 保护，见 readStreamChunkWithTimeout），
+        // 第二块起永不 resolve（真挂起）→ 走 20ms 无数据超时 → 快速抛错
+        if (calls === 1) {
+          return { done: false, value: new Uint8Array([1]) };
+        }
+        return new Promise<never>(() => {});
+      },
       async cancel() {
         canceled++;
       },
       releaseLock() {},
     } as unknown as ReadableStreamDefaultReader<Uint8Array>;
 
+    // 第一次读取：首块正常返回
+    const first = await (provider as any).readStreamChunkWithTimeout(reader, 20);
+    expect(first.done).toBe(false);
+
+    // 第二次读取：真挂起 → 20ms 无数据超时（重试 2 次后）抛错
     await expect(
       (provider as any).readStreamChunkWithTimeout(reader, 20)
     ).rejects.toThrow(/无数据/);

@@ -8,7 +8,7 @@ import {
 } from 'fs';
 import { join } from 'path';
 import { getLogger } from '../monitoring/logs/Logger.js';
-import { handleError } from '@modules/error';
+import { handleError } from '@modules/error/handleError.js';
 import { redactConfig } from './ConfigRedactor';
 
 const logger = getLogger('config:snapshot');

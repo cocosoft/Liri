@@ -46,8 +46,8 @@ import { VerifierAgent, createVerifierAgent } from './VerifierAgent.js';
 import type { VerifierAgentConfig } from './VerifierAgent.js';
 import { FileTAORCheckpointStorage } from './FileTAORCheckpointStorage.js';
 import { DBTAORCheckpointStorage } from './DBTAORCheckpointStorage.js';
-import { estimateMessagesTokens } from '@modules/ai';
-import type { ChatMessage } from '@modules/ai';
+import { estimateMessagesTokens } from '@modules/ai/tokenizer/TokenEstimator.js';
+import type { ChatMessage } from '@modules/ai/models/types.js';
 import { ReActLoop } from './ReActLoop.js';
 import type {
   ReActEvent,

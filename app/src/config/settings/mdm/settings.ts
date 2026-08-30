@@ -1,11 +1,11 @@
-﻿/**
+/**
  * MDM设置解析和管理
  * 读取企业级MDM配置并解析为设置对象
  */
 
 import { join } from 'path';
 import { existsSync, readFileSync, readdirSync } from 'fs';
-import { resolvePyappHome } from '@modules/core';
+import { resolvePyappHome } from '@modules/core/paths.js';
 import { getLogger } from '../../../monitoring/logs/Logger.js';
 const logger = getLogger('MDMSettings');
 import {

@@ -20,7 +20,7 @@
 // SOFTWARE.
 
 import { AppError, ErrorCategory, ErrorSeverity } from './types';
-import { createLogger, LogLevel } from '@modules/monitoring';
+import { createLogger, LogLevel } from '@modules/monitoring/logs/Logger.js';
 import { getOTelTracing } from '../monitoring/otel/OTelTracing.js';
 
 /**

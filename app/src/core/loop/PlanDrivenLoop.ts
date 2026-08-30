@@ -15,17 +15,20 @@
  *   4. 分解失败降级为单步执行（不阻塞主流程）
  */
 
-import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
-import { getOTelTracing } from '@modules/monitoring/otel';
-import { TAORLoop } from '@modules/query';
-import type { TAORLoopDeps } from '@modules/query';
-import { TaskDecomposer, MAX_SUBTASKS } from '@modules/ai';
-import type { DecompositionResult } from '@modules/ai';
+import { getLogger } from '@modules/monitoring/logs/Logger.js';
+import { handleError } from '@modules/error/handleError.js';
+import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
+import { TAORLoop } from '@modules/query/TAORLoop.js';
+import type { TAORLoopDeps } from '@modules/query/TAORLoop.js';
+import {
+  TaskDecomposer,
+  MAX_SUBTASKS,
+} from '@modules/ai/router/TaskDecomposer.js';
+import type { DecompositionResult } from '@modules/ai/router/TaskDecomposer.js';
 import { taskOrchestrator } from '../../tasks/TaskOrchestrator.js';
 import { goalMetricsService } from '@modules/tasks';
 import type { Plan, PlanProgress } from '../../tasks/TaskOrchestrator.js';
-import type { AIProvider } from '@modules/ai';
+import type { AIProvider } from '@modules/ai/providers/AIProvider.js';
 
 const logger = getLogger('core:planDrivenLoop');
 

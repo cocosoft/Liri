@@ -46,9 +46,13 @@ import type {
   ThinkingProviderChunk,
 } from './AIProvider';
 import type { IToolExecutor, ToolRegistry } from '../interfaces/ToolExecutor';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
-import { handleError } from '@modules/error';
-import { getLogger } from '@modules/monitoring';
+import {
+  AppError,
+  ErrorCategory,
+  ErrorSeverity,
+} from '@modules/error/types.js';
+import { handleError } from '@modules/error/handleError.js';
+import { getLogger } from '@modules/monitoring/logs/Logger.js';
 import { resolveModelRoute, RouteKey } from '../router/resolveModelRoute.js';
 import type { RouteKey as RouteKeyType } from '../router/routes.js';
 import type { TaskType } from '../modelRouter';
@@ -56,7 +60,7 @@ import { ModelRegistry } from '../models/ModelRegistry';
 import type { APIProvider } from '../models/ModelConfigs';
 import { TransportProviderAdapter } from '../transports/TransportProviderAdapter';
 import type { TransportStreamEvent } from '../transports/types';
-import { configManager } from '@modules/config';
+import { configManager } from '@modules/config/ConfigManager.js';
 import { repairModelJson } from '@modules/utils/json';
 import { getCACertificates, findCACertFilePath } from '@modules/utils/caCerts';
 

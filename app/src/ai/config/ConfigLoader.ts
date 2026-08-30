@@ -1,4 +1,4 @@
-﻿/**
+/**
  * YAML 配置加载器
  * 从 ~/.pyapp/ 目录加载用户维护的 YAML 配置文件
  */
@@ -6,7 +6,7 @@
 import { readFileSync, existsSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { load } from 'js-yaml';
-import { resolvePyappHome } from '@modules/core';
+import { resolvePyappHome } from '@modules/core/paths.js';
 
 /**
  * Provider 配置

@@ -3,8 +3,8 @@
  */
 
 import { isEnvTruthy } from './envUtils.js';
-import { configManager } from '@modules/config';
-import { getLogger } from '@modules/monitoring';
+import { configManager } from '../config/ConfigManager.js';
+import { getLogger } from '../monitoring/logs/Logger.js';
 
 const logger = getLogger('debug');
 

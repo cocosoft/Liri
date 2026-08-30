@@ -6,13 +6,16 @@
  * ModelConfigs.ts 和 ModelRegistry，此文件仅保留工具函数。
  */
 
-import { ModelRegistry } from '@modules/ai';
-import { getModelConfigById } from '@modules/ai';
-import type { BillingMode, TimeBasedPrice } from '@modules/ai';
+import { ModelRegistry } from '../ai/models/ModelRegistry.js';
+import { getModelConfigById } from '../ai/models/ModelConfigs.js';
+import type {
+  BillingMode,
+  TimeBasedPrice,
+} from '../ai/models/ModelPricingService.js';
 
-import { handleError } from '@modules/error';
+import { handleError } from '../error/handleError.js';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '../monitoring/logs/Logger.js';
 const logger = getLogger('cost:ModelPricing');
 
 export interface ModelPricing {

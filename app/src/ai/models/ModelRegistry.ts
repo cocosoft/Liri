@@ -20,10 +20,10 @@ import {
   loadModelsConfig,
   type ProviderConfig,
 } from '../config/ConfigLoader.js';
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring/logs/Logger.js';
 import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
 import { SpanStatusCode } from '@opentelemetry/api';
-import { handleError } from '@modules/error';
+import { handleError } from '@modules/error/handleError.js';
 import type { BillingMode, TimeBasedPrice } from './ModelPricingService.js';
 
 const logger = getLogger('ai:registry');

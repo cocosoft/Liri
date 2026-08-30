@@ -14,10 +14,10 @@ import {
 } from './ModelPricing.js';
 import { calculateTotalCost } from './calculateCost.js';
 import type { CostRecordRepository } from './CostRecordRepository.js';
-import { globalEventBus, SystemEvents } from '@modules/core';
-import type { CostRecordedEvent } from '@modules/core';
+import { globalEventBus, SystemEvents } from '../core/events/EventBus.js';
+import type { CostRecordedEvent } from '../core/events/EventBus.js';
 
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '../monitoring/logs/Logger.js';
 const logger = getLogger('cost:CostTracker');
 
 /**

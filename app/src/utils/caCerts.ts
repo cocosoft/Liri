@@ -4,7 +4,7 @@
 
 import fs from 'fs';
 import path from 'path';
-import { configManager } from '@modules/config';
+import { configManager } from '@modules/config/ConfigManager.js';
 
 /**
  * 查找可用的 CA 证书文件路径（供 Bun fetch 的 tls.ca 注入使用）。

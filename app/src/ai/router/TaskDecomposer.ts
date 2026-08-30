@@ -50,9 +50,9 @@
 
 import type { AIProvider } from '../providers/AIProvider.js';
 import type { RouterTier, JudgeResult } from './types.js';
-import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
-import { trackUsage } from '@modules/ai';
+import { getLogger } from '@modules/monitoring/logs/Logger.js';
+import { handleError } from '@modules/error/handleError.js';
+import { trackUsage } from '../UsageTracker.js';
 
 const logger = getLogger('ai:task-decomposer');
 

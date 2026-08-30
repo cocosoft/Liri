@@ -5,8 +5,8 @@
 import fs from 'fs';
 import path from 'path';
 import { getLogger } from '../../monitoring/logs/Logger.js';
-import { resolvePyappHome, resolveProjectRoot } from '@modules/core';
-import { handleError } from '@modules/error';
+import { resolvePyappHome, resolveProjectRoot } from '@modules/core/paths.js';
+import { handleError } from '@modules/error/handleError.js';
 
 const logger = getLogger('config:io:configIO');
 

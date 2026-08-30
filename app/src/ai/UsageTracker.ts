@@ -32,9 +32,9 @@
  */
 
 import { OTelAwareLogger } from '@modules/monitoring/logs/OTelAwareLogger.js';
-import { LogLevel } from '@modules/monitoring';
+import { LogLevel } from '@modules/monitoring/logs/Logger.js';
 import { extractUsage } from './tokenizer/UsageExtractor.js';
-import { getCanonicalModelName } from '@modules/cost';
+import { getCanonicalModelName } from '../cost/ModelPricing.js';
 
 const logger = new OTelAwareLogger({
   module: 'ai:usageTracker',

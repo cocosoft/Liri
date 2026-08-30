@@ -1,4 +1,4 @@
-import { getLogger } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring/logs/Logger.js';
 import { handleError } from '@modules/error/handleError';
 
 const logger = getLogger('utils:json');

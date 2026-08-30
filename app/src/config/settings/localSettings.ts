@@ -6,11 +6,11 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { getLogger } from '../../monitoring/logs/Logger.js';
-import { handleError } from '@modules/error';
+import { handleError } from '@modules/error/handleError.js';
 
 const logger = getLogger('LocalSettings');
 import { deepMerge } from '@modules/utils/common.js';
-import { resolvePyappHome } from '@modules/core';
+import { resolvePyappHome } from '@modules/core/paths.js';
 
 /**
  * 本地设置文件名

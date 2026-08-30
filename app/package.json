@@ -14,7 +14,7 @@
   "scripts": {
     "dev": "bun run --watch src/main.ts",
     "start": "bun run src/main.ts",
-    "build": "bun build src/main.ts --outdir=dist --target=bun --external imapflow",
+    "build": "bun build src/main.ts --outdir=dist --target=bun --external imapflow --external yoga-layout",
     "build:core": "bun run scripts/build-variant.ts --variant=core",
     "build:personal": "bun run scripts/build-variant.ts --variant=personal",
     "build:coding": "bun run scripts/build-variant.ts --variant=coding",

@@ -1,4 +1,4 @@
-import { httpLegacy as http } from "./httpClient";
+import { httpLegacy as http, http as apiHttp } from "./httpClient";
 import { getOTelTracing } from "../monitoring/otel";
 
 // STTResult、STTSegment、VoiceSession 来自共享类型定义
@@ -435,19 +435,19 @@ const voiceService = {
         formData.append("audio", audioBlob, "recording.webm");
         formData.append("sessionId", sessionId);
 
-        const response = await fetch(
-          `${window.location.origin}/v1/voice/upload`,
-          {
-            method: "POST",
-            body: formData,
-          },
-        );
+        // 加固部署鉴权专项（2026-08-30）：原直连 fetch（window.location.origin 在
+        // Tauri 下是 tauri://localhost 到不了后端 + 无鉴权头 → 加固下 401）。
+        // 改走统一 http 客户端（Tauri 走 http_proxy N-2 multipart 序列化 + 注入 key）。
+        const res = await apiHttp.post<{
+          transcript: string;
+          audioUrl?: string;
+        }>("/v1/voice/upload", formData);
 
-        if (!response.ok) {
-          throw new Error("Failed to upload audio");
+        if (!res.ok) {
+          throw new Error(res.error?.message || "Failed to upload audio");
         }
 
-        return response.json();
+        return res.data as { transcript: string; audioUrl?: string };
       },
     );
   },
@@ -456,8 +456,15 @@ const voiceService = {
     return getOTelTracing().asyncWrap(
       "services:voice:getAudioStream",
       async () => {
-        const response = await fetch(`/v1/voice/stream/${sessionId}`);
-        const blob = await response.blob();
+        // 加固部署鉴权专项（2026-08-30）：原直连 fetch 无鉴权头 → 加固下 401。
+        // 改走统一 http 客户端（blob 响应走 http_proxy N-1 base64 解码）。
+        const res = await apiHttp.get<Blob>(`/v1/voice/stream/${sessionId}`, {
+          responseType: "blob",
+        });
+        if (!res.ok) {
+          throw new Error(res.error?.message || "获取音频流失败");
+        }
+        const blob = res.data as Blob;
         const url = URL.createObjectURL(blob);
         const audio = new Audio(url);
         audio.play();
@@ -531,16 +538,20 @@ const voiceService = {
           formData.append("keyterms", JSON.stringify(options.keyterms));
         }
 
-        const response = await fetch("/v1/voice/transcribe", {
-          method: "POST",
-          body: formData,
-        });
+        // 加固部署鉴权专项（2026-08-30）：原裸 fetch("/v1/voice/transcribe")——
+        // Tauri 下相对路径到不了后端 + 无 X-API-Key 必 401。改走 apiHttp（proxyFetch 注入密钥）。
+        const res = await apiHttp.post<STTResult>(
+          "/v1/voice/transcribe",
+          formData,
+        );
 
-        if (!response.ok) {
-          throw new Error(`服务器响应异常 (${response.status})`);
+        if (!res.ok) {
+          throw new Error(
+            `服务器响应异常 (${res.error?.message || "未知错误"})`,
+          );
         }
 
-        return await response.json();
+        return res.data as STTResult;
       } catch {
         // 降级：二进制传输失败时回退到 JSON + base64
         return new Promise((resolve, reject) => {

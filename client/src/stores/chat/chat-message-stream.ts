@@ -372,11 +372,16 @@ export async function streamMessageImpl(
 
       // 30s 无 chunk：ping 后端确认会话状态
       try {
-        const base = await import("../../services/backendUrl").then((m) =>
-          m.getBackendBaseUrl(),
-        );
+        const mod = await import("../../services/backendUrl");
+        const base = mod.getBackendBaseUrl();
+        // 加固部署鉴权专项（2026-08-30）：补 X-API-Key，否则加固部署下 ping 必 401
+        // （原实现无任何鉴权头，仅浏览器直连未鉴权后端时可用）。
+        const headers: Record<string, string> = {};
+        const secret = mod.getApiSecret();
+        if (secret) headers["X-API-Key"] = secret;
         const resp = await fetch(
           `${base}/v1/sessions/${sessionId || "default"}/streaming`,
+          { headers },
         );
         if (resp.ok) {
           const status = await resp.json();

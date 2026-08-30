@@ -5,7 +5,7 @@
  */
 
 import { http, type HttpClientConfig } from "./httpClient";
-import { getBackendBaseUrl } from "./backendUrl";
+import { getBackendBaseUrl, getApiSecret } from "./backendUrl";
 
 export type LlamaServerStatus =
   "stopped" | "downloading" | "starting" | "running" | "error";
@@ -249,10 +249,10 @@ export const llamaService = {
       Accept: "text/event-stream",
     };
 
-    const secret =
-      typeof localStorage !== "undefined"
-        ? localStorage.getItem("liri-api-secret")
-        : null;
+    // 加固部署鉴权专项（2026-08-30）：原读 localStorage('liri-api-secret')——全库无写入的
+    // 死 key → 加固部署下必 401。改为 getApiSecret()（与 postSseRequest / httpClient
+    // buildHeaders 同源，由 chatService.setApiSecret 设置 JS 内存）。
+    const secret = getApiSecret();
     if (secret) headers["X-API-Key"] = secret;
 
     const token =
@@ -488,10 +488,10 @@ async function postSseRequest(
     ...config?.headers,
   };
 
-  const secret =
-    typeof localStorage !== "undefined"
-      ? localStorage.getItem("liri-api-secret")
-      : null;
+  // 加固部署鉴权专项（2026-08-30）：原读 localStorage('liri-api-secret')——全库无任何
+  // 代码写入该 key → 加固部署下必 401。改为 getApiSecret()（与 httpClient.buildHeaders
+  // 同源，由 chatService.setApiSecret 设置 JS 内存）。
+  const secret = getApiSecret();
   if (secret) headers["X-API-Key"] = secret;
 
   const token =

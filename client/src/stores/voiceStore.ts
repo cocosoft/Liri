@@ -20,6 +20,7 @@ import {
   type VoiceSession,
 } from "../services/voiceService";
 import { handleClientError } from "@/utils/handleError";
+import { http as apiHttp } from "../services/httpClient";
 
 export type { VoiceSettings, VoiceSession };
 
@@ -315,10 +316,13 @@ export const useVoiceStore = create<VoiceState>((set, get) => {
 
       if (newEnabled) {
         try {
-          const res = await fetch("/v1/voice/wake/start", { method: "POST" });
+          // 加固部署鉴权专项（2026-08-30）：原裸 fetch("/v1/voice/wake/start")——
+          // Tauri 下相对路径到不了后端 + 无 X-API-Key 必 401。改走 apiHttp（proxyFetch 注入密钥）。
+          const res = await apiHttp.post<{ status: string }>(
+            "/v1/voice/wake/start",
+          );
           if (res.ok) {
-            const data = await res.json();
-            set({ wakeWordListening: data.status === "listening" });
+            set({ wakeWordListening: res.data?.status === "listening" });
 
             await get().connectWakeWordWebSocket();
           }
@@ -332,7 +336,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => {
         }
       } else {
         try {
-          await fetch("/v1/voice/wake/stop", { method: "POST" });
+          await apiHttp.post("/v1/voice/wake/stop");
         } catch (e) {
           handleClientError(
             e,
@@ -348,11 +352,7 @@ export const useVoiceStore = create<VoiceState>((set, get) => {
     setWakeWordTriggers: async (triggers) => {
       set({ wakeWordTriggers: triggers });
       try {
-        await fetch("/v1/voice/wake/start", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ triggers }),
-        });
+        await apiHttp.post("/v1/voice/wake/start", { triggers });
       } catch (e) {
         handleClientError(
           e,

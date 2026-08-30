@@ -1,6 +1,6 @@
-import { httpLegacy as http } from "./httpClient";
+import { httpLegacy as http, http as apiHttp } from "./httpClient";
 import { handleClientError } from "../utils/handleError";
-import { getBackendBaseUrl, getApiSecret } from "./backendUrl";
+import { getBackendBaseUrl } from "./backendUrl";
 
 export type SkillStatus = "enabled" | "disabled" | "draft";
 
@@ -348,23 +348,16 @@ const skillService = {
 
   /** 导出所有技能为 ZIP 并触发浏览器下载（S2-1：后端返回 zip 二进制，非 JSON） */
   async exportAll(): Promise<Blob> {
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-    };
-    const secret = getApiSecret();
-    if (secret) headers["X-API-Key"] = secret;
-    if (typeof localStorage !== "undefined") {
-      const authToken = localStorage.getItem("liri-auth-token");
-      if (authToken) headers["Authorization"] = `Bearer ${authToken}`;
-    }
-    const res = await fetch(`${getBackendBaseUrl()}/v1/skills/export`, {
-      headers,
+    // 加固部署鉴权专项（2026-08-30）：原直连 fetch + 手工注入 getApiSecret() 依赖
+    // JS 内存持钥且绕开 Rust 代理。改走统一 http 客户端（Tauri 走 http_proxy 注入
+    // X-API-Key，浏览器模式带全局 header）。
+    const res = await apiHttp.get<Blob>("/v1/skills/export", {
+      responseType: "blob",
     });
     if (!res.ok) {
-      const text = await res.text().catch(() => "");
-      throw new Error(text || `HTTP ${res.status}`);
+      throw new Error(res.error?.message || `HTTP ${res.error?.code ?? 500}`);
     }
-    return res.blob();
+    return res.data as Blob;
   },
 
   /** 获取可用技能市场来源列表 */

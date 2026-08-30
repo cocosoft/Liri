@@ -7,6 +7,7 @@
 
 import { createLogger } from "@/utils/logger";
 import { handleClientError } from "../utils/handleError";
+import { getApiSecret } from "./backendUrl";
 
 const logger = createLogger("clipboardService");
 
@@ -218,9 +219,16 @@ async function execCommand(cmd: string): Promise<string> {
 
   // 回退：通过 fetch 调用后端 API
   try {
+    // 加固部署鉴权专项（2026-08-30）：补 X-API-Key（getApiSecret 同源 JS 内存），
+    // 否则加固部署下该端点必 401。
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    const secret = getApiSecret();
+    if (secret) headers["X-API-Key"] = secret;
     const response = await fetch("/v1/system/exec", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify({ command: cmd }),
     });
     if (response.ok) {

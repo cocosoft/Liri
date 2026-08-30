@@ -520,8 +520,15 @@ export const http = {
     });
   },
 
-  async post<T>(path: string, body?: unknown): Promise<ApiResponse<T>> {
-    return request<T>("POST", path, body);
+  async post<T>(
+    path: string,
+    body?: unknown,
+    options?: { responseType?: "json" | "blob"; timeout?: number },
+  ): Promise<ApiResponse<T>> {
+    return request<T>("POST", path, body, {
+      timeout: options?.timeout,
+      responseType: options?.responseType,
+    });
   },
 
   async put<T>(path: string, body?: unknown): Promise<ApiResponse<T>> {

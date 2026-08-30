@@ -1,4 +1,4 @@
-import { httpLegacy as http } from "./httpClient";
+import { httpLegacy as http, http as apiHttp } from "./httpClient";
 import type { MetricPoint, Alert, LogEntry, SystemHealth } from "../types";
 
 export interface SessionSummary {
@@ -175,21 +175,14 @@ export const monitorService = {
     source?: string;
     search?: string;
   }): Promise<Blob> {
-    const { getBackendBaseUrl } = await import("./backendUrl");
-    const baseUrl = getBackendBaseUrl();
-
-    const response = await fetch(`${baseUrl}/v1/monitor/logs/export`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(params),
+    // 加固部署鉴权专项（2026-08-30）：原直连 fetch 无鉴权头 → LIRI_API_SECRET 下必 401。
+    // 改走统一 http 客户端（Tauri 走 Rust http_proxy 注入 X-API-Key）。
+    const res = await apiHttp.post<Blob>("/v1/monitor/logs/export", params, {
+      responseType: "blob",
     });
-
-    if (!response.ok) {
-      throw new Error("导出失败");
+    if (!res.ok) {
+      throw new Error(res.error?.message || "导出失败");
     }
-
-    return response.blob();
+    return res.data as Blob;
   },
 };

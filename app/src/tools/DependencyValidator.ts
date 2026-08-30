@@ -686,6 +686,11 @@ async function runDependencyValidation(): Promise<void> {
     if (hasError) {
       process.exit(1);
     }
+    // 2026-08-30：验证成功也显式退出——CLI 一次性任务完成后进程必须退出。
+    // 根因：本文件 import 链（@modules/monitoring 等桶）会加载并初始化后台服务
+    //（实测 InboxManager initialized），其定时器/监听器持有事件循环句柄 → 验证
+    // 完成后进程不退出 → pre-commit hook 的 modules:validate 永久挂起。
+    process.exit(0);
   } catch (error) {
     await handleError(error, {
       module: 'tools:depValid',

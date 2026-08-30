@@ -531,6 +531,19 @@ class ArchitectureLinter {
             // 模型路由阶段、tasks(LongRunningTaskOrchestrator) 7 值任务编排阶段、
             // workspace(ProjectItemStore) 数据字段阶段，值域/语义各自独立，无统一收益
             'PdcaPhase',
+            // R02-002 治理（2026-08-30）：同名不同结构的领域变体（逐一核验，无法实质统一）
+            //   - CompactionResult：压缩统计（tier/afterTokens/savingPercent）vs 压缩产物
+            //     （boundaryMarker/summaryMessages/attachments）结构各异
+            //   - MemoryType：记忆来源 4 值（user/feedback/project/reference）vs 抽取记忆
+            //     5 值（user_fact/user_preference/code_pattern/decision）值域独立
+            //   - TokenBudgetState：核心 TokenBudgetController 声明统一（Phase 2.9），
+            //     query 旧版结构一致待迁移、services 层 @deprecated 简化版，收敛中
+            //   - PathCheckResult：query {allowed,reason} / sandbox {allowed,pathType,matchedPattern}
+            //     / media {valid,path,error} 结构各异
+            //   - ToolCategory：toolCategories 字符串联合类型 vs ToolCatalog const 常量表
+            //     + typeof 派生类型，用途不同
+            'CompactionResult', 'MemoryType', 'TokenBudgetState', 'PathCheckResult',
+            'ToolCategory',
         ]);
 
         for (const file of this.allFiles) {
@@ -1501,10 +1514,16 @@ class ArchitectureLinter {
         //   - monitoring/logs：Logger 唯一入口（§1.8）
         //   - core/events：全局事件总线；monitoring/otel：可观测性
         //   - */types：类型子路径（TS 生态普遍模式，类型导出通常不并入 index）
+        // 循环安全子入口（2026-08-30）：桶精确化打破 ESM 循环依赖（BaseAIProvider TDZ）所需的
+        // 精确子路径。这些子路径是避免门面桶（barrel）加载整个模块面、触发运行时循环的唯一入口，
+        // 与 core/paths 等唯一入口同属"规范子路径"豁免（见 dev_docs 第六十七次修复记录）。
         const canonicalEntryKeys = new Set([
             'core/paths', 'core/events', 'core/external', 'core/tokenBudget',
             'error/handleError', 'error/types',
             'monitoring/logs', 'monitoring/otel', 'monitoring/health',
+            'config/ConfigManager', 'context/DependencyRegistry', 'error/utils',
+            'ai/tokenizer', 'ai/router', 'ai/providers', 'ai/models',
+            'query/TAORLoop',
         ]);
 
         // 目标模块无 index.ts（无统一出口）→ 子路径导入是唯一方式，非违规（2026-08-29）
@@ -1543,9 +1562,11 @@ class ArchitectureLinter {
                 if (!moduleHasIndex.get(targetModule)) continue;
                 // 如果 subPath 是 index 或 index.js，不算违规
                 if (subPath === 'index' || subPath === 'index.js') continue;
-                // 规范子入口豁免：类型子路径（*/types）与唯一入口白名单（core/paths 等）
-                if (subPath.startsWith('types') || subPath.startsWith('types/')) continue;
-                if (canonicalEntryKeys.has(`${targetModule}/${subPath.split('/')[0]}`)) continue;
+                // 规范子入口豁免：类型子路径（*/types，支持任意深度如 ai/models/types.js）
+                // 与唯一入口白名单（core/paths 等，剥离 .js 后缀匹配 @modules/core/paths.js）
+                const subSegments = subPath.replace(/\.js$/, '').split('/');
+                if (subSegments.some(s => s === 'types')) continue;
+                if (canonicalEntryKeys.has(`${targetModule}/${subSegments[0]}`)) continue;
 
                 violations.push({
                     importer: relPath,
@@ -1576,9 +1597,11 @@ class ArchitectureLinter {
                 if (targetModule === 'state') continue;
                 // 目标模块无 index.ts（无统一出口）→ 子路径导入是唯一方式，合法
                 if (!moduleHasIndex.get(targetModule)) continue;
-                // 规范子入口豁免：类型子路径与唯一入口白名单（与 @modules/ 分支一致）
-                if (subDir === 'types') continue;
-                if (canonicalEntryKeys.has(`${targetModule}/${subDir}`)) continue;
+                // 规范子入口豁免：类型子路径（任意深度含 types 段）与唯一入口白名单
+                //（剥离 .js 后缀匹配，与 @modules/ 分支一致）
+                if (parts.slice(1).some(p => p.replace(/\.js$/, '') === 'types')) continue;
+                const relSubKey = subDir.replace(/\.js$/, '');
+                if (canonicalEntryKeys.has(`${targetModule}/${relSubKey}`)) continue;
 
                 // 跳过 index 入口
                 const fileName = parts[parts.length - 1];

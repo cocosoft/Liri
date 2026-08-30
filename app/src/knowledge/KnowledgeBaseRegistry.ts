@@ -60,6 +60,16 @@ export class KnowledgeBaseRegistry {
   }
 
   /**
+   * 重设知识库根目录（运行时迁移 / 测试沙箱隔离）。
+   * 同步重设注册表文件路径并失效缓存。
+   */
+  setKnowledgeRoot(root: string): void {
+    this.knowledgeRoot = root;
+    this.registryPath = join(root, REGISTRY_FILENAME);
+    this.data = null;
+  }
+
+  /**
    * 获取注册表文件路径
    */
   getRegistryPath(): string {

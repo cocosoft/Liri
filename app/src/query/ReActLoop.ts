@@ -16,8 +16,8 @@
  *   }
  */
 
-import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { getLogger } from '@modules/monitoring/logs/Logger.js';
+import { handleError } from '@modules/error/handleError.js';
 import type { QuestionData } from '@modules/runtime/api/CoreAPI.js';
 import { buildRoundSignature, isRepeatedLoop } from './loopGuard.js';
 

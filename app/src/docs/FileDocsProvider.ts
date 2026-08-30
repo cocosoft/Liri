@@ -428,6 +428,15 @@ export class FileDocsProvider {
     this.cache.clear();
     this.indexCache = null;
   }
+
+  /**
+   * 重设文档根目录（运行时知识库目录变更 / 测试沙箱隔离）。
+   * 同时清缓存，避免旧根目录的缓存条目残留。
+   */
+  setDocsRoots(roots: string | string[]): void {
+    this.docsRoots = Array.isArray(roots) ? roots : [roots];
+    this.clearCache();
+  }
 }
 
 export const fileDocsProvider = new FileDocsProvider(

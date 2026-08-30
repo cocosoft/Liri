@@ -424,6 +424,12 @@ function buildSpawnEnv(config: PythonPluginConfig): NodeJS.ProcessEnv {
   const sdkDir = resolveVendoredSdkDir();
   const existing = env.PYTHONPATH;
   env.PYTHONPATH = existing ? `${sdkDir}${delimiter}${existing}` : sdkDir;
+  // PY-3 编码修复（2026-08-30）：Windows 下 Python stdout 默认 GBK(cp936)，Bun 按
+  // UTF-8 解码子进程输出 → 中文工具描述/参数乱码（"锟斤拷"）。强制 UTF-8 输出。
+  // 调用方显式设置过则保留其值。
+  if (env.PYTHONIOENCODING === undefined) {
+    env.PYTHONIOENCODING = 'utf-8';
+  }
   return env;
 }
 

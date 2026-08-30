@@ -420,4 +420,6 @@ export type {
 } from './python/JsonRpcBridge';
 export { WorkerGuard } from './python/WorkerGuard';
 export type { WorkerGuardConfig } from './python/WorkerGuard';
+// PY-4：plugin-sdk 契约测试 ManifestLoaderEntry 依赖（getPythonVersion/satisfiesPythonVersion）
+export { getPythonVersion, satisfiesPythonVersion } from './python/StdioBridge';
 export type { MigrateProgress } from './local/llama/LlamaCppServerManager';

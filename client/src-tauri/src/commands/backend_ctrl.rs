@@ -21,6 +21,7 @@
 
 use base64::engine::general_purpose::STANDARD as BASE64;
 use base64::Engine as _;
+use futures_util::StreamExt;
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -28,6 +29,7 @@ use std::net::TcpStream;
 use std::path::PathBuf;
 use std::sync::Mutex;
 use std::time::Duration;
+use tauri::ipc::Channel;
 use tauri::Manager;
 use tauri_plugin_shell::process::CommandEvent;
 use tauri_plugin_shell::ShellExt;
@@ -573,6 +575,145 @@ pub async fn http_proxy(
             body_base64: None,
         })
     }
+}
+
+/// http_proxy_stream 流式事件（前端 tauri::ipc::Channel 回调逐条接收）
+#[derive(Clone, Serialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum ProxyStreamEvent {
+    /// 响应头就绪（仅状态码；头部由 JS 侧按需忽略）
+    Start { status: u16 },
+    /// 文本/SSE chunk（UTF-8 字符串，SSE 行解析由前端完成）
+    Chunk { data: String },
+    /// 二进制 chunk（base64，前端解码后拼装）
+    Binary { data_base64: String },
+    /// 流正常结束
+    End,
+    /// 流错误（请求/读取失败）
+    Error { message: String },
+}
+
+/// 流式 HTTP 代理 command —— SSE / 大文件响应逐 chunk 经 ipc::Channel 转发。
+///
+/// 加固部署专项（2026-08-30）：与 http_proxy 同一协议（ProxyRequest），共享密钥
+/// （LIRI_API_SECRET）在 Rust 侧注入 X-API-Key，JS 不接触明文（W6）。此前 SSE/WS
+/// 只能由 JS 直连 fetch 携带密钥出 WebView，本 command 提供不落地密钥的流式通道。
+#[tauri::command]
+pub async fn http_proxy_stream(
+    app_handle: tauri::AppHandle,
+    request: ProxyRequest,
+    on_event: Channel<ProxyStreamEvent>,
+) -> Result<(), String> {
+    // 内存优先，Tauri 重启后内存为空时从磁盘恢复
+    let secret = load_secret(&app_handle);
+
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(60))
+        .build()
+        .map_err(|e| e.to_string())?;
+
+    let method = reqwest::Method::from_bytes(request.method.as_bytes())
+        .map_err(|e| format!("invalid method {}: {}", request.method, e))?;
+
+    let mut req = client.request(method, &request.url);
+
+    // 注入共享密钥（仅 Rust 侧持有，JS 不可见）
+    if let Some(ref s) = secret {
+        req = req.header("X-API-Key", s);
+    }
+
+    // 合并前端自定义 headers（禁止覆盖 X-API-Key）
+    if let Some(headers) = request.headers {
+        for (k, v) in headers {
+            if k.to_lowercase() != "x-api-key" {
+                req = req.header(&k, v);
+            }
+        }
+    }
+
+    // N-2：multipart 表单重建（与 http_proxy 一致）
+    if let Some(parts) = request.form_parts {
+        let mut form = reqwest::multipart::Form::new();
+        for p in parts {
+            let bytes = BASE64
+                .decode(&p.content)
+                .map_err(|e| format!("form part base64 解码失败: {}", e))?;
+            let mut part = reqwest::multipart::Part::bytes(bytes);
+            if let Some(fname) = p.filename {
+                part = part.file_name(fname);
+            }
+            if let Some(ct) = p.content_type {
+                part = part
+                    .mime_str(&ct)
+                    .map_err(|e| format!("mime 解析失败: {}", e))?;
+            }
+            form = form.part(p.name, part);
+        }
+        req = req.multipart(form);
+    } else if let Some(ref body) = request.body {
+        req = req
+            .header("Content-Type", "application/json")
+            .body(body.clone());
+    }
+
+    let resp = match req.send().await {
+        Ok(r) => r,
+        Err(e) => {
+            warn!("[http_proxy_stream] 请求失败: {}", e);
+            let _ = on_event.send(ProxyStreamEvent::Error {
+                message: e.to_string(),
+            });
+            return Ok(());
+        }
+    };
+    let status = resp.status().as_u16();
+
+    // 文本/SSE 逐 chunk 以 UTF-8 字符串转发；其余按二进制 base64 转发
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("")
+        .to_lowercase();
+    let is_text = content_type.is_empty()
+        || content_type.contains("json")
+        || content_type.contains("text")
+        || content_type.contains("xml")
+        || content_type.contains("html");
+
+    if on_event.send(ProxyStreamEvent::Start { status }).is_err() {
+        return Ok(());
+    }
+
+    let mut stream = resp.bytes_stream();
+    while let Some(chunk) = stream.next().await {
+        match chunk {
+            Ok(bytes) => {
+                let sent = if is_text {
+                    on_event.send(ProxyStreamEvent::Chunk {
+                        data: String::from_utf8_lossy(&bytes).to_string(),
+                    })
+                } else {
+                    on_event.send(ProxyStreamEvent::Binary {
+                        data_base64: BASE64.encode(&bytes),
+                    })
+                };
+                if sent.is_err() {
+                    return Ok(()); // 前端已断开（Channel 已回收）
+                }
+            }
+            Err(e) => {
+                warn!("[http_proxy_stream] 流读取错误: {}", e);
+                let _ = on_event.send(ProxyStreamEvent::Error {
+                    message: e.to_string(),
+                });
+                return Ok(());
+            }
+        }
+    }
+
+    let _ = on_event.send(ProxyStreamEvent::End);
+    Ok(())
 }
 
 #[tauri::command]

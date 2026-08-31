@@ -142,6 +142,14 @@ interface ProxyFormPart {
   content_type?: string;
 }
 
+/** http_proxy_stream 流式事件（Rust 侧 Channel 逐条推送，tagged enum） */
+type ProxyStreamEvent =
+  | { type: "start"; status: number }
+  | { type: "chunk"; data: string }
+  | { type: "binary"; data_base64: string }
+  | { type: "end" }
+  | { type: "error"; message: string };
+
 /** bytes → base64（浏览器端，支持大块数据） */
 function bytesToBase64(bytes: Uint8Array): string {
   let binary = "";
@@ -555,6 +563,69 @@ export const http = {
       ...config?.headers,
     });
     const controller = new AbortController();
+
+    // W6：Tauri 环境走 Rust 流式代理（http_proxy_stream，Channel 逐 chunk 转发，
+    // 密钥由 Rust 注入 X-API-Key——原 fetch 直连会把密钥带出 WebView，加固部署下
+    // 与"JS 不持匙"原则相悖）。SSE 行解析（data: 剥离）与 fetch 分支保持一致。
+    if (isTauri) {
+      const core = await getTauriCore();
+      if (core) {
+        const { Channel } = core;
+        const channel = new Channel<ProxyStreamEvent>();
+        let buffer = "";
+        let aborted = false;
+        let pendingData: string[] = [];
+        const flushPending = (): void => {
+          if (pendingData.length === 0) return;
+          const payload = pendingData.join("\n");
+          pendingData = [];
+          if (payload !== "[DONE]") onChunk(payload);
+        };
+        controller.signal.addEventListener("abort", () => {
+          aborted = true;
+        });
+        channel.onmessage = (evt) => {
+          if (aborted) return;
+          switch (evt.type) {
+            case "chunk": {
+              buffer += evt.data;
+              const lines = buffer.split("\n");
+              buffer = lines.pop() || "";
+              for (const line of lines) {
+                const trimmed = line.trim();
+                if (!trimmed) {
+                  flushPending();
+                  continue;
+                }
+                // 兼容 `data:` 与 `data: ` 前缀
+                if (trimmed.startsWith("data:")) {
+                  pendingData.push(trimmed.slice(5).trimStart());
+                }
+              }
+              break;
+            }
+            case "error":
+              config?.onError?.(new Error(evt.message));
+              break;
+            case "end":
+              // 流结束：flush 未闭合的残留 data（最后一条无空行结尾）
+              flushPending();
+              break;
+            default:
+              break;
+          }
+        };
+        core
+          .invoke("http_proxy_stream", {
+            request: { method: "GET", url, headers },
+            onEvent: channel,
+          })
+          .catch((err: unknown) => {
+            if (!aborted) config?.onError?.(err);
+          });
+        return controller;
+      }
+    }
 
     const doFetch = async (): Promise<void> => {
       const res = await fetch(url, {

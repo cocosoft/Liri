@@ -11,7 +11,6 @@
 import { useState, useEffect, useRef } from "react";
 import FileLink from "../FileLink";
 import { createLogger } from "@/utils/logger";
-import { getBackendBaseUrl, getApiSecret } from "../../../services/backendUrl";
 import {
   matchFilePath,
   pathResolveCache,
@@ -80,15 +79,16 @@ export function InlineCodeLink({
 
       setChecking(true);
       pathResolvePending.add(cacheKey);
-      const baseUrl = getBackendBaseUrl();
-      const encodedPath = encodeURIComponent(codeContent);
-      const apiSecret = getApiSecret();
-      const headers: Record<string, string> = {};
-      if (apiSecret) {
-        headers["X-API-Key"] = apiSecret;
-      }
-      fetch(`${baseUrl}/api/file/resolve-path?path=${encodedPath}`, { headers })
-        .then((res) => (res.ok ? res.json() : null))
+      // W6 收尾（2026-08-31）：改走统一 http 客户端（Tauri 下 Rust 代理注入密钥）
+      import("../../../services/httpClient")
+        .then(({ http }) =>
+          http.get<{
+            exists?: boolean;
+            restricted?: boolean;
+            resolvedPath?: string | null;
+          }>("/api/file/resolve-path", { params: { path: codeContent } }),
+        )
+        .then((res) => (res.ok ? res.data : null))
         .then((data) => {
           // P1-4 修复：竞态防护——若组件已取消（codeContent 变化），丢弃旧结果
           if (cancelledRef.current) return;

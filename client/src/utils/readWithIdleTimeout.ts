@@ -36,7 +36,7 @@ export const FIRST_CHUNK_TIMEOUT_MS = 120_000;
  * 调用方可通过 `e.name === "TimeoutError"` 区分"网络超时"与"用户取消"（AbortError）。
  */
 export async function readWithIdleTimeout(
-  reader: ReadableStreamDefaultReader<Uint8Array>,
+  reader: Pick<ReadableStreamDefaultReader<Uint8Array>, "read" | "cancel">,
   timeoutMs: number = STREAM_IDLE_TIMEOUT_MS,
 ): Promise<ReadableStreamReadResult<Uint8Array>> {
   let timer: ReturnType<typeof setTimeout> | undefined;

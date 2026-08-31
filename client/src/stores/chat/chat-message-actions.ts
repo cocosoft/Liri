@@ -17,35 +17,28 @@ const logger = createLogger("stores:chat:message");
 
 /** 保存中止恢复检查点（fire-and-forget，供 stopMessage 使用） */
 function saveAbortCheckpoint(sessionId: string): void {
-  // M2 修复（2026-08-13）：改用 buildAuthHeaders（X-API-Key + Bearer 双注入）——
-  // 原实现只注入 X-API-Key，登录态（M0d）下缺 Bearer 恒 401，中止恢复检查点保存失效。
-  import("../../services/chatService")
-    .then(async ({ buildAuthHeaders }) => {
-      const { getBackendBaseUrl } = await import("../../services/backendUrl");
-      fetch(
-        `${getBackendBaseUrl()}/v1/sessions/${sessionId}/checkpoints/latest`,
-        {
-          method: "POST",
-          headers: buildAuthHeaders(),
-          body: JSON.stringify({
-            label: `abort_${Date.now()}`,
-            autoCreated: true,
-            metadata: { abortRecovery: true },
-          }),
-        },
-      ).catch((err) => {
-        handleClientError(
-          err,
-          {
-            module: "stores:chat:message",
-            action: "stopMessage:saveCheckpoint",
-          },
-          "warn",
-        );
-      });
+  // W6 收尾（2026-08-31）：改走统一 http 客户端（Tauri 下 Rust 代理注入密钥）
+  import("../../services/httpClient")
+    .then(async ({ http }) => {
+      await http
+        .post(`/v1/sessions/${sessionId}/checkpoints/latest`, {
+          label: `abort_${Date.now()}`,
+          autoCreated: true,
+          metadata: { abortRecovery: true },
+        })
+        .catch((err) => {
+          handleClientError(
+            err,
+            {
+              module: "stores:chat:message",
+              action: "stopMessage:saveCheckpoint",
+            },
+            "warn",
+          );
+        });
     })
     .catch(() => {
-      /* backendUrl 动态加载失败，静默忽略 */
+      /* httpClient 动态加载失败，静默忽略 */
     });
 }
 
@@ -540,16 +533,13 @@ export async function checkAbortRecoveryImpl(
   sessionId: string,
 ): Promise<boolean> {
   try {
-    // M2 修复：改用 buildAuthHeaders（X-API-Key + Bearer 双注入），登录态下恢复检查点查询不再 401
-    const { buildAuthHeaders } = await import("../../services/chatService");
-    const { getBackendBaseUrl } = await import("../../services/backendUrl");
-    const resp = await fetch(
-      `${getBackendBaseUrl()}/v1/sessions/${sessionId}/checkpoints/latest`,
-      { headers: buildAuthHeaders() },
+    // W6 收尾（2026-08-31）：改走统一 http 客户端（Tauri 下 Rust 代理注入密钥）
+    const { http } = await import("../../services/httpClient");
+    const res = await http.get<{ metadata?: { abortRecovery?: boolean } }>(
+      `/v1/sessions/${sessionId}/checkpoints/latest`,
     );
-    if (!resp.ok) return false;
-    const data = await resp.json();
-    if (data?.metadata?.abortRecovery) {
+    if (!res.ok) return false;
+    if (res.data?.metadata?.abortRecovery) {
       set({ recoverySessionId: sessionId });
       return true;
     }
@@ -564,17 +554,15 @@ export function dismissRecoveryImpl(set: MessageSet, get: MessageGet): void {
   const sid = get().recoverySessionId;
   set({ recoverySessionId: null });
   if (sid) {
-    // M2 修复：改用 buildAuthHeaders（X-API-Key + Bearer 双注入），登录态下删除检查点不再 401
-    import("../../services/chatService")
-      .then(async ({ buildAuthHeaders }) => {
-        const { getBackendBaseUrl } = await import("../../services/backendUrl");
-        fetch(`${getBackendBaseUrl()}/v1/sessions/${sid}/checkpoints/latest`, {
-          method: "DELETE",
-          headers: buildAuthHeaders(),
-        }).catch(() => {});
+    // W6 收尾（2026-08-31）：改走统一 http 客户端（Tauri 下 Rust 代理注入密钥）
+    import("../../services/httpClient")
+      .then(async ({ http }) => {
+        await http
+          .delete(`/v1/sessions/${sid}/checkpoints/latest`)
+          .catch(() => {});
       })
       .catch(() => {
-        /* chatService 动态加载失败，静默忽略 */
+        /* httpClient 动态加载失败，静默忽略 */
       });
   }
 }

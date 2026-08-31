@@ -276,6 +276,185 @@ async function proxyFetch<T>(
   }
 }
 
+/** 流式读取器接口（模拟 ReadableStreamDefaultReader，供 Tauri 代理复用解析循环） */
+export interface StreamReader {
+  read(): Promise<{ done: boolean; value: Uint8Array }>;
+  cancel(reason?: unknown): Promise<void>;
+  /** 原生 reader 释放锁；自定义实现为空操作（无锁语义） */
+  releaseLock(): void;
+}
+
+/**
+ * 统一流式请求通道（W6 收尾，2026-08-31）：
+ * - Tauri 下经 Rust http_proxy_stream（Channel 承载，密钥 Rust 侧注入，JS 不接触明文）
+ * - 浏览器下 fetch 直连（后端默认不鉴权）
+ * 返回模拟 reader，调用方保持原 ReadableStream 解析循环（readWithIdleTimeout 等）不变。
+ */
+export async function createStreamReader(
+  path: string,
+  config?: {
+    method?: string;
+    body?: unknown;
+    headers?: Record<string, string>;
+    signal?: AbortSignal;
+  },
+): Promise<StreamReader> {
+  const method = config?.method ?? "GET";
+  const url = buildUrl(path);
+  const headers: Record<string, string> = {
+    ...config?.headers,
+  };
+  const requestBody =
+    config?.body !== undefined && method !== "GET"
+      ? JSON.stringify(config.body)
+      : undefined;
+  if (config?.body !== undefined && method !== "GET") {
+    headers["Content-Type"] = "application/json";
+  }
+
+  if (isTauri) {
+    const core = await getTauriCore();
+    if (core) {
+      return createTauriStreamReader(
+        core,
+        url,
+        method,
+        headers,
+        requestBody,
+        config?.signal,
+      );
+    }
+  }
+  return createFetchStreamReader(
+    url,
+    method,
+    headers,
+    requestBody,
+    config?.signal,
+  );
+}
+
+/** Tauri：Channel 队列模拟 reader（Start/Chunk/End/Error 事件 → read() 拉取） */
+function createTauriStreamReader(
+  core: NonNullable<Awaited<ReturnType<typeof getTauriCore>>>,
+  url: string,
+  method: string,
+  headers: Record<string, string>,
+  body: string | undefined,
+  signal?: AbortSignal,
+): StreamReader {
+  const { Channel } = core;
+  const channel = new Channel<ProxyStreamEvent>();
+  const queue: Uint8Array[] = [];
+  let done = false;
+  let cancelled = false;
+  let streamError: Error | null = null;
+  const waiters: Array<{
+    resolve: (r: { done: boolean; value: Uint8Array }) => void;
+    reject: (e: Error) => void;
+  }> = [];
+
+  const settle = (): void => {
+    while (waiters.length > 0) {
+      const w = waiters.shift()!;
+      if (streamError) w.reject(streamError);
+      else w.resolve({ done: true, value: new Uint8Array() });
+    }
+  };
+
+  channel.onmessage = (evt) => {
+    if (cancelled) return;
+    switch (evt.type) {
+      case "start": {
+        // HTTP 非 2xx 视为错误（对齐 fetch 分支 response.ok 检查）
+        if (evt.status < 200 || evt.status >= 300) {
+          streamError = new Error(`HTTP ${evt.status}`);
+          settle();
+        }
+        break;
+      }
+      case "chunk": {
+        const bytes = new TextEncoder().encode(evt.data);
+        const w = waiters.shift();
+        if (w) w.resolve({ done: false, value: bytes });
+        else queue.push(bytes);
+        break;
+      }
+      case "end":
+        done = true;
+        settle();
+        break;
+      case "error":
+        streamError = new Error(evt.message);
+        settle();
+        break;
+      default:
+        break;
+    }
+  };
+
+  // 发起请求（不阻塞 read；错误经 streamError 在下次 read 时抛出）
+  core
+    .invoke("http_proxy_stream", {
+      request: { method, url, headers, body },
+      onEvent: channel,
+    })
+    .catch((err: unknown) => {
+      if (cancelled) return;
+      streamError = err instanceof Error ? err : new Error(String(err));
+      settle();
+    });
+
+  if (signal) {
+    if (signal.aborted) {
+      cancelled = true;
+    } else {
+      signal.addEventListener("abort", () => {
+        cancelled = true;
+        settle();
+      });
+    }
+  }
+
+  return {
+    async read(): Promise<{ done: boolean; value: Uint8Array }> {
+      if (cancelled) return { done: true, value: new Uint8Array() };
+      if (streamError) throw streamError;
+      if (queue.length > 0) return { done: false, value: queue.shift()! };
+      if (done) return { done: true, value: new Uint8Array() };
+      return new Promise((resolve, reject) => {
+        waiters.push({ resolve, reject });
+      });
+    },
+    async cancel(): Promise<void> {
+      cancelled = true;
+      settle();
+    },
+    releaseLock(): void {
+      // 无锁语义（Channel 非原生 ReadableStream），空操作
+    },
+  };
+}
+
+/** 浏览器：直接 fetch 流（后端默认不鉴权） */
+async function createFetchStreamReader(
+  url: string,
+  method: string,
+  headers: Record<string, string>,
+  body: string | undefined,
+  signal?: AbortSignal,
+): Promise<StreamReader> {
+  const response = await fetch(url, {
+    method,
+    headers,
+    body,
+    signal,
+  });
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  if (!response.body) throw new Error("No response body");
+  return response.body.getReader() as unknown as StreamReader;
+}
+
 async function request<T>(
   method: string,
   path: string,
@@ -551,10 +730,12 @@ export const http = {
     return request<T>("DELETE", path);
   },
 
-  /** SSE 流式请求（GET/POST，Tauri 下走 Rust http_proxy_stream，密钥 Rust 侧注入） */
+  /** SSE 流式请求（GET/POST，Tauri 下走 Rust http_proxy_stream，密钥 Rust 侧注入）。
+   *  onChunk(data, eventName)：data 为剥离 `data:` 前缀的完整 payload，eventName
+   *  为 `event:` 字段（无则为 "message"）。 */
   async stream(
     path: string,
-    onChunk: (data: string) => void,
+    onChunk: (data: string, eventName?: string) => void,
     config?: HttpClientConfig & {
       onError?: (err: unknown) => void;
       /** 请求方法（默认 GET） */
@@ -573,7 +754,7 @@ export const http = {
 
     // W6：Tauri 环境走 Rust 流式代理（http_proxy_stream，Channel 逐 chunk 转发，
     // 密钥由 Rust 注入 X-API-Key——原 fetch 直连会把密钥带出 WebView，加固部署下
-    // 与"JS 不持匙"原则相悖）。SSE 行解析（data: 剥离）与 fetch 分支保持一致。
+    // 与"JS 不持匙"原则相悖）。SSE 行解析（event:/data: 剥离）与 fetch 分支保持一致。
     if (isTauri) {
       const core = await getTauriCore();
       if (core) {
@@ -582,11 +763,14 @@ export const http = {
         let buffer = "";
         let aborted = false;
         let pendingData: string[] = [];
+        let currentEvent = "message";
         const flushPending = (): void => {
           if (pendingData.length === 0) return;
           const payload = pendingData.join("\n");
           pendingData = [];
-          if (payload !== "[DONE]") onChunk(payload);
+          const evt = currentEvent;
+          currentEvent = "message";
+          if (payload !== "[DONE]") onChunk(payload, evt);
         };
         controller.signal.addEventListener("abort", () => {
           aborted = true;
@@ -594,6 +778,12 @@ export const http = {
         channel.onmessage = (evt) => {
           if (aborted) return;
           switch (evt.type) {
+            case "start":
+              // HTTP 非 2xx：通知 onError（对齐 fetch 分支），后续 chunk 不再处理
+              if (evt.status < 200 || evt.status >= 300) {
+                config?.onError?.(new Error(`HTTP ${evt.status}`));
+              }
+              break;
             case "chunk": {
               buffer += evt.data;
               const lines = buffer.split("\n");
@@ -604,8 +794,9 @@ export const http = {
                   flushPending();
                   continue;
                 }
-                // 兼容 `data:` 与 `data: ` 前缀
-                if (trimmed.startsWith("data:")) {
+                if (trimmed.startsWith("event:")) {
+                  currentEvent = trimmed.slice(6).trim() || "message";
+                } else if (trimmed.startsWith("data:")) {
                   pendingData.push(trimmed.slice(5).trimStart());
                 }
               }
@@ -649,7 +840,13 @@ export const http = {
         signal: controller.signal,
       });
 
-      if (!res.ok || !res.body) return;
+      if (!res.ok || !res.body) {
+        // 非 2xx / 无 body：通知 onError（否则调用方静默失败无感知）
+        config?.onError?.(
+          new Error(res.ok ? "No response body" : `HTTP ${res.status}`),
+        );
+        return;
+      }
 
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
@@ -658,6 +855,7 @@ export const http = {
       // `data:` 前缀的完整 payload（支持多行 data continuation），
       // 原实现把含前缀的原始行直接回传，与"SSE 流式请求"语义不符。
       const pendingData: string[] = [];
+      let currentEvent = "message";
 
       while (true) {
         // 无数据超时兜底：SSE 流中断时不永久挂起（超时抛 TimeoutError）
@@ -675,20 +873,23 @@ export const http = {
             if (pendingData.length === 0) continue;
             const payload = pendingData.join("\n");
             pendingData.length = 0;
-            if (payload !== "[DONE]") onChunk(payload);
+            const evt = currentEvent;
+            currentEvent = "message";
+            if (payload !== "[DONE]") onChunk(payload, evt);
             continue;
           }
-          // 兼容 `data:` 与 `data: ` 前缀
-          if (trimmed.startsWith("data:")) {
+          if (trimmed.startsWith("event:")) {
+            currentEvent = trimmed.slice(6).trim() || "message";
+          } else if (trimmed.startsWith("data:")) {
             pendingData.push(trimmed.slice(5).trimStart());
           }
-          // 其他 SSE 字段（event:/id:/retry:）忽略
+          // 其他 SSE 字段（id:/retry:）忽略
         }
       }
       // 流结束：flush 未闭合的残留 data（最后一条无空行结尾）
       if (pendingData.length > 0) {
         const payload = pendingData.join("\n");
-        if (payload !== "[DONE]") onChunk(payload);
+        if (payload !== "[DONE]") onChunk(payload, currentEvent);
       }
     };
 

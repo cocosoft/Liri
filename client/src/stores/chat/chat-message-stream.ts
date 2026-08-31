@@ -372,27 +372,18 @@ export async function streamMessageImpl(
 
       // 30s 无 chunk：ping 后端确认会话状态
       try {
-        const mod = await import("../../services/backendUrl");
-        const base = mod.getBackendBaseUrl();
-        // 加固部署鉴权专项（2026-08-30）：补 X-API-Key，否则加固部署下 ping 必 401
-        // （原实现无任何鉴权头，仅浏览器直连未鉴权后端时可用）。
-        const headers: Record<string, string> = {};
-        const secret = mod.getApiSecret();
-        if (secret) headers["X-API-Key"] = secret;
-        const resp = await fetch(
-          `${base}/v1/sessions/${sessionId || "default"}/streaming`,
-          { headers },
+        // W6 收尾（2026-08-31）：改走统一 http 客户端（Tauri 下 Rust 代理注入密钥）
+        const { http } = await import("../../services/httpClient");
+        const resp = await http.get<{ streaming?: boolean }>(
+          `/v1/sessions/${sessionId || "default"}/streaming`,
         );
-        if (resp.ok) {
-          const status = await resp.json();
-          if (!status.streaming) {
-            logger.warn(
-              "幽灵块检测：后端报告会话流已结束，但前端仍在等待 chunk",
-              { sessionId },
-            );
-            clearInterval(ghostCheckTimer);
-            controller.abort();
-          }
+        if (resp.ok && resp.data && !resp.data.streaming) {
+          logger.warn(
+            "幽灵块检测：后端报告会话流已结束，但前端仍在等待 chunk",
+            { sessionId },
+          );
+          clearInterval(ghostCheckTimer);
+          controller.abort();
         }
       } catch {
         // ping 失败静默处理，不干扰主流程
@@ -974,23 +965,22 @@ export async function streamMessageImpl(
     // P2-2: 断线重连 — 非用户取消的中断尝试从检查点恢复消息
     if (!controller.signal.aborted && sessionId) {
       try {
-        // M2 修复：改用 buildAuthHeaders（X-API-Key + Bearer 双注入），登录态下断线恢复拉取不再 401
-        const { buildAuthHeaders } = await import("../../services/chatService");
-        const { getBackendBaseUrl } = await import("../../services/backendUrl");
-        const resp = await fetch(
-          `${getBackendBaseUrl()}/v1/sessions/${sessionId}/checkpoints/latest`,
-          { headers: buildAuthHeaders() },
-        );
+        // W6 收尾（2026-08-31）：改走统一 http 客户端（Tauri 下 Rust 代理注入密钥）
+        const { http } = await import("../../services/httpClient");
+        const resp = await http.get<{
+          checkpointAvailable?: boolean;
+          messages?: Message[];
+        }>(`/v1/sessions/${sessionId}/checkpoints/latest`);
         if (resp.ok) {
-          const data = await resp.json();
-          if (data.checkpointAvailable && data.messages?.length > 0) {
+          const data = resp.data;
+          const backendMsgs = data?.messages ?? [];
+          if (data?.checkpointAvailable && backendMsgs.length > 0) {
             logger.info("从检查点恢复消息", {
               sessionId,
-              messageCount: data.messages.length,
+              messageCount: backendMsgs.length,
             });
             // AB-18 修复：合并去重而非整表替换——前端已渲染消息保留（id 不变 → React
             // DOM 复用，滚动位置/折叠态不丢失），仅补充后端有而前端缺失的消息。
-            const backendMsgs = data.messages as Message[];
             const current = get().messages;
             const currentIds = new Set(current.map((m) => m.id));
             const missing = backendMsgs.filter(

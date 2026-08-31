@@ -5,7 +5,6 @@
  */
 
 import { http, type HttpClientConfig } from "./httpClient";
-import { getBackendBaseUrl, getApiSecret } from "./backendUrl";
 
 export type LlamaServerStatus =
   "stopped" | "downloading" | "starting" | "running" | "error";
@@ -244,89 +243,28 @@ export const llamaService = {
     },
     initialLines = 100,
   ): Promise<AbortController> {
-    const url = `${getBackendBaseUrl().replace(/\/+$/, "")}/v1/llama/logs/stream?initialLines=${initialLines}`;
-    const headers: Record<string, string> = {
-      Accept: "text/event-stream",
-    };
-
-    // 加固部署鉴权专项（2026-08-30）：原读 localStorage('liri-api-secret')——全库无写入的
-    // 死 key → 加固部署下必 401。改为 getApiSecret()（与 postSseRequest / httpClient
-    // buildHeaders 同源，由 chatService.setApiSecret 设置 JS 内存）。
-    const secret = getApiSecret();
-    if (secret) headers["X-API-Key"] = secret;
-
-    const token =
-      typeof localStorage !== "undefined"
-        ? localStorage.getItem("liri-auth-token")
-        : null;
-    if (token) headers["Authorization"] = `Bearer ${token}`;
-
-    const controller = new AbortController();
-
-    const doFetch = async (): Promise<void> => {
-      try {
-        const res = await fetch(url, {
-          method: "GET",
-          headers,
-          signal: controller.signal,
-        });
-
-        if (!res.ok || !res.body) {
-          handlers.onError?.(`HTTP ${res.status}`);
-          return;
-        }
-
-        const reader = res.body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = "";
-        let currentEvent = "message";
-        const pendingData: string[] = [];
-
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split("\n");
-          buffer = lines.pop() || "";
-
-          for (const line of lines) {
-            const trimmed = line.trim();
-            if (!trimmed) {
-              if (pendingData.length === 0) continue;
-              const payload = pendingData.join("\n");
-              pendingData.length = 0;
-
-              try {
-                const parsed = JSON.parse(payload);
-                if (currentEvent === "initial") {
-                  handlers.onInitial?.(parsed.logs || "");
-                } else if (currentEvent === "log") {
-                  handlers.onLog?.(parsed.logs || "");
-                }
-              } catch {
-                // 心跳或其他非 JSON 事件忽略
-              }
-              currentEvent = "message";
-              continue;
-            }
-            if (trimmed.startsWith("event:")) {
-              const evt = trimmed.slice(6).trim();
-              currentEvent =
-                evt === "initial" || evt === "log" ? evt : "message";
-            } else if (trimmed.startsWith("data:")) {
-              pendingData.push(trimmed.slice(5).trimStart());
-            }
+    // W6 收尾（2026-08-31）：改走统一 http.stream——Tauri 下经 Rust http_proxy_stream
+    // 注入密钥（原直连 fetch 依赖 getApiSecret，BackendStatus.secret 回收后恒空）。
+    // event: initial/log 由 http.stream 解析回传，此处仅分发。
+    return http.stream(
+      `/v1/llama/logs/stream?initialLines=${initialLines}`,
+      (payload, eventName = "message") => {
+        try {
+          const parsed = JSON.parse(payload);
+          if (eventName === "initial") {
+            handlers.onInitial?.(parsed.logs || "");
+          } else if (eventName === "log") {
+            handlers.onLog?.(parsed.logs || "");
           }
+        } catch {
+          // 心跳或其他非 JSON 事件忽略
         }
-      } catch (err) {
-        if (err instanceof DOMException && err.name === "AbortError") return;
-        handlers.onError?.(err instanceof Error ? err.message : String(err));
-      }
-    };
-
-    doFetch();
-    return controller;
+      },
+      {
+        onError: (err) =>
+          handlers.onError?.(err instanceof Error ? err.message : String(err)),
+      },
+    );
   },
 
   // ─── 硬件检测 ────────────────────────────────────────────────────
@@ -481,104 +419,29 @@ async function postSseRequest(
   onEvent: (event: LlamaSseEvent) => void,
   config?: HttpClientConfig,
 ): Promise<AbortController> {
-  const url = `${getBackendBaseUrl().replace(/\/+$/, "")}${path.startsWith("/") ? path : `/${path}`}`;
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-    Accept: "text/event-stream",
-    ...config?.headers,
-  };
-
-  // 加固部署鉴权专项（2026-08-30）：原读 localStorage('liri-api-secret')——全库无任何
-  // 代码写入该 key → 加固部署下必 401。改为 getApiSecret()（与 httpClient.buildHeaders
-  // 同源，由 chatService.setApiSecret 设置 JS 内存）。
-  const secret = getApiSecret();
-  if (secret) headers["X-API-Key"] = secret;
-
-  const token =
-    typeof localStorage !== "undefined"
-      ? localStorage.getItem("liri-auth-token")
-      : null;
-  if (token) headers["Authorization"] = `Bearer ${token}`;
-
-  const controller = new AbortController();
-
-  const doFetch = async (): Promise<void> => {
-    const res = await fetch(url, {
-      method: "POST",
-      headers,
-      body: JSON.stringify(body),
-      signal: controller.signal,
-    });
-
-    if (!res.ok || !res.body) {
-      onEvent({ event: "error", data: { error: `HTTP ${res.status}` } });
-      return;
-    }
-
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = "";
-    let currentEvent:
-      "message" | "progress" | "complete" | "error" | "cancelled" = "message";
-    const pendingData: string[] = [];
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split("\n");
-      buffer = lines.pop() || "";
-
-      for (const line of lines) {
-        const trimmed = line.trim();
-        if (!trimmed) {
-          if (pendingData.length === 0) continue;
-          const payload = pendingData.join("\n");
-          pendingData.length = 0;
-          if (payload === "[DONE]") continue;
-          try {
-            const parsed = JSON.parse(payload);
-            onEvent({ event: currentEvent, data: parsed });
-          } catch {
-            onEvent({ event: currentEvent, data: payload });
-          }
-          currentEvent = "message";
-          continue;
-        }
-        if (trimmed.startsWith("event:")) {
-          const evt = trimmed.slice(6).trim();
-          currentEvent =
-            evt === "progress" ||
-            evt === "complete" ||
-            evt === "error" ||
-            evt === "cancelled"
-              ? evt
-              : "message";
-        } else if (trimmed.startsWith("data:")) {
-          pendingData.push(trimmed.slice(5).trimStart());
-        }
-      }
-    }
-
-    if (pendingData.length > 0) {
-      const payload = pendingData.join("\n");
+  // W6 收尾（2026-08-31）：改走统一 http.stream——Tauri 下经 Rust http_proxy_stream
+  // 注入密钥（原直连 fetch 依赖 getApiSecret，BackendStatus.secret 回收后恒空）。
+  // event: progress/complete/error/cancelled 由 http.stream 解析回传，此处仅分发。
+  return http.stream(
+    path,
+    (payload, eventName = "message") => {
+      const evt = eventName as LlamaSseEvent["event"];
       try {
         const parsed = JSON.parse(payload);
-        onEvent({ event: currentEvent, data: parsed });
+        onEvent({ event: evt, data: parsed });
       } catch {
-        onEvent({ event: currentEvent, data: payload });
+        onEvent({ event: evt, data: payload });
       }
-    }
-  };
-
-  doFetch().catch((err: unknown) => {
-    if (err instanceof DOMException && err.name === "AbortError") return;
-    onEvent({
-      event: "error",
-      data: { error: err instanceof Error ? err.message : String(err) },
-    });
-  });
-
-  return controller;
+    },
+    {
+      method: "POST",
+      body,
+      headers: config?.headers,
+      onError: (err) =>
+        onEvent({
+          event: "error",
+          data: { error: err instanceof Error ? err.message : String(err) },
+        }),
+    },
+  );
 }

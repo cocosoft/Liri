@@ -122,19 +122,13 @@ export default function InboxBlock({ data, sessionId, onResolved }: Props) {
   async function tryResumeAfterApproval(sid: string): Promise<boolean> {
     let checkpointAvailable = false;
     try {
-      const { getBackendBaseUrl, getApiSecret } =
-        await import("../../services/backendUrl");
-      // P2: 裸 fetch 需注入 X-API-Key，配置 LIRI_API_SECRET 后缺头会 401
-      const headers: Record<string, string> = {};
-      const secret = getApiSecret();
-      if (secret) headers["X-API-Key"] = secret;
-      const latestResp = await fetch(
-        `${getBackendBaseUrl()}/v1/sessions/${sid}/checkpoints/latest`,
-        { headers },
+      // W6 收尾（2026-08-31）：改走统一 http 客户端（Tauri 下 Rust 代理注入密钥）
+      const { http } = await import("../../services/httpClient");
+      const latestResp = await http.get<{ checkpointAvailable?: boolean }>(
+        `/v1/sessions/${sid}/checkpoints/latest`,
       );
       if (!latestResp.ok) return false;
-      const latest = await latestResp.json();
-      checkpointAvailable = !!latest.checkpointAvailable;
+      checkpointAvailable = !!latestResp.data?.checkpointAvailable;
     } catch (e) {
       // 检查点查询失败（后端未就绪/网络异常）→ 返回 false 让调用方降级 sendMessage 续跑，
       // 不抛异常（此前 fetch 异常直接上抛被 handleAction catch 吞掉，降级分支被跳过）

@@ -820,25 +820,16 @@ export const chatService = {
       if (options?.images && options.images.length > 0)
         body.images = options.images;
 
-      const response = await fetch(
-        `${getBackendBaseUrl()}/v1/chat/completions`,
-        {
-          method: "POST",
-          headers: buildAuthHeaders(),
-          body: JSON.stringify(body),
-          signal,
-        },
-      );
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-
-      if (!response.body) {
-        throw new Error("No response body");
-      }
-
-      const reader = response.body.getReader();
+      // W6 收尾（2026-08-31）：聊天主链路改走统一流式通道——Tauri 下经 Rust
+      // http_proxy_stream（密钥 Rust 侧注入，JS 不接触明文），浏览器直连 fetch。
+      // createStreamReader 模拟 ReadableStreamDefaultReader 接口，下方解析循环不变。
+      const { createStreamReader } = await import("./httpClient");
+      const reader = await createStreamReader("/v1/chat/completions", {
+        method: "POST",
+        body,
+        headers: buildAuthHeaders(),
+        signal,
+      });
       const decoder = new TextDecoder();
       let buffer = "";
 

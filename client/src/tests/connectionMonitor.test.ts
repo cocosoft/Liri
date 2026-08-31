@@ -5,6 +5,15 @@ import {
   connectionMonitor,
 } from "../services/connectionMonitor";
 
+// healthCheckOnce 已迁到统一 http 客户端（W6 闭环：Tauri 下由 Rust 注入
+// X-API-Key，浏览器直连 fetch）——测试直接 mock ./httpClient，验证健康探测
+// 语义（ok→true / 非ok→false / 异常→false），而非打桩全局 fetch。
+vi.mock("../services/httpClient", () => ({
+  http: { get: vi.fn() },
+}));
+
+import { http } from "../services/httpClient";
+
 /**
  * ConnectionMonitor 状态机规则测试（§十 阶段 C Connection 域）
  * 验证：核心转移合法（掉线/恢复/断网/重连）、非法转移拒绝、状态自反。
@@ -104,27 +113,26 @@ describe("connectionMonitor 状态机规则 — §十 阶段 C Connection 域", 
 
 describe("connectionMonitor.healthCheckOnce — N8-1 自动恢复探测（<30s 最短掉线场景）", () => {
   it("/health 返回 ok → true", async () => {
-    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
-    vi.stubGlobal("fetch", fetchMock);
+    vi.mocked(http.get).mockResolvedValue({ ok: true, data: undefined });
 
     await expect(connectionMonitor.healthCheckOnce()).resolves.toBe(true);
-    expect(fetchMock).toHaveBeenCalledWith(
-      expect.stringContaining("/health"),
-      expect.objectContaining({ signal: expect.anything() }),
+    expect(http.get).toHaveBeenCalledWith(
+      "/health",
+      expect.objectContaining({ timeout: expect.anything() }),
     );
   });
 
   it("/health 返回非 ok（如 500）→ false", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false }));
+    vi.mocked(http.get).mockResolvedValue({
+      ok: false,
+      error: { code: 500, message: "internal error" },
+    });
 
     await expect(connectionMonitor.healthCheckOnce()).resolves.toBe(false);
   });
 
   it("网络异常（fetch 抛错）→ false（不抛出）", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockRejectedValue(new Error("network down")),
-    );
+    vi.mocked(http.get).mockRejectedValue(new Error("network down"));
 
     await expect(connectionMonitor.healthCheckOnce()).resolves.toBe(false);
   });

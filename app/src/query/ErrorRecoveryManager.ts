@@ -115,6 +115,38 @@ function classifyError(error: Error): RecoveryType {
   return 'unknown';
 }
 
+/**
+ * 本地确定性错误检测（对标 hermes TurnRetryState：本地 bug 不重试 vs API 瞬态重试）。
+ *
+ * 重试 API 瞬态错误（429/5xx/网络）有意义；但本地代码 bug（TypeError/ReferenceError
+ * 等）重试必然再次失败——只掩盖真实缺陷并浪费 token/时间。assess() 对
+ * 确定性本地错误直接 abort 不重试。
+ */
+function isDeterministicLocalError(error: Error): boolean {
+  // 原生 JS 错误类型：本地代码缺陷（非 API/网络瞬态）
+  const name = error.name;
+  if (
+    name === 'TypeError' ||
+    name === 'ReferenceError' ||
+    name === 'RangeError' ||
+    name === 'SyntaxError' ||
+    name === 'EvalError' ||
+    name === 'URIError'
+  ) {
+    return true;
+  }
+  // 本地模式：模块加载/断言/非法访问（排除网络/API 关键词，避免误判）
+  const msg = error.message;
+  return (
+    /Cannot (read|set) properties of/i.test(msg) ||
+    /is not a function/i.test(msg) ||
+    /is not defined/i.test(msg) ||
+    /Cannot find module/i.test(msg) ||
+    /Unexpected token/i.test(msg) ||
+    /Assertion failed/i.test(msg)
+  );
+}
+
 /** 各恢复类型的注入消息 */
 function getRecoveryMessage(type: RecoveryType, errorMsg?: string): string {
   switch (type) {
@@ -156,6 +188,21 @@ export class ErrorRecoveryManager {
    */
   assess(error: Error, context: RecoveryContext): RecoveryResult {
     const type = classifyError(error);
+
+    // 2026-08-31（对标 hermes TurnRetryState）：本地确定性 bug 不重试——
+    // 重试必然再次失败，只掩盖真实代码缺陷并浪费 token。直接 abort + 记录。
+    if (type === 'unknown' && isDeterministicLocalError(error)) {
+      logger.error('Recovery deterministic local error (no retry)', {
+        name: error.name,
+        message: error.message.slice(0, 200),
+        turnCount: context.turnCount,
+      });
+      return {
+        recovered: false,
+        action: 'abort',
+        message: `本地代码错误（${error.name}），不重试：${error.message.slice(0, 120)}`,
+      };
+    }
 
     let attempt = this.attempts.get(type);
     if (!attempt) {

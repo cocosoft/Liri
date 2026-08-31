@@ -38,6 +38,7 @@ import type { ChatResponse, ChatMessage } from '@modules/ai';
 import type { Message } from './types/message.js';
 import { getToolCallName } from './types/tool.js';
 import { getLogger } from '@modules/monitoring';
+import { prepareToolResultsForContext } from '../tools/services/ToolResultPersister.js';
 import {
   ensureThinkResponseTags,
   stripThinkResponseTags,
@@ -862,6 +863,11 @@ export class ReActToolLoop extends ReActLoop<
       }
 
       // C. 下一轮消息回填（对齐旧类 L406-411）+ 轮次推进 + unifiedTracker（L413-419）
+      // 2026-08-31 工具结果二级防御：超限结果落盘 + 路径引用（防 822KB 工具结果
+      // 全量进上下文 OOM），单轮聚合超限 spill（对标 hermes tool_result_storage）
+      if (processedResults.length > 0) {
+        await prepareToolResultsForContext(processedResults);
+      }
       if (this.loopState.assistantMessage) {
         this.loopState.messages = this.ctx.buildToolRoundMessages(
           this.loopState.messages,

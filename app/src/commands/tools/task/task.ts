@@ -62,6 +62,7 @@ function taskStatusToDisplay(s: TaskStatus): DisplayStatus {
       return 'in_progress';
     case TaskStatus.COMPLETED:
       return 'completed';
+    case TaskStatus.BLOCKED:
     case TaskStatus.FAILED:
       return 'failed';
     case TaskStatus.KILLED:

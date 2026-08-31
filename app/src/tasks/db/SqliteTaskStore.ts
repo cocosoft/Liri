@@ -47,6 +47,10 @@ function rowToTaskState(row: any): TaskState {
     outputOffset: row.output_offset,
     notified: row.notified === 1,
     error: row.error ?? undefined,
+    consecutiveFailures: row.consecutive_failures ?? undefined,
+    circuitBreakReason: row.circuit_break_reason ?? undefined,
+    claimedBy: row.claimed_by ?? undefined,
+    leaseExpiresAt: row.lease_expires_at ?? undefined,
     metadata: row.metadata ? JSON.parse(row.metadata) : undefined,
   };
 }
@@ -65,6 +69,10 @@ function taskStateToRow(state: TaskState): Record<string, unknown> {
     output_offset: state.outputOffset,
     notified: state.notified ? 1 : 0,
     error: state.error ?? null,
+    consecutive_failures: state.consecutiveFailures ?? 0,
+    circuit_break_reason: state.circuitBreakReason ?? null,
+    claimed_by: state.claimedBy ?? null,
+    lease_expires_at: state.leaseExpiresAt ?? null,
     metadata: state.metadata ? JSON.stringify(state.metadata) : null,
     updated_at: Date.now(),
   };
@@ -121,7 +129,52 @@ export class SqliteTaskStore implements ITaskStore {
     });
 
     await this.createTables();
+    await this.migrateSchema();
     logger.info('SqliteTaskStore initialized', { dbPath: this.dbPath });
+  }
+
+  /** 幂等列迁移：存量库仅新增缺失列（对齐 GoalMetricsService._migrateSchema 模式） */
+  private async migrateSchema(): Promise<void> {
+    if (!this.db) return;
+    const columns = await new Promise<string[]>((resolve, reject) => {
+      this.db!.all('PRAGMA table_info(task_states)', (err, rows: any[]) => {
+        if (err) reject(err);
+        else resolve(rows.map((r) => r.name));
+      });
+    });
+    const existing = new Set(columns);
+
+    const migrations: [string, string][] = [
+      [
+        'consecutive_failures',
+        'ALTER TABLE task_states ADD COLUMN consecutive_failures INTEGER NOT NULL DEFAULT 0',
+      ],
+      [
+        'circuit_break_reason',
+        'ALTER TABLE task_states ADD COLUMN circuit_break_reason TEXT',
+      ],
+      ['claimed_by', 'ALTER TABLE task_states ADD COLUMN claimed_by TEXT'],
+      [
+        'lease_expires_at',
+        'ALTER TABLE task_states ADD COLUMN lease_expires_at INTEGER',
+      ],
+    ];
+
+    for (const [col, sql] of migrations) {
+      if (existing.has(col)) continue;
+      try {
+        await new Promise<void>((resolve, reject) => {
+          this.db!.run(sql, (err) => (err ? reject(err) : resolve()));
+        });
+        logger.info('task_states 列迁移完成', { column: col });
+      } catch (err) {
+        await handleError(err, {
+          module: 'tasks:sqliteStore',
+          action: 'migrateColumn',
+          context: { column: col },
+        });
+      }
+    }
   }
 
   private async createTables(): Promise<void> {

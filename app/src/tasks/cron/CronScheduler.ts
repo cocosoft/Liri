@@ -30,6 +30,8 @@ const logger = getLogger('tasks:cron:scheduler');
 const DEFAULT_MAX_MISSED_JOBS_PER_RESTART = 5;
 const DEFAULT_MAX_PARALLEL_JOBS = 5;
 const DEFAULT_JOB_TIMEOUT_MS = 5 * 60 * 1000;
+/** P1-8（2026-08-31）：执行期心跳续租间隔（长任务防误判卡死） */
+const JOB_HEARTBEAT_INTERVAL_MS = 30_000;
 
 /** 调度锁（基于文件锁） */
 interface SchedulerLock {
@@ -488,10 +490,19 @@ export class CronScheduler {
         };
       }
 
+      // P1-8（2026-08-31）：执行期心跳续租——定期更新 heartbeat_at，
+      // 供中断恢复区分"刚启动"与"真正卡死"（对标 Hermes heartbeat_run_claim）
+      const heartbeatTimer = setInterval(() => {
+        void this.store.updateHeartbeat(job.id).catch(() => {
+          // 心跳写失败不阻塞执行（fire-and-forget）
+        });
+      }, JOB_HEARTBEAT_INTERVAL_MS);
+
       // 调用外部执行器
       try {
         result = await this.executeWithTimeout(job);
       } finally {
+        clearInterval(heartbeatTimer);
         cronLock.release();
       }
     } catch (error) {

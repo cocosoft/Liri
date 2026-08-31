@@ -531,6 +531,7 @@ function mapTaskStatusToBg(status: TaskStatus): BackgroundTaskStatus {
       return 'running';
     case TaskStatus.COMPLETED:
       return 'completed';
+    case TaskStatus.BLOCKED:
     case TaskStatus.FAILED:
       return 'failed';
     case TaskStatus.KILLED:

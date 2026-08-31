@@ -12,6 +12,10 @@ CREATE TABLE IF NOT EXISTS task_states (
   output_offset INTEGER NOT NULL DEFAULT 0,
   notified INTEGER NOT NULL DEFAULT 0,
   error TEXT,
+  consecutive_failures INTEGER NOT NULL DEFAULT 0,
+  circuit_break_reason TEXT,
+  claimed_by TEXT,
+  lease_expires_at INTEGER,
   metadata TEXT,
   updated_at INTEGER NOT NULL
 );
@@ -122,6 +126,7 @@ CREATE TABLE IF NOT EXISTS goal_metrics (
   session_id TEXT NOT NULL,
   row_type TEXT NOT NULL DEFAULT 'goal',
   stage_id TEXT,
+  max_turns INTEGER,
   total_turns INTEGER NOT NULL DEFAULT 0,
   total_tokens INTEGER NOT NULL DEFAULT 0,
   total_cost_usd REAL NOT NULL DEFAULT 0,

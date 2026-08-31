@@ -47,6 +47,10 @@ import type { PlanReview, ReviewDecision } from './PlanReview';
 import { TrajectoryTrailRecorder } from '@modules/session';
 import { createReviewGate } from './review/ReviewGate.js';
 import type { ReviewGate, ReviewGateContext } from './review/ReviewGate.js';
+import {
+  GoalEvaluateGate,
+  isGoalEvaluateEnabled,
+} from './review/GoalEvaluateGate.js';
 import { TAORLoop, createTAORLoopDeps } from '@modules/query';
 import type { TAORLoopDeps } from '@modules/query';
 import { VerifierAgent, createVerifierAgent } from '@modules/query';
@@ -187,6 +191,10 @@ export class LongRunningTaskOrchestrator {
   private _totalTokensTracked = 0;
   /** S2：任务开始时间（duration 计算） */
   private _startedAt = 0;
+  /** P1-2（2026-08-31）：当前 PDCA 循环 turn 预算上限（goal_metrics.max_turns 数据源） */
+  private _maxTurns = 0;
+  /** P1-3（2026-08-31）：目标级收敛判定门（对标 Hermes evaluate_after_turn，无状态可复用） */
+  private goalEvaluateGate = new GoalEvaluateGate();
   /**
    * D5（M6，2026-08-13）：阶段回退增量 replan 记录（escalate 时捕获缺陷清单）
    * 重开循环时注入"基线 + 缺陷清单 → 仅修订受影响部分"的增量 replan 指令。
@@ -1519,8 +1527,12 @@ ${replanSection}
     let allDone = false;
     let iterations = 0;
     const plan = this.requirePlan();
-    // 动态上限：步骤数 * 5，最少 20，防止长任务被误杀
-    const maxIterations = Math.max(20, plan.steps.length * 5);
+    // P1-2（2026-08-31）：turn 预算上限——动态兜底（步骤数*5，最少 20）防误杀；
+    // 显式配置 TASK_GOAL_MAX_TURNS 时优先作为硬上限（对标 Hermes goal_max_turns）
+    const dynamicMax = Math.max(20, plan.steps.length * 5);
+    const configuredMax = Number(configManager.env('TASK_GOAL_MAX_TURNS')) || 0;
+    const maxIterations = configuredMax > 0 ? configuredMax : dynamicMax;
+    this._maxTurns = maxIterations;
 
     while (!allDone && iterations < maxIterations) {
       iterations++;
@@ -1560,6 +1572,52 @@ ${replanSection}
             (s) => s.status === 'pending' && s.decision === undefined
           ),
       });
+
+      // P1-3（2026-08-31）：目标级收敛判定（对标 Hermes evaluate_after_turn）
+      // 步骤全部终态后，用副模型确认"整体目标是否真正达成"；未收敛则阻止
+      // "步骤全过但目标未实现"的假完成（转 failed，缺陷清单驱动增量 replan）
+      if (allDone && isGoalEvaluateEnabled()) {
+        const goalConv = await this.goalEvaluateGate.evaluate(
+          {
+            goal: latestPlan.description,
+            steps: latestPlan.steps.map((s) => ({
+              description: s.description,
+              status: s.status,
+              result: s.result,
+              review: s.reviewResult?.summary,
+            })),
+          },
+          { isolation: this.isolation, executor: this.executor }
+        );
+        if (goalConv.evaluated && !goalConv.converged) {
+          logger.warn('目标级评估未收敛，阻止假完成', {
+            taskId: this.taskId,
+            planId: this.planId,
+            reason: goalConv.reason,
+            confidence: goalConv.confidence,
+          });
+          latestPlan.status = 'failed';
+          latestPlan.completedAt = new Date().toISOString();
+          taskOrchestrator['savePlan']?.(latestPlan);
+          void handleError(
+            new AppError(
+              `目标未收敛：${goalConv.reason}`,
+              ErrorCategory.OPERATION,
+              ErrorSeverity.HIGH,
+              'PDCA_GOAL_NOT_CONVERGED',
+              {
+                taskId: this.taskId,
+                planId: this.planId,
+                reason: goalConv.reason,
+                confidence: goalConv.confidence,
+              }
+            ),
+            { module: 'tasks:longRunning', action: 'runFullPdca' }
+          );
+          allDone = false;
+          break;
+        }
+      }
 
       if (!allDone) {
         // 有步骤需要重试
@@ -1736,6 +1794,7 @@ ${replanSection}
           goalId: this.taskId,
           sessionId: this._sessionId ?? '',
           stageId,
+          maxTurns: this._maxTurns > 0 ? this._maxTurns : undefined,
           totalTurns: metrics.totalSteps,
           totalTokens: this._totalTokensTracked,
           durationMs: this._startedAt > 0 ? Date.now() - this._startedAt : 0,

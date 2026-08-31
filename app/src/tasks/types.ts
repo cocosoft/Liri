@@ -38,6 +38,7 @@ export enum TaskType {
 export enum TaskStatus {
   PENDING = 'pending',
   RUNNING = 'running',
+  BLOCKED = 'blocked',
   COMPLETED = 'completed',
   FAILED = 'failed',
   KILLED = 'killed',
@@ -70,6 +71,14 @@ export interface TaskState {
   toolActivities?: ToolActivity[];
   /** 额外元数据（如 TaskTool 的 owner/priority/activeForm/metadata） */
   metadata?: Record<string, unknown>;
+  /** P1-1（2026-08-31）：连续失败次数（熔断计数；成功/非失败状态重置为 0） */
+  consecutiveFailures?: number;
+  /** P1-1（2026-08-31）：熔断原因（consecutiveFailures 达阈值自动置 BLOCKED 时记录） */
+  circuitBreakReason?: string;
+  /** P1-5（2026-08-31）：任务租约持有者（认领该任务的进程/worker 标识） */
+  claimedBy?: string;
+  /** P1-5（2026-08-31）：租约过期时间戳（到期后其他 worker 可 forceClaim 抢占） */
+  leaseExpiresAt?: number;
 }
 
 export interface ToolActivity {

@@ -57,13 +57,26 @@ export const TASK_TRANSITIONS: TransitionRules<TaskStatus> = {
     TaskStatus.KILLED,
     TaskStatus.LOST,
   ],
+  [TaskStatus.BLOCKED]: [
+    // P1-1（2026-08-31）：熔断暂停态——可人工恢复 RUNNING，或放弃转终态
+    TaskStatus.RUNNING,
+    TaskStatus.COMPLETED,
+    TaskStatus.FAILED,
+    TaskStatus.KILLED,
+    TaskStatus.LOST,
+  ],
   [TaskStatus.COMPLETED]: [
     TaskStatus.RUNNING,
     TaskStatus.FAILED,
     TaskStatus.KILLED,
     TaskStatus.LOST,
   ],
-  [TaskStatus.FAILED]: [TaskStatus.RUNNING, TaskStatus.KILLED, TaskStatus.LOST],
+  [TaskStatus.FAILED]: [
+    TaskStatus.RUNNING,
+    TaskStatus.BLOCKED,
+    TaskStatus.KILLED,
+    TaskStatus.LOST,
+  ],
   [TaskStatus.KILLED]: [TaskStatus.RUNNING, TaskStatus.FAILED, TaskStatus.LOST],
   [TaskStatus.LOST]: [
     TaskStatus.RUNNING,

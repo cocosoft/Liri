@@ -46,6 +46,9 @@ function mapToBgStatus(status: TaskStatus): BackgroundTaskStatus {
       return 'completed';
     case TaskStatus.FAILED:
       return 'failed';
+    case TaskStatus.BLOCKED:
+      // P1-1（2026-08-31）：熔断降级为失败展示（BackgroundTaskStatus 无 blocked 态）
+      return 'failed';
     case TaskStatus.KILLED:
       return 'aborted';
     case TaskStatus.LOST:

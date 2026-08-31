@@ -31,6 +31,7 @@ describe('GoalMetricsService — S2 两类行类型落库', () => {
       goalId: 'goal-test-1',
       sessionId: 'session-a',
       stageId: 'execute',
+      maxTurns: 20,
       totalTurns: 3,
       totalTokens: 1200,
       durationMs: 5000,
@@ -43,6 +44,8 @@ describe('GoalMetricsService — S2 两类行类型落库', () => {
     expect(rows[0].stageId).toBe('execute');
     expect(rows[0].totalTokens).toBe(1200);
     expect(rows[0].totalTurns).toBe(3);
+    // P1-2（2026-08-31）：turn 预算上限落库
+    expect(rows[0].maxTurns).toBe(20);
   });
 
   test('message 粒度：usage_records 写入会话 usage 行', async () => {

@@ -27,6 +27,8 @@ export interface StageMetricInput {
   sessionId: string;
   /** 阶段 ID（如 'execute' / 'requirement' / 'design'…） */
   stageId: string;
+  /** P1-2（2026-08-31）：本阶段 turn 预算上限（PDCA maxIterations，NULL 表示未配置） */
+  maxTurns?: number;
   totalTurns?: number;
   totalTokens?: number;
   totalCostUsd?: number;
@@ -51,6 +53,7 @@ export interface StageMetricRow {
   sessionId: string;
   rowType: string;
   stageId: string | null;
+  maxTurns: number | null;
   totalTurns: number;
   totalTokens: number;
   totalCostUsd: number;
@@ -135,6 +138,7 @@ export class GoalMetricsService {
         "ALTER TABLE goal_metrics ADD COLUMN row_type TEXT NOT NULL DEFAULT 'goal'",
       ],
       ['stage_id', 'ALTER TABLE goal_metrics ADD COLUMN stage_id TEXT'],
+      ['max_turns', 'ALTER TABLE goal_metrics ADD COLUMN max_turns INTEGER'],
     ];
 
     for (const [col, sql] of migrations) {
@@ -159,15 +163,16 @@ export class GoalMetricsService {
     await run(
       db,
       `INSERT INTO ${TABLE_NAMES.GOAL_METRICS}
-        (id, goal_id, session_id, row_type, stage_id, total_turns, total_tokens,
-         total_cost_usd, auto_verify_count, auto_verify_pass_count,
+        (id, goal_id, session_id, row_type, stage_id, max_turns, total_turns,
+         total_tokens, total_cost_usd, auto_verify_count, auto_verify_pass_count,
          user_intervention_count, duration_ms, created_at)
-       VALUES (?, ?, ?, 'stage', ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, 'stage', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         randomUUID(),
         input.goalId,
         input.sessionId,
         input.stageId,
+        input.maxTurns ?? null,
         input.totalTurns ?? 0,
         input.totalTokens ?? 0,
         input.totalCostUsd ?? 0,
@@ -208,7 +213,7 @@ export class GoalMetricsService {
     const rows = await all<Record<string, unknown>>(
       db,
       `SELECT id, goal_id, session_id, row_type, stage_id,
-              total_turns, total_tokens, total_cost_usd, duration_ms, created_at
+              max_turns, total_turns, total_tokens, total_cost_usd, duration_ms, created_at
          FROM ${TABLE_NAMES.GOAL_METRICS}
         WHERE row_type = 'stage' ${goalId ? 'AND goal_id = ?' : ''}
         ORDER BY created_at`,
@@ -220,6 +225,7 @@ export class GoalMetricsService {
       sessionId: String(r.session_id),
       rowType: String(r.row_type),
       stageId: r.stage_id == null ? null : String(r.stage_id),
+      maxTurns: r.max_turns == null ? null : Number(r.max_turns),
       totalTurns: Number(r.total_turns ?? 0),
       totalTokens: Number(r.total_tokens ?? 0),
       totalCostUsd: Number(r.total_cost_usd ?? 0),

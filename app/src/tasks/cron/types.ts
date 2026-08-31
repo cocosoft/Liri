@@ -103,6 +103,8 @@ export interface CronJob {
   createdAt: string;
   nextRunAt?: string;
   runningAtMs?: number;
+  /** P1-8（2026-08-31）：执行期心跳时间戳（长任务续租，防误判卡死） */
+  heartbeatAt?: number;
   lastRunAt?: string;
   lastStatus?: CronRunStatus;
   lastError?: string;

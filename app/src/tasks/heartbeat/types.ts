@@ -5,6 +5,8 @@ export interface HeartbeatRecord {
   lastHeartbeatAt: number;
   startedAt: number;
   ttlMs: number;
+  /** P1-5（2026-08-31）：租约持有者标识（进程/worker/会话；beat 续租校验 + 过期抢占依据） */
+  owner?: string;
   metadata?: Record<string, unknown>;
 }
 

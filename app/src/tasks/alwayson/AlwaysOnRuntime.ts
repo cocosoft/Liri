@@ -13,6 +13,7 @@ import { ResourceArbiter } from './ResourceArbiter';
 import { DiscoveryScheduler } from './DiscoveryScheduler';
 import { DiscoveryFire } from './DiscoveryFire';
 import { cg3Log } from '../cg3Env';
+import { drainManager } from '../drain/DrainManager';
 import { handleError } from '@modules/error';
 import type { CommandBridge } from '../commands/CommandBridge';
 import type { SteeringBridge } from '../steering/SteeringBridge';
@@ -69,6 +70,14 @@ export class AlwaysOnRuntime {
       }
 
       cg3Log('tasks:alwayson:runtime', 'info', 'gatePassed');
+
+      // P3-3（2026-08-31）：统一排空协议——排空中不启动新自主运行循环
+      if (drainManager.isDraining()) {
+        cg3Log('tasks:alwayson:runtime', 'debug', 'drainingBlocked', {
+          reason: drainManager.getReason(),
+        });
+        return;
+      }
 
       // 阶段 1: Discovery
       const plan = await this.fireRunner.discovery();

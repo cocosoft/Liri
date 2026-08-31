@@ -35,6 +35,7 @@ import { resolveDataSubDir } from '@modules/core/paths';
 import { WorkspaceProviderRegistry } from './provider/WorkspaceProviderRegistry';
 import { GitWorktreeProvider } from './provider/GitWorktreeProvider';
 import { SnapshotCopyProvider } from './provider/SnapshotCopyProvider';
+import { createWorkspaceSnapshot } from './apply/WorkspaceSnapshot';
 import type {
   WorkspaceHandle,
   WorkspaceProvider,
@@ -67,6 +68,8 @@ export interface AutonomousTaskResult {
   applied: boolean;
   diff?: string;
   error?: string;
+  /** P1-4（2026-08-31）：execute 前自动快照 hash（apply-back 失败时保留隔离区，可 restoreWorkspaceSnapshot 回滚） */
+  snapshotHash?: string;
 }
 
 /**
@@ -84,6 +87,9 @@ export async function runAutonomousTask(
 
   let handle: WorkspaceHandle | undefined;
   let provider: WorkspaceProvider | undefined;
+  let snapshotHash: string | undefined;
+  // P1-4：apply-back 失败时保留隔离区（含快照），防止回灌失败后改动被清理丢失
+  let keepIsolation = false;
   try {
     const prepared = await registry.prepare({
       projectRoot: input.projectRoot,
@@ -98,10 +104,46 @@ export async function runAutonomousTask(
       cwd: handle.cwd,
     });
 
+    // P1-4（2026-08-31）：execute 前自动影子 git 快照（对标 Hermes checkpoint），
+    // 失败仅 warn 不阻断（快照是增强，非主流程依赖）
+    if (handle.strategy === 'git-worktree') {
+      snapshotHash = await createWorkspaceSnapshot(
+        handle.cwd,
+        `before-execute-${input.runId}`
+      )
+        .then((s) => s.hash)
+        .catch((e) => {
+          logger.warn('AutonomousRunner: 执行前快照失败（不影响执行）', {
+            runId: input.runId,
+            error: String(e),
+          });
+          return undefined;
+        });
+    }
+
     await input.execute({ cwd: handle.cwd, projectRoot: input.projectRoot });
 
     // apply-back：将隔离区改动回灌主项目
-    const out = await provider.publish(handle);
+    let out;
+    try {
+      out = await provider.publish(handle);
+    } catch (error) {
+      // P1-4：回灌失败 → 保留隔离区与快照（调用方可 restoreWorkspaceSnapshot 回滚 / 手动合并）
+      const msg = error instanceof Error ? error.message : String(error);
+      logger.warn('AutonomousRunner: 回灌失败，保留隔离区与快照', {
+        runId: input.runId,
+        error: msg,
+        snapshotHash,
+      });
+      keepIsolation = true;
+      return {
+        runId: input.runId,
+        strategy: handle.strategy,
+        applied: false,
+        error: `apply-back failed: ${msg}`,
+        snapshotHash,
+      };
+    }
     const applied = !!(out.diff && !out.diff.startsWith('snapshot at '));
     logger.info('AutonomousRunner: 执行完成，回灌结果', {
       runId: input.runId,
@@ -113,6 +155,7 @@ export async function runAutonomousTask(
       strategy: handle.strategy,
       applied,
       diff: out.diff,
+      snapshotHash,
     };
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
@@ -125,11 +168,12 @@ export async function runAutonomousTask(
       strategy: handle?.strategy ?? 'snapshot-copy',
       applied: false,
       error: msg,
+      snapshotHash,
     };
   } finally {
     if (handle && provider) {
       try {
-        await provider.dispose(handle, { keep: false });
+        await provider.dispose(handle, { keep: keepIsolation });
       } catch (error) {
         logger.warn('AutonomousRunner: 隔离区清理失败', {
           runId: input.runId,

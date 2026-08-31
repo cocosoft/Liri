@@ -53,6 +53,7 @@ CREATE TABLE IF NOT EXISTS cron_jobs (
   owner_key TEXT,
   session_key TEXT,
   silent INTEGER NOT NULL DEFAULT 0,
+  heartbeat_at INTEGER,
   updated_at INTEGER NOT NULL
 );
 
@@ -87,6 +88,7 @@ function rowToCronJob(row: any): CronJob {
     createdAt: row.created_at,
     nextRunAt: row.next_run_at ?? undefined,
     runningAtMs: row.running_at_ms ?? undefined,
+    heartbeatAt: row.heartbeat_at ?? undefined,
     lastRunAt: row.last_run_at ?? undefined,
     lastStatus: row.last_status ?? undefined,
     lastError: row.last_error ?? undefined,
@@ -136,6 +138,7 @@ function cronJobToRow(job: CronJob): Record<string, unknown> {
     created_at: job.createdAt,
     next_run_at: job.nextRunAt ?? null,
     running_at_ms: job.runningAtMs ?? null,
+    heartbeat_at: job.heartbeatAt ?? null,
     last_run_at: job.lastRunAt ?? null,
     last_status: job.lastStatus ?? null,
     last_error: job.lastError ?? null,
@@ -216,7 +219,13 @@ export class CronJobStore {
                     (/* noop */) => {
                       this.db!.run(
                         `ALTER TABLE cron_jobs ADD COLUMN schedule_tz TEXT DEFAULT NULL`,
-                        (/* noop */) => {}
+                        (/* noop */) => {
+                          // 迁移：添加 heartbeat_at 列（P1-8 执行期心跳续租）
+                          this.db!.run(
+                            `ALTER TABLE cron_jobs ADD COLUMN heartbeat_at INTEGER DEFAULT NULL`,
+                            (/* noop */) => {}
+                          );
+                        }
                       );
                     }
                   );
@@ -373,6 +382,31 @@ export class CronJobStore {
         }
         resolve();
       });
+    });
+  }
+
+  /**
+   * P1-8（2026-08-31）：执行期心跳续租——长任务执行中定期更新 heartbeat_at，
+   * 供中断恢复（findRunningJobs）区分"刚启动"与"真正卡死"，防误判。
+   */
+  async updateHeartbeat(jobId: string): Promise<void> {
+    const db = this.ensureDb();
+    return new Promise((resolve, reject) => {
+      db.run(
+        `UPDATE ${TABLE_CRON_JOBS} SET heartbeat_at = ? WHERE id = ?`,
+        [Date.now(), jobId],
+        (err) => {
+          if (err) {
+            handleError(err, {
+              module: 'tasks:cron:store',
+              action: '更新心跳失败',
+            });
+            reject(err);
+            return;
+          }
+          resolve();
+        }
+      );
     });
   }
 

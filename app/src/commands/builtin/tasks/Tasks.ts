@@ -28,6 +28,7 @@ function statusToDisplay(status: TaskStatus): TaskItem['status'] {
       return 'in-progress';
     case TaskStatus.COMPLETED:
       return 'completed';
+    case TaskStatus.BLOCKED:
     case TaskStatus.FAILED:
     case TaskStatus.LOST:
     case TaskStatus.KILLED:

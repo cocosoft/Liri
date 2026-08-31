@@ -18,9 +18,29 @@ import type {
   TaskContext,
 } from './types';
 
-import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+// 直连实现文件避免 barrel 循环（@modules/monitoring、@modules/error barrel 会拉入
+// tasks 相关模块 → 触发 NoteTask extends BaseTask 时的 TDZ；参照 paths.ts 先例）
+import { getLogger } from '@modules/monitoring/logs/Logger.js';
+import { handleError } from '@modules/error/handleError';
 const logger = getLogger('tasks:BaseTask');
+
+// 注意：@modules/config barrel 会拉入 tasks 相关模块（循环 import），
+// 阈值读取用惰性 require（首次调用时 configManager 已初始化），避免模块加载期循环。
+let _circuitBreakerThreshold: number | undefined;
+/** P1-1（2026-08-31）：任务级熔断阈值（连续失败次数，达阈值自动置 BLOCKED）。默认 3，TASK_CIRCUIT_BREAKER_THRESHOLD 可覆盖。 */
+export function getCircuitBreakerThreshold(): number {
+  if (_circuitBreakerThreshold === undefined) {
+    try {
+      const { configManager } =
+        require('@modules/config') as typeof import('@modules/config');
+      _circuitBreakerThreshold =
+        Number(configManager.env('TASK_CIRCUIT_BREAKER_THRESHOLD')) || 3;
+    } catch {
+      _circuitBreakerThreshold = 3;
+    }
+  }
+  return _circuitBreakerThreshold;
+}
 
 export abstract class BaseTask extends EventEmitter {
   abstract readonly type: TaskType;
@@ -139,10 +159,41 @@ export abstract class BaseTask extends EventEmitter {
   }
 
   protected setStatus(status: TaskStatus, error?: string): void {
-    this.updateState({
-      status,
-      endTime: isTerminalTaskStatus(status) ? Date.now() : undefined,
+    // P1-1（2026-08-31）：任务级熔断——FAILED 递增连续失败计数，其他状态重置；
+    // 达到阈值自动降级为 BLOCKED（非终态，等待人工处理），避免长任务反复失败空转。
+    const threshold = getCircuitBreakerThreshold();
+    const consecutiveFailures =
+      status === TaskStatus.FAILED
+        ? (this.state.consecutiveFailures ?? 0) + 1
+        : 0;
+
+    const nextStatus =
+      status === TaskStatus.FAILED && consecutiveFailures >= threshold
+        ? TaskStatus.BLOCKED
+        : status;
+
+    const updates: Partial<TaskState> = {
+      status: nextStatus,
+      consecutiveFailures,
       error,
+    };
+    if (nextStatus === TaskStatus.BLOCKED) {
+      updates.circuitBreakReason = `连续失败 ${consecutiveFailures} 次触发任务熔断（阈值 ${threshold}）`;
+      logger.warn('任务熔断：连续失败达阈值，自动置 BLOCKED', {
+        taskId: this.state.id,
+        consecutiveFailures,
+        threshold,
+        reason: updates.circuitBreakReason,
+        error,
+      });
+    } else if (status !== TaskStatus.FAILED) {
+      // 非失败状态清除熔断原因（计数已重置为 0）
+      updates.circuitBreakReason = undefined;
+    }
+
+    this.updateState({
+      ...updates,
+      endTime: isTerminalTaskStatus(nextStatus) ? Date.now() : undefined,
     });
   }
 

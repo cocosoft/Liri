@@ -92,6 +92,15 @@ describe("InboxBlock 批准续跑（P0-5）", () => {
     postSpy = vi
       .spyOn(http, "post")
       .mockResolvedValue({ ok: true, data: {}, error: undefined });
+    // 隔离外部依赖：检查点查询 mock 为"无可用 checkpoint"——InboxBlock 批准后
+    // 先走 tryResumeAfterApproval（http.get），无 checkpoint 才降级 sendMessage 续跑。
+    // 若不 mock，真实 http.get 在 CI（无后端）触发 fetchWithRetry 重试 14s，
+    // waitFor(1s) 超时导致 sendMessage 断言 0 次调用。
+    vi.spyOn(http, "get").mockResolvedValue({
+      ok: false,
+      data: undefined,
+      error: { code: 404, message: "no checkpoint" },
+    });
     // 打桩 chat store 的 sendMessage
     sendSpy = vi
       .spyOn(useChatStore.getState(), "sendMessage")

@@ -38,7 +38,7 @@ import type { ChatResponse, ChatMessage } from '@modules/ai';
 import type { Message } from './types/message.js';
 import { getToolCallName } from './types/tool.js';
 import { getLogger } from '@modules/monitoring';
-import { prepareToolResultsForContext } from '../tools/services/ToolResultPersister.js';
+import { prepareToolResultsForContext } from '@modules/tools';
 import {
   ensureThinkResponseTags,
   stripThinkResponseTags,

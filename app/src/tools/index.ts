@@ -195,6 +195,12 @@ export {
   ToolResultBudgetManager,
 } from './services/ToolResultBudget';
 export { InterruptibleToolExecutor } from './services/InterruptibleToolExecutor';
+export {
+  prepareToolResultsForContext,
+  persistToolResult,
+  SINGLE_RESULT_LIMIT_CHARS,
+  TURN_BUDGET_CHARS,
+} from './services/ToolResultPersister';
 
 export * from './guardrails';
 export * from './web';

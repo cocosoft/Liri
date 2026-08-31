@@ -387,7 +387,14 @@ export abstract class ReActLoop<
         // maxIterations（300）均未拦截。签名重复检测在轮级提前终止。
         const repeatedThreshold = this.config.maxRepeatedRounds ?? 3;
         if (repeatedThreshold > 0) {
-          const sig = buildRoundSignature(actResult);
+          // 2026-08-31：签名纳入工具参数——相同工具+相同参数连续 N 轮才算无进展
+          const sig = buildRoundSignature({
+            results: actResult.results,
+            toolInputs: reasonResult.toolCalls.map((tc) => ({
+              id: tc.id,
+              input: tc.input,
+            })),
+          });
           this.recentRoundSignatures.push(sig);
           if (this.recentRoundSignatures.length > repeatedThreshold) {
             this.recentRoundSignatures.shift();

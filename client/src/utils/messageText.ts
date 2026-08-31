@@ -119,7 +119,17 @@ function getMessageExportText(message: Message): string {
     if (thinkingContents.length > 0) {
       const merged = stripLeadingDecorators(thinkingContents.join(""));
       if (merged.trim()) {
-        parts.push(`💭 [思考中]\n${merged}`);
+        // 2026-08-31：thinking 导出限长——多轮工具循环的思考会累积为超长重复内容，
+        // 全量导出造成"思考泄露"观感（chat-export 实证：单块 6-7 遍自我复述）。
+        // 仅导出首段摘要 + 截断说明，完整思考保留在会话内。
+        const MAX_EXPORT_THINKING_CHARS = 300;
+        const truncated = merged.length > MAX_EXPORT_THINKING_CHARS;
+        const excerpt = truncated
+          ? `${merged.slice(0, MAX_EXPORT_THINKING_CHARS)}…`
+          : merged;
+        parts.push(
+          `💭 [思考中]\n${excerpt}${truncated ? `\n（思考过长，已截断，共 ${merged.length} 字）` : ""}`,
+        );
       }
     }
   }

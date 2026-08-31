@@ -348,6 +348,34 @@ export class ToolSearchTool extends BaseTool<
       max_results
     );
 
+    // A 项增强（2026-08-31）：关键词搜索空结果同样给出候选引导——与 select: 分支
+    // 对齐。日志实证：模型反复 tool_search 关键词模式（skills_list/skill_view 等）
+    // 连续 40+ 轮全空，缺引导是死循环放大器。
+    let keywordHint = '';
+    if (matches.length === 0) {
+      const terms = query
+        .toLowerCase()
+        .split(/\s+/)
+        .filter((t) => t.length > 0);
+      const candidates = allTools
+        .map((t) => t.name)
+        .filter((name) => {
+          const lowerName = name.toLowerCase();
+          return terms.some(
+            (term) => lowerName.includes(term) || term.includes(lowerName)
+          );
+        })
+        .slice(0, 5);
+      const fallback = allTools
+        .filter((t) => !isDeferredTool(t))
+        .map((t) => t.name)
+        .slice(0, 10);
+      const hintList = candidates.length > 0 ? candidates : fallback;
+      if (hintList.length > 0) {
+        keywordHint = `；可用工具示例: ${hintList.join(', ')}`;
+      }
+    }
+
     return createToolResult(
       {
         matches,
@@ -361,7 +389,7 @@ export class ToolSearchTool extends BaseTool<
             content:
               matches.length > 0
                 ? `找到 ${matches.length} 个匹配的工具: ${matches.join(', ')}`
-                : '未找到匹配的工具',
+                : `未找到匹配的工具${keywordHint}`,
           },
         ],
       }

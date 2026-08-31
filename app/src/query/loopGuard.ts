@@ -14,18 +14,47 @@
  * 轮签名计算的输入结构（ActResult 的子集，结构兼容即可）
  */
 export interface RoundSignatureSource {
-  results: Array<{ name: string; status: string }>;
+  results: Array<{ name: string; status: string; toolCallId?: string }>;
+  /** 本轮工具调用的参数（按 id 对应 results），用于参数级无进展检测 */
+  toolInputs?: Array<{ id: string; input: Record<string, unknown> }>;
+}
+
+/** 参数归一化：键排序 + 字符串化（截断避免超长签名；失败返回空串不参与签名） */
+function normalizeArgs(args: Record<string, unknown>): string {
+  try {
+    const sorted: Record<string, unknown> = {};
+    for (const k of Object.keys(args).sort()) {
+      const v = args[k];
+      sorted[k] =
+        v !== null && typeof v === 'object' ? JSON.stringify(v) : String(v);
+    }
+    const json = JSON.stringify(sorted);
+    return json.length > 200 ? json.slice(0, 200) : json;
+  } catch {
+    return '';
+  }
 }
 
 /**
- * 构建轮签名：工具名+状态排序拼接。
+ * 构建轮签名：工具名+状态+归一化参数排序拼接。
  * 用于检测"不同工具组合反复尝试但无实质进展"的循环
  *（与 checkCircuitBreaker 的 all-error 熔断互补）。
+ *
+ * 2026-08-31 增强：签名纳入工具参数归一化——实测死循环中模型反复
+ * `tool_search select:skills_list`（工具名+状态相同但组合略有变化时
+ * 旧签名抓不到），参数级签名可覆盖"相同工具+相同参数反复调用"。
  */
 export function buildRoundSignature(actResult: RoundSignatureSource): string {
+  const argsByCallId = new Map(
+    (actResult.toolInputs ?? []).map((t) => [t.id, t.input])
+  );
   return [...actResult.results]
     .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
-    .map((r) => `${r.name}:${r.status}`)
+    .map((r) => {
+      const args = argsByCallId.get(r.toolCallId ?? '');
+      const argsSig = args ? normalizeArgs(args) : '';
+      return `${r.name}:${r.status}${argsSig ? `:${argsSig}` : ''}`;
+    })
     .join('|');
 }
 

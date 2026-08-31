@@ -32,17 +32,31 @@ export function normalizeToolPath(inputPath: string): string {
 /**
  * 解析文件工具路径
  *
- * 将反斜杠归一化后，若为绝对路径则直接 resolve，否则相对 outputDir 解析。
+ * 将反斜杠归一化后，若为绝对路径则直接 resolve；相对路径优先解析到 baseDir
+ * （会话工作目录 / worktree 隔离目录），未提供 baseDir 时回退 outputDir。
  * 所有文件操作工具（FileReadTool、FileWriteTool、FileEditTool）统一使用此函数。
  *
  * @param filePath 用户传入的原始文件路径
+ * @param baseDir 可选基准目录（G3：cwd 优先；缺省回退 outputDir）
  * @returns 归一化后的绝对路径
  */
-export function resolveFilePath(filePath: string): string {
+export function resolveFilePath(filePath: string, baseDir?: string): string {
   const normalized = filePath.replace(/\\/g, '/');
-  return path.isAbsolute(normalized)
-    ? path.resolve(normalized)
-    : path.resolve(resolveOutputDir(), normalized);
+  if (path.isAbsolute(normalized)) {
+    return path.resolve(normalized);
+  }
+  return path.resolve(baseDir ?? resolveOutputDir(), normalized);
+}
+
+/**
+ * G3：从工具执行上下文提取相对路径基准目录（cwd 优先）。
+ * 仅当 options.cwd 存在时返回（worktree 隔离 / 会话工作目录），否则 undefined → 回退 outputDir。
+ */
+export function getToolBaseDir(context?: {
+  options?: { cwd?: string };
+}): string | undefined {
+  const cwd = context?.options?.cwd;
+  return cwd && cwd.length > 0 ? cwd : undefined;
 }
 
 /**

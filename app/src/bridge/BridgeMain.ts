@@ -18,6 +18,8 @@ import { createPollManager } from './managers/PollManager.js';
 import { createSessionManager } from './managers/SessionManager.js';
 import { createHeartbeatManager } from './managers/HeartbeatManager.js';
 import { createWorkspaceGit } from '@modules/workspaces/WorkspaceGit.js';
+import { pruneOrphanWorktrees } from '@modules/workspaces/WorkspacePruner.js';
+import { execSync } from 'child_process';
 import { bridgeStateStore } from './state/BridgeStateStore.js';
 
 import { getLogger } from '@modules/monitoring';
@@ -180,6 +182,9 @@ export class BridgeMain {
       this.worktreeManager = createWorkspaceGit({
         baseDir: this.config.dir,
       });
+
+      // G5：启动清理孤儿 worktree（崩溃/异常退出残留），不阻塞启动
+      void this.pruneStaleWorktrees();
 
       if (this.logger.printBanner) {
         this.logger.printBanner(this.config, this.environmentId);
@@ -401,6 +406,38 @@ export class BridgeMain {
       this.logger.logError(
         `创建会话失败: ${error instanceof Error ? error.message : String(error)}`
       );
+    }
+  }
+
+  /**
+   * G5：启动时清理孤儿 worktree（崩溃/异常退出残留）。
+   * 仅当工作目录在 git 仓库内时执行；失败静默（不阻塞启动）。
+   */
+  private async pruneStaleWorktrees(): Promise<void> {
+    try {
+      let gitRoot = '';
+      try {
+        gitRoot = execSync('git rev-parse --show-toplevel', {
+          cwd: this.config.dir,
+          encoding: 'utf8',
+          stdio: 'pipe',
+        }).trim();
+      } catch {
+        // 非 git 仓库：跳过（worktree 隔离仅用于 git 项目）
+        return;
+      }
+      if (!gitRoot) return;
+      const pruned = await pruneOrphanWorktrees(gitRoot);
+      if (pruned.length > 0) {
+        this.logger.logVerbose(
+          `启动清理 ${pruned.length} 个孤儿 worktree: ${pruned.join(', ')}`
+        );
+      }
+    } catch (error) {
+      void handleError(error as Error, {
+        module: 'bridge:main',
+        action: 'startup.pruneStaleWorktrees',
+      });
     }
   }
 

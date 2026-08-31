@@ -660,6 +660,10 @@ export class BashTool extends BaseTool {
 
       if (cwd) {
         execOptions.cwd = cwd;
+      } else if (context?.options?.cwd) {
+        // G3：cwd 隔离——工具参数未指定 cwd 时，回退上下文 options.cwd
+        //（worktree 隔离 / 会话工作目录），使 bash 在隔离目录内执行。
+        execOptions.cwd = context.options.cwd;
       }
 
       // 构建环境变量：Windows 上设置 git SSL 后端为 schannel

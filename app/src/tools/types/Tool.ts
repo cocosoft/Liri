@@ -133,6 +133,8 @@ export interface ToolUseContext {
   /** 会话 ID，用于关联到具体的聊天会话 */
   sessionId?: string;
   readFileState: unknown;
+  /** B3：子代理嵌套深度（agent 工具递归上限检查，默认 ≤1） */
+  subagentDepth?: number;
   getAppState(): unknown;
   setAppState(f: (prev: unknown) => unknown): void;
   setAppStateForTasks?: (f: (prev: unknown) => unknown) => void;

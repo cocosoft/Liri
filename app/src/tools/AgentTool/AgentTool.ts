@@ -20,6 +20,7 @@ import {
 } from '../types/Tool';
 import { ToolResult, ToolExecutionStatus } from '../types/ToolResult';
 import { ToolUseContext } from '../types/ToolUseContext';
+import { WorkspaceGit } from '../../workspaces/WorkspaceGit';
 import {
   AGENT_TOOL_NAME,
   LEGACY_AGENT_TOOL_NAME,
@@ -66,6 +67,9 @@ function getAllTools(): Tool[] {
 }
 
 const logger = getLogger('tools:agentTool');
+
+/** B3：子代理最大嵌套深度（对齐 PilotDeck maxSubagentDepth 默认 1） */
+const MAX_SUBAGENT_DEPTH = 1;
 
 /**
  * AgentTool参数定义
@@ -549,7 +553,13 @@ export class AgentTool implements Tool {
       maxTurns: 50,
       model: input.model,
       // BUG 5 修复（2026-08-27）：透传父级工具上下文（sessionId/权限域）给子代理内部工具调用
-      toolContext,
+      // B3：克隆上下文并递增 subagentDepth（父代对象不被复用，避免共享引用污染）
+      toolContext: toolContext
+        ? {
+            ...toolContext,
+            subagentDepth: (toolContext.subagentDepth ?? 0) + 1,
+          }
+        : undefined,
     };
 
     const engineOnProgress = (event: {
@@ -717,6 +727,28 @@ export class AgentTool implements Tool {
       : agentType;
     const isBackground = agentInput.run_in_background === true;
 
+    // B3：子代理嵌套深度硬上限（纵深防御——主路径已靠工具池排除 AgentTool 防递归）
+    const parentDepth = context?.subagentDepth ?? 0;
+    if (parentDepth >= MAX_SUBAGENT_DEPTH) {
+      logger.warning('Agent execution rejected: subagent depth exceeded', {
+        parentDepth,
+        maxDepth: MAX_SUBAGENT_DEPTH,
+      });
+      return {
+        status: ToolExecutionStatus.FAILURE,
+        result: null,
+        error: `Subagent nesting depth exceeded (max ${MAX_SUBAGENT_DEPTH})`,
+        executionTime: 0,
+        output: '',
+        errorOutput: 'Subagent nesting depth exceeded',
+        progress: [],
+        metadata: {},
+        executionId: '',
+        toolName: this.name,
+        timestamp: Date.now(),
+      };
+    }
+
     // Phase 3: 解析工具过滤（LLM 传递逗号分隔字符串，转为数组）
     if (typeof agentInput.allowedTools === 'string') {
       agentInput.allowedTools = (agentInput.allowedTools as string)
@@ -781,6 +813,10 @@ export class AgentTool implements Tool {
         isComplete: false,
       },
     });
+
+    // G3 接线：worktree 隔离变量（try/finally 均需访问，声明在 try 之外——JS 块级作用域）
+    let worktreeContext: ToolUseContext | undefined;
+    let worktreeGit: WorkspaceGit | undefined;
 
     try {
       // ========== 方案 7：并行执行 ==========
@@ -910,16 +946,61 @@ export class AgentTool implements Tool {
         });
       }
 
+      // G3 接线（2026-08-31）：isolation='worktree' 程序化创建隔离 worktree，
+      // 将 cwd 注入子代理工具上下文（文件工具相对路径解析到 worktree 内）。
       if (agentInput.isolation === 'worktree') {
-        systemPrompt +=
-          '\n\nThis agent runs in an isolated git worktree.\n' +
-          `Use EnterWorktree to create a worktree with slug "${agentInput.name || agentId}" before making changes.\n` +
-          'After completing work, use ExitWorktree to clean up the worktree.\n' +
-          'All file modifications must be done inside the worktree, never in the parent workspace.';
-        logger.info('Worktree isolation enabled', {
-          agentId,
-          slug: agentInput.name || agentId,
-        });
+        if (isBackground) {
+          // 后台任务生命周期复杂（execute 返回后任务仍在运行），保留提示词注入降级
+          systemPrompt +=
+            '\n\nThis agent runs in an isolated git worktree.\n' +
+            `Use EnterWorktree to create a worktree with slug "${agentInput.name || agentId}" before making changes.\n` +
+            'After completing work, use ExitWorktree to clean up the worktree.\n' +
+            'All file modifications must be done inside the worktree, never in the parent workspace.';
+          logger.warn(
+            'Worktree isolation: 后台任务不程序化创建 worktree，降级为提示词引导',
+            {
+              agentId,
+            }
+          );
+        } else {
+          try {
+            const baseDir = context?.options?.cwd;
+            if (baseDir) {
+              const git = new WorkspaceGit({ baseDir });
+              const info = await git.createWorktree(agentId);
+              worktreeGit = git;
+              worktreeContext = {
+                ...context,
+                options: {
+                  ...(context?.options ?? {}),
+                  cwd: info.worktreePath,
+                },
+              } as ToolUseContext;
+              systemPrompt +=
+                '\n\nThis agent runs in an isolated git worktree.\n' +
+                `Your working directory is: ${info.worktreePath}\n` +
+                'Relative file paths in read_file/write_file/edit_file resolve to this directory.\n' +
+                'All file modifications must be inside the worktree, never in the parent workspace.';
+              logger.info('Worktree isolation: 已程序化创建 worktree', {
+                agentId,
+                worktreePath: info.worktreePath,
+              });
+            }
+          } catch (error) {
+            // 创建失败（非 git 仓库等）→ 降级为提示词引导
+            logger.warn(
+              'Worktree isolation: 程序化创建失败，降级为提示词引导',
+              {
+                agentId,
+                error: error instanceof Error ? error.message : String(error),
+              }
+            );
+            systemPrompt +=
+              '\n\nThis agent runs in an isolated git worktree.\n' +
+              `Use EnterWorktree to create a worktree with slug "${agentInput.name || agentId}" before making changes.\n` +
+              'After completing work, use ExitWorktree to clean up the worktree.\n';
+          }
+        }
       }
 
       if (isFork) {
@@ -1085,7 +1166,8 @@ export class AgentTool implements Tool {
           onProgress,
           teammateHandleId,
           mailbox,
-          context
+          // G3：worktree 隔离时注入带 worktree cwd 的子代理上下文
+          worktreeContext ?? context
         );
         logger.info('Agent engine execution completed', {
           agentId,
@@ -1202,6 +1284,18 @@ export class AgentTool implements Tool {
         timestamp: Date.now(),
       };
     } finally {
+      // G3：清理程序化创建的 worktree（仅前台成功创建时）
+      if (worktreeGit) {
+        try {
+          await worktreeGit.removeWorktree(agentId);
+          logger.info('Worktree isolation: 已清理 worktree', { agentId });
+        } catch (error) {
+          logger.warn('Worktree isolation: worktree 清理失败', {
+            agentId,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }
       // 残留 9 修复（2026-08-27）：清理 completed/failed 条目，防 activeAgents 长期增长
       this.cleanupCompletedAgents();
     }

@@ -186,13 +186,17 @@ export async function exitWorktree(
       stdio: 'pipe',
     });
 
+    // 首条 worktree 条目 = 主仓库路径（linked worktree 的 --show-toplevel 返回
+    // worktree 自身，不能用作 chdir 目标）；后续按 slug 匹配目标 worktree。
     const worktreeLines = worktreeList.split('\n');
+    let mainRepoPath = '';
     let worktreePath = '';
     for (const line of worktreeLines) {
       if (line.startsWith('worktree ')) {
-        worktreePath = line.replace('worktree ', '').trim();
-        if (worktreePath.includes(slug)) {
-          break;
+        const p = line.replace('worktree ', '').trim();
+        if (!mainRepoPath) mainRepoPath = p;
+        if (!worktreePath && p.includes(slug) && p !== mainRepoPath) {
+          worktreePath = p;
         }
       }
     }
@@ -206,9 +210,46 @@ export async function exitWorktree(
       };
     }
 
-    const gitRoot = getGitRoot(cwd);
-    if (worktreePath === cwd && gitRoot) {
-      process.chdir(gitRoot);
+    // G4（2026-08-31）：路径归一化比较——git 输出用正斜杠（C:/...），join() 在
+    // Windows 用反斜杠（C:\...），原直接 === 比较在 Windows 恒不等 → 未 chdir 离开
+    // worktree → `git worktree remove` 因 cwd 在待删目录内而 Permission denied。
+    const normPath = (p: string): string => p.replace(/\\/g, '/');
+    const chdirTarget = mainRepoPath || getGitRoot(cwd);
+    if (normPath(worktreePath) === normPath(cwd) && chdirTarget) {
+      process.chdir(chdirTarget);
+    }
+
+    // G4（2026-08-31）：移除前检查未提交改动——防止 --force 静默丢弃数据。
+    // 原实现 remove=false 时走 `git worktree remove --force`，未提交/未跟踪改动
+    // 会被静默丢弃。此处统一先拦截：有改动则拒绝移除，要求先 commit/stash/生成 diff。
+    let porcelain = '';
+    try {
+      porcelain = execSync('git status --porcelain', {
+        encoding: 'utf8',
+        stdio: 'pipe',
+        cwd: worktreePath,
+      }).trim();
+    } catch {
+      // @ignore-catch — status 执行失败不阻断（git worktree remove 自身仍有保护）
+    }
+    if (porcelain.length > 0) {
+      const changedLines = porcelain.split('\n');
+      const preview = changedLines.slice(0, 20).join('\n');
+      const more =
+        changedLines.length > 20
+          ? `\n... 共 ${changedLines.length} 个改动/新增文件`
+          : '';
+      logger.warn('exitWorktree 拒绝移除：存在未提交改动', {
+        slug,
+        worktreePath,
+        changedCount: changedLines.length,
+      });
+      return {
+        success: false,
+        type: 'error',
+        error: `Worktree "${slug}" 存在未提交改动，拒绝移除（防止数据丢失）`,
+        message: `Worktree "${slug}" 存在未提交改动，请先 commit / stash / 生成 diff 后再退出：\n${preview}${more}`,
+      };
     }
 
     const flag = remove ? '' : '--force';

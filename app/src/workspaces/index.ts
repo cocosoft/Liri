@@ -27,3 +27,14 @@ export * from './WorkspaceRegistry';
 export * from './WorkspaceStorage';
 export * from './WorkspaceScanner';
 export * from './WorkspaceGit';
+// G1：worktree 改动回灌主项目（apply-back）
+export * from './apply/WorkspaceApply';
+// G2：隔离 provider（git-worktree > snapshot-copy）+ 注册表
+export * from './provider/WorkspaceProvider';
+export * from './provider/WorkspaceProviderRegistry';
+export * from './provider/GitWorktreeProvider';
+export * from './provider/SnapshotCopyProvider';
+// G5：worktree 残留回收
+export * from './WorkspacePruner';
+// D1-Step2 闭环：自主执行编排（隔离 → 执行 → 回灌 → 清理）
+export * from './AutonomousRunner';

@@ -34,6 +34,7 @@
     "typecheck": "tsc --noEmit",
     "test": "bun test",
     "test:watch": "bun test --watch",
+    "test:serial": "bun test --concurrency=1",
     "test:coverage": "bun test --coverage --coverage-reporter=text --coverage-reporter=lcov",
     "test:check-coverage": "bun run scripts/check-coverage-threshold.ts",
     "test:reporter": "bun run test-reporter.ts",

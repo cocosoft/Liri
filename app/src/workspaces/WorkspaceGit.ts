@@ -25,7 +25,7 @@
  */
 import { execSync } from 'child_process';
 import { join } from 'path';
-import { existsSync, rmSync } from 'fs';
+import { existsSync, mkdirSync, rmSync } from 'fs';
 import {
   AppError,
   ErrorCategory,
@@ -79,9 +79,9 @@ export class WorkspaceGit {
     const worktreeBranch = `bridge/${worktreeName}`;
 
     try {
-      execSync(`mkdir -p "${join(gitRoot, '..', 'worktrees')}"`, {
-        stdio: 'ignore',
-      });
+      // G2（2026-08-31）：改用 node mkdirSync（跨平台）——原 execSync('mkdir -p')
+      // 为 Unix 命令，在 Windows 的 execSync 环境失败，导致 worktree 创建不可用。
+      mkdirSync(join(gitRoot, '..', 'worktrees'), { recursive: true });
 
       execSync(`git worktree add --detach "${worktreePath}"`, {
         cwd: gitRoot,
@@ -124,7 +124,9 @@ export class WorkspaceGit {
     }
 
     try {
-      execSync(`git worktree remove "${worktreeInfo.worktreePath}"`, {
+      // --force：隔离区内 execute 必然产生未提交改动（agent 写入的文件），
+      // git 默认拒绝删除含未提交改动的 worktree；force 直接丢弃并清除元数据
+      execSync(`git worktree remove --force "${worktreeInfo.worktreePath}"`, {
         cwd: worktreeInfo.gitRoot,
         stdio: 'ignore',
       });

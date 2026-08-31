@@ -939,22 +939,27 @@ export class TodoWriteTool extends BaseTool<Record<string, unknown>> {
         }
 
         case 'write': {
-          const newTodos: Todo[] = (todos as any[]).map((t, i) => ({
-            id:
-              t.id ||
-              `todo_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-            // 修复 3（2026-08-25）：模型缺 content 时用 name/"任务 N"兜底，避免空任务名
-            content: t.content || t.name || `任务 ${i + 1}`,
-            status: t.status || 'pending',
-            activeForm: t.activeForm || undefined,
-            metadata: t.metadata || undefined,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          }));
+          // 2026-08-31 根治：todos 元素字段归一化（见 normalizeWriteTodos）
+          const newTodos: Todo[] = normalizeWriteTodos(
+            Array.isArray(todos) ? (todos as unknown[]) : []
+          );
 
           todoManager.setTodos(session_id as string, newTodos);
 
+          // 2026-08-31 根治：结果附 todo id 列表——原实现只报数量，模型拿不到
+          // 生成的 id（字符串数组元素无 id）→ 后续 update 无法定位 → 任务永久
+          // "等待中"。列表让模型能按 id 推进状态。
           let resultMsg = `Wrote ${newTodos.length} todo(s) to session: ${session_id}`;
+          if (newTodos.length > 0) {
+            resultMsg +=
+              '\n' +
+              newTodos
+                .map(
+                  (t, i) =>
+                    `${i + 1}. [${t.status === 'completed' ? '✓' : t.status === 'in_progress' ? '◐' : '○'}] ${t.content} (ID: ${t.id})`
+                )
+                .join('\n');
+          }
 
           const allDone =
             newTodos.length > 0 &&
@@ -1029,6 +1034,60 @@ export class TodoWriteTool extends BaseTool<Record<string, unknown>> {
       });
     }
   }
+}
+
+/**
+ * 2026-08-31 根治：todos 元素字段归一化（纯函数，可测试）。
+ *
+ * 背景：模型调用 todo_write write 时，todos 元素常以字符串数组或
+ * title/task/subject/desc 等字段传参。原实现仅读 content/name，缺则兜底
+ * "任务 N"占位——用户反复反馈任务分解全显示占位名。归一化覆盖：
+ * - 字符串元素 → 直接作为 content
+ * - 对象元素 → content/name/title/task/subject/description/desc 逐级降级
+ * - 状态白名单（in_progress/completed，其余 pending），非法状态不落库
+ * - 全字段缺失才兜底"任务 N"（极小概率）
+ */
+export function normalizeWriteTodos(rawTodos: unknown[]): Array<
+  Pick<Todo, 'id' | 'content' | 'status' | 'activeForm' | 'metadata'> & {
+    createdAt: Date;
+    updatedAt: Date;
+  }
+> {
+  return rawTodos.map((raw, i) => {
+    const t = (raw ?? {}) as Record<string, unknown>;
+    let content = '';
+    if (typeof raw === 'string') {
+      content = raw.trim();
+    } else if (t && typeof t === 'object') {
+      content =
+        (typeof t.content === 'string' && t.content.trim()) ||
+        (typeof t.name === 'string' && t.name.trim()) ||
+        (typeof t.title === 'string' && t.title.trim()) ||
+        (typeof t.task === 'string' && t.task.trim()) ||
+        (typeof t.subject === 'string' && t.subject.trim()) ||
+        (typeof t.description === 'string' && t.description.trim()) ||
+        (typeof t.desc === 'string' && t.desc.trim()) ||
+        '';
+    }
+    const statusRaw = t?.status;
+    const status: TodoStatus =
+      statusRaw === 'in_progress' || statusRaw === 'completed'
+        ? statusRaw
+        : 'pending';
+    return {
+      id:
+        (typeof t?.id === 'string' && t.id) ||
+        `todo_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      content: content || `任务 ${i + 1}`,
+      status,
+      activeForm: typeof t?.activeForm === 'string' ? t.activeForm : undefined,
+      metadata: t?.metadata
+        ? (t.metadata as Record<string, unknown>)
+        : undefined,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+  });
 }
 
 /**

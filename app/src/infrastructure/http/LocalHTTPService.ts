@@ -347,15 +347,12 @@ export class LocalHTTPService {
       return;
     }
 
-    // M1 修复（2026-08-13）：SSE 端点加入鉴权白名单——EventSource 无法携带
-    // 自定义 header（X-API-Key/Bearer 都带不上），配置 LIRI_API_SECRET 时
-    // /v1/events 恒 401 → SSE 无限重连、实时推送与心跳保活全失效。
-    // SSE 仅推送只读会话事件（无敏感写操作），单机桌面场景白名单风险可接受。
-    const isSseEndpoint = (req.url?.split('?')[0] || '') === '/v1/events';
-
     // 共享密钥校验：确保请求来自被授权的 Tauri 客户端；
     // 兼容登录会话：携带有效 Bearer 登录 token 的请求同样放行（M0d）
-    if (!isSseEndpoint && !this.verifyRequestAuth(req)) {
+    // 加固部署专项（2026-08-30）：/v1/events SSE 白名单已移除——前端 sseService
+    // 改用 fetch + ReadableStream 解析 SSE（可携带 X-API-Key/Bearer 头），
+    // 与普通请求走同一鉴权，不再豁免。
+    if (!this.verifyRequestAuth(req)) {
       const authHeader = req.headers['authorization'] || '';
       const sessionToken = authHeader.startsWith('Bearer ')
         ? authHeader.slice(7)

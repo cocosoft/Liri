@@ -45,7 +45,8 @@ const POLL_INTERVAL = 15000;
  * - 浏览器标签页切回时，若连接断开则立即重连
  */
 class SSEService {
-  private eventSource: EventSource | null = null;
+  /** SSE 流控制器（fetch + ReadableStream，可携带鉴权头；非 null = 连接中） */
+  private streamController: AbortController | null = null;
 
   /** 事件处理器 Map */
   private handlers = new Map<string, Set<EventHandler>>();
@@ -77,9 +78,14 @@ class SSEService {
 
   /**
    * 建立 SSE 连接
+   *
+   * 加固部署专项（2026-08-30）：原实现用 EventSource——浏览器 API 无法携带自定义
+   * header，配置 LIRI_API_SECRET 时 /v1/events 只能依赖后端白名单豁免。
+   * 改为 fetch + ReadableStream 解析 SSE（携带 buildAuthHeaders），与普通请求
+   * 同一鉴权，后端 /v1/events 白名单随之移除。
    */
   connect(): void {
-    if (this.eventSource) {
+    if (this.streamController) {
       logger.debug("[connect] 已有连接，跳过");
       return;
     }
@@ -92,161 +98,221 @@ class SSEService {
       // P1-2.16: 注入 traceparent 查询参数，实现跨进程 TraceContext 传递
       const tp = buildTraceparentParam();
       const sseUrl = `${getBackendBaseUrl()}/v1/events${tp ? `?${tp}` : ""}`;
-      this.eventSource = new EventSource(sseUrl);
-
-      this.eventSource.onopen = () => {
-        // 连接成功：重置重连间隔，启动心跳，停止轮询
-        const wasReconnecting = this.reconnectFailCount > 0;
-        logger.info(`[onopen] SSE 连接成功 wasReconnecting=${wasReconnecting}`);
-        this.reconnectDelay = INITIAL_RECONNECT_DELAY;
-        this.reconnectFailCount = 0;
-        this.startHeartbeat();
-        this.stopPolling();
-
-        if (this.reconnectTimer) {
-          clearTimeout(this.reconnectTimer);
-          this.reconnectTimer = null;
-        }
-        // 如果之前曾断开过，提示连接已恢复
-        if (wasReconnecting) {
-          import("../stores/toastStore")
-            .then(({ toastInfo }) => {
-              toastInfo("实时连接已恢复");
-            })
-            .catch(() => {
-              /* toastStore 动态加载失败，静默忽略 */
-            });
-        }
-      };
-
-      this.eventSource.onerror = () => {
-        logger.warn(
-          `[onerror] SSE 连接错误 failCount=${this.reconnectFailCount + 1} readyState=${this.eventSource?.readyState}`,
-        );
-        this.disconnect();
-        this.reconnectFailCount++;
-        // 首次断开：即时提示正在重连
-        if (this.reconnectFailCount === 1) {
-          import("../stores/toastStore")
-            .then(({ toastWarning }) => {
-              toastWarning("实时连接已断开，正在重连...");
-            })
-            .catch(() => {
-              /* toastStore 动态加载失败，静默忽略 */
-            });
-        }
-        // 连续失败 3 次后显示详细错误
-        if (this.reconnectFailCount === 3) {
-          import("../stores/toastStore")
-            .then(({ toastError }) => {
-              toastError(new Error("Failed to fetch"));
-            })
-            .catch(() => {
-              /* toastStore 动态加载失败，静默忽略 */
-            });
-        }
-        // 断开时启动轮询兜底 + 调度重连
-        this.startPolling();
-        this.scheduleReconnect();
-      };
-
-      this.eventSource.onmessage = (e) => {
-        this.dispatch("message", this.parse(e.data));
-      };
-
-      this.eventSource.addEventListener("heartbeat", (e: Event) => {
-        const msg = e as MessageEvent;
-        this.dispatch("heartbeat", this.parse(msg.data));
+      const controller = new AbortController();
+      this.streamController = controller;
+      const headers = buildAuthHeaders();
+      logger.debug("[connect] 发起 SSE fetch", {
+        url: sseUrl,
+        hasAuth: !!headers["X-API-Key"],
       });
 
-      // ── 后台操作进度事件 ──
-      const progressEvents = [
-        "dream:phase:changed",
-        "dream:cycle:completed",
-        "dream:cycle:failed",
-        "knowledge:compile:started",
-        "knowledge:compile:progress",
-        "knowledge:compile:completed",
-        "knowledge:compile:aborted",
-        "task:queue:progress",
-        // §5 P2: 长程任务进度/完成事件（LongRunningTaskOrchestrator 广播）
-        "task:progress",
-        "task:completed",
-        // P0b-3: AI 自动建项目通知 — 前端监听后同步创建 worktree
-        "project:auto_created",
-        // P2（08-09）：PlanDrivenLoop TaskCard 实时进度事件
-        "plan:task_card",
-        "plan:step_progress",
-        "plan:completed",
-        // 根因 C：后端崩溃恢复把会话标记 PAUSED 后的主动通知
-        "session:paused",
-        // §十 阶段 B：后台任务状态机转移实时广播（background:{taskId}）
-        "background:state",
-        // §十 阶段 C：task-system 任务状态机转移实时广播（task:{taskId}）
-        "task:state",
-        // P2-4 修复（2026-08-23 二次根因）：会话命名事件必须在 EventSource 层显式
-        // addEventListener 才会触发 dispatch。此前仅 sseService.on() 注册 handlers，
-        // EventSource 对命名事件（event: session:renamed）不匹配 onmessage，导致
-        // useInitApp 的 refreshSessions 永远收不到 → 标题/列表必须刷新页面才更新。
-        "session:renamed",
-        "session:created",
-        "session:deleted",
-        "session:cleared",
-        // P0 补齐（对齐 dsh llm/adapters-updated）：Provider 拓扑变更 → 前端刷新模型管理页
-        "providers:changed",
-      ];
-      logger.info(`[connect] 注册进度事件监听 count=${progressEvents.length}`);
-      for (const evt of progressEvents) {
-        this.eventSource.addEventListener(evt, (e: Event) => {
-          const msg = e as MessageEvent;
-          const rawData = msg.data;
-          const data = this.parse(rawData);
-          // 对 plan 事件输出详细日志
-          if (evt.startsWith("plan:")) {
-            const planId = data.planId as string | undefined;
-            const sessionId = data.sessionId as string | undefined;
-            if (evt === "plan:step_progress") {
-              logger.debug(
-                `[dispatch] ${evt} planId=${planId} sessionId=${sessionId} stepId=${data.stepId} status=${data.status}`,
-              );
-            } else {
-              logger.debug(
-                `[dispatch] ${evt} planId=${planId} sessionId=${sessionId} title=${data.title ?? "-"} status=${data.status ?? "-"}`,
-              );
-            }
+      fetch(sseUrl, { headers, signal: controller.signal })
+        .then(async (res) => {
+          if (this.streamController !== controller) return; // 已被断开
+          if (!res.ok || !res.body) {
+            logger.warn(`[fetch] SSE 响应异常 status=${res.status}`);
+            this.handleConnectionError();
+            return;
           }
-          // 对会话事件输出详细日志（A4 排查：标题实时刷新依赖此链路）
-          if (evt.startsWith("session:")) {
-            const handlerCount = this.handlers.get(evt)?.size ?? 0;
-            logger.info(`[EventSource] 收到会话命名事件 ${evt}（A4 链路）`, {
-              eventName: evt,
-              rawData: String(rawData),
-              parsedData: {
-                id: (data.id as string) ?? null,
-                title: (data.title as string) ?? null,
-                ts: (data.ts as number) ?? null,
-              },
-              handlerCount,
-              hasHandler: handlerCount > 0,
-            });
-          }
-          this.dispatch(evt, data);
-          // 会话事件 dispatch 完成确认（区分「事件收到但 handler 未生效」）
-          if (evt.startsWith("session:")) {
-            logger.info(`[EventSource] ${evt} dispatch 完成（A4 链路）`, {
-              eventName: evt,
-              dispatchedTo: this.handlers.get(evt)?.size ?? 0,
-            });
-          }
+          this.handleConnected();
+          await this.readStream(controller, res.body);
+        })
+        .catch((err: unknown) => {
+          if (controller.signal.aborted) return; // 主动断开
+          if (this.streamController !== controller) return;
+          logger.warn("[fetch] SSE 连接错误", {
+            error: err instanceof Error ? err.message : String(err),
+          });
+          this.handleConnectionError();
         });
-      }
     } catch {
-      // 创建 EventSource 失败，直接进入重连
+      // 创建连接失败，直接进入重连
       this.scheduleReconnect();
     }
 
     // 绑一次可见性监听（全局、只绑一次）
     this.bindVisibilityListener();
+  }
+
+  /**
+   * SSE 连接建立成功：重置重连间隔，启动心跳，停止轮询
+   */
+  private handleConnected(): void {
+    // 连接成功：重置重连间隔，启动心跳，停止轮询
+    const wasReconnecting = this.reconnectFailCount > 0;
+    logger.info(`[onopen] SSE 连接成功 wasReconnecting=${wasReconnecting}`);
+    this.reconnectDelay = INITIAL_RECONNECT_DELAY;
+    this.reconnectFailCount = 0;
+    this.startHeartbeat();
+    this.stopPolling();
+
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+    // 如果之前曾断开过，提示连接已恢复
+    if (wasReconnecting) {
+      import("../stores/toastStore")
+        .then(({ toastInfo }) => {
+          toastInfo("实时连接已恢复");
+        })
+        .catch(() => {
+          /* toastStore 动态加载失败，静默忽略 */
+        });
+    }
+  }
+
+  /**
+   * SSE 连接断开：清理连接、递增失败计数、轮询兜底 + 调度重连
+   */
+  private handleConnectionError(): void {
+    logger.warn(
+      `[onerror] SSE 连接错误 failCount=${this.reconnectFailCount + 1}`,
+    );
+    this.disconnect();
+    this.reconnectFailCount++;
+    // 首次断开：即时提示正在重连
+    if (this.reconnectFailCount === 1) {
+      import("../stores/toastStore")
+        .then(({ toastWarning }) => {
+          toastWarning("实时连接已断开，正在重连...");
+        })
+        .catch(() => {
+          /* toastStore 动态加载失败，静默忽略 */
+        });
+    }
+    // 连续失败 3 次后显示详细错误
+    if (this.reconnectFailCount === 3) {
+      import("../stores/toastStore")
+        .then(({ toastError }) => {
+          toastError(new Error("Failed to fetch"));
+        })
+        .catch(() => {
+          /* toastStore 动态加载失败，静默忽略 */
+        });
+    }
+    // 断开时启动轮询兜底 + 调度重连
+    this.startPolling();
+    this.scheduleReconnect();
+  }
+
+  /**
+   * 读取并解析 SSE 流（fetch ReadableStream）
+   *
+   * 兼容 EventSource 语义：`event:` 命名事件、`data:` 多行 continuation、
+   * 空行 = 事件结束。事件名默认 "message"。命名事件统一 dispatch（无 handler
+   * 时 no-op），不再需要预注册——原 EventSource 的 addEventListener 注册循环
+   * 一并移除。
+   */
+  private async readStream(
+    controller: AbortController,
+    body: ReadableStream<Uint8Array>,
+  ): Promise<void> {
+    const reader = body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let currentEvent = "message";
+    const pendingData: string[] = [];
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed) {
+            // 空行 = SSE 事件结束：处理累积的多行 data
+            if (pendingData.length === 0) {
+              currentEvent = "message";
+              continue;
+            }
+            const payload = pendingData.join("\n");
+            pendingData.length = 0;
+            const evt = currentEvent;
+            currentEvent = "message";
+            if (payload === "[DONE]") continue;
+            const data = this.parse(payload);
+            this.logEventReceived(evt, payload, data);
+            this.dispatch(evt, data);
+            this.logEventDispatched(evt);
+            continue;
+          }
+          if (trimmed.startsWith("event:")) {
+            currentEvent = trimmed.slice(6).trim() || "message";
+          } else if (trimmed.startsWith("data:")) {
+            pendingData.push(trimmed.slice(5).trimStart());
+          }
+          // 其他 SSE 字段（id:/retry:）忽略
+        }
+      }
+      // 流正常结束（后端关闭连接）→ 视为断开，走重连
+      if (this.streamController === controller) {
+        logger.info("[readStream] SSE 流结束，后端关闭连接");
+        this.handleConnectionError();
+      }
+    } catch (err: unknown) {
+      if (controller.signal.aborted) return; // 主动断开
+      if (this.streamController !== controller) return;
+      logger.warn("[readStream] SSE 流读取异常", {
+        error: err instanceof Error ? err.message : String(err),
+      });
+      this.handleConnectionError();
+    }
+  }
+
+  /**
+   * 事件收到日志（保留 plan/session 链路排查埋点，A4）
+   */
+  private logEventReceived(
+    evt: string,
+    rawData: string,
+    data: Record<string, unknown>,
+  ): void {
+    // 对 plan 事件输出详细日志
+    if (evt.startsWith("plan:")) {
+      const planId = data.planId as string | undefined;
+      const sessionId = data.sessionId as string | undefined;
+      if (evt === "plan:step_progress") {
+        logger.debug(
+          `[dispatch] ${evt} planId=${planId} sessionId=${sessionId} stepId=${data.stepId} status=${data.status}`,
+        );
+      } else {
+        logger.debug(
+          `[dispatch] ${evt} planId=${planId} sessionId=${sessionId} title=${data.title ?? "-"} status=${data.status ?? "-"}`,
+        );
+      }
+    }
+    // 对会话事件输出详细日志（A4 排查：标题实时刷新依赖此链路）
+    if (evt.startsWith("session:")) {
+      const handlerCount = this.handlers.get(evt)?.size ?? 0;
+      logger.info(`[SSE] 收到会话事件 ${evt}（A4 链路）`, {
+        eventName: evt,
+        rawData: String(rawData),
+        parsedData: {
+          id: (data.id as string) ?? null,
+          title: (data.title as string) ?? null,
+          ts: (data.ts as number) ?? null,
+        },
+        handlerCount,
+        hasHandler: handlerCount > 0,
+      });
+    }
+  }
+
+  /**
+   * 事件 dispatch 完成日志（区分「事件收到但 handler 未生效」，A4）
+   */
+  private logEventDispatched(evt: string): void {
+    if (evt.startsWith("session:")) {
+      logger.info(`[SSE] ${evt} dispatch 完成（A4 链路）`, {
+        eventName: evt,
+        dispatchedTo: this.handlers.get(evt)?.size ?? 0,
+      });
+    }
   }
 
   /**
@@ -273,9 +339,9 @@ class SSEService {
     logger.info(
       `[disconnect] 断开 SSE 连接 handlerCount=${this.handlers.size}`,
     );
-    if (this.eventSource) {
-      this.eventSource.close();
-      this.eventSource = null;
+    if (this.streamController) {
+      this.streamController.abort();
+      this.streamController = null;
     }
 
     this.stopHeartbeat();
@@ -311,10 +377,7 @@ class SSEService {
    * 检查当前连接状态
    */
   isConnected(): boolean {
-    return (
-      this.eventSource !== null &&
-      this.eventSource.readyState === EventSource.OPEN
-    );
+    return this.streamController !== null;
   }
 
   // ── 心跳保活 ──────────────────────────────────────────────────

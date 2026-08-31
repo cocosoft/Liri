@@ -1729,16 +1729,6 @@
       "plan": "历史巨型文件批量登记（2026-08-30 CI file size check 治理补录），按调度/执行/持久化子模块拆分",
       "expiresAt": "2026-11-30",
       "owner": "@arch-lead"
-    },
-    {
-      "id": "FSZ-155",
-      "ruleId": "R04-001",
-      "file": "client/src/services/httpClient.ts",
-      "lines": 918,
-      "targetLines": 800,
-      "plan": "W6 加固部署鉴权（2026-08-31）新增 Tauri http_proxy 代理与 createStreamReader 流式通道致超限（918 行），后续按 httpClient（request/重试/legacy）/ tauriProxy（proxyFetch+stream reader）/ stream（createStreamReader+读取器）拆分",
-      "expiresAt": "2026-09-30",
-      "owner": "@arch-lead"
     }
   ],
   "barrelExceptions": [

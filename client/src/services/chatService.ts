@@ -1,10 +1,5 @@
 import type { Message, BackendStatus, ToolCall, AttachedImage } from "../types";
-import {
-  getBackendBaseUrl,
-  getBackendPort,
-  getApiSecret,
-  setApiSecret,
-} from "./backendUrl";
+import { getBackendBaseUrl, getBackendPort, getApiSecret } from "./backendUrl";
 import { useModelSwitchStore } from "../stores/modelSwitchStore";
 import { useConfigStore } from "../stores/configStore";
 import { createLogger } from "../utils/logger";
@@ -437,11 +432,10 @@ async function fetchJSON<T>(url: string, options?: RequestInit): Promise<T> {
 
 async function checkHealth(): Promise<boolean> {
   try {
-    const res = await fetch(`${getBackendBaseUrl()}/health`, {
-      method: "GET",
-      // 后端对全部请求统一鉴权（含 /health），配置 LIRI_API_SECRET 时缺头会 401
-      headers: buildAuthHeaders(),
-    });
+    // W6 闭环（2026-08-31）：健康检查改走统一 http 客户端——Tauri 下经 Rust
+    // http_proxy 注入 X-API-Key（JS 无密钥），浏览器直连（后端默认不鉴权）。
+    const { http } = await import("./httpClient");
+    const res = await http.get<unknown>("/health");
     return res.ok;
   } catch (e) {
     handleClientError(e, { module: "services:chat", action: "checkHealth" });
@@ -648,15 +642,9 @@ export const chatService = {
       logger.info("[startBackend] Tauri 模式，invoke start_backend");
       const status = await core.invoke<BackendStatus>("start_backend");
       logger.info("[startBackend] start_backend 返回", status);
-      // W6 回归修复：重新向 JS 暴露共享密钥（start_backend 返回），
-      // 供 checkHealth/流式/SSE 等直连 fetch 注入 X-API-Key。
-      // 必须在 pollHealth 之前设置，否则健康检查仍会 401。
-      if (status.secret) {
-        setApiSecret(status.secret);
-        logger.info("[startBackend] 已注入共享密钥（直连请求可用）");
-      }
-      // 注：常规 JSON 请求仍走 Rust http_proxy（密钥 Rust 侧注入），
-      // 此处恢复 JS 密钥仅服务直连 fetch 路径（健康检查/流式/SSE）。
+      // W6 闭环（2026-08-31）：BackendStatus.secret 已回收——共享密钥仅由 Rust
+      // http_proxy 注入，JS 不接触明文。健康检查等直连请求改走统一 http 客户端
+      // （Tauri 下经 Rust 代理注入密钥；浏览器直连后端默认不鉴权）。
       const healthy = await pollHealth();
       logger.info("[startBackend] pollHealth 健康检查结果", { healthy });
       // 健康检查失败时，查询进程是否已崩溃（获取退出码和 stderr）
@@ -690,10 +678,6 @@ export const chatService = {
     if (core) {
       const status = await core.invoke<BackendStatus>("get_backend_status");
       logger.info("[getBackendStatus] Rust 状态返回", status);
-      // W6 回归修复：心跳轮询等场景也可能首次拿到密钥，同样注入后做健康检查
-      if (status.secret) {
-        setApiSecret(status.secret);
-      }
       if (status.running) {
         const healthy = await checkHealth();
         logger.info("[getBackendStatus] 健康检查结果", {

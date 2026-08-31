@@ -54,9 +54,6 @@ pub struct BackendStatus {
     pub exit_code: Option<i32>,
     /// 进程 stderr 输出或错误信息
     pub error: Option<String>,
-    /// 共享密钥（W6 回归修复：重新暴露给前端，供直连 fetch 注入 X-API-Key）
-    /// 仅当本进程持有密钥时返回（新拉起后端路径）；复用既有进程时为 None
-    pub secret: Option<String>,
 }
 
 struct BackendProcess {
@@ -195,7 +192,6 @@ pub async fn start_backend(app_handle: tauri::AppHandle) -> Result<BackendStatus
             pid: None,
             exit_code,
             error,
-            secret: load_secret(&app_handle),
         });
     }
 
@@ -221,7 +217,6 @@ pub async fn start_backend(app_handle: tauri::AppHandle) -> Result<BackendStatus
             pid: None,
             exit_code: None,
             error: None,
-            secret: load_secret(&app_handle),
         });
     }
     info!("[start_backend] 端口 {} 空闲，准备拉起新后端进程", current_port);
@@ -381,7 +376,6 @@ pub async fn start_backend(app_handle: tauri::AppHandle) -> Result<BackendStatus
         pid: Some(pid),
         exit_code: None,
         error: None,
-        secret: load_secret(&app_handle),
     })
 }
 
@@ -432,7 +426,6 @@ pub async fn get_backend_status(app_handle: tauri::AppHandle) -> Result<BackendS
             } else {
                 None
             },
-            secret: load_secret(&app_handle),
         }
     } else {
         info!(
@@ -445,7 +438,6 @@ pub async fn get_backend_status(app_handle: tauri::AppHandle) -> Result<BackendS
             pid: None,
             exit_code: None,
             error: None,
-            secret: load_secret(&app_handle),
         }
     };
     Ok(status)

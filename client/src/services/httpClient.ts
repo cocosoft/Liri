@@ -551,11 +551,17 @@ export const http = {
     return request<T>("DELETE", path);
   },
 
-  /** SSE 流式请求 */
+  /** SSE 流式请求（GET/POST，Tauri 下走 Rust http_proxy_stream，密钥 Rust 侧注入） */
   async stream(
     path: string,
     onChunk: (data: string) => void,
-    config?: HttpClientConfig & { onError?: (err: unknown) => void },
+    config?: HttpClientConfig & {
+      onError?: (err: unknown) => void;
+      /** 请求方法（默认 GET） */
+      method?: string;
+      /** JSON 请求体（POST 等） */
+      body?: unknown;
+    },
   ): Promise<AbortController> {
     const url = buildUrl(path);
     const headers = buildHeaders({
@@ -563,6 +569,7 @@ export const http = {
       ...config?.headers,
     });
     const controller = new AbortController();
+    const method = config?.method ?? "GET";
 
     // W6：Tauri 环境走 Rust 流式代理（http_proxy_stream，Channel 逐 chunk 转发，
     // 密钥由 Rust 注入 X-API-Key——原 fetch 直连会把密钥带出 WebView，加固部署下
@@ -615,9 +622,13 @@ export const http = {
               break;
           }
         };
+        const requestBody =
+          config?.body !== undefined && method !== "GET"
+            ? JSON.stringify(config.body)
+            : null;
         core
           .invoke("http_proxy_stream", {
-            request: { method: "GET", url, headers },
+            request: { method, url, headers, body: requestBody },
             onEvent: channel,
           })
           .catch((err: unknown) => {
@@ -629,8 +640,12 @@ export const http = {
 
     const doFetch = async (): Promise<void> => {
       const res = await fetch(url, {
-        method: "GET",
+        method,
         headers,
+        body:
+          config?.body !== undefined && method !== "GET"
+            ? JSON.stringify(config.body)
+            : undefined,
         signal: controller.signal,
       });
 

@@ -46,12 +46,14 @@ import type {
   DiffData,
 } from "@/types";
 import {
+  createThinkExtractor,
   generateBlockId,
   generateGroupId,
   isInternalTransitionStatus,
   normalizeToolCall,
   stripStructuralTags,
 } from "./chat-toolcall.slice";
+import type { StreamChunk } from "../../services/chatService";
 import {
   cacheToolResult,
   truncateResult,
@@ -121,6 +123,12 @@ interface BuilderState {
   currentGroupId: string;
   /** 自上次文本后是否出现过工具调用（对齐 ChronologicalBlockBuilder.hasToolCallSinceLastText） */
   hasToolCallSinceLastText: boolean;
+  /** think/response 标签提取器（2026-08-31）：assistant/text 事件兜底——
+   * 后端擦洗上线前的存量事件日志中 text delta 可能含 <think>/<response> 协议标签
+   * （且常跨 delta 分裂），复用 createThinkExtractor 跨 delta 状态机在派生层拦截：
+   * think 内容 → thinking 块，response 剥标签保留内容，孤立标签防误杀。
+   * 生命周期 = 一条 assistant 消息（flushCurrent 时 flush 残留并置空）。 */
+  thinkExtractor: ReturnType<typeof createThinkExtractor> | null;
 }
 
 export function deriveConversationBlocks(
@@ -137,6 +145,7 @@ export function deriveConversationBlocks(
     turn: 0,
     currentGroupId: generateGroupId(),
     hasToolCallSinceLastText: false,
+    thinkExtractor: null,
   };
 
   // ⚠ 派生器层 seq 去重（第二道防线）：对外部直接调用 derive 的路径生效
@@ -175,6 +184,7 @@ export class IncrementalDeriver {
     turn: 0,
     currentGroupId: generateGroupId(),
     hasToolCallSinceLastText: false,
+    thinkExtractor: null,
   };
   /** 已派化到的 events 数组下标（不含） */
   private derivedUpTo = 0;
@@ -234,6 +244,7 @@ export class IncrementalDeriver {
       turn: 0,
       currentGroupId: generateGroupId(),
       hasToolCallSinceLastText: false,
+      thinkExtractor: null,
     };
     this.derivedUpTo = 0;
     this.seenSeqs.clear();
@@ -322,62 +333,29 @@ function handleEvent(
       const data = event.data as { content: string };
       // Thinking 是流式 delta，必须合并到"最后一个相邻 thinking 块"的 content 上。
       // 禁止每个 chunk 独立 push 新块（否则会导致 💭 标签重复 + 逐词换行 + thinking/response 碎片混叠）。
-      const blocks = state.current!.blocks!;
-      // 合并守卫：最后一个块必须是 thinking，且与当前事件共享 groupId
-      const lastBlock = blocks.length > 0 ? blocks[blocks.length - 1] : null;
       // 剥离结构标签（<response> / <think> 等），避免标签碎片也被 thinking 块显示
       const cleanDelta = stripStructuralTags(data.content ?? "");
-      if (cleanDelta.length === 0) break; // 空 delta（只有标签碎片）直接忽略，不推进 block，保证 UI 不抖
-      if (lastBlock && lastBlock.type === "thinking") {
-        // L5 修复（2026-08-23）：不可变更新——替换为新 block 对象（非原地 mutate），
-        // 渲染契约收敛为"block 引用变化"，不再依赖 message.content 隐式变化
-        blocks[blocks.length - 1] = {
-          ...lastBlock,
-          content: `${lastBlock.content}${cleanDelta}`,
-        };
-      } else {
-        blocks.push({
-          id: generateBlockId(),
-          type: "thinking",
-          content: cleanDelta,
-          isStreaming: false,
-          groupId: state.currentGroupId,
-        });
-      }
+      appendThinkingDelta(state, cleanDelta);
       break;
     }
 
     case "assistant/text": {
       ensureCurrent(state, event, sessionId, assistantMessageId);
       const data = event.data as { content: string };
-      // Text 是流式 delta，必须合并到"最后一个相邻 text 块"的 content 上。
-      // 禁止每个 chunk 独立 push 新块（否则会导致正文逐 token 换行/碎片）。
-      const blocks = state.current!.blocks!;
-      const lastBlock = blocks.length > 0 ? blocks[blocks.length - 1] : null;
-      if (lastBlock && lastBlock.type === "text") {
-        // L5 修复（2026-08-23）：不可变更新——替换为新 block 对象（非原地 mutate）
-        blocks[blocks.length - 1] = {
-          ...lastBlock,
-          content: `${lastBlock.content}${data.content ?? ""}`,
-        };
-      } else {
-        // 工具调用后的新正文 → 开新分组（对齐 ChronologicalBlockBuilder：
-        // hasToolCallSinceLastText 时 addText 会新建 groupId），
-        // 使正文与"工具执行组"分离，不被并入工具卡片组。
-        if (state.hasToolCallSinceLastText || lastBlock?.type === "tool_call") {
-          state.currentGroupId = generateGroupId();
-        }
-        state.hasToolCallSinceLastText = false;
-        blocks.push({
-          id: generateBlockId(),
+      // Think/response 标签兜底（2026-08-31）：后端擦洗上线前的存量事件日志中，
+      // text delta 可能含 <think>/<response> 协议标签（截图文证：标签按正文渲染），
+      // 且标签常跨 delta 分裂，逐 delta 正则删不干净。
+      // 复用 createThinkExtractor 跨 delta 状态机（CS01 归一化）：
+      // think 内容 → thinking 块（与原生 reasoning 展示一致），
+      // response 剥标签保留内容，孤立标签近距闭合验证防误杀。
+      if (!state.thinkExtractor) state.thinkExtractor = createThinkExtractor();
+      routeExtractorPieces(
+        state,
+        state.thinkExtractor.extract({
           type: "text",
           content: data.content ?? "",
-          isStreaming: false,
-          groupId: state.currentGroupId,
-        });
-      }
-      // content 字段累积所有 text（保持"完整正文"语义，供搜索/导出）
-      state.current!.content = (state.current!.content || "") + data.content;
+        }),
+      );
       break;
     }
 
@@ -976,6 +954,80 @@ function ensureCurrent(
 }
 
 /**
+ * thinking delta 合并到最后相邻 thinking 块（不可变更新，L5 修复契约）。
+ * 空 delta 直接忽略，不推进 block，保证 UI 不抖。
+ */
+function appendThinkingDelta(state: BuilderState, cleanDelta: string): void {
+  if (!state.current || !cleanDelta) return;
+  const blocks = state.current.blocks!;
+  const lastBlock = blocks.length > 0 ? blocks[blocks.length - 1] : null;
+  if (lastBlock && lastBlock.type === "thinking") {
+    blocks[blocks.length - 1] = {
+      ...lastBlock,
+      content: `${lastBlock.content}${cleanDelta}`,
+    };
+  } else {
+    blocks.push({
+      id: generateBlockId(),
+      type: "thinking",
+      content: cleanDelta,
+      isStreaming: false,
+      groupId: state.currentGroupId,
+    });
+  }
+}
+
+/**
+ * text delta 合并到最后相邻 text 块（不可变更新 + 工具后开新组 + content 累积）。
+ * 空 delta 直接忽略。
+ */
+function appendTextDelta(state: BuilderState, delta: string): void {
+  if (!state.current || !delta) return;
+  const blocks = state.current.blocks!;
+  const lastBlock = blocks.length > 0 ? blocks[blocks.length - 1] : null;
+  if (lastBlock && lastBlock.type === "text") {
+    blocks[blocks.length - 1] = {
+      ...lastBlock,
+      content: `${lastBlock.content}${delta}`,
+    };
+  } else {
+    // 工具调用后的新正文 → 开新分组（对齐 ChronologicalBlockBuilder：
+    // hasToolCallSinceLastText 时 addText 会新建 groupId），
+    // 使正文与"工具执行组"分离，不被并入工具卡片组。
+    if (state.hasToolCallSinceLastText || lastBlock?.type === "tool_call") {
+      state.currentGroupId = generateGroupId();
+    }
+    state.hasToolCallSinceLastText = false;
+    blocks.push({
+      id: generateBlockId(),
+      type: "text",
+      content: delta,
+      isStreaming: false,
+      groupId: state.currentGroupId,
+    });
+  }
+  // content 字段累积所有 text（保持"完整正文"语义，供搜索/导出）
+  state.current.content = (state.current.content || "") + delta;
+}
+
+/**
+ * 把 think extractor 的产出路由到当前消息块（thinking → thinking 块，text → text 块）。
+ */
+function routeExtractorPieces(
+  state: BuilderState,
+  pieces: Generator<StreamChunk, void, unknown>,
+): void {
+  for (const piece of pieces) {
+    if (!piece.content) continue;
+    if (piece.type === "thinking") {
+      appendThinkingDelta(state, piece.content);
+    } else if (piece.type === "text") {
+      appendTextDelta(state, piece.content);
+    }
+  }
+}
+
+/**
  * 关闭当前 assistant，推入 messages
  * 消息完成（flush）时移除 progress 块——progress 是执行中的瞬态状态
  * （对齐旧版 ChronologicalBlockBuilder.freezeAll 的移除逻辑），
@@ -985,6 +1037,13 @@ function ensureCurrent(
 function flushCurrent(state: BuilderState): void {
   if (!state.current) return;
   const msg = state.current;
+  // think extractor 残留 flush（2026-08-31）：消息关闭时落地未闭合标签缓冲
+  // （unclosed think → thinking 块，unclosed response → text），随后销毁实例，
+  // 保证下一条 assistant 消息的状态机从零开始（生命周期 = 一条消息）。
+  if (state.thinkExtractor) {
+    routeExtractorPieces(state, state.thinkExtractor.flush());
+    state.thinkExtractor = null;
+  }
   // 移除 progress 块（瞬态，StatusFloatBar 负责流式中展示，完成后不保留）
   if (msg.blocks!.some((b) => b.type === "progress")) {
     msg.blocks = msg.blocks!.filter((b) => b.type !== "progress");

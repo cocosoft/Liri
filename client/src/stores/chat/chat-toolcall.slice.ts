@@ -835,6 +835,9 @@ export function createThinkExtractor() {
     },
     flush: function* (): Generator<StreamChunk, void, unknown> {
       // P1：flush 时释放所有待验证缓冲为普通文本
+      // （契约见 tests/think-extractor.test.ts：pending 状态 flush 属"短内容无闭合"
+      // 场景，多为讲解性正文，标签按原文保留；仅 >MAX_PENDING_CHARS 的 REJECT
+      // 分支才丢弃标签。不得在此剥标签，会破坏防误杀契约。）
       if (pendingBuffer) {
         dbg("FLUSH pending → text", { len: pendingBuffer.length });
         yield { type: "text" as const, content: pendingBuffer };

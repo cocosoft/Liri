@@ -95,6 +95,117 @@ describe("deriveConversationBlocks — M2-1 纯函数", () => {
     expect(assistant.content).toBe("回复正文");
   });
 
+  // 2026-08-31 think/response 标签兜底：存量事件日志的 assistant/text delta
+  // 可能含协议标签（后端擦洗上线前的脏数据），派生层须经 createThinkExtractor 拦截
+  describe("assistant/text 含 think/response 标签（存量脏数据兜底）", () => {
+    it("单 delta 完整标签：<think>…</think><response>正文</response> → thinking 块 + 纯正文", () => {
+      const events: LiriEvent[] = [
+        ev(1, "turn/start", { turn: 1 }),
+        ev(2, "user/message", { content: "annotations是啥?" }),
+        ev(
+          3,
+          "assistant/text",
+          {
+            content:
+              "<think>用户问annotations是啥，先解释概念。</think><response>annotations 是注解。</response>",
+          },
+        ),
+        ev(4, "turn/end", { turn: 1 }),
+      ];
+      const msgs = deriveConversationBlocks(events);
+      const assistant = msgs[1];
+      const allContent = assistant
+        .blocks!.map((b) => b.content)
+        .join("\n");
+      // 任何 block 中都不应残留标签本身
+      expect(allContent).not.toContain("<think>");
+      expect(allContent).not.toContain("</think>");
+      expect(allContent).not.toContain("<response>");
+      expect(allContent).not.toContain("</response>");
+      // think 内容 → thinking 块
+      const thinkBlocks = assistant.blocks!.filter(
+        (b) => b.type === "thinking",
+      );
+      expect(thinkBlocks).toHaveLength(1);
+      expect(thinkBlocks[0].content).toBe(
+        "用户问annotations是啥，先解释概念。",
+      );
+      // response 内容 → 纯正文 text 块
+      const textBlocks = assistant.blocks!.filter((b) => b.type === "text");
+      expect(textBlocks).toHaveLength(1);
+      expect(textBlocks[0].content).toBe("annotations 是注解。");
+      // content 字段只累积可见正文
+      expect(assistant.content).toBe("annotations 是注解。");
+    });
+
+    it("跨 delta 分裂：标签完整、内容与闭合标签分片到达 → 正确归块", () => {
+      const events: LiriEvent[] = [
+        ev(1, "turn/start", { turn: 1 }),
+        ev(2, "user/message", { content: "问题" }),
+        ev(3, "assistant/text", { content: "<think>思考前半" }),
+        ev(4, "assistant/text", { content: "后半</think><response>" }),
+        ev(5, "assistant/text", { content: "正文第一段。" }),
+        ev(6, "assistant/text", { content: "正文第二段。</response>" }),
+        ev(7, "turn/end", { turn: 1 }),
+      ];
+      const msgs = deriveConversationBlocks(events);
+      const assistant = msgs[1];
+      const allContent = assistant
+        .blocks!.map((b) => b.content)
+        .join("\n");
+      expect(allContent).not.toContain("<think>");
+      expect(allContent).not.toContain("</think>");
+      expect(allContent).not.toContain("<response>");
+      const thinkBlocks = assistant.blocks!.filter(
+        (b) => b.type === "thinking",
+      );
+      expect(thinkBlocks).toHaveLength(1);
+      expect(thinkBlocks[0].content).toBe("思考前半后半");
+      const textBlocks = assistant.blocks!.filter((b) => b.type === "text");
+      expect(textBlocks).toHaveLength(1);
+      expect(textBlocks[0].content).toBe("正文第一段。正文第二段。");
+      expect(assistant.content).toBe("正文第一段。正文第二段。");
+    });
+
+    it("未闭合的 <think> 短内容（流中断存量）→ 按防误杀契约保留原文为 text", () => {
+      // 契约（tests/think-extractor.test.ts）：<think> 后 MAX_PENDING_CHARS(300)
+      // 字符内无闭合 → 视为讲解性正文，标签按原文保留，不进 thinking 块。
+      // 真实"流中断半截标签"由后端 StreamingThinkScrubber 在源头擦除（新数据），
+      // 存量短残留在此按正文显示属可接受降级。
+      const events: LiriEvent[] = [
+        ev(1, "turn/start", { turn: 1 }),
+        ev(2, "user/message", { content: "问题" }),
+        ev(3, "assistant/text", { content: "<think>被打断的思考" }),
+        ev(4, "turn/end", { turn: 1 }),
+      ];
+      const msgs = deriveConversationBlocks(events);
+      const assistant = msgs[1];
+      const thinkBlocks = assistant.blocks!.filter(
+        (b) => b.type === "thinking",
+      );
+      expect(thinkBlocks).toHaveLength(0);
+      const textBlocks = assistant.blocks!.filter((b) => b.type === "text");
+      expect(textBlocks).toHaveLength(1);
+      expect(textBlocks[0].content).toContain("被打断的思考");
+    });
+
+    it("普通正文无标签 → 行为不变（不引入回归）", () => {
+      const events: LiriEvent[] = [
+        ev(1, "turn/start", { turn: 1 }),
+        ev(2, "user/message", { content: "你好" }),
+        ev(3, "assistant/text", { content: "你好！" }),
+        ev(4, "assistant/text", { content: "有什么可以帮你？" }),
+        ev(5, "turn/end", { turn: 1 }),
+      ];
+      const msgs = deriveConversationBlocks(events);
+      const assistant = msgs[1];
+      const textBlocks = assistant.blocks!.filter((b) => b.type === "text");
+      expect(textBlocks).toHaveLength(1);
+      expect(textBlocks[0].content).toBe("你好！有什么可以帮你？");
+      expect(assistant.content).toBe("你好！有什么可以帮你？");
+    });
+  });
+
   it("tool_call + tool/result 按 callSeq 配对", () => {
     const events: LiriEvent[] = [
       ev(1, "turn/start", { turn: 1 }),

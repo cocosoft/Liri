@@ -37,6 +37,7 @@ import {
 } from '@modules/error';
 import { configManager } from '@modules/config';
 import { SimpleMutex } from '@modules/core';
+import { StreamingThinkScrubber } from '@modules/streaming/scrubbers';
 import { PlainTextCheckpoint } from '../services/PlainTextCheckpoint.js';
 import { StreamingAutoCheckpoint } from '../services/StreamingAutoCheckpoint.js';
 import {
@@ -781,6 +782,11 @@ export async function* runStreamMessage(
         estimateTokens: preSendEstimate,
         sendCtxLimit,
       });
+      // Think 标签擦洗（2026-08-31）：部分模型把 <think>/<response> 协议标签按纯文本输出
+      // （截图文证：标签按正文渲染）。复用 StreamingThinkScrubber 跨 delta 状态机，
+      // 在流式源头擦除 think 标签及内容、剥离 response 标签（保留内容）。
+      // 每轮重试新建实例，避免上一轮残留的标签缓冲状态污染本轮。
+      const thinkScrubber = new StreamingThinkScrubber();
       const gen = activeClient.streamMessage(
         apiMessages as unknown as ChatMessage[],
         {
@@ -976,30 +982,42 @@ export async function* runStreamMessage(
           const chunk = result.value as string | ThinkingProviderChunk;
           if (typeof chunk === 'string') {
             countStreamChunk(streamStats, false);
-            accumulatedContent += chunk;
-            host.unifiedTracker.onStreamChunk(chunk, session.id);
-
-            // M1 事件溯源：text chunk 追加为 assistant/text 事件
-            try {
-              const ts = await host.getStreamTailSeq(session.id);
-              await host.appendStreamEvent(session.id, {
-                type: 'assistant/text',
-                schemaVersion: 1,
-                seq: ts + 1,
-                time: Date.now(),
-                sessionId: session.id,
-                data: { content: chunk, messageId: assistantMessageId },
-              });
-            } catch {
-              // @ignore-catch — 事件追加失败不阻断流式
-            }
-
-            yield {
-              type: 'text',
+            // Think 标签擦洗：擦除 <think>…</think>（含内容）、剥离 <response> 标签（保留内容）。
+            // 擦洗后为空（整块是标签或思考内容）→ 跳过累积、落盘与 yield。
+            // token 水位统计仍用原始 chunk（思考内容同样消耗输出 token）。
+            const scrubbedContent = thinkScrubber.scrub({
               content: chunk,
-              sessionId: session.id,
-              messageId: assistantMessageId,
-            };
+              isComplete: false,
+            }).content;
+            if (scrubbedContent) {
+              accumulatedContent += scrubbedContent;
+              host.unifiedTracker.onStreamChunk(chunk, session.id);
+
+              // M1 事件溯源：text chunk 追加为 assistant/text 事件
+              try {
+                const ts = await host.getStreamTailSeq(session.id);
+                await host.appendStreamEvent(session.id, {
+                  type: 'assistant/text',
+                  schemaVersion: 1,
+                  seq: ts + 1,
+                  time: Date.now(),
+                  sessionId: session.id,
+                  data: {
+                    content: scrubbedContent,
+                    messageId: assistantMessageId,
+                  },
+                });
+              } catch {
+                // @ignore-catch — 事件追加失败不阻断流式
+              }
+
+              yield {
+                type: 'text',
+                content: scrubbedContent,
+                sessionId: session.id,
+                messageId: assistantMessageId,
+              };
+            }
           } else if (chunk?.type === 'thinking') {
             countStreamChunk(streamStats, true);
             if (chunk.content) {
@@ -1036,6 +1054,31 @@ export async function* runStreamMessage(
         }
         // 流结束：flush 剩余 thinking 增量（KB-EVENT-BATCH）
         await flushThinkingEvents();
+        // Think 标签擦洗收尾：flush 跨 chunk 缓冲的标签残留（如流末尾未闭合的
+        // "<response" 片段），残留内容作为最后一段正文补齐，避免尾部内容丢失。
+        const thinkResidual = thinkScrubber.flush();
+        if (thinkResidual) {
+          accumulatedContent += thinkResidual;
+          try {
+            const ts = await host.getStreamTailSeq(session.id);
+            await host.appendStreamEvent(session.id, {
+              type: 'assistant/text',
+              schemaVersion: 1,
+              seq: ts + 1,
+              time: Date.now(),
+              sessionId: session.id,
+              data: { content: thinkResidual, messageId: assistantMessageId },
+            });
+          } catch {
+            // @ignore-catch — 事件追加失败不阻断流式
+          }
+          yield {
+            type: 'text',
+            content: thinkResidual,
+            sessionId: session.id,
+            messageId: assistantMessageId,
+          };
+        }
       } catch (genErr) {
         // KB-EVENT-BATCH-FLUSH（2026-08-29）：流中断/异常时 flush 防抖缓冲的
         // thinking——原仅在正常结束路径 flush，中断（网络断/超时/abort）时最后

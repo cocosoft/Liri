@@ -38,6 +38,10 @@ export interface DreamSchedulerConfig {
   cronTrigger: string;
   /** 空闲检测轮询间隔（毫秒） */
   idleCheckIntervalMs: number;
+  /** D1-Step1：每日最多运行次数（对齐 PilotDeck dailyBudget，0 = 不限制） */
+  maxDailyRuns?: number;
+  /** D1-Step1：忙碌检测回调（agent 正在执行时跳过触发，对齐 PilotDeck agent_busy 门禁） */
+  busyCheck?: () => boolean;
 }
 
 /** 梦境持久化记录 */
@@ -59,6 +63,7 @@ export const DEFAULT_DREAM_SCHEDULER_CONFIG: DreamSchedulerConfig = {
   minIntervalMs: 1 * 60 * 60 * 1000, // 1 小时（原 6 小时）
   cronTrigger: '0 2 * * *',
   idleCheckIntervalMs: 60_000, // 每分钟检查一次
+  maxDailyRuns: 8, // D1-Step1：每日最多 8 次（对齐 PilotDeck dailyBudget=4 的宽松版）
 };
 
 /** 梦境周期状态 */

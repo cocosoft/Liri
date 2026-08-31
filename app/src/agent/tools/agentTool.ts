@@ -164,33 +164,54 @@ export class CommandTool extends BaseAgentTool {
     });
   }
 
+  // E2：最小危险命令拦截（agent 模块独立工具无权限系统，静态 deny 兜底）
+  private static readonly DENY_PATTERNS = [
+    /\brm\s+(-[a-zA-Z]*[rf]|--recursive)(\s|$)/i,
+    /\bsudo\b/i,
+    /\bcurl\b.*\|\s*(ba)?sh\b/i,
+    /\bwget\b.*\|\s*(ba)?sh\b/i,
+    /\bgit\s+reset\s+--hard\b/i,
+    /\bgit\s+clean\s+-[a-z]*f/i,
+    /\brm\s+-rf\s+\/(\s|$)/,
+    /\bFormat-Volume\b/i,
+    /\bRemove-Item\b.*-Recurse/i,
+  ];
+
   async execute(
     params: Record<string, unknown>
   ): Promise<Record<string, unknown>> {
     const { command, cwd } = params;
+    const cmd = String(command ?? '');
+
+    // E2：拒绝危险命令（避免无权限系统的 agent 工具执行破坏性操作）
+    for (const pattern of CommandTool.DENY_PATTERNS) {
+      if (pattern.test(cmd)) {
+        return {
+          success: false,
+          error: `危险命令已被拦截（匹配 ${pattern}）。如确需执行，请使用主工具系统的 bash 工具（带权限审批）。`,
+        };
+      }
+    }
+
     const { exec } = require('child_process');
 
     return new Promise((resolve) => {
-      exec(
-        command,
-        { cwd },
-        (error: unknown, stdout: unknown, stderr: unknown) => {
-          if (error) {
-            resolve({
-              success: false,
-              error: (error as { message: string }).message,
-              stdout,
-              stderr,
-            });
-          } else {
-            resolve({
-              success: true,
-              stdout,
-              stderr,
-            });
-          }
+      exec(cmd, { cwd }, (error: unknown, stdout: unknown, stderr: unknown) => {
+        if (error) {
+          resolve({
+            success: false,
+            error: (error as { message: string }).message,
+            stdout,
+            stderr,
+          });
+        } else {
+          resolve({
+            success: true,
+            stdout,
+            stderr,
+          });
         }
-      );
+      });
     });
   }
 }

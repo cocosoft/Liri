@@ -9,6 +9,7 @@
 
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
+import { messageProjector } from '@modules/context';
 import type { ToolCall, ToolResult } from '../chat/types/tool.js';
 import type { ChatMessage, ToolDefinition } from '@modules/ai';
 import type { TAORLoopDeps } from './TAORLoop.js';
@@ -169,11 +170,28 @@ export function createChatManagerTAORDeps(
 
   return createTAORLoopDeps({
     // ── callModel：将非流式 LLM 调用包装为 AsyncGenerator ──
-    callModel: async function* (messages: ChatMessage[], _signal: AbortSignal) {
+    callModel: async function* (
+      messages: ChatMessage[],
+      _signal: AbortSignal,
+      opts?: { maxOutputTokens?: number }
+    ) {
       try {
-        const response = await ctx.sendModelRequest(messages, {
+        // A1 发送前投影：修复 tool 配对 + 安全截断，防 provider 拒收（对标 PilotDeck MessageProjector）
+        const projected = messageProjector.project(messages);
+        if (projected.warnings.length > 0) {
+          logger.warn('taorAdapter:projector warnings', {
+            count: projected.warnings.length,
+            warnings: projected.warnings.slice(0, 5),
+          });
+        }
+
+        const response = await ctx.sendModelRequest(projected.messages, {
           tools:
             ctx.toolDefinitions.length > 0 ? ctx.toolDefinitions : undefined,
+          // C1：max_output 翻倍重试时透传输出上限
+          ...(opts?.maxOutputTokens
+            ? { maxOutputTokens: opts.maxOutputTokens }
+            : {}),
         });
 
         yield {

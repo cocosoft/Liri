@@ -36,6 +36,7 @@ import { resolveDataDir } from '@modules/core/paths';
 import { SessionGateway } from '@modules/session';
 import { HookChainManager } from '@modules/hooks';
 import { SessionAccessFacade } from './SessionAccessFacade';
+import { resolveChannelSourceOnce } from './channelSourceOnce.js';
 import { MessageService } from './MessageService.js';
 import { eventNotificationService } from './EventNotificationService.js';
 import { clearPathCheckCache } from './PathGuardService';
@@ -283,6 +284,43 @@ export class SessionLifecycleManager {
   }
 
   /**
+   * M4-T4.1（2026-08-31）：会话来源 set_once——通道会话首次带 channel 元数据的
+   * 请求到达时，把来源补写到会话 metadata（仅首次，不覆盖既有来源）。
+   *
+   * 根因：getOrLoadSession 的 metadata 参数只在新会话创建时生效，已存在会话
+   * （通道复用场景）从不写入 → _resolveSessionSource 只能靠 session ID 前缀推断
+   * （仅 QQ 的 c2c:/group: 有效），telegram/webhook 等渠道错误 fallback 为 'web'。
+   *
+   * @param session 会话对象（内存，可能已缓存或刚从 gateway 加载）
+   * @param metadata 本次请求传入的元数据（含 channel）
+   */
+  private async _applyChannelSourceOnce(
+    session: ChatSession,
+    metadata?: Record<string, unknown>
+  ): Promise<void> {
+    const channel = resolveChannelSourceOnce(
+      metadata,
+      session.metadata?.channel
+    );
+    if (!channel) return;
+    session.metadata = { ...session.metadata, channel };
+    try {
+      const stored = await this.sessionGateway.getSession(session.id);
+      if (stored) {
+        stored.metadata = { ...stored.metadata, channel };
+        await this.sessionGateway.updateSession(stored);
+      }
+    } catch (e) {
+      // @ignore-catch — 来源持久化失败不影响内存标记（下次请求再补）
+      logger.warn('会话来源 set_once 持久化失败', {
+        sessionId: session.id,
+        channel,
+        error: e instanceof Error ? e.message : String(e),
+      });
+    }
+  }
+
+  /**
    * 统一获取或加载会话（替代 _getLocalSession || createSession 模式）
    */
   async getOrLoadSession(
@@ -291,6 +329,7 @@ export class SessionLifecycleManager {
   ): Promise<ChatSession> {
     const cached = this.chatSessions.get(sessionId);
     if (cached) {
+      await this._applyChannelSourceOnce(cached, metadata);
       return cached;
     }
 
@@ -362,6 +401,7 @@ export class SessionLifecycleManager {
             action: 'hydrateDecisions_loadGateway',
           });
         }
+        await this._applyChannelSourceOnce(chatSession, metadata);
         return chatSession;
       }
     } catch (e) {

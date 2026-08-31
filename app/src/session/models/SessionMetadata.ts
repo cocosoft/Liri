@@ -20,6 +20,11 @@ export interface SessionMetadata {
   tasksOverride?: unknown;
   worktreeState?: any;
   prLink?: PrLink;
+  /** M1-T1.3（2026-08-31）：列表置顶标记——更新时不得 touch updatedAt（防列表重排） */
+  pinned?: boolean;
+  /** M4-T4.1（2026-08-31）：会话来源渠道（set_once，通道会话首次请求时补写）——
+   * 供 CoreAPIImpl._resolveSessionSource 读取；非通道会话为 undefined */
+  channel?: string;
   tokenUsage?: {
     inputTokens: number;
     outputTokens: number;
@@ -73,7 +78,8 @@ export class SessionMetadata implements SessionMetadata {
       source: string;
       chatType: string;
       routingId: string;
-    }
+    },
+    public pinned?: boolean
   ) {}
 
   addTag(tag: string): void {
@@ -101,6 +107,7 @@ export class SessionMetadata implements SessionMetadata {
       mode: this.mode,
       worktreeState: this.worktreeState,
       prLink: this.prLink,
+      ...(this.pinned !== undefined ? { pinned: this.pinned } : {}),
       ...(this.tokenUsage ? { tokenUsage: this.tokenUsage } : {}),
       ...(this.sessionSource ? { sessionSource: this.sessionSource } : {}),
     };
@@ -114,7 +121,8 @@ export class SessionMetadata implements SessionMetadata {
       data.worktreeState,
       data.prLink,
       data.tokenUsage,
-      data.sessionSource
+      data.sessionSource,
+      data.pinned === true ? true : undefined
     );
   }
 }

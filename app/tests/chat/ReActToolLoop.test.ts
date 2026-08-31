@@ -598,3 +598,101 @@ describe('ReActToolLoop (M1a)', () => {
     ).toBe('q_existing');
   });
 });
+
+// M1-INV②（2026-08-31）：孤儿补偿锁定——B-2 finally 补发契约回归保护。
+// 契约：已写 tool_call 事件（toolCallSeqMap 有记录）但未完成的工具，循环结束时
+// 必有 tool/canceled 终态（回放不悬挂）；正常完成/失败的工具不补发。
+describe('ReActToolLoop 孤儿补偿（M1-INV②）', () => {
+  function makeOrphanCtx(
+    toolResult: { result: unknown; error?: string },
+    overrides: Partial<Record<string, unknown>> = {}
+  ) {
+    const capturedEvents: Array<{
+      type: string;
+      data: Record<string, unknown>;
+    }> = [];
+    let reasonRound = 0;
+    const llmResponse = (): ChatResponse =>
+      reasonRound++ === 0
+        ? ({
+            content: '',
+            stop_reason: 'tool_calls',
+            tool_calls: [
+              {
+                id: 'tc-pending',
+                name: 'ask_user_question',
+                arguments: { question: '请确认', header: '确认' },
+              },
+            ],
+          }) as ChatResponse
+        : ({ content: 'done', stop_reason: 'stop' }) as ChatResponse;
+    const ctx = makeCtx({
+      appendStreamEvent: async (
+        _sid: string,
+        ev: { type: string; data: Record<string, unknown> }
+      ) => {
+        capturedEvents.push(ev);
+      },
+      getStreamTailSeq: async () => 0,
+      // 预填：模拟 streamMessageFlow 已在 tool_start 时写入 assistant/tool_call 事件
+      toolCallSeqMap: new Map([['tc-pending', 42]]),
+      executeTool: async () => ({
+        toolCallId: 'tc-pending',
+        toolName: 'ask_user_question',
+        ...toolResult,
+      }),
+      activeClient: {
+        sendMessage: async () => llmResponse(),
+        streamMessage: async function* () {
+          yield 'ok';
+          return llmResponse() as ChatResponse;
+        },
+        getProviderId: () => 'mock',
+      },
+      ...overrides,
+    } as Partial<ToolLoopContext>);
+    return { ctx, capturedEvents };
+  }
+
+  it('挂起的审批/提问工具未恢复 → 循环结束补发 tool/canceled（callSeq 闭环）', async () => {
+    // 模拟审批/提问挂起等待：工具返回 pendingApproval=true 且永不恢复
+    const { ctx, capturedEvents } = makeOrphanCtx({
+      result: { pendingApproval: true },
+    });
+    const loop = new ReActToolLoop(ctx, makeInput(), { maxIterations: 3 });
+    for await (const _e of loop.run(makeInput())) {
+      // 消费事件流至结束
+    }
+    const canceled = capturedEvents.find((e) => e.type === 'tool/canceled');
+    expect(canceled).toBeTruthy();
+    expect(canceled?.data.toolCallId).toBe('tc-pending');
+    expect(canceled?.data.callSeq).toBe(42);
+  });
+
+  it('正常完成的工具 → 不补发 tool/canceled', async () => {
+    const { ctx, capturedEvents } = makeOrphanCtx({
+      result: { output: 'done' },
+    });
+    const loop = new ReActToolLoop(ctx, makeInput(), { maxIterations: 3 });
+    for await (const _e of loop.run(makeInput())) {
+      // 消费事件流至结束
+    }
+    expect(capturedEvents.find((e) => e.type === 'tool/canceled')).toBe(
+      undefined
+    );
+  });
+
+  it('失败的工具（status=error 也是终态）→ 不补发 tool/canceled', async () => {
+    const { ctx, capturedEvents } = makeOrphanCtx({
+      result: { output: null },
+      error: 'boom',
+    });
+    const loop = new ReActToolLoop(ctx, makeInput(), { maxIterations: 3 });
+    for await (const _e of loop.run(makeInput())) {
+      // 消费事件流至结束
+    }
+    expect(capturedEvents.find((e) => e.type === 'tool/canceled')).toBe(
+      undefined
+    );
+  });
+});

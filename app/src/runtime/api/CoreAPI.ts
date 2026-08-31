@@ -468,7 +468,7 @@ export interface CoreAPI {
     source?: 'user' | 'ai'
   ): Promise<void>;
 
-  /** 更新会话元数据（模型绑定、工作空间、任务分工等） */
+  /** 更新会话元数据（模型绑定、工作空间、任务分工、置顶等） */
   updateSessionMeta(
     sessionId: string,
     meta: {
@@ -476,6 +476,7 @@ export interface CoreAPI {
       workspaceId?: string;
       providerId?: string;
       tasksOverride?: Record<string, string>;
+      pinned?: boolean;
     }
   ): Promise<void>;
 

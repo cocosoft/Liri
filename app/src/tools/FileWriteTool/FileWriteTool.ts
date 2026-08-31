@@ -7,7 +7,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { resolveOutputDir, resolveInboundDir } from '@modules/core';
-import { resolveFilePath } from '../utils/ToolUtils';
+import { resolveFilePath, getToolBaseDir } from '../utils/ToolUtils';
 import type { FileOperationResult } from '../types/ToolResult';
 
 // 懒初始化 Rust 原生模块，用于自动检测文件编码
@@ -176,7 +176,7 @@ export class FileWriteTool extends BaseTool {
 
   override async execute(
     input: Record<string, unknown>,
-    _context: ToolUseContext,
+    context: ToolUseContext,
     onProgress?: ToolCallProgress<any>
   ): Promise<ToolResult<unknown>> {
     try {
@@ -207,6 +207,8 @@ export class FileWriteTool extends BaseTool {
       }
 
       const append = (input.append as boolean) || false;
+      // G3：相对路径优先解析到会话工作目录（cwd），缺省回退 outputDir
+      const baseDir = getToolBaseDir(context);
 
       // content 与 source_file 至少提供一个：内容在磁盘时必须优先走 source_file（0 输出 token）
       const hasContent =
@@ -263,16 +265,16 @@ export class FileWriteTool extends BaseTool {
       }
 
       if (append) {
-        const resolved = resolveFilePath(input.file_path as string);
+        const resolved = resolveFilePath(input.file_path as string, baseDir);
         // 使用编码感知的文件读取（自动检测 UTF-8 / GBK / GB18030）
         const existingContent = readFileWithEncoding(resolved);
         writeFile({
-          filePath: input.file_path as string,
+          filePath: resolved,
           content: existingContent + effectiveContent,
         });
       } else {
         writeFile({
-          filePath: input.file_path as string,
+          filePath: resolveFilePath(input.file_path as string, baseDir),
           content: effectiveContent,
         });
       }

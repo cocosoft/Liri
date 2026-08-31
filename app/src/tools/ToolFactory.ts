@@ -60,6 +60,7 @@ import { LSPToolAdapter } from './adapters/LSPToolAdapter';
 import { REPLToolAdapter } from './adapters/REPLToolAdapter';
 import { NotebookToolAdapter } from './adapters/NotebookToolAdapter';
 import { AskUserQuestionTool } from './AskUserQuestionTool/AskUserQuestionTool';
+import { ProposePlanTool } from './ProposePlanTool/ProposePlanTool';
 import { ConfigTool } from './ConfigTool/ConfigTool';
 import { MCPResourceTool } from './MCPResourceTool/MCPResourceTool';
 import { BriefTool } from './BriefTool/BriefTool';
@@ -1141,6 +1142,7 @@ export function getAllBaseTools(): Tool[] {
   tools.push(new TodoWriteTool());
   tools.push(new WebSearchTool());
   tools.push(new AskUserQuestionTool());
+  tools.push(new ProposePlanTool());
 
   const knowledgeSearchTool = createKnowledgeSearchTool(knowledgeRouter);
   if (knowledgeSearchTool) {

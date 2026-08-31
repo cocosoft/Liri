@@ -12,6 +12,9 @@ export type FileState = {
   // Edit/Write must require an explicit Read first. `content` here holds the
   // RAW disk bytes (for getChangedFiles diffing), not what the model saw.
   isPartialView?: boolean;
+  // B1：文件 mtime（ms）。FileReadTool 记录，FileEditTool 用其做写前新鲜度校验
+  // （mtime 比对避免编码感知读取带来的内容差异误报）
+  mtimeMs?: number;
 };
 
 // Default max entries for read file state caches
@@ -123,6 +126,36 @@ export function cloneFileStateCache(cache: FileStateCache): FileStateCache {
   const cloned = createFileStateCacheWithSizeLimit(cache.max, cache.maxSize);
   cloned.load(cache.dump());
   return cloned;
+}
+
+/**
+ * B1：从 ToolUseContext.readFileState（unknown）中提取可用的文件状态缓存。
+ *
+ * 兼容三种形态：
+ *   - FileStateCache 实例（mcp.ts 已使用）
+ *   - 结构等价的缓存对象（含 get/set/has/delete）
+ *   - 普通空对象 / 未提供（返回 null，工具回退为宽松行为，不破坏既有调用方）
+ */
+export function resolveReadFileState(
+  readFileState: unknown
+): FileStateCache | null {
+  if (readFileState == null || typeof readFileState !== 'object') return null;
+  if (readFileState instanceof FileStateCache) return readFileState;
+  const candidate = readFileState as {
+    get?: unknown;
+    set?: unknown;
+    has?: unknown;
+    delete?: unknown;
+  };
+  if (
+    typeof candidate.get === 'function' &&
+    typeof candidate.set === 'function' &&
+    typeof candidate.has === 'function' &&
+    typeof candidate.delete === 'function'
+  ) {
+    return candidate as unknown as FileStateCache;
+  }
+  return null;
 }
 
 // Merge two file state caches, with more recent entries (by timestamp) overriding older ones

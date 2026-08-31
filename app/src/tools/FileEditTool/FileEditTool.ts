@@ -161,6 +161,11 @@ import {
 } from '@modules/error';
 
 import { getLogger } from '@modules/monitoring';
+import {
+  resolveReadFileState,
+  type FileStateCache,
+} from '../../utils/fileStateCache';
+import { getToolBaseDir } from '../utils/ToolUtils';
 const logger = getLogger('tools:FileEditTool:FileEditTool');
 
 function normalizeQuotes(str: string): string {
@@ -200,12 +205,83 @@ export class FileEditTool extends BaseTool {
     },
   ];
 
+  /**
+   * B1：写前快照新鲜度校验（read-before-edit）
+   *
+   * 仅对已存在的文件生效（新文件走 Write 工具，无需先读）。
+   * - 无读快照 → 要求先 read_file
+   * - 快照 mtime 与磁盘不一致（文件已被外部修改）→ 要求重新 read_file
+   * 返回 null 表示校验通过。
+   */
+  private checkWriteFreshness(
+    cache: FileStateCache,
+    resolvedPath: string
+  ): string | null {
+    if (!fs.existsSync(resolvedPath)) return null; // 新文件：不校验
+    const snapshot = cache.get(resolvedPath);
+    if (!snapshot) {
+      return `文件 ${resolvedPath} 尚未被读取。请先使用 read_file 读取该文件，再执行编辑（read-before-edit）。`;
+    }
+    if (snapshot.mtimeMs !== undefined) {
+      try {
+        const currentMtime = fs.statSync(resolvedPath).mtimeMs;
+        if (currentMtime !== snapshot.mtimeMs) {
+          return `文件 ${resolvedPath} 自上次读取后已被修改（mtime 变化）。请重新 read_file 后再编辑，避免基于过期内容修改。`;
+        }
+      } catch {
+        // @ignore-catch — stat 失败按"文件已不存在"处理，不阻断（editFile 会给出文件不存在错误）
+      }
+    }
+    return null;
+  }
+
+  /**
+   * B1：编辑成功后记录新快照（使后续 edit 能基于最新状态校验）
+   */
+  private recordSnapshot(cache: FileStateCache, resolvedPath: string): void {
+    try {
+      const content = readFileWithEncoding(resolvedPath);
+      const mtimeMs = fs.statSync(resolvedPath).mtimeMs;
+      cache.set(resolvedPath, {
+        content,
+        timestamp: Date.now(),
+        offset: undefined,
+        limit: undefined,
+        mtimeMs,
+      });
+    } catch {
+      // @ignore-catch — 记录失败不影响编辑结果
+    }
+  }
+
   override async execute(
     input: Record<string, unknown>,
-    _context: ToolUseContext,
+    context: ToolUseContext,
     onProgress?: ToolCallProgress<any>
   ): Promise<ToolResult<unknown>> {
     try {
+      // G3：相对路径优先解析到会话工作目录（cwd），缺省回退 outputDir
+      const baseDir = getToolBaseDir(context);
+      // B1：写前快照新鲜度校验（read-before-edit）——仅当上下文提供文件状态缓存时生效
+      const cache = resolveReadFileState(context.readFileState);
+      if (cache) {
+        const resolvedForCheck = resolveFilePath(
+          input.file_path as string,
+          baseDir
+        );
+        const freshnessError = this.checkWriteFreshness(
+          cache,
+          resolvedForCheck
+        );
+        if (freshnessError) {
+          return createToolResult(freshnessError, {
+            newMessages: [
+              { role: 'system', content: `Error: ${freshnessError}` },
+            ],
+          });
+        }
+      }
+
       const oldString = input.old_string as string;
       const newString = input.new_string as string;
       const replaceAll = input.replace_all === true;
@@ -230,7 +306,7 @@ export class FileEditTool extends BaseTool {
       }
 
       if (replaceAll) {
-        const resolved = resolveFilePath(input.file_path as string);
+        const resolved = resolveFilePath(input.file_path as string, baseDir);
         // 使用编码感知的文件读取（自动检测 UTF-8 / GBK / GB18030）
         const content = readFileWithEncoding(resolved);
         const normalizedOld = normalizeQuotes(content).includes(
@@ -240,6 +316,8 @@ export class FileEditTool extends BaseTool {
           : oldString;
         const newContent = content.replaceAll(normalizedOld, newString);
         fs.writeFileSync(resolved, newContent, 'utf-8');
+        // B1：编辑成功后更新快照
+        if (cache) this.recordSnapshot(cache, resolved);
         return createToolResult(
           { filePath: resolved, replaced: true },
           {
@@ -254,10 +332,13 @@ export class FileEditTool extends BaseTool {
       }
 
       const result = editFile({
-        filePath: input.file_path as string,
+        filePath: resolveFilePath(input.file_path as string, baseDir),
         oldString,
         newString,
       });
+
+      // B1：编辑成功后更新快照
+      if (cache) this.recordSnapshot(cache, result.canonicalPath);
 
       return createToolResult(
         {

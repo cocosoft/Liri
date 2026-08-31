@@ -40,6 +40,33 @@ export class ExploreAgentStrategy extends BaseAgentStrategy {
       tools: this.buildToolDefinitions(context),
     });
 
+    // E1：统一处理原生 tool_calls（此前与 General/Plan 不一致，工具注入但结果被丢弃）
+    if (aiResponse.tool_calls && aiResponse.tool_calls.length > 0) {
+      try {
+        const toolResults = await this.executeToolCalls(
+          aiResponse.tool_calls,
+          context
+        );
+        const finalResponse = await this.generateWithToolResults(
+          messages,
+          context,
+          aiResponse.content,
+          aiResponse.tool_calls,
+          toolResults
+        );
+        if (finalResponse) return finalResponse;
+      } catch (error) {
+        return {
+          id: aiResponse.id,
+          taskId: task.id,
+          content: `Error: ${(error as Error).message}`,
+          status: AgentState.FAILED,
+          error: (error as Error).message,
+          timestamp: Date.now(),
+        };
+      }
+    }
+
     return {
       id: aiResponse.id,
       taskId: task.id,

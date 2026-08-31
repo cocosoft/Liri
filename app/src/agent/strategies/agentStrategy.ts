@@ -75,6 +75,104 @@ export abstract class BaseAgentStrategy implements AgentStrategy {
       },
     }));
   }
+
+  /**
+   * E1：执行模型返回的原生 tool_calls，返回工具执行结果摘要
+   *
+   * 统一各策略的工具调用处理（此前 General/Plan 处理、Code/Explore 不处理导致不一致）。
+   * @param toolCalls 模型返回的工具调用
+   * @param context 代理上下文
+   * @returns 工具执行结果数组
+   */
+  protected async executeToolCalls(
+    toolCalls: Array<{ name: string; arguments?: Record<string, unknown> }>,
+    context: AgentContext
+  ): Promise<Array<{ name: string; result: unknown; error?: string }>> {
+    const toolResults: Array<{
+      name: string;
+      result: unknown;
+      error?: string;
+    }> = [];
+    for (const tc of toolCalls) {
+      const tool = (context.tools ?? []).find((t) => t.name === tc.name);
+      if (!tool) {
+        toolResults.push({
+          name: tc.name,
+          result: null,
+          error: 'tool not found',
+        });
+        continue;
+      }
+      try {
+        const result = await tool.execute(tc.arguments ?? {});
+        toolResults.push({ name: tc.name, result });
+      } catch (execErr) {
+        toolResults.push({
+          name: tc.name,
+          result: null,
+          error: (execErr as Error).message,
+        });
+      }
+    }
+    return toolResults;
+  }
+
+  /**
+   * E1：将工具结果追加为消息并二次生成最终响应
+   * @returns null 表示无工具调用
+   */
+  protected async generateWithToolResults(
+    messages: Array<{ role: string; content: string }>,
+    context: AgentContext,
+    initialContent: string,
+    toolCalls: Array<{ name: string; arguments?: Record<string, unknown> }>,
+    toolResults: Array<{ name: string; result: unknown; error?: string }>
+  ): Promise<AgentResponse | null> {
+    if (toolResults.length === 0) return null;
+    const toolResultSummary = toolResults
+      .map(
+        (tr) =>
+          `${tr.name}: ${tr.error ? `ERROR: ${tr.error}` : JSON.stringify(tr.result, null, 2)}`
+      )
+      .join('\n');
+    messages.push({
+      role: AIMessageRole.ASSISTANT,
+      content:
+        initialContent ||
+        `调用工具: ${toolCalls.map((tc) => tc.name).join(', ')}`,
+    });
+    messages.push({
+      role: AIMessageRole.USER,
+      content: `Tool execution results:\n${toolResultSummary}`,
+    });
+
+    const finalResponse = await aiService.generate(
+      messages as Parameters<typeof aiService.generate>[0],
+      context.model,
+      {
+        temperature: context.temperature,
+        max_tokens: context.maxTokens,
+        tools: this.buildToolDefinitions(context),
+      }
+    );
+
+    return {
+      id: finalResponse.id,
+      taskId: context.taskId ?? '',
+      content: finalResponse.content,
+      result: { toolResults },
+      status: AgentState.COMPLETED,
+      usage: finalResponse.usage
+        ? {
+            promptTokens: finalResponse.usage.prompt_tokens,
+            completionTokens: finalResponse.usage.completion_tokens,
+            totalTokens: finalResponse.usage.total_tokens,
+          }
+        : undefined,
+      timestamp: Date.now(),
+      finishReason: finalResponse.finish_reason,
+    };
+  }
 }
 
 /**

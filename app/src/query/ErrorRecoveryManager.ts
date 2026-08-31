@@ -38,7 +38,10 @@ type RecoveryType =
   | 'server_error'
   | 'rate_limit'
   | 'network_error'
-  | 'unknown';
+  | 'unknown'
+  // 2026-08-31 C1：对标 PilotDeck AgentLoop 精细化恢复
+  | 'invalid_tool_arguments'
+  | 'prompt_too_long';
 
 /** 恢复尝试记录 */
 interface RecoveryAttempt {
@@ -51,7 +54,14 @@ interface RecoveryAttempt {
 /** 恢复结果 */
 interface RecoveryResult {
   recovered: boolean;
-  action: 'retry' | 'abort' | 'compact_and_retry';
+  action:
+    | 'retry'
+    | 'abort'
+    | 'compact_and_retry'
+    // 2026-08-31 C1：精细化恢复动作
+    | 'retry_with_correction'
+    | 'retry_higher_output'
+    | 'truncate_head_and_retry';
   message?: string;
 }
 
@@ -66,6 +76,8 @@ interface RecoveryState {
   attempts: Array<[string, { type: RecoveryType; retryCount: number }]>;
   /** 压缩是否已尝试过（防止压缩-重试死循环） */
   compactAttempted?: boolean;
+  /** C1：max_output 翻倍是否已尝试 */
+  maxOutputDoubled?: boolean;
 }
 
 /** 默认最大重试次数 */
@@ -78,12 +90,28 @@ const DEFAULT_MAX_RETRIES: Record<RecoveryType, number> = {
   rate_limit: 2,
   network_error: 2,
   unknown: 2,
+  // C1：JSON 自纠错上限 3 次（对标 PilotDeck jsonSelfCorrect 3 次上限）
+  invalid_tool_arguments: 3,
+  // C1：截头为破坏性操作，单次（对标 PilotDeck truncate_head 每 turn 单次）
+  prompt_too_long: 1,
 };
 
 /** 错误分类规则 */
 function classifyError(error: Error): RecoveryType {
   const msg =
     error.message + ((error as unknown as Record<string, unknown>).code ?? '');
+
+  // C1：非法工具参数 → JSON 自纠错（对标 PilotDeck invalid_tool_arguments 分支）
+  if (
+    /invalid.?tool|tool.?argument|failed.to.parse.*json|invalid_json|arguments.*not.*valid/i.test(
+      msg
+    )
+  )
+    return 'invalid_tool_arguments';
+
+  // C1：prompt 超长 → 截头重试（对标 PilotDeck truncate_head_and_retry）
+  if (/prompt.?is.?too.?long|prompt.?too.?long|input.?is.?too.?long/i.test(msg))
+    return 'prompt_too_long';
 
   if (/empty.?response|no.?content/i.test(msg)) return 'empty_response';
   if (/context.?length|400|413|too.?large/i.test(msg))
@@ -162,8 +190,28 @@ function getRecoveryMessage(type: RecoveryType, errorMsg?: string): string {
       return `[SYSTEM] 网络连接错误（${errorMsg?.slice(0, 100) ?? '未知'}），请重试。`;
     case 'unknown':
       return `[SYSTEM] 请求异常（${errorMsg?.slice(0, 100) ?? '未知'}），请重试。`;
+    // C1：非法工具参数 → 提示重新输出合法 JSON
+    case 'invalid_tool_arguments':
+      return '[SYSTEM] 工具调用参数无效（JSON 解析失败）。请重新输出 tool_calls，确保每个 arguments 都是合法 JSON，且字段与 schema 一致。';
+    // C1：prompt 超长 → 截头后重试
+    case 'prompt_too_long':
+      return '[SYSTEM] 上下文过长，已截断早期历史消息，请重试。';
     default:
       return '[SYSTEM] 请继续。';
+  }
+}
+
+/** 日志用：按类型映射将返回的恢复动作（供 assess 日志记录） */
+function recoveryActionForLog(type: RecoveryType): string {
+  switch (type) {
+    case 'context_overflow':
+      return 'compact_and_retry';
+    case 'invalid_tool_arguments':
+      return 'retry_with_correction';
+    case 'prompt_too_long':
+      return 'truncate_head_and_retry';
+    default:
+      return 'retry';
   }
 }
 
@@ -171,6 +219,8 @@ export class ErrorRecoveryManager {
   private attempts: Map<RecoveryType, RecoveryAttempt> = new Map();
   /** 单次尝试守卫：压缩是否已尝试过（防止压缩-重试死循环） */
   private _compactAttempted: boolean = false;
+  /** C1：max_output 翻倍是否已尝试（单次，对标 PilotDeck max_output 单次翻倍重试） */
+  private _maxOutputDoubled: boolean = false;
 
   constructor() {
     // 初始化各类型的最大重试次数
@@ -247,7 +297,7 @@ export class ErrorRecoveryManager {
 
     logger.info('Recovery action decided', {
       type,
-      action: type === 'context_overflow' ? 'compact_and_retry' : 'retry',
+      action: recoveryActionForLog(type),
       retryCount: attempt.retryCount,
       maxRetries: attempt.maxRetries,
       turnCount: context.turnCount,
@@ -262,8 +312,39 @@ export class ErrorRecoveryManager {
           message: '上下文溢出，压缩后重试',
         };
 
-      case 'empty_response':
+      // C1：非法工具参数 → JSON 自纠错（重新输出合法参数）
+      case 'invalid_tool_arguments':
+        return {
+          recovered: true,
+          action: 'retry_with_correction',
+          message: getRecoveryMessage(type, error.message),
+        };
+
+      // C1：prompt 超长 → 截头重试
+      case 'prompt_too_long':
+        return {
+          recovered: true,
+          action: 'truncate_head_and_retry',
+          message: getRecoveryMessage(type, error.message),
+        };
+
+      // C1：max_output 首次翻倍输出上限（单次），之后降级 [SYSTEM] 提示
       case 'max_output':
+        if (!this._maxOutputDoubled) {
+          this._maxOutputDoubled = true;
+          return {
+            recovered: true,
+            action: 'retry_higher_output',
+            message: '[SYSTEM] 已提高输出上限，请继续未完成的回答。',
+          };
+        }
+        return {
+          recovered: true,
+          action: 'retry',
+          message: getRecoveryMessage(type),
+        };
+
+      case 'empty_response':
         return {
           recovered: true,
           action: 'retry',
@@ -327,6 +408,7 @@ export class ErrorRecoveryManager {
       attempt.lastError = undefined;
     }
     this._compactAttempted = false;
+    this._maxOutputDoubled = false;
   }
 
   /**
@@ -341,7 +423,11 @@ export class ErrorRecoveryManager {
         { type: attempt.type, retryCount: attempt.retryCount },
       ]);
     }
-    return { attempts: entries, compactAttempted: this._compactAttempted };
+    return {
+      attempts: entries,
+      compactAttempted: this._compactAttempted,
+      maxOutputDoubled: this._maxOutputDoubled,
+    };
   }
 
   /**
@@ -357,6 +443,7 @@ export class ErrorRecoveryManager {
       });
     }
     this._compactAttempted = state.compactAttempted ?? false;
+    this._maxOutputDoubled = state.maxOutputDoubled ?? false;
   }
 }
 

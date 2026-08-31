@@ -201,6 +201,26 @@ export async function retryFromErrorImpl(
     return;
   }
 
+  // M1-INV③（2026-08-31）：retry 尾部守卫——仅允许重试尾部 turn。
+  // 目标 assistant 之后若已开启新对话（存在后续 user/assistant 消息），
+  // 下方 slice(0, userMsgIdx+1) 会静默截掉正常对话，必须拒绝。
+  // system/tool 附属消息不构成新 turn，不触发拒绝。
+  const hasLaterTurn = messages
+    .slice(aiIdx + 1)
+    .some((m) => m.role === "user" || m.role === "assistant");
+  if (hasLaterTurn) {
+    logger.warn(
+      "retryFromError: 目标消息非尾部 turn，拒绝重试（防截断后续正常对话）",
+      {
+        assistantMsgId,
+        sessionId: sessionId ?? null,
+        aiIdx,
+        laterCount: messages.length - aiIdx - 1,
+      },
+    );
+    return;
+  }
+
   // 向前找到最近的一条 user 消息
   let userMsgIdx = -1;
   for (let i = aiIdx - 1; i >= 0; i--) {

@@ -176,6 +176,8 @@ export interface ToolLoopContext {
       | {
           requiresUserInteraction?: () => boolean;
           isDestructive?: (input?: Record<string, unknown>) => boolean;
+          // M3-T3.2：读类并发判定（isConcurrencySafe 工具可并行执行）
+          isConcurrencySafe?: (input?: Record<string, unknown>) => boolean;
         }
       | undefined;
   };

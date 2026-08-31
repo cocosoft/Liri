@@ -35,3 +35,20 @@ export type {
   DreamRecord,
 } from './types';
 export { DEFAULT_DREAM_SCHEDULER_CONFIG } from './types';
+
+// D1-Step2：自主运行计划契约 + 执行 deny 规则
+export {
+  parseDreamPlan,
+  validateDreamPlan,
+  buildDreamPlanMarkdown,
+  type DreamPlan,
+  type DreamPlanMeta,
+  type DreamPlanValidation,
+} from './plan/DreamPlanContract';
+export {
+  AUTONOMOUS_DENY_COMMAND_PREFIXES,
+  AUTONOMOUS_DENY_TOOLS,
+  isDeniedByAutonomousRules,
+  isDeniedToolByAutonomousRules,
+  checkAutonomousOperation,
+} from './execution/DreamDenyRules';

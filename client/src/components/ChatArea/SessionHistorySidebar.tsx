@@ -95,7 +95,6 @@ function SessionHistorySidebar({
     deleteSession,
     clearAllSessions,
     togglePin,
-    pinnedSessionIds,
   } = useSessionStore();
 
   // 从 rootStore 获取模块上下文 + Hub 记录
@@ -236,9 +235,17 @@ function SessionHistorySidebar({
     }
   };
 
-  const handlePinSession = (sessionId: string) => {
-    togglePin(sessionId);
+  // M1-T1.3：togglePin 已持久化（PATCH metadata.pinned），失败需向用户报告
+  const handlePinSession = async (sessionId: string) => {
     setContextMenu(null);
+    try {
+      await togglePin(sessionId);
+    } catch (e) {
+      handleClientError(e, {
+        module: "ui:session-sidebar",
+        action: "pinSession",
+      });
+    }
   };
 
   const handleCompact = async (sessionId: string) => {
@@ -255,8 +262,9 @@ function SessionHistorySidebar({
     setContextMenu(null);
   };
 
+  // M1-T1.3：置顶状态读自后端 metadata.pinned（经 flattenSession 展平）
   const isPinned = (sessionId: string): boolean => {
-    return pinnedSessionIds.includes(sessionId);
+    return sessions.some((s) => s.id === sessionId && s.pinned);
   };
 
   const handleScroll = useCallback(() => {
@@ -295,10 +303,9 @@ function SessionHistorySidebar({
       return true;
     });
 
-    // 1. 过滤 tab：仅保留"已固定"筛选
+    // 1. 过滤 tab：仅保留"已固定"筛选（M1-T1.3：状态源 session.pinned）
     if (filterTab === "pinned") {
-      const pinnedSet = new Set(pinnedSessionIds);
-      result = result.filter((s) => pinnedSet.has(s.id));
+      result = result.filter((s) => s.pinned);
     }
 
     // 2. 搜索过滤
@@ -312,17 +319,15 @@ function SessionHistorySidebar({
     }
 
     // 3. 固定会话优先（非"已固定" tab 时，仅在过滤后的结果中置顶）
-    if (filterTab !== "pinned" && pinnedSessionIds.length > 0) {
-      const pinnedSet = new Set(pinnedSessionIds);
-      const pinnedItems = result.filter((s) => pinnedSet.has(s.id));
-      const normalItems = result.filter((s) => !pinnedSet.has(s.id));
+    if (filterTab !== "pinned" && result.some((s) => s.pinned)) {
+      const pinnedItems = result.filter((s) => s.pinned);
+      const normalItems = result.filter((s) => !s.pinned);
       return [...pinnedItems, ...normalItems];
     }
     return result;
   }, [
     sessions,
     debouncedQuery,
-    pinnedSessionIds,
     filterTab,
     rootSessions,
     moduleContext,

@@ -802,6 +802,27 @@ export class InboxManager {
   }
 
   /**
+   * M2-T2.2（2026-08-31）：删除会话时级联关闭孤儿审批项。
+   * 将该会话下 pending/processing 的审批项置为 dismissed（不可再答复），
+   * 避免删除会话后 /v1/inbox 残留可答复项。
+   * @returns 关闭的审批项数量
+   */
+  async dismissBySession(sessionId: string): Promise<number> {
+    const db = await this.getDb();
+    return new Promise<number>((resolve, reject) => {
+      db.run(
+        `UPDATE inbox_items SET status = 'dismissed', updated_at = ?
+         WHERE session_id = ? AND status IN ('pending', 'processing')`,
+        [Date.now(), sessionId],
+        function (this: { changes: number }, err: Error | null) {
+          if (err) reject(err);
+          else resolve(this.changes);
+        }
+      );
+    });
+  }
+
+  /**
    * Orphan 补偿：根据 traceId 尝试回填 channelSessionId
    * traceId 格式: ch_trc_{channelId}_{timestamp}_{random4}
    */

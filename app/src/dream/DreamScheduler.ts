@@ -144,7 +144,7 @@ export class DreamScheduler {
     this.nextCronRunMs = null;
   }
 
-  /** 检查是否可以做梦 */
+  /** 检查是否可以做梦（D1-Step1：间隔 + 忙碌 + 日预算 三重门禁） */
   private canDream(): boolean {
     const lastCompletedAt = this.persistence.getLastCompletedAt();
     const elapsed = Date.now() - lastCompletedAt;
@@ -154,6 +154,31 @@ export class DreamScheduler {
       );
       return false;
     }
+
+    // D1-Step1：忙碌门禁（agent 正在执行时跳过，避免资源争抢）
+    if (this.config.busyCheck?.()) {
+      logger.info('[DreamScheduler] agent 忙碌中，跳过梦境触发');
+      return false;
+    }
+
+    // D1-Step1：日预算门禁（对齐 PilotDeck dailyBudget）
+    const maxDaily = this.config.maxDailyRuns ?? 0;
+    if (maxDaily > 0) {
+      const todayKey = new Date().toISOString().slice(0, 10);
+      const todayCount = this.persistence
+        .getAllRecords()
+        .filter(
+          (r: { startedAt: number }) =>
+            new Date(r.startedAt).toISOString().slice(0, 10) === todayKey
+        ).length;
+      if (todayCount >= maxDaily) {
+        logger.info(
+          `[DreamScheduler] 今日已运行 ${todayCount}/${maxDaily} 次，达到日预算上限，跳过`
+        );
+        return false;
+      }
+    }
+
     return true;
   }
 

@@ -100,6 +100,16 @@ export {
 export type { CompactionContext } from './compaction/CompactionOrchestrator';
 export { asyncContextStorage } from './AsyncContextStorage';
 
+// 2026-08-31 A1：发送前消息投影（对标 PilotDeck MessageProjector）
+export {
+  MessageProjector,
+  messageProjector,
+  INJECTED_RESULT_CONTENT,
+  type ProjectionWarning,
+  type ProjectionWarningCode,
+  type ProjectionResult,
+} from './projection/MessageProjector';
+
 // 2026-08-30 R03-002 收敛：persistence 子路径统一出口
 export {
   hydrateOnStartup,

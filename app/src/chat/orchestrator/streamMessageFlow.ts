@@ -972,8 +972,14 @@ export async function* runStreamMessage(
             sessionId: session.id,
             data: { content: joined, messageId: assistantMessageId },
           });
-        } catch {
-          // @ignore-catch — 事件追加失败不阻断流式（CS03）
+        } catch (e) {
+          // M1-INV①（2026-08-31）：thinking 批量落盘失败可观测（§1.6 防抖窗口内
+          // 已 yield 内容若此刻进程退出将丢失，warning 是排查"刷新后思考丢失"的锚点）
+          logger.warn('streamMessage:assistant/thinking 批量落盘失败', {
+            sessionId: session.id,
+            batchSize: joined.length,
+            error: e instanceof Error ? e.message : String(e),
+          });
         }
       };
 
@@ -1007,8 +1013,14 @@ export async function* runStreamMessage(
                     messageId: assistantMessageId,
                   },
                 });
-              } catch {
-                // @ignore-catch — 事件追加失败不阻断流式
+              } catch (e) {
+                // M1-INV①（2026-08-31）：落盘失败破坏"所见即所存"不变量
+                // （前端已显示、盘上无此内容，刷新后丢失），必须可观测。
+                logger.warn('streamMessage:assistant/text 事件落盘失败', {
+                  sessionId: session.id,
+                  contentLength: scrubbedContent.length,
+                  error: e instanceof Error ? e.message : String(e),
+                });
               }
 
               yield {
@@ -1050,7 +1062,32 @@ export async function* runStreamMessage(
             };
             yield thinkingChunk;
           }
-          result = await gen.next();
+          // M1-T1.2（2026-08-31）：chunk 间空闲竞速超时——TTFB 已有 300s 硬超时，
+          // 但流中途 provider 停滞（TCP 半开/推理服务僵死）会无限挂住 chunk 循环
+          // （abort 依赖 provider 正确响应 signal，非确定性）。与 sleep 竞速，
+          // 超时抛错走既有中断 catch 路径（system/error 落盘 + STREAM_INTERRUPTED）。
+          const IDLE_CHUNK_TIMEOUT_MS = Number(
+            configManager.env('STREAM_IDLE_TIMEOUT_MS') ?? '120000'
+          );
+          const nextPromise = gen.next();
+          const settledNext = await Promise.race([
+            nextPromise.then((v) => ({ timedOut: false as const, value: v })),
+            sleep(IDLE_CHUNK_TIMEOUT_MS).then(() => ({
+              timedOut: true as const,
+              value: null,
+            })),
+          ]);
+          if (settledNext.timedOut) {
+            // 丢弃挂起的 next，让 gen 在后续 GC 时终止（provider signal 已 abort 兜底）
+            void nextPromise.catch(() => {});
+            throw new AppError(
+              `流式响应停滞超过 ${Math.round(IDLE_CHUNK_TIMEOUT_MS / 1000)}s（模型无输出），流已终止。可重试或检查推理服务状态。`,
+              ErrorCategory.EXECUTION,
+              ErrorSeverity.HIGH,
+              'STREAM_IDLE_TIMEOUT'
+            );
+          }
+          result = settledNext.value;
         }
         // 流结束：flush 剩余 thinking 增量（KB-EVENT-BATCH）
         await flushThinkingEvents();
@@ -1080,6 +1117,16 @@ export async function* runStreamMessage(
           };
         }
       } catch (genErr) {
+        // M1-INV①（2026-08-31）：中断时 scrubber 跨 chunk 缓冲的半截标签内容
+        // 属"未 yield 给前端"的内容，按不变量①不落盘（所见即所存）；
+        // 记录丢弃长度供排查"流末尾少一段"类反馈。
+        const scrubResidualOnAbort = thinkScrubber.flush();
+        if (scrubResidualOnAbort) {
+          logger.warn('streamMessage:流中断，scrubber 缓冲的未展示内容已丢弃', {
+            sessionId: session.id,
+            droppedLength: scrubResidualOnAbort.length,
+          });
+        }
         // KB-EVENT-BATCH-FLUSH（2026-08-29）：流中断/异常时 flush 防抖缓冲的
         // thinking——原仅在正常结束路径 flush，中断（网络断/超时/abort）时最后
         // 一批 thinking chunk 丢失且无日志。flush 后记录中断落盘。
@@ -1721,7 +1768,33 @@ export async function* runStreamMessage(
         context: { sessionId: session.id },
       });
       const errMsg = getToolExecErrorMessage(toolExecErr);
-      accumulatedContent += `\n\n[${errMsg}]`;
+      // M1-INV①修复（2026-08-31）：原实现仅 append 到 accumulatedContent（该变量
+      // 在工具循环后无消费点，属死代码）——工具循环级错误用户完全无感知。
+      // 修复：yield error chunk（前端即时提示）+ system/error 事件落盘（刷新回放可见）。
+      try {
+        const ts = await host.getStreamTailSeq(session.id);
+        await host.appendStreamEvent(session.id, {
+          type: 'system/error',
+          schemaVersion: 1,
+          seq: ts + 1,
+          time: Date.now(),
+          sessionId: session.id,
+          data: {
+            module: 'chat:ChatManager',
+            message: errMsg.slice(0, 200),
+          },
+        });
+      } catch (e) {
+        logger.warn('streamMessage:工具循环错误事件落盘失败', {
+          sessionId: session.id,
+          error: e instanceof Error ? e.message : String(e),
+        });
+      }
+      yield {
+        type: 'error',
+        content: `工具执行环节出错: ${errMsg.slice(0, 200)}`,
+        sessionId: session.id,
+      } as ChatStreamChunk;
     }
 
     // P0-fix-3（2026-08-23）：工具调用轮次的 turn/end 不在本处写入——

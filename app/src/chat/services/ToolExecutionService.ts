@@ -26,6 +26,10 @@ import { toolResultRegistry } from '../../tool/ToolResultRegistry.js';
 import { resolveDataDir, resolveProjectRoot } from '@modules/core/paths';
 import { FILE_WRITE_TOOL_NAME, FILE_EDIT_TOOL_NAME } from '@modules/constants';
 import { withToolTimeout } from './ToolTimeoutWrapper.js';
+import {
+  createFileStateCacheWithSizeLimit,
+  type FileStateCache,
+} from '../../utils/fileStateCache';
 import type { ToolCall, ToolResult, ToolIntegration } from '../types/tool.js';
 import type { ChatSession } from '../types/session.js';
 import type { ImageContextService } from '../services/ImageContextService.js';
@@ -71,6 +75,20 @@ export interface ToolExecutionDeps {
 
 export class ToolExecutionService {
   constructor(public readonly deps: ToolExecutionDeps) {}
+
+  /** B1：按会话维护的文件状态快照缓存（read-before-edit 的基础） */
+  private readonly _readFileStateCaches = new Map<string, FileStateCache>();
+
+  /** B1：获取/创建指定会话的文件状态缓存 */
+  getReadFileStateCache(sessionId: string | undefined): FileStateCache {
+    const key = sessionId || 'default';
+    let cache = this._readFileStateCaches.get(key);
+    if (!cache) {
+      cache = createFileStateCacheWithSizeLimit(100);
+      this._readFileStateCaches.set(key, cache);
+    }
+    return cache;
+  }
 
   /* ===============================================================
    *  execute() — 工具执行入口（原 ChatManager.executeTool）
@@ -529,6 +547,8 @@ export class ToolExecutionService {
             workspaceId: this.deps.getSessionWorkspaceId(toolCall.sessionId),
             env: process.env as Record<string, string>,
           },
+          // B1：注入会话级文件状态缓存（FileReadTool 记录 / FileEditTool 校验新鲜度）
+          readFileState: this.getReadFileStateCache(toolCall.sessionId),
         };
 
         const registry = this.deps.getToolRegistry() as unknown as {

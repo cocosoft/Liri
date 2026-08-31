@@ -8,9 +8,6 @@ import { useState } from "react";
 import type { InboxBlockData } from "../../types";
 import { http } from "../../services/httpClient";
 import { useToastStore } from "../../stores/toastStore";
-import { createLogger } from "@/utils/logger";
-
-const logger = createLogger("components:inboxBlock");
 
 interface Props {
   data: InboxBlockData;
@@ -78,10 +75,10 @@ export default function InboxBlock({ data, sessionId, onResolved }: Props) {
         addToast("success", `已${label}`);
         onResolved?.();
 
-        // P2-1 + P2-4: 批准类 reply（含两个白名单按钮）后自动续跑 ——
-        // 优先后端 checkpoint/resume（不依赖 LLM 自发重发）。
-        // 可恢复：显示"已批准，正在执行…"，轮询刷新消息看到后端续跑落盘结果；
-        // 不可恢复：降级为原 sendMessage 触发 LLM 重发（放行缓存命中直接执行）。
+        // P2-1 + P2-4 → M2-T2.1（2026-08-31）：批准类 reply 的续跑责任收敛到后端——
+        // inbox-handlers 已 fire-and-forget 触发续跑（checkpoint/resume 优先，无检查点
+        // 时从 events.jsonl 尾部重建未完成 turn）。前端只做"触发 + 展示"：
+        // 不再查询检查点、不再轮询、不再降级 sendMessage 重发。
         const isApproveLike =
           reply === "approve" ||
           reply === "allowlist_tool" ||
@@ -89,17 +86,16 @@ export default function InboxBlock({ data, sessionId, onResolved }: Props) {
         if (isApproveLike && sessionId) {
           setResuming(true);
           try {
-            const resumed = await tryResumeAfterApproval(sessionId);
-            if (!resumed) {
-              const { useChatStore } = await import("../../stores/chat");
-              const send = useChatStore.getState().sendMessage;
-              await send(
-                `[审批已批准] ${data.title}\n${data.content || ""}\n我已批准该操作，请继续执行。`,
-                sessionId,
-              );
-            }
+            // 后端续跑落盘需要时间：延迟刷新一次消息展示结果（SSE 无消息级事件）
+            const { sessionService } = await import(
+              "../../services/sessionService"
+            );
+            const { useChatStore } = await import("../../stores/chat");
+            await new Promise((r) => setTimeout(r, 3000));
+            const messages = await sessionService.getMessages(sessionId);
+            useChatStore.getState().setMessages(messages);
           } catch {
-            // 触发续跑失败不阻塞审批状态（用户可手动继续对话）
+            // 刷新失败不阻塞审批状态（用户可手动切换会话查看续跑结果）
           } finally {
             setResuming(false);
           }
@@ -113,47 +109,6 @@ export default function InboxBlock({ data, sessionId, onResolved }: Props) {
       setReplying(false);
     }
   };
-
-  /**
-   * P2-1: 尝试后端自动续跑 —— 查最新检查点是否可恢复；可恢复则轮询刷新消息，
-   * 等待后端 resumeStream 重放 pendingApproval 工具并把结果落盘。
-   * @returns 是否已通过后端续跑（false 时调用方需降级触发）
-   */
-  async function tryResumeAfterApproval(sid: string): Promise<boolean> {
-    let checkpointAvailable = false;
-    try {
-      // W6 收尾（2026-08-31）：改走统一 http 客户端（Tauri 下 Rust 代理注入密钥）
-      const { http } = await import("../../services/httpClient");
-      const latestResp = await http.get<{ checkpointAvailable?: boolean }>(
-        `/v1/sessions/${sid}/checkpoints/latest`,
-      );
-      if (!latestResp.ok) return false;
-      checkpointAvailable = !!latestResp.data?.checkpointAvailable;
-    } catch (e) {
-      // 检查点查询失败（后端未就绪/网络异常）→ 返回 false 让调用方降级 sendMessage 续跑，
-      // 不抛异常（此前 fetch 异常直接上抛被 handleAction catch 吞掉，降级分支被跳过）
-      logger.warn("检查点查询失败，降级 sendMessage 续跑", {
-        sessionId: sid,
-        error: e instanceof Error ? e.message : String(e),
-      });
-      return false;
-    }
-    if (!checkpointAvailable) return false;
-
-    const { sessionService } = await import("../../services/sessionService");
-    const { useChatStore } = await import("../../stores/chat");
-    // 轮询 4 次 × 2s：后端续跑（工具重放 + LLM）落盘后前端刷新可见
-    for (let i = 0; i < 4; i++) {
-      await new Promise((r) => setTimeout(r, 2000));
-      try {
-        const messages = await sessionService.getMessages(sid);
-        useChatStore.getState().setMessages(messages);
-      } catch {
-        // 单次刷新失败继续等待
-      }
-    }
-    return true;
-  }
 
   const isPending = status === "pending";
   const isExpired = status === "expired";

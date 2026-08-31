@@ -111,6 +111,18 @@ interface ReActToolLoopState {
   pendingTodos: TodoBlockData[];
 }
 
+/** M3-T3.2：并发批次项——isConcurrencySafe 工具执行延迟到 flush（Promise.all） */
+interface ParallelBatchItem {
+  tc: ToolCallEntry;
+  progressEvents: number[];
+  run: () => Promise<ToolResult>;
+  remainingToolCalls: Array<{
+    id: string;
+    name: string;
+    arguments: unknown;
+  }>;
+}
+
 export class ReActToolLoop extends ReActLoop<
   ToolLoopInput,
   ToolLoopContext,
@@ -456,6 +468,9 @@ export class ReActToolLoop extends ReActLoop<
       normalizedToolCall: ToolCall;
       result: ToolResult;
     }> = [];
+    // M3-T3.2（2026-08-31）：读类并发批次——isConcurrencySafe 工具批量并发执行，
+    // 其余严格串行。遇到非并发安全工具或循环结束时 flush。
+    const parallelBatch: ParallelBatchItem[] = [];
 
     try {
       // 4. 循环检测：对本轮工具调用预检（critical 中止，warning 记录）
@@ -687,24 +702,54 @@ export class ReActToolLoop extends ReActLoop<
         // 2026-08-24 进度链路打通：收集工具执行中的细粒度进度回调，
         // 工具完成后批量 yield tool_progress 事件（reactEventsToChunks 已实现
         // 500ms 节流 → status chunk "工具执行中 X%"），与心跳 execution_phase 互补。
+        // M3-T3.2（2026-08-31）：读类并发——isConcurrencySafe 工具入批次并发执行，
+        // 其余严格串行（对齐 openworker _parallel_safe：low-risk 读并发、写/shell 独占）。
+        // 并发工具 start 顺序保持调用顺序；结果落盘/检查点由 _flushParallelBatch 统一
+        // 按序后处理（_postProcessToolResult），保证 tool/result 消息与检查点顺序一致。
         const progressEvents: number[] = [];
-        const toolResult = await this.ctx.executeTool(
-          {
-            id: tc.id,
-            name: tc.name,
-            arguments: tc.input,
-            sessionId: this.ctx.session.id,
-          },
-          {
-            useErrorHandler: true,
-            onProgress: (p) => {
-              const data = (p.data ?? {}) as { percentage?: number };
-              if (typeof data.percentage === 'number') {
-                progressEvents.push(data.percentage);
-              }
+        const executeRun = () =>
+          this.ctx.executeTool(
+            {
+              id: tc.id,
+              name: tc.name,
+              arguments: tc.input,
+              sessionId: this.ctx.session.id,
             },
-          }
+            {
+              useErrorHandler: true,
+              onProgress: (p) => {
+                const data = (p.data ?? {}) as { percentage?: number };
+                if (typeof data.percentage === 'number') {
+                  progressEvents.push(data.percentage);
+                }
+              },
+            }
+          );
+        const toolMeta = this.ctx.toolRegistry.getTool(tc.name);
+        const concurrencySafe =
+          toolMeta?.isConcurrencySafe?.(tc.input) ?? false;
+        if (concurrencySafe) {
+          parallelBatch.push({
+            tc,
+            progressEvents,
+            run: executeRun,
+            remainingToolCalls: calls
+              .filter((c) => c.id !== tc.id)
+              .map((c) => ({
+                id: c.id,
+                name: c.name,
+                arguments: c.input,
+              })),
+          });
+          continue;
+        }
+        // 非并发安全：先 flush 前面已收集的并发批次（保持执行顺序），再串行执行
+        yield* this._flushParallelBatch(
+          parallelBatch,
+          results,
+          processedResults
         );
+        const toolResult = await executeRun();
 
         // 工具完成后批量产出 tool_progress 事件（细粒度百分比进度）
         for (const percentage of progressEvents) {
@@ -862,6 +907,9 @@ export class ReActToolLoop extends ReActLoop<
         });
       }
 
+      // M3-T3.2：循环结束 flush 剩余并发批次（并发安全工具的统一后处理）
+      yield* this._flushParallelBatch(parallelBatch, results, processedResults);
+
       // C. 下一轮消息回填（对齐旧类 L406-411）+ 轮次推进 + unifiedTracker（L413-419）
       // 2026-08-31 工具结果二级防御：超限结果落盘 + 路径引用（防 822KB 工具结果
       // 全量进上下文 OOM），单轮聚合超限 spill（对标 hermes tool_result_storage）
@@ -914,10 +962,226 @@ export class ReActToolLoop extends ReActLoop<
             reason: '工具调用未完成（工具循环结束/中止）',
           });
         }
-      } catch {
-        // @ignore-catch — 补发失败不影响主流程（CS03）
+      } catch (e) {
+        // M1-INV②（2026-08-31）：补发失败会留下"无终态"的孤儿 tool_call
+        // （前端 progress 永久悬挂、回放误显示进行中），必须可观测。
+        logger.warn('reactToolLoop:tool/canceled 孤儿补发失败', {
+          sessionId: this.ctx.session.id,
+          pendingCalls: calls.filter(
+            (tc) => !this.loopState.completedToolCallIds.includes(tc.id)
+          ).length,
+          error: e instanceof Error ? e.message : String(e),
+        });
       }
     }
+  }
+
+  /**
+   * M3-T3.2（2026-08-31）：flush 并发批次——Promise.all 批量执行并发安全工具，
+   * 结果按调用顺序统一后处理（_postProcessToolResult），保证 tool/result 消息、
+   * 检查点与进度事件的顺序与串行路径一致。
+   */
+  private async *_flushParallelBatch(
+    batch: ParallelBatchItem[],
+    results: ToolResultEntry[],
+    processedResults: Array<{
+      normalizedToolCall: ToolCall;
+      result: ToolResult;
+    }>
+  ): AsyncGenerator<ReActEvent, void> {
+    if (batch.length === 0) return;
+    const items = batch.slice(); // 快照——batch.length=0 会清空原数组，items 必须独立引用
+    batch.length = 0;
+    logger.info('reactToolLoop:parallel_batch_execute', {
+      sessionId: this.ctx.session.id,
+      batchCount: items.length,
+      tools: items.map((i) => i.tc.name),
+    });
+    const toolResults = await Promise.all(items.map((i) => i.run()));
+    for (let i = 0; i < items.length; i++) {
+      const out = yield* this._postProcessToolResult(
+        items[i].tc,
+        toolResults[i],
+        items[i].progressEvents,
+        items[i].remainingToolCalls
+      );
+      if (out) {
+        results.push(out.resultEntry);
+        if (out.todoData) this.loopState.pendingTodos.push(out.todoData);
+        processedResults.push(out.processedEntry);
+      }
+    }
+  }
+
+  /**
+   * M3-T3.2（2026-08-31）：标准工具执行的统一后处理。
+   *
+   * 提取自 act 标准执行段（onToolCall end / 进度 / 结果注册 / 落盘 / 检查点），
+   * 供串行执行与并发批次共用——保证并发工具的结果落盘与检查点按调用顺序一致。
+   * yield tool_progress 事件；return 后处理产物（results/processedResults/todo 项）。
+   */
+  private async *_postProcessToolResult(
+    tc: ToolCallEntry,
+    toolResult: ToolResult,
+    progressEvents: number[],
+    remainingToolCalls: Array<{
+      id: string;
+      name: string;
+      arguments: unknown;
+    }>
+  ): AsyncGenerator<
+    ReActEvent,
+    {
+      resultEntry: ToolResultEntry;
+      processedEntry: { normalizedToolCall: ToolCall; result: ToolResult };
+      todoData?: ReturnType<typeof extractTodoData>;
+    }
+  > {
+    // 工具完成后批量产出 tool_progress 事件（细粒度百分比进度）
+    for (const percentage of progressEvents) {
+      yield { type: 'tool_progress', callId: tc.id, progress: percentage };
+    }
+
+    // 遗漏 2（2026-08-14 复查）：审批等待态判定提前（原 L381 重复计算，现合并）。
+    // 审批等待工具不触发 onToolCall('end')——否则 CoreAPIImpl 误发 "✅ Tool completed"、
+    // 前端聚合把审批中工具计入 completed++（显示 "2/3 完成"），与 pendingApproval 徽标矛盾。
+    const isPendingApproval =
+      (toolResult as { result?: { pendingApproval?: boolean } })?.result
+        ?.pendingApproval === true;
+
+    const rawResultJson = safeStringify(toolResult.result);
+    const resultMessage = toolResult.error
+      ? `失败: ${toolResult.error.slice(0, 200)}`
+      : `成功: ${rawResultJson.slice(0, 200)}`;
+    // 排查锚点：工具执行结果默认可见。失败用 WARN（circuit_breaker 触发时必须能
+    // 看到每轮失败原因），成功用 INFO（避免 DEBUG 默认不可见导致排查断链）。
+    const toolStatus = toolResult.error ? 'failed' : 'success';
+    if (toolResult.error) {
+      logger.warn('reactToolLoop:onToolCall end', {
+        sessionId: this.ctx.session.id,
+        toolName: tc.name,
+        toolCallId: tc.id,
+        status: toolStatus,
+        detail: resultMessage,
+        onToolCallRegistered: !!this.ctx.onToolCall,
+        pendingApproval: isPendingApproval,
+      });
+    } else {
+      logger.info('reactToolLoop:onToolCall end', {
+        sessionId: this.ctx.session.id,
+        toolName: tc.name,
+        toolCallId: tc.id,
+        status: toolStatus,
+        detail: resultMessage,
+        onToolCallRegistered: !!this.ctx.onToolCall,
+        pendingApproval: isPendingApproval,
+      });
+    }
+    if (!isPendingApproval) {
+      this.ctx.onToolCall?.('end', tc.name, tc.id, {
+        ok: !toolResult.error,
+        message: resultMessage,
+        result: toolResult.result,
+      });
+    }
+
+    // 工具结果注册表 + 循环检测记录 + 心跳进度数据（5）
+    try {
+      this.ctx.toolResultRegistry.storeResult(
+        this.ctx.session.id,
+        tc.id,
+        tc.name,
+        tc.input,
+        { result: toolResult.result, error: toolResult.error },
+        this.ctx.toolResultRegistry.getCurrentRound(this.ctx.session.id)
+      );
+      this.ctx.loopDetector.recordToolCallOutcome(
+        tc.name,
+        tc.input,
+        toolResult.result,
+        toolResult.error
+      );
+    } catch {
+      // 注册/记录失败不影响执行
+    }
+
+    // B. 工具结果消息落盘（对齐旧类 _executeToolRound L673-680）
+    // P1-4（2026-08-23）：metadata 携带 parentMessageId（= 归属 assistant 消息 id，G1/N6/A2），
+    // convertMessage 的 tool 分支据此生成 tool/result.messageId。
+    // T2.3（2026-08-23）：metadata 携带 callSeq（= tool_call 事件 seq，A1③ 闭环）——
+    // streamMessageFlow 在写 assistant/tool_call 事件时填充 toolCallSeqMap，
+    // convertMessage tool 分支据此直读生成 tool/result.callSeq，不再依赖 _toolCallSeqMap 回填。
+    const toolResultMsg = this.ctx.messageService.createToolResultMessage(
+      toolResult,
+      {
+        sessionId: this.ctx.session.id,
+        metadata: {
+          ...(toolResult.metadata as Record<string, unknown> | undefined),
+          parentMessageId:
+            this.loopState.assistantMessage?.id ??
+            this._activeToolRoundMessageId,
+          ...(this.ctx.toolCallSeqMap?.has(tc.id)
+            ? { callSeq: this.ctx.toolCallSeqMap.get(tc.id) }
+            : {}),
+        },
+      }
+    );
+    this.ctx.addAndPersistMessage(this.ctx.session.id, toolResultMsg);
+
+    // G. 流式检查点（对齐旧类 L707-724）：断点续跑依赖此数据
+    if (!this.loopState.completedToolNames.includes(tc.name)) {
+      this.loopState.completedToolNames.push(tc.name);
+    }
+    this.loopState.totalCompletedToolCount++;
+    if (!isPendingApproval) {
+      this.loopState.completedToolCallIds.push(tc.id);
+    }
+    try {
+      await this.ctx.streamingCheckpoint.onToolCompleted({
+        newMessagesSinceLastCheckpoint: [
+          this.loopState.assistantMessage,
+          toolResultMsg,
+        ],
+        messagesSnapshot: this.ctx.session.messages.slice(),
+        currentToolCalls: remainingToolCalls,
+        completedToolCallIds: [...this.loopState.completedToolCallIds],
+        generatorState: {
+          toolTurnCount: this.loopState.toolTurnCount,
+          llmCallCount: this.loopState.llmCallCount,
+        },
+        metadata: { model: this.ctx.options?.model },
+        sessionState: this.ctx.session.state,
+      });
+    } catch {
+      // 流式检查点失败不影响执行（@ignore-catch）
+    }
+
+    const resultEntry: ToolResultEntry = {
+      toolCallId: tc.id,
+      name: tc.name,
+      status: toolResult.error ? 'error' : 'success',
+      // 遗漏 1（2026-08-14 复查）：对象/数组结果（grep/glob/create_project 等经
+      // ToolExecutor 返回 result.data 为对象）也下发——否则 tool_end 转换层 result
+      // undefined → 前端工具卡片结果区空白。对齐 ToolExecutor.ts 的 JSON.stringify 方案。
+      output:
+        typeof toolResult.result === 'string'
+          ? toolResult.result
+          : toolResult.result !== undefined
+            ? safeStringify(toolResult.result)
+            : undefined,
+      error: toolResult.error,
+    };
+    // todo chunk 数据：工具结果含 _todoData 时收集（对齐旧类 _executeToolRound extractTodoData）
+    const todoData = extractTodoData(toolResult);
+    const processedEntry = {
+      normalizedToolCall: {
+        id: tc.id,
+        name: tc.name,
+        arguments: tc.input,
+      },
+      result: toolResult,
+    };
+    return { resultEntry, processedEntry, todoData: todoData ?? undefined };
   }
 
   protected shouldContinue(

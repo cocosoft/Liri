@@ -9,6 +9,11 @@ import { randomUUID } from 'crypto';
 import type { ChatMessage } from '@modules/ai';
 import { getSubAgentEngine } from './SubAgentEngine';
 import { configManager } from '@modules/config';
+import type { ToolUseContext } from '../types/ToolUseContext';
+import {
+  cloneFileStateCache,
+  resolveReadFileState,
+} from '../../utils/fileStateCache';
 import type {
   SubAgentEngine,
   SubAgentProgressEvent,
@@ -42,6 +47,12 @@ export interface ForkSubagentOptions {
     description: string;
     parameters: Record<string, unknown>;
   }>;
+  /** B2：父代工具执行上下文（含 readFileState 快照缓存） */
+  parentToolContext?: ToolUseContext;
+  /** B2：父代 readFileState（缺省时从 parentToolContext 读取） */
+  readFileState?: unknown;
+  /** B3：当前嵌套深度（缺省 0；子代理内为父代 +1） */
+  subagentDepth?: number;
 }
 
 export interface ForkSubagentResult {
@@ -206,6 +217,23 @@ export async function executeForkSubagent(
       },
     }));
 
+    // B2：子代理继承父代 readFileState（深克隆，子代理的编辑快照不回写父代）
+    const parentCache =
+      resolveReadFileState(
+        options.readFileState ?? options.parentToolContext?.readFileState
+      ) ?? null;
+    const parentDepth = options.subagentDepth ?? 0;
+    const childToolContext: ToolUseContext | undefined = parentCache
+      ? {
+          ...(options.parentToolContext ?? ({} as ToolUseContext)),
+          readFileState: cloneFileStateCache(parentCache),
+          // B3：深度 +1（顶层 AgentTool 会据此拦截嵌套超限）
+          subagentDepth: parentDepth + 1,
+        }
+      : options.parentToolContext
+        ? { ...options.parentToolContext, subagentDepth: parentDepth + 1 }
+        : undefined;
+
     const result: SubAgentResult = await engine.execute(
       {
         agentId: taskId,
@@ -214,6 +242,7 @@ export async function executeForkSubagent(
         tools: toolDefinitions,
         toolInstances: new Map(),
         maxTurns: options.maxTurns || 50,
+        toolContext: childToolContext,
       },
       onProgress
     );

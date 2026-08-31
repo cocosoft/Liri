@@ -52,6 +52,7 @@ import { EventLogStorage } from '@modules/session';
 import { MessageToEventMigrator } from '@modules/session';
 import { ReconcileService } from '@modules/session';
 import { dedupeToolCallBlocks } from '@modules/chat/utils/chatBlocks';
+import { extractPendingToolCallsFromEvents } from './utils/pendingToolCalls.js';
 import type { LiriEvent } from '@modules/chat/types/events';
 import { feature as coreFeature } from '@modules/core';
 import { configureCodeRunner } from '@modules/tools';
@@ -104,6 +105,8 @@ import type {
 } from './types/message.js';
 import { createSystemMessage } from './types/message.js';
 import type { ChatSession, CreateSessionParams } from './types/session.js';
+import type { SessionMetadata } from './types/session.js';
+import type { SessionCheckpoint } from './types/checkpoint.js';
 import { DataSessionStatus } from '@modules/core';
 import type { ToolCall, ToolResult, ToolIntegration } from './types/tool.js';
 import { getToolCallName } from './types/tool.js';
@@ -3607,6 +3610,12 @@ export class ChatManagerImpl implements ChatManager {
       throw err;
     }
     if (!restoreResult) {
+      // M2-T2.1（2026-08-31）：无自动检查点 → 从 events.jsonl 尾部重建未完成 turn。
+      // 对齐 openworker _unanswered_trailing_tool_calls：重启/引擎不可用后，
+      // 已答工具（有 result/canceled 终态）跳过、未答工具重放，不重复执行。
+      restoreResult = await this._rebuildTrailingTurnFromEvents(sessionId);
+    }
+    if (!restoreResult) {
       yield {
         type: 'error',
         content: '无可用检查点，无法恢复',
@@ -3851,6 +3860,91 @@ export class ChatManagerImpl implements ChatManager {
     } finally {
       mutex.release();
     }
+  }
+
+  /**
+   * M2-T2.1（2026-08-31）：无自动检查点时从 events.jsonl 尾部重建未完成 turn。
+   *
+   * 对齐 openworker `_unanswered_trailing_tool_calls` 语义：
+   *   1. answered = 已有 tool/result 或 tool/canceled 终态的工具（已答项不重复执行）
+   *   2. 从事件尾部向前扫 assistant/tool_call，遇 user/message 停止（新对话边界）
+   *   3. 返回 gateway 消息（LLM 上下文）+ answered 集合；尾部无未完成工具 → null
+   *
+   * 场景：审批时引擎已停止/进程已重启（无自动检查点落盘），
+   * 审批答复到达后从持久化事件日志恢复续跑。
+   */
+  private async _rebuildTrailingTurnFromEvents(
+    sessionId: string
+  ): Promise<Awaited<ReturnType<StreamingAutoCheckpoint['restore']>>> {
+    const log = this._getOrCreateEventLog(sessionId);
+    const tailSeq = await log.getTailSeq();
+    if (tailSeq <= 0) return null;
+    const events = await log.read({
+      fromSeq: Math.max(1, tailSeq - 3000 + 1),
+      limit: 3000,
+    });
+    if (events.length === 0) return null;
+
+    // answered：已有终态（result/canceled）的工具——已答项不重复执行
+    const { pending, answered } = extractPendingToolCallsFromEvents(events);
+    if (pending.length === 0) {
+      logger.info('M2: events 尾部无未完成工具，跳过重建', { sessionId });
+      return null;
+    }
+
+    // 上下文消息：gateway 已落盘消息（写前持久化保证 tool_call 消息已入投影）
+    const session = await this.sessionLifecycle.getOrLoadSession(sessionId);
+
+    // 极端崩溃（tool_call 消息未落盘）：尾部无匹配未答工具 → 注入重建消息，
+    // 使 resumeStream 的 remainingToolCalls 提取（按 metadata.tool_calls 扫描）能命中
+    const hasPendingToolCalls = session.messages.some((m) => {
+      if (m.role !== 'assistant' || !m.metadata?.tool_calls) return false;
+      const tcs = m.metadata.tool_calls as Array<{ id?: string }>;
+      return tcs.some(
+        (tc) => tc.id && pending.some((p) => p.toolCallId === tc.id)
+      );
+    });
+    if (!hasPendingToolCalls) {
+      const firstPending = pending[0];
+      const rebuilt = this.messageService.createAssistantMessage('', {
+        sessionId,
+      }) as unknown as Message;
+      rebuilt.id =
+        firstPending.messageId ?? `msg-${sessionId}-rebuild-${Date.now()}`;
+      rebuilt.createdAt = new Date();
+      rebuilt.updatedAt = new Date();
+      rebuilt.metadata = {
+        tool_calls: pending.map((p) => ({
+          id: p.toolCallId,
+          type: 'function',
+          function: { name: p.name, arguments: JSON.stringify(p.args ?? {}) },
+        })),
+      };
+      session.messages = [...session.messages, rebuilt];
+    }
+
+    logger.info('M2: 无检查点，从 events 尾部重建未完成 turn', {
+      sessionId,
+      eventCount: events.length,
+      answeredCount: answered.size,
+      pendingCount: pending.length,
+      rebuilt: !hasPendingToolCalls,
+    });
+
+    return {
+      checkpoint: {
+        ...({} as SessionCheckpoint),
+        id: 'events-rebuild',
+        sessionId,
+        createdAt: Date.now(),
+        messages: session.messages,
+        metadata: {} as SessionMetadata,
+        state: DataSessionStatus.ACTIVE,
+      },
+      stepIndex: 0,
+      completedToolCallIds: Array.from(answered),
+      generatorState: { toolTurnCount: 0, llmCallCount: 0 },
+    };
   }
 
   /**
@@ -4340,6 +4434,25 @@ export class ChatManagerImpl implements ChatManager {
     this._eventLogCache.delete(sessionId);
     // 设计三（2026-08-26）：清理 per-session 轮次计数
     this.clearToolRound(sessionId);
+    // M2-T2.2（2026-08-31）：级联关闭孤儿审批项——删除含 pending 审批的会话后
+    // /v1/inbox 不再残留可答复项（对齐 openworker 五步级联的审批项关闭）
+    void this._dismissSessionInboxItems(sessionId);
+  }
+
+  /** M2-T2.2：关闭该会话所有待处理审批项（失败不阻塞删除主流程） */
+  private async _dismissSessionInboxItems(sessionId: string): Promise<void> {
+    try {
+      const { inboxManager } = await import('@modules/runtime/InboxManager.js');
+      const closed = await inboxManager.dismissBySession(sessionId);
+      if (closed > 0) {
+        logger.info('deleteSession:关闭孤儿审批项', { sessionId, closed });
+      }
+    } catch (e) {
+      logger.warn('deleteSession:关闭孤儿审批项失败', {
+        sessionId,
+        error: e instanceof Error ? e.message : String(e),
+      });
+    }
   }
 
   /**

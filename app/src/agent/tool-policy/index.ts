@@ -317,6 +317,36 @@ export class ToolPolicyManager {
   setProfile(profile: ToolProfileId | null): void {
     this.profile = profile;
     logger.info(`Tool policy profile set to: ${profile ?? 'none'}`);
+    // E3：profile 名单漂移告警（零行为变更）——
+    // PROFILE_TOOL_ALLOW_LISTS（本文件，归一化名）与 tool-catalog（工具 id）独立维护，
+    // 此处检测 allow 条目在 catalog 中完全无法识别的情况，暴露漂移供排查。
+    if (profile && profile !== 'full') {
+      void this.warnProfileDrift(profile);
+    }
+  }
+
+  /**
+   * E3：profile 名单与工具目录的漂移告警（懒加载 catalog，避免循环依赖）
+   */
+  private async warnProfileDrift(profile: ToolProfileId): Promise<void> {
+    try {
+      const { createToolCatalog } = await import('../tool-catalog');
+      const catalog = createToolCatalog();
+      const allowList = PROFILE_TOOL_ALLOW_LISTS[profile] ?? [];
+      const unknown = allowList.filter((name) => !catalog.isKnownTool(name));
+      if (unknown.length > 0) {
+        logger.warn(
+          'tool-policy profile allow list 与 tool-catalog 存在漂移（条目在 catalog 中不可识别）',
+          {
+            profile,
+            unknownCount: unknown.length,
+            unknown: unknown.slice(0, 10),
+          }
+        );
+      }
+    } catch {
+      // @ignore-catch — catalog 不可用时跳过告警（不阻断 profile 设置）
+    }
   }
 
   /**

@@ -124,7 +124,6 @@ export const useRootStore = create<RootState>()(
           ),
           recentWorkspaceIds: state.recentWorkspaceIds,
           moduleOrder: state.moduleOrder,
-          pinnedSessionIds: state.pinnedSessionIds,
           pinnedModuleIds: state.pinnedModuleIds,
         }),
 
@@ -157,14 +156,6 @@ export const useRootStore = create<RootState>()(
             (state as unknown as Record<string, unknown>).sessions = filtered;
           }
 
-          if (state.pinnedSessionIds && state.sessions) {
-            const validSessionIds = new Set(Object.keys(state.sessions));
-            (state as unknown as Record<string, unknown>).pinnedSessionIds =
-              state.pinnedSessionIds.filter((id: string) =>
-                validSessionIds.has(id),
-              );
-          }
-
           return state;
         },
 
@@ -194,7 +185,6 @@ logger.info("Root Store 初始化完成", {
     "worktrees",
     "recentWorkspaceIds",
     "moduleOrder",
-    "pinnedSessionIds",
     "pinnedModuleIds",
     "moduleContext",
   ],

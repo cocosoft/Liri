@@ -71,23 +71,20 @@ export class AgentChain extends EventEmitter {
   }
 
   /**
-   * 默认模拟执行器
+   * 默认执行器：抛错而非伪造输出（CS04 Mock 零容忍）
+   *
+   * AgentChain 必须注入真实执行器（SubAgentEngine / AIAgentImpl.execute 等）。
+   * 若未注入，执行即失败并明确提示，防止"链式任务看似成功实则空转"。
    */
   private async defaultExecutor(
     agentType: string,
-    input: string,
-    systemPrompt?: string
+    _input: string,
+    _systemPrompt?: string
   ): Promise<{ output: string }> {
-    const lines: string[] = [];
-    lines.push(`[Agent: ${agentType}]`);
-    if (systemPrompt) {
-      lines.push(`[System: ${systemPrompt.substring(0, 50)}...]`);
-    }
-    lines.push(`[Input: ${input.substring(0, 100)}]`);
-    lines.push(
-      `[Result: Processed by ${agentType} at ${new Date().toISOString()}]`
+    throw new Error(
+      `AgentChain 未注入真实执行器（agentType=${agentType}）。` +
+        `请通过 AgentChain constructor 传入 executor（如 SubAgentEngine），禁止使用伪造的默认实现。`
     );
-    return { output: lines.join('\n') };
   }
 
   /**

@@ -663,11 +663,18 @@ export async function handleUpdateSessionMeta(
     }
     const coreAPI = getCoreAPI();
 
+    // M1-T1.3（2026-08-31）：pinned 严格 boolean 校验（防字符串 "false" 误置真）
+    if (data.pinned !== undefined && typeof data.pinned !== 'boolean') {
+      sendBadRequest(res, 'pinned must be a boolean');
+      return;
+    }
+
     await coreAPI.updateSessionMeta(sessionId, {
       model: data.model as string | undefined,
       workspaceId: data.workspace_id as string | undefined,
       providerId: data.provider_id as string | undefined,
       tasksOverride: data.tasks_override as Record<string, string> | undefined,
+      pinned: data.pinned as boolean | undefined,
     });
 
     res.writeHead(200, { 'Content-Type': 'application/json' });

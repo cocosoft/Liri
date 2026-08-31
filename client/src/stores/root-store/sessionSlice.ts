@@ -34,6 +34,19 @@ let _pendingCreate: Promise<Session> | null = null;
 // 旧恢复在任一 await 点校验失败即放弃，杜绝"旧恢复完成覆盖新目标"。
 let _restoreSeq = 0;
 
+/**
+ * M1-T1.3（2026-08-31）：列表排序保护——置顶会话优先，其余按 updatedAt 降序。
+ * pinned 源自后端 metadata.pinned（pinned-only PATCH 不 touch updatedAt），
+ * 置顶/取消操作本身不会导致非置顶会话重排。
+ */
+function sortSessionsForList(sessions: Session[]): Session[] {
+  const byUpdatedAtDesc = (a: Session, b: Session) =>
+    new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+  const pinned = sessions.filter((s) => s.pinned).sort(byUpdatedAtDesc);
+  const normal = sessions.filter((s) => !s.pinned).sort(byUpdatedAtDesc);
+  return [...pinned, ...normal];
+}
+
 // BUG-6 修复：loadChatSessions 的 isLoading 超时兜底——
 // fetchWithRetry 最坏 3 次重试约 90s+，期间 isLoading 恒 true，SSE 触发的列表刷新
 // 全部被早退拦截（删除会话残留、标题不更新）。记录加载开始时间，超过
@@ -122,9 +135,6 @@ export interface SessionSlice {
   /** 用户自定义的模块排序（模块 type 数组） */
   moduleOrder: string[];
 
-  /** 固定的会话 ID 列表 */
-  pinnedSessionIds: string[];
-
   /** 加载/操作错误 */
   error: string | null;
 
@@ -152,7 +162,8 @@ export interface SessionSlice {
   getOrCreateSession: (moduleType: string, title?: string) => string;
   getSessionsByWorkspace: (workspaceId: string) => SessionRecord[];
   getSessionsByModule: (moduleType: string) => SessionRecord[];
-  togglePin: (id: string) => void;
+  /** M1-T1.3：置顶/取消置顶（持久化到后端 metadata.pinned） */
+  togglePin: (id: string) => Promise<void>;
   isPinned: (id: string) => boolean;
 
   // ─── 旧 sessionStore 兼容动作（异步，调用 sessionService）───
@@ -189,7 +200,6 @@ export const createSessionSlice: StateCreator<
     "translation",
     "knowledge",
   ],
-  pinnedSessionIds: [],
   error: null,
   isLoading: false,
   chatSessions: [],
@@ -259,7 +269,6 @@ export const createSessionSlice: StateCreator<
       sessions: rest,
       currentSessionId:
         state.currentSessionId === sessionId ? null : state.currentSessionId,
-      pinnedSessionIds: state.pinnedSessionIds.filter((id) => id !== sessionId),
     }));
     logger.info("会话删除", { sessionId });
   },
@@ -422,15 +431,22 @@ export const createSessionSlice: StateCreator<
   getSessionsByModule: (moduleType) =>
     Object.values(get().sessions).filter((s) => s.moduleType === moduleType),
 
-  togglePin: (id) => {
-    const pinned = get().pinnedSessionIds;
-    const updated = pinned.includes(id)
-      ? pinned.filter((pid) => pid !== id)
-      : [id, ...pinned];
-    set({ pinnedSessionIds: updated });
+  // M1-T1.3（2026-08-31）：置顶持久化——原内存态 pinnedSessionIds 收敛为
+  // 后端 metadata.pinned（pinned-only PATCH，后端不 touch updatedAt）。
+  // 失败向上冒泡由调用方 handleError，不做静默回退（CS03）。
+  togglePin: async (id) => {
+    const { sessionService } = await import("@/services/sessionService");
+    const current = get().chatSessions.find((s) => s.id === id);
+    const next = !current?.pinned;
+    await sessionService.setPinned(id, next);
+    set({
+      chatSessions: get().chatSessions.map((s) =>
+        s.id === id ? { ...s, pinned: next } : s,
+      ),
+    });
   },
 
-  isPinned: (id) => get().pinnedSessionIds.includes(id),
+  isPinned: (id) => get().chatSessions.some((s) => s.id === id && s.pinned),
 
   // ─── 旧 sessionStore 兼容动作（异步）────────────────
 
@@ -470,10 +486,7 @@ export const createSessionSlice: StateCreator<
     try {
       const { sessionService } = await import("@/services/sessionService");
       let sessions = await sessionService.list();
-      sessions = sessions.sort(
-        (a, b) =>
-          new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
-      );
+      sessions = sortSessionsForList(sessions);
       const currentSession = await sessionService.getCurrent();
 
       // Hub 同步：moduleType 从 API metadata 或现有 Hub 读取，不再硬编码 "chat"
@@ -786,10 +799,7 @@ export const createSessionSlice: StateCreator<
 
         // 重新加载会话列表
         let sessions = await sessionService.list();
-        sessions = sessions.sort(
-          (a, b) =>
-            new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
-        );
+        sessions = sortSessionsForList(sessions);
 
         set({
           chatSessions: sessions,
@@ -1156,10 +1166,7 @@ export const createSessionSlice: StateCreator<
           currentSessionId: next?.id ?? null,
         });
         const { [id]: _removed, ...restSessions } = get().sessions;
-        set({
-          sessions: restSessions,
-          pinnedSessionIds: get().pinnedSessionIds.filter((p) => p !== id),
-        });
+        set({ sessions: restSessions });
         try {
           const { staleSessionCache } =
             await import("@/stores/chat/chat-history.slice");
@@ -1433,14 +1440,7 @@ export const createSessionSlice: StateCreator<
           ([, v]) => v.moduleType !== "chat",
         ),
       );
-      set({
-        sessions: nonChatSessions,
-        // P3-4 修复：同步清理 pinnedSessionIds 中已删除会话的孤儿 ID
-        // （原实现残留，依赖重载后的 persist migrate 才自愈）
-        pinnedSessionIds: get().pinnedSessionIds.filter(
-          (pid) => nonChatSessions[pid],
-        ),
-      });
+      set({ sessions: nonChatSessions });
     } catch (error) {
       const { handleClientError } = await import("@/utils/handleError");
       handleClientError(

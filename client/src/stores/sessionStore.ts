@@ -18,14 +18,14 @@ interface SessionStore {
   isLoading: boolean;
   switching: boolean;
   error: string | null;
-  pinnedSessionIds: string[];
   loadSessions: () => Promise<void>;
   createSession: (title: string) => Promise<Session>;
   switchSession: (id: string) => Promise<void>;
   deleteSession: (id: string) => Promise<void>;
   renameSession: (id: string, title: string) => Promise<void>;
   clearAllSessions: () => Promise<void>;
-  togglePin: (id: string) => void;
+  /** M1-T1.3：置顶/取消置顶（持久化到后端 metadata.pinned） */
+  togglePin: (id: string) => Promise<void>;
   isPinned: (id: string) => boolean;
 }
 
@@ -38,7 +38,6 @@ function deriveState(root: ReturnType<typeof useRootStore.getState>): {
   isLoading: boolean;
   switching: boolean;
   error: string | null;
-  pinnedSessionIds: string[];
 } {
   const currentId = root.currentSessionId;
   return {
@@ -49,7 +48,6 @@ function deriveState(root: ReturnType<typeof useRootStore.getState>): {
     isLoading: root.isLoading,
     switching: root.switching,
     error: root.error,
-    pinnedSessionIds: root.pinnedSessionIds ?? [],
   };
 }
 
@@ -90,12 +88,6 @@ function applyLegacySessionsMigration(): void {
       useRootStore.setState((s) => ({
         ...s,
         chatSessions: state.sessions as Session[],
-      }));
-    }
-    if (state?.pinnedSessionIds?.length) {
-      useRootStore.setState((s) => ({
-        ...s,
-        pinnedSessionIds: state.pinnedSessionIds,
       }));
     }
     if (state?.currentSession?.id) {

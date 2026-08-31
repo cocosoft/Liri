@@ -2320,8 +2320,19 @@ export class CoreAPIImpl implements CoreAPI {
       workspaceId?: string;
       providerId?: string;
       tasksOverride?: Record<string, string>;
+      pinned?: boolean;
     }
   ): Promise<void> {
+    // M1-T1.3（2026-08-31）：pinned 仅改列表分组标记，**不 touch updatedAt**——
+    // 对齐 openworker conversations.py set_flags 语义：置顶/取消置顶不应导致
+    // 会话在列表中因"最近更新"而重排（标题自动生成同理，由 rename 路径单独控制）。
+    const hasMetaField =
+      meta.model !== undefined ||
+      meta.workspaceId !== undefined ||
+      meta.providerId !== undefined ||
+      meta.tasksOverride !== undefined;
+    const shouldTouchUpdatedAt = hasMetaField;
+
     // 1. 更新内存中的会话 metadata
     const session = this.chatManager
       .getSessions()
@@ -2334,7 +2345,8 @@ export class CoreAPIImpl implements CoreAPI {
         session.metadata.providerId = meta.providerId;
       if (meta.tasksOverride !== undefined)
         session.metadata.tasksOverride = meta.tasksOverride;
-      session.updatedAt = new Date();
+      if (meta.pinned !== undefined) session.metadata.pinned = meta.pinned;
+      if (shouldTouchUpdatedAt) session.updatedAt = new Date();
     }
 
     // 2. 持久化到存储
@@ -2351,6 +2363,8 @@ export class CoreAPIImpl implements CoreAPI {
             storedSession.metadata.providerId = meta.providerId;
           if (meta.tasksOverride !== undefined)
             storedSession.metadata.tasksOverride = meta.tasksOverride;
+          if (meta.pinned !== undefined)
+            storedSession.metadata.pinned = meta.pinned;
           await gateway.updateSession(storedSession);
         }
       }

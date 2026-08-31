@@ -7,11 +7,13 @@
  * 覆盖：
  * - ToolCallGroup 识别 pendingApproval → 渲染"⏳ 等待审批"徽标（P2-2）
  * - ToolCallGroup 无 pendingApproval → 不渲染徽标
- * - InboxBlock 批准按钮 → POST /v1/inbox/{id}/reply + 向会话发送续跑消息（P0-5）
+ * - InboxBlock 批准按钮 → POST /v1/inbox/{id}/reply；续跑责任收敛后端（M2-T2.1），
+ *   前端不再降级 sendMessage 续跑，仅延迟刷新一次消息展示结果
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { http } from "../services/httpClient";
+import { sessionService } from "../services/sessionService";
 import { useChatStore } from "../stores/chat";
 
 import InboxBlock from "../components/ChatArea/InboxBlock";
@@ -83,35 +85,34 @@ describe("ToolExecutionGroup 分组等待审批态（J-2.2）", () => {
   });
 });
 
-describe("InboxBlock 批准续跑（P0-5）", () => {
+describe("InboxBlock 批准续跑（P0-5 → M2-T2.1）", () => {
   let postSpy: ReturnType<typeof vi.fn>;
   let sendSpy: ReturnType<typeof vi.fn>;
+  let getMessagesSpy: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
     // 打桩 http.post（真实 http 对象单例，InboxBlock 引用同一对象）
     postSpy = vi
       .spyOn(http, "post")
       .mockResolvedValue({ ok: true, data: {}, error: undefined });
-    // 隔离外部依赖：检查点查询 mock 为"无可用 checkpoint"——InboxBlock 批准后
-    // 先走 tryResumeAfterApproval（http.get），无 checkpoint 才降级 sendMessage 续跑。
-    // 若不 mock，真实 http.get 在 CI（无后端）触发 fetchWithRetry 重试 14s，
-    // waitFor(1s) 超时导致 sendMessage 断言 0 次调用。
-    vi.spyOn(http, "get").mockResolvedValue({
-      ok: false,
-      data: undefined,
-      error: { code: 404, message: "no checkpoint" },
-    });
-    // 打桩 chat store 的 sendMessage
+    // 打桩 chat store 的 sendMessage——M2-T2.1 契约：前端不再降级触发 sendMessage，
+    // 续跑责任收敛到后端（inbox-handlers fire-and-forget + events 尾部重建）
     sendSpy = vi
       .spyOn(useChatStore.getState(), "sendMessage")
       .mockResolvedValue(undefined);
+    // 打桩延迟刷新（后端续跑落盘后展示结果）
+    getMessagesSpy = vi
+      .spyOn(sessionService, "getMessages")
+      .mockResolvedValue([]);
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
+    vi.useRealTimers();
   });
 
-  it("点击批准 → POST /v1/inbox/{id}/reply + 向会话发送续跑消息", async () => {
+  it("点击批准 → POST /v1/inbox/{id}/reply；不再 sendMessage 降级续跑", async () => {
+    vi.useFakeTimers();
     const data: InboxBlockData = {
       inboxId: "ib-1",
       type: "approval",
@@ -126,18 +127,16 @@ describe("InboxBlock 批准续跑（P0-5）", () => {
     };
     render(<InboxBlock data={data} sessionId="session-1" />);
     fireEvent.click(screen.getByText("批准"));
-    // 等待异步处理完成（http.post + sendMessage）
-    await waitFor(() => expect(postSpy).toHaveBeenCalled());
+    // 推进全部 timers：http.post（microtask）+ 3s 延迟刷新
+    await vi.runAllTimersAsync();
 
     expect(postSpy).toHaveBeenCalledWith("/v1/inbox/ib-1/reply", {
       reply: "approve",
     });
-    // P0-5: 批准后触发 LLM 重新发起（sendMessage 携带结构化批准消息 + 会话 ID）
-    await waitFor(() => expect(sendSpy).toHaveBeenCalledTimes(1));
-    const [content, sessionId] = sendSpy.mock.calls[0];
-    expect(sessionId).toBe("session-1");
-    expect(String(content)).toContain("[审批已批准]");
-    expect(String(content)).toContain("工具审批: bash");
+    // M2-T2.1：前端不再向会话发"我已批准"续跑消息（后端负责续跑）
+    expect(sendSpy).not.toHaveBeenCalled();
+    // 后端续跑落盘后前端延迟刷新一次消息展示结果
+    expect(getMessagesSpy).toHaveBeenCalledWith("session-1");
   });
 
   it("点击拒绝 → 不触发续跑消息", async () => {

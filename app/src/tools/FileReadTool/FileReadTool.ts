@@ -10,7 +10,8 @@ import {
   handleError,
 } from '@modules/error';
 import { getReadProtectionService } from '../../security/files/ReadProtectionService';
-import { resolveFilePath } from '../utils/ToolUtils';
+import { resolveFilePath, getToolBaseDir } from '../utils/ToolUtils';
+import { resolveReadFileState } from '../../utils/fileStateCache';
 import type { FileOperationResult } from '../types/ToolResult';
 
 export interface FileReadInput {
@@ -246,7 +247,7 @@ export class FileReadTool extends BaseTool {
 
   override async execute(
     input: Record<string, unknown>,
-    _context: ToolUseContext,
+    context: ToolUseContext,
     onProgress?: ToolCallProgress<any>
   ): Promise<ToolResult<unknown>> {
     try {
@@ -259,7 +260,9 @@ export class FileReadTool extends BaseTool {
         }
       }
 
-      const filePath = resolveFilePath(input.file_path as string);
+      // G3：相对路径优先解析到会话工作目录（cwd），缺省回退 outputDir
+      const baseDir = getToolBaseDir(context);
+      const filePath = resolveFilePath(input.file_path as string, baseDir);
 
       const pathCheck = checkPathAccessibility(
         input.file_path as string,
@@ -301,10 +304,28 @@ export class FileReadTool extends BaseTool {
       }
 
       const result = readFile({
-        filePath: input.file_path as string,
+        filePath,
         offset: input.offset as number | undefined,
         limit: input.limit as number | undefined,
       });
+
+      // B1：记录读快照（read-before-edit 的基础）——仅当上下文提供文件状态缓存时
+      const cache = resolveReadFileState(context.readFileState);
+      if (cache) {
+        let mtimeMs: number | undefined;
+        try {
+          mtimeMs = fs.statSync(result.canonicalPath).mtimeMs;
+        } catch {
+          // @ignore-catch — stat 失败（文件已被删除等）不记录 mtime，后续 edit 兜底校验
+        }
+        cache.set(result.canonicalPath, {
+          content: result.content,
+          timestamp: Date.now(),
+          offset: input.offset as number | undefined,
+          limit: input.limit as number | undefined,
+          mtimeMs,
+        });
+      }
 
       this.autoIngestFile(result.canonicalPath);
 

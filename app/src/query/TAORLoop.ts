@@ -13,6 +13,7 @@ import { getLogger } from '@modules/monitoring';
 import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error';
+import { messageProjector } from '@modules/context';
 import {
   TokenBudgetController,
   TokenBudgetStatus,
@@ -84,7 +85,9 @@ export interface TAORLoopDeps {
   /** LLM 流式调用 */
   callModel: (
     messages: ChatMessage[],
-    signal: AbortSignal
+    signal: AbortSignal,
+    // C1：max_output 翻倍重试时透传输出上限
+    opts?: { maxOutputTokens?: number }
   ) => AsyncGenerator<{
     type: string;
     content?: string;
@@ -356,6 +359,8 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
   private steeringQueue: string[] = [];
   /** M4：本次 run 的消息历史（骨架化后由 reason/act 共享，替代 _runModern 局部变量） */
   private messages: ChatMessage[] = [];
+  /** C1：max_output 翻倍后的有效输出上限（初始取 budgetConfig，上限 64k） */
+  private _effectiveMaxOutputTokens: number | undefined;
   /** M4：本次 run 的依赖注入（每次 runCollect 传入） */
   private deps: TAORLoopDeps = createTAORLoopDeps({
     callModel: async function* () {
@@ -719,6 +724,31 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
         }
       } else if (recovery.action === 'retry' && recovery.message) {
         this.messages.push({ role: 'user', content: recovery.message });
+      }
+      // C1：非法工具参数 → JSON 自纠错（注入修正提示重试）
+      else if (
+        recovery.action === 'retry_with_correction' &&
+        recovery.message
+      ) {
+        this.messages.push({ role: 'user', content: recovery.message });
+      }
+      // C1：max_output → 单次翻倍输出上限（上限 64k，对齐 PilotDeck OUTPUT_TOKEN_RETRY_CEILING）
+      else if (recovery.action === 'retry_higher_output') {
+        const base = this.taorConfig.budgetConfig.maxOutputTokens ?? 0;
+        this._effectiveMaxOutputTokens = Math.min(
+          (this._effectiveMaxOutputTokens ?? (base || 4096)) * 2,
+          64_000
+        );
+        if (recovery.message) {
+          this.messages.push({ role: 'user', content: recovery.message });
+        }
+      }
+      // C1：prompt 超长 → 截头重试（复用 A1 投影器的 tool 对安全截断）
+      else if (recovery.action === 'truncate_head_and_retry') {
+        this.truncateHeadForRetry();
+        if (recovery.message) {
+          this.messages.push({ role: 'user', content: recovery.message });
+        }
       }
       // 重试一次（对齐旧 continue → 下一轮再调 LLM 的语义，此处当轮重试一次）
       try {
@@ -1385,7 +1415,11 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
     const chunks: Array<Record<string, unknown>> = [];
     for await (const chunk of this.deps.callModel(
       this.messages,
-      this.abortController.signal
+      this.abortController.signal,
+      // C1：max_output 翻倍后透传输出上限
+      this._effectiveMaxOutputTokens
+        ? { maxOutputTokens: this._effectiveMaxOutputTokens }
+        : undefined
     )) {
       chunks.push(chunk);
       if (typeof chunk?.content === 'string' && chunk.content) {
@@ -1401,6 +1435,26 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
         .map((c) => c.toolCall) as Array<Record<string, unknown>>,
       ...lastChunk,
     };
+  }
+
+  /**
+   * C1：prompt_too_long 截头重试（保留尾部 keepRatio）
+   * 复用 A1 MessageProjector.toolPairSafeTruncate，保证截断不切断 tool 对。
+   */
+  private truncateHeadForRetry(keepRatio = 0.6): void {
+    const keepCount = Math.max(2, Math.floor(this.messages.length * keepRatio));
+    const projected = messageProjector.toolPairSafeTruncate(
+      this.messages,
+      keepCount
+    );
+    if (projected.messages.length < this.messages.length) {
+      logger.warn('truncate_head_and_retry applied', {
+        before: this.messages.length,
+        after: projected.messages.length,
+        warnings: projected.warnings.length,
+      });
+      this.messages = projected.messages;
+    }
   }
 
   /**
@@ -1562,6 +1616,23 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
           continue;
         }
         if (recovery.action === 'retry' && recovery.message) {
+          messages.push({ role: 'user', content: recovery.message });
+          continue;
+        }
+        // C1：新精细化动作在 path B（遗留兜底路径）按 retry 语义处理
+        if (
+          (recovery.action === 'retry_with_correction' ||
+            recovery.action === 'retry_higher_output' ||
+            recovery.action === 'truncate_head_and_retry') &&
+          recovery.message
+        ) {
+          if (recovery.action === 'truncate_head_and_retry') {
+            const keepCount = Math.max(2, Math.floor(messages.length * 0.6));
+            messages = messageProjector.toolPairSafeTruncate(
+              messages,
+              keepCount
+            ).messages;
+          }
           messages.push({ role: 'user', content: recovery.message });
           continue;
         }

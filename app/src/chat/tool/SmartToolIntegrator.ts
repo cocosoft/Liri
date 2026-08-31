@@ -1,4 +1,4 @@
-﻿import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('chat\tool\SmartToolIntegrator');
@@ -201,7 +201,15 @@ export class SmartToolIntegrator implements ISmartToolIntegrator {
       } catch (error) {
         lastError = (error as Error).message;
         if (attempt < this.maxRetries) {
-          await new Promise((r) => setTimeout(r, Math.pow(2, attempt) * 100));
+          // P2（2026-08-31）：equal jitter 打散并发重试（防 convoy）
+          await new Promise((r) =>
+            setTimeout(
+              r,
+              Math.floor(
+                Math.pow(2, attempt) * 100 * (0.5 + Math.random() * 0.5)
+              )
+            )
+          );
         }
       }
     }

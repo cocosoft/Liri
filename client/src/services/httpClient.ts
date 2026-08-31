@@ -557,7 +557,11 @@ async function fetchWithRetry(
       ) {
         // 503 视为服务启动中，用启动窗口退避（覆盖后端 10-15s 就绪时间）
         const base = res.status === 503 ? STARTUP_BACKOFF_MS : BASE_BACKOFF_MS;
-        const delay = base * Math.pow(2, attempt);
+        // P2（2026-08-31）：equal jitter 打散并发重试（防 convoy——多请求同时失败
+        // 同时退避会同步冲击后端；随机 50%-100% 保持指数增长）
+        const delay = Math.floor(
+          base * Math.pow(2, attempt) * (0.5 + Math.random() * 0.5),
+        );
         await new Promise((r) => setTimeout(r, delay));
         continue;
       }

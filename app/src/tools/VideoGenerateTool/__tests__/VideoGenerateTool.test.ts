@@ -423,14 +423,21 @@ describe('VideoGenerateTool — 错误处理', () => {
     expect(result.success).toBe(false);
   });
 
+  // 预存修复（2026-08-31）：此前缺少 hasSiliconKey 保护，无 key 环境仍走真实 Router
+  // 生成路径 → 网络调用挂起超默认 5s；对齐同文件其他集成测试：skip 保护 + 长超时
+  //（真实视频生成耗时数分钟，600s 与 T2V 其他集成测试一致）
   test('超长 prompt 不应崩溃', async () => {
+    if (!hasSiliconKey) {
+      console.log('  [跳过] SiliconFlow API Key 未配置');
+      return;
+    }
     const longPrompt = 'A beautiful scene of nature. '.repeat(50);
     const result = await tool.execute(
       { prompt: longPrompt, model: T2V_MODEL },
       mockContext
     );
     expect(result).toBeDefined();
-  });
+  }, 600000);
 });
 
 // ================================================================

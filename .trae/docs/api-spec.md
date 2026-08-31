@@ -217,7 +217,8 @@
 | GET | `/v1/sessions/current` | ✅ | `sessionService.getCurrent` |
 | GET | `/v1/sessions/{id}` | ✅ | `sessionService.get` |
 | PUT | `/v1/sessions/{id}` | ✅ | `sessionService.rename` |
-| DELETE | `/v1/sessions/{id}` | ✅ | `sessionService.delete` |
+| PATCH | `/v1/sessions/{id}/meta` | ✅ M1-T1.3 | `sessionService.updateSessionMeta` / `sessionService.setPinned`（body `{ model?, provider_id?, workspace_id?, tasks_override?, pinned? }`；**pinned-only 更新不 touch updatedAt**，防列表重排；`pinned` 必须严格 boolean，非法值 400；驱动侧栏「固定到顶部」持久化 + 会话列表置顶排序） |
+| DELETE | `/v1/sessions/{id}` | ✅ | `sessionService.delete`（**M2-T2.2** 级联：会话删除 → 引擎中止 ✓ → 孤儿审批项关闭（pending/processing → dismissed，/v1/inbox 不残留可答复项）→ 检查点/事件日志/协商状态清理 ✓；通道为 bot 级长连接，无 per-session 订阅需退订） |
 | POST | `/v1/sessions/{id}/switch` | ✅ | `sessionService.switch` |
 | GET | `/v1/sessions/{id}/messages` | ✅ | `sessionService.getMessages` / `sessionService.loadConversation`（KB-LONG-SESSION：支持 `?limit&before` 分页——`limit>0` 取末尾 limit 条并返回 `{ messages, hasMore }`，`before` 为 lastEventSeq 游标加载更早；不传 limit 返回数组全量，兼容旧格式） |
 | GET | `/v1/sessions/{id}/events` | ✅ M1-6 | `trajectoryService.getEvents`（M1-7；`?fromSeq&toSeq&types&limit&recent`，recent=1 时尾部优先取最后 limit 条——日志/轨迹面板显示最近事件） |
@@ -230,6 +231,8 @@
 | GET | `/v1/sessions/{id}/streaming` | ✅ P1-5 | `chat-message.slice.ts` ghostCheckTimer |
 | GET | `/v1/sessions/{id}/checkpoints/latest` | ✅ P2-1 | `chat-message.slice.ts` reconnect |
 | POST | `/v1/sessions/{id}/resume` | ✅ P2-1 | `chatService.streamMessageWithReconnect` |
+
+**来源语义（M4-T4.1）**：`GET /v1/sessions` / `GET /v1/sessions/{id}` 返回的 `source` 字段标识会话来源渠道（`_resolveSessionSource`：优先 `metadata.channel` → session ID 前缀推断（c2c:/group:→qq）→ 兜底 `web`）。通道会话（QQ/Telegram/飞书等）首次带 `channel` 元数据的请求到达时，后端 set_once 补写 `metadata.channel`（不覆盖既有来源），前端 `SESSION_SOURCE_LABELS` 展示来源徽标。
 
 ### §3.7 工具
 
@@ -614,7 +617,7 @@ data: {"type":"done","result":{...}}
 | **GET** | `/v1/inbox` | 列出 Inbox 项（支持 ?sessionId=&status=&type=&limit=&offset=） |
 | **GET** | `/v1/inbox/count` | 获取待处理数量（支持 ?sessionId=） |
 | **GET** | `/v1/inbox/:id` | 获取单个 Inbox 项 |
-| **POST** | `/v1/inbox/:id/reply` | 回复 Inbox 项（body: { reply, selectedOption? }） |
+| **POST** | `/v1/inbox/:id/reply` | 回复 Inbox 项（body: { reply, selectedOption? }）。**M2-T2.1**：批准类答复（approve/allowlist_tool/allowlist_command）由后端 fire-and-forget 续跑——checkpoint/resume 优先，无自动检查点时从 events.jsonl 尾部重建未完成 turn（已答工具跳过，对齐 openworker `_unanswered_trailing_tool_calls`）；前端不再负责续跑决策。双渠道并发答复由 DB 级 CAS（pending→processing）保证 first-responder-wins，二次答复返回 `already_processed`/`concurrent_conflict` |
 
 **InboxItem 数据结构**：
 ```json
@@ -700,6 +703,8 @@ data: {"type":"done","result":{...}}
 | | `switch` | `POST /v1/sessions/{id}/switch` | `switch_session` | ✅ |
 | | `delete` | `DELETE /v1/sessions/{id}` | `delete_session` | ✅ |
 | | `rename` | `PUT /v1/sessions/{id}` | `rename_session` | ✅ |
+| | `updateSessionMeta` | `PATCH /v1/sessions/{id}/meta` | — | ✅ (HTTP only) |
+| | `setPinned` | `PATCH /v1/sessions/{id}/meta`（pinned-only） | — | ✅ (HTTP only) |
 | | `getCurrent` | `GET /v1/sessions/current` | `get_current_session` | ✅ |
 | | `get` | `GET /v1/sessions/{id}` | `get_session` | ❌ |
 | | `generateTitle` | `POST /v1/sessions/{id}/title` | `generate_session_title` | ❌ |

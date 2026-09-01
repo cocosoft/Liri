@@ -21,7 +21,7 @@ import {
   checkPathAccessibility,
   normalizeToolPath,
 } from '../utils/ToolUtils';
-import { grep } from './grep';
+import { grep, grepAsync } from './grep';
 import type { GrepInputType, GrepOutputType } from './schemas';
 import { validateGrepInput } from './schemas';
 import { getDescription } from './prompt';
@@ -141,8 +141,9 @@ export class GrepTool extends BaseTool {
         );
       }
 
-      // 执行搜索
-      const result = grep({
+      // 执行搜索（2026-08-31 根因修复：改用协作式异步遍历，扫描大型目录时
+      // 定期让出事件循环，SSE 心跳保持，避免前端"流式响应超时"误判）
+      const result = await grepAsync({
         pattern: validated.pattern,
         searchPath,
         include: validated.include,

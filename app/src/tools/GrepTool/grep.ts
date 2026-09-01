@@ -4,6 +4,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { handleError } from '@modules/error';
+import { yieldToEventLoop } from '@modules/ai';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('tools:GrepTool:grep');
@@ -158,6 +159,149 @@ export function grep(options: GrepOptions): GrepResult {
     truncated: outputLines.length >= headLimit || totalMatches >= MAX_RESULTS,
     durationMs: Date.now() - startTime,
   };
+}
+
+/**
+ * 协作式异步搜索（与 grep() 结果语义完全一致）。
+ *
+ * 根因修复（2026-08-31）：grep() 为纯同步递归（readdirSync/statSync/readFileSync），
+ * 对大型目录（如项目根，6.5 万+ 文件）全量扫描时同步阻塞事件循环数分钟——
+ * SSE 心跳/HTTP 请求全停，前端 60s/120s 无数据误判"流式响应超时"。
+ * 本版本每处理 GREP_YIELD_BATCH_SIZE 个条目让出一次事件循环（对齐 TokenEstimator
+ * yieldToEventLoop 协作式策略），扫描期间心跳保持，不再误判。
+ */
+const GREP_YIELD_BATCH_SIZE = 50;
+
+export async function grepAsync(options: GrepOptions): Promise<GrepResult> {
+  const startTime = Date.now();
+  const searchPath = options.searchPath || process.cwd();
+  const outputMode = options.outputMode || 'files_with_matches';
+  const headLimit = options.headLimit ?? 200;
+
+  let regex: RegExp;
+  try {
+    const flags = options.multiline ? 'gims' : 'gim';
+    regex = new RegExp(options.pattern, flags);
+  } catch (err) {
+    handleError(err, {
+      module: 'tools:grep',
+      action: 'buildRegex',
+    });
+    regex = new RegExp(escapeRegex(options.pattern), 'gim');
+  }
+
+  const fileMatches: Map<string, string[]> = new Map();
+  let totalMatches = 0;
+
+  try {
+    const stat = fs.statSync(searchPath);
+    if (stat.isFile()) {
+      searchFile(searchPath, regex, options, fileMatches, MAX_RESULTS);
+    } else {
+      await searchDirAsync(
+        searchPath,
+        regex,
+        options,
+        fileMatches,
+        MAX_RESULTS
+      );
+    }
+  } catch (err) {
+    handleError(err, {
+      module: 'tools:grep',
+      action: 'statSearchPath',
+    });
+  }
+
+  let outputLines: string[] = [];
+  const matchedFiles = [...fileMatches.keys()];
+
+  for (const file of fileMatches.keys()) {
+    totalMatches += fileMatches.get(file)!.length;
+  }
+
+  switch (outputMode) {
+    case 'files_with_matches':
+      outputLines = matchedFiles.map((f) => path.relative(searchPath, f));
+      break;
+    case 'count':
+      for (const file of matchedFiles) {
+        outputLines.push(
+          `${path.relative(searchPath, file)}: ${fileMatches.get(file)!.length}`
+        );
+      }
+      break;
+    case 'content':
+      for (const file of matchedFiles) {
+        for (const line of fileMatches.get(file)!) {
+          if (outputLines.length >= headLimit) break;
+          if (options.offset && outputLines.length < options.offset) continue;
+          outputLines.push(line);
+        }
+      }
+      break;
+  }
+
+  if (outputLines.length > headLimit) {
+    outputLines = outputLines.slice(0, headLimit);
+  }
+
+  return {
+    matches: outputLines,
+    matchCount: totalMatches,
+    fileCount: matchedFiles.length,
+    truncated: outputLines.length >= headLimit || totalMatches >= MAX_RESULTS,
+    durationMs: Date.now() - startTime,
+  };
+}
+
+/**
+ * 协作式递归目录搜索：每处理 GREP_YIELD_BATCH_SIZE 个条目让出一次事件循环，
+ * 保证 SSE 心跳 / HTTP 请求等 I/O 在扫描大型目录期间不被长时间阻塞。
+ */
+async function searchDirAsync(
+  dir: string,
+  regex: RegExp,
+  options: GrepOptions,
+  results: Map<string, string[]>,
+  maxTotal: number
+): Promise<void> {
+  let entries: fs.Dirent[];
+  try {
+    entries = fs.readdirSync(dir, { withFileTypes: true });
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException)?.code;
+    if (code === 'EPERM') {
+      logger.warn('[readdir] 目录不可读，跳过', { dir, error: String(err) });
+    } else {
+      handleError(err, {
+        module: 'tools:grep',
+        action: 'readdir',
+      });
+    }
+    return;
+  }
+
+  let processed = 0;
+  for (const entry of entries) {
+    if (getTotalCount(results) >= maxTotal) return;
+    if (VCS_DIRS.has(entry.name)) continue;
+    if (entry.name.startsWith('.') && entry.name !== '.') continue;
+
+    const fullPath = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      if (entry.name === 'node_modules') continue;
+      await searchDirAsync(fullPath, regex, options, results, maxTotal);
+    } else if (entry.isFile()) {
+      if (options.include && !matchGlob(entry.name, options.include)) continue;
+      searchFile(fullPath, regex, options, results, maxTotal);
+    }
+
+    // 协作式让出：每处理一批条目让出事件循环，扫描期间 SSE 心跳保持
+    if (++processed % GREP_YIELD_BATCH_SIZE === 0) {
+      await yieldToEventLoop();
+    }
+  }
 }
 
 /**

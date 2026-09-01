@@ -147,6 +147,7 @@ export {
 export { glob, type GlobResult } from './GlobTool/GlobTool';
 export {
   grep,
+  grepAsync,
   type GrepOptions,
   type GrepResult,
   type GrepOutputMode,

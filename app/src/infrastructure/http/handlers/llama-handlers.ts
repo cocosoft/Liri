@@ -491,7 +491,7 @@ export async function handleLlamaDeleteModel(
     const { llamaCppServerManager } =
       await import('@modules/ai/local/llama/LlamaCppServerManager.js');
     const { unlinkSync, existsSync } = await import('fs');
-    const { basename, join } = await import('path');
+    const { join } = await import('path');
 
     const fileName = (req.url || '').split('/').pop();
     if (!fileName) {

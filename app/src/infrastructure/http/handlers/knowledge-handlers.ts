@@ -15,6 +15,7 @@ import { sanitizeFileName } from '@modules/services/file/fileNaming';
 
 import { handleError } from '@modules/error';
 import { globalEventBus } from '@modules/core';
+import type { KnowledgeRoute } from '@modules/docs/knowledge-types';
 
 /**
  * KB-SEARCH-REUSE（2026-08-29 导出复核）：搜索 KnowledgeRouter 单例——
@@ -352,12 +353,12 @@ export async function handleSearchKnowledge(
     >;
     const routes = await router.search(query, {
       maxResults: 20,
-      ...(domain ? ({ domain } as any) : {}),
+      ...(domain ? { domain } : {}),
     });
 
     // KB-SEARCH-BASE（2026-08-29 导出复核）：前端 hybridSearch 传 base 期望库内搜索，
     // 原 _base 解析后未使用（死变量）→ 结果混入其他库文档。按 docPath 前缀过滤。
-    const inBase = (route: any): boolean => {
+    const inBase = (route: KnowledgeRoute): boolean => {
       if (!base || base === '根目录') return true;
       const dp: string = route.docPath ?? '';
       return dp === base || dp.startsWith(`${base}/`);
@@ -365,7 +366,7 @@ export async function handleSearchKnowledge(
     // P2-2: 按标签过滤（大小写不敏感）+ base 过滤
     const filtered = (
       filterTags?.length
-        ? routes.filter((route: any) =>
+        ? routes.filter((route: KnowledgeRoute) =>
             filterTags.some((t: string) =>
               (route.tags ?? []).some(
                 (tag: string) => tag.toLowerCase() === t.toLowerCase()
@@ -377,7 +378,7 @@ export async function handleSearchKnowledge(
 
     // P2-7: 补充 size/updated_at/source（stat + frontmatter 头部解析）
     const result = await Promise.all(
-      filtered.map(async (route: any) => {
+      filtered.map(async (route: KnowledgeRoute) => {
         let size = 0;
         let updatedAt = 0;
         let source = 'manual';

@@ -1,8 +1,6 @@
 import { handleError } from '@modules/error';
-import { getLogger } from '@modules/monitoring';
 
 type Task<T = void> = () => Promise<T>;
-const logger = getLogger('acp:actor');
 
 interface QueuedTask<T> {
   task: Task<T>;

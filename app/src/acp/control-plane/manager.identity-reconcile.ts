@@ -7,9 +7,6 @@ import {
   type AcpSessionIdentity,
 } from '../runtime/session-identity.js';
 import { handleError } from '@modules/error';
-import { getLogger } from '@modules/monitoring';
-
-const logger = getLogger('acp:reconcile');
 
 export interface PendingSessionIdentity {
   sessionKey: string;

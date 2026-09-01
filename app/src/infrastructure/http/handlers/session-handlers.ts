@@ -26,8 +26,7 @@ import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import type { Message } from '@modules/chat/types/message';
 import { MessageRole } from '@modules/chat/types/message';
-import type { LiriEvent, LiriEventType } from '@modules/chat/types/events';
-import type { EventLogQuery } from '@modules/session';
+import type { LiriEventType } from '@modules/chat/types/events';
 import { deriveSessionStats } from '@modules/session';
 import {
   tryParseJson,

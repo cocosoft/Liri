@@ -2,9 +2,6 @@ import type { AcpRuntime } from './types.js';
 import type { AcpRuntimeHandle } from './types.js';
 import { AcpRuntimeError } from './errors.js';
 import { handleError } from '@modules/error';
-import { getLogger } from '@modules/monitoring';
-
-const logger = getLogger('acp:availability');
 
 export interface RuntimeAvailabilityResult {
   available: boolean;

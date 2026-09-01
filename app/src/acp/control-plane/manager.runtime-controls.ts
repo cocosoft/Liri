@@ -5,9 +5,6 @@ import type {
 } from '../runtime/types.js';
 import { AcpRuntimeError } from '../runtime/errors.js';
 import { handleError } from '@modules/error';
-import { getLogger } from '@modules/monitoring';
-
-const logger = getLogger('acp:controls');
 
 export interface RuntimeControlRequest {
   control: AcpRuntimeControl;

@@ -52,6 +52,24 @@ export interface UserProfileAnalysis {
   confidence: number;
 }
 
+/** LLM 分析结果 JSON 结构（user/soul 段分别对齐 UserProfileAnalysis / SoulAlignmentResult） */
+interface UserProfileAnalysisResult {
+  user?: {
+    needsUpdate?: boolean;
+    newPreferences?: string[];
+    changedPreferences?: string[];
+    suggestedPatch?: string;
+    reason?: string;
+    confidence?: number;
+  };
+  soul?: {
+    needsUpdate?: boolean;
+    suggestedPatch?: string;
+    reason?: string;
+    confidence?: number;
+  };
+}
+
 export class PersonalityReflector {
   private soulPath: string;
   private userPath: string;
@@ -274,7 +292,7 @@ export class PersonalityReflector {
   }
 
   /** 解析 LLM 返回的分析结果 JSON */
-  private parseAnalysisResult(result: string): Record<string, any> {
+  private parseAnalysisResult(result: string): UserProfileAnalysisResult {
     // 尝试直接解析 JSON
     try {
       return JSON.parse(result);

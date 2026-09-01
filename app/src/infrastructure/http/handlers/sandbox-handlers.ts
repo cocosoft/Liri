@@ -38,7 +38,7 @@ import { SandboxManager } from '@modules/sandbox';
 import { processRegistry } from '@modules/sandbox';
 import { resourceLimitManager } from '@modules/sandbox';
 import { globalWorkspaceManager } from '@modules/sandbox';
-import { securityIntegrationService } from '@modules/security/SecurityIntegration';
+import { securityIntegrationService } from '@modules/security';
 
 /** 沙箱权限级别（与 PERMISSION_SANDBOX_DEFAULT 取值一致） */
 export type SandboxPermissionLevel = 'full' | 'standard' | 'readonly';

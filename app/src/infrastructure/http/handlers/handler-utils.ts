@@ -29,7 +29,7 @@
 import http from 'http';
 import path from 'path';
 
-import { getLogger, Logger } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import {
   resolveOutputDir,

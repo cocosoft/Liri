@@ -3,10 +3,7 @@
  * P2 — 对标 OpenClaw 的流程系统
  */
 
-import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-
-const logger = getLogger('flows:engine');
 
 /**
  * 流程步骤

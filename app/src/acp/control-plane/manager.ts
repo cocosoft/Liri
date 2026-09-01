@@ -10,10 +10,7 @@ import type {
   AcpRuntimeEvent,
 } from '../runtime/types.js';
 import type { SessionId } from '../types.js';
-import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
-
-const logger = getLogger('acp:manager');
 
 export class AcpSessionManager {
   private core: AcpSessionManagerCore;

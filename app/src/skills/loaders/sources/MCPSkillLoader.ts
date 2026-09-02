@@ -1,5 +1,11 @@
 import { Skill, SkillSource } from '@modules/skills/types';
 import { SkillLoader } from '../SkillLoader';
+import {
+  SkillProvider,
+  SkillCandidate,
+  PROVIDER_RANK,
+  toCandidates,
+} from '../SkillProvider';
 import { createSkillCommand } from '@modules/skills/utils/skillParser';
 import { getMCPServerManager } from '@modules/services/mcp/MCPServerManager.js';
 import { getLogger } from '@modules/monitoring';
@@ -10,11 +16,32 @@ const logger = getLogger('skills:mcpLoader');
  * MCP技能加载器
  * 从MCP服务器加载技能
  */
-export class MCPSkillLoader extends SkillLoader {
+export class MCPSkillLoader extends SkillLoader implements SkillProvider {
   private mcpserverManager = getMCPServerManager();
+
+  readonly name = 'mcp';
 
   constructor() {
     super();
+  }
+
+  /**
+   * 列出 MCP 技能候选（locator = Skill 本体）
+   */
+  async list(): Promise<SkillCandidate[]> {
+    return toCandidates(await this.loadSkills(), PROVIDER_RANK.MCP);
+  }
+
+  /**
+   * 按候选返回完整技能（当前全量加载，直接返回 locator）
+   */
+  get(candidate: SkillCandidate): Promise<Skill | undefined> {
+    return Promise.resolve(candidate.locator as Skill);
+  }
+
+  /** 无内部缓存，预留契约 */
+  invalidate(): void {
+    // 当前加载器无缓存，无需失效
   }
 
   /**

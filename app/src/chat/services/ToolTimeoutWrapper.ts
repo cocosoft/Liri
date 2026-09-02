@@ -45,6 +45,7 @@ export async function withToolTimeout(
   const effectiveTimeout =
     timeoutMs ??
     (parseInt(configManager.env('TOOL_EXEC_TIMEOUT_MS') || '', 10) || 300_000);
+  const startedAt = Date.now();
   let timer: NodeJS.Timeout | undefined;
   return Promise.race([
     executor(),
@@ -55,10 +56,21 @@ export async function withToolTimeout(
           .update(JSON.stringify(toolCall.arguments || {}))
           .digest('hex')
           .slice(0, 16);
+        const elapsedMs = Date.now() - startedAt;
+        // P1-a（2026-09-02，对标 hermes deadline watchdog）：超时时记录调用栈片段
+        // 与运行态快照——定位"工具卡死点"（Node 无法 dump 全线程栈，用当前调用栈 +
+        // 内存/CPU 佐证）。此前仅记录工具名+超时值，卡死定位靠猜。
+        const callStack = new Error()
+          .stack?.split('\n')
+          .slice(1, 6)
+          .join('\n');
         logger.warn('工具执行超时，返回超时结果（底层工具无法强制取消）', {
           toolName: toolCall.name,
           timeoutMs: effectiveTimeout,
+          elapsedMs,
           argHash,
+          callStack,
+          heapUsedMB: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
         });
         // 风险 1：追踪幽灵工具执行（超时后底层工具仍在后台运行）
         handleError(
@@ -75,6 +87,8 @@ export async function withToolTimeout(
               toolName: toolCall.name,
               argHash,
               timeoutMs: effectiveTimeout,
+              elapsedMs,
+              callStack,
             },
           }
         );
@@ -84,7 +98,7 @@ export async function withToolTimeout(
           toolName: toolCall.name,
           result: null,
           error: `工具执行超时（${effectiveTimeout}ms）`,
-          metadata: { retryable: false, argHash },
+          metadata: { retryable: false, argHash, elapsedMs },
         });
       }, effectiveTimeout);
     }),

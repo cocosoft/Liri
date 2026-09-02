@@ -43,6 +43,9 @@ import {
   ensureThinkResponseTags,
   stripThinkResponseTags,
   stripOrphanToolTags,
+  computePaginationPoint,
+  contextLayeringEnabled,
+  LAYERING_HINT,
 } from '../services/MessageContextPipeline';
 import { stripBareExploration } from '../services/bareExplorationStripper';
 import { StreamingToolCallScrubber } from '../../streaming/scrubbers/StreamingToolCallScrubber';
@@ -75,17 +78,43 @@ export interface SendMessageContext {
   sessionId: string;
   apiMessages: Record<string, unknown>[];
   toolDefinitions: ToolDefinition[];
+  /** C 阶段（2026-09-02）：本请求是否发生分页切窗（超窗大会话，供取回工具注入判定） */
+  windowed?: boolean;
 }
 
 /* ===================================================================
  *  阶段 1：构建 API 消息列表
  * =================================================================== */
 
-export function prepareApiMessages(
+export async function prepareApiMessages(
   ctx: SendMessageContext
-): Record<string, unknown>[] {
+): Promise<Record<string, unknown>[]> {
   const { session, options } = ctx;
-  const messages = session.messages;
+  // C 阶段（P0/P2-a，2026-09-02，C 详设 §3/§5）：map 前置分页切点——超窗大会话先丢
+  // 头部旧轮次（token 动态 + C-3 用户轮次/工具配对对齐），map 只处理幸存窗口，
+  // 构建期内存 O(全量)→O(窗口)。切窗生效时标记 ctx.windowed（供取回工具注入判定）
+  // 并向保留段首条 user 注入"可取回"提示。语义不变：预算/尾保护区与 truncate
+  // 同口径，最终输入仍由 compact/truncate 决定（对本窗口大概率早退）。
+  let baseMessages = session.messages;
+  let cutIndex = 0;
+  if (session.messages.length > 2) {
+    const point = await computePaginationPoint(
+      session.messages as Array<{ role: string; content: unknown }>,
+      resolveMaxContextTokens(options?.model),
+      options?.maxTokens
+    );
+    cutIndex = point.cutIndex;
+    if (cutIndex > 0) {
+      baseMessages = session.messages.slice(cutIndex);
+      ctx.windowed = true;
+      logger.info('send:build 分页切点生效（C 阶段）', {
+        totalMessages: session.messages.length,
+        cutIndex,
+        keptMessages: baseMessages.length,
+      });
+    }
+  }
+  const messages = baseMessages;
 
   // §5.3: 排除 isTaskMessage 消息
   // 空正文且无 tool_calls 的 assistant 消息也跳过（工具循环中间空消息，避免污染上下文）
@@ -169,6 +198,17 @@ export function prepareApiMessages(
     logger.debug('清除旧轮次 assistant tool_calls，防止跨轮污染', {
       cleanedCount: cleanedToolCallCount,
     });
+  }
+
+  // P2-a（2026-09-02，C 详设 §5.2）：切窗生效 → 保留段首条 user 注入"可取回"提示
+  if (cutIndex > 0 && contextLayeringEnabled()) {
+    const firstUser = apiMessages.find(
+      (m: Record<string, unknown>) =>
+        m.role === 'user' && typeof m.content === 'string'
+    );
+    if (firstUser) {
+      firstUser.content = `${LAYERING_HINT}\n${firstUser.content}`;
+    }
   }
 
   // 附带图片路径 → 文本追加到用户消息

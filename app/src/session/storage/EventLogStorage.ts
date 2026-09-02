@@ -41,6 +41,8 @@ import {
   assertEventReadable,
   assertEventWritable,
 } from '@modules/chat/types/knownEventTypes';
+// 内存画像（2026-09-02 排查"会话中断/内存尖峰"用，MEM_PROFILE=1 才采样）
+import { memProfile } from '../../monitoring/memProfile.js';
 
 const logger = getLogger('session:event-log');
 
@@ -62,10 +64,45 @@ const APPEND_CIRCUIT_DURATION_MS = 5 * 60_000;
  * 构造参数可覆盖（测试注入小上限，避免写 15 万行文件）。
  */
 const SNAPSHOT_MAX_EVENTS = 150_000;
+/**
+ * B-2（2026-09-02，v4 §6.2 B-2 / D2 ①）：热层事件窗口动态收缩目标。
+ *
+ * 150K 固定上限在真实场景（12.4 万 tokens、单事件可达 MB 级）下形同虚设：
+ * 字节上限（200MB）先到，窗口内仍可容纳海量小事件推高 RSS。热窗口按
+ * "≤ SNAPSHOT_HOT_EVENTS" 收敛（与配置上限取 min），冷历史走 events.idx
+ * 读盘（D7 已就绪），小会话（≤10K 事件）不受影响（全量覆盖）。
+ */
+const SNAPSHOT_HOT_EVENTS = 10_000;
 /** P1-7（2026-08-30）：快照累计字节上限（buildSnapshot 扫描累计 line.length；append 增量按 JSON.stringify 长度近似） */
 const SNAPSHOT_MAX_BYTES = 200 * 1024 * 1024;
 /** P0-3/P1-5（2026-08-30）：stale/IO 失败后的重建冷却期，防跨实例持续写期间反复全量扫描 */
 const SNAPSHOT_COOLDOWN_MS = 5_000;
+/**
+ * A-2（2026-09-02，v4 §5.2 选项①）：text 聚合缓冲安全阈值——调用方（流式路径）
+ * 负责 64KB/2s 策略；本层仅在调用方异常路径下无限缓冲时兜底自动 flush。
+ */
+const TEXT_BUFFER_SAFETY_BYTES = 512 * 1024;
+
+// ─── P3-8 事件字节索引（2026-09-02，v4 方案 B-1/D7 索引独立先行）───────
+// 目标：read(fromSeq>1) 分页续读从"readline 从头逐行扫描（O(N)）"降为
+// "idx 二分定位 → createReadStream(start=byteOffset) 段内读取"。
+// 索引为派生物（可重建/可丢失降级），非第二真相源——见 §13 降级链。
+/** 索引区间折叠粒度：每 256 个事件一个区间条目（区间内 ≤256 行流式扫，代价可控） */
+const IDX_BATCH_SIZE = 256;
+/** UTF-8 字节偏移累计基数（写事件前的文件起始偏移，append-only 下恒定） */
+const IDX_INIT_OFFSET = 0;
+
+/** 事件字节索引区间条目（持久化为 .idx 文件行） */
+export interface EventIdxEntry {
+  /** 区间起始 seq（包含） */
+  fromSeq: number;
+  /** 区间结束 seq（包含） */
+  toSeq: number;
+  /** 区间首行在 events.jsonl 中的 UTF-8 字节偏移（G-4：seek 偏移不允许近似） */
+  byteOffset: number;
+  /** 区间内事件数 */
+  count: number;
+}
 
 // ─── 类型定义 ───────────────────────────────────────────────────────────────
 
@@ -205,6 +242,8 @@ export class EventLogStorage {
   private readonly backupFilePath: string;
   /** A-6（2026-08-23）：lastKnown tailSeq 持久化文件（getTailSeq 失败平滑降级用） */
   private readonly tailSeqMetaPath: string;
+  /** P3-8：事件字节索引文件路径（events.jsonl 派生物） */
+  private readonly idxFilePath: string;
   /** A-5（2026-08-23）：连续 append 失败计数（成功时清零） */
   private appendFailCount = 0;
   /** A-5（2026-08-23）：上次告警时间戳（节流窗口用） */
@@ -234,6 +273,44 @@ export class EventLogStorage {
   private snapshotBytes = 0;
   /** P0-3（2026-08-30）：stale/IO 失败后的重建冷却截止时间戳（0=不在冷却） */
   private snapshotCooldownUntil = 0;
+  /**
+   * B0（2026-09-02，v4 方案 §6.2）：滑动窗口快照。
+   *
+   * 超限时保留最近事件、丢弃更早（滑动窗口），而非整体清空 + 永久 ineligible
+   * （消除"超限 → 全量重建尖峰"）。snapshotMinSeq = 窗口首事件 seq
+   * （0 = 快照覆盖全量，未丢头）。读取侧查询 fromSeq < snapshotMinSeq 时窗口
+   * 无法覆盖 → 回退磁盘路径（events.jsonl 本身全量保留，语义不变，T4 不破坏）。
+   */
+  private snapshotMinSeq = 0;
+  /**
+   * B0：快照内每事件的行字节成本（UTF-16 line.length，与 snapshotBytes 同单位）。
+   * 与 eventsSnapshot 严格并行（同 push/同裁剪），供窗口裁剪 O(窗口) 一次完成，
+   * 免每次裁剪对整批事件 JSON.stringify 重算成本。
+   */
+  private snapshotCosts: number[] = [];
+
+  // ─── A-2①（2026-09-02，v4 §5.2 选项①）：text 聚合缓冲（下沉存储层） ───
+  /** messageId → 已缓冲 text chunk（未落盘；flush 时聚合为一条 assistant/text-batch） */
+  private textChunkBuffer: Map<string, { chunks: string[]; bytes: number }> =
+    new Map();
+  /** 缓冲总字节（UTF-16 近似，安全阈值判定用） */
+  private textChunkBufferBytes = 0;
+
+  // ─── P3-8 事件字节索引（2026-09-02）──────────────────────────────────
+  /** 索引区间内存视图（按 fromSeq 升序；与磁盘 .idx 同源） */
+  private idxEntries: EventIdxEntry[] = [];
+  /** 索引是否已从磁盘加载（惰性，首次 read/append 前） */
+  private idxLoaded = false;
+  /** 索引累积已解析到的文件末尾 seq（.idx 与 events.jsonl 的同步锚点） */
+  private idxTailSeq = 0;
+  /** append-only 写路径的 UTF-8 字节累计（= 下一条事件行的起始偏移，G-4 精确 seek 依据） */
+  private idxBytesTotal = IDX_INIT_OFFSET;
+  /** 当前待折叠批的起始 seq（0=无在途批） */
+  private idxBatchStartSeq = 0;
+  /** 当前待折叠批的起始字节偏移 */
+  private idxBatchStartOffset = IDX_INIT_OFFSET;
+  /** 当前待折叠批内已累计事件数 */
+  private idxBatchCount = 0;
   /** 快照条数上限（构造可注入，测试用小值避免写大文件） */
   private readonly maxSnapshotEvents: number;
   /** 快照字节上限（构造可注入） */
@@ -292,6 +369,8 @@ export class EventLogStorage {
     this.filePath = join(this.sessionDir, 'events.jsonl');
     this.backupFilePath = join(this.sessionDir, 'events.jsonl.bak');
     this.tailSeqMetaPath = join(this.sessionDir, 'events.tail');
+    /** P3-8：事件字节索引文件（派生物，可重建/丢失降级） */
+    this.idxFilePath = join(this.sessionDir, 'events.idx');
   }
 
   /**
@@ -339,6 +418,10 @@ export class EventLogStorage {
    * 强制读盘：调用方需要校准时可传 force=true
    */
   async getTailSeq(force: boolean = false): Promise<number> {
+    // A-2①：先 flush 缓冲正文（其 seq 在落盘时分配），返回的逻辑尾部才含缓冲内容
+    if (this.textChunkBufferBytes > 0) {
+      await this.flushTextBuffer();
+    }
     if (this.tailSeqInitialized && !force) {
       return this.tailSeq;
     }
@@ -449,6 +532,92 @@ export class EventLogStorage {
   }
 
   /**
+   * A-2①（2026-09-02，v4 §5.2 选项①）：缓冲一条 text chunk（不落盘、不分配 seq）。
+   *
+   * 聚合/flush 策略（64KB/2s）由调用方（streamMessageFlow）驱动；本层保证
+   * read/getTailSeq/append 前自动 flush（所有权闭环）——读路径永远看到已入缓冲
+   * 的正文，打破"流进行中读到不完整 text"的竞态。seq 在 flush 落盘时原子分配。
+   * 安全阈值（512KB）超限自动 flush：防调用方异常路径无限缓冲（CS03 兜底）。
+   */
+  async bufferTextChunk(
+    messageId: string,
+    content: string
+  ): Promise<{ ok: boolean }> {
+    if (!content) return { ok: true };
+    let entry = this.textChunkBuffer.get(messageId);
+    if (!entry) {
+      entry = { chunks: [], bytes: 0 };
+      this.textChunkBuffer.set(messageId, entry);
+    }
+    entry.chunks.push(content);
+    const bytes = content.length; // UTF-16 近似（与 snapshotBytes 口径一致）
+    entry.bytes += bytes;
+    this.textChunkBufferBytes += bytes;
+    if (this.textChunkBufferBytes >= TEXT_BUFFER_SAFETY_BYTES) {
+      await this.flushTextBuffer();
+    }
+    return { ok: true };
+  }
+
+  /**
+   * A-2①：flush 全部缓冲 text —— 每 messageId 聚合一条 `assistant/text-batch`
+   * 落盘（F-2 schema；seq 由 append 原子分配，P3-7a）。批量 append 失败 → 回退
+   * 逐 chunk 为 `assistant/text` 落盘（A-1：丢失窗口不放大到整批，M1-INV① 可观测）。
+   * 失败不抛错（CS03）。
+   *
+   * @returns 实际 flush 的 chunk 数（含回退路径）
+   */
+  async flushTextBuffer(): Promise<number> {
+    if (this.textChunkBuffer.size === 0) return 0;
+    const pending = this.textChunkBuffer;
+    this.textChunkBuffer = new Map();
+    this.textChunkBufferBytes = 0;
+    let flushed = 0;
+    for (const [messageId, entry] of pending) {
+      const joined = entry.chunks.join('');
+      const joinedResult = await this.append({
+        type: 'assistant/text-batch',
+        schemaVersion: 1,
+        seq: 0,
+        time: Date.now(),
+        sessionId: this.sessionId,
+        data: { content: joined, messageId },
+      });
+      if (!joinedResult.ok) {
+        // A-1：单批失败 → 回退逐 chunk（避免"一次失败丢整批"）
+        logger.warn('event-log: text-batch 聚合落盘失败，回退逐 chunk（A-1）', {
+          sessionId: this.sessionId,
+          messageId,
+          chunkCount: entry.chunks.length,
+          reason: joinedResult.reason,
+        });
+        for (const chunkContent of entry.chunks) {
+          const r = await this.append({
+            type: 'assistant/text',
+            schemaVersion: 1,
+            seq: 0,
+            time: Date.now(),
+            sessionId: this.sessionId,
+            data: { content: chunkContent, messageId },
+          });
+          if (!r.ok) {
+            logger.warn('event-log: assistant/text 回退落盘失败', {
+              sessionId: this.sessionId,
+              messageId,
+              contentLength: chunkContent.length,
+              reason: r.reason,
+            });
+          }
+        }
+      }
+      flushed += entry.chunks.length;
+    }
+    // 内存画像（MEM_PROFILE=1）：text-batch 聚合落盘完成（join 大字符串的驻留窗口）
+    memProfile('eventlog:flush-text', { sessionId: this.sessionId, flushed });
+    return flushed;
+  }
+
+  /**
    * 追加一个事件
    *
    * 守卫：
@@ -462,6 +631,11 @@ export class EventLogStorage {
    *   - 写入失败只记日志，调用方决定是否重试
    */
   async append(event: LiriEvent): Promise<EventLogAppendResult> {
+    // A-2①：直接 append 前先 flush 缓冲正文——保证 seq 顺序（缓冲正文先落盘，
+    // 后续 tool/status 等事件 seq 在其后，不破坏事件流单调与消息内顺序）
+    if (this.textChunkBufferBytes > 0) {
+      await this.flushTextBuffer();
+    }
     // 串行化：所有 append 调用排队执行
     return this.queueAppend(async () => {
       // D1（2026-08-24）：落盘前单遍无损 JSON 校验 + 深冻结——
@@ -518,10 +692,29 @@ export class EventLogStorage {
       }
       const tailSeq = this.tailSeq;
 
-      // 守卫 1：seq 冲突 → 自动纠正（跨实例并发下重分配，而非拒绝丢弃事件，
-      // 避免事件丢失导致投影兜底消息乱序置顶 / 事件溯源断层）
+      // P3-7a（2026-09-02）：seq<=0 → mutex 内原子分配。根治"getTailSeq + 1"两步
+      // 非原子竞争（多个生产者并发读到同一 tailSeq 分配相同 seq → duplicate-seq 纠正）。
+      // append 由 queueAppend 串行化，此处 tailSeq 是队列内最新值，分配 tailSeq+1 即唯一；
+      // data.callSeq 为 0/-1（未指定）时同步填分配值（A1 闭环：tool/result 与 tool_call
+      // 的 callSeq 必须等于事件 seq，前端按 callSeq 配对）。
       let toWrite = frozen;
-      if (frozen.seq <= tailSeq) {
+      if (frozen.seq <= 0) {
+        const allocated = tailSeq + 1;
+        const rawData = frozen.data as { callSeq?: number } | undefined;
+        const curCallSeq =
+          typeof rawData?.callSeq === 'number' ? rawData.callSeq : -1;
+        const finalCallSeq = curCallSeq > 0 ? curCallSeq : allocated;
+        toWrite =
+          finalCallSeq === curCallSeq
+            ? (Object.freeze({ ...frozen, seq: allocated }) as LiriEvent)
+            : (Object.freeze({
+                ...frozen,
+                seq: allocated,
+                data: Object.freeze({ ...(frozen.data ?? {}), callSeq: finalCallSeq }),
+              }) as LiriEvent);
+      } else if (frozen.seq <= tailSeq) {
+        // 守卫 1：seq 冲突 → 自动纠正（跨实例并发下重分配，而非拒绝丢弃事件，
+        // 避免事件丢失导致投影兜底消息乱序置顶 / 事件溯源断层）
         const correctedSeq = tailSeq + 1;
         // P1-2：seq 纠正新建对象需浅冻结（data 与 frozen 共享，已深冻结），
         // 维持"落盘对象冻结"契约（D1），快照缓存可直接共享安全引用
@@ -538,6 +731,7 @@ export class EventLogStorage {
 
       // 写入
       try {
+        await this.ensureIdxLoaded();
         await this.ensureSessionDir();
         const line = JSON.stringify(toWrite) + '\n';
         await fs.appendFile(this.filePath, line, 'utf-8');
@@ -547,19 +741,50 @@ export class EventLogStorage {
         // A-5（2026-08-23）：写入成功 → 连续失败计数清零（熔断自动解除）
         this.appendFailCount = 0;
         // P1-2：快照增量扩展（toWrite 已冻结，与落盘对象一致，直接共享引用）
-        // P1-B（2026-08-30）：增量扩展同样受双上限守卫——超限置 ineligible 并清空，
-        // 防快照无限增长违背双上限设计（复用 line.length 免二次序列化）
+        // B0（2026-09-02）：超限不再"清空 + ineligible"——改为滑动窗口裁剪
+        // （保留最近、丢弃更早），消除超限后的全量重建尖峰。line.length 已在此
+        // 序列化产物上可用（免二次序列化），成本入并行数组 snapshotCosts 备用。
         if (this.eventsSnapshot) {
           this.eventsSnapshot.push(toWrite);
-          this.snapshotBytes += line.length;
+          const lineLen = line.length;
+          this.snapshotCosts.push(lineLen);
+          this.snapshotBytes += lineLen;
           if (
-            this.eventsSnapshot.length > this.maxSnapshotEvents ||
+            this.eventsSnapshot.length > this.snapshotEventBudget() ||
             this.snapshotBytes > this.maxSnapshotBytes
           ) {
-            this.snapshotIneligible = true;
-            this.eventsSnapshot = null;
-            this.snapshotBytes = 0;
+            // B-3：冷却期节流——裁剪 O(窗口) 有成本，防"超限→裁剪→再超限"逐条反复；
+            // 冷却内先容忍越界增长，2× 硬上限兜底（极端巨事件流下仍受控）。
+            if (
+              Date.now() >= this.snapshotCooldownUntil ||
+              this.eventsSnapshot.length > this.snapshotEventBudget() * 2 ||
+              this.snapshotBytes > this.maxSnapshotBytes * 2
+            ) {
+              this.trimSnapshotToFit();
+            }
           }
+        }
+        // P3-8（2026-09-02）：事件字节索引——append 写路径增量维护区间。
+        // G-4：行字节用 Buffer.byteLength(line,'utf-8')——seek 偏移是 UTF-8 字节数，
+        // 不可复用 line.length（UTF-16 code unit，中文差 1.5~3 倍会系统性偏斜）。
+        // 每 IDX_BATCH_SIZE 个事件折叠一个区间条目落盘 .idx；区间起点偏移 =
+        // idxBytesTotal（本批开始前已索引字节，即本行在文件中的真实起始偏移）。
+        // 索引派生物：折叠/落盘失败不阻断主路径（CS03），读路径回退逐行扫描。
+        const lineBytes = Buffer.byteLength(line, 'utf-8');
+        if (this.idxBatchCount === 0) {
+          this.idxBatchStartSeq = toWrite.seq as number;
+          this.idxBatchStartOffset = this.idxBytesTotal;
+        }
+        this.idxBatchCount++;
+        this.idxBytesTotal += lineBytes;
+        if (this.idxBatchCount >= IDX_BATCH_SIZE) {
+          await this.persistIdxEntry({
+            fromSeq: this.idxBatchStartSeq,
+            toSeq: toWrite.seq as number,
+            byteOffset: this.idxBatchStartOffset,
+            count: this.idxBatchCount,
+          });
+          this.idxBatchCount = 0;
         }
         return { ok: true, tailSeq: this.tailSeq };
       } catch (e) {
@@ -568,6 +793,115 @@ export class EventLogStorage {
         return { ok: false, reason: 'write-error', tailSeq: this.tailSeq };
       }
     });
+  }
+
+  // ─── P3-8 事件字节索引（2026-09-02，v4 方案 B-1/D7）─────────────────────
+
+  /**
+   * 惰性加载 .idx 索引 + 写路径字节偏移对齐（append/read 前各调一次）。
+   *
+   * 对齐语义：
+   *   - idx 文件存在 → 逐行解析区间条目入 idxEntries，idxTailSeq = 末区间 toSeq；
+   *     idxBytesTotal = 事件文件当前实际大小（对齐），尾部未索引区域（G-2 落后）
+   *     由 read 的"超出 idx 覆盖回退逐行"兜底，后续 append 从对齐值正确累计偏移。
+   *   - idx 文件缺失（重启后尚未折叠/从未落盘）→ idxBytesTotal 对齐事件文件大小，
+   *     idxTailSeq = tailSeq（语义：全部视为未索引尾部，读路径回退逐行直至新索引折叠）。
+   *
+   * 失败（读 idx 损坏）→ idxEntries 置空 + idxLoaded=true，读路径回退逐行（§13 降级）。
+   */
+  private async ensureIdxLoaded(): Promise<void> {
+    if (this.idxLoaded) return;
+    this.idxLoaded = true;
+    try {
+      if (existsSync(this.filePath)) {
+        const st = await fs.stat(this.filePath);
+        this.idxBytesTotal = st.size;
+        this.idxTailSeq = await this.getTailSeq().catch(() => 0);
+      }
+      if (!existsSync(this.idxFilePath)) return;
+      const rl = this.createReadlineInterface(this.idxFilePath);
+      let parsed = 0;
+      for await (const line of rl) {
+        if (!line.trim()) continue;
+        try {
+          const entry = JSON.parse(line) as Partial<EventIdxEntry>;
+          if (
+            typeof entry?.fromSeq === 'number' &&
+            typeof entry?.toSeq === 'number' &&
+            typeof entry?.byteOffset === 'number' &&
+            typeof entry?.count === 'number'
+          ) {
+            this.idxEntries.push(entry as EventIdxEntry);
+            this.idxTailSeq = entry.toSeq;
+            parsed++;
+          }
+        } catch {
+          // 单行损坏跳过（可重建派生物，非第二真相源）
+        }
+      }
+      if (parsed > 0) {
+        logger.debug('event-log: 事件字节索引已加载', {
+          sessionId: this.sessionId,
+          entries: this.idxEntries.length,
+          idxTailSeq: this.idxTailSeq,
+        });
+      }
+    } catch (e) {
+      // 索引损坏/IO 失败 → 降级（读路径回退逐行扫描），不阻断（CS03）
+      logger.warn('event-log: 索引加载失败，回退逐行扫描', {
+        sessionId: this.sessionId,
+        error: e instanceof Error ? e.message : String(e),
+      });
+      this.idxEntries = [];
+    }
+  }
+
+  /**
+   * 折叠一个区间条目：入内存 + 落盘 .idx（append-only 一行）。
+   * 落盘失败不阻断主路径（CS03）——内存条目照常可用，重启后 idx 落后由降级兜底。
+   */
+  private async persistIdxEntry(entry: EventIdxEntry): Promise<void> {
+    this.idxEntries.push(entry);
+    this.idxTailSeq = entry.toSeq;
+    try {
+      await this.ensureSessionDir();
+      await fs.appendFile(this.idxFilePath, JSON.stringify(entry) + '\n', 'utf-8');
+    } catch (e) {
+      logger.warn('event-log: 索引条目落盘失败（内存索引仍可用）', {
+        sessionId: this.sessionId,
+        entry,
+        error: e instanceof Error ? e.message : String(e),
+      });
+    }
+  }
+
+  /**
+   * 二分定位覆盖 fromSeq 的区间起始偏移。
+   *
+   * @returns 若 fromSeq 已被索引覆盖 → 区间首行 UTF-8 字节偏移（可 seek）；
+   *          else null（回退逐行扫描：重启后未索引区域 / idx 落后 G-2）。
+   * 命中区间可能起始于 fromSeq 之前（≤IDX_BATCH_SIZE 行），读侧以现有
+   * seq 正则跳过逻辑处理（不改变语义，仅减少扫描行数）。
+   */
+  private findIdxStartOffset(fromSeq: number): number | null {
+    if (this.idxEntries.length === 0) return null;
+    // 二分：最后一个 fromSeq <= 目标 的区间
+    let lo = 0;
+    let hi = this.idxEntries.length - 1;
+    let hit: EventIdxEntry | null = null;
+    while (lo <= hi) {
+      const mid = (lo + hi) >> 1;
+      if (this.idxEntries[mid].fromSeq <= fromSeq) {
+        hit = this.idxEntries[mid];
+        lo = mid + 1;
+      } else {
+        hi = mid - 1;
+      }
+    }
+    if (!hit) return null;
+    // 目标超出该区间覆盖（在末区间之后）→ 未索引，回退逐行
+    if (fromSeq > hit.toSeq) return null;
+    return hit.byteOffset;
   }
 
   // ─── A-5 告警节流/熔断（2026-08-23）──────────────────────────────────────
@@ -689,6 +1023,15 @@ export class EventLogStorage {
     // 置于 exists 检查之前——即使文件损坏也需要先尝试修复再读取。
     await this.ensureRepairChecked();
 
+    // 内存画像（MEM_PROFILE=1）：读取入口采样（快照/全量扫描可能瞬时膨胀）
+    memProfile('eventlog-read:start', { sessionId: this.sessionId });
+
+    // A-2①：read 前 flush 缓冲正文——流进行中读路径也看到已入缓冲的正文
+    //（所见即所存；缓冲正文 seq 在 flush 时分配，先于任何后续直接 append）
+    if (this.textChunkBufferBytes > 0) {
+      await this.flushTextBuffer();
+    }
+
     if (!this.exists()) {
       return [];
     }
@@ -705,8 +1048,14 @@ export class EventLogStorage {
     //   ② 未命中且从头读（fromSeq<=1）→ 全量扫描建快照；超上限/失败置
     //      snapshotIneligible 回落到原路径，防每次重复全量扫描
     //   ③ 其余（分页续读 / 不可建快照）→ 原磁盘流式路径
+    // B0（2026-09-02）：快照可能为"最近窗口"（超限裁剪），仅覆盖
+    // [snapshotMinSeq, tail]——查询需要更早事件（fromSeq < snapshotMinSeq）时
+    // 窗口无法完整回答，回退磁盘路径（events.jsonl 本身全量保留，语义不变）。
     const snapshot = await this.getFreshSnapshot();
-    if (snapshot) {
+    const snapshotCovers =
+      snapshot !== null &&
+      (this.snapshotMinSeq === 0 || fromSeq >= this.snapshotMinSeq);
+    if (snapshotCovers) {
       return filterSnapshotEvents(snapshot, {
         fromSeq,
         toSeq,
@@ -716,27 +1065,46 @@ export class EventLogStorage {
       });
     }
     if (
+      snapshot === null &&
       fromSeq <= 1 &&
       !this.snapshotIneligible &&
       Date.now() >= this.snapshotCooldownUntil
     ) {
       const built = await this.buildSnapshot();
+      // 内存画像（MEM_PROFILE=1）：快照构建完成（深冻结事件常驻内存的真实成本点）
+      memProfile('eventlog:snapshot-built', {
+        sessionId: this.sessionId,
+        events: built?.length ?? 0,
+      });
       if (built) {
         this.eventsSnapshot = built;
-        return filterSnapshotEvents(built, {
-          fromSeq,
-          toSeq,
-          types,
-          excludeTypes,
-          limit,
-        });
+        // B0：build 结果可能是"最近窗口"（内存峰值受控）——若查询需要窗口
+        // 之外（更早）的事件，本次不返回，落入下方磁盘路径补全
+        if (this.snapshotMinSeq === 0 || fromSeq >= this.snapshotMinSeq) {
+          return filterSnapshotEvents(built, {
+            fromSeq,
+            toSeq,
+            types,
+            excludeTypes,
+            limit,
+          });
+        }
       }
     }
 
     const results: LiriEvent[] = [];
 
     try {
-      const rl = this.createReadlineInterface();
+      // P3-8（2026-09-02）：分页续读（fromSeq>1）优先用字节索引定位——
+      // O(N) 逐行扫描 → O(log N) 定位 + seek 段读。索引未覆盖（重启后未
+      // 折叠 / idx 落后 G-2）时 findIdxStartOffset 返回 null，回退从头逐行
+      // （既有 KB-EVENT-READ regex-skip 路径，语义不变）。
+      await this.ensureIdxLoaded();
+      const idxStart = fromSeq > 1 ? this.findIdxStartOffset(fromSeq) : null;
+      const rl = this.createReadlineInterface(
+        this.filePath,
+        idxStart ?? 0
+      );
       for await (const line of rl) {
         if (!line.trim()) continue;
         if (results.length >= limit) break;
@@ -884,10 +1252,18 @@ export class EventLogStorage {
       this.tailSeq = maxSeq;
       await this.writePersistedTailSeq(maxSeq);
       // P1-2：物理裁剪后事件集合已变，快照失效（并允许重新评估快照资格）
-      this.eventsSnapshot = null;
-      this.snapshotIneligible = false;
-      this.snapshotBytes = 0;
-      this.snapshotCooldownUntil = 0;
+      this.clearSnapshotCache();
+      // P3-8（2026-09-02）：字节索引作废（F-1）——trim 物理重写文件，旧偏移
+      // 全部失效。idxLoaded 置 false 使下次 ensureIdxLoaded 重新对齐
+      // idxBytesTotal = trim 后文件实际大小（append-only 偏移累计自此处续）。
+      this.idxEntries = [];
+      this.idxTailSeq = 0;
+      this.idxBatchCount = 0;
+      this.idxBatchStartSeq = 0;
+      this.idxBatchStartOffset = 0;
+      this.idxBytesTotal = 0;
+      this.idxLoaded = false;
+      await fs.rm(this.idxFilePath, { force: true }).catch(() => {});
       logger.info('event-log: 事件日志物理裁剪完成', {
         sessionId: this.sessionId,
         beforeSeq,
@@ -970,10 +1346,7 @@ export class EventLogStorage {
       target.tailSeqInitialized = true;
       await target.writePersistedTailSeq(maxCopiedSeq);
       // P1-2：目标文件被整体覆盖（原子写），其快照失效
-      target.eventsSnapshot = null;
-      target.snapshotIneligible = false;
-      target.snapshotBytes = 0;
-      target.snapshotCooldownUntil = 0;
+      target.clearSnapshotCache();
 
       logger.info('event-log: copyPrefix 完成', {
         sessionId: this.sessionId,
@@ -1108,6 +1481,78 @@ export class EventLogStorage {
   }
 
   /**
+   * P1-2：清空快照缓存（各失效点统一入口）。
+   *
+   * B0（2026-09-02）新增：同步重置窗口元数据（snapshotMinSeq / snapshotCosts），
+   * 保证"快照非空 ⇒ 元数据一致"的不变量。
+   */
+  private clearSnapshotCache(): void {
+    this.eventsSnapshot = null;
+    this.snapshotIneligible = false;
+    this.snapshotBytes = 0;
+    this.snapshotCooldownUntil = 0;
+    this.snapshotMinSeq = 0;
+    this.snapshotCosts = [];
+  }
+
+  /**
+   * B-2（2026-09-02，v4 §6.2 / D2 ①）：热层事件窗口预算 = min(配置上限, HOT=10K)。
+   * 小会话（≤10K 事件）全量覆盖；大会话热窗口收敛至 ≤10K，更早历史走 events.idx。
+   */
+  private snapshotEventBudget(): number {
+    return Math.min(this.maxSnapshotEvents, SNAPSHOT_HOT_EVENTS);
+  }
+
+  /**
+   * B0（2026-09-02，v4 方案 §6.2）：滑动窗口裁剪——超限时保留最近事件、
+   * 丢弃更早，而非整体清空。
+   *
+   * 自尾向前按成本数组累计，直到（字节 或 条数）预算内；至少保留 1 条
+   * （单事件超预算的极端场景退化为"仅最近一条"，不会死循环清空）。
+   * 裁剪后置冷却（B-3），防"超限→裁剪→再写入→再超限"逐条反复。
+   */
+  private trimSnapshotToFit(): void {
+    const arr = this.eventsSnapshot;
+    if (!arr) return;
+    const costs = this.snapshotCosts;
+    // 防御：成本数组与快照严格并行（push/裁剪/清空同点），万一失配按全量重算
+    if (costs.length !== arr.length) {
+      let bytes = 0;
+      for (let i = 0; i < arr.length; i++) {
+        const c = JSON.stringify(arr[i]).length + 1;
+        if (costs.length === i) costs.push(c);
+        else costs[i] = c;
+        bytes += c;
+      }
+      costs.length = arr.length;
+      this.snapshotBytes = bytes;
+    }
+    let keepBytes = 0;
+    let keep = 0;
+    for (let i = arr.length - 1; i >= 0; i--) {
+      const c = costs[i];
+      if (
+        keep > 0 &&
+        (keepBytes + c > this.maxSnapshotBytes ||
+          keep >= this.snapshotEventBudget())
+      ) {
+        break;
+      }
+      keepBytes += c;
+      keep++;
+    }
+    keep = Math.max(keep, 1);
+    if (keep >= arr.length) return; // 未超限（理论上不会到此处）
+    const start = arr.length - keep;
+    const droppedHead = arr[start] as LiriEvent;
+    this.eventsSnapshot = arr.slice(start);
+    this.snapshotCosts = costs.slice(start);
+    this.snapshotBytes = keepBytes;
+    this.snapshotMinSeq = droppedHead.seq;
+    this.snapshotCooldownUntil = Date.now() + SNAPSHOT_COOLDOWN_MS;
+  }
+
+  /**
    * P1-2（2026-08-30）：读取事件快照（新鲜度校验通过才返回）
    *
    * 新鲜度判定（P0-2 + P1-A 修正，v3）：
@@ -1136,6 +1581,8 @@ export class EventLogStorage {
       this.eventsSnapshot = null;
       this.snapshotBytes = 0;
       this.snapshotIneligible = false;
+      this.snapshotMinSeq = 0;
+      this.snapshotCosts = [];
       this.snapshotCooldownUntil = Date.now() + SNAPSHOT_COOLDOWN_MS;
       return null;
     }
@@ -1173,7 +1620,8 @@ export class EventLogStorage {
   /**
    * P1-2（2026-08-30）：全量扫描建快照（对齐 read() 的解析/校验/冻结语义，不递归调 read）
    *
-   * - 双上限（P1-7）：事件条数 or 累计字节超限 → 永久 ineligible（事件只会更多）
+   * - 双上限（P1-7/B0 2026-09-02）：事件条数 or 累计字节超限 → 滑动窗口保留最近、
+   *   丢弃更早（快照非空；内存峰值 ≈ 预算内）。不再整体清空 + 永久 ineligible。
    * - tailSeq 只前进不回退（P0-1）
    * - 扫描期间 append 竞态（P1-A）→ 本次快照作废 + 冷却，由下次 read 重建
    * - IO 失败 → 冷却重试，不永久禁用（P1-5）
@@ -1182,19 +1630,41 @@ export class EventLogStorage {
    */
   private async buildSnapshot(): Promise<LiriEvent[] | null> {
     try {
+      // B0（2026-09-02，v4 §6.2）：环形窗口——大会话事件总量可远超预算，若先
+      // 全量收集再裁剪会先撑爆内存（P3-7f 单会话 3.4GB 场景）。解析过程中即时
+      // 从头部淘汰，内存峰值 ≈ 预算内，超限会话仍保留"最近 N"热窗口（而非
+      // 旧实现的永久 ineligible + 整体清空，后续读全部回退全量磁盘扫描）。
       const events: LiriEvent[] = [];
-      let bytes = 0;
+      const costs: number[] = []; // 与 events 严格并行（line.length，UTF-16）
+      let head = 0; // 窗口起点（events[head..] 为有效区）
+      let bytes = 0; // 窗口内累计字节
+      let windowed = false;
+      const push = (event: LiriEvent, cost: number): void => {
+        events.push(event);
+        costs.push(cost);
+        bytes += cost;
+        // 至少保留 1 条（单事件超预算不空窗）
+        while (
+          events.length - head > 1 &&
+          (events.length - head > this.snapshotEventBudget() ||
+            bytes > this.maxSnapshotBytes)
+        ) {
+          bytes -= costs[head];
+          head++;
+          windowed = true;
+        }
+      };
       const rl = this.createReadlineInterface();
       for await (const line of rl) {
         if (!line.trim()) continue;
-        bytes += line.length;
+        const lineLen = line.length;
         try {
           const event = JSON.parse(line) as unknown;
           if (!isLiriEvent(event)) continue;
           const readable = assertEventReadable(event);
           if (!readable.ok) continue;
           sanitizeEvent(event);
-          events.push(event);
+          push(event, lineLen);
         } catch {
           // 损坏行：按 JSON 边界拆分恢复（与 read() 原路径一致）
           for (const obj of splitJsonLine(line)) {
@@ -1202,27 +1672,28 @@ export class EventLogStorage {
             const readable = assertEventReadable(obj);
             if (!readable.ok) continue;
             sanitizeEvent(obj);
-            events.push(obj);
+            push(obj, lineLen);
           }
         }
-        if (
-          events.length > this.maxSnapshotEvents ||
-          bytes > this.maxSnapshotBytes
-        ) {
-          this.snapshotIneligible = true;
-          logger.debug('event-log: 会话事件超快照上限，禁用快照', {
-            sessionId: this.sessionId,
-            maxEvents: this.maxSnapshotEvents,
-            maxBytes: this.maxSnapshotBytes,
-            events: events.length,
-            bytes,
-          });
-          return null;
-        }
       }
-      if (events.length === 0) return null;
-      events.sort((a, b) => a.seq - b.seq);
-      const snapTail = events[events.length - 1].seq;
+      if (head >= events.length) return null;
+      // 窗口/全量取活跃区，events 与 costs 同步裁剪保持并行
+      const active = windowed ? events.slice(head) : events;
+      const activeCosts = windowed ? costs.slice(head) : costs;
+      if (active.length === 0) return null;
+      // 稳定排序（append-only 下文件序 ≈ seq 序；防御乱序行），成本数组随动
+      const order = active.map((_, i) => i);
+      order.sort(
+        (a, b) => (active[a].seq - active[b].seq) || (a - b)
+      );
+      const sorted = order.every((v, i) => v === i);
+      const finalEvents = sorted
+        ? active
+        : order.map((i) => active[i]);
+      const finalCosts = sorted
+        ? activeCosts
+        : order.map((i) => activeCosts[i]);
+      const snapTail = finalEvents[finalEvents.length - 1].seq;
       // P2-E：可注入挂起点（扫描后-提交前），测试构造"扫描期间 append"竞态
       if (this.snapshotPreCommitHook) {
         await this.snapshotPreCommitHook();
@@ -1243,14 +1714,17 @@ export class EventLogStorage {
         this.tailSeqInitialized = true;
       }
       this.snapshotBytes = bytes;
-      return events;
+      this.snapshotCosts = finalCosts;
+      // B0：窗口化时记录窗口首事件 seq（0 = 覆盖全量）；下次增量超限可 O(1) 裁剪
+      this.snapshotMinSeq = windowed ? (finalEvents[0] as LiriEvent).seq : 0;
+      return finalEvents;
     } catch (e) {
       await handleError(e, {
         module: 'session:event-log',
         action: 'buildSnapshot',
         context: { sessionId: this.sessionId },
       }).catch(() => {});
-      // P1-5：IO 失败走冷却重试，不永久禁用（区别于超上限的永久 ineligible）
+      // P1-5：IO 失败走冷却重试，不永久禁用
       this.snapshotCooldownUntil = Date.now() + SNAPSHOT_COOLDOWN_MS;
       return null;
     }
@@ -1260,9 +1734,19 @@ export class EventLogStorage {
    * 创建 readline 接口
    *
    * 封装为内部方法便于测试 mock
+   *
+   * P3-8（2026-09-02）：支持 seek 起点——read 分页续读命中字节索引时从
+   * `byteOffset` 起流式读（跳过文件头 O(N) 行扫描）；默认从头读（start=0）。
+   * 文件参数化以支持 .idx 索引文件解析。
    */
-  private createReadlineInterface(): readline.Interface {
-    const stream = createReadStream(this.filePath, { encoding: 'utf-8' });
+  private createReadlineInterface(
+    file: string = this.filePath,
+    start: number = 0
+  ): readline.Interface {
+    const stream = createReadStream(file, {
+      encoding: 'utf-8',
+      ...(start > 0 ? { start } : {}),
+    });
     return readline.createInterface({
       input: stream,
       crlfDelay: Infinity,
@@ -1426,7 +1910,20 @@ export class EventLogStorage {
       let lineStart = 0;
       let sawTorn = false;
 
-      for (let i = 0; i < text.length; i++) {
+      // KB-TORN-CUT（2026-09-02 根因修复，P3-8 测试暴露）：读的是"文件末尾 64KB
+      // 块"（stat.size-64KB 起），块起点可能切在多字节 UTF-8 字符**中间** → 块首
+      // "行"是上一行内容的尾部残片，JSON.parse 必失败——若参与 torn 判定会把正常
+      // 文件误报 torn，导致 commitTornRepair 截断删除末尾完整事件（实测中文长文件
+      // 600 行被误删 29 行，newTailSeq 回退到 571）。块起点非文件开头时，跳过
+      // 首残缺行（推进到第一个 \n 之后）再开始判定。
+      if (stat.size > tailSize) {
+        const firstNl = text.indexOf('\n');
+        if (firstNl >= 0) {
+          lineStart = firstNl + 1;
+        }
+      }
+
+      for (let i = lineStart; i < text.length; i++) {
         if (text[i] === '\n') {
           const line = text.slice(lineStart, i);
           const trimmed = line.trim();
@@ -1494,10 +1991,7 @@ export class EventLogStorage {
       this.tailSeqInitialized = false;
       this.maxTurn = null;
       // P1-2：文件被截断，快照失效
-      this.eventsSnapshot = null;
-      this.snapshotIneligible = false;
-      this.snapshotBytes = 0;
-      this.snapshotCooldownUntil = 0;
+      this.clearSnapshotCache();
       const realTail = await this.getTailSeq(true);
       logger.warn('event-log: torn tail 已截断修复', {
         sessionId: this.sessionId,

@@ -23,6 +23,8 @@ export class MCPToolBridge {
   private registeredMcpTools: Map<string, Tool> = new Map();
   /** T2.1-MCP（§3.1 关联点2）：已广播工具集变更的服务器集合（用于注销时 withdraw） */
   private registeredServers: Set<string> = new Set();
+  /** W5：服务器级注册 disposer 列表（对齐 skill/plugin EffectScope，注销按 LIFO 逆序执行） */
+  private disposers: Array<() => void> = [];
   private initialized = false;
 
   /**
@@ -62,21 +64,23 @@ export class MCPToolBridge {
 
   /**
    * 注册单个服务器的工具
+   * @returns disposer：注销该服务器的全部工具（逆序清理，对齐 EffectScope）
    */
   private registerServerTools(
     serverName: string,
     serializedTools: any[]
-  ): void {
+  ): () => void {
     if (!serializedTools || serializedTools.length === 0) {
-      return;
+      return () => {};
     }
 
     const server = mcpConnectionManager.getServer(serverName);
     if (!server || server.type !== 'connected') {
-      return;
+      return () => {};
     }
 
     const client = (server as any).client;
+    const names: string[] = [];
 
     for (const toolData of serializedTools) {
       const wrapper = new McpToolWrapper(serverName, toolData, () => {
@@ -87,6 +91,7 @@ export class MCPToolBridge {
         return undefined;
       });
 
+      names.push(wrapper.name);
       this.registeredMcpTools.set(wrapper.name, wrapper);
       getToolManager().registerTool(wrapper);
 
@@ -111,6 +116,21 @@ export class MCPToolBridge {
       `mcp:tools:${serverName}`,
       serializedTools.map((t) => (t as { name: string }).name)
     );
+
+    const disposer = (): void => {
+      for (const name of names) {
+        const wrapper = this.registeredMcpTools.get(name);
+        if (wrapper) {
+          getToolManager().unregisterTool(name);
+          this.registeredMcpTools.delete(name);
+        }
+      }
+      mcpToolRegistry.unregisterServer(serverName);
+      dependencyRegistry.withdraw(`mcp:tools:${serverName}`);
+      this.registeredServers.delete(serverName);
+    };
+    this.disposers.push(disposer);
+    return disposer;
   }
 
   /**
@@ -131,21 +151,14 @@ export class MCPToolBridge {
   }
 
   /**
-   * 从ToolManager注销所有MCP工具
+   * 从ToolManager注销所有MCP工具（逆序执行注册 disposer，LIFO 对齐 EffectScope）
    */
   private unregisterAllTools(): void {
-    for (const [name] of this.registeredMcpTools) {
-      getToolManager().unregisterTool(name);
+    while (this.disposers.length > 0) {
+      const disposer = this.disposers.pop();
+      disposer?.();
     }
     this.registeredMcpTools.clear();
-
-    // T2.1-MCP（§3.1 关联点2）：注销对应服务器的工具集变更广播
-    // 并同步清理 mcpToolRegistry（修复：注册时同步写入（registerServerTools），注销时必须同步清理，
-    // 否则 refreshAllTools 反复调用会残留旧工具定义）
-    for (const serverName of this.registeredServers) {
-      dependencyRegistry.withdraw(`mcp:tools:${serverName}`);
-      mcpToolRegistry.unregisterServer(serverName);
-    }
     this.registeredServers.clear();
   }
 

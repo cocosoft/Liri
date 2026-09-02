@@ -25,7 +25,13 @@ import { v4 as uuidv4 } from 'uuid';
 
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
+import { checkSsrf } from './ssrf.js';
 const logger = getLogger('tools:WebFetchTool:WebFetchTool');
+
+/** 手动重定向最多跳数（对标 RemoteSkillHubAdapter httpGetText 的 3 跳限制） */
+const MAX_REDIRECT_HOPS = 3;
+/** 需要手动跟随并逐跳 SSRF 校验的状态码 */
+const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
 
 /**
  * WebFetch 输入模式
@@ -193,6 +199,34 @@ export class WebFetchTool extends BaseTool {
         });
       }
 
+      // SSRF 防护（对标 Hermes url_safety）：云元数据/内网/回环/链路本地地址一律拦截
+      const ssrfResult = await checkSsrf(url);
+      if (ssrfResult.blocked) {
+        logger.warn('WebFetch 被 SSRF 拦截', { url, reason: ssrfResult.reason });
+        onProgress?.({
+          toolUseID: context.toolUseId || 'web-fetch-tool',
+          data: {
+            type: 'web_fetch',
+            url,
+            method,
+            error: `SSRF 拦截: ${ssrfResult.reason}`,
+            isRunning: false,
+            isComplete: true,
+          },
+        });
+        return createToolResult(
+          `该 URL 因安全策略被拦截（SSRF）：${ssrfResult.reason}`,
+          {
+            newMessages: [
+              {
+                role: 'system',
+                content: `Error: URL blocked by SSRF protection: ${ssrfResult.reason}`,
+              },
+            ],
+          }
+        );
+      }
+
       // 报告开始执行
       onProgress?.({
         toolUseID: context.toolUseId || 'web-fetch-tool',
@@ -205,9 +239,6 @@ export class WebFetchTool extends BaseTool {
         },
       });
 
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), timeout);
-
       const fetchOptions: RequestInit = {
         method,
         headers: {
@@ -217,7 +248,6 @@ export class WebFetchTool extends BaseTool {
           'Accept-Language': 'en-US,en;q=0.5',
           ...headers,
         },
-        signal: controller.signal,
       };
 
       if (body && ['POST', 'PUT', 'PATCH'].includes(method)) {
@@ -230,9 +260,7 @@ export class WebFetchTool extends BaseTool {
         }
       }
 
-      const response = await fetch(url, fetchOptions);
-
-      clearTimeout(timeoutId);
+      const response = await this.fetchWithRedirectGuard(url, fetchOptions, timeout);
 
       const status = response.status;
       const statusText = response.statusText;
@@ -384,6 +412,48 @@ export class WebFetchTool extends BaseTool {
       return ['http:', 'https:'].includes(parsed.protocol);
     } catch {
       return false;
+    }
+  }
+
+  /**
+   * SSRF 防护的 fetch：重定向手动处理，逐跳校验目标 URL。
+   *
+   * fetch 默认 redirect: 'follow' 会静默跟随任意跳转——公共 URL 302 到
+   * 内网/云元数据（169.254.169.254 等）即被打穿。改为 manual 后每跳
+   * 重新执行 checkSsrf，再校验通过才继续（对标 Hermes _ssrf_redirect_guard）。
+   */
+  private async fetchWithRedirectGuard(
+    url: string,
+    options: RequestInit,
+    timeoutMs: number
+  ): Promise<Response> {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      let currentUrl = url;
+      for (let hop = 0; hop <= MAX_REDIRECT_HOPS; hop++) {
+        const response = await fetch(currentUrl, {
+          ...options,
+          signal: controller.signal,
+          redirect: 'manual',
+        });
+        if (!REDIRECT_STATUSES.has(response.status)) {
+          return response;
+        }
+        // 排空重定向响应体，释放连接（undici 要求）
+        await response.text().catch(() => {});
+        const location = response.headers.get('location');
+        if (!location) break;
+        const nextUrl = new URL(location, currentUrl).href;
+        const redirectCheck = await checkSsrf(nextUrl);
+        if (redirectCheck.blocked) {
+          throw new Error(`重定向目标被 SSRF 拦截：${redirectCheck.reason}`);
+        }
+        currentUrl = nextUrl;
+      }
+      throw new Error(`重定向次数超过限制（最多 ${MAX_REDIRECT_HOPS} 跳）`);
+    } finally {
+      clearTimeout(timeoutId);
     }
   }
 

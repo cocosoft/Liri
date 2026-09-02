@@ -8,6 +8,7 @@ import { TaskPriority } from './types';
 import type { ManagedProcess } from './ProcessManager';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { sleepMonitor, SLEEP_EVENTS } from '@modules/core';
+import { checkEstop } from '@modules/core/estop/estop.js';
 import { globalEventBus } from '../core/events/EventBus';
 import { broadcastEvent } from '@modules/infrastructure';
 import type { EventSubscription } from '../core/events/EventBus';
@@ -77,6 +78,11 @@ export class CronBridge implements ManagedProcess {
             '[CronBridge] 检测到系统休眠，暂停 cron 触发（等待用户决策）'
           );
         }
+        return;
+      }
+
+      // P3-4（2026-09-02）：全局急停——暂停 cron 触发（对标 Hermes estop：跳过 dispatch）
+      if (checkEstop('cron')) {
         return;
       }
 

@@ -837,6 +837,11 @@ function checkSingletonInstance(): void {
     void Promise.allSettled([
       gracefulChannelShutdown(),
       gracefulLlamaShutdown(),
+      // 优雅退出（2026-09-02 排查"会话中断"补充）：先 flush 全会话事件缓冲
+      // （text-batch 落盘），避免 watch 重启/Ctrl+C 中断在途会话留下 torn/open-turn
+      import('./chat/ChatManager.js')
+        .then((m) => m.flushAllEventBuffers())
+        .catch(() => 0),
     ]).then(() => flush().finally(() => process.exit(0)));
   });
   process.on('SIGTERM', () => {
@@ -845,6 +850,11 @@ function checkSingletonInstance(): void {
     void Promise.allSettled([
       gracefulChannelShutdown(),
       gracefulLlamaShutdown(),
+      // 优雅退出（2026-09-02 排查"会话中断"补充）：先 flush 全会话事件缓冲
+      // （text-batch 落盘），避免 watch 重启/Ctrl+C 中断在途会话留下 torn/open-turn
+      import('./chat/ChatManager.js')
+        .then((m) => m.flushAllEventBuffers())
+        .catch(() => 0),
     ]).then(() => flush().finally(() => process.exit(0)));
   });
 }

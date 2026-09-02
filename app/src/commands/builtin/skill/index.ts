@@ -30,12 +30,13 @@ import { FileSkillLoader } from '@modules/skills/loaders/sources/FileSkillLoader
 import { PluginSkillLoader } from '@modules/skills/loaders/sources/PluginSkillLoader.js';
 import { MCPSkillLoader } from '@modules/skills/loaders/sources/MCPSkillLoader.js';
 import { BundledSkillLoader } from '@modules/skills/loaders/sources/BundledSkillLoader.js';
+import { collectSkillsFromProviders } from '@modules/skills/loaders/SkillProvider.js';
 import { resolveUserSkillsDir, resolveDataDir } from '@modules/core';
 
-/** 加载所有技能到注册表 */
+/** 加载所有技能到注册表（统一经 SkillProvider 契约聚合，顺序语义与原 loaders 数组一致） */
 async function loadAllSkills(): Promise<SkillRegistry> {
   const registry = new SkillRegistry();
-  const loaders = [
+  const providers = [
     new BundledSkillLoader(),
     new FileSkillLoader({
       directories: [resolveUserSkillsDir()],
@@ -50,10 +51,11 @@ async function loadAllSkills(): Promise<SkillRegistry> {
     new PluginSkillLoader(),
     new MCPSkillLoader(),
   ];
-  const results = await Promise.all(loaders.map((l) => l.loadSkills()));
-  for (const skills of results) {
-    registry.registerBatch(skills);
-  }
+  const skills = await collectSkillsFromProviders(providers, {
+    // L1：显式启用 rank 语义（低 rank 优先），与数组顺序解耦；当前顺序等价，行为不变
+    sortByRank: true,
+  });
+  registry.registerBatch(skills);
   return registry;
 }
 

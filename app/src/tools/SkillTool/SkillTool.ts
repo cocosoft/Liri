@@ -24,6 +24,8 @@ import type {
 import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { getSkillRegistryLazy } from './skillRegistryAccess';
+import { skillUsageTracker } from '@modules/skills/services/SkillUsageTracker';
+import { getToolRegistry } from '@modules/tools/ToolRegistry';
 const logger = getLogger('tools:SkillTool:SkillTool');
 
 /**
@@ -290,6 +292,21 @@ export class SkillTool implements Tool {
 
     const skill = this.skills.get(input.name as string);
     if (!skill) {
+      // P3-7b（2026-09-02）：技能不存在但同名系统工具存在 → 引导直接调用工具。
+      // 实测：模型反复用 Skill 包装 todo_write（工具）→ "Skill 'todo_write' not found"，
+      // 4 个会话反复发生、单会话最多 4 次，导致任务卡壳。返回引导错误让模型直接
+      // 调用同名工具，而非继续 Skill 包装。
+      const sameNameTool = getToolRegistry().getTool(input.name as string);
+      if (sameNameTool) {
+        const paramNames =
+          sameNameTool.params
+            ?.map((p) => p.name)
+            .filter((n): n is string => typeof n === 'string') ?? [];
+        return {
+          result: false,
+          message: `Skill '${input.name}' not found — '${input.name}' 是系统工具，请直接调用该工具（无需 Skill 包装）。可用参数：${JSON.stringify(paramNames)}`,
+        };
+      }
       return { result: false, message: `Skill '${input.name}' not found` };
     }
 
@@ -466,6 +483,8 @@ export class SkillTool implements Tool {
       )();
 
       this.activeExecutions.get(executionId)!.status = 'completed';
+      // P2-2（2026-09-02）：技能使用遥测——执行成功才计数（对标 hermes skill_usage bump_use）
+      void skillUsageTracker.bumpUse(skill.name);
 
       return {
         status: ToolExecutionStatus.SUCCESS,

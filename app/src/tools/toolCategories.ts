@@ -37,6 +37,7 @@ export type ToolCategory =
   | 'channel' // 通道/广播
   | 'calendar' // 日历
   | 'mail' // 邮件
+  | 'knowledge' // 知识库（保存/搜索/写入/导入导出）
   | 'misc'; // 未分类（保底保留）
 
 /** 工具名 → 类别映射（覆盖运行时内置 + 模块注册工具） */
@@ -59,11 +60,14 @@ export const TOOL_CATEGORIES: Record<string, ToolCategory> = {
   lsp: 'code',
   create_project: 'code',
 
-  // ── search 搜索 ──
+  // ── search 搜索（含技能发现/加载：tool_search 同链） ──
   grep: 'search',
   web_search: 'search',
   tool_search: 'search',
   search_codebase: 'search',
+  Skill: 'search',
+  skill_view: 'search',
+  skills_list: 'search',
 
   // ── network 网络 ──
   web_fetch: 'network',
@@ -159,6 +163,16 @@ export const TOOL_CATEGORIES: Record<string, ToolCategory> = {
   // ── mail 邮件 ──
   'mail:send': 'mail',
 
+  // ── knowledge 知识库（保存/搜索/管理） ──
+  knowledge_save: 'knowledge',
+  knowledge_search: 'knowledge',
+  knowledge_write: 'knowledge',
+  knowledge_delete: 'knowledge',
+  knowledge_import: 'knowledge',
+  knowledge_export: 'knowledge',
+  knowledge_restore: 'knowledge',
+  knowledge_snapshots: 'knowledge',
+
   // ── misc 其他（有实质用途但不宜默认裁剪） ──
   canvas: 'misc',
   clipboard: 'misc',
@@ -169,7 +183,6 @@ export const TOOL_CATEGORIES: Record<string, ToolCategory> = {
   mcp_resource: 'misc',
   ListMcpResources: 'misc',
   ReadMcpResource: 'misc',
-  Skill: 'misc',
 };
 
 /**
@@ -189,7 +202,7 @@ export function getToolCategory(toolName: string): ToolCategory {
  * 未列出的任务类型 → 回退 `default` 保底集。
  */
 export const TASK_TOOL_CATEGORIES: Record<string, ToolCategory[]> = {
-  // 日常对话：轻量只读为主（文件读、搜索、网络、交互、会话、系统）
+  // 日常对话：轻量只读为主（文件读、搜索、网络、交互、会话、知识库、系统）
   chat: [
     'file',
     'file_read',
@@ -197,6 +210,7 @@ export const TASK_TOOL_CATEGORIES: Record<string, ToolCategory[]> = {
     'network',
     'interaction',
     'session',
+    'knowledge',
     'system',
   ],
   // 通用兜底（与 chat 一致，避免裁剪后无工具）
@@ -207,13 +221,14 @@ export const TASK_TOOL_CATEGORIES: Record<string, ToolCategory[]> = {
     'network',
     'interaction',
     'session',
+    'knowledge',
     'system',
   ],
   // 简单问答/摘要：最轻量
   quick: ['search', 'network', 'system'],
   // 翻译润色：文件读 + 轻量
   translation: ['file', 'file_read', 'search', 'system'],
-  // 编码：文件 + 终端 + 代码 + 搜索 + 网络 + 任务 + 系统
+  // 编码：文件 + 终端 + 代码 + 搜索 + 网络 + 知识库 + 任务 + 系统
   coding: [
     'file',
     'file_read',
@@ -221,6 +236,7 @@ export const TASK_TOOL_CATEGORIES: Record<string, ToolCategory[]> = {
     'code',
     'search',
     'network',
+    'knowledge',
     'task',
     'system',
   ],
@@ -232,6 +248,7 @@ export const TASK_TOOL_CATEGORIES: Record<string, ToolCategory[]> = {
     'code',
     'search',
     'network',
+    'knowledge',
     'task',
     'agent',
     'session',

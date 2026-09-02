@@ -114,7 +114,14 @@ export class KnowledgeBaseWriter {
         const existing = await readFile(filePath, 'utf-8');
         const existingContent = this.stripFrontmatter(existing);
 
-        if (existingContent.trim() === entry.content.trim()) {
+        // P5（2026-09-01）：内容归一化比较——模型常对同一文档做"格式微调"
+        // （正文开头加 "# {title}" 标题、增删空行/空格）触发 updated 反复覆盖
+        // 文件（实测 25-30 轮 skipped↔updated 交替）。剥离同名标题前缀 + 去空白后
+        // 实质相同 → 视为 skipped（不覆盖），防文件被格式微调污染。
+        if (
+          normalizeForCompare(existingContent, entry.title) ===
+          normalizeForCompare(entry.content, entry.title)
+        ) {
           return { success: true, filePath, action: 'skipped' };
         }
 
@@ -283,6 +290,23 @@ export class KnowledgeBaseWriter {
     }
     return content.trim();
   }
+}
+
+/**
+ * 内容归一化（2026-09-01 P5）：用于去重比较。
+ * 剥离与标题同名的首行 Markdown 标题（模型微调时常见：正文开头加 "# {title}"），
+ * 再去除全部空白——格式微调后实质相同的文档判定为重复（skipped 不覆盖）。
+ */
+function normalizeForCompare(content: string, title: string): string {
+  let text = content.trim();
+  const lines = text.split('\n');
+  if (lines.length > 1 && lines[0]) {
+    const firstLineTitle = lines[0].trim().replace(/^#+\s*/, '');
+    if (firstLineTitle && firstLineTitle === title.trim()) {
+      text = lines.slice(1).join('\n').trim();
+    }
+  }
+  return text.replace(/\s+/g, '');
 }
 
 export function createKnowledgeBaseWriter(

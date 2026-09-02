@@ -7,6 +7,9 @@ import type { StreamChunk } from '../types';
 
 /**
  * 支持的思考标签名（内容需要被擦除）
+ * 含 XML 工具调用格式标签：模型偶发输出 Claude/Anthropic 风格 tool_calls
+ * （<invoke>/<parameter>/</tool_calls> 等），非本系统 JSON schema，作为协议
+ * 装饰整块擦除（2026-09-01 P1：修复 XML 残渣泄露到正文）。
  */
 export const THINK_TAG_NAMES = [
   'think',
@@ -16,6 +19,13 @@ export const THINK_TAG_NAMES = [
   'reflection',
   'analysis',
   'internal',
+  // XML 工具调用格式标签（Claude 风格，整块擦除）
+  'tool_calls',
+  'function_calls',
+  'invoke',
+  'parameter',
+  'tool_name',
+  'tool_use',
 ] as const;
 
 /**
@@ -57,13 +67,19 @@ function buildTagPatterns(): {
 
 /**
  * 检查是否为不完整的标签开始
+ * 覆盖流式半截前缀（如 '<invo' 是 '<invoke' 的前缀，2026-09-01 P1 修复）。
  */
 function isIncompleteOpenTag(
   remaining: string,
   tagNames: readonly string[]
 ): boolean {
   for (const tagName of tagNames) {
-    if (remaining.startsWith(`<${tagName}`) && !remaining.includes('>')) {
+    const openPrefix = `<${tagName}`;
+    if (remaining.startsWith(openPrefix) && !remaining.includes('>')) {
+      return true;
+    }
+    // 流式进行中：tagName 尚未完整输出
+    if (remaining.length < openPrefix.length && openPrefix.startsWith(remaining)) {
       return true;
     }
   }
@@ -72,13 +88,19 @@ function isIncompleteOpenTag(
 
 /**
  * 检查是否为不完整的标签结束
+ * 覆盖流式半截前缀（如 '</invo' 是 '</invoke' 的前缀）。
  */
 function isIncompleteCloseTag(
   remaining: string,
   tagNames: readonly string[]
 ): boolean {
   for (const tagName of tagNames) {
-    if (remaining.startsWith(`</${tagName}`) && !remaining.includes('>')) {
+    const closePrefix = `</${tagName}`;
+    if (remaining.startsWith(closePrefix) && !remaining.includes('>')) {
+      return true;
+    }
+    // 流式进行中：tagName 尚未完整输出
+    if (remaining.length < closePrefix.length && closePrefix.startsWith(remaining)) {
       return true;
     }
   }
@@ -143,6 +165,14 @@ export class StreamingThinkScrubber {
           continue;
         }
 
+        // 孤立闭合标签（无配对开标签，如模型中途输出 </parameter>/</invoke> 残渣）
+        // 2026-09-01 P1：否则单边闭合标签会作为普通文本泄露到正文。
+        const orphanCloseMatch = remaining.match(this.thinkClosePattern);
+        if (orphanCloseMatch && orphanCloseMatch.index === 0) {
+          i += orphanCloseMatch[0].length - 1;
+          continue;
+        }
+
         // 检查响应标签开始（剥离模式，保留内容）
         const responseOpenMatch = remaining.match(this.responseOpenPattern);
         if (responseOpenMatch && responseOpenMatch.index === 0) {
@@ -161,6 +191,18 @@ export class StreamingThinkScrubber {
             ])
           ) {
             this.state.openTagBuffer = remaining;
+            return {
+              ...chunk,
+              content: result,
+              isComplete: chunk.isComplete,
+            };
+          }
+          // P3-7c（2026-09-02）：normal 模式同样缓存半截**闭合**标签（</、</tool、</para...）。
+          // 此前只检查开标签前缀——流式逐字符输出 "</tool_calls>" 时 "</"、"</tool" 等半截
+          // 闭合标签不匹配任何开标签前缀，被当作普通文本逐字泄露到正文（实测 seq 1302-1307）。
+          // 缓存后等待后续 chunk 拼成完整 </tool_calls>，由上方 orphanClose 分支整块剥离。
+          if (isIncompleteCloseTag(remaining, THINK_TAG_NAMES)) {
+            this.state.closeTagBuffer = remaining;
             return {
               ...chunk,
               content: result,

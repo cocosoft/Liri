@@ -34,6 +34,8 @@ import { WikiLinter, defaultRules } from './lint/WikiLinter';
 import { providerRegistry, modelRouter } from '@modules/ai';
 import { GraphExtractor } from './graph/GraphExtractor';
 import { KnowledgeGraph } from './graph/KnowledgeGraph';
+// 内存水位（2026-09-02）：非关键后台任务在压力下暂停（OS kswapd 式分级回收）
+import { isMemoryUnderPressure } from '../monitoring/memoryPressure/MemoryPressureMonitor.js';
 import {
   startCompileProgress,
   updateCompileProgress,
@@ -116,6 +118,16 @@ export class KnowledgeCompiler {
   private aiService: AIService;
   private indexManager: IndexManager;
   private graphExtractor?: GraphExtractor;
+  /**
+   * 图谱自动提取互斥（2026-09-02 排查"会话中断"补充）：编译可能被调度器/
+   * 用户多次触发叠加——若已有提取在进行，本次跳过避免后台任务堆积竞争事件循环
+   * 与内存（证据：agentic 运行期与图谱提取并发时 RSS 尖峰 2-4.4GB、GC STW 最长 13.9s）。
+   */
+  private graphExtractRunning = false;
+  /** 单次编译后图谱提取的页数上限（initial-build 全量重建防止无限排空） */
+  private static readonly GRAPH_EXTRACT_MAX_PAGES = 50;
+  /** 单页内容上限：超过则跳过提取（提取 prompt 仅用前 8000 字符，读入超大页纯属浪费内存） */
+  private static readonly GRAPH_EXTRACT_MAX_FILE_BYTES = 1024 * 1024;
 
   constructor(aiService: AIService, graphExtractor?: GraphExtractor) {
     this.knowledgeRoot = join(resolvePyappHome(), 'knowledge');
@@ -322,18 +334,58 @@ export class KnowledgeCompiler {
             ? (result.compiledFiles ?? [])
             : await this.collectExistingPages(rawFiles);
           if (pagesToExtract.length > 0) {
+            if (this.graphExtractRunning) {
+              logger.warn('图谱自动提取跳过：上一次提取仍在进行', {
+                pages: pagesToExtract.length,
+              });
+              return result;
+            }
+            // 内存压力（L1+）下暂停非关键后台提取（OS kswapd 式：压力期让位主任务）
+            if (isMemoryUnderPressure()) {
+              logger.warn('图谱自动提取跳过：内存水位压力中（后台任务让位）', {
+                pages: pagesToExtract.length,
+              });
+              return result;
+            }
+            this.graphExtractRunning = true;
             logger.info('开始图谱自动提取', {
               pages: pagesToExtract.length,
               mode: incremental ? 'incremental' : 'initial-build',
+              maxPages: KnowledgeCompiler.GRAPH_EXTRACT_MAX_PAGES,
             });
-            // 对页面进行图谱提取
-            for (const compiledFile of pagesToExtract) {
-              try {
-                const content = await readFile(compiledFile, 'utf-8');
-                await this.graphExtractor.extract(content, 'knowledge');
-              } catch {
-                // 单个文件提取失败不阻塞
+            try {
+              // 节流：上限页数（initial-build 全量重建防无限排空）
+              const limited = pagesToExtract.slice(
+                0,
+                KnowledgeCompiler.GRAPH_EXTRACT_MAX_PAGES
+              );
+              if (limited.length < pagesToExtract.length) {
+                logger.warn('图谱自动提取页数超上限，截断', {
+                  total: pagesToExtract.length,
+                  kept: limited.length,
+                });
               }
+              // 对页面进行图谱提取
+              for (const compiledFile of limited) {
+                try {
+                  // 节流：超大页跳过（提取 prompt 仅用前 8000 字符，
+                  // 全量读入巨页只会造成内存尖峰，与用户 agentic 任务竞争）
+                  const { size } = await stat(compiledFile);
+                  if (size > KnowledgeCompiler.GRAPH_EXTRACT_MAX_FILE_BYTES) {
+                    logger.warn('图谱提取跳过超大页面', {
+                      file: compiledFile,
+                      bytes: size,
+                    });
+                    continue;
+                  }
+                  const content = await readFile(compiledFile, 'utf-8');
+                  await this.graphExtractor!.extract(content, 'knowledge');
+                } catch {
+                  // 单个文件提取失败不阻塞
+                }
+              }
+            } finally {
+              this.graphExtractRunning = false;
             }
           }
         }

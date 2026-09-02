@@ -634,6 +634,7 @@ const en = {
     logViewerErrorFetchLogs: "Failed to fetch logs",
     logViewerErrorFetchSessions: "Failed to fetch sessions",
     logViewerErrorFetchCost: "Failed to fetch cost stats",
+    estop: "Emergency Stop (ESTOP)",
     oauth: "OAuth Auth",
     offline: "Offline",
     online: "Online",

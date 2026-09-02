@@ -5,6 +5,12 @@
 
 import { Skill, SkillSource, SkillLoadMethod } from '@modules/skills/types';
 import { SkillLoader } from '../SkillLoader';
+import {
+  SkillProvider,
+  SkillCandidate,
+  PROVIDER_RANK,
+  toCandidates,
+} from '../SkillProvider';
 import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('skills:bundledLoader');
@@ -560,7 +566,28 @@ Do NOT include extraneous files (README.md, CHANGELOG.md, INSTALLATION_GUIDE.md,
 /**
  * 内置技能加载器
  */
-export class BundledSkillLoader extends SkillLoader {
+export class BundledSkillLoader extends SkillLoader implements SkillProvider {
+  readonly name = 'bundled';
+
+  /**
+   * 列出内置技能候选（locator = Skill 本体）
+   */
+  async list(): Promise<SkillCandidate[]> {
+    return toCandidates(await this.loadSkills(), PROVIDER_RANK.BUILTIN);
+  }
+
+  /**
+   * 按候选返回完整技能（当前全量加载，直接返回 locator）
+   */
+  get(candidate: SkillCandidate): Promise<Skill | undefined> {
+    return Promise.resolve(candidate.locator as Skill);
+  }
+
+  /** 无内部缓存，预留契约 */
+  invalidate(): void {
+    // 当前加载器无缓存，无需失效
+  }
+
   async loadSkills(): Promise<Skill[]> {
     const loaded = bundledSkills.map(
       (def): Skill => ({

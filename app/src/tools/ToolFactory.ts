@@ -45,6 +45,7 @@ import { AgentTool } from './AgentTool/AgentTool';
 import { SkillTool } from './SkillTool/SkillTool';
 import { SkillListTool } from './SkillTool/SkillListTool';
 import { SkillViewTool } from './SkillTool/SkillViewTool';
+import { KnowledgeSaveTool } from './KnowledgeSaveTool/KnowledgeSaveTool';
 import { TaskStopTool } from './TaskTool/TaskStopTool';
 import {
   TaskCreateListTool,
@@ -449,6 +450,15 @@ export class ToolFactory {
    */
   createSkillViewTool(): Tool {
     return new SkillViewTool();
+  }
+
+  /**
+   * 创建知识库保存工具（knowledge_save，2026-09-01）
+   * 封装 KnowledgeBaseWriter（frontmatter/快照/去重/事件联动），模型结构化调用。
+   * @returns KnowledgeSaveTool实例
+   */
+  createKnowledgeSaveTool(): Tool {
+    return new KnowledgeSaveTool();
   }
 
   /**

@@ -68,6 +68,33 @@ const VCS_DIRS = new Set(['.git', '.svn', '.hg', '.bzr']);
 const MAX_RESULTS = 500;
 
 /**
+ * 全项目扫描时跳过的构建产物/备份/缓存目录（2026-09-01 P1）：
+ * 模型常以 searchPath:"." 扫项目根，target（Rust 产物 .dll）、
+ * _migration_backup（.db 备份）、dist 等目录文件多且多为二进制，
+ * 此前单次 grep 可长达 17-83s，直接阻塞互斥锁与整个工具循环。
+ */
+const SKIP_DIRS = new Set([
+  'target',
+  'dist',
+  'build',
+  'out',
+  'coverage',
+  '_migration_backup',
+  'backup',
+  'backups',
+  '__pycache__',
+  '.venv',
+  'venv',
+  '.tox',
+  'cache',
+  '.cache',
+  'tmp',
+  'temp',
+  'logs',
+  'node_modules',
+]);
+
+/**
  * 在指定目录中搜索匹配正则表达式的文件内容。
  * * @param options - 搜索配置选项
  * @param options.searchPath - 要搜索的根目录路径，默认为当前工作目录；若为文件路径则自动降级为单文件搜索
@@ -290,7 +317,7 @@ async function searchDirAsync(
 
     const fullPath = path.join(dir, entry.name);
     if (entry.isDirectory()) {
-      if (entry.name === 'node_modules') continue;
+      if (SKIP_DIRS.has(entry.name)) continue;
       await searchDirAsync(fullPath, regex, options, results, maxTotal);
     } else if (entry.isFile()) {
       if (options.include && !matchGlob(entry.name, options.include)) continue;
@@ -346,7 +373,7 @@ function searchDir(
 
     const fullPath = path.join(dir, entry.name);
     if (entry.isDirectory()) {
-      if (entry.name === 'node_modules') continue;
+      if (SKIP_DIRS.has(entry.name)) continue;
       searchDir(fullPath, regex, options, results, maxTotal);
     } else if (entry.isFile()) {
       if (options.include && !matchGlob(entry.name, options.include)) continue;
@@ -377,6 +404,9 @@ function searchFile(
     const stat = fs.statSync(filePath);
     // 跳过大小超过 1MB 的文件，避免处理过大文件导致性能问题
     if (stat.size > 1024 * 1024) return;
+    // 2026-09-01 P1：跳过二进制文件（含 NUL 字节）——.db/.dll/.exe 等被
+    // 当文本读取匹配既慢又产生误报（曾匹配到 _migration_backup\app.db）
+    if (looksBinary(filePath)) return;
 
     const nativeRead = lazyInitNativeRead();
     let fileContent: string;
@@ -412,6 +442,25 @@ function searchFile(
     }
   } catch (err) {
     void handleError(err, { module: 'tools:GrepTool', action: 'catch_error' });
+  }
+}
+
+/**
+ * 二进制文件嗅探（2026-09-01 P1）：读取文件头 8KB，含 NUL 字节视为二进制。
+ * 用于跳过 .db/.dll/.exe 等二进制文件，避免全项目搜索时无谓的文件读取与匹配。
+ */
+function looksBinary(filePath: string): boolean {
+  try {
+    const fd = fs.openSync(filePath, 'r');
+    try {
+      const buf = Buffer.alloc(8192);
+      const bytesRead = fs.readSync(fd, buf, 0, 8192, 0);
+      return buf.subarray(0, bytesRead).includes(0);
+    } finally {
+      fs.closeSync(fd);
+    }
+  } catch {
+    return false; // 读取失败交给上层（searchFile catch）处理
   }
 }
 

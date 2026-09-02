@@ -1,6 +1,12 @@
 import { Skill, SkillSource, SkillFrontmatter } from '@modules/skills/types';
 import { SkillLoader } from '../SkillLoader';
 import {
+  SkillProvider,
+  SkillCandidate,
+  PROVIDER_RANK,
+  toCandidates,
+} from '../SkillProvider';
+import {
   parseSkillFrontmatter,
   createSkillCommand,
 } from '@modules/skills/utils/skillParser';
@@ -22,7 +28,27 @@ function getPluginManager(): PluginManager {
  * 插件技能加载器
  * 从插件中加载技能
  */
-export class PluginSkillLoader extends SkillLoader {
+export class PluginSkillLoader extends SkillLoader implements SkillProvider {
+  readonly name = 'plugin';
+
+  /**
+   * 列出插件技能候选（locator = Skill 本体）
+   */
+  async list(): Promise<SkillCandidate[]> {
+    return toCandidates(await this.loadSkills(), PROVIDER_RANK.PLUGIN);
+  }
+
+  /**
+   * 按候选返回完整技能（当前全量加载，直接返回 locator）
+   */
+  get(candidate: SkillCandidate): Promise<Skill | undefined> {
+    return Promise.resolve(candidate.locator as Skill);
+  }
+
+  /** 无内部缓存，预留契约 */
+  invalidate(): void {
+    // 当前加载器无缓存，无需失效
+  }
   /**
    * 加载插件技能
    * @returns 技能列表

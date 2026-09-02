@@ -17,7 +17,7 @@ import {
   createFailureResult,
   checkPathAccessibility,
 } from '../utils/ToolUtils';
-import { glob } from '../GlobTool/GlobTool';
+import { globAsync } from '../GlobTool/GlobTool';
 import type { FileSearchInputType } from './schemas';
 import { validateFileSearchInput } from './schemas';
 
@@ -96,8 +96,8 @@ export class FileSearchTool extends BaseTool {
         );
       }
 
-      // 使用 Glob 执行匹配
-      const result = glob(pattern, basePath);
+      // 使用 Glob 执行匹配（2026-09-01 根因修复：协作式异步遍历，防大目录阻塞事件循环）
+      const result = await globAsync(pattern, basePath);
 
       // 将 glob 结果映射为含 canonicalPath 的格式
       const resolvedBase = path.resolve(basePath);

@@ -77,6 +77,7 @@ function countTurnEvents(turn: TrajectoryTurn): TurnCounts {
           counts.thinking++;
           break;
         case "assistant/text":
+        case "assistant/text-batch":
           counts.text++;
           break;
         case "assistant/tool_call":

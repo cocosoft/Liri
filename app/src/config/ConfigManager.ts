@@ -1649,6 +1649,16 @@ export function getConfigManager(): ConfigManager {
   return _configManager;
 }
 
+/**
+ * 测试专用：替换全局 ConfigManager 实例。
+ * 用于将全局配置指向独立临时路径，避免测试进程间共享 ~/.pyapp/config.json
+ * 导致并发读写竞态（L4：workspace-trust-integration 全量偶发失败根因）。
+ * 仅测试环境调用；生产路径不触发，行为零影响。
+ */
+export function setConfigManagerForTest(manager: ConfigManager): void {
+  _configManager = manager;
+}
+
 // 使用 Proxy 保持向后兼容，所有现有 import { configManager } 仍可正常工作
 export const configManager = new Proxy({} as ConfigManager, {
   get(_, prop: keyof ConfigManager) {

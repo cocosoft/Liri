@@ -106,20 +106,7 @@ export function sanitizeApiMessages(
   // 第一轮清理：移除 tool 响应不完整的 assistant
   sanitizePass(apiMessages);
 
-  // 末尾孤立 tool 消息（没有 preceding assistant 含 tool_calls）
-  let removedInCleanup = false;
-  const lenBeforePop = apiMessages.length;
-  while (
-    apiMessages.length > 0 &&
-    apiMessages[apiMessages.length - 1].role === 'tool'
-  ) {
-    apiMessages.pop();
-    removedInCleanup = true;
-  }
-  if (apiMessages.length < lenBeforePop) removedInCleanup = true;
-
-  // 中间孤立 tool 消息清理：
-  // 先正向扫描收集所有已知 tool_call_id，再反向移除孤儿 tool 消息
+  // 收集所有已知 tool_call_id（用于判定孤儿 tool——与中间清理共用）
   const knownToolCallIds = new Set<string>();
   for (let i = 0; i < apiMessages.length; i++) {
     const msg = apiMessages[i];
@@ -129,6 +116,31 @@ export function sanitizeApiMessages(
       }
     }
   }
+
+  // 末尾孤立 tool 消息（没有 preceding assistant 含 tool_calls）。
+  // 2026-09-02 修复：原实现无条件 pop 末尾所有 tool 消息——[assistant(tool_calls),
+  // tool(result)] 有效配对被误删（末尾 T1 被 pop → sanitizePass 再将失去配对的 A1
+  // 删除）。工具轮每轮 reason 前（ReActToolLoop.beforeReasoning）调用本函数，导致
+  // 工具结果每轮被清空 → 模型永远看不到工具结果 → 重复调用同一工具死循环
+  // （实测 session_mtjjw6bmwj652x6dtm：_buildToolRoundMessages currentMessages 恒为 3）。
+  // 仅当末尾 tool 无匹配 assistant 时移除。
+  let removedInCleanup = false;
+  const lenBeforePop = apiMessages.length;
+  while (
+    apiMessages.length > 0 &&
+    apiMessages[apiMessages.length - 1].role === 'tool'
+  ) {
+    const last = apiMessages[apiMessages.length - 1] as {
+      tool_call_id?: string;
+    };
+    if (last.tool_call_id && knownToolCallIds.has(last.tool_call_id)) break;
+    apiMessages.pop();
+    removedInCleanup = true;
+  }
+  if (apiMessages.length < lenBeforePop) removedInCleanup = true;
+
+  // 中间孤立 tool 消息清理：
+  // 先正向扫描收集所有已知 tool_call_id，再反向移除孤儿 tool 消息
   for (let i = apiMessages.length - 1; i >= 0; i--) {
     if (apiMessages[i].role === 'tool') {
       const tcId = apiMessages[i].tool_call_id as string | undefined;
@@ -491,6 +503,152 @@ async function fetchTokenizeCount(
 }
 
 /**
+ * C 阶段分层开关（P2-a，2026-09-02）：`CONTEXT_LAYERING !== 'off'` 默认开。
+ * 长文档/代码库类任务（完整通读全文语义 > 分页取回体验）可会话级置 off 关闭。
+ */
+export function contextLayeringEnabled(): boolean {
+  return process.env.CONTEXT_LAYERING !== 'off';
+}
+
+/**
+ * C 阶段切点提示（P2-a，2026-09-02）：切窗生效时注入到保留段首条 user 消息前缀，
+ * 告知模型早期记录可通过 session_lookup 取回（对齐 get_tool_result 摘要提示先例风格）。
+ * 轻量（≤80 tokens），幂等（注入发生在请求构建期临时副本上，不落盘）。
+ */
+export const LAYERING_HINT =
+  '（提示：为控制上下文，本次请求未携带较早的对话记录；需要时可调用 session_lookup 取回原始记录。）';
+
+/**
+ * C 阶段分页切点（P0，2026-09-02，v4 §7 + C 详设 §3）：token 动态阈值命中后
+ * @returns 建议保留起点下标（0 = 无需切窗）
+ */
+export interface PaginationPoint {
+  /** 保留段起点（0 = 不切，全量构建） */
+  cutIndex: number;
+}
+
+/**
+ * C 阶段分页切点（P0，2026-09-02，v4 §7 + C 详设 §3）：token 动态阈值命中后
+ * 前移对齐到最近完整用户轮次，并执行 C-3 配对硬约束：
+ *   - assistant 的 tool_calls 与其 tool/result 不能跨切点分离
+ *   - 保留段头部不允许出现"孤立 tool/result"（其 assistant(tool_calls) 已被丢弃）
+ * 预算/尾保护区与 windowStartForBudget（C-2）同口径，最终输入仍由
+ * compactContext/truncateApiMessages 决定（对本窗口大概率早退）。失败回退 0。
+ */
+export async function computePaginationPoint(
+  messages: Array<{ role: string; content: unknown }>,
+  maxContextTokens: number,
+  outputBudgetTokens?: number
+): Promise<PaginationPoint> {
+  try {
+    if (maxContextTokens <= 0 || messages.length <= 2) return { cutIndex: 0 };
+    // 输出预留（与 truncateApiMessages 同口径）
+    const RESPONSE_BUFFER_TOKENS =
+      outputBudgetTokens && outputBudgetTokens > 0
+        ? Math.min(outputBudgetTokens, Math.round(maxContextTokens * 0.4))
+        : Math.round(maxContextTokens * 0.15);
+    const SAFE_LIMIT = maxContextTokens - RESPONSE_BUFFER_TOKENS;
+    if (SAFE_LIMIT <= 0) return { cutIndex: 0 };
+
+    // 协作式逐条估算（不构造全量 Record，仅 content 粗估）
+    const per: number[] = new Array(messages.length);
+    let total = 0;
+    for (let i = 0; i < messages.length; i++) {
+      per[i] = estimateMessagesTokens([messages[i] as never]);
+      total += per[i];
+      if ((i + 1) % 100 === 0) await yieldToEventLoop();
+    }
+    if (total <= SAFE_LIMIT) return { cutIndex: 0 };
+
+    const nonSystemCount = messages.filter((m) => m.role !== 'system').length;
+    const avgPerMsg = Math.max(total / Math.max(nonSystemCount, 1), 1);
+    // 尾保护区（与 truncateApiMessages protectedCount 同口径）
+    const protectedCount =
+      SAFE_LIMIT < 64_000
+        ? Math.max(
+            3,
+            Math.min(20, Math.round((SAFE_LIMIT * 0.5) / avgPerMsg))
+          )
+        : Math.max(20, Math.min(100, Math.round(nonSystemCount * 0.3)));
+
+    // 从头部丢弃，直到剩余 ≤ SAFE_LIMIT 或仅剩保护区
+    let start = 0;
+    let kept = total;
+    const maxDropable = Math.max(0, messages.length - protectedCount);
+    while (start < maxDropable && kept - per[start] > SAFE_LIMIT) {
+      kept -= per[start];
+      start++;
+    }
+    // C-3（对齐到最近完整用户轮次起点，丢弃落入切点后的 assistant 残段）
+    while (
+      start < maxDropable &&
+      start < messages.length - 1 &&
+      messages[start].role !== 'user'
+    ) {
+      kept -= per[start];
+      start++;
+    }
+    // C-3 配对硬约束：保留段头部不允许"孤立 tool/result"（其所属 assistant
+    // tool_calls 已被丢弃）——切点回退，把整轮（含配对）一并保留，宁可多带一点
+    while (
+      start < messages.length &&
+      start > 0 &&
+      messages[start].role === 'tool'
+    ) {
+      start--;
+      if (start > 0) kept += per[start];
+    }
+    while (start > 0 && messages[start].role !== 'user') {
+      kept += per[start];
+      start--;
+    }
+    if (start === 0) return { cutIndex: 0 };
+    logger.warn('context:pagination_point — 构建期分页切点（C 阶段）', {
+      messageCount: messages.length,
+      estimatedTokens: total,
+      safeLimit: SAFE_LIMIT,
+      cutIndex: start,
+      keptTokens: kept,
+      protectedCount,
+    });
+    return { cutIndex: start };
+  } catch {
+    return { cutIndex: 0 };
+  }
+}
+
+/**
+ * C-2（2026-09-02，v4 §7.2）：请求构建期内存收敛 —— map 前置预算切窗。
+ *
+ * 当前管线"全量 filter/map/stringify → 压缩/截断"在超窗大会上话下，map 阶段
+ * 先全量构造 apiMessages（内存 O(全量)）后又被截断丢弃。本函数在 map **之前**
+ * 按预算从头部丢弃旧轮次，使 map/stringify 只处理幸存窗口，内存 O(全量)→O(窗口)。
+ *
+ * 语义不变保证：
+ *  - 预算口径与 truncateApiMessages 一致（SAFE_LIMIT = maxCtx − 输出预留），
+ *    输出预留/尾保护区公式同源复用
+ *  - C-3：切点对齐到最近完整用户轮次（不切开 user→assistant 工具轮配对）
+ *  - 只切"截断器本就要丢弃"的头部区，最终模型输入仍由
+ *    compactContext/truncateApiMessages 决定（随后对已切窗口大概率早退）
+ *  - 估算用源消息 content（≥ map 后内容），方向保守（偏多切，但仅限截断区）
+ *  - 失败回退 0（CS03：预切是主动优化，不阻断构建；0 = 不切）
+ *
+ * @returns 建议保留起点下标（0 = 无需切窗）
+ */
+export async function windowStartForBudget(
+  messages: Array<{ role: string; content: unknown }>,
+  maxContextTokens: number,
+  outputBudgetTokens?: number
+): Promise<number> {
+  const point = await computePaginationPoint(
+    messages,
+    maxContextTokens,
+    outputBudgetTokens
+  );
+  return point.cutIndex;
+}
+
+/**
  * llama.cpp 场景发送前精确截断（根治：估算 4104 vs 真实 15843 低估 3.86 倍问题）。
  * 用服务端 /tokenize 对每条消息真实分词，从最旧非 system 消息开始丢弃，
  * 直到真实 token <= maxInputTokens（保护全部 system + 最后 2 条非 system）。
@@ -850,6 +1008,14 @@ export function stripThinkResponseTags(content: string): string {
   const thinkPattern =
     /<(think|thinking|reasoning|thought|reflection|analysis|internal)\b[^>]*>[\s\S]*?<\/\1\s*>/gi;
   result = result.replace(thinkPattern, '');
+
+  // P3-7d（2026-09-02）：未闭合 think 块——<think> 开标签存在但无配对 </think>
+  // （实测模型以 "</parameter>\n\n</tool_calls>" XML 残渣闭合思考内容，配对的 </think>
+  // 永不出现），若不处理则整个思考草稿作为最终正文交付。负向前瞻
+  // (?![\s\S]*?<\/\1\s*>) 确保仅在无配对闭合时剥离到末尾，已配对的不会被二次误伤。
+  const unclosedThinkPattern =
+    /<(think|thinking|reasoning|thought|reflection|analysis|internal)\b[^>]*>(?![\s\S]*?<\/\1\s*>)[\s\S]*$/gi;
+  result = result.replace(unclosedThinkPattern, '');
 
   // 移除 <response>...</response> 标签（仅移除标签，保留内容）
   result = result.replace(/<response\b[^>]*>/gi, '');

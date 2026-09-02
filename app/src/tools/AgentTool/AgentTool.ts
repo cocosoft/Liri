@@ -68,8 +68,9 @@ function getAllTools(): Tool[] {
 
 const logger = getLogger('tools:agentTool');
 
-/** B3：子代理最大嵌套深度（对齐 PilotDeck maxSubagentDepth 默认 1） */
-const MAX_SUBAGENT_DEPTH = 1;
+/** B3：子代理最大嵌套深度（2026-09-01 决策 6：1 → 3，对标 deepseek-harness maxDepth=3；
+ *  原值 1 仅允许单层子代理，3 允许 2 层嵌套，深度限制仍防失控递归） */
+const MAX_SUBAGENT_DEPTH = 3;
 
 /**
  * AgentTool参数定义

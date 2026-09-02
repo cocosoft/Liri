@@ -86,6 +86,8 @@ export function getBuiltinToolLoaders(): ToolLoader[] {
     // tool_search 搜不到 → 模型按 <available_skills> 引导反复搜索 → 工具循环
     createToolLoader(ToolFactory.prototype.createSkillListTool),
     createToolLoader(ToolFactory.prototype.createSkillViewTool),
+    // 2026-09-01：知识库保存核心工具（系统能力封装，非技能旁路）
+    createToolLoader(ToolFactory.prototype.createKnowledgeSaveTool),
     createToolLoader(ToolFactory.prototype.createWebFetchTool),
     createToolLoader(ToolFactory.prototype.createWebSearchTool),
     createToolLoader(ToolFactory.prototype.createAgentTool),

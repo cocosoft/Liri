@@ -102,6 +102,9 @@
 | GET | `/health` | ✅ | `chatService.checkHealth`（免认证） |
 | GET | `/v1/events` | ✅ | 无明确前端调用方（SSE 事件总线） |
 | POST | `/v1/system/sleep/resolve` | ✅ **2026-08-14 新增** | `systemService.resolveSleep`（休眠恢复用户决策，body `{ runMissed: boolean }`） |
+| GET | `/v1/system/estop` | ✅ **2026-09-02 新增** | `systemService.getEstopStatus`（全局急停状态，响应 `{ engaged, state: { reason?, engagedAt? } \| null }`） |
+| POST | `/v1/system/estop` | ✅ **2026-09-02 新增** | `systemService.engageEstop`（启用全局急停，body `{ reason? }`；暂停新消息/新 cron，不杀进行中的） |
+| DELETE | `/v1/system/estop` | ✅ **2026-09-02 新增** | `systemService.disengageEstop`（解除全局急停） |
 
 ### §3.2 模型
 

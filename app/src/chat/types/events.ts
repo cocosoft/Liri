@@ -36,6 +36,8 @@ export type LiriEventType =
   | 'user/message'
   | 'assistant/thinking'
   | 'assistant/text'
+  // F-2（2026-09-02）：text 流式 chunk 聚合批事件（服务端 64KB/2s 合并落盘）
+  | 'assistant/text-batch'
   | 'assistant/tool_call'
   | 'tool/result'
   | 'tool/canceled'
@@ -52,6 +54,8 @@ export type LiriEventType =
   // ─── 上下文管理 ───
   | 'context/compaction'
   | 'context/summary'
+  // D-1（2026-09-02）：会话远期摘要事件化落盘（摘要也是轨迹，见 §8 设计）
+  | 'session/summary'
   // ─── 系统与日志 ───
   | 'system/error'
   | 'system/warning'
@@ -115,6 +119,17 @@ export interface LiriEventMap {
 
   /** AI 正文（纯 markdown，不含 thinking 段） */
   'assistant/text': {
+    content: string;
+    /** 所属 assistant 消息 id（v1 起） */
+    messageId?: string;
+  };
+
+  /**
+   * AI 正文聚合批（F-2，2026-09-02，阶段 A 写放大治理）
+   * text 流式 chunk 按 64KB/2s 聚合后落盘，content = 聚合片段。
+   * 回放侧（EventMessageDeriver）按 seq 顺序展开，语义与逐条 assistant/text 一致。
+   */
+  'assistant/text-batch': {
     content: string;
     /** 所属 assistant 消息 id（v1 起） */
     messageId?: string;
@@ -196,6 +211,24 @@ export interface LiriEventMap {
     summary: string;
     /** 被压缩掉的原始事件 seq 列表 */
     compactedSeqs: number[];
+  };
+
+  /**
+   * 会话远期摘要（D-1，2026-09-02，v4 §8）：projection 压缩产物事件化落盘。
+   * 摘要也是轨迹的一部分——与 M1 事件溯源闭环（seq 单调/损坏恢复/快照一致性
+   * 均沿用）；后续摘要索引/检索以本事件为读取视图，无第二真相源。
+   */
+  'session/summary': {
+    /** 摘要正文 */
+    content: string;
+    /** 检索关键词（轻量词频提取，供索引读取视图筛选） */
+    keywords?: string[];
+    /** 投影 summary 消息的真实 id（与 context/compaction done 对齐） */
+    summaryMessageId?: string;
+    /** 被折叠事件区间（对齐 context/compaction done.compactedRange） */
+    compactedRange?: { startSeq: number; endSeq: number };
+    /** 被折叠的源消息事件 seq（对齐 context/compaction done.sourceEventSeqs） */
+    sourceEventSeqs?: number[];
   };
 
   /** 错误（含 module/action/errorCode） */

@@ -31,10 +31,21 @@ export type { RegistryEvent, RegistryEventHandler } from './SkillRegistry.js';
 
 // 抽象基类
 export { SkillLoader as SkillLoaderBase } from './loaders/SkillLoader.js';
+export type {
+  SkillProvider,
+  SkillCandidate,
+} from './loaders/SkillProvider.js';
+export {
+  PROVIDER_RANK,
+  toCandidates,
+  collectSkillsFromProviders,
+} from './loaders/SkillProvider.js';
 
 // 具体 Loader 实现
 export { BundledSkillLoader } from './loaders/sources/BundledSkillLoader.js';
 export { FileSkillLoader } from './loaders/sources/FileSkillLoader.js';
+export { MCPSkillLoader } from './loaders/sources/MCPSkillLoader.js';
+export { PluginSkillLoader } from './loaders/sources/PluginSkillLoader.js';
 export type { FileSkillLoaderConfig } from './loaders/sources/FileSkillLoader.js';
 
 // 第三方适配器体系

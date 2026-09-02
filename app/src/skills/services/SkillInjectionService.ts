@@ -35,7 +35,11 @@ const logger = getLogger('skills:services:SkillInjectionService');
  * 技能注入配置
  */
 export interface SkillInjectionConfig {
-  /** 最大激活技能数 */
+  /**
+   * 最大激活技能数（兼容保留）。
+   * 2026-09-01 根源修复：渐进披露（仅列技能名索引）下不再截断注入列表，
+   * 全部 prompt 型启用技能均对模型可见；本字段仅作历史兼容，不再参与截断。
+   */
   maxActiveSkills: number;
   /** 快照缓存 TTL（ms） */
   cacheTtlMs: number;
@@ -153,7 +157,12 @@ export class SkillInjectionService {
           )
         );
         const ordered = await this.rankSkills(matched);
-        for (const skill of ordered.slice(0, this.config.maxActiveSkills)) {
+        // 根源修复（2026-09-01）：不再按 maxActiveSkills 截断——
+        // 注入已改为渐进披露（getInjectionPrompt 仅列技能名索引，token 极小），
+        // 截断是旧"描述注入"时代的历史遗留：用户新增技能按注册顺序靠后会被挤出，
+        // 模型永远不知道其存在（"添加的技能死活找不到"根因）。索引全量注入，
+        // 任意数量技能均对模型可见。
+        for (const skill of ordered) {
           this.cache.l1.set(skill.name, skill);
         }
 
@@ -165,7 +174,6 @@ export class SkillInjectionService {
           eligible: eligible.length,
           matched: matched.length,
           activated: this.cache.l1.size,
-          maxActiveSkills: this.config.maxActiveSkills,
         });
       }
     )();
@@ -182,7 +190,18 @@ export class SkillInjectionService {
       const { skillProvenanceTracker } =
         await import('../SkillProvenanceTracker');
       const provenances = skillProvenanceTracker.getAllProvenances();
-      if (provenances.length === 0) return skills;
+      if (provenances.length === 0) {
+        // 用户/第三方技能优先于内置（2026-09-01）：
+        // 注入列表已全量（不再截断），排序仅影响注入顺序——用户技能靠前更易被模型优先采用。
+        return [...skills].sort((a, b) => {
+          const aUser =
+            a.loadedFrom === 'user' || a.source !== SkillSource.BUILTIN;
+          const bUser =
+            b.loadedFrom === 'user' || b.source !== SkillSource.BUILTIN;
+          if (aUser !== bUser) return aUser ? -1 : 1;
+          return 0; // 同类保持稳定顺序
+        });
+      }
       const updatedAtByName = new Map(
         provenances.map((p) => [p.skillName, p.updatedAt])
       );
@@ -421,7 +440,11 @@ export class SkillInjectionService {
    * 计算快照 mtime 签名（S2-4：加入内容哈希与内容长度，版本号不变但内容变化时缓存失效）
    */
   private async computeSnapshotMtime(): Promise<string> {
-    const allSkills = this.registry.getAll();
+    // A2（2026-09-01）：基于 active 技能（与 writeSnapshotCache 的 prompt 同源）——
+    // 原实现遍历 registry.getAll()（全部技能，含被 maxActiveSkills 截断的），
+    // 导致 mtime 含 zhihu 但 prompt 不含 → ensureFresh 校验"通过"却加载旧 prompt，
+    // 被挤出注入列表的技能（zhihu/doc-workflow）永不可见。同源后技能集变化即失配重建。
+    const allSkills = this.getActiveSkills();
     const entries: string[] = [];
     for (const s of allSkills) {
       let contentHash = '';

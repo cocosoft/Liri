@@ -216,6 +216,26 @@ export interface ToolLoopContext {
     }
   ) => Promise<void>;
   getStreamTailSeq?: (sessionId: string) => Promise<number>;
+
+  /**
+   * A 缺口修复（2026-09-02，P3-7f 基准实测）：工具轮正文聚合缓冲。
+   * 与 streamMessageFlow 主回复流共用同一 text-batch 缓冲（EventLogStorage）——
+   * 工具轮 text chunk 不再逐 chunk 写 assistant/text（此前 M1 逐条落盘造成
+   * events.jsonl 写放大，P3-7f 同源长任务事件数 10K+，§12 A 列 ≤1.5K 未达标），
+   * 而是缓冲后随下次 append（thinking flush / tool_call / tool/result 等）自动
+   * flush 为 assistant/text-batch（F-2 语义等价；seq 顺序由 append 前自动 flush
+   * 保证：缓冲正文先落盘，后续事件 seq 在其后）。
+   * 缺失时 ReActToolLoop 回退逐 chunk 写（旧行为，兼容其它调用方）。
+   */
+  bufferTextChunk?: (
+    sessionId: string,
+    messageId: string,
+    content: string
+  ) => Promise<{ ok: boolean }>;
+  /** 冲刷会话缓冲正文（流结束/异常路径显式调用；返回实际 flush 的 chunk 数） */
+  flushTextBuffer?: (
+    sessionId: string
+  ) => Promise<{ ok: boolean; flushed: number }>;
 }
 
 /* ===================================================================

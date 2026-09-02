@@ -67,6 +67,22 @@ export interface ToolExecutionDeps {
     args: Record<string, unknown>,
     sessionId?: string
   ): Promise<boolean>;
+  /**
+   * C 阶段（2026-09-02，P1）：session_lookup 取回执行回调（ChatManager 拥有事件日志
+   * 与派生器，负责实现；本服务仅转发）。返回按页格式化原文与下一页起点。
+   */
+  sessionLookup?: (args: {
+    sessionId: string;
+    fromSeq?: number;
+    toSeq?: number;
+    offset?: number;
+    limit?: number;
+  }) => Promise<{
+    ok: boolean;
+    content?: string;
+    nextFromSeq?: number;
+    reason?: string;
+  }>;
 }
 
 /* ===================================================================
@@ -218,6 +234,48 @@ export class ToolExecutionService {
         toolCallId: toolCall.id,
         toolName: normalizedToolCall.name,
         result: { found: true, toolCall: stored },
+        error: undefined,
+      };
+    }
+
+    // ── C 阶段（2026-09-02，P1）：session_lookup — 按事件区间取回被切早期原文 ──
+    if (normalizedToolCall.name === 'session_lookup') {
+      const args = normalizedToolCall.arguments as {
+        sessionId?: string;
+        fromSeq?: number;
+        toSeq?: number;
+        offset?: number;
+        limit?: number;
+      };
+      if (!this.deps.sessionLookup) {
+        return {
+          toolCallId: toolCall.id,
+          toolName: normalizedToolCall.name,
+          result: {
+            ok: false,
+            error: 'session_lookup 未在当前运行环境注册（分层关闭或非会话上下文）',
+          },
+          error: undefined,
+        };
+      }
+      const sessionId =
+        args.sessionId || this.deps.currentSessionId || '';
+      const lookup = await this.deps.sessionLookup({
+        sessionId,
+        fromSeq: args.fromSeq,
+        toSeq: args.toSeq,
+        offset: args.offset,
+        limit: args.limit,
+      });
+      return {
+        toolCallId: toolCall.id,
+        toolName: normalizedToolCall.name,
+        result: {
+          ok: lookup.ok,
+          ...(lookup.ok
+            ? { content: lookup.content ?? '', nextFromSeq: lookup.nextFromSeq }
+            : { error: lookup.reason ?? '取回失败' }),
+        },
         error: undefined,
       };
     }

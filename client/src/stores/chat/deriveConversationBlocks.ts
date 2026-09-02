@@ -71,6 +71,7 @@ const KNOWN_EVENT_TYPES = new Set([
   "user/message",
   "assistant/thinking",
   "assistant/text",
+  "assistant/text-batch",
   "assistant/tool_call",
   "tool/result",
   "tool/canceled",
@@ -84,6 +85,7 @@ const KNOWN_EVENT_TYPES = new Set([
   "assistant/diff",
   "context/compaction",
   "context/summary",
+  "session/summary",
   "system/error",
   "system/warning",
   "system/info",
@@ -339,6 +341,7 @@ function handleEvent(
       break;
     }
 
+    case "assistant/text-batch":
     case "assistant/text": {
       ensureCurrent(state, event, sessionId, assistantMessageId);
       const data = event.data as { content: string };

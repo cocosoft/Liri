@@ -27,6 +27,7 @@ export {
   ConfigManager,
   configManager,
   getConfigManager,
+  setConfigManagerForTest,
 } from './ConfigManager.js';
 
 export { ConfigValidator } from './ConfigValidator.js';

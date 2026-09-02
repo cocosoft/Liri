@@ -91,15 +91,17 @@ export async function handleSteerSession(
     }
 
     // 注入 steering 消息到 TAORLoop
+    // 2026-09-01 修复（T3.3 遗留）：createChatManager() 创建的是新实例（无运行中
+    // TAORLoop），必须通过 getCoreAPI().getChatManager() 获取运行中的单例；
+    // TAORLoop 按 sessionId 存于 _taorLoops Map（P0 修复 2026-08-14 按会话隔离）。
     try {
-      const { createChatManager } = await import('@modules/chat');
-      // Note: 无法获取运行中的 ChatManager 单例，steering 注入当前不可用
-      // TODO: 通过 DI 容器获取 ChatManager 实例
-      const chatManager = createChatManager();
+      const { getCoreAPI } = await import('@modules/runtime/api/CoreAPIImpl');
+      const chatManager = getCoreAPI().getChatManager();
       const cm = chatManager as unknown as Record<string, unknown>;
-      const taorLoop = cm['_taorLoop'] as
-        | { injectSteering(msg: string): void }
+      const taorLoops = cm['_taorLoops'] as
+        | Map<string, { injectSteering(msg: string): void }>
         | undefined;
+      const taorLoop = taorLoops?.get(sessionId);
       if (taorLoop?.injectSteering) {
         taorLoop.injectSteering(rawMessage);
         logger.info('Steering message injected', {

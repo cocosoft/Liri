@@ -8,6 +8,7 @@ import { resolveDataDir } from '@modules/core/paths';
 import { configManager } from '@modules/config';
 import { PlanDrivenLoop } from '@modules/core';
 import type { PlanDrivenLoopResult } from '@modules/core';
+import type { AIProvider } from '@modules/ai';
 import { registerPlanLoop, unregisterPlanLoop } from '../planAbortRegistry.js';
 import { createChatManagerTAORDeps } from '@modules/query';
 import type { TAORLoop } from '@modules/query';
@@ -35,6 +36,8 @@ export interface PdcaLauncherDeps {
   messageService: MessageService;
   /** 持久化消息 */
   persistMessage: (sessionId: string, message: any) => void;
+  /** 可选：任务分解 LLM Provider（PlanDrivenLoop 转正 2026-09-01；不提供则 TaskDecomposer 简单分解单子任务） */
+  getDecomposerProvider?: () => Promise<AIProvider | null>;
 }
 
 /**
@@ -82,11 +85,16 @@ export class PdcaLauncher {
           // 频率说明：onStepProgress 每步仅回调 1~2 次（markStepRunning + 步骤结束），
           // 本身为低频；档位节流在此基础上进一步限制消息条数，无性能/卡顿风险。
           let lastReportedBucket = -1;
+          // 转正（2026-09-01）：注入任务分解 Provider——分解失败/未提供时 TaskDecomposer
+          // 自动降级为简单分解（单子任务），不阻断 PlanDrivenLoop 路径
+          const decomposerProvider =
+            (await this.deps.getDecomposerProvider?.()) ?? undefined;
           const planLoop = new PlanDrivenLoop({
             taorLoop,
             deps,
             sessionId,
             enableAutoDecompose: true,
+            decomposerProvider,
             onStepProgress: (progress) => {
               // 详细日志：记录每次进度回调的原始数据 + 档位计算（total/isDone/bucket/lastReportedBucket）
               const total = progress.total || progress.completed;

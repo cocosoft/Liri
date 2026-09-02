@@ -117,6 +117,12 @@ export {
   deriveSessionStats,
   deriveMessagesFromEvents,
 } from './storage/EventMessageDeriver.js';
+export {
+  parseSessionSummaries,
+  findSummaryForSeq,
+  findSummaryByKeyword,
+} from './storage/SessionSummaryReader.js';
+export type { SessionSummaryRecord } from './storage/SessionSummaryReader.js';
 
 /**
  * 持久化原语（2026-08-29 R03-002 收敛：persistence 子目录统一出口）

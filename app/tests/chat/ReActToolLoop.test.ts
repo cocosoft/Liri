@@ -309,6 +309,137 @@ describe('ReActToolLoop (M1a)', () => {
     );
   });
 
+  it('P3-6 文件产出循环：连续 3 次写同骨架文件 → 注入 [STEERING] 强制收尾', async () => {
+    let callCount = 0;
+    let sawSteering = false;
+    // 模拟"换文件名反复写相似 HTML 日报"死循环（实测 deepseek-v4-flash 行为）
+    const htmlHead =
+      '<!DOCTYPE html>\n<html lang="zh-CN">\n<head>\n<meta charset="UTF-8">';
+    // nonStreaming 模式走 sendMessage，需同时 mock 两个入口
+    const makeResponse = (messages: ChatMessage[]): ChatResponse => {
+      if (JSON.stringify(messages).includes('[STEERING]')) {
+        sawSteering = true;
+      }
+      callCount++;
+      if (callCount <= 3) {
+        return {
+          content: '生成日报',
+          stop_reason: 'tool_calls',
+          tool_calls: [
+            {
+              id: `tc${callCount}`,
+              name: 'file_write',
+              arguments: {
+                file_path: `AI-Agent-日报-${callCount}.html`,
+                content: `${htmlHead}\n<body>...日报内容...</body></html>`,
+              },
+            },
+          ],
+        } as ChatResponse;
+      }
+      return { content: '已完成', stop_reason: 'stop' } as ChatResponse;
+    };
+    const ctx = makeCtx({
+      maxToolTurns: 10,
+      activeClient: {
+        streamMessage: async function* (
+          messages: ChatMessage[],
+          _options: Record<string, unknown>
+        ): AsyncGenerator<string, ChatResponse> {
+          yield 'thinking';
+          return makeResponse(messages);
+        },
+        sendMessage: async (messages: ChatMessage[]) =>
+          makeResponse(messages),
+        getProviderId: () => 'mock',
+      } as never,
+      executeTool: async (tc: {
+        id: string;
+        name: string;
+        arguments: Record<string, unknown>;
+        sessionId?: string;
+      }) => {
+        const args = tc.arguments as Record<string, unknown>;
+        return {
+          toolCallId: tc.id,
+          toolName: tc.name,
+          result: `File written successfully: ${String(args.file_path)}`,
+          error: undefined,
+        };
+      },
+    });
+    const loop = new ReActToolLoop(ctx, makeInput(), { maxIterations: 10 });
+    const events: ReActEvent[] = [];
+    for await (const e of loop.run(makeInput())) {
+      events.push(e);
+    }
+    // 第 3 个同骨架文件写入后，steering 注入到下一轮 LLM 消息
+    expect(sawSteering).toBe(true);
+    // 模型收到 steering 后收尾（不再产出 file_write）
+    expect(callCount).toBeGreaterThanOrEqual(4);
+  });
+
+  it('P3-6 正常多文件任务：内容骨架不同 → 不注入 STEERING', async () => {
+    let callCount = 0;
+    let sawSteering = false;
+    const makeResponse = (messages: ChatMessage[]): ChatResponse => {
+      if (JSON.stringify(messages).includes('[STEERING]')) {
+        sawSteering = true;
+      }
+      callCount++;
+      if (callCount <= 3) {
+        return {
+          content: '',
+          stop_reason: 'tool_calls',
+          tool_calls: [
+            {
+              id: `tc${callCount}`,
+              name: 'file_write',
+              arguments: {
+                file_path: `module-${callCount}.ts`,
+                content: `// 模块 ${callCount}\nexport const v${callCount} = ${callCount};`,
+              },
+            },
+          ],
+        } as ChatResponse;
+      }
+      return { content: '完成', stop_reason: 'stop' } as ChatResponse;
+    };
+    const ctx = makeCtx({
+      maxToolTurns: 10,
+      activeClient: {
+        streamMessage: async function* (
+          messages: ChatMessage[],
+          _options: Record<string, unknown>
+        ): AsyncGenerator<string, ChatResponse> {
+          yield 'thinking';
+          return makeResponse(messages);
+        },
+        sendMessage: async (messages: ChatMessage[]) =>
+          makeResponse(messages),
+        getProviderId: () => 'mock',
+      } as never,
+      executeTool: async (tc: {
+        id: string;
+        name: string;
+        arguments: Record<string, unknown>;
+        sessionId?: string;
+      }) => ({
+        toolCallId: tc.id,
+        toolName: tc.name,
+        result: 'File written successfully',
+        error: undefined,
+      }),
+    });
+    const loop = new ReActToolLoop(ctx, makeInput(), { maxIterations: 10 });
+    const events: ReActEvent[] = [];
+    for await (const e of loop.run(makeInput())) {
+      events.push(e);
+    }
+    // 内容骨架各不相同（module-1/2/3.ts）→ 不判为重复产出循环
+    expect(sawSteering).toBe(false);
+  });
+
   it('事件转换层：reasoning_start → status chunk；tool_start → tool_call chunk', () => {
     const chunks = reactEventsToChunks(
       {
@@ -694,5 +825,94 @@ describe('ReActToolLoop 孤儿补偿（M1-INV②）', () => {
     expect(capturedEvents.find((e) => e.type === 'tool/canceled')).toBe(
       undefined
     );
+  });
+
+  // 边界 2.2（2026-09-01，T1.1 实施计划 §三）：多工具部分完成中断——
+  // 已完成工具不重复补发 canceled（终态保持），未完成工具补 canceled（callSeq 闭环）。
+  it('多工具部分完成中断：已完成不重复、未完成补 canceled', async () => {
+    let reasonRound = 0;
+    const capturedEvents: Array<{
+      type: string;
+      data: Record<string, unknown>;
+    }> = [];
+    const llmResponse = (): ChatResponse =>
+      reasonRound++ === 0
+        ? ({
+            content: '',
+            stop_reason: 'tool_calls',
+            tool_calls: [
+              { id: 'tc-done', name: 'get_info', arguments: {} },
+              {
+                id: 'tc-pending',
+                name: 'ask_user_question',
+                arguments: { question: '请确认', header: '确认' },
+              },
+            ],
+          }) as ChatResponse
+        : ({ content: 'done', stop_reason: 'stop' }) as ChatResponse;
+    const ctx = makeCtx({
+      toolCallSeqMap: new Map([
+        ['tc-done', 10],
+        ['tc-pending', 11],
+      ]),
+      executeTool: async (tc: { id: string; name: string }) =>
+        tc.id === 'tc-done'
+          ? { toolCallId: 'tc-done', toolName: tc.name, result: { output: 'ok' } }
+          : {
+              toolCallId: 'tc-pending',
+              toolName: tc.name,
+              result: { pendingApproval: true },
+            },
+      appendStreamEvent: async (
+        _sid: string,
+        ev: { type: string; data: Record<string, unknown> }
+      ) => {
+        capturedEvents.push(ev);
+      },
+      getStreamTailSeq: async () => 0,
+      activeClient: {
+        sendMessage: async () => llmResponse(),
+        streamMessage: async function* () {
+          yield 'ok';
+          return llmResponse() as ChatResponse;
+        },
+        getProviderId: () => 'mock',
+      },
+    } as Partial<ToolLoopContext>);
+    const loop = new ReActToolLoop(ctx, makeInput(), { maxIterations: 3 });
+    for await (const _e of loop.run(makeInput())) {
+      // 消费事件流至结束
+    }
+    // 已完成的 tc-done 不补 canceled（终态保持）
+    const doneCanceled = capturedEvents.find(
+      (e) => e.type === 'tool/canceled' && e.data.toolCallId === 'tc-done'
+    );
+    expect(doneCanceled).toBe(undefined);
+    // 挂起的 tc-pending 补 canceled（callSeq 闭环）
+    const pendingCanceled = capturedEvents.find(
+      (e) => e.type === 'tool/canceled' && e.data.toolCallId === 'tc-pending'
+    );
+    expect(pendingCanceled).toBeTruthy();
+    expect(pendingCanceled?.data.callSeq).toBe(11);
+  });
+});
+
+describe('达上限终止提示（B1 补发）', () => {
+  it('达上限后 getTerminationTip 返回终止提示，finalize 消息含提示', () => {
+    // 直接构造达上限状态（mock 工具循环会被循环检测/无效回合提前终止，难以自然达上限）
+    const loop = new ReActToolLoop(makeCtx(), makeInput(), {
+      maxIterations: 2,
+    }) as unknown as {
+      state: { iteration: number };
+      getTerminationTip: () => string;
+      getAssistantMessage: () => { content: unknown };
+    };
+    loop.state.iteration = 2; // iteration >= maxIterations
+
+    const tip = loop.getTerminationTip();
+    expect(tip).toContain('已达到最大工具轮次限制');
+    // finalize 消息同样含提示（B1 原修复）
+    const msg = loop.getAssistantMessage();
+    expect(String(msg.content)).toContain('已达到最大工具轮次限制');
   });
 });

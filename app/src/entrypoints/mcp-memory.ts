@@ -100,6 +100,43 @@ const MEMORY_TOOLS: Tool[] = [
 ];
 
 /**
+ * 格式化 memory_search 召回结果（D-P1，2026-09-02）：
+ *  - 排序消歧：type=session_summary（阶段摘要）置顶；type=conversation（tags
+ *    auto-extracted，原始对话摘录）后置——命中同一结论时摘要优先（接入文档 §3.2）
+ *  - 命中标注：会话阶段摘要附"来源会话/区间"定位提示（区间在 content 尾部 [来源] 行）
+ * 召回层不按 type 隔离（v5 P0-⑦），消歧只发生在展示层。
+ */
+function formatMemorySearchResults(
+  results: Array<{
+    id: string;
+    content: string;
+    metadata: { type?: string; name?: string; sessionId?: string; tags?: string[] };
+  }>
+): string {
+  if (results.length === 0) return '未找到相关记忆';
+  const rank = (m: (typeof results)[number]): number => {
+    if (m.metadata.type === 'session_summary') return 0;
+    if (m.metadata.tags?.includes('auto-extracted')) return 2;
+    return 1;
+  };
+  const ranked = [...results].sort((a, b) => rank(a) - rank(b));
+  return ranked
+    .map((m) => {
+      const isSummary = m.metadata.type === 'session_summary';
+      const isRawChat = !isSummary && m.metadata.tags?.includes('auto-extracted');
+      const head = isSummary
+        ? `[会话阶段摘要 · 会话 ${m.metadata.sessionId ?? '未知'}]`
+        : isRawChat
+          ? '[原始对话摘录（优先参考上面的阶段摘要）]'
+          : '';
+      const preview =
+        m.content.length > 300 ? `${m.content.slice(0, 300)}…` : m.content;
+      return `${head}${head ? ' ' : ''}${m.metadata.name ?? m.id}\n${preview}`;
+    })
+    .join('\n\n');
+}
+
+/**
  * 启动记忆 MCP Server（stdio）。
  */
 export async function startMemoryMCPServer(): Promise<void> {
@@ -193,10 +230,7 @@ export async function startMemoryMCPServer(): Promise<void> {
               content: [
                 {
                   type: 'text',
-                  text:
-                    results.length === 0
-                      ? '未找到相关记忆'
-                      : JSON.stringify(results, null, 2),
+                  text: formatMemorySearchResults(results),
                 },
               ],
             };

@@ -42,8 +42,10 @@ export interface MemoryStats {
 
   /**
    * 按类型统计的记忆数量
+   * （2026-09-02，D-P1）枚举键必填 + string 索引可选：自定义注册类型
+   * （registerMemoryType，如 session_summary）可计入，类型层面不再写死枚举键。
    */
-  byType: Record<MemoryType, number>;
+  byType: { [K in MemoryType]: number } & Record<string, number | undefined>;
 
   /**
    * 最近创建的记忆数量

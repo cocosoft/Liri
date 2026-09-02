@@ -24,6 +24,8 @@ import {
   stripOrphanToolTags,
   stripThinkResponseTags,
   ensureThinkResponseTags,
+  windowStartForBudget,
+  computePaginationPoint,
 } from '../../src/chat/services/MessageContextPipeline';
 
 describe('stripOrphanToolTags — 孤立工具调用标签残片剥离', () => {
@@ -74,3 +76,66 @@ function repairLike(content: string): string {
   // 模拟 repairImageUrls（此处无图片 URL，原样返回）
   return content;
 }
+
+// ─── C-2（2026-09-02，v4 §7.2）：map 前置预算切窗 ──────────────────────
+
+function rounds(
+  n: number,
+  contentLen: number
+): Array<{ role: string; content: string }> {
+  const out: Array<{ role: string; content: string }> = [];
+  const content = 'x'.repeat(contentLen);
+  for (let i = 0; i < n; i++) {
+    out.push({ role: 'user', content: `第${i}轮 ${content}` });
+    out.push({ role: 'assistant', content: `回答${i} ${content}` });
+  }
+  return out;
+}
+
+describe('windowStartForBudget — C-2 构建期预算切窗', () => {
+  test('未超窗 → 0（零开销，语义不变）', async () => {
+    const msgs = rounds(3, 50);
+    const start = await windowStartForBudget(msgs, 128_000);
+    expect(start).toBe(0);
+  });
+
+  test('超窗大会话 → 切掉头部旧轮次，切点对齐用户轮次且不侵入尾保护区', async () => {
+    const msgs = rounds(60, 800);
+    const start = await windowStartForBudget(msgs, 2000);
+    expect(start).toBeGreaterThan(0);
+    // C-3：切点落在 user 消息上（不切开 user→assistant 轮配对）
+    expect(msgs[start].role).toBe('user');
+    // 尾保护区：至少保留 3 条以上（含当前轮）
+    expect(start).toBeLessThan(msgs.length - 3);
+    // 头部确实被丢弃（映射侧只处理幸存窗口）
+    const kept = msgs.slice(start);
+    expect(kept[0]).toBe(msgs[start]);
+    expect(kept.length).toBe(msgs.length - start);
+  });
+
+  test('无/非法预算 → 0（不启用）', async () => {
+    const msgs = rounds(20, 800);
+    expect(await windowStartForBudget(msgs, 0)).toBe(0);
+    expect(await windowStartForBudget(msgs, -1)).toBe(0);
+    expect(await windowStartForBudget([], 128_000)).toBe(0);
+  });
+
+  test('C-3 配对硬约束：切点落在 user 轮次起点，保留段头部不允许孤立 tool/result', async () => {
+    // 每轮 = [user, assistant(大正文), tool(结果), tool(结果)]（模拟 1 个 assistant 带 2 个 tool_call）
+    const big = 'y'.repeat(1600);
+    const msgs: Array<{ role: string; content: string }> = [];
+    for (let i = 0; i < 40; i++) {
+      msgs.push({ role: 'user', content: `第${i}轮指令 ${big}` });
+      msgs.push({ role: 'assistant', content: `第${i}轮执行 ${big}` });
+      msgs.push({ role: 'tool', content: `第${i}轮结果A ${big}` });
+      msgs.push({ role: 'tool', content: `第${i}轮结果B ${big}` });
+    }
+    const { cutIndex } = await computePaginationPoint(msgs, 3000);
+    if (cutIndex === 0) return; // 极端情形不切也安全（全量交给 compact/truncate）
+    // 切点必须是完整用户轮次起点（user）——轮内 [user,assistant,tool,tool] 配对整体保留，
+    // 保留段不可能以"孤立 tool/result"开头（其 assistant(tool_calls) 已随整轮保留）
+    expect(msgs[cutIndex].role).toBe('user');
+    const kept = msgs.slice(cutIndex);
+    expect(kept[0].role).toBe('user');
+  });
+});

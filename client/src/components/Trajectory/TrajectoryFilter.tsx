@@ -75,6 +75,7 @@ const TYPE_OPTIONS: Array<{ value: LiriEventType; label: string }> = [
   { value: "turn/end", label: "turn/end" },
   { value: "user/message", label: "user" },
   { value: "assistant/text", label: "text" },
+  { value: "assistant/text-batch", label: "text-batch" },
   { value: "assistant/thinking", label: "thinking" },
   { value: "assistant/tool_call", label: "tool_call" },
   { value: "tool/result", label: "result" },

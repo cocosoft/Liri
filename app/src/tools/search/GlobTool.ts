@@ -17,7 +17,7 @@ import {
   checkPathAccessibility,
   normalizeToolPath,
 } from '../utils/ToolUtils';
-import { glob } from '../GlobTool/GlobTool';
+import { globAsync } from '../GlobTool/GlobTool';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('tools:search:GlobTool');
@@ -68,7 +68,7 @@ export class GlobTool extends BaseTool {
         );
       }
 
-      const result = glob(pattern, searchPath);
+      const result = await globAsync(pattern, searchPath);
 
       return createSuccessResult(result.filenames, {
         executionTime: result.durationMs,

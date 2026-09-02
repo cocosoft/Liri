@@ -6,6 +6,7 @@ import { MemoryType } from '../types/MemoryType';
 import { createMemoryMetadata } from '../types/MemoryMetadata';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
+import { clearSessionSummaries } from '../adapters/SessionSummaryAdapter';
 
 const logger = getLogger('MemoryCLI');
 
@@ -128,6 +129,32 @@ export class MemoryCLI {
           console.error('Error searching memories:', error);
           // @ignore-catch — CLI 命令失败，不预期抛出中断程序
           await handleError(error, { module: 'memory:cli', action: 'search' });
+        }
+      });
+
+    // 清理会话阶段摘要命令（D-P1，2026-09-02）
+    this.program
+      .command('clean-summaries')
+      .description(
+        'Delete session_summary memories from long-term store (optionally for one session)'
+      )
+      .argument('[sessionId]', 'Session ID to scope deletion (optional)')
+      .action(async (sessionId?: string) => {
+        try {
+          const result = await clearSessionSummaries(
+            sessionId,
+            this.memoryManager
+          );
+          console.log(
+            `Deleted ${result.deleted} session_summary memory(-ies)${sessionId ? ` for session ${sessionId}` : ' (all sessions)'}.`
+          );
+        } catch (error) {
+          console.error('Error cleaning session summaries:', error);
+          // @ignore-catch — CLI 命令失败，不预期抛出中断程序
+          await handleError(error, {
+            module: 'memory:cli',
+            action: 'clean-summaries',
+          });
         }
       });
 

@@ -13,6 +13,7 @@ import { sessionService } from "../services/sessionService";
 import { chatCoordinator } from "../stores/chat/chatCoordinator";
 import { getBackendBaseUrl } from "../services/backendUrl";
 import { useSleepNoticeStore } from "../stores/sleepNoticeStore";
+import { useEstopStore } from "../stores/estopStore";
 
 /** P1-1: inbox 事件若属于当前打开的会话，则刷新该会话消息（追加/更新 InboxBlock） */
 function refreshSessionIfActive(sessionId?: string): void {
@@ -148,6 +149,22 @@ export function useNotificationSSE() {
             pendingCount:
               typeof data.pendingCount === "number" ? data.pendingCount : 0,
           });
+        } catch {
+          /* ignore parse errors */
+        }
+      });
+
+      // P3-4：全局暂停（ESTOP）状态变更 → 聊天区横幅即时同步
+      es.addEventListener("system:estop_changed", (e: MessageEvent) => {
+        try {
+          const data = JSON.parse(e.data) as {
+            engaged?: boolean;
+            state?: { reason?: string; engagedAt?: string } | null;
+          };
+          useEstopStore.getState().setStatus(
+            data.engaged === true,
+            data.state ?? null,
+          );
         } catch {
           /* ignore parse errors */
         }

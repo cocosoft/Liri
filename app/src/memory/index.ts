@@ -21,6 +21,18 @@
 export type { MemoryManager } from './MemoryManager';
 export { MemoryManagerImpl } from './MemoryManager';
 export {
+  registerSessionSummaryMemoryType,
+  idempotencyKey,
+  buildSessionSummaryMemoryInput,
+  rollupSessionSummaryToLongTerm,
+  rebuildForSession,
+  clearSessionSummaries,
+} from './adapters/SessionSummaryAdapter';
+export type {
+  SessionSummaryAdapterInput,
+  SessionSummaryMemoryInput,
+} from './adapters/SessionSummaryAdapter';
+export {
   MemoryTool,
   createMemoryTool,
   MemoryGetTool,

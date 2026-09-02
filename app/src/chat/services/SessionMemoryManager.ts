@@ -150,4 +150,44 @@ export class SessionMemoryManager {
       }
     }
   }
+
+  /**
+   * D 阶段（2026-09-02）：会话摘要上卷——将压缩摘要写入会话记忆（memory.md，
+   * 作为 `session_summary` 记忆项）。上卷后同一会话后续轮次/`searchMemory` 可复用
+   * 该摘要（既有记忆注入/检索体系内闭环）。失败不阻断主流程（CS03）。
+   *
+   * 跨会话长期记忆/知识库：属独立记忆体系（memdir/MemoryStore/memory_search），
+   * 此处提供确定性落点；跨体系上卷由对应适配器后续接驳（见方案 v4 §14 D 行）。
+   */
+  rollupSummary(
+    sessionId: string,
+    summary: string,
+    keywords?: string[]
+  ): void {
+    if (!sessionId || !summary) return;
+    try {
+      const mm = this.sessionAccess.getMemoryManager();
+      const memory = mm.loadMemory(sessionId);
+      if (memory.items.length === 0) {
+        mm.initMemory(sessionId);
+      }
+      const content =
+        `【会话阶段摘要】${summary.slice(0, 1000)}` +
+        (keywords && keywords.length > 0
+          ? `（关键词：${keywords.join('、')}）`
+          : '');
+      mm.appendToMemory(memory, [
+        { type: 'session_summary' as const, content },
+      ]);
+      logger.info('chat:memory 会话摘要已上卷至会话记忆', {
+        sessionId,
+        keywords: keywords?.length ?? 0,
+      });
+    } catch (err) {
+      logger.warn('chat:memory 会话摘要上卷失败（不影响主流程）', {
+        sessionId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
 }

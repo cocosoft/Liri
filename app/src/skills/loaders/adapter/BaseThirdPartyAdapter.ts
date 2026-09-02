@@ -37,6 +37,12 @@ import { existsSync, renameSync, rmSync } from 'fs';
 import { getLogger } from '@modules/monitoring';
 import { SkillSource, SkillLoadMethod } from '@modules/skills/types';
 import type { Skill } from '@modules/skills/types';
+import {
+  SkillProvider,
+  SkillCandidate,
+  PROVIDER_RANK,
+  toCandidates,
+} from '../SkillProvider';
 import type { SkillRegistry } from '@modules/skills/SkillRegistry';
 import {
   loadBuiltinEnabled,
@@ -62,7 +68,7 @@ export abstract class BaseThirdPartyAdapter<
   T extends InstalledThirdPartySkill = InstalledThirdPartySkill,
 >
   extends EventEmitter
-  implements ThirdPartySkillAdapter
+  implements ThirdPartySkillAdapter, SkillProvider
 {
   /** 适配器唯一标识 */
   abstract readonly name: string;
@@ -218,6 +224,25 @@ export abstract class BaseThirdPartyAdapter<
    */
   getSource(): SkillSource {
     return SkillSource.THIRD_PARTY;
+  }
+
+  /**
+   * 列出已安装技能候选（locator = Skill 本体）
+   */
+  async list(): Promise<SkillCandidate[]> {
+    return toCandidates(await this.loadSkills(), PROVIDER_RANK.ADAPTER);
+  }
+
+  /**
+   * 按候选返回完整技能（当前全量加载，直接返回 locator）
+   */
+  get(candidate: SkillCandidate): Promise<Skill | undefined> {
+    return Promise.resolve(candidate.locator as Skill);
+  }
+
+  /** 无内部缓存，预留契约 */
+  invalidate(): void {
+    // 当前适配器无缓存，无需失效
   }
 
   /**

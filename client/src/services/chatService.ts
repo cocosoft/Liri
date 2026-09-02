@@ -1085,7 +1085,14 @@ export const chatService = {
               if (pendingData.length === 0) continue;
               const payload = pendingData.join("\n");
               pendingData.length = 0;
-              if (payload !== "[DONE]") yield* parsePayload(payload);
+              // P9（2026-09-01）：[DONE] 产出 done chunk——此前直接跳过导致
+              // receivedDone 恒 false → abnormallyEnded 恒 true → 所有带正文的
+              // 消息 finishReason 被置 "abort" → 前端误报"该回复已中断（任务被中止）"。
+              if (payload === "[DONE]") {
+                yield { type: "done", content: "" };
+                continue;
+              }
+              yield* parsePayload(payload);
               continue;
             }
             // 兼容 `data:` 与 `data: ` 前缀（SSE 规范允许无空格）
@@ -1098,7 +1105,11 @@ export const chatService = {
         // 流结束：flush 未闭合的残留 data（最后一条无空行结尾）
         if (pendingData.length > 0) {
           const payload = pendingData.join("\n");
-          if (payload !== "[DONE]") yield* parsePayload(payload);
+          if (payload === "[DONE]") {
+            yield { type: "done", content: "" };
+          } else {
+            yield* parsePayload(payload);
+          }
         }
       } catch (e) {
         handleClientError(e, {

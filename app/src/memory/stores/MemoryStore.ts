@@ -1,4 +1,5 @@
 import { promises as fs, constants } from 'fs';
+import { existsSync } from 'fs';
 import fsExtra from 'fs-extra';
 import { join, dirname, basename, resolve, normalize } from 'path';
 import matter from 'gray-matter';
@@ -190,6 +191,11 @@ export class MemoryStoreImpl implements MemoryStore {
    * 1 秒窗口内多次 saveMemory 合并为一个 flush 操作
    */
   private pendingBatch: Map<string, Memory> = new Map();
+  /** flushBatch 互斥锁（2026-09-02）：定时 flush 与显式 flush 并发原子写竞态修复 */
+  private batchFlushing = false;
+  /** 在途 flush 的可等待句柄（2026-09-02）：并发 flushBatch 返回同一 Promise，
+   *  保证 getAllMemories 等"先 flush 再读盘"的调用方真正等到写完成 */
+  private pendingFlush: Promise<void> | null = null;
   private batchTimer: ReturnType<typeof setTimeout> | null = null;
 
   /**
@@ -202,6 +208,11 @@ export class MemoryStoreImpl implements MemoryStore {
    * 原子写入文件
    * 先写入 .tmp 临时文件，再 rename 为最终路径，避免写入中断导致文件半残
    * 每次写入前清理同名的旧 .tmp 文件
+   *
+   * 2026-09-02 健壮化：跨实例并发（不同 MemoryStoreImpl 共享同一目录）时，一方
+   * 的"清理旧 .tmp"会删掉另一方刚写入的 .tmp → rename ENOENT（SessionSummaryAdapter
+   * 测试间歇失败实证）。处理：rename ENOENT 时若最终路径已存在（并发方已完成）→
+   * 视为成功；否则（tmp 被并发清理且目标尚未落成）→ 重写重试（≤3 次）。
    */
   private async atomicWrite(filePath: string, content: string): Promise<void> {
     const tmpPath = filePath + '.tmp';
@@ -213,25 +224,64 @@ export class MemoryStoreImpl implements MemoryStore {
       // 不存在则忽略
     }
 
-    // 写入临时文件
-    await fs.writeFile(tmpPath, content, 'utf8');
-    // 原子替换
-    await fs.rename(tmpPath, filePath);
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      // 写入临时文件
+      try {
+        await fs.writeFile(tmpPath, content, 'utf8');
+      } catch (err) {
+        // 目标目录已被并发删除（clear/清理路径移除了会话目录）→ 该记忆无需落盘，
+        // 静默成功（避免 flushBatch 报错 + 后续断言误读为丢写）
+        if (
+          (err as NodeJS.ErrnoException).code === 'ENOENT' &&
+          !existsSync(dirname(filePath))
+        ) {
+          return;
+        }
+        throw err;
+      }
+      try {
+        // 原子替换
+        await fs.rename(tmpPath, filePath);
+        return;
+      } catch (err) {
+        const code = (err as NodeJS.ErrnoException).code;
+        if (code !== 'ENOENT') throw err;
+        // tmp 被并发方清理或已 rename → 目标已存在则视为成功
+        try {
+          await fs.access(filePath);
+          return;
+        } catch {
+          // 目标尚不存在：重写重试（并发清理窗口内）
+          if (attempt < 3) continue;
+          throw err;
+        }
+      }
+    }
   }
 
   /**
    * 批量刷新：将 pendingBatch 中的记忆全部写入磁盘
    */
   async flushBatch(): Promise<void> {
-    if (this.pendingBatch.size === 0) return;
+    // 互斥 + 循环兜底（2026-09-02）：定时 scheduleFlush 与显式 flushBatch（getAllMemories）
+    // 并发会对同一 memory id 执行 atomicWrite(tmp+rename) → tmp 已被先行 rename → ENOENT 丢写。
+    // 可等待语义（2026-09-02 加固）：进行中时返回同一在途 Promise——显式 flush 调用方
+    // （getAllMemories）必须"等完"再读盘，否则读到旧文件（间歇少条，SessionSummaryAdapter
+    // 用例 flaky 实证）；do-while 保证 flush 期间新入队的不丢。
+    if (this.batchFlushing && this.pendingFlush) return this.pendingFlush;
+    this.batchFlushing = true;
+    const flushTask = (async () => {
+    try {
+      do {
+        if (this.pendingBatch.size === 0) break;
 
-    const batch = new Map(this.pendingBatch);
-    this.pendingBatch.clear();
+        const batch = new Map(this.pendingBatch);
+        this.pendingBatch.clear();
 
-    if (this.batchTimer) {
-      clearTimeout(this.batchTimer);
-      this.batchTimer = null;
-    }
+        if (this.batchTimer) {
+          clearTimeout(this.batchTimer);
+          this.batchTimer = null;
+        }
 
     for (const [id, memory] of batch) {
       try {
@@ -307,6 +357,14 @@ export class MemoryStoreImpl implements MemoryStore {
         storeLogger.error(`批量写入失败`, { id, error });
       }
     }
+      } while (this.pendingBatch.size > 0);
+    } finally {
+      this.batchFlushing = false;
+      this.pendingFlush = null;
+    }
+    })();
+    this.pendingFlush = flushTask;
+    return flushTask;
   }
 
   private scheduleFlush(): void {

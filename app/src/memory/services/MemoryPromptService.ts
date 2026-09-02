@@ -197,8 +197,10 @@ export class MemoryPromptService {
       });
     }
 
-    // 检查记忆类型分布
-    const typeDistribution = Object.entries(stats.byType);
+    // 检查记忆类型分布（2026-09-02 D-P1：byType 含自定义类型键且计数可 undefined，先过滤）
+    const typeDistribution = Object.entries(stats.byType).filter(
+      (entry): entry is [string, number] => typeof entry[1] === 'number'
+    );
     const dominantType = typeDistribution.reduce(
       (max, [type, count]) => (count > max.count ? { type, count } : max),
       { type: '', count: 0 }

@@ -8,6 +8,7 @@
 
 import {
   ToolManager as EnhancedToolManager,
+  getToolManager,
   type ToolManagerOptions,
 } from '../ToolManager';
 import type { ToolRegistration } from '../types/ToolTypes';
@@ -20,7 +21,9 @@ export class ToolManager {
   private inner: EnhancedToolManager;
 
   constructor(options?: ToolManagerOptions) {
-    this.inner = new EnhancedToolManager(options);
+    // 复用主单例（getToolManager），确保与 MCPToolBridge 等消费方共享同一注册表
+    void options;
+    this.inner = getToolManager();
   }
 
   getInner(): EnhancedToolManager {

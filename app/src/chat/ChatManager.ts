@@ -29,6 +29,7 @@ import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { repairModelJson } from '@modules/utils/json';
 import { abortSessionPlans } from './planAbortRegistry.js';
+import { resolveBaseToolTurns } from './loopTurnLimits.js';
 import { containsComplexKeywords } from '@modules/workspace/CouncilOrchestrator';
 import { ImageContextService } from './services/ImageContextService';
 import {
@@ -48,9 +49,21 @@ import {
   persistChatMessage,
   isEmptyAssistantWithoutToolCalls,
 } from './services/ChatHelper';
-import { EventLogStorage } from '@modules/session';
-import { MessageToEventMigrator } from '@modules/session';
-import { ReconcileService } from '@modules/session';
+import {
+  EventLogStorage,
+  MessageToEventMigrator,
+  ReconcileService,
+  parseSessionSummaries,
+  findSummaryByKeyword,
+  type SessionSummaryRecord,
+} from '@modules/session';
+// D 阶段（2026-09-02，v5 P0-⑥）：跨会话记忆适配器——静态导入保证模块加载即触发
+// session_summary 类型注册（registerSessionSummaryMemoryType 由构造期显式调用，
+// 早于 memory scanner/memdir 扫描；createMemory 不校验 type，注册约束面在扫描/统计路径）
+import {
+  registerSessionSummaryMemoryType,
+  rollupSessionSummaryToLongTerm,
+} from '../memory/adapters/SessionSummaryAdapter';
 import { dedupeToolCallBlocks } from '@modules/chat/utils/chatBlocks';
 import { extractPendingToolCallsFromEvents } from './utils/pendingToolCalls.js';
 import type { LiriEvent } from '@modules/chat/types/events';
@@ -63,6 +76,9 @@ import {
   extractCurrentGoal,
   truncateApiMessages,
   assembleContextualSystemPrompt,
+  computePaginationPoint,
+  contextLayeringEnabled,
+  LAYERING_HINT,
   ensureThinkResponseTags,
   stripThinkResponseTags,
   stripOrphanToolTags,
@@ -179,7 +195,11 @@ import {
 } from '../core/tokenBudget/TokenBudgetController.js';
 import { UnifiedTokenTracker } from '../core/tokenBudget/UnifiedTokenTracker.js';
 import { ContextTracker } from '@modules/query';
-import { compactionOrchestrator } from '@modules/context';
+import { compactionOrchestrator, messageProjector } from '@modules/context';
+// 内存画像（2026-09-02 排查"会话中断/内存尖峰"用，MEM_PROFILE=1 才采样）
+import { memProfile } from '../monitoring/memProfile.js';
+// 内存水位（2026-09-02，OS kswapd 式；见 dev_docs/内存水位触发机制-详细设计）
+import { getMemoryPressureMonitor } from '../monitoring/memoryPressure/MemoryPressureMonitor.js';
 import { estimateMessagesTokens } from '@modules/ai';
 import { yieldToEventLoop } from '@modules/ai';
 import { FileCheckpointStorage } from '@modules/query';
@@ -189,8 +209,8 @@ import {
   DEFAULT_STOP_HOOK_PRIORITIES,
 } from '@modules/query';
 import type { StopHookReason } from '@modules/query';
-import { TAORLoop, createTAORLoop } from '@modules/query';
-import type { TAORLoopConfig } from '@modules/query';
+import { TAORLoop } from '@modules/query';
+import { createChatAgentLoop } from './createAgentLoop.js';
 import {
   PlanDrivenLoop,
   classifyTaskComplexity,
@@ -336,21 +356,11 @@ export class ChatManagerImpl implements ChatManager {
 
   /**
    * 传统工具循环最大轮次（防止无 TAORLoop 保护时的死循环）
-   * 可通过环境变量 MAX_TAOR_TURNS 或 MAX_TOOL_TURNS 覆盖。
-   * 2026-08-30 循环治理：默认 300 → 30——实测工具死循环跑满 249 轮，
-   * 300 上限形同虚设；30 覆盖正常多轮工具任务（QueryEngine 默认 10），
-   * 复杂长任务可经 env 调高或走 TAORLoop（独立上限 MAX_TAOR_TURNS）。
+   * 基础阈值解析统一入口：loopTurnLimits.resolveBaseToolTurns（调用方分级基础，
+   * 2026-09-01 对标 cc_code）——env MAX_TAOR_TURNS / MAX_TOOL_TURNS 可覆盖，默认 30。
+   * 死循环拦截由 LoopDetector 承担（2026-08-30 治理：默认 300→30）。
    */
-  private readonly MAX_TOOL_TURNS = (() => {
-    const env =
-      configManager.env('MAX_TAOR_TURNS') ||
-      configManager.env('MAX_TOOL_TURNS');
-    if (env) {
-      const val = parseInt(env, 10);
-      if (!isNaN(val) && val > 0) return val;
-    }
-    return 30;
-  })();
+  private readonly MAX_TOOL_TURNS = resolveBaseToolTurns();
 
   /**
    * 检查点服务
@@ -376,6 +386,12 @@ export class ChatManagerImpl implements ChatManager {
    * 工具执行服务（P3：从 ChatManager 提取 executeTool + _executeToolInternal）
    */
   private _toolExecutionService: ToolExecutionService | null = null;
+  /**
+   * C 阶段（2026-09-02，P1）：最近一次流式请求构建（_buildApiMessagesForStream）
+   * 是否发生分页切窗——供 streamMessageFlow 决定是否注入 session_lookup 取回工具。
+   * 单值近似（并发多会话构建时以最近一次为准，仅影响工具注入，无正确性风险）。
+   */
+  private _lastStreamBuildWindowed = false;
 
   /**
    * 权限管理器
@@ -475,13 +491,6 @@ export class ChatManagerImpl implements ChatManager {
   private readonly ENABLE_ERROR_HANDLER =
     configManager.env('ENABLE_ERROR_HANDLER') === 'true';
   /**
-   * RC-E（08-09）：PlanDrivenLoop 开关（默认 false，灰度启用）
-   * 启用后，_launchImplicitPdca 使用 PlanDrivenLoop 替代 LongRunningTaskOrchestrator。
-   */
-  private readonly ENABLE_PLAN_DRIVEN_LOOP =
-    configManager.env('ENABLE_PLAN_DRIVEN_LOOP') === 'true';
-
-  /**
    * RC-D（08-09）：Durable Resume 灰度开关（默认启用）
    * 关闭后跳过启动时的断点续传扫描。
    * 可通过 ENABLE_DURABLE_RESUME=false 关闭。
@@ -490,57 +499,22 @@ export class ChatManagerImpl implements ChatManager {
     configManager.env('ENABLE_DURABLE_RESUME') !== 'false';
 
   /**
-   * Phase 2: TAORLoop 统一编排器开关（RC-A 08-09：默认全量启用）
-   * 启用后 sendMessage/streamMessage 委托 TAORLoop 编排工具调用循环。
-   * 可通过 ENABLE_LOOP_V8_PHASE2=false 关闭。
+   * 阶段 3 退役（2026-09-01）：ENABLE_LOOP_V8_PHASE2 / TAORLOOP_TRAFFIC_PERCENT /
+   * ENABLE_PLAN_DRIVEN_LOOP / PLAN_DRIVEN_LOOP_TRAFFIC_PERCENT 灰度开关已删除，
+   * 固化单一路径（TAORLoop 统一编排 + PlanDrivenLoop 快速路径）。
+   * 保留 shouldUseTAORLoop 接口签名（host 契约），行为恒为全量启用。
    */
-  private readonly ENABLE_LOOP_V8_PHASE2 =
-    configManager.env('ENABLE_LOOP_V8_PHASE2') !== 'false';
-
-  /**
-   * P2-3: TAORLoop 流量百分比（0~100，RC-A 08-09：默认 100 全量）
-   * 仅在 ENABLE_LOOP_V8_PHASE2=true 时生效。
-   * 按 sessionId hash 决定是否走 TAORLoop 路径。
-   * 可通过 TAORLOOP_TRAFFIC_PERCENT 降级。
-   */
-  private readonly _taorLoopTrafficPercent: number = (() => {
-    const raw = configManager.env('TAORLOOP_TRAFFIC_PERCENT');
-    const val = raw && !isNaN(Number(raw)) ? Number(raw) : 100;
-    return Math.min(100, Math.max(0, val));
-  })();
-
-  /**
-   * P2-3: 按 sessionId hash 决定是否走 TAORLoop 路径
-   * RC-A（08-09）：默认 100% 全量，hash 逻辑仅在降级时生效。
-   */
-  private _shouldUseTAORLoop(sessionId: string): boolean {
-    if (!this.ENABLE_LOOP_V8_PHASE2) return false;
-    if (this._taorLoopTrafficPercent >= 100) return true;
-    if (this._taorLoopTrafficPercent <= 0) return false;
-    // 简单 hash：取 sessionId 首字符 charCode % 100
-    const hash = (sessionId.charCodeAt(0) || 0) % 100;
-    return hash < this._taorLoopTrafficPercent;
+  private _shouldUseTAORLoop(_sessionId: string): boolean {
+    return true;
   }
 
   /**
-   * S3（P1-5 §5 S3）：快速路径流量百分比（0~100，灰度期默认 10）
-   * 仅在 ENABLE_PLAN_DRIVEN_LOOP=true 时生效，按 message 粒度 hash 分流。
-   * 可通过 PLAN_DRIVEN_LOOP_TRAFFIC_PERCENT 调整。
-   */
-  private readonly _planDrivenLoopTrafficPercent: number = (() => {
-    const raw = configManager.env('PLAN_DRIVEN_LOOP_TRAFFIC_PERCENT');
-    const val = raw && !isNaN(Number(raw)) ? Number(raw) : 10;
-    return Math.min(100, Math.max(0, val));
-  })();
-
-  /**
-   * S3（2026-08-13，P1-5 §5 S3）：PlanDrivenLoop 快速路径两层分流
-   * ① isEligibleForFastPath：复杂度门（isSimpleTask，S0 冻结判定）+ 危险工具准入筛除
-   * ② 剩余合格任务按 message 粒度 hash 分流（默认 10%，避免 sessionId 与任务类型相关偏差）
-   * 日志可观测：筛除数（第一层剔除）+ 分流数（第二层 hash 命中）。
+   * S3（P1-5 §5 S3）：PlanDrivenLoop 快速路径判定。
+   * 阶段 3 退役（2026-09-01）：灰度 hash 分流已删除，仅保留业务复杂度门——
+   * isEligibleForFastPath（isSimpleTask 复杂度门 + 危险工具准入筛除）。
+   * 简单任务走 PlanDrivenLoop 快速路径；复杂/危险任务走经典 PDCA 阶段链。
    */
   private _shouldUsePlanDrivenLoop(message: string): boolean {
-    if (!this.ENABLE_PLAN_DRIVEN_LOOP) return false;
     if (!isEligibleForFastPath(message)) {
       logger.debug('PlanDrivenLoop 分流：复杂度门/危险工具筛除', {
         messagePreview: message.slice(0, 50),
@@ -549,19 +523,9 @@ export class ChatManagerImpl implements ChatManager {
       });
       return false;
     }
-    if (this._planDrivenLoopTrafficPercent >= 100) return true;
-    if (this._planDrivenLoopTrafficPercent <= 0) return false;
-    // message 粒度 hash（与 sessionId 解耦）
-    const hash = this._hashMessage(message);
-    const shouldUse = hash < this._planDrivenLoopTrafficPercent;
-    logger.info('PlanDrivenLoop 分流', {
-      messagePreview: message.slice(0, 50),
-      hash,
-      trafficPercent: this._planDrivenLoopTrafficPercent,
-      fastPath: shouldUse,
-    });
-    return shouldUse;
+    return true;
   }
+
 
   /** message 粒度 hash（S3：字符串散列 → 0~99，避开 sessionId 偏差） */
   private _hashMessage(message: string): number {
@@ -795,6 +759,21 @@ export class ChatManagerImpl implements ChatManager {
     );
     // C7 收敛：压缩评估统一走 UnifiedTokenTracker（注入到单例编排器）
     compactionOrchestrator.setTracker(this.unifiedTracker);
+    // D 阶段（v5 P0-⑥）：session_summary 自定义类型注册——构造期即执行（早于任何
+    // memory scanner/memdir 扫描与压缩触发；registerMemoryType 幂等，重复调用安全）
+    registerSessionSummaryMemoryType();
+    // 优雅退出（2026-09-02 排查"会话中断"补充）：注册本实例全会话 text-batch
+    // 缓冲 flush——进程收到 SIGTERM/SIGINT（watch 重启/Ctrl+C/系统关闭）时先落盘
+    // 缓冲正文再退出，避免 torn-tail / open-turn（证据：mtjkl/mtjdmjpo torn + 105 次启动）。
+    // 注册幂等（模块级数组，重复构造仅多一条 no-op 闭包）。
+    registerEventBufferFlusher(() => this.flushAllPendingEventBuffers());
+    // 内存水位订阅（2026-09-02）：L0+ 触发时先落盘全部会话缓冲（脏页写回，
+    // OS kswapd 式"压力前先写回"）；订阅在构造期幂等注册一次
+    getMemoryPressureMonitor().subscribe((level) => {
+      if (level >= 1) {
+        void this.flushAllPendingEventBuffers().catch(() => {});
+      }
+    });
     this.stopHookManager = createStopHookManager();
     this._registerStopHooks();
 
@@ -806,13 +785,27 @@ export class ChatManagerImpl implements ChatManager {
       this._chatSessions
     );
     this._pdcaLauncher = new PdcaLauncher({
-      enablePlanDrivenLoop: this.ENABLE_PLAN_DRIVEN_LOOP,
+      enablePlanDrivenLoop: true, // 阶段 3 退役（2026-09-01）：灰度开关删除，恒启用
       taorLoopFactory: (sid) => this._getOrCreateTAORLoop(sid),
       buildTAORContext: (sid, defs, opts) =>
         this._buildTAORContext(sid, defs, opts),
       sessionMap: this._chatSessions,
       messageService: this.messageService,
       persistMessage: (sid, msg) => this._addAndPersistMessage(sid, msg),
+      // 转正（2026-09-01）：任务分解 Provider——任务分工→chat 路由→ProviderRegistry
+      // （模型体系唯一事实来源，不硬编码模型名）；失败/缺失返回 null，TaskDecomposer 降级简单分解
+      getDecomposerProvider: async () => {
+        try {
+          const { resolveModelRoute, RouteKey } = await import(
+            '@modules/ai/router/resolveModelRoute'
+          );
+          const { providerRegistry } = await import('@modules/ai');
+          const modelId = await resolveModelRoute(RouteKey.CHAT);
+          return providerRegistry.getByModel(modelId) ?? null;
+        } catch {
+          return null;
+        }
+      },
     });
 
     // CM-6：Code Mode 运行期依赖接线（CODE_MODE 开启时）
@@ -833,6 +826,7 @@ export class ChatManagerImpl implements ChatManager {
       getSessionWorkspacePath: this.getSessionWorkspacePath.bind(this),
       getSessionWorkspaceId: this.getSessionWorkspaceId.bind(this),
       isCommandApproved: this._isCommandApproved.bind(this),
+      sessionLookup: (args) => this._sessionLookup(args),
     });
 
     // 会话生命周期门面：与会话状态共享 Map 引用 + currentSessionId 端口
@@ -920,7 +914,7 @@ export class ChatManagerImpl implements ChatManager {
         },
         ENABLE_TELEMETRY: this.ENABLE_TELEMETRY,
         ENABLE_TRAJECTORY: this.ENABLE_TRAJECTORY,
-        ENABLE_PLAN_DRIVEN_LOOP: this.ENABLE_PLAN_DRIVEN_LOOP,
+        ENABLE_PLAN_DRIVEN_LOOP: true, // 阶段 3 退役（2026-09-01）：灰度开关删除，恒启用
         MAX_TOOL_TURNS: this.MAX_TOOL_TURNS,
         messageService: this.messageService,
         sessionLifecycle: this.sessionLifecycle,
@@ -941,6 +935,9 @@ export class ChatManagerImpl implements ChatManager {
         addAndPersistMessage: (sid, msg) =>
           this._addAndPersistMessage(sid, msg),
         appendStreamEvent: (sid, event) => this.appendStreamEvent(sid, event),
+        bufferStreamTextChunk: (sid, mid, content) =>
+          this.bufferStreamTextChunk(sid, mid, content),
+        flushStreamEventBuffer: (sid) => this.flushStreamEventBuffer(sid),
         getStreamTailSeq: (sid) => this.getStreamTailSeq(sid),
         getStreamMaxTurn: (sid) => this.getStreamMaxTurn(sid),
         getSessionMachine: (sid) => this.getSessionMachine(sid),
@@ -1013,8 +1010,22 @@ export class ChatManagerImpl implements ChatManager {
         onTurnEnd: () => this.onTurnEnd?.(),
         _prepareStreamSession: (content, options) =>
           this._prepareStreamSession(content, options),
-        _buildApiMessagesForStream: (msgs) =>
-          this._buildApiMessagesForStream(msgs),
+        _buildApiMessagesForStream: (
+          msgs,
+          maxCtx,
+          outBudget
+        ): Promise<Record<string, unknown>[]> =>
+          this._buildApiMessagesForStream(msgs, maxCtx, outBudget),
+        // C 阶段（P1）：session_lookup 工具注入辅助（schema + 本次构建是否切窗）
+        getSessionLookupTool: () =>
+          contextLayeringEnabled()
+            ? (this.constructor as typeof ChatManagerImpl).SESSION_LOOKUP_TOOL
+            : null,
+        isLastStreamBuildWindowed: () => this._lastStreamBuildWindowed,
+        // D 阶段（v5）：跨会话摘要上卷至长期记忆（adapter 实现：幂等 upsert +
+        // skipConsolidation；内部失败仅 warn 不抛）
+        rollupSessionSummaryToLongTerm: (input) =>
+          rollupSessionSummaryToLongTerm(input),
         _createStreamPipeline: (session, content, options) =>
           this._createStreamPipeline(session, content, options),
         _finalizeStreamMessage: (
@@ -1062,13 +1073,18 @@ export class ChatManagerImpl implements ChatManager {
     }
     let taorLoop = this._taorLoops.get(sessionId);
     if (!taorLoop) {
-      taorLoop = createTAORLoop(this.getQueryEngine(), {
-        sessionId,
-        maxTurns: parseInt(configManager.env('MAX_TAOR_TURNS') || '') || 300,
-        /** 启用检查点，每 3 轮自动保存（原值：关闭 + 5 轮） */
-        enableCheckpoint: true,
-        checkpointInterval: 3,
-      } satisfies TAORLoopConfig);
+      // 阶段 2（2026-09-01）：统一循环工厂（mode='batch'）替代直接 createTAORLoop
+      taorLoop = createChatAgentLoop({
+        mode: 'batch',
+        queryEngine: this.getQueryEngine(),
+        config: {
+          sessionId,
+          maxTurns: parseInt(configManager.env('MAX_TAOR_TURNS') || '') || 300,
+          /** 启用检查点，每 3 轮自动保存（原值：关闭 + 5 轮） */
+          enableCheckpoint: true,
+          checkpointInterval: 3,
+        },
+      });
       this._taorLoops.set(sessionId, taorLoop);
     }
     return taorLoop;
@@ -1144,9 +1160,20 @@ export class ChatManagerImpl implements ChatManager {
         : undefined,
       pendingInteractions: this._pendingInteractions,
       sendModelRequest: async (messages, opts) => {
+        // A1（2026-08-31 对标 PilotDeck P1-1）：发送前投影——修复 tool 配对 + 安全截断，
+        // 防 provider 拒收（降级/非流式路径，对齐 ChatManagerTAORAdapter 主路径）
+        const projected = messageProjector.project(
+          messages as unknown as import('@modules/ai').ChatMessage[]
+        );
+        if (projected.warnings.length > 0) {
+          logger.warn('chatManager:projector warnings', {
+            count: projected.warnings.length,
+            warnings: projected.warnings.slice(0, 5),
+          });
+        }
         const client = this.getClientForModel(options?.model);
         const response = await client.sendMessage(
-          messages as unknown as import('@modules/ai').ChatMessage[],
+          projected.messages,
           {
             ...options,
             tools: (opts?.tools as Array<Record<string, unknown>>)?.length
@@ -1365,14 +1392,12 @@ export class ChatManagerImpl implements ChatManager {
       }
     }
 
-    // 获取当前 tailSeq，决定新事件的起始 seq
-    const tailSeq = await eventLog.getTailSeq();
+    // P3-7a（2026-09-02）：批量事件在逐条 append 时统一归 0，由 append 在 mutex 内
+    // 原子分配 seq——替换"getTailSeq + 1"起点，根治与实时流事件（thinking/text/
+    // tool_call 同样走 seq<=0 原子分配）并发读同一 tailSeq 的 duplicate-seq。
+    // convertMessage 生成的临时 seq（0 起）仅用于过滤与类型判定，不作为最终 seq。
     const migrator = new MessageToEventMigrator(eventLog, sessionId, 'default');
-    const { events } = migrator.convertMessage(
-      message,
-      tailSeq + 1,
-      Date.now()
-    );
+    const { events } = migrator.convertMessage(message, 0, Date.now());
 
     // 修复（P0-根因修复，替代 tailSeq>0 的宽泛判断）：
     // 只有明确带 __streamedEventsWritten 标记的消息（即已通过 appendStreamEvent 流式写入了
@@ -1396,6 +1421,9 @@ export class ChatManagerImpl implements ChatManager {
       filteredEvents = events.filter(
         (e) =>
           e.type !== 'assistant/text' &&
+          // F-2（2026-09-02）：流式 text 已以 text-batch 聚合事件实时写入，
+          // 最终落盘同样过滤，避免与完整正文双份写入
+          e.type !== 'assistant/text-batch' &&
           e.type !== 'assistant/thinking' &&
           e.type !== 'assistant/tool_call'
       );
@@ -1414,33 +1442,36 @@ export class ChatManagerImpl implements ChatManager {
       }
     }
 
-    // 内存映射回填 callSeq
-    for (const event of filteredEvents) {
-      if (event.type === 'assistant/tool_call') {
-        const data = event.data as { toolCallId: string };
-        this._toolCallSeqMap.set(data.toolCallId, event.seq);
-      }
-    }
     // T2.2（2026-08-23）：重启后 _toolCallSeqMap 为空，tool/result.callSeq === -1 时
-    // 从 events 懒重建映射（每个会话一次，结果缓存），避免 -1 占位影响前端 callSeq 配对
+    // 从 events 懒重建映射（每个会话一次，结果缓存），避免 -1 占位影响前端 callSeq 配对。
+    // 注：P3-7a 起 filteredEvents 的 seq 为临时值（append 时原子分配），此处重建读取的是
+    // 磁盘真实 seq（_rebuildToolCallSeqMap 扫盘），不受影响。
     const needsRebuild = filteredEvents.some(
       (e) =>
         e.type === 'tool/result' &&
         (e.data as { callSeq: number }).callSeq === -1
     );
     if (needsRebuild) await this._rebuildToolCallSeqMap(sessionId);
+
+    // 逐条追加
     for (const event of filteredEvents) {
+      // P3-7a：seq 归 0 交由 append 在 mutex 内原子分配（根治并发 duplicate-seq）
+      event.seq = 0;
+      // tool/result 的 callSeq === -1 → 从 map 回填真实 tool_call 事件 seq（A1 闭环）
       if (event.type === 'tool/result') {
         const data = event.data as { callSeq: number; toolCallId: string };
         if (data.callSeq === -1) {
           data.callSeq = this._toolCallSeqMap.get(data.toolCallId) ?? -1;
         }
       }
-    }
-
-    // 逐条追加
-    for (const event of filteredEvents) {
       const result = await eventLog.append(event);
+      // tool_call 事件分配后回填 map（用 append 返回的真实 seq，前端按 callSeq 配对）
+      if (event.type === 'assistant/tool_call' && result.ok) {
+        const data = event.data as { toolCallId?: string };
+        if (data.toolCallId) {
+          this._toolCallSeqMap.set(data.toolCallId, result.tailSeq);
+        }
+      }
       if (!result.ok && result.reason !== 'duplicate-seq') {
         // A-7（2026-08-23）：写事件失败 → 投影消息打 pendingRepair 标记 + 触发该会话对账。
         // 标记随 persistChatMessage 落盘到投影，T-D 对账（Phase D）据此修复事件/投影漂移。
@@ -1599,6 +1630,258 @@ export class ChatManagerImpl implements ChatManager {
       }).catch(() => {});
       return { ok: false, reason: 'exception', tailSeq: 0 };
     }
+  }
+
+  /**
+   * A-2①（2026-09-02，v4 §5.2 选项①）：缓冲一条流式正文 chunk（存储层缓冲；
+   * 不落盘、不分配 seq；落盘由 flushStreamEventBuffer / 读路径自动 flush 驱动）。
+   */
+  async bufferStreamTextChunk(
+    sessionId: string,
+    messageId: string,
+    content: string
+  ): Promise<{ ok: boolean }> {
+    try {
+      const eventLog = await this._ensureEventLogReady(sessionId);
+      const r = await eventLog.bufferTextChunk(messageId, content);
+      return { ok: r.ok };
+    } catch (e) {
+      await handleError(e, {
+        module: 'chat:manager',
+        action: 'bufferStreamTextChunk',
+        context: { sessionId, messageId },
+      }).catch(() => {});
+      return { ok: false };
+    }
+  }
+
+  /**
+   * A-2①：flush 会话全部缓冲正文——按 messageId 聚合为 assistant/text-batch 落盘
+   * （F-2 schema），批量失败回退逐 chunk（A-1）。存储层 read/getTailSeq/append
+   * 前同样自动 flush（所有权闭环）。
+   */
+  async flushStreamEventBuffer(
+    sessionId: string
+  ): Promise<{ ok: boolean; flushed: number }> {
+    try {
+      const eventLog = await this._ensureEventLogReady(sessionId);
+      const flushed = await eventLog.flushTextBuffer();
+      return { ok: true, flushed };
+    } catch (e) {
+      await handleError(e, {
+        module: 'chat:manager',
+        action: 'flushStreamEventBuffer',
+        context: { sessionId },
+      }).catch(() => {});
+      return { ok: false, flushed: 0 };
+    }
+  }
+
+  /**
+   * 优雅退出（2026-09-02）：flush 全部已创建会话的 text-batch 缓冲。
+   * 供进程级 SIGTERM/SIGINT 钩子调用（watch 重启/Ctrl+C）——退出前把缓冲正文
+   * 落盘为 assistant/text-batch，避免 torn-tail / open-turn 与流式正文丢失。
+   * 单个失败不抛错（CS03），返回 flush 的 chunk 总数。
+   */
+  async flushAllPendingEventBuffers(): Promise<number> {
+    let flushed = 0;
+    for (const log of this._eventLogCache.values()) {
+      try {
+        flushed += await log.flushTextBuffer();
+      } catch {
+        // @ignore-catch — 退出路径 flush 失败不阻断其余会话（CS03）
+      }
+    }
+    return flushed;
+  }
+
+  /** 首次使用前的 eventLog 就绪（懒建 + 旧数据迁移；appendStreamEvent 同款逻辑收敛复用） */
+  private async _ensureEventLogReady(
+    sessionId: string
+  ): Promise<EventLogStorage> {
+    const eventLog = this._getOrCreateEventLog(sessionId);
+    if (!eventLog.exists()) {
+      const migrator = new MessageToEventMigrator(
+        eventLog,
+        sessionId,
+        'default'
+      );
+      if (migrator.needsMigration()) {
+        logger.info('chat:manager 流式前自动触发事件日志迁移', {
+          sessionId,
+        });
+        await migrator.migrate();
+      }
+    }
+    return eventLog;
+  }
+
+  /**
+   * C 阶段（2026-09-02，P1，C 详设 §4）：session_lookup 取回实现。
+   * 按事件 seq 区间读取（复用 EventLogStorage.read + idx 二分），格式化为可读原文
+   * （assistant/text-batch 经 F-2 语义展开为正文），每页 ≤ 8K 字符（≈2K tokens），
+   * 截断点对齐用户轮次边界；nextFromSeq 支持续页。仅限当前会话（跨会话拒绝）。
+   */
+  private async _sessionLookup(args: {
+    sessionId: string;
+    fromSeq?: number;
+    toSeq?: number;
+    offset?: number;
+    limit?: number;
+  }): Promise<{
+    ok: boolean;
+    content?: string;
+    nextFromSeq?: number;
+    reason?: string;
+  }> {
+    try {
+      const { sessionId, fromSeq, toSeq, offset } = args;
+      if (!sessionId || sessionId !== this._currentSessionId) {
+        return {
+          ok: false,
+          reason:
+            'sessionId 缺失或与当前会话不匹配（session_lookup 仅支持当前会话）',
+        };
+      }
+      const eventLog = await this._ensureEventLogReady(sessionId);
+      if (!eventLog.exists()) {
+        return { ok: true, content: '（会话暂无事件记录）' };
+      }
+      const PAGE_CHARS = 8000; // ≈2K tokens（4 chars/token 保守口径）
+      const MAX_EVENTS = 3000;
+      const from = fromSeq && fromSeq > 0 ? fromSeq : 1;
+      const events = await eventLog.read({
+        fromSeq: from,
+        toSeq: toSeq ?? Number.MAX_SAFE_INTEGER,
+        limit: Math.min(args.limit ?? MAX_EVENTS, 10000),
+      });
+      const startIdx = offset && offset > 0 && !fromSeq ? offset : 0;
+      if (startIdx >= events.length) {
+        return { ok: true, content: '（无更多记录）' };
+      }
+      const lines: string[] = [];
+      let usedChars = 0;
+      let breakAt = events.length; // 首个未包含事件下标
+      for (let i = startIdx; i < events.length; i++) {
+        const e = events[i];
+        const line = this._formatEventLine(e);
+        if (!line) continue;
+        // 轮次边界（user/turn 起点）处允许收尾后截断；轮中断言则不截断在中间
+        const isRoundStart = e.type === 'user/message' || e.type === 'turn/start';
+        if (usedChars + line.length > PAGE_CHARS) {
+          if (isRoundStart) {
+            breakAt = i;
+            break;
+          }
+          continue; // 大事件（巨型单行）直接跳过，避免撑爆单页
+        }
+        lines.push(line);
+        usedChars += line.length;
+      }
+      const content = lines.length > 0 ? lines.join('\n') : '（区间内无可读内容）';
+      const nextFromSeq =
+        breakAt < events.length ? events[breakAt].seq : undefined;
+      return {
+        ok: true,
+        content,
+        ...(nextFromSeq ? { nextFromSeq } : {}),
+      };
+    } catch (err) {
+      return {
+        ok: false,
+        reason: err instanceof Error ? err.message : String(err),
+      };
+    }
+  }
+
+  /** C 阶段：单事件 → 可读行（无用户可读语义的事件返回 null 跳过） */
+  private _formatEventLine(e: LiriEvent): string | null {
+    const d = e.data as
+      | {
+          content?: unknown;
+          name?: string;
+          args?: unknown;
+          result?: unknown;
+          toolCallId?: string;
+          summary?: unknown;
+          keywords?: unknown;
+          text?: unknown;
+        }
+      | undefined;
+    const trunc = (s: string, n: number): string =>
+      s.length > n ? `${s.slice(0, n)}…[截断 ${s.length - n} 字符]` : s;
+    switch (e.type) {
+      case 'user/message':
+        return `用户: ${trunc(String(d?.content ?? ''), 2000)}`;
+      case 'assistant/text':
+      case 'assistant/text-batch':
+        return `助手: ${trunc(String(d?.content ?? ''), 4000)}`;
+      case 'assistant/thinking':
+        return `> 思考: ${trunc(String(d?.content ?? ''), 800)}`;
+      case 'assistant/tool_call':
+        return `工具调用: ${d?.name ?? 'unknown'}(${trunc(
+          JSON.stringify(d?.args ?? {}),
+          500
+        )})`;
+      case 'tool/result':
+        return `工具结果: ${trunc(
+          String(d?.result ?? ''),
+          1500
+        )}`;
+      case 'context/summary':
+        return `[历史摘要] ${trunc(
+          String(d?.summary ?? d?.content ?? ''),
+          1500
+        )}`;
+      case 'session/summary':
+        // D-1（2026-09-02）：会话远期摘要事件（取回原文的检索视图）
+        return `[会话摘要] ${trunc(String(d?.content ?? ''), 1500)}${
+          Array.isArray(d?.keywords) && (d.keywords as string[]).length > 0
+            ? `\n关键词: ${(d.keywords as string[]).join('、')}`
+            : ''
+        }`;
+      default:
+        return null; // 系统/状态/心跳类事件不进取回原文
+    }
+  }
+
+  /**
+   * D 阶段（2026-09-02，v4 §8）：读取会话远期摘要（检索视图，事件日志只读）。
+   * 返回 seq 升序的摘要记录；无事件日志/异常返回 []（CS03）。
+   */
+  async getSessionSummaries(
+    sessionId: string,
+    limit: number = 200
+  ): Promise<SessionSummaryRecord[]> {
+    try {
+      const eventLog = this._getOrCreateEventLog(sessionId);
+      if (!eventLog.exists()) return [];
+      const events = await eventLog.read({
+        types: ['session/summary'],
+        limit: Math.min(limit, 1000),
+      });
+      return parseSessionSummaries(events);
+    } catch (err) {
+      await handleError(err, {
+        module: 'chat:manager',
+        action: 'getSessionSummaries',
+        context: { sessionId },
+      }).catch(() => {});
+      return [];
+    }
+  }
+
+  /**
+   * D 阶段：按关键词检索会话摘要（data.keywords 元数据命中优先，正文次之）。
+   * 供后续知识库/记忆联动与 UI 会话摘要视图使用。
+   */
+  async searchSessionSummaries(
+    sessionId: string,
+    keyword: string,
+    limit: number = 5
+  ): Promise<SessionSummaryRecord[]> {
+    const summaries = await this.getSessionSummaries(sessionId, 500);
+    return findSummaryByKeyword(summaries, keyword, limit);
   }
 
   /**
@@ -2598,8 +2881,13 @@ export class ChatManagerImpl implements ChatManager {
         });
       }
 
+      // A1（2026-08-31 对标 PilotDeck P1-1）：发送前投影——修复 tool 配对，
+      // 防 provider 拒收（降级路径 tool 结果可能缺配对 assistant.tool_calls）
+      const projected = messageProjector.project(
+        apiMessages as unknown as ChatMessage[]
+      );
       const fallbackResponse = await activeClient.sendMessage(
-        apiMessages as unknown as ChatMessage[],
+        projected.messages,
         options
       );
       const fallbackContent =
@@ -2792,20 +3080,93 @@ export class ChatManagerImpl implements ChatManager {
   };
 
   /**
+   * C 阶段（2026-09-02，P1，C 详设 §4）：session_lookup — 按事件区间取回被切早期原文。
+   * 分页（每页 ≤2K tokens，nextFromSeq 续页），只读，仅限当前会话。
+   */
+  static readonly SESSION_LOOKUP_TOOL: ToolDefinition = {
+    type: 'function',
+    function: {
+      name: 'session_lookup',
+      description:
+        '取回当前会话中较早的原始对话记录（当上下文压缩/分层未携带早期内容时使用）。支持按事件序号（fromSeq）或从会话开头（offset）分页取回，每页约 2000 tokens；返回的 nextFromSeq 可继续翻页直到取完。',
+      parameters: {
+        type: 'object',
+        properties: {
+          sessionId: { type: 'string', description: '当前会话 id' },
+          fromSeq: {
+            type: 'number',
+            description:
+              '起始事件序号（上一页返回的 nextFromSeq）。不传则从会话开头或按 offset 定位。',
+          },
+          toSeq: {
+            type: 'number',
+            description: '可选，截止事件序号（默认取至一页容量）。',
+          },
+          offset: {
+            type: 'number',
+            description:
+              '可选，从会话开头跳过的事件条数（与 fromSeq 二选一，用于从头翻页）。',
+          },
+          limit: {
+            type: 'number',
+            description: '可选，本页最大事件条数（默认按 token 预算自动折算）。',
+          },
+        },
+        required: [],
+      },
+    },
+  };
+
+  /**
    * P2-3.5: 将 session.messages 转换为 API 格式消息列表
    *
    * 提取自 streamMessage，处理工具结果截断、tool_call_id 补全、
    * 跨轮 tool_calls 清理等纯数据转换逻辑。
    */
   private async _buildApiMessagesForStream(
-    messages: Message[]
+    messages: Message[],
+    maxContextTokens?: number,
+    outputBudgetTokens?: number
   ): Promise<Array<Record<string, unknown>>> {
+    // 内存画像（MEM_PROFILE=1）：上下文构建前采样——定位构建期瞬时大分配
+    //（排查 agentic 运行期 RSS 2-4.4GB 尖峰与 GC STW，证据见监控 memProfile:*）
+    memProfile('stream-build:pre', { totalMessages: messages.length });
+    // 内存水位 tick（请求边界驱动；正常路径零日志，仅级别变化时动作）
+    getMemoryPressureMonitor().tick();
+    // C-2（2026-09-02，v4 §7.2）：map 前置预算切窗——超窗大会话先丢头部旧轮次，
+    // 使下方 filter/map/stringify 只处理幸存窗口，构建期内存 O(全量)→O(窗口)。
+    // 语义不变：预算/尾保护区与 truncateApiMessages 同口径；最终输入仍由
+    // compactContext/truncate 决定（对本窗口大概率早退）。仅当构建方传入预算时启用。
+    let windowed = messages;
+    let cutIndex = 0;
+    if (maxContextTokens && maxContextTokens > 0 && messages.length > 2) {
+      const point = await computePaginationPoint(
+        messages as Array<{ role: string; content: unknown }>,
+        maxContextTokens,
+        outputBudgetTokens
+      );
+      cutIndex = point.cutIndex;
+      if (cutIndex > 0) {
+        windowed = messages.slice(cutIndex);
+        // C 阶段（P1）：标记本次构建发生切窗，供 streamMessageFlow 注入 session_lookup
+        this._lastStreamBuildWindowed = true;
+        logger.info('stream:build 分页切点生效（C 阶段）', {
+          totalMessages: messages.length,
+          cutIndex,
+          keptMessages: windowed.length,
+        });
+      } else {
+        this._lastStreamBuildWindowed = false;
+      }
+    } else {
+      this._lastStreamBuildWindowed = false;
+    }
     // §5.3: 排除 isTaskMessage 消息（任务摘要仅用户可见，不进入 LLM 上下文，避免污染）
     // 2026-08-19 根因①修复：filter/map 改为分批 for 循环 + 让出事件循环，
     // 避免大会话（数百条/大 JSON 序列化）同步构建阻塞事件循环数秒
     const apiMessages: Array<Record<string, unknown>> = [];
     let builtCount = 0;
-    for (const msg of messages) {
+    for (const msg of windowed) {
       if (msg.metadata?.isTaskMessage === true) continue;
       // 空正文且无 tool_calls 的 assistant 消息跳过（工具循环中间空消息，避免污染上下文）
       if (isEmptyAssistantWithoutToolCalls(msg)) continue;
@@ -2891,6 +3252,18 @@ export class ChatManagerImpl implements ChatManager {
       });
     }
 
+    // P2-a（2026-09-02，C 详设 §5.2）：切窗生效 → 保留段首条 user 注入"可取回"提示
+    if (cutIndex > 0 && contextLayeringEnabled()) {
+      const firstUser = apiMessages.find(
+        (m) => m.role === 'user' && typeof m.content === 'string'
+      );
+      if (firstUser) {
+        firstUser.content = `${LAYERING_HINT}\n${firstUser.content}`;
+      }
+    }
+
+    // 内存画像（MEM_PROFILE=1）：构建完成采样（apiMessages 峰值驻留）
+    memProfile('stream-build:post', { apiMessagesCount: apiMessages.length });
     return apiMessages;
   }
 
@@ -3700,156 +4073,130 @@ export class ChatManagerImpl implements ChatManager {
         sessionId,
       } as ChatStreamChunk;
 
-      // 5. 工具执行循环（简化版，复用核心逻辑）
-      let currentToolCalls: ParsedToolCall[] = remainingToolCalls;
-      let toolTurnCount = generatorState.toolTurnCount;
-      const MAX_TOOL_TURNS = this.MAX_TOOL_TURNS;
+      // 断线恢复动态上限（2026-09-01）：剩余工具数决定所需轮次，避免恢复的
+      // 长任务在基础阈值（30 轮）内被误杀。历史轮次 + 剩余工具 + 5 轮余量。
+      const toolTurnCount = generatorState.toolTurnCount;
+      const MAX_TOOL_TURNS = Math.max(
+        this.MAX_TOOL_TURNS,
+        toolTurnCount + remainingToolCalls.length + 5
+      );
 
-      // 工具执行循环（三轨之一，P1-3）—— 断线恢复简化版（无审批/心跳/残缺重试）。
-      // 收敛目标：复用 streamMessage 基线循环（L4047）的检查点入口，消除独立实现。
-      while (currentToolCalls.length > 0) {
-        if (streamAbortController.signal.aborted) break;
-        toolTurnCount++;
+      // 5. 工具执行循环（轻量模式收敛 2026-09-01：复用 ReActToolLoop，经统一工厂。
+      //    对齐 ReActToolLoop.reason 首轮"直接执行剩余工具"语义（needsInitialLlmCall=false），
+      //    消除手写循环（原三轨之一）。恢复场景简化语义保持：不启用审批/心跳。
+      const apiMessages = session.messages.map((m) => ({
+        role: m.role,
+        content:
+          typeof m.content === 'string'
+            ? m.content
+            : JSON.stringify(m.content),
+        ...(m.metadata?.tool_calls
+          ? { tool_calls: m.metadata.tool_calls }
+          : {}),
+        ...(m.toolCallId ? { tool_call_id: m.toolCallId } : {}),
+      }));
 
-        if (toolTurnCount > MAX_TOOL_TURNS) {
-          yield {
-            type: 'error',
-            content: `工具调用次数已达上限 (${MAX_TOOL_TURNS})`,
-            sessionId,
-          } as ChatStreamChunk;
-          break;
+      const { toolResultRegistry } = await import('../tool/ToolResultRegistry.js');
+      const toolLoopCtx = {
+        session,
+        options: {},
+        abortSignal: streamAbortController.signal,
+        executeTool: (tc: ParsedToolCall, opts: unknown) =>
+          this.executeTool(
+            { id: tc.id, name: tc.name, arguments: tc.arguments, sessionId },
+            opts as {
+              useErrorHandler?: boolean;
+              onProgress?: (progress: {
+                toolUseID: string;
+                data: Record<string, unknown>;
+              }) => void;
+            }
+          ),
+        pendingInteractions: this._pendingInteractions,
+        loopDetector: this._loopDetector,
+        messageService: this.messageService,
+        addAndPersistMessage: (sid: string, msg: Message) =>
+          this._addAndPersistMessage(sid, msg),
+        checkpointService: this._checkpointService,
+        streamingCheckpoint: {
+          onToolCompleted: (data: Record<string, unknown>) =>
+            streamingCheckpoint.onToolCompleted(
+              data as unknown as Parameters<
+                typeof streamingCheckpoint.onToolCompleted
+              >[0]
+            ),
+        },
+        activeClient,
+        unifiedTracker: this.unifiedTracker,
+        recordChatResponseUsage: (
+          sid: string,
+          usage: Record<string, number>
+        ) => this.recordChatResponseUsage(sid, usage),
+        toolResultRegistry,
+        toolRegistry: this.getToolRegistry(),
+        toolDefinitions,
+        buildToolRoundMessages: (msgs: unknown, am: Message, tcs: unknown, prs: unknown) =>
+          this._buildToolRoundMessages(
+            msgs as Record<string, unknown>[],
+            am,
+            tcs as ParsedToolCall[],
+            prs as Array<{
+              normalizedToolCall: ParsedToolCall;
+              result: ToolResult;
+            }>
+          ),
+        maxToolTurns: this.MAX_TOOL_TURNS,
+        estimateMessagesTokens,
+      } as unknown as import('./ToolLoopRunner.js').ToolLoopContext;
+
+      const { createChatAgentLoop } = await import('./createAgentLoop.js');
+      const { reactEventsToChunks } = await import('./reactEventsToChunks.js');
+      // 空 assistant 消息占位：ReActToolLoop 首轮直接执行剩余工具，工具轮内自行构建
+      // assistant 消息（含叙述/达上限提示），input.assistantMessage 仅作 finalize 兜底 base
+      const resumeAssistantMsg = this.messageService.createAssistantMessage('', {
+        sessionId,
+      });
+      const loop = createChatAgentLoop({
+        mode: 'stream',
+        ctx: toolLoopCtx,
+        input: {
+          apiMessages,
+          currentToolCalls: remainingToolCalls,
+          assistantMessage: resumeAssistantMsg,
+          needsInitialLlmCall: false, // 首轮直接执行剩余工具（恢复语义）
+        },
+        config: { maxIterations: MAX_TOOL_TURNS },
+      });
+
+      // 消费 ReActEvent 流 → ChatStreamChunk（含文本增量 reasoning_delta → text chunk）
+      let loopMessage: Message | null = null;
+      const loopIter = loop.run({
+        apiMessages,
+        currentToolCalls: remainingToolCalls,
+        assistantMessage: resumeAssistantMsg,
+      });
+      let loopStep = await loopIter.next();
+      while (!loopStep.done) {
+        for (const chunk of reactEventsToChunks(loopStep.value, sessionId)) {
+          yield chunk;
         }
-
-        // 执行本轮工具
-        const processedResults: Array<{
-          normalizedToolCall: ParsedToolCall;
-          result: ToolResult;
-        }> = [];
-        for (const tc of currentToolCalls) {
-          const toolName = tc.name;
-          const toolResult = await this.executeTool(
-            { id: tc.id, name: toolName, arguments: tc.arguments, sessionId },
-            { useErrorHandler: true }
-          );
-          processedResults.push({
-            normalizedToolCall: {
-              id: tc.id,
-              name: toolName,
-              arguments: tc.arguments,
-            },
-            result: toolResult,
-          });
-
-          yield {
-            type: 'tool_call',
-            content: toolResult.error ? `工具 ${toolName} 执行失败` : '',
-            sessionId,
-            toolCall: {
-              id: tc.id,
-              name: toolName,
-              arguments: tc.arguments,
-              status: toolResult.error ? 'failed' : 'completed',
-            },
-          } as ChatStreamChunk;
-        }
-
-        // 构建 API 消息并调用 LLM
-        const updatedMessages: Record<string, unknown>[] = session.messages.map(
-          (m) => ({
-            role: m.role,
-            content:
-              typeof m.content === 'string'
-                ? m.content
-                : JSON.stringify(m.content),
-            ...(m.metadata?.tool_calls
-              ? { tool_calls: m.metadata.tool_calls }
-              : {}),
-            ...(m.toolCallId ? { tool_call_id: m.toolCallId } : {}),
-          })
-        );
-
-        for (const pr of processedResults) {
-          updatedMessages.push({
-            role: 'assistant',
-            content: accumulatedContent,
-            tool_calls: currentToolCalls.map((tc) => ({
-              id: tc.id,
-              type: 'function',
-              function: {
-                name: tc.name,
-                arguments: JSON.stringify(tc.arguments),
-              },
-            })),
-          });
-          updatedMessages.push({
-            role: 'tool',
-            content: pr.result.result
-              ? typeof pr.result.result === 'string'
-                ? pr.result.result
-                : JSON.stringify(pr.result.result)
-              : pr.result.error || '{}',
-            tool_call_id: pr.normalizedToolCall.id,
-          });
-        }
-
-        // 调用 LLM
-        const toolGen = activeClient.streamMessage(
-          updatedMessages as unknown as ChatMessage[],
-          {
-            signal: streamAbortController.signal,
-            tools:
-              toolDefinitions.length > 0
-                ? (toolDefinitions as unknown as ToolDefinition[])
-                : undefined,
-          }
-        );
-
-        accumulatedContent = '';
-        let result = await toolGen.next();
-        while (!result.done) {
-          const chunk = result.value as
-            | { type?: string; content?: string; delta?: { content?: string } }
-            | string;
-          const content =
-            typeof chunk === 'string'
-              ? chunk
-              : chunk?.delta?.content || chunk?.content || '';
-          if (content) {
-            accumulatedContent += content;
-            yield content;
-          }
-          result = await toolGen.next();
-        }
-
-        const toolResultResponse = result.value as {
-          content?: string;
-          tool_calls?: ParsedToolCall[];
-          usage?: { inputTokens?: number; outputTokens?: number };
-        };
-
-        // 检查是否还有新工具调用
-        if (
-          toolResultResponse?.tool_calls &&
-          toolResultResponse.tool_calls.length > 0
-        ) {
-          currentToolCalls = [...toolResultResponse.tool_calls];
-          continue;
-        }
-
-        currentToolCalls = [];
+        loopStep = await loopIter.next();
       }
+      loopMessage = loopStep.value; // ReActToolLoop.run 返回值（finalize 的 Message）
 
       // 6. 清理
       this._sessionAbortControllers.delete(sessionId);
 
-      const assistantMessage = this.messageService.createAssistantMessage(
-        // 与主链路 StreamPipeline.repairContent 对齐：断线恢复累积的工具轮叙述
-        // 落盘前剥离裸探索段，避免历史加载合并后探索叙述重复出现
-        stripBareExploration(
-          stripThinkResponseTags(repairImageUrls(accumulatedContent))
-        ),
-        { sessionId }
-      );
+      // ReActToolLoop 已通过 finalize 构建 assistant 消息（含工具轮叙述/达上限提示）；
+      // 异常时回退手写构建（CS03）
+      const assistantMessage =
+        loopMessage ??
+        this.messageService.createAssistantMessage(
+          stripBareExploration(
+            stripThinkResponseTags(repairImageUrls(accumulatedContent))
+          ),
+          { sessionId }
+        );
       assistantMessage.sessionId = sessionId;
       assistantMessage.finishReason = streamAbortController.signal.aborted
         ? 'abort'
@@ -4226,6 +4573,22 @@ export class ChatManagerImpl implements ChatManager {
       result: ToolResult;
     }>
   ): Record<string, unknown>[] {
+    // P2-3（2026-09-02）：诊断日志——确认工具结果是否真正拼入下一轮请求
+    logger.info('reactToolLoop:_buildToolRoundMessages', {
+      currentMessages: currentMessages.length,
+      toolCalls: currentToolCalls.length,
+      processedResults: processedResults.length,
+      assistantMsgContentLength:
+        typeof currentAssistantMsg.content === 'string'
+          ? currentAssistantMsg.content.length
+          : -1,
+      resultChars: processedResults.map((pr) => {
+        const raw = pr.result.result
+          ? JSON.stringify(pr.result.result)
+          : pr.result.error || '{}';
+        return { id: pr.normalizedToolCall.id, chars: raw.length };
+      }),
+    });
     return [
       ...currentMessages,
       {
@@ -4246,14 +4609,83 @@ export class ChatManagerImpl implements ChatManager {
           },
         })),
       },
-      ...processedResults.map((pr) => ({
-        role: 'tool' as const,
-        content: pr.result.result
+      ...processedResults.map((pr) => {
+        const raw = pr.result.result
           ? JSON.stringify(pr.result.result)
-          : pr.result.error || '{}',
-        tool_call_id: pr.normalizedToolCall.id,
-      })),
+          : pr.result.error || '{}';
+        // P0-2（2026-09-02，对标 hermes observe_call 结果 stub）：同会话同工具同参数
+        // 的大结果（≥1024 字符）重复时替换为引用 stub——缓解上下文膨胀（实测工具循环
+        // 输入 token 44 万，大量为重复的 web_fetch/grep 全文）。落盘消息保留完整内容，
+        // 仅发送给 LLM 的请求消息被 stub（持久化/轨迹不受影响）。
+        const stub = this._dedupeToolResultForStub(
+          pr.normalizedToolCall.name,
+          pr.normalizedToolCall.arguments,
+          raw
+        );
+        return {
+          role: 'tool' as const,
+          content: stub ?? raw,
+          tool_call_id: pr.normalizedToolCall.id,
+        };
+      }),
     ];
+  }
+
+  /** P0-2：工具结果去重 stub 缓存——key: sessionId:toolName:参数归一化 → {hash, stubCount} */
+  private readonly _toolResultStubCache = new Map<
+    string,
+    { hash: number; stubCount: number }
+  >();
+
+  /**
+   * P0-2（2026-09-02）P2-修复（2026-09-02）：大工具结果去重 stub。
+   * 首次/内容变化返回 null（正常全文）；同会话同工具同参数内容未变化 → 返回引用 stub。
+   * 仅对 ≥1024 字符的大结果生效（小结果省不了多少 token，避免误 stub 语义）。
+   *
+   * P2-修复（死循环根因，实测 session_mtjihry4f5u2nzyb8k）：
+   * 原 stub 文案"若无法引用（如结果已被压缩），请重新调用该工具获取完整结果"直接
+   * 驱动工具死循环：模型（deepseek-v4-flash）按指引重调同一工具 → 又命中同一 stub →
+   * 循环守卫 3 轮熔断 → "工具循环无实质进展，任务已结束"。修复：
+   * 1. stub 文案不再引导重调：明确结果已在上文上下文、直接使用、不要重复调用；
+   *    如确需分段查看，改用 offset/limit 读取不同行段（结果不同、不触发去重）。
+   * 2. 同一内容连续出现只 stub 一次：第 3 次起返回全文（模型可能因压缩/窗口丢失
+   *    上文，必须给真实内容才能打破循环；循环守卫仍兜底 3 轮熔断，防 token 膨胀）。
+   * 3. `_currentSessionId` 为空时禁用 stub：避免 key 退化为全局（:tool:args）
+   *    导致跨会话首次读取同一文件即被误 stub。
+   */
+  private _dedupeToolResultForStub(
+    toolName: string,
+    args: unknown,
+    content: string
+  ): string | null {
+    if (content.length < 1024) return null;
+    // P2：会话 id 缺失时禁用 stub（防 key 退化为全局、跨会话污染）
+    if (!this._currentSessionId) return null;
+    let argsKey: string;
+    try {
+      const j = JSON.stringify(args ?? {});
+      argsKey = j.length > 500 ? j.slice(0, 500) : j;
+    } catch {
+      argsKey = '';
+    }
+    const key = `${this._currentSessionId}:${toolName}:${argsKey}`;
+    let h = 5381;
+    for (let i = 0; i < content.length; i++) {
+      h = ((h << 5) + h + content.charCodeAt(i)) | 0;
+    }
+    const hash = h >>> 0;
+    const prev = this._toolResultStubCache.get(key);
+    if (!prev || prev.hash !== hash) {
+      // 首次出现 / 内容变化：重置计数，返回全文
+      this._toolResultStubCache.set(key, { hash, stubCount: 1 });
+      return null;
+    }
+    prev.stubCount++;
+    if (prev.stubCount >= 3) {
+      // P2：连续第 3 次相同 → 返回全文（模型可能无法引用上文，需真实内容打破循环）
+      return null;
+    }
+    return `[工具结果与上一轮调用完全相同（${content.length} 字符，此处省略以节省上下文）。该结果已在上文上下文中，请直接基于已有内容继续分析，不要重复调用同一工具；如需按段查看内容，请改用 file_read 的 offset/limit 参数读取不同行段。]`;
   }
 
   /**
@@ -5051,6 +5483,37 @@ export class ChatManagerImpl implements ChatManager {
   ): Promise<import('./types/checkpoint').SessionCheckpoint | null> {
     return this.resumeCoordinator.getLatestCheckpoint(sessionId);
   }
+}
+
+/**
+ * 优雅退出钩子注册表（2026-09-02 排查"会话中断"补充）。
+ * ChatManagerImpl 构造时注册"全会话 text-batch 缓冲 flush"；main.ts 信号链
+ * （SIGTERM/SIGINT）在退出前调用 flushAllEventBuffers()，把流式缓冲正文落盘，
+ * 避免进程被 watch 重启/Ctrl+C 终止时留下 torn-tail / open-turn。
+ * 模块级数组 + 函数声明（hoisted），重复构造仅追加 no-op 闭包，幂等。
+ */
+const eventBufferFlushers: Array<() => Promise<number>> = [];
+
+/** 注册一个退出前 flush 钩子（返回注册条数，便于日志） */
+export function registerEventBufferFlusher(fn: () => Promise<number>): void {
+  eventBufferFlushers.push(fn);
+}
+
+/** 退出前 flush 全部已注册会话的事件缓冲（逐条容错，返回总 flush chunk 数） */
+export async function flushAllEventBuffers(): Promise<number> {
+  let total = 0;
+  await Promise.all(
+    eventBufferFlushers.map((fn) =>
+      fn()
+        .then((n) => {
+          total += n;
+        })
+        .catch(() => {
+          // @ignore-catch — 单条 flush 失败不阻断退出链（CS03）
+        })
+    )
+  );
+  return total;
 }
 
 /**

@@ -38,6 +38,13 @@ import type {
   QuestionData,
 } from '@modules/runtime/api/CoreAPI.js';
 import { compactionOrchestrator } from '@modules/context';
+import { isEstopEngaged } from '@modules/core/estop/estop.js';
+import {
+  TurnLivenessWatchdog,
+  resolveLivenessTimeout,
+  resolveLivenessPoll,
+  type LivenessSnapshot,
+} from '@modules/chat/services/TurnLivenessWatchdog';
 import type {
   Message,
   SendMessageOptions,
@@ -125,6 +132,39 @@ export interface ChatOrchestratorHost {
     event: LiriEvent
   ): Promise<{ ok: boolean; reason?: string; tailSeq: number }>;
   /**
+   * A-2①（2026-09-02，v4 §5.2 选项①）：缓冲一条流式正文 chunk 到事件日志存储层
+   * （不落盘、不分配 seq；落盘由 flushStreamEventBuffer / 读路径自动 flush 驱动）。
+   * 失败不阻断流式（CS03）。
+   */
+  bufferStreamTextChunk(
+    sessionId: string,
+    messageId: string,
+    content: string
+  ): Promise<{ ok: boolean }>;
+  /**
+   * A-2①：flush 该会话全部缓冲正文——按 messageId 聚合为 assistant/text-batch 落盘
+   * （F-2 schema），批量失败回退逐 chunk（A-1）。返回 flush 的 chunk 数。
+   */
+  flushStreamEventBuffer(
+    sessionId: string
+  ): Promise<{ ok: boolean; flushed: number }>;
+  /** C 阶段（2026-09-02，P1）：提供 session_lookup 取回工具 schema（null = 不提供/分层关闭） */
+  getSessionLookupTool?(): ToolDefinition | null;
+  /** C 阶段（2026-09-02，P1）：最近一次流式请求构建是否发生分页切窗（供工具注入判定） */
+  isLastStreamBuildWindowed?(): boolean;
+  /**
+   * D 阶段（2026-09-02，v5）：跨会话摘要上卷至长期记忆（SessionSummaryAdapter 实现，
+   * 失败仅 warn 不抛 CS03）。由 ChatManagerImpl host 提供。
+   */
+  rollupSessionSummaryToLongTerm?(input: {
+    sessionId: string;
+    content: string;
+    keywords?: string[];
+    compactedRange?: { startSeq: number; endSeq: number };
+    sourceEventSeqs?: number[];
+    summarySeq?: number;
+  }): Promise<boolean>;
+  /**
    * M1 事件溯源：获取当前会话的 tailSeq
    *
    * 供 streamMessageFlow 在流式开始时调用，决定 turn/start 与首个 chunk 的 seq。
@@ -137,6 +177,8 @@ export interface ChatOrchestratorHost {
    * 避免后端重启后 turn 编号从 1 重新开始导致重复 turn 号。
    */
   getStreamMaxTurn(sessionId: string): Promise<number>;
+  /** P3-3：中止指定会话的流式请求（卡死看门狗中断回调用，ChatManager 已实现） */
+  abortSessionStream?(sessionId: string): void;
   getSessionMachine(sessionId: string): {
     start(reason?: string): unknown;
     finish(reason?: string): unknown;
@@ -232,7 +274,10 @@ export interface ChatOrchestratorHost {
     streamSpan: Span;
   }>;
   _buildApiMessagesForStream(
-    messages: Message[]
+    messages: Message[],
+    // C-2（2026-09-02，v4 §7.2）：可选预算参数——传 0/undefined 时不启用 map 前置切窗
+    maxContextTokens?: number,
+    outputBudgetTokens?: number
   ): Promise<Record<string, unknown>[]>;
   _createStreamPipeline(
     session: ChatSession,
@@ -309,9 +354,41 @@ export interface ChatOrchestratorDeps {
  */
 export class ChatOrchestrator {
   private readonly host: ChatOrchestratorHost;
+  /** P3-5：空闲降载监控实例（惰性启动，见 _ensureIdleScaleMonitor） */
+  private idleScaleMonitor: { start(): void; poke(): void } | null = null;
 
   constructor(deps: ChatOrchestratorDeps) {
     this.host = deps.host;
+  }
+
+  /**
+   * P3-5（2026-09-02，对标 Hermes scale_to_zero idle 判定）：
+   * 惰性启动空闲降载监控——活跃会话流（sessionMutexes 持有数）> 0 视为不空闲；
+   * 空闲超过阈值触发默认降载（清理过期临时文件），新消息（inbound）自动 poke 复位。
+   */
+  private async _ensureIdleScaleMonitor(): Promise<void> {
+    if (this.idleScaleMonitor) return;
+    const { IdleScaleMonitor } = await import(
+      '@modules/core/idle/IdleScaleMonitor'
+    );
+    const { cleanupStaleTempFiles } = await import(
+      '@modules/core/idle/IdleScaleMonitor'
+    );
+    const monitor = new IdleScaleMonitor({
+      activeWorkCount: () => {
+        let count = 0;
+        for (const mutex of this.host.sessionMutexes.values()) {
+          if (mutex.getHeldDurationMs() > 0) count++;
+        }
+        return count;
+      },
+      onIdle: (idleSeconds) => {
+        logger.info('系统空闲触发降载（P3-5）', { idleSeconds });
+        void cleanupStaleTempFiles();
+      },
+    });
+    monitor.start();
+    this.idleScaleMonitor = monitor;
   }
 
   /**
@@ -348,6 +425,17 @@ export class ChatOrchestrator {
     if (!sessionId) {
       throw new Error('No session id provided');
     }
+
+    // P3-4（2026-09-02）：全局急停——暂停新消息（不杀进行中的，对标 Hermes estop）
+    if (isEstopEngaged()) {
+      throw new Error(
+        '系统已进入全局暂停（ESTOP）。请先解除暂停后再发送新消息。'
+      );
+    }
+
+    // P3-5（2026-09-02）：空闲降载监控——惰性启动 + 新消息视为 inbound 活动
+    void this._ensureIdleScaleMonitor();
+    this.idleScaleMonitor?.poke();
     const session = await this.host.sessionLifecycle.getOrLoadSession(
       sessionId,
       options?.metadata
@@ -361,6 +449,17 @@ export class ChatOrchestrator {
     if (!mutex) {
       mutex = new SimpleMutex();
       this.host.sessionMutexes.set(sessionId, mutex);
+    }
+
+    // P17（2026-09-01）：会话级锁被占用 → 快速失败（友好提示），不等 30s acquire timeout。
+    // 实测：长任务（工具循环 375 秒，如信息收集+生成 HTML）持锁期间，同会话重复请求
+    // （前端重发/用户再发送）会等满 30s 后抛 "SimpleMutex: acquire timeout after 30000ms"，
+    // 前端看到的是原始错误且无反馈。改为立即返回可读提示（chatStream 转 error chunk 透传）。
+    if (mutex.getHeldDurationMs() > 0) {
+      const heldSec = Math.round(mutex.getHeldDurationMs() / 1000);
+      throw new Error(
+        `上一条回复仍在生成中（已执行约 ${heldSec} 秒，可能是长任务或工具调用）。请等待其完成，或点击"停止"后再发送新消息。`
+      );
     }
 
     return mutex.run(async () => {
@@ -487,7 +586,7 @@ export class ChatOrchestrator {
         };
 
         // 阶段 1: 构建 API 消息
-        ctx.apiMessages = prepareApiMessages(ctx);
+        ctx.apiMessages = await prepareApiMessages(ctx);
 
         // 工具定义
         const registry = this.host.getToolRegistry();
@@ -495,10 +594,13 @@ export class ChatOrchestrator {
           ? this.host.buildToolDefinitions(registry.getToolSchemas())
           : [];
 
-        // 注入注册表查询工具
+        // 注入注册表查询工具（有工具历史 或 C 阶段切窗发生时）
         const { toolResultRegistry } =
           await import('../../tool/ToolResultRegistry');
-        if (toolResultRegistry.getRoundCount(session.id) > 0) {
+        if (
+          toolResultRegistry.getRoundCount(session.id) > 0 ||
+          (ctx as { windowed?: boolean }).windowed === true
+        ) {
           ctx.toolDefinitions.push(
             {
               type: 'function',
@@ -517,6 +619,16 @@ export class ChatOrchestrator {
               },
             } as ToolDefinition
           );
+        }
+        // C 阶段（P1）：分页切窗生效 → 提供 session_lookup 取回被切原文
+        if ((ctx as { windowed?: boolean }).windowed === true) {
+          const lookupTool = this.host.getSessionLookupTool?.();
+          if (lookupTool) {
+            ctx.toolDefinitions.push(lookupTool);
+            logger.info('send:注入 session_lookup（分页切窗生效，C 阶段）', {
+              sessionId: session.id,
+            });
+          }
         }
 
         // 阶段 2: 系统提示
@@ -803,12 +915,46 @@ export class ChatOrchestrator {
     options?: StreamMessageOptions
   ): AsyncGenerator<string | ChatStreamChunk, Message, unknown> {
     const { runStreamMessage } = await import('./streamMessageFlow.js');
+
+    // P3-3（2026-09-02）：turn 卡死看门狗（对标 Hermes turn_liveness）——
+    // 每次 yield 视为活动，无产出超过阈值触发中断（覆盖"模型返回 tool_calls 后
+    // 工具执行前卡死"、"LLM 流静默挂起"等 loopGuard/withToolTimeout 之外的兜底）。
+    const watchdog = new TurnLivenessWatchdog({
+      timeoutMs: resolveLivenessTimeout(),
+      pollMs: resolveLivenessPoll(),
+      onStall: (snapshot) => this._handleTurnStall(snapshot),
+    });
+
     const gen = runStreamMessage(this.host, content, options);
+    let started = false;
     let next = await gen.next();
     while (!next.done) {
+      if (!started) {
+        // 首个 chunk 携带 sessionId（status chunk 等），迟滞提取后启动采样
+        const chunk = next.value as { sessionId?: string };
+        const sessionId =
+          typeof chunk === 'object' && chunk !== null
+            ? chunk.sessionId
+            : undefined;
+        watchdog.start(sessionId);
+        started = true;
+      }
+      watchdog.touch();
       yield next.value;
       next = await gen.next();
     }
+    watchdog.stop();
     return next.value;
+  }
+
+  /** P3-3：turn 卡死回调——日志 + 中止会话流（复用既有 abortSessionStream 路径） */
+  private _handleTurnStall(snapshot: LivenessSnapshot): void {
+    logger.error('会话 turn 卡死看门狗触发，尝试中断（对标 Hermes turn_liveness）', {
+      sessionId: snapshot.sessionId ?? null,
+      idleSeconds: snapshot.idleSeconds,
+    });
+    if (snapshot.sessionId) {
+      this.host.abortSessionStream?.(snapshot.sessionId);
+    }
   }
 }

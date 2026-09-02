@@ -226,15 +226,15 @@ export interface PluginManifest {
    */
   homepage?: string;
   /**
-   * 插件命令
+   * 插件命令（命令名列表，PluginMCPToolServer 消费）
    */
   commands?: string[];
   /**
-   * 插件代理
+   * 插件代理（代理名列表，PluginMCPToolServer 消费）
    */
   agents?: string[];
   /**
-   * 插件技能
+   * 插件技能（技能文件路径列表，PluginSkillLoader 消费）
    */
   skills?: string[];
   /**
@@ -242,9 +242,21 @@ export interface PluginManifest {
    */
   hooks?: string;
   /**
-   * MCP服务器
+   * MCP 服务器配置（PluginLoader 同步到 plugin.mcpServers，EnhancedMCPConfigManager 动态接入）
    */
-  mcpServers?: string;
+  mcpServers?: Array<Record<string, unknown>>;
+  /**
+   * 命令文件路径列表（PluginLoader 同步到 plugin.commandsPaths）
+   */
+  commandsPaths?: string[];
+  /**
+   * 代理文件路径列表（PluginLoader 同步到 plugin.agentsPaths，loadPluginAgents 消费）
+   */
+  agentsPaths?: string[];
+  /**
+   * 技能文件路径列表（PluginLoader 同步到 plugin.skillsPaths）
+   */
+  skillsPaths?: string[];
   /**
    * LSP服务器
    */

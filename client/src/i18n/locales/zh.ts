@@ -621,6 +621,7 @@ const zh = {
     logViewerErrorFetchLogs: "获取日志失败",
     logViewerErrorFetchSessions: "获取会话列表失败",
     logViewerErrorFetchCost: "获取成本统计失败",
+    estop: "全局暂停（ESTOP）",
     oauth: "OAuth 认证",
     offline: "离线",
     online: "在线",

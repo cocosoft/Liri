@@ -8,7 +8,7 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { Tool, type ToolResult } from './types/Tool';
 import { ToolFactory } from './ToolFactory';
 import { setAgentToolManager } from './AgentTool/AgentTool';
-import { ToolRegistry, setToolRegistry } from './ToolRegistry';
+import { ToolRegistry, getToolRegistry } from './ToolRegistry';
 import { profileCheckpoint } from '../performance/StartupProfiler.js';
 import { optimizedExecuteTool } from './utils/OptimizedToolManagerUtils.js';
 import {
@@ -53,10 +53,14 @@ export interface ToolManagerOptions {
 type BuiltinToolLoader = (factory: ToolFactory) => Tool | null;
 
 /**
- * 工具管理器
- * 构造函数仅初始化注册表和工厂，内置工具在首次访问时按需加载
- * 支持通过 ToolPolicy 对工具进行策略过滤
- * 扩展 EventEmitter 支持 CC 风格的事件系统
+ * 工具管理器 — 兼容门面（2026-09-01 W1 归一化后定位）
+ *
+ * 职责边界：
+ * - **注册入口**：❌ 不是注册入口。工具注册统一走 `getToolRegistry()`（全局单例）。
+ *   本类构造统一 `options.registry || getToolRegistry()`，所有实例共享同一注册表。
+ * - **保留能力**：执行管线（executeTool 带策略过滤）、内置工具懒加载（ensureToolsLoaded）、
+ *   启/禁用与事件系统。45 处消费方（CLI 命令 / CoreAPIImpl / MCP 桥接）依赖这些能力。
+ * - **非 @deprecated**：仍是执行/查询的主消费 API；长期保留为兼容门面。
  */
 export class ToolManager extends EventEmitter {
   private registry: ToolRegistry;
@@ -77,11 +81,10 @@ export class ToolManager extends EventEmitter {
     this.setMaxListeners(100);
 
     profileCheckpoint('tool_manager_constructor_start');
-    this.registry = options.registry || new ToolRegistry();
+    // 统一使用全局 ToolRegistry 单例作为唯一注册入口；
+    // 显式传入 registry 时（如 EnhancedToolSystem）保持隔离，但不覆盖全局。
+    this.registry = options.registry || getToolRegistry();
     this.factory = options.factory || new ToolFactory();
-
-    // 设置全局工具注册表，供ToolSearchTool等使用
-    setToolRegistry(this.registry);
 
     // 记录是否需要按需加载，但不立即执行
     this._loadDeferred = options.loadBuiltinTools !== false;

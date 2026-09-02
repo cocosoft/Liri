@@ -23,7 +23,7 @@
  * 查询模块主入口
  */
 
-export { ReActLoop } from './ReActLoop.js';
+export { ReActLoop, EXTERNAL_FETCH_TOOLS } from './ReActLoop.js';
 export type {
   ReActState,
   ReActLoopConfig,

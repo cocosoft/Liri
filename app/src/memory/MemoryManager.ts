@@ -62,7 +62,8 @@ const logger = getLogger('memory:memoryManager');
 export interface MemoryManager {
   // 创建记忆
   createMemory(
-    memory: Omit<Memory, 'id' | 'createdAt' | 'updatedAt'>
+    memory: Omit<Memory, 'id' | 'createdAt' | 'updatedAt'>,
+    opts?: { skipConsolidation?: boolean }
   ): Promise<Memory>;
 
   // 获取记忆
@@ -325,7 +326,8 @@ export class MemoryManagerImpl {
    * @returns 创建的记忆
    */
   async createMemory(
-    memory: Omit<Memory, 'id' | 'createdAt' | 'updatedAt'>
+    memory: Omit<Memory, 'id' | 'createdAt' | 'updatedAt'>,
+    opts?: { skipConsolidation?: boolean }
   ): Promise<Memory> {
     // 如果清理任务正在执行，等待完成
     while (this.isCleaning) {
@@ -345,8 +347,11 @@ export class MemoryManagerImpl {
     // 持久化关联图
     await this.saveRelationGraph();
 
-    // 去重检测：先用 contentHash 在缓存中做 O(1) 精确去重，避免全量 I/O
-    try {
+    // 去重检测（v5 起支持 skipConsolidation）：高相似批次写入（session_summary）经
+    // adapter 幂等键收敛，跳过全库相似度去重，避免"相似即删"误删不同键相邻阶段
+    if (!opts?.skipConsolidation) {
+      // 去重检测：先用 contentHash 在缓存中做 O(1) 精确去重，避免全量 I/O
+      try {
       const contentHash = createHash('sha256')
         .update(newMemory.content)
         .digest('hex');
@@ -404,6 +409,7 @@ export class MemoryManagerImpl {
       }
     } catch (err) {
       // 去重失败不阻塞主流程
+    }
     }
 
     // 摘要缓存失效并异步预热
@@ -704,8 +710,12 @@ export class MemoryManagerImpl {
   async getMemoryStats(): Promise<MemoryStats> {
     const memories = await this.getAllMemories();
 
-    // 按类型统计
-    const byType: Record<MemoryType, number> = {
+    // 按类型统计（2026-09-02，D-P1）：枚举键必填 + string 索引可选——自定义注册类型
+    // （registerMemoryType，如 session_summary）可计入，不再只统计内置枚举 7 类
+    const byType: { [K in MemoryType]: number } & Record<
+      string,
+      number | undefined
+    > = {
       [MemoryType.USER_FACT]: 0,
       [MemoryType.USER_PREFERENCE]: 0,
       [MemoryType.PROJECT_KNOWLEDGE]: 0,
@@ -720,10 +730,9 @@ export class MemoryManagerImpl {
     let recent = 0;
 
     for (const memory of memories) {
-      // 按类型统计
-      if (byType[memory.metadata.type as MemoryType] !== undefined) {
-        byType[memory.metadata.type as MemoryType]++;
-      }
+      // 按类型统计（含自定义类型键）
+      byType[memory.metadata.type] =
+        (byType[memory.metadata.type] ?? 0) + 1;
 
       // 计算总大小
       totalSize += Buffer.byteLength(memory.content, 'utf8');

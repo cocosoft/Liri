@@ -12,6 +12,7 @@ import type {
   NormalizedUsage,
   TransportRequestParams,
 } from './types';
+import { isThinkingModeModel } from '../../query/ThinkingMode.js';
 
 export class ChatCompletionsTransport extends BaseTransport {
   readonly provider = 'chat_completions';
@@ -63,6 +64,7 @@ export class ChatCompletionsTransport extends BaseTransport {
       content: string | null;
       tool_call_id?: string;
       tool_calls?: Array<Record<string, unknown>>;
+      reasoning_content?: string;
     }>
   ): Array<Record<string, unknown>> {
     return messages
@@ -78,8 +80,37 @@ export class ChatCompletionsTransport extends BaseTransport {
         if (m.tool_calls && m.tool_calls.length > 0) {
           msg.tool_calls = this.normalizeToolCalls(m.tool_calls);
         }
+        // P16（2026-09-01）：thinking 模式回传 reasoning_content——DeepSeek 校验
+        // "reasoning_content in the thinking mode must be passed back"，带 tool_calls
+        // 的 assistant 消息必须携带（值可为空字符串）。此前 convertMessages 直接丢弃，
+        // 导致工具循环第 2 轮起 400。
+        const rc = m.reasoning_content;
+        if (rc !== undefined) {
+          msg.reasoning_content = rc;
+        }
         return msg;
       });
+  }
+
+  /**
+   * P16（2026-09-01）：thinking 模式模型回填缺失 reasoning_content——
+   * 对齐 query/healing.ts stampMissingReasoningForThinkingMode 语义（该函数未接线，
+   * 此处内联等价实现，transport 层一处覆盖所有 OpenAI 兼容 provider 请求）。
+   * 非 thinking 模型跳过（避免前缀缓存变更）。
+   */
+  private stampMissingReasoningForThinkingMode(
+    messages: TransportRequestParams['messages'],
+    isThinking: boolean
+  ): TransportRequestParams['messages'] {
+    if (!isThinking) return messages;
+    let changed = false;
+    const out = messages.map((m) => {
+      if (m.role !== 'assistant') return m;
+      if ('reasoning_content' in m) return m;
+      changed = true;
+      return { ...m, reasoning_content: '' };
+    });
+    return changed ? out : messages;
   }
 
   /**
@@ -122,8 +153,15 @@ export class ChatCompletionsTransport extends BaseTransport {
    * @returns 格式化后的请求对象，键值对结构，可直接用于 API 调用。
    */
   buildRequest(params: TransportRequestParams): Record<string, unknown> {
+    // P16（2026-09-01）：thinking 模式 assistant 消息回填缺失 reasoning_content——
+    // DeepSeek 校验要求带 tool_calls 的 assistant 消息必须回传 reasoning_content，
+    // 否则 400（"reasoning_content in the thinking mode must be passed back"）。
+    const stamped = this.stampMissingReasoningForThinkingMode(
+      params.messages,
+      isThinkingModeModel(params.model)
+    );
     // 转换消息格式并处理可选的工具定义
-    const messages = this.convertMessages(params.messages);
+    const messages = this.convertMessages(stamped);
     const tools = params.tools ? this.convertTools(params.tools) : undefined;
 
     // 初始化基础请求参数，设置默认的最大令牌数和温度值

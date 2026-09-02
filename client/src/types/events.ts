@@ -36,6 +36,8 @@ export type LiriEventType =
   | "user/message"
   | "assistant/thinking"
   | "assistant/text"
+  // F-2（2026-09-02）：text 流式 chunk 聚合批事件（服务端 64KB/2s 合并落盘）
+  | "assistant/text-batch"
   | "assistant/tool_call"
   | "tool/result"
   | "tool/canceled"
@@ -50,6 +52,8 @@ export type LiriEventType =
   | "assistant/diff"
   | "context/compaction"
   | "context/summary"
+  // D-1（2026-09-02）：会话远期摘要事件（摘要也是轨迹）
+  | "session/summary"
   | "system/error"
   | "system/warning"
   | "system/info"
@@ -82,6 +86,7 @@ export interface LiriEventMap {
   };
   "assistant/thinking": { content: string; messageId?: string };
   "assistant/text": { content: string; messageId?: string };
+  "assistant/text-batch": { content: string; messageId?: string };
   "assistant/tool_call": {
     toolCallId: string;
     name: string;
@@ -110,6 +115,13 @@ export interface LiriEventMap {
     message?: string;
   };
   "context/summary": { summary: string; compactedSeqs: number[] };
+  "session/summary": {
+    content: string;
+    keywords?: string[];
+    summaryMessageId?: string;
+    compactedRange?: { startSeq: number; endSeq: number };
+    sourceEventSeqs?: number[];
+  };
   "system/error": {
     module: string;
     action: string;

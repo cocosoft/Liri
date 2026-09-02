@@ -49,6 +49,20 @@ const PRIVATE_IP_RANGES = [
     end: '192.168.255.255',
     type: 'private_ip' as SsrfBlockType,
   },
+  // CGNAT / Shared Address Space（RFC 6598）：运营商级 NAT、Tailscale/WireGuard 等内网段
+  // （对标 Hermes url_safety.py 的 _CGNAT_NETWORK）
+  {
+    start: '100.64.0.0',
+    end: '100.127.255.255',
+    type: 'private_ip' as SsrfBlockType,
+  },
+  // Benchmark / 代理测试段（RFC 2544）：OpenWrt 代理、本地基准设施常用
+  // （对标 Hermes url_safety.py 的 ip.is_reserved 分支）
+  {
+    start: '198.18.0.0',
+    end: '198.19.255.255',
+    type: 'private_ip' as SsrfBlockType,
+  },
 ];
 
 const LOOPBACK_RANGES = [

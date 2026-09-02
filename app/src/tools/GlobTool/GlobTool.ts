@@ -6,6 +6,7 @@ import * as path from 'path';
 
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
+import { yieldToEventLoop } from '@modules/ai';
 const logger = getLogger('tools:GlobTool:GlobTool');
 
 export interface GlobResult {
@@ -59,6 +60,105 @@ export function glob(
     filenames: results.slice(0, MAX_FILES),
     truncated,
   };
+}
+
+/**
+ * 协作式异步 glob（与 glob() 结果语义完全一致）。
+ *
+ * 根因修复（2026-09-01）：glob() 为纯同步递归遍历（readdirSync），MAX_FILES 上限
+ * 仅在"匹配到 100 个文件"时提前退出；当模式匹配少（如 *.txt）时会遍历整个目录树
+ * （项目根 6.5 万+ 文件），同步阻塞事件循环数分钟——SSE 心跳/HTTP 请求全停，
+ * 前端 60s/120s 无数据误判"流式响应超时"（与 grep() 同类问题，对称修复）。
+ * 本版本每处理 GLOB_YIELD_BATCH_SIZE 个条目让出一次事件循环，扫描期间心跳保持。
+ */
+const GLOB_YIELD_BATCH_SIZE = 50;
+
+export async function globAsync(
+  pattern: string,
+  searchPath: string = process.cwd()
+): Promise<GlobResult> {
+  const startTime = Date.now();
+  const results: string[] = [];
+
+  const normalizedPattern = pattern.replace(/\\/g, '/');
+  const normalizedSearchPath = searchPath.replace(/\\/g, '/');
+
+  try {
+    await walkDirAsync(
+      normalizedSearchPath,
+      normalizedPattern,
+      results,
+      MAX_FILES,
+      normalizedSearchPath
+    );
+  } catch (err) {
+    handleError(err, {
+      module: 'tools:glob',
+      action: 'walkDirGlobRoot',
+    });
+  }
+
+  const durationMs = Date.now() - startTime;
+  const truncated = results.length >= MAX_FILES;
+
+  return {
+    durationMs,
+    numFiles: results.length,
+    filenames: results.slice(0, MAX_FILES),
+    truncated,
+  };
+}
+
+/**
+ * 协作式递归目录遍历：每处理 GLOB_YIELD_BATCH_SIZE 个条目让出一次事件循环，
+ * 保证 SSE 心跳 / HTTP 请求等 I/O 在遍历大型目录期间不被长时间阻塞。
+ */
+async function walkDirAsync(
+  dir: string,
+  pattern: string,
+  results: string[],
+  limit: number,
+  rootDir?: string
+): Promise<void> {
+  if (results.length >= limit) return;
+
+  let entries: fs.Dirent[];
+  try {
+    entries = fs.readdirSync(dir, { withFileTypes: true });
+  } catch (err) {
+    handleError(err, {
+      module: 'tools:glob',
+      action: 'readdir',
+    });
+    return;
+  }
+
+  let processed = 0;
+  for (const entry of entries) {
+    if (results.length >= limit) break;
+    if (entry.name.startsWith('.') && entry.name !== '.') continue;
+
+    const fullPath = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      await walkDirAsync(fullPath, pattern, results, limit, rootDir);
+    } else if (entry.isFile()) {
+      const relativePath = rootDir
+        ? path.relative(rootDir, fullPath).replace(/\\/g, '/')
+        : '';
+      if (
+        matchGlob(entry.name, pattern) ||
+        matchGlob(fullPath, pattern) ||
+        (relativePath && matchGlob(relativePath, pattern))
+      ) {
+        results.push(fullPath);
+      }
+    }
+
+    // 协作式让出：每处理一批条目让出事件循环，遍历期间 SSE 心跳保持
+    if (++processed % GLOB_YIELD_BATCH_SIZE === 0) {
+      await yieldToEventLoop();
+    }
+  }
 }
 
 /**

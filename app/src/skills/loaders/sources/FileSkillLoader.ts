@@ -7,6 +7,12 @@
 import { Skill, SkillSource, SkillFrontmatter } from '@modules/skills/types';
 import { SkillLoader } from '../SkillLoader';
 import {
+  SkillProvider,
+  SkillCandidate,
+  PROVIDER_RANK,
+  toCandidates,
+} from '../SkillProvider';
+import {
   parseSkillFrontmatter,
   createSkillCommand,
 } from '@modules/skills/utils/skillParser';
@@ -38,8 +44,37 @@ export interface FileSkillLoaderConfig {
  * 统一处理从文件系统目录加载技能的共有逻辑。
  * 支持 .md / .ts / .js 技能文件格式。
  */
-export class FileSkillLoader extends SkillLoader {
+export class FileSkillLoader extends SkillLoader implements SkillProvider {
   private config: FileSkillLoaderConfig;
+
+  /** Provider 唯一名称（按加载来源区分，如 file:user / file:project） */
+  get name(): string {
+    return `file:${this.config.loadedFrom}`;
+  }
+
+  /**
+   * 列出文件系统技能候选（locator = Skill 本体）
+   */
+  async list(): Promise<SkillCandidate[]> {
+    return toCandidates(
+      await this.loadSkills(),
+      this.config.source === SkillSource.OFFICIAL
+        ? PROVIDER_RANK.OFFICIAL
+        : PROVIDER_RANK.USER
+    );
+  }
+
+  /**
+   * 按候选返回完整技能（当前全量加载，直接返回 locator）
+   */
+  get(candidate: SkillCandidate): Promise<Skill | undefined> {
+    return Promise.resolve(candidate.locator as Skill);
+  }
+
+  /** 无内部缓存，预留契约 */
+  invalidate(): void {
+    // 当前加载器无缓存，无需失效
+  }
 
   /**
    * @param config 加载器配置

@@ -565,7 +565,11 @@ export function deriveMessagesFromEvents(
     }
     agg.maxChunkSeq = Math.max(agg.maxChunkSeq, ev.seq);
 
-    if (ev.type === 'assistant/text') {
+    if (
+      ev.type === 'assistant/text' ||
+      // F-2（2026-09-02）：text-batch 为聚合批事件，回放语义与逐条 text 一致
+      ev.type === 'assistant/text-batch'
+    ) {
       agg.content += (data.content as string) ?? '';
       // FIX(2026-08-23)：text 是流式 delta，合并到最后一个相邻 text block（对齐前端
       // deriveConversationBlocks）。原先每个 chunk 新建 block → 一条消息碎片化为上千 blocks
@@ -869,6 +873,7 @@ export function deriveSessionStats(events: LiriEvent[]): EventSessionStats {
   for (const ev of events) {
     if (
       ev.type === 'assistant/text' ||
+      ev.type === 'assistant/text-batch' ||
       ev.type === 'assistant/thinking' ||
       ev.type === 'assistant/tool_call'
     ) {

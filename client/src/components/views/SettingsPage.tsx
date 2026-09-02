@@ -36,6 +36,7 @@ import BackendServicePanel from "../settings/BackendServicePanel";
 import DataStoragePanel from "../settings/DataStoragePanel";
 import AgentTaskSettings from "../settings/AgentTaskSettings";
 import PDCAReviewSettingsPanel from "../settings/PDCAReviewSettingsPanel";
+import EstopPanel from "../settings/EstopPanel";
 import UsageCenterPage from "../views/UsageCenterPage";
 import {
   ConfigSection,
@@ -182,6 +183,12 @@ const NAV_GROUPS: NavGroup[] = [
         id: "oauth",
         labelKey: "settings.oauth",
         icon: LinkIcon,
+        zone: "security",
+      },
+      {
+        id: "estop",
+        labelKey: "settings.estop",
+        icon: ShieldIcon,
         zone: "security",
       },
     ],
@@ -878,6 +885,8 @@ function SettingsPage() {
         return <PermissionManagementContent isDark={isDark} />;
       case "oauth":
         return <OAuthManagementContent isDark={isDark} />;
+      case "estop":
+        return <EstopPanel isDark={isDark} collapsible />;
       case "voice":
         return <VoiceSettings isDark={isDark} />;
       case "llama":

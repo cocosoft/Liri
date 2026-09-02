@@ -11,6 +11,7 @@ import { ToolResult, createToolResult } from '../types/ToolResult';
 import type { ToolCallProgress } from '../types/Tool';
 import { isDeferredTool, TOOL_SEARCH_TOOL_NAME } from '../utils/toolSearch';
 import { getToolRegistry } from '../ToolRegistry';
+import { getSkillRegistryLazy } from '../SkillTool/skillRegistryAccess';
 
 /**
  * 工具搜索输入
@@ -267,6 +268,43 @@ export class ToolSearchTool extends BaseTool<
   }
 
   /**
+   * 匹配技能名/描述（模型找技能路径引导）
+   * 技能是 SkillTool 参数而非独立工具，tool_search 工具搜索永不命中；
+   * 此处按技能名/描述匹配查询，返回 skill:<name> 形式引导模型用 Skill 工具执行。
+   * 名匹配优先；名未命中时描述兜底（避免常见词命中大量技能描述）。
+   */
+  private matchSkillNames(query: string, limit: number): string[] {
+    const registry = getSkillRegistryLazy();
+    if (!registry) return [];
+    const q = query.toLowerCase().trim();
+    if (!q) return [];
+    const skills = registry
+      .getAll()
+      .filter(
+        (s) =>
+          s.impl.kind === 'prompt' &&
+          !(s.isEnabled && s.isEnabled() === false)
+      );
+    const byName = skills.filter((s) => {
+      const name = s.name.toLowerCase();
+      return name.includes(q) || q.includes(name);
+    });
+    // 描述兜底：查询按空白分词，全部词均出现在描述中才命中
+    //（整串 includes 会漏掉分词查询，如 "知乎 搜索" 在描述中不连续）
+    const terms = q.split(/\s+/).filter(Boolean);
+    const matched =
+      byName.length > 0
+        ? byName
+        : terms.length > 0
+          ? skills.filter((s) => {
+              const desc = (s.description ?? '').toLowerCase();
+              return terms.every((t) => desc.includes(t));
+            })
+          : [];
+    return matched.slice(0, limit).map((s) => `skill:${s.name}`);
+  }
+
+  /**
    * 执行工具搜索
    */
   override async execute(
@@ -342,11 +380,19 @@ export class ToolSearchTool extends BaseTool<
     }
 
     // 关键词搜索
-    const matches = await searchToolsWithKeywords(
+    const toolMatches = await searchToolsWithKeywords(
       query,
       deferredTools,
       max_results
     );
+    // 技能匹配增强（2026-09-01）：模型反复用 tool_search 找技能（"zhihu 技能"、
+    // "技能列表"）返回空是死循环放大器——技能不是工具（SkillTool 参数），
+    // 此处按技能名/描述匹配，返回 skill:<name> 引导模型用 Skill 工具执行。
+    const skillMatches = this.matchSkillNames(query, max_results);
+    const matches = [...toolMatches];
+    for (const s of skillMatches) {
+      if (!matches.includes(s)) matches.push(s);
+    }
 
     // A 项增强（2026-08-31）：关键词搜索空结果同样给出候选引导——与 select: 分支
     // 对齐。日志实证：模型反复 tool_search 关键词模式（skills_list/skill_view 等）

@@ -59,17 +59,25 @@ export function buildRoundSignature(actResult: RoundSignatureSource): string {
 }
 
 /**
- * 判断是否构成无进展循环：窗口内最近 threshold 轮签名全部一致。
+ * 判断是否构成无进展循环：窗口内同一签名出现 ≥threshold 次。
+ *
+ * 2026-09-01 P1 窗口化改造：原实现要求"尾部连续 threshold 轮签名相同"，
+ * 模型可通过轮换工具/参数（如 skill_view(zhihu) → web_search → web_fetch
+ * 组合变化）绕过检测——实测 26 轮无实质进展后才触发。窗口化后，
+ * 只要窗口内同一签名累计出现 threshold 次即判定，更早拦截重复探索。
  *
  * @param recentSignatures 已记录的最近若干轮签名（调用方维护有界窗口）
- * @param threshold 熔断阈值（连续相同轮数）
- * @returns 窗口尾部是否连续 threshold 轮签名相同
+ * @param threshold 熔断阈值（窗口内同签名出现次数）
+ * @returns 窗口内是否存在出现 ≥threshold 次的相同签名
  */
 export function isRepeatedLoop(
   recentSignatures: string[],
   threshold: number
 ): boolean {
   if (threshold <= 0 || recentSignatures.length < threshold) return false;
-  const tail = recentSignatures.slice(-threshold);
-  return tail.every((s) => s === tail[0]);
+  const counts = new Map<string, number>();
+  for (const s of recentSignatures) {
+    counts.set(s, (counts.get(s) ?? 0) + 1);
+  }
+  return [...counts.values()].some((c) => c >= threshold);
 }

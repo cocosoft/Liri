@@ -144,7 +144,7 @@ export {
   type FileEditInput,
   type FileEditResult,
 } from './FileEditTool/FileEditTool';
-export { glob, type GlobResult } from './GlobTool/GlobTool';
+export { glob, globAsync, type GlobResult } from './GlobTool/GlobTool';
 export {
   grep,
   grepAsync,

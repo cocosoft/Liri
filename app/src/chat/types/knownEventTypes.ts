@@ -28,6 +28,7 @@ export const KNOWN_SESSION_EVENT_TYPES: ReadonlySet<string> = new Set<string>([
   'user/message',
   'assistant/thinking',
   'assistant/text',
+  'assistant/text-batch',
   'assistant/tool_call',
   'tool/result',
   'tool/canceled',
@@ -46,6 +47,8 @@ export const KNOWN_SESSION_EVENT_TYPES: ReadonlySet<string> = new Set<string>([
   // ─── 上下文管理 ───
   'context/compaction',
   'context/summary',
+  // D-1（2026-09-02）：会话远期摘要事件
+  'session/summary',
   // ─── 系统与日志 ───
   'system/error',
   'system/warning',

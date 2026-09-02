@@ -19,6 +19,8 @@ import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing';
 import type { KnowledgeGraph } from '@modules/knowledge/graph/KnowledgeGraph';
 import type { AIService, AIMessage } from '@modules/ai';
 import { AIMessageRole } from '@modules/ai';
+// 内存画像（2026-09-02 排查"会话中断/内存尖峰"用，MEM_PROFILE=1 才采样）
+import { memProfile } from '../../monitoring/memProfile.js';
 
 const logger = new OTelAwareLogger({
   module: 'knowledge:graph:extract',
@@ -105,6 +107,10 @@ export async function extractGraph(
 
     logger.info('图谱提取中', { domain, contentLength: content.length });
 
+    // 内存画像（MEM_PROFILE=1）：LLM 提取前采样（图谱后台任务与用户 agentic
+    // 任务并发是 RSS 尖峰候选之一）
+    memProfile('graph-extract:llm', { domain, contentLength: content.length });
+
     // 3. 调用 LLM 并解析 JSON（长文档输出易被 max_tokens 截断导致解析失败，
     //    失败时翻倍 max_tokens 重试一次，提高提取成功率）
     let extracted: ExtractionResult | null = null;
@@ -149,6 +155,8 @@ export async function extractGraph(
         return null;
       }
     }
+    // 内存画像（MEM_PROFILE=1）：LLM 提取完成（rawOutput 大字符串释放前）
+    memProfile('graph-extract:done', { domain });
     if (!extracted) return null;
 
     // 4. 写入 kg_edges 表

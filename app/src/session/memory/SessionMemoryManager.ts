@@ -54,7 +54,13 @@ export interface MemoryThresholdConfig {
 
 /** 记忆项（结构化） */
 export interface MemoryItem {
-  type: 'discussion' | 'decision' | 'file_change' | 'code_reference' | 'todo';
+  type:
+    | 'discussion'
+    | 'decision'
+    | 'file_change'
+    | 'code_reference'
+    | 'todo'
+    | 'session_summary';
   content: string;
 }
 
@@ -651,7 +657,8 @@ export class SessionMemoryManager {
       value === 'decision' ||
       value === 'file_change' ||
       value === 'code_reference' ||
-      value === 'todo'
+      value === 'todo' ||
+      value === 'session_summary'
     );
   }
 
@@ -690,6 +697,7 @@ export class SessionMemoryManager {
       else if (line.startsWith('## 文件变更')) currentType = 'file_change';
       else if (line.startsWith('## 代码引用')) currentType = 'code_reference';
       else if (line.startsWith('## 待办事项')) currentType = 'todo';
+      else if (line.startsWith('## 会话摘要')) currentType = 'session_summary';
       // 非段落开头的 "## " 重置类型（文件末尾可能有多个 ##）
       else if (line.startsWith('## ')) currentType = null;
 
@@ -736,6 +744,7 @@ export class SessionMemoryManager {
       group('file_change', '文件变更'),
       group('code_reference', '代码引用'),
       group('todo', '待办事项'),
+      group('session_summary', '会话摘要'),
     ].join('\n');
   }
 
@@ -757,6 +766,7 @@ export class SessionMemoryManager {
       group('file_change', '文件变更'),
       group('code_reference', '代码参考'),
       group('todo', '当前待办'),
+      group('session_summary', '会话摘要'),
     ]
       .filter(Boolean)
       .join('\n\n');

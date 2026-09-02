@@ -60,6 +60,7 @@ import { inboxManager } from '@modules/runtime/InboxManager.js';
 import {
   syncPdcaWorkItemStatus,
   writePdcaCheckpoint,
+  readPdcaCheckpoint,
 } from './PdcaWorkItemBridge';
 import { globalToolManager } from '../tools/index.js';
 import type { ToolUseContext } from '../tools/types/Tool.js';
@@ -1497,8 +1498,23 @@ ${replanSection}
   /**
    * 审批通过后从 plan_pending 阶段恢复执行
    * 继续 PDCA 的 EXECUTE → REVIEW → DECIDE 循环
+   *
+   * L3（跨重启）：进程重启后新实例 phase 为默认值（'plan'），若 checkpoint
+   * 持久化了 plan_pending（审批挂起），先经 resumeFromCheckpoint 恢复再审批，
+   * 否则抛 PDCA_NOT_PENDING（原实现跨重启后审批恢复必然失败）。
    */
   async resumeAfterApproval(sessionId: string): Promise<PdcaStatus> {
+    if (this.phase !== 'plan_pending') {
+      const ck = readPdcaCheckpoint(this.taskId);
+      if (ck && ck.phase === 'plan_pending') {
+        logger.info('跨重启审批恢复：从 checkpoint 恢复 plan_pending', {
+          taskId: this.taskId,
+          sessionId,
+        });
+        await this.resumeFromCheckpoint(ck as Record<string, unknown>);
+      }
+    }
+
     if (this.phase !== 'plan_pending') {
       throw new AppError(
         'Orchestrator is not in plan_pending phase',

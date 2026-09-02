@@ -15,6 +15,10 @@ export class SimpleMutex {
   async acquire(timeoutMs?: number): Promise<void> {
     if (!this.locked) {
       this.locked = true;
+      // P17（2026-09-01）：acquire 成功时记录本次持有开始时间——
+      // 原实现 createdAt 仅实例创建时设置，会话级复用的锁（同会话多条消息）
+      // 第二次 acquire 后 getHeldDurationMs 返回整个实例存活时长（失真）。
+      this.createdAt = Date.now();
       return;
     }
     const effectiveTimeout = timeoutMs ?? SimpleMutex.DEFAULT_TIMEOUT_MS;

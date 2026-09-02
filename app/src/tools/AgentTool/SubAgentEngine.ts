@@ -11,12 +11,20 @@
 
 import { randomUUID } from 'crypto';
 import type { ChatMessage, ChatResponse, ToolDefinition } from '@modules/ai';
+import { DEFAULT_SUBAGENT_MAX_TURNS } from '../../chat/loopTurnLimits.js';
 import type { Tool } from '../types/Tool';
 import type { ToolUseContext } from '../types/ToolUseContext';
 import { ToolExecutionStatus } from '../types/ToolResult';
 import type { AIProvider } from '@modules/ai';
 import { providerRegistry } from '@modules/ai';
 import { resolveModelRoute, RouteKey } from '@modules/ai';
+import { ReActLoop } from '@modules/query';
+import type {
+  ReasonResult,
+  ActResult,
+  ToolCallEntry,
+  ReActEvent,
+} from '@modules/query';
 import {
   AppError,
   ErrorCategory,
@@ -176,7 +184,8 @@ export class SubAgentEngine {
    */
   constructor(config?: Partial<SubAgentEngineConfig>) {
     this.config = {
-      defaultMaxTurns: config?.defaultMaxTurns ?? 50,
+      // 调用方分级上限统一入口（loopTurnLimits，对标 cc_code 2026-09-01）
+      defaultMaxTurns: config?.defaultMaxTurns ?? DEFAULT_SUBAGENT_MAX_TURNS,
       defaultModel: config?.defaultModel ?? '',
       timeoutMs: config?.timeoutMs ?? 600000,
     };
@@ -281,271 +290,158 @@ export class SubAgentEngine {
         ...request.messages,
       ];
 
-      for (let turn = 0; turn < maxTurns; turn++) {
-        if (abortController.signal.aborted) {
-          // 发射执行结束事件（被中断）
-          safePublish(AgentEventType.EXECUTE_END, {
+      // 1-④（2026-09-01）：复用 ReActLoop 核心循环（SubAgentLoop），替代独立 for 循环
+      const loop = new SubAgentLoop({
+        engine: this,
+        llmClient,
+        messages,
+        tools: request.tools,
+        model: request.model,
+        maxTurns,
+        abortSignal: abortController.signal,
+        toolInstances: request.toolInstances,
+        toolContext: request.toolContext,
+        onThinkingDelta: (content, turn) => {
+          safePublish(AgentEventType.THINKING_DELTA, {
             agentId,
-            completed: false,
-            toolCallCount,
-            turnsUsed: turn,
-            durationMs: Date.now() - startTime,
-            error: 'Execution aborted by user',
+            content,
+            turn,
           });
-
-          // N1 修复（2026-08-27）：中断时通知进度回调——原 abort 分支只有
-          // safePublish，UI 停留在 running 直至被上层覆盖为 completed
-          onProgress?.({
+        },
+        onToolStart: async (name, id, turn, count) => {
+          safePublish(AgentEventType.TOOL_CALL_START, {
             agentId,
-            type: 'error',
-            message: '子代理执行被中断',
+            toolName: name,
+            toolUseId: id,
+            turn,
           });
-
-          clearTimeout(timeoutTimer);
-          this.activeAgents.delete(agentId);
-          // BUG 2 修复（2026-08-27）：中断分支清理事件泵——原残留 polling entry
+          // P2-13: 心跳刷新 — 每次工具调用后更新心跳
           if (eventPumpStarted) {
             try {
               const { getSubAgentEventPump } =
                 await import('../../subagents/SubAgentEventPump');
-              getSubAgentEventPump().fail(agentId);
-              getSubAgentEventPump().unregister(agentId);
+              getSubAgentEventPump().heartbeat(agentId, count);
             } catch (err) {
               handleError(err, {
                 module: 'tools:AgentTool:SubAgentEngine',
-                action: 'eventPumpAbortCleanup',
+                action: 'heartbeat',
               });
             }
           }
-          otel.endSpan(execSpan, SpanStatusCode.ERROR, 'aborted');
-          return this.buildResult(agentId, startTime, {
-            completed: false,
-            output: '子代理执行被中断',
-            toolCallCount,
-            turnsUsed: turn,
-            tokenUsage: {
-              promptTokens: totalPromptTokens,
-              completionTokens: totalCompletionTokens,
-              totalTokens: totalPromptTokens + totalCompletionTokens,
-            },
-            error: 'Execution aborted by user',
-          });
-        }
-
-        // 外部消息注入（teammate 体系）：每轮 LLM 调用前拉取投递的消息追加进上下文，
-        // 使子 agent 能感知并响应 SendMessageTool 等投递的旁路消息
-        const incomingMessages = request.messageSource?.() ?? [];
-        if (incomingMessages.length > 0) {
-          messages.push(...incomingMessages);
-          logger.info('SubAgent 收到外部消息', {
-            agentId,
-            turn,
-            count: incomingMessages.length,
-          });
-          safePublish(AgentEventType.THINKING_DELTA, {
-            agentId,
-            content: `[收到 ${incomingMessages.length} 条外部消息]`,
-            turn,
-          });
-        }
-
-        // 发射思考开始事件
-        safePublish(AgentEventType.THINKING_START, {
-          agentId,
-          turn,
-          message: `子代理第 ${turn + 1}/${maxTurns} 轮思考`,
-        });
-
-        onProgress?.({
-          agentId,
-          type: 'thinking',
-          message: `子代理执行第 ${turn + 1}/${maxTurns} 轮`,
-          turn: turn + 1,
-          maxTurns,
-        });
-
-        const response = await this.callLLM(
-          llmClient,
-          messages,
-          request.tools,
-          request.model
-        );
-
-        if (response.usage) {
-          totalPromptTokens += response.usage.prompt_tokens || 0;
-          totalCompletionTokens += response.usage.completion_tokens || 0;
-        }
-
-        // 发射思考增量事件（将 LLM 响应内容作为思考块推送）
-        if (response.content) {
-          safePublish(AgentEventType.THINKING_DELTA, {
-            agentId,
-            content: response.content,
-            turn,
-          });
-        }
-
-        // 发射思考结束事件
-        safePublish(AgentEventType.THINKING_END, {
-          agentId,
-          turn,
-        });
-
-        if (response.tool_calls && response.tool_calls.length > 0) {
-          const assistantMsg: ChatMessage = {
-            role: 'assistant',
-            content: response.content || '',
-            tool_calls: response.tool_calls.map((tc) => ({
-              id: tc.id,
-              type: 'function' as const,
-              function: {
-                name: tc.name,
-                arguments: JSON.stringify(tc.arguments),
-              },
-            })),
-          };
-          messages.push(assistantMsg);
-
-          for (const toolCall of response.tool_calls) {
-            if (abortController.signal.aborted) break;
-
-            toolCallCount++;
-            // P2-13: 心跳刷新 — 每次工具调用后更新心跳
-            if (eventPumpStarted) {
-              try {
-                const { getSubAgentEventPump } =
-                  await import('../../subagents/SubAgentEventPump');
-                getSubAgentEventPump().heartbeat(agentId, toolCallCount);
-              } catch (err) {
-                handleError(err, {
-                  module: 'tools:AgentTool:SubAgentEngine',
-                  action: 'heartbeat',
-                });
-              }
-            }
-            // 发射工具调用开始事件
-            safePublish(AgentEventType.TOOL_CALL_START, {
-              agentId,
-              toolName: toolCall.name,
-              toolUseId: toolCall.id,
-              turn,
-            });
-
-            onProgress?.({
-              agentId,
-              type: 'tool_use',
-              message: `调用工具: ${toolCall.name}`,
-              toolUseId: toolCall.id,
-              toolName: toolCall.name,
-              turn: turn + 1,
-              maxTurns,
-            });
-
-            const toolResult = await this.executeToolCall(
-              toolCall,
-              request.toolInstances,
-              request.toolContext
-            );
-
-            messages.push({
-              role: 'tool',
-              content:
-                typeof toolResult === 'string'
-                  ? toolResult
-                  : JSON.stringify(toolResult),
-              tool_call_id: toolCall.id,
-            });
-
-            // 发射工具调用增量事件
-            safePublish(AgentEventType.TOOL_CALL_DELTA, {
-              agentId,
-              toolName: toolCall.name,
-              toolUseId: toolCall.id,
-              content:
-                typeof toolResult === 'string'
-                  ? toolResult
-                  : JSON.stringify(toolResult),
-              turn,
-            });
-
-            // 发射工具调用结束事件
-            safePublish(AgentEventType.TOOL_CALL_END, {
-              agentId,
-              toolName: toolCall.name,
-              toolUseId: toolCall.id,
-              status: 'completed',
-              turn,
-            });
-
-            onProgress?.({
-              agentId,
-              type: 'tool_result',
-              message: `工具 ${toolCall.name} 执行完成`,
-              toolUseId: toolCall.id,
-              toolName: toolCall.name,
-              turn: turn + 1,
-              maxTurns,
-            });
-          }
-        } else {
-          const finalContent = response.content || '';
-          const durationMs = Date.now() - startTime;
-
-          this.activeAgents.delete(agentId);
-          clearTimeout(timeoutTimer);
-
           onProgress?.({
             agentId,
-            type: 'complete',
-            message: '子代理任务完成',
+            type: 'tool_use',
+            message: `调用工具: ${name}`,
+            toolUseId: id,
+            toolName: name,
+            turn: turn + 1,
+            maxTurns,
           });
-
-          // 发射执行结束事件
-          safePublish(AgentEventType.EXECUTE_END, {
+        },
+        onToolResult: (name, id, content, turn) => {
+          safePublish(AgentEventType.TOOL_CALL_DELTA, {
             agentId,
-            completed: true,
-            toolCallCount,
-            turnsUsed: turn + 1,
-            durationMs,
+            toolName: name,
+            toolUseId: id,
+            content,
+            turn,
           });
-
-          otel.endSpan(execSpan, SpanStatusCode.OK);
-
-          // P2-13: 子代理完成 — 通知事件泵
-          if (eventPumpStarted) {
-            try {
-              const { getSubAgentEventPump } =
-                await import('../../subagents/SubAgentEventPump');
-              getSubAgentEventPump().complete(agentId);
-              getSubAgentEventPump().unregister(agentId);
-            } catch (err) {
-              handleError(err, {
-                module: 'tools:AgentTool:SubAgentEngine',
-                action: 'eventPumpComplete',
-              });
-            }
+          safePublish(AgentEventType.TOOL_CALL_END, {
+            agentId,
+            toolName: name,
+            toolUseId: id,
+            status: 'completed',
+            turn,
+          });
+          onProgress?.({
+            agentId,
+            type: 'tool_result',
+            message: `工具 ${name} 执行完成`,
+            toolUseId: id,
+            toolName: name,
+            turn: turn + 1,
+            maxTurns,
+          });
+        },
+        onProgressThinking: (turnNum, maxTurnsLimit) => {
+          safePublish(AgentEventType.THINKING_START, {
+            agentId,
+            turn: turnNum - 1,
+            message: `子代理第 ${turnNum}/${maxTurnsLimit} 轮思考`,
+          });
+          safePublish(AgentEventType.THINKING_END, {
+            agentId,
+            turn: turnNum - 1,
+          });
+          onProgress?.({
+            agentId,
+            type: 'thinking',
+            message: `子代理执行第 ${turnNum}/${maxTurnsLimit} 轮`,
+            turn: turnNum,
+            maxTurns: maxTurnsLimit,
+          });
+        },
+        onUsage: (usage) => {
+          if (usage) {
+            totalPromptTokens += usage.prompt_tokens || 0;
+            totalCompletionTokens += usage.completion_tokens || 0;
           }
-
-          return {
-            agentId,
-            completed: true,
-            output: finalContent,
-            toolCallCount,
-            turnsUsed: turn + 1,
-            tokenUsage: {
-              promptTokens: totalPromptTokens,
-              completionTokens: totalCompletionTokens,
-              totalTokens: totalPromptTokens + totalCompletionTokens,
-            },
-            durationMs,
-          };
-        }
-      }
+        },
+      });
+      const loopResult = await loop.runCollect({
+        messageSource: request.messageSource,
+      });
+      // 同步循环内工具计数到外壳（catch 异常路径的 EXECUTE_ERROR 展示用）
+      toolCallCount = loopResult.toolCallCount;
 
       this.activeAgents.delete(agentId);
       clearTimeout(timeoutTimer);
-      // 新发现修复（2026-08-27）：max turns 出口清理事件泵（第 4 个出口）——
-      // 原遗漏导致 polling 永久残留 running 条目，2s 后误报 stale
+      const durationMs = Date.now() - startTime;
+
+      if (loopResult.completed) {
+        onProgress?.({
+          agentId,
+          type: 'complete',
+          message: '子代理任务完成',
+        });
+        safePublish(AgentEventType.EXECUTE_END, {
+          agentId,
+          completed: true,
+          toolCallCount: loopResult.toolCallCount,
+          turnsUsed: loopResult.turnsUsed,
+          durationMs,
+        });
+        otel.endSpan(execSpan, SpanStatusCode.OK);
+        // P2-13: 子代理完成 — 通知事件泵
+        if (eventPumpStarted) {
+          try {
+            const { getSubAgentEventPump } =
+              await import('../../subagents/SubAgentEventPump');
+            getSubAgentEventPump().complete(agentId);
+            getSubAgentEventPump().unregister(agentId);
+          } catch (err) {
+            handleError(err, {
+              module: 'tools:AgentTool:SubAgentEngine',
+              action: 'eventPumpComplete',
+            });
+          }
+        }
+        return {
+          agentId,
+          completed: true,
+          output: loopResult.output,
+          toolCallCount: loopResult.toolCallCount,
+          turnsUsed: loopResult.turnsUsed,
+          tokenUsage: {
+            promptTokens: totalPromptTokens,
+            completionTokens: totalCompletionTokens,
+            totalTokens: totalPromptTokens + totalCompletionTokens,
+          },
+          durationMs,
+        };
+      }
+
+      // 未完成（abort / max turns）——清理事件泵 + 收尾事件
       if (eventPumpStarted) {
         try {
           const { getSubAgentEventPump } =
@@ -559,29 +455,26 @@ export class SubAgentEngine {
           });
         }
       }
-
-      // 发射执行结束事件（达到最大轮次）
       safePublish(AgentEventType.EXECUTE_END, {
         agentId,
         completed: false,
-        toolCallCount,
-        turnsUsed: maxTurns,
-        durationMs: Date.now() - startTime,
-        error: `Max turns (${maxTurns}) reached without completion`,
+        toolCallCount: loopResult.toolCallCount,
+        turnsUsed: loopResult.turnsUsed,
+        durationMs,
+        error: loopResult.error || '子代理执行未完成',
       });
-
-      otel.endSpan(execSpan, SpanStatusCode.ERROR, 'max_turns');
+      otel.endSpan(execSpan, SpanStatusCode.ERROR, 'incomplete');
       return this.buildResult(agentId, startTime, {
         completed: false,
-        output: '子代理执行达到最大轮次限制',
-        toolCallCount,
-        turnsUsed: maxTurns,
+        output: loopResult.output || '子代理执行未完成',
+        toolCallCount: loopResult.toolCallCount,
+        turnsUsed: loopResult.turnsUsed,
         tokenUsage: {
           promptTokens: totalPromptTokens,
           completionTokens: totalCompletionTokens,
           totalTokens: totalPromptTokens + totalCompletionTokens,
         },
-        error: `Max turns (${maxTurns}) reached without completion`,
+        error: loopResult.error || '子代理执行未完成',
       });
     } catch (error) {
       clearTimeout(timeoutTimer);
@@ -796,6 +689,181 @@ export class SubAgentEngine {
       agentId,
       ...partial,
       durationMs: Date.now() - startTime,
+    };
+  }
+}
+
+/** SubAgentLoop 输入：外部消息源（teammate 投递，每轮 reason 前拉取） */
+interface SubAgentLoopInput {
+  messageSource?: () => ChatMessage[];
+}
+
+/** SubAgentLoop 结果（循环层；agentId/durationMs/tokenUsage 由 SubAgentEngine 外壳补全） */
+interface SubAgentLoopResult {
+  completed: boolean;
+  output: string;
+  toolCallCount: number;
+  turnsUsed: number;
+  error?: string;
+}
+
+/**
+ * 子代理循环（1-④ 2026-09-01：复用 ReActLoop 核心循环，对标 deepseek 子代理复用 ReactLoopAgent）
+ *
+ * reason = LLM 调用 + 思考事件 + 外部消息注入 + assistant 消息回填；
+ * act = 工具执行 + tool 结果回填。
+ * SubAgentEngine 作为执行器外壳（abort/事件泵/otel/超时/进度/usage），循环体由本类承载，
+ * 消灭第三套独立 for 循环实现（对齐决策 6：复用核心循环）。
+ */
+class SubAgentLoop extends ReActLoop<SubAgentLoopInput, unknown, SubAgentLoopResult> {
+  private toolCallCount = 0;
+
+  constructor(
+    private opts: {
+      engine: SubAgentEngine;
+      llmClient: AIProvider;
+      messages: ChatMessage[];
+      tools: ToolDefinition[];
+      model?: string;
+      maxTurns: number;
+      abortSignal?: AbortSignal;
+      toolInstances: Map<string, Tool>;
+      toolContext?: ToolUseContext;
+      onThinkingDelta?: (content: string, turn: number) => void;
+      onToolStart?: (
+        name: string,
+        id: string,
+        turn: number,
+        toolCallCount: number
+      ) => void;
+      onToolResult?: (
+        name: string,
+        id: string,
+        content: string,
+        turn: number
+      ) => void;
+      onProgressThinking?: (turn: number, maxTurns: number) => void;
+      onProgressTool?: (name: string, turn: number, maxTurns: number) => void;
+      onUsage?: (usage: ChatResponse['usage']) => void;
+    }
+  ) {
+    super({
+      maxIterations: opts.maxTurns,
+      maxConsecutiveInvalidTurns: 0,
+      abortSignal: opts.abortSignal,
+    });
+  }
+
+  protected async *reason(
+    input: SubAgentLoopInput
+  ): AsyncGenerator<ReActEvent, ReasonResult<unknown>> {
+    // 外部消息注入（teammate 体系：每轮 LLM 调用前拉取投递消息）
+    const incoming = input.messageSource?.() ?? [];
+    if (incoming.length > 0) {
+      this.opts.messages.push(...incoming);
+      this.opts.onThinkingDelta?.(
+        `[收到 ${incoming.length} 条外部消息]`,
+        this.state.iteration
+      );
+    }
+    this.opts.onProgressThinking?.(
+      this.state.iteration + 1,
+      this.config.maxIterations
+    );
+
+    const response = await this.opts.engine['callLLM'](
+      this.opts.llmClient,
+      this.opts.messages,
+      this.opts.tools,
+      this.opts.model
+    );
+    this.opts.onUsage?.(response.usage);
+    if (response.content) {
+      this.opts.onThinkingDelta?.(response.content, this.state.iteration);
+    }
+
+    const toolCalls: ToolCallEntry[] = (response.tool_calls ?? []).map(
+      (tc) => ({
+        id: tc.id,
+        name: tc.name,
+        input: tc.arguments ?? {},
+      })
+    );
+    // assistant 消息回填（含 tool_calls，act 的 tool 结果紧随其后）
+    this.opts.messages.push({
+      role: 'assistant',
+      content: response.content || '',
+      tool_calls: toolCalls.map((tc) => ({
+        id: tc.id,
+        type: 'function' as const,
+        function: { name: tc.name, arguments: JSON.stringify(tc.input) },
+      })),
+    });
+    return {
+      text: response.content ?? '',
+      toolCalls,
+      finishReason: toolCalls.length > 0 ? 'tool_calls' : 'stop',
+    };
+  }
+
+  protected async *act(
+    calls: ToolCallEntry[]
+  ): AsyncGenerator<ReActEvent, ActResult> {
+    for (const tc of calls) {
+      if (this.config.abortSignal?.aborted) break;
+      this.toolCallCount++;
+      this.opts.onToolStart?.(
+        tc.name,
+        tc.id,
+        this.state.iteration,
+        this.toolCallCount
+      );
+      const content = await this.opts.engine['executeToolCall'](
+        {
+          id: tc.id,
+          name: tc.name,
+          arguments: (tc.input ?? {}) as Record<string, unknown>,
+        },
+        this.opts.toolInstances,
+        this.opts.toolContext
+      );
+      this.opts.messages.push({
+        role: 'tool',
+        content,
+        tool_call_id: tc.id,
+      });
+      this.opts.onToolResult?.(tc.name, tc.id, content, this.state.iteration);
+    }
+    return { results: [], allSucceeded: true, anyAborted: false };
+  }
+
+  protected shouldContinue(
+    _input: SubAgentLoopInput,
+    result: ReasonResult<unknown>
+  ): boolean {
+    return result.toolCalls.length > 0;
+  }
+
+  protected finalize(): SubAgentLoopResult {
+    const lastAssistant = [...this.opts.messages]
+      .reverse()
+      .find((m) => m.role === 'assistant');
+    const output =
+      typeof lastAssistant?.content === 'string'
+        ? lastAssistant.content
+        : '';
+    const aborted = this.state.phase === 'aborted';
+    const maxTurnsReached = this.state.iteration >= this.config.maxIterations;
+    return {
+      completed: !aborted && !maxTurnsReached,
+      output,
+      toolCallCount: this.toolCallCount,
+      turnsUsed: this.state.iteration,
+      error: aborted
+        ? 'Execution aborted'
+        : maxTurnsReached
+          ? `Max turns (${this.config.maxIterations}) reached without completion`
+          : undefined,
     };
   }
 }

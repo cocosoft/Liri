@@ -260,7 +260,9 @@ export function buildLogEventsFromEvents(events: LiriEvent[]): LogEvent[] {
   for (const event of events) {
     switch (event.type) {
       case "assistant/thinking":
-      case "assistant/text": {
+      case "assistant/text":
+      // F-2（2026-09-02）：text-batch（聚合批）与逐条 text 同语义展示
+      case "assistant/text-batch": {
         // P0-B：assistant/text（AI 回复正文）现在也会产出 kind:"text" 的 LogEvent，
         // 成为日志的语义分隔锚点（"这一轮 AI 最终给了什么"）
         const d = event.data as { content?: string; messageId?: string };

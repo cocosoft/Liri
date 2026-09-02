@@ -171,7 +171,11 @@ export class SkillViewTool implements Tool {
                 'utf-8'
               );
               // P0-1：同会话同技能内容未变化 → unchanged stub（根治反复加载）
-              const unchanged = this.checkUnchanged(_context?.sessionId, name, md);
+              const unchanged = this.checkUnchanged(
+                _context?.sessionId,
+                name,
+                md
+              );
               if (unchanged) return unchanged;
               // P2-2：技能使用遥测——实际加载成功才计数（unchanged 不计）
               void skillUsageTracker.bumpView(name);

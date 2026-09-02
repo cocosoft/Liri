@@ -31,10 +31,7 @@ export type { RegistryEvent, RegistryEventHandler } from './SkillRegistry.js';
 
 // 抽象基类
 export { SkillLoader as SkillLoaderBase } from './loaders/SkillLoader.js';
-export type {
-  SkillProvider,
-  SkillCandidate,
-} from './loaders/SkillProvider.js';
+export type { SkillProvider, SkillCandidate } from './loaders/SkillProvider.js';
 export {
   PROVIDER_RANK,
   toCandidates,

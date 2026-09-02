@@ -159,11 +159,7 @@ export class SessionMemoryManager {
    * 跨会话长期记忆/知识库：属独立记忆体系（memdir/MemoryStore/memory_search），
    * 此处提供确定性落点；跨体系上卷由对应适配器后续接驳（见方案 v4 §14 D 行）。
    */
-  rollupSummary(
-    sessionId: string,
-    summary: string,
-    keywords?: string[]
-  ): void {
+  rollupSummary(sessionId: string, summary: string, keywords?: string[]): void {
     if (!sessionId || !summary) return;
     try {
       const mm = this.sessionAccess.getMemoryManager();

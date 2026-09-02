@@ -202,7 +202,10 @@ export class WebFetchTool extends BaseTool {
       // SSRF 防护（对标 Hermes url_safety）：云元数据/内网/回环/链路本地地址一律拦截
       const ssrfResult = await checkSsrf(url);
       if (ssrfResult.blocked) {
-        logger.warn('WebFetch 被 SSRF 拦截', { url, reason: ssrfResult.reason });
+        logger.warn('WebFetch 被 SSRF 拦截', {
+          url,
+          reason: ssrfResult.reason,
+        });
         onProgress?.({
           toolUseID: context.toolUseId || 'web-fetch-tool',
           data: {
@@ -260,7 +263,11 @@ export class WebFetchTool extends BaseTool {
         }
       }
 
-      const response = await this.fetchWithRedirectGuard(url, fetchOptions, timeout);
+      const response = await this.fetchWithRedirectGuard(
+        url,
+        fetchOptions,
+        timeout
+      );
 
       const status = response.status;
       const statusText = response.statusText;

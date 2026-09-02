@@ -715,7 +715,11 @@ interface SubAgentLoopResult {
  * SubAgentEngine 作为执行器外壳（abort/事件泵/otel/超时/进度/usage），循环体由本类承载，
  * 消灭第三套独立 for 循环实现（对齐决策 6：复用核心循环）。
  */
-class SubAgentLoop extends ReActLoop<SubAgentLoopInput, unknown, SubAgentLoopResult> {
+class SubAgentLoop extends ReActLoop<
+  SubAgentLoopInput,
+  unknown,
+  SubAgentLoopResult
+> {
   private toolCallCount = 0;
 
   constructor(
@@ -849,9 +853,7 @@ class SubAgentLoop extends ReActLoop<SubAgentLoopInput, unknown, SubAgentLoopRes
       .reverse()
       .find((m) => m.role === 'assistant');
     const output =
-      typeof lastAssistant?.content === 'string'
-        ? lastAssistant.content
-        : '';
+      typeof lastAssistant?.content === 'string' ? lastAssistant.content : '';
     const aborted = this.state.phase === 'aborted';
     const maxTurnsReached = this.state.iteration >= this.config.maxIterations;
     return {

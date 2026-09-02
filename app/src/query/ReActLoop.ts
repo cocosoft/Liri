@@ -551,13 +551,13 @@ export abstract class ReActLoop<
                     // content 长度变化（增量完善）→ 签名不同 → 放行；完全相同（重写）
                     // → 签名相同 → 熔断（真正无进展）。
                     (tc.name === 'file_write' ||
-                      tc.name === 'FileWriteTool' ||
-                      tc.name === 'write_file' ||
-                      tc.name === 'file_edit' ||
-                      tc.name === 'FileEditTool' ||
-                      tc.name === 'edit_file') &&
-                    typeof tc.input === 'object' &&
-                    tc.input !== null
+                        tc.name === 'FileWriteTool' ||
+                        tc.name === 'write_file' ||
+                        tc.name === 'file_edit' ||
+                        tc.name === 'FileEditTool' ||
+                        tc.name === 'edit_file') &&
+                      typeof tc.input === 'object' &&
+                      tc.input !== null
                     ? (() => {
                         const inp = tc.input as Record<string, unknown>;
                         const fp =
@@ -661,7 +661,10 @@ export abstract class ReActLoop<
           !roundHasProductive;
 
         // 方案 A：探索预算——累计探索达阈值且未提示过 → 强制整合（软提示，只 1 次）
-        if (this.exploreCalls >= EXPLORE_BUDGET && !this.exploreBudgetPrompted) {
+        if (
+          this.exploreCalls >= EXPLORE_BUDGET &&
+          !this.exploreBudgetPrompted
+        ) {
           this.exploreBudgetPrompted = true;
           this.steeringQueue.push(
             '探索预算已达上限：你已调用大量搜索/浏览/技能加载类工具。请立即停止搜索，' +

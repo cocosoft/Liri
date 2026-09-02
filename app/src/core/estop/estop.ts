@@ -102,7 +102,10 @@ export function getEstopState(): EstopState | null {
   if (!isEstopEngaged()) return null;
   const path = estopSentinelPath();
   try {
-    const raw = JSON.parse(readFileSync(path, 'utf-8')) as Record<string, unknown>;
+    const raw = JSON.parse(readFileSync(path, 'utf-8')) as Record<
+      string,
+      unknown
+    >;
     return {
       reason: typeof raw['reason'] === 'string' ? raw['reason'] : undefined,
       engagedAt:

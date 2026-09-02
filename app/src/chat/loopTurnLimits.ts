@@ -53,8 +53,7 @@ export const DEFAULT_SUBAGENT_MAX_TURNS = 200;
  */
 export function resolveBaseToolTurns(): number {
   const env =
-    configManager.env('MAX_TAOR_TURNS') ||
-    configManager.env('MAX_TOOL_TURNS');
+    configManager.env('MAX_TAOR_TURNS') || configManager.env('MAX_TOOL_TURNS');
   if (env) {
     const val = parseInt(env, 10);
     if (!isNaN(val) && val > 0) return val;

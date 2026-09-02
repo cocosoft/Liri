@@ -106,11 +106,54 @@ function sleep(ms: number): Promise<void> {
 function extractSummaryKeywords(text: string, top = 8): string[] {
   if (!text) return [];
   const STOP = new Set([
-    '的', '了', '和', '是', '在', '中', '有', '为', '与', '及', '对', '将',
-    '等', '从', '到', '也', '就', '你', '我', '他', '她', '它', '一个', '我们',
-    '进行', '以及', '或者', '如果', '因为', '所以', '但是', '然后', '已经',
-    '可以', '需要', '通过', '相关', '这个', '这些', '那些', '一个', '没有',
-    '主要', '同时', '目前', '用户', '根据', '关于',
+    '的',
+    '了',
+    '和',
+    '是',
+    '在',
+    '中',
+    '有',
+    '为',
+    '与',
+    '及',
+    '对',
+    '将',
+    '等',
+    '从',
+    '到',
+    '也',
+    '就',
+    '你',
+    '我',
+    '他',
+    '她',
+    '它',
+    '一个',
+    '我们',
+    '进行',
+    '以及',
+    '或者',
+    '如果',
+    '因为',
+    '所以',
+    '但是',
+    '然后',
+    '已经',
+    '可以',
+    '需要',
+    '通过',
+    '相关',
+    '这个',
+    '这些',
+    '那些',
+    '一个',
+    '没有',
+    '主要',
+    '同时',
+    '目前',
+    '用户',
+    '根据',
+    '关于',
   ]);
   try {
     const freq = new Map<string, number>();
@@ -1648,9 +1691,7 @@ export async function* runStreamMessage(
         }>;
         const hasWritableTool = roundToolCalls.some((tc) => {
           const tool = host.getToolRegistry()?.getTool(tc.name ?? '');
-          const roChecker = tool as
-            | { isReadOnly?: () => boolean }
-            | undefined;
+          const roChecker = tool as { isReadOnly?: () => boolean } | undefined;
           return typeof roChecker?.isReadOnly !== 'function'
             ? true
             : !roChecker.isReadOnly();

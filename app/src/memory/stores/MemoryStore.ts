@@ -271,97 +271,106 @@ export class MemoryStoreImpl implements MemoryStore {
     if (this.batchFlushing && this.pendingFlush) return this.pendingFlush;
     this.batchFlushing = true;
     const flushTask = (async () => {
-    try {
-      do {
-        if (this.pendingBatch.size === 0) break;
-
-        const batch = new Map(this.pendingBatch);
-        this.pendingBatch.clear();
-
-        if (this.batchTimer) {
-          clearTimeout(this.batchTimer);
-          this.batchTimer = null;
-        }
-
-    for (const [id, memory] of batch) {
       try {
-        // 构建 frontmatter 元数据
-        const frontmatter: Record<string, unknown> = {};
+        do {
+          if (this.pendingBatch.size === 0) break;
 
-        if (memory.id !== undefined) frontmatter.id = memory.id;
-        if (memory.metadata.name !== undefined)
-          frontmatter.name = memory.metadata.name;
-        if (memory.metadata.description !== undefined)
-          frontmatter.description = memory.metadata.description;
-        if (memory.metadata.type !== undefined)
-          frontmatter.type = memory.metadata.type;
-        frontmatter.createdAt =
-          memory.metadata.createdAt?.toISOString() ?? new Date().toISOString();
-        frontmatter.updatedAt =
-          memory.metadata.updatedAt?.toISOString() ?? new Date().toISOString();
-        if (memory.metadata.tags && memory.metadata.tags.length > 0)
-          frontmatter.tags = memory.metadata.tags;
-        if (memory.metadata.priority !== undefined)
-          frontmatter.priority = memory.metadata.priority;
-        if (memory.metadata.importance !== undefined)
-          frontmatter.importance = memory.metadata.importance;
-        if (memory.metadata.expiresAt)
-          frontmatter.expiresAt = memory.metadata.expiresAt.toISOString();
-        if (memory.metadata.author) frontmatter.author = memory.metadata.author;
-        if (memory.metadata.source) frontmatter.source = memory.metadata.source;
-        if (memory.metadata.sessionId)
-          frontmatter.sessionId = memory.metadata.sessionId;
+          const batch = new Map(this.pendingBatch);
+          this.pendingBatch.clear();
 
-        // 新字段: 梦境追踪
-        if (memory.metadata.schemaVersion !== undefined)
-          frontmatter.schemaVersion = memory.metadata.schemaVersion;
-        if (memory.metadata.dreamProcessedAt !== undefined)
-          frontmatter.dreamProcessedAt = memory.metadata.dreamProcessedAt;
-        if (memory.metadata.dreamSource)
-          frontmatter.dreamSource = memory.metadata.dreamSource;
-        if (memory.metadata.dreamRefined !== undefined)
-          frontmatter.dreamRefined = memory.metadata.dreamRefined;
-        if (memory.metadata.deprecatedBy)
-          frontmatter.deprecatedBy = memory.metadata.deprecatedBy;
-        if (memory.metadata.deprecatedAt !== undefined)
-          frontmatter.deprecatedAt = memory.metadata.deprecatedAt;
-        if (memory.metadata.supersedes)
-          frontmatter.supersedes = memory.metadata.supersedes;
+          if (this.batchTimer) {
+            clearTimeout(this.batchTimer);
+            this.batchTimer = null;
+          }
 
-        const validatedContent = this.validateMarkdownContent(memory.content);
-        // 修复（预存错误 #57-1）：gray-matter stringify 对字符串首参会先 parse（index.js L161），
-        // content 首行 `---page-break---` 会被误判为 frontmatter language → engine 未注册抛错。
-        // 传对象 `{ content }` 绕过 parse 副作用，正文原样保留。
-        const content = matter.stringify(
-          { content: validatedContent },
-          frontmatter
-        );
-        // 任务 4：按 session 分目录，使用 sessionId 确定目标路径
-        const filePath = this.getMemoryFilePath(id, memory.metadata.sessionId);
-        await this.atomicWrite(filePath, content);
+          for (const [id, memory] of batch) {
+            try {
+              // 构建 frontmatter 元数据
+              const frontmatter: Record<string, unknown> = {};
 
-        // P2-7: 写入后重新拍快照，保护文件不被外部意外修改
-        try {
-          getMemoryDriftDetector().snapshot(filePath);
-        } catch (err) {
-          await handleError(err, {
-            module: 'memory:stores',
-            action: 'driftSnapshot',
-          });
-        }
-      } catch (error) {
-        await handleError(error, {
-          module: 'memory:stores',
-          action: 'flushBatch',
-        });
-        storeLogger.error(`批量写入失败`, { id, error });
+              if (memory.id !== undefined) frontmatter.id = memory.id;
+              if (memory.metadata.name !== undefined)
+                frontmatter.name = memory.metadata.name;
+              if (memory.metadata.description !== undefined)
+                frontmatter.description = memory.metadata.description;
+              if (memory.metadata.type !== undefined)
+                frontmatter.type = memory.metadata.type;
+              frontmatter.createdAt =
+                memory.metadata.createdAt?.toISOString() ??
+                new Date().toISOString();
+              frontmatter.updatedAt =
+                memory.metadata.updatedAt?.toISOString() ??
+                new Date().toISOString();
+              if (memory.metadata.tags && memory.metadata.tags.length > 0)
+                frontmatter.tags = memory.metadata.tags;
+              if (memory.metadata.priority !== undefined)
+                frontmatter.priority = memory.metadata.priority;
+              if (memory.metadata.importance !== undefined)
+                frontmatter.importance = memory.metadata.importance;
+              if (memory.metadata.expiresAt)
+                frontmatter.expiresAt = memory.metadata.expiresAt.toISOString();
+              if (memory.metadata.author)
+                frontmatter.author = memory.metadata.author;
+              if (memory.metadata.source)
+                frontmatter.source = memory.metadata.source;
+              if (memory.metadata.sessionId)
+                frontmatter.sessionId = memory.metadata.sessionId;
+
+              // 新字段: 梦境追踪
+              if (memory.metadata.schemaVersion !== undefined)
+                frontmatter.schemaVersion = memory.metadata.schemaVersion;
+              if (memory.metadata.dreamProcessedAt !== undefined)
+                frontmatter.dreamProcessedAt = memory.metadata.dreamProcessedAt;
+              if (memory.metadata.dreamSource)
+                frontmatter.dreamSource = memory.metadata.dreamSource;
+              if (memory.metadata.dreamRefined !== undefined)
+                frontmatter.dreamRefined = memory.metadata.dreamRefined;
+              if (memory.metadata.deprecatedBy)
+                frontmatter.deprecatedBy = memory.metadata.deprecatedBy;
+              if (memory.metadata.deprecatedAt !== undefined)
+                frontmatter.deprecatedAt = memory.metadata.deprecatedAt;
+              if (memory.metadata.supersedes)
+                frontmatter.supersedes = memory.metadata.supersedes;
+
+              const validatedContent = this.validateMarkdownContent(
+                memory.content
+              );
+              // 修复（预存错误 #57-1）：gray-matter stringify 对字符串首参会先 parse（index.js L161），
+              // content 首行 `---page-break---` 会被误判为 frontmatter language → engine 未注册抛错。
+              // 传对象 `{ content }` 绕过 parse 副作用，正文原样保留。
+              const content = matter.stringify(
+                { content: validatedContent },
+                frontmatter
+              );
+              // 任务 4：按 session 分目录，使用 sessionId 确定目标路径
+              const filePath = this.getMemoryFilePath(
+                id,
+                memory.metadata.sessionId
+              );
+              await this.atomicWrite(filePath, content);
+
+              // P2-7: 写入后重新拍快照，保护文件不被外部意外修改
+              try {
+                getMemoryDriftDetector().snapshot(filePath);
+              } catch (err) {
+                await handleError(err, {
+                  module: 'memory:stores',
+                  action: 'driftSnapshot',
+                });
+              }
+            } catch (error) {
+              await handleError(error, {
+                module: 'memory:stores',
+                action: 'flushBatch',
+              });
+              storeLogger.error(`批量写入失败`, { id, error });
+            }
+          }
+        } while (this.pendingBatch.size > 0);
+      } finally {
+        this.batchFlushing = false;
+        this.pendingFlush = null;
       }
-    }
-      } while (this.pendingBatch.size > 0);
-    } finally {
-      this.batchFlushing = false;
-      this.pendingFlush = null;
-    }
     })();
     this.pendingFlush = flushTask;
     return flushTask;

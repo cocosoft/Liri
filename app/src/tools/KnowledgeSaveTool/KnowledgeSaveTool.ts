@@ -155,7 +155,8 @@ export class KnowledgeSaveTool implements Tool {
     _context?: ToolUseContext
   ): Promise<ToolResult<unknown>> {
     const title = typeof input.title === 'string' ? input.title.trim() : '';
-    const content = typeof input.content === 'string' ? input.content.trim() : '';
+    const content =
+      typeof input.content === 'string' ? input.content.trim() : '';
     if (!title || !content) {
       return {
         status: ToolExecutionStatus.FAILURE,
@@ -170,10 +171,7 @@ export class KnowledgeSaveTool implements Tool {
     // （结构化标记，非业务字符串匹配）：命中即拒绝，防止上下文文本污染知识库。
     const SYSTEM_MARKER_RE =
       /\[(SYSTEM|SYSTEM_PROMPT|STEERING|TOOL RESULT|TOOL_CALL_RESULT|FILE_OPERATION|AVAILABLE_SKILLS|MODEL_CONTEXT|DEEPSEEK|THINKING)\]/i;
-    if (
-      SYSTEM_MARKER_RE.test(content) ||
-      SYSTEM_MARKER_RE.test(title)
-    ) {
+    if (SYSTEM_MARKER_RE.test(content) || SYSTEM_MARKER_RE.test(title)) {
       logger.warn('knowledge_save 拒绝写入：内容含系统指令标记', {
         title,
         contentPreview: content.slice(0, 80),
@@ -193,8 +191,7 @@ export class KnowledgeSaveTool implements Tool {
         const result = await writer.writeEntry({
           title,
           content,
-          category:
-            typeof input.category === 'string' ? input.category : '',
+          category: typeof input.category === 'string' ? input.category : '',
           tags: Array.isArray(input.tags)
             ? input.tags
                 .filter((t): t is string => typeof t === 'string')
@@ -240,8 +237,7 @@ export class KnowledgeSaveTool implements Tool {
           },
         };
       } catch (error) {
-        const errMsg =
-          error instanceof Error ? error.message : String(error);
+        const errMsg = error instanceof Error ? error.message : String(error);
         logger.warn('knowledge_save 异常', { title, error: errMsg });
         return {
           status: ToolExecutionStatus.FAILURE,

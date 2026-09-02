@@ -352,64 +352,64 @@ export class MemoryManagerImpl {
     if (!opts?.skipConsolidation) {
       // 去重检测：先用 contentHash 在缓存中做 O(1) 精确去重，避免全量 I/O
       try {
-      const contentHash = createHash('sha256')
-        .update(newMemory.content)
-        .digest('hex');
-      let exactDuplicateFound = false;
+        const contentHash = createHash('sha256')
+          .update(newMemory.content)
+          .digest('hex');
+        let exactDuplicateFound = false;
 
-      // 先用最近摘要缓存做 O(1)/O(n) 快速检查
-      if (this.recentSummaryCache?.memories) {
-        for (const existing of this.recentSummaryCache.memories) {
-          if (existing.id === newMemory.id) continue;
-          const existingHash = createHash('sha256')
-            .update(existing.content)
-            .digest('hex');
-          if (existingHash === contentHash) {
-            exactDuplicateFound = true;
-            logger.info(
-              `contentHash 精确去重：发现与 ${existing.id} 完全相同的记忆，跳过全量去重`,
-              {
-                newMemoryId: newMemory.id,
-                existingMemoryId: existing.id,
-              }
-            );
-            // 删除刚创建的新记忆（保留已有记忆）
-            await this.store.deleteMemory(newMemory.id);
-            this.retriever.removeFromIndex(newMemory.id);
-            await this.retriever.saveIndex();
-            return existing;
-          }
-        }
-      }
-
-      // 如果缓存中未命中，执行全量去重
-      if (!exactDuplicateFound) {
-        const allMemories = await this.getAllMemories();
-        const dupCheck = this.consolidator.findDuplicates(
-          allMemories.map((m) => ({
-            id: m.id,
-            content: m.content,
-            createdAt: m.createdAt.getTime(),
-          }))
-        );
-        if (dupCheck.totalRemoved > 0) {
-          logger.info(`去重检测：发现 ${dupCheck.totalRemoved} 条重复记忆`, {
-            newMemoryId: newMemory.id,
-          });
-          // 删除重复记忆（保留每组第一条）
-          for (const group of dupCheck.duplicates) {
-            // group[0] 是保留的，group[1..] 是待删除的
-            for (let i = 1; i < group.length; i++) {
-              await this.store.deleteMemory(group[i]);
-              this.retriever.removeFromIndex(group[i]);
+        // 先用最近摘要缓存做 O(1)/O(n) 快速检查
+        if (this.recentSummaryCache?.memories) {
+          for (const existing of this.recentSummaryCache.memories) {
+            if (existing.id === newMemory.id) continue;
+            const existingHash = createHash('sha256')
+              .update(existing.content)
+              .digest('hex');
+            if (existingHash === contentHash) {
+              exactDuplicateFound = true;
+              logger.info(
+                `contentHash 精确去重：发现与 ${existing.id} 完全相同的记忆，跳过全量去重`,
+                {
+                  newMemoryId: newMemory.id,
+                  existingMemoryId: existing.id,
+                }
+              );
+              // 删除刚创建的新记忆（保留已有记忆）
+              await this.store.deleteMemory(newMemory.id);
+              this.retriever.removeFromIndex(newMemory.id);
+              await this.retriever.saveIndex();
+              return existing;
             }
           }
-          await this.retriever.saveIndex();
         }
+
+        // 如果缓存中未命中，执行全量去重
+        if (!exactDuplicateFound) {
+          const allMemories = await this.getAllMemories();
+          const dupCheck = this.consolidator.findDuplicates(
+            allMemories.map((m) => ({
+              id: m.id,
+              content: m.content,
+              createdAt: m.createdAt.getTime(),
+            }))
+          );
+          if (dupCheck.totalRemoved > 0) {
+            logger.info(`去重检测：发现 ${dupCheck.totalRemoved} 条重复记忆`, {
+              newMemoryId: newMemory.id,
+            });
+            // 删除重复记忆（保留每组第一条）
+            for (const group of dupCheck.duplicates) {
+              // group[0] 是保留的，group[1..] 是待删除的
+              for (let i = 1; i < group.length; i++) {
+                await this.store.deleteMemory(group[i]);
+                this.retriever.removeFromIndex(group[i]);
+              }
+            }
+            await this.retriever.saveIndex();
+          }
+        }
+      } catch (err) {
+        // 去重失败不阻塞主流程
       }
-    } catch (err) {
-      // 去重失败不阻塞主流程
-    }
     }
 
     // 摘要缓存失效并异步预热
@@ -731,8 +731,7 @@ export class MemoryManagerImpl {
 
     for (const memory of memories) {
       // 按类型统计（含自定义类型键）
-      byType[memory.metadata.type] =
-        (byType[memory.metadata.type] ?? 0) + 1;
+      byType[memory.metadata.type] = (byType[memory.metadata.type] ?? 0) + 1;
 
       // 计算总大小
       totalSize += Buffer.byteLength(memory.content, 'utf8');

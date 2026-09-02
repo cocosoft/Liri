@@ -112,7 +112,10 @@ export interface SessionSummaryMemoryInput {
  */
 export function idempotencyKey(input: SessionSummaryAdapterInput): string {
   const { sessionId, compactedRange, summarySeq, content } = input;
-  if (compactedRange?.startSeq !== undefined && compactedRange?.endSeq !== undefined) {
+  if (
+    compactedRange?.startSeq !== undefined &&
+    compactedRange?.endSeq !== undefined
+  ) {
     return `${sessionId}#${compactedRange.startSeq}-${compactedRange.endSeq}`;
   }
   if (summarySeq !== undefined && summarySeq > 0) {
@@ -157,7 +160,8 @@ export function buildSessionSummaryMemoryInput(
     content: built,
     metadata: {
       name: idempotencyKey(input),
-      description: '会话压缩阶段摘要（跨会话长期记忆，源自 session/summary 事件）',
+      description:
+        '会话压缩阶段摘要（跨会话长期记忆，源自 session/summary 事件）',
       type: SESSION_SUMMARY_MEMORY_TYPE,
       sessionId,
       createdAt: now,
@@ -306,7 +310,12 @@ export async function rebuildForSession(
   records: SessionSummaryAdapterInput[],
   sink?: SessionSummaryMemorySink
 ): Promise<RebuildResult> {
-  const result: RebuildResult = { created: 0, updated: 0, deleted: 0, skipped: 0 };
+  const result: RebuildResult = {
+    created: 0,
+    updated: 0,
+    deleted: 0,
+    skipped: 0,
+  };
   try {
     registerSessionSummaryMemoryType();
     if (!isSafeSessionId(sessionId)) {
@@ -323,7 +332,9 @@ export async function rebuildForSession(
         m.metadata.type === SESSION_SUMMARY_MEMORY_TYPE &&
         m.metadata.sessionId === sessionId
     );
-    const currentByKey = new Map(current.map((m) => [m.metadata.name ?? '', m]));
+    const currentByKey = new Map(
+      current.map((m) => [m.metadata.name ?? '', m])
+    );
 
     // C − E：长期库有、events 无 → 删除
     for (const [key, mem] of currentByKey) {

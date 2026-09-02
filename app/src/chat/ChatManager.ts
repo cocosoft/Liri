@@ -526,7 +526,6 @@ export class ChatManagerImpl implements ChatManager {
     return true;
   }
 
-
   /** message 粒度 hash（S3：字符串散列 → 0~99，避开 sessionId 偏差） */
   private _hashMessage(message: string): number {
     let hash = 0;
@@ -796,9 +795,8 @@ export class ChatManagerImpl implements ChatManager {
       // （模型体系唯一事实来源，不硬编码模型名）；失败/缺失返回 null，TaskDecomposer 降级简单分解
       getDecomposerProvider: async () => {
         try {
-          const { resolveModelRoute, RouteKey } = await import(
-            '@modules/ai/router/resolveModelRoute'
-          );
+          const { resolveModelRoute, RouteKey } =
+            await import('@modules/ai/router/resolveModelRoute');
           const { providerRegistry } = await import('@modules/ai');
           const modelId = await resolveModelRoute(RouteKey.CHAT);
           return providerRegistry.getByModel(modelId) ?? null;
@@ -1172,15 +1170,12 @@ export class ChatManagerImpl implements ChatManager {
           });
         }
         const client = this.getClientForModel(options?.model);
-        const response = await client.sendMessage(
-          projected.messages,
-          {
-            ...options,
-            tools: (opts?.tools as Array<Record<string, unknown>>)?.length
-              ? (opts?.tools as unknown as import('@modules/ai').ToolDefinition[])
-              : undefined,
-          }
-        );
+        const response = await client.sendMessage(projected.messages, {
+          ...options,
+          tools: (opts?.tools as Array<Record<string, unknown>>)?.length
+            ? (opts?.tools as unknown as import('@modules/ai').ToolDefinition[])
+            : undefined,
+        });
         return {
           content:
             typeof response.content === 'string'
@@ -1767,7 +1762,8 @@ export class ChatManagerImpl implements ChatManager {
         const line = this._formatEventLine(e);
         if (!line) continue;
         // 轮次边界（user/turn 起点）处允许收尾后截断；轮中断言则不截断在中间
-        const isRoundStart = e.type === 'user/message' || e.type === 'turn/start';
+        const isRoundStart =
+          e.type === 'user/message' || e.type === 'turn/start';
         if (usedChars + line.length > PAGE_CHARS) {
           if (isRoundStart) {
             breakAt = i;
@@ -1778,7 +1774,8 @@ export class ChatManagerImpl implements ChatManager {
         lines.push(line);
         usedChars += line.length;
       }
-      const content = lines.length > 0 ? lines.join('\n') : '（区间内无可读内容）';
+      const content =
+        lines.length > 0 ? lines.join('\n') : '（区间内无可读内容）';
       const nextFromSeq =
         breakAt < events.length ? events[breakAt].seq : undefined;
       return {
@@ -1824,10 +1821,7 @@ export class ChatManagerImpl implements ChatManager {
           500
         )})`;
       case 'tool/result':
-        return `工具结果: ${trunc(
-          String(d?.result ?? ''),
-          1500
-        )}`;
+        return `工具结果: ${trunc(String(d?.result ?? ''), 1500)}`;
       case 'context/summary':
         return `[历史摘要] ${trunc(
           String(d?.summary ?? d?.content ?? ''),
@@ -3109,7 +3103,8 @@ export class ChatManagerImpl implements ChatManager {
           },
           limit: {
             type: 'number',
-            description: '可选，本页最大事件条数（默认按 token 预算自动折算）。',
+            description:
+              '可选，本页最大事件条数（默认按 token 预算自动折算）。',
           },
         },
         required: [],
@@ -4087,16 +4082,15 @@ export class ChatManagerImpl implements ChatManager {
       const apiMessages = session.messages.map((m) => ({
         role: m.role,
         content:
-          typeof m.content === 'string'
-            ? m.content
-            : JSON.stringify(m.content),
+          typeof m.content === 'string' ? m.content : JSON.stringify(m.content),
         ...(m.metadata?.tool_calls
           ? { tool_calls: m.metadata.tool_calls }
           : {}),
         ...(m.toolCallId ? { tool_call_id: m.toolCallId } : {}),
       }));
 
-      const { toolResultRegistry } = await import('../tool/ToolResultRegistry.js');
+      const { toolResultRegistry } =
+        await import('../tool/ToolResultRegistry.js');
       const toolLoopCtx = {
         session,
         options: {},
@@ -4128,14 +4122,17 @@ export class ChatManagerImpl implements ChatManager {
         },
         activeClient,
         unifiedTracker: this.unifiedTracker,
-        recordChatResponseUsage: (
-          sid: string,
-          usage: Record<string, number>
-        ) => this.recordChatResponseUsage(sid, usage),
+        recordChatResponseUsage: (sid: string, usage: Record<string, number>) =>
+          this.recordChatResponseUsage(sid, usage),
         toolResultRegistry,
         toolRegistry: this.getToolRegistry(),
         toolDefinitions,
-        buildToolRoundMessages: (msgs: unknown, am: Message, tcs: unknown, prs: unknown) =>
+        buildToolRoundMessages: (
+          msgs: unknown,
+          am: Message,
+          tcs: unknown,
+          prs: unknown
+        ) =>
           this._buildToolRoundMessages(
             msgs as Record<string, unknown>[],
             am,
@@ -4153,9 +4150,12 @@ export class ChatManagerImpl implements ChatManager {
       const { reactEventsToChunks } = await import('./reactEventsToChunks.js');
       // 空 assistant 消息占位：ReActToolLoop 首轮直接执行剩余工具，工具轮内自行构建
       // assistant 消息（含叙述/达上限提示），input.assistantMessage 仅作 finalize 兜底 base
-      const resumeAssistantMsg = this.messageService.createAssistantMessage('', {
-        sessionId,
-      });
+      const resumeAssistantMsg = this.messageService.createAssistantMessage(
+        '',
+        {
+          sessionId,
+        }
+      );
       const loop = createChatAgentLoop({
         mode: 'stream',
         ctx: toolLoopCtx,

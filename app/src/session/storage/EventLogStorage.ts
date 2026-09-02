@@ -710,7 +710,10 @@ export class EventLogStorage {
             : (Object.freeze({
                 ...frozen,
                 seq: allocated,
-                data: Object.freeze({ ...(frozen.data ?? {}), callSeq: finalCallSeq }),
+                data: Object.freeze({
+                  ...(frozen.data ?? {}),
+                  callSeq: finalCallSeq,
+                }),
               }) as LiriEvent);
       } else if (frozen.seq <= tailSeq) {
         // 守卫 1：seq 冲突 → 自动纠正（跨实例并发下重分配，而非拒绝丢弃事件，
@@ -865,7 +868,11 @@ export class EventLogStorage {
     this.idxTailSeq = entry.toSeq;
     try {
       await this.ensureSessionDir();
-      await fs.appendFile(this.idxFilePath, JSON.stringify(entry) + '\n', 'utf-8');
+      await fs.appendFile(
+        this.idxFilePath,
+        JSON.stringify(entry) + '\n',
+        'utf-8'
+      );
     } catch (e) {
       logger.warn('event-log: 索引条目落盘失败（内存索引仍可用）', {
         sessionId: this.sessionId,
@@ -1101,10 +1108,7 @@ export class EventLogStorage {
       // （既有 KB-EVENT-READ regex-skip 路径，语义不变）。
       await this.ensureIdxLoaded();
       const idxStart = fromSeq > 1 ? this.findIdxStartOffset(fromSeq) : null;
-      const rl = this.createReadlineInterface(
-        this.filePath,
-        idxStart ?? 0
-      );
+      const rl = this.createReadlineInterface(this.filePath, idxStart ?? 0);
       for await (const line of rl) {
         if (!line.trim()) continue;
         if (results.length >= limit) break;
@@ -1683,13 +1687,9 @@ export class EventLogStorage {
       if (active.length === 0) return null;
       // 稳定排序（append-only 下文件序 ≈ seq 序；防御乱序行），成本数组随动
       const order = active.map((_, i) => i);
-      order.sort(
-        (a, b) => (active[a].seq - active[b].seq) || (a - b)
-      );
+      order.sort((a, b) => active[a].seq - active[b].seq || a - b);
       const sorted = order.every((v, i) => v === i);
-      const finalEvents = sorted
-        ? active
-        : order.map((i) => active[i]);
+      const finalEvents = sorted ? active : order.map((i) => active[i]);
       const finalCosts = sorted
         ? activeCosts
         : order.map((i) => activeCosts[i]);

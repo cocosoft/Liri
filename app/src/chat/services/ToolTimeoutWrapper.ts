@@ -60,10 +60,7 @@ export async function withToolTimeout(
         // P1-a（2026-09-02，对标 hermes deadline watchdog）：超时时记录调用栈片段
         // 与运行态快照——定位"工具卡死点"（Node 无法 dump 全线程栈，用当前调用栈 +
         // 内存/CPU 佐证）。此前仅记录工具名+超时值，卡死定位靠猜。
-        const callStack = new Error()
-          .stack?.split('\n')
-          .slice(1, 6)
-          .join('\n');
+        const callStack = new Error().stack?.split('\n').slice(1, 6).join('\n');
         logger.warn('工具执行超时，返回超时结果（底层工具无法强制取消）', {
           toolName: toolCall.name,
           timeoutMs: effectiveTimeout,

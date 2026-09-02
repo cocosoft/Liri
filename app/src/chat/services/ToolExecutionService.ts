@@ -253,13 +253,13 @@ export class ToolExecutionService {
           toolName: normalizedToolCall.name,
           result: {
             ok: false,
-            error: 'session_lookup 未在当前运行环境注册（分层关闭或非会话上下文）',
+            error:
+              'session_lookup 未在当前运行环境注册（分层关闭或非会话上下文）',
           },
           error: undefined,
         };
       }
-      const sessionId =
-        args.sessionId || this.deps.currentSessionId || '';
+      const sessionId = args.sessionId || this.deps.currentSessionId || '';
       const lookup = await this.deps.sessionLookup({
         sessionId,
         fromSeq: args.fromSeq,

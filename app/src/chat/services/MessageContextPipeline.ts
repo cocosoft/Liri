@@ -565,10 +565,7 @@ export async function computePaginationPoint(
     // 尾保护区（与 truncateApiMessages protectedCount 同口径）
     const protectedCount =
       SAFE_LIMIT < 64_000
-        ? Math.max(
-            3,
-            Math.min(20, Math.round((SAFE_LIMIT * 0.5) / avgPerMsg))
-          )
+        ? Math.max(3, Math.min(20, Math.round((SAFE_LIMIT * 0.5) / avgPerMsg)))
         : Math.max(20, Math.min(100, Math.round(nonSystemCount * 0.3)));
 
     // 从头部丢弃，直到剩余 ≤ SAFE_LIMIT 或仅剩保护区

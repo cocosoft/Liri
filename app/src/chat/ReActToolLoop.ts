@@ -382,8 +382,10 @@ export class ReActToolLoop extends ReActLoop<
             }
           );
           if (layered.applied) {
-            this.loopState.messages =
-              layered.messages as unknown as Record<string, unknown>[];
+            this.loopState.messages = layered.messages as unknown as Record<
+              string,
+              unknown
+            >[];
             logger.info('reactToolLoop:分层窗口压缩完成', {
               sessionId: session.id,
               toolTurn: this.loopState.toolTurnCount,
@@ -473,8 +475,7 @@ export class ReActToolLoop extends ReActLoop<
       // 1) 移除系统注入指令残留
       if (
         m.role === 'user' &&
-        (content.startsWith('[STEERING]') ||
-          content.startsWith('[SYSTEM]'))
+        (content.startsWith('[STEERING]') || content.startsWith('[SYSTEM]'))
       ) {
         removedCount++;
         continue;
@@ -487,8 +488,10 @@ export class ReActToolLoop extends ReActLoop<
       ) {
         const names = m.tool_calls.map(
           (tc) =>
-            (tc as { function?: { name?: string }; name?: string })
-              .function?.name ?? (tc as { name?: string }).name ?? ''
+            (tc as { function?: { name?: string }; name?: string }).function
+              ?.name ??
+            (tc as { name?: string }).name ??
+            ''
         );
         if (
           names.length > 0 &&
@@ -1197,7 +1200,9 @@ export class ReActToolLoop extends ReActLoop<
       const assistantMsgForRound =
         this.loopState.assistantMessage ??
         ({
-          id: this._activeToolRoundMessageId || `msg-round-${this.loopState.toolTurnCount}`,
+          id:
+            this._activeToolRoundMessageId ||
+            `msg-round-${this.loopState.toolTurnCount}`,
           role: 'assistant',
           content: '',
         } as unknown as Message);
@@ -1825,7 +1830,9 @@ export class ReActToolLoop extends ReActLoop<
    * 模型必然处理），并要求改用不同参数（offset/limit）才允许再次读取。
    */
   private _injectRepeatCallCorrection(calls: ToolCallEntry[]): void {
-    const currentKeys = calls.map((tc) => `${tc.name}:${_toolCallArgsKey(tc.input)}`);
+    const currentKeys = calls.map(
+      (tc) => `${tc.name}:${_toolCallArgsKey(tc.input)}`
+    );
     const prevKeys = this._lastToolCallKeys;
     this._lastToolCallKeys = currentKeys;
     if (
@@ -1896,7 +1903,11 @@ export class ReActToolLoop extends ReActLoop<
     const buffer = this.ctx.bufferTextChunk;
     if (buffer) {
       try {
-        await buffer(this.ctx.session.id, this._activeToolRoundMessageId, content);
+        await buffer(
+          this.ctx.session.id,
+          this._activeToolRoundMessageId,
+          content
+        );
       } catch {
         // @ignore-catch — 缓冲失败不阻断工具循环（CS03）
       }

@@ -72,7 +72,11 @@ export class IdleScaleMonitor {
     this.lastActivityAt = Date.now();
     this.idleFired = false;
     this.timer = setInterval(() => void this.poll(), this.pollMs);
-    if (this.timer && typeof (this.timer as unknown as { unref?: () => void }).unref === 'function') {
+    if (
+      this.timer &&
+      typeof (this.timer as unknown as { unref?: () => void }).unref ===
+        'function'
+    ) {
       (this.timer as unknown as { unref: () => void }).unref();
     }
     logger.info('IdleScaleMonitor 已启动', {

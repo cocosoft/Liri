@@ -368,12 +368,10 @@ export class ChatOrchestrator {
    */
   private async _ensureIdleScaleMonitor(): Promise<void> {
     if (this.idleScaleMonitor) return;
-    const { IdleScaleMonitor } = await import(
-      '@modules/core/idle/IdleScaleMonitor'
-    );
-    const { cleanupStaleTempFiles } = await import(
-      '@modules/core/idle/IdleScaleMonitor'
-    );
+    const { IdleScaleMonitor } =
+      await import('@modules/core/idle/IdleScaleMonitor');
+    const { cleanupStaleTempFiles } =
+      await import('@modules/core/idle/IdleScaleMonitor');
     const monitor = new IdleScaleMonitor({
       activeWorkCount: () => {
         let count = 0;
@@ -949,10 +947,13 @@ export class ChatOrchestrator {
 
   /** P3-3：turn 卡死回调——日志 + 中止会话流（复用既有 abortSessionStream 路径） */
   private _handleTurnStall(snapshot: LivenessSnapshot): void {
-    logger.error('会话 turn 卡死看门狗触发，尝试中断（对标 Hermes turn_liveness）', {
-      sessionId: snapshot.sessionId ?? null,
-      idleSeconds: snapshot.idleSeconds,
-    });
+    logger.error(
+      '会话 turn 卡死看门狗触发，尝试中断（对标 Hermes turn_liveness）',
+      {
+        sessionId: snapshot.sessionId ?? null,
+        idleSeconds: snapshot.idleSeconds,
+      }
+    );
     if (snapshot.sessionId) {
       this.host.abortSessionStream?.(snapshot.sessionId);
     }

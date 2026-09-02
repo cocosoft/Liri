@@ -79,7 +79,10 @@ function isIncompleteOpenTag(
       return true;
     }
     // 流式进行中：tagName 尚未完整输出
-    if (remaining.length < openPrefix.length && openPrefix.startsWith(remaining)) {
+    if (
+      remaining.length < openPrefix.length &&
+      openPrefix.startsWith(remaining)
+    ) {
       return true;
     }
   }
@@ -100,7 +103,10 @@ function isIncompleteCloseTag(
       return true;
     }
     // 流式进行中：tagName 尚未完整输出
-    if (remaining.length < closePrefix.length && closePrefix.startsWith(remaining)) {
+    if (
+      remaining.length < closePrefix.length &&
+      closePrefix.startsWith(remaining)
+    ) {
       return true;
     }
   }

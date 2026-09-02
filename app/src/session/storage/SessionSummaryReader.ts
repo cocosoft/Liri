@@ -90,9 +90,7 @@ export function parseSessionSummaries(
       content: d.content,
       keywords: strArray(d.keywords),
       summaryMessageId:
-        typeof d.summaryMessageId === 'string'
-          ? d.summaryMessageId
-          : undefined,
+        typeof d.summaryMessageId === 'string' ? d.summaryMessageId : undefined,
       compactedRange: range(d.compactedRange),
       sourceEventSeqs: numArray(d.sourceEventSeqs),
     });
@@ -114,7 +112,11 @@ export function findSummaryForSeq(
 ): SessionSummaryRecord | null {
   let fallback: SessionSummaryRecord | null = null;
   for (const s of summaries) {
-    if (s.compactedRange && seq >= s.compactedRange.startSeq && seq <= s.compactedRange.endSeq) {
+    if (
+      s.compactedRange &&
+      seq >= s.compactedRange.startSeq &&
+      seq <= s.compactedRange.endSeq
+    ) {
       return s;
     }
     if (s.sourceEventSeqs?.includes(seq)) {
@@ -141,8 +143,7 @@ export function findSummaryByKeyword(
   if (!k) return [];
   const out: SessionSummaryRecord[] = [];
   for (const s of summaries) {
-    const kwHit =
-      s.keywords?.some((w) => w.toLowerCase().includes(k)) ?? false;
+    const kwHit = s.keywords?.some((w) => w.toLowerCase().includes(k)) ?? false;
     const textHit = kwHit || s.content.toLowerCase().includes(k);
     if (textHit) out.push(s);
     if (out.length >= limit) break;

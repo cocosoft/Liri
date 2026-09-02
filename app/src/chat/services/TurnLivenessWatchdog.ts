@@ -58,7 +58,9 @@ export interface TurnLivenessOptions {
 }
 
 /** 解析空闲阈值：环境变量优先，非正数/非数字回退默认值（对标 Hermes 配置校验，绝不静默禁用） */
-export function resolveLivenessTimeout(env: NodeJS.ProcessEnv = process.env): number {
+export function resolveLivenessTimeout(
+  env: NodeJS.ProcessEnv = process.env
+): number {
   const raw = env['TURN_LIVENESS_TIMEOUT_MS']?.trim();
   if (!raw) return DEFAULT_LIVENESS_TIMEOUT_MS;
   const value = Number(raw);
@@ -70,7 +72,9 @@ export function resolveLivenessTimeout(env: NodeJS.ProcessEnv = process.env): nu
 }
 
 /** 解析采样间隔：环境变量优先，非法/过小回退默认（对标 Hermes MIN_TURN_LIVENESS_POLL_S） */
-export function resolveLivenessPoll(env: NodeJS.ProcessEnv = process.env): number {
+export function resolveLivenessPoll(
+  env: NodeJS.ProcessEnv = process.env
+): number {
   const raw = env['TURN_LIVENESS_POLL_MS']?.trim();
   if (!raw) return DEFAULT_LIVENESS_POLL_MS;
   const value = Number(raw);
@@ -91,7 +95,10 @@ export class TurnLivenessWatchdog {
 
   constructor(private readonly options: TurnLivenessOptions) {
     this.timeoutMs = options.timeoutMs ?? resolveLivenessTimeout();
-    this.pollMs = Math.max(MIN_POLL_MS, options.pollMs ?? resolveLivenessPoll());
+    this.pollMs = Math.max(
+      MIN_POLL_MS,
+      options.pollMs ?? resolveLivenessPoll()
+    );
   }
 
   /** 启动采样（幂等）。turn 开始后调用；首次 touch 前的活动时钟以 start 时刻为准。 */
@@ -102,7 +109,11 @@ export class TurnLivenessWatchdog {
     this.surfaced = false;
     this.timer = setInterval(() => this.check(), this.pollMs);
     // 不阻止进程退出
-    if (this.timer && typeof (this.timer as unknown as { unref?: () => void }).unref === 'function') {
+    if (
+      this.timer &&
+      typeof (this.timer as unknown as { unref?: () => void }).unref ===
+        'function'
+    ) {
       (this.timer as unknown as { unref: () => void }).unref();
     }
   }

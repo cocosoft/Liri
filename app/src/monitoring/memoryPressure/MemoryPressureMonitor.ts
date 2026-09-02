@@ -175,7 +175,9 @@ class MemoryPressureMonitor {
     let reason: string | undefined;
     if (rssMb > hard || hardLag) {
       level = 3;
-      reason = hardLag ? `lag=${lagMs}ms(≥5000)` : `rss=${rssMb.toFixed(0)}>${Math.round(hard)}`;
+      reason = hardLag
+        ? `lag=${lagMs}ms(≥5000)`
+        : `rss=${rssMb.toFixed(0)}>${Math.round(hard)}`;
     } else if (rssMb > soft2) {
       level = 2;
       reason = `rss=${rssMb.toFixed(0)}>${Math.round(soft2)}`;

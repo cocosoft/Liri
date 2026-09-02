@@ -110,7 +110,12 @@ function formatMemorySearchResults(
   results: Array<{
     id: string;
     content: string;
-    metadata: { type?: string; name?: string; sessionId?: string; tags?: string[] };
+    metadata: {
+      type?: string;
+      name?: string;
+      sessionId?: string;
+      tags?: string[];
+    };
   }>
 ): string {
   if (results.length === 0) return '未找到相关记忆';
@@ -123,7 +128,8 @@ function formatMemorySearchResults(
   return ranked
     .map((m) => {
       const isSummary = m.metadata.type === 'session_summary';
-      const isRawChat = !isSummary && m.metadata.tags?.includes('auto-extracted');
+      const isRawChat =
+        !isSummary && m.metadata.tags?.includes('auto-extracted');
       const head = isSummary
         ? `[会话阶段摘要 · 会话 ${m.metadata.sessionId ?? '未知'}]`
         : isRawChat

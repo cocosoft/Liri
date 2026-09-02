@@ -282,8 +282,7 @@ export class ToolSearchTool extends BaseTool<
       .getAll()
       .filter(
         (s) =>
-          s.impl.kind === 'prompt' &&
-          !(s.isEnabled && s.isEnabled() === false)
+          s.impl.kind === 'prompt' && !(s.isEnabled && s.isEnabled() === false)
       );
     const byName = skills.filter((s) => {
       const name = s.name.toLowerCase();

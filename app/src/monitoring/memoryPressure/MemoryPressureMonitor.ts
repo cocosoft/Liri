@@ -170,8 +170,7 @@ class MemoryPressureMonitor {
     // 基线 fallback（2026-09-02 标定实证修复）：基线 12 tick 学成前用**首样本**
     // 作基线，避免"用当前高 RSS 当基线 → 阈值被抬高 → 早期尖峰盲区"
     //（标定跑批首轮 RSS 已 2.6GB 但未触发 L0，即因此盲区）
-    const base =
-      this.baselineRssMb || this.firstSampleRss || rssMb;
+    const base = this.baselineRssMb || this.firstSampleRss || rssMb;
     const hard = Math.max(base + 2400, HARD_MB);
     const soft2 = Math.max(base + 1600, SOFT2_MB);
     const soft1 = Math.max(base + 1000, SOFT1_MB);

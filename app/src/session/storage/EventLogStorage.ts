@@ -43,6 +43,7 @@ import {
 } from '@modules/chat/types/knownEventTypes';
 // 内存画像（2026-09-02 排查"会话中断/内存尖峰"用，MEM_PROFILE=1 才采样）
 import { memProfile } from '../../monitoring/memProfile.js';
+import { getMemoryPressureMonitor } from '../../monitoring/memoryPressure/MemoryPressureMonitor.js';
 
 const logger = getLogger('session:event-log');
 
@@ -614,6 +615,9 @@ export class EventLogStorage {
     }
     // 内存画像（MEM_PROFILE=1）：text-batch 聚合落盘完成（join 大字符串的驻留窗口）
     memProfile('eventlog:flush-text', { sessionId: this.sessionId, flushed });
+    // 内存水位 tick（2026-09-02 标定：flush-text 实测单步 +507MB/驻留 external 1.39GB，
+    // 是流式写路径主要瞬时分配点 → 落盘后立即做一次水位评估）
+    getMemoryPressureMonitor().tick();
     return flushed;
   }
 

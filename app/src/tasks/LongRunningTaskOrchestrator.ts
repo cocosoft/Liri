@@ -292,6 +292,14 @@ export class LongRunningTaskOrchestrator {
   private auditReport: AuditReport | null = null;
   /** 3-1（2026-09-03）：PDCA 终态记忆回写防重（同任务仅写一次） */
   private _memoryWriteDone = false;
+  /** 方向4（2026-09-03）：GoalEvaluateGate 收敛判定捕获（评估关闭时不设） */
+  private _goalEvaluation?: {
+    converged: boolean;
+    confidence: number;
+    reason?: string;
+  };
+  /** 方向4（2026-09-03）：评估样例落库防重（同任务仅写一次） */
+  private _sampleWriteDone = false;
   // 1-1d（2026-09-03）：stepDurations[].tokens = 该步累计 token（跨 retry 累计），
   // 供 per-step 独立核算/审计聚合；总口径仍以 _totalTokensTracked 为准。
   private stepDurations: Map<
@@ -1788,6 +1796,14 @@ ${replanSection}
           },
           { isolation: this.isolation, executor: this.executor }
         );
+        // 方向4（2026-09-03）：收敛判定捕获 → review_samples 落库（评估关闭时不捕获）
+        if (goalConv.evaluated) {
+          this._goalEvaluation = {
+            converged: goalConv.converged,
+            confidence: goalConv.confidence,
+            reason: goalConv.reason,
+          };
+        }
         if (goalConv.evaluated && !goalConv.converged) {
           logger.warn('目标级评估未收敛，阻止假完成', {
             taskId: this.taskId,
@@ -1872,6 +1888,8 @@ ${replanSection}
     this._recordGoalStageMetric('pdca_completed');
     // 3-1（2026-09-03）：PDCA 完成 → 轻量记忆回写（复盘决策入长期记忆，供跨会话 recall）
     this._persistMemoryFromAudit('completed');
+    // 方向4（2026-09-03）：终态落评估样例（任务级评估集）
+    this._persistReviewSample('pdca_completed');
 
     // §5 P2: 任务完成事件广播（前端按 sessionId 过滤渲染）
     const _finalStatus = this.getStatus();
@@ -2031,6 +2049,8 @@ ${replanSection}
     this._recordGoalStageMetric('pdca_aborted');
     // 3-1（2026-09-03）：PDCA 中止 → 轻量记忆回写（记录已执行部分与中止状态）
     this._persistMemoryFromAudit('aborted');
+    // 方向4（2026-09-03）：终态落评估样例（任务级评估集）
+    this._persistReviewSample('pdca_aborted');
   }
 
   /**
@@ -2121,6 +2141,78 @@ ${replanSection}
           module: 'tasks:longRunning',
           action: 'memoryWriteback',
           context: { taskId: this.taskId, outcome },
+        });
+      }
+    })();
+  }
+
+  /**
+   * 方向4（2026-09-03）：PDCA 终态落任务级评估样例（review_samples，方向 4 Spec）。
+   * 结构化快照：PlanStep 完整对象（含 dependsOn/decision/reviewResult/retryCount）→ steps_json；
+   * 附带 reviewPassRate 运行时快照、GoalEvaluateGate 收敛判定（_goalEvaluation）、成本/时长、自主度启发值。
+   * 幂等：_sampleWriteDone 单次 guard + recordReviewSample 内 pdca_task_id 已存在跳过。
+   * fire-and-forget：失败降级日志，不阻塞 PDCA 收尾。
+   */
+  private _persistReviewSample(stage: 'pdca_completed' | 'pdca_aborted'): void {
+    if (this._sampleWriteDone) return;
+    this._sampleWriteDone = true;
+    void (async () => {
+      try {
+        const plan = this.planId
+          ? taskOrchestrator.getPlan(this.planId)
+          : undefined;
+        if (!plan || plan.steps.length === 0) return;
+        const stepsJson = JSON.stringify(
+          plan.steps.map((s) => ({
+            id: s.id,
+            description: s.description,
+            status: s.status,
+            decision: s.decision ?? null,
+            dependsOn: s.dependsOn ?? [],
+            retryCount: s.retryCount,
+            maxRetries: s.maxRetries,
+            reviewScore: s.reviewResult?.score ?? null,
+            reviewPass: s.reviewResult?.pass ?? null,
+            error: s.error ?? null,
+          }))
+        );
+        const hasDeps = plan.steps.some(
+          (s) => s.dependsOn && s.dependsOn.length > 0
+        );
+        // 自主度启发（对齐方向 4 Spec §4：可人工回填修正）
+        const autonomyLevel =
+          plan.steps.length >= 2 && hasDeps
+            ? 5
+            : plan.steps.length >= 2
+              ? 4
+              : 3;
+        const metrics = this.getMetrics();
+        await goalMetricsService.init();
+        await goalMetricsService.recordReviewSample({
+          pdcaTaskId: this.taskId,
+          sessionId: this._sessionId ?? undefined,
+          goalText: plan.description,
+          stage,
+          stepsJson,
+          reviewPassRate: metrics.reviewPassRate,
+          converged: this._goalEvaluation?.converged,
+          confidence: this._goalEvaluation?.confidence,
+          reason: this._goalEvaluation?.reason,
+          autonomyLevel,
+          totalTokens: this._totalTokensTracked,
+          durationMs:
+            this._startedAt > 0 ? Date.now() - this._startedAt : undefined,
+        });
+        logger.info('[orchestrator] PDCA 终态评估样例已落库', {
+          taskId: this.taskId,
+          stage,
+          stepCount: plan.steps.length,
+        });
+      } catch (err) {
+        await handleError(err, {
+          module: 'tasks:longRunning',
+          action: 'persistReviewSample',
+          context: { taskId: this.taskId, stage },
         });
       }
     })();

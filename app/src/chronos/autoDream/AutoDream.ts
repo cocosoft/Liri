@@ -1,6 +1,15 @@
 /**
  * AutoDream主逻辑模块
  * 自动内存整合的核心逻辑
+ *
+ * 3-3（2026-09-03）职责边界：
+ * - 本模块（chronos AutoDream）= 梦境周期内的"会话/知识巡检子阶段"（fork worker 维护
+ *   knowledge/index.md，不做 LLM 记忆精炼、不直接 createMemory）。开关 AUTO_DREAM_ENABLED=false 仅停本子阶段。
+ * - dream/ 引擎（DreamEngine/UnifiedDreamCycle）= 唯一 cron/idle/manual 周期编排者，
+ *   统一调度知识编译(runKnowledgeRain)与记忆精炼(triggerMemoryDream→runMemoryDream)。
+ * - MemoryDreamService.runMemoryDream = 唯一 LLM 记忆精炼器 + 知识文件→记忆桥（createMemory 写源唯一）。
+ * 注意：本模块 success 分支与 UnifiedDreamCycle 阶段 4 各调用一次 runKnowledgeRain（同周期双 rain，
+ * 低危 I/O 冗余，已知观察，勿再叠加第三处）。
  */
 
 import { getAutoDreamConfig, isAutoDreamEnabled } from './AutoDreamConfig';

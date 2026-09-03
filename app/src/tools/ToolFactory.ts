@@ -1514,8 +1514,8 @@ export function getAllBaseTools(): Tool[] {
   /**
    * Phase 3.5 双通道说明：
    * memory.md 内容已通过系统提示词注入（见 MessageContextPipeline），模型无需主动调用
-   * recall_memory 即可获取会话记忆。当前 recall_memory 工具查询 SQLite 全局记忆，
-   * 作为补充通道保留。Phase 4 统一双记忆系统后恢复双向查询。
+   * recall_memory 即可获取会话记忆。recall_memory 为补充通道：有会话上下文查当前会话；
+   * 3-2（2026-09-03）起无会话上下文时自动兜底检索全局记忆（memory_vectors + memdir）。
    */
   const recallMemoryTool = RecallMemoryTool.create();
   if (recallMemoryTool) {

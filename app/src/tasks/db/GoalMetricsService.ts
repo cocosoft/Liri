@@ -72,6 +72,42 @@ export interface MessageUsageRow {
   createdAt: number;
 }
 
+/** review_samples 评估样例输入（方向 4 Spec，2026-09-03） */
+export interface ReviewSampleInput {
+  pdcaTaskId: string;
+  sessionId?: string;
+  goalText: string;
+  stage: 'pdca_completed' | 'pdca_aborted';
+  /** PlanStep[] 精简快照 JSON（含 dependsOn/decision/review/retryCount） */
+  stepsJson: string;
+  reviewPassRate?: number;
+  converged?: boolean;
+  confidence?: number;
+  reason?: string;
+  autonomyLevel?: number;
+  totalTokens?: number;
+  durationMs?: number;
+}
+
+/** review_samples 行（读取用） */
+export interface ReviewSampleRow {
+  id: string;
+  pdcaTaskId: string;
+  sessionId: string | null;
+  goalText: string;
+  stage: string;
+  stepsJson: string;
+  reviewPassRate: number | null;
+  converged: number | null;
+  confidence: number | null;
+  reason: string | null;
+  humanDecision: string | null;
+  autonomyLevel: number | null;
+  totalTokens: number | null;
+  durationMs: number | null;
+  createdAt: number;
+}
+
 function run(db: Database, sql: string, params: unknown[] = []): Promise<void> {
   return new Promise((resolve, reject) => {
     db.run(sql, params, (err: Error | null) => {
@@ -204,6 +240,85 @@ export class GoalMetricsService {
         Date.now(),
       ]
     );
+  }
+
+  /** 任务级评估样例落库（review_samples，方向 4 Spec；幂等：同 pdca_task_id 已存在则跳过） */
+  async recordReviewSample(input: ReviewSampleInput): Promise<void> {
+    const db = this.db;
+    if (!db) return;
+    const dup = await all<{ id: string }>(
+      db,
+      `SELECT id FROM ${TABLE_NAMES.REVIEW_SAMPLES} WHERE pdca_task_id = ?`,
+      [input.pdcaTaskId]
+    );
+    if (dup.length > 0) return;
+    await run(
+      db,
+      `INSERT INTO ${TABLE_NAMES.REVIEW_SAMPLES}
+        (id, pdca_task_id, session_id, goal_text, stage, steps_json, review_pass_rate,
+         converged, confidence, reason, human_decision, autonomy_level,
+         total_tokens, duration_ms, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        randomUUID(),
+        input.pdcaTaskId,
+        input.sessionId ?? null,
+        input.goalText,
+        input.stage,
+        input.stepsJson,
+        input.reviewPassRate ?? null,
+        input.converged === undefined ? null : input.converged ? 1 : 0,
+        input.confidence ?? null,
+        input.reason ?? null,
+        null, // human_decision：人工回填位
+        input.autonomyLevel ?? null,
+        input.totalTokens ?? null,
+        input.durationMs ?? null,
+        Date.now(),
+      ]
+    );
+  }
+
+  /** 查询评估样例（可选按 pdca_task_id 过滤；方向 4 回归数据源） */
+  async queryReviewSamples(filter?: {
+    pdcaTaskId?: string;
+    limit?: number;
+  }): Promise<ReviewSampleRow[]> {
+    const db = this.db;
+    if (!db) return [];
+    const where = filter?.pdcaTaskId ? 'WHERE pdca_task_id = ?' : '';
+    const params: unknown[] = filter?.pdcaTaskId ? [filter.pdcaTaskId] : [];
+    const limitSql = filter?.limit ? 'LIMIT ?' : '';
+    if (filter?.limit) params.push(filter.limit);
+    const rows = await all<Record<string, unknown>>(
+      db,
+      `SELECT id, pdca_task_id, session_id, goal_text, stage, steps_json, review_pass_rate,
+              converged, confidence, reason, human_decision, autonomy_level,
+              total_tokens, duration_ms, created_at
+         FROM ${TABLE_NAMES.REVIEW_SAMPLES}
+        ${where}
+        ORDER BY created_at
+        ${limitSql}`,
+      params
+    );
+    // sqlite 返回下划线列名 → 映射 camelCase 行
+    return rows.map((r) => ({
+      id: r.id as string,
+      pdcaTaskId: r.pdca_task_id as string,
+      sessionId: (r.session_id as string | null) ?? null,
+      goalText: r.goal_text as string,
+      stage: r.stage as string,
+      stepsJson: r.steps_json as string,
+      reviewPassRate: (r.review_pass_rate as number | null) ?? null,
+      converged: (r.converged as number | null) ?? null,
+      confidence: (r.confidence as number | null) ?? null,
+      reason: (r.reason as string | null) ?? null,
+      humanDecision: (r.human_decision as string | null) ?? null,
+      autonomyLevel: (r.autonomy_level as number | null) ?? null,
+      totalTokens: (r.total_tokens as number | null) ?? null,
+      durationMs: (r.duration_ms as number | null) ?? null,
+      createdAt: r.created_at as number,
+    }));
   }
 
   /** 查询 stage 粒度行（可选按 goalId 过滤；S4 决策数据源） */

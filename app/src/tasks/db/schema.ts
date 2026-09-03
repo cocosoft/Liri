@@ -154,6 +154,29 @@ CREATE TABLE IF NOT EXISTS approval_dedup (
 );
 
 CREATE INDEX IF NOT EXISTS idx_approval_dedup_status ON approval_dedup(status);
+
+-- review_samples: 任务级评估集样例（方向 4，2026-09-03）
+-- PDCA 终态（completed/aborted）落一条结构化样例：PlanStep 完整快照（含 dependsOn/decision/review）、
+-- 审查通过率快照、GoalEvaluateGate 收敛判定、成本/时长、自主度启发值、人工决策回填位。
+CREATE TABLE IF NOT EXISTS review_samples (
+  id TEXT PRIMARY KEY,
+  pdca_task_id TEXT NOT NULL,
+  session_id TEXT,
+  goal_text TEXT NOT NULL,
+  stage TEXT NOT NULL,
+  steps_json TEXT NOT NULL,
+  review_pass_rate INTEGER,
+  converged INTEGER,
+  confidence REAL,
+  reason TEXT,
+  human_decision TEXT,
+  autonomy_level INTEGER,
+  total_tokens INTEGER,
+  duration_ms INTEGER,
+  created_at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_review_samples_pdca_task ON review_samples(pdca_task_id);
 `;
 
 export const TABLE_NAMES = {
@@ -164,6 +187,7 @@ export const TABLE_NAMES = {
   TASK_RUNS: 'task_runs',
   USAGE_RECORDS: 'usage_records',
   GOAL_METRICS: 'goal_metrics',
+  REVIEW_SAMPLES: 'review_samples',
 };
 
 // FTS5 schema (单独导出，允许运行时降级)

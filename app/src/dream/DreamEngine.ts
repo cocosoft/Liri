@@ -197,6 +197,8 @@ export class DreamEngine {
     });
 
     // 保存兼容 DreamRecord
+    // 3-3（2026-09-03）deprecated：周期权威记录为 UnifiedDreamCycle.saveCycle → cycles/<cycleId>.json
+    // （dream_records.json 属历史兼容通道，50 条上限；后续版本可移除本双写）
     const legacyRecord = {
       id: `dream_${startTime}`,
       startedAt: startTime,

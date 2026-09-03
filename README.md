@@ -390,6 +390,7 @@ bun run build:enterprise  # 企业版（全功能）
 - ✅ **会话中断与内存尖峰排查修复** - 优雅关闭防 torn（全会话缓冲先落盘）、图谱提取节流、MEM_PROFILE 内存画像插桩、单轮长任务 45K 分层压缩触发、MemoryStore flushBatch 竞态根治
 - ✅ **内存水位触发机制** - OS kswapd 式 L0/L1/L2 分级回收（flush 脏页/后台让位/窗口收紧 45K→32K），内置事件循环滞后探针（GC STW ≥2s→L1 / ≥5s→hard）+ 反向放宽（thrashing 防护）+ 压力期自动逐点采样
 - ✅ **基准验收** - P3-7f 同源长任务真实重测：事件数 PASS、单请求 inputTokens 封顶 ≈45K（较基线 124,475 降 64%）、会话数据内存 4-24MB/会话达标
+- ✅ **D5② 代码/长文档取回增强** - 代码/文档类任务分层切窗时注入更强"原文可取回"提示，`session_lookup` 页预算 8K→16K chars（判定 `isCodeContextMessage`，stream/send 双路径；内存仍受 ctx 压缩点保护）
 
 #### v0.4.39 (2026-08-15)
 

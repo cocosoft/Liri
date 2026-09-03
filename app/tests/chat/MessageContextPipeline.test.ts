@@ -26,7 +26,33 @@ import {
   ensureThinkResponseTags,
   windowStartForBudget,
   computePaginationPoint,
+  isCodeContextMessage,
+  LAYERING_HINT,
+  LAYERING_HINT_CODE,
 } from '../../src/chat/services/MessageContextPipeline';
+
+describe('D5② 取回增强 — 代码/长文档会话判定与提示', () => {
+  test('代码库/重构类 user 消息判定为 code-context', () => {
+    expect(
+      isCodeContextMessage([
+        { role: 'user', content: '帮我重构整个项目里所有跨文件的引用' },
+        { role: 'assistant', content: '好的' },
+        { role: 'user', content: '继续' },
+      ])
+    ).toBe(true);
+  });
+  test('普通闲聊消息判定为非 code-context', () => {
+    expect(
+      isCodeContextMessage([
+        { role: 'user', content: '帮我扫描 AI 动态做一份日报' },
+      ])
+    ).toBe(false);
+  });
+  test('代码版提示存在且与通用提示不同（更强取回语义）', () => {
+    expect(LAYERING_HINT_CODE.length).toBeGreaterThan(0);
+    expect(LAYERING_HINT_CODE).not.toBe(LAYERING_HINT);
+  });
+});
 
 describe('stripOrphanToolTags — 孤立工具调用标签残片剥离', () => {
   test('剥离残缺工具调用闭合标签（P3 场景：模型输出 </parameter></invoke></tool_calls>）', () => {

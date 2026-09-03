@@ -79,6 +79,8 @@ import {
   computePaginationPoint,
   contextLayeringEnabled,
   LAYERING_HINT,
+  LAYERING_HINT_CODE,
+  isCodeContextMessage,
   ensureThinkResponseTags,
   stripThinkResponseTags,
   stripOrphanToolTags,
@@ -392,6 +394,8 @@ export class ChatManagerImpl implements ChatManager {
    * 单值近似（并发多会话构建时以最近一次为准，仅影响工具注入，无正确性风险）。
    */
   private _lastStreamBuildWindowed = false;
+  /** D5②（2026-09-02）：最近一次流式构建是否判定为代码/长文档会话（切窗时驱动取回增强） */
+  private _lastStreamBuildCodeContext = false;
 
   /**
    * 权限管理器
@@ -1742,7 +1746,9 @@ export class ChatManagerImpl implements ChatManager {
       if (!eventLog.exists()) {
         return { ok: true, content: '（会话暂无事件记录）' };
       }
-      const PAGE_CHARS = 8000; // ≈2K tokens（4 chars/token 保守口径）
+      // 代码/文档会话翻倍（D5② 取回增强，2026-09-02）：代码原文按页取回更完整，
+      // 仍受 LLM 输出预算与 truncation 约束
+      const PAGE_CHARS = this._lastStreamBuildCodeContext ? 16000 : 8000; // ≈2K tokens（4 chars/token 保守口径）
       const MAX_EVENTS = 3000;
       const from = fromSeq && fromSeq > 0 ? fromSeq : 1;
       const events = await eventLog.read({
@@ -3145,16 +3151,21 @@ export class ChatManagerImpl implements ChatManager {
         windowed = messages.slice(cutIndex);
         // C 阶段（P1）：标记本次构建发生切窗，供 streamMessageFlow 注入 session_lookup
         this._lastStreamBuildWindowed = true;
+        // D5②（2026-09-02）：代码/长文档任务 + 切窗 → 取回增强（更强提示 + session_lookup 加大页）
+        this._lastStreamBuildCodeContext = isCodeContextMessage(messages);
         logger.info('stream:build 分页切点生效（C 阶段）', {
           totalMessages: messages.length,
           cutIndex,
           keptMessages: windowed.length,
+          codeContext: this._lastStreamBuildCodeContext,
         });
       } else {
         this._lastStreamBuildWindowed = false;
+        this._lastStreamBuildCodeContext = false;
       }
     } else {
       this._lastStreamBuildWindowed = false;
+      this._lastStreamBuildCodeContext = false;
     }
     // §5.3: 排除 isTaskMessage 消息（任务摘要仅用户可见，不进入 LLM 上下文，避免污染）
     // 2026-08-19 根因①修复：filter/map 改为分批 for 循环 + 让出事件循环，
@@ -3253,7 +3264,11 @@ export class ChatManagerImpl implements ChatManager {
         (m) => m.role === 'user' && typeof m.content === 'string'
       );
       if (firstUser) {
-        firstUser.content = `${LAYERING_HINT}\n${firstUser.content}`;
+        // D5②（2026-09-02）：代码/长文档会话用更强取回提示（代码原文可按区间原样取回）
+        const hint = this._lastStreamBuildCodeContext
+          ? LAYERING_HINT_CODE
+          : LAYERING_HINT;
+        firstUser.content = `${hint}\n${firstUser.content}`;
       }
     }
 

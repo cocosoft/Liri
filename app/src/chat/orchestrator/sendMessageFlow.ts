@@ -46,6 +46,8 @@ import {
   computePaginationPoint,
   contextLayeringEnabled,
   LAYERING_HINT,
+  LAYERING_HINT_CODE,
+  isCodeContextMessage,
 } from '../services/MessageContextPipeline';
 import { stripBareExploration } from '../services/bareExplorationStripper';
 import { StreamingToolCallScrubber } from '../../streaming/scrubbers/StreamingToolCallScrubber';
@@ -207,7 +209,13 @@ export async function prepareApiMessages(
         m.role === 'user' && typeof m.content === 'string'
     );
     if (firstUser) {
-      firstUser.content = `${LAYERING_HINT}\n${firstUser.content}`;
+      // D5②（2026-09-02）：代码/长文档会话用更强取回提示
+      const hint = isCodeContextMessage(
+        session.messages as Array<{ role: string; content: unknown }>
+      )
+        ? LAYERING_HINT_CODE
+        : LAYERING_HINT;
+      firstUser.content = `${hint}\n${firstUser.content}`;
     }
   }
 

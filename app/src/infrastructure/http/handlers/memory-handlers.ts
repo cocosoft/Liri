@@ -550,6 +550,58 @@ export async function handleDreamCyclesList(
 }
 
 /**
+ * GET /v1/memory/dream/cycles/analytics — 梦境周期分析视图（DB 镜像：列表 + 全量统计）
+ * 参数：from/to（completed_at，ms，非有限数忽略）/ triggerSource（大小写敏感）/
+ *       status（非 completed|partial|failed 忽略）/ limit（缺省 50，上限 500，非法回默认）
+ */
+export async function handleDreamCycleAnalytics(
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const parsedUrl = new URL(
+      req.url!,
+      `http://${req.headers.host || 'localhost'}`
+    );
+    const p = parsedUrl.searchParams;
+    const finite = (v: string | null): number | undefined => {
+      if (v === null) return undefined;
+      const n = Number(v);
+      return Number.isFinite(n) ? n : undefined;
+    };
+    const rawStatus = p.get('status');
+    const status =
+      rawStatus !== null &&
+      (rawStatus === 'completed' ||
+        rawStatus === 'partial' ||
+        rawStatus === 'failed')
+        ? rawStatus
+        : undefined;
+    const rawLimit = p.get('limit');
+    // 非法值（NaN/<1）由 DreamCycleDb.resolveLimit 回默认 50；>500 截 500
+    const limit = rawLimit === null ? undefined : Number(rawLimit);
+    const filter = {
+      from: finite(p.get('from')),
+      to: finite(p.get('to')),
+      triggerSource: p.get('triggerSource') || undefined,
+      status,
+      limit,
+    };
+    const { getDreamCycleDb } =
+      await import('../../../../src/dream/DreamCycleDb');
+    const db = await getDreamCycleDb();
+    const [cycles, stats] = await Promise.all([
+      db.queryCycles(filter),
+      db.aggregateCycles(filter),
+    ]);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ success: true, cycles, stats }));
+  } catch (err) {
+    sendError(res, err);
+  }
+}
+
+/**
  * GET /v1/memory/dream/cycles/:cycleId — 梦境周期详情
  */
 export async function handleDreamCycleDetail(

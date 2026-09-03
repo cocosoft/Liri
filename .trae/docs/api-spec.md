@@ -540,6 +540,10 @@
 | DELETE | `/v1/memory` | ✅ | `memoryService.deleteAll` |
 | POST | `/v1/memory/create-from-file` | ✅ | `fileService.saveToMemory` |
 | DELETE | `/v1/memory/{id}` | ✅ | `memoryService.delete` |
+| POST | `/v1/memory/dream` | ✅ | 无前端调用方（存量补录：手动触发梦境） |
+| GET | `/v1/memory/dream/cycles` | ✅ | 无前端调用方（存量补录：JSON 周期列表） |
+| GET | `/v1/memory/dream/cycles/{cycleId}` | ✅ | 无前端调用方（存量补录：周期详情） |
+| GET | `/v1/memory/dream/cycles/analytics` | ✅ | 无前端调用方（2026-09-03 新增：DB 镜像分析视图，列表 + stats；参数 from/to/triggerSource/status/limit 语义见 dev_docs/dailys/20260903/3-4-梦境周期HTTP查询端点-设计方案-20260903.md） |
 
 ### §3.27 文件系统 API
 

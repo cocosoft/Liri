@@ -320,6 +320,21 @@ export class DreamPersistence {
         `[DreamPersistence] 清理 ${toDelete.length} 条旧梦境周期记录`
       );
     }
+
+    // v3（2026-09-03）：DB 镜像 prune 同步（与 JSON 同口径 CYCLES_MAX_AGE_MS/CYCLES_MAX；
+    // fire-and-forget + 降级，删 JSON 后毫秒级内 DB 仍含被删行属已知窗口）
+    void (async () => {
+      try {
+        const { mirrorPruneToDb } = await import('./DreamCycleDb.js');
+        await mirrorPruneToDb(CYCLES_MAX_AGE_MS, CYCLES_MAX);
+      } catch (err) {
+        void handleError(err instanceof Error ? err : new Error(String(err)), {
+          module: 'dream:persistence',
+          action: 'pruneDbMirror',
+        });
+      }
+    })();
+
     return toDelete.length;
   }
 }

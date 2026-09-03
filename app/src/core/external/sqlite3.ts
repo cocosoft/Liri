@@ -30,8 +30,8 @@
 import { mkdirSync } from 'fs';
 import { dirname } from 'path';
 
-import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import { getLogger } from '@modules/monitoring/logs/Logger.js';
+import { handleError } from '@modules/error/handleError';
 const logger = getLogger('core:external:sqlite3');
 
 /**

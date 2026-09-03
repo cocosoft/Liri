@@ -29,6 +29,7 @@
  */
 
 import type { DreamCycleRecord, DreamTriggerSource } from './types';
+import { mirrorCycleToDb } from './DreamCycleDb.js';
 import { SessionContentGatherer } from './gather/SessionContentGatherer';
 import { KnowledgeScanner } from './gather/KnowledgeScanner';
 import { PersonalityReflector } from './reflect/PersonalityReflector';
@@ -585,6 +586,10 @@ export class UnifiedDreamCycle {
 
     // 持久化
     await this.persistence.saveCycle(record);
+
+    // 3-4（2026-09-03）：SQL 镜像到 app.db dream_cycles（按时间窗/触发源 SQL 可查询）；
+    // fire-and-forget，镜像失败由内部 handleError 降级，不阻塞周期收尾
+    void mirrorCycleToDb(record);
 
     // 记录监控指标
     const { recordCycleMetrics } = await import('./DreamMetrics');

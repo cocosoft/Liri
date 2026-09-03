@@ -40,6 +40,7 @@ import {
   handleCreateMemory,
   handleDeleteAllMemories,
   handleDeleteMemory,
+  handleDreamCycleAnalytics,
   handleDreamCycleDetail,
   handleDreamCyclesList,
   handleDreamMemories,
@@ -185,6 +186,11 @@ export async function dispatchMemoryFilesRoutes(
     method === 'GET' && url.match(/^\/v1\/memory\/dream\/cycles\/(dream_\d+)$/);
   if (cycleDetailMatch) {
     await handleDreamCycleDetail(req, res, cycleDetailMatch[1]);
+    return true;
+  }
+  // v3：梦境周期分析视图（DB 镜像 SQL 查询 + 全量统计）——cycles 精确/正则判定之后、PUT 泛匹配之前
+  if (method === 'GET' && url === '/v1/memory/dream/cycles/analytics') {
+    await handleDreamCycleAnalytics(req, res);
     return true;
   }
   if (method === 'PUT' && url.match(/^\/v1\/memory\/(.+)$/)) {

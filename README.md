@@ -13,7 +13,7 @@
 
 [![CI Status](https://github.com/cocosoft/Liri/actions/workflows/ci.yml/badge.svg)](https://github.com/cocosoft/Liri/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-![Version](https://img.shields.io/badge/version-0.4.44-blue)
+![Version](https://img.shields.io/badge/version-0.4.45-blue)
 
 [快速开始](#-快速开始) •
 [功能概览](#-功能概览) •
@@ -374,7 +374,7 @@ bun run build:enterprise  # 企业版（全功能）
 
 ## 📋 版本
 
-当前版本：**v0.4.44**
+当前版本：**v0.4.45**
 
 版本管理遵循 [语义化版本规范](.trae/rules/versioning.md)：
 - 修订号 — 按需升，每次发版 +1（Bug 修复、文档更新、小重构）
@@ -382,6 +382,14 @@ bun run build:enterprise  # 企业版（全功能）
 - 主版本 — 达到 v1.0.0 标准时一次性从 0.x.x 跳到 1.0.0
 
 ### 🚀 版本更新记录
+
+#### v0.4.45 (2026-09-02)
+
+**上下文治理与内存水位机制（OS 内存管理式）**
+- ✅ **上下文分层治理落地** - D7 事件索引（events.idx 二分定位 + UTF-8 偏移 + 损坏行区间降级）；A text-batch 正文聚合（64KB/2s，事件数 10K→169/622）；B0/B1 滑动窗口快照 + 热窗 ≤10K + 缓冲下沉存储层；C 请求分层（token 动态分页点 + `session_lookup` 按需取回 + CONTEXT_LAYERING 开关）；D 摘要事件化（session/summary）+ 跨会话记忆上卷与检索适配器
+- ✅ **会话中断与内存尖峰排查修复** - 优雅关闭防 torn（全会话缓冲先落盘）、图谱提取节流、MEM_PROFILE 内存画像插桩、单轮长任务 45K 分层压缩触发、MemoryStore flushBatch 竞态根治
+- ✅ **内存水位触发机制** - OS kswapd 式 L0/L1/L2 分级回收（flush 脏页/后台让位/窗口收紧 45K→32K），内置事件循环滞后探针（GC STW ≥2s→L1 / ≥5s→hard）+ 反向放宽（thrashing 防护）+ 压力期自动逐点采样
+- ✅ **基准验收** - P3-7f 同源长任务真实重测：事件数 PASS、单请求 inputTokens 封顶 ≈45K（较基线 124,475 降 64%）、会话数据内存 4-24MB/会话达标
 
 #### v0.4.39 (2026-08-15)
 

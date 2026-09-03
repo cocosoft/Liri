@@ -365,6 +365,12 @@ export class ReActToolLoop extends ReActLoop<
             estimatedTokens: estLayer,
             layerWindow: layerWindowTokens,
           });
+          // 反向信号（2026-09-02 v1.1 §3.2）：压力下窗口收紧导致同一任务内
+          // 反复分层压缩（可能过度收紧/重做）→ 上报 monitor，60s 内 ≥2 次放宽窗口
+          getMemoryPressureMonitor().recordReverseSignal(
+            session.id,
+            'react 分层窗口压缩触发'
+          );
           const layered = await compactionOrchestrator.compact(
             this.loopState.messages as unknown as ChatMessage[],
             { model, sessionId: session.id },

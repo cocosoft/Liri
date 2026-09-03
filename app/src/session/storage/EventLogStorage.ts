@@ -571,11 +571,15 @@ export class EventLogStorage {
   async flushTextBuffer(): Promise<number> {
     if (this.textChunkBuffer.size === 0) return 0;
     const pending = this.textChunkBuffer;
+    const bufferedBytes = this.textChunkBufferBytes; // 治理度量（external 归因）
     this.textChunkBuffer = new Map();
     this.textChunkBufferBytes = 0;
     let flushed = 0;
+    let maxJoinedBytes = 0;
     for (const [messageId, entry] of pending) {
       const joined = entry.chunks.join('');
+      const joinedBytes = joined.length; // UTF-16 近似
+      if (joinedBytes > maxJoinedBytes) maxJoinedBytes = joinedBytes;
       const joinedResult = await this.append({
         type: 'assistant/text-batch',
         schemaVersion: 1,
@@ -614,7 +618,22 @@ export class EventLogStorage {
       flushed += entry.chunks.length;
     }
     // 内存画像（MEM_PROFILE=1）：text-batch 聚合落盘完成（join 大字符串的驻留窗口）
-    memProfile('eventlog:flush-text', { sessionId: this.sessionId, flushed });
+    memProfile('eventlog:flush-text', {
+      sessionId: this.sessionId,
+      flushed,
+      bufferedBytes, // 治理度量：本次 flush 前缓冲总字节（external 归因）
+      maxJoinedBytes, // 治理度量：单条聚合后最大字节（join 瞬态上限）
+    });
+    // external 治理（2026-09-02 选项②）：单条聚合 >1MB 属超常（常规 ≤64KB 触发/512KB
+    // 安全阈值）——告警供归因（若确认 join 瞬态是 external 尖峰主源，再做分段拆分）
+    if (maxJoinedBytes > 1024 * 1024) {
+      logger.warn('event-log: text-batch 单条聚合超常（>1MB）', {
+        sessionId: this.sessionId,
+        maxJoinedBytes,
+        bufferedBytes,
+        pendingEntries: pending.size,
+      });
+    }
     // 内存水位 tick（2026-09-02 标定：flush-text 实测单步 +507MB/驻留 external 1.39GB，
     // 是流式写路径主要瞬时分配点 → 落盘后立即做一次水位评估）
     getMemoryPressureMonitor().tick();

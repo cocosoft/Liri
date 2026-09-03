@@ -20,6 +20,10 @@ import {
   BackupManager,
   createDefaultBackupManager,
 } from './backup/BackupManager.js';
+import {
+  isMemoryUnderPressure,
+  getMemoryPressureMonitor,
+} from './memoryPressure/MemoryPressureMonitor.js';
 
 const logger = getLogger('monitoring:service');
 
@@ -255,11 +259,20 @@ export class MonitoringService {
 
   /**
    * 开始健康检查
+   * 2026-09-02（v1.1 复查 §3.1）：内存压力期动态提速到 10s，
+   * 恢复正常后回到配置间隔——OS kswapd 式"水位期高频采样"
    */
   private startHealthCheck(): void {
-    this.healthCheckTimer = setInterval(() => {
-      this.performHealthCheck();
-    }, this.config.healthCheckInterval);
+    const schedule = () => {
+      const delay = isMemoryUnderPressure()
+        ? 10_000
+        : this.config.healthCheckInterval;
+      this.healthCheckTimer = setTimeout(() => {
+        this.performHealthCheck();
+        schedule();
+      }, delay);
+    };
+    schedule();
   }
 
   /**
@@ -328,6 +341,8 @@ export class MonitoringService {
         uptime: status.uptime,
         memory: `${(status.memory.heapUsed / 1024 / 1024).toFixed(2)} MB`,
         cpu: `${((status.cpu.user + status.cpu.system) / 1000).toFixed(2)} ms`,
+        // v1.1（复查 §3.5）：内存水位计数随健康检查周期上报
+        pressure: getMemoryPressureMonitor().getCounters(),
       });
     } catch (error) {
       this.log(

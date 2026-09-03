@@ -10,6 +10,7 @@
  */
 import { Logger } from '@modules/monitoring/logs/Logger.js';
 import { LogLevel } from '@modules/monitoring';
+import { getMemoryPressureMonitor } from './memoryPressure/MemoryPressureMonitor.js';
 
 const ENABLED = process.env.MEM_PROFILE === '1';
 
@@ -17,6 +18,14 @@ const logger = new Logger({
   level: LogLevel.INFO,
   module: 'chat:mem-profile',
 });
+
+/**
+ * 采样激活：MEM_PROFILE=1（诊断跑批）**或**内存水位 ≥L0（2026-09-02 复查执行
+ * §3.1/§3.4：压力期自动升级为逐点采样，无需重启带 MEM_PROFILE）。
+ */
+function samplingActive(): boolean {
+  return ENABLED || getMemoryPressureMonitor().currentLevel() >= 1;
+}
 
 interface MemSample {
   rssMb: number;
@@ -46,7 +55,7 @@ export function memProfile(
   point: string,
   extra?: Record<string, unknown>
 ): void {
-  if (!ENABLED) return;
+  if (!samplingActive()) return;
   const cur = sample();
   const delta = last
     ? {

@@ -39,6 +39,15 @@ const RECOVER_MB = Number(process.env.MEM_PRESSURE_RECOVER_MB ?? 512);
 /** 分层窗口收紧量（L1 压力下把默认 45K 窗口收紧到 32K，缩小下一轮工作集） */
 export const PRESSURE_LAYER_WINDOW_OVERRIDE = 32_000;
 
+/** 事件循环滞后探针参数（2026-09-02 v1.1 补全 lag 分支） */
+const LAG_PROBE_MAX_INTERVAL_MS = 10_000; // 低负载下最长探测间隔
+const LAG_PROBE_REPORT_MIN_MS = 100; // 仅当实测滞后 ≥100ms 才回喂（过滤 jitter）
+
+/** 反向扩张（thrashing 防护）参数（2026-09-02 v1.1 复查 §3.2） */
+const RELAX_DISABLED = process.env.MEM_PRESSURE_RELAX === '0'; // kill-switch
+const RELAX_WINDOW_MS = 60_000; // 放宽时长：60s 后若压力仍在则复收紧
+const RELAX_CONSECUTIVE = 2; // 60s 内连续反向信号 ≥2 次才触发放宽（防抖动）
+
 /** 压力级别：0=正常；1=L0(soft1)；2=L1(soft2)；3=L2(hard) */
 export type PressureLevel = 0 | 1 | 2 | 3;
 
@@ -77,6 +86,11 @@ class MemoryPressureMonitor {
   };
   private recoverSince = 0;
   private lastRssMb = 0;
+  private lastProbeAt = 0;
+  private probePending = false;
+  private relaxUntil = 0;
+  private lastReverseAt = 0;
+  private reverseConsecutive = 0;
   private readonly listeners = new Set<(level: PressureLevel) => void>();
 
   // 可观测计数
@@ -85,6 +99,7 @@ class MemoryPressureMonitor {
     escalate: 0,
     recover: 0,
     reverseWindow: 0,
+    relax: 0,
     flushAction: 0,
     pauseAction: 0,
   };
@@ -113,8 +128,10 @@ class MemoryPressureMonitor {
   /**
    * 分层窗口生效值：L1+ 压力下收紧（供 ReActToolLoop 读取，
    * 替代固定的 REACT_LAYER_WINDOW_TOKENS，缩小压力期工作集）。
+   * 反向放宽窗口内（recordReverseSignal 触发）恢复默认，60s 后复收紧。
    */
   effectiveLayerWindow(defaultWindow: number): number {
+    if (Date.now() < this.relaxUntil) return defaultWindow;
     return this.level >= 2
       ? Math.min(defaultWindow, PRESSURE_LAYER_WINDOW_OVERRIDE)
       : defaultWindow;
@@ -126,15 +143,42 @@ class MemoryPressureMonitor {
    */
   tick(lagMs = 0): void {
     if (!ENABLED) return;
+    this.feed(this.sample(), lagMs);
+    this.maybeScheduleLagProbe();
+  }
+
+  private sample(): Sample {
     const m = process.memoryUsage();
-    this.feed(
-      {
-        rssMb: m.rss / 1048576,
-        heapUsedMb: m.heapUsed / 1048576,
-        heapTotalMb: m.heapTotal / 1048576,
-      },
-      lagMs
-    );
+    return {
+      rssMb: m.rss / 1048576,
+      heapUsedMb: m.heapUsed / 1048576,
+      heapTotalMb: m.heapTotal / 1048576,
+    };
+  }
+
+  /**
+   * 事件循环滞后探针（2026-09-02 v1.1 补全 lag 分支）：
+   * 0ms 定时器在事件循环空闲时 ~0-2ms 触发；若被 GC 全堆回收阻塞（STW 秒级），
+   * 触发时刻已晚 → 实测滞后 ≈ 阻塞时长（标准 eventloop.lag 度量）。
+   * 触发时机：处于压力中（每 tick 评估）或距上次探测 ≥10s（低负载兜底）。
+   */
+  private maybeScheduleLagProbe(): void {
+    const now = Date.now();
+    if (this.probePending) return;
+    if (this.level > 0 || now - this.lastProbeAt >= LAG_PROBE_MAX_INTERVAL_MS) {
+      this.probePending = true;
+      const start = performance.now();
+      setTimeout(() => {
+        this.probePending = false;
+        this.lastProbeAt = Date.now();
+        const lagMs = Math.max(0, Math.round(performance.now() - start));
+        // 仅把真实滞后（≥100ms，过滤 timer jitter）回喂水位判定，
+        // 使 assess 的 lag 分支（≥2s→L1 迹象 / ≥5s→hard）真正生效
+        if (lagMs >= LAG_PROBE_REPORT_MIN_MS) {
+          this.feed(this.sample(), lagMs);
+        }
+      }, 0);
+    }
   }
 
   /** 喂入样本（测试可直接调用；生产走 tick）。lagMs=0 表示未观测到滞后。 */
@@ -223,6 +267,7 @@ class MemoryPressureMonitor {
             fromLevel: this.level,
             rssMb: Math.round(snap.rssMb),
             baselineRssMb: Math.round(snap.baselineRssMb),
+            counters: this.counters,
           });
           this.level = 0;
           this.recoverSince = 0;
@@ -262,16 +307,44 @@ class MemoryPressureMonitor {
     }
   }
 
-  /** 反向扩张指标：外部上报（session_lookup 命中率升高 / 同会话短时重复压缩） */
-  recordReverseSignal(_sessionId: string, reason: string): void {
-    if (!ENABLED) return;
-    // 阈值内不做动作，仅计数 + 日志，供后续放宽窗口策略（首版记录，不做自动放宽
-    // ——放宽会改变有损边界，需对照验证后启用）。
+  /**
+   * 反向扩张（thrashing 防护，2026-09-02 v1.1 §3.2）：
+   * 外部上报反向信号（同会话 60s 内重复分层压缩 / session_lookup 命中率突升）。
+   * 守卫（防误放宽，三重）：
+   *   ① MEM_PRESSURE_RELAX=0 关闭；
+   *   ② 仅压力 L1+(level≥2) 时生效——正常负载的周期性压缩不触发；
+   *   ③ 60s 内连续 ≥2 次信号才放宽（防单次抖动）。
+   * 放宽 = 撤销 32K 收紧、恢复默认窗口 60s（有界；到期后若压力仍在则复收紧，
+   * 期间产生的过度收紧/重做将被容忍并记录）。放宽不改变有损压缩本身。
+   */
+  recordReverseSignal(sessionId: string, reason: string): void {
+    if (!ENABLED || RELAX_DISABLED) return;
+    const now = Date.now();
     this.counters.reverseWindow++;
-    logger.warn('memory:pressure 反向信号（窗口可能过小，记录待评估）', {
+    if (this.level < 2) return; // 守卫②：仅压力下
+    if (now < this.relaxUntil) return; // 已放宽中
+    this.reverseConsecutive =
+      now - this.lastReverseAt <= RELAX_WINDOW_MS
+        ? this.reverseConsecutive + 1
+        : 1;
+    this.lastReverseAt = now;
+    logger.warn('memory:pressure 反向信号（窗口可能过小）', {
+      sessionId,
       reason,
-      reverseWindowCount: this.counters.reverseWindow,
+      consecutive: this.reverseConsecutive,
+      level: this.level,
     });
+    if (this.reverseConsecutive >= RELAX_CONSECUTIVE) {
+      this.relaxUntil = now + RELAX_WINDOW_MS;
+      this.reverseConsecutive = 0;
+      this.counters.relax++;
+      logger.warn('memory:pressure 反向放宽窗口（恢复默认分层窗口 60s 后复收紧）', {
+        sessionId,
+        reason,
+        level: this.level,
+        relaxCount: this.counters.relax,
+      });
+    }
   }
 }
 

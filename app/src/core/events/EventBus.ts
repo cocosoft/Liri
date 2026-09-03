@@ -3,7 +3,10 @@
  * 基于发布-订阅模式的事件驱动通信机制
  */
 
-import { Logger, getLogger as getModuleLogger } from '@modules/monitoring';
+import {
+  Logger,
+  getLogger as getModuleLogger,
+} from '@modules/monitoring/logs/Logger.js';
 
 let _logger: Logger | null = null;
 function getLogger(): Logger {

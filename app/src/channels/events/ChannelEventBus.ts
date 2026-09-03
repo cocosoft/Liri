@@ -1,4 +1,4 @@
-﻿// MIT License
+// MIT License
 // Copyright (c) 2026 190615273@qq.com
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -39,9 +39,28 @@ import {
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('channels:events');
 
-/** 通道域事件总线单例 */
-export const channelEventBus: EventBus = new EventBusImpl((message: string) => {
-  logger.debug(message);
+/** 通道域事件总线单例（惰性化，H-2 2026-09-03）
+ *  原实现顶层 `new EventBusImpl(...)` 在 core/events 与 channels 模块循环（多测试文件
+ *  并行加载暴露）下触发 TDZ（Cannot access before initialization）。改为首次访问时构造，
+ *  经 Proxy 转发方法调用（保留 import { channelEventBus } 直接使用语义）。 */
+let channelEventBusInstance: EventBus | null = null;
+function getChannelEventBusInstance(): EventBus {
+  channelEventBusInstance ??= new EventBusImpl((message: string) => {
+    logger.debug(message);
+  });
+  return channelEventBusInstance;
+}
+
+export const channelEventBus: EventBus = new Proxy({} as EventBus, {
+  get(_target, prop) {
+    const instance = getChannelEventBusInstance();
+    const value = (instance as unknown as Record<PropertyKey, unknown>)[prop];
+    if (typeof value === 'function') {
+      return (...args: unknown[]) =>
+        (value as (...a: unknown[]) => unknown).apply(instance, args);
+    }
+    return value;
+  },
 });
 
 /**

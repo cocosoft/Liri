@@ -13,10 +13,9 @@ import {
   resolveDataSubDir,
   resolveDbPath,
 } from '@modules/core';
-import { Database } from '@modules/core/external/sqlite3';
+import type { Database } from '@modules/core/external/sqlite3';
 
 const logger = getLogger('components:attachments');
-
 /**
  * 附件类型
  */
@@ -105,7 +104,11 @@ export class AttachmentManager {
    */
   private initDatabase(): void {
     try {
-      this.db = new Database(this.dbPath);
+      // H-3（2026-09-03）：Database 延迟获取——顶层值 import 在模块循环（与
+      // @modules/core/external/sqlite3 相互引用链）下触发 TDZ，改为首次初始化时 require。
+      const { Database: DatabaseCtor } =
+        require('@modules/core/external/sqlite3') as typeof import('@modules/core/external/sqlite3');
+      this.db = new DatabaseCtor(this.dbPath);
 
       this.db.run(
         `

@@ -13,7 +13,7 @@ import {
   EventBusImpl,
   type EventSubscription,
   type EventListener as CoreEventListener,
-} from '@modules/core';
+} from '@modules/core/events/EventBus';
 import { handleError } from '@modules/error';
 import type {
   SessionLifecycleEvent,

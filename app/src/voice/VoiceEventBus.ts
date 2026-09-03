@@ -7,7 +7,7 @@
  *   2. 类型安全的事件通道（voice:client / voice:server / voice:error）
  */
 
-import { EventBusImpl } from '@modules/core';
+import { EventBusImpl } from '@modules/core/events/EventBus';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 import type {

@@ -31,6 +31,10 @@ interface SecurityStatus {
     suggestion?: string;
     topDeniedTools: Array<{ tool: string; count: number }>;
   };
+  /** 2-4：近 7 日按日决策趋势（后端新字段，兼容缺失） */
+  trend?: Array<{ date: string; counts: Record<string, number> }>;
+  /** 2-4：越权拦截类别 Top（2-1 logSecurityBlock 事件） */
+  topBlockKinds?: Array<{ kind: string; count: number }>;
 }
 
 /** 从后端获取安全状态数据 */
@@ -120,6 +124,12 @@ function SecurityDashboard() {
     };
     return map[decision] || decision;
   }
+
+  // 2-4：趋势柱状图比例基准（每日事件总数最大值）
+  const trendTotals = (status?.trend ?? []).map((d) =>
+    Object.values(d.counts).reduce((a, b) => a + b, 0),
+  );
+  const maxTrendTotal = Math.max(0, ...trendTotals);
 
   return (
     <div
@@ -247,6 +257,85 @@ function SecurityDashboard() {
           )}
         </div>
       )}
+
+      {/* 2-4：近 7 日决策趋势 + 越权拦截类别 Top */}
+      {(status?.trend && status.trend.length > 0) ||
+      (status?.topBlockKinds && status.topBlockKinds.length > 0) ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+          {status.trend && status.trend.length > 0 && (
+            <div className={`${bgCard} border rounded-lg`}>
+              <div
+                className={`px-4 py-3 border-b ${isDark ? "border-gray-700" : "border-gray-200"}`}
+              >
+                <h2 className={`text-sm font-semibold ${textPrimary}`}>
+                  近 7 日决策趋势
+                </h2>
+              </div>
+              <div className="p-4 space-y-2">
+                {status.trend.map((d) => {
+                  const total = Object.values(d.counts).reduce(
+                    (a, b) => a + b,
+                    0,
+                  );
+                  const parts = Object.entries(d.counts)
+                    .filter(([, v]) => v > 0)
+                    .map(([k, v]) => `${decisionLabel(k)} ${v}`);
+                  return (
+                    <div
+                      key={d.date}
+                      className="flex items-center gap-3 text-xs"
+                    >
+                      <span className={`w-16 shrink-0 ${textSecondary}`}>
+                        {d.date.slice(5)}
+                      </span>
+                      <div
+                        className={`flex-1 h-2 rounded overflow-hidden ${isDark ? "bg-gray-700" : "bg-gray-200"}`}
+                      >
+                        <div
+                          className="h-full bg-blue-500"
+                          style={{
+                            width: `${maxTrendTotal > 0 ? (total / maxTrendTotal) * 100 : 0}%`,
+                          }}
+                        />
+                      </div>
+                      <span
+                        className={`w-28 shrink-0 text-right truncate ${textPrimary}`}
+                        title={parts.join(" · ")}
+                      >
+                        {parts.join(" · ") || "无事件"}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+          {status.topBlockKinds && status.topBlockKinds.length > 0 && (
+            <div className={`${bgCard} border rounded-lg`}>
+              <div
+                className={`px-4 py-3 border-b ${isDark ? "border-gray-700" : "border-gray-200"}`}
+              >
+                <h2 className={`text-sm font-semibold ${textPrimary}`}>
+                  越权拦截类别 Top
+                </h2>
+              </div>
+              <div className="p-4 space-y-1">
+                {status.topBlockKinds.map((b) => (
+                  <div
+                    key={b.kind}
+                    className="flex items-center justify-between text-sm"
+                  >
+                    <span className="font-mono text-xs">{b.kind}</span>
+                    <span className={`font-medium ${textPrimary}`}>
+                      {b.count} 次
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      ) : null}
 
       {/* 最近审计事件 */}
       {status && status.recentEvents.length > 0 && (

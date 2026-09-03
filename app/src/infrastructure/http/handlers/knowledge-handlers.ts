@@ -68,6 +68,14 @@ export async function assertDocPathWithin(
   const resolved = resolve(knowledgeRoot, docPath);
   const rel = relative(knowledgeRoot, resolved);
   if (isAbsolute(rel) || rel === '..' || rel.startsWith(`..${sep}`)) {
+    // 2-1（2026-09-03）：越权拦截统一审计（docPath 逃逸知识库根目录）
+    const { logSecurityBlock } =
+      await import('../../../security/SecurityAuditLogger.js');
+    logSecurityBlock({
+      kind: 'unauthorized_path',
+      requestedPath: docPath,
+      detail: 'docPath 逃逸知识库根目录',
+    });
     throw new Error('非法文档路径：逃逸知识库根目录');
   }
   return resolved;

@@ -240,6 +240,36 @@ export function logSecurityAuditEvent(event: SecurityAuditEvent): void {
 }
 
 /**
+ * 2-1（2026-09-03）：统一"越权/路径拦截"审计入口。
+ * 路径穿越、非授权路径、媒体路径越权等拦截点（files/knowledge/media 及后续其它
+ * handler/守卫）拒绝时统一调用本函数，把分散拦截收敛到 SecurityAuditLogger 文件通道，
+ * 供 /v1/security/dashboard 统计（behavior=deny / decision=auto_denied / matchedRules 标记类别）。
+ * 记录失败由 logSecurityAuditEvent 内部 handleError 降级，不抛给调用方。
+ */
+export function logSecurityBlock(input: {
+  kind: 'path_traversal' | 'unauthorized_path' | 'media_path' | string;
+  requestedPath: string;
+  detail?: string;
+  sessionId?: string;
+}): void {
+  logSecurityAuditEvent({
+    timestamp: new Date(),
+    command: input.detail ? `${input.kind}: ${input.detail}` : input.kind,
+    originalCommand: input.requestedPath,
+    truncatedResult: truncateCommand(input.requestedPath),
+    sessionContext: {
+      sessionId: input.sessionId ?? 'security-guard',
+      taskDescription: '',
+      currentMode: 'normal',
+    },
+    matchedRules: [input.kind.toUpperCase()],
+    behavior: 'deny',
+    decision: 'auto_denied',
+    riskLevel: 'high',
+  });
+}
+
+/**
  * 查询审计日志
  * 支持按 sessionId / timeRange / riskLevel / decision 过滤
  * @param filter 查询过滤器

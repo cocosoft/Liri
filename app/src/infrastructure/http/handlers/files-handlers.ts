@@ -33,6 +33,7 @@ import {
 import { handleError } from '@modules/error';
 
 import { getLogger } from '@modules/monitoring';
+import { logSecurityBlock } from '../../../security/SecurityAuditLogger.js';
 const logger = getLogger('infrastructure:http:handlers:files-handlers');
 
 // 已注册的存储分区别名 → 绝对路径解析函数（延迟动态 import）
@@ -76,6 +77,12 @@ function resolveStorePath(rawPath: string): string {
     const { isPathWithin } = require('@modules/core/paths');
     const resolvedBase = base;
     if (!isPathWithin(resolvedBase, resolved)) {
+      // 2-1（2026-09-03）：越权拦截统一审计
+      logSecurityBlock({
+        kind: 'unauthorized_path',
+        requestedPath: rawPath,
+        detail: 'resolveStorePath: join 结果越出已知目录分区',
+      });
       logger.warn('resolveStorePath: 路径越权被拦截', {
         rawPath,
         resolved,
@@ -92,6 +99,12 @@ function resolveStorePath(rawPath: string): string {
   if (home) {
     const { isPathWithin } = require('@modules/core/paths');
     if (!isPathWithin(home, fallback)) {
+      // 2-1（2026-09-03）：越权拦截统一审计
+      logSecurityBlock({
+        kind: 'unauthorized_path',
+        requestedPath: rawPath,
+        detail: 'resolveStorePath: 未知前缀路径不在 LIRI_HOME 下',
+      });
       logger.warn('resolveStorePath: 未知前缀路径拒绝访问', {
         rawPath,
         fallback,

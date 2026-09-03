@@ -15,6 +15,7 @@ import {
   resolveAttachmentsDir,
   isPathWithin,
 } from '@modules/core/paths';
+import { logSecurityBlock } from '../../security/SecurityAuditLogger.js';
 
 /** 允许的基础目录 */
 const ALLOWED_BASE_DIRS = [
@@ -53,6 +54,12 @@ export function resolveSafePath(inputPath: string): PathCheckResult {
   // 1. 检测路径穿越
   for (const pattern of FORBIDDEN_PATTERNS) {
     if (pattern.test(normalized) || pattern.test(inputPath)) {
+      // 2-1（2026-09-03）：越权拦截统一审计
+      logSecurityBlock({
+        kind: 'path_traversal',
+        requestedPath: inputPath,
+        detail: `命中禁止模式 ${pattern}`,
+      });
       return { valid: false, error: `路径包含禁止模式: ${pattern}` };
     }
   }
@@ -65,6 +72,12 @@ export function resolveSafePath(inputPath: string): PathCheckResult {
   );
 
   if (!isAllowed) {
+    // 2-1（2026-09-03）：越权拦截统一审计
+    logSecurityBlock({
+      kind: 'media_path',
+      requestedPath: normalized,
+      detail: '路径不在允许的基础目录范围内',
+    });
     return {
       valid: false,
       error: `路径不在允许的目录范围内: ${normalized}`,

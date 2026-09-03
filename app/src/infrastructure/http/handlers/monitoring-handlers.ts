@@ -33,6 +33,7 @@ import {
   getDiskInfoAsync,
 } from '@modules/monitoring';
 import { handleError } from '@modules/error';
+import { queryAuditLogs } from '@modules/security';
 
 // ── 指标数据环形缓冲区 ────────────────────────────────────────────
 
@@ -129,6 +130,24 @@ export async function handleMonitorSummary(
         ? status.loadAverage.map((l) => Math.round(l * 100) / 100)
         : [];
 
+    // 2-2（2026-09-03，评审 2 修复）：安全 KPI 并入监控摘要——
+    // 单次 queryAuditLogs 全量读复用；不重复调 getAuditLogStats 二次同步读同一 JSONL。
+    let security: Record<string, number> = {
+      auditEventCount: 0,
+      autoDeniedBlocks: 0,
+    };
+    try {
+      const securityEvents = queryAuditLogs({});
+      security = {
+        auditEventCount: securityEvents.length,
+        autoDeniedBlocks: securityEvents.filter(
+          (e) => e.decision === 'auto_denied'
+        ).length,
+      };
+    } catch {
+      // 安全段失败不阻塞监控摘要
+    }
+
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(
       JSON.stringify({
@@ -145,6 +164,7 @@ export async function handleMonitorSummary(
         requestCount: 0,
         errorCount: 0,
         avgResponseTime: 0,
+        security,
       })
     );
   } catch (_err) {
@@ -164,6 +184,7 @@ export async function handleMonitorSummary(
         requestCount: 0,
         errorCount: 0,
         avgResponseTime: 0,
+        security: { auditEventCount: 0, autoDeniedBlocks: 0 },
       })
     );
   }

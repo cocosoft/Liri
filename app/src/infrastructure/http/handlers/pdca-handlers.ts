@@ -263,8 +263,16 @@ export async function handlePdcaStart(
     }
 
     // 立即返回 taskId，前端可轮询 GET /v1/pdca/:taskId 获取进度
+    // 1-5 P1（2026-09-03）：响应含 phase 契约（初始 'plan'；真实 phase 以轮询 status 为准）
     res.writeHead(202, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ taskId, status: 'started', workItemId }));
+    res.end(
+      JSON.stringify({
+        taskId,
+        status: 'started',
+        workItemId,
+        phase: 'plan',
+      })
+    );
     broadcastEvent('pdca:started', { taskId, workItemId });
   } catch (err) {
     sendError(res, err);
@@ -420,29 +428,48 @@ export async function handlePdcaDecideStep(
  * 列出所有 PDCA 任务
  *
  * POST /v1/pdca/list
- * 请求体（可选）: { workspaceId?: string }
- * 传入 workspaceId 时按项目过滤（通过关联 Plan 的 workspaceId 字段）
+ * 请求体（可选）: { workspaceId?: string; projectId?: string; sessionId?: string }
+ * 数据源 = 内存 orchestrator（活跃）+ checkpoint 回退（跨重启遗留，1-5 P1 前置 2026-09-03）：
+ * checkpoint 含 Gap D 修复保留的归属字段（workItemId/workspaceId/projectId/status/phase），
+ * 重启后 list 不再为空。过滤字段取自各条目的归属（checkpoint 优先）。
  */
 export async function handlePdcaList(
   req: http.IncomingMessage,
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    let workspaceId: string | undefined;
+    let filter: {
+      workspaceId?: string;
+      projectId?: string;
+      sessionId?: string;
+    };
     try {
       const body = await readRequestBody(req);
-      const parsed = JSON.parse(body || '{}') as { workspaceId?: string };
-      workspaceId = parsed.workspaceId;
+      const parsed = JSON.parse(body || '{}') as typeof filter;
+      filter = parsed;
     } catch {
-      /* 无请求体时不过滤 */
+      filter = {};
     }
 
-    let list: unknown[] = [];
+    // checkpoint 目录索引（taskId → checkpoint，归属/状态权威）
+    const ckByTask = new Map<string, Record<string, unknown>>();
+    if (existsSync(PDCA_CHECKPOINT_DIR)) {
+      for (const file of readdirSync(PDCA_CHECKPOINT_DIR).filter((f) =>
+        f.endsWith('.json')
+      )) {
+        const ck = readPdcaCheckpoint(file.replace('.json', ''));
+        if (ck?.taskId) ckByTask.set(ck.taskId as string, ck);
+      }
+    }
+
+    // 内存 orchestrator 条目（活跃任务）——checkpoint 归属字段回填（checkpoint 优先）
+    let memoryItems: Record<string, unknown>[] = [];
     try {
       const m = await import('@modules/tasks');
-      list = m
-        .getAllOrchestrators()
-        .map((o: unknown) => (o as OrchestratorLike).getStatus());
+      memoryItems = m.getAllOrchestrators().map((o: unknown) => {
+        const st = (o as OrchestratorLike).getStatus();
+        return (st ?? {}) as Record<string, unknown>;
+      });
     } catch (err) {
       handleError(err, {
         module: 'infrastructure:http:handlers:pdca-handlers',
@@ -450,16 +477,56 @@ export async function handlePdcaList(
       });
     } /* 可选模块, 加载失败时降级 */
 
-    // 按 workspaceId 过滤（通过关联 Plan 的 workspaceId 字段）
-    if (workspaceId) {
-      list = list.filter((item) => {
-        const status = item as { plan?: { workspaceId?: string } };
-        return status?.plan?.workspaceId === workspaceId;
+    const inMemoryIds = new Set(
+      memoryItems.map((it) => it.taskId as string).filter(Boolean)
+    );
+    const items: Record<string, unknown>[] = memoryItems.map((st) => {
+      const ck = ckByTask.get(st.taskId as string);
+      if (!ck) return st;
+      // 内存态优先（phase/status/lifecycle 实时），归属字段 checkpoint 兜底
+      return {
+        ...st,
+        workItemId: ck.workItemId ?? st.workItemId,
+        projectId: ck.projectId ?? st.projectId,
+        workspaceId: ck.workspaceId ?? st.workspaceId,
+        sessionId: ck.sessionId ?? st.sessionId,
+        status: st.status ?? ck.status,
+        phase: st.phase ?? ck.phase,
+      };
+    });
+
+    // checkpoint-only 任务（跨重启遗留/未加载到内存）——补全统一字段
+    for (const [taskId, ck] of ckByTask) {
+      if (inMemoryIds.has(taskId)) continue;
+      items.push({
+        taskId,
+        phase: ck.phase ?? 'none',
+        status: ck.status ?? 'unknown',
+        description: ck.description ?? undefined,
+        workItemId: ck.workItemId ?? undefined,
+        projectId: ck.projectId ?? undefined,
+        workspaceId: ck.workspaceId ?? undefined,
+        sessionId: ck.sessionId ?? undefined,
+        source: 'checkpoint',
       });
     }
 
+    // 过滤（归属字段精确匹配，缺省字段不过滤）
+    const filtered = items.filter((item) => {
+      if (filter.workspaceId && item.workspaceId !== filter.workspaceId) {
+        return false;
+      }
+      if (filter.projectId && item.projectId !== filter.projectId) {
+        return false;
+      }
+      if (filter.sessionId && item.sessionId !== filter.sessionId) {
+        return false;
+      }
+      return true;
+    });
+
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify(list));
+    res.end(JSON.stringify(filtered));
   } catch (err) {
     sendError(res, err);
   }

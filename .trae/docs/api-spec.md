@@ -601,11 +601,13 @@ data: {"type":"done","result":{...}}
 
 > 指标接口挂 `pdca-handlers.ts`（`handlePdcaMetrics`），数据源 `LongRunningTaskOrchestrator.getAllOrchestrators() → getMetrics()`。
 > 记账同源：经典路径与快速路径（PlanDrivenLoop）步骤统计均经 `taskOrchestrator` 单例（TaskOrchestrator.ts L545）。
-> 存量 `/v1/pdca/*` 路由（start/status/audit/confirm/review/decide/list）未在清单收录，属已知缺口（§5 待补齐登记）。
+> 存量 `/v1/pdca/*` 路由 2026-09-03 起部分收录（list/start 契约，1-5 P1）；audit/confirm/review/decide 仍属已知缺口（§5 待补齐登记）。
 
 | 方法 | 路径 | 后端状态 | 前端调用方 |
 |------|------|----------|-----------|
 | GET | `/v1/tasks/pdca/metrics` | ✅ | 无前端调用方（S1 灰度观测，curl 调用） |
+| POST | `/v1/pdca/start` | ✅ | 无前端调用方；响应含 phase 契约（2026-09-03）：`{taskId, status:'started', workItemId, phase:'plan'}` |
+| POST | `/v1/pdca/list` | ✅ | 无前端调用方；请求体（可选）`{workspaceId?, projectId?, sessionId?}`（1-5 P1，2026-09-03）；数据源 = 内存 orchestrator + checkpoint 回退（重启后非空）；条目统一含 taskId/phase/status/归属字段，checkpoint-only 条目带 `source:'checkpoint'` |
 
 **响应示例**：
 ```json

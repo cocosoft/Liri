@@ -338,12 +338,15 @@ class MemoryPressureMonitor {
       this.relaxUntil = now + RELAX_WINDOW_MS;
       this.reverseConsecutive = 0;
       this.counters.relax++;
-      logger.warn('memory:pressure 反向放宽窗口（恢复默认分层窗口 60s 后复收紧）', {
-        sessionId,
-        reason,
-        level: this.level,
-        relaxCount: this.counters.relax,
-      });
+      logger.warn(
+        'memory:pressure 反向放宽窗口（恢复默认分层窗口 60s 后复收紧）',
+        {
+          sessionId,
+          reason,
+          level: this.level,
+          relaxCount: this.counters.relax,
+        }
+      );
     }
   }
 }

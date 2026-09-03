@@ -11,6 +11,7 @@ import { ToolUseContext } from '../types/ToolUseContext';
 import { taskRegistry, DisplayStatus } from '@modules/tasks';
 import { TaskStatus } from '@modules/tasks/types';
 import { NoteTask } from '@modules/tasks';
+import { getTaskConcurrencyLimits } from '../../tasks/limits';
 
 const TASK_TOOL_PARAMS: ToolParam[] = [
   {
@@ -44,8 +45,9 @@ const TASK_TOOL_PARAMS: ToolParam[] = [
 /**
  * 单次 create_task_list 调用允许创建的最大任务数。
  * 防止模型批量幻觉一次性输出大量（如 43 个）空参数 tool_call 造成任务爆炸。
+ * 1-4（2026-09-03）：值收敛到 tasks/limits.ts（env TASK_MAX_TASKS_PER_CALL 可覆盖）
  */
-export const MAX_TASKS_PER_CALL = 20;
+export const MAX_TASKS_PER_CALL = getTaskConcurrencyLimits().maxTasksPerCall;
 
 export class TaskCreateListTool implements Tool {
   name = 'create_task_list';

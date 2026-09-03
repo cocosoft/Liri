@@ -53,14 +53,16 @@ import type { RouterTier, JudgeResult } from './types.js';
 import { getLogger } from '@modules/monitoring/logs/Logger.js';
 import { handleError } from '@modules/error/handleError.js';
 import { trackUsage } from '../UsageTracker.js';
+import { getTaskConcurrencyLimits } from '../../tasks/limits.js';
 
 const logger = getLogger('ai:task-decomposer');
 
 /**
  * 子任务上限（唯一事实来源，S0 行为冻结 2026-08-13）
  * 供分解 prompt 与解析强制截断共用；PlanDrivenLoop 等消费方不再自持上限。
+ * 1-4（2026-09-03）：值收敛到 tasks/limits.ts（env TASK_MAX_SUBTASKS 可覆盖）
  */
-export const MAX_SUBTASKS = 5;
+export const MAX_SUBTASKS = getTaskConcurrencyLimits().maxSubtasks;
 
 /**
  * 子任务定义

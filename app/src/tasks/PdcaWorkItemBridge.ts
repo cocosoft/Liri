@@ -92,7 +92,13 @@ export function writePdcaCheckpoint(
   taskId: string,
   data: Record<string, unknown>
 ): void {
+  // Gap D（1-0a，2026-09-03）：合并式写模型（read-modify-write）。
+  // 原实现整文件覆盖，_persistCheckpoint 等部分字段写入会把
+  // workItemId/status/workspaceId/projectId/lastPdcaPhase 等归属字段整体抹掉，
+  // 连锁导致 WorkItem 同步空转、幂等排除失效、项目过滤无数据。
+  const existing = readPdcaCheckpoint(taskId) ?? {};
   writeJson(join(PDCA_CHECKPOINT_DIR, `${taskId}.json`), {
+    ...existing,
     ...data,
     updatedAt: new Date().toISOString(),
   });

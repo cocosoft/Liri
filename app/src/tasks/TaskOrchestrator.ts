@@ -227,6 +227,9 @@ export class TaskOrchestrator {
    * @param existingTaskIds 可选：已有任务 ID 列表（当任务已被 create_task_list 工具注册时使用）
    * @param acceptanceCriteria 可选：每步的验收标准列表
    * @param workspaceId 可选：所属工作空间（项目）ID，用于项目编排面板隔离
+   * @param dependsOn 可选（1-1b，2026-09-03）：每步前置依赖的步骤序号（0-based 下标），
+   *   按索引与 stepDescriptions 对齐；仅允许前置序号（防环），非法引用自愈忽略。
+   *   由 createPlan 转换为 stepId 引用写入 PlanStep.dependsOn。
    * @returns 创建的 Plan 对象
    */
   createPlan(
@@ -235,7 +238,8 @@ export class TaskOrchestrator {
     sessionId: string,
     existingTaskIds?: string[],
     acceptanceCriteria?: string[],
-    workspaceId?: string
+    workspaceId?: string,
+    dependsOn?: number[][]
   ): Plan {
     void this.initialize();
 
@@ -262,6 +266,28 @@ export class TaskOrchestrator {
         acceptanceCriteria: acceptanceCriteria?.[i],
       };
     });
+
+    // 1-1b（2026-09-03）：按序号填充 dependsOn → stepId 引用。
+    // 仅允许前置序号（idx < i）且引用存在，否则自愈忽略（防自环/后置/越界/编号漂移）。
+    if (dependsOn && dependsOn.length > 0) {
+      for (let i = 0; i < steps.length; i++) {
+        const deps = dependsOn[i];
+        if (!Array.isArray(deps) || deps.length === 0) continue;
+        const ids: string[] = [];
+        for (const d of deps) {
+          if (Number.isInteger(d) && d >= 0 && d < i && steps[d]) {
+            ids.push(steps[d].id);
+          } else {
+            logger.debug('dependsOn 非法引用已忽略（自愈）', {
+              stepIndex: i,
+              depIndex: d,
+              stepCount: steps.length,
+            });
+          }
+        }
+        if (ids.length > 0) steps[i].dependsOn = ids;
+      }
+    }
 
     const plan: Plan = {
       id: planId,

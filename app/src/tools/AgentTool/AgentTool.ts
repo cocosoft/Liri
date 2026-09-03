@@ -11,6 +11,7 @@
  */
 
 import { randomUUID } from 'crypto';
+import { getTaskConcurrencyLimits } from '../../tasks/limits';
 import {
   Tool,
   ToolInfo,
@@ -69,8 +70,9 @@ function getAllTools(): Tool[] {
 const logger = getLogger('tools:agentTool');
 
 /** B3：子代理最大嵌套深度（2026-09-01 决策 6：1 → 3，对标 deepseek-harness maxDepth=3；
- *  原值 1 仅允许单层子代理，3 允许 2 层嵌套，深度限制仍防失控递归） */
-const MAX_SUBAGENT_DEPTH = 3;
+ *  原值 1 仅允许单层子代理，3 允许 2 层嵌套，深度限制仍防失控递归）
+ *  1-4（2026-09-03）：值收敛到 tasks/limits.ts（env TASK_SUBAGENT_DEPTH 可覆盖） */
+const MAX_SUBAGENT_DEPTH = getTaskConcurrencyLimits().subagentDepth;
 
 /**
  * AgentTool参数定义
@@ -143,7 +145,8 @@ const AGENT_PARAMS = [
  */
 const DEFAULT_AGENT_CONFIG: AgentConfig = {
   defaultType: 'general',
-  maxConcurrentAgents: 5,
+  // 1-4（2026-09-03）：并发上限收敛到 tasks/limits.ts（env TASK_AGENT_CONCURRENCY）
+  maxConcurrentAgents: getTaskConcurrencyLimits().agentConcurrency,
   timeoutMs: 600000,
   allowBackground: true,
 };

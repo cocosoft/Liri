@@ -18,7 +18,7 @@ import { Span, SpanStatusCode } from '@opentelemetry/api';
 import { configManager } from '@modules/config';
 import { mkdirSync, writeFileSync } from 'fs';
 import { join } from 'path';
-import { resolveDataDir } from '@modules/core/paths';
+import { resolveDataDir, resolveDbPath } from '@modules/core/paths';
 import { trackUsage } from '@modules/ai';
 import { taskOrchestrator } from './TaskOrchestrator';
 import type { Plan, PlanStep, PlanProgress } from './TaskOrchestrator';
@@ -30,7 +30,7 @@ import {
   handleError,
 } from '@modules/error';
 import { LifecycleTracker } from './LifecycleTracker';
-import type { LifecycleEvent } from './LifecycleTracker';
+import type { LifecycleEvent, LifecyclePhase } from './LifecycleTracker';
 import { goalMetricsService } from './db/GoalMetricsService';
 import {
   createAgentIsolation,
@@ -77,6 +77,92 @@ export type PdcaPhase =
   | 'completed'
   /** D1（M7，2026-08-13）：阶段审批挂起（区别于 plan_pending，阶段产物待审批） */
   | 'stage_awaiting_approval';
+
+/**
+ * Gap D（1-0b，2026-09-03）：phase → checkpoint.status 联动映射。
+ * findExistingTask（排除 abort/failed/completed）与 scanAndAbortStalePdcaTasks
+ * （命中 started/running）都依赖 checkpoint.status 的完整生命周期演进；
+ * 仅做字段 merge 而 status 停在初始 'started' 时，幂等排除依然永假。
+ */
+function pdcaCheckpointStatus(
+  phase: PdcaPhase
+): 'started' | 'running' | 'completed' {
+  switch (phase) {
+    case 'completed':
+      return 'completed';
+    case 'execute':
+    case 'review':
+    case 'decide':
+      return 'running';
+    case 'plan':
+    case 'plan_pending':
+    case 'stage_awaiting_approval':
+      return 'started';
+  }
+}
+
+/** 1-3（2026-09-03）：task_audit_log 写入面（复用 SqliteTaskStore.writeAuditLog，TaskRegistry 同模式） */
+interface AuditLogEntry {
+  taskId: string;
+  eventType: string;
+  oldStatus: string | null;
+  newStatus: string;
+  timestamp: number;
+}
+
+type AuditStoreLike = { writeAuditLog(entry: AuditLogEntry): Promise<void> };
+
+/**
+ * 1-3（2026-09-03）：审计存储惰性单例（动态加载避免启动期循环依赖）。
+ * 复用 SqliteTaskStore 与 goalMetricsService 同款独立实例模式，不侵入 TaskRegistry。
+ * 注：曾用"每次短连接"（开→写→关），但每 lifecycle 事件都全量建表 DDL 开销过大，
+ * 改回单例长连接；Windows 测试清理 EBUSY 由测试 afterEach 容错处理。
+ */
+let _auditStorePromise: Promise<AuditStoreLike | null> | null = null;
+async function resolveAuditStore(): Promise<AuditStoreLike | null> {
+  _auditStorePromise ??= (async () => {
+    try {
+      const { createSqliteTaskStore } = await import('./db/SqliteTaskStore.js');
+      const store = createSqliteTaskStore(resolveDbPath());
+      await store.init();
+      return store;
+    } catch (err) {
+      await handleError(err, {
+        module: 'tasks:longRunning',
+        action: 'resolveAuditStore',
+      });
+      return null;
+    }
+  })();
+  return _auditStorePromise;
+}
+
+/** 记忆写回的最小接口（评审 1 修复：复用共享 manager，避免多实例索引竞态） */
+interface MemoryWritebackManager {
+  createMemory(args: { content: string; metadata: unknown }): Promise<unknown>;
+}
+
+/**
+ * 3-1 加固（评审 1，2026-09-03）：记忆写回 manager 惰性单例。
+ * 原实现每次 PDCA 终态 new MemoryManagerImpl()——多实例各自持 store/retriever 检索索引与
+ * 关系图，异步加载下 saveIndex/saveRelationGraph 整体覆写可能互相覆盖；且每次构造触发全量
+ * refreshSummaryCache 扫描。改为共享单例（对齐 memory-handlers.ts 惰性单例模式）。
+ */
+let _memoryWritebackManager: MemoryWritebackManager | null = null;
+async function resolveMemoryWritebackManager(): Promise<MemoryWritebackManager | null> {
+  if (!_memoryWritebackManager) {
+    try {
+      const { MemoryManagerImpl } = await import('@modules/memory');
+      _memoryWritebackManager = new MemoryManagerImpl();
+    } catch (err) {
+      await handleError(err, {
+        module: 'tasks:longRunning',
+        action: 'resolveMemoryWriteback',
+      });
+    }
+  }
+  return _memoryWritebackManager;
+}
 
 /** PDCA 状态快照（前端查询用） */
 export interface PdcaStatus {
@@ -204,8 +290,14 @@ export class LongRunningTaskOrchestrator {
   private decisionAwait: Promise<ReviewDecision> | null = null;
   private decisionResolve: ((d: ReviewDecision) => void) | null = null;
   private auditReport: AuditReport | null = null;
-  private stepDurations: Map<string, { startMs: number; endMs?: number }> =
-    new Map();
+  /** 3-1（2026-09-03）：PDCA 终态记忆回写防重（同任务仅写一次） */
+  private _memoryWriteDone = false;
+  // 1-1d（2026-09-03）：stepDurations[].tokens = 该步累计 token（跨 retry 累计），
+  // 供 per-step 独立核算/审计聚合；总口径仍以 _totalTokensTracked 为准。
+  private stepDurations: Map<
+    string,
+    { startMs: number; endMs?: number; tokens?: number }
+  > = new Map();
   /**
    * Phase 2: TAORLoop 统一编排器（ENABLE_LOOP_V8_PHASE2 时注入）
    */
@@ -239,7 +331,7 @@ export class LongRunningTaskOrchestrator {
     // （abort 最后登记 → dispose 时最先执行，与 AgentCleanup 旧语义一致）
     this.scope = new EffectScope();
     registerIsolationToScope(this.isolation, this.scope);
-    this.lifecycle.record('created', TaskStatus.PENDING);
+    this._recordLifecycle('created', TaskStatus.PENDING);
     this.verifier = createVerifierAgent({ enabled: true });
     this.fileLockManager = fileLockManager;
     this.reviewGate = createReviewGate();
@@ -286,6 +378,53 @@ export class LongRunningTaskOrchestrator {
     this._persistCheckpoint(); // P0(M2)：阶段变更即落盘步骤级快照（跨重启恢复）
   }
 
+  /**
+   * 1-3（2026-09-03）：lifecycle 统一记录入口 —— 内存轨迹（LifecycleTracker 纯内存不改）
+   * + fire-and-forget 审计转发 task_audit_log（复用 SqliteTaskStore.writeAuditLog）。
+   * 不把 sqlite 依赖塞进 LifecycleTracker、不在编排器直注 store（TaskRegistry 同模式的小型转发）。
+   * event_type = lifecycle phase（created/started/progress/finalized），终态语义由 status 表达
+   * （completed/failed/killed 等）；old_status 取前一事件状态。
+   */
+  private _recordLifecycle(
+    phase: LifecyclePhase,
+    status: TaskStatus,
+    detail?: string
+  ): void {
+    this.lifecycle.record(phase, status, detail);
+    const history = this.lifecycle.getHistory();
+    const prev = history.length >= 2 ? history[history.length - 2] : undefined;
+    void this._flushLifecycleAudit(
+      phase,
+      status,
+      prev ? (prev.status as string) : null
+    );
+  }
+
+  /** 审计转发（fire-and-forget；失败降级日志，不阻塞主流程） */
+  private async _flushLifecycleAudit(
+    phase: string,
+    status: TaskStatus,
+    oldStatus: string | null
+  ): Promise<void> {
+    try {
+      const store = await resolveAuditStore();
+      if (!store) return;
+      await store.writeAuditLog({
+        taskId: this.taskId,
+        eventType: phase,
+        oldStatus,
+        newStatus: status as string,
+        timestamp: Date.now(),
+      });
+    } catch (err) {
+      await handleError(err, {
+        module: 'tasks:longRunning',
+        action: 'lifecycleAuditForward',
+        context: { taskId: this.taskId, phase, status: String(status) },
+      });
+    }
+  }
+
   getTaskId(): string {
     return this.taskId;
   }
@@ -303,6 +442,8 @@ export class LongRunningTaskOrchestrator {
       writePdcaCheckpoint(this.taskId, {
         taskId: this.taskId,
         phase: this.phase,
+        // Gap D（1-0b）：status 随 phase 联动演进（findExistingTask 排除依赖终态 status）
+        status: pdcaCheckpointStatus(this.phase),
         planId: this.planId ?? undefined,
         sessionId: this._sessionId ?? undefined,
         description: plan?.description ?? '',
@@ -317,6 +458,8 @@ export class LongRunningTaskOrchestrator {
           retryCount: s.retryCount,
           maxRetries: s.maxRetries,
           acceptanceCriteria: s.acceptanceCriteria,
+          // 1-1c（2026-09-03）：快照携带依赖（resume 按快照顺序位置映射重建）
+          dependsOn: s.dependsOn,
         })),
         // D5（M6）：escalate 缺陷清单（跨重启恢复后增量 replan 仍生效）
         lastEscalations: this._lastEscalations,
@@ -391,7 +534,7 @@ export class LongRunningTaskOrchestrator {
   ): Promise<Plan> {
     throwIfAborted(this.isolation);
     this.setPhase('plan');
-    this.lifecycle.record('started', TaskStatus.RUNNING, 'Plan phase started');
+    this._recordLifecycle('started', TaskStatus.RUNNING, 'Plan phase started');
 
     const otel = getOTelTracing();
     const span = otel.startSpan('pdca.plan', {
@@ -423,8 +566,12 @@ ${replanSection}
 输出格式：
 {
   "steps": ["步骤1描述", "步骤2描述"],
-  "acceptanceCriteria": ["步骤1的验收标准", "步骤2的验收标准"]
-}`;
+  "acceptanceCriteria": ["步骤1的验收标准", "步骤2的验收标准"],
+  "dependsOn": [[], [0], [0, 1]]
+}
+说明：dependsOn 为可选字段，长度与 steps 对齐；
+第 i 步依赖 steps 中哪些前置步骤，填这些步骤的下标（0-based）；无依赖填 []；
+不允许依赖自身或后续步骤（依赖错误时执行器会按无依赖/串行安全兜底）。`;
 
       const planText = await this.executor({
         systemPrompt: PLANNER_ROLE.systemPrompt,
@@ -436,11 +583,26 @@ ${replanSection}
       // 解析 Planner 输出
       let steps: string[] = [description];
       let acceptance: string[] = [];
+      // 1-1a（2026-09-03）：可选依赖（按步骤 0-based 序号）。仅首轮规划解析——
+      // 增量 replan（缺陷修订）时步骤编号与旧计划可能漂移，填充错误依赖风险大于收益，保持串行保守。
+      let dependsOn: number[][] | undefined;
 
       try {
         const parsed = JSON.parse(planText);
         steps = parsed.steps || [description];
         acceptance = parsed.acceptanceCriteria || [];
+        if (
+          this._lastEscalations.length === 0 &&
+          Array.isArray(parsed.dependsOn)
+        ) {
+          dependsOn = parsed.dependsOn.map((deps: unknown) =>
+            Array.isArray(deps)
+              ? deps
+                  .map((d) => Number(d))
+                  .filter((d) => Number.isInteger(d) && d >= 0)
+              : []
+          );
+        }
       } catch (err) {
         // 非 JSON 输出，按行分割（非关键路径，无需 handleError）
         const lines = planText.split('\n').filter((l) => l.trim());
@@ -460,11 +622,12 @@ ${replanSection}
         sessionId,
         undefined,
         acceptance,
-        workspaceId
+        workspaceId,
+        dependsOn
       );
 
       this.planId = plan.id;
-      this.lifecycle.record(
+      this._recordLifecycle(
         'progress',
         TaskStatus.RUNNING,
         `Plan created with ${steps.length} steps`
@@ -671,7 +834,7 @@ ${replanSection}
     taskOrchestrator.markStepRunning(step.id);
     this._persistCheckpoint(); // P0(M2)：步骤状态变更即落盘
     this.stepDurations.set(step.id, { startMs: Date.now() });
-    this.lifecycle.record(
+    this._recordLifecycle(
       'progress',
       TaskStatus.RUNNING,
       `Executing step: ${step.description}`
@@ -881,7 +1044,14 @@ ${replanSection}
         } as never);
         const taorElapsed = Date.now() - taorStart;
         // S2（2026-08-13）：累计 TAORLoop token，阶段边界结算落库 goal_metrics
+        // 1-1d（2026-09-03）：每步独立记账（跨 retry 累计）+ 聚合单值双写。
+        // 并发安全依据：本结算点为无 await 的同步语句，事件循环下 += 不丢更新；
+        // stepDurations[].tokens 提供 per-step 明细，供审计/评估集聚合校验。
         this._totalTokensTracked += result.totalTokens;
+        const stepTok = this.stepDurations.get(step.id);
+        if (stepTok) {
+          stepTok.tokens = (stepTok.tokens ?? 0) + result.totalTokens;
+        }
 
         taskOrchestrator.markStepCompleted(
           step.id,
@@ -976,7 +1146,7 @@ ${replanSection}
         },
       ]);
 
-      this.lifecycle.record(
+      this._recordLifecycle(
         'progress',
         TaskStatus.RUNNING,
         `Step completed: ${step.description}`
@@ -1000,7 +1170,7 @@ ${replanSection}
       const dur = this.stepDurations.get(step.id);
       if (dur) dur.endMs = Date.now();
 
-      this.lifecycle.record(
+      this._recordLifecycle(
         'progress',
         TaskStatus.RUNNING,
         `Step failed: ${step.description} — ${errMsg}`
@@ -1032,7 +1202,7 @@ ${replanSection}
       );
       step.reviewResult = review;
 
-      this.lifecycle.record(
+      this._recordLifecycle(
         'progress',
         TaskStatus.RUNNING,
         `Review: ${formatReviewSummary(review)}`
@@ -1094,7 +1264,7 @@ ${replanSection}
       switch (decision) {
         case 'approved':
           // 已完成，无需更多操作
-          this.lifecycle.record(
+          this._recordLifecycle(
             'progress',
             TaskStatus.RUNNING,
             `Approved: ${step.description}`
@@ -1110,7 +1280,7 @@ ${replanSection}
             step.error = `Exceeded max retries (${maxRetries})`;
             // D5（M6）：重试上限升级 escalate 同样捕获缺陷 → 增量 replan
             this._recordEscalation(step);
-            this.lifecycle.record(
+            this._recordLifecycle(
               'progress',
               TaskStatus.RUNNING,
               `Retry limit exceeded for: ${step.description}`
@@ -1136,7 +1306,7 @@ ${replanSection}
           step.retryCount++;
           step.decision = undefined;
           step.reviewResult = undefined;
-          this.lifecycle.record(
+          this._recordLifecycle(
             'progress',
             TaskStatus.RUNNING,
             `Retry #${step.retryCount} for: ${step.description}`
@@ -1158,7 +1328,7 @@ ${replanSection}
 
         case 'skip':
           step.status = 'cancelled';
-          this.lifecycle.record(
+          this._recordLifecycle(
             'progress',
             TaskStatus.RUNNING,
             `Skipped: ${step.description}`
@@ -1167,7 +1337,7 @@ ${replanSection}
 
         case 'escalate':
           step.status = 'failed';
-          this.lifecycle.record(
+          this._recordLifecycle(
             'progress',
             TaskStatus.RUNNING,
             `Escalated: ${step.description}`
@@ -1430,7 +1600,9 @@ ${replanSection}
     const completedSteps = steps.filter((s) => s.status === 'completed').length;
     const failedSteps = steps.filter((s) => s.status === 'failed').length;
 
-    // 平均每步耗时
+    // 平均每步耗时（1-1d 口径：per-step 墙钟跨度均值）。
+    // 依赖批次并行时各步同时计时，此为"每步平均占用跨度"而非任务总耗时；
+    // 任务级成本口径看 _totalTokensTracked / goal_metrics.total_tokens。
     const durations = Array.from(this.stepDurations.values())
       .filter((d) => d.endMs)
       .map((d) => d.endMs! - d.startMs);
@@ -1538,6 +1710,17 @@ ${replanSection}
    * P0(M2/M9)：统一 EXECUTE → REVIEW → DECIDE 循环。
    * 从 runFullPdca 与 resumeAfterApproval 的后半段抽取（两处原为重复实现）。
    * resumeFromCheckpoint 跨重启恢复后同样进入此循环继续执行。
+   */
+  /**
+   * 1-1e（2026-09-03）review/decision 时序语义（dependsOn 填充后生效）：
+   * - executeAllSteps 单轮内按 `_groupStepsByDependency` 拓扑批次顺序执行全部批次
+   *   （批次内依赖满足才并行、批次间串行 await）→ A→B→C 链在同一轮即全部完成
+   *   （依赖满足即推进）；并非"每轮只跑一个依赖层"。
+   * - Review+Decide 在每轮 executeAllSteps 之后批量进行：仅对 `completed && !decision`
+   *   步骤 autoDecideStep（幂等，approved/failed 不重审）。需多轮的场景 = review 判 retry
+   *   （清 decision + 置回 pending，下轮重跑）或 escalate 后 replan。
+   * - 收敛有界：每轮仅 retry 步骤重入 runnable，每步重试 ≤ maxRetries，受 maxIterations 兜底。
+   * - ⚠ 勿假设"每步执行完立即 Review"——决策以 executeAllSteps 轮尾批量进行、时机随批次漂移。
    */
   private async _runExecuteDecideLoop(): Promise<PdcaStatus> {
     let allDone = false;
@@ -1684,9 +1867,11 @@ ${replanSection}
     this.setPhase('completed');
     this.auditReport = this.generateReport();
     this.persistAuditReport(this.auditReport);
-    this.lifecycle.record('finalized', TaskStatus.COMPLETED, 'PDCA completed');
+    this._recordLifecycle('finalized', TaskStatus.COMPLETED, 'PDCA completed');
     // S2（2026-08-13）：阶段边界落库 goal_metrics（row_type='stage'）
     this._recordGoalStageMetric('pdca_completed');
+    // 3-1（2026-09-03）：PDCA 完成 → 轻量记忆回写（复盘决策入长期记忆，供跨会话 recall）
+    this._persistMemoryFromAudit('completed');
 
     // §5 P2: 任务完成事件广播（前端按 sessionId 过滤渲染）
     const _finalStatus = this.getStatus();
@@ -1710,6 +1895,27 @@ ${replanSection}
       (ck.steps as Array<Record<string, unknown>> | undefined) ?? [];
     const phase = (ck.phase as string | undefined) ?? 'execute';
 
+    // Gap D（1-0c，2026-09-03）：终态任务（abort/completed/failed）拒绝恢复。
+    // 此前 abort 不写 checkpoint → /goal resume 会把已中止任务复活重跑；
+    // status 演进后（1-0b）终态在 checkpoint.status/phase 双字段可见，此处双查。
+    const ckStatus = ck.status as string | undefined;
+    if (
+      phase === 'completed' ||
+      phase === 'abort' ||
+      phase === 'failed' ||
+      ckStatus === 'completed' ||
+      ckStatus === 'abort' ||
+      ckStatus === 'failed'
+    ) {
+      throw new AppError(
+        `任务 ${this.taskId} 已处于终态（phase=${phase}, status=${ckStatus ?? '-'}），不可恢复`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        'PDCA_RESUME_TERMINAL',
+        { taskId: this.taskId, phase, status: ckStatus }
+      );
+    }
+
     // 重建 Plan（新 taskId 由 taskOrchestrator 生成；workspaceId 从会话解析）
     const workspaceId = await taskOrchestrator.resolveWorkspaceId(sessionId);
     const restored = taskOrchestrator.createPlan(
@@ -1720,6 +1926,10 @@ ${replanSection}
       undefined,
       workspaceId
     );
+    // 1-1c（2026-09-03）：依赖恢复用快照顺序位置映射——
+    // checkpoint 存的是旧 plan 的 stepId，resume 重建 plan 生成新 stepId，
+    // 按快照中旧 stepId 的位置（== 重建后 steps 同一下标）换算依赖。
+    const ckStepIds = steps.map((s) => (s.id as string | undefined) ?? '');
     // 回填步骤状态（executeAllSteps 会跳过 completed/failed/cancelled）
     steps.forEach((s, i) => {
       const step = restored.steps[i];
@@ -1732,6 +1942,16 @@ ${replanSection}
       step.retryCount = (s.retryCount as number) ?? 0;
       step.maxRetries = (s.maxRetries as number) ?? 3;
       step.acceptanceCriteria = s.acceptanceCriteria as string | undefined;
+      // 1-1c：恢复依赖（旧 stepId → 位置 → 新 stepId；仅前置、越界/缺失自愈忽略）
+      const depIds = (s.dependsOn as string[] | undefined) ?? [];
+      if (depIds.length > 0) {
+        const mapped = depIds
+          .map((d) => ckStepIds.indexOf(d))
+          .filter((j) => j >= 0 && j < i && restored.steps[j]);
+        if (mapped.length > 0) {
+          step.dependsOn = mapped.map((j) => restored.steps[j].id);
+        }
+      }
     });
     restored.status = 'running';
 
@@ -1740,7 +1960,11 @@ ${replanSection}
     // D5（M6）：恢复 escalate 缺陷清单（增量 replan 输入跨重启保持）
     this._lastEscalations =
       (ck.lastEscalations as EscalationRecord[] | undefined) ?? [];
-    this.lifecycle.record(
+    // 1-1d（2026-09-03）：resume 回填 token 累计，防跨重启少计——
+    // checkpoint 阶段边界已持久化 totalTokens（_persistCheckpoint），恢复续跑必须续上，
+    // 否则终态 goal_metrics.total_tokens 从 0 起少计。
+    this._totalTokensTracked = Number(ck.totalTokens) || 0;
+    this._recordLifecycle(
       'started',
       TaskStatus.RUNNING,
       'PDCA resumed from checkpoint'
@@ -1792,9 +2016,21 @@ ${replanSection}
 
   async abort(): Promise<void> {
     this.isolation.abort('User aborted');
-    this.lifecycle.record('finalized', TaskStatus.FAILED, 'Aborted by user');
+    this._recordLifecycle('finalized', TaskStatus.FAILED, 'Aborted by user');
+    // Gap D（1-0c，2026-09-03）：中止必须落 checkpoint 终态。
+    // 原实现仅落库 goal_metrics、不写 checkpoint → phase 停留中止前值，
+    // /goal list（按 phase∈completed/failed/abort 过滤）不过滤、scan 不回收该任务。
+    // 注：LRTO.PdcaPhase 不含 'abort'（bridge 层类型含），此处直接写 checkpoint 文件。
+    writePdcaCheckpoint(this.taskId, {
+      phase: 'abort',
+      status: 'abort',
+      abortedAt: new Date().toISOString(),
+    });
+    syncPdcaWorkItemStatus(this.taskId, 'abort');
     // S2（2026-08-13）：中止路径同样落库（超时/失败节点）
     this._recordGoalStageMetric('pdca_aborted');
+    // 3-1（2026-09-03）：PDCA 中止 → 轻量记忆回写（记录已执行部分与中止状态）
+    this._persistMemoryFromAudit('aborted');
   }
 
   /**
@@ -1823,6 +2059,71 @@ ${replanSection}
           context: { taskId: this.taskId, stageId },
         })
       );
+  }
+
+  /**
+   * 3-1（2026-09-03）：PDCA 终态 → 轻量记忆回写（Act 复盘产物化，喂给全局长效 recall）。
+   * 喂入源 = 编排器 PlanStep 完整对象（含 decision/reviewResult/dependsOn），非 auditReport（缺 dependsOn）。
+   * 映射：整条为 MemoryType.DECISION 复盘（含每步决策/审查结论/依赖），tags 标注来源 pdca+outcome+taskId。
+   * 幂等：_memoryWriteDone 单次 guard + createMemory 缓存精确去重（命中返回 existing）兜底。
+   * 频控：PDCA 终态每任务一次低频；不重复梦境 cron 精炼管线（MemoryDreamService 职责，防三实现职责重叠）。
+   * fire-and-forget：失败降级日志，不阻塞 PDCA 收尾。
+   */
+  private _persistMemoryFromAudit(outcome: 'completed' | 'aborted'): void {
+    if (this._memoryWriteDone) return;
+    this._memoryWriteDone = true;
+    void (async () => {
+      try {
+        const plan = this.planId
+          ? taskOrchestrator.getPlan(this.planId)
+          : undefined;
+        if (!plan || plan.steps.length === 0) return;
+        const goal = plan.description;
+        const lines = plan.steps.map((s, i) => {
+          const review = s.reviewResult
+            ? `评分${s.reviewResult.score ?? '-'}${s.reviewResult.pass ? '(通过)' : '(未过)'}`
+            : '';
+          const deps =
+            s.dependsOn && s.dependsOn.length > 0
+              ? `(依赖${s.dependsOn.length}个前序)`
+              : '';
+          return `${i + 1}. ${s.description.slice(0, 120)} [${s.status}] 决策=${s.decision ?? '无'} ${review} ${deps}`.trim();
+        });
+        const content =
+          `PDCA ${outcome === 'completed' ? '完成' : '中止'}复盘\n目标: ${goal.slice(0, 200)}\n步骤:\n${lines.join('\n')}`.slice(
+            0,
+            4000
+          );
+
+        const [mm, { createMemoryMetadata }, { MemoryType }] =
+          await Promise.all([
+            resolveMemoryWritebackManager(),
+            import('../memory/types/MemoryMetadata.js'),
+            import('../memory/types/MemoryType.js'),
+          ]);
+        if (!mm) return;
+        await mm.createMemory({
+          content,
+          metadata: createMemoryMetadata({
+            name: `PDCA ${outcome}: ${goal.slice(0, 40)}`,
+            type: MemoryType.DECISION,
+            tags: ['pdca', outcome, `task:${this.taskId}`],
+            priority: 15,
+          }),
+        });
+        logger.info('[orchestrator] PDCA 终态记忆回写完成', {
+          taskId: this.taskId,
+          outcome,
+          stepCount: plan.steps.length,
+        });
+      } catch (err) {
+        await handleError(err, {
+          module: 'tasks:longRunning',
+          action: 'memoryWriteback',
+          context: { taskId: this.taskId, outcome },
+        });
+      }
+    })();
   }
 
   async shutdown(): Promise<void> {

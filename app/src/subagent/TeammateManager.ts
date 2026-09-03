@@ -15,6 +15,7 @@ import {
 import { InProcessTeammateBackend } from './backends/InProcessTeammateBackend';
 import { getLogger } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import { getTaskConcurrencyLimits } from '../tasks/limits';
 
 const logger = getLogger('subagent:teammateManager');
 
@@ -42,7 +43,8 @@ export class TeammateManager {
 
   constructor(config: TeamManagerConfig = {}) {
     this.config = {
-      maxTeammates: 10,
+      // 1-4（2026-09-03）：默认值收敛到 tasks/limits.ts（env TASK_MAX_TEAMMATES）；显式 config 仍优先
+      maxTeammates: getTaskConcurrencyLimits().maxTeammates,
       defaultBackendType: 'in_process',
       enableMessageBroadcast: true,
       enableStatusTracking: true,
@@ -67,7 +69,10 @@ export class TeammateManager {
     type: TeammateBackendType,
     config: TeammateConfig
   ): Promise<TeammateHandle> {
-    if (this.activeTeammates.size >= (this.config.maxTeammates || 10)) {
+    if (
+      this.activeTeammates.size >=
+      (this.config.maxTeammates ?? getTaskConcurrencyLimits().maxTeammates)
+    ) {
       throw new AppError(
         `Maximum number of teammates (${this.config.maxTeammates}) reached`,
         ErrorCategory.EXECUTION,

@@ -112,6 +112,13 @@ export function scanAndAbortStalePdcaTasks(): void {
     if (!ck) continue;
     const status = ck.status as string | undefined;
     if (status !== 'started' && status !== 'running') continue;
+    // Gap D（1-0c，2026-09-03）：等待审批的任务（plan_pending/stage_awaiting_approval）
+    // 不是崩溃遗留——重启后应保留供 /goal 审批/恢复，不得被启动扫描误 abort。
+    // （1-0b 后 plan_pending 的 status 演进为 'started'，故此处需按 phase 二次排除。）
+    const phase = ck.phase as string | undefined;
+    if (phase === 'plan_pending' || phase === 'stage_awaiting_approval') {
+      continue;
+    }
 
     const taskId = ck.taskId as string;
     writePdcaCheckpoint(taskId, {

@@ -56,9 +56,8 @@ export async function handlePdcaDecisionLog(
     const limit = Number.isFinite(rawLimit)
       ? Math.min(Math.max(Math.floor(rawLimit), 1), 500)
       : 100;
-    const { SqliteTaskStore } = await import(
-      '../../../tasks/db/SqliteTaskStore'
-    );
+    const { SqliteTaskStore } =
+      await import('../../../tasks/db/SqliteTaskStore');
     const store = new SqliteTaskStore();
     const rows = await store.listAuditLogByEvent('pdca_decision', limit);
     res.writeHead(200, { 'Content-Type': 'application/json' });

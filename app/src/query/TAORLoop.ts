@@ -320,6 +320,8 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
   private stopReason: StopHookReason = 'completed';
   /** B1（2026-09-04）：prompt 兜底路径（空壳 deps）告警已输出标志（每 run 一次） */
   private _promptFallbackWarned: boolean = false;
+  /** A1（2026-09-04）：上次入账的 token 估算基线——只按增量入账，compact 后回落 */
+  private _lastBudgetedTokens: number = 0;
   /** 上一轮工具执行是否有错误/空结果 — 用于防止静默完成 */
   private _lastRoundHadToolErrors: boolean = false;
   /** 本次 run 的工具执行统计（方案 C：修正 RunLogger 硬编码全 0 的假数据） */
@@ -1300,7 +1302,16 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
   /** OBSERVE 收尾：token 消耗 + 预算警告 + 断路器 + 收益递减 + 持久化（对齐旧 while 公共尾部） */
   private async _observeRound(): Promise<void> {
     if (this.messages.length === 0) return;
-    this.tokenBudget.consumeTokens(this._estimateTokens(this.messages));
+    // A1（2026-09-04）：增量记账——只对本轮新增 token 入账，替代"每轮全量 messages 入账"
+    // 的超线性膨胀（O(turns×context)）。基线随 messages 同步更新；compact 替换 messages
+    // 后估算回落 → 基线降至当前值，已压缩掉的 token 不再重复入账。
+    const estimatedTokens = this._estimateTokens(this.messages);
+    if (estimatedTokens > this._lastBudgetedTokens) {
+      this.tokenBudget.consumeTokens(
+        estimatedTokens - this._lastBudgetedTokens
+      );
+    }
+    this._lastBudgetedTokens = estimatedTokens;
     const currentBudgetState = this.tokenBudget.getCurrentBudgetState();
     if (
       currentBudgetState.status === TokenBudgetStatus.WARNING ||
@@ -1854,6 +1865,9 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
     this.stopped = false;
     this.stopReason = 'completed';
     this.tokenBudget.resetBudget();
+    // A1：reset 同时复位入账基线——新 run 首轮按当前上下文全量入账一次。
+    // 注：budget 与基线的"清/保留"语义与 P1-A2/A3 联动评审（字段级清单见方案文档）。
+    this._lastBudgetedTokens = 0;
     this.abortController = new AbortController();
     this.lastCheckpointId = null;
     this.currentPhase = TAORPhase.THINK;

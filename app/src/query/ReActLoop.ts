@@ -207,6 +207,25 @@ export abstract class ReActLoop<
   /** steering 队列（下沉自 TAORLoop 2026-09-01：骨架统一管理，每轮 reason 前经 onSteering 注入） */
   protected steeringQueue: string[] = [];
 
+  /**
+   * run 级状态复位（A2/A3，2026-09-04）
+   *
+   * 上一条消息的"无进展/疲劳/探索"计数与签名窗口若不清除会污染下一条消息
+   * （reset() 原只清 turnCount/stopped 等）。reset 由宿主在每次 run 前调用。
+   * 不做第二套 StopHook 执行器——守卫清理直接放进 reset() 的确定路径。
+   */
+  protected resetRunState(): void {
+    this.recentRoundSignatures = [];
+    this.externalHelpRequested = false;
+    this.exploreCalls = 0;
+    this.exploreRecentWindow = [];
+    this.exploreBudgetPrompted = false;
+    this.exploreFatiguePrompted = false;
+    this.consecutiveInvalidTurns = 0;
+    this.completedWork = [];
+    this.steeringQueue = [];
+  }
+
   constructor(config?: Partial<ReActLoopConfig>) {
     this.config = { ...DEFAULT_CONFIG, ...config };
     this.state = { iteration: 0, phase: 'reasoning', pendingToolCalls: [] };

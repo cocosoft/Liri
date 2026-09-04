@@ -1876,6 +1876,22 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
     this.resumedFromCheckpoint = false;
     this.resumedCheckpointId = null;
     this.steeringQueue = [];
+    // A2/A3（2026-09-04）：run 级守卫确定路径清理——上一条消息的熔断/疲劳/重试
+    // 记录不再污染下一条消息；不再依赖从不执行的 stopHook(taor_cleanup)。
+    // 决策：loopDetector/errorRecovery/circuitBreaker/fileIOLoopDetector/verifier
+    // 为 run 级噪音 → reset；dailyBudget 为跨 run 总量护栏 → 保留。
+    this.loopDetector.reset();
+    this.errorRecovery.resetAll();
+    this.circuitBreaker.reset();
+    this.fileIOLoopDetector.reset();
+    this.verifier.reset();
+    this.toolCallStats.clear();
+    this.failedToolCalls = 0;
+    this._lastRoundHadToolErrors = false;
+    this._forceContinueRound = false;
+    this._pendingInboxItems = [];
+    this._preApprovedToolCalls = [];
+    this.resetRunState();
     logger.info('TAOR loop reset');
   }
 }

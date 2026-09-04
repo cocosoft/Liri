@@ -2086,6 +2086,22 @@ ${replanSection}
     this._persistMemoryFromAudit('aborted');
     // 方向4（2026-09-03）：终态落评估样例（任务级评估集）
     this._persistReviewSample('pdca_aborted');
+    // OBS（M2）：中止/取消 → pdca:stage:complete（status cancelled，独立通道；
+    // 会话摘要落盘按设计只在终态——此处为纯实时事件，摘要由消费端/UI 决定）
+    void emitPdcaLiveEvent(
+      'pdca:stage:complete',
+      {
+        taskId: this.taskId,
+        planId: this.planId ?? undefined,
+        sessionId: this._sessionId ?? '',
+      },
+      {
+        stage: 'execute',
+        status: 'cancelled',
+        tokenCost: this._totalTokensTracked,
+        message: '用户中止',
+      }
+    );
   }
 
   /**

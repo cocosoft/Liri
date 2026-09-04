@@ -3705,13 +3705,42 @@ export class ChatManagerImpl implements ChatManager {
               return;
             }
             this._pdcaLaunchingSessions.add(session.id);
+            // OBS（M3a）：分流决策 trace——记录走 PDL 快速路径还是经典阶段链
+            const usePlanDriven = this._shouldUsePlanDrivenLoop(
+              lastUserContent || ''
+            );
+            const decisionReasons = usePlanDriven
+              ? ['simple', 'no-dangerous-tool']
+              : ['complex-or-dangerous'];
+            // OBS（M3a）：分流决策 trace（动态 import 链式，避免在同步回调中 await）
+            import('../tasks/PdcaLiveEvents')
+              .then((m) =>
+                m.emitPdcaLiveEvent(
+                  'pdca:decision',
+                  {
+                    sessionId: session.id,
+                    projectId:
+                      session.metadata?.projectId as string | undefined,
+                  },
+                  {
+                    decision: usePlanDriven ? 'pdl' : 'stage-chain',
+                    reasons: decisionReasons,
+                    message: usePlanDriven
+                      ? '简单任务走 PlanDrivenLoop 快速路径'
+                      : '复杂/危险任务走经典 PDCA 阶段链',
+                  }
+                )
+              )
+              .catch(() => {
+                // @ignore-catch — 决策 trace 失败不影响分流（CS03）
+              });
             this._pdcaLauncher!.launch(
               session.metadata.projectId as string,
               assistantMessage.content as string,
               session.id,
               lastUserContent || undefined,
               // S3（P1-5 §5 S3）：两层分流决策（复杂度门 + 危险工具 + message 粒度 hash 10%）
-              this._shouldUsePlanDrivenLoop(lastUserContent || '')
+              usePlanDriven
             )
               .catch(() => {
                 /* 隐性引擎失败不阻塞消息流 */

@@ -36,7 +36,8 @@ export type PdcaLiveEventType =
   | 'pdca:stage:phase'
   | 'pdca:stage:complete'
   | 'pdca:stage:fail'
-  | 'pdca:tool:executed';
+  | 'pdca:tool:executed'
+  | 'pdca:decision';
 
 /** 归属字段（编排视图按任一过滤；PDL 快速路径无 taskId 时用 planId） */
 export interface PdcaLiveCore {
@@ -60,6 +61,9 @@ export interface PdcaLiveData {
   tokenCost?: number;
   durationMs?: number;
   message?: string;
+  /** M3：分流决策（pdl | stage-chain | code-mode | skipped）与原因 */
+  decision?: string;
+  reasons?: string[];
 }
 
 /** 省略 undefined 键（浅层，用于保证 JSON 安全） */

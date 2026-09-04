@@ -66,6 +66,7 @@ const PDCA_EVENT_NAMES = [
   "pdca:stage:complete",
   "pdca:stage:fail",
   "pdca:tool:executed",
+  "pdca:decision",
 ];
 
 function keyOf(event: PdcaLiveEventPayload): string {

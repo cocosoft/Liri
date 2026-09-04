@@ -98,11 +98,7 @@ export async function handleListSessions(
             (md?.moduleType || legacyProjectModuleType(md)) !== moduleType
           )
             return false;
-          if (
-            projectId &&
-            effectiveProjectId(md) !== projectId
-          )
-            return false;
+          if (projectId && effectiveProjectId(md) !== projectId) return false;
           return true;
         });
       }

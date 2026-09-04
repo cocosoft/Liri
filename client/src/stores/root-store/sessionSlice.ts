@@ -9,13 +9,46 @@
 import type { StateCreator } from "zustand";
 import type { SessionRecord, SessionContext } from "./types";
 import type { RootState } from "./index";
-import type { ModuleType } from "./moduleContextSlice";
+import { isProjectWorkspace, type ModuleType } from "./moduleContextSlice";
 import type { Message, Session } from "@/types";
 import { createLogger } from "@/utils/logger";
 import { useModelSwitchStore } from "../modelSwitchStore";
 import { chatCoordinator } from "@/stores/chat/chatCoordinator";
 
 const logger = createLogger("root-store:sessionSlice");
+
+/**
+ * 阶段一 4.2.1：project 会话 moduleType 判定收敛（单一换算入口）。
+ * 与后端 handleListSessions（4.2.3 兼容期双读）口径一致：
+ * 事实面 = metadata.moduleType；legacy workspaceId `project-` 前缀兜底（兼容期双读）。
+ */
+function resolveSessionModuleType(
+  md: Record<string, unknown> | undefined,
+  existing: SessionRecord | undefined,
+  workspaceId: string,
+): ModuleType {
+  const mt = md?.moduleType;
+  if (typeof mt === "string") return mt as ModuleType;
+  // legacy：无 moduleType 但 workspaceId 为 project 工作空间 → project（镜像后端 legacyProjectModuleType）
+  if (workspaceId && isProjectWorkspace(workspaceId)) return "project";
+  return (existing?.moduleType ?? "chat") as ModuleType;
+}
+
+/**
+ * 阶段一 4.2.1：会话 projectId 判定收敛（单一换算入口）。
+ * metadata.projectId 优先；legacy workspaceId `project-{id}` 兜底（workspaceId 本身即项目归属，
+ * 与 v3→v4 迁移口径一致）；再回退已有 Hub 记录。
+ */
+function resolveSessionProjectId(
+  md: Record<string, unknown> | undefined,
+  existing: SessionRecord | undefined,
+  workspaceId: string,
+): string | undefined {
+  const pid = md?.projectId;
+  if (typeof pid === "string" && pid) return pid;
+  if (workspaceId && isProjectWorkspace(workspaceId)) return workspaceId;
+  return existing?.projectId;
+}
 
 // P1-2 修复：会话切换序号。快速连点不同会话时，两次 switchChatSession 并行执行，
 // 慢的请求后完成却无条件 set currentSessionId 覆盖最新目标（乱序覆盖竞态）。
@@ -100,9 +133,8 @@ async function restoreMessagesToCurrentSession(
         // M2-3：优先从 events 派生，回退到 legacy messages
         // KB-LONG-SESSION（2026-08-29）：长会话分页——传 limit 触发后端分页，
         // hasMore=true 时前端显示"加载更早消息"（阈值：超过 MESSAGE_PAGE_LIMIT 才分页）
-        const { MESSAGE_PAGE_LIMIT } = await import(
-          "@/stores/chat/chat-message-actions"
-        );
+        const { MESSAGE_PAGE_LIMIT } =
+          await import("@/stores/chat/chat-message-actions");
         const { messages, hasMore } = await sessionService.loadConversation(
           curId,
           { limit: MESSAGE_PAGE_LIMIT },
@@ -489,18 +521,20 @@ export const createSessionSlice: StateCreator<
       sessions = sortSessionsForList(sessions);
       const currentSession = await sessionService.getCurrent();
 
-      // Hub 同步：moduleType 从 API metadata 或现有 Hub 读取，不再硬编码 "chat"
-      // projectId 从 metadata 读取；workspaceId 使用 resolveWorkspaceId 统一计算
+      // Hub 同步：moduleType/projectId 判定收敛（阶段一 4.2.1）——由
+      // metadata.projectId/moduleType + workspaceId（`project-` 前缀兜底）统一换算
+      // （镜像后端 4.2.3 双读口径），不再散落硬编码；workspaceId 取后端权威值
+      // （chat 会话无 workspaceId，归一为空串）。
       const hubSync: Record<string, SessionRecord> = {};
       for (const s of sessions) {
         const existing = get().sessions[s.id];
         const md = s.metadata as Record<string, unknown> | undefined;
+        const workspaceId = s.workspaceId ?? "";
         hubSync[s.id] = {
           id: s.id,
-          moduleType:
-            (md?.moduleType as ModuleType) ?? existing?.moduleType ?? "chat",
-          projectId: (md?.projectId as string) ?? existing?.projectId,
-          workspaceId: s.workspaceId ?? "",
+          moduleType: resolveSessionModuleType(md, existing, workspaceId),
+          projectId: resolveSessionProjectId(md, existing, workspaceId),
+          workspaceId,
           title: s.title,
           createdAt: new Date(s.createdAt).getTime(),
           updatedAt: new Date(s.updatedAt).getTime(),
@@ -1087,13 +1121,20 @@ export const createSessionSlice: StateCreator<
       // 同步 SessionHub：以「后端 workspaceId」为权威标记会话归属，而非当前
       // currentWorkspaceId —— 防止在项目 worktree 上下文中切换普通会话时
       // 被误标为用户项目会话（导致 /chat 页侧栏过滤隐藏）。
-      // 同时保留已有记录的模块类型，避免切换项目会话时被误标为 chat（projectId 由 workspaceId 兜底）。
       const existingHub = get().sessions[id];
       // R-C 修复：合并更新而非 createSession 重建——createSession 全新构造
       // 默认 context，切一次会话 projectId/context.modelId/context.agentId 等
       // 原有字段就被覆盖丢失（loadChatSessions 从 metadata 同步的 Hub 数据被冲掉）。
-      // 合并仅更新后端权威字段（moduleType/title/workspaceId），保留已有 context。
-      const moduleType = existingHub?.moduleType ?? "chat";
+      // 合并仅更新后端权威字段（moduleType/projectId/title/workspaceId），保留已有 context。
+      // 阶段一 4.2.1：moduleType/projectId 经统一换算（metadata.projectId + workspaceId
+      // `project-` 前缀兜底），切换项目会话（Hub 缺失/滞后）不再被误标为 chat。
+      const switchMd = (session?.metadata ?? {}) as Record<string, unknown>;
+      const switchWs = session?.workspaceId ?? "";
+      const moduleType = resolveSessionModuleType(
+        switchMd,
+        existingHub,
+        switchWs,
+      );
       set((state) => {
         const prev = state.sessions[id];
         return {
@@ -1103,6 +1144,11 @@ export const createSessionSlice: StateCreator<
               ...(prev ?? { id }),
               id,
               moduleType,
+              projectId: resolveSessionProjectId(
+                switchMd,
+                existingHub,
+                switchWs,
+              ),
               title:
                 session.title ??
                 prev?.title ??

@@ -622,9 +622,11 @@ export class ChatManagerImpl implements ChatManager {
   private readonly _taorLoops = new Map<string, TAORLoop>();
 
   /**
-   * RC-E（08-09）：PlanDrivenLoop 实例（懒初始化，仅在 ENABLE_PLAN_DRIVEN_LOOP 时创建）
+   * RC-E（08-09）：PlanDrivenLoop 实例（懒初始化）
+   * B3（2026-09-04）：按 sessionId 的 Map——原单例 `_planDrivenLoop` 首次会话固化
+   * taorContext，跨会话复用导致串扰（与 _taorLoops 的 P0 修复同源）。
    */
-  private _planDrivenLoop?: PlanDrivenLoop;
+  private readonly _planDrivenLoops = new Map<string, PlanDrivenLoop>();
 
   /**
    * P2-3: LoopDetector — 工具调用循环检测器
@@ -1106,14 +1108,19 @@ export class ChatManagerImpl implements ChatManager {
     sessionId: string,
     taorContext: ChatManagerTAORContext
   ): PlanDrivenLoop {
-    if (!this._planDrivenLoop) {
+    // B3（2026-09-04）：per-session 缓存——原单例固化首会话 taorContext，
+    // 后续会话复用串扰（taorLoop 侧已按 sessionId Map，此处同源修复）
+    let planDrivenLoop = this._planDrivenLoops.get(sessionId);
+    if (!planDrivenLoop) {
       const taorLoop = this._getOrCreateTAORLoop(sessionId);
       const deps = createChatManagerTAORDeps(taorContext);
-      this._planDrivenLoop = new PlanDrivenLoop({
+      planDrivenLoop = new PlanDrivenLoop({
         taorLoop,
         deps,
         sessionId,
-        enableAutoDecompose: true,
+        // B3（2026-09-04）：PDL 侧未注入 decomposerProvider，自动分解实际不可用——
+        // 显式关闭避免"enableAutoDecompose:true 静默无效"误读（分解走 PdcaLauncher 阶段链）
+        enableAutoDecompose: false,
         onStepProgress: (progress) => {
           logger.info('PlanDrivenLoop 进度', {
             sessionId,
@@ -1121,8 +1128,9 @@ export class ChatManagerImpl implements ChatManager {
           });
         },
       });
+      this._planDrivenLoops.set(sessionId, planDrivenLoop);
     }
-    return this._planDrivenLoop;
+    return planDrivenLoop;
   }
 
   /**

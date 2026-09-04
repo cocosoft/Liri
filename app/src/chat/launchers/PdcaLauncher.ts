@@ -178,9 +178,8 @@ export class PdcaLauncher {
           // 4.0-2 N1（2026-09-04）：PDL 快速路径注册任务实体（checkpoint）——
           // /v1/pdca/list 权威源=checkpoint 目录 + 内存 orchestrator；此前 PDL 无实体，
           // 编排视图看不到快速路径运行。注册后单源可见（pdca:* 事件已双路发出）。
-          const { writePdcaCheckpoint } = await import(
-            '../../tasks/PdcaWorkItemBridge'
-          );
+          const { writePdcaCheckpoint } =
+            await import('../../tasks/PdcaWorkItemBridge');
           const startedAt = new Date().toISOString();
           writePdcaCheckpoint(taskId, {
             taskId,

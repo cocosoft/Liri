@@ -267,8 +267,9 @@ export class PdcaLauncher {
           {
             runStage: async (stage, chain) => {
               const child = getOrCreateOrchestrator(stage.pdcaTaskId);
-              // RC-C（08-09）+ D2（08-13）：注入 TAORLoop（真实工具执行）+ 每步独立工厂（并行安全）
-              child.setTAORLoop(this.deps.taorLoopFactory(chain.sessionId));
+              // B5（2026-09-04）：仅注入每步独立工厂——原同时 setTAORLoop(共享) +
+              // setTAORLoopFactory，executeSingleStep 优先 factory(taskId)（taskId≠sessionId），
+              // 共享实例实际被忽略形成双轨；并行安全由 factory 保证。
               child.setTAORLoopFactory(this.deps.taorLoopFactory);
               await child.runFullPdca(
                 buildStagePrompt(stage, chain),

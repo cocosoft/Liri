@@ -28,6 +28,7 @@ import { ProjectHistoryPanel } from "@/components/project/ProjectHistoryPanel";
 import PlansPanel from "./PlansPanel";
 import PdcaPipeline from "../Agent/PdcaPipeline";
 import { pdcaService } from "../../services/planService";
+import type { PdcaStatus } from "../../services/planService";
 import {
   DashboardIcon,
   ModelIcon,
@@ -137,6 +138,73 @@ function isPinyinQuery(query: string): boolean {
   return /^[a-z]+$/.test(query);
 }
 
+/* ---------- PDCA 四阶段维度常量（1-5 P2，2026-09-04） ---------- */
+
+/** phase → 四阶段维度序号（0=计划 1=执行 2=审查 3=决策）；未知 phase 不在此表 → 由展示回退原文 */
+const PDCA_PHASE_TO_DIMENSION: Record<string, number> = {
+  plan: 0,
+  plan_pending: 0,
+  stage_awaiting_approval: 0,
+  execute: 1,
+  review: 2,
+  decide: 3,
+};
+
+const PDCA_STEP_LABELS = ["计划", "执行", "审查", "决策"];
+
+/** 待审批 phase（归入 Plan 维度，附加角标） */
+const PDCA_AWAIT_APPROVAL = new Set([
+  "plan_pending",
+  "stage_awaiting_approval",
+]);
+
+/** 终态集合（与后端 PDCA_TERMINAL_PHASES 口径一致，phase 判定，禁止字符串前缀判断） */
+const PDCA_TERMINAL_LABEL: Record<string, string> = {
+  completed: "已完成",
+  abort: "已中止",
+  failed: "失败",
+};
+
+const PDCA_TERMINAL_DOT: Record<string, string> = {
+  completed: "bg-green-500",
+  abort: "bg-gray-400",
+  failed: "bg-red-500",
+};
+
+const PDCA_TERMINAL_TEXT: Record<string, string> = {
+  completed: "text-green-600 dark:text-green-400",
+  abort: "text-gray-500 dark:text-gray-400",
+  failed: "text-red-500",
+};
+
+/** 行级四阶段迷你步进：已过段绿色、当前段蓝色加粗、未到段灰显 */
+function PdcaPhaseStepper({ phase }: { phase: string }) {
+  const dim = PDCA_PHASE_TO_DIMENSION[phase];
+  if (dim === undefined) return null;
+  return (
+    <div className="flex items-center text-[9px] leading-none">
+      {PDCA_STEP_LABELS.map((label, i) => (
+        <span key={label} className="flex items-center">
+          {i > 0 && (
+            <span className="mx-0.5 text-gray-300 dark:text-gray-600">›</span>
+          )}
+          <span
+            className={
+              i < dim
+                ? "text-green-600 dark:text-green-400"
+                : i === dim
+                  ? "text-blue-600 dark:text-blue-500 font-semibold"
+                  : "text-gray-300 dark:text-gray-600"
+            }
+          >
+            {label}
+          </span>
+        </span>
+      ))}
+    </div>
+  );
+}
+
 /* ---------- 组件 ---------- */
 
 export default function ProjectsPage() {
@@ -151,9 +219,7 @@ export default function ProjectsPage() {
   const [deleting, setDeleting] = useState(false);
   const [showSmartMenu, setShowSmartMenu] = useState(false);
   const [rightPanelTab, setRightPanelTab] = useState<string>("materials");
-  const [pdcaTasks, setPdcaTasks] = useState<
-    { taskId: string; planId: string; phase: string; description: string }[]
-  >([]);
+  const [pdcaTasks, setPdcaTasks] = useState<PdcaStatus[]>([]);
   const [pdcaError, setPdcaError] = useState<string | null>(null);
   const [selectedPdcaTaskId, setSelectedPdcaTaskId] = useState<string | null>(
     null,
@@ -248,34 +314,46 @@ export default function ProjectsPage() {
     setRefreshKey((k) => k + 1);
   }, [messages, selectedProjectId]);
 
-  // §6线A：编排 tab — 获取 PDCA 任务列表（按项目过滤）
+  // §6线A：编排 tab — 获取 PDCA 任务列表（按项目过滤；1-5 P2 起仅编排 tab 可见时轮询 5s）
   useEffect(() => {
-    if (!selectedProjectId) {
+    if (!selectedProjectId || rightPanelTab !== "orchestration") {
       setPdcaTasks([]);
       setPdcaError(null);
       setSelectedPdcaTaskId(null);
       return;
     }
     let cancelled = false;
-    setPdcaError(null);
-    pdcaService
-      .list(selectedProjectId)
-      .then((tasks) => {
-        if (cancelled) return;
-        setPdcaTasks(tasks);
-      })
-      .catch((e) => {
-        if (cancelled) return;
-        handleClientError(e, {
-          module: "views:ProjectsPage",
-          action: "load_pdca_list",
+    const load = () => {
+      pdcaService
+        .list(selectedProjectId)
+        .then((tasks) => {
+          if (cancelled) return;
+          setPdcaTasks(tasks);
+          setPdcaError(null);
+        })
+        .catch((e) => {
+          if (cancelled) return;
+          handleClientError(e, {
+            module: "views:ProjectsPage",
+            action: "load_pdca_list",
+          });
+          setPdcaError("加载 PDCA 任务列表失败");
         });
-        setPdcaError("加载 PDCA 任务列表失败");
-      });
+    };
+    load();
+    const timer = setInterval(load, 5000);
     return () => {
       cancelled = true;
+      clearInterval(timer);
     };
-  }, [selectedProjectId]);
+  }, [selectedProjectId, rightPanelTab]);
+
+  /** 活跃（非终态）与历史（终态 phase）分区；终态判断用常量表，禁止字符串前缀判断 */
+  const { activePdcaTasks, historyPdcaTasks } = useMemo(() => {
+    const active = pdcaTasks.filter((t) => !PDCA_TERMINAL_LABEL[t.phase]);
+    const history = pdcaTasks.filter((t) => PDCA_TERMINAL_LABEL[t.phase]);
+    return { activePdcaTasks: active, historyPdcaTasks: history };
+  }, [pdcaTasks]);
 
   // 仅显示用户创建的项目，按最近会话时间排序 + 搜索过滤
   const projects = useMemo(() => {
@@ -1108,42 +1186,91 @@ export default function ProjectsPage() {
                   <div className="px-3 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     PDCA 任务 ({pdcaTasks.length})
                   </div>
-                  <div className="max-h-40 overflow-y-auto">
-                    {pdcaTasks.map((task) => (
-                      <button
-                        key={task.taskId}
-                        onClick={() =>
-                          setSelectedPdcaTaskId(
+                  {/* 活跃任务：行级四阶段步进（1-5 P2） */}
+                  {activePdcaTasks.length > 0 && (
+                    <div className="max-h-40 overflow-y-auto">
+                      {activePdcaTasks.map((task) => (
+                        <button
+                          key={task.taskId}
+                          onClick={() =>
+                            setSelectedPdcaTaskId(
+                              selectedPdcaTaskId === task.taskId
+                                ? null
+                                : task.taskId,
+                            )
+                          }
+                          className={`w-full text-left px-3 py-2 text-xs border-b border-gray-100 dark:border-gray-800 transition-colors ${
                             selectedPdcaTaskId === task.taskId
-                              ? null
-                              : task.taskId,
-                          )
-                        }
-                        className={`w-full text-left px-3 py-2 text-xs border-b border-gray-100 dark:border-gray-800 transition-colors ${
-                          selectedPdcaTaskId === task.taskId
-                            ? "bg-blue-50 dark:bg-blue-900/20"
-                            : "hover:bg-gray-50 dark:hover:bg-gray-800/50"
-                        }`}
-                      >
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
-                              task.phase === "completed"
-                                ? "bg-green-500"
-                                : task.phase === "execute"
-                                  ? "bg-blue-500"
-                                  : task.phase === "failed"
-                                    ? "bg-red-500"
-                                    : "bg-gray-400"
-                            }`}
-                          />
-                          <span className="text-gray-700 dark:text-gray-300 truncate">
-                            {task.description || task.taskId.slice(0, 8)}
-                          </span>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
+                              ? "bg-blue-50 dark:bg-blue-900/20"
+                              : "hover:bg-gray-50 dark:hover:bg-gray-800/50"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="text-gray-700 dark:text-gray-300 truncate flex-1">
+                              {task.description || task.taskId.slice(0, 8)}
+                            </span>
+                            {task.progress && (
+                              <span className="text-[9px] text-gray-400 flex-shrink-0">
+                                {task.progress.percent}%
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 mt-1 ml-0.5">
+                            <PdcaPhaseStepper phase={task.phase} />
+                            {PDCA_AWAIT_APPROVAL.has(task.phase) && (
+                              <span className="text-[9px] text-amber-500 flex-shrink-0">
+                                待审批
+                              </span>
+                            )}
+                            {task.source === "checkpoint" && (
+                              <span className="text-[9px] text-gray-400 flex-shrink-0">
+                                已恢复
+                              </span>
+                            )}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {/* 历史：终态任务 */}
+                  {historyPdcaTasks.length > 0 && (
+                    <div className="border-t border-gray-100 dark:border-gray-800">
+                      <div className="px-3 py-1.5 text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-wider">
+                        历史 ({historyPdcaTasks.length})
+                      </div>
+                      {historyPdcaTasks.map((task) => (
+                        <button
+                          key={task.taskId}
+                          onClick={() =>
+                            setSelectedPdcaTaskId(
+                              selectedPdcaTaskId === task.taskId
+                                ? null
+                                : task.taskId,
+                            )
+                          }
+                          className={`w-full text-left px-3 py-1.5 text-xs border-b border-gray-100 dark:border-gray-800 transition-colors ${
+                            selectedPdcaTaskId === task.taskId
+                              ? "bg-blue-50 dark:bg-blue-900/20"
+                              : "hover:bg-gray-50 dark:hover:bg-gray-800/50"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${PDCA_TERMINAL_DOT[task.phase] ?? "bg-gray-400"}`}
+                            />
+                            <span className="text-gray-500 dark:text-gray-400 truncate flex-1">
+                              {task.description || task.taskId.slice(0, 8)}
+                            </span>
+                            <span
+                              className={`text-[9px] flex-shrink-0 ${PDCA_TERMINAL_TEXT[task.phase] ?? ""}`}
+                            >
+                              {PDCA_TERMINAL_LABEL[task.phase] ?? task.phase}
+                            </span>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                   {/* 选中任务的 PdcaPipeline */}
                   {selectedPdcaTaskId && (
                     <div className="border-t border-gray-200 dark:border-gray-700 max-h-60 overflow-y-auto">

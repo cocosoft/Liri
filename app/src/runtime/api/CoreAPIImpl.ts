@@ -246,6 +246,23 @@ export class CoreAPIImpl implements CoreAPI {
   }
 
   /**
+   * HTTP 服务就绪后的 LLM 预热（2026-09-03）
+   *
+   * 根因修复：此前 LLM 客户端完全依赖"首个请求触发延迟初始化"，用户在应用启动
+   * 窗口期（启动清理等重量级 initialize 未完成）发消息时，chatStream 会串行等待
+   * 完整初始化（实测 43s）→ 前端等 37s 无字节 abort 流 → 用户感知"才提要求就中断"。
+   * 本方法在 HTTP listen 回调中后台预热（fire-and-forget），把初始化从"首条消息
+   * 关键路径"提前到"服务就绪时刻"，显著缩短启动窗口期消息的等待。
+   */
+  warmupLLM(): void {
+    this.ensureLLMClientInitialized().catch((err) => {
+      logger.warning('warmupLLM: LLM 预热失败（首条消息将承担延迟初始化）', {
+        error: String(err),
+      });
+    });
+  }
+
+  /**
    * 延迟初始化 LLM 客户端
    *
    * 确保 ChatManager 的 LLM 客户端在使用前已初始化。

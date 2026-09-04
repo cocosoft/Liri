@@ -60,6 +60,8 @@ interface PdcaStatus {
     totalRetries: number;
     summary: string;
   };
+  /** 1-5 P2：checkpoint 回退来源标记（无内存 orchestrator 时由后端补齐） */
+  source?: string;
 }
 
 interface PdcaPipelineProps {
@@ -186,7 +188,11 @@ export default function PdcaPipeline({ taskId }: PdcaPipelineProps) {
     return (
       <div className="space-y-3">
         <div className="text-center py-4">
-          <p className="text-xs text-gray-400">{t("agent.noAgents")}</p>
+          <p className="text-xs text-gray-400">
+            {status && status.source === "checkpoint"
+              ? "该任务无步骤快照（阶段链/待审批）"
+              : t("agent.noAgents")}
+          </p>
           <button
             onClick={load}
             className="mt-2 text-xs text-blue-600 hover:text-blue-800"

@@ -90,7 +90,7 @@ export interface ToolCallEntry {
 export interface ReasonResult<TContext = unknown> {
   text: string;
   toolCalls: ToolCallEntry[];
-  finishReason: 'stop' | 'tool_calls' | 'length' | 'error';
+  finishReason: 'stop' | 'tool_calls' | 'length' | 'max_tokens' | 'error';
   usage?: { inputTokens: number; outputTokens: number };
   context?: TContext;
 }

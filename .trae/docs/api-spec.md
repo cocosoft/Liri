@@ -601,13 +601,14 @@ data: {"type":"done","result":{...}}
 
 > 指标接口挂 `pdca-handlers.ts`（`handlePdcaMetrics`），数据源 `LongRunningTaskOrchestrator.getAllOrchestrators() → getMetrics()`。
 > 记账同源：经典路径与快速路径（PlanDrivenLoop）步骤统计均经 `taskOrchestrator` 单例（TaskOrchestrator.ts L545）。
-> 存量 `/v1/pdca/*` 路由 2026-09-03 起部分收录（list/start 契约，1-5 P1）；audit/confirm/review/decide 仍属已知缺口（§5 待补齐登记）。
+> 存量 `/v1/pdca/*` 路由 2026-09-03 起部分收录（list/start/status 契约，1-5 P1/P2）；audit/confirm/review/decide 仍属已知缺口（§5 待补齐登记）。
 
 | 方法 | 路径 | 后端状态 | 前端调用方 |
 |------|------|----------|-----------|
 | GET | `/v1/tasks/pdca/metrics` | ✅ | 无前端调用方（S1 灰度观测，curl 调用） |
 | POST | `/v1/pdca/start` | ✅ | 无前端调用方；响应含 phase 契约（2026-09-03）：`{taskId, status:'started', workItemId, phase:'plan'}` |
 | POST | `/v1/pdca/list` | ✅ | 无前端调用方；请求体（可选）`{workspaceId?, projectId?, sessionId?}`（1-5 P1，2026-09-03）；数据源 = 内存 orchestrator + checkpoint 回退（重启后非空）；条目统一含 taskId/phase/status/归属字段，checkpoint-only 条目带 `source:'checkpoint'` |
+| GET | `/v1/pdca/:taskId` | ✅ | PdcaPipeline / projects 编排 tab；读模型 = 有内存 → `getStatus()`（含 plan/progress/audit/currentStep）；无内存 → checkpoint 回退（1-5 P2，2026-09-04）：构造 getStatus 对齐形态（`plan`/`progress` 由快照 `steps` 推导并原样透传，无 steps 则省略不编造，带 `source:'checkpoint'`）；checkpoint 不存在 → `{taskId, phase:'none', planId:'', lifecycle:[]}` |
 
 **响应示例**：
 ```json

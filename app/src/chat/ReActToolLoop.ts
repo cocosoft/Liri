@@ -99,6 +99,9 @@ const REASONING_ONLY_RETRY_INSTRUCTION =
   'The previous assistant turn recorded reasoning but did not produce a user-visible answer. Continue from that partial turn and produce the visible answer now. Do not restate the reasoning or restart from scratch.';
 const PLANNING_ONLY_RETRY_INSTRUCTION =
   'The previous assistant turn only described the plan. Do not restate the plan. Act now: take the first concrete tool action you can. If a real blocker prevents action, reply with the exact blocker in one sentence.';
+/** 输出被 max_tokens 截断的续接指令（2026-09-03）：不再重复已输出内容/思考，直接续完被截断的部分 */
+const TRUNCATED_RESPONSE_RETRY_INSTRUCTION =
+  'Your previous output was cut off by the output length limit before it finished. Do NOT restate anything you already wrote and do NOT re-enter reasoning. Continue directly from where the output stopped: if you were about to call tools, emit the tool calls now; otherwise finish your visible answer concisely.';
 /** planning-only 启发式判定：纯计划陈述模式（保守，避免误判正常回答） */
 const PLANNING_ONLY_RE =
   /(?:以下(?:是)?(?:我(?:的)?)?(?:执行)?计划|我的计划(?:如下|是)|\bplan(?:\s*:|\s+is|\s+to)\b|步骤\s*[:：]|接下来(?:我)?(?:将|会))/i;
@@ -201,7 +204,15 @@ export class ReActToolLoop extends ReActLoop<
   /** 本轮 reason 是否产出 thinking（reasoning-only 检测，对标 openclaw 2026-09-01） */
   private _lastRoundHadThinking = false;
   /** 不完整回合重试计数（每类上限 1 次，防死循环，对标 openclaw RETRY_LIMITS） */
-  private readonly _incompleteRetries = { empty: 0, reasoning: 0, planning: 0 };
+  private readonly _incompleteRetries = {
+    empty: 0,
+    reasoning: 0,
+    planning: 0,
+    truncated: 0,
+  };
+  /** 截断续接重试的 maxTokens 放大标记（2026-09-03）：onIncompleteTurn truncated 分支置位，
+   *  下一轮 reason 的 LLM 调用把输出预算放大到 base×4（封顶 64K），避免"重试仍被截断"空转。 */
+  private _boostNextReasonMaxTokens = false;
 
   /** v3：交互心跳间隔（前端 STREAM_IDLE_TIMEOUT_MS=60s，10s 留 5 次余量）+ 最大等待（防资源泄漏） */
   private static readonly INTERACTION_HEARTBEAT_MS = 10_000;
@@ -728,7 +739,15 @@ export class ReActToolLoop extends ReActLoop<
     return {
       text: cleanContent,
       toolCalls,
-      finishReason: toolCalls.length > 0 ? 'tool_calls' : 'stop',
+      // 修复（2026-09-03）：保留真实终止原因而非无 tool_calls 一律改写 'stop'——
+      // 输出被 max_tokens 截断时上层（onIncompleteTurn）依赖该信号决定"续接重试"，
+      // 改写为 'stop' 会让"截断中断"伪装成"正常结束"，任务半途而废（用户感知"才提要求就中断"）。
+      finishReason:
+        toolCalls.length > 0
+          ? 'tool_calls'
+          : (((resp.finishReason ??
+              resp.stop_reason) as ReasonResult<ToolLoopContext>['finishReason']) ??
+            'stop'),
       context,
     };
   }
@@ -1711,8 +1730,13 @@ export class ReActToolLoop extends ReActLoop<
     if (result.toolCalls.length > 0) return false; // 有工具调用，不属"不完整回合"
     const text = (result.text ?? '').trim();
 
-    let kind: 'empty' | 'reasoning' | 'planning' | null = null;
-    if (!text && !this._lastRoundHadThinking) {
+    let kind: 'empty' | 'reasoning' | 'planning' | 'truncated' | null = null;
+    // 修复（2026-09-03）：输出被长度限制截断（finishReason=max_tokens）是最常见的
+    // "任务中断"伪装——模型没写完就被预算打断且未产出 tool_calls。此前该信号被
+    // reason() 改写为 'stop' 且此处无截断分支 → 直接 finalize → 用户看到"才提要求就中断"。
+    if (result.finishReason === 'max_tokens') {
+      kind = 'truncated';
+    } else if (!text && !this._lastRoundHadThinking) {
       kind = 'empty'; // 空回复
     } else if (!text && this._lastRoundHadThinking) {
       kind = 'reasoning'; // 只思考未给出可见答案
@@ -1727,8 +1751,12 @@ export class ReActToolLoop extends ReActLoop<
         ? EMPTY_RESPONSE_RETRY_INSTRUCTION
         : kind === 'reasoning'
           ? REASONING_ONLY_RETRY_INSTRUCTION
-          : PLANNING_ONLY_RETRY_INSTRUCTION;
+          : kind === 'planning'
+            ? PLANNING_ONLY_RETRY_INSTRUCTION
+            : TRUNCATED_RESPONSE_RETRY_INSTRUCTION;
     this._incompleteRetries[kind]++;
+    // 截断续接：下一轮 reason 放大输出预算（截断是硬性预算不足，重试需更多额度）
+    if (kind === 'truncated') this._boostNextReasonMaxTokens = true;
     // 注入重试指令：下一轮 reason 的 LLM 输入会携带（对齐 openclaw 重试语义）
     this.loopState.messages.push({
       role: 'user',
@@ -1954,13 +1982,20 @@ export class ReActToolLoop extends ReActLoop<
       `msg-turn-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
     const toolRoundBaseMaxTokens =
       (this.ctx.options?.maxTokens as number | undefined) ?? 4096;
+    // 截断续接放大（2026-09-03）：onIncompleteTurn truncated 分支置位后，本轮预算 base×4
+    //（封顶 64K），一次性消费掉标记，避免后续轮次持续放大。
+    const boostMaxTokens = this._boostNextReasonMaxTokens;
+    if (boostMaxTokens) this._boostNextReasonMaxTokens = false;
+    const toolRoundMaxTokens = boostMaxTokens
+      ? Math.min(Math.max(toolRoundBaseMaxTokens * 4, 32768), 64000)
+      : retried
+        ? Math.min(Math.max(toolRoundBaseMaxTokens * 2, 8192), 64000)
+        : toolRoundBaseMaxTokens;
     const gen = this.ctx.activeClient.streamMessage(
       this.loopState.messages as unknown as ChatMessage[],
       {
         ...this.ctx.options,
-        maxTokens: retried
-          ? Math.min(Math.max(toolRoundBaseMaxTokens * 2, 8192), 64000)
-          : toolRoundBaseMaxTokens,
+        maxTokens: toolRoundMaxTokens,
         signal: this.ctx.abortSignal,
         tools:
           this.ctx.toolDefinitions.length > 0

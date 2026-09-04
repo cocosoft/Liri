@@ -145,18 +145,25 @@ export interface PdcaStatus {
     cancelled: number;
     percent: number;
   };
+  /** 1-5 P1/P2：checkpoint 回退字段（1-5 P1 list / P2 status 契约） */
+  status?: string;
+  source?: "checkpoint";
+  workspaceId?: string;
+  projectId?: string;
+  sessionId?: string;
+  workItemId?: string;
 }
 
 export const pdcaService = {
-  /** 获取 PDCA 列表；传入 workspaceId 时按项目过滤 */
-  list: async (workspaceId?: string): Promise<PdcaStatus[]> => {
+  /** 获取 PDCA 列表；传入 projectId 时按项目过滤（1-5 P1，语义对齐后端 projectId 过滤器） */
+  list: async (projectId?: string): Promise<PdcaStatus[]> => {
     try {
-      const res = await http.post<any>(
+      const res = await http.post<PdcaStatus[] | { data?: PdcaStatus[] }>(
         "/v1/pdca/list",
-        workspaceId ? { workspaceId } : {},
+        projectId ? { projectId } : {},
       );
-      if (Array.isArray(res)) return res as PdcaStatus[];
-      if (res && Array.isArray(res.data)) return res.data as PdcaStatus[];
+      if (Array.isArray(res)) return res;
+      if (res && Array.isArray(res.data)) return res.data;
       return [];
     } catch {
       return [];

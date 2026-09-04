@@ -30,6 +30,9 @@ export interface FileReadResult extends FileOperationResult {
 }
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MiB
+/** 分段读取整读硬上限（2026-09-03）：带 offset 的超限文件允许读（整读后切片返回，
+ *  但 offset 只读几十行）；超过此阈值整读内存不划算，一律拒绝并引导 grep。 */
+const SEGMENT_READ_HARD_LIMIT = 50 * 1024 * 1024;
 const BLOCKED_PATHS = new Set(['/dev/zero', '/dev/random', '/dev/urandom']);
 
 export function readFile(input: FileReadInput): FileReadResult {
@@ -74,9 +77,24 @@ export function readFile(input: FileReadInput): FileReadResult {
     );
   }
 
-  if (stat.size > MAX_FILE_SIZE) {
+  if (stat.size > MAX_FILE_SIZE && typeof input.offset !== 'number') {
     throw new AppError(
-      `File too large: ${(stat.size / 1024 / 1024).toFixed(1)} MiB (max 10 MiB)`,
+      `File too large: ${(stat.size / 1024 / 1024).toFixed(1)} MiB (max 10 MiB). ` +
+        `This tool cannot read the whole file in one call. Use segmented reads instead: ` +
+        `pass offset (starting line number, 1-based) plus limit (rows per segment, e.g. 2000). ` +
+        `Example: offset=1&limit=2000 reads the first segment; offset=2001&limit=2000 reads the next. ` +
+        `Prefer tail segments or targeted searches (grep) for logs.`,
+      ErrorCategory.FILESYSTEM,
+      ErrorSeverity.MEDIUM,
+      '108'
+    );
+  }
+  // 超出分段整读硬上限：即使带 offset 也拒绝（整读进内存再切片不划算），引导 grep
+  if (stat.size > SEGMENT_READ_HARD_LIMIT) {
+    throw new AppError(
+      `File too large: ${(stat.size / 1024 / 1024).toFixed(1)} MiB (> 50 MiB). ` +
+        `This tool cannot segment this file efficiently. Use grep (with pattern and include) ` +
+        `or tail-style targeted searches on a smaller slice instead.`,
       ErrorCategory.FILESYSTEM,
       ErrorSeverity.MEDIUM,
       '108'

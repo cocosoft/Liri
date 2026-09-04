@@ -231,6 +231,14 @@ export class LocalHTTPService {
               action: 'seedKnowledge',
             })
         );
+        // LLM 预热（2026-09-03）：HTTP 就绪即后台初始化 LLM 客户端（fire-and-forget），
+        // 避免启动窗口期首条用户消息串行承担完整 ChatManager.initialize（实测 43s）
+        // 导致前端 abort 流——用户感知"才提要求就中断"。预热失败不阻塞，首条消息兜底。
+        import('@modules/runtime/api/CoreAPIImpl')
+          .then((m) => m.getCoreAPI().warmupLLM())
+          .catch(() => {
+            // @ignore-catch — 预热失败已有 warmupLLM 内部日志，此处静默（CS03）
+          });
         this.startCompileScheduler().catch(
           (err) =>
             void handleError(err, {

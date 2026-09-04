@@ -280,8 +280,45 @@ export async function handlePdcaStart(
 }
 
 /**
- * 获取 PDCA 状态
+ * 1-5 P2（2026-09-04）：由 checkpoint steps 快照推导 progress 读模型。
+ * 仅统计已知状态（completed/running/failed/cancelled），其余归入 pending；
+ * 非数组/空数组返回 undefined（调用方据此省略 progress，不编造进度）。
  */
+function deriveCheckpointProgress(steps: Array<Record<string, unknown>>):
+  | {
+      total: number;
+      pending: number;
+      running: number;
+      completed: number;
+      failed: number;
+      cancelled: number;
+      percent: number;
+    }
+  | undefined {
+  const total = steps.length;
+  if (total === 0) return undefined;
+  let completed = 0;
+  let running = 0;
+  let failed = 0;
+  let cancelled = 0;
+  for (const s of steps) {
+    const st = s.status;
+    if (st === 'completed') completed++;
+    else if (st === 'running') running++;
+    else if (st === 'failed') failed++;
+    else if (st === 'cancelled') cancelled++;
+  }
+  return {
+    total,
+    pending: total - completed - running - failed - cancelled,
+    running,
+    completed,
+    failed,
+    cancelled,
+    percent: Math.round((completed / total) * 100),
+  };
+}
+
 export async function handlePdcaStatus(
   _req: http.IncomingMessage,
   res: http.ServerResponse,
@@ -302,13 +339,48 @@ export async function handlePdcaStatus(
       });
     }
     if (!orchestrator) {
-      // 回退到检查点文件
-      const checkpoint = readPdcaCheckpoint(taskId);
+      // 回退到检查点文件（1-5 P2，2026-09-04）：不再原样返回扁平 checkpoint，
+      // 构造与 getStatus() 对齐的读模型——plan/progress 由快照 steps 推导（原样透传），
+      // 无 steps 时省略 plan/progress（不编造），checkpoint 不存在时保持原空态。
+      const ck = readPdcaCheckpoint(taskId);
+      if (!ck) {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({ taskId, phase: 'none', planId: '', lifecycle: [] })
+        );
+        return;
+      }
+      const rec = ck as Record<string, unknown>;
+      const rawSteps = rec.steps;
+      const steps =
+        Array.isArray(rawSteps) && rawSteps.length > 0
+          ? (rawSteps as Array<Record<string, unknown>>)
+          : undefined;
+      const plan = steps
+        ? {
+            id: (rec.planId as string) || taskId,
+            description: (rec.description as string) ?? '',
+            steps,
+          }
+        : undefined;
+      const progress = steps ? deriveCheckpointProgress(steps) : undefined;
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(
-        JSON.stringify(
-          checkpoint || { taskId, phase: 'none', planId: '', lifecycle: [] }
-        )
+        JSON.stringify({
+          taskId,
+          planId: (rec.planId as string) ?? '',
+          phase: (rec.phase as string) ?? 'none',
+          status: (rec.status as string) ?? 'unknown',
+          description: (rec.description as string) ?? '',
+          plan,
+          progress,
+          workItemId: rec.workItemId,
+          workspaceId: rec.workspaceId,
+          projectId: rec.projectId,
+          sessionId: rec.sessionId,
+          totalTokens: rec.totalTokens,
+          source: 'checkpoint',
+        })
       );
       return;
     }

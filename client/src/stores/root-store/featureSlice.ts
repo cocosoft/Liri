@@ -96,6 +96,17 @@ const BUILTIN_MODULES: FeatureModule[] = [
     pinned: false,
     tier: "base",
   },
+  // 阶段一 4.2.2（2026-09-04）：project 模块实体（meta/label 归一；无独立导航消费）
+  {
+    id: "project",
+    type: "project",
+    name: "项目",
+    icon: "folder",
+    enabled: true,
+    available: true,
+    pinned: false,
+    tier: "base",
+  },
 ];
 
 // ─── Slice 接口 ────────────────────────────────────────

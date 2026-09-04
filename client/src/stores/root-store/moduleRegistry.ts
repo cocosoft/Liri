@@ -85,7 +85,19 @@ export function registerBuiltinModules(): void {
     paths: ["/knowledge", "/files"],
   });
 
-  logger.info("内置模块注册完成", { count: 6 });
+  store.registerModule({
+    id: "project",
+    type: "project",
+    name: "项目",
+    icon: "folder",
+    enabled: true,
+    available: true,
+    pinned: false,
+    tier: "base",
+    paths: ["/projects"],
+  });
+
+  logger.info("内置模块注册完成", { count: 7 });
 }
 
 // ─── 模块元信息（归一化入口：icon + label + workspaceType 唯一来源）───
@@ -95,6 +107,7 @@ const MODULE_EMOJI_META: Record<
   { emoji: string; label: string; workspaceType: string }
 > = {
   chat: { emoji: "💬", label: "对话", workspaceType: "chat" },
+  project: { emoji: "📁", label: "项目", workspaceType: "chat" },
   media: { emoji: "🎨", label: "媒体", workspaceType: "module" },
   office: { emoji: "📄", label: "办公", workspaceType: "module" },
   calendar: { emoji: "📅", label: "日历", workspaceType: "module" },

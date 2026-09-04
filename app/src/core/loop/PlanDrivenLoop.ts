@@ -197,6 +197,9 @@ export class PlanDrivenLoop {
     this.stepResults = [];
     this.totalTokens = 0;
     this.aborted = false;
+    // B2（2026-09-04）：每次 run 前 reset——TAORLoop 实例可能跨消息/跨 step 复用，
+    // 不 reset 则上一轮 stopped/turnCount/守卫残留会导致本轮 reason 早退（空转/无输出）
+    this.taorLoop.reset();
 
     try {
       span.addEvent('planDrivenLoop.entry', {
@@ -397,6 +400,9 @@ export class PlanDrivenLoop {
       this._notifyProgress();
 
       try {
+        // B2（2026-09-04）：每 step 独立上下文——重置 run 级状态再注入本 step prompt，
+        // 避免上一步工具轨迹/stopped 状态污染下一步（PDL 步骤间本就不共享结论）
+        this.taorLoop.reset();
         const stepPrompt = this._buildStepPrompt(task, subtasks, i);
         // B1（2026-09-04）：同 _executeDirect——传 messages+deps 真实执行工具
         const result = await this._runCollect(stepPrompt);

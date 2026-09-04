@@ -27,6 +27,8 @@ import { ProjectDeliverablesPanel } from "@/components/project/ProjectDeliverabl
 import { ProjectHistoryPanel } from "@/components/project/ProjectHistoryPanel";
 import PlansPanel from "./PlansPanel";
 import PdcaPipeline from "../Agent/PdcaPipeline";
+import OrchestrationLivePanel from "../Agent/OrchestrationLivePanel";
+import { useOrchestrationStore } from "@/stores/orchestrationStore";
 import { pdcaService } from "../../services/planService";
 import type { PdcaStatus } from "../../services/planService";
 import {
@@ -330,6 +332,24 @@ export default function ProjectsPage() {
           if (cancelled) return;
           setPdcaTasks(tasks);
           setPdcaError(null);
+          // OBS（M3b-UI）：REST 列表作为状态快照 seed 到实时通道 store（断线重连补缺口）
+          useOrchestrationStore.getState().replay(
+            tasks
+              .filter((t) => t.taskId)
+              .map((t) => ({
+                schemaVersion: 1,
+                type: "pdca:stage:phase",
+                time: Date.now(),
+                taskId: t.taskId,
+                planId: t.planId,
+                projectId: t.projectId,
+                data: {
+                  stage: t.phase,
+                  status: t.phase,
+                  percent: t.progress?.percent,
+                },
+              }))
+          );
         })
         .catch((e) => {
           if (cancelled) return;
@@ -1186,6 +1206,8 @@ export default function ProjectsPage() {
                   <div className="px-3 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     PDCA 任务 ({pdcaTasks.length})
                   </div>
+                  {/* OBS（M3b-UI）：独立通道实时面板 */}
+                  <OrchestrationLivePanel />
                   {/* 活跃任务：行级四阶段步进（1-5 P2） */}
                   {activePdcaTasks.length > 0 && (
                     <div className="max-h-40 overflow-y-auto">

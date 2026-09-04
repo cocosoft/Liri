@@ -27,6 +27,7 @@ import {
 } from '@modules/ai/router/TaskDecomposer.js';
 import type { DecompositionResult } from '@modules/ai/router/TaskDecomposer.js';
 import { taskOrchestrator } from '../../tasks/TaskOrchestrator.js';
+import { emitPdcaLiveEvent } from '../../tasks/PdcaLiveEvents.js';
 import { goalMetricsService } from '@modules/tasks';
 import type { Plan, PlanProgress } from '../../tasks/TaskOrchestrator.js';
 import type { AIProvider } from '@modules/ai/providers/AIProvider.js';
@@ -200,6 +201,12 @@ export class PlanDrivenLoop {
     // B2（2026-09-04）：每次 run 前 reset——TAORLoop 实例可能跨消息/跨 step 复用，
     // 不 reset 则上一轮 stopped/turnCount/守卫残留会导致本轮 reason 早退（空转/无输出）
     this.taorLoop.reset();
+    // OBS（M1a）：独立事件通道 stage:start
+    void emitPdcaLiveEvent(
+      'pdca:stage:start',
+      { sessionId: this.sessionId },
+      { stage: 'plan', status: 'started' }
+    );
 
     try {
       span.addEvent('planDrivenLoop.entry', {
@@ -329,6 +336,25 @@ export class PlanDrivenLoop {
     // 用空壳 deps（executeTools 返回 []）覆盖注入，导致快速路径"空转无工具"。
     const result = await this._runCollect(userMessage);
     this.totalTokens += result.totalTokens;
+    // OBS（M1a）：direct 完成 → phase + complete（独立通道，非会话消息）
+    void emitPdcaLiveEvent(
+      'pdca:stage:phase',
+      { sessionId: this.sessionId, planId: this.plan?.id },
+      {
+        stage: 'execute',
+        status: 'completed',
+        percent: 100,
+        completedSteps: 1,
+        totalSteps: 1,
+        tokenCost: result.totalTokens,
+        durationMs: Date.now() - this.startTime,
+      }
+    );
+    void emitPdcaLiveEvent(
+      'pdca:stage:complete',
+      { sessionId: this.sessionId, planId: this.plan?.id },
+      { stage: 'execute', status: 'completed', message: '直接执行完成' }
+    );
     return this._buildResult(false, [
       {
         stepId: 'direct',
@@ -439,6 +465,23 @@ export class PlanDrivenLoop {
           tokenCount: result.totalTokens,
         });
 
+        // OBS（M1a）：步骤级 phase（独立通道）
+        void emitPdcaLiveEvent(
+          'pdca:stage:phase',
+          { sessionId: this.sessionId, planId: this.plan?.id },
+          {
+            stage: 'execute',
+            status: 'completed',
+            stepId,
+            percent: Math.round(((i + 1) / subtasks.length) * 100),
+            completedSteps: i + 1,
+            totalSteps: subtasks.length,
+            currentStep: task.description.slice(0, 80),
+            tokenCost: result.totalTokens,
+            durationMs: duration,
+          }
+        );
+
         // P2（08-09）：SSE 推送步骤完成
         this._broadcastStepProgress(
           stepId,
@@ -470,6 +513,18 @@ export class PlanDrivenLoop {
             turnCount: 0,
             tokenCount: 0,
           });
+
+          // OBS（M1a）：步骤失败 phase（独立通道）
+          void emitPdcaLiveEvent(
+            'pdca:stage:phase',
+            { sessionId: this.sessionId, planId: this.plan?.id },
+            {
+              stage: 'execute',
+              status: 'failed',
+              stepId,
+              message: String(err).slice(0, 200),
+            }
+          );
 
           // P2（08-09）：SSE 推送步骤失败
           this._broadcastStepProgress(
@@ -507,6 +562,33 @@ export class PlanDrivenLoop {
           : null,
       });
     }
+
+    // OBS（M1a）：分解链完成 → complete（独立通道；会话摘要落盘由 M2 负责）
+    const completedSteps = this.stepResults.filter(
+      (r) => r.state === 'completed'
+    ).length;
+    const failedSteps = this.stepResults.filter(
+      (r) => r.state === 'failed'
+    ).length;
+    void emitPdcaLiveEvent(
+      'pdca:stage:complete',
+      { sessionId: this.sessionId, planId: this.plan?.id },
+      {
+        stage: 'execute',
+        status: this.aborted ? 'cancelled' : 'completed',
+        completedSteps,
+        totalSteps: subtasks.length,
+        failedSteps,
+        tokenCost: this.totalTokens,
+        durationMs: Date.now() - this.startTime,
+        message:
+          failedSteps > 0
+            ? `完成但 ${failedSteps} 步失败`
+            : this.aborted
+              ? '已中止'
+              : '全部步骤完成',
+      }
+    );
 
     return this._buildResult(true, this.stepResults);
   }

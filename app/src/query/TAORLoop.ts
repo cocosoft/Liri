@@ -322,6 +322,8 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
   private _promptFallbackWarned: boolean = false;
   /** A1（2026-09-04）：上次入账的 token 估算基线——只按增量入账，compact 后回落 */
   private _lastBudgetedTokens: number = 0;
+  /** A6（2026-09-04）：进行中的检查点落盘 Promise（finalize 同步触发，宿主退出可 await） */
+  private _pendingCheckpointFlush: Promise<void> | null = null;
   /** 上一轮工具执行是否有错误/空结果 — 用于防止静默完成 */
   private _lastRoundHadToolErrors: boolean = false;
   /** 本次 run 的工具执行统计（方案 C：修正 RunLogger 硬编码全 0 的假数据） */
@@ -1413,11 +1415,10 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
       durationMs: totalDuration,
     });
 
-    // Durable Resume: 非正常完成时自动保存检查点（骨架 finalize 为同步，fire-and-forget）
+    // Durable Resume: 非正常完成时落盘检查点（A6：登记进行中落盘 Promise——
+    // finalize 为同步基类方法不能 await；由宿主退出 flushCheckpoint 补 await/补录）
     if (this.taorConfig.enableCheckpoint && this.stopReason !== 'completed') {
-      void this.saveCheckpoint('before_abort').catch(() => {
-        // 检查点保存失败不阻塞主流程（非关键路径）
-      });
+      void this._queueCheckpointFlush();
     }
 
     return {
@@ -1800,6 +1801,47 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
       this.stopped = true;
       logger.info('TAOR loop aborted', { turns: this.turnCount });
     }
+  }
+
+  /**
+   * A6（2026-09-04）：≤3s 超时保护的检查点落盘（失败 warn，不抛）
+   * 超时后不阻塞调用方；底层写入仍在进行（幂等场景可再次 flush）
+   */
+  private async _saveCheckpointGuarded(): Promise<void> {
+    if (!(this.taorConfig.enableCheckpoint && this.turnCount > 0)) return;
+    try {
+      await Promise.race([
+        this.saveCheckpoint('before_abort'),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('checkpoint 落盘超时（>3s）')), 3000)
+        ),
+      ]);
+    } catch (error) {
+      logger.warn('checkpoint 落盘失败或超时（不阻断）', {
+        sessionId: this.taorConfig.sessionId,
+        turns: this.turnCount,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  /** 登记一次进行中的检查点落盘（finalize 同步路径使用） */
+  private _queueCheckpointFlush(): Promise<void> {
+    const p = this._saveCheckpointGuarded();
+    this._pendingCheckpointFlush = p;
+    return p;
+  }
+
+  /**
+   * 宿主退出兜底（A6，2026-09-04）：先 await 进行中的落盘，再补录一次确保最终态。
+   * TAORLoop 是库代码，不自行注册 SIGINT/SIGTERM/exit——由宿主
+   * （ChatManager 退出钩子链）调用本方法。幂等；无进行中 run 则无操作。
+   */
+  async flushCheckpoint(): Promise<void> {
+    const pending = this._pendingCheckpointFlush;
+    this._pendingCheckpointFlush = null;
+    if (pending) await pending;
+    await this._saveCheckpointGuarded();
   }
 
   /**

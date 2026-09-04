@@ -770,6 +770,12 @@ export class ChatManagerImpl implements ChatManager {
     // 缓冲正文再退出，避免 torn-tail / open-turn（证据：mtjkl/mtjdmjpo torn + 105 次启动）。
     // 注册幂等（模块级数组，重复构造仅多一条 no-op 闭包）。
     registerEventBufferFlusher(() => this.flushAllPendingEventBuffers());
+    // A6（2026-09-04）：退出前 flush 各会话 TAORLoop 未落盘 checkpoint（库不碰全局信号，
+    // 宿主钩子链统一调用——main 信号链 → flushAllEventBuffers → 本闭包）
+    registerEventBufferFlusher(async () => {
+      await this.flushAllCheckpoints();
+      return 0;
+    });
     // 内存水位订阅（2026-09-02）：L0+ 触发时先落盘全部会话缓冲（脏页写回，
     // OS kswapd 式"压力前先写回"）；订阅在构造期幂等注册一次
     getMemoryPressureMonitor().subscribe((level) => {
@@ -1696,6 +1702,21 @@ export class ChatManagerImpl implements ChatManager {
       }
     }
     return flushed;
+  }
+
+  /**
+   * A6（2026-09-04）：退出兜底——flush 各会话 TAORLoop 未落盘 checkpoint。
+   * 库代码不注册全局信号；由 main 信号链经 flushAllEventBuffers 到达本方法。
+   * 逐条容错（幂等；无进行中 run 无操作）。
+   */
+  async flushAllCheckpoints(): Promise<void> {
+    await Promise.all(
+      [...this._taorLoops.values()].map((loop) =>
+        loop.flushCheckpoint().catch(() => {
+          // @ignore-catch — 单会话 checkpoint flush 失败不阻断退出链（CS03）
+        })
+      )
+    );
   }
 
   /** 首次使用前的 eventLog 就绪（懒建 + 旧数据迁移；appendStreamEvent 同款逻辑收敛复用） */

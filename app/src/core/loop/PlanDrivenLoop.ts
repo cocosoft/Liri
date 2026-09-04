@@ -20,6 +20,7 @@ import { handleError } from '@modules/error/handleError.js';
 import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
 import { TAORLoop } from '@modules/query/TAORLoop.js';
 import type { TAORLoopDeps } from '@modules/query/TAORLoop.js';
+import type { ChatMessage } from '@modules/ai';
 import {
   TaskDecomposer,
   MAX_SUBTASKS,
@@ -305,11 +306,25 @@ export class PlanDrivenLoop {
 
   // ─── 私有方法 ─────────────────────────────────────────
 
+  /**
+   * B1（2026-09-04）：统一以 messages+deps 驱动 TAORLoop。
+   * 此前 runCollect({prompt}) 走 TAORLoop 的 prompt 兜底分支——空壳 deps
+   * （executeTools 返回 []）覆盖构造注入，快速路径步骤"空转不执行工具"。
+   */
+  private _runCollect(prompt: string) {
+    return this.taorLoop.runCollect({
+      messages: [{ role: 'user', content: prompt }] as ChatMessage[],
+      deps: this.deps,
+    });
+  }
+
   /** 直接执行（不分解） */
   private async _executeDirect(
     userMessage: string
   ): Promise<PlanDrivenLoopResult> {
-    const result = await this.taorLoop.runCollect({ prompt: userMessage });
+    // B1（2026-09-04）：传 messages+deps 而非 prompt——prompt 路径会让 TAORLoop
+    // 用空壳 deps（executeTools 返回 []）覆盖注入，导致快速路径"空转无工具"。
+    const result = await this._runCollect(userMessage);
     this.totalTokens += result.totalTokens;
     return this._buildResult(false, [
       {
@@ -383,7 +398,8 @@ export class PlanDrivenLoop {
 
       try {
         const stepPrompt = this._buildStepPrompt(task, subtasks, i);
-        const result = await this.taorLoop.runCollect({ prompt: stepPrompt });
+        // B1（2026-09-04）：同 _executeDirect——传 messages+deps 真实执行工具
+        const result = await this._runCollect(stepPrompt);
         const duration = Date.now() - stepStart;
 
         // S2 修复（2026-08-23）：中止后 runCollect 返回 aborted 结果——步骤已由

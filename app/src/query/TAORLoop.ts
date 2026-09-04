@@ -318,6 +318,8 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
   private startTime: number = 0;
   private stopped: boolean = false;
   private stopReason: StopHookReason = 'completed';
+  /** B1（2026-09-04）：prompt 兜底路径（空壳 deps）告警已输出标志（每 run 一次） */
+  private _promptFallbackWarned: boolean = false;
   /** 上一轮工具执行是否有错误/空结果 — 用于防止静默完成 */
   private _lastRoundHadToolErrors: boolean = false;
   /** 本次 run 的工具执行统计（方案 C：修正 RunLogger 硬编码全 0 的假数据） */
@@ -593,6 +595,7 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
       this.startTime = Date.now();
       this.stopped = false;
       this.stopReason = 'completed';
+      this._promptFallbackWarned = false;
       this.runId = RunLogger.generateRunId(this.taorConfig.sessionId);
       void this.runLogger.recordTrace({
         type: 'loop',
@@ -624,6 +627,14 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
       this.messages = input.messages;
       this.deps = input.deps;
     } else if (input.prompt) {
+      // B1（2026-09-04）：prompt 兜底路径使用空壳 deps（工具无法真实执行）——
+      // 正常调用方应传 messages+deps；残留调用点一次性告警便于发现空转
+      if (!this._promptFallbackWarned) {
+        this._promptFallbackWarned = true;
+        logger.warn('TAOR reason: 走 prompt 兜底路径（空壳 deps）——调用方应改传 messages+deps', {
+          sessionId: this.taorConfig.sessionId,
+        });
+      }
       this.messages = [{ role: 'user', content: input.prompt }];
       this.deps = createTAORLoopDeps({
         callModel: async function* () {

@@ -3,6 +3,7 @@ import { useSessionStore } from "../stores/sessionStore";
 import { useBackendStore } from "../stores/backendStore";
 import { useConfigStore } from "../stores/configStore";
 import { useRootStore } from "../stores/root-store";
+import { initOrchestrationStore } from "../stores/orchestrationStore";
 import { sseService } from "../services/sseService";
 import { appConfigService } from "../services/appConfigService";
 import { migrateLegacyData } from "../services/projectArtifactService";
@@ -221,6 +222,8 @@ export function useInitApp() {
         sseService.on("session:cleared", refreshSessions);
         // P0b-3: AI 自动建项目时，前端同步创建 worktree
         sseService.on("project:auto_created", onProjectAutoCreated);
+        // OBS（M1b）：PDCA 独立事件通道订阅（幂等；任意页面可实时可见任务进度）
+        initOrchestrationStore();
         // M1 修复（2026-08-13）：接线 SSE 断开轮询兜底——sseService.setPollHandler
         // 此前从未被调用（死代码），SSE 断开时无任何轮询兜底，只能干等重连。
         // 断开期间每 15s 轮询一次会话列表，保证会话变更在重连前可见。

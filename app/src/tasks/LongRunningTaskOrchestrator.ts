@@ -21,6 +21,7 @@ import { join } from 'path';
 import { resolveDataDir, resolveDbPath } from '@modules/core/paths';
 import { trackUsage } from '@modules/ai';
 import { taskOrchestrator } from './TaskOrchestrator';
+import { emitPdcaLiveEvent } from './PdcaLiveEvents';
 import type { Plan, PlanStep, PlanProgress } from './TaskOrchestrator';
 import { TaskStatus } from './types';
 import {
@@ -1080,6 +1081,25 @@ ${replanSection}
           persistedMsgCount: persistedMessages.length,
           taorResult: log,
         });
+        // OBS（M1b）：经典链步骤完成 → pdca:stage:phase（独立通道，非会话消息）
+        void emitPdcaLiveEvent(
+          'pdca:stage:phase',
+          {
+            taskId: this.taskId,
+            planId: this.planId ?? undefined,
+            sessionId: this._sessionId ?? '',
+          },
+          {
+            stage: 'execute',
+            status: 'completed',
+            stepId: step.id,
+            completedSteps: this.stepDurations.size,
+            totalSteps: plan.steps.length,
+            tokenCost: result.totalTokens,
+            durationMs: taorElapsed,
+            currentStep: step.description.slice(0, 80),
+          }
+        );
         // §5 P1: 消费死缓冲 — step 完成后批量回写（此前 persistedMessages 只 push 从未消费）
         if (persistedMessages.length > 0) {
           this._emitTaskMessage(
@@ -1898,6 +1918,21 @@ ${replanSection}
       planId: this.planId,
       status: _finalStatus.phase,
     });
+    // OBS（M1b）：经典链终态 → pdca:stage:complete（独立通道，非会话消息）
+    void emitPdcaLiveEvent(
+      'pdca:stage:complete',
+      {
+        taskId: this.taskId,
+        planId: this.planId ?? undefined,
+        sessionId: this._sessionId ?? '',
+      },
+      {
+        stage: 'execute',
+        status: 'completed',
+        tokenCost: this._totalTokensTracked,
+        message: 'PDCA 完成',
+      }
+    );
 
     return _finalStatus;
   }

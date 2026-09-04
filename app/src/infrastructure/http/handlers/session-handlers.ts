@@ -36,6 +36,34 @@ import {
 
 const logger = getLogger('infra:http:session-handlers');
 
+/**
+ * 阶段一（2026-09-04）：项目会话判定收敛 helper。
+ * 事实面收敛到 `metadata.projectId`；moduleType==='project' 或 legacy
+ * `workspaceId` 前缀 `project-` 兜底（兼容期双读；后续存量 backfill 后仅剩 projectId）。
+ */
+function legacyProjectModuleType(
+  md: Record<string, unknown> | undefined
+): string | undefined {
+  if (md?.moduleType) return md.moduleType as string;
+  const ws = md?.workspaceId;
+  if (typeof ws === 'string' && /^project-/.test(ws)) return 'project';
+  return undefined;
+}
+
+/** 会话关联的 projectId（metadata.projectId 优先，legacy workspaceId `project-` 前缀兜底） */
+function effectiveProjectId(
+  md: Record<string, unknown> | undefined
+): string | undefined {
+  const pid = md?.projectId;
+  if (typeof pid === 'string' && pid) return pid;
+  const ws = md?.workspaceId;
+  if (typeof ws === 'string') {
+    const m = /^project-(.+)$/.exec(ws);
+    if (m) return m[1];
+  }
+  return undefined;
+}
+
 // ========== Session Handlers ==========
 
 export async function handleListSessions(
@@ -62,9 +90,18 @@ export async function handleListSessions(
       if (moduleType || projectId) {
         full = full.filter((s) => {
           const md = s.metadata as Record<string, unknown> | undefined;
-          if (moduleType && (md?.moduleType || 'chat') !== moduleType)
+          // 阶段一（2026-09-04）：moduleType/projectId 判定收敛——
+          // metadata.projectId 优先；moduleType==='project' 或 legacy
+          // workspaceId 前缀 `project-` 兜底（兼容期双读，见 v3 方案 §四 4.2.3）
+          if (
+            moduleType &&
+            (md?.moduleType || legacyProjectModuleType(md)) !== moduleType
+          )
             return false;
-          if (projectId && (md?.projectId as string | undefined) !== projectId)
+          if (
+            projectId &&
+            effectiveProjectId(md) !== projectId
+          )
             return false;
           return true;
         });

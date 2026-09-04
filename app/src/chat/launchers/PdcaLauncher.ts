@@ -175,28 +175,28 @@ export class PdcaLauncher {
             },
           });
           const message = userMessage || description;
-          void planLoop
-            .run(message)
-            .then((result: PlanDrivenLoopResult) => {
-              logger.info('PlanDrivenLoop 执行完成', {
-                sessionId,
-                decomposed: result.decomposed,
-                stepCount: result.stepCount,
-                completedSteps: result.completedSteps,
-                failedSteps: result.failedSteps,
-                totalDurationMs: result.totalDurationMs,
-              });
-            })
-            .catch((e) => {
-              handleError(e, {
-                module: 'chat:manager',
-                action: 'planDrivenLoop_execute',
-                context: { sessionId },
-              });
-            })
-            .finally(() => {
-              unregisterPlanLoop(sessionId, planLoop);
+          // 4.0-1（2026-09-04）：await 到执行完成——原 `void planLoop.run()` 后立即
+          // return，ChatManager 的 launch 锁在"启动"即释放，执行期（分钟级）可被
+          // 下一条命中 hasGoal 的消息再次 launch（重复任务卡片）。改为完成后才 resolve。
+          try {
+            const result = await planLoop.run(message);
+            logger.info('PlanDrivenLoop 执行完成', {
+              sessionId,
+              decomposed: result.decomposed,
+              stepCount: result.stepCount,
+              completedSteps: result.completedSteps,
+              failedSteps: result.failedSteps,
+              totalDurationMs: result.totalDurationMs,
             });
+          } catch (e) {
+            handleError(e, {
+              module: 'chat:manager',
+              action: 'planDrivenLoop_execute',
+              context: { sessionId },
+            });
+          } finally {
+            unregisterPlanLoop(sessionId, planLoop);
+          }
           return;
         } catch (err) {
           handleError(err, {
@@ -302,7 +302,8 @@ export class PdcaLauncher {
           requirementId
         );
 
-        void stageOrch
+        // 4.0-1（2026-09-04）：await 到阶段链完成（同快速路径——锁覆盖整个执行期）
+        await stageOrch
           .run()
           .then((s) => {
             logger.info('StageOrchestrator 阶段链状态', {

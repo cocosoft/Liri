@@ -1257,24 +1257,28 @@ export class ChatManagerImpl implements ChatManager {
     // P1 修复（2026-08-15）：空正文消息告警；2026-08-20 升级为拦截（QQ 空响应事故）：
     // DeepSeek 对"历史含空 assistant 消息/连续多条 assistant"会直接返回空响应
     // （chunkCount=0, finishReason=stop）。若空 assistant 再落盘，污染逐轮累积，
-    // 形成恶性循环（每轮都空）。故空正文 + 无 toolCalls + 无 text 块的 assistant
-    // 消息直接拒绝持久化（含 tool_calls 的空 content 是合法 tool 轮次，仍允许）。
+    // 形成恶性循环（每轮都空）。故空正文 + 无 toolCalls/tool_call 块 + 无 text 块的
+    // assistant 消息直接拒绝持久化（含工具活动的空 content 是合法 tool 轮次，仍允许）。
+    // F3（2026-09-04）：放行条件从"顶层 tool_calls"扩到"blocks 含 tool_call"——
+    // 工具轮次助手消息若仅以 block 承载 toolCall（无顶层 tool_calls 字段）会被误拒。
     if (
       message.role === 'assistant' &&
       typeof message.content === 'string' &&
       message.content.trim() === '' &&
       !message.tool_calls?.length
     ) {
-      const hasTextBlock = (message.blocks ?? []).some(
-        (b) => (b as { type?: unknown }).type === 'text'
+      const blockTypes = (message.blocks ?? []).map(
+        (b) => (b as { type?: unknown }).type
       );
-      if (!hasTextBlock) {
+      const hasTextBlock = blockTypes.includes('text');
+      const hasToolCallBlock = blockTypes.includes('tool_call');
+      // 工具轮次快照（含 tool_call 块）放行——事件溯源按 messageId 聚合，拒绝会造成
+      // 中断/崩溃场景的孤立 assistant/tool_call 事件；真正的"终态真空"仍拦截。
+      if (!hasTextBlock && !hasToolCallBlock) {
         logger.warn('chat:空正文助手消息拒绝持久化（防历史污染）', {
           sessionId,
           messageId: message.id,
-          blockTypes: (message.blocks ?? [])
-            .map((b) => (b as { type?: unknown }).type)
-            .filter(Boolean),
+          blockTypes: blockTypes.filter(Boolean),
         });
         return;
       }

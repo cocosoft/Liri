@@ -1313,8 +1313,13 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
         await this.queryEngine.compactIfNeeded(this.taorConfig.sessionId);
       }
     }
+    // A7（2026-09-04）：breaker 只统计硬失败（工具错误轮），success 语义修正——
+    // 原 `!stopped || stopReason==='completed'` 在 observe 时 stopped 几乎恒 false → success 恒 true，
+    // 熔断器永远统计不到失败。无进展/疲劳不进 breaker（LoopDetector/收益递减已有专门机制）。
+    const hardFailureThisRound = this._lastRoundHadToolErrors;
     this.circuitBreaker.recordTurn({
-      success: !this.stopped || this.stopReason === 'completed',
+      success: !hardFailureThisRound,
+      error: hardFailureThisRound ? 'tool_error' : undefined,
       turnCount: this.turnCount,
       tokenUsage: currentBudgetState.currentTokens,
       maxTokens: currentBudgetState.maxTokens,

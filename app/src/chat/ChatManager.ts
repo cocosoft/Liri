@@ -3719,8 +3719,9 @@ export class ChatManagerImpl implements ChatManager {
                   'pdca:decision',
                   {
                     sessionId: session.id,
-                    projectId:
-                      session.metadata?.projectId as string | undefined,
+                    projectId: session.metadata?.projectId as
+                      | string
+                      | undefined,
                   },
                   {
                     decision: usePlanDriven ? 'pdl' : 'stage-chain',

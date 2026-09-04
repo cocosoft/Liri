@@ -1888,8 +1888,12 @@ export async function* runStreamMessage(
                       name: t.name,
                       status: t.status,
                       dependsOn: t.dependsOn,
-                      result: t.result,
-                      durationMs: t.durationMs,
+                      // F2（2026-09-04）：result/durationMs 可选，undefined 键触发
+                      // D1 无损 JSON 校验拒绝（invalid-event）→ 省略而非带 undefined
+                      ...(t.result !== undefined ? { result: t.result } : {}),
+                      ...(t.durationMs !== undefined
+                        ? { durationMs: t.durationMs }
+                        : {}),
                     })),
                   },
                 },

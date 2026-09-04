@@ -631,9 +631,12 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
       // 正常调用方应传 messages+deps；残留调用点一次性告警便于发现空转
       if (!this._promptFallbackWarned) {
         this._promptFallbackWarned = true;
-        logger.warn('TAOR reason: 走 prompt 兜底路径（空壳 deps）——调用方应改传 messages+deps', {
-          sessionId: this.taorConfig.sessionId,
-        });
+        logger.warn(
+          'TAOR reason: 走 prompt 兜底路径（空壳 deps）——调用方应改传 messages+deps',
+          {
+            sessionId: this.taorConfig.sessionId,
+          }
+        );
       }
       this.messages = [{ role: 'user', content: input.prompt }];
       this.deps = createTAORLoopDeps({
@@ -1759,19 +1762,28 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
    * 中止循环，在中止前保存检查点
    */
   override async abort(saveCheckpoint: boolean = true): Promise<void> {
-    // 在中止前保存检查点
-    if (
-      saveCheckpoint &&
-      this.taorConfig.enableCheckpoint &&
-      this.turnCount > 0
-    ) {
-      await this.saveCheckpoint('before_abort');
+    // A4（2026-09-04）：try-finally 保证中止必然执行——
+    // saveCheckpoint 抛错不再阻断 abort（原实现 abort 可能永不执行，循环无法中止）
+    try {
+      if (
+        saveCheckpoint &&
+        this.taorConfig.enableCheckpoint &&
+        this.turnCount > 0
+      ) {
+        await this.saveCheckpoint('before_abort');
+      }
+    } catch (error) {
+      logger.warn('TAOR abort: saveCheckpoint 失败，继续中止', {
+        sessionId: this.taorConfig.sessionId,
+        turns: this.turnCount,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      this.abortController.abort();
+      this.stopReason = 'aborted';
+      this.stopped = true;
+      logger.info('TAOR loop aborted', { turns: this.turnCount });
     }
-
-    this.abortController.abort();
-    this.stopReason = 'aborted';
-    this.stopped = true;
-    logger.info('TAOR loop aborted', { turns: this.turnCount });
   }
 
   /**

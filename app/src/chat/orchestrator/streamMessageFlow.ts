@@ -1805,11 +1805,56 @@ export async function* runStreamMessage(
 
         // M1c：骨架事件流 → ChatStreamChunk（转换层）+ 心跳聚合 + todo chunk
         let heartbeatAt = 0;
-        for await (const event of loop.run({
+        // F4（2026-09-04）：工具轮 LLM/工具执行静默 >5s（无事件产出，如长 TTFB）
+        // 时由 keepalive 心跳保持 SSE 活性 + 进度可见，防前端"无字节超时"误断
+        const HB_MS = 5000;
+        const MAX_HEARTBEAT_STEPS = 30;
+        const HB_TOKEN = Symbol('hb');
+        const runIter = loop.run({
           apiMessages,
           currentToolCalls,
           assistantMessage,
-        })) {
+        })[Symbol.asyncIterator]();
+        let lastEventAt = Date.now();
+        while (true) {
+          const nextEvent = runIter.next();
+          const delayMs = Math.max(0, HB_MS - (Date.now() - lastEventAt));
+          let hbHandle: ReturnType<typeof setTimeout> | undefined;
+          const hbTimer = new Promise<typeof HB_TOKEN>((resolve) => {
+            hbHandle = setTimeout(() => resolve(HB_TOKEN), delayMs);
+          });
+          const raced = await Promise.race([nextEvent, hbTimer]);
+          if (raced === HB_TOKEN) {
+            const hb = loop.getHeartbeatData();
+            const fullSteps = (hb?.completedToolNames ?? []).map((name) => ({
+              name,
+              status: 'done' as const,
+            }));
+            const truncated = fullSteps.length > MAX_HEARTBEAT_STEPS;
+            yield {
+              type: 'execution_phase',
+              content: '正在处理，请稍候...',
+              sessionId: session.id,
+              executionPhase: {
+                phase: 'implementing' as const,
+                progress: hb?.totalCompletedToolCount ?? 0,
+                description: '任务执行中，正在等待模型/工具响应...',
+                steps: truncated
+                  ? fullSteps.slice(-MAX_HEARTBEAT_STEPS)
+                  : fullSteps,
+                totalSteps: fullSteps.length,
+                truncated,
+                currentStep: '',
+              },
+            } as ChatStreamChunk;
+            lastEventAt = Date.now();
+            continue;
+          }
+          if (hbHandle) clearTimeout(hbHandle);
+          const { value: event, done } =
+            raced as Awaited<ReturnType<typeof runIter.next>>;
+          lastEventAt = Date.now();
+          if (done) break;
           // T1.2 诊断（2026-08-23，[DUP: 前缀）：记录工具事件产出，观察同 callId 是否重复。
           // 根因背景：SSE 层 tool_start/tool_end 序列被重复发送（前端收到 2 遍），
           // 但 events 层（appendStreamEvent）唯一——两条路径独立，此处日志定位产出侧。
@@ -1923,7 +1968,6 @@ export async function* runStreamMessage(
                   : undefined;
               // 5. steps 截断：仅保留最近 MAX_HEARTBEAT_STEPS 条，避免长任务心跳体积线性增长
               //   （对齐旧类 ToolLoopRunner._buildExecutionSteps；totalSteps 保留真实计数）
-              const MAX_HEARTBEAT_STEPS = 30;
               const fullSteps = hb.completedToolNames.map((name) => ({
                 name,
                 status: 'done' as const,

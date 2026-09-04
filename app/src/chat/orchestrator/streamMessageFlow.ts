@@ -1810,11 +1810,13 @@ export async function* runStreamMessage(
         const HB_MS = 5000;
         const MAX_HEARTBEAT_STEPS = 30;
         const HB_TOKEN = Symbol('hb');
-        const runIter = loop.run({
-          apiMessages,
-          currentToolCalls,
-          assistantMessage,
-        })[Symbol.asyncIterator]();
+        const runIter = loop
+          .run({
+            apiMessages,
+            currentToolCalls,
+            assistantMessage,
+          })
+          [Symbol.asyncIterator]();
         let lastEventAt = Date.now();
         while (true) {
           const nextEvent = runIter.next();
@@ -1851,8 +1853,9 @@ export async function* runStreamMessage(
             continue;
           }
           if (hbHandle) clearTimeout(hbHandle);
-          const { value: event, done } =
-            raced as Awaited<ReturnType<typeof runIter.next>>;
+          const { value: event, done } = raced as Awaited<
+            ReturnType<typeof runIter.next>
+          >;
           lastEventAt = Date.now();
           if (done) break;
           // T1.2 诊断（2026-08-23，[DUP: 前缀）：记录工具事件产出，观察同 callId 是否重复。

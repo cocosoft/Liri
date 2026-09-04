@@ -1813,7 +1813,10 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
       await Promise.race([
         this.saveCheckpoint('before_abort'),
         new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('checkpoint 落盘超时（>3s）')), 3000)
+          setTimeout(
+            () => reject(new Error('checkpoint 落盘超时（>3s）')),
+            3000
+          )
         ),
       ]);
     } catch (error) {

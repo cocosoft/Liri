@@ -49,7 +49,7 @@ export class GrepTool extends BaseTool {
     {
       name: 'searchPath',
       type: 'string',
-      description: '搜索的根目录路径，默认为当前工作目录',
+      description: '搜索的根目录路径（兼容别名 path），默认为当前工作目录',
       required: false,
       default: '.',
       example: './src',

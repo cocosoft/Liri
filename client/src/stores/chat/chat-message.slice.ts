@@ -242,7 +242,16 @@ export const createMessageSlice: StateCreator<
     },
 
     clearMessages: () => {
-      set({ messages: [], error: null, errorCode: null });
+      set({
+        messages: [],
+        error: null,
+        errorCode: null,
+        // 修复：消息清空时同步清空会话文件列表——setMessages 会从消息重建
+        // sessionFiles，但新建会话只走 clearMessages，不清会导致上一会话文件残留
+        sessionFiles: [],
+        previewFile: null,
+        pendingPreview: undefined,
+      });
     },
 
     // R-A 修复：清空当前会话需同步后端，否则切走再切回"消息复活"。

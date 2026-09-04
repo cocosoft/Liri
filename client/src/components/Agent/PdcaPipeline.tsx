@@ -2,6 +2,12 @@ import { useTranslation } from "react-i18next";
 import { useState, useEffect } from "react";
 import { httpLegacy as http } from "../../services/httpClient";
 import { handleClientError } from "../../utils/handleError";
+import {
+  pdcaService,
+  type PdcaStatus as PdcaServiceStatus,
+  type Plan as PlanServicePlan,
+  type PlanStep as PlanServiceStep,
+} from "../../services/planService";
 
 interface ReviewIssue {
   severity: string;
@@ -17,40 +23,21 @@ interface PlanReview {
   summary: string;
 }
 
-interface PlanStep {
-  id: string;
-  description: string;
-  status: string;
-  acceptanceCriteria?: string;
+/**
+ * 阶段一 4.2-4：详情模型收敛——基础字段复用 planService 单一契约，
+ * 仅扩展后端 /v1/pdca/:id 详情特有字段（reviewResult/decision/audit/currentStep）。
+ */
+type PlanStep = PlanServiceStep & {
   reviewResult?: PlanReview;
-  retryCount: number;
-  maxRetries: number;
   decision?: string;
-  result?: string;
-  error?: string;
-}
+};
 
-interface Plan {
-  id: string;
-  description: string;
+type Plan = Omit<PlanServicePlan, "steps"> & {
   steps: PlanStep[];
-  status: string;
-}
+};
 
-interface PdcaStatus {
-  taskId: string;
-  planId: string;
-  phase: string;
+interface PdcaDetail extends PdcaServiceStatus {
   plan?: Plan;
-  progress?: {
-    total: number;
-    pending: number;
-    running: number;
-    completed: number;
-    failed: number;
-    cancelled: number;
-    percent: number;
-  };
   currentStep?: PlanStep;
   audit?: {
     completedSteps: number;
@@ -60,8 +47,6 @@ interface PdcaStatus {
     totalRetries: number;
     summary: string;
   };
-  /** 1-5 P2：checkpoint 回退来源标记（无内存 orchestrator 时由后端补齐） */
-  source?: string;
 }
 
 interface PdcaPipelineProps {
@@ -108,28 +93,26 @@ const DECISION_TEXT: Record<string, string> = {
 };
 
 export default function PdcaPipeline({ taskId }: PdcaPipelineProps) {
-  const [status, setStatus] = useState<PdcaStatus | null>(null);
+  const [status, setStatus] = useState<PdcaDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [expandedStep, setExpandedStep] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const { t } = useTranslation();
 
+  // 阶段一 4.2-4：状态读取收敛到 pdcaService.getStatus（与任务列表共用同一后端
+  // 数据源与错误语义），不再裸调 /v1/pdca/:id 的第二份消费者。
   const load = async () => {
     setLoading(true);
     try {
-      const res = await http.get<PdcaStatus>(`/v1/pdca/${taskId}`);
-      if (typeof res === "object" && res !== null && "taskId" in res) {
-        setStatus(res as PdcaStatus);
+      const detail = await pdcaService.getStatus(taskId);
+      if (detail) {
+        setStatus(detail as PdcaDetail);
         setNotFound(false);
+      } else {
+        // 无关联 PDCA 任务（404）或请求失败 → 停止轮询（与原 404 语义一致）
+        setNotFound(true);
       }
-    } catch (e) {
-      handleClientError(e, {
-        module: "components:agent:PdcaPipeline",
-        action: "load",
-      });
-      // 404/500 — 无 PDCA 任务关联，停止轮询
-      setNotFound(true);
     } finally {
       setLoading(false);
     }

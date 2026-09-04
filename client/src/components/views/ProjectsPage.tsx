@@ -333,9 +333,11 @@ export default function ProjectsPage() {
           setPdcaTasks(tasks);
           setPdcaError(null);
           // OBS（M3b-UI）：REST 列表作为状态快照 seed 到实时通道 store（断线重连补缺口）
+          // 4.2-4：仅回放活跃（非终态）任务——终态以 REST 历史分区为准，
+          // 避免每次 5s 轮询把已结束任务反复写进实时 store（latest 永不清理）。
           useOrchestrationStore.getState().replay(
             tasks
-              .filter((t) => t.taskId)
+              .filter((t) => t.taskId && !PDCA_TERMINAL_LABEL[t.phase])
               .map((t) => ({
                 schemaVersion: 1,
                 type: "pdca:stage:phase",
@@ -348,7 +350,7 @@ export default function ProjectsPage() {
                   status: t.phase,
                   percent: t.progress?.percent,
                 },
-              }))
+              })),
           );
         })
         .catch((e) => {
@@ -1206,8 +1208,10 @@ export default function ProjectsPage() {
                   <div className="px-3 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     PDCA 任务 ({pdcaTasks.length})
                   </div>
-                  {/* OBS（M3b-UI）：独立通道实时面板 */}
-                  <OrchestrationLivePanel />
+                  {/* OBS（M3b-UI）：独立通道实时面板（4.2-4：按当前项目上下文过滤） */}
+                  <OrchestrationLivePanel
+                    projectId={selectedProjectId ?? undefined}
+                  />
                   {/* 活跃任务：行级四阶段步进（1-5 P2） */}
                   {activePdcaTasks.length > 0 && (
                     <div className="max-h-40 overflow-y-auto">

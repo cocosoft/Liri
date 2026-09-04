@@ -25,9 +25,19 @@
  * 纯展示：订阅 orchestrationStore（pdca:* 独立通道），显示各任务最近状态
  * 与最近分流决策（为何走 PDL/阶段链）。REST 快照由调用方（pdca 列表加载）
  * 回放 seed，本面板专注实时增量。
+ *
+ * 阶段一 4.2-4：按会话上下文过滤——调用方传入 projectId/sessionId 后，
+ * 仅展示归属匹配的事件；事件未显式携带归属字段时保守保留（兼容缺失归属的旧事件）。
  */
 import { useOrchestrationStore } from "@/stores/orchestrationStore";
 import type { PdcaLiveEventPayload } from "@/stores/orchestrationStore";
+
+interface OrchestrationLivePanelProps {
+  /** 项目上下文（编排视图当前所在项目）；提供后仅展示该项目任务 */
+  projectId?: string;
+  /** 会话上下文（后续会话级编排视图上提用）；提供后仅展示该会话任务 */
+  sessionId?: string;
+}
 
 function fmtTime(ts: number): string {
   return new Date(ts).toLocaleTimeString("zh-CN", { hour12: false });
@@ -39,21 +49,29 @@ function describe(ev: PdcaLiveEventPayload): string {
   const status = (d.status as string) ?? ev.type.replace("pdca:stage:", "");
   const percent = typeof d.percent === "number" ? `${d.percent}%` : "";
   const msg =
-    (d.message as string) ??
-    (d.decision as string) ??
-    `${stage} ${status}`;
+    (d.message as string) ?? (d.decision as string) ?? `${stage} ${status}`;
   return [msg, percent].filter(Boolean).join(" · ");
 }
 
-export default function OrchestrationLivePanel() {
+export default function OrchestrationLivePanel({
+  projectId,
+  sessionId,
+}: OrchestrationLivePanelProps) {
   const latest = useOrchestrationStore((s) => s.latest);
   const timeline = useOrchestrationStore((s) => s.timeline);
 
+  // 4.2-4：上下文过滤——显式携带归属字段且不匹配 → 剔除；缺失归属 → 保守保留
+  const matchesScope = (ev: PdcaLiveEventPayload): boolean => {
+    if (projectId && ev.projectId && ev.projectId !== projectId) return false;
+    if (sessionId && ev.sessionId && ev.sessionId !== sessionId) return false;
+    return true;
+  };
+
   const entries = Object.values(latest).filter(
-    (ev) => ev.type !== "pdca:decision"
+    (ev) => ev.type !== "pdca:decision" && matchesScope(ev),
   );
   const decisions = timeline
-    .filter((ev) => ev.type === "pdca:decision")
+    .filter((ev) => ev.type === "pdca:decision" && matchesScope(ev))
     .slice(-3)
     .reverse();
 
@@ -65,7 +83,9 @@ export default function OrchestrationLivePanel() {
         实时编排 (通道)
       </div>
       {entries.length === 0 ? (
-        <div className="px-3 py-1.5 text-[11px] text-gray-400">暂无活动任务</div>
+        <div className="px-3 py-1.5 text-[11px] text-gray-400">
+          暂无活动任务
+        </div>
       ) : (
         entries.map((ev) => (
           <div

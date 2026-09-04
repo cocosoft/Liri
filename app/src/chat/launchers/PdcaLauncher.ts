@@ -175,11 +175,37 @@ export class PdcaLauncher {
             },
           });
           const message = userMessage || description;
-          // 4.0-1（2026-09-04）：await 到执行完成——原 `void planLoop.run()` 后立即
-          // return，ChatManager 的 launch 锁在"启动"即释放，执行期（分钟级）可被
-          // 下一条命中 hasGoal 的消息再次 launch（重复任务卡片）。改为完成后才 resolve。
+          // 4.0-2 N1（2026-09-04）：PDL 快速路径注册任务实体（checkpoint）——
+          // /v1/pdca/list 权威源=checkpoint 目录 + 内存 orchestrator；此前 PDL 无实体，
+          // 编排视图看不到快速路径运行。注册后单源可见（pdca:* 事件已双路发出）。
+          const { writePdcaCheckpoint } = await import(
+            '../../tasks/PdcaWorkItemBridge'
+          );
+          const startedAt = new Date().toISOString();
+          writePdcaCheckpoint(taskId, {
+            taskId,
+            phase: 'execute',
+            status: 'running',
+            sessionId,
+            projectId,
+            description: description.slice(0, 200),
+            startedAt,
+          });
           try {
             const result = await planLoop.run(message);
+            writePdcaCheckpoint(taskId, {
+              taskId,
+              phase: 'execute',
+              status: 'completed',
+              sessionId,
+              projectId,
+              description: description.slice(0, 200),
+              completedAt: new Date().toISOString(),
+              startedAt,
+              stepCount: result.stepCount,
+              completedSteps: result.completedSteps,
+              failedSteps: result.failedSteps,
+            });
             logger.info('PlanDrivenLoop 执行完成', {
               sessionId,
               decomposed: result.decomposed,
@@ -189,6 +215,16 @@ export class PdcaLauncher {
               totalDurationMs: result.totalDurationMs,
             });
           } catch (e) {
+            writePdcaCheckpoint(taskId, {
+              taskId,
+              phase: 'execute',
+              status: 'failed',
+              sessionId,
+              projectId,
+              description: description.slice(0, 200),
+              failedAt: new Date().toISOString(),
+              startedAt,
+            });
             handleError(e, {
               module: 'chat:manager',
               action: 'planDrivenLoop_execute',

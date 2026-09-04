@@ -3712,7 +3712,11 @@ export class ChatManagerImpl implements ChatManager {
             const decisionReasons = usePlanDriven
               ? ['simple', 'no-dangerous-tool']
               : ['complex-or-dangerous'];
-            // OBS（M3a）：分流决策 trace（动态 import 链式，避免在同步回调中 await）
+            // OBS（M3a/M3b-DB）：分流决策 trace（SSE 实时 + task_audit_log 持久化；
+            // 动态 import 链式，避免在同步回调中 await）
+            const decisionMsg = usePlanDriven
+              ? '简单任务走 PlanDrivenLoop 快速路径'
+              : '复杂/危险任务走经典 PDCA 阶段链';
             import('../tasks/PdcaLiveEvents')
               .then((m) =>
                 m.emitPdcaLiveEvent(
@@ -3726,10 +3730,24 @@ export class ChatManagerImpl implements ChatManager {
                   {
                     decision: usePlanDriven ? 'pdl' : 'stage-chain',
                     reasons: decisionReasons,
-                    message: usePlanDriven
-                      ? '简单任务走 PlanDrivenLoop 快速路径'
-                      : '复杂/危险任务走经典 PDCA 阶段链',
+                    message: decisionMsg,
                   }
+                )
+              )
+              .then(() =>
+                import('../tasks/db/SqliteTaskStore').then((mod) =>
+                  new mod.SqliteTaskStore().writeAuditLogWithDetail({
+                    taskId: `session:${session.id}`,
+                    eventType: 'pdca_decision',
+                    oldStatus: null,
+                    newStatus: usePlanDriven ? 'pdl' : 'stage-chain',
+                    detail: JSON.stringify({
+                      reasons: decisionReasons,
+                      message: decisionMsg,
+                      projectId: session.metadata?.projectId ?? null,
+                    }),
+                    timestamp: Date.now(),
+                  })
                 )
               )
               .catch(() => {

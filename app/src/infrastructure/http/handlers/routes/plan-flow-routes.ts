@@ -47,6 +47,7 @@ import {
   handlePdcaReviewStep,
   handlePdcaStart,
   handlePdcaStatus,
+  handlePdcaDecisionLog,
 } from '../pdca-handlers';
 import {
   handleKanbanCreate,
@@ -117,6 +118,11 @@ export async function dispatchPlanFlowRoutes(
   // ---- PDCA (长程任务编排) ----
   if (method === 'POST' && url === '/v1/pdca/start') {
     await handlePdcaStart(req, res);
+    return true;
+  }
+  // OBS（M3b-DB）：decision trace 查询端点——必须置于 /v1/pdca/:taskId 前
+  if (method === 'GET' && url === '/v1/pdca/decisions') {
+    await handlePdcaDecisionLog(req, res);
     return true;
   }
   if (method === 'GET' && url.match(/^\/v1\/pdca\/([^/]+)$/)) {

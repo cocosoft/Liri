@@ -788,6 +788,81 @@ export class SqliteTaskStore implements ITaskStore {
     });
   }
 
+  /**
+   * OBS（M3b-DB）：带 detail 的审计写入（detail 列已在 schema 中，原 writeAuditLog 未使用）
+   * 用于 pdca_decision 等需要携带 payload 的事件；失败静默（fire-and-forget 语义由调用方负责）。
+   */
+  async writeAuditLogWithDetail(entry: {
+    taskId: string;
+    eventType: string;
+    oldStatus: string | null;
+    newStatus: string;
+    detail?: string | null;
+    timestamp: number;
+  }): Promise<void> {
+    return this.withDb(async () => {
+      await new Promise<void>((resolve, reject) => {
+        this.db!.run(
+          `INSERT INTO ${TABLE_NAMES.TASK_AUDIT_LOG}
+           (task_id, event_type, old_status, new_status, detail, timestamp)
+           VALUES (?, ?, ?, ?, ?, ?)`,
+          [
+            entry.taskId,
+            entry.eventType,
+            entry.oldStatus,
+            entry.newStatus,
+            entry.detail ?? null,
+            entry.timestamp,
+          ],
+          (err) => {
+            if (err) reject(err);
+            else resolve();
+          }
+        );
+      });
+    });
+  }
+
+  /** OBS（M3b-DB）：按事件类型倒序查询审计（decision trace 查询端点用） */
+  async listAuditLogByEvent(
+    eventType: string,
+    limit = 100
+  ): Promise<
+    Array<{
+      taskId: string;
+      eventType: string;
+      oldStatus: string | null;
+      newStatus: string;
+      detail: string | null;
+      timestamp: number;
+    }>
+  > {
+    return this.withDb(async () => {
+      const rows = await new Promise<any[]>((resolve, reject) => {
+        this.db!.all(
+          `SELECT task_id, event_type, old_status, new_status, detail, timestamp
+           FROM ${TABLE_NAMES.TASK_AUDIT_LOG}
+           WHERE event_type = ?
+           ORDER BY timestamp DESC
+           LIMIT ?`,
+          [eventType, limit],
+          (err: Error | null, rows: any[]) => {
+            if (err) reject(err);
+            else resolve(rows || []);
+          }
+        );
+      });
+      return rows.map((r) => ({
+        taskId: r.task_id,
+        eventType: r.event_type,
+        oldStatus: r.old_status,
+        newStatus: r.new_status,
+        detail: r.detail,
+        timestamp: r.timestamp,
+      }));
+    });
+  }
+
   async queryAuditLogs(taskId: string): Promise<
     Array<{
       taskId: string;

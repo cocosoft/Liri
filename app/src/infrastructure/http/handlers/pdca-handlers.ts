@@ -42,6 +42,53 @@ import type { PdcaMetrics } from '@modules/tasks';
 
 const logger = getLogger('pdca:handlers');
 
+/**
+ * OBS（M3b-DB）：GET /v1/pdca/decisions?limit=N
+ * 查询 task_audit_log 中 event_type='pdca_decision' 的决策轨迹（分流归因）。
+ */
+export async function handlePdcaDecisionLog(
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const parsed = new URL(req.url ?? '', 'http://localhost');
+    const rawLimit = Number(parsed.searchParams.get('limit') ?? 100);
+    const limit = Number.isFinite(rawLimit)
+      ? Math.min(Math.max(Math.floor(rawLimit), 1), 500)
+      : 100;
+    const { SqliteTaskStore } = await import(
+      '../../../tasks/db/SqliteTaskStore'
+    );
+    const store = new SqliteTaskStore();
+    const rows = await store.listAuditLogByEvent('pdca_decision', limit);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(
+      JSON.stringify({
+        decisions: rows.map((r) => {
+          let parsedDetail: unknown = null;
+          try {
+            parsedDetail = r.detail ? JSON.parse(r.detail) : null;
+          } catch {
+            parsedDetail = r.detail;
+          }
+          return {
+            taskId: r.taskId,
+            choice: r.newStatus,
+            detail: parsedDetail,
+            timestamp: r.timestamp,
+          };
+        }),
+      })
+    );
+  } catch (e) {
+    await handleError(e, {
+      module: 'pdca:handlers',
+      action: 'decisionLog',
+    });
+    sendError(res, new Error('查询决策轨迹失败'), 500);
+  }
+}
+
 /** PDCA 检查点目录 */
 const PDCA_CHECKPOINT_DIR = join(resolveDataSubDir('pdca'));
 

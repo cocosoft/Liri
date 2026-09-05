@@ -119,45 +119,6 @@ export function listPdcaCheckpoints(): Array<Record<string, unknown>> {
 export const PDCA_TERMINAL_PHASES = new Set(['completed', 'failed', 'abort']);
 
 /**
- * 阶段一 4.2-5（2026-09-05）：删除/清空会话联动终态化——
- * 将该会话所有非终态 PDCA checkpoint 置为 abort/cancelled（防止孤儿 running 任务实体
- * 残留；会话已删除后 launch 侧写入点另有"会话存在"守卫，不会复活）。终态条目跳过，
- * 无 sessionId 归属的条目不动。
- * @returns 本次被置为终态的 checkpoint 数
- */
-export function cancelSessionPdcaCheckpoints(sessionId: string): number {
-  let updated = 0;
-  for (const ck of listPdcaCheckpoints()) {
-    const ckTaskId = ck.taskId;
-    if (ck.sessionId !== sessionId || typeof ckTaskId !== 'string') continue;
-    const phase = ck.phase;
-    if (typeof phase === 'string' && PDCA_TERMINAL_PHASES.has(phase)) continue;
-    writePdcaCheckpoint(ckTaskId, {
-      taskId: ckTaskId,
-      sessionId,
-      phase: 'abort',
-      status: 'cancelled',
-      cancelledAt: new Date().toISOString(),
-      cancelledReason: 'session-deleted',
-    });
-    // 同步 WorkItem 为失败终态（PDCA_TO_WORKITEM[abort] = failed），失败不阻塞
-    try {
-      syncPdcaWorkItemStatus(ckTaskId, 'abort');
-    } catch {
-      /* @ignore-catch — workItem 同步失败不阻塞会话删除 */
-    }
-    updated++;
-  }
-  if (updated > 0) {
-    logger.info('会话删除联动：PDCA checkpoint 置 cancelled 终态', {
-      sessionId,
-      updated,
-    });
-  }
-  return updated;
-}
-
-/**
  * 同步 PDCA 阶段 → WorkItem 状态
  *
  * @param taskId PDCA 任务 ID

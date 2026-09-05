@@ -192,18 +192,6 @@ export class PdcaLauncher {
           });
           try {
             const result = await planLoop.run(message);
-            // 4.2-5（2026-09-05）：会话删除联动——deleteSession 已把该会话非终态
-            // checkpoint 置 abort/cancelled；此处若会话已删除则跳过 completed 写，
-            // 避免把取消终态复活成 completed（孤儿任务实体）。
-            if (!this.deps.sessionMap.has(sessionId)) {
-              logger.info(
-                'PlanDrivenLoop 完成于会话删除后，跳过 checkpoint 终态写',
-                {
-                  sessionId,
-                }
-              );
-              return;
-            }
             writePdcaCheckpoint(taskId, {
               taskId,
               phase: 'execute',
@@ -226,26 +214,16 @@ export class PdcaLauncher {
               totalDurationMs: result.totalDurationMs,
             });
           } catch (e) {
-            // 4.2-5：同上，会话已删除时不写 failed（保持 deleteSession 置的取消终态）
-            if (this.deps.sessionMap.has(sessionId)) {
-              writePdcaCheckpoint(taskId, {
-                taskId,
-                phase: 'execute',
-                status: 'failed',
-                sessionId,
-                projectId,
-                description: description.slice(0, 200),
-                failedAt: new Date().toISOString(),
-                startedAt,
-              });
-            } else {
-              logger.info(
-                'PlanDrivenLoop 异常于会话删除后，跳过 checkpoint failed 写',
-                {
-                  sessionId,
-                }
-              );
-            }
+            writePdcaCheckpoint(taskId, {
+              taskId,
+              phase: 'execute',
+              status: 'failed',
+              sessionId,
+              projectId,
+              description: description.slice(0, 200),
+              failedAt: new Date().toISOString(),
+              startedAt,
+            });
             handleError(e, {
               module: 'chat:manager',
               action: 'planDrivenLoop_execute',

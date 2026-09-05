@@ -4944,6 +4944,9 @@ export class ChatManagerImpl implements ChatManager {
   async deleteSession(sessionId: string): Promise<void> {
     const startedAt = Date.now();
     logger.info('deleteSession:开始删除会话', { sessionId });
+    // 4.2-5（2026-09-05）：先收口该会话 PDCA（释放 launch 锁 + 中止活跃双路径 +
+    // checkpoint 置 cancelled），再删除会话——避免删除后孤儿流水线继续跑/孤儿任务实体残留
+    await this._terminateSessionPdca(sessionId);
     // BUG-3 修复：持久化删除失败不再吞错——原 try/catch 只记日志不 rethrow，
     // handleDeleteSession 仍返回 200 → 前端本地移除但磁盘残留，刷新后会话"复活"。
     // 错误上抛由 handler 返回 500，前端据此不清理本地记录。
@@ -4965,6 +4968,68 @@ export class ChatManagerImpl implements ChatManager {
     // M2-T2.2（2026-08-31）：级联关闭孤儿审批项——删除含 pending 审批的会话后
     // /v1/inbox 不再残留可答复项（对齐 openworker 五步级联的审批项关闭）
     void this._dismissSessionInboxItems(sessionId);
+  }
+
+  /**
+   * 4.2-5（2026-09-05）：删除/清空会话联动 PDCA 收口（接入 4.0-1 结论的会话生命周期侧）：
+   * ① 释放会话级 launch 锁（4.0-1 后锁覆盖整个执行期，会话删除后不再需要串行化）；
+   * ② 中止活跃 PlanDrivenLoop（planAbortRegistry）；
+   * ③ 中止经典阶段链活跃 orchestrator（按 sessionId 或其 checkpoint 归属匹配）；
+   * ④ 该会话非终态 PDCA checkpoint 置 cancelled（PDL 完成/异常侧另有"会话存在"守卫，
+   *    不会把取消终态复活为 completed/failed）。
+   * 失败仅 warn，不阻塞会话删除主流程。
+   */
+  private async _terminateSessionPdca(sessionId: string): Promise<void> {
+    try {
+      this._pdcaLaunchingSessions.delete(sessionId);
+      abortSessionPlans(sessionId);
+      let aborted = 0;
+      try {
+        const { getAllOrchestrators } =
+          await import('../tasks/LongRunningTaskOrchestrator');
+        const { readPdcaCheckpoint } =
+          await import('../tasks/PdcaWorkItemBridge');
+        const active = getAllOrchestrators().filter((o) => {
+          const st = o.getStatus() as { taskId?: string; sessionId?: string };
+          if (st?.sessionId === sessionId) return true;
+          if (st?.taskId) {
+            const ck = readPdcaCheckpoint(st.taskId);
+            return ck?.sessionId === sessionId;
+          }
+          return false;
+        });
+        const results = await Promise.allSettled(active.map((o) => o.abort()));
+        aborted = results.filter((r) => r.status === 'fulfilled').length;
+      } catch (e) {
+        logger.warn('会话删除:中止经典链 orchestrator 失败', {
+          sessionId,
+          error: e instanceof Error ? e.message : String(e),
+        });
+      }
+      let cancelled = 0;
+      try {
+        const { cancelSessionPdcaCheckpoints } =
+          await import('../tasks/PdcaWorkItemBridge');
+        cancelled = cancelSessionPdcaCheckpoints(sessionId);
+      } catch (e) {
+        logger.warn('会话删除:PDCA checkpoint 终态化失败', {
+          sessionId,
+          error: e instanceof Error ? e.message : String(e),
+        });
+      }
+      if (aborted > 0 || cancelled > 0) {
+        logger.info('会话删除:PDCA 收口完成', {
+          sessionId,
+          aborted,
+          cancelled,
+        });
+      }
+    } catch (e) {
+      logger.warn('会话删除:PDCA 收口异常，不阻塞删除', {
+        sessionId,
+        error: e instanceof Error ? e.message : String(e),
+      });
+    }
   }
 
   /** M2-T2.2：关闭该会话所有待处理审批项（失败不阻塞删除主流程） */
@@ -5041,23 +5106,26 @@ export class ChatManagerImpl implements ChatManager {
     logger.info('clearAllSessions:发现待清理存储会话', {
       count: stored.length,
     });
+    const targets = stored.filter(
+      (s) =>
+        !moduleType ||
+        (s.metadata as Record<string, unknown> | undefined)?.moduleType ===
+          moduleType
+    );
+    // 4.2-5：清空前先对每个目标会话做 PDCA 收口（释放锁/中止执行/checkpoint 置 cancelled）
+    await Promise.allSettled(
+      targets.map((s) => this._terminateSessionPdca(s.id))
+    );
     await Promise.all(
-      stored
-        .filter(
-          (s) =>
-            !moduleType ||
-            (s.metadata as Record<string, unknown> | undefined)?.moduleType ===
-              moduleType
+      targets.map((s) =>
+        this._checkpointService.deleteSessionCheckpoints(s.id).catch((e) =>
+          handleError(e, {
+            module: 'chat:manager',
+            action: 'clearAllSessions:清理检查点失败',
+            context: { sessionId: s.id },
+          })
         )
-        .map((s) =>
-          this._checkpointService.deleteSessionCheckpoints(s.id).catch((e) =>
-            handleError(e, {
-              module: 'chat:manager',
-              action: 'clearAllSessions:清理检查点失败',
-              context: { sessionId: s.id },
-            })
-          )
-        )
+      )
     );
     await this.sessionLifecycle.clearAllSessions(moduleType);
     logger.info('clearAllSessions:批量清空完成', {

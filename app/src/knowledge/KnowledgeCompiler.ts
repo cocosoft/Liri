@@ -34,6 +34,7 @@ import { WikiLinter, defaultRules } from './lint/WikiLinter';
 import { providerRegistry, modelRouter } from '@modules/ai';
 import { GraphExtractor } from './graph/GraphExtractor';
 import { KnowledgeGraph } from './graph/KnowledgeGraph';
+import { extractDocument, DOCUMENT_EXTRACT_EXTS } from './ingestion/extractors/TextExtractor';
 // 内存水位（2026-09-02）：非关键后台任务在压力下暂停（OS kswapd 式分级回收）
 import { isMemoryUnderPressure } from '../monitoring/memoryPressure/MemoryPressureMonitor.js';
 import {
@@ -60,7 +61,9 @@ interface CompileState {
   docs: Record<string, { mtime: number; compiledAt: number }>;
 }
 
-/** 可编译的文件扩展名（不含 .meta.json 伴侣文件） */
+/** 可编译的文件扩展名（不含 .meta.json 伴侣文件）
+ * K1（知识库优化）：加入 PDF/DOCX/XLSX——文档类在 compileFile 入口经 extractor 抽取
+ * 文本层后进入既有 LLM 编译管线（见 TextExtractor.DOCUMENT_EXTRACT_EXTS）。 */
 const COMPILABLE_EXTENSIONS = new Set([
   '.txt',
   '.md',
@@ -70,6 +73,7 @@ const COMPILABLE_EXTENSIONS = new Set([
   '.xml',
   '.yaml',
   '.yml',
+  ...DOCUMENT_EXTRACT_EXTS,
 ]);
 
 /** LLM 输出中 page-break 分隔符 */
@@ -482,7 +486,7 @@ export class KnowledgeCompiler {
    */
   private getWikiTargetPath(rawFile: string): string {
     const baseName = rawFile.replace(
-      /\.(txt|json|csv|tsv|xml|yaml|yml)$/,
+      /\.(txt|json|csv|tsv|xml|yaml|yml|pdf|docx|xlsx|xls)$/,
       '.md'
     );
     const fileName = baseName.split(/[\\/]/).pop() || 'untitled.md';
@@ -501,7 +505,14 @@ export class KnowledgeCompiler {
     rawFile: string,
     model?: string
   ): Promise<string[]> {
-    const rawContent = await readFile(rawFile, 'utf-8');
+    // K1（知识库优化）：文档类（PDF/DOCX/XLSX）经 extractor 抽取文本层后进入 LLM
+    // 编译管线；文本类仍 utf-8 直读（extractDocument 对两者统一处理，保持原行为）。
+    const extracted = await extractDocument(rawFile);
+    if (!extracted) {
+      logger.warn('跳过无法抽取的文件', { file: rawFile });
+      return [];
+    }
+    const rawContent = extracted.text;
     const targetPath = this.getWikiTargetPath(rawFile);
     const fileName =
       targetPath.split(/[\\/]/).pop()?.replace(/\.md$/, '') || 'untitled';

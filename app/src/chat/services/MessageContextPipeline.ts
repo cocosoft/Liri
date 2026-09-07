@@ -27,7 +27,11 @@ import type { SessionContext } from '@modules/memory/types/SessionContext';
 import type { ImageContextService } from './ImageContextService';
 
 // P1-3: Skills as User Message injection (not System Prompt, avoids breaking cache_control prefix)
-import { skillInjectionService } from '@modules/constants/systemPromptSections';
+import {
+  skillInjectionService,
+  DANGEROUS_uncachedSystemPromptSection,
+  type SystemPromptSection,
+} from '@modules/constants/systemPromptSections';
 import { handleError } from '@modules/error';
 
 const logger = getLogger('chat:context-pipeline');
@@ -897,10 +901,88 @@ export async function assembleContextualSystemPrompt(
     setCurrentKnowledgeQuery(currentMessage);
   }
 
+  // P0-1（提示词分层治理）：旁路内容注册为动态段（cacheBreak=true），随统一组装进入
+  // stable/dynamic 分区与 SystemPromptReport——不再在组装后游离手工拼接（曾破坏
+  // 前缀缓存且统计不到 token）。
+  const memorySectionText =
+    (() => {
+      if (!getMemoryContext) return '';
+      const memoryContent = getMemoryContext(session.id);
+      if (!memoryContent || memoryContent.length === 0) return '';
+      return [
+        '## 会话记忆（自动维护）',
+        '以下是从本会话中自动提取的关键信息，用于保持长对话上下文连续性：',
+        memoryContent,
+        '',
+        '**使用规则**：',
+        '- 优先信任此记忆中的"决策记录"和"文件变更"，它们是已确认的事实',
+        '- "关键讨论"部分是摘要，如需精确引用请使用 recall_memory 工具搜索原文',
+        '- 不要重复记忆中已有的信息，除非用户明确要求',
+        '',
+        '**注意**：以下信息来自 memory.md，**无需使用 recall_memory 工具查询**——这些信息已经自动注入到此提示词中。',
+      ].join('\n');
+    })();
+
+  const currentGoalText = extractCurrentGoal(session, currentMessage);
+  const imageContextText = imageContextService.buildImageContextPrompt(
+    session.id
+  );
+  // 本地模型：用精简版行为约束 + 跳过图像链式规则（image 工具已被裁剪，属死规则）
+  const contextRules = isLocal
+    ? LOCAL_MEMORY_CONTEXT_RULES
+    : MEMORY_CONTEXT_RULES;
+
+  const extraDynamicSections: SystemPromptSection[] = [];
+  if (currentGoalText) {
+    extraDynamicSections.push(
+      DANGEROUS_uncachedSystemPromptSection(
+        'currentGoal',
+        () =>
+          `## 当前会话目标\n你正在协助用户完成以下任务。对话中可能包含较早的无关话题，请以当前目标为准：\n\n${currentGoalText}`,
+        '每轮随用户消息提取，动态变化'
+      )
+    );
+  }
+  if (memorySectionText) {
+    extraDynamicSections.push(
+      DANGEROUS_uncachedSystemPromptSection(
+        'sessionMemory',
+        () => memorySectionText,
+        '会话记忆内容随会话增长变化'
+      )
+    );
+  }
+  extraDynamicSections.push(
+    DANGEROUS_uncachedSystemPromptSection(
+      'contextKeepRules',
+      () => contextRules,
+      '上下文保持/行为约束（本地与远程两版差异）'
+    )
+  );
+  if (imageContextText) {
+    extraDynamicSections.push(
+      DANGEROUS_uncachedSystemPromptSection(
+        'imageContext',
+        () => imageContextText,
+        '图片上下文随消息变化'
+      )
+    );
+  }
+  if (!isLocal) {
+    extraDynamicSections.push(
+      DANGEROUS_uncachedSystemPromptSection(
+        'imageChainRules',
+        () => IMAGE_CHAIN_RULES,
+        '图像链式操作指南（image 工具被裁剪时移除）'
+      )
+    );
+  }
+
   const prompt = await assembleSystemPrompt({
     providerId,
     sessionContext,
     mode: isLocal ? 'local' : 'conversation',
+    extraDynamicSections,
   });
 
   if (isLocal) {
@@ -921,45 +1003,7 @@ export async function assembleContextualSystemPrompt(
     );
   }
 
-  // 分层记忆注入（Phase 3.5）：将 memory.md 内容注入系统提示词
-  let memorySection = '';
-  if (getMemoryContext) {
-    const memoryContent = getMemoryContext(session.id);
-    if (memoryContent && memoryContent.length > 0) {
-      memorySection = [
-        '',
-        '## 会话记忆（自动维护）',
-        '以下是从本会话中自动提取的关键信息，用于保持长对话上下文连续性：',
-        '',
-        memoryContent,
-        '',
-        '**使用规则**：',
-        '- 优先信任此记忆中的"决策记录"和"文件变更"，它们是已确认的事实',
-        '- "关键讨论"部分是摘要，如需精确引用请使用 recall_memory 工具搜索原文',
-        '- 不要重复记忆中已有的信息，除非用户明确要求',
-        '',
-        '**注意**：以下信息来自 memory.md，**无需使用 recall_memory 工具查询**——这些信息已经自动注入到此提示词中。',
-      ].join('\n');
-    }
-  }
-
-  const currentGoal = extractCurrentGoal(session, currentMessage);
-  const imageContext = imageContextService.buildImageContextPrompt(session.id);
-  // 本地模型：用精简版行为约束 + 跳过图像链式规则（image 工具已被裁剪，属死规则）
-  const contextRules = isLocal
-    ? LOCAL_MEMORY_CONTEXT_RULES
-    : MEMORY_CONTEXT_RULES;
-  const chainRules = isLocal ? '' : `\n\n${IMAGE_CHAIN_RULES}`;
-  const basePrompt = currentGoal
-    ? prompt +
-      `\n\n## 当前会话目标\n你正在协助用户完成以下任务。对话中可能包含较早的无关话题，请以当前目标为准：\n\n${currentGoal}` +
-      memorySection +
-      `\n\n${contextRules}${imageContext}${chainRules}`
-    : prompt +
-      memorySection +
-      `\n\n${contextRules}${imageContext}${chainRules}`;
-
-  return basePrompt;
+  return prompt;
 }
 
 /**

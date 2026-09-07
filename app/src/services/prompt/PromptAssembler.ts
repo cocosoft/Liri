@@ -23,6 +23,8 @@ import {
 } from './DiagnosticsReport';
 import type { PromptMode } from './types';
 export type { PromptMode };
+// P0-2（提示词分层治理）：声明式层/可见性元数据（替代 CORE/CONVERSATION/LOCAL 手工 Set）
+import { isSectionVisibleIn } from './promptSectionLayers';
 
 const logger = getLogger('prompt:assembler');
 
@@ -34,40 +36,8 @@ export function getLastDiagnosticsReport(): DiagnosticsReport | null {
   return _lastDiagnosticsReport;
 }
 
-const CORE_SECTION_NAMES = new Set([
-  'identity',
-  'personality',
-  'userProfile',
-  'toolUse',
-  'toolIntegrity',
-  'shellDeclaration',
-]);
-
-const CONVERSATION_SECTION_NAMES = new Set([
-  'identity',
-  'personality',
-  'userProfile',
-  'toolUse',
-  'toolIntegrity',
-  'shellDeclaration',
-  'taskNegotiation',
-  'sessionContext',
-  // P2-2 运行时验证发现：projectContext 段落此前被 conversation 模式过滤，
-  // 项目会话的文件夹/写文件工具引导永不注入（段落内部有 ctx.projectId 守卫，非项目会话返回 null）
-  'projectContext',
-]);
-
-// 本地模型（llama.cpp/Ollama）精简段落：
-// 去掉依赖已裁剪工具的规则段落 — taskNegotiation（todo_write/ask_user_question）、
-// shellDeclaration（bash/powershell 已裁剪）、toolIntegrity（工具结果完整性对少工具模型价值低）
-const LOCAL_SECTION_NAMES = new Set([
-  'identity',
-  'personality',
-  'userProfile',
-  'toolUse',
-  'sessionContext',
-  'projectContext',
-]);
+// P0-2（提示词分层治理）：CORE/CONVERSATION/LOCAL 三套手工白名单 Set 已删除，
+// 段落可见性统一收敛到 promptSectionLayers.ts 声明式元数据（isSectionVisibleIn）。
 
 export interface AssembleOptions {
   sections?: SystemPromptSection[];
@@ -76,29 +46,24 @@ export interface AssembleOptions {
   mode?: PromptMode;
   providerId?: string;
   sessionContext?: SessionContext;
+  /** P0-1（提示词分层治理）：调用方按场景附加的动态段（如 currentGoal/sessionMemory/
+   * contextKeepRules/imageContext）。跳过 mode 白名单过滤、恒按 cacheBreak 进入
+   * stable/dynamic 分区，并纳入 SystemPromptReport/DiagnosticsReport（账本真实）。 */
+  extraDynamicSections?: SystemPromptSection[];
 }
 
 function filterSectionsByMode(
   sections: SystemPromptSection[],
   mode: PromptMode
 ): SystemPromptSection[] {
-  switch (mode) {
-    case 'none':
-      return sections.filter((s) => s.name === 'identity');
-    case 'minimal':
-      return sections.filter((s) => CORE_SECTION_NAMES.has(s.name));
-    case 'conversation':
-      return sections.filter((s) => CONVERSATION_SECTION_NAMES.has(s.name));
-    case 'local':
-      // 本地模型：精简段落 + toolUse 替换为 localToolUseSection
-      // （去掉"必要时等待用户确认"，避免弱模型反复请求确认死循环）
-      return sections
-        .filter((s) => LOCAL_SECTION_NAMES.has(s.name))
-        .map((s) => (s.name === 'toolUse' ? localToolUseSection : s));
-    case 'full':
-    default:
-      return sections;
+  // P0-2（提示词分层治理）：声明式可见性判定（promptSectionLayers.isSectionVisibleIn）
+  const kept = sections.filter((s) => isSectionVisibleIn(s.name, mode));
+  if (mode === 'local') {
+    // 本地模型：toolUse 替换为 localToolUseSection
+    // （去掉"必要时等待用户确认"，避免弱模型反复请求确认死循环）
+    return kept.map((s) => (s.name === 'toolUse' ? localToolUseSection : s));
   }
+  return kept;
 }
 
 /**
@@ -155,6 +120,7 @@ export async function assembleSystemPrompt(
     mode,
     providerId,
     sessionContext,
+    extraDynamicSections,
   } = options;
 
   if (sessionContext) {
@@ -168,11 +134,14 @@ export async function assembleSystemPrompt(
     baseSections
   );
   const filteredSections = filterSectionsByMode(providerSections, resolvedMode);
-  const sectionResults = await resolveSystemPromptSections(filteredSections);
+  // P0-1（提示词分层治理）：场景附加动态段跳过 mode 白名单过滤、并入分区与报告
+  const extraSections = extraDynamicSections ?? [];
+  const allSections = [...filteredSections, ...extraSections];
+  const sectionResults = await resolveSystemPromptSections(allSections);
 
   {
     const report = generatePromptReport(
-      filteredSections,
+      allSections,
       sectionResults,
       resolvedMode
     );
@@ -182,8 +151,8 @@ export async function assembleSystemPrompt(
   const stableParts: string[] = [];
   const dynamicParts: string[] = [];
 
-  for (let i = 0; i < filteredSections.length; i++) {
-    const section = filteredSections[i];
+  for (let i = 0; i < allSections.length; i++) {
+    const section = allSections[i];
     let result = sectionResults[i];
     if (!result) continue;
 
@@ -222,7 +191,7 @@ export async function assembleSystemPrompt(
 
   // P3-11: 生成诊断报告（按静态/动态/消息/工具/记忆/MCP 分类的 Token 消耗分解）
   try {
-    const sectionData = filteredSections.map((s, i) => ({
+    const sectionData = allSections.map((s, i) => ({
       name: s.name,
       content: sectionResults[i] ?? '',
       cacheBreak: s.cacheBreak,

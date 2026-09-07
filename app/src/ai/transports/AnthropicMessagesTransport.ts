@@ -180,9 +180,7 @@ export class MessagesApiTransport extends BaseTransport {
             },
           ];
         }
-        const stable = text
-          .slice(0, boundaryIdx)
-          .replace(/\s+$/, '');
+        const stable = text.slice(0, boundaryIdx).replace(/\s+$/, '');
         const dynamic = text
           .slice(boundaryIdx + CACHE_BOUNDARY.length)
           .replace(/^\s+/, '');

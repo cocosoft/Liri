@@ -26,12 +26,21 @@
  * - 主对话（chat）：基础阈值 30（env MAX_TAOR_TURNS / MAX_TOOL_TURNS 可覆盖）
  *   + 动态扩容（未完成 todo × DYNAMIC_TURNS_PER_PENDING_TODO，硬顶 MAX_DYNAMIC_TOOL_TURNS_CAP）
  *   ——动态计算在 ReActToolLoop 内部（chat 主循环路径）
- * - 子代理（subagent）：默认 50（SubAgentEngine 调用方分级）
+ * - 子代理（subagent）：默认 200（DEFAULT_SUBAGENT_MAX_TURNS，2026-09-01 决策 3 由 50 上调）
  * - 后台任务/压缩：各自定值（如压缩 =1，不在此管理）
  *
  * 2026-08-30 循环治理背景：基础阈值曾 300→30 以拦截工具死循环；
  * 死循环拦截已由 LoopDetector（同调用同结果/连续无工具/文件 IO 循环）承担，
  * 本模块仅管理轮次上限的单一事实来源，避免各文件各自 parseInt env。
+ *
+ * 双路径上限意图说明（L9，2026-09-06 记录，勿误改）：
+ * - 流式主路径（ReActToolLoop）：基础 30 + 动态扩容 ≤500（见本文件常量）——
+ *   面向"单条消息 → 工具循环 → 交付"的交互粒度，低基数 + 按 todo/探索动态扩容；
+ * - batch（TAORLoop / PDCA 步骤 / PDL）：固定 300（TAORLoop.ts 默认 maxTurns，
+ *   env MAX_TAOR_TURNS 覆盖）——面向"一步骤长跑/多步委托"的批处理粒度，预算更高且恒定；
+ * - 子代理（SubAgentEngine）：200（本文件 DEFAULT_SUBAGENT_MAX_TURNS）。
+ * 三者基数不同是有意的路径设计（交互响应性 vs 步骤吞吐 vs 子任务隔离），
+ * 统一基数需双跑对照验证后才可评估（对标报告 L9 决策：短期不动）。
  */
 import { configManager } from '@modules/config';
 

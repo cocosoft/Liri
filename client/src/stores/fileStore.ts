@@ -13,6 +13,11 @@ import {
   type ConvertFileOptions,
 } from "../services/fileService";
 import { createLogger } from "@/utils/logger";
+
+// P2-4：请求序号竞态守卫——目录导航/Registry 查询各自递增 seq，
+// 响应返回时若 seq 已过期则丢弃（防快速切换目录/连续搜索时旧响应覆盖新状态）
+let navSeq = 0;
+let registrySeq = 0;
 import { handleClientError } from "@/utils/handleError";
 
 const logger = createLogger("fileStore");
@@ -93,11 +98,14 @@ export const useFileStore = create<FileStore>((set, get) => ({
   registryLoading: false,
 
   loadDir: async (path: string) => {
+    const seq = ++navSeq;
     set({ isLoading: true, error: null });
     try {
       const entries = await fileService.listDir(path);
+      if (seq !== navSeq) return; // P2-4：过期响应丢弃
       set({ entries, currentPath: path, isLoading: false });
     } catch (e) {
+      if (seq !== navSeq) return;
       handleClientError(e, { module: "stores:file", action: "loadDir" });
       set({ error: String(e), isLoading: false });
     }
@@ -114,7 +122,8 @@ export const useFileStore = create<FileStore>((set, get) => ({
       get().setCategory(get().currentCategory);
       return;
     }
-    const parent = "/" + parts.slice(0, -1).join("/");
+    // P1-1：不拼前导 "/"，保持与后端 relPath（相对 posix）同风格，树高亮/上级导航一致
+    const parent = parts.slice(0, -1).join("/");
     get().loadDir(parent);
   },
 
@@ -255,37 +264,46 @@ export const useFileStore = create<FileStore>((set, get) => ({
 
   searchRegistry: async () => {
     const { registryParams } = get();
+    const seq = ++registrySeq;
     set({ registryLoading: true, error: null });
     try {
       const result = await fileService.searchFiles(registryParams);
+      if (seq !== registrySeq) return; // P2-4：过期响应丢弃
       set({
         registryResults: result.items,
         registryTotal: result.total,
-        registryNextCursor: result.nextCursor,
+        registryNextCursor: undefined,
         registryLoading: false,
       });
     } catch (e) {
+      if (seq !== registrySeq) return;
       handleClientError(e, { module: "stores:file", action: "searchRegistry" });
       set({ error: String(e), registryLoading: false });
     }
   },
 
   loadMoreRegistry: async () => {
-    const { registryNextCursor, registryResults, registryParams } = get();
-    if (!registryNextCursor) return;
+    const { registryResults, registryParams, registryTotal, registryLoading } =
+      get();
+    if (registryLoading) return;
+    // P2-1：offset 分页——无更多由已加载条数 >= total 判定（后端同时返回 hasMore 供契约核对）
+    if (registryResults.length >= registryTotal) return;
+    const seq = ++registrySeq;
     set({ registryLoading: true });
     try {
       const result = await fileService.searchFiles({
         ...registryParams,
-        cursor: registryNextCursor,
+        cursor: String(registryResults.length),
       });
+      if (seq !== registrySeq) return; // P2-4：过期响应丢弃
       set({
         registryResults: [...registryResults, ...result.items],
         registryTotal: result.total,
-        registryNextCursor: result.nextCursor,
+        registryNextCursor: undefined,
         registryLoading: false,
       });
     } catch (e) {
+      if (seq !== registrySeq) return;
       handleClientError(e, {
         module: "stores:file",
         action: "loadMoreRegistry",

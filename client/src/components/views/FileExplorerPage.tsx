@@ -288,7 +288,8 @@ function FileExplorerPage() {
   const handleItemClick = useCallback(
     (entry: FileEntry) => {
       if (entry.type === "directory") {
-        navigateTo(entry.path);
+        // P1-1：目录导航用 relPath（相对），不用绝对 path（后端 resolveStorePath 会越权拦截）
+        navigateTo(entry.relPath ?? entry.path);
         selectFile(null);
       } else {
         selectFile({ name: entry.name, path: entry.path });
@@ -302,14 +303,12 @@ function FileExplorerPage() {
     fileInputRef.current?.click();
   }, []);
 
-  /** 处理文件选择 */
+  /** 处理文件选择（P1-3：input 声明 multiple，循环上传全部所选文件，对齐拖拽行为） */
   const handleFileChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (file) {
-        uploadFile(file);
-        e.target.value = "";
-      }
+      const files = Array.from(e.target.files ?? []);
+      files.forEach((file) => uploadFile(file));
+      e.target.value = "";
     },
     [uploadFile],
   );
@@ -716,9 +715,16 @@ function FileExplorerPage() {
                               </span>
                             </div>
                           </div>
-                          <div className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-                            <span>{formatSize(entry.size)}</span>
-                            <span className="mx-2">|</span>
+                          <div className="text-xs text-gray-500 dark:text-gray-400 mb-3 flex items-center gap-1.5">
+                            {entry.type === "file" && entry.size === 0 ? (
+                              // P2-3：0 字节文件显示空标记（对齐 DetailedFileList）
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400">
+                                空
+                              </span>
+                            ) : (
+                              <span>{formatSize(entry.size)}</span>
+                            )}
+                            <span className="mx-0.5">|</span>
                             <span>{formatDate(entry.modified_at)}</span>
                           </div>
                           {entry.type === "file" && (

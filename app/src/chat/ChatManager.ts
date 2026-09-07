@@ -97,8 +97,32 @@ import { SessionMemoryManager } from './services/SessionMemoryManager';
 import { TaskFacade } from './facades/TaskFacade';
 import { PdcaLauncher } from './launchers/PdcaLauncher';
 import { ChatOrchestrator } from './orchestrator/ChatOrchestrator.js';
+// K4（2026-09-06）：执行意图判定提取共用（goal fallback / streamMessageFlow 裁剪）
+// R4（2026-09-06）：强产出意图判定（首条消息轮次闸放宽）
+import {
+  isExecutionTaskIntent,
+  isStrongBuildIntent,
+  hasResearchIntent,
+} from './taskIntent';
 
 const logger = getLogger('chat:manager');
+
+// R1（2026-09-06，走查 W1/W9）：产出型写入工具集合（成功即视为"已交付文件产物"）
+const _WRITE_PRODUCTIVE_TOOLS = new Set([
+  'file_write',
+  'write_file',
+  'FileWriteTool',
+  'file_edit',
+  'edit_file',
+  'FileEditTool',
+]);
+
+// R1：产出后的收敛引导（system 注入，防"写完继续埋头思考不总结"）
+const _WRITE_CONCLUDE_HINT =
+  '[交付收敛] 本轮已完成文件产出（见上方工具结果），这是本次实际交付物。' +
+  '请直接在回复中给出简短交付说明（文件位置、用途、如何运行/验证）并结束本轮；' +
+  '不要在没有新需求的情况下继续内部扩展或重写。如需进一步完善，请先说明下一步再继续。';
+
 import { SimpleMutex } from '@modules/core';
 import { ImplicitEngineHook } from '../project/ImplicitEngineHook';
 import { createProjectStore } from '../workspace/ProjectStore.js';
@@ -797,7 +821,7 @@ export class ChatManagerImpl implements ChatManager {
     );
     this._pdcaLauncher = new PdcaLauncher({
       enablePlanDrivenLoop: true, // 阶段 3 退役（2026-09-01）：灰度开关删除，恒启用
-      taorLoopFactory: (sid) => this._getOrCreateTAORLoop(sid),
+      taorLoopFactory: (sid, opts) => this._getOrCreateTAORLoop(sid, opts),
       buildTAORContext: (sid, defs, opts) =>
         this._buildTAORContext(sid, defs, opts),
       sessionMap: this._chatSessions,
@@ -1070,9 +1094,12 @@ export class ChatManagerImpl implements ChatManager {
 
   /**
    * 获取或创建 TAORLoop 实例（懒初始化）
-   * 仅在 ENABLE_LOOP_V8_PHASE2 启用时调用
+   * TAORLoop 统一编排已常驻（ENABLE_LOOP_V8_PHASE2 于阶段 3 退役，2026-09-01）——L6 注释清理 2026-09-06
    */
-  private _getOrCreateTAORLoop(sessionId: string): TAORLoop {
+  private _getOrCreateTAORLoop(
+    sessionId: string,
+    opts?: { maxTurnsMultiplier?: number; privateInstance?: boolean }
+  ): TAORLoop {
     // P0 修复（2026-08-14 排查）：空 sessionId 拒绝创建——原单例首次调用固化空 id，
     // 导致所有会话串扰同一 TAORLoop。改为按 sessionId 的 Map 缓存 + 非空校验。
     if (!sessionId) {
@@ -1081,21 +1108,47 @@ export class ChatManagerImpl implements ChatManager {
       );
       throw new Error('TAORLoop requires a non-empty sessionId');
     }
-    let taorLoop = this._taorLoops.get(sessionId);
+    const multiplier = opts?.maxTurnsMultiplier ?? 1;
+    // S1（2026-09-05，PR9）：privateInstance=true → LRTO 任务私有实例——
+    // 每次调用全新构建、不入任何缓存（中止/销毁安全，不伤同会话普通对话）。
+    if (opts?.privateInstance) {
+      const baseMaxTurns =
+        parseInt(configManager.env('MAX_TAOR_TURNS') || '') || 300;
+      return createChatAgentLoop({
+        mode: 'batch',
+        queryEngine: this.getQueryEngine(),
+        config: {
+          sessionId,
+          maxTurns: multiplier > 1 ? baseMaxTurns * multiplier : baseMaxTurns,
+          // 归属③（2026-09-05）：任务私有实例关闭 DB 检查点——任务级持久化由
+          // LRTO._persistCheckpoint 承担；否则此类 checkpoint 会被 Durable Resume
+          // 当作会话恢复（sessionId=taskId）造成任务上下文串入普通对话恢复。
+          enableCheckpoint: false,
+          checkpointInterval: 0,
+        },
+      });
+    }
+    // S1（2026-09-05，PR9/B-任务）：扩容续跑时创建放大轮次预算的独立实例——
+    // 与基础实例分键缓存（同 multiplier 复用，避免每次 re-roll 新建实例）。
+    const cacheKey =
+      multiplier > 1 ? `${sessionId}::turnsX${multiplier}` : sessionId;
+    let taorLoop = this._taorLoops.get(cacheKey);
     if (!taorLoop) {
+      const baseMaxTurns =
+        parseInt(configManager.env('MAX_TAOR_TURNS') || '') || 300;
       // 阶段 2（2026-09-01）：统一循环工厂（mode='batch'）替代直接 createTAORLoop
       taorLoop = createChatAgentLoop({
         mode: 'batch',
         queryEngine: this.getQueryEngine(),
         config: {
           sessionId,
-          maxTurns: parseInt(configManager.env('MAX_TAOR_TURNS') || '') || 300,
+          maxTurns: multiplier > 1 ? baseMaxTurns * multiplier : baseMaxTurns,
           /** 启用检查点，每 3 轮自动保存（原值：关闭 + 5 轮） */
           enableCheckpoint: true,
           checkpointInterval: 3,
         },
       });
-      this._taorLoops.set(sessionId, taorLoop);
+      this._taorLoops.set(cacheKey, taorLoop);
     }
     return taorLoop;
   }
@@ -1591,6 +1644,18 @@ export class ChatManagerImpl implements ChatManager {
   }
 
   /**
+   * Fix2（2026-09-05）：turn/end 单写者幂等——streamMessageFlow（无工具轮次即时写、
+   * 工具轮次由 finalize 写）可能对同一 turn 双写 end（实测 9 turn/start vs 11 turn/end，
+   * 冗余 2）。以 appendStreamEvent 中央记录已写 end 的 turn，finalize 据此跳过重复。
+   */
+  private _endedTurnsBySession = new Map<string, Set<number>>();
+
+  /** Fix2：该会话的指定 turn 是否已写 turn/end */
+  private hasTurnEnded(sessionId: string, turn: number): boolean {
+    return this._endedTurnsBySession.get(sessionId)?.has(turn) ?? false;
+  }
+
+  /**
    * M1 事件溯源：流式过程中追加事件到 events.jsonl
    *
    * 实现 ChatOrchestratorHost 接口，供 streamMessageFlow 在每个 chunk yield 前调用。
@@ -1636,6 +1701,19 @@ export class ChatManagerImpl implements ChatManager {
         const data = event.data as { toolCallId: string };
         if (data.toolCallId) {
           this._toolCallSeqMap.set(data.toolCallId, event.seq);
+        }
+      }
+      // Fix2（2026-09-05）：turn/end 幂等中央记录——任何写者（streamMessageFlow /
+      // finalize）追加成功的 turn/end 都登记，供 finalize 去重，杜绝同一 turn 双 end。
+      if (result.ok && event.type === 'turn/end') {
+        const turn = (event.data as { turn?: number }).turn ?? 0;
+        if (turn > 0) {
+          let set = this._endedTurnsBySession.get(sessionId);
+          if (!set) {
+            set = new Set<number>();
+            this._endedTurnsBySession.set(sessionId, set);
+          }
+          set.add(turn);
         }
       }
       return { ok: result.ok, reason: result.reason, tailSeq: result.tailSeq };
@@ -3599,20 +3677,23 @@ export class ChatManagerImpl implements ChatManager {
       try {
         // turn 编号与 turn/start 一致：turn/start 已写入事件日志，读取最大 turn 即为当前轮编号
         const persistedTurn = await this.getStreamMaxTurn(session.id);
-        const ts = await this.getStreamTailSeq(session.id);
-        await this.appendStreamEvent(session.id, {
-          type: 'turn/end',
-          seq: ts + 1,
-          time: Date.now(),
-          sessionId: session.id,
-          data: {
-            turn:
-              persistedTurn > 0
-                ? persistedTurn
-                : this.getToolRound(session.id) + 1,
-            finishReason: hasFinalToolCalls ? 'tool_use' : 'stop',
-          },
-        });
+        const turn =
+          persistedTurn > 0 ? persistedTurn : this.getToolRound(session.id) + 1;
+        // Fix2（2026-09-05）：turn/end 单写者幂等——若该 turn 已被 streamMessageFlow
+        // 或本 finalize 写过 end（appendStreamEvent 中央登记），跳过，杜绝双 end。
+        if (!this.hasTurnEnded(session.id, turn)) {
+          const ts = await this.getStreamTailSeq(session.id);
+          await this.appendStreamEvent(session.id, {
+            type: 'turn/end',
+            seq: ts + 1,
+            time: Date.now(),
+            sessionId: session.id,
+            data: {
+              turn,
+              finishReason: hasFinalToolCalls ? 'tool_use' : 'stop',
+            },
+          });
+        }
       } catch {
         // @ignore-catch — 事件追加失败不阻断主流程
       }
@@ -3650,123 +3731,161 @@ export class ChatManagerImpl implements ChatManager {
     const contextId =
       (session.metadata?.projectId as string | undefined) ??
       (session.metadata?.workspaceId as string | undefined);
-    if (contextId && assistantMessage.content) {
+
+    // P0-1（2026-09-06，A1/C2）：裸会话（无 projectId/workspaceId）不经过 persist 门
+    // （persist 被 contextId 门控），此处独立轻量预筛——执行意图（X 预筛）+ 非 code mode
+    // → 强意图直接自动：自动建项目（default workspace）→ 同轮 _maybeLaunchPdca（决策 1-A）。
+    // A4 轮次闸（R4 放宽，2026-09-06 走查 W5）：第 2+ 轮一律可升级；首轮仅当首条消息命中
+    // 【强产出意图】（帮我/我要…做/写/开发）放行——"首条即复杂任务"的小白场景不再被
+    // 拦（走查实证：首条"帮我做个游戏"因轮次闸被拦、长跑无方法论接管）；弱动词
+    // （检查/验证/补）与纯闲聊首条仍要求 2+ 轮，防一次性求助/闲聊被误升级。
+    // P0-1 修正（走查发现）：任务轮内模型可能 ask_user_question 澄清，澄清回答/后续
+    // 消息会占住"最后一条 user"位置使任务原句被覆盖 → 判定聚合最近 3 条 user 文本。
+    const bareUserMessages =
+      session.messages?.filter((m) => m.role === 'user') ?? [];
+    const bareLastContent = bareUserMessages
+      .slice(-3)
+      .map((m) => {
+        const c = (m as unknown as Record<string, unknown>)?.content;
+        return typeof c === 'string' ? c : '';
+      })
+      .join('\n');
+    const bareFirstContent =
+      bareUserMessages.length > 0
+        ? (((bareUserMessages[0] as unknown as Record<string, unknown>)
+            ?.content as string) ?? '')
+        : '';
+    if (
+      !contextId &&
+      assistantMessage.content &&
+      (bareUserMessages.length >= 2 || isStrongBuildIntent(bareFirstContent)) &&
+      isExecutionTaskIntent(bareLastContent) &&
+      !this._shouldUseCodeMode(bareLastContent)
+    ) {
+      logger.info('pdca:bare_session_intent_detected', {
+        sessionId: session.id,
+        intent: bareLastContent.slice(0, 60),
+      });
+      // 项目名取消息前 30 字符（goalSummary 占位；裸会话无 ImplicitEngine 结果可依赖）
+      const goalSummary = bareLastContent
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 30);
+      const projectId = await this._autoCreateProject(session, undefined, {
+        hasGoal: true,
+        deliverables: 1,
+        goalSummary,
+      });
+      if (projectId) {
+        this._maybeLaunchPdca(
+          session,
+          assistantMessage.content as string,
+          projectId,
+          bareLastContent
+        );
+      }
+    }
+
+    // S6/PDCA 门控修正（2026-09-06）：persist 分支不再要求 assistantMessage.content 非空——
+    // 工具型收尾消息 content 常为 ''（chatStream fullContentLength=0），原门控令项目会话内的
+    // 新目标消息被整段跳过：引擎无判定、PDCA 不 launch（走查实证 04:40:51，620s 任务完成零判定）。
+    const userMessagesForGoal =
+      session.messages?.filter((m) => m.role === 'user') ?? [];
+    const lastUserContent =
+      userMessagesForGoal.length > 0
+        ? (((
+            userMessagesForGoal[
+              userMessagesForGoal.length - 1
+            ] as unknown as Record<string, unknown>
+          ).content as string) ?? '')
+        : '';
+    if (contextId && (assistantMessage.content || lastUserContent.trim())) {
+      // S6 修正（2026-09-06）：把用户最后一条消息一并交给引擎做 goal 判定（persist userText）——
+      // "帮我做xx"请求句在用户消息里、而 persist 主输入是助手回复；不纳入则引擎 hasGoal 恒漏判
+      // （走查实证 03:30:06），下方 fallback 退化为常驻路径而非兜底。
       ImplicitEngineHook.persist(
         contextId,
-        assistantMessage.content as string,
+        (assistantMessage.content as string) ?? '',
         undefined,
-        session.id
+        session.id,
+        lastUserContent
       )
-        .then((result) => {
+        .then(async (result) => {
           // P0: 自动建项目 — 检测到 goal + deliverable 且会话未关联项目时自动创建
           // P3-1: 用户消息含明确项目意图时降阈值为 1，否则保持 2
-          const userMessages =
-            session.messages?.filter((m) => m.role === 'user') ?? [];
-          const lastUserContent =
-            userMessages.length > 0
-              ? (((
-                  userMessages[userMessages.length - 1] as unknown as Record<
-                    string,
-                    unknown
-                  >
-                ).content as string) ?? '')
-              : '';
           const hasExplicitIntent =
             /(?:帮我|我要|我想|给我)\s*(?:做|开发|规划|设计|建|创建|写|整理|实现|搭建|部署)/.test(
               lastUserContent
             );
           const deliverableThreshold = hasExplicitIntent ? 1 : 2;
 
+          // PDL 启动修复（2026-09-05，K3 排查）：ImplicitEngineHook 的 hasGoal 仅靠文本
+          // 正则（须含"目标：…"等字样），普通"实现计划/分步/补测试"措辞永不命中 → 自动
+          // PDCA/PDL 在项目会话形同虚设。此处对【项目会话 + 用户明确产出意图】兜底放行
+          // goal；复杂/危险任务仍由 _shouldUsePlanDrivenLoop 分流进 LRTO（只放行升级通道）。
+          const userTaskIntent = isExecutionTaskIntent(lastUserContent);
+          const goalTriggered =
+            result.hasGoal ||
+            (Boolean(session.metadata?.projectId) &&
+              userTaskIntent &&
+              !this._shouldUseCodeMode(lastUserContent || ''));
+          if (goalTriggered && !result.hasGoal && session.metadata?.projectId) {
+            logger.info('pdca:goal_fallback_by_user_intent', {
+              sessionId: session.id,
+              projectId: session.metadata.projectId,
+              intent: lastUserContent.slice(0, 60),
+            });
+          }
+
+          // P0-1（2026-09-06，A1 同轮串联）：await 自动建项目完成（内部已写
+          // session.metadata.projectId 并持久化），使下方 launch 判定在本轮即可读到
+          // projectId —— 消除"首轮只建项目、绝不 launch PDCA"的时序互斥。
+          // 失败返回 null 仅告警，不阻塞消息流（CS03）。
           if (
             result.hasGoal &&
             result.deliverables >= deliverableThreshold &&
             !session.metadata?.projectId
           ) {
-            this._autoCreateProject(session, contextId, result).catch(() => {
-              /* 自动建项目失败不阻塞消息流 */
-            });
+            await this._autoCreateProject(session, contextId, result);
           }
 
-          // 升级通道：检测到目标时自动发起完整 PDCA 循环（仅显式 create_project 路径触发）
-          // P0-2 修复（2026-08-25）：会话级 launch 锁——同一会话上一轮 launch 未完成时
-          // 跳过本次触发，避免多轮消息（hasGoal 持续命中）每轮 new PlanDrivenLoop +
-          // _broadcastTaskCard 产生重复任务卡片
+          // 升级通道：检测到目标时自动发起完整 PDCA 循环（统一出口 _maybeLaunchPdca，
+          // P0-1 提取：含会话级 launch 锁防重复卡片、分流决策 trace、双路径 launch）
           // CM-6 互斥（2026-08-25）：Code Mode 分流命中时跳过 PDCA，避免双引擎并发
-          if (
-            result.hasGoal &&
-            session.metadata?.projectId &&
-            !this._shouldUseCodeMode(lastUserContent || '')
-          ) {
-            if (this._pdcaLaunchingSessions.has(session.id)) {
-              logger.warn('pdca:launch_skip_duplicate', {
+          if (goalTriggered && session.metadata?.projectId) {
+            if (!this._shouldUseCodeMode(lastUserContent || '')) {
+              this._maybeLaunchPdca(
+                session,
+                assistantMessage.content as string,
+                session.metadata.projectId as string,
+                lastUserContent
+              );
+            } else {
+              // A4（2026-09-06，P1-1）：Code Mode 命中目标意图 → 显式提示而非静默跳过
+              // （原 CM-6 静默互斥让用户以为"没触发"，现经 pdca:decision 事件告知前端）。
+              logger.info('pdca:skip_code_mode', {
                 sessionId: session.id,
                 projectId: session.metadata.projectId,
               });
-              return;
+              import('../tasks/PdcaLiveEvents')
+                .then((m) =>
+                  m.emitPdcaLiveEvent(
+                    'pdca:decision',
+                    {
+                      sessionId: session.id,
+                      projectId: session.metadata?.projectId,
+                    },
+                    {
+                      decision: 'code-mode',
+                      message:
+                        '检测到目标任务，但当前处于 Code Mode（CM-6 互斥未启动 PDCA）。如需分步执行可退出 Code Mode 后重发。',
+                    }
+                  )
+                )
+                .catch(() => {
+                  // @ignore-catch — 事件广播失败不影响主流程（CS03）
+                });
             }
-            this._pdcaLaunchingSessions.add(session.id);
-            // OBS（M3a）：分流决策 trace——记录走 PDL 快速路径还是经典阶段链
-            const usePlanDriven = this._shouldUsePlanDrivenLoop(
-              lastUserContent || ''
-            );
-            const decisionReasons = usePlanDriven
-              ? ['simple', 'no-dangerous-tool']
-              : ['complex-or-dangerous'];
-            // OBS（M3a/M3b-DB）：分流决策 trace（SSE 实时 + task_audit_log 持久化；
-            // 动态 import 链式，避免在同步回调中 await）
-            const decisionMsg = usePlanDriven
-              ? '简单任务走 PlanDrivenLoop 快速路径'
-              : '复杂/危险任务走经典 PDCA 阶段链';
-            import('../tasks/PdcaLiveEvents')
-              .then((m) =>
-                m.emitPdcaLiveEvent(
-                  'pdca:decision',
-                  {
-                    sessionId: session.id,
-                    projectId: session.metadata?.projectId as
-                      | string
-                      | undefined,
-                  },
-                  {
-                    decision: usePlanDriven ? 'pdl' : 'stage-chain',
-                    reasons: decisionReasons,
-                    message: decisionMsg,
-                  }
-                )
-              )
-              .then(() =>
-                import('../tasks/db/SqliteTaskStore').then((mod) =>
-                  new mod.SqliteTaskStore().writeAuditLogWithDetail({
-                    taskId: `session:${session.id}`,
-                    eventType: 'pdca_decision',
-                    oldStatus: null,
-                    newStatus: usePlanDriven ? 'pdl' : 'stage-chain',
-                    detail: JSON.stringify({
-                      reasons: decisionReasons,
-                      message: decisionMsg,
-                      projectId: session.metadata?.projectId ?? null,
-                    }),
-                    timestamp: Date.now(),
-                  })
-                )
-              )
-              .catch(() => {
-                // @ignore-catch — 决策 trace 失败不影响分流（CS03）
-              });
-            this._pdcaLauncher!.launch(
-              session.metadata.projectId as string,
-              assistantMessage.content as string,
-              session.id,
-              lastUserContent || undefined,
-              // S3（P1-5 §5 S3）：两层分流决策（复杂度门 + 危险工具 + message 粒度 hash 10%）
-              usePlanDriven
-            )
-              .catch(() => {
-                /* 隐性引擎失败不阻塞消息流 */
-              })
-              .finally(() => {
-                this._pdcaLaunchingSessions.delete(session.id);
-              });
           }
         })
         .catch(() => {
@@ -3902,14 +4021,160 @@ export class ChatManagerImpl implements ChatManager {
   }
 
   /**
+   * P0-1（2026-09-06，A1）：PDCA launch 统一出口（同轮串联）。
+   *
+   * 原 launch 逻辑内联在 persist 回调的 launch 分支；提取为方法后：
+   *  - 项目/工作区会话命中 → 直接调用（K3/K4 语义不变）
+   *  - 普通会话自动建项目完成（await）→ 拿到 projectId 后调用（同轮启动，
+   *    消除"首轮只建项目、绝不 launch PDCA"的时序互斥——_autoCreateProject
+   *    原为 fire-and-forget，projectId 在微任务才赋值，launch 门同步判断恒 false）
+   *
+   * 含：会话级 launch 锁（防重复卡片）、分流决策 trace（SSE + task_audit_log）、
+   * _pdcaLauncher.launch 双路径（PDL 快速 / 阶段链）调用。
+   */
+  private _maybeLaunchPdca(
+    session: ChatSession,
+    assistantContent: string,
+    projectId: string,
+    lastUserContent: string | undefined
+  ): void {
+    if (this._pdcaLaunchingSessions.has(session.id)) {
+      logger.warn('pdca:launch_skip_duplicate', {
+        sessionId: session.id,
+        projectId,
+      });
+      return;
+    }
+    this._pdcaLaunchingSessions.add(session.id);
+    // P0-3（2026-09-06，Teamwork）：研究模式分流——研究型意图 && COMPETITIVE_STRATEGY
+    // feature 开启时优先走候选生成 + 对抗评审编排（launchResearch），不占用 PDCA 阶段链；
+    // 与 Code Mode 互斥（研究任务由编排直接回复，不进 code_run 沙箱）。成本门控：feature 默认关。
+    const researchMode =
+      coreFeature('COMPETITIVE_STRATEGY') &&
+      hasResearchIntent(lastUserContent || '');
+    if (researchMode) {
+      logger.info('研究模式分流（P0-3）', {
+        sessionId: session.id,
+        projectId,
+        messagePreview: (lastUserContent || '').slice(0, 50),
+      });
+      import('../tasks/PdcaLiveEvents')
+        .then((m) => {
+          void m.emitPdcaLiveEvent(
+            'pdca:auto_launched',
+            { sessionId: session.id, projectId },
+            { decision: 'research', message: '研究模式：候选生成 + 对抗评审' }
+          );
+          return m.emitPdcaLiveEvent(
+            'pdca:decision',
+            { sessionId: session.id, projectId },
+            {
+              decision: 'research',
+              reasons: ['research-intent', 'competitive-feature'],
+              message: '研究型任务命中研究模式（候选生成 + 对抗评审）',
+            }
+          );
+        })
+        .catch(() => {
+          // @ignore-catch — 研究分流 trace 失败不影响编排
+        });
+      this._pdcaLauncher!.launchResearch(
+        projectId,
+        assistantContent,
+        session.id,
+        lastUserContent
+      )
+        .catch(() => {
+          /* 研究模式失败不阻塞消息流 */
+        })
+        .finally(() => {
+          this._pdcaLaunchingSessions.delete(session.id);
+        });
+      return;
+    }
+    // OBS（M3a）：分流决策 trace——记录走 PDL 快速路径还是经典阶段链
+    const usePlanDriven = this._shouldUsePlanDrivenLoop(lastUserContent || '');
+    const decisionReasons = usePlanDriven
+      ? ['simple', 'no-dangerous-tool']
+      : ['complex-or-dangerous'];
+    // OBS（M3a/M3b-DB）：分流决策 trace（SSE 实时 + task_audit_log 持久化；
+    // 动态 import 链式，避免在同步回调中 await）
+    const decisionMsg = usePlanDriven
+      ? '简单任务走 PlanDrivenLoop 快速路径'
+      : '复杂/危险任务走经典 PDCA 阶段链';
+    import('../tasks/PdcaLiveEvents')
+      .then((m) => {
+        // B1（2026-09-06，P0-2）：自动启动信号——供前端 banner/执行模式徽标消费
+        void m.emitPdcaLiveEvent(
+          'pdca:auto_launched',
+          {
+            sessionId: session.id,
+            projectId,
+          },
+          {
+            decision: usePlanDriven ? 'pdl' : 'stage-chain',
+            message: decisionMsg,
+          }
+        );
+        return m.emitPdcaLiveEvent(
+          'pdca:decision',
+          {
+            sessionId: session.id,
+            projectId,
+          },
+          {
+            decision: usePlanDriven ? 'pdl' : 'stage-chain',
+            reasons: decisionReasons,
+            message: decisionMsg,
+          }
+        );
+      })
+      .then(() =>
+        import('../tasks/db/SqliteTaskStore').then((mod) =>
+          new mod.SqliteTaskStore().writeAuditLogWithDetail({
+            taskId: `session:${session.id}`,
+            eventType: 'pdca_decision',
+            oldStatus: null,
+            newStatus: usePlanDriven ? 'pdl' : 'stage-chain',
+            detail: JSON.stringify({
+              reasons: decisionReasons,
+              message: decisionMsg,
+              projectId: projectId ?? null,
+            }),
+            timestamp: Date.now(),
+          })
+        )
+      )
+      .catch(() => {
+        // @ignore-catch — 决策 trace 失败不影响分流（CS03）
+      });
+    this._pdcaLauncher!.launch(
+      projectId,
+      assistantContent,
+      session.id,
+      lastUserContent || undefined,
+      // S3（P1-5 §5 S3）：两层分流决策（复杂度门 + 危险工具 + message 粒度 hash 10%）
+      usePlanDriven
+    )
+      .catch(() => {
+        /* 隐性引擎失败不阻塞消息流 */
+      })
+      .finally(() => {
+        this._pdcaLaunchingSessions.delete(session.id);
+      });
+  }
+
+  /**
    * P0: 自动建项目 — 检测到 goal + deliverables 时静默创建项目
-   * 不启动 PDCA，不打断用户，仅关联 session 并弹 toast 提示
+   * P0-1（2026-09-06）：返回值由 void 改为 projectId（成功新建/关联）或 null（失败）——
+   * 供调用方 await 后同轮串联 launch（消除"首轮只建不 launch"时序互斥）。
+   * 仍不打断用户：失败仅告警，不阻塞消息流（CS03）。
    */
   private async _autoCreateProject(
     session: ChatSession,
     workspaceId: string | undefined,
     result: { hasGoal: boolean; deliverables: number; goalSummary?: string }
-  ): Promise<void> {
+  ): Promise<string | null> {
     try {
       const dataDir = resolveDataDir();
       const workItemStore = new WorkItemStore(dataDir);
@@ -3937,7 +4202,7 @@ export class ChatManagerImpl implements ChatManager {
           });
           // P0-D: 持久化 projectId 到 gateway 存储，防止重启后丢失
           await this.persistSessionMetadata(session);
-          return;
+          return matched.id;
         }
       }
 
@@ -4017,10 +4282,12 @@ export class ChatManagerImpl implements ChatManager {
         });
         /* SSE 广播失败不影响主流程 */
       }
+      return project.id;
     } catch (e) {
       logger.warn('P0 自动建项目失败', {
         error: (e as Error)?.message ?? String(e),
       });
+      return null;
     }
   }
 
@@ -4439,20 +4706,34 @@ export class ChatManagerImpl implements ChatManager {
       if (sid) this._pendingInteractions.delete(sid);
       return true;
     }
-    // 问题二-2：交互已过期/中止（entry 已清理）→ 回答兜底落盘，不注入循环
+    // 问题二-2：交互已过期/中止（entry 已清理）→ 回答兜底落盘，不注入循环。
+    // PR10（#12，B-1，2026-09-05）：实证（§10.7）确认等待超时（maxWait 600s）后
+    // 晚到回答命中本分支且无自动续跑。此处升级为「落盘 + 显式标记」，使：
+    //   ① 回答不丢（进入消息历史，用户后续消息自动携带）；
+    //   ② 前端/审计可区分「已回答但任务已结束」与「未回答」；
+    //   ③ 不复活已终态任务（与 #6 replan 语义一致）。
+    // 注：等待循环超时后已无存活执行方可唤醒，「超时窗口内的自动续跑」需
+    // entry 宽限保留（候选 C，§10.7）——该产品决策未定，不在本分支实现。
     if (sessionId && answers.length > 0) {
       try {
         const answerMsg = this.messageService.createUserMessage(
           answers.join('\n'),
           {
             sessionId,
-            metadata: { questionId },
+            metadata: {
+              questionId,
+              answeredAfterExpiry: true,
+              answeredAt: new Date().toISOString(),
+            },
           }
         );
         await this._addAndPersistMessage(sessionId, answerMsg, {
           throwOnError: true,
         });
-        logger.info('交互已过期，回答兜底落盘', { sessionId, questionId });
+        logger.info('交互已过期：回答已兜底落盘（任务已结束，未自动续跑）', {
+          sessionId,
+          questionId,
+        });
         return true;
       } catch (e) {
         await handleError(e, {
@@ -4685,7 +4966,7 @@ export class ChatManagerImpl implements ChatManager {
         return { id: pr.normalizedToolCall.id, chars: raw.length };
       }),
     });
-    return [
+    const built: Record<string, unknown>[] = [
       ...currentMessages,
       {
         role: 'assistant',
@@ -4725,6 +5006,28 @@ export class ChatManagerImpl implements ChatManager {
         };
       }),
     ];
+    // R1（2026-09-06，走查 W1/W9）：本轮含【产出型写入工具】成功（无 error）→ 注入
+    // 收敛提示，防"文件已写完却继续埋头思考、迟迟不交付确认"（超级玛丽走查实证：HTML
+    // 早落盘，模型 20+ 分钟不总结，用户三次催"挂了吗/请继续"）。
+    const hasSuccessfulWrite = processedResults.some(
+      (pr) =>
+        _WRITE_PRODUCTIVE_TOOLS.has(pr.normalizedToolCall.name) &&
+        !pr.result.error
+    );
+    if (hasSuccessfulWrite) {
+      logger.info('reactToolLoop:write_done_should_conclude', {
+        tools: processedResults
+          .filter((pr) =>
+            _WRITE_PRODUCTIVE_TOOLS.has(pr.normalizedToolCall.name)
+          )
+          .map((pr) => pr.normalizedToolCall.name),
+      });
+      built.push({
+        role: 'system' as const,
+        content: _WRITE_CONCLUDE_HINT,
+      });
+    }
+    return built;
   }
 
   /** P0-2：工具结果去重 stub 缓存——key: sessionId:toolName:参数归一化 → {hash, stubCount} */
@@ -4952,6 +5255,9 @@ export class ChatManagerImpl implements ChatManager {
       sessionId,
       elapsedMs: Date.now() - startedAt,
     });
+    // 4.2-5 共同前置（2026-09-05，审计 §9.8 ①）：删会话 PDCA 收口——
+    // 活跃 PDL abort + 该会话任务 checkpoint 置 abort 终态（幂等，不阻塞删除主流程）
+    this._closeSessionPdca(sessionId);
     // 联动清理该会话全部检查点（不阻塞删除主流程，记录执行情况，避免残留孤儿检查点）
     void this._deleteSessionCheckpoints(sessionId);
     // 清理协商状态文件（避免残留）
@@ -4981,6 +5287,69 @@ export class ChatManagerImpl implements ChatManager {
         error: e instanceof Error ? e.message : String(e),
       });
     }
+  }
+
+  /**
+   * 4.2-5 共同前置（2026-09-05，审计 §9.8 ①）：删除会话时的 PDCA 收口——
+   * ① 同步 abort 该会话活跃 PDL（abortSessionPlans，S3 键化后遍历该会话全部）；
+   * ② 异步将该会话全部 PDCA 任务 checkpoint 置 abort 终态（防 in-flight 复活
+   * completed、/goal list 与审计一致）。幂等；任何失败仅告警、不阻塞删除主流程。
+   */
+  private _closeSessionPdca(sessionId: string): void {
+    try {
+      abortSessionPlans(sessionId);
+    } catch (e) {
+      logger.warn('deleteSession:abortSessionPlans 失败', {
+        sessionId,
+        error: e instanceof Error ? e.message : String(e),
+      });
+    }
+    void (async () => {
+      try {
+        // S4（PR9，③）：会话级联中止——该会话 LRTO 任务 abort（taskId 私有
+        // 实例安全；abort 会级联中止其当前步骤私有 loop）。动态 import 防顶层循环。
+        const { getAllOrchestrators } =
+          await import('../tasks/LongRunningTaskOrchestrator.js');
+        for (const orch of getAllOrchestrators()) {
+          if (orch.getSessionId() === sessionId) {
+            void orch.abort();
+          }
+        }
+      } catch (e) {
+        logger.warn('deleteSession:级联中止 orchestrator 失败', {
+          sessionId,
+          error: e instanceof Error ? e.message : String(e),
+        });
+      }
+      try {
+        const { listPdcaCheckpoints, writePdcaCheckpoint } =
+          await import('../tasks/PdcaWorkItemBridge.js');
+        const rows = listPdcaCheckpoints().filter(
+          (c) => (c as { sessionId?: unknown }).sessionId === sessionId
+        );
+        let closed = 0;
+        for (const row of rows) {
+          const taskId = row.taskId as string | undefined;
+          if (!taskId) continue;
+          writePdcaCheckpoint(taskId, {
+            status: 'abort',
+            abortedAt: new Date().toISOString(),
+          });
+          closed++;
+        }
+        if (closed > 0) {
+          logger.info('deleteSession:PDCA 任务已收口为 abort', {
+            sessionId,
+            closed,
+          });
+        }
+      } catch (e) {
+        logger.warn('deleteSession:PDCA 任务收口失败', {
+          sessionId,
+          error: e instanceof Error ? e.message : String(e),
+        });
+      }
+    })();
   }
 
   /**

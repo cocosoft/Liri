@@ -28,6 +28,9 @@
  */
 import { create } from "zustand";
 import { sseService } from "@/services/sseService";
+import { createLogger } from "@/utils/logger";
+
+const logger = createLogger("orchestrationStore");
 
 /** 后端契约镜像（PdcaLiveEvents.ts） */
 export interface PdcaLiveEventPayload {
@@ -67,6 +70,8 @@ const PDCA_EVENT_NAMES = [
   "pdca:stage:fail",
   "pdca:tool:executed",
   "pdca:decision",
+  // B1（2026-09-06，P0-2）：自动启动信号（普通会话被自动升级时广播）
+  "pdca:auto_launched",
 ];
 
 function keyOf(event: PdcaLiveEventPayload): string {
@@ -78,6 +83,13 @@ export const useOrchestrationStore = create<OrchestrationState>((set, get) => ({
   timeline: [],
 
   ingest: (event) => {
+    // 走查打点（2026-09-06）：pdca 事件到达 store 即记录，用于核对 SSE 链路与抽屉判定
+    logger.info("pdca 事件到达", {
+      type: event.type,
+      sessionId: event.sessionId,
+      taskId: event.taskId ?? event.planId,
+      projectId: event.projectId,
+    });
     const key = keyOf(event);
     const timeline = [...get().timeline, event].slice(-MAX_TIMELINE);
     set({
@@ -87,6 +99,9 @@ export const useOrchestrationStore = create<OrchestrationState>((set, get) => ({
   },
 
   replay: (events) => {
+    if (events.length > 0) {
+      logger.info("pdca 快照回放", { count: events.length });
+    }
     const latest = { ...get().latest };
     for (const ev of events) {
       latest[keyOf(ev)] = ev;
@@ -97,8 +112,14 @@ export const useOrchestrationStore = create<OrchestrationState>((set, get) => ({
   clear: () => set({ latest: {}, timeline: [] }),
 }));
 
+/** 幂等注册守卫（2026-09-06）：后端重启/SSE 重连导致的多次 attach 不重复挂事件，
+ *  避免 ingest 监听器叠加（此前"幂等"仅靠注释承诺，attach 循环下会重复注册） */
+let _orchestrationStoreInit = false;
+
 /** 幂等注册：一次性挂接 5 类 pdca:* SSE 事件（useInitApp 调用） */
 export function initOrchestrationStore(): void {
+  if (_orchestrationStoreInit) return;
+  _orchestrationStoreInit = true;
   for (const name of PDCA_EVENT_NAMES) {
     sseService.on(name, (data: Record<string, unknown>) => {
       const raw = { ...(data as unknown as Record<string, unknown>) };

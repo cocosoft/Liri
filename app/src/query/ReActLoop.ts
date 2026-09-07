@@ -71,10 +71,37 @@ const PRODUCTIVE_TOOLS = new Set([
 // Core Types
 // ==========================================
 
+/**
+ * A2（2026-09-05）：终止原因统一枚举——收口既有 TAOR stopReason 值域 + 骨架
+ * 截断/循环检测/预算补充，供 finalize/getTerminationTip/上层决策共用（禁双枚举）。
+ */
+export type TerminationReason =
+  | 'completed'
+  | 'error'
+  | 'aborted'
+  | 'max_turns'
+  | 'budget_exhausted'
+  | 'verifier_escalate'
+  | 'diminishing_returns'
+  | 'loop_detected'
+  // A 档（2026-09-05）：对齐 StopHookReason 的 timeout——防未来置 timeout 时被
+  // 折叠成 completed（方案 A 复查收口，见 error_repairs）。
+  | 'timeout';
+
 /** 循环状态 */
 export interface ReActState {
   iteration: number;
-  phase: 'reasoning' | 'acting' | 'completed' | 'aborted' | 'error';
+  phase:
+    | 'reasoning'
+    | 'acting'
+    | 'completed'
+    | 'aborted'
+    | 'error'
+    // A1（2026-09-05）：达 maxIterations 截断使用专门 phase，避免被消费方当完成
+    | 'truncated'
+    // K1（2026-09-05）：预算耗尽使用专门 phase——骨架 budget 分支原置 'completed'
+    // 会把"预算耗尽终止"误报为正常完成（消费 phase==='completed' 的上层无法区分）。
+    | 'budget_exhausted';
   pendingToolCalls: ToolCallEntry[];
   lastError?: string;
 }
@@ -288,6 +315,39 @@ export abstract class ReActLoop<
     // default: no-op
   }
 
+  // ── A2（2026-09-05）：终止原因单一判别（finalize/getTerminationTip/收尾共用）──
+
+  /** 子类判定循环检测终止（TAOR loopDetector / ReActToolLoop loopState.loopDetected） */
+  protected isLoopDetectedReason(): boolean {
+    return false;
+  }
+
+  /** 子类判定预算耗尽终止（TAOR tokenBudget） */
+  protected isBudgetExhaustedReason(): boolean {
+    return false;
+  }
+
+  /** 终止原因访问器：骨架统一判别截断/中止/错误，循环检测与预算由子类钩子补充 */
+  getTerminationReason(): TerminationReason {
+    if (this.config.abortSignal?.aborted || this.state.phase === 'aborted') {
+      return 'aborted';
+    }
+    if (this.state.phase === 'error') return 'error';
+    // K1 复查收口（2026-09-05）：预算耗尽 phase 显式判别——必须先于 max_turns/
+    // truncated，否则纯骨架直连 + config.budget 时（迭代也达上限）会被 max_turns
+    // 遮蔽；且不依赖子类 isBudgetExhaustedReason 钩子（默认 false 会漏判）。
+    if (this.state.phase === 'budget_exhausted') return 'budget_exhausted';
+    if (
+      this.state.phase === 'truncated' ||
+      this.state.iteration >= this.config.maxIterations
+    ) {
+      return 'max_turns';
+    }
+    if (this.isLoopDetectedReason()) return 'loop_detected';
+    if (this.isBudgetExhaustedReason()) return 'budget_exhausted';
+    return 'completed';
+  }
+
   /** 回合质量检测 Hook（对标 openclaw 2026-09-01）：shouldContinue=false 且输出可疑
    *  （空回复/只思考无答案/只计划不行动）时，子类注入重试指令并返回 true 让骨架 continue；
    *  返回 false 则正常收尾。重试上限由子类维护，防死循环。 */
@@ -395,7 +455,9 @@ export abstract class ReActLoop<
             maxIterations: this.config.maxIterations,
             iteration: this.state.iteration,
           });
-          this.state.phase = 'completed';
+          // A1（2026-09-05）：达上限用专门截断 phase，不再置 'completed'——
+          // 消费 state.phase 完成态的上层据此区分「截断」与「正常完成」。
+          this.state.phase = 'truncated';
           // 对标 openworker/agentscope/hermes（2026-09-01）：达上限产出生效收尾——
           // ① yield max_iterations 收尾事件（前端可区分"完成"与"被截断"，CS02 状态标记）；
           // ② onMaxIterations 钩子供子类做"不带 tools 的总结请求"（hermes 模式），失败不阻塞。
@@ -420,7 +482,9 @@ export abstract class ReActLoop<
               maxIterations: this.config.maxIterations,
               iteration: this.state.iteration,
             });
-            this.state.phase = 'completed';
+            // K1（2026-09-05）：预算耗尽终止不再置 'completed'——消费 phase 完成态的
+            // 上层据此区分「预算耗尽」与「正常完成」。
+            this.state.phase = 'budget_exhausted';
             return this.finalize(this.state, context);
           }
           logger.warn('reActLoop:budget_grace_call', {

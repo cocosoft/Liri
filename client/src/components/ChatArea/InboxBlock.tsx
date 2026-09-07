@@ -87,9 +87,8 @@ export default function InboxBlock({ data, sessionId, onResolved }: Props) {
           setResuming(true);
           try {
             // 后端续跑落盘需要时间：延迟刷新一次消息展示结果（SSE 无消息级事件）
-            const { sessionService } = await import(
-              "../../services/sessionService"
-            );
+            const { sessionService } =
+              await import("../../services/sessionService");
             const { useChatStore } = await import("../../stores/chat");
             await new Promise((r) => setTimeout(r, 3000));
             const messages = await sessionService.getMessages(sessionId);

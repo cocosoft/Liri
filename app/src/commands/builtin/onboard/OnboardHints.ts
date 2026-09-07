@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 上下文提示机制（对标 Hermes onboarding.py）
  * 首次遇到特定行为时展示一次性提示，而非在 setup 阶段追问。
  * 提示状态通过配置系统持久化，每个提示只展示一次。
@@ -22,6 +22,8 @@ export enum OnboardHintKey {
   TOOL_PROGRESS = 'tool_progress',
   /** 首次配置完成后快速入门指引 */
   FIRST_SETUP_COMPLETE = 'first_setup_complete',
+  /** 首次检测到执行类长任务意图时，提示 PDCA 方法论可用（S4，2026-09-06） */
+  METHODOLOGY_PDCA = 'methodology_pdca',
 }
 
 function hintPath(key: OnboardHintKey): string {
@@ -95,6 +97,16 @@ export const HINT_SOUL_CUSTOMIZATION = `💡 提示（仅此一次）— 你可�
 export const HINT_CHANNEL_SETUP = `💡 提示（仅此一次）— Liri 支持连接消息平台：
     运行 /onboard 选择完整配置 → 步骤 5 设置 QQ/Telegram 等通道
     或在配置文件中手动编辑通道设置`;
+
+/**
+ * 提示内容 — PDCA 方法论可用（S4，2026-09-06）
+ * 触发方：检测到执行类长任务意图（isExecutionTaskIntent / 自动升级判定处），
+ * 经 showHintIfNeeded(OnboardHintKey.METHODOLOGY_PDCA, HINT_METHODOLOGY_PDCA) 展示一次。
+ * CLI 场景 console 输出；UI 聊天场景由征询消息/前端 ActivityStrip 承担，此提示不重复。
+ */
+export const HINT_METHODOLOGY_PDCA = `💡 提示（仅此一次）— 复杂任务我可以按「计划 → 执行 → 检查 → 总结」
+    四阶段（PDCA）分步推进并自动验收。直接说"帮我做个 XX"并允许我分步做即可自动启用，
+    也可用 /pdca start <描述> 显式启动。`;
 
 /**
  * 获取已读/未读提示统计

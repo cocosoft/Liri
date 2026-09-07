@@ -38,17 +38,37 @@ export interface IntentMatch {
   confidence: number;
 }
 
-// ──── Plan 检测规则 ────
+// ──── Plan 检测规则（通道 1：冒号/标签句式，如"目标：…"）────
 const PLAN_PATTERNS: Array<{ regex: RegExp; type: ProjectContextType }> = [
   { regex: /目标[是为：:]\s*(.+)/, type: 'goal' },
   { regex: /项目目标[是为：:]\s*(.+)/, type: 'goal' },
   { regex: /核心目标[是为：:]\s*(.+)/, type: 'goal' },
+  // S6（2026-09-06）：补全高频目标标签——"任务：写个xx"此前不命中 goal → Y 信号（hasGoal）漏判
+  { regex: /任务[是为：:]\s*(.+)/, type: 'goal' },
+  { regex: /目的[是为：:]\s*(.+)/, type: 'goal' },
   { regex: /范围[是为：:]\s*(.+)/, type: 'scope' },
   { regex: /不[包括含做]|只做|仅限[于]?(\S+)/, type: 'scope' },
   { regex: /约束[是为：:]\s*(.+)/, type: 'constraint' },
   { regex: /限制[是为：:]\s*(.+)/, type: 'constraint' },
   { regex: /需求[是为：:]\s*(.+)/, type: 'requirement' },
   { regex: /知识[是为：:]\s*(.+)/, type: 'knowledge' },
+];
+
+// ──── Plan 检测规则（通道 2：词库/动词请求句式，S6 2026-09-06）────
+// 无标签的明确"请求产出"句（"帮我做个记账软件"）→ goal。仅强信号动词集（与
+// ChatManager taskIntent 词汇同源），闲聊/分析类动词（看看/分析/检查/修改…）不命中，
+// 避免误伤（防过度设计边界：弱信号仍走 ChatManager A+B 分档，不在引擎扩逻辑）。
+const GOAL_REQUEST_PATTERNS: Array<{
+  regex: RegExp;
+  type: ProjectContextType;
+}> = [
+  {
+    // 前缀(请/帮我/我要…) + 可选二次求助(帮我/给我) + 强产出动词 + 对象；
+    // 支持"请帮我做个xx / 帮我写个xx"，排除分析/闲聊动词（看看/分析/检查/修改…）
+    regex:
+      /(?:帮我|请(?:你)?|麻烦你?|我要|我想)\s*(?:帮我|给我)?\s*(?:做一个?|做|开发|编写|写|构建|搭建|实现|创建|生成|整理|设计|规划)\s*(.+)/,
+    type: 'goal',
+  },
 ];
 
 // ──── Do 检测规则 ────
@@ -74,8 +94,11 @@ export class ImplicitEngineHook {
   static analyze(text: string): IntentMatch[] {
     const matches: IntentMatch[] = [];
 
-    // Plan 检测
-    for (const { regex, type } of PLAN_PATTERNS) {
+    // Plan 检测（通道 1 标签句式 + 通道 2 词库句式，S6 双通道）
+    for (const { regex, type } of [
+      ...PLAN_PATTERNS,
+      ...GOAL_REQUEST_PATTERNS,
+    ]) {
       const m = text.match(regex);
       if (m?.[1]) {
         const content = m[1].trim().slice(0, 200);
@@ -138,6 +161,27 @@ export class ImplicitEngineHook {
   }
 
   /**
+   * S6 修正（2026-09-06）：goal 意图判定（仅 Y 信号口径，不提取 content）——
+   * 对任意文本（含用户请求句）用 goal 双通道判定是否含明确目标。
+   * 供 persist(userText) 与上层把"用户最后一条消息"纳入 hasGoal 判定：
+   * persist 输入是助手回复，而"帮我做xx"请求句在用户消息里（走查实证 S6 漏判根因）。
+   */
+  static hasGoalIntent(text: string): boolean {
+    for (const { regex, type } of [
+      ...PLAN_PATTERNS,
+      ...GOAL_REQUEST_PATTERNS,
+    ]) {
+      if (type !== 'goal') continue;
+      const m = text.match(regex);
+      if (m?.[1]) {
+        const content = m[1].trim().slice(0, 200);
+        if (content.length >= 2 && !/^附件|^【/.test(content)) return true;
+      }
+    }
+    return false;
+  }
+
+  /**
    * 处理消息：分析意图并返回需要写入的数据
    * 由调用方负责 HTTP 写入（避免模块耦合 HTTP）
    */
@@ -173,14 +217,19 @@ export class ImplicitEngineHook {
    * 分析消息并持久化到 rules.md 和 artifacts 文件
    *
    * @param projectId 项目 ID（worktree ID）
-   * @param text 消息文本
+   * @param text 消息文本（助手回复；goal 上下文/产物均由此提取）
+   * @param projectsDir 项目根目录（默认 resolveDataDir()/projects）
+   * @param sessionId 会话 ID
+   * @param userText S6（2026-09-06）：用户最后一条消息——仅参与 goal 判定
+   *        （"帮我做xx"请求句命中引擎词库），不参与 contexts/deliverables 写入
    * @returns 写入的 contexts/deliverables 数量，以及是否检测到 goal（可用于升级为完整 PDCA）
    */
   static async persist(
     projectId: string,
     text: string,
     projectsDir?: string,
-    sessionId?: string
+    sessionId?: string,
+    userText?: string
   ): Promise<{
     contexts: number;
     deliverables: number;
@@ -201,13 +250,17 @@ export class ImplicitEngineHook {
         goalSummary: undefined as string | undefined,
         registeredRequirements: 0,
       };
+      // S6：用户请求句也参与 goal 判定（不参与写入）；空回复 + 无产物 + 用户无目标 → 早退
+      const userGoalHit =
+        !!userText && ImplicitEngineHook.hasGoalIntent(userText);
       const { contexts, deliverables } = this.process(text);
-      if (contexts.length === 0 && deliverables.length === 0) {
+      if (contexts.length === 0 && deliverables.length === 0 && !userGoalHit) {
         span.setStatus({ code: SpanStatusCode.OK });
         return result;
       }
 
-      result.hasGoal = contexts.some((c) => c.type === 'goal');
+      // S6：hasGoal = 助手文本命中 goal 标签/句式 OR 用户请求句命中（消除上层 fallback 依赖）
+      result.hasGoal = contexts.some((c) => c.type === 'goal') || userGoalHit;
       const goalCtx = contexts.find((c) => c.type === 'goal');
       if (goalCtx) {
         result.goalSummary = goalCtx.content

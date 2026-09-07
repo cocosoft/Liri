@@ -218,19 +218,19 @@ export default {
       return {
         success: true,
         type: 'text',
-        message: '没有待执行的计划任务。',
+        message: '当前没有待执行的计划任务。',
       };
     }
 
-    const next = pending[0];
+    // /plan 是轻量手工待办清单，不自动执行（原实现打印假"执行中"状态，属 CS04 假状态问题）
     return {
       success: true,
       type: 'text',
       message:
-        `计划执行中...\n\n` +
-        `当前任务: ${next.taskState.description}\n` +
-        `剩余任务: ${pending.length - 1} 个`,
-      data: { status: 'running', currentTask: next.taskState.id },
+        `/plan 是轻量手工待办清单，不会自动执行（当前 ${pending.length} 个待办）。\n\n` +
+        `如需 AI 分步执行（计划→执行→检查→总结），请用自然语言描述任务` +
+        `（如"帮我做个 XX，要能分步做完再检查"），或使用 /goal 查看 PDCA 任务。`,
+      data: { pending: pending.length },
     };
   },
 

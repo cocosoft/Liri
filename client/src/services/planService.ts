@@ -271,3 +271,21 @@ export const kanbanService = {
     }
   },
 };
+
+/** 研究模式（P0-3，2026-09-06）：显式启动候选生成 + 对抗评审编排（异步，fire-and-forget） */
+export const researchService = {
+  start: async (
+    description: string,
+    sessionId?: string,
+  ): Promise<string | null> => {
+    try {
+      const res = await http.post<{ taskId: string }>("/v1/research/start", {
+        description,
+        sessionId,
+      });
+      return (res as { taskId?: string } | null)?.taskId ?? null;
+    } catch {
+      return null;
+    }
+  },
+};

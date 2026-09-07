@@ -91,6 +91,19 @@ export class ResumeManager {
           continue;
         }
 
+        // A 阶段一 C（2026-09-05）：goal 检查点（PDL 快路径目标运行产物）不做 Durable
+        // Resume——goal 会话恢复语义 = 重启后人工经 /goal 恢复；chat 侧自动恢复只服务
+        // 普通对话检查点（TAORCheckpoint.kind 缺省按 chat 宽容读）。
+        if (latest.kind === 'goal') {
+          if (isCheckpointLogEnabled()) {
+            logger.info(
+              '[ResumeManager] goal 检查点跳过（非 Durable Resume 范畴，走 /goal 恢复）',
+              { sessionId, checkpointId: latest.id }
+            );
+          }
+          continue;
+        }
+
         const age = now - latest.createdAt;
         const isExpired = age > 24 * 60 * 60 * 1000;
 

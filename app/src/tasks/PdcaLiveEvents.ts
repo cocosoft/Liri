@@ -37,7 +37,10 @@ export type PdcaLiveEventType =
   | 'pdca:stage:complete'
   | 'pdca:stage:fail'
   | 'pdca:tool:executed'
-  | 'pdca:decision';
+  | 'pdca:decision'
+  // B1（2026-09-06，P0-2）：自动启动信号——普通会话命中执行意图被自动升级
+  // （自动建项目 + launch）时广播，前端据此显示"已进入执行模式"banner/徽标
+  | 'pdca:auto_launched';
 
 /** 归属字段（编排视图按任一过滤；PDL 快速路径无 taskId 时用 planId） */
 export interface PdcaLiveCore {

@@ -10,6 +10,20 @@ import { httpLegacy as http } from "./httpClient";
 import { handleClientError } from "../utils/handleError";
 
 /**
+ * P0-2（2026-09-07）：Registry 批量删除统一走既有
+ * `DELETE /v1/files/registry/delete?fileIds=a,b,c`（后端 softDelete 多 id 软删）。
+ * 逗号多 id 拼 query string，单批 ≤200 防止 URL 超长，超出分批串行删除。
+ */
+const REGISTRY_DELETE_BATCH = 200;
+async function deleteRegistryFiles(ids: string[]): Promise<void> {
+  for (let i = 0; i < ids.length; i += REGISTRY_DELETE_BATCH) {
+    const chunk = ids.slice(i, i + REGISTRY_DELETE_BATCH);
+    const fileIds = encodeURIComponent(chunk.join(","));
+    await http.delete(`/v1/files/registry/delete?fileIds=${fileIds}`);
+  }
+}
+
+/**
  * 文件读取详情响应
  */
 export interface FileReadDetail {
@@ -96,7 +110,7 @@ function createFallbackFileService() {
       return http.get<FileStats>("/v1/files/registry/stats");
     },
     batchDelete: async (ids: string[]): Promise<void> => {
-      await http.post("/v1/files/registry/batch-delete", { ids });
+      await deleteRegistryFiles(ids);
     },
   };
 }
@@ -126,7 +140,10 @@ function createTauriFileService() {
         return result.content;
       } catch (e) {
         handleClientError(e, { module: "services:file", action: "readFile" });
-        throw new Error("无法读取文件");
+        // P1-4：透传路径与原始错误（对齐 listDir），便于 UI 定位根因
+        throw new Error(
+          `无法读取文件 ${path}: ${e instanceof Error ? e.message : String(e)}`,
+        );
       }
     },
     readFileDetail: async (path: string): Promise<FileReadDetail> => {
@@ -140,7 +157,10 @@ function createTauriFileService() {
           module: "services:file",
           action: "readFileDetail",
         });
-        throw new Error("无法读取文件");
+        // P1-4：透传路径与原始错误（对齐 listDir），便于 UI 定位根因
+        throw new Error(
+          `无法读取文件 ${path}: ${e instanceof Error ? e.message : String(e)}`,
+        );
       }
     },
     upload: uploadViaHttp,
@@ -195,7 +215,7 @@ function createTauriFileService() {
       return http.get<FileStats>("/v1/files/registry/stats");
     },
     batchDelete: async (ids: string[]): Promise<void> => {
-      await http.post("/v1/files/registry/batch-delete", { ids });
+      await deleteRegistryFiles(ids);
     },
   };
 }

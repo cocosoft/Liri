@@ -4,7 +4,7 @@
  * 批次 4：将 ChatManager 的能力封装为 TAORLoopDeps 接口，
  * 使 TAORLoop 可以编排 ChatManager 的工具调用循环。
  *
- * 通过 ENABLE_LOOP_V8_PHASE2 环境变量灰度切换。
+ * TAORLoop 统一编排已常驻（ENABLE_LOOP_V8_PHASE2 灰度开关于阶段 3 退役，2026-09-01）——L5 注释清理 2026-09-06
  */
 
 import { getLogger } from '@modules/monitoring';

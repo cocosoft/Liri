@@ -165,6 +165,15 @@ async function resolveMemoryWritebackManager(): Promise<MemoryWritebackManager |
   return _memoryWritebackManager;
 }
 
+/**
+ * PR5（#6/决策 7）：replan 连续失败收敛阈值——达上限终态 failed 转人工介入。
+ * env `PDCA_REPLAN_MAX_RETRIES` 可调（默认 3）。
+ */
+function replanMaxRetries(): number {
+  const v = Number(configManager.env('PDCA_REPLAN_MAX_RETRIES'));
+  return Number.isFinite(v) && v > 0 ? v : 3;
+}
+
 /** PDCA 状态快照（前端查询用） */
 export interface PdcaStatus {
   taskId: string;
@@ -293,9 +302,9 @@ export class LongRunningTaskOrchestrator {
   private auditReport: AuditReport | null = null;
   /** 3-1（2026-09-03）：PDCA 终态记忆回写防重（同任务仅写一次） */
   private _memoryWriteDone = false;
-  /** 方向4（2026-09-03）：GoalEvaluateGate 收敛判定捕获（评估关闭时不设） */
+  /** 方向4（2026-09-03）：GoalEvaluateGate 收敛判定捕获（评估关闭时不设；L7 三态含未决 undefined） */
   private _goalEvaluation?: {
-    converged: boolean;
+    converged: boolean | undefined;
     confidence: number;
     reason?: string;
   };
@@ -308,7 +317,7 @@ export class LongRunningTaskOrchestrator {
     { startMs: number; endMs?: number; tokens?: number }
   > = new Map();
   /**
-   * Phase 2: TAORLoop 统一编排器（ENABLE_LOOP_V8_PHASE2 时注入）
+   * Phase 2: TAORLoop 统一编排器（统一编排已常驻，ENABLE_LOOP_V8_PHASE2 已退役——L5 清理 2026-09-06）
    */
   private taorLoop?: TAORLoop;
   /**
@@ -316,7 +325,15 @@ export class LongRunningTaskOrchestrator {
    * 注入工厂后 executeSingleStep 为每个步骤创建独立实例，杜绝共享实例状态串扰；
    * 未注入时回退共享 taorLoop 串行执行（现状零回归）。
    */
-  private taorLoopFactory?: (sessionId: string) => TAORLoop;
+  private taorLoopFactory?: (
+    sessionId: string,
+    opts?: { maxTurnsMultiplier?: number; privateInstance?: boolean }
+  ) => TAORLoop;
+  /** S2/B（2026-09-05，PR9）：步骤轮次预算乘子（resume 扩容续跑时=2）与累计次数 */
+  private _stepTurnsMultiplier: number = 1;
+  private _turnsExtensions: number = 0;
+  /** S4（PR9）：当前步骤私有 loop（中止级联 abort；每次步骤执行后更新） */
+  private _currentLoop?: TAORLoop;
   /**
    * Phase 4: VerifierAgent（双指标验证：CheckPassRate + Confidence）
    */
@@ -467,6 +484,8 @@ export class LongRunningTaskOrchestrator {
           retryCount: s.retryCount,
           maxRetries: s.maxRetries,
           acceptanceCriteria: s.acceptanceCriteria,
+          // E1①/B（2026-09-05）：步骤终止原因随快照持久化（resume 扩容判定输入）
+          terminationReason: s.terminationReason,
           // 1-1c（2026-09-03）：快照携带依赖（resume 按快照顺序位置映射重建）
           dependsOn: s.dependsOn,
         })),
@@ -474,6 +493,8 @@ export class LongRunningTaskOrchestrator {
         lastEscalations: this._lastEscalations,
         // D4（M4）：TAORLoop token 累计（阶段边界结算 → StageOrchestrator 成本护栏）
         totalTokens: this._totalTokensTracked,
+        // S2/B（PR9）：max_turns 扩容续跑次数（跨重启累计，上限门禁）
+        turnsExtensions: this._turnsExtensions,
       });
     } catch {
       // @ignore-catch — checkpoint 写入失败不影响任务执行
@@ -496,7 +517,6 @@ export class LongRunningTaskOrchestrator {
     logger.info('[orchestrator] TAORLoop 已注入', {
       taskId: this.taskId,
       hasTAORLoop: !!this.taorLoop,
-      envEnabled: configManager.env('ENABLE_LOOP_V8_PHASE2'),
     });
   }
 
@@ -504,7 +524,12 @@ export class LongRunningTaskOrchestrator {
    * D2（M3，2026-08-13）：注入每步独立 TAORLoop 工厂（无依赖步骤批次并行的安全前提）
    * 工厂签名与 PdcaLauncher.deps.taorLoopFactory 一致：(sessionId) => TAORLoop。
    */
-  setTAORLoopFactory(factory: (sessionId: string) => TAORLoop): void {
+  setTAORLoopFactory(
+    factory: (
+      sessionId: string,
+      opts?: { maxTurnsMultiplier?: number; privateInstance?: boolean }
+    ) => TAORLoop
+  ): void {
     this.taorLoopFactory = factory;
     logger.info('[orchestrator] TAORLoop 工厂已注入（每步独立实例，可并行）', {
       taskId: this.taskId,
@@ -702,6 +727,23 @@ ${replanSection}
 
     // 检查全部完成
     this.setPhase('review');
+    // OBS/C3（2026-09-06）：链条 C 阶段广播——此前 review/decide 从不发 pdca:stage 事件，
+    // 前端 C/A 胶囊永不亮（快路径单步无审查属设计；经典链须能显示）
+    void emitPdcaLiveEvent(
+      'pdca:stage:phase',
+      {
+        taskId: this.taskId,
+        planId: this.planId ?? undefined,
+        sessionId: this._sessionId ?? '',
+      },
+      {
+        stage: 'review',
+        status: 'running',
+        message: '步骤审查与决策',
+        completedSteps: this.stepDurations.size,
+        totalSteps: plan.steps.length,
+      }
+    );
     return taskOrchestrator.getPlan(this.planId)!;
   }
 
@@ -855,7 +897,6 @@ ${replanSection}
       stepId: step.id,
       stepDesc: step.description.slice(0, 80),
       hasTAORLoop: !!this.taorLoop,
-      envEnabled: configManager.env('ENABLE_LOOP_V8_PHASE2'),
       hasAcceptanceCriteria: !!step.acceptanceCriteria,
       hasReviewResult: !!step.reviewResult,
       retryCount: step.retryCount,
@@ -885,12 +926,22 @@ ${replanSection}
       .filter(Boolean)
       .join('\n\n');
 
-    // Phase 2: 委托 TAORLoop 编排（如果已注入且 ENABLE_LOOP_V8_PHASE2 启用）
+    // Phase 2: 委托 TAORLoop 编排（统一编排已常驻；开关 ENABLE_LOOP_V8_PHASE2 已退役——L5 清理 2026-09-06）
     // D2（M3，2026-08-13）：优先每步独立实例（工厂注入，并行安全）；否则共享实例（串行）
     const loop = this.taorLoopFactory
-      ? this.taorLoopFactory(this.taskId)
+      ? this.taorLoopFactory(this.taskId, {
+          // S1/PR9 私有化：LRTO 步骤始终要全新私有实例（不进会话缓存）
+          privateInstance: true,
+          // S2/B（PR9）：扩容续跑乘子透传工厂（翻倍轮次预算）
+          maxTurnsMultiplier:
+            this._stepTurnsMultiplier > 1
+              ? this._stepTurnsMultiplier
+              : undefined,
+        })
       : this.taorLoop;
-    if (loop && configManager.env('ENABLE_LOOP_V8_PHASE2') !== 'false') {
+    // S4（PR9）：记录当前步骤 loop，任务中止时级联 abort（私有实例可安全中止）
+    this._currentLoop = loop;
+    if (loop) {
       logger.info('[orchestrator] 进入 TAORLoop 分支（真实工具执行）', {
         taskId: this.taskId,
         stepId: step.id,
@@ -1064,7 +1115,9 @@ ${replanSection}
 
         taskOrchestrator.markStepCompleted(
           step.id,
-          `[TAORLoop] turns=${result.turnCount} tokens=${result.totalTokens} elapsed=${taorElapsed}ms`
+          `[TAORLoop] turns=${result.turnCount} tokens=${result.totalTokens} elapsed=${taorElapsed}ms`,
+          // E1①（2026-09-05，方案甲）：终止原因透传落 PlanStep
+          { terminationReason: result.terminationReason }
         );
         this._persistCheckpoint(); // P0(M2)
         const log = (loop as any).getLastRunLog?.();
@@ -1118,6 +1171,16 @@ ${replanSection}
         }
         return;
       } catch (e) {
+        // PR3（#3）：中止引发 → 按 cancelled 收尾并终止该步骤（不再降级重试/告警）
+        if (this.isolation.abortController.signal.aborted) {
+          logger.info('[orchestrator] TAOR 步骤因中止取消', {
+            taskId: this.taskId,
+            stepId: step.id,
+          });
+          taskOrchestrator.markStepCancelled(step.id, '用户中止');
+          this._persistCheckpoint();
+          return;
+        }
         const taorElapsedOnFail = Date.now() - taorStart;
         await handleError(e, {
           module: 'tasks:longRunning',
@@ -1140,7 +1203,6 @@ ${replanSection}
       taskId: this.taskId,
       stepId: step.id,
       hasTAORLoop: !!this.taorLoop,
-      envEnabled: configManager.env('ENABLE_LOOP_V8_PHASE2'),
     });
     try {
       const executorStart = Date.now();
@@ -1180,19 +1242,62 @@ ${replanSection}
         `Step completed: ${step.description}`
       );
     } catch (e) {
-      await handleError(e, {
-        module: 'tasks:longRunning',
-        action: 'executor',
-        context: { stepId: step.id },
-      });
+      // PR3（#3）：中止引发 → 按 cancelled 收尾，不标 failed、不告警
+      if (this.isolation.abortController.signal.aborted) {
+        logger.info('[orchestrator] executor 步骤因中止取消', {
+          taskId: this.taskId,
+          stepId: step.id,
+        });
+        taskOrchestrator.markStepCancelled(step.id, '用户中止');
+        this._persistCheckpoint();
+        return;
+      }
       const errMsg = e instanceof Error ? e.message : String(e);
-      taskOrchestrator.markStepFailed(step.id, errMsg);
+      const maxRetries = step.maxRetries ?? 3;
+      if (step.retryCount < maxRetries) {
+        // PR5（#5，2026-09-05）：执行级有界重试——瞬时工具/网络异常不直接终态 failed。
+        // 复用 decide-retry 同一 retryCount 语义；重试在下一轮 executeAllSteps 中再次执行。
+        step.status = 'pending';
+        step.retryCount += 1;
+        step.error = errMsg;
+        this._recordLifecycle(
+          'progress',
+          TaskStatus.RUNNING,
+          `执行异常，重试 #${step.retryCount}/${maxRetries}: ${step.description}`
+        );
+        logger.info('[orchestrator] 步骤执行异常，进入有界重试', {
+          taskId: this.taskId,
+          stepId: step.id,
+          stepDesc: step.description.slice(0, 60),
+          retryCount: step.retryCount,
+          maxRetries,
+          error: errMsg.slice(0, 200),
+        });
+        this._persistCheckpoint();
+        return;
+      }
+      // 超限 → 升级 escalate（缺陷落 _lastEscalations → replan 通道；与 #5/#6 验收口径一致）
+      step.status = 'failed';
+      step.decision = 'escalate';
+      step.error = `Exceeded max retries (${maxRetries}): ${errMsg}`;
+      this._recordEscalation(step);
+      await handleError(
+        new AppError(
+          step.error,
+          ErrorCategory.EXECUTION,
+          ErrorSeverity.HIGH,
+          'PDCA_STEP_EXECUTION_EXHAUSTED',
+          { taskId: this.taskId, stepId: step.id, maxRetries }
+        ),
+        { module: 'tasks:longRunning', action: 'executor_exhausted' }
+      );
+      taskOrchestrator.markStepFailed(step.id, step.error);
       this._persistCheckpoint(); // P0(M2)
       // §5 P1: 失败也回写执行摘要
       this._emitTaskMessage([
         {
           role: 'assistant',
-          content: `[任务步骤失败] ${step.description} — ${errMsg}`,
+          content: `[任务步骤失败] ${step.description} — ${step.error}`,
         },
       ]);
       const dur = this.stepDurations.get(step.id);
@@ -1201,7 +1306,7 @@ ${replanSection}
       this._recordLifecycle(
         'progress',
         TaskStatus.RUNNING,
-        `Step failed: ${step.description} — ${errMsg}`
+        `Step failed (escalated): ${step.description} — ${step.error}`
       );
     }
   }
@@ -1437,6 +1542,22 @@ ${replanSection}
         gateName: this.reviewGate.name,
       });
       await this.decideStep(stepId, 'approved');
+      // OBS/C3（2026-09-06）：链条 A 阶段（decision 结果）广播
+      void emitPdcaLiveEvent(
+        'pdca:stage:phase',
+        {
+          taskId: this.taskId,
+          planId: this.planId ?? undefined,
+          sessionId: this._sessionId ?? '',
+        },
+        {
+          stage: 'decide',
+          status: 'completed',
+          decision: 'approved',
+          message: '步骤决策: approved（审查通过）',
+          stepId: step.id,
+        }
+      );
       return 'approved';
     }
 
@@ -1465,6 +1586,22 @@ ${replanSection}
     });
 
     await this.decideStep(stepId, decision);
+    // OBS/C3（2026-09-06）：链条 A 阶段（decision 结果）广播——retry 语义为进入下一轮 Do
+    void emitPdcaLiveEvent(
+      'pdca:stage:phase',
+      {
+        taskId: this.taskId,
+        planId: this.planId ?? undefined,
+        sessionId: this._sessionId ?? '',
+      },
+      {
+        stage: 'decide',
+        status: decision === 'retry' ? 'running' : 'completed',
+        decision,
+        message: `步骤决策: ${decision}`,
+        stepId: step.id,
+      }
+    );
     return decision;
   }
 
@@ -1493,7 +1630,6 @@ ${replanSection}
       taskId: this.taskId,
       sessionId,
       hasTAORLoop: !!this.taorLoop,
-      envEnabled: configManager.env('ENABLE_LOOP_V8_PHASE2'),
       hasOnTaskMessage: !!opts?.onTaskMessage,
       requireApproval,
       descPreview: description.slice(0, 80),
@@ -1502,6 +1638,16 @@ ${replanSection}
     // Plan
     const plan = await this.executePlanPhase(description, sessionId);
     this.setPhase('plan');
+    // OBS/C3（2026-09-06）：链条 P 阶段 start 广播（快路径由 PlanDrivenLoop 发；链条补位）
+    void emitPdcaLiveEvent(
+      'pdca:stage:start',
+      {
+        taskId: this.taskId,
+        planId: this.planId ?? undefined,
+        sessionId,
+      },
+      { stage: 'plan', status: 'started', totalSteps: plan.steps.length }
+    );
 
     // 计划前置审批：在 EXECUTE 前插入审批断点
     if (requireApproval) {
@@ -1735,6 +1881,16 @@ ${replanSection}
   }
 
   /**
+   * P1-2（2026-08-31）：turn 预算上限解析（L8 抽公共函数，2026-09-06）——
+   * 动态兜底（步骤数*5，最少 20）防误杀；显式配置 TASK_GOAL_MAX_TURNS 时优先作硬上限。
+   */
+  private _resolvePdcaMaxIterations(stepCount: number): number {
+    const dynamicMax = Math.max(20, stepCount * 5);
+    const configuredMax = Number(configManager.env('TASK_GOAL_MAX_TURNS')) || 0;
+    return configuredMax > 0 ? configuredMax : dynamicMax;
+  }
+
+  /**
    * P0(M2/M9)：统一 EXECUTE → REVIEW → DECIDE 循环。
    * 从 runFullPdca 与 resumeAfterApproval 的后半段抽取（两处原为重复实现）。
    * resumeFromCheckpoint 跨重启恢复后同样进入此循环继续执行。
@@ -1753,16 +1909,31 @@ ${replanSection}
   private async _runExecuteDecideLoop(): Promise<PdcaStatus> {
     let allDone = false;
     let iterations = 0;
-    const plan = this.requirePlan();
-    // P1-2（2026-08-31）：turn 预算上限——动态兜底（步骤数*5，最少 20）防误杀；
-    // 显式配置 TASK_GOAL_MAX_TURNS 时优先作为硬上限（对标 Hermes goal_max_turns）
-    const dynamicMax = Math.max(20, plan.steps.length * 5);
-    const configuredMax = Number(configManager.env('TASK_GOAL_MAX_TURNS')) || 0;
-    const maxIterations = configuredMax > 0 ? configuredMax : dynamicMax;
-    this._maxTurns = maxIterations;
+    // P1/L8（2026-09-06）：上限随最新 plan 每轮重算——replan/escalate 会替换 plan.steps
+    // （D5 增量 replan），入口只算一次会在步骤增多后被旧上限误杀（技术报告 E4/P3）。
+    // 当前无 replan 时 steps 数每轮恒定 → 上限不变，行为兼容；仅替换后才发生"上限重算"。
+    let maxIterations = 0;
+    const resolveMaxIterations = (): number => {
+      const cap = this._resolvePdcaMaxIterations(
+        this.requirePlan().steps.length
+      );
+      if (cap !== maxIterations) {
+        logger.info('[orchestrator] PDCA 轮次上限重算', {
+          taskId: this.taskId,
+          planId: this.planId,
+          prev: maxIterations,
+          next: cap,
+        });
+      }
+      this._maxTurns = cap; // 同步 stage metric（_recordGoalStageMetric maxTurns）
+      return cap;
+    };
+    maxIterations = resolveMaxIterations();
 
     while (!allDone && iterations < maxIterations) {
       iterations++;
+      // P1/L8：每轮以最新 plan 重算（replan 后新 steps 当轮即生效）
+      maxIterations = resolveMaxIterations();
       // Execute
       await this.executeAllSteps();
 
@@ -1816,15 +1987,17 @@ ${replanSection}
           },
           { isolation: this.isolation, executor: this.executor }
         );
-        // 方向4（2026-09-03）：收敛判定捕获 → review_samples 落库（评估关闭时不捕获）
-        if (goalConv.evaluated) {
-          this._goalEvaluation = {
-            converged: goalConv.converged,
-            confidence: goalConv.confidence,
-            reason: goalConv.reason,
-          };
-        }
-        if (goalConv.evaluated && !goalConv.converged) {
+        // 方向4（2026-09-03）：收敛判定捕获 → review_samples 落库（评估关闭时不捕获）。
+        // L7（2026-09-06）三态：未决 undefined 也如实记录（converged 存 null），
+        // 避免审计/记忆把"跳过结论"误报成"已确认达成"。
+        this._goalEvaluation = {
+          converged: goalConv.converged,
+          confidence: goalConv.confidence,
+          reason: goalConv.reason,
+        };
+        // L7（2026-09-06）：仅模型明确 false 才阻止假完成——undefined（评估失败/超时/
+        // 未给明确 bool）按"跳过结论"处理，不阻塞主流程也不误判未达成。
+        if (goalConv.converged === false) {
           logger.warn('目标级评估未收敛，阻止假完成', {
             taskId: this.taskId,
             planId: this.planId,
@@ -1890,13 +2063,52 @@ ${replanSection}
     }
 
     // 标记终态
-    if (allDone) {
+    if (this.isolation.abortController.signal.aborted) {
+      // PR3（#3）：中止收尾——plan 置 aborted（不标 completed/failed），
+      // 避免 abort 语义被覆盖；持久化由下方早退前的 savePlan 完成。
+      const finalPlan = this.requirePlan();
+      finalPlan.status = 'aborted';
+      finalPlan.completedAt = new Date().toISOString();
+      taskOrchestrator['savePlan']?.(finalPlan);
+    } else if (allDone) {
       const finalPlan = this.requirePlan();
       const hasEscalated = finalPlan.steps.some(
         (s) => s.decision === 'escalate'
       );
       finalPlan.status = hasEscalated ? 'failed' : 'completed';
       finalPlan.completedAt = new Date().toISOString();
+      if (hasEscalated) {
+        // PR5（#6，2026-09-05）：escalate 收尾 → checkpoint 写 replanPending /
+        // replanFailCount（半自动闭环，决策 4/6/7）。计数持久化、跨 resume/重启累计；
+        // 达上限 replanPending=false（转人工介入），resume 入口据此拒绝（见 resumeFromCheckpoint）。
+        const prevCk = readPdcaCheckpoint(this.taskId) ?? {};
+        const prevFail = Number(prevCk.replanFailCount) || 0;
+        const next = prevFail + 1;
+        const maxReplan = replanMaxRetries();
+        const replanPending = next < maxReplan;
+        writePdcaCheckpoint(this.taskId, {
+          taskId: this.taskId,
+          phase: 'execute',
+          status: 'failed',
+          replanPending,
+          replanFailCount: next,
+          replanConvergedAt: replanPending
+            ? undefined
+            : new Date().toISOString(),
+        });
+        logger.info('[orchestrator] escalate 收尾（半自动 replan）', {
+          taskId: this.taskId,
+          replanFailCount: next,
+          maxReplan,
+          replanPending,
+        });
+      }
+    }
+
+    if (this.isolation.abortController.signal.aborted) {
+      // PR3（#3）：中止已在 abort() 完成收尾（checkpoint/lifecycle/metric），
+      // 此处直接返回状态，不再执行 completed 语义的审计/事件/指标收尾（避免双重写入）。
+      return this.getStatus();
     }
 
     // 生成审计报告
@@ -1948,25 +2160,69 @@ ${replanSection}
       (ck.steps as Array<Record<string, unknown>> | undefined) ?? [];
     const phase = (ck.phase as string | undefined) ?? 'execute';
 
-    // Gap D（1-0c，2026-09-03）：终态任务（abort/completed/failed）拒绝恢复。
-    // 此前 abort 不写 checkpoint → /goal resume 会把已中止任务复活重跑；
-    // status 演进后（1-0b）终态在 checkpoint.status/phase 双字段可见，此处双查。
+    // Gap D（1-0c，2026-09-03）：终态任务拒绝恢复。
+    // PR5（#6，2026-09-05）：半自动 replan 例外——status=failed + replanPending 且
+    // replanFailCount 未达上限的任务允许 resume（缺陷驱动增量 replan）；其余终态
+    // （completed/abort、或 failed 但 replanPending=false = 收敛达上限或旧数据）仍拒绝。
     const ckStatus = ck.status as string | undefined;
-    if (
-      phase === 'completed' ||
-      phase === 'abort' ||
-      phase === 'failed' ||
-      ckStatus === 'completed' ||
-      ckStatus === 'abort' ||
-      ckStatus === 'failed'
-    ) {
+    const replanPending = Boolean(ck.replanPending);
+    const replanFailCount = Number(ck.replanFailCount) || 0;
+    const isTerminal = (st?: string): boolean =>
+      st === 'completed' || st === 'abort' || st === 'failed';
+    const replanResumable =
+      ckStatus === 'failed' &&
+      replanPending &&
+      replanFailCount < replanMaxRetries();
+    const refuseResume =
+      isTerminal(phase) || (isTerminal(ckStatus) && !replanResumable);
+    if (refuseResume) {
       throw new AppError(
-        `任务 ${this.taskId} 已处于终态（phase=${phase}, status=${ckStatus ?? '-'}），不可恢复`,
+        `任务 ${this.taskId} 已处于终态（phase=${phase}, status=${ckStatus ?? '-'}）${
+          ckStatus === 'failed' && !replanPending
+            ? '，且 replan 已达上限/未挂起，需人工介入'
+            : '，不可恢复'
+        }`,
         ErrorCategory.EXECUTION,
         ErrorSeverity.HIGH,
         'PDCA_RESUME_TERMINAL',
         { taskId: this.taskId, phase, status: ckStatus }
       );
+    }
+
+    // PR5（#6）：半自动 replan resume——failed+replanPending → 用上轮缺陷驱动
+    // executePlanPhase（增量 replan）后进入统一执行循环，而不是原样续跑旧步骤快照。
+    if (replanResumable) {
+      this._lastEscalations =
+        (ck.lastEscalations as EscalationRecord[] | undefined) ?? [];
+      const descriptionText =
+        (ck.description as string | undefined) ?? '恢复的 PDCA 任务';
+      logger.info('[orchestrator] resume 触发增量 replan（半自动闭环）', {
+        taskId: this.taskId,
+        replanFailCount,
+        defectCount: this._lastEscalations.length,
+      });
+      await this.executePlanPhase(descriptionText, sessionId);
+      this._lastEscalations = [];
+      return this._runExecuteDecideLoop();
+    }
+
+    // S2/B（2026-09-05，PR9）：max_turns 扩容续跑判定（决策逻辑见纯函数）
+    const extLimit =
+      parseInt(configManager.env('PDCA_MAX_TURNS_EXTENSION_LIMIT') || '') || 3;
+    this._turnsExtensions = Number(ck.turnsExtensions) || 0;
+    const extDecision = planTurnsExtensionDecision(
+      steps,
+      this._turnsExtensions,
+      extLimit
+    );
+    if (extDecision.apply) {
+      this._stepTurnsMultiplier = extDecision.multiplier;
+      this._turnsExtensions = extDecision.count;
+      logger.info('[orchestrator] resume 触发 max_turns 扩容续跑', {
+        taskId: this.taskId,
+        turnsExtensions: this._turnsExtensions,
+        stepTurnsMultiplier: this._stepTurnsMultiplier,
+      });
     }
 
     // 重建 Plan（新 taskId 由 taskOrchestrator 生成；workspaceId 从会话解析）
@@ -1995,6 +2251,20 @@ ${replanSection}
       step.retryCount = (s.retryCount as number) ?? 0;
       step.maxRetries = (s.maxRetries as number) ?? 3;
       step.acceptanceCriteria = s.acceptanceCriteria as string | undefined;
+      // E1①/B（2026-09-05）：终止原因回填（扩容判定/审计输入；先前丢失）
+      step.terminationReason = s.terminationReason as string | undefined;
+      // S2/B（PR9）：扩容候选步骤置回 pending 重跑（决策谓词见纯函数 shouldReRollMaxTurnsStep，
+      // 本轮完成时由 markStepCompleted 重新落盘新 reason）
+      if (
+        shouldReRollMaxTurnsStep(
+          this._stepTurnsMultiplier > 1,
+          s.terminationReason as string | undefined
+        )
+      ) {
+        step.status = 'pending';
+        step.result = undefined;
+        step.terminationReason = undefined;
+      }
       // 1-1c：恢复依赖（旧 stepId → 位置 → 新 stepId；仅前置、越界/缺失自愈忽略）
       const depIds = (s.dependsOn as string[] | undefined) ?? [];
       if (depIds.length > 0) {
@@ -2065,10 +2335,18 @@ ${replanSection}
     return plan;
   }
 
+  /** S4（PR9，③）：会话级联中止用（_closeSessionPdca 过滤本会话 orchestrators） */
+  getSessionId(): string | null {
+    return this._sessionId;
+  }
+
   // ─── 生命周期 ───────────────────────────────────────
 
   async abort(): Promise<void> {
     this.isolation.abort('User aborted');
+    // S4（PR9）：级联中止当前步骤私有 loop（私有实例安全；共享实例不可中止）
+    this._currentLoop?.abort();
+    this._currentLoop = undefined;
     this._recordLifecycle('finalized', TaskStatus.FAILED, 'Aborted by user');
     // Gap D（1-0c，2026-09-03）：中止必须落 checkpoint 终态。
     // 原实现仅落库 goal_metrics、不写 checkpoint → phase 停留中止前值，
@@ -2345,6 +2623,32 @@ setInterval(
   },
   30 * 60 * 1000
 ).unref();
+
+/**
+ * B-任务（2026-09-05）：max_turns 扩容续跑判定（纯函数，可单测）。
+ * steps 含 max_turns 终止步骤且续跑次数未达上限 → 本轮放大轮次预算（×2）并计数+1。
+ */
+export function planTurnsExtensionDecision(
+  steps: Array<{ terminationReason?: string }>,
+  currentExtensions: number,
+  limit: number
+): { apply: boolean; multiplier: number; count: number } {
+  const candidates = steps.filter(
+    (s) => s.terminationReason === 'max_turns'
+  ).length;
+  if (candidates > 0 && currentExtensions < limit) {
+    return { apply: true, multiplier: 2, count: currentExtensions + 1 };
+  }
+  return { apply: false, multiplier: 1, count: currentExtensions };
+}
+
+/** B-任务：扩容激活时，max_turns 终止的步骤置回 pending 重跑（loop_detected 拒绝） */
+export function shouldReRollMaxTurnsStep(
+  multiplierActive: boolean,
+  terminationReason?: string
+): boolean {
+  return multiplierActive && terminationReason === 'max_turns';
+}
 
 export function getOrCreateOrchestrator(
   taskId: string

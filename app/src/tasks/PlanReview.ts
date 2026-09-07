@@ -5,6 +5,23 @@
  * Orchestrator 根据此结果决定 approve / retry / skip / escalate。
  */
 
+import { configManager } from '@modules/config';
+
+/**
+ * PR4（#8）：severity 缺省策略（决策 3）——
+ * strict 模式（env REVIEW_GATE_STRICT_ISSUES，默认开启）下 LLM 未按 schema 输出
+ * severity 时按最坏情况 `major`（必阻塞）处理，避免 critical/major 被静默放行；
+ * 设 `='false'` 时回退旧行为（minor 缺省），作为灰度/回退通道。
+ */
+function reviewGateStrictIssues(): boolean {
+  return configManager.env('REVIEW_GATE_STRICT_ISSUES') !== 'false';
+}
+
+/** 校验 severity 是否为合法枚举值 */
+function isSeverityValue(v: unknown): v is 'critical' | 'major' | 'minor' {
+  return v === 'critical' || v === 'major' || v === 'minor';
+}
+
 /** 审查问题 */
 export interface ReviewIssue {
   severity: 'critical' | 'major' | 'minor';
@@ -58,23 +75,39 @@ export function isReviewPassed(review: PlanReview): boolean {
 export function parseReviewFromText(
   text: string,
   stepId: string,
-  reviewerAgentId?: string
+  reviewerAgentId?: string,
+  /** PR4（#8）：覆盖 strict 判定（单测注入用）；缺省时按 env REVIEW_GATE_STRICT_ISSUES */
+  strictIssues?: boolean
 ): PlanReview {
   // 尝试解析 JSON
   try {
     const parsed = JSON.parse(text);
+    const strict = strictIssues ?? reviewGateStrictIssues();
+    const issuesRaw = Array.isArray(parsed.issues) ? parsed.issues : [];
+    // PR4（#8）：逐条归一 severity——缺省/非法值按 strict?major:minor 处理，并计数缺失
+    let missingSeverity = 0;
+    const issues = issuesRaw.map((i: any) => {
+      const hasSeverity = isSeverityValue(i?.severity);
+      if (!hasSeverity) missingSeverity++;
+      return {
+        severity: hasSeverity
+          ? (i.severity as ReviewIssue['severity'])
+          : strict
+            ? 'major'
+            : 'minor',
+        description: String(i.description || ''),
+        suggestion: i.suggestion ? String(i.suggestion) : undefined,
+        file: i.file ? String(i.file) : undefined,
+      };
+    });
+    // PR4（#8，决策 3）：strict 下「有 issues 但全部缺 severity」判格式不合规 → block
+    const schemaNonCompliant =
+      strict && issues.length > 0 && missingSeverity === issues.length;
     return {
       stepId,
-      pass: Boolean(parsed.pass),
+      pass: Boolean(parsed.pass) && !schemaNonCompliant,
       score: Math.max(0, Math.min(100, Number(parsed.score) || 0)),
-      issues: Array.isArray(parsed.issues)
-        ? parsed.issues.map((i: any) => ({
-            severity: i.severity || 'minor',
-            description: String(i.description || ''),
-            suggestion: i.suggestion ? String(i.suggestion) : undefined,
-            file: i.file ? String(i.file) : undefined,
-          }))
-        : [],
+      issues,
       summary: String(parsed.summary || ''),
       reviewedAt: Date.now(),
       reviewerAgentId,

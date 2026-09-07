@@ -40,7 +40,9 @@ export default function SchemaFormField({
           type="checkbox"
           id={`schema-${field.key}`}
           checked={checked}
-          onChange={(e) => onChange(field.inverted ? !e.target.checked : e.target.checked)}
+          onChange={(e) =>
+            onChange(field.inverted ? !e.target.checked : e.target.checked)
+          }
           className="rounded"
         />
         <label

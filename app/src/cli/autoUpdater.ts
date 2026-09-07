@@ -18,8 +18,10 @@ export interface AutoUpdaterOptions {
   releaseChannel?: UpdateChannel;
 }
 
-import { UpdateInfo } from './updater/GitHubReleaseFetcher';
-export { UpdateInfo };
+// UpdateInfo 为 interface（无运行时绑定）：必须 type-only 导入/导出，
+// 否则 bun 启动时报 export 'UpdateInfo' not found（2026-09-05 预存 boot 错误修复）。
+import type { UpdateInfo } from './updater/GitHubReleaseFetcher';
+export type { UpdateInfo };
 
 export class AutoUpdater {
   private options: AutoUpdaterOptions;

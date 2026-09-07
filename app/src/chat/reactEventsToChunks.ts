@@ -168,12 +168,14 @@ export function reactEventsToChunks(
 
     case 'max_iterations':
       // 对标 openworker/agentscope（2026-09-01）：达上限收尾事件 → status chunk
-      // （前端可区分"完成"与"被截断"；无 statusType 时前端仅展示 content，不做状态判断）
+      // A3（2026-09-05）：补 statusType='truncated'——前端据此区分「完成」与「被截断」，
+      // 不再依赖 content 文本（CS02 状态标记；无 statusType 时前端仅展示 content）。
       return [
         {
           type: 'status',
           content: `已达到最大工具轮次限制 (${event.maxIterations})，任务提前收尾`,
           sessionId,
+          statusType: 'truncated',
         },
       ];
 

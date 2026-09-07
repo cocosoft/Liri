@@ -62,6 +62,11 @@ export interface PlanStep {
   dependsOn?: string[];
   result?: string;
   error?: string;
+  /** P1-3（2026-09-06，Teamwork）：失败路线保留——终败前已产出的轨迹/文本片段
+   * （末条 assistant 文本 + objection 摘要），供重试（P0-2）与终局综合引用，不随失败丢失 */
+  partialOutput?: string;
+  /** E1①（2026-09-05，方案甲）：本步骤执行终局终止原因（max_turns/loop_detected/...） */
+  terminationReason?: string;
   /** PDCA：验收标准 */
   acceptanceCriteria?: string;
   /** PDCA：审查结果 */
@@ -154,6 +159,23 @@ export class TaskOrchestrator {
         const plan = JSON.parse(data) as Plan;
         this.plans.set(plan.id, plan);
         this.buildStepIndex(plan);
+        // PR2（#2，V3-3）：ghost plan 防御（惰性写回）——恢复加载时若计划为
+        // running/pending 但无任何 running 步骤，说明无活跃执行方（崩溃残留/旧数据），
+        // 幂等置 aborted，避免刷新后出现"执行中但无活动步骤"的卡死幽灵。
+        const hasActiveStep = plan.steps.some((s) => s.status === 'running');
+        if (
+          (plan.status === 'running' || plan.status === 'pending') &&
+          !hasActiveStep
+        ) {
+          logger.warn('恢复时终结 ghost plan（无活跃步骤的 running/pending）', {
+            planId: plan.id,
+            status: plan.status,
+            stepStatuses: plan.steps.map((s) => s.status),
+          });
+          plan.status = 'aborted';
+          plan.completedAt = plan.completedAt ?? new Date().toISOString();
+          this.savePlan(plan);
+        }
       } catch (err) {
         // 跳过损坏的文件（非关键路径）
         await handleError(err, {
@@ -444,7 +466,11 @@ export class TaskOrchestrator {
   /**
    * 标记步骤为已完成，同步更新 TaskRegistry 中对应任务状态
    */
-  markStepCompleted(stepId: string, result?: string): PlanStep | undefined {
+  markStepCompleted(
+    stepId: string,
+    result?: string,
+    meta?: { terminationReason?: string }
+  ): PlanStep | undefined {
     const plan = this.getPlanByStepId(stepId);
     if (!plan) return undefined;
 
@@ -453,6 +479,8 @@ export class TaskOrchestrator {
 
     step.status = 'completed';
     step.result = result;
+    // E1①（2026-09-05，方案甲）：终止原因透传落 PlanStep（供上层 retry/扩容决策）
+    step.terminationReason = meta?.terminationReason;
 
     const task = taskRegistry.getTask(step.taskId);
     if (task && task instanceof NoteTask) {
@@ -490,7 +518,11 @@ export class TaskOrchestrator {
   /**
    * 标记步骤为失败，同步更新 TaskRegistry 中对应任务状态
    */
-  markStepFailed(stepId: string, error?: string): PlanStep | undefined {
+  markStepFailed(
+    stepId: string,
+    error?: string,
+    meta?: { partialOutput?: string }
+  ): PlanStep | undefined {
     const plan = this.getPlanByStepId(stepId);
     if (!plan) return undefined;
 
@@ -509,6 +541,8 @@ export class TaskOrchestrator {
 
     step.status = 'failed';
     step.error = error;
+    // P1-3（2026-09-06）：失败路线保留——终败前产出片段随失败落 plan step，不丢失
+    if (meta?.partialOutput) step.partialOutput = meta.partialOutput;
 
     const task = taskRegistry.getTask(step.taskId);
     if (task && task instanceof NoteTask) {

@@ -26,6 +26,7 @@ import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import type { Message } from '@modules/chat/types/message';
 import { MessageRole } from '@modules/chat/types/message';
+import { dedupeMessagesToolCallBlocks } from '@modules/chat/utils/chatBlocks';
 import type { LiriEventType } from '@modules/chat/types/events';
 import { deriveSessionStats } from '@modules/session';
 import {
@@ -248,8 +249,25 @@ export async function handleGetSessionMessages(
       limit: limitParam ? parseInt(limitParam, 10) : undefined,
       before: beforeParam ? parseInt(beforeParam, 10) : undefined,
     });
+    // Fix1（2026-09-05）：读路径统一按 toolCallId 去重（与前端/写路径同策略）——
+    // 历史双写或 SSE 重复发送导致的同 call 重复块不再外溢到接口（实测 189 块 → 186 唯一）。
+    let payload: unknown = result;
+    if (Array.isArray(result)) {
+      payload = dedupeMessagesToolCallBlocks(result);
+    } else if (
+      result &&
+      typeof result === 'object' &&
+      Array.isArray((result as { messages?: unknown[] }).messages)
+    ) {
+      payload = {
+        ...result,
+        messages: dedupeMessagesToolCallBlocks(
+          (result as { messages: Array<Record<string, unknown>> }).messages
+        ),
+      };
+    }
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify(result));
+    res.end(JSON.stringify(payload));
   } catch (err) {
     await handleError(err, { module: 'infra:http', action: 'handler_error' });
     if (!res.headersSent) {

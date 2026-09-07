@@ -48,6 +48,11 @@ function DirectoryTree({
   onRootChange,
 }: DirectoryTreeProps) {
   const [treeData, setTreeData] = useState<Record<string, TreeNode[]>>({});
+  // P2-3：树加载/错误态；root 变化时重置（rootsKey 依赖而非对象引用，避免每帧重载）
+  const [treeStatus, setTreeStatus] = useState<"loading" | "ready" | "error">(
+    "loading",
+  );
+  const rootsKey = roots.map((r) => `${r.key}:${r.path}`).join("|");
 
   /** 加载指定目录的子节点 */
   const loadChildren = useCallback(
@@ -58,7 +63,8 @@ function DirectoryTree({
           .filter((e) => e.type === "directory")
           .map((e) => ({
             name: e.name,
-            path: e.path,
+            // P1-1：树节点导航/展开/高亮统一用 relPath（相对），避免绝对路径回传被拦
+            path: e.relPath ?? e.path,
             type: "directory" as const,
             children: [],
             expanded: false,
@@ -131,17 +137,30 @@ function DirectoryTree({
     [loadChildren],
   );
 
-  /** 初始化根目录 */
+  /** 初始化根目录（P2-3：root 变化重置 + loading/error 状态） */
   useEffect(() => {
+    let cancelled = false;
     const initTrees = async () => {
-      const treeMap: Record<string, TreeNode[]> = {};
-      for (const root of roots) {
-        treeMap[root.path] = await loadChildren(root.path);
+      setTreeStatus("loading");
+      try {
+        const treeMap: Record<string, TreeNode[]> = {};
+        for (const root of roots) {
+          treeMap[root.path] = await loadChildren(root.path);
+        }
+        if (cancelled) return;
+        setTreeData(treeMap);
+        setTreeStatus("ready");
+      } catch (err) {
+        if (cancelled) return;
+        setTreeStatus("error");
       }
-      setTreeData(treeMap);
     };
     initTrees();
-  }, []);
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rootsKey]);
 
   /** 判断路径是否被选中（包含子路径高亮） */
   const isActive = (nodePath: string): boolean => {
@@ -230,27 +249,38 @@ function DirectoryTree({
 
       {/* 树形目录 */}
       <div className="flex-1 overflow-y-auto py-2 space-y-0.5">
-        {roots.map((root) => {
-          const nodes = treeData[root.path] || [];
-          if (root.key !== currentRoot) return null;
+        {treeStatus === "loading" && (
+          <div className="px-4 py-4 text-center text-xs text-gray-400">
+            目录加载中…
+          </div>
+        )}
+        {treeStatus === "error" && (
+          <div className="px-4 py-4 text-center text-xs text-red-400">
+            目录加载失败，请检查后端服务
+          </div>
+        )}
+        {treeStatus === "ready" &&
+          roots.map((root) => {
+            const nodes = treeData[root.path] || [];
+            if (root.key !== currentRoot) return null;
 
-          if (nodes.length === 0) {
+            if (nodes.length === 0) {
+              return (
+                <div
+                  key={root.key}
+                  className="px-4 py-4 text-center text-xs text-gray-400"
+                >
+                  此目录为空
+                </div>
+              );
+            }
+
             return (
-              <div
-                key={root.key}
-                className="px-4 py-4 text-center text-xs text-gray-400"
-              >
-                此目录为空
+              <div key={root.key}>
+                {nodes.map((node) => renderNode(node, root.path, 0))}
               </div>
             );
-          }
-
-          return (
-            <div key={root.key}>
-              {nodes.map((node) => renderNode(node, root.path, 0))}
-            </div>
-          );
-        })}
+          })}
       </div>
     </div>
   );

@@ -296,13 +296,15 @@
 | POST | `/v1/files/detect` | ✅ | `fileService.detect` |
 | POST | `/v1/files/send-to-ai` | ✅ | `fileService.sendToAI` |
 | GET | `/v1/files/health` | ✅ | 无前端调用方（后端监控自用） |
-| GET | `/v1/files/registry/list` | ✅ | `fileService.getRegistryList` |
+| GET | `/v1/files/registry/list` | ✅ | —（前端 registry 页列表走 search 无 q 分支，未直连本路由） |
 | GET | `/v1/files/registry/search` | ✅ | `fileService.searchFiles` |
 | GET | `/v1/files/registry/detail` | ✅ | `fileService.getFileDetail` |
 | GET | `/v1/files/registry/stats` | ✅ | `fileService.getFileStats` |
-| DELETE | `/v1/files/registry/delete` | ✅ | `fileService.deleteRegistryFiles` |
-| POST | `/v1/files/registry/batch-delete` | ✅ | `fileService.batchDelete` |
+| DELETE | `/v1/files/registry/delete` | ✅ | `fileService.deleteRegistryFiles`（单删）；`fileService.batchDelete`（批量，2026-09-07 P0-2：按 `fileIds=` 逗号多 id ≤200 分批走本路由软删，原独立 batch-delete 路由期望撤销） |
+
 | POST | `/v1/files/registry/register` | ❌ | 无（后端未实现） |
+
+> 注（2026-09-07 P0-1）：registry 查询接口（list/detail/search/stats）成功返回**裸对象**（`{items,total}` / record / stats），无 `{success,data}` 包装；错误走 HTTP 非 2xx + `{error:{message}}`。
 
 ### §3.11 知识库
 

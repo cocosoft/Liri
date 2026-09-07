@@ -160,6 +160,8 @@ const zh = {
     modeDeep: "深度思考",
     modeCode: "代码助手",
     modeCreative: "创意写作",
+    modeResearch: "研究模式",
+    researchStartFailed: "研究模式启动失败（后端未响应）",
     // 入门提示卡片
     starterExplain: "解释概念",
     starterExplainText: "请用简单易懂的方式解释什么是人工智能",
@@ -173,6 +175,8 @@ const zh = {
     toastCopied: "已复制",
     toastCopyFailed: "复制失败",
     streamingLabel: "AI 正在生成回复",
+    deepThinkingHint:
+      "🧠 模型正在深度思考中…已 {{seconds}} 秒（思考型模型会先推理再回答，请稍候）",
     tokenInfo: "Token 详情",
     actionsMore: "更多",
     contentUnchanged: "内容未变更",

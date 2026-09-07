@@ -18,6 +18,7 @@ import { fileService } from "../../services/fileService";
 import { imageService } from "../../services/imageService";
 import { chatService } from "../../services/chatService";
 import { sessionService } from "../../services/sessionService";
+import { researchService } from "../../services/planService";
 import {
   fetchArtifacts,
   fetchProjectContext,
@@ -74,6 +75,8 @@ const CHAT_MODES = [
   { key: "deep", icon: "🧠", labelKey: "chat.modeDeep" },
   { key: "code", icon: "💻", labelKey: "chat.modeCode" },
   { key: "creative", icon: "🎨", labelKey: "chat.modeCreative" },
+  // P0-3（2026-09-06）：研究模式——显式启动候选生成 + 对抗评审编排（不走普通 AI 流）
+  { key: "research", icon: "🔬", labelKey: "chat.modeResearch" },
 ] as const;
 
 type ChatMode = (typeof CHAT_MODES)[number]["key"];
@@ -655,6 +658,32 @@ function ChatInput({ fluid = false }: { fluid?: boolean }) {
       }
 
       if (messageContent) {
+        // P0-3（2026-09-06）：显式研究模式——不进入普通 AI 流（避免双份成本），
+        // 本地展示用户消息并启动候选生成 + 对抗评审编排（异步；结果经 pdca SSE 事件呈现）
+        if (
+          chatMode === "research" &&
+          attachments.length === 0 &&
+          imageItems.length === 0 &&
+          !replyMessage
+        ) {
+          const researchMsg: Message = {
+            id: crypto.randomUUID(),
+            role: "user",
+            content: messageContent,
+            timestamp: Date.now(),
+            session_id: sessionId || "default",
+          };
+          useChatStore.getState().addMessage(researchMsg);
+          setInput("");
+          clearDraft();
+          const taskId = await researchService.start(messageContent, sessionId);
+          if (!taskId) {
+            toastWarning(t("chat.researchStartFailed"));
+          }
+          setShowCommands(false);
+          useChatStore.getState().setReplyMessage(null);
+          return;
+        }
         setInput("");
         setAttachments([]);
         setImageItems([]);

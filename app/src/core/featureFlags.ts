@@ -270,6 +270,10 @@ export const FEATURE_FLAGS = {
   /** code_run 工具总开关（默认关闭，显式开启才暴露；CM-1 三轮评审 P0-2） */
   CODE_MODE: false,
 
+  // ───── 研究模式（Teamwork P0-3 竞争编排，默认关闭）─────
+  /** 候选生成 + 对抗批评（VerifierAgent）收敛总开关——研究型意图/显式研究模式下启用 */
+  COMPETITIVE_STRATEGY: false,
+
   // ───── 工作流脚本 ─────
   /** 工作流脚本 */
   WORKFLOW_SCRIPTS: false,

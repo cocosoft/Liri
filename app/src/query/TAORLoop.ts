@@ -27,7 +27,11 @@ import type { QueryEngine } from './QueryEngine.js';
 import { ContextTracker } from './context/ContextTracker.js';
 import type { CompressionRecord } from './context/ContextTracker.js';
 import { TAORPhase } from './types.js';
-import type { TAORCheckpoint, CheckpointStorage } from './types.js';
+import type {
+  TAORCheckpoint,
+  TAORCheckpointKind,
+  CheckpointStorage,
+} from './types.js';
 import { createLoopDetector } from './LoopDetector.js';
 import type { LoopDetector } from './LoopDetector.js';
 import { createErrorRecoveryManager } from './ErrorRecoveryManager.js';
@@ -56,9 +60,20 @@ import type {
   ActResult,
   ToolCallEntry,
   ToolResultEntry,
+  TerminationReason,
 } from './ReActLoop.js';
 
 const logger = getLogger('query:taorLoop');
+
+/** L3（2026-09-06）：回合质量重试指令——文案对齐 ReActToolLoop 同语义常量（模块自持，
+ *  避免 query→chat 反向依赖）。batch 无 thinking/finishReason 可靠信号，仅 empty/planning 两类。 */
+const TAOR_EMPTY_RETRY_INSTRUCTION =
+  'The previous attempt did not produce a user-visible answer. Continue from the current state and produce the visible answer now. Do not restart from scratch.';
+const TAOR_PLANNING_ONLY_RETRY_INSTRUCTION =
+  'The previous assistant turn only described the plan. Do not restate the plan. Act now: take the first concrete tool action you can. If a real blocker prevents action, reply with the exact blocker in one sentence.';
+/** planning-only 启发式判定（与 ReActToolLoop.PLANNING_ONLY_RE 同源，保守避免误判正常回答） */
+const TAOR_PLANNING_ONLY_RE =
+  /(?:以下(?:是)?(?:我(?:的)?)?(?:执行)?计划|我的计划(?:如下|是)|\bplan(?:\s*:|\s+is|\s+to)\b|步骤\s*[:：]|接下来(?:我)?(?:将|会))/i;
 
 /** trace 持久化用：将值安全截断为 JSON 摘要（默认 500 字符） */
 function truncateForTrace(value: unknown, maxLen = 500): string {
@@ -180,6 +195,9 @@ export interface TAORInput {
   /** 新路径：显式消息 + deps */
   messages?: ChatMessage[];
   deps?: TAORLoopDeps;
+  /** A 阶段一（2026-09-05）：本次 run 的恢复归属——goal（PDL 目标运行）/ 缺省 chat。
+   *   run 级载荷（不入 taorConfig 实例字段）：共享 loop 同时服务 chat 与 goal 时避免污染。 */
+  ctxKind?: TAORCheckpointKind;
 }
 
 export interface TAORPhaseInfo {
@@ -228,6 +246,8 @@ export interface TAORLoopResult {
   totalTokens: number;
   durationMs: number;
   stopReason: StopHookReason;
+  /** E1①（2026-09-05，方案甲）：统一终止原因——供上层 markStepCompleted 透传落 PlanStep */
+  terminationReason?: TerminationReason;
   /** 是否从检查点恢复 */
   resumed?: boolean;
   /** 恢复时的检查点ID */
@@ -589,6 +609,16 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
   /** 静默完成检测标记：无工具 + 上轮错误时强制多跑一轮（对齐旧 continue 语义） */
   private _forceContinueRound = false;
 
+  /** L3（2026-09-06）：回合质量重试计数（每类 ≤1 次防死循环，对齐 ReActToolLoop._incompleteRetries） */
+  private readonly _incompleteRetries: {
+    empty: number;
+    planning: number;
+  } = { empty: 0, planning: 0 };
+
+  /** A 阶段一（2026-09-05）：当前 run 的检查点归属标记（chat 缺省；goal 由 PDL 快路径
+   *   runCollect 随行 ctxKind 注入）。随 reason() 每轮对齐当前输入；reset() 归零。 */
+  private _runKind: TAORCheckpointKind = 'chat';
+
   /** THINK：callModel 流式 + 组装 + fallback parser + 轮次检测 */
   protected async *reason(
     input: TAORInput,
@@ -625,6 +655,12 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
       });
       this.emitPhase(TAORPhase.THINK, 0, 'Initial message received');
     }
+
+    // A 阶段一（2026-09-05）：run 级 ctxKind → checkpoint kind 标记（chat 缺省）。
+    // 每轮对齐而非仅首轮：共享 loop 上 chat/goal run 交错时归属始终等于当前输入；
+    // 且 reason() 前的 auto-checkpoint（beforeReasoning）只在 turnCount>0 时触发，
+    // 彼时本轮 kind 已由上轮 reason 写入，无窗口期。
+    this._runKind = input.ctxKind ?? 'chat';
 
     // 每次 runCollect 注入 messages/deps
     if (input.messages && input.deps) {
@@ -1398,6 +1434,45 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
     return result.toolCalls.length > 0;
   }
 
+  /** L3（2026-09-06）：批次回合质量钩子——无工具轮输出可疑（空回复/纯计划）时注入重试指令，
+   *  骨架 ReActLoop 再给一次机会（对齐 ReActToolLoop.onIncompleteTurn，每类 ≤1 次防死循环）。
+   *  与 reason() 内 detectNoToolCallLoop（跨轮死循环检测，L836 起）互补：后者拦"多轮无工具空转"，
+   *  本钩子拦"单轮收尾假推进"（空/纯计划文本冒充完成直接结束）。
+   */
+  protected override async onIncompleteTurn(
+    result: ReasonResult<unknown>,
+    _context?: unknown
+  ): Promise<boolean> {
+    // 已停/中止/超限（observe 熔断、diminishing、abort）→ 不重试，正常收尾
+    if (this.stopped || this.abortController.signal.aborted) return false;
+    if (this.turnCount >= this.taorConfig.maxTurns) return false;
+    if (result.toolCalls.length > 0) return false; // 有工具调用不属"不完整回合"（双保险）
+    const text = (result.text ?? '').trim();
+    const kind: 'empty' | 'planning' | null = !text
+      ? 'empty'
+      : TAOR_PLANNING_ONLY_RE.test(text)
+        ? 'planning'
+        : null;
+    if (!kind) return false;
+    if (this._incompleteRetries[kind] >= 1) return false; // 每类最多重试 1 次
+    this._incompleteRetries[kind]++;
+    this.messages.push({
+      role: 'user',
+      content: `[SYSTEM] ${
+        kind === 'empty'
+          ? TAOR_EMPTY_RETRY_INSTRUCTION
+          : TAOR_PLANNING_ONLY_RETRY_INSTRUCTION
+      }`,
+    });
+    logger.info('taorLoop:incomplete_turn_retry', {
+      sessionId: this.taorConfig.sessionId,
+      turnCount: this.turnCount,
+      kind,
+      textPreview: text.slice(0, 80),
+    });
+    return true;
+  }
+
   /** COMPLETED：收尾 + durable checkpoint + 返回结果 */
   protected finalize(): TAORLoopResult {
     const totalDuration = Date.now() - this.startTime;
@@ -1496,6 +1571,24 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
   }
 
   /**
+   * P0-1（2026-09-06）：最近一次 run 的最后一条 assistant 可见文本——供上层（PDL 步骤
+   * 产出捕获/前驱注入）读取本步真实结论。倒序跳过空 content；无则返回空串。
+   */
+  getLastAssistantText(): string {
+    for (let i = this.messages.length - 1; i >= 0; i--) {
+      const m = this.messages[i];
+      if (
+        m.role === 'assistant' &&
+        typeof m.content === 'string' &&
+        m.content.trim()
+      ) {
+        return m.content;
+      }
+    }
+    return '';
+  }
+
+  /**
    * 检查是否应该自动保存检查点
    */
   private shouldSaveAutoCheckpoint(): boolean {
@@ -1526,6 +1619,9 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
       lastPrompt: this.lastPrompt,
       createdAt: Date.now(),
       type,
+      // A 阶段一（2026-09-05）：恢复归属标记——chat（普通对话）/ goal（PDL 目标运行）。
+      // 读取侧宽容：历史存量缺省按 chat 处理（见 DBTAORCheckpointStorage.rowToCheckpoint）。
+      kind: this._runKind,
       breakerState: this.circuitBreaker.getState(),
       loopDetectorState: this.loopDetector.getState(),
       errorRecoveryState: this.errorRecovery.serialize(),
@@ -1730,6 +1826,34 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
     return this.checkpointStorage.findBySessionId(this.taorConfig.sessionId);
   }
 
+  /** E1①（2026-09-05，方案甲）：runCollect 返回结构补 terminationReason（A2 判别器） */
+  override async runCollect(input: TAORInput): Promise<TAORLoopResult> {
+    const result = await super.runCollect(input);
+    return {
+      ...result,
+      terminationReason: this.getTerminationReason(),
+    };
+  }
+
+  /** A2（2026-09-05）：TAOR stopReason → 统一终止原因（A 档：委托纯映射函数，
+   *  显式收口 loop_detected/timeout，杜绝未知原因被折叠成 completed 的误判） */
+  override getTerminationReason(): TerminationReason {
+    return mapTaorStopReasonToTermination(this.stopReason);
+  }
+
+  /** A2：预算耗尽终止由 stopReason 判别（供骨架钩子） */
+  protected override isBudgetExhaustedReason(): boolean {
+    return this.stopReason === 'budget_exhausted';
+  }
+
+  /** A 档（2026-09-05，复查收口）：循环检测终止由 stopReason 判别——与骨架/
+   *  ReActToolLoop 对齐；防止未来出现 loop_detected 生产者时被映射为 completed */
+  protected override isLoopDetectedReason(): boolean {
+    // stopReason 类型为 StopHookReason（不含 loop_detected），运行时值域可能扩展——
+    // 用字符串比较避免 TS 无交集告警，语义与骨架一致。
+    return (this.stopReason as string) === 'loop_detected';
+  }
+
   private shouldStop(): boolean {
     if (this.abortController.signal.aborted) {
       this.stopReason = 'aborted';
@@ -1773,6 +1897,18 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
         status: 'enter',
       });
     }
+  }
+
+  /**
+   * #4（T9，2026-09-05）：骨架 ReActLoop.run 的 maxIterations 分支达上限时直接
+   * finalize——若不在此前置置位，stopReason 停留在 'completed'，导致达上限时
+   * ① checkpoint 不落盘（finalize 以 stopReason!=='completed' 为保存条件）；
+   * ② 上游（PDCA/PDL）误判为正常完成。骨架先 yield max_iterations 再调本钩子，
+   * 钩子在 finalize 之前执行，故在此置位即可正确收尾。
+   */
+  protected override async onMaxIterations(): Promise<void> {
+    this.stopReason = 'max_turns';
+    this.stopped = true;
   }
 
   /**
@@ -1915,6 +2051,9 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
     this._lastBudgetedTokens = 0;
     this.abortController = new AbortController();
     this.lastCheckpointId = null;
+    // A 阶段一（2026-09-05）：新 run 归属复位为 chat——避免上一条 goal run 的标记
+    // 污染后续 checkpoint 保存（PDL 快路径在下一次 runCollect 时重新置 goal）。
+    this._runKind = 'chat';
     this.currentPhase = TAORPhase.THINK;
     this.lastPrompt = '';
     this.conversationSummary = '';
@@ -1934,10 +2073,43 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
     this.failedToolCalls = 0;
     this._lastRoundHadToolErrors = false;
     this._forceContinueRound = false;
+    // L3（2026-09-06）：回合质量重试计数随 run 归零（不跨 run 累积）
+    this._incompleteRetries.empty = 0;
+    this._incompleteRetries.planning = 0;
     this._pendingInboxItems = [];
     this._preApprovedToolCalls = [];
     this.resetRunState();
     logger.info('TAOR loop reset');
+  }
+}
+
+/**
+ * A 档（2026-09-05，复查收口）：TAOR stopReason → 统一 TerminationReason 的纯映射。
+ * 显式收口 loop_detected / timeout（对齐 StopHookReason 与骨架枚举），杜绝未知原因
+ * 被 default 折叠成 completed 的误判（见 error_repairs 方案 A 记录）。导出便于单测。
+ */
+export function mapTaorStopReasonToTermination(
+  reason: string | null | undefined
+): TerminationReason {
+  switch (reason) {
+    case 'max_turns':
+      return 'max_turns';
+    case 'budget_exhausted':
+      return 'budget_exhausted';
+    case 'verifier_escalate':
+      return 'verifier_escalate';
+    case 'diminishing_returns':
+      return 'diminishing_returns';
+    case 'loop_detected':
+      return 'loop_detected';
+    case 'timeout':
+      return 'timeout';
+    case 'aborted':
+      return 'aborted';
+    case 'error':
+      return 'error';
+    default:
+      return 'completed';
   }
 }
 

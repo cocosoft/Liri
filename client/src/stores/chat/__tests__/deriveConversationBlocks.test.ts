@@ -102,21 +102,15 @@ describe("deriveConversationBlocks — M2-1 纯函数", () => {
       const events: LiriEvent[] = [
         ev(1, "turn/start", { turn: 1 }),
         ev(2, "user/message", { content: "annotations是啥?" }),
-        ev(
-          3,
-          "assistant/text",
-          {
-            content:
-              "<think>用户问annotations是啥，先解释概念。</think><response>annotations 是注解。</response>",
-          },
-        ),
+        ev(3, "assistant/text", {
+          content:
+            "<think>用户问annotations是啥，先解释概念。</think><response>annotations 是注解。</response>",
+        }),
         ev(4, "turn/end", { turn: 1 }),
       ];
       const msgs = deriveConversationBlocks(events);
       const assistant = msgs[1];
-      const allContent = assistant
-        .blocks!.map((b) => b.content)
-        .join("\n");
+      const allContent = assistant.blocks!.map((b) => b.content).join("\n");
       // 任何 block 中都不应残留标签本身
       expect(allContent).not.toContain("<think>");
       expect(allContent).not.toContain("</think>");
@@ -150,9 +144,7 @@ describe("deriveConversationBlocks — M2-1 纯函数", () => {
       ];
       const msgs = deriveConversationBlocks(events);
       const assistant = msgs[1];
-      const allContent = assistant
-        .blocks!.map((b) => b.content)
-        .join("\n");
+      const allContent = assistant.blocks!.map((b) => b.content).join("\n");
       expect(allContent).not.toContain("<think>");
       expect(allContent).not.toContain("</think>");
       expect(allContent).not.toContain("<response>");

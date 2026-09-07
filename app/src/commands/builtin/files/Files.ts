@@ -6,6 +6,36 @@ import type { CommandContext, CommandResult } from '@modules/commands';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('commands:builtin:files:Files');
 
+/**
+ * P1-2（2026-09-07）：递归守卫——clean/tree/find 共享的深度/黑名单/符号链接保护。
+ * 防止遍历巨型目录（node_modules 等）、符号链接循环或超深层级导致卡死/误删。
+ */
+const MAX_DEPTH = 4;
+const SKIP_DIRS = new Set([
+  'node_modules',
+  'dist',
+  '.git',
+  '.cache',
+  '.next',
+  'target',
+  '.venv',
+  'venv',
+  '__pycache__',
+]);
+const FIND_MAX_RESULTS = 200;
+const CLEAN_PATTERNS = ['*.log', '*.tmp', '*.bak', '.DS_Store', 'Thumbs.db'];
+
+/** 是否应跳过某条目（不进入/不处理）：符号链接一律跳过；目录超深或在黑名单则跳过进入 */
+function shouldSkipEntry(
+  name: string,
+  depth: number,
+  stat: { isSymbolicLink(): boolean; isDirectory(): boolean }
+): boolean {
+  if (stat.isSymbolicLink()) return true;
+  if (!stat.isDirectory()) return false;
+  return depth > MAX_DEPTH || SKIP_DIRS.has(name);
+}
+
 export default {
   /**
    * 执行文件管理命令
@@ -27,7 +57,7 @@ export default {
       case 'tree':
         return this.handleTree(parts.slice(1), context);
       case 'clean':
-        return this.handleClean(context);
+        return this.handleClean(parts.slice(1), context);
       case 'help':
         return this.handleHelp();
       default:
@@ -118,23 +148,30 @@ export default {
 
       const searchDir = context.cwd || process.cwd();
 
-      const search = (dir: string) => {
+      const search = (dir: string, depth: number) => {
+        if (depth > MAX_DEPTH) return;
         const files = fs.readdirSync(dir);
         for (const file of files) {
+          if (foundFiles.length >= FIND_MAX_RESULTS) return;
           const fullPath = pathModule.join(dir, file);
-          const stat = fs.statSync(fullPath);
+          const stat = fs.lstatSync(fullPath);
+
+          if (shouldSkipEntry(file, depth, stat)) continue;
 
           if (file.includes(pattern)) {
             foundFiles.push(fullPath);
           }
 
           if (stat.isDirectory()) {
-            search(fullPath);
+            // P1-2：深度/黑名单按"将进入的层级"判定（root=0）
+            if (!shouldSkipEntry(file, depth + 1, stat)) {
+              search(fullPath, depth + 1);
+            }
           }
         }
       };
 
-      search(searchDir);
+      search(searchDir, 0);
 
       if (foundFiles.length === 0) {
         return {
@@ -144,10 +181,13 @@ export default {
         };
       }
 
+      const truncated = foundFiles.length >= FIND_MAX_RESULTS;
       return {
         success: true,
         type: 'text',
-        message: `找到 ${foundFiles.length} 个匹配文件:\n\n${foundFiles.join('\n')}`,
+        message: `找到 ${foundFiles.length} 个匹配文件${
+          truncated ? `（已达 ${FIND_MAX_RESULTS} 条上限，结果截断）` : ''
+        }:\n\n${foundFiles.join('\n')}`,
         data: foundFiles,
       };
     } catch (error) {
@@ -245,20 +285,28 @@ export default {
 
       const tree: string[] = [];
 
-      const buildTree = (dir: string, prefix: string = '') => {
+      const buildTree = (
+        dir: string,
+        prefix: string = '',
+        depth: number = 0
+      ) => {
         const files = fs.readdirSync(dir).sort();
 
         files.forEach((file, index) => {
           const fullPath = pathModule.join(dir, file);
-          const stat = fs.statSync(fullPath);
+          const stat = fs.lstatSync(fullPath);
           const isLast = index === files.length - 1;
           const connector = isLast ? '└──' : '├──';
 
           tree.push(`${prefix}${connector} ${file}`);
 
+          // P1-2：目录条目仍显示，但黑名单/符号链接/超深目录不展开（防巨目录/链接循环）
           if (stat.isDirectory()) {
-            const newPrefix = prefix + (isLast ? '    ' : '│   ');
-            buildTree(fullPath, newPrefix);
+            const newDepth = depth + 1;
+            if (!shouldSkipEntry(file, newDepth, stat)) {
+              const newPrefix = prefix + (isLast ? '    ' : '│   ');
+              buildTree(fullPath, newPrefix, newDepth);
+            }
           }
         });
       };
@@ -283,10 +331,15 @@ export default {
 
   /**
    * 清理临时文件
+   * 默认 dry-run（仅列出清单不删除）；显式传 `--delete` 才真正删除。
+   * 递归受守卫保护：跳过符号链接 / node_modules 等黑名单目录 / 超深目录（P1-2）。
    */
-  async handleClean(context: CommandContext): Promise<CommandResult> {
-    const tempFiles = ['*.log', '*.tmp', '*.bak', '.DS_Store', 'Thumbs.db'];
-    let deletedCount = 0;
+  async handleClean(
+    args: string[],
+    context: CommandContext
+  ): Promise<CommandResult> {
+    const doDelete = args.includes('--delete');
+    const candidates: string[] = [];
 
     try {
       const fs = await import('fs');
@@ -294,22 +347,27 @@ export default {
 
       const searchDir = context.cwd || process.cwd();
 
-      const clean = (dir: string) => {
+      const collect = (dir: string, depth: number) => {
+        if (depth > MAX_DEPTH) return;
         const files = fs.readdirSync(dir);
         for (const file of files) {
           const fullPath = pathModule.join(dir, file);
-          const stat = fs.statSync(fullPath);
+          const stat = fs.lstatSync(fullPath);
+
+          if (shouldSkipEntry(file, depth, stat)) continue;
 
           if (stat.isDirectory()) {
-            clean(fullPath);
+            // P1-2：深度/黑名单按"将进入的层级"判定（root=0），与 find/tree 一致
+            if (!shouldSkipEntry(file, depth + 1, stat)) {
+              collect(fullPath, depth + 1);
+            }
           } else {
-            for (const pattern of tempFiles) {
+            for (const pattern of CLEAN_PATTERNS) {
               const regex = new RegExp(
                 '^' + pattern.replace(/\*/g, '.*') + '$'
               );
               if (regex.test(file)) {
-                fs.unlinkSync(fullPath);
-                deletedCount++;
+                candidates.push(fullPath);
                 break;
               }
             }
@@ -317,7 +375,38 @@ export default {
         }
       };
 
-      clean(searchDir);
+      collect(searchDir, 0);
+
+      // 默认 dry-run：输出待清理清单，需 --delete 确认后执行（防误删）
+      if (!doDelete) {
+        const preview = candidates
+          .slice(0, 50)
+          .map((p) => `  - ${p}`)
+          .join('\n');
+        const truncated = candidates.length > 50 ? '\n  …(仅显示前 50 条)' : '';
+        return {
+          success: true,
+          type: 'text',
+          message:
+            `[dry-run] 检测到 ${candidates.length} 个临时文件（默认不删除；确认后执行 /files clean --delete）：\n` +
+            (preview || '  （无匹配）') +
+            truncated,
+          data: { dryRun: true, count: candidates.length },
+        };
+      }
+
+      let deletedCount = 0;
+      for (const fullPath of candidates) {
+        try {
+          fs.unlinkSync(fullPath);
+          deletedCount++;
+        } catch (err) {
+          logger.warn('clean 删除失败跳过', {
+            path: fullPath,
+            error: (err as Error).message,
+          });
+        }
+      }
 
       context.onDone?.(`已清理 ${deletedCount} 个临时文件`, {
         display: 'system',
@@ -348,7 +437,7 @@ export default {
 /files find <模式>     - 查找匹配的文件
 /files view <文件>     - 查看文件内容
 /files tree [路径]     - 显示目录树
-/files clean           - 清理临时文件
+/files clean           - 清理临时文件（默认 dry-run 预览；加 --delete 才删除）
 /files help            - 显示此帮助信息
 
 示例:

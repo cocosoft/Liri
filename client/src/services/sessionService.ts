@@ -633,14 +633,20 @@ export const sessionService = {
           if (options?.limit != null) qs.set("limit", String(options.limit));
           if (options?.before != null) qs.set("before", String(options.before));
           const queryStr = qs.toString();
-          const res = await apiHttp.get<Message[] | { messages: Message[]; hasMore: boolean }>(
+          const res = await apiHttp.get<
+            Message[] | { messages: Message[]; hasMore: boolean }
+          >(
             `/v1/sessions/${sessionId}/messages${queryStr ? `?${queryStr}` : ""}`,
           );
           if (res.ok && res.data) {
             // 兼容旧格式（纯数组）与新格式（{ messages, hasMore }）
             const data = res.data;
-            const messages = Array.isArray(data) ? data.slice() : (data.messages ?? []).slice();
-            const hasMore = !Array.isArray(data) ? data.hasMore === true : false;
+            const messages = Array.isArray(data)
+              ? data.slice()
+              : (data.messages ?? []).slice();
+            const hasMore = !Array.isArray(data)
+              ? data.hasMore === true
+              : false;
             if (messages.length > 0) {
               setSessionCache(sessionId, messages);
             }

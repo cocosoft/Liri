@@ -161,6 +161,9 @@ const en = {
     modeDeep: "Deep Think",
     modeCode: "Code Assistant",
     modeCreative: "Creative Writing",
+    modeResearch: "Research Mode",
+    researchStartFailed:
+      "Research mode failed to start (backend not responding)",
     // Starter prompt cards
     starterExplain: "Explain a concept",
     starterExplainText:
@@ -175,6 +178,8 @@ const en = {
     toastCopied: "Copied",
     toastCopyFailed: "Copy failed",
     streamingLabel: "AI is generating a reply",
+    deepThinkingHint:
+      "🧠 Model is thinking deeply… {{seconds}}s elapsed (reasoning models reason first, please wait)",
     tokenInfo: "Token Details",
     actionsMore: "More",
     contentUnchanged: "Content unchanged",

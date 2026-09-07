@@ -16,6 +16,7 @@
  */
 
 import { getLogger } from '@modules/monitoring/logs/Logger.js';
+import { configManager } from '@modules/config';
 import { handleError } from '@modules/error/handleError.js';
 import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
 import { TAORLoop } from '@modules/query/TAORLoop.js';
@@ -31,6 +32,8 @@ import { emitPdcaLiveEvent } from '../../tasks/PdcaLiveEvents.js';
 import { goalMetricsService } from '@modules/tasks';
 import type { Plan, PlanProgress } from '../../tasks/TaskOrchestrator.js';
 import type { AIProvider } from '@modules/ai/providers/AIProvider.js';
+import { scheduleTopoBatches } from './topoBatches.js';
+import { selectPattern } from '@modules/core/patterns/index.js';
 
 const logger = getLogger('core:planDrivenLoop');
 
@@ -46,6 +49,8 @@ export interface StepResult {
   state: StepState;
   output: string;
   error?: string;
+  /** P1-3（2026-09-06）：失败路线保留——终败前已产出片段（供 P0-2 重试/终局综合引用） */
+  partialOutput?: string;
   durationMs: number;
   turnCount: number;
   tokenCount: number;
@@ -53,20 +58,52 @@ export interface StepResult {
 
 /** PlanDrivenLoop 配置 */
 export interface PlanDrivenLoopConfig {
-  /** TAORLoop 实例（必需） */
+  /** TAORLoop 实例（必需；未注入 taorLoopFactory 时 decomposed 步骤也复用此实例串行执行） */
   taorLoop: TAORLoop;
+  /**
+   * P0-1 真并行（2026-09-06）：每步独立 TAORLoop 实例工厂——无依赖步骤批次并行的安全前提
+   * （共享实例内部 turn/stopped/守卫状态无法并发）。签名与 PdcaLauncher.deps.taorLoopFactory
+   * 一致（可整体复用）；未注入则保持逐步骤串行（现状零回归）。同批并行步数天然 ≤ MAX_SUBTASKS。
+   */
+  taorLoopFactory?: (sessionId: string) => TAORLoop;
   /** TAORLoop 依赖注入（callModel / executeTools / persistMessages） */
   deps: TAORLoopDeps;
   /** 会话 ID */
   sessionId: string;
+  /** OBS/C3（2026-09-06）：PDL 任务实体 ID（PdcaLauncher 生成 pdca_*，stage 事件携带供编排视图定位） */
+  taskId?: string;
+  /** OBS/C3（2026-09-06）：所属项目 ID（事件携带供前端按项目过滤） */
+  projectId?: string;
+  /** P0-2（2026-09-06）：pitfall 记录钩子（P1-2 pitfall 注册表接入点；未注入则 no-op，批次隔离） */
+  recordPitfall?: (rec: {
+    stepId: string;
+    taskId?: string;
+    description: string;
+    error: string;
+  }) => void;
   /** 是否启用 LLM 自动分解（默认 false，需显式开启） */
   enableAutoDecompose?: boolean;
+  /**
+   * Teamwork P2b（2026-09-06）：历史 pitfall 检索注入（P1-2 读取点）——分解任务首步
+   * 启动前取同类失败经验注入 prompt；未注入/返回空则零变化。
+   */
+  pitfallRetriever?: (ctx: { description: string }) => string;
   /** 分解用 LLM Provider（不指定则只做简单分解） */
   decomposerProvider?: AIProvider;
   /** 步骤进度回调 */
   onStepProgress?: (progress: PlanProgress) => void;
   /** 步骤完成回调 */
   onStepComplete?: (result: StepResult) => void;
+}
+
+/**
+ * PR8（#9）：PDL run 级 token 总账上限——多步任务各 step 独立满额预算会导致
+ * 总成本 ≈ 单步预算 × 步数而无 run 级护栏。env `PDCA_RUN_MAX_TOKENS`（0 = 不启用，
+ * 默认不启用以免改变既有行为；DailyBudget 仍为跨 run 兜底）。
+ */
+function pdlRunTokenCap(): number {
+  const v = Number(configManager.env('PDCA_RUN_MAX_TOKENS'));
+  return Number.isFinite(v) && v >= 0 ? v : 0;
 }
 
 /** PlanDrivenLoop 运行结果 */
@@ -81,6 +118,10 @@ export interface PlanDrivenLoopResult {
   completedSteps: number;
   /** 失败子任务数 */
   failedSteps: number;
+  /** 是否被用户中止（abort 不抛错、run 正常返回；上游据此写中止终态而非 completed） */
+  aborted?: boolean;
+  /** run 级 token 预算耗尽（成本护栏中止；上游按 failed 收尾而非 completed） */
+  budgetExhausted?: boolean;
   /** 总耗时 ms */
   totalDurationMs: number;
   /** 总 token 数 */
@@ -155,8 +196,26 @@ function isSimpleTask(message: string): boolean {
 
 export class PlanDrivenLoop {
   private taorLoop: TAORLoop;
+  /** P0-1 真并行（2026-09-06）：每步独立实例工厂（未注入 → 全 run 复用 this.taorLoop 串行） */
+  private taorLoopFactory?: (sessionId: string) => TAORLoop;
   private deps: TAORLoopDeps;
   private sessionId: string;
+  /** P0-1 真并行（2026-09-06）：批次并行中在跑的每步实例集——abort 需逐个中止 in-flight LLM */
+  private activeStepLoops: Set<TAORLoop> = new Set();
+  /** OBS/C3（2026-09-06）：任务实体/项目归属（stage 事件透传） */
+  private taskId?: string;
+  private projectId?: string;
+  /** P0-2（2026-09-06）：pitfall 记录钩子 */
+  private recordPitfall?: (rec: {
+    stepId: string;
+    taskId?: string;
+    description: string;
+    error: string;
+  }) => void;
+  /** Teamwork P2b（2026-09-06）：历史 pitfall 检索注入 */
+  private pitfallRetriever?: (ctx: { description: string }) => string;
+  /** Teamwork P2b：本次 decompose run 检索到的同类失败经验（注入首步 prompt） */
+  private _pitfallContext: string = '';
   private enableAutoDecompose: boolean;
   private decomposer?: TaskDecomposer;
   private onStepProgress?: (progress: PlanProgress) => void;
@@ -167,11 +226,18 @@ export class PlanDrivenLoop {
   private startTime: number = 0;
   private totalTokens: number = 0;
   private aborted: boolean = false;
+  /** PR8（#9）：run 级 token 预算耗尽标志（成本护栏中止，按 failed 收尾） */
+  private budgetExhausted: boolean = false;
 
   constructor(config: PlanDrivenLoopConfig) {
     this.taorLoop = config.taorLoop;
+    this.taorLoopFactory = config.taorLoopFactory;
     this.deps = config.deps;
     this.sessionId = config.sessionId;
+    this.taskId = config.taskId;
+    this.projectId = config.projectId;
+    this.recordPitfall = config.recordPitfall;
+    this.pitfallRetriever = config.pitfallRetriever;
     this.enableAutoDecompose = config.enableAutoDecompose === true;
     this.onStepProgress = config.onStepProgress;
     this.onStepComplete = config.onStepComplete;
@@ -198,13 +264,18 @@ export class PlanDrivenLoop {
     this.stepResults = [];
     this.totalTokens = 0;
     this.aborted = false;
+    this.budgetExhausted = false;
     // B2（2026-09-04）：每次 run 前 reset——TAORLoop 实例可能跨消息/跨 step 复用，
     // 不 reset 则上一轮 stopped/turnCount/守卫残留会导致本轮 reason 早退（空转/无输出）
     this.taorLoop.reset();
     // OBS（M1a）：独立事件通道 stage:start
     void emitPdcaLiveEvent(
       'pdca:stage:start',
-      { sessionId: this.sessionId },
+      {
+        sessionId: this.sessionId,
+        taskId: this.taskId,
+        projectId: this.projectId,
+      },
       { stage: 'plan', status: 'started' }
     );
 
@@ -238,6 +309,15 @@ export class PlanDrivenLoop {
               sessionId: this.sessionId,
               stepCount: decomposition.subTasks.length,
             });
+            // Teamwork P2a（2026-09-06）：selector 记录所套编排模式（描述层，不改执行语义）
+            const patternSel = selectPattern({ complexity: 'complex' });
+            if (patternSel) {
+              logger.info('pattern.selected', {
+                pattern: patternSel.name,
+                sessionId: this.sessionId,
+                stepCount: decomposition.subTasks.length,
+              });
+            }
             return this._executeDecomposed(userMessage, decomposition);
           }
           span.addEvent('planDrivenLoop.decompose.singleTask');
@@ -312,6 +392,36 @@ export class PlanDrivenLoop {
     // AbortController，所有透传该 signal 的 LLM 请求被取消（不只跳循环，避免成本
     // 继续烧）。不保存检查点（用户中止 = 放弃语义，与 markStepCancelled 一致）。
     void this.taorLoop.abort(false);
+    // P0-1 真并行（2026-09-06）：批次并行中每步持独立 TAOR 实例——主实例 abort 覆盖
+    // 不到它们，需遍历活跃集逐个中止（否则并行的 in-flight LLM 继续烧成本）
+    for (const loop of this.activeStepLoops) {
+      void loop.abort(false);
+    }
+    this.activeStepLoops.clear();
+
+    // PR2（#2，2026-09-05）：终态化剩余 pending/running 步骤——否则 plan 永久
+    // running（ghost plan：刷新/恢复卡死）。运行中步骤已在上方 markStepCancelled，
+    // 此处处理其余步骤并显式置 plan=aborted（复用 LRTO 访问 savePlan 的先例）。
+    const plan = this.plan;
+    if (plan && plan.status !== 'completed' && plan.status !== 'aborted') {
+      let changed = false;
+      for (const step of plan.steps) {
+        if (step.status === 'running' || step.status === 'pending') {
+          step.status = 'cancelled';
+          if (!step.error) step.error = '用户中止';
+          changed = true;
+        }
+      }
+      if (changed || plan.status === 'running' || plan.status === 'pending') {
+        plan.status = 'aborted';
+        plan.completedAt = new Date().toISOString();
+        (
+          taskOrchestrator as unknown as {
+            savePlan(p: unknown): void;
+          }
+        ).savePlan(plan);
+      }
+    }
   }
 
   // ─── 私有方法 ─────────────────────────────────────────
@@ -320,11 +430,15 @@ export class PlanDrivenLoop {
    * B1（2026-09-04）：统一以 messages+deps 驱动 TAORLoop。
    * 此前 runCollect({prompt}) 走 TAORLoop 的 prompt 兜底分支——空壳 deps
    * （executeTools 返回 []）覆盖构造注入，快速路径步骤"空转不执行工具"。
+   * P0-1 真并行（2026-09-06）：可指定实例执行（每步独立实例），缺省用主实例 this.taorLoop。
    */
-  private _runCollect(prompt: string) {
-    return this.taorLoop.runCollect({
+  private _runCollect(prompt: string, loop: TAORLoop = this.taorLoop) {
+    return loop.runCollect({
       messages: [{ role: 'user', content: prompt }] as ChatMessage[],
       deps: this.deps,
+      // A 阶段一（2026-09-05）：PDL 目标运行随行声明 run 级归属 → TAOR checkpoint
+      // 落库 kind='goal'，Durable Resume 跳过（goal 会话走 /goal 恢复，防普通对话污染）。
+      ctxKind: 'goal',
     });
   }
 
@@ -339,7 +453,12 @@ export class PlanDrivenLoop {
     // OBS（M1a）：direct 完成 → phase + complete（独立通道，非会话消息）
     void emitPdcaLiveEvent(
       'pdca:stage:phase',
-      { sessionId: this.sessionId, planId: this.plan?.id },
+      {
+        sessionId: this.sessionId,
+        taskId: this.taskId,
+        projectId: this.projectId,
+        planId: this.plan?.id,
+      },
       {
         stage: 'execute',
         status: 'completed',
@@ -352,7 +471,12 @@ export class PlanDrivenLoop {
     );
     void emitPdcaLiveEvent(
       'pdca:stage:complete',
-      { sessionId: this.sessionId, planId: this.plan?.id },
+      {
+        sessionId: this.sessionId,
+        taskId: this.taskId,
+        projectId: this.projectId,
+        planId: this.plan?.id,
+      },
       { stage: 'execute', status: 'completed', message: '直接执行完成' }
     );
     return this._buildResult(false, [
@@ -380,170 +504,144 @@ export class PlanDrivenLoop {
     const workspaceId = await taskOrchestrator.resolveWorkspaceId(
       this.sessionId
     );
+    // P0-1（2026-09-06）：dependsOn 序号映射落库——TaskDecomposer 依赖为 subtask id，
+    // createPlan 接受 0-based 步骤序号（仅前置 idx<i 会写入 PlanStep.dependsOn，越界自愈）
+    const idxById = new Map(subtasks.map((t, idx) => [t.id, idx] as const));
+    const dependsOnIdx = subtasks.map((t) =>
+      (t.dependsOn ?? [])
+        .map((depId) => idxById.get(depId))
+        .filter((idx): idx is number => typeof idx === 'number')
+    );
     this.plan = taskOrchestrator.createPlan(
       userMessage.slice(0, 200),
       subtasks.map((t) => t.description),
       this.sessionId,
       undefined,
       undefined,
-      workspaceId
+      workspaceId,
+      dependsOnIdx
     );
 
     logger.info('PlanDrivenLoop 开始执行', {
       sessionId: this.sessionId,
       planId: this.plan.id,
       stepCount: subtasks.length,
+      // P0-1 遥测（2026-09-06）：有依赖的步骤数——验证 dependsOn 落库与拓扑可达性
+      depStepCount: dependsOnIdx.filter((d) => d.length > 0).length,
     });
+
+    // Teamwork P2b（2026-09-06）：同类历史 pitfall 检索（注入首步 prompt；无则空）
+    this._pitfallContext = this.pitfallRetriever
+      ? this.pitfallRetriever({ description: userMessage })
+      : '';
+    if (this._pitfallContext) {
+      logger.info('pitfall 检索注入首步', {
+        sessionId: this.sessionId,
+        planId: this.plan.id,
+        contextLength: this._pitfallContext.length,
+      });
+    }
 
     // P2（08-09）：广播 TaskCard 初始数据到前端
     this._broadcastTaskCard(subtasks);
 
-    // 逐步骤执行
-    for (let i = 0; i < subtasks.length; i++) {
+    // 逐步骤执行（P0-1 2026-09-06：按依赖拓扑批次——依赖者永远晚于其前驱；
+    // P0-1 真并行 2026-09-06：同批无依赖步骤在注入每步独立 TAOR 实例工厂后并行，
+    // 未注入工厂回退逐步骤串行（现状零回归，仿 LRTO D2））
+    // PR8（#9）：run 级 token 总账（0 = 不启用；并行下护栏精度为批次粒度——
+    // 批次启动前检查，批内并行步骤不再逐个中断）
+    const runTokenCap = pdlRunTokenCap();
+    let budgetExhausted = false;
+    const topoBatches = scheduleTopoBatches(
+      subtasks.map((t) => ({ id: t.id, dependsOn: t.dependsOn }))
+    );
+    // P0-1：每步真实产出捕获（stepId → 末条 assistant 文本），供前驱注入/审计/重试引用
+    const stepOutputs = new Map<string, string>();
+    for (const batch of topoBatches) {
       if (this.aborted) break;
-
-      const task = subtasks[i];
-      const stepId = this.plan.steps[i]?.id || task.id;
-      const stepStart = Date.now();
-
-      logger.info(`步骤 ${i + 1}/${subtasks.length}`, {
-        sessionId: this.sessionId,
-        stepId,
-      });
-
-      // 标记为运行中
-      taskOrchestrator.markStepRunning(stepId);
-      // 触发时机日志：markStepRunning 后首次进度通知（completed 通常为 0）
-      logger.info('步骤 markStepRunning，触发进度通知', {
-        sessionId: this.sessionId,
-        stepId,
-        stepIndex: i + 1,
-        totalSteps: subtasks.length,
-      });
-      // BUG-4/S3 修复（2026-08-23）：markStepRunning 补发 in_progress 广播——
-      // 前端已删除"猜状态"推进逻辑，执行中状态必须由后端广播驱动。
-      this._broadcastStepProgress(stepId, 'in_progress', i, subtasks.length);
-      this._notifyProgress();
-
-      try {
-        // B2（2026-09-04）：每 step 独立上下文——重置 run 级状态再注入本 step prompt，
-        // 避免上一步工具轨迹/stopped 状态污染下一步（PDL 步骤间本就不共享结论）
-        this.taorLoop.reset();
-        const stepPrompt = this._buildStepPrompt(task, subtasks, i);
-        // B1（2026-09-04）：同 _executeDirect——传 messages+deps 真实执行工具
-        const result = await this._runCollect(stepPrompt);
-        const duration = Date.now() - stepStart;
-
-        // S2 修复（2026-08-23）：中止后 runCollect 返回 aborted 结果——步骤已由
-        // abort() 标 cancelled，此处跳过完成标记，避免 cancelled 被覆盖为 completed。
-        if (this.aborted) {
-          logger.info('步骤因中止跳过完成标记（runCollect 已中止）', {
-            sessionId: this.sessionId,
-            stepId,
-          });
-          continue;
-        }
-
-        taskOrchestrator.markStepCompleted(stepId, '完成');
-        this.totalTokens += result.totalTokens;
-
-        // 轮数/token 为内部指标，仅记录日志与 StepResult 字段，不进入用户可见的 step result
-        logger.info('步骤完成（含内部指标）', {
-          sessionId: this.sessionId,
-          stepId,
-          turnCount: result.turnCount,
-          tokenCount: result.totalTokens,
-          durationMs: duration,
-        });
-        this.stepResults.push({
-          stepId,
-          description: task.description,
-          state: 'completed',
-          output: '步骤完成',
-          durationMs: duration,
-          turnCount: result.turnCount,
-          tokenCount: result.totalTokens,
-        });
-
-        // OBS（M1a）：步骤级 phase（独立通道）
-        void emitPdcaLiveEvent(
-          'pdca:stage:phase',
-          { sessionId: this.sessionId, planId: this.plan?.id },
-          {
-            stage: 'execute',
-            status: 'completed',
-            stepId,
-            percent: Math.round(((i + 1) / subtasks.length) * 100),
-            completedSteps: i + 1,
-            totalSteps: subtasks.length,
-            currentStep: task.description.slice(0, 80),
-            tokenCost: result.totalTokens,
-            durationMs: duration,
-          }
-        );
-
-        // P2（08-09）：SSE 推送步骤完成
-        this._broadcastStepProgress(
-          stepId,
-          'completed',
-          i,
-          subtasks.length,
-          duration
-        );
-      } catch (err) {
-        const duration = Date.now() - stepStart;
-        // BUG-3 修复（2026-08-23）：中止触发的异常不覆盖终态——abort() 已将当前
-        // 步骤置 cancelled，此处不再标 failed、不广播失败（避免前端红标"失败"）。
-        if (this.aborted) {
-          logger.info('步骤因中止终止（状态已 cancelled）', {
-            sessionId: this.sessionId,
-            stepId,
-            reason: String(err),
-          });
-        } else {
-          taskOrchestrator.markStepFailed(stepId, String(err));
-
-          this.stepResults.push({
-            stepId,
-            description: task.description,
-            state: 'failed',
-            output: '',
-            error: String(err),
-            durationMs: duration,
-            turnCount: 0,
-            tokenCount: 0,
-          });
-
-          // OBS（M1a）：步骤失败 phase（独立通道）
-          void emitPdcaLiveEvent(
-            'pdca:stage:phase',
-            { sessionId: this.sessionId, planId: this.plan?.id },
-            {
-              stage: 'execute',
-              status: 'failed',
-              stepId,
-              message: String(err).slice(0, 200),
-            }
-          );
-
-          // P2（08-09）：SSE 推送步骤失败
-          this._broadcastStepProgress(
-            stepId,
-            'failed',
-            i,
-            subtasks.length,
-            duration
-          );
-
-          await handleError(err, {
-            module: 'core:planDrivenLoop',
-            action: 'executeStep',
-            context: { sessionId: this.sessionId, stepId },
-          });
-        }
+      // PR8（#9）：累计 token 达 run 级上限 → 不再执行后续批次（预算告警）
+      if (runTokenCap > 0 && this.totalTokens >= runTokenCap) {
+        budgetExhausted = true;
+        break;
       }
 
-      this._notifyProgress();
+      // batch 内拓扑任务 → subtasks 原序映射（保持计划顺序语义，供日志/进度/前驱注入用）
+      const runnable: Array<{
+        task: DecompositionResult['subTasks'][number];
+        i: number;
+        stepId: string;
+      }> = [];
+      for (const topoTask of batch) {
+        const i = subtasks.findIndex((t) => t.id === topoTask.id);
+        if (i < 0) continue;
+        runnable.push({
+          task: subtasks[i],
+          i,
+          stepId: this.plan?.steps[i]?.id || subtasks[i].id,
+        });
+      }
+      if (runnable.length === 0) continue;
+
+      // 并行前提：每步独立 TAORLoop 实例（工厂注入），杜绝共享实例状态串扰
+      const canParallel = runnable.length > 1 && !!this.taorLoopFactory;
+      if (canParallel) {
+        logger.info('无依赖步骤批次并行执行', {
+          sessionId: this.sessionId,
+          planId: this.plan?.id,
+          batchSize: runnable.length,
+          stepIds: runnable.map((r) => r.stepId),
+        });
+        await Promise.allSettled(
+          runnable.map((r) =>
+            this._executeOneStep(
+              r.task,
+              subtasks,
+              r.i,
+              r.stepId,
+              idxById,
+              stepOutputs
+            )
+          )
+        );
+      } else {
+        for (const r of runnable) {
+          if (this.aborted) break;
+          await this._executeOneStep(
+            r.task,
+            subtasks,
+            r.i,
+            r.stepId,
+            idxById,
+            stepOutputs
+          );
+        }
+      }
+    }
+
+    if (budgetExhausted) {
+      this.budgetExhausted = true;
+      // PR8（#9）：预算耗尽收尾——剩余步骤置 cancelled、plan failed（run 级总账兜底）
+      const exhaustedPlan = this.plan;
+      if (exhaustedPlan) {
+        for (const s of exhaustedPlan.steps) {
+          if (s.status === 'pending' || s.status === 'running') {
+            s.status = 'cancelled';
+            if (!s.error) s.error = 'PDCA run 级 token 预算耗尽';
+          }
+        }
+        exhaustedPlan.status = 'failed';
+        (
+          taskOrchestrator as unknown as {
+            savePlan(p: unknown): void;
+          }
+        ).savePlan(exhaustedPlan);
+      }
+      logger.warn('[pdl] run 级 token 预算耗尽（budget_alarm）', {
+        sessionId: this.sessionId,
+        planId: this.plan?.id,
+        totalTokens: this.totalTokens,
+        cap: runTokenCap,
+      });
     }
 
     // P2（08-09）：广播计划完成
@@ -572,7 +670,12 @@ export class PlanDrivenLoop {
     ).length;
     void emitPdcaLiveEvent(
       'pdca:stage:complete',
-      { sessionId: this.sessionId, planId: this.plan?.id },
+      {
+        sessionId: this.sessionId,
+        taskId: this.taskId,
+        projectId: this.projectId,
+        planId: this.plan?.id,
+      },
       {
         stage: 'execute',
         status: this.aborted ? 'cancelled' : 'completed',
@@ -593,11 +696,261 @@ export class PlanDrivenLoop {
     return this._buildResult(true, this.stepResults);
   }
 
-  /** 构建步骤执行的 prompt */
+  /**
+   * P0-1 真并行（2026-09-06）：执行单个子任务步骤（含 P0-2 失败门控重试）。
+   * 由 _executeDecomposed 按拓扑批次调用——批次内可并行（注入 taorLoopFactory 时每步
+   * 独立 TAOR 实例，杜绝共享实例状态串扰）或逐步骤串行（复用 this.taorLoop，现状零回归）。
+   * 产出写入 stepOutputs（供依赖者前驱注入/审计）；终态落盘与广播逻辑与串行版一致。
+   */
+  private async _executeOneStep(
+    task: DecompositionResult['subTasks'][number],
+    subtasks: DecompositionResult['subTasks'],
+    i: number,
+    stepId: string,
+    idxById: Map<string, number>,
+    stepOutputs: Map<string, string>
+  ): Promise<void> {
+    const stepStart = Date.now();
+
+    logger.info(`步骤 ${i + 1}/${subtasks.length}`, {
+      sessionId: this.sessionId,
+      stepId,
+    });
+
+    // 标记为运行中
+    taskOrchestrator.markStepRunning(stepId);
+    // 触发时机日志：markStepRunning 后首次进度通知（completed 通常为 0）
+    logger.info('步骤 markStepRunning，触发进度通知', {
+      sessionId: this.sessionId,
+      stepId,
+      stepIndex: i + 1,
+      totalSteps: subtasks.length,
+    });
+    // BUG-4/S3 修复（2026-08-23）：markStepRunning 补发 in_progress 广播——
+    // 前端已删除"猜状态"推进逻辑，执行中状态必须由后端广播驱动。
+    this._broadcastStepProgress(stepId, 'in_progress', i, subtasks.length);
+    this._notifyProgress();
+
+    // P0-1 真并行：本步独立 TAOR 实例（工厂注入时）——abort 需中止它，故纳入活跃集
+    const stepLoop = this.taorLoopFactory
+      ? this.taorLoopFactory(this.sessionId)
+      : this.taorLoop;
+    this.activeStepLoops.add(stepLoop);
+    try {
+      // P0-1（2026-09-06）：依赖前驱产出摘要——仅注入确实已产出的前驱文本（拓扑序保证
+      // 前驱先执行；无文本/无依赖则不注入，遵守 B2 每步独立上下文的防污染意图）
+      const predecessorLines = (task.dependsOn ?? [])
+        .map((depId) => {
+          const depIdx = idxById.get(depId);
+          if (depIdx === undefined || depIdx >= subtasks.length) return '';
+          const depStepId = this.plan?.steps[depIdx]?.id;
+          const depOut = depStepId ? (stepOutputs.get(depStepId) ?? '') : '';
+          const depDesc = subtasks[depIdx]?.description ?? depId;
+          return depOut ? `- ${depDesc}：${depOut.slice(0, 500)}` : '';
+        })
+        .filter(Boolean)
+        .join('\n');
+
+      let lastErr: unknown;
+      // P0-2（2026-09-06）：失败类型门控重试——aborted 不重试；其余失败注入 objection 重跑 1 次
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          // B2（2026-09-04）：每 step 独立上下文——重置 run 级状态再注入本 step prompt，
+          // 避免上一步工具轨迹/stopped 状态污染下一步（PDL 步骤间本就不共享结论）
+          stepLoop.reset();
+          const stepPrompt = this._buildStepPrompt(
+            task,
+            subtasks,
+            i,
+            predecessorLines,
+            attempt > 0 ? String(lastErr ?? '') : undefined
+          );
+          // B1（2026-09-04）：同 _executeDirect——传 messages+deps 真实执行工具
+          const result = await this._runCollect(stepPrompt, stepLoop);
+          const duration = Date.now() - stepStart;
+
+          // S2 修复（2026-08-23）：中止后 runCollect 返回 aborted 结果——步骤已由
+          // abort() 标 cancelled，此处跳过完成标记，避免 cancelled 被覆盖为 completed。
+          if (this.aborted) {
+            logger.info('步骤因中止跳过完成标记（runCollect 已中止）', {
+              sessionId: this.sessionId,
+              stepId,
+            });
+            return; // P0-2：中止不重试，本步结束（外层批次循环随即因 aborted break）
+          }
+
+          // P0-1（2026-09-06）：步骤产出捕获——末条 assistant 文本作为本步真实结论，
+          // 落 plan step.result + stepOutputs（供前驱注入/审计）；无文本时回退占位
+          const stepText = stepLoop.getLastAssistantText();
+          taskOrchestrator.markStepCompleted(
+            stepId,
+            stepText.slice(0, 2000) || '完成',
+            {
+              // E1①（2026-09-05，方案甲）：步骤执行终止原因透传落 PlanStep
+              terminationReason: result.terminationReason,
+            }
+          );
+          stepOutputs.set(stepId, stepText);
+          this.totalTokens += result.totalTokens;
+
+          // 轮数/token 为内部指标，仅记录日志与 StepResult 字段，不进入用户可见的 step result
+          logger.info('步骤完成（含内部指标）', {
+            sessionId: this.sessionId,
+            stepId,
+            turnCount: result.turnCount,
+            tokenCount: result.totalTokens,
+            durationMs: duration,
+            // P0-1 遥测（2026-09-06）：步骤产出捕获长度（0=纯工具轮无文本）
+            outputLength: stepText.length,
+          });
+          this.stepResults.push({
+            stepId,
+            description: task.description,
+            state: 'completed',
+            output: stepText || '步骤完成',
+            durationMs: duration,
+            turnCount: result.turnCount,
+            tokenCount: result.totalTokens,
+          });
+
+          // OBS（M1a）：步骤级 phase（独立通道）
+          void emitPdcaLiveEvent(
+            'pdca:stage:phase',
+            {
+              sessionId: this.sessionId,
+              taskId: this.taskId,
+              projectId: this.projectId,
+              planId: this.plan?.id,
+            },
+            {
+              stage: 'execute',
+              status: 'completed',
+              stepId,
+              percent: Math.round(((i + 1) / subtasks.length) * 100),
+              completedSteps: i + 1,
+              totalSteps: subtasks.length,
+              currentStep: task.description.slice(0, 80),
+              tokenCost: result.totalTokens,
+              durationMs: duration,
+            }
+          );
+
+          // P2（08-09）：SSE 推送步骤完成
+          this._broadcastStepProgress(
+            stepId,
+            'completed',
+            i,
+            subtasks.length,
+            duration
+          );
+          break; // P0-2：本步成功，退出重试循环（attempt=0 完成）
+        } catch (err) {
+          const duration = Date.now() - stepStart;
+          // BUG-3 修复（2026-08-23）：中止触发的异常不覆盖终态——abort() 已将当前
+          // 步骤置 cancelled，此处不再标 failed、不广播失败（避免前端红标"失败"）。
+          if (this.aborted) {
+            logger.info('步骤因中止终止（状态已 cancelled）', {
+              sessionId: this.sessionId,
+              stepId,
+              reason: String(err),
+            });
+            return; // P0-2：中止不重试
+          } else if (attempt === 0) {
+            // P0-2（2026-09-06）：首败注入 objection 重试一次（API/工具异常亦仅限 1 次，
+            // 有界成本由 run 级 token 预算兜底；attempt=1 的 prompt 携带本步失败原因）
+            lastErr = err;
+            logger.info('步骤失败，注入 objection 重试一次', {
+              sessionId: this.sessionId,
+              stepId,
+              error: String(err).slice(0, 300),
+            });
+            continue;
+          } else {
+            // P1-3（2026-09-06）：失败路线保留——终败前从实例捕获已产出文本片段
+            // （TAOR messages 保留中间 assistant 文本；纯工具轮无文本则省略），
+            // 随 markStepFailed 落 plan step + stepResult，供重试/终局综合引用不丢失
+            const partialOutput = stepLoop.getLastAssistantText();
+            taskOrchestrator.markStepFailed(stepId, String(err), {
+              partialOutput: partialOutput || undefined,
+            });
+
+            this.stepResults.push({
+              stepId,
+              description: task.description,
+              state: 'failed',
+              output: '',
+              error: String(err),
+              partialOutput: partialOutput || undefined,
+              durationMs: duration,
+              turnCount: 0,
+              tokenCount: 0,
+            });
+            // P1-3 遥测：失败步骤保留的产出片段长度（0 = 纯工具轮失败，无文本可留）
+            logger.info('步骤终败（含 partialOutput）', {
+              sessionId: this.sessionId,
+              stepId,
+              error: String(err).slice(0, 300),
+              partialOutputLength: partialOutput.length,
+            });
+
+            // OBS（M1a）：步骤失败 phase（独立通道）
+            void emitPdcaLiveEvent(
+              'pdca:stage:phase',
+              {
+                sessionId: this.sessionId,
+                taskId: this.taskId,
+                projectId: this.projectId,
+                planId: this.plan?.id,
+              },
+              {
+                stage: 'execute',
+                status: 'failed',
+                stepId,
+                message: String(err).slice(0, 200),
+              }
+            );
+
+            // P2（08-09）：SSE 推送步骤失败
+            this._broadcastStepProgress(
+              stepId,
+              'failed',
+              i,
+              subtasks.length,
+              duration
+            );
+
+            // P0-2（2026-09-06）：pitfall 记录钩子（P1-2 注册表接入点，未注入 no-op）
+            this.recordPitfall?.({
+              stepId,
+              taskId: this.taskId,
+              description: task.description,
+              error: String(err).slice(0, 500),
+            });
+
+            await handleError(err, {
+              module: 'core:planDrivenLoop',
+              action: 'executeStep',
+              context: { sessionId: this.sessionId, stepId },
+            });
+            return; // P0-2：本步终败，重试循环结束
+          }
+        }
+      }
+    } finally {
+      // P0-1 真并行：本步结束（成功/终败/中止）即移出活跃集——abort 只中止仍在跑的实例
+      this.activeStepLoops.delete(stepLoop);
+    }
+
+    this._notifyProgress();
+  }
+
+  /** 构建步骤执行的 prompt（P0-1：可注入依赖前驱产出摘要；P0-2：可携带上次失败 objection） */
   private _buildStepPrompt(
     task: { id: string; description: string },
     allTasks: Array<{ id: string; description: string }>,
-    index: number
+    index: number,
+    predecessorSummary?: string,
+    retryError?: string
   ): string {
     const total = allTasks.length;
     const completed = allTasks
@@ -608,12 +961,21 @@ export class PlanDrivenLoop {
     return [
       `你正在执行一个多步骤任务。当前是步骤 ${index + 1}/${total}。`,
       '',
+      // Teamwork P2b（2026-09-06）：首步注入同类历史 pitfall（避免重蹈覆辙；仅首步一次）
+      index === 0 && this._pitfallContext
+        ? `[历史经验（同类任务曾失败于此）]\n${this._pitfallContext}\n`
+        : '',
       '已完成步骤：',
       completed || '（无）',
+      predecessorSummary
+        ? `\n依赖前驱结果（本步可直接使用）：\n${predecessorSummary}`
+        : '',
       '',
       `当前步骤：${task.description}`,
       '',
-      '请只执行当前步骤，完成后汇报结果。不要执行后续步骤。',
+      retryError
+        ? `[上一步尝试失败] ${retryError.slice(0, 800)}\n请勿重复失败路线；若不可行请给出替代方案，或明确告知 blocker。`
+        : '请只执行当前步骤，完成后汇报结果。不要执行后续步骤。',
     ].join('\n');
   }
 
@@ -721,6 +1083,8 @@ export class PlanDrivenLoop {
       stepCount: stepResults.length,
       completedSteps: completed,
       failedSteps: failed,
+      aborted: this.aborted,
+      budgetExhausted: this.budgetExhausted,
       totalDurationMs: Date.now() - this.startTime,
       totalTokens: this.totalTokens,
       stepResults,

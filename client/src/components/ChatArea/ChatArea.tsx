@@ -13,7 +13,10 @@ import { ErrorBoundary } from "../common/ErrorBoundary";
 import ChatMessageList from "./ChatMessageList";
 import RoundNavigator from "./RoundNavigator";
 import StatusFloatBar from "./StatusFloatBar";
+import PdcaActivityStrip from "./PdcaActivityStrip";
+import ChatPdcaDrawer from "./ChatPdcaDrawer";
 import ChatInput from "./ChatInput";
+import DeepThinkingHint from "./DeepThinkingHint";
 import { ContextWatermark } from "../chat/ContextWatermark";
 import VoiceSubtitleOverlay from "../VoiceSubtitleOverlay";
 import VoiceSessionIndicator from "../VoiceSessionIndicator";
@@ -594,6 +597,10 @@ function ChatArea({ fluid = false }: { fluid?: boolean }) {
       {/* 底部区域：AI 状态栏 + 输入区（flex-col，StatusFloatBar 自然贴着输入区上方） */}
       <div className="shrink-0 flex flex-col bg-gray-50 dark:bg-gray-900">
         <StatusFloatBar fluid={fluid} />
+        {/* P0-3：PDCA 实时活动条（auto_launched 提示 + 阶段进度横条，纯读 orchestrationStore） */}
+        <PdcaActivityStrip fluid={fluid} />
+        {/* P2/C3：普通会话就地展开完整编排面板（PdcaPipeline + OrchestrationLivePanel） */}
+        <ChatPdcaDrawer fluid={fluid} />
 
         {/* 语音会话状态指示器（录音/转录/播放） */}
         <div className="flex justify-center">
@@ -614,6 +621,9 @@ function ChatArea({ fluid = false }: { fluid?: boolean }) {
           isDark={isDark}
           position="bottom"
         />
+
+        {/* R3（W3/W4）：深度思考等待提示 —— thinking 超 30s 无正文/工具事件时显示 */}
+        <DeepThinkingHint />
 
         <ChatInput fluid={fluid} />
       </div>

@@ -1,4 +1,4 @@
-import { useEffect, useReducer } from "react";
+import { useEffect, useReducer, useRef } from "react";
 import { useSessionStore } from "../stores/sessionStore";
 import { useBackendStore } from "../stores/backendStore";
 import { useConfigStore } from "../stores/configStore";
@@ -146,15 +146,21 @@ export function useInitApp() {
     runPhase2();
   }, [initState.phase, checkBackendStatus, startBackend]);
 
-  // 阶段 3: SSE 连接
+  // 阶段 3: SSE 连接（重构 2026-09-06：SSE 生命周期脱离 init phase）
+  // 原实现把订阅+connect 挂在 initState.phase==='phase3_sse' 的 effect：runPhase3 收尾
+  // dispatch PHASE3_DONE（phase→ready）触发 cleanup 断开 SSE，effect 重跑又被门控挡下 →
+  // 应用就绪后 SSE 永久断开，pdca:* / session:* 事件永不达前端（UI 走查实证：控制台
+  // connect→disconnect 且无 onopen，orchestrationStore 零摄入）。
+  // 现改为后端 running 驱动常驻：后端掉线自动断开、恢复自动重连；cleanup 仅在卸载/掉线发生。
+  const backendRunning = useBackendStore((s) => s.status.running);
+  const sseAttachedRef = useRef(false);
   useEffect(() => {
-    if (initState.phase !== "phase3_sse") return;
+    if (!backendRunning || sseAttachedRef.current) return;
+    sseAttachedRef.current = true;
 
     // P2-4 修复：订阅会话变更事件刷新侧栏列表——后端自动生成标题
     // （autoGenerateTitle → session:renamed）、其它端创建/删除/清空会话时，
-    // 前端列表需实时反映；原实现无订阅 + loadChatSessions 早退（列表非空即
-    // no-op），标题/列表必须刷新页面才更新。
-    // 定义在 try 外以便 cleanup 闭包引用同一引用注销。
+    // 前端列表需实时反映；loadChatSessions 早退（列表非空即 no-op）时仍生效。
     const refreshSessions = () => loadSessions();
     // BUG-2 修复：project:auto_created 处理函数提升为稳定引用——原实现注册传
     // 内联箭头、cleanup 传 `() => {}` 全新函数，按引用匹配永远删不掉监听器：
@@ -211,47 +217,52 @@ export function useInitApp() {
     // sseService.off 按引用删除永远删不掉监听器 → StrictMode/HMR 下泄漏累积。
     const onHeartbeat = () => checkBackendStatus();
 
-    // W9 修复：loadSessions 需要 await 完成再 dispatch PHASE3_DONE，
-    // 否则 ready 时列表仍为空（用户看到"无会话"闪屏）
-    const runPhase3 = async () => {
-      try {
-        sseService.on("heartbeat", onHeartbeat);
-        sseService.on("session:renamed", refreshSessions);
-        sseService.on("session:created", refreshSessions);
-        sseService.on("session:deleted", refreshSessions);
-        sseService.on("session:cleared", refreshSessions);
-        // P0b-3: AI 自动建项目时，前端同步创建 worktree
-        sseService.on("project:auto_created", onProjectAutoCreated);
-        // OBS（M1b）：PDCA 独立事件通道订阅（幂等；任意页面可实时可见任务进度）
-        initOrchestrationStore();
-        // M1 修复（2026-08-13）：接线 SSE 断开轮询兜底——sseService.setPollHandler
-        // 此前从未被调用（死代码），SSE 断开时无任何轮询兜底，只能干等重连。
-        // 断开期间每 15s 轮询一次会话列表，保证会话变更在重连前可见。
-        sseService.setPollHandler(refreshSessions);
-        sseService.connect();
-        await loadSessions();
-        // 连接/网络状态监测：记录后端掉线/恢复、网络断开/恢复事件
-        connectionMonitor.start();
-        dispatch({ type: "PHASE3_DONE" });
-      } catch (e) {
-        dispatch({ type: "ERROR", error: String(e) });
-      }
-    };
-    runPhase3();
+    sseService.on("heartbeat", onHeartbeat);
+    sseService.on("session:renamed", refreshSessions);
+    sseService.on("session:created", refreshSessions);
+    sseService.on("session:deleted", refreshSessions);
+    sseService.on("session:cleared", refreshSessions);
+    // P0b-3: AI 自动建项目时，前端同步创建 worktree
+    sseService.on("project:auto_created", onProjectAutoCreated);
+    // OBS（M1b）：PDCA 独立事件通道订阅（幂等；任意页面可实时可见任务进度）
+    initOrchestrationStore();
+    // M1 修复（2026-08-13）：SSE 断开轮询兜底——断开期间每 15s 轮询会话列表，
+    // 保证会话变更在重连前可见。
+    sseService.setPollHandler(refreshSessions);
+    // 连接/网络状态监测：记录后端掉线/恢复、网络断开/恢复事件
+    connectionMonitor.start();
+    sseService.connect();
+    logger.info("[init] SSE 常驻订阅已挂接（backend running）");
 
     return () => {
+      sseAttachedRef.current = false;
       sseService.off("heartbeat", onHeartbeat);
       sseService.off("session:renamed", refreshSessions);
       sseService.off("session:created", refreshSessions);
       sseService.off("session:deleted", refreshSessions);
       sseService.off("session:cleared", refreshSessions);
       sseService.off("project:auto_created", onProjectAutoCreated);
-      // M1 修复：卸载时解除轮询回调，避免残留引用
+      // M1 修复：卸载/掉线时解除轮询回调，避免残留引用
       sseService.setPollHandler(null);
       sseService.disconnect();
       connectionMonitor.stop();
     };
-  }, [initState.phase, checkBackendStatus, loadSessions]);
+  }, [backendRunning, loadSessions, checkBackendStatus]);
+
+  // 阶段 3 收尾：仅加载会话列表并置 ready（W9：await 完成再 ready，避免"无会话"闪屏）
+  useEffect(() => {
+    if (initState.phase !== "phase3_sse") return;
+
+    const runPhase3 = async () => {
+      try {
+        await loadSessions();
+        dispatch({ type: "PHASE3_DONE" });
+      } catch (e) {
+        dispatch({ type: "ERROR", error: String(e) });
+      }
+    };
+    runPhase3();
+  }, [initState.phase, loadSessions]);
 
   // 对外暴露的 wizard 完成回调
   const completeWizard = () => {

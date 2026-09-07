@@ -161,10 +161,9 @@ export function useNotificationSSE() {
             engaged?: boolean;
             state?: { reason?: string; engagedAt?: string } | null;
           };
-          useEstopStore.getState().setStatus(
-            data.engaged === true,
-            data.state ?? null,
-          );
+          useEstopStore
+            .getState()
+            .setStatus(data.engaged === true, data.state ?? null);
         } catch {
           /* ignore parse errors */
         }

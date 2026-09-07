@@ -31,10 +31,7 @@ import { describe, it, expect } from "vitest";
 import { create } from "zustand";
 import type { MessageSlice } from "../chat-message.types";
 import { createMessageSlice } from "../chat-message.slice";
-import {
-  createFileSlice,
-  type FileSlice,
-} from "../chat-file.slice";
+import { createFileSlice, type FileSlice } from "../chat-file.slice";
 
 type ChatState = MessageSlice & FileSlice;
 const useTestChatStore = create<ChatState>()((...a) => ({

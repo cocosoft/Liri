@@ -20,42 +20,83 @@
 // SOFTWARE.
 
 /**
- * planAbortRegistry — 活跃 PlanDrivenLoop 注册表（S4 / BUG-7 修复，2026-08-23）
+ * planAbortRegistry — 活跃 PlanDrivenLoop 注册表（S4 / BUG-7 修复，2026-08-23；
+ * PR9 S3 键化，2026-09-05）
  *
- * PdcaLauncher 启动计划循环时注册（sessionId → loop），ChatManager.abortSessionStream
- * 停止会话流时经 abortSessionPlans 顺带中止该会话的活跃计划循环（方案 A：前端零改动）。
+ * PdcaLauncher 启动计划循环时注册（taskId → { loop, sessionId }），ChatManager
+ * abortSessionStream 停止会话流时经 abortSessionPlans 顺带中止该会话的全部活跃
+ * 计划循环（方案 A：前端零改动）。
  *
  * 生命周期：run 开始前 register，run 结束后（then/catch/finally）unregister。
- * 同一会话并发 loop：后注册覆盖（前一个视为已结束，由 run 结束清理兜底）。
+ * 键空间：taskId（弃「loopBySession 后注册覆盖」——同一任务重复注册视为冲突，
+ * 显式报错，防止并发互相顶替；会话维度经 abortSessionPlans(sessionId) 遍历达成）。
  */
 
 import type { PlanDrivenLoop } from '@modules/core';
+import { getLogger } from '@modules/monitoring';
 
-const loopBySession = new Map<string, PlanDrivenLoop>();
+const logger = getLogger('pdca:planAbort');
 
-export function registerPlanLoop(
-  sessionId: string,
-  loop: PlanDrivenLoop
-): void {
-  // 同一会话并发 loop：后注册覆盖（前一个视为已结束）
-  loopBySession.set(sessionId, loop);
+interface PlanLoopEntry {
+  loop: PlanDrivenLoop;
+  sessionId: string;
 }
 
-export function unregisterPlanLoop(
+const loopByTask = new Map<string, PlanLoopEntry>();
+
+/** 按 taskId 注册计划循环（同 taskId 重复注册显式报错，不覆盖） */
+export function registerPlanLoop(
+  taskId: string,
   sessionId: string,
   loop: PlanDrivenLoop
 ): void {
-  // 仅当当前注册的是同一实例时才删除，防止旧 loop 结束后误删新 loop
-  if (loopBySession.get(sessionId) === loop) {
-    loopBySession.delete(sessionId);
+  if (loopByTask.has(taskId)) {
+    throw new Error(
+      `[planAbortRegistry] taskId ${taskId} 已注册活跃 PlanDrivenLoop，禁止覆盖（PR9 S3）`
+    );
+  }
+  loopByTask.set(taskId, { loop, sessionId });
+  logger.info('registerPlanLoop: 注册活跃 PDL', {
+    taskId,
+    sessionId,
+    registrySize: loopByTask.size,
+  });
+}
+
+/** 注销计划循环（仅当注册的是同一实例时删除，防止旧 run 结束后误删新 run） */
+export function unregisterPlanLoop(taskId: string, loop: PlanDrivenLoop): void {
+  const entry = loopByTask.get(taskId);
+  if (entry && entry.loop === loop) {
+    loopByTask.delete(taskId);
+    logger.debug('unregisterPlanLoop: 注销 PDL（run 正常收尾）', {
+      taskId,
+      registrySize: loopByTask.size,
+    });
   }
 }
 
+/** 中止某会话下的全部活跃计划循环（语义：停会话 = 停其全部任务） */
 export function abortSessionPlans(sessionId: string): void {
-  const loop = loopBySession.get(sessionId);
-  if (loop) {
+  const doomed: Array<{ taskId: string; loop: PlanDrivenLoop }> = [];
+  for (const [taskId, entry] of loopByTask) {
+    if (entry.sessionId === sessionId)
+      doomed.push({ taskId, loop: entry.loop });
+  }
+  for (const { taskId, loop } of doomed) {
     loop.abort();
     // abort 后该 loop 即将结束，直接移除避免重复 abort
-    loopBySession.delete(sessionId);
+    loopByTask.delete(taskId);
   }
+  if (doomed.length > 0) {
+    logger.info('abortSessionPlans: 会话中止已清空 PDL registry', {
+      sessionId,
+      abortedTaskIds: doomed.map((d) => d.taskId),
+      registrySizeAfter: loopByTask.size,
+    });
+  }
+}
+
+/** 供事件/日志追溯：当前注册条目数 */
+export function planAbortRegistrySize(): number {
+  return loopByTask.size;
 }

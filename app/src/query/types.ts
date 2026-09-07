@@ -12,6 +12,9 @@ export enum TAORPhase {
   COMPLETED = 'completed',
 }
 
+/** A 阶段一（2026-09-05）：检查点恢复归属标记——chat（普通对话）/ goal（PDL 目标运行） */
+export type TAORCheckpointKind = 'chat' | 'goal';
+
 /** TAOR检查点数据结构 */
 export interface TAORCheckpoint {
   id: string;
@@ -50,6 +53,9 @@ export interface TAORCheckpoint {
   messageCount?: number;
   /** Phase 3: 检查点关联的 Inbox 状态 */
   inboxState?: CheckpointInboxState;
+  /** A 阶段一（2026-09-05）：恢复归属标记——缺省（历史存量）按 chat 宽容读；
+   *  goal = PDL 快路径目标运行产出的检查点，Durable Resume 跳过（/goal 恢复） */
+  kind?: TAORCheckpointKind;
 }
 
 /** 检查点时关联的 Inbox 待审批项 */

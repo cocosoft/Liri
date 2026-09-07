@@ -40,12 +40,15 @@ function extractToolId(b: Record<string, unknown>): string {
 
 /**
  * 同 toolCallId 的 tool_call 块合并去重（终态优先 + 保留首非空 arguments）。
- * 无重复时返回原数组（零副作用）。
+ *
+ * 零副作用契约：不含可归属的 tool_call，或每个 toolCallId 仅出现一次（无重复可并）
+ * 时返回原数组——调用方可用 `返回值 !== 入参` 判断"是否真的发生了折叠"。
  */
 export function dedupeToolCallBlocks(
   blocks: Array<Record<string, unknown>>
 ): Array<Record<string, unknown>> {
   const merged = new Map<string, Record<string, unknown>>();
+  let duplicated = false;
   for (const b of blocks) {
     if (b.type !== 'tool_call') continue;
     const toolId = extractToolId(b);
@@ -57,6 +60,7 @@ export function dedupeToolCallBlocks(
         toolCall: { ...((b.toolCall as Record<string, unknown>) ?? {}) },
       });
     } else {
+      duplicated = true;
       const prev = (existing.toolCall as Record<string, unknown>) ?? {};
       const next = (b.toolCall as Record<string, unknown>) ?? {};
       const prevHasArgs =
@@ -71,7 +75,7 @@ export function dedupeToolCallBlocks(
       };
     }
   }
-  if (merged.size === 0) return blocks;
+  if (!duplicated) return blocks; // 无重复可并（含唯一/空 id 的 tool_call）→ 原数组零副作用
   const result: Array<Record<string, unknown>> = [];
   for (const b of blocks) {
     if (b.type !== 'tool_call') {
@@ -93,19 +97,63 @@ export function dedupeToolCallBlocks(
 }
 
 /**
- * 对消息列表的 blocks 批量去重（读路径 T1.3 用）。
- * 无 blocks 或无需去重时返回原数组。
+ * 逐消息对 blocks 做"跨消息归属"过滤：tool_call 块若其 toolCallId 已归属过则移除。
+ * 返回 [kept, dropped]；seenIds 就地累积（首个携带者赢得归属）。
+ */
+function filterOwnedToolBlocks(
+  blocks: Array<Record<string, unknown>>,
+  seenIds: Set<string>
+): { kept: Array<Record<string, unknown>>; dropped: number } {
+  const kept: Array<Record<string, unknown>> = [];
+  let dropped = 0;
+  for (const b of blocks) {
+    if (b.type === 'tool_call') {
+      const id = extractToolId(b);
+      if (id && seenIds.has(id)) {
+        dropped += 1;
+        continue;
+      }
+      if (id) seenIds.add(id);
+    }
+    kept.push(b);
+  }
+  return { kept, dropped };
+}
+
+/**
+ * 对消息列表的 blocks 批量去重（读路径 T1.3 + Fix3 用），两阶段、提交式语义：
+ *   1) 消息内去重：dedupeToolCallBlocks 折叠同 toolCallId 的重复 tool_call（无重复时原样返回）。
+ *   2) 跨消息归属去重：同一 toolCallId 只在首个携带它的消息中保留，后续消息的重复引用块
+ *      移除（实测同一 call 出现在工具承载消息与后续消息各一次 → 189 块 / 186 唯一）。
+ * 只要任一消息的 blocks 实际发生变化（消息内折叠或跨消息移除）就提交重建结果；
+ * 完全无变更时返回原数组引用（零副作用，引用保持）。
+ *
+ * 注意（与旧实现的语义差异）：旧实现用单一 touched 位只在"跨消息移除"时提交，导致
+ * "仅消息内折叠"（单条消息内重复）的结果被静默丢弃——读路径守卫漏去重。重构后折叠
+ * 同样视为实际变更并被提交。
  */
 export function dedupeMessagesToolCallBlocks<
-  T extends { blocks?: Array<Record<string, unknown>> },
+  T extends { id?: string; blocks?: Array<Record<string, unknown>> },
 >(messages: T[]): T[] {
+  const seenIds = new Set<string>();
+  const result: T[] = [];
   let touched = false;
-  const result = messages.map((m) => {
-    if (!m.blocks || m.blocks.length === 0) return m;
-    const deduped = dedupeToolCallBlocks(m.blocks);
-    if (deduped === m.blocks) return m;
+  for (const m of messages) {
+    if (!m.blocks || m.blocks.length === 0) {
+      result.push(m);
+      continue;
+    }
+    // 1) 消息内去重：无重复返回原数组（引用比较即"是否折叠"）
+    const inner = dedupeToolCallBlocks(m.blocks);
+    // 2) 跨消息归属去重：已归属过的 tool_call 块移除
+    const { kept, dropped } = filterOwnedToolBlocks(inner, seenIds);
+    const changed = dropped > 0 || inner !== m.blocks;
+    if (!changed) {
+      result.push(m);
+      continue;
+    }
     touched = true;
-    return { ...m, blocks: deduped };
-  });
+    result.push({ ...m, blocks: kept });
+  }
   return touched ? result : messages;
 }

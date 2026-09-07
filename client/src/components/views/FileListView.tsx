@@ -7,7 +7,9 @@ import type {
 } from "../../types";
 import SearchInput from "../common/SearchInput";
 import NotebookPreviewModal from "./NotebookPreviewModal";
+import FileDetailDialog from "./FileDetailDialog";
 import { useConfigStore } from "../../stores/configStore";
+import { formatRegistryTime } from "../../utils/registryTime";
 
 /**
  * 来源筛选选项配置
@@ -35,7 +37,6 @@ function FileListView() {
   const {
     registryResults,
     registryTotal,
-    registryNextCursor,
     registryParams,
     registryLoading,
     error,
@@ -82,16 +83,8 @@ function FileListView() {
     searchRegistry();
   }, [registryParams]);
 
-  /** 格式化时间 */
-  const formatDate = (ts: number) => {
-    return new Date(ts * 1000).toLocaleString("zh-CN", {
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
+  /** 格式化时间（P2-2：秒级 → 统一走 formatRegistryTime） */
+  const formatDate = (ts: number) => formatRegistryTime(ts);
 
   /** 格式化大小 */
   const formatSize = (bytes: number) => {
@@ -421,8 +414,8 @@ function FileListView() {
               ))}
             </div>
 
-            {/* 加载更多 */}
-            {registryNextCursor && (
+            {/* 加载更多（P2-1：按已加载/总数判定，registryNextCursor 已弃用恒 undefined） */}
+            {(registryResults?.length ?? 0) < (registryTotal ?? 0) && (
               <div className="text-center py-4">
                 <button
                   onClick={loadMoreRegistry}
@@ -444,6 +437,13 @@ function FileListView() {
           fileName={previewNotebook.name}
           isDark={isDark}
           onClose={() => setPreviewNotebook(null)}
+        />
+      )}
+      {/* L2（2026-09-07）：选中记录 → 文件详情弹窗（含时间/来源/MD5 复制） */}
+      {selectedFile && (
+        <FileDetailDialog
+          record={selectedFile}
+          onClose={() => setSelectedFile(null)}
         />
       )}
     </div>

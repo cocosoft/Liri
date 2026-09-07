@@ -52,6 +52,37 @@ function safeFlush(r: http.ServerResponse): void {
   }
 }
 
+/**
+ * K4b（2026-09-06）：SSE close 统一出口——仅当会话仍处于流式中才中止会话流/计划。
+ * 背景：res.on('close') 在响应正常写完（客户端读完即关闭连接）也会触发；此前 close
+ * handler 无条件 abortSessionStream → abortSessionPlans 会把【正常完成】的活跃 PDL
+ * 误中止（复测实证 pdca_mtoz2ed9：任务四步全部完成、goal checkpoint phase=completed，
+ * 终态却被标 abort）。正常完成路径 _finalizeStreamMessage 已清理 AbortController →
+ * isSessionStreaming()=false，据此区分"用户中断/stop"（真中止）与"正常收尾"（跳过）。
+ */
+function abortSessionOnClose(sessionId: string | undefined): void {
+  if (!sessionId) return;
+  try {
+    const chatManager = getCoreAPI().chatManager;
+    if (chatManager?.isSessionStreaming?.(sessionId)) {
+      chatManager.abortSessionStream(sessionId);
+    } else {
+      logger.debug(
+        'SSE close（非流式中/已正常收尾），跳过 abortSessionStream',
+        {
+          sessionId,
+        }
+      );
+    }
+  } catch (abortErr) {
+    // @ignore-catch: coreAPI 可能尚未初始化（防御探测），abort 失败不处理
+    logger.debug('客户端断开中止流失败（coreAPI 未就绪）', {
+      sessionId,
+      error: abortErr instanceof Error ? abortErr.message : String(abortErr),
+    });
+  }
+}
+
 // ── 类型定义 ──────────────────────────────────────────────────────
 
 interface ChatCompletionRequest {
@@ -359,21 +390,11 @@ async function handleStreamingChat(
   let activeSessionId = request.session_id;
 
   // S1: 客户端断开时通知后端中止工具执行 — 补全 close → AbortController 链路
+  // K4b（2026-09-06）：仅流式中才中止（正常收尾的 close 不误伤后台 PDL）
   res.on('close', () => {
     clearInterval(keepaliveInterval);
     streamSpan.addEvent('sse.client.disconnected');
-    if (activeSessionId) {
-      try {
-        getCoreAPI().chatManager?.abortSessionStream(activeSessionId);
-      } catch (abortErr) {
-        // @ignore-catch: coreAPI 可能尚未初始化（防御探测），abort 失败不处理
-        logger.debug('客户端断开中止流失败（coreAPI 未就绪）', {
-          sessionId: activeSessionId,
-          error:
-            abortErr instanceof Error ? abortErr.message : String(abortErr),
-        });
-      }
-    }
+    abortSessionOnClose(activeSessionId);
   });
 
   const responseId = `chatcmpl-${randomUUID().slice(0, 8)}`;
@@ -1077,16 +1098,9 @@ export async function handleResumeChat(
     'Transfer-Encoding': 'chunked',
   });
 
+  // K4b（2026-09-06）：仅流式中才中止（正常收尾的 close 不误伤后台 PDL）
   res.on('close', () => {
-    try {
-      getCoreAPI().chatManager?.abortSessionStream(sessionId);
-    } catch (abortErr) {
-      // @ignore-catch: coreAPI 可能尚未初始化（防御探测），abort 失败不处理
-      logger.debug('客户端断开中止流失败（coreAPI 未就绪）', {
-        sessionId,
-        error: abortErr instanceof Error ? abortErr.message : String(abortErr),
-      });
-    }
+    abortSessionOnClose(sessionId);
   });
 
   try {
@@ -1169,16 +1183,15 @@ export async function handleQuestionAnswer(
       sessionId
     );
     if (resolved) {
-      // 残余项 1（2026-08-26）：成功响应带 content 确认文案——激活前端
-      // onQuestionResponse 链路（原只返回 {success:true} 无 content，
-      // QuestionBlock/ChatMessage 的确认消息追加分支永不执行，属死代码）
+      // K6 修复（2026-09-06）：不再返回 content 占位确认文案。
+      // 此前返回 "已收到您的回答，正在继续处理…" 会被前端 QuestionBlock → ChatMessage
+      // 的 onQuestionResponse 链 addMessage 成常驻 assistant 消息（该链为"非流式最终
+      // 内容"设计）；流式场景 reactToolLoop 会继续产出真实回复，占位句被误当最终回复
+      // → UI 一直显示该条且每次提问叠加一条（K6，UI 走查发现）。
+      // 前端已由 QuestionBlock 内部置 submitted 态（BUG-11 清 hasPendingQuestion），
+      // 无需额外确认文案。
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(
-        JSON.stringify({
-          success: true,
-          content: '已收到您的回答，正在继续处理…',
-        })
-      );
+      res.end(JSON.stringify({ success: true }));
       return;
     }
 

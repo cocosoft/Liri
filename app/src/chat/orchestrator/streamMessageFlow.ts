@@ -52,6 +52,8 @@ import {
   type DegradationState,
 } from '@modules/ai';
 import { resolveMaxContextTokens, toUsageInfo } from '../services/ChatHelper';
+// K4（2026-09-06）：项目执行意图判定（工具类别裁剪决策共用）
+import { isExecutionTaskIntent, lastUserMessageText } from '../taskIntent.js';
 import {
   estimateMessagesTokens,
   estimateMessagesTokensCooperative,
@@ -87,6 +89,13 @@ import type { ChatMessage, ThinkingProviderChunk } from '@modules/ai';
 import type { ChatStreamChunk } from '@modules/runtime/api/CoreAPI.js';
 
 const logger = getLogger('chat:streamFlow');
+
+// R2（2026-09-06，走查 W2/W8）：思考过长被输出上限截断且无正文时的收敛重试指令。
+// 以 user 消息注入下一轮请求（仅请求上下文，不回写会话消息），配合更小 maxTokens，
+// 迫使模型收敛为简短结论/最必要的一次工具调用，而非再次以思考占满输出预算。
+const _DEGRADE_CONVERGE_HINT =
+  '你的上一轮回复因思考过长被输出上限截断且未生成任何内容。请勿再长思考：' +
+  '直接用 1-3 句给出简短结论，或只调用 1 个最必要的工具继续；不要展开内部推理。';
 
 /**
  * 定时等待（保活心跳轮询用）。
@@ -735,11 +744,33 @@ export async function* runStreamMessage(
       const explicitTaskType = (
         options?.metadata as Record<string, unknown> | undefined
       )?.taskType;
-      const taskType =
+      let taskType =
         (typeof explicitTaskType === 'string' && explicitTaskType
           ? explicitTaskType
           : undefined) ??
         (baseUrl && isLocalLlmEndpoint(baseUrl) ? 'local' : undefined);
+      // K4（2026-09-06）：项目会话执行意图 → 提升 coding 类别集。default/chat 集
+      // 无 shell，bash/powershell 对模型不可见 → PDL/PDCA/执行类任务（如"写单测并跑
+      // bun test"）无法执行命令即失败（复测实证：57→25，removedNames 含 bash）。
+      // 仅【projectId 会话 + 最后一条用户消息命中执行意图】时触发；命令执行仍走
+      // 审批放行（BashTool/ApprovedCommandRegistry），安全底线不变。
+      const sessionMeta = (
+        session as unknown as {
+          metadata?: Record<string, unknown>;
+        }
+      )?.metadata;
+      if (
+        !taskType &&
+        sessionMeta?.projectId &&
+        isExecutionTaskIntent(lastUserMessageText(apiMessages))
+      ) {
+        taskType = 'coding';
+        logger.info('streamMessage:tools — 项目执行意图提升 coding 集', {
+          sessionId: session.id,
+          projectId: String(sessionMeta.projectId),
+          before: toolDefinitions.length,
+        });
+      }
       const filteredTools = filterToolsByTask(toolDefinitions, taskType);
       if (filteredTools.length !== toolDefinitions.length) {
         logger.info('streamMessage:tools — 按任务裁剪工具集', {
@@ -884,6 +915,9 @@ export async function* runStreamMessage(
       initialMaxTokens,
       MAX_OUTPUT_RETRY_CFG
     );
+    // R2（2026-09-06，走查 W2/W8）：max_tokens 截断且无正文时先做 1 次"降级重试"
+    // （收敛指令 + 更小 maxTokens），不再直接"本轮作废"。严格限 1 次，防连环无效重试。
+    let degradeRetryDone = false;
 
     // P1-7: 上下文溢出渐进降级
     const initialCtxLimit = resolveMaxContextTokens(options?.model);
@@ -1404,13 +1438,74 @@ export async function* runStreamMessage(
         finalResponse as unknown as { stop_reason?: string } | null
       )?.stop_reason;
       if (aiStopReason === 'max_tokens') {
-        // 优化（2026-08-22）：max_tokens 截断且本轮无正文 → 跳过无效重试。
+        // max_tokens 截断且本轮无正文：原 2026-08-22 直接跳过重试作废本轮；
+        // R2（2026-09-06，走查 W2/W8）改为——先做 1 次"降级重试"，仍无产出才作废。
         // 典型场景：本地推理模型（DeepSeek-R1-Distill 等）思考过长，thinking 占满
-        // 输出预算，正文始终为 0。此时重试只会让模型重新思考（仍会截断），
-        // 属无效连环重试（曾致 4 次重试 / 173s / 空正文）。直接结束并明确提示。
+        // 输出预算，正文始终为 0。若直接按"有正文"路径大 maxTokens 重试，模型只会
+        // 重新思考（仍会截断），属无效连环重试（曾致 4 次重试 / 173s / 空正文）。
         if (accumulatedContent.length === 0) {
+          if (!degradeRetryDone) {
+            // R2：截断无正文 → 降级重试（严格限 1 次，防连环无效重试）。不续写被截断的
+            // 思考（无正文可续），而是注入收敛指令 + 更小 maxTokens 重新请求一轮——
+            // 小预算迫使模型无法再次以思考占满输出窗口，只能给出简短结论或必要工具调用。
+            degradeRetryDone = true;
+            const truncatedMaxTokens = retryState.currentMaxTokens;
+            // 降级预算 = 上一轮被思考耗尽预算的一半（下限 256），足够 1-3 句结论/单次工具调用
+            const degradeMaxTokens = Math.max(
+              256,
+              Math.floor(truncatedMaxTokens / 2)
+            );
+            // 收敛指令以 user 消息注入下一轮请求（仅请求上下文，不回写会话消息；
+            // 与下方"有正文续写"追加 assistant/user 消息对的模式一致，最小侵入）
+            apiMessages = [
+              ...apiMessages,
+              { role: 'user', content: _DEGRADE_CONVERGE_HINT },
+            ];
+            retryState = {
+              ...retryState,
+              currentMaxTokens: degradeMaxTokens,
+              nextMaxTokens: degradeMaxTokens,
+              shouldRetry: true,
+            };
+            logger.info('maxOutputRetry:degrade_retry_once', {
+              sessionId: session.id,
+              retryCount: retryState.retryCount,
+              truncatedMaxTokens,
+              degradeMaxTokens,
+              model: options?.model,
+            });
+            // P0 落盘缺口（2026-08-25）：重试类提示写 assistant/status，刷新后回放可见
+            try {
+              // P3-7a: seq 由 append 原子分配（seq: 0）
+              await host.appendStreamEvent(session.id, {
+                type: 'assistant/status',
+                schemaVersion: 1,
+                seq: 0,
+                time: Date.now(),
+                sessionId: session.id,
+                data: {
+                  statusType: 'retry',
+                  content:
+                    '模型思考过长被输出上限截断，未生成正文。正在以收敛指令 + 更小输出预算重试 1 次...',
+                },
+              });
+            } catch {
+              // @ignore-catch — 事件追加失败不阻断主流程（CS03）
+            }
+            yield {
+              type: 'status',
+              statusType: 'retry',
+              content:
+                '模型思考过长被输出上限截断，未生成正文。正在以收敛指令 + 更小输出预算重试 1 次...',
+              sessionId: session.id,
+            } as ChatStreamChunk;
+            // 复用既有重发循环（while(true) + retryState.shouldRetry）执行降级轮，
+            // 与"上下文溢出降级后 continue 重发"同一模式；不落入下方通用
+            // "以更大 token 限制重试"提示块（该提示语义仅适用于有正文续写）。
+            continue;
+          }
           logger.warn(
-            'maxOutputRetry: max_tokens 截断且无正文，跳过重试（推理模型思考过长）',
+            'maxOutputRetry: max_tokens 截断且无正文，降级重试一轮后仍无产出，结束本轮',
             {
               sessionId: session.id,
               retryCount: retryState.retryCount,
@@ -1818,14 +1913,21 @@ export async function* runStreamMessage(
           })
           [Symbol.asyncIterator]();
         let lastEventAt = Date.now();
+        // C（2026-09-05，方案 §C）：单 in-flight 事件消费——全程只保留一个
+        // runIter.next()；心跳先胜时保留该 promise 进入下一轮 race（不再重新
+        // next()），避免 async generator 排队 next() 导致事件被静默消费/错位。
+        let pendingNext: ReturnType<typeof runIter.next> | null = null;
         while (true) {
-          const nextEvent = runIter.next();
+          if (!pendingNext) pendingNext = runIter.next();
           const delayMs = Math.max(0, HB_MS - (Date.now() - lastEventAt));
           let hbHandle: ReturnType<typeof setTimeout> | undefined;
           const hbTimer = new Promise<typeof HB_TOKEN>((resolve) => {
             hbHandle = setTimeout(() => resolve(HB_TOKEN), delayMs);
           });
-          const raced = await Promise.race([nextEvent, hbTimer]);
+          const raced = await Promise.race([
+            pendingNext as ReturnType<typeof runIter.next>,
+            hbTimer,
+          ]);
           if (raced === HB_TOKEN) {
             const hb = loop.getHeartbeatData();
             const fullSteps = (hb?.completedToolNames ?? []).map((name) => ({
@@ -1853,6 +1955,7 @@ export async function* runStreamMessage(
             continue;
           }
           if (hbHandle) clearTimeout(hbHandle);
+          pendingNext = null; // 事件已就绪，消费后下轮再取下一个（单 in-flight）
           const { value: event, done } = raced as Awaited<
             ReturnType<typeof runIter.next>
           >;
@@ -1909,6 +2012,28 @@ export async function* runStreamMessage(
               toolCallSeqMap.set(tCallId, appendRes?.tailSeq ?? 0);
             } catch {
               // @ignore-catch — 事件追加失败不阻断工具循环（CS03）
+            }
+          }
+          // Fix4（2026-09-05）：acting_start（"执行 N 个工具调用"）落 assistant/status 事件——
+          // 此前该状态仅作为 SSE status chunk 到前端（reactEventsToChunks acting_start→status，
+          // L68-75），消息块有 status 但轨迹事件无记录（审计：会话 25 条"执行 N 个工具调用"
+          // status 块，assistant/status 事件为 0）。工具批启动入轨，供回放与对账。
+          if (event.type === 'acting_start') {
+            try {
+              const tCount = (event as { toolCount?: number }).toolCount ?? 0;
+              // P3-7a: seq 由 append 原子分配（seq: 0）
+              await host.appendStreamEvent(session.id, {
+                type: 'assistant/status',
+                schemaVersion: 1,
+                seq: 0,
+                time: Date.now(),
+                sessionId: session.id,
+                data: {
+                  content: `执行 ${tCount} 个工具调用`,
+                },
+              });
+            } catch {
+              // @ignore-catch — 事件追加失败不阻断主流程（CS03）
             }
           }
           // todo chunk：工具结果含 _todoData 时产出（对齐旧类 _executeToolRound）

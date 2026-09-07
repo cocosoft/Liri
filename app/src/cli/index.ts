@@ -611,36 +611,41 @@ program
 
 // ========== Agent Commands ==========
 
-program
-  .command('agent list')
+// 2026-09-05 修复（预存 boot 错误）：commander 不支持 `.command('agent xxx')` 多词命令——
+// 每条都被注册为顶层 'agent'，从第二条起抛 "cannot add command 'agent'"。改为父命令 +
+// 子命令嵌套注册（用户输入不变：agent list / agent start <name> ...）。
+const agentCommand = program.command('agent').description('Agent commands');
+
+agentCommand
+  .command('list')
   .description('List all agents')
   .action(async () => {
     await cliHandler.execute('agents list');
   });
 
-program
-  .command('agent start <name>')
+agentCommand
+  .command('start <name>')
   .description('Start an agent')
   .action(async (name: string) => {
     await cliHandler.execute(`agents start ${name}`);
   });
 
-program
-  .command('agent stop <name>')
+agentCommand
+  .command('stop <name>')
   .description('Stop an agent')
   .action(async (name: string) => {
     await cliHandler.execute(`agents stop ${name}`);
   });
 
-program
-  .command('agent restart <name>')
+agentCommand
+  .command('restart <name>')
   .description('Restart an agent')
   .action(async (name: string) => {
     await cliHandler.execute(`agents restart ${name}`);
   });
 
-program
-  .command('agent create <name> [type]')
+agentCommand
+  .command('create <name> [type]')
   .description('Create a new agent')
   .action(async (name: string, type?: string) => {
     await cliHandler.execute(`agents create ${name} ${type || ''}`);
@@ -648,28 +653,9 @@ program
 
 // ========== MCP Commands ==========
 
-program
-  .command('mcp list')
-  .description('List all MCP servers')
-  .action(async () => {
-    await cliHandler.execute('mcp list');
-  });
-
-program
-  .command('mcp connect <name> [url]')
-  .description('Connect to an MCP server')
-  .action(async (name: string, url?: string) => {
-    await cliHandler.execute(`mcp connect ${name} ${url || ''}`);
-  });
-
-program
-  .command('mcp disconnect <name>')
-  .description('Disconnect from an MCP server')
-  .action(async (name: string) => {
-    await cliHandler.execute(`mcp disconnect ${name}`);
-  });
-
-program
+// 2026-09-05 修复（预存 boot 错误）：与 agent 块同型——`.command('mcp xxx')` 多词命令
+// 重复注册顶层 'mcp'。改为父命令承载裸 `mcp` 展示 + 子命令 list/connect/disconnect。
+const mcpCommand = program
   .command('mcp')
   .description('Manage MCP connections')
   .action(async () => {
@@ -693,6 +679,27 @@ program
       await handleError(error, { module: 'cli:index', action: 'mcp' });
       process.exit(1);
     }
+  });
+
+mcpCommand
+  .command('list')
+  .description('List all MCP servers')
+  .action(async () => {
+    await cliHandler.execute('mcp list');
+  });
+
+mcpCommand
+  .command('connect <name> [url]')
+  .description('Connect to an MCP server')
+  .action(async (name: string, url?: string) => {
+    await cliHandler.execute(`mcp connect ${name} ${url || ''}`);
+  });
+
+mcpCommand
+  .command('disconnect <name>')
+  .description('Disconnect from an MCP server')
+  .action(async (name: string) => {
+    await cliHandler.execute(`mcp disconnect ${name}`);
   });
 
 program
@@ -864,7 +871,7 @@ registerSkillsCommands(program);
 
 const updateHandler = new UpdateHandler({ verbose: false });
 
-program
+const updateCommand = program
   .command('update')
   .description('Check for updates and manage application updates')
   .option('-c, --check', 'Check for updates')
@@ -884,15 +891,17 @@ program
     }
   );
 
-program
-  .command('update check')
+// 2026-09-05 修复（预存 boot 错误）：同 agent/mcp——多词命令重复注册顶层 'update'。
+// 挂为父命令 update 的子命令（update check / update install），原裸命令 flags 保留。
+updateCommand
+  .command('check')
   .description('Check for available updates')
   .action(async () => {
     await updateHandler.handleCheck();
   });
 
-program
-  .command('update install')
+updateCommand
+  .command('install')
   .description('Install the latest update')
   .option('-f, --force', 'Force installation')
   .action(async (options: { force?: boolean }) => {
@@ -1054,20 +1063,26 @@ process.on('SIGTERM', () => {
   flush().finally(() => process.exit(0));
 });
 
-if (process.argv.length === 2) {
-  console.log(chalk.cyan('═'.repeat(60)));
-  console.log(chalk.bold('  Liri - AI Agent'));
-  console.log(chalk.cyan('═'.repeat(60)));
-  console.log();
-  program.help();
+// 2026-09-05 修复（预存 boot 错误）：本文件同时被作为库导入（@modules/cli →
+// entrypoints/cli.tsx 取 banner/版本），此前顶层无条件 program.parse() 会用调用方
+// argv 解析——入口 flags（--daemon/--list-modes/--mcp 等）在 commander 中未定义 →
+// "unknown option"。仅在作为主入口执行时解析；被导入时由宿主入口负责分发。
+if (import.meta.main) {
+  if (process.argv.length === 2) {
+    console.log(chalk.cyan('═'.repeat(60)));
+    console.log(chalk.bold('  Liri - AI Agent'));
+    console.log(chalk.cyan('═'.repeat(60)));
+    console.log();
+    program.help();
 
-  // 检查更新（仅在显示帮助时）
-  autoUpdater.checkAndNotify().catch(() => {
-    /* @ignore-catch: 自动更新检查为非关键路径 */
-  });
+    // 检查更新（仅在显示帮助时）
+    autoUpdater.checkAndNotify().catch(() => {
+      /* @ignore-catch: 自动更新检查为非关键路径 */
+    });
+  }
+
+  program.parse();
 }
-
-program.parse();
 
 // ========== Helper Functions ==========
 

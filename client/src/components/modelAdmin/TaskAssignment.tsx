@@ -124,7 +124,7 @@ function TaskAssignment() {
     }
   };
 
-  /** S3: 保存阶段偏好 */
+  /** S3: 阶段偏好 */
   const handleSavePhaseMapping = async () => {
     setPhaseSaving(true);
     try {
@@ -211,6 +211,80 @@ function TaskAssignment() {
             </div>
           </div>
         ))}
+      </div>
+
+      {/* P3 role 路由 — 编排角色（候选生成 / 对抗批评）专用模型；未设置跟随各任务/默认 */}
+      <div className="mt-6">
+        <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
+          🎭 角色分工
+          <span className="text-xs text-gray-400 font-normal">
+            研究/验证编排的专用模型（未设置时跟随默认模型）
+          </span>
+        </h3>
+        <div className="space-y-2">
+          {[
+            {
+              key: "generator" as keyof TaskModelConfig,
+              label: "候选生成",
+              desc: "研究模式多视角候选方案生成（不宜弱于中档模型）",
+              icon: "🧪",
+            },
+            {
+              key: "verifier" as keyof TaskModelConfig,
+              label: "对抗批评",
+              desc: "研究候选对抗评审 / 验证环节（建议用强档）",
+              icon: "🛡️",
+            },
+          ].map((role) => (
+            <div
+              key={role.key}
+              className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-3 flex items-center justify-between"
+            >
+              <div className="min-w-0 flex items-center gap-2">
+                <span className="text-lg">{role.icon}</span>
+                <div>
+                  <span className="font-medium text-sm text-gray-900 dark:text-gray-100">
+                    {role.label}
+                  </span>
+                  <p className="text-xs text-gray-400">{role.desc}</p>
+                </div>
+              </div>
+              <select
+                value={tasks[role.key] || ""}
+                onChange={(e) => handleTaskChange(role.key, e.target.value)}
+                className={`ml-4 shrink-0 px-3 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[200px] ${
+                  !tasks[role.key] ? "text-gray-400 dark:text-gray-500" : ""
+                }`}
+              >
+                <option value="">
+                  — 未设置
+                  {defaultModelName
+                    ? `（跟随默认: ${defaultModelName}）`
+                    : ""}{" "}
+                  —
+                </option>
+                {Object.entries(modelsByProvider).map(
+                  ([provider, providerModels]) => {
+                    const available = getAvailableModels(
+                      "chat",
+                      providerModels,
+                    );
+                    if (available.length === 0) return null;
+                    return (
+                      <optgroup key={provider} label={provider}>
+                        {available.map((m) => (
+                          <option key={m.id} value={m.id}>
+                            {m.name || m.modelId || m.id}
+                          </option>
+                        ))}
+                      </optgroup>
+                    );
+                  },
+                )}
+              </select>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* S3: 阶段偏好 — 配置每个 PDCA 阶段应使用哪个任务类型的模型 */}

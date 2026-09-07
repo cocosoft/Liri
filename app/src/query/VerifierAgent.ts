@@ -59,6 +59,16 @@ export interface VerifierAgentConfig {
   confidenceThreshold: number;
   /** 验证超时（毫秒），默认 60_000 */
   timeoutMs: number;
+  /**
+   * Teamwork P2b（2026-09-06）：REJECT 时 pitfall 记录钩子（P1-2 pitfall 注册表写入点）。
+   * 由上层（编排器）注入 PitfallRegistry.record；未注入 no-op——现状零变化。
+   */
+  recordPitfall?: (rec: {
+    description: string;
+    error: string;
+    source: 'verifier';
+    contextSig?: string;
+  }) => void;
 }
 
 /** 验证输入 */
@@ -81,6 +91,12 @@ export interface VerificationInput {
   turnCount: number;
   /** 会话 ID */
   sessionId: string;
+  /**
+   * P0-3（2026-09-06，Teamwork）：审查准则覆盖——默认本代理为"代码变更验证器"；
+   * 注入本字段可切换到其他审查语义（如研究候选的对抗评审：审查对象/维度说明）。
+   * 判定机制（checks 通过率 + confidence + 默认立场 REJECT）不变；未注入时行为与现状一致。
+   */
+  reviewGuidelines?: string;
 }
 
 const DEFAULT_CONFIG: VerifierAgentConfig = {
@@ -109,6 +125,44 @@ function buildVerificationPrompt(input: VerificationInput): string {
       return `- ${tr.toolName}(${tr.toolCallId}): ${resultStr}`;
     })
     .join('\n');
+
+  // P0-3（2026-09-06，Teamwork）：注入 reviewGuidelines 时切换为"审查对象+维度由
+  // 调用方定义"的对抗评审模板（如研究候选方案评审）；判定机制（checks 通过率 +
+  // confidence + 默认立场 REJECT）与 JSON 解析不变，仅审查语义/维度动态化。
+  if (input.reviewGuidelines) {
+    return [
+      '## 验证任务',
+      '',
+      '你是严格的对抗评审员。对下方待审对象按给定审查准则逐项审查，判断其是否合格。',
+      '',
+      '**审查准则**：',
+      input.reviewGuidelines,
+      '',
+      '**审查原则**：',
+      '1. 默认立场是 REJECT（假设待审对象有问题，需证明其合格）',
+      '2. 依据上方审查准则逐项给出 checks（item=准则要点，passed=是否满足）',
+      '3. 存在明显缺陷或与任务目标不符 → REJECT，feedback 给出具体理由',
+      '4. 无法确定（置信度低）→ ESCALATE',
+      '',
+      '## 待审对象',
+      '',
+      toolResultsSummary || '(无待审内容)',
+      '',
+      '## 输出格式',
+      '',
+      '仅输出 JSON（不要有其他内容）：',
+      '```json',
+      '{',
+      '  "verdict": "APPROVE" | "REJECT" | "ESCALATE",',
+      '  "confidence": 0.0-1.0,',
+      '  "feedback": "REJECT/ESCALATE 时给出具体批评理由",',
+      '  "checks": [{"item": "准则要点1", "passed": true}, {"item": "准则要点2", "passed": false}]',
+      '}',
+      '```',
+      '',
+      '**判定参考**：多数准则通过且无致命缺陷 → APPROVE（confidence >= 0.8）；半数左右通过 → ESCALATE 或 REJECT 并给理由；多数不通过 → REJECT。',
+    ].join('\n');
+  }
 
   return [
     '## 验证任务',
@@ -226,7 +280,11 @@ export class VerifierAgent {
     const messages = [
       {
         role: 'system' as const,
-        content: '你是一个严格的代码审查员。只输出 JSON。',
+        // P0-3（2026-09-06）：注入 reviewGuidelines 时以"对抗评审员"语义审查（研究候选等），
+        // 否则维持默认"代码审查员"（现状零变化）
+        content: input.reviewGuidelines
+          ? '你是一个严格的对抗评审员。只输出 JSON。'
+          : '你是一个严格的代码审查员。只输出 JSON。',
       },
       { role: 'user' as const, content: prompt },
     ];
@@ -252,6 +310,17 @@ export class VerifierAgent {
         confidence: result.confidence,
         cycleCount: this.cycleCount,
       });
+
+      // Teamwork P2b（2026-09-06）：REJECT → pitfall 写点（P1-2 注册表；issue 蒸馏为 error）
+      if (result.verdict === 'REJECT') {
+        const toolName = input.toolResults[0]?.toolName ?? 'unknown';
+        this.config.recordPitfall?.({
+          description: `验证驳回：${toolName} 未通过对抗审查`,
+          error: (result.feedback ?? '').slice(0, 500),
+          source: 'verifier',
+          contextSig: input.sessionId,
+        });
+      }
 
       return result;
     } catch (error) {

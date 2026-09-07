@@ -45,9 +45,8 @@ function AIConfigPanel({ isDark, collapsible }: AIConfigProps) {
 
   const loadConfigFlag = useCallback(async () => {
     try {
-      const res = (await configService.get(
-        "ai.autoRegisterUnknownModels",
-      )) as { value?: boolean } | undefined;
+      const res = (await configService.get("ai.autoRegisterUnknownModels")) as
+        { value?: boolean } | undefined;
       setAutoRegisterUnknown(!!res?.value);
     } catch {
       // @ignore-catch: 读取失败保持默认
@@ -242,7 +241,9 @@ function AIConfigPanel({ isDark, collapsible }: AIConfigProps) {
         {/* 模型策略：D3 自愈开关（ai.autoRegisterUnknownModels） */}
         <div
           className={`p-3 rounded-lg border ${
-            isDark ? "border-gray-700 bg-gray-800/50" : "border-gray-200 bg-white"
+            isDark
+              ? "border-gray-700 bg-gray-800/50"
+              : "border-gray-200 bg-white"
           }`}
         >
           <div className="flex items-center justify-between gap-3">

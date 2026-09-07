@@ -1,4 +1,5 @@
 import type { FileRegistryRecord } from "../../types";
+import { formatRegistryTime } from "../../utils/registryTime";
 
 /**
  * 文件详情弹窗属性
@@ -13,17 +14,9 @@ interface FileDetailDialogProps {
  * 展示文件的完整元数据信息，包括 MD5、来源、时间线等
  */
 function FileDetailDialog({ record, onClose }: FileDetailDialogProps) {
-  /** 格式化时间戳 */
-  const formatDate = (ts: number) => {
-    return new Date(ts * 1000).toLocaleString("zh-CN", {
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-    });
-  };
+  /** 格式化时间戳（P2-2：秒级 → 统一走 formatRegistryTime，带秒） */
+  const formatDate = (ts: number) =>
+    formatRegistryTime(ts, { withSeconds: true });
 
   /** 格式化大小 */
   const formatSize = (bytes: number) => {
@@ -154,8 +147,10 @@ function FileDetailDialog({ record, onClose }: FileDetailDialogProps) {
             复制 ID
           </button>
           <button
-            onClick={() => copyToClipboard(record.md5)}
-            className="px-3 py-1.5 text-sm bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-colors"
+            // P2-3：md5 为空时不复制（对齐列表页 `|| "-"` 语义）
+            onClick={() => record.md5 && copyToClipboard(record.md5)}
+            disabled={!record.md5}
+            className="px-3 py-1.5 text-sm bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-colors disabled:opacity-40"
           >
             复制 MD5
           </button>

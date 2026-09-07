@@ -1729,6 +1729,15 @@
       "plan": "历史巨型文件批量登记（2026-08-30 CI file size check 治理补录），按调度/执行/持久化子模块拆分",
       "expiresAt": "2026-11-30",
       "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-155",
+      "ruleId": "R04-001",
+      "file": "app/src/core/loop/PlanDrivenLoop.ts",
+      "lines": 1094,
+      "targetLines": 1000,
+      "plan": "PDCA 收口批次扩展（HEAD 620 行 → 1094 行）；核心编排文件行数超限，拆分列入后续专项（对齐 FSZ-108 ReActToolLoop 先例）",
+      "expiresAt": "2026-11-30"
     }
   ],
   "barrelExceptions": [

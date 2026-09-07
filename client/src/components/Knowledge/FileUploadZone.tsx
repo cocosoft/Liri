@@ -162,7 +162,9 @@ function FileUploadZone({
         message:
           `上传完成: ${successCount} 个文件成功` +
           (errorCount > 0 ? `, ${errorCount} 个失败` : "") +
-          (baseSwitched ? `（已上传至「${targetBase}」，当前已切换知识库）` : ""),
+          (baseSwitched
+            ? `（已上传至「${targetBase}」，当前已切换知识库）`
+            : ""),
         progress: 100,
       });
       if (!baseSwitched) onUploadComplete();

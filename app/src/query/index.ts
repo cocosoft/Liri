@@ -27,6 +27,8 @@ export { ReActLoop, EXTERNAL_FETCH_TOOLS } from './ReActLoop.js';
 export type {
   ReActState,
   ReActLoopConfig,
+  BudgetControllerLike,
+  TerminationReason,
   ReActEvent,
   ToolCallEntry,
   ToolResultEntry,
@@ -147,6 +149,14 @@ export {
 export type { FileIOConfig, FileIOBlockResult } from './FileIOLoopDetector.js';
 export { VerifierAgent, createVerifierAgent } from './VerifierAgent.js';
 export { verifyProject } from './verifyProject.js';
+export { CompetitiveStrategyOrchestrator } from './CompetitiveStrategyOrchestrator.js';
+export type {
+  CompetitiveOrchestratorConfig,
+  CompetitiveOrchestrationResult,
+  CandidateProposal,
+  CandidateObjection,
+  ResearchCallModel,
+} from './CompetitiveStrategyOrchestrator.js';
 export type {
   VerifierAgentConfig,
   VerificationResult,

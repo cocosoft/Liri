@@ -67,7 +67,36 @@ export class ChatCompletionsTransport extends BaseTransport {
       reasoning_content?: string;
     }>
   ): Array<Record<string, unknown>> {
-    return messages
+    // 预存修复（#2，2026-09-06）：发送前兜底工具配对清理——provider 严格要求
+    // "tool 消息必须是前置 assistant tool_calls 的响应"。历史恢复/上下文补入的
+    // messages 可能残留孤立 tool（id 无前置声明 / 前置为 user / 顺序错乱），
+    // transport 层统一剥离（与 MessageProjector 同语义的最后防线，覆盖所有不经
+    // projector 的 provider 请求路径），防 DeepSeek 等 400。
+    const cleaned: typeof messages = [];
+    let pendingToolIds = new Set<string>();
+    for (const m of messages) {
+      if (m.role === 'tool') {
+        if (m.tool_call_id && pendingToolIds.has(m.tool_call_id)) {
+          cleaned.push(m);
+        }
+        // 孤立 tool 结果（无前置声明）→ 剥离
+        continue;
+      }
+      cleaned.push(m);
+      if (m.role === 'assistant') {
+        pendingToolIds =
+          m.tool_calls && m.tool_calls.length > 0
+            ? new Set(
+                m.tool_calls.map((tc) => (tc as { id?: string }).id ?? '')
+              )
+            : new Set();
+      } else {
+        // user/system：清空配对窗口（其后的 tool 消息必为孤立）
+        pendingToolIds = new Set();
+      }
+    }
+
+    return cleaned
       .filter((m) => m.content !== null || m.role === 'assistant')
       .map((m) => {
         const msg: Record<string, unknown> = {

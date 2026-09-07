@@ -134,6 +134,9 @@ export interface TaskModelConfig {
   stt?: string;
   reranking?: string;
   knowledge_compile?: string;
+  /** P3 role 路由（2026-09-06）：generator = 候选生成（研究多视角），verifier = 对抗批评/验证（宜用强档） */
+  generator?: string;
+  verifier?: string;
 }
 
 export interface TaskDefinition {

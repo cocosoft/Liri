@@ -37,6 +37,8 @@ function exportAsMarkdown(
   messages: Message[],
   labels: Record<string, string>,
 ): string {
+  // 跨消息归属去重：全局 seen 在整会话导出期间共享（2026-09-05）
+  const seen = new Set<string>();
   return messages
     .map((msg) => {
       const roleLabel =
@@ -56,7 +58,10 @@ function exportAsMarkdown(
               1000
             ).toFixed(1)}s）`
           : "";
-      const text = getMessageSearchText(msg, { forExport: true });
+      const text = getMessageSearchText(
+        dedupeCrossMessageToolBlocks(msg, seen),
+        { forExport: true },
+      );
       const usageInfo = msg.usage
         ? `\n> 📊 Token: 输入 ${msg.usage.inputTokens ?? "?"} / 输出 ${msg.usage.outputTokens ?? "?"} / 缓存读 ${msg.usage.cacheReadTokens ?? "0"}`
         : "";
@@ -65,7 +70,7 @@ function exportAsMarkdown(
     .join("\n---\n");
 }
 
-/** 导出为 JSON（含 blocks、usage、metadata 完整信息） */
+/** 导出 JSON（含 blocks、usage、metadata 完整信息） */
 function exportAsJson(messages: Message[]): string {
   const cleaned = messages.map((msg) => {
     const blocksDetail = (msg.blocks || []).map((b) => ({
@@ -96,6 +101,37 @@ function exportAsJson(messages: Message[]): string {
     };
   });
   return JSON.stringify(cleaned, null, 2);
+}
+
+/**
+ * 跨消息归属去重（2026-09-05，与后端读路径 Fix3 同策略）：
+ * 同一 toolCallId 只归属首条携带它的消息；后续消息的重复 tool_call 块在此移除，
+ * 使 Markdown 导出工具卡数与后端唯一数一致（实测 244 → 239）。
+ * 无重复时返回原消息（引用保持，零副作用）。
+ */
+function dedupeCrossMessageToolBlocks(
+  msg: Message,
+  seen: Set<string>,
+): Message {
+  if (msg.role !== "assistant" || !msg.blocks || msg.blocks.length === 0) {
+    return msg;
+  }
+  let changed = false;
+  const blocks = [];
+  for (const b of msg.blocks) {
+    if (b.type === "tool_call") {
+      const id = b.toolCallId || b.toolCall?.id;
+      if (id) {
+        if (seen.has(id)) {
+          changed = true;
+          continue;
+        }
+        seen.add(id);
+      }
+    }
+    blocks.push(b);
+  }
+  return changed ? { ...msg, blocks } : msg;
 }
 
 function SessionHeader() {

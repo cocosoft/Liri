@@ -65,6 +65,16 @@ export {
 // 导出 TaskOrchestrator
 export { TaskOrchestrator, taskOrchestrator } from './TaskOrchestrator';
 export type { Plan, PlanStep, PlanProgress } from './TaskOrchestrator';
+export {
+  PitfallRegistry,
+  pitfallRegistry,
+  normalizePitfallKey,
+} from './pitfalls/PitfallRegistry';
+export type {
+  PitfallEntry,
+  PitfallRecordInput,
+  PitfallSource,
+} from './pitfalls/PitfallRegistry';
 
 // 导出 SQLite 持久化存储
 export { SqliteTaskStore, createSqliteTaskStore } from './db/SqliteTaskStore';

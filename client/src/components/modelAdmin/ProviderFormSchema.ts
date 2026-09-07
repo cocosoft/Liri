@@ -8,11 +8,7 @@ import type { ProviderFormData } from "../../types";
 import { PROVIDER_TYPE_LABELS } from "../../config/providerPresets";
 
 export type SchemaFieldType =
-  | "text"
-  | "password"
-  | "select"
-  | "checkbox"
-  | "textarea";
+  "text" | "password" | "select" | "checkbox" | "textarea";
 
 export interface SchemaField<
   T extends keyof ProviderFormData = keyof ProviderFormData,

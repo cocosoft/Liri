@@ -49,6 +49,7 @@ import {
   handlePdcaStatus,
   handlePdcaDecisionLog,
 } from '../pdca-handlers';
+import { handleResearchStart } from '../research-handlers';
 import {
   handleKanbanCreate,
   handleKanbanDelete,
@@ -118,6 +119,11 @@ export async function dispatchPlanFlowRoutes(
   // ---- PDCA (长程任务编排) ----
   if (method === 'POST' && url === '/v1/pdca/start') {
     await handlePdcaStart(req, res);
+    return true;
+  }
+  // P0-3（2026-09-06）：研究模式显式入口（候选生成 + 对抗评审）
+  if (method === 'POST' && url === '/v1/research/start') {
+    await handleResearchStart(req, res);
     return true;
   }
   // OBS（M3b-DB）：decision trace 查询端点——必须置于 /v1/pdca/:taskId 前

@@ -72,10 +72,6 @@ export class FileRegistry {
   /** 写操作互斥锁（防止并发 SQLite WAL 锁冲突） */
   private dbMutex = new SimpleMutex();
 
-  /** 去重统计（内存计数器，用于 stats） */
-  private dedupCount = 0;
-  private dedupSize = 0;
-
   private constructor(dbPath: string = resolveDbPath()) {
     this.dbPath = dbPath;
   }
@@ -193,8 +189,6 @@ export class FileRegistry {
             [existing.fileId]
           );
         });
-        this.dedupCount++;
-        this.dedupSize += existing.size;
 
         logger.info('文件去重命中', {
           md5,
@@ -507,14 +501,31 @@ export class FileRegistry {
     if (!this.db) throw new Error('Database not initialized');
 
     return this.dbMutex.run(async () => {
-      const rows = await this.allAsync<FileRow>(
-        `SELECT f.* FROM ${FILES_TABLE} f
-         INNER JOIN ${FILES_FTS_TABLE} fts ON f.id = fts.rowid
-         WHERE ${FILES_FTS_TABLE} MATCH ? AND f.is_deleted = 0
-         ORDER BY f.created_at DESC
-         LIMIT ?`,
-        [ftsQuery, limit]
-      );
+      let rows: FileRow[] = [];
+      try {
+        rows = await this.allAsync<FileRow>(
+          `SELECT f.* FROM ${FILES_TABLE} f
+           INNER JOIN ${FILES_FTS_TABLE} fts ON f.id = fts.rowid
+           WHERE ${FILES_FTS_TABLE} MATCH ? AND f.is_deleted = 0
+           ORDER BY f.created_at DESC
+           LIMIT ?`,
+          [ftsQuery, limit]
+        );
+      } catch {
+        // FTS5 MATCH 语法/分词异常（如未转义特殊字符）→ 走 LIKE 回退
+        rows = [];
+      }
+      // L1（2026-09-07）：FTS5 unicode61 对中文不分词 → MATCH 0 命中时
+      // 回退文件名/描述模糊查询（original_name|saved_name|description LIKE），
+      // 保证中文关键词可检索（L1 增强：覆盖三列）
+      if (rows.length === 0) {
+        rows = await this.allAsync<FileRow>(
+          `SELECT * FROM ${FILES_TABLE}
+           WHERE is_deleted = 0 AND (original_name LIKE ? OR saved_name LIKE ? OR description LIKE ?)
+           ORDER BY created_at DESC LIMIT ?`,
+          [`%${ftsQuery}%`, `%${ftsQuery}%`, `%${ftsQuery}%`, limit]
+        );
+      }
       return rows.map(rowToFileRecord);
     });
   }
@@ -589,6 +600,14 @@ export class FileRegistry {
       [todayStart]
     );
 
+    // 去重节省（L3，2026-09-07：改 DB 持久化口径，跨重启稳定）：
+    // 同内容第 2..N 次注册仅 ref_count++ 不重复落盘 → 每行节余 (ref_count-1) × size
+    const dedupRow = await this.getAsync<{ count: number; size: number }>(
+      `SELECT COALESCE(SUM(ref_count - 1), 0) as count, COALESCE(SUM((ref_count - 1) * size), 0) as size
+       FROM ${FILES_TABLE} WHERE is_deleted = 0 AND ref_count > 1`,
+      []
+    );
+
     // 压缩包数量
     const archiveRow = await this.getAsync<{ count: number }>(
       `SELECT COUNT(*) as count FROM ${FILES_TABLE} WHERE is_deleted = 0 AND is_archive = 1`,
@@ -605,8 +624,8 @@ export class FileRegistry {
       totalFiles: allRow?.count ?? 0,
       totalSize: allRow?.size ?? 0,
       todayCount: todayRow?.count ?? 0,
-      dedupSaved: this.dedupCount,
-      dedupSavedSize: this.dedupSize,
+      dedupSaved: dedupRow?.count ?? 0,
+      dedupSavedSize: dedupRow?.size ?? 0,
       archiveCount: archiveRow?.count ?? 0,
       mediaCount: mediaRow?.count ?? 0,
       mediaSize: mediaRow?.size ?? 0,

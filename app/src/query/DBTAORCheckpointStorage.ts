@@ -66,6 +66,7 @@ export class DBTAORCheckpointStorage implements CheckpointStorage {
           last_prompt TEXT NOT NULL DEFAULT '',
           created_at INTEGER NOT NULL,
           type TEXT NOT NULL DEFAULT 'auto',
+          kind TEXT NOT NULL DEFAULT 'chat',
           breaker_state TEXT,
           loop_detector_state TEXT,
           error_recovery_state TEXT,
@@ -99,6 +100,15 @@ export class DBTAORCheckpointStorage implements CheckpointStorage {
         }
       );
     });
+
+    // A 阶段一（2026-09-05）：存量 DB 幂等补 kind 列（新库建表已含；旧库 ADD COLUMN）。
+    // 与 PDCA 方案 §四 兼容策略同款「先加后 toggle」——列已存在时 ALTER 报错，忽略即可。
+    await new Promise<void>((resolve) => {
+      this.db!.run(
+        `ALTER TABLE ${TABLE_NAME} ADD COLUMN kind TEXT NOT NULL DEFAULT 'chat'`,
+        () => resolve()
+      );
+    });
   }
 
   async save(checkpoint: TAORCheckpoint): Promise<string> {
@@ -117,9 +127,9 @@ export class DBTAORCheckpointStorage implements CheckpointStorage {
         this.db!.run(
           `INSERT OR REPLACE INTO ${TABLE_NAME}
         (id, session_id, turn_count, phase, budget_state, conversation_summary,
-         last_prompt, created_at, type, breaker_state, loop_detector_state,
+         last_prompt, created_at, type, kind, breaker_state, loop_detector_state,
          error_recovery_state, pending_tool_calls, message_count, inbox_state)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             checkpoint.id,
             checkpoint.sessionId,
@@ -130,6 +140,8 @@ export class DBTAORCheckpointStorage implements CheckpointStorage {
             checkpoint.lastPrompt,
             checkpoint.createdAt,
             checkpoint.type,
+            // A 阶段一（2026-09-05）：恢复归属标记，缺省 chat（宽容读侧同）
+            checkpoint.kind ?? 'chat',
             checkpoint.breakerState
               ? JSON.stringify(checkpoint.breakerState)
               : null,
@@ -340,6 +352,8 @@ export class DBTAORCheckpointStorage implements CheckpointStorage {
       lastPrompt: row.last_prompt,
       createdAt: row.created_at,
       type: row.type,
+      // A 阶段一（2026-09-05）：宽容读——历史存量无 kind 列/值，缺省按 chat 处理
+      kind: row.kind ?? 'chat',
       breakerState: row.breaker_state
         ? JSON.parse(row.breaker_state)
         : undefined,

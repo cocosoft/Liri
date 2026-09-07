@@ -63,6 +63,32 @@ function stampMissingIds(calls: ToolCall[]): ToolCall[] {
   );
 }
 
+/**
+ * 预存修复（2026-09-06，K 补充 #2/#3）：tool_calls 元素归一为 OpenAI 兼容结构。
+ * 历史恢复/非流首响应补入上下文的 assistant.tool_calls 可能是内部格式
+ * {id, name, arguments}（无 type/function 包裹）——发送前若不归一，provider 校验
+ * "tool 消息必须前置 tool_calls" 会 400（#2），且投影占位处读 call.function.name 会崩（#3）。
+ * 本函数把两类格式统一为 {id, type:'function', function:{name, arguments}}。
+ */
+function normalizeToolCallToOpenAI(call: unknown): ToolCall {
+  const c = (call ?? {}) as {
+    id?: string;
+    name?: string;
+    arguments?: unknown;
+    type?: string;
+    function?: { name?: string; arguments?: unknown };
+  };
+  const name = c.function?.name ?? c.name ?? '';
+  const rawArgs = c.function?.arguments ?? c.arguments;
+  const argsStr =
+    typeof rawArgs === 'string' ? rawArgs : JSON.stringify(rawArgs ?? {});
+  return {
+    id: c.id ?? `${STAMP_ID_PREFIX}${Date.now()}-${_stampSeq++}`,
+    type: 'function',
+    function: { name, arguments: argsStr },
+  };
+}
+
 export class MessageProjector {
   /**
    * 修复工具调用-结果配对（非破坏性）
@@ -74,24 +100,18 @@ export class MessageProjector {
   repairToolResultPairing(messages: ChatMessage[]): ProjectionResult {
     const warnings: ProjectionWarning[] = [];
     const declaredIds = new Set<string>();
-    for (const msg of messages) {
-      if (msg.role === 'assistant' && Array.isArray(msg.tool_calls)) {
-        for (const call of msg.tool_calls) {
-          if (call.id) declaredIds.add(call.id);
-        }
-      }
-    }
-
     const out: ChatMessage[] = [];
     for (const msg of messages) {
       if (msg.role === 'tool') {
         const id = msg.tool_call_id ?? '';
-        if (id && !declaredIds.has(id)) {
-          // 孤立 tool 结果：无对应 assistant 声明 → 剥离
+        // 预存修复（#2）：孤立判定改为顺序敏感——仅当该 id 在**此前**有 assistant 声明
+        // 才保留；历史恢复顺序错乱（tool 在 assistant 之前）或无 tool_call_id 的畸形
+        // tool 消息一并剥离，防 provider 400 "tool must be a response to preceding tool_calls"
+        if (!id || !declaredIds.has(id)) {
           warnings.push({
             code: 'stripped_orphan_result',
-            toolCallId: id,
-            message: `剥离无主 tool 消息 (tool_call_id=${id})`,
+            toolCallId: id || undefined,
+            message: `剥离无主 tool 消息 (tool_call_id=${id || '(空)'})`,
           });
           continue;
         }
@@ -104,7 +124,15 @@ export class MessageProjector {
         Array.isArray(msg.tool_calls) &&
         msg.tool_calls.length > 0
       ) {
-        const calls = stampMissingIds(msg.tool_calls);
+        // 预存修复（#2/#3）：stamp 缺失 id 后统一归一为 OpenAI 结构（内部格式
+        // {id,name} → {id,type:'function',function:{name,arguments}}），否则占位处
+        // call.function.name 崩溃（#3）且畸形 tool_calls 致 provider 400（#2）
+        const calls = stampMissingIds(msg.tool_calls).map(
+          normalizeToolCallToOpenAI
+        );
+        for (const c of calls) {
+          if (c.id) declaredIds.add(c.id);
+        }
         // 统计该 assistant 消息之后已配对的 tool_call_id
         const idx = messages.indexOf(msg);
         const providedIds = new Set<string>();
@@ -126,7 +154,7 @@ export class MessageProjector {
           warnings.push({
             code: 'injected_tool_result',
             toolCallId: call.id,
-            message: `为无配对结果的 tool_call 注入占位 (${call.function.name})`,
+            message: `为无配对结果的 tool_call 注入占位 (${call.function?.name ?? call.id})`,
           });
         }
         out.push({ ...msg, tool_calls: calls });

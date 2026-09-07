@@ -24,8 +24,10 @@
 
 import { ReActLoop, EXTERNAL_FETCH_TOOLS } from '@modules/query';
 import { createErrorRecoveryManager } from '@modules/query';
+import { createPathGuard } from '@modules/query';
 import type {
   ReActLoopConfig,
+  BudgetControllerLike,
   ReasonResult,
   ActResult,
   ToolCallEntry,
@@ -213,6 +215,8 @@ export class ReActToolLoop extends ReActLoop<
   /** 截断续接重试的 maxTokens 放大标记（2026-09-03）：onIncompleteTurn truncated 分支置位，
    *  下一轮 reason 的 LLM 调用把输出预算放大到 base×4（封顶 64K），避免"重试仍被截断"空转。 */
   private _boostNextReasonMaxTokens = false;
+  /** L2（2026-09-06）：PathGuard 越界路径防护（对齐 batch 三守卫；仅 deny 列表命中才拦截） */
+  private readonly pathGuard = createPathGuard();
 
   /** v3：交互心跳间隔（前端 STREAM_IDLE_TIMEOUT_MS=60s，10s 留 5 次余量）+ 最大等待（防资源泄漏） */
   private static readonly INTERACTION_HEARTBEAT_MS = 10_000;
@@ -239,6 +243,8 @@ export class ReActToolLoop extends ReActLoop<
   /** 实例级可配置（测试缩短心跳间隔用），默认取 static 常量 */
   private heartbeatMs: number;
   private maxWaitMs: number;
+  /** 候选 C（2026-09-05）：本次等待是否因超时结束（timeout 保留 entry 宽限） */
+  private _interactionTimedOut: boolean = false;
   /** DecisionGate 门控强度（undefined 表示门控未启用，对齐设计方案 §5.1） */
   private gateTier?: GateTier;
   /** 协商状态（跨消息持久化，null 表示未启用协商引擎） */
@@ -780,6 +786,26 @@ export class ReActToolLoop extends ReActLoop<
             toolName: tc.name,
             detector: this.loopState.loopDetected.detector,
             message: this.loopState.loopDetected.message,
+            turn: this.loopState.toolTurnCount,
+          });
+          return { results: [], allSucceeded: false, anyAborted: false };
+        }
+      }
+
+      // L2（2026-09-06）：PathGuard 越界路径防护（对齐 batch 三守卫，TAORLoop.ts:938-951）。
+      // 仅命中 deny 列表（.env/凭据/密钥/锁文件等）才拦截；无路径参数或未命中 → 放行，正常工具不受影响。
+      for (const tc of calls) {
+        const pathCheck = this.pathGuard.checkToolCall(tc.name, tc.input);
+        if (!pathCheck.allowed) {
+          // 复用 loopDetected 终止通道（detector 区分来源）→ reason 早退、finalize 带原因提示
+          this.loopState.loopDetected = {
+            detector: 'pathGuard',
+            message: `路径守卫拦截 ${tc.name}: ${pathCheck.reason ?? '未知原因'}`,
+          };
+          logger.warn('reactToolLoop:pathguard_blocked', {
+            sessionId: this.ctx.session.id,
+            toolName: tc.name,
+            reason: pathCheck.reason,
             turn: this.loopState.toolTurnCount,
           });
           return { results: [], allSucceeded: false, anyAborted: false };
@@ -1786,6 +1812,11 @@ export class ReActToolLoop extends ReActLoop<
     });
   }
 
+  /** A2（2026-09-05）：循环检测终止由 loopState.loopDetected 判别（供骨架访问器） */
+  protected override isLoopDetectedReason(): boolean {
+    return this.loopState.loopDetected != null;
+  }
+
   protected finalize(): Message {
     // 6. maxTurns 提示文案：达 maxIterations 时附加。
     // 对标 hermes（2026-09-01）：有 onMaxIterations 生成的总结则输出"已自动总结当前进度"，
@@ -1797,17 +1828,43 @@ export class ReActToolLoop extends ReActLoop<
       const tip = this.loopState.maxIterationsSummary
         ? `\n\n⚠️ 已达到最大工具轮次限制 (${this.config.maxIterations})，已自动总结当前进度：\n${this.loopState.maxIterationsSummary}`
         : `\n\n⚠️ 已达到最大工具轮次限制 (${this.config.maxIterations})，工具链提前终止。`;
-      return this.ctx.messageService.createAssistantMessage(base + tip, {
+      const msg = this.ctx.messageService.createAssistantMessage(base + tip, {
         sessionId: this.ctx.session.id,
       });
+      // A3（2026-09-05）：截断消息 metadata 落 finishReason（自由 Record、JSON 落库无需 schema 扩展）
+      const withMeta = msg as { metadata?: Record<string, unknown> };
+      withMeta.metadata = { ...withMeta.metadata, finishReason: 'max_turns' };
+      return msg;
     }
     // 4. 循环检测提示
     if (this.loopState.loopDetected) {
       const tip = `\n\n⚠️ 检测到工具调用循环 [${this.loopState.loopDetected.detector}] ${this.loopState.loopDetected.message}，任务提前终止。`;
-      return this.ctx.messageService.createAssistantMessage(
+      const msg = this.ctx.messageService.createAssistantMessage(
         (this.loopState.assistantMessage?.content ?? '') + tip,
         { sessionId: this.ctx.session.id }
       );
+      // A3（2026-09-05）：循环终止消息 metadata 落 finishReason
+      const withMeta = msg as { metadata?: Record<string, unknown> };
+      withMeta.metadata = {
+        ...withMeta.metadata,
+        finishReason: 'loop_detected',
+      };
+      return msg;
+    }
+    // L1（2026-09-06）：骨架 budget_exhausted phase（流式预算耗尽）附加原因提示——
+    // 对齐 A3 截断/循环提示风格，避免用户看到"无正文直接中断"的困惑。
+    if (this.state.phase === 'budget_exhausted') {
+      const tip = `\n\n⚠️ 已达到本轮 token 预算上限，工具链提前终止。`;
+      const msg = this.ctx.messageService.createAssistantMessage(
+        (this.loopState.assistantMessage?.content ?? '') + tip,
+        { sessionId: this.ctx.session.id }
+      );
+      const withMeta = msg as { metadata?: Record<string, unknown> };
+      withMeta.metadata = {
+        ...withMeta.metadata,
+        finishReason: 'budget_exhausted',
+      };
+      return msg;
     }
     // P4（2026-09-01）：error 终止时附加 lastError——no_progress 熔断/电路熔断的
     // 降级提示此前只 yield 了 error 事件、finalize 未附加（assistantMessage 空正文时
@@ -1846,6 +1903,8 @@ export class ReActToolLoop extends ReActLoop<
       }
     );
     this._reportUsage(response);
+    // L1：每轮 LLM 响应后向骨架预算记账（delta，防上下文无界增长；无预算时 no-op）
+    this._chargeStreamBudget();
     return response;
   }
 
@@ -2109,6 +2168,8 @@ export class ReActToolLoop extends ReActLoop<
     onStream?.(cleanContent);
 
     this._reportUsage(final);
+    // L1：每轮 LLM 响应后向骨架预算记账（delta，防上下文无界增长；无预算时 no-op）
+    this._chargeStreamBudget();
 
     return {
       ...final,
@@ -2174,6 +2235,23 @@ export class ReActToolLoop extends ReActLoop<
       isStreaming: !this.input.nonStreaming,
       sessionId: this.ctx.session.id,
     }).catch(() => {});
+  }
+
+  /**
+   * L1（2026-09-06）：每轮 LLM 响应后向骨架预算记账——按当前上下文估算扣减（delta
+   * 语义由 createStreamBudget 维护，对齐 TAORLoop observe 增量扣减；compact 回落不退款）。
+   * 仅当 config.budget 为工厂注入的可记账预算（含 chargeContextEstimate）时生效；
+   * 显式传入的普通 BudgetControllerLike 不记账（由外部负责耗尽判定）。
+   */
+  private _chargeStreamBudget(): void {
+    const budget = this.config.budget as
+      | (BudgetControllerLike & {
+          chargeContextEstimate?: (estimatedTokens: number) => void;
+        })
+      | undefined;
+    budget?.chargeContextEstimate?.(
+      this.ctx.estimateMessagesTokens(this.loopState.messages)
+    );
   }
 
   /**
@@ -2282,7 +2360,14 @@ export class ReActToolLoop extends ReActLoop<
     } finally {
       // v3：显式移除 abort 监听器，避免跨轮多次提问累积
       if (sig) sig.removeEventListener('abort', onAbort);
-      this.ctx.pendingInteractions.delete(this.ctx.session.id);
+      // 候选 C（2026-09-05）：abort 立即清理；timeout 保留 entry 宽限——晚到回答
+      // 不再命中「未找到待处理交互」warn，而走 answeredAfterExpiry 落盘语义。
+      // 注：保留 entry 无监听方（生成器已返回），resolve 仅作幂等记录与清理；
+      // 「超时窗口内自动续跑」需产品化 re-run（§10.7 C 边界，未在本改动实现）。
+      if (!this._interactionTimedOut) {
+        this.ctx.pendingInteractions.delete(this.ctx.session.id);
+      }
+      this._interactionTimedOut = false;
     }
   }
 

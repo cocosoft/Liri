@@ -52,6 +52,7 @@ import type { AIProvider } from '../providers/AIProvider.js';
 import type { RouteDecision, RouterTier } from './types.js';
 import { TaskDecomposer } from './TaskDecomposer.js';
 import type { DecompositionResult, SubTask } from './TaskDecomposer.js';
+import { scheduleTopoBatches } from '../../core/loop/topoBatches.js';
 import { getLogger } from '@modules/monitoring';
 import { trackUsage } from '@modules/ai';
 import { handleError } from '@modules/error';
@@ -187,40 +188,21 @@ export class OrchEngine {
     subTasks: SubTask[]
   ): Promise<SubTaskResult[]> {
     const results = new Map<string, SubTaskResult>();
-    const pending = new Set(subTasks.map((t) => t.id));
-    const maxIterations = subTasks.length * 2; // 防止死循环
-    let iterations = 0;
+    // P0-1（2026-09-06）：复用共享拓扑分批（Teamwork 方案 D）——死锁/缺失依赖由调度器
+    // 并入尾批自愈；批内 Promise.all 并发上限结构性受限：subTasks ≤ TaskDecomposer
+    // MAX_SUBTASKS(=5)=tasks/limits agentConcurrency（非巧合，任务数与上限同源）。
+    const batches = scheduleTopoBatches(subTasks);
 
-    while (pending.size > 0 && iterations < maxIterations) {
-      iterations++;
-      const batch = [...pending].filter((id) => {
-        const task = subTasks.find((t) => t.id === id)!;
-        return task.dependsOn.every((depId) => results.has(depId));
-      });
-
-      if (batch.length === 0) {
-        // 依赖无法满足（死锁或缺失依赖）
-        logger.warning('OrchEngine: 依赖无法满足，剩余任务跳过', {
-          pending: [...pending],
-        });
-        break;
-      }
-
-      // 并行执行无依赖冲突的任务
+    for (const batch of batches) {
       const batchResults = await Promise.all(
-        batch.map(async (taskId) => {
-          const task = subTasks.find((t) => t.id === taskId)!;
-          return this.executeSingleTask(message, task);
-        })
+        batch.map(async (task) => this.executeSingleTask(message, task))
       );
-
       for (const result of batchResults) {
         results.set(result.subTaskId, result);
-        pending.delete(result.subTaskId);
       }
     }
 
-    // 按原始顺序返回
+    // 按原始顺序返回（调度器保证每个任务进入某批；兜底缺失引用返回失败记录）
     return subTasks.map((t) => {
       const result = results.get(t.id);
       if (!result) {

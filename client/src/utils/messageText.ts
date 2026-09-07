@@ -139,12 +139,17 @@ function getMessageExportText(message: Message): string {
     // 跟踪已导出的 toolCallId，避免同一工具多状态块（running→completed→result）重复罗列
     const seenToolIds = new Set<string>();
     for (const block of message.blocks) {
-      if (block.type === "thinking" || !block.content) continue;
-
-      // 剥离所有 UI 装饰符号（⚪/▶/▼/✅/❌/🔧 等），得到纯文本
-      const content = stripLeadingDecorators(String(block.content));
-      // 剥离后为空（块只是装饰符号）→ 跳过
-      if (!content) continue;
+      if (block.type === "thinking") continue;
+      // Fix（2026-09-05，chat-export 审计）：tool_call / 带 toolCallId 的 status 块
+      // 即使 content 为空也必须处理——历史消息的工具块 content 为空（信息仅在
+      // toolCall 内），原 `!block.content` 门把它们整批跳过，导致 Markdown 导出
+      // 丢失大量 tool_call/tool_result（实测 186 次调用仅导出 58 张工具卡）。
+      const hasToolInfo =
+        block.type === "tool_call" ||
+        (block.type === "status" && (block.toolCallId || block.toolCall));
+      if (!hasToolInfo && !block.content) continue;
+      const content = stripLeadingDecorators(String(block.content ?? ""));
+      if (!hasToolInfo && !content) continue;
 
       // === 调试性 status 块过滤 ===
       // 丢弃后端调试状态："Running tool: xxx" / "Tool xxx completed" / "Tool xxx failed"
@@ -209,6 +214,7 @@ function getMessageExportText(message: Message): string {
         // 工具结果摘要（前 200 字符，避免完整 JSON 洪泛）
         const snippet =
           content.length > 200 ? `${content.slice(0, 200)}…` : content;
+        if (!snippet.trim()) continue; // content 为空时无内容可导（同 id 已被 tool_call 覆盖）
         parts.push(`📋 ${snippet}`);
         continue;
       }

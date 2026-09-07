@@ -9,8 +9,9 @@
  * 假完成（Hermes GoalContract outcome/stop_when 语义）。
  *
  * 开关：环境变量 PDCA_GOAL_EVALUATE（默认 'true' 启用，'false' 关闭）。
- * 降级：副模型调用失败 / 解析失败 → converged=true（保守放行，不阻塞主流程；
- *       目标是"确认"而非"阻断"，失败时维持既有完成语义）。
+ * 三态（L7，2026-09-06）：converged 为 true | false | undefined（未决）。
+ * 副模型调用失败 / 超时 / 输出非 JSON / 未给出明确 bool → converged=undefined 且
+ * evaluated=false（"跳过结论"，不误报达成）；仅模型明确 true 才算收敛。
  */
 
 import { configManager } from '@modules/config';
@@ -49,13 +50,16 @@ export interface GoalEvaluateInput {
 
 /** 目标级评估结果 */
 export interface GoalEvaluateResult {
-  /** 目标是否已达成（true=收敛可完成；false=未达成需继续/介入） */
-  converged: boolean;
-  /** 模型置信度（0-1；降级路径为 0） */
+  /**
+   * 目标是否已达成（L7 三态：true=明确收敛；false=明确未达成；undefined=未决/降级跳过）。
+   * 上层消费规则：仅 converged===true 视为"已确认达成"；===false 阻止假完成；undefined 跳过结论。
+   */
+  converged: boolean | undefined;
+  /** 模型置信度（0-1；未决/降级路径为 0） */
   confidence: number;
-  /** 收敛/未收敛原因说明 */
+  /** 收敛/未收敛/未决原因说明 */
   reason: string;
-  /** 评估是否真实执行（false = 降级放行） */
+  /** 评估是否真实执行并给出可信结论（false = 降级/未决，上层跳过结论） */
   evaluated: boolean;
 }
 
@@ -87,15 +91,16 @@ function buildGoalEvaluatePrompt(input: GoalEvaluateInput): string {
   ].join('\n');
 }
 
-/** 解析副模型输出（JSON.parse + 容错：converged 缺省视为 true 放行） */
+/** 解析副模型输出（L7 三态：非 JSON / 解析失败 / 未给明确 bool → converged=undefined 跳过结论，
+ *  不再默认视为 true 放行——原实现把解析失败当"达成"可能放行假完成） */
 function parseEvaluateResult(text: string): GoalEvaluateResult {
   const match = text.match(/\{[\s\S]*\}/);
   if (!match) {
     return {
-      converged: true,
+      converged: undefined,
       confidence: 0,
-      reason: '评估输出非 JSON，降级放行',
-      evaluated: true,
+      reason: '评估输出非 JSON，跳过结论',
+      evaluated: false,
     };
   }
   try {
@@ -104,18 +109,27 @@ function parseEvaluateResult(text: string): GoalEvaluateResult {
       confidence?: number;
       reason?: string;
     };
+    // 仅模型明确输出 true/false 才算可信结论；缺省/非 bool → 未决（跳过）
+    if (parsed.converged !== true && parsed.converged !== false) {
+      return {
+        converged: undefined,
+        confidence: Number(parsed.confidence) || 0,
+        reason: parsed.reason || '评估未给出明确收敛结论，跳过',
+        evaluated: false,
+      };
+    }
     return {
-      converged: parsed.converged !== false,
+      converged: parsed.converged,
       confidence: Number(parsed.confidence) || 0,
       reason: parsed.reason || '(无说明)',
       evaluated: true,
     };
   } catch {
     return {
-      converged: true,
+      converged: undefined,
       confidence: 0,
-      reason: '评估输出解析失败，降级放行',
-      evaluated: true,
+      reason: '评估输出解析失败，跳过结论',
+      evaluated: false,
     };
   }
 }
@@ -126,7 +140,8 @@ function parseEvaluateResult(text: string): GoalEvaluateResult {
 export class GoalEvaluateGate {
   /**
    * 执行目标级评估。
-   * 副模型调用失败 / 超时 → 降级放行（converged=true），不阻断主流程。
+   * 副模型调用失败 / 超时 → converged=undefined + evaluated=false（跳过结论），
+   * 不阻塞主流程也不误报"达成"（L7 三态；原实现降级放行 converged=true 可能放行假完成）。
    */
   async evaluate(
     input: GoalEvaluateInput,
@@ -151,13 +166,13 @@ export class GoalEvaluateGate {
       ]);
       return parseEvaluateResult(text);
     } catch (err) {
-      logger.warn('目标级评估失败，降级放行（不阻塞主流程）', {
+      logger.warn('目标级评估失败，跳过结论（不阻塞主流程）', {
         error: String(err),
       });
       return {
-        converged: true,
+        converged: undefined,
         confidence: 0,
-        reason: '评估失败，降级放行',
+        reason: '评估失败，跳过结论',
         evaluated: false,
       };
     }

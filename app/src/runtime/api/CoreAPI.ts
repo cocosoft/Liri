@@ -173,7 +173,9 @@ export interface ChatStreamChunk {
     | 'compaction'
     | 'tool_running'
     | 'tool_completed'
-    | 'tool_failed';
+    | 'tool_failed'
+    // A3（2026-09-05）：截断状态标记（取代 content 文本匹配）
+    | 'truncated';
   /** 压缩状态阶段（仅 statusType='compaction' 时存在）：compacting=进行中 / done=完成 / error=压缩或构建异常（P0-1） */
   phase?: 'compacting' | 'done' | 'error';
   /** 结构化错误码 — 替代前端对 error message 的字符串匹配 (CS02) */

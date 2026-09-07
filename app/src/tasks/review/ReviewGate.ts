@@ -157,29 +157,9 @@ export function loadReviewGateConfig(): ReviewGateConfig {
   });
 }
 
-/** 组装 Reviewer prompt（机械验证结果作为上下文注入） */
-async function buildReviewPrompt(
-  step: PlanStep,
-  enableMechanicalVerify: boolean
-): Promise<string> {
-  let mechanicalVerify = '';
-  if (enableMechanicalVerify) {
-    try {
-      const { verifyProject } = await import('../../query/verifyProject.js');
-      const verifyResult = await Promise.race([
-        verifyProject(),
-        new Promise<string>((_, reject) =>
-          setTimeout(() => reject(new Error('verify_timeout')), 30000)
-        ),
-      ]).catch((err) => `verify skipped: ${String(err)}`);
-      if (typeof verifyResult === 'string' && verifyResult) {
-        mechanicalVerify = verifyResult;
-      }
-    } catch {
-      // @ignore-catch: 机械验证失败不阻塞 Review（降级为仅语义审查）
-    }
-  }
-
+/** 组装 Reviewer prompt（机械验证结果作为上下文注入，由调用方提供，见 PR6/#7） */
+function buildReviewPrompt(step: PlanStep, verifyText: string): string {
+  const mechanicalVerify = verifyText || '';
   return [
     `审查以下步骤的执行结果：`,
     `步骤: ${step.description}`,
@@ -209,16 +189,44 @@ export class DefaultReviewGate implements ReviewGate {
     return { ...this.config };
   }
 
+  // PR6（#7）：plan 级机械验证一次并复用——verifyProject 仅支持整项目（无步骤级参数），
+  // 每步 review 重复全项目验证（30s）会成倍放大开销且引入跨步噪声。
+  // gate 实例生命周期 = 单次编排运行（orchestrator 每任务新建），缓存使其整轮仅执行一次。
+  private _verifyOncePromise: Promise<string> | undefined;
+
+  /** 惰性执行机械验证（一次），结果供整轮各步 review 共享 */
+  private async _mechanicalVerifyOnce(): Promise<string> {
+    if (!this._verifyOncePromise) {
+      this._verifyOncePromise = (async () => {
+        try {
+          const { verifyProject } =
+            await import('../../query/verifyProject.js');
+          const result = await Promise.race([
+            verifyProject(),
+            new Promise<string>((_, reject) =>
+              setTimeout(() => reject(new Error('verify_timeout')), 30000)
+            ),
+          ]).catch((err) => `verify skipped: ${String(err)}`);
+          return typeof result === 'string' && result ? result : '';
+        } catch {
+          // @ignore-catch: 机械验证失败不阻塞 Review（降级为仅语义审查）
+          return '';
+        }
+      })();
+    }
+    return this._verifyOncePromise;
+  }
+
   shouldReview(_ctx: ReviewGateContext): boolean {
     return this.config.mode !== 'disabled';
   }
 
   async reviewStep(ctx: ReviewGateContext): Promise<PlanReview> {
     const { step, isolation, executor } = ctx;
-    const reviewPrompt = await buildReviewPrompt(
-      step,
-      this.config.enableMechanicalVerify
-    );
+    const verifyText = this.config.enableMechanicalVerify
+      ? await this._mechanicalVerifyOnce()
+      : '';
+    const reviewPrompt = await buildReviewPrompt(step, verifyText);
 
     const reviewText = await executor({
       systemPrompt:

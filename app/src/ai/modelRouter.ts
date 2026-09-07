@@ -194,6 +194,14 @@ export interface TaskModelConfig {
   stt?: string;
   reranking?: string;
   knowledge_compile?: string;
+  /**
+   * P3 role 路由（2026-09-06，Teamwork）：编排角色 → 模型分工。
+   * generator = 候选生成（多视角产出），verifier = 对抗批评/验证（宜用强档）。
+   * 评审 J：generator 不宜弱于 medium tier（过弱全灭重跑成本更高），配置时留意。
+   * 未配置（undefined）→ resolveRole 返回 ''，消费端回退现状路由（验收 #6）。
+   */
+  generator?: string;
+  verifier?: string;
 }
 
 /**
@@ -722,6 +730,28 @@ export class ModelRouter {
     return result;
   }
 
+  /**
+   * P3 role 路由（2026-09-06，Teamwork）：按编排角色解析模型名。
+   * 语义：读取任务分工配置中的 role 字段（generator/verifier）→ UUID 转模型名；
+   * 未配置或 UUID 未命中 → 返回 ''（消费端回退现状路由，验收 #6 默认兼容）。
+   */
+  resolveRole(role: 'generator' | 'verifier'): string {
+    const tasks = this.readTasks();
+    const value = tasks[role];
+    if (!value) return '';
+    if (this.isUUID(value)) {
+      const modelName = this.uuidToModelName.get(value);
+      if (modelName) return modelName;
+      // UUID 缓存未命中 → 触发异步预加载（同 resolve() 语义）
+      void this.preloadUuidCache();
+      logger.warning(
+        `ModelRouter.resolveRole: UUID缓存未命中 role=${role} uuid=${value} → 本次返回空`
+      );
+      return '';
+    }
+    return value;
+  }
+
   /** resolve() 内部实现（独立方法以便统一出口计时） */
   private resolveInner(taskType: TaskType): string {
     const tasks = this.readTasks();
@@ -1171,6 +1201,12 @@ export class ModelRouter {
       if (modelId) {
         await appModelConfigService.setConfig(taskType, { model: modelId });
         this._taskCache.set(taskType, modelId);
+      } else if (modelId === '' && taskType !== 'default') {
+        // Teamwork P3 收尾（2026-09-07，预存问题 K 补充 2-B）：空串值 = 清除该任务配置
+        //（前端清空下拉保存 → role/任务恢复"未设置/跟随默认"）；default 空串跳过
+        //（deleteConfig 禁止删 default，保持静默）；body 缺失键不处理（现状语义不变）。
+        await appModelConfigService.deleteConfig(taskType);
+        this._taskCache.delete(taskType);
       }
     }
 

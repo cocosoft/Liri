@@ -24,6 +24,7 @@ import type {
   ActResult,
   ToolCallEntry,
   ReActEvent,
+  TerminationReason,
 } from '@modules/query';
 import {
   AppError,
@@ -156,6 +157,9 @@ export interface SubAgentResult {
   };
   /** 错误信息 */
   error?: string;
+  /** L4（2026-09-06）：终止语义细分（completed/max_turns/aborted/error/budget_exhausted/loop_detected）——
+   *  由 SubAgentLoop 骨架 getTerminationReason() 派生，不再折叠为单一 error 文本 */
+  terminationReason?: TerminationReason;
   /** 执行时长（毫秒） */
   durationMs: number;
 }
@@ -410,6 +414,8 @@ export class SubAgentEngine {
           toolCallCount: loopResult.toolCallCount,
           turnsUsed: loopResult.turnsUsed,
           durationMs,
+          // L4：终止语义透传（正常完成 = 'completed'）
+          terminationReason: loopResult.terminationReason,
         });
         otel.endSpan(execSpan, SpanStatusCode.OK);
         // P2-13: 子代理完成 — 通知事件泵
@@ -438,6 +444,7 @@ export class SubAgentEngine {
             totalTokens: totalPromptTokens + totalCompletionTokens,
           },
           durationMs,
+          terminationReason: loopResult.terminationReason,
         };
       }
 
@@ -461,6 +468,8 @@ export class SubAgentEngine {
         toolCallCount: loopResult.toolCallCount,
         turnsUsed: loopResult.turnsUsed,
         durationMs,
+        // L4：截断/中止/错误细分透传（不再折叠为单一 error 文本）
+        terminationReason: loopResult.terminationReason,
         error: loopResult.error || '子代理执行未完成',
       });
       otel.endSpan(execSpan, SpanStatusCode.ERROR, 'incomplete');
@@ -475,6 +484,7 @@ export class SubAgentEngine {
           totalTokens: totalPromptTokens + totalCompletionTokens,
         },
         error: loopResult.error || '子代理执行未完成',
+        terminationReason: loopResult.terminationReason,
       });
     } catch (error) {
       clearTimeout(timeoutTimer);
@@ -683,6 +693,7 @@ export class SubAgentEngine {
         totalTokens: number;
       };
       error?: string;
+      terminationReason?: TerminationReason;
     }
   ): SubAgentResult {
     return {
@@ -705,6 +716,8 @@ interface SubAgentLoopResult {
   toolCallCount: number;
   turnsUsed: number;
   error?: string;
+  /** L4（2026-09-06）：终止语义细分（骨架 getTerminationReason 派生） */
+  terminationReason?: TerminationReason;
 }
 
 /**
@@ -854,18 +867,25 @@ class SubAgentLoop extends ReActLoop<
       .find((m) => m.role === 'assistant');
     const output =
       typeof lastAssistant?.content === 'string' ? lastAssistant.content : '';
-    const aborted = this.state.phase === 'aborted';
-    const maxTurnsReached = this.state.iteration >= this.config.maxIterations;
+    // L4（2026-09-06）：终止语义单一判别（骨架 getTerminationReason 按 phase/abort/iteration 派生），
+    // completed/截断(max_turns)/中止(aborted)/错误(error)不再靠两布尔折叠。
+    const terminationReason = this.getTerminationReason();
     return {
-      completed: !aborted && !maxTurnsReached,
+      completed: terminationReason === 'completed',
       output,
       toolCallCount: this.toolCallCount,
       turnsUsed: this.state.iteration,
-      error: aborted
-        ? 'Execution aborted'
-        : maxTurnsReached
-          ? `Max turns (${this.config.maxIterations}) reached without completion`
-          : undefined,
+      terminationReason,
+      error:
+        terminationReason === 'aborted'
+          ? 'Execution aborted'
+          : terminationReason === 'max_turns'
+            ? `Max turns (${this.config.maxIterations}) reached without completion`
+            : terminationReason === 'error'
+              ? (this.state.lastError ?? 'Execution error')
+              : terminationReason === 'budget_exhausted'
+                ? 'Token budget exhausted without completion'
+                : undefined,
     };
   }
 }

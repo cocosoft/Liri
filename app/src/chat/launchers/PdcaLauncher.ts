@@ -8,9 +8,12 @@ import { resolveDataDir } from '@modules/core/paths';
 import { configManager } from '@modules/config';
 import { PlanDrivenLoop } from '@modules/core';
 import type { PlanDrivenLoopResult } from '@modules/core';
-import type { AIProvider } from '@modules/ai';
+import type { AIProvider, ChatMessage } from '@modules/ai';
 import { registerPlanLoop, unregisterPlanLoop } from '../planAbortRegistry.js';
 import { createChatManagerTAORDeps } from '@modules/query';
+import { pitfallRegistry } from '@modules/tasks';
+import { CompetitiveStrategyOrchestrator } from '@modules/query';
+import type { ResearchCallModel } from '@modules/query';
 import type { TAORLoop } from '@modules/query';
 import type { ChatSession } from '../types/session.js';
 import { MessageService } from '../services/MessageService.js';
@@ -22,8 +25,11 @@ const logger = getLogger('chat:pdcaLauncher');
 export interface PdcaLauncherDeps {
   /** 是否启用 PlanDrivenLoop */
   enablePlanDrivenLoop: boolean;
-  /** TAORLoop 工厂 */
-  taorLoopFactory: (sessionId: string) => TAORLoop;
+  /** TAORLoop 工厂（S1/PR9：可选轮次预算乘子 + 私有实例，扩容续跑/级联中止用） */
+  taorLoopFactory: (
+    sessionId: string,
+    opts?: { maxTurnsMultiplier?: number; privateInstance?: boolean }
+  ) => TAORLoop;
   /** 构建 TAOR 上下文 */
   buildTAORContext: (
     sessionId: string,
@@ -91,8 +97,40 @@ export class PdcaLauncher {
             (await this.deps.getDecomposerProvider?.()) ?? undefined;
           const planLoop = new PlanDrivenLoop({
             taorLoop,
+            // P0-1 真并行（2026-09-06）：注入每步独立 TAOR 实例工厂——无依赖步骤批次并行
+            // 的前提（共享实例状态无法并发）；taorLoopFactory 未注入时 PDL 回退单实例串行
+            taorLoopFactory: this.deps.taorLoopFactory,
             deps,
             sessionId,
+            // OBS/C3（2026-09-06）：注入任务/项目归属 → stage 事件携带 taskId，前端可定位 PdcaPipeline
+            taskId,
+            projectId,
+            // Teamwork P2b（2026-09-06）：P0-2 预留 recordPitfall 空钩子接真——步骤终败落
+            // pitfall 注册表（跨任务经验沉淀，P1-2）
+            recordPitfall: (rec) => {
+              pitfallRegistry.record({
+                description: rec.description,
+                error: rec.error,
+                source: 'pdl',
+                contextSig: rec.taskId,
+              });
+            },
+            // Teamwork P2b（2026-09-06）：P1-2 读取注入点——decompose 首步前检索最近
+            // pdl 失败经验注入 prompt（无记录则返回空，行为零变化）
+            pitfallRetriever: () => {
+              const hits = pitfallRegistry.queryRecent({
+                source: 'pdl',
+                limit: 2,
+              });
+              return hits.length === 0
+                ? ''
+                : hits
+                    .map(
+                      (h, i) =>
+                        `- ${h.rawDescription}（${h.occurrenceCount} 次）：${h.error.slice(0, 150)}`
+                    )
+                    .join('\n');
+            },
             enableAutoDecompose: true,
             decomposerProvider,
             onStepProgress: (progress) => {
@@ -191,15 +229,33 @@ export class PdcaLauncher {
             startedAt,
           });
           try {
+            // S3 前置（2026-09-05，4.0 审计 §9.8）：补齐 registerPlanLoop 调用点——
+            // 此前 loopBySession 恒空，abortSessionPlans（req close → 会话中止）对
+            // PDL 快路径为空操作；register 后 unregister 仍由下方 finally 兜底。
+            registerPlanLoop(taskId, sessionId, planLoop);
             const result = await planLoop.run(message);
+            // PR1（#1）：用户中止不抛错、run() 正常返回并携带 aborted 标志——
+            // 据此写 'abort' 终态，禁止无条件标 completed（导出排查锚点，T0a 已复核）。
+            const aborted = result.aborted === true;
+            // PR8（#9）：预算耗尽（成本护栏中止）按 failed 收尾，不误标 completed
+            const budgetExhausted = result.budgetExhausted === true;
             writePdcaCheckpoint(taskId, {
               taskId,
               phase: 'execute',
-              status: 'completed',
+              status: aborted
+                ? 'abort'
+                : budgetExhausted
+                  ? 'failed'
+                  : 'completed',
               sessionId,
               projectId,
               description: description.slice(0, 200),
-              completedAt: new Date().toISOString(),
+              completedAt:
+                aborted || budgetExhausted
+                  ? undefined
+                  : new Date().toISOString(),
+              abortedAt: aborted ? new Date().toISOString() : undefined,
+              failedAt: budgetExhausted ? new Date().toISOString() : undefined,
               startedAt,
               stepCount: result.stepCount,
               completedSteps: result.completedSteps,
@@ -230,7 +286,7 @@ export class PdcaLauncher {
               context: { sessionId },
             });
           } finally {
-            unregisterPlanLoop(sessionId, planLoop);
+            unregisterPlanLoop(taskId, planLoop);
           }
           return;
         } catch (err) {
@@ -358,6 +414,117 @@ export class PdcaLauncher {
       } catch {
         /* 隐性 PDCA 启动失败不影响主流程 */
       }
+    } finally {
+      try {
+        otel.endSpan(span);
+      } catch {
+        /* span 可能已结束 */
+      }
+    }
+  }
+
+  /**
+   * P0-3（2026-09-06，Teamwork）：研究模式——候选生成 + 对抗批评编排。
+   *
+   * 触发：ChatManager 分流（研究型意图 hasResearchIntent && feature COMPETITIVE_STRATEGY），
+   * 复用本 launcher 的 TAOR deps 组装 callModel，组合既有模块不引新运行时：
+   * 候选生成（ParallelAgentScheduler 多视角并行）→ 对抗批评（VerifierAgent 逐一）→
+   * BEST_SELECTION 收敛；被驳候选 objection 保留并随结果回写（失败路线不丢弃）。
+   * 结果以 assistant 消息回写会话（taskType 'research'），不占用 PDCA 阶段链。
+   */
+  async launchResearch(
+    projectId: string,
+    description: string,
+    sessionId: string,
+    userMessage?: string
+  ): Promise<void> {
+    const otel = getOTelTracing();
+    const span = otel.startSpan('chat:researchLaunch', {
+      'session.id': sessionId,
+      'project.id': projectId,
+    });
+    const taskId = `research_${Date.now().toString(36)}`;
+    const report = (text: string) => {
+      this.deps.persistMessage(
+        sessionId,
+        this.deps.messageService.createAssistantMessage(text, {
+          sessionId,
+          metadata: { taskId, isTaskMessage: true, taskType: 'research' },
+        })
+      );
+    };
+    try {
+      report(
+        '🔬 研究模式已启动：生成多视角候选方案并逐一对抗评审，被驳路线 objection 会保留。完成后结论将呈现于此。'
+      );
+      const taorContext = this.deps.buildTAORContext(sessionId, [], undefined);
+      const taorDeps = createChatManagerTAORDeps(taorContext);
+      // 研究编排的轻量 callModel：剥掉 TAOR deps 的 type 字段，只透传 content
+      const callModel: ResearchCallModel = async function* (messages, signal) {
+        for await (const chunk of taorDeps.callModel(
+          messages as ChatMessage[],
+          signal
+        )) {
+          if (chunk.content) yield { content: chunk.content };
+        }
+      };
+
+      const orchestrator = new CompetitiveStrategyOrchestrator({
+        callModel,
+        perspectiveCount: 2,
+        // Teamwork P2b：REJECT 批评 → pitfall 注册表（P1-2 写点）
+        recordPitfall: (rec) =>
+          pitfallRegistry.record({
+            description: rec.description,
+            error: rec.error,
+            source: 'verifier',
+            contextSig: rec.contextSig ?? taskId,
+          }),
+      });
+      const result = await orchestrator.run(
+        userMessage || description,
+        new AbortController().signal
+      );
+
+      const objectionBlock = (label: string) =>
+        result.rejected
+          .map(
+            (r) => `- 【${r.perspective}】${label}：${r.objections.join('；')}`
+          )
+          .join('\n');
+
+      if (result.success && result.content.trim()) {
+        report(result.content);
+        if (result.rejected.length > 0) {
+          report(
+            `（对抗评审备注：${result.approved.length} 份候选通过，${result.rejected.length} 份被驳）\n被驳路线 objection 保留：\n${objectionBlock('被驳原因')}`
+          );
+        }
+      } else if (result.rejected.length > 0) {
+        report(
+          `候选方案均未通过对抗评审。被驳路线 objection：\n${objectionBlock('被驳原因')}\n\n可调整任务表述后重试，或改用普通提问模式。`
+        );
+      } else {
+        report(
+          '候选生成失败（模型未返回有效候选），未进入对抗评审。可重试或改用普通提问模式。'
+        );
+      }
+      logger.info('研究模式完成', {
+        taskId,
+        sessionId,
+        candidateCount: result.stats.candidateCount,
+        approvedCount: result.stats.approvedCount,
+        rejectedCount: result.stats.rejectedCount,
+      });
+    } catch (err) {
+      await handleError(err, {
+        module: 'chat:pdcaLauncher',
+        action: 'launchResearch',
+        context: { taskId, projectId, sessionId },
+      });
+      report(
+        `研究模式执行失败（${String(err).slice(0, 200)}）。已保留错误上下文，可重试。`
+      );
     } finally {
       try {
         otel.endSpan(span);

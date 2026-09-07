@@ -7,8 +7,7 @@ import {
 } from '@modules/constants/systemPromptSections';
 import { buildSystemPrompt, type SystemPromptContext } from '@modules/ai';
 import { providerPromptRegistry } from './ProviderPromptPlugin';
-import { modelManager } from '@modules/ai';
-import { providerRegistry } from '@modules/ai';
+import { modelManager, providerRegistry, estimateTokens } from '@modules/ai';
 import { getLogger } from '@modules/monitoring';
 import { setCurrentSessionContext } from './MemoryPromptProvider';
 import type { SessionContext } from '@modules/memory/types/SessionContext';
@@ -24,7 +23,7 @@ import {
 import type { PromptMode } from './types';
 export type { PromptMode };
 // P0-2（提示词分层治理）：声明式层/可见性元数据（替代 CORE/CONVERSATION/LOCAL 手工 Set）
-import { isSectionVisibleIn } from './promptSectionLayers';
+import { isSectionVisibleIn, getSectionLayer } from './promptSectionLayers';
 
 const logger = getLogger('prompt:assembler');
 
@@ -50,6 +49,10 @@ export interface AssembleOptions {
    * contextKeepRules/imageContext）。跳过 mode 白名单过滤、恒按 cacheBreak 进入
    * stable/dynamic 分区，并纳入 SystemPromptReport/DiagnosticsReport（账本真实）。 */
   extraDynamicSections?: SystemPromptSection[];
+  /** P1（提示词分层治理）：动态注册段 token 预算。resolve 后若动态段总成本超预算，
+   * 按层(L3→L2)结构性降级丢弃低价值段（extra 豁免、L0/L1 豁免），避免整串字节截断。
+   * 缺省回退环境变量 PROMPT_DYNAMIC_BUDGET_TOKENS；两者都缺省 = 不裁剪（保持现状）。 */
+  dynamicBudgetTokens?: number;
 }
 
 function filterSectionsByMode(
@@ -121,6 +124,7 @@ export async function assembleSystemPrompt(
     providerId,
     sessionContext,
     extraDynamicSections,
+    dynamicBudgetTokens: dynamicBudgetTokensOpt,
   } = options;
 
   if (sessionContext) {
@@ -139,10 +143,39 @@ export async function assembleSystemPrompt(
   const allSections = [...filteredSections, ...extraSections];
   const sectionResults = await resolveSystemPromptSections(allSections);
 
-  {
-    const report = generatePromptReport(
+  // P1（提示词分层治理）：动态注册段预算编排——超预算按层(L3→L2)结构性降级丢弃，
+  // 保留 extra（旁路行为段）与 L0/L1。TODO: P1.5 成本缓存前置估算，省去被丢弃段 compute。
+  const dynamicBudgetTokens = resolveDynamicBudgetTokens(dynamicBudgetTokensOpt);
+  let droppedIndexes = new Set<number>();
+  if (dynamicBudgetTokens !== undefined) {
+    const extraNames = new Set(extraSections.map((s) => s.name));
+    const drop = computeDynamicDrops(
       allSections,
       sectionResults,
+      extraNames,
+      dynamicBudgetTokens
+    );
+    droppedIndexes = drop.droppedIndexes;
+    if (drop.droppedInfos.length > 0) {
+      logger.info('prompt:dynamic-budget 超预算，按层降级丢弃动态段', {
+        budgetTokens: dynamicBudgetTokens,
+        dropped: drop.droppedInfos,
+        savedTokens: drop.savedTokens,
+      });
+    }
+  }
+  const hasDrops = droppedIndexes.size > 0;
+  const actualSections = hasDrops
+    ? allSections.filter((_, i) => !droppedIndexes.has(i))
+    : allSections;
+  const actualResults = hasDrops
+    ? sectionResults.filter((_, i) => !droppedIndexes.has(i))
+    : sectionResults;
+
+  {
+    const report = generatePromptReport(
+      actualSections,
+      actualResults,
       resolvedMode
     );
     logger.debug(formatPromptReport(report));
@@ -151,9 +184,9 @@ export async function assembleSystemPrompt(
   const stableParts: string[] = [];
   const dynamicParts: string[] = [];
 
-  for (let i = 0; i < allSections.length; i++) {
-    const section = allSections[i];
-    let result = sectionResults[i];
+  for (let i = 0; i < actualSections.length; i++) {
+    const section = actualSections[i];
+    let result = actualResults[i];
     if (!result) continue;
 
     // P3-10: 应用外置 Prompt 覆盖（~/.pyapp/prompts/*.md）
@@ -191,9 +224,9 @@ export async function assembleSystemPrompt(
 
   // P3-11: 生成诊断报告（按静态/动态/消息/工具/记忆/MCP 分类的 Token 消耗分解）
   try {
-    const sectionData = allSections.map((s, i) => ({
+    const sectionData = actualSections.map((s, i) => ({
       name: s.name,
-      content: sectionResults[i] ?? '',
+      content: actualResults[i] ?? '',
       cacheBreak: s.cacheBreak,
     }));
     // 上下文限制从环境配置获取，默认 200K
@@ -232,6 +265,76 @@ function resolveModelContext(): { provider: string; modelName: string } {
   } catch {
     return { provider: 'unknown', modelName: 'unknown' };
   }
+}
+
+/**
+ * P1（提示词分层治理）：动态注册段预算丢弃编排。
+ * - 参与裁剪：cacheBreak=true 的注册动态段，且层 ∈ {L2, L3}（extra 旁路段豁免）
+ * - 丢弃顺序：先按层高(L3→L2)、同层按 token 大→小（结构性降级，非字节截断）
+ * 返回被丢弃段索引（供组装/报告剔除，账本保持真实）。
+ */
+function computeDynamicDrops(
+  sections: SystemPromptSection[],
+  results: Array<string | null>,
+  extraNames: Set<string>,
+  budgetTokens: number
+): {
+  droppedIndexes: Set<number>;
+  droppedInfos: Array<{ name: string; tokens: number; layer: string }>;
+  savedTokens: number;
+} {
+  const layerRank = (layer: string): number =>
+    layer === 'L3' ? 3 : layer === 'L2' ? 2 : layer === 'L1' ? 1 : 0;
+  const candidates: Array<{
+    idx: number;
+    tokens: number;
+    rank: number;
+    name: string;
+    layer: string;
+  }> = [];
+  let totalTokens = 0;
+  for (let i = 0; i < sections.length; i++) {
+    const s = sections[i];
+    // 稳定段（前缀缓存）与 extra（旁路行为段）不参与丢弃
+    if (!s.cacheBreak || extraNames.has(s.name)) continue;
+    const content = results[i];
+    if (!content) continue;
+    const layer = getSectionLayer(s.name);
+    const rank = layerRank(layer);
+    if (rank < 2) continue; // L0/L1 豁免
+    const tokens = estimateTokens(content);
+    totalTokens += tokens;
+    candidates.push({ idx: i, tokens, rank, name: s.name, layer });
+  }
+  if (totalTokens <= budgetTokens) {
+    return { droppedIndexes: new Set(), droppedInfos: [], savedTokens: 0 };
+  }
+  candidates.sort((a, b) => b.rank - a.rank || b.tokens - a.tokens);
+  const droppedIndexes = new Set<number>();
+  const droppedInfos: Array<{ name: string; tokens: number; layer: string }> = [];
+  for (const c of candidates) {
+    if (totalTokens <= budgetTokens) break;
+    droppedIndexes.add(c.idx);
+    droppedInfos.push({ name: c.name, tokens: c.tokens, layer: c.layer });
+    totalTokens -= c.tokens;
+  }
+  return {
+    droppedIndexes,
+    droppedInfos,
+    savedTokens: droppedInfos.reduce((acc, d) => acc + d.tokens, 0),
+  };
+}
+
+/**
+ * P1（提示词分层治理）：动态段 token 预算解析——options 优先，
+ * 其次环境变量 PROMPT_DYNAMIC_BUDGET_TOKENS；两者缺省 = 不裁剪（保持现状）。
+ */
+function resolveDynamicBudgetTokens(explicit?: number): number | undefined {
+  if (explicit !== undefined && explicit >= 0) return explicit;
+  const raw = process.env.PROMPT_DYNAMIC_BUDGET_TOKENS;
+  if (!raw) return undefined;
+  const n = Number(raw);
+  return Number.isFinite(n) && n > 0 ? n : undefined;
 }
 
 /**

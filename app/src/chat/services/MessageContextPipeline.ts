@@ -904,24 +904,23 @@ export async function assembleContextualSystemPrompt(
   // P0-1（提示词分层治理）：旁路内容注册为动态段（cacheBreak=true），随统一组装进入
   // stable/dynamic 分区与 SystemPromptReport——不再在组装后游离手工拼接（曾破坏
   // 前缀缓存且统计不到 token）。
-  const memorySectionText =
-    (() => {
-      if (!getMemoryContext) return '';
-      const memoryContent = getMemoryContext(session.id);
-      if (!memoryContent || memoryContent.length === 0) return '';
-      return [
-        '## 会话记忆（自动维护）',
-        '以下是从本会话中自动提取的关键信息，用于保持长对话上下文连续性：',
-        memoryContent,
-        '',
-        '**使用规则**：',
-        '- 优先信任此记忆中的"决策记录"和"文件变更"，它们是已确认的事实',
-        '- "关键讨论"部分是摘要，如需精确引用请使用 recall_memory 工具搜索原文',
-        '- 不要重复记忆中已有的信息，除非用户明确要求',
-        '',
-        '**注意**：以下信息来自 memory.md，**无需使用 recall_memory 工具查询**——这些信息已经自动注入到此提示词中。',
-      ].join('\n');
-    })();
+  const memorySectionText = (() => {
+    if (!getMemoryContext) return '';
+    const memoryContent = getMemoryContext(session.id);
+    if (!memoryContent || memoryContent.length === 0) return '';
+    return [
+      '## 会话记忆（自动维护）',
+      '以下是从本会话中自动提取的关键信息，用于保持长对话上下文连续性：',
+      memoryContent,
+      '',
+      '**使用规则**：',
+      '- 优先信任此记忆中的"决策记录"和"文件变更"，它们是已确认的事实',
+      '- "关键讨论"部分是摘要，如需精确引用请使用 recall_memory 工具搜索原文',
+      '- 不要重复记忆中已有的信息，除非用户明确要求',
+      '',
+      '**注意**：以下信息来自 memory.md，**无需使用 recall_memory 工具查询**——这些信息已经自动注入到此提示词中。',
+    ].join('\n');
+  })();
 
   const currentGoalText = extractCurrentGoal(session, currentMessage);
   const imageContextText = imageContextService.buildImageContextPrompt(

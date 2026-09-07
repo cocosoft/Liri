@@ -86,6 +86,12 @@ const SECTION_META: Record<string, PromptSectionMeta> = {
   },
   // toolUse 的本地替代段（filter 在 local 模式替换注入，不入白名单）
   localToolUse: { layer: 'L0' },
+  // L3 检索型大块（仅 full 可见，维持现状；预算超限时先于 L2 被降级丢弃）
+  memoryContext: { layer: 'L3' },
+  knowledgeContext: { layer: 'L3' },
+  knowledgeDigest: { layer: 'L3' },
+  fewShotExamples: { layer: 'L3' },
+  knowledgeSaveGuide: { layer: 'L3' },
 };
 
 export function getSectionMeta(name: string): PromptSectionMeta {

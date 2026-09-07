@@ -21,38 +21,10 @@ export interface DiagnosticsReport {
   suggestions: string[];
 }
 
-const CATEGORIES = [
-  {
-    key: 'system_prompt',
-    label: 'System Prompt (static)',
-    items: [
-      'identity',
-      'personality',
-      'toolUse',
-      'toolIntegrity',
-      'shellDeclaration',
-    ] as string[],
-  },
-  {
-    key: 'system_prompt_dynamic',
-    label: 'System Prompt (dynamic)',
-    items: [
-      'projectRules',
-      'toolsConvention',
-      'memoryContext',
-      'gitContext',
-      'sessionContext',
-      'skills',
-      'knowledgeContext',
-    ] as string[],
-  },
-  { key: 'messages', label: 'Conversation Messages', items: [] as string[] },
-  { key: 'tool_defs', label: 'Tool Definitions', items: [] as string[] },
-  { key: 'tool_results', label: 'Tool Results', items: [] as string[] },
-  { key: 'memory_files', label: 'Memory Files', items: [] as string[] },
-  { key: 'mcp', label: 'MCP Instructions', items: [] as string[] },
-  { key: 'other', label: 'Other', items: [] as string[] },
-];
+// B（Liri 复查收尾）：删除历史 CATEGORIES 手工名单（identity/toolUse/skills… 曾在此维护，
+// 实际从未被消费——static/dynamic 分类由 generateDiagnosticsReport 按 section.cacheBreak
+// 运行时推导，见下）。skills 已改 user message 注入，本就不在 system sections 输入中，
+// 报告不含 skills 归属。保留 CATEGORIES 死名单会造成"第三份手工名单"漂移（Liri 盲点 1）。
 
 function countTokens(text: string): number {
   if (!text) return 0;
@@ -60,7 +32,7 @@ function countTokens(text: string): number {
   if (encoder) {
     try {
       const r = encoder.encode(text);
-      return Array.isArray(r) ? r.length : r.length;
+      return r.length;
     } catch {
       /* fallback */
     }

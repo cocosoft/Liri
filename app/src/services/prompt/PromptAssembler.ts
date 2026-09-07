@@ -203,10 +203,25 @@ export async function assembleSystemPrompt(
     ? sectionResults.filter((_, i) => !droppedIndexes.has(i))
     : sectionResults;
 
+  // Liri 复查 P0a 收尾：strategyExtra（策略层注入引导，agent 路径）计入账本——
+  // 作为虚拟动态段参与 debug/诊断报告（不入发送串），使"报告合计==实际发送"在
+  // agent 路径同样成立。
+  const strategyExtraSection: SystemPromptSection = {
+    name: 'strategyExtra',
+    compute: async () => strategyExtra ?? null,
+    cacheBreak: true,
+  };
+  const reportSections = strategyExtra
+    ? [...actualSections, strategyExtraSection]
+    : actualSections;
+  const reportResults = strategyExtra
+    ? [...actualResults, strategyExtra]
+    : actualResults;
+
   {
     const report = generatePromptReport(
-      actualSections,
-      actualResults,
+      reportSections,
+      reportResults,
       resolvedMode
     );
     logger.debug(formatPromptReport(report));
@@ -260,6 +275,13 @@ export async function assembleSystemPrompt(
       content: actualResults[i] ?? '',
       cacheBreak: s.cacheBreak,
     }));
+    if (strategyExtra) {
+      sectionData.push({
+        name: 'strategyExtra',
+        content: strategyExtra,
+        cacheBreak: true,
+      });
+    }
     // 上下文限制从环境配置获取，默认 200K
     const contextLimit =
       ((systemPromptContext as Record<string, unknown>)

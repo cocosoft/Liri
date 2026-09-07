@@ -45,9 +45,6 @@ export class XlsxExtractor implements DocumentExtractor {
     for (const sheetName of wb.SheetNames) {
       const ws = wb.Sheets[sheetName];
       if (!ws) continue;
-      const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, {
-        defval: '',
-      }) as unknown as Array<Array<string | number>>;
       const matrix = XLSX.utils.sheet_to_json<unknown[]>(ws, {
         header: 1,
         defval: '',
@@ -72,10 +69,14 @@ export class XlsxExtractor implements DocumentExtractor {
       const textBlock = sheetText.join('\n');
       parts.push(textBlock);
 
-      const blockLineCount = textBlock.length ? textBlock.split('\n').length : 0;
+      const blockLineCount = textBlock.length
+        ? textBlock.split('\n').length
+        : 0;
       locators.push({
         lineStart: rowStartLine,
-        lineEnd: rowStartLine + Math.max(blockLineCount - (header.length > 0 ? 2 : 1), 0),
+        lineEnd:
+          rowStartLine +
+          Math.max(blockLineCount - (header.length > 0 ? 2 : 1), 0),
         tableId: sheetName,
       });
       lineAcc += blockLineCount + (sheetCount > 1 ? 2 : 0);

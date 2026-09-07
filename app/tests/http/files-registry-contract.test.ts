@@ -7,9 +7,9 @@
  * 验证 BUG-2 修复：detail/search/stats 返回**裸对象**（无 {success,data} 包装），
  * 与前端 fileService/fileStore/GlobalSearchModal 直取裸字段的消费方式一致；
  * 错误分支维持 {error:{message}} + 状态码（不引入 success 包装不对称）。
- * 通过 mock.module 替换 FileRegistry（不触真实 DB）。
+ * 通过 spy FileRegistry.getInstance → fake 隔离真实 DB（不用 mock.module，避免跨文件污染）。
  */
-import { describe, expect, test, beforeAll, mock } from 'bun:test';
+import { describe, expect, test, beforeAll, afterAll, spyOn } from 'bun:test';
 import type http from 'http';
 
 const fakeRegistry = {
@@ -35,9 +35,20 @@ const FAKE_RECORD = {
   createdAt: 1788740000,
 };
 
-mock.module('@modules/services/file/FileRegistry', () => ({
-  FileRegistry: { getInstance: () => fakeRegistry },
-}));
+// 真 FileRegistry + spy 单例替换：不用 mock.module（模块级 mock 会污染同 worker 其它
+// 真用 FileRegistry 的测试文件——如 notebook.test spyOn(FileRegistry.prototype,...)——
+// 且 bun mock.module 单次注册无法在文件内恢复；spy 在 beforeAll/afterAll 内成对隔离）。
+import { FileRegistry } from '../../src/services/file/FileRegistry.js';
+
+let getInstanceSpy: ReturnType<typeof spyOn> | undefined;
+beforeAll(() => {
+  getInstanceSpy = spyOn(FileRegistry, 'getInstance').mockReturnValue(
+    fakeRegistry as unknown as ReturnType<typeof FileRegistry.getInstance>
+  );
+});
+afterAll(() => {
+  getInstanceSpy?.mockRestore();
+});
 
 import { handleFileRegistryDetail } from '../../src/infrastructure/http/handlers/files-handlers.js';
 import { handleFileRegistrySearch } from '../../src/infrastructure/http/handlers/files-handlers.js';

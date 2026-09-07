@@ -72,20 +72,21 @@ describe('GoalEvaluateGate（P1-3）', () => {
     expect(r.converged).toBe(false);
   });
 
-  test('executor 抛错 → 降级放行（converged=true, evaluated=false）', async () => {
+  test('executor 抛错 → 跳过结论（converged=undefined, evaluated=false）', async () => {
     const ctx = fakeContext(async () => {
       throw new Error('model unavailable');
     });
     const r = await gate.evaluate(input, ctx);
     expect(r.evaluated).toBe(false);
-    expect(r.converged).toBe(true); // 不阻塞主流程
+    expect(r.converged).toBeUndefined(); // L7：失败不误报达成（原 converged=true 语义废弃）
+    expect(r.confidence).toBe(0);
   });
 
-  test('输出非 JSON → 解析降级放行', async () => {
+  test('输出非 JSON → 解析失败跳过结论（converged=undefined, evaluated=false）', async () => {
     const ctx = fakeContext(async () => '模型只返回了文本，没有 JSON');
     const r = await gate.evaluate(input, ctx);
-    expect(r.evaluated).toBe(true);
-    expect(r.converged).toBe(true);
+    expect(r.evaluated).toBe(false);
+    expect(r.converged).toBeUndefined(); // L7：解析失败不当作"达成"放行
   });
 
   test('isGoalEvaluateEnabled 默认启用（未配置环境变量时）', () => {

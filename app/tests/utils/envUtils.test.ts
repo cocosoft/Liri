@@ -114,8 +114,18 @@ describe('isProdMode', () => {
 describe('getConfigHomeDir', () => {
 
   it('should return path ending with pyapp', () => {
-    const result = getConfigHomeDir();
-    expect(result.endsWith('pyapp')).toBe(true);
+    // 锁定默认环境：其它 contract 测试（tests/http/pdca-*.contract 等）在模块顶层写入
+    // process.env.LIRI_HOME 隔离数据目录，同 worker 复用会泄漏至此。本用例验证的是
+    // resolvePyappHome 默认语义（~/.pyapp），先清除 LIRI_HOME 再断言。
+    const prev = process.env.LIRI_HOME;
+    delete process.env.LIRI_HOME;
+    try {
+      const result = getConfigHomeDir();
+      expect(result.endsWith('pyapp')).toBe(true);
+    } finally {
+      if (prev === undefined) delete process.env.LIRI_HOME;
+      else process.env.LIRI_HOME = prev;
+    }
   });
 
   it('should contain the home directory', () => {

@@ -141,23 +141,52 @@ export async function assembleSystemPrompt(
   // P0-1（提示词分层治理）：场景附加动态段跳过 mode 白名单过滤、并入分区与报告
   const extraSections = extraDynamicSections ?? [];
   const allSections = [...filteredSections, ...extraSections];
-  const sectionResults = await resolveSystemPromptSections(allSections);
 
-  // P1（提示词分层治理）：动态注册段预算编排——超预算按层(L3→L2)结构性降级丢弃，
-  // 保留 extra（旁路行为段）与 L0/L1。TODO: P1.5 成本缓存前置估算，省去被丢弃段 compute。
+  // P1（提示词分层治理）：动态注册段预算编排。P1.5：resolve 前基于上一轮实测成本缓存
+  // （dynamicCostCache）预选跳过昂贵低价值段（compute 不执行），实测后再兜底按层丢弃。
   const dynamicBudgetTokens = resolveDynamicBudgetTokens(
     dynamicBudgetTokensOpt
   );
-  let droppedIndexes = new Set<number>();
+  const extraNames = new Set(extraSections.map((s) => s.name));
+  const preDropIndexes =
+    dynamicBudgetTokens !== undefined
+      ? planDynamicPreDrops(allSections, extraNames, dynamicBudgetTokens)
+      : new Set<number>();
+  if (preDropIndexes.size > 0) {
+    const skippedNames = Array.from(preDropIndexes).map((i) => {
+      const s = allSections[i];
+      allSections[i] = { ...s, compute: async () => null };
+      return s.name;
+    });
+    logger.info('prompt:dynamic-budget 预算前置：跳过昂贵动态段 compute', {
+      budgetTokens: dynamicBudgetTokens,
+      skipped: skippedNames,
+    });
+  }
+
+  const sectionResults = await resolveSystemPromptSections(allSections);
+
+  // P1.5：本轮实测成本刷新缓存（被预丢段不刷新——保留旧值供下轮重新评估，
+  // 避免段被"永久饿死"；预算放大或内容收敛后会重新纳入）
   if (dynamicBudgetTokens !== undefined) {
-    const extraNames = new Set(extraSections.map((s) => s.name));
+    for (let i = 0; i < allSections.length; i++) {
+      const s = allSections[i];
+      const content = sectionResults[i];
+      if (!s.cacheBreak || extraNames.has(s.name) || !content) continue;
+      dynamicCostCache.set(s.name, estimateTokens(content));
+    }
+  }
+
+  // 实测兜底：resolve 后（含预丢跳过）仍超预算则按层丢弃（与预丢并集）
+  let droppedIndexes = new Set<number>(preDropIndexes);
+  if (dynamicBudgetTokens !== undefined) {
     const drop = computeDynamicDrops(
       allSections,
       sectionResults,
       extraNames,
       dynamicBudgetTokens
     );
-    droppedIndexes = drop.droppedIndexes;
+    for (const idx of drop.droppedIndexes) droppedIndexes.add(idx);
     if (drop.droppedInfos.length > 0) {
       logger.info('prompt:dynamic-budget 超预算，按层降级丢弃动态段', {
         budgetTokens: dynamicBudgetTokens,
@@ -267,6 +296,49 @@ function resolveModelContext(): { provider: string; modelName: string } {
   } catch {
     return { provider: 'unknown', modelName: 'unknown' };
   }
+}
+
+/**
+ * P1.5（提示词分层治理）：动态段实测成本缓存（name → 上一轮实测 tokens）。
+ * resolve 前据此预选跳过昂贵低价值段（省 compute），resolve 后刷新。
+ */
+const dynamicCostCache = new Map<string, number>();
+
+/**
+ * P1.5（提示词分层治理）：预算前置编排——resolve 前基于成本缓存预选跳过段。
+ * - 仅当缓存有该段上一轮实测值才参与（首轮全 resolve，保守起步）
+ * - 预丢顺序与 computeDynamicDrops 一致：L3→L2 + token 降序；extra/L0/L1 豁免
+ * 返回应跳过 compute 的段索引；无缓存或未超预算返回空集。
+ */
+function planDynamicPreDrops(
+  sections: SystemPromptSection[],
+  extraNames: Set<string>,
+  budgetTokens: number
+): Set<number> {
+  const layerRank = (layer: string): number =>
+    layer === 'L3' ? 3 : layer === 'L2' ? 2 : layer === 'L1' ? 1 : 0;
+  const candidates: Array<{ idx: number; tokens: number; rank: number }> = [];
+  let estTotal = 0;
+  for (let i = 0; i < sections.length; i++) {
+    const s = sections[i];
+    if (!s.cacheBreak || extraNames.has(s.name)) continue;
+    const layer = getSectionLayer(s.name);
+    const rank = layerRank(layer);
+    if (rank < 2) continue; // L0/L1 豁免
+    const cached = dynamicCostCache.get(s.name);
+    if (cached === undefined) continue; // 首轮/无缓存：不预丢
+    estTotal += cached;
+    candidates.push({ idx: i, tokens: cached, rank });
+  }
+  if (estTotal <= budgetTokens || candidates.length === 0) return new Set();
+  candidates.sort((a, b) => b.rank - a.rank || b.tokens - a.tokens);
+  const preDrop = new Set<number>();
+  for (const c of candidates) {
+    if (estTotal <= budgetTokens) break;
+    preDrop.add(c.idx);
+    estTotal -= c.tokens;
+  }
+  return preDrop;
 }
 
 /**

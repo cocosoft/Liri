@@ -21,6 +21,11 @@ import { existsSync } from 'fs';
 import { createHash } from 'crypto';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
+// K1b：文档类（PDF/DOCX/XLSX）摄取分类时经 extractor 取文本层，避免二进制乱码入分类 prompt
+import {
+  extractDocument,
+  DOCUMENT_EXTRACT_EXTS,
+} from './extractors/TextExtractor';
 import type { AIService, AIMessage } from '@modules/ai';
 import { AIMessageRole } from '@modules/ai';
 import { resolvePyappHome } from '@modules/core';
@@ -346,7 +351,7 @@ export class FileIngestionService {
         category = options.category || mediaCategory;
       } else if (!options.skipClassification && this.aiService) {
         try {
-          const content = await this.safeReadFile(resolvedPath);
+          const content = await this.readClassifiableContent(resolvedPath);
           if (content) {
             category = await this.classifyContent(
               fileName,
@@ -487,6 +492,27 @@ export class FileIngestionService {
     if (fontExtensions.has(ext)) return 'reference';
 
     return 'other';
+  }
+
+  /**
+   * 分类内容源（K1b）：文档类（PDF/DOCX/XLSX）经 extractor 取文本层，
+   * 文本类沿用 safeReadFile（编码自动检测）；抽取失败返回 null（走默认分类）。
+   */
+  private async readClassifiableContent(filePath: string): Promise<string | null> {
+    const ext = extname(filePath).toLowerCase();
+    if (DOCUMENT_EXTRACT_EXTS.includes(ext)) {
+      try {
+        const doc = await extractDocument(filePath);
+        return doc ? doc.text : null;
+      } catch (err) {
+        logger.warning('文档类分类内容抽取失败，走默认分类', {
+          file: filePath,
+          error: String(err),
+        });
+        return null;
+      }
+    }
+    return this.safeReadFile(filePath);
   }
 
   /**

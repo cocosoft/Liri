@@ -31,6 +31,10 @@ function git(cwd: string, ...args: string[]) {
 beforeAll(() => {
   repo = mkdtempSync(join(tmpdir(), 'wt-snap-'));
   execSync(`git init "${repo}"`, { stdio: 'pipe' });
+  // CI runner 无全局 git identity（fatal: empty ident name）——预置 repo 局部身份，
+  // 供 createWorkspaceSnapshot（产品代码 git commit 不传 -c）继承，跨平台稳定。
+  git(repo, 'config', 'user.name', 't');
+  git(repo, 'config', 'user.email', 't@t');
   writeFileSync(join(repo, 'a.txt'), 'base\n');
   git(repo, 'add', 'a.txt');
   git(

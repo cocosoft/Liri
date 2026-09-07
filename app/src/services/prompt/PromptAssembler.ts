@@ -145,7 +145,9 @@ export async function assembleSystemPrompt(
 
   // P1（提示词分层治理）：动态注册段预算编排——超预算按层(L3→L2)结构性降级丢弃，
   // 保留 extra（旁路行为段）与 L0/L1。TODO: P1.5 成本缓存前置估算，省去被丢弃段 compute。
-  const dynamicBudgetTokens = resolveDynamicBudgetTokens(dynamicBudgetTokensOpt);
+  const dynamicBudgetTokens = resolveDynamicBudgetTokens(
+    dynamicBudgetTokensOpt
+  );
   let droppedIndexes = new Set<number>();
   if (dynamicBudgetTokens !== undefined) {
     const extraNames = new Set(extraSections.map((s) => s.name));
@@ -311,7 +313,8 @@ function computeDynamicDrops(
   }
   candidates.sort((a, b) => b.rank - a.rank || b.tokens - a.tokens);
   const droppedIndexes = new Set<number>();
-  const droppedInfos: Array<{ name: string; tokens: number; layer: string }> = [];
+  const droppedInfos: Array<{ name: string; tokens: number; layer: string }> =
+    [];
   for (const c of candidates) {
     if (totalTokens <= budgetTokens) break;
     droppedIndexes.add(c.idx);

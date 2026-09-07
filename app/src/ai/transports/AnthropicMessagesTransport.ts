@@ -9,6 +9,7 @@
  */
 
 import { BaseTransport } from './BaseTransport';
+import { CACHE_BOUNDARY } from '@modules/constants/systemPromptSections';
 import type {
   NormalizedResponse,
   NormalizedToolCall,
@@ -155,17 +156,49 @@ export class MessagesApiTransport extends BaseTransport {
       ? this.convertTools(params.tools)
       : undefined;
 
+    // P2（提示词分层治理）：system 多块 cache_control 拆分。
+    // 含 CACHE_BOUNDARY 时拆两块：[稳定前缀(cache_control)] + [动态区(无 cache)]——
+    // 每轮变化的动态段（goal/memory/rules 等）不再让整个 system 缓存块失效；
+    // 不含 boundary 或未启用缓存时保持原单块行为。
     const systemMsg = (
       params.messages as Array<{ role: string; content: string | null }>
     )
       .filter((m) => m.role === 'system' && m.content)
-      .map((m) => ({
-        type: 'text',
-        text: m.content!,
-        ...(this.enableCaching
-          ? { cache_control: { type: 'ephemeral' as const } }
-          : {}),
-      }));
+      .flatMap((m) => {
+        const text = m.content!;
+        const boundaryIdx = this.enableCaching
+          ? text.indexOf(CACHE_BOUNDARY)
+          : -1;
+        if (boundaryIdx < 0) {
+          return [
+            {
+              type: 'text',
+              text,
+              ...(this.enableCaching
+                ? { cache_control: { type: 'ephemeral' as const } }
+                : {}),
+            },
+          ];
+        }
+        const stable = text
+          .slice(0, boundaryIdx)
+          .replace(/\s+$/, '');
+        const dynamic = text
+          .slice(boundaryIdx + CACHE_BOUNDARY.length)
+          .replace(/^\s+/, '');
+        const blocks: Array<Record<string, unknown>> = [];
+        if (stable) {
+          blocks.push({
+            type: 'text',
+            text: stable,
+            cache_control: { type: 'ephemeral' as const },
+          });
+        }
+        if (dynamic) {
+          blocks.push({ type: 'text', text: dynamic });
+        }
+        return blocks;
+      });
 
     const body: Record<string, unknown> = {
       model: params.model,

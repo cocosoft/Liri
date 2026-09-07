@@ -30,14 +30,18 @@
  * 分发：extractDocument(path) 按扩展名路由到对应抽取器；
  * 文本类扩展名回退 utf-8 直读（保持原管线行为），无抽取器返回 null（调用方按原逻辑跳过）。
  */
-import { readFile } from 'fs/promises';
+import { readFile, writeFile } from 'fs/promises';
 import { extname } from 'path';
 import { PdfExtractor } from './PdfExtractor';
 import { DocxExtractor } from './DocxExtractor';
 import { XlsxExtractor } from './XlsxExtractor';
 import type { ExtractedDocument } from './types';
 
-const extractors = [new PdfExtractor(), new DocxExtractor(), new XlsxExtractor()];
+const extractors = [
+  new PdfExtractor(),
+  new DocxExtractor(),
+  new XlsxExtractor(),
+];
 
 /** 文档抽取器支持的可编译扩展名（供 KnowledgeCompiler.COMPILABLE_EXTENSIONS 扩展） */
 export const DOCUMENT_EXTRACT_EXTS: string[] = [
@@ -57,6 +61,36 @@ const PLAIN_TEXT_EXTS = new Set([
 ]);
 
 /**
+ * K4 证据回链 sidecar：抽取时把 pagesText/locators 持久化到 {path}.locators.json，
+ * 供检索期 quote→page/§ 反查（避免每次查询重新解析 PDF/DOCX/XLSX）。
+ */
+export async function persistExtractionSidecar(
+  rawFile: string,
+  extracted: ExtractedDocument
+): Promise<void> {
+  const hasLocators = extracted.locators.length > 0;
+  const hasPagesText = (extracted.pagesText?.length ?? 0) > 0;
+  if (!hasLocators && !hasPagesText) return;
+
+  try {
+    await writeFile(
+      `${rawFile}.locators.json`,
+      JSON.stringify({
+        path: extracted.path,
+        ext: extracted.ext,
+        pageCount: extracted.meta.pageCount,
+        charCount: extracted.meta.charCount,
+        locators: extracted.locators,
+        pagesText: extracted.pagesText ?? [],
+      }),
+      'utf-8'
+    );
+  } catch {
+    // @ignore-catch 定位缓存失败不影响抽取主流程
+  }
+}
+
+/**
  * 抽取任意源文件的统一文本层。返回 null 表示该扩展名既非文档也非文本
  * （调用方应跳过——与现有 ignore 语义一致）。
  */
@@ -67,7 +101,9 @@ export async function extractDocument(
 
   const extractor = extractors.find((e) => e.extensions.includes(ext));
   if (extractor) {
-    return extractor.extract(path);
+    const extracted = await extractor.extract(path);
+    await persistExtractionSidecar(path, extracted);
+    return extracted;
   }
 
   if (PLAIN_TEXT_EXTS.has(ext)) {

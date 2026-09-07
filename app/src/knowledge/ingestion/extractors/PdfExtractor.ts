@@ -28,7 +28,10 @@
  */
 import { readFile } from 'fs/promises';
 import { createRequire } from 'module';
-import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist/legacy/build/pdf.mjs';
+import {
+  getDocument,
+  GlobalWorkerOptions,
+} from 'pdfjs-dist/legacy/build/pdf.mjs';
 import type { ExtractedDocument, DocumentExtractor } from './types';
 
 const require = createRequire(import.meta.url);

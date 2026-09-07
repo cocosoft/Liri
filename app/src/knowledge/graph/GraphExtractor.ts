@@ -16,7 +16,8 @@ import { modelRouter } from '@modules/ai';
 import { LogLevel } from '@modules/monitoring';
 import { OTelAwareLogger } from '@modules/monitoring/logs/OTelAwareLogger';
 import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing';
-import type { KnowledgeGraph } from '@modules/knowledge/graph/KnowledgeGraph';
+import { KnowledgeGraph } from '@modules/knowledge/graph/KnowledgeGraph';
+import type { SchemaContainer } from '@modules/knowledge/schema/SchemaLoader';
 import type { AIService, AIMessage } from '@modules/ai';
 import { AIMessageRole } from '@modules/ai';
 // 内存画像（2026-09-02 排查"会话中断/内存尖峰"用，MEM_PROFILE=1 才采样）
@@ -40,17 +41,66 @@ export interface ExtractionResult {
 }
 
 /**
+ * 图谱 schema 约束（K2 本体驱动，opt-in）
+ * 仅当调用方显式传入 schema（用户放置 entities.yaml/edges.yaml）时启用白名单；
+ * 未传 schema 时保持自由提取，既有 2196 条自由边不受影响。
+ */
+type GraphSchema = {
+  entities: SchemaContainer['entities'];
+  edges: SchemaContainer['edges'];
+};
+
+/** 构建 schema 白名单描述文本 */
+function buildSchemaConstraint(
+  schema: GraphSchema | undefined,
+  domain: string
+): string {
+  if (!schema) return '';
+
+  const lines: string[] = [];
+  lines.push(`文档领域：${domain}`);
+  if (schema.entities.size > 0) {
+    const kinds = Array.from(schema.entities.values())
+      .map((e) => `  - ${e.kind}（${e.displayName}）：${e.description}`)
+      .join('\n');
+    lines.push('允许的实体类型（只能输出这些 type）：\n' + kinds);
+  }
+  if (schema.edges.size > 0) {
+    const types = Array.from(schema.edges.values())
+      .map(
+        (e) =>
+          `  - ${e.type}（${e.displayName}）：${e.endpoints.from} → ${e.endpoints.to}`
+      )
+      .join('\n');
+    lines.push(
+      '允许的关系类型（只能输出这些 type，并遵守端点约束）：\n' + types
+    );
+  }
+  if (schema.entities.size > 0 || schema.edges.size > 0) {
+    lines.push(
+      `实体 ID 请使用统一格式 "${domain}:{实体类型}:{短横线slug}"（如 ${domain}:concept:ontology）`
+    );
+  }
+  return lines.join('\n\n');
+}
+
+/**
  * 构建提取 Prompt
  */
-function buildExtractionPrompt(content: string, domain: string): string {
+function buildExtractionPrompt(
+  content: string,
+  domain: string,
+  schema?: GraphSchema
+): string {
   return `你是一个知识图谱构建助手。请从以下文档内容中提取关键实体和它们之间的关系。
 
-文档领域：${domain}
+${buildSchemaConstraint(schema, domain)}
 
 规则：
 1. 实体应包含唯一 ID、类型和简短描述
 2. 关系应包含源实体 ID、目标实体 ID、关系类型、描述和强度(1-10)
 3. 只提取明确出现的信息，不要推测
+4. 存在 schema 约束时，实体 type 与关系 type 必须属于白名单，否则跳过该条
 
 请以 JSON 格式返回：
 {
@@ -60,6 +110,65 @@ function buildExtractionPrompt(content: string, domain: string): string {
 
 文档内容：
 ${content.slice(0, 8000)}`;
+}
+
+/**
+ * schema 白名单后置过滤（K2，opt-in）
+ * - 实体 type 不在白名单 → 丢弃并计数
+ * - 关系 type 不在白名单 → 丢弃并计数
+ * - 关系端点 ID 可解析为 {domain}:{kind}:{slug} 且 kind 与 schema.endpoints 不符 → 丢弃
+ * - 端点 ID 不可解析（历史自由格式）→ 保留（防回归）
+ */
+function applySchemaFilter(
+  extracted: ExtractionResult,
+  schema: GraphSchema | undefined
+): { result: ExtractionResult; droppedEntities: number; droppedEdges: number } {
+  if (!schema)
+    return { result: extracted, droppedEntities: 0, droppedEdges: 0 };
+
+  const knownKinds =
+    schema.entities.size > 0 ? new Set(schema.entities.keys()) : null;
+  const knownEdgeTypes =
+    schema.edges.size > 0 ? new Set(schema.edges.keys()) : null;
+
+  let droppedEntities = 0;
+  let droppedEdges = 0;
+
+  const entities = knownKinds
+    ? extracted.entities.filter((e) => {
+        if (knownKinds.has(e.type)) return true;
+        droppedEntities++;
+        return false;
+      })
+    : extracted.entities;
+
+  const edges = (knownEdgeTypes ? extracted.edges : []).filter((edge) => {
+    if (!knownEdgeTypes) return true;
+    if (!knownEdgeTypes.has(edge.type)) {
+      droppedEdges++;
+      return false;
+    }
+    const edgeSchema = schema.edges.get(edge.type);
+    if (!edgeSchema) return true;
+    const fromParsed = KnowledgeGraph.parseEntityId(edge.from);
+    const toParsed = KnowledgeGraph.parseEntityId(edge.to);
+    // 端点不可解析视为历史自由格式，跳过端点校验
+    if (fromParsed && fromParsed.kind !== edgeSchema.endpoints.from) {
+      droppedEdges++;
+      return false;
+    }
+    if (toParsed && toParsed.kind !== edgeSchema.endpoints.to) {
+      droppedEdges++;
+      return false;
+    }
+    return true;
+  });
+
+  return {
+    result: { entities, edges },
+    droppedEntities,
+    droppedEdges,
+  };
 }
 
 /**
@@ -74,11 +183,13 @@ export async function extractGraph(
   aiService: AIService,
   knowledgeGraph: KnowledgeGraph,
   content: string,
-  domain: string
+  domain: string,
+  schema?: GraphSchema
 ): Promise<ExtractionResult | null> {
   const otel = getOTelTracing();
   const span = otel.startSpan('knowledge.graph.extract', {
     'knowledge.graph.domain': domain,
+    'knowledge.graph.schema': schema ? 'constrained' : 'freeform',
   });
 
   try {
@@ -90,8 +201,8 @@ export async function extractGraph(
       return null;
     }
 
-    // 2. 构建 Prompt 并调用 LLM
-    const prompt = buildExtractionPrompt(content, domain);
+    // 2. 构建 Prompt 并调用 LLM（schema 白名单在 prompt 内联）
+    const prompt = buildExtractionPrompt(content, domain, schema);
     const messages: AIMessage[] = [
       {
         role: AIMessageRole.SYSTEM,
@@ -159,9 +270,18 @@ export async function extractGraph(
     memProfile('graph-extract:done', { domain });
     if (!extracted) return null;
 
+    // 3.5 schema 白名单后置过滤（K2 opt-in）：丢弃白名单外实体/关系并计数
+    const {
+      result: filtered,
+      droppedEntities,
+      droppedEdges,
+    } = applySchemaFilter(extracted, schema);
+    const keptEntities = filtered.entities ?? [];
+    const keptEdges = filtered.edges ?? [];
+
     // 4. 写入 kg_edges 表
     let edgeCount = 0;
-    for (const edge of extracted.edges ?? []) {
+    for (const edge of keptEdges) {
       await knowledgeGraph.addEdge({
         from: edge.from,
         to: edge.to,
@@ -176,18 +296,22 @@ export async function extractGraph(
       edgeCount++;
     }
 
-    span.setAttribute(
-      'knowledge.graph.entity_count',
-      (extracted.entities ?? []).length
-    );
+    span.setAttribute('knowledge.graph.entity_count', keptEntities.length);
     span.setAttribute('knowledge.graph.edge_count', edgeCount);
+    if (schema) {
+      span.setAttribute('knowledge.graph.dropped_entities', droppedEntities);
+      span.setAttribute('knowledge.graph.dropped_edges', droppedEdges);
+    }
     logger.info('图谱提取完成', {
       domain,
-      entities: (extracted.entities ?? []).length,
+      entities: keptEntities.length,
       edges: edgeCount,
+      schema: schema ? 'constrained' : 'freeform',
+      droppedEntities,
+      droppedEdges,
     });
 
-    return extracted;
+    return { entities: keptEntities, edges: keptEdges };
   } catch (err) {
     logger.warn('图谱提取失败，跳过该文档', {
       error: (err as Error).message,
@@ -202,16 +326,27 @@ export async function extractGraph(
 
 /** 兼容类形式的导出（用于构造函数注入场景） */
 export class GraphExtractor {
+  private schema?: GraphSchema;
+
   constructor(
     private aiService: AIService,
-    private knowledgeGraph: KnowledgeGraph
-  ) {}
+    private knowledgeGraph: KnowledgeGraph,
+    schema?: GraphSchema
+  ) {
+    this.schema = schema;
+  }
 
   async extract(
     content: string,
     domain: string
   ): Promise<ExtractionResult | null> {
-    return extractGraph(this.aiService, this.knowledgeGraph, content, domain);
+    return extractGraph(
+      this.aiService,
+      this.knowledgeGraph,
+      content,
+      domain,
+      this.schema
+    );
   }
 
   /** 查询指定域是否已存在图谱数据（用于判断是否需要全量构建） */

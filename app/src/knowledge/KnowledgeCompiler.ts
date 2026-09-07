@@ -32,9 +32,23 @@ import { FileSource } from '@modules/services/file/types';
 import { IndexManager } from './IndexManager';
 import { WikiLinter, defaultRules } from './lint/WikiLinter';
 import { providerRegistry, modelRouter } from '@modules/ai';
+import {
+  createMaxOutputRetryState,
+  advanceMaxOutputRetry,
+} from '@modules/ai/MaxOutputRetryHandler';
 import { GraphExtractor } from './graph/GraphExtractor';
 import { KnowledgeGraph } from './graph/KnowledgeGraph';
-import { extractDocument, DOCUMENT_EXTRACT_EXTS } from './ingestion/extractors/TextExtractor';
+import { SchemaLoader } from './schema/SchemaLoader';
+import { RecordStore } from './record/RecordStore';
+import { extractRecordsFromCompiledPages } from './record/RecordExtractor';
+import { RuleStore } from './rule/RuleStore';
+import { extractRulesFromCompiledPages } from './rule/RuleExtractor';
+import { computeFileDigest } from './lineage/contentFingerprint';
+import { LineageStore } from './lineage/LineageStore';
+import {
+  extractDocument,
+  DOCUMENT_EXTRACT_EXTS,
+} from './ingestion/extractors/TextExtractor';
 // 内存水位（2026-09-02）：非关键后台任务在压力下暂停（OS kswapd 式分级回收）
 import { isMemoryUnderPressure } from '../monitoring/memoryPressure/MemoryPressureMonitor.js';
 import {
@@ -58,7 +72,17 @@ const COMPILE_STATE_PATH = join(
 /** 编译状态快照 */
 interface CompileState {
   lastCompileAt: number;
-  docs: Record<string, { mtime: number; compiledAt: number }>;
+  /** 编译轮次版本（K5.3：血缘/快照绑定，每次编译运行 +1） */
+  lastVersion?: number;
+  docs: Record<
+    string,
+    {
+      mtime: number;
+      compiledAt: number;
+      /** 内容指纹（K5.1：sha1(raw 字节)，用于 mtime 未变时的内容变更检测） */
+      digest?: string;
+    }
+  >;
 }
 
 /** 可编译的文件扩展名（不含 .meta.json 伴侣文件）
@@ -78,6 +102,15 @@ const COMPILABLE_EXTENSIONS = new Set([
 
 /** LLM 输出中 page-break 分隔符 */
 const PAGE_BREAK = '---page-break---';
+
+/**
+ * 知识编译单次 LLM 输出 token 预算（P0 长文截断修复，2026-09-07）
+ * transport 层 max_tokens 缺省 4096（ChatCompletionsTransport），多页产物易被静默截断；
+ * 预算优先取 DB model_registry.max_output_tokens（数出同源），无记录/读取失败时用本默认值。
+ */
+const COMPILE_DEFAULT_MAX_TOKENS = 8192;
+/** 编译单次输出 token 硬上限（对齐 ai/MaxOutputRetryHandler 的 maxOutputLimit） */
+const COMPILE_MAX_TOKENS_LIMIT = 64000;
 
 export interface CompileOptions {
   /** 是否强制重编译所有文件，默认 false（仅编译更新的文件） */
@@ -99,6 +132,8 @@ export interface CompileResult {
   pagesCreated: number;
   /** 编译产出的文件路径列表（用于后续图谱提取） */
   compiledFiles: string[];
+  /** 编译轮次版本（K5.3，血缘/快照绑定） */
+  version?: number;
   /** 编译质量信息（v1.5 新增） */
   quality?: {
     /** 0-100，基于 lint 问题数计算 */
@@ -132,12 +167,24 @@ export class KnowledgeCompiler {
   private static readonly GRAPH_EXTRACT_MAX_PAGES = 50;
   /** 单页内容上限：超过则跳过提取（提取 prompt 仅用前 8000 字符，读入超大页纯属浪费内存） */
   private static readonly GRAPH_EXTRACT_MAX_FILE_BYTES = 1024 * 1024;
+  /** 编译 max_tokens 预算缓存（key=模型名，避免逐文件查 DB；P0 长文截断修复） */
+  private maxTokensCache = new Map<string, number>();
+  /** K5 血缘：可选注入的 LineageStore（记录 doc→page 血缘） */
+  private lineage?: LineageStore;
+  /** K5.3 本次编译版本（runner 注入） */
+  private compileVersion = 1;
 
-  constructor(aiService: AIService, graphExtractor?: GraphExtractor) {
+  constructor(
+    aiService: AIService,
+    graphExtractor?: GraphExtractor,
+    runtime?: { lineage?: LineageStore; version?: number }
+  ) {
     this.knowledgeRoot = join(resolvePyappHome(), 'knowledge');
     this.rawDir = join(this.knowledgeRoot, 'raw');
     this.aiService = aiService;
     this.graphExtractor = graphExtractor;
+    this.lineage = runtime?.lineage;
+    this.compileVersion = runtime?.version ?? 1;
     this.indexManager = new IndexManager(this.knowledgeRoot);
   }
 
@@ -183,7 +230,24 @@ export class KnowledgeCompiler {
 
     // 加载编译状态快照，用于跳过无变更文件
     const compileState = await this.loadCompileState();
-    const newState: CompileState = { lastCompileAt: Date.now(), docs: {} };
+    // K5.3：编译轮次版本（血缘/快照绑定，每次运行 +1）
+    const version = (compileState?.lastVersion ?? 0) + 1;
+    this.compileVersion = version;
+    const newState: CompileState = {
+      lastCompileAt: Date.now(),
+      lastVersion: version,
+      docs: {},
+    };
+    // K5.1：raw 内容指纹缓存（同一次编译内每个文件至多读一次）
+    const digestCache = new Map<string, string>();
+    const digestFor = async (file: string): Promise<string> => {
+      let digest = digestCache.get(file);
+      if (!digest) {
+        digest = await computeFileDigest(file);
+        digestCache.set(file, digest);
+      }
+      return digest;
+    };
 
     // 清理已删除 raw 文件的编译产物
     const cleanedCount = await this.cleanupDeletedRawFiles(
@@ -208,29 +272,49 @@ export class KnowledgeCompiler {
       try {
         let needsCompile = force || (await this.needsRecompile(rawFile));
 
-        // 增量优化：通过编译状态快照跳过 mtime 未变更的文件
+        // 增量优化：通过编译状态快照跳过 mtime 未变更的文件；
+        // K5.1：mtime 一致时再比对内容指纹，内容变但 mtime 未变也触发重编译
         if (!force && !needsCompile) {
           const rawStat = await stat(rawFile);
           const prevState = compileState?.docs[rawFile];
           if (prevState && prevState.mtime === rawStat.mtimeMs) {
-            // mtime 完全一致，且已有编译产物，可以安全跳过
-            result.skipped++;
-            newState.docs[rawFile] = prevState;
-            updateCompileProgress(result.compiled + result.skipped);
-            continue;
+            if (prevState.digest) {
+              const digest = await digestFor(rawFile);
+              if (digest === prevState.digest) {
+                // 指纹一致 → 内容未变，安全跳过
+                result.skipped++;
+                newState.docs[rawFile] = prevState;
+                updateCompileProgress(result.compiled + result.skipped);
+                continue;
+              }
+              // 指纹不同但 mtime 相同 → 内容被改写（如 touch 保留 mtime），强制编译
+              needsCompile = true;
+              logger.info('内容指纹变化触发重编译（mtime 未变）', {
+                file: rawFile,
+              });
+            } else {
+              // 旧快照无 digest（迁移期）→ 维持原跳过行为，新编译后自动补指纹
+              result.skipped++;
+              newState.docs[rawFile] = prevState;
+              updateCompileProgress(result.compiled + result.skipped);
+              continue;
+            }
+          } else {
+            // mtime 变更了但 needsRecompile 返回 false（可能编译产物仍更新）
+            // 保守策略：仍需检查，但不需要强制重编译
+            needsCompile = false;
           }
-          // mtime 变更了但 needsRecompile 返回 false（可能编译产物仍更新）
-          // 保守策略：仍需检查，但不需要强制重编译
-          needsCompile = false;
         }
 
         if (!needsCompile) {
           // 记录当前 mtime 到新快照（即使跳过也要记录，避免下次重复判断）
           try {
             const rawStat = await stat(rawFile);
+            const prevDoc = compileState?.docs[rawFile];
             newState.docs[rawFile] = {
               mtime: rawStat.mtimeMs,
-              compiledAt: compileState?.docs[rawFile]?.compiledAt ?? Date.now(),
+              compiledAt: prevDoc?.compiledAt ?? Date.now(),
+              ...(prevDoc?.digest ? { digest: prevDoc.digest } : {}),
             };
           } catch (_err) {
             // stat 失败忽略
@@ -245,15 +329,37 @@ export class KnowledgeCompiler {
         result.pagesCreated += pages.length;
         result.compiledFiles.push(...pages);
 
-        // 编译成功，记录到快照
+        // 编译成功，记录到快照（含内容指纹 K5.1）
         try {
           const rawStat = await stat(rawFile);
           newState.docs[rawFile] = {
             mtime: rawStat.mtimeMs,
             compiledAt: Date.now(),
+            digest: await digestFor(rawFile),
           };
         } catch (_err) {
           // stat 失败忽略
+        }
+
+        // K5.2 血缘：doc(raw) → 本次编译页面（幂等；重编译先 purge 再写）
+        if (this.lineage && pages.length > 0) {
+          try {
+            await this.lineage.purgeByDoc(rawFile);
+            await this.lineage.addLinks(
+              rawFile,
+              pages.map((p) => ({
+                artifactType: 'page' as const,
+                artifactId: p,
+              })),
+              version
+            );
+          } catch (lineageErr) {
+            // 血缘写入失败不影响编译主流程
+            logger.warning('血缘写入失败', {
+              file: rawFile,
+              error: String(lineageErr),
+            });
+          }
         }
 
         updateCompileProgress(result.compiled + result.skipped);
@@ -266,6 +372,9 @@ export class KnowledgeCompiler {
         logger.error('文件编译失败', { file: rawFile, error: errMsg });
       }
     }
+
+    // 返回本轮编译版本（K5.3：runner/检索/审计标注用）
+    result.version = version;
 
     // W9: 编译完成（KB-COMPILE-ASYNC：携带结果摘要，供前端进度轮询展示）
     finishCompileProgress({
@@ -712,25 +821,72 @@ summary: 概念简介
     ];
 
     const startTime = performance.now();
-    let rawOutput: string;
+    let rawOutput = '';
+    // P0 长文截断修复（2026-09-07，源自 K1 e2e 验收）：原 generate 未传 max_tokens，
+    // transport 缺省 4096 静默截断多页产物（曾以 4095 tokens 只写出 frontmatter 空页）。
+    // 预算取自 DB 模型 max_output_tokens（数出同源）。
+    // 重试触发条件有两类：
+    //   1) finish_reason === 'max_tokens' —— 显式触顶截断；
+    //   2) content 为空 —— 推理模型（thinking）的 completion_tokens 含推理开销，
+    //      8192 预算可被推理耗尽返回空正文（实测 deepseek-v4-flash 4095/4095 空输出，
+    //      翻倍到 16384 后同模型可产出 6445 token 正文），此时 finish_reason 不报
+    //      max_tokens，需按"输出异常为空"加倍重试。
+    // 重试耗尽仍异常 → 抛错跳过，绝不落盘残缺页。
+    let retryState = createMaxOutputRetryState(
+      await this.resolveCompileMaxTokens(model)
+    );
+    let truncated = false;
     try {
-      const response = await this.aiService.generate(messages, model);
-      rawOutput = response.content.trim();
+      for (;;) {
+        const response = await this.aiService.generate(messages, model, {
+          max_tokens: retryState.currentMaxTokens,
+        });
+        rawOutput = response.content.trim();
 
-      // 记录 LLM 调用性能
-      const latency = performance.now() - startTime;
-      const tokens = response.usage ?? {
-        prompt_tokens: 0,
-        completion_tokens: 0,
-      };
-      LLMPerformanceMonitor.getInstance().recordRequest({
-        model: model ?? 'knowledge-compiler',
-        inputTokens: tokens.prompt_tokens ?? 0,
-        outputTokens: tokens.completion_tokens ?? 0,
-        latency,
-        success: true,
-        cost: 0, // CostMonitor 通过 recordCost 单独计算
-      });
+        // 记录 LLM 调用性能（每次真实调用均记录）
+        const latency = performance.now() - startTime;
+        const tokens = response.usage ?? {
+          prompt_tokens: 0,
+          completion_tokens: 0,
+        };
+        LLMPerformanceMonitor.getInstance().recordRequest({
+          model: model ?? 'knowledge-compiler',
+          inputTokens: tokens.prompt_tokens ?? 0,
+          outputTokens: tokens.completion_tokens ?? 0,
+          latency,
+          success: true,
+          cost: 0, // CostMonitor 通过 recordCost 单独计算
+        });
+
+        // 正文为空：推理模型可能把输出预算全耗在 thinking 上，等同截断，需重试
+        const emptyOutput = rawOutput.length === 0;
+        if (response.finish_reason !== 'max_tokens' && !emptyOutput) break;
+
+        const next = advanceMaxOutputRetry('max_tokens', retryState);
+        if (!next.shouldRetry) {
+          truncated = true;
+          logger.warn('知识编译输出异常，重试耗尽仍无法获得正文', {
+            file: targetPath,
+            emptyOutput,
+            finishReason: response.finish_reason ?? 'unknown',
+            outputTokens: tokens.completion_tokens ?? 0,
+            maxTokens: retryState.currentMaxTokens,
+          });
+          break;
+        }
+        logger.warn(
+          emptyOutput
+            ? '知识编译输出为空（疑似推理模型预算被 thinking 耗尽），翻倍后重试'
+            : '知识编译输出被 max_tokens 截断，加倍后重试',
+          {
+            file: targetPath,
+            outputTokens: tokens.completion_tokens ?? 0,
+            nextMaxTokens: next.currentMaxTokens,
+            retryCount: next.retryCount,
+          }
+        );
+        retryState = next;
+      }
     } catch (err) {
       LLMPerformanceMonitor.getInstance().recordRequest({
         model: model ?? 'knowledge-compiler',
@@ -742,6 +898,16 @@ summary: 概念简介
         cost: 0,
       });
       throw err;
+    }
+
+    if (truncated) {
+      // 失败即报错：不写残缺页（曾把 frontmatter 空页当成功产物落盘）；
+      // needsRecompile 仍为 true，下次调度自动重试，避免"部分编译"假象长期固化。
+      throw new Error(
+        `知识编译输出异常（已自动加倍重试 ${retryState.retryCount} 次，仍无法获得完整正文）。` +
+          '若目标模型为推理型（thinking 计入输出 token），可在「模型管理 → 该模型」' +
+          '调大最大输出 tokens，或为 knowledge_compile 任务改配非推理模型后重试。'
+      );
     }
 
     // 按 PAGE_BREAK 分隔为多个页面
@@ -783,6 +949,38 @@ summary: 概念简介
     }
 
     return pages;
+  }
+
+  /**
+   * 编译输出 token 预算（P0 长文截断修复）
+   * 模型输出上限是模型属性 → 以 DB model_registry.max_output_tokens 为唯一事实源
+   * （model-usage 规则：禁止按模型名硬编码属性表）；单实例内缓存避免逐文件查 DB。
+   */
+  private async resolveCompileMaxTokens(model?: string): Promise<number> {
+    const cacheKey = model || '';
+    const cached = this.maxTokensCache.get(cacheKey);
+    if (cached !== undefined) return cached;
+
+    let budget = COMPILE_DEFAULT_MAX_TOKENS;
+    if (model) {
+      try {
+        const { modelPricingService } =
+          await import('@modules/ai/models/ModelPricingService.js');
+        await modelPricingService.initialize();
+        const record = await modelPricingService.getPricing(model);
+        if (typeof record?.maxOutputTokens === 'number') {
+          budget = record.maxOutputTokens;
+        }
+      } catch (err) {
+        logger.warn('读取模型 maxOutputTokens 失败，使用编译默认预算', {
+          model,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
+    budget = Math.min(budget, COMPILE_MAX_TOKENS_LIMIT);
+    this.maxTokensCache.set(cacheKey, budget);
+    return budget;
   }
 
   /**
@@ -877,6 +1075,12 @@ summary: 概念简介
 
 /**
  * 一键执行知识编译
+ *
+ * K2（本体驱动）装配：
+ * - 图谱 schema 为 opt-in：仅当用户显式放置 .schema/entities.yaml 或 edges.yaml
+ *   时加载白名单约束（GraphExtractor schema-aware），否则保持自由提取（防回归）。
+ * - 字段级记录：编译产出页面后，若 .schema/records.yaml 存在则按 schema 抽取
+ *   结构化记录落 knowledge_records 表（RecordStore upsert）。
  */
 export async function runKnowledgeCompile(
   aiService: AIService,
@@ -884,7 +1088,101 @@ export async function runKnowledgeCompile(
 ): Promise<CompileResult> {
   const graph = new KnowledgeGraph();
   await graph.init();
-  const graphExtractor = new GraphExtractor(aiService, graph);
-  const compiler = new KnowledgeCompiler(aiService, graphExtractor);
-  return compiler.compile(options);
+
+  const schemaLoader = new SchemaLoader();
+  const schemaDir = schemaLoader.getSchemaDir();
+  const hasGraphSchema =
+    existsSync(join(schemaDir, 'entities.yaml')) ||
+    existsSync(join(schemaDir, 'edges.yaml'));
+  const graphSchemas = hasGraphSchema
+    ? await schemaLoader.loadAll()
+    : undefined;
+
+  // K5 血缘：编译页与 record/rule 产物共用一条 LineageStore
+  const lineage = new LineageStore();
+  await lineage.init();
+
+  const graphExtractor = new GraphExtractor(aiService, graph, graphSchemas);
+  const compiler = new KnowledgeCompiler(aiService, graphExtractor, {
+    lineage,
+  });
+  const result = await compiler.compile(options);
+  const compiledPages = result.compiledFiles ?? [];
+  const compileVersion = result.version ?? 1;
+
+  try {
+    // K2 字段级记录：仅本次有新编译页面且声明了 records.yaml 时执行
+    if (result.pagesCreated > 0) {
+      try {
+        const recordSchemas = await schemaLoader.loadRecords();
+        if (recordSchemas.size > 0 && compiledPages.length > 0) {
+          const store = new RecordStore();
+          try {
+            await extractRecordsFromCompiledPages(
+              aiService,
+              recordSchemas,
+              compiledPages,
+              store
+            );
+            // K5.2 血缘：page → 各 record 行（doc 取编译页，其再经 page 血缘指向源 raw）
+            for (const page of compiledPages) {
+              const rows = await store.listBySourceFile(page);
+              if (rows.length === 0) continue;
+              await lineage.addLinks(
+                page,
+                rows.map((r) => ({ artifactType: 'record', artifactId: r.id })),
+                compileVersion
+              );
+            }
+          } finally {
+            await store.close();
+          }
+        }
+      } catch (err) {
+        await handleError(err, {
+          module: 'knowledge:compiler',
+          action: 'record_extract',
+        });
+      }
+    }
+
+    // K3 规则类知识抽取：仅本次有新编译页面且声明了 rules.yaml 时执行
+    if (result.pagesCreated > 0) {
+      try {
+        const ruleSchemas = await schemaLoader.loadRules();
+        if (ruleSchemas.size > 0 && compiledPages.length > 0) {
+          const ruleStore = new RuleStore();
+          try {
+            await extractRulesFromCompiledPages(
+              aiService,
+              ruleSchemas,
+              compiledPages,
+              ruleStore
+            );
+            // K5.2 血缘：page → 各 rule 行
+            for (const page of compiledPages) {
+              const rows = await ruleStore.listBySourceFile(page);
+              if (rows.length === 0) continue;
+              await lineage.addLinks(
+                page,
+                rows.map((r) => ({ artifactType: 'rule', artifactId: r.id })),
+                compileVersion
+              );
+            }
+          } finally {
+            await ruleStore.close();
+          }
+        }
+      } catch (err) {
+        await handleError(err, {
+          module: 'knowledge:compiler',
+          action: 'rule_extract',
+        });
+      }
+    }
+  } finally {
+    await lineage.close();
+  }
+
+  return result;
 }

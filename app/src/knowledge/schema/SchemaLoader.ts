@@ -40,6 +40,7 @@ import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { resolveKnowledgeDir, resolveDomainSchemaDir } from '@modules/core';
 import type { ValidationResult } from '@modules/common/types';
+import type { ConstraintStrength } from '../rule/types';
 
 const logger = getLogger('knowledge:schema:schemaLoader');
 
@@ -58,6 +59,12 @@ export interface FieldDef {
   description?: string;
   /** 可选示例 */
   example?: string;
+  /** 值域白名单（K2 本体驱动：enum 约束） */
+  enum?: string[];
+  /** 值域正则（K2：仅 string 生效，如合同编号格式） */
+  regex?: string;
+  /** 值域范围（K2：number 比较 min/max） */
+  range?: { min?: number; max?: number };
 }
 
 /**
@@ -112,6 +119,42 @@ export interface XrefRule {
 }
 
 /**
+ * 记录类型定义（K2 字段级记录，records.yaml）
+ *
+ * 与 EntitySchema 的区别：记录代表"业务对象实例"（合同、设备、巡检项…），
+ * 以 primaryKey 字段值作为主键，落 knowledge_records 表并可被精确检索。
+ */
+export interface RecordSchema {
+  /** 记录类型标识（如 contract） */
+  type: string;
+  /** 显示名称 */
+  displayName: string;
+  /** 描述 */
+  description: string;
+  /** 主键字段名（必须存在于 fields 且为必填；用于去重/精确定位） */
+  primaryKey: string;
+  /** 字段定义表 */
+  fields: Record<string, FieldDef>;
+}
+
+/**
+ * 规则类型定义（K3，rules.yaml）
+ *
+ * 声明允许抽取的规则类别及各自允许的约束强度白名单；
+ * 仅当存在此文件时编译管线启用规则抽取（opt-in）。
+ */
+export interface RuleSchema {
+  /** 规则类别标识（如 policy/guideline/tip） */
+  kind: string;
+  /** 显示名称 */
+  displayName: string;
+  /** 描述 */
+  description: string;
+  /** 允许的约束强度白名单；空数组表示不限 */
+  strengths: ConstraintStrength[];
+}
+
+/**
  * Schema 容器（一次 loadAll 的完整结果）
  */
 export interface SchemaContainer {
@@ -121,6 +164,8 @@ export interface SchemaContainer {
   edges: Map<string, EdgeSchema>;
   /** 链接契约列表 */
   xref: XrefRule[];
+  /** 记录类型映射（records.yaml，K2） */
+  records: Map<string, RecordSchema>;
 }
 
 /**
@@ -176,8 +221,9 @@ export class SchemaLoader {
     const entities = await this.loadEntities();
     const edges = await this.loadEdges();
     const xref = await this.loadXref();
+    const records = await this.loadRecords();
 
-    return { entities, edges, xref };
+    return { entities, edges, xref, records };
   }
 
   /**
@@ -289,6 +335,191 @@ export class SchemaLoader {
   }
 
   /**
+   * 加载 records.yaml（K2 字段级记录）
+   *
+   * 与 loadEntities/loadEdges 不同：不触发 ensureDefaults，
+   * 避免在全局知识库目录自动生成默认 schema 文件造成副作用。
+   */
+  async loadRecords(): Promise<Map<string, RecordSchema>> {
+    const filePath = join(this.schemaDir, 'records.yaml');
+    const map = new Map<string, RecordSchema>();
+
+    if (!existsSync(filePath)) {
+      logger.info('records.yaml 不存在，返回空映射');
+      return map;
+    }
+
+    try {
+      const doc = load(readFileSync(filePath, 'utf-8')) as Record<
+        string,
+        unknown
+      >;
+      if (!doc || !Array.isArray(doc.records)) {
+        logger.warning('records.yaml 格式无效：缺少 records 数组');
+        return map;
+      }
+
+      for (const item of doc.records as Array<Record<string, unknown>>) {
+        const type = item.type as string | undefined;
+        const primaryKey = item.primaryKey as string | undefined;
+        const fields = item.fields as Record<string, FieldDef> | undefined;
+        if (!type || !primaryKey || !fields || !fields[primaryKey]) {
+          logger.warning('records.yaml 记录类型定义无效，已跳过', {
+            type: type ?? '(无 type)',
+            reason: !primaryKey
+              ? '缺少 primaryKey'
+              : !fields || !fields[primaryKey]
+                ? 'primaryKey 未在 fields 中定义'
+                : '缺少 fields',
+          });
+          continue;
+        }
+        map.set(type, item as unknown as RecordSchema);
+      }
+      logger.info(`已加载 ${map.size} 个记录类型定义`);
+    } catch (err) {
+      await handleError(err, {
+        module: 'knowledge:schema',
+        action: 'load_record_schemas',
+      });
+    }
+
+    return map;
+  }
+
+  /**
+   * 加载 rules.yaml（K3 规则类别白名单；opt-in，不触发 ensureDefaults）
+   */
+  async loadRules(): Promise<Map<string, RuleSchema>> {
+    const filePath = join(this.schemaDir, 'rules.yaml');
+    const map = new Map<string, RuleSchema>();
+
+    if (!existsSync(filePath)) {
+      logger.info('rules.yaml 不存在，返回空映射');
+      return map;
+    }
+
+    try {
+      const doc = load(readFileSync(filePath, 'utf-8')) as Record<
+        string,
+        unknown
+      >;
+      if (!doc || !Array.isArray(doc.rules)) {
+        logger.warning('rules.yaml 格式无效：缺少 rules 数组');
+        return map;
+      }
+
+      for (const item of doc.rules as Array<Record<string, unknown>>) {
+        const kind = item.kind as string | undefined;
+        const strengthsRaw = Array.isArray(item.strengths)
+          ? (item.strengths as unknown[])
+          : [];
+        const strengths = strengthsRaw.filter(
+          (s): s is ConstraintStrength =>
+            s === 'mandatory' || s === 'should' || s === 'may'
+        );
+        if (!kind) {
+          logger.warning('rules.yaml 规则类型定义无效（缺少 kind），已跳过');
+          continue;
+        }
+        map.set(kind, {
+          kind,
+          displayName: (item.displayName as string) ?? kind,
+          description: (item.description as string) ?? '',
+          strengths,
+        });
+      }
+      logger.info(`已加载 ${map.size} 个规则类别定义`);
+    } catch (err) {
+      await handleError(err, {
+        module: 'knowledge:schema',
+        action: 'load_rule_schemas',
+      });
+    }
+
+    return map;
+  }
+
+  /**
+   * 校验数据是否符合某记录类型 schema（K2）
+   * 必填 + 类型 + 值域（enum/regex/range）+ 主键非空
+   * @param schema 记录类型 schema（loadRecords 获得）
+   * @param data 待校验的数据
+   */
+  validateRecord(
+    schema: RecordSchema,
+    data: Record<string, unknown>
+  ): ValidationResult {
+    const errors: string[] = [];
+    const pkDef = schema.fields[schema.primaryKey];
+
+    if (!pkDef) {
+      return {
+        valid: false,
+        errors: [
+          `${schema.type}: primaryKey "${schema.primaryKey}" 未在 fields 中定义`,
+        ],
+      };
+    }
+
+    for (const [fieldName, fieldDef] of Object.entries(schema.fields)) {
+      const value = data[fieldName];
+
+      // 必填字段检查（主键必填在字段级由 required 表达，此处再兜底主键）
+      const required = fieldDef.required || fieldName === schema.primaryKey;
+      if (required && (value === undefined || value === null || value === '')) {
+        errors.push(`${schema.type}.${fieldName}: 必填字段缺失`);
+        continue;
+      }
+
+      // 类型 + 值域检查（有值时）
+      if (value !== undefined && value !== null) {
+        if (!this.checkType(value, fieldDef.type)) {
+          errors.push(
+            `${schema.type}.${fieldName}: 类型不匹配，期望 ${fieldDef.type}`
+          );
+          continue;
+        }
+        const domainError = this.checkValueDomain(value, fieldDef);
+        if (domainError) {
+          errors.push(`${schema.type}.${fieldName}: ${domainError}`);
+        }
+      }
+    }
+
+    return { valid: errors.length === 0, errors };
+  }
+
+  /**
+   * 值域校验（enum / regex / range），通过返回 null，失败返回描述
+   */
+  private checkValueDomain(value: unknown, def: FieldDef): string | null {
+    if (def.enum && def.enum.length > 0) {
+      if (!def.enum.includes(String(value))) {
+        return `值域校验失败，必须属于: ${def.enum.join(' | ')}`;
+      }
+    }
+    if (def.regex && typeof value === 'string') {
+      try {
+        if (!new RegExp(def.regex).test(value)) {
+          return `正则校验失败，格式需匹配: ${def.regex}`;
+        }
+      } catch {
+        return `schema 定义的正则无效: ${def.regex}`;
+      }
+    }
+    if (def.range && typeof value === 'number') {
+      if (def.range.min !== undefined && value < def.range.min) {
+        return `超出范围下限，最小 ${def.range.min}`;
+      }
+      if (def.range.max !== undefined && value > def.range.max) {
+        return `超出范围上限，最大 ${def.range.max}`;
+      }
+    }
+    return null;
+  }
+
+  /**
    * 校验数据是否符合某实体类型的 schema
    * @param kind 实体类型标识
    * @param data 待校验的数据
@@ -319,12 +550,17 @@ export class SchemaLoader {
         continue;
       }
 
-      // 类型检查（有值时）
+      // 类型 + 值域检查（有值时）
       if (value !== undefined && value !== null) {
         if (!this.checkType(value, fieldDef.type)) {
           errors.push(
             `${kind}.${fieldName}: 类型不匹配，期望 ${fieldDef.type}`
           );
+          continue;
+        }
+        const domainError = this.checkValueDomain(value, fieldDef);
+        if (domainError) {
+          errors.push(`${kind}.${fieldName}: ${domainError}`);
         }
       }
     }

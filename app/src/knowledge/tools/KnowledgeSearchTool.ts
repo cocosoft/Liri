@@ -35,6 +35,7 @@ import {
 } from '../../docs/knowledge-types';
 import type { AIService } from '@modules/ai';
 import { AIMessageRole } from '@modules/ai';
+import { resolveKnowledgeDir } from '@modules/core';
 import { KnowledgeBaseWriter } from '../KnowledgeBaseWriter';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('knowledge:tools:knowledgeSearchTool');
@@ -88,6 +89,22 @@ export class KnowledgeSearchTool implements Tool {
       required: false,
       default: false,
     },
+    {
+      name: 'recordType',
+      type: 'string',
+      description:
+        'K2 记录检索：填写 records.yaml 中声明的记录类型（如 contract）时，' +
+        '改为按主键/字段检索 knowledge_records 结构化记录（支持合同编号精确定位）。',
+      required: false,
+    },
+    {
+      name: 'ruleKind',
+      type: 'string',
+      description:
+        'K3 规则检索：填写规则类别（policy/guideline/tip）时，' +
+        '改为按规则陈述/触发场景检索 kg_rules 规则（结果携带强度 mandatory/should/may）。',
+      required: false,
+    },
   ];
   public aliases: string[] = ['knowledge', 'docs_search', 'find_doc'];
   public searchTips: string[] = [
@@ -107,12 +124,39 @@ export class KnowledgeSearchTool implements Tool {
   private router: IKnowledgeSearch;
   private aiService?: AIService;
   private writer?: KnowledgeBaseWriter;
+  /** K4 证据回链：编译页 → raw 源映射缓存（会话内避免重复全目录扫描） */
+  private evidenceIndex = new Map<string, string>();
 
   constructor(router: IKnowledgeSearch, aiService?: AIService) {
     this.router = router;
     this.aiService = aiService;
     if (aiService) {
       this.writer = new KnowledgeBaseWriter();
+    }
+  }
+
+  /**
+   * K4 证据回链：把 record/rule 的原文摘句装饰为 "doc.pdf#p.12" 引用
+   * （页面 → raw 反查 + sidecar quote→page 定位，纯后端、无 LLM 调用）
+   */
+  private async decorateCitation(
+    sourceFile: string,
+    quote: string | undefined
+  ): Promise<{ cite: string; page?: number } | null> {
+    if (!quote || !sourceFile) return null;
+    const { findRawForPage, loadSidecar, locateQuote, buildDocCitation } =
+      await import('../evidence/EvidenceLocator');
+    try {
+      const rawDir = `${resolveKnowledgeDir()}/raw`;
+      const raw = await findRawForPage(sourceFile, rawDir, this.evidenceIndex);
+      if (!raw) return null;
+      const sidecar = await loadSidecar(raw);
+      const loc = locateQuote(sidecar, quote);
+      if (!loc) return null;
+      return { cite: buildDocCitation(raw, loc), page: loc.page };
+    } catch {
+      // @ignore-catch 定位装饰失败仅去掉引用，不影响检索结果
+      return null;
     }
   }
 
@@ -144,6 +188,18 @@ export class KnowledgeSearchTool implements Tool {
       const offset = (input.offset as number) ?? 0;
       const domain = (input.domain as string) || undefined;
       const autoWrite = (input.autoWrite as boolean) ?? false;
+      const recordType = (input.recordType as string) || undefined;
+
+      // K2 记录检索模式：按记录类型查 knowledge_records（主键/字段精确匹配）
+      if (recordType) {
+        return this.searchRecords(query.trim(), recordType, limit, domain);
+      }
+
+      // K3 规则检索模式：按规则类别查 kg_rules（陈述/触发场景 + 强度标签）
+      const ruleKind = (input.ruleKind as string) || undefined;
+      if (ruleKind) {
+        return this.searchRules(query.trim(), ruleKind, limit, domain);
+      }
 
       const results = await this.router.search(query.trim(), {
         maxResults: limit,
@@ -201,6 +257,133 @@ export class KnowledgeSearchTool implements Tool {
         toolName: this.name,
         timestamp: Date.now(),
       };
+    }
+  }
+
+  /**
+   * K2 记录检索：查 knowledge_records 结构化记录（主键/字段级）
+   */
+  private async searchRecords(
+    query: string,
+    recordType: string,
+    limit: number,
+    domain?: string
+  ): Promise<ToolResult<KnowledgeRoute[]>> {
+    const startTime = Date.now();
+    const executionId = `knowledge_search_${Date.now()}`;
+    const { RecordStore } = await import('../record/RecordStore');
+    const store = new RecordStore();
+    try {
+      const rows = await store.search(query, {
+        type: recordType,
+        domain,
+        limit,
+      });
+      const results: KnowledgeRoute[] = [];
+      for (const r of rows) {
+        const quote = Object.values(r.evidence).find(
+          (v): v is string => typeof v === 'string' && v.length > 0
+        );
+        const deco = await this.decorateCitation(r.sourceFile, quote);
+        results.push({
+          docPath: r.sourceFile,
+          title: `${r.type}:${r.key}`,
+          score: 1,
+          category: 'record',
+          snippet:
+            (deco ? `(${deco.cite}) ` : '') +
+            JSON.stringify({ fields: r.data, evidence: r.evidence }),
+          matchType: 'keyword',
+          isKnowledgeDoc: false,
+        });
+      }
+      logger.info('记录检索完成', {
+        query,
+        recordType,
+        count: results.length,
+      });
+      return {
+        status: ToolExecutionStatus.SUCCESS,
+        result: results,
+        executionTime: Date.now() - startTime,
+        output: JSON.stringify(results),
+        errorOutput: '',
+        progress: [],
+        metadata: {
+          count: results.length,
+          query,
+          recordType,
+          mode: 'record',
+        },
+        executionId,
+        toolName: this.name,
+        timestamp: Date.now(),
+      };
+    } finally {
+      await store.close().catch(() => undefined);
+    }
+  }
+
+  /**
+   * K3 规则检索：查 kg_rules（陈述/触发场景 + 强度标签）
+   */
+  private async searchRules(
+    query: string,
+    ruleKind: string,
+    limit: number,
+    domain?: string
+  ): Promise<ToolResult<KnowledgeRoute[]>> {
+    const startTime = Date.now();
+    const executionId = `knowledge_search_${Date.now()}`;
+    const { RuleStore } = await import('../rule/RuleStore');
+    const store = new RuleStore();
+    try {
+      const rows = await store.search(query, {
+        kind: ruleKind as 'policy' | 'guideline' | 'tip',
+        domain,
+        limit,
+      });
+      const results: KnowledgeRoute[] = [];
+      for (const r of rows) {
+        const quote = r.evidence.statement ?? '';
+        const deco = await this.decorateCitation(
+          r.sourceFile,
+          quote || undefined
+        );
+        results.push({
+          docPath: r.sourceFile,
+          title: `${r.kind}:${r.statement.slice(0, 40)}`,
+          score: 1,
+          category: 'rule',
+          snippet: `[${r.constraintStrength}]${deco ? ` (${deco.cite})` : ''} ${r.statement}${quote ? `（原文：${quote.slice(0, 80)}）` : ''}`,
+          matchType: 'keyword',
+          isKnowledgeDoc: false,
+        });
+      }
+      logger.info('规则检索完成', {
+        query,
+        ruleKind,
+        count: results.length,
+      });
+      return {
+        status: ToolExecutionStatus.SUCCESS,
+        result: results,
+        executionTime: Date.now() - startTime,
+        output: JSON.stringify(results),
+        errorOutput: '',
+        progress: [],
+        metadata: {
+          count: results.length,
+          query,
+          ruleKind,
+          mode: 'rule',
+        },
+        executionId,
+        toolName: this.name,
+        timestamp: Date.now(),
+      };
+    } finally {
+      await store.close().catch(() => undefined);
     }
   }
 

@@ -135,6 +135,8 @@ export interface CompileResult {
   pagesCreated: number;
   /** 编译产出的文件路径列表（用于后续图谱提取） */
   compiledFiles: string[];
+  /** R4：本次实际产出页面的源 raw 列表（原文分块刷新钩子用） */
+  compiledRaws: string[];
   /** 编译轮次版本（K5.3，血缘/快照绑定） */
   version?: number;
   /** 编译质量信息（v1.5 新增） */
@@ -214,6 +216,7 @@ export class KnowledgeCompiler {
       totalFound: 0,
       pagesCreated: 0,
       compiledFiles: [],
+      compiledRaws: [],
     };
 
     if (!existsSync(this.rawDir)) {
@@ -331,6 +334,8 @@ export class KnowledgeCompiler {
         result.compiled++;
         result.pagesCreated += pages.length;
         result.compiledFiles.push(...pages);
+        // R4：实际产出页面的源 raw 记录（供原文分块页码索引刷新）
+        if (pages.length > 0) result.compiledRaws.push(rawFile);
 
         // 编译成功，记录到快照（含内容指纹 K5.1）
         try {
@@ -1234,6 +1239,35 @@ export async function runKnowledgeCompile(
         await handleError(err, {
           module: 'knowledge:compiler',
           action: 'rule_extract',
+        });
+      }
+    }
+
+    // R4 原文分块页码索引：对本次实际产出页面的文档类 raw（PDF/XLSX 等）
+    // 刷新原文块（locators → page/section/tableId），供检索命中返回 doc.pdf#p.N 引用。
+    // 仅处理会产生 locators 的扩展名（DOCX 无定位，跳过避免空跑解析）。
+    if ((result.compiledRaws?.length ?? 0) > 0) {
+      try {
+        const { refreshSourceChunksForRaw } =
+          await import('./source/SourceChunkStore');
+        const locatorExts = new Set(['.pdf', '.xlsx', '.xls']);
+        const raws = [...new Set(result.compiledRaws)];
+        let docsWithChunks = 0;
+        for (const raw of raws) {
+          const dot = raw.lastIndexOf('.');
+          const ext = dot >= 0 ? raw.slice(dot).toLowerCase() : '';
+          if (!locatorExts.has(ext)) continue;
+          const n = await refreshSourceChunksForRaw(raw);
+          if (n > 0) docsWithChunks++;
+        }
+        logger.info('R4 原文分块刷新完成', {
+          compiledRaws: raws.length,
+          docsWithChunks,
+        });
+      } catch (err) {
+        await handleError(err, {
+          module: 'knowledge:compiler',
+          action: 'source_chunk_refresh',
         });
       }
     }

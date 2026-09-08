@@ -50,6 +50,12 @@ export interface CodeChunk {
   contextHeader?: string;
   /** KB-SEM（2026-08-27）：源文件修改时间（ms），用于增量构建判断文件是否变化 */
   mtimeMs?: number;
+  /** R4（K4 剩余项）：原文分块页码定位——经 K1 locators 反查填充（1 起） */
+  page?: number;
+  /** R4：页码内唯一章节/sheet 名（PDF 页内唯一 heading；XLSX 表名） */
+  section?: string;
+  /** R4：表格定位（XLSX sheet/tableId） */
+  tableId?: string;
 }
 
 /** 跳过原因 */

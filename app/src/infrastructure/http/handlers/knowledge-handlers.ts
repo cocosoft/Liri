@@ -1181,9 +1181,8 @@ export async function handleKnowledgeLineage(
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { LineageStore } = await import(
-      '@modules/knowledge/lineage/LineageStore'
-    );
+    const { LineageStore } =
+      await import('@modules/knowledge/lineage/LineageStore');
     const url = new URL(
       req.url ?? '/',
       `http://${req.headers.host ?? 'localhost'}`
@@ -1217,7 +1216,11 @@ export async function handleKnowledgeLineage(
         );
         return;
       }
-      query.artifactType = artifactTypeRaw as 'page' | 'record' | 'rule' | 'node';
+      query.artifactType = artifactTypeRaw as
+        | 'page'
+        | 'record'
+        | 'rule'
+        | 'node';
     }
     if (
       !query.docPath &&
@@ -1228,7 +1231,8 @@ export async function handleKnowledgeLineage(
       res.writeHead(400, { 'Content-Type': 'application/json' });
       res.end(
         JSON.stringify({
-          error: '至少提供一个过滤条件（docPath/artifactType+artifactId/domain）',
+          error:
+            '至少提供一个过滤条件（docPath/artifactType+artifactId/domain）',
         })
       );
       return;

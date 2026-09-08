@@ -74,6 +74,10 @@ export interface ProviderFormData {
   category?: ProviderCategory;
   /** D9 乐观并发：编辑时携带更新前读取的 updatedAt，后端 stale write 拒绝返回 409 */
   expectedRevision?: number;
+  /** 私有化部署（dawate）：平台 appId（经后端落库为 headers.appId） */
+  appId?: string;
+  /** 私有化部署（dawate）：平台 agentId（经后端落库为 headers.agentId） */
+  agentId?: string;
 }
 
 export interface ProviderPreset {

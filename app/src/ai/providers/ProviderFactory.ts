@@ -46,6 +46,7 @@ import { MiniMaxVideoProvider } from './MiniMaxVideoProvider';
 import { KlingProvider } from './KlingProvider';
 import { VolcengineProvider } from './VolcengineProvider';
 import { DashScopeVideoProvider } from './DashScopeVideoProvider';
+import { DawateProvider } from './DawateProvider';
 import type { AIProvider, ProviderConfig } from './AIProvider';
 import type { ProviderType } from './ProviderManager';
 
@@ -133,6 +134,12 @@ export function createProviderByType(
       return new DashScopeVideoProvider();
     case 'comfy':
       return createComfyProvider(config);
+    case 'dawate':
+      // 私有化部署（智能体平台 v3/chat 协议，非 OpenAI 兼容）
+      return new DawateProvider(
+        { providerId: 'dawate', displayName: '私有化部署' },
+        config
+      );
     default:
       // 所有未列出的 providerType 一律作 OpenAI 兼容协议处理
       return new OpenAIProvider({

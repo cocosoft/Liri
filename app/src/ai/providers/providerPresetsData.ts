@@ -706,6 +706,32 @@ export const PRESETS: ProviderPreset[] = [
       textColor: '#ffffff',
     },
   },
+  // ═══════════════ 私有化部署（dawate，智能体平台 v3/chat 协议） ═══════════════
+  {
+    name: '私有化部署',
+    isOfficial: false,
+    category: 'third_party',
+    apiFormat: 'custom',
+    providerType: 'dawate',
+    requiresOAuth: false,
+    endpointCandidates: [],
+    settingsConfig: {
+      name: '私有化部署',
+      providerType: 'dawate',
+      baseUrl: '',
+      apiKey: '',
+      modelsUrl: '',
+      notes:
+        '私有化智能体平台：baseUrl=https://<服务器>:5030；API Key 填平台 appSecret；再填 App ID / Agent ID',
+      requiresAuth: true,
+      category: 'third_party',
+    },
+    theme: {
+      icon: 'custom',
+      backgroundColor: '#334155',
+      textColor: '#ffffff',
+    },
+  },
 ];
 
 /** 按分类分组 */

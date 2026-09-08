@@ -64,7 +64,9 @@ export type ProviderType =
   | 'volcengine'
   | 'vidu'
   | 'minimax'
-  | 'dashscope';
+  | 'dashscope'
+  // 私有化部署（智能体平台 v3/chat 协议，非 OpenAI 兼容）
+  | 'dawate';
 
 /** 供应商分类 */
 export type ProviderCategory =

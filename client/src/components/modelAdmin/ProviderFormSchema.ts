@@ -24,6 +24,8 @@ export interface SchemaField<
   inverted?: boolean;
   /** 密码字段是否展示"已配置/清除"凭据控制（write-only） */
   credentialControl?: boolean;
+  /** 仅当 providerType 为该值时显示（私有化部署专属字段） */
+  whenProviderType?: string;
 }
 
 export const PROVIDER_FORM_SCHEMA: SchemaField[] = [
@@ -56,6 +58,21 @@ export const PROVIDER_FORM_SCHEMA: SchemaField[] = [
     type: "password",
     credentialControl: true,
     placeholder: "sk-...",
+  },
+  // 私有化部署（dawate）：appId/agentId 为平台应用凭据（type 选择后显示）
+  {
+    key: "appId",
+    label: "App ID（平台应用 ID）",
+    type: "text",
+    whenProviderType: "dawate",
+    placeholder: "如 246678816",
+  },
+  {
+    key: "agentId",
+    label: "Agent ID（智能体 ID）",
+    type: "text",
+    whenProviderType: "dawate",
+    placeholder: "如 246676332",
   },
   {
     key: "notes",

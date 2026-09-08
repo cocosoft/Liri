@@ -41,6 +41,9 @@ export default function ProviderEditorModal({
     icon: provider?.icon ?? initialFormData?.icon,
     iconColor: provider?.iconColor ?? initialFormData?.iconColor,
     category: provider?.category ?? initialFormData?.category,
+    // 私有化部署凭据（write-only，编辑不回填；留空=保留现有）
+    appId: initialFormData?.appId ?? "",
+    agentId: initialFormData?.agentId ?? "",
   }));
   /** P0 凭据迁移：编辑模式显式清除已配置凭据 */
   const [clearApiKey, setClearApiKey] = useState(false);
@@ -79,7 +82,11 @@ export default function ProviderEditorModal({
 
         <div className="space-y-3">
           {/* D10：schema 驱动渲染，字段定义见 PROVIDER_FORM_SCHEMA */}
-          {PROVIDER_FORM_SCHEMA.map((field) => (
+          {PROVIDER_FORM_SCHEMA.filter(
+            (field) =>
+              !field.whenProviderType ||
+              field.whenProviderType === formData.providerType,
+          ).map((field) => (
             <SchemaFormField
               key={field.key}
               field={field}

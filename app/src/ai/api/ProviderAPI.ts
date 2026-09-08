@@ -122,7 +122,11 @@ export async function handleAddProvider(
       baseUrl: body.baseUrl as string,
       apiKey: body.apiKey as string | undefined,
       modelsUrl: body.modelsUrl as string | undefined,
-      headers: body.headers as Record<string, string> | undefined,
+      headers: composeDawateHeaders(
+        body,
+        undefined,
+        body.providerType === 'dawate'
+      ),
       notes: body.notes as string | undefined,
       icon: body.icon as string | undefined,
       iconColor: body.iconColor as string | undefined,
@@ -144,6 +148,38 @@ export async function handleAddProvider(
   }
 }
 
+/**
+ * 组装「私有化部署」（dawate）的 headers（appId/agentId）：
+ * 表单以顶层 appId/agentId 字段提交，落库统一存 headers JSON；
+ * 其余类型沿用通用 body.headers 透传。
+ * @param isDawate type 是否为 dawate（更新时允许按现有 type 判定）
+ */
+function composeDawateHeaders(
+  body: Record<string, unknown>,
+  existingHeaders?: Record<string, string>,
+  isDawate?: boolean
+): Record<string, string> | undefined {
+  const bodyHeaders =
+    body.headers && typeof body.headers === 'object'
+      ? (body.headers as Record<string, string>)
+      : undefined;
+  if (isDawate === false && !bodyHeaders) return bodyHeaders;
+
+  const merged: Record<string, string> = {
+    ...(existingHeaders ?? {}),
+    ...(bodyHeaders ?? {}),
+  };
+  if (isDawate !== false) {
+    if (typeof body.appId === 'string' && body.appId) {
+      merged['appId'] = body.appId;
+    }
+    if (typeof body.agentId === 'string' && body.agentId) {
+      merged['agentId'] = body.agentId;
+    }
+  }
+  return Object.keys(merged).length > 0 ? merged : undefined;
+}
+
 export async function handleUpdateProvider(
   req: http.IncomingMessage,
   res: http.ServerResponse,
@@ -155,6 +191,20 @@ export async function handleUpdateProvider(
     const { providerManager } = await import('../providers/ProviderManager.js');
     await providerManager.initialize();
     const { expectedRevision, ...rest } = body;
+
+    // 私有化部署（dawate）：表单 appId/agentId → headers 合并更新（编辑留空=保留原值）
+    const existing = await providerManager.getProvider(id);
+    if (existing) {
+      const effectiveType =
+        (body.providerType as string | undefined) ?? existing.providerType;
+      const headers = composeDawateHeaders(
+        body,
+        existing.headers,
+        effectiveType === 'dawate'
+      );
+      if (headers !== undefined) rest['headers'] = headers;
+    }
+
     const updated = await providerManager.updateProvider(id, {
       ...rest,
       expectedRevision:

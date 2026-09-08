@@ -33,6 +33,10 @@ import {
   GlobalWorkerOptions,
 } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import type { ExtractedDocument, DocumentExtractor } from './types';
+import { getLogger } from '@modules/monitoring';
+import { isPdfOcrEnabled, ocrExtractPdf, requiresOcr } from './PdfOcrExtractor';
+
+const logger = getLogger('knowledge:ingest:pdf');
 
 const require = createRequire(import.meta.url);
 
@@ -97,6 +101,22 @@ export class PdfExtractor implements DocumentExtractor {
       }
 
       const text = pagesText.join('\n\n');
+
+      // R1：扫描件（pdfjs 文本层稀薄）→ OCR 降级（默认关，KNOWLEDGE_PDF_OCR=1 开启）
+      if (requiresOcr(text, pageCount)) {
+        if (isPdfOcrEnabled()) {
+          logger.info('PDF 文本层稀薄，触发 L2 OCR', {
+            path,
+            charCount: text.length,
+          });
+          return ocrExtractPdf(path);
+        }
+        logger.info('PDF 文本层稀薄，OCR 未启用', {
+          path,
+          charCount: text.length,
+        });
+      }
+
       return {
         path,
         ext: '.pdf',

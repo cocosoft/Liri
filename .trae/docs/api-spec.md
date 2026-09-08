@@ -321,6 +321,7 @@
 | POST | `/v1/knowledge/upload` | ✅ | 无前端调用方 |
 | POST | `/v1/knowledge/compile` | ✅ | 无前端调用方 |
 | GET | `/v1/knowledge/raw-files` | ✅ | 无前端调用方 |
+| GET | `/v1/knowledge/lineage` | ✅ | 无前端调用方（血缘反查 R6：`docPath` / `artifactType+artifactId` / `domain` / `version`，返回 `{links,count}`，2026-09-07） |
 | PUT | `/v1/knowledge/docs` | ✅ | `knowledgeService.updateDoc`（支持 `{ base }` 移动目录，2026-08-07 P2-4） |
 | POST | `/v1/knowledge/trash` | ✅ | `knowledgeService.trash` |
 | POST | `/v1/knowledge/restore` | ✅ | `knowledgeService.restoreSnapshot`（返回 `{ restored, content }`，2026-08-07 P2-5） |
@@ -834,7 +835,7 @@ data: {"type":"done","result":{...}}
 
 - **模型**: `/v1/models/test`
 - **模型配置**: `/v1/models/app-config` CRUD（4 个端点）
-- **知识库**: `/v1/knowledge/save-from-chat`, `upload`, `compile`, `raw-files`, `docs`, `export-to-notebook`, `import-from-file`, `batch-delete`, `batch-tag`
+- **知识库**: `/v1/knowledge/save-from-chat`, `upload`, `compile`, `raw-files`, `lineage`, `docs`, `export-to-notebook`, `import-from-file`, `batch-delete`, `batch-tag`
 - **Buddy**: 全部 4 个端点
 - **Cron**: 全部 6 个端点
 - **配置**: `DELETE /v1/config/{key}`

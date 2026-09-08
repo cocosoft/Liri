@@ -245,6 +245,14 @@ export async function dispatchKnowledgeRoutes(
     await handleKnowledgeCompileStatus(req, res);
     return true;
   }
+  // R6：血缘反查（doc ↔ 产物双向）
+  if (method === 'GET' && url === '/v1/knowledge/lineage') {
+    const { handleKnowledgeLineage } = await import(
+      '@modules/infrastructure/http/handlers/knowledge-handlers'
+    );
+    await handleKnowledgeLineage(req, res);
+    return true;
+  }
   if (method === 'GET' && url === '/v1/knowledge/raw-files') {
     await handleGetRawFiles(req, res);
     return true;

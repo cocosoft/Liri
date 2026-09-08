@@ -1168,6 +1168,87 @@ export async function handleKnowledgeCompileStatus(
 }
 
 /**
+ * 血缘反查 GET /v1/knowledge/lineage
+ *
+ * 查询参数（全部可选，至少提供一个）：
+ *   docPath      按源文档反查其全部产物
+ *   artifactType + artifactId   按产物反查源文档（artifactType: page|record|rule|node）
+ *   domain / version   附加过滤
+ * 返回：{ links: LineageLink[], count }
+ */
+export async function handleKnowledgeLineage(
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const { LineageStore } = await import(
+      '@modules/knowledge/lineage/LineageStore'
+    );
+    const url = new URL(
+      req.url ?? '/',
+      `http://${req.headers.host ?? 'localhost'}`
+    );
+    const docPath = url.searchParams.get('docPath') ?? undefined;
+    const artifactTypeRaw = url.searchParams.get('artifactType') ?? undefined;
+    const artifactId = url.searchParams.get('artifactId') ?? undefined;
+    const domain = url.searchParams.get('domain') ?? undefined;
+    const versionRaw = url.searchParams.get('version');
+
+    const query: {
+      docPath?: string;
+      artifactType?: 'page' | 'record' | 'rule' | 'node';
+      artifactId?: string;
+      domain?: string;
+      version?: number;
+    } = {};
+    if (docPath) query.docPath = docPath;
+    if (artifactId) query.artifactId = artifactId;
+    if (domain) query.domain = domain;
+    if (versionRaw !== null && versionRaw !== '') {
+      const v = Number(versionRaw);
+      if (!Number.isNaN(v)) query.version = v;
+    }
+    if (artifactTypeRaw) {
+      const allowed = ['page', 'record', 'rule', 'node'];
+      if (!allowed.includes(artifactTypeRaw)) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({ error: `artifactType 须为 ${allowed.join('|')}` })
+        );
+        return;
+      }
+      query.artifactType = artifactTypeRaw as 'page' | 'record' | 'rule' | 'node';
+    }
+    if (
+      !query.docPath &&
+      !query.artifactId &&
+      !query.artifactType &&
+      !query.domain
+    ) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          error: '至少提供一个过滤条件（docPath/artifactType+artifactId/domain）',
+        })
+      );
+      return;
+    }
+
+    const store = new LineageStore();
+    try {
+      await store.init();
+      const links = await store.query(query);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ links, count: links.length }));
+    } finally {
+      await store.close();
+    }
+  } catch (err) {
+    sendError(res, err);
+  }
+}
+
+/**
  * 获取待编译的 raw 文件列表 GET /v1/knowledge/raw-files
  *
  * 返回 raw/ 目录中所有未编译文件的详细信息（文件名、大小、修改时间、元数据）

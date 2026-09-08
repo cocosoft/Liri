@@ -279,6 +279,7 @@ export async function extractRecordsFromPage(
     candidates: candidates.length,
     saved: result.saved,
     invalid: result.invalid,
+    reasons: result.reasons,
   });
   return result;
 }

@@ -492,7 +492,38 @@ export class KnowledgeCompiler {
                     continue;
                   }
                   const content = await readFile(compiledFile, 'utf-8');
-                  await this.graphExtractor!.extract(content, 'knowledge');
+                  const extracted = await this.graphExtractor!.extract(
+                    content,
+                    'knowledge'
+                  );
+                  // R6：图谱 node 级血缘（doc=编译页；from/to 节点挂血缘）
+                  if (
+                    this.lineage &&
+                    extracted &&
+                    (extracted.edges?.length ?? 0) > 0
+                  ) {
+                    try {
+                      const nodeIds = [
+                        ...new Set(
+                          extracted.edges.flatMap((e) => [e.from, e.to])
+                        ),
+                      ];
+                      await this.lineage.purgeByDoc(compiledFile);
+                      await this.lineage.addLinks(
+                        compiledFile,
+                        nodeIds.map((id) => ({
+                          artifactType: 'node',
+                          artifactId: id,
+                        })),
+                        this.compileVersion
+                      );
+                    } catch (lineageErr) {
+                      logger.warning('node 血缘写入失败', {
+                        file: compiledFile,
+                        error: String(lineageErr),
+                      });
+                    }
+                  }
                 } catch {
                   // 单个文件提取失败不阻塞
                 }

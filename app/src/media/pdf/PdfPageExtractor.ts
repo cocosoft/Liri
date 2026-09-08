@@ -171,20 +171,56 @@ async function extractWithPdfJs(
   options: PdfExtractOptions
 ): Promise<ExtractedPage[]> {
   // 动态导入 pdf.js（使用 legacy 构建，与 PdfConverter 保持一致）
-  let pdfjsLib: unknown;
+  let pdfjsModule: unknown;
   try {
-    pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs');
+    pdfjsModule = await import('pdfjs-dist/legacy/build/pdf.mjs');
   } catch {
     throw new Error('pdf.js 未安装。运行: bun add pdfjs-dist');
   }
+  const lib = pdfjsModule as unknown as Record<string, Function>;
+  const OPS = (lib.OPS ?? {}) as unknown as Record<string, number>;
+  const GlobalWorkerOptions = (lib.GlobalWorkerOptions ?? {}) as unknown as {
+    workerSrc?: string;
+  };
 
-  const lib = pdfjsLib as unknown as Record<string, Function>;
+  // R1/J3：显式指定 worker + 注入 @napi-rs/canvas 工厂与兼容参数——
+  // Bun/Node 下 pdfjs 对图像型 PDF 的 worker 解码/回传不可靠（曾致渲染全透明→黑图），
+  // 此配置尽力走主线程路径并避免 worker 崩溃噪音；仍失败时由下方空绘检测显式抛错。
+  try {
+    GlobalWorkerOptions.workerSrc =
+      require.resolve('pdfjs-dist/legacy/build/pdf.worker.mjs');
+  } catch {
+    // worker 解析失败不阻断（pdfjs 内部回退）
+  }
+  const { createCanvas } = await import('@napi-rs/canvas');
+  const canvasFactory = {
+    create(width: number, height: number) {
+      const canvas = createCanvas(
+        Math.max(1, Math.floor(width)),
+        Math.max(1, Math.floor(height))
+      );
+      return { canvas, context: canvas.getContext('2d') };
+    },
+    reset(ctx: unknown, width: number, height: number) {
+      const c = (ctx as { canvas: { width: number; height: number } }).canvas;
+      c.width = Math.max(1, Math.floor(width));
+      c.height = Math.max(1, Math.floor(height));
+    },
+    destroy() {
+      // @napi-rs/canvas 无需显式释放
+    },
+  };
 
   fs.mkdirSync(outputDir, { recursive: true });
 
   const data = new Uint8Array(fs.readFileSync(pdfPath));
   const doc = await (
-    lib.getDocument({ data }) as unknown as {
+    lib.getDocument({
+      data,
+      canvasFactory,
+      isOffscreenCanvasSupported: false,
+      isImageDecoderSupported: false,
+    }) as unknown as {
       promise: Promise<Record<string, unknown>>;
     }
   ).promise;
@@ -198,8 +234,6 @@ async function extractWithPdfJs(
   const scale = dpi / 72;
 
   // Canvas 使用 @napi-rs/canvas 或 node-canvas（需要运行时支持）
-  const { createCanvas } = await import('@napi-rs/canvas');
-
   for (let i = startPage; i <= endPage; i++) {
     const page = (await (pdoc.getPage as Function)(i)) as unknown as Record<
       string,
@@ -209,13 +243,50 @@ async function extractWithPdfJs(
       scale,
     }) as unknown as Record<string, unknown>;
 
-    const canvas = createCanvas(
-      (viewport.width as number) || 0,
-      (viewport.height as number) || 0
-    );
+    const width = Math.floor(viewport.width as number) || 1;
+    const height = Math.floor(viewport.height as number) || 1;
+    const canvas = createCanvas(width, height);
     const ctx = canvas.getContext('2d');
 
     await (page.render as Function)({ canvasContext: ctx, viewport });
+
+    // R1/J3：图像页空绘检测——pdfjs 在 Bun 下对图像型 PDF 可能解析不出图片对象，
+    // render 返回但画布全透明（转 JPEG 即全黑）。含图像 op 却几乎没有不透明像素 → 判定渲染失败。
+    let opList: { fnArray: number[] } | null = null;
+    try {
+      opList = (await (page.getOperatorList as Function)()) as {
+        fnArray: number[];
+      };
+    } catch {
+      opList = null;
+    }
+    const hasImageOp =
+      opList !== null &&
+      opList.fnArray.some(
+        (fn) =>
+          fn === OPS.paintImageXObject || fn === OPS.paintInlineImageXObject
+      );
+    if (hasImageOp) {
+      let opaquePixels = 0;
+      let sampled = 0;
+      const imgData = ctx.getImageData(0, 0, width, height) as {
+        data: Uint8ClampedArray;
+      };
+      const step = Math.max(1, Math.floor(Math.min(width, height) / 64));
+      for (let y = 0; y < height; y += step) {
+        for (let x = 0; x < width; x += step) {
+          if (imgData.data[(y * width + x) * 4 + 3] > 0) opaquePixels++;
+          sampled++;
+        }
+      }
+      if (opaquePixels / Math.max(1, sampled) < 0.005) {
+        throw new Error(
+          `pdf.js 渲染第 ${i} 页图像失败：未绘制出内容（图像对象解码/回传在 Bun/Node 下不可用）。` +
+            '请安装 poppler-utils（提供 pdftoppm）以保证 R1 扫描件 OCR 的页渲染可用。'
+        );
+      }
+    }
+    page.cleanup?.();
 
     const ext = format === 'png' ? 'png' : 'jpg';
     const imagePath = path.join(
@@ -223,7 +294,9 @@ async function extractWithPdfJs(
       `page-${String(i).padStart(2, '0')}.${ext}`
     );
 
-    const buffer = canvas.toBuffer('image/jpeg' as 'image/jpeg' | 'image/webp');
+    const buffer = (
+      canvas as unknown as { toBuffer: (type: string) => Buffer }
+    ).toBuffer(format === 'png' ? 'image/png' : 'image/jpeg');
     fs.writeFileSync(imagePath, buffer);
 
     pages.push({

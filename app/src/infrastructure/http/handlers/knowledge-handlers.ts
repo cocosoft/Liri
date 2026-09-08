@@ -469,17 +469,19 @@ export async function handleSearchKnowledge(
 }
 
 /**
- * F5：原文（raw）文件预览 GET /v1/knowledge/raw-preview?file=<相对 raw 路径>
+ * F5：原文（raw）文件预览 GET /v1/knowledge/raw-preview?file=<相对 KB 根路径>
  *
- * 仅允许 KB root/raw/ 下的文件（realpath 白名单校验，防路径穿越），当前支持 PDF
- * （浏览器原生 <iframe/#page=N> 预览）。DOCX 等无浏览器内嵌渲染，返回 415 明确提示。
+ * file 为 KB 根相对路径（sources 桶 rawPath 语义：顶层 raw/foo.pdf 或 {base}/raw/foo.pdf
+ * ——base 子目录保留了原始 PDF，顶层 raw/ 仅为编译器消费副本）。因此按知识库根目录解析，
+ * realpath 拘禁在根内（防路径穿越）；当前支持 PDF（浏览器原生 <iframe/#page=N> 预览）。
+ * DOCX 等无浏览器内嵌渲染，返回 415 明确提示。
  */
 export async function handleKnowledgeRawPreview(
   req: http.IncomingMessage,
   res: http.ServerResponse
 ): Promise<void> {
   try {
-    const { join, resolve, sep, extname, basename } = await import('path');
+    const { resolve, sep, extname, basename } = await import('path');
     const { realpath, readFile } = await import('fs/promises');
 
     const url = new URL(req.url!, `http://${req.headers.host ?? 'localhost'}`);
@@ -505,26 +507,26 @@ export async function handleKnowledgeRawPreview(
     const { getDefaultKnowledgeBaseRegistry } =
       await import('@modules/knowledge/KnowledgeBaseRegistry');
     const knowledgeRoot = getDefaultKnowledgeBaseRegistry().getKnowledgeRoot();
-    const rawDir = join(knowledgeRoot, 'raw');
 
-    // 路径穿越防护：realpath 后必须仍位于 rawDir 内
+    // 路径穿越防护：realpath 后必须仍位于 knowledgeRoot 内
+    // （解析基准=知识库根而非根/raw——file 已含 base/raw 前缀，见函数头注记）
+    let realRoot: string;
+    try {
+      realRoot = await realpath(knowledgeRoot);
+    } catch {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: '知识库目录不存在' } }));
+      return;
+    }
     let realTarget: string;
     try {
-      realTarget = await realpath(resolve(rawDir, file));
+      realTarget = await realpath(resolve(realRoot, file));
     } catch {
       res.writeHead(404, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: { message: '文件不存在' } }));
       return;
     }
-    let realRaw: string;
-    try {
-      realRaw = await realpath(rawDir);
-    } catch {
-      res.writeHead(404, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: { message: '知识库 raw 目录不存在' } }));
-      return;
-    }
-    if (realTarget !== realRaw && !realTarget.startsWith(realRaw + sep)) {
+    if (realTarget !== realRoot && !realTarget.startsWith(realRoot + sep)) {
       res.writeHead(403, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: { message: '不允许访问该路径' } }));
       return;

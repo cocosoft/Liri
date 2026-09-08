@@ -453,7 +453,9 @@ export class ImageAnalysisTool extends BaseTool {
     }
 
     try {
-      const response = await guard.request<OcrResult>('ocr', {
+      // requestResult：guard.request 返回完整信封 {id,success,result}，
+      // L2 载荷（text/blocks）在 result 内——直读 .text/.blocks 恒 undefined 曾致 L2 OCR 静默降级 L3
+      const response = await guard.requestResult<OcrResult>('ocr', {
         image_path: params.inputPath,
         languages: params.languages ?? ['ch_sim', 'en'],
       });
@@ -514,7 +516,8 @@ export class ImageAnalysisTool extends BaseTool {
     }
 
     try {
-      const response = await guard.request<ObjectDetectionResult>(
+      // requestResult：信封解包（同 OCR/YOLO/similarity 修正）
+      const response = await guard.requestResult<ObjectDetectionResult>(
         'object_detection',
         {
           image_path: params.inputPath,
@@ -586,7 +589,7 @@ export class ImageAnalysisTool extends BaseTool {
         };
       }
 
-      const response = await guard.request<SimilarityResult>(
+      const response = await guard.requestResult<SimilarityResult>(
         'image_similarity',
         requestParams
       );
@@ -1349,7 +1352,8 @@ export class ImageAnalysisTool extends BaseTool {
     return {
       send: async (method: string, params: Record<string, unknown>) => {
         try {
-          const result = await guard.request(method, params);
+          // requestResult：返回载荷而非完整信封（曾致 SAM/depth 收到信封 → masks/depth 恒空）
+          const result = await guard.requestResult<unknown>(method, params);
           return { success: true, result };
         } catch (error) {
           return { success: false, error: (error as Error).message };

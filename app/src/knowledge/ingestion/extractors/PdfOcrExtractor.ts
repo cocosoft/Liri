@@ -51,6 +51,13 @@ const OCR_LANGUAGES = ['ch_sim', 'en'];
 /** OCR 渲染 DPI */
 const OCR_RENDER_DPI = 150;
 
+/**
+ * 单页 OCR 请求超时（默认 30s 对 CPU 推理偏短：首页含 EasyOCR Reader 构建
+ * + 模型加载 + 推理，真实扫描件验收曾超时；放宽至 5min，懒加载缓存复用后
+ * 后续页远快于此阈值）。
+ */
+const OCR_REQUEST_TIMEOUT_MS = 300_000;
+
 /** 是否启用扫描件 OCR（运行时开关：env KNOWLEDGE_PDF_OCR > knowledge.json ocrEnabled > false） */
 export function isPdfOcrEnabled(): boolean {
   return isKnowledgeOcrEnabled();
@@ -102,10 +109,16 @@ export async function ocrExtractPdf(
     for (const page of pages) {
       let pageText = '';
       try {
-        const result = await guard.request<OcrWorkerResult>('ocr', {
-          image_path: page.imagePath,
-          languages: OCR_LANGUAGES,
-        });
+        // requestResult：解包 {result:{text,...}} 信封（guard.request 返回完整信封，
+        // 直接读 .text 恒为 undefined → 页文本空，曾致 R1 真实验收 0 字符）
+        const result = await guard.requestResult<OcrWorkerResult>(
+          'ocr',
+          {
+            image_path: page.imagePath,
+            languages: OCR_LANGUAGES,
+          },
+          OCR_REQUEST_TIMEOUT_MS
+        );
         pageText = (result?.text ?? '').trim();
       } catch (err) {
         // 单页失败直接上抛（编译侧跳过自愈），避免半残文档入库

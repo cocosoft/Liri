@@ -178,7 +178,8 @@ export class UnifiedSearchService {
         bucket: 'rule' as const,
         ruleId: r.id,
         kind: r.kind,
-        constraintStrength: r.constraintStrength as BucketedRuleItem['constraintStrength'],
+        constraintStrength:
+          r.constraintStrength as BucketedRuleItem['constraintStrength'],
         constraintLabel: strengthLabel(r.constraintStrength),
         statement: r.statement,
         snippet: r.statement,

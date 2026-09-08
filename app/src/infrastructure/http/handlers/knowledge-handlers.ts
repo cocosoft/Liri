@@ -435,9 +435,8 @@ export async function handleSearchKnowledge(
 
     // R3：buckets=1 时附加 rules/faqs 分桶（docs 仍为兼容原形状的增强数组）
     if (url.searchParams.get('buckets') === '1') {
-      const { createUnifiedSearchService } = await import(
-        '@modules/knowledge/search/UnifiedSearchService'
-      );
+      const { createUnifiedSearchService } =
+        await import('@modules/knowledge/search/UnifiedSearchService');
       const svc = createUnifiedSearchService(router);
       const { rules, faqs } = await svc.searchBucketed(query, {
         limit: filtered.length || 5,

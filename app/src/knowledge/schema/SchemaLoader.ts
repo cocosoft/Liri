@@ -502,7 +502,7 @@ export class SchemaLoader {
     if (def.regex && typeof value === 'string') {
       try {
         if (!new RegExp(def.regex).test(value)) {
-          return `正则校验失败，格式需匹配: ${def.regex}`;
+          return `正则校验失败，格式需匹配: ${def.regex}（实际值: ${value.slice(0, 40)}）`;
         }
       } catch {
         return `schema 定义的正则无效: ${def.regex}`;

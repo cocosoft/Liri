@@ -37,6 +37,8 @@ export function getKatexDiag() {
   return r;
 }
 import { InlineCodeLink } from "./markdown/InlineCodeLink";
+import CitationLink from "./markdown/CitationLink";
+import { CITATION_TOKEN_RE, parseCitationRef } from "../../utils/citation";
 import BlockContent from "./BlockContent";
 import HeadingRenderer from "./HeadingRenderer";
 import ListRenderer from "./ListRenderer";
@@ -179,6 +181,8 @@ function MarkdownRenderer({
       // 图片 pattern 必须放在链接 pattern 之前，确保 ![alt](url) 被优先匹配为图片
       { regex: /!\[([^\]]*)\]\(([^)]+)\)/g, tag: "image" as const },
       { regex: /\[([^\]]+)\]\(([^)]+)\)/g, tag: "link" as const },
+      // R5 引用锚点：file.pdf#p.12 / file.md#L42-L58（在 url/公式前优先）
+      { regex: CITATION_TOKEN_RE, tag: "citation" as const },
       { regex: /\$([^$]+)\$/g, tag: "math" as const },
       { regex: /https?:\/\/[^\s<>)\]]+/g, tag: "url" as const },
     ];
@@ -306,6 +310,17 @@ function MarkdownRenderer({
             >
               {url}
             </a>,
+          );
+        } else if (pattern.tag === "citation") {
+          // R5：本地引用锚点（doc.pdf#p.N / file.md#L42-L58）→ 点击打开文件定位
+          const file = match[1];
+          const ref = match[2];
+          parts.push(
+            <CitationLink
+              key={key++}
+              citation={{ file, ref, ...parseCitationRef(ref) }}
+              knownFilePaths={knownFilePaths}
+            />,
           );
         } else if (pattern.tag === "math") {
           // 预检：含中文内容跳过 KaTeX 解析，直接当普通文本渲染

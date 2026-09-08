@@ -1,6 +1,6 @@
 import React, { useCallback, useState } from "react";
 import { createLogger } from "@/utils/logger";
-import { getBackendBaseUrl, getApiSecret } from "../../services/backendUrl";
+import { openLocalFile } from "../../services/fileOpenService";
 import { useSessionStore } from "../../stores/sessionStore";
 import { getCacheKey, invalidateCacheEntry } from "./markdown/pathCache";
 
@@ -11,39 +11,18 @@ interface FileLinkProps {
   onPreview?: (path: string) => void;
 }
 
-const isTauri =
-  typeof window !== "undefined" &&
-  ("__TAURI__" in window || "__TAURI_INTERNALS__" in window);
-
 function FileLink({ filePath, onPreview }: FileLinkProps) {
   const [opening, setOpening] = useState(false);
   const [error, setError] = useState(false);
   const sessionId = useSessionStore((s) => s.currentSession?.id);
 
   /**
-   * 构造带认证头的请求选项
-   */
-  const authHeaders = useCallback((): Record<string, string> => {
-    const secret = getApiSecret();
-    return secret ? { "X-API-Key": secret } : {};
-  }, []);
-
-  /**
-   * P5: 提取公共系统打开逻辑，消除 handleClick 与 handleOpenInSystem 重复。
+   * R5：系统打开逻辑收敛到 fileOpenService（Tauri shell / Web /api/file/open），
+   * 供 FileLink 与 CitationLink 共用，消除双份实现。
    */
   const openInSystem = useCallback(async (): Promise<void> => {
-    if (isTauri) {
-      const { open } = await import("@tauri-apps/plugin-shell");
-      await open(filePath);
-    } else {
-      const baseUrl = getBackendBaseUrl();
-      const encodedPath = encodeURIComponent(filePath);
-      const resp = await fetch(`${baseUrl}/api/file/open?path=${encodedPath}`, {
-        headers: authHeaders(),
-      });
-      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    }
-  }, [filePath, authHeaders]);
+    await openLocalFile(filePath);
+  }, [filePath]);
 
   const handleFileAction = useCallback(
     async (e: React.MouseEvent) => {

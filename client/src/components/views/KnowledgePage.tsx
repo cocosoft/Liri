@@ -11,8 +11,14 @@ import { useKnowledgeStore } from "../../stores/knowledgeStore";
 import { useConfigStore } from "../../stores/configStore";
 import { useRootStore } from "../../stores/root-store";
 import { knowledgeService } from "../../services/knowledgeService";
-import type { KnowledgeFile, KnowledgeSearchHit } from "../../types";
+import type {
+  KnowledgeFile,
+  KnowledgeSearchHit,
+  BucketedRuleItem,
+  BucketedFaqItem,
+} from "../../types";
 import { SearchHitCard } from "../Knowledge/SearchHitCard";
+import { StrengthBadge } from "../Knowledge/StrengthBadge";
 import { toastError } from "../../stores/toastStore";
 import { createLogger } from "@/utils/logger";
 import { useToast, ToastContainer } from "../../hooks/useToast";
@@ -93,6 +99,35 @@ function KnowledgePage() {
   const versionHistoryRef = useRef<HTMLDivElement | null>(null);
   // KB-L1：文档选择请求序号（快速切换时丢弃过期响应）
   const selectFileSeqRef = useRef(0);
+
+  // R3：分桶搜索补充态（提交搜索时并行拉取 rules/faqs）
+  const [bucketRules, setBucketRules] = useState<BucketedRuleItem[]>([]);
+  const [bucketFaqs, setBucketFaqs] = useState<BucketedFaqItem[]>([]);
+  const bucketSeqRef = useRef(0);
+  useEffect(() => {
+    const query = search.query?.trim();
+    if (!query || !search.hasSearched) {
+      setBucketRules([]);
+      setBucketFaqs([]);
+      return;
+    }
+    const seq = ++bucketSeqRef.current;
+    knowledgeService
+      .searchBucketed(query)
+      .then((b) => {
+        if (seq !== bucketSeqRef.current) return;
+        setBucketRules(b.rules ?? []);
+        setBucketFaqs(b.faqs ?? []);
+      })
+      .catch(() => {
+        if (seq !== bucketSeqRef.current) return;
+        setBucketRules([]);
+        setBucketFaqs([]);
+      });
+    return () => {
+      // 下一次提交自增 seq 即丢弃过期响应
+    };
+  }, [search.query, search.hasSearched]);
 
   // P1-1: activeTab 由 URL query 驱动（?tab=xxx），根治"全局 store 残留"类问题
   const [searchParams, setSearchParams] = useSearchParams();
@@ -492,6 +527,39 @@ function KnowledgePage() {
                           onClick={() => handleSelectSearchHit(result)}
                         />
                       ))}
+                      {/* R3：规则 / FAQ 关联（分桶） */}
+                      {(bucketRules.length > 0 || bucketFaqs.length > 0) && (
+                        <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700 space-y-2">
+                          <div className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                            规则 / FAQ 关联
+                          </div>
+                          {bucketRules.map((r) => (
+                            <div
+                              key={`rule-${r.ruleId}`}
+                              className="flex items-start gap-2 text-sm leading-snug"
+                            >
+                              <StrengthBadge strength={r.constraintStrength} />
+                              <span className="flex-1">{r.statement}</span>
+                            </div>
+                          ))}
+                          {bucketFaqs.map((f) => (
+                            <div
+                              key={`faq-${f.id}`}
+                              className="flex flex-col gap-0.5 text-sm leading-snug"
+                            >
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[10px] font-medium text-purple-600 dark:text-purple-400">
+                                  FAQ
+                                </span>
+                                <span className="font-medium">{f.question}</span>
+                              </div>
+                              <p className="text-xs opacity-70 line-clamp-2 pl-7">
+                                {f.answer}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

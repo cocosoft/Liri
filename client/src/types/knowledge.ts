@@ -66,6 +66,38 @@ export interface KnowledgeSearchHit {
 /** 文档列表排序枚举（P3-1：自 DocFilterBar 收编，单一事实） */
 export type KnowledgeSortBy = "updated" | "title" | "created";
 
+// ─── R3 分桶搜索（rules/faqs 结构化桶） ───
+export interface BucketedRuleItem {
+  bucket: "rule";
+  ruleId: string;
+  kind: string;
+  constraintStrength: "mandatory" | "should" | "may";
+  /** 强度中文标签：必须/应/可（供徽标） */
+  constraintLabel: string;
+  statement: string;
+  snippet: string;
+  domain: string;
+  sourceFile?: string;
+  score: number;
+}
+
+export interface BucketedFaqItem {
+  bucket: "faq";
+  id: string;
+  question: string;
+  answer: string;
+  category?: string;
+  knowledgeBaseName: string;
+  score: number;
+}
+
+/** POST /v1/knowledge/search?buckets=1 响应 */
+export interface BucketedKnowledgeSearch {
+  docs: KnowledgeSearchResult[];
+  rules: BucketedRuleItem[];
+  faqs: BucketedFaqItem[];
+}
+
 // ─── FAQ（由 faq.ts 归并） ───
 
 /** FAQ 条目（与后端 FAQEntry 对齐） */

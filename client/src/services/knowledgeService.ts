@@ -2,6 +2,7 @@ import type {
   KnowledgeItem,
   KnowledgeSearchResult,
   KnowledgeSearchHit,
+  BucketedKnowledgeSearch,
   KnowledgeBase,
   KnowledgeFile,
 } from "../types";
@@ -92,6 +93,22 @@ export const knowledgeService = {
       });
       return unwrap(res, "KNOWLEDGE_SEARCH");
     });
+  },
+
+  /** R3：分桶搜索（docs 原数组 + rules/faqs 结构化桶，?buckets=1） */
+  searchBucketed: (
+    query: string,
+  ): Promise<BucketedKnowledgeSearch> => {
+    return getOTelTracing().asyncWrap(
+      "services:knowledge:searchBucketed",
+      async () => {
+        const res = await http.post<BucketedKnowledgeSearch>(
+          "/v1/knowledge/search?buckets=1",
+          { query },
+        );
+        return unwrap(res, "KNOWLEDGE_SEARCH_BUCKETED");
+      },
+    );
   },
 
   hybridSearch: async (

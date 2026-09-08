@@ -72,6 +72,9 @@ export type {
   KnowledgeBase,
   KnowledgeFile,
   KnowledgeSortBy,
+  BucketedRuleItem,
+  BucketedFaqItem,
+  BucketedKnowledgeSearch,
 } from "./knowledge";
 
 // ─── FAQ ───

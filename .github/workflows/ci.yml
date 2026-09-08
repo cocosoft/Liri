@@ -177,6 +177,11 @@ jobs:
       run: |
         bun run scripts/lint-file-size.ts
 
+    - name: Run runtime deps audit (manifest contract, Phase1 #7)
+      working-directory: app
+      run: |
+        bun run scripts/lint-runtime-deps.ts --strict
+
     - name: Run session regression check (BUG-A/B/C)
       working-directory: .
       run: |

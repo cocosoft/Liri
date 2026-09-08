@@ -122,27 +122,90 @@ export class InstallManager {
       }
 
       const appDir = this.getAppDir();
-      const { mkdir, readdir, rename } = await import('fs/promises');
+      const { mkdir, readdir, rename, rm, lstat, copyFile } =
+        await import('fs/promises');
+      const { dirname } = await import('path');
       const extractDir = join(appDir, '.update-extract');
 
       await mkdir(extractDir, { recursive: true });
 
-      const { execFile } = await import('child_process');
-      const { promisify } = await import('util');
-      const execFileAsync = promisify(execFile);
+      // 跨平台解压：不依赖系统 unzip（原 execFile('unzip') 在 Windows 必然 ENOENT）
+      const { default: AdmZip } = await import('adm-zip');
+      new AdmZip(filePath).extractAllTo(extractDir, true);
 
-      await execFileAsync('unzip', ['-o', filePath, '-d', extractDir]);
+      // 目录递归合并：覆盖同名文件，保留目标目录中不被更新包包含的文件（与 pkg 布局 node_modules/ 对齐）
+      const mergeDir = async (from: string, to: string): Promise<void> => {
+        await mkdir(to, { recursive: true });
+        const children = await readdir(from);
+        for (const child of children) {
+          const cSrc = join(from, child);
+          const cDest = join(to, child);
+          if ((await lstat(cSrc)).isDirectory()) {
+            await mergeDir(cSrc, cDest);
+          } else {
+            await mkdir(dirname(cDest), { recursive: true });
+            await copyFile(cSrc, cDest);
+          }
+        }
+      };
+
+      const applyEntry = async (name: string): Promise<void> => {
+        const src = join(extractDir, name);
+        const dest = join(appDir, name);
+        const st = await lstat(src);
+        if (st.isDirectory()) {
+          await mergeDir(src, dest);
+          await rm(src, { recursive: true, force: true });
+        } else {
+          await mkdir(dirname(dest), { recursive: true });
+          try {
+            await rename(src, dest);
+          } catch {
+            // Windows 目标已存在时 rename 抛错 → 复制覆盖
+            await copyFile(src, dest);
+            await rm(src, { force: true });
+          }
+        }
+      };
 
       const files = await readdir(extractDir);
       for (const file of files) {
-        const srcPath = join(extractDir, file);
-        const destPath = join(appDir, file);
         try {
-          await rename(srcPath, destPath);
+          await applyEntry(file);
         } catch (err) {
-          logger.warning(`移动文件失败: ${file}，尝试复制`);
-          const { cp } = await import('fs/promises');
-          await cp(srcPath, destPath, { recursive: true, force: true });
+          logger.error(`更新应用失败: ${file}`, err as Error);
+          // 失败回滚（best-effort）：仅当存在备份时移除已落盘条目并从备份恢复，避免新旧混合/数据丢失
+          try {
+            if (backupPath) {
+              for (const applied of files) {
+                await rm(join(appDir, applied), {
+                  recursive: true,
+                  force: true,
+                });
+              }
+              const backupEntries = await readdir(backupPath);
+              for (const entry of backupEntries) {
+                const bSrc = join(backupPath, entry);
+                const bDest = join(appDir, entry);
+                if ((await lstat(bSrc)).isDirectory()) {
+                  await mergeDir(bSrc, bDest);
+                } else {
+                  await copyFile(bSrc, bDest);
+                }
+              }
+              logger.info('已从备份回滚更新');
+            } else {
+              logger.warning('无备份可回滚，保留已应用文件以避免进一步破坏');
+            }
+          } catch (rollbackErr) {
+            logger.warning(
+              `回滚失败，请手动从备份恢复: ${backupPath || '无备份'}`,
+              {
+                error: String(rollbackErr),
+              }
+            );
+          }
+          throw err;
         }
       }
 

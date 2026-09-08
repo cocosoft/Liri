@@ -51,57 +51,13 @@ jobs:
 
       - name: Test
         run: bun test tests/
-        # 2026-08-30 修复：与 ci.yml 的 Test Suite 对齐（`bun test tests/`）。
-        # 原 `bun test`（全量）会跑 src/ 下测试，其中 29 个预存断言失败（JsonRpcBridge
-        # /MiniMaxVideoProvider/KB-IT 等，独立模块长期未修）→ Release 长期被阻塞。
-        # 统一到 tests/ 目录（1956 pass 全绿），src/ 测试失败另登记处理。
-        # 版本门禁：测试失败必须阻断发版（2026-08-15 评审修正，
-        # 原 continue-on-error 允许测试挂掉仍继续发布）
+        # 版本门禁：测试失败必须阻断发版（2026-08-15 评审修正）
+        # 统一到 tests/ 目录（1956 pass 全绿），src/ 预存失败另登记处理
 
   # ══════════════════════════════════════════════
-  # JS Bundle（平台无关，供 Tauri sidecar 使用）
-  # ══════════════════════════════════════════════
-  bundle:
-    needs: lint-test
-    name: Bundle JS
-    runs-on: ubuntu-latest
-
-    defaults:
-      run:
-        working-directory: app
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: 1.3.14
-
-      - name: Cache node_modules
-        uses: actions/cache@v4
-        with:
-          path: app/node_modules
-          key: ${{ runner.os }}-bun-${{ hashFiles('app/bun.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-bun-
-
-      - name: Install dependencies
-        run: bun install
-
-      - name: Bundle JS
-        run: bun build --target=bun --packages=external src/main.ts --outdir=dist
-
-      - name: Upload dist bundle
-        uses: actions/upload-artifact@v4
-        with:
-          name: dist-bundle
-          path: app/dist/
-
-  # ══════════════════════════════════════════════
-  # 便携 Bun + Bundle 完整包（方案 C）
-  # 产物：liri-v{version}-{platform}-full.zip + update.zip
+  # 便携包（方案 C）：full + update zip
+  # 产物：liri-v{ver}-{platform}-full.zip / liri-v{ver}-update-{platform}.zip
+  # 依赖布局统一 node_modules/（与 pkg / exe 同级），校验交给 verify-package.ts（契约驱动）
   # ══════════════════════════════════════════════
   portable-bundle:
     name: Portable Bundle (${{ matrix.display }})
@@ -118,21 +74,15 @@ jobs:
         include:
           - display: win-x64
             os: windows-latest
-            bun-target: bun-windows-x64-modern
             platform: win-x64
-            ext: .exe
 
           - display: macos-arm64
             os: macos-latest
-            bun-target: bun-darwin-arm64-modern
             platform: macos-arm64
-            ext: ""
 
           - display: linux-x64
             os: ubuntu-latest
-            bun-target: bun-linux-x64-modern
             platform: linux-x64
-            ext: ""
 
     steps:
       - uses: actions/checkout@v4
@@ -155,27 +105,19 @@ jobs:
         shell: bash
         run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
 
-      # 阶段 1：变体构建
+      # 阶段 1-5：统一脚本链（与桌面 sidecar / Docker 同 variant=coding、同一依赖契约）
       - name: Generate variant
-        run: bun run scripts/build-variant.ts --variant=personal
-
-      # 阶段 2：打包业务代码
+        run: bun run scripts/build-variant.ts --variant=coding
       - name: Build bundle
         run: bun run build:bundle
-
-      # 阶段 3：复制运行时
       - name: Setup runtime
         run: bun run build:runtime
-
-      # 阶段 4：复制原生依赖
       - name: Copy native deps
         run: bun run build:deps
-
-      # 阶段 5：复制种子数据
       - name: Copy seed data
         run: bun run build:seed
 
-      # 阶段 6：生成启动脚本
+      # 阶段 6：启动脚本
       - name: Generate launcher
         shell: bash
         run: |
@@ -186,23 +128,33 @@ jobs:
             chmod +x ../dist/pkg/run.sh
           fi
 
-      # 阶段 7：打包完整包
+      # 阶段 7：契约校验（缺项即红；检查项来自 package-manifest.ts / 产物结构）
+      - name: Verify package (contract)
+        shell: bash
+        run: |
+          EXTRA_ARGS=""
+          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+            EXTRA_ARGS="--file=run.bat"
+          else
+            EXTRA_ARGS="--file=run.sh"
+          fi
+          bun run scripts/verify-package.ts --pkg=../dist/pkg --dir=runtime --dir=app/config --dir=app/docs --file=app/data/pyapp/SOUL.md $EXTRA_ARGS
+
+      # 阶段 8：full zip
       - name: Package full zip
         shell: bash
         run: |
           VER="${{ steps.version.outputs.version }}"
           cd ../dist
           ZIP_NAME="liri-v${VER}-${{ matrix.platform }}-full.zip"
-
           if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
             powershell Compress-Archive -Path pkg\* -DestinationPath "${ZIP_NAME}" -Force
           else
             cd pkg && zip -r "../${ZIP_NAME}" . && cd ..
           fi
+          echo "Full package: ${ZIP_NAME}"
 
-          echo "Full package: ${ZIP_NAME} ($(du -h ${ZIP_NAME} 2>/dev/null | cut -f1 || echo 'unknown'))"
-
-      # 阶段 8：增量包
+      # 阶段 9：update zip（依赖整体取自 pkg/node_modules，与 pkg 布局一致；文件名带平台防覆盖）
       - name: Package update zip
         shell: bash
         run: |
@@ -210,15 +162,13 @@ jobs:
           mkdir -p ../dist/update-tmp
           cp ../dist/pkg/liri.js ../dist/update-tmp/
           if [ -d "../dist/pkg/node_modules" ]; then
-            mkdir -p ../dist/update-tmp/deps/node_modules
-            for dep in sharp pdfjs-dist; do
-              if [ -d "../dist/pkg/node_modules/$dep" ]; then
-                cp -r "../dist/pkg/node_modules/$dep" ../dist/update-tmp/deps/node_modules/
-              fi
-            done
+            cp -a "../dist/pkg/node_modules/." ../dist/update-tmp/node_modules/
+          else
+            echo "ERROR: pkg/node_modules missing"
+            exit 1
           fi
           cd ../dist
-          ZIP_NAME="liri-v${VER}-update.zip"
+          ZIP_NAME="liri-v${VER}-update-${{ matrix.platform }}.zip"
           if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
             powershell Compress-Archive -Path update-tmp\* -DestinationPath "${ZIP_NAME}" -Force
           else
@@ -227,49 +177,33 @@ jobs:
           rm -rf update-tmp
           echo "Update package: ${ZIP_NAME}"
 
-      # 校验和
+      # 阶段 10：校验和（按平台命名，由 release job 汇总为一份全量）
       - name: Generate checksum
         shell: bash
         run: |
           cd ../dist
           for f in liri-*.zip; do
-            sha256sum "$f" >> checksums.txt
+            sha256sum "$f" >> checksums-${{ matrix.platform }}.txt
           done
 
-      # 包体积监控
+      # 阶段 11：体积门禁（超限即失败；update 与 full 分别设上限）
       - name: Check package size
         shell: bash
         run: |
-          MAX_SIZE_MB=120
-          for f in ../dist/liri-*-full.zip; do
+          FAIL=0
+          check_size() {
+            local f="$1" max="$2"
             SIZE_MB=$(du -m "$f" 2>/dev/null | cut -f1 || echo "0")
-            echo "Package: $(basename $f) = ${SIZE_MB} MB"
-            if [ "${SIZE_MB}" -gt "${MAX_SIZE_MB}" ] 2>/dev/null; then
-              echo "WARNING: Package size ${SIZE_MB}MB exceeds limit ${MAX_SIZE_MB}MB"
+            echo "Package: $(basename $f) = ${SIZE_MB} MB (limit ${max}MB)"
+            if [ "${SIZE_MB}" -gt "${max}" ] 2>/dev/null; then
+              echo "FAIL: $(basename $f) exceeds ${max}MB"
+              FAIL=1
             fi
-          done
-          echo "Size check complete"
-
-      # 构建产物验证
-      - name: Verify package
-        shell: bash
-        run: |
-          echo "=== Verifying package structure ==="
-          PKG_DIR="../dist/pkg"
-          for f in "liri.js"; do
-            if [ -f "$PKG_DIR/$f" ]; then echo "  ✅ $f"; else echo "  ❌ $f MISSING"; fi
-          done
-          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
-            if [ -f "$PKG_DIR/run.bat" ]; then echo "  ✅ run.bat"; else echo "  ❌ run.bat MISSING"; fi
-          else
-            if [ -f "$PKG_DIR/run.sh" ]; then echo "  ✅ run.sh"; else echo "  ❌ run.sh MISSING"; fi
-          fi
-          if [ -d "$PKG_DIR/runtime" ]; then echo "  ✅ runtime/"; fi
-          if [ -d "$PKG_DIR/node_modules/sharp" ]; then echo "  ✅ deps/sharp"; fi
-          if [ -d "$PKG_DIR/app/config" ]; then echo "  ✅ app/config/ (startup.yaml)"; fi
-          if [ -d "$PKG_DIR/app/docs" ]; then echo "  ✅ app/docs/"; fi
-          if [ -f "$PKG_DIR/app/data/pyapp/SOUL.md" ]; then echo "  ✅ app/data/pyapp/SOUL.md"; fi
-          echo "=== Verification passed ==="
+          }
+          for f in ../dist/liri-*-full.zip; do check_size "$f" 120; done
+          for f in ../dist/liri-*-update-*.zip; do check_size "$f" 80; done
+          if [ "$FAIL" -ne 0 ]; then echo "=== Size check FAILED ==="; exit 1; fi
+          echo "Size check passed"
 
       - name: Upload portable artifact
         uses: actions/upload-artifact@v4
@@ -277,16 +211,15 @@ jobs:
           name: portable-${{ matrix.platform }}
           path: |
             dist/liri-*.zip
-            dist/checksums.txt
+            dist/checksums-${{ matrix.platform }}.txt
           retention-days: 30
 
   # ══════════════════════════════════════════════
-  # Tauri 桌面客户端（嵌入 sidecar）
+  # Tauri 桌面客户端（嵌入 compile sidecar；独立并行，不再依赖 JS bundle）
   # ══════════════════════════════════════════════
   tauri-build:
     name: Build Tauri Client (${{ matrix.config.name }})
     runs-on: ${{ matrix.config.os }}
-    needs: bundle
     if: startsWith(github.ref, 'refs/tags/v')
 
     strategy:
@@ -339,12 +272,6 @@ jobs:
             ~/.cargo/git
           key: ${{ runner.os }}-tauri-${{ hashFiles('client/src-tauri/Cargo.lock', 'client/src-tauri/tauri.conf.json') }}
 
-      - name: Download JS dist bundle
-        uses: actions/download-artifact@v4
-        with:
-          name: dist-bundle
-          path: app/dist
-
       - name: Install system dependencies (Linux)
         if: matrix.config.os == 'ubuntu-latest'
         run: |
@@ -375,12 +302,12 @@ jobs:
             }
           done
 
+      # 编译 sidecar（pyapp 单入口，统一 release-build 语义；产物落根 dist 供 tauri resources 整目录引用）
       - name: Build sidecar (${{ matrix.config.name }})
         working-directory: ${{ github.workspace }}/app
         shell: bash
         run: |
           set -euo pipefail
-
           echo "=== [0] Installing dependencies with retry ==="
           for attempt in 1 2 3; do
             echo "Attempt $attempt..."
@@ -396,136 +323,50 @@ jobs:
             }
           done
 
-          echo "=== [1] Check for downloaded dist bundle ==="
-          if [ -d dist ] && [ "$(ls -A dist 2>/dev/null || true)" ]; then
-            echo "Using downloaded JS bundle in dist/"
-          else
-            echo "No downloaded dist found; building JS bundle locally"
-            bun build --target=bun --packages=external src/main.ts --outdir=dist
-          fi
-
-          echo "=== [2] Building sidecar binary ==="
-          echo "Running: bun run ${{ matrix.config.sidecar-build }}"
-
-          # 捕获完整输出（stdout+stderr），失败时展示以辅助排查
+          echo "=== [1] Building sidecar binary ==="
           BUILD_OUTPUT=$(bun run ${{ matrix.config.sidecar-build }} 2>&1) || {
             BUILD_EXIT=$?
             echo "ERROR: Sidecar build command failed with exit code $BUILD_EXIT"
-            echo "Build output:"
             echo "$BUILD_OUTPUT"
-            echo "=== Checking ../dist contents ==="
-            ls -lah ../dist/ 2>/dev/null || echo "../dist/ does not exist"
-            echo "=== Checking app/dist contents ==="
-            ls -lah dist/ 2>/dev/null || true
             exit 1
           }
 
-          echo "Build output:"
-          echo "$BUILD_OUTPUT"
-
-          echo "=== [3] Verifying build artifacts ==="
-          echo "=== Contents of ../dist after sidecar build ==="
-          ls -lah ../dist/ || true
-          echo "=== Contents of dist/ (JS bundle) ==="
-          ls -lah dist/ || true
-
-          # 验证 sidecar 二进制是否存在（停留在 app/ 目录内，不 cd 进 ../dist）
           if ! ls ../dist/liri_terminal* 1> /dev/null 2>&1; then
-            echo "ERROR: no liri_terminal* file found in ../dist after sidecar build"
-            echo "Directory contents:"
-            ls -la ../dist/
+            echo "ERROR: no liri_terminal* file found in ../dist"
+            ls -la ../dist/ || true
             exit 1
           fi
 
           SIDEFILE=$(ls ../dist | grep -E '^liri_terminal' | head -n1)
-          echo "Found sidecar binary: $SIDEFILE ($(du -sh "../dist/$SIDEFILE" | cut -f1))"
-
-          # 归一化 sidecar 产物名称为 liri_terminal，供下游 copy 步骤使用
+          echo "Found sidecar binary: $SIDEFILE"
           if [ "$SIDEFILE" != "liri_terminal${{ matrix.config.sidecar-ext }}" ]; then
-            echo "Renaming $SIDEFILE -> liri_terminal${{ matrix.config.sidecar-ext }}"
             mv "../dist/$SIDEFILE" "../dist/liri_terminal${{ matrix.config.sidecar-ext }}"
           fi
-
-          echo "Sidecar build completed successfully."
-
-      - name: Verify sidecar artifact
-        run: |
-          echo "=== ../dist ==="
-          ls -la ../dist || true
-          echo "=== ../app/node_modules ==="
-          ls -la ../app/node_modules || true
-        shell: bash
+          # compile 产物契约校验（node_modules 含全部 externals，缺项即红）
+          bun run scripts/verify-package.ts --pkg=../dist
 
       - name: Copy sidecar to Tauri binaries dir
         run: |
           New-Item -ItemType Directory -Force -Path src-tauri/binaries
-          # 匹配 sidecar 输出：liri_terminal*
-          # 注意：-Include 配合 -Path 目录时必须在路径末尾加 \*，否则不生效
           $side = Get-ChildItem -Path "../dist/*" -Include "liri_terminal*" -File -ErrorAction SilentlyContinue | Select-Object -First 1
           if (-not $side) {
             Write-Error "ERROR: sidecar binary not found in ../dist"
-            Write-Host "=== ../dist contents for debugging ==="
-            Get-ChildItem ../dist -Force -ErrorAction SilentlyContinue
             exit 1
           }
-          Write-Host "Copying sidecar: $($side.Name) -> src-tauri/binaries/liri_terminal-${{ matrix.config.target }}${{ matrix.config.sidecar-ext }}"
+          Write-Host "Copying sidecar: $($side.Name)"
           Copy-Item $side.FullName "src-tauri/binaries/liri_terminal-${{ matrix.config.target }}${{ matrix.config.sidecar-ext }}" -Force
-
-          # 只复制运行时必需的外部模块（sharp + pdfjs-dist）及其完整依赖树，不复制全部 480+ 包
-          # Bun --compile 的 external 解析从 exe 同级 node_modules 查找（pyapp.ts 已 chdir 到 exe 目录），
-          # tauri resources 将 binaries/deps → $RESOURCES/node_modules，与 exe 同级
-          New-Item -ItemType Directory -Force -Path src-tauri/binaries/deps/node_modules
-          if (Test-Path ../dist/node_modules) {
-            Get-ChildItem -Path ../dist/node_modules -Force | Copy-Item -Destination src-tauri/binaries/deps/node_modules -Recurse -Force
-          } else {
-            Write-Warning "dist/node_modules not found, copying from app/node_modules (sharp + pdfjs-dist only)"
-            foreach ($pkg in @('sharp', 'pdfjs-dist')) {
-              $src = "../app/node_modules/$pkg"
-              if (Test-Path $src) {
-                Copy-Item -Path $src -Destination "src-tauri/binaries/deps/node_modules/$pkg" -Recurse -Force
-              } else {
-                Write-Error "ERROR: required native module '$pkg' not found at $src"
-                exit 1
-              }
-            }
-          }
-          Write-Host "=== binaries/deps/node_modules contents ==="
-          Get-ChildItem src-tauri/binaries/deps/node_modules -Directory | Select-Object Name
         shell: powershell
         if: matrix.config.os == 'windows-latest'
 
       - name: Copy sidecar to Tauri binaries dir (Unix)
         run: |
           mkdir -p src-tauri/binaries
-          # 匹配 sidecar 输出
           SIDEFILE=$(ls ../dist | grep -E '^liri_terminal' | head -n1 || true)
           if [ -z "$SIDEFILE" ]; then
             echo "ERROR: sidecar binary not found in ../dist"
-            echo "Listing ../dist for debugging:"
-            ls -la ../dist || true
             exit 1
           fi
-          echo "Copying sidecar from ../dist/${SIDEFILE} -> src-tauri/binaries/liri_terminal-${{ matrix.config.target }}${{ matrix.config.sidecar-ext }}"
           cp "../dist/${SIDEFILE}" "src-tauri/binaries/liri_terminal-${{ matrix.config.target }}${{ matrix.config.sidecar-ext }}"
-
-          # 只复制运行时必需的外部模块（sharp + pdfjs-dist）及其完整依赖树，不复制全部 480+ 包
-          # Bun --compile 的 external 解析从 exe 同级 node_modules 查找（pyapp.ts 已 chdir 到 exe 目录）
-          mkdir -p src-tauri/binaries/deps/node_modules
-          if [ -d ../dist/node_modules ]; then
-            cp -a ../dist/node_modules/. src-tauri/binaries/deps/node_modules/
-          else
-            echo "WARNING: dist/node_modules not found, copying from app/node_modules (sharp + pdfjs-dist only)"
-            for pkg in sharp pdfjs-dist; do
-              if [ -d "../app/node_modules/$pkg" ]; then
-                cp -a "../app/node_modules/$pkg/." "src-tauri/binaries/deps/node_modules/$pkg/"
-              else
-                echo "ERROR: required native module '$pkg' not found at ../app/node_modules/$pkg"
-                exit 1
-              fi
-            done
-          fi
-          echo "=== binaries/deps/node_modules contents ==="
-          ls -d src-tauri/binaries/deps/node_modules/*/ 2>/dev/null || true
         shell: bash
         if: matrix.config.os != 'windows-latest'
 
@@ -540,22 +381,85 @@ jobs:
             client/src-tauri/target/release/bundle/
 
   # ══════════════════════════════════════════════
-  # GitHub Release
+  # 产物冒烟（Phase2 #5）：在解压/安装后的干净目录运行 --smoke
+  # ══════════════════════════════════════════════
+  artifact-smoke:
+    name: Artifact Smoke (${{ matrix.display }})
+    runs-on: ${{ matrix.os }}
+    needs: [portable-bundle, tauri-build]
+    if: startsWith(github.ref, 'refs/tags/v')
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - display: win-x64
+            os: windows-latest
+            platform: win-x64
+          - display: macos-arm64
+            os: macos-latest
+            platform: macos-arm64
+          - display: linux-x64
+            os: ubuntu-latest
+            platform: linux-x64
+
+    steps:
+      - name: Download portable artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: portable-${{ matrix.platform }}
+          path: portable
+
+      - name: Smoke portable full zip (解压后干净目录运行)
+        shell: bash
+        run: |
+          set -euo pipefail
+          FULL_ZIP=$(ls portable/liri-*-${{ matrix.platform }}-full.zip | head -n1)
+          echo "Smoking: $FULL_ZIP"
+          rm -rf /tmp/liri-smoke && mkdir -p /tmp/liri-smoke
+          cd /tmp/liri-smoke
+          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+            powershell Expand-Archive -Path "$GITHUB_WORKSPACE/portable/$(basename $FULL_ZIP)" -DestinationPath . -Force
+            ./runtime/bun.exe run ./liri.js --smoke
+          else
+            unzip -q "$GITHUB_WORKSPACE/$FULL_ZIP"
+            ./runtime/bun run ./liri.js --smoke
+          fi
+
+      - name: Download Windows installer (win smoke)
+        uses: actions/download-artifact@v4
+        if: matrix.os == 'windows-latest'
+        with:
+          name: tauri-installer-Windows
+          path: installers
+
+      - name: Smoke MSI install (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: powershell
+        run: |
+          $msi = Get-ChildItem installers -Recurse -Filter *.msi | Select-Object -First 1
+          if (-not $msi) { Write-Error "MSI not found"; exit 1 }
+          Write-Host "Installing: $($msi.FullName)"
+          Start-Process msiexec.exe -ArgumentList "/i `"$($msi.FullName)`" /qn /norestart" -Wait
+          $exe = "C:\Program Files\Liri\liri_terminal.exe"
+          if (-not (Test-Path $exe)) { Write-Error "sidecar not found at $exe"; exit 1 }
+          Write-Host "Smoking: $exe --smoke"
+          & $exe --smoke
+          if ($LASTEXITCODE -ne 0) { Write-Error "smoke failed exit=$LASTEXITCODE"; exit 1 }
+          Write-Host "Uninstalling"
+          Start-Process msiexec.exe -ArgumentList "/x `"$($msi.FullName)`" /qn /norestart" -Wait
+
+  # ══════════════════════════════════════════════
+  # GitHub Release（汇总校验和；附件含平台化 update.zip）
   # ══════════════════════════════════════════════
   release:
     name: Create Release
     runs-on: ubuntu-latest
-    needs: [bundle, portable-bundle, tauri-build]
+    needs: [portable-bundle, tauri-build, artifact-smoke]
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Download dist bundle
-        uses: actions/download-artifact@v4
-        with:
-          name: dist-bundle
-          path: dist
 
       - name: Download all Tauri installers
         uses: actions/download-artifact@v4
@@ -571,11 +475,13 @@ jobs:
           path: portable
           merge-multiple: true
 
+      - name: Aggregate checksums
+        shell: bash
+        run: |
+          cat portable/checksums-*.txt | sort -u > portable/checksums.txt
+
       - name: List release assets
         run: |
-          echo "=== Dist bundle ==="
-          ls -la dist/ || true
-          echo ""
           echo "=== Tauri installers ==="
           find installers/ -type f | sort || true
           echo ""
@@ -590,12 +496,11 @@ jobs:
           generate_release_notes: true
           make_latest: true
           files: |
-            dist/main.js
             installers/**/*.msi
             installers/**/*.dmg
             installers/**/*.deb
             installers/**/*.AppImage
             portable/**/*.zip
-            portable/**/checksums.txt
+            portable/checksums*.txt
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

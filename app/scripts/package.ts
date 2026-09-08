@@ -13,6 +13,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
 import { execSync } from 'child_process';
+import { RUNTIME_DEPS } from './package-manifest';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -103,9 +104,10 @@ function main(): void {
     fs.copyFileSync(liriSrc, path.join(updateDir, 'liri.js'));
   }
 
-  // 复制 deps/（如果存在）
+  // 复制外部依赖到更新包：布局与 pkg 对齐（node_modules/ 与 liri.js 同级，供 exe/liri.js 运行时解析）
+  // 白名单与 copy-external-deps.ts 保持一致（sharp / pdfjs-dist / yoga-layout + @img 原生包）
   const depsSrc = path.join(pkgDir, 'node_modules');
-  const depsDest = path.join(updateDir, 'deps', 'node_modules');
+  const depsDest = path.join(updateDir, 'node_modules');
   if (fs.existsSync(depsSrc)) {
     const copyRecursive = (src: string, dest: string) => {
       if (!fs.existsSync(src)) return;
@@ -121,8 +123,8 @@ function main(): void {
         fs.copyFileSync(src, dest);
       }
     };
-    // 只复制 sharp 和 pdfjs-dist（与 build:deps 保持一致）
-    for (const dep of ['sharp', 'pdfjs-dist']) {
+    // 只复制外部依赖白名单（与 build:deps 保持一致）
+    for (const dep of ['sharp', 'pdfjs-dist', 'yoga-layout']) {
       const depSrc = path.join(depsSrc, dep);
       const depDst = path.join(depsDest, dep);
       if (fs.existsSync(depSrc)) {

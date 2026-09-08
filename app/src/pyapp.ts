@@ -39,6 +39,8 @@ import {
 } from 'fs';
 import { getLogger } from './monitoring/logs/Logger';
 import { createRequire } from 'module';
+// 打包运行产物契约（externals 单一来源；此处仅用于 --smoke 启动自检清单）
+import { RUNTIME_DEPS } from '../scripts/package-manifest';
 // type-only import：编译期擦除，不产生运行时 require，不会提前拉入 paths.ts
 import type { handleError as HandleErrorFn } from '@modules/error';
 
@@ -540,6 +542,28 @@ if (isCompiledBinary) {
         error: String(e),
       });
     }
+  }
+}
+
+// ── --smoke：打包产物启动自检（Phase1 #6） ──
+// 在解压后的干净目录运行：liri_terminal(.exe) --smoke → 输出 SMOKE_OK 且退出码 0。
+// 逐个真实加载 RUNTIME_DEPS（编译/便携/Docker 三种形态的解析位置各不相同，
+// dynamic import 按导入方模块路径解析：exe 同级 node_modules / pkg 同级 / dist 同级）。
+if (process.argv.includes('--smoke')) {
+  try {
+    // pdfjs 主入口指向已裁剪的 modern build，须加载 legacy 子路径（与 copy-external 裁剪规则对应）
+    const smokeImport = (pkg: string): string =>
+      pkg === 'pdfjs-dist' ? 'pdfjs-dist/legacy/build/pdf' : pkg;
+    for (const pkg of RUNTIME_DEPS) {
+      await import(smokeImport(pkg));
+    }
+    process.stdout.write(`SMOKE_OK externals=${RUNTIME_DEPS.join(',')}\n`);
+    process.exit(0);
+  } catch (err) {
+    process.stderr.write(
+      `SMOKE_FAIL ${err instanceof Error ? err.message : String(err)}\n`
+    );
+    process.exit(1);
   }
 }
 

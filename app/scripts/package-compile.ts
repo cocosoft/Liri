@@ -94,7 +94,8 @@ function main(): void {
   }
 
   const nodeModulesDir = path.join(targetDir, 'node_modules');
-  const missingDeps = ['sharp', 'pdfjs-dist'].filter(
+  // 唯一来源：package-manifest.ts 契约（漏任一 external 产物均不可发布）
+  const missingDeps = RUNTIME_DEPS.filter(
     (dep) => !fs.existsSync(path.join(nodeModulesDir, dep, 'package.json'))
   );
   if (missingDeps.length > 0) {

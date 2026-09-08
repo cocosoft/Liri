@@ -1738,6 +1738,56 @@
       "targetLines": 1000,
       "plan": "PDCA 收口批次扩展（HEAD 620 行 → 1094 行）；核心编排文件行数超限，拆分列入后续专项（对齐 FSZ-108 ReActToolLoop 先例）",
       "expiresAt": "2026-11-30"
+    },
+    {
+      "id": "FSZ-156",
+      "ruleId": "R04-001",
+      "file": "app/src/query/ReActLoop.ts",
+      "lines": 849,
+      "targetLines": 800,
+      "plan": "历史遗留 >800 行未豁免，CI file-size 门禁阻塞（打包部署专项排查 R7）；后续按 主循环/子代理/工具执行 子域拆分",
+      "expiresAt": "2026-10-31",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-157",
+      "ruleId": "R04-001",
+      "file": "app/src/ai/providers/DawateProvider.ts",
+      "lines": 848,
+      "targetLines": 800,
+      "plan": "私有化部署供应商适配器本地开发致超限（工作区未提交内容）；合并前需确认行数后拆分或维持豁免",
+      "expiresAt": "2026-10-31",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-158",
+      "ruleId": "R04-001",
+      "file": "app/src/services/file/FileRegistry.ts",
+      "lines": 829,
+      "targetLines": 800,
+      "plan": "历史遗留 >800 行未豁免，CI file-size 门禁阻塞；后续按 注册表/附件/上传 子域拆分",
+      "expiresAt": "2026-10-31",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-159",
+      "ruleId": "R04-001",
+      "file": "app/src/infrastructure/http/handlers/monitoring-handlers.ts",
+      "lines": 804,
+      "targetLines": 800,
+      "plan": "历史遗留 >800 行未豁免，CI file-size 门禁阻塞；后续按 指标/告警/追踪 子域拆分",
+      "expiresAt": "2026-10-31",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-160",
+      "ruleId": "R04-001",
+      "file": "app/src/chat/services/ToolExecutionService.ts",
+      "lines": 803,
+      "targetLines": 800,
+      "plan": "历史遗留 >800 行未豁免，CI file-size 门禁阻塞；后续按 执行/上下文/回调 子域拆分",
+      "expiresAt": "2026-10-31",
+      "owner": "@arch-lead"
     }
   ],
   "barrelExceptions": [

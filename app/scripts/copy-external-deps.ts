@@ -8,6 +8,7 @@
  *   bun run scripts/copy-external-deps.ts [--target=../dist]
  */
 
+import { RUNTIME_DEPS } from './package-manifest';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
@@ -15,8 +16,10 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-/** 需要复制的外部依赖列表 */
-const EXTERNAL_DEPS = ['pdfjs-dist', 'sharp'];
+import { RUNTIME_DEPS } from './package-manifest';
+
+/** 需要复制的外部依赖（唯一来源：package-manifest.ts 契约，禁止在此另立清单） */
+const EXTERNAL_DEPS = RUNTIME_DEPS;
 
 /**
  * 递归复制目录或文件
@@ -116,7 +119,7 @@ function main(): void {
 
   console.log('\n=== 复制外部依赖到输出目录 ===');
   console.log(`目标目录: ${targetDir}`);
-  console.log(`模式: ${bundleMode ? 'bundle (node_modules/)' : 'compile (deps/node_modules/)'}`);
+  console.log(`模式: ${bundleMode ? 'bundle (pkg/node_modules/)' : 'compile (node_modules/ 与 exe 同级)'}`);
 
   if (!fs.existsSync(targetDir)) {
     console.error(`[错误] 输出目录不存在: ${targetDir}`);

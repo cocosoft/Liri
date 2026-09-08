@@ -1,35 +1,14 @@
 // 自动生成的分版 Feature Flags
-// 变体: core — 核心版 — 最小功能集，仅 CLI + 基础工具
-// 生成时间: 2026-08-04T07:38:45.161Z
+// 变体: coding — 编码版 — Personal + LSP + Notebook + 代码分析
+// 生成时间: 2026-09-08T16:08:51.480Z
 
 export const BUILD_VARIANT_FLAGS = {
-  BASH: true,
-  FILE_READ: true,
-  FILE_WRITE: true,
-  FILE_EDIT: true,
-  GREP: true,
-  GLOB: true,
-  WEB_FETCH: true,
-  WEB_SEARCH: true,
-  TASK: true,
-  TODO: true,
-  ASK: true,
-  AGENT: false,
-  AGENT_SWARMS: false,
+  AGENT_SWARMS: true,
+  LSP: true,
+  NOTEBOOK: true,
+  CODE_ANALYSIS: true,
+  BROWSER: true,
+  TEAM_CREATE: true,
+  TEAM_DELETE: true,
   AGENT_TRIGGERS: false,
-  ENABLE_PLUGINS: false,
-  ENABLE_SKILLS: false,
-  MCP_SYSTEM: false,
-  LSP: false,
-  NOTEBOOK: false,
-  BROWSER: false,
-  CODE_ANALYSIS: false,
-  TEAM_CREATE: false,
-  TEAM_DELETE: false,
-  SEND_MESSAGE: false,
-  FILE_CONVERTER: false,
-  CHRONOS: false,
-  TUNGSTEN: false,
-  PLAN: false,
-  BRIEF: false,
 } as const;

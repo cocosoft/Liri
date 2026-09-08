@@ -152,7 +152,23 @@ export class GitHubReleaseFetcher {
           .slice(0, 20)
       : undefined;
 
-    const asset = release.assets?.[0];
+    // 平台化资产选择（Phase2/B5）：update 包已按 `-update-{platform}.zip` 命名，
+    // 禁止无脑取 assets[0]（多平台同名旧布局下会取错平台）。按当前主机平台匹配，
+    // 优先 update 资产，其次同名平台资产，最后兜底 assets[0]。
+    const platformTag = (() => {
+      const p = process.platform;
+      const a = process.arch;
+      if (p === 'win32') return 'win-x64';
+      if (p === 'darwin') return a === 'arm64' ? 'macos-arm64' : 'macos-x64';
+      return a === 'arm64' ? 'linux-arm64' : 'linux-x64';
+    })();
+    const assets = release.assets ?? [];
+    const asset =
+      assets.find(
+        (a) => a.name.includes('update') && a.name.includes(platformTag)
+      ) ??
+      assets.find((a) => a.name.includes(platformTag)) ??
+      assets[0];
 
     return {
       currentVersion: this.currentVersion,

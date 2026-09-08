@@ -77,6 +77,15 @@ export function GraphPage({ isDark, active = true }: GraphPageProps) {
     return set.size;
   }, [filteredEdges]);
 
+  // P2#13：域过滤入口——由边数据去重（基于未过滤 edges，选域后仍需手动切回"全部"刷新全量域）
+  const domainOptions = useMemo(
+    () =>
+      Array.from(
+        new Set(edges.map((e) => e.domain).filter((d): d is string => !!d)),
+      ).sort(),
+    [edges],
+  );
+
   const focusEdges = useMemo(() => {
     if (!focusNode) return [];
     return edges.filter((e) => e.from === focusNode || e.to === focusNode);
@@ -92,6 +101,7 @@ export function GraphPage({ isDark, active = true }: GraphPageProps) {
           stats={stats}
           selectedType={selectedType}
           selectedDomain={selectedDomain}
+          domains={domainOptions}
           onSelectType={setSelectedType}
           onSelectDomain={setSelectedDomain}
           isDark={isDark}

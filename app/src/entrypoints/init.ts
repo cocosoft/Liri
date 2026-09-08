@@ -692,20 +692,22 @@ async function startDeferredPrefetches(): Promise<void> {
             await import('../knowledge/KnowledgeSummarizer.js');
           const { setKnowledgeQueryProvider } =
             await import('../services/prompt/KnowledgePromptProvider.js');
-          const { SemanticStore } =
-            await import('@modules/knowledge/semantic/store.js');
+          const { createVectorStore } =
+            await import('@modules/knowledge/semantic/VectorStoreFactory.js');
           const { SemanticIndexUpdater } =
             await import('@modules/knowledge/SemanticIndexUpdater.js');
           const { globalEmbeddingManager } = await import('@modules/ai');
           const { resolveDataSubDir } = await import('@modules/core/paths.js');
 
-          // 创建共享 SemanticStore（路径与 SemanticIndexUpdater 保持一致）
+          // 创建共享向量存储（当前唯一实现 JsonlVectorStore；B5 已下架 sqlite_vec 分支）
+          // B0/B3（2026-09-08）：同一实例同时注入 SemanticIndexUpdater（写入）与
+          // knowledgeRouter（读取/enrichContext），替代已 @deprecated 的 SemanticStore
+          // 单独注入——补齐 vectorStore 新接口调用链并消除"写/读双实例各持内存副本"
           const indexDir = resolveDataSubDir('semantic-index');
-          const semanticStore = new SemanticStore(indexDir, {
+          const vectorStore = createVectorStore(indexDir, {
             provider: 'local',
             model: 'nomic-embed-text',
           });
-          await semanticStore.load();
 
           // 初始化语义索引增量更新器（监听 knowledge:changed 事件）
           // KB-SEM（2026-08-27）：传入知识库根目录，updater 归一化路径与 builder 一致
@@ -715,6 +717,7 @@ async function startDeferredPrefetches(): Promise<void> {
             globalEmbeddingManager,
             {
               indexDir,
+              store: vectorStore,
               knowledgeRoot:
                 getDefaultKnowledgeBaseRegistry().getKnowledgeRoot(),
             },
@@ -722,7 +725,7 @@ async function startDeferredPrefetches(): Promise<void> {
           );
           await semanticIndexUpdater.initialize();
 
-          // 创建 KnowledgeRouter 并注入 SemanticStore
+          // 创建 KnowledgeRouter 并注入 vectorStore（新接口）
           // 使用共享单例 knowledgeRouter，确保 KnowledgeDeleteTool 等模块可共享索引
           const { knowledgeRouter } =
             await import('@modules/knowledge/KnowledgeRouter.js');
@@ -730,7 +733,7 @@ async function startDeferredPrefetches(): Promise<void> {
             fileDocsProvider,
             knowledgeDocsProvider,
           ];
-          knowledgeRouter['semanticStore'] = semanticStore;
+          knowledgeRouter['vectorStore'] = vectorStore;
 
           // 注入 KnowledgeGraph 用于 GraphRAG 增强
           try {
@@ -751,6 +754,9 @@ async function startDeferredPrefetches(): Promise<void> {
           // 注入 EventBus 实现增量索引更新（先退订防止热重载重复订阅）
           for (const sub of _knowledgeSubscriptions) sub.unsubscribe();
           _knowledgeSubscriptions.length = 0;
+          // B9（2026-09-08）：created/updated 用 800ms 去抖合并——编译/保存常连续
+          // 触发多个变更事件，此前每个事件都全量 buildIndex 一次（多文档批次=多次全量扫）
+          let indexDebounce: ReturnType<typeof setTimeout> | null = null;
           _knowledgeSubscriptions.push(
             globalEventBus.subscribe('knowledge:changed', (event: unknown) => {
               const evt = event as { action: string; filePath: string };
@@ -759,17 +765,22 @@ async function startDeferredPrefetches(): Promise<void> {
                   evt.filePath
                 );
               } else if (evt.action === 'created' || evt.action === 'updated') {
-                // 新增/更新：全量重建倒排索引（保守方案确保一致性）。
+                // 新增/更新：去抖后单次全量重建倒排索引（保守方案确保一致性）。
                 // 编译入库（KnowledgeCompiler）发布 updated 事件后，新文档可被搜索立即命中。
-                void knowledgeRouter.buildIndex().catch((err) =>
-                  logger.warning('知识变更后倒排索引重建失败', {
-                    error: String(err),
-                  })
-                );
+                if (indexDebounce) clearTimeout(indexDebounce);
+                indexDebounce = setTimeout(() => {
+                  indexDebounce = null;
+                  void knowledgeRouter.buildIndex().catch((err) =>
+                    logger.warning('知识变更后倒排索引重建失败', {
+                      error: String(err),
+                    })
+                  );
+                }, 800);
               }
             })
           );
-          await knowledgeRouter.buildIndex();
+          // 初始建索引：优先 stat 清单缓存（D4：避免每次启动读全量正文比对）
+          await knowledgeRouter.ensureIndex();
           const summarizer = new KnowledgeSummarizer(knowledgeRouter);
           setKnowledgeQueryProvider(summarizer);
 

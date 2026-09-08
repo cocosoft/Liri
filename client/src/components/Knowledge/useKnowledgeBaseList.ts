@@ -57,6 +57,7 @@ export function useKnowledgeBaseList(opts: UseKnowledgeBaseListOpts) {
     compileProgress,
     compileMessage,
     searchTags,
+    categoryNames,
     total,
     page,
     pageSize,
@@ -108,6 +109,29 @@ export function useKnowledgeBaseList(opts: UseKnowledgeBaseListOpts) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sortBy]);
+  // P1：分类/来源过滤下移服务端——筛选变更时回第 1 页并重载（跨页命中可达）
+  const prevCategoryRef = useRef(selectedCategory);
+  useEffect(() => {
+    if (selectedCategory === prevCategoryRef.current) return;
+    prevCategoryRef.current = selectedCategory;
+    if (page !== 0) {
+      dispatchList({ type: "SET_PAGE", page: 0 });
+    } else {
+      loadFiles();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCategory]);
+  const prevSourceRef = useRef(selectedSource);
+  useEffect(() => {
+    if (selectedSource === prevSourceRef.current) return;
+    prevSourceRef.current = selectedSource;
+    if (page !== 0) {
+      dispatchList({ type: "SET_PAGE", page: 0 });
+    } else {
+      loadFiles();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedSource]);
   // KB-前端刷新信号：编辑保存/删除/标签更新后递增 refreshTick，重载列表保证左侧名称同步
   const refreshTick = list.refreshTick;
   const refreshTickRef = useRef(refreshTick);
@@ -141,8 +165,17 @@ export function useKnowledgeBaseList(opts: UseKnowledgeBaseListOpts) {
         pageSize,
         false,
         sortBy,
+        // P1：分类/来源过滤下移服务端（跨页命中可达）
+        selectedCategory ?? undefined,
+        selectedSource ?? undefined,
       );
-      dispatchList({ type: "SET_FILES", files: data.items, total: data.total });
+      dispatchList({
+        type: "SET_FILES",
+        files: data.items,
+        total: data.total,
+        categoryNames: data.categoryNames,
+        sourceNames: data.sourceNames,
+      });
     } catch (err) {
       logger.error("加载知识文件失败", err);
       // F1（Liri 第四轮确认遗漏）：加载失败≠空库——明确提示，避免误判"知识库为空"
@@ -161,8 +194,12 @@ export function useKnowledgeBaseList(opts: UseKnowledgeBaseListOpts) {
     async (query: string, base: string | null, searchTags?: string[]) => {
       if (!query.trim()) return;
       const seq = ++searchSeqRef.current;
-      // KB-C3/KB-P2：发起搜索 → 标记已提交并清除上次错误（失败时由 catch 重新设置）
-      dispatchList({ type: "SET_SEARCH_SUBMITTED", submitted: true });
+      // KB-C3/KB-P2：发起搜索 → 标记已提交（含查询快照，固化分桶范围）并清除上次错误
+      dispatchList({
+        type: "SET_SEARCH_SUBMITTED",
+        submitted: true,
+        query: query.trim(),
+      });
       dispatchList({ type: "SET_SEARCH_ERROR", error: null });
       dispatchList({ type: "SET_SEARCHING", searching: true });
       try {
@@ -396,6 +433,7 @@ export function useKnowledgeBaseList(opts: UseKnowledgeBaseListOpts) {
     compileProgress,
     compileMessage,
     searchTags,
+    categoryNames,
     total,
     page,
     pageSize,

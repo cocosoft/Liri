@@ -163,9 +163,14 @@ export default function SemanticIndexPage() {
   return (
     <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900">
       <div className="max-w-4xl mx-auto p-6">
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6">
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-1">
           语义索引管理
         </h2>
+        {/* P2#20：作用域说明——语义索引针对当前知识库根目录（~/.pyapp/knowledge），
+            不区分知识库 base 子目录；如需按库隔离需后端索引分区改造 */}
+        <p className="text-xs text-gray-400 dark:text-gray-500 mb-6">
+          作用于当前知识库（~/.pyapp/knowledge，不按 base 子目录隔离）
+        </p>
 
         {/* 索引状态 */}
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-5 mb-4">

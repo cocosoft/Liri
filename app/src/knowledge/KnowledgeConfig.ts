@@ -12,7 +12,7 @@
 
 import { join } from 'path';
 import { readFile } from 'fs/promises';
-import { existsSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
 import { getLogger } from '@modules/monitoring';
 import { resolvePyappHome } from '@modules/core';
 
@@ -42,7 +42,7 @@ export interface KnowledgeCompilerConfig {
 }
 
 export interface VectorStoreConfig {
-  /** 向量存储类型：jsonl | sqlite_vec */
+  /** 向量存储类型（B5 下架 sqlite_vec，当前仅 jsonl；字段保留兼容历史配置） */
   type: 'jsonl' | 'sqlite_vec';
   /** 语义搜索返回条数 */
   topK: number;
@@ -57,6 +57,8 @@ export interface KnowledgeConfigData {
   scheduler: KnowledgeSchedulerConfig;
   compiler: KnowledgeCompilerConfig;
   vectorStore?: VectorStoreConfig;
+  /** R1/D5：扫描件 OCR 运行时开关（默认关；env KNOWLEDGE_PDF_OCR 优先级更高） */
+  ocrEnabled?: boolean;
 }
 
 const DEFAULTS: KnowledgeConfigData = {
@@ -80,6 +82,7 @@ const DEFAULTS: KnowledgeConfigData = {
     minPagesPerFile: 2,
     qualityLintThreshold: 3,
   },
+  ocrEnabled: false,
 };
 
 const CONFIG_PATH = join(resolvePyappHome(), 'config', 'knowledge.json');
@@ -95,6 +98,28 @@ function envBool(key: string, fallback: boolean): boolean {
   const val = process.env[key];
   if (val === undefined) return fallback;
   return val === '1' || val.toLowerCase() === 'true';
+}
+
+/**
+ * D5：扫描件 OCR 运行时开关（同步读取，供 PDF 摄取侧使用）。
+ * 优先级：env KNOWLEDGE_PDF_OCR > knowledge.json `ocrEnabled` > 默认 false。
+ */
+export function isKnowledgeOcrEnabled(): boolean {
+  const env = process.env.KNOWLEDGE_PDF_OCR;
+  if (env !== undefined) {
+    return env === '1' || env.toLowerCase() === 'true';
+  }
+  try {
+    if (existsSync(CONFIG_PATH)) {
+      const data = JSON.parse(
+        readFileSync(CONFIG_PATH, 'utf-8')
+      ) as Partial<KnowledgeConfigData>;
+      return data.ocrEnabled === true;
+    }
+  } catch {
+    // @ignore-catch 配置读取失败视为未启用
+  }
+  return false;
 }
 
 export class KnowledgeConfig {
@@ -153,6 +178,10 @@ export class KnowledgeConfig {
       'KNOWLEDGE_SCHEDULER_RUN_ON_START',
       this.data.scheduler.runOnStart
     );
+    this.data.ocrEnabled = envBool(
+      'KNOWLEDGE_PDF_OCR',
+      this.data.ocrEnabled ?? false
+    );
   }
 
   get search(): KnowledgeSearchConfig {
@@ -173,6 +202,10 @@ export class KnowledgeConfig {
 
   get vectorStore(): VectorStoreConfig | undefined {
     return this.data.vectorStore ? { ...this.data.vectorStore } : undefined;
+  }
+
+  get ocrEnabled(): boolean {
+    return this.data.ocrEnabled ?? false;
   }
 
   /** 获取配置摘要（用于 CLI 回显） */
@@ -214,6 +247,9 @@ export class KnowledgeConfig {
       this.data.vectorStore = partial.vectorStore
         ? { ...partial.vectorStore }
         : undefined;
+    }
+    if (partial.ocrEnabled !== undefined) {
+      this.data.ocrEnabled = partial.ocrEnabled;
     }
     return this.data;
   }

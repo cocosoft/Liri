@@ -481,6 +481,21 @@ export function parentChildChunk(
 
   // 按标题层级分组：连续同层级（或更深）的块共享同一父块
   let currentParent: CodeChunk | null = null;
+  let pendingChildren: CodeChunk[] = [];
+
+  // B2（2026-09-08）：父块结束时统一回填子块 parentChunkId。
+  // 原实现用 `${path}#parent-L{n}` 伪 id 且把父块自身 id 塞进 preChunkId，
+  // 与 store 侧规范 id（`${path}#L{start}-L{end}`）不一致——getById 永远查不到父块。
+  const finalizeParent = (): void => {
+    if (!currentParent || currentParent.text.length === 0) return;
+    const parentId = `${filePath}#L${currentParent.startLine}-L${currentParent.endLine}`;
+    for (const child of pendingChildren) {
+      child.parentChunkId = parentId;
+    }
+    parentChunks.push(currentParent);
+    currentParent = null;
+    pendingChildren = [];
+  };
 
   for (let i = 0; i < childChunks.length; i++) {
     const child = childChunks[i]!;
@@ -489,11 +504,8 @@ export function parentChildChunk(
 
     // 遇到 H1/H2 标题，开新父块
     if (isH2 || !currentParent) {
-      if (currentParent && currentParent.text.length > 0) {
-        parentChunks.push(currentParent);
-      }
+      finalizeParent();
 
-      const parentId = `${filePath}#parent-L${child.startLine}`;
       currentParent = {
         path: filePath,
         startLine: child.startLine,
@@ -501,20 +513,24 @@ export function parentChildChunk(
         text: `[摘要] ${header}: ${child.text.slice(0, 800)}`,
         contextHeader: child.contextHeader,
       };
-
-      // 为所有子块分配相同 parentId（稍后补）
-      currentParent.preChunkId = parentId;
     }
 
-    // 子块指向父块
-    child.parentChunkId = currentParent?.preChunkId;
-    if (currentParent) {
-      currentParent.endLine = Math.max(currentParent.endLine, child.endLine);
-    }
+    // 子块暂存，父块结束（endLine 定稿）后再回填 parentChunkId
+    pendingChildren.push(child);
+    currentParent.endLine = Math.max(currentParent.endLine, child.endLine);
   }
+  finalizeParent();
 
-  if (currentParent && currentParent.text.length > 0) {
-    parentChunks.push(currentParent);
+  // 父块间建立 pre/next 链（父块自身也是可检索块，供富化上下文衔接）
+  for (let i = 0; i < parentChunks.length; i++) {
+    if (i > 0) {
+      parentChunks[i]!.preChunkId =
+        `${filePath}#L${parentChunks[i - 1]!.startLine}-L${parentChunks[i - 1]!.endLine}`;
+    }
+    if (i < parentChunks.length - 1) {
+      parentChunks[i]!.nextChunkId =
+        `${filePath}#L${parentChunks[i + 1]!.startLine}-L${parentChunks[i + 1]!.endLine}`;
+    }
   }
 
   return [...childChunks, ...parentChunks];

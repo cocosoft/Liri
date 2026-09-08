@@ -268,19 +268,31 @@ export class SemanticStore {
 // ─── 序列化 ──────────────────────────────────────────────────────────────────
 
 function serializeEntry(entry: IndexEntry): string {
-  return JSON.stringify({
+  const obj: Record<string, unknown> = {
     path: entry.path,
     startLine: entry.startLine,
     endLine: entry.endLine,
     text: entry.text,
     embedding: Array.from(entry.embedding),
     mtimeMs: entry.mtimeMs,
-  });
+  };
+  // B2（2026-09-08）：上下文富化依赖块链字段，全量落盘——
+  // 此前仅 6 字段往返，pre/next/parentChunkId/contextHeader/page 等在写入即丢失
+  if (entry.preChunkId !== undefined) obj.preChunkId = entry.preChunkId;
+  if (entry.nextChunkId !== undefined) obj.nextChunkId = entry.nextChunkId;
+  if (entry.parentChunkId !== undefined)
+    obj.parentChunkId = entry.parentChunkId;
+  if (entry.contextHeader !== undefined)
+    obj.contextHeader = entry.contextHeader;
+  if (entry.page !== undefined) obj.page = entry.page;
+  if (entry.section !== undefined) obj.section = entry.section;
+  if (entry.tableId !== undefined) obj.tableId = entry.tableId;
+  return JSON.stringify(obj);
 }
 
 function deserializeEntry(line: string): IndexEntry {
-  const obj = JSON.parse(line);
-  return {
+  const obj = JSON.parse(line) as Record<string, unknown>;
+  const entry: IndexEntry = {
     path: obj.path as string,
     startLine: obj.startLine as number,
     endLine: obj.endLine as number,
@@ -288,6 +300,17 @@ function deserializeEntry(line: string): IndexEntry {
     embedding: new Float32Array(obj.embedding as number[]),
     mtimeMs: obj.mtimeMs as number,
   };
+  // 兼容旧行（字段缺失时为 undefined，不填充）
+  if (typeof obj.preChunkId === 'string') entry.preChunkId = obj.preChunkId;
+  if (typeof obj.nextChunkId === 'string') entry.nextChunkId = obj.nextChunkId;
+  if (typeof obj.parentChunkId === 'string')
+    entry.parentChunkId = obj.parentChunkId;
+  if (typeof obj.contextHeader === 'string')
+    entry.contextHeader = obj.contextHeader;
+  if (typeof obj.page === 'number') entry.page = obj.page;
+  if (typeof obj.section === 'string') entry.section = obj.section;
+  if (typeof obj.tableId === 'string') entry.tableId = obj.tableId;
+  return entry;
 }
 
 // ─── 余弦相似度 ──────────────────────────────────────────────────────────────

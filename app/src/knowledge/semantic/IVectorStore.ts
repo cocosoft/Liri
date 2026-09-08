@@ -5,9 +5,10 @@
  * IVectorStore — 向量存储抽象接口
  *
  * 替换 SemanticStore 的硬依赖，支持多种向量存储后端：
- *   - JsonlVectorStore（现有 JSONL，保留作为开发模式 fallback）
- *   - SqliteVecStore（sqlite-vec 扩展，阶段一）
- *   - PgVectorStore（Postgres pgvector，阶段二可选）
+ *   - JsonlVectorStore（现有 JSONL，当前唯一实现；≤10k 分块线性扫描）
+ *
+ * B5（2026-09-08）：sqlite_vec 分支已删除（依赖未装、无配置入口）；未来数据量
+ * 超 10k 再评估引入新后端（实现本接口 + MigrationService 迁移接线）。
  */
 
 import type { IndexMeta } from './store';
@@ -84,4 +85,7 @@ export interface IVectorStore {
 
   /** 按 ID 获取单条向量（用于上下文丰富） */
   getById(id: string): Promise<VectorEntry | null>;
+
+  /** B10：按路径获取该文档的全部块（keyword 命中行号定位到具体块时使用） */
+  getByPath(path: string): Promise<VectorEntry[]>;
 }

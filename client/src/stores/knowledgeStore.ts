@@ -51,6 +51,8 @@ interface SearchState {
   requestSeq: number;
   /** KB-C3：是否已提交过搜索（区分「输入框有字」与「已发起搜索」，避免敲字即切走文档视图） */
   hasSearched: boolean;
+  /** P2#7：已提交查询快照（提交时固化；输入框后续敲字不再触发分桶/搜索效果） */
+  submittedQuery: string | null;
   /** KB-P2：搜索失败错误信息（区分「真实无结果」与「搜索失败」） */
   searchError: string | null;
 }
@@ -83,6 +85,9 @@ export interface KnowledgeListState {
   compileProgress: number;
   compileMessage: string;
   searchTags: string[];
+  /** P2#9：base 级分类/来源全量清单（跨分页，来自列表接口） */
+  categoryNames: string[];
+  sourceNames: string[];
   total: number;
   page: number;
   pageSize: number;
@@ -93,7 +98,13 @@ export interface KnowledgeListState {
 /** 列表操作（与 P3-1 前 useKnowledgeBaseList 的 ListAction 语义一致） */
 export type KnowledgeListAction =
   | { type: "SET_BASES"; bases: KnowledgeBase[] }
-  | { type: "SET_FILES"; files: KnowledgeFile[]; total: number }
+  | {
+      type: "SET_FILES";
+      files: KnowledgeFile[];
+      total: number;
+      categoryNames?: string[];
+      sourceNames?: string[];
+    }
   | { type: "SET_LOADING"; loading: boolean }
   | { type: "SET_SEARCHING"; searching: boolean }
   | { type: "SET_SEARCH_QUERY"; query: string }
@@ -126,8 +137,8 @@ export type KnowledgeListAction =
   | { type: "REFRESH_LIST" }
   /** KB-TAGSEARCH（2026-08-27）：标签点击触发的搜索请求（设置 query + 递增请求序号） */
   | { type: "SEARCH_REQUEST"; query: string }
-  /** KB-C3：标记搜索是否已提交（输入 ≠ 已提交） */
-  | { type: "SET_SEARCH_SUBMITTED"; submitted: boolean }
+  /** KB-C3：标记搜索是否已提交（输入 ≠ 已提交）；query 为提交时快照，用于固化分桶范围 */
+  | { type: "SET_SEARCH_SUBMITTED"; submitted: boolean; query?: string }
   /** KB-P2：设置搜索失败错误信息（null = 无错误） */
   | { type: "SET_SEARCH_ERROR"; error: string | null };
 
@@ -155,6 +166,8 @@ export function createInitialListState(): KnowledgeListState {
     compileProgress: 0,
     compileMessage: "",
     searchTags: [],
+    categoryNames: [],
+    sourceNames: [],
     total: 0,
     page: 0,
     pageSize: 50,
@@ -178,6 +191,13 @@ function applyListAction(
           files: action.files,
           total: action.total,
           loading: false,
+          // P2#9：保留 base 级分类/来源全量清单（切换筛选页时仍完整）
+          ...(action.categoryNames !== undefined
+            ? { categoryNames: action.categoryNames }
+            : {}),
+          ...(action.sourceNames !== undefined
+            ? { sourceNames: action.sourceNames }
+            : {}),
         },
         search,
       };
@@ -294,10 +314,20 @@ function applyListAction(
           requestSeq: search.requestSeq + 1,
           // KB-C3：标签点击即视为提交搜索
           hasSearched: true,
+          submittedQuery: action.query,
         },
       };
     case "SET_SEARCH_SUBMITTED":
-      return { list, search: { ...search, hasSearched: action.submitted } };
+      return {
+        list,
+        search: {
+          ...search,
+          hasSearched: action.submitted,
+          submittedQuery: action.submitted
+            ? (action.query ?? search.query)
+            : null,
+        },
+      };
     case "SET_SEARCH_ERROR":
       return { list, search: { ...search, searchError: action.error } };
     default:
@@ -361,6 +391,7 @@ export const useKnowledgeStore = create<KnowledgeStore>()((set) => ({
     isListSearching: false,
     requestSeq: 0,
     hasSearched: false,
+    submittedQuery: null,
     searchError: null,
   },
   setSearch: (partial) =>
@@ -385,6 +416,7 @@ export const useKnowledgeStore = create<KnowledgeStore>()((set) => ({
         isListSearching: false,
         // KB-C3/KB-P2：清空搜索同时复位已提交标志与错误
         hasSearched: false,
+        submittedQuery: null,
         searchError: null,
       },
     })),

@@ -1,11 +1,15 @@
 import { memo } from "react";
 import type { KnowledgeSearchHit } from "../../types";
+import { CitationText } from "./CitationText";
 
 const MATCH_TYPE_LABELS: Record<KnowledgeSearchHit["matchType"], string> = {
   keyword: "关键词",
   semantic: "语义",
   graph_rag: "图谱",
   knowledge: "知识库",
+  username: "人名",
+  title: "标题",
+  directory: "目录",
 };
 
 const MATCH_TYPE_COLORS: Record<KnowledgeSearchHit["matchType"], string> = {
@@ -16,6 +20,10 @@ const MATCH_TYPE_COLORS: Record<KnowledgeSearchHit["matchType"], string> = {
     "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300",
   knowledge:
     "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
+  username:
+    "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300",
+  title: "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300",
+  directory: "bg-gray-100 text-gray-600 dark:bg-gray-700/40 dark:text-gray-300",
 };
 
 function scoreColor(score: number): string {
@@ -46,7 +54,12 @@ export const SearchHitCard = memo(function SearchHitCard({
           ? "border-gray-700 bg-gray-800/50 hover:bg-gray-800"
           : "border-gray-200 bg-white hover:bg-gray-50"
       }`}
-      onClick={onClick}
+      onClick={(e) => {
+        // F1：点击卡片内引用锚点（CitationLink 的 a/button）时只开引用，不触发整篇打开
+        const target = e.target as Element | null;
+        if (target && target.closest("a,button")) return;
+        onClick?.();
+      }}
       role="button"
       tabIndex={0}
       onKeyDown={(e) => {
@@ -69,6 +82,19 @@ export const SearchHitCard = memo(function SearchHitCard({
         >
           {percent}%
         </span>
+        {hit.startLine !== undefined && (
+          <span
+            className={`text-[10px] px-1.5 py-0.5 rounded font-mono ${
+              isDark ? "bg-gray-700 text-gray-300" : "bg-gray-100 text-gray-600"
+            }`}
+            title="命中起始行"
+          >
+            L{hit.startLine}
+            {hit.endLine !== undefined && hit.endLine !== hit.startLine
+              ? `-L${hit.endLine}`
+              : ""}
+          </span>
+        )}
         <span
           className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
             MATCH_TYPE_COLORS[hit.matchType] ?? MATCH_TYPE_COLORS.keyword
@@ -83,7 +109,8 @@ export const SearchHitCard = memo(function SearchHitCard({
           isDark ? "text-gray-400" : "text-gray-500"
         }`}
       >
-        {hit.snippet ?? hit.file.content.slice(0, 200)}
+        {/* F1：snippet 内 (doc.pdf#p.N) 等引用渲染为可点锚点 */}
+        <CitationText text={hit.snippet ?? hit.file.content.slice(0, 200)} />
       </p>
 
       {hit.domain && (

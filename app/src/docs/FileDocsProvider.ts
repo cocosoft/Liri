@@ -53,6 +53,51 @@ export class FileDocsProvider {
     return this.docsRoots;
   }
 
+  /** D4：目录 stat 清单（仅元数据、不读正文），供索引缓存启动 stat 级校验 */
+  async scanStats(): Promise<
+    Array<{ relativePath: string; mtimeMs: number; size: number }>
+  > {
+    const out: Array<{ relativePath: string; mtimeMs: number; size: number }> =
+      [];
+    for (const root of this.docsRoots) {
+      await this.scanStatsDir(root, root, out);
+    }
+    return out;
+  }
+
+  private async scanStatsDir(
+    dirPath: string,
+    sourceRoot: string,
+    out: Array<{ relativePath: string; mtimeMs: number; size: number }>
+  ): Promise<void> {
+    let dirEntries: string[];
+    try {
+      dirEntries = await readdir(dirPath);
+    } catch {
+      return;
+    }
+    for (const entry of dirEntries) {
+      const fullPath = join(dirPath, entry);
+      let stats;
+      try {
+        stats = await stat(fullPath);
+      } catch {
+        continue;
+      }
+      // 与 buildIndex 的扫描规则一致：跳过隐藏目录与 raw/ 源目录
+      if (entry.startsWith('.') || entry === 'raw') continue;
+      if (stats.isDirectory()) {
+        await this.scanStatsDir(fullPath, sourceRoot, out);
+      } else if (entry.endsWith('.md')) {
+        out.push({
+          relativePath: relative(sourceRoot, fullPath),
+          mtimeMs: stats.mtimeMs,
+          size: stats.size,
+        });
+      }
+    }
+  }
+
   /**
    * 从 markdown 内容中提取标题
    * KB-P1-5（2026-08-27）：优先读 frontmatter title，回退正文首个 H1——

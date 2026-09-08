@@ -320,6 +320,7 @@
 | POST | `/v1/knowledge/save-from-chat` | ✅ | 无前端调用方 |
 | POST | `/v1/knowledge/upload` | ✅ | 无前端调用方 |
 | POST | `/v1/knowledge/compile` | ✅ | 无前端调用方 |
+| GET | `/v1/knowledge/raw-preview` | ✅ | KnowledgePage PDF 内嵌预览（`?file=<相对 raw 路径>`，仅 PDF，realpath 白名单；F5，2026-09-08） |
 | GET | `/v1/knowledge/raw-files` | ✅ | 无前端调用方 |
 | GET | `/v1/knowledge/lineage` | ✅ | 无前端调用方（血缘反查 R6：`docPath` / `artifactType+artifactId` / `domain` / `version`，返回 `{links,count}`，2026-09-07） |
 | PUT | `/v1/knowledge/docs` | ✅ | `knowledgeService.updateDoc`（支持 `{ base }` 移动目录，2026-08-07 P2-4） |

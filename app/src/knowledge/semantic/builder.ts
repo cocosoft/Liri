@@ -224,11 +224,9 @@ export class IndexBuilder {
         const chunk = toEmbed[i]!;
         const emb = embeddings[i];
         if (!emb) continue;
+        // B2（2026-09-08）：携带 chunker 块链/上下文字段，供富化 getById
         entries.push({
-          path: chunk.path,
-          startLine: chunk.startLine,
-          endLine: chunk.endLine,
-          text: chunk.text,
+          ...chunk,
           embedding: emb,
           // KB-SEM（2026-08-27）：存真实文件 mtime（chunk.mtimeMs）而非嵌入时间，
           // 否则增量 mtime 比较永远失效

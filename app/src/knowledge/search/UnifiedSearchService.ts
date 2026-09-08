@@ -74,11 +74,40 @@ export interface BucketedFaqItem {
   score: number;
 }
 
-/** 分桶搜索结果（R3：docs/rules/faqs 三桶） */
+/** 分桶记录项（B7：knowledge_records 结构化记录） */
+export interface BucketedRecordItem {
+  bucket: 'record';
+  recordId: string;
+  type: string;
+  key: string;
+  data: Record<string, unknown>;
+  evidence: Record<string, string>;
+  domain: string;
+  sourceFile: string;
+  score: number;
+}
+
+/** 分桶原文块项（B7：R4 原文块页码命中；F5：rawPath 供 PDF 内嵌预览） */
+export interface BucketedSourceItem {
+  bucket: 'source';
+  /** 可打开的编译页/文档相对路径 */
+  docPath: string;
+  /** 源 raw 文件相对 KB 根路径（如 raw/foo.pdf；F5 预览用） */
+  rawPath?: string;
+  title: string;
+  page?: number;
+  section?: string;
+  text: string;
+  score: number;
+}
+
+/** 分桶搜索结果（R3 docs/rules/faqs + B7 records/sources） */
 export interface BucketedSearchResult {
   docs: UnifiedSearchResult[];
   rules: BucketedRuleItem[];
   faqs: BucketedFaqItem[];
+  records: BucketedRecordItem[];
+  sources: BucketedSourceItem[];
 }
 
 /** 强度 → 中文标签（前端徽标语义） */
@@ -93,6 +122,12 @@ export function strengthLabel(s: string): string {
     default:
       return s;
   }
+}
+
+/** B8：base 前缀过滤（"根目录"/缺省视为不限），与 handler 层 inBase 语义一致 */
+function baseMatches(value: string, base?: string): boolean {
+  if (!base || base === '根目录') return true;
+  return value === base || value.startsWith(`${base}/`);
 }
 
 /**
@@ -147,7 +182,9 @@ export class UnifiedSearchService {
   }
 
   /**
-   * 分桶搜索（R3）：docs（关键词+语义融合）/ rules（kg_rules）/ faqs（faq_entries 全局）
+   * 分桶搜索（R3+B7）：docs（关键词+语义融合）/ rules（kg_rules）/
+   * faqs（faq_entries）/ records（knowledge_records）/ sources（原文块页码）
+   * B8：rules/records 支持 domain + base 过滤；faqs 支持 knowledgeBaseName(base) 过滤
    */
   async searchBucketed(
     query: string,
@@ -155,13 +192,18 @@ export class UnifiedSearchService {
       limit?: number;
       offset?: number;
       domain?: string;
+      base?: string;
       ruleLimit?: number;
       faqLimit?: number;
+      recordLimit?: number;
+      sourceLimit?: number;
     }
   ): Promise<BucketedSearchResult> {
     const limit = options?.limit ?? 5;
     const ruleLimit = options?.ruleLimit ?? 5;
     const faqLimit = options?.faqLimit ?? 5;
+    const recordLimit = options?.recordLimit ?? 5;
+    const sourceLimit = options?.sourceLimit ?? 5;
 
     const docs = await this.search(query, {
       limit,
@@ -169,36 +211,43 @@ export class UnifiedSearchService {
       domain: options?.domain,
     });
 
-    // rules 桶：kg_rules 关键字检索（strength 标注供徽标渲染）
+    // rules 桶：kg_rules（B8：domain 过滤 + base 前缀过滤）
     let rules: BucketedRuleItem[] = [];
     const ruleStore = new RuleStore();
     try {
-      const rows = await ruleStore.search(query, { limit: ruleLimit });
-      rules = rows.map((r, idx) => ({
-        bucket: 'rule' as const,
-        ruleId: r.id,
-        kind: r.kind,
-        constraintStrength:
-          r.constraintStrength as BucketedRuleItem['constraintStrength'],
-        constraintLabel: strengthLabel(r.constraintStrength),
-        statement: r.statement,
-        snippet: r.statement,
-        domain: r.domain,
-        sourceFile: r.sourceFile,
-        score: Math.max(0, ruleLimit - idx),
-      }));
+      const rows = await ruleStore.search(query, {
+        limit: ruleLimit,
+        domain: options?.domain,
+      });
+      rules = rows
+        .filter((r) => baseMatches(r.sourceFile, options?.base))
+        .map((r, idx) => ({
+          bucket: 'rule' as const,
+          ruleId: r.id,
+          kind: r.kind,
+          constraintStrength:
+            r.constraintStrength as BucketedRuleItem['constraintStrength'],
+          constraintLabel: strengthLabel(r.constraintStrength),
+          statement: r.statement,
+          snippet: r.statement,
+          domain: r.domain,
+          sourceFile: r.sourceFile,
+          score: Math.max(0, ruleLimit - idx),
+        }));
     } catch {
       rules = [];
     } finally {
       await ruleStore.close();
     }
 
-    // faqs 桶：faq_entries 全局搜索（knowledgeBaseName 缺省=跨 base）
+    // faqs 桶（B8：base→knowledgeBaseName 过滤；缺省跨 base）
     let faqs: BucketedFaqItem[] = [];
     try {
       const rows = await getFAQService().search({
         query,
         topK: faqLimit,
+        knowledgeBaseName:
+          options?.base && options.base !== '根目录' ? options.base : undefined,
       });
       faqs = rows.map((f, idx) => ({
         bucket: 'faq' as const,
@@ -213,7 +262,87 @@ export class UnifiedSearchService {
       faqs = [];
     }
 
-    return { docs, rules, faqs };
+    // records 桶（B7：knowledge_records 关键字命中；B8：domain/base 过滤）
+    let records: BucketedRecordItem[] = [];
+    try {
+      const { RecordStore } = await import('../record/RecordStore');
+      const recordStore = new RecordStore();
+      try {
+        const rows = await recordStore.search(query, {
+          limit: recordLimit,
+          domain: options?.domain,
+        });
+        records = rows
+          .filter((r) => baseMatches(r.sourceFile, options?.base))
+          .map((r, idx) => ({
+            bucket: 'record' as const,
+            recordId: r.id,
+            type: r.type,
+            key: r.key,
+            data: r.data,
+            evidence: r.evidence,
+            domain: r.domain,
+            sourceFile: r.sourceFile,
+            score: Math.max(0, recordLimit - idx),
+          }));
+      } finally {
+        await recordStore.close();
+      }
+    } catch {
+      records = [];
+    }
+
+    // sources 桶（B7：R4 原文块页码命中，docPath 优先映射编译页）
+    let sources: BucketedSourceItem[] = [];
+    try {
+      const { SourceChunkStore, readRawMetaPages } =
+        await import('../source/SourceChunkStore');
+      const { basename, relative } = await import('path');
+      const { resolveKnowledgeDir } = await import('@modules/core');
+      const knowledgeRoot = resolveKnowledgeDir();
+      const sourceStore = new SourceChunkStore();
+      try {
+        const hits = await sourceStore.search(query, { limit: sourceLimit });
+        for (let idx = 0; idx < hits.length; idx++) {
+          const hit = hits[idx]!;
+          const relRaw = relative(knowledgeRoot, hit.rawPath)
+            .split('\\')
+            .join('/');
+          let docPath = relRaw;
+          let title = basename(hit.rawPath).replace(/\.[^.]+$/, '');
+          try {
+            const pages = await readRawMetaPages(hit.rawPath);
+            if (pages.length > 0) {
+              const rawBase = basename(hit.rawPath).replace(/\.[^.]+$/, '');
+              const entry =
+                pages.find(
+                  (p) => basename(p).replace(/\.md$/i, '') === rawBase
+                ) ?? pages[0];
+              docPath = relative(knowledgeRoot, entry).split('\\').join('/');
+              title = basename(entry).replace(/\.md$/i, '');
+            }
+          } catch {
+            // @ignore-catch 元数据定位失败回退 raw 相对路径
+          }
+          sources.push({
+            bucket: 'source' as const,
+            docPath,
+            rawPath: relRaw,
+            title,
+            page: hit.page,
+            section: hit.section,
+            text: hit.text.slice(0, 200),
+            score: Math.max(0, sourceLimit - idx),
+          });
+        }
+      } finally {
+        await sourceStore.close();
+      }
+    } catch {
+      sources = [];
+    }
+
+    return { docs, rules, faqs, records, sources };
   }
 }
 

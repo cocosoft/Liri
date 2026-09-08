@@ -65,6 +65,8 @@ export interface SemanticIndexUpdaterOptions {
   windowLines?: number;
   /** 分块重叠行数，默认 12 */
   overlap?: number;
+  /** 复用外部已创建的向量存储实例（与 KnowledgeRouter 共享写读同一实例，B0/B3 收敛）；缺省由 VectorStoreFactory 自建 */
+  store?: IVectorStore;
 }
 
 /**
@@ -78,8 +80,8 @@ export class SemanticIndexUpdater {
   private embeddingManager: EmbeddingManager;
   private options: Omit<
     Required<SemanticIndexUpdaterOptions>,
-    'knowledgeRoot'
-  > & { knowledgeRoot?: string };
+    'knowledgeRoot' | 'store'
+  > & { knowledgeRoot?: string; store?: IVectorStore };
   private initialized = false;
 
   constructor(
@@ -88,19 +90,23 @@ export class SemanticIndexUpdater {
     eventBus?: EventBus
   ) {
     this.embeddingManager = embeddingManager;
+    const { store, ...rest } = options;
     this.options = {
       embedProvider: 'local',
       embedModel: 'nomic-embed-text',
       windowLines: 60,
       overlap: 12,
-      ...options,
+      ...rest,
     };
 
-    // 使用工厂创建向量存储（根据 VECTOR_STORE 环境变量选择实现）
-    this.store = createVectorStore(this.options.indexDir, {
-      provider: this.options.embedProvider,
-      model: this.options.embedModel,
-    });
+    // 复用外部传入的共享向量存储实例（与 KnowledgeRouter 写读同实例，B0/B3 收敛）；
+    // 缺省由工厂创建（当前唯一实现 JsonlVectorStore，B5 已下架 sqlite_vec）
+    this.store =
+      store ??
+      createVectorStore(this.options.indexDir, {
+        provider: this.options.embedProvider,
+        model: this.options.embedModel,
+      });
 
     eventBus?.subscribe('knowledge:changed', (event: unknown) => {
       const evt = event as KnowledgeChangedEvent;
@@ -193,11 +199,10 @@ export class SemanticIndexUpdater {
         try {
           const vec = await this.embeddingManager.embedOne(chunk.text);
           if (vec && vec.length > 0) {
+            // B2（2026-09-08）：携带 chunker 的块链/上下文字段（pre/next/parent/
+            // contextHeader/page/section/tableId），供 KnowledgeRouter 富化 getById
             entries.push({
-              path: chunk.path,
-              startLine: chunk.startLine,
-              endLine: chunk.endLine,
-              text: chunk.text,
+              ...chunk,
               embedding: new Float32Array(vec),
               mtimeMs,
             });
@@ -215,13 +220,8 @@ export class SemanticIndexUpdater {
         await this.store.deleteByPath(relPath);
         await this.store.upsert(
           entries.map((e) => ({
+            ...e,
             id: `${e.path}#L${e.startLine}-L${e.endLine}`,
-            path: e.path,
-            startLine: e.startLine,
-            endLine: e.endLine,
-            text: e.text,
-            embedding: e.embedding,
-            mtimeMs: e.mtimeMs,
           }))
         );
         logger.info('语义索引增量更新完成', {

@@ -11,8 +11,26 @@
  */
 
 import type { IVectorStore, VectorEntry, SearchHit } from './IVectorStore';
-import type { IndexIdentity, IndexMeta } from './store';
+import type { IndexEntry, IndexIdentity, IndexMeta } from './store';
 import { SemanticStore, readIndexMeta } from './store';
+
+/** B2：把 store 的 IndexEntry 映射为 VectorEntry（id + 块链/上下文字段全透传） */
+function toVectorEntry(entry: IndexEntry): VectorEntry {
+  const v: VectorEntry = {
+    id: `${entry.path}#L${entry.startLine}-L${entry.endLine}`,
+    path: entry.path,
+    startLine: entry.startLine,
+    endLine: entry.endLine,
+    text: entry.text,
+    embedding: entry.embedding,
+    mtimeMs: entry.mtimeMs,
+  };
+  if (entry.preChunkId !== undefined) v.preChunkId = entry.preChunkId;
+  if (entry.nextChunkId !== undefined) v.nextChunkId = entry.nextChunkId;
+  if (entry.parentChunkId !== undefined) v.parentChunkId = entry.parentChunkId;
+  if (entry.contextHeader !== undefined) v.contextHeader = entry.contextHeader;
+  return v;
+}
 
 export class JsonlVectorStore implements IVectorStore {
   private store: SemanticStore;
@@ -38,17 +56,9 @@ export class JsonlVectorStore implements IVectorStore {
     minScore: number = 0.3
   ): Promise<SearchHit[]> {
     const hits = this.store.search(queryEmbedding, topK, minScore);
-    // 为 IndexEntry 补充 id 字段以符合 VectorEntry 接口
+    // B2：块链/上下文字段随命中全量透传，供富化 getById 使用
     return hits.map((hit) => ({
-      entry: {
-        id: `${hit.entry.path}#L${hit.entry.startLine}-L${hit.entry.endLine}`,
-        path: hit.entry.path,
-        startLine: hit.entry.startLine,
-        endLine: hit.entry.endLine,
-        text: hit.entry.text,
-        embedding: hit.entry.embedding,
-        mtimeMs: hit.entry.mtimeMs,
-      },
+      entry: toVectorEntry(hit.entry),
       score: hit.score,
     }));
   }
@@ -86,14 +96,10 @@ export class JsonlVectorStore implements IVectorStore {
       return eid === id;
     });
     if (!entry) return null;
-    return {
-      id: `${entry.path}#L${entry.startLine}-L${entry.endLine}`,
-      path: entry.path,
-      startLine: entry.startLine,
-      endLine: entry.endLine,
-      text: entry.text,
-      embedding: entry.embedding,
-      mtimeMs: entry.mtimeMs,
-    };
+    return toVectorEntry(entry);
+  }
+
+  async getByPath(path: string): Promise<VectorEntry[]> {
+    return this.store.all.filter((e) => e.path === path).map(toVectorEntry);
   }
 }

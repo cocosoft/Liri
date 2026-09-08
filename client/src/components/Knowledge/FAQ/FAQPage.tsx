@@ -35,9 +35,10 @@ export function FAQPage({ base, isDark }: FAQPageProps) {
     setLoadError(null);
     let loadedEntries: FAQEntry[] = [];
     try {
-      const [catData] = await Promise.all([
-        faqService.categories(base).catch(() => [] as string[]),
-      ]);
+      // P2#21：仅一个请求，无需 Promise.all 包裹
+      const catData = await faqService
+        .categories(base)
+        .catch(() => [] as string[]);
       if (seq !== loadSeqRef.current) return;
       setCategories(catData ?? []);
 
@@ -184,7 +185,11 @@ export function FAQPage({ base, isDark }: FAQPageProps) {
         <FAQCategoryFilter
           categories={categories}
           selected={category}
-          onSelect={setCategory}
+          // P2#16：搜索态点分类 → 退出搜索并按该分类加载（否则分类高亮不生效误导）
+          onSelect={(c) => {
+            setCategory(c);
+            if (searchQuery) setSearchQuery("");
+          }}
           isDark={isDark}
         />
       </div>

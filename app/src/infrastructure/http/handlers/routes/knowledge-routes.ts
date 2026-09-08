@@ -178,6 +178,13 @@ export async function dispatchKnowledgeRoutes(
     await handleGetKnowledgeDoc(req, res);
     return true;
   }
+  // F5：原文 raw 文件内嵌预览（PDF；iframe/#page=N）
+  if (method === 'GET' && url.startsWith('/v1/knowledge/raw-preview')) {
+    const { handleKnowledgeRawPreview } =
+      await import('@modules/infrastructure/http/handlers/knowledge-handlers');
+    await handleKnowledgeRawPreview(req, res);
+    return true;
+  }
   if (method === 'POST' && url === '/v1/knowledge/search') {
     await handleSearchKnowledge(req, res);
     return true;
@@ -322,6 +329,19 @@ export async function dispatchKnowledgeRoutes(
   }
   if (method === 'POST' && url === '/v1/knowledge/restore-trash') {
     await handleRestoreTrash(req, res);
+    return true;
+  }
+  // P2#18：回收站查看/永久删除
+  if (method === 'GET' && url.startsWith('/v1/knowledge/trash')) {
+    const { handleListKnowledgeTrash } =
+      await import('@modules/infrastructure/http/handlers/knowledge-handlers');
+    await handleListKnowledgeTrash(req, res);
+    return true;
+  }
+  if (method === 'DELETE' && url.startsWith('/v1/knowledge/trash')) {
+    const { handlePurgeKnowledgeTrash } =
+      await import('@modules/infrastructure/http/handlers/knowledge-handlers');
+    await handlePurgeKnowledgeTrash(req, res);
     return true;
   }
   if (method === 'GET' && url.startsWith('/v1/knowledge/export')) {

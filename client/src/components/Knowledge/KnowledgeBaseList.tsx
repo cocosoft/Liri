@@ -13,6 +13,7 @@ import DocFilterBar from "./DocFilterBar";
 import BatchActionBar from "./BatchActionBar";
 import CreateBaseModal from "./CreateBaseModal";
 import BatchTagModal from "./BatchTagModal";
+import { RecycleBinModal } from "./RecycleBinModal";
 import { useKnowledgeBaseList } from "./useKnowledgeBaseList";
 import { formatFileSize, formatDate } from "./shared/utils";
 import { sourceLabels } from "./shared/constants";
@@ -61,6 +62,7 @@ function KnowledgeBaseList({
     compileProgress,
     compileMessage,
     searchTags,
+    categoryNames,
     total,
     page,
     pageSize,
@@ -104,9 +106,13 @@ function KnowledgeBaseList({
   // 此处不再客户端排序——原实现只排当前页，跨页顺序错乱
   const sortedFiles = filteredByCategory;
 
-  const categories = [
-    ...new Set(files.map((f) => f.category).filter(Boolean)),
-  ] as string[];
+  // P2#9：分类 chips 用服务端 base 级全量清单（跨分页完整），接口未返回时回退当前页推导
+  const categories =
+    categoryNames && categoryNames.length > 0
+      ? categoryNames
+      : ([
+          ...new Set(files.map((f) => f.category).filter(Boolean)),
+        ] as string[]);
 
   const bg = isDark ? "bg-gray-800" : "bg-gray-50",
     t1 = isDark ? "text-gray-100" : "text-gray-900",
@@ -117,9 +123,19 @@ function KnowledgeBaseList({
 
   // P1-2: 待编译面板收进抽屉，由标题栏按钮开关
   const [showCompileDrawer, setShowCompileDrawer] = useState(false);
+  // P2#18: 回收站弹窗
+  const [showTrash, setShowTrash] = useState(false);
 
   return (
     <div className={`relative flex flex-col h-full ${bg}`}>
+      {/* P2#18：回收站（恢复后刷新列表） */}
+      {showTrash && (
+        <RecycleBinModal
+          isDark={isDark}
+          onClose={() => setShowTrash(false)}
+          onChanged={loadFiles}
+        />
+      )}
       {/* 标题栏 */}
       <div
         className={`flex items-center justify-between px-4 py-3 border-b ${bc}`}
@@ -200,6 +216,25 @@ function KnowledgeBaseList({
                 strokeLinejoin="round"
                 strokeWidth={2}
                 d="M13 10V3L4 14h7v7l9-11h-7z"
+              />
+            </svg>
+          </button>
+          <button
+            onClick={() => setShowTrash(true)}
+            className={`p-1 rounded ${t2} hover:opacity-70`}
+            title="回收站"
+          >
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
               />
             </svg>
           </button>
@@ -320,17 +355,25 @@ function KnowledgeBaseList({
               />
             </svg>
             <p className="text-sm font-medium mb-1">
-              {isSearchActive ? "未找到匹配的文档" : "知识库为空"}
+              {isSearchActive
+                ? "未找到匹配的文档"
+                : selectedCategory || selectedSource
+                  ? "该筛选条件下暂无文档"
+                  : "知识库为空"}
             </p>
-            {isSearchActive ? (
+            {isSearchActive || selectedCategory || selectedSource ? (
               <div>
                 <p className="text-xs opacity-60 mb-2">
-                  试试缩短关键词，或调整分类筛选
+                  {isSearchActive
+                    ? "试试缩短关键词，或调整分类筛选"
+                    : "试试切换分类/来源筛选"}
                 </p>
                 <button
-                  onClick={() =>
-                    dispatch({ type: "SET_SEARCH_QUERY", query: "" })
-                  }
+                  onClick={() => {
+                    dispatch({ type: "SET_SEARCH_QUERY", query: "" });
+                    dispatch({ type: "SET_CATEGORY", category: null });
+                    dispatch({ type: "SET_SOURCE", source: null });
+                  }}
                   className="text-xs text-blue-500 hover:text-blue-600 dark:text-blue-400"
                 >
                   重置筛选

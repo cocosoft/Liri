@@ -25,6 +25,9 @@ export interface KnowledgeSearchResult {
   /** KB-L4：创建时间（后端 search 可选补充；缺失时前端回退 0，不再硬编码语义） */
   created_at?: number;
   source?: KnowledgeSource;
+  /** B10 透出：keyword/语义命中行号（F2 行定位前置） */
+  startLine?: number;
+  endLine?: number;
 }
 
 export type KnowledgeSource =
@@ -58,9 +61,19 @@ export interface KnowledgeFile {
 export interface KnowledgeSearchHit {
   file: KnowledgeFile;
   score: number;
-  matchType: "keyword" | "semantic" | "graph_rag" | "knowledge";
+  matchType:
+    | "keyword"
+    | "semantic"
+    | "graph_rag"
+    | "knowledge"
+    | "username"
+    | "title"
+    | "directory";
   domain?: string;
   snippet?: string;
+  /** B10 透出：keyword/语义命中行号（F2 行定位前置） */
+  startLine?: number;
+  endLine?: number;
 }
 
 /** 文档列表排序枚举（P3-1：自 DocFilterBar 收编，单一事实） */
@@ -91,11 +104,40 @@ export interface BucketedFaqItem {
   score: number;
 }
 
-/** POST /v1/knowledge/search?buckets=1 响应 */
+/** B7：knowledge_records 结构化记录桶 */
+export interface BucketedRecordItem {
+  bucket: "record";
+  recordId: string;
+  type: string;
+  key: string;
+  data: Record<string, unknown>;
+  evidence: Record<string, string>;
+  domain: string;
+  sourceFile: string;
+  score: number;
+}
+
+/** B7：R4 原文块页码命中桶（F5：rawPath 供 PDF 内嵌预览） */
+export interface BucketedSourceItem {
+  bucket: "source";
+  /** 可打开的编译页/文档相对路径 */
+  docPath: string;
+  /** 源 raw 文件相对 KB 根路径（如 raw/foo.pdf；F5 预览用） */
+  rawPath?: string;
+  title: string;
+  page?: number;
+  section?: string;
+  text: string;
+  score: number;
+}
+
+/** POST /v1/knowledge/search?buckets=1 响应（R3 docs/rules/faqs + B7 records/sources） */
 export interface BucketedKnowledgeSearch {
   docs: KnowledgeSearchResult[];
   rules: BucketedRuleItem[];
   faqs: BucketedFaqItem[];
+  records: BucketedRecordItem[];
+  sources: BucketedSourceItem[];
 }
 
 // ─── FAQ（由 faq.ts 归并） ───
@@ -136,9 +178,9 @@ export interface KnowledgeSearchConfig {
   knowledgeDocBoost: number;
 }
 
-/** 向量存储配置 */
+/** 向量存储配置（B5 下架 sqlite_vec，当前仅 jsonl） */
 export interface VectorStoreConfig {
-  type: "jsonl" | "sqlite_vec";
+  type: "jsonl";
   topK: number;
   minScore: number;
 }

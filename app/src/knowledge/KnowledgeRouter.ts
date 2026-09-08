@@ -51,7 +51,6 @@ import type { EventBus } from '@modules/core';
 import type { KnowledgeGraph } from '@modules/knowledge/graph/KnowledgeGraph';
 import { resolveDataSubDir } from '@modules/core';
 import { readFile, writeFile, mkdir } from 'fs/promises';
-import { createHash } from 'crypto';
 import { existsSync } from 'fs';
 import { join } from 'path';
 import { KnowledgeConfig } from '@modules/knowledge/KnowledgeConfig';
@@ -107,14 +106,18 @@ interface IndexCacheEntry {
   category: string;
   docPath: string;
   isKnowledgeDoc: boolean;
-  contentHash: string;
+  /** D4（2026-09-08）：截断正文快照——恢复后 keyword 内容命中/片段不再失效（原 content 置空） */
+  contentPreview: string;
+  /** D4：写入时的文件 mtime/size，供 stat 级缓存校验（替代逐条 sha256 全量比对） */
+  mtimeMs?: number;
+  size?: number;
   domain?: string;
   tags?: string[];
   tokens: string[];
 }
 
 interface IndexCache {
-  version: 2;
+  version: 3;
   docs: IndexCacheEntry[];
 }
 
@@ -221,6 +224,7 @@ export class KnowledgeRouter implements IKnowledgeSearch {
 
   /** 构建关键字索引和倒排索引 */
   async buildIndex(): Promise<void> {
+    const buildStart = performance.now();
     this.docs = [];
     this.titleIndex.clear();
     this.tokenIndex.clear();
@@ -276,16 +280,13 @@ export class KnowledgeRouter implements IKnowledgeSearch {
         }
       }
 
-      // 缓存条目（含 content hash 用于变更检测）
+      // 缓存条目（D4：存正文截断快照 + mtime/size 由 saveIndexCache 补充 stat 清单）
       cacheEntries.push({
         title: doc.title,
         category: doc.category,
         docPath: doc.docPath,
         isKnowledgeDoc: doc.isKnowledgeDoc,
-        contentHash: createHash('sha256')
-          .update(truncatedContent)
-          .digest('hex')
-          .slice(0, 16),
+        contentPreview: truncatedContent,
         domain: doc.domain,
         tags: doc.tags,
         tokens,
@@ -296,14 +297,18 @@ export class KnowledgeRouter implements IKnowledgeSearch {
     await this.saveIndexCache(cacheEntries);
     this.initialized = true;
 
-    // 监控：索引构建耗时
+    // 监控：索引构建耗时（D1：真实耗时 + 文档数，此前硬编码 0）
     // @ignore-catch — 监控记录fire-and-forget，非关键路径
-    knowledgeMonitor.record('knowledge.index.build_time_ms', 0).catch(() => {});
+    knowledgeMonitor
+      .record('knowledge.index.build_time_ms', performance.now() - buildStart, {
+        docCount: String(this.docs.length),
+      })
+      .catch(() => {});
     logger.info('索引构建完成', { docCount: this.docs.length });
   }
 
   /**
-   * 从缓存加载索引（如果内容 hash 一致则复用）
+   * 从缓存加载索引（D4：stat 清单校验——不再逐文档读正文 + sha256 全量比对）
    */
   async tryLoadFromCache(): Promise<boolean> {
     try {
@@ -311,28 +316,22 @@ export class KnowledgeRouter implements IKnowledgeSearch {
 
       const raw = await readFile(this.indexCachePath, 'utf-8');
       const cache: IndexCache = JSON.parse(raw);
-      if (cache.version !== 2 || !cache.docs?.length) return false;
+      if (cache.version !== 3 || !cache.docs?.length) return false;
 
-      // 验证所有文档的 content hash 是否匹配
-      const freshEntries = await this.buildProviderEntries();
-      if (freshEntries.length !== cache.docs.length) return false;
-
-      for (let i = 0; i < cache.docs.length; i++) {
-        const cached = cache.docs[i]!;
-        const fresh = freshEntries[i]!;
-        const freshHash = createHash('sha256')
-          .update(fresh.content.slice(0, INDEX_CONTENT_MAX_LEN))
-          .digest('hex')
-          .slice(0, 16);
-        if (cached.contentHash !== freshHash) return false;
+      // 校验「条目数 + 每文档 mtime/size」与当前 provider 文件清单一致
+      const currentStats = await this.scanProviderStats();
+      if (currentStats.size !== cache.docs.length) return false;
+      for (const c of cache.docs) {
+        const st = currentStats.get(c.docPath);
+        if (!st || st.mtimeMs !== c.mtimeMs || st.size !== c.size) return false;
       }
 
-      // Hash 全部匹配 → 从缓存恢复索引
+      // 校验通过 → 从缓存恢复索引（content=截断快照，keyword 内容命中/片段可用）
       this.docs = cache.docs.map((c) => ({
         docPath: c.docPath,
         title: c.title,
         category: c.category,
-        content: '',
+        content: c.contentPreview ?? '',
         isKnowledgeDoc: c.isKnowledgeDoc,
         domain: c.domain,
         tags: c.tags,
@@ -351,7 +350,9 @@ export class KnowledgeRouter implements IKnowledgeSearch {
         }
       }
       this.initialized = true;
-      logger.info('从缓存加载索引', { docCount: this.docs.length });
+      logger.info('索引从缓存加载（stat 清单校验通过）', {
+        docCount: this.docs.length,
+      });
       return true;
     } catch (err) {
       logger.debug('索引缓存加载失败，将全量重建', {
@@ -361,26 +362,37 @@ export class KnowledgeRouter implements IKnowledgeSearch {
     }
   }
 
-  private async buildProviderEntries(): Promise<WeightedDoc[]> {
-    const result: WeightedDoc[] = [];
+  /** D4：各 provider 的 stat 清单（仅读目录/元数据，不读正文） */
+  private async scanProviderStats(): Promise<
+    Map<string, { mtimeMs: number; size: number }>
+  > {
+    const map = new Map<string, { mtimeMs: number; size: number }>();
     for (const provider of this.providers) {
-      const entries = await provider.buildIndex();
-      for (const e of entries) {
-        const isKnowledgeDoc = e.source?.includes('.pyapp') ?? false;
-        const domainMatch = e.relativePath.match(/(?:^|\/)domains\/([^/]+)/);
-        result.push({
-          docPath: e.relativePath,
-          title: e.title,
-          category: e.category,
-          content: e.content,
-          isKnowledgeDoc,
-          source: e.source,
-          domain: domainMatch ? domainMatch[1] : undefined,
-          tags: e.tags,
-        });
+      const scan = (
+        provider as unknown as {
+          scanStats?: () => Promise<
+            Array<{ relativePath: string; mtimeMs: number; size: number }>
+          >;
+        }
+      ).scanStats;
+      if (typeof scan !== 'function') continue;
+      try {
+        const list = await scan.call(provider);
+        for (const s of list) {
+          map.set(s.relativePath, { mtimeMs: s.mtimeMs, size: s.size });
+        }
+      } catch {
+        // @ignore-catch stat 失败视为无法校验 → 缓存不命中走全量重建
       }
     }
-    return result;
+    return map;
+  }
+
+  /** 索引就绪：优先 stat 清单缓存，未命中才全量重建（缓存已存在时避免读正文） */
+  async ensureIndex(): Promise<void> {
+    if (this.initialized) return;
+    if (await this.tryLoadFromCache()) return;
+    await this.buildIndex();
   }
 
   private async saveIndexCache(entries: IndexCacheEntry[]): Promise<void> {
@@ -389,8 +401,14 @@ export class KnowledgeRouter implements IKnowledgeSearch {
       if (!existsSync(cacheDir)) {
         await mkdir(cacheDir, { recursive: true });
       }
+      // D4：写入 stat 清单（mtime/size），供下次启动 stat 级校验（避免读正文/hash）
+      const stats = await this.scanProviderStats();
+      const docs = entries.map((e) => {
+        const st = stats.get(e.docPath);
+        return st ? { ...e, mtimeMs: st.mtimeMs, size: st.size } : e;
+      });
       const tmpPath = this.indexCachePath + '.tmp';
-      const cache: IndexCache = { version: 2, docs: entries };
+      const cache: IndexCache = { version: 3, docs };
       await writeFile(tmpPath, JSON.stringify(cache), 'utf-8');
       const { rename } = await import('fs/promises');
       await rename(tmpPath, this.indexCachePath);
@@ -463,6 +481,19 @@ export class KnowledgeRouter implements IKnowledgeSearch {
     return firstLine ? firstLine.trim().slice(0, maxLen) : '';
   }
 
+  /** B10：定位正文中首个命中查询词的行号（1 起）；无正文命中返回 undefined */
+  private findFirstMatchLine(
+    content: string,
+    queryTokens: string[]
+  ): number | undefined {
+    const lines = content.split('\n');
+    for (let i = 0; i < lines.length; i++) {
+      const lower = lines[i]!.toLowerCase();
+      if (queryTokens.some((t) => lower.includes(t))) return i + 1;
+    }
+    return undefined;
+  }
+
   /**
    * 按域名过滤文档列表
    */
@@ -515,6 +546,11 @@ export class KnowledgeRouter implements IKnowledgeSearch {
 
     // 按域名过滤
     candidateDocs = this.filterByDomain(candidateDocs, options);
+
+    // B4：仅知识库文档（共享单例混入 app/docs 内置文档时，供 HTTP 保持 KB-only 语义）
+    if (options?.onlyKnowledge) {
+      candidateDocs = candidateDocs.filter((d) => d.isKnowledgeDoc);
+    }
 
     const results: KnowledgeRoute[] = [];
 
@@ -600,6 +636,9 @@ export class KnowledgeRouter implements IKnowledgeSearch {
       }
 
       if (bestScore > 0 && bestScore >= minScore) {
+        // B10：回填首个命中行的行号（正文命中时）——keyword 命中自此可
+        // 行级定位/富化（此前落 #L1-L1 兜底，enrichContext 查不到任何块）
+        const matchedLine = this.findFirstMatchLine(doc.content, queryTokens);
         results.push({
           docPath: doc.docPath,
           title: doc.title,
@@ -609,6 +648,9 @@ export class KnowledgeRouter implements IKnowledgeSearch {
           matchType: bestMatchType,
           isKnowledgeDoc: doc.isKnowledgeDoc,
           tags: doc.tags,
+          ...(matchedLine !== undefined
+            ? { startLine: matchedLine, endLine: matchedLine }
+            : {}),
         });
       }
     }
@@ -626,7 +668,7 @@ export class KnowledgeRouter implements IKnowledgeSearch {
   /**
    * 语义搜索通道
    *
-   * 优先使用 IVectorStore（sqlite-vec 等专业存储），
+   * 优先使用 IVectorStore（当前唯一实现 JsonlVectorStore，B5 下架 sqlite_vec），
    * 不可用时回退到 SemanticStore（JSONL）。
    * 两者均不可用时返回空——search() 中的 catch 兜底确保纯关键词搜索仍可用。
    */
@@ -637,8 +679,22 @@ export class KnowledgeRouter implements IKnowledgeSearch {
     // 优先使用 vectorStore
     if (this.vectorStore) {
       const count = await this.vectorStore.count();
-      if (count === 0) return [];
+      if (count === 0) {
+        // D2：语义通道可用但索引为空 → 降级计数
+        knowledgeMonitor
+          .record('knowledge.semantic.unavailable', 1, {
+            reason: 'empty_index',
+          })
+          .catch(() => {});
+        return [];
+      }
     } else if (!this.semanticStore || this.semanticStore.empty) {
+      // D2：语义通道不可用（无 store 注入）→ 降级计数
+      knowledgeMonitor
+        .record('knowledge.semantic.unavailable', 1, {
+          reason: 'no_store',
+        })
+        .catch(() => {});
       return [];
     }
 
@@ -780,15 +836,15 @@ export class KnowledgeRouter implements IKnowledgeSearch {
 
     try {
       if (!this.initialized) {
-        await this.buildIndex();
+        await this.ensureIndex();
       }
 
       const maxResults = options?.maxResults ?? 10;
       const minScore = options?.minScore ?? 0;
       const offset = options?.offset ?? 0;
 
-      // 查搜索缓存
-      const cacheKey = `${query}||${maxResults}||${minScore}||${offset}||${options?.domain ?? ''}`;
+      // 查搜索缓存（B4：onlyKnowledge 纳入 key，避免工具/HTTP 两通道结果串缓存）
+      const cacheKey = `${query}||${maxResults}||${minScore}||${offset}||${options?.domain ?? ''}||${options?.onlyKnowledge ?? false}`;
       const cached = this.searchCache.get(cacheKey);
       if (cached && cached.expiresAt > Date.now()) {
         knowledgeMonitor
@@ -848,6 +904,12 @@ export class KnowledgeRouter implements IKnowledgeSearch {
       } finally {
         otel.endSpan(semanticSpan);
       }
+
+      // D2：语义命中率指标（降级计数见 semanticSearch 内 knowledge.semantic.unavailable）
+      knowledgeMonitor
+        .record('knowledge.search.semantic_hits', semanticResults.length)
+        // @ignore-catch — 监控记录fire-and-forget，非关键路径
+        .catch(() => {});
 
       const merged = this.mergeResults(
         keywordResults,
@@ -1049,7 +1111,25 @@ export class KnowledgeRouter implements IKnowledgeSearch {
       routes.map(async (route) => {
         const chunkId = `${route.docPath}#L${route.startLine ?? 1}-L${route.endLine ?? 1}`;
         try {
-          const chunk = await this.vectorStore!.getById(chunkId);
+          let chunk = await this.vectorStore!.getById(chunkId);
+          if (!chunk && route.startLine != null) {
+            // B10：keyword/标题等非语义命中行号（由关键词所在行推算）通常不等于
+            // chunk 边界，精确 id 查不到——回退按 docPath 取该文档全部块，
+            // 命中包含 startLine 的块再做富化
+            try {
+              const docChunks = await this.vectorStore!.getByPath(
+                route.docPath
+              );
+              chunk =
+                docChunks.find(
+                  (c) =>
+                    c.startLine <= (route.startLine as number) &&
+                    (route.startLine as number) <= c.endLine
+                ) ?? null;
+            } catch {
+              chunk = null;
+            }
+          }
           if (!chunk) return route;
 
           const contextParts: string[] = [];
@@ -1120,7 +1200,7 @@ export async function getKnowledgeRouter(): Promise<KnowledgeRouter> {
     await import('@modules/docs/FileDocsProvider');
   knowledgeRouter['providers'] = [fileDocsProvider, knowledgeDocsProvider];
   if (!knowledgeRouter['initialized']) {
-    await knowledgeRouter.buildIndex();
+    await knowledgeRouter.ensureIndex();
   }
   return knowledgeRouter;
 }

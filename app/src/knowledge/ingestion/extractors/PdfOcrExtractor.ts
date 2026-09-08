@@ -37,6 +37,7 @@ import { rm } from 'fs/promises';
 import { WorkerGuard } from '@modules/ai';
 import { getLogger } from '@modules/monitoring';
 import { extractPdfPages } from '../../../media/pdf/PdfPageExtractor';
+import { isKnowledgeOcrEnabled } from '@modules/knowledge/KnowledgeConfig';
 import type { ExtractedDocument } from './types';
 
 const logger = getLogger('knowledge:ingest:pdf-ocr');
@@ -50,10 +51,9 @@ const OCR_LANGUAGES = ['ch_sim', 'en'];
 /** OCR 渲染 DPI */
 const OCR_RENDER_DPI = 150;
 
-/** 是否启用扫描件 OCR（环境开关，默认关） */
+/** 是否启用扫描件 OCR（运行时开关：env KNOWLEDGE_PDF_OCR > knowledge.json ocrEnabled > false） */
 export function isPdfOcrEnabled(): boolean {
-  const v = process.env.KNOWLEDGE_PDF_OCR;
-  return v === '1' || v === 'true';
+  return isKnowledgeOcrEnabled();
 }
 
 /**

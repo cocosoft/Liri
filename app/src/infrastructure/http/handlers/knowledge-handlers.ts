@@ -18,11 +18,11 @@ import { globalEventBus } from '@modules/core';
 import type { KnowledgeRoute } from '@modules/docs/knowledge-types';
 
 /**
- * KB-SEARCH-REUSE（2026-08-29 导出复核）：搜索 KnowledgeRouter 单例——
- * 原每次搜索 new KnowledgeRouter 导致每次 buildIndex 重建索引（文档多时搜索卡顿）。
- * 首次构造后复用，并注入 globalEventBus 订阅 knowledge:changed 保持索引增量更新。
+ * B4（2026-09-08）：HTTP 知识搜索复用共享单例 getKnowledgeRouter()，
+ * 不再自建 KnowledgeRouter——此前 KB-SEARCH-REUSE 仅收敛为"模块级私有单例"，
+ * 与 AI 工具通道的共享单例构成双实例（双份全量倒排重建 + HTTP 无语义/图谱）。
+ * 复用后能力对齐工具通道；语义/图谱由 init.ts 属性注入。
  */
-let _knowledgeSearchRouter: unknown = null;
 
 /**
  * KB-SEM（2026-08-27）：发布全局 knowledge:changed 事件，驱动语义索引增量更新。
@@ -136,6 +136,10 @@ export async function handleListKnowledge(
     const sortBy = parsedUrl.searchParams.get('sortBy') || 'updated';
     // KB-L2：按 docPath 精确过滤（getFileByDocPath 单文档查询，避免前端全量拉取）
     const docPathFilter = parsedUrl.searchParams.get('docPath');
+    // P1（2026-09-08）：分类/来源过滤下移服务端——此前前端仅过滤当前页，
+    // 与服务端分页冲突（第 1 页无匹配即空、跨页命中不可达）
+    const categoryFilter = parsedUrl.searchParams.get('category');
+    const sourceFilter = parsedUrl.searchParams.get('source');
 
     const registry = getDefaultKnowledgeBaseRegistry();
     const knowledgeRoot = registry.getKnowledgeRoot();
@@ -168,6 +172,9 @@ export async function handleListKnowledge(
     );
     const statMap = new Map(statResults.map((r) => [r.docPath, r]));
     const result = [];
+    // P2#9：base 级分类/来源全量分布（跨分页返回，供前端筛选 chips）
+    const categoryCount = new Map<string, number>();
+    const sourceCount = new Map<string, number>();
 
     for (let i = 0; i < docs.length; i++) {
       const doc = docs[i];
@@ -199,6 +206,14 @@ export async function handleListKnowledge(
         if (parsed.tags.length > 0) tags = parsed.tags;
       }
 
+      // P2#9：分类/来源分布聚合（不受当前 category/source 筛选影响，跨页完整）
+      categoryCount.set(category, (categoryCount.get(category) ?? 0) + 1);
+      sourceCount.set(source, (sourceCount.get(source) ?? 0) + 1);
+
+      // P1：分类/来源服务端过滤（与 base/docPath 同为列表查询条件）
+      if (categoryFilter && category !== categoryFilter) continue;
+      if (sourceFilter && source !== sourceFilter) continue;
+
       result.push({
         id: docPath,
         title: doc.title || '',
@@ -226,6 +241,10 @@ export async function handleListKnowledge(
     });
     const paged = sorted.slice(offset, offset + limit);
 
+    // P2#9：跨页分类/来源全量清单（按名称排序；前端筛选 chips 直接消费）
+    const categoryNames = [...categoryCount.keys()].sort();
+    const sourceNames = [...sourceCount.keys()].sort();
+
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(
       JSON.stringify({
@@ -233,6 +252,8 @@ export async function handleListKnowledge(
         total,
         offset,
         limit,
+        categoryNames,
+        sourceNames,
       })
     );
   } catch (err) {
@@ -331,10 +352,8 @@ export async function handleSearchKnowledge(
       .filter(Boolean);
     const filterTags = tags ?? urlTags;
 
-    const { KnowledgeRouter } =
+    const { getKnowledgeRouter } =
       await import('@modules/knowledge/KnowledgeRouter');
-    const { knowledgeDocsProvider } =
-      await import('@modules/docs/FileDocsProvider');
     const { getDefaultKnowledgeBaseRegistry } =
       await import('@modules/knowledge/KnowledgeBaseRegistry');
     const { parseFrontmatter } = await import('@modules/knowledge/frontmatter');
@@ -343,24 +362,12 @@ export async function handleSearchKnowledge(
     const registry = getDefaultKnowledgeBaseRegistry();
     const knowledgeRoot = registry.getKnowledgeRoot();
 
-    // KB-SEARCH-REUSE：复用单例避免每次搜索重建索引；注入 globalEventBus
-    // 订阅 knowledge:changed，知识变更后索引自动更新（created/updated 全量刷新、
-    // deleted 增量移除），解决单例复用后的索引陈旧问题。
-    if (!_knowledgeSearchRouter) {
-      _knowledgeSearchRouter = new KnowledgeRouter(
-        knowledgeDocsProvider,
-        undefined,
-        [],
-        undefined,
-        undefined,
-        globalEventBus
-      );
-    }
-    const router = _knowledgeSearchRouter as InstanceType<
-      typeof KnowledgeRouter
-    >;
+    // B4：复用共享单例（init 注入 vectorStore/semanticStore/graph，与工具通道同索引）。
+    // onlyKnowledge=true 保持 HTTP「仅用户知识库」语义（共享单例额外含 app/docs 内置文档）
+    const router = await getKnowledgeRouter();
     const routes = await router.search(query, {
       maxResults: 20,
+      onlyKnowledge: true,
       ...(domain ? { domain } : {}),
     });
 
@@ -429,25 +436,107 @@ export async function handleSearchKnowledge(
           size,
           updated_at: updatedAt,
           source,
+          // B10 透出（F2 前置）：keyword/语义命中行号，供前端定位行
+          startLine: route.startLine,
+          endLine: route.endLine,
         };
       })
     );
 
-    // R3：buckets=1 时附加 rules/faqs 分桶（docs 仍为兼容原形状的增强数组）
+    // R3+B7：buckets=1 时附加 rules/faqs/records/sources 分桶（docs 仍为兼容原形状的增强数组）
     if (url.searchParams.get('buckets') === '1') {
       const { createUnifiedSearchService } =
         await import('@modules/knowledge/search/UnifiedSearchService');
       const svc = createUnifiedSearchService(router);
-      const { rules, faqs } = await svc.searchBucketed(query, {
-        limit: filtered.length || 5,
-      });
+      const { rules, faqs, records, sources } = await svc.searchBucketed(
+        query,
+        {
+          limit: filtered.length || 5,
+          base,
+          domain,
+        }
+      );
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ docs: result, rules, faqs }));
+      res.end(JSON.stringify({ docs: result, rules, faqs, records, sources }));
       return;
     }
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(result));
+  } catch (err) {
+    sendError(res, err);
+  }
+}
+
+/**
+ * F5：原文（raw）文件预览 GET /v1/knowledge/raw-preview?file=<相对 raw 路径>
+ *
+ * 仅允许 KB root/raw/ 下的文件（realpath 白名单校验，防路径穿越），当前支持 PDF
+ * （浏览器原生 <iframe/#page=N> 预览）。DOCX 等无浏览器内嵌渲染，返回 415 明确提示。
+ */
+export async function handleKnowledgeRawPreview(
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const { join, resolve, sep, extname, basename } = await import('path');
+    const { realpath, readFile } = await import('fs/promises');
+
+    const url = new URL(req.url!, `http://${req.headers.host ?? 'localhost'}`);
+    const file = url.searchParams.get('file');
+    if (!file) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: 'file 参数必填' } }));
+      return;
+    }
+    const ext = extname(file).toLowerCase();
+    if (ext !== '.pdf') {
+      res.writeHead(415, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          error: {
+            message: `暂不支持 ${ext || '未知'} 类型的内嵌预览（仅 PDF）`,
+          },
+        })
+      );
+      return;
+    }
+
+    const { getDefaultKnowledgeBaseRegistry } =
+      await import('@modules/knowledge/KnowledgeBaseRegistry');
+    const knowledgeRoot = getDefaultKnowledgeBaseRegistry().getKnowledgeRoot();
+    const rawDir = join(knowledgeRoot, 'raw');
+
+    // 路径穿越防护：realpath 后必须仍位于 rawDir 内
+    let realTarget: string;
+    try {
+      realTarget = await realpath(resolve(rawDir, file));
+    } catch {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: '文件不存在' } }));
+      return;
+    }
+    let realRaw: string;
+    try {
+      realRaw = await realpath(rawDir);
+    } catch {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: '知识库 raw 目录不存在' } }));
+      return;
+    }
+    if (realTarget !== realRaw && !realTarget.startsWith(realRaw + sep)) {
+      res.writeHead(403, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: '不允许访问该路径' } }));
+      return;
+    }
+
+    const data = await readFile(realTarget);
+    res.writeHead(200, {
+      'Content-Type': 'application/pdf',
+      'Content-Length': data.length,
+      'Content-Disposition': `inline; filename="${basename(file)}"`,
+    });
+    res.end(data);
   } catch (err) {
     sendError(res, err);
   }
@@ -1995,6 +2084,10 @@ export async function handleKnowledgeHealth(
         updated_at: updatedAt,
       }));
 
+    // D5：OCR 开关可见性（默认关；开启需含 EasyOCR 的 L2 环境）
+    const { isPdfOcrEnabled, SCAN_MIN_CHARS_PER_PAGE } =
+      await import('@modules/knowledge/ingestion/extractors/PdfOcrExtractor.js');
+
     const metrics = {
       totalDocs: lintResult.totalDocs,
       totalIssues: summary.totalIssues,
@@ -2009,6 +2102,13 @@ export async function handleKnowledgeHealth(
       tagDistribution,
       recentItems,
       lastLintAt: new Date().toISOString(),
+      // D5：扫描件 OCR 降级开关（环境变量 KNOWLEDGE_PDF_OCR，默认关）
+      ocr: {
+        enabled: isPdfOcrEnabled(),
+        envVar: 'KNOWLEDGE_PDF_OCR',
+        scanMinCharsPerPage: SCAN_MIN_CHARS_PER_PAGE,
+        note: 'PDF 文本层稀薄时自动降级 OCR，需含 EasyOCR 的 L2 运行环境',
+      },
     };
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -2160,8 +2260,101 @@ export async function handleRestoreTrash(
   }
 }
 
-// ========== ZIP 导出 ==========
+/**
+ * P2#18：列出回收站 GET /v1/knowledge/trash
+ * 返回 { items: [{ docPath(原相对路径), fileName, trashedAt }] }
+ */
+export async function handleListKnowledgeTrash(
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const { getDefaultKnowledgeBaseRegistry } =
+      await import('@modules/knowledge/KnowledgeBaseRegistry');
+    const { readdir, stat } = await import('fs/promises');
+    const { join, relative, basename } = await import('path');
+    const root = getDefaultKnowledgeBaseRegistry().getKnowledgeRoot();
+    const trashDir = join(root, '.knowledge-trash');
 
+    const items: Array<{
+      docPath: string;
+      fileName: string;
+      trashedAt: number;
+    }> = [];
+    const walk = async (dir: string): Promise<void> => {
+      let entries: string[];
+      try {
+        entries = await readdir(dir);
+      } catch {
+        return; // 回收站不存在视为空
+      }
+      for (const entry of entries) {
+        const full = join(dir, entry);
+        let s;
+        try {
+          s = await stat(full);
+        } catch {
+          continue;
+        }
+        if (s.isDirectory()) {
+          await walk(full);
+        } else if (entry.endsWith('.md')) {
+          items.push({
+            docPath: relative(trashDir, full).split('\\').join('/'),
+            fileName: basename(full),
+            trashedAt: s.mtimeMs,
+          });
+        }
+      }
+    };
+    await walk(trashDir);
+    items.sort((a, b) => b.trashedAt - a.trashedAt);
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ items }));
+  } catch (err) {
+    sendError(res, err);
+  }
+}
+
+/**
+ * P2#18：永久删除回收站条目 DELETE /v1/knowledge/trash?docPath=<原相对路径>
+ */
+export async function handlePurgeKnowledgeTrash(
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const parsedUrl = new URL(req.url || '', 'http://localhost');
+    const docPath = parsedUrl.searchParams.get('docPath');
+    if (!docPath) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: 'docPath required' } }));
+      return;
+    }
+    const { getDefaultKnowledgeBaseRegistry } =
+      await import('@modules/knowledge/KnowledgeBaseRegistry');
+    const { unlink } = await import('fs/promises');
+    const { join, resolve, sep } = await import('path');
+    const root = getDefaultKnowledgeBaseRegistry().getKnowledgeRoot();
+    const trashDir = resolve(join(root, '.knowledge-trash'));
+    const target = resolve(join(trashDir, docPath));
+
+    // 防逃逸：目标必须位于回收站目录内
+    if (target !== trashDir && !target.startsWith(trashDir + sep)) {
+      res.writeHead(403, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: '不允许访问该路径' } }));
+      return;
+    }
+    await unlink(target);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ purged: true }));
+  } catch (err) {
+    sendError(res, err);
+  }
+}
+
+// ========== ZIP 导出 ==========
 export async function handleExportKnowledge(
   req: http.IncomingMessage,
   res: http.ServerResponse

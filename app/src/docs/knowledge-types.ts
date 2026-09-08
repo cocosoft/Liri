@@ -61,6 +61,9 @@ export interface KnowledgeRouterOptions {
   domain?: string;
   /** 跨多域搜索 */
   domains?: string[];
+  /** B4：仅返回知识库文档（isKnowledgeDoc）。共享单例含 app/docs 内置文档，
+   * HTTP 知识搜索用此开关保持"仅用户知识库"的既有语义 */
+  onlyKnowledge?: boolean;
 }
 
 /** 知识搜索通用接口 — 所有搜索路由均实现此接口 */

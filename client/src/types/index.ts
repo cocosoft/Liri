@@ -74,6 +74,8 @@ export type {
   KnowledgeSortBy,
   BucketedRuleItem,
   BucketedFaqItem,
+  BucketedRecordItem,
+  BucketedSourceItem,
   BucketedKnowledgeSearch,
 } from "./knowledge";
 

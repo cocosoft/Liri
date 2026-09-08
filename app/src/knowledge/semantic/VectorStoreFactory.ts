@@ -4,47 +4,25 @@
 /**
  * VectorStoreFactory — 向量存储工厂
  *
- * 根据环境变量 VECTOR_STORE 或配置选择实现：
- *   VECTOR_STORE=jsonl      → JsonlVectorStore（默认，开发模式）
- *   VECTOR_STORE=sqlite_vec → SqliteVecStore（阶段一）
- *
- * 调用方不直接依赖具体实现，通过 IVectorStore 接口操作。
+ * B5（2026-09-08）：删除 sqlite_vec 分支——依赖 sqlite-vec 未安装、全仓无任何
+ * VECTOR_STORE 配置/环境变量入口、长期未启用。当前仅 JsonlVectorStore（语义索引
+ * ≤10k 分块线性扫描够用）；数据量超 10k 需专业向量库时再评估引入（届时恢复
+ * MigrationService 迁移接线）。调用方统一经 IVectorStore 接口操作。
  */
 
-import { configManager } from '@modules/config';
 import type { IVectorStore } from './IVectorStore';
-import { JsonlVectorStore } from './JsonlVectorStore';
 import type { IndexIdentity } from './store';
-
-/** 支持的向量存储类型 */
-export type VectorStoreType = 'jsonl' | 'sqlite_vec';
+import { JsonlVectorStore } from './JsonlVectorStore';
 
 /**
- * 创建向量存储实例
+ * 创建向量存储实例（当前唯一实现 JsonlVectorStore）
  *
- * @param type 存储类型，默认读取 VECTOR_STORE 环境变量，fallback 'jsonl'
  * @param indexDir 索引目录
  * @param identity 索引身份（provider + model）
  */
 export function createVectorStore(
   indexDir: string,
-  identity: IndexIdentity,
-  type?: VectorStoreType
+  identity: IndexIdentity
 ): IVectorStore {
-  const resolvedType =
-    type ??
-    (configManager.env('VECTOR_STORE') as VectorStoreType | undefined) ??
-    'jsonl';
-
-  switch (resolvedType) {
-    case 'sqlite_vec': {
-      // 动态导入，避免未安装 sqlite-vec 时启动失败
-
-      const { SqliteVecStore } = require('./SqliteVecStore');
-      return new SqliteVecStore(indexDir, identity);
-    }
-    case 'jsonl':
-    default:
-      return new JsonlVectorStore(indexDir, identity);
-  }
+  return new JsonlVectorStore(indexDir, identity);
 }

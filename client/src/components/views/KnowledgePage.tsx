@@ -16,12 +16,17 @@ import type {
   KnowledgeSearchHit,
   BucketedRuleItem,
   BucketedFaqItem,
+  BucketedRecordItem,
+  BucketedSourceItem,
 } from "../../types";
 import { SearchHitCard } from "../Knowledge/SearchHitCard";
 import { StrengthBadge } from "../Knowledge/StrengthBadge";
+import { CitationText } from "../Knowledge/CitationText";
 import { toastError } from "../../stores/toastStore";
 import { createLogger } from "@/utils/logger";
 import { useToast, ToastContainer } from "../../hooks/useToast";
+// P1：打包版（Tauri 自定义协议）下相对 /v1 不可达，统一用绝对 backend URL
+import { getBackendBaseUrl } from "../../services/backendUrl";
 
 const logger = createLogger("components:knowledge");
 
@@ -36,8 +41,8 @@ import MarkdownRenderer from "../ChatArea/MarkdownRenderer";
 import { useSessionContextSync } from "../../hooks/useSessionContextSync";
 import { FAQPage } from "../Knowledge/FAQ/FAQPage";
 import { GraphPage } from "../Knowledge/Graph/GraphPage";
-import { AutoRAGPanel } from "../Knowledge/Settings/AutoRAGPanel";
 import { DataSourcePage } from "../Knowledge/DataSource/DataSourcePage";
+import { KnowledgeSettingsPanel } from "../Knowledge/Settings/KnowledgeSettingsPanel";
 
 /** P1-1: 二级导航页内 Tab key（activeTab 由 URL query ?tab= 驱动） */
 type KnowledgeTabKey =
@@ -70,6 +75,216 @@ function KnowledgePageSkeleton() {
   );
 }
 
+/**
+ * F2：搜索结果带行号时，打开文档后在正文上方给出"命中位置"行窗口预览
+ * （按源文件行号近似定位；Markdown 渲染行与源行非 1:1，展示为可关闭的定位条）
+ */
+function HitAnchorPreview({
+  content,
+  startLine,
+  endLine,
+  isDark,
+  onClose,
+}: {
+  content: string;
+  startLine: number;
+  endLine?: number;
+  isDark: boolean;
+  onClose: () => void;
+}) {
+  const lines = content.split("\n");
+  const target = Math.min(Math.max(1, startLine), lines.length);
+  const from = Math.max(1, target - 2);
+  const minTo = Math.min(lines.length, target + 3);
+  const to = Math.min(
+    lines.length,
+    endLine !== undefined && endLine >= target
+      ? Math.max(minTo, endLine)
+      : minTo,
+  );
+  const rows = [];
+  for (let i = from; i <= to; i++)
+    rows.push({ num: i, text: lines[i - 1] ?? "" });
+  return (
+    <div
+      className={`mb-3 rounded-lg border text-xs ${
+        isDark
+          ? "border-yellow-600/40 bg-yellow-500/5"
+          : "border-yellow-300 bg-yellow-50"
+      }`}
+    >
+      <div className="flex items-center gap-2 px-3 py-1.5 border-b border-current/10">
+        <span className="text-yellow-700 dark:text-yellow-400 font-medium">
+          命中位置（约第 {target} 行）
+          {endLine !== undefined && endLine > target ? ` - L${endLine}` : ""}
+        </span>
+        <button
+          onClick={onClose}
+          className="ml-auto text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xs"
+        >
+          关闭
+        </button>
+      </div>
+      <div className="px-3 py-2 font-mono space-y-0.5 max-h-48 overflow-auto">
+        {rows.map((row) => (
+          <div
+            key={row.num}
+            className={
+              row.num === target
+                ? "bg-yellow-200/70 dark:bg-yellow-500/20 rounded px-1"
+                : "opacity-70 px-1"
+            }
+          >
+            <span className="inline-block w-12 text-right mr-2 select-none text-gray-400">
+              L{row.num}
+            </span>
+            <span className="whitespace-pre-wrap break-all">{row.text}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * P2#15：分桶关联区（规则/FAQ/记录/原文）——独立组件，
+ * 在「有文档命中」与「文档 0 命中但桶有命中」两种状态下复用，避免吞掉桶结果。
+ */
+function BucketAssociations({
+  rules,
+  faqs,
+  records,
+  sources,
+  isDark,
+  tagNote,
+  onOpenRule,
+  onOpenSource,
+  onPdfPreview,
+}: {
+  rules: BucketedRuleItem[];
+  faqs: BucketedFaqItem[];
+  records: BucketedRecordItem[];
+  sources: BucketedSourceItem[];
+  isDark: boolean;
+  tagNote: boolean;
+  onOpenRule: (sourceFile: string | undefined, kind: string) => void;
+  onOpenSource: (s: BucketedSourceItem) => void;
+  onPdfPreview: (s: BucketedSourceItem) => void;
+}) {
+  return (
+    <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700 space-y-2">
+      <div className="text-xs font-medium text-gray-500 dark:text-gray-400">
+        规则 / FAQ / 记录 / 原文关联
+        {tagNote && (
+          <span className="ml-1 text-[10px] font-normal opacity-70">
+            （标签过滤仅作用于文档结果）
+          </span>
+        )}
+      </div>
+      {rules.map((r) => (
+        <div
+          key={`rule-${r.ruleId}`}
+          className="flex items-start gap-2 text-sm leading-snug"
+        >
+          <StrengthBadge strength={r.constraintStrength} />
+          <span className="flex-1">
+            <CitationText text={r.statement} />
+          </span>
+          {/* F3：规则出处回链 → 打开来源文档 */}
+          {r.sourceFile && (
+            <button
+              onClick={() => onOpenRule(r.sourceFile, r.kind)}
+              title={`出处：${r.sourceFile}`}
+              className="text-[10px] text-gray-400 hover:text-blue-500 dark:text-gray-500 dark:hover:text-blue-400 shrink-0 mt-0.5"
+            >
+              出处
+            </button>
+          )}
+        </div>
+      ))}
+      {faqs.map((f) => (
+        <div
+          key={`faq-${f.id}`}
+          className="flex flex-col gap-0.5 text-sm leading-snug"
+        >
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] font-medium text-purple-600 dark:text-purple-400">
+              FAQ
+            </span>
+            {/* F3：FAQ 归属知识库（base）标注 */}
+            {f.knowledgeBaseName && (
+              <span
+                className={`text-[10px] px-1.5 py-0.5 rounded ${isDark ? "bg-gray-700 text-gray-400" : "bg-gray-100 text-gray-500"}`}
+              >
+                {f.knowledgeBaseName}
+              </span>
+            )}
+            <span className="font-medium">
+              <CitationText text={f.question} />
+            </span>
+          </div>
+          <p className="text-xs opacity-70 line-clamp-2 pl-7">
+            <CitationText text={f.answer} />
+          </p>
+        </div>
+      ))}
+      {records.map((r) => (
+        <div
+          key={`record-${r.recordId}`}
+          className="flex flex-col gap-0.5 text-sm leading-snug"
+        >
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] font-mono font-medium text-emerald-600 dark:text-emerald-400">
+              记录
+            </span>
+            <span className="font-mono text-xs font-medium">
+              {r.type}:{r.key}
+            </span>
+          </div>
+          <p className="text-xs opacity-70 line-clamp-2 pl-7 font-mono">
+            {Object.entries(r.data)
+              .map(([k, v]) => `${k}=${String(v)}`)
+              .join(" · ")
+              .slice(0, 180)}
+          </p>
+        </div>
+      ))}
+      {sources.map((s, idx) => (
+        <div
+          key={`source-${s.docPath}-${idx}`}
+          className="flex items-start gap-2 text-sm leading-snug"
+        >
+          <span className="text-[10px] px-1.5 py-0.5 rounded bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300 shrink-0 mt-0.5">
+            原文{s.page !== undefined ? ` p.${s.page}` : ""}
+          </span>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => onOpenSource(s)}
+                className="text-xs font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 hover:underline"
+              >
+                {s.title}
+              </button>
+              {s.rawPath && /\.pdf$/i.test(s.rawPath) && (
+                <button
+                  onClick={() => onPdfPreview(s)}
+                  title="应用内预览 PDF"
+                  className="text-[10px] text-sky-600 hover:text-sky-700 dark:text-sky-400 dark:hover:text-sky-300 hover:underline shrink-0"
+                >
+                  PDF预览
+                </button>
+              )}
+            </div>
+            <p className="text-xs opacity-70 line-clamp-2">
+              <CitationText text={s.text} />
+            </p>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function KnowledgePage() {
   const config = useConfigStore((s) => s.config);
   const isDark = config.theme === "dark";
@@ -83,11 +298,15 @@ function KnowledgePage() {
 
   const view = useKnowledgeStore((s) => s.view);
   const setView = useKnowledgeStore((s) => s.setView);
+  // B7/B8：分桶规则/FAQ 以当前选中的知识库（base）为作用域
+  const { selectedBase } = view;
   const editor = useKnowledgeStore((s) => s.editor);
   const setEditor = useKnowledgeStore((s) => s.setEditor);
   const search = useKnowledgeStore((s) => s.search);
   const setSearch = useKnowledgeStore((s) => s.setSearch);
   const clearSearch = useKnowledgeStore((s) => s.clearSearch);
+  // P2#8：标签过滤仅作用于文档结果（关联桶不按标签过滤）——用于桶区说明文案
+  const listSearchTags = useKnowledgeStore((s) => s.list.searchTags);
   // KB：列表刷新信号——保存/删除/trash 后递增，useKnowledgeBaseList 监听并重载左侧列表
   const dispatchList = useKnowledgeStore((s) => s.dispatchList);
 
@@ -99,35 +318,56 @@ function KnowledgePage() {
   const versionHistoryRef = useRef<HTMLDivElement | null>(null);
   // KB-L1：文档选择请求序号（快速切换时丢弃过期响应）
   const selectFileSeqRef = useRef(0);
+  // F2：搜索结果命中行号锚点（打开文档后正文上方显示行窗口定位）
+  const [hitAnchor, setHitAnchor] = useState<{
+    docId: string;
+    startLine?: number;
+    endLine?: number;
+  } | null>(null);
+  // F5：原文 PDF 内嵌预览（浏览器原生 PDF viewer，#page=N 定位）
+  const [rawPdf, setRawPdf] = useState<{
+    file: string;
+    page?: number;
+    title: string;
+  } | null>(null);
 
-  // R3：分桶搜索补充态（提交搜索时并行拉取 rules/faqs）
+  // R3+B7：分桶搜索补充态（提交搜索时并行拉取 rules/faqs/records/sources）
   const [bucketRules, setBucketRules] = useState<BucketedRuleItem[]>([]);
   const [bucketFaqs, setBucketFaqs] = useState<BucketedFaqItem[]>([]);
+  const [bucketRecords, setBucketRecords] = useState<BucketedRecordItem[]>([]);
+  const [bucketSources, setBucketSources] = useState<BucketedSourceItem[]>([]);
   const bucketSeqRef = useRef(0);
   useEffect(() => {
-    const query = search.query?.trim();
-    if (!query || !search.hasSearched) {
+    // P2#7：只随「已提交查询快照」拉取分桶——输入框后续敲字（未重提交）不再触发
+    const query = search.hasSearched ? search.submittedQuery?.trim() : null;
+    if (!query) {
       setBucketRules([]);
       setBucketFaqs([]);
+      setBucketRecords([]);
+      setBucketSources([]);
       return;
     }
     const seq = ++bucketSeqRef.current;
     knowledgeService
-      .searchBucketed(query)
+      .searchBucketed(query, selectedBase ?? undefined)
       .then((b) => {
         if (seq !== bucketSeqRef.current) return;
         setBucketRules(b.rules ?? []);
         setBucketFaqs(b.faqs ?? []);
+        setBucketRecords(b.records ?? []);
+        setBucketSources(b.sources ?? []);
       })
       .catch(() => {
         if (seq !== bucketSeqRef.current) return;
         setBucketRules([]);
         setBucketFaqs([]);
+        setBucketRecords([]);
+        setBucketSources([]);
       });
     return () => {
       // 下一次提交自增 seq 即丢弃过期响应
     };
-  }, [search.query, search.hasSearched]);
+  }, [search.submittedQuery, search.hasSearched, selectedBase]);
 
   // P1-1: activeTab 由 URL query 驱动（?tab=xxx），根治"全局 store 残留"类问题
   const [searchParams, setSearchParams] = useSearchParams();
@@ -147,7 +387,7 @@ function KnowledgePage() {
     ? (rawTab as KnowledgeTabKey)
     : "knowledge";
 
-  const { selectedBase, selectedFile, isInitialLoading } = view;
+  const { selectedFile, isInitialLoading } = view;
 
   // P0-3 修复：解构 scheduleSave，在 search.query / selectedFile 变更时显式触发保存
   const { scheduleSave } = useSessionContextSync("knowledge", {
@@ -211,6 +451,8 @@ function KnowledgePage() {
 
   async function handleSelectFile(file: KnowledgeFile) {
     if (selectedFile?.id === file.id) return;
+    // F2：从普通列表打开文档无行号锚点，清除残留命中定位
+    setHitAnchor(null);
     // KB-L1：快速连续切换文档时，丢弃过期请求返回（防慢响应覆盖新选中项）
     const seq = ++selectFileSeqRef.current;
     // KB-DOC（2026-08-27）：列表接口 includeContent=false 只返回裁剪内容（200 字符），
@@ -251,7 +493,50 @@ function KnowledgePage() {
   async function handleSelectSearchHit(hit: KnowledgeSearchHit) {
     // KB-C2：hit 保留完整 file 元数据（score/matchType/domain 仅用于卡片展示），选中仍打开文档
     // KB-DOC：handleSelectFile 已通过 getDoc 拉全文 + 真实元数据，不再需要 getFileByDocPath
+    const nextAnchor =
+      hit.startLine !== undefined
+        ? {
+            docId: hit.file.id,
+            startLine: hit.startLine,
+            endLine: hit.endLine,
+          }
+        : null;
+    // F2：当前已打开同一文档时仅更新锚点行，不重复拉全文
+    if (selectedFile?.id === hit.file.id) {
+      setHitAnchor(nextAnchor);
+      return;
+    }
+    setHitAnchor(null);
     await handleSelectFile(hit.file);
+    setHitAnchor(nextAnchor);
+  }
+
+  /** B7/F3：按相对 docPath 打开知识文档（docPath 可被 getDoc 解析） */
+  function openDocPath(docPath: string, title?: string) {
+    void handleSelectFile({
+      id: docPath,
+      title: title ?? docPath,
+      content: "",
+      tags: [],
+      category: "",
+      docPath,
+      size: 0,
+      updated_at: 0,
+      created_at: 0,
+      source: "compiled",
+      base: selectedBase ?? "",
+    });
+  }
+
+  /** B7：原文块（sources 桶）命中 → 打开对应编译页/文档 */
+  function openBucketSource(s: BucketedSourceItem) {
+    openDocPath(s.docPath, s.title);
+  }
+
+  /** F5：sources 桶 PDF 命中 → 应用内内嵌预览（iframe 到 raw-preview，#page=N） */
+  function openPdfPreview(s: BucketedSourceItem) {
+    if (!s.rawPath) return;
+    setRawPdf({ file: s.rawPath, page: s.page, title: s.title });
   }
 
   function startEditing() {
@@ -366,7 +651,7 @@ function KnowledgePage() {
     { key: "semantic", label: "语义索引" },
     { key: "faq", label: "FAQ" },
     { key: "graph", label: "知识图谱" },
-    { key: "config", label: "RAG 配置" },
+    { key: "config", label: "知识库设置" },
     { key: "datasources", label: "数据源" },
   ];
 
@@ -381,6 +666,39 @@ function KnowledgePage() {
     <div className={`flex-1 overflow-y-auto ${bgClass}`}>
       <div className="h-full flex flex-col">
         <ToastContainer toasts={toasts} dismiss={dismiss} isDark={isDark} />
+
+        {/* F5：原文 PDF 应用内预览（浏览器原生 PDF viewer；#page=N 尽力定位） */}
+        {rawPdf && (
+          <div
+            className="fixed inset-0 z-50 flex flex-col bg-black/60 p-4"
+            onClick={() => setRawPdf(null)}
+          >
+            <div
+              className="mx-auto w-full max-w-4xl flex-1 min-h-0 flex flex-col bg-white dark:bg-gray-900 rounded-lg shadow-xl overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center gap-2 px-4 py-2 border-b border-gray-200 dark:border-gray-700 text-sm">
+                <span className="font-medium truncate">
+                  {rawPdf.title}
+                  {rawPdf.page !== undefined ? `（第 ${rawPdf.page} 页）` : ""}
+                </span>
+                <button
+                  onClick={() => setRawPdf(null)}
+                  className="ml-auto text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                >
+                  关闭
+                </button>
+              </div>
+              <iframe
+                title={`PDF-${rawPdf.title}`}
+                className="flex-1 w-full min-h-0 bg-gray-100 dark:bg-gray-800"
+                src={`${getBackendBaseUrl()}/v1/knowledge/raw-preview?file=${encodeURIComponent(
+                  rawPdf.file,
+                )}${rawPdf.page ? `#page=${rawPdf.page}` : ""}`}
+              />
+            </div>
+          </div>
+        )}
 
         {/* Tab 导航 + 统计徽章 */}
         <div
@@ -465,44 +783,65 @@ function KnowledgePage() {
                       <span className="text-xs">搜索中...</span>
                     </div>
                   ) : searchResults.length === 0 ? (
-                    <div className="text-center py-16 text-gray-400">
-                      <svg
-                        className="w-12 h-12 mx-auto mb-3 opacity-40"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={1.5}
-                          d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                    <div className="space-y-6">
+                      <div className="text-center py-10 text-gray-400">
+                        <svg
+                          className="w-12 h-12 mx-auto mb-3 opacity-40"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={1.5}
+                            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                          />
+                        </svg>
+                        {/* KB-P2：搜索失败 ≠ 真实无结果 —— 优先显示错误而非"未找到匹配文档" */}
+                        {search.searchError ? (
+                          <>
+                            <p className="text-sm text-red-500 dark:text-red-400">
+                              {search.searchError}
+                            </p>
+                            <p className="text-xs mt-1 opacity-60">
+                              可稍后重试，或清除搜索返回文档列表
+                            </p>
+                          </>
+                        ) : (
+                          <>
+                            <p className="text-sm">未找到匹配文档</p>
+                            <p className="text-xs mt-1 opacity-60">
+                              试试缩短关键词、调整分类筛选
+                            </p>
+                          </>
+                        )}
+                        <button
+                          onClick={clearSearch}
+                          className="mt-2 text-xs text-blue-500 hover:text-blue-600 dark:text-blue-400"
+                        >
+                          清除搜索
+                        </button>
+                      </div>
+                      {/* P2#15：文档 0 命中但桶有命中时仍展示关联（不再吞掉） */}
+                      {(bucketRules.length > 0 ||
+                        bucketFaqs.length > 0 ||
+                        bucketRecords.length > 0 ||
+                        bucketSources.length > 0) && (
+                        <BucketAssociations
+                          rules={bucketRules}
+                          faqs={bucketFaqs}
+                          records={bucketRecords}
+                          sources={bucketSources}
+                          isDark={isDark}
+                          tagNote={listSearchTags.length > 0}
+                          onOpenRule={(src, kind) =>
+                            openDocPath(src ?? "", kind)
+                          }
+                          onOpenSource={openBucketSource}
+                          onPdfPreview={openPdfPreview}
                         />
-                      </svg>
-                      {/* KB-P2：搜索失败 ≠ 真实无结果 —— 优先显示错误而非"未找到匹配文档" */}
-                      {search.searchError ? (
-                        <>
-                          <p className="text-sm text-red-500 dark:text-red-400">
-                            {search.searchError}
-                          </p>
-                          <p className="text-xs mt-1 opacity-60">
-                            可稍后重试，或清除搜索返回文档列表
-                          </p>
-                        </>
-                      ) : (
-                        <>
-                          <p className="text-sm">未找到匹配文档</p>
-                          <p className="text-xs mt-1 opacity-60">
-                            试试缩短关键词、调整分类筛选
-                          </p>
-                        </>
                       )}
-                      <button
-                        onClick={clearSearch}
-                        className="mt-2 text-xs text-blue-500 hover:text-blue-600 dark:text-blue-400"
-                      >
-                        清除搜索
-                      </button>
                     </div>
                   ) : (
                     <div className="space-y-2">
@@ -527,38 +866,24 @@ function KnowledgePage() {
                           onClick={() => handleSelectSearchHit(result)}
                         />
                       ))}
-                      {/* R3：规则 / FAQ 关联（分桶） */}
-                      {(bucketRules.length > 0 || bucketFaqs.length > 0) && (
-                        <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700 space-y-2">
-                          <div className="text-xs font-medium text-gray-500 dark:text-gray-400">
-                            规则 / FAQ 关联
-                          </div>
-                          {bucketRules.map((r) => (
-                            <div
-                              key={`rule-${r.ruleId}`}
-                              className="flex items-start gap-2 text-sm leading-snug"
-                            >
-                              <StrengthBadge strength={r.constraintStrength} />
-                              <span className="flex-1">{r.statement}</span>
-                            </div>
-                          ))}
-                          {bucketFaqs.map((f) => (
-                            <div
-                              key={`faq-${f.id}`}
-                              className="flex flex-col gap-0.5 text-sm leading-snug"
-                            >
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-[10px] font-medium text-purple-600 dark:text-purple-400">
-                                  FAQ
-                                </span>
-                                <span className="font-medium">{f.question}</span>
-                              </div>
-                              <p className="text-xs opacity-70 line-clamp-2 pl-7">
-                                {f.answer}
-                              </p>
-                            </div>
-                          ))}
-                        </div>
+                      {/* R3+B7+P2#15：分桶关联（复用组件，空结果也可展示） */}
+                      {(bucketRules.length > 0 ||
+                        bucketFaqs.length > 0 ||
+                        bucketRecords.length > 0 ||
+                        bucketSources.length > 0) && (
+                        <BucketAssociations
+                          rules={bucketRules}
+                          faqs={bucketFaqs}
+                          records={bucketRecords}
+                          sources={bucketSources}
+                          isDark={isDark}
+                          tagNote={listSearchTags.length > 0}
+                          onOpenRule={(src, kind) =>
+                            openDocPath(src ?? "", kind)
+                          }
+                          onOpenSource={openBucketSource}
+                          onPdfPreview={openPdfPreview}
+                        />
                       )}
                     </div>
                   )}
@@ -666,12 +991,14 @@ function KnowledgePage() {
                         );
                       }}
                       onExportNotebook={handleExportToNotebook}
-                      onZipExport={() =>
-                        window.open(
-                          `/v1/knowledge/export?base=${encodeURIComponent(selectedBase || "all")}`,
-                          "_blank",
-                        )
-                      }
+                      onZipExport={() => {
+                        // P1：绝对 backend URL（打包版自定义协议下相对 /v1 不可达）
+                        const exportUrl = `${getBackendBaseUrl()}/v1/knowledge/export?base=${encodeURIComponent(selectedBase || "all")}`;
+                        const win = window.open(exportUrl, "_blank");
+                        if (!win) {
+                          toastError("导出被浏览器拦截，请允许弹出窗口后重试");
+                        }
+                      }}
                       onVersionHistory={() =>
                         // KB-R3：菜单"历史版本"滚动定位到下方内联 VersionHistory（原死按钮无反馈）
                         versionHistoryRef.current?.scrollIntoView({
@@ -694,6 +1021,20 @@ function KnowledgePage() {
                       onDelete={handleDeleteFile}
                     />
                   </div>
+
+                  {/* F2：搜索结果带行号 → 打开后正文上方显示命中位置行窗口 */}
+                  {hitAnchor &&
+                    selectedFile &&
+                    hitAnchor.docId === selectedFile.id &&
+                    hitAnchor.startLine !== undefined && (
+                      <HitAnchorPreview
+                        content={selectedFile.content}
+                        startLine={hitAnchor.startLine}
+                        endLine={hitAnchor.endLine}
+                        isDark={isDark}
+                        onClose={() => setHitAnchor(null)}
+                      />
+                    )}
 
                   <div className="prose prose-sm max-w-none dark:prose-invert">
                     {selectedFile.content ? (
@@ -871,13 +1212,13 @@ function KnowledgePage() {
           <GraphPage isDark={isDark} active={activeTab === "graph"} />
         </div>
 
-        {/* ── RAG 配置 Tab（P1-1 页内化） ── */}
+        {/* ── 知识库设置 Tab（P1-1 页内化；D5：可操作 OCR 开关 + 只读说明） ── */}
         <div
           style={{ display: activeTab === "config" ? "flex" : "none" }}
           className="flex-1 overflow-hidden"
         >
           <div className="flex-1 overflow-y-auto p-6 max-w-lg">
-            <AutoRAGPanel isDark={isDark} />
+            <KnowledgeSettingsPanel isDark={isDark} />
           </div>
         </div>
 

@@ -5,6 +5,8 @@ interface GraphFilterPanelProps {
   stats: GraphStats | null;
   selectedType: string;
   selectedDomain: string;
+  /** P2#13：可选域清单（由边数据去重） */
+  domains: string[];
   onSelectType: (t: string) => void;
   onSelectDomain: (d: string) => void;
   isDark: boolean;
@@ -24,7 +26,10 @@ const TYPE_COLORS = [
 export const GraphFilterPanel = memo(function GraphFilterPanel({
   stats,
   selectedType,
+  selectedDomain,
+  domains,
   onSelectType,
+  onSelectDomain,
   isDark,
 }: GraphFilterPanelProps) {
   const types = stats?.byType ? Object.entries(stats.byType) : [];
@@ -91,6 +96,44 @@ export const GraphFilterPanel = memo(function GraphFilterPanel({
               }`}
             >
               {type} ({count})
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* P2#13：域过滤（此前 selectedDomain/onSelectDomain 传而不渲染） */}
+      <div>
+        <span
+          className={`text-[10px] font-medium ${isDark ? "text-gray-500" : "text-gray-400"}`}
+        >
+          域
+        </span>
+        <div className="flex flex-wrap gap-1 mt-1">
+          <button
+            onClick={() => onSelectDomain("")}
+            className={`text-[10px] px-1.5 py-0.5 rounded-full transition-colors ${
+              selectedDomain === ""
+                ? "bg-blue-500/30 text-blue-400"
+                : isDark
+                  ? "bg-gray-800 text-gray-400 hover:bg-gray-700"
+                  : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+            }`}
+          >
+            全部
+          </button>
+          {domains.map((d) => (
+            <button
+              key={d}
+              onClick={() => onSelectDomain(d)}
+              className={`text-[10px] px-1.5 py-0.5 rounded-full transition-colors ${
+                selectedDomain === d
+                  ? "bg-blue-500/30 text-blue-400"
+                  : isDark
+                    ? "bg-gray-800 text-gray-400 hover:bg-gray-700"
+                    : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+              }`}
+            >
+              {d}
             </button>
           ))}
         </div>

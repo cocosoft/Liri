@@ -31,7 +31,15 @@ async function fetchFiles(
   includeContent?: boolean,
   sortBy?: string,
   docPath?: string,
-): Promise<{ items: KnowledgeFile[]; total: number }> {
+  category?: string,
+  source?: string,
+): Promise<{
+  items: KnowledgeFile[];
+  total: number;
+  /** P2#9：base 级分类/来源全量清单（跨页） */
+  categoryNames?: string[];
+  sourceNames?: string[];
+}> {
   const params = new URLSearchParams();
   if (base) params.set("base", base);
   if (offset !== undefined) params.set("offset", String(offset));
@@ -42,9 +50,17 @@ async function fetchFiles(
   if (sortBy) params.set("sortBy", sortBy);
   // KB-L2：docPath 精确过滤（getFileByDocPath 单文档查询，避免全量拉取）
   if (docPath) params.set("docPath", docPath);
+  // P1：分类/来源过滤下移服务端（跨页命中可达）
+  if (category) params.set("category", category);
+  if (source) params.set("source", source);
   const qs = params.toString();
   const url = qs ? `/v1/knowledge?${qs}` : "/v1/knowledge";
-  const res = await http.get<{ items: KnowledgeFile[]; total: number }>(url);
+  const res = await http.get<{
+    items: KnowledgeFile[];
+    total: number;
+    categoryNames?: string[];
+    sourceNames?: string[];
+  }>(url);
   return unwrap(res, "KNOWLEDGE_LIST_FILES");
 }
 
@@ -95,15 +111,19 @@ export const knowledgeService = {
     });
   },
 
-  /** R3：分桶搜索（docs 原数组 + rules/faqs 结构化桶，?buckets=1） */
+  /** R3+B7：分桶搜索（docs + rules/faqs/records/sources，?buckets=1） */
   searchBucketed: (
     query: string,
+    base?: string,
   ): Promise<BucketedKnowledgeSearch> => {
     return getOTelTracing().asyncWrap(
       "services:knowledge:searchBucketed",
       async () => {
+        const params = new URLSearchParams();
+        params.set("buckets", "1");
+        if (base) params.set("base", base);
         const res = await http.post<BucketedKnowledgeSearch>(
-          "/v1/knowledge/search?buckets=1",
+          `/v1/knowledge/search?${params.toString()}`,
           { query },
         );
         return unwrap(res, "KNOWLEDGE_SEARCH_BUCKETED");
@@ -143,6 +163,9 @@ export const knowledgeService = {
       score: r.score,
       matchType: (r.matchType as KnowledgeSearchHit["matchType"]) ?? "keyword",
       snippet: r.content.slice(0, 200),
+      // B10 透出：keyword/语义命中行号（F2 行定位前置）
+      startLine: r.startLine,
+      endLine: r.endLine,
     }));
   },
 
@@ -154,8 +177,25 @@ export const knowledgeService = {
     includeContent?: boolean,
     // KB-C6：排序下移服务端（updated/title/created）
     sortBy?: string,
-  ): Promise<{ items: KnowledgeFile[]; total: number }> => {
-    return fetchFiles(base, offset, limit, includeContent, sortBy);
+    // P1：分类/来源过滤下移服务端（跨页命中可达）
+    category?: string,
+    source?: string,
+  ): Promise<{
+    items: KnowledgeFile[];
+    total: number;
+    categoryNames?: string[];
+    sourceNames?: string[];
+  }> => {
+    return fetchFiles(
+      base,
+      offset,
+      limit,
+      includeContent,
+      sortBy,
+      undefined,
+      category,
+      source,
+    );
   },
 
   /** P3-2: 按 docPath 从列表接口拉取真实文件元数据（搜索结果占位元数据的统一获取通道） */
@@ -478,6 +518,13 @@ export const knowledgeService = {
     consistencyWarnings: number;
     qualityIssues: number;
     lintScore: number;
+    /** D5：扫描件 OCR 开关状态（默认关） */
+    ocr?: {
+      enabled: boolean;
+      envVar: string;
+      scanMinCharsPerPage: number;
+      note: string;
+    };
     // KB-P2-12（2026-08-27）：统计面板聚合字段（原 store.items 全量拉取改为单接口聚合）
     sourceDistribution: { source: string; count: number }[];
     tagDistribution: { tag: string; count: number }[];
@@ -493,12 +540,37 @@ export const knowledgeService = {
       consistencyWarnings: number;
       qualityIssues: number;
       lintScore: number;
+      ocr?: {
+        enabled: boolean;
+        envVar: string;
+        scanMinCharsPerPage: number;
+        note: string;
+      };
       sourceDistribution: { source: string; count: number }[];
       tagDistribution: { tag: string; count: number }[];
       recentItems: { id: string; title: string; updated_at: number }[];
     }>("/v1/knowledge/health");
     const data = unwrap(res, "KNOWLEDGE_HEALTH");
     return data;
+  },
+
+  /** D5：读取知识库运行时配置（OCR 开关等） */
+  getKnowledgeConfig: async (): Promise<{ ocrEnabled?: boolean }> => {
+    const res = await http.get<{ ocrEnabled?: boolean }>(
+      "/v1/knowledge/config",
+    );
+    return unwrap(res, "KNOWLEDGE_GET_CONFIG");
+  },
+
+  /** D5：更新知识库运行时配置（OCR 开关） */
+  updateKnowledgeConfig: async (partial: {
+    ocrEnabled: boolean;
+  }): Promise<{ ocrEnabled?: boolean }> => {
+    const res = await http.put<{ ocrEnabled?: boolean }>(
+      "/v1/knowledge/config",
+      partial,
+    );
+    return unwrap(res, "KNOWLEDGE_UPDATE_CONFIG");
   },
 
   /** 软删除文档（移至回收站） */
@@ -508,6 +580,32 @@ export const knowledgeService = {
     handleClientError(new Error(res.error?.message ?? "trash failed"), {
       module: "services:knowledge",
       action: "trash",
+    });
+    return false;
+  },
+
+  /** P2#18：列出回收站 */
+  listTrash: async (): Promise<
+    Array<{ docPath: string; fileName: string; trashedAt: number }>
+  > => {
+    const res = await http.get<{
+      items: Array<{ docPath: string; fileName: string; trashedAt: number }>;
+    }>("/v1/knowledge/trash");
+    const data = unwrap(res, "KNOWLEDGE_LIST_TRASH");
+    return data.items ?? [];
+  },
+
+  /** P2#18：永久删除回收站条目 */
+  purgeTrash: async (docPath: string): Promise<boolean> => {
+    const params = new URLSearchParams();
+    params.set("docPath", docPath);
+    const res = await http.delete<{ purged: boolean }>(
+      `/v1/knowledge/trash?${params.toString()}`,
+    );
+    if (res.ok) return true;
+    handleClientError(new Error(res.error?.message ?? "purge failed"), {
+      module: "services:knowledge",
+      action: "purgeTrash",
     });
     return false;
   },

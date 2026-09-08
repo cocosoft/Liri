@@ -5,6 +5,7 @@
  */
 import { useState, useEffect, useCallback } from "react";
 import { knowledgeService } from "../../services/knowledgeService";
+import { sourceLabels } from "./shared/constants";
 
 interface HealthMetrics {
   totalDocs: number;
@@ -116,6 +117,10 @@ function StatsPanel({ isDark }: StatsPanelProps) {
             <h3 className={`text-sm font-semibold ${textPrimary} mb-3`}>
               知识库概览
             </h3>
+            {/* P2#11：口径注记——健康接口为全部知识库，未按当前库过滤 */}
+            <p className="text-[10px] mb-2 opacity-60">
+              统计范围：全部知识库（未按当前选中的库过滤）
+            </p>
             <div className="space-y-2">
               <div className="flex justify-between items-center">
                 <span className={`text-sm ${textSecondary}`}>总条目数</span>
@@ -270,15 +275,7 @@ function StatsPanel({ isDark }: StatsPanelProps) {
               {sourceDistribution.map(({ source, count }) => (
                 <div key={source} className="flex items-center gap-2">
                   <span className="text-[10px] text-gray-500 dark:text-gray-400 w-16 truncate">
-                    {source === "manual"
-                      ? "手动"
-                      : source === "upload"
-                        ? "上传"
-                        : source === "chat-save"
-                          ? "聊天"
-                          : source === "compiled"
-                            ? "编译"
-                            : source}
+                    {sourceLabels[source] ?? source}
                   </span>
                   <div className="flex-1 h-3 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
                     <div

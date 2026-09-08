@@ -55,7 +55,8 @@ export const CREATE_FILES_TABLE_SQL = `
     ref_count         INTEGER NOT NULL DEFAULT 1,           -- 引用计数（同 MD5 重复时递增）
     is_deleted        INTEGER NOT NULL DEFAULT 0,           -- 软删除标记
     created_at        INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
-    updated_at        INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
+    updated_at        INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+    knowledge_linked_at INTEGER                         -- P1-2：已入知识库标记（秒级时间戳，NULL=未入）
   )
 `;
 

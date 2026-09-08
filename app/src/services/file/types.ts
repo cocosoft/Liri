@@ -135,6 +135,8 @@ export interface FileRecord {
   isDeleted: boolean;
   createdAt: number;
   updatedAt: number;
+  /** P1-2：已入知识库标记（秒级时间戳，缺省=未入） */
+  knowledgeLinkedAt?: number;
 }
 
 /**
@@ -219,6 +221,7 @@ export interface FileRow {
   is_deleted: number;
   created_at: number;
   updated_at: number;
+  knowledge_linked_at?: number | null;
 }
 
 /**
@@ -246,5 +249,6 @@ export function rowToFileRecord(row: FileRow): FileRecord {
     isDeleted: row.is_deleted === 1,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    knowledgeLinkedAt: row.knowledge_linked_at ?? undefined,
   };
 }

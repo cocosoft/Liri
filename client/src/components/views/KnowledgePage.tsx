@@ -158,6 +158,7 @@ function BucketAssociations({
   isDark,
   tagNote,
   onOpenRule,
+  onOpenRecord,
   onOpenSource,
   onPdfPreview,
 }: {
@@ -168,6 +169,7 @@ function BucketAssociations({
   isDark: boolean;
   tagNote: boolean;
   onOpenRule: (sourceFile: string | undefined, kind: string) => void;
+  onOpenRecord: (sourceFile: string) => void;
   onOpenSource: (s: BucketedSourceItem) => void;
   onPdfPreview: (s: BucketedSourceItem) => void;
 }) {
@@ -240,6 +242,16 @@ function BucketAssociations({
             <span className="font-mono text-xs font-medium">
               {r.type}:{r.key}
             </span>
+            {/* P1-1：记录出处回链 → 打开来源文档（KB 内定位原文） */}
+            {r.sourceFile && (
+              <button
+                onClick={() => onOpenRecord(r.sourceFile)}
+                title={`出处：${r.sourceFile}`}
+                className="text-[10px] text-gray-400 hover:text-blue-500 dark:text-gray-500 dark:hover:text-blue-400 shrink-0 ml-auto"
+              >
+                出处
+              </button>
+            )}
           </div>
           <p className="text-xs opacity-70 line-clamp-2 pl-7 font-mono">
             {Object.entries(r.data)
@@ -838,6 +850,7 @@ function KnowledgePage() {
                           onOpenRule={(src, kind) =>
                             openDocPath(src ?? "", kind)
                           }
+                          onOpenRecord={(src) => openDocPath(src)}
                           onOpenSource={openBucketSource}
                           onPdfPreview={openPdfPreview}
                         />
@@ -881,6 +894,7 @@ function KnowledgePage() {
                           onOpenRule={(src, kind) =>
                             openDocPath(src ?? "", kind)
                           }
+                          onOpenRecord={(src) => openDocPath(src)}
                           onOpenSource={openBucketSource}
                           onPdfPreview={openPdfPreview}
                         />

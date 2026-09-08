@@ -19,6 +19,7 @@ import { createLogger } from "@/utils/logger";
 let navSeq = 0;
 let registrySeq = 0;
 import { handleClientError } from "@/utils/handleError";
+import { toastInfo, toastError } from "./toastStore";
 
 const logger = createLogger("fileStore");
 
@@ -234,7 +235,9 @@ export const useFileStore = create<FileStore>((set, get) => ({
   saveToKnowledge: async (filePath: string) => {
     try {
       await fileService.saveToKnowledge(filePath);
+      toastInfo("已加入知识库，可前往知识库查看");
     } catch (e) {
+      toastError(e);
       handleClientError(e, {
         module: "stores:file",
         action: "saveToKnowledge",

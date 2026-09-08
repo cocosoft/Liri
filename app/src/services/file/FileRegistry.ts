@@ -134,7 +134,27 @@ export class FileRegistry {
     for (const sql of sqlList) {
       await this.runAsync(sql);
     }
+    // P1-2：幂等加列迁移（存量库缺 knowledge_linked_at）
+    const columns = await this.allAsync<{ name: string }>(
+      `PRAGMA table_info(${FILES_TABLE})`
+    );
+    if (!columns.some((c) => c.name === 'knowledge_linked_at')) {
+      await this.runAsync(
+        `ALTER TABLE ${FILES_TABLE} ADD COLUMN knowledge_linked_at INTEGER`
+      );
+    }
     logger.info('file_files 表创建/验证完成');
+  }
+
+  /**
+   * P1-2：标记文件已入知识库（按保存完整路径；未登记或已软删则无操作）
+   */
+  async linkKnowledgeBySavedPath(savedPath: string): Promise<void> {
+    if (!this.db) await this.initDatabase();
+    await this.runAsync(
+      `UPDATE ${FILES_TABLE} SET knowledge_linked_at = strftime('%s', 'now'), updated_at = strftime('%s', 'now') WHERE saved_path = ? AND is_deleted = 0`,
+      [savedPath]
+    );
   }
 
   // ─── 核心方法 ─────────────────────────────

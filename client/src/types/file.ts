@@ -120,6 +120,8 @@ export interface FileRegistryRecord {
   createdAt: number;
   /** 秒级时间戳（同 createdAt） */
   updatedAt: number;
+  /** P1-2：已入知识库标记（秒级时间戳；缺省=未入） */
+  knowledgeLinkedAt?: number;
 }
 
 export interface FileSearchParams {

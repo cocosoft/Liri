@@ -1603,6 +1603,19 @@ export async function handleImportFromFile(
 
     knowledgeDocsProvider.clearCache();
 
+    // P1-2：登记原文件「已入知识库」（原文件在 FileRegistry 登记过才命中；失败不影响导入）
+    try {
+      const { FileRegistry } =
+        await import('@modules/services/file/FileRegistry');
+      const { getLogger } = await import('@modules/monitoring');
+      await FileRegistry.getInstance().linkKnowledgeBySavedPath(filePath);
+      getLogger('knowledge:http:import').info('文件已标记入知识库', {
+        filePath,
+      });
+    } catch (_markErr) {
+      // @ignore-catch 标记失败不阻断导入主流程（登记/缺失均可接受）
+    }
+
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(
       JSON.stringify({

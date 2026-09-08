@@ -326,6 +326,15 @@ function FileListView() {
                     >
                       {getSourceLabel(record.source)}
                     </span>
+                    {/* P1-2：已入知识库徽标（依据 DB 字段，非字符串判断） */}
+                    {record.knowledgeLinkedAt && (
+                      <span
+                        title="该文件已摄取到知识库"
+                        className="flex-shrink-0 px-2 py-0.5 text-xs font-medium rounded bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
+                      >
+                        📚 已入知识库
+                      </span>
+                    )}
                   </div>
 
                   {/* 展开详情 */}

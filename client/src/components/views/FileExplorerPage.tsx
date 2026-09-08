@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useMemo, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { useFileStore } from "../../stores/fileStore";
 import { useNavigationStore } from "../../stores/navigationStore";
 import { useToastStore } from "../../stores/toastStore";
@@ -45,10 +46,12 @@ function formatDate(ts?: number): string {
 
 type ViewMode = "grid" | "list";
 
-/** 分类配置 */
-const CATEGORY_CONFIG: Record<
-  FileCategory,
-  { label: string; icon: string; color: string; path: string }
+/** 分类配置（P0 去重：不呈现知识库分类——raw/ 底层目录归知识库「数据源」管，跳转走工具栏「前往知识库」） */
+const CATEGORY_CONFIG: Partial<
+  Record<
+    FileCategory,
+    { label: string; icon: string; color: string; path: string }
+  >
 > = {
   all: { label: "全部", icon: "🗂️", color: "bg-gray-500", path: "" },
   output: {
@@ -68,12 +71,6 @@ const CATEGORY_CONFIG: Record<
     icon: "📁",
     color: "bg-purple-500",
     path: "attachments",
-  },
-  knowledge: {
-    label: "知识库",
-    icon: "📚",
-    color: "bg-orange-500",
-    path: "knowledge",
   },
   memory: { label: "记忆", icon: "🧠", color: "bg-pink-500", path: "memory" },
   inbound: { label: "入站", icon: "📥", color: "bg-teal-500", path: "inbound" },
@@ -98,7 +95,6 @@ const TREE_ROOTS = [
   { key: "output", label: "AI 输出", path: "output", icon: "📤" },
   { key: "downloads", label: "下载材料", path: "downloads", icon: "📥" },
   { key: "attachments", label: "上传文件", path: "attachments", icon: "📁" },
-  { key: "knowledge", label: "知识库", path: "knowledge", icon: "📚" },
   { key: "memory", label: "记忆", path: "memory", icon: "🧠" },
 ];
 
@@ -131,6 +127,7 @@ function FileExplorerPage() {
   } = useFileStore();
 
   const setActivePage = useNavigationStore((s) => s.setActivePage);
+  const navigate = useNavigate();
   const addToast = useToastStore((s) => s.addToast);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -347,12 +344,11 @@ function FileExplorerPage() {
     [sendToAI, addToast, setActivePage],
   );
 
-  /** 存入知识库 */
+  /** 存入知识库（成功/失败 toast 已在 fileStore 集中处理，此处仅触发） */
   const handleSaveToKnowledge = useCallback(
     async (filePath: string) => {
       try {
         await saveToKnowledge(filePath);
-        addToast("success", "文件已存入知识库");
       } catch (e) {
         addToast("error", `存入失败: ${e}`);
       }
@@ -465,6 +461,15 @@ function FileExplorerPage() {
               }`}
             >
               📋 文件管理
+            </button>
+            <button
+              onClick={() => {
+                setActivePage("knowledge");
+                navigate("/knowledge");
+              }}
+              className="px-4 py-2 text-sm bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-colors"
+            >
+              📚 前往知识库
             </button>
             <button
               onClick={() => setActivePage("chat")}

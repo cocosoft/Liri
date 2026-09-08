@@ -419,10 +419,16 @@ jobs:
           rm -rf /tmp/liri-smoke && mkdir -p /tmp/liri-smoke
           cd /tmp/liri-smoke
           if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
-            powershell Expand-Archive -Path "$GITHUB_WORKSPACE/portable/$(basename $FULL_ZIP)" -DestinationPath . -Force
-            ./runtime/bun.exe run ./liri.js --smoke
+            # Windows 自带 bsdtar 支持 zip 且退出码可靠（git-bash 下 Expand-Archive '.' 的 cwd 解析不稳定）
+            tar -xf "$GITHUB_WORKSPACE/portable/$(basename "$FULL_ZIP")"
           else
             unzip -q "$GITHUB_WORKSPACE/$FULL_ZIP"
+          fi
+          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+            test -f runtime/bun.exe || { echo "ERROR: runtime/bun.exe missing after extract"; ls -la; exit 1; }
+            ./runtime/bun.exe run ./liri.js --smoke
+          else
+            test -f runtime/bun || { echo "ERROR: runtime/bun missing after extract"; ls -la; exit 1; }
             ./runtime/bun run ./liri.js --smoke
           fi
 

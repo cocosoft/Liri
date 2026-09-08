@@ -465,7 +465,12 @@ export abstract class BaseAIProvider implements AIProvider {
     // 2. Bun 原生 tls.ca 注入
     const tlsCA = BaseAIProvider.getBunTlsCA();
     if (tlsCA) {
-      (result as Record<string, unknown>).tls = tlsCA;
+      // 调用方已在 init.tls 显式给出 TLS 选项（如内网私有化 DawateProvider 的
+      // insecureSkipVerify 置 rejectUnauthorized=false）时不覆盖，尊重调用方意图；
+      // 否则默认注入系统 CA 证书。
+      if (!(result as { tls?: unknown }).tls) {
+        (result as Record<string, unknown>).tls = tlsCA;
+      }
     }
 
     return result;

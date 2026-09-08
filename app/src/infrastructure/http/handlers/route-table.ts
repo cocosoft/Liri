@@ -8,6 +8,7 @@ import type http from 'http';
 import type { HandlerCtx } from './handler-utils';
 import { checkAdminRequest } from './auth-handlers';
 import { dispatchChatSessionRoutes } from './routes/chat-session-routes';
+import { dispatchOpenAIGatewayRoutes } from './routes/openai-gateway-routes';
 import { dispatchPlanFlowRoutes } from './routes/plan-flow-routes';
 import { dispatchToolMediaRoutes } from './routes/tool-media-routes';
 import { dispatchTaskAgentRoutes } from './routes/task-agent-routes';
@@ -68,6 +69,10 @@ export async function dispatchRoute(
 
   if (
     await dispatchChatSessionRoutes(req, res, url, broadcastEvent, handlerCtx)
+  )
+    return true;
+  if (
+    await dispatchOpenAIGatewayRoutes(req, res, url, broadcastEvent, handlerCtx)
   )
     return true;
   if (await dispatchPlanFlowRoutes(req, res, url, broadcastEvent, handlerCtx))

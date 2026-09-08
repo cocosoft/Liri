@@ -7,6 +7,7 @@ import { useCallback, useState } from "react";
 import type { ProviderFormData, ProviderInfo } from "../../types";
 import { PROVIDER_FORM_SCHEMA } from "./ProviderFormSchema";
 import SchemaFormField from "./SchemaFormField";
+import { providerService } from "../../services/providerService";
 
 interface ProviderEditorModalProps {
   /** 编辑模式传入 Provider，新增模式传 null */
@@ -47,6 +48,12 @@ export default function ProviderEditorModal({
   }));
   /** P0 凭据迁移：编辑模式显式清除已配置凭据 */
   const [clearApiKey, setClearApiKey] = useState(false);
+  /** 测试连接（dawate 编辑态，用已保存凭据走 generateAppKey） */
+  const [testing, setTesting] = useState(false);
+  const [testState, setTestState] = useState<{
+    ok: boolean;
+    message: string;
+  } | null>(null);
 
   const handleFieldChange = useCallback(
     (field: keyof ProviderFormData, value: string | boolean) => {
@@ -66,6 +73,37 @@ export default function ProviderEditorModal({
       apiKey: clearApiKey ? null : formData.apiKey,
     });
   }, [formData, onSave, clearApiKey]);
+
+  /** 内网补强：dawate 编辑态「测试连接」（generateAppKey 即通） */
+  const runTest = useCallback(async () => {
+    if (!provider?.id) return;
+    setTesting(true);
+    setTestState(null);
+    try {
+      const res = await providerService.test(provider.id);
+      const first = res.results?.[0];
+      const statusOk =
+        first?.status === undefined ||
+        (first.status >= 200 && first.status < 300);
+      const ok = !first?.error && statusOk;
+      setTestState({
+        ok,
+        message: ok
+          ? `连接正常：appKey 获取成功${first?.latency ? `（${first.latency}ms）` : ""}`
+          : first?.error ||
+            (first?.status !== undefined && !statusOk
+              ? `HTTP ${first.status}`
+              : "连接失败"),
+      });
+    } catch (e) {
+      setTestState({
+        ok: false,
+        message: e instanceof Error ? e.message : "连接失败",
+      });
+    } finally {
+      setTesting(false);
+    }
+  }, [provider?.id]);
 
   return (
     <div
@@ -108,6 +146,30 @@ export default function ProviderEditorModal({
             />
           ))}
         </div>
+
+        {/* 内网补强：dawate 编辑态「测试连接」（create 态无已存凭据可测，暂不显示） */}
+        {formData.providerType === "dawate" && provider?.id && (
+          <div className="flex items-center gap-3 mt-4">
+            <button
+              onClick={runTest}
+              disabled={testing}
+              className="px-4 py-1.5 text-sm border border-emerald-600 text-emerald-600 dark:text-emerald-400 dark:border-emerald-500 rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-900/20 disabled:opacity-50 transition-colors"
+            >
+              {testing ? "测试中…" : "测试连接"}
+            </button>
+            {testState && (
+              <span
+                className={`text-xs ${
+                  testState.ok
+                    ? "text-emerald-600 dark:text-emerald-400"
+                    : "text-red-500 dark:text-red-400"
+                }`}
+              >
+                {testState.message}
+              </span>
+            )}
+          </div>
+        )}
 
         <div className="flex gap-2 mt-5">
           <button

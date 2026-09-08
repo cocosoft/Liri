@@ -348,6 +348,50 @@ export async function handleProviderTest(
       sendError(res, '供应商需要 API Key 但未设置', 400);
       return;
     }
+
+    // dawate（私有化内网）：非 OpenAI 兼容，改测 generateAppKey（换 appKey 即通）
+    if (p.providerType === 'dawate') {
+      const { testDawateConnection } =
+        await import('../providers/DawateProvider.js');
+      let headers: Record<string, unknown> = {};
+      try {
+        const raw =
+          typeof p.headers === 'string' ? JSON.parse(p.headers) : p.headers;
+        if (raw && typeof raw === 'object')
+          headers = raw as Record<string, unknown>;
+      } catch {
+        headers = {};
+      }
+      const pick = (v: unknown): string | undefined =>
+        typeof v === 'string' && v.trim() ? v.trim() : undefined;
+      const insecureRaw = headers['insecureSkipVerify'];
+      const insecureSkipVerify =
+        insecureRaw === true ||
+        (typeof insecureRaw === 'string' &&
+          ['1', 'true', 'yes'].includes(insecureRaw.trim().toLowerCase()));
+      const r = await testDawateConnection({
+        baseUrl: p.baseUrl,
+        appId: pick(headers['appId']),
+        appSecret: apiKey || undefined,
+        insecureSkipVerify,
+      });
+      const base = (p.baseUrl || '').replace(/\/+$/, '');
+      sendJson(res, {
+        data: {
+          provider: p.name,
+          results: [
+            {
+              url: `${base}/knowledgeService/extSecret/generateAppKey`,
+              latency: r.ok ? r.latencyMs : undefined,
+              status: r.status,
+              error: r.ok ? undefined : r.error,
+            },
+          ],
+        },
+      });
+      return;
+    }
+
     const results = await testEndpoints([p.baseUrl]);
     sendJson(res, { data: { provider: p.name, results } });
   } catch (err) {

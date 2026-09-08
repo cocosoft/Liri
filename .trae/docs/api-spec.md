@@ -179,6 +179,9 @@
 | 方法 | 路径 | 后端状态 | 前端调用方 |
 |------|------|----------|-----------|
 | POST | `/v1/chat/completions` | ✅ | `chatService.sendMessage`, `chatService.streamMessage` |
+| POST | `/v1/openai/chat/completions` | ✅ **2026-09-08 新增（OpenAI 兼容网关，B-1）** | 无前端调用方；供 TRAE/第三方以 OpenAI 格式直连内网 dawate Provider |
+
+> OpenAI 兼容网关（B-1）：无状态直连 `providerRegistry.getByModel(model)`（当前为 DawateProvider），透传完整 messages 历史、不做会话/工具/落盘；`stream:true` 以标准 OpenAI chunk + `data: [DONE]` 返回。鉴权沿用全局 `LIRI_API_SECRET`。模型 ID = 大瓦特 Agent 的 `model_id`（如 `246676332`）。
 
 > P0-1（2026-08-26）：请求体新增可选 `continue_from: { content, messageId? }`——流中断续写：后端把已生成内容作为 assistant 上下文注入，"请从中断处继续"，用于自动恢复而非从头重发。
 > P1-1（2026-08-26）：SSE 事件 `__pyapp_error_code` 新增 `STREAM_INTERRUPTED`——前端据此识别"可恢复的流中断"并触发自动续写/重试。

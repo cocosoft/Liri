@@ -32,6 +32,8 @@
 
 import type { KnowledgeRoute } from '@modules/docs/knowledge-types';
 import { KnowledgeRouter } from '@modules/knowledge/KnowledgeRouter';
+import { RuleStore } from '../rule/RuleStore';
+import { getFAQService } from '../faq/FAQService';
 
 /** 搜索结果项 */
 export interface UnifiedSearchResult {
@@ -43,6 +45,54 @@ export interface UnifiedSearchResult {
   source: string;
   docPath?: string;
   metadata?: Record<string, unknown>;
+}
+
+/** 分桶规则项（R3：检索分桶 rule） */
+export interface BucketedRuleItem {
+  bucket: 'rule';
+  ruleId: string;
+  kind: string;
+  /** 约束强度：mandatory | should | may */
+  constraintStrength: 'mandatory' | 'should' | 'may';
+  /** 强度中文标签（供前端徽标） */
+  constraintLabel: string;
+  statement: string;
+  snippet: string;
+  domain: string;
+  sourceFile?: string;
+  score: number;
+}
+
+/** 分桶 FAQ 项（R3：检索分桶 faq） */
+export interface BucketedFaqItem {
+  bucket: 'faq';
+  id: string;
+  question: string;
+  answer: string;
+  category?: string;
+  knowledgeBaseName: string;
+  score: number;
+}
+
+/** 分桶搜索结果（R3：docs/rules/faqs 三桶） */
+export interface BucketedSearchResult {
+  docs: UnifiedSearchResult[];
+  rules: BucketedRuleItem[];
+  faqs: BucketedFaqItem[];
+}
+
+/** 强度 → 中文标签（前端徽标语义） */
+export function strengthLabel(s: string): string {
+  switch (s) {
+    case 'mandatory':
+      return '必须';
+    case 'should':
+      return '应';
+    case 'may':
+      return '可';
+    default:
+      return s;
+  }
 }
 
 /**
@@ -94,6 +144,75 @@ export class UnifiedSearchService {
     } catch {
       return [];
     }
+  }
+
+  /**
+   * 分桶搜索（R3）：docs（关键词+语义融合）/ rules（kg_rules）/ faqs（faq_entries 全局）
+   */
+  async searchBucketed(
+    query: string,
+    options?: {
+      limit?: number;
+      offset?: number;
+      domain?: string;
+      ruleLimit?: number;
+      faqLimit?: number;
+    }
+  ): Promise<BucketedSearchResult> {
+    const limit = options?.limit ?? 5;
+    const ruleLimit = options?.ruleLimit ?? 5;
+    const faqLimit = options?.faqLimit ?? 5;
+
+    const docs = await this.search(query, {
+      limit,
+      offset: options?.offset ?? 0,
+      domain: options?.domain,
+    });
+
+    // rules 桶：kg_rules 关键字检索（strength 标注供徽标渲染）
+    let rules: BucketedRuleItem[] = [];
+    const ruleStore = new RuleStore();
+    try {
+      const rows = await ruleStore.search(query, { limit: ruleLimit });
+      rules = rows.map((r, idx) => ({
+        bucket: 'rule' as const,
+        ruleId: r.id,
+        kind: r.kind,
+        constraintStrength: r.constraintStrength as BucketedRuleItem['constraintStrength'],
+        constraintLabel: strengthLabel(r.constraintStrength),
+        statement: r.statement,
+        snippet: r.statement,
+        domain: r.domain,
+        sourceFile: r.sourceFile,
+        score: Math.max(0, ruleLimit - idx),
+      }));
+    } catch {
+      rules = [];
+    } finally {
+      await ruleStore.close();
+    }
+
+    // faqs 桶：faq_entries 全局搜索（knowledgeBaseName 缺省=跨 base）
+    let faqs: BucketedFaqItem[] = [];
+    try {
+      const rows = await getFAQService().search({
+        query,
+        topK: faqLimit,
+      });
+      faqs = rows.map((f, idx) => ({
+        bucket: 'faq' as const,
+        id: f.id,
+        question: f.question,
+        answer: f.answer,
+        category: f.category || undefined,
+        knowledgeBaseName: f.knowledgeBaseName,
+        score: Math.max(0, faqLimit - idx),
+      }));
+    } catch {
+      faqs = [];
+    }
+
+    return { docs, rules, faqs };
   }
 }
 

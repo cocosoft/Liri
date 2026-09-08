@@ -249,6 +249,25 @@ export class RuleStore {
     });
   }
 
+  /** 列出全表规则（R3 跨批 conflictOf 全表扫描用） */
+  async listAll(): Promise<StoredRule[]> {
+    if (!this.db) await this.init();
+
+    return new Promise((resolve, reject) => {
+      this.db!.all(
+        `SELECT * FROM ${KG_RULES_TABLE} ORDER BY created_at`,
+        [],
+        (err: Error | null, rows: unknown[]) => {
+          if (err) {
+            reject(err);
+            return;
+          }
+          resolve((rows as unknown[]).map((r) => this.rowToRule(r)));
+        }
+      );
+    });
+  }
+
   /** 删除某来源文件的全部规则（重编译防残留） */
   async deleteBySource(sourceFile: string): Promise<number> {
     if (!this.db) await this.init();

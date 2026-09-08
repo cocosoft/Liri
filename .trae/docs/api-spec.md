@@ -311,7 +311,7 @@
 | 方法 | 路径 | 后端状态 | 前端调用方 |
 |------|------|----------|-----------|
 | GET | `/v1/knowledge` | ✅ | `knowledgeService.list`, `knowledgeService.listFiles` |
-| POST | `/v1/knowledge/search` | ✅ | `knowledgeService.search`, `knowledgeService.hybridSearch` |
+| POST | `/v1/knowledge/search` | ✅ | `knowledgeService.search`, `knowledgeService.hybridSearch`（R3：`?buckets=1` 返回 `{docs,rules,faqs}` 分桶，2026-09-07） |
 | POST | `/v1/knowledge` | ✅ | `knowledgeService.create` |
 | GET | `/v1/knowledge/bases` | ✅ | `knowledgeService.listBases` |
 | POST | `/v1/knowledge/bases` | ✅ | `knowledgeService.createBase` |

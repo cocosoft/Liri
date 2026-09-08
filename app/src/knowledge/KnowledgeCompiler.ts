@@ -42,7 +42,10 @@ import { SchemaLoader } from './schema/SchemaLoader';
 import { RecordStore } from './record/RecordStore';
 import { extractRecordsFromCompiledPages } from './record/RecordExtractor';
 import { RuleStore } from './rule/RuleStore';
-import { extractRulesFromCompiledPages } from './rule/RuleExtractor';
+import {
+  extractRulesFromCompiledPages,
+  detectRuleConflicts,
+} from './rule/RuleExtractor';
 import { computeFileDigest } from './lineage/contentFingerprint';
 import { LineageStore } from './lineage/LineageStore';
 import {
@@ -1199,6 +1202,29 @@ export async function runKnowledgeCompile(
                 rows.map((r) => ({ artifactType: 'rule', artifactId: r.id })),
                 compileVersion
               );
+            }
+            // R3：跨批全表 conflictOf 扫描（对全部已落库规则做配对 lint，warning 不阻断）
+            try {
+              const allRules = await ruleStore.listAll();
+              const crossWarnings = detectRuleConflicts(
+                allRules.map((r) => ({
+                  id: r.id,
+                  statement: r.statement,
+                  conflictOf: r.conflictOf,
+                }))
+              );
+              if (crossWarnings.length > 0) {
+                logger.warning('规则跨批冲突校验发现警告', {
+                  total: allRules.length,
+                  warnings: crossWarnings.slice(0, 20),
+                });
+              } else {
+                logger.info('规则跨批冲突校验通过', { total: allRules.length });
+              }
+            } catch (scanErr) {
+              logger.warning('规则跨批冲突扫描失败', {
+                error: String(scanErr),
+              });
             }
           } finally {
             await ruleStore.close();

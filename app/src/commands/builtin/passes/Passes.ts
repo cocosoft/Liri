@@ -53,7 +53,7 @@ export default {
         id: 'enterprise',
         name: 'Enterprise Pass',
         status: 'available',
-        features: ['私有化部署', '定制开发', '专属客服'],
+        features: ['专属集群', '定制开发', '专属客服'],
       },
     ];
 
@@ -180,7 +180,7 @@ export default {
         name: 'Enterprise Pass',
         description: '企业版Pass，适合大型企业',
         price: '定制报价',
-        features: ['Team版所有功能', '私有化部署', '定制开发', '专属客服'],
+        features: ['Team版所有功能', '专属集群', '定制开发', '专属客服'],
       },
     };
 

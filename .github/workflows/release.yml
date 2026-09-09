@@ -56,7 +56,7 @@ jobs:
 
   # ══════════════════════════════════════════════
   # 便携包（方案 C）：full zip（2026-09-09 退役独立 update.zip，update 通道复用 full）
-  # 产物：liri-v{ver}-{platform}-full.zip（唯一 portable 产物）
+  # 产物：liri-v{ver}-{edition}-{platform}-full.zip（唯一 portable 产物；edition=pro/personal）
   # 依赖布局统一 node_modules/（与 pkg / exe 同级），校验交给 verify-package.ts（契约驱动）
   # ══════════════════════════════════════════════
   portable-bundle:
@@ -164,7 +164,9 @@ jobs:
         run: |
           VER="${{ steps.version.outputs.version }}"
           cd ../dist
-          ZIP_NAME="liri-v${VER}-${{ matrix.platform }}-full.zip"
+          # 命名契约（与 GitHubReleaseFetcher / smoke glob 一致）：liri-v{ver}-{edition}-{platform}-full.zip
+          # edition 段必须存在：release merge-multiple 防跨档覆盖，updater 按 edition 精确匹配防串档
+          ZIP_NAME="liri-v${VER}-${{ matrix.variant }}-${{ matrix.platform }}-full.zip"
           if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
             powershell Compress-Archive -Path pkg\* -DestinationPath "${ZIP_NAME}" -Force
           else
@@ -179,7 +181,7 @@ jobs:
         run: |
           cd ../dist
           for f in liri-*.zip; do
-            sha256sum "$f" >> checksums-${{ matrix.platform }}.txt
+            sha256sum "$f" >> checksums-${{ matrix.variant }}-${{ matrix.platform }}.txt
           done
 
       # 阶段 10：体积门禁（超限即失败；full 单产物设上限）

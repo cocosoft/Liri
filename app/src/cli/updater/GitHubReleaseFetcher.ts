@@ -165,8 +165,12 @@ export class GitHubReleaseFetcher {
     })();
     const assets = release.assets ?? [];
     const asset =
-      assets.find((a) => a.name.includes('full') && a.name.includes(platformTag)) ??
-      assets.find((a) => a.name.endsWith('.zip') && a.name.includes(platformTag)) ??
+      assets.find(
+        (a) => a.name.includes('full') && a.name.includes(platformTag)
+      ) ??
+      assets.find(
+        (a) => a.name.endsWith('.zip') && a.name.includes(platformTag)
+      ) ??
       assets.find((a) => a.name.includes(platformTag)) ??
       assets[0];
 

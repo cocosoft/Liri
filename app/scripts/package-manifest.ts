@@ -40,6 +40,15 @@ export const RUNTIME_DEPS: string[] = PACKAGE_MANIFEST.externals.map(
   (e) => e.name
 );
 
+/**
+ * 随包携带的系统工具（打包资源契约，2026-09-09 起）
+ * 布局统一：<运行根>/ffmpeg/bin/{ffmpeg,ffprobe}[.exe]
+ * 运行时解析：media/ffmpeg/toolResolver.ts（内置优先，PATH 兜底）
+ */
+export const RUNTIME_TOOLS = {
+  ffmpeg: { dir: 'ffmpeg/bin', exes: ['ffmpeg', 'ffprobe'] as const },
+} as const;
+
 /** --smoke 自检的实际加载入口（默认按包名） */
 export const SMOKE_IMPORTS: Record<string, string> = Object.fromEntries(
   PACKAGE_MANIFEST.externals.map((e) => [e.name, e.smokeImport ?? e.name])

@@ -8,6 +8,7 @@ import { spawn } from 'child_process';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 import { ffmpegWrapper } from '../ffmpeg/FFmpegWrapper';
+import { resolveFFmpegPath } from '../ffmpeg/toolResolver';
 
 const logger = getLogger('media:video');
 
@@ -202,7 +203,7 @@ export class VideoProcessor {
    */
   private async runFfmpeg(args: string[]): Promise<boolean> {
     return new Promise((resolve) => {
-      const ffmpeg = spawn('ffmpeg', args, {
+      const ffmpeg = spawn(resolveFFmpegPath(), args, {
         stdio: ['ignore', 'ignore', 'pipe'],
       });
 

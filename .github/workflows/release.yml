@@ -206,7 +206,7 @@ jobs:
           name: portable-${{ matrix.platform }}-${{ matrix.variant }}
           path: |
             dist/liri-*.zip
-            dist/checksums-${{ matrix.platform }}.txt
+            dist/checksums-${{ matrix.variant }}-${{ matrix.platform }}.txt
           retention-days: 30
 
   # ══════════════════════════════════════════════

@@ -221,26 +221,53 @@ jobs:
       fail-fast: false
       matrix:
         config:
-          - name: Windows
+          - name: Windows-Pro
             os: windows-latest
             target: x86_64-pc-windows-msvc
             bundles: msi
             sidecar-build: build:win:pro
             sidecar-ext: .exe
+            variant: pro
 
-          - name: macOS (ARM)
+          - name: Windows-Personal
+            os: windows-latest
+            target: x86_64-pc-windows-msvc
+            bundles: msi
+            sidecar-build: build:win:personal
+            sidecar-ext: .exe
+            variant: personal
+
+          - name: macOS-ARM-Pro
             os: macos-latest
             target: aarch64-apple-darwin
             bundles: dmg
             sidecar-build: build:mac
             sidecar-ext: ""
+            variant: pro
 
-          - name: Linux
+          - name: macOS-ARM-Personal
+            os: macos-latest
+            target: aarch64-apple-darwin
+            bundles: dmg
+            sidecar-build: build:mac:personal
+            sidecar-ext: ""
+            variant: personal
+
+          - name: Linux-Pro
             os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
             bundles: deb
             sidecar-build: build:linux
             sidecar-ext: ""
+            variant: pro
+
+          - name: Linux-Personal
+            os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            bundles: deb
+            sidecar-build: build:linux:personal
+            sidecar-ext: ""
+            variant: personal
 
     defaults:
       run:
@@ -368,6 +395,19 @@ jobs:
       - name: Build Tauri app
         run: bun run tauri build --bundles ${{ matrix.config.bundles }}
 
+      # 双档安装器（2026-09-09）：同一 bundle 目录会产出同名安装器，按 edition 后缀防 release 附件互相覆盖
+      - name: Suffix installers with edition
+        shell: bash
+        run: |
+          cd client/src-tauri/target/release/bundle
+          find . -type f \( -iname '*.msi' -o -iname '*.dmg' -o -iname '*.deb' -o -iname '*.AppImage' -o -iname '*.appimage' \) -print0 | while IFS= read -r -d '' f; do
+            base="${f%.*}"
+            ext="${f##*.}"
+            mv "$f" "${base}-${{ matrix.config.variant }}.${ext}"
+          done
+          echo "=== suffixed bundle files ==="
+          find . -type f | sort
+
       - name: Upload installer artifact
         uses: actions/upload-artifact@v4
         with:
@@ -450,13 +490,13 @@ jobs:
 
       - name: Download Windows installer (win smoke)
         uses: actions/download-artifact@v4
-        if: matrix.os == 'windows-latest'
+        if: matrix.os == 'windows-latest' && matrix.variant == 'pro'
         with:
-          name: tauri-installer-Windows
+          name: tauri-installer-Windows-Pro
           path: installers
 
       - name: Smoke MSI install (Windows)
-        if: matrix.os == 'windows-latest'
+        if: matrix.os == 'windows-latest' && matrix.variant == 'pro'
         shell: powershell
         run: |
           $msi = Get-ChildItem installers -Recurse -Filter *.msi | Select-Object -First 1

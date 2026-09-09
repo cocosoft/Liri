@@ -415,20 +415,26 @@ jobs:
         run: |
           set -euo pipefail
           FULL_ZIP=$(ls portable/liri-*-${{ matrix.platform }}-full.zip | head -n1)
-          echo "Smoking: $FULL_ZIP"
+          echo "SMOKE_STEP 1/4 zip=$FULL_ZIP"
           rm -rf /tmp/liri-smoke && mkdir -p /tmp/liri-smoke
           cd /tmp/liri-smoke
+          echo "SMOKE_STEP 2/4 extract"
+          # 三端统一 msys unzip（Windows Git-Bash 的 tar=GNU 1.35 不支持 zip；bsdtar 路径不可靠）
+          unzip -q -o "$GITHUB_WORKSPACE/portable/$(basename "$FULL_ZIP")" || {
+            echo "SMOKE_FAIL extract rc=$?"
+            ls -la
+            exit 1
+          }
+          echo "SMOKE_STEP 3/4 verify bun"
           if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
-            # Windows 自带 bsdtar 支持 zip 且退出码可靠（git-bash 下 Expand-Archive '.' 的 cwd 解析不稳定）
-            tar -xf "$GITHUB_WORKSPACE/portable/$(basename "$FULL_ZIP")"
+            test -f runtime/bun.exe || { echo "SMOKE_FAIL runtime/bun.exe missing"; ls -la; ls -la runtime 2>/dev/null || true; exit 1; }
           else
-            unzip -q "$GITHUB_WORKSPACE/$FULL_ZIP"
+            test -f runtime/bun || { echo "SMOKE_FAIL runtime/bun missing"; ls -la; ls -la runtime 2>/dev/null || true; exit 1; }
           fi
+          echo "SMOKE_STEP 4/4 run --smoke"
           if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
-            test -f runtime/bun.exe || { echo "ERROR: runtime/bun.exe missing after extract"; ls -la; exit 1; }
             ./runtime/bun.exe run ./liri.js --smoke
           else
-            test -f runtime/bun || { echo "ERROR: runtime/bun missing after extract"; ls -la; exit 1; }
             ./runtime/bun run ./liri.js --smoke
           fi
 

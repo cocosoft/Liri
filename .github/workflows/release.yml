@@ -399,7 +399,8 @@ jobs:
       - name: Suffix installers with edition
         shell: bash
         run: |
-          cd client/src-tauri/target/release/bundle
+          # 注意：job defaults.run.working-directory=client，此处相对 client/ 解析
+          cd src-tauri/target/release/bundle
           find . -type f \( -iname '*.msi' -o -iname '*.dmg' -o -iname '*.deb' -o -iname '*.AppImage' -o -iname '*.appimage' -o -iname '*-setup.exe' \) -print0 | while IFS= read -r -d '' f; do
             if [[ "$f" == *-setup.exe ]]; then
               # NSIS: Liri_<ver>_<arch>-setup.exe → Liri_<ver>_<arch>-<variant>-setup.exe（保留 -setup.exe 后缀约定）

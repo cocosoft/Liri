@@ -472,29 +472,48 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          FULL_ZIP=$(ls portable/liri-*-${{ matrix.variant }}-${{ matrix.platform }}-full.zip | head -n1)
+          SUMMARY="${GITHUB_STEP_SUMMARY:-/dev/null}"
+          echo "## Smoke portable (${{ matrix.platform }}/${{ matrix.variant }})" >> "$SUMMARY"
+          FULL_ZIP=$(ls portable/liri-*-${{ matrix.variant }}-${{ matrix.platform }}-full.zip 2>/dev/null | head -n1 || true)
+          if [[ -z "$FULL_ZIP" ]]; then
+            { echo "### FAIL: zip not found (portable/liri-*-${{ matrix.variant }}-${{ matrix.platform }}-full.zip)"; echo '```'; ls -la portable/ || true; echo '```'; } >> "$SUMMARY"
+            exit 1
+          fi
           echo "SMOKE_STEP 1/4 zip=$FULL_ZIP"
+          echo "- zip: $(basename "$FULL_ZIP")" >> "$SUMMARY"
           rm -rf /tmp/liri-smoke && mkdir -p /tmp/liri-smoke
           cd /tmp/liri-smoke
           echo "SMOKE_STEP 2/4 extract"
-          # 三端统一 msys unzip（Windows Git-Bash 的 tar=GNU 1.35 不支持 zip；bsdtar 路径不可靠）
-          unzip -q -o "$GITHUB_WORKSPACE/portable/$(basename "$FULL_ZIP")" || {
-            echo "SMOKE_FAIL extract rc=$?"
-            ls -la
-            exit 1
-          }
+          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+            # Git for Windows 不带 unzip.exe；用 PowerShell Expand-Archive（与打包侧 Compress-Archive 对应）
+            ZIP_WIN=$(cygpath -w "$GITHUB_WORKSPACE/portable/$(basename "$FULL_ZIP")")
+            if ! powershell -NoProfile -Command "Expand-Archive -LiteralPath '$ZIP_WIN' -DestinationPath (Get-Location).Path -Force"; then
+              { echo "### FAIL: Expand-Archive ($ZIP_WIN)"; echo '```'; ls -la; echo '```'; } >> "$SUMMARY"
+              exit 1
+            fi
+          else
+            if ! unzip -q -o "$GITHUB_WORKSPACE/portable/$(basename "$FULL_ZIP")"; then
+              { echo "### FAIL: unzip"; echo '```'; ls -la; echo '```'; } >> "$SUMMARY"
+              exit 1
+            fi
+          fi
           echo "SMOKE_STEP 3/4 verify bun"
           if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
-            test -f runtime/bun.exe || { echo "SMOKE_FAIL runtime/bun.exe missing"; ls -la; ls -la runtime 2>/dev/null || true; exit 1; }
+            test -f runtime/bun.exe || { { echo "### FAIL: runtime/bun.exe missing"; echo '```'; ls -la; ls -la runtime 2>/dev/null || true; echo '```'; } >> "$SUMMARY"; exit 1; }
           else
-            test -f runtime/bun || { echo "SMOKE_FAIL runtime/bun missing"; ls -la; ls -la runtime 2>/dev/null || true; exit 1; }
+            test -f runtime/bun || { { echo "### FAIL: runtime/bun missing"; echo '```'; ls -la; ls -la runtime 2>/dev/null || true; echo '```'; } >> "$SUMMARY"; exit 1; }
           fi
           echo "SMOKE_STEP 4/4 run --smoke"
           if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
-            ./runtime/bun.exe run ./liri.js --smoke
+            if ! ./runtime/bun.exe run ./liri.js --smoke > /tmp/smoke.log 2>&1; then
+              { echo "### FAIL: bun --smoke (windows)"; echo '```'; tail -30 /tmp/smoke.log; echo '```'; } >> "$SUMMARY"; exit 1
+            fi
           else
-            ./runtime/bun run ./liri.js --smoke
+            if ! ./runtime/bun run ./liri.js --smoke; then
+              { echo "### FAIL: bun --smoke (unix)"; } >> "$SUMMARY"; exit 1
+            fi
           fi
+          echo "- result: PASS" >> "$SUMMARY"
 
       - name: Download Windows installer (win smoke)
         uses: actions/download-artifact@v4
@@ -507,20 +526,39 @@ jobs:
         if: matrix.os == 'windows-latest' && matrix.variant == 'pro'
         shell: powershell
         run: |
+          function Add-Summary([string]$msg) { Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value $msg -Encoding utf8 }
+          Add-Summary "## Smoke NSIS install (windows/pro)"
           $setup = Get-ChildItem installers -Recurse -Filter *-setup.exe | Select-Object -First 1
-          if (-not $setup) { Write-Error "NSIS setup not found"; exit 1 }
+          if (-not $setup) {
+            Add-Summary "### FAIL: NSIS setup not found"
+            Add-Summary '```'
+            Get-ChildItem installers -Recurse -ErrorAction SilentlyContinue | ForEach-Object { Add-Summary $_.FullName }
+            Add-Summary '```'
+            Write-Error "NSIS setup not found"; exit 1
+          }
+          Add-Summary "- setup: $($setup.FullName)"
           Write-Host "Installing (perUser, /S silent, no UAC): $($setup.FullName)"
           Start-Process $setup.FullName -ArgumentList '/S' -Wait
           # NSIS installMode=currentUser：装 %LOCALAPPDATA%\Programs\Liri，免管理员
           $exe = Join-Path $env:LOCALAPPDATA 'Programs\Liri\liri_terminal.exe'
           if (-not (Test-Path $exe)) {
-            Write-Error "sidecar not found at $exe"
-            Get-ChildItem (Join-Path $env:LOCALAPPDATA 'Programs') -Recurse -Filter 'liri_terminal.exe' -ErrorAction SilentlyContinue | Select-Object -First 3 | ForEach-Object { Write-Host "candidate: $($_.FullName)" }
-            exit 1
+            Add-Summary "### FAIL: sidecar not found at $exe"
+            Add-Summary '```'
+            Get-ChildItem (Join-Path $env:LOCALAPPDATA 'Programs') -Recurse -Filter 'liri_terminal.exe' -ErrorAction SilentlyContinue | Select-Object -First 5 | ForEach-Object { Add-Summary "candidate: $($_.FullName)" }
+            Add-Summary '```'
+            Write-Error "sidecar not found at $exe"; exit 1
           }
+          Add-Summary "- exe: $exe"
           Write-Host "Smoking: $exe --smoke"
-          & $exe --smoke
-          if ($LASTEXITCODE -ne 0) { Write-Error "smoke failed exit=$LASTEXITCODE"; exit 1 }
+          & $exe --smoke 2>&1 | Tee-Object -Variable smokeOut
+          if ($LASTEXITCODE -ne 0) {
+            Add-Summary "### FAIL: smoke exit=$LASTEXITCODE"
+            Add-Summary '```'
+            $smokeOut | Select-Object -Last 30 | ForEach-Object { Add-Summary $_ }
+            Add-Summary '```'
+            Write-Error "smoke failed exit=$LASTEXITCODE"; exit 1
+          }
+          Add-Summary "- result: PASS"
           Write-Host "Uninstalling"
           $uninst = Join-Path $env:LOCALAPPDATA 'Programs\Liri\uninstall.exe'
           if (Test-Path $uninst) { Start-Process $uninst -ArgumentList '/S' -Wait } else { Write-Host "uninstall.exe not found, skip uninstall" }

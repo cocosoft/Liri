@@ -297,7 +297,7 @@ jobs:
             client/src-tauri/target
             ~/.cargo/registry
             ~/.cargo/git
-          key: ${{ runner.os }}-tauri-${{ hashFiles('client/src-tauri/Cargo.lock', 'client/src-tauri/tauri.conf.json') }}
+          key: ${{ runner.os }}-tauri-${{ matrix.config.variant }}-${{ hashFiles('client/src-tauri/Cargo.lock', 'client/src-tauri/tauri.conf.json') }}
 
       - name: Install system dependencies (Linux)
         if: matrix.config.os == 'ubuntu-latest'
@@ -396,6 +396,10 @@ jobs:
           cp "../dist/${SIDEFILE}" "src-tauri/binaries/liri_terminal-${{ matrix.config.target }}${{ matrix.config.sidecar-ext }}"
         shell: bash
         if: matrix.config.os != 'windows-latest'
+
+      - name: Clean bundle output (prevent stale installers from cache)
+        shell: bash
+        run: rm -rf src-tauri/target/release/bundle
 
       - name: Build Tauri app
         run: bun run tauri build --bundles ${{ matrix.config.bundles }}
@@ -558,11 +562,12 @@ jobs:
           }
           # Tauri NSIS installMode=currentUser 模板事实：安装目录为
           # $LOCALAPPDATA\<productName>（无 Programs 子目录）；sidecar（externalBin）
-          # 部署在安装根目录且文件名保留 target triple 后缀（Tauri sidecar 约定）。
+          # 安装时去掉 target triple 后缀（Tauri 约定：binaries/liri_terminal-<triple>.exe
+          # → 安装目录 liri_terminal.exe）。
           # bun --compile 的 external（sharp/pdfjs/yoga）按进程启动 cwd 的 node_modules
           # 解析，故 smoke 必须在安装目录内运行（与 backend_ctrl.rs 锚定 cwd 的产品行为一致）。
           $installDir = Join-Path $env:LOCALAPPDATA 'Liri'
-          $exe = Join-Path $installDir 'liri_terminal-x86_64-pc-windows-msvc.exe'
+          $exe = Join-Path $installDir 'liri_terminal.exe'
           if (-not (Test-Path $exe)) {
             $cand = (Get-ChildItem $env:LOCALAPPDATA -Recurse -Filter 'liri_terminal*.exe' -ErrorAction SilentlyContinue | Select-Object -First 1).FullName
             Write-Host "::error::NSIS FAIL: sidecar not found at $exe (candidate: $cand)"

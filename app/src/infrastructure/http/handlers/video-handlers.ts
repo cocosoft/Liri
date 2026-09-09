@@ -356,6 +356,9 @@ export async function handleVideoMetadata(
     const ext = path.extname(fullPath).toLowerCase().replace('.', '');
     const fileName = path.basename(fullPath);
 
+    // 时长/尺寸（ffprobe 探测；缺 ffprobe 时降级 null）
+    const meta = await getVideoMeta(fullPath);
+
     // 从 DB 查询视频任务的元数据（prompt、model、source_image_url）
     let prompt: string | null = null;
     let model: string | null = null;
@@ -410,7 +413,9 @@ export async function handleVideoMetadata(
         path: fullPath,
         size: stat.size,
         format: ext,
-        duration: null, // TODO: 需要 ffprobe 获取视频时长
+        duration: meta.duration,
+        width: meta.width,
+        height: meta.height,
         createdAt: stat.birthtimeMs,
         modifiedAt: stat.mtimeMs,
         prompt,

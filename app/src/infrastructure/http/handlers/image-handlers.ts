@@ -529,8 +529,7 @@ export async function handleImageUpload(
 
 /**
  * GET /v1/images/list?page=1&pageSize=50
- * 列出已生成的图片文件（支持分页）
- * 同时扫描 output/images/（上传）、media/images/（AI 生成持久化）和 attachments/（文件上传）
+ * 列出媒体库图片（2026-09-09 决策：仅 ~/.pyapp/media/images；output/attachments 不再混入图库）
  */
 export async function handleImageList(
   ctx: HandlerCtx,
@@ -549,22 +548,17 @@ export async function handleImageList(
       Math.max(1, parseInt(urlObj.searchParams.get('pageSize') || '50', 10))
     );
 
-    // 收集所有图片根目录下的文件（记录绝对路径用于工具调用，相对路径用于 URL 构造）
+    // 收集媒体库图片（2026-09-09 决策：图库只显示用户 media 库，不再混入 output/attachments 历史）
     let files: Array<{
       relativePath: string;
       absolutePath: string;
       urlPrefix: string;
     }> = [];
 
-    for (const root of IMAGE_ROOTS) {
+    for (const root of [MEDIA_IMAGES_ROOT]) {
       if (!fs.existsSync(root)) continue;
 
-      let urlPrefix = '';
-      if (root === MEDIA_IMAGES_ROOT) {
-        urlPrefix = 'media/';
-      } else if (root === ATTACHMENTS_ROOT) {
-        urlPrefix = 'attachments/';
-      }
+      const urlPrefix = 'media/';
 
       const localFiles: string[] = [];
       collectImageFiles(root, root, localFiles);

@@ -116,6 +116,7 @@ function buildCompile(opts: CliOpts, cfg: PlatformCfg): void {
 
 function buildBundle(opts: CliOpts): void {
   // 便携包 pkg/（复用既有原子步骤，仅编排不变更实现；依赖/变体来自契约）
+  runIn(APP_DIR, 'bun', ['run', 'scripts/build-variant.ts', `--variant=${opts.variant}`]);
   runIn(APP_DIR, 'bun', ['run', 'build:bundle']);
   runIn(APP_DIR, 'bun', ['run', 'build:runtime']);
   runIn(APP_DIR, 'bun', ['run', 'build:deps']);

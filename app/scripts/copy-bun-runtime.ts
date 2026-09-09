@@ -24,24 +24,49 @@ const IS_WINDOWS = process.platform === 'win32';
 const RUNTIME_NAME = IS_WINDOWS ? 'bun.exe' : 'bun';
 
 /**
- * 在 PATH 中查找 bun 二进制
- * Windows 用 where，Unix 用 which
+ * 在 PATH 中查找 bun 候选（Windows 用 where 返回多个，Unix 用 which）
+ * 注意：结果可能命中 npm/PATH shim 脚本（如 AppData\Roaming\npm\bun，仅数百字节），
+ * 调用方必须经 isValidBunBinary() 校验后才可使用。
  */
-function findBunInPath(): string | null {
+function findBunInPath(): string[] {
   try {
     const cmd = IS_WINDOWS ? 'where bun' : 'which bun';
     const result = execSync(cmd, { encoding: 'utf-8', timeout: 5000 });
-    const lines = result.trim().split('\n').filter(Boolean);
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (fs.existsSync(trimmed)) {
-        return trimmed;
-      }
-    }
+    return result
+      .trim()
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(Boolean)
+      .filter((l) => fs.existsSync(l));
   } catch {
-    // PATH 中找不到
+    return [];
   }
-  return null;
+}
+
+/**
+ * 校验文件是真实的 bun 可执行二进制（根因防御：PATH 中可能存在 npm shim
+ * `bun`/`bun.cmd`/`bun.ps1`——数百字节的脚本，复制为 bun.exe 后无法运行）。
+ * - 大小：bun 真二进制约 90MB，shim 仅数百字节 → 阈值 10MB
+ * - 魔数：Windows PE(MZ) / Unix ELF(\\x7fELF) / macOS Mach-O(fe ed / cf fa / ce fa)
+ */
+function isValidBunBinary(file: string): boolean {
+  try {
+    const stat = fs.statSync(file);
+    if (stat.size < 10 * 1024 * 1024) return false;
+    const fd = fs.openSync(file, 'r');
+    const buf = Buffer.alloc(4);
+    fs.readSync(fd, buf, 0, 4, 0);
+    fs.closeSync(fd);
+    if (IS_WINDOWS) return buf[0] === 0x4d && buf[1] === 0x5a; // MZ → PE
+    const isElf = buf[0] === 0x7f && buf[1] === 0x45 && buf[2] === 0x4c && buf[3] === 0x46;
+    const isMacho =
+      (buf[0] === 0xfe && buf[1] === 0xed) ||
+      (buf[0] === 0xcf && buf[1] === 0xfa) ||
+      (buf[0] === 0xce && buf[1] === 0xfa);
+    return isElf || isMacho;
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -81,31 +106,33 @@ function getPlatformCandidates(): string[] {
 function findBunExe(): string | null {
   const candidates: string[] = [];
 
-  // 1. 环境变量 BUN_PATH（CI 可通过此变量覆盖）
-  const envBunPath = process.env.BUN_PATH;
-  if (envBunPath && fs.existsSync(envBunPath)) {
-    candidates.push(envBunPath);
+  // 1. 当前 bun 运行时自身（最可靠：本脚本由 bun 运行，process.execPath 即真二进制路径）
+  if (process.execPath && fs.existsSync(process.execPath)) {
+    candidates.push(process.execPath);
   }
 
-  // 2. PATH 环境变量
-  const fromPath = findBunInPath();
-  if (fromPath) candidates.push(fromPath);
+  // 2. 环境变量 BUN_PATH（显式覆盖）
+  if (process.env.BUN_PATH && fs.existsSync(process.env.BUN_PATH)) {
+    candidates.push(process.env.BUN_PATH);
+  }
 
-  // 3. 平台常见安装位置
+  // 3. PATH 环境变量（含 npm shim 等候选，由魔数校验过滤）
+  candidates.push(...findBunInPath());
+
+  // 4. 平台常见安装位置
   candidates.push(...getPlatformCandidates());
 
-  // 4. node_modules 中的 bun
+  // 5. node_modules 中的 bun
   const nodeModulesBun = path.resolve(
     __dirname, '..', 'node_modules', 'bun', 'bin', 'bun'
   );
   candidates.push(nodeModulesBun);
-  // Windows 备选
   if (IS_WINDOWS) {
     candidates.push(nodeModulesBun + '.exe');
   }
 
   for (const candidate of candidates) {
-    if (fs.existsSync(candidate)) {
+    if (fs.existsSync(candidate) && isValidBunBinary(candidate)) {
       return candidate;
     }
   }
@@ -147,6 +174,14 @@ function main(): void {
 
   const destPath = path.join(runtimeDir, RUNTIME_NAME);
   fs.copyFileSync(bunExePath, destPath);
+
+  // 复制后二次校验（根因防御：防止无效文件被打入分发包）
+  if (!isValidBunBinary(destPath)) {
+    console.error(`[错误] 复制后的 ${RUNTIME_NAME} 不是有效可执行二进制（来源: ${bunExePath}）`);
+    console.error('请通过 bun 官方安装器安装运行时，或设置 BUN_PATH 指向真二进制');
+    fs.rmSync(destPath, { force: true });
+    process.exit(1);
+  }
 
   const stat = fs.statSync(destPath);
   const sizeMB = (stat.size / 1024 / 1024).toFixed(1);

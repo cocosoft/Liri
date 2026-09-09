@@ -12,7 +12,10 @@
  *   - 命名约定参考 CC 源码
  */
 
-import { BUILD_VARIANT_FLAGS, DEFAULT_BUILD_VARIANT } from './buildVariantFlags';
+import {
+  BUILD_VARIANT_FLAGS,
+  DEFAULT_BUILD_VARIANT,
+} from './buildVariantFlags';
 
 /** 构建变体（分版标识）。2026-09-09 起原 'coding' 更名 'pro'，'coding' 仅作环境变量兼容别名 */
 export type BuildVariant = 'core' | 'personal' | 'pro' | 'enterprise';
@@ -352,9 +355,9 @@ export function feature(name: FeatureFlag): boolean {
   }
   // 双档接线（2026-09-09）：构建档位生成 flags 决定默认值（冻结项除外），
   // 使 personal（基础档）与 pro（专业档，编码能力）在产物内真实可区分。
-  const variantFlag = (BUILD_VARIANT_FLAGS as Partial<
-    Record<FeatureFlag, boolean>
-  >)[name];
+  const variantFlag = (
+    BUILD_VARIANT_FLAGS as Partial<Record<FeatureFlag, boolean>>
+  )[name];
   if (variantFlag !== undefined && !VARIANT_FLAG_FREEZE.has(name)) {
     return variantFlag;
   }

@@ -224,7 +224,7 @@ jobs:
           - name: Windows-Pro
             os: windows-latest
             target: x86_64-pc-windows-msvc
-            bundles: msi
+            bundles: nsis
             sidecar-build: build:win:pro
             sidecar-ext: .exe
             variant: pro
@@ -232,7 +232,7 @@ jobs:
           - name: Windows-Personal
             os: windows-latest
             target: x86_64-pc-windows-msvc
-            bundles: msi
+            bundles: nsis
             sidecar-build: build:win:personal
             sidecar-ext: .exe
             variant: personal
@@ -400,10 +400,15 @@ jobs:
         shell: bash
         run: |
           cd client/src-tauri/target/release/bundle
-          find . -type f \( -iname '*.msi' -o -iname '*.dmg' -o -iname '*.deb' -o -iname '*.AppImage' -o -iname '*.appimage' \) -print0 | while IFS= read -r -d '' f; do
-            base="${f%.*}"
-            ext="${f##*.}"
-            mv "$f" "${base}-${{ matrix.config.variant }}.${ext}"
+          find . -type f \( -iname '*.msi' -o -iname '*.dmg' -o -iname '*.deb' -o -iname '*.AppImage' -o -iname '*.appimage' -o -iname '*-setup.exe' \) -print0 | while IFS= read -r -d '' f; do
+            if [[ "$f" == *-setup.exe ]]; then
+              # NSIS: Liri_<ver>_<arch>-setup.exe → Liri_<ver>_<arch>-<variant>-setup.exe（保留 -setup.exe 后缀约定）
+              mv "$f" "${f%-setup.exe}-${{ matrix.config.variant }}-setup.exe"
+            else
+              base="${f%.*}"
+              ext="${f##*.}"
+              mv "$f" "${base}-${{ matrix.config.variant }}.${ext}"
+            fi
           done
           echo "=== suffixed bundle files ==="
           find . -type f | sort
@@ -495,21 +500,27 @@ jobs:
           name: tauri-installer-Windows-Pro
           path: installers
 
-      - name: Smoke MSI install (Windows)
+      - name: Smoke NSIS install (Windows)
         if: matrix.os == 'windows-latest' && matrix.variant == 'pro'
         shell: powershell
         run: |
-          $msi = Get-ChildItem installers -Recurse -Filter *.msi | Select-Object -First 1
-          if (-not $msi) { Write-Error "MSI not found"; exit 1 }
-          Write-Host "Installing: $($msi.FullName)"
-          Start-Process msiexec.exe -ArgumentList "/i `"$($msi.FullName)`" /qn /norestart" -Wait
-          $exe = "C:\Program Files\Liri\liri_terminal.exe"
-          if (-not (Test-Path $exe)) { Write-Error "sidecar not found at $exe"; exit 1 }
+          $setup = Get-ChildItem installers -Recurse -Filter *-setup.exe | Select-Object -First 1
+          if (-not $setup) { Write-Error "NSIS setup not found"; exit 1 }
+          Write-Host "Installing (perUser, /S silent, no UAC): $($setup.FullName)"
+          Start-Process $setup.FullName -ArgumentList '/S' -Wait
+          # NSIS installMode=currentUser：装 %LOCALAPPDATA%\Programs\Liri，免管理员
+          $exe = Join-Path $env:LOCALAPPDATA 'Programs\Liri\liri_terminal.exe'
+          if (-not (Test-Path $exe)) {
+            Write-Error "sidecar not found at $exe"
+            Get-ChildItem (Join-Path $env:LOCALAPPDATA 'Programs') -Recurse -Filter 'liri_terminal.exe' -ErrorAction SilentlyContinue | Select-Object -First 3 | ForEach-Object { Write-Host "candidate: $($_.FullName)" }
+            exit 1
+          }
           Write-Host "Smoking: $exe --smoke"
           & $exe --smoke
           if ($LASTEXITCODE -ne 0) { Write-Error "smoke failed exit=$LASTEXITCODE"; exit 1 }
           Write-Host "Uninstalling"
-          Start-Process msiexec.exe -ArgumentList "/x `"$($msi.FullName)`" /qn /norestart" -Wait
+          $uninst = Join-Path $env:LOCALAPPDATA 'Programs\Liri\uninstall.exe'
+          if (Test-Path $uninst) { Start-Process $uninst -ArgumentList '/S' -Wait } else { Write-Host "uninstall.exe not found, skip uninstall" }
 
   # ══════════════════════════════════════════════
   # GitHub Release（汇总校验和；附件含平台化 full zip，update 通道复用；2026-09-09 退役独立 update.zip）
@@ -558,7 +569,7 @@ jobs:
           generate_release_notes: true
           make_latest: true
           files: |
-            installers/**/*.msi
+            installers/**/*-setup.exe
             installers/**/*.dmg
             installers/**/*.deb
             installers/**/*.AppImage

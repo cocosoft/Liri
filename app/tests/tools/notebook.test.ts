@@ -348,9 +348,10 @@ describe('Notebook Feature 开关 (P0-2)', () => {
     expect(names.length).toBeGreaterThan(0);
   });
 
-  it('feature 关闭（默认）时 /notebook 命令禁用（命令层/工具层一致性）', async () => {
+  it('feature 显式关闭时 /notebook 命令禁用（命令层/工具层一致性）', async () => {
     const prev = process.env.FEATURE_NOTEBOOK;
-    delete process.env.FEATURE_NOTEBOOK; // 默认 NOTEBOOK: false
+    // 双档后默认 pro 档 NOTEBOOK=true（BUILD_VARIANT_FLAGS），验证开关行为必须显式置 false，不能依赖默认值
+    process.env.FEATURE_NOTEBOOK = 'false';
     try {
       // load 为 Command 接口可选属性、execute 需 context 参数：非空断言 + 空 context
       const cmd = await notebookCommand.load!();

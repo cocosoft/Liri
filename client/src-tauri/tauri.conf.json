@@ -52,8 +52,7 @@
     "windows": {
       "wix": {
         "language": "zh-CN",
-        "template": null,
-        "perMachine": false
+        "template": null
       },
       "nsis": {
         "installerIcon": "icons/icon.ico",

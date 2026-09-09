@@ -51,14 +51,8 @@ export class UpdateHandler {
       console.log(chalk.bold('  Update Check'));
       console.log(chalk.cyan('═'.repeat(60)));
       console.log();
-      console.log(
-        chalk.green('Current version:'),
-        info.currentVersion
-      );
-      console.log(
-        chalk.green('Latest version:'),
-        info.latestVersion
-      );
+      console.log(chalk.green('Current version:'), info.currentVersion);
+      console.log(chalk.green('Latest version:'), info.latestVersion);
 
       if (info.updateAvailable) {
         console.log(chalk.yellow('⚠'), 'Update available!');

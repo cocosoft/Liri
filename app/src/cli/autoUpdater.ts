@@ -95,10 +95,7 @@ export class AutoUpdater {
         }
       )?.autoUpdate;
       if (!autoUpdate) return;
-      if (
-        !this.explicitVerbose &&
-        typeof autoUpdate.verbose === 'boolean'
-      ) {
+      if (!this.explicitVerbose && typeof autoUpdate.verbose === 'boolean') {
         this.options.verbose = autoUpdate.verbose;
       }
       if (

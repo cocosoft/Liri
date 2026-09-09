@@ -875,11 +875,11 @@ async function startDeferredPrefetches(): Promise<void> {
         }
       })(),
 
-      // 启动时静默检查更新（非阻塞）
+      // 启动时静默检查更新（非阻塞；尊重 autoUpdate.enabled/checkOnStartup，B5#3）
       (async () => {
         try {
           const { autoUpdater } = await import('../cli/autoUpdater.js');
-          await autoUpdater.checkAndNotify();
+          await autoUpdater.maybeCheckOnStartup();
         } catch (err) {
           // 更新检查失败不影响启动
         }

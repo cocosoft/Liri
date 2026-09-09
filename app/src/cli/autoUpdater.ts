@@ -1,10 +1,14 @@
 /**
  * 自动更新模块
  * 检查和提示CLI应用更新
+ *
+ * B5#3（2026-09-09）：配置驱动闭环——AutoUpdatePanel 写入的 autoUpdate.*
+ * 由本模块真实消费（enabled/checkIntervalMs/channel/checkOnStartup/verbose）。
  */
 
 import chalk from 'chalk';
 import { getLogger } from '@modules/monitoring';
+import { getGlobalConfig } from '@modules/config';
 import type { UpdateChannel } from '../constants/product';
 import { GitHubReleaseFetcher } from './updater/GitHubReleaseFetcher';
 import { UpdateDownloader } from './updater/UpdateDownloader';
@@ -31,8 +35,22 @@ export class AutoUpdater {
   private downloader: UpdateDownloader;
   private installer: InstallManager;
   private currentVersion: string;
+  /** 是否启用自动更新（autoUpdate.enabled） */
+  private enabled: boolean = true;
+  /** 是否启动时静默检查（autoUpdate.checkOnStartup） */
+  private checkOnStartup: boolean = true;
+  /** 当前生效通道（用于检测配置变更后重建 fetcher） */
+  private lastChannel: UpdateChannel = 'stable';
+  private explicitVerbose: boolean = false;
+  private explicitInterval: boolean = false;
+  private explicitChannel: boolean = false;
 
   constructor(options?: AutoUpdaterOptions) {
+    // 记录调用方显式传参，配置只填充未显式给出的项
+    this.explicitVerbose = options?.verbose !== undefined;
+    this.explicitInterval = options?.checkInterval !== undefined;
+    this.explicitChannel = options?.releaseChannel !== undefined;
+
     this.options = {
       verbose: false,
       checkInterval: 24 * 60 * 60 * 1000,
@@ -45,9 +63,14 @@ export class AutoUpdater {
       process.env['Liri_VERSION'] ||
       '1.0.0';
 
+    // 配置驱动（B5#3 2026-09-09）：面板 autoUpdate.* 与真实更新器同源；
+    // 显式传入 options 优先，其次读全局配置，最后默认值。
+    this.syncOptionsFromConfig();
+    this.lastChannel = this.options.releaseChannel ?? 'stable';
+
     this.fetcher = new GitHubReleaseFetcher(
       this.currentVersion,
-      this.options.releaseChannel
+      this.lastChannel
     );
 
     this.downloader = new UpdateDownloader();
@@ -55,10 +78,77 @@ export class AutoUpdater {
   }
 
   /**
+   * 从全局配置同步 autoUpdate.*（enabled/checkIntervalMs/channel/checkOnStartup/verbose）。
+   * 显式 options（CLI 调用方）优先于配置；配置读取失败按默认值处理。
+   */
+  private syncOptionsFromConfig(): void {
+    try {
+      const autoUpdate = (
+        getGlobalConfig() as {
+          autoUpdate?: {
+            enabled?: boolean;
+            checkIntervalMs?: number;
+            channel?: UpdateChannel;
+            checkOnStartup?: boolean;
+            verbose?: boolean;
+          };
+        }
+      )?.autoUpdate;
+      if (!autoUpdate) return;
+      if (
+        !this.explicitVerbose &&
+        typeof autoUpdate.verbose === 'boolean'
+      ) {
+        this.options.verbose = autoUpdate.verbose;
+      }
+      if (
+        !this.explicitInterval &&
+        typeof autoUpdate.checkIntervalMs === 'number'
+      ) {
+        this.options.checkInterval = autoUpdate.checkIntervalMs;
+      }
+      if (
+        !this.explicitChannel &&
+        (autoUpdate.channel === 'stable' || autoUpdate.channel === 'beta')
+      ) {
+        this.options.releaseChannel = autoUpdate.channel;
+      }
+      if (typeof autoUpdate.enabled === 'boolean') {
+        this.enabled = autoUpdate.enabled;
+      }
+      if (typeof autoUpdate.checkOnStartup === 'boolean') {
+        this.checkOnStartup = autoUpdate.checkOnStartup;
+      }
+    } catch (error) {
+      logger.warning('读取 autoUpdate 配置失败，按默认值处理', { error });
+    }
+  }
+
+  /**
    * 检查更新
    * @param force 是否强制刷新缓存
    */
   async checkForUpdates(force: boolean = false): Promise<UpdateInfo> {
+    this.syncOptionsFromConfig();
+
+    // enabled=false 时自动/静默检查直接跳过（显式 force 检查仍可执行）
+    if (!this.enabled && !force) {
+      return this.createDefaultInfo();
+    }
+
+    // channel 变更时重建 fetcher，使面板配置实时生效（B5#3）
+    const activeChannel = this.options.releaseChannel ?? 'stable';
+    if (this.lastChannel !== activeChannel) {
+      this.fetcher = new GitHubReleaseFetcher(
+        this.currentVersion,
+        activeChannel
+      );
+      this.lastChannel = activeChannel;
+      if (this.options.verbose) {
+        logger.info(`更新通道切换为 ${activeChannel}`);
+      }
+    }
+
     const now = Date.now();
 
     if (
@@ -146,6 +236,20 @@ export class AutoUpdater {
     if (info.updateAvailable) {
       this.displayUpdateNotification(info);
     }
+  }
+
+  /**
+   * 启动检查（尊重 enabled 与 checkOnStartup，B5#3 2026-09-09）
+   */
+  async maybeCheckOnStartup(): Promise<void> {
+    this.syncOptionsFromConfig();
+    if (!this.enabled || !this.checkOnStartup) {
+      if (this.options.verbose) {
+        logger.info('自动更新关闭或未开启启动检查，跳过本次启动检查');
+      }
+      return;
+    }
+    await this.checkAndNotify();
   }
 
   /**

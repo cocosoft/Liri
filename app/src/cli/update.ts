@@ -1,10 +1,13 @@
-﻿/**
- * 自动更新模块
- * 处理CLI自动更新检查和执行
+/**
+ * 自动更新 CLI 命令（update check / update install）
+ *
+ * B5#3（2026-09-09）：废弃原 mock 实现（假 1.0.0→1.1.0，CS04 违规），
+ * 委托真实更新链（cli/autoUpdater → fetcher/downloader/installer）。
  */
 
 import chalk from 'chalk';
 import { getLogger } from '@modules/monitoring';
+import { autoUpdater } from './autoUpdater';
 
 const logger = getLogger('update');
 
@@ -18,11 +21,12 @@ export interface UpdateInfo {
   latestVersion: string;
   updateAvailable: boolean;
   releaseNotes?: string;
+  downloadUrl?: string;
+  changelog?: string[];
 }
 
 export class UpdateHandler {
   private options: UpdateHandlerOptions;
-  private updateInfo: UpdateInfo | null = null;
 
   constructor(options?: UpdateHandlerOptions) {
     this.options = {
@@ -33,7 +37,7 @@ export class UpdateHandler {
   }
 
   /**
-   * 处理检查更新命令
+   * 处理检查更新命令（显式 force，绕过缓存/开关门禁）
    */
   async handleCheck(): Promise<void> {
     if (this.options.verbose) {
@@ -41,27 +45,31 @@ export class UpdateHandler {
     }
 
     try {
-      this.updateInfo = await this.checkForUpdates();
+      const info = await autoUpdater.checkForUpdates(true);
 
       console.log(chalk.cyan('═'.repeat(60)));
       console.log(chalk.bold('  Update Check'));
       console.log(chalk.cyan('═'.repeat(60)));
       console.log();
-
       console.log(
         chalk.green('Current version:'),
-        this.updateInfo.currentVersion
+        info.currentVersion
       );
       console.log(
         chalk.green('Latest version:'),
-        this.updateInfo.latestVersion
+        info.latestVersion
       );
 
-      if (this.updateInfo.updateAvailable) {
+      if (info.updateAvailable) {
         console.log(chalk.yellow('⚠'), 'Update available!');
-        if (this.updateInfo.releaseNotes) {
-          console.log(chalk.gray('Release notes:'));
-          console.log(this.updateInfo.releaseNotes);
+        if (info.changelog && info.changelog.length > 0) {
+          console.log(chalk.gray('Changelog:'));
+          info.changelog.forEach((item) =>
+            console.log(chalk.gray(`  - ${item}`))
+          );
+        }
+        if (info.downloadUrl) {
+          console.log(chalk.gray(`Download: ${info.downloadUrl}`));
         }
         console.log();
         console.log(
@@ -89,23 +97,36 @@ export class UpdateHandler {
     }
 
     try {
-      if (!this.updateInfo) {
-        this.updateInfo = await this.checkForUpdates();
-      }
+      // 显式检查（绕过缓存；install 属显式操作，不受 enabled 门禁影响）
+      const info = await autoUpdater.checkForUpdates(true);
 
-      if (!this.updateInfo.updateAvailable && !force) {
+      if (!info.updateAvailable && !force) {
         console.log(chalk.green('✓'), 'No updates available');
         return;
       }
 
+      if (!info.downloadUrl) {
+        console.error(chalk.red('✗'), '未获取到下载地址，无法安装');
+        process.exit(1);
+      }
+
       console.log(
         chalk.yellow('⚠'),
-        `Updating from ${this.updateInfo.currentVersion} to ${this.updateInfo.latestVersion}`
+        `Updating from ${info.currentVersion} to ${info.latestVersion}`
       );
       console.log(chalk.gray('This may take a few moments...'));
 
-      await this.downloadUpdate();
-      await this.installUpdate();
+      const filePath = await autoUpdater.downloadUpdate(info);
+      if (!filePath) {
+        console.error(chalk.red('✗'), '下载更新包失败');
+        process.exit(1);
+      }
+
+      const installed = await autoUpdater.installUpdate(filePath);
+      if (!installed) {
+        console.error(chalk.red('✗'), '安装更新失败，请查看日志');
+        process.exit(1);
+      }
 
       console.log(chalk.green('✓'), 'Update installed successfully');
       console.log(
@@ -118,7 +139,7 @@ export class UpdateHandler {
   }
 
   /**
-   * 处理自动检查（内部使用）
+   * 处理自动检查（内部使用；尊重 enabled/checkOnStartup 配置）
    */
   async handleAutoCheck(): Promise<UpdateInfo | null> {
     if (!this.options.autoCheck) {
@@ -126,55 +147,11 @@ export class UpdateHandler {
     }
 
     try {
-      const info = await this.checkForUpdates();
-      if (info.updateAvailable) {
-        console.log(
-          chalk.yellow('⚠'),
-          `Update available: ${info.latestVersion}`
-        );
-        console.log(chalk.gray('Run "update check" for details'));
-      }
-      return info;
+      await autoUpdater.maybeCheckOnStartup();
     } catch {
-      return null;
+      // 静默失败
     }
-  }
-
-  /**
-   * 检查更新
-   */
-  private async checkForUpdates(): Promise<UpdateInfo> {
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-
-    // 模拟版本信息
-    return {
-      currentVersion: '1.0.0',
-      latestVersion: '1.1.0',
-      updateAvailable: true,
-      releaseNotes: `- New features added\n- Bug fixes\n- Performance improvements`,
-    };
-  }
-
-  /**
-   * 下载更新
-   */
-  private async downloadUpdate(): Promise<void> {
-    console.log(chalk.blue('ℹ'), 'Downloading update...');
-    for (let i = 0; i <= 100; i += 10) {
-      process.stdout.write(
-        `\r${chalk.blue(`[${'█'.repeat(i / 10)}${' '.repeat(10 - i / 10)}] ${i}%`)}`
-      );
-      await new Promise((resolve) => setTimeout(resolve, 100));
-    }
-    console.log();
-  }
-
-  /**
-   * 安装更新
-   */
-  private async installUpdate(): Promise<void> {
-    console.log(chalk.blue('ℹ'), 'Installing update...');
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    return null;
   }
 }
 

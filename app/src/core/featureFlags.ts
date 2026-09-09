@@ -36,7 +36,8 @@ export const BUILD_VARIANTS: readonly BuildVariant[] = [
  */
 const rawBuildVariant = process.env['LIRI_BUILD_VARIANT'];
 export const BUILD_VARIANT: BuildVariant =
-  (rawBuildVariant === 'coding' ? 'pro' : (rawBuildVariant as BuildVariant)) || 'pro';
+  (rawBuildVariant === 'coding' ? 'pro' : (rawBuildVariant as BuildVariant)) ||
+  'pro';
 
 export const FEATURE_FLAGS = {
   // ───── AI/Agent 功能 ─────

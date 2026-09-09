@@ -12,6 +12,8 @@
  *   - 命名约定参考 CC 源码
  */
 
+import { BUILD_VARIANT_FLAGS, DEFAULT_BUILD_VARIANT } from './buildVariantFlags';
+
 /** 构建变体（分版标识）。2026-09-09 起原 'coding' 更名 'pro'，'coding' 仅作环境变量兼容别名 */
 export type BuildVariant = 'core' | 'personal' | 'pro' | 'enterprise';
 
@@ -33,11 +35,20 @@ export const BUILD_VARIANTS: readonly BuildVariant[] = [
  * - 'enterprise': 企业版（Pro + Slack/Discord + Auth + Audit + Office，规划中，暂缓发布）
  *
  * 可通过环境变量 LIRI_BUILD_VARIANT 覆盖；'coding' 为历史别名，等价 'pro'。
+ * 未设置时回落产物内置默认变体（build-variant 按构建档位生成，双档接线 2026-09-09）。
  */
-const rawBuildVariant = process.env['LIRI_BUILD_VARIANT'];
-export const BUILD_VARIANT: BuildVariant =
-  (rawBuildVariant === 'coding' ? 'pro' : (rawBuildVariant as BuildVariant)) ||
-  'pro';
+function resolveBuildVariant(): BuildVariant {
+  const raw = process.env['LIRI_BUILD_VARIANT'];
+  const normalized = raw === 'coding' ? 'pro' : raw;
+  if (
+    normalized &&
+    (BUILD_VARIANTS as readonly string[]).includes(normalized)
+  ) {
+    return normalized as BuildVariant;
+  }
+  return DEFAULT_BUILD_VARIANT;
+}
+export const BUILD_VARIANT: BuildVariant = resolveBuildVariant();
 
 export const FEATURE_FLAGS = {
   // ───── AI/Agent 功能 ─────
@@ -327,10 +338,25 @@ export const FEATURE_FLAGS = {
 
 export type FeatureFlag = keyof typeof FEATURE_FLAGS;
 
+/**
+ * 冻结开关（双档接线 2026-09-09）：变体生成 flags 与静态默认冲突时，这些高频存量开关
+ * 保持静态默认，防行为回退。例：AGENT_TRIGGERS 在 pro/personal 生成 flags 中为 false
+ * （VARIANT_CONFIGS 语义=仅 enterprise），但存量定时任务（Cron 系列工具）依赖它 → 冻结为 true 现状。
+ */
+const VARIANT_FLAG_FREEZE = new Set<FeatureFlag>(['AGENT_TRIGGERS']);
+
 export function feature(name: FeatureFlag): boolean {
   const envValue = process.env[`FEATURE_${name}`];
   if (envValue !== undefined) {
     return envValue === 'true';
+  }
+  // 双档接线（2026-09-09）：构建档位生成 flags 决定默认值（冻结项除外），
+  // 使 personal（基础档）与 pro（专业档，编码能力）在产物内真实可区分。
+  const variantFlag = (BUILD_VARIANT_FLAGS as Partial<
+    Record<FeatureFlag, boolean>
+  >)[name];
+  if (variantFlag !== undefined && !VARIANT_FLAG_FREEZE.has(name)) {
+    return variantFlag;
   }
   return FEATURE_FLAGS[name] ?? false;
 }

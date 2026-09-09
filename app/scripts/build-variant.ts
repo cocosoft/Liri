@@ -75,7 +75,14 @@ const VARIANT_CONFIGS: Record<BuildVariant, {
 
 function parseArgs(): { variant: BuildVariant; dryRun: boolean } {
   const args = process.argv.slice(2);
-  let variant: BuildVariant = 'pro';
+  // 默认值优先级：--variant= 参数 > env LIRI_BUILD_VARIANT（coding 别名→pro）> 'pro'
+  const envRaw = process.env['LIRI_BUILD_VARIANT'];
+  let variant: BuildVariant =
+    envRaw === 'coding'
+      ? 'pro'
+      : envRaw && ['core', 'personal', 'pro', 'enterprise'].includes(envRaw)
+        ? (envRaw as BuildVariant)
+        : 'pro';
   let dryRun = false;
 
   for (const arg of args) {
@@ -115,6 +122,9 @@ function generateFeatureFlags(variant: BuildVariant): string {
   }
 
   lines.push('} as const;');
+  lines.push('');
+  // 运行期默认变体（与 flags 同源；双档接线 2026-09-09：产物启动无 LIRI_BUILD_VARIANT 时回落此值）
+  lines.push(`export const DEFAULT_BUILD_VARIANT = '${variant}' as const;`);
   lines.push('');
 
   return lines.join('\n');

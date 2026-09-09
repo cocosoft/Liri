@@ -9,6 +9,7 @@
 import chalk from 'chalk';
 import { getLogger } from '@modules/monitoring';
 import { getGlobalConfig } from '@modules/config';
+import { getBuildVariant } from '../core/featureFlags';
 import type { UpdateChannel } from '../constants/product';
 import { GitHubReleaseFetcher } from './updater/GitHubReleaseFetcher';
 import { UpdateDownloader } from './updater/UpdateDownloader';

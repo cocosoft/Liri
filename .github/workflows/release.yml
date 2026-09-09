@@ -72,17 +72,35 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - display: win-x64
+          - display: win-x64-pro
             os: windows-latest
             platform: win-x64
+            variant: pro
 
-          - display: macos-arm64
+          - display: win-x64-personal
+            os: windows-latest
+            platform: win-x64
+            variant: personal
+
+          - display: macos-arm64-pro
             os: macos-latest
             platform: macos-arm64
+            variant: pro
 
-          - display: linux-x64
+          - display: macos-arm64-personal
+            os: macos-latest
+            platform: macos-arm64
+            variant: personal
+
+          - display: linux-x64-pro
             os: ubuntu-latest
             platform: linux-x64
+            variant: pro
+
+          - display: linux-x64-personal
+            os: ubuntu-latest
+            platform: linux-x64
+            variant: personal
 
     steps:
       - uses: actions/checkout@v4
@@ -185,7 +203,7 @@ jobs:
       - name: Upload portable artifact
         uses: actions/upload-artifact@v4
         with:
-          name: portable-${{ matrix.platform }}
+          name: portable-${{ matrix.platform }}-${{ matrix.variant }}
           path: |
             dist/liri-*.zip
             dist/checksums-${{ matrix.platform }}.txt
@@ -370,28 +388,43 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - display: win-x64
+          - display: win-x64-pro
             os: windows-latest
             platform: win-x64
-          - display: macos-arm64
+            variant: pro
+          - display: win-x64-personal
+            os: windows-latest
+            platform: win-x64
+            variant: personal
+          - display: macos-arm64-pro
             os: macos-latest
             platform: macos-arm64
-          - display: linux-x64
+            variant: pro
+          - display: macos-arm64-personal
+            os: macos-latest
+            platform: macos-arm64
+            variant: personal
+          - display: linux-x64-pro
             os: ubuntu-latest
             platform: linux-x64
+            variant: pro
+          - display: linux-x64-personal
+            os: ubuntu-latest
+            platform: linux-x64
+            variant: personal
 
     steps:
       - name: Download portable artifact
         uses: actions/download-artifact@v4
         with:
-          name: portable-${{ matrix.platform }}
+          name: portable-${{ matrix.platform }}-${{ matrix.variant }}
           path: portable
 
       - name: Smoke portable full zip (解压后干净目录运行)
         shell: bash
         run: |
           set -euo pipefail
-          FULL_ZIP=$(ls portable/liri-*-${{ matrix.platform }}-full.zip | head -n1)
+          FULL_ZIP=$(ls portable/liri-*-${{ matrix.variant }}-${{ matrix.platform }}-full.zip | head -n1)
           echo "SMOKE_STEP 1/4 zip=$FULL_ZIP"
           rm -rf /tmp/liri-smoke && mkdir -p /tmp/liri-smoke
           cd /tmp/liri-smoke

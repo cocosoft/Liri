@@ -29,7 +29,7 @@
     "build:mac:personal": "bun run scripts/build-variant.ts --variant=personal && bun build --compile --target=bun-darwin-arm64-modern --external pdfjs-dist --external sharp --external yoga-layout --compile-autoload-package-json --outfile=../dist/liri_terminal src/pyapp.ts && bun run scripts/copy-external-deps.ts",
     "build:linux": "bun run scripts/build-variant.ts --variant=pro && bun build --compile --target=bun-linux-x64-modern --external pdfjs-dist --external sharp --external yoga-layout --compile-autoload-package-json --outfile=../dist/liri_terminal src/pyapp.ts && bun run scripts/copy-external-deps.ts",
     "build:linux:personal": "bun run scripts/build-variant.ts --variant=personal && bun build --compile --target=bun-linux-x64-modern --external pdfjs-dist --external sharp --external yoga-layout --compile-autoload-package-json --outfile=../dist/liri_terminal src/pyapp.ts && bun run scripts/copy-external-deps.ts",
-    "build:bundle": "bun run scripts/build-variant.ts --variant=pro && bun build --target=bun --external sharp --external pdfjs-dist --external yoga-layout --outdir=../dist/pkg src/pyapp.ts && bun -e \"import{renameSync}from'fs';renameSync('../dist/pkg/pyapp.js','../dist/pkg/liri.js')\"",
+    "build:bundle": "bun run scripts/build-variant.ts && bun build --target=bun --external sharp --external pdfjs-dist --external yoga-layout --outdir=../dist/pkg src/pyapp.ts && bun -e \"import{renameSync}from'fs';renameSync('../dist/pkg/pyapp.js','../dist/pkg/liri.js')\"",
     "build:runtime": "bun run scripts/copy-bun-runtime.ts --target=../dist/pkg",
     "build:deps": "bun run scripts/copy-external-deps.ts --target=../dist/pkg",
     "build:seed": "bun run scripts/copy-seed-data.ts --target=../dist/pkg",

@@ -168,7 +168,10 @@ jobs:
           # edition 段必须存在：release merge-multiple 防跨档覆盖，updater 按 edition 精确匹配防串档
           ZIP_NAME="liri-v${VER}-${{ matrix.variant }}-${{ matrix.platform }}-full.zip"
           if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
-            powershell Compress-Archive -Path pkg\* -DestinationPath "${ZIP_NAME}" -Force
+            # 必须经 -Command 字符串让 PowerShell 自行展开 'pkg\*'：
+            # bash 裸参 pkg\* 会被转义+glob 成目录 pkg，致 zip 条目带 pkg/ 前缀、
+            # 解压后多一层目录（runtime/bun.exe → pkg/runtime/bun.exe），smoke 找不到运行时
+            powershell -NoProfile -Command "Compress-Archive -Path 'pkg\*' -DestinationPath '${ZIP_NAME}' -Force"
           else
             cd pkg && zip -r "../${ZIP_NAME}" . && cd ..
           fi

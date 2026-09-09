@@ -550,33 +550,51 @@ jobs:
           }
           Add-Summary "- setup: $($setup.FullName)"
           Write-Host "Installing (perUser, /S silent, no UAC): $($setup.FullName)"
-          Start-Process $setup.FullName -ArgumentList '/S' -Wait
-          # NSIS installMode=currentUser：装 %LOCALAPPDATA%\Programs\Liri，免管理员
-          $exe = Join-Path $env:LOCALAPPDATA 'Programs\Liri\liri_terminal.exe'
+          $proc = Start-Process $setup.FullName -ArgumentList '/S' -Wait -PassThru
+          if ($proc.ExitCode -ne 0) {
+            Write-Host "::error::NSIS FAIL: installer exited with code $($proc.ExitCode)"
+            Add-Summary "### FAIL: installer exit=$($proc.ExitCode)"
+            Write-Error "installer failed exit=$($proc.ExitCode)"; exit 1
+          }
+          # Tauri NSIS installMode=currentUser 模板事实：安装目录为
+          # $LOCALAPPDATA\<productName>（无 Programs 子目录）；sidecar（externalBin）
+          # 部署在安装根目录且文件名保留 target triple 后缀（Tauri sidecar 约定）。
+          # bun --compile 的 external（sharp/pdfjs/yoga）按进程启动 cwd 的 node_modules
+          # 解析，故 smoke 必须在安装目录内运行（与 backend_ctrl.rs 锚定 cwd 的产品行为一致）。
+          $installDir = Join-Path $env:LOCALAPPDATA 'Liri'
+          $exe = Join-Path $installDir 'liri_terminal-x86_64-pc-windows-msvc.exe'
           if (-not (Test-Path $exe)) {
-            $cand = (Get-ChildItem (Join-Path $env:LOCALAPPDATA 'Programs') -Recurse -Filter 'liri_terminal.exe' -ErrorAction SilentlyContinue | Select-Object -First 1).FullName
+            $cand = (Get-ChildItem $env:LOCALAPPDATA -Recurse -Filter 'liri_terminal*.exe' -ErrorAction SilentlyContinue | Select-Object -First 1).FullName
             Write-Host "::error::NSIS FAIL: sidecar not found at $exe (candidate: $cand)"
             Add-Summary "### FAIL: sidecar not found at $exe"
             Add-Summary '```'
-            Get-ChildItem (Join-Path $env:LOCALAPPDATA 'Programs') -Recurse -Filter 'liri_terminal.exe' -ErrorAction SilentlyContinue | Select-Object -First 5 | ForEach-Object { Add-Summary "candidate: $($_.FullName)" }
+            Add-Summary "installDir exists: $(Test-Path $installDir)"
+            if (Test-Path $installDir) { Get-ChildItem $installDir | ForEach-Object { Add-Summary $_.Name } }
+            if ($cand) { Add-Summary "candidate: $cand" }
             Add-Summary '```'
             Write-Error "sidecar not found at $exe"; exit 1
           }
           Add-Summary "- exe: $exe"
-          Write-Host "Smoking: $exe --smoke"
-          & $exe --smoke 2>&1 | Tee-Object -Variable smokeOut
-          if ($LASTEXITCODE -ne 0) {
+          Write-Host "Smoking (cwd=$installDir): $exe --smoke"
+          Push-Location $installDir
+          try {
+            & $exe --smoke 2>&1 | Tee-Object -Variable smokeOut
+            $smokeCode = $LASTEXITCODE
+          } finally {
+            Pop-Location
+          }
+          if ($smokeCode -ne 0) {
             $tail = ($smokeOut | Select-Object -Last 3) -join ' | '
-            Write-Host "::error::NSIS FAIL: sidecar --smoke exit=$LASTEXITCODE :: $tail"
-            Add-Summary "### FAIL: smoke exit=$LASTEXITCODE"
+            Write-Host "::error::NSIS FAIL: sidecar --smoke exit=$smokeCode :: $tail"
+            Add-Summary "### FAIL: smoke exit=$smokeCode"
             Add-Summary '```'
             $smokeOut | Select-Object -Last 30 | ForEach-Object { Add-Summary $_ }
             Add-Summary '```'
-            Write-Error "smoke failed exit=$LASTEXITCODE"; exit 1
+            Write-Error "smoke failed exit=$smokeCode"; exit 1
           }
           Add-Summary "- result: PASS"
           Write-Host "Uninstalling"
-          $uninst = Join-Path $env:LOCALAPPDATA 'Programs\Liri\uninstall.exe'
+          $uninst = Join-Path $installDir 'uninstall.exe'
           if (Test-Path $uninst) { Start-Process $uninst -ArgumentList '/S' -Wait } else { Write-Host "uninstall.exe not found, skip uninstall" }
 
   # ══════════════════════════════════════════════

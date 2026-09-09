@@ -273,12 +273,36 @@ pub async fn start_backend(app_handle: tauri::AppHandle) -> Result<BackendStatus
     // W6 回归修复：密钥持久化到磁盘，Tauri 进程重启后可从盘恢复
     persist_secret(&app_handle, &secret);
 
+    // bun --compile 的 external 模块（sharp/pdfjs-dist/yoga-layout）按进程启动
+    // cwd 的 node_modules 解析；pyapp.ts 入口的 process.chdir() 不影响编译产物的
+    // 模块解析（bun 1.3.14，2026-09-09 实测：cwd 偏离 exe 目录即报
+    // "Cannot find package 'yoga-layout' from 'B:/~BUN/root/...'"）。
+    // 故 sidecar cwd 必须锚定安装/资源目录，数据目录仍经 LIRI_HOME/LIRI_DATA_DIR 传递。
+    // Windows/Linux：sidecar 与 node_modules 同处安装根目录；
+    // macOS .app：sidecar 在 Contents/MacOS，resources/node_modules 在 Contents/Resources
+    let sidecar_cwd = std::env::current_exe()
+        .ok()
+        .and_then(|p| p.parent().map(std::path::Path::to_path_buf))
+        .map(|exe_dir| {
+            let resources_dir = exe_dir.join("..").join("Resources");
+            if resources_dir.join("node_modules").exists() {
+                resources_dir
+            } else {
+                exe_dir
+            }
+        })
+        .unwrap_or_else(|| std::path::PathBuf::from(&data_dir));
+    info!(
+        "[start_backend] sidecar cwd 锚定安装/资源目录: {}",
+        sidecar_cwd.display()
+    );
+
     let command = app_handle
         .shell()
         .sidecar("liri_terminal")
         .map_err(|e| format!("Failed to create sidecar command: {}", e))?
         .args(["repl", "--http-port", &port_str])
-        .current_dir(&data_dir)
+        .current_dir(&sidecar_cwd)
         .env("LIRI_HOME", &data_dir)
         .env("LIRI_DATA_DIR", format!("{}/data", data_dir))
         .env("LIRI_PROJECT_DIR", &project_root)
@@ -287,7 +311,7 @@ pub async fn start_backend(app_handle: tauri::AppHandle) -> Result<BackendStatus
     info!(
         "[start_backend] 启动 sidecar: liri_terminal repl --http-port={}, \
          cwd={}, LIRI_HOME={}, LIRI_DATA_DIR={}/data, LIRI_PROJECT_DIR={}",
-        current_port, data_dir, data_dir, data_dir, project_root
+        current_port, sidecar_cwd.display(), data_dir, data_dir, project_root
     );
 
     let (mut rx, child) = command

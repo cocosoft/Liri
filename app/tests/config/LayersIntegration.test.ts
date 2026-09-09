@@ -70,17 +70,17 @@ describe('配置层叠集成（内置 YAML 文件）', () => {
     expect((bundles[0].config as { server: { host: string } }).server.host).toBe('localhost');
   });
 
-  it('BundleManager：coding 变体加载 core/ai/channels，过滤 enterprise', () => {
+  it('BundleManager：pro 变体加载 core/ai/channels，过滤 enterprise', () => {
     const { bundles, notLoaded } = loadBundles(
       ['core', 'ai', 'channels', 'enterprise'],
-      { variant: 'coding' }
+      { variant: 'pro' }
     );
     expect(bundles.map((b) => b.name).sort()).toEqual(['ai', 'channels', 'core']);
     expect(notLoaded.map((n) => n.name)).toEqual(['enterprise']);
   });
 
   it('BundleManager：缺失 bundle → missing（fail-fast 判定依据）', () => {
-    const { notLoaded } = loadBundles(['ghost-bundle'], { variant: 'coding' });
+    const { notLoaded } = loadBundles(['ghost-bundle'], { variant: 'pro' });
     expect(notLoaded).toEqual([{ name: 'ghost-bundle', reason: 'missing' }]);
   });
 });

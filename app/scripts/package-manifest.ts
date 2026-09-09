@@ -6,7 +6,7 @@
  * 缺啥打啥、打啥验啥，杜绝"补丁式升级"再次发生。
  */
 
-export type BuildVariant = 'core' | 'personal' | 'coding' | 'enterprise';
+export type BuildVariant = 'core' | 'personal' | 'pro' | 'enterprise';
 
 export interface ExternalEntry {
   name: string;
@@ -23,8 +23,8 @@ export interface ExternalEntry {
 }
 
 export const PACKAGE_MANIFEST = {
-  /** 发布默认变体：桌面 sidecar / 便携包 / Docker 收敛一致（coding = personal 超集） */
-  variant: 'coding',
+  /** 发布默认变体：桌面 sidecar / 便携包 / Docker 收敛一致（pro = 原 coding，专业版，2026-09-09 更名；基础版 personal 走独立构建） */
+  variant: 'pro',
   /** 统一构建入口 */
   entry: 'src/pyapp.ts',
   /** bun build 需 --external 的包（声明型契约，生成编译参数） */

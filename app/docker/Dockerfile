@@ -53,7 +53,7 @@ COPY shared/ /shared/
 COPY --from=native-builder /libliri_native.so native/target/release/libliri_native.so
 
 # 生成版本 Feature Flags
-RUN bun run scripts/build-variant.ts --variant=coding
+RUN bun run scripts/build-variant.ts --variant=pro
 
 # 打包（bun build 原生支持 tsconfig paths，--target=bun 需要 --outdir）
 # --external yoga-layout（2026-08-30）：yoga-layout dist/src/index.js 含 top-level await，

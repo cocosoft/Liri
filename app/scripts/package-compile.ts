@@ -80,7 +80,7 @@ function main(): void {
 
   if (!fs.existsSync(targetDir)) {
     console.error(`[错误] dist 目录不存在: ${targetDir}`);
-    console.error('请先执行 build:win:coding 或 build:mac / build:linux');
+    console.error('请先执行 build:win:pro 或 build:mac / build:linux');
     process.exit(1);
   }
 
@@ -89,7 +89,7 @@ function main(): void {
   const exePath = path.join(targetDir, exeName);
   if (!fs.existsSync(exePath)) {
     console.error(`[错误] 未找到可执行文件: ${exePath}`);
-    console.error('请先执行 bun run build:win:coding');
+    console.error('请先执行 bun run build:win:pro');
     process.exit(1);
   }
 
@@ -101,7 +101,7 @@ function main(): void {
   if (missingDeps.length > 0) {
     console.error(
       `[错误] dist/node_modules 缺少外部依赖: ${missingDeps.join(', ')}\n` +
-        '  发布单元必须包含 exe + node_modules（强绑定），请重新执行 build:win:coding'
+        '  发布单元必须包含 exe + node_modules（强绑定），请重新执行 build:win:pro'
     );
     process.exit(1);
   }

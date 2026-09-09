@@ -2,7 +2,7 @@
 # providerId 仅引用 DB 实体，禁止重新定义（11.6 ① 数出同源）
 name: ai
 description: AI 模型与提供商配置
-variants: [coding, enterprise]
+variants: [pro, enterprise]
 config:
   ai:
     defaultModel: deepseek-chat

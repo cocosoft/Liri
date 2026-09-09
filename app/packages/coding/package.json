@@ -1,7 +1,7 @@
 {
   "name": "@pyapp/coding",
   "version": "1.0.0",
-  "description": "Liri Coding — 编码版 AI Agent，含 LSP、Notebook、代码分析和浏览器工具",
+  "description": "Liri Coding — 含 LSP、Notebook、代码分析和浏览器工具的 AI Agent 功能包（注：与构建变体 pro 无关，包名 coding 保留为能力域名）",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -17,7 +17,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "cd ../.. && bun run build:coding",
+    "build": "cd ../.. && bun run build:pro",
     "prepublishOnly": "bun run build"
   },
   "dependencies": {

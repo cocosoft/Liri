@@ -12,14 +12,14 @@
  *   - 命名约定参考 CC 源码
  */
 
-/** 构建变体（分版标识） */
-export type BuildVariant = 'core' | 'personal' | 'coding' | 'enterprise';
+/** 构建变体（分版标识）。2026-09-09 起原 'coding' 更名 'pro'，'coding' 仅作环境变量兼容别名 */
+export type BuildVariant = 'core' | 'personal' | 'pro' | 'enterprise';
 
 /** 所有构建变体列表 */
 export const BUILD_VARIANTS: readonly BuildVariant[] = [
   'core',
   'personal',
-  'coding',
+  'pro',
   'enterprise',
 ] as const;
 
@@ -28,14 +28,15 @@ export const BUILD_VARIANTS: readonly BuildVariant[] = [
  *
  * 控制当前构建的版本类型，影响功能开关的默认值。
  * - 'core': 核心版（最小功能集，仅 CLI + 基础工具）
- * - 'personal': 个人版（Core + Telegram/Web 通道 + 插件）
- * - 'coding': 编码版（Personal + LSP + Notebook + 代码分析）
- * - 'enterprise': 企业版（Coding + Slack/Discord + Auth + Audit）
+ * - 'personal': 个人版（基础档，Core + Telegram/Web 通道 + 插件 + 文件转换）
+ * - 'pro': 专业版（个人版 + 编码 LSP/Notebook/代码分析 + 浏览器 + 团队协作；原 coding，2026-09-09 更名）
+ * - 'enterprise': 企业版（Pro + Slack/Discord + Auth + Audit + Office，规划中，暂缓发布）
  *
- * 可通过环境变量 LIRI_BUILD_VARIANT 覆盖。
+ * 可通过环境变量 LIRI_BUILD_VARIANT 覆盖；'coding' 为历史别名，等价 'pro'。
  */
+const rawBuildVariant = process.env['LIRI_BUILD_VARIANT'];
 export const BUILD_VARIANT: BuildVariant =
-  (process.env['LIRI_BUILD_VARIANT'] as BuildVariant) || 'coding';
+  (rawBuildVariant === 'coding' ? 'pro' : (rawBuildVariant as BuildVariant)) || 'pro';
 
 export const FEATURE_FLAGS = {
   // ───── AI/Agent 功能 ─────
@@ -347,12 +348,12 @@ export function isBuildVariant(variant: BuildVariant): boolean {
   return BUILD_VARIANT === variant;
 }
 
-/** 检查当前变体是否至少包含指定变体的功能（core < personal < coding < enterprise） */
+/** 检查当前变体是否至少包含指定变体的功能（core < personal < pro < enterprise） */
 export function isAtLeastVariant(variant: BuildVariant): boolean {
   const order: Record<BuildVariant, number> = {
     core: 0,
     personal: 1,
-    coding: 2,
+    pro: 2,
     enterprise: 3,
   };
 

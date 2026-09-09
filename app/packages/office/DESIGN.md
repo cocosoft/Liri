@@ -78,7 +78,7 @@
 - **依赖安装**：`bun install` 在 workspace 根目录执行时自动安装 office 包的生产依赖
 - **构建变体区分**：
   - `enterprise` 构建：安装 office 包全部依赖（nodemailer、imapflow、docx 等），启用所有办公 Feature Flag
-  - `personal`/`coding` 构建：**不安装** office 包依赖（tree-shaking），通过条件编译排除 `@pyapp/office` 的 import
+  - `personal`/`pro` 构建：**不安装** office 包依赖（tree-shaking），通过条件编译排除 `@pyapp/office` 的 import
 - **入口**：`app/packages/office/index.ts` export 工具类列表，由 `ModuleRegistry` 在运行时按需 `import()`
 
 ### 2.5 前置条件（实施前必须完成）
@@ -631,3 +631,5 @@ TemplateEngine 使用 **Handlebars** 语法（Liri 已有 `handlebars` 依赖可
 ├── 智能特性（邮件分类 / 文档写作）
 └── 协同特性（审批流）
 ```
+
+> 备注（2026-09-09）：构建变体 coding 已更名 pro（featureFlags/build-variant/package-manifest 已改，coding 为 env 兼容别名）；BUILD_VARIANT_FLAGS 死代码修复仍为本段前置 P0，未实施。

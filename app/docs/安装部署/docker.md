@@ -295,9 +295,9 @@ docker compose -f docker/docker-compose.yml logs -f
 
 > 本节参考 [构建变体优化方案](../../dev_docs/20260709/build-variant-optimization.md)。
 
-Liri 支持 4 种构建变体：`core`、`personal`、`coding`、`enterprise`。
+Liri 支持 4 种构建变体：`core`、`personal`、`pro`、`enterprise`。
 
-Docker 构建默认为 `coding` 变体。如需构建其他变体：
+Docker 构建默认为 `pro` 变体。如需构建其他变体：
 
 ```bash
 # 方式一：修改 Dockerfile 中的 build-variant 命令

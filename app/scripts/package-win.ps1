@@ -6,11 +6,11 @@
     and install scripts into a distributable ZIP package.
 
     Usage:
-        .\package-win.ps1                    # Default (coding variant)
+        .\package-win.ps1                    # Default (pro variant)
         .\package-win.ps1 -Variant personal   # Personal variant
 
     Parameters:
-        -Variant      Build variant: core / personal / coding / enterprise
+        -Variant      Build variant: core / personal / pro / enterprise
         -OutDir       Output directory (default: ../dist/pkg)
         -NoBuild      Skip build, only package existing artifacts
         -NoZip        Skip ZIP creation, only prepare output directory
@@ -19,8 +19,8 @@
 #>
 
 param(
-    [ValidateSet('core', 'personal', 'coding', 'enterprise')]
-    [string]$Variant = 'coding',
+    [ValidateSet('core', 'personal', 'pro', 'enterprise')]
+    [string]$Variant = 'pro',
 
     [string]$OutDir = '',
 

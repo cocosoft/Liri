@@ -43,5 +43,5 @@ LIRI_BUILD_VARIANT=core bun run start
 |------|------|
 | `core` | 最小功能集 |
 | `personal` | 个人版 |
-| `coding` | 编码版 |
+| `pro` | 专业版 |
 | `enterprise` | 企业版 |

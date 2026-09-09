@@ -303,7 +303,7 @@ bun run native:test
 ```bash
 bun run build:core        # 核心版
 bun run build:personal    # 个人版
-bun run build:coding      # 编程版
+bun run build:pro        # 专业版
 bun run build:enterprise  # 企业版
 bun run build:dry-run     # 构建预览(不实际构建)
 ```
@@ -389,7 +389,7 @@ Discord、Slack、Telegram、QQ、微信、钉钉、飞书、邮件、IRC、Sign
 
 ### 4 种构建变体
 
-**核心版** / **个人版** / **编程版** / **企业版**，按需选择。
+**核心版** / **个人版** / **专业版** / **企业版**，按需选择。
 
 ### 插件与技能系统
 

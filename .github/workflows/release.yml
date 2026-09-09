@@ -105,9 +105,9 @@ jobs:
         shell: bash
         run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
 
-      # 阶段 1-5：统一脚本链（与桌面 sidecar / Docker 同 variant=coding、同一依赖契约）
+      # 阶段 1-5：统一脚本链（与桌面 sidecar / Docker 同 variant=pro、同一依赖契约）
       - name: Generate variant
-        run: bun run scripts/build-variant.ts --variant=coding
+        run: bun run scripts/build-variant.ts --variant=pro
       - name: Build bundle
         run: bun run build:bundle
       - name: Setup runtime
@@ -230,7 +230,7 @@ jobs:
             os: windows-latest
             target: x86_64-pc-windows-msvc
             bundles: msi
-            sidecar-build: build:win:coding
+            sidecar-build: build:win:pro
             sidecar-ext: .exe
 
           - name: macOS (ARM)

@@ -6,11 +6,11 @@
  * 用法:
  *   bun run scripts/build-variant.ts --variant=core
  *   bun run scripts/build-variant.ts --variant=personal
- *   bun run scripts/build-variant.ts --variant=coding
+ *   bun run scripts/build-variant.ts --variant=pro
  *   bun run scripts/build-variant.ts --variant=enterprise
  *
  * 环境变量:
- *   LIRI_BUILD_VARIANT=core|personal|coding|enterprise
+ *   LIRI_BUILD_VARIANT=core|personal|pro|enterprise（coding 为历史别名，等价 pro）
  */
 
 import * as fs from 'fs';
@@ -20,7 +20,7 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-type BuildVariant = 'core' | 'personal' | 'coding' | 'enterprise';
+type BuildVariant = 'core' | 'personal' | 'pro' | 'enterprise';
 
 const VARIANT_CONFIGS: Record<BuildVariant, {
   description: string;
@@ -51,8 +51,8 @@ const VARIANT_CONFIGS: Record<BuildVariant, {
       'CODE_ANALYSIS', 'TEAM_CREATE', 'TEAM_DELETE',
     ],
   },
-  coding: {
-    description: '编码版 — Personal + LSP + Notebook + 代码分析',
+  pro: {
+    description: '专业版（原 coding，2026-09-09 更名）— Personal + LSP + Notebook + 代码分析 + 浏览器 + 团队协作',
     features: [
       'AGENT_SWARMS', 'LSP', 'NOTEBOOK', 'CODE_ANALYSIS',
       'BROWSER', 'TEAM_CREATE', 'TEAM_DELETE',
@@ -75,16 +75,16 @@ const VARIANT_CONFIGS: Record<BuildVariant, {
 
 function parseArgs(): { variant: BuildVariant; dryRun: boolean } {
   const args = process.argv.slice(2);
-  let variant: BuildVariant = 'coding';
+  let variant: BuildVariant = 'pro';
   let dryRun = false;
 
   for (const arg of args) {
     if (arg.startsWith('--variant=')) {
       const v = arg.split('=')[1];
-      if (['core', 'personal', 'coding', 'enterprise'].includes(v)) {
+      if (['core', 'personal', 'pro', 'enterprise'].includes(v)) {
         variant = v as BuildVariant;
       } else {
-        console.error(`无效的变体: ${v}，有效值: core, personal, coding, enterprise`);
+        console.error(`无效的变体: ${v}，有效值: core, personal, pro, enterprise`);
         process.exit(1);
       }
     } else if (arg === '--dry-run') {

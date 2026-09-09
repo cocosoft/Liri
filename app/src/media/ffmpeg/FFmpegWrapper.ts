@@ -5,6 +5,7 @@
 import { spawn } from 'child_process';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
+import { resolveFFmpegPath, resolveFFprobePath } from './toolResolver';
 
 const logger = getLogger('media:ffmpeg');
 
@@ -99,7 +100,7 @@ export class FFmpegWrapper {
         '-show_streams',
         input,
       ];
-      const proc = spawn('ffprobe', args, {
+      const proc = spawn(resolveFFprobePath(), args, {
         stdio: ['ignore', 'pipe', 'pipe'],
       });
 

@@ -55,8 +55,8 @@ jobs:
         # 统一到 tests/ 目录（1956 pass 全绿），src/ 预存失败另登记处理
 
   # ══════════════════════════════════════════════
-  # 便携包（方案 C）：full + update zip
-  # 产物：liri-v{ver}-{platform}-full.zip / liri-v{ver}-update-{platform}.zip
+  # 便携包（方案 C）：full zip（2026-09-09 退役独立 update.zip，update 通道复用 full）
+  # 产物：liri-v{ver}-{platform}-full.zip（唯一 portable 产物）
   # 依赖布局统一 node_modules/（与 pkg / exe 同级），校验交给 verify-package.ts（契约驱动）
   # ══════════════════════════════════════════════
   portable-bundle:
@@ -154,30 +154,8 @@ jobs:
           fi
           echo "Full package: ${ZIP_NAME}"
 
-      # 阶段 9：update zip（依赖整体取自 pkg/node_modules，与 pkg 布局一致；文件名带平台防覆盖）
-      - name: Package update zip
-        shell: bash
-        run: |
-          VER="${{ steps.version.outputs.version }}"
-          mkdir -p ../dist/update-tmp
-          cp ../dist/pkg/liri.js ../dist/update-tmp/
-          if [ -d "../dist/pkg/node_modules" ]; then
-            cp -a "../dist/pkg/node_modules/." ../dist/update-tmp/node_modules/
-          else
-            echo "ERROR: pkg/node_modules missing"
-            exit 1
-          fi
-          cd ../dist
-          ZIP_NAME="liri-v${VER}-update-${{ matrix.platform }}.zip"
-          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
-            powershell Compress-Archive -Path update-tmp\* -DestinationPath "${ZIP_NAME}" -Force
-          else
-            cd update-tmp && zip -r "../${ZIP_NAME}" . && cd ..
-          fi
-          rm -rf update-tmp
-          echo "Update package: ${ZIP_NAME}"
 
-      # 阶段 10：校验和（按平台命名，由 release job 汇总为一份全量）
+      # 阶段 9：校验和（按平台命名，由 release job 汇总为一份全量）
       - name: Generate checksum
         shell: bash
         run: |
@@ -186,7 +164,7 @@ jobs:
             sha256sum "$f" >> checksums-${{ matrix.platform }}.txt
           done
 
-      # 阶段 11：体积门禁（超限即失败；update 与 full 分别设上限）
+      # 阶段 10：体积门禁（超限即失败；full 单产物设上限）
       - name: Check package size
         shell: bash
         run: |
@@ -201,7 +179,6 @@ jobs:
             fi
           }
           for f in ../dist/liri-*-full.zip; do check_size "$f" 120; done
-          for f in ../dist/liri-*-update-*.zip; do check_size "$f" 80; done
           if [ "$FAIL" -ne 0 ]; then echo "=== Size check FAILED ==="; exit 1; fi
           echo "Size check passed"
 
@@ -462,7 +439,7 @@ jobs:
           Start-Process msiexec.exe -ArgumentList "/x `"$($msi.FullName)`" /qn /norestart" -Wait
 
   # ══════════════════════════════════════════════
-  # GitHub Release（汇总校验和；附件含平台化 update.zip）
+  # GitHub Release（汇总校验和；附件含平台化 full zip，update 通道复用；2026-09-09 退役独立 update.zip）
   # ══════════════════════════════════════════════
   release:
     name: Create Release

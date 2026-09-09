@@ -2,8 +2,9 @@
  * package.ts — 完整打包流程
  *
  * 将 dist/pkg/ 目录打包为：
- *  - 完整包：liri-vX.Y.Z-win-x64-full.zip（含 Bun 运行时、种子数据、原生依赖）
- *  - 增量包：liri-vX.Y.Z-update.zip（仅 liri.js + 变更的 deps）
+ *  - 完整包：liri-vX.Y.Z-{platform}-full.zip（含 Bun 运行时、种子数据、原生依赖）
+ *
+ * 2026-09-09 决策：退役独立 update.zip（增量包），update 通道复用 full zip。
  *
  * 用法:
  *   bun run scripts/package.ts --platform=win-x64
@@ -91,69 +92,7 @@ function main(): void {
   console.log(`\n[完成] 完整包: ${fullZipName} (${fullZipSize})`);
   console.log(`       路径: ${fullZipPath}`);
 
-  // 增量包（仅 liri.js + deps 中的变更文件）
-  const updateDir = path.join(distDir, 'update-tmp');
-  if (fs.existsSync(updateDir)) {
-    fs.rmSync(updateDir, { recursive: true, force: true });
-  }
-  fs.mkdirSync(updateDir, { recursive: true });
-
-  // 复制 liri.js
-  const liriSrc = path.join(pkgDir, 'liri.js');
-  if (fs.existsSync(liriSrc)) {
-    fs.copyFileSync(liriSrc, path.join(updateDir, 'liri.js'));
-  }
-
-  // 复制外部依赖到更新包：布局与 pkg 对齐（node_modules/ 与 liri.js 同级，供 exe/liri.js 运行时解析）
-  // 白名单与 copy-external-deps.ts 保持一致（sharp / pdfjs-dist / yoga-layout + @img 原生包）
-  const depsSrc = path.join(pkgDir, 'node_modules');
-  const depsDest = path.join(updateDir, 'node_modules');
-  if (fs.existsSync(depsSrc)) {
-    const copyRecursive = (src: string, dest: string) => {
-      if (!fs.existsSync(src)) return;
-      const stat = fs.statSync(src);
-      if (stat.isDirectory()) {
-        if (!fs.existsSync(dest)) fs.mkdirSync(dest, { recursive: true });
-        for (const entry of fs.readdirSync(src)) {
-          copyRecursive(path.join(src, entry), path.join(dest, entry));
-        }
-      } else {
-        const destDir2 = path.dirname(dest);
-        if (!fs.existsSync(destDir2)) fs.mkdirSync(destDir2, { recursive: true });
-        fs.copyFileSync(src, dest);
-      }
-    };
-    // 只复制外部依赖白名单（与 build:deps 保持一致）
-    for (const dep of ['sharp', 'pdfjs-dist', 'yoga-layout']) {
-      const depSrc = path.join(depsSrc, dep);
-      const depDst = path.join(depsDest, dep);
-      if (fs.existsSync(depSrc)) {
-        copyRecursive(depSrc, depDst);
-      }
-      // 同时复制 @img/* 原生依赖
-      const atImgSrc = path.join(depsSrc, '@img');
-      const atImgDest = path.join(depsDest, '@img');
-      if (fs.existsSync(atImgSrc)) {
-        copyRecursive(atImgSrc, atImgDest);
-      }
-    }
-  }
-
-  const updateZipName = `liri-v${version}-update.zip`;
-  const updateZipPath = path.join(distDir, updateZipName);
-  createZip(updateDir, updateZipPath);
-
-  const updateZipSize = fs.existsSync(updateZipPath)
-    ? `${(fs.statSync(updateZipPath).size / 1024 / 1024).toFixed(1)} MB`
-    : '未知';
-
-  console.log(`\n[完成] 增量包: ${updateZipName} (${updateZipSize})`);
-  console.log(`       路径: ${updateZipPath}`);
-
-  // 清理临时目录
-  if (fs.existsSync(updateDir)) {
-    fs.rmSync(updateDir, { recursive: true, force: true });
-  }
+  // 增量包（update.zip）已退役（2026-09-09 决策）：update 通道复用 full zip，本地不再产独立 update 包
 
   console.log('\n=== 打包完成 ===');
 }

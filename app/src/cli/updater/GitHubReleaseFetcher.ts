@@ -152,9 +152,10 @@ export class GitHubReleaseFetcher {
           .slice(0, 20)
       : undefined;
 
-    // 平台化资产选择（Phase2/B5）：update 包已按 `-update-{platform}.zip` 命名，
-    // 禁止无脑取 assets[0]（多平台同名旧布局下会取错平台）。按当前主机平台匹配，
-    // 优先 update 资产，其次同名平台资产，最后兜底 assets[0]。
+    // 平台化资产选择（Phase2/B5；2026-09-09 update 退役）：独立 update.zip 已退役，
+    // update 通道复用平台化 full zip（`liri-v{ver}-{platform}-full.zip`）。
+    // 禁止无脑取 assets[0]（多平台资产混排会取错平台）。按当前主机平台匹配：
+    // 优先 full zip（名称含 'full' + platformTag），其次平台 zip，最后兜底 assets[0]。
     const platformTag = (() => {
       const p = process.platform;
       const a = process.arch;
@@ -164,9 +165,8 @@ export class GitHubReleaseFetcher {
     })();
     const assets = release.assets ?? [];
     const asset =
-      assets.find(
-        (a) => a.name.includes('update') && a.name.includes(platformTag)
-      ) ??
+      assets.find((a) => a.name.includes('full') && a.name.includes(platformTag)) ??
+      assets.find((a) => a.name.endsWith('.zip') && a.name.includes(platformTag)) ??
       assets.find((a) => a.name.includes(platformTag)) ??
       assets[0];
 

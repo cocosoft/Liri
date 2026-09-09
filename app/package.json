@@ -31,7 +31,6 @@
     "build:deps": "bun run scripts/copy-external-deps.ts --target=../dist/pkg",
     "build:seed": "bun run scripts/copy-seed-data.ts --target=../dist/pkg",
     "build:package:win": "bun run build:bundle && bun run build:runtime && bun run build:deps && bun run build:seed && bun run scripts/package.ts --platform=win-x64",
-    "build:update:win": "bun run build:package:win",
     "build:dry-run": "bun run scripts/build-variant.ts --dry-run",
     "security-scan": "bun run src/scripts/security-scan.ts",
     "typecheck": "tsc --noEmit",

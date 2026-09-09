@@ -68,7 +68,10 @@ export const resolveFFprobePath = (): string => resolveToolPath('ffprobe');
 // 供脚本直接调用：bun run toolResolver.ts <ffmpeg|ffprobe>
 const isDirectRun =
   import.meta.url && typeof process !== 'undefined' && process.argv[1];
-if (isDirectRun && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
+if (
+  isDirectRun &&
+  fileURLToPath(import.meta.url) === path.resolve(process.argv[1])
+) {
   const tool = (process.argv[2] as MediaTool) || 'ffmpeg';
   // eslint-disable-next-line no-console
   console.log(resolveToolPath(tool));

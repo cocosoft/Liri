@@ -52,7 +52,9 @@ export class FFmpegWrapper {
   ): Promise<{ success: boolean; stdout: string; stderr: string }> {
     return new Promise((resolve) => {
       const args = ['-i', options.input, ...options.args, '-y', options.output];
-      const proc = spawn(resolveFFmpegPath(), args, { stdio: ['ignore', 'pipe', 'pipe'] });
+      const proc = spawn(resolveFFmpegPath(), args, {
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
 
       let stdout = '';
       let stderr = '';

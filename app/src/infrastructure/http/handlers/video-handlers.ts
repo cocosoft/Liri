@@ -66,7 +66,10 @@ async function getVideoMeta(absPath: string): Promise<VideoMeta> {
 
     const info = await ffmpegWrapper.probe(absPath);
     const videoStream = info?.streams?.find((s) => s.codec_type === 'video');
-    const rawDuration = info?.format?.duration ?? videoStream?.duration ?? null;
+    // ffprobe JSON 的 duration 为字符串，需先转数值再做有限性判断
+    const rawDuration = Number(
+      info?.format?.duration ?? videoStream?.duration ?? NaN
+    );
     const meta: VideoMeta = {
       duration:
         rawDuration != null && Number.isFinite(rawDuration)

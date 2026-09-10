@@ -20,6 +20,7 @@ import { LogLevel } from '@modules/monitoring';
 import { OTelAwareLogger } from '@modules/monitoring/logs/OTelAwareLogger';
 import { LLMPerformanceMonitor } from '@modules/ai';
 import { handleError } from '@modules/error';
+import { TTLCache } from '@modules/utils/cache';
 import type { AIService, AIMessage } from '@modules/ai';
 import { AIMessageRole } from '@modules/ai';
 import {
@@ -32,10 +33,7 @@ import { FileSource } from '@modules/services/file/types';
 import { IndexManager } from './IndexManager';
 import { WikiLinter, defaultRules } from './lint/WikiLinter';
 import { providerRegistry, modelRouter } from '@modules/ai';
-import {
-  createMaxOutputRetryState,
-  advanceMaxOutputRetry,
-} from '@modules/ai/MaxOutputRetryHandler';
+import { createMaxOutputRetryState, advanceMaxOutputRetry } from '@modules/ai'; // R03-002：改走模块出口（ai/index.ts 已导出，原写法为子路径直 import）
 import { GraphExtractor } from './graph/GraphExtractor';
 import { KnowledgeGraph } from './graph/KnowledgeGraph';
 import { SchemaLoader } from './schema/SchemaLoader';
@@ -53,7 +51,7 @@ import {
   DOCUMENT_EXTRACT_EXTS,
 } from './ingestion/extractors/TextExtractor';
 // 内存水位（2026-09-02）：非关键后台任务在压力下暂停（OS kswapd 式分级回收）
-import { isMemoryUnderPressure } from '../monitoring/memoryPressure/MemoryPressureMonitor.js';
+import { isMemoryUnderPressure } from '@modules/monitoring'; // R03-002：改走模块出口
 import {
   startCompileProgress,
   updateCompileProgress,
@@ -172,8 +170,9 @@ export class KnowledgeCompiler {
   private static readonly GRAPH_EXTRACT_MAX_PAGES = 50;
   /** 单页内容上限：超过则跳过提取（提取 prompt 仅用前 8000 字符，读入超大页纯属浪费内存） */
   private static readonly GRAPH_EXTRACT_MAX_FILE_BYTES = 1024 * 1024;
-  /** 编译 max_tokens 预算缓存（key=模型名，避免逐文件查 DB；P0 长文截断修复） */
-  private maxTokensCache = new Map<string, number>();
+  /** 编译 max_tokens 预算缓存（key=模型名，避免逐文件查 DB；P0 长文截断修复）
+   *  R01-004：使用标准 TTLCache（原自建 Map 无失效策略，模型改配置后需重启才生效） */
+  private maxTokensCache = new TTLCache<number>(100, 5 * 60 * 1000);
   /** K5 血缘：可选注入的 LineageStore（记录 doc→page 血缘） */
   private lineage?: LineageStore;
   /** K5.3 本次编译版本（runner 注入） */
@@ -997,8 +996,9 @@ summary: 概念简介
    */
   private async resolveCompileMaxTokens(model?: string): Promise<number> {
     const cacheKey = model || '';
+    // TTLCache.get 未命中返回 null（非 undefined）
     const cached = this.maxTokensCache.get(cacheKey);
-    if (cached !== undefined) return cached;
+    if (cached !== null) return cached;
 
     let budget = COMPILE_DEFAULT_MAX_TOKENS;
     if (model) {

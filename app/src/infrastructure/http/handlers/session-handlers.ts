@@ -26,7 +26,7 @@ import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import type { Message } from '@modules/chat/types/message';
 import { MessageRole } from '@modules/chat/types/message';
-import { dedupeMessagesToolCallBlocks } from '@modules/chat/utils/chatBlocks';
+import { dedupeMessagesToolCallBlocks } from '@modules/chat'; // R03-002：改走模块出口（chat/index.ts 已导出）
 import type { LiriEventType } from '@modules/chat/types/events';
 import { deriveSessionStats } from '@modules/session';
 import {

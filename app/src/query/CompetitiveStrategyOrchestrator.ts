@@ -34,15 +34,13 @@
  */
 import { getLogger } from '@modules/monitoring/logs/Logger.js';
 import { handleError } from '@modules/error/handleError.js';
-import { ParallelAgentScheduler } from '../agent/moa/ParallelAgentScheduler.js';
-import type {
-  ScheduledAgentTask,
-  ScheduledTaskResult,
-} from '../agent/moa/ParallelAgentScheduler.js';
+// R03-002：moa 子路径统一走 agent 模块出口（agent/index.ts 已导出）
 import {
+  ParallelAgentScheduler,
   ResultAggregator,
   AggregationStrategy,
-} from '../agent/moa/ResultAggregator.js';
+} from '@modules/agent';
+import type { ScheduledAgentTask, ScheduledTaskResult } from '@modules/agent';
 import { VerifierAgent } from './VerifierAgent.js';
 import type { VerdictType } from './VerifierAgent.js';
 

@@ -63,7 +63,7 @@ import {
 import {
   registerSessionSummaryMemoryType,
   rollupSessionSummaryToLongTerm,
-} from '../memory/adapters/SessionSummaryAdapter';
+} from '@modules/memory'; // R03-002：改走模块出口（memory/index.ts 已导出该适配器）
 import { dedupeToolCallBlocks } from '@modules/chat/utils/chatBlocks';
 import { extractPendingToolCallsFromEvents } from './utils/pendingToolCalls.js';
 import type { LiriEvent } from '@modules/chat/types/events';
@@ -225,7 +225,7 @@ import { compactionOrchestrator, messageProjector } from '@modules/context';
 // 内存画像（2026-09-02 排查"会话中断/内存尖峰"用，MEM_PROFILE=1 才采样）
 import { memProfile } from '../monitoring/memProfile.js';
 // 内存水位（2026-09-02，OS kswapd 式；见 dev_docs/内存水位触发机制-详细设计）
-import { getMemoryPressureMonitor } from '../monitoring/memoryPressure/MemoryPressureMonitor.js';
+import { getMemoryPressureMonitor } from '@modules/monitoring'; // R03-002：改走模块出口
 import { estimateMessagesTokens } from '@modules/ai';
 import { yieldToEventLoop } from '@modules/ai';
 import { FileCheckpointStorage } from '@modules/query';

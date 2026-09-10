@@ -1181,6 +1181,24 @@ class ArchitectureLinter {
             'OTEL_TRACES_EXPORTER', // 标准 OpenTelemetry 环境变量（与 monitoring/instrumentation 同类）
             'REACT_LOOP_MAX_DURATION_MS', // ReAct 循环最大时长配置 env
             'LANDLOCK_RUN_HELPER',  // Linux 沙箱辅助工具路径（系统检测类）
+            // 2026-09-10 治理：调优/开关类 env（沿用 REACT_LOOP_MAX_DURATION_MS 先例——
+            // 均为模块加载期读取的阈值/开关，非配置契约；迁移 ConfigManager 会在
+            // monitoring 等低层模块引入 config→monitoring→…→config 的 ESM 循环）
+            'DAWATE_DEBUG',               // Dawate provider 调试日志开关
+            'REACT_LAYER_WINDOW_TOKENS',  // ReAct 分层窗口 token 阈值
+            'CONTEXT_LAYERING',           // 上下文分层开关（off 关闭）
+            'KNOWLEDGE_PDF_OCR',          // 知识库 PDF OCR 开关
+            'LIRI_FFMPEG_DIR',            // ffmpeg 工具目录覆盖（系统检测类）
+            'MEM_PROFILE',                // 内存画像采样开关
+            'MEM_PRESSURE',               // 内存水位监测总开关（=0 关闭）
+            'MEM_PRESSURE_SOFT1_MB',      // 内存水位 L0 阈值
+            'MEM_PRESSURE_SOFT2_MB',      // 内存水位 L1 阈值
+            'MEM_PRESSURE_HARD_MB',       // 内存水位 L2 阈值
+            'MEM_PRESSURE_LAG_MS',        // 事件循环滞后阈值
+            'MEM_PRESSURE_COOLDOWN_MS',   // 同级别冷却时长
+            'MEM_PRESSURE_RECOVER_MB',    // 回落判定缓冲
+            'MEM_PRESSURE_RELAX',         // 反向扩张 kill-switch
+            'PROMPT_DYNAMIC_BUDGET_TOKENS', // 提示词动态预算 token 阈值
         ]);
 
         // 已知例外的文件路径片段（边界场景，合理的 process.env 直接访问）

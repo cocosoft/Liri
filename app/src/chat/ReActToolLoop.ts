@@ -80,7 +80,7 @@ import { compactionOrchestrator } from '@modules/context';
 // 内存画像（2026-09-02 排查"会话中断/内存尖峰"用，MEM_PROFILE=1 才采样）
 import { memProfile } from '../monitoring/memProfile.js';
 // 内存水位（2026-09-02，OS kswapd 式；见 dev_docs/内存水位触发机制-详细设计）
-import { getMemoryPressureMonitor } from '../monitoring/memoryPressure/MemoryPressureMonitor.js';
+import { getMemoryPressureMonitor } from '@modules/monitoring'; // R03-002：改走模块出口
 
 const logger = getLogger('chat:reactToolLoop');
 

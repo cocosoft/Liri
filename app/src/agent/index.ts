@@ -298,3 +298,14 @@ export { extractKeyPaths } from './compact/utils';
 
 // 2026-08-30 R03-002 收敛：events 子路径统一出口
 export { AgentEventType } from './events/types.js';
+
+// 2026-09-10 R03-002 收敛：moa 子路径统一出口（原 query/CompetitiveStrategyOrchestrator 直 import）
+export { ParallelAgentScheduler } from './moa/ParallelAgentScheduler.js';
+export type {
+  ScheduledAgentTask,
+  ScheduledTaskResult,
+} from './moa/ParallelAgentScheduler.js';
+export {
+  ResultAggregator,
+  AggregationStrategy,
+} from './moa/ResultAggregator.js';

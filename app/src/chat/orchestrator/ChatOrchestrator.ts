@@ -38,7 +38,7 @@ import type {
   QuestionData,
 } from '@modules/runtime/api/CoreAPI.js';
 import { compactionOrchestrator } from '@modules/context';
-import { isEstopEngaged } from '@modules/core/estop/estop.js';
+import { isEstopEngaged } from '@modules/core'; // R03-002：改走模块出口（原 core/estop 子路径）
 import {
   TurnLivenessWatchdog,
   resolveLivenessTimeout,

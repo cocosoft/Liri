@@ -325,3 +325,15 @@ export type {
 } from './llm/LLMTracker.js';
 
 export * from './BackgroundTaskEvent.js';
+
+// 内存水位监测（R03-002：供跨模块经模块出口导入，替代 `@modules/monitoring/memoryPressure` 子路径）
+export {
+  getMemoryPressureMonitor,
+  isMemoryUnderPressure,
+  resetMemoryPressureMonitorForTest,
+  PRESSURE_LAYER_WINDOW_OVERRIDE,
+} from './memoryPressure/MemoryPressureMonitor.js';
+export type {
+  PressureLevel,
+  PressureSnapshot,
+} from './memoryPressure/MemoryPressureMonitor.js';

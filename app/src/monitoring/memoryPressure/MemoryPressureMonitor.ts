@@ -24,8 +24,9 @@
  *   MEM_PRESSURE_COOLDOWN_MS 同级别冷却（默认 30_000）
  *   MEM_PRESSURE_RECOVER_MB  回落判定缓冲（默认 512）
  */
-import { Logger } from '@modules/monitoring/logs/Logger.js';
-import { LogLevel } from '@modules/monitoring';
+// R03-002：本模块将被 monitoring/index.ts 出口转发，故 logger 走规范子入口
+// `monitoring/logs`（canonicalEntryKeys 白名单）而非模块桶，避免 桶→本文件→桶 的 ESM 循环。
+import { getLogger } from '@modules/monitoring/logs/Logger.js';
 
 const ENABLED = process.env.MEM_PRESSURE !== '0';
 
@@ -67,10 +68,7 @@ export interface PressureSnapshot {
   reason?: string;
 }
 
-const logger = new Logger({
-  level: LogLevel.INFO,
-  module: 'memory:pressure',
-});
+const logger = getLogger('memory:pressure');
 
 class MemoryPressureMonitor {
   private baselineRssMb = 0;

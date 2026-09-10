@@ -6,6 +6,7 @@
 
 import type { SkillRegistry, RegistryEventHandler } from './SkillRegistry';
 import type { SkillDB } from './persistence/SkillDB';
+import type { SkillUsageRecord } from './persistence/types';
 
 import { handleError } from '@modules/error';
 
@@ -13,18 +14,10 @@ import { getLogger } from '@modules/monitoring';
 const logger = getLogger('skills:SkillUsageTracker');
 
 /**
- * 技能使用记录
+ * 技能使用记录 —— R02-002：唯一定义在 `persistence/types.ts`（持久层契约），
+ * 此处仅再导出以保持 `skills/index.ts` 公共出口不变。
  */
-export interface SkillUsageRecord {
-  skillName: string;
-  timestamp: number;
-  durationMs: number;
-  success: boolean;
-  error?: string;
-  source: string;
-  triggeredBy: 'user' | 'model' | 'agent' | 'system';
-  argsSummary?: string;
-}
+export type { SkillUsageRecord };
 
 /**
  * 技能使用统计摘要

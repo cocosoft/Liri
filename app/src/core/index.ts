@@ -150,3 +150,18 @@ export type {
   ExitRecord,
   AbnormalExitRecord,
 } from './exit/ExitRecorder';
+
+// 紧急停止 ESTOP（R03-002：供跨模块经模块出口导入，替代 core/estop 子路径）
+export {
+  estopSentinelPath,
+  isEstopEngaged,
+  engageEstop,
+  disengageEstop,
+  getEstopState,
+  checkEstop,
+} from './estop/estop';
+export type { EstopState } from './estop/estop';
+
+// 拓扑批次调度（R03-002：供跨模块经模块出口导入，替代 core/loop 子路径）
+export { scheduleTopoBatches } from './loop/topoBatches';
+export type { TopoBatchTask } from './loop/topoBatches';

@@ -8,16 +8,12 @@
  * 用法：MEM_PROFILE=1 时打日志（module=chat:mem-profile），否则零开销早退。
  *   MEM_PROFILE=1 bun run src/main.ts ...
  */
-import { Logger } from '@modules/monitoring/logs/Logger.js';
-import { LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { getMemoryPressureMonitor } from './memoryPressure/MemoryPressureMonitor.js';
 
 const ENABLED = process.env.MEM_PROFILE === '1';
 
-const logger = new Logger({
-  level: LogLevel.INFO,
-  module: 'chat:mem-profile',
-});
+const logger = getLogger('chat:mem-profile');
 
 /**
  * 采样激活：MEM_PROFILE=1（诊断跑批）**或**内存水位 ≥L0（2026-09-02 复查执行

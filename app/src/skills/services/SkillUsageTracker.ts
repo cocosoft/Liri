@@ -16,8 +16,10 @@ import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('skills:usage');
 
-/** 单技能使用记录 */
-export interface SkillUsageRecord {
+/** 单技能使用统计（按技能聚合的计数视图，非逐次调用记录）
+ *  R02-002：原名 `SkillUsageStats` 与持久层逐次记录契约重名但结构不同，
+ *  此处按实际语义更名为 `SkillUsageStats`。 */
+export interface SkillUsageStats {
   /** 技能名 */
   skillName: string;
   /** 查看次数（skill_view 实际加载成功） */
@@ -41,7 +43,7 @@ function usageFilePath(env: NodeJS.ProcessEnv = process.env): string {
  * 技能使用遥测（单例）
  */
 class SkillUsageTracker {
-  private records = new Map<string, SkillUsageRecord>();
+  private records = new Map<string, SkillUsageStats>();
   private loaded = false;
   private saveTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -51,7 +53,7 @@ class SkillUsageTracker {
     this.loaded = true;
     try {
       const raw = await readFile(usageFilePath(), 'utf-8');
-      const data = JSON.parse(raw) as Record<string, SkillUsageRecord>;
+      const data = JSON.parse(raw) as Record<string, SkillUsageStats>;
       for (const [name, rec] of Object.entries(data)) {
         if (rec && typeof rec.skillName === 'string') {
           this.records.set(name, rec);
@@ -95,7 +97,7 @@ class SkillUsageTracker {
   }
 
   /** 读取全部使用记录（按 skillName 排序） */
-  async getAll(): Promise<SkillUsageRecord[]> {
+  async getAll(): Promise<SkillUsageStats[]> {
     await this.ensureLoaded();
     return [...this.records.values()].sort((a, b) =>
       a.skillName.localeCompare(b.skillName)
@@ -103,7 +105,7 @@ class SkillUsageTracker {
   }
 
   /** 读取单技能记录（无则 undefined） */
-  async get(skillName: string): Promise<SkillUsageRecord | undefined> {
+  async get(skillName: string): Promise<SkillUsageStats | undefined> {
     await this.ensureLoaded();
     return this.records.get(skillName);
   }
@@ -126,7 +128,7 @@ class SkillUsageTracker {
     try {
       const file = usageFilePath();
       await mkdir(dirname(file), { recursive: true });
-      const data: Record<string, SkillUsageRecord> = {};
+      const data: Record<string, SkillUsageStats> = {};
       for (const [name, rec] of this.records) data[name] = rec;
       await writeFile(file, JSON.stringify(data, null, 2), 'utf-8');
     } catch (err) {

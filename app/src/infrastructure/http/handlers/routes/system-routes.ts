@@ -15,7 +15,7 @@ import {
   disengageEstop,
   isEstopEngaged,
   getEstopState,
-} from '@modules/core/estop/estop.js';
+} from '@modules/core'; // R03-002：改走模块出口（原 core/estop 子路径）
 
 /**
  * dispatchSystemRoutes — 系统领域路由分发

@@ -775,10 +775,9 @@ export async function* runStreamMessage(
       // D7/L2（2026-09-10）：带图片消息必须保留 image 类工具——识图翻译/直接发图分析
       // 需要模型调用 image_analysis（OCR/vision 等），而 default/chat 集不含 image 类别，
       // 裁剪后模型函数列表无 image_analysis → 识图链路不可用（会话实录实证）。
-      const hasImages = Array.isArray(options?.images) && options.images.length > 0;
-      const extraCategories: ToolCategory[] = hasImages
-        ? ['image']
-        : [];
+      const hasImages =
+        Array.isArray(options?.images) && options.images.length > 0;
+      const extraCategories: ToolCategory[] = hasImages ? ['image'] : [];
       const filteredTools = filterToolsByTask(
         toolDefinitions,
         taskType,

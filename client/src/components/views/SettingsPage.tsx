@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useSearchParams } from "react-router-dom";
 import { useConfigStore } from "../../stores/configStore";
 import { useRootStore } from "../../stores/root-store";
 import { getCurrentTier } from "../../stores/root-store/featureSlice";
@@ -19,25 +20,16 @@ import OfficeProjectSettingsPanel from "../settings/OfficeProjectSettingsPanel";
 import NotificationsPanel from "../settings/NotificationsPanel";
 import TrustedWorkspacesPanel from "../settings/TrustedWorkspacesPanel";
 import CustomRulesPanel from "../settings/CustomRulesPanel";
-import SafetyPositionBanner from "../settings/SafetyPositionBanner";
-import SecurityOverviewContent from "../settings/SecurityOverviewContent";
 import VoiceSettings from "../settings/VoiceSettings";
 import KnowledgeIngestPanel from "../settings/KnowledgeIngestPanel";
-import LogViewerPage from "../views/LogViewerPage";
 import MemoryPage from "../views/MemoryPage";
-import PermissionPage from "../views/PermissionPage";
-import OAuthPage from "../views/OAuthPage";
-import SandboxPage from "../views/SandboxPage";
 import SoulPanel from "../settings/SoulPanel";
 import UserPanel from "../settings/UserPanel";
 import AppearancePanel from "../settings/AppearancePanel";
-import ApiKeyContent from "../settings/ApiKeyContent";
 import BackendServicePanel from "../settings/BackendServicePanel";
 import DataStoragePanel from "../settings/DataStoragePanel";
-import AgentTaskSettings from "../settings/AgentTaskSettings";
 import PDCAReviewSettingsPanel from "../settings/PDCAReviewSettingsPanel";
 import EstopPanel from "../settings/EstopPanel";
-import UsageCenterPage from "../views/UsageCenterPage";
 import {
   ConfigSection,
   ConfigItem,
@@ -48,14 +40,9 @@ import { routerService } from "../../services/routerService";
 import {
   SettingsIcon,
   MicIcon,
-  KeyIcon,
   FolderOpenIcon,
   BellIcon,
   ShieldIcon,
-  DollarIcon,
-  FileIcon,
-  PlayIcon,
-  LinkIcon,
   ModelIcon,
   SlidersIcon,
   WrenchIcon,
@@ -70,7 +57,6 @@ interface NavItem {
   id: string;
   labelKey: string;
   icon: React.ComponentType<BaseIconProps>;
-  zone: string;
 }
 
 /** 导航分组定义 */
@@ -81,7 +67,11 @@ interface NavGroup {
   items: NavItem[];
 }
 
-/** 导航分组配置 */
+/**
+ * 导航分组配置（A.3：设置页 24 → 16 项）。
+ * 已搬出至工作台：logs/tasks/security-overview/permissions/apikeys/oauth/cost/sandbox
+ * （均有独立路由，见 Sidebar WORKBENCH_GROUPS）。memory/estop 无独立路由，保留在设置页。
+ */
 const NAV_GROUPS: NavGroup[] = [
   {
     id: "general",
@@ -93,31 +83,16 @@ const NAV_GROUPS: NavGroup[] = [
         id: "config",
         labelKey: "settings.generalConfig",
         icon: SettingsIcon,
-        zone: "general",
       },
       {
         id: "notifications",
         labelKey: "settings.notifications",
         icon: BellIcon,
-        zone: "general",
-      },
-      {
-        id: "logs",
-        labelKey: "settings.logs",
-        icon: FileIcon,
-        zone: "general",
-      },
-      {
-        id: "tasks",
-        labelKey: "settings.tasks",
-        icon: PlayIcon,
-        zone: "general",
       },
       {
         id: "pdca-review",
         labelKey: "settings.pdcaReview",
         icon: SlidersIcon,
-        zone: "general",
       },
     ],
   },
@@ -131,15 +106,13 @@ const NAV_GROUPS: NavGroup[] = [
         id: "router",
         labelKey: "settings.router",
         icon: SlidersIcon,
-        zone: "ai",
       },
-      { id: "soul", labelKey: "settings.soul", icon: BookOpenIcon, zone: "ai" },
-      { id: "user", labelKey: "settings.user", icon: UserIcon, zone: "ai" },
+      { id: "soul", labelKey: "settings.soul", icon: BookOpenIcon },
+      { id: "user", labelKey: "settings.user", icon: UserIcon },
       {
         id: "memory",
         labelKey: "settings.memory",
         icon: BookOpenIcon,
-        zone: "ai",
       },
     ],
   },
@@ -148,48 +121,20 @@ const NAV_GROUPS: NavGroup[] = [
     labelKey: "settings.categorySecurity",
     badgeClass: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
     items: [
-      // M1：概览 → 系统边界 → 用户级（§5.1 边界优先）
-      {
-        id: "security-overview",
-        labelKey: "settings.securityOverview",
-        icon: ShieldIcon,
-        zone: "security",
-      },
       {
         id: "trusted-workspaces",
         labelKey: "settings.trustedWorkspaces",
         icon: FolderOpenIcon,
-        zone: "security",
       },
       {
         id: "custom-rules",
         labelKey: "settings.customRules",
         icon: WrenchIcon,
-        zone: "security",
-      },
-      {
-        id: "permissions",
-        labelKey: "settings.permissions",
-        icon: ShieldIcon,
-        zone: "security",
-      },
-      {
-        id: "apikeys",
-        labelKey: "settings.apiKeys",
-        icon: KeyIcon,
-        zone: "security",
-      },
-      {
-        id: "oauth",
-        labelKey: "settings.oauth",
-        icon: LinkIcon,
-        zone: "security",
       },
       {
         id: "estop",
         labelKey: "settings.estop",
         icon: ShieldIcon,
-        zone: "security",
       },
     ],
   },
@@ -203,25 +148,21 @@ const NAV_GROUPS: NavGroup[] = [
         id: "voice",
         labelKey: "settings.voice",
         icon: MicIcon,
-        zone: "integration",
       },
       {
         id: "llama",
         labelKey: "settings.llama",
         icon: ModelIcon,
-        zone: "integration",
       },
       {
         id: "ollama",
         labelKey: "settings.ollama",
         icon: ModelIcon,
-        zone: "integration",
       },
       {
         id: "office",
         labelKey: "settings.office",
         icon: OfficeIcon,
-        zone: "integration",
       },
     ],
   },
@@ -235,57 +176,34 @@ const NAV_GROUPS: NavGroup[] = [
         id: "data-dir",
         labelKey: "settings.dataDir",
         icon: FolderOpenIcon,
-        zone: "storage",
       },
       {
         id: "ingest",
         labelKey: "settings.ingest",
         icon: BookOpenIcon,
-        zone: "storage",
-      },
-      {
-        id: "cost",
-        labelKey: "settings.cost",
-        icon: DollarIcon,
-        zone: "storage",
-      },
-      {
-        id: "sandbox",
-        labelKey: "settings.sandbox",
-        icon: PlayIcon,
-        zone: "storage",
       },
     ],
   },
 ];
 
-/** 页面描述映射（nav ID → 中文描述） */
-const PAGE_DESCRIPTIONS: Record<string, string> = {
-  config: "外观、后端服务、AI 模型、功能开关等通用配置",
-  notifications: "管理系统通知偏好和推送方式",
-  logs: "查看应用运行日志和诊断信息",
-  tasks: "管理跨项目的全局 Agent 任务，可过滤状态、终止或重新执行",
-  "pdca-review":
-    "配置 PDCA 循环的 REVIEW + DECIDE 质量门（审查模式/分数门槛/验证开关）",
-  router: "配置 LLM Judge 智能路由和模型分级策略",
-  soul: "定义 AI 助手的人设和对话风格",
-  user: "设置用户身份信息，用于个性化对话",
-  memory: "管理持久化记忆和上下文信息",
-  apikeys: "创建和管理 API 访问密钥",
-  "security-overview":
-    "三级权限模型总览：系统边界、用户级、应用级归属与常见疑问",
-  "trusted-workspaces": "管理可信任的工作区目录",
-  "custom-rules": "配置自定义安全规则和约束",
-  permissions: "管理权限策略和访问控制",
-  oauth: "配置 OAuth 第三方登录认证",
-  voice: "配置语音唤醒、识别和合成功能",
-  llama: "配置 llama.cpp 本地推理服务（内置 llama-server 生命周期）",
-  ollama: "配置 Ollama 本地推理服务，管理已安装模型",
-  office: "办公能力配置——OfficeCLI 工具的检测与一键安装",
-  "data-dir": "配置数据文件和附件的存储位置",
-  ingest: "配置知识库摄入规则和来源",
-  cost: "查看 API 调用成本和用量统计",
-  sandbox: "管理代码执行沙箱和安全策略",
+/** 页面描述映射（nav ID → i18n key；K3：16 项全覆盖含 estop） */
+const PAGE_DESCRIPTION_KEYS: Record<string, string> = {
+  config: "settings.desc.config",
+  notifications: "settings.desc.notifications",
+  "pdca-review": "settings.desc.pdcaReview",
+  router: "settings.desc.router",
+  soul: "settings.desc.soul",
+  user: "settings.desc.user",
+  memory: "settings.desc.memory",
+  "trusted-workspaces": "settings.desc.trustedWorkspaces",
+  "custom-rules": "settings.desc.customRules",
+  estop: "settings.desc.estop",
+  voice: "settings.desc.voice",
+  llama: "settings.desc.llama",
+  ollama: "settings.desc.ollama",
+  office: "settings.desc.office",
+  "data-dir": "settings.desc.dataDir",
+  ingest: "settings.desc.ingest",
 };
 
 /** 获取所有导航项 */
@@ -315,23 +233,15 @@ interface SetDataDirectoryResponse {
 /** 侧边栏选中项持久化 */
 const ACTIVE_NAV_KEY = "liri-settings-active-nav";
 
-/** Pro 版专属导航项（F3：对外服务密钥 / OAuth 归安全五件套，base 版隐藏入口） */
-const PRO_NAV_ITEMS = new Set(["apikeys", "oauth"]);
+/** Base 简单视角导航项（U3：换大脑+外观=config / 通知 / 语音 / 我的信息） */
+const SIMPLE_NAV_ITEMS = new Set(["config", "notifications", "voice", "user"]);
 
-/** Base 简单视角导航项（U3：换大脑+外观=config / 通知 / 语音 / 我的信息 / 本月用量） */
-const SIMPLE_NAV_ITEMS = new Set([
-  "config",
-  "notifications",
-  "voice",
-  "user",
-  "cost",
-]);
-
-/** 简单视角导航标签白话覆盖（U1：值 = i18n terms.plain 的 key） */
+/** 简单视角导航标签白话覆盖（U1：值 = i18n terms.plain 的 key；K6 补齐 voice/user） */
 const SIMPLE_NAV_PLAIN: Record<string, string> = {
   config: "terms.plain.brain", // 常规设置 → 换大脑
-  cost: "terms.plain.spend", // 用量统计 → 本月花费
   notifications: "terms.plain.reminder", // 通知 → 提醒
+  voice: "terms.plain.mic", // 语音设置 → 麦克风/说话
+  user: "terms.plain.me", // 用户身份 → 我的信息
 };
 
 function getPersistedNav(fallback: string): string {
@@ -346,6 +256,7 @@ function getPersistedNav(fallback: string): string {
 
 function SettingsPage() {
   const { t } = useTranslation();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { config, setConfig } = useConfigStore();
   const enterModule = useRootStore((s) => s.enterModule);
   const leaveModule = useRootStore((s) => s.leaveModule);
@@ -354,12 +265,11 @@ function SettingsPage() {
     return () => leaveModule();
   }, [enterModule, leaveModule]);
 
+  // D-f：深链 ?nav=<id> 优先于 localStorage（通知中心/工作台可直达子页面）
   const [activeNav, setActiveNav] = useState(() => {
-    const nav = getPersistedNav("config");
-    // 非 pro 版回退持久化的 Pro 专属项（base 隐藏 apikeys/oauth 入口）
-    return getCurrentTier() !== "pro" && PRO_NAV_ITEMS.has(nav)
-      ? "config"
-      : nav;
+    const fromUrl = searchParams.get("nav");
+    if (fromUrl && ALL_NAV_ITEMS.some((n) => n.id === fromUrl)) return fromUrl;
+    return getPersistedNav("config");
   });
   /** 视图模式（U3）：base 默认简单视角，pro 恒高级；用户可手动切换（localStorage 持久化） */
   const [viewMode, setViewMode] = useState<"simple" | "advanced">(() => {
@@ -417,16 +327,15 @@ function SettingsPage() {
   const [envLiriDataDir, setEnvLiriDataDir] = useState<string | null>(null);
   const isDark = config.theme === "dark";
 
-  /** 导航切换 */
+  /** 导航切换（D-f：同步 ?nav= URL，支持深链与浏览器前进后退） */
   const switchNav = (id: string) => {
-    // 非 pro 版禁止切到 Pro 专属项（base 隐藏 apikeys/oauth 入口）
-    if (getCurrentTier() !== "pro" && PRO_NAV_ITEMS.has(id)) return;
     setActiveNav(id);
     try {
       localStorage.setItem(ACTIVE_NAV_KEY, id);
     } catch {
       /* ignore */
     }
+    setSearchParams({ nav: id }, { replace: true });
   };
 
   // ── 初始化 ──
@@ -614,17 +523,15 @@ function SettingsPage() {
                 })()}
               </span>
             </h2>
-            {/* U3：视图模式切换（pro 恒高级，不显示开关） */}
-            {getCurrentTier() !== "pro" && (
-              <button
-                onClick={() =>
-                  switchViewMode(viewMode === "simple" ? "advanced" : "simple")
-                }
-                className="px-3 py-1.5 text-xs rounded-lg border transition-colors border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-              >
-                {viewMode === "simple" ? "高级设置" : "简单模式"}
-              </button>
-            )}
+            {/* U3：视图模式切换（恒显示；pro 默认高级视角，用户可手动切回简单视角） */}
+            <button
+              onClick={() =>
+                switchViewMode(viewMode === "simple" ? "advanced" : "simple")
+              }
+              className="px-3 py-1.5 text-xs rounded-lg border transition-colors border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+            >
+              {viewMode === "simple" ? "高级设置" : "简单模式"}
+            </button>
           </div>
         </div>
         <div className="max-w-4xl mx-auto">
@@ -639,7 +546,8 @@ function SettingsPage() {
                       {navLabel(item)}
                     </h1>
                     {(() => {
-                      const desc = PAGE_DESCRIPTIONS[effectiveNav];
+                      const descKey = PAGE_DESCRIPTION_KEYS[effectiveNav];
+                      const desc = descKey ? t(descKey) : undefined;
                       return desc ? (
                         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
                           {desc}
@@ -671,11 +579,7 @@ function SettingsPage() {
         </div>
         {/* 分组导航项 */}
         {group.items.map((item) => {
-          // F3：base 版隐藏 Pro 专属入口（对外服务密钥 / OAuth）
-          if (getCurrentTier() !== "pro" && PRO_NAV_ITEMS.has(item.id)) {
-            return null;
-          }
-          // U3：简单视角只显示 Base 核心 5 项
+          // U3：简单视角只显示 Base 核心项
           if (viewMode === "simple" && !SIMPLE_NAV_ITEMS.has(item.id)) {
             return null;
           }
@@ -702,8 +606,6 @@ function SettingsPage() {
 
   function renderContent() {
     switch (effectiveNav) {
-      case "tasks":
-        return <AgentTaskSettings />;
       case "pdca-review":
         return <PDCAReviewSettingsPanel />;
       case "config":
@@ -855,12 +757,6 @@ function SettingsPage() {
             }
           />
         );
-      case "logs":
-        return (
-          <div className="p-6">
-            <LogViewerPage />
-          </div>
-        );
       case "router":
         return (
           <RouterConfigContent
@@ -873,18 +769,10 @@ function SettingsPage() {
         return <SoulPanel isDark={isDark} />;
       case "user":
         return <UserPanel isDark={isDark} />;
-      case "apikeys":
-        return <ApiKeyContent />;
-      case "security-overview":
-        return <SecurityOverviewContent isDark={isDark} />;
       case "trusted-workspaces":
         return <TrustedWorkspacesPanel isDark={isDark} />;
       case "custom-rules":
         return <CustomRulesPanel isDark={isDark} />;
-      case "permissions":
-        return <PermissionManagementContent isDark={isDark} />;
-      case "oauth":
-        return <OAuthManagementContent isDark={isDark} />;
       case "estop":
         return <EstopPanel isDark={isDark} collapsible />;
       case "voice":
@@ -917,10 +805,6 @@ function SettingsPage() {
         );
       case "ingest":
         return <KnowledgeIngestPanel isDark={isDark} />;
-      case "cost":
-        return <CostStatisticsContent isDark={isDark} />;
-      case "sandbox":
-        return <SandboxManagementContent isDark={isDark} />;
       case "memory":
         return (
           <div className="p-6">
@@ -1031,56 +915,6 @@ function RouterConfigContent({
           </div>
         )}
       </ConfigSection>
-    </div>
-  );
-}
-
-/** 权限管理内容 */
-function PermissionManagementContent({ isDark }: { isDark: boolean }) {
-  return (
-    <div className="p-6">
-      <SafetyPositionBanner
-        layer={{ primary: "用户级", secondary: "应用级" }}
-        title="权限"
-        question="工具/操作允不允许执行（allow/deny/ask）"
-        relation="用户配置规则、应用级执行；认证身份注入角色后生效"
-        isDark={isDark}
-      />
-      <PermissionPage />
-    </div>
-  );
-}
-
-/** OAuth 认证管理内容 */
-function OAuthManagementContent({ isDark }: { isDark: boolean }) {
-  return (
-    <div className="p-6">
-      <SafetyPositionBanner
-        layer={{ primary: "用户级" }}
-        title="OAuth 认证"
-        question="第三方账号登录（方向待定，见方案 §4.4）"
-        relation="当前未接入；此处不承诺“可登录”"
-        isDark={isDark}
-      />
-      <OAuthPage />
-    </div>
-  );
-}
-
-/** 成本统计内容 */
-function CostStatisticsContent({ isDark: _isDark }: { isDark: boolean }) {
-  return (
-    <div className="p-6">
-      <UsageCenterPage />
-    </div>
-  );
-}
-
-/** 沙箱管理内容 */
-function SandboxManagementContent({ isDark: _isDark }: { isDark: boolean }) {
-  return (
-    <div className="p-6">
-      <SandboxPage />
     </div>
   );
 }

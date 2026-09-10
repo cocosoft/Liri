@@ -373,7 +373,8 @@ export type TaskType =
 /**
  * 任务状态（合并 WorkItemStatus + 前端 ProjectStatus）
  * 流水线: planning → pending → active → review → completed → archived
- * 旁路: paused (暂停), failed (异常终止)
+ * 旁路: paused (暂停), failed (异常终止), cancelled (用户取消)
+ * 终态: completed / archived / cancelled（TaskStore 会写入 completed_at）
  */
 export type TaskStatus =
   | 'planning'
@@ -383,7 +384,8 @@ export type TaskStatus =
   | 'review'
   | 'completed'
   | 'archived'
-  | 'failed';
+  | 'failed'
+  | 'cancelled';
 
 /** 任务优先级（0=最高/P0, 3=最低/P3，前端展示映射） */
 export type TaskPriority = 0 | 1 | 2 | 3;

@@ -79,6 +79,7 @@ import { agentTelemetry } from '@modules/agent';
 import type { ChatOrchestratorHost } from './ChatOrchestrator.js';
 import { getToolExecErrorMessage } from './toolErrorMessages.js';
 import { filterToolsByTask } from '@modules/tools';
+import type { ToolCategory } from '@modules/tools';
 import { isLocalLlmEndpoint } from '../services/ChatHelper.js';
 import type { Message, StreamMessageOptions } from '../types/message.js';
 import type { ChatResponse } from '../types/message.js';
@@ -771,11 +772,23 @@ export async function* runStreamMessage(
           before: toolDefinitions.length,
         });
       }
-      const filteredTools = filterToolsByTask(toolDefinitions, taskType);
+      // D7/L2（2026-09-10）：带图片消息必须保留 image 类工具——识图翻译/直接发图分析
+      // 需要模型调用 image_analysis（OCR/vision 等），而 default/chat 集不含 image 类别，
+      // 裁剪后模型函数列表无 image_analysis → 识图链路不可用（会话实录实证）。
+      const hasImages = Array.isArray(options?.images) && options.images.length > 0;
+      const extraCategories: ToolCategory[] = hasImages
+        ? ['image']
+        : [];
+      const filteredTools = filterToolsByTask(
+        toolDefinitions,
+        taskType,
+        extraCategories
+      );
       if (filteredTools.length !== toolDefinitions.length) {
         logger.info('streamMessage:tools — 按任务裁剪工具集', {
           sessionId: session.id,
           taskType: taskType ?? 'default',
+          hasImages,
           before: toolDefinitions.length,
           after: filteredTools.length,
           removedNames: toolDefinitions

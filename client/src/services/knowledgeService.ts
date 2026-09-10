@@ -285,6 +285,8 @@ export const knowledgeService = {
     title: string;
     content: string;
     sessionId?: string;
+    /** 来源标记：聊天保存（默认）或全局速记（quick-note） */
+    source?: "chat-save" | "quick-note";
   }): Promise<{ success: boolean; docPath: string; title: string }> => {
     const res = await http.post<{
       success: boolean;

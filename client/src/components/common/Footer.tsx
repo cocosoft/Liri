@@ -352,7 +352,7 @@ function Footer() {
             <button
               onClick={() => {
                 setShowCostDetail(false);
-                navigate("/usage");
+                navigate("/usage?tab=cost");
               }}
               className="w-full text-center text-xs text-blue-600 dark:text-blue-400 hover:underline"
             >

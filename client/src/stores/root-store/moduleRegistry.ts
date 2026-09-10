@@ -49,29 +49,9 @@ export function registerBuiltinModules(): void {
     paths: ["/office"],
   });
 
-  store.registerModule({
-    id: "calendar",
-    type: "calendar",
-    name: "日历",
-    icon: "calendar",
-    enabled: true,
-    available: true,
-    pinned: false,
-    tier: "pro",
-    paths: ["/calendar"],
-  });
-
-  store.registerModule({
-    id: "translation",
-    type: "translation",
-    name: "翻译",
-    icon: "languages",
-    enabled: true,
-    available: true,
-    pinned: false,
-    tier: "base",
-    paths: ["/translate"],
-  });
+  // D5：日历已并入办公（canonical /office?view=calendar），删除独立注册；
+  // MODULE_EMOJI_META 保留 calendar 键（存量会话 label 不退化，D-b①）。
+  // D7：翻译已并入聊天（斜杠命令 + 识图），删除独立注册；META 保留 translation 键。
 
   store.registerModule({
     id: "knowledge",
@@ -97,7 +77,7 @@ export function registerBuiltinModules(): void {
     paths: ["/projects"],
   });
 
-  logger.info("内置模块注册完成", { count: 7 });
+  logger.info("内置模块注册完成", { count: 5 });
 }
 
 // ─── 模块元信息（归一化入口：icon + label + workspaceType 唯一来源）───

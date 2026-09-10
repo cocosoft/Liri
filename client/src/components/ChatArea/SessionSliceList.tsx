@@ -25,9 +25,11 @@ const MODULE_PATH: Record<string, string> = {
   chat: "/chat",
   media: "/media",
   office: "/office",
-  calendar: "/calendar",
-  translation: "/translate",
+  // D5：日历并入办公（canonical /office?view=calendar）；D7：翻译并入聊天
+  calendar: "/office?view=calendar",
+  translation: "/chat",
   knowledge: "/knowledge",
+  project: "/projects",
 };
 
 export interface SessionSliceListProps {

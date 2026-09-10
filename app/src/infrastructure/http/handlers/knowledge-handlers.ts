@@ -905,7 +905,7 @@ export async function handleSaveFromChat(
 ): Promise<void> {
   try {
     const body = await readRequestBody(req);
-    const { base, title, content, sessionId } = JSON.parse(body);
+    const { base, title, content, sessionId, source } = JSON.parse(body);
 
     if (!title || !content) {
       res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -916,6 +916,10 @@ export async function handleSaveFromChat(
       );
       return;
     }
+
+    // source 白名单：聊天保存 / 速记（Ctrl+Shift+N 全局速记复用本端点）
+    const ALLOWED_SOURCES = new Set(['chat-save', 'quick-note']);
+    const sourceValue = ALLOWED_SOURCES.has(source) ? source : 'chat-save';
 
     const { getDefaultKnowledgeBaseRegistry } =
       await import('@modules/knowledge/KnowledgeBaseRegistry');
@@ -938,7 +942,7 @@ export async function handleSaveFromChat(
     const frontmatter = [
       '---',
       `title: "${title.replace(/"/g, '\\"')}"`,
-      `source: "chat-save"`,
+      `source: "${sourceValue}"`,
       sessionId ? `savedFrom: "${sessionId}"` : '',
       `savedAt: "${now}"`,
       '---',

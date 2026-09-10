@@ -25,15 +25,20 @@ type SearchItem =
 import type { FileRegistryRecord } from "../../types/file";
 import type { KnowledgeItem } from "../../types/knowledge";
 
-/** 模块类型 → AppPage 映射（media/office/calendar/translation 无独立页面，回退 chat） */
+/**
+ * 模块类型 → AppPage 映射。
+ * media/office 有独立页面（H8 修正：原错误回退到 chat）；
+ * calendar 已并入办公（D5）、translation 已并入聊天（D7），存量会话跳到归并后的模块。
+ */
 const MODULE_PAGE: Record<string, AppPage> = {
   chat: "chat",
   knowledge: "knowledge",
   files: "files",
   workspace: "workspace",
-  media: "chat",
-  office: "chat",
-  calendar: "chat",
+  project: "projects",
+  media: "media",
+  office: "office",
+  calendar: "office",
   translation: "chat",
 };
 

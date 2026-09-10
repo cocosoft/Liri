@@ -18,7 +18,7 @@ export type Tier = "base" | "pro";
 
 /**
  * 当前版本（license 就绪前的占位来源）。
- * 优先级：环境变量 VITE_TIER → localStorage liri_tier → base。
+ * 优先级：VITE_TIER → localStorage `liri-tier` → 全功能（pro）。
  * license 体系恢复后由 licenseStore 驱动。
  */
 export function getCurrentTier(): Tier {
@@ -28,9 +28,13 @@ export function getCurrentTier(): Tier {
     const stored = localStorage.getItem("liri-tier");
     if (stored === "pro" || stored === "base") return stored;
   } catch {
-    /* localStorage 不可用时默认 base */
+    /* localStorage 不可用时忽略 */
   }
-  return "base";
+  // 默认全功能开放：tier 是 license 占位机制，未就绪前不得隐藏模块
+  // （应用当前无正式用户；base 档会过滤掉唯一的 pro 模块 office，
+  //  导致高区与首页均看不到「办公」）。开发与生产构建一致。
+  // 需要复现基础版行为时：VITE_TIER=base，或 localStorage.setItem("liri-tier","base")。
+  return "pro";
 }
 
 // ─── 内置模块 ──────────────────────────────────────────
@@ -66,26 +70,7 @@ const BUILTIN_MODULES: FeatureModule[] = [
     pinned: false,
     tier: "pro",
   },
-  {
-    id: "calendar",
-    type: "calendar",
-    name: "日历",
-    icon: "calendar",
-    enabled: true,
-    available: true,
-    pinned: false,
-    tier: "pro",
-  },
-  {
-    id: "translation",
-    type: "translation",
-    name: "翻译",
-    icon: "languages",
-    enabled: true,
-    available: true,
-    pinned: false,
-    tier: "base",
-  },
+  // D5：日历并入办公；D7：翻译并入聊天。独立注册已删除（MODULE_EMOJI_META 保留键）。
   {
     id: "knowledge",
     type: "knowledge",

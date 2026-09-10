@@ -295,12 +295,18 @@ export function getTaskToolCategories(
  * 兼容 OpenAI 兼容结构（name 在顶层或 function.name）。
  * @param toolDefinitions 待过滤的工具定义列表
  * @param taskType 当前任务类型
+ * @param extraCategories 额外保留的类别（如带图消息注入 'image'，使 image_analysis 对模型可见）
  * @returns 仅包含任务类别白名单内工具的列表
  */
 export function filterToolsByTask<
   T extends { name?: string; function?: { name?: string } },
->(toolDefinitions: T[], taskType: string | undefined): T[] {
+>(
+  toolDefinitions: T[],
+  taskType: string | undefined,
+  extraCategories: ToolCategory[] = []
+): T[] {
   const allowed = new Set(getTaskToolCategories(taskType));
+  for (const c of extraCategories) allowed.add(c);
   return toolDefinitions.filter((t) => {
     const toolName = t.name ?? t.function?.name ?? '';
     return allowed.has(getToolCategory(toolName));

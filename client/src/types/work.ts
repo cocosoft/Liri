@@ -76,7 +76,7 @@ export type TaskType =
 /**
  * 任务状态
  * 流水线: planning → pending → active → review → completed → archived
- * 旁路: paused, failed
+ * 旁路: paused, failed, cancelled（终态: completed / archived / cancelled）
  */
 export type TaskStatus =
   | "planning"
@@ -86,7 +86,8 @@ export type TaskStatus =
   | "review"
   | "completed"
   | "archived"
-  | "failed";
+  | "failed"
+  | "cancelled";
 
 /** 任务优先级（0=最高/P0, 3=最低/P3） */
 export type TaskPriority = 0 | 1 | 2 | 3;

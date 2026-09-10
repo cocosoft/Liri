@@ -55,8 +55,8 @@ jobs:
         # 统一到 tests/ 目录（1956 pass 全绿），src/ 预存失败另登记处理
 
   # ══════════════════════════════════════════════
-  # 便携包（方案 C）：full zip（2026-09-09 退役独立 update.zip，update 通道复用 full）
-  # 产物：liri-v{ver}-{edition}-{platform}-full.zip（唯一 portable 产物；edition=pro/personal）
+  # 便携包（方案 C）：full zip（2026-09-10 单档收敛：退役 personal/pro 双档矩阵，全量构建）
+  # 产物：liri-v{ver}-{platform}-full.zip（唯一 portable 产物；版本分层由运行时 tier 控制，见 featureFlags）
   # 依赖布局统一 node_modules/（与 pkg / exe 同级），校验交给 verify-package.ts（契约驱动）
   # ══════════════════════════════════════════════
   portable-bundle:
@@ -72,35 +72,17 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - display: win-x64-pro
+          - display: win-x64
             os: windows-latest
             platform: win-x64
-            variant: pro
 
-          - display: win-x64-personal
-            os: windows-latest
-            platform: win-x64
-            variant: personal
-
-          - display: macos-arm64-pro
+          - display: macos-arm64
             os: macos-latest
             platform: macos-arm64
-            variant: pro
 
-          - display: macos-arm64-personal
-            os: macos-latest
-            platform: macos-arm64
-            variant: personal
-
-          - display: linux-x64-pro
+          - display: linux-x64
             os: ubuntu-latest
             platform: linux-x64
-            variant: pro
-
-          - display: linux-x64-personal
-            os: ubuntu-latest
-            platform: linux-x64
-            variant: personal
 
     steps:
       - uses: actions/checkout@v4
@@ -123,9 +105,9 @@ jobs:
         shell: bash
         run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
 
-      # 阶段 1-5：统一脚本链（variant 按矩阵档位生成；同一依赖契约）
-      - name: Generate variant
-        run: bun run scripts/build-variant.ts --variant=${{ matrix.variant }}
+      # 阶段 1-5：统一脚本链（单档全量构建；版本分层由运行时 tier 控制）
+      - name: Generate variant (full)
+        run: bun run scripts/build-variant.ts --variant=full
       - name: Build bundle
         run: bun run build:bundle
       - name: Setup runtime
@@ -164,9 +146,9 @@ jobs:
         run: |
           VER="${{ steps.version.outputs.version }}"
           cd ../dist
-          # 命名契约（与 GitHubReleaseFetcher / smoke glob 一致）：liri-v{ver}-{edition}-{platform}-full.zip
-          # edition 段必须存在：release merge-multiple 防跨档覆盖，updater 按 edition 精确匹配防串档
-          ZIP_NAME="liri-v${VER}-${{ matrix.variant }}-${{ matrix.platform }}-full.zip"
+          # 命名契约（与 GitHubReleaseFetcher / smoke glob 一致）：liri-v{ver}-{platform}-full.zip
+          # 单档收敛（2026-09-10）：无 edition 段；版本分层由运行时 tier 控制
+          ZIP_NAME="liri-v${VER}-${{ matrix.platform }}-full.zip"
           if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
             # 必须经 -Command 字符串让 PowerShell 自行展开 'pkg\*'：
             # bash 裸参 pkg\* 会被转义+glob 成目录 pkg，致 zip 条目带 pkg/ 前缀、
@@ -184,7 +166,7 @@ jobs:
         run: |
           cd ../dist
           for f in liri-*.zip; do
-            sha256sum "$f" >> checksums-${{ matrix.variant }}-${{ matrix.platform }}.txt
+            sha256sum "$f" >> checksums-${{ matrix.platform }}.txt
           done
 
       # 阶段 10：体积门禁（超限即失败；full 单产物设上限）
@@ -208,10 +190,10 @@ jobs:
       - name: Upload portable artifact
         uses: actions/upload-artifact@v4
         with:
-          name: portable-${{ matrix.platform }}-${{ matrix.variant }}
+          name: portable-${{ matrix.platform }}
           path: |
             dist/liri-*.zip
-            dist/checksums-${{ matrix.variant }}-${{ matrix.platform }}.txt
+            dist/checksums-${{ matrix.platform }}.txt
           retention-days: 30
 
   # ══════════════════════════════════════════════
@@ -226,53 +208,26 @@ jobs:
       fail-fast: false
       matrix:
         config:
-          - name: Windows-Pro
+          - name: Windows
             os: windows-latest
             target: x86_64-pc-windows-msvc
             bundles: nsis
-            sidecar-build: build:win:pro
+            sidecar-build: build:win
             sidecar-ext: .exe
-            variant: pro
 
-          - name: Windows-Personal
-            os: windows-latest
-            target: x86_64-pc-windows-msvc
-            bundles: nsis
-            sidecar-build: build:win:personal
-            sidecar-ext: .exe
-            variant: personal
-
-          - name: macOS-ARM-Pro
+          - name: macOS-ARM
             os: macos-latest
             target: aarch64-apple-darwin
             bundles: dmg
             sidecar-build: build:mac
             sidecar-ext: ""
-            variant: pro
 
-          - name: macOS-ARM-Personal
-            os: macos-latest
-            target: aarch64-apple-darwin
-            bundles: dmg
-            sidecar-build: build:mac:personal
-            sidecar-ext: ""
-            variant: personal
-
-          - name: Linux-Pro
+          - name: Linux
             os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
             bundles: deb
             sidecar-build: build:linux
             sidecar-ext: ""
-            variant: pro
-
-          - name: Linux-Personal
-            os: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
-            bundles: deb
-            sidecar-build: build:linux:personal
-            sidecar-ext: ""
-            variant: personal
 
     defaults:
       run:
@@ -297,7 +252,7 @@ jobs:
             client/src-tauri/target
             ~/.cargo/registry
             ~/.cargo/git
-          key: ${{ runner.os }}-tauri-${{ matrix.config.variant }}-${{ hashFiles('client/src-tauri/Cargo.lock', 'client/src-tauri/tauri.conf.json') }}
+          key: ${{ runner.os }}-tauri-${{ hashFiles('client/src-tauri/Cargo.lock', 'client/src-tauri/tauri.conf.json') }}
 
       - name: Install system dependencies (Linux)
         if: matrix.config.os == 'ubuntu-latest'
@@ -404,25 +359,6 @@ jobs:
       - name: Build Tauri app
         run: bun run tauri build --bundles ${{ matrix.config.bundles }}
 
-      # 双档安装器（2026-09-09）：同一 bundle 目录会产出同名安装器，按 edition 后缀防 release 附件互相覆盖
-      - name: Suffix installers with edition
-        shell: bash
-        run: |
-          # 注意：job defaults.run.working-directory=client，此处相对 client/ 解析
-          cd src-tauri/target/release/bundle
-          find . -type f \( -iname '*.msi' -o -iname '*.dmg' -o -iname '*.deb' -o -iname '*.AppImage' -o -iname '*.appimage' -o -iname '*-setup.exe' \) -print0 | while IFS= read -r -d '' f; do
-            if [[ "$f" == *-setup.exe ]]; then
-              # NSIS: Liri_<ver>_<arch>-setup.exe → Liri_<ver>_<arch>-<variant>-setup.exe（保留 -setup.exe 后缀约定）
-              mv "$f" "${f%-setup.exe}-${{ matrix.config.variant }}-setup.exe"
-            else
-              base="${f%.*}"
-              ext="${f##*.}"
-              mv "$f" "${base}-${{ matrix.config.variant }}.${ext}"
-            fi
-          done
-          echo "=== suffixed bundle files ==="
-          find . -type f | sort
-
       - name: Upload installer artifact
         uses: actions/upload-artifact@v4
         with:
@@ -443,36 +379,21 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - display: win-x64-pro
+          - display: win-x64
             os: windows-latest
             platform: win-x64
-            variant: pro
-          - display: win-x64-personal
-            os: windows-latest
-            platform: win-x64
-            variant: personal
-          - display: macos-arm64-pro
+          - display: macos-arm64
             os: macos-latest
             platform: macos-arm64
-            variant: pro
-          - display: macos-arm64-personal
-            os: macos-latest
-            platform: macos-arm64
-            variant: personal
-          - display: linux-x64-pro
+          - display: linux-x64
             os: ubuntu-latest
             platform: linux-x64
-            variant: pro
-          - display: linux-x64-personal
-            os: ubuntu-latest
-            platform: linux-x64
-            variant: personal
 
     steps:
       - name: Download portable artifact
         uses: actions/download-artifact@v4
         with:
-          name: portable-${{ matrix.platform }}-${{ matrix.variant }}
+          name: portable-${{ matrix.platform }}
           path: portable
 
       - name: Smoke portable full zip (解压后干净目录运行)
@@ -487,10 +408,10 @@ jobs:
             { echo "### FAIL: $msg"; echo '```'; ls -la "$dir" 2>/dev/null || true; echo '```'; } >> "$SUMMARY"
             exit 1
           }
-          echo "## Smoke portable (${{ matrix.platform }}/${{ matrix.variant }})" >> "$SUMMARY"
-          FULL_ZIP=$(ls portable/liri-*-${{ matrix.variant }}-${{ matrix.platform }}-full.zip 2>/dev/null | head -n1 || true)
+          echo "## Smoke portable (${{ matrix.platform }})" >> "$SUMMARY"
+          FULL_ZIP=$(ls portable/liri-*-${{ matrix.platform }}-full.zip 2>/dev/null | head -n1 || true)
           if [[ -z "$FULL_ZIP" ]]; then
-            fail "setup: zip not found (liri-*-${{ matrix.variant }}-${{ matrix.platform }}-full.zip)" "$GITHUB_WORKSPACE/portable"
+            fail "setup: zip not found (liri-*-${{ matrix.platform }}-full.zip)" "$GITHUB_WORKSPACE/portable"
           fi
           echo "SMOKE_STEP 1/4 zip=$FULL_ZIP"
           echo "- zip: $(basename "$FULL_ZIP")" >> "$SUMMARY"
@@ -532,17 +453,17 @@ jobs:
 
       - name: Download Windows installer (win smoke)
         uses: actions/download-artifact@v4
-        if: matrix.os == 'windows-latest' && matrix.variant == 'pro'
+        if: matrix.os == 'windows-latest'
         with:
-          name: tauri-installer-Windows-Pro
+          name: tauri-installer-Windows
           path: installers
 
       - name: Smoke NSIS install (Windows)
-        if: matrix.os == 'windows-latest' && matrix.variant == 'pro'
+        if: matrix.os == 'windows-latest'
         shell: powershell
         run: |
           function Add-Summary([string]$msg) { Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value $msg -Encoding utf8 }
-          Add-Summary "## Smoke NSIS install (windows/pro)"
+          Add-Summary "## Smoke NSIS install (windows)"
           $setup = Get-ChildItem installers -Recurse -Filter *-setup.exe | Select-Object -First 1
           if (-not $setup) {
             Write-Host "::error::NSIS FAIL: setup not found in installers/"
@@ -603,7 +524,7 @@ jobs:
           if (Test-Path $uninst) { Start-Process $uninst -ArgumentList '/S' -Wait } else { Write-Host "uninstall.exe not found, skip uninstall" }
 
   # ══════════════════════════════════════════════
-  # GitHub Release（汇总校验和；附件含平台化 full zip，update 通道复用；2026-09-09 退役独立 update.zip）
+  # GitHub Release（单档收敛 2026-09-10：每平台 1 安装器 + 1 full zip；汇总校验和）
   # ══════════════════════════════════════════════
   release:
     name: Create Release

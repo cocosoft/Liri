@@ -4,13 +4,18 @@
  * 根据 BUILD_VARIANT 环境变量执行对应版本的构建。
  *
  * 用法:
+ *   bun run scripts/build-variant.ts --variant=full       # 发版单档（全量，2026-09-10 起 CI 唯一档位）
  *   bun run scripts/build-variant.ts --variant=core
  *   bun run scripts/build-variant.ts --variant=personal
  *   bun run scripts/build-variant.ts --variant=pro
  *   bun run scripts/build-variant.ts --variant=enterprise
  *
  * 环境变量:
- *   LIRI_BUILD_VARIANT=core|personal|pro|enterprise（coding 为历史别名，等价 pro）
+ *   LIRI_BUILD_VARIANT=full|core|personal|pro|enterprise（coding 为历史别名，等价 pro）
+ *
+ * 单档收敛（2026-09-10）：发版产物只构建 full（全部档位功能并集，无 exclude）；
+ * 版本分层（personal/pro/enterprise）由运行时 tier 控制（规划中），构建期不再裁剪功能。
+ * core/personal/pro/enterprise 档位保留供本地调试与未来 tier 定义复用。
  */
 
 import * as fs from 'fs';
@@ -20,13 +25,31 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-type BuildVariant = 'core' | 'personal' | 'pro' | 'enterprise';
+type BuildVariant = 'full' | 'core' | 'personal' | 'pro' | 'enterprise';
 
 const VARIANT_CONFIGS: Record<BuildVariant, {
   description: string;
   features: string[];
   excludeFeatures: string[];
 }> = {
+  full: {
+    description: '全量版（发版单档，2026-09-10）— 全部档位功能并集，构建期不裁剪；版本分层由运行时 tier 控制',
+    features: [
+      // core
+      'BASH', 'FILE_READ', 'FILE_WRITE', 'FILE_EDIT', 'GREP', 'GLOB',
+      'WEB_FETCH', 'WEB_SEARCH', 'TASK', 'TODO', 'ASK',
+      // personal
+      'AGENT', 'ENABLE_PLUGINS', 'ENABLE_SKILLS', 'MCP_SYSTEM',
+      'FILE_CONVERTER', 'PLAN', 'BRIEF', 'CHRONOS', 'TUNGSTEN',
+      // pro
+      'AGENT_SWARMS', 'LSP', 'NOTEBOOK', 'CODE_ANALYSIS',
+      'BROWSER', 'TEAM_CREATE', 'TEAM_DELETE',
+      // enterprise
+      'AGENT_TRIGGERS', 'SEND_MESSAGE', 'COORDINATOR_MODE',
+      'DOC_MODULE', 'DOC_TEMPLATE', 'MAIL_MODULE', 'CALENDAR_MODULE',
+    ],
+    excludeFeatures: [],
+  },
   core: {
     description: '核心版 — 最小功能集，仅 CLI + 基础工具',
     features: [
@@ -75,23 +98,24 @@ const VARIANT_CONFIGS: Record<BuildVariant, {
 
 function parseArgs(): { variant: BuildVariant; dryRun: boolean } {
   const args = process.argv.slice(2);
-  // 默认值优先级：--variant= 参数 > env LIRI_BUILD_VARIANT（coding 别名→pro）> 'pro'
+  const VALID_VARIANTS = ['full', 'core', 'personal', 'pro', 'enterprise'];
+  // 默认值优先级：--variant= 参数 > env LIRI_BUILD_VARIANT（coding 别名→pro）> 'full'（发版单档）
   const envRaw = process.env['LIRI_BUILD_VARIANT'];
   let variant: BuildVariant =
     envRaw === 'coding'
       ? 'pro'
-      : envRaw && ['core', 'personal', 'pro', 'enterprise'].includes(envRaw)
+      : envRaw && VALID_VARIANTS.includes(envRaw)
         ? (envRaw as BuildVariant)
-        : 'pro';
+        : 'full';
   let dryRun = false;
 
   for (const arg of args) {
     if (arg.startsWith('--variant=')) {
       const v = arg.split('=')[1];
-      if (['core', 'personal', 'pro', 'enterprise'].includes(v)) {
+      if (VALID_VARIANTS.includes(v)) {
         variant = v as BuildVariant;
       } else {
-        console.error(`无效的变体: ${v}，有效值: core, personal, pro, enterprise`);
+        console.error(`无效的变体: ${v}，有效值: ${VALID_VARIANTS.join(', ')}`);
         process.exit(1);
       }
     } else if (arg === '--dry-run') {

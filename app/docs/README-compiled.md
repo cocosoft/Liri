@@ -28,7 +28,7 @@
 
 - ✅ **必须**整体复制 `dist/` 目录（`liri_terminal.exe` + `node_modules/` + `README-compiled.md`）到安装目录（如 `C:\Program Files\Liri`）
 - ❌ **禁止**只复制 exe 单独分发——运行时将报 `Cannot find package 'sharp'` 类错误，图片/PDF 功能不可用
-- 编译模式分发包：执行 `bun run build:win:pro:dist` 生成 `release/liri-terminal-v<版本>-win-x64.zip`（解压即运行）
+- 编译模式分发包：执行 `bun run build:win:dist` 生成 `release/liri-terminal-v<版本>-win-x64.zip`（解压即运行）
 
 ## 首次运行
 
@@ -50,11 +50,11 @@
 如需从源码重新编译并生成发布包，在 `app/` 目录执行：
 
 ```bash
-bun run build:win:pro:dist
+bun run build:win:dist
 ```
 
 该命令：编译 `dist/liri_terminal.exe` → 复制外部依赖到 `dist/node_modules/`（含完整性校验）→ 打包 `release/liri-terminal-v<版本>-win-x64.zip`（发布单元）。
 
-如仅需产物目录（不打包），执行 `bun run build:win:pro`，产物在项目根目录下的 `dist/` 文件夹。
+如仅需产物目录（不打包），执行 `bun run build:win`，产物在项目根目录下的 `dist/` 文件夹。
 
 更多信息请参考项目源码中的 `app/docs/` 目录。

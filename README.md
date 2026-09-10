@@ -13,7 +13,7 @@
 
 [![CI Status](https://github.com/cocosoft/Liri/actions/workflows/ci.yml/badge.svg)](https://github.com/cocosoft/Liri/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-![Version](https://img.shields.io/badge/version-0.4.48-blue)
+![Version](https://img.shields.io/badge/version-0.4.49-blue)
 
 [快速开始](#-快速开始) •
 [功能概览](#-功能概览) •
@@ -319,15 +319,21 @@ bun run tauri dev
 
 ---
 
-## 🏗 构建变体
+## 🏗 构建与发版
 
-适应不同使用场景的构建配置：
+v0.4.49 起退役 personal/pro 双档矩阵，采用**单档全量构建**——构建期不裁剪功能，版本分层由运行时 tier 控制（规划中）。
 
 ```bash
-bun run build:core        # 核心版（最小功能集）
-bun run build:personal    # 个人版
-bun run build:pro         # 专业版（原 coding，2026-09-09 更名）
-bun run build:enterprise  # 企业版（全功能）
+# 按平台编译为独立二进制（全量功能，含 sharp/pdfjs/yoga external 依赖）
+bun run build:win         # Windows x64
+bun run build:mac          # macOS ARM64
+bun run build:linux        # Linux x64
+
+# 仅生成变体 flags（不编译二进制，供调试）
+bun run build:core         # 核心版 flags
+bun run build:personal    # 个人版 flags
+bun run build:pro          # 专业版 flags
+bun run build:enterprise   # 企业版 flags
 ```
 
 ---
@@ -362,9 +368,9 @@ bun run build:enterprise  # 企业版（全功能）
 
 基于 **Tauri v2 + React** 构建的跨平台桌面客户端，提供原生桌面体验。支持全局快捷键、系统托盘、自动更新，让 AI 助手随时在侧。
 
-### 4 种构建变体
+### 单档全量构建
 
-适应不同场景：**核心版**（最小功能集）、**个人版**、**专业版**（原 coding，编码能力并入）、**企业版**（全功能，规划中）。按需选择，轻量高效。
+v0.4.49 起退役双档矩阵，采用**单档全量构建**——构建期不裁剪功能，一个产物覆盖所有档位。版本分层（personal/pro/enterprise）由运行时 tier 控制（规划中），用户输入 license key 即可升级，无需重新安装。
 
 ### 插件与技能系统
 
@@ -374,7 +380,7 @@ bun run build:enterprise  # 企业版（全功能）
 
 ## 📋 版本
 
-当前版本：**v0.4.48**
+当前版本：**v0.4.49**
 
 版本管理遵循 [语义化版本规范](.trae/rules/versioning.md)：
 - 修订号 — 按需升，每次发版 +1（Bug 修复、文档更新、小重构）
@@ -382,6 +388,15 @@ bun run build:enterprise  # 企业版（全功能）
 - 主版本 — 达到 v1.0.0 标准时一次性从 0.x.x 跳到 1.0.0
 
 ### 🚀 版本更新记录
+
+#### v0.4.49 (2026-09-10)
+
+**单档矩阵收敛——双档退役为运行时 tier**
+- ✅ **单档全量构建** - 退役 personal/pro 双档矩阵，CI 矩阵 21→11 job（portable/tauri/smoke 各 6→3），产物命名去 edition（`liri-v{ver}-{platform}-full.zip`），一个产物覆盖所有档位
+- ✅ **构建脚本收敛** - `build:win:pro`/`build:win:personal` 等 6 脚本收敛为 `build:win`/`build:mac`/`build:linux`（全 full 档），删除 Suffix installers 步骤
+- ✅ **full 变体档** - build-variant.ts 新增 `full`（core/personal/pro/enterprise 功能并集 34 项全开、0 exclude），featureFlags 加 full 档，isAtLeastVariant(full) 恒满足
+- ✅ **updater 死代码清理** - GitHubReleaseFetcher 删除 edition 参数与 editionMatch（调用方从未传入的死代码）
+- ✅ **v0.4.48 双档发版全链路验证** - 九轮 CI 红项根因修复：wix 非法字段→NSIS perUser、npm shim bun 误复制（魔数校验）、cache 跨档污染、sidecar triple 后缀、bun compile external cwd 解析锚定；6/6 sha256 最强校验通过
 
 #### v0.4.45 (2026-09-02)
 

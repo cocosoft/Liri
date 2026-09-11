@@ -219,3 +219,4 @@ REF/*
 app/scripts/session-dedup-backup-*.jsonl
 liri_check.py
 liri_serve.py
+rand_pick.py

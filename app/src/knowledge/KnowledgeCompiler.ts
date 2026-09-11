@@ -14,7 +14,7 @@
  *   4. 追踪原始文件来源（通过 companion .meta.json）
  */
 import { readdir, readFile, writeFile, mkdir, stat } from 'fs/promises';
-import { join, dirname } from 'path';
+import { join, dirname, basename } from 'path';
 import { existsSync } from 'fs';
 import { LogLevel } from '@modules/monitoring';
 import { OTelAwareLogger } from '@modules/monitoring/logs/OTelAwareLogger';
@@ -53,10 +53,16 @@ import {
 // 内存水位（2026-09-02）：非关键后台任务在压力下暂停（OS kswapd 式分级回收）
 import { isMemoryUnderPressure } from '@modules/monitoring'; // R03-002：改走模块出口
 import {
-  startCompileProgress,
-  updateCompileProgress,
-  finishCompileProgress,
+  beginCompileSession,
+  setSessionTotal,
+  enterPhase,
+  updatePhaseDetail,
+  completePhase,
+  skipPhase,
+  markTriggered,
+  finishCompileSession,
   abortCompileProgress,
+  flushPhaseBroadcast,
 } from './CompileProgressTracker';
 
 const logger = new OTelAwareLogger({
@@ -89,7 +95,7 @@ interface CompileState {
 /** 可编译的文件扩展名（不含 .meta.json 伴侣文件）
  * K1（知识库优化）：加入 PDF/DOCX/XLSX——文档类在 compileFile 入口经 extractor 抽取
  * 文本层后进入既有 LLM 编译管线（见 TextExtractor.DOCUMENT_EXTRACT_EXTS）。 */
-const COMPILABLE_EXTENSIONS = new Set([
+export const COMPILABLE_EXTENSIONS = new Set([
   '.txt',
   '.md',
   '.json',
@@ -122,6 +128,18 @@ export interface CompileOptions {
   lint?: boolean;
   /** 编译时使用的模型名，默认使用 aiService 的默认模型 */
   model?: string;
+  /**
+   * 指定文档编译（2026-09-11）：仅编译这些 raw 文件（按**文件名**匹配，如 `foo.md`）。
+   * 未设/为空 = 全量编译。目标文件视为强制重编（绕过 needsRecompile 跳过）。
+   */
+  onlyFiles?: string[];
+  /**
+   * D6-3：本次编译使用的**域**（默认 `knowledge`）
+   *
+   * 域决定"用哪份本体约束抽取/记录"：`domains/{domain}/.schema/` 优先，缺省回落全局 `.schema/`。
+   * 不传 = 与改造前完全一致（零行为变更）。
+   */
+  domain?: string;
 }
 
 export interface CompileResult {
@@ -137,7 +155,7 @@ export interface CompileResult {
   compiledRaws: string[];
   /** 编译轮次版本（K5.3，血缘/快照绑定） */
   version?: number;
-  /** 编译质量信息（v1.5 新增） */
+  /** 编译质量信息（v1.5 新增；方案 B 批次 0 起由 lint 结果回填） */
   quality?: {
     /** 0-100，基于 lint 问题数计算 */
     lintScore: number;
@@ -146,6 +164,38 @@ export interface CompileResult {
     /** 编译失败次数（用于回滚阈值判断） */
     consecutiveFails: number;
   };
+  /** 全局互斥命中标记（方案 B v7 §3.4）：true 表示本次未真正执行 */
+  busy?: boolean;
+}
+
+/** 互斥命中时返回的空结果（非 mock 数据：真实表达"本次没有编译任何文件"） */
+const EMPTY_COMPILE_RESULT: CompileResult = {
+  compiled: 0,
+  skipped: 0,
+  errors: [],
+  totalFound: 0,
+  pagesCreated: 0,
+  compiledFiles: [],
+  compiledRaws: [],
+};
+
+// ── 全局互斥（方案 B v7 §3.4）──────────────────────────────────────
+// 单例 CompileProgressTracker 要求全局唯一编译会话。此前 4 个触发源
+// （HTTP 手动 / 调度器 / 梦境 / Chronos 维护）之间无互斥，并发会互相覆盖进度。
+// check → acquire 之间无 await，故布尔锁在 JS 单线程语义下安全。
+let compileRunning = false;
+
+/** 是否有编译任务正在运行（供 HTTP handler 同步判锁，G6） */
+export function isCompileRunning(): boolean {
+  return compileRunning;
+}
+
+function acquireCompileLock(): void {
+  compileRunning = true;
+}
+
+function releaseCompileLock(): void {
+  compileRunning = false;
 }
 
 /**
@@ -175,19 +225,28 @@ export class KnowledgeCompiler {
   private maxTokensCache = new TTLCache<number>(100, 5 * 60 * 1000);
   /** K5 血缘：可选注入的 LineageStore（记录 doc→page 血缘） */
   private lineage?: LineageStore;
+  /**
+   * D6-2：本次编译使用的域（**默认 `knowledge`**，可由 `runtime.domain` 传入）
+   *
+   * 域决定"用哪份本体约束抽取"：`KnowledgeGraph`/`GraphExtractor` 按域加载
+   * `domains/{domain}/.schema/`，该域无声明时回落全局 `.schema/`。
+   * 不传域时行为与改造前完全一致（零行为变更）。
+   */
+  private compileDomain: string;
   /** K5.3 本次编译版本（runner 注入） */
   private compileVersion = 1;
 
   constructor(
     aiService: AIService,
     graphExtractor?: GraphExtractor,
-    runtime?: { lineage?: LineageStore; version?: number }
+    runtime?: { lineage?: LineageStore; version?: number; domain?: string }
   ) {
     this.knowledgeRoot = join(resolvePyappHome(), 'knowledge');
     this.rawDir = join(this.knowledgeRoot, 'raw');
     this.aiService = aiService;
     this.graphExtractor = graphExtractor;
     this.lineage = runtime?.lineage;
+    this.compileDomain = runtime?.domain?.trim() || 'knowledge';
     this.compileVersion = runtime?.version ?? 1;
     this.indexManager = new IndexManager(this.knowledgeRoot);
   }
@@ -230,8 +289,34 @@ export class KnowledgeCompiler {
 
     if (rawFiles.length === 0) return result;
 
-    // W9: 开始编译进度追踪
-    startCompileProgress(rawFiles.length);
+    // 指定文档编译（2026-09-11）：onlyFiles **只裁剪主循环目标**。
+    // 全量 `rawFiles` 仍必须用于「清理孤儿产物」与「快照基底」——
+    // 否则未参与本次编译的文件会被误判为已删除：① 产物被清除 ② 快照状态被覆盖
+    // （两处都是数据破坏，故此处刻意区分 rawFiles / targets）。
+    const onlySet =
+      options.onlyFiles && options.onlyFiles.length > 0
+        ? new Set(options.onlyFiles.map((f) => basename(f)))
+        : null;
+    const targets = onlySet
+      ? rawFiles.filter((f) => onlySet.has(basename(f)))
+      : rawFiles;
+    const isPartial = onlySet !== null;
+
+    if (isPartial && targets.length === 0) {
+      const msg = `指定文档未在 raw 目录中找到：${options.onlyFiles?.join(', ')}`;
+      logger.warn('指定文档编译跳过（无匹配文件）', {
+        onlyFiles: options.onlyFiles,
+      });
+      result.errors.push(msg);
+      return result;
+    }
+
+    // 方案 B v7（A1/B4 + C15）：会话起点钉在空库早退之后 —— 空库不产生会话，无需 skipPhase 防御。
+    // `scanning` 为瞬时阶段（collectRawFiles 已在会话开始前执行完毕，如实反映其耗时 ~0）
+    beginCompileSession();
+    enterPhase('scanning');
+    setSessionTotal(targets.length);
+    completePhase();
 
     // 加载编译状态快照，用于跳过无变更文件
     const compileState = await this.loadCompileState();
@@ -241,7 +326,9 @@ export class KnowledgeCompiler {
     const newState: CompileState = {
       lastCompileAt: Date.now(),
       lastVersion: version,
-      docs: {},
+      // 指定文档编译：以旧快照为基底，只覆盖参与本次编译的文件；
+      // 否则快照只剩目标文件，下次全量编译会把其余文件全部视为未编译 → 全量重编
+      docs: isPartial ? { ...(compileState?.docs ?? {}) } : {},
     };
     // K5.1：raw 内容指纹缓存（同一次编译内每个文件至多读一次）
     const digestCache = new Map<string, string>();
@@ -255,6 +342,7 @@ export class KnowledgeCompiler {
     };
 
     // 清理已删除 raw 文件的编译产物
+    enterPhase('cleaning');
     const cleanedCount = await this.cleanupDeletedRawFiles(
       new Set(rawFiles),
       compileState
@@ -262,6 +350,7 @@ export class KnowledgeCompiler {
     if (cleanedCount > 0) {
       logger.info('已清理已删除 raw 文件的编译产物', { cleanedCount });
     }
+    completePhase();
 
     // 检查是否有可用 Provider：options.model 显式指定时不检查
     if (!resolvedModel && providerRegistry.size === 0) {
@@ -273,13 +362,17 @@ export class KnowledgeCompiler {
       return result;
     }
 
-    for (const rawFile of rawFiles) {
+    // 指定文档编译：目标文件视为强制（否则未变更的文件会被 needsRecompile 直接跳过 → 点了没反应）
+    const effectiveForce = force === true || isPartial;
+    enterPhase('compiling', { current: 0, total: targets.length });
+    for (const rawFile of targets) {
       try {
-        let needsCompile = force || (await this.needsRecompile(rawFile));
+        let needsCompile =
+          effectiveForce || (await this.needsRecompile(rawFile));
 
         // 增量优化：通过编译状态快照跳过 mtime 未变更的文件；
         // K5.1：mtime 一致时再比对内容指纹，内容变但 mtime 未变也触发重编译
-        if (!force && !needsCompile) {
+        if (!effectiveForce && !needsCompile) {
           const rawStat = await stat(rawFile);
           const prevState = compileState?.docs[rawFile];
           if (prevState && prevState.mtime === rawStat.mtimeMs) {
@@ -289,7 +382,10 @@ export class KnowledgeCompiler {
                 // 指纹一致 → 内容未变，安全跳过
                 result.skipped++;
                 newState.docs[rawFile] = prevState;
-                updateCompileProgress(result.compiled + result.skipped);
+                updatePhaseDetail(
+                  result.compiled + result.skipped,
+                  rawFiles.length
+                );
                 continue;
               }
               // 指纹不同但 mtime 相同 → 内容被改写（如 touch 保留 mtime），强制编译
@@ -301,7 +397,10 @@ export class KnowledgeCompiler {
               // 旧快照无 digest（迁移期）→ 维持原跳过行为，新编译后自动补指纹
               result.skipped++;
               newState.docs[rawFile] = prevState;
-              updateCompileProgress(result.compiled + result.skipped);
+              updatePhaseDetail(
+                result.compiled + result.skipped,
+                rawFiles.length
+              );
               continue;
             }
           } else {
@@ -325,7 +424,7 @@ export class KnowledgeCompiler {
             // stat 失败忽略
           }
           result.skipped++;
-          updateCompileProgress(result.compiled + result.skipped);
+          updatePhaseDetail(result.compiled + result.skipped, targets.length);
           continue;
         }
 
@@ -358,7 +457,10 @@ export class KnowledgeCompiler {
                 artifactType: 'page' as const,
                 artifactId: p,
               })),
-              version
+              version,
+              // D6-5：血缘按本次编译的域落库（此前恒为 LineageStore 默认 knowledge，
+              // 导致"边标 alpha、血缘标 knowledge"的域语义分裂）
+              this.compileDomain
             );
           } catch (lineageErr) {
             // 血缘写入失败不影响编译主流程
@@ -369,13 +471,13 @@ export class KnowledgeCompiler {
           }
         }
 
-        updateCompileProgress(result.compiled + result.skipped);
+        updatePhaseDetail(result.compiled + result.skipped, targets.length);
         logger.info('文件编译完成', { file: rawFile, pages: pages.length });
       } catch (error) {
         const errMsg = error instanceof Error ? error.message : String(error);
         result.errors.push(`${rawFile}: ${errMsg}`);
         result.skipped++;
-        updateCompileProgress(result.compiled + result.skipped, errMsg);
+        updatePhaseDetail(result.compiled + result.skipped, targets.length);
         logger.error('文件编译失败', { file: rawFile, error: errMsg });
       }
     }
@@ -383,41 +485,38 @@ export class KnowledgeCompiler {
     // 返回本轮编译版本（K5.3：runner/检索/审计标注用）
     result.version = version;
 
-    // W9: 编译完成（KB-COMPILE-ASYNC：携带结果摘要，供前端进度轮询展示）
-    finishCompileProgress({
-      compiled: result.compiled,
-      skipped: result.skipped,
-      errors: result.errors.length,
-    });
-
     // 持久化编译状态快照
     await this.saveCompileState(newState);
 
+    // B6：compiling 阶段收口（含尾部落盘）。finish 的宣告权已上移到
+    // runKnowledgeCompile 的 finally（方案 B v7 D1）
+    completePhase();
+
     // many-to-many: 全部编译完成后更新索引
+    // G28：updateIndexMd 必须留在原位 —— WikiLinter 的孤儿页检查读 index.md
+    // （lint/WikiLinter.ts:98），后移会让本次新编译页全被判为"孤儿页"。
+    // appendLog + publish 已上移到 runKnowledgeCompile 的 indexing 阶段（D2b）。
     if (result.pagesCreated > 0) {
       await this.indexManager.updateIndexMd();
-      await this.indexManager.appendLog({
-        timestamp: Date.now(),
-        action: 'compile',
-        source: 'KnowledgeCompiler',
-        pages: [],
-        detail: `many-to-many 编译: ${result.compiled} 个源文件 → ${result.pagesCreated} 个页面`,
-      });
-      // 发布知识变更事件，触发 KnowledgeRouter 倒排索引全量重建，
-      // 使编译入库的新文档可被搜索立即命中（而非等待下次重启）
-      globalEventBus.publish('knowledge:changed', {
-        action: 'updated',
-        filePath: this.knowledgeRoot,
-      });
     }
 
     // 编译后自动运行 lint 检查
+    // G20：门控是复合条件，enterPhase / completePhase / skipPhase 必须挂在同一个 if 块上，
+    // 否则 shouldLint=true 但 pagesCreated=0 时会出现"enter 了却不 complete" → linting 卡 running
     const shouldLint = options.lint !== false;
     if (shouldLint && result.pagesCreated > 0) {
+      enterPhase('linting');
       try {
         const linter = new WikiLinter(defaultRules);
         const lintReport = await linter.run(this.knowledgeRoot);
         const { error, warning } = lintReport.summary;
+        // K6（方案 B 批次 0）：回填编译质量分，供前端"加工流水线"页展示
+        // consecutiveFails 需要持久化快照字段支撑，暂固定 0
+        result.quality = {
+          lintScore: Math.max(0, 100 - error * 10 - warning * 2),
+          hasWarnings: error > 0 || warning > 0,
+          consecutiveFails: 0,
+        };
         if (error > 0 || warning > 0) {
           logger.warn(`编译后 lint 发现 ${error} 个错误, ${warning} 个警告`, {
             lintSummary: lintReport.summary,
@@ -439,6 +538,9 @@ export class KnowledgeCompiler {
           action: 'post_lint',
         });
       }
+      completePhase();
+    } else {
+      skipPhase('linting', 'gated');
     }
 
     // LLM 图谱自动提取（编译后）
@@ -447,8 +549,9 @@ export class KnowledgeCompiler {
     if (this.graphExtractor && result.totalFound > 0) {
       const incremental = result.pagesCreated > 0;
       try {
-        const hasKnowledgeEdges =
-          await this.graphExtractor.hasDomainEdges('knowledge');
+        const hasKnowledgeEdges = await this.graphExtractor.hasDomainEdges(
+          this.compileDomain
+        );
         if (incremental || !hasKnowledgeEdges) {
           const pagesToExtract = incremental
             ? (result.compiledFiles ?? [])
@@ -458,6 +561,8 @@ export class KnowledgeCompiler {
               logger.warn('图谱自动提取跳过：上一次提取仍在进行', {
                 pages: pagesToExtract.length,
               });
+              // G3/A5d：必须先 settle 再 return，否则 graph_extract 永久停在 pending
+              skipPhase('graph_extract', 'busy');
               return result;
             }
             // 内存压力（L1+）下暂停非关键后台提取（OS kswapd 式：压力期让位主任务）
@@ -465,6 +570,8 @@ export class KnowledgeCompiler {
               logger.warn('图谱自动提取跳过：内存水位压力中（后台任务让位）', {
                 pages: pagesToExtract.length,
               });
+              // G3/A5e：先 settle 再 return
+              skipPhase('graph_extract', 'memory');
               return result;
             }
             this.graphExtractRunning = true;
@@ -479,6 +586,11 @@ export class KnowledgeCompiler {
                 0,
                 KnowledgeCompiler.GRAPH_EXTRACT_MAX_PAGES
               );
+              // A5f：enterPhase 必须放在 limited 计算之后（total 才有真实值）
+              enterPhase('graph_extract', {
+                current: 0,
+                total: limited.length,
+              });
               if (limited.length < pagesToExtract.length) {
                 logger.warn('图谱自动提取页数超上限，截断', {
                   total: pagesToExtract.length,
@@ -486,7 +598,9 @@ export class KnowledgeCompiler {
                 });
               }
               // 对页面进行图谱提取
-              for (const compiledFile of limited) {
+              for (let gi = 0; gi < limited.length; gi++) {
+                const compiledFile = limited[gi];
+                updatePhaseDetail(gi + 1, limited.length);
                 try {
                   // 节流：超大页跳过（提取 prompt 仅用前 8000 字符，
                   // 全量读入巨页只会造成内存尖峰，与用户 agentic 任务竞争）
@@ -501,7 +615,7 @@ export class KnowledgeCompiler {
                   const content = await readFile(compiledFile, 'utf-8');
                   const extracted = await this.graphExtractor!.extract(
                     content,
-                    'knowledge'
+                    this.compileDomain
                   );
                   // R6：图谱 node 级血缘（doc=编译页；from/to 节点挂血缘）
                   if (
@@ -522,7 +636,9 @@ export class KnowledgeCompiler {
                           artifactType: 'node',
                           artifactId: id,
                         })),
-                        this.compileVersion
+                        this.compileVersion,
+                        // D6-5：node 血缘同样按本次编译的域落库
+                        this.compileDomain
                       );
                     } catch (lineageErr) {
                       logger.warning('node 血缘写入失败', {
@@ -537,15 +653,28 @@ export class KnowledgeCompiler {
               }
             } finally {
               this.graphExtractRunning = false;
+              // B8：graph 阶段收口
+              completePhase();
             }
+          } else {
+            // A5c/G19：进入 447 但集合为空 —— 必须 settle，否则停在 pending
+            skipPhase('graph_extract', 'empty');
           }
+        } else {
+          // A5b/G19：无新页面且已有图谱数据
+          skipPhase('graph_extract', 'gated');
         }
       } catch (err) {
         void handleError(err, {
           module: 'knowledge:compiler',
           action: 'graph_extract',
         });
+        // B9：异常也要 settle，避免停在 running
+        skipPhase('graph_extract', 'gated');
       }
+    } else {
+      // A5a/G19：未配置 graphExtractor 或无 raw 文件
+      skipPhase('graph_extract', 'gated');
     }
 
     logger.info(
@@ -555,6 +684,21 @@ export class KnowledgeCompiler {
     );
 
     return result;
+  }
+
+  /**
+   * 收尾落账：仅追加 log.md
+   * G28：updateIndexMd 必须留在 compile() 内、lint 之前（WikiLinter 依赖 index.md），不可迁出；
+   *      此处只做 appendLog，由 runKnowledgeCompile 在 indexing 阶段调用（D2b）。
+   */
+  async appendCompileLog(result: CompileResult): Promise<void> {
+    await this.indexManager.appendLog({
+      timestamp: Date.now(),
+      action: 'compile',
+      source: 'KnowledgeCompiler',
+      pages: [],
+      detail: `many-to-many 编译: ${result.compiled} 个源文件 → ${result.pagesCreated} 个页面`,
+    });
   }
 
   /**
@@ -1125,36 +1269,55 @@ export async function runKnowledgeCompile(
   aiService: AIService,
   options?: CompileOptions
 ): Promise<CompileResult> {
-  const graph = new KnowledgeGraph();
-  await graph.init();
+  // ── 全局互斥（v7 §3.4）──
+  if (isCompileRunning()) {
+    logger.warn('已有编译任务在运行，本次触发跳过');
+    return { ...EMPTY_COMPILE_RESULT, busy: true };
+  }
+  acquireCompileLock();
 
-  const schemaLoader = new SchemaLoader();
-  const schemaDir = schemaLoader.getSchemaDir();
-  const hasGraphSchema =
-    existsSync(join(schemaDir, 'entities.yaml')) ||
-    existsSync(join(schemaDir, 'edges.yaml'));
-  const graphSchemas = hasGraphSchema
-    ? await schemaLoader.loadAll()
-    : undefined;
-
-  // K5 血缘：编译页与 record/rule 产物共用一条 LineageStore
-  const lineage = new LineageStore();
-  await lineage.init();
-
-  const graphExtractor = new GraphExtractor(aiService, graph, graphSchemas);
-  const compiler = new KnowledgeCompiler(aiService, graphExtractor, {
-    lineage,
-  });
-  const result = await compiler.compile(options);
-  const compiledPages = result.compiledFiles ?? [];
-  const compileVersion = result.version ?? 1;
+  // G25：acquire 之后**立即**进入 try —— 初始化区任一抛错都必须走到 finally 释放锁，
+  //      否则锁永久泄漏，此后所有编译都返回 busy。
+  // G27：lineage 必须在 try 外声明（TDZ），finally 里才能安全求值。
+  let result: CompileResult | null = null;
+  let lineage: LineageStore | null = null;
+  let aborted = false;
 
   try {
+    // D6-3：域由调用方传入（缺省 knowledge → 与既有行为一致）
+    const graph = new KnowledgeGraph(undefined, options?.domain);
+    await graph.init();
+
+    // D7-6：图 schema 收口到 graph 实例（单一事实来源：域优先/全局兜底、只读不写盘）
+    // —— 不再在此 loadAll()：那会触发 ensureDefaults 写盘，且与实例内判定可能不一致
+    const schemaLoader = new SchemaLoader(undefined, options?.domain);
+    await graph.initSchema();
+
+    // K5 血缘：编译页与 record/rule 产物共用一条 LineageStore
+    lineage = new LineageStore();
+    await lineage.init();
+
+    const graphExtractor = new GraphExtractor(
+      aiService,
+      graph,
+      graph.getGraphSchema()
+    );
+    const compiler = new KnowledgeCompiler(aiService, graphExtractor, {
+      lineage,
+      domain: options?.domain,
+    });
+    result = await compiler.compile(options);
+    const compiledPages = result.compiledFiles ?? [];
+    const compileVersion = result.version ?? 1;
     // K2 字段级记录：仅本次有新编译页面且声明了 records.yaml 时执行
     if (result.pagesCreated > 0) {
       try {
         const recordSchemas = await schemaLoader.loadRecords();
         if (recordSchemas.size > 0 && compiledPages.length > 0) {
+          enterPhase('record_extract', {
+            current: 0,
+            total: compiledPages.length,
+          });
           const store = new RecordStore();
           try {
             await extractRecordsFromCompiledPages(
@@ -1170,19 +1333,27 @@ export async function runKnowledgeCompile(
               await lineage.addLinks(
                 page,
                 rows.map((r) => ({ artifactType: 'record', artifactId: r.id })),
-                compileVersion
+                compileVersion,
+                // D6-5：域自编译入口透传（undefined → LineageStore 默认 knowledge）
+                options?.domain
               );
             }
           } finally {
+            completePhase();
             await store.close();
           }
+        } else {
+          skipPhase('record_extract', 'gated');
         }
       } catch (err) {
+        skipPhase('record_extract', 'gated'); // 兜底：enter 后抛错时避免残留 running
         await handleError(err, {
           module: 'knowledge:compiler',
           action: 'record_extract',
         });
       }
+    } else {
+      skipPhase('record_extract', 'gated');
     }
 
     // K3 规则类知识抽取：仅本次有新编译页面且声明了 rules.yaml 时执行
@@ -1190,6 +1361,10 @@ export async function runKnowledgeCompile(
       try {
         const ruleSchemas = await schemaLoader.loadRules();
         if (ruleSchemas.size > 0 && compiledPages.length > 0) {
+          enterPhase('rule_extract', {
+            current: 0,
+            total: compiledPages.length,
+          });
           const ruleStore = new RuleStore();
           try {
             await extractRulesFromCompiledPages(
@@ -1205,7 +1380,9 @@ export async function runKnowledgeCompile(
               await lineage.addLinks(
                 page,
                 rows.map((r) => ({ artifactType: 'rule', artifactId: r.id })),
-                compileVersion
+                compileVersion,
+                // D6-5：域自编译入口透传（undefined → LineageStore 默认 knowledge）
+                options?.domain
               );
             }
             // R3：跨批全表 conflictOf 扫描（对全部已落库规则做配对 lint，warning 不阻断）
@@ -1232,15 +1409,21 @@ export async function runKnowledgeCompile(
               });
             }
           } finally {
+            completePhase();
             await ruleStore.close();
           }
+        } else {
+          skipPhase('rule_extract', 'gated');
         }
       } catch (err) {
+        skipPhase('rule_extract', 'gated'); // 兜底
         await handleError(err, {
           module: 'knowledge:compiler',
           action: 'rule_extract',
         });
       }
+    } else {
+      skipPhase('rule_extract', 'gated');
     }
 
     // R4 原文分块页码索引：对本次实际产出页面的文档类 raw（PDF/XLSX 等）
@@ -1253,27 +1436,90 @@ export async function runKnowledgeCompile(
         const locatorExts = new Set(['.pdf', '.xlsx', '.xls']);
         const raws = [...new Set(result.compiledRaws)];
         let docsWithChunks = 0;
-        for (const raw of raws) {
+        enterPhase('chunk_refresh', { current: 0, total: raws.length });
+        for (let ri = 0; ri < raws.length; ri++) {
+          const raw = raws[ri];
           const dot = raw.lastIndexOf('.');
           const ext = dot >= 0 ? raw.slice(dot).toLowerCase() : '';
-          if (!locatorExts.has(ext)) continue;
-          const n = await refreshSourceChunksForRaw(raw);
-          if (n > 0) docsWithChunks++;
+          if (locatorExts.has(ext)) {
+            const n = await refreshSourceChunksForRaw(raw);
+            if (n > 0) docsWithChunks++;
+          }
+          updatePhaseDetail(ri + 1, raws.length);
         }
         logger.info('R4 原文分块刷新完成', {
           compiledRaws: raws.length,
           docsWithChunks,
         });
+        completePhase();
       } catch (err) {
+        skipPhase('chunk_refresh', 'gated'); // 兜底
         await handleError(err, {
           module: 'knowledge:compiler',
           action: 'source_chunk_refresh',
         });
       }
+    } else {
+      skipPhase('chunk_refresh', 'gated');
     }
+
+    // A9 indexing（G15 + G28）：appendLog + publish 作为**最后一个阶段**。
+    // 注意 updateIndexMd 不在此处 —— G28：它必须留在 compile() 内、lint 之前。
+    if (result.pagesCreated > 0) {
+      enterPhase('indexing');
+      await compiler.appendCompileLog(result);
+      // EISDIR 根因修复（2026-09-11）：历史上这里传的是知识库**根目录**
+      // （this.knowledgeRoot），而 SemanticIndexUpdater 会对 filePath 直接
+      // readFile(目录) → EISDIR 被 handleError 静默吞掉 → 语义索引从未更新。
+      // 改为传本次编译产出的**具体页面路径**（批量载荷：单次 publish，
+      // 不放大重建——KnowledgeRouter / init.ts 只依赖 action 做去抖全量重建）。
+      globalEventBus.publish('knowledge:changed', {
+        action: 'updated',
+        filePaths: result.compiledFiles,
+      });
+      markTriggered('indexing'); // G16：独立终态，不被 finish 折叠
+    } else {
+      skipPhase('indexing', 'gated');
+    }
+  } catch (err) {
+    aborted = true;
+    abortCompileProgress(err instanceof Error ? err.message : String(err));
+    await handleError(err, {
+      module: 'knowledge:compiler',
+      action: 'compile_session',
+    });
+    throw err;
   } finally {
-    await lineage.close();
+    try {
+      flushPhaseBroadcast();
+      if (!aborted) {
+        finishCompileSession(
+          result
+            ? {
+                compiled: result.compiled,
+                skipped: result.skipped,
+                errors: result.errors.length,
+                // 可观测性：带上前若干条错误文本，前端可直接展示失败原因
+                errorSamples: result.errors.slice(0, 5),
+              }
+            : undefined
+        );
+      }
+    } catch (err) {
+      void handleError(err, {
+        module: 'knowledge:compiler',
+        action: 'session_finalize',
+      });
+    } finally {
+      // G8：锁释放在最内层 finally，保证"前面任一步抛错"也一定执行
+      releaseCompileLock();
+      // G27：lineage 可能仍是 null（graph.init/loadAll 阶段抛错时）
+      await lineage?.close().catch(() => {
+        /* 关闭失败不影响会话收尾 */
+      });
+    }
   }
 
-  return result;
+  // 走到这里 result 必定已赋值（异常路径已在 catch 中 rethrow）
+  return result!;
 }

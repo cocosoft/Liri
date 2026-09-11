@@ -41,12 +41,21 @@ import MarkdownRenderer from "../ChatArea/MarkdownRenderer";
 import { useSessionContextSync } from "../../hooks/useSessionContextSync";
 import { FAQPage } from "../Knowledge/FAQ/FAQPage";
 import { GraphPage } from "../Knowledge/Graph/GraphPage";
+import { OntologyPage } from "../Knowledge/Schema/OntologyPage";
 import { DataSourcePage } from "../Knowledge/DataSource/DataSourcePage";
 import { KnowledgeSettingsPanel } from "../Knowledge/Settings/KnowledgeSettingsPanel";
+import { KnowledgePipelinePage } from "../Knowledge/Pipeline/KnowledgePipelinePage";
 
 /** P1-1: 二级导航页内 Tab key（activeTab 由 URL query ?tab= 驱动） */
 type KnowledgeTabKey =
-  "knowledge" | "semantic" | "faq" | "graph" | "config" | "datasources";
+  | "knowledge"
+  | "pipeline"
+  | "semantic"
+  | "faq"
+  | "ontology"
+  | "graph"
+  | "config"
+  | "datasources";
 
 function KnowledgePageSkeleton() {
   return (
@@ -386,8 +395,10 @@ function KnowledgePage() {
   // KB-P3：非法 ?tab= 参数校验，回退到 knowledge，避免整页空白无回退
   const TAB_KEYS: KnowledgeTabKey[] = [
     "knowledge",
+    "pipeline",
     "semantic",
     "faq",
+    "ontology",
     "graph",
     "config",
     "datasources",
@@ -660,8 +671,10 @@ function KnowledgePage() {
 
   const tabs: { key: KnowledgeTabKey; label: string }[] = [
     { key: "knowledge", label: "知识库" },
+    { key: "pipeline", label: "加工流水线" },
     { key: "semantic", label: "语义索引" },
     { key: "faq", label: "FAQ" },
+    { key: "ontology", label: "本体" },
     { key: "graph", label: "知识图谱" },
     { key: "config", label: "知识库设置" },
     { key: "datasources", label: "数据源" },
@@ -1198,6 +1211,16 @@ function KnowledgePage() {
           </div>
         </div>
 
+        {/* ── 加工流水线 Tab（方案 B v7，D-p1：置于知识库之后） ── */}
+        <div
+          style={{ display: activeTab === "pipeline" ? "flex" : "none" }}
+          className="flex-1 overflow-hidden"
+        >
+          <div className="flex-1 overflow-y-auto">
+            <KnowledgePipelinePage active={activeTab === "pipeline"} />
+          </div>
+        </div>
+
         {/* ── 语义索引 Tab ── */}
         <div
           style={{ display: activeTab === "semantic" ? "flex" : "none" }}
@@ -1216,6 +1239,14 @@ function KnowledgePage() {
           <div className="flex-1 overflow-y-auto">
             <FAQPage base={selectedBase ?? ""} isDark={isDark} />
           </div>
+        </div>
+
+        {/* ── 本体 Tab（置于知识图谱之前：先声明约束，再看图数据） ── */}
+        <div
+          style={{ display: activeTab === "ontology" ? "flex" : "none" }}
+          className="flex-1 overflow-hidden"
+        >
+          <OntologyPage active={activeTab === "ontology"} />
         </div>
 
         {/* ── 知识图谱 Tab（P1-1 页内化） ── */}

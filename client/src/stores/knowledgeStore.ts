@@ -84,6 +84,13 @@ export interface KnowledgeListState {
   compileStatus: ListCompileStatus;
   compileProgress: number;
   compileMessage: string;
+  /**
+   * D6-5：编译**目标域**（决定用哪个域的本体约束抽取、产物归属哪个域）
+   *
+   * 单一事实来源：加工流水线页选择、知识库页与待编译面板的编译入口共用同一值，
+   * 避免"一个入口写 alpha、另一个写 knowledge"。
+   */
+  compileDomain: string;
   searchTags: string[];
   /** P2#9：base 级分类/来源全量清单（跨分页，来自列表接口） */
   categoryNames: string[];
@@ -131,6 +138,8 @@ export type KnowledgeListAction =
     }
   | { type: "SET_COMPILE_PROGRESS"; progress: number }
   | { type: "SET_COMPILE_MESSAGE"; message: string }
+  /** D6-5：设置编译目标域（空串按默认域处理） */
+  | { type: "SET_COMPILE_DOMAIN"; domain: string }
   | { type: "CLEAR_COMPILE" }
   | { type: "SET_SEARCH_TAGS"; tags: string[] }
   | { type: "SET_PAGE"; page: number }
@@ -165,6 +174,8 @@ export function createInitialListState(): KnowledgeListState {
     compileStatus: "idle",
     compileProgress: 0,
     compileMessage: "",
+    // D6-5：默认域（与后端回落值一致）
+    compileDomain: "knowledge",
     searchTags: [],
     categoryNames: [],
     sourceNames: [],
@@ -286,6 +297,12 @@ function applyListAction(
       return { list: { ...list, compileProgress: action.progress }, search };
     case "SET_COMPILE_MESSAGE":
       return { list: { ...list, compileMessage: action.message }, search };
+    case "SET_COMPILE_DOMAIN":
+      // D6-5：空串不落库（避免下游把 "" 当域传给后端）
+      return {
+        list: { ...list, compileDomain: action.domain.trim() || "knowledge" },
+        search,
+      };
     case "CLEAR_COMPILE":
       return {
         list: {

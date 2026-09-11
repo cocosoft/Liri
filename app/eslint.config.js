@@ -124,6 +124,7 @@ export default [
       'src/chronos/cli/**/*.ts',
       'src/hooks/cli/**/*.ts',
       'src/skills/cli/**/*.ts',
+      'src/knowledge/cli/**/*.ts',
       'src/plugins/cli/**/*.ts',
       'src/bridge/cli/**/*.ts',
       'src/memory/cli/**/*.ts',

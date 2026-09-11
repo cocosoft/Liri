@@ -1,8 +1,9 @@
 /**
  * 巨型文件检查器 (File Size Linter)
  *
- * 在 CI 中运行：bun run scripts/lint-file-size.ts
- * 检查项目中的巨型文件（>500 行警告，>1000 行错误）。
+ * 在 CI 中运行：bun run scripts/lint-file-size.ts（工作目录 = 仓库根）
+ * 本地也可从 app/ 运行：cd app; bun run lint:size（由 PYAPP_PROJECT_DIR 指定仓库根）
+ * 检查项目中的巨型文件（>500 行警告，>800 行错误）。
  *
  * 对应 .trae/rules/project_rules.md §6 优化项 E：巨型文件拆分。
  */
@@ -93,7 +94,11 @@ function countLines(filePath: string): number {
 // ============ 主流程 ============
 
 async function main(): Promise<void> {
-    const rootDir = process.cwd();
+    // 根目录解析：优先 PYAPP_PROJECT_DIR（与 lint-architecture.ts 同源），否则用 cwd。
+    // 修复（O19）：此前写死 `process.cwd()`，而 app/package.json 的 lint:size 从 app/ 目录
+    // 调用 → 去找 `app/app/src`、三个目录全不存在 → 逐个"跳过"后报"未发现巨型文件"并 exit 0，
+    // 门禁长期空转（假绿）。
+    const rootDir = process.env.PYAPP_PROJECT_DIR || process.cwd();
     const fileSizeExceptions = loadFileSizeExceptions();
     const srcDirs = [
         join(rootDir, 'app', 'src'),
@@ -103,15 +108,18 @@ async function main(): Promise<void> {
 
     console.log('=== 巨型文件检查器 ===');
     console.log(`规则: >${WARN_LINES} 行 = 警告, >${ERROR_LINES} 行 = 错误`);
+    console.log(`项目根目录: ${rootDir}`);
     console.log();
 
     const allResults: FileSizeResult[] = [];
+    let checkedDirCount = 0;
 
     for (const srcDir of srcDirs) {
         if (!existsSync(srcDir)) {
             console.log(`跳过不存在的目录: ${relative(rootDir, srcDir)}`);
             continue;
         }
+        checkedDirCount++;
 
         const files = collectFiles(srcDir);
         console.log(`检查目录: ${relative(rootDir, srcDir)} (${files.length} 个文件)`);
@@ -137,6 +145,17 @@ async function main(): Promise<void> {
                 });
             }
         }
+    }
+
+    // 空转守卫（O19 根因）：一个目录都没检查到 → 必须失败，绝不报"未发现巨型文件"。
+    // 这是"门禁假绿"的一半：只看结果不看覆盖范围，路径解析错了也会 exit 0。
+    if (checkedDirCount === 0) {
+        console.error(
+            `未找到任何待检查目录（项目根目录 = ${rootDir}）：` +
+                srcDirs.map((d) => relative(rootDir, d)).join(' / ')
+        );
+        console.error('请在仓库根运行，或设置 PYAPP_PROJECT_DIR 指向仓库根。');
+        process.exit(2);
     }
 
     // 按行数降序排列

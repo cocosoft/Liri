@@ -790,53 +790,94 @@ async function startDeferredPrefetches(): Promise<void> {
         }
       })(),
 
-      // 初始化知识图谱孤儿边自动清理
+      // 知识图谱孤儿边**精确**清理（C6/O1 根因修复，2026-09-11 / B5）
+      // 历史缺陷（B0-① 已止血，此处为根因方案）：旧实现用知识库「文档标题」构造
+      // validEntityIds（形如 my_page），而图中端点 ID 是另一套命名（当时为
+      // {domain}:{kind}:{slug}，O15-B 后统一为裸 slug），
+      // 两者几乎无交集；而其 SQL 是 `from_id NOT IN (...) OR to_id NOT IN (...)` ——
+      // 任意一次删除事件都会把绝大多数边判为孤儿并删除（O1）。
+      // 现改为 lineage **精确判定**：只清理"被删文档产出、且已无其它文档支撑"的节点
+      // 所关联的边，并跳过 attributes.source='manual' 的人工边（保护人工修改）。
+      // ⚠️ 已知边界：lineage 的 doc_path 记录的是**编译页路径**，若删除的是 raw 文档
+      //   （路径对不上）则本逻辑为 no-op（不会误删，但也不会清理）——待 B5 后续把
+      //   raw→compiled 映射纳入血缘（与 D4 存量来源标注一并处理）。
       (async () => {
         try {
-          // 延迟获取 KnowledgeRouter 中的 KnowledgeGraph（异步初始化可能尚未完成）
-          const { knowledgeRouter: kr } =
-            await import('@modules/knowledge/KnowledgeRouter.js');
-          const graph = kr['knowledgeGraph'] as
-            | import('@modules/knowledge/graph/KnowledgeGraph').KnowledgeGraph
-            | undefined;
+          const { LineageStore } =
+            await import('@modules/knowledge/lineage/LineageStore');
+          const { KnowledgeGraph } =
+            await import('@modules/knowledge/graph/KnowledgeGraph');
+          const { resolveDbPath } = await import('@modules/core/paths.js');
 
-          if (!graph) {
-            logger.info('KnowledgeGraph 未可用，跳过孤儿边清理注册');
-            return;
-          }
+          const handleDeletedDoc = async (docPath: string): Promise<void> => {
+            const lineage = new LineageStore(resolveDbPath());
+            await lineage.init();
+            const graph = new KnowledgeGraph(resolveDbPath());
+            await graph.init();
+            try {
+              // ① 取出该文档产出的节点，并清掉它的血缘
+              const links = await lineage.query({
+                docPath,
+                artifactType: 'node',
+              });
+              const ownedNodeIds = links.map((l) => l.artifactId);
+              await lineage.purgeByDoc(docPath);
 
-          // 监听删除事件，自动清理悬挂边（先退订防止热重载重复订阅）
+              if (ownedNodeIds.length === 0) {
+                logger.info('删文清理：无节点血缘（可能为 raw 文档或未编译）', {
+                  docPath,
+                });
+                return;
+              }
+
+              // ② 仍被其它文档引用的节点不算失效
+              const stillReferenced =
+                await lineage.findReferencedNodeIds(ownedNodeIds);
+              const orphaned = ownedNodeIds.filter(
+                (id) => !stillReferenced.has(id)
+              );
+
+              // ③ 只删这些节点关联的边（人工边受保护）
+              const removed = await graph.deleteEdgesByEndpoints(orphaned);
+              logger.info('删文清理完成（lineage 精确判定）', {
+                docPath,
+                ownedNodes: ownedNodeIds.length,
+                orphanedNodes: orphaned.length,
+                removedEdges: removed,
+              });
+            } finally {
+              await graph.close();
+              await lineage.close();
+            }
+          };
+
           _knowledgeSubscriptions.push(
             globalEventBus.subscribe('knowledge:changed', (event: unknown) => {
-              const evt = event as { action: string };
-              if (evt.action === 'deleted') {
-                // 延迟异步清理，不阻塞删除主流程
-                setTimeout(async () => {
-                  try {
-                    // 获取所有当前有效的实体 ID（基于知识库文档标题）
-                    const { knowledgeDocsProvider } =
-                      await import('../docs/FileDocsProvider.js');
-                    const docs = await knowledgeDocsProvider.buildIndex();
-                    const validIds = new Set(
-                      docs.map((d) =>
-                        d.title.toLowerCase().replace(/\s+/g, '_')
-                      )
-                    );
-                    const cleaned = await graph.cleanupOrphans(validIds);
-                    if (cleaned > 0) {
-                      logger.info('已清理知识图谱孤儿边', { cleaned });
-                    }
-                  } catch (cleanErr) {
-                    // 清理失败不报错，下次操作时再清理
-                  }
-                }, 5000);
+              const evt = event as {
+                action: string;
+                filePath?: string;
+                filePaths?: string[];
+              };
+              if (evt.action !== 'deleted') return;
+              const targets = evt.filePaths?.length
+                ? evt.filePaths
+                : evt.filePath
+                  ? [evt.filePath]
+                  : [];
+              for (const docPath of targets) {
+                void handleDeletedDoc(docPath).catch((err) =>
+                  logger.warning('删文清理失败（不阻塞删除主流程）', {
+                    docPath,
+                    error: String(err),
+                  })
+                );
               }
             })
           );
-
-          logger.info('知识图谱孤儿边清理监听已注册');
-        } catch (error) {
-          logger.warning('知识图谱初始化失败', { error: String(error) });
+        } catch (err) {
+          logger.warning('知识图谱删文清理订阅注册失败', {
+            error: String(err),
+          });
         }
       })(),
 

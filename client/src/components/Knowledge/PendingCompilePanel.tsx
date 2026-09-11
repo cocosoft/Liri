@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { knowledgeService } from "../../services/knowledgeService";
 import { useCompilePolling } from "./useCompilePolling";
+import { useKnowledgeStore } from "../../stores/knowledgeStore";
 import { formatFileSize, formatDate } from "./shared/utils";
 
 interface RawFileInfo {
@@ -77,13 +78,26 @@ function PendingCompilePanel({
     },
   });
 
-  async function handleCompileAll() {
+  async function runCompile(files?: string[]) {
     if (compiling) return;
     setCompiling(true);
     setCompileProgress(0);
     setCompileResult(null);
-    const started = await startCompile();
+    // D6-5：透传编译目标域（与加工流水线页 / 知识库页共用同一 store 值）
+    const started = await startCompile(
+      files,
+      useKnowledgeStore.getState().list.compileDomain,
+    );
     if (!started) setCompiling(false); // 被顶栏编译入口的互斥挡住
+  }
+
+  async function handleCompileAll() {
+    await runCompile();
+  }
+
+  /** 指定文档编译：仅编译该 raw 文件（后端对目标文件强制重编） */
+  async function handleCompileOne(fileName: string) {
+    await runCompile([fileName]);
   }
 
   if (!expanded && rawFiles.length === 0) return null;
@@ -197,6 +211,14 @@ function PendingCompilePanel({
                     )}
                   </div>
                   <div className="flex items-center gap-2 shrink-0 ml-2">
+                    <button
+                      onClick={() => void handleCompileOne(file.fileName)}
+                      disabled={compiling}
+                      className="px-1.5 py-0.5 rounded text-[10px] bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white transition-colors"
+                      title={`仅编译 ${file.fileName}`}
+                    >
+                      编译
+                    </button>
                     <span className={textMuted}>
                       {formatFileSize(file.size)}
                     </span>

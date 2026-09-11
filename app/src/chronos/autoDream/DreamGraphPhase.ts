@@ -42,7 +42,6 @@ import {
   resolveDomainsRoot,
 } from '@modules/core';
 import { KnowledgeGraph } from '@modules/knowledge/graph/KnowledgeGraph';
-import { SchemaLoader } from '@modules/knowledge/schema/SchemaLoader';
 import { DomainManager } from '@modules/knowledge/domain/DomainManager';
 
 const logger = getLogger('chronos:graph');
@@ -106,13 +105,10 @@ export async function runDreamGraphPhase(
     domains: domainsToScan,
   });
 
-  const graph = new KnowledgeGraph(resolveDbPath());
   let totalFilesScanned = 0;
   let totalEdgesAdded = 0;
 
   try {
-    await graph.init();
-
     for (const domain of domainsToScan) {
       const domainDir = resolveDomainDir(domain);
       const wikiDir = join(domainDir, 'wiki');
@@ -141,61 +137,60 @@ export async function runDreamGraphPhase(
         continue;
       }
 
-      // 加载域 schema，注册 edge 类型（使 addEdge 校验通过）
-      const schemaLoader = new SchemaLoader(undefined, domain);
-      const { edges: edgeSchemas } = await schemaLoader.loadAll();
-      graph.setEdgeSchemas(edgeSchemas);
+      // D7-5：按域构造实例 —— schema 由实例自行按域解析（域优先 / 全局兜底），
+      // 不再 setEdgeSchemas，也不再 loadAll()（那会触发 ensureDefaults 写盘，
+      // 且"单实例+覆盖式注入"存在串域风险：域 A 的边可能被域 B 的 schema 校验）
+      const graph = new KnowledgeGraph(resolveDbPath(), domain);
+      await graph.init();
+      try {
+        for (const file of mdFiles) {
+          const filePath = join(wikiDir, file);
+          const content = readFileSync(filePath, 'utf-8');
+          const sourceSlug = basename(file, '.md');
+          // O15-B：实体 ID 统一为**裸 slug**（不再拼 {domain}:{kind}:{slug}）；
+          // 页面类型是实体档案属性（kg_nodes.kind），不参与 ID
+          const sourceId = sourceSlug;
 
-      for (const file of mdFiles) {
-        const filePath = join(wikiDir, file);
-        const content = readFileSync(filePath, 'utf-8');
-        const sourceSlug = basename(file, '.md');
-        const sourceId = KnowledgeGraph.generateEntityId(
-          domain,
-          'wiki',
-          sourceSlug
-        );
+          if (sourceSlug === 'index') continue;
 
-        if (sourceSlug === 'index') continue;
+          totalFilesScanned++;
 
-        totalFilesScanned++;
+          // 查找当前页面中的所有 [[link]]
+          const targets = new Set<string>();
+          let match: RegExpExecArray | null;
+          WIKI_LINK_RE.lastIndex = 0;
 
-        // 查找当前页面中的所有 [[link]]
-        const targets = new Set<string>();
-        let match: RegExpExecArray | null;
-        WIKI_LINK_RE.lastIndex = 0;
-
-        while ((match = WIKI_LINK_RE.exec(content)) !== null) {
-          const target = match[1].trim();
-          if (target !== 'index' && target !== sourceSlug) {
-            const targetId = target.includes(':')
-              ? target
-              : KnowledgeGraph.generateEntityId(domain, 'wiki', target);
-            targets.add(targetId);
+          while ((match = WIKI_LINK_RE.exec(content)) !== null) {
+            const target = match[1].trim();
+            if (target !== 'index' && target !== sourceSlug) {
+              targets.add(target);
+            }
           }
-        }
 
-        // 为每个 [[link]] 目标建立一条 wiki_link 边
-        for (const target of targets) {
-          const existing = await graph.queryEdges({
-            from: sourceId,
-            to: target,
-            type: 'wiki_link',
-            domain,
-          });
-
-          if (existing.length === 0) {
-            await graph.addEdge({
+          // 为每个 [[link]] 目标建立一条 wiki_link 边
+          for (const target of targets) {
+            const existing = await graph.queryEdges({
               from: sourceId,
               to: target,
               type: 'wiki_link',
-              direction: 'symmetric',
               domain,
-              attributes: { source: 'dream_graph_phase' },
             });
-            totalEdgesAdded++;
+
+            if (existing.length === 0) {
+              await graph.addEdge({
+                from: sourceId,
+                to: target,
+                type: 'wiki_link',
+                direction: 'symmetric',
+                domain,
+                attributes: { source: 'dream_graph_phase' },
+              });
+              totalEdgesAdded++;
+            }
           }
         }
+      } finally {
+        await graph.close();
       }
     }
 
@@ -218,7 +213,5 @@ export async function runDreamGraphPhase(
       edgesAdded: totalEdgesAdded,
       error: msg,
     };
-  } finally {
-    await graph.close();
   }
 }

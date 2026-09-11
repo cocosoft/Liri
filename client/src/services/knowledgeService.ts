@@ -66,6 +66,90 @@ async function fetchFiles(
 
 // ─── knowledgeService ────────────────────────────────────
 
+/** 方案 B v7：编译阶段（与后端 CompileProgressTracker 的 CompilePhase 对齐） */
+export type CompilePhase =
+  | "scanning"
+  | "cleaning"
+  | "compiling"
+  | "linting"
+  | "graph_extract"
+  | "record_extract"
+  | "rule_extract"
+  | "chunk_refresh"
+  | "indexing";
+
+export type PhaseStatus =
+  "pending" | "running" | "done" | "skipped" | "triggered";
+
+export type PhaseSkipReason =
+  "gated" | "busy" | "memory" | "truncated" | "empty" | "aborted";
+
+export interface PhaseSnapshot {
+  phase: CompilePhase;
+  status: PhaseStatus;
+  skipReason: PhaseSkipReason | null;
+  startedAt: number | null;
+  durationMs: number | null;
+  detail: { current: number; total: number } | null;
+}
+
+/** 已结束会话摘要（空闲态复盘；与后端 CompileSessionSummary 对齐） */
+export interface CompileSessionSummary {
+  sessionId: number;
+  outcome: "done" | "aborted";
+  finishedAt: number;
+  durationMs: number;
+  result: {
+    compiled: number;
+    skipped: number;
+    errors: number;
+    /** 前若干条错误文本（后端已截断为前 5 条） */
+    errorSamples?: string[];
+  } | null;
+  lastError: string | null;
+  phases: PhaseSnapshot[];
+}
+
+/** 方案 B v7：编译进度（含 9 阶段快照） */
+export interface CompileProgressStatus {
+  status: "idle" | "compiling" | "done";
+  current: number;
+  total: number;
+  startedAt: number;
+  lastError: string | null;
+  result: {
+    compiled: number;
+    skipped: number;
+    errors: number;
+    /** 前若干条错误文本（后端已截断为前 5 条） */
+    errorSamples?: string[];
+  } | null;
+  /** 会话序号：全局单调，60s 重置不归零（跨会话去重） */
+  sessionId: number;
+  /** 广播序号：全局单调，60s 重置不归零（同会话内乱序去重） */
+  seq: number;
+  phase: CompilePhase | null;
+  phases: PhaseSnapshot[];
+  /** 上一次已结束会话摘要（60s 复位不清除；空闲态用它复盘） */
+  lastSession: CompileSessionSummary | null;
+}
+
+/** 方案 B v7 §4.4：血缘产物类型（与后端 LineageStore.LineageArtifactType 对齐） */
+export type LineageArtifactType = "page" | "record" | "rule" | "node";
+
+/** 方案 B v7 §4.4：血缘条目 */
+export interface KnowledgeLineageLink {
+  /** 源文档（raw 路径或编译页路径） */
+  docPath: string;
+  artifactType: LineageArtifactType;
+  /** 产物 ID（页面路径 / record.id / rule.id / nodeId） */
+  artifactId: string;
+  domain: string;
+  /** 编译版本（K5.3） */
+  version: number;
+  createdAt: number;
+}
+
 export const knowledgeService = {
   list: (): Promise<KnowledgeItem[]> => {
     return getOTelTracing().asyncWrap("services:knowledge:list", async () => {
@@ -296,7 +380,7 @@ export const knowledgeService = {
     return unwrap(res, "KNOWLEDGE_SAVE_FROM_CHAT");
   },
 
-  /** 获取待编译的 raw 文件列表 */
+  /** 获取待编译的 raw 文件列表（目录已被后端过滤；compilable 标记按文件名是否可编译） */
   getRawFiles: async (): Promise<{
     files: Array<{
       fileName: string;
@@ -306,6 +390,7 @@ export const knowledgeService = {
       createdAt: number;
       category: string | null;
       source: string | null;
+      compilable: boolean;
     }>;
     totalCount: number;
   }> => {
@@ -318,6 +403,7 @@ export const knowledgeService = {
         createdAt: number;
         category: string | null;
         source: string | null;
+        compilable: boolean;
       }>;
       totalCount: number;
     }>("/v1/knowledge/raw-files");
@@ -375,44 +461,65 @@ export const knowledgeService = {
    * 触发知识库编译
    * KB-COMPILE-ASYNC（2026-08-28）：后端改为异步启动（202 立即返回），
    * 真实结果需轮询 getCompileStatus()（status=done 后取 result）。
+   *
+   * D6-5：可指定**目标域**（决定用哪个域的本体约束抽取，以及产物归属哪个域）；
+   * 不传时后端回落 `knowledge`（与 D6-3 之前的行为一致）。
    */
   triggerCompile: async (
     force?: boolean,
-  ): Promise<{ success: boolean; started: boolean; message?: string }> => {
+    files?: string[],
+    domain?: string,
+  ): Promise<{
+    success: boolean;
+    started: boolean;
+    busy?: boolean;
+    message?: string;
+  }> => {
+    const target = domain?.trim();
     const res = await http.post<{
       success: boolean;
       started: boolean;
+      busy?: boolean;
       message?: string;
-    }>("/v1/knowledge/compile", { force });
+    }>("/v1/knowledge/compile", {
+      force,
+      // 指定文档编译：files 非空时后端仅编译这些 raw 文件（按文件名匹配）
+      ...(files && files.length > 0 ? { files } : {}),
+      // D6-5：目标域（空串不传，交由后端回落默认域）
+      ...(target ? { domain: target } : {}),
+    });
     return unwrap(res, "KNOWLEDGE_COMPILE");
   },
 
-  /** W9: 获取编译进度（done 后 result 含成功/跳过/错误统计） */
-  getCompileStatus: async (): Promise<{
-    status: "idle" | "compiling" | "done";
-    current: number;
-    total: number;
-    startedAt: number;
-    lastError: string | null;
-    result: {
-      compiled: number;
-      skipped: number;
-      errors: number;
-    } | null;
-  }> => {
-    const res = await http.get<{
-      status: "idle" | "compiling" | "done";
-      current: number;
-      total: number;
-      startedAt: number;
-      lastError: string | null;
-      result: {
-        compiled: number;
-        skipped: number;
-        errors: number;
-      } | null;
-    }>("/v1/knowledge/compile-status");
+  /** W9: 获取编译进度（v7：含 9 阶段快照 phases[]，done 后 result 含成功/跳过/错误统计） */
+  getCompileStatus: async (): Promise<CompileProgressStatus> => {
+    const res = await http.get<CompileProgressStatus>(
+      "/v1/knowledge/compile-status",
+    );
     return unwrap(res, "KNOWLEDGE_COMPILE_STATUS");
+  },
+
+  /**
+   * 血缘查询（方案 B v7 §4.4）：GET /v1/knowledge/lineage
+   * - `docPath` 正查：某源文档产出了哪些 page/record/rule/node
+   * - `artifactType` + `artifactId` 反查：某产物来自哪个源文档
+   * - `domain` 过滤：按域收敛（如 knowledge）
+   */
+  getLineage: async (params: {
+    docPath?: string;
+    artifactType?: LineageArtifactType;
+    artifactId?: string;
+    domain?: string;
+  }): Promise<{ links: KnowledgeLineageLink[]; count: number }> => {
+    const qs = new URLSearchParams();
+    for (const [k, v] of Object.entries(params)) {
+      if (v) qs.set(k, String(v));
+    }
+    const res = await http.get<{
+      links: KnowledgeLineageLink[];
+      count: number;
+    }>(`/v1/knowledge/lineage?${qs.toString()}`);
+    return unwrap(res, "KNOWLEDGE_LINEAGE");
   },
 
   /** 将知识文档导出到 Notebook 兼容格式 */
@@ -623,13 +730,5 @@ export const knowledgeService = {
       action: "restoreTrash",
     });
     return false;
-  },
-
-  /** W11: 获取语义索引状态 */
-  getSemanticIndex: async (): Promise<Record<string, unknown>> => {
-    const res = await http.get<Record<string, unknown>>(
-      "/v1/knowledge/semantic-index",
-    );
-    return unwrap(res, "KNOWLEDGE_SEMANTIC_INDEX");
   },
 };

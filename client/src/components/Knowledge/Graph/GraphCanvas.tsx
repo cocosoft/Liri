@@ -8,6 +8,11 @@ interface GraphCanvasProps {
   isDark: boolean;
   /** 搜索高亮关键词（匹配实体名） */
   highlight?: string;
+  /**
+   * D2-3：实体档案名（node_id → name），用于画布节点标签。
+   * 缺失时回退显示 node_id 本身（存量实体名为裸 slug 的情况很常见）。
+   */
+  nodeNames?: Record<string, string>;
 }
 
 interface LayoutNode {
@@ -38,7 +43,17 @@ export const GraphCanvas = memo(function GraphCanvas({
   onFocusNode,
   isDark,
   highlight = "",
+  nodeNames = {},
 }: GraphCanvasProps) {
+  /** D2-3：节点标签 —— 优先用实体档案名，否则回退 node_id（超长截断） */
+  const labelOf = useCallback(
+    (id: string): string => {
+      const name = nodeNames[id];
+      const text = name && name.trim() ? name : id;
+      return text.length > 20 ? `${text.slice(0, 18)}…` : text;
+    },
+    [nodeNames],
+  );
   const svgRef = useRef<SVGSVGElement>(null);
   const [nodes, setNodes] = useState<LayoutNode[]>([]);
   const [dim, setDim] = useState({ w: 600, h: 400 });
@@ -64,13 +79,28 @@ export const GraphCanvas = memo(function GraphCanvas({
     }
 
     // Collect unique nodes
+    // O10：坐标由 id 哈希确定性生成 —— 原用 Math.random()，每次布局重跑节点都会跳到
+    // 新位置（表现为"乱跳、难以点中"，B4 端到端实测 15 次坐标点击全部落空）。
+    const seededPosition = (id: string): { x: number; y: number } => {
+      let h = 2166136261;
+      for (let i = 0; i < id.length; i++) {
+        h ^= id.charCodeAt(i);
+        h = Math.imul(h, 16777619);
+      }
+      const rx = ((h >>> 0) % 10000) / 10000;
+      const ry = ((h >>> 16) % 10000) / 10000;
+      return {
+        x: rx * (dim.w - PADDING * 2) + PADDING,
+        y: ry * (dim.h - PADDING * 2) + PADDING,
+      };
+    };
+
     const nodeMap = new Map<string, LayoutNode>();
     for (const e of edges) {
       if (!nodeMap.has(e.from)) {
         nodeMap.set(e.from, {
           id: e.from,
-          x: Math.random() * (dim.w - PADDING * 2) + PADDING,
-          y: Math.random() * (dim.h - PADDING * 2) + PADDING,
+          ...seededPosition(e.from),
           vx: 0,
           vy: 0,
           domain: e.domain,
@@ -79,8 +109,7 @@ export const GraphCanvas = memo(function GraphCanvas({
       if (!nodeMap.has(e.to)) {
         nodeMap.set(e.to, {
           id: e.to,
-          x: Math.random() * (dim.w - PADDING * 2) + PADDING,
-          y: Math.random() * (dim.h - PADDING * 2) + PADDING,
+          ...seededPosition(e.to),
           vx: 0,
           vy: 0,
           domain: e.domain,
@@ -265,7 +294,7 @@ export const GraphCanvas = memo(function GraphCanvas({
                 opacity={isHl ? 1 : 0.8}
                 fontWeight={isHl ? 600 : 400}
               >
-                {n.id.length > 20 ? n.id.slice(0, 18) + "…" : n.id}
+                {labelOf(n.id)}
               </text>
             )}
           </g>

@@ -281,7 +281,8 @@ export function useKnowledgeBaseList(opts: UseKnowledgeBaseListOpts) {
     dispatchList({ type: "SET_COMPILE_STATUS", status: "compiling" });
     dispatchList({ type: "SET_COMPILE_PROGRESS", progress: 0 });
     dispatchList({ type: "SET_COMPILE_MESSAGE", message: "" });
-    const started = await startCompile();
+    // D6-5：透传编译目标域（默认 knowledge；可在加工流水线页切换）
+    const started = await startCompile(undefined, list.compileDomain);
     if (!started) {
       // 被其他入口（如抽屉"全部编译"）的互斥挡住，复位状态
       dispatchList({ type: "SET_COMPILE_STATUS", status: "idle" });

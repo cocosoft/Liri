@@ -42,7 +42,7 @@ import { getPluginDevGuideSystem } from '../docs/PluginDevGuide';
 import { getApiDocSystem } from '../docs/ApiDocs';
 import { getPerformanceAnalyzer } from '../monitoring/performance';
 import { getLogger, flush } from '../monitoring/logs/Logger';
-import { handleError } from '@modules/error';
+import { handleError as recordError } from '@modules/error';
 
 import { getThemeManager } from '@modules/system/theme';
 import { createCLIHandler } from './handlers/cliHandler';
@@ -51,11 +51,30 @@ import { createStructuredIO } from './structuredIO';
 import { createExitHandler } from './exitHandler';
 import { createAutoUpdater } from './autoUpdater';
 import { registerSkillsCommands } from '../skills/cli/skills';
+import { registerKnowledgeGraphCommands } from '../knowledge/cli/graph';
 import { UpdateHandler } from './update';
 import * as print from './print';
 import type { CommandImplementation, CommandContext } from '@modules/commands';
 
 const logger = getLogger('cli\index');
+
+/**
+ * CLI 失败统一出口（O6）
+ *
+ * 为什么不能直接用 `@modules/error` 的 `handleError`：它只做记录（Logger + ErrorTracker），
+ * **不设置退出码** —— 命令失败时进程仍以 0 退出，脚本 `&&` 链路与 CI 无法感知失败
+ * （实测：`pyapp knowledge import-graph <不存在文件>` 打印失败信息后退出码为 0）。
+ *
+ * 这里包一层：记录 + `process.exitCode = 1`。配合文件末尾退出钩子的修正
+ * （不再 `process.exit(0)` 覆盖退出码），失败路径即可被脚本正确感知。
+ */
+async function handleError(
+  error: unknown,
+  context: { module: string; action: string }
+): Promise<void> {
+  process.exitCode = 1;
+  await recordError(error, context);
+}
 
 // 初始化退出处理器和自动更新器
 const exitHandler = createExitHandler({ verbose: true });
@@ -867,6 +886,10 @@ program
 
 registerSkillsCommands(program);
 
+// ========== Knowledge Graph Commands (备份 / 回滚) ==========
+
+registerKnowledgeGraphCommands(program);
+
 // ========== Update Commands ==========
 
 const updateHandler = new UpdateHandler({ verbose: false });
@@ -1046,8 +1069,10 @@ program
   });
 
 // 注册退出处理器
+// O6：**不能**在这里调 `exitHandler.exit(0)` —— 它内部会 `process.exit(0)`，
+// 把失败路径已设定的非零退出码（`process.exitCode = 1` / `process.exit(1)`）覆盖成 0。
+// 钩子只做日志刷新等清理，退出码以调用方为准。
 process.on('exit', () => {
-  exitHandler.exit(0);
   flush().catch(() => {
     /* @ignore-catch: 日志刷新为清理操作，失败不影响退出流程 */
   });

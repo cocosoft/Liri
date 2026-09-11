@@ -196,6 +196,40 @@ export class LineageStore {
     return affected;
   }
 
+  /**
+   * 在给定 node id 集合中，筛出**仍被引用**的那些（C6/O1 精确清理用）
+   *
+   * 调用约定：先 `purgeByDoc(被删文档)` 清掉该文档的血缘行，再调用本方法；
+   * 仍能查到的 node → 由其它文档支撑 → 其关联边不应清除。
+   */
+  async findReferencedNodeIds(nodeIds: string[]): Promise<Set<string>> {
+    const referenced = new Set<string>();
+    if (nodeIds.length === 0) return referenced;
+    if (!this.db) await this.init();
+
+    // 分批 IN（避开 SQLite 变量上限）
+    const CHUNK = 500;
+    for (let i = 0; i < nodeIds.length; i += CHUNK) {
+      const chunk = nodeIds.slice(i, i + CHUNK);
+      const placeholders = chunk.map(() => '?').join(',');
+      const rows = await new Promise<Array<Record<string, unknown>>>(
+        (resolve, reject) => {
+          this.db!.all(
+            `SELECT DISTINCT artifact_id FROM ${KG_LINEAGE_TABLE}
+              WHERE artifact_type = 'node' AND artifact_id IN (${placeholders})`,
+            chunk,
+            (err: Error | null, result: Array<Record<string, unknown>>) => {
+              if (err) reject(err);
+              else resolve(result ?? []);
+            }
+          );
+        }
+      );
+      for (const row of rows) referenced.add(String(row.artifact_id));
+    }
+    return referenced;
+  }
+
   /** 按过滤条件查询血缘 */
   async query(filters: LineageQuery = {}): Promise<LineageLink[]> {
     if (!this.db) await this.init();

@@ -92,6 +92,13 @@ export type {
 // ─── 知识图谱 / 调度 ───
 export type { GraphEdge, GraphStats, GraphEdgesResponse } from "./project";
 export type {
+  OntologyEntity,
+  OntologyEdge,
+  OntologySchemaInfo,
+  OntologySchemaIssue,
+  OntologyValidationResult,
+} from "./project";
+export type {
   ScheduleConfig,
   ExecutionRecord,
   CronTask,

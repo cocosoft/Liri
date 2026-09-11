@@ -17,6 +17,10 @@ import { LogLevel } from '@modules/monitoring';
 import { OTelAwareLogger } from '@modules/monitoring/logs/OTelAwareLogger';
 import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing';
 import { KnowledgeGraph } from '@modules/knowledge/graph/KnowledgeGraph';
+import {
+  evaluateEndpointMatch,
+  type EndpointKindLookup,
+} from './endpointMatch';
 import type { SchemaContainer } from '@modules/knowledge/schema/SchemaLoader';
 import type { AIService, AIMessage } from '@modules/ai';
 import { AIMessageRole } from '@modules/ai';
@@ -78,7 +82,8 @@ function buildSchemaConstraint(
   }
   if (schema.entities.size > 0 || schema.edges.size > 0) {
     lines.push(
-      `实体 ID 请使用统一格式 "${domain}:{实体类型}:{短横线slug}"（如 ${domain}:concept:ontology）`
+      `实体 ID 请使用**短横线 slug**（仅小写字母/数字/短横线，如 ontology、knowledge-graph）；` +
+        `实体类型写在 type 字段里，**不要**拼进 ID`
     );
   }
   return lines.join('\n\n');
@@ -116,8 +121,11 @@ ${content.slice(0, 8000)}`;
  * schema 白名单后置过滤（K2，opt-in）
  * - 实体 type 不在白名单 → 丢弃并计数
  * - 关系 type 不在白名单 → 丢弃并计数
- * - 关系端点 ID 可解析为 {domain}:{kind}:{slug} 且 kind 与 schema.endpoints 不符 → 丢弃
- * - 端点 ID 不可解析（历史自由格式）→ 保留（防回归）
+ * - 关系端点 kind 与 schema.endpoints 不符 → 丢弃并计数
+ *
+ * O15-B（2026-09-11）：实体 ID 统一为裸 slug，kind 不再从 ID 解析 —— 改为**注入**
+ * 本次提取结果里 `entities[].type`（实体 ID → 类型）作为端点 kind 来源；端点未出现
+ * 在 entities 中（kind 未知）→ 视为匹配、不丢弃（防误报）。
  */
 function applySchemaFilter(
   extracted: ExtractionResult,
@@ -134,6 +142,11 @@ function applySchemaFilter(
   let droppedEntities = 0;
   let droppedEdges = 0;
 
+  // O15-B：端点 kind 由本次提取的实体类型提供（ID → type），端点未列出时视为未知
+  const extractedKinds = new Map(extracted.entities.map((e) => [e.id, e.type]));
+  const kindOf: EndpointKindLookup = (nodeId) =>
+    extractedKinds.get(nodeId) || undefined;
+
   const entities = knownKinds
     ? extracted.entities.filter((e) => {
         if (knownKinds.has(e.type)) return true;
@@ -142,22 +155,18 @@ function applySchemaFilter(
       })
     : extracted.entities;
 
-  const edges = (knownEdgeTypes ? extracted.edges : []).filter((edge) => {
+  // 注意：此处不能用 `knownEdgeTypes ? extracted.edges : []` —— 那会在 edges.yaml
+  // 缺失/为空（knownEdgeTypes=null）时对空数组 filter，恒得 [] 且 droppedEdges 保持 0，
+  // 造成"只写了 entities.yaml"的用户所有关系边被静默清空（无任何日志痕迹）。
+  // 保留下方 `if (!knownEdgeTypes) return true` 作为唯一判定。
+  const edges = extracted.edges.filter((edge) => {
     if (!knownEdgeTypes) return true;
     if (!knownEdgeTypes.has(edge.type)) {
       droppedEdges++;
       return false;
     }
-    const edgeSchema = schema.edges.get(edge.type);
-    if (!edgeSchema) return true;
-    const fromParsed = KnowledgeGraph.parseEntityId(edge.from);
-    const toParsed = KnowledgeGraph.parseEntityId(edge.to);
-    // 端点不可解析视为历史自由格式，跳过端点校验
-    if (fromParsed && fromParsed.kind !== edgeSchema.endpoints.from) {
-      droppedEdges++;
-      return false;
-    }
-    if (toParsed && toParsed.kind !== edgeSchema.endpoints.to) {
+    // D7-1：端点判定收敛到纯函数（与写入侧共用同一判定，处置动作各自保留）
+    if (!evaluateEndpointMatch(edge, schema.edges, kindOf).matched) {
       droppedEdges++;
       return false;
     }

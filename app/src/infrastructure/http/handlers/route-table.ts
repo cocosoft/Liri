@@ -46,12 +46,20 @@ export async function dispatchRoute(
 
   // ---- 管理写 API 鉴权（M0d：登录态非 admin → 403；无效 token → 401；无 token → 本地回环基线放行）----
   // M1（2026-08-06）：skill 管理写操作（install/uninstall/delete/import/clone/update/toggle/create）并入 admin 权限体系
+  // O9（2026-09-11）：知识图谱写接口（edges/entities 增删改）并入同一体系
+  // P0-6（2026-09-11 复核）：本体写接口一并纳入（scaffold 会真实写盘 3 份 YAML 并切换全局模式）
+  // B3（2026-09-11）：图 CRUD 含 PATCH（改边），故方法集合补 PATCH
   if (
-    (method === 'POST' || method === 'PUT' || method === 'DELETE') &&
+    (method === 'POST' ||
+      method === 'PUT' ||
+      method === 'PATCH' ||
+      method === 'DELETE') &&
     (url.startsWith('/v1/permissions/') ||
       url.startsWith('/v1/apikeys') ||
       url.startsWith('/v1/oauth/providers') ||
-      url.startsWith('/v1/skills'))
+      url.startsWith('/v1/skills') ||
+      url.startsWith('/v1/knowledge/graph') ||
+      url.startsWith('/v1/knowledge/schema'))
   ) {
     const result = checkAdminRequest(req);
     if (result !== 'ok') {

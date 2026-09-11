@@ -30,7 +30,12 @@ import http from 'http';
 import path from 'path';
 
 import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error';
+import {
+  AppError,
+  ErrorCategory,
+  ErrorSeverity,
+  handleError,
+} from '@modules/error';
 import {
   resolveOutputDir,
   resolveDownloadsDir,
@@ -115,6 +120,28 @@ export function createHandlerCtx(): HandlerCtx {
 }
 
 /**
+ * 4xx/5xx 状态码 → 错误分类与严重度（O12）
+ *
+ * 客户端输入问题（400/401/403/404/409）**不是缺陷**：不应记成 `UNHANDLED_ERROR / medium`
+ * 与真实异常同形，否则会污染 ErrorTracker 与失败日志、掩盖真问题。
+ */
+function classifyHttpStatus(status: number): {
+  category: ErrorCategory;
+  severity: ErrorSeverity;
+} {
+  if (status >= 500) {
+    return { category: ErrorCategory.UNKNOWN, severity: ErrorSeverity.HIGH };
+  }
+  if (status === 401 || status === 403) {
+    return { category: ErrorCategory.PERMISSION, severity: ErrorSeverity.LOW };
+  }
+  if (status === 400 || status === 409 || status === 422) {
+    return { category: ErrorCategory.VALIDATION, severity: ErrorSeverity.LOW };
+  }
+  return { category: ErrorCategory.UNKNOWN, severity: ErrorSeverity.LOW };
+}
+
+/**
  * 发送 JSON 格式的错误响应
  *
  * @param res - HTTP 响应对象
@@ -128,9 +155,55 @@ export function sendError(
 ): void {
   const message = err instanceof Error ? err.message : String(err);
   // 统一经 handleError 记录（Logger + ErrorTracker），替代手写 logger.error
-  void handleError(err, { module: 'infrastructure:http', action: 'api_error' });
+  // O12：若调用方只给了一句提示（非 AppError），按状态码补上分类/严重度再记录，
+  //      避免用户输入类 4xx 被记为 UNHANDLED_ERROR/medium。
+  const logged =
+    err instanceof AppError
+      ? err
+      : new AppError(
+          message,
+          classifyHttpStatus(status).category,
+          classifyHttpStatus(status).severity,
+          `HTTP_${status}`,
+          { module: 'infrastructure:http' }
+        );
+  void handleError(logged, {
+    module: 'infrastructure:http',
+    action: 'api_error',
+  });
   res.writeHead(status, { 'Content-Type': 'application/json' });
   res.end(JSON.stringify({ error: { message, type: 'api_error' } }));
+}
+
+/**
+ * 按 `AppError.category` 映射 HTTP 状态码（D7-7）
+ *
+ * 背景：原写 handler 的 catch 一律 `sendError(..., 500)`，导致
+ * `AppError(VALIDATION)`（如 `KG_INVALID_EDGE_TYPE`）也返回 500，
+ * 使方案 §六-4a「白名单外 type → 400 + 可读信息」无法达成。
+ */
+export function statusForAppError(err: unknown): number {
+  if (!(err instanceof AppError)) return 500;
+  switch (err.category) {
+    case ErrorCategory.VALIDATION:
+      return 400;
+    case ErrorCategory.PERMISSION:
+      return 403;
+    case ErrorCategory.NETWORK:
+      return 503;
+    default:
+      return 500;
+  }
+}
+
+/**
+ * 按错误类型映射状态码后发送 JSON 错误
+ *
+ * 写接口（新增/修改/删除）统一用它替代裸 `sendError(..., 500)`：
+ * 调用方输入错误 → 400，其余 → 500。
+ */
+export function sendErrorMapped(res: http.ServerResponse, err: unknown): void {
+  sendError(res, err, statusForAppError(err));
 }
 
 /**

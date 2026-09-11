@@ -166,6 +166,11 @@ export class KnowledgeCompileScheduler {
     });
     try {
       const result = await this.compileFn(false);
+      // 方案 B v7（§3.4）：被全局互斥挡下时，不要记录"编译完成 0 文件"的假记录
+      if (result.busy) {
+        logger.info('编译被全局互斥挡下，本次不记录后台任务完成事件');
+        return;
+      }
       recordBackgroundTask({
         task: 'knowledge-compile',
         phase: 'complete',

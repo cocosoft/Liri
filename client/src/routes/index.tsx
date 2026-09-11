@@ -187,6 +187,12 @@ export const routes: RouteObject[] = [
     ),
   },
 
+  // 知识本体：P1-1 页内化为 KnowledgePage Tab（?tab=ontology），独立路由重定向保留
+  {
+    path: "/knowledge/ontology",
+    element: <Navigate to="/knowledge?tab=ontology" replace />,
+  },
+
   // FAQ / 知识图谱 / RAG 配置 / 数据源 — P1-1 已页内化为 KnowledgePage Tab，独立路由重定向保留旧入口
   {
     path: "/knowledge/faq",

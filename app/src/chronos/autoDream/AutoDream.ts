@@ -519,6 +519,11 @@ export async function runKnowledgeRain(): Promise<void> {
 
   const result = await runKnowledgeCompile(aiService, { force: false });
 
+  // 方案 B v7（§3.4）：被全局互斥挡下（busy）不是失败，仅记录不聚合
+  if (result.busy) {
+    logger.info('知识雨编译被全局互斥挡下，本次跳过（非失败）');
+  }
+
   if (result.compiled > 0) {
     logger.info('知识雨编译完成', {
       compiled: result.compiled,

@@ -1219,11 +1219,31 @@ export async function handleKnowledgeCompile(
 ): Promise<void> {
   try {
     const body = await readRequestBody(req);
-    const { force } = JSON.parse(body);
+    const { force, files, domain } = JSON.parse(body) as {
+      force?: boolean;
+      files?: string[];
+      /** D6-3：目标域（缺省 knowledge） */
+      domain?: string;
+    };
 
     const { aiService } = await import('@modules/ai');
-    const { runKnowledgeCompile } =
+    const { runKnowledgeCompile, isCompileRunning } =
       await import('@modules/knowledge/KnowledgeCompiler');
+
+    // 方案 B v7（G6）：先**同步**判锁 —— 否则 setImmediate 内检测到锁后返回的 busy
+    // 无人消费，前端会照常进入"等启动"循环，顶栏显示假的"编译中"。
+    if (isCompileRunning()) {
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(
+        JSON.stringify({
+          success: true,
+          started: false,
+          busy: true,
+          message: '已有编译任务在运行，请等待完成',
+        })
+      );
+      return;
+    }
 
     // KB-COMPILE-ASYNC（2026-08-28）：编译耗时较长（几十秒~数分钟），
     // 同步 await 会长时间占用事件循环（compile-status 也无法响应）。
@@ -1231,7 +1251,15 @@ export async function handleKnowledgeCompile(
     // 显示实时进度（current/total），避免用户不知情。
     setImmediate(async () => {
       try {
-        await runKnowledgeCompile(aiService, { force: !!force });
+        await runKnowledgeCompile(aiService, {
+          force: !!force,
+          // D6-3：目标域（缺省 undefined → 管线回落 knowledge，与既有行为一致）
+          domain: domain?.trim() || undefined,
+          // 指定文档编译（2026-09-11）：files 非空时仅编译这些 raw 文件（按文件名匹配）
+          ...(Array.isArray(files) && files.length > 0
+            ? { onlyFiles: files }
+            : {}),
+        });
       } catch (err) {
         handleError(err, {
           module: 'infrastructure:http:handlers:knowledge-handlers',
@@ -1385,6 +1413,9 @@ export async function handleGetRawFiles(
       return;
     }
 
+    // 复用编译器的可编译扩展名（单一事实来源，避免前端硬编码）
+    const { COMPILABLE_EXTENSIONS } =
+      await import('@modules/knowledge/KnowledgeCompiler');
     const entries = await readdir(rawDir);
     const metaFiles = entries.filter((f) => f.endsWith('.meta.json'));
     const dataFiles = entries.filter((f) => !f.endsWith('.meta.json'));
@@ -1393,6 +1424,8 @@ export async function handleGetRawFiles(
     for (const file of dataFiles) {
       const filePath = join(rawDir, file);
       const fileStat = await stat(filePath);
+      // 目录不是待编译文件（此前 raw/ 下的子目录会被一并列出，选中后无法编译）
+      if (fileStat.isDirectory()) continue;
       const metaFile = `${file}.meta.json`;
       let meta = null;
 
@@ -1410,14 +1443,17 @@ export async function handleGetRawFiles(
         }
       }
 
+      const ext = extname(file).toLowerCase();
       files.push({
         fileName: file,
-        ext: extname(file).toLowerCase(),
+        ext,
         size: fileStat.size,
         modifiedAt: fileStat.mtimeMs,
         createdAt: fileStat.birthtimeMs || fileStat.ctimeMs,
         category: meta?.category || null,
         source: meta?.source || null,
+        /** 是否落在编译器可编译扩展名内（前端"指定文档编译"据此过滤） */
+        compilable: COMPILABLE_EXTENSIONS.has(ext),
       });
     }
 

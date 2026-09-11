@@ -1788,6 +1788,56 @@
       "plan": "历史遗留 >800 行未豁免，CI file-size 门禁阻塞；后续按 执行/上下文/回调 子域拆分",
       "expiresAt": "2026-10-31",
       "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-161",
+      "ruleId": "R04-001",
+      "file": "app/src/knowledge/graph/KnowledgeGraph.ts",
+      "lines": 2253,
+      "targetLines": 800,
+      "plan": "知识图谱可维护性改造（D2 节点表 / D3 墓碑 / D5 审计 / O15-B 裸 slug）累积至 2253 行；按 边(facade) / 节点档案 / 墓碑 / 审计 / 迁移 子域拆分为 knowledge/graph/ 下多文件，并统一经门面导出保持调用方不变",
+      "expiresAt": "2026-12-31",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-162",
+      "ruleId": "R04-001",
+      "file": "app/src/infrastructure/http/handlers/graph-handlers.ts",
+      "lines": 909,
+      "targetLines": 800,
+      "plan": "知识图谱可维护性改造（D2 节点档案 / D2-3 服务端搜索 / D4 批量处置 / O15 合并 / O15-B 裸 slug）累积至 909 行；按 边 / 节点档案 / 合并 / 批量 / 导入导出 子域拆分到 handlers/graph/ 下，路由层只保留薄分派",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-163",
+      "ruleId": "R04-001",
+      "file": "app/src/infrastructure/http/handlers/schema-handlers.ts",
+      "lines": 897,
+      "targetLines": 800,
+      "plan": "本体编辑器（B2a/B2b/B2c）+ O17/D6-4 域级读写累积至 897 行；按 目录/计划解析 / 读 / 写 / 校验 / diff / 备份与恢复 子域拆分到 handlers/schema/ 下",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-164",
+      "ruleId": "R04-001",
+      "file": "app/src/knowledge/schema/SchemaLoader.ts",
+      "lines": 813,
+      "targetLines": 800,
+      "plan": "D6-4 逐文件兜底与默认模板累积至 813 行；按 目录解析 / YAML 读取 / 默认模板 / 域兜底 / 记录与规则加载 子域拆分，保持 SchemaLoader 门面导出不变",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-165",
+      "ruleId": "R04-001",
+      "file": "app/src/infrastructure/http/handlers/routes/knowledge-routes.ts",
+      "lines": 803,
+      "targetLines": 800,
+      "plan": "知识接口逐批增长（B2/D2/D4/D6）累积至 803 行；把「保留命名空间 + 顺序敏感」的 if 链改为声明式路由表（method+pattern → handler），顺序约束由表序表达并加注释说明",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
     }
   ],
   "barrelExceptions": [

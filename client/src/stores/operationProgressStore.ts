@@ -6,6 +6,41 @@
  */
 import { create } from "zustand";
 import { sseService } from "../services/sseService";
+import type { CompilePhase } from "../services/knowledgeService";
+
+/** 后端 `knowledge:compile:phase` 事件载荷（全量快照，G11） */
+interface CompilePhaseEvent {
+  sessionId: number;
+  seq: number;
+  phase: CompilePhase | null;
+  status: string;
+  label?: string;
+  skipReason: string | null;
+  detail: { current: number; total: number } | null;
+  current: number;
+  total: number;
+}
+
+const PHASE_TEXT: Record<string, string> = {
+  scanning: "扫描入料",
+  cleaning: "清理产物",
+  compiling: "LLM 编译",
+  linting: "质量检查",
+  graph_extract: "图谱提取",
+  record_extract: "记录抽取",
+  rule_extract: "规则抽取",
+  chunk_refresh: "分块刷新",
+  indexing: "索引落账",
+};
+
+const SKIP_TEXT: Record<string, string> = {
+  gated: "未触发",
+  busy: "任务占用",
+  memory: "内存水位",
+  truncated: "已截断",
+  empty: "无数据",
+  aborted: "已中止",
+};
 
 export interface ActiveOperation {
   /** 唯一标识 */
@@ -25,6 +60,8 @@ interface OperationProgressState {
   dreamPhase: string | null;
   /** 已完成的梦境阶段 */
   dreamPhasesDone: string[];
+  /** 知识编译当前阶段（方案 B v7；详细阶段快照由 useCompilePhaseStream 持有） */
+  compilePhase: CompilePhase | null;
   /** 是否已注册 SSE 监听器（防止重复注册） */
   _inited: boolean;
   /** 注册事件监听 */
@@ -39,6 +76,7 @@ export const useOperationProgressStore = create<OperationProgressState>(
     operations: [],
     dreamPhase: null,
     dreamPhasesDone: [],
+    compilePhase: null,
     _inited: false,
 
     _init: () => {
@@ -158,6 +196,38 @@ export const useOperationProgressStore = create<OperationProgressState>(
             operations: s.operations.filter((o) => o.id !== "compile"),
           }));
         }, 8000);
+      });
+
+      // 知识编译阶段（方案 B v7）：载荷为 9 阶段全量快照 + seq。
+      // G26：phases 的唯一来源是本事件与轮询；旧 4 事件只作终态信号，不写 phases。
+      sseService.on("knowledge:compile:phase", (data) => {
+        const evt = data as unknown as CompilePhaseEvent;
+        const phase = evt.phase;
+        const phaseText = phase ? ` · ${PHASE_TEXT[phase] ?? phase}` : "";
+        const stateText =
+          evt.status === "triggered"
+            ? "（已触发）"
+            : evt.status === "skipped" && evt.skipReason
+              ? `（${SKIP_TEXT[evt.skipReason] ?? evt.skipReason}）`
+              : "";
+        const detailText =
+          evt.detail && evt.detail.total > 0
+            ? ` (${evt.detail.current}/${evt.detail.total})`
+            : "";
+        set((s) => ({
+          compilePhase: phase,
+          operations: upsertOp(
+            s.operations,
+            "compile",
+            `📚 编译知识库${phaseText}${stateText}${detailText}`,
+            {
+              progress:
+                evt.total > 0
+                  ? Math.min(0.99, evt.current / evt.total)
+                  : undefined,
+            },
+          ),
+        }));
       });
 
       // 任务队列

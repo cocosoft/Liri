@@ -48,7 +48,14 @@ const logger = new OTelAwareLogger({
 /** 知识变更事件载荷 */
 export interface KnowledgeChangedEvent {
   action: 'created' | 'updated' | 'deleted';
-  filePath: string;
+  /** 单文件变更（上传 / 保存 / 删除场景） */
+  filePath?: string;
+  /**
+   * 批量文件变更（编译场景：一次产出 N 个页面）。
+   * 历史坑（2026-09-11 修复）：编译侧曾传知识库**根目录**，本订阅者对其
+   * `readFile(目录)` → EISDIR 被 handleError 静默吞掉 → 语义索引长期空转。
+   */
+  filePaths?: string[];
 }
 
 /** SemanticIndexUpdater 选项 */
@@ -110,22 +117,41 @@ export class SemanticIndexUpdater {
 
     eventBus?.subscribe('knowledge:changed', (event: unknown) => {
       const evt = event as KnowledgeChangedEvent;
+      // 批量优先：编译一次产出 N 个页面 → 单事件 + 逐文件索引
+      // （避免"传目录"路径再次触发 EISDIR；若逐页 publish 则会放大 N 次全量重建）
+      const targets =
+        evt.filePaths && evt.filePaths.length > 0
+          ? evt.filePaths
+          : evt.filePath
+            ? [evt.filePath]
+            : [];
       if (evt.action === 'deleted') {
-        // KB-SEM（2026-08-27）：删除事件不再忽略——HTTP 层 trash/delete 已接入，
-        // 同步清理索引中该文件的旧条目（原实现只增不删，已删文档可被搜索命中）
-        this.removeFromIndex(evt.filePath).catch((err) => {
+        for (const target of targets) {
+          // KB-SEM（2026-08-27）：删除事件不再忽略——HTTP 层 trash/delete 已接入，
+          // 同步清理索引中该文件的旧条目（原实现只增不删，已删文档可被搜索命中）
+          this.removeFromIndex(target).catch((err) => {
+            void handleError(err, {
+              module: 'knowledge:semantic',
+              action: 'remove_index',
+              context: { filePath: target },
+            });
+          });
+        }
+      } else if (targets.length > 1) {
+        // 编译场景（一次 N 个页面）：批量写入，避免 N 次全量重写索引文件
+        this.appendIndexBatch(targets).catch((err) => {
           void handleError(err, {
             module: 'knowledge:semantic',
-            action: 'remove_index',
-            context: { filePath: evt.filePath },
+            action: 'append_index_batch',
+            context: { count: targets.length },
           });
         });
-      } else {
-        this.appendIndex(evt.filePath).catch((err) => {
+      } else if (targets.length === 1) {
+        this.appendIndex(targets[0]).catch((err) => {
           void handleError(err, {
             module: 'knowledge:semantic',
             action: 'append_index',
-            context: { filePath: evt.filePath },
+            context: { filePath: targets[0] },
           });
         });
       }
@@ -166,6 +192,73 @@ export class SemanticIndexUpdater {
     const relPath = this.toRelPath(filePath);
     await this.store.deleteByPath(relPath);
     logger.info('语义索引删除条目完成', { filePath, relPath });
+  }
+
+  /**
+   * 批量增量索引（编译场景：一次产出 N 个页面）
+   *
+   * 为什么需要它：`JsonlVectorStore` 每次写入都会重写整个 index.jsonl（实测 204MB）。
+   * 若对 N 个文件逐个调用 `appendIndex`（每个 2 次 store 写）→ 2N 次全量重写 →
+   * 索引读写长时间阻塞（现象：`/v1/semantic/index/status` 直接 15s 超时）。
+   * 本方法把 N 个文件的"删旧 + 写新"合并为**一次** store 写入。
+   */
+  async appendIndexBatch(filePaths: string[]): Promise<void> {
+    if (!this.initialized) {
+      await this.initialize();
+    }
+    if (filePaths.length === 0) return;
+
+    const allEntries: Parameters<IVectorStore['upsert']>[0] = [];
+    const relPaths: string[] = [];
+
+    for (const filePath of filePaths) {
+      try {
+        const content = await readFile(filePath, 'utf-8');
+        const fileStat = await stat(filePath);
+        const relPath = this.toRelPath(filePath);
+        const chunks = autoChunk(content, relPath, {
+          windowLines: this.options.windowLines,
+          overlap: this.options.overlap,
+        });
+        if (chunks.length === 0) continue;
+        relPaths.push(relPath);
+        for (const chunk of chunks) {
+          try {
+            const vec = await this.embeddingManager.embedOne(chunk.text);
+            if (vec && vec.length > 0) {
+              allEntries.push({
+                ...chunk,
+                id: `${chunk.path}#L${chunk.startLine}-L${chunk.endLine}`,
+                embedding: new Float32Array(vec),
+                mtimeMs: fileStat.mtimeMs,
+              });
+            }
+          } catch (err) {
+            logger.warn('分块嵌入失败，跳过', {
+              path: chunk.path,
+              error: String(err),
+            });
+          }
+        }
+      } catch (err) {
+        logger.warn('批量索引：读取文件失败，跳过', {
+          filePath,
+          error: String(err),
+        });
+      }
+    }
+
+    // 一次删旧 + 一次写新
+    for (const relPath of relPaths) {
+      await this.store.deleteByPath(relPath);
+    }
+    if (allEntries.length > 0) {
+      await this.store.upsert(allEntries);
+    }
+    logger.info('语义索引批量更新完成', {
+      files: relPaths.length,
+      entriesAdded: allEntries.length,
+    });
   }
 
   /**

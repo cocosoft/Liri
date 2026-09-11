@@ -101,6 +101,10 @@ export async function runKnowledgeMaintenance(): Promise<KnowledgeMaintenanceRes
     const compileResult = await runKnowledgeCompile(aiService, {
       force: false,
     });
+    // 方案 B v7（§3.4）：被全局互斥挡下（busy）不是失败 —— 保持 0 计数继续后续步骤
+    if (compileResult.busy) {
+      logger.info('知识维护的编译步骤被全局互斥挡下，跳过编译（非失败）');
+    }
     result.compiled = compileResult.compiled;
     result.skipped = compileResult.skipped;
     result.errors = compileResult.errors;

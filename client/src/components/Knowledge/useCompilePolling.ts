@@ -14,12 +14,13 @@
 import { useCallback } from "react";
 import { knowledgeService } from "../../services/knowledgeService";
 
-const POLL_INTERVAL = 1000;
+/** 轮询间隔（导出供 useCompilePhaseStream 复用，避免两套超时策略 —— CS01） */
+export const POLL_INTERVAL = 1000;
 /** 等编译启动（idle → compiling/done）的重试次数上限。
  *  KB-C9：原 10 次（10s）在大库冷启动/线程池繁忙时误报"编译任务未启动"，放宽至 30s */
-const IDLE_RETRY_LIMIT = 30;
+export const IDLE_RETRY_LIMIT = 30;
 /** 进度轮询超时保护 */
-const PROGRESS_DEADLINE = 30 * 60 * 1000;
+export const PROGRESS_DEADLINE = 30 * 60 * 1000;
 
 /** 模块级互斥标志：跨 hook 实例共享，防止顶栏/抽屉并行触发编译 */
 let compilingGlobal = false;
@@ -44,84 +45,122 @@ export function useCompilePolling(opts: UseCompilePollingOptions) {
   const { onProgress, onResult, onFinished } = opts;
 
   return {
-    /** 触发一次编译并轮询到终态。返回 false 表示已被互斥挡住（未真正启动）。 */
-    start: useCallback(async (): Promise<boolean> => {
-      if (compilingGlobal) return false;
-      compilingGlobal = true;
-      try {
-        // 刷新恢复：后端已在编译 → 直接进入进度轮询，不重复触发
-        const initial = await knowledgeService.getCompileStatus();
-        if (initial.status !== "compiling") {
-          await knowledgeService.triggerCompile(false); // 202 立即返回
-        }
-
-        // 阶段 A：等待编译启动（idle → compiling/done）。
-        // 遇 done（含 lastError）即退出循环进入结果解析；持续 idle 达到上限则报"未启动"。
-        let status =
-          initial.status === "compiling"
-            ? initial
-            : await knowledgeService.getCompileStatus();
-        for (let i = 0; status.status === "idle" && i < IDLE_RETRY_LIMIT; i++) {
-          await sleep(POLL_INTERVAL);
-          status = await knowledgeService.getCompileStatus();
-        }
-
-        // 阶段 B：进度轮询（仅 compiling），直到 done 或超时
-        if (status.status === "compiling") {
-          const deadline = Date.now() + PROGRESS_DEADLINE;
-          while (status.status === "compiling" && Date.now() < deadline) {
-            if (status.total > 0) {
-              onProgress?.(
-                Math.min(99, Math.round((status.current / status.total) * 100)),
-              );
+    /**
+     * 触发一次编译并轮询到终态。
+     * @param files 指定文档编译（按 raw 文件名）；不传 = 全量编译
+     * @param domain D6-5：目标域（决定用哪个域的本体约束 / 产物归属哪个域）；
+     *               不传 = 后端回落默认域 `knowledge`
+     * @returns false 表示已被互斥挡住（未真正启动）
+     */
+    start: useCallback(
+      async (files?: string[], domain?: string): Promise<boolean> => {
+        if (compilingGlobal) return false;
+        compilingGlobal = true;
+        // D6-5：结果消息统一带上目标域，避免"编译进了哪个域"不可见（多入口共用同一消息）
+        const target = domain?.trim();
+        const note = target ? `（域：${target}）` : "";
+        try {
+          // 刷新恢复：后端已在编译 → 直接进入进度轮询，不重复触发
+          const initial = await knowledgeService.getCompileStatus();
+          if (initial.status !== "compiling") {
+            const trig = await knowledgeService.triggerCompile(
+              false,
+              files,
+              target,
+            ); // 202 立即返回
+            // 方案 B v7（G6）：后端同步判锁命中 —— 明确提示，不再进入"等启动"循环
+            // （否则顶栏会显示假的"编译中"，而实际什么都没跑）
+            if (trig.busy) {
+              onResult({
+                message: trig.message ?? "已有编译任务在运行，请等待完成",
+                hasError: false,
+              });
+              return true;
             }
+          }
+
+          // 阶段 A：等待编译启动（idle → compiling/done）。
+          // 遇 done（含 lastError）即退出循环进入结果解析；持续 idle 达到上限则报"未启动"。
+          let status =
+            initial.status === "compiling"
+              ? initial
+              : await knowledgeService.getCompileStatus();
+          for (
+            let i = 0;
+            status.status === "idle" && i < IDLE_RETRY_LIMIT;
+            i++
+          ) {
             await sleep(POLL_INTERVAL);
             status = await knowledgeService.getCompileStatus();
           }
-          // C2：超时退出 → 明确报超时，不再误报成功
+
+          // 阶段 B：进度轮询（仅 compiling），直到 done 或超时
           if (status.status === "compiling") {
+            const deadline = Date.now() + PROGRESS_DEADLINE;
+            while (status.status === "compiling" && Date.now() < deadline) {
+              if (status.total > 0) {
+                onProgress?.(
+                  Math.min(
+                    99,
+                    Math.round((status.current / status.total) * 100),
+                  ),
+                );
+              }
+              await sleep(POLL_INTERVAL);
+              status = await knowledgeService.getCompileStatus();
+            }
+            // C2：超时退出 → 明确报超时，不再误报成功
+            if (status.status === "compiling") {
+              onResult({
+                message: `编译超时，请稍后在日志查看编译进度${note}`,
+                hasError: true,
+              });
+              onProgress?.(100);
+              return true;
+            }
+          }
+
+          // 结果解析（A1：done 即终态，不做额外等待）
+          const result = status.result;
+          if (status.lastError && !result) {
             onResult({
-              message: "编译超时，请稍后在日志查看编译进度",
+              message: `编译失败: ${status.lastError}${note}`,
               hasError: true,
             });
-            onProgress?.(100);
-            return true;
+          } else if (result) {
+            onResult({
+              message:
+                `编译完成: ${result.compiled} 个成功, ${result.skipped} 个跳过` +
+                (result.errors ? `, ${result.errors} 个错误` : "") +
+                note,
+              hasError: result.errors > 0,
+            });
+          } else if (status.status === "idle") {
+            onResult({
+              message: `编译任务未启动，请稍后重试${note}`,
+              hasError: true,
+            });
+          } else {
+            onResult({ message: `编译完成${note}`, hasError: false });
           }
-        }
-
-        // 结果解析（A1：done 即终态，不做额外等待）
-        const result = status.result;
-        if (status.lastError && !result) {
-          onResult({
-            message: `编译失败: ${status.lastError}`,
-            hasError: true,
-          });
-        } else if (result) {
+          onProgress?.(100);
+          return true;
+        } catch (err) {
           onResult({
             message:
-              `编译完成: ${result.compiled} 个成功, ${result.skipped} 个跳过` +
-              (result.errors ? `, ${result.errors} 个错误` : ""),
-            hasError: result.errors > 0,
+              "编译失败: " +
+              (err instanceof Error ? err.message : "未知错误") +
+              note,
+            hasError: true,
           });
-        } else if (status.status === "idle") {
-          onResult({ message: "编译任务未启动，请稍后重试", hasError: true });
-        } else {
-          onResult({ message: "编译完成", hasError: false });
+          onProgress?.(0);
+          return true;
+        } finally {
+          compilingGlobal = false;
+          onFinished?.();
         }
-        onProgress?.(100);
-        return true;
-      } catch (err) {
-        onResult({
-          message:
-            "编译失败: " + (err instanceof Error ? err.message : "未知错误"),
-          hasError: true,
-        });
-        onProgress?.(0);
-        return true;
-      } finally {
-        compilingGlobal = false;
-        onFinished?.();
-      }
-    }, [onProgress, onResult, onFinished]),
+      },
+      [onProgress, onResult, onFinished],
+    ),
   };
 }

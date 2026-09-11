@@ -47,6 +47,63 @@ const logger = getLogger('knowledge:schema:schemaLoader');
 /** 默认 schema 目录名（用户知识库根目录下的隐藏目录） */
 const SCHEMA_DIR_NAME = '.schema';
 
+/** 本体文件原始 YAML 文档的读取结果（除 missing 外均带 `text`，供原始 YAML 模式编辑） */
+export type SchemaRawDocResult =
+  | { status: 'ok'; doc: Record<string, unknown>; text: string }
+  | { status: 'missing' }
+  | { status: 'not_mapping'; text: string }
+  | { status: 'parse_error'; error: string; text: string };
+
+/**
+ * 读取本体文件的**原始 YAML 文档**（唯一实现，避免多处各写一份 fs + js-yaml 读取）
+ *
+ * 两个消费方：
+ * - `SchemaValidator`：把 `status` 映射成逐项诊断问题；
+ * - 表单模式（D1/B2a）：需要原始文档以**保留行内未知键** ——
+ *   `loadEntities()` / `loadEdges()` 只返回窄化后的映射（kind/type → 结构体），会丢键。
+ *
+ * 只读保证：不触发 `ensureDefaults()`（目录不存在时不会写盘）。
+ *
+ * @param textOverride 直接给出文本（校验"待保存内容"），此时不读磁盘
+ */
+export function readSchemaRawDoc(
+  schemaDir: string,
+  fileName: string,
+  textOverride?: string
+): SchemaRawDocResult {
+  let text = textOverride;
+  if (text === undefined) {
+    const filePath = join(schemaDir, fileName);
+    if (!existsSync(filePath)) return { status: 'missing' };
+    try {
+      text = readFileSync(filePath, 'utf-8');
+    } catch (err) {
+      return {
+        status: 'parse_error',
+        error: err instanceof Error ? err.message : String(err),
+        text: '',
+      };
+    }
+  }
+  try {
+    const parsed: unknown = load(text);
+    if (
+      typeof parsed !== 'object' ||
+      parsed === null ||
+      Array.isArray(parsed)
+    ) {
+      return { status: 'not_mapping', text };
+    }
+    return { status: 'ok', doc: parsed as Record<string, unknown>, text };
+  } catch (err) {
+    return {
+      status: 'parse_error',
+      error: err instanceof Error ? err.message : String(err),
+      text,
+    };
+  }
+}
+
 /**
  * 字段定义
  */
@@ -227,10 +284,59 @@ export class SchemaLoader {
   }
 
   /**
+   * 只读加载图 schema（D7-2）：域目录 → 全局目录 **逐文件** 兜底
+   *
+   * - 域目录有 `entities.yaml` 用域的，没有则用全局的（`edges.yaml` 独立判定）；
+   * - 两侧都没有 → 该维度返回空 Map（调用方据此降级 freeform，**不是**"全部拒绝"）；
+   * - ⚠️ **不调用 `loadAll()`**（其首行 `ensureDefaults()` 会在目录不存在时写盘），
+   *   故本方法可安全用于"只读探测当前模式"。
+   *
+   * @returns 两级 schema 与各自命中的文件路径（null = 未命中，该维度不受约束）
+   */
+  async loadGraphSchemas(): Promise<{
+    entities: Map<string, EntitySchema>;
+    edges: Map<string, EdgeSchema>;
+    source: { entities: string | null; edges: string | null };
+  }> {
+    const globalDir = join(resolveKnowledgeDir(), SCHEMA_DIR_NAME);
+
+    const resolveFile = (name: string): string | null => {
+      const domainPath = join(this.schemaDir, name);
+      if (existsSync(domainPath)) return domainPath;
+      if (this.schemaDir !== globalDir) {
+        const globalPath = join(globalDir, name);
+        if (existsSync(globalPath)) return globalPath;
+      }
+      return null;
+    };
+
+    const entitiesFile = resolveFile('entities.yaml');
+    const edgesFile = resolveFile('edges.yaml');
+
+    return {
+      entities: entitiesFile
+        ? await this.readEntitiesAt(entitiesFile)
+        : new Map<string, EntitySchema>(),
+      edges: edgesFile
+        ? await this.readEdgesAt(edgesFile)
+        : new Map<string, EdgeSchema>(),
+      source: { entities: entitiesFile, edges: edgesFile },
+    };
+  }
+
+  /**
    * 加载 entities.yaml
    */
   async loadEntities(): Promise<Map<string, EntitySchema>> {
-    const filePath = join(this.schemaDir, 'entities.yaml');
+    return this.readEntitiesAt(join(this.schemaDir, 'entities.yaml'));
+  }
+
+  /**
+   * 从指定文件读取实体类型（D7-2：路径可注入，供"域→全局逐文件兜底"复用）
+   */
+  private async readEntitiesAt(
+    filePath: string
+  ): Promise<Map<string, EntitySchema>> {
     const map = new Map<string, EntitySchema>();
 
     if (!existsSync(filePath)) {
@@ -268,7 +374,15 @@ export class SchemaLoader {
    * 加载 edges.yaml
    */
   async loadEdges(): Promise<Map<string, EdgeSchema>> {
-    const filePath = join(this.schemaDir, 'edges.yaml');
+    return this.readEdgesAt(join(this.schemaDir, 'edges.yaml'));
+  }
+
+  /**
+   * 从指定文件读取关系类型（D7-2：路径可注入，供"域→全局逐文件兜底"复用）
+   */
+  private async readEdgesAt(
+    filePath: string
+  ): Promise<Map<string, EdgeSchema>> {
     const map = new Map<string, EdgeSchema>();
 
     if (!existsSync(filePath)) {

@@ -1,16 +1,24 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { graphService } from "../../../services/graphService";
+import { schemaService } from "../../../services/schemaService";
 import type { GraphEdge, GraphStats } from "../../../types/project";
+import { GraphEntitiesPanel } from "./GraphEntitiesPanel";
 import { GraphFilterPanel } from "./GraphFilterPanel";
 import { GraphNodeDetail } from "./GraphNodeDetail";
 import { GraphCanvas } from "./GraphCanvas";
-import { RefreshCw } from "lucide-react";
+import { GraphEdgeEditor } from "./GraphEdgeEditor";
+import { History, Plus, RefreshCw, Upload } from "lucide-react";
 
 interface GraphPageProps {
   isDark: boolean;
   /** KB-C1：当前是否为激活 tab —— 切回图谱 tab 时重新加载（编译知识库后数据同步） */
   active?: boolean;
 }
+
+/** 列表请求上限（后端钳制 1..1000） */
+const EDGE_FETCH_LIMIT = 1000;
+/** 画布渲染上限（cytoscape 性能保护） */
+const CANVAS_RENDER_LIMIT = 500;
 
 export function GraphPage({ isDark, active = true }: GraphPageProps) {
   const [edges, setEdges] = useState<GraphEdge[]>([]);
@@ -21,6 +29,41 @@ export function GraphPage({ isDark, active = true }: GraphPageProps) {
   const [focusNode, setFocusNode] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [error, setError] = useState("");
+  // B4：编辑抽屉 / 类型白名单 / 操作反馈
+  const [editorMode, setEditorMode] = useState<
+    "create" | "edit" | "bulk" | "audit" | null
+  >(null);
+  const [editingEdge, setEditingEdge] = useState<GraphEdge | null>(null);
+  // D2-2：实体档案抽屉
+  const [entitiesOpen, setEntitiesOpen] = useState(false);
+  // D2-3：实体档案名（node_id → name），供画布标签使用
+  const [nodeNames, setNodeNames] = useState<Record<string, string>>({});
+
+  const loadNodeNames = useCallback(async () => {
+    try {
+      const data = await graphService.listNodes({ limit: 1000 });
+      const map: Record<string, string> = {};
+      for (const node of data.nodes) {
+        if (node.name && node.name.trim()) map[node.node_id] = node.name;
+      }
+      setNodeNames(map);
+    } catch {
+      // @ignore-catch 档案名是画布标签的增强项，取不到就回退显示 node_id，不阻塞画布
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadNodeNames();
+  }, [loadNodeNames]);
+  const [allowedTypes, setAllowedTypes] = useState<string[]>([]);
+  const [toast, setToast] = useState("");
+  const toastTimer = useRef<number | null>(null);
+
+  const showToast = useCallback((message: string) => {
+    setToast(message);
+    if (toastTimer.current) window.clearTimeout(toastTimer.current);
+    toastTimer.current = window.setTimeout(() => setToast(""), 4000);
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -29,7 +72,8 @@ export function GraphPage({ isDark, active = true }: GraphPageProps) {
       const data = await graphService.listEdges({
         domain: selectedDomain || undefined,
         type: selectedType || undefined,
-        limit: 500,
+        // B4：可见性修复 —— 原 limit 500 且画布只渲染 200 条，"看不到就管不了"
+        limit: EDGE_FETCH_LIMIT,
       });
       setEdges(data.edges);
       setStats(data.stats);
@@ -44,6 +88,27 @@ export function GraphPage({ isDark, active = true }: GraphPageProps) {
     // KB-C1：active 变 true（切回本 tab / 首次挂载）时加载，确保编译后的最新图谱可见
     if (active) load();
   }, [load, active]);
+
+  // B4：关系类型白名单（constrained → 下拉只用白名单；freeform → 空数组 = 自由输入）
+  useEffect(() => {
+    if (!active) return;
+    let cancelled = false;
+    void schemaService
+      .getSchema()
+      .then((info) => {
+        if (cancelled) return;
+        setAllowedTypes(
+          info.mode === "constrained" ? info.edges.map((e) => e.type) : [],
+        );
+      })
+      .catch(() => {
+        // 白名单读取失败 → 退回自由输入（编辑不被阻断）
+        if (!cancelled) setAllowedTypes([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [active]);
 
   const filteredEdges = useMemo(() => {
     let result = edges;
@@ -91,6 +156,39 @@ export function GraphPage({ isDark, active = true }: GraphPageProps) {
     return edges.filter((e) => e.from === focusNode || e.to === focusNode);
   }, [edges, focusNode]);
 
+  /**
+   * B4：画布数据稳定引用
+   *
+   * `filteredEdges.slice(...)` 每次 render 都产生**新数组**，而 GraphCanvas 的布局
+   * effect 依赖 `edges` → 每次父组件重渲染（如打开编辑抽屉、点击节点）都会重跑布局、
+   * 节点坐标重新随机化（表现为"节点乱跳、难以点中"）。此处 memo 化避免无谓重排。
+   */
+  const canvasEdges = useMemo(
+    () => filteredEdges.slice(0, CANVAS_RENDER_LIMIT),
+    [filteredEdges],
+  );
+
+  /** B4：新建关系时的默认域（取当前过滤域，缺省用数据中出现的域，不硬编码） */
+  const defaultDomain = useMemo(
+    () => selectedDomain || domainOptions[0] || undefined,
+    [selectedDomain, domainOptions],
+  );
+
+  /** B4：删除实体（连同其全部关系） */
+  const handleDeleteEntity = useCallback(
+    async (entityId: string) => {
+      try {
+        const result = await graphService.deleteEntity(entityId);
+        showToast(`已删除实体及其 ${result.removedEdges} 条关系`);
+        setFocusNode(null);
+        void load();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "删除实体失败");
+      }
+    },
+    [showToast, load],
+  );
+
   return (
     <div className="flex h-full w-full">
       {/* 左侧面板：统计 + 过滤 */}
@@ -126,11 +224,17 @@ export function GraphPage({ isDark, active = true }: GraphPageProps) {
           <span
             className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}
           >
-            {filteredEdges.length} 条边
-            {/* KB-C13：画布仅渲染前 200 条，超限明确提示避免计数与渲染不符 */}
-            {filteredEdges.length > 200 && (
+            {/* B4：区分"已加载"与"库中总数"——原口径把拉取条数当总数显示，3042 边时恒显 1000 易误读 */}
+            {stats && edges.length < stats.totalEdges ? (
+              <>
+                已加载 {filteredEdges.length} 条（库中共 {stats.totalEdges} 条）
+              </>
+            ) : (
+              <>{filteredEdges.length} 条边</>
+            )}
+            {filteredEdges.length > CANVAS_RENDER_LIMIT && (
               <span className="ml-1 text-amber-500 dark:text-amber-400">
-                （画布仅显示前 200 条）
+                （画布仅显示前 {CANVAS_RENDER_LIMIT} 条）
               </span>
             )}
             {search && (
@@ -145,14 +249,95 @@ export function GraphPage({ isDark, active = true }: GraphPageProps) {
             )}
           </span>
           <button
+            onClick={() => {
+              setEditingEdge(null);
+              setEditorMode("create");
+            }}
+            className={`ml-auto inline-flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors ${
+              isDark
+                ? "text-gray-300 hover:bg-gray-800"
+                : "text-gray-600 hover:bg-gray-100"
+            }`}
+            title="新增关系（填写新实体 ID 即同时创建该实体）"
+          >
+            <Plus size={13} />
+            新增关系
+          </button>
+          <button
+            onClick={() => {
+              setEditingEdge(null);
+              setEditorMode("bulk");
+            }}
+            className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors ${
+              isDark
+                ? "text-gray-300 hover:bg-gray-800"
+                : "text-gray-600 hover:bg-gray-100"
+            }`}
+            title="批量导入（先预览再确认）"
+          >
+            <Upload size={13} />
+            批量导入
+          </button>
+          <button
+            onClick={() => {
+              setEditingEdge(null);
+              setEditorMode("audit");
+            }}
+            className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors ${
+              isDark
+                ? "text-gray-300 hover:bg-gray-800"
+                : "text-gray-600 hover:bg-gray-100"
+            }`}
+            title="审计与撤销（最近操作可回滚）"
+          >
+            <History size={13} />
+            审计/撤销
+          </button>
+          {/* D2-2：实体档案（含孤立实体） */}
+          <button
+            onClick={() => setEntitiesOpen(true)}
+            className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors ${
+              isDark
+                ? "text-gray-300 hover:bg-gray-800"
+                : "text-gray-600 hover:bg-gray-100"
+            }`}
+            title="实体档案（名称/描述/别名/标签；可创建孤立实体）"
+          >
+            <Plus size={13} />
+            实体档案
+          </button>
+          {entitiesOpen && (
+            <GraphEntitiesPanel
+              isDark={isDark}
+              onClose={() => setEntitiesOpen(false)}
+              onChanged={() => {
+                void load();
+                void loadNodeNames();
+              }}
+            />
+          )}
+          <button
             onClick={load}
             disabled={loading}
-            className={`ml-auto p-1 rounded transition-colors ${isDark ? "text-gray-400 hover:text-gray-200 hover:bg-gray-800" : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"}`}
+            className={`p-1 rounded transition-colors ${isDark ? "text-gray-400 hover:text-gray-200 hover:bg-gray-800" : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"}`}
             title="刷新"
           >
             <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
           </button>
         </div>
+
+        {/* B4：操作反馈（保存/删除/导入结果） */}
+        {toast && (
+          <div
+            className={`text-xs px-4 py-2 ${
+              isDark
+                ? "bg-emerald-900/30 text-emerald-300"
+                : "bg-emerald-50 text-emerald-700"
+            }`}
+          >
+            {toast}
+          </div>
+        )}
 
         {error && (
           <div className="text-xs text-red-500 px-4 py-2 bg-red-500/10">
@@ -180,28 +365,52 @@ export function GraphPage({ isDark, active = true }: GraphPageProps) {
             </div>
           ) : (
             <GraphCanvas
-              edges={filteredEdges.slice(0, 200)}
+              edges={canvasEdges}
               focusNode={focusNode ?? undefined}
               onFocusNode={setFocusNode}
               isDark={isDark}
+              nodeNames={nodeNames}
               highlight={search}
             />
           )}
         </div>
       </div>
 
-      {/* 右侧：节点详情面板 */}
-      {focusNode && (
-        <div
-          className={`w-56 shrink-0 p-3 border-l overflow-y-auto ${isDark ? "border-gray-700" : "border-gray-200"}`}
-        >
-          <GraphNodeDetail
-            edges={focusEdges}
-            focusNode={focusNode}
-            isDark={isDark}
-            onClear={() => setFocusNode(null)}
-          />
-        </div>
+      {/* 右侧：编辑抽屉（优先）或节点详情面板 */}
+      {editorMode ? (
+        <GraphEdgeEditor
+          isDark={isDark}
+          mode={editorMode}
+          edge={editingEdge}
+          allowedTypes={allowedTypes}
+          defaultDomain={defaultDomain}
+          onClose={() => {
+            setEditorMode(null);
+            setEditingEdge(null);
+          }}
+          onSaved={(message) => {
+            showToast(message);
+            void load();
+          }}
+        />
+      ) : (
+        focusNode && (
+          <div
+            className={`w-56 shrink-0 p-3 border-l overflow-y-auto ${isDark ? "border-gray-700" : "border-gray-200"}`}
+          >
+            <GraphNodeDetail
+              edges={focusEdges}
+              focusNode={focusNode}
+              isDark={isDark}
+              onClear={() => setFocusNode(null)}
+              onEditEdge={(edge) => {
+                setEditingEdge(edge);
+                setEditorMode("edit");
+              }}
+              onDeleteEntity={handleDeleteEntity}
+            />
+          </div>
+        )
       )}
     </div>
   );

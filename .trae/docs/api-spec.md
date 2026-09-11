@@ -322,10 +322,10 @@
 | DELETE | `/v1/knowledge/bases/{name}` | ✅ | `knowledgeService.deleteBase` |
 | POST | `/v1/knowledge/save-from-chat` | ✅ | 无前端调用方 |
 | POST | `/v1/knowledge/upload` | ✅ | 无前端调用方 |
-| POST | `/v1/knowledge/compile` | ✅ | 无前端调用方 |
+| POST | `/v1/knowledge/compile` | ✅ | `knowledgeService.triggerCompile`（三入口：`useKnowledgeBaseList` 知识库页、`PendingCompilePanel` 待编译面板、`KnowledgePipelinePage` 全部/选中编译）——body `{force?, files?, domain?}`：`files` 非空时仅编译这些 raw 文件（按文件名匹配）；**D6-5：`domain` 为目标域**（决定用哪个域的本体约束抽取、产物与血缘归属哪个域），缺省回落 `knowledge`。异步启动：**202 立即返回**，进度轮询 `/v1/knowledge/compile-status`。⚠️ 旧描述"无前端调用方"已失效（2026-09-11 修正） |
 | GET | `/v1/knowledge/raw-preview` | ✅ | KnowledgePage PDF 内嵌预览（`?file=<相对 raw 路径>`，仅 PDF，realpath 白名单；F5，2026-09-08） |
 | GET | `/v1/knowledge/raw-files` | ✅ | 无前端调用方 |
-| GET | `/v1/knowledge/lineage` | ✅ | 无前端调用方（血缘反查 R6：`docPath` / `artifactType+artifactId` / `domain` / `version`，返回 `{links,count}`，2026-09-07） |
+| GET | `/v1/knowledge/lineage` | ✅ | `knowledgeService.getLineage`（血缘反查 R6：`docPath` / `artifactType+artifactId` / `domain` / `version`，返回 `{links,count}`，2026-09-07；**D6-5 起 `domain` 由流水线页按目标域传入**，前缀为 `LineageView`） |
 | PUT | `/v1/knowledge/docs` | ✅ | `knowledgeService.updateDoc`（支持 `{ base }` 移动目录，2026-08-07 P2-4） |
 | POST | `/v1/knowledge/trash` | ✅ | `knowledgeService.trash` |
 | POST | `/v1/knowledge/restore` | ✅ | `knowledgeService.restoreSnapshot`（返回 `{ restored, content }`，2026-08-07 P2-5） |
@@ -337,6 +337,41 @@
 | POST | `/v1/knowledge/ingest` | ✅ | `fileService.saveToKnowledge` |
 | PUT | `/v1/knowledge/{id}` | ✅ | `knowledgeService.update` |
 | DELETE | `/v1/knowledge/{id}` | ✅ | `knowledgeService.delete` |
+| GET | `/v1/knowledge/domains` | ✅ | `schemaService.listDomains`（D6-3，2026-09-11）——**只读**返回知识域清单 `{defaultDomain, domains:[{name,label,description,keywordTags,wikiPageCount,isDefault}]}`。**默认域 `knowledge` 始终存在**（即使 `~/.pyapp/knowledge/domains/` 目录不存在）；其余域来自该目录下**带 config 的子目录**（`DomainManager.list()` 语义）。不创建目录、不写盘 |
+| GET | `/v1/knowledge/schema` | ✅ | `schemaService.getSchema`（2026-09-11 B1①，知识库「本体」Tab = `/knowledge?tab=ontology`）——**只读**：返回 `{mode( freeform\|constrained ), domain, domainFallback, schemaDir, files, counts, edges[], form, raw}`；**D6-3/D6-4**：支持 `?domain=` —— **读按逐文件兜底**（域目录有该文件用域，否则用全局；与 `SchemaLoader.loadGraphSchemas()` / 编译侧**完全一致**），响应含 `domain`、`domainFallback`（=存在文件继承自全局）、`writeDir`（写入目标目录）、`fileDirs`（逐文件来源目录）；默认域 `knowledge` 与不传 `?domain=` 等价（`writeDir` = 全局 `.schema/`，行为与改造前完全相同）；**不触发 `ensureDefaults`**，调用前后 `.schema/` 目录内容不变。`form.{entities,edges}` = `{expressible, reason?, rows?}`（B2a）：`expressible=false` 表示该文件含表单无法表达的内容（顶层多余键 / 条目非映射 / 值无法 JSON 往返），前端据此**禁用**表单模式，禁止有损转换。`raw.{entities.yaml,edges.yaml,xref.yaml}` = 原始 YAML 文本或 `null`（B2b 新增 entities/edges，B2c 扩到 xref；缺失为 null；**坏文件仍返回文本**，便于在原始模式下修复） |
+| POST | `/v1/knowledge/schema/validate` | ✅ | `schemaService.validate`（2026-09-11 B1②，B2a 扩展）——**只读**逐项校验，固定返回 **200** + `{ok, errors[], warnings[], summary, scope}`（校验失败属诊断结果，不用 4xx，便于前端直接渲染明细）。可选 body：`{files:{"entities.yaml"\|"edges.yaml"\|"xref.yaml": "<YAML 文本>"}}` 或 `{models:{...}}`（结构化模型，服务端 dump 成 YAML 后校验）→ `scope=draft`；不带 body → `scope=disk` |
+| POST | `/v1/knowledge/schema/diff` | ✅ | `schemaService.diff`（2026-09-11 B2b）——**只读**预览"磁盘现状 → 待保存草稿"的 unified diff，body 与 validate 同源（`{files}` / `{models}`），返回 `{diffs: { "<file>": {diff, additions, deletions, skipped?} }}`；复用 `computeUnifiedDiff`（与文件写入工具同一实现）；无差异 `diff: ''`；超大文件（> 250k 单元格）`skipped: true` |
+| PUT | `/v1/knowledge/schema/{file}?domain=` | ✅ | `schemaService.putFile`（2026-09-11 B2a，B2c 扩白名单，**O17 起按域**）——写入单个本体文件，body `{content}`（原始 YAML 模式）或 `{model:[...]}`（表单模式，**仅 entities/edges**，`xref` 用 model 提交会 400）。**D6-4 写语义**：`?domain=` → 默认域 `knowledge`（或不传域）写**全局 `.schema/`**（迁移语义：全局即 knowledge 域的本体，**不复制文件、不新建 `domains/knowledge/`**）；**非默认域写该域目录**（缺失文件即"为该域新建"，不反向污染全局基线）。校验时本文件用待保存内容覆盖、其余文件按**逐文件兜底**读取（与 GET / 编译侧同源）。**服务端强制校验**（与 validate 同一份 `SchemaValidator`，且校验与写入**同一目录**）→ 不过则 **400 且不写盘**；通过则 写前备份到 `<schemaDir>/.backup/<时间戳>/`（保留最近 10 份）+ **原子写**（`.tmp`→`rename`）；**不触发重编译**、**不调用 `ensureDefaults`**。白名单：`entities.yaml` / `edges.yaml` / `xref.yaml`。⚠️ 路由在 `knowledge-routes.ts` 必须早于 `PUT /v1/knowledge/(?!bases\|docs)(.+)` 通配 |
+| GET | `/v1/knowledge/schema/backup` | ✅ | `schemaService.listBackups`（2026-09-11 B2c）——**只读**列出历史备份（新→旧，最多 10 份，与写入清理策略一致）：`{schemaDir, keep, backups:[{id, createdAt, files:[{name,size}]}]}`；`id` = 备份目录名（时间戳），恢复时原样回传 |
+| POST | `/v1/knowledge/schema/backup/{id}/restore` | ✅ | `schemaService.restoreBackup`（2026-09-11 B2c）——用指定备份覆盖某文件，body `{"file":"<entities\|edges\|xref>.yaml"}`。三重防护：① `id` 必须匹配时间戳格式（**防路径穿越**）② 备份内容**先校验**，不过则 400 且不做任何改动 ③ 覆盖前**先备份当前状态** → 恢复本身可回滚（返回 `previousBackup`）。同样为原子写 + 不触发重编译 |
+| POST | `/v1/knowledge/schema/scaffold` | ✅ | 无前端调用方（2026-09-11 新增，B1③）——**唯一 scaffold 写盘入口**，两段式：不带 `{"confirm":true}` 仅返回预览（**不落盘**）；带 confirm 则写入默认 **3 份** YAML（entities/edges/xref，**不含 records.yaml**）并返回影响面（新白名单 vs 图中现有 `edge_type`）。目录已存在（含空目录）→ `skipped`，不覆盖用户定义 |
+
+### §3.11a 知识图谱（kg_edges）
+
+| 方法 | 路径 | 后端状态 | 前端调用方 |
+|------|------|----------|-----------|
+| GET | `/v1/knowledge/graph/edges` | ✅ | `graphService.listEdges`（`?domain=&entityId=&type=&limit=`，limit 默认 200） |
+| GET | `/v1/knowledge/graph/stats` | ✅ | `graphService.getStats` —— 返回 `{totalEdges, byType, totalEntities, derivedEntities}`。**D2（2026-09-11）起**：`totalEntities` = `kg_nodes` **节点表总数（含孤立实体）**；新增 `derivedEntities` = 由边派生的端点数（旧口径，保留供界面标注与对照） |
+| GET | `/v1/knowledge/graph/export` | ✅ | 无前端调用方（2026-09-11 新增，B0-②）——返回 `application/x-ndjson; charset=utf-8` + `Content-Disposition: attachment`，内容为 `exportJsonl()` 原样输出 |
+| POST | `/v1/knowledge/graph/import` | ✅ | 无前端调用方（2026-09-11 新增，B0-②）——**body 为 JSONL 文本**（export 的原样输出），返回 `{ imported, skipped }`；`INSERT OR IGNORE` 以 `edge_id` 判重 → 重复导入幂等；body 为空返回 **400** |
+| POST | `/v1/knowledge/graph/edges` | ✅ | 无前端调用方（2026-09-11 新增，B3）——新增关系，body `{from,to,type,direction?,domain?,attributes?}`；**D8 幂等**（同 `(from,to,type,domain)` 返回既有边）；人工写入自动打 `attributes.source='manual'`；schema 白名单外 type → **400**（`KG_INVALID_EDGE_TYPE`） |
+| PATCH | `/v1/knowledge/graph/edges/{id}` | ✅ | 无前端调用方（B3）——改 `type`/`direction`/`attributes`（attributes **合并**语义）；`from`/`to`/`domain` 不可改；id 不存在 → **404**；改成与既有边同键 → **400**（`KG_EDGE_UPDATE_CONFLICT`） |
+| DELETE | `/v1/knowledge/graph/edges/{id}` | ✅ | 无前端调用方（B3）——删除关系；不存在 → **404**。⚠️ **O3 根因修复（2026-09-11）**：`/v1/knowledge/{graph\|schema\|bases\|docs\|snapshots\|trash\|datasources\|config\|health\|…}`（24 个保留段）下的 PUT/PATCH/DELETE 不再可能被"文档 id"通配吞掉 —— 未命中专用路由时统一 **404「未实现的接口」**，守卫与注册顺序**无关**（详见 knowledge-routes.ts 顶部清单） |
+| POST | `/v1/knowledge/graph/edges/bulk` | ✅ | 无前端调用方（B3）——body `{edges:[...]}`，单次 ≤ **1000**（超出 400）；返回 `{submitted, ok, failed[{index,reason}]}`，逐条容错不中断 |
+| POST | `/v1/knowledge/graph/edges/bulk-delete` | ✅ | `graphService.deleteEdgesByType`（D4，2026-09-11）——按关系类型批量删除该类型的**全部**边，body `{type, domain?, confirm:true}`；**必须 confirm**（否则 400）、`type` 必填非空、单次上限 2000（超出 400）；逐条走 `deleteEdge` → 每条写入**墓碑 + 审计**（可逐条撤销，且不会被下次抽取加回）；**不提供"删除全部"入口** |
+| GET | `/v1/knowledge/graph/entities?domain=&limit=` | ✅ | 无前端调用方（B3）——由边派生：`{entities:[{id,degree}], total}`；**必须落在 `GET /v1/knowledge/graph` 兜底分支内**（否则被 stats 吞掉）。"来源(doc)"需 lineage 反查，属 B5 |
+| DELETE | `/v1/knowledge/graph/entities/{id}` | ✅ | 无前端调用方（B3）——删除实体（= 删其所有关联边），返回 `{deleted,id,removedEdges}`；无关联边 → **404**；id 需 URL 编码（O15-B 后为裸 slug，如含特殊字符仍应编码） |
+| GET | `/v1/knowledge/graph/nodes?domain=&limit=&search=` | ✅ | `graphService.listNodes`（D2-2，D2-3 加 `search`）——**实体档案**列表（**含孤立实体**，每行带 `degree` = 关联边数）；`search` 由**服务端** LIKE 匹配 `node_id/name/description/kind`（前端不再只能搜"已加载窗口"）；⚠️ **必须落在 `GET /v1/knowledge/graph` 兜底分支内**（否则被 stats 吞掉）；limit 默认 200、服务端钳制 1..1000 |
+| GET | `/v1/knowledge/graph/nodes/{id}` | ✅ | `graphService.getNode`（D2-2）——单实体档案；不存在 → **404**；id 需 URL 编码 |
+| POST | `/v1/knowledge/graph/nodes` | ✅ | `graphService.createNode`（D2-2）——创建实体（**支持孤立实体**，即暂无关系）；**O15-B：`id` 即裸 slug**（也可只给 `slug`，等价）；`kind` 是**档案属性**（分类标签，不参与 ID 拼接），domain 默认 `knowledge`；以 `origin='manual'` 写入（后续自动抽取**不覆盖**档案）；`id` 与 `slug` 都没有 → **400** |
+| PATCH | `/v1/knowledge/graph/nodes/{id}` | ✅ | `graphService.updateNode`（D2-2）——改档案字段 `kind/name/description/aliases/tags/attributes`；**身份字段（id）不可改**（改身份 = 删旧建新）；**O15-B：`kind` 已归档案属性，可改**；不存在或无可更新字段 → **404** |
+| DELETE | `/v1/knowledge/graph/nodes/{id}?cascade=true` | ✅ | `graphService.deleteNode`（D2-2）——删实体：无关联边直接删；**有关联边必须 `cascade=true`**（否则 **400**），级联路径走 `deleteEntity`（写墓碑 + 审计，可逐条撤销） |
+| POST | `/v1/knowledge/graph/nodes/merge` | ✅ | `graphService.mergeNodes`（**O15，2026-09-11**）——**合并两个实体**：把 `from` 的全部关系**改指**到 `into` 并删除 `from` 节点，用于修复"同一实体被写成两个 ID"的历史分裂（实测真实库 4 组：`plan`↔`pdca:plan` 等）。body `{from, into, confirm:true}`（**必须 confirm**；缺 confirm / 目标不存在 / 合并自身 → **400**）。改指后与既有边**同自然键**（D8 `from+to+type+domain`）→ 判重**去重**（同样写墓碑 + 审计）；每条改动写审计（`note: 合并实体：from → into`）→ **可逐条撤销**。返回 `{merged, from, into, repointed, deduped}` |
+| GET | `/v1/knowledge/graph/audit?edgeId=&limit=` | ✅ | `graphService.listAudit`（D5）——append-only 审计列表（最新在前，limit ≤ 500）；**必须落在 `GET /v1/knowledge/graph` 兜底分支内** |
+| POST | `/v1/knowledge/graph/audit/{auditId}/undo` | ✅ | `graphService.undoAudit`（D5）——按动作语义撤销：`create`→删除（不写墓碑）、`update`→回滚 before 快照、`delete`→恢复快照并**解除墓碑**；`cleanup`/`import`/`undo` → **400**；未知 id → **400** |
+
+> CLI 同源入口（同一方法，非 HTTP 转发）：`pyapp knowledge export-graph [--out <file>]` / `pyapp knowledge import-graph <file>`，注册于 [knowledge/cli/graph.ts](file:///e:/PY/Documents/CODES/PY_APP/app/src/knowledge/cli/graph.ts)。
+> ⚠️ **路由注册顺序（否则被吞）**：`GET .../graph/export` 必须在 `url.startsWith('/v1/knowledge/graph')` 兜底分支内/之前；`POST .../graph/import` 必须早于 `/v1/knowledge/{id}` 的 `PUT`/`DELETE` 通配。
 
 ### §3.11b OfficeCli 安装管理
 

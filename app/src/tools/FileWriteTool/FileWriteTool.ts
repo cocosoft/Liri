@@ -113,7 +113,7 @@ import type {
   ToolCallProgress,
   ToolResult,
 } from '../types';
-import { createToolResult } from '../types/ToolResult';
+import { createToolResult, ToolExecutionStatus } from '../types/ToolResult';
 import {
   AppError,
   ErrorCategory,
@@ -180,8 +180,24 @@ export class FileWriteTool extends BaseTool {
     onProgress?: ToolCallProgress<any>
   ): Promise<ToolResult<unknown>> {
     try {
+      // G3：相对路径优先解析到会话工作目录（cwd），缺省回退 outputDir。
+      // 必须在准入判定之前解析：判定与实际写入必须共用同一基准，否则 DAEMON
+      // （cwd=项目根）下相对路径会被判定到错误的磁盘，产出与意图无关的跨盘建议。
+      const baseDir = getToolBaseDir(context);
+      const targetPath = resolveFilePath(input.file_path as string, baseDir);
+
+      // 「父目录不存在」不是错误：写入契约本身包含创建缺失的父目录
+      // （见 writeFile() 的 mkdirSync recursive）。因此可访问性只对
+      // **最近存在的祖先目录**判定，否则多级新建写入会被误判为不可访问而拦死。
+      let existingAncestor = path.dirname(targetPath);
+      while (!fs.existsSync(existingAncestor)) {
+        const parent = path.dirname(existingAncestor);
+        if (parent === existingAncestor) break;
+        existingAncestor = parent;
+      }
+
       const filePathCheck = checkPathAccessibility(
-        path.dirname(input.file_path as string),
+        existingAncestor,
         '写入目录'
       );
       if (!filePathCheck.accessible) {
@@ -190,6 +206,9 @@ export class FileWriteTool extends BaseTool {
           ? `\n建议: ${filePathCheck.suggestions.join('; ')}`
           : '';
         return createToolResult(msg + hint, {
+          success: false,
+          error: msg,
+          status: ToolExecutionStatus.FAILURE,
           newMessages: [{ role: 'system', content: `路径不可访问: ${msg}` }],
         });
       }
@@ -207,8 +226,6 @@ export class FileWriteTool extends BaseTool {
       }
 
       const append = (input.append as boolean) || false;
-      // G3：相对路径优先解析到会话工作目录（cwd），缺省回退 outputDir
-      const baseDir = getToolBaseDir(context);
 
       // content 与 source_file 至少提供一个：内容在磁盘时必须优先走 source_file（0 输出 token）
       const hasContent =
@@ -221,6 +238,9 @@ export class FileWriteTool extends BaseTool {
         return createToolResult(
           '参数 content 或 source_file 必须提供一个（content 为要写入的正文，source_file 为本地已有文件路径，用于避免复述长内容导致 token 爆炸）',
           {
+            success: false,
+            error: '参数 content 或 source_file 必须提供一个',
+            status: ToolExecutionStatus.FAILURE,
             newMessages: [
               { role: 'system', content: '缺少参数 content 或 source_file' },
             ],
@@ -234,6 +254,9 @@ export class FileWriteTool extends BaseTool {
         const src = path.resolve(input.source_file as string);
         if (!fs.existsSync(src)) {
           return createToolResult(`source_file 指定的文件不存在: ${src}`, {
+            success: false,
+            error: `source_file 指定的文件不存在: ${src}`,
+            status: ToolExecutionStatus.FAILURE,
             newMessages: [
               { role: 'system', content: `source_file 不存在: ${src}` },
             ],
@@ -251,6 +274,9 @@ export class FileWriteTool extends BaseTool {
           return createToolResult(
             `source_file 读取失败: ${src}（${e instanceof Error ? e.message : String(e)}）`,
             {
+              success: false,
+              error: `source_file 读取失败: ${src}`,
+              status: ToolExecutionStatus.FAILURE,
               newMessages: [
                 {
                   role: 'system',
@@ -321,6 +347,9 @@ export class FileWriteTool extends BaseTool {
         });
       }
       return createToolResult(msg, {
+        success: false,
+        error: msg,
+        status: ToolExecutionStatus.FAILURE,
         newMessages: [{ role: 'system', content: `Error: ${msg}` }],
       });
     }

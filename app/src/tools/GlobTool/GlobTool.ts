@@ -7,6 +7,7 @@ import * as path from 'path';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { yieldToEventLoop } from '@modules/ai';
+import { patternRequestsDotEntry } from '../utils/ToolUtils';
 const logger = getLogger('tools:GlobTool:GlobTool');
 
 export interface GlobResult {
@@ -136,7 +137,9 @@ async function walkDirAsync(
   let processed = 0;
   for (const entry of entries) {
     if (results.length >= limit) break;
-    if (entry.name.startsWith('.') && entry.name !== '.') continue;
+    // 点号条目仅在模式显式请求时参与（对齐 glob 的 dot:false 语义）。旧实现无条件跳过，
+    // 导致 `.env*` 恒为空 → 模型据此得出"该文件不存在"的**错误结论**（台账 O29 / 计划 D10）
+    if (!patternRequestsDotEntry(pattern, entry.name)) continue;
 
     const fullPath = path.join(dir, entry.name);
     if (entry.isDirectory()) {
@@ -193,8 +196,8 @@ function walkDir(
   for (const entry of entries) {
     // 在每次迭代前检查是否已达到数量上限，以支持早期退出
     if (results.length >= limit) break;
-    // 跳过隐藏文件和目录（除了当前目录 '.' 本身，但通常 '.' 不会作为条目出现，此处主要过滤如 '.git' 等）
-    if (entry.name.startsWith('.') && entry.name !== '.') continue;
+    // 点号条目仅在模式显式请求时参与（语义与 walkDirAsync 一致，详见 patternRequestsDotEntry）
+    if (!patternRequestsDotEntry(pattern, entry.name)) continue;
 
     const fullPath = path.join(dir, entry.name);
     if (entry.isDirectory()) {

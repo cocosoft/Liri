@@ -49,6 +49,8 @@ import type { RerankService } from '@modules/knowledge/RerankService';
 import { COMMON_STOP_WORDS } from '@modules/knowledge/stopwords';
 import type { EventBus } from '@modules/core';
 import type { KnowledgeGraph } from '@modules/knowledge/graph/KnowledgeGraph';
+import { expandKnowledgeByGraph } from '@modules/knowledge/graph/GraphExpansion';
+import { LineageStore } from '@modules/knowledge/lineage/LineageStore';
 import { resolveDataSubDir } from '@modules/core';
 import { readFile, writeFile, mkdir } from 'fs/promises';
 import { existsSync } from 'fs';
@@ -145,6 +147,8 @@ export class KnowledgeRouter implements IKnowledgeSearch {
   private vectorStore?: IVectorStore;
   /** 知识图谱实例（可选，用于 GraphRAG 增强） */
   private knowledgeGraph?: KnowledgeGraph;
+  /** 血缘库（D1 ③：实体节点 → 来源文档反查），惰性创建 */
+  private lineageStore?: LineageStore;
   /** 重排序服务（可选，用于检索结果精排） */
   private rerankService?: RerankService;
 
@@ -990,9 +994,10 @@ export class KnowledgeRouter implements IKnowledgeSearch {
   }
 
   /**
-   * GraphRAG 图感知扩展
-   * 从查询中提取潜在实体，在 KnowledgeGraph 中查找关联边，
-   * 按边关系类型动态赋权返回关联文档。
+   * GraphRAG 图感知扩展（D1 修复，2026-09-12）
+   *
+   * 实现已抽到 `knowledge/graph/GraphExpansion.ts`（本文件已超 1000 行，不再增重）。
+   * 三处断点（前缀盲查 / 缺 direction / 用 slug 匹配正文）与可观测性的修复说明见该模块头部注释。
    */
   private async graphExpand(
     query: string,
@@ -1000,82 +1005,38 @@ export class KnowledgeRouter implements IKnowledgeSearch {
   ): Promise<KnowledgeRoute[]> {
     if (!this.knowledgeGraph) return [];
 
-    // 边关系类型权重映射
-    const EDGE_WEIGHTS: Record<string, number> = {
-      synonym: 0.5,
-      related: 0.4,
-      parent: 0.35,
-      child: 0.35,
-      reference: 0.25,
-    };
-    const DEFAULT_EDGE_WEIGHT = 0.3;
+    const entityCandidates = this.tokenize(query)
+      .filter((t) => t.length >= 2 && !COMMON_STOP_WORDS.has(t))
+      .slice(0, 5);
+    if (entityCandidates.length === 0) return [];
 
+    // 图扩展属增强通道：任何异常都降级为"无图结果"，不得影响主检索
     try {
-      const entityCandidates = this.tokenize(query)
-        .filter((t) => t.length >= 2 && !COMMON_STOP_WORDS.has(t))
-        .slice(0, 5);
-
-      if (entityCandidates.length === 0) return [];
-
-      // 动态实体 ID 格式：不再硬编码 domain 前缀
-      const relatedEntities = new Map<string, number>(); // entity → maxWeight
-      for (const entity of entityCandidates) {
-        const formats = [`concept:${entity}`, `entity:${entity}`, entity];
-        for (const fmt of formats) {
-          try {
-            const edges = await this.knowledgeGraph.queryEdges({
-              entityId: fmt,
-              limit: 10,
-            });
-            for (const e of edges) {
-              const weight = EDGE_WEIGHTS[e.type] ?? DEFAULT_EDGE_WEIGHT;
-              const existing = relatedEntities.get(e.from);
-              if (existing === undefined || weight > existing) {
-                relatedEntities.set(e.from, weight);
-              }
-              const existingTo = relatedEntities.get(e.to);
-              if (existingTo === undefined || weight > existingTo) {
-                relatedEntities.set(e.to, weight);
-              }
-            }
-          } catch {
-            // 单个查询失败不影响整体
-          }
-        }
-      }
-
-      if (relatedEntities.size === 0) return [];
-
-      const results: KnowledgeRoute[] = [];
-      for (const [entity, weight] of relatedEntities) {
-        const entityLower = entity.toLowerCase();
-        for (const doc of this.docs) {
-          if (results.length >= maxResults) break;
-          if (
-            doc.content.toLowerCase().includes(entityLower) ||
-            doc.title.toLowerCase().includes(entityLower)
-          ) {
-            results.push({
-              docPath: doc.docPath,
-              title: doc.title,
-              score: weight,
-              category: doc.category,
-              snippet: this.extractSnippet(doc.content, [entityLower]),
-              matchType: 'semantic',
-              isKnowledgeDoc: doc.isKnowledgeDoc,
-              tags: doc.tags,
-            });
-          }
-        }
-      }
-
-      return results.slice(0, maxResults);
+      const { routes } = await expandKnowledgeByGraph({
+        query,
+        tokens: entityCandidates,
+        maxResults,
+        deps: {
+          graph: this.knowledgeGraph,
+          docs: this.docs,
+          lineage: this.getLineageStore(),
+          buildSnippet: (content, tokens) =>
+            this.extractSnippet(content, tokens),
+        },
+      });
+      return routes;
     } catch (err) {
       logger.warn('GraphRAG 扩展失败，降级为无图搜索结果', {
         error: String(err),
       });
       return [];
     }
+  }
+
+  /** 血缘库（惰性单例）：D1 ③ 用「实体节点 → 来源文档」反查替代正文 slug 子串匹配 */
+  private getLineageStore(): LineageStore {
+    if (!this.lineageStore) this.lineageStore = new LineageStore();
+    return this.lineageStore;
   }
 
   /** 获取文档内容 */

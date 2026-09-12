@@ -5,6 +5,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { handleError } from '@modules/error';
 import { yieldToEventLoop } from '@modules/ai';
+import { patternRequestsDotEntry } from '../utils/ToolUtils';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('tools:GrepTool:grep');
@@ -313,7 +314,9 @@ async function searchDirAsync(
   for (const entry of entries) {
     if (getTotalCount(results) >= maxTotal) return;
     if (VCS_DIRS.has(entry.name)) continue;
-    if (entry.name.startsWith('.') && entry.name !== '.') continue;
+    // 隐藏条目仅在 include 过滤器显式请求时参与（旧实现无条件跳过 → `.env*` 恒空，
+    // 与 glob 同源，见台账 O29 / 计划 D10）
+    if (!patternRequestsDotEntry(options.include ?? '', entry.name)) continue;
 
     const fullPath = path.join(dir, entry.name);
     if (entry.isDirectory()) {
@@ -369,7 +372,8 @@ function searchDir(
   for (const entry of entries) {
     if (getTotalCount(results) >= maxTotal) return;
     if (VCS_DIRS.has(entry.name)) continue;
-    if (entry.name.startsWith('.') && entry.name !== '.') continue;
+    // 隐藏条目仅在 include 过滤器显式请求时参与（语义与 searchDirAsync 一致）
+    if (!patternRequestsDotEntry(options.include ?? '', entry.name)) continue;
 
     const fullPath = path.join(dir, entry.name);
     if (entry.isDirectory()) {

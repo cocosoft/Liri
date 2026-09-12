@@ -18,6 +18,7 @@ import { grep, grepAsync } from '../../../src/tools/GrepTool/grep';
 let tmpRoot: string;
 let projectDir: string;
 let bigDir: string;
+let dotDir: string;
 
 beforeAll(() => {
   tmpRoot = mkdtempSync(join(tmpdir(), 'grep-async-'));
@@ -37,6 +38,13 @@ beforeAll(() => {
     mkdirSync(join(bigDir, `dir${i % 10}`), { recursive: true });
     writeFileSync(join(bigDir, `dir${i % 10}`, `f${i}.txt`), `line${i}\n`);
   }
+
+  // D10（台账 O29）隐藏条目样例
+  dotDir = join(tmpRoot, 'dot');
+  mkdirSync(join(dotDir, '.hidden'), { recursive: true });
+  writeFileSync(join(dotDir, '.env'), 'JWT_SECRET=leak\n');
+  writeFileSync(join(dotDir, 'visible.ts'), 'const JWT_SECRET = 1;\n');
+  writeFileSync(join(dotDir, '.hidden', 'secret.ts'), 'JWT_SECRET=hidden\n');
 });
 
 afterAll(() => {
@@ -88,5 +96,51 @@ describe('grepAsync（2026-08-31 协作式修复）', () => {
     });
     expect(result.matchCount).toBe(0);
     expect(result.fileCount).toBe(0);
+  });
+});
+
+describe('隐藏条目语义（include 显式请求才纳入）—— 台账 O29 / 计划 D10', () => {
+  test('include 显式点号模式可命中隐藏文件（修复前恒为空）', async () => {
+    const result = await grepAsync({
+      pattern: 'JWT_SECRET',
+      searchPath: dotDir,
+      include: '.env*',
+    });
+    expect(result.fileCount).toBe(1);
+    expect(result.matchCount).toBeGreaterThan(0);
+  });
+
+  test('未显式请求时不扫描隐藏文件（默认行为不变）', async () => {
+    const result = await grepAsync({
+      pattern: 'JWT_SECRET',
+      searchPath: dotDir,
+    });
+    // 仅 visible.ts 命中（1 行）；`.env` 与 `.hidden/secret.ts` 属隐藏条目，默认不纳入
+    expect(result.fileCount).toBe(1);
+    expect(result.matchCount).toBe(1);
+  });
+
+  test('非点号 include 不遍历隐藏目录', async () => {
+    const result = await grepAsync({
+      pattern: 'JWT_SECRET',
+      searchPath: dotDir,
+      include: '*.ts',
+    });
+    expect(result.fileCount).toBe(1); // 只有 visible.ts
+  });
+
+  test('同步 grep() 与 grepAsync() 结果一致（点号语义）', async () => {
+    const sync = grep({
+      pattern: 'JWT_SECRET',
+      searchPath: dotDir,
+      include: '.env*',
+    });
+    const async_ = await grepAsync({
+      pattern: 'JWT_SECRET',
+      searchPath: dotDir,
+      include: '.env*',
+    });
+    expect(async_.matches).toEqual(sync.matches);
+    expect(async_.matchCount).toBe(sync.matchCount);
   });
 });

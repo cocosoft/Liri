@@ -60,6 +60,33 @@ export function getToolBaseDir(context?: {
 }
 
 /**
+ * 点号条目（隐藏文件/目录）是否被模式**显式请求**。
+ *
+ * 语义对齐主流 glob 的 `dot: false`：默认 `*` 不匹配前导点，但模式里显式写出
+ * 以点开头的段（如 `.env*`）时应当命中；跨段通配（双星号）后接点号段同样支持。
+ *
+ * 替代旧行为"无条件跳过所有点号条目"（曾使 `glob`/`grep` **静默漏检** `.env`、
+ * `.gitignore`、`.github/` 等，并让模型据此得出"该文件不存在"的错误结论）。
+ * 判定用该段的**字面前缀**（首个 `*`/`?` 之前），故 `.env*` 放行 `.env`、
+ * `.env.example`，但仍跳过 `.git` —— 兼顾"能命中隐藏文件"与"不默认遍历 `.git`"。
+ *
+ * @param pattern glob 模式（支持 `/` 分隔，`**` 为跨段通配）
+ * @param name 条目名（文件名或目录名）
+ * @returns 该条目是否可参与匹配（非点号条目恒为 true）
+ */
+export function patternRequestsDotEntry(
+  pattern: string,
+  name: string
+): boolean {
+  if (!name.startsWith('.')) return true;
+  return pattern.split('/').some((seg) => {
+    if (!seg.startsWith('.') || seg === '.' || seg === '..') return false;
+    const literalPrefix = seg.split(/[*?]/)[0];
+    return literalPrefix.length > 0 && name.startsWith(literalPrefix);
+  });
+}
+
+/**
  * 工具工具类
  */
 export class ToolUtils {

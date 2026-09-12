@@ -10,7 +10,7 @@ import type { LockOptions } from './SessionLock';
 import { SessionMigration } from './SessionMigration';
 import { FileSystemStorage } from './storage/FileSystemStorage';
 import type { SessionStorage } from './SessionStorage';
-import type { SessionCompactionBridge } from './compaction/SessionCompactionBridge';
+// D4 收敛 P4-①（2026-09-12）：已删除 SessionCompactionBridge 导入（桥接层整体移除）。
 import { PriorityManager } from './qos/PriorityManager';
 import { QoSEnforcer } from './qos/QoSEnforcer';
 import type {
@@ -74,7 +74,7 @@ export class SessionManager {
   private prunerInterval: ReturnType<typeof setInterval> | null = null;
   private compactionMonitorInterval: ReturnType<typeof setInterval> | null =
     null;
-  private compactionBridge: SessionCompactionBridge | null = null;
+  // D4 收敛 P4-①（2026-09-12）：已删除 compactionBridge 字段（桥接层无上游可达调用方）。
   private initialized = false;
   readonly priorityManager = new PriorityManager();
   readonly qosEnforcer = new QoSEnforcer();
@@ -121,19 +121,8 @@ export class SessionManager {
       : (null as unknown as SessionMigration);
   }
 
-  /**
-   * 设置压缩桥接
-   */
-  setCompactionBridge(bridge: SessionCompactionBridge): void {
-    this.compactionBridge = bridge;
-  }
-
-  /**
-   * 获取压缩桥接
-   */
-  getCompactionBridge(): SessionCompactionBridge | null {
-    return this.compactionBridge;
-  }
+  // D4 收敛 P4-①（2026-09-12）：已删除 setCompactionBridge() / getCompactionBridge()。
+  // 二者仅供注入 SessionCompactionBridge，桥接层删除后无写入方与读取方。
 
   /**
    * 设置会话优先级
@@ -353,9 +342,9 @@ export class SessionManager {
       this.startPruner();
     }
 
-    if (this.config.enableCompactionMonitor && this.compactionBridge) {
-      this.startCompactionMonitor();
-    }
+    // D4 收敛 P4-①（2026-09-12）：原 `enableCompactionMonitor && this.compactionBridge` 分支
+    // 在桥接层删除后恒不成立，已删除；enableCompactionMonitor 配置项与监视器基础设施
+    // （startCompactionMonitor / stopCompactionMonitor）保留为骨架。
 
     this.initialized = true;
     logger.info('SessionManager initialized');
@@ -381,73 +370,15 @@ export class SessionManager {
 
   /**
    * 手动触发所有活跃会话的压缩检查
+   *
+   * D4 收敛 P4-①（2026-09-12）：本方法原体完全由 SessionCompactionBridge 驱动
+   * （beforeCompact / performCompact）。桥接层删除后已无可用压缩引擎，方法退化为骨架，
+   * 保留签名以维持监视器基础设施（startCompactionMonitor）完整，待重新接线时再实现。
    */
   async compactNow(): Promise<
     { sessionId: string; success: boolean; error?: string }[]
   > {
-    const otel = getOTelTracing();
-    const span = otel.startSpan('SessionManager.compactNow');
-
-    try {
-      if (!this.compactionBridge) {
-        logger.warn('CompactionBridge not set, cannot compact');
-        otel.endSpan(span);
-        return [];
-      }
-
-      const sessionIds = await this.store.listSessions();
-      const results: { sessionId: string; success: boolean; error?: string }[] =
-        [];
-
-      for (const sessionId of sessionIds) {
-        try {
-          const session = await this.store.loadSession(sessionId);
-          if (!session) continue;
-          // P0-fix（H1）：P1-27 状态机枚举对齐后不再有 'active' 状态，原过滤条件
-          // 使所有会话被 continue 跳过，compactNow 永不压缩。改为仅跳过已归档
-          // 会话，其余状态交由 beforeCompact 内部阈值判断（checkAndCompact）。
-          if (session.state.currentState === 'archived') continue;
-
-          const bridgeResult = await this.compactionBridge.beforeCompact(
-            session,
-            // L2-fix: 传会话绑定的 model 而非空串 —— 空 model 使压缩引擎拿不到
-            // 模型上下文窗口（阈值判断降级）。
-            session.metadata?.model ?? ''
-          );
-          if (!bridgeResult.proceed) continue;
-
-          const record = await this.compactionBridge.performCompact(
-            session,
-            session.metadata?.model ?? '',
-            'manual'
-          );
-          results.push({
-            sessionId,
-            success: record.success,
-            error: record.error,
-          });
-        } catch (e) {
-          results.push({ sessionId, success: false, error: String(e) });
-          await handleError(e, {
-            module: 'session:manager',
-            action: 'compactNow:single',
-            rethrow: false,
-          });
-        }
-      }
-
-      otel.endSpan(span);
-      return results;
-    } catch (e) {
-      otel.recordError(span, e instanceof Error ? e : new Error(String(e)));
-      otel.endSpan(span, SpanStatusCode.ERROR);
-      await handleError(e, {
-        module: 'session:manager',
-        action: 'compactNow',
-        rethrow: false,
-      });
-      return [];
-    }
+    return [];
   }
 
   async pruneNow(): Promise<import('./SessionPruner').PruneResult> {

@@ -137,7 +137,9 @@ export * from './pruning/index.js';
 /**
  * 自动压缩桥接
  */
-export * from './compaction/index.js';
+// D4 收敛 P4-①（2026-09-12）：session/compaction 桥接层（SessionCompactionBridge /
+// ServiceAdapters / 三引擎）与其孤立配置 app/config/session-compaction.json 已删除
+//（依据：接线存在但上游不可达、配置无任何读取方）。
 
 /**
  * 重置策略系统

@@ -49,11 +49,9 @@ export {
   roughTokenCountEstimationForMessages,
 } from './utils';
 
-export {
-  AutoCompactService,
-  createAutoCompactService,
-} from './AutoCompactService';
-export type { AutoCompactTrackingState } from './AutoCompactService';
+// D4 收敛 P4-①（2026-09-12）：AutoCompactService 与其独占依赖链（sessionMemoryCompact →
+// postCompactCleanup → microCompact → timeBasedMCConfig/compactWarningState）均为"接线存在但
+// 上游不可达 + 配置孤儿"，已随 session/compaction 桥接层一并删除。
 
 export { CompactServiceImpl } from './CompactService';
 export type {
@@ -71,42 +69,8 @@ export {
 
 export { getCompactPrompt, getCompactUserSummaryMessage } from './prompt';
 
-export {
-  microcompactMessages,
-  evaluateTimeBasedTrigger,
-  TIME_BASED_MC_CLEARED_MESSAGE,
-  resetMicrocompactState,
-} from './microCompact';
-export type { MicrocompactResult, PendingCacheEdits } from './microCompact';
+// D4 收敛 P4-①（2026-09-12）：此处原有重复的 `export { CompactServiceImpl }`（与上方第 56 行
+// 同源），删除该重复行，保留一处导出即可。
 
-export { getTimeBasedMCConfig } from './timeBasedMCConfig';
-export type { TimeBasedMCConfig } from './timeBasedMCConfig';
-
-export {
-  suppressCompactWarning,
-  clearCompactWarningSuppression,
-  isCompactWarningSuppressed,
-} from './compactWarningState';
-
-export { runPostCompactCleanup } from './postCompactCleanup';
-
-export {
-  trySessionMemoryCompaction,
-  shouldUseSessionMemoryCompaction,
-  calculateMessagesToKeepIndex,
-  adjustIndexToPreserveAPIInvariants,
-  setSessionMemoryCompactConfig,
-  getSessionMemoryCompactConfig,
-  resetSessionMemoryCompactConfig,
-} from './sessionMemoryCompact';
-export type {
-  SessionMemoryCompactConfig,
-  SessionMemoryCompactResult,
-  SessionMemoryCompactionResult,
-} from './sessionMemoryCompact';
-
-export { CompactOrchestrator } from './CompactOrchestrator';
-export type {
-  CompactRecord,
-  CompactOrchestratorOptions,
-} from './CompactOrchestrator';
+// D4 收敛 P2（2026-09-12）：CompactOrchestrator（管线1"影子编排器"）与其独占依赖
+// reactiveCompact 均为零引用实现（本 barrel 亦无 importer），已按裁决删除。

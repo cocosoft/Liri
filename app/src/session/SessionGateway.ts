@@ -72,8 +72,8 @@ import { getFTS5SearchEngine } from './FTS5SearchEngine.js';
 import { SessionTokenTracker } from './TokenTracker.js';
 import type { PruningDecider } from './pruning/PruningDecider.js';
 import type { PruningResult } from './pruning/PruningStrategy.js';
-import type { SessionCompactionBridge } from './compaction/SessionCompactionBridge.js';
-import { createWiredCompactionBridge } from './compaction/ServiceAdapters.js';
+// D4 收敛 P4-①（2026-09-12）：已删除 SessionCompactionBridge / createWiredCompactionBridge 导入
+//（接线存在但上游不可达、配置无读取方）。
 import { SessionKeyFactory } from './key/SessionKeyFactory.js';
 import type { SessionKeyFactoryConfig } from './key/SessionKeyFactory.js';
 import { SessionRouter } from './key/SessionRouter.js';
@@ -163,7 +163,7 @@ export class SessionGateway {
 
   private tokenTracker: SessionTokenTracker | null = null;
   private pruningDecider: PruningDecider | null = null;
-  private compactionBridge: SessionCompactionBridge | null = null;
+  // D4 收敛 P4-①（2026-09-12）：已删除 compactionBridge 字段（桥接层无上游可达调用方）。
   private keyFactory: SessionKeyFactory | null = null;
   private sessionRouter: SessionRouter | null = null;
   private eventBus: SessionLifecycleEventBus | null = null;
@@ -211,7 +211,8 @@ export class SessionGateway {
       // P2-2.8 Phase 2: 订阅 COST_RECORDED 实现被动数据同步
       tracker.subscribeToCostEvents();
       this.setTokenTracker(tracker);
-      this.setCompactionBridge(createWiredCompactionBridge());
+      // D4 收敛 P4-①（2026-09-12）：此处原有 setCompactionBridge(createWiredCompactionBridge())
+      // 已删除；wireServices 配置字段保留（仍驱动 TokenTracker 装配）。
     }
   }
 
@@ -229,12 +230,7 @@ export class SessionGateway {
     this.pruningDecider = decider;
   }
 
-  /**
-   * 设置压缩桥接
-   */
-  setCompactionBridge(bridge: SessionCompactionBridge): void {
-    this.compactionBridge = bridge;
-  }
+  // D4 收敛 P4-①（2026-09-12）：已删除 setCompactionBridge()（桥接层删除后无写入方）。
 
   /**
    * 设置会话 Key 工厂
@@ -272,15 +268,18 @@ export class SessionGateway {
   }
 
   /**
-   * 一键注入真实服务（TokenTracker + CompactionBridge + CheckpointService + SessionRouter）
+   * 一键注入真实服务（TokenTracker + CheckpointService + SessionRouter）
    * 适用于 ChatManager / SessionHandler 等使用方，免去手动装配
+   *
+   * D4 收敛 P4-①（2026-09-12）：CompactionBridge 已从注入清单移除（桥接层删除）。
    */
   wireWithRealServices(): this {
     const tracker = new SessionTokenTracker();
     // P2-2.8 Phase 2: 订阅 COST_RECORDED 实现被动数据同步
     tracker.subscribeToCostEvents();
     this.setTokenTracker(tracker);
-    this.setCompactionBridge(createWiredCompactionBridge());
+    // D4 收敛 P4-①（2026-09-12）：此处原有 setCompactionBridge(createWiredCompactionBridge())
+    // 已删除（连带断链清理）。
     return this;
   }
 
@@ -1410,61 +1409,8 @@ export class SessionGateway {
     };
   }
 
-  /**
-   * 执行会话压缩
-   */
-  async compactSession(
-    sessionId: string,
-    model?: string
-  ): Promise<{
-    success: boolean;
-    record?: import('../session/compaction/CompactionRecord').CompactionRecord;
-    error?: string;
-  } | null> {
-    if (!this.compactionBridge) return null;
-
-    logger.debug('compactSession:SessionGateway 入口，compactionBridge 链', {
-      sessionId,
-    });
-
-    const session = await this.getSession(sessionId);
-    if (!session) return { success: false, error: 'Session not found' };
-
-    const messages = await this.getMessages(sessionId);
-    const sessionLike = {
-      id: sessionId,
-      messages:
-        messages as never as import('../session/models/SessionMessage').SessionMessage[],
-      metadata:
-        session.metadata as never as import('../session/models/SessionMetadata').SessionMetadata,
-      createdAt: new Date(session.createdAt),
-      updatedAt: new Date(session.updatedAt),
-    } as import('../session/models/Session').Session;
-
-    const preResult = await this.compactionBridge.beforeCompact(
-      sessionLike,
-      model ?? ''
-    );
-
-    if (!preResult.proceed) {
-      return { success: false, error: preResult.reason };
-    }
-
-    const record = await this.compactionBridge.performCompact(
-      sessionLike,
-      model ?? '',
-      'manual'
-    );
-
-    return { success: record.success, record, error: record.error };
-  }
-
-  /**
-   * 获取压缩历史
-   */
-  getCompactionHistory(sessionId: string) {
-    return this.compactionBridge?.getCompactionHistory(sessionId) ?? [];
-  }
+  // D4 收敛 P4-①（2026-09-12）：已删除 compactSession() 与 getCompactionHistory()。
+  // 二者唯一职责是转发 SessionCompactionBridge（接线存在但上游不可达、仓库内无调用方）。
 
   // ========== 缓存层 ==========
 

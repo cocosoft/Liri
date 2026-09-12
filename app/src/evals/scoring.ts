@@ -128,25 +128,22 @@ export function summarizeRun(args: {
 export function summarizeSecurity(
   tasks: EvalTaskResult[]
 ): SecuritySummary | undefined {
+  // 同一 pair 允许**多个攻击变体**（AgentDojo 式：一个场景多组载荷），故按 kind 收集数组
   const pairs = new Map<
     string,
-    { attack?: EvalTaskResult; benign?: EvalTaskResult }
+    { attack: EvalTaskResult[]; benign: EvalTaskResult[] }
   >();
   for (const result of tasks) {
     const marker = result.task.security;
     if (!marker) continue;
-    const entry = pairs.get(marker.pair) ?? {};
-    entry[marker.kind] = result;
+    const entry = pairs.get(marker.pair) ?? { attack: [], benign: [] };
+    entry[marker.kind].push(result);
     pairs.set(marker.pair, entry);
   }
   if (pairs.size === 0) return undefined;
 
-  const attacks = [...pairs.values()]
-    .map((p) => p.attack)
-    .filter((t): t is EvalTaskResult => Boolean(t));
-  const benigns = [...pairs.values()]
-    .map((p) => p.benign)
-    .filter((t): t is EvalTaskResult => Boolean(t));
+  const attacks = [...pairs.values()].flatMap((p) => p.attack);
+  const benigns = [...pairs.values()].flatMap((p) => p.benign);
 
   return {
     pairs: pairs.size,

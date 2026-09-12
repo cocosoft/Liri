@@ -86,6 +86,12 @@ export { PermissionManager } from './PermissionManager';
 export { SecurityAudit } from './SecurityAudit';
 export { runSecurityAudit } from './audit';
 export type { SecurityAuditReport } from './audit';
+// R12-002（D9 防护，2026-09-12）：工具返回值"不可信数据信封"（指令/数据隔离）
+export {
+  wrapUntrustedToolOutput,
+  UNTRUSTED_BEGIN,
+  UNTRUSTED_END,
+} from './untrustedContent';
 
 // 加密与敏感数据处理
 export {

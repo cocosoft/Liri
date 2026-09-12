@@ -292,6 +292,7 @@ import {
   FileOperationTracker,
 } from '@modules/security';
 import type { FileOperation, FileChange } from '@modules/security';
+import { wrapUntrustedToolOutput } from '@modules/security';
 import { taskRegistry } from '@modules/tasks';
 import { taskOrchestrator } from '@modules/tasks';
 
@@ -2986,7 +2987,10 @@ export class ChatManagerImpl implements ChatManager {
         );
         apiMessages.push({
           role: 'tool',
-          content: JSON.stringify(toolResult.result ?? toolResult.error ?? ''),
+          content: wrapUntrustedToolOutput(
+            tc.name,
+            JSON.stringify(toolResult.result ?? toolResult.error ?? '')
+          ),
           tool_call_id: tc.id,
         });
       }
@@ -5000,7 +5004,10 @@ export class ChatManagerImpl implements ChatManager {
         );
         return {
           role: 'tool' as const,
-          content: stub ?? raw,
+          content: wrapUntrustedToolOutput(
+            pr.normalizedToolCall.name,
+            stub ?? raw
+          ),
           tool_call_id: pr.normalizedToolCall.id,
         };
       }),

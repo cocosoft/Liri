@@ -10,6 +10,7 @@
 
 import { configManager } from '@modules/config';
 import { getLogger } from '@modules/monitoring';
+import { wrapUntrustedToolOutput } from '@modules/security';
 import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error';
@@ -1072,18 +1073,21 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
       if (hasError || isEmpty) roundHadErrors = true;
       this.messages.push({
         role: 'tool',
-        content: r
-          ? JSON.stringify(
-              r.result ??
-                r.error ?? {
-                  _toolError: 'empty_result',
-                  hint: '工具未返回有效结果，请告知用户遇到了什么问题',
-                }
-            )
-          : JSON.stringify({
-              _toolError: 'no_result',
-              hint: '工具调用失败，未获取到任何结果，请告知用户',
-            }),
+        content: wrapUntrustedToolOutput(
+          tc.name,
+          r
+            ? JSON.stringify(
+                r.result ??
+                  r.error ?? {
+                    _toolError: 'empty_result',
+                    hint: '工具未返回有效结果，请告知用户遇到了什么问题',
+                  }
+              )
+            : JSON.stringify({
+                _toolError: 'no_result',
+                hint: '工具调用失败，未获取到任何结果，请告知用户',
+              })
+        ),
         tool_call_id: tc.id,
       } as ChatMessage);
     }

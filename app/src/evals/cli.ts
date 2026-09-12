@@ -23,24 +23,28 @@
  * Agent 能力评测 CLI（D2 骨架）
  *
  * 用法（在 app/ 下）：
- *   bun run eval -- --model=<模型名>            # 全部冒烟任务，k=1
+ *   bun run eval -- --model=<模型名>            # 全部任务，k=1
  *   bun run eval -- --model=<模型名> --k=4      # 每任务跑 4 次，采集 pass^k
  *   bun run eval -- --model=<模型名> --task=file-create
  *   bun run eval -- --model=<模型名> --keep     # 保留沙箱目录（默认评测结束即删；沙箱内含凭据副本）
+ *   bun run eval -- --model=<模型名> --gate     # R12-001 门禁：与基线比对，有回归则退出码 1
+ *   bun run eval -- --model=<模型名> --baseline=<file.json>   # 指定基线（按模型分档时用）
  *
  * 约束：模型名**必须显式传入**（按 model-usage 规则，代码中不得硬编码模型名或默认值）。
- * 退出码：0 = 全部任务符合预期且判分器自检通过；1 = 有任务不符合预期或自检失败；2 = 环境准备失败。
+ * 退出码：0 = 全部任务符合预期、判分器自检通过、且门禁无回归；1 = 有任务不符合预期/自检失败/门禁回归；2 = 环境准备失败。
  */
 
-import { rmSync } from 'node:fs';
+import { readFileSync, rmSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { configManager } from '@modules/config';
 import { resolveDbPath, resolvePyappHome } from '@modules/core/paths';
 import { createSandbox } from './sandbox.js';
 import { runTask } from './runner.js';
 import { writeReport } from './report.js';
-import { smokeTasks } from './tasks/smoke.js';
-import type { EvalRunSummary, EvalTaskResult } from './types.js';
+import { allTasks } from './tasks/index.js';
+import { checkGate, summarizeRun } from './scoring.js';
+import type { Baseline } from './scoring.js';
+import type { EvalTaskResult } from './types.js';
 
 /** CLI 输出（项目禁 console；与 WizardEngine/ProgressBar 一致走 stdout） */
 const out = (line = ''): void => void process.stdout.write(`${line}\n`);
@@ -72,8 +76,8 @@ if (!model) {
 }
 
 const tasks = taskFilter
-  ? smokeTasks.filter((t) => taskFilter.includes(t.id))
-  : smokeTasks;
+  ? allTasks.filter((t) => taskFilter.includes(t.id))
+  : allTasks;
 
 if (tasks.length === 0) {
   err(`未匹配到任何任务：--task=${taskFilter?.join(',')}`);
@@ -115,23 +119,15 @@ try {
   await sandbox.stop();
 }
 
-const controlTasks = results.filter((r) => r.task.expect === 'fail');
-const summary: EvalRunSummary = {
+const summary = summarizeRun({
   startedAt,
   finishedAt: new Date().toISOString(),
   model,
   k,
   tasks: results,
-  passKRate:
-    results.length === 0
-      ? 0
-      : results.filter((r) => r.passK).length / results.length,
-  pass1Mean:
-    results.length === 0
-      ? 0
-      : results.reduce((s, r) => s + r.pass1, 0) / results.length,
-  judgeSanityOk: controlTasks.length > 0 && controlTasks.every((r) => r.passK),
-};
+  // 用 --task= 只跑子集时，子集里没有控制任务属正常，不应判为"判分器自检失败"
+  expectControls: !taskFilter,
+});
 
 const { jsonPath, mdPath } = writeReport(summary, outDir);
 
@@ -147,7 +143,39 @@ for (const r of results) {
       ` ｜ pass^1 ${(r.pass1 * 100).toFixed(0)}% ｜ pass^k ${r.passK ? '✅' : '❌'}`
   );
 }
+if (summary.security) {
+  const sec = summary.security;
+  out(
+    `安全（D9）：成对 ${sec.pairs} ｜ ASR ${(sec.asr * 100).toFixed(0)}%` +
+      ` ｜ benign utility ${(sec.benignPassRate * 100).toFixed(0)}%`
+  );
+}
 out(`\n报告：${mdPath}\n      ${jsonPath}`);
+
+// R12-001 门禁：--gate 或 --baseline=<path> 时与基线比对（默认基线 = 本目录 baseline.json）
+const baselinePath = argValue('baseline');
+const gateEnabled = process.argv.includes('--gate') || Boolean(baselinePath);
+const gateFailures: string[] = [];
+if (gateEnabled) {
+  const baselineFile =
+    baselinePath ?? resolve(import.meta.dir, 'baseline.json');
+  out(`\n[门禁 R12-001] 基线=${baselineFile}`);
+  try {
+    const baseline = JSON.parse(
+      readFileSync(baselineFile, 'utf-8')
+    ) as Baseline;
+    gateFailures.push(...checkGate(summary, baseline));
+  } catch (e) {
+    gateFailures.push(
+      `基线不可读/不可解析：${e instanceof Error ? e.message : String(e)}`
+    );
+  }
+  if (gateFailures.length === 0) {
+    out('  ✅ 无回归');
+  } else {
+    for (const failure of gateFailures) err(`  ❌ ${failure}`);
+  }
+}
 
 // 沙箱含真实凭据副本 → 默认删除；需要排查时用 --keep
 if (process.argv.includes('--keep')) {
@@ -164,4 +192,8 @@ if (process.argv.includes('--keep')) {
 }
 
 const failed = results.filter((r) => !r.passK);
-process.exit(failed.length === 0 && summary.judgeSanityOk ? 0 : 1);
+process.exit(
+  failed.length === 0 && summary.judgeSanityOk && gateFailures.length === 0
+    ? 0
+    : 1
+);

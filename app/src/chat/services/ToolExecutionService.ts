@@ -357,6 +357,15 @@ export class ToolExecutionService {
         { sessionId: toolCall.sessionId }
       );
 
+      // 权限决策留痕（2026-09-12）：此前只有"通过"才记日志，被拒绝/被跳过无痕迹，
+      // 导致「危险文件 DENY 实际未生效」这类问题只能靠外部评测发现（见台账 O35）。
+      logger.info('executeTool: 权限决策', {
+        toolName: normalizedToolCall.name,
+        allowed: permissionResult.allowed,
+        behavior: permissionResult.decision?.behavior ?? null,
+        reason: permissionResult.reason ?? null,
+      });
+
       if (!permissionResult.allowed) {
         if (permissionResult.decision?.behavior === 'ask') {
           const approvedHit = await this.deps.isCommandApproved(
@@ -400,6 +409,12 @@ export class ToolExecutionService {
           };
         }
       }
+    } else {
+      // 静默跳过是"安全层看似存在、实则从未生效"的温床（2026-09-12，台账 O35）：
+      // 显式告警，避免再次出现"检查器已实现但从未被装配"却无人察觉的情况。
+      logger.warn('executeTool: 权限管理器未装配，已跳过全部权限检查', {
+        toolName: normalizedToolCall.name,
+      });
     }
 
     // 排查 J-1.4：权限通过（含放行缓存命中）后继续执行——记录 sessionId 是否透传（BashTool 放行缓存依赖）

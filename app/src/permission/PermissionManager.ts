@@ -623,6 +623,20 @@ export class PermissionManager {
       );
     }
 
+    // O35 修复（2026-09-12）：把「危险文件 / 危险目录」安全检查接到**真实决策点**。
+    // 此前 `PermissionChecker.checkSafetyRules`（O27 的接线）在运行时**不可达** —— 聊天工具
+    // 执行链走的是本方法（ToolExecutionService → checkPermissionForTool → 这里），而本方法
+    // 只用到 checker 的 isToolAllowed/submitAskToInbox，从不咨询安全检查，于是无规则匹配时
+    // 直接落到下方 fail-open 默认放行（运行时日志实测：
+    // `{"toolName":"file_write","allowed":true,"reason":"No matching rules, default allowing"}`），
+    // 导致 `.bashrc` 等危险文件写入不被拦截。
+    // 位置：在**用户显式 DENY 规则之后、任何 ASK/ALLOW 与默认放行之前**（deny-overrides）。
+    const safetyDecision = this.permissionChecker.checkSafetyRules(
+      toolName,
+      input
+    );
+    if (safetyDecision) return safetyDecision;
+
     const matchingAskRule = this.ruleManager.getMatchingRule(
       toolName,
       input,

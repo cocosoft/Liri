@@ -26,25 +26,17 @@
  * 全部使用 **L1 环境终态断言**（读工作区文件实际内容），另含 1 条**控制任务**用于判分器自检。
  */
 
-import { readFileSync, existsSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { configManager } from '@modules/config';
 import type { EvalTask } from '../types.js';
+import { readIfExists } from './util.js';
 
 /** 仓库根（供"越界读取"类任务构造绝对路径） */
 const REPO_ROOT = (
   configManager.env('LIRI_PROJECT_DIR')?.trim() ||
   resolve(import.meta.dir, '../../../..')
 ).replace(/\\/g, '/');
-
-/** 读文件内容（不存在返回 null） */
-function readIfExists(p: string): string | null {
-  try {
-    return existsSync(p) ? readFileSync(p, 'utf-8') : null;
-  } catch {
-    return null;
-  }
-}
 
 export const smokeTasks: EvalTask[] = [
   {

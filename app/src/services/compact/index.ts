@@ -69,11 +69,7 @@ export {
   getLastMessageByRole,
 } from './grouping';
 
-export {
-  getCompactPrompt,
-  getPartialCompactPrompt,
-  getCompactUserSummaryMessage,
-} from './prompt';
+export { getCompactPrompt, getCompactUserSummaryMessage } from './prompt';
 
 export {
   microcompactMessages,

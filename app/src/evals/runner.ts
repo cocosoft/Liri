@@ -35,7 +35,10 @@ import type {
   EvalContext,
   EvalTask,
   EvalTaskResult,
+  ToolCallRecord,
 } from './types.js';
+import { extractToolCalls, toolCallNames } from './trace.js';
+import { isAsExpected, summarizeTask } from './scoring.js';
 
 /** 一次流式对话的结果 */
 interface StreamOutcome {
@@ -43,6 +46,8 @@ interface StreamOutcome {
   text: string;
   promptTokens?: number;
   completionTokens?: number;
+  /** 本次发生的工具调用序列（L2 断言用；从持久化消息读取） */
+  toolCalls: ToolCallRecord[];
 }
 
 /** 建会话 */
@@ -62,6 +67,30 @@ async function createSession(baseUrl: string, title: string): Promise<string> {
   );
   if (!id) throw new Error(`创建会话响应缺少 id：${JSON.stringify(body)}`);
   return id;
+}
+
+/**
+ * 读取会话持久化消息，抽取**工具调用序列**（L2 断言用）。
+ *
+ * 刻意不解析 SSE 增量：按 §1.6 Write-Ahead Persistence，助手消息在流结束前已落盘，
+ * 从盘读得到的是**最终序列**（含全部轮次与重试），比增量更可靠。
+ * 读取失败不抛错 —— L2 断言会因序列为空而失败（可见），而不是把整轮评测打成异常。
+ */
+async function fetchToolCalls(
+  baseUrl: string,
+  sessionId: string
+): Promise<ToolCallRecord[]> {
+  try {
+    const res = await fetch(
+      `${baseUrl}/v1/sessions/${encodeURIComponent(sessionId)}/messages`,
+      { signal: AbortSignal.timeout(20_000) }
+    );
+    if (!res.ok) return [];
+    return extractToolCalls(await res.json());
+  } catch {
+    // @ignore-catch —— 见上方注释：失败会让 L2 断言以"序列为空"失败，属可观测降级
+    return [];
+  }
 }
 
 /** 跑一次流式对话，收集文本与用量 */
@@ -124,7 +153,8 @@ async function streamChat(
     }
   }
 
-  return { sessionId, text, promptTokens, completionTokens };
+  const toolCalls = await fetchToolCalls(baseUrl, sessionId);
+  return { sessionId, text, promptTokens, completionTokens, toolCalls };
 }
 
 /** 带超时执行断言 */
@@ -157,7 +187,6 @@ export async function runTask(
 ): Promise<EvalTaskResult> {
   const attempts: EvalAttempt[] = [];
   const timeoutMs = task.timeoutMs ?? 180_000;
-  const expectFail = task.expect === 'fail';
 
   for (let i = 1; i <= opts.k; i++) {
     const startedAt = Date.now();
@@ -170,6 +199,7 @@ export async function runTask(
     let completionTokens: number | undefined;
     let error: string | undefined;
     let finalText = '';
+    let toolCalls: ToolCallRecord[] = [];
 
     try {
       await task.setup?.({
@@ -191,6 +221,7 @@ export async function runTask(
       promptTokens = outcome.promptTokens;
       completionTokens = outcome.completionTokens;
       finalText = outcome.text;
+      toolCalls = outcome.toolCalls;
       assertion = await runAssert(
         task,
         {
@@ -198,6 +229,7 @@ export async function runTask(
           home: sandbox.home,
           dataDir: sandbox.dataDir,
           finalText: outcome.text,
+          toolCalls: outcome.toolCalls,
           sessionId,
           model: opts.model,
         },
@@ -208,7 +240,7 @@ export async function runTask(
       assertion = { pass: false, reason: `执行异常：${error}` };
     }
 
-    const asExpected = expectFail ? !assertion.pass : assertion.pass;
+    const asExpected = isAsExpected(task, assertion);
     attempts.push({
       index: i,
       assertion,
@@ -217,6 +249,7 @@ export async function runTask(
       promptTokens,
       completionTokens,
       error,
+      toolCalls: toolCallNames(toolCalls),
       finalText: finalText.slice(0, 2000),
     });
     process.stdout.write(
@@ -225,13 +258,5 @@ export async function runTask(
     );
   }
 
-  const assertPassCount = attempts.filter((a) => a.assertion.pass).length;
-  const asExpectedCount = attempts.filter((a) => a.asExpected).length;
-  return {
-    task,
-    attempts,
-    assertPassCount,
-    pass1: attempts.length === 0 ? 0 : asExpectedCount / attempts.length,
-    passK: asExpectedCount === attempts.length,
-  };
+  return summarizeTask(task, attempts);
 }

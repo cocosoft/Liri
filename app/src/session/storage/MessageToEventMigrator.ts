@@ -107,8 +107,9 @@ export class MessageToEventMigrator {
    * 复用 EventLogStorage 的路径解析逻辑，保证迁移器与存储器定位同一目录。
    */
   private buildSessionDir(): string {
-    const env: NodeJS.ProcessEnv = { PYAPP_PROJECT_DIR: '' };
-    const sessionsRoot = dirname(resolveSessionsDir(env));
+    // 与 EventLogStorage 保持一致：**必须用真实 process.env**（同源修复，见其 2026-09-12 注释）。
+    // 传合成 env 会丢掉 LIRI_DATA_DIR / LIRI_HOME → 定位到真实家目录，击穿隔离环境。
+    const sessionsRoot = dirname(resolveSessionsDir(process.env));
     return join(sessionsRoot, this.worktreeHash, this.sessionId);
   }
 

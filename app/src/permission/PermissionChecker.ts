@@ -577,7 +577,7 @@ export class PermissionChecker {
   checkSafetyRules(
     toolOrName: Tool | string,
     input: Record<string, unknown>,
-    context: PermissionContext
+    context?: PermissionContext
   ): PermissionDecision | null {
     const toolName =
       typeof toolOrName === 'string' ? toolOrName : toolOrName.name;

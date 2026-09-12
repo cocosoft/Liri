@@ -71,13 +71,8 @@ export {
   type VoiceContextType,
 } from './VoiceContext';
 
-// P3-6: 上下文引擎插件导出
-export { ContextEngineRegistry } from './ContextEnginePlugin';
-export type {
-  ContextEnginePlugin,
-  CompressionRequest,
-  CompressionResult,
-} from './ContextEnginePlugin';
+// D4 收敛 P3（2026-09-12）：ContextEngineRegistry / ContextEnginePlugin 为零引用实现
+//（全仓无任何 `register()` 调用，`getCurrent()` 恒 undefined），已按裁决删除。
 
 export * from './EffectScope.js';
 
@@ -86,6 +81,11 @@ export * from './DependencyRegistry.js';
 // 2026-08-29 R03-002 收敛：compaction / window / async 统一出口
 // C7 收敛（2026-08-30）：AutoCompactionPolicy 已删除，评估统一走 UnifiedTokenTracker
 export { compactionOrchestrator } from './compaction/CompactionOrchestrator';
+// D4 收敛（2026-09-12）：压缩锁需被 chat 侧的手动压缩路径共用（避免两条路径并发改写同一会话）
+export {
+  compactionLockStore,
+  CompactionLockStore,
+} from './compaction/CompactionLockStore';
 export {
   compactionMetricsTracker,
   type ContextSnapshot,

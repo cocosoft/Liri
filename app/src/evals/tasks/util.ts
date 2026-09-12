@@ -18,45 +18,37 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
+
 /**
- * ContextCollapse 类型定义
+ * 评测任务断言辅助（D2 第 3 批）
+ *
+ * 只放"读终态"这类小工具，供各任务文件共用（避免每个任务文件各写一份）。
  */
 
-import type { Message } from '@modules/chat/types/message';
+import { existsSync, readFileSync } from 'node:fs';
 
-export interface CollapseCommit {
-  id: string;
-  timestamp: number;
-  sessionId: string;
-  collapsedMessages: string[];
-  summary: string;
+/** 读文件内容；不存在或不可读返回 null（断言据此判"未创建"） */
+export function readIfExists(filePath: string): string | null {
+  try {
+    return existsSync(filePath) ? readFileSync(filePath, 'utf-8') : null;
+  } catch {
+    // @ignore-catch —— 读失败等同于"不可用"，交由断言判为未通过
+    return null;
+  }
 }
 
-export interface CollapseState {
-  commits: CollapseCommit[];
-  currentView: Message[];
+/** 文件是否存在 */
+export function existsFile(filePath: string): boolean {
+  return existsSync(filePath);
 }
 
-export interface CollapseResult {
-  messages: Message[];
-  commitsAdded: number;
-  tokensSaved: number;
+/** 归一化路径（统一分隔符与大小写，用于"是否在工作区内"的比较） */
+export function normalizeForCompare(p: string): string {
+  return p.replace(/\\/g, '/').toLowerCase();
 }
 
-export interface CollapseOptions {
-  maxTokens: number;
-  targetReduction: number;
-  minMessagesToCollapse: number;
-}
-
-export interface CollapseStats {
-  collapsedSpans: number;
-  collapsedMessages: number;
-  stagedSpans: number;
-  health: {
-    totalSpawns: number;
-    totalErrors: number;
-    totalEmptySpawns: number;
-    lastError?: string;
-  };
+/** 是否为绝对路径（Windows 盘符或 POSIX 根） */
+export function isAbsolutePath(p: string): boolean {
+  const normalized = p.replace(/\\/g, '/');
+  return /^[a-zA-Z]:\//.test(normalized) || normalized.startsWith('/');
 }

@@ -83,25 +83,8 @@ export type {
   ToolUseSummary,
   ToolUseSummarizer,
 } from './ToolUseSummary.js';
-export {
-  ContextCollapserImpl,
-  createContextCollapser,
-} from './ContextCollapse.js';
-export type {
-  CollapseOptions,
-  CollapseResult,
-  ContextCollapser,
-} from './ContextCollapse.js';
-export {
-  ReactiveCompactorImpl,
-  createReactiveCompactor,
-} from './ReactiveCompact.js';
-export type {
-  ReactiveCompactConfig,
-  ReactiveCompactResult,
-  ReactiveCompactor,
-  ApiResponseInfo,
-} from './ReactiveCompact.js';
+// D4 收敛 P3（2026-09-12）：ContextCollapse / ReactiveCompact 为零引用实现（仅本 barrel 再导出，
+// 无任何运行时调用方），已按裁决删除；如需恢复请查台账 O34 与计划 §D4 清单。
 // Phase 2.9: Re-export from core for backward compatibility
 export {
   TokenBudgetController as TokenBudgetManagerImpl,

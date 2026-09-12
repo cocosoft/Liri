@@ -18,22 +18,23 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
-//
+
 /**
- * ContextCollapse 服务导出
+ * 评测题集入口（D2 第 3 批）
+ *
+ * - `smoke.ts`：4 条冒烟（含 1 条控制任务，用于判分器自检）
+ * - `liri-core.ts`：自研核心链路（含 L2 过程断言）
+ *
+ * 公开题集（SWE-bench Verified / τ-bench / AgentDojo）需本地下载，按计划另行接入。
  */
 
-export {
-  ContextCollapseService,
-  getContextCollapseService,
-  isContextCollapseEnabled,
-  resetContextCollapse,
-} from './ContextCollapseService';
+import type { EvalTask } from '../types.js';
+import { smokeTasks } from './smoke.js';
+import { liriCoreTasks } from './liri-core.js';
+import { securityTasks } from './security-injection.js';
 
-export type {
-  CollapseCommit,
-  CollapseOptions,
-  CollapseResult,
-  CollapseStats,
-  CollapseState,
-} from './types';
+export const allTasks: EvalTask[] = [
+  ...smokeTasks,
+  ...liriCoreTasks,
+  ...securityTasks,
+];

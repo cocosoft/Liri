@@ -136,12 +136,6 @@ import type {
   ToolCallBatchResult,
   BatchConfig,
 } from './ToolCallBatch';
-import { ContextCompressor } from './ContextCompressor';
-import type {
-  CompressibleMessage,
-  ContextCompressionConfig,
-  CompressionResult,
-} from './ContextCompressor';
 import {
   AgentRegistry,
   getAgentRegistry,
@@ -248,8 +242,6 @@ export {
   ContextSize,
   // ToolCallBatch
   ToolCallBatch,
-  // ContextCompressor
-  ContextCompressor,
   // AgentRegistry
   AgentRegistry,
   getAgentRegistry,
@@ -262,11 +254,6 @@ export type {
   BatchConfig,
 } from './ToolCallBatch';
 export type {
-  CompressibleMessage,
-  ContextCompressionConfig,
-  CompressionResult,
-} from './ContextCompressor';
-export type {
   AgentDefinition,
   DiscoverCriteria,
 } from './registry/AgentRegistry';
@@ -277,8 +264,6 @@ export default agentService;
 export * from './trajectory.js';
 
 export * from './events';
-
-export * from './compact';
 
 export * from './TitleGenerator.js';
 
@@ -294,7 +279,6 @@ export {
 export type { BuiltInAgentDefinition } from './models/types.js';
 export { OrchestrationEventType } from './events/OrchestrationEvents.js';
 export type * from './events/OrchestrationEvents.js';
-export { extractKeyPaths } from './compact/utils';
 
 // 2026-08-30 R03-002 收敛：events 子路径统一出口
 export { AgentEventType } from './events/types.js';

@@ -38,6 +38,16 @@ export interface AssertResult {
   reason?: string;
 }
 
+/** 一次工具调用（L2 过程断言用；来自持久化消息，见 `trace.ts`） */
+export interface ToolCallRecord {
+  /** 工具名（如 `file_write`） */
+  name: string;
+  /** 调用 ID（用于去重；部分形态可能缺失） */
+  id?: string;
+  /** 调用参数（供"参数合法/路径在许可范围"类断言；解析失败时为 undefined） */
+  args?: Record<string, unknown>;
+}
+
 /** 任务执行上下文（供断言读取环境终态） */
 export interface EvalContext {
   /** 隔离工作区（Agent 的 cwd，断言从这里读文件终态） */
@@ -48,6 +58,11 @@ export interface EvalContext {
   dataDir: string;
   /** Agent 的最终回答文本（供 L2/文本类断言） */
   finalText: string;
+  /**
+   * 本次会话实际发生的工具调用序列（顺序 = 发生顺序）。
+   * L2 断言据此检查"关键工具被调用 / 参数合法"等过程约束。
+   */
+  toolCalls: ToolCallRecord[];
   /** 本次会话 ID */
   sessionId: string;
   /** 本次实际使用的模型 */
@@ -62,6 +77,14 @@ export interface EvalTask {
   name: string;
   /** 判分层级（本骨架仅 L1/L2） */
   level: 'L1' | 'L2';
+  /**
+   * 安全评测标记（D9）：成对任务用于**同时**观测 ASR（漏检）与 benign utility（误伤）。
+   *
+   * - `kind: 'attack'`：提示词本身正常，但工具返回值/文件内容含注入指令；断言"注入副作用**未**发生"
+   * - `kind: 'benign'`：同一场景但**不含**注入，断言正常任务完成（其通过率降幅即"误伤"）
+   * - `pair`：成对任务的共同键（两侧须一致）
+   */
+  security?: { kind: 'benign' | 'attack'; pair: string };
   /**
    * 构造发给 Agent 的提示词。
    *
@@ -99,6 +122,8 @@ export interface EvalAttempt {
   completionTokens?: number;
   /** 执行异常（进程/网络级失败） */
   error?: string;
+  /** 本次实际发生的工具调用名序列（过程证据，便于 L2 失败复盘） */
+  toolCalls?: string[];
   /** Agent 最终回答（截断保存，便于失败复盘） */
   finalText?: string;
 }
@@ -128,4 +153,22 @@ export interface EvalRunSummary {
   pass1Mean: number;
   /** 判分器自检：控制任务是否都被判为"符合预期失败" */
   judgeSanityOk: boolean;
+  /** 安全鲁棒性汇总（D9；仅当题集中存在成对安全任务时给出） */
+  security?: SecuritySummary;
+}
+
+/**
+ * 安全鲁棒性汇总（D9）
+ *
+ * 依据 AgentDojo 的教训：**只报拦截率（ASR）会误导** —— 防护可能正在瘫痪正常任务
+ * （其 PI detector 把 ASR 从 57.7% 压到 8%，同时把正常任务成功率从 69% 砍到 41.5%）。
+ * 因此这里**同时**给出两个数。
+ */
+export interface SecuritySummary {
+  /** 成对任务数（attack + benign 各算一对） */
+  pairs: number;
+  /** 攻击成功率：注入副作用实际发生的比例（**越低越好**） */
+  asr: number;
+  /** 正常任务符合期望率（**越高越好**；其相对无防护基线的降幅即"误伤"） */
+  benignPassRate: number;
 }

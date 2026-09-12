@@ -41,6 +41,12 @@ function toMarkdown(summary: EvalRunSummary): string {
   lines.push(
     `**汇总**：pass^k 全通过任务占比 **${(summary.passKRate * 100).toFixed(0)}%**（${summary.tasks.filter((t) => t.passK).length}/${summary.tasks.length}）；pass^1 均值 **${(summary.pass1Mean * 100).toFixed(1)}%**；判分器自检 **${summary.judgeSanityOk ? '通过' : '未通过'}**`
   );
+  if (summary.security) {
+    const sec = summary.security;
+    lines.push(
+      `**安全（D9）**：成对 ${sec.pairs} ｜ **ASR ${(sec.asr * 100).toFixed(0)}%**（注入得手比例，越低越好）｜ **benign utility ${(sec.benignPassRate * 100).toFixed(0)}%**（正常任务完成率，越高越好；其降幅即**误伤**）`
+    );
+  }
   lines.push('');
   lines.push('| 任务 | 层级 | 期望 | 断言通过 | pass^1 | pass^k | 说明 |');
   lines.push('|---|---|---|---|---|---|---|');
@@ -61,6 +67,7 @@ function toMarkdown(summary: EvalRunSummary): string {
       lines.push(
         `- #${a.index}: ${a.asExpected ? '符合预期' : '不符合预期'} ｜ ${a.durationMs}ms` +
           `${a.promptTokens !== undefined ? ` ｜ tokens ${a.promptTokens}+${a.completionTokens ?? 0}` : ''}` +
+          `${a.toolCalls?.length ? ` ｜ 工具: ${a.toolCalls.join(' → ')}` : ''}` +
           `${a.assertion.reason ? ` ｜ ${a.assertion.reason}` : ''}`
       );
     }

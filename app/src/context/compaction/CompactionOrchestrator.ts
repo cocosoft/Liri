@@ -202,6 +202,7 @@ export class CompactionOrchestrator {
       }
       lockCompactionId = acquired;
       logger.info('compaction:lock_acquired — 编排器已获取压缩锁', {
+        impl: 'compactionOrchestrator',
         sessionId: ctx.sessionId,
         compactionId: acquired,
         trigger: options?.preEvaluated?.decision ?? 'evaluate',

@@ -388,10 +388,15 @@ export class EventLogStorage {
    * 避免与环境变量耦合，同时复用 data 目录解析逻辑（CS01 归一化）。
    */
   private buildSessionDir(): string {
-    // resolveSessionsDir(env) 返回 ~/.pyapp/data/sessions/<env worktreeHash>
-    // 传入空 env 让其走 'default' 分支，然后 dirname 取 sessions 根
-    const env: NodeJS.ProcessEnv = { PYAPP_PROJECT_DIR: '' };
-    const sessionsRoot = dirname(resolveSessionsDir(env));
+    // ⚠️ 必须使用**真实 process.env**：此前此处传合成 env `{ PYAPP_PROJECT_DIR: '' }`，
+    // 导致 `resolveSessionsDir` 内部的 LIRI_DATA_DIR / LIRI_HOME **全部丢失** →
+    // 恒回落到 `os.homedir()/.pyapp`（真实家目录）。后果（2026-09-12 实测）：
+    //   ① 隔离环境被击穿 —— 评测沙箱（LIRI_HOME/LIRI_DATA_DIR 指向临时目录）下，
+    //      事件日志仍写真实 `~/.pyapp/data/sessions/default/<id>`；
+    //   ② 该写入被拒时事件日志直接失败（EPERM → EVENT_APPEND_FAILED），
+    //      会话消息持久化不全 → 依赖落盘消息的读取（如评测的 L2 工具序列断言）拿不到数据。
+    // 对默认家目录场景结果完全一致（dirname 只取 sessions 根），故语义不变、仅修隔离。
+    const sessionsRoot = dirname(resolveSessionsDir(process.env));
     return join(sessionsRoot, this.worktreeHash, this.sessionId);
   }
 

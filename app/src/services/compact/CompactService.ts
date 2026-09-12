@@ -16,10 +16,9 @@ import {
   shouldAutoCompact,
   CompactCircuitBreaker,
 } from './autoCompact';
-import {
-  executePreCompactHooks,
-  executePostCompactHooks,
-} from './compactHooks';
+// D4 收敛收尾（2026-09-12）：原 `./compactHooks` 导入已删除 —— 该模块是**死能力**
+//（`registerCompactHook`/`clearCompactHooks` 零调用方 → 钩子数组恒空，
+// 且 `executePre/PostCompactHooks` 在此文件仅被 import、从未被调用），整体已删除。
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('services:compact:CompactService');

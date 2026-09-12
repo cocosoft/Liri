@@ -292,7 +292,6 @@ import {
   FileOperationTracker,
 } from '@modules/security';
 import type { FileOperation, FileChange } from '@modules/security';
-import { FILE_WRITE_TOOL_NAME, FILE_EDIT_TOOL_NAME } from '@modules/constants';
 import { taskRegistry } from '@modules/tasks';
 import { taskOrchestrator } from '@modules/tasks';
 

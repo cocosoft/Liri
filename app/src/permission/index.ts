@@ -76,8 +76,6 @@ export {
 } from './permissions';
 
 export {
-  checkReadPermissionForTool,
-  checkWritePermissionForTool,
   isDangerousFile,
   isInDangerousDirectory,
   containsPathTraversal,

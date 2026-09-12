@@ -20,6 +20,12 @@ import {
 } from './types/RiskClass';
 import { configManager } from '@modules/config';
 import { getLogger } from '@modules/monitoring';
+import {
+  isShellToolName,
+  extractPathArgs,
+  isFileWriteToolName,
+} from '@modules/constants';
+import { isDangerousFile, isInDangerousDirectory } from './filesystem';
 const logger = getLogger('permission:checker');
 
 /**
@@ -235,10 +241,10 @@ export class PermissionChecker {
     // P1-2: 命令内容级黑白名单（「设置→自定义规则」B 体系）参与决策 —
     // 与 BashSecurityAnalyzer 消费同一配置（permission.customRules.commandRules），
     // 黑名单命中 deny、whitelist 模式命中 allow，使 UI 白名单能真正免审批。
-    if (
-      (toolName === 'bash' || toolName === 'shell' || toolName === 'command') &&
-      typeof input.command === 'string'
-    ) {
+    // O27 修复（2026-09-12）：工具名改由 `isShellToolName` 判定 —— 原先硬编码
+    // `'bash' | 'shell' | 'command'` **漏了 `powershell`**，导致自定义命令规则对
+    // PowerShell 完全不生效。
+    if (isShellToolName(toolName) && typeof input.command === 'string') {
       const cmdDecision = checkCommandCustomRules(input.command);
       if (cmdDecision) return cmdDecision;
     }
@@ -579,48 +585,31 @@ export class PermissionChecker {
     // 实现安全检查逻辑
     // 例如检查危险命令、文件路径等
 
-    // 检查Bash工具的危险命令
-    if (toolName === 'Bash' && input.command) {
-      const command = input.command as string;
-      const dangerousCommands = [
-        'rm -rf',
-        'format',
-        'mkfs',
-        'dd',
-        'shutdown',
-        'reboot',
-      ];
+    // O27① 修复（2026-09-12）：**接线**"危险文件 / 危险目录"规则。
+    // 该能力此前只有定义、全仓无调用者（`checkReadPermissionForTool` / `checkWritePermissionForTool`
+    // 引用的 `DANGEROUS_FILES`（`.bashrc`/`.gitconfig`/`.mcp.json` …）与 `DANGEROUS_DIRECTORIES`
+    // （`.git`/`.vscode`/`.idea`）判定从未生效），属"看起来有防护、实际不生效"。
+    // 取向：只拦**明确危险**的目标，**不**启用"工作目录外即 ASK"（后者会对正常跨目录操作造成噪音）。
+    const paths = extractPathArgs(input);
+    const isWrite = isFileWriteToolName(toolName);
 
-      for (const dangerousCommand of dangerousCommands) {
-        if (command.includes(dangerousCommand)) {
-          return this.createAskDecisionWithTimeout(
-            'Dangerous Bash command detected'
-          ).decision;
-        }
-      }
-    }
-
-    // 检查File工具的危险路径
-    if (toolName === 'File' && input.path) {
-      const path = input.path as string;
-
-      // 检查路径是否包含..
-      if (path.includes('..')) {
+    for (const target of paths) {
+      if (isInDangerousDirectory(target)) {
         return this.createAskDecisionWithTimeout(
-          'Potentially unsafe path detected'
+          `文件在受保护目录中: ${target}`
         ).decision;
       }
-
-      // 检查路径是否为绝对路径
-      if (
-        path.startsWith('/') ||
-        path.startsWith('\\') ||
-        (path.length >= 2 && path[1] === ':')
-      ) {
-        return this.createAskDecisionWithTimeout('Absolute path detected')
-          .decision;
+      if (isWrite && isDangerousFile(target)) {
+        return createDenyDecision(`受保护文件不可写入: ${target}`);
       }
     }
+
+    // O27 修复（2026-09-12）：此处原有 `toolName === 'Bash'`（危险命令）与 `toolName === 'File'`
+    // （路径遍历 / 绝对路径）两个分支**永不命中**（实际注册名是小写 `bash` / `file_read`，
+    // 且不存在名为 `File` 的工具）。且其逻辑本身不宜启用：危险命令已由 BashTool /
+    // PowerShellTool 的自有分析器覆盖（DANGEROUS_COMMANDS + BashSecurityAnalyzer +
+    // checkDangerousCommands），而"绝对路径即 ASK"会对绝大多数正常文件操作造成噪音。
+    // 路径语义防护（凭据 / 私钥拒绝列表 + shell 命令串提取）由 PathGuard 统一负责。
 
     return null;
   }

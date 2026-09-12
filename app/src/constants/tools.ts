@@ -1,120 +1,124 @@
 /**
- * 工具名称常量
- * 统一定义所有工具名称，消除硬编码字符串
+ * 工具名称常量（**运行期实际注册名**）
+ *
+ * O27 修复（2026-09-12）：本文件原有一批 Claude Code 风格的大写常量
+ * （`BASH_TOOL_NAME = 'Bash'` / `FILE_READ_TOOL_NAME = 'Read'` / `SHELL_TOOL_NAMES = ['Bash']` …），
+ * 与运行时实际注册名（`bash` / `file_read` / `file_write` …）**不一致** ——
+ * 照它写判定必然永不命中。已知受害者：
+ *   - `PermissionChecker` 的 `toolName === 'Bash'` / `'File'` 分支（永不命中，死代码）
+ *   - `ToolExecutionService` 的 `name === FILE_WRITE_TOOL_NAME` 回滚追踪（永不命中，追踪失效）
+ * 工具名的事实来源是各工具类的 `name` 字段（即 `ToolRegistry` 的注册名，小写）。
+ *
+ * 本文件只保留跨模块（permission / sandbox / query / tools / chat）共用的**真实名**常量与判定，
+ * 其余零引用的旧常量已删除，避免同一名单被复制成多份后各自漂移。
  */
 
-/**
- * 核心工具名称
- */
-export const BASH_TOOL_NAME = 'Bash';
-export const FILE_READ_TOOL_NAME = 'Read';
-export const FILE_EDIT_TOOL_NAME = 'Edit';
-export const FILE_WRITE_TOOL_NAME = 'Write';
-export const GLOB_TOOL_NAME = 'Glob';
-export const GREP_TOOL_NAME = 'Grep';
-export const WEB_SEARCH_TOOL_NAME = 'WebSearch';
-export const WEB_FETCH_TOOL_NAME = 'WebFetch';
-export const NOTEBOOK_EDIT_TOOL_NAME = 'NotebookEdit';
-export const ASK_USER_QUESTION_TOOL_NAME = 'AskUserQuestion';
-export const TODO_WRITE_TOOL_NAME = 'TodoWrite';
-export const SKILL_TOOL_NAME = 'Skill';
-export const TOOL_SEARCH_TOOL_NAME = 'ToolSearch';
+/** 文件写入工具（实际注册名 `file_write`）*/
+export const FILE_WRITE_TOOL_NAME = 'file_write';
 
-/**
- * Agent相关工具名称
- */
-export const AGENT_TOOL_NAME = 'Agent';
-export const TASK_OUTPUT_TOOL_NAME = 'TaskOutput';
-export const TASK_STOP_TOOL_NAME = 'TaskStop';
-export const TASK_CREATE_TOOL_NAME = 'TaskCreate';
-export const TASK_GET_TOOL_NAME = 'TaskGet';
-export const TASK_LIST_TOOL_NAME = 'TaskList';
-export const TASK_UPDATE_TOOL_NAME = 'TaskUpdate';
-export const SEND_MESSAGE_TOOL_NAME = 'SendMessage';
+/** 文件编辑工具（实际注册名 `file_edit`）*/
+export const FILE_EDIT_TOOL_NAME = 'file_edit';
 
-/**
- * 模式切换工具名称
- */
-export const ENTER_PLAN_MODE_TOOL_NAME = 'EnterPlanMode';
-export const EXIT_PLAN_MODE_TOOL_NAME = 'ExitPlanMode';
-export const ENTER_WORKTREE_TOOL_NAME = 'EnterWorktree';
-export const EXIT_WORKTREE_TOOL_NAME = 'ExitWorktree';
+/** 项目文件写入工具（实际注册名 `write_project_file`）*/
+export const PROJECT_FILE_WRITE_TOOL_NAME = 'write_project_file';
 
-/**
- * 合成输出工具名称
- */
-export const SYNTHETIC_OUTPUT_TOOL_NAME = 'SyntheticOutput';
-
-/**
- * 工作流工具名称
- */
-export const WORKFLOW_TOOL_NAME = 'Workflow';
-
-/**
- * Shell工具名称集合
- */
-export const SHELL_TOOL_NAMES = [BASH_TOOL_NAME] as const;
-
-/**
- * 所有Agent禁止使用的工具集合
- * 防止Agent递归调用和访问主线程抽象
- */
-export const ALL_AGENT_DISALLOWED_TOOLS = new Set([
-  TASK_OUTPUT_TOOL_NAME,
-  EXIT_PLAN_MODE_TOOL_NAME,
-  ENTER_PLAN_MODE_TOOL_NAME,
-  AGENT_TOOL_NAME,
-  ASK_USER_QUESTION_TOOL_NAME,
-  TASK_STOP_TOOL_NAME,
-]);
-
-/**
- * 自定义Agent禁止使用的工具集合
- */
-export const CUSTOM_AGENT_DISALLOWED_TOOLS = new Set([
-  ...ALL_AGENT_DISALLOWED_TOOLS,
-]);
-
-/**
- * 异步Agent允许使用的工具集合
- */
-export const ASYNC_AGENT_ALLOWED_TOOLS = new Set([
-  FILE_READ_TOOL_NAME,
-  WEB_SEARCH_TOOL_NAME,
-  TODO_WRITE_TOOL_NAME,
-  GREP_TOOL_NAME,
-  WEB_FETCH_TOOL_NAME,
-  GLOB_TOOL_NAME,
-  ...SHELL_TOOL_NAMES,
-  FILE_EDIT_TOOL_NAME,
+/** 写类文件工具 —— 危险文件守卫（.bashrc/.mcp.json 等）按写语义判定 */
+export const FILE_WRITE_TOOL_NAMES: ReadonlySet<string> = new Set([
   FILE_WRITE_TOOL_NAME,
-  NOTEBOOK_EDIT_TOOL_NAME,
-  SKILL_TOOL_NAME,
-  SYNTHETIC_OUTPUT_TOOL_NAME,
-  TOOL_SEARCH_TOOL_NAME,
-  ENTER_WORKTREE_TOOL_NAME,
-  EXIT_WORKTREE_TOOL_NAME,
+  FILE_EDIT_TOOL_NAME,
+  PROJECT_FILE_WRITE_TOOL_NAME,
 ]);
 
-/**
- * 进程内队友允许使用的工具集合
- * 这些工具通过inProcessRunner注入，用于Agent间协作
- */
-export const IN_PROCESS_TEAMMATE_ALLOWED_TOOLS = new Set([
-  TASK_CREATE_TOOL_NAME,
-  TASK_GET_TOOL_NAME,
-  TASK_LIST_TOOL_NAME,
-  TASK_UPDATE_TOOL_NAME,
-  SEND_MESSAGE_TOOL_NAME,
-]);
+/** 是否写类文件工具（大小写无关） */
+export function isFileWriteToolName(name: string): boolean {
+  return FILE_WRITE_TOOL_NAMES.has(name.toLowerCase());
+}
+
+/** 实际注册的 shell 类工具名（小写，对齐 ToolRegistry 注册名） */
+export const REGISTERED_SHELL_TOOL_NAMES = [
+  'bash',
+  'shell',
+  'command',
+  'powershell',
+] as const;
 
 /**
- * 协调器模式允许使用的工具集合
- * 协调器只能使用输出和Agent管理工具
+ * 是否 shell 类工具（大小写无关）—— 权限 / 沙箱 / 路径守卫共用的**唯一**判定入口
  */
-export const COORDINATOR_MODE_ALLOWED_TOOLS = new Set([
-  AGENT_TOOL_NAME,
-  TASK_STOP_TOOL_NAME,
-  SEND_MESSAGE_TOOL_NAME,
-  SYNTHETIC_OUTPUT_TOOL_NAME,
+export function isShellToolName(name: string): boolean {
+  return (REGISTERED_SHELL_TOOL_NAMES as readonly string[]).includes(
+    name.toLowerCase()
+  );
+}
+
+/**
+ * 路径类参数名（**规范清单**，跨模块共用）
+ *
+ * 原分散在 `query/PathGuard.ts`（拒绝列表判定）与 permission 侧（危险文件判定）——
+ * 收敛到此处避免各写一份后漂移（O26 的根因就是参数名白名单与实际不一致）。
+ */
+export const PATH_ARG_KEYS: ReadonlySet<string> = new Set([
+  'path',
+  'file_path',
+  'filePath',
+  'filePaths',
+  'relativePath',
+  'searchPath',
+  'directory',
+  'target_directory',
+  'notebook_path',
+  'inputPath',
+  'outputPath',
+  'comparePath',
+  'videoPath',
+  'imagePath',
+  'savePath',
+  'saveToFile',
+  'content_file',
+  'source_file',
+  'workingDirectory',
+  'docPath',
+  'targetDir',
+  'filename',
 ]);
+
+/** 名字含 path/file 但**不是**文件系统路径的参数（键形启发式的显式豁免） */
+export const NON_PATH_ARG_KEYS: ReadonlySet<string> = new Set([
+  'file_id',
+  'direction',
+]);
+
+/** 参数名"像路径"的形状 —— 动态注册工具（MCP/插件）无法枚举，以此兜底 */
+const PATH_ARG_KEY_SHAPE = /path|file|dir/i;
+
+/**
+ * 判断参数名是否为路径类
+ *
+ * 判定顺序：显式豁免 → 规范清单 → 键形启发式。**不能只靠清单** ——
+ * MCP/插件等动态注册工具的路径参数名不可能都预先登记（O28② 实测 `{targetFile}` 会漏）。
+ */
+export function isPathArgKey(key: string): boolean {
+  if (NON_PATH_ARG_KEYS.has(key)) return false;
+  if (PATH_ARG_KEYS.has(key)) return true;
+  return PATH_ARG_KEY_SHAPE.test(key);
+}
+
+/**
+ * 从工具参数中提取全部路径值（兼容字符串与字符串数组）
+ *
+ * 供 PathGuard（拒绝列表判定）与 PermissionChecker（危险文件/目录判定）共用。
+ */
+export function extractPathArgs(args: Record<string, unknown>): string[] {
+  const paths: string[] = [];
+  for (const [key, value] of Object.entries(args ?? {})) {
+    if (!isPathArgKey(key)) continue;
+    if (typeof value === 'string') {
+      if (value) paths.push(value);
+    } else if (Array.isArray(value)) {
+      for (const item of value) {
+        if (typeof item === 'string' && item) paths.push(item);
+      }
+    }
+  }
+  return paths;
+}

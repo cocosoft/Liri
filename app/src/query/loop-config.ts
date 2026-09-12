@@ -6,6 +6,8 @@
  *
  * 环境变量：
  *   LOOP_OBSERVE_ONLY        — 全局 observeOnly 模式（不阻断，仅记录日志），默认 false
+ *   LOOP_PATH_GUARD_MODE     — PathGuard 独立模式（enforce | observe），默认 enforce；
+ *                              observe 仅告警不拦截，且**不影响**其它循环检测器（O25 ③）
  *   LOOP_UNKNOWN_TOOL_WARNING — unknown_tool_repeat 警告阈值，默认 5
  *   LOOP_UNKNOWN_TOOL_CRITICAL — unknown_tool_repeat 阻断阈值，默认 10
  *   LOOP_GLOBAL_BREAKER_THRESHOLD — 全局断路器阈值，默认 30
@@ -39,6 +41,37 @@ export function isLoopObserveOnly(): boolean {
     logLoopConfig();
   }
   return _loopObserveOnly;
+}
+
+// ─── PathGuard 独立模式（O25 ③，2026-09-12）────────────
+
+/**
+ * PathGuard 拦截模式：
+ *   enforce（默认）— 命中拒绝列表即拦截（回填工具错误，模型可改道）
+ *   observe        — 只告警不拦截，用于消除误报
+ *
+ * 与 `LOOP_OBSERVE_ONLY` 的区别：后者会一并关掉**全部**循环检测器的阻断（粒度过粗）；
+ * 本开关只作用于 `PathGuard`，其它循环防护照常生效。
+ */
+export type PathGuardMode = 'enforce' | 'observe';
+
+let _pathGuardMode: PathGuardMode | undefined;
+
+export function getPathGuardMode(): PathGuardMode {
+  if (_pathGuardMode === undefined) {
+    const raw = configManager.env('LOOP_PATH_GUARD_MODE')?.trim().toLowerCase();
+    if (raw === 'observe') {
+      _pathGuardMode = 'observe';
+    } else {
+      if (raw && raw !== 'enforce') {
+        logger.warn(
+          `环境变量 LOOP_PATH_GUARD_MODE=${raw} 无效（可选 enforce/observe），使用默认 enforce`
+        );
+      }
+      _pathGuardMode = 'enforce';
+    }
+  }
+  return _pathGuardMode;
 }
 
 // ─── 阈值环境变量 ──────────────────────────────────────

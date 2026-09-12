@@ -3,7 +3,12 @@
  * 负责工具的注册、获取、搜索等操作
  */
 import { Tool, ToolInfo, ToolTag } from './types/Tool';
-import { ToolResult, createToolResult } from './types/ToolResult';
+import {
+  ToolResult,
+  createToolResult,
+  ToolExecutionStatus,
+  ErrorLevel,
+} from './types/ToolResult';
 import { ToolUseContext } from './types/ToolUseContext';
 import {
   isDeferredTool,
@@ -16,6 +21,8 @@ import type { ToolDefinition, ToolImplementation } from './types/ToolTypes';
 
 import { getLogger } from '@modules/monitoring';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+// 经 barrel 导入（架构门禁要求）；PathGuard 模块作用域仅常量/函数，无 tools 反向依赖，环安全
+import { createPathGuard } from '@modules/query';
 const logger = getLogger('tools:ToolRegistry');
 
 export interface ToolSchema {
@@ -126,6 +133,8 @@ export class ToolRegistry {
   private tools: Map<string, Tool> = new Map();
   private aliases: Map<string, string> = new Map();
   private usageStats: Map<string, ToolUsageStats> = new Map();
+  /** O28③：执行收口处的路径守卫（直连入口亦受约束） */
+  private readonly pathGuard = createPathGuard();
 
   /**
    * 注册工具
@@ -318,6 +327,30 @@ export class ToolRegistry {
             content: `Error: Tool not found: ${toolCall.toolName}`,
           },
         ],
+      });
+    }
+
+    // O28③（2026-09-12）：**执行收口处**过路径守卫。
+    // 此前 PathGuard 只在两条 Agent 循环（ReActToolLoop / TAORLoop）里预检，
+    // 直连入口（HTTP `POST /v1/tools/{name}/execute`、voice、subagent、插件桥）完全不受约束。
+    // 循环内命中策略拒绝的调用在执行前就已被拦下，故此处只对"其余入口"生效（不产生双重判定）。
+    const pathCheck = this.pathGuard.checkToolCall(
+      toolCall.toolName,
+      toolCall.input ?? {}
+    );
+    if (!pathCheck.allowed) {
+      const reason = `该路径被安全策略拒绝：${pathCheck.reason ?? '未知原因'}`;
+      logger.warn('toolRegistry:pathguard_blocked', {
+        toolName: toolCall.toolName,
+        reason: pathCheck.reason,
+        sessionId: context.sessionId,
+      });
+      return createToolResult(null, {
+        success: false,
+        error: reason,
+        output: reason,
+        status: ToolExecutionStatus.FAILURE,
+        errorLevel: ErrorLevel.RECOVERABLE,
       });
     }
 

@@ -55,6 +55,7 @@ import {
   SandboxIntegrationService,
   sandboxIntegrationService,
 } from './SandboxIntegration';
+import { isShellToolName } from '@modules/constants';
 import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { configManager } from '@modules/config';
@@ -703,10 +704,8 @@ export class PermissionManager {
     }
 
     // P1-2: 命令内容级黑白名单（「设置→自定义规则」B 体系）— 与 handleDefault 一致
-    if (
-      (toolName === 'bash' || toolName === 'shell' || toolName === 'command') &&
-      typeof input.command === 'string'
-    ) {
+    // O27 修复（2026-09-12）：工具名改由 `isShellToolName` 判定（原先漏 `powershell`）
+    if (isShellToolName(toolName) && typeof input.command === 'string') {
       const cmdDecision = checkCommandCustomRules(input.command);
       if (cmdDecision) return cmdDecision;
     }

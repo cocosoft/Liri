@@ -29,6 +29,9 @@ import type {
 } from './policy/ToolPolicy';
 import { DefaultToolPolicy } from './policy/DefaultToolPolicy';
 import { ToolPolicyPipeline } from './policy/ToolPolicyPipeline';
+import { ToolExecutionStatus, ErrorLevel } from './types/ToolResult';
+// 经 barrel 导入（架构门禁要求）；PathGuard 模块作用域仅常量/函数，无 tools 反向依赖，环安全
+import { createPathGuard } from '@modules/query';
 import type {
   ToolDefinition,
   ToolImplementation,
@@ -72,6 +75,8 @@ export class ToolManager extends EventEmitter {
   private _defaultPolicyContext: PolicyContext = {};
   private _disabledTools: Set<string> = new Set();
   private _initialized: boolean = false;
+  /** O28③：执行收口处的路径守卫（本链路不经过 ToolRegistry.executeTool，故各自把关） */
+  private readonly pathGuard = createPathGuard();
 
   /**
    * 构造函数
@@ -348,6 +353,25 @@ export class ToolManager extends EventEmitter {
         ErrorSeverity.HIGH,
         '1006'
       );
+    }
+
+    // O28③（2026-09-12）：路径守卫 —— 本链路（CoreAPIImpl.executeTool → ToolManager.executeTool
+    // → optimizedExecuteTool）**不经过** ToolRegistry.executeTool，故在此同样把关。
+    // 覆盖直连入口：HTTP `POST /v1/tools/{name}/execute`、voice、subagent 等。
+    const pathCheck = this.pathGuard.checkToolCall(name, input ?? {});
+    if (!pathCheck.allowed) {
+      const reason = `该路径被安全策略拒绝：${pathCheck.reason ?? '未知原因'}`;
+      logger.warn('toolManager:pathguard_blocked', {
+        toolName: name,
+        reason: pathCheck.reason,
+      });
+      return {
+        success: false,
+        error: reason,
+        output: reason,
+        status: ToolExecutionStatus.FAILURE,
+        errorLevel: ErrorLevel.RECOVERABLE,
+      } as ToolResult;
     }
 
     try {

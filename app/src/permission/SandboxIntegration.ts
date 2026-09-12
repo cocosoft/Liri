@@ -2,6 +2,7 @@
  * 沙箱集成
  * 用于安全地执行命令
  */
+import { isShellToolName } from '@modules/constants';
 
 /**
  * 沙箱配置
@@ -311,11 +312,11 @@ export class SandboxIntegrationService {
     toolName: string,
     input: Record<string, unknown>
   ): SandboxDecision {
-    // 只对特定工具使用沙箱
-    const sandboxTools = ['bash', 'shell', 'exec', 'run', 'powershell'];
-    const lowerToolName = toolName.toLowerCase();
-
-    if (!sandboxTools.some((t) => lowerToolName.includes(t))) {
+    // 只对 shell 类工具使用沙箱
+    // O27 修复（2026-09-12）：改用 `isShellToolName` 统一判定，避免第 4 份硬编码名单
+    // （旧名单 `['bash','shell','exec','run','powershell']` 用子串匹配，会把含
+    //  `run`/`exec` 字样的无关工具误判为 shell 工具）
+    if (!isShellToolName(toolName)) {
       return {
         shouldUseSandbox: false,
         autoAllow: false,

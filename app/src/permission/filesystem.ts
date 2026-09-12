@@ -107,59 +107,12 @@ export function isWithinWorkingDirectory(
   return false;
 }
 
-export function checkReadPermissionForTool(
-  filePath: string,
-  cwd: string
-): PermissionResult {
-  if (containsPathTraversal(filePath)) {
-    return {
-      behavior: PermissionBehavior.DENY,
-      message: '路径遍历攻击被拒绝',
-      decisionReason: { type: 'config', source: 'security' },
-    };
-  }
-
-  if (!isWithinWorkingDirectory(filePath, cwd)) {
-    return {
-      behavior: PermissionBehavior.ASK,
-      message: `文件在工作目录外: ${filePath}`,
-      decisionReason: { type: 'config', source: 'filesystem' },
-    };
-  }
-
-  if (isInDangerousDirectory(filePath)) {
-    return {
-      behavior: PermissionBehavior.ASK,
-      message: `文件在受保护目录中: ${filePath}`,
-      decisionReason: { type: 'config', source: 'filesystem' },
-    };
-  }
-
-  return {
-    behavior: PermissionBehavior.ALLOW,
-    decisionReason: { type: 'default' },
-  };
-}
-
-export function checkWritePermissionForTool(
-  filePath: string,
-  cwd: string
-): PermissionResult {
-  const readResult = checkReadPermissionForTool(filePath, cwd);
-  if (readResult.behavior !== PermissionBehavior.ALLOW) {
-    return readResult;
-  }
-
-  if (isDangerousFile(filePath)) {
-    return {
-      behavior: PermissionBehavior.DENY,
-      message: `受保护文件不可写入: ${path.basename(filePath)}`,
-      decisionReason: { type: 'config', source: 'security' },
-    };
-  }
-
-  return {
-    behavior: PermissionBehavior.ALLOW,
-    decisionReason: { type: 'default' },
-  };
-}
+/**
+ * O27① 修复（2026-09-12）：原 `checkReadPermissionForTool` / `checkWritePermissionForTool`
+ * 全仓**无调用者**（只有定义 + re-export），属"能力层已实现但未接线"。
+ * 其规则已**接线到实际决策点** `PermissionChecker.checkSafetyRules`：
+ *   - 危险目录（`DANGEROUS_DIRECTORIES`）→ ASK
+ *   - 危险文件（`DANGEROUS_FILES`）写入 → DENY
+ * 未接线部分说明：`isWithinWorkingDirectory`（工作目录外 → ASK）**有意未启用** ——
+ * 会对正常跨目录操作造成大量审批噪音，需要时再单独评估。
+ */

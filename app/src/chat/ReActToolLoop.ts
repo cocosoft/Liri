@@ -792,26 +792,10 @@ export class ReActToolLoop extends ReActLoop<
         }
       }
 
-      // L2（2026-09-06）：PathGuard 越界路径防护（对齐 batch 三守卫，TAORLoop.ts:938-951）。
-      // 仅命中 deny 列表（.env/凭据/密钥/锁文件等）才拦截；无路径参数或未命中 → 放行，正常工具不受影响。
-      for (const tc of calls) {
-        const pathCheck = this.pathGuard.checkToolCall(tc.name, tc.input);
-        if (!pathCheck.allowed) {
-          // 复用 loopDetected 终止通道（detector 区分来源）→ reason 早退、finalize 带原因提示
-          this.loopState.loopDetected = {
-            detector: 'pathGuard',
-            message: `路径守卫拦截 ${tc.name}: ${pathCheck.reason ?? '未知原因'}`,
-          };
-          logger.warn('reactToolLoop:pathguard_blocked', {
-            sessionId: this.ctx.session.id,
-            toolName: tc.name,
-            reason: pathCheck.reason,
-            turn: this.loopState.toolTurnCount,
-          });
-          return { results: [], allSucceeded: false, anyAborted: false };
-        }
-      }
-
+      // L2（2026-09-06）：PathGuard 越界路径防护。
+      // O25 修复（2026-09-12）：**不再在此处预检后 fatal 终止** —— 策略拒绝 ≠ 死循环。
+      // 原先一次正常读取被拦就把整轮任务杀掉（且文案误标成"工具调用循环"）；现下沉到
+      // 下方逐调用处理：回填**工具错误结果**让模型改道（与 TAORLoop.ts:937-951 行为对齐）。
       for (const tc of calls) {
         // PAIR-FILL（2026-08-30）：被跳过工具必须回填 processedResults——assistant 消息
         // 携带全部 tool_calls，若部分调用无 tool 结果消息，OpenAI 兼容 API 返回 400
@@ -837,6 +821,23 @@ export class ReActToolLoop extends ReActLoop<
             },
           });
         };
+        // L2 / O25：PathGuard 越界路径防护 —— 命中后**回填工具错误**并跳过本次执行，
+        // 让模型自行改道（换路径 / 换工具），而不是把整轮任务判死。
+        const pathCheck = this.pathGuard.checkToolCall(tc.name, tc.input);
+        if (!pathCheck.allowed) {
+          logger.warn('reactToolLoop:pathguard_blocked', {
+            sessionId: this.ctx.session.id,
+            toolName: tc.name,
+            reason: pathCheck.reason,
+            turn: this.loopState.toolTurnCount,
+          });
+          recordSkippedTool(
+            `该路径被安全策略拒绝（不是工具调用循环）：${pathCheck.reason ?? '未知原因'}。` +
+              `请改用其它路径或换一种工具，不要重复同一调用。`
+          );
+          continue;
+        }
+
         // DecisionGate 门控检查（设计方案 §5.3）：执行前检查是否需要用户确认
         if (this.gateTier) {
           const gateQuestion = decisionGateCheck(

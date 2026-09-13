@@ -12,9 +12,50 @@ import inspect
 import json
 import sys
 from dataclasses import dataclass, field
-from typing import Any, Awaitable, Callable, Dict, List, Optional, Union
+from typing import (
+    Any,
+    Awaitable,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    TypedDict,
+    Union,
+)
 
 from .schema import schema_from_callable
+
+# ---------------------------------------------------------------------------
+# 工具执行结果（显式失败契约，对齐 TS plugin-sdk 的 PluginToolResult）
+# ---------------------------------------------------------------------------
+
+
+class PluginToolResult(TypedDict, total=False):
+    """插件工具执行结果（对齐 TS `PluginToolResult`）
+
+    - 成功：``{"success": True, "data": <载荷>}``
+    - 失败：``{"success": False, "error": "<原因>"}``
+
+    直接抛异常**同样等价于失败**（由主进程适配层的执行链收口）。
+    """
+
+    success: bool
+    data: Any
+    error: str
+
+
+def tool_ok(data: Any = None) -> PluginToolResult:
+    """构造成功结果（对齐 TS `{ success: true, data }`）"""
+    return {"success": True, "data": data}
+
+
+def tool_fail(error: str) -> PluginToolResult:
+    """构造失败结果（对齐 TS `{ success: false, error }`）
+
+    工具失败必须显式返回本结果（或抛异常），否则主进程会按成功处理。
+    """
+    return {"success": False, "error": error}
+
 
 # ---------------------------------------------------------------------------
 # 装饰器与注册项
@@ -23,12 +64,16 @@ from .schema import schema_from_callable
 
 @dataclass
 class ToolRegistration:
-    """对齐 TS ToolRegistration"""
+    """对齐 TS ToolRegistration
+
+    ``execute`` 返回 :class:`PluginToolResult`（用 :func:`tool_ok` / :func:`tool_fail`
+    构造）；抛异常等价于失败。
+    """
 
     name: str
     description: str
     parameters: Dict[str, Any]
-    execute: Callable[[Dict[str, Any]], Awaitable[Any]]
+    execute: Callable[[Dict[str, Any]], Awaitable[PluginToolResult]]
 
 
 @dataclass
@@ -54,6 +99,10 @@ def tool(
         @tool(name="greet", description="向用户打招呼", params={"name": "称呼"})
         async def greet(name: str, ctx: Optional[PluginContext] = None) -> str:
             return f"Hello, {name}"
+
+    返回契约（对齐 TS plugin-sdk 的 PluginToolResult，2026-09-13）：
+    - 成功：``return tool_ok(<载荷>)``；直接返回任意值也按成功处理
+    - 失败：``return tool_fail("<原因>")``；抛异常亦等价于失败
 
     参数：
     - name: 工具名（缺省取函数名）

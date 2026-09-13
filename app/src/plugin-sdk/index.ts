@@ -31,6 +31,7 @@ export {
   createPluginContext,
   getInjectedServiceIds,
   validatePluginManifest,
+  normalizePluginToolResult,
 } from './core';
 
 export type {
@@ -43,6 +44,7 @@ export type {
   PluginRuntime,
   PluginRuntimeStatus,
   ToolRegistration,
+  PluginToolResult,
   SkillDefinition,
   SkillParameter,
   SkillContext,

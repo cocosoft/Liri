@@ -28,6 +28,7 @@ import {
   KernelServiceId,
 } from '../api/KernelServiceRegistry';
 import { resolveDataSubDir } from '@modules/core/paths';
+import { normalizePluginToolResult } from '@modules/plugin-sdk';
 import { join, delimiter } from 'path';
 import { trackProcess } from '../../services/mcp/transports/ChildProcessTracker';
 import { globalEventBus } from '../../core/events/EventBus';
@@ -459,8 +460,17 @@ function toRegisteredTool(
     isEnabled: () => true,
     isConcurrencySafe: () => true,
     execute: async (input: Record<string, unknown>) => {
-      const result = await execute(input);
-      return createToolResult(result);
+      // 显式失败契约（2026-09-13）：Python 返回值经 callTool RPC 透传（无法编译期约束），
+      // 故此处按 normalizePluginToolResult 收敛：失败必须落到 ToolResult 顶层，
+      // 否则 HTTP 层 `success ?? true` 与循环层 `ok: !error` 会把插件失败判为成功（O33）。
+      const result = normalizePluginToolResult(await execute(input));
+      if (!result.success) {
+        return createToolResult(result, {
+          success: false,
+          error: result.error,
+        });
+      }
+      return createToolResult(result.data ?? null);
     },
   });
 }

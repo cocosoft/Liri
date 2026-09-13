@@ -9,10 +9,47 @@ import type {
   PluginContext,
   PluginManifest,
   PluginServices,
+  PluginToolResult,
   PluginValidationResult,
   PluginValidationError,
   PluginValidationWarning,
 } from './types';
+
+/**
+ * 把插件工具的返回值归一为 `PluginToolResult`（纯函数，2026-09-13）
+ *
+ * 为什么需要运行时归一：TS 插件由类型系统约束，但 Python 插件返回值经 `callTool` RPC
+ * 透传（无法编译期约束），故在适配层做一次收敛，避免"插件失败被当成成功"。
+ * 归一规则：
+ * - 显式 `{ success: false, error }` → 失败（error 缺失/空串时补默认文案）
+ * - 显式 `{ success: true, data }`  → 成功，载荷取 `data`
+ * - 其他值（含原始载荷）            → 视为成功，载荷取原值
+ *
+ * @param value 插件工具返回值（不透明）
+ * @returns 归一后的插件工具执行结果
+ */
+export function normalizePluginToolResult(value: unknown): PluginToolResult {
+  if (value !== null && typeof value === 'object') {
+    const candidate = value as {
+      success?: unknown;
+      error?: unknown;
+      data?: unknown;
+    };
+    if (candidate.success === false) {
+      return {
+        success: false,
+        error:
+          typeof candidate.error === 'string' && candidate.error.length > 0
+            ? candidate.error
+            : 'Plugin tool execution failed',
+      };
+    }
+    if (candidate.success === true) {
+      return { success: true, data: candidate.data };
+    }
+  }
+  return { success: true, data: value };
+}
 
 /**
  * 创建插件实例的辅助函数

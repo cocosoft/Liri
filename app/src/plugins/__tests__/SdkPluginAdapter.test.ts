@@ -353,7 +353,8 @@ describe('SdkPluginAdapter', () => {
             name: { type: 'string', description: '称呼', required: true },
           },
           execute: async (args: Record<string, unknown>) => ({
-            hello: args.name,
+            success: true,
+            data: { hello: args.name },
           }),
         },
       ],
@@ -373,6 +374,35 @@ describe('SdkPluginAdapter', () => {
 
       adapter.unregisterTools(plugin);
       expect(getToolRegistry().getTool(toolName)).toBeUndefined();
+    });
+
+    test('插件返回 { success:false, error } 时工具结果为失败（显式失败契约）', async () => {
+      const failingName = 'py0_test_fail';
+      const failing = createPlugin({
+        id: 'py0-fail',
+        name: 'Py0Fail',
+        version: '1.0.0',
+        description: '',
+        author: 'demo',
+        category: 'tool',
+        tools: [
+          {
+            name: failingName,
+            description: '总是失败',
+            execute: async () => ({ success: false, error: 'boom' }),
+          },
+        ],
+      });
+
+      adapter.registerTools(failing);
+      const tool = getToolRegistry().getTool(failingName);
+      expect(tool).toBeDefined();
+
+      const result = await tool!.execute({}, {} as never);
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('boom');
+
+      adapter.unregisterTools(failing);
     });
 
     test('未声明 tools 时注册为空操作', () => {
@@ -399,7 +429,7 @@ describe('SdkPluginAdapter', () => {
           {
             name: toolName,
             description: '重复工具',
-            execute: async () => 'dup',
+            execute: async () => ({ success: true }),
           },
         ],
       });

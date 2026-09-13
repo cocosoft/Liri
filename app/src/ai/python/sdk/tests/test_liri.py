@@ -10,7 +10,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from liri import Plugin, tool, skill  # noqa: E402
+from liri import Plugin, tool, skill, tool_ok, tool_fail  # noqa: E402
 from liri.schema import schema_from_callable  # noqa: E402
 from liri.plugin import ToolRegistration, SkillDefinition  # noqa: E402
 
@@ -64,6 +64,19 @@ def test_tool_decorator():
     result = greet.execute({"name": "liri"})
     assert result.__class__.__name__ == "coroutine"
     assert asyncio_run(result) == "Hello, liri"
+
+
+def test_tool_result_contract():
+    """工具显式失败契约（对齐 TS plugin-sdk PluginToolResult）"""
+    assert tool_ok({"a": 1}) == {"success": True, "data": {"a": 1}}
+    assert tool_ok() == {"success": True, "data": None}
+    assert tool_fail("boom") == {"success": False, "error": "boom"}
+
+    @tool(name="failing")
+    async def failing() -> dict:
+        return tool_fail("boom")
+
+    assert asyncio_run(failing.execute({})) == {"success": False, "error": "boom"}
 
 
 def test_skill_decorator():

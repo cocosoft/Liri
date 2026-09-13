@@ -15,6 +15,7 @@ import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import {
   createPluginContext,
   getInjectedServiceIds,
+  normalizePluginToolResult,
 } from '../../plugin-sdk/core';
 import type {
   Plugin as SdkPlugin,
@@ -310,8 +311,19 @@ function toRegisteredTool(registration: ToolRegistration) {
     isEnabled: () => true,
     isConcurrencySafe: () => true,
     execute: async (input: Record<string, unknown>) => {
-      const result = await registration.execute(input);
-      return createToolResult(result);
+      // 显式失败契约（2026-09-13）：插件返回 { success:false, error } 时，
+      // 必须落到 ToolResult 顶层，否则 HTTP 层 `success ?? true` 与循环层 `ok: !error`
+      // 都会把插件失败判为成功（伪成功族 O33）。
+      const result = normalizePluginToolResult(
+        await registration.execute(input)
+      );
+      if (!result.success) {
+        return createToolResult(result, {
+          success: false,
+          error: result.error,
+        });
+      }
+      return createToolResult(result.data ?? null);
     },
   });
 }

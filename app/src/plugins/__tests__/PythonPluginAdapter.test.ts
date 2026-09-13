@@ -26,7 +26,7 @@ process.env.LIRI_PROJECT_DIR = resolveProjectRoot();
 const PLUGIN_SCRIPT = `
 import sys
 import os
-from liri import Plugin, tool
+from liri import Plugin, tool, tool_fail
 
 @tool(name="greet", description="向用户打招呼")
 async def greet(name: str, ctx=None) -> str:
@@ -43,11 +43,15 @@ async def use_service(ctx=None) -> str:
 async def crash(ctx=None) -> str:
     os._exit(1)
 
+@tool(name="fail_contract", description="返回显式失败契约")
+async def fail_contract(ctx=None):
+    return tool_fail("boom")
+
 plugin = Plugin(
     id="py-test",
     name="PyTest",
     version="0.1.0",
-    tools=[greet, use_service, crash],
+    tools=[greet, use_service, crash, fail_contract],
     inject=["test_service"],
 )
 plugin.run()
@@ -97,17 +101,25 @@ describe('PythonPluginAdapter（PY-3）', () => {
     expect(adapter.getState()).toBe('running');
   });
 
-  test('activate：pull 工具并注册进全局 ToolRegistry', async () => {
+  test('activate：pull 工具并注册进全局 ToolRegistry（含显式失败契约映射）', async () => {
     await adapter.activate();
     expect(adapter.getTools().map((t) => t.name)).toEqual([
       'greet',
       'use_service',
       'crash',
+      'fail_contract',
     ]);
 
     const tool = getToolRegistry().getTool('greet');
     expect(tool).toBeDefined();
     expect(tool!.getInfo().description).toBe('向用户打招呼');
+
+    // 显式失败契约：插件返回 tool_fail(...) 时，ToolResult 顶层必须为失败
+    const failing = getToolRegistry().getTool('fail_contract');
+    expect(failing).toBeDefined();
+    const failed = await failing!.execute({}, {} as never);
+    expect(failed.success).toBe(false);
+    expect(failed.error).toBe('boom');
   });
 
   test('callTool：跨进程执行 Python 工具', async () => {

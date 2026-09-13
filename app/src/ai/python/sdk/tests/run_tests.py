@@ -9,7 +9,7 @@ from pathlib import Path
 SDK_DIR = Path(__file__).parent.parent
 sys.path.insert(0, str(SDK_DIR))
 
-from liri import Plugin, tool, skill  # noqa: E402
+from liri import Plugin, tool, skill, tool_ok, tool_fail  # noqa: E402
 from liri.schema import schema_from_callable  # noqa: E402
 from liri.plugin import ToolRegistration, SkillDefinition  # noqa: E402
 
@@ -63,6 +63,24 @@ def test_tool_decorator():
 
     result = asyncio.run(greet.execute({"name": "liri"}))
     assert result == "Hello, liri"
+
+
+def test_tool_result_contract():
+    """工具显式失败契约（对齐 TS plugin-sdk PluginToolResult）"""
+    assert tool_ok({"a": 1}) == {"success": True, "data": {"a": 1}}
+    assert tool_ok() == {"success": True, "data": None}
+    assert tool_fail("boom") == {"success": False, "error": "boom"}
+
+    @tool(name="failing")
+    async def failing() -> dict:
+        return tool_fail("boom")
+
+    import asyncio
+
+    assert asyncio.run(failing.execute({})) == {
+        "success": False,
+        "error": "boom",
+    }
 
 
 def test_skill_decorator():
@@ -253,6 +271,7 @@ def main():
     check("schema_from_callable 基础映射", test_schema)
     check("schema ctx 参数排除", test_schema_ctx_excluded)
     check("@tool 装饰器生成 ToolRegistration 并可执行", test_tool_decorator)
+    check("工具显式失败契约（tool_ok / tool_fail）", test_tool_result_contract)
     check("@skill 装饰器生成 SkillDefinition", test_skill_decorator)
     check("Plugin 收集注册项", test_plugin_collects)
     check("runner 子进程握手闭环", test_runner_handshake)

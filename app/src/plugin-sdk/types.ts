@@ -220,12 +220,23 @@ export enum PluginRuntimeStatus {
   ERROR = 'error',
 }
 
+/**
+ * 插件工具执行结果（显式失败契约，2026-09-13）
+ *
+ * 插件工具的失败不再只能靠"抛错"这一隐式通道表达（抛错仍被支持，由适配层收口为失败）：
+ * - `{ success: true, data? }` — 成功，`data` 为可选结果载荷（映射为 ToolResult.data）
+ * - `{ success: false, error }` — 失败，`error` 为失败原因（映射为 ToolResult.error）
+ */
+export type PluginToolResult =
+  | { success: true; data?: unknown }
+  | { success: false; error: string };
+
 /** 工具注册信息 */
 export interface ToolRegistration {
   name: string;
   description: string;
   parameters?: Record<string, unknown>;
-  execute: (args: Record<string, unknown>) => Promise<unknown>;
+  execute: (args: Record<string, unknown>) => Promise<PluginToolResult>;
   pluginId?: string;
 }
 

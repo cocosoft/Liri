@@ -74,6 +74,8 @@ export class ReadProjectFileTool {
           if (!projectId || !relativePath) {
             span.setStatus({ code: SpanStatusCode.OK });
             return createToolResult(null, {
+              success: false,
+              error: '缺少 projectId 或 relativePath 参数',
               newMessages: [
                 {
                   role: 'assistant' as const,
@@ -89,6 +91,8 @@ export class ReadProjectFileTool {
           if (!project) {
             span.setStatus({ code: SpanStatusCode.OK });
             return createToolResult(null, {
+              success: false,
+              error: `项目 ${projectId} 不存在`,
               newMessages: [
                 {
                   role: 'assistant' as const,
@@ -102,6 +106,8 @@ export class ReadProjectFileTool {
           if (!sandboxPath) {
             span.setStatus({ code: SpanStatusCode.OK });
             return createToolResult(null, {
+              success: false,
+              error: '项目未配置文件夹路径',
               newMessages: [
                 { role: 'assistant' as const, content: '项目未配置文件夹路径' },
               ],
@@ -115,6 +121,8 @@ export class ReadProjectFileTool {
             return createToolResult(
               JSON.stringify({ error: '文件不存在', path: relativePath }),
               {
+                success: false,
+                error: `文件不存在: ${relativePath}`,
                 newMessages: [
                   {
                     role: 'assistant' as const,
@@ -133,6 +141,8 @@ export class ReadProjectFileTool {
           ) {
             span.setStatus({ code: SpanStatusCode.OK });
             return createToolResult(null, {
+              success: false,
+              error: '安全拒绝：文件路径超出项目文件夹范围',
               newMessages: [
                 {
                   role: 'assistant' as const,
@@ -164,6 +174,8 @@ export class ReadProjectFileTool {
           const msg = error instanceof Error ? error.message : '未知错误';
           logger.error('读取项目文件失败', { error: msg });
           return createToolResult(null, {
+            success: false,
+            error: `读取文件失败: ${msg}`,
             newMessages: [
               { role: 'assistant' as const, content: `读取文件失败: ${msg}` },
             ],

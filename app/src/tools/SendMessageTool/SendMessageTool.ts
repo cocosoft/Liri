@@ -74,6 +74,7 @@ export class SendMessageTool extends BaseTool {
     const messageContent = String(input.message ?? '').trim();
     if (!to || !messageContent) {
       return createToolResult(null, {
+        success: false,
         errorLevel: ErrorLevel.RECOVERABLE,
         error: 'to 和 message 为必填项',
       });
@@ -113,6 +114,7 @@ export class SendMessageTool extends BaseTool {
     } catch (e) {
       // 接收者不存在 / 投递失败 → 诚实反馈失败（可恢复，模型可重试或换接收者）
       return createToolResult(null, {
+        success: false,
         errorLevel: ErrorLevel.RECOVERABLE,
         error: `消息投递失败：${e instanceof Error ? e.message : String(e)}`,
         metadata: {

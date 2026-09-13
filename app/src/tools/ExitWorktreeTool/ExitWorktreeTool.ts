@@ -116,6 +116,8 @@ export class ExitWorktreeTool extends BaseTool<
           message: 'slug is required',
         },
         {
+          success: false,
+          error: 'slug is required',
           newMessages: [
             {
               role: 'system',
@@ -148,6 +150,8 @@ export class ExitWorktreeTool extends BaseTool<
       return createToolResult(
         { success: false, message: result.error || result.message || 'Failed' },
         {
+          success: false,
+          error: result.error || result.message || 'Failed',
           newMessages: [
             {
               role: 'system',
@@ -165,6 +169,8 @@ export class ExitWorktreeTool extends BaseTool<
           message: `Failed to exit worktree: ${errorMessage}`,
         },
         {
+          success: false,
+          error: `Failed to exit worktree: ${errorMessage}`,
           newMessages: [
             {
               role: 'system',

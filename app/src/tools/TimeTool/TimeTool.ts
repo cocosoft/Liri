@@ -97,6 +97,8 @@ export class TimeTool {
           const errorMessage =
             error instanceof Error ? error.message : 'Unknown error';
           return createToolResult(null, {
+            success: false,
+            error: `${errorMessage}`,
             newMessages: [
               {
                 role: 'system',

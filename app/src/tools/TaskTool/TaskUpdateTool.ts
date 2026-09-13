@@ -186,6 +186,8 @@ export class TaskUpdateTool implements Tool {
     const validation = this.validateInput(input);
     if (!validation.result) {
       return createToolResult(null, {
+        success: false,
+        error: `${validation.message}`,
         newMessages: [
           {
             role: 'system',
@@ -202,6 +204,8 @@ export class TaskUpdateTool implements Tool {
       const existingTask = await this.storage.get(taskInput.id);
       if (!existingTask) {
         return createToolResult(null, {
+          success: false,
+          error: `Task with id ${taskInput.id} not found`,
           newMessages: [
             {
               role: 'system',
@@ -258,6 +262,8 @@ export class TaskUpdateTool implements Tool {
         error instanceof Error ? error.message : String(error);
 
       return createToolResult(null, {
+        success: false,
+        error: `${errorMessage}`,
         newMessages: [
           {
             role: 'system',

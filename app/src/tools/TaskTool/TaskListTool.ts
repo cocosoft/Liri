@@ -127,6 +127,8 @@ export class TaskListTool implements Tool {
         error instanceof Error ? error.message : String(error);
 
       return createToolResult(null, {
+        success: false,
+        error: `${errorMessage}`,
         newMessages: [
           {
             role: 'system',

@@ -346,6 +346,8 @@ export class WebSearchTool extends BaseTool {
           return createToolResult(
             `搜索超时，请检查网络连接或尝试更短的超时时间。`,
             {
+              success: false,
+              error: `搜索超时，请检查网络连接或尝试更短的超时时间。`,
               newMessages: [
                 {
                   role: 'system',

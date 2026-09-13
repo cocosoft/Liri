@@ -159,6 +159,8 @@ export class ToolExecutor {
           'Security check failed'
         );
         return createToolResult(null, {
+          success: false,
+          error: `Security check failed: ${securityCheck.errors.join(', ')}`,
           newMessages: [
             {
               role: 'system',
@@ -182,6 +184,8 @@ export class ToolExecutor {
             'Execution prevented by hook'
           );
           return createToolResult(null, {
+            success: false,
+            error: 'Execution prevented by hook',
             newMessages: [
               {
                 role: 'system',
@@ -286,6 +290,8 @@ export class ToolExecutor {
       }
 
       return createToolResult(null, {
+        success: false,
+        error: errorMessage,
         newMessages: [
           {
             role: 'system',
@@ -426,6 +432,8 @@ export class ToolExecutor {
         });
       }
       return createToolResult(null, {
+        success: false,
+        error: correctionHint,
         newMessages: [
           {
             role: 'system',
@@ -455,6 +463,8 @@ export class ToolExecutor {
 
     if (!governanceResult.success) {
       return createToolResult(null, {
+        success: false,
+        error: governanceResult.error || 'Execution failed',
         newMessages: [
           {
             role: 'system',
@@ -514,6 +524,8 @@ export class ToolExecutor {
         });
       }
       return createToolResult(null, {
+        success: false,
+        error: correctionHint,
         newMessages: [
           {
             role: 'system',
@@ -526,6 +538,8 @@ export class ToolExecutor {
     const permissionResult = await this.checkPermissions(tool, input, context);
     if (!permissionResult.allowed) {
       return createToolResult(null, {
+        success: false,
+        error: permissionResult.error || 'Permission denied',
         newMessages: [
           {
             role: 'system',

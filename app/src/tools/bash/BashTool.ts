@@ -597,6 +597,8 @@ export class BashTool extends BaseTool {
           return createToolResult(
             `需要用户确认: ${securityResult.message || '此命令需要确认后执行'}`,
             {
+              success: false,
+              error: `需要用户确认: ${securityResult.message || '此命令需要确认后执行'}`,
               newMessages: [
                 {
                   role: 'system',
@@ -616,6 +618,8 @@ export class BashTool extends BaseTool {
           return createToolResult(
             `安全检查: 命令 "${command.split(/\s+/)[0]}" 不在允许列表中`,
             {
+              success: false,
+              error: `安全检查: 命令 "${command.split(/\s+/)[0]}" 不在允许列表中`,
               newMessages: [
                 {
                   role: 'system',
@@ -637,6 +641,8 @@ export class BashTool extends BaseTool {
           return createToolResult(
             `沙箱安全检查: ${sandboxCheckResult.reason}`,
             {
+              success: false,
+              error: `沙箱安全检查: ${sandboxCheckResult.reason}`,
               newMessages: [
                 {
                   role: 'system',

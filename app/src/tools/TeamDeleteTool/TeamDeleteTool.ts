@@ -130,6 +130,8 @@ export class TeamDeleteTool extends BaseTool<
           team_name: '',
         },
         {
+          success: false,
+          error: 'team_name is required',
           newMessages: [
             {
               role: 'system',
@@ -151,6 +153,8 @@ export class TeamDeleteTool extends BaseTool<
           team_name,
         },
         {
+          success: false,
+          error: `Team "${team_name}" does not exist`,
           newMessages: [
             {
               role: 'system',
@@ -211,6 +215,8 @@ export class TeamDeleteTool extends BaseTool<
           team_name,
         },
         {
+          success: false,
+          error: `Failed to delete team: ${errorMessage}`,
           newMessages: [
             {
               role: 'system',

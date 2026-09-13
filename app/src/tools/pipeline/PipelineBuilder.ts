@@ -175,6 +175,8 @@ export function createPipelineExecutor(
           return mwResult.result;
         }
         return createToolResult(null, {
+          success: false,
+          error: mwResult.error || 'Execution blocked by middleware',
           newMessages: [
             {
               role: 'system',

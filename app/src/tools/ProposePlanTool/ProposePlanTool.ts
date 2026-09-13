@@ -151,12 +151,20 @@ export class ProposePlanTool extends BaseTool {
         sessionId: context.sessionId,
         header: (input.header as string) ?? '',
       });
-      return createToolResult({
-        error:
-          '计划审批未完成：当前执行路径不支持等待用户批准（_userAnswers 缺失）。' +
-          '请改用自然语言在正文中提交计划，用户会在下一条消息中回复是否批准。',
-        retryable: false,
-      });
+      return createToolResult(
+        {
+          error:
+            '计划审批未完成：当前执行路径不支持等待用户批准（_userAnswers 缺失）。' +
+            '请改用自然语言在正文中提交计划，用户会在下一条消息中回复是否批准。',
+          retryable: false,
+        },
+        {
+          success: false,
+          error:
+            '计划审批未完成：当前执行路径不支持等待用户批准（_userAnswers 缺失）。' +
+            '请改用自然语言在正文中提交计划，用户会在下一条消息中回复是否批准。',
+        }
+      );
     }
 
     const decision = answers[0];

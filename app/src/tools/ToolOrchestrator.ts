@@ -414,6 +414,8 @@ export class ToolOrchestrator {
         const errorMessage =
           error instanceof Error ? error.message : 'Execution failed';
         task.result = createToolResult(null, {
+          success: false,
+          error: errorMessage,
           newMessages: [
             {
               role: 'system',

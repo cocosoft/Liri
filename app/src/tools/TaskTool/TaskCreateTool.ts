@@ -189,6 +189,8 @@ export class TaskCreateTool implements Tool {
     const validation = this.validateInput(input);
     if (!validation.result) {
       return createToolResult(null, {
+        success: false,
+        error: `${validation.message}`,
         newMessages: [
           {
             role: 'system',
@@ -231,6 +233,8 @@ export class TaskCreateTool implements Tool {
         error instanceof Error ? error.message : String(error);
 
       return createToolResult(null, {
+        success: false,
+        error: `${errorMessage}`,
         newMessages: [
           {
             role: 'system',

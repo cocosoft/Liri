@@ -643,6 +643,8 @@ export class TaskUpdateStatusTool implements Tool {
     }
     if (!status) {
       return createToolResult(null, {
+        success: false,
+        error: 'status is required',
         newMessages: [{ role: 'system', content: 'Error: status is required' }],
       });
     }
@@ -668,6 +670,8 @@ export class TaskUpdateStatusTool implements Tool {
     const mapped = statusMap[status];
     if (mapped === undefined) {
       return createToolResult(null, {
+        success: false,
+        error: `invalid status "${status}". Valid: pending, in_progress, completed, failed, cancelled`,
         newMessages: [
           {
             role: 'system',

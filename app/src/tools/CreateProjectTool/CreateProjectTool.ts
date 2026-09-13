@@ -158,6 +158,8 @@ export class CreateProjectTool {
           const msg = error instanceof Error ? error.message : '未知错误';
           logger.error('创建项目失败', { error: msg });
           return createToolResult(null, {
+            success: false,
+            error: `创建项目失败: ${msg}`,
             newMessages: [
               {
                 role: 'assistant' as const,

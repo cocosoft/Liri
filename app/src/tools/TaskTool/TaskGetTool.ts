@@ -126,6 +126,8 @@ export class TaskGetTool implements Tool {
     const validation = this.validateInput(input);
     if (!validation.result) {
       return createToolResult(null, {
+        success: false,
+        error: `${validation.message}`,
         newMessages: [
           {
             role: 'system',
@@ -143,6 +145,8 @@ export class TaskGetTool implements Tool {
 
       if (!task) {
         return createToolResult(null, {
+          success: false,
+          error: `Task with id ${taskId} not found`,
           newMessages: [
             {
               role: 'system',
@@ -179,6 +183,8 @@ export class TaskGetTool implements Tool {
         error instanceof Error ? error.message : String(error);
 
       return createToolResult(null, {
+        success: false,
+        error: `${errorMessage}`,
         newMessages: [
           {
             role: 'system',

@@ -217,6 +217,8 @@ export class ToolExecutionOptimizer {
         results.set(
           tools[i].tool.name,
           createToolResult(null, {
+            success: false,
+            error: taskResult?.error?.message || 'Unknown error',
             newMessages: [
               {
                 role: 'system',

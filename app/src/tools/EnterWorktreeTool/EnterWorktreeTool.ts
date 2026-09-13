@@ -125,6 +125,8 @@ export class EnterWorktreeTool extends BaseTool<
           message: 'slug is required',
         },
         {
+          success: false,
+          error: 'slug is required',
           newMessages: [
             {
               role: 'system',
@@ -144,6 +146,9 @@ export class EnterWorktreeTool extends BaseTool<
             'Invalid slug format. Only alphanumeric characters, hyphens, and underscores are allowed.',
         },
         {
+          success: false,
+          error:
+            'Invalid slug format. Only alphanumeric characters, hyphens, and underscores are allowed.',
           newMessages: [
             {
               role: 'system',
@@ -181,6 +186,8 @@ export class EnterWorktreeTool extends BaseTool<
       return createToolResult(
         { success: false, message: result.error || result.message || 'Failed' },
         {
+          success: false,
+          error: result.error || result.message || 'Failed',
           newMessages: [
             {
               role: 'system',
@@ -198,6 +205,8 @@ export class EnterWorktreeTool extends BaseTool<
           message: `Failed to create worktree: ${errorMessage}`,
         },
         {
+          success: false,
+          error: `Failed to create worktree: ${errorMessage}`,
           newMessages: [
             {
               role: 'system',

@@ -128,6 +128,8 @@ export class WriteProjectFileTool {
           if (!projectId || !relativePath) {
             span.setStatus({ code: SpanStatusCode.OK });
             return createToolResult(null, {
+              success: false,
+              error: '缺少 projectId 或 relativePath 参数',
               newMessages: [
                 {
                   role: 'assistant' as const,
@@ -139,6 +141,9 @@ export class WriteProjectFileTool {
           if (!hasContent && !sourceFile) {
             span.setStatus({ code: SpanStatusCode.OK });
             return createToolResult(null, {
+              success: false,
+              error:
+                '缺少参数 content 或 source_file（内容在本地文件时必须优先使用 source_file，避免复述长内容导致 token 爆炸）',
               newMessages: [
                 {
                   role: 'assistant' as const,
@@ -155,6 +160,8 @@ export class WriteProjectFileTool {
           if (!project) {
             span.setStatus({ code: SpanStatusCode.OK });
             return createToolResult(null, {
+              success: false,
+              error: `项目 ${projectId} 不存在`,
               newMessages: [
                 {
                   role: 'assistant' as const,
@@ -168,6 +175,8 @@ export class WriteProjectFileTool {
           if (!sandboxPath) {
             span.setStatus({ code: SpanStatusCode.OK });
             return createToolResult(null, {
+              success: false,
+              error: '项目未配置文件夹路径',
               newMessages: [
                 { role: 'assistant' as const, content: '项目未配置文件夹路径' },
               ],
@@ -206,6 +215,8 @@ export class WriteProjectFileTool {
             ) {
               span.setStatus({ code: SpanStatusCode.OK });
               return createToolResult(null, {
+                success: false,
+                error: '安全拒绝：文件路径超出项目文件夹范围',
                 newMessages: [
                   {
                     role: 'assistant' as const,
@@ -231,6 +242,8 @@ export class WriteProjectFileTool {
                 ) {
                   span.setStatus({ code: SpanStatusCode.OK });
                   return createToolResult(null, {
+                    success: false,
+                    error: '安全拒绝：文件路径超出项目文件夹范围',
                     newMessages: [
                       {
                         role: 'assistant' as const,
@@ -253,6 +266,8 @@ export class WriteProjectFileTool {
             if (!existsSync(src)) {
               span.setStatus({ code: SpanStatusCode.OK });
               return createToolResult(null, {
+                success: false,
+                error: `source_file 指定的文件不存在: ${src}`,
                 newMessages: [
                   {
                     role: 'assistant' as const,
@@ -275,6 +290,8 @@ export class WriteProjectFileTool {
             } catch (e) {
               span.setStatus({ code: SpanStatusCode.OK });
               return createToolResult(null, {
+                success: false,
+                error: `source_file 读取失败: ${src}（${e instanceof Error ? e.message : String(e)}）`,
                 newMessages: [
                   {
                     role: 'assistant' as const,
@@ -347,6 +364,8 @@ export class WriteProjectFileTool {
           const msg = error instanceof Error ? error.message : '未知错误';
           logger.error('写入项目文件失败', { error: msg });
           return createToolResult(null, {
+            success: false,
+            error: `写入文件失败: ${msg}`,
             newMessages: [
               { role: 'assistant' as const, content: `写入文件失败: ${msg}` },
             ],

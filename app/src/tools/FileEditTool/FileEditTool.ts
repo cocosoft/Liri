@@ -368,6 +368,8 @@ export class FileEditTool extends BaseTool {
       });
       const msg = error instanceof Error ? error.message : String(error);
       return createToolResult(msg, {
+        success: false,
+        error: msg,
         newMessages: [{ role: 'system', content: `Error: ${msg}` }],
       });
     }

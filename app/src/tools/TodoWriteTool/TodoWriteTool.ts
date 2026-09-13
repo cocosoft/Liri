@@ -672,6 +672,8 @@ export class TodoWriteTool extends BaseTool<Record<string, unknown>> {
     const validation = this.validateInput(input);
     if (!validation.result) {
       return createToolResult(null, {
+        success: false,
+        error: `${validation.message}`,
         newMessages: [
           {
             role: 'system',
@@ -867,6 +869,8 @@ export class TodoWriteTool extends BaseTool<Record<string, unknown>> {
           }
 
           return createToolResult(null, {
+            success: false,
+            error: `Todo not found: ${todo_id}，且该会话无可用 todo 自动匹配`,
             newMessages: [
               {
                 role: 'system',
@@ -905,6 +909,8 @@ export class TodoWriteTool extends BaseTool<Record<string, unknown>> {
           }
 
           return createToolResult(null, {
+            success: false,
+            error: `Todo not found: ${todo_id}`,
             newMessages: [
               {
                 role: 'system',
@@ -1000,6 +1006,8 @@ export class TodoWriteTool extends BaseTool<Record<string, unknown>> {
 
         default:
           return createToolResult(null, {
+            success: false,
+            error: `Unknown action: ${action}`,
             newMessages: [
               {
                 role: 'system',
@@ -1023,6 +1031,8 @@ export class TodoWriteTool extends BaseTool<Record<string, unknown>> {
         },
       });
       return createToolResult(null, {
+        success: false,
+        error: `Todo operation failed: ${error instanceof Error ? error.message : String(error)}`,
         newMessages: [
           {
             role: 'system',

@@ -179,6 +179,8 @@ export class WebFetchTool extends BaseTool {
 
       if (!url) {
         return createToolResult('url is required', {
+          success: false,
+          error: 'url is required',
           newMessages: [
             {
               role: 'system',
@@ -190,6 +192,8 @@ export class WebFetchTool extends BaseTool {
 
       if (!this.isValidUrl(url)) {
         return createToolResult('Invalid URL format', {
+          success: false,
+          error: 'Invalid URL format',
           newMessages: [
             {
               role: 'system',
@@ -220,6 +224,8 @@ export class WebFetchTool extends BaseTool {
         return createToolResult(
           `该 URL 因安全策略被拦截（SSRF）：${ssrfResult.reason}`,
           {
+            success: false,
+            error: `该 URL 因安全策略被拦截（SSRF）：${ssrfResult.reason}`,
             newMessages: [
               {
                 role: 'system',
@@ -290,6 +296,8 @@ export class WebFetchTool extends BaseTool {
         return createToolResult(
           `HTTP ${status} ${statusText}: ${errorBody.substring(0, 500)}`,
           {
+            success: false,
+            error: `HTTP ${status} ${statusText}: ${errorBody.substring(0, 500)}`,
             newMessages: [
               {
                 role: 'system',
@@ -377,6 +385,8 @@ export class WebFetchTool extends BaseTool {
         return createToolResult(
           `Request timed out after ${input.timeout || 30000}ms`,
           {
+            success: false,
+            error: `Request timed out after ${input.timeout || 30000}ms`,
             newMessages: [
               {
                 role: 'system',
@@ -400,6 +410,8 @@ export class WebFetchTool extends BaseTool {
       });
 
       return createToolResult(msg, {
+        success: false,
+        error: msg,
         newMessages: [
           {
             role: 'system',

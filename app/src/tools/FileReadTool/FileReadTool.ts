@@ -390,6 +390,8 @@ export class FileReadTool extends BaseTool {
         });
       }
       return createToolResult(msg, {
+        success: false,
+        error: msg,
         newMessages: [{ role: 'system', content: `Error: ${msg}` }],
       });
     }

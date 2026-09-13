@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 团队创建工具
  * 用于创建多Agent swarm团队
  * 参考CC源码 cc_code/backend/tools/TeamCreateTool/TeamCreateTool.ts 实现
@@ -193,6 +193,8 @@ export class TeamCreateTool extends BaseTool<
           lead_agent_id: '',
         },
         {
+          success: false,
+          error: 'team_name 是必需的',
           newMessages: [
             {
               role: 'system',
@@ -261,6 +263,8 @@ export class TeamCreateTool extends BaseTool<
           lead_agent_id: '',
         },
         {
+          success: false,
+          error: `创建团队失败: ${errorMessage}`,
           newMessages: [
             {
               role: 'system',

@@ -180,6 +180,8 @@ export class RecallMemoryTool {
           const errorMessage =
             error instanceof Error ? error.message : 'Unknown error';
           return createToolResult(null, {
+            success: false,
+            error: `记忆查询失败: ${errorMessage}`,
             newMessages: [
               {
                 role: 'system',

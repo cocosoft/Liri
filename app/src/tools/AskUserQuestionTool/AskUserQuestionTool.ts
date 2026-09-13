@@ -199,11 +199,18 @@ export class AskUserQuestionTool extends BaseTool {
         questionType,
         question: questionText.slice(0, 120),
       });
-      return createToolResult({
-        error:
-          '交互提问未完成：当前执行路径不支持等待用户回答（_userAnswers 缺失）。请改用自然语言在正文中直接提问，用户会在下一条消息中回复。',
-        retryable: false,
-      });
+      return createToolResult(
+        {
+          error:
+            '交互提问未完成：当前执行路径不支持等待用户回答（_userAnswers 缺失）。请改用自然语言在正文中直接提问，用户会在下一条消息中回复。',
+          retryable: false,
+        },
+        {
+          success: false,
+          error:
+            '交互提问未完成：当前执行路径不支持等待用户回答（_userAnswers 缺失）。请改用自然语言在正文中直接提问，用户会在下一条消息中回复。',
+        }
+      );
     }
 
     logger.info('ask_user_question:answered', {

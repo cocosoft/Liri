@@ -241,6 +241,8 @@ export class TungstenTool implements Tool {
     const validation = this.validateInput(input);
     if (!validation.result) {
       return createToolResult(null, {
+        success: false,
+        error: validation.message,
         newMessages: [
           {
             role: 'system',
@@ -329,6 +331,8 @@ export class TungstenTool implements Tool {
           }
 
           return createToolResult(null, {
+            success: false,
+            error: `Session not found: ${session_id}`,
             newMessages: [
               {
                 role: 'system',
@@ -353,6 +357,8 @@ export class TungstenTool implements Tool {
           }
 
           return createToolResult(null, {
+            success: false,
+            error: `Session not found: ${session_id}`,
             newMessages: [
               {
                 role: 'system',
@@ -407,6 +413,10 @@ export class TungstenTool implements Tool {
 
           if (!session) {
             return createToolResult(null, {
+              success: false,
+              error: session_id
+                ? `Session not found: ${session_id}`
+                : 'No active session',
               newMessages: [
                 {
                   role: 'system',
@@ -440,6 +450,8 @@ export class TungstenTool implements Tool {
 
         default:
           return createToolResult(null, {
+            success: false,
+            error: `Unknown action: ${action}`,
             newMessages: [
               {
                 role: 'system',
@@ -450,6 +462,8 @@ export class TungstenTool implements Tool {
       }
     } catch (error: unknown) {
       return createToolResult(null, {
+        success: false,
+        error: `Tungsten operation failed: ${error instanceof Error ? error.message : String(error)}`,
         newMessages: [
           {
             role: 'system',

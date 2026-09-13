@@ -60,9 +60,7 @@ describe('D5 gVisor 档位接线', () => {
   });
 
   it('无 dockerImage → 按平台分派，不误判为 Docker 档', () => {
-    const sandbox = manager.createSandbox(
-      config({ dockerRuntime: 'runsc' })
-    );
+    const sandbox = manager.createSandbox(config({ dockerRuntime: 'runsc' }));
     expect(sandbox).not.toBeInstanceOf(DockerSandbox);
   });
 });

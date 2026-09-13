@@ -36,6 +36,8 @@ export class ExportService {
         return this.exportJson(records);
       case 'html':
         return this.viewerService.renderHtml(records);
+      case 'sft-jsonl':
+        return this.exportSftJsonl(records);
       default:
         throw new AppError(
           `Unsupported export format: ${format}`,
@@ -45,6 +47,51 @@ export class ExportService {
           { format }
         );
     }
+  }
+
+  /**
+   * 导出为 SFT 监督微调样本（JSONL，每行 `{"messages":[...]}`）
+   *
+   * 用途（D8 第一步）：把已录制轨迹转成可直接用于监督微调的数据集。
+   *
+   * 规则：
+   * - 仅取 `phase === 'completed'` 且无 `error` 的记录（进行中/失败轨迹不进训练集）；
+   * - 请求侧复用 extractMessages()，原样保留 system/user/assistant/tool 角色；
+   * - 响应侧追加 assistant 消息（从 OpenAI 兼容响应体 `choices[0].message.content` 提取）；
+   * - 缺少 user 消息或提取不到助手内容的记录**跳过**（不产出空样本，宁缺勿造）。
+   */
+  exportSftJsonl(records: TraceRecord[]): string {
+    const sorted = [...records].sort((a, b) => a.turn - b.turn);
+    const lines: string[] = [];
+
+    for (const record of sorted) {
+      if (record.phase !== 'completed' || record.error) continue;
+
+      const messages = this.extractMessages(record)
+        .map((msg) => ({
+          role: typeof msg.role === 'string' ? msg.role : 'unknown',
+          content: typeof msg.content === 'string' ? msg.content : '',
+        }))
+        .filter((msg) => msg.role !== 'unknown');
+      if (!messages.some((msg) => msg.role === 'user')) continue;
+
+      const assistant = this.extractAssistantContent(record);
+      if (!assistant) continue;
+
+      messages.push({ role: 'assistant', content: assistant });
+      lines.push(JSON.stringify({ messages }));
+    }
+
+    return lines.join('\n');
+  }
+
+  /** 从 OpenAI 兼容响应体提取助手内容（无法提取时返回空串） */
+  private extractAssistantContent(record: TraceRecord): string {
+    const body = record.response.body as
+      | { choices?: Array<{ message?: { content?: unknown } }> }
+      | undefined;
+    const content = body?.choices?.[0]?.message?.content;
+    return typeof content === 'string' ? content : '';
   }
 
   /**

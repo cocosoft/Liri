@@ -146,7 +146,7 @@ export interface MonitoringDeps {
 }
 
 /** 导出格式 */
-export type ExportFormat = 'markdown' | 'json' | 'html';
+export type ExportFormat = 'markdown' | 'json' | 'html' | 'sft-jsonl';
 
 /** P3-2.14: 数据脱敏配置 */
 export interface SanitizeConfig {

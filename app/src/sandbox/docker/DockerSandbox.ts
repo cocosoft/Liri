@@ -38,6 +38,7 @@ export const DOCKER_CONFIG_KEYS = {
   MEMORY_LIMIT: 'dockerMemoryLimit',
   VOLUMES: 'dockerVolumes',
   CONTAINER_NAME: 'dockerContainerName',
+  RUNTIME: 'dockerRuntime',
   READ_ONLY: 'dockerReadOnly',
   ALLOWED_DOMAINS: 'allowedDomains',
   BLOCKED_DOMAINS: 'blockedDomains',
@@ -63,7 +64,29 @@ const DEFAULT_DOCKER_SETTINGS = {
   memoryLimit: '512m',
   cpuLimit: '0.5',
   volumes: [] as DockerVolumeMount[],
+  /**
+   * 容器运行时（D5：设为 `runsc` 即启用 gVisor 用户态内核隔离档）。
+   * 默认空 ⇒ 沿用 Docker 默认运行时（runc），行为不变。
+   */
+  runtime: '',
 };
+
+/**
+ * 构造容器运行时参数（D5 隔离档骨架）
+ *
+ * `dockerRuntime` 设为 `runsc` 即启用 gVisor 用户态内核隔离；未设置则沿用 Docker
+ * 默认运行时（runc）、不产生任何额外参数 ⇒ 现有行为完全不变。
+ *
+ * 抽为纯函数以便直接单测参数构造（无需真实 docker/runsc 环境）。
+ */
+export function buildDockerRuntimeArgs(
+  custom: Record<string, unknown>
+): string[] {
+  const runtime =
+    (custom[DOCKER_CONFIG_KEYS.RUNTIME] as string | undefined) ||
+    DEFAULT_DOCKER_SETTINGS.runtime;
+  return runtime ? ['--runtime', runtime] : [];
+}
 
 export class DockerSandbox implements Sandbox {
   private config: SandboxConfig;
@@ -127,6 +150,8 @@ export class DockerSandbox implements Sandbox {
       }
 
       const args: string[] = ['docker', 'create'];
+
+      args.push(...buildDockerRuntimeArgs(custom));
 
       if (networkMode !== 'bridge') {
         args.push('--network', networkMode);

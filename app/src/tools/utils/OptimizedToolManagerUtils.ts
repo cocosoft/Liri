@@ -122,6 +122,9 @@ export async function optimizedExecuteTool(
       action: 'optimizedExecute',
     });
     return {
+      // O33 批次 4（2026-09-13）：补成功标记 —— 原返回无 success，
+      // HTTP 层 `success ?? true` 会把"工具抛错"判为成功（循环层因 error 存在仍判失败，两消费点不一致）。
+      success: false,
       error: err instanceof Error ? err.message : String(err),
       toolName: tool.name,
     };

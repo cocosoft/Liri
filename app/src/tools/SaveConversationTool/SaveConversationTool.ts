@@ -1,4 +1,4 @@
-﻿/**
+/**
  * SaveConversationTool
  *
  * 当用户要求保存对话记录时，使用此工具总结整个对话并保存到文件
@@ -10,6 +10,7 @@ import { BaseTool } from '../BaseTool';
 import { ToolParam, ToolTag } from '../types/Tool';
 import type { ToolUseContext, ToolResult } from '../types';
 import { createToolResult } from '../types/ToolResult';
+import { createFailureResult } from '../utils/ToolUtils';
 import chatService from '@modules/chat';
 import type { SessionMessage } from '@modules/session';
 import { resolveDataDir } from '@modules/core';
@@ -64,7 +65,8 @@ export class SaveConversationTool extends BaseTool<SaveConversationInput> {
       )) as SessionMessage[];
 
       if (messages.length === 0) {
-        return createToolResult('当前会话暂无消息，无法保存记录。', {
+        return createFailureResult('当前会话暂无消息，无法保存记录。', {
+          data: '当前会话暂无消息，无法保存记录。',
           newMessages: [{ role: 'system', content: '当前会话暂无消息' }],
         });
       }
@@ -99,14 +101,18 @@ export class SaveConversationTool extends BaseTool<SaveConversationInput> {
         ],
       });
     } catch (error) {
-      return createToolResult(`保存对话记录失败: ${(error as Error).message}`, {
-        newMessages: [
-          {
-            role: 'system',
-            content: `保存失败: ${(error as Error).message}`,
-          },
-        ],
-      });
+      return createFailureResult(
+        `保存对话记录失败: ${(error as Error).message}`,
+        {
+          data: `保存对话记录失败: ${(error as Error).message}`,
+          newMessages: [
+            {
+              role: 'system',
+              content: `保存失败: ${(error as Error).message}`,
+            },
+          ],
+        }
+      );
     }
   }
 

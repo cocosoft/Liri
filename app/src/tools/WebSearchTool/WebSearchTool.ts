@@ -17,6 +17,7 @@ import type {
   ValidationResult,
 } from '../types';
 import { createToolResult } from '../types/ToolResult';
+import { createFailureResult } from '../utils/ToolUtils';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 import type { SearchResult } from './providers';
@@ -151,7 +152,8 @@ export class WebSearchTool extends BaseTool {
       const timeout = (input.timeout as number) || 30000;
 
       if (!query) {
-        return createToolResult('query is required', {
+        return createFailureResult('query is required', {
+          data: 'query is required',
           newMessages: [
             {
               role: 'system',
@@ -209,7 +211,8 @@ export class WebSearchTool extends BaseTool {
             },
           });
 
-          return createToolResult(`Search failed: HTTP ${response.status}`, {
+          return createFailureResult(`Search failed: HTTP ${response.status}`, {
+            data: `Search failed: HTTP ${response.status}`,
             newMessages: [
               {
                 role: 'system',
@@ -320,9 +323,10 @@ export class WebSearchTool extends BaseTool {
           nwCode === 'ConnectionRefused' ||
           nwMsg.includes('Unable to connect')
         ) {
-          return createToolResult(
+          return createFailureResult(
             '网络连接失败，无法访问搜索服务。请检查网络连接后重试。',
             {
+              data: '网络连接失败，无法访问搜索服务。请检查网络连接后重试。',
               newMessages: [
                 {
                   role: 'system',
@@ -354,7 +358,8 @@ export class WebSearchTool extends BaseTool {
         }
 
         // 其他网络错误
-        return createToolResult(`搜索失败：${nwMsg}`, {
+        return createFailureResult(`搜索失败：${nwMsg}`, {
+          data: `搜索失败：${nwMsg}`,
           newMessages: [
             {
               role: 'system',
@@ -382,7 +387,8 @@ export class WebSearchTool extends BaseTool {
         },
       });
 
-      return createToolResult(`搜索功能出现错误：${msg}`, {
+      return createFailureResult(`搜索功能出现错误：${msg}`, {
+        data: `搜索功能出现错误：${msg}`,
         newMessages: [
           {
             role: 'system',

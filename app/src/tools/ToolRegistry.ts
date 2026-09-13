@@ -320,7 +320,13 @@ export class ToolRegistry {
   ): Promise<ToolResult> {
     const tool = this.getTool(toolCall.toolName);
     if (!tool) {
+      // O33 批次 4（2026-09-13）：补失败语义 —— 原返回无 success/error，
+      // HTTP 层 `success ?? true` 与循环层 `ok: !error` 均判为成功（"伪成功"）。
       return createToolResult(null, {
+        success: false,
+        error: `Tool not found: ${toolCall.toolName}`,
+        status: ToolExecutionStatus.FAILURE,
+        errorLevel: ErrorLevel.RECOVERABLE,
         newMessages: [
           {
             role: 'system',

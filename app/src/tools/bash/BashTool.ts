@@ -432,7 +432,8 @@ export class BashTool extends BaseTool {
         const errors = parsedInput.error.issues
           .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
           .join('; ');
-        return createToolResult(`Bash输入验证失败: ${errors}`, {
+        return ToolUtils.createFailureResult(`Bash输入验证失败: ${errors}`, {
+          data: `Bash输入验证失败: ${errors}`,
           newMessages: [
             {
               role: 'system',
@@ -450,7 +451,8 @@ export class BashTool extends BaseTool {
         if (preprocessed.warnings.length > 0) {
           const warningMsg = `BashTool 命令预处理警告:\n${preprocessed.warnings.join('\n')}`;
           if (preprocessed.warnings.some((w) => w.includes('禁止'))) {
-            return createToolResult(warningMsg, {
+            return ToolUtils.createFailureResult(warningMsg, {
+              data: warningMsg,
               newMessages: [
                 {
                   role: 'system',
@@ -497,15 +499,19 @@ export class BashTool extends BaseTool {
           /(?:--?\w+=)?['"]?((?:\/[^\s'"]*|[A-Za-z]:[\\/][^\s'"]*|\\\\[^\s'"]+))['"]?/
         );
         if (pathMatch && !isPathSafe(pathMatch[1])) {
-          return createToolResult('路径安全检查失败: 禁止访问系统敏感目录', {
-            newMessages: [
-              {
-                role: 'system',
-                content: 'Error: 路径安全检查失败: 禁止访问系统敏感目录',
-              },
-            ],
-            metadata: { securityIntercepted: true, reason: 'path_safety' },
-          });
+          return ToolUtils.createFailureResult(
+            '路径安全检查失败: 禁止访问系统敏感目录',
+            {
+              data: '路径安全检查失败: 禁止访问系统敏感目录',
+              newMessages: [
+                {
+                  role: 'system',
+                  content: 'Error: 路径安全检查失败: 禁止访问系统敏感目录',
+                },
+              ],
+              metadata: { securityIntercepted: true, reason: 'path_safety' },
+            }
+          );
         }
 
         // 对标CC：危险命令列表检查
@@ -515,7 +521,8 @@ export class BashTool extends BaseTool {
             lowerCommand.includes(dangerousCommand.toLowerCase())
           )
         ) {
-          return createToolResult('安全检查: 检测到危险命令', {
+          return ToolUtils.createFailureResult('安全检查: 检测到危险命令', {
+            data: '安全检查: 检测到危险命令',
             newMessages: [
               {
                 role: 'system',
@@ -531,7 +538,8 @@ export class BashTool extends BaseTool {
 
         // 对标CC：危险模式检查
         if (DANGEROUS_PATTERNS.some((pattern) => pattern.test(command))) {
-          return createToolResult('安全检查: 检测到危险命令模式', {
+          return ToolUtils.createFailureResult('安全检查: 检测到危险命令模式', {
+            data: '安全检查: 检测到危险命令模式',
             newMessages: [
               {
                 role: 'system',
@@ -554,7 +562,8 @@ export class BashTool extends BaseTool {
           astResult.kind === 'simple' &&
           astResult.commands.some((c) => isDangerousCommand(c.argv))
         ) {
-          return createToolResult('AST安全分析: 检测到危险命令', {
+          return ToolUtils.createFailureResult('AST安全分析: 检测到危险命令', {
+            data: 'AST安全分析: 检测到危险命令',
             newMessages: [
               {
                 role: 'system',
@@ -566,9 +575,10 @@ export class BashTool extends BaseTool {
         }
 
         if (securityResult.behavior === 'deny') {
-          return createToolResult(
+          return ToolUtils.createFailureResult(
             `安全检查失败: ${securityResult.message || '命令被阻止执行'}`,
             {
+              data: `安全检查失败: ${securityResult.message || '命令被阻止执行'}`,
               newMessages: [
                 {
                   role: 'system',

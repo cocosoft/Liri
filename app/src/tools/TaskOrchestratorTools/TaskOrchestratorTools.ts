@@ -7,6 +7,7 @@
 
 import { Tool, ToolParam } from '../types/Tool';
 import { ToolResult, createToolResult } from '../types/ToolResult';
+import { createFailureResult } from '../utils/ToolUtils';
 import { ToolUseContext } from '../types/ToolUseContext';
 import { taskRegistry, DisplayStatus } from '@modules/tasks';
 import { TaskStatus } from '@modules/tasks/types';
@@ -96,14 +97,18 @@ export class TaskCreateListTool implements Tool {
       | Array<{ description: string; metadata?: Record<string, unknown> }>
       | undefined;
     if (!tasks || !Array.isArray(tasks) || tasks.length === 0) {
-      return createToolResult(null, {
-        newMessages: [
-          {
-            role: 'system',
-            content: 'Error: tasks array is required and must be non-empty',
-          },
-        ],
-      });
+      return createFailureResult(
+        'tasks array is required and must be non-empty',
+        {
+          data: null,
+          newMessages: [
+            {
+              role: 'system',
+              content: 'Error: tasks array is required and must be non-empty',
+            },
+          ],
+        }
+      );
     }
 
     // 空参数校验：过滤掉 description 缺失/非字符串/空白的无效项
@@ -116,27 +121,35 @@ export class TaskCreateListTool implements Tool {
     const skippedCount = tasks.length - validTasks.length;
 
     if (validTasks.length === 0) {
-      return createToolResult(null, {
-        newMessages: [
-          {
-            role: 'system',
-            content:
-              'Error: all task descriptions are empty. Each task must have a non-empty description string.',
-          },
-        ],
-      });
+      return createFailureResult(
+        'all task descriptions are empty. Each task must have a non-empty description string.',
+        {
+          data: null,
+          newMessages: [
+            {
+              role: 'system',
+              content:
+                'Error: all task descriptions are empty. Each task must have a non-empty description string.',
+            },
+          ],
+        }
+      );
     }
 
     // 单次调用数量限制：防止模型批量幻觉一次性创建过多任务
     if (validTasks.length > MAX_TASKS_PER_CALL) {
-      return createToolResult(null, {
-        newMessages: [
-          {
-            role: 'system',
-            content: `Error: too many tasks in one call (${validTasks.length}). Max ${MAX_TASKS_PER_CALL} tasks per call. Please create them in smaller batches.`,
-          },
-        ],
-      });
+      return createFailureResult(
+        `too many tasks in one call (${validTasks.length}). Max ${MAX_TASKS_PER_CALL} tasks per call. Please create them in smaller batches.`,
+        {
+          data: null,
+          newMessages: [
+            {
+              role: 'system',
+              content: `Error: too many tasks in one call (${validTasks.length}). Max ${MAX_TASKS_PER_CALL} tasks per call. Please create them in smaller batches.`,
+            },
+          ],
+        }
+      );
     }
 
     const created: Array<{ id: string; description: string }> = [];
@@ -253,14 +266,18 @@ export class ViewTasksTool implements Tool {
         'cancelled',
       ];
       if (!validStatuses.includes(statusFilter)) {
-        return createToolResult(null, {
-          newMessages: [
-            {
-              role: 'system',
-              content: `Error: invalid status "${statusFilter}". Valid: ${validStatuses.join(', ')}`,
-            },
-          ],
-        });
+        return createFailureResult(
+          `invalid status "${statusFilter}". Valid: ${validStatuses.join(', ')}`,
+          {
+            data: null,
+            newMessages: [
+              {
+                role: 'system',
+                content: `Error: invalid status "${statusFilter}". Valid: ${validStatuses.join(', ')}`,
+              },
+            ],
+          }
+        );
       }
       tasks = taskRegistry.getTasksInfoByDisplayStatus(
         statusFilter as DisplayStatus
@@ -384,7 +401,8 @@ export class AbortTaskTool implements Tool {
     const taskId = input.task_id as string | undefined;
 
     if (!taskId) {
-      return createToolResult(null, {
+      return createFailureResult('task_id is required', {
+        data: null,
         newMessages: [
           { role: 'system', content: 'Error: task_id is required' },
         ],
@@ -393,7 +411,8 @@ export class AbortTaskTool implements Tool {
 
     const task = taskRegistry.getTask(taskId);
     if (!task) {
-      return createToolResult(null, {
+      return createFailureResult(`task ${taskId} not found`, {
+        data: null,
         newMessages: [
           { role: 'system', content: `Error: task ${taskId} not found` },
         ],
@@ -615,7 +634,8 @@ export class TaskUpdateStatusTool implements Tool {
     const status = input.status as string | undefined;
 
     if (!taskId) {
-      return createToolResult(null, {
+      return createFailureResult('task_id is required', {
+        data: null,
         newMessages: [
           { role: 'system', content: 'Error: task_id is required' },
         ],
@@ -629,7 +649,8 @@ export class TaskUpdateStatusTool implements Tool {
 
     const task = taskRegistry.getTask(taskId);
     if (!task) {
-      return createToolResult(null, {
+      return createFailureResult(`task ${taskId} not found`, {
+        data: null,
         newMessages: [
           { role: 'system', content: `Error: task ${taskId} not found` },
         ],

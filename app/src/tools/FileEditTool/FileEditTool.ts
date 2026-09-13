@@ -6,7 +6,7 @@
  */
 import * as fs from 'fs';
 import * as path from 'path';
-import { resolveFilePath } from '../utils/ToolUtils';
+import { createFailureResult, resolveFilePath } from '../utils/ToolUtils';
 import type { FileOperationResult } from '../types/ToolResult';
 
 // 懒初始化 Rust 原生模块，用于自动检测文件编码
@@ -274,7 +274,8 @@ export class FileEditTool extends BaseTool {
           resolvedForCheck
         );
         if (freshnessError) {
-          return createToolResult(freshnessError, {
+          return createFailureResult(freshnessError, {
+            data: freshnessError,
             newMessages: [
               { role: 'system', content: `Error: ${freshnessError}` },
             ],
@@ -287,7 +288,8 @@ export class FileEditTool extends BaseTool {
       const replaceAll = input.replace_all === true;
 
       if (!oldString) {
-        return createToolResult('old_string is required', {
+        return createFailureResult('old_string is required', {
+          data: 'old_string is required',
           newMessages: [
             { role: 'system', content: 'Error: old_string is required' },
           ],
@@ -295,9 +297,10 @@ export class FileEditTool extends BaseTool {
       }
 
       if (oldString === newString) {
-        return createToolResult(
+        return createFailureResult(
           'No changes to make: old_string and new_string are exactly the same.',
           {
+            data: 'No changes to make: old_string and new_string are exactly the same.',
             newMessages: [
               { role: 'system', content: 'Error: No changes to make' },
             ],

@@ -61,9 +61,7 @@ function findDefaultGetter(
 interface PluginLike {
   config: { getDefaultConfig(): Record<string, unknown> };
 }
-function findPlugin(
-  mod: Record<string, unknown>
-): PluginLike | undefined {
+function findPlugin(mod: Record<string, unknown>): PluginLike | undefined {
   for (const value of Object.values(mod)) {
     if (value && typeof value === 'object') {
       const candidate = value as {

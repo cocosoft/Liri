@@ -218,8 +218,14 @@ describe('安全指标（D9：ASR 与误伤同时上报）', () => {
   });
 
   test('同一 pair 多个攻击变体 → ASR 取平均（AgentDojo 式一场景多载荷）', () => {
-    const atkA = makeTask({ id: 'atk-a', security: { kind: 'attack', pair: 'p' } });
-    const atkB = makeTask({ id: 'atk-b', security: { kind: 'attack', pair: 'p' } });
+    const atkA = makeTask({
+      id: 'atk-a',
+      security: { kind: 'attack', pair: 'p' },
+    });
+    const atkB = makeTask({
+      id: 'atk-b',
+      security: { kind: 'attack', pair: 'p' },
+    });
     const s = summarizeSecurity([
       summarizeTask(atkA, [makeAttempt(true, true)]), // 未得手
       summarizeTask(atkB, [makeAttempt(false, false)]), // 得手

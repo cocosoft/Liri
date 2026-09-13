@@ -29,7 +29,10 @@
 import { describe, expect, test } from 'bun:test';
 import { StreamingThinkScrubber } from '../../src/streaming/scrubbers/StreamingThinkScrubber';
 
-function scrubStream(scrubber: StreamingThinkScrubber, chunks: string[]): string {
+function scrubStream(
+  scrubber: StreamingThinkScrubber,
+  chunks: string[]
+): string {
   let out = '';
   for (const c of chunks) {
     out += scrubber.scrub({ content: c, isComplete: false }).content;
@@ -48,7 +51,8 @@ describe('StreamingThinkScrubber — XML 工具调用残渣剥离（P1）', () =
 
   test('孤立闭合标签（</parameter> 等单边残渣）被丢弃', () => {
     const s = new StreamingThinkScrubber();
-    const input = '跑），告诉我结果。\n</parameter>\n</invoke>\n</tool_calls>\n收到。';
+    const input =
+      '跑），告诉我结果。\n</parameter>\n</invoke>\n</tool_calls>\n收到。';
     expect(scrubStream(s, [input])).toBe('跑），告诉我结果。\n\n\n\n收到。');
   });
 

@@ -140,7 +140,9 @@ describe('assertAudioInputSize（§6 stdin 25MB 上限）', () => {
   });
 
   it('恰好等于上限正常通过', () => {
-    expect(() => assertAudioInputSize(Buffer.alloc(25 * 1024 * 1024))).not.toThrow();
+    expect(() =>
+      assertAudioInputSize(Buffer.alloc(25 * 1024 * 1024))
+    ).not.toThrow();
   });
 
   it('超过 25MB 抛错（交 registry 故障转移）', () => {

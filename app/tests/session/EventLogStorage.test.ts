@@ -451,7 +451,9 @@ describe('EventLogStorage 事件快照缓存（P1-2）', () => {
         expect(paged.length).toBe(expectSeq.length);
         expect(paged.map((e) => e.seq)).toEqual(expectSeq.map((e) => e.seq));
         // 内容精确一致（seek 偏移无偏斜；G-4 中文 UTF-8 验证）
-        expect(paged.map((e) => (e.data as { content: string }).content)).toEqual(
+        expect(
+          paged.map((e) => (e.data as { content: string }).content)
+        ).toEqual(
           expectSeq.map((e) => (e.data as { content: string }).content)
         );
       }
@@ -461,17 +463,26 @@ describe('EventLogStorage 事件快照缓存（P1-2）', () => {
       const { storage, dir } = makeStorage('s-p38-reload');
       for (let i = 1; i <= 300; i++) {
         await storage.append(
-          ev(0, 'user/message', { content: `重启消息${i}`, messageId: `rm${i}` })
+          ev(0, 'user/message', {
+            content: `重启消息${i}`,
+            messageId: `rm${i}`,
+          })
         );
       }
       // 重启：同目录新实例（内存索引丢失，依赖 .idx 文件恢复）
       const restored = new EventLogStorage('s-p38-reload', HASH, dir);
       const st = restored as unknown as { idxLoaded: boolean };
       expect(st.idxLoaded).toBe(false);
-      const paged = await restored.read({ fromSeq: 200, toSeq: 250, limit: 100 });
+      const paged = await restored.read({
+        fromSeq: 200,
+        toSeq: 250,
+        limit: 100,
+      });
       expect(paged.length).toBe(51);
       expect(paged[0].seq).toBe(200);
-      expect((paged[0].data as { content: string }).content).toBe('重启消息200');
+      expect((paged[0].data as { content: string }).content).toBe(
+        '重启消息200'
+      );
     });
 
     it('trim 后索引作废，重新 append 偏移正确（F-1）', async () => {
@@ -486,7 +497,10 @@ describe('EventLogStorage 事件快照缓存（P1-2）', () => {
       expect(afterTrim.length).toBe(101);
       // trim 后继续 append，偏移从头累计正确（seq 继续）
       await storage.append(
-        ev(0, 'user/message', { content: 'trim后新消息', messageId: 'post-trim' })
+        ev(0, 'user/message', {
+          content: 'trim后新消息',
+          messageId: 'post-trim',
+        })
       );
       const all = await storage.read({ limit: 10000 });
       const last = all[all.length - 1];

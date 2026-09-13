@@ -12,7 +12,6 @@ import { SessionState } from '../../../src/state/session/types.js';
 import { IllegalTransitionError } from '../../../src/state/errors.js';
 
 describe('SessionStateMachine', () => {
-
   let sm: SessionStateMachine;
 
   beforeEach(() => {
@@ -24,7 +23,6 @@ describe('SessionStateMachine', () => {
   // ============================================================
 
   describe('构造与初始状态', () => {
-
     it('初始状态应为 IDLE', () => {
       expect(sm.getState()).toBe(SessionState.IDLE);
     });
@@ -40,7 +38,6 @@ describe('SessionStateMachine', () => {
     it('初始不应有待处理动作', () => {
       expect(sm.hasPendingAction()).toBe(false);
     });
-
   });
 
   // ============================================================
@@ -48,7 +45,6 @@ describe('SessionStateMachine', () => {
   // ============================================================
 
   describe('start', () => {
-
     it('IDLE → RUNNING 应成功', () => {
       const result = sm.start('用户发起会话');
       expect(result).toBe(true);
@@ -61,7 +57,6 @@ describe('SessionStateMachine', () => {
       sm.archive();
       expect(() => sm.start()).toThrow(IllegalTransitionError);
     });
-
   });
 
   // ============================================================
@@ -69,7 +64,6 @@ describe('SessionStateMachine', () => {
   // ============================================================
 
   describe('requireAction', () => {
-
     it('RUNNING → REQUIRES_ACTION 应成功', () => {
       sm.start();
       const result = sm.requireAction({
@@ -101,14 +95,15 @@ describe('SessionStateMachine', () => {
     });
 
     it('非 RUNNING 状态 requireAction 应抛出', () => {
-      expect(() => sm.requireAction({
-        tool_name: 'test',
-        action_description: 'test',
-        tool_use_id: 'tu-001',
-        request_id: 'req-001',
-      })).toThrow(IllegalTransitionError);
+      expect(() =>
+        sm.requireAction({
+          tool_name: 'test',
+          action_description: 'test',
+          tool_use_id: 'tu-001',
+          request_id: 'req-001',
+        })
+      ).toThrow(IllegalTransitionError);
     });
-
   });
 
   // ============================================================
@@ -116,7 +111,6 @@ describe('SessionStateMachine', () => {
   // ============================================================
 
   describe('resume', () => {
-
     it('REQUIRES_ACTION → RUNNING 应成功', () => {
       sm.start();
       sm.requireAction({
@@ -144,7 +138,6 @@ describe('SessionStateMachine', () => {
       sm.archive();
       expect(() => sm.resume()).toThrow(IllegalTransitionError);
     });
-
   });
 
   // ============================================================
@@ -152,7 +145,6 @@ describe('SessionStateMachine', () => {
   // ============================================================
 
   describe('pause', () => {
-
     it('RUNNING → PAUSED 应成功', () => {
       sm.start();
       const result = sm.pause('用户暂停');
@@ -176,7 +168,6 @@ describe('SessionStateMachine', () => {
     it('IDLE 状态 pause 应抛出', () => {
       expect(() => sm.pause()).toThrow(IllegalTransitionError);
     });
-
   });
 
   // ============================================================
@@ -184,7 +175,6 @@ describe('SessionStateMachine', () => {
   // ============================================================
 
   describe('complete', () => {
-
     it('RUNNING → COMPLETED 应成功', () => {
       sm.start();
       const result = sm.complete('任务完成');
@@ -195,7 +185,6 @@ describe('SessionStateMachine', () => {
     it('非 RUNNING 状态 complete 应抛出', () => {
       expect(() => sm.complete()).toThrow(IllegalTransitionError);
     });
-
   });
 
   // ============================================================
@@ -203,7 +192,6 @@ describe('SessionStateMachine', () => {
   // ============================================================
 
   describe('error', () => {
-
     it('RUNNING → ERROR 应成功并携带错误信息', () => {
       sm.start();
       const err = new Error('网络连接超时');
@@ -235,7 +223,6 @@ describe('SessionStateMachine', () => {
     it('IDLE 状态 error 应抛出', () => {
       expect(() => sm.error(new Error('test'))).toThrow(IllegalTransitionError);
     });
-
   });
 
   // ============================================================
@@ -243,7 +230,6 @@ describe('SessionStateMachine', () => {
   // ============================================================
 
   describe('abort', () => {
-
     it('IDLE → ABORTED 应成功', () => {
       const result = sm.abort('弃用');
       expect(result).toBe(true);
@@ -268,7 +254,6 @@ describe('SessionStateMachine', () => {
       sm.complete();
       expect(() => sm.abort()).toThrow(IllegalTransitionError);
     });
-
   });
 
   // ============================================================
@@ -276,7 +261,6 @@ describe('SessionStateMachine', () => {
   // ============================================================
 
   describe('archive', () => {
-
     it('COMPLETED → ARCHIVED 应成功', () => {
       sm.start();
       sm.complete();
@@ -288,7 +272,6 @@ describe('SessionStateMachine', () => {
     it('非 COMPLETED 状态 archive 应抛出', () => {
       expect(() => sm.archive()).toThrow(IllegalTransitionError);
     });
-
   });
 
   // ============================================================
@@ -296,7 +279,6 @@ describe('SessionStateMachine', () => {
   // ============================================================
 
   describe('完整生命周期', () => {
-
     it('成功路径：IDLE → RUNNING → COMPLETED → ARCHIVED', () => {
       sm.start('开始');
       expect(sm.getState()).toBe(SessionState.RUNNING);
@@ -337,7 +319,6 @@ describe('SessionStateMachine', () => {
       sm.complete();
       expect(sm.getState()).toBe(SessionState.COMPLETED);
     });
-
   });
 
   // ============================================================
@@ -345,7 +326,6 @@ describe('SessionStateMachine', () => {
   // ============================================================
 
   describe('hasPendingAction', () => {
-
     it('REQUIRES_ACTION 状态应返回 true', () => {
       sm.start();
       sm.requireAction({
@@ -368,7 +348,5 @@ describe('SessionStateMachine', () => {
       sm.resume();
       expect(sm.hasPendingAction()).toBe(false);
     });
-
   });
-
 });

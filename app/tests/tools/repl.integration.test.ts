@@ -47,18 +47,24 @@ describe('REPLToolImpl 真实 spawn（P3-1 完成标记协议）', () => {
     }
   );
 
-  test.skipIf(!pythonAvailable)('错误执行返回 Traceback 且 success=false', async () => {
-    const r = await tool.executeCode(session!, '1/0');
-    expect(r.success).toBe(false);
-    expect(r.error).toContain('ZeroDivisionError');
-  });
+  test.skipIf(!pythonAvailable)(
+    '错误执行返回 Traceback 且 success=false',
+    async () => {
+      const r = await tool.executeCode(session!, '1/0');
+      expect(r.success).toBe(false);
+      expect(r.error).toContain('ZeroDivisionError');
+    }
+  );
 
-  test.skipIf(!pythonAvailable)('会话状态跨执行保留（REPL 非一次性）', async () => {
-    await tool.executeCode(session!, 'x = 21 * 2');
-    const r = await tool.executeCode(session!, 'print(x)');
-    expect(r.success).toBe(true);
-    expect(r.output).toContain('42');
-  });
+  test.skipIf(!pythonAvailable)(
+    '会话状态跨执行保留（REPL 非一次性）',
+    async () => {
+      await tool.executeCode(session!, 'x = 21 * 2');
+      const r = await tool.executeCode(session!, 'print(x)');
+      expect(r.success).toBe(true);
+      expect(r.output).toContain('42');
+    }
+  );
 
   test.skipIf(!pythonAvailable)('无输出代码也正常返回成功', async () => {
     const r = await tool.executeCode(session!, 'y = 1 + 1');

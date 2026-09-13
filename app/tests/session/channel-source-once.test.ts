@@ -19,19 +19,27 @@ describe('resolveChannelSourceOnce（M4-T4.1）', () => {
   });
 
   it('② 会话已有来源 → 不覆盖（set_once）；空串视为无来源可补写', () => {
-    expect(resolveChannelSourceOnce({ channel: 'telegram' }, 'qq')).toBeUndefined();
+    expect(
+      resolveChannelSourceOnce({ channel: 'telegram' }, 'qq')
+    ).toBeUndefined();
     // 空字符串不是有效来源 → 视为无来源，允许补写
-    expect(resolveChannelSourceOnce({ channel: 'telegram' }, '')).toBe('telegram');
+    expect(resolveChannelSourceOnce({ channel: 'telegram' }, '')).toBe(
+      'telegram'
+    );
   });
 
   it('③ 请求无 channel → 本地/web 会话不动', () => {
     expect(resolveChannelSourceOnce(undefined, undefined)).toBeUndefined();
     expect(resolveChannelSourceOnce({}, undefined)).toBeUndefined();
-    expect(resolveChannelSourceOnce({ sender: 'u1' }, undefined)).toBeUndefined();
+    expect(
+      resolveChannelSourceOnce({ sender: 'u1' }, undefined)
+    ).toBeUndefined();
   });
 
   it('④ 非字符串 channel → 无效，不写入', () => {
-    expect(resolveChannelSourceOnce({ channel: '' }, undefined)).toBeUndefined();
+    expect(
+      resolveChannelSourceOnce({ channel: '' }, undefined)
+    ).toBeUndefined();
     expect(
       resolveChannelSourceOnce({ channel: 42 as unknown }, undefined)
     ).toBeUndefined();

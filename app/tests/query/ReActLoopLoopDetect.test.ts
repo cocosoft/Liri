@@ -5,10 +5,7 @@
 // 覆盖：buildRoundSignature 排序拼接；isRepeatedLoop 连续相同判定/不同签名/阈值边界。
 
 import { describe, expect, it } from 'bun:test';
-import {
-  buildRoundSignature,
-  isRepeatedLoop,
-} from '../../src/query/loopGuard';
+import { buildRoundSignature, isRepeatedLoop } from '../../src/query/loopGuard';
 import type { ActResult } from '../../src/query/ReActLoop';
 
 function actResult(names: string[]): ActResult {

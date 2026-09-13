@@ -14,7 +14,8 @@ process.env.LIRI_DATA_DIR = testDataDir;
 
 // 动态导入：确保 env 在模块初始化前生效
 const { WakeStore } = await import('../../../src/tasks/selfwake/WakeStore');
-const { SelfWakeService } = await import('../../../src/tasks/selfwake/SelfWakeService');
+const { SelfWakeService } =
+  await import('../../../src/tasks/selfwake/SelfWakeService');
 
 describe('SelfWake', () => {
   beforeEach(() => {
@@ -23,8 +24,11 @@ describe('SelfWake', () => {
 
   afterEach(() => {
     try {
-      if (existsSync(testDataDir)) rmSync(testDataDir, { recursive: true, force: true });
-    } catch { /* best-effort */ }
+      if (existsSync(testDataDir))
+        rmSync(testDataDir, { recursive: true, force: true });
+    } catch {
+      /* best-effort */
+    }
   });
 
   describe('WakeStore', () => {
@@ -146,9 +150,7 @@ describe('SelfWake', () => {
       const store = new WakeStore();
       const svc = new SelfWakeService(store, 300_000);
 
-      await expect(
-        svc.sleepFor('s', 't', 86401)
-      ).rejects.toThrow('max is 24h');
+      await expect(svc.sleepFor('s', 't', 86401)).rejects.toThrow('max is 24h');
     });
 
     it('sleepFor accepts exactly 24h', async () => {
@@ -175,9 +177,7 @@ describe('SelfWake', () => {
       const svc = new SelfWakeService(store, 300_000);
       const past = new Date(Date.now() - 60_000).toISOString();
 
-      await expect(
-        svc.sleepUntil('s', 't', past)
-      ).rejects.toThrow('future');
+      await expect(svc.sleepUntil('s', 't', past)).rejects.toThrow('future');
     });
 
     it('wakeOnJob creates completion entry', async () => {
@@ -195,7 +195,11 @@ describe('SelfWake', () => {
       const store = new WakeStore();
       const svc = new SelfWakeService(store, 300_000);
 
-      const entry = await svc.wakeOnEvent('svc-test-4', randomUUID(), 'file_changed');
+      const entry = await svc.wakeOnEvent(
+        'svc-test-4',
+        randomUUID(),
+        'file_changed'
+      );
 
       expect(entry.kind).toBe(WakeKind.EVENT);
       expect(entry.eventKey).toBe('file_changed');
@@ -230,7 +234,7 @@ describe('SelfWake', () => {
       await store.save('s2', loaded);
 
       const due = await svc.getDueWakes();
-      const dueIds = due.map(d => d.id);
+      const dueIds = due.map((d) => d.id);
       expect(dueIds).toContain(pastEntry.id);
       expect(dueIds).not.toContain(firedEntry.id);
     });

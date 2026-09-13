@@ -8,7 +8,10 @@
 
 import { describe, expect, it, afterEach } from 'bun:test';
 import { ToolFactory } from '../../src/tools/ToolFactory';
-import { createToolRegistry, setToolRegistry } from '../../src/tools/ToolRegistry';
+import {
+  createToolRegistry,
+  setToolRegistry,
+} from '../../src/tools/ToolRegistry';
 import { getBuiltinToolLoaders } from '../../src/tools/utils/ToolManagerUtils';
 
 /** ToolSearchTool.execute 内部用全局 getToolRegistry()，测试需显式设置并在用例间复位 */
@@ -27,7 +30,7 @@ afterEach(() => {
   setToolRegistry(createToolRegistry());
 });
 
-describe('T9\' skills_list/skill_view 注册（循环根因修复回归）', () => {
+describe("T9' skills_list/skill_view 注册（循环根因修复回归）", () => {
   it('getBuiltinToolLoaders 注册后 ToolRegistry 包含 skills_list/skill_view', () => {
     const registry = setupRegistry();
 

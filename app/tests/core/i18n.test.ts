@@ -16,14 +16,16 @@ import type { Locale, TranslationMap } from '../../src/system/i18n/types.js';
 import type { TranslationEntry } from '../../src/system/i18n/extended.js';
 
 describe('I18nRegistry', () => {
-
   it('创建实例时使用默认 locale', () => {
     const registry = new I18nRegistry();
     expect(registry.getDefaultLocale()).toBe('en');
   });
 
   it('创建实例时可指定默认 locale', () => {
-    const registry = new I18nRegistry({ defaultLocale: 'zh', fallbackLocales: ['en'] });
+    const registry = new I18nRegistry({
+      defaultLocale: 'zh',
+      fallbackLocales: ['en'],
+    });
     expect(registry.getDefaultLocale()).toBe('zh');
   });
 
@@ -151,11 +153,9 @@ describe('I18nRegistry', () => {
     expect(registry.t('menu.file.open')).toBe('打开');
     expect(registry.t('menu.edit.undo')).toBe('撤销');
   });
-
 });
 
 describe('I18nTranslationRegistry', () => {
-
   it('注册翻译条目并获取', () => {
     const registry = new I18nTranslationRegistry();
 
@@ -210,7 +210,9 @@ describe('I18nTranslationRegistry', () => {
       en: 'Hello, {name}!',
     });
     expect(registry.t('user.greeting', { name: 'Bob' })).toBe('你好, Bob!');
-    expect(registry.t('user.greeting', { name: 'Bob' }, 'en')).toBe('Hello, Bob!');
+    expect(registry.t('user.greeting', { name: 'Bob' }, 'en')).toBe(
+      'Hello, Bob!'
+    );
   });
 
   it('获取所有翻译键', () => {
@@ -272,11 +274,9 @@ describe('I18nTranslationRegistry', () => {
     registry.clear();
     expect(registry.t('test')).toBe('test');
   });
-
 });
 
 describe('内置翻译初始化', () => {
-
   it('initializeBuiltinTranslations 注册常用翻译', () => {
     const registry = new I18nTranslationRegistry();
 
@@ -303,7 +303,10 @@ describe('内置翻译初始化', () => {
 
     initializeBuiltinTranslations(registry);
 
-    const result = registry.t('cost.usage_summary', { cost: '0.05', tokens: '1500' });
+    const result = registry.t('cost.usage_summary', {
+      cost: '0.05',
+      tokens: '1500',
+    });
     expect(result).toContain('0.05');
     expect(result).toContain('1500');
   });
@@ -313,15 +316,16 @@ describe('内置翻译初始化', () => {
 
     initializeBuiltinTranslations(registry);
 
-    const result = registry.t('tool.blocked', { tool: 'exec', reason: '权限不足' });
+    const result = registry.t('tool.blocked', {
+      tool: 'exec',
+      reason: '权限不足',
+    });
     expect(result).toContain('exec');
     expect(result).toContain('权限不足');
   });
-
 });
 
 describe('全局单例 i18n', () => {
-
   it('getI18nTranslationRegistry 返回单例', () => {
     const r1 = getI18nTranslationRegistry();
     const r2 = getI18nTranslationRegistry();
@@ -338,5 +342,4 @@ describe('全局单例 i18n', () => {
     const result = t('common.ok');
     expect(result).toBe('确定');
   });
-
 });

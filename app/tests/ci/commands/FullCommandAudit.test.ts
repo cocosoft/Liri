@@ -30,8 +30,8 @@ describe('命令结构审计', () => {
     const builtinDir = join(COMMANDS_DIR, 'builtin');
     expect(existsSync(builtinDir)).toBe(true);
     const subDirs = readdirSync(builtinDir, { withFileTypes: true })
-      .filter(d => d.isDirectory())
-      .map(d => d.name);
+      .filter((d) => d.isDirectory())
+      .map((d) => d.name);
     expect(subDirs.length).toBeGreaterThan(10);
   });
 

@@ -89,7 +89,11 @@ const ctx = {} as never;
 describe('files registry 查询响应形态（P0-1 去 data 包装）', () => {
   test('search（FTS q 分支）返回裸 { items, total }', async () => {
     const { res, body } = makeRes();
-    await handleFileRegistrySearch(ctx, makeReq('/v1/files/registry/search?q=test&limit=10'), res as never);
+    await handleFileRegistrySearch(
+      ctx,
+      makeReq('/v1/files/registry/search?q=test&limit=10'),
+      res as never
+    );
     expect(res.statusCode).toBe(200);
     const b = body()!;
     expect(Array.isArray(b.items)).toBe(true);
@@ -128,7 +132,11 @@ describe('files registry 查询响应形态（P0-1 去 data 包装）', () => {
 
   test('stats 返回裸 stats 对象（无 data 包装；L3 字段映射 todayInbound/dedupSize）', async () => {
     const { res, body } = makeRes();
-    await handleFileRegistryStats(ctx, makeReq('/v1/files/registry/stats'), res as never);
+    await handleFileRegistryStats(
+      ctx,
+      makeReq('/v1/files/registry/stats'),
+      res as never
+    );
     expect(res.statusCode).toBe(200);
     const b = body()!;
     expect(b.totalFiles).toBe(3);
@@ -155,7 +163,11 @@ describe('files registry 查询响应形态（P0-1 去 data 包装）', () => {
 
   test('detail 缺 fileId → 400 { error:{message} }（错误分支不进 success 包装）', async () => {
     const { res, body } = makeRes();
-    await handleFileRegistryDetail(ctx, makeReq('/v1/files/registry/detail'), res as never);
+    await handleFileRegistryDetail(
+      ctx,
+      makeReq('/v1/files/registry/detail'),
+      res as never
+    );
     expect(res.statusCode).toBe(400);
     const b = body()!;
     expect(b.error.message).toBe('fileId is required');

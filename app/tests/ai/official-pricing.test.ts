@@ -186,18 +186,22 @@ describe('validateOfficialPricing', () => {
       }),
     ];
     const errors = validateOfficialPricing(data);
-    expect(errors.some((e) => e.includes('分时段 outputCostPerMillion 不能为负'))).toBe(
-      true
-    );
+    expect(
+      errors.some((e) => e.includes('分时段 outputCostPerMillion 不能为负'))
+    ).toBe(true);
   });
 
   it('provider 缺 sourceUrl / 空 models 报错', () => {
     const noUrl = makeProvider({ sourceUrl: '' });
-    expect(validateOfficialPricing([noUrl]).some((e) => e.includes('sourceUrl'))).toBe(true);
+    expect(
+      validateOfficialPricing([noUrl]).some((e) => e.includes('sourceUrl'))
+    ).toBe(true);
 
     const noModels = makeProvider({ models: [] });
-    expect(validateOfficialPricing([noModels]).some((e) => e.includes('models 不能为空'))).toBe(
-      true
-    );
+    expect(
+      validateOfficialPricing([noModels]).some((e) =>
+        e.includes('models 不能为空')
+      )
+    ).toBe(true);
   });
 });

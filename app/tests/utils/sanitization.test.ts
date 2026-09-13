@@ -7,7 +7,6 @@ import {
 } from '../../src/utils/sanitization.js';
 
 describe('partiallySanitizeUnicode', () => {
-
   it('should return normal text unchanged', () => {
     const result = partiallySanitizeUnicode('Hello, World!');
     expect(result).toBe('Hello, World!');
@@ -60,21 +59,16 @@ describe('partiallySanitizeUnicode', () => {
     const result = partiallySanitizeUnicode(input);
     expect(result).toBe('');
   });
-
 });
 
 describe('recursivelySanitizeUnicode', () => {
-
   it('should sanitize string values', () => {
     const result = recursivelySanitizeUnicode('Hello\u200BWorld');
     expect(result).toBe('HelloWorld');
   });
 
   it('should sanitize array elements', () => {
-    const result = recursivelySanitizeUnicode([
-      'Hello\u200BWorld',
-      'Normal',
-    ]);
+    const result = recursivelySanitizeUnicode(['Hello\u200BWorld', 'Normal']);
     expect(result).toEqual(['HelloWorld', 'Normal']);
   });
 
@@ -107,11 +101,9 @@ describe('recursivelySanitizeUnicode', () => {
     expect(recursivelySanitizeUnicode([])).toEqual([]);
     expect(recursivelySanitizeUnicode({})).toEqual({});
   });
-
 });
 
 describe('sanitizeHTML', () => {
-
   it('should escape & to &amp;', () => {
     expect(sanitizeHTML('a & b')).toBe('a &amp; b');
   });
@@ -139,11 +131,9 @@ describe('sanitizeHTML', () => {
   it('should handle empty string', () => {
     expect(sanitizeHTML('')).toBe('');
   });
-
 });
 
 describe('validateInput', () => {
-
   it('should pass valid string', () => {
     const result = validateInput('hello', 'string');
     expect(result).toEqual({ result: true });
@@ -240,9 +230,9 @@ describe('validateInput', () => {
     expect(validateInput(null, 'string', { required: true }).result).toBe(
       false
     );
-    expect(
-      validateInput(undefined, 'string', { required: true }).result
-    ).toBe(false);
+    expect(validateInput(undefined, 'string', { required: true }).result).toBe(
+      false
+    );
     expect(validateInput('', 'string', { required: true }).result).toBe(false);
     expect(validateInput('hello', 'string', { required: true }).result).toBe(
       true
@@ -250,21 +240,17 @@ describe('validateInput', () => {
   });
 
   it('should validate array minLength', () => {
-    expect(
-      validateInput([1], 'array', { minLength: 3 }).result
-    ).toBe(false);
-    expect(
-      validateInput([1, 2, 3], 'array', { minLength: 3 }).result
-    ).toBe(true);
+    expect(validateInput([1], 'array', { minLength: 3 }).result).toBe(false);
+    expect(validateInput([1, 2, 3], 'array', { minLength: 3 }).result).toBe(
+      true
+    );
   });
 
   it('should validate array maxLength', () => {
-    expect(
-      validateInput([1, 2, 3, 4], 'array', { maxLength: 3 }).result
-    ).toBe(false);
-    expect(
-      validateInput([1, 2], 'array', { maxLength: 3 }).result
-    ).toBe(true);
+    expect(validateInput([1, 2, 3, 4], 'array', { maxLength: 3 }).result).toBe(
+      false
+    );
+    expect(validateInput([1, 2], 'array', { maxLength: 3 }).result).toBe(true);
   });
 
   it('should support custom validation', () => {
@@ -289,5 +275,4 @@ describe('validateInput', () => {
       false
     );
   });
-
 });

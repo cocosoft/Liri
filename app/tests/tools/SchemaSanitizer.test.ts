@@ -99,7 +99,11 @@ describe('SchemaSanitizer — Schema 兼容性净化', () => {
   describe('Rule 4: 移除 format 字段', () => {
     it('removes format from ollama provider', () => {
       const result = sanitizeSchema(
-        { type: 'object', format: 'json', properties: { email: { type: 'string', format: 'email' } } },
+        {
+          type: 'object',
+          format: 'json',
+          properties: { email: { type: 'string', format: 'email' } },
+        },
         { provider: 'ollama' }
       );
       expect('format' in result.schema).toBe(false);
@@ -127,7 +131,10 @@ describe('SchemaSanitizer — Schema 兼容性净化', () => {
     it('truncates enum with >50 values', () => {
       const values = Array.from({ length: 100 }, (_, i) => `option_${i}`);
       const result = sanitizeSchema(
-        { type: 'object', properties: { choice: { type: 'string', enum: values } } },
+        {
+          type: 'object',
+          properties: { choice: { type: 'string', enum: values } },
+        },
         { provider: 'ollama' }
       );
       const props = result.schema.properties as Record<string, unknown>;
@@ -137,7 +144,12 @@ describe('SchemaSanitizer — Schema 兼容性净化', () => {
 
     it('keeps small enum intact', () => {
       const result = sanitizeSchema(
-        { type: 'object', properties: { color: { type: 'string', enum: ['red', 'green', 'blue'] } } },
+        {
+          type: 'object',
+          properties: {
+            color: { type: 'string', enum: ['red', 'green', 'blue'] },
+          },
+        },
         { provider: 'ollama' }
       );
       const props = result.schema.properties as Record<string, unknown>;

@@ -83,8 +83,18 @@ describe('FewShotRegistry — 示例管理系统', () => {
     });
 
     it('finds all registered tools', () => {
-      const names = ['read_file', 'write_file', 'grep', 'bash', 'edit_file',
-        'glob', 'web_search', 'web_fetch', 'todo_write', 'ask_user_question'];
+      const names = [
+        'read_file',
+        'write_file',
+        'grep',
+        'bash',
+        'edit_file',
+        'glob',
+        'web_search',
+        'web_fetch',
+        'todo_write',
+        'ask_user_question',
+      ];
       for (const name of names) {
         expect(findFewShotEntry(name)).toBeDefined();
       }

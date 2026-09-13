@@ -53,9 +53,9 @@ describe('BackgroundTaskStateMachine — §十 阶段 C', () => {
 
   test('非法转移抛 IllegalTransitionError（如 idle 直接 completed）', () => {
     const m = new BackgroundTaskStateMachine('test-task');
-    expect(() =>
-      m.transition(BackgroundTaskState.COMPLETED, 'direct')
-    ).toThrow(IllegalTransitionError);
+    expect(() => m.transition(BackgroundTaskState.COMPLETED, 'direct')).toThrow(
+      IllegalTransitionError
+    );
   });
 
   test('getBackgroundTaskStateMachine 注册到 StateMachineRegistry（id=background:dream）', () => {

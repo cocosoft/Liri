@@ -142,8 +142,16 @@ describe('3.6 缓存键含 Provider', () => {
     TTSRegistry.register(makeMockProvider('mock-p2'));
 
     // 相同合成参数，但 Provider 不同 → 两个 Provider 都必须被调用（缓存键含 provider）
-    const opts1: TTSSpeakOptions = { text: '跨 Provider 缓存测试', voice: 'zh-CN-X', speed: 1.0 };
-    const opts2: TTSSpeakOptions = { text: '跨 Provider 缓存测试', voice: 'zh-CN-X', speed: 1.0 };
+    const opts1: TTSSpeakOptions = {
+      text: '跨 Provider 缓存测试',
+      voice: 'zh-CN-X',
+      speed: 1.0,
+    };
+    const opts2: TTSSpeakOptions = {
+      text: '跨 Provider 缓存测试',
+      voice: 'zh-CN-X',
+      speed: 1.0,
+    };
 
     await TTSRegistry.speakInternal(opts1, 'mock-p1', true);
     await TTSRegistry.speakInternal(opts2, 'mock-p2', true);
@@ -157,7 +165,11 @@ describe('3.6 缓存键含 Provider', () => {
   it('相同 Provider 下相同参数命中缓存（不再重复合成）', async () => {
     TTSRegistry.register(makeMockProvider('mock-cachehit'));
 
-    const opts: TTSSpeakOptions = { text: '缓存命中测试文本', voice: 'zh-CN-X', speed: 1.0 };
+    const opts: TTSSpeakOptions = {
+      text: '缓存命中测试文本',
+      voice: 'zh-CN-X',
+      speed: 1.0,
+    };
     await TTSRegistry.speakInternal(opts, 'mock-cachehit', true); // 首次合成
     await TTSRegistry.speakInternal(opts, 'mock-cachehit', false); // 命中缓存
 

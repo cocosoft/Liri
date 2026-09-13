@@ -81,7 +81,10 @@ describe('BaseAIProvider.readStreamChunkWithTimeout', () => {
     } as unknown as ReadableStreamDefaultReader<Uint8Array>;
 
     // 第一次读取：首块正常返回
-    const first = await (provider as any).readStreamChunkWithTimeout(reader, 20);
+    const first = await (provider as any).readStreamChunkWithTimeout(
+      reader,
+      20
+    );
     expect(first.done).toBe(false);
 
     // 第二次读取：真挂起 → 20ms 无数据超时（重试 2 次后）抛错
@@ -115,11 +118,7 @@ describe('BaseAIProvider.readStreamChunkWithTimeout', () => {
     } as unknown as ReadableStreamDefaultReader<Uint8Array>;
 
     // timeout=20ms, timeoutRetries=1：首次超时（20ms）后自动重试窗口内（40ms）读到数据
-    const r = await (provider as any).readStreamChunkWithTimeout(
-      reader,
-      20,
-      1
-    );
+    const r = await (provider as any).readStreamChunkWithTimeout(reader, 20, 1);
     expect(r.done).toBe(false);
     expect(calls).toBe(1); // 同一 read 挂起后恢复返回
     expect(canceled).toBe(0); // 恢复后不应取消流

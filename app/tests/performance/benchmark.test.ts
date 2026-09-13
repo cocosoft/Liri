@@ -119,11 +119,11 @@ async function runBenchmarkAsync(
 function logBenchmark(suite: string, label: string, r: BenchmarkResult): void {
   console.log(
     `  [${suite}] ${label.padEnd(44)} ` +
-    `avg=${String(r.avg).padStart(8)}ms  ` +
-    `min=${String(r.min).padStart(8)}ms  ` +
-    `max=${String(r.max).padStart(8)}ms  ` +
-    `ops=${String(r.ops).padStart(6)}/s  ` +
-    `(n=${r.samples})`
+      `avg=${String(r.avg).padStart(8)}ms  ` +
+      `min=${String(r.min).padStart(8)}ms  ` +
+      `max=${String(r.max).padStart(8)}ms  ` +
+      `ops=${String(r.ops).padStart(6)}/s  ` +
+      `(n=${r.samples})`
   );
 }
 
@@ -139,15 +139,19 @@ function assertBenchmark(r: BenchmarkResult, maxAvgMs: number): void {
 // 1. Gateway 协议帧创建性能
 // ============================================================
 describe('Gateway 协议帧创建', () => {
-
   it('RequestFrame 创建吞吐量', () => {
     const r = runBenchmark(() => {
-      JSON.parse(JSON.stringify({
-        type: 'request',
-        id: 'req-001',
-        method: 'chat.completions',
-        params: { model: 'gpt-4', messages: [{ role: 'user', content: 'hello' }] },
-      }));
+      JSON.parse(
+        JSON.stringify({
+          type: 'request',
+          id: 'req-001',
+          method: 'chat.completions',
+          params: {
+            model: 'gpt-4',
+            messages: [{ role: 'user', content: 'hello' }],
+          },
+        })
+      );
     }, 5000);
     logBenchmark('Gateway', 'RequestFrame 序列化+反序列化', r);
     assertBenchmark(r, 0.05);
@@ -155,11 +159,13 @@ describe('Gateway 协议帧创建', () => {
 
   it('ResponseFrame 创建吞吐量', () => {
     const r = runBenchmark(() => {
-      JSON.parse(JSON.stringify({
-        type: 'response',
-        id: 'resp-001',
-        result: { choices: [{ text: 'Hello!' }] },
-      }));
+      JSON.parse(
+        JSON.stringify({
+          type: 'response',
+          id: 'resp-001',
+          result: { choices: [{ text: 'Hello!' }] },
+        })
+      );
     }, 5000);
     logBenchmark('Gateway', 'ResponseFrame 序列化+反序列化', r);
     assertBenchmark(r, 0.05);
@@ -167,11 +173,13 @@ describe('Gateway 协议帧创建', () => {
 
   it('EventFrame 创建吞吐量', () => {
     const r = runBenchmark(() => {
-      JSON.parse(JSON.stringify({
-        type: 'event',
-        event: 'progress',
-        data: { percent: 50, stage: 'processing' },
-      }));
+      JSON.parse(
+        JSON.stringify({
+          type: 'event',
+          event: 'progress',
+          data: { percent: 50, stage: 'processing' },
+        })
+      );
     }, 5000);
     logBenchmark('Gateway', 'EventFrame 序列化+反序列化', r);
     assertBenchmark(r, 0.05);
@@ -179,10 +187,12 @@ describe('Gateway 协议帧创建', () => {
 
   it('ErrorFrame 创建吞吐量', () => {
     const r = runBenchmark(() => {
-      JSON.parse(JSON.stringify({
-        type: 'error',
-        error: { code: 'INTERNAL_ERROR', message: 'Something went wrong' },
-      }));
+      JSON.parse(
+        JSON.stringify({
+          type: 'error',
+          error: { code: 'INTERNAL_ERROR', message: 'Something went wrong' },
+        })
+      );
     }, 5000);
     logBenchmark('Gateway', 'ErrorFrame 序列化+反序列化', r);
     assertBenchmark(r, 0.05);
@@ -204,7 +214,6 @@ describe('Gateway 协议帧创建', () => {
     logBenchmark('Gateway', '4种混合帧 批量序列化+反序列化', r);
     assertBenchmark(r, 0.1);
   });
-
 });
 
 // ============================================================
@@ -256,7 +265,11 @@ describe.skip('OAuth 认证', () => {
         redirectUris: ['http://localhost:3000/callback'],
         allowedScopes: ['read'],
       });
-      const resp = oauth.exchangeClientCredentials(reg.clientId, reg.clientSecret, ['read']);
+      const resp = oauth.exchangeClientCredentials(
+        reg.clientId,
+        reg.clientSecret,
+        ['read']
+      );
       tokens.push(resp.accessToken);
     }
 
@@ -276,11 +289,14 @@ describe.skip('OAuth 认证', () => {
       redirectUris: ['http://localhost:3000/callback'],
       allowedScopes: ['read'],
     });
-    const resp = oauth.exchangeClientCredentials(reg.clientId, reg.clientSecret, ['read']);
+    const resp = oauth.exchangeClientCredentials(
+      reg.clientId,
+      reg.clientSecret,
+      ['read']
+    );
     const result = await oauth.authenticate({ token: resp.accessToken });
     expect(result.authenticated).toBe(true);
   });
-
 });
 
 // ============================================================
@@ -316,7 +332,10 @@ describe('Notebook 操作', () => {
     const nb = await notebookTool.createNotebook('add-md-bench');
 
     const r = await runBenchmarkAsync(async () => {
-      await notebookTool.addMarkdownCell(nb, '## Section Title\n\nSome description text.');
+      await notebookTool.addMarkdownCell(
+        nb,
+        '## Section Title\n\nSome description text.'
+      );
     }, 200);
     logBenchmark('Notebook', 'addMarkdownCell', r);
     assertBenchmark(r, 5);
@@ -366,7 +385,6 @@ describe('Notebook 操作', () => {
     logBenchmark('Notebook', 'exportToPDF (10 cells)', r);
     assertBenchmark(r, 5);
   });
-
 });
 
 // ============================================================
@@ -381,7 +399,17 @@ describe('LSP 配置注册表', () => {
   });
 
   it('按扩展名匹配 Server 配置吞吐量', () => {
-    const extensions = ['.ts', '.py', '.rs', '.go', '.java', '.json', '.yaml', '.c', '.cpp'];
+    const extensions = [
+      '.ts',
+      '.py',
+      '.rs',
+      '.go',
+      '.java',
+      '.json',
+      '.yaml',
+      '.c',
+      '.cpp',
+    ];
 
     let idx = 0;
     const r = runBenchmark(() => {
@@ -414,14 +442,12 @@ describe('LSP 配置注册表', () => {
     // 调整阈值以适应 CI 环境波动；优化 registry 后可恢复更低阈值
     assertBenchmark(r, 0.07);
   });
-
 });
 
 // ============================================================
 // 5. 总览报告
 // ============================================================
 describe('性能基准总览', () => {
-
   it('打印基准测试概要', () => {
     console.log('\n');
     console.log('='.repeat(100));
@@ -431,9 +457,10 @@ describe('性能基准总览', () => {
     console.log('  测试环境:');
     console.log(`  Node.js: ${process.version}`);
     console.log(`  Platform: ${process.platform} ${process.arch}`);
-    console.log(`  Memory: ${Math.round(process.memoryUsage().heapTotal / 1024 / 1024)}MB heap`);
+    console.log(
+      `  Memory: ${Math.round(process.memoryUsage().heapTotal / 1024 / 1024)}MB heap`
+    );
     console.log('='.repeat(100));
     console.log('\n');
   });
-
 });

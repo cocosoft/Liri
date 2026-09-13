@@ -7,7 +7,6 @@ import {
 } from '../../src/utils/debug.js';
 
 describe('isDebugMode', () => {
-
   it('should return false when DEBUG env is not set', () => {
     const origDebug = process.env.DEBUG;
     const origPyAppDebug = process.env.Liri_DEBUG;
@@ -18,11 +17,9 @@ describe('isDebugMode', () => {
     process.env.DEBUG = origDebug;
     process.env.Liri_DEBUG = origPyAppDebug;
   });
-
 });
 
 describe('logForDebugging', () => {
-
   afterEach(() => {
     spyOn(console, 'log').mockRestore();
     spyOn(console, 'error').mockRestore();
@@ -87,11 +84,9 @@ describe('logForDebugging', () => {
     expect(logged).toContain('test');
     process.env.DEBUG = origDebug;
   });
-
 });
 
 describe('getHasFormattedOutput', () => {
-
   it('should return a boolean', () => {
     expect(typeof getHasFormattedOutput()).toBe('boolean');
   });
@@ -109,11 +104,9 @@ describe('getHasFormattedOutput', () => {
     expect(getHasFormattedOutput()).toBe(false);
     process.env.Liri_STREAM_JSON = orig;
   });
-
 });
 
 describe('logError', () => {
-
   afterEach(() => {
     spyOn(console, 'error').mockRestore();
   });
@@ -123,9 +116,7 @@ describe('logError', () => {
     process.env.DEBUG = 'true';
     const spy = spyOn(console, 'error').mockImplementation(() => {});
     logError(new Error('test error'));
-    expect(spy).toHaveBeenCalledWith(
-      expect.stringContaining('test error')
-    );
+    expect(spy).toHaveBeenCalledWith(expect.stringContaining('test error'));
     process.env.DEBUG = origDebug;
   });
 
@@ -134,10 +125,7 @@ describe('logError', () => {
     process.env.DEBUG = 'true';
     const spy = spyOn(console, 'error').mockImplementation(() => {});
     logError('string error');
-    expect(spy).toHaveBeenCalledWith(
-      expect.stringContaining('string error')
-    );
+    expect(spy).toHaveBeenCalledWith(expect.stringContaining('string error'));
     process.env.DEBUG = origDebug;
   });
-
 });

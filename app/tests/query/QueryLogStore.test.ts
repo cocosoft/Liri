@@ -6,12 +6,18 @@
 import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
 
 import { QueryLogStore } from '../../src/query/QueryLogStore';
-import type { QueryLogEntry, QueryLogFilter, QueryLogStats } from '../../src/query/QueryLogTypes';
+import type {
+  QueryLogEntry,
+  QueryLogFilter,
+  QueryLogStats,
+} from '../../src/query/QueryLogTypes';
 
 /**
  * 创建一条测试日志条目（不含 id）
  */
-function makeEntry(overrides: Partial<Omit<QueryLogEntry, 'id'>> = {}): Omit<QueryLogEntry, 'id'> {
+function makeEntry(
+  overrides: Partial<Omit<QueryLogEntry, 'id'>> = {}
+): Omit<QueryLogEntry, 'id'> {
   return {
     sessionId: 'test-session-1',
     type: 'api_call',
@@ -62,37 +68,45 @@ describe('QueryLogStore', () => {
     });
 
     it('应该成功记录一条工具调用日志', async () => {
-      const id = await store.log(makeEntry({
-        type: 'tool_call',
-        toolName: 'read_file',
-        promptTokens: 0,
-        outputTokens: 0,
-        totalTokens: 0,
-      }));
+      const id = await store.log(
+        makeEntry({
+          type: 'tool_call',
+          toolName: 'read_file',
+          promptTokens: 0,
+          outputTokens: 0,
+          totalTokens: 0,
+        })
+      );
       expect(id).toBeDefined();
     });
 
     it('应该成功记录一条查询级别日志', async () => {
-      const id = await store.log(makeEntry({
-        type: 'query',
-        turnCount: 3,
-        toolCallCount: 5,
-      }));
+      const id = await store.log(
+        makeEntry({
+          type: 'query',
+          turnCount: 3,
+          toolCallCount: 5,
+        })
+      );
       expect(id).toBeDefined();
     });
 
     it('应该记录失败日志', async () => {
-      const id = await store.log(makeEntry({
-        success: false,
-        error: 'API rate limit exceeded',
-      }));
+      const id = await store.log(
+        makeEntry({
+          success: false,
+          error: 'API rate limit exceeded',
+        })
+      );
       expect(id).toBeDefined();
     });
 
     it('应该记录包含元数据的日志', async () => {
-      const id = await store.log(makeEntry({
-        metadata: { source: 'test', version: '1.0' },
-      }));
+      const id = await store.log(
+        makeEntry({
+          metadata: { source: 'test', version: '1.0' },
+        })
+      );
       expect(id).toBeDefined();
     });
 
@@ -107,51 +121,59 @@ describe('QueryLogStore', () => {
     beforeEach(async () => {
       // 插入多条测试数据
       const baseTime = Date.now() - 60000;
-      await store.log(makeEntry({
-        sessionId: 'session-a',
-        type: 'api_call',
-        model: 'gpt-4',
-        promptTokens: 100,
-        outputTokens: 50,
-        totalTokens: 150,
-        durationMs: 500,
-        timestamp: baseTime,
-      }));
-      await store.log(makeEntry({
-        sessionId: 'session-a',
-        type: 'tool_call',
-        toolName: 'read_file',
-        model: undefined,
-        promptTokens: 0,
-        outputTokens: 0,
-        totalTokens: 0,
-        durationMs: 200,
-        timestamp: baseTime + 1000,
-      }));
-      await store.log(makeEntry({
-        sessionId: 'session-b',
-        type: 'api_call',
-        model: 'claude-3',
-        promptTokens: 200,
-        outputTokens: 100,
-        totalTokens: 300,
-        durationMs: 800,
-        success: false,
-        error: 'timeout',
-        timestamp: baseTime + 2000,
-      }));
-      await store.log(makeEntry({
-        sessionId: 'session-a',
-        type: 'query',
-        turnCount: 2,
-        toolCallCount: 1,
-        model: undefined,
-        promptTokens: 300,
-        outputTokens: 150,
-        totalTokens: 450,
-        durationMs: 1500,
-        timestamp: baseTime + 3000,
-      }));
+      await store.log(
+        makeEntry({
+          sessionId: 'session-a',
+          type: 'api_call',
+          model: 'gpt-4',
+          promptTokens: 100,
+          outputTokens: 50,
+          totalTokens: 150,
+          durationMs: 500,
+          timestamp: baseTime,
+        })
+      );
+      await store.log(
+        makeEntry({
+          sessionId: 'session-a',
+          type: 'tool_call',
+          toolName: 'read_file',
+          model: undefined,
+          promptTokens: 0,
+          outputTokens: 0,
+          totalTokens: 0,
+          durationMs: 200,
+          timestamp: baseTime + 1000,
+        })
+      );
+      await store.log(
+        makeEntry({
+          sessionId: 'session-b',
+          type: 'api_call',
+          model: 'claude-3',
+          promptTokens: 200,
+          outputTokens: 100,
+          totalTokens: 300,
+          durationMs: 800,
+          success: false,
+          error: 'timeout',
+          timestamp: baseTime + 2000,
+        })
+      );
+      await store.log(
+        makeEntry({
+          sessionId: 'session-a',
+          type: 'query',
+          turnCount: 2,
+          toolCallCount: 1,
+          model: undefined,
+          promptTokens: 300,
+          outputTokens: 150,
+          totalTokens: 450,
+          durationMs: 1500,
+          timestamp: baseTime + 3000,
+        })
+      );
     });
 
     it('应该查询所有日志（默认限制）', async () => {
@@ -221,38 +243,44 @@ describe('QueryLogStore', () => {
 
   describe('统计', () => {
     beforeEach(async () => {
-      await store.log(makeEntry({
-        sessionId: 'session-a',
-        type: 'api_call',
-        model: 'gpt-4',
-        promptTokens: 100,
-        outputTokens: 50,
-        totalTokens: 150,
-        durationMs: 500,
-        timestamp: Date.now() - 30000,
-      }));
-      await store.log(makeEntry({
-        sessionId: 'session-a',
-        type: 'tool_call',
-        toolName: 'search',
-        promptTokens: 0,
-        outputTokens: 0,
-        totalTokens: 0,
-        durationMs: 200,
-        timestamp: Date.now() - 20000,
-      }));
-      await store.log(makeEntry({
-        sessionId: 'session-b',
-        type: 'api_call',
-        model: 'gpt-4',
-        promptTokens: 200,
-        outputTokens: 100,
-        totalTokens: 300,
-        durationMs: 800,
-        success: false,
-        error: 'timeout',
-        timestamp: Date.now() - 10000,
-      }));
+      await store.log(
+        makeEntry({
+          sessionId: 'session-a',
+          type: 'api_call',
+          model: 'gpt-4',
+          promptTokens: 100,
+          outputTokens: 50,
+          totalTokens: 150,
+          durationMs: 500,
+          timestamp: Date.now() - 30000,
+        })
+      );
+      await store.log(
+        makeEntry({
+          sessionId: 'session-a',
+          type: 'tool_call',
+          toolName: 'search',
+          promptTokens: 0,
+          outputTokens: 0,
+          totalTokens: 0,
+          durationMs: 200,
+          timestamp: Date.now() - 20000,
+        })
+      );
+      await store.log(
+        makeEntry({
+          sessionId: 'session-b',
+          type: 'api_call',
+          model: 'gpt-4',
+          promptTokens: 200,
+          outputTokens: 100,
+          totalTokens: 300,
+          durationMs: 800,
+          success: false,
+          error: 'timeout',
+          timestamp: Date.now() - 10000,
+        })
+      );
     });
 
     it('应该获取时间范围内的统计', async () => {

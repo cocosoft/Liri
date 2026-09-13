@@ -29,7 +29,10 @@
  */
 
 import { describe, expect, test } from 'bun:test';
-import { filterToolsByTask, getToolCategory } from '../../src/tools/toolCategories';
+import {
+  filterToolsByTask,
+  getToolCategory,
+} from '../../src/tools/toolCategories';
 
 const CORE_TOOLS = [
   'knowledge_save',

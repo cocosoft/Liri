@@ -109,19 +109,27 @@ describe('配置解析', () => {
 
   it('环境变量生效', () => {
     expect(
-      resolveLivenessTimeout({ TURN_LIVENESS_TIMEOUT_MS: '120000' } as NodeJS.ProcessEnv)
+      resolveLivenessTimeout({
+        TURN_LIVENESS_TIMEOUT_MS: '120000',
+      } as NodeJS.ProcessEnv)
     ).toBe(120000);
     expect(
-      resolveLivenessPoll({ TURN_LIVENESS_POLL_MS: '5000' } as NodeJS.ProcessEnv)
+      resolveLivenessPoll({
+        TURN_LIVENESS_POLL_MS: '5000',
+      } as NodeJS.ProcessEnv)
     ).toBe(5000);
   });
 
   it('非法值回退默认（绝不静默禁用）', () => {
     expect(
-      resolveLivenessTimeout({ TURN_LIVENESS_TIMEOUT_MS: '0' } as NodeJS.ProcessEnv)
+      resolveLivenessTimeout({
+        TURN_LIVENESS_TIMEOUT_MS: '0',
+      } as NodeJS.ProcessEnv)
     ).toBe(DEFAULT_LIVENESS_TIMEOUT_MS);
     expect(
-      resolveLivenessTimeout({ TURN_LIVENESS_TIMEOUT_MS: 'abc' } as NodeJS.ProcessEnv)
+      resolveLivenessTimeout({
+        TURN_LIVENESS_TIMEOUT_MS: 'abc',
+      } as NodeJS.ProcessEnv)
     ).toBe(DEFAULT_LIVENESS_TIMEOUT_MS);
     expect(
       resolveLivenessPoll({ TURN_LIVENESS_POLL_MS: '0' } as NodeJS.ProcessEnv)

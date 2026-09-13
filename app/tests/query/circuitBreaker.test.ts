@@ -70,16 +70,34 @@ describe('CircuitBreaker 硬失败统计（A7）', () => {
 
   it('失败间夹成功轮不清空累计但未达阈值不熔断（连续同类错误口径）', () => {
     const cb = makeBreaker();
-    cb.recordTurn({ success: false, error: 'tool_error', turnCount: 1, tokenUsage: 0, maxTokens: 0 });
+    cb.recordTurn({
+      success: false,
+      error: 'tool_error',
+      turnCount: 1,
+      tokenUsage: 0,
+      maxTokens: 0,
+    });
     cb.recordTurn({ success: true, turnCount: 2, tokenUsage: 0, maxTokens: 0 });
-    cb.recordTurn({ success: false, error: 'tool_error', turnCount: 3, tokenUsage: 0, maxTokens: 0 });
+    cb.recordTurn({
+      success: false,
+      error: 'tool_error',
+      turnCount: 3,
+      tokenUsage: 0,
+      maxTokens: 0,
+    });
     expect(cb.shouldBreak().break).toBe(false);
   });
 
   it('reset 后恢复 closed，可再次统计', () => {
     const cb = makeBreaker();
     for (let i = 0; i < 3; i++) {
-      cb.recordTurn({ success: false, error: 'tool_error', turnCount: i + 1, tokenUsage: 0, maxTokens: 0 });
+      cb.recordTurn({
+        success: false,
+        error: 'tool_error',
+        turnCount: i + 1,
+        tokenUsage: 0,
+        maxTokens: 0,
+      });
     }
     expect(cb.shouldBreak().break).toBe(true);
     cb.reset();

@@ -9,10 +9,17 @@ import http from 'http';
 
 // patch STTRegistry.transcribe（模块单例），避免触发真实本地模型
 import { STTRegistry } from '../../src/services/voice/services/sttRegistry.js';
-import { upgradeSTTStreamConnection, closeAllSTTStreamSessions } from '../../src/voice/STTStreamServer.js';
+import {
+  upgradeSTTStreamConnection,
+  closeAllSTTStreamSessions,
+} from '../../src/voice/STTStreamServer.js';
 import { parseFrame } from '../../src/voice/upgrade.js';
 
-const transcribeCalls: Array<{ bytes: number; options?: unknown; providerId?: string }> = [];
+const transcribeCalls: Array<{
+  bytes: number;
+  options?: unknown;
+  providerId?: string;
+}> = [];
 
 const originalTranscribe = STTRegistry.transcribe.bind(STTRegistry);
 const transcribeStub = async (
@@ -21,9 +28,15 @@ const transcribeStub = async (
   providerId?: string
 ): Promise<unknown> => {
   transcribeCalls.push({ bytes: audio.length, options, providerId });
-  return { text: '流式识别测试结果', confidence: 0.95, segments: [], language: 'zh' };
+  return {
+    text: '流式识别测试结果',
+    confidence: 0.95,
+    segments: [],
+    language: 'zh',
+  };
 };
-STTRegistry.transcribe = transcribeStub as unknown as typeof STTRegistry.transcribe;
+STTRegistry.transcribe =
+  transcribeStub as unknown as typeof STTRegistry.transcribe;
 
 afterAll(() => {
   STTRegistry.transcribe = originalTranscribe;
@@ -99,7 +112,8 @@ function createRawServer(): Promise<TestServer> {
         const headerSection = rawData.slice(0, headerEnd);
         const firstLine = headerSection.split('\r\n')[0];
         const url = firstLine.split(' ')[1] || '/';
-        const key = headerSection.match(/Sec-WebSocket-Key:\s*(.+)/i)?.[1]?.trim() ?? '';
+        const key =
+          headerSection.match(/Sec-WebSocket-Key:\s*(.+)/i)?.[1]?.trim() ?? '';
 
         let headWritten = false;
         const res = {
@@ -120,7 +134,9 @@ function createRawServer(): Promise<TestServer> {
         if (url === '/v1/voice/stt' && key) {
           upgradedOnce = true;
           upgradeSTTStreamConnection(
-            { headers: { 'sec-websocket-key': key, upgrade: 'websocket' } } as unknown as http.IncomingMessage,
+            {
+              headers: { 'sec-websocket-key': key, upgrade: 'websocket' },
+            } as unknown as http.IncomingMessage,
             res
           );
         } else {
@@ -144,14 +160,21 @@ function createWsClient(port: number): Promise<{
   sendText: (s: string) => void;
   sendBinary: (b: Buffer) => void;
   frames: Array<{ opcode: number; payload: Buffer }>;
-  waitFor: (predicate: (f: { opcode: number; payload: Buffer }) => boolean, timeoutMs?: number) => Promise<{ opcode: number; payload: Buffer }>;
+  waitFor: (
+    predicate: (f: { opcode: number; payload: Buffer }) => boolean,
+    timeoutMs?: number
+  ) => Promise<{ opcode: number; payload: Buffer }>;
 }> {
   return new Promise((resolve, reject) => {
     const socket = new net.Socket();
     let upgraded = false;
     let rawBuf = Buffer.alloc(0);
     const frames: Array<{ opcode: number; payload: Buffer }> = [];
-    const waiters: Array<{ pred: (f: { opcode: number; payload: Buffer }) => boolean; resolve: (f: { opcode: number; payload: Buffer }) => void; timer: ReturnType<typeof setTimeout> }> = [];
+    const waiters: Array<{
+      pred: (f: { opcode: number; payload: Buffer }) => boolean;
+      resolve: (f: { opcode: number; payload: Buffer }) => void;
+      timer: ReturnType<typeof setTimeout>;
+    }> = [];
     // 握手完成前发送的帧排队，避免在服务端注册 data 监听前丢失
     const pendingSends: Buffer[] = [];
     const flushPending = (): void => {
@@ -163,12 +186,12 @@ function createWsClient(port: number): Promise<{
     socket.connect(port, '127.0.0.1', () => {
       socket.write(
         `GET /v1/voice/stt HTTP/1.1\r\n` +
-        `Host: localhost\r\n` +
-        `Upgrade: websocket\r\n` +
-        `Connection: Upgrade\r\n` +
-        `Sec-WebSocket-Key: ${key}\r\n` +
-        `Sec-WebSocket-Version: 13\r\n` +
-        `\r\n`
+          `Host: localhost\r\n` +
+          `Upgrade: websocket\r\n` +
+          `Connection: Upgrade\r\n` +
+          `Sec-WebSocket-Key: ${key}\r\n` +
+          `Sec-WebSocket-Version: 13\r\n` +
+          `\r\n`
       );
     });
 
@@ -265,7 +288,9 @@ afterAll(() => {
 describe('3.4 STTStreamServer 流式 STT 端点', () => {
   it('升级握手成功后 config → ready', async () => {
     const client = await createWsClient(rawPort);
-    client.sendText(JSON.stringify({ type: 'config', language: 'zh-CN', providerId: 'local' }));
+    client.sendText(
+      JSON.stringify({ type: 'config', language: 'zh-CN', providerId: 'local' })
+    );
 
     const ready = await client.waitFor((f) => {
       try {

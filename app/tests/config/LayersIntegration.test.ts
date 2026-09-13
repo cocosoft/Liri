@@ -3,7 +3,10 @@
 // 配置层叠集成测试：内置 YAML 文件 ↔ ProfileManager/BundleManager 端到端
 
 import { describe, expect, it } from 'bun:test';
-import { loadProfile, selectProfile } from '../../src/config/layers/ProfileManager';
+import {
+  loadProfile,
+  selectProfile,
+} from '../../src/config/layers/ProfileManager';
 import { loadBundles } from '../../src/config/layers/BundleManager';
 
 /** 断言辅助：patches 为 Record<string, unknown>，按内置 YAML 预期形状精化类型 */
@@ -18,7 +21,9 @@ function patches(p: Record<string, unknown>) {
 describe('配置层叠集成（内置 YAML 文件）', () => {
   it('selectProfile 优先级：CLI > env > 默认 development', () => {
     expect(selectProfile({ cli: 'production' }).name).toBe('production');
-    expect(selectProfile({ cli: 'production', env: 'staging' }).name).toBe('production');
+    expect(selectProfile({ cli: 'production', env: 'staging' }).name).toBe(
+      'production'
+    );
     expect(selectProfile({ env: 'staging' }).name).toBe('staging');
     expect(selectProfile().name).toBe('development');
     expect(selectProfile().source).toBe('default');
@@ -59,15 +64,16 @@ describe('配置层叠集成（内置 YAML 文件）', () => {
   });
 
   it('BundleManager：core 变体加载 core（variants 缺省 core-only），过滤 ai', () => {
-    const { bundles, notLoaded } = loadBundles(
-      ['core', 'ai', 'channels'],
-      { variant: 'core' }
-    );
+    const { bundles, notLoaded } = loadBundles(['core', 'ai', 'channels'], {
+      variant: 'core',
+    });
     expect(bundles.map((b) => b.name)).toEqual(['core']);
     expect(notLoaded.map((n) => n.name).sort()).toEqual(['ai', 'channels']);
     expect(notLoaded.every((n) => n.reason === 'variants-mismatch')).toBe(true);
     // config: 包装层剥离（11.12 P0）：core bundle 的 config.server.host 直接可用
-    expect((bundles[0].config as { server: { host: string } }).server.host).toBe('localhost');
+    expect(
+      (bundles[0].config as { server: { host: string } }).server.host
+    ).toBe('localhost');
   });
 
   it('BundleManager：pro 变体加载 core/ai/channels，过滤 enterprise', () => {
@@ -75,7 +81,11 @@ describe('配置层叠集成（内置 YAML 文件）', () => {
       ['core', 'ai', 'channels', 'enterprise'],
       { variant: 'pro' }
     );
-    expect(bundles.map((b) => b.name).sort()).toEqual(['ai', 'channels', 'core']);
+    expect(bundles.map((b) => b.name).sort()).toEqual([
+      'ai',
+      'channels',
+      'core',
+    ]);
     expect(notLoaded.map((n) => n.name)).toEqual(['enterprise']);
   });
 

@@ -6,10 +6,12 @@
 import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
 
 import { OpenAIRealtimeAdapter } from '../../src/voice/OpenAIRealtimeAdapter.js';
-import type { VoiceSessionConfigEvent, VoiceServerEvent } from '../../src/voice/types.js';
+import type {
+  VoiceSessionConfigEvent,
+  VoiceServerEvent,
+} from '../../src/voice/types.js';
 
 describe('OpenAIRealtimeAdapter', () => {
-
   it('构造函数初始化配置', () => {
     const adapter = new OpenAIRealtimeAdapter('test-key');
     expect(adapter).toBeDefined();

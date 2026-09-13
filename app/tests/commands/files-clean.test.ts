@@ -62,8 +62,8 @@ describe('/files clean 保护（P1-2）', () => {
     expect(existsSync(join(root, 'node_modules', 'dep', 'inner.tmp'))).toBe(
       true
     );
-    expect(existsSync(join(root, 'd1', 'd2', 'd3', 'd4', 'd5', 'deep.tmp'))).toBe(
-      true
-    );
+    expect(
+      existsSync(join(root, 'd1', 'd2', 'd3', 'd4', 'd5', 'deep.tmp'))
+    ).toBe(true);
   });
 });

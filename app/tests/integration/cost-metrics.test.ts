@@ -29,17 +29,25 @@ describe('CostMetricsBridge OTel 集成测试', () => {
   it('record 后记录数正确递增', () => {
     const bridge = new CostMetricsBridge();
 
-    bridge.record('test-model', {
-      inputTokens: 100,
-      outputTokens: 50,
-    }, 0.001);
+    bridge.record(
+      'test-model',
+      {
+        inputTokens: 100,
+        outputTokens: 50,
+      },
+      0.001
+    );
 
     expect(bridge.getRecordCount()).toBe(1);
 
-    bridge.record('test-model', {
-      inputTokens: 200,
-      outputTokens: 100,
-    }, 0.002);
+    bridge.record(
+      'test-model',
+      {
+        inputTokens: 200,
+        outputTokens: 100,
+      },
+      0.002
+    );
 
     expect(bridge.getRecordCount()).toBe(2);
   });
@@ -47,10 +55,14 @@ describe('CostMetricsBridge OTel 集成测试', () => {
   it('generateMetrics 返回正确结构', () => {
     const bridge = new CostMetricsBridge();
 
-    bridge.record('gpt-4', {
-      inputTokens: 1000,
-      outputTokens: 500,
-    }, 0.03);
+    bridge.record(
+      'gpt-4',
+      {
+        inputTokens: 1000,
+        outputTokens: 500,
+      },
+      0.03
+    );
 
     const metrics = bridge.generateMetrics();
 
@@ -68,12 +80,16 @@ describe('CostMetricsBridge OTel 集成测试', () => {
   it('generateDashboard 返回正确的成本汇总', () => {
     const bridge = new CostMetricsBridge();
 
-    bridge.record('gpt-4', {
-      inputTokens: 1000,
-      outputTokens: 500,
-      cacheReadInputTokens: 200,
-      cacheCreationInputTokens: 100,
-    }, 0.03);
+    bridge.record(
+      'gpt-4',
+      {
+        inputTokens: 1000,
+        outputTokens: 500,
+        cacheReadInputTokens: 200,
+        cacheCreationInputTokens: 100,
+      },
+      0.03
+    );
 
     const dashboard = bridge.generateDashboard();
 
@@ -88,10 +104,14 @@ describe('CostMetricsBridge OTel 集成测试', () => {
   it('clear 清空所有记录', () => {
     const bridge = new CostMetricsBridge();
 
-    bridge.record('gpt-4', {
-      inputTokens: 100,
-      outputTokens: 50,
-    }, 0.001);
+    bridge.record(
+      'gpt-4',
+      {
+        inputTokens: 100,
+        outputTokens: 50,
+      },
+      0.001
+    );
 
     expect(bridge.getRecordCount()).toBe(1);
 

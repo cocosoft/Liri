@@ -95,6 +95,9 @@ describe('GrepTool 输入校验（F1 参数契约）', () => {
   });
 
   it('缺少 pattern 拒绝', () => {
-    expectValidationError(() => validateGrepInput({ searchPath: '/x' }), 'pattern');
+    expectValidationError(
+      () => validateGrepInput({ searchPath: '/x' }),
+      'pattern'
+    );
   });
 });

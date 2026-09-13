@@ -24,9 +24,8 @@ function makeCallModel(opts: {
 }): ResearchCallModel {
   return async function* (messages) {
     const sys = messages.find((m) => m.role === 'system')?.content ?? '';
-    const usr = [...messages]
-      .reverse()
-      .find((m) => m.role === 'user')?.content ?? '';
+    const usr =
+      [...messages].reverse().find((m) => m.role === 'user')?.content ?? '';
     if (sys.includes('候选生成器')) {
       // 候选生成调用：按视角判别 agentId（user prompt 含"视角要求：…"）
       if (opts.emptyGen) return; // 不 yield → 生成失败
@@ -65,7 +64,9 @@ function makeCallModel(opts: {
   };
 }
 
-function makeOrch(callModel: ResearchCallModel): CompetitiveStrategyOrchestrator {
+function makeOrch(
+  callModel: ResearchCallModel
+): CompetitiveStrategyOrchestrator {
   return new CompetitiveStrategyOrchestrator({
     callModel,
     perspectiveCount: 2,
@@ -74,9 +75,7 @@ function makeOrch(callModel: ResearchCallModel): CompetitiveStrategyOrchestrator
 
 describe('CompetitiveStrategyOrchestrator — 候选生成 + 对抗批评（P0-3）', () => {
   it('通过候选被收敛、被驳候选 objection 保留（验收 #3 主路径）', async () => {
-    const orch = makeOrch(
-      makeCallModel({ approve: ['candidate_tradeoff'] })
-    );
+    const orch = makeOrch(makeCallModel({ approve: ['candidate_tradeoff'] }));
     const res = await orch.run(TASK, new AbortController().signal);
 
     expect(res.success).toBe(true);
@@ -120,9 +119,8 @@ describe('CompetitiveStrategyOrchestrator — 候选生成 + 对抗批评（P0-3
     // 批评仍走 base（verifier 未注入 → 回退 callModel）；生成注入带 [GEN-ROLE] 标记的专用模型
     const base = makeCallModel({ approve: ['candidate_tradeoff'] });
     const genRole: ResearchCallModel = async function* (messages) {
-      const usr = [...messages]
-        .reverse()
-        .find((m) => m.role === 'user')?.content ?? '';
+      const usr =
+        [...messages].reverse().find((m) => m.role === 'user')?.content ?? '';
       const agentId = usr.includes('反例攻击视角')
         ? 'candidate_adversarial'
         : 'candidate_tradeoff';

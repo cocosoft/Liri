@@ -7,7 +7,10 @@ import {
   generateContextSuggestions,
   formatWalletBreakdown,
 } from '../../src/commands/builtin/context/ContextWallet';
-import type { WalletBreakdown, WalletSuggestion } from '../../src/commands/builtin/context/ContextWallet';
+import type {
+  WalletBreakdown,
+  WalletSuggestion,
+} from '../../src/commands/builtin/context/ContextWallet';
 
 describe('ContextWallet', () => {
   describe('generateContextSuggestions', () => {

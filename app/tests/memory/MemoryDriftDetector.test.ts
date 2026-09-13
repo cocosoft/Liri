@@ -1,11 +1,21 @@
 // MIT License
 // Copyright (c) 2026 190615273@qq.com
 import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
-import { writeFileSync, unlinkSync, existsSync, readFileSync, mkdirSync, rmSync } from 'fs';
+import {
+  writeFileSync,
+  unlinkSync,
+  existsSync,
+  readFileSync,
+  mkdirSync,
+  rmSync,
+} from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
 import { randomUUID } from 'crypto';
-import { MemoryDriftDetector, getMemoryDriftDetector } from '../../src/memory/MemoryDriftDetector';
+import {
+  MemoryDriftDetector,
+  getMemoryDriftDetector,
+} from '../../src/memory/MemoryDriftDetector';
 
 const testDir = join(tmpdir(), `drift-test-${randomUUID()}.d`);
 
@@ -15,7 +25,12 @@ describe('MemoryDriftDetector', () => {
   });
 
   afterEach(() => {
-    try { if (existsSync(testDir)) rmSync(testDir, { recursive: true, force: true }); } catch { /* best-effort */ }
+    try {
+      if (existsSync(testDir))
+        rmSync(testDir, { recursive: true, force: true });
+    } catch {
+      /* best-effort */
+    }
   });
 
   it('snapshot returns null for non-existent file', () => {

@@ -69,7 +69,10 @@ async function runRound(
   const sid = `o38-${tag}-${Date.now()}-${seq++}`;
   const integ = new RollbackIntegration(sid);
   await integ.onRoundStart(sid, 1, [ws]);
-  await integ.onToolBeforeExecute({ path: target, type: 'modified' } as FileOperation);
+  await integ.onToolBeforeExecute({
+    path: target,
+    type: 'modified',
+  } as FileOperation);
   if (beforeWrite !== null) await writeFile(target, beforeWrite, 'utf8');
   await writeFile(target, afterWrite, 'utf8');
   await integ.onRoundEnd('regression');
@@ -98,7 +101,9 @@ describe('回滚链路：写 → 回滚 → 终态（O38）', () => {
 
     const { integ } = await runRound('created', target, null, 'NEW\n');
     const snap = await integ.getSnapshot(1);
-    expect(snap!.changedFiles.find((c) => c.path === target)!.type).toBe('created');
+    expect(snap!.changedFiles.find((c) => c.path === target)!.type).toBe(
+      'created'
+    );
 
     const undo = await integ.undoRound(1);
     expect(undo.failures).toEqual([]);
@@ -138,9 +143,8 @@ describe('回滚链路：写 → 回滚 → 终态（O38）', () => {
     const sid = `o38-nobackup-${Date.now()}`;
 
     // 模拟"旧快照 / 备份已被清理"：手工写入缺失 backupPath 的变更
-    const { saveManifest, ensureSnapshotDirs } = await import(
-      '../../src/security/rollback/SnapshotStorage'
-    );
+    const { saveManifest, ensureSnapshotDirs } =
+      await import('../../src/security/rollback/SnapshotStorage');
     await ensureSnapshotDirs(sid, 1);
     await saveManifest({
       roundId: 1,

@@ -5,6 +5,7 @@
  * 运行时日志验证脚本
  * 输出 scrubber 每次状态转换的详细信息
  */
+/* eslint-disable no-console -- 手动调试脚本（非测试用例），控制台输出即其用途 */
 import { StreamingToolCallScrubber } from '../../src/streaming/scrubbers/StreamingToolCallScrubber.js';
 
 const RESET = '\x1b[0m';
@@ -15,7 +16,9 @@ const RED = '\x1b[31m';
 const GRAY = '\x1b[90m';
 
 function log(label: string, detail: string) {
-  console.log(`${GRAY}[${new Date().toISOString().slice(11, 23)}]${RESET} ${label} ${detail}`);
+  console.log(
+    `${GRAY}[${new Date().toISOString().slice(11, 23)}]${RESET} ${label} ${detail}`
+  );
 }
 
 function runScenario(name: string, chunks: string[]) {
@@ -30,13 +33,19 @@ function runScenario(name: string, chunks: string[]) {
     const chunk = chunks[i];
     const isLast = i === chunks.length - 1;
 
-    log(YELLOW + `[chunk ${i}]` + RESET, `输入="${chunk.replace(/\n/g, '\\n').slice(0, 80)}${chunk.length > 80 ? '...' : ''}"`);
+    log(
+      YELLOW + `[chunk ${i}]` + RESET,
+      `输入="${chunk.replace(/\n/g, '\\n').slice(0, 80)}${chunk.length > 80 ? '...' : ''}"`
+    );
 
     const result = scrubber.scrub({ content: chunk, isComplete: isLast });
     const output = result.content ?? '';
-    const displayOut = output.length === 0
-      ? RED + '(空—标签已擦除或缓冲)' + RESET
-      : GREEN + `"${output.replace(/\n/g, '\\n').slice(0, 80)}${output.length > 80 ? '...' : ''}"` + RESET;
+    const displayOut =
+      output.length === 0
+        ? RED + '(空—标签已擦除或缓冲)' + RESET
+        : GREEN +
+          `"${output.replace(/\n/g, '\\n').slice(0, 80)}${output.length > 80 ? '...' : ''}"` +
+          RESET;
 
     log(GREEN + `[chunk ${i} out]` + RESET, displayOut);
     parts.push(output);
@@ -56,14 +65,19 @@ function runScenario(name: string, chunks: string[]) {
 
   // 关键检查
   const checks: string[] = [];
-  if (full.includes('<tool_call>') && !full.includes('[调用工具')) checks.push(`${GREEN}✅${RESET} 正文标签保留`);
-  if (full.includes('[调用工具') && !full.includes('{"name"')) checks.push(`${YELLOW}✅${RESET} 真实工具调用擦除`);
-  if (full.includes('文件清单') || full.includes('总结')) checks.push(`${GREEN}✅${RESET} 尾部内容未截断`);
+  if (full.includes('<tool_call>') && !full.includes('[调用工具'))
+    checks.push(`${GREEN}✅${RESET} 正文标签保留`);
+  if (full.includes('[调用工具') && !full.includes('{"name"'))
+    checks.push(`${YELLOW}✅${RESET} 真实工具调用擦除`);
+  if (full.includes('文件清单') || full.includes('总结'))
+    checks.push(`${GREEN}✅${RESET} 尾部内容未截断`);
 
   // 检查是否有潜在的截断
   const lastChunk = chunks[chunks.length - 1];
   if (!full.includes(lastChunk.trim().slice(-10))) {
-    checks.push(`${RED}⚠️  尾部内容可能丢失！最后10字符 "${lastChunk.slice(-10)}" 未出现在输出中${RESET}`);
+    checks.push(
+      `${RED}⚠️  尾部内容可能丢失！最后10字符 "${lastChunk.slice(-10)}" 未出现在输出中${RESET}`
+    );
   }
 
   if (checks.length === 0) {
@@ -71,7 +85,7 @@ function runScenario(name: string, chunks: string[]) {
   }
 
   console.log(`${CYAN}── 状态检查 ──${RESET}`);
-  checks.forEach(c => console.log(`  ${c}`));
+  checks.forEach((c) => console.log(`  ${c}`));
 }
 
 // ─── 场景A: 审计报告全流程 ───

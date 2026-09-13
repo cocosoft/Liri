@@ -15,9 +15,11 @@ import type { ChatResponse, ChatMessage } from '@modules/ai';
 
 // expect 的 stringContaining 类型被 src/ink/ink/global.d.ts 的旧 bun:test 声明
 // （expect(value: unknown): any）合并覆盖，运行时 bun 支持该匹配器，此处仅补类型
-const stringContaining = (expect as unknown as {
-  stringContaining: (str: string) => unknown;
-}).stringContaining;
+const stringContaining = (
+  expect as unknown as {
+    stringContaining: (str: string) => unknown;
+  }
+).stringContaining;
 
 function makeCtx(overrides: Partial<ToolLoopContext> = {}): ToolLoopContext {
   const session = { id: 'sess-test' };
@@ -38,7 +40,10 @@ function makeCtx(overrides: Partial<ToolLoopContext> = {}): ToolLoopContext {
       recordTurn: () => {},
     },
     messageService: {
-      createToolResultMessage: (result: unknown) => ({ id: 'tool-msg', content: String(result) }),
+      createToolResultMessage: (result: unknown) => ({
+        id: 'tool-msg',
+        content: String(result),
+      }),
       createAssistantMessage: (content: string) => ({
         id: 'assistant-msg',
         content,
@@ -58,10 +63,14 @@ function makeCtx(overrides: Partial<ToolLoopContext> = {}): ToolLoopContext {
         yield 'ok';
         return { content: '', stop_reason: 'stop' } as ChatResponse;
       },
-      sendMessage: async () => ({ content: '', stop_reason: 'stop' } as ChatResponse),
+      sendMessage: async () =>
+        ({ content: '', stop_reason: 'stop' }) as ChatResponse,
       getProviderId: () => 'mock',
     },
-    unifiedTracker: { resetStreamTokens: () => {}, updateBaselineForRound: () => {} },
+    unifiedTracker: {
+      resetStreamTokens: () => {},
+      updateBaselineForRound: () => {},
+    },
     recordChatResponseUsage: () => {},
     toolResultRegistry: {
       storeResult: () => {},
@@ -170,9 +179,9 @@ describe('ReActToolLoop (M1a)', () => {
     }
     expect(events.some((e) => e.type === 'tool_start')).toBe(true);
     const toolEnd = events.find((e) => e.type === 'tool_end');
-    expect(toolEnd && toolEnd.type === 'tool_end' ? toolEnd.result.status : '').toBe(
-      'success'
-    );
+    expect(
+      toolEnd && toolEnd.type === 'tool_end' ? toolEnd.result.status : ''
+    ).toBe('success');
     // P0-4：act() 执行工具前后同步触发 onToolCall（start 带完整参数对象 / end 带 ok/message/result）
     expect(toolCalls).toEqual([
       {
@@ -236,7 +245,8 @@ describe('ReActToolLoop (M1a)', () => {
   });
 
   it('pendingApproval 工具 → onToolCall 仅 start，不触发 end（遗漏 2）', async () => {
-    const toolCalls: Array<{ phase: string; toolName: string; id: string }> = [];
+    const toolCalls: Array<{ phase: string; toolName: string; id: string }> =
+      [];
     const ctx = makeCtx({
       activeClient: {
         sendMessage: async () =>
@@ -304,9 +314,9 @@ describe('ReActToolLoop (M1a)', () => {
       if (e.type === 'iteration_end') break;
     }
     const toolEnd = events.find((e) => e.type === 'tool_end');
-    expect(toolEnd && toolEnd.type === 'tool_end' ? toolEnd.result.status : '').toBe(
-      'error'
-    );
+    expect(
+      toolEnd && toolEnd.type === 'tool_end' ? toolEnd.result.status : ''
+    ).toBe('error');
   });
 
   it('P3-6 文件产出循环：连续 3 次写同骨架文件 → 注入 [STEERING] 强制收尾', async () => {
@@ -349,8 +359,7 @@ describe('ReActToolLoop (M1a)', () => {
           yield 'thinking';
           return makeResponse(messages);
         },
-        sendMessage: async (messages: ChatMessage[]) =>
-          makeResponse(messages),
+        sendMessage: async (messages: ChatMessage[]) => makeResponse(messages),
         getProviderId: () => 'mock',
       } as never,
       executeTool: async (tc: {
@@ -415,8 +424,7 @@ describe('ReActToolLoop (M1a)', () => {
           yield 'thinking';
           return makeResponse(messages);
         },
-        sendMessage: async (messages: ChatMessage[]) =>
-          makeResponse(messages),
+        sendMessage: async (messages: ChatMessage[]) => makeResponse(messages),
         getProviderId: () => 'mock',
       } as never,
       executeTool: async (tc: {
@@ -505,7 +513,9 @@ describe('ReActToolLoop (M1a)', () => {
   // ─── v3：交互链路（ask_user_question）───────────────────────────
 
   /** 交互工具 ctx：toolRegistry 返回 requiresUserInteraction 工具 + 捕获 executeTool 入参 */
-  function makeInteractionCtx(capture?: { executedArgs?: Record<string, unknown> }) {
+  function makeInteractionCtx(capture?: {
+    executedArgs?: Record<string, unknown>;
+  }) {
     return makeCtx({
       toolRegistry: {
         getTool: (name: string) =>
@@ -600,12 +610,8 @@ describe('ReActToolLoop (M1a)', () => {
     // ③ 工具执行收到真实答案数组（非 generator 对象）
     expect(capture.executedArgs?._userAnswers).toEqual(['是']);
     expect(received.some((e) => e.type === 'question')).toBe(true);
-    expect(
-      received.find((e) => e.type === 'tool_end')
-    ).toBeTruthy();
-    expect(
-      ctxWithLlm.pendingInteractions.has('sess-test')
-    ).toBe(false);
+    expect(received.find((e) => e.type === 'tool_end')).toBeTruthy();
+    expect(ctxWithLlm.pendingInteractions.has('sess-test')).toBe(false);
     expect(final).toBeTruthy();
   });
 
@@ -696,9 +702,7 @@ describe('ReActToolLoop (M1a)', () => {
       } as never,
     });
     // 预塞一个挂起交互（模拟同轮已有 pending）：防护分支应在提问前拦截 tc1
-    (
-      ctxWithLlm.pendingInteractions as Map<string, unknown>
-    ).set('sess-test', {
+    (ctxWithLlm.pendingInteractions as Map<string, unknown>).set('sess-test', {
       questionId: 'q_existing',
       promise: new Promise(() => {}),
       resolve: () => {},
@@ -718,14 +722,14 @@ describe('ReActToolLoop (M1a)', () => {
     const tc1End = received.find(
       (e) => e.type === 'tool_end' && e.result.toolCallId === 'tc1'
     );
-    expect(tc1End && tc1End.type === 'tool_end' ? tc1End.result.status : '').toBe(
-      'error'
-    );
+    expect(
+      tc1End && tc1End.type === 'tool_end' ? tc1End.result.status : ''
+    ).toBe('error');
     // 预塞的 entry 未被覆盖/误删
     expect(
-      (ctxWithLlm.pendingInteractions as Map<string, { questionId: string }>).get(
-        'sess-test'
-      )?.questionId
+      (
+        ctxWithLlm.pendingInteractions as Map<string, { questionId: string }>
+      ).get('sess-test')?.questionId
     ).toBe('q_existing');
   });
 });
@@ -755,8 +759,8 @@ describe('ReActToolLoop 孤儿补偿（M1-INV②）', () => {
                 arguments: { question: '请确认', header: '确认' },
               },
             ],
-          }) as ChatResponse
-        : ({ content: 'done', stop_reason: 'stop' }) as ChatResponse;
+          } as ChatResponse)
+        : ({ content: 'done', stop_reason: 'stop' } as ChatResponse);
     const ctx = makeCtx({
       appendStreamEvent: async (
         _sid: string,
@@ -848,8 +852,8 @@ describe('ReActToolLoop 孤儿补偿（M1-INV②）', () => {
                 arguments: { question: '请确认', header: '确认' },
               },
             ],
-          }) as ChatResponse
-        : ({ content: 'done', stop_reason: 'stop' }) as ChatResponse;
+          } as ChatResponse)
+        : ({ content: 'done', stop_reason: 'stop' } as ChatResponse);
     const ctx = makeCtx({
       toolCallSeqMap: new Map([
         ['tc-done', 10],
@@ -857,7 +861,11 @@ describe('ReActToolLoop 孤儿补偿（M1-INV②）', () => {
       ]),
       executeTool: async (tc: { id: string; name: string }) =>
         tc.id === 'tc-done'
-          ? { toolCallId: 'tc-done', toolName: tc.name, result: { output: 'ok' } }
+          ? {
+              toolCallId: 'tc-done',
+              toolName: tc.name,
+              result: { output: 'ok' },
+            }
           : {
               toolCallId: 'tc-pending',
               toolName: tc.name,

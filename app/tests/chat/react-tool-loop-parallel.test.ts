@@ -122,9 +122,15 @@ describe('ReActToolLoop 读类并发（M3-T3.2）', () => {
         }),
       },
       executeTool: async (toolCall: { name: string; id: string }) => {
-        timeline.push({ name: `start:${toolCall.name}:${toolCall.id}`, t: Date.now() });
+        timeline.push({
+          name: `start:${toolCall.name}:${toolCall.id}`,
+          t: Date.now(),
+        });
         await sleep(TOOL_MS);
-        timeline.push({ name: `end:${toolCall.name}:${toolCall.id}`, t: Date.now() });
+        timeline.push({
+          name: `end:${toolCall.name}:${toolCall.id}`,
+          t: Date.now(),
+        });
         return {
           toolCallId: toolCall.id,
           toolName: toolCall.name,
@@ -221,12 +227,7 @@ describe('ReActToolLoop 读类并发（M3-T3.2）', () => {
       // 消费
     }
     // 严格串行：s1 完全结束后 s2 才开始
-    expect(order).toEqual([
-      'start:s1',
-      'end:s1',
-      'start:s2',
-      'end:s2',
-    ]);
+    expect(order).toEqual(['start:s1', 'end:s1', 'start:s2', 'end:s2']);
   });
 
   it('③ 混合批次：并发组后遇写工具先 flush（读批次完成后才执行写）', async () => {

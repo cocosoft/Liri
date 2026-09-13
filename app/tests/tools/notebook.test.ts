@@ -4,15 +4,28 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, spyOn } from 'bun:test';
-import { unlinkSync, existsSync, readFileSync, rmSync, mkdirSync, writeFileSync } from 'fs';
+import {
+  unlinkSync,
+  existsSync,
+  readFileSync,
+  rmSync,
+  mkdirSync,
+  writeFileSync,
+} from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
 import { randomUUID } from 'crypto';
 
 import { NotebookImpl } from '../../src/tools/notebook/types/Notebook.js';
-import { CodeCellImpl, MarkdownCellImpl } from '../../src/tools/notebook/types/Cell.js';
+import {
+  CodeCellImpl,
+  MarkdownCellImpl,
+} from '../../src/tools/notebook/types/Cell.js';
 import { NotebookManager } from '../../src/tools/notebook/NotebookManager.js';
-import { CellExecutionState, type CodeCell } from '../../src/tools/notebook/types/NotebookTool.js';
+import {
+  CellExecutionState,
+  type CodeCell,
+} from '../../src/tools/notebook/types/NotebookTool.js';
 import { NotebookToolImpl } from '../../src/tools/notebook/NotebookToolImpl.js';
 import { REPLToolImpl } from '../../src/tools/repl/REPLToolImpl.js';
 import { REPLSessionStatus } from '../../src/tools/repl/types/REPLTool.js';
@@ -29,7 +42,6 @@ import { notebookCommand } from '../../src/commands/tools/dev/notebook.js';
 declare const Bun: { sleep(ms: number): Promise<void> };
 
 describe('NotebookImpl', () => {
-
   it('创建 Notebook 实例', () => {
     const nb = new NotebookImpl('nb-1', 'Test Notebook');
     expect(nb.id).toBe('nb-1');
@@ -103,7 +115,9 @@ describe('NotebookImpl', () => {
     const nb = new NotebookImpl('nb-1', 'Test');
     nb.addCell(new CodeCellImpl('c1', 'code1', 'js'));
 
-    const updated = nb.updateCell('c1', { code: 'updated_code' } as Partial<CodeCell>);
+    const updated = nb.updateCell('c1', {
+      code: 'updated_code',
+    } as Partial<CodeCell>);
     expect(updated).toBe(true);
     expect((nb.cells[0] as any).code).toBe('updated_code');
   });
@@ -124,8 +138,24 @@ describe('NotebookImpl', () => {
       id: 'nb-import',
       name: 'Imported',
       cells: [
-        { id: 'c1', type: 'code', code: 'print(1)', language: 'python', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), metadata: {}, executionState: 'idle' },
-        { id: 'c2', type: 'markdown', content: '# Docs', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), metadata: {} },
+        {
+          id: 'c1',
+          type: 'code',
+          code: 'print(1)',
+          language: 'python',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          metadata: {},
+          executionState: 'idle',
+        },
+        {
+          id: 'c2',
+          type: 'markdown',
+          content: '# Docs',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          metadata: {},
+        },
       ],
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -149,11 +179,9 @@ describe('NotebookImpl', () => {
     nb.addCell(new CodeCellImpl('c1', 'code', 'js'));
     expect(nb.updatedAt.getTime()).toBeGreaterThanOrEqual(before);
   });
-
 });
 
 describe('CodeCellImpl', () => {
-
   it('创建代码单元格', () => {
     const cell = new CodeCellImpl('c1', 'print("hello")', 'python');
     expect(cell.type).toBe('code');
@@ -178,11 +206,9 @@ describe('CodeCellImpl', () => {
     cell.executionState = CellExecutionState.RUNNING;
     expect(cell.executionState).toBe(CellExecutionState.RUNNING);
   });
-
 });
 
 describe('MarkdownCellImpl', () => {
-
   it('创建 Markdown 单元格', () => {
     const cell = new MarkdownCellImpl('c1', '# Hello');
     expect(cell.type).toBe('markdown');
@@ -194,7 +220,6 @@ describe('MarkdownCellImpl', () => {
     cell.updateRenderedContent('<h1>Title</h1>');
     expect(cell.renderedContent).toBe('<h1>Title</h1>');
   });
-
 });
 
 describe('NotebookManager', () => {
@@ -244,7 +269,6 @@ describe('NotebookManager', () => {
     expect(loaded.name).toBe('persist-test');
     expect(loaded.cells.length).toBe(1);
   });
-
 });
 
 describe('NotebookToolImpl.executeCell (P0-1 REPL 会话修复)', () => {
@@ -315,11 +339,12 @@ describe('NotebookToolImpl.executeCell (P0-1 REPL 会话修复)', () => {
     (idle as any).lastActivity = new Date(Date.now() - 11 * 60 * 1000);
 
     // mock stopREPL 为真实移除（原实现会 removeSession）
-    const stopSpy = spyOn(REPLToolImpl.prototype, 'stopREPL').mockImplementation(
-      async (s: any) => {
-        replSessionManager.removeSession(s.id);
-      }
-    );
+    const stopSpy = spyOn(
+      REPLToolImpl.prototype,
+      'stopREPL'
+    ).mockImplementation(async (s: any) => {
+      replSessionManager.removeSession(s.id);
+    });
 
     try {
       const cell = new CodeCellImpl('c1', 'print(1)', 'python');
@@ -337,7 +362,6 @@ describe('NotebookToolImpl.executeCell (P0-1 REPL 会话修复)', () => {
       stopSpy.mockRestore();
     }
   });
-
 });
 
 describe('Notebook Feature 开关 (P0-2)', () => {
@@ -381,14 +405,16 @@ describe('Notebook Feature 开关 (P0-2)', () => {
 
 describe('Notebook 导出存储 (P0-3)', () => {
   it('导出注册到 notebook zone 的 exports 子目录', async () => {
-    const spy = spyOn(FileRegistry.prototype, 'registerFile').mockResolvedValue({
-      action: 'created',
-      fileId: 'x',
-      savedPath: '/tmp/x.md',
-      savedName: 'x.md',
-      originalName: 'x.md',
-      md5: 'abc',
-    });
+    const spy = spyOn(FileRegistry.prototype, 'registerFile').mockResolvedValue(
+      {
+        action: 'created',
+        fileId: 'x',
+        savedPath: '/tmp/x.md',
+        savedName: 'x.md',
+        originalName: 'x.md',
+        md5: 'abc',
+      }
+    );
     try {
       const adapter = new NotebookToolAdapter();
       const created = (await adapter.execute(
@@ -536,20 +562,22 @@ describe('JupyterNotebookConverter (P1-1 标准 nbformat 对齐)', () => {
 
 describe('NotebookToolAdapter.executeAllCells (P2-1 批量执行)', () => {
   it('批量执行所有代码单元格（跳过 markdown）', async () => {
-    const startSpy = spyOn(REPLToolImpl.prototype, 'startREPL').mockImplementation(
-      async (language: string) => {
-        const s = replSessionManager.createSession(language);
-        s.setStatus(REPLSessionStatus.RUNNING);
-        return s;
-      }
-    );
-    const execSpy = spyOn(REPLToolImpl.prototype, 'executeCode').mockImplementation(
-      async () => ({
-        success: true,
-        output: 'ok',
-        executionTime: 1,
-      })
-    );
+    const startSpy = spyOn(
+      REPLToolImpl.prototype,
+      'startREPL'
+    ).mockImplementation(async (language: string) => {
+      const s = replSessionManager.createSession(language);
+      s.setStatus(REPLSessionStatus.RUNNING);
+      return s;
+    });
+    const execSpy = spyOn(
+      REPLToolImpl.prototype,
+      'executeCode'
+    ).mockImplementation(async () => ({
+      success: true,
+      output: 'ok',
+      executionTime: 1,
+    }));
     try {
       const adapter = new NotebookToolAdapter();
       const created = (await adapter.execute(
@@ -560,11 +588,21 @@ describe('NotebookToolAdapter.executeAllCells (P2-1 批量执行)', () => {
       expect(notebookId).toBeDefined();
 
       await adapter.execute(
-        { action: 'addCodeCell', notebookId, code: 'a = 1', language: 'python' },
+        {
+          action: 'addCodeCell',
+          notebookId,
+          code: 'a = 1',
+          language: 'python',
+        },
         {} as any
       );
       await adapter.execute(
-        { action: 'addCodeCell', notebookId, code: 'a = 2', language: 'python' },
+        {
+          action: 'addCodeCell',
+          notebookId,
+          code: 'a = 2',
+          language: 'python',
+        },
         {} as any
       );
       await adapter.execute(

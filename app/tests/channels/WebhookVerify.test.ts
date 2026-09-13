@@ -71,10 +71,7 @@ describe('verifyWebhookRequest（4.2）', () => {
 
   it('时间戳超出 5 分钟窗口 → 拒绝 401', () => {
     const stale = String(Date.now() - 10 * 60 * 1000);
-    const r = verifyWebhookRequest(
-      { 'x-webhook-timestamp': stale },
-      '{"a":1}'
-    );
+    const r = verifyWebhookRequest({ 'x-webhook-timestamp': stale }, '{"a":1}');
     expect(r.ok).toBe(false);
     expect(r.status).toBe(401);
   });
@@ -91,7 +88,10 @@ describe('verifyWebhookRequest（4.2）', () => {
 
   it('时间戳有效 + 不同 body → 放行', () => {
     const ts = String(Date.now() + Math.floor(Math.random() * 1000));
-    const first = verifyWebhookRequest({ 'x-webhook-timestamp': ts }, '{"a":1}');
+    const first = verifyWebhookRequest(
+      { 'x-webhook-timestamp': ts },
+      '{"a":1}'
+    );
     expect(first.ok).toBe(true);
     const second = verifyWebhookRequest(
       { 'x-webhook-timestamp': ts },

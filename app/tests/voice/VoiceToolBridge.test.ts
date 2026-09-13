@@ -7,14 +7,20 @@ import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
 
 import { VoiceToolBridge } from '../../src/voice/VoiceToolBridge.js';
 import type { ToolExecutorDelegate } from '../../src/voice/VoiceToolBridge.js';
-import type { VoiceToolCallEvent, VoiceToolDeclaration } from '../../src/voice/types.js';
+import type {
+  VoiceToolCallEvent,
+  VoiceToolDeclaration,
+} from '../../src/voice/types.js';
 
-function createToolCall(callId: string, name: string, args: string): VoiceToolCallEvent {
+function createToolCall(
+  callId: string,
+  name: string,
+  args: string
+): VoiceToolCallEvent {
   return { type: 'tool.call', id: callId, name, arguments: args };
 }
 
 describe('VoiceToolBridge', () => {
-
   it('初始时无活跃工具调用', () => {
     const bridge = new VoiceToolBridge();
     expect(bridge.getActiveTools().size).toBe(0);
@@ -26,7 +32,11 @@ describe('VoiceToolBridge', () => {
     const delegate: ToolExecutorDelegate = {
       executeTool: async () => 'result',
       getToolDeclarations: () => [
-        { name: 'get_weather', description: 'Get weather', parameters: { type: 'object', properties: {} } },
+        {
+          name: 'get_weather',
+          description: 'Get weather',
+          parameters: { type: 'object', properties: {} },
+        },
       ],
     };
 
@@ -80,7 +90,9 @@ describe('VoiceToolBridge', () => {
   it('工具异常触发错误结果回调', async () => {
     const bridge = new VoiceToolBridge();
     const delegate: ToolExecutorDelegate = {
-      executeTool: async () => { throw new Error('exec error'); },
+      executeTool: async () => {
+        throw new Error('exec error');
+      },
       getToolDeclarations: () => [],
     };
 

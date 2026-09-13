@@ -72,11 +72,16 @@ describe('DiscoveryGates', () => {
     gates.setBusy(false);
     gates.setDormant(false);
     gates.setLastUserMsg(0); // no recent user message
-    gates.setLastRun(0);     // no recent run
+    gates.setLastRun(0); // no recent run
   });
 
   afterEach(() => {
-    try { if (existsSync(testDir)) rmSync(testDir, { recursive: true, force: true }); } catch { /* best-effort */ }
+    try {
+      if (existsSync(testDir))
+        rmSync(testDir, { recursive: true, force: true });
+    } catch {
+      /* best-effort */
+    }
   });
 
   it('passes when all conditions are clear', () => {

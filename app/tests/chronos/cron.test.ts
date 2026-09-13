@@ -34,7 +34,6 @@ import {
 // ─── parseSchedule ──────────────────────────────────────────────
 
 describe('parseSchedule', () => {
-
   // Macro aliases
   it('should parse @daily macro', () => {
     const result = parseSchedule('@daily');
@@ -193,7 +192,6 @@ describe('parseSchedule', () => {
 // ─── scheduleToCron ─────────────────────────────────────────────
 
 describe('scheduleToCron', () => {
-
   it('should return cron expr as-is for cron kind', () => {
     const result = scheduleToCron({ kind: 'cron', expr: '0 8 * * *' });
     expect(result).toBe('0 8 * * *');
@@ -233,7 +231,6 @@ describe('scheduleToCron', () => {
 // ─── normalizeSchedule ──────────────────────────────────────────
 
 describe('normalizeSchedule', () => {
-
   it('should normalize every-style to valid 5-field cron', () => {
     const result = normalizeSchedule('every 30m');
     expect(result).toBe('*/30 * * * *');
@@ -271,7 +268,6 @@ describe('normalizeSchedule', () => {
 // ─── parseCronExpression ────────────────────────────────────────
 
 describe('parseCronExpression', () => {
-
   it('should parse wildcard cron', () => {
     const result = parseCronExpression('* * * * *');
     expect(result).not.toBeNull();
@@ -371,7 +367,6 @@ describe('parseCronExpression', () => {
 // ─── computeNextCronRun ─────────────────────────────────────────
 
 describe('computeNextCronRun', () => {
-
   it('should compute next run for "0 8 * * *" (daily at 8:00)', () => {
     const fields = parseCronExpression('0 8 * * *')!;
     const from = new Date(2026, 5, 4, 6, 0, 0); // June 4, 2026 6:00 AM
@@ -423,7 +418,6 @@ describe('computeNextCronRun', () => {
 // ─── cronToHuman ────────────────────────────────────────────────
 
 describe('cronToHuman', () => {
-
   it('should describe every-minute cron', () => {
     expect(cronToHuman('* * * * *')).toBe('Every minute');
   });
@@ -467,7 +461,6 @@ describe('cronToHuman', () => {
 // ─── isValidCronExpression ──────────────────────────────────────
 
 describe('isValidCronExpression', () => {
-
   it('should validate standard cron', () => {
     expect(isValidCronExpression('*/15 * * * *')).toBe(true);
   });
@@ -496,7 +489,6 @@ describe('isValidCronExpression', () => {
 // ─── scheduleToDisplayText ──────────────────────────────────────
 
 describe('scheduleToDisplayText', () => {
-
   it('should display macro alias as label', () => {
     expect(scheduleToDisplayText('@daily')).toBe('Daily');
     expect(scheduleToDisplayText('@hourly')).toBe('Hourly');

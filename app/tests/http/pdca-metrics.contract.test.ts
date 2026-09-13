@@ -10,9 +10,8 @@ import type http from 'http';
 import { getOrCreateOrchestrator } from '../../src/tasks/LongRunningTaskOrchestrator';
 
 // 动态加载被测 handler（静态 import 会被 ESM import 提升提前解析）
-const { handlePdcaMetrics } = await import(
-  '../../src/infrastructure/http/handlers/pdca-handlers'
-);
+const { handlePdcaMetrics } =
+  await import('../../src/infrastructure/http/handlers/pdca-handlers');
 
 function createRes(): {
   res: http.ServerResponse;
@@ -69,9 +68,9 @@ describe('GET /v1/tasks/pdca/metrics 契约', () => {
 
     // tasks[]：种子 orchestrator 已登记
     expect(Array.isArray(json.tasks)).toBe(true);
-    expect(
-      json.tasks.some((t) => t.taskId === 'contract-test-task')
-    ).toBe(true);
+    expect(json.tasks.some((t) => t.taskId === 'contract-test-task')).toBe(
+      true
+    );
 
     // total：9 个指标字段齐备且为数值
     for (const key of METRIC_KEYS) {

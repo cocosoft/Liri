@@ -34,7 +34,11 @@ describe('extractPendingToolCallsFromEvents（M2-T2.1）', () => {
         name: 'bash',
         args: { command: 'ls' },
       }),
-      ev(2, 'tool/result', { toolCallId: 'tc-answered', callSeq: 1, result: 'ok' }),
+      ev(2, 'tool/result', {
+        toolCallId: 'tc-answered',
+        callSeq: 1,
+        result: 'ok',
+      }),
     ];
     const { pending, answered } = extractPendingToolCallsFromEvents(events);
     expect(answered.has('tc-answered')).toBe(true);

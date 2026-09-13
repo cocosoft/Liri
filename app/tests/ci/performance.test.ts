@@ -1,56 +1,56 @@
 import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
-import { 
-  profileCheckpoint, 
-  profilePhaseStart, 
-  profilePhaseEnd, 
-  profileReport 
+import {
+  profileCheckpoint,
+  profilePhaseStart,
+  profilePhaseEnd,
+  profileReport,
 } from '../../src/performance/StartupProfiler.js';
-import { 
-  slowLogging, 
-  slowLoggingWithType, 
-  withSlowOperationDetection, 
-  getSlowOperationStats 
+import {
+  slowLogging,
+  slowLoggingWithType,
+  withSlowOperationDetection,
+  getSlowOperationStats,
 } from '../../src/performance/SlowOperations.js';
-import { 
-  getPerformanceConfig, 
-  updatePerformanceConfig 
+import {
+  getPerformanceConfig,
+  updatePerformanceConfig,
 } from '../../src/performance/PerformanceConfig.js';
-import { 
-  analyzePerformance, 
-  getPerformanceSuggestions, 
-  recordResponseTime 
+import {
+  analyzePerformance,
+  getPerformanceSuggestions,
+  recordResponseTime,
 } from '../../src/performance/PerformanceAnalyzer.js';
-import { 
-  generateMemoryReport, 
-  optimizeMemory, 
-  getMemoryOptimizationSuggestions 
+import {
+  generateMemoryReport,
+  optimizeMemory,
+  getMemoryOptimizationSuggestions,
 } from '../../src/performance/MemoryManager.js';
-import { 
-  getCache, 
-  setCache, 
-  deleteCache, 
-  clearCache, 
-  lazyLoad, 
-  preload 
+import {
+  getCache,
+  setCache,
+  deleteCache,
+  clearCache,
+  lazyLoad,
+  preload,
 } from '../../src/performance/CacheAndLazyLoading.js';
-import { 
-  throttle, 
-  debounce, 
-  memoize, 
-  batchProcess, 
-  timeout, 
-  retry 
+import {
+  throttle,
+  debounce,
+  memoize,
+  batchProcess,
+  timeout,
+  retry,
 } from '../../src/performance/CodeOptimizer.js';
-import { 
-  initializePerformanceSystem, 
-  shutdownPerformanceSystem 
+import {
+  initializePerformanceSystem,
+  shutdownPerformanceSystem,
 } from '../../src/performance/index.js';
 
 /**
  * 延迟函数
  */
 async function delay(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 describe('性能优化系统', () => {
@@ -126,8 +126,8 @@ describe('性能优化系统', () => {
       updatePerformanceConfig({
         slowOperations: {
           thresholdMs: 500,
-          enabled: true
-        }
+          enabled: true,
+        },
       });
       const updatedConfig = getPerformanceConfig();
       expect(updatedConfig.slowOperations.thresholdMs).toBe(500);
@@ -248,7 +248,7 @@ describe('性能优化系统', () => {
     it('应该能够使用批量处理', async () => {
       const items = [1, 2, 3, 4, 5];
       const result = await batchProcess(items, 2, async (batch) => {
-        return batch.map(item => item * 2);
+        return batch.map((item) => item * 2);
       });
       expect(result).toEqual([2, 4, 6, 8, 10]);
     });

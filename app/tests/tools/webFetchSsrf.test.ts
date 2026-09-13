@@ -94,13 +94,17 @@ describe('checkSsrf 放行公共地址', () => {
 
 describe('checkSsrf DNS 解析到内网（DNS rebinding 预检）', () => {
   it('域名解析到内网 IP 时拦截', async () => {
-    dns.promises.resolve4 = (async () => ['10.0.0.1']) as unknown as typeof ORIG_RESOLVE4;
+    dns.promises.resolve4 = (async () => [
+      '10.0.0.1',
+    ]) as unknown as typeof ORIG_RESOLVE4;
     const r = await checkSsrf('http://evil.example.com/');
     expect(r.blocked).toBe(true);
   });
 
   it('域名解析到云元数据 IP 时拦截', async () => {
-    dns.promises.resolve4 = (async () => ['169.254.169.254']) as unknown as typeof ORIG_RESOLVE4;
+    dns.promises.resolve4 = (async () => [
+      '169.254.169.254',
+    ]) as unknown as typeof ORIG_RESOLVE4;
     const r = await checkSsrf('http://attacker-controlled.example.com/');
     expect(r.blocked).toBe(true);
     expect(r.riskLevel).toBe('critical');
@@ -127,10 +131,7 @@ describe('WebFetchTool.execute 对接 SSRF', () => {
   });
 
   it('CGNAT 段被拦截', async () => {
-    const r = await tool.execute(
-      { url: 'http://100.64.0.1/' },
-      {} as never
-    );
+    const r = await tool.execute({ url: 'http://100.64.0.1/' }, {} as never);
     expect(String(r.data)).toContain('SSRF');
   });
 });

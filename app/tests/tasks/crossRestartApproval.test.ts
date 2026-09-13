@@ -97,18 +97,21 @@ describe('L3 跨重启审批续跑（T2.1）', () => {
 
   it('模拟进程 B：重启后新实例审批通过 → 从 checkpoint 恢复并续跑执行', async () => {
     // 重启后新实例：无内存状态（phase 默认 'plan'），等价跨进程
-    const orchestrator = getOrCreateOrchestrator(taskId) as unknown as OrchestratorWithPrivates;
+    const orchestrator = getOrCreateOrchestrator(
+      taskId
+    ) as unknown as OrchestratorWithPrivates;
     const executed: string[] = [];
 
     // 注入假 TAORLoop（避免真实 LLM 调用）+ NoopReviewGate（审查直接批准，不触 LLM）
-    orchestrator.setTAORLoopFactory(() =>
-      ({
-        config: { sessionId: '' },
-        runCollect: async () => {
-          executed.push('run');
-          return { turnCount: 1, totalTokens: 5 };
-        },
-      }) as never
+    orchestrator.setTAORLoopFactory(
+      () =>
+        ({
+          config: { sessionId: '' },
+          runCollect: async () => {
+            executed.push('run');
+            return { turnCount: 1, totalTokens: 5 };
+          },
+        }) as never
     );
     orchestrator.setReviewGate(new NoopReviewGate());
 
@@ -126,11 +129,12 @@ describe('L3 跨重启审批续跑（T2.1）', () => {
     const orchestrator = getOrCreateOrchestrator(
       orphanId
     ) as unknown as OrchestratorWithPrivates;
-    orchestrator.setTAORLoopFactory(() =>
-      ({
-        config: { sessionId: '' },
-        runCollect: async () => ({ turnCount: 1, totalTokens: 5 }),
-      }) as never
+    orchestrator.setTAORLoopFactory(
+      () =>
+        ({
+          config: { sessionId: '' },
+          runCollect: async () => ({ turnCount: 1, totalTokens: 5 }),
+        }) as never
     );
 
     await expect(

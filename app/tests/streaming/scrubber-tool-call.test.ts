@@ -20,7 +20,8 @@ describe('StreamingToolCallScrubber — 正文标签误判修复', () => {
   // ─── 真实工具调用（应擦除）──────────────────
 
   it('真实 Hermes tool_call 应被擦除', () => {
-    const raw = '<tool_call>{"name":"search","arguments":{"query":"test"}}</tool_call>';
+    const raw =
+      '<tool_call>{"name":"search","arguments":{"query":"test"}}</tool_call>';
     const result = scrubText(raw);
     // tool_call 不含 name=，提示为通用文本
     expect(result).toContain('[调用工具');
@@ -29,7 +30,8 @@ describe('StreamingToolCallScrubber — 正文标签误判修复', () => {
   });
 
   it('真实 GLM tool_call 应被擦除', () => {
-    const raw = '<tool_call>search\n<arg_key>query</arg_key><arg_value>test</arg_value>\n</tool_call>';
+    const raw =
+      '<tool_call>search\n<arg_key>query</arg_key><arg_value>test</arg_value>\n</tool_call>';
     const result = scrubText(raw);
     expect(result).toContain('[调用工具');
     expect(result).not.toContain('search');
@@ -37,7 +39,8 @@ describe('StreamingToolCallScrubber — 正文标签误判修复', () => {
   });
 
   it('真实 invoke（含 name=）应被擦除', () => {
-    const raw = '<invoke name="glob"><parameter name="pattern">*.ts</parameter></invoke>';
+    const raw =
+      '<invoke name="glob"><parameter name="pattern">*.ts</parameter></invoke>';
     const result = scrubText(raw);
     // invoke 含 name=，提示包含工具名
     expect(result).toContain('[调用工具: glob');
@@ -88,7 +91,8 @@ describe('StreamingToolCallScrubber — 正文标签误判修复', () => {
   });
 
   it('真实工具调用在正文中 — 前导文本保留', () => {
-    const raw = '我来帮你搜索：<tool_call>{"name":"search","arguments":{"q":"hello"}}</tool_call>';
+    const raw =
+      '我来帮你搜索：<tool_call>{"name":"search","arguments":{"q":"hello"}}</tool_call>';
     const result = scrubText(raw);
     expect(result).toContain('我来帮你搜索：');
     expect(result).toContain('[调用工具');

@@ -13,7 +13,6 @@ import {
 } from '../../src/voice/AudioPipeline.js';
 
 describe('PCMAudioBuffer', () => {
-
   it('初始统计为空', () => {
     const buf = new PCMAudioBuffer();
     const stats = buf.getStats();
@@ -100,7 +99,10 @@ describe('PCMAudioBuffer', () => {
 
   it('bytesToMs 正确计算 PCM 时长', () => {
     const buf = new PCMAudioBuffer();
-    const bytesPerSecond = AUDIO_FORMAT.SAMPLE_RATE * AUDIO_FORMAT.CHANNELS * AUDIO_FORMAT.BYTES_PER_SAMPLE;
+    const bytesPerSecond =
+      AUDIO_FORMAT.SAMPLE_RATE *
+      AUDIO_FORMAT.CHANNELS *
+      AUDIO_FORMAT.BYTES_PER_SAMPLE;
 
     expect(buf.bytesToMs(bytesPerSecond)).toBeCloseTo(1000, -1);
     expect(buf.bytesToMs(bytesPerSecond * 2)).toBeCloseTo(2000, -1);
@@ -108,7 +110,10 @@ describe('PCMAudioBuffer', () => {
 
   it('msToBytes 正确计算 PCM 字节数', () => {
     const buf = new PCMAudioBuffer();
-    const bytesPerSecond = AUDIO_FORMAT.SAMPLE_RATE * AUDIO_FORMAT.CHANNELS * AUDIO_FORMAT.BYTES_PER_SAMPLE;
+    const bytesPerSecond =
+      AUDIO_FORMAT.SAMPLE_RATE *
+      AUDIO_FORMAT.CHANNELS *
+      AUDIO_FORMAT.BYTES_PER_SAMPLE;
 
     expect(buf.msToBytes(1000)).toBe(bytesPerSecond);
     expect(buf.msToBytes(500)).toBe(Math.floor(bytesPerSecond / 2));
@@ -132,7 +137,6 @@ describe('PCMAudioBuffer', () => {
 });
 
 describe('AudioProcessor', () => {
-
   it('float32ToPcm16 转换Float32Array到PCM16', () => {
     const input = new Float32Array([0.0, 0.5, -0.5, 1.0, -1.0]);
     const buffer = AudioProcessor.float32ToPcm16(input);

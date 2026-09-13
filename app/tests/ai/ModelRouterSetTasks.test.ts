@@ -32,9 +32,10 @@ afterEach(() => {
 
 describe('ModelRouter.setTasks 空串清除语义（K 补充 2-B）', () => {
   test('空串值 → 删除 DB 配置 + 内存缓存（role 清空场景）', async () => {
-    const initSpy = spyOn(appModelConfigService, 'initialize').mockResolvedValue(
-      undefined
-    );
+    const initSpy = spyOn(
+      appModelConfigService,
+      'initialize'
+    ).mockResolvedValue(undefined);
     const setSpy = spyOn(appModelConfigService, 'setConfig').mockResolvedValue(
       undefined
     );
@@ -58,9 +59,10 @@ describe('ModelRouter.setTasks 空串清除语义（K 补充 2-B）', () => {
   });
 
   test('混合提交：有值键 upsert、空串键删除、非空键保留', async () => {
-    const initSpy = spyOn(appModelConfigService, 'initialize').mockResolvedValue(
-      undefined
-    );
+    const initSpy = spyOn(
+      appModelConfigService,
+      'initialize'
+    ).mockResolvedValue(undefined);
     const setSpy = spyOn(appModelConfigService, 'setConfig').mockResolvedValue(
       undefined
     );
@@ -75,7 +77,10 @@ describe('ModelRouter.setTasks 空串清除语义（K 补充 2-B）', () => {
         verifier: 'f7b9d835-8587-4f53-8c24-1a0ab86a6ff6',
       },
     });
-    await router.setTasks({ chat: 'new-chat', verifier: '' } as TaskModelConfig);
+    await router.setTasks({
+      chat: 'new-chat',
+      verifier: '',
+    } as TaskModelConfig);
 
     expect(setSpy).toHaveBeenCalledWith('chat', { model: 'new-chat' });
     expect(delSpy).toHaveBeenCalledWith('verifier');
@@ -90,9 +95,10 @@ describe('ModelRouter.setTasks 空串清除语义（K 补充 2-B）', () => {
   });
 
   test('default 空串跳过（deleteConfig 禁止删 default，保持静默不 500）', async () => {
-    const initSpy = spyOn(appModelConfigService, 'initialize').mockResolvedValue(
-      undefined
-    );
+    const initSpy = spyOn(
+      appModelConfigService,
+      'initialize'
+    ).mockResolvedValue(undefined);
     const setSpy = spyOn(appModelConfigService, 'setConfig').mockResolvedValue(
       undefined
     );

@@ -61,13 +61,19 @@ describe('TokenEstimator', () => {
 
   describe('estimateMessageTokens', () => {
     it('includes role overhead', () => {
-      const tokens = estimateMessageTokens({ role: 'system', content: 'hello' });
+      const tokens = estimateMessageTokens({
+        role: 'system',
+        content: 'hello',
+      });
       // content: "hello" → 5 chars/4 → 2, plus system overhead 4 = 6
       expect(tokens).toBeGreaterThanOrEqual(5);
     });
 
     it('handles non-string content', () => {
-      const tokens = estimateMessageTokens({ role: 'user', content: { key: 'value' } });
+      const tokens = estimateMessageTokens({
+        role: 'user',
+        content: { key: 'value' },
+      });
       // JSON.stringify({key:'value'}) = '{"key":"value"}' → 16 chars → 4 tokens + 5 overhead = 9
       expect(tokens).toBeGreaterThan(4);
     });
@@ -127,16 +133,18 @@ describe('TokenEstimator', () => {
     });
 
     it('uses message usage when available', () => {
-      const result = tokenCountWithEstimation([
-        { role: 'assistant', content: 'ok', usage: { totalTokens: 999 } },
-      ], null);
+      const result = tokenCountWithEstimation(
+        [{ role: 'assistant', content: 'ok', usage: { totalTokens: 999 } }],
+        null
+      );
       expect(result).toBe(999);
     });
 
     it('falls back to estimate when no usage data', () => {
-      const result = tokenCountWithEstimation([
-        { role: 'user', content: 'hello world' },
-      ], null);
+      const result = tokenCountWithEstimation(
+        [{ role: 'user', content: 'hello world' }],
+        null
+      );
       expect(result).toBeGreaterThan(0);
     });
   });

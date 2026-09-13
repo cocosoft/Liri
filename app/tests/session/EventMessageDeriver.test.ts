@@ -69,7 +69,10 @@ describe('deriveMessagesFromEvents', () => {
       ev(1, 'user/message', { content: 'hi', messageId: 'msg-1' }),
       ev(2, 'turn/start', { turn: 1 }),
       ev(3, 'assistant/text', { content: '第一段', messageId: 'msg-2' }),
-      ev(4, 'assistant/text-batch', { content: '第二段（聚合批）', messageId: 'msg-2' }),
+      ev(4, 'assistant/text-batch', {
+        content: '第二段（聚合批）',
+        messageId: 'msg-2',
+      }),
       ev(5, 'assistant/text-batch', { content: '第三段', messageId: 'msg-2' }),
     ];
     const messages = deriveMessagesFromEvents(events, []);

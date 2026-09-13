@@ -88,7 +88,12 @@ describe('MockLLMServer — 本地 LLM 模拟器', () => {
         body: JSON.stringify({
           model: 'mock-model',
           messages: [{ role: 'user', content: '读文件' }],
-          tools: [{ type: 'function', function: { name: 'read_file', parameters: {} } }],
+          tools: [
+            {
+              type: 'function',
+              function: { name: 'read_file', parameters: {} },
+            },
+          ],
         }),
       });
 
@@ -159,9 +164,7 @@ describe('MockLLMServer — 本地 LLM 模拟器', () => {
 
     it('模拟 500 server error', async () => {
       server.reset();
-      server.setErrors([
-        { status: 500, message: 'Internal server error' },
-      ]);
+      server.setErrors([{ status: 500, message: 'Internal server error' }]);
 
       const res = await fetch(`${server.url}/v1/chat/completions`, {
         method: 'POST',
@@ -180,7 +183,10 @@ describe('MockLLMServer — 本地 LLM 模拟器', () => {
     it('正确循环多个响应', async () => {
       server.reset();
       server.setResponses([
-        { content: 'Round 1', toolCalls: [{ id: 't1', name: 'search', arguments: { q: 'x' } }] },
+        {
+          content: 'Round 1',
+          toolCalls: [{ id: 't1', name: 'search', arguments: { q: 'x' } }],
+        },
         { content: 'Round 2 final' },
       ]);
 
@@ -191,7 +197,9 @@ describe('MockLLMServer — 本地 LLM 模拟器', () => {
         body: JSON.stringify({
           model: 'mock-model',
           messages: [{ role: 'user', content: 'search' }],
-          tools: [{ type: 'function', function: { name: 'search', parameters: {} } }],
+          tools: [
+            { type: 'function', function: { name: 'search', parameters: {} } },
+          ],
         }),
       });
       const d1 = await r1.json();
@@ -205,7 +213,16 @@ describe('MockLLMServer — 本地 LLM 模拟器', () => {
           model: 'mock-model',
           messages: [
             { role: 'user', content: 'search' },
-            { role: 'assistant', tool_calls: [{ id: 't1', type: 'function', function: { name: 'search', arguments: '{"q":"x"}' } }] },
+            {
+              role: 'assistant',
+              tool_calls: [
+                {
+                  id: 't1',
+                  type: 'function',
+                  function: { name: 'search', arguments: '{"q":"x"}' },
+                },
+              ],
+            },
             { role: 'tool', tool_call_id: 't1', content: 'results' },
           ],
         }),
@@ -220,7 +237,10 @@ describe('MockLLMServer — 本地 LLM 模拟器', () => {
   describe('finishReason=length（截断模拟）', () => {
     it('返回 length finish reason', async () => {
       server.reset();
-      server.setResponse({ content: 'truncated output', finishReason: 'length' });
+      server.setResponse({
+        content: 'truncated output',
+        finishReason: 'length',
+      });
 
       const res = await fetch(`${server.url}/v1/chat/completions`, {
         method: 'POST',

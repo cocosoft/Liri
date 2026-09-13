@@ -6,13 +6,18 @@
 import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
 
 import { SlowQueryDetector } from '../../src/query/SlowQueryDetector';
-import { QueryLogStore, resetQueryLogStore } from '../../src/query/QueryLogStore';
+import {
+  QueryLogStore,
+  resetQueryLogStore,
+} from '../../src/query/QueryLogStore';
 import type { QueryLogEntry } from '../../src/query/QueryLogTypes';
 
 /**
  * 创建测试日志条目
  */
-function makeEntry(overrides: Partial<Omit<QueryLogEntry, 'id'>> = {}): Omit<QueryLogEntry, 'id'> {
+function makeEntry(
+  overrides: Partial<Omit<QueryLogEntry, 'id'>> = {}
+): Omit<QueryLogEntry, 'id'> {
   return {
     sessionId: 'test-session',
     type: 'api_call',
@@ -107,8 +112,23 @@ describe('SlowQueryDetector', () => {
     });
 
     it('应该忽略其他类型的日志', async () => {
-      await store.log(makeEntry({ type: 'tool_call', durationMs: 5000, promptTokens: 0, outputTokens: 0, totalTokens: 0 }));
-      await store.log(makeEntry({ type: 'query', durationMs: 5000, turnCount: 1, toolCallCount: 1 }));
+      await store.log(
+        makeEntry({
+          type: 'tool_call',
+          durationMs: 5000,
+          promptTokens: 0,
+          outputTokens: 0,
+          totalTokens: 0,
+        })
+      );
+      await store.log(
+        makeEntry({
+          type: 'query',
+          durationMs: 5000,
+          turnCount: 1,
+          toolCallCount: 1,
+        })
+      );
       await store.log(makeEntry({ durationMs: 200 }));
 
       const slow = await detector.checkSlowQueries();
@@ -186,11 +206,13 @@ describe('SlowQueryDetector', () => {
     });
 
     it('失败 API 也应计入慢查询', async () => {
-      await store.log(makeEntry({
-        durationMs: 200,
-        success: false,
-        error: 'timeout',
-      }));
+      await store.log(
+        makeEntry({
+          durationMs: 200,
+          success: false,
+          error: 'timeout',
+        })
+      );
 
       const slow = await detector.checkSlowQueries();
       expect(slow.length).toBe(1);

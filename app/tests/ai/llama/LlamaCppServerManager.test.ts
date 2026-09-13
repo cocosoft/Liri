@@ -11,7 +11,15 @@
  * 路径隔离：通过 LIRI_DATA_DIR 指向临时目录，不污染真实数据目录。
  */
 
-import { describe, it, expect, mock, beforeEach, afterEach, afterAll } from 'bun:test';
+import {
+  describe,
+  it,
+  expect,
+  mock,
+  beforeEach,
+  afterEach,
+  afterAll,
+} from 'bun:test';
 import { EventEmitter } from 'events';
 import { existsSync, mkdtempSync, rmSync, writeFileSync, mkdirSync } from 'fs';
 import { tmpdir } from 'os';
@@ -79,7 +87,7 @@ function makeZip(): Buffer {
     process.platform === 'win32' ? 'llama-server.exe' : 'llama-server';
   zip.addFile(
     `llama-${LLAMA_VERSION}-bin-${variant}/${binaryName}`,
-    Buffer.from('fake-llama-server-binary'),
+    Buffer.from('fake-llama-server-binary')
   );
   return zip.toBuffer();
 }
@@ -184,7 +192,9 @@ describe('verifySha256', () => {
   it('未登记期望值时跳过强校验并返回实际值', () => {
     const data = Buffer.from('hello');
     const actual = verifySha256(data, undefined, 'b-test');
-    expect(actual).toBe('2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824');
+    expect(actual).toBe(
+      '2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824'
+    );
   });
 
   it('期望值匹配时通过', () => {
@@ -196,9 +206,9 @@ describe('verifySha256', () => {
 
   it('期望值不匹配时抛错', () => {
     const data = Buffer.from('hello');
-    expect(() =>
-      verifySha256(data, '0'.repeat(64), 'b-test'),
-    ).toThrow(/SHA256 校验失败/);
+    expect(() => verifySha256(data, '0'.repeat(64), 'b-test')).toThrow(
+      /SHA256 校验失败/
+    );
   });
 });
 
@@ -242,7 +252,7 @@ describe('ensureBinary（下载 + 解压）', () => {
           ok: true,
           status: 200,
           arrayBuffer: async () => zip.toBuffer(),
-        }),
+        })
       ) as unknown as typeof fetch;
 
       const mgr = new LlamaCppServerManager();
@@ -251,7 +261,7 @@ describe('ensureBinary（下载 + 解压）', () => {
       expect(existsSync(resolveLlamaBinaryPath())).toBe(true);
       // 配套 DLL 一并解压（llama-server 运行必需）
       expect(existsSync(join(resolveLlamaDir(), 'llama-server-impl.dll'))).toBe(
-        true,
+        true
       );
       expect(existsSync(join(resolveLlamaDir(), 'ggml.dll'))).toBe(true);
     } finally {
@@ -261,7 +271,7 @@ describe('ensureBinary（下载 + 解压）', () => {
 
   it('下载返回非 2xx 时抛错', async () => {
     globalThis.fetch = mock(() =>
-      Promise.resolve({ ok: false, status: 404 }),
+      Promise.resolve({ ok: false, status: 404 })
     ) as unknown as typeof fetch;
 
     const mgr = new LlamaCppServerManager();
@@ -321,7 +331,14 @@ describe('buildArgs（D4 参数组装纯函数）', () => {
   });
 
   it('条件传参：threads/batchSize=0 与未开启高级开关时不拼参数', () => {
-    const args = buildArgs({ ...base, threads: 0, batchSize: 0, noMmap: false, mlock: false, flashAttn: 'auto' });
+    const args = buildArgs({
+      ...base,
+      threads: 0,
+      batchSize: 0,
+      noMmap: false,
+      mlock: false,
+      flashAttn: 'auto',
+    });
     expect(args).not.toContain('--threads');
     expect(args).not.toContain('--batch-size');
     expect(args).not.toContain('--no-mmap');
@@ -330,23 +347,29 @@ describe('buildArgs（D4 参数组装纯函数）', () => {
   });
 
   it('KV cache 档位映射：low=q4_0 / medium=q8_0 / high=f16', () => {
-    expect(buildArgs({ ...base, kvCache: 'low' })[buildArgs({ ...base, kvCache: 'low' }).indexOf('--cache-type-k') + 1]).toBe('q4_0');
-    expect(buildArgs({ ...base, kvCache: 'high' })[buildArgs({ ...base, kvCache: 'high' }).indexOf('--cache-type-v') + 1]).toBe('f16');
+    expect(
+      buildArgs({ ...base, kvCache: 'low' })[
+        buildArgs({ ...base, kvCache: 'low' }).indexOf('--cache-type-k') + 1
+      ]
+    ).toBe('q4_0');
+    expect(
+      buildArgs({ ...base, kvCache: 'high' })[
+        buildArgs({ ...base, kvCache: 'high' }).indexOf('--cache-type-v') + 1
+      ]
+    ).toBe('f16');
   });
 });
 
 describe('validateConfig（扩展字段校验）', () => {
   it('非法 kvCache / temperature / topK / topP / flashAttn 时拒绝', () => {
     const mgr = new LlamaCppServerManager(() => ({}));
-    expect(
-      mgr.validateConfig({ kvCache: 'ultra' as never }).valid,
-    ).toBe(false);
+    expect(mgr.validateConfig({ kvCache: 'ultra' as never }).valid).toBe(false);
     expect(mgr.validateConfig({ temperature: 3 }).valid).toBe(false);
     expect(mgr.validateConfig({ topK: 0 }).valid).toBe(false);
     expect(mgr.validateConfig({ topP: 1.5 }).valid).toBe(false);
-    expect(
-      mgr.validateConfig({ flashAttn: 'maybe' as never }).valid,
-    ).toBe(false);
+    expect(mgr.validateConfig({ flashAttn: 'maybe' as never }).valid).toBe(
+      false
+    );
   });
 
   it('合法扩展值通过', () => {
@@ -505,7 +528,8 @@ describe('崩溃退避重启', () => {
     await mgr.stop();
 
     // stop 后崩溃退出 → 不重启（H 类补充 #3：procs[0] 守卫避免 start 未 spawn 时报 TypeError）
-    if (procs.length < 1) throw new Error('spawn 未执行，无法验证 stop 后的退出语义');
+    if (procs.length < 1)
+      throw new Error('spawn 未执行，无法验证 stop 后的退出语义');
     procs[0]._emit('exit', 1, null);
     await new Promise((r) => setTimeout(r, 10));
 

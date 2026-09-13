@@ -16,7 +16,6 @@ import {
 } from '../../src/utils/common.js';
 
 describe('sleep', () => {
-
   it('should resolve after specified ms', async () => {
     const start = Date.now();
     await sleep(10);
@@ -28,11 +27,9 @@ describe('sleep', () => {
     await sleep(0);
     expect(true).toBe(true);
   });
-
 });
 
 describe('deepClone', () => {
-
   it('should clone a simple object', () => {
     const obj = { a: 1, b: 'hello', c: true };
     const cloned = deepClone(obj);
@@ -70,11 +67,9 @@ describe('deepClone', () => {
     cloned.items[0].id = 999;
     expect(obj.items[0].id).toBe(1);
   });
-
 });
 
 describe('deepMerge', () => {
-
   it('should merge two flat objects', () => {
     const result = deepMerge({ a: 1 }, { b: 2 });
     expect(result).toEqual({ a: 1, b: 2 });
@@ -107,11 +102,9 @@ describe('deepMerge', () => {
     const result = deepMerge({ a: 1 });
     expect(result).toEqual({ a: 1 });
   });
-
 });
 
 describe('formatDate', () => {
-
   it('should format date as YYYY-MM-DD HH:mm:ss', () => {
     const date = new Date(2024, 0, 15, 8, 30, 45);
     expect(formatDate(date)).toBe('2024-01-15 08:30:45');
@@ -126,11 +119,9 @@ describe('formatDate', () => {
     const date = new Date(2024, 11, 25, 23, 59, 59);
     expect(formatDate(date)).toBe('2024-12-25 23:59:59');
   });
-
 });
 
 describe('generateId', () => {
-
   it('should generate an id with the given prefix', () => {
     const id = generateId('user');
     expect(id.startsWith('user_')).toBe(true);
@@ -154,11 +145,9 @@ describe('generateId', () => {
     const timestamp = parseInt(parts[1], 10);
     expect(timestamp).toBeGreaterThan(0);
   });
-
 });
 
 describe('truncate', () => {
-
   it('should return string as-is when shorter than maxLength', () => {
     expect(truncate('hello', 10)).toBe('hello');
   });
@@ -176,11 +165,9 @@ describe('truncate', () => {
   it('should handle empty string', () => {
     expect(truncate('', 5)).toBe('');
   });
-
 });
 
 describe('ensureArray', () => {
-
   it('should wrap non-array value in array', () => {
     expect(ensureArray('hello')).toEqual(['hello']);
   });
@@ -206,11 +193,9 @@ describe('ensureArray', () => {
     const obj = { a: 1 };
     expect(ensureArray(obj)).toEqual([obj]);
   });
-
 });
 
 describe('isObject', () => {
-
   it('should return true for plain object', () => {
     expect(isObject({})).toBe(true);
     expect(isObject({ a: 1 })).toBe(true);
@@ -234,11 +219,9 @@ describe('isObject', () => {
   it('should return true for Date objects', () => {
     expect(isObject(new Date())).toBe(true);
   });
-
 });
 
 describe('safeJsonParse', () => {
-
   it('should parse valid JSON', () => {
     expect(safeJsonParse('{"a":1}', {})).toEqual({ a: 1 });
   });
@@ -256,11 +239,9 @@ describe('safeJsonParse', () => {
   it('should parse array JSON', () => {
     expect(safeJsonParse('[1,2,3]', [])).toEqual([1, 2, 3]);
   });
-
 });
 
 describe('debounce', () => {
-
   it('should delay function execution', async () => {
     let callCount = 0;
     const fn = debounce(() => {
@@ -275,11 +256,9 @@ describe('debounce', () => {
     await sleep(30);
     expect(callCount).toBe(1);
   });
-
 });
 
 describe('throttle', () => {
-
   it('should limit function calls', () => {
     let callCount = 0;
     const fn = throttle(() => {
@@ -292,11 +271,9 @@ describe('throttle', () => {
 
     expect(callCount).toBe(1);
   });
-
 });
 
 describe('lazySingleton', () => {
-
   it('should create instance only on first access', () => {
     let created = false;
     const instance = lazySingleton(() => {
@@ -358,11 +335,9 @@ describe('lazySingleton', () => {
     expect(desc!.value).toBe(42);
     expect(desc!.writable).toBe(true);
   });
-
 });
 
 describe('retry', () => {
-
   it('should resolve on successful call', async () => {
     const result = await retry(async () => 'success');
     expect(result).toBe('success');
@@ -387,9 +362,8 @@ describe('retry', () => {
       throw new Error('persistent failure');
     };
 
-    expect(
-      retry(fn, { maxRetries: 2, delay: 5 })
-    ).rejects.toThrow('persistent failure');
+    expect(retry(fn, { maxRetries: 2, delay: 5 })).rejects.toThrow(
+      'persistent failure'
+    );
   });
-
 });

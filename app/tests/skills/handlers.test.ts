@@ -41,15 +41,19 @@ const SKILL_HANDLERS = [
 
 type SkillHandlerKey = (typeof SKILL_HANDLERS)[number];
 
-function makeSpies(): { spies: Record<string, ReturnType<typeof spyOn>>; calls: string[] } {
+function makeSpies(): {
+  spies: Record<string, ReturnType<typeof spyOn>>;
+  calls: string[];
+} {
   const calls: string[] = [];
   const spies: Record<string, ReturnType<typeof spyOn>> = {};
   for (const name of SKILL_HANDLERS) {
-    spies[name] = spyOn(skillsHandlers, name as keyof typeof skillsHandlers).mockImplementation(
-      async () => {
-        calls.push(name);
-      }
-    );
+    spies[name] = spyOn(
+      skillsHandlers,
+      name as keyof typeof skillsHandlers
+    ).mockImplementation(async () => {
+      calls.push(name);
+    });
   }
   return { spies, calls };
 }
@@ -96,22 +100,25 @@ describe('Skills 路由匹配（P1-1~P1-5 回归）', () => {
     ['DELETE', '/v1/skills/sources/custom-x', 'handleRemoveSkillSource'],
   ];
 
-  it.each(cases)('%s %s → 命中 %s', async (method: string, url: string, handler: string) => {
-    const { spies, calls } = makeSpies();
-    try {
-      const matched = await dispatchRoute(
-        makeReq(method) as never,
-        makeRes() as never,
-        url,
-        () => {},
-        createHandlerCtx()
-      );
-      expect(matched).toBe(true);
-      expect(calls).toEqual([handler]);
-    } finally {
-      for (const spy of Object.values(spies)) spy.mockRestore();
+  it.each(cases)(
+    '%s %s → 命中 %s',
+    async (method: string, url: string, handler: string) => {
+      const { spies, calls } = makeSpies();
+      try {
+        const matched = await dispatchRoute(
+          makeReq(method) as never,
+          makeRes() as never,
+          url,
+          () => {},
+          createHandlerCtx()
+        );
+        expect(matched).toBe(true);
+        expect(calls).toEqual([handler]);
+      } finally {
+        for (const spy of Object.values(spies)) spy.mockRestore();
+      }
     }
-  });
+  );
 
   it('仓库形态技能 id（含冒号/斜杠）可正确提取为参数', async () => {
     const { spies, calls } = makeSpies();

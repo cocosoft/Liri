@@ -14,10 +14,20 @@
 
 import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
 
-import { StateMachine, computeDefaultTerminal } from '../../../src/state/engine/StateMachine.js';
+import {
+  StateMachine,
+  computeDefaultTerminal,
+} from '../../../src/state/engine/StateMachine.js';
 import { StateMachineRegistry } from '../../../src/state/engine/StateMachineRegistry.js';
-import { IllegalTransitionError, InvalidSnapshotError } from '../../../src/state/errors.js';
-import type { TransitionRules, StateSnapshot, TransitionRecord } from '../../../src/state/engine/types.js';
+import {
+  IllegalTransitionError,
+  InvalidSnapshotError,
+} from '../../../src/state/errors.js';
+import type {
+  TransitionRules,
+  StateSnapshot,
+  TransitionRecord,
+} from '../../../src/state/engine/types.js';
 
 // ============================================================
 // 测试用状态枚举
@@ -32,11 +42,11 @@ enum TestState {
 }
 
 const TEST_RULES: TransitionRules<TestState> = {
-  [TestState.IDLE]:      [TestState.RUNNING],
-  [TestState.RUNNING]:   [TestState.COMPLETED, TestState.ERROR],
+  [TestState.IDLE]: [TestState.RUNNING],
+  [TestState.RUNNING]: [TestState.COMPLETED, TestState.ERROR],
   [TestState.COMPLETED]: [],
-  [TestState.ERROR]:     [TestState.IDLE, TestState.RUNNING],
-  [TestState.ARCHIVED]:  [],
+  [TestState.ERROR]: [TestState.IDLE, TestState.RUNNING],
+  [TestState.ARCHIVED]: [],
 };
 
 // ============================================================
@@ -44,7 +54,6 @@ const TEST_RULES: TransitionRules<TestState> = {
 // ============================================================
 
 describe('computeDefaultTerminal', () => {
-
   it('应将出度为 0 的状态识别为终态', () => {
     const isTerminal = computeDefaultTerminal(TEST_RULES);
     expect(isTerminal(TestState.COMPLETED)).toBe(true);
@@ -59,11 +68,12 @@ describe('computeDefaultTerminal', () => {
   });
 
   it('空规则表时所有状态都应非终态', () => {
-    enum Single { A = 'a' }
+    enum Single {
+      A = 'a',
+    }
     const isTerminal = computeDefaultTerminal<Single>({ [Single.A]: [] });
     expect(isTerminal(Single.A)).toBe(true);
   });
-
 });
 
 // ============================================================
@@ -71,7 +81,6 @@ describe('computeDefaultTerminal', () => {
 // ============================================================
 
 describe('StateMachine 构造', () => {
-
   it('应使用初始状态构造', () => {
     const sm = new StateMachine<TestState>({
       initialState: TestState.IDLE,
@@ -81,7 +90,9 @@ describe('StateMachine 构造', () => {
   });
 
   it('构造时初始状态不在规则表中应抛出 InvalidSnapshotError', () => {
-    enum Other { X = 'x' }
+    enum Other {
+      X = 'x',
+    }
     expect(() => {
       new StateMachine<string>({
         initialState: 'nonexistent',
@@ -106,7 +117,6 @@ describe('StateMachine 构造', () => {
     });
     expect(sm.getContextId()).toBe('ctx-001');
   });
-
 });
 
 // ============================================================
@@ -114,7 +124,6 @@ describe('StateMachine 构造', () => {
 // ============================================================
 
 describe('状态转换', () => {
-
   let sm: StateMachine<TestState>;
 
   beforeEach(() => {
@@ -172,9 +181,9 @@ describe('状态转换', () => {
     const limited = new StateMachine<string>({
       initialState: 'idle',
       rules: {
-        idle:  ['a', 'b'],
-        a:     ['b'],
-        b:     ['idle'],
+        idle: ['a', 'b'],
+        a: ['b'],
+        b: ['idle'],
       },
       maxHistorySize: 2,
     });
@@ -193,7 +202,6 @@ describe('状态转换', () => {
     (history as TransitionRecord<TestState>[]).push({} as any);
     expect(sm.getHistory().length).toBe(1);
   });
-
 });
 
 // ============================================================
@@ -201,7 +209,6 @@ describe('状态转换', () => {
 // ============================================================
 
 describe('isTerminal / isActive', () => {
-
   it('默认 isActive 应返回 false（未提供自定义函数时）', () => {
     const sm = new StateMachine<TestState>({
       initialState: TestState.IDLE,
@@ -240,7 +247,6 @@ describe('isTerminal / isActive', () => {
     expect(sm.isStateTerminal(TestState.COMPLETED)).toBe(true);
     expect(sm.isStateTerminal(TestState.IDLE)).toBe(false);
   });
-
 });
 
 // ============================================================
@@ -248,7 +254,6 @@ describe('isTerminal / isActive', () => {
 // ============================================================
 
 describe('转移查询', () => {
-
   let sm: StateMachine<TestState>;
 
   beforeEach(() => {
@@ -273,7 +278,6 @@ describe('转移查询', () => {
     expect(sm.canTransition(TestState.RUNNING)).toBe(true);
     expect(sm.canTransition(TestState.COMPLETED)).toBe(false);
   });
-
 });
 
 // ============================================================
@@ -281,7 +285,6 @@ describe('转移查询', () => {
 // ============================================================
 
 describe('监听器', () => {
-
   let sm: StateMachine<TestState>;
 
   beforeEach(() => {
@@ -313,7 +316,9 @@ describe('监听器', () => {
 
   it('offStateChange 应移除监听器', () => {
     let count = 0;
-    const listener = () => { count++; };
+    const listener = () => {
+      count++;
+    };
 
     sm.onStateChange(listener);
     sm.offStateChange(listener);
@@ -324,8 +329,12 @@ describe('监听器', () => {
 
   it('removeAllListeners 应移除所有监听器', () => {
     let count = 0;
-    sm.onStateChange(() => { count++; });
-    sm.onStateChange(() => { count++; });
+    sm.onStateChange(() => {
+      count++;
+    });
+    sm.onStateChange(() => {
+      count++;
+    });
     sm.removeAllListeners();
     sm.transition(TestState.RUNNING);
     expect(count).toBe(0);
@@ -333,20 +342,23 @@ describe('监听器', () => {
 
   it('onStateChange 返回的取消函数应可移除监听器', () => {
     let count = 0;
-    const off = sm.onStateChange(() => { count++; });
+    const off = sm.onStateChange(() => {
+      count++;
+    });
     off();
     sm.transition(TestState.RUNNING);
     expect(count).toBe(0);
   });
 
   it('监听器抛出异常不应影响状态转换', () => {
-    sm.onStateChange(() => { throw new Error('listener error'); });
+    sm.onStateChange(() => {
+      throw new Error('listener error');
+    });
     expect(() => {
       sm.transition(TestState.RUNNING);
     }).not.toThrow();
     expect(sm.getState()).toBe(TestState.RUNNING);
   });
-
 });
 
 // ============================================================
@@ -354,7 +366,6 @@ describe('监听器', () => {
 // ============================================================
 
 describe('snapshot / fromSnapshot', () => {
-
   it('snapshot 应导出完整快照', () => {
     const sm = new StateMachine<TestState>({
       initialState: TestState.IDLE,
@@ -443,7 +454,6 @@ describe('snapshot / fromSnapshot', () => {
     expect(restored.getHistory()[0].reason).toBe('第一次启动');
     expect(restored.getHistory()[1].reason).toBe('完成');
   });
-
 });
 
 // ============================================================
@@ -451,7 +461,6 @@ describe('snapshot / fromSnapshot', () => {
 // ============================================================
 
 describe('IllegalTransitionError', () => {
-
   it('应继承 AppError 并包含 from/to 信息', () => {
     const err = new IllegalTransitionError('idle', 'completed', 'test');
     expect(err.name).toBe('IllegalTransitionError');
@@ -462,11 +471,9 @@ describe('IllegalTransitionError', () => {
     expect(err.context?.to).toBe('completed');
     expect(err.context?.machineType).toBe('test');
   });
-
 });
 
 describe('InvalidSnapshotError', () => {
-
   it('应携带快照校验失败的详情', () => {
     const err = new InvalidSnapshotError('状态不在规则表中', {
       currentState: 'bogus',
@@ -474,7 +481,6 @@ describe('InvalidSnapshotError', () => {
     expect(err.name).toBe('InvalidSnapshotError');
     expect(err.context?.currentState).toBe('bogus');
   });
-
 });
 
 // ============================================================
@@ -482,7 +488,6 @@ describe('InvalidSnapshotError', () => {
 // ============================================================
 
 describe('StateMachineRegistry', () => {
-
   let registry: StateMachineRegistry;
   let machine1: StateMachine<string>;
   let machine2: StateMachine<string>;
@@ -552,7 +557,7 @@ describe('StateMachineRegistry', () => {
         registry.find('m2');
 
         const cleaned = registry.gc();
-        expect(cleaned).toBe(1);         // 只有 m1 被清理
+        expect(cleaned).toBe(1); // 只有 m1 被清理
         expect(registry.find('m2')).toBeDefined(); // m2 仍存在
         resolve();
       }, 150);
@@ -578,7 +583,9 @@ describe('StateMachineRegistry', () => {
     registry.register('m1', machine1);
 
     let count = 0;
-    machine1.onStateChange(() => { count++; });
+    machine1.onStateChange(() => {
+      count++;
+    });
 
     registry.unregister('m1');
 
@@ -586,5 +593,4 @@ describe('StateMachineRegistry', () => {
     machine1.transition('running');
     expect(count).toBe(0);
   });
-
 });

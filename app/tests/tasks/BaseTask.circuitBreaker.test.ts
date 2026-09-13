@@ -9,7 +9,11 @@
  */
 import { describe, test, expect } from 'bun:test';
 import { BaseTask, getCircuitBreakerThreshold } from '../../src/tasks/BaseTask';
-import { TaskStatus, TaskType, isTerminalTaskStatus } from '../../src/tasks/types';
+import {
+  TaskStatus,
+  TaskType,
+  isTerminalTaskStatus,
+} from '../../src/tasks/types';
 
 class TestTask extends BaseTask {
   readonly type = TaskType.BACKGROUND_AGENT;

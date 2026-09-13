@@ -88,9 +88,9 @@ describe('ApprovedCommandRegistry 放行缓存', () => {
     const reg = new ApprovedCommandRegistry(60_000, false);
     const hash = hashCommand('rm -rf /tmp/abc');
     reg.approve('session-1', hash);
-    expect(
-      reg.isApproved('session-1', hashCommand('rm -rf /tmp/def'))
-    ).toBe(false);
+    expect(reg.isApproved('session-1', hashCommand('rm -rf /tmp/def'))).toBe(
+      false
+    );
     reg.dispose();
   });
 
@@ -170,9 +170,7 @@ describe('命令名级放行 isCommandNameApproved（P0-3）', () => {
     expect(reg.isApproved('session-1', hashCommand('rm -rf /tmp/b'))).toBe(
       false
     );
-    expect(reg.isCommandNameApproved('session-1', 'rm -rf /tmp/b')).toBe(
-      false
-    );
+    expect(reg.isCommandNameApproved('session-1', 'rm -rf /tmp/b')).toBe(false);
     // 精确同 hash → 放行
     expect(reg.isApproved('session-1', hash)).toBe(true);
     reg.dispose();

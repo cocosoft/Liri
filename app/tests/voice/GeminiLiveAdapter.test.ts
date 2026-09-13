@@ -9,7 +9,6 @@ import { GeminiLiveAdapter } from '../../src/voice/GeminiLiveAdapter.js';
 import type { VoiceServerEvent } from '../../src/voice/types.js';
 
 describe('GeminiLiveAdapter', () => {
-
   it('构造函数初始化配置', () => {
     const adapter = new GeminiLiveAdapter('test-key');
     expect(adapter).toBeDefined();

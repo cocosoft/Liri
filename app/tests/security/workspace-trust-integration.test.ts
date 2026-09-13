@@ -48,7 +48,9 @@ const ISOLATED_CONFIG_DIR = path.join(
   `pyapp-test-workspace-trust-${process.pid}`
 );
 mkdirSync(ISOLATED_CONFIG_DIR, { recursive: true });
-setConfigManagerForTest(new ConfigManager(path.join(ISOLATED_CONFIG_DIR, 'config.json')));
+setConfigManagerForTest(
+  new ConfigManager(path.join(ISOLATED_CONFIG_DIR, 'config.json'))
+);
 
 // ==========================================
 // 辅助函数
@@ -80,12 +82,20 @@ describe('P1.3 — SecurityIntegration 信任工作区匹配', () => {
     configManager.setConfigValue('permission', {
       mode: 'default',
       trustedWorkspaces: [
-        { path: '/home/user/project', trustLevel: 'development', enabled: true },
+        {
+          path: '/home/user/project',
+          trustLevel: 'development',
+          enabled: true,
+        },
       ],
     });
 
-    expect(securityIntegration.isInTrustedWorkspace('/home/user/project/src')).toBe(true);
-    expect(securityIntegration.isInTrustedWorkspace('/home/user/project')).toBe(true);
+    expect(
+      securityIntegration.isInTrustedWorkspace('/home/user/project/src')
+    ).toBe(true);
+    expect(securityIntegration.isInTrustedWorkspace('/home/user/project')).toBe(
+      true
+    );
   });
 
   it('前缀匹配不扩大范围', () => {
@@ -96,18 +106,26 @@ describe('P1.3 — SecurityIntegration 信任工作区匹配', () => {
       ],
     });
 
-    expect(securityIntegration.isInTrustedWorkspace('/home/user/proj-other')).toBe(false);
+    expect(
+      securityIntegration.isInTrustedWorkspace('/home/user/proj-other')
+    ).toBe(false);
   });
 
   it('禁用的工作区不生效', () => {
     configManager.setConfigValue('permission', {
       mode: 'default',
       trustedWorkspaces: [
-        { path: '/home/user/project', trustLevel: 'development', enabled: false },
+        {
+          path: '/home/user/project',
+          trustLevel: 'development',
+          enabled: false,
+        },
       ],
     });
 
-    expect(securityIntegration.isInTrustedWorkspace('/home/user/project/src')).toBe(false);
+    expect(
+      securityIntegration.isInTrustedWorkspace('/home/user/project/src')
+    ).toBe(false);
   });
 
   it('多工作区各自独立匹配', () => {
@@ -115,25 +133,43 @@ describe('P1.3 — SecurityIntegration 信任工作区匹配', () => {
       mode: 'default',
       trustedWorkspaces: [
         { path: '/home/user/project-a', trustLevel: 'chat', enabled: true },
-        { path: '/home/user/project-b', trustLevel: 'development', enabled: true },
+        {
+          path: '/home/user/project-b',
+          trustLevel: 'development',
+          enabled: true,
+        },
       ],
     });
 
-    expect(securityIntegration.isInTrustedWorkspace('/home/user/project-a/docs')).toBe(true);
-    expect(securityIntegration.isInTrustedWorkspace('/home/user/project-b/src')).toBe(true);
-    expect(securityIntegration.isInTrustedWorkspace('/home/user/project-c')).toBe(false);
+    expect(
+      securityIntegration.isInTrustedWorkspace('/home/user/project-a/docs')
+    ).toBe(true);
+    expect(
+      securityIntegration.isInTrustedWorkspace('/home/user/project-b/src')
+    ).toBe(true);
+    expect(
+      securityIntegration.isInTrustedWorkspace('/home/user/project-c')
+    ).toBe(false);
   });
 
   it('跨平台反斜杠路径也能正确匹配', () => {
     configManager.setConfigValue('permission', {
       mode: 'default',
       trustedWorkspaces: [
-        { path: 'C:\\Users\\me\\project', trustLevel: 'development', enabled: true },
+        {
+          path: 'C:\\Users\\me\\project',
+          trustLevel: 'development',
+          enabled: true,
+        },
       ],
     });
 
-    expect(securityIntegration.isInTrustedWorkspace('C:/Users/me/project/src')).toBe(true);
-    expect(securityIntegration.isInTrustedWorkspace('C:\\Users\\me\\project\\src')).toBe(true);
+    expect(
+      securityIntegration.isInTrustedWorkspace('C:/Users/me/project/src')
+    ).toBe(true);
+    expect(
+      securityIntegration.isInTrustedWorkspace('C:\\Users\\me\\project\\src')
+    ).toBe(true);
   });
 });
 
@@ -159,7 +195,9 @@ describe('P3.2 — 信任级别与场景联动', () => {
       defaultTrustLevel: 'work',
     });
 
-    expect(securityIntegration.getTrustLevelForPath('/other/path')).toBe('work');
+    expect(securityIntegration.getTrustLevelForPath('/other/path')).toBe(
+      'work'
+    );
   });
 
   it('无默认信任级别时返回 undefined', () => {
@@ -168,7 +206,9 @@ describe('P3.2 — 信任级别与场景联动', () => {
       trustedWorkspaces: [],
     });
 
-    expect(securityIntegration.getTrustLevelForPath('/other/path')).toBeUndefined();
+    expect(
+      securityIntegration.getTrustLevelForPath('/other/path')
+    ).toBeUndefined();
   });
 
   it('工作区优先级高于全局默认', () => {
@@ -181,9 +221,13 @@ describe('P3.2 — 信任级别与场景联动', () => {
     });
 
     // 在工作区内 → 使用 chat
-    expect(securityIntegration.getTrustLevelForPath('/project/file.txt')).toBe('chat');
+    expect(securityIntegration.getTrustLevelForPath('/project/file.txt')).toBe(
+      'chat'
+    );
     // 在工作区外 → 使用 development（全局默认）
-    expect(securityIntegration.getTrustLevelForPath('/other/file.txt')).toBe('development');
+    expect(securityIntegration.getTrustLevelForPath('/other/file.txt')).toBe(
+      'development'
+    );
   });
 
   it('多工作区各自返回自己的信任级别', () => {
@@ -196,9 +240,15 @@ describe('P3.2 — 信任级别与场景联动', () => {
       ],
     });
 
-    expect(securityIntegration.getTrustLevelForPath('/chat-area/readme.md')).toBe('chat');
-    expect(securityIntegration.getTrustLevelForPath('/work-area/src')).toBe('work');
-    expect(securityIntegration.getTrustLevelForPath('/dev-area/src')).toBe('development');
+    expect(
+      securityIntegration.getTrustLevelForPath('/chat-area/readme.md')
+    ).toBe('chat');
+    expect(securityIntegration.getTrustLevelForPath('/work-area/src')).toBe(
+      'work'
+    );
+    expect(securityIntegration.getTrustLevelForPath('/dev-area/src')).toBe(
+      'development'
+    );
   });
 
   it('getDefaultTrustLevel 返回全局默认值', () => {
@@ -361,7 +411,11 @@ describe('P1.4 — DirectoryScopeRestriction 信任路径注入', () => {
     configManager.setConfigValue('permission', {
       mode: 'default',
       trustedWorkspaces: [
-        { path: '/home/user/project', trustLevel: 'development', enabled: true },
+        {
+          path: '/home/user/project',
+          trustLevel: 'development',
+          enabled: true,
+        },
       ],
     });
 
@@ -412,23 +466,34 @@ describe('P1.5 — filesystem 多工作区与目录规则合并', () => {
 
   describe('isWithinWorkingDirectory 多工作区', () => {
     it.skip('在 cwd 内时返回 true', () => {
-      expect(isWithinWorkingDirectory('src/file.ts', '/home/user/project')).toBe(true);
+      expect(
+        isWithinWorkingDirectory('src/file.ts', '/home/user/project')
+      ).toBe(true);
     });
 
     it('cwd 外 + 无信任工作区时返回 false', () => {
       clearPermissionConfig();
-      expect(isWithinWorkingDirectory('/etc/passwd', '/home/user/project')).toBe(false);
+      expect(
+        isWithinWorkingDirectory('/etc/passwd', '/home/user/project')
+      ).toBe(false);
     });
 
     it('在信任工作区内时返回 true', () => {
       configManager.setConfigValue('permission', {
         mode: 'default',
         trustedWorkspaces: [
-          { path: '/home/user/other-project', trustLevel: 'work', enabled: true },
+          {
+            path: '/home/user/other-project',
+            trustLevel: 'work',
+            enabled: true,
+          },
         ],
       });
       expect(
-        isWithinWorkingDirectory('/home/user/other-project/src/file.ts', '/home/user/project')
+        isWithinWorkingDirectory(
+          '/home/user/other-project/src/file.ts',
+          '/home/user/project'
+        )
       ).toBe(true);
     });
 
@@ -440,7 +505,10 @@ describe('P1.5 — filesystem 多工作区与目录规则合并', () => {
         ],
       });
       expect(
-        isWithinWorkingDirectory('/home/user/untrusted/file.ts', '/home/user/project')
+        isWithinWorkingDirectory(
+          '/home/user/untrusted/file.ts',
+          '/home/user/project'
+        )
       ).toBe(false);
     });
   });
@@ -524,7 +592,9 @@ describe('P1.6 — ProtectedPaths 用户自定义黑名单合并', () => {
   it('不配置时 isWriteProtected 正常工作', () => {
     clearPermissionConfig();
     // .bashrc 默认受保护
-    expect(isWriteProtected(path.join(require('os').homedir(), '.bashrc'))).toBe(true);
+    expect(
+      isWriteProtected(path.join(require('os').homedir(), '.bashrc'))
+    ).toBe(true);
   });
 });
 
@@ -544,7 +614,12 @@ describe('SecurityIntegration.checkSecurity 集成', () => {
   });
 
   it('不配置信任工作区时正常检查', async () => {
-    const result = await securityIntegration.checkSecurity('ls -la', 'Bash', {}, undefined);
+    const result = await securityIntegration.checkSecurity(
+      'ls -la',
+      'Bash',
+      {},
+      undefined
+    );
     expect(result.allowed).toBe(true);
   });
 
@@ -556,7 +631,12 @@ describe('SecurityIntegration.checkSecurity 集成', () => {
       ],
     });
 
-    const result = await securityIntegration.checkSecurity('ls -la', 'Bash', {}, '/project/src');
+    const result = await securityIntegration.checkSecurity(
+      'ls -la',
+      'Bash',
+      {},
+      '/project/src'
+    );
     expect(result).toBeDefined();
     expect(result.allowed).toBe(true);
   });
@@ -569,7 +649,12 @@ describe('SecurityIntegration.checkSecurity 集成', () => {
       ],
     });
 
-    const result = await securityIntegration.checkSecurity('ls -la', 'Bash', {}, '/project/src');
+    const result = await securityIntegration.checkSecurity(
+      'ls -la',
+      'Bash',
+      {},
+      '/project/src'
+    );
     expect(result.allowed).toBe(true);
   });
 });
@@ -592,7 +677,9 @@ describe('零影响保证（不配置时行为不变）', () => {
   });
 
   it('getTrustLevelForPath 返回 undefined', () => {
-    expect(securityIntegration.getTrustLevelForPath('/any/path')).toBeUndefined();
+    expect(
+      securityIntegration.getTrustLevelForPath('/any/path')
+    ).toBeUndefined();
   });
 
   it('getDefaultTrustLevel 返回 undefined', () => {
@@ -600,7 +687,9 @@ describe('零影响保证（不配置时行为不变）', () => {
   });
 
   it('isWithinWorkingDirectory 仅检查 cwd', () => {
-    expect(isWithinWorkingDirectory('/etc/passwd', '/home/user/project')).toBe(false);
+    expect(isWithinWorkingDirectory('/etc/passwd', '/home/user/project')).toBe(
+      false
+    );
   });
 
   it('BashSecurityAnalyzer 仍然拦截危险命令', () => {

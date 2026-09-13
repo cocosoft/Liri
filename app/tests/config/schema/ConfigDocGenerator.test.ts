@@ -47,7 +47,6 @@ function createPopulatedSchema(): ConfigSchema {
 }
 
 describe('ConfigDocGenerator', () => {
-
   let generator: ConfigDocGenerator;
   let emptyGenerator: ConfigDocGenerator;
 
@@ -57,7 +56,6 @@ describe('ConfigDocGenerator', () => {
   });
 
   describe('generateMarkdown', () => {
-
     it('should generate markdown with title', () => {
       const md = generator.generateMarkdown();
       expect(md).toContain('# Liri 配置参考');
@@ -141,11 +139,9 @@ describe('ConfigDocGenerator', () => {
       const md = generator.generateMarkdown();
       expect(md).toMatch(/共 \d+ 个分类，\d+ 个配置项/);
     });
-
   });
 
   describe('generateToFile', () => {
-
     it('should write markdown to file', () => {
       const tmpFile = join(tmpdir(), `test-config-doc-${Date.now()}.md`);
       try {
@@ -158,11 +154,9 @@ describe('ConfigDocGenerator', () => {
         if (existsSync(tmpFile)) unlinkSync(tmpFile);
       }
     });
-
   });
 
   describe('generateSummary', () => {
-
     it('should return summary table for populated schema', () => {
       const summary = generator.generateSummary();
       expect(summary).toContain('## 配置概览');
@@ -175,11 +169,9 @@ describe('ConfigDocGenerator', () => {
       const summary = emptyGenerator.generateSummary();
       expect(summary).toBe('暂无注册的配置项。');
     });
-
   });
 
   describe('generateItemDetail', () => {
-
     it('should return detail for existing key', () => {
       const detail = generator.generateItemDetail('theme');
       expect(detail).toBeTruthy();
@@ -190,18 +182,15 @@ describe('ConfigDocGenerator', () => {
     it('should return null for non-existent key', () => {
       expect(generator.generateItemDetail('nonexistent')).toBeNull();
     });
-
   });
 
   describe('generateConfigDocs', () => {
-
     it('should be exported as a function', async () => {
-      const mod = await import('../../../src/config/schema/ConfigDocGenerator.js');
+      const mod =
+        await import('../../../src/config/schema/ConfigDocGenerator.js');
       expect(typeof mod.generateConfigDocs).toBe('function');
       const result = mod.generateConfigDocs();
       expect(typeof result).toBe('string');
     });
-
   });
-
 });

@@ -74,7 +74,9 @@ matrix:
   });
 
   it('顶层非 mapping（数组）抛错', () => {
-    expect(() => loader.parse('- a\n- b\n', 'yaml')).toThrow(/top-level must be a mapping/);
+    expect(() => loader.parse('- a\n- b\n', 'yaml')).toThrow(
+      /top-level must be a mapping/
+    );
   });
 
   it('非法 YAML 抛错', () => {

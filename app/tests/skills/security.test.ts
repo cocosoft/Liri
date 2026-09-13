@@ -8,7 +8,10 @@ import { mkdtempSync, rmSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
 
-import { validateSkillId, sanitizeSkillId } from '../../src/skills/loaders/adapter/safeSkillId';
+import {
+  validateSkillId,
+  sanitizeSkillId,
+} from '../../src/skills/loaders/adapter/safeSkillId';
 import {
   parseSkillPermissions,
   validateSkillPermissions,
@@ -22,9 +25,7 @@ import type { ThirdPartySkillSearchResult } from '../../src/skills/loaders/adapt
 /** 最小假适配器 */
 function makeAdapter(dir: string): SearchEngineAdapter {
   return {
-    async searchSkills(
-      _query: string
-    ): Promise<ThirdPartySkillSearchResult[]> {
+    async searchSkills(_query: string): Promise<ThirdPartySkillSearchResult[]> {
       return [];
     },
     getLocalStore() {
@@ -87,7 +88,9 @@ describe('SkillPermission', () => {
   it('validateSkillPermissions 校验合法性', () => {
     expect(validateSkillPermissions(['network'])).toBeNull();
     expect(validateSkillPermissions(['hack'])).not.toBeNull();
-    expect(validateSkillPermissions('network' as unknown as unknown[])).not.toBeNull();
+    expect(
+      validateSkillPermissions('network' as unknown as unknown[])
+    ).not.toBeNull();
   });
 
   it('敏感权限检测', () => {
@@ -110,17 +113,31 @@ describe('SkillSearchEngine SSRF（阶段 4）', () => {
 
   it('拒绝 http 与非内网 https 之外的地址', () => {
     const engine = new SkillSearchEngine(makeAdapter(dir));
-    expect(() => engine.addCustomSource('bad', 'http://example.com')).toThrow(/https/);
-    expect(() => engine.addCustomSource('bad', 'ftp://example.com')).toThrow(/https/);
+    expect(() => engine.addCustomSource('bad', 'http://example.com')).toThrow(
+      /https/
+    );
+    expect(() => engine.addCustomSource('bad', 'ftp://example.com')).toThrow(
+      /https/
+    );
   });
 
   it('拒绝内网/回环段', () => {
     const engine = new SkillSearchEngine(makeAdapter(dir));
-    expect(() => engine.addCustomSource('i1', 'https://localhost:8080')).toThrow(/内网|回环/);
-    expect(() => engine.addCustomSource('i2', 'https://127.0.0.1/api')).toThrow(/内网|回环/);
-    expect(() => engine.addCustomSource('i3', 'https://192.168.1.1/api')).toThrow(/内网|回环/);
-    expect(() => engine.addCustomSource('i4', 'https://10.0.0.1/api')).toThrow(/内网|回环/);
-    expect(() => engine.addCustomSource('i5', 'https://172.16.0.1/api')).toThrow(/内网|回环/);
+    expect(() =>
+      engine.addCustomSource('i1', 'https://localhost:8080')
+    ).toThrow(/内网|回环/);
+    expect(() => engine.addCustomSource('i2', 'https://127.0.0.1/api')).toThrow(
+      /内网|回环/
+    );
+    expect(() =>
+      engine.addCustomSource('i3', 'https://192.168.1.1/api')
+    ).toThrow(/内网|回环/);
+    expect(() => engine.addCustomSource('i4', 'https://10.0.0.1/api')).toThrow(
+      /内网|回环/
+    );
+    expect(() =>
+      engine.addCustomSource('i5', 'https://172.16.0.1/api')
+    ).toThrow(/内网|回环/);
   });
 
   it('接受公网 https 并持久化', () => {

@@ -11,7 +11,9 @@ import { hasResearchIntent } from '../../src/chat/taskIntent';
 
 describe('hasResearchIntent — 研究型意图判定（P0-3 触发信号）', () => {
   it('多方案/权衡/选型/可行性类任务命中', () => {
-    expect(hasResearchIntent('帮我研究两种方案怎么选，给出选型建议')).toBe(true);
+    expect(hasResearchIntent('帮我研究两种方案怎么选，给出选型建议')).toBe(
+      true
+    );
     expect(
       hasResearchIntent('做一份竞品分析报告，评估三家产品的方案对比')
     ).toBe(true);

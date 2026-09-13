@@ -41,7 +41,7 @@ describe('DiscoveryScheduler', () => {
     scheduler.start();
 
     // Wait for at least one tick (100ms interval + buffer)
-    await new Promise(r => setTimeout(r, 150));
+    await new Promise((r) => setTimeout(r, 150));
 
     scheduler.stop();
     expect(tickCount).toBeGreaterThan(0);
@@ -50,13 +50,13 @@ describe('DiscoveryScheduler', () => {
   it('does not fire callback after stop', async () => {
     scheduler.start();
 
-    await new Promise(r => setTimeout(r, 50));
+    await new Promise((r) => setTimeout(r, 50));
     scheduler.stop();
 
     const countAtStop = tickCount;
 
     // Wait more — should not increase
-    await new Promise(r => setTimeout(r, 150));
+    await new Promise((r) => setTimeout(r, 150));
     expect(tickCount).toBe(countAtStop);
   });
 

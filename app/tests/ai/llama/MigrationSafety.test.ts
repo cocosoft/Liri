@@ -55,7 +55,8 @@ describe('validateModelsDir', () => {
   });
 
   it('系统路径应被拒绝', () => {
-    const sys = process.platform === 'win32' ? 'C:\\Windows\\System32' : '/root';
+    const sys =
+      process.platform === 'win32' ? 'C:\\Windows\\System32' : '/root';
     const res = validateModelsDir(sys);
     expect(res.valid).toBe(false);
   });

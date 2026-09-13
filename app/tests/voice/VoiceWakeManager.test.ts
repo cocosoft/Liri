@@ -20,7 +20,6 @@ import { resolvePyappHome } from '@modules/core/paths';
 const CONFIG_PATH = join(resolvePyappHome(), 'settings', 'voicewake.json');
 
 describe('defaultVoiceWakeTriggers', () => {
-
   it('返回默认唤醒词列表', () => {
     const triggers = defaultVoiceWakeTriggers();
     expect(Array.isArray(triggers)).toBe(true);
@@ -37,7 +36,6 @@ describe('defaultVoiceWakeTriggers', () => {
 });
 
 describe('sanitizeTriggers', () => {
-
   it('去除空格并转小写', () => {
     const result = sanitizeTriggers([' HELLO ', 'World ']);
     expect(result).toEqual(['hello', 'world']);
@@ -60,7 +58,6 @@ describe('sanitizeTriggers', () => {
 });
 
 describe('loadVoiceWakeConfig', () => {
-
   beforeEach(async () => {
     if (existsSync(CONFIG_PATH)) {
       unlinkSync(CONFIG_PATH);
@@ -75,7 +72,6 @@ describe('loadVoiceWakeConfig', () => {
 });
 
 describe('setVoiceWakeTriggers', () => {
-
   beforeEach(async () => {
     const dir = join(resolvePyappHome(), 'settings');
     if (existsSync(CONFIG_PATH)) {
@@ -106,7 +102,6 @@ describe('setVoiceWakeTriggers', () => {
 });
 
 describe('detectWakeWord', () => {
-
   it('空文本返回未检测到', async () => {
     const result = await detectWakeWord('');
     expect(result.detected).toBe(false);
@@ -120,7 +115,9 @@ describe('detectWakeWord', () => {
   });
 
   it('返回去除唤醒词后的剩余文本', async () => {
-    const result = await detectWakeWord('hey assistant tell me a joke', ['assistant']);
+    const result = await detectWakeWord('hey assistant tell me a joke', [
+      'assistant',
+    ]);
     expect(result.detected).toBe(true);
     expect(result.remainingText).toBe('tell me a joke');
   });
@@ -143,7 +140,10 @@ describe('detectWakeWord', () => {
   });
 
   it('优先匹配较长唤醒词', async () => {
-    const result = await detectWakeWord('hey pyapp test', ['pyapp', 'hey pyapp']);
+    const result = await detectWakeWord('hey pyapp test', [
+      'pyapp',
+      'hey pyapp',
+    ]);
     expect(result.matchedTrigger).toBe('hey pyapp');
   });
 

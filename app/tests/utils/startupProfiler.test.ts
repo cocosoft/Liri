@@ -5,7 +5,6 @@ import {
 } from '../../src/utils/startupProfiler.js';
 
 describe('StartupProfiler', () => {
-
   afterEach(() => {
     spyOn(console, 'log').mockRestore();
   });
@@ -90,14 +89,11 @@ describe('StartupProfiler', () => {
     checkpoints.push({ name: 'fake', timestamp: 0, duration: 0 });
     expect(profiler.getCheckpoints()).toHaveLength(1);
   });
-
 });
 
 describe('createStartupProfiler', () => {
-
   it('should create StartupProfiler instance', () => {
     const profiler = createStartupProfiler();
     expect(profiler).toBeInstanceOf(StartupProfiler);
   });
-
 });

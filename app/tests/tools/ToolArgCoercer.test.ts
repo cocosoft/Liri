@@ -64,9 +64,17 @@ describe('ToolArgCoercer — 工具参数类型强制修复', () => {
     it('coerces "True"/"False"/"yes"/"no" variants', () => {
       const schema: ToolSchema = {
         type: 'object',
-        properties: { a: { type: 'bool' }, b: { type: 'bool' }, c: { type: 'bool' }, d: { type: 'bool' } },
+        properties: {
+          a: { type: 'bool' },
+          b: { type: 'bool' },
+          c: { type: 'bool' },
+          d: { type: 'bool' },
+        },
       };
-      const result = coerceToolArgs({ a: 'True', b: 'False', c: 'yes', d: 'NO' }, schema);
+      const result = coerceToolArgs(
+        { a: 'True', b: 'False', c: 'yes', d: 'NO' },
+        schema
+      );
       expect(result.input.a).toBe(true);
       expect(result.input.b).toBe(false);
       expect(result.input.c).toBe(true);
@@ -159,10 +167,7 @@ describe('ToolArgCoercer — 工具参数类型强制修复', () => {
         type: 'object',
         properties: { items: { type: 'array' } },
       };
-      const result = coerceToolArgs(
-        { items: '[1, 2, 3]' },
-        schema
-      );
+      const result = coerceToolArgs({ items: '[1, 2, 3]' }, schema);
       expect(result.input.items).toEqual([1, 2, 3]);
     });
 
@@ -171,10 +176,7 @@ describe('ToolArgCoercer — 工具参数类型强制修复', () => {
         type: 'object',
         properties: { data: { type: 'object' } },
       };
-      const result = coerceToolArgs(
-        { data: '{invalid' },
-        schema
-      );
+      const result = coerceToolArgs({ data: '{invalid' }, schema);
       expect(result.modified).toBe(false);
       expect(result.input.data).toBe('{invalid');
     });
@@ -238,10 +240,7 @@ describe('ToolArgCoercer — 工具参数类型强制修复', () => {
         properties: { id: { type: 'integer' } },
         additionalProperties: false,
       };
-      const result = coerceToolArgs(
-        { id: 1, a: 1, b: 2, c: 3 },
-        schema
-      );
+      const result = coerceToolArgs({ id: 1, a: 1, b: 2, c: 3 }, schema);
       expect(result.modified).toBe(true);
       expect(Object.keys(result.input)).toEqual(['id']);
     });

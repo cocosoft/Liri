@@ -69,8 +69,8 @@ describe('P0 重复计数基线 — addCost 调用次数', () => {
     });
 
     it('⚠️ 双重调用后 inputTokens = 单次 ×2', () => {
-      tracker.addCost('gpt-4o', 1000, 500);   // trackUsage 调用
-      tracker.addCost('gpt-4o', 1000, 500);   // onUsage 调用（重复）
+      tracker.addCost('gpt-4o', 1000, 500); // trackUsage 调用
+      tracker.addCost('gpt-4o', 1000, 500); // onUsage 调用（重复）
 
       expect(tracker.getTotalInputTokens()).toBe(2000);
       // 修复后：expect(tracker.getTotalInputTokens()).toBe(1000);

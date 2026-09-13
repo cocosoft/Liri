@@ -33,11 +33,9 @@ import { pickExplicitTaskModel } from '../../src/ai/router/resolveModelRoute';
 
 describe('O46 分工优先级（显式 vs 自动填充）', () => {
   test('① 用户显式设置过 → 采用分工表里的模型', () => {
-    const picked = pickExplicitTaskModel(
-      'agent',
-      ['agent'],
-      { agent: 'deepseek-v4-flash' }
-    );
+    const picked = pickExplicitTaskModel('agent', ['agent'], {
+      agent: 'deepseek-v4-flash',
+    });
     expect(picked).toBe('deepseek-v4-flash');
   });
 

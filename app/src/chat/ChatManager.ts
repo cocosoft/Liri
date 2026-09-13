@@ -69,6 +69,7 @@ import { extractPendingToolCallsFromEvents } from './utils/pendingToolCalls.js';
 import type { LiriEvent } from '@modules/chat/types/events';
 import { feature as coreFeature } from '@modules/core';
 import { configureCodeRunner } from '@modules/tools';
+import { isShellToolName } from '@modules/constants';
 import {
   sanitizeApiMessages,
   compressToolHistory,
@@ -5128,11 +5129,10 @@ export class ChatManagerImpl implements ChatManager {
     sessionId: string | undefined
   ): Promise<boolean> {
     try {
-      if (
-        toolName !== 'bash' &&
-        toolName !== 'shell' &&
-        toolName !== 'command'
-      ) {
+      // O44 修复（2026-09-13）：改用唯一判定入口 isShellToolName —— 原硬编码
+      // bash/shell/command 三名单漏 powershell（与 O27/O28 同族的名单副本漂移），
+      // 后果：powershell 命令永不命中「已批准放行」缓存 → 反复弹审批。
+      if (!isShellToolName(toolName)) {
         return false;
       }
       const command = typeof input.command === 'string' ? input.command : '';

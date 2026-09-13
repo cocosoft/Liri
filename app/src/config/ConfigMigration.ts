@@ -131,7 +131,6 @@ export class ConfigMigration {
 
     // 构建 features 分组
     migrated.features = {
-      autoCompact: migrated.autoCompactEnabled ?? true,
       showTurnDuration: migrated.showTurnDuration ?? true,
       fileCheckpointing: migrated.fileCheckpointingEnabled ?? true,
       terminalProgressBar: migrated.terminalProgressBarEnabled ?? true,
@@ -165,7 +164,6 @@ export class ConfigMigration {
       'taskCompleteNotifEnabled',
       'inputNeededNotifEnabled',
       'agentPushNotifEnabled',
-      'autoCompactEnabled',
       'fileCheckpointingEnabled',
       'terminalProgressBarEnabled',
       'showStatusInTerminalTab',

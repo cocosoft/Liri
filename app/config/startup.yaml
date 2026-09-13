@@ -41,7 +41,6 @@ ai:
 
 # 特性开关
 features:
-  autoCompact: true
   telemetry: false
   fileCheckpointing: true
   terminalProgressBar: true

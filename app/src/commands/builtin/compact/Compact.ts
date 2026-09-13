@@ -3,7 +3,10 @@
  * 手动触发对话压缩，减少上下文大小
  *
  * Phase 5: 移除 DefaultContextEngine 死代码引用。
- *   实际压缩由 ChatManager.compactSession → CompactionOrchestrator 完成。
+ * D4 收敛补充（2026-09-13，O34③ 更正）：手动压缩实际走
+ *   ChatManager.compactSession → ContextCompactor.compactSession → CompactServiceImpl.performCompact
+ *   （**第二套实现**，与自动压缩的 CompactionOrchestrator 共用同一把 CompactionLockStore 锁）；
+ *   原文案"由 CompactionOrchestrator 完成"系误述。
  */
 
 import type {
@@ -51,7 +54,7 @@ export class CompactCommand implements Command {
         };
       }
 
-      // 委托 ChatManager.compactSession → CompactionOrchestrator（Tier1/2/3）
+      // 委托 ChatManager.compactSession → ContextCompactor → CompactServiceImpl（O34③ 更正：非 CompactionOrchestrator）
       const artifacts = await chatManager.compactSession(sessionId);
 
       // 构建返回消息

@@ -643,7 +643,6 @@ function SettingsPage() {
                   collapsible
                   features={
                     ((config.features as Record<string, unknown>) || {
-                      autoCompact: true,
                       showTurnDuration: true,
                       fileCheckpointing: true,
                       terminalProgressBar: true,

@@ -497,8 +497,6 @@ const zh = {
     experimental: "实验性功能",
     exportConfig: "导出配置",
     features: "功能开关",
-    featuresAutoCompact: "自动压缩",
-    featuresAutoCompactDesc: "对话过长时自动压缩历史消息",
     featuresCopyFullResponse: "复制完整响应",
     featuresCopyFullResponseDesc: "复制 AI 响应时包含完整内容",
     featuresDesc: "控制实验性功能和模块的启用状态",

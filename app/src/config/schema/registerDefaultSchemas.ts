@@ -246,14 +246,6 @@ function registerNotificationSettings(): void {
 
 function registerFeatureFlags(): void {
   configSchema.registerItem('功能开关', {
-    key: 'features.autoCompact',
-    description: '自动压缩对话历史',
-    type: 'boolean',
-    defaultValue: true,
-    example: true,
-  });
-
-  configSchema.registerItem('功能开关', {
     key: 'features.showTurnDuration',
     description: '显示每轮对话耗时',
     type: 'boolean',

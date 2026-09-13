@@ -507,8 +507,6 @@ const en = {
     experimental: "Experimental Features",
     exportConfig: "Export Config",
     features: "Feature Flags",
-    featuresAutoCompact: "Auto Compact",
-    featuresAutoCompactDesc: "Auto compress conversation history when too long",
     featuresCopyFullResponse: "Copy Full Response",
     featuresCopyFullResponseDesc:
       "Include full content when copying AI response",

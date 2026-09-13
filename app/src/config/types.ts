@@ -188,8 +188,6 @@ export interface NotificationsConfig {
  * 功能开关配置
  */
 export interface FeatureFlags {
-  /** 自动压缩启用 */
-  autoCompact: boolean;
   /** 显示回合持续时间 */
   showTurnDuration: boolean;
   /** 文件检查点启用 */
@@ -466,8 +464,6 @@ export interface GlobalConfig {
   inputNeededNotifEnabled?: boolean;
   /** @deprecated 使用 notifications.agentPushEnabled */
   agentPushNotifEnabled?: boolean;
-  /** @deprecated 使用 features.autoCompact */
-  autoCompactEnabled?: boolean;
   /** @deprecated 使用 features.showTurnDuration */
   showTurnDuration?: boolean;
   /** @deprecated 使用 features.fileCheckpointing */
@@ -528,7 +524,6 @@ export function createDefaultGlobalConfig(): GlobalConfig {
       agentPushEnabled: true,
     },
     features: {
-      autoCompact: true,
       showTurnDuration: true,
       fileCheckpointing: true,
       terminalProgressBar: true,

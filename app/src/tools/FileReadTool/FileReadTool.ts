@@ -171,7 +171,10 @@ import type {
 import { createToolResult } from '../types/ToolResult';
 import { getConverterEngine } from '../../tools/converter/engine/ConverterEngine';
 import { FileTypeDetector } from '../../tools/converter/engine/FileTypeDetector';
-import { checkPathAccessibility } from '../utils/ToolUtils';
+import {
+  checkPathAccessibility,
+  createFailureResult,
+} from '../utils/ToolUtils';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('tools:FileReadTool:FileReadTool');
@@ -291,7 +294,9 @@ export class FileReadTool extends BaseTool {
         const hint = pathCheck.suggestions?.length
           ? `\n建议: ${pathCheck.suggestions.join('; ')}`
           : '';
-        return createToolResult(msg + hint, {
+        // O33① 修复（2026-09-13）：路径不可访问是**失败**。此前走 createToolResult 未置
+        // success:false → HTTP 层 `success ?? true` 判为成功（"伪成功"，与 O32 同型）。
+        return createFailureResult(msg + hint, {
           newMessages: [{ role: 'system', content: `路径不可访问: ${msg}` }],
         });
       }

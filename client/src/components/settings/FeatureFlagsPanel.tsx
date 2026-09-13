@@ -2,7 +2,6 @@ import { useTranslation } from "react-i18next";
 import { ConfigSection, ConfigItem, ToggleConfig } from "./ConfigComponents";
 
 interface FeatureFlags {
-  autoCompact: boolean;
   showTurnDuration: boolean;
   fileCheckpointing: boolean;
   terminalProgressBar: boolean;
@@ -34,11 +33,6 @@ function FeatureFlagsPanel({
     labelKey: string;
     descriptionKey: string;
   }[] = [
-    {
-      key: "autoCompact",
-      labelKey: "settings.featuresAutoCompact",
-      descriptionKey: "settings.featuresAutoCompactDesc",
-    },
     {
       key: "showTurnDuration",
       labelKey: "settings.featuresShowTurnDuration",

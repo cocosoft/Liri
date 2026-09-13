@@ -428,8 +428,6 @@ function mergeWithDefault(parsed: Record<string, unknown>): StartupConfig {
   if (parsed.features && typeof parsed.features === 'object') {
     const f = parsed.features as Record<string, unknown>;
     const c = config as unknown as Record<string, Record<string, unknown>>;
-    if (typeof f.autoCompact === 'boolean')
-      c.features.autoCompact = f.autoCompact;
     if (typeof f.telemetry === 'boolean') c.features.telemetry = f.telemetry;
     if (typeof f.fileCheckpointing === 'boolean')
       c.features.fileCheckpointing = f.fileCheckpointing;

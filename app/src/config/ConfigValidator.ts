@@ -34,12 +34,6 @@ export class ConfigValidator {
       default: 'auto',
     },
     {
-      key: 'autoCompactEnabled',
-      type: 'boolean',
-      required: false,
-      default: true,
-    },
-    {
       key: 'showTurnDuration',
       type: 'boolean',
       required: false,

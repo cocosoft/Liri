@@ -13,8 +13,14 @@ const logger = getLogger('tools:GrepTool:grep');
 // 懒初始化 Rust 原生模块，用于自动检测文件编码
 let nativeReadFile: ((filePath: string) => string) | null = null;
 
+// 是否已尝试初始化（O34⑤ 修复，2026-09-13）：
+// 原判据 `nativeReadFile === undefined` **恒为假**（初值是 `null`）→ 初始化体永不执行 →
+// 原生编码检测（GBK/GB18030）长期未生效，非 UTF-8 文件被按 UTF-8 读成乱码。
+let nativeReadInitialized = false;
+
 function lazyInitNativeRead() {
-  if (nativeReadFile === undefined) {
+  if (!nativeReadInitialized) {
+    nativeReadInitialized = true;
     try {
       const native = require('../../../native');
       if (native && typeof native.readFileWithEncoding === 'function') {

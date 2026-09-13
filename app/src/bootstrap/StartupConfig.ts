@@ -88,8 +88,6 @@ export interface StartupAiConfig {
 
 /** 特性开关配置 */
 export interface StartupFeaturesConfig {
-  /** 自动压缩 */
-  autoCompact?: boolean;
   /** 遥测 */
   telemetry?: boolean;
   /** 文件检查点 */
@@ -143,7 +141,6 @@ export const DEFAULT_STARTUP_CONFIG: StartupConfig = {
     model: '',
   },
   features: {
-    autoCompact: true,
     telemetry: true,
     fileCheckpointing: true,
     terminalProgressBar: true,

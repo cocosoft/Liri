@@ -49,6 +49,9 @@ jobs:
     - name: Run linter
       run: bun run lint
 
+    - name: Check formatting (prettier)
+      run: bun run format:check
+
     - name: "Console usage gate (baseline: 2034)"
       shell: bash
       run: |

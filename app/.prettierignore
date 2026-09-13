@@ -1,0 +1,12 @@
+# Prettier 忽略清单（O48 根因修复，2026-09-13）
+#
+# 目的：排除"非 prettier 管辖"或"不参与门禁"的内容，使 `bun run format:check`
+# 能真实反映"需要格式化的源码"，而不是被无法解析的产物长期拖成红灯。
+
+# 1) Handlebars 文档模板：prettier 的 handlebars 解析器不支持 partial（{{> ...}}），
+#    会直接 SyntaxError（此前导致 format:check 一直 exit 2）。
+#    模板由 doc 模块渲染，其格式不由本仓库的 prettier 约定管辖。
+*.hbs
+
+# 2) 与 .gitignore 对齐：DOCS/ 规则命中的目录（不随版本库分发）不参与格式门禁。
+src/docs/

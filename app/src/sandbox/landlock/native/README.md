@@ -3,13 +3,13 @@
 `app/src/sandbox/landlock/` 的 TS 模块通过本 helper 在 Landlock 域中执行命令。
 源码移植自 deepseek-harness `native/landlock-run`（MIT），扩展至 **MAX_ABI 10**：
 
-| ABI | 本 helper 支持 |
-|-----|----------------|
-| v1-v5 | FS 全位（EXECUTE..IOCTL_DEV），`--ro`/`--rw` |
-| v4 | NET `BIND_TCP`/`CONNECT_TCP`（`--net-connect tcp`） |
-| v6 SCOPE / v7 LOG / v9 RESOLVE_UNIX | **未请求**（当前策略不使用；`scoped`/`resolve` 字段置零） |
-| v8 | `LANDLOCK_RESTRICT_SELF_TSYNC`（`--tsync` 显式请求；单线程 helper 默认 flags=0，见方案 §3.3） |
-| v10 | NET `BIND/CONNECT/SEND/RECV_UDP`（`--net-connect udp`） |
+| ABI                                 | 本 helper 支持                                                                                |
+| ----------------------------------- | --------------------------------------------------------------------------------------------- |
+| v1-v5                               | FS 全位（EXECUTE..IOCTL_DEV），`--ro`/`--rw`                                                  |
+| v4                                  | NET `BIND_TCP`/`CONNECT_TCP`（`--net-connect tcp`）                                           |
+| v6 SCOPE / v7 LOG / v9 RESOLVE_UNIX | **未请求**（当前策略不使用；`scoped`/`resolve` 字段置零）                                     |
+| v8                                  | `LANDLOCK_RESTRICT_SELF_TSYNC`（`--tsync` 显式请求；单线程 helper 默认 flags=0，见方案 §3.3） |
+| v10                                 | NET `BIND/CONNECT/SEND/RECV_UDP`（`--net-connect udp`）                                       |
 
 ## 构建（需 Linux 内核 5.13+ 环境）
 
@@ -20,6 +20,7 @@ cc -static -O2 -o landlock-run main.c
 ```
 
 > **注意**：本文件在 Windows 上无法编译验证。落地步骤见方案 §9.9：
+>
 > 1. Linux 编译 + `--probe` 实测（full/partial 输出）
 > 2. `landlock.e2e.ts` 权限矩阵（read/write/exec deny、partial ABI）
 > 3. partial 归因测试（postmortem 0004：仅 exit 125 判定沙箱初始化失败）

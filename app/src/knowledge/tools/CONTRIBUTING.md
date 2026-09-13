@@ -14,7 +14,12 @@ export class KnowledgeMyTool implements Tool {
   public name: string = 'knowledge_my';
   public description: string = 'My knowledge tool description';
   public params: ToolParam[] = [
-    { name: 'input', type: 'string', description: 'Input parameter', required: true },
+    {
+      name: 'input',
+      type: 'string',
+      description: 'Input parameter',
+      required: true,
+    },
   ];
   public aliases: string[] = [];
   public searchTips: string[] = [];
@@ -23,7 +28,10 @@ export class KnowledgeMyTool implements Tool {
   public isDestructive: () => boolean = () => false;
   public isConcurrencySafe: () => boolean = () => true;
 
-  async execute(input: Record<string, unknown>, _context: ToolUseContext): Promise<ToolResult> {
+  async execute(
+    input: Record<string, unknown>,
+    _context: ToolUseContext
+  ): Promise<ToolResult> {
     const startTime = Date.now();
     return {
       status: ToolExecutionStatus.SUCCESS,
@@ -80,9 +88,12 @@ export function getToolUseSummary(
 
 1. 在 `knowledge/tools/index.ts` 中导出
 2. 在 [ToolUIRegistry.ts](../../components/ui/ToolUIRegistry.ts) 中添加注册：
+
 ```typescript
 try {
   const myUI = require('../../knowledge/tools/KnowledgeMyTool/UI');
   registerToolUI('knowledge_my', myUI);
-} catch (err) { /* optional */ }
+} catch (err) {
+  /* optional */
+}
 ```

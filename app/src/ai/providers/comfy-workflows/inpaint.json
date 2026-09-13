@@ -49,10 +49,15 @@
   },
   "10": {
     "inputs": {
-      "seed": 0, "steps": 25, "cfg": 4.0,
-      "sampler_name": "euler", "scheduler": "normal",
-      "denoise": 0.75, "model": ["1", 0],
-      "positive": ["2", 0], "negative": ["3", 0],
+      "seed": 0,
+      "steps": 25,
+      "cfg": 4.0,
+      "sampler_name": "euler",
+      "scheduler": "normal",
+      "denoise": 0.75,
+      "model": ["1", 0],
+      "positive": ["2", 0],
+      "negative": ["3", 0],
       "latent_image": ["6", 0]
     },
     "class_type": "KSampler",

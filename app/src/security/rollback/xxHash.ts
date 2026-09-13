@@ -54,13 +54,17 @@ export async function xxHash(filePath: string): Promise<string> {
  * 编码文件路径为安全的文件名
  * 使用 xxHash（取前 32 字符）编码路径，避免文件名过长的问题
  *
+ * ⚠️ Windows 文件名非法字符必须一并替换：`:` 会被解析为 **NTFS 备用数据流（ADS）**，
+ * 结果是"实体文件 0 字节 + 内容写进数据流"，`stat` 走流仍报原大小（假象），
+ * 而 `copyFile` 读流直接 ENOENT。该缺陷长期不可见 —— 当时 `saveFileBackup` 零调用（O38）。
+ *
  * @param filePath - 原始文件绝对路径
  * @param prefix - 可选的前缀
  * @returns 编码后的安全文件名（不含路径分隔符）
  */
 export function encodeFilePath(filePath: string, prefix?: string): string {
   const hash = createHash('sha256').update(filePath).digest('hex').slice(0, 32);
-  const baseName = filePath.replace(/[/\\]/g, '_').slice(-50);
+  const baseName = filePath.replace(/[/\\:*?"<>|]/g, '_').slice(-50);
 
   // 在 hash 后附加 md5 后缀双重区分（解决碰撞问题）
   const md5Suffix = createHash('md5')

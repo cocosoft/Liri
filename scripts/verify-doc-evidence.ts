@@ -5,7 +5,7 @@
  * 代码一改这些论断就变成**错误结论**，而文档仍被读者（含 AI）当事实引用。
  * 本脚本把"文档结论必须可复核"从人工纪律升级为**可自动校验的机制**。
  *
- * 用法（工作目录 = 仓库根，或由 PYAPP_PROJECT_DIR 指定）：
+ * 用法（工作目录 = 仓库根，或由 LIRI_PROJECT_DIR 指定）：
  *   bun run scripts/verify-doc-evidence.ts
  *   bun run scripts/verify-doc-evidence.ts --fix-banner     # 对核验失败的文档自动打"已过期"横幅
  *   bun run scripts/verify-doc-evidence.ts --symbols        # 额外校验"行内标识符是否仍在被引文件中"
@@ -104,7 +104,7 @@ const docDirs = pathsArg
       .filter(Boolean)
   : DEFAULT_DOC_DIRS;
 
-const rootDir = (process.env.PYAPP_PROJECT_DIR || process.cwd()).replace(
+const rootDir = (process.env.LIRI_PROJECT_DIR || process.cwd()).replace(
   /\\/g,
   "/",
 );

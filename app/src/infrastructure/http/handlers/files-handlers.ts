@@ -35,11 +35,8 @@ function resolveStorePath(rawPath: string): string {
 
   // 空路径或 "." 表示 LIRI_HOME（~/.pyapp/），展示全目录
   if (!rawPath || rawPath === '.') {
-    return (
-      process.env.LIRI_HOME ||
-      process.env.PYAPP_HOME ||
-      join(require('os').homedir(), '.pyapp')
-    );
+    // O42（2026-09-13）：统一走 core/paths 唯一入口（此前额外兼容读遗留名 PYAPP_HOME）
+    return require('@modules/core/paths').resolvePyappHome();
   }
 
   const firstSegment = rawPath.split(/[/\\]/).filter(Boolean)[0] || rawPath;
@@ -59,7 +56,7 @@ function resolveStorePath(rawPath: string): string {
           return undefined;
         }
       })(),
-    home: process.env.LIRI_HOME || process.env.PYAPP_HOME,
+    home: require('@modules/core/paths').resolvePyappHome(),
   };
 
   const base = ENV_MAP[firstSegment];
@@ -88,7 +85,7 @@ function resolveStorePath(rawPath: string): string {
   // BUG-B 修复：未知前缀的绝对路径拒绝访问，防止目录列表越权
   const fallback = isAbsolute(rawPath) ? rawPath : resolve(rawPath);
   // 仅允许 LIRI_HOME 下的路径（~/.pyapp/）
-  const home = process.env.LIRI_HOME || process.env.PYAPP_HOME;
+  const home = require('@modules/core/paths').resolvePyappHome() as string;
   if (home) {
     const { isPathWithin } = require('@modules/core/paths');
     if (!isPathWithin(home, fallback)) {

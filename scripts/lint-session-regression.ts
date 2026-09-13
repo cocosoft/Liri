@@ -19,8 +19,8 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
 
-const PROJECT_ROOT = process.env.PYAPP_PROJECT_DIR
-  ? join(process.cwd(), process.env.PYAPP_PROJECT_DIR)
+const PROJECT_ROOT = process.env.LIRI_PROJECT_DIR
+  ? join(process.cwd(), process.env.LIRI_PROJECT_DIR)
   : process.cwd();
 
 interface Check {

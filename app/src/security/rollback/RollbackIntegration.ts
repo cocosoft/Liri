@@ -29,11 +29,15 @@
  *   │  1. onRoundStart()                               │
  *   │     └─ FileOperationTracker.recordRoundStart()   │
  *   │                                                  │
- *   │  2. onToolBeforeExecute()  (每工具调用)           │
+ *   │  2. onToolBeforeExecute()  (每文件工具调用)        │
  *   │     └─ FileOperationTracker.beforeToolOperation() │
+ *   │                                                  │
+ *   │  2b. onShellToolBeforeExecute()  (本轮首个 shell)  │
+ *   │     └─ FileOperationTracker.ensureRoundStartSnapshot() │
  *   │                                                  │
  *   │  3. onRoundEnd()                                 │
  *   │     ├─ FileOperationTracker.detectShellSideEffects│
+ *   │     ├─ FileOperationTracker.finalizeRound()      │
  *   │     ├─ SnapshotStorage.createRoundSnapshot()      │
  *   │     └─ SnapshotStorage.updateSessionIndex()       │
  *   └──────────────────────────────────────────────────┘
@@ -153,7 +157,7 @@ export class RollbackIntegration {
     this.tracker.reset();
 
     // 记录轮次开始时的文件系统快照
-    await this.tracker.recordRoundStart(scanPaths);
+    await this.tracker.recordRoundStart(sessionId, roundId, scanPaths);
     this.initialized = true;
 
     logger.info('回滚：轮次开始', { sessionId, roundId, scanPaths });
@@ -178,6 +182,24 @@ export class RollbackIntegration {
   }
 
   /**
+   * 在本轮**首个 shell 工具执行之前**调用（懒快照，O43 留档项「scanPaths 收窄」）
+   *
+   * Shell 副作用检测依赖"轮次起始基线"，而整仓基线扫描实测 5.6s / 85,878 文件 ——
+   * 只有真正要跑 shell 的轮次才需要它。此处把基线建立推迟到首个 shell 工具执行前
+   * （幂等），语义不变：基线仍严格早于任何 shell 命令。
+   */
+  async onShellToolBeforeExecute(): Promise<void> {
+    if (!this.initialized) {
+      logger.warn(
+        'onShellToolBeforeExecute 在 onRoundStart 之前调用，跳过基线快照'
+      );
+      return;
+    }
+
+    await this.tracker.ensureRoundStartSnapshot();
+  }
+
+  /**
    * 轮次结束时调用
    *
    * 执行最终化流程：
@@ -197,7 +219,14 @@ export class RollbackIntegration {
     // Step 1: 检测 Shell 副作用
     const { scanStatus } = await this.tracker.detectShellSideEffects();
 
-    // Step 2: 获取变更列表
+    // Step 2: 轮次收尾（O38 根因修复）—— 写入**轮末**哈希与后置备份
+    // 必须在 getChanges() 之前执行，保证落盘快照里的 hash / afterBackupPath 已是轮末值；
+    // 否则 hash 缺省会让撤销守卫放行，afterBackupPath 缺省会让重做退化回"恢复旧内容"。
+    await this.tracker.finalizeRound(
+      true /* storeAfterVersion = true，支持重做 */
+    );
+
+    // Step 3: 获取变更列表
     const changes = this.tracker.getChanges();
 
     if (changes.length === 0) {
@@ -209,7 +238,7 @@ export class RollbackIntegration {
       return null;
     }
 
-    // Step 3: 创建快照
+    // Step 4: 创建快照
     const snapshot = await createRoundSnapshot(
       this.sessionId,
       this.currentRoundId,
@@ -219,7 +248,7 @@ export class RollbackIntegration {
       true // storeAfterVersion = true（支持重做）
     );
 
-    // Step 4: 更新会话索引
+    // Step 5: 更新会话索引
     const indexEntry: SessionIndexEntry = {
       roundId: this.currentRoundId,
       manifestPath: null, // 不使用索引路径

@@ -26,8 +26,8 @@ afterEach(() => {
 describe('crypto', () => {
   test('encryptPassword + decryptPassword 往返', async () => {
     // 模拟 resolvePyappHome 返回测试目录
-    const originalEnv = process.env['PYAPP_HOME'];
-    process.env['PYAPP_HOME'] = testHome;
+    const originalEnv = process.env['LIRI_HOME'];
+    process.env['LIRI_HOME'] = testHome;
 
     try {
       const { encryptPassword, decryptPassword } = await import('./crypto');
@@ -40,14 +40,14 @@ describe('crypto', () => {
       const decrypted = decryptPassword(cipher);
       expect(decrypted).toBe(plain);
     } finally {
-      if (originalEnv) process.env['PYAPP_HOME'] = originalEnv;
-      else delete process.env['PYAPP_HOME'];
+      if (originalEnv) process.env['LIRI_HOME'] = originalEnv;
+      else delete process.env['LIRI_HOME'];
     }
   });
 
   test('每次加密生成不同密文（IV 随机）', async () => {
-    const originalEnv = process.env['PYAPP_HOME'];
-    process.env['PYAPP_HOME'] = testHome;
+    const originalEnv = process.env['LIRI_HOME'];
+    process.env['LIRI_HOME'] = testHome;
 
     try {
       const { encryptPassword, decryptPassword } = await import('./crypto');
@@ -60,14 +60,14 @@ describe('crypto', () => {
       expect(decryptPassword(c1)).toBe(plain);
       expect(decryptPassword(c2)).toBe(plain);
     } finally {
-      if (originalEnv) process.env['PYAPP_HOME'] = originalEnv;
-      else delete process.env['PYAPP_HOME'];
+      if (originalEnv) process.env['LIRI_HOME'] = originalEnv;
+      else delete process.env['LIRI_HOME'];
     }
   });
 
   test('密钥持久化：第二次调用复用同一密钥', async () => {
-    const originalEnv = process.env['PYAPP_HOME'];
-    process.env['PYAPP_HOME'] = testHome;
+    const originalEnv = process.env['LIRI_HOME'];
+    process.env['LIRI_HOME'] = testHome;
 
     try {
       const mod1 = await import('./crypto');
@@ -80,8 +80,8 @@ describe('crypto', () => {
       const decrypted = mod2.decryptPassword(cipher);
       expect(decrypted).toBe('pwd');
     } finally {
-      if (originalEnv) process.env['PYAPP_HOME'] = originalEnv;
-      else delete process.env['PYAPP_HOME'];
+      if (originalEnv) process.env['LIRI_HOME'] = originalEnv;
+      else delete process.env['LIRI_HOME'];
     }
   });
 });

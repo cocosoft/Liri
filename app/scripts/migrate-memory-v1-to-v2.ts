@@ -18,9 +18,9 @@
 // 提前设置环境变量，避免模块初始化时的循环依赖
 const { homedir } = await import('os');
 const pyappHome = homedir() + '/.pyapp';
-process.env.PYAPP_HOME = pyappHome;
-process.env.PYAPP_DATA_DIR = pyappHome + '/data';
-process.env.PYAPP_PROJECT_DIR = process.cwd();
+process.env.LIRI_HOME = pyappHome;
+process.env.LIRI_DATA_DIR = pyappHome + '/data';
+process.env.LIRI_PROJECT_DIR = process.cwd();
 
 import { join } from 'path';
 import { readFile, copyFile, rename, mkdir, writeFile } from 'fs/promises';

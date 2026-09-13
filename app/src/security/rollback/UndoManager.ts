@@ -600,6 +600,12 @@ export async function executeUndo(
           });
           failures.push(`恢复 ${checkPath} 失败: ${error}`);
         }
+      } else {
+        // O38：无备份即无法还原 —— 必须显式上报。旧实现在此处**无 else**，
+        // 导致"回滚其实没发生"却返回 failures: []，上层（消息回退链路）完全无法感知。
+        failures.push(
+          `恢复 ${checkPath} 失败：快照缺少操作前备份（backupPath 缺失或已被清理）`
+        );
       }
     }
 
@@ -623,6 +629,11 @@ export async function executeUndo(
           });
           failures.push(`回退 ${targetPath} 失败: ${error}`);
         }
+      } else {
+        // O38：同上 —— 无操作前备份时必须显式上报，不得静默跳过
+        failures.push(
+          `回退 ${targetPath} 失败：快照缺少操作前备份（backupPath 缺失或已被清理）`
+        );
       }
     }
 

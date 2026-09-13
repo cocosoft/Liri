@@ -8,9 +8,9 @@ import { randomUUID } from 'crypto';
 import { WakeKind } from '../../../src/tasks/selfwake/types';
 import type { WakeEntry } from '../../../src/tasks/selfwake/types';
 
-// 覆盖 PYAPP_DATA_DIR，避免污染真实数据
+// 覆盖 LIRI_DATA_DIR，避免污染真实数据
 const testDataDir = join(tmpdir(), `cg3-selfwake-test-${randomUUID()}.d`);
-process.env.PYAPP_DATA_DIR = testDataDir;
+process.env.LIRI_DATA_DIR = testDataDir;
 
 // 动态导入：确保 env 在模块初始化前生效
 const { WakeStore } = await import('../../../src/tasks/selfwake/WakeStore');

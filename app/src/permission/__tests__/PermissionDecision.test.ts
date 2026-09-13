@@ -8,6 +8,9 @@
  * "默认放行可观测" 路径必须有断言，防止被静默改回。
  */
 
+// O24 后续（2026-09-13）：补 `bun:test` 导入 —— 本文件此前依赖运行时全局，
+// 而它同时被 `tsconfig.exclude` 排除 → 从未被类型检查（`describe/it/expect` 全报 TS2304/TS2582）。
+import { describe, it, test, expect, afterAll } from 'bun:test';
 import { PermissionManager } from '../PermissionManager';
 import { RuleManager } from '../RuleManager';
 import {

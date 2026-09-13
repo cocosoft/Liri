@@ -106,13 +106,16 @@ openclaw-main/
 # Testing - main test directory
 app/testing/
 
-# Testing - test directories within source code
-app/src/**/__tests__/
-app/src/**/tests/
-
-# Testing - standalone test files within source
-app/src/**/*.test.ts
-app/src/**/*.test.tsx
+# Testing - 源码内测试**不再忽略**（O24/O42 决策，2026-09-13）
+#
+# 依据：项目既有约定是"测试入库"—— `app/tests/**` 已跟踪 212 个测试文件。而此前这几条规则
+# 曾把**源码旁的测试**静默吞掉：`app/src/**/__tests__/` 实测 131 个文件仅 17 个被跟踪
+# （114 个未入库）、`app/src/**/*.test.ts(x)` 另有 25 个。后果有三：
+#   ① 全新 clone / CI **根本不会运行这些测试**（含 Python 插件、CG3 等）；
+#   ② 未入库的测试会腐烂无人察觉（实例：O41 孤儿测试引用已删模块，全量跑才暴露）；
+#   ③ 排查陷阱 —— `Grep` 遵循 gitignore，对**被忽略文件**返回空 ≠ 不存在（O42 踩坑）。
+#
+# 如需放"本地一次性/临时"测试脚本，请用已有的忽略目录（`app/.test_cache/`、`app/testing/`）。
 
 # Testing - test config
 app/.test_config/

@@ -9,8 +9,19 @@
  *  - saveNegotiationState / loadNegotiationState：持久化往返
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
+import {
+  describe,
+  it,
+  expect,
+  beforeEach,
+  afterEach,
+  beforeAll,
+  afterAll,
+} from 'bun:test';
 import * as fs from 'fs';
+import { tmpdir } from 'os';
+import { join } from 'path';
+import { rm } from 'fs/promises';
 import {
   createNegotiationState,
   transition,
@@ -23,6 +34,21 @@ import {
   type NegotiationState,
 } from '../../src/chat/services/NegotiationState.js';
 import type { PendingQuestion } from '../../src/chat/services/DecisionGate.js';
+
+// 数据目录隔离（O36）：本模块经 `resolveDataSubDir('negotiation')` → `resolveDataDir` 解析落盘路径，
+// 只认 `LIRI_DATA_DIR`；此前**完全未隔离** → 直接读写真实 `~/.pyapp/data/negotiation`
+//（受限环境下即报 "hit restricted"，即历史噪音失败之一）。
+const tmpDataDir = join(tmpdir(), `negotiation-test-${Date.now()}`);
+const origDataDir = process.env.LIRI_DATA_DIR;
+beforeAll(() => {
+  process.env.LIRI_DATA_DIR = tmpDataDir;
+});
+afterAll(async () => {
+  if (origDataDir === undefined) delete process.env.LIRI_DATA_DIR;
+  else process.env.LIRI_DATA_DIR = origDataDir;
+  // 清理临时数据目录，避免 %TEMP% 残留
+  await rm(tmpDataDir, { recursive: true, force: true }).catch(() => undefined);
+});
 
 const TEST_SESSION_ID = 'test-negotiation-session';
 

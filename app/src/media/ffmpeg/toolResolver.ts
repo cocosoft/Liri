@@ -42,7 +42,7 @@ function runRoots(): string[] {
     roots.push(path.join(exeDir, '..', 'Resources'));
   }
 
-  const projectRoot = process.env.PYAPP_PROJECT_DIR || process.cwd();
+  const projectRoot = process.env.LIRI_PROJECT_DIR || process.cwd();
   roots.push(projectRoot);
   roots.push(path.join(projectRoot, 'dist'));
   roots.push(path.join(projectRoot, 'app'));

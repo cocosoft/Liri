@@ -16,7 +16,9 @@ if (!sid) {
 }
 
 // 与 EventLogStorage 相同的会话目录解析（default worktree）
-const env: NodeJS.ProcessEnv = { PYAPP_PROJECT_DIR: '' };
+// O42（2026-09-13）：原传**合成 env** `{ PYAPP_PROJECT_DIR: '' }` —— 该名已废弃，
+// 且合成 env 会丢掉 LIRI_DATA_DIR/LIRI_HOME（O37 同族）。改用真实 process.env。
+const env: NodeJS.ProcessEnv = process.env;
 const { resolveSessionsDir } = await import('../src/core/paths');
 const sessionsRoot = path.dirname(resolveSessionsDir(env));
 const filePath = path.join(sessionsRoot, 'default', sid, 'events.jsonl');

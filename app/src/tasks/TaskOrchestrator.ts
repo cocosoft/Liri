@@ -322,6 +322,12 @@ export class TaskOrchestrator {
     };
 
     this.plans.set(planId, plan);
+    // O40 修复（2026-09-13）：新计划必须**同步入 stepIndex**。
+    // 原因：`markStepRunning/Completed/Failed/Cancelled` 一律经 `getPlanByStepId(stepIndex)`
+    // 查计划，查不到就 `return undefined`（静默 no-op，无日志无异常）；而此前只有
+    // `initialize()` 的**磁盘加载**路径建索引，本函数是 `plans` 唯一的非加载写入口
+    // → 本进程内新建计划的 `markStep*` 全部失效（运行时实测：状态恒停留 `pending`）。
+    this.buildStepIndex(plan);
     this.savePlan(plan);
 
     // 发射计划开始事件

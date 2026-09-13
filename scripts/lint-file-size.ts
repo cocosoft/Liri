@@ -2,7 +2,7 @@
  * 巨型文件检查器 (File Size Linter)
  *
  * 在 CI 中运行：bun run scripts/lint-file-size.ts（工作目录 = 仓库根）
- * 本地也可从 app/ 运行：cd app; bun run lint:size（由 PYAPP_PROJECT_DIR 指定仓库根）
+ * 本地也可从 app/ 运行：cd app; bun run lint:size（由 LIRI_PROJECT_DIR 指定仓库根）
  * 检查项目中的巨型文件（>500 行警告，>800 行错误）。
  *
  * 对应 .trae/rules/project_rules.md §6 优化项 E：巨型文件拆分。
@@ -94,11 +94,11 @@ function countLines(filePath: string): number {
 // ============ 主流程 ============
 
 async function main(): Promise<void> {
-    // 根目录解析：优先 PYAPP_PROJECT_DIR（与 lint-architecture.ts 同源），否则用 cwd。
+    // 根目录解析：优先 LIRI_PROJECT_DIR（与 lint-architecture.ts 同源），否则用 cwd。
     // 修复（O19）：此前写死 `process.cwd()`，而 app/package.json 的 lint:size 从 app/ 目录
     // 调用 → 去找 `app/app/src`、三个目录全不存在 → 逐个"跳过"后报"未发现巨型文件"并 exit 0，
     // 门禁长期空转（假绿）。
-    const rootDir = process.env.PYAPP_PROJECT_DIR || process.cwd();
+    const rootDir = process.env.LIRI_PROJECT_DIR || process.cwd();
     const fileSizeExceptions = loadFileSizeExceptions();
     const srcDirs = [
         join(rootDir, 'app', 'src'),
@@ -154,7 +154,7 @@ async function main(): Promise<void> {
             `未找到任何待检查目录（项目根目录 = ${rootDir}）：` +
                 srcDirs.map((d) => relative(rootDir, d)).join(' / ')
         );
-        console.error('请在仓库根运行，或设置 PYAPP_PROJECT_DIR 指向仓库根。');
+        console.error('请在仓库根运行，或设置 LIRI_PROJECT_DIR 指向仓库根。');
         process.exit(2);
     }
 

@@ -272,6 +272,20 @@ export interface EscalationRecord {
   defects: string[];
 }
 
+/**
+ * 步骤决策合法值（O39 修复，2026-09-13）
+ *
+ * 校验**收口在 `decideStep`** —— HTTP handler 把请求体 `decision` 直接透传进来
+ * （`pdca-handlers.ts` 无校验），而 `decideStep` 的 switch 无 `default` 分支，
+ * 非法值此前会被静默写入 `step.decision`，其余逻辑一概不执行。
+ */
+const REVIEW_DECISIONS: ReadonlySet<string> = new Set<ReviewDecision>([
+  'approved',
+  'retry',
+  'skip',
+  'escalate',
+]);
+
 export class LongRunningTaskOrchestrator {
   private taskId: string;
   private planId: string | null = null;
@@ -1378,10 +1392,32 @@ ${replanSection}
   async decideStep(stepId: string, decision: ReviewDecision): Promise<void> {
     throwIfAborted(this.isolation);
     if (!this.planId) throw new Error('No plan created');
+    if (!REVIEW_DECISIONS.has(decision)) {
+      // O39（2026-09-13）：唯一入口校验，防止非法值被写入并被持久化
+      throw new AppError(
+        `非法的步骤决策：${String(decision)}（合法值：approved / retry / skip / escalate）`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        'PDCA_INVALID_DECISION'
+      );
+    }
 
     const plan = taskOrchestrator.getPlan(this.planId)!;
     const step = plan.steps.find((s) => s.id === stepId);
     if (!step) throw new Error(`Step not found: ${stepId}`);
+
+    // O39②：同一决策重复提交 → 幂等空操作
+    // 此前会重复走一遍 switch 并再记一条生命周期（如两条 "Approved: ..."）。
+    // 注意：`retry` 分支自身会把 decision 重置为 undefined，故"再次重试"不会被此处拦截（语义正确）。
+    if (step.decision === decision) {
+      logger.warn('[orchestrator] 步骤决策重复提交，已忽略（幂等）', {
+        taskId: this.taskId,
+        planId: this.planId,
+        stepId: step.id,
+        decision,
+      });
+      return;
+    }
 
     const otel = getOTelTracing();
     const span = otel.startSpan('pdca.decide', {
@@ -1479,6 +1515,12 @@ ${replanSection}
           this._recordEscalation(step);
           break;
       }
+
+      // O39①：决策必须落盘 —— 此前 decideStep 只改内存，进程重启即丢失（D7 运行时实验证实）
+      // 双写：① checkpoint 是跨重启恢复的事实来源（resumeFromCheckpoint 读 ck.steps[].decision）；
+      //      ② 计划文件与 markStep* 的持久化行为对齐，避免两处持久化表示互相不一致。
+      this._persistCheckpoint();
+      taskOrchestrator['savePlan']?.(plan);
 
       otel.endSpan(span, SpanStatusCode.OK);
     } catch (e) {

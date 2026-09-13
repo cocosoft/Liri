@@ -1,5 +1,5 @@
 {
-  "note": "R12-001 Agent 能力回归门禁基线（v1，2026-09-12）。**刻意不绑定模型名**（模型名不得硬编码，见 .trae/rules/model-usage.md）；按模型分档时用 `--baseline=<path>` 指定另一份。所有阈值以实测为准：2026-09-12 全量 9/9 通过（见计划 §D2/§D9 实施与验证）。安全成对任务（D9）当前为 k=1 实测（ASR 0% / benign 100%）；若出现波动，应先以 k≥4 复测再调整阈值，不得直接放宽。",
+  "note": "R12-001 Agent 能力回归门禁基线（v1，2026-09-12；2026-09-13 以 k=4 复测确认，阈值未调整）。**刻意不绑定模型名**（模型名不得硬编码，见 .trae/rules/model-usage.md）；按模型分档时用 `--baseline=<path>` 指定另一份。所有阈值以实测为准：2026-09-12 全量 9/9 通过；2026-09-13 k=4 实测（15 题 × 4 次）pass^k 15/15、pass^1 100%、判分器自检通过，安全成对任务（D9）ASR 0% / benign utility 100%，满足本文件全部阈值（报告 dev_docs/evals/eval-2026-09-13T05-21-41-199Z.md）。若出现波动，应先以 k≥4 复测再调整阈值，不得直接放宽。",
   "requireJudgeSanity": true,
   "tasks": {
     "file-create": { "requirePassK": true, "minPass1": 1 },

@@ -15,12 +15,12 @@ const calDir = path.join(testHome, 'office', 'calendars');
 beforeEach(() => {
   if (fs.existsSync(testHome)) fs.rmSync(testHome, { recursive: true });
   fs.mkdirSync(testHome, { recursive: true });
-  process.env['PYAPP_HOME'] = testHome;
+  process.env['LIRI_HOME'] = testHome;
 });
 
 afterEach(() => {
   if (fs.existsSync(testHome)) fs.rmSync(testHome, { recursive: true });
-  delete process.env['PYAPP_HOME'];
+  delete process.env['LIRI_HOME'];
 });
 
 describe('CalendarTool', () => {

@@ -13,10 +13,11 @@ import { configManager } from '@modules/config';
 
 /** 获取数据子目录路径 */
 export function cg3DataDir(sub: string): string {
+  // O42（2026-09-13）：删除遗留名 `PYAPP_DATA_DIR` 分支。
+  // 它是无人文档化的"隐藏首选覆盖"，与真实入口 `LIRI_DATA_DIR` 双名并存 ——
+  // 测试若设旧名会误以为已隔离（实际只有 CG3 模块读它），排查成本高。
   const base =
-    process.env.PYAPP_DATA_DIR ||
-    configManager.env('LIRI_DATA_DIR') ||
-    join(homedir(), '.pyapp', 'data');
+    configManager.env('LIRI_DATA_DIR') || join(homedir(), '.pyapp', 'data');
   const dir = join(base, sub);
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
   return dir;

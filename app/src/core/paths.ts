@@ -230,13 +230,15 @@ export function resolveLegacySessionsDir(
 /**
  * 计算当前项目根目录的 worktree hash
  * 对标 BA_REF sessionStorage.ts 的 worktree 感知存储隔离。
- * 通过 PYAPP_PROJECT_DIR 环境变量获取项目目录，SHA256 前 8 位作为 hash。
+ * 通过 LIRI_PROJECT_DIR 环境变量获取项目目录，SHA256 前 8 位作为 hash。
+ * （O42，2026-09-13：原读**遗留名** PYAPP_PROJECT_DIR，而入口只设 LIRI_PROJECT_DIR
+ *  → 该项目哈希长期恒为 'default'，worktree 隔离静默失效）
  * 若环境变量未设置，返回 'default' 表示非 worktree 模式。
  */
 export function resolveWorktreeHash(
   env: NodeJS.ProcessEnv = process.env
 ): string {
-  const projectDir = env.PYAPP_PROJECT_DIR;
+  const projectDir = env[ENV_LIRI_PROJECT_DIR];
   if (!projectDir) return 'default';
 
   const { createHash } = require('crypto');

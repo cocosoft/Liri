@@ -20,8 +20,8 @@ import { homedir } from 'os';
 import { join } from 'path';
 import { existsSync } from 'fs';
 
-const dbPath = process.env.PYAPP_DATA_DIR
-  ? join(process.env.PYAPP_DATA_DIR, 'app.db')
+const dbPath = process.env.LIRI_DATA_DIR
+  ? join(process.env.LIRI_DATA_DIR, 'app.db')
   : join(homedir(), '.pyapp', 'data', 'app.db');
 
 const args = process.argv.slice(2);

@@ -5,22 +5,28 @@
 import { describe, it, expect, beforeAll, afterAll } from 'bun:test';
 import { tmpdir } from 'os';
 import { join } from 'path';
+import { rm } from 'fs/promises';
 import {
   prepareToolResultsForContext,
   SINGLE_RESULT_LIMIT_CHARS,
   PREVIEW_CHARS,
 } from '../../src/tools/services/ToolResultPersister';
 
-// 用 PYAPP_DATA_DIR 指向临时目录，避免污染 ~/.pyapp/data/
+// ⚠️ 隔离必须用 **LIRI_DATA_DIR**（O36）：被测代码走 `resolveDataSubDir` → `resolveDataDir`，
+// 而它只认 `LIRI_DATA_DIR`（ENV 常量见 core/paths.ts:36）。此前写的是 `PYAPP_DATA_DIR`
+// —— 该名在 src 中仅 `cg3Env.ts` 读取 → 本测试的"避免污染 ~/.pyapp/data/"**从未生效**，
+// 实际一直写真实数据目录（受限环境下即 EPERM 失败，即历史 4 条噪音失败之一）。
 const tmpDataDir = join(tmpdir(), `tool-result-test-${Date.now()}`);
-const origDataDir = process.env.PYAPP_DATA_DIR;
+const origDataDir = process.env.LIRI_DATA_DIR;
 
 beforeAll(() => {
-  process.env.PYAPP_DATA_DIR = tmpDataDir;
+  process.env.LIRI_DATA_DIR = tmpDataDir;
 });
-afterAll(() => {
-  if (origDataDir === undefined) delete process.env.PYAPP_DATA_DIR;
-  else process.env.PYAPP_DATA_DIR = origDataDir;
+afterAll(async () => {
+  if (origDataDir === undefined) delete process.env.LIRI_DATA_DIR;
+  else process.env.LIRI_DATA_DIR = origDataDir;
+  // 清理临时数据目录，避免 %TEMP% 残留
+  await rm(tmpDataDir, { recursive: true, force: true }).catch(() => undefined);
 });
 
 function makeResult(id: string, content: string) {

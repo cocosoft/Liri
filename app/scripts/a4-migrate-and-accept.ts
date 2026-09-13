@@ -14,9 +14,9 @@ if (!globalThis._logger_init_flag) {
 }
 
 // ── 环境变量初始化（pyapp.ts 同款最简子集），让 resolve* 正常工作 ──
-if (!process.env.PYAPP_HOME) process.env.PYAPP_HOME = join(homedir(), '.pyapp');
-if (!process.env.PYAPP_DATA_DIR) process.env.PYAPP_DATA_DIR = join(process.env.PYAPP_HOME, 'data');
-if (!process.env.PYAPP_PROJECT_DIR) process.env.PYAPP_PROJECT_DIR = 'E:\\PY\\Documents\\CODES\\PY_APP';
+if (!process.env.LIRI_HOME) process.env.LIRI_HOME = join(homedir(), '.pyapp');
+if (!process.env.LIRI_DATA_DIR) process.env.LIRI_DATA_DIR = join(process.env.LIRI_HOME, 'data');
+if (!process.env.LIRI_PROJECT_DIR) process.env.LIRI_PROJECT_DIR = 'E:\\PY\\Documents\\CODES\\PY_APP';
 
 const sessionsRoot = dirname(resolveSessionsDir(process.env));
 const defaultDir = join(sessionsRoot, 'default');

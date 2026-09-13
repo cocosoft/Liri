@@ -158,15 +158,16 @@ export class ContextManager {
   }
 
   private setupFileWatchers(): void {
-    // BUG-K fix: use PYAPP_PROJECT_DIR instead of process.cwd()-relative path
+    // BUG-K fix: use LIRI_PROJECT_DIR instead of process.cwd()-relative path
+    // （O42，2026-09-13：原读遗留名 PYAPP_PROJECT_DIR，而入口只设 LIRI_PROJECT_DIR → 长期静默回落 cwd）
     const gitPath = path.resolve(
-      process.env.PYAPP_PROJECT_DIR || process.cwd(),
+      process.env.LIRI_PROJECT_DIR || process.cwd(),
       '.git'
     );
     this.cacheService.watchDirectory(gitPath, [ContextCacheKeys.GIT_STATUS]);
 
     const userContextPath = path.resolve(
-      process.env.PYAPP_PROJECT_DIR || process.cwd(),
+      process.env.LIRI_PROJECT_DIR || process.cwd(),
       'Liri.md'
     );
     this.cacheService.watchFile(userContextPath, [

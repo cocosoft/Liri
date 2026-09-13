@@ -12,8 +12,8 @@
 import { readdirSync, readFileSync, existsSync, writeFileSync, mkdirSync } from "node:fs";
 import { join, relative, dirname } from "node:path";
 
-// 解析项目根：优先使用环境变量 PYAPP_PROJECT_DIR（与 lint 脚本约定一致），其次取 cwd
-const PROJECT_DIR = process.env.PYAPP_PROJECT_DIR || process.cwd();
+// 解析项目根：优先使用环境变量 LIRI_PROJECT_DIR（与 lint 脚本约定一致），其次取 cwd
+const PROJECT_DIR = process.env.LIRI_PROJECT_DIR || process.cwd();
 const SRC_PATH = join(PROJECT_DIR, "app", "src");
 const REPORT_DIR = join(PROJECT_DIR, "dev_docs");
 const REPORT_FILE = join(REPORT_DIR, "architecture-health.json");

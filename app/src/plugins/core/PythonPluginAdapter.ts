@@ -411,7 +411,7 @@ export class PythonPluginAdapter {
 
 /** vendored liri-sdk 目录（PY-3 vendored 定位：PYTHONPATH 注入用） */
 function resolveVendoredSdkDir(): string {
-  const projectDir = process.env.PYAPP_PROJECT_DIR || process.cwd();
+  const projectDir = process.env.LIRI_PROJECT_DIR || process.cwd();
   return join(projectDir, 'app', 'src', 'ai', 'python', 'sdk');
 }
 

@@ -31,7 +31,7 @@ const INSTANCE_IDLE_TTL_MS = 15 * 60 * 1000;
 function isValidImagePath(filePath: string): boolean {
   const resolved = path.resolve(filePath);
   const pyappHome = resolvePyappHome();
-  const projectDir = process.env.PYAPP_PROJECT_DIR || process.cwd();
+  const projectDir = process.env.LIRI_PROJECT_DIR || process.cwd();
 
   // 允许 ~/.pyapp/ 下的路径
   if (resolved.startsWith(pyappHome)) return true;

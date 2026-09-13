@@ -3,6 +3,8 @@
  * 测试沙箱约束和安全检查功能
  */
 
+// O24 后续（2026-09-13）：补 `bun:test` 导入（本文件此前依赖运行时全局，且被 tsconfig 排除 → 从未类型检查）
+import { describe, it, test, expect, beforeEach } from 'bun:test';
 import { SandboxManager } from '../SandboxManager';
 import { checkDangerousCommand } from '../utils/DangerousCommandChecker';
 import { validatePathSafety, checkPathAccess } from '../utils/PathRestrictions';

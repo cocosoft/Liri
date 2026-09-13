@@ -1164,10 +1164,10 @@ class ArchitectureLinter {
         // 白名单：允许直接访问的 process.env 变量
         const whitelist = new Set([
             'NODE_ENV',
-            'PYAPP_PROJECT_DIR',
-            'PYAPP_LOG_LEVEL',
-            'PYAPP_CONFIG_DIR',
-            'PYAPP_DATA_DIR',
+            // O42（2026-09-13）：遗留名 PYAPP_* 收敛为 canonical LIRI_*。
+            // 其中 PYAPP_LOG_LEVEL / PYAPP_CONFIG_DIR / PYAPP_DATA_DIR 为**死条目**
+            // （src 中已无任何读取点）→ 删除后 R05-012 恢复对它们的拦截能力。
+            'LIRI_PROJECT_DIR',
             'HOME',
             'USERPROFILE',
             'PATH',
@@ -2710,13 +2710,13 @@ function checkFrontendStoreSubscription(projectDir: string): RuleViolation[] {
 }
 
 async function main(): Promise<void> {
-    // 解析 src 路径：优先使用环境变量 PYAPP_PROJECT_DIR，其次是 cwd
-    const projectDir = process.env.PYAPP_PROJECT_DIR || process.cwd();
+    // 解析 src 路径：优先使用环境变量 LIRI_PROJECT_DIR，其次是 cwd
+    const projectDir = process.env.LIRI_PROJECT_DIR || process.cwd();
     const srcPath = resolve(projectDir, 'app', 'src');
 
     if (!existsSync(srcPath)) {
         console.error(`错误: 找不到 src 目录: ${srcPath}`);
-        console.error('请在项目根目录运行或设置 PYAPP_PROJECT_DIR 环境变量');
+        console.error('请在项目根目录运行或设置 LIRI_PROJECT_DIR 环境变量');
         process.exit(2);
     }
 

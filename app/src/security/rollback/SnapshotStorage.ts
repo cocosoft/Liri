@@ -187,15 +187,21 @@ async function loadManifest(
 
 /**
  * 保存文件备份
+ *
+ * @param prefix 备份用途前缀：`backup` = 操作前（撤销来源）；`after` = 操作后（重做来源）。
+ *   **必须区分**：两者对同一路径的文件名（`encodeFilePath`）若同前缀会互相覆盖 —— O38 根因之一。
  */
 async function saveFileBackup(
   sessionId: string,
   roundId: number,
   filePath: string,
-  content: Buffer
+  content: Buffer,
+  prefix: 'backup' | 'after' = 'backup'
 ): Promise<string> {
+  // 备份可能在"操作前"（早于 createRoundSnapshot）写入，此处自建目录，避免依赖调用顺序
+  await ensureSnapshotDirs(sessionId, roundId);
   const backupsDir = getBackupsDir(sessionId, roundId);
-  const encodedName = encodeFilePath(filePath, 'backup');
+  const encodedName = encodeFilePath(filePath, prefix);
   const backupPath = join(backupsDir, encodedName);
 
   await writeFile(backupPath, content);

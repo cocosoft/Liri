@@ -93,8 +93,8 @@ async function fetchToolCalls(
   }
 }
 
-/** 跑一次流式对话，收集文本与用量 */
-async function streamChat(
+/** 跑一次流式对话，收集文本与用量（导出供取流契约回归测试使用） */
+export async function streamChat(
   baseUrl: string,
   sessionId: string,
   model: string,
@@ -123,6 +123,11 @@ async function streamChat(
   let promptTokens: number | undefined;
   let completionTokens: number | undefined;
 
+  // O43 次生项加固（2026-09-13）：`[DONE]` 是 SSE 的"流已结束"契约，收到即应停止取流。
+  // 此前只 `continue` 不退出 → 后端若发完终止标记却不关连接，这里会一直读到期超时，
+  // 表现为"评测挂住"（与真实根因 O43 叠加时无法区分，故单独加固）。
+  let sawDone = false;
+
   for (;;) {
     const { value, done } = await reader.read();
     if (done) break;
@@ -132,7 +137,11 @@ async function streamChat(
     for (const line of lines) {
       if (!line.startsWith('data:')) continue;
       const payload = line.slice(5).trim();
-      if (!payload || payload === '[DONE]') continue;
+      if (payload === '[DONE]') {
+        sawDone = true;
+        continue;
+      }
+      if (!payload) continue;
       let chunk: Record<string, unknown>;
       try {
         chunk = JSON.parse(payload) as Record<string, unknown>;
@@ -151,6 +160,14 @@ async function streamChat(
         completionTokens = usage.completion_tokens;
       }
     }
+    // 批次处理完再退出：usage 分片写在 `[DONE]` **之前**（chat-handlers.ts:826 → :843），
+    // 同批解析完毕即不会丢用量。
+    if (sawDone) break;
+  }
+
+  if (sawDone) {
+    // @ignore-catch — 服务端可能已关闭连接，取消剩余读取失败不影响已取到的结果
+    await reader.cancel().catch(() => {});
   }
 
   const toolCalls = await fetchToolCalls(baseUrl, sessionId);
@@ -237,7 +254,12 @@ export async function runTask(
       );
     } catch (err) {
       error = err instanceof Error ? err.message : String(err);
-      assertion = { pass: false, reason: `执行异常：${error}` };
+      // 补上下文（2026-09-13）：此前只报 "执行异常：The operation timed out."，不含模型/端点，
+      // 遇到"端点不可达/模型 id 不被上游接受"时无法定位（本轮 k≥4 采集即卡在此处）。
+      assertion = {
+        pass: false,
+        reason: `执行异常：${error}（模型=${opts.model} ｜ 后端=${sandbox.baseUrl}）`,
+      };
     }
 
     const asExpected = isAsExpected(task, assertion);

@@ -14,7 +14,7 @@ import { JsonRpcBridge } from './JsonRpcBridge';
 
 /** 解析 vision_worker.py 路径（兼容开发与编译两种模式） */
 function resolveVisionWorkerScript(): string {
-  const projectDir = process.env.PYAPP_PROJECT_DIR || process.cwd();
+  const projectDir = process.env.LIRI_PROJECT_DIR || process.cwd();
   return path.resolve(
     projectDir,
     'app',

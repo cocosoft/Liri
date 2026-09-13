@@ -77,6 +77,15 @@ export interface FileChange {
 
   /** renamed/moved 操作的新路径 */
   newPath?: string;
+
+  /**
+   * 变更来源（O43 根因修复，2026-09-13）：
+   * - `tool`：工具执行登记（`beforeToolOperation`）—— 有操作前备份，**可撤销/重做**；
+   *   轮末做哈希 + 后置备份。
+   * - `scan`：Shell 副作用扫描发现（`detectShellSideEffects`）—— **无操作前备份、本就无法精确恢复**；
+   *   **不做**逐份后置备份（此前对全仓扫描结果逐份复制 → 单轮数千文件 / GB 级 I/O，收尾永不完成）。
+   */
+  source?: 'tool' | 'scan';
 }
 
 /**

@@ -24,7 +24,11 @@ import { convergenceDetector } from '../services/ConvergenceDetector.js';
 import { eventNotificationService } from '../services/EventNotificationService.js';
 import { toolResultRegistry } from '../../tool/ToolResultRegistry.js';
 import { resolveDataDir, resolveProjectRoot } from '@modules/core/paths';
-import { FILE_WRITE_TOOL_NAME, FILE_EDIT_TOOL_NAME } from '@modules/constants';
+import {
+  FILE_WRITE_TOOL_NAME,
+  FILE_EDIT_TOOL_NAME,
+  isShellToolName,
+} from '@modules/constants';
 import { withToolTimeout } from './ToolTimeoutWrapper.js';
 import {
   createFileStateCacheWithSizeLimit,
@@ -438,13 +442,18 @@ export class ToolExecutionService {
         );
         if (integration) {
           const op: FileOperation = { path: filePath, type: 'modified' };
-          integration.onToolBeforeExecute(op).catch((err) => {
+          // ⚠️ 必须 await（O38 根因修复 2026-09-12）：该钩子内部要落盘"操作前备份"。
+          // 原实现是 fire-and-forget，工具会先执行 → 备份捕获到**改写后**内容 →
+          // 撤销把"改后内容"当作"改前内容"还原（静默错误，比不还原更糟）。
+          try {
+            await integration.onToolBeforeExecute(op);
+          } catch (err) {
             logger.warn('回滚：文件操作前追踪失败', { error: String(err) });
-            handleError(err, {
+            await handleError(err, {
               module: 'chat:toolExecution',
               action: 'rollback:onToolBeforeExecute',
-            }).catch(() => {});
-          });
+            });
+          }
         }
 
         this.deps.sessionGateway
@@ -471,6 +480,30 @@ export class ToolExecutionService {
           .catch(() => {
             // 非关键路径
           });
+      }
+    }
+
+    // ── 回滚：Shell 工具执行前（懒快照，O43 留档项「scanPaths 收窄」，2026-09-13）──
+    // 轮次基线快照**只服务于** shell 副作用检测（detectShellSideEffects），而整仓扫描
+    // 实测 85,878 文件 / 5.6s；此前任何写工具轮次都要先付这笔成本，绝大多数轮次却从不
+    // 执行 shell。改为在本轮首个 shell 工具执行前才建立基线（幂等），语义不变：
+    // 基线仍严格早于任何 shell 命令。
+    if (isShellToolName(normalizedToolCall.name) && toolCall.sessionId) {
+      const shellIntegration = this.deps.rollbackIntegrations.get(
+        toolCall.sessionId
+      );
+      if (shellIntegration) {
+        try {
+          await shellIntegration.onShellToolBeforeExecute();
+        } catch (err) {
+          logger.warn('回滚：Shell 工具前建立基线快照失败', {
+            error: String(err),
+          });
+          await handleError(err, {
+            module: 'chat:toolExecution',
+            action: 'rollback:onShellToolBeforeExecute',
+          });
+        }
       }
     }
 

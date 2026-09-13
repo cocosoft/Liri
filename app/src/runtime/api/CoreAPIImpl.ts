@@ -2497,6 +2497,9 @@ export class CoreAPIImpl implements CoreAPI {
       description: params.description,
       prompt: params.prompt,
       subagentType: params.subagentType,
+      // O45 修复（2026-09-13）：此前 model 被静默丢弃（CoordinatorTask 无该字段），
+      // 导致调用方"指定模型"无效、任务静默落到别的模型。
+      model: params.model,
     });
 
     if (!params.runInBackground) {

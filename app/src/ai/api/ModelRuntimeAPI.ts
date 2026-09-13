@@ -593,6 +593,10 @@ export async function handleSaveTasks(
     const body = (await parseBody(req)) as Record<string, unknown>;
     const { modelRouter } = await import('../modelRouter.js');
     await modelRouter.setTasks(body);
+    // O46 修复 v2（2026-09-13）：本接口是**用户显式保存**入口 → 打来源标记。
+    // 自动发现（runAutoDiscover）只调 setTasks、不调本方法，故自动填充的条目
+    // 不会被误当作"用户显式意图"压过智能路由。
+    await modelRouter.markTasksExplicit(Object.keys(body));
     // KB-TASK-FIX（2026-08-28）：任务分工变更后刷新运行时缓存——
     // 原实现只写 DB + _taskCache，resolveAsync 的 UUID 兜底走 ModelPricingService
     // 内存缓存（未刷新则查不到新 UUID → 返回空 → 调用方回退默认 provider，

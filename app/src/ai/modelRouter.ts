@@ -1188,6 +1188,35 @@ export class ModelRouter {
   }
 
   /**
+   * 用户**显式**设置过的任务类型（来源标记，O46 修复 v2）
+   *
+   * 为什么需要：`runAutoDiscover()` 会**自动填充**分工表（`default/chat/coding/agent/…` 共 9 类），
+   * 若仅凭"表里有条目"就当作"用户显式意图"，智能路由会被静默大面积绕过（O46 语义核对时发现）。
+   * 故把"用户显式保存"与"系统自动填充"分开记录：**只有本集合内的 key** 才优先于 SmartRouter。
+   * 持久化位置：`config.json` 的 `models.taskOverrides`。
+   */
+  async getExplicitTaskKeys(): Promise<string[]> {
+    try {
+      const { configManager } = await import('@modules/config');
+      const keys = configManager.getConfigValue<string[]>(
+        'models.taskOverrides'
+      );
+      return Array.isArray(keys) ? keys : [];
+    } catch {
+      // @ignore-catch 标记读取失败按"无显式配置"处理（退回智能路由），不阻断路由
+      return [];
+    }
+  }
+
+  /** 记录用户显式保存过的任务类型（仅由用户保存入口调用，自动发现**不**调用） */
+  async markTasksExplicit(keys: string[]): Promise<void> {
+    if (keys.length === 0) return;
+    const { configManager } = await import('@modules/config');
+    const merged = new Set([...(await this.getExplicitTaskKeys()), ...keys]);
+    configManager.setConfigValue('models.taskOverrides', [...merged]);
+  }
+
+  /**
    * 保存任务分工配置（持久化到 DB + 更新内存缓存）
    */
   async setTasks(tasks: TaskModelConfig): Promise<void> {

@@ -141,6 +141,17 @@ import {
   getAgentRegistry,
   agentRegistry,
 } from './registry/AgentRegistry';
+
+// A2A 互操作（D3，2026-09-13）：Agent Card 映射 + 任务存取 + 协议类型。
+// 经 barrel 暴露，供 infrastructure 侧（HTTP handler）按模块出口单一规则消费。
+export {
+  A2A_PROTOCOL_VERSION,
+  buildAgentCard,
+  computeAgentCardEtag,
+  computeAgentCardVersion,
+} from './a2a/agentCard.js';
+export { A2ATaskStore, a2aTaskStore } from './a2a/taskStore.js';
+export * from './a2a/types.js';
 import type {
   AgentDefinition,
   DiscoverCriteria,

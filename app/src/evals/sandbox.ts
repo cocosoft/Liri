@@ -32,6 +32,7 @@
  * 因此任务提示词必须使用工作区的绝对路径（见 `types.ts` 的 `prompt` 说明）。
  */
 
+import { readFileSync, writeFileSync } from 'node:fs';
 import { spawn, type ChildProcess } from 'node:child_process';
 import {
   createWriteStream,
@@ -61,6 +62,31 @@ export interface EvalSandbox {
   /** 是否带入了真实凭据文件（决定能否真正调用模型） */
   hasCredentials: boolean;
   stop: () => Promise<void>;
+}
+
+/** 深合并纯对象（数组/标量直接覆盖）：用于把 configOverrides 叠加到真实配置上 */
+function deepMerge(
+  base: Record<string, unknown>,
+  patch: Record<string, unknown>
+): Record<string, unknown> {
+  const out: Record<string, unknown> = { ...base };
+  for (const [key, value] of Object.entries(patch)) {
+    const prev = out[key];
+    const bothPlainObjects =
+      typeof prev === 'object' &&
+      prev !== null &&
+      !Array.isArray(prev) &&
+      typeof value === 'object' &&
+      value !== null &&
+      !Array.isArray(value);
+    out[key] = bothPlainObjects
+      ? deepMerge(
+          prev as Record<string, unknown>,
+          value as Record<string, unknown>
+        )
+      : value;
+  }
+  return out;
 }
 
 /** 取一个空闲端口（向系统申请 port 0 后立即释放） */
@@ -145,6 +171,14 @@ export async function createSandbox(opts: {
   realDbPath: string;
   /** 真实 pyapp 根（用于带入凭据文件） */
   realHome: string;
+  /**
+   * 配置覆盖（可选）：深合并进隔离 HOME 的 `config.json`，**在 spawn 之前**写入。
+   *
+   * 为什么需要：部分组件在**构造时**读取配置（如 SmartRouter ← `config.json` 的
+   * `models.router`，见 `main.ts` 的 `new SmartRouter({config})`），沙箱若不带配置，
+   * 其"配置态"与用户真实行为不一致，验证结论会失真。
+   */
+  configOverrides?: Record<string, unknown>;
 }): Promise<EvalSandbox> {
   const root = mkdtempSync(join(tmpdir(), 'liri-eval-'));
   const home = join(root, 'home');
@@ -170,6 +204,33 @@ export async function createSandbox(opts: {
       // @ignore-catch: Windows 下 chmod 可能无效，不影响功能
     }
     hasCredentials = true;
+  }
+
+  // config.json：带入真实配置（存在时）并应用调用方覆盖。
+  // ⚠️ 必须早于 spawn —— SmartRouter 等组件在构造时即读取配置。
+  const sandboxConfigPath = join(home, 'config.json');
+  const realConfigPath = join(opts.realHome, 'config.json');
+  if (existsSync(realConfigPath)) {
+    copyFileSync(realConfigPath, sandboxConfigPath);
+  }
+  if (opts.configOverrides) {
+    let base: Record<string, unknown> = {};
+    if (existsSync(sandboxConfigPath)) {
+      try {
+        base = JSON.parse(readFileSync(sandboxConfigPath, 'utf-8')) as Record<
+          string,
+          unknown
+        >;
+      } catch {
+        // @ignore-catch 配置不可解析时以覆盖内容为准（沙箱内无副作用）
+        base = {};
+      }
+    }
+    writeFileSync(
+      sandboxConfigPath,
+      JSON.stringify(deepMerge(base, opts.configOverrides), null, 2),
+      'utf-8'
+    );
   }
 
   const port = await pickFreePort();

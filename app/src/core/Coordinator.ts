@@ -15,6 +15,14 @@ export interface CoordinatorTask {
   description: string;
   prompt: string;
   subagentType?: string;
+  /**
+   * 指定模型（可选）。
+   *
+   * O45 修复（2026-09-13）：此前 `CoreAPIImpl.executeAgentTask` 收到 `model` 却无处安放
+   * （本接口无该字段）→ 调用方"能指定模型"是假能力。现补齐并透传到 `AgentTool.execute`，
+   * 由 `SubAgentEngine.callLLM` 的显式 model 分支消费。
+   */
+  model?: string;
   priority?: number; // 任务优先级，数字越大优先级越高
   status:
     | 'pending'
@@ -235,6 +243,8 @@ export class Coordinator {
         description: task.description,
         prompt: task.prompt,
         subagent_type: task.subagentType,
+        // O45 修复：把任务级 model 透传给 AgentTool（其内部已支持 input.model）
+        model: task.model,
       });
 
       if (task.timeoutId) {

@@ -42,9 +42,29 @@ async function getModelRouter() {
 }
 
 /**
+ * 纯函数：仅在"**用户显式设置过**"的任务类型上采用分工表里的模型。
+ *
+ * 抽出为纯函数以便回归测试直接断言优先级规则（O46 v2 三条断言）。
+ *
+ * @param taskType 任务类型（由 RouteKey 映射而来）
+ * @param explicitKeys 用户显式保存过的任务类型集合（来源标记）
+ * @param tasks 分工表（可能含系统自动填充的条目）
+ * @returns 可采用的模型 id；不满足条件返回 undefined（调用方继续走 SmartRouter）
+ */
+export function pickExplicitTaskModel(
+  taskType: string,
+  explicitKeys: readonly string[],
+  tasks: Record<string, string | undefined>
+): string | undefined {
+  if (!explicitKeys.includes(taskType)) return undefined;
+  const model = tasks[taskType];
+  return typeof model === 'string' && model.length > 0 ? model : undefined;
+}
+
+/**
  * 解析指定 route 对应的模型名
  *
- * 优先通过 SmartRouter 动态路由，不可用时回退 ModelRouter 静态路由。
+ * 优先级：**用户显式分工**（仅用户显式保存过的 key）→ SmartRouter 动态路由 → ModelRouter 静态兜底。
  *
  * @param route - 路由键
  * @param options - 可选：message（chat 类需要）、sessionId
@@ -54,6 +74,29 @@ export async function resolveModelRoute(
   route: RouteKeyType,
   options?: { message?: string; sessionId?: string }
 ): Promise<string> {
+  const taskType = ROUTE_TO_TASK[route];
+
+  // O46 修复（2026-09-13，v2）：**用户显式分工优先于智能路由**，但**仅限用户显式设置过的 key**。
+  // v1 只看"分工表里有条目"，而 `runAutoDiscover()` 会自动填充 9 个 chat 类任务
+  // （default/chat/coding/agent/…）→ 会把系统自动填充误判为用户意图、令智能路由被静默大面积绕过。
+  // 现按来源标记（`models.taskOverrides`，由用户保存入口写）判定；未显式设置则交 SmartRouter。
+  try {
+    const router = await getModelRouter();
+    const explicitKeys = await router.getExplicitTaskKeys();
+    const picked = pickExplicitTaskModel(
+      taskType,
+      explicitKeys,
+      // TaskModelConfig 无索引签名，纯函数按 Record 读取即可（只按键取值）
+      router.getTasks() as unknown as Record<string, string | undefined>
+    );
+    if (picked) {
+      return picked;
+    }
+  } catch (err) {
+    // 读取用户分工失败不应阻断路由：记录后继续走智能路由
+    handleError(err, { module: 'ai:router', action: 'explicitTaskRoute' });
+  }
+
   try {
     const { getCoreAPI } = await import('@modules/runtime/api/CoreAPIImpl.js');
     const coreAPI = getCoreAPI();
@@ -75,7 +118,7 @@ export async function resolveModelRoute(
   }
 
   const mr = await getModelRouter();
-  return mr.resolveAsync(ROUTE_TO_TASK[route]);
+  return mr.resolveAsync(taskType);
 }
 
 export { RouteKey };

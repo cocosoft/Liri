@@ -24,6 +24,7 @@ import { dispatchAuthAccessRoutes } from './routes/auth-access-routes';
 import { dispatchLlamaRoutes } from './routes/llama-routes';
 import { dispatchSystemRoutes } from './routes/system-routes';
 import { dispatchTranslationRoutes } from './routes/translation-routes';
+import { dispatchA2aRoutes } from './routes/a2a-routes';
 
 /**
  * 路由调度函数
@@ -88,6 +89,9 @@ export async function dispatchRoute(
   if (await dispatchToolMediaRoutes(req, res, url, broadcastEvent, handlerCtx))
     return true;
   if (await dispatchTaskAgentRoutes(req, res, url, broadcastEvent, handlerCtx))
+    return true;
+  // A2A 互操作（D3）：GET /.well-known/agent-card.json + POST /a2a（JSON-RPC）
+  if (await dispatchA2aRoutes(req, res, url, broadcastEvent, handlerCtx))
     return true;
   if (
     await dispatchMemoryFilesRoutes(req, res, url, broadcastEvent, handlerCtx)

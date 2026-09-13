@@ -739,6 +739,28 @@ data: {"type":"done","result":{...}}
 
 ---
 
+### §3.32 A2A 互操作（D3，2026-09-13 新增登记）
+
+依据《A2A 协议技术手册》v1.0 子集实现（Agent Card + JSON-RPC 委派）。
+**鉴权沿用统一入站鉴权**（共享密钥 / Bearer 会话 token），**无路径豁免**（§12.2）。
+
+| 方法 | 路径 | 后端状态 | 说明 |
+|------|------|----------|------|
+| GET | `/.well-known/agent-card.json` | ✅ | Agent Card（RFC 8615 well-known）；带 `ETag` + `Cache-Control: max-age=300`，命中 `If-None-Match` 返回 **304** |
+| POST | `/a2a` | ✅ | JSON-RPC 2.0 入口（`Content-Type: application/json`） |
+
+**JSON-RPC 方法（`POST /a2a`）**
+
+| 方法名（v1.0 及别名） | 语义 | 结果 |
+|----------------------|------|------|
+| `message/send`（别名 `SendMessage`、`tasks/send`） | 同步委派给内部 Agent（`CoreAPI.executeAgentTask`） | 终态 `Task`（`artifacts[].parts[].text` 承载结果） |
+| `tasks/get`（别名 `GetTask`） | 按 `params.id` 取任务 | `Task` 或 `-32001` |
+| `tasks/cancel`（别名 `CancelTask`） | 取消任务 | 同步模型下任务已终态 → `-32002` |
+
+**错误码映射**：`-32700` 解析失败（HTTP 400）/ `-32600` 报文非法 / `-32601` 方法不存在 / `-32602` 参数非法 / `-32603` 内部错误 / `-32001` 任务不存在 / `-32002` 任务不可取消。
+
+**已知边界（如实登记，卡片已如实声明）**：① 仅 `text/plain` 内容模式；② `capabilities.streaming` 与 `pushNotifications` 均为 `false`；③ 任务仅**进程内**保留（上限 200、超限淘汰最旧），重启后不可查 —— 客户端应按 §3.4 重发新任务；④ 未实现 `ListTasks` / `SubscribeToTask` / `CreateTaskPushNotificationConfig`。
+
 ## §4 前端服务 → 后端接口映射表（三级降级全景）
 
 | 前端服务 | 方法 | HTTP 路径 | Tauri IPC 命令 | IPC 状态 |

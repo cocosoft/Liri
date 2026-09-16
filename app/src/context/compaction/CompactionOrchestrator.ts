@@ -138,6 +138,8 @@ export interface CompactionSummaryEnvelope {
 export interface CompactionOrchestratorOptions {
   /** C7 收敛：评估统一走 UnifiedTokenTracker（checkBeforeRequest），不再使用 AutoCompactionPolicy */
   tracker?: UnifiedTokenTracker;
+  /** R1（2026-09-16）：可选注入 AI 服务，用于端到端测试驱动折叠循环；缺省经 getAiService() 动态 import */
+  aiService?: { generate: Function };
 }
 
 /** 压缩执行结果（P1-2 扩展：success 时携带摘要调用信封供事件重建） */
@@ -150,9 +152,12 @@ export type CompactionOutcome = {
 export class CompactionOrchestrator {
   /** C7 收敛：评估统一走 UnifiedTokenTracker.checkBeforeRequest（含校准因子/反抖动/消息数兜底） */
   private tracker: UnifiedTokenTracker | null = null;
+  /** R1（2026-09-16）：可注入 AI 服务（测试驱动折叠循环），null 时经 getAiService() 动态 import */
+  private aiService: { generate: Function } | null = null;
 
   constructor(options: CompactionOrchestratorOptions = {}) {
     this.tracker = options.tracker ?? null;
+    this.aiService = options.aiService ?? null;
   }
 
   /** 设置评估 tracker（C7 收敛：ChatManager 初始化时注入其 unifiedTracker 实例） */
@@ -632,7 +637,8 @@ export class CompactionOrchestrator {
       // 方案：从**最早的中间轮**取一小批（≤FOLD_BATCH_SOURCE_TOKENS，单次摘要可覆盖），
       // 生成该批摘要并摘下，循环直至剩余上下文进入目标窗口或无可折叠内容；批量校验
       // 降 token（批内降易达标），保证渐进真实下降。
-      const { default: aiService } = await getAiService();
+      // R1：AI 服务优先用注入实例（端到端测试），缺省动态 import 生产 @modules/ai 的 default 导出
+      const aiService = this.aiService ?? (await getAiService()).default;
       // P2-15: 优先使用结构化 prompt（5 字段），解析失败时回退到自由文本
       const {
         COMPACTION_USER_PROMPT,

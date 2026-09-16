@@ -12,6 +12,8 @@ import { reactEventsToChunks } from '../../src/chat/reactEventsToChunks.js';
 import type { ReActEvent } from '../../src/query/ReActLoop.js';
 import type { ToolLoopContext } from '../../src/chat/ToolLoopRunner.js';
 import type { ChatResponse, ChatMessage } from '@modules/ai';
+// R2（2026-09-16）：用全局 LogHandler 捕获日志，断言 compact_steady_state_skip 分支被真实执行
+import { addLogHandler } from '../../src/monitoring/logs/Logger.js';
 
 // expect 的 stringContaining 类型被 src/ink/ink/global.d.ts 的旧 bun:test 声明
 // （expect(value: unknown): any）合并覆盖，运行时 bun 支持该匹配器，此处仅补类型
@@ -914,5 +916,108 @@ describe('达上限终止提示（B1 补发）', () => {
     // finalize 消息同样含提示（B1 原修复）
     const msg = loop.getAssistantMessage();
     expect(String(msg.content)).toContain('已达到最大工具轮次限制');
+  });
+});
+
+// R2（2026-09-16）：工具轮内压缩稳态豁免——路径② compact_steady_state_skip
+// 判据：checkBeforeRequest 返回 non-skip 且 ratio < COMPACT_STEADY_RATIO(0.6)
+//       且 consecutiveCompactNoEffect >= COMPACT_NO_EFFECT_SKIP_THRESHOLD(2)。
+// 断言方式：注册全局 LogHandler 捕获 `reactToolLoop:compact_steady_state_skip`，
+//         证明该分支被真实执行（运行级回环证据），而非仅依赖分支存在。
+describe('R2 压缩稳态豁免（compact_steady_state_skip）', () => {
+  it('低 ratio(0.2) + 连续 no_effect≥2 → 触发 compact_steady_state_skip 日志', async () => {
+    const seen: string[] = [];
+    const off = addLogHandler((entry) => {
+      seen.push(entry.message);
+    });
+    try {
+      const ctx = makeCtx({
+        unifiedTracker: {
+          resetStreamTokens: () => {},
+          updateBaselineForRound: () => {},
+          // 返回 non-skip + 低 ratio（0.2 < COMPACT_STEADY_RATIO=0.6），构造稳态豁免前提
+          checkBeforeRequest: async () => ({
+            decision: 'warn',
+            snapshot: {
+              ratio: 0.2,
+              tokens: 9000,
+              maxTokens: 45000,
+              threshold: 27000,
+              warned: false,
+            },
+          }),
+        } as never,
+        activeClient: {
+          streamMessage: async function* () {
+            yield 'ok';
+            return { content: '完成', stop_reason: 'stop' } as ChatResponse;
+          },
+          sendMessage: async () =>
+            ({ content: '完成', stop_reason: 'stop' }) as ChatResponse,
+          getProviderId: () => 'mock',
+        },
+      });
+      const input = makeInput();
+      const loop = new ReActToolLoop(ctx, input, { maxIterations: 2 });
+      // 预置连续 no_effect 达到阈值（≥2），模拟此前多轮压缩均未生效
+      (
+        loop as unknown as {
+          loopState: { consecutiveCompactNoEffect: number };
+        }
+      ).loopState.consecutiveCompactNoEffect = 2;
+      for await (const _e of loop.run(input)) {
+        // 消费事件流至结束
+      }
+      // 稳态豁免分支必须被触发（运行级证据）
+      expect(
+        seen.some((m) => m.includes('reactToolLoop:compact_steady_state_skip'))
+      ).toBe(true);
+    } finally {
+      off();
+    }
+  });
+
+  it('不满足稳态判据（ratio 高）→ 不触发 compact_steady_state_skip', async () => {
+    const seen: string[] = [];
+    const off = addLogHandler((entry) => {
+      seen.push(entry.message);
+    });
+    try {
+      const ctx = makeCtx({
+        unifiedTracker: {
+          resetStreamTokens: () => {},
+          updateBaselineForRound: () => {},
+          // ratio 0.8 ≥ COMPACT_STEADY_RATIO → 不豁免，走正常压缩评估
+          checkBeforeRequest: async () => ({
+            decision: 'warn',
+            snapshot: { ratio: 0.8, tokens: 36000, maxTokens: 45000 },
+          }),
+        } as never,
+        activeClient: {
+          streamMessage: async function* () {
+            yield 'ok';
+            return { content: '完成', stop_reason: 'stop' } as ChatResponse;
+          },
+          sendMessage: async () =>
+            ({ content: '完成', stop_reason: 'stop' }) as ChatResponse,
+          getProviderId: () => 'mock',
+        },
+      });
+      const input = makeInput();
+      const loop = new ReActToolLoop(ctx, input, { maxIterations: 2 });
+      (
+        loop as unknown as {
+          loopState: { consecutiveCompactNoEffect: number };
+        }
+      ).loopState.consecutiveCompactNoEffect = 2;
+      for await (const _e of loop.run(input)) {
+        // 消费事件流至结束
+      }
+      expect(
+        seen.some((m) => m.includes('reactToolLoop:compact_steady_state_skip'))
+      ).toBe(false);
+    } finally {
+      off();
+    }
   });
 });

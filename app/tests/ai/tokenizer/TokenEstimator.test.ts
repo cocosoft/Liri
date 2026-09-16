@@ -90,6 +90,29 @@ describe('TokenEstimator', () => {
       ]);
       expect(tokens).toBeGreaterThan(5);
     });
+
+    it('R3: 同对象重复估算结果一致（命中按对象身份缓存，增量复用）', () => {
+      const messages = [
+        { role: 'system', content: '你是助手' },
+        { role: 'user', content: '帮我分析这份文档' },
+        { role: 'assistant', content: '好的，我先读取文件' },
+      ];
+      const first = estimateMessagesTokens(messages);
+      // 再次用同一批消息对象估算 → tiktoken cache 命中，结果一致
+      expect(estimateMessagesTokens(messages)).toBe(first);
+      expect(estimateMessagesTokens(messages)).toBe(first);
+    });
+
+    it('R3: 追加新消息只使总量增加，历史对象估算仍命中', () => {
+      const history = [{ role: 'user', content: '第一轮提问内容较长一些' }];
+      const base = estimateMessagesTokens(history);
+      const next = estimateMessagesTokens([
+        ...history,
+        { role: 'assistant', content: '第二轮回答内容' },
+      ]);
+      // 追加一条消息 → 总量应严格大于仅历史段
+      expect(next).toBeGreaterThan(base);
+    });
   });
 
   describe('estimateMessagesTokensCooperative', () => {

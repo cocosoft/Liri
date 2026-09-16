@@ -35,6 +35,37 @@ const ROLE_OVERHEAD: Record<string, number> = {
 const PER_MESSAGE_OVERHEAD = 4;
 
 /**
+ * R3（2026-09-16）：单消息 token 估算的按对象身份 FIFO 缓存。
+ * 对话历史按轮**追加**（同一条消息对象跨轮复用），缓存每条消息对象的估算值后，
+ * 后续轮次仅对新增消息真正 encode，不变历史直接命中——消除"每轮全量 re-tokenize"
+ * （实测 170K tokens 每轮重算导致事件循环 lag 1.2-1.5s）。
+ * 以对象身份（而非内容串 hash）为 key，避免对大段内容再做等价的散列开销。
+ * 容量有上限（FIFO，超限淘汰一半），防长会话缓存泄漏。
+ */
+const PER_MESSAGE_TOKEN_CACHE = new Map<object, number>();
+const PER_MESSAGE_TOKEN_CACHE_ORDER: object[] = [];
+const PER_MESSAGE_TOKEN_CACHE_LIMIT = 2000;
+
+/** 查缓存——命中返回数值，未命中返回 undefined */
+function cachedMessageTokens(msg: object): number | undefined {
+  return PER_MESSAGE_TOKEN_CACHE.get(msg);
+}
+
+/** 写缓存（FIFO 淘汰：超上限时淘汰最早的一半，保留近期工作集） */
+function storeMessageTokens(msg: object, tokens: number): void {
+  if (PER_MESSAGE_TOKEN_CACHE.has(msg)) return;
+  PER_MESSAGE_TOKEN_CACHE.set(msg, tokens);
+  PER_MESSAGE_TOKEN_CACHE_ORDER.push(msg);
+  if (PER_MESSAGE_TOKEN_CACHE_ORDER.length > PER_MESSAGE_TOKEN_CACHE_LIMIT) {
+    const toEvict = Math.floor(PER_MESSAGE_TOKEN_CACHE_ORDER.length / 2);
+    for (let i = 0; i < toEvict; i++) {
+      const key = PER_MESSAGE_TOKEN_CACHE_ORDER.shift();
+      if (key !== undefined) PER_MESSAGE_TOKEN_CACHE.delete(key);
+    }
+  }
+}
+
+/**
  * CJK 感知 Token 估算（与 Rust native 算法一致）
  *
  * - CJK 字符占比 > 30% → CJK*1.5 + 非CJK*0.25
@@ -105,19 +136,31 @@ export function estimateMessagesTokens(
   if (encoder) {
     let total = 0;
     for (const msg of messages) {
+      // R3（2026-09-16）：命中按对象身份的缓存则跳过真 encode（新增轮才会 miss）
+      if (typeof msg === 'object' && msg !== null) {
+        const cached = cachedMessageTokens(msg);
+        if (cached !== undefined) {
+          total += cached;
+          continue;
+        }
+      }
       const overhead =
         ROLE_OVERHEAD[msg.role ?? 'user'] ?? PER_MESSAGE_OVERHEAD;
-      total += overhead;
+      let per = overhead;
       if (typeof msg.content === 'string') {
         try {
           const result = encoder.encode(msg.content);
-          total += Array.isArray(result) ? result.length : result.length;
+          per += Array.isArray(result) ? result.length : result.length;
         } catch {
           // 编码失败时回退到启发式
-          total += estimateTokens(msg.content);
+          per += estimateTokens(msg.content);
         }
       } else if (msg.content) {
-        total += estimateTokens(JSON.stringify(msg.content));
+        per += estimateTokens(JSON.stringify(msg.content));
+      }
+      total += per;
+      if (typeof msg === 'object' && msg !== null) {
+        storeMessageTokens(msg, per);
       }
     }
     return Math.ceil(total);

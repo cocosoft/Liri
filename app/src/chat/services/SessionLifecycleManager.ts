@@ -243,8 +243,13 @@ export class SessionLifecycleManager {
           title: storedSession.title,
           state: mapSessionStatusToState(storedSession.status),
           metadata: {
-            title: storedSession.title || '',
             ...storedSession.metadata,
+            title:
+              storedSession.title ||
+              (typeof storedSession.metadata?.title === 'string'
+                ? storedSession.metadata.title
+                : '') ||
+              '',
             totalMessages: messages.length,
             lastActivityAt: new Date(storedSession.lastActivityAt),
           },
@@ -372,8 +377,13 @@ export class SessionLifecycleManager {
           title: storedSession.title,
           state: mapSessionStatusToState(storedSession.status),
           metadata: {
-            title: storedSession.title || '',
             ...storedSession.metadata,
+            title:
+              storedSession.title ||
+              (typeof storedSession.metadata?.title === 'string'
+                ? storedSession.metadata.title
+                : '') ||
+              '',
             totalMessages: messages.length,
             lastActivityAt: new Date(storedSession.lastActivityAt),
           },

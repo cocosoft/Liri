@@ -2674,8 +2674,13 @@ export class ChatManagerImpl implements ChatManager {
             title: stored.title,
             state: mapSessionStatusToState(stored.status),
             metadata: {
-              title: stored.title || '',
               ...stored.metadata,
+              title:
+                stored.title ||
+                (typeof stored.metadata?.title === 'string'
+                  ? stored.metadata.title
+                  : '') ||
+                '',
               totalMessages: dedupedMessages.length,
               lastActivityAt: new Date(stored.lastActivityAt),
             },

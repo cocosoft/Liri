@@ -364,7 +364,13 @@ export async function continueGenerationImpl(
 export function stopMessageImpl(set: MessageSet, get: MessageGet): void {
   // P2-2: 仅中止当前 UI 会话的流，其他会话流不受影响
   const state = get();
-  const sessionId = state.messages[0]?.session_id ?? "";
+  // #7（2026-09-16）根因修复：不再依赖 messages[0] 反推会话——
+  // 改用显式 activeStreamSessionId；若其已无活跃 controller（流已结束/被清空、
+  // 或会话已切换），回退到当前 UI 会话首条消息。messages 被清空时仍可定位流。
+  let sessionId = state.activeStreamSessionId ?? state.messages[0]?.session_id ?? "";
+  if (sessionId && !state.streamControllers[sessionId]) {
+    sessionId = state.messages[0]?.session_id ?? "";
+  }
   const controller = sessionId ? state.streamControllers[sessionId] : undefined;
   if (controller) {
     // 阶段2：挂起中的流 —— 用户点停止 = 放弃本次回复

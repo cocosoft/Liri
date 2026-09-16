@@ -115,6 +115,8 @@ export async function streamMessageImpl(
     error: null,
     errorCode: null,
     streamControllers: { ...get().streamControllers, [sid]: controller },
+    // #12 根因修复：记录活跃流会话（显式字段，不依赖 messages[0]）
+    activeStreamSessionId: sid,
   });
 
   // 编辑消息：如果存在 editTarget，截断其后的消息
@@ -850,6 +852,11 @@ export async function streamMessageImpl(
       streamingStatus: "",
       streamControllers: nextControllers,
       executionPhase: null,
+      // #12 根因修复：活跃流会话结束、且该会话无其它活跃流 → 清空标记
+      // （若不满足则保留：同会话新流已替换，activeStreamSessionId 仍指向它）
+      ...(get().activeStreamSessionId === sid && nextControllers[sid] === undefined
+        ? { activeStreamSessionId: null }
+        : {}),
     });
 
     // 构建最终消息并写入 store
@@ -869,6 +876,14 @@ export async function streamMessageImpl(
           : receivedError
             ? { finishReason: "error" as const }
             : {}),
+        // 整轮耗时：用户发送 → 助手回复完成（复用已有 streamStartTime，避免重复计时）。
+        // 仅"正常完成"写入，被停止(abort)/报错(error)的轮次不显示耗时，避免"已完成"误读。
+        ...(streamStartTime > 0 &&
+        !abnormallyEnded &&
+        !controller.signal.aborted &&
+        !receivedError
+          ? { durationMs: Date.now() - streamStartTime }
+          : {}),
       };
       set({
         messages: finalMessages.map((m) => (m.id === assistantId ? msg : m)),

@@ -44,6 +44,12 @@ export interface MessageSlice {
    * 取代原单一 abortController —— 不同会话的流互不中止，可并行流式。
    */
   streamControllers: Record<string, AbortController>;
+  /**
+   * #12（2026-09-16）根因修复：当前活跃流所在会话（显式字段）。
+   * 取代"从 messages[0].session_id 反推"——messages 被清空时无法定位流，
+   * 导致 stopMessage 失效（#7 同根）。流注册时置 sid、该会话无活跃流时清空。
+   */
+  activeStreamSessionId: string | null;
   /** 消息队列：流式输出中用户发送的新消息（放开输入限制后使用） */
   messageQueue: Array<{ content: string; sessionId?: string }>;
   /** P2-6: 中止恢复提示 — 上次任务被中止，有可恢复的检查点 */

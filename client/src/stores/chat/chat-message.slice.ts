@@ -146,6 +146,7 @@ export const createMessageSlice: StateCreator<
     pendingReplyToId: null,
     editTarget: null,
     streamControllers: {},
+    activeStreamSessionId: null,
     messageQueue: [],
     rollbackSnapshot: null,
     hasPendingQuestion: {},
@@ -272,7 +273,28 @@ export const createMessageSlice: StateCreator<
           );
         });
       }
-      set({ messages: [], error: null, errorCode: null });
+      // #12 根因修复：清空前中止当前活跃流并清理流状态，避免 controller
+      // 残留导致 stopMessage 失效（#7 同根）、以及流 chunk 回填已清空的消息。
+      const activeSid = get().activeStreamSessionId;
+      const activeController = activeSid
+        ? get().streamControllers[activeSid]
+        : undefined;
+      let nextControllers = get().streamControllers;
+      let nextActive: string | null = activeSid;
+      if (activeController) {
+        activeController.abort();
+        const { [activeSid!]: _removed, ...rest } = get().streamControllers;
+        nextControllers = { ...rest };
+        if (nextControllers[activeSid!] === undefined) nextActive = null;
+      }
+      set({
+        messages: [],
+        error: null,
+        errorCode: null,
+        isStreaming: Object.keys(nextControllers).length > 0,
+        streamControllers: nextControllers,
+        activeStreamSessionId: nextActive,
+      });
     },
 
     setMessages: (messages: Message[]) => {

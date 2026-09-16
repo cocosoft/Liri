@@ -233,6 +233,9 @@ export class ReActToolLoop extends ReActLoop<
   private static readonly COMPACT_STEADY_RATIO = 0.6;
   /** R2：压缩连续 no_effect 达到该次数后，才允许在低占用时稳态跳过本轮压缩 */
   private static readonly COMPACT_NO_EFFECT_SKIP_THRESHOLD = 2;
+  /** R2（2026-09-16）：路径①分层窗口压缩的退避封顶——30s 基础间隔按 no_effect 次数指数增长，
+   *  上限 5min，防止"每次触发都白跑 + 无退避"导致 CPU 高频空转 */
+  private static readonly LAYER_COMPACT_BACKOFF_CAP_MS = 5 * 60 * 1000;
   /** R4（2026-09-16）：任务硬收敛窗口——距工具轮次上限还剩该轮数时，注入强制收尾 steering（软收敛非硬熔断） */
   private static readonly CONVERGE_WINDOW = 5;
   /** 观察点修复（2026-08-26）：会话级总时长上限（默认 3 小时，env 可覆盖） */
@@ -416,10 +419,18 @@ export class ReActToolLoop extends ReActLoop<
         baseWindow > 0
           ? getMemoryPressureMonitor().effectiveLayerWindow(baseWindow)
           : 0;
+      // R2（2026-09-16）：路径①分层窗口压缩也接入 consecutiveCompactNoEffect 退避——
+      // 基础 30s 间隔按 no_effect 次数指数（2^n，n 封顶 4）递增，上限 LAYER_COMPACT_BACKOFF_CAP，
+      // 避免"context 恒超窗口 → 每 30s 必触 + 无退避"的高频空转白跑（no_effect 计数见 L467-479）。
+      const layerNoEffect = this.loopState.consecutiveCompactNoEffect ?? 0;
+      const layerMinIntervalMs = Math.min(
+        LAYER_COMPACT_MIN_INTERVAL_MS * (1 << Math.min(layerNoEffect, 4)),
+        ReActToolLoop.LAYER_COMPACT_BACKOFF_CAP_MS
+      );
       if (
         layerWindowTokens > 0 &&
         this.loopState.messages.length > 0 &&
-        Date.now() - this._lastLayerCompactAt > LAYER_COMPACT_MIN_INTERVAL_MS
+        Date.now() - this._lastLayerCompactAt > layerMinIntervalMs
       ) {
         const estLayer = this.ctx.estimateMessagesTokens(
           this.loopState.messages as unknown as Record<string, unknown>[]
@@ -460,10 +471,21 @@ export class ReActToolLoop extends ReActLoop<
               string,
               unknown
             >[];
+            this.loopState.consecutiveCompactNoEffect = 0;
             logger.info('reactToolLoop:分层窗口压缩完成', {
               sessionId: session.id,
               toolTurn: this.loopState.toolTurnCount,
               afterMessageCount: layered.messages.length,
+            });
+          } else {
+            // R2（2026-09-16）：路径①压缩未生效也递增 no_effect —— 与路径②行为对齐，
+            // 触发指数退避（见 L422-429），避免高频白跑；计数与路径②共享，稳态豁免判据见 L493-499。
+            this.loopState.consecutiveCompactNoEffect =
+              (this.loopState.consecutiveCompactNoEffect ?? 0) + 1;
+            logger.warn('reactToolLoop:分层窗口压缩未生效（触发退避）', {
+              sessionId: session.id,
+              toolTurn: this.loopState.toolTurnCount,
+              consecutiveNoEffect: this.loopState.consecutiveCompactNoEffect,
             });
           }
         }

@@ -173,6 +173,18 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
         const session: UnifiedSession = JSON.parse(data);
         this.sessions.set(sessionId, session);
       } catch (err) {
+        // BUG-07（2026-09-16）：区分"僵尸目录"与"真损坏"。
+        // ENOENT（session.json 缺失 = 会话已删/回收站残留）是正常状态，直接跳过；
+        // 仅 SyntaxError（JSON 半写/手改坏 = 真损坏）才隔离到 <root>/.corrupt/ 并告警。
+        // 原实现把所有错误一并走隔离分支，且隔离 rename 对已缺失目录再次 ENOENT → 每个
+        // 僵尸目录刷 2 条 warn 噪音。
+        if ((err as NodeJS.ErrnoException)?.code === 'ENOENT') {
+          logger.debug('跳过僵尸会话目录（session.json 不存在）', {
+            sessionId,
+            filePath,
+          });
+          continue;
+        }
         // P2-16 修复：损坏的 session.json（断电半写/手动编辑出错）此前静默跳过，
         // 用户以为会话丢失。改为隔离到 <root>/.corrupt/{id}/（连同 messages）并告警，
         // 保留恢复路径而非无声消失。
@@ -180,6 +192,8 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
           sessionId,
           filePath,
           error: String(err),
+          errorName: (err as Error)?.name,
+          errorCode: (err as NodeJS.ErrnoException)?.code,
         });
         try {
           const corruptDir = path.join(this.basePath, '.corrupt', sessionId);
@@ -188,6 +202,7 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
           logger.warn('隔离损坏会话目录失败', {
             sessionId,
             error: String(renameErr),
+            errorCode: (renameErr as NodeJS.ErrnoException)?.code,
           });
         }
         continue;

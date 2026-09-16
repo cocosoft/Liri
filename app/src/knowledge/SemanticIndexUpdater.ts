@@ -177,6 +177,13 @@ export class SemanticIndexUpdater {
     }
 
     try {
+      // BUG-08（2026-09-16）：事件源可能把目录本身（含 knowledge 根目录）当 filePath 下发，
+      // 原实现对目录 readFile 触发 EISDIR 报错。先 stat 判断，是目录则跳过。
+      const fileStat0 = await stat(filePath);
+      if (fileStat0.isDirectory()) {
+        logger.debug('跳过目录（非文件，不索引）', { filePath });
+        return;
+      }
       const content = await readFile(filePath, 'utf-8');
       const fileStat = await stat(filePath);
 

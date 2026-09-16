@@ -49,8 +49,27 @@ import type { ChatOrchestratorHost } from './ChatOrchestrator.js';
 import type { StreamMessageOptions } from '../types/message.js';
 import type { ChatSession } from '../types/session.js';
 import type { ToolDefinition } from '@modules/ai';
+import {
+  createDailyBudgetManager,
+  type DailyBudgetManager,
+} from '../../query/DailyBudgetManager.js';
 
 const logger = getLogger('chat:streamFlow');
+
+/** 8.4④（2026-09-16）：主对话每日 Token 预算——全局惰性单例（跨会话共享今日用量，
+ * 与 TAORLoop 批处理各自的实例并存；默认对齐 workspace dailyBudgetTokens=500000，
+ * env LIRI_DAILY_BUDGET_TOKENS 可覆盖） */
+let dailyBudgetSingleton: DailyBudgetManager | null = null;
+function getDailyBudget(): DailyBudgetManager {
+  if (!dailyBudgetSingleton) {
+    const raw = process.env.LIRI_DAILY_BUDGET_TOKENS;
+    const parsed = Number.parseInt(raw ?? '', 10);
+    const dailyLimit =
+      raw && Number.isInteger(parsed) && parsed > 0 ? parsed : 500_000;
+    dailyBudgetSingleton = createDailyBudgetManager({ dailyLimit });
+  }
+  return dailyBudgetSingleton;
+}
 
 /** 压缩前/压缩后 token 诊断日志（仅 info 级，前端日志面板按 streamMessage:token 过滤） */
 export async function logTokenSnapshot(
@@ -126,6 +145,45 @@ export async function applyPreSendProtection(
   //    /tokenize 只统计 messages content，但发送请求还带 tools——llama.cpp 的 chat template
   //    会把工具 schema 渲染进 prompt（实测占 ~12K tokens），小窗口下是 context 爆炸真正主因。
   //    工具 JSON 用 /tokenize 精确计算（估算会低估，导致漏判不移除）。
+  const msgTokens = await estimateMessagesTokensCooperative(
+    apiMessages as { role?: string; content?: string | unknown }[]
+  );
+  // 8.4④（2026-09-16）：发送前上下文占用预警——对齐 AutoCompact 阈值提前量（85% 预警），
+  // 只预警不改变行为，前端日志面板按 streamMessage:token 过滤即可观测"发送前已逼近窗口"。
+  if (sendCtxLimit > 0) {
+    const ratio = msgTokens / sendCtxLimit;
+    if (ratio >= 0.85) {
+      logger.warn('streamMessage:token — 发送前上下文占用接近窗口（预警）', {
+        sessionId: session.id,
+        model: options?.model ?? 'unknown',
+        estimateTokens: msgTokens,
+        ctxLimit: sendCtxLimit,
+        ratioPct: Math.round(ratio * 100),
+      });
+    }
+  }
+  // 8.4④（2026-09-16）：每日 Token 预算前置检查——用本轮估算预判是否将打穿预算，
+  // 接近/达到上限时追加降级提示（对齐 AutoCompact 阈值提前量语义），而非被动等成本打穿。
+  const dailyBudget = getDailyBudget();
+  const budgetMode = dailyBudget.getMode();
+  if (budgetMode.mode !== 'normal') {
+    const projected = budgetMode.todayUsed + msgTokens;
+    logger.warn('streamMessage:budget — 每日 Token 预算前置检查', {
+      sessionId: session.id,
+      model: options?.model ?? 'unknown',
+      todayUsed: budgetMode.todayUsed,
+      dailyLimit: budgetMode.dailyLimit,
+      estimateThisRound: msgTokens,
+      projected,
+      ratioPct: Math.round(budgetMode.percentUsed * 100),
+    });
+    if (budgetMode.mode === 'locked' || projected >= budgetMode.dailyLimit) {
+      apiMessages.push({
+        role: 'system',
+        content: `今日 Token 预算已耗尽（已用 ${budgetMode.todayUsed}/${budgetMode.dailyLimit}）。请立即停止调用工具，基于已有上下文直接给出最终答复。`,
+      });
+    }
+  }
   if (toolDefinitions.length > 0) {
     const toolsJson = JSON.stringify(toolDefinitions);
     let toolsTokens = estimateMessagesTokens([
@@ -150,9 +208,6 @@ export async function applyPreSendProtection(
         // @ignore-catch: 精确计算失败保留估算值
       }
     }
-    const msgTokens = await estimateMessagesTokensCooperative(
-      apiMessages as { role?: string; content?: string | unknown }[]
-    );
     const budget = Math.floor(sendCtxLimit * 0.6);
     if (msgTokens + toolsTokens > budget) {
       logger.warn('streamMessage:tools — 工具定义超出上下文预算，发送时移除', {
@@ -169,6 +224,22 @@ export async function applyPreSendProtection(
   }
 
   return toolsCleared;
+}
+
+/**
+ * 8.4④（2026-09-16）：推理完成把真实 usage 记入每日预算（与发送前估算预检闭环）。
+ * 仅计 input+output tokens；usage 缺失时跳过（发送前估算预检仍独立生效）。
+ */
+export function recordDailyUsage(
+  finalResponse: { usage?: Record<string, number> } | null
+): void {
+  const usageRec = finalResponse?.usage as Record<string, number> | undefined;
+  const input = usageRec?.inputTokens ?? usageRec?.prompt_tokens ?? 0;
+  const output = usageRec?.outputTokens ?? usageRec?.completion_tokens ?? 0;
+  const total = input + output;
+  if (total > 0) {
+    getDailyBudget().recordUsage(total);
+  }
 }
 
 /**

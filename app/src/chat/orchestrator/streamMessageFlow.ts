@@ -63,6 +63,7 @@ import {
   applyPreSendProtection,
   applyErrorCalibration,
   logInferenceUsage,
+  recordDailyUsage,
   createStreamLoopStats,
   beginStreamLoop,
   countStreamChunk,
@@ -1667,6 +1668,8 @@ export async function* runStreamMessage(
       finalResponse,
       apiMessages
     );
+    // 8.4④（2026-09-16）：真实 usage 记入每日 Token 预算（与发送前预检闭环）
+    recordDailyUsage(finalResponse);
 
     // 管线 — 内容修复 + 输出（repairContent 从 ctx.accumulatedContent 读取，须先同步局部累积）
     pipeline.ctx.accumulatedContent = accumulatedContent;

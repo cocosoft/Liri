@@ -293,6 +293,16 @@ export class ReActToolLoop extends ReActLoop<
     };
   }
 
+  /** 8.4③（2026-09-16，治缺陷 2/3）：履约 resetRunState() 契约 + 恢复基础轮次上限。
+   * 复用实例（如 batch 缓存）时避免跨 run 状态污染与扩容值残留。 */
+  override async *run(
+    input: ToolLoopInput
+  ): AsyncGenerator<ReActEvent, Message> {
+    this.resetRunState();
+    this.config.maxIterations = this.baseMaxToolTurns;
+    return yield* super.run(input);
+  }
+
   // ─── 骨架 hooks：检查点 + 循环检测（reason 前） ────────
 
   protected override async beforeReasoning(): Promise<void> {
@@ -569,6 +579,12 @@ export class ReActToolLoop extends ReActLoop<
     let expansion = pendingTodoCount * DYNAMIC_TURNS_PER_PENDING_TODO;
     if (this.loopState.hasExternalFetchActivity) {
       expansion += EXTERNAL_FETCH_EXPANSION_TURNS;
+    }
+    // 8.4②（2026-09-16，治缺陷 1）：探索型任务（无 todo、无外部抓取）结构性拿不到扩容——
+    // 纯检索（grep/glob 等）只要持续产出就会烧光基础阈值。改用客观可观测的"已执行轮次"
+    // 而非"产出物痕迹"反推复杂度：轮次过半后按已执行轮次线性扩容，探索任务自动获 ~2 倍基础余量。
+    if (this.loopState.toolTurnCount > this.baseMaxToolTurns / 2) {
+      expansion += Math.floor(this.loopState.toolTurnCount / 2);
     }
     return Math.min(
       this.baseMaxToolTurns + expansion,

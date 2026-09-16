@@ -380,3 +380,6 @@ export type {
   ToolCall as RepairToolCall,
   ChatMessage as RepairChatMessage,
 } from './repair/types';
+
+// 2026-09-16 第八章①：会话级工具配额统一出口
+export { SessionToolQuota, sessionToolQuota } from './sessionToolQuota';

@@ -5,6 +5,7 @@
 
 import type { ToolCall, ToolResult, ToolContext } from '@modules/tools/types';
 import { ModuleError } from '@modules/errors';
+import { sessionToolQuota } from '@modules/tools';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('ai\interfaces\ToolExecutor');
@@ -124,6 +125,20 @@ export class DefaultToolExecutor implements IToolExecutor {
     toolCall: ToolCall,
     context: ToolContext
   ): Promise<ToolResult> {
+    // 8.4①（2026-09-16）：会话级工具调用通用配额——超限降级提示，避免单会话工具爆炸
+    // 打穿对话轮次与 Token 预算（对齐 code_run roundTracker 的 hard limit + 降级提示）。
+    const sessionId =
+      typeof context?.sessionId === 'string' ? context.sessionId : undefined;
+    if (sessionId && sessionToolQuota.isExceeded(sessionId)) {
+      const used = sessionToolQuota.current(sessionId);
+      return {
+        result: undefined,
+        content: `本会话工具调用配额已耗尽（已用 ${used} 次）。请停止继续调用工具，基于已有结果直接给出最终答复。`,
+        error: `session tool quota exceeded (${used}/${sessionToolQuota.max})`,
+        success: false,
+      };
+    }
+
     const tool = this.registry?.getTool(toolCall.name);
 
     if (!tool) {
@@ -132,6 +147,10 @@ export class DefaultToolExecutor implements IToolExecutor {
         'ai',
         'TOOL_NOT_FOUND'
       );
+    }
+
+    if (sessionId) {
+      sessionToolQuota.consume(sessionId);
     }
 
     try {

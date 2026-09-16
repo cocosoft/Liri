@@ -162,6 +162,8 @@ interface ReActToolLoopState {
   /** P10（2026-09-01）：本轮循环是否涉及外部获取/技能探索（web_fetch/web_search/skill_view 等）——
    *  用于无 todo 时的动态轮次扩容（此类任务需要多轮尝试）。 */
   hasExternalFetchActivity?: boolean;
+  /** R2（2026-09-16）：工具轮内压缩连续 no_effect 次数——达到阈值后在低用量时稳态跳过，避免每轮白跑重 token */
+  consecutiveCompactNoEffect: number;
 }
 
 /** M3-T3.2：并发批次项——isConcurrencySafe 工具执行延迟到 flush（Promise.all） */
@@ -227,6 +229,12 @@ export class ReActToolLoop extends ReActLoop<
   private static readonly FILE_CONTENT_HEAD_LENGTH = 200;
   /** BUG-05（2026-09-16）：重读收敛阈值——同一资源（文件/搜索 pattern）被非连续重读数次即注入强制收尾 steering */
   private static readonly READ_REEXPLORE_STEER_THRESHOLD = 5;
+  /** R2（2026-09-16）：压缩稳态豁免比例——上下文占用低于模型窗口该比例（0.6）视为"容量充足" */
+  private static readonly COMPACT_STEADY_RATIO = 0.6;
+  /** R2：压缩连续 no_effect 达到该次数后，才允许在低占用时稳态跳过本轮压缩 */
+  private static readonly COMPACT_NO_EFFECT_SKIP_THRESHOLD = 2;
+  /** R4（2026-09-16）：任务硬收敛窗口——距工具轮次上限还剩该轮数时，注入强制收尾 steering（软收敛非硬熔断） */
+  private static readonly CONVERGE_WINDOW = 5;
   /** 观察点修复（2026-08-26）：会话级总时长上限（默认 3 小时，env 可覆盖） */
   private static readonly MAX_TOTAL_DURATION_MS =
     Number(process.env.REACT_LOOP_MAX_DURATION_MS) || 3 * 60 * 60 * 1000;
@@ -243,6 +251,8 @@ export class ReActToolLoop extends ReActLoop<
   private readReExploreCounts = new Map<string, number>();
   /** BUG-05：是否已注入一次"重读收敛" steering（避免重复刷屏） */
   private readReExploreSteered = false;
+  /** R4（2026-09-16）：任务硬收敛——是否已注入强制收尾 steering（每会话仅 1 次，避免反复打扰） */
+  private convergeSteeringPrompted = false;
   /** 动态上限固定基础值（构造时确定，env MAX_TOOL_TURNS/MAX_TAOR_TURNS 覆盖），
    *  动态扩容基于此值而非已扩容值，避免每轮重复叠加 */
   private readonly baseMaxToolTurns: number;
@@ -296,6 +306,8 @@ export class ReActToolLoop extends ReActLoop<
       completedToolCallIds: [],
       loopDetected: null,
       pendingTodos: [],
+      /** R2（2026-09-16）：工具轮内压缩连续 no_effect 次数——达到阈值后在低用量时稳态跳过，避免每轮白跑重 token */
+      consecutiveCompactNoEffect: 0,
     };
   }
 
@@ -330,6 +342,29 @@ export class ReActToolLoop extends ReActLoop<
         toolTurn: this.loopState.toolTurnCount,
       });
       this.config.maxIterations = dynamicMax;
+    }
+
+    // R4（2026-09-16）：任务硬收敛——工具轮次距上限还剩 CONVERGE_WINDOW 轮时，注入强制
+    // 收尾 steering。软收敛（非硬熔断多轮）：提示模型停止新探索、基于已掌握信息产出最终
+    // 结论，避免长任务空转到被 max_tokens 截断才终止（截断常致输出被裁、任务半途而废）。
+    // 锚定当前生效上限（动态扩容后），每会话仅注入 1 次。
+    if (
+      !this.convergeSteeringPrompted &&
+      this.config.maxIterations > 0 &&
+      this.loopState.toolTurnCount >=
+        this.config.maxIterations - ReActToolLoop.CONVERGE_WINDOW
+    ) {
+      this.convergeSteeringPrompted = true;
+      this.steeringQueue.push(
+        `⚠️ 你已接近本轮任务的最大工具轮次限制（当前 ${this.loopState.toolTurnCount} / 上限 ${this.config.maxIterations}），` +
+          '剩余轮次不足，请停止新的探索/搜索。现在请直接基于已掌握的信息输出最终完整结论；' +
+          '若部分关键数据确实缺失，请明确列出缺失项而非继续尝试获取，以便我后续补充。'
+      );
+      logger.warn('reactToolLoop:converge_steering_injected', {
+        sessionId: this.ctx.session.id,
+        toolTurn: this.loopState.toolTurnCount,
+        maxIterations: this.config.maxIterations,
+      });
     }
 
     // 3. 周期性检查点：每 5 轮保存（失败不阻塞，对齐旧类 _savePeriodicCheckpoint）
@@ -439,29 +474,51 @@ export class ReActToolLoop extends ReActLoop<
           model
         );
         if (evalResult.decision !== 'skip') {
-          logger.info('reactToolLoop:工具轮内压缩评估触发', {
-            sessionId: session.id,
-            decision: evalResult.decision,
-            tokens: evalResult.snapshot.tokens,
-            maxTokens: evalResult.snapshot.maxTokens,
-            ratio: Number(evalResult.snapshot.ratio.toFixed(3)),
-            messageCount: this.loopState.messages.length,
-            toolTurn: this.loopState.toolTurnCount,
-          });
-          const compactResult = await compactionOrchestrator.compact(
-            this.loopState.messages as unknown as ChatMessage[],
-            { model, sessionId: session.id },
-            { skipTier3Sync: true, preEvaluated: evalResult }
-          );
-          if (compactResult.applied) {
-            this.loopState.messages =
-              compactResult.messages as unknown as Record<string, unknown>[];
-            logger.info('reactToolLoop:工具轮内上下文压缩完成', {
+          const ratio = Number(evalResult.snapshot?.ratio ?? 0);
+          // R2（2026-09-16）：压缩稳态豁免——上下文占用远低于模型窗口（容量充足）且压缩已连续 no_effect，
+          // 说明当前场景"压不动但也没有爆窗风险"；跳过本轮压缩尝试，避免每轮白跑全量 token 重估/大请求构造。
+          const steadySkip =
+            ratio < ReActToolLoop.COMPACT_STEADY_RATIO &&
+            (this.loopState.consecutiveCompactNoEffect ?? 0) >=
+              ReActToolLoop.COMPACT_NO_EFFECT_SKIP_THRESHOLD;
+          if (steadySkip) {
+            logger.info('reactToolLoop:compact_steady_state_skip', {
               sessionId: session.id,
-              beforeTokens: evalResult.snapshot.tokens,
-              afterMessageCount: compactResult.messages.length,
+              ratio: Number(ratio.toFixed(3)),
+              windowTokens: evalResult.snapshot?.maxTokens,
+              estimatedTokens: evalResult.snapshot?.tokens,
+              consecutiveNoEffect: this.loopState.consecutiveCompactNoEffect,
               toolTurn: this.loopState.toolTurnCount,
             });
+          } else {
+            logger.info('reactToolLoop:工具轮内压缩评估触发', {
+              sessionId: session.id,
+              decision: evalResult.decision,
+              tokens: evalResult.snapshot.tokens,
+              maxTokens: evalResult.snapshot.maxTokens,
+              ratio: Number(evalResult.snapshot.ratio.toFixed(3)),
+              messageCount: this.loopState.messages.length,
+              toolTurn: this.loopState.toolTurnCount,
+            });
+            const compactResult = await compactionOrchestrator.compact(
+              this.loopState.messages as unknown as ChatMessage[],
+              { model, sessionId: session.id },
+              { skipTier3Sync: true, preEvaluated: evalResult }
+            );
+            if (compactResult.applied) {
+              this.loopState.messages =
+                compactResult.messages as unknown as Record<string, unknown>[];
+              this.loopState.consecutiveCompactNoEffect = 0;
+              logger.info('reactToolLoop:工具轮内上下文压缩完成', {
+                sessionId: session.id,
+                beforeTokens: evalResult.snapshot.tokens,
+                afterMessageCount: compactResult.messages.length,
+                toolTurn: this.loopState.toolTurnCount,
+              });
+            } else {
+              this.loopState.consecutiveCompactNoEffect =
+                (this.loopState.consecutiveCompactNoEffect ?? 0) + 1;
+            }
           }
         }
         // 兜底：无论压缩是否生效，发送前强制截断（估算超窗口-输出预留才截断，否则零开销早退）
@@ -1851,6 +1908,16 @@ export class ReActToolLoop extends ReActLoop<
       kind = 'planning'; // 只描述计划未行动（保守启发式）
     }
     if (!kind) return false;
+    // R4（2026-09-16）：已注入强制收尾 steering（接近上限）后，截断输出**不再续接重发**——
+    // 续接会用放大后的 maxTokens 重发并加剧上下文膨胀；此时直接取当前部分文本作为最终
+    // 交付（收敛场景下"有残缺结论"优于"为求完整继续膨胀/空转"）。
+    if (kind === 'truncated' && this.convergeSteeringPrompted) {
+      logger.info('reactToolLoop:truncated_converge_no_continue', {
+        sessionId: this.ctx.session.id,
+        textPreview: text.slice(0, 80),
+      });
+      return false;
+    }
     if (this._incompleteRetries[kind] >= 1) return false; // 每类最多重试 1 次
 
     const instruction =

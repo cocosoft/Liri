@@ -32,6 +32,10 @@ import { compactionMetricsTracker } from './CompactionMetrics';
 import { compactionLockStore } from './CompactionLockStore';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
+import type {
+  parseCompactionSummary as ParseCompactionSummaryFn,
+  renderCompactionSummary as RenderCompactionSummaryFn,
+} from './StructuredCompactionPrompt';
 
 const logger = getLogger('context:compaction:orchestrator');
 
@@ -62,6 +66,36 @@ async function getAiService() {
  * （max_tokens=2560，5 字段 ≤1400 字）与用户等待的折中，超时由 signal 真正中断。
  */
 const COMPACTION_TIMEOUT_MS = 60_000;
+
+/** R1（2026-09-16）：Tier3 迭代折叠——单批折叠源 token 预算（≤约 5 倍 max_tokens=2560，单次摘要可覆盖） */
+const FOLD_BATCH_SOURCE_TOKENS = 12_000;
+/** R1：Tier3 单次压缩的批折叠上限（LLM 摘要调用数上限，防极端长上下文失控） */
+const FOLD_MAX_ITERATIONS = 20;
+/** R1（2026-09-16）：Tier3 折叠目标窗口——剩余上下文低于该 token 即停（与 ReActToolLoop 层窗口同源） */
+const FOLD_TARGET_TOKENS = Number(process.env.REACT_LAYER_WINDOW_TOKENS) || 45_000;
+
+/**
+ * R1（2026-09-16）：从旧→新的待折叠消息流取出**最早的一小批**——累积到接近 budgetTokens 即封批，
+ * 单条超大消息不被打散（自成一批，保证折叠批内 tool 配对尽可能完整）。
+ * @param pool 待折叠消息（旧→新）
+ * @returns 最早一批 batch 与剩余 rest（旧→新）
+ */
+export function extractEarliestBatch(
+  pool: ChatMessage[],
+  budgetTokens: number
+): { batch: ChatMessage[]; rest: ChatMessage[] } {
+  const batch: ChatMessage[] = [];
+  let batchTokens = 0;
+  for (let i = 0; i < pool.length; i++) {
+    const t = estimateMessagesTokens([pool[i]]);
+    if (batch.length > 0 && batchTokens + t > budgetTokens) {
+      return { batch, rest: pool.slice(i) };
+    }
+    batch.push(pool[i]);
+    batchTokens += t;
+  }
+  return { batch, rest: [] };
+}
 
 const FULL_COMPACTION_PROMPT = `You are a conversation compressor. Summarize the following conversation to preserve essential context while drastically reducing token count.
 
@@ -584,17 +618,20 @@ export class CompactionOrchestrator {
       const toCompress =
         headMessages.length === 0 ? messages : messages.slice(headIdx);
 
-      // P1-1（KV cache 复用，对齐 deepseek-harness summarizer）：
-      // 摘要请求 = 对话自身 system prompt（headMessages）+ 被压缩消息原始结构（toCompress，
-      // 非文本拼接）+ 压缩指令作为最后一条 user 消息收尾 → 摘要调用是主对话请求的
-      // 真实前缀，可复用 provider 的 KV cache（本地模型 prefill 显著下降）。
+      const beforeTokens = estimateMessagesTokens(messages);
       const shadowedTokens = estimateMessagesTokens(toCompress);
       if (shadowedTokens < 50) return { messages, applied: false };
       // P0 压缩超时治理：进入 LLM 调用前再查一次信号，避免超时后仍发起请求
       if (signal?.aborted) return { messages, applied: false };
 
+      // ===== R1（2026-09-16）迭代折叠早轮：让 Tier3 真实降 token =====
+      // 根因：原实现**单次**把整个 toCompress（实测 ~170K）压成一条 max_tokens=2560 的
+      // 摘要，覆盖严重不足且大段硬校验难达标 → 缩影 `applied:false`，上下文不下降，
+      // 每轮还白跑全量 re-tokenize。
+      // 方案：从**最早的中间轮**取一小批（≤FOLD_BATCH_SOURCE_TOKENS，单次摘要可覆盖），
+      // 生成该批摘要并摘下，循环直至剩余上下文进入目标窗口或无可折叠内容；批量校验
+      // 降 token（批内降易达标），保证渐进真实下降。
       const { default: aiService } = await getAiService();
-
       // P2-15: 优先使用结构化 prompt（5 字段），解析失败时回退到自由文本
       const {
         COMPACTION_USER_PROMPT,
@@ -602,45 +639,88 @@ export class CompactionOrchestrator {
         renderCompactionSummary,
       } = await import('./StructuredCompactionPrompt');
 
-      const apiMessages: ChatMessage[] = [
-        ...headMessages,
-        ...toCompress,
-        // 压缩指令收尾（作为最后 user 消息，与 deepseek-harness 的 COMPACTION_INSTRUCTION 一致）
-        { role: 'user', content: COMPACTION_USER_PROMPT } as ChatMessage,
-      ];
+      const folded: string[] = []; // 已摘除早轮摘要（按旧→新顺序）
+      let pool = [...toCompress]; // 尚未处理的中间+近期消息（旧→新）
+      let iteration = 0;
 
-      const response = await aiService.generate(
-        apiMessages,
-        ctx.model || '',
-        // 超时治理：max_tokens 4096 → 2560——5 字段摘要上限共 ~1400 字（≈2000-2500 tokens），
-        // 2560 足够且显著缩短 LLM 生成时间（4096 上限是浪费），降低 Tier3 超时概率
-        { temperature: 0.3, max_tokens: 2560, signal }
-      );
+      while (pool.length > 0 && iteration < FOLD_MAX_ITERATIONS) {
+        // P0 压缩超时治理：每个批折叠前再查一次信号，避免超时后仍发起请求
+        if (signal?.aborted) {
+          logger.warn('compaction:tier3_aborted_mid_fold', {
+            iteration,
+            foldedBatches: folded.length,
+          });
+          break;
+        }
+        // 取最早的一小批（累积到接近 FOLD_BATCH_SOURCE_TOKENS，避免把单条消息打散；
+        // 便于单次摘要覆盖该批，批内降 token 易达标）
+        const { batch, rest } = extractEarliestBatch(
+          pool,
+          FOLD_BATCH_SOURCE_TOKENS
+        );
+        pool = rest;
+        const batchTokens = estimateMessagesTokens(batch);
+        // 剩余不足 / 无实际可压缩内容 → 保留残余，结束折叠
+        if (batch.length === 0 || batchTokens < 100) {
+          pool = [...batch, ...pool];
+          break;
+        }
 
-      let summary: string;
-      const raw = response.content?.trim();
-      if (!raw) return { messages, applied: false };
+        // P2-15 结构化摘要单批折叠（P1-1 KV 前缀复用：headMessages + 该批 + 指令）
+        // 失败返回 null → 保留残余并停止折叠，不整体回退。
+        const summary = await this._foldBatchSummary(
+          aiService,
+          { COMPACTION_USER_PROMPT, parseCompactionSummary, renderCompactionSummary },
+          headMessages,
+          batch,
+          ctx,
+          signal
+        );
+        if (summary === null) break;
 
-      // P2-15: 尝试解析结构化 JSON，成功则使用结构化渲染
-      const structured = parseCompactionSummary(raw);
-      if (structured) {
-        summary = renderCompactionSummary(structured);
-        logger.debug('compaction:tier3_structured', {
-          fields: Object.keys(structured).filter(
-            (k) => (structured as Record<string, string>)[k]
-          ),
+        // 单批有效性校验（P1-2 对齐，作用于"单批"，批内降 token 易达标）：
+        // 摘要不得大于被折叠批，否则摘批次放回、停止折叠（避免无效折叠越压越大）。
+        const summaryTokens = estimateMessagesTokens([
+          { role: 'system', content: summary } as ChatMessage,
+        ]);
+        if (summaryTokens >= batchTokens) {
+          pool = [...batch, ...pool];
+          logger.warn('compaction:tier3_fold_summary_not_smaller', {
+            batchTokens,
+            summaryTokens,
+            batchMessages: batch.length,
+          });
+          break;
+        }
+
+        folded.push(summary);
+        iteration++;
+
+        // 目标窗口检查：head + 已折叠占位 + 未折叠 pool 已进入目标 → 停
+        const assembledTokens = estimateMessagesTokens([
+          ...headMessages,
+          ...folded.map((f) => ({ role: 'user', content: f }) as ChatMessage),
+          ...pool,
+        ]);
+        logger.debug('compaction:tier3_fold_progress', {
+          iteration,
+          batchTokens,
+          foldedBatches: folded.length,
+          poolMessages: pool.length,
+          assembledTokens,
+          targetTokens: FOLD_TARGET_TOKENS,
         });
-      } else {
-        // 回退：LLM 未返回有效 JSON，使用原始文本（仅保留纯文本摘要格式）
-        logger.debug('compaction:tier3_fallback_text', {
-          rawLength: raw.length,
-          reason: 'parseCompactionSummary returned null',
-        });
-        summary = `[Previous conversation summary]\n${raw}`;
+        if (assembledTokens <= FOLD_TARGET_TOKENS) break;
       }
 
-      // 构建压缩后消息：system prompts + 摘要 + 最后 2 条尾部消息
-      const tailMessages = toCompress.slice(-2);
+      // 一轮结束仍无任何批可折叠 → 无效果
+      if (folded.length === 0) {
+        logger.warn('compaction:tier3_no_fold', { beforeTokens, shadowedTokens });
+        return { messages, applied: false };
+      }
+
+      // 构建压缩后消息：system prompts + 摘要（合并为单条 user）+ 未折叠残余
+      const foldedContent = folded.join('\n\n');
       let compacted: ChatMessage[] = [
         ...headMessages,
         {
@@ -649,19 +729,18 @@ export class CompactionOrchestrator {
           // （think/response 格式）丢失、把思考当正文（"降智"）。历史摘要不是系统
           // 规范，以 user 消息注入并保留 `<system-info>` 标记供前端/模型识别。
           role: 'user',
-          content: summary,
+          content: foldedContent,
         } as ChatMessage,
-        ...tailMessages,
+        ...pool,
       ];
       // C2 修复（压缩链路排查 2026-08-13）：确保尾部为 user 消息（与 SnipEngine 一致）。
       // 压缩结果尾部若为 assistant（如本轮 user 被 isTaskMessage 过滤），OpenAI/DeepSeek
       // 会返回 400 "Conversation ended with assistant message"。
       compacted = ensureTrailingUserMessage(compacted);
 
-      // P2-1（2026-08-27）：压缩产物 tool 配对完整性——tail 若含孤立的 tool_call/
-      // tool_result（其配对消息已被压缩掉），模型收到"无配对的工具消息"会污染上下文
-      // （重演"连续 assistant/空 assistant"空响应）。基于压缩后集合剥离孤立项
-      // （对标 dsh toolPairingBalancedAfter 拒绝 unbalanced range）。
+      // P2-1（2026-08-27）：压缩产物 tool 配对完整性——残留 pool 若含孤立的 tool_call/
+      // tool_result（其配对消息已被折叠掉），模型收到"无配对的工具消息"会污染上下文
+      // （重演"连续 assistant/空 assistant"空响应）。基于压缩后集合剥离孤立项。
       {
         const pairedCallIds = collectToolCallIds(compacted);
         compacted = stripUnpairedToolResults(compacted, pairedCallIds);
@@ -670,60 +749,32 @@ export class CompactionOrchestrator {
         compacted = ensureTrailingUserMessage(compacted);
       }
 
-      // P1-2（有效性硬校验，对齐 deepseek-harness region.ts）：
-      // ① 摘要本身必须小于被压缩内容——framed summary >= shadowed content 则拒绝，
-      //    防止"压缩反而膨胀"（head/tail 保留会让整体对比掩盖摘要过大的问题）
-      const summaryTokens = estimateMessagesTokens([
-        { role: 'system', content: summary } as ChatMessage,
-      ]);
-      if (summaryTokens >= shadowedTokens) {
-        logger.warn('compaction:tier3_summary_not_smaller', {
-          summaryTokens,
-          shadowedTokens,
-          summaryLength: summary.length,
-          structured: !!structured,
-        });
-        return { messages, applied: false };
-      }
-
-      // ② 兜底校验：压缩后整体（head + 摘要 + tail）须小于压缩前全部消息
-      // （原实现 beforeTokens 只计 toCompress 不含 head，head 较大时整体对比失真）
-      const beforeTokens = estimateMessagesTokens(messages);
+      // ② 兜底校验：压缩后整体须小于压缩前全部消息（不能越压越大）
       const afterTokens = estimateMessagesTokens(compacted);
       if (afterTokens >= beforeTokens) {
         logger.warn('compaction:tier3_no_reduction', {
           beforeTokens,
           afterTokens,
-          summaryLength: summary.length,
-          structured: !!structured,
+          foldedBatches: folded.length,
         });
         return { messages, applied: false };
       }
 
-      // P1-2（2026-08-27）：成功返回携带摘要调用信封——从 provider 返回的 usage
-      // 提取 token 计数，配合 model/maxTokens/structured 使本次摘要请求可从事件重建。
-      const respUsage = (
-        response as unknown as {
-          usage?: Record<string, number>;
-        }
-      )?.usage;
+      logger.info('compaction:tier3_applied_iterative', {
+        beforeTokens,
+        afterTokens,
+        foldedBatches: folded.length,
+        iterations: iteration,
+      });
+
       return {
         messages: compacted,
         applied: true,
+        // 迭代折叠为多次摘要调用，单次 usage 不代表整体——故省略可重建信封，仅保留 structured 标记
         summaryEnvelope: {
           model: ctx.model,
           maxTokens: 2560,
-          usage: {
-            promptTokens:
-              respUsage?.prompt_tokens ?? respUsage?.inputTokens ?? 0,
-            completionTokens:
-              respUsage?.completion_tokens ?? respUsage?.outputTokens ?? 0,
-            totalTokens:
-              respUsage?.total_tokens ??
-              (respUsage?.prompt_tokens ?? 0) +
-                (respUsage?.completion_tokens ?? 0),
-          },
-          structured: !!structured,
+          structured: true,
         },
       };
     } catch (err) {
@@ -742,6 +793,68 @@ export class CompactionOrchestrator {
   ): Promise<boolean> {
     const decision = await this.evaluateCompaction(messages, ctx);
     return decision.decision === 'trigger';
+  }
+
+  /**
+   * R1（2026-09-16）：折叠**单批**消息为结构化摘要（temperature 0.3 / max_tokens 2560）。
+   * 摘要请求 = head system prompt + 被折叠批原始结构 + 压缩指令收尾（P1-1 KV 前缀复用）。
+   * 失败（LLM 报错 / 返回空 / 超时 signal）返回 null，由调用方保留残余并停止折叠。
+   */
+  private async _foldBatchSummary(
+    aiService: { generate: Function },
+    procs: {
+      COMPACTION_USER_PROMPT: string;
+      parseCompactionSummary: typeof ParseCompactionSummaryFn;
+      renderCompactionSummary: typeof RenderCompactionSummaryFn;
+    },
+    headMessages: ChatMessage[],
+    batch: ChatMessage[],
+    ctx: CompactionContext,
+    signal?: AbortSignal
+  ): Promise<string | null> {
+    try {
+      const apiMessages: ChatMessage[] = [
+        ...headMessages,
+        ...batch,
+        // 压缩指令收尾（作为最后 user 消息，与 deepseek-harness 的 COMPACTION_INSTRUCTION 一致）
+        { role: 'user', content: procs.COMPACTION_USER_PROMPT } as ChatMessage,
+      ];
+
+      const response = await aiService.generate(apiMessages, ctx.model || '', {
+        // 超时治理：max_tokens 4096 → 2560——5 字段摘要上限共 ~1400 字（≈2000-2500 tokens），
+        // 2560 足够且显著缩短 LLM 生成时间（4096 上限是浪费），降低 Tier3 超时概率
+        temperature: 0.3,
+        max_tokens: 2560,
+        signal,
+      });
+
+      const raw = response.content?.trim();
+      if (!raw) return null;
+
+      // P2-15: 尝试解析结构化 JSON，成功则使用结构化渲染；失败回退纯文本摘录
+      const structured = procs.parseCompactionSummary(raw);
+      if (structured) {
+        logger.debug('compaction:tier3_fold_structured', {
+          fields: Object.keys(structured).filter(
+            (k) => (structured as Record<string, unknown>)[k]
+          ),
+        });
+        return procs.renderCompactionSummary(structured);
+      }
+      logger.debug('compaction:tier3_fold_fallback_text', {
+        rawLength: raw.length,
+        reason: 'parseCompactionSummary returned null',
+      });
+      return `[Previous conversation summary]\n${raw}`;
+    } catch (err) {
+      // 单批折叠失败不整体回退——调用方保留残余并停止折叠（暂不需 handleError 上报主链路）
+      // @ignore-catch: Tier3 所有批都失败时 runFullCompaction 走 applied:false；此处避免
+      //  汇总多次 handleError 刷 ErrorTracker。
+      logger.warn('compaction:tier3_fold_batch_error', {
+        error: String(err),
+      });
+      return null;
+    }
   }
 }
 

@@ -180,6 +180,18 @@ const logger = getLogger('tools:FileReadTool:FileReadTool');
 const MAX_CONVERT_OUTPUT_CHARS = 30_000;
 
 /**
+ * autoIngestFile 短窗口去重缓存（BUG-04 残留加固）：
+ * 同一文件在 mtime 未变且距上次 autoIngest 在窗口期内时跳过，避免反复 read 同一文件
+ * 触发重复的完整磁盘读 + FileRegistry 注册（MD5 + ref_count++）+ 知识库同步，
+ * 放大运行期 IO/内存/DB 写压力（Liri 35 分钟空转反复读同一批文件即典型放大场景）。
+ */
+const AUTO_INGEST_DEDUP_TTL_MS = 60_000;
+const autoIngestDedup = new Map<
+  string,
+  { mtimeMs: number; at: number }
+>();
+
+/**
  * 截断二进制转换结果
  * 大文档（如 docx 技术规范书）转换结果可达数万 token，直接进入上下文会导致
  * tokenize 开销大、内存峰值高、GC 停顿阻塞事件循环（死机）。此处源头截断，
@@ -573,6 +585,25 @@ export class FileReadTool extends BaseTool {
   private autoIngestFile(filePath: string): void {
     Promise.resolve().then(async () => {
       try {
+        // BUG-04：同一文件 mtime 未变且短窗口内已 autoIngest 则跳过——
+        // 空转反复读同一文件时，避免每次都重复全量读盘 + FileRegistry 注册（MD5+ref_count++）。
+        let mtimeMs = 0;
+        try {
+          mtimeMs = fs.statSync(filePath).mtimeMs;
+        } catch {
+          // @ignore-catch — stat 失败（文件被删除等）仍走注册，由下游兜底
+        }
+        const cached = autoIngestDedup.get(filePath);
+        const now = Date.now();
+        if (
+          cached &&
+          cached.mtimeMs === mtimeMs &&
+          now - cached.at < AUTO_INGEST_DEDUP_TTL_MS
+        ) {
+          return;
+        }
+        autoIngestDedup.set(filePath, { mtimeMs, at: now });
+
         // Step 1: 注册到 FileRegistry
         const { FileRegistry } =
           await import('@modules/services/file/FileRegistry');

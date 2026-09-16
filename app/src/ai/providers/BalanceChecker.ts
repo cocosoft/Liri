@@ -25,7 +25,7 @@
  *
  * 支持供应商：
  * - DeepSeek: GET /user/balance
- * - SiliconFlow: GET /v1/user/info
+ * - SiliconFlow: /v1/user/info（⚠️ 2026-08-14 被官方下线，暂无替代接口，见 querySiliconFlow）
  * - OpenRouter: GET /api/v1/credits
  */
 
@@ -235,11 +235,12 @@ function extractBalanceFields(obj: Record<string, unknown>): {
 }
 
 /** SiliconFlow 余额查询
- *  GET https://api.siliconflow.cn/v1/user/info
- *  返回: { code, message, status, data: { balance, chargeBalance, totalBalance } }
- *  - balance: 免费赠送余额
- *  - chargeBalance: 充值余额
- *  - totalBalance: 总可用余额 (= balance + chargeBalance)
+ * 原接口 GET https://api.siliconflow.cn/v1/user/info
+ * ⚠️ 该接口已被官方下线（2026-08-14），返回 code=20092 "This endpoint is
+ *    deprecated and is no longer available"，且官方暂未发布可用的替代接口
+ *    （见 release-notes 2026.08.11《/user/info 接口将停止服务》）。
+ *    因此余额查询在有替代接口前不可用，这里识别退役码并返回明确、诚实的错误，
+ *    而不是把永久下线伪装成可重试的瞬时 API 错误。
  */
 async function querySiliconFlow(
   apiKey: string,
@@ -274,6 +275,24 @@ async function querySiliconFlow(
 
     const apiCode = typeof obj['code'] === 'number' ? obj['code'] : undefined;
     const apiMessage = typeof obj['message'] === 'string' ? obj['message'] : '';
+
+    // BUG-03：识别 /user/info 接口已官方下线（code=20092 或退役提示），
+    // 返回明确的永久性错误，避免被误当作瞬时 API 错误反复重试/告警。
+    const isRetired =
+      apiCode === 20092 ||
+      /deprecated|no longer available|停止服务|不再可用/i.test(apiMessage);
+    if (isRetired) {
+      logger.warning(
+        `SiliconFlow 余额接口 /user/info 已被官方下线（code=${apiCode} msg=${apiMessage}），官方暂无替代接口，余额暂不可查`
+      );
+      return {
+        success: false,
+        provider,
+        data: [],
+        error:
+          '硅基流动已下线余额查询接口 /user/info（官方 2026-08-14），官方暂未提供替代接口，余额暂不可查',
+      };
+    }
 
     // SiliconFlow 成功码: 20000 (文档) 或 0 / 200 (实际可能)
     if (

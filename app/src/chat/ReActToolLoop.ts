@@ -225,6 +225,8 @@ export class ReActToolLoop extends ReActLoop<
   private static readonly FILE_WRITE_LOOP_THRESHOLD = 3;
   /** P3-6：内容骨架长度（取内容前 N 字符比较，覆盖 HTML/文档模板开头一致性） */
   private static readonly FILE_CONTENT_HEAD_LENGTH = 200;
+  /** BUG-05（2026-09-16）：重读收敛阈值——同一资源（文件/搜索 pattern）被非连续重读数次即注入强制收尾 steering */
+  private static readonly READ_REEXPLORE_STEER_THRESHOLD = 5;
   /** 观察点修复（2026-08-26）：会话级总时长上限（默认 3 小时，env 可覆盖） */
   private static readonly MAX_TOTAL_DURATION_MS =
     Number(process.env.REACT_LOOP_MAX_DURATION_MS) || 3 * 60 * 60 * 1000;
@@ -237,6 +239,10 @@ export class ReActToolLoop extends ReActLoop<
   private readonly startedAt = Date.now();
   /** P2-3（2026-09-02）：同工具同参数重复调用纠偏——记录上一轮工具调用 key（工具名+归一化参数） */
   private _lastToolCallKeys: string[] | null = null;
+  /** BUG-05（2026-09-16）：重读收敛——被重读/重搜资源 → 累计次数（键 = 工具名:资源） */
+  private readReExploreCounts = new Map<string, number>();
+  /** BUG-05：是否已注入一次"重读收敛" steering（避免重复刷屏） */
+  private readReExploreSteered = false;
   /** 动态上限固定基础值（构造时确定，env MAX_TOOL_TURNS/MAX_TAOR_TURNS 覆盖），
    *  动态扩容基于此值而非已扩容值，避免每轮重复叠加 */
   private readonly baseMaxToolTurns: number;
@@ -1403,6 +1409,58 @@ export class ReActToolLoop extends ReActLoop<
   }
 
   /**
+   * BUG-05（2026-09-16）：重读数收敛。修复"35 分钟空转"——agent 非连续反复
+   * 重读/重搜同一批文件或 pattern，每次都"再看一眼"却无新产出，且因交错调用
+   * 逃过了 generic_repeat（只判与上一轮**连续**相同）与 ping_pong（只判双工具交替）。
+   * 判定：读类工具（read/search/grep/glob 等，排除写/改类）对同一资源累计重访
+   * ≥ READ_REEXPLORE_STEER_THRESHOLD → 注入一次 [STEERING] 强制收尾（非硬熔断，
+   * 不误伤正常深度探索），由模型自纠收敛。
+   * 串行/并行路径共用（在 _postProcessToolResult 中与 _detectFileWriteLoop 并列）。
+   */
+  private _detectReadReExplore(tc: ToolCallEntry): void {
+    const name = tc.name;
+    // 写/改/执行类工具排除：避免把"反复编辑同一文件/重复运行"误判为"重读"
+    if (/(write|edit|create|delete|remove|save|append|apply|run|exec|bash)/i.test(name))
+      return;
+    // 只关心读/搜/列目录类工具
+    if (!/(read|grep|glob|search|view|list|explore|cat|open)/i.test(name)) return;
+
+    const inp = (tc.input ?? {}) as Record<string, unknown>;
+    // 取"被重读的资源"签名：文件路径或搜索 pattern（读类工具的核心是资源本身）
+    const resource =
+      (typeof inp.file_path === 'string' ? inp.file_path : undefined) ??
+      (typeof inp.path === 'string' ? inp.path : undefined) ??
+      (typeof inp.pattern === 'string' ? inp.pattern : undefined) ??
+      (typeof inp.query === 'string' ? inp.query : undefined);
+    if (!resource) return;
+
+    const key = `${name}:${resource}`;
+    const count = (this.readReExploreCounts.get(key) ?? 0) + 1;
+    this.readReExploreCounts.set(key, count);
+    if (
+      count < ReActToolLoop.READ_REEXPLORE_STEER_THRESHOLD ||
+      this.readReExploreSteered
+    ) {
+      return;
+    }
+
+    this.readReExploreSteered = true;
+    this.steeringQueue.push(
+      `你已反复读取/搜索同一资源（${name}: ${resource}，累计 ${count} 次）未获得新结论。` +
+        '请立即收敛：要么基于当前已掌握的信息直接向用户交付最终结论，' +
+        '要么在继续读取前先明确说明你仍在尝试解决的具体未决问题；' +
+        '不要重复读取/搜索相同的文件或模式。'
+    );
+    logger.warn('reactToolLoop:read_reexplore_detected', {
+      sessionId: this.ctx.session.id,
+      toolName: name,
+      resource,
+      count,
+      toolTurn: this.loopState.toolTurnCount,
+    });
+  }
+
+  /**
    * P3-6（2026-09-02）：文件产出循环检测——模型反复写"相似内容/不同文件名"文件不收敛。
    *
    * 实测：deepseek-v4-flash 连续 14+ 轮 file_write 生成 AI-Agent 日报 HTML，文件名每次微调
@@ -1498,6 +1556,8 @@ export class ReActToolLoop extends ReActLoop<
     }
     // P3-6（2026-09-02）：文件产出循环检测（串行/并行路径共用）
     this._detectFileWriteLoop(tc);
+    // BUG-05（2026-09-16）：重读/重搜收敛（串行/并行路径共用）
+    this._detectReadReExplore(tc);
     // P7（2026-09-01）：跨轮收集"已完成工作"摘要——组合任务熔断（no_progress）时，
     // 已完成子任务（如知识库保存）的结果必须呈现给用户，不能随熔断一起丢失。
     // P12（2026-09-01）：created/skipped 统一为"已保存到知识库"，按 title 去重——

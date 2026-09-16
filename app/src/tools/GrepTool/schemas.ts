@@ -73,6 +73,7 @@ export const GrepOutputSchema = z.object({
   fileCount: z.number().int().nonnegative().describe('匹配文件数'),
   truncated: z.boolean().describe('是否被截断'),
   durationMs: z.number().int().nonnegative().describe('执行耗时（毫秒）'),
+  invalidRegex: z.string().optional().describe('正则非法时的降级原因'),
 });
 
 export type GrepOutputType = z.infer<typeof GrepOutputSchema>;

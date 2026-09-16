@@ -62,6 +62,8 @@ export interface GrepResult {
   fileCount: number;
   truncated: boolean;
   durationMs: number;
+  /** 正则非法时降级原因（无非法则为 undefined）。用于让调用方把问题反馈给 agent 自纠。 */
+  invalidRegex?: string;
 }
 
 const VCS_DIRS = new Set(['.git', '.svn', '.hg', '.bzr']);
@@ -95,6 +97,34 @@ const SKIP_DIRS = new Set([
 ]);
 
 /**
+ * 构建 grep 正则。
+ *
+ * BUG-01/02 修复：AI/用户传入的正则编译失败属「输入层业务问题」，不是系统错误——
+ * 不应走 handleError（那会落成 UNHANDLED_ERROR 系统错误记录，也掩盖了「正则写错」这一事实）。
+ * 此处改为 warn 级记录 + 字面量降级，并返回 invalidRegex 供上层把问题反馈给调用方自纠，
+ * 避免静默转义得到「未找到」的误导性空结果。
+ */
+function compileGrepRegex(
+  pattern: string,
+  multiline: boolean | undefined
+): { regex: RegExp; invalidRegex?: string } {
+  const flags = multiline ? 'gims' : 'gim';
+  try {
+    return { regex: new RegExp(pattern, flags) };
+  } catch (err) {
+    const reason = err instanceof Error ? err.message : String(err);
+    logger.warn('[buildRegex] 正则非法，按字面量降级搜索', {
+      pattern,
+      reason,
+    });
+    return {
+      regex: new RegExp(escapeRegex(pattern), 'gim'),
+      invalidRegex: reason,
+    };
+  }
+}
+
+/**
  * 在指定目录中搜索匹配正则表达式的文件内容。
  * * @param options - 搜索配置选项
  * @param options.searchPath - 要搜索的根目录路径，默认为当前工作目录；若为文件路径则自动降级为单文件搜索
@@ -112,17 +142,11 @@ export function grep(options: GrepOptions): GrepResult {
   const headLimit = options.headLimit ?? 200;
 
   let regex: RegExp;
-  // 尝试构建正则表达式，如果失败则对模式进行转义后重试
-  try {
-    const flags = options.multiline ? 'gims' : 'gim';
-    regex = new RegExp(options.pattern, flags);
-  } catch (err) {
-    handleError(err, {
-      module: 'tools:grep',
-      action: 'buildRegex',
-    });
-    regex = new RegExp(escapeRegex(options.pattern), 'gim');
-  }
+  let invalidRegex: string | undefined;
+  // 构建正则：非法时 warn 级降级并标记，供上层反馈给调用方自纠（BUG-01/02）
+  const compiled = compileGrepRegex(options.pattern, options.multiline);
+  regex = compiled.regex;
+  invalidRegex = compiled.invalidRegex;
 
   const fileMatches: Map<string, string[]> = new Map();
   let totalMatches = 0;
@@ -185,6 +209,7 @@ export function grep(options: GrepOptions): GrepResult {
     fileCount: matchedFiles.length,
     truncated: outputLines.length >= headLimit || totalMatches >= MAX_RESULTS,
     durationMs: Date.now() - startTime,
+    invalidRegex,
   };
 }
 
@@ -206,16 +231,11 @@ export async function grepAsync(options: GrepOptions): Promise<GrepResult> {
   const headLimit = options.headLimit ?? 200;
 
   let regex: RegExp;
-  try {
-    const flags = options.multiline ? 'gims' : 'gim';
-    regex = new RegExp(options.pattern, flags);
-  } catch (err) {
-    handleError(err, {
-      module: 'tools:grep',
-      action: 'buildRegex',
-    });
-    regex = new RegExp(escapeRegex(options.pattern), 'gim');
-  }
+  let invalidRegex: string | undefined;
+  // 构建正则：非法时 warn 级降级并标记，供上层反馈给调用方自纠（BUG-01/02）
+  const compiled = compileGrepRegex(options.pattern, options.multiline);
+  regex = compiled.regex;
+  invalidRegex = compiled.invalidRegex;
 
   const fileMatches: Map<string, string[]> = new Map();
   let totalMatches = 0;
@@ -279,6 +299,7 @@ export async function grepAsync(options: GrepOptions): Promise<GrepResult> {
     fileCount: matchedFiles.length,
     truncated: outputLines.length >= headLimit || totalMatches >= MAX_RESULTS,
     durationMs: Date.now() - startTime,
+    invalidRegex,
   };
 }
 

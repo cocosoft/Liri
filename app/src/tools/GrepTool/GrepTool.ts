@@ -165,11 +165,17 @@ export class GrepTool extends BaseTool {
         fileCount: result.fileCount,
         truncated: result.truncated,
         durationMs: result.durationMs,
+        invalidRegex: result.invalidRegex,
       };
+
+      // BUG-01/02：正则非法时把原因明确反馈给调用方自纠，而非误导性的空结果
+      const invalidNotice = result.invalidRegex
+        ? `正则无效: ${result.invalidRegex}\n已按字面量降级搜索（通常为空）。请修正 pattern 语法后重试，例如中文范围用 [\\u4e00-\\u9fa5] 而非 [\\x{4e00}-\\x{9fa5}]。\n\n`
+        : '';
 
       // 构造可读的输出摘要
       const summary = [
-        `搜索 "${validated.pattern}" 完成:`,
+        `${invalidNotice}搜索 "${validated.pattern}" 完成:`,
         `  - 匹配 ${result.matchCount} 处，分布在 ${result.fileCount} 个文件`,
         `  - 耗时 ${result.durationMs}ms`,
         result.truncated ? '  - (结果已截断，使用 headLimit 调整)' : '',

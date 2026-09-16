@@ -7,6 +7,7 @@
  * 使用方式：<SessionSliceList />
  */
 import { useState, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { useRootStore } from "@/stores/root-store";
 import { useNavigationStore } from "@/stores/navigationStore";
 import {
@@ -44,6 +45,7 @@ export interface SessionSliceListProps {
 export function SessionSliceList({
   maxItems = 100,
 }: SessionSliceListProps): React.ReactElement | null {
+  const { t } = useTranslation();
   const moduleContext = useRootStore((s) => s.moduleContext);
   const contextReady = useRootStore((s) => s._contextReady);
   const allSessions = useRootStore((s) => s.sessions);
@@ -188,7 +190,7 @@ export function SessionSliceList({
                 {/* 标题 + 时间 */}
                 <div className="flex-1 min-w-0">
                   <div className="truncate text-sm font-medium">
-                    {s.title || "未命名会话"}
+                    {s.title || t("chat.untitledSession")}
                   </div>
                   <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">
                     {meta?.label ?? s.moduleType}

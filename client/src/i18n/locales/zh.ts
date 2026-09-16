@@ -326,7 +326,6 @@ const zh = {
     clearAllMessage: "确定要清除全部会话吗？此操作不可撤销。",
     clearAll: "全部清除",
     confirmDeleteSession: "确定删除此会话？",
-    unnamedSession: "未命名会话",
     hasReplies: "有回复",
     jumpToReply: "跳转到回复",
     branch: "分支",

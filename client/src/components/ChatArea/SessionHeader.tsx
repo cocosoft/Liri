@@ -5,6 +5,7 @@ import { useChatStore } from "../../stores/chat";
 import { sessionService } from "../../services/sessionService";
 import type { Message } from "../../types";
 import { getMessageSearchText } from "../../utils/messageText";
+import { Tooltip, TooltipTrigger, TooltipContent } from "../ui/tooltip";
 
 /** 格式化日期为 yyyy-MM-dd HH:mm */
 function formatDateTime(dateStr: string): string {
@@ -273,14 +274,24 @@ function SessionHeader() {
                   style={{ width: "200px" }}
                 />
               ) : (
-                <h2
-                  onClick={() => setShowInfo(!showInfo)}
-                  onDoubleClick={handleDoubleClick}
-                  className="text-sm font-medium text-gray-900 dark:text-gray-100 cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 transition-colors truncate"
-                  title={t("chat.titleEditHint", "单击查看详情 · 双击编辑标题")}
-                >
-                  {currentSession.title}
-                </h2>
+                /* 方案 C #6：title 归还完整标题，操作提示迁到 Tooltip */
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <h2
+                        onClick={() => setShowInfo(!showInfo)}
+                        onDoubleClick={handleDoubleClick}
+                        className="text-sm font-medium text-gray-900 dark:text-gray-100 cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 transition-colors truncate"
+                        title={currentSession.title}
+                      >
+                        {currentSession.title}
+                      </h2>
+                    }
+                  />
+                  <TooltipContent>
+                    {t("chat.titleEditHint", "单击查看详情 · 双击编辑标题")}
+                  </TooltipContent>
+                </Tooltip>
               )}
               {!isEditing && (
                 <div className="flex items-center gap-1.5">

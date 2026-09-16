@@ -4,7 +4,7 @@
  * 接收 content、level 和 renderText 回调，渲染 h1~h6 标题。
  * 从 MarkdownRenderer.tsx 提取，保持原逻辑不变。
  */
-import React from "react";
+import React, { type JSX } from "react";
 
 interface HeadingRendererProps {
   content: string;

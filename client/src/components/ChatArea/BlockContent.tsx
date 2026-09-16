@@ -5,7 +5,7 @@
  * code → pre/code 块 | math → KaTeX | mermaid → Mermaid 图
  * table → 表格 | heading → h1~h6 | list → ul/ol | hr → 分隔线 | text → 段落
  */
-import React from "react";
+import React, { type JSX } from "react";
 import katex from "katex";
 import DOMPurify from "dompurify";
 import type { RenderedBlock } from "../../utils/markdownParser";

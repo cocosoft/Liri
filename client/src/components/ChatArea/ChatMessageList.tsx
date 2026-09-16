@@ -517,7 +517,7 @@ export default function ChatMessageList({
           <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 dark:bg-gray-800 rounded-xl flex items-center justify-center text-3xl">
             💬
           </div>
-          <h2 className="text-lg font-medium text-gray-800 dark:text-gray-200 mb-2">
+          <h2 className="text-lg font-medium text-gray-800 dark:text-gray-200 mb-2 break-words">
             {sessionTitle}
           </h2>
           <div className="rounded-2xl bg-gray-50 dark:bg-gray-800 px-6 py-3 mt-3">

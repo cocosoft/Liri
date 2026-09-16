@@ -5,6 +5,8 @@
  * 从 MarkdownRenderer.tsx 提取，保持原逻辑不变。
  */
 
+import type { JSX } from "react";
+
 /** 转义竖线占位符：分割前保护单元格内 `\|`，避免被误分割为多个单元格 */
 const ESCAPED_PIPE = "\u0000";
 

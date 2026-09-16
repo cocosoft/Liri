@@ -687,7 +687,7 @@ function LogViewerPage() {
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <h3
-                          className={`font-medium ${isDark ? "text-gray-100" : "text-gray-900"}`}
+                          className={`font-medium break-words ${isDark ? "text-gray-100" : "text-gray-900"}`}
                         >
                           {session.title ||
                             `${t("settings.logViewerSessionPrefix")} ${session.sessionId.substring(0, 8)}`}

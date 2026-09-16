@@ -8,6 +8,7 @@
  * - 右键菜单触发
  */
 import { useRef, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { createLogger } from "@/utils/logger";
 import { formatRelativeTime } from "../../utils/format";
 import { useRootStore } from "../../stores/root-store";
@@ -57,6 +58,7 @@ function SessionListItem({
   onDelete,
   onContextMenu,
 }: SessionListItemProps) {
+  const { t } = useTranslation();
   // 工作空间归属信息（用于显示归属前缀）
   const worktrees = useRootStore((s) => s.worktrees);
   const workspaceName = session.workspaceId
@@ -154,7 +156,12 @@ function SessionListItem({
                   <span className="mx-0.5 opacity-50">/</span>
                 </span>
               )}
-              {session.title || "未命名会话"}
+              <span
+                className="truncate min-w-0"
+                title={session.title || t("chat.untitledSession")}
+              >
+                {session.title || t("chat.untitledSession")}
+              </span>
             </div>
             <div className="text-xs text-gray-400 dark:text-gray-500 truncate">
               {session.source ? (

@@ -334,7 +334,6 @@ const en = {
       "Are you sure you want to clear all sessions? This action cannot be undone.",
     clearAll: "Clear All",
     confirmDeleteSession: "Are you sure you want to delete this session?",
-    unnamedSession: "Untitled Session",
     hasReplies: "Has replies",
     jumpToReply: "Jump to reply",
     branch: "Branch",

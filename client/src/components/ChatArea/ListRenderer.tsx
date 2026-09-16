@@ -4,6 +4,8 @@
  * 支持有序列表、无序列表和 GFM 任务列表（含 checkbox）。
  * 从 MarkdownRenderer.tsx 提取，保持原逻辑不变。
  */
+import type { JSX } from "react";
+
 interface ListRendererProps {
   content: string;
   renderText: (text: string, autoDetectFormula?: boolean) => JSX.Element[];

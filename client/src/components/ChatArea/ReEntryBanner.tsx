@@ -60,7 +60,7 @@ export default function ReEntryBanner({
           📋
         </span>
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium text-blue-700 dark:text-blue-300">
+          <p className="text-sm font-medium text-blue-700 dark:text-blue-300 break-words">
             {t("chat.reentryBanner", { title: sessionTitle })}
           </p>
           <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">

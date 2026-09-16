@@ -410,7 +410,9 @@ function SessionHistorySidebar({
   }, [loadSessions]);
 
   const handleNewSession = async () => {
-    const title = t("chat.newSession") + ` ${filteredSessions.length + 1}`;
+    // 方案 D（2026-09-16）：编号基于全量会话数，避免搜索过滤态新建重名
+    const title =
+      t("chat.newSession") + ` ${Object.keys(rootSessions).length + 1}`;
     try {
       await createSession(title);
       navigate(basePath);
@@ -778,7 +780,7 @@ function SessionHistorySidebar({
         message={t("chat.confirmDeleteSession", {
           title:
             sessions.find((s) => s.id === deleteTarget)?.title ||
-            t("chat.unnamedSession"),
+            t("chat.untitledSession"),
         })}
         confirmText={t("common.delete")}
         variant="danger"
@@ -823,6 +825,12 @@ function SessionHistorySidebar({
             className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-4 w-80 max-w-[90vw]"
             onClick={(e) => e.stopPropagation()}
           >
+            {/* 方案 C #5：详情弹窗新增可换行完整标题行 */}
+            {detailSession.title && (
+              <div className="mb-3 text-sm font-medium text-gray-800 dark:text-gray-200 break-words">
+                {detailSession.title}
+              </div>
+            )}
             <h3 className="text-sm font-medium text-gray-800 dark:text-gray-200 mb-3">
               {t("chat.sessionDetail")}
             </h3>

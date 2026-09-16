@@ -67,6 +67,10 @@ export interface SessionMetadata {
   titleStage?: 'preliminary' | 'final' | 'manual';
   /** M1-T1.3（2026-08-31）：列表置顶标记——pinned-only 更新不 touch updatedAt（与 models/SessionMetadata.ts 对齐） */
   pinned?: boolean;
+  /** 方案 A（2026-09-16）：会话标题单向锁——终态(manual/final)置位后永不回退 */
+  titleLocked?: boolean;
+  /** 方案 B（2026-09-16，P1-1）：标题原始值备份（首次改写前的 metadata.title） */
+  titleOriginal?: string;
   /** M4-T4.1（2026-08-31）：会话来源渠道（set_once，通道会话首次请求时补写） */
   channel?: string;
 }

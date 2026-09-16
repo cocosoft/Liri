@@ -149,7 +149,7 @@ const WORKBENCH_GROUPS: WorkbenchGroup[] = [
         id: "wb-council",
         label: "理事会",
         icon: CouncilIcon,
-        labelKey: "agent.title",
+        labelKey: "workspace.council",
         path: "/agent/roles",
       },
       {

@@ -96,7 +96,7 @@ export function SubModuleBar() {
         <InlineCalendarList
           events={calendarEvents.slice(0, 3)}
           onViewAll={() => {
-            navigate("/calendar");
+            navigate("/office?view=calendar");
             setExpandedPanel("none");
           }}
         />

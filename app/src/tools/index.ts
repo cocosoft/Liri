@@ -324,6 +324,7 @@ export type { ToolSchema } from './ToolRegistry';
 export { createToolRegistry } from './ToolRegistry';
 export { ToolFilterManager } from './ToolFilterManager';
 export { filterToolsByTask } from './toolCategories';
+export type { ToolCategory } from './toolCategories';
 export { checkSsrf } from './WebFetchTool/ssrf';
 export { ImageUrlHelper } from './ImageUrlHelper';
 export { ParallelExecutor } from './executor/ParallelExecutor';

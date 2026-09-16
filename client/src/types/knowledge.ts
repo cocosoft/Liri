@@ -31,7 +31,13 @@ export interface KnowledgeSearchResult {
 }
 
 export type KnowledgeSource =
-  "manual" | "auto-memory" | "upload" | "chat-save" | "dream" | "compiled";
+  | "manual"
+  | "auto-memory"
+  | "upload"
+  | "chat-save"
+  | "quick-note"
+  | "dream"
+  | "compiled";
 
 export interface KnowledgeBase {
   name: string;

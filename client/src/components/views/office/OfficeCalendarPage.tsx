@@ -430,7 +430,7 @@ export default function OfficeCalendarPage() {
             source: "calendar",
             link_to: {
               type: "page",
-              id: `/office/calendar?date=${data.start.slice(0, 10)}`,
+              id: `/office?view=calendar&date=${data.start.slice(0, 10)}`,
               label: "查看日历",
             },
             expires_at: Math.floor(new Date(data.start).getTime() / 1000),

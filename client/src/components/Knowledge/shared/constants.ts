@@ -10,6 +10,7 @@ export const sourceLabels: Record<string, string> = {
   "auto-memory": "自动记忆",
   upload: "文件上传",
   "chat-save": "聊天保存",
+  "quick-note": "速记",
   dream: "梦境生成",
   compiled: "LLM编译",
 };

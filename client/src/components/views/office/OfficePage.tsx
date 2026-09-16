@@ -6,6 +6,7 @@
 
 import { useEffect, useCallback, useState, useRef } from "react";
 import { useTranslation } from "react-i18next";
+import { useSearchParams, Link } from "react-router-dom";
 import { useOfficeStore } from "../../../stores/officeStore";
 import { useRootStore } from "../../../stores/root-store";
 import { useChatStore } from "../../../stores/chat";
@@ -15,6 +16,7 @@ import { useOfficeHotkeys } from "../../../hooks/useOfficeHotkeys";
 import { LeftPanel } from "./LeftPanel";
 import { CenterPanel } from "./CenterPanel";
 import { OfficeChatPanel } from "./OfficeChatPanel";
+import OfficeCalendarPage from "./OfficeCalendarPage";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { useSessionContextSync } from "../../../hooks/useSessionContextSync";
 import { createLogger } from "../../../utils/logger";
@@ -23,6 +25,7 @@ const logger = createLogger("components:office:OfficePage");
 
 export default function OfficePage() {
   const { t } = useTranslation();
+  const [searchParams] = useSearchParams();
   const {
     userCollapsed,
     responsiveMode,
@@ -445,6 +448,21 @@ export default function OfficePage() {
       </div>
     );
   };
+
+  // D5：日历并入办公——canonical /office?view=calendar 时整页承载日历（?date= 由日历页读取）
+  if (searchParams.get("view") === "calendar") {
+    return (
+      <div className="h-full w-full min-h-0 overflow-hidden bg-white dark:bg-gray-950 relative">
+        <Link
+          to="/office"
+          className="absolute top-2 left-3 z-50 text-xs text-blue-600 dark:text-blue-400 hover:underline"
+        >
+          ← {t("office.title", "办公")}
+        </Link>
+        <OfficeCalendarPage />
+      </div>
+    );
+  }
 
   return (
     <div

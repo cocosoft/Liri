@@ -106,6 +106,7 @@ function FilterPopover({
               <option value="manual">手动创建</option>
               <option value="upload">文件上传</option>
               <option value="chat-save">聊天保存</option>
+              <option value="quick-note">速记</option>
               <option value="dream">梦境生成</option>
               <option value="compiled">LLM编译</option>
             </select>

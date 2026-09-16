@@ -411,7 +411,8 @@ export class TaskStore {
       if (
         updates.status === 'completed' ||
         updates.status === 'failed' ||
-        updates.status === 'archived'
+        updates.status === 'archived' ||
+        updates.status === 'cancelled'
       ) {
         setClauses.push('completed_at = ?');
         params.push(new Date().toISOString());

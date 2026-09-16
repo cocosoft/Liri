@@ -1737,6 +1737,7 @@ const TASK_STATUS_WHITELIST = [
   'completed',
   'archived',
   'failed',
+  'cancelled',
 ] as const;
 
 /**

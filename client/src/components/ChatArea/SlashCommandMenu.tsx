@@ -100,6 +100,12 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     action: () => {},
   },
   {
+    key: "/translate",
+    label: "/translate",
+    description: "插入翻译提示词（中英互译）",
+    action: () => {},
+  },
+  {
     key: "/clear",
     label: "/clear",
     description: "清空聊天消息",

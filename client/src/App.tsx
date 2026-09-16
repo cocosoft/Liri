@@ -25,12 +25,15 @@ import { useBuddyNotification } from "./hooks/useBuddyNotification";
 import { useNotificationSSE } from "./hooks/useNotificationSSE";
 import NotificationPanel from "./components/views/NotificationPanel";
 import { useInitApp } from "./hooks/useInitApp";
+import { useAutoUpdate } from "./hooks/useAutoUpdate";
 import { useAutoCreateSession } from "./hooks/useAutoCreateSession";
 import SleepConfirmNotice from "./components/common/SleepConfirmNotice";
 import EstopBanner from "./components/common/EstopBanner";
+import QuickNoteModal from "./components/common/QuickNoteModal";
+import GlobalSearchModal from "./components/ChatArea/GlobalSearchModal";
 
 function App() {
-  const setActivePage = useNavigationStore((s) => s.setActivePage);
+  const syncActivePage = useNavigationStore((s) => s.syncActivePage);
   const _setNavigate = useNavigationStore((s) => s._setNavigate);
   const { config } = useConfigStore();
   const location = useLocation();
@@ -40,6 +43,39 @@ function App() {
   // LLM 配置引导：ready 后检测是否已配置 AI 模型
   const [showLLMGuide, setShowLLMGuide] = useState(false);
   const [llmGuideChecked, setLlmGuideChecked] = useState(false);
+
+  // D-j：全局速记浮层（Ctrl+Shift+N，由 useKeyboard 派发 open-quick-note 事件）
+  const [quickNoteOpen, setQuickNoteOpen] = useState(false);
+  useEffect(() => {
+    const open = () => setQuickNoteOpen(true);
+    window.addEventListener("open-quick-note", open);
+    return () => window.removeEventListener("open-quick-note", open);
+  }, []);
+
+  // H7/E-4：全局搜索（⌘K + Header 按钮）上提到应用层——应用级能力不寄生 UI 组件
+  const [searchOpen, setSearchOpen] = useState(false);
+  useEffect(() => {
+    const open = () => setSearchOpen(true);
+    window.addEventListener("open-global-search", open);
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "k") {
+        e.preventDefault();
+        setSearchOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("open-global-search", open);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, []);
+
+  // H6/E-5：自动更新轮询上提到应用层（原挂 Header 生命周期，Header 若被条件渲染则静默停止）
+  const { startPeriodicCheck, stopPeriodicCheck } = useAutoUpdate();
+  useEffect(() => {
+    startPeriodicCheck(86400000);
+    return () => stopPeriodicCheck();
+  }, [startPeriodicCheck, stopPeriodicCheck]);
 
   useEffect(() => {
     if (initState.phase === "ready" && !llmGuideChecked) {
@@ -78,12 +114,12 @@ function App() {
     _setNavigate(navigate);
   }, [_setNavigate, navigate]);
 
-  // 路由同步到 activePage
+  // 路由同步到 activePage（仅状态，不导航——导航会抹掉 query，破坏 /office?view=calendar 等深链）
   useEffect(() => {
     const path = location.pathname.replace("/", "");
     const page = path === "" ? "home" : path;
-    setActivePage(page as AppPage);
-  }, [location.pathname, setActivePage]);
+    syncActivePage(page as AppPage);
+  }, [location.pathname, syncActivePage]);
 
   // 知识库"发送到对话"事件监听
   useEffect(() => {
@@ -169,6 +205,15 @@ function App() {
         <OperationStatusBar />
         <ToastContainer />
         <NotificationPanel />
+        <QuickNoteModal
+          open={quickNoteOpen}
+          onClose={() => setQuickNoteOpen(false)}
+        />
+        <GlobalSearchModal
+          isOpen={searchOpen}
+          onClose={() => setSearchOpen(false)}
+          isDark={config.theme === "dark"}
+        />
         <div className="flex flex-1 overflow-hidden">
           <div className="hidden lg:block">
             <Sidebar />

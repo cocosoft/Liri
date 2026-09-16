@@ -6,7 +6,8 @@ interface ShortcutEntry {
 }
 
 const shortcuts: ShortcutEntry[] = [
-  { keys: ["Ctrl", "Shift", "N"], label: "新建会话" },
+  { keys: ["Ctrl", "Alt", "N"], label: "新建会话" },
+  { keys: ["Ctrl", "Shift", "N"], label: "速记（写入知识库）" },
   { keys: ["Ctrl", "L"], label: "清空当前消息" },
   { keys: ["Ctrl", "Shift", "D"], label: "切换仪表盘" },
   { keys: ["Ctrl", ","], label: "打开设置面板" },

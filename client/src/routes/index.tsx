@@ -25,14 +25,18 @@ function WorkspaceRedirect() {
 }
 
 /**
- * D-12 修复：/office/calendar → /calendar 重定向并保留 search（含 date= 参数），
- * 使消息中心的「查看日历」通知能定位到具体日期
+ * D5 日历并入办公：/office/calendar 与 /calendar 均重定向到 canonical URL
+ * /office?view=calendar，并保留 search（含 date= 参数，供消息中心「查看日历」定位日期）。
+ * P0-5 防环：唯一权威 URL 为 /office?view=calendar，旧路由不再互相指向。
  */
 function NavigateWithSearch() {
   const navigate = useNavigate();
   const location = useLocation();
   useEffect(() => {
-    navigate(`/calendar${location.search}`, { replace: true });
+    const query = new URLSearchParams(location.search).toString();
+    navigate(`/office?view=calendar${query ? `&${query}` : ""}`, {
+      replace: true,
+    });
   }, [location.search, navigate]);
   return null;
 }
@@ -47,7 +51,6 @@ const UsageCenterPage = lazy(
   () => import("../components/views/UsageCenterPage"),
 );
 const KnowledgePage = lazy(() => import("../components/views/KnowledgePage"));
-const DevPage = lazy(() => import("../components/views/DevPage"));
 const MemoryPage = lazy(() => import("../components/views/MemoryPage"));
 const SkillPage = lazy(() => import("../components/views/SkillPage"));
 const AgentPage = lazy(() => import("../components/views/AgentPage"));
@@ -66,6 +69,7 @@ const BackgroundStatusPage = lazy(
 );
 
 const ProjectsPage = lazy(() => import("../components/views/ProjectsPage"));
+const TasksPage = lazy(() => import("../components/views/TasksPage"));
 const ProjectOutputPage = lazy(
   () => import("../components/views/ProjectOutputPage"),
 );
@@ -78,9 +82,6 @@ const SecurityDashboard = lazy(
 const UserPage = lazy(() => import("../components/views/UserPage"));
 const HelpPage = lazy(() => import("../components/views/HelpPage"));
 const BuddyPage = lazy(() => import("../components/views/BuddyPage"));
-const SkillMarketPage = lazy(
-  () => import("../components/views/SkillMarketPage"),
-);
 const MCPMarketPage = lazy(() => import("../components/views/MCPMarketPage"));
 const PluginMarketPage = lazy(
   () => import("../components/views/PluginMarketPage"),
@@ -94,7 +95,7 @@ const LogViewerPage = lazy(() => import("../components/views/LogViewerPage"));
 const SandboxPage = lazy(() => import("../components/views/SandboxPage"));
 const AutoReplyPage = lazy(() => import("../components/views/AutoReplyPage"));
 const STTTestPage = lazy(() => import("../components/views/STTTestPage"));
-const TranslatePage = lazy(() => import("../components/views/TranslatePage"));
+// D7：翻译并入聊天，/translate 改为重定向；TranslatePage 组件保留供聊天内嵌复用（S6）。
 const OfficePage = lazy(() => import("../components/views/office/OfficePage"));
 const OfficeDocPage = lazy(
   () => import("../components/views/office/OfficeDocPage"),
@@ -102,9 +103,7 @@ const OfficeDocPage = lazy(
 const OfficeMailPage = lazy(
   () => import("../components/views/office/OfficeMailPage"),
 );
-const OfficeCalendarPage = lazy(
-  () => import("../components/views/office/OfficeCalendarPage"),
-);
+// D5：日历页改由 OfficePage（?view=calendar）内部承载，不再作为独立顶级路由挂载。
 // routes/index.tsx 原有保留路由
 // M2：/apikeys 归一为 ApiKeyContent 唯一实现（方案 §5.4，替代 ApiKeyPage 重复实现）
 const ApiKeyPage = lazy(() => import("../components/settings/ApiKeyContent"));
@@ -232,14 +231,10 @@ export const routes: RouteObject[] = [
     ),
   },
 
-  // 翻译
+  // 翻译（D7：能力并入聊天斜杠命令，旧 URL 重定向保留）
   {
     path: "/translate",
-    element: (
-      <AuthGuard>
-        <TranslatePage />
-      </AuthGuard>
-    ),
+    element: <Navigate to="/chat" replace />,
   },
 
   // 办公模块
@@ -273,26 +268,14 @@ export const routes: RouteObject[] = [
     element: <NavigateWithSearch />,
   },
 
-  // 日历模块（独立顶级路由）
+  // D5：日历独立顶级路由已废止，统一重定向到办公日历子视图（canonical /office?view=calendar）
   {
     path: "/calendar",
-    element: (
-      <AuthGuard>
-        <OfficeCalendarPage />
-      </AuthGuard>
-    ),
+    element: <NavigateWithSearch />,
   },
 
-  // 开发者工具
-  { path: "/dev", element: <Navigate to="/dev/terminal" replace /> },
-  {
-    path: "/dev/:subPage",
-    element: (
-      <AuthGuard>
-        <DevPage />
-      </AuthGuard>
-    ),
-  },
+  // 开发者工具（DevPage 已废弃：7 个子页均有独立路由，其中 5 项已有工作台/高区入口，
+  // 孤岛 /autoreply 归入工作台「自主任务」组，/voice-stt 已下沉聊天输入）
 
   // 记忆系统
   {
@@ -400,16 +383,17 @@ export const routes: RouteObject[] = [
     ),
   },
 
-  // Inbox → 已迁移至通知中心，旧路由重定向至首页
-  {
-    path: "/inbox",
-    element: <Navigate to="/" replace />,
-  },
+  // Inbox 路由已删除（2026-09-10 复查）：能力现由聊天内 InboxBlock 卡片承载（走 /v1/inbox API），
+  // 通知中心为弹窗（notificationStore.openPanel），/inbox 页面零驱动方。
 
-  // 任务中心 → 工作模块（已迁移至项目页面编排 Tab + 设置页 Agent 任务管理）
+  // 任务聚合收件箱（D3：/tasks 由死重定向改为跨项目聚合页）
   {
     path: "/tasks",
-    element: <Navigate to="/projects" replace />,
+    element: (
+      <AuthGuard>
+        <TasksPage />
+      </AuthGuard>
+    ),
   },
 
   // 频道管理
@@ -482,15 +466,7 @@ export const routes: RouteObject[] = [
     ),
   },
 
-  // 市场
-  {
-    path: "/market/skills",
-    element: (
-      <AuthGuard>
-        <SkillMarketPage />
-      </AuthGuard>
-    ),
-  },
+  // 市场（/market/skills 已删除：同一页面由 SkillPage 内 SkillMarketModal 弹窗承载，路由零调用方）
   {
     path: "/market/mcp",
     element: (
@@ -584,7 +560,6 @@ export const routes: RouteObject[] = [
 
   // routes/index.tsx 原有保留路由（未在 App.tsx 中出现）
   { path: "/apikeys", element: <ApiKeyPage /> },
-  { path: "/skill-market", element: <SkillMarketPage /> },
   { path: "/oauth", element: <OAuthPage /> },
 ];
 

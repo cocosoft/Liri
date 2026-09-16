@@ -87,6 +87,8 @@ function ChatInput({ fluid = false }: { fluid?: boolean }) {
   const [commandIndex, setCommandIndex] = useState(0);
   const [attachments, setAttachments] = useState<FileAttachment[]>([]);
   const [imageItems, setImageItems] = useState<ImageItem[]>([]);
+  /** D7：识图翻译——正在 OCR 的图片 id（单并发，按钮转 loading） */
+  const [translatingId, setTranslatingId] = useState<string | null>(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showUploadMenu, setShowUploadMenu] = useState(false);
   const [showModeMenu, setShowModeMenu] = useState(false);
@@ -101,6 +103,10 @@ function ChatInput({ fluid = false }: { fluid?: boolean }) {
   const [showAllThumbnails, setShowAllThumbnails] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
+  /** L1 修复：进行中的图片上传 Promise（key=图片 id），发送时等待其完成 */
+  const inflightUploadsRef = useRef<Map<string, Promise<AttachedImage | null>>>(
+    new Map(),
+  );
   const fileBarRef = useRef<FileAttachmentBarHandle>(null);
   const uploadMenuRef = useRef<HTMLDivElement>(null);
   const wasShowingCommandsRef = useRef(false);
@@ -282,6 +288,94 @@ function ChatInput({ fluid = false }: { fluid?: boolean }) {
   };
 
   /**
+   * 上传指定图片列表（并发上限 MAX_CONCURRENT_UPLOADS），状态按 item.id 更新。
+   * 相同 id 已在途时复用既有 Promise，避免重复上传（L1 修复配套）。
+   */
+  const uploadImageItems = useCallback(
+    async (items: ImageItem[]): Promise<AttachedImage[]> => {
+      const pending = items.filter((item) => item.status === "pending");
+      if (pending.length === 0) return [];
+
+      const uploaded: AttachedImage[] = [];
+      const total = pending.length;
+
+      for (let i = 0; i < total; i += MAX_CONCURRENT_UPLOADS) {
+        const batch = pending.slice(i, i + MAX_CONCURRENT_UPLOADS);
+        const results = await Promise.allSettled(
+          batch.map((item) => {
+            // 已在途：复用既有 promise
+            const inflight = inflightUploadsRef.current.get(item.id);
+            if (inflight) return inflight;
+
+            const p = (async (): Promise<AttachedImage | null> => {
+              // #14 修复：用 item.id 定位（原 p.file === item.file，同一 File 重复
+              // 添加时两个条目互相覆盖状态）
+              setImageItems((prev) =>
+                prev.map((p) =>
+                  p.id === item.id
+                    ? { ...p, status: "uploading" as const, progress: 0 }
+                    : p,
+                ),
+              );
+              try {
+                const result = await imageService.upload(item.file, (pct) => {
+                  setImageItems((prev) =>
+                    prev.map((p) =>
+                      p.id === item.id ? { ...p, progress: pct } : p,
+                    ),
+                  );
+                });
+                setImageItems((prev) =>
+                  prev.map((p) =>
+                    p.id === item.id
+                      ? {
+                          ...p,
+                          status: "done" as const,
+                          progress: 100,
+                          result: {
+                            ...result,
+                            filename: item.file.name,
+                            size: item.file.size,
+                          },
+                        }
+                      : p,
+                  ),
+                );
+                return {
+                  ...result,
+                  filename: item.file.name,
+                  size: item.file.size,
+                };
+              } catch (e) {
+                handleClientError(e, {
+                  module: "components:chat:ChatInput",
+                  action: "uploadImages",
+                });
+                setImageItems((prev) =>
+                  prev.map((p) =>
+                    p.id === item.id ? { ...p, status: "error" as const } : p,
+                  ),
+                );
+                return null;
+              }
+            })();
+            inflightUploadsRef.current.set(item.id, p);
+            void p.finally(() => inflightUploadsRef.current.delete(item.id));
+            return p;
+          }),
+        );
+        for (const r of results) {
+          if (r.status === "fulfilled" && r.value) {
+            uploaded.push(r.value);
+          }
+        }
+      }
+      return uploaded;
+    },
+    [],
+  );
+
+  /**
    * 处理图片文件选择：过滤非图片文件，检查大小和数量限制
    */
   const handleImageFiles = useCallback(
@@ -297,27 +391,25 @@ function ChatInput({ fluid = false }: { fluid?: boolean }) {
         return;
       }
 
-      setImageItems((prev) => {
-        const available = MAX_IMAGES_PER_MESSAGE - prev.length;
-        if (available <= 0) return prev;
+      const available = MAX_IMAGES_PER_MESSAGE - imageItems.length;
+      if (available <= 0) return;
 
-        const toAdd = imageFiles.slice(0, available);
-        return [
-          ...prev,
-          ...toAdd.map((file) => ({
-            // #14 修复：唯一 id（file.name+size+时间戳），避免同 File 重复添加 key 冲突
-            id: `${file.name}-${file.size}-${Date.now()}-${Math.random()
-              .toString(36)
-              .slice(2)}`,
-            file,
-            previewUrl: URL.createObjectURL(file),
-            status: "pending" as const,
-            progress: 0,
-          })),
-        ];
-      });
+      const toAdd: ImageItem[] = imageFiles.slice(0, available).map((file) => ({
+        // #14 修复：唯一 id（file.name+size+时间戳），避免同 File 重复添加 key 冲突
+        id: `${file.name}-${file.size}-${Date.now()}-${Math.random()
+          .toString(36)
+          .slice(2)}`,
+        file,
+        previewUrl: URL.createObjectURL(file),
+        status: "pending" as const,
+        progress: 0,
+      }));
+
+      setImageItems((prev) => [...prev, ...toAdd]);
+      // L1 修复：选中图片后立即上传（status → done），使"译"按钮（识图翻译）在正常流程可达
+      void uploadImageItems(toAdd);
     },
-    [t],
+    [t, imageItems, uploadImageItems],
   );
 
   /** #14 修复：移除单张图片（按唯一 id 定位，原按数组索引删除中间项后错位） */
@@ -328,6 +420,34 @@ function ChatInput({ fluid = false }: { fluid?: boolean }) {
       return prev.filter((p) => p.id !== id);
     });
   }, []);
+
+  /**
+   * 识图翻译（D7）：对已上传图片做 OCR 提取文字，再填入翻译提示词。
+   * 用户确认后按普通消息发送；图片附件保留，模型可对照原图。
+   */
+  const handleTranslateImage = useCallback(
+    async (item: ImageItem) => {
+      if (item.status !== "done" || !item.result?.path) return;
+      setTranslatingId(item.id);
+      try {
+        const res = await imageService.analyze(item.result.path, "ocr");
+        const ocrText = res.text?.trim();
+        if (!ocrText) {
+          toastWarning(t("translate.ocrFailed"));
+          return;
+        }
+        setInput(`${t("translate.slashPrompt")}${ocrText}`);
+      } catch (e) {
+        handleClientError(e, {
+          module: "components:chat:ChatInput",
+          action: "ocr-translate-image",
+        });
+      } finally {
+        setTranslatingId(null);
+      }
+    },
+    [t],
+  );
 
   /**
    * 处理非图片文件：读取为 base64 后加入附件列表
@@ -439,78 +559,33 @@ function ChatInput({ fluid = false }: { fluid?: boolean }) {
     [handleImageFiles, handleFileAttachments],
   );
 
-  /** 并发上传所有待上传图片，返回 AttachedImage[] */
+  /**
+   * 发送前收集所有图片附件（L1 修复：图片选中即已上传 done，此处只收集与兜底）：
+   * 1) 已 done 的取 result；2) 在途（uploading）等待完成；3) 仍 pending 的补齐上传。
+   */
   const uploadImages = useCallback(async (): Promise<AttachedImage[]> => {
-    const pending = imageItems.filter((item) => item.status === "pending");
-    if (pending.length === 0) return [];
+    const doneResults: AttachedImage[] = [];
 
-    const uploaded: AttachedImage[] = [];
-    const total = pending.length;
-
-    for (let i = 0; i < total; i += MAX_CONCURRENT_UPLOADS) {
-      const batch = pending.slice(i, i + MAX_CONCURRENT_UPLOADS);
-      const results = await Promise.allSettled(
-        batch.map(async (item) => {
-          // #14 修复：用 item.id 定位（原 p.file === item.file，同一 File 重复
-          // 添加时两个条目互相覆盖状态）
-          setImageItems((prev) =>
-            prev.map((p) =>
-              p.id === item.id
-                ? { ...p, status: "uploading" as const, progress: 0 }
-                : p,
-            ),
-          );
-          try {
-            const result = await imageService.upload(item.file, (pct) => {
-              setImageItems((prev) =>
-                prev.map((p) =>
-                  p.id === item.id ? { ...p, progress: pct } : p,
-                ),
-              );
-            });
-            setImageItems((prev) =>
-              prev.map((p) =>
-                p.id === item.id
-                  ? {
-                      ...p,
-                      status: "done" as const,
-                      progress: 100,
-                      result: {
-                        ...result,
-                        filename: item.file.name,
-                        size: item.file.size,
-                      },
-                    }
-                  : p,
-              ),
-            );
-            return {
-              ...result,
-              filename: item.file.name,
-              size: item.file.size,
-            };
-          } catch (e) {
-            handleClientError(e, {
-              module: "components:chat:ChatInput",
-              action: "uploadImages",
-            });
-            setImageItems((prev) =>
-              prev.map((p) =>
-                p.id === item.id ? { ...p, status: "error" as const } : p,
-              ),
-            );
-            return null;
-          }
-        }),
-      );
-      for (const r of results) {
-        if (r.status === "fulfilled" && r.value) {
-          uploaded.push(r.value);
-        }
+    for (const item of imageItems) {
+      if (item.status === "done" && item.result) {
+        doneResults.push(item.result);
       }
     }
-    return uploaded;
-  }, [imageItems]);
+
+    const inflight = Array.from(inflightUploadsRef.current.values());
+    for (const p of inflight) {
+      const r = await p.catch(() => null);
+      if (r) doneResults.push(r);
+    }
+
+    const pendingItems = imageItems.filter((item) => item.status === "pending");
+    if (pendingItems.length > 0) {
+      const newly = await uploadImageItems(pendingItems);
+      doneResults.push(...newly);
+    }
+
+    return doneResults;
+  }, [imageItems, uploadImageItems]);
 
   /**
    * CG3: 发送 Steering 指令到正在运行的任务
@@ -552,6 +627,12 @@ function ChatInput({ fluid = false }: { fluid?: boolean }) {
 
     const matched = SLASH_COMMANDS.find((cmd) => cmd.key === trimmed);
     if (matched) {
+      // D7：翻译并入聊天——/translate 插入翻译提示词，用户补全文本后按普通消息发送
+      if (matched.key === "/translate") {
+        setInput(t("translate.slashPrompt"));
+        setShowCommands(false);
+        return;
+      }
       // 命令由 ChatInput 执行（因为涉及 createSession、setActivePage 等 store 调用）
       if (matched.key === "/clear") {
         // R-A 修复：同步清空后端，避免切回会话"消息复活"
@@ -979,6 +1060,20 @@ function ChatInput({ fluid = false }: { fluid?: boolean }) {
                       <div className="absolute inset-0 bg-red-500/40 flex items-center justify-center text-white text-xs">
                         !
                       </div>
+                    )}
+                    {/* D7：识图翻译——已上传图片悬停时出现，OCR 后填入翻译提示词 */}
+                    {item.status === "done" && (
+                      <button
+                        type="button"
+                        onClick={() => void handleTranslateImage(item)}
+                        disabled={translatingId === item.id}
+                        className="absolute bottom-0.5 left-0.5 h-5 px-1.5 bg-black/60 text-white rounded text-[10px] leading-none opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/80 disabled:opacity-100"
+                        title={t("translate.title")}
+                      >
+                        {translatingId === item.id
+                          ? "..."
+                          : t("translate.title")}
+                      </button>
                     )}
                     <button
                       onClick={() => handleRemoveImage(item.id)}

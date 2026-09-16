@@ -12,6 +12,8 @@ import { create } from "zustand";
 export type AppPage =
   | "home"
   | "chat"
+  | "projects"
+  | "tasks"
   | "dashboard"
   | "logs"
   | "memory"
@@ -19,6 +21,8 @@ export type AppPage =
   | "cron"
   | "files"
   | "knowledge"
+  | "media"
+  | "office"
   | "agent"
   | "channels"
   | "settings"
@@ -27,8 +31,7 @@ export type AppPage =
   | "plans"
   | "tts"
   | "semantic"
-  | "workspace"
-  | "tasks";
+  | "workspace";
 
 type NavigateFn = (path: string) => void;
 
@@ -39,6 +42,8 @@ export interface NavigationStore {
   _navigate: NavigateFn | null;
 
   setActivePage: (page: AppPage) => void;
+  /** 仅同步状态，不触发导航（URL → activePage 方向，避免抹掉 query） */
+  syncActivePage: (page: AppPage) => void;
   _setNavigate: (fn: NavigateFn) => void;
 }
 
@@ -55,6 +60,11 @@ export const useNavigationStore = create<NavigationStore>((set, get) => ({
     if (nav) {
       nav(page === "home" ? "/" : `/${page}`);
     }
+  },
+
+  /** URL 同步方向：只更新 activePage，不导航（导航会丢掉 search query） */
+  syncActivePage: (page) => {
+    set({ activePage: page });
   },
 
   /** 注入路由导航函数（由 App.tsx 在 useEffect 中调用） */

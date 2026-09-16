@@ -7,7 +7,9 @@ const shortcutMap: Record<
   string,
   { key: string; ctrl?: boolean; shift?: boolean; alt?: boolean }
 > = {
-  "new-session": { key: "n", ctrl: true, shift: true },
+  // D-j：Ctrl+Shift+N 让给全局速记，新建会话改 Ctrl+Alt+N
+  "new-session": { key: "n", ctrl: true, alt: true },
+  "quick-note": { key: "n", ctrl: true, shift: true },
   "clear-messages": { key: "l", ctrl: true },
   "toggle-dashboard": { key: "d", ctrl: true, shift: true },
   "toggle-settings": { key: ",", ctrl: true },
@@ -18,6 +20,7 @@ const shortcutMap: Record<
 
 export type ShortcutAction =
   | "new-session"
+  | "quick-note"
   | "clear-messages"
   | "toggle-dashboard"
   | "toggle-settings"
@@ -46,7 +49,19 @@ export function useKeyboard() {
       const isCtrl = e.ctrlKey || e.metaKey;
       const key = e.key.toLowerCase();
 
-      if (isCtrl && e.shiftKey && key === shortcutMap["new-session"].key) {
+      // Ctrl+Shift+N：全局速记浮层（D-j；App 层监听 open-quick-note 事件）
+      if (isCtrl && e.shiftKey && key === shortcutMap["quick-note"].key) {
+        e.preventDefault();
+        window.dispatchEvent(new CustomEvent("open-quick-note"));
+        return;
+      }
+
+      if (
+        isCtrl &&
+        e.altKey &&
+        !e.shiftKey &&
+        key === shortcutMap["new-session"].key
+      ) {
         e.preventDefault();
         // W1 修复：createChatSession 失败已在其内部 toast + 记录，
         // 这里无需重复处理，仅防止未 await 产生 unhandledRejection

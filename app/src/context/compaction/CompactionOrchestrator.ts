@@ -72,7 +72,8 @@ const FOLD_BATCH_SOURCE_TOKENS = 12_000;
 /** R1：Tier3 单次压缩的批折叠上限（LLM 摘要调用数上限，防极端长上下文失控） */
 const FOLD_MAX_ITERATIONS = 20;
 /** R1（2026-09-16）：Tier3 折叠目标窗口——剩余上下文低于该 token 即停（与 ReActToolLoop 层窗口同源） */
-const FOLD_TARGET_TOKENS = Number(process.env.REACT_LAYER_WINDOW_TOKENS) || 45_000;
+const FOLD_TARGET_TOKENS =
+  Number(process.env.REACT_LAYER_WINDOW_TOKENS) || 45_000;
 
 /**
  * R1（2026-09-16）：从旧→新的待折叠消息流取出**最早的一小批**——累积到接近 budgetTokens 即封批，
@@ -670,7 +671,11 @@ export class CompactionOrchestrator {
         // 失败返回 null → 保留残余并停止折叠，不整体回退。
         const summary = await this._foldBatchSummary(
           aiService,
-          { COMPACTION_USER_PROMPT, parseCompactionSummary, renderCompactionSummary },
+          {
+            COMPACTION_USER_PROMPT,
+            parseCompactionSummary,
+            renderCompactionSummary,
+          },
           headMessages,
           batch,
           ctx,
@@ -715,7 +720,10 @@ export class CompactionOrchestrator {
 
       // 一轮结束仍无任何批可折叠 → 无效果
       if (folded.length === 0) {
-        logger.warn('compaction:tier3_no_fold', { beforeTokens, shadowedTokens });
+        logger.warn('compaction:tier3_no_fold', {
+          beforeTokens,
+          shadowedTokens,
+        });
         return { messages, applied: false };
       }
 

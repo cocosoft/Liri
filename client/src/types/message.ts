@@ -17,6 +17,8 @@ export interface Message {
   timestamp: number;
   /** 流式开始时间（毫秒，1.6：与 timestamp 完成时间区分，导出显示开始时间与耗时） */
   startedAt?: number;
+  /** 本轮整轮耗时（毫秒，前端流结束计算：用户发送→助手回复完成；仅当前轮实时写入，不落盘） */
+  durationMs?: number;
   /** B-1（2026-08-23）：事件派生排序键（后端派生消息的 lastEventSeq，setMessages 排序用） */
   lastEventSeq?: number;
   session_id: string;

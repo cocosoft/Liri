@@ -276,6 +276,15 @@ const ChatMessageMemo = memo(
       return `$${costUsd.toFixed(4)}`;
     };
 
+    /** 整轮耗时格式化：<1s 显示毫秒；秒级 xx.xs；分钟级 x分x秒（与 TaskCard 用时风格一致） */
+    const formatDuration = (ms: number) => {
+      if (ms < 1000) return `${ms} ms`;
+      if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
+      const m = Math.floor(ms / 60000);
+      const s = Math.floor((ms % 60000) / 1000);
+      return `${m}分${s}秒`;
+    };
+
     /**
      * 复制消息内容
      * @param asMarkdown true=复制 Markdown 源码；false/Shift+Click=复制纯文本
@@ -593,6 +602,11 @@ const ChatMessageMemo = memo(
               {/* 时间戳 */}
               {message.timestamp && (
                 <span>{formatTime(message.timestamp)}</span>
+              )}
+
+              {/* 助手回复：本轮整轮耗时 */}
+              {!isUser && message.durationMs !== undefined && (
+                <span>⏱ {formatDuration(message.durationMs)}</span>
               )}
 
               {/* 用户消息：操作按钮常驻 */}

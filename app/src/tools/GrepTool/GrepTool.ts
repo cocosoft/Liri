@@ -30,6 +30,35 @@ import { getLogger } from '@modules/monitoring';
 const logger = getLogger('tools:GrepTool:GrepTool');
 
 /**
+ * BUG-05 深化：grep 专属"重复 pattern 短路"。
+ * 同一搜索键（路径+pattern+include+输出模式）在短窗口内重复调用时，跳过真实搜索并提示，
+ * 从源头拦截 agent 空转反复搜同一批内容的模式（LoopDetector 的 steering 在循环层兜底，本层更前置）。
+ * 用模块级缓存，不依赖工具实例生命周期，保证跨调用/多实例共享。
+ */
+const GREP_DUP_WINDOW_MS = 60_000;
+/** 重复检测缓存上限（防内存增长；超限直接清空，只丢窗口缓存不丢真实结果） */
+const GREP_DUP_CACHE_MAX = 200;
+const grepRecentSearchAt = new Map<string, number>();
+
+/**
+ * 构造搜索去重键：路径 + pattern + include + 输出模式。
+ * 省略 contextAround/headLimit/outputMode 内容等展示差异，聚焦"搜什么"这一本质。
+ */
+function grepSearchKey(input: {
+  searchPath: string;
+  pattern: string;
+  include?: string;
+  outputMode?: string;
+}): string {
+  return [
+    input.searchPath,
+    input.pattern,
+    input.include ?? '',
+    input.outputMode ?? 'files_with_matches',
+  ].join('|');
+}
+
+/**
  * 代码/文件内容搜索工具
  */
 export class GrepTool extends BaseTool {
@@ -138,6 +167,49 @@ export class GrepTool extends BaseTool {
         return createFailureResult(
           `${pathCheck.reason}${pathCheck.suggestions?.length ? `\n建议: ${pathCheck.suggestions.join('; ')}` : ''}`,
           { executionTime: Date.now() - startTime }
+        );
+      }
+
+      // BUG-05 深化：重复 pattern 短窗口短路。同一搜索键在窗口内已搜过则跳过真实搜索，
+      // 阻止 agent 反复 grep 同一批 pattern 而空转（结果通常在上下文/上一轮已可见）。
+      const searchKey = grepSearchKey({
+        searchPath,
+        pattern: validated.pattern,
+        include: validated.include,
+        outputMode: validated.outputMode,
+      });
+      const dupNow = Date.now();
+      const dupLastAt = grepRecentSearchAt.get(searchKey);
+      const isDup =
+        dupLastAt !== undefined && dupNow - dupLastAt < GREP_DUP_WINDOW_MS;
+      // 防内存增长：缓存条目过多直接清空（只丢窗口缓存，不影响任何真实结果）
+      if (grepRecentSearchAt.size > GREP_DUP_CACHE_MAX) {
+        grepRecentSearchAt.clear();
+      }
+      grepRecentSearchAt.set(searchKey, dupNow);
+      if (isDup) {
+        logger.warn('grep:repeat_shorted', {
+          searchPath,
+          pattern: validated.pattern,
+          include: validated.include,
+          elapsedSinceLastMs: dupNow - dupLastAt,
+        });
+        return createSuccessResult(
+          {
+            matches: [],
+            matchCount: 0,
+            fileCount: 0,
+            truncated: false,
+            durationMs: 0,
+          } satisfies GrepOutputType,
+          {
+            executionTime: 0,
+            output:
+              `检测到在 ${((dupNow - dupLastAt) / 1000).toFixed(0)}s 内以相同 pattern+include ` +
+              `重复搜索 "${validated.pattern}"（路径 ${searchPath}）。重复搜索同一内容常表示空转。` +
+              '请基于已获取的结果直接向用户交付结论；确需继续搜索时，请改用更精确/不同的 pattern，' +
+              '而不是重复相同的搜索。本次已跳过重复执行。',
+          }
         );
       }
 

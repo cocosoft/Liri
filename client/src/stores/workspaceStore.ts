@@ -8,12 +8,8 @@
 
 import { create } from "zustand";
 import type { WorkspaceListItem } from "../services/workspaceService";
-import { useWorkStore } from "./workStore";
 import type { WorkItem, WorkItemStatus } from "./workStore";
 import { useRootStore } from "./root-store";
-import { createLogger } from "@/utils/logger";
-
-const logger = createLogger("workspaceStore");
 
 /** 执行阶段数据 */
 interface ExecutionPhaseData {
@@ -54,7 +50,6 @@ interface WorkspaceStore {
   submitForReview: (itemId: string) => Promise<void>;
   completeWorkItem: (itemId: string) => Promise<void>;
   checkBackendReady: () => Promise<void>;
-  syncModeFromWorkStore: () => void;
   reset: () => void;
 }
 
@@ -120,11 +115,6 @@ export const useWorkspaceStore = create<WorkspaceStore>()(() => ({
   completeWorkItem: (itemId) =>
     useRootStore.getState().updateWorkItemStatus(itemId, "done"),
   checkBackendReady: () => useRootStore.getState().checkBackendReady(),
-
-  syncModeFromWorkStore: () => {
-    const mode = useWorkStore.getState().mode;
-    logger.info(`Plan/Do 模式切换为: ${mode}`);
-  },
 
   reset: () => useRootStore.getState().resetWorkspace(),
 

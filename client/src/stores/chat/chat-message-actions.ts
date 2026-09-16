@@ -42,14 +42,15 @@ function saveAbortCheckpoint(sessionId: string): void {
     });
 }
 
-/** 检测工作模式：若当前工作项活跃，传递 Plan/Do 模式到后端 */
-async function resolveWorkMode(): Promise<"plan" | "do" | undefined> {
+/** 检测工作模式：从会话级 workMode 读取 Plan/Do 模式（源：Session.workMode 展平） */
+async function resolveWorkMode(sessionId?: string): Promise<"plan" | "do"> {
+  if (!sessionId) return "plan";
   try {
-    const { useWorkStore } = await import("../workStore");
-    const workState = useWorkStore.getState();
-    if (workState.activeWorkItem) {
-      return workState.mode;
-    }
+    const { useSessionStore } = await import("../sessionStore");
+    const session = useSessionStore
+      .getState()
+      .sessions.find((item) => item.id === sessionId);
+    return session?.workMode ?? "plan";
   } catch (err) {
     handleClientError(
       err,
@@ -59,8 +60,8 @@ async function resolveWorkMode(): Promise<"plan" | "do" | undefined> {
       },
       "warn",
     );
+    return "plan";
   }
-  return undefined;
 }
 
 /**
@@ -148,7 +149,7 @@ export async function regenerateMessageImpl(
   );
 
   // 检测工作模式：若当前工作项活跃，传递 Plan/Do 模式到后端
-  const workMode = await resolveWorkMode();
+  const workMode = await resolveWorkMode(sessionId || userMsg.session_id);
 
   try {
     await get().streamMessage(
@@ -282,7 +283,7 @@ export async function retryFromErrorImpl(
 
   try {
     // 修复 BUG F3: 检测工作模式，传递给 streamMessage
-    const workMode = await resolveWorkMode();
+    const workMode = await resolveWorkMode(sessionId || userMsg.session_id);
     await get().streamMessage(
       content,
       sessionId || userMsg.session_id,

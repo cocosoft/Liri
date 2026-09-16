@@ -1,5 +1,10 @@
+/** 工作模式：plan（计划）/ do（执行） */
+export type WorkMode = "plan" | "do";
+
 export interface Session {
   id: string;
+  /** 会话的 Plan/Do 工作模式（源：metadata.workMode 展平） */
+  workMode?: WorkMode;
   title: string;
   createdAt: string;
   updatedAt: string;
@@ -39,6 +44,7 @@ export interface Session {
 
   /** 会话元数据（后端 DataSessionMetadata 投影） */
   metadata?: {
+    workMode?: WorkMode;
     roundCount?: number;
     rollbackCount?: number;
     isStreaming?: boolean;

@@ -109,6 +109,12 @@ const OfficeMailPage = lazy(
 const ApiKeyPage = lazy(() => import("../components/settings/ApiKeyContent"));
 const OAuthPage = lazy(() => import("../components/views/OAuthPage"));
 const LoginPage = lazy(() => import("../components/views/LoginPage"));
+const WorkbenchPage = lazy(
+  () => import("../components/workbench/WorkbenchPage"),
+);
+const WorkbenchDirectoryPage = lazy(
+  () => import("../components/workbench/WorkbenchDirectoryPage"),
+);
 
 /** 完整路由表——App.tsx（33 条）与 routes/index.tsx 原路由取并集，同名路由 App.tsx 优先（含 AuthGuard） */
 export const routes: RouteObject[] = [
@@ -150,6 +156,26 @@ export const routes: RouteObject[] = [
 
   // 聊天（无 AuthGuard，含内联布局）
   { path: "/chat", element: <ChatPageLayout /> },
+
+  // 工作台（单会话工作区）
+  {
+    path: "/work",
+    element: (
+      <AuthGuard>
+        <WorkbenchPage />
+      </AuthGuard>
+    ),
+  },
+
+  // 工作台（四组功能导航的独立页面）
+  {
+    path: "/workbench",
+    element: (
+      <AuthGuard>
+        <WorkbenchDirectoryPage />
+      </AuthGuard>
+    ),
+  },
 
   // 仪表盘
   {

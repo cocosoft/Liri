@@ -138,6 +138,14 @@ export const workspaceService = {
     }
   },
 
+  /** 解析前端项目 ID → 后端工作空间 ID（V-37 工作项删除用） */
+  async resolveBackendWorkspaceId(projectId: string): Promise<string | null> {
+    const project = await http.get<{ workspaceId?: string }>(
+      `/v1/projects/${projectId}`,
+    );
+    return project?.workspaceId ?? null;
+  },
+
   /** 创建新工作空间 */
   async createWorkspace(data: CreateWorkspaceRequest): Promise<WorkspaceInfo> {
     return await http.post<WorkspaceInfo>("/v1/workspaces", data);
@@ -192,6 +200,17 @@ export const workspaceService = {
       `/v1/workspaces/${workspaceId}/items/${itemId}`,
       data,
     );
+  },
+
+  /** 删除工作项（V-37） */
+  async deleteWorkItem(
+    workspaceId: string,
+    itemId: string,
+  ): Promise<boolean> {
+    const res = await http.delete<{ deleted: boolean }>(
+      `/v1/workspaces/${workspaceId}/items/${itemId}`,
+    );
+    return res.deleted;
   },
 
   /** 检查后端 Workspace API 是否就绪 */

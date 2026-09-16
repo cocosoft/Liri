@@ -138,6 +138,8 @@ export interface WorkspaceSlice {
     itemId: string,
     status: WorkItemStatus,
   ) => Promise<void>;
+  /** 删除工作项（V-37） */
+  deleteWorkItem: (itemId: string) => Promise<void>;
   /** 检查后端就绪 */
   checkBackendReady: () => Promise<void>;
   /** 重置状态 */
@@ -639,6 +641,40 @@ export const createWorkspaceSlice: StateCreator<
 
     const { workspaceService } = await import("@/services/workspaceService");
     await workspaceService.updateWorkItem(wtId, itemId, { status });
+  },
+
+  deleteWorkItem: async (itemId: string) => {
+    const wtId = get().currentWorkspaceId;
+    if (!wtId) return;
+
+    const { workspaceService } = await import("@/services/workspaceService");
+    const backendWsId = await workspaceService.resolveBackendWorkspaceId(wtId);
+    if (!backendWsId) {
+      throw new Error(
+        `无法解析项目所属工作空间（projectId=${wtId}），工作项未删除`,
+      );
+    }
+
+    // 删除不可回滚，故与状态更新的"乐观更新"不同：**先等后端确认删除成功再改本地**，
+    // 避免出现"UI 里已消失、后端仍在"的假象（失败时本地不动，由调用方提示）
+    await workspaceService.deleteWorkItem(backendWsId, itemId);
+
+    set((s) => {
+      const wt = s.worktrees[wtId];
+      if (!wt) return s;
+      const now = Date.now();
+      return {
+        ...s,
+        worktrees: {
+          ...s.worktrees,
+          [wtId]: {
+            ...wt,
+            workItems: wt.workItems.filter((item) => item.id !== itemId),
+            updatedAt: now,
+          },
+        },
+      };
+    });
   },
 
   checkBackendReady: async () => {

@@ -42,7 +42,11 @@ describe("DashboardPage", () => {
 
 describe("FileExplorerPage", () => {
   it("renders title and workspace info", () => {
-    render(<FileExplorerPage />);
+    render(
+      <MemoryRouter>
+        <FileExplorerPage />
+      </MemoryRouter>,
+    );
 
     // 组件始终渲染标题和工作空间信息
     expect(screen.getByText("文件枢纽")).toBeInTheDocument();
@@ -50,7 +54,11 @@ describe("FileExplorerPage", () => {
   });
 
   it("renders navigation buttons", () => {
-    render(<FileExplorerPage />);
+    render(
+      <MemoryRouter>
+        <FileExplorerPage />
+      </MemoryRouter>,
+    );
 
     expect(screen.getByText("上级目录")).toBeInTheDocument();
     expect(screen.getByText("返回聊天")).toBeInTheDocument();

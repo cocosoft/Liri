@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { useTranslation } from "react-i18next";
+import SessionTitle from "../ChatArea/SessionTitle";
 import { useConfigStore } from "../../stores/configStore";
 import { monitorService } from "../../services/monitorService";
 import { configService } from "../../services/configService";
@@ -686,12 +687,13 @@ function LogViewerPage() {
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
-                        <h3
-                          className={`font-medium break-words ${isDark ? "text-gray-100" : "text-gray-900"}`}
-                        >
-                          {session.title ||
-                            `${t("settings.logViewerSessionPrefix")} ${session.sessionId.substring(0, 8)}`}
-                        </h3>
+                        <SessionTitle
+                          text={session.title}
+                          fallback={`${t("settings.logViewerSessionPrefix")} ${session.sessionId.substring(0, 8)}`}
+                          as="h3"
+                          truncate={false}
+                          className={`font-medium ${isDark ? "text-gray-100" : "text-gray-900"}`}
+                        />
                         <div className="flex flex-wrap gap-2 mt-2">
                           <span
                             className={`px-2 py-0.5 text-xs rounded ${isDark ? "bg-gray-700 text-gray-300" : "bg-gray-100 text-gray-600"}`}

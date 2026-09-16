@@ -13,6 +13,7 @@ const logger = createLogger("SessionHistorySidebar");
 import ConfirmDialog from "../common/ConfirmDialog";
 import SessionContextMenu from "./SessionContextMenu";
 import SessionListItem from "./SessionListItem";
+import SessionTitle from "./SessionTitle";
 import { useDreamSessionIds } from "./useDreamSessionIds";
 
 /** M10 修复：文件名消毒——Windows 非法字符 \ / : * ? " < > | 会导致下载失败 */
@@ -827,9 +828,13 @@ function SessionHistorySidebar({
           >
             {/* 方案 C #5：详情弹窗新增可换行完整标题行 */}
             {detailSession.title && (
-              <div className="mb-3 text-sm font-medium text-gray-800 dark:text-gray-200 break-words">
-                {detailSession.title}
-              </div>
+              <SessionTitle
+                text={detailSession.title}
+                fallback=""
+                as="div"
+                truncate={false}
+                className="mb-3 text-sm font-medium text-gray-800 dark:text-gray-200"
+              />
             )}
             <h3 className="text-sm font-medium text-gray-800 dark:text-gray-200 mb-3">
               {t("chat.sessionDetail")}

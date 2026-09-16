@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
+import SessionTitle from "./SessionTitle";
 import { useSessionStore } from "../../stores/sessionStore";
 import { useRootStore } from "../../stores/root-store";
 import { useNavigationStore } from "../../stores/navigationStore";
@@ -411,14 +412,15 @@ export default function GlobalSearchModal({
                     >
                       <span className="text-base shrink-0">{ctx.icon}</span>
                       <div className="min-w-0 flex-1">
-                        <div
-                          className="text-sm text-gray-800 dark:text-gray-200 truncate"
-                          title={session.title || t("chat.untitledSession")}
-                        >
+                        <div className="truncate text-sm text-gray-800 dark:text-gray-200">
                           <span className="text-[10px] text-gray-400 dark:text-gray-500 mr-1">
                             {ctx.name} /
                           </span>
-                          {session.title || t("chat.untitledSession")}
+                          <SessionTitle
+                            text={session.title}
+                            fallback={t("chat.untitledSession")}
+                            className="inline"
+                          />
                         </div>
                         <div className="text-xs text-gray-400 dark:text-gray-500">
                           {session.messageCount != null

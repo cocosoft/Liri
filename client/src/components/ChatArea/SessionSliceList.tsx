@@ -8,6 +8,7 @@
  */
 import { useState, useMemo } from "react";
 import { useTranslation } from "react-i18next";
+import SessionTitle from "./SessionTitle";
 import { useRootStore } from "@/stores/root-store";
 import { useNavigationStore } from "@/stores/navigationStore";
 import {
@@ -180,7 +181,6 @@ export function SessionSliceList({
                     ? "bg-blue-50 dark:bg-blue-900/25 text-blue-700 dark:text-blue-300"
                     : "text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
                 }`}
-                title={s.title}
               >
                 {/* 模块图标 */}
                 <span className="text-sm leading-none flex-shrink-0">
@@ -189,9 +189,12 @@ export function SessionSliceList({
 
                 {/* 标题 + 时间 */}
                 <div className="flex-1 min-w-0">
-                  <div className="truncate text-sm font-medium">
-                    {s.title || t("chat.untitledSession")}
-                  </div>
+                  <SessionTitle
+                    text={s.title}
+                    fallback={t("chat.untitledSession")}
+                    as="div"
+                    className="text-sm font-medium"
+                  />
                   <div className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">
                     {meta?.label ?? s.moduleType}
                     {" · "}

@@ -9,6 +9,7 @@
  */
 import { useRef, useEffect } from "react";
 import { useTranslation } from "react-i18next";
+import SessionTitle from "./SessionTitle";
 import { createLogger } from "@/utils/logger";
 import { formatRelativeTime } from "../../utils/format";
 import { useRootStore } from "../../stores/root-store";
@@ -156,12 +157,11 @@ function SessionListItem({
                   <span className="mx-0.5 opacity-50">/</span>
                 </span>
               )}
-              <span
-                className="truncate min-w-0"
-                title={session.title || t("chat.untitledSession")}
-              >
-                {session.title || t("chat.untitledSession")}
-              </span>
+              <SessionTitle
+                text={session.title}
+                fallback={t("chat.untitledSession")}
+                className="flex-1 min-w-0"
+              />
             </div>
             <div className="text-xs text-gray-400 dark:text-gray-500 truncate">
               {session.source ? (

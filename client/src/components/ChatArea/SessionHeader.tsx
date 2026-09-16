@@ -6,6 +6,7 @@ import { sessionService } from "../../services/sessionService";
 import type { Message } from "../../types";
 import { getMessageSearchText } from "../../utils/messageText";
 import { Tooltip, TooltipTrigger, TooltipContent } from "../ui/tooltip";
+import SessionTitle from "./SessionTitle";
 
 /** 格式化日期为 yyyy-MM-dd HH:mm */
 function formatDateTime(dateStr: string): string {
@@ -278,14 +279,14 @@ function SessionHeader() {
                 <Tooltip>
                   <TooltipTrigger
                     render={
-                      <h2
+                      <SessionTitle
+                        text={currentSession.title}
+                        fallback={t("chat.untitledSession")}
+                        as="h2"
                         onClick={() => setShowInfo(!showInfo)}
                         onDoubleClick={handleDoubleClick}
-                        className="text-sm font-medium text-gray-900 dark:text-gray-100 cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 transition-colors truncate"
-                        title={currentSession.title}
-                      >
-                        {currentSession.title}
-                      </h2>
+                        className="text-sm font-medium text-gray-900 dark:text-gray-100 cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                      />
                     }
                   />
                   <TooltipContent>

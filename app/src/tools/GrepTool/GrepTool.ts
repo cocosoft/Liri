@@ -41,20 +41,27 @@ const GREP_DUP_CACHE_MAX = 200;
 const grepRecentSearchAt = new Map<string, number>();
 
 /**
- * 构造搜索去重键：路径 + pattern + include + 输出模式。
- * 省略 contextAround/headLimit/outputMode 内容等展示差异，聚焦"搜什么"这一本质。
+ * 构造搜索去重键：路径 + pattern + include + 输出模式 + 分页/上下文参数。
+ * 纳入 offset/headLimit/contextAround：同一 pattern 的翻页续搜（不同 offset/headLimit）或
+ * 不同上下文行数的展示请求不是「重复搜索」，计入键内避免被误判短路（结论2）。
  */
 function grepSearchKey(input: {
   searchPath: string;
   pattern: string;
   include?: string;
   outputMode?: string;
+  offset?: number;
+  headLimit?: number;
+  contextAround?: number;
 }): string {
   return [
     input.searchPath,
     input.pattern,
     input.include ?? '',
     input.outputMode ?? 'files_with_matches',
+    input.offset ?? 0,
+    input.headLimit ?? 0,
+    input.contextAround ?? 0,
   ].join('|');
 }
 
@@ -177,6 +184,9 @@ export class GrepTool extends BaseTool {
         pattern: validated.pattern,
         include: validated.include,
         outputMode: validated.outputMode,
+        offset: validated.offset,
+        headLimit: validated.headLimit,
+        contextAround: validated.contextAround,
       });
       const dupNow = Date.now();
       const dupLastAt = grepRecentSearchAt.get(searchKey);
@@ -201,6 +211,7 @@ export class GrepTool extends BaseTool {
             fileCount: 0,
             truncated: false,
             durationMs: 0,
+            skipped: true,
           } satisfies GrepOutputType,
           {
             executionTime: 0,
@@ -238,6 +249,7 @@ export class GrepTool extends BaseTool {
         truncated: result.truncated,
         durationMs: result.durationMs,
         invalidRegex: result.invalidRegex,
+        skipped: false,
       };
 
       // BUG-01/02：正则非法时把原因明确反馈给调用方自纠，而非误导性的空结果

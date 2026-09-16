@@ -74,6 +74,10 @@ export const GrepOutputSchema = z.object({
   truncated: z.boolean().describe('是否被截断'),
   durationMs: z.number().int().nonnegative().describe('执行耗时（毫秒）'),
   invalidRegex: z.string().optional().describe('正则非法时的降级原因'),
+  skipped: z
+    .boolean()
+    .optional()
+    .describe('是否因重复搜索被短路跳过（true 表示未执行真实搜索）'),
 });
 
 export type GrepOutputType = z.infer<typeof GrepOutputSchema>;

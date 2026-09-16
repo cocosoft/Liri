@@ -626,6 +626,10 @@ export const createSessionSlice: StateCreator<
       // 避免用幽灵 id 拉取失败/空。
       const currentId = resolvedCurrentId;
       if (currentId) {
+        // F-04：补拉开始时记录切换序号快照——loadConversation 是异步 await，期间
+        // 用户可能切换会话（_switchSeq++）。若补拉返回时已完成切换且目标不是本会话语，
+        // 必须放弃 loadMessages，否则「消息区显示 A、侧栏高亮 B」的跨会话覆盖。
+        const seqSnapshot = _switchSeq;
         // chat store 独立于 rootStore（高频 IO），动态读取避免静态循环依赖
         const { useChatStore } = await import("@/stores/chat");
         const msgs = useChatStore.getState().messages;
@@ -642,12 +646,27 @@ export const createSessionSlice: StateCreator<
             const messages =
               cached ??
               (await sessionService.loadConversation(currentId)).messages;
-            await chatCoordinator.loadMessages(messages);
-            logger.debug("loadChatSessions:补拉当前会话消息", {
-              sessionId: currentId,
-              fromCache: cached != null,
-              messageCount: messages.length,
-            });
+            // F-04 守卫：await 返回后仍是本次快照、且当前会话未变时才落消息，
+            // 否则放弃（补拉已过期，避免跨会话覆盖）
+            if (
+              _switchSeq === seqSnapshot &&
+              get().currentSessionId === currentId
+            ) {
+              await chatCoordinator.loadMessages(messages);
+              logger.debug("loadChatSessions:补拉当前会话消息", {
+                sessionId: currentId,
+                fromCache: cached != null,
+                messageCount: messages.length,
+              });
+            } else {
+              logger.debug(
+                "loadChatSessions:补拉期间发生切换，放弃补拉消息（F-04）",
+                {
+                  snapshotCurrentId: currentId,
+                  currentSessionId: get().currentSessionId,
+                },
+              );
+            }
           } catch (e) {
             // 拉取失败不影响列表展示，保持静默
             logger.debug("loadChatSessions:补拉当前会话消息失败", {
@@ -831,9 +850,18 @@ export const createSessionSlice: StateCreator<
           );
         }
 
-        // 重新加载会话列表
-        let sessions = await sessionService.list();
-        sessions = sortSessionsForList(sessions);
+        // 重新加载会话列表（F-01：列表加载失败不阻断已成功的会话创建——
+        // list() 现已对真失败上抛，此处捕获后保留现有列表仅更新当前会话）
+        let sessions: Session[];
+        try {
+          sessions = sortSessionsForList(await sessionService.list());
+        } catch (e) {
+          logger.warn("createChatSession:重新加载会话列表失败，沿用现有列表", {
+            seq,
+            error: String(e),
+          });
+          sessions = get().chatSessions;
+        }
 
         set({
           chatSessions: sessions,
@@ -882,9 +910,15 @@ export const createSessionSlice: StateCreator<
     })(); // 结束 async IIFE
     // G2：注册进行中的创建，完成后清理（用引用比较防并发覆盖）
     _pendingCreate = promise;
-    promise.finally(() => {
-      if (_pendingCreate === promise) _pendingCreate = null;
-    });
+    // F-05：finally 返回的是派生 Promise，无人持有/处理——原 `promise.finally(...)`
+    // 产生的派生 Promise 在 promise reject 时会再次 reject，因无人 catch 触发额外
+    // UnhandledPromiseRejection。加 fs.noop catch 吞掉派生链的 rejection（业务错误
+    // 已由原始 promise 的调用方 catch 处理，此处只负责清理 _pendingCreate）。
+    void promise
+      .finally(() => {
+        if (_pendingCreate === promise) _pendingCreate = null;
+      })
+      .catch(() => {});
     return promise;
   },
 

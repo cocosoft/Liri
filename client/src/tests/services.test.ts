@@ -45,9 +45,13 @@ beforeEach(() => {
 });
 
 describe("SessionService (fallback)", () => {
-  it("list returns empty array", async () => {
-    const sessions = await sessionService.list();
-    expect(sessions).toEqual([]);
+  it("list throws when backend & Tauri unavailable（F-01：不再静默返回空列表）", async () => {
+    // F-01 修复：HTTP 与 Tauri 均不可用时原实现静默返回空数组，被 loadChatSessions
+    // 视作"权威空列表"→ 当前会话被误清空。改为与 create/delete/rename 一致的"上抛"，
+    // 由调用方（loadChatSessions catch 分支保留现有会话）处理，而非伪装成合法空列表。
+    await expect(sessionService.list()).rejects.toThrow(
+      "获取会话列表失败：HTTP 与 Tauri 均不可用",
+    );
   });
 
   it("create throws when backend & Tauri unavailable（W1：不再静默返回内存假会话）", async () => {

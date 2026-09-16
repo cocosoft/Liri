@@ -277,7 +277,12 @@ export const sessionService = {
       }
       const result = await tryTauri<Session[]>("list_sessions");
       if (result) return result.map(flattenSession);
-      return createMemorySessionService().list();
+      // F-01：后端与 Tauri 均不可用时不返回假空列表——原实现静默降级到内存服务
+      // （内存服务 list 恒为 []），被 loadChatSessions 视作"权威空列表"→ 当前会话被误清空
+      // （标题回"请选择会话"、currentSessionId 被 persist 写盘，刷新也回不来）。
+      // 与 switch/delete/rename 的"上抛"策略对齐：真失败即抛错，由调用方
+      // （loadChatSessions catch 分支保留现有会话）处理，而非伪装成合法空列表。
+      throw new Error("获取会话列表失败：HTTP 与 Tauri 均不可用");
     });
   },
 

@@ -450,11 +450,14 @@ export class ReActToolLoop extends ReActLoop<
             session.id,
             'react 分层窗口压缩触发'
           );
+          // R2①（2026-09-16 fix A）：去掉 skipTier3Sync，循环内同步执行 Tier3 迭代折叠。
+          // 根因：skipTier3Sync 使 LLM 折叠在 ReAct 循环内从不执行（且无人调用 compactSessionInBackground），
+          // 而 Tier2 snip 因 ReAct 单任务 user 轮次少（turns≤6）天然不生效 → applied 恒 false → 退避白跑。
+          // 这是 ReAct 循环内唯一能真实削减上下文的路径，代价是工具循环最多让步 60s（_runFullCompactionWithTimeout 兜底）。
           const layered = await compactionOrchestrator.compact(
             this.loopState.messages as unknown as ChatMessage[],
             { model, sessionId: session.id },
             {
-              skipTier3Sync: true,
               preEvaluated: {
                 decision: 'trigger',
                 beforeTokens: estLayer,

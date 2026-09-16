@@ -1420,10 +1420,15 @@ export class ReActToolLoop extends ReActLoop<
   private _detectReadReExplore(tc: ToolCallEntry): void {
     const name = tc.name;
     // 写/改/执行类工具排除：避免把"反复编辑同一文件/重复运行"误判为"重读"
-    if (/(write|edit|create|delete|remove|save|append|apply|run|exec|bash)/i.test(name))
+    if (
+      /(write|edit|create|delete|remove|save|append|apply|run|exec|bash)/i.test(
+        name
+      )
+    )
       return;
     // 只关心读/搜/列目录类工具
-    if (!/(read|grep|glob|search|view|list|explore|cat|open)/i.test(name)) return;
+    if (!/(read|grep|glob|search|view|list|explore|cat|open)/i.test(name))
+      return;
 
     const inp = (tc.input ?? {}) as Record<string, unknown>;
     // 取"被重读的资源"签名：文件路径或搜索 pattern（读类工具的核心是资源本身）

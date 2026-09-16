@@ -186,10 +186,7 @@ const MAX_CONVERT_OUTPUT_CHARS = 30_000;
  * 放大运行期 IO/内存/DB 写压力（Liri 35 分钟空转反复读同一批文件即典型放大场景）。
  */
 const AUTO_INGEST_DEDUP_TTL_MS = 60_000;
-const autoIngestDedup = new Map<
-  string,
-  { mtimeMs: number; at: number }
->();
+const autoIngestDedup = new Map<string, { mtimeMs: number; at: number }>();
 
 /**
  * 截断二进制转换结果

@@ -43,7 +43,9 @@ export function glob(
   // G2：模式无法解析为有效 glob 时，跳过遍历并返回可标识的 invalidPattern 字段，
   // 使调用方把「无匹配文件」与「模式无效」明确区分（原始实现二者同为 `[]`）。
   const invalidPattern =
-    compileGlobPattern(normalizedPattern) === null ? normalizedPattern : undefined;
+    compileGlobPattern(normalizedPattern) === null
+      ? normalizedPattern
+      : undefined;
 
   // 执行目录遍历并收集匹配文件，若发生错误（如权限拒绝）则静默处理
   if (!invalidPattern) {
@@ -97,7 +99,9 @@ export async function globAsync(
   const normalizedSearchPath = searchPath.replace(/\\/g, '/');
 
   const invalidPattern =
-    compileGlobPattern(normalizedPattern) === null ? normalizedPattern : undefined;
+    compileGlobPattern(normalizedPattern) === null
+      ? normalizedPattern
+      : undefined;
 
   if (!invalidPattern) {
     try {

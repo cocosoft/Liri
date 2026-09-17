@@ -39,7 +39,12 @@ function makeFakeLoop(tracker: { active: number; maxActive: number }) {
 // `as unknown as` 双重断言访问私有字段（仅测试私有细节用）。
 type OrchestratorWithPrivates = {
   planId: string | null;
-  setTAORLoopFactory: (f: (sessionId: string) => never) => void;
+  setTAORLoopFactory: (
+    f: (
+      sessionId: string,
+      opts?: { maxTurnsMultiplier?: number; privateInstance?: boolean }
+    ) => never
+  ) => void;
   executeAllSteps: () => Promise<unknown>;
 };
 
@@ -88,5 +93,38 @@ describe('executeAllSteps — 无依赖步骤批次并行（D2）', () => {
     await o.executeAllSteps();
 
     expect(tracker.maxActive).toBe(1);
+  });
+});
+
+describe('D1: taorLoopFactory 二元签名 opts 透传（LRTO 侧）', () => {
+  it('工厂被调用时收到 { privateInstance: true, maxTurnsMultiplier }（opts 不丢）', async () => {
+    const o = makeOrchestrator();
+    const plan = taskOrchestrator.createPlan(
+      'D1 opts 透传',
+      ['步骤A'],
+      'session-d1'
+    );
+    o.planId = plan.id;
+
+    const tracker = { active: 0, maxActive: 0 };
+    const received: Array<{ sessionId: string; opts?: unknown }> = [];
+    o.setTAORLoopFactory((sessionId, opts) => {
+      received.push({ sessionId, opts });
+      return makeFakeLoop(tracker) as never;
+    });
+
+    // 扩容续跑乘子 > 1 → maxTurnsMultiplier 应透传工厂
+    (o as unknown as { _stepTurnsMultiplier: number })._stepTurnsMultiplier = 2;
+
+    await o.executeAllSteps();
+
+    expect(received.length).toBeGreaterThan(0);
+    // 首参为 LRTO 的 taskId（工厂契约首参即归属实例标识）
+    expect(received[0].sessionId).toMatch(/^d2-test-/);
+    // D1：二元签名下 opts 不再静默丢失——privateInstance 恒真、乘子透传
+    expect(received[0].opts).toMatchObject({
+      privateInstance: true,
+      maxTurnsMultiplier: 2,
+    });
   });
 });

@@ -24,8 +24,9 @@ import { ProjectItemStore } from '../workspace/ProjectItemStore';
 
 const logger = getLogger('project:ImplicitEngine');
 
-/** 意图分类 */
-export type ImplicitIntent = 'plan' | 'do' | 'check' | 'act' | 'none';
+/** 意图分类（架构归一 B1-B6：单一真源 re-export） */
+import { type ImplicitIntent } from '../core/phases/PhaseVocabulary.js';
+export type { ImplicitIntent };
 
 /** 规则匹配结果 */
 export interface IntentMatch {

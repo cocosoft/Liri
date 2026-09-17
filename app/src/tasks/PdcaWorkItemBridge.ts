@@ -15,44 +15,17 @@ import {
 } from 'fs';
 import { resolveDataSubDir } from '@modules/core';
 import { getLogger } from '@modules/monitoring';
+import {
+  type PdcaPhase,
+  PDCA_TO_WORKITEM,
+} from '../core/phases/PhaseVocabulary.js';
+export type { PdcaPhase };
+export { PDCA_TERMINAL_PHASES } from '../core/phases/PhaseVocabulary.js';
 
 const logger = getLogger('tasks:pdcaBridge');
 
 const PDCA_CHECKPOINT_DIR = join(resolveDataSubDir('pdca'));
 const WORKITEM_DIR = join(resolveDataSubDir('workitems'));
-
-// ──── 类型 ────
-
-type PdcaPhase =
-  | 'plan'
-  | 'plan_pending'
-  | 'execute'
-  | 'review'
-  | 'decide'
-  | 'completed'
-  | 'abort'
-  | 'failed'
-  /** D1（M7，2026-08-13）：阶段审批挂起 */
-  | 'stage_awaiting_approval';
-type WorkItemStatus =
-  | 'pending'
-  | 'running'
-  | 'paused'
-  | 'review'
-  | 'done'
-  | 'failed';
-
-const PDCA_TO_WORKITEM: Record<PdcaPhase, WorkItemStatus> = {
-  plan: 'pending',
-  plan_pending: 'review',
-  stage_awaiting_approval: 'review',
-  execute: 'running',
-  review: 'review',
-  decide: 'running',
-  completed: 'done',
-  abort: 'failed',
-  failed: 'failed',
-};
 
 // ──── 文件 I/O ────
 
@@ -114,9 +87,6 @@ export function listPdcaCheckpoints(): Array<Record<string, unknown>> {
     .map((f) => readJson<Record<string, unknown>>(join(PDCA_CHECKPOINT_DIR, f)))
     .filter((c): c is Record<string, unknown> => c != null);
 }
-
-/** P0(M9)：PDCA 终态阶段（list 时过滤掉） */
-export const PDCA_TERMINAL_PHASES = new Set(['completed', 'failed', 'abort']);
 
 /**
  * 同步 PDCA 阶段 → WorkItem 状态

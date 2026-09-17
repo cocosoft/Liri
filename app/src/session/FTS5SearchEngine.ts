@@ -5,7 +5,6 @@
  */
 import fs from 'fs';
 import path from 'path';
-import { resolveDataDir } from '@modules/core';
 
 /**
  * 搜索文档
@@ -32,7 +31,13 @@ export interface FTSSearchResult {
  * FTS5 搜索配置
  */
 export interface FTSConfig {
-  dbPath: string;
+  /**
+   * 索引持久化路径。H1 修复：不再提供默认 `fts.db` 路径，
+   * 统一由调用方显式传入（SessionGateway.getFTSIndexPath()），
+   * 消除「读 fts.db、写 fts-index.json」的路径不对称。
+   * 无参 saveToDisk/loadFromDisk 在未提供 dbPath 时报错。
+   */
+  dbPath?: string;
   maxResults: number;
   snippetLength: number;
   cacheEnabled: boolean;
@@ -42,7 +47,6 @@ export interface FTSConfig {
  * 默认配置
  */
 const DEFAULT_CONFIG: FTSConfig = {
-  dbPath: path.join(resolveDataDir(), 'fts.db'),
   maxResults: 50,
   snippetLength: 200,
   cacheEnabled: true,
@@ -59,6 +63,8 @@ export class FTS5SearchEngine {
   private config: FTSConfig;
   /** 索引自上次落盘后是否有变更（P2-18 修复：无变更时跳过全量写盘） */
   private isDirty: boolean = false;
+  /** L7：累计文档 content 长度（getStats 增量计数，消除 O(n) 遍历） */
+  private totalLength: number = 0;
 
   constructor(config?: Partial<FTSConfig>) {
     this.config = { ...DEFAULT_CONFIG, ...config };
@@ -71,7 +77,12 @@ export class FTS5SearchEngine {
   index(doc: FTSDocument): void {
     // BUG12 修复：检查文档元数据中的路径是否在允许范围内
     this.validateDocumentPaths(doc);
+    const existing = this.documents.get(doc.id);
+    if (existing) {
+      this.totalLength -= existing.content.length;
+    }
     this.documents.set(doc.id, doc);
+    this.totalLength += doc.content.length;
 
     const tokens = this.tokenize(doc.title + ' ' + doc.content);
 
@@ -188,6 +199,10 @@ export class FTS5SearchEngine {
    * @param docId 文档 ID
    */
   remove(docId: string): void {
+    const existing = this.documents.get(docId);
+    if (existing) {
+      this.totalLength -= existing.content.length;
+    }
     this.documents.delete(docId);
 
     for (const docIds of this.invertedIndex.values()) {
@@ -206,16 +221,11 @@ export class FTS5SearchEngine {
     avgDocLength: number;
   } {
     const docCount = this.documents.size;
-    let totalLength = 0;
-
-    for (const doc of this.documents.values()) {
-      totalLength += doc.content.length;
-    }
 
     return {
       documentCount: docCount,
       termCount: this.invertedIndex.size,
-      avgDocLength: docCount > 0 ? Math.round(totalLength / docCount) : 0,
+      avgDocLength: docCount > 0 ? Math.round(this.totalLength / docCount) : 0,
     };
   }
 
@@ -251,6 +261,7 @@ export class FTS5SearchEngine {
   clear(): void {
     this.documents.clear();
     this.invertedIndex.clear();
+    this.totalLength = 0;
     this.isDirty = true;
   }
 
@@ -327,7 +338,12 @@ export class FTS5SearchEngine {
     // P2-18 修复：索引无变更时跳过全量序列化写盘，避免每 60s 无条件写放大
     if (!this.isDirty) return;
 
-    const target = filePath || this.config.dbPath;
+    const target = filePath ?? this.config.dbPath;
+    if (!target) {
+      throw new Error(
+        'FTS5SearchEngine.saveToDisk: 未提供 dbPath，索引持久化路径缺失'
+      );
+    }
     const dir = path.dirname(target);
 
     if (!fs.existsSync(dir)) {
@@ -348,7 +364,12 @@ export class FTS5SearchEngine {
    * @param filePath 文件路径
    */
   loadFromDisk(filePath?: string): void {
-    const target = filePath || this.config.dbPath;
+    const target = filePath ?? this.config.dbPath;
+    if (!target) {
+      throw new Error(
+        'FTS5SearchEngine.loadFromDisk: 未提供 dbPath，索引持久化路径缺失'
+      );
+    }
 
     if (!fs.existsSync(target)) return;
 
@@ -356,6 +377,11 @@ export class FTS5SearchEngine {
     const data = JSON.parse(raw);
 
     this.documents = new Map(data.documents);
+
+    this.totalLength = 0;
+    for (const doc of this.documents.values()) {
+      this.totalLength += doc.content.length;
+    }
 
     this.invertedIndex = new Map();
     for (const [key, values] of data.invertedIndex) {

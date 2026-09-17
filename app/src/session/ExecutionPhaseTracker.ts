@@ -23,8 +23,13 @@ export type ExecutionPhase =
   | 'verifying'
   | 'presenting';
 
-/** 工作模式 */
-export type WorkMode = 'plan' | 'do';
+/**
+ * 工作模式
+ * `null` 表示尚无驱动方设置（默认值，不再塞假的 'plan' 占位）。
+ * 真实模式由会话 metadata.workMode 承载并由前端徽标展示，
+ * 本字段仅记录工作模式切换事件，无驱动方时保持 null（诚实的未设置态）。
+ */
+export type WorkMode = 'plan' | 'do' | null;
 
 /** 产出物 */
 export interface Artifact {
@@ -84,7 +89,7 @@ export type PhaseUpdateCallback = (event: PhaseEvent) => void;
 
 export class ExecutionPhaseTracker {
   private sessionId: string;
-  private mode: WorkMode = 'plan';
+  private mode: WorkMode = null;
   private currentPhase: ExecutionPhase | null = null;
   private history: PhaseRecord[] = [];
   private currentSteps: ProgressData['steps'] = [];
@@ -97,7 +102,7 @@ export class ExecutionPhaseTracker {
   }
 
   /** 设置工作模式（Plan/Do） */
-  setMode(mode: WorkMode): void {
+  setMode(mode: Exclude<WorkMode, null>): void {
     this.mode = mode;
   }
 

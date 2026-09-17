@@ -1,8 +1,8 @@
 import { getLogger } from '@modules/monitoring';
 import { FileSystemStorage } from './storage/FileSystemStorage';
-import type { Session } from './models/Session';
-import type { SessionMessage } from './models/SessionMessage';
-import type { SessionMetadata } from './models/SessionMetadata';
+import { Session } from './models/Session';
+import { SessionMessage } from './models/SessionMessage';
+import { SessionMetadata } from './models/SessionMetadata';
 import type {
   SessionStorage,
   MessageLoadOptions,
@@ -60,7 +60,8 @@ export class SessionStore implements SessionStorage {
       this.sessionCache.delete(sessionId);
       this.sessionCache.set(sessionId, cached);
       cached.lastAccess = Date.now();
-      return cached.value;
+      // M2：返回深拷贝副本（toJSON+fromJSON），禁止调用方污染缓存引用
+      return Session.fromJSON(cached.value.toJSON());
     }
 
     const session = await this.storage.loadSession(sessionId);
@@ -71,12 +72,18 @@ export class SessionStore implements SessionStorage {
       });
       this.evictIfNeeded(this.sessionCache, this.maxCacheSize);
     }
-    return session;
+    // M2：storage 返回对象同样返回副本（缓存与返回值解耦）——
+    // Session 为 class（含方法），浅拷贝会丢原型，用 toJSON+fromJSON 深拷贝
+    return session ? Session.fromJSON(session.toJSON()) : null;
   }
 
   async saveMessage(sessionId: string, message: SessionMessage): Promise<void> {
     await this.storage.saveMessage(sessionId, message);
     this.messagesCache.delete(sessionId);
+    // L8：消息写入派生更新会话时间戳（lastActivityAt/updatedAt）与计数等字段，
+    // 原实现仅删 messagesCache，sessionCache/metadataCache 残留陈旧值 → 同步失效
+    this.sessionCache.delete(sessionId);
+    this.metadataCache.delete(sessionId);
   }
 
   async loadMessages(
@@ -90,7 +97,8 @@ export class SessionStore implements SessionStorage {
         this.messagesCache.delete(sessionId);
         this.messagesCache.set(sessionId, cached);
         cached.lastAccess = Date.now();
-        return cached.value;
+        // M2：返回深拷贝副本（toJSON+fromJSON），禁止调用方污染缓存数组
+        return cached.value.map((m) => SessionMessage.fromJSON(m.toJSON()));
       }
     }
 
@@ -102,7 +110,8 @@ export class SessionStore implements SessionStorage {
       });
       this.evictIfNeeded(this.messagesCache, this.messagesCacheMax);
     }
-    return messages;
+    // M2：storage 返回数组同样返回副本（toJSON+fromJSON 深拷贝）
+    return messages.map((m) => SessionMessage.fromJSON(m.toJSON()));
   }
 
   async saveMetadata(
@@ -126,7 +135,8 @@ export class SessionStore implements SessionStorage {
       this.metadataCache.delete(sessionId);
       this.metadataCache.set(sessionId, cached);
       cached.lastAccess = Date.now();
-      return cached.value;
+      // M2：返回深拷贝副本（toJSON+fromJSON），禁止调用方污染缓存引用
+      return SessionMetadata.fromJSON(cached.value.toJSON());
     }
 
     const metadata = await this.storage.loadMetadata(sessionId);
@@ -137,7 +147,8 @@ export class SessionStore implements SessionStorage {
       });
       this.evictIfNeeded(this.metadataCache, this.maxCacheSize);
     }
-    return metadata;
+    // M2：storage 返回对象同样返回副本（toJSON+fromJSON 深拷贝）
+    return metadata ? SessionMetadata.fromJSON(metadata.toJSON()) : null;
   }
 
   async deleteSession(sessionId: string): Promise<void> {
@@ -145,6 +156,18 @@ export class SessionStore implements SessionStorage {
       sessionId,
     });
     await this.storage.deleteSession(sessionId);
+    this.sessionCache.delete(sessionId);
+    this.metadataCache.delete(sessionId);
+    this.messagesCache.delete(sessionId);
+  }
+
+  /**
+   * M2 修复：外部写路径（网关直写 UnifiedSessionStorage）绕过 SessionStore
+   * 写方法时，统一调用本方法失效该会话的所有缓存 key，避免陈旧读。
+   * SessionStore 与底层存储共用同一实例（UnifiedStorageAdapter 包装），
+   * 网关写 storage 后必须显式失效。
+   */
+  invalidate(sessionId: string): void {
     this.sessionCache.delete(sessionId);
     this.metadataCache.delete(sessionId);
     this.messagesCache.delete(sessionId);

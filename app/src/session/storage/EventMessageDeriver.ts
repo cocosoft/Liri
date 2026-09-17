@@ -304,7 +304,7 @@ function applyRichBlock(ev: LiriEvent, agg: Aggregated): void {
       break;
     }
     case 'assistant/todo': {
-      const action = data.action as 'write' | 'update' | undefined;
+      const action = data.action as 'write' | undefined;
       if (action === 'write' && data.taskCard) {
         const card = data.taskCard as Record<string, unknown>;
         const cardTitle = (card.title as string) ?? '';
@@ -324,30 +324,6 @@ function applyRichBlock(ev: LiriEvent, agg: Aggregated): void {
           blocks[existingIdx] = newBlock;
         } else {
           blocks.push(newBlock);
-        }
-      } else if (action === 'update' && data.taskId) {
-        // 增量更新：找最后一个 todo block，更新其 taskCard.tasks 中对应 task
-        const todoBlock = [...blocks]
-          .reverse()
-          .find((b) => b.type === 'todo' && b.taskCard);
-        if (todoBlock) {
-          const card = todoBlock.taskCard as {
-            tasks?: Array<Record<string, unknown>>;
-          };
-          const task = card.tasks?.find((t) => t.id === data.taskId);
-          const updates = data.updates as
-            | {
-                status?: string;
-                result?: string;
-                durationMs?: number;
-              }
-            | undefined;
-          if (task && updates) {
-            if (updates.status) task.status = updates.status;
-            if (updates.result !== undefined) task.result = updates.result;
-            if (updates.durationMs !== undefined)
-              task.durationMs = updates.durationMs;
-          }
         }
       }
       break;

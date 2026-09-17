@@ -20,6 +20,12 @@
 // SOFTWARE.
 
 /**
+ * @deprecated 已于 2026-09-17 归档（D4/L5）。
+ * 全仓仅自身 4 处自引用、无任何生产消费方（孤儿/死代码）。
+ * "循环成熟度分级"从未接入 TAORLoop 运行链；未来如需分级策略，
+ * 应基于 query/TAORLoop 现有 TokenBudget / StopHooks / CircuitBreaker 等
+ * 收敛方案实现，勿在此孤儿模块上继续堆叠。保留归档备查。
+ *
  * LoopMaturityLevel — 循环成熟度分级
  *
  * Phase 4 新增。对标 loop-engineering-main 的 L0-L3 四级成熟度。

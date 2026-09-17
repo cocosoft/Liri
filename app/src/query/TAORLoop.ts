@@ -697,7 +697,7 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
         context: undefined,
       };
     }
-    if (this.turnCount >= this.taorConfig.maxTurns) {
+    if (this.isTurnLimitReached()) {
       this.stopped = true;
       return {
         text: '',
@@ -1430,7 +1430,7 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
       return true;
     }
     if (this.stopped) return false;
-    if (this.turnCount >= this.taorConfig.maxTurns) return false;
+    if (this.isTurnLimitReached()) return false;
     return result.toolCalls.length > 0;
   }
 
@@ -1445,7 +1445,7 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
   ): Promise<boolean> {
     // 已停/中止/超限（observe 熔断、diminishing、abort）→ 不重试，正常收尾
     if (this.stopped || this.abortController.signal.aborted) return false;
-    if (this.turnCount >= this.taorConfig.maxTurns) return false;
+    if (this.isTurnLimitReached()) return false;
     if (result.toolCalls.length > 0) return false; // 有工具调用不属"不完整回合"（双保险）
     const text = (result.text ?? '').trim();
     const kind: 'empty' | 'planning' | null = !text
@@ -1854,6 +1854,15 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
     return (this.stopReason as string) === 'loop_detected';
   }
 
+  /**
+   * L3（2026-09-17）：maxTurns 单一判定——达到上限（含）即停止。
+   * 原 4 个判定点 :700/:1433/:1448 用 >=、:1864 用 >，边界相差 1 轮；
+   * 统一收敛为 >= 语义（允许执行 maxTurns 轮，第 maxTurns+1 轮前停止）。
+   */
+  private isTurnLimitReached(): boolean {
+    return this.turnCount >= this.taorConfig.maxTurns;
+  }
+
   private shouldStop(): boolean {
     if (this.abortController.signal.aborted) {
       this.stopReason = 'aborted';
@@ -1861,7 +1870,7 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
       return true;
     }
 
-    if (this.turnCount > this.taorConfig.maxTurns) {
+    if (this.isTurnLimitReached()) {
       this.stopReason = 'max_turns';
       this.stopped = true;
       return true;
@@ -2078,6 +2087,9 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
     this._incompleteRetries.planning = 0;
     this._pendingInboxItems = [];
     this._preApprovedToolCalls = [];
+    // L1（2026-09-17）：输出上限随 run 复位——_effectiveMaxOutputTokens 逐轮翻倍累积
+    // 且只在 reset() 缺席复位，跨步/跨 run 会一路翻到 64k 封顶；置 undefined 回到基线
+    this._effectiveMaxOutputTokens = undefined;
     this.resetRunState();
     logger.info('TAOR loop reset');
   }

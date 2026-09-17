@@ -5,7 +5,6 @@ import { SessionStore } from './SessionStore';
 import { SessionPruner } from './SessionPruner';
 import type { PrunerOptions } from './SessionPruner';
 import { FileCheckpointStorage } from '@modules/query';
-import { SessionLock } from './SessionLock';
 import type { LockOptions } from './SessionLock';
 import { SessionMigration } from './SessionMigration';
 import { FileSystemStorage } from './storage/FileSystemStorage';
@@ -61,7 +60,6 @@ export class SessionManager {
 
   readonly store: SessionStore;
   readonly pruner: SessionPruner;
-  readonly lock: SessionLock;
   readonly migration: SessionMigration;
 
   private config: Required<
@@ -113,9 +111,9 @@ export class SessionManager {
       // 联动清理被剪枝会话的检查点（按 sessionId 精确匹配，不匹配则无操作）
       (id: string) => new FileCheckpointStorage().deleteSessionCheckpoints(id)
     );
-    this.lock = this.config.enableLock
-      ? new SessionLock(this.config.lockOptions)
-      : (null as unknown as SessionLock);
+    // M6 修复：删除从未 acquire 的 SessionLock 字段——原构造后仅 shutdown 调
+    // releaseAll()（对空 heldLocks 是 no-op），无任何 acquire 入口
+    // （SessionGateway.acquireLock 是唯一实际入口），字段纯误导。
     this.migration = this.config.enableMigration
       ? new SessionMigration()
       : (null as unknown as SessionMigration);
@@ -368,10 +366,6 @@ export class SessionManager {
 
     this.stopPruner();
     this.stopCompactionMonitor();
-
-    if (this.config.enableLock) {
-      await this.lock.releaseAll();
-    }
 
     this.store.clearCache();
     this.initialized = false;

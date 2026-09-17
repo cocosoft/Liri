@@ -45,7 +45,10 @@ import type { StorageConfig } from './storage/UnifiedStorage.js';
 // 确保 FILESYSTEM 存储实现被注册（SessionGateway 默认使用）
 import './storage/FileSystemUnifiedStorage.js';
 
-import { CrashRecoveryManager } from './recovery/CrashRecoveryManager.js';
+import {
+  CrashRecoveryManager,
+  CLEAN_SHUTDOWN_MARKER,
+} from './recovery/CrashRecoveryManager.js';
 import type { CrashRecoveryResult } from './recovery/CrashRecoveryManager.js';
 
 import { SessionType, SessionStatus } from './types/Session.js';
@@ -55,6 +58,7 @@ import type {
   UnifiedSession,
   SessionFilter,
   SessionStats,
+  SessionMetadata,
   CreateSessionParams,
 } from './types/Session.js';
 import type {
@@ -419,7 +423,6 @@ export class SessionGateway {
    */
   async initialize(): Promise<void> {
     if (this.initialized) return;
-    this.initialized = true;
 
     await this.storage.initialize();
     await this.transcriptManager.initialize();
@@ -494,6 +497,11 @@ export class SessionGateway {
     if (this.archiver) {
       await this.archiver.initialize();
     }
+
+    // H3 修复：initialized 标记置到方法末尾。此前在首个 await 之前置 true，
+    // 若任一步初始化抛错，半初始化状态永久锁死（再次调用直接 return）。
+    // 现置于末尾，任一步失败则 initialized 仍为 false，下次调用可完整重试。
+    this.initialized = true;
   }
 
   /**
@@ -712,6 +720,17 @@ export class SessionGateway {
       );
       const copy = await sourceLog.copyPrefixTo(childLog, boundary);
       if (!copy.ok) {
+        // H9 修复：复制失败时回滚已创建的子会话（deleteSession 软删除），
+        // 避免孤儿子会话残留（无血缘事件、后续 fork 校验不一致）。
+        await this.deleteSession(child.id).catch((rollbackErr) => {
+          logger.warn('forkSession:回滚子会话失败', {
+            childId: child.id,
+            error:
+              rollbackErr instanceof Error
+                ? rollbackErr.message
+                : String(rollbackErr),
+          });
+        });
         return {
           success: false,
           session: child,
@@ -787,9 +806,27 @@ export class SessionGateway {
    * 更新会话
    */
   async updateSession(session: UnifiedSession): Promise<void> {
+    // M4（2026-09-17）：会话重新激活（ACTIVE/RUNNING）时清除 cleanShutdown 标记——
+    // 避免"上次优雅关闭"标记残留掩盖后续真实崩溃（恢复被跳过的误判）。
+    if (
+      (session.status === SessionStatus.ACTIVE ||
+        session.status === SessionStatus.RUNNING) &&
+      session.metadata?.[CLEAN_SHUTDOWN_MARKER] === true
+    ) {
+      delete session.metadata[CLEAN_SHUTDOWN_MARKER];
+    }
     session.updatedAt = Date.now();
     session.lastActivityAt = Date.now();
     await this.storage.updateSession(session);
+    // M2：直写 storage 后失效 SessionStore 缓存对应 key（底层共用同一存储实例）
+    this.sessionStore?.invalidate(session.id);
+  }
+
+  /**
+   * M4（2026-09-17）：优雅关闭时为可中断会话写 cleanShutdown 标记（委托 CrashRecoveryManager）
+   */
+  async markCleanShutdown(): Promise<number> {
+    return this.crashRecoveryManager.markCleanShutdown();
   }
 
   /**
@@ -814,6 +851,8 @@ export class SessionGateway {
       sessionId,
       costMs: Date.now() - startedAt,
     });
+    // M2：直写 storage 删除后失效 SessionStore 缓存对应 key
+    this.sessionStore?.invalidate(sessionId);
 
     // E-4（2026-08-23，T-G）：清理 PDCA 旁路轨迹文件（会话外诊断数据，随会话删除）
     void TrajectoryTrailRecorder.cleanup(sessionId);
@@ -886,7 +925,11 @@ export class SessionGateway {
     const { join } = require('path');
     const { readLiteSessionMeta } =
       await import('./storage/LiteSessionReader.js');
-    const sessionsDir = resolveSessionsDir();
+    // M1 修复：统一从 storage.getStorageInfo().basePath 取会话目录根，
+    // 不再硬编码 resolveSessionsDir()（忽略 storageConfig.basePath 配置）。
+    // StorageAdapter/Memory 存储无 basePath 时回退默认值。
+    const sessionsDir =
+      this.storage.getStorageInfo()?.basePath ?? resolveSessionsDir();
     logger.debug('listLiteSessions:开始扫描会话目录', { sessionsDir });
 
     let entries: string[];
@@ -1012,6 +1055,13 @@ export class SessionGateway {
     await this.storage.addMessage(sessionId, message);
     await this.transcriptManager.recordMessage(sessionId, message);
 
+    // M5 修复：直接调 indexMessageToFTS（幂等，index() 是 Map.set）——
+    // FTS 索引此前依赖 eventBus 上 'message:created' 装配时序，晚装配即永不进索引，
+    // indexMessageToFTS 在 initialize 之外无调用点（死代码）。
+    this.indexMessageToFTS(sessionId, message);
+    // M2：直写 storage 追加消息后失效 SessionStore 消息缓存
+    this.sessionStore?.invalidate(sessionId);
+
     this.eventBus?.emit(
       createSessionLifecycleEvent('message:created', sessionId, {
         sessionKey: sessionId,
@@ -1024,11 +1074,16 @@ export class SessionGateway {
       })
     );
 
-    const session = await this.getSession(sessionId);
-    if (session) {
-      session.lastActivityAt = Date.now();
-      await this.updateSession(session);
+    // L5：touchSession 节流合并——命中内存 Map 时免 getSession+updateSession 双 IO
+    const touched = await this.storage.touchSession(sessionId);
+    if (!touched) {
+      const session = await this.getSession(sessionId);
+      if (session) {
+        session.lastActivityAt = Date.now();
+        await this.updateSession(session);
+      }
     }
+    this.sessionStore?.invalidate(sessionId);
   }
 
   /**
@@ -1079,7 +1134,9 @@ export class SessionGateway {
   private async rebuildFTSIndex(): Promise<void> {
     const engine = getFTS5SearchEngine();
 
-    engine.loadFromDisk();
+    // H1 修复：显式传 getFTSIndexPath()（fts-index.json），与 saveToDisk 写路径对称，
+    // 避免读到默认 fts.db（旧路径不存在）导致每启动全量重建。
+    engine.loadFromDisk(this.getFTSIndexPath());
 
     if (engine.getStats().documentCount === 0) {
       const sessions = await this.storage.listSessions();
@@ -1113,7 +1170,12 @@ export class SessionGateway {
         if (metadata && metadata.roundCount == null) {
           const messages = await this.storage.getMessages(s.id);
           const userMsgCount = messages.filter((m) => m.role === 'user').length;
-          metadata.roundCount = userMsgCount;
+          // L6：浅拷贝 metadata 再写 roundCount——原实现直接改共享引用，
+          // 污染 listSessions 返回对象的 metadata，导致内存缓存会话被意外改写
+          s.metadata = {
+            ...s.metadata,
+            roundCount: userMsgCount,
+          } as SessionMetadata;
           // #15 修复：改用接口的 updateSession（原 (this.storage as any).saveSession?.()
           // 对 UnifiedSessionStorage 为 undefined，可选调用静默 no-op，迁移从未落盘）
           await this.storage.updateSession(s);
@@ -1184,6 +1246,8 @@ export class SessionGateway {
    */
   async deleteMessage(sessionId: string, messageId: string): Promise<void> {
     await this.storage.deleteMessage(sessionId, messageId);
+    // M2：直写 storage 删除消息后失效 SessionStore 消息缓存
+    this.sessionStore?.invalidate(sessionId);
     this.eventBus?.emit(
       createSessionLifecycleEvent('messages:deleted', sessionId, {
         metadata: { messageIds: [messageId] },
@@ -1196,6 +1260,8 @@ export class SessionGateway {
    */
   async deleteMessages(sessionId: string, messageIds: string[]): Promise<void> {
     await this.storage.deleteMessages(sessionId, messageIds);
+    // M2：直写 storage 批量删除消息后失效 SessionStore 消息缓存
+    this.sessionStore?.invalidate(sessionId);
     if (messageIds.length > 0) {
       this.eventBus?.emit(
         createSessionLifecycleEvent('messages:deleted', sessionId, {
@@ -1768,6 +1834,9 @@ export class SessionGateway {
     }
     this.webSockets.clear();
 
+    // H2 修复：关闭前先落盘 storage 的 pending 写队列（storage.close 内部 flush），
+    // 再关闭 transcriptManager，避免写队列中最后的消息在进程退出时丢失。
+    await this.storage.close();
     await this.transcriptManager.close();
   }
 

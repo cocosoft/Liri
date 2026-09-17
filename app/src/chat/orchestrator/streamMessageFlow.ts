@@ -2140,6 +2140,46 @@ export async function* runStreamMessage(
             }
           }
         }
+        // P5（2026-09-17）：未消费 todo 补偿/flush——getPendingTodos 取走即清空，
+        // 心跳循环 `if (done) break` 提前退出时（:1978 break 早于 :2055 消费点），
+        // 最后一批已 push 的 todo 未取走随 loop 丢弃。此处 flush 残留：落盘 + 前端 chunk。
+        for (const todoData of loop.getPendingTodos()) {
+          try {
+            await host.appendStreamEvent(session.id, {
+              type: 'assistant/todo',
+              schemaVersion: 1,
+              seq: 0,
+              time: Date.now(),
+              sessionId: session.id,
+              data: {
+                action: 'write',
+                taskCard: {
+                  title: todoData.title,
+                  status: todoData.phase,
+                  ...(todoData.planId ? { planId: todoData.planId } : {}),
+                  tasks: todoData.tasks.map((t) => ({
+                    id: t.id,
+                    name: t.name,
+                    status: t.status,
+                    dependsOn: t.dependsOn,
+                    ...(t.result !== undefined ? { result: t.result } : {}),
+                    ...(t.durationMs !== undefined
+                      ? { durationMs: t.durationMs }
+                      : {}),
+                  })),
+                },
+              },
+            });
+          } catch {
+            // @ignore-catch — 补偿落盘失败不阻断主流程（CS03）
+          }
+          yield {
+            type: 'todo',
+            content: JSON.stringify(todoData),
+            sessionId: session.id,
+            todoData,
+          } as ChatStreamChunk;
+        }
         assistantMessage = loop.getAssistantMessage();
         // B1 补发（2026-09-01）：达上限/循环检测的终止提示由 finalize 生成在最终
         // 消息里，但不在 loop.run 事件流（reactEventsToChunks 不产出）→ 前端流式

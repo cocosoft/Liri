@@ -23,6 +23,7 @@ import type {
   ReasonResult,
   ActResult,
   ToolCallEntry,
+  ToolResultEntry,
   ReActEvent,
   TerminationReason,
 } from '@modules/query';
@@ -632,13 +633,16 @@ export class SubAgentEngine {
     toolCall: { id: string; name: string; arguments: Record<string, unknown> },
     toolInstances: Map<string, Tool>,
     toolContext?: ToolUseContext
-  ): Promise<string> {
+  ): Promise<{ ok: boolean; content: string }> {
     const tool = toolInstances.get(toolCall.name);
     if (!tool) {
-      return JSON.stringify({
-        success: false,
-        error: `Tool '${toolCall.name}' not found`,
-      });
+      return {
+        ok: false,
+        content: JSON.stringify({
+          success: false,
+          error: `Tool '${toolCall.name}' not found`,
+        }),
+      };
     }
 
     try {
@@ -661,18 +665,21 @@ export class SubAgentEngine {
       const result = await tool.execute(parsedArgs, resolvedContext);
       const output = result.output || result.result || JSON.stringify(result);
 
-      if (typeof output === 'string') return output;
+      if (typeof output === 'string') return { ok: true, content: output };
 
-      return JSON.stringify(output);
+      return { ok: true, content: JSON.stringify(output) };
     } catch (error) {
       handleError(error, {
         module: 'tools:AgentTool:SubAgentEngine',
         action: 'executeToolCall',
       });
-      return JSON.stringify({
-        success: false,
-        error: error instanceof Error ? error.message : String(error),
-      });
+      return {
+        ok: false,
+        content: JSON.stringify({
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
+        }),
+      };
     }
   }
 
@@ -826,8 +833,27 @@ class SubAgentLoop extends ReActLoop<
   protected async *act(
     calls: ToolCallEntry[]
   ): AsyncGenerator<ReActEvent, ActResult> {
+    const results: ToolResultEntry[] = [];
+    let anyAborted = false;
     for (const tc of calls) {
-      if (this.config.abortSignal?.aborted) break;
+      // D3（2026-09-17）：中止时补齐——assistant 消息已带全部 tool_calls，未执行的
+      // 调用必须回填 tool 结果消息（OpenAI 兼容协议要求 tool_call 与 tool 结果配对，
+      // 否则 400 "tool_calls must be followed by tool messages"），并记为 aborted
+      if (this.config.abortSignal?.aborted) {
+        anyAborted = true;
+        results.push({
+          toolCallId: tc.id,
+          name: tc.name,
+          status: 'aborted',
+          error: 'Execution aborted before tool run',
+        });
+        this.opts.messages.push({
+          role: 'tool',
+          content: JSON.stringify({ success: false, error: '工具执行被中止' }),
+          tool_call_id: tc.id,
+        });
+        continue;
+      }
       this.toolCallCount++;
       this.opts.onToolStart?.(
         tc.name,
@@ -835,7 +861,9 @@ class SubAgentLoop extends ReActLoop<
         this.state.iteration,
         this.toolCallCount
       );
-      const content = await this.opts.engine['executeToolCall'](
+      // D3（2026-09-17）：executeToolCall 返回结构化结果——工具缺失/执行异常
+      // （ok=false）不再被上报为全成功
+      const { ok, content } = await this.opts.engine['executeToolCall'](
         {
           id: tc.id,
           name: tc.name,
@@ -850,8 +878,18 @@ class SubAgentLoop extends ReActLoop<
         tool_call_id: tc.id,
       });
       this.opts.onToolResult?.(tc.name, tc.id, content, this.state.iteration);
+      results.push({
+        toolCallId: tc.id,
+        name: tc.name,
+        status: ok ? 'success' : 'error',
+        output: content,
+      });
     }
-    return { results: [], allSucceeded: true, anyAborted: false };
+    return {
+      results,
+      allSucceeded: results.every((r) => r.status === 'success'),
+      anyAborted,
+    };
   }
 
   protected shouldContinue(

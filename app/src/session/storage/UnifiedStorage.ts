@@ -71,6 +71,12 @@ export interface UnifiedSessionStorage {
   createSession(session: UnifiedSession): Promise<string>;
   getSession(sessionId: string): Promise<UnifiedSession | null>;
   updateSession(session: UnifiedSession): Promise<void>;
+  /**
+   * L5：轻量 touch 会话活动时间戳（lastActivityAt/updatedAt）并落盘。
+   * 返回 false 表示会话不存在（调用方可回退 getSession + updateSession）。
+   * 供 sendMessage 等高频写路径合并"读 + 全量更新"双 IO 为一次调用。
+   */
+  touchSession(sessionId: string): Promise<boolean>;
   deleteSession(sessionId: string): Promise<void>;
   listSessions(filter?: SessionFilter): Promise<UnifiedSession[]>;
   searchSessions(query: string): Promise<UnifiedSession[]>;

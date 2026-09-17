@@ -69,6 +69,12 @@ const DEFAULT_APPEND_REWRITE_BYTES = 2 * 1024 * 1024;
 export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
   private sessions: Map<string, UnifiedSession> = new Map();
   private messages: Map<string, UnifiedMessage[]> = new Map();
+  /**
+   * H6 修复：per-session 消息数缓存。写路径增量更新、loadMessages 校准，
+   * getSessionStats/getSessionMessageCount 读此 Map 零 IO，消除"统计遍历触发热加载
+   * + MESSAGE_CACHE_MAX 逐出后命中率恒 0"的 O(会话×消息文件) IO 风暴。
+   */
+  private messageCounts: Map<string, number> = new Map();
   private config: StorageConfig;
   private basePath: string;
   private writer: AtomicWriter;
@@ -280,6 +286,8 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
         });
       }
       this.messages.set(sessionId, [...msgMap.values()]);
+      // H6：loadMessages 校准消息计数（去重后真实条数）
+      this.messageCounts.set(sessionId, msgMap.size);
     } catch (error) {
       const code = (error as NodeJS.ErrnoException).code;
       // 仅文件不存在/IO 失败等整体异常才置空（与旧行为一致）
@@ -290,6 +298,7 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
         error: String(error),
       });
       this.messages.set(sessionId, []);
+      this.messageCounts.set(sessionId, 0);
 
       // K-6 P2 会话 ENOENT 自愈：messages.jsonl ENOENT 但 session.json 存在
       // → 磁盘会话目录部分文件丢失（messages.jsonl 被删但元数据还在），
@@ -413,8 +422,20 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
     sessionId: string,
     op: () => Promise<void>
   ): Promise<void> {
+    // H5 修复（K-6 幽灵消息）：闭包执行前重新检查 deletedSessionIds。
+    // deleteSession 软删除（清空内存 Map + rename 目录）后，若 addMessage/updateMessage
+    // 等排队写入仍在队列中执行，会往内存 Map 追加（磁盘目录已不存在）
+    // 造成「内存有、磁盘无」的幽灵消息。与 persistMessageAppend/persistMessagesRewrite
+    // 的 BUG-I 拦截对齐，保证「内存不写入 + 磁盘不写入」同时成立。
+    const run = (): Promise<void> => {
+      if (this.deletedSessionIds.has(sessionId)) {
+        logger.warn('enqueueWrite:已删除会话的队列写操作被拦截', { sessionId });
+        return Promise.resolve();
+      }
+      return op();
+    };
     const prev = this.writeQueues.get(sessionId) ?? Promise.resolve();
-    const next = prev.then(op, op);
+    const next = prev.then(run, run);
     this.writeQueues.set(sessionId, next);
     next
       .finally(() => {
@@ -518,6 +539,23 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
     return session ? { ...session } : null;
   }
 
+  /**
+   * L5：轻量 touch 会话活动时间戳并落盘（内存 Map 直改 + persistSession），
+   * 免调用方先 getSession 再 updateSession 的双 IO 往返。
+   * 会话不在内存 Map 时返回 false，由调用方回退原路径。
+   */
+  async touchSession(sessionId: string): Promise<boolean> {
+    if (this.deletedSessionIds.has(sessionId)) return false;
+    const session = this.sessions.get(sessionId);
+    if (!session) return false;
+    const now = Date.now();
+    session.lastActivityAt = now;
+    session.updatedAt = now;
+    this.sessions.set(sessionId, session);
+    await this.persistSession(session);
+    return true;
+  }
+
   async updateSession(session: UnifiedSession): Promise<void> {
     // KB-SESSION-UPDATE-INTERCEPT（2026-08-29 专项审查）：与 persistMessageAppend 的
     // BUG-I 拦截对齐——已软删除会话的元数据更新若落盘，persistSession 的 mkdir
@@ -538,6 +576,8 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
     });
     this.sessions.delete(sessionId);
     this.messages.delete(sessionId);
+    // H6：软删除同步清理消息计数
+    this.messageCounts.delete(sessionId);
 
     const dir = sessionDir(this.basePath, sessionId);
     try {
@@ -588,6 +628,11 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
       const msgs = this.messages.get(sessionId) ?? [];
       msgs.push({ ...message });
       this.messages.set(sessionId, msgs);
+      // H6：写路径增量更新消息计数
+      this.messageCounts.set(
+        sessionId,
+        (this.messageCounts.get(sessionId) ?? 0) + 1
+      );
       await this.persistMessageAppend(sessionId, message);
     });
   }
@@ -716,6 +761,8 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
       if (!msgs) return;
       const filtered = msgs.filter((m) => m.id !== messageId);
       this.messages.set(sessionId, filtered);
+      // H6：删除后按内存实况校准计数
+      this.messageCounts.set(sessionId, filtered.length);
       await this.persistMessagesRewrite(sessionId, filtered);
     });
   }
@@ -759,6 +806,11 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
         msgs.push({ ...m });
       }
       this.messages.set(sessionId, msgs);
+      // H6：批量追加增量更新消息计数
+      this.messageCounts.set(
+        sessionId,
+        (this.messageCounts.get(sessionId) ?? 0) + messages.length
+      );
 
       const data = messages.map((m) => JSON.stringify(m)).join('\n') + '\n';
       const dir = sessionDir(this.basePath, sessionId);
@@ -779,6 +831,8 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
       const idSet = new Set(messageIds);
       const filtered = msgs.filter((m) => !idSet.has(m.id));
       this.messages.set(sessionId, filtered);
+      // H6：批量删除后按内存实况校准计数
+      this.messageCounts.set(sessionId, filtered.length);
       await this.persistMessagesRewrite(sessionId, filtered);
     });
   }
@@ -796,27 +850,24 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
           sessions: [],
         };
       }
-      // P1-3：按需加载，保证消息数真实
-      await this.ensureMessagesLoaded(sessionId);
-      const msgs = this.messages.get(sessionId) ?? [];
+      // H6：读 per-session 计数零 IO（不触发热加载，避免 MESSAGE_CACHE_MAX 逐出风暴）
+      const count = this.messageCounts.get(sessionId) ?? 0;
       return {
         totalSessions: 1,
         activeSessions: session.status === SessionStatus.ACTIVE ? 1 : 0,
         archivedSessions: session.status === SessionStatus.ARCHIVED ? 1 : 0,
         averageSessionDuration: 0,
-        totalMessages: msgs.length,
+        totalMessages: count,
         sessions: [session.id],
       };
     }
 
     let totalMessages = 0;
-    // P1-fix（H3）：P1-3 懒加载后 messages Map 仅含已访问会话，直接遍历
-    // 会虚低。改为遍历全部会话键逐个计数（getSessionMessageCount 内部
-    // 触发按需加载，且受 MESSAGE_CACHE_MAX 逐出保护）。
+    // H6：统计接口零 IO——直接累加 per-session 计数，不再遍历 ensureMessagesLoaded
     let activeCount = 0;
     let archivedCount = 0;
     for (const sessionId of this.sessions.keys()) {
-      totalMessages += await this.getSessionMessageCount(sessionId);
+      totalMessages += this.messageCounts.get(sessionId) ?? 0;
       const s = this.sessions.get(sessionId);
       if (s?.status === SessionStatus.ACTIVE) activeCount++;
       else if (s?.status === SessionStatus.ARCHIVED) archivedCount++;
@@ -833,9 +884,8 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
   }
 
   async getSessionMessageCount(sessionId: string): Promise<number> {
-    // P1-3：按需加载（逐出后再次访问需重新读盘）
-    await this.ensureMessagesLoaded(sessionId);
-    return (this.messages.get(sessionId) ?? []).length;
+    // H6：读 per-session 计数零 IO（不触发热加载）
+    return this.messageCounts.get(sessionId) ?? 0;
   }
 
   async beginTransaction(): Promise<Transaction> {

@@ -376,12 +376,13 @@ export interface LiriEventMap {
   };
 
   /**
-   * TODO 任务卡（todo_write 工具触发，支持 write 新建与 update 增量更新）
-   * action='write' 时 taskCard 完整；action='update' 时携带 taskId + 增量字段。
+   * TODO 任务卡（todo_write 工具触发，统一全量 write 快照）
+   * 生产者仅产 action='write'（携带完整 taskCard）。增量 update 事件已废弃：
+   * 后端 streamMessageFlow 恒产 write，前端 derive 与回放 deriver 均按 write 整卡替换。
    */
   'assistant/todo': {
-    action: 'write' | 'update';
-    /** action='write'：完整任务卡 */
+    action: 'write';
+    /** 完整任务卡 */
     taskCard?: {
       title: string;
       status: 'planning' | 'executing' | 'done';
@@ -400,20 +401,6 @@ export interface LiriEventMap {
         durationMs?: number;
       }>;
       planId?: string;
-    };
-    /** action='update'：目标 task id */
-    taskId?: string;
-    /** action='update'：增量更新字段 */
-    updates?: {
-      status?:
-        | 'pending'
-        | 'in_progress'
-        | 'completed'
-        | 'failed'
-        | 'blocked'
-        | 'skipped';
-      result?: string;
-      durationMs?: number;
     };
   };
 

@@ -1137,8 +1137,10 @@ export class CoreAPIImpl implements CoreAPI {
               error: String(evErr),
             });
           }
-          tracker.reset();
         }
+        // B3（架构归一 Step3）：轮次结束无论是否有交付物都清空 tracker，
+        // 避免无交付物轮次跨轮重复上报上一轮交付物（原在 if(deliverable) 内致漏清）。
+        tracker.reset();
       }
     } catch (deliverableErr) {
       // @ignore-catch — deliverable 发射失败不影响流结束
@@ -2119,11 +2121,15 @@ export class CoreAPIImpl implements CoreAPI {
     // 走 ChatManager 完整删除路径（持久化删除会话 + 联动清理检查点）；
     // 原实现走 sessionManager(轻量 adapter) 仅删内存，导致磁盘会话与检查点残留
     await this.chatManager.deleteSession(sessionId);
+    // D-LIFE（2026-09-17）：会话删除 → 释放其执行阶段追踪器（防 per-session Map 永久驻留）
+    this._executionPhaseTrackers.delete(sessionId);
   }
 
   async clearAllSessions(moduleType?: string): Promise<void> {
     // moduleType 可选：仅清空指定模块会话（防其他调用方误删项目会话）
     await this.chatManager.clearAllSessions(moduleType);
+    // D-LIFE（2026-09-17）：清空会话 → 同步释放全部执行阶段追踪器
+    this._executionPhaseTrackers.clear();
   }
 
   async switchSession(sessionId: string): Promise<void> {

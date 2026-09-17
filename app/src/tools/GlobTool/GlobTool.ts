@@ -235,13 +235,22 @@ function matchGlob(name: string, pattern: string): boolean {
   // 将路径中的反斜杠统一为斜杠，确保跨平台路径匹配一致性
   const normalizedName = name.replace(/\\/g, '/');
 
+  // G1（架构归一 B 系列同根因，2026-09-17）：花括号展开（单层 {a,b|c}）。
+  // 此前 `{A,B}` 未被展开、当成字面量，被 `^...$` 锚定后永不匹配 → 静默返回 []，
+  // 调用方无法区分「文件不存在」与「模式不支持」。此处扩展为 `(A|B)` 交替组，
+  // 使 `*.{ts,js}`、`{*.ts,*.js}` 等真实展开匹配，不再吞掉空结果。
+  const expandedPattern = pattern.replace(/\{[^{}]*\}/g, (m) => {
+    const body = m.slice(1, -1);
+    return `(${body.split(',').join('|')})`;
+  });
+
   // 将 glob 模式转换为正则表达式字符串
   // 1. 转义字面量点号
   // 2. 临时替换 ** 为占位符，避免被单星号逻辑干扰
   // 3. 将单星号 * 替换为匹配非路径分隔符的字符类
   // 4. 将占位符恢复为匹配任意字符的 .*
   // 5. 将问号 ? 替换为匹配单个字符的 .
-  const regexStr = pattern
+  const regexStr = expandedPattern
     .replace(/\./g, '\\.')
     .replace(/\*\*/g, '@@DOUBLE_STAR@@')
     .replace(/\*/g, '[^/\\\\]*')

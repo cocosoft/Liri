@@ -211,6 +211,10 @@ export abstract class ReActLoop<
   TResult = unknown,
 > {
   protected config: ReActLoopConfig;
+  /** 骨架自有中止控制器（D6）：abort() 直接中止它；config.abortSignal 引用其
+   *  signal（L278）供外部监听。命名带 _ 前缀避免与 TAORLoop 自带的 private
+   *  abortController 字段冲突。 */
+  private _abortController: AbortController;
   protected state: ReActState;
   protected consecutiveInvalidTurns = 0;
 
@@ -255,6 +259,22 @@ export abstract class ReActLoop<
 
   constructor(config?: Partial<ReActLoopConfig>) {
     this.config = { ...DEFAULT_CONFIG, ...config };
+    // D6（2026-09-17）：骨架自带中止控制器——外部传入的 abortSignal 仅作联动监听，
+    // config.abortSignal 恒指向本控制器（对齐 SubAgentEngine 外部信号→内部控制器模式）
+    this._abortController = new AbortController();
+    const externalSignal = config?.abortSignal;
+    if (externalSignal) {
+      if (externalSignal.aborted) {
+        this._abortController.abort();
+      } else {
+        externalSignal.addEventListener(
+          'abort',
+          () => this._abortController.abort(),
+          { once: true }
+        );
+      }
+    }
+    this.config.abortSignal = this._abortController.signal;
     this.state = { iteration: 0, phase: 'reasoning', pendingToolCalls: [] };
     this.steeringQueue = config?.steeringMessages
       ? [...config.steeringMessages]
@@ -836,13 +856,9 @@ export abstract class ReActLoop<
   /** 中止循环 */
   abort(): void {
     this.state.phase = 'aborted';
-    if (this.config.abortSignal) {
-      // 通过 AbortController 传播中止信号
-      (
-        this.config.abortSignal as AbortSignal & {
-          _controller?: AbortController;
-        }
-      )._controller?.abort();
-    }
+    // D6（2026-09-17）：直接中止骨架自有控制器——原经 config.abortSignal 上
+    // _controller 私有字段的类型断言反向传播中止，字段改名/转 #private 后
+    // 中止会静默失效且无编译报错（对齐 SubAgentEngine 的 abortController 显式传递）
+    this._abortController.abort();
   }
 }

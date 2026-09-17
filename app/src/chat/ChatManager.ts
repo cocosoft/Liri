@@ -802,6 +802,10 @@ export class ChatManagerImpl implements ChatManager {
       await this.flushAllCheckpoints();
       return 0;
     });
+    // M4（2026-09-17）：退出前为可中断会话写 cleanShutdown 标记——下次启动崩溃恢复跳过
+    registerCleanShutdownHandler(async () => {
+      await this.sessionGateway.markCleanShutdown();
+    });
     // 内存水位订阅（2026-09-02）：L0+ 触发时先落盘全部会话缓冲（脏页写回，
     // OS kswapd 式"压力前先写回"）；订阅在构造期幂等注册一次
     getMemoryPressureMonitor().subscribe((level) => {
@@ -5984,6 +5988,28 @@ export async function flushAllEventBuffers(): Promise<number> {
     )
   );
   return total;
+}
+
+/**
+ * M4（2026-09-17）：优雅退出前为可中断会话写 cleanShutdown 标记的钩子注册表
+ * （镜像 eventBufferFlushers 模式，幂等；main 信号链调用 markSessionsCleanShutdown）。
+ */
+const cleanShutdownHandlers: Array<() => Promise<void>> = [];
+
+/** 注册一个退出前 cleanShutdown 标记钩子 */
+export function registerCleanShutdownHandler(fn: () => Promise<void>): void {
+  cleanShutdownHandlers.push(fn);
+}
+
+/** 退出前标记全部可中断会话为优雅关闭（逐条容错，不阻断退出链） */
+export async function markSessionsCleanShutdown(): Promise<void> {
+  await Promise.all(
+    cleanShutdownHandlers.map((fn) =>
+      fn().catch(() => {
+        // @ignore-catch — 单条标记失败不阻断退出链（CS03）
+      })
+    )
+  );
 }
 
 /**

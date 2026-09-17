@@ -8,6 +8,7 @@ import { resolveDataDir } from '@modules/core/paths';
 import { configManager } from '@modules/config';
 import { PlanDrivenLoop } from '@modules/core';
 import type { PlanDrivenLoopResult } from '@modules/core';
+import type { PlanDrivenLoopConfig } from '@modules/core/loop/PlanDrivenLoop';
 import type { AIProvider, ChatMessage } from '@modules/ai';
 import { registerPlanLoop, unregisterPlanLoop } from '../planAbortRegistry.js';
 import { createChatManagerTAORDeps } from '@modules/query';
@@ -44,6 +45,8 @@ export interface PdcaLauncherDeps {
   persistMessage: (sessionId: string, message: any) => void;
   /** 可选：任务分解 LLM Provider（PlanDrivenLoop 转正 2026-09-01；不提供则 TaskDecomposer 简单分解单子任务） */
   getDecomposerProvider?: () => Promise<AIProvider | null>;
+  /** 可选：PlanDrivenLoop 工厂（P2-C 测试注入；默认内部 new PlanDrivenLoop） */
+  planLoopFactory?: (config: PlanDrivenLoopConfig) => PlanDrivenLoop;
 }
 
 /**
@@ -95,7 +98,7 @@ export class PdcaLauncher {
           // 自动降级为简单分解（单子任务），不阻断 PlanDrivenLoop 路径
           const decomposerProvider =
             (await this.deps.getDecomposerProvider?.()) ?? undefined;
-          const planLoop = new PlanDrivenLoop({
+          const planLoopConfig: PlanDrivenLoopConfig = {
             taorLoop,
             // P0-1 真并行（2026-09-06）：注入每步独立 TAOR 实例工厂——无依赖步骤批次并行
             // 的前提（共享实例状态无法并发）；taorLoopFactory 未注入时 PDL 回退单实例串行
@@ -207,11 +210,23 @@ export class PdcaLauncher {
                     }
                   )
                 );
-              } catch {
-                // 进度回写失败不影响循环（@ignore-catch）
+              } catch (error) {
+                // 进度回写失败不影响循环（@ignore-catch）——P2-C：空 catch 无日志，
+                // 失败静默；补 warn 留痕，使进度回写故障可观测
+                logger.warn('PDCA 进度回写失败', {
+                  sessionId,
+                  taskId,
+                  completed: progress.completed,
+                  total,
+                  bucket,
+                  error: error instanceof Error ? error.message : String(error),
+                });
               }
             },
-          });
+          };
+          const planLoop = this.deps.planLoopFactory
+            ? this.deps.planLoopFactory(planLoopConfig)
+            : new PlanDrivenLoop(planLoopConfig);
           const message = userMessage || description;
           // 4.0-2 N1（2026-09-04）：PDL 快速路径注册任务实体（checkpoint）——
           // /v1/pdca/list 权威源=checkpoint 目录 + 内存 orchestrator；此前 PDL 无实体，

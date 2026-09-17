@@ -71,7 +71,8 @@ export class AtomicWriter {
         writeFileMs,
         renameMs,
         totalMs,
-        // 原子操作开销占比（0-1）；正常应远小于 writeFileMs（<0.1）
+        // L1 修复：renameRatio 为百分比（0-100），此前注释误写"0-1 占比"，
+        // 与 *100 实现量纲矛盾。正常应远小于 10（<10%）。
         renameRatio: totalMs > 0 ? Math.round((renameMs / totalMs) * 100) : 0,
       });
     } catch (err) {

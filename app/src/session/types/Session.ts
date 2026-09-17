@@ -73,6 +73,8 @@ export interface SessionMetadata {
   titleOriginal?: string;
   /** M4-T4.1（2026-08-31）：会话来源渠道（set_once，通道会话首次请求时补写） */
   channel?: string;
+  /** M4（2026-09-17）：上次优雅关闭标记——恢复流程据此跳过崩溃恢复；重新激活时清除 */
+  cleanShutdown?: boolean;
 }
 
 /**

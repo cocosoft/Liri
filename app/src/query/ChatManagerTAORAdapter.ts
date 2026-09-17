@@ -20,6 +20,7 @@ import type {
   QuestionData,
   QuestionOption,
 } from '@modules/runtime/api/CoreAPI.js';
+import { extractTodoData } from '../chat/services/ChatHelper.js';
 
 const logger = getLogger('query:chatManagerTAORAdapter');
 
@@ -476,6 +477,45 @@ export function createChatManagerTAORDeps(
             result: toolResult.result,
             error: toolResult.error,
           });
+
+          // P4（2026-09-17）：非流式路径 todo 链路——工具结果含 _todoData 时产出
+          // assistant/todo 事件（对齐流式路径 streamMessageFlow getPendingTodos 落盘）。
+          // 此前非流式 sendMessage 的 TAORLoop 从不提取 todo → 前端 TaskCard 永不更新；
+          // 事件是任务卡回放的唯一事实来源（deriveConversationBlocks），落盘即可回放。
+          const todoData = extractTodoData(toolResult);
+          if (todoData) {
+            try {
+              const tailSeq = ctx.getStreamTailSeq
+                ? await ctx.getStreamTailSeq(ctx.sessionId)
+                : undefined;
+              await ctx.appendStreamEvent?.(ctx.sessionId, {
+                type: 'assistant/todo',
+                seq: tailSeq === undefined ? 0 : tailSeq + 1,
+                time: Date.now(),
+                sessionId: ctx.sessionId,
+                data: {
+                  action: 'write',
+                  taskCard: {
+                    title: todoData.title,
+                    status: todoData.phase,
+                    ...(todoData.planId ? { planId: todoData.planId } : {}),
+                    tasks: todoData.tasks.map((t) => ({
+                      id: t.id,
+                      name: t.name,
+                      status: t.status,
+                      dependsOn: t.dependsOn,
+                      ...(t.result !== undefined ? { result: t.result } : {}),
+                      ...(t.durationMs !== undefined
+                        ? { durationMs: t.durationMs }
+                        : {}),
+                    })),
+                  },
+                },
+              });
+            } catch {
+              // @ignore-catch — todo 事件落盘失败不阻断工具循环（CS03）
+            }
+          }
           logger.info('TAOR 工具执行完成', {
             sessionId: ctx.sessionId,
             toolName: tc.name,

@@ -81,8 +81,9 @@ export type TaskType =
   | 'reranking' // 重排序（Cohere Rerank / BGE 等）
   | 'knowledge_compile'; // 知识库编译（raw 文档 → many-to-many wiki 页面）
 
-/** PDCA 阶段上下文（S3 ModelPhaseRouter） */
-export type PdcaPhase = 'plan' | 'do' | 'check' | 'act';
+/** PDCA 阶段上下文（S3 ModelPhaseRouter）、意图族阶段（架构归一 B1-B6：单一真源 re-export） */
+import { type PdcaIntent as PdcaPhase } from '../core/phases/PhaseVocabulary.js';
+export type { PdcaPhase };
 
 export interface PhaseContext {
   phase: PdcaPhase;

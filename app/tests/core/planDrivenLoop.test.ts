@@ -9,8 +9,12 @@ import {
   SIMPLE_TASK_MAX_LENGTH,
   hasDangerousToolIntent,
   isEligibleForFastPath,
+  PlanDrivenLoop,
+  type TAORLoopFactoryOptions,
 } from '../../src/core/loop/PlanDrivenLoop';
 import { MAX_SUBTASKS } from '../../src/ai/router/TaskDecomposer';
+import type { TAORLoop } from '../../src/query/TAORLoop';
+import type { TAORLoopDeps } from '../../src/query/TAORLoop';
 
 describe('classifyTaskComplexity — 结构化判定（无正则）', () => {
   it('空/空白消息判定为 complex（不误入快速路径）', () => {
@@ -81,5 +85,34 @@ describe('isEligibleForFastPath — S3 两层分流第一层', () => {
   it('复杂任务不合格（复杂度门筛除）', () => {
     const longMsg = '请'.repeat(SIMPLE_TASK_MAX_LENGTH + 1);
     expect(isEligibleForFastPath(longMsg)).toBe(false);
+  });
+});
+
+describe('D1: taorLoopFactory 二元签名契约（PDL 侧）', () => {
+  it('二元工厂 (sessionId, opts?) 可注入且被原样保存（与 LRTO/PdcaLauncher 同一契约）', () => {
+    // D1（2026-09-17）：PDL 原一元声明导致调用方二元工厂的 opts 类型不被识别，
+    // PDL 内部只传 sessionId 时 opts 静默丢失。放宽签名后，二元工厂须可注入且不丢失。
+    const fakeLoop = {} as TAORLoop;
+    const factory = (
+      _sessionId: string,
+      _opts?: TAORLoopFactoryOptions
+    ): TAORLoop => fakeLoop;
+
+    const pdl = new PlanDrivenLoop({
+      taorLoop: fakeLoop,
+      deps: {} as TAORLoopDeps,
+      sessionId: 's1',
+      taorLoopFactory: factory,
+    });
+
+    const stored = (
+      pdl as unknown as {
+        taorLoopFactory?: (
+          sessionId: string,
+          opts?: TAORLoopFactoryOptions
+        ) => TAORLoop;
+      }
+    ).taorLoopFactory;
+    expect(stored).toBe(factory);
   });
 });

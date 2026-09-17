@@ -104,9 +104,16 @@ export class SessionPruner {
       }
 
       const remaining = sessionsWithTime.filter((s) => !toDelete.has(s.id));
-      if (remaining.length > this.maxSessions) {
+      // H7 修复：count 剪枝基数改为 nonActive（与 getPruneEstimate 预估一致）。
+      // 此前用 remaining（含 active）截断，活跃会话可能因 count 超限被误删，
+      // 且预估（nonActive 基数）与实际（remaining 基数）永远对不上。
+      const nonActiveRemaining = remaining.filter((s) => !s.isActive);
+      if (nonActiveRemaining.length > this.maxSessions) {
         reason = reason === 'age' ? 'both' : 'count';
-        const excess = remaining.slice(0, remaining.length - this.maxSessions);
+        const excess = nonActiveRemaining.slice(
+          0,
+          nonActiveRemaining.length - this.maxSessions
+        );
         for (const s of excess) {
           toDelete.add(s.id);
         }
@@ -134,9 +141,12 @@ export class SessionPruner {
         }
       }
 
-      const preservedIds = sessionsWithTime
-        .filter((s) => !toDelete.has(s.id))
-        .map((s) => s.id);
+      // H7 修复：preservedIds 按磁盘实况（listSessions 全量 id）计算——
+      // 此前按 sessionsWithTime（仅 loadSession 成功者）算，loadSession 失败/返回
+      // null 的会话既不在 deleted 也不在 preserved，导致 deleted + preserved ≠ total。
+      // 以实际删除成功的 deletedIds 为准取差集，保证 deleted + preserved === 磁盘会话总数。
+      const deletedSet = new Set(deletedIds);
+      const preservedIds = sessionIds.filter((id) => !deletedSet.has(id));
 
       logger.info(
         `Session pruning completed: deleted ${deletedIds.length}, preserved ${preservedIds.length} (reason: ${reason})`

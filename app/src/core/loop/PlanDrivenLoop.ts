@@ -29,6 +29,7 @@ import {
 import type { DecompositionResult } from '@modules/ai/router/TaskDecomposer.js';
 import { taskOrchestrator } from '../../tasks/TaskOrchestrator.js';
 import { emitPdcaLiveEvent } from '../../tasks/PdcaLiveEvents.js';
+import { writePdcaCheckpoint } from '../../tasks/PdcaWorkItemBridge.js';
 import { goalMetricsService } from '@modules/tasks';
 import type { Plan, PlanProgress } from '../../tasks/TaskOrchestrator.js';
 import type { AIProvider } from '@modules/ai/providers/AIProvider.js';
@@ -56,6 +57,12 @@ export interface StepResult {
   tokenCount: number;
 }
 
+/** TAORLoop 工厂可选参数（对齐 ChatManager._getOrCreateTAORLoop / PdcaLauncher.deps 契约） */
+export interface TAORLoopFactoryOptions {
+  maxTurnsMultiplier?: number;
+  privateInstance?: boolean;
+}
+
 /** PlanDrivenLoop 配置 */
 export interface PlanDrivenLoopConfig {
   /** TAORLoop 实例（必需；未注入 taorLoopFactory 时 decomposed 步骤也复用此实例串行执行） */
@@ -64,8 +71,13 @@ export interface PlanDrivenLoopConfig {
    * P0-1 真并行（2026-09-06）：每步独立 TAORLoop 实例工厂——无依赖步骤批次并行的安全前提
    * （共享实例内部 turn/stopped/守卫状态无法并发）。签名与 PdcaLauncher.deps.taorLoopFactory
    * 一致（可整体复用）；未注入则保持逐步骤串行（现状零回归）。同批并行步数天然 ≤ MAX_SUBTASKS。
+   * D1（2026-09-17）：签名放宽为 (sessionId, opts?) ——原一元声明与 ChatManager.ts:824 的
+   * 二元实现不一致，PDL 调用只传 sessionId 时 opts 静默丢失，与快路径行为不一致。
    */
-  taorLoopFactory?: (sessionId: string) => TAORLoop;
+  taorLoopFactory?: (
+    sessionId: string,
+    opts?: TAORLoopFactoryOptions
+  ) => TAORLoop;
   /** TAORLoop 依赖注入（callModel / executeTools / persistMessages） */
   deps: TAORLoopDeps;
   /** 会话 ID */
@@ -197,11 +209,17 @@ function isSimpleTask(message: string): boolean {
 export class PlanDrivenLoop {
   private taorLoop: TAORLoop;
   /** P0-1 真并行（2026-09-06）：每步独立实例工厂（未注入 → 全 run 复用 this.taorLoop 串行） */
-  private taorLoopFactory?: (sessionId: string) => TAORLoop;
+  private taorLoopFactory?: (
+    sessionId: string,
+    opts?: TAORLoopFactoryOptions
+  ) => TAORLoop;
   private deps: TAORLoopDeps;
   private sessionId: string;
   /** P0-1 真并行（2026-09-06）：批次并行中在跑的每步实例集——abort 需逐个中止 in-flight LLM */
   private activeStepLoops: Set<TAORLoop> = new Set();
+  /** D2（2026-09-17）：run 级已派发步骤实例集——工厂注入时每步必须独立实例，
+   *  若工厂忽略 privateInstance 复用缓存实例则此 Set 命中重复 → 断言告警（真并行防践踏护栏） */
+  private runStepLoops: Set<TAORLoop> = new Set();
   /** OBS/C3（2026-09-06）：任务实体/项目归属（stage 事件透传） */
   private taskId?: string;
   private projectId?: string;
@@ -268,6 +286,8 @@ export class PlanDrivenLoop {
     // B2（2026-09-04）：每次 run 前 reset——TAORLoop 实例可能跨消息/跨 step 复用，
     // 不 reset 则上一轮 stopped/turnCount/守卫残留会导致本轮 reason 早退（空转/无输出）
     this.taorLoop.reset();
+    // D2（2026-09-17）：每次 run 重置步骤实例唯一性护栏
+    this.runStepLoops.clear();
     // OBS（M1a）：独立事件通道 stage:start
     void emitPdcaLiveEvent(
       'pdca:stage:start',
@@ -391,13 +411,21 @@ export class PlanDrivenLoop {
     // S2 修复（2026-08-23）：取消 in-flight LLM 调用——TAORLoop.abort() 中止其内部
     // AbortController，所有透传该 signal 的 LLM 请求被取消（不只跳循环，避免成本
     // 继续烧）。不保存检查点（用户中止 = 放弃语义，与 markStepCancelled 一致）。
-    void this.taorLoop.abort(false);
+    // M-L1（2026-09-17）：abort 为 async，void 前缀不处理 rejection → 补 .catch()
+    void this.taorLoop.abort(false).catch((err) => {
+      logger.warn('中止主 TAORLoop 失败', { error: String(err) });
+    });
     // P0-1 真并行（2026-09-06）：批次并行中每步持独立 TAOR 实例——主实例 abort 覆盖
     // 不到它们，需遍历活跃集逐个中止（否则并行的 in-flight LLM 继续烧成本）
+    // M-L2（2026-09-17）：clear() 改逐项 delete——批内步骤异步结束可能已启动下一批
+    // 并 add 新实例；clear() 会连新实例一并清出集合而不被中止（中止丢失）。逐项
+    // delete 仅移除本次遍历已 abort 的实例，Set 迭代器允许删除当前项。
     for (const loop of this.activeStepLoops) {
-      void loop.abort(false);
+      void loop.abort(false).catch((err) => {
+        logger.warn('中止并行步骤 TAORLoop 失败', { error: String(err) });
+      });
+      this.activeStepLoops.delete(loop);
     }
-    this.activeStepLoops.clear();
 
     // PR2（#2，2026-09-05）：终态化剩余 pending/running 步骤——否则 plan 永久
     // running（ghost plan：刷新/恢复卡死）。运行中步骤已在上方 markStepCancelled，
@@ -522,6 +550,19 @@ export class PlanDrivenLoop {
       dependsOnIdx
     );
 
+    // B5（架构归一 Step4）：Plan 阶段在持久层可见——createPlan 完成后回写 phase:'plan'。
+    // 此前快速路径启动即在 PdcaLauncher 写 'execute'，真正 createPlan 时刻被抹掉，
+    // checkpoint 从不出现 'plan'（两套体系一套在另一套影子下）。执行前再切回 'execute'。
+    if (this.taskId) {
+      writePdcaCheckpoint(this.taskId, {
+        taskId: this.taskId,
+        phase: 'plan',
+        status: 'running',
+        sessionId: this.sessionId,
+        projectId: this.projectId,
+      });
+    }
+
     logger.info('PlanDrivenLoop 开始执行', {
       sessionId: this.sessionId,
       planId: this.plan.id,
@@ -557,6 +598,17 @@ export class PlanDrivenLoop {
     );
     // P0-1：每步真实产出捕获（stepId → 末条 assistant 文本），供前驱注入/审计/重试引用
     const stepOutputs = new Map<string, string>();
+
+    // B5（架构归一 Step4）：计划已创建，进入执行前切回 phase:'execute'。
+    if (this.taskId) {
+      writePdcaCheckpoint(this.taskId, {
+        taskId: this.taskId,
+        phase: 'execute',
+        status: 'running',
+        sessionId: this.sessionId,
+        projectId: this.projectId,
+      });
+    }
     for (const batch of topoBatches) {
       if (this.aborted) break;
       // PR8（#9）：累计 token 达 run 级上限 → 不再执行后续批次（预算告警）
@@ -731,10 +783,26 @@ export class PlanDrivenLoop {
     this._broadcastStepProgress(stepId, 'in_progress', i, subtasks.length);
     this._notifyProgress();
 
-    // P0-1 真并行：本步独立 TAOR 实例（工厂注入时）——abort 需中止它，故纳入活跃集
+    // P0-1 真并行：本步独立 TAOR 实例（工厂注入时）——abort 需中止它，故纳入活跃集。
+    // D2（2026-09-17）：必须传 privateInstance:true——工厂 _getOrCreate* 按 sessionId 缓存，
+    // 仅传 sessionId 会让并行批次内多步复用同一缓存实例，stepLoop.reset() 互相践踏，"真并行"失效。
+    // privateInstance 亦关 enableCheckpoint，避免 step 内 checkpoint 泄漏进正常对话恢复。
     const stepLoop = this.taorLoopFactory
-      ? this.taorLoopFactory(this.sessionId)
+      ? this.taorLoopFactory(this.sessionId, { privateInstance: true })
       : this.taorLoop;
+    // D2 护栏：工厂注入时本 run 内每步必须独立实例（真并行防践踏）；复用 → 断言告警
+    if (this.taorLoopFactory) {
+      if (this.runStepLoops.has(stepLoop)) {
+        logger.error(
+          'D2 违规：工厂返回已被本 run 复用的 TAOR 实例——真并行被破坏，请核对工厂是否忽略 privateInstance',
+          {
+            sessionId: this.sessionId,
+            stepId,
+          }
+        );
+      }
+      this.runStepLoops.add(stepLoop);
+    }
     this.activeStepLoops.add(stepLoop);
     try {
       // P0-1（2026-09-06）：依赖前驱产出摘要——仅注入确实已产出的前驱文本（拓扑序保证

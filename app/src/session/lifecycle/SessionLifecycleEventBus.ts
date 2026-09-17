@@ -136,6 +136,10 @@ export class SessionLifecycleEventBus extends EventBusImpl {
       result = result.filter((e) => e.type === filter.event);
     }
 
+    // H8 修复：父类 EventBus.getHistory 在 limit 截断前 reverse（取最新 N 条），
+    // 子类此前漏掉 reverse → 返回最旧 N 条，语义与父类相反。
+    result.reverse();
+
     if (filter?.limit && filter.limit > 0) {
       result = result.slice(0, filter.limit);
     }

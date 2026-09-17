@@ -26,6 +26,7 @@ import type {
   SessionListOptions,
 } from '../SessionStorage.js';
 import { getLogger } from '@modules/monitoring';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 const logger = getLogger('session:storage:adapter');
 
@@ -288,11 +289,16 @@ export class UnifiedStorageAdapter implements SessionStorage {
     // （物理删除无 .trash/.bak 回收，会话历史被静默砍半且无恢复路径）。
     // UnifiedSessionStorage 接口无 compact 能力，底层 FileSystemUnifiedStorage 已按
     // 追加阈值（appendRewriteInterval/appendRewriteBytes）自动 compact + 加载时
-    // 反向去重。适配层改为 no-op 委托，由底层自动管理，不再破坏数据。
+    // 反向去重。M3（2026-09-17）：由静默 no-op 降级改为显式抛错——调用方不再误以为
+    // 压缩已生效。真正的会话压缩走 ChatManager.compactSession → CompactionOrchestrator
+    // （Tier1/2/3），本适配层无独立 compact 能力，显式失败优于静默吞掉。
     const count = (await this.storage.getMessages(sessionId)).length;
-    logger.info('compactSession:桥接层无独立 compact 能力，委托底层自动管理', {
-      sessionId,
-      messageCount: count,
-    });
+    throw new AppError(
+      'UnifiedStorageAdapter 无独立 compact 能力：会话压缩请走 CompactionOrchestrator（ChatManager.compactSession），底层自动管理压缩已由 FileSystemUnifiedStorage 追加阈值处理',
+      ErrorCategory.OPERATION,
+      ErrorSeverity.MEDIUM,
+      'UNSUPPORTED_OPERATION',
+      { sessionId, messageCount: count }
+    );
   }
 }

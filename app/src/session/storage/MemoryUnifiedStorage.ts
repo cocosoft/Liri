@@ -50,6 +50,15 @@ export class MemoryUnifiedStorage implements UnifiedSessionStorage {
     this.sessions.set(session.id, { ...session });
   }
 
+  async touchSession(sessionId: string): Promise<boolean> {
+    const session = this.sessions.get(sessionId);
+    if (!session) return false;
+    const now = Date.now();
+    session.lastActivityAt = now;
+    session.updatedAt = now;
+    return true;
+  }
+
   async deleteSession(sessionId: string): Promise<void> {
     this.sessions.delete(sessionId);
     this.messages.delete(sessionId);

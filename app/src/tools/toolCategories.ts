@@ -281,6 +281,14 @@ export const TASK_TOOL_CATEGORIES: Record<string, ToolCategory[]> = {
 export const DEFAULT_TASK_KEY = 'default';
 
 /**
+ * P3 修复（2026-09-17）：恒保留工具，不受任务类别裁剪影响。
+ * todo_write 类别为 'task'，而 chat/default 白名单不含 'task'
+ * → 普通对话中 todo_write 被裁剪 → 模型永不调用 → TaskCard 永不出现。
+ * 任务/进度卡是通用协作能力，任何对话都须可用，故列为 mandatory 恒保留。
+ */
+const MANDATORY_TOOLS: ReadonlySet<string> = new Set(['todo_write']);
+
+/**
  * 获取任务的工具类别白名单；未配置的任务回退 default 保底集。
  */
 export function getTaskToolCategories(
@@ -309,6 +317,7 @@ export function filterToolsByTask<
   for (const c of extraCategories) allowed.add(c);
   return toolDefinitions.filter((t) => {
     const toolName = t.name ?? t.function?.name ?? '';
+    if (MANDATORY_TOOLS.has(toolName)) return true;
     return allowed.has(getToolCategory(toolName));
   });
 }

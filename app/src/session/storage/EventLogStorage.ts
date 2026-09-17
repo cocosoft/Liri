@@ -129,6 +129,8 @@ export interface EventLogAppendResult {
   reason?: 'duplicate-seq' | 'out-of-order' | 'write-error' | 'invalid-event';
   /** 当前 tailSeq */
   tailSeq: number;
+  /** H11：本次写入发生 seq 冲突纠正时的纠正后 seq（供调用方同步 data.callSeq 等派生字段） */
+  correctedSeq?: number;
 }
 
 /** 批量 append 结果 */
@@ -720,7 +722,11 @@ export class EventLogStorage {
       // append 由 queueAppend 串行化，此处 tailSeq 是队列内最新值，分配 tailSeq+1 即唯一；
       // data.callSeq 为 0/-1（未指定）时同步填分配值（A1 闭环：tool/result 与 tool_call
       // 的 callSeq 必须等于事件 seq，前端按 callSeq 配对）。
+      // H11 修复：callSeq 重写逻辑提取为内联 helper，冲突纠正分支（guard 1）共用——
+      // 冲突分支此前只改 seq 不改 data.callSeq，破坏 A1 闭环、前端配对错位。
       let toWrite = frozen;
+      // H11：记录是否发生 seq 纠正，成功返回时带出 correctedSeq
+      let correctedSeqOut: number | undefined;
       if (frozen.seq <= 0) {
         const allocated = tailSeq + 1;
         const rawData = frozen.data as { callSeq?: number } | undefined;
@@ -742,9 +748,31 @@ export class EventLogStorage {
         // 守卫 1：seq 冲突 → 自动纠正（跨实例并发下重分配，而非拒绝丢弃事件，
         // 避免事件丢失导致投影兜底消息乱序置顶 / 事件溯源断层）
         const correctedSeq = tailSeq + 1;
+        correctedSeqOut = correctedSeq;
         // P1-2：seq 纠正新建对象需浅冻结（data 与 frozen 共享，已深冻结），
         // 维持"落盘对象冻结"契约（D1），快照缓存可直接共享安全引用
-        toWrite = Object.freeze({ ...frozen, seq: correctedSeq }) as LiriEvent;
+        // H11 修复：与 seq<=0 分支共用 callSeq 同步逻辑——data.callSeq 为 0/-1
+        // 或与旧 seq 一致时，改写为纠正后的 seq（A1 闭环：callSeq 恒等于事件 seq）。
+        const rawData = frozen.data as { callSeq?: number } | undefined;
+        const curCallSeq =
+          typeof rawData?.callSeq === 'number' ? rawData.callSeq : -1;
+        // H11 完整闭环：callSeq 为 0/-1（未指定）或与旧 seq 一致（随 seq 被纠正而失效）
+        // 时，一律改写为纠正后的 seq；仅显式指向其他事件的 callSeq 才保留。
+        const finalCallSeq =
+          curCallSeq > 0 && curCallSeq !== frozen.seq
+            ? curCallSeq
+            : correctedSeq;
+        toWrite =
+          finalCallSeq === curCallSeq
+            ? (Object.freeze({ ...frozen, seq: correctedSeq }) as LiriEvent)
+            : (Object.freeze({
+                ...frozen,
+                seq: correctedSeq,
+                data: Object.freeze({
+                  ...(frozen.data ?? {}),
+                  callSeq: finalCallSeq,
+                }),
+              }) as LiriEvent);
         logger.warn('event-log: seq 冲突自动纠正', {
           sessionId: this.sessionId,
           fromSeq: frozen.seq,
@@ -812,7 +840,13 @@ export class EventLogStorage {
           });
           this.idxBatchCount = 0;
         }
-        return { ok: true, tailSeq: this.tailSeq };
+        return {
+          ok: true,
+          tailSeq: this.tailSeq,
+          ...(correctedSeqOut !== undefined
+            ? { correctedSeq: correctedSeqOut }
+            : {}),
+        };
       } catch (e) {
         // A-5（2026-08-23）：append 失败 → 节流告警 + 熔断（结构化告警由 handleError 发布）
         this.recordAppendFailure(frozen, e);
@@ -1026,8 +1060,8 @@ export class EventLogStorage {
           firstRejected = { seq: event.seq, reason: result.reason };
         }
         rejected++;
-        // 批量写入遇违规立即停止，避免后续事件 seq 全部失败
-        break;
+        // L4 修复：逐条尝试，不 break——单条拒绝（invalid-event 等）不影响
+        // 后续事件写入；append 内部 seq 冲突自动纠正，批量不会"全部失败"。
       }
     }
 

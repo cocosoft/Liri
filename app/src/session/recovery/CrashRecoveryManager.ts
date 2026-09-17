@@ -24,6 +24,14 @@ export const DEFAULT_STALE_THRESHOLD_MS = 30 * 60 * 1000;
 export const DEFAULT_RECOVERY_DELAY_MS = 5_000;
 export const MAX_RECOVERY_RETRIES = 3;
 
+/** M4（2026-09-17）：优雅关闭标记 key——写 session.metadata.cleanShutdown=true，恢复流程据此跳过 */
+export const CLEAN_SHUTDOWN_MARKER = 'cleanShutdown';
+
+/** M4：判断会话是否为「上次优雅关闭」（非崩溃中断） */
+export function isCleanShutdown(session: UnifiedSession): boolean {
+  return session.metadata?.[CLEAN_SHUTDOWN_MARKER] === true;
+}
+
 export type CrashRecoveryAction = 'recovered' | 'failed' | 'skipped' | 'paused';
 
 export interface CrashRecoveryDetail {
@@ -146,7 +154,29 @@ export class CrashRecoveryManager {
     // 空壳/从未使用的会话（lastActivityAt 未前进，== createdAt）跳过，
     // 避免每次应用启动把闲置/测试空壳批量转 paused/error。
     if (session.lastActivityAt <= session.createdAt) return false;
+    // M4（2026-09-17）：上次优雅关闭的会话非崩溃中断，跳过崩溃恢复
+    if (isCleanShutdown(session)) return false;
     return true;
+  }
+
+  /**
+   * M4（2026-09-17）：优雅关闭时为可中断会话写 cleanShutdown 标记，下次启动跳过崩溃恢复。
+   * 直写 storage（不经 SessionGateway.updateSession 以免 bump lastActivityAt 重置 stale 计时）。
+   * @returns 已标记会话数
+   */
+  async markCleanShutdown(): Promise<number> {
+    const sessions = await this.storage.listSessions();
+    let marked = 0;
+    for (const session of sessions) {
+      if (!this.isInterruptibleSession(session)) continue;
+      session.metadata = { ...session.metadata, [CLEAN_SHUTDOWN_MARKER]: true };
+      await this.storage.updateSession(session);
+      marked++;
+    }
+    if (marked > 0) {
+      logger.info('会话已标记优雅关闭（下次启动跳过崩溃恢复）', { marked });
+    }
+    return marked;
   }
 
   private async processSession(
@@ -217,6 +247,10 @@ export class CrashRecoveryManager {
       crashRecovery: 'resumed',
       resumedAt: String(Date.now()),
     };
+    // M4：恢复即清除 cleanShutdown——真实活动开始后，下次崩溃应被识别，不得再跳过
+    if (CLEAN_SHUTDOWN_MARKER in session.metadata) {
+      delete session.metadata[CLEAN_SHUTDOWN_MARKER];
+    }
     await this.storage.updateSession(session);
 
     logger.info('会话已恢复', { sessionId });

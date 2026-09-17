@@ -65,7 +65,7 @@ export class SessionLock {
               logger.warning(
                 `Stale lock detected for session ${sessionId}, attempting to break`
               );
-              await this.releaseStale(sessionId, existing.holder);
+              await this.releaseStale(sessionId, existing);
               continue;
             }
 
@@ -177,12 +177,9 @@ export class SessionLock {
     const lockFile = this.getLockFilePath(sessionId);
     try {
       const data = await this.readLockFile(lockFile);
-      if (!data) return false;
-      if (this.isStale(data.acquiredAt)) {
-        await this.releaseStale(sessionId, data.holder);
-        return false;
-      }
-      return true;
+      // H4 修复：纯查询，不产生 unlink 写副作用。stale 锁文件仍视为被占用，
+      // 清理权归 acquire 独占（acquire 循环内置 stale 清理）。
+      return data !== null;
     } catch (err) {
       return false;
     }
@@ -192,12 +189,8 @@ export class SessionLock {
     const lockFile = this.getLockFilePath(sessionId);
     try {
       const data = await this.readLockFile(lockFile);
-      if (!data) return null;
-      if (this.isStale(data.acquiredAt)) {
-        await this.releaseStale(sessionId, data.holder);
-        return null;
-      }
-      return data.holder;
+      // H4 修复：纯查询 holder，不触发 stale 清理（清理权归 acquire 独占）。
+      return data ? data.holder : null;
     } catch (err) {
       return null;
     }
@@ -287,18 +280,39 @@ export class SessionLock {
     return Date.now() - acquiredAt > this.staleThreshold;
   }
 
-  private async releaseStale(sessionId: string, holder: string): Promise<void> {
+  /**
+   * 强拆 stale 锁（compare-and-delete，H4 修复）：
+   * 仅当锁文件当前内容与调用方读取的一致（holder + acquiredAt 未变）时才 unlink，
+   * 防止并发双持有者场景下误删新持有者重建的锁。
+   * 调用方必须是 acquire 循环（清理权独占）。
+   */
+  private async releaseStale(
+    sessionId: string,
+    expected: { holder: string; acquiredAt: number }
+  ): Promise<void> {
     const lockFile = this.getLockFilePath(sessionId);
     try {
-      await fs.unlink(lockFile);
-      logger.warning(
-        `Released stale lock for session ${sessionId} held by ${holder}`
-      );
+      const current = await this.readLockFile(lockFile);
+      if (
+        current &&
+        current.holder === expected.holder &&
+        current.acquiredAt === expected.acquiredAt
+      ) {
+        await fs.unlink(lockFile);
+        logger.warning(
+          `Released stale lock for session ${sessionId} held by ${expected.holder}`
+        );
+      } else {
+        logger.warning(
+          `Stale lock for session ${sessionId} changed during release, skip`,
+          { expected: expected.holder, actual: current?.holder }
+        );
+      }
     } catch (err) {
       // Another process may have already released it
     }
 
-    if (this.heldLocks.get(sessionId)?.holder === holder) {
+    if (this.heldLocks.get(sessionId)?.holder === expected.holder) {
       this.heldLocks.delete(sessionId);
     }
   }

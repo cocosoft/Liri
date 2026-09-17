@@ -49,8 +49,9 @@ const logger = getLogger('workspace:ProjectItemStore');
 /** 项目内容种类 */
 export type ItemKind = 'context' | 'artifact';
 
-/** PDCA 阶段 */
-export type PdcaPhase = 'plan' | 'do' | 'check' | 'act';
+/** PDCA 阶段（意图族，架构归一 B1-B6：单一真源 re-export） */
+import { type PdcaIntent as PdcaPhase } from '../core/phases/PhaseVocabulary.js';
+export type { PdcaPhase };
 
 /** 项目条目统一模型 */
 export interface ProjectItem {

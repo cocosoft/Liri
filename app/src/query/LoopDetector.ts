@@ -36,6 +36,7 @@ import {
   LOOP_PING_PONG_THRESHOLD,
   LOOP_NO_TOOL_CALL_WARNING,
   LOOP_NO_TOOL_CALL_CRITICAL,
+  isLoopObserveOnly,
 } from './loop-config.js';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('query:loopDetector');
@@ -90,6 +91,8 @@ interface LoopDetectorConfig {
   unknownToolAggregateRatio: number;
   /** ping_pong 交替次数阈值，默认 10 */
   pingPongThreshold: number;
+  /** D5：观测模式注入（测试用；未传时回退 loop-config 全局开关） */
+  observeOnly?: boolean;
 }
 
 /** 工具调用历史记录 */
@@ -237,6 +240,14 @@ export class LoopDetector {
   }
 
   /**
+   * D5：观测模式判定——实例配置优先（测试可注入），未配置时回退
+   * loop-config 全局开关（原行为零变化）
+   */
+  private isObserveOnly(): boolean {
+    return this.config.observeOnly ?? isLoopObserveOnly();
+  }
+
+  /**
    * 工具调用前记录
    * 计算 argsHash，推入滑动窗口
    */
@@ -363,7 +374,7 @@ export class LoopDetector {
       const result = this._detectUnknownToolRepeat(toolName);
       if (result.stuck) {
         this.logDetection(result);
-        return result;
+        return this.resolveObserve(result);
       }
     }
 
@@ -387,7 +398,7 @@ export class LoopDetector {
       const result = this._detectGenericRepeat(toolName, argsHash);
       if (result.stuck) {
         this.logDetection(result);
-        return result;
+        return this.resolveObserve(result);
       }
     }
 
@@ -396,7 +407,7 @@ export class LoopDetector {
       const result = this._detectPingPong(toolName, argsHash);
       if (result.stuck) {
         this.logDetection(result);
-        return result;
+        return this.resolveObserve(result);
       }
     }
 
@@ -409,6 +420,13 @@ export class LoopDetector {
    */
   detectNoToolCallLoop(): LoopDetectionResult {
     if (this.noToolCallStreak >= this.NO_TOOL_CALL_CRITICAL) {
+      // D5：观测模式下 no_tool_call critical 同样走旁路（不硬拦截，仅记录）
+      if (this.isObserveOnly()) {
+        logger.warn(
+          `[OBSERVE] LoopDetector 本应阻断 no_tool_call (${this.noToolCallStreak})`
+        );
+        return { stuck: false };
+      }
       const result: LoopDetectionResult = {
         stuck: true,
         level: 'critical',
@@ -431,6 +449,20 @@ export class LoopDetector {
       return result;
     }
     return { stuck: false };
+  }
+
+  /**
+   * D5（2026-09-17）：LOOP_OBSERVE_ONLY 灰度旁路——观测模式下 critical 级阻断
+   * 降级为仅记录（对齐 CircuitBreaker/FileIO/PathGuard 已有旁路），否则灰度失真。
+   */
+  private resolveObserve(result: LoopDetectionResult): LoopDetectionResult {
+    if (result.stuck && result.level === 'critical' && this.isObserveOnly()) {
+      logger.warn(`[OBSERVE] LoopDetector 本应阻断: ${result.detector}`, {
+        count: result.count,
+      });
+      return { stuck: false };
+    }
+    return result;
   }
 
   /**

@@ -70,4 +70,14 @@ describe('toolCategories — P0 工具可见性回归', () => {
       expect(kept).toContain(name);
     }
   });
+
+  test('P3: todo_write 恒保留（mandatory），chat/default 裁剪后仍可见', () => {
+    // todo_write 类别为 'task'，chat/default 白名单不含 'task'；
+    // 修复后经 MANDATORY_TOOLS 恒保留 → 普通对话 TaskCard 可发起。
+    const defs = [{ name: 'todo_write' }, { name: 'bash' }, { name: 'web_search' }];
+    for (const taskType of ['chat', 'default', undefined]) {
+      const kept = filterToolsByTask(defs, taskType).map((t) => t.name);
+      expect(kept).toContain('todo_write');
+    }
+  });
 });

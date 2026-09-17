@@ -63,44 +63,14 @@ import {
   writePdcaCheckpoint,
   readPdcaCheckpoint,
 } from './PdcaWorkItemBridge';
+import type { PdcaPhase } from '../core/phases/PhaseVocabulary.js';
+import { pdcaCheckpointStatus } from '../core/phases/PhaseVocabulary.js';
 import { globalToolManager } from '../tools/index.js';
 import type { ToolUseContext } from '../tools/types/Tool.js';
 
 const logger = getLogger('tasks:longRunning');
 
-/** PDCA 阶段 */
-export type PdcaPhase =
-  | 'plan'
-  | 'plan_pending'
-  | 'execute'
-  | 'review'
-  | 'decide'
-  | 'completed'
-  /** D1（M7，2026-08-13）：阶段审批挂起（区别于 plan_pending，阶段产物待审批） */
-  | 'stage_awaiting_approval';
-
-/**
- * Gap D（1-0b，2026-09-03）：phase → checkpoint.status 联动映射。
- * findExistingTask（排除 abort/failed/completed）与 scanAndAbortStalePdcaTasks
- * （命中 started/running）都依赖 checkpoint.status 的完整生命周期演进；
- * 仅做字段 merge 而 status 停在初始 'started' 时，幂等排除依然永假。
- */
-function pdcaCheckpointStatus(
-  phase: PdcaPhase
-): 'started' | 'running' | 'completed' {
-  switch (phase) {
-    case 'completed':
-      return 'completed';
-    case 'execute':
-    case 'review':
-    case 'decide':
-      return 'running';
-    case 'plan':
-    case 'plan_pending':
-    case 'stage_awaiting_approval':
-      return 'started';
-  }
-}
+export type { PdcaPhase };
 
 /** 1-3（2026-09-03）：task_audit_log 写入面（复用 SqliteTaskStore.writeAuditLog，TaskRegistry 同模式） */
 interface AuditLogEntry {

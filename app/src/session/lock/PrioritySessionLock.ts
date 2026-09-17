@@ -60,6 +60,17 @@ export interface HeldPriorityLock {
   expiresAt: number;
 }
 
+/**
+ * H10(b) 修复：队列内部存 resolver——排队请求不再返回静态 success:false，
+ * 授予/超时时兑现 Promise，排队者最终必能拿到结果（不静默吞掉 + 不悬挂）。
+ */
+interface QueueEntry {
+  request: PriorityLockRequest;
+  resolve: (result: PriorityLockAcquireResult) => void;
+  timer: ReturnType<typeof setTimeout> | null;
+  settled: boolean;
+}
+
 const DEFAULT_MAX_HOLD_MS = 5 * 60 * 1000;
 const DEFAULT_TIMEOUT_MS = 30_000;
 const DEFAULT_WATCHDOG_INTERVAL_MS = 60_000;
@@ -73,7 +84,7 @@ export class PrioritySessionLock {
   private priorityAgingIntervalMs: number;
   private enablePriorityAging: boolean;
 
-  private pendingQueue: Map<string, PriorityLockRequest[]> = new Map();
+  private pendingQueue: Map<string, QueueEntry[]> = new Map();
   private heldLocks: Map<string, HeldPriorityLock> = new Map();
   private requestCounter = 0;
   private watchdogTimer: ReturnType<typeof setInterval> | null = null;
@@ -100,7 +111,8 @@ export class PrioritySessionLock {
     this.started = true;
 
     this.watchdogTimer = setInterval(() => {
-      this.runWatchdog();
+      // H10(a)：runWatchdog 内部已 try/catch，此处 void 防止回调 Promise 悬挂
+      void this.runWatchdog();
     }, this.watchdogIntervalMs);
     // P1-14 修复：unref 避免进程被 watchdog 定时器钉住
     this.watchdogTimer.unref();
@@ -205,7 +217,7 @@ export class PrioritySessionLock {
   } {
     return {
       held: this.heldLocks.get(sessionId) ?? null,
-      queue: this.pendingQueue.get(sessionId) ?? [],
+      queue: (this.pendingQueue.get(sessionId) ?? []).map((e) => e.request),
     };
   }
 
@@ -229,6 +241,15 @@ export class PrioritySessionLock {
     const keys = Array.from(this.heldLocks.keys());
     for (const sessionId of keys) {
       await this.releaseLock(sessionId);
+    }
+    // H10(b)：清空排队请求并兑现所有 pending Promise（失败），避免悬挂
+    for (const [, queue] of this.pendingQueue) {
+      for (const entry of queue) {
+        if (entry.settled) continue;
+        entry.settled = true;
+        if (entry.timer) clearTimeout(entry.timer);
+        entry.resolve({ success: false, requestId: entry.request.id });
+      }
     }
     this.pendingQueue.clear();
   }
@@ -285,30 +306,73 @@ export class PrioritySessionLock {
     };
   }
 
-  private async enqueueRequest(
+  /**
+   * H10(b)：入队并返回 Promise——授予（processQueue）或超时兑现 resolve，
+   * 排队者不再收到静态 success:false。
+   */
+  private enqueueRequest(
     sessionId: string,
     request: PriorityLockRequest
   ): Promise<PriorityLockAcquireResult> {
-    const queue = this.pendingQueue.get(sessionId) ?? [];
-    const insertIndex = this.findInsertIndex(queue, request);
-    queue.splice(insertIndex, 0, request);
-    this.pendingQueue.set(sessionId, queue);
+    return new Promise((resolve) => {
+      const queue = this.pendingQueue.get(sessionId) ?? [];
+      const entry: QueueEntry = {
+        request,
+        resolve,
+        timer: null,
+        settled: false,
+      };
+      const insertIndex = this.findInsertIndex(
+        queue.map((e) => e.request),
+        request
+      );
+      queue.splice(insertIndex, 0, entry);
+      this.pendingQueue.set(sessionId, queue);
 
-    const queuePosition = queue.indexOf(request);
+      const queuePosition = queue.indexOf(entry);
 
-    if (queuePosition === 0) {
-      const held = this.heldLocks.get(sessionId);
-      if (!held || this.isExpired(held)) {
-        this.pendingQueue.delete(sessionId);
-        return this.acquireWithBaseLock(request);
+      // 队首且当前无持有/持有已过期 → 直接授予（短路，与旧行为一致）
+      if (queuePosition === 0) {
+        const held = this.heldLocks.get(sessionId);
+        if (!held || this.isExpired(held)) {
+          this.pendingQueue.delete(sessionId);
+          void this.acquireWithBaseLock(request).then(resolve, (err) => {
+            logger.warn('队首排队请求授予失败', {
+              sessionId,
+              requester: request.requester,
+              error: err instanceof Error ? err.message : String(err),
+            });
+            resolve({ success: false, requestId: request.id });
+          });
+          return;
+        }
       }
-    }
 
-    return {
-      success: false,
-      queuePosition: queuePosition + 1,
-      requestId: request.id,
-    };
+      // 超时兑现：排队超过 timeoutMs 仍未授予 → 移除并 resolve 失败（防悬挂）
+      entry.timer = setTimeout(() => {
+        if (entry.settled) return;
+        entry.settled = true;
+        const q = this.pendingQueue.get(sessionId) ?? [];
+        const idx = q.indexOf(entry);
+        if (idx !== -1) {
+          q.splice(idx, 1);
+          if (q.length === 0) this.pendingQueue.delete(sessionId);
+          else this.pendingQueue.set(sessionId, q);
+        }
+        logger.warning('队列请求超时', {
+          sessionId,
+          requester: request.requester,
+          priority: request.priority,
+          waitMs: request.timeoutMs,
+        });
+        resolve({
+          success: false,
+          queuePosition: idx === -1 ? undefined : idx + 1,
+          requestId: request.id,
+        });
+      }, request.timeoutMs);
+      entry.timer.unref?.();
+    });
   }
 
   private findInsertIndex(
@@ -354,25 +418,41 @@ export class PrioritySessionLock {
       return;
     }
 
-    const nextRequest = queue.shift()!;
+    const entry = queue.shift()!;
     if (queue.length === 0) {
       this.pendingQueue.delete(sessionId);
     } else {
       this.pendingQueue.set(sessionId, queue);
     }
 
-    const result = await this.acquireWithBaseLock(nextRequest);
+    let result: PriorityLockAcquireResult;
+    try {
+      result = await this.acquireWithBaseLock(entry.request);
+    } catch (err) {
+      // H10(b)：授予异常也须兑现，排队者不得悬挂
+      logger.warn('队列授予异常', {
+        sessionId,
+        requester: entry.request.requester,
+        error: err instanceof Error ? err.message : String(err),
+      });
+      result = { success: false, requestId: entry.request.id };
+    }
+    entry.settled = true;
+    if (entry.timer) clearTimeout(entry.timer);
     if (result.success) {
       logger.info('队列锁已授予', {
         sessionId,
-        requester: nextRequest.requester,
-        priority: nextRequest.priority,
+        requester: entry.request.requester,
+        priority: entry.request.priority,
         remainingQueue: queue.length,
       });
     }
+    entry.resolve(result);
   }
 
-  private runWatchdog(): void {
+  // H10(a)：watchdog 定时器回调改 async + 内部 try/catch——releaseLock/processQueue
+  // 为 async，此前未 await 未 catch，reject 必然 unhandledRejection。
+  private async runWatchdog(): Promise<void> {
     const now = Date.now();
     const expired: string[] = [];
 
@@ -391,8 +471,15 @@ export class PrioritySessionLock {
         acquiredAt: held.acquiredAt,
         expiresAt: held.expiresAt,
       });
-      this.releaseLock(sessionId, held.request.requester);
-      this.processQueue(sessionId);
+      try {
+        await this.releaseLock(sessionId, held.request.requester);
+        await this.processQueue(sessionId);
+      } catch (err) {
+        logger.warn('看门狗释放锁失败', {
+          sessionId,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
     }
   }
 
@@ -400,7 +487,8 @@ export class PrioritySessionLock {
     if (!this.enablePriorityAging) return;
 
     for (const [sessionId, queue] of this.pendingQueue) {
-      for (const request of queue) {
+      for (const entry of queue) {
+        const request = entry.request;
         const waitTime = Date.now() - request.timestamp;
         if (waitTime >= this.priorityAgingIntervalMs) {
           const currentIdx = PRIORITY_ORDER[request.priority];
@@ -420,7 +508,9 @@ export class PrioritySessionLock {
         }
       }
       queue.sort(
-        (a, b) => PRIORITY_ORDER[b.priority] - PRIORITY_ORDER[a.priority]
+        (a, b) =>
+          PRIORITY_ORDER[b.request.priority] -
+          PRIORITY_ORDER[a.request.priority]
       );
     }
   }

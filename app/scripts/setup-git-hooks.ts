@@ -111,68 +111,6 @@ exit 0
   console.log('   提交前自动运行: 架构合规检查 + 类型检查 + ESLint + 模块验证');
 }
 
-/*
- * 大瓦特（dawate）匹配模式（与 project_rules.md §1.1.1 一致，仅扫描代码文件）。
- * 注意：正则内联进 shell 单引号必须用 shell 安全转义（['\''"] 表示一个引号字符）
- * 以闭合单引号，避免与 grep 的 -E 正则冲突。见下方 installPrePushHook 模板内联处。
- */
-const DAWATE_EXCLUDE = "\\.md$|scripts/lint-architecture\\.ts$";
-/** git empty tree OID（新建分支 diff 基线） */
-const EMPTY_TREE = '4b825dc642cb6eb9a060e54bf8d69288fbee4904';
-
-/**
- * 安装 pre-push 钩子 —— 禁止大瓦特（dawate）推送到外部公共仓库
- */
-function installPrePushHook(gitDir: string): void {
-  const hooksDir = join(gitDir, 'hooks');
-  if (!existsSync(hooksDir)) {
-    mkdirSync(hooksDir, { recursive: true });
-  }
-
-  const hookPath = join(hooksDir, 'pre-push');
-  const hookContent = `#!/bin/sh
-# Liri pre-push hook — 严禁大瓦特（dawate）推送至外部公共仓库
-# 由 scripts/setup-git-hooks.ts 自动生成
-# 规则: .trae/rules/project_rules.md §1.1.1
-
-echo "🔍 推送前检查（大瓦特拦截）..."
-EXT="${DAWATE_EXCLUDE}"
-EMPTY=${EMPTY_TREE}
-
-while read LOCAL_REF LOCAL_OID REMOTE_REF REMOTE_OID; do
-  [ -z "$LOCAL_REF" ] && continue
-  [ "$REMOTE_REF" = "(delete)" ] && continue
-
-  BASE="$REMOTE_OID"
-  if [ "$REMOTE_OID" = "0000000000000000000000000000000000000000" ]; then
-    BASE="$EMPTY"   # 新建分支：以空树为基线
-  fi
-
-  # 找出本次推送引入的候选文件（排除文档与合法 env 白名单文件）
-  FILES="$(git diff --name-only "$BASE" "$LOCAL_OID" 2>/dev/null | grep -Ev "$EXT" || true)"
-  [ -z "$FILES" ] && continue
-
-  if ! printf '%s\\n' "$FILES" | while read -r F; do
-    if git diff "$BASE" "$LOCAL_OID" -- "$F" 2>/dev/null | grep -qiE 'DawateProvider|dawate ?(Provider|provider)|dawate ?(智能体|私)|大瓦特|id[[:space:]]*[:=][[:space:]]*['\''"]dawate|['\''"]dawate['\''"]'; then
-      echo ""
-      echo "❌ 本推送含大瓦特（dawate）专有代码，违反 project_rules.md §1.1.1！"
-      echo "   大瓦特允许提交到本地仓库，但严禁推送到外部公共仓库。推送已阻止。"
-      exit 1
-    fi
-  done; then :; else
-    exit 1
-  fi
-done
-
-echo "✅ 推送前检查通过（未含大瓦特代码）"
-exit 0
-`;
-
-  writeFileSync(hookPath, hookContent, { mode: 0o755 });
-  console.log(`✅ pre-push 钩子已安装: ${hookPath}`);
-  console.log('   推送前自动运行: 大瓦特（dawate）拦截');
-}
-
 function main(): void {
   const gitDir = findGitDir();
   if (!gitDir) {
@@ -182,7 +120,6 @@ function main(): void {
   }
 
   installPreCommitHook(gitDir);
-  installPrePushHook(gitDir);
   console.log('✅ Git hooks 安装完成');
 }
 

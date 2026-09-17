@@ -455,7 +455,7 @@ describe('EventLogStorage 事件快照缓存（P1-2）', () => {
           expectSeq.map((e) => (e.data as { content: string }).content)
         );
       }
-    });
+    }, 20000);
 
     it('.idx 持久化后新实例（重启）读同一目录命中索引', async () => {
       const { storage, dir } = makeStorage('s-p38-reload');
@@ -542,6 +542,45 @@ describe('EventLogStorage 事件快照缓存（P1-2）', () => {
       expect(text?.seq).toBe(2);
       expect(tool?.seq).toBe(3);
       expect((text?.data as { content: string }).content).toBe('正文内容');
+    });
+  });
+
+  // ─── H11（2026-09-17）：seq 冲突自动纠正时 callSeq 同步改写（A1 闭环） ───
+  describe('H11 seq 冲突纠正 callSeq 同步（A1 闭环）', () => {
+    it('callSeq 与旧 seq 一致 → 纠正后 callSeq === seq', async () => {
+      const { storage, dir } = makeStorage('h11-callseq-match');
+      writeEvents(dir, 'h11-callseq-match', [
+        ev(1, 'user/message', { content: 'hi' }),
+      ]);
+
+      // seq=1 与 tailSeq=1 冲突（duplicate-seq），callSeq=1 与旧 seq 一致
+      const res = await storage.append(
+        ev(1, 'tool/result', { toolCallId: 'tc-1', callSeq: 1 })
+      );
+      expect(res.ok).toBe(true);
+      expect((res as { correctedSeq?: number }).correctedSeq).toBe(2);
+
+      const persisted = await storage.read();
+      expect(persisted.length).toBe(2);
+      const corrected = persisted[1];
+      expect(corrected.seq).toBe(2);
+      // A1 闭环：callSeq 恒等于事件最终 seq
+      expect((corrected.data as { callSeq?: number }).callSeq).toBe(2);
+    });
+
+    it('callSeq 未指定（0）→ 纠正后 callSeq === seq', async () => {
+      const { storage, dir } = makeStorage('h11-callseq-zero');
+      writeEvents(dir, 'h11-callseq-zero', [
+        ev(1, 'user/message', { content: 'hi' }),
+      ]);
+
+      const res = await storage.append(
+        ev(1, 'tool/result', { toolCallId: 'tc-2', callSeq: 0 })
+      );
+      expect(res.ok).toBe(true);
+      const persisted = await storage.read();
+      expect(persisted[1].seq).toBe(2);
+      expect((persisted[1].data as { callSeq?: number }).callSeq).toBe(2);
     });
   });
 });

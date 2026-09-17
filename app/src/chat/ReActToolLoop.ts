@@ -1391,7 +1391,11 @@ export class ReActToolLoop extends ReActLoop<
       return {
         results,
         allSucceeded: results.every((r) => r.status === 'success'),
-        anyAborted: false,
+        // L2（2026-09-17）：中止标志由真实信号/结果派生——原硬编码 false，会话中止时
+        // （_raceToolAbort fallback / 串行跳过）工具会被上报为全成功
+        anyAborted:
+          !!this.ctx.abortSignal?.aborted ||
+          results.some((r) => r.status === 'aborted' || r.status === 'timeout'),
       };
     } finally {
       // B-2（2026-08-23）：工具调用未完成终态补发——已写 tool_call 事件

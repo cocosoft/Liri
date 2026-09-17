@@ -842,6 +842,10 @@ function checkSingletonInstance(): void {
       import('./chat/ChatManager.js')
         .then((m) => m.flushAllEventBuffers())
         .catch(() => 0),
+      // M4（2026-09-17）：优雅退出前为可中断会话写 cleanShutdown 标记——下次启动跳过崩溃恢复
+      import('./chat/ChatManager.js')
+        .then((m) => m.markSessionsCleanShutdown())
+        .catch(() => 0),
     ]).then(() => flush().finally(() => process.exit(0)));
   });
   process.on('SIGTERM', () => {
@@ -854,6 +858,10 @@ function checkSingletonInstance(): void {
       // （text-batch 落盘），避免 watch 重启/Ctrl+C 中断在途会话留下 torn/open-turn
       import('./chat/ChatManager.js')
         .then((m) => m.flushAllEventBuffers())
+        .catch(() => 0),
+      // M4（2026-09-17）：优雅退出前为可中断会话写 cleanShutdown 标记
+      import('./chat/ChatManager.js')
+        .then((m) => m.markSessionsCleanShutdown())
         .catch(() => 0),
     ]).then(() => flush().finally(() => process.exit(0)));
   });

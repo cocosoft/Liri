@@ -47,6 +47,8 @@ export type LiriEventType =
   | 'assistant/question'
   | 'assistant/todo'
   | 'assistant/doc_workflow'
+  // P2-A（2026-09-17）：PDCA 自动启动快照富块（聊天正文内嵌卡片）
+  | 'assistant/pdca_workflow'
   | 'assistant/truncation'
   // ─── 交付物/diff（E-1，2026-08-23：deliverable/diff 事件化，T-H.2） ───
   | 'assistant/deliverable'
@@ -433,6 +435,19 @@ export interface LiriEventMap {
     >;
     outputFilePath?: string;
     error?: string;
+  };
+
+  /**
+   * P2-A（2026-09-17）：PDCA 自动启动快照（聊天正文内嵌卡片承载的启动态）
+   * 只落启动快照；实时阶段进度走 /v1/events 的 pdca:* 通道不经此事件。
+   */
+  'assistant/pdca_workflow': {
+    decision: 'pdl' | 'stage-chain' | 'research';
+    stage?: 'plan' | 'execute' | 'review' | 'decide';
+    status?: 'started' | 'running' | 'completed' | 'failed';
+    message: string;
+    projectId?: string;
+    reasons?: string[];
   };
 
   /**

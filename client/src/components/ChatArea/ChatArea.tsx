@@ -13,7 +13,7 @@ import { ErrorBoundary } from "../common/ErrorBoundary";
 import ChatMessageList from "./ChatMessageList";
 import RoundNavigator from "./RoundNavigator";
 import StatusFloatBar from "./StatusFloatBar";
-import PdcaActivityStrip from "./PdcaActivityStrip";
+import { usePdcaAutoAppend } from "./usePdcaAutoAppend";
 import ChatPdcaDrawer from "./ChatPdcaDrawer";
 import ChatInput from "./ChatInput";
 import DeepThinkingHint from "./DeepThinkingHint";
@@ -48,6 +48,9 @@ function ChatArea({ fluid = false }: { fluid?: boolean }) {
   // 阶段2：当前会话若存在挂起流则显示断连 Banner
   const currentSid = currentSession?.id;
   const pausedInfo = currentSid ? pausedStreams[currentSid] : undefined;
+
+  // P2-A（2026-09-17）：PDCA 自动启动 → 当前轮聊天正文内嵌卡片（实时 append，幂等）
+  usePdcaAutoAppend(currentSid);
 
   /** 诊断：会话变化时记录 */
   useEffect(() => {
@@ -597,8 +600,6 @@ function ChatArea({ fluid = false }: { fluid?: boolean }) {
       {/* 底部区域：AI 状态栏 + 输入区（flex-col，StatusFloatBar 自然贴着输入区上方） */}
       <div className="shrink-0 flex flex-col bg-gray-50 dark:bg-gray-900">
         <StatusFloatBar fluid={fluid} />
-        {/* P0-3：PDCA 实时活动条（auto_launched 提示 + 阶段进度横条，纯读 orchestrationStore） */}
-        <PdcaActivityStrip fluid={fluid} />
         {/* P2/C3：普通会话就地展开完整编排面板（PdcaPipeline + OrchestrationLivePanel） */}
         <ChatPdcaDrawer fluid={fluid} />
 

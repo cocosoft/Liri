@@ -86,6 +86,7 @@ export interface MessageBlock {
     | "diff"
     | "inbox"
     | "doc_workflow"
+    | "pdca_workflow"
     | "code_run";
   content: string;
   toolCall?: ToolCall;
@@ -107,6 +108,7 @@ export interface MessageBlock {
   diffData?: DiffData;
   inboxData?: InboxBlockData;
   docWorkflowData?: DocWorkflowProgressData;
+  pdcaWorkflowData?: PdcaWorkflowProgressData;
   codeRunData?: CodeRunBlockData;
 }
 
@@ -296,6 +298,16 @@ export interface DocWorkflowProgressData {
   outputFilePath?: string;
   /** 失败原因 */
   error?: string;
+}
+
+/** PDCA 自动启动快照数据（聊天正文内嵌卡片；P2-A 2026-09-17） */
+export interface PdcaWorkflowProgressData {
+  decision: "pdl" | "stage-chain" | "research";
+  stage?: "plan" | "execute" | "review" | "decide";
+  status?: "started" | "running" | "completed" | "failed";
+  message: string;
+  projectId?: string;
+  reasons?: string[];
 }
 
 /** MessageContent 子组件 Props */

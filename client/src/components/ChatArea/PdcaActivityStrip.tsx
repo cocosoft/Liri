@@ -51,8 +51,12 @@ export const PROGRESS_EVENT_TYPES: string[] = [
 
 export const AUTO_LAUNCHED_TYPE = "pdca:auto_launched";
 
-/** 阶段胶囊元信息：data.stage → Plan→Do→Check→Act */
-const STAGE_META: Record<
+/** 阶段胶囊元信息结构（PdcaWorkflowCard 复用，P2-A） */
+export type StageMeta = { icon: string; label: string; capsule: string };
+
+/** 阶段胶囊元信息：data.stage → Plan→Do→Check→Act
+ *  导出：PdcaWorkflowCard 复用（P2-A，移私有为导出，避免复制） */
+export const STAGE_META: Record<
   string,
   { icon: string; label: string; capsule: string }
 > = {
@@ -82,14 +86,14 @@ const STAGE_META: Record<
   },
 };
 
-const DECISION_META = {
+export const DECISION_META = {
   icon: "⚖",
   label: "决策",
   capsule:
     "bg-amber-100/80 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300",
 };
 
-const FALLBACK_META = {
+export const FALLBACK_META = {
   icon: "🧩",
   label: "PDCA",
   capsule: "bg-gray-100/80 text-gray-600 dark:bg-gray-800 dark:text-gray-300",
@@ -114,7 +118,7 @@ export function findLatestEvent(
   return candidates[0];
 }
 
-function stageMetaOf(ev: PdcaLiveEventPayload): {
+export function stageMetaOf(ev: PdcaLiveEventPayload): {
   icon: string;
   label: string;
   capsule: string;
@@ -125,8 +129,9 @@ function stageMetaOf(ev: PdcaLiveEventPayload): {
   return FALLBACK_META;
 }
 
-/** 主文本：当前步骤 > 工具摘要 > message；状态文案（含 percent），失败标红 */
-function textOf(ev: PdcaLiveEventPayload): {
+/** 主文本：当前步骤 > 工具摘要 > message；状态文案（含 percent），失败标红
+ *  导出：PdcaWorkflowCard 复用 */
+export function textOf(ev: PdcaLiveEventPayload): {
   primary: string;
   statusText: string;
   failed: boolean;

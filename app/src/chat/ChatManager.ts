@@ -4084,8 +4084,17 @@ export class ChatManagerImpl implements ChatManager {
             }
           );
         })
+        .then(() =>
+          this._persistPdcaSnapshot(
+            session,
+            projectId,
+            'research',
+            '研究模式：候选生成 + 对抗评审',
+            ['research-intent', 'competitive-feature']
+          )
+        )
         .catch(() => {
-          // @ignore-catch — 研究分流 trace 失败不影响编排
+          // @ignore-catch — 研究分流 trace 失败不影响编排（CS03）
         });
       this._pdcaLauncher!.launchResearch(
         projectId,
@@ -4154,6 +4163,15 @@ export class ChatManagerImpl implements ChatManager {
           })
         )
       )
+      .then(() =>
+        this._persistPdcaSnapshot(
+          session,
+          projectId,
+          usePlanDriven ? 'pdl' : 'stage-chain',
+          decisionMsg,
+          decisionReasons
+        )
+      )
       .catch(() => {
         // @ignore-catch — 决策 trace 失败不影响分流（CS03）
       });
@@ -4171,6 +4189,37 @@ export class ChatManagerImpl implements ChatManager {
       .finally(() => {
         this._pdcaLaunchingSessions.delete(session.id);
       });
+  }
+
+  /**
+   * P2-A（2026-09-17）：PDCA 自动启动 → 聊天正文内嵌卡片（只存启动快照）。
+   *
+   * 把自动启动快照以 assistant/pdca_workflow 富块事件持久化，经 EventMessageDeriver
+   * 派生为当前 assistant 消息的 pdca_workflow 块，重开会话回放还原卡片；实时阶段
+   * 进度由 /v1/events 的 pdca:* 事件驱动（不经此快照）。CS03：落盘失败不阻断消息流。
+   */
+  private async _persistPdcaSnapshot(
+    session: ChatSession,
+    projectId: string | undefined,
+    decision: 'pdl' | 'stage-chain' | 'research',
+    message: string,
+    reasons?: string[]
+  ): Promise<void> {
+    const ts = await this.getStreamTailSeq(session.id);
+    await this.appendStreamEvent(session.id, {
+      type: 'assistant/pdca_workflow',
+      seq: ts + 1,
+      time: Date.now(),
+      sessionId: session.id,
+      data: {
+        decision,
+        stage: 'plan',
+        status: 'started',
+        message,
+        ...(projectId ? { projectId } : {}),
+        ...(reasons ? { reasons } : {}),
+      },
+    });
   }
 
   /**

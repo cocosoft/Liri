@@ -69,6 +69,19 @@ export interface PdcaLiveData {
   reasons?: string[];
 }
 
+/**
+ * P2-A（2026-09-17）：聊天正文内嵌卡片的快照数据。
+ * 只落启动快照（assistant/pdca_workflow 富块事件承载）；实时阶段进度走 pdca:* 事件。
+ */
+export interface PdcaWorkflowProgressData {
+  decision: 'pdl' | 'stage-chain' | 'research';
+  stage?: 'plan' | 'execute' | 'review' | 'decide';
+  status?: 'started' | 'running' | 'completed' | 'failed';
+  message: string;
+  projectId?: string;
+  reasons?: string[];
+}
+
 /** 省略 undefined 键（浅层，用于保证 JSON 安全） */
 function omitUndefined<T extends object>(obj: T): Partial<T> {
   const out: Record<string, unknown> = {};

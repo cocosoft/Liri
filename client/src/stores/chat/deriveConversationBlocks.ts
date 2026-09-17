@@ -80,6 +80,7 @@ const KNOWN_EVENT_TYPES = new Set([
   "assistant/question",
   "assistant/todo",
   "assistant/doc_workflow",
+  "assistant/pdca_workflow",
   "assistant/truncation",
   "assistant/deliverable",
   "assistant/diff",
@@ -724,6 +725,27 @@ function handleEvent(
         type: "doc_workflow",
         content: data.title,
         docWorkflowData: data,
+        isStreaming: false,
+        groupId: state.currentGroupId,
+      });
+      break;
+    }
+
+    case "assistant/pdca_workflow": {
+      ensureCurrent(state, event, sessionId, assistantMessageId);
+      const data = event.data as {
+        decision: "pdl" | "stage-chain" | "research";
+        stage?: "plan" | "execute" | "review" | "decide";
+        status?: "started" | "running" | "completed" | "failed";
+        message: string;
+        projectId?: string;
+        reasons?: string[];
+      };
+      state.current!.blocks!.push({
+        id: generateBlockId(),
+        type: "pdca_workflow",
+        content: data.message,
+        pdcaWorkflowData: data,
         isStreaming: false,
         groupId: state.currentGroupId,
       });

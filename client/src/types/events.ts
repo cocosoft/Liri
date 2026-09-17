@@ -47,6 +47,7 @@ export type LiriEventType =
   | "assistant/question"
   | "assistant/todo"
   | "assistant/doc_workflow"
+  | "assistant/pdca_workflow"
   | "assistant/truncation"
   | "assistant/deliverable"
   | "assistant/diff"
@@ -242,6 +243,14 @@ export interface LiriEventMap {
     >;
     outputFilePath?: string;
     error?: string;
+  };
+  "assistant/pdca_workflow": {
+    decision: "pdl" | "stage-chain" | "research";
+    stage?: "plan" | "execute" | "review" | "decide";
+    status?: "started" | "running" | "completed" | "failed";
+    message: string;
+    projectId?: string;
+    reasons?: string[];
   };
   "assistant/truncation": {
     reason: "length";

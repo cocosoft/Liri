@@ -165,6 +165,7 @@ const RICH_BLOCK_TYPES = new Set<LiriEventType>([
   'assistant/question',
   'assistant/todo',
   'assistant/doc_workflow',
+  'assistant/pdca_workflow',
   'assistant/truncation',
   'assistant/deliverable',
   'assistant/diff',
@@ -334,6 +335,15 @@ function applyRichBlock(ev: LiriEvent, agg: Aggregated): void {
         type: 'doc_workflow',
         content: (data.title as string) ?? '',
         docWorkflowData: data,
+      });
+      break;
+    }
+    case 'assistant/pdca_workflow': {
+      blocks.push({
+        id: `blk_${ev.seq}`,
+        type: 'pdca_workflow',
+        content: (data.message as string) ?? '',
+        pdcaWorkflowData: data,
       });
       break;
     }

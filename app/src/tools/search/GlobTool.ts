@@ -70,6 +70,14 @@ export class GlobTool extends BaseTool {
 
       const result = await globAsync(pattern, searchPath);
 
+      // G2：模式无效必须以 failure 形式明确区分于「无匹配文件」（后者为 success +(空)）
+      if (result.invalidPattern) {
+        return createFailureResult(
+          `glob 模式无效，无法解析: "${result.invalidPattern}"（此为模式错误，非「未找到文件」）`,
+          { executionTime: result.durationMs }
+        );
+      }
+
       return createSuccessResult(result.filenames, {
         executionTime: result.durationMs,
         output: result.filenames.join('\n') || '(空)',

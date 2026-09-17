@@ -26,6 +26,9 @@ export const ToolSearchOutputSchema = z.object({
   matches: z.array(z.string()).describe('匹配的工具名称列表'),
   query: z.string().describe('原始查询字符串'),
   total_deferred_tools: z.number().describe('延迟加载工具的总数'),
+  deferredToolNames: z
+    .array(z.string())
+    .describe('延迟加载工具的完整名称列表（用于区分关键词未命中 vs 工具不存在）'),
 });
 
 export type ToolSearchInput = z.infer<typeof ToolSearchInputSchema>;

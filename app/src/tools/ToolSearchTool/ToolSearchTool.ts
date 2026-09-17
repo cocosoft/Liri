@@ -47,6 +47,13 @@ export interface ToolSearchOutput {
    * 延迟工具总数
    */
   total_deferred_tools: number;
+
+  /**
+   * G4：延迟加载工具的完整名称列表（始终填充，与 matches 是否为空无关）。
+   * 使调用方能区分「关键词未命中某个已存在工具」与「该工具确实不存在」——
+   * 前者可据此直接定位，避免把 `matches:[]` 误判为「无此工具」。
+   */
+  deferredToolNames: string[];
 }
 
 /**
@@ -363,6 +370,7 @@ export class ToolSearchTool extends BaseTool<
           matches: found,
           query,
           total_deferred_tools: deferredTools.length,
+          deferredToolNames: deferredTools.map((t) => t.name),
         },
         {
           newMessages: [
@@ -426,6 +434,7 @@ export class ToolSearchTool extends BaseTool<
         matches,
         query,
         total_deferred_tools: deferredTools.length,
+        deferredToolNames: deferredTools.map((t) => t.name),
       },
       {
         newMessages: [

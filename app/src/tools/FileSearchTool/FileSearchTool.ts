@@ -99,6 +99,14 @@ export class FileSearchTool extends BaseTool {
       // 使用 Glob 执行匹配（2026-09-01 根因修复：协作式异步遍历，防大目录阻塞事件循环）
       const result = await globAsync(pattern, basePath);
 
+      // G2：模式无效以 failure 区分于「无匹配文件」——二者既往同为 `[]`
+      if (result.invalidPattern) {
+        return createFailureResult(
+          `搜索模式无效，无法解析: "${result.invalidPattern}"（此为模式错误，非「未找到文件」）`,
+          { executionTime: result.durationMs }
+        );
+      }
+
       // 将 glob 结果映射为含 canonicalPath 的格式
       const resolvedBase = path.resolve(basePath);
       const files: FileSearchItem[] = result.filenames.map((filePath) => {

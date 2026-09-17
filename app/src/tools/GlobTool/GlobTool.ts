@@ -14,6 +14,11 @@ export interface GlobResult {
   numFiles: number;
   filenames: string[];
   truncated: boolean;
+  /**
+   * G2：模式无法解析为有效 glob 时携带原始模式（空结果 ≠ 模式无效。
+   * 未定义表示模式有效；定义时调用方应将「无匹配文件」与「模式无效」明确区分）。
+   */
+  invalidPattern?: string;
 }
 
 const MAX_FILES = 100;
@@ -35,20 +40,27 @@ export function glob(
   const normalizedPattern = pattern.replace(/\\/g, '/');
   const normalizedSearchPath = searchPath.replace(/\\/g, '/');
 
+  // G2：模式无法解析为有效 glob 时，跳过遍历并返回可标识的 invalidPattern 字段，
+  // 使调用方把「无匹配文件」与「模式无效」明确区分（原始实现二者同为 `[]`）。
+  const invalidPattern =
+    compileGlobPattern(normalizedPattern) === null ? normalizedPattern : undefined;
+
   // 执行目录遍历并收集匹配文件，若发生错误（如权限拒绝）则静默处理
-  try {
-    walkDir(
-      normalizedSearchPath,
-      normalizedPattern,
-      results,
-      MAX_FILES,
-      normalizedSearchPath
-    );
-  } catch (err) {
-    handleError(err, {
-      module: 'tools:glob',
-      action: 'walkDirGlobRoot',
-    });
+  if (!invalidPattern) {
+    try {
+      walkDir(
+        normalizedSearchPath,
+        normalizedPattern,
+        results,
+        MAX_FILES,
+        normalizedSearchPath
+      );
+    } catch (err) {
+      handleError(err, {
+        module: 'tools:glob',
+        action: 'walkDirGlobRoot',
+      });
+    }
   }
 
   const durationMs = Date.now() - startTime;
@@ -59,6 +71,7 @@ export function glob(
     numFiles: results.length,
     filenames: results.slice(0, MAX_FILES),
     truncated,
+    ...(invalidPattern ? { invalidPattern } : {}),
   };
 }
 
@@ -83,19 +96,24 @@ export async function globAsync(
   const normalizedPattern = pattern.replace(/\\/g, '/');
   const normalizedSearchPath = searchPath.replace(/\\/g, '/');
 
-  try {
-    await walkDirAsync(
-      normalizedSearchPath,
-      normalizedPattern,
-      results,
-      MAX_FILES,
-      normalizedSearchPath
-    );
-  } catch (err) {
-    handleError(err, {
-      module: 'tools:glob',
-      action: 'walkDirGlobRoot',
-    });
+  const invalidPattern =
+    compileGlobPattern(normalizedPattern) === null ? normalizedPattern : undefined;
+
+  if (!invalidPattern) {
+    try {
+      await walkDirAsync(
+        normalizedSearchPath,
+        normalizedPattern,
+        results,
+        MAX_FILES,
+        normalizedSearchPath
+      );
+    } catch (err) {
+      handleError(err, {
+        module: 'tools:glob',
+        action: 'walkDirGlobRoot',
+      });
+    }
   }
 
   const durationMs = Date.now() - startTime;
@@ -106,6 +124,7 @@ export async function globAsync(
     numFiles: results.length,
     filenames: results.slice(0, MAX_FILES),
     truncated,
+    ...(invalidPattern ? { invalidPattern } : {}),
   };
 }
 
@@ -145,8 +164,8 @@ async function walkDirAsync(
       const relativePath = rootDir
         ? path.relative(rootDir, fullPath).replace(/\\/g, '/')
         : '';
+      // G2：仅按完整/相对路径（含分隔符）匹配，不再退化为 basename，使 `*` 不跨目录边界
       if (
-        matchGlob(entry.name, pattern) ||
         matchGlob(fullPath, pattern) ||
         (relativePath && matchGlob(relativePath, pattern))
       ) {
@@ -201,12 +220,11 @@ function walkDir(
       // 如果是目录，则递归遍历
       walkDir(fullPath, pattern, results, limit, rootDir);
     } else if (entry.isFile()) {
-      // 如果是文件，则依次检查：文件名、完整路径、相对路径是否匹配模式
+      // G2：仅按完整/相对路径（含分隔符）匹配，不再退化为 basename，使 `*` 不跨目录边界
       const relativePath = rootDir
         ? path.relative(rootDir, fullPath).replace(/\\/g, '/')
         : '';
       if (
-        matchGlob(entry.name, pattern) ||
         matchGlob(fullPath, pattern) ||
         (relativePath && matchGlob(relativePath, pattern))
       ) {
@@ -217,24 +235,10 @@ function walkDir(
 }
 
 /**
- * 检查文件名或路径是否匹配给定的 glob 模式。
- * * 支持以下通配符：
- * - `*`: 匹配任意非路径分隔符字符（不包括 `/` 和 `\`）
- * - `**`: 匹配任意字符（包括路径分隔符）
- * - `?`: 匹配单个任意字符
- *
- * 路径中的反斜杠会被自动转换为斜杠，确保 Windows 路径也能正确匹配。
- * * @param name - 要检查的文件名或路径字符串
- * @param pattern - glob 模式字符串
- * @returns 如果名称匹配模式则返回 true，否则返回 false
+ * G2：将 glob 模式编译为正则；模式无法解析（如未闭合的 `[`、孤立 `\`）时返回 null。
+ * 供 matchGlob 判定匹配，也供 glob()/globAsync() 前置校验以区分「空结果」与「模式无效」。
  */
-function matchGlob(name: string, pattern: string): boolean {
-  // 特殊处理：如果模式为单个星号，则匹配所有名称
-  if (pattern === '*') return true;
-
-  // 将路径中的反斜杠统一为斜杠，确保跨平台路径匹配一致性
-  const normalizedName = name.replace(/\\/g, '/');
-
+function compileGlobPattern(pattern: string): RegExp | null {
   // G1（架构归一 B 系列同根因，2026-09-17）：花括号展开（单层 {a,b|c}）。
   // 此前 `{A,B}` 未被展开、当成字面量，被 `^...$` 锚定后永不匹配 → 静默返回 []，
   // 调用方无法区分「文件不存在」与「模式不支持」。此处扩展为 `(A|B)` 交替组，
@@ -258,15 +262,47 @@ function matchGlob(name: string, pattern: string): boolean {
     .replace(/\?/g, '.');
 
   try {
-    // 构建不区分大小写的正则表达式，并尝试匹配完整路径或仅文件名
-    const regex = new RegExp(`^${regexStr}$`, 'i');
-    const basename = path.basename(normalizedName);
-    return regex.test(basename) || regex.test(normalizedName);
-  } catch (err) {
-    handleError(err, {
-      module: 'tools:glob',
-      action: 'matchName',
-    });
-    return normalizedName.includes(pattern.replace(/\*/g, ''));
+    return new RegExp(`^${regexStr}$`, 'i');
+  } catch {
+    return null;
   }
+}
+
+/**
+ * 检查文件名或路径是否匹配给定的 glob 模式。
+ * * 支持以下通配符：
+ * - `*`: 匹配任意非路径分隔符字符（不包括 `/` 和 `\`）
+ * - `**`: 匹配任意字符（包括路径分隔符）
+ * - `?`: 匹配单个任意字符
+ *
+ * G2 语义修正（2026-09-17）：匹配针对**传入的完整名称字符串**（含路径分隔符），
+ * 不再退化到 basename。据此 `*` 不跨目录边界：`*.ts` 仅命中搜索目录根层，
+ * 递归子目录需用「双星」前缀模式（`**` 引导）。为保持该前缀模式也能命中根层文件，
+ * `**` 开头时额外用剥离「双星斜杠」前缀（`**` + 分隔符）后的模式匹配一次（兼容全局递归的既有预期）。
+ *
+ * 路径中的反斜杠会被自动转换为斜杠，确保 Windows 路径也能正确匹配。
+ * @param name - 要检查的文件名或路径字符串
+ * @param pattern - glob 模式字符串
+ * @returns 如果名称匹配模式则返回 true，否则返回 false
+ */
+function matchGlob(name: string, pattern: string): boolean {
+  const normalizedName = name.replace(/\\/g, '/');
+
+  const regex = compileGlobPattern(pattern);
+  if (regex && regex.test(normalizedName)) {
+    return true;
+  }
+
+  // `**` 前缀允许命中根层（0 层路径分隔），兼容「双星」前缀模式的全局递归既有预期
+  if (pattern.startsWith('**')) {
+    const stripped = pattern.replace(/^\*\*\/?/, '');
+    if (stripped && stripped !== pattern) {
+      const regex2 = compileGlobPattern(stripped);
+      if (regex2 && regex2.test(normalizedName)) {
+        return true;
+      }
+    }
+  }
+
+  return false;
 }

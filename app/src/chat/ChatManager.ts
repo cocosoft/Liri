@@ -2712,10 +2712,13 @@ export class ChatManagerImpl implements ChatManager {
                 after: dedupedMessages.length,
               });
             } catch (err) {
-              logger.warn('chat:manager totalMessages 回写失败（不影响本次加载）', {
-                sessionId: stored.id,
-                error: err instanceof Error ? err.message : String(err),
-              });
+              logger.warn(
+                'chat:manager totalMessages 回写失败（不影响本次加载）',
+                {
+                  sessionId: stored.id,
+                  error: err instanceof Error ? err.message : String(err),
+                }
+              );
             }
           }
 

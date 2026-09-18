@@ -2115,9 +2115,8 @@ export class CoreAPIImpl implements CoreAPI {
     const results = gateway.searchMessagesFTS(query, undefined, limit ?? 10);
     return results.map((r) => ({
       id: r.document.id,
-      sessionId:
-        (r.document.metadata as Record<string, unknown> | undefined)
-          ?.sessionId as string | undefined,
+      sessionId: (r.document.metadata as Record<string, unknown> | undefined)
+        ?.sessionId as string | undefined,
       title: r.document.title,
       content: r.document.content,
       snippet: r.snippet,

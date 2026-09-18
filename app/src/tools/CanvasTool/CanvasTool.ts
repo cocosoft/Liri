@@ -11,7 +11,11 @@ import fs from 'fs';
 import os from 'os';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
-import { resolveOutputDir, resolvePyappHome } from '@modules/core/paths';
+import {
+  resolveOutputDir,
+  resolvePyappHome,
+  resolveProjectRoot,
+} from '@modules/core/paths';
 import { BaseTool } from '../BaseTool';
 import type { ToolResult, ToolUseContext, ToolParam } from '../types';
 import { CanvasInstance } from './CanvasInstance';
@@ -31,7 +35,7 @@ const INSTANCE_IDLE_TTL_MS = 15 * 60 * 1000;
 function isValidImagePath(filePath: string): boolean {
   const resolved = path.resolve(filePath);
   const pyappHome = resolvePyappHome();
-  const projectDir = process.env.PYAPP_PROJECT_DIR || process.cwd();
+  const projectDir = resolveProjectRoot();
 
   // 允许 ~/.pyapp/ 下的路径
   if (resolved.startsWith(pyappHome)) return true;

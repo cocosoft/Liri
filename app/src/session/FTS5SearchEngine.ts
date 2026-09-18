@@ -352,7 +352,12 @@ export class FTS5SearchEngine {
 
     const data = {
       documents: Array.from(this.documents.entries()),
-      invertedIndex: Array.from(this.invertedIndex.entries()),
+      // CS05（2026-09-18）：Set 不能直接 JSON.stringify（序列化为 {}），
+      // 落盘前转数组，保证 loadFromDisk 可正确恢复（曾致索引文件损坏后
+      // loadFromDisk 崩溃，中断 ensureSessionsLoaded 使历史会话不显示）。
+      invertedIndex: Array.from(this.invertedIndex.entries()).map(
+        ([key, values]) => [key, Array.from(values)]
+      ),
     };
 
     fs.writeFileSync(target, JSON.stringify(data), 'utf-8');
@@ -384,11 +389,52 @@ export class FTS5SearchEngine {
     }
 
     this.invertedIndex = new Map();
+    // 先复位 dirty：循环中检测到损坏词条时置 true（持久化重写修复文件）
+    this.isDirty = false;
     for (const [key, values] of data.invertedIndex) {
+      // CS05（2026-09-18）：容错旧损坏文件（values 为 {} 而非数组，
+      // 旧版 saveToDisk 直接 stringify Set 所致）。跳过损坏词条并标记
+      // dirty，循环后从 documents 全量重建索引，避免索引缺失。
+      if (!Array.isArray(values)) {
+        this.isDirty = true;
+        continue;
+      }
       this.invertedIndex.set(key, new Set(values));
     }
+    // CS05（2026-09-18）补漏：磁盘文件可能已被"空倒排索引"覆盖
+    // （上一版容错把损坏词条全部跳过并持久化，造成 documents 有值
+    // 但 invertedIndex 为空、全文搜索永久失效）。满足任一条件即从
+    // documents 全量重建倒排索引：
+    //  ① 本轮检测到损坏词条（旧文件整体损坏）
+    //  ② documents 非空但 invertedIndex 为空（空索引被持久化）
+    if (
+      this.isDirty ||
+      (this.documents.size > 0 && this.invertedIndex.size === 0)
+    ) {
+      this.rebuildIndexFromDocuments();
+      this.isDirty = true;
+    }
+  }
 
-    this.isDirty = false;
+  /**
+   * 基于已加载的 documents 全量重建倒排索引
+   * CS05（2026-09-18）：损坏词条"跳过"策略会让倒排索引永久缺失，
+   * 改为从 documents 重新 tokenize 全量重建，保证搜索功能可用。
+   */
+  private rebuildIndexFromDocuments(): void {
+    const rebuilt = new Map<string, Set<string>>();
+    for (const [id, doc] of this.documents) {
+      const tokens = this.tokenize(doc.title + ' ' + doc.content);
+      for (const token of tokens) {
+        let ids = rebuilt.get(token);
+        if (!ids) {
+          ids = new Set<string>();
+          rebuilt.set(token, ids);
+        }
+        ids.add(id);
+      }
+    }
+    this.invertedIndex = rebuilt;
   }
 }
 

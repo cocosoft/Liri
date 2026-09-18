@@ -127,7 +127,7 @@ import { SimpleMutex } from '@modules/core';
 import { ImplicitEngineHook } from '../project/ImplicitEngineHook';
 import { createProjectStore } from '../workspace/ProjectStore.js';
 import { WorkItemStore } from '../workspace/WorkItemStore.js';
-import { resolveDataDir } from '@modules/core/paths';
+import { resolveDataDir, resolveWorktreeHash } from '@modules/core/paths';
 import { join } from 'path';
 import { getModelPricing } from '@modules/cost';
 
@@ -683,7 +683,8 @@ export class ChatManagerImpl implements ChatManager {
    * M1 事件溯源：per-session EventLogStorage 实例缓存
    *
    * 同一会话复用同一 EventLogStorage 实例，避免重复初始化 tailSeq。
-   * 实例化时 worktreeHash 使用 'default'（与 ChatManager 不感知 worktree 一致）。
+   * P2-5：worktreeHash 改用单一真源 resolveWorktreeHash()（与存储分区一致），
+   * 缓存 key 带 hash 前缀（hash:sessionId），删除/复用会话时按同 key 清理。
    */
   private _eventLogCache: Map<string, EventLogStorage> = new Map();
 
@@ -1452,7 +1453,7 @@ export class ChatManagerImpl implements ChatManager {
       const migrator = new MessageToEventMigrator(
         eventLog,
         sessionId,
-        'default'
+        resolveWorktreeHash()
       );
       if (migrator.needsMigration()) {
         logger.info('chat:manager 自动触发事件日志迁移', { sessionId });
@@ -1470,7 +1471,11 @@ export class ChatManagerImpl implements ChatManager {
     // 原子分配 seq——替换"getTailSeq + 1"起点，根治与实时流事件（thinking/text/
     // tool_call 同样走 seq<=0 原子分配）并发读同一 tailSeq 的 duplicate-seq。
     // convertMessage 生成的临时 seq（0 起）仅用于过滤与类型判定，不作为最终 seq。
-    const migrator = new MessageToEventMigrator(eventLog, sessionId, 'default');
+    const migrator = new MessageToEventMigrator(
+      eventLog,
+      sessionId,
+      resolveWorktreeHash()
+    );
     const { events } = migrator.convertMessage(message, 0, Date.now());
 
     // 修复（P0-根因修复，替代 tailSeq>0 的宽泛判断）：
@@ -1639,10 +1644,13 @@ export class ChatManagerImpl implements ChatManager {
    * 同一会话复用同一实例，避免重复初始化 tailSeq。
    */
   private _getOrCreateEventLog(sessionId: string): EventLogStorage {
-    let log = this._eventLogCache.get(sessionId);
+    // P2-5：hash 单一真源，缓存 key 带 hash 前缀（防不同分区同 sessionId 串实例）
+    const hash = resolveWorktreeHash();
+    const key = `${hash}:${sessionId}`;
+    let log = this._eventLogCache.get(key);
     if (!log) {
-      log = new EventLogStorage(sessionId, 'default');
-      this._eventLogCache.set(sessionId, log);
+      log = new EventLogStorage(sessionId, hash);
+      this._eventLogCache.set(key, log);
     }
     return log;
   }
@@ -1818,7 +1826,7 @@ export class ChatManagerImpl implements ChatManager {
       const migrator = new MessageToEventMigrator(
         eventLog,
         sessionId,
-        'default'
+        resolveWorktreeHash()
       );
       if (migrator.needsMigration()) {
         logger.info('chat:manager 流式前自动触发事件日志迁移', {
@@ -2456,15 +2464,6 @@ export class ChatManagerImpl implements ChatManager {
     // 启动会话活跃度追踪（心跳 + 并发控制）
     this.sessionAccess.ensureActivityTracker();
 
-    // Worktree 存储隔离：迁移旧版会话到 worktree 路径
-    try {
-      const { migrateSessionsToWorktree } = await import('../core/paths.js');
-      migrateSessionsToWorktree();
-    } catch (err) {
-      // 非阻塞
-      handleError(err, { module: 'chat:manager', action: 'migrateSessions' });
-    }
-
     // 连线 SessionLifecycle 事件 → 记忆/心跳自动化
     try {
       const { getGlobalEventBus } =
@@ -2693,6 +2692,32 @@ export class ChatManagerImpl implements ChatManager {
             updatedAt: latestTimestamp,
           };
           this._chatSessions.set(stored.id, chatSession);
+
+          // P2-7：崩溃恢复重算 totalMessages 落盘——崩溃时 metadata.totalMessages
+          // 可能停留在崩溃前旧值（仅写内存则每次重启都重算）；与去重后实际消息数
+          // 不一致时经 sessionGateway.updateSession 回写磁盘（注意：updateSession
+          // 内部会把 updatedAt 置为当前时间，此为一次性数据修复的已知副作用）。
+          if (stored.metadata?.totalMessages !== dedupedMessages.length) {
+            try {
+              await this.sessionGateway.updateSession({
+                ...stored,
+                metadata: {
+                  ...stored.metadata,
+                  totalMessages: dedupedMessages.length,
+                },
+              });
+              logger.info('chat:manager 崩溃恢复重算 totalMessages 落盘', {
+                sessionId: stored.id,
+                before: stored.metadata?.totalMessages,
+                after: dedupedMessages.length,
+              });
+            } catch (err) {
+              logger.warn('chat:manager totalMessages 回写失败（不影响本次加载）', {
+                sessionId: stored.id,
+                error: err instanceof Error ? err.message : String(err),
+              });
+            }
+          }
 
           // Session State Hydration: 从 transcript 恢复衍生状态
           try {
@@ -5323,7 +5348,9 @@ export class ChatManagerImpl implements ChatManager {
     // BUG-J 修复（2026-08-26）：清理事件日志缓存——原 deleteSession 不删
     // _eventLogCache，EventLogStorage 实例（文件句柄/seq 状态）常驻内存；
     // sessionId 复用时会继承旧 seq 计数，导致 events.tail 元数据错位
-    this._eventLogCache.delete(sessionId);
+    // P2-5：缓存 key 带 hash 前缀，删除时按同 key 清理（否则残留实例在分区
+    // 切换后可能串用旧分区事件日志）
+    this._eventLogCache.delete(`${resolveWorktreeHash()}:${sessionId}`);
     // 设计三（2026-08-26）：清理 per-session 轮次计数
     this.clearToolRound(sessionId);
     // M2-T2.2（2026-08-31）：级联关闭孤儿审批项——删除含 pending 审批的会话后

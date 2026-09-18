@@ -55,6 +55,7 @@ import {
   handleListSessions,
   handlePruneSession,
   handleRenameSession,
+  handleSearchMessagesFTS,
   handleSwitchSession,
   handleUpdateMessageBlocks,
   handleUpdateSessionMeta,
@@ -133,6 +134,11 @@ export async function dispatchChatSessionRoutes(
   }
   if (method === 'GET' && url === '/v1/sessions/current') {
     await handleGetCurrentSession(handlerCtx, req, res);
+    return true;
+  }
+  // 全文搜索历史消息（须在通用 /v1/sessions/:id/messages 之前匹配）
+  if (method === 'GET' && url === '/v1/sessions/messages/search') {
+    await handleSearchMessagesFTS(handlerCtx, req, res);
     return true;
   }
   if (method === 'GET' && url.match(/^\/v1\/sessions\/(.+)\/messages$/)) {

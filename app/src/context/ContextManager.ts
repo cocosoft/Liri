@@ -9,6 +9,7 @@ import {
   getGitContextService,
 } from './GitContextService.js';
 import * as path from 'path';
+import { resolveProjectRoot } from '@modules/core/paths';
 import {
   UserContextService,
   getUserContextService,
@@ -158,17 +159,11 @@ export class ContextManager {
   }
 
   private setupFileWatchers(): void {
-    // BUG-K fix: use PYAPP_PROJECT_DIR instead of process.cwd()-relative path
-    const gitPath = path.resolve(
-      process.env.PYAPP_PROJECT_DIR || process.cwd(),
-      '.git'
-    );
+    // 统一走 resolveProjectRoot()（P1：单一真源，取代 PYAPP_PROJECT_DIR 旧名读取）
+    const gitPath = path.resolve(resolveProjectRoot(), '.git');
     this.cacheService.watchDirectory(gitPath, [ContextCacheKeys.GIT_STATUS]);
 
-    const userContextPath = path.resolve(
-      process.env.PYAPP_PROJECT_DIR || process.cwd(),
-      'Liri.md'
-    );
+    const userContextPath = path.resolve(resolveProjectRoot(), 'Liri.md');
     this.cacheService.watchFile(userContextPath, [
       ContextCacheKeys.USER_CONTEXT,
     ]);

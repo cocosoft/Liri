@@ -40,6 +40,9 @@ export interface StorageConfig {
   appendRewriteInterval?: number;
   /** 定期 compact 触发：累计追加体积阈值（字节，默认 2MB）——长消息会话防文件膨胀 */
   appendRewriteBytes?: number;
+  /** P0'（2026-09-18）：历史会话分区目录清单（兼容读多分区聚合）。
+   *  缺省时由 FileSystemUnifiedStorage 自动探测（resolveLegacySessionPartitionRoots）。 */
+  legacyRoots?: string[];
 }
 
 /**

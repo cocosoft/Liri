@@ -21,7 +21,6 @@ import {
   resolveUserSettingsPath,
   resolveSoulPath,
   resolveDataSubDir,
-  resolveSessionFilePath,
   resolveTranscriptFilePath,
   ensureDir,
   ensureDataDirectories,
@@ -193,16 +192,6 @@ describe('convenience path constructors', () => {
   it('resolveDataSubDir should join subdirectory', () => {
     const result = resolveDataSubDir('custom', testEnv);
     expect(result).toContain('custom');
-  });
-
-  it('resolveSessionFilePath should include session id', () => {
-    const result = resolveSessionFilePath('sess-123', '.json', testEnv);
-    expect(result).toContain('sess-123.json');
-  });
-
-  it('resolveSessionFilePath should use .json default ext', () => {
-    const result = resolveSessionFilePath('sess-abc', undefined, testEnv);
-    expect(result).toContain('sess-abc.json');
   });
 
   it('resolveTranscriptFilePath should include session id', () => {

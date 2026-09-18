@@ -286,6 +286,44 @@ export const sessionService = {
     });
   },
 
+  /**
+   * 全文搜索历史消息（后端 FTS5 倒排索引）
+   * 2026-09-18：全局搜索"搜不到历史消息"根因是只过滤会话标题，
+   * 未调用后端消息全文搜索；此方法接入 /v1/sessions/messages/search。
+   */
+  searchMessages: (
+    q: string,
+    limit?: number,
+  ): Promise<
+    Array<{
+      id: string;
+      sessionId?: string;
+      title: string;
+      content: string;
+      snippet: string;
+      score: number;
+      timestamp: number;
+    }>
+  > => {
+    return getOTelTracing().asyncWrap("services:session:searchMessages", async () => {
+      const params = new URLSearchParams({ q });
+      if (limit) params.set("limit", String(limit));
+      const res = await apiHttp.get<
+        Array<{
+          id: string;
+          sessionId?: string;
+          title: string;
+          content: string;
+          snippet: string;
+          score: number;
+          timestamp: number;
+        }>
+      >(`/v1/sessions/messages/search?${params.toString()}`);
+      if (res.ok) return res.data ?? [];
+      throw new Error(res.error?.message ?? "搜索消息失败");
+    });
+  },
+
   create: (
     title: string,
     options?: {

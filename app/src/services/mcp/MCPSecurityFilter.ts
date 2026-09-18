@@ -125,9 +125,9 @@ const SAFE_ENV_KEYS = new Set([
   'XDG_STATE_HOME',
   'XDG_RUNTIME_DIR',
   // PY_APP specific (non-sensitive)
-  'PYAPP_HOME',
-  'PYAPP_DATA_DIR',
-  'PYAPP_PROJECT_DIR',
+  'LIRI_HOME',
+  'LIRI_DATA_DIR',
+  'LIRI_PROJECT_DIR',
   'OUTPUT_DIR',
   'DOWNLOADS_DIR',
   // System info

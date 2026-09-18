@@ -29,6 +29,9 @@ import * as os from 'os';
 // 在循环 import（paths→monitoring→core→paths）期间触发 paths 的 TDZ。
 // Logger.ts 自身仅依赖 monitoring/logs 内部文件，不依赖 core。
 import { getLogger } from '@modules/monitoring/logs/Logger.js';
+
+const pathsLogger = getLogger('core:paths');
+
 // ─── 环境变量键名 ─────────────────────────────
 
 const ENV_LIRI_HOME = 'LIRI_HOME';
@@ -228,24 +231,102 @@ export function resolveLegacySessionsDir(
 }
 
 /**
+ * P0'（2026-09-18）：历史会话分区清单（兼容读多分区聚合）
+ *
+ * 返回 `sessions/` 下所有含会话数据（session_* 目录内存在 session.json）的分区目录（绝对路径）。
+ * - 白名单 `LIRI_SESSION_LEGACY_ROOTS`（逗号分隔）显式指定兼容根，设置后跳过自动扫描；
+ * - 缺省扫描 `dirname(resolveSessionsDir())` 一级子目录（深度 1 层），正向内容判据：
+ *   仅含会话数据（session_* 目录内存在 session.json）的目录视为会话分区（`default`
+ *   非 hex 也纳入，测试/备份目录天然排除）。
+ */
+export function resolveLegacySessionPartitionRoots(
+  env: NodeJS.ProcessEnv = process.env
+): string[] {
+  const legacyEnv = env['LIRI_SESSION_LEGACY_ROOTS']?.trim();
+  if (legacyEnv) {
+    return legacyEnv
+      .split(',')
+      .map((r) => r.trim())
+      .filter((r) => r.length > 0)
+      .map((r) => resolve(r));
+  }
+
+  const { readdirSync, existsSync } = require('fs');
+  const sessionsRoot = resolveLegacySessionsDir(env);
+  const current = resolveSessionsDir(env);
+  let entries: { name: string; isDirectory: () => boolean }[];
+  try {
+    entries = readdirSync(sessionsRoot, { withFileTypes: true });
+  } catch {
+    return [];
+  }
+  const partitions: string[] = [];
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+    const dir = join(sessionsRoot, entry.name);
+    if (dir === current) continue;
+    // 正向内容判据：含 session_*/session.json 才算会话分区
+    let hasPayload = false;
+    try {
+      const sub = readdirSync(dir);
+      for (const name of sub) {
+        if (
+          name.startsWith('session_') &&
+          existsSync(join(dir, name, 'session.json'))
+        ) {
+          hasPayload = true;
+          break;
+        }
+      }
+    } catch {
+      hasPayload = false;
+    }
+    if (hasPayload) partitions.push(dir);
+  }
+  return partitions;
+}
+
+/**
  * 计算当前项目根目录的 worktree hash
  * 对标 BA_REF sessionStorage.ts 的 worktree 感知存储隔离。
- * 通过 PYAPP_PROJECT_DIR 环境变量获取项目目录，SHA256 前 8 位作为 hash。
- * 若环境变量未设置，返回 'default' 表示非 worktree 模式。
+ * P1（2026-09-18）：单一真源 —— 直接复用 resolveProjectRoot()，修复"同文件内
+ * 两套命名"根因（resolveProjectRoot 读新名 LIRI_PROJECT_DIR、旧实现读旧名
+ * PYAPP_PROJECT_DIR → 分区键与项目根源脱钩，运行时 hash 恒 'default'，历史分区
+ * 57971aa3 永不命中）。旧名 PYAPP_PROJECT_DIR 仅作回退分支（resolveProjectRoot
+ * 退化为根路径时）；hash 源串归一化（resolve 绝对化 + 去 \\?\ 前缀 + 反斜杠归一
+ * + 去尾斜杠），消除 / 与 \、尾斜杠、UNC 前缀差异导致的 hash 漂移。
  */
 export function resolveWorktreeHash(
   env: NodeJS.ProcessEnv = process.env
 ): string {
-  const projectDir = env.PYAPP_PROJECT_DIR;
-  if (!projectDir) return 'default';
+  // 1. 单一真源：项目根目录（同一真源，避免与 resolveProjectRoot 各读各的 env）
+  const root = resolveProjectRoot(env);
+  const legacyOverride = env.PYAPP_PROJECT_DIR?.trim();
+  const isRootPath =
+    root === '' || root === '/' || root === '\\' || /^[a-zA-Z]:\\$/.test(root);
+  // 2. 回退分支：resolveProjectRoot 退化为根路径时，用旧名显式指定值兜底
+  const source = isRootPath && legacyOverride ? resolve(legacyOverride) : root;
+  if (!source) return 'default';
 
+  // 3. hash 源串归一化：去 \\?\ 前缀 → 反斜杠归一 → 去尾斜杠（保留盘符根 C:\）
+  let normalized = source;
+  if (normalized.startsWith('\\\\?\\')) {
+    normalized = normalized.slice(4);
+  }
+  normalized = normalized.replace(/\//g, '\\');
+  if (normalized.length > 3 && normalized.endsWith('\\')) {
+    normalized = normalized.slice(0, -1);
+  }
+
+  // 4. SHA256 前 8 位作为 hash
   const { createHash } = require('crypto');
-  return createHash('sha256').update(projectDir).digest('hex').slice(0, 8);
+  return createHash('sha256').update(normalized).digest('hex').slice(0, 8);
 }
 
 /**
- * 会话存储迁移：从旧版平级路径迁移到 worktree 隔离路径
- * 幂等操作 — 先移动文件 → 确认成功 → 写 `migrated_at` 标记
+ * @deprecated 死代码（2026-09-18 P0.5）：数据已全部 hash 化（sessions/<hash>/session_xxx/），
+ * 该函数语义（无 hash 旧版平级布局→hash 化）已无存在意义；且 legacyDir 恰为 hash 目录
+ * 的父目录，hash 变更瞬间调用必致整层套娃 rename。原调用点（ChatManager.initialize）已删除。
  */
 export function migrateSessionsToWorktree(
   env: NodeJS.ProcessEnv = process.env
@@ -431,19 +512,6 @@ export function resolveDataSubDir(
   env: NodeJS.ProcessEnv = process.env
 ): string {
   return join(resolveDataDir(env), subDir);
-}
-
-/**
- * 获取会话文件路径
- * @param sessionId 会话ID
- * @param ext 文件扩展名（默认 .json）
- */
-export function resolveSessionFilePath(
-  sessionId: string,
-  ext: string = '.json',
-  env: NodeJS.ProcessEnv = process.env
-): string {
-  return join(resolveSessionsDir(env), `${sessionId}${ext}`);
 }
 
 /**
@@ -955,7 +1023,6 @@ export const LIRI_HOME = resolvePyappHome();
 export const PROJECT_ROOT = resolveProjectRoot();
 export const DATA_DIR = resolveDataDir();
 export const DB_PATH = resolveDbPath();
-export const SESSIONS_DIR = resolveSessionsDir();
 export const TRANSCRIPTS_DIR = resolveTranscriptsDir();
 export const MEMORY_DIR = resolveMemoryDir();
 export const TEAM_MEMORY_DIR = resolveTeamMemoryDir();
@@ -1011,8 +1078,6 @@ export const PROJECT_SETTINGS_PATH = resolveProjectSettingsPath();
  *
  * 仅打印 warning 不抛异常——路径错误不应阻塞启动。
  */
-const pathsLogger = getLogger('core:paths');
-
 export function validatePathConsistency(logger?: {
   warn: (msg: string) => void;
 }): void {

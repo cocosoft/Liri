@@ -22,9 +22,9 @@
  */
 
 import { promises as fs, existsSync, createReadStream } from 'fs';
-import { join, dirname } from 'path';
+import { join } from 'path';
 import * as readline from 'readline';
-import { resolveSessionsDir } from '@modules/core/paths';
+import { resolveLegacySessionsDir } from '@modules/core/paths';
 import { getLogger } from '@modules/monitoring/logs/Logger.js';
 import { handleError } from '@modules/error';
 import type { LiriEvent } from '@modules/chat/types/events';
@@ -107,8 +107,9 @@ export class MessageToEventMigrator {
    * 复用 EventLogStorage 的路径解析逻辑，保证迁移器与存储器定位同一目录。
    */
   private buildSessionDir(): string {
-    const env: NodeJS.ProcessEnv = { PYAPP_PROJECT_DIR: '' };
-    const sessionsRoot = dirname(resolveSessionsDir(env));
+    // P1（2026-09-18）：直接取 sessions 根（resolveLegacySessionsDir），
+    // 取代旧 hack（传 env={PYAPP_PROJECT_DIR:''} 让 resolveSessionsDir 走 default）
+    const sessionsRoot = resolveLegacySessionsDir();
     return join(sessionsRoot, this.worktreeHash, this.sessionId);
   }
 

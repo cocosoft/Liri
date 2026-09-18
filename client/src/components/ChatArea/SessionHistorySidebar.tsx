@@ -96,6 +96,7 @@ function SessionHistorySidebar({
     deleteSession,
     clearAllSessions,
     togglePin,
+    error,
   } = useSessionStore();
 
   // 从 rootStore 获取模块上下文 + Hub 记录
@@ -672,6 +673,35 @@ function SessionHistorySidebar({
           <div className="flex flex-col items-center justify-center py-8 text-center">
             <div className="w-8 h-8 border-2 border-blue-400 border-t-transparent rounded-full animate-spin mb-2" />
             <p className="text-sm text-gray-400">加载中...</p>
+          </div>
+        ) : error && sessions.length === 0 ? (
+          // P2-6：加载异常与"首次无会话"区分——请求抛错时不再误显示"暂无会话"
+          <div className="flex flex-col items-center justify-center py-8 text-center">
+            <svg
+              className="w-10 h-10 text-red-400 dark:text-red-500 mb-2"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.5}
+                d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"
+              />
+            </svg>
+            <p className="text-sm text-red-400 dark:text-red-500">
+              会话加载失败
+            </p>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1 max-w-[240px] break-all">
+              {error}
+            </p>
+            <button
+              onClick={() => void loadSessions()}
+              className="mt-3 px-3 py-1 text-xs text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 border border-blue-300 dark:border-blue-700 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20"
+            >
+              重试
+            </button>
           </div>
         ) : sessions.length === 0 ||
           (filteredSessions.length === 0 && !debouncedQuery.trim()) ? (

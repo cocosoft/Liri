@@ -67,6 +67,54 @@ function effectiveProjectId(
 
 // ========== Session Handlers ==========
 
+/**
+ * 全文搜索历史消息（FTS5 倒排索引）
+ * GET /v1/sessions/messages/search?q=关键词&limit=N
+ * 2026-09-18：全局搜索"搜不到历史消息"根因——前端只过滤会话标题，
+ * 从未调用后端消息全文搜索；此 handler 暴露 FTS 能力。
+ */
+export async function handleSearchMessagesFTS(
+  ctx: HandlerCtx,
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const url = new URL(
+      req.url || '/',
+      `http://${req.headers.host || 'localhost'}`
+    );
+    const q = (url.searchParams.get('q') ?? '').trim();
+    const limit = Math.min(
+      Number.parseInt(url.searchParams.get('limit') ?? '10', 10) || 10,
+      50
+    );
+    if (!q) {
+      sendBadRequest(res, '缺少搜索关键词 q');
+      return;
+    }
+    const coreAPI = getCoreAPI();
+    await coreAPI.ensureSessionsLoaded();
+    const results = await coreAPI.searchMessagesFTS(q, limit);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(results));
+  } catch (err) {
+    await handleError(err, { module: 'infra:http', action: 'handler_error' });
+    if (!res.headersSent) {
+      try {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({ error: { message: 'Internal server error' } })
+        );
+      } catch (err) {
+        handleError(err, {
+          module: 'infrastructure:http:handlers:session-handlers',
+          action: 'responseAlreadyEnded',
+        });
+      } /* res可能已结束, 忽略 */
+    }
+  }
+}
+
 export async function handleListSessions(
   ctx: HandlerCtx,
   req: http.IncomingMessage,

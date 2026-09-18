@@ -36,6 +36,8 @@ export enum SessionStatus {
  */
 export interface SessionMetadata {
   title?: string;
+  /** P2-7（2026-09-18）：总消息数（崩溃恢复时重算并回写，列表统计口径） */
+  totalMessages?: number;
   tags?: string[];
   mode?: string;
   model?: string;

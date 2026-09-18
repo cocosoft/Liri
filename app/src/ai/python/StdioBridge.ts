@@ -11,10 +11,11 @@
 import { spawn } from 'child_process';
 import path from 'path';
 import { JsonRpcBridge } from './JsonRpcBridge';
+import { resolveProjectRoot } from '@modules/core/paths';
 
 /** 解析 vision_worker.py 路径（兼容开发与编译两种模式） */
 function resolveVisionWorkerScript(): string {
-  const projectDir = process.env.PYAPP_PROJECT_DIR || process.cwd();
+  const projectDir = resolveProjectRoot();
   return path.resolve(
     projectDir,
     'app',

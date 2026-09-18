@@ -2057,29 +2057,73 @@ export class CoreAPIImpl implements CoreAPI {
   async listSessions(): Promise<SessionInfo[]> {
     const sessions = this.sessionManager.getSessions();
 
-    return (
-      sessions
-        // 过滤空壳会话：崩溃残留，有 session.json 但无消息
-        .filter((session) => {
-          const msgCount = countConversationMessages(session.messages);
-          if (msgCount > 0) return true;
-          // 有消息的会话一定保留；无消息但有崩溃标记的是空壳，过滤掉
-          const crashRecovery = (
-            session.metadata as Record<string, unknown> | undefined
-          )?.crashRecovery;
-          return !crashRecovery;
-        })
-        .map((session) => ({
-          id: session.id,
-          title: session.title,
-          createdAt: session.createdAt,
-          updatedAt: session.updatedAt,
-          messageCount: countConversationMessages(session.messages),
-          roundCount: countUserMessages(session.messages),
-          source: this._resolveSessionSource(session),
-          metadata: session.metadata,
-        }))
-    );
+    let filteredCount = 0;
+    const result = sessions
+      // 过滤空壳会话：崩溃残留，有 session.json 但无消息
+      .filter((session) => {
+        const msgCount = countConversationMessages(session.messages);
+        if (msgCount > 0) return true;
+        // 有消息的会话一定保留；无消息但有崩溃标记的是空壳，过滤掉
+        const crashRecovery = (
+          session.metadata as Record<string, unknown> | undefined
+        )?.crashRecovery;
+        const keep = !crashRecovery;
+        if (!keep) filteredCount += 1;
+        return keep;
+      })
+      .map((session) => ({
+        id: session.id,
+        title: session.title,
+        createdAt: session.createdAt,
+        updatedAt: session.updatedAt,
+        messageCount: countConversationMessages(session.messages),
+        roundCount: countUserMessages(session.messages),
+        source: this._resolveSessionSource(session),
+        metadata: session.metadata,
+      }));
+    // P2-2：记录空壳会话被过滤条数，便于排查"会话缺失"类问题（总数 vs 返回数对不上）
+    if (filteredCount > 0) {
+      logger.info('listSessions:过滤空壳会话', {
+        total: sessions.length,
+        filteredCount,
+        returned: result.length,
+      });
+    }
+    return result;
+  }
+
+  /**
+   * 全文搜索消息（FTS5 倒排索引）
+   * 2026-09-18：全局搜索"搜不到历史消息"根因是前端只做会话标题
+   * 客户端过滤、从未接入后端消息全文搜索；此方法暴露 FTS 能力。
+   */
+  async searchMessagesFTS(
+    query: string,
+    limit?: number
+  ): Promise<
+    Array<{
+      id: string;
+      sessionId?: string;
+      title: string;
+      content: string;
+      snippet: string;
+      score: number;
+      timestamp: number;
+    }>
+  > {
+    const gateway = this.chatManager.getSessionGateway();
+    const results = gateway.searchMessagesFTS(query, undefined, limit ?? 10);
+    return results.map((r) => ({
+      id: r.document.id,
+      sessionId:
+        (r.document.metadata as Record<string, unknown> | undefined)
+          ?.sessionId as string | undefined,
+      title: r.document.title,
+      content: r.document.content,
+      snippet: r.snippet,
+      score: r.score,
+      timestamp: r.document.timestamp,
+    }));
   }
 
   /** 轻量列出会话元数据 — 只读文件头 64KB，不加载完整会话 */

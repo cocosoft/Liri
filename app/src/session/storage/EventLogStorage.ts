@@ -26,7 +26,7 @@
 import { promises as fs, existsSync, createReadStream } from 'fs';
 import { join, dirname } from 'path';
 import * as readline from 'readline';
-import { resolveSessionsDir } from '@modules/core/paths';
+import { resolveLegacySessionsDir } from '@modules/core/paths';
 import { getLogger } from '@modules/monitoring/logs/Logger.js';
 import {
   handleError,
@@ -381,19 +381,16 @@ export class EventLogStorage {
    *
    * 路径：~/.pyapp/data/sessions/<worktreeHash>/<sessionId>
    *
-   * 复用 resolveSessionsDir 的父目录（~/.pyapp/data/sessions），
+   * 直接取 sessions 根（resolveLegacySessionsDir，即 ~/.pyapp/data/sessions），
    * 再拼接构造参数 worktreeHash 与 sessionId。
    *
    * 不直接调 resolveSessionsDir() 是因为它会从环境变量读 worktreeHash，
    * 而 EventLogStorage 实例化时 worktreeHash 已确定（构造参数）。
-   * 通过 dirname(resolveSessionsDir(env)) 取 sessions 根，再拼 worktreeHash，
-   * 避免与环境变量耦合，同时复用 data 目录解析逻辑（CS01 归一化）。
+   * P1（2026-09-18）：改用 resolveLegacySessionsDir() 直接取 sessions 根，
+   * 取代旧 hack（传 env={PYAPP_PROJECT_DIR:''} 让 resolveSessionsDir 走 default）。
    */
   private buildSessionDir(): string {
-    // resolveSessionsDir(env) 返回 ~/.pyapp/data/sessions/<env worktreeHash>
-    // 传入空 env 让其走 'default' 分支，然后 dirname 取 sessions 根
-    const env: NodeJS.ProcessEnv = { PYAPP_PROJECT_DIR: '' };
-    const sessionsRoot = dirname(resolveSessionsDir(env));
+    const sessionsRoot = resolveLegacySessionsDir();
     return join(sessionsRoot, this.worktreeHash, this.sessionId);
   }
 

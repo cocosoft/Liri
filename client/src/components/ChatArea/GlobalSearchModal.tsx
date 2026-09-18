@@ -8,6 +8,7 @@ import type { AppPage } from "../../stores/navigationStore";
 import { getModuleMeta } from "../../stores/root-store/moduleRegistry";
 import { fileService } from "../../services/fileService";
 import { knowledgeService } from "../../services/knowledgeService";
+import { sessionService } from "../../services/sessionService";
 import { getOTelTracing } from "../../monitoring/otel/OTelTracing";
 import { createLogger } from "@/utils/logger";
 
@@ -18,11 +19,23 @@ import type { Session } from "../../types";
 /** 搜索结果会话：Session + 模块类型（用于跳转正确页面，Session 类型本身无此字段） */
 type SearchResultSession = Session & { moduleType?: string };
 
+/** 消息全文搜索结果（后端 FTS5 /v1/sessions/messages/search 返回） */
+type MessageSearchResult = {
+  id: string;
+  sessionId?: string;
+  title: string;
+  content: string;
+  snippet: string;
+  score: number;
+  timestamp: number;
+};
+
 /** M4 修复：扁平化搜索结果项（键盘导航用，判别联合类型） */
 type SearchItem =
   | { kind: "session"; session: SearchResultSession }
   | { kind: "file"; file: FileRegistryRecord }
-  | { kind: "knowledge"; item: KnowledgeItem };
+  | { kind: "knowledge"; item: KnowledgeItem }
+  | { kind: "message"; message: MessageSearchResult };
 import type { FileRegistryRecord } from "../../types/file";
 import type { KnowledgeItem } from "../../types/knowledge";
 
@@ -72,6 +85,9 @@ export default function GlobalSearchModal({
   );
   const [fileResults, setFileResults] = useState<FileRegistryRecord[]>([]);
   const [knowledgeResults, setKnowledgeResults] = useState<KnowledgeItem[]>([]);
+  const [messageResults, setMessageResults] = useState<MessageSearchResult[]>(
+    [],
+  );
   const [searching, setSearching] = useState(false);
   // M4 修复：请求序号，旧请求晚返回时丢弃（防抖竞态）
   const searchSeqRef = useRef(0);
@@ -95,6 +111,7 @@ export default function GlobalSearchModal({
       setSessionResults([]);
       setFileResults([]);
       setKnowledgeResults([]);
+      setMessageResults([]);
       setTimeout(() => inputRef.current?.focus(), 50);
     }
   }, [isOpen]);
@@ -107,6 +124,7 @@ export default function GlobalSearchModal({
       setSessionResults([]);
       setFileResults([]);
       setKnowledgeResults([]);
+      setMessageResults([]);
       return;
     }
 
@@ -191,12 +209,37 @@ export default function GlobalSearchModal({
         setKnowledgeResults([]);
       }
 
+      // 4. 异步全文搜索历史消息（FTS5 倒排索引）
+      // 2026-09-18：此前只过滤会话标题，搜不到消息内容；接入后端
+      // /v1/sessions/messages/search 后可按消息正文检索历史记录。
+      let msgRes: MessageSearchResult[] = [];
+      try {
+        msgRes = await sessionService.searchMessages(q, 5);
+        if (seq !== searchSeqRef.current) {
+          logger.info("search:staleDrop", {
+            seq,
+            current: searchSeqRef.current,
+            stage: "messages",
+          });
+          return;
+        }
+        setMessageResults(msgRes);
+      } catch (e) {
+        if (seq !== searchSeqRef.current) return;
+        handleClientError(e, {
+          module: "components:chat:GlobalSearch",
+          action: "searchMessages",
+        });
+        setMessageResults([]);
+      }
+
       // 竞态排查：请求完成（未被新请求取代）——与 search:start 成对出现；
       // 若只有 start 无 complete 也无 staleDrop，说明请求卡在 await（排查服务超时）
       logger.info("search:complete", {
         query: q,
         seq,
         sessionCount: matchedSessions.length,
+        messageCount: msgRes.length,
       });
       setSearching(false);
     }, 300);
@@ -204,7 +247,7 @@ export default function GlobalSearchModal({
     return () => clearTimeout(timer);
   }, [query, allSessions]);
 
-  /** M4 修复：扁平化结果列表，供键盘导航定位（顺序 = 会话 → 文件 → 知识库） */
+  /** M4 修复：扁平化结果列表，供键盘导航定位（顺序 = 会话 → 文件 → 知识库 → 消息） */
   const items = useMemo<readonly SearchItem[]>(
     () => [
       ...sessionResults.map((session) => ({
@@ -213,8 +256,9 @@ export default function GlobalSearchModal({
       })),
       ...fileResults.map((file) => ({ kind: "file" as const, file })),
       ...knowledgeResults.map((item) => ({ kind: "knowledge" as const, item })),
+      ...messageResults.map((message) => ({ kind: "message" as const, message })),
     ],
-    [sessionResults, fileResults, knowledgeResults],
+    [sessionResults, fileResults, knowledgeResults, messageResults],
   );
 
   // M4 修复：查询/结果变化时重置选中项
@@ -331,7 +375,20 @@ export default function GlobalSearchModal({
       e.preventDefault();
       if (item.kind === "session") void handleSessionClick(item.session);
       else if (item.kind === "file") handleFileClick();
-      else handleKnowledgeClick();
+      else if (item.kind === "message") {
+        if (item.message.sessionId) {
+          void handleSessionClick({
+            id: item.message.sessionId,
+            title: item.message.title,
+            createdAt: new Date(item.message.timestamp).toISOString(),
+            updatedAt: new Date(item.message.timestamp).toISOString(),
+            messageCount: 0,
+            roundCount: 0,
+          } as SearchResultSession);
+        } else {
+          handleFileClick();
+        }
+      } else handleKnowledgeClick();
     }
   };
 
@@ -340,7 +397,8 @@ export default function GlobalSearchModal({
   const hasResults =
     sessionResults.length > 0 ||
     fileResults.length > 0 ||
-    knowledgeResults.length > 0;
+    knowledgeResults.length > 0 ||
+    messageResults.length > 0;
   const noResults = !searching && query && !hasResults;
 
   return (
@@ -502,6 +560,58 @@ export default function GlobalSearchModal({
                         </div>
                         <div className="text-xs text-gray-400 dark:text-gray-500 truncate">
                           {item.tags?.length ? item.tags.join(", ") : ""}
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* 消息结果（FTS5 全文搜索，2026-09-18 新增） */}
+            {messageResults.length > 0 && (
+              <div>
+                <div className="px-4 py-2 text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider border-t border-gray-100 dark:border-gray-700">
+                  {t("chat.messages")}
+                </div>
+                {messageResults.map((msg, i) => {
+                  const globalIdx =
+                    sessionResults.length +
+                    fileResults.length +
+                    knowledgeResults.length +
+                    i;
+                  const isActive = activeIndex === globalIdx;
+                  return (
+                    <button
+                      key={msg.id || i}
+                      onClick={() => {
+                        if (msg.sessionId) {
+                          void handleSessionClick({
+                            id: msg.sessionId,
+                            title: msg.title,
+                            createdAt: new Date(msg.timestamp).toISOString(),
+                            updatedAt: new Date(msg.timestamp).toISOString(),
+                            messageCount: 0,
+                            roundCount: 0,
+                          } as SearchResultSession);
+                        } else {
+                          handleFileClick();
+                        }
+                      }}
+                      onMouseEnter={() => setActiveIndex(globalIdx)}
+                      className={`w-full flex items-start gap-3 px-4 py-2.5 text-left transition-colors ${
+                        isActive
+                          ? "bg-blue-50 dark:bg-blue-900/30"
+                          : "hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                      }`}
+                    >
+                      <span className="text-base shrink-0">💬</span>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-sm text-gray-800 dark:text-gray-200 truncate">
+                          {msg.title}
+                        </div>
+                        <div className="text-xs text-gray-400 dark:text-gray-500 line-clamp-2">
+                          {msg.snippet || msg.content.slice(0, 120)}
                         </div>
                       </div>
                     </button>

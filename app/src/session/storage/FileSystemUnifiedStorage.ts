@@ -10,7 +10,11 @@ import type {
   Transaction,
   UnifiedMessageQueryOptions,
 } from './UnifiedStorage.js';
-import { resolveSessionsDir } from '@modules/core';
+// 路径函数直连 paths 子模块（避免拉入 @modules/core 大 barrel 造成循环 import TDZ）
+import {
+  resolveSessionsDir,
+  resolveLegacySessionPartitionRoots,
+} from '@modules/core/paths';
 import type {
   UnifiedSession,
   SessionFilter,
@@ -95,15 +99,36 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
    * 会在 .trash 外重建目录，导致会话"幽灵复活"。删除后拦截该会话后续落盘。
    */
   private deletedSessionIds: Set<string> = new Set();
+  /** P0'（2026-09-18）：历史会话分区目录清单（多分区聚合扫描根，不含 basePath 自身） */
+  private legacyRoots: string[] = [];
 
   constructor(config: StorageConfig) {
     this.config = config;
-    this.basePath = config.basePath ?? resolveSessionsDir();
+    // P2-3：basePath 空串不生效（?? 不拦截空串），统一回退默认目录
+    this.basePath =
+      config.basePath && config.basePath.trim()
+        ? config.basePath
+        : resolveSessionsDir();
+    // P0-0-2：打印存储构造处 basePath 冻结点实例值（评审#3 增量一）
+    logger.info('FileSystemUnifiedStorage:构造 basePath 实例值', {
+      basePath: this.basePath,
+    });
     this.writer = new AtomicWriter();
+    this.legacyRoots = config.legacyRoots ?? [];
   }
 
   async initialize(): Promise<void> {
     await fs.mkdir(this.basePath, { recursive: true });
+    // P0'：兼容读多分区聚合——未显式指定时自动探测历史分区（LIRI_SESSION_LEGACY_ROOTS 可覆盖）
+    if (this.legacyRoots.length === 0) {
+      this.legacyRoots = resolveLegacySessionPartitionRoots();
+      if (this.legacyRoots.length > 0) {
+        logger.info("P0' 多分区聚合：探测到历史会话分区", {
+          basePath: this.basePath,
+          legacyPartitions: this.legacyRoots,
+        });
+      }
+    }
     await this.purgeExpiredTrash();
     await this.loadAllSessions();
     this.initialized = true;
@@ -158,13 +183,33 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
   }
 
   private async loadAllSessions(): Promise<void> {
+    const roots = [this.basePath, ...this.legacyRoots];
+    let conflictCount = 0;
+    for (const root of roots) {
+      conflictCount += await this.scanPartition(root);
+    }
+    if (conflictCount > 0) {
+      // P0'：跨分区重复会话按 updatedAt 取新（评审#3 增量三）
+      logger.warn("P0' 多分区聚合：检测到跨分区重复会话，已按 updatedAt 取新", {
+        partitionCount: roots.length,
+        conflictCount,
+      });
+    }
+  }
+
+  /**
+   * P0'：扫描单个分区目录，加载各 session_* 目录内的 session.json 到内存。
+   * 返回与该会话已加载条目发生 id 冲突的条数（由 loadAllSessions 聚合计数）。
+   */
+  private async scanPartition(root: string): Promise<number> {
     let entries: Dirent[];
     try {
-      entries = await fs.readdir(this.basePath, { withFileTypes: true });
+      entries = await fs.readdir(root, { withFileTypes: true });
     } catch {
-      return;
+      return 0;
     }
 
+    let conflicts = 0;
     for (const entry of entries) {
       if (!entry.isDirectory()) continue;
       const sessionId = entry.name;
@@ -173,10 +218,17 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
       // ENOENT 后尝试"隔离"整个 .trash 到 .corrupt（侥幸失败，若成功会错位 71 个回收站
       // 会话），且每次启动刷 ENOENT warn 噪音（.trash/pid）。
       if (sessionId.startsWith('.') || sessionId === 'pid') continue;
-      const filePath = sessionFilePath(this.basePath, sessionId);
+      const filePath = sessionFilePath(root, sessionId);
       try {
         const data = await fs.readFile(filePath, 'utf-8');
         const session: UnifiedSession = JSON.parse(data);
+        const existing = this.sessions.get(sessionId);
+        if (existing && existing.updatedAt > session.updatedAt) {
+          // P0'：保留 updatedAt 更新的版本（历史分区可能含更新写入）
+          conflicts++;
+          continue;
+        }
+        if (existing) conflicts++;
         this.sessions.set(sessionId, session);
       } catch (err) {
         // BUG-07（2026-09-16）：区分"僵尸目录"与"真损坏"。
@@ -202,8 +254,8 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
           errorCode: (err as NodeJS.ErrnoException)?.code,
         });
         try {
-          const corruptDir = path.join(this.basePath, '.corrupt', sessionId);
-          await fs.rename(sessionDir(this.basePath, sessionId), corruptDir);
+          const corruptDir = path.join(root, '.corrupt', sessionId);
+          await fs.rename(sessionDir(root, sessionId), corruptDir);
         } catch (renameErr) {
           logger.warn('隔离损坏会话目录失败', {
             sessionId,
@@ -216,6 +268,7 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
 
       // P1-3 修复：initialize 不再预载全部会话消息（懒加载，见 ensureMessagesLoaded）
     }
+    return conflicts;
   }
 
   /**

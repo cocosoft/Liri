@@ -27,7 +27,7 @@ import {
   KernelServiceRegistry,
   KernelServiceId,
 } from '../api/KernelServiceRegistry';
-import { resolveDataSubDir } from '@modules/core/paths';
+import { resolveDataSubDir, resolveProjectRoot } from '@modules/core/paths';
 import { join, delimiter } from 'path';
 import { trackProcess } from '../../services/mcp/transports/ChildProcessTracker';
 import { globalEventBus } from '../../core/events/EventBus';
@@ -411,7 +411,7 @@ export class PythonPluginAdapter {
 
 /** vendored liri-sdk 目录（PY-3 vendored 定位：PYTHONPATH 注入用） */
 function resolveVendoredSdkDir(): string {
-  const projectDir = process.env.PYAPP_PROJECT_DIR || process.cwd();
+  const projectDir = resolveProjectRoot();
   return join(projectDir, 'app', 'src', 'ai', 'python', 'sdk');
 }
 

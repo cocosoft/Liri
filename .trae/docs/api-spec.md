@@ -723,6 +723,7 @@ data: {"type":"done","result":{...}}
 | | `get` | `GET /v1/sessions/{id}` | `get_session` | ❌ |
 | | `generateTitle` | `POST /v1/sessions/{id}/title` | `generate_session_title` | ❌ |
 | | `getMessages` | `GET /v1/sessions/{id}/messages` | `get_session_messages` | ❌ |
+| | `searchMessages` | `GET /v1/sessions/messages/search?q=&limit=` | — | ✅ (HTTP only, 2026-09-18 FTS5 全文搜索) |
 | | `clearAll` | `DELETE /v1/sessions` | `clear_all_sessions` | ❌ |
 | **toolService** | `list` | `GET /v1/tools` | `list_tools` | ✅ |
 | | `execute` | `POST /v1/tools/{name}/execute` | `execute_tool` | ✅ |

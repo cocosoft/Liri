@@ -11,7 +11,11 @@ import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error';
 // E-4（2026-08-23，T-G）：会话删除时清理 PDCA 旁路轨迹文件
 import { TrajectoryTrailRecorder } from './trajectory/TrajectoryTrailRecorder';
-import { resolveSessionsDir, resolveDataDir } from '@modules/core';
+import {
+  resolveSessionsDir,
+  resolveDataDir,
+  resolveWorktreeHash,
+} from '@modules/core';
 import { asyncContextStorage } from '@modules/context';
 import { resolveContextWindow } from '@modules/context';
 import { FileCheckpointStorage } from '@modules/query';
@@ -196,6 +200,21 @@ export class SessionGateway {
         basePath: resolveSessionsDir(),
       }
     );
+    // P0-0-2：打印 SessionGateway 构造处 basePath 冻结点实例值（评审#3 增量一）
+    // P2-3：basePath 空串不生效（?? 不拦截空串），统一回退默认目录。
+    const gatewayBasePath = this.storage.getStorageInfo()?.basePath;
+    logger.info('SessionGateway:构造 basePath 实例值', {
+      basePath:
+        gatewayBasePath && gatewayBasePath.trim()
+          ? gatewayBasePath
+          : resolveSessionsDir(),
+    });
+    // P0-0-1：启动日志打印分区键 hash 实际值（评审#3 增量一），
+    // 与 resolveSessionsDir() 实际值对照，根治"分区错位"类问题排查无证据。
+    logger.info('SessionGateway:分区键 hash 实际值', {
+      worktreeHash: resolveWorktreeHash(),
+      sessionsDir: resolveSessionsDir(),
+    });
 
     this.transcriptManager = createTranscriptManager(
       this.storage,
@@ -921,16 +940,28 @@ export class SessionGateway {
   async listLiteSessions(): Promise<
     Array<{ id: string; title?: string; status?: string; updatedAt?: string }>
   > {
-    const { readdirSync, statSync } = require('fs');
+    const { readdirSync, statSync, existsSync } = require('fs');
     const { join } = require('path');
     const { readLiteSessionMeta } =
       await import('./storage/LiteSessionReader.js');
     // M1 修复：统一从 storage.getStorageInfo().basePath 取会话目录根，
     // 不再硬编码 resolveSessionsDir()（忽略 storageConfig.basePath 配置）。
     // StorageAdapter/Memory 存储无 basePath 时回退默认值。
+    // P2-3：basePath 空串不生效（?? 不拦截空串），统一回退默认目录。
+    const storageInfo = this.storage.getStorageInfo();
     const sessionsDir =
-      this.storage.getStorageInfo()?.basePath ?? resolveSessionsDir();
-    logger.debug('listLiteSessions:开始扫描会话目录', { sessionsDir });
+      storageInfo?.basePath && storageInfo.basePath.trim()
+        ? storageInfo.basePath
+        : resolveSessionsDir();
+    // P2-1：目录状态结构化——目录缺失（missing）≠ 无会话，区分记录便于排查
+    // "历史记录不显示"类问题（目录在但无数据 vs 目录压根不存在）
+    if (!existsSync(sessionsDir)) {
+      logger.warn('listLiteSessions:会话目录不存在（missing），返回空列表', {
+        sessionsDir,
+      });
+      return [];
+    }
+    logger.info('listLiteSessions:开始扫描会话目录', { sessionsDir });
 
     let entries: string[];
     try {
@@ -942,9 +973,10 @@ export class SessionGateway {
       });
       return [];
     }
-    logger.debug('listLiteSessions:目录条目总数', {
+    logger.info('listLiteSessions:目录条目总数', {
       sessionsDir,
       entryCount: entries.length,
+      status: entries.length === 0 ? 'empty' : 'ok',
     });
 
     let skippedHidden = 0;

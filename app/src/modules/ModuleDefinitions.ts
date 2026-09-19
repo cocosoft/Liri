@@ -661,6 +661,18 @@ export const MODULE_DEFINITIONS: Record<string, ModuleDefinition> = {
     optionalDependencies: [],
   },
 
+  workflow: {
+    id: 'workflow',
+    name: 'workflow',
+    displayName: '工作流模块',
+    version: '1.0.0',
+    category: ModuleCategory.OTHER,
+    description:
+      '工作流能力 seam：统一编排契约（Provider 注册表）、封闭失败语义与依赖调度（复用 TaskDependencyService）；具体编排由各领域模块以 Provider 注册',
+    dependencies: ['core', 'tasks'],
+    optionalDependencies: ['monitoring'],
+  },
+
   governance: {
     id: 'governance',
     name: 'governance',

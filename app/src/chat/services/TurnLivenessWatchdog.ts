@@ -147,11 +147,14 @@ export class TurnLivenessWatchdog {
     // 该段时间 turn 并非"无产出空闲"，而是进程本身被冻结，不应计入 idle；
     // 否则唤醒瞬间即触发超时中断（实测 09-19 睡眠 4.87h 后唤醒 idleSeconds=17804 误杀）。
     if (this.lastCheckAt > 0 && now - this.lastCheckAt > this.pollMs * 3) {
-      logger.warn('Turn liveness 采样跳变（疑似睡眠/事件循环阻塞），重置空闲计时', {
-        sessionId: this.sessionId ?? null,
-        gapMs: now - this.lastCheckAt,
-        pollMs: this.pollMs,
-      });
+      logger.warn(
+        'Turn liveness 采样跳变（疑似睡眠/事件循环阻塞），重置空闲计时',
+        {
+          sessionId: this.sessionId ?? null,
+          gapMs: now - this.lastCheckAt,
+          pollMs: this.pollMs,
+        }
+      );
       this.lastActivityAt = now;
       this.surfaced = false;
       this.lastCheckAt = now;

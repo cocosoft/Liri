@@ -352,12 +352,21 @@ export class FetchInterceptor {
               respBody = text;
             }
           } catch (err) {
-            // body 解析失败
-
-            handleError(err, {
-              module: 'trace-recording:interceptor',
-              action: 'readResponseBody',
-            });
+            // body 解析失败/读取被中止。
+            // 2026-09-19 修复：AbortController 中止（如 compaction tier3 60s 超时、
+            // 流请求取消）会在此抛 "The operation was aborted"，属预期行为，
+            // 此前走 handleError 误报 UNHANDLED_ERROR 噪音；中止时跳过错误上报。
+            const isAbortError =
+              err instanceof Error &&
+              (err.name === 'AbortError' ||
+                err.name === 'TimeoutError' ||
+                /aborted|abort|interrupt/i.test(err.message ?? ''));
+            if (!isAbortError) {
+              handleError(err, {
+                module: 'trace-recording:interceptor',
+                action: 'readResponseBody',
+              });
+            }
           }
         }
 

@@ -89,6 +89,8 @@ export class TurnLivenessWatchdog {
   private readonly timeoutMs: number;
   private readonly pollMs: number;
   private lastActivityAt: number | null = null;
+  /** 上次采样时刻；用于检测事件循环被阻塞（系统睡眠/严重卡顿）导致的采样跳变 */
+  private lastCheckAt = 0;
   private timer: ReturnType<typeof setInterval> | null = null;
   private surfaced = false;
   private sessionId: string | undefined;
@@ -106,6 +108,7 @@ export class TurnLivenessWatchdog {
     if (this.timer) return;
     this.sessionId = sessionId;
     this.lastActivityAt = Date.now();
+    this.lastCheckAt = Date.now();
     this.surfaced = false;
     this.timer = setInterval(() => this.check(), this.pollMs);
     // 不阻止进程退出
@@ -137,11 +140,30 @@ export class TurnLivenessWatchdog {
   }
 
   private check(): void {
-    if (this.lastActivityAt === null) {
-      this.lastActivityAt = Date.now();
+    const now = Date.now();
+
+    // 2026-09-19 修复：检测事件循环被阻塞（系统睡眠/严重卡顿）。
+    // 睡眠期间 setInterval 不执行，唤醒后首次采样会看到远超 pollMs 的间隔——
+    // 该段时间 turn 并非"无产出空闲"，而是进程本身被冻结，不应计入 idle；
+    // 否则唤醒瞬间即触发超时中断（实测 09-19 睡眠 4.87h 后唤醒 idleSeconds=17804 误杀）。
+    if (this.lastCheckAt > 0 && now - this.lastCheckAt > this.pollMs * 3) {
+      logger.warn('Turn liveness 采样跳变（疑似睡眠/事件循环阻塞），重置空闲计时', {
+        sessionId: this.sessionId ?? null,
+        gapMs: now - this.lastCheckAt,
+        pollMs: this.pollMs,
+      });
+      this.lastActivityAt = now;
+      this.surfaced = false;
+      this.lastCheckAt = now;
       return;
     }
-    const idleMs = Date.now() - this.lastActivityAt;
+    this.lastCheckAt = now;
+
+    if (this.lastActivityAt === null) {
+      this.lastActivityAt = now;
+      return;
+    }
+    const idleMs = now - this.lastActivityAt;
     if (idleMs >= this.timeoutMs && !this.surfaced) {
       this.surfaced = true;
       const snapshot: LivenessSnapshot = {

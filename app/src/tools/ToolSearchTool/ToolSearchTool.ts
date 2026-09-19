@@ -92,16 +92,34 @@ function parseToolName(name: string): {
 }
 
 /**
- * 编译搜索词为正则表达式
+ * 搜索词匹配模式：纯 ASCII 词保留 \b 词边界正则；含中文的词直接存原词走 includes。
+ * JS 的 \b 仅对 [A-Za-z0-9_] 有效，中文词两侧不存在词边界，正则化后恒失配
+ * （2026-09-19 修复：此前中文查询只能命中 parts.includes 精确路径，召回率下降）。
  */
-function compileTermPatterns(terms: string[]): Map<string, RegExp> {
-  const patterns = new Map<string, RegExp>();
+type TermPattern = RegExp | string;
+
+/** 统一匹配入口：string 走 includes（中文词），RegExp 走 test（ASCII 词边界） */
+function matchesPattern(pattern: TermPattern, text: string): boolean {
+  return typeof pattern === 'string'
+    ? text.includes(pattern)
+    : pattern.test(text);
+}
+
+/**
+ * 编译搜索词为正则表达式（纯 ASCII）或原词（含中文）
+ */
+function compileTermPatterns(terms: string[]): Map<string, TermPattern> {
+  const patterns = new Map<string, TermPattern>();
   for (const term of terms) {
     if (!patterns.has(term)) {
-      patterns.set(
-        term,
-        new RegExp(`\\b${term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`)
-      );
+      if (/[\u4e00-\u9fff]/.test(term)) {
+        patterns.set(term, term);
+      } else {
+        patterns.set(
+          term,
+          new RegExp(`\\b${term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`)
+        );
+      }
     }
   }
   return patterns;
@@ -170,8 +188,8 @@ async function searchToolsWithKeywords(
         return (
           parsed.parts.includes(term) ||
           parsed.parts.some((part) => part.includes(term)) ||
-          pattern.test(description) ||
-          (hintNormalized && pattern.test(hintNormalized))
+          matchesPattern(pattern, description) ||
+          (hintNormalized && matchesPattern(pattern, hintNormalized))
         );
       });
     });
@@ -201,12 +219,12 @@ async function searchToolsWithKeywords(
       }
 
       // searchHint匹配
-      if (hintNormalized && pattern.test(hintNormalized)) {
+      if (hintNormalized && matchesPattern(pattern, hintNormalized)) {
         score += 4;
       }
 
       // 描述匹配
-      if (pattern.test(description)) {
+      if (matchesPattern(pattern, description)) {
         score += 2;
       }
     }

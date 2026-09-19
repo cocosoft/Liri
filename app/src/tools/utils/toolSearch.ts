@@ -6,6 +6,7 @@
 
 import type { Tool } from '../types/Tool';
 import { configManager } from '@modules/config';
+import { getContextWindow } from '../../ai/AIModelManager.js';
 
 /**
  * 工具搜索工具名称
@@ -209,12 +210,24 @@ export function modelSupportsToolReference(model: string): boolean {
  * @returns 字符阈值
  */
 export function getAutoToolSearchCharThreshold(model: string): number {
-  // 默认阈值：上下文窗口的10%
-  // 简化实现，实际应根据模型具体上下文窗口计算
   const DEFAULT_CONTEXT_WINDOW = 200000; // 默认200K上下文
   const DEFAULT_PERCENTAGE = 0.1; // 10%
 
-  return Math.floor(DEFAULT_CONTEXT_WINDOW * DEFAULT_PERCENTAGE);
+  // 基于模型真实上下文窗口的百分比计算（2026-09-19 修复：原实现忽略 model 参数，
+  // 恒返回 200000*0.1=20000，所有模型阈值相同，"自适应"名不副实）。
+  // model_registry.context_window 是唯一事实来源（model-usage 规范：禁止按模型名
+  // 硬编码窗口表）；解析失败时回退默认 200K。
+  let contextWindow = DEFAULT_CONTEXT_WINDOW;
+  try {
+    const resolved = getContextWindow(model);
+    if (resolved > 0) {
+      contextWindow = resolved;
+    }
+  } catch {
+    // 保持默认值
+  }
+
+  return Math.floor(contextWindow * DEFAULT_PERCENTAGE);
 }
 
 /**

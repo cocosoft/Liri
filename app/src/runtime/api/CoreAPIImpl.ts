@@ -1098,6 +1098,41 @@ export class CoreAPIImpl implements CoreAPI {
         content: message,
         sessionId: finalSessionId,
       } as ChatStreamChunk;
+
+      // 主 chat 空回复/中断 fallback（2026-09-19）：失败且未产出任何内容时，
+      // 按 Write-Ahead 持久化一条 assistant fallback 消息——此前该分支既不落盘
+      // 助手消息也不产出内容（日志证据：messageId:"" contentLength:0 finishReason:"error"），
+      // 会话刷新后消息整体缺失、前端空白。有部分产出时不覆盖（前端已渲染 partial
+      // content，续写/重发可继续）。addMessage 为 fire-and-forget，自动进入
+      // _pendingPersistPromises，由会话切换前 flushPendingPersists 统一落盘。
+      if (!fullContent && finalSessionId) {
+        try {
+          const fallbackMsg = this.chatManager
+            .getMessageService()
+            .createAssistantMessage(
+              '⚠️ 本次未能生成回复（任务被中断或模型无响应），请重发消息重试。',
+              {
+                sessionId: finalSessionId,
+                // 复用前端透传的 assistantMessageId，避免生成重复消息
+                ...(request.assistantMessageId
+                  ? { id: request.assistantMessageId }
+                  : {}),
+              }
+            );
+          this.chatManager.addMessage(finalSessionId, fallbackMsg);
+          finalMessageId = fallbackMsg.id;
+          logger.info('chatStream:fallback 消息已持久化', {
+            sessionId: finalSessionId,
+            messageId: fallbackMsg.id,
+          });
+        } catch (persistErr) {
+          // @ignore-catch — fallback 持久化失败不阻断流（error chunk 已下发）
+          logger.warning('chatStream:fallback 消息持久化失败', {
+            sessionId: finalSessionId,
+            error: String(persistErr),
+          });
+        }
+      }
     } finally {
       eventNotificationService.off('tool:completed', onToolCompletedFromCache);
     }

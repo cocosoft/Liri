@@ -84,6 +84,8 @@ export async function handleSearchMessagesFTS(
       `http://${req.headers.host || 'localhost'}`
     );
     const q = (url.searchParams.get('q') ?? '').trim();
+    // N-66（2026-09-20）：**可选**作用域参数 —— 侧栏搜索传当前 moduleType；全局搜索不传
+    const moduleType = (url.searchParams.get('moduleType') ?? '').trim();
     const limit = Math.min(
       Number.parseInt(url.searchParams.get('limit') ?? '10', 10) || 10,
       50
@@ -94,7 +96,28 @@ export async function handleSearchMessagesFTS(
     }
     const coreAPI = getCoreAPI();
     await coreAPI.ensureSessionsLoaded();
-    const results = await coreAPI.searchMessagesFTS(q, limit);
+    // N-66：把"作用域"下推为**该模块的会话 id 集合**，交由 FTS 引擎在**截断前**过滤
+    // ⇒ 消除"本作用域确有命中、却被全局前 N 条挤出"与"后端有命中、UI 显示无结果"的静默不一致。
+    // 未传 `moduleType` 时保持全局语义（行为与修复前完全一致）。
+    let allowedSessionIds: Set<string> | undefined;
+    if (moduleType) {
+      const all = await coreAPI.listSessions();
+      allowedSessionIds = new Set(
+        all
+          .filter((s) => {
+            const md = s.metadata as Record<string, unknown> | undefined;
+            // 与前端 `resolveSessionModuleType` 同口径：metadata.moduleType 优先、
+            // legacy `project-` 前缀兜底，其余（无 moduleType 的普通会话）视为 chat
+            return (legacyProjectModuleType(md) ?? 'chat') === moduleType;
+          })
+          .map((s) => s.id)
+      );
+    }
+    const results = await coreAPI.searchMessagesFTS(
+      q,
+      limit,
+      allowedSessionIds
+    );
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(results));
   } catch (err) {

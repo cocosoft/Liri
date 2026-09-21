@@ -235,6 +235,8 @@ const zh = {
     allSessions: "全部会话",
     /** §4.3-9：会话列表按项目分组时，无项目归属的会话所在分组名 */
     ungroupedSessions: "未分组",
+    /** §4.3-8：搜索命中位置的标记（命中消息正文，而非标题） */
+    contentMatch: "正文",
     filterHistory: "历史记录",
     filterPinned: "已固定",
     today: "今天",

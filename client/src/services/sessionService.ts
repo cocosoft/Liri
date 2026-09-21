@@ -344,6 +344,7 @@ export const sessionService = {
   searchMessages: (
     q: string,
     limit?: number,
+    opts?: { moduleType?: string },
   ): Promise<
     Array<{
       id: string;
@@ -358,6 +359,8 @@ export const sessionService = {
     return getOTelTracing().asyncWrap("services:session:searchMessages", async () => {
       const params = new URLSearchParams({ q });
       if (limit) params.set("limit", String(limit));
+      // N-66：作用域下推 —— 仅侧栏传（当前模块）；全局搜索不传 ⇒ 保持跨模块语义
+      if (opts?.moduleType) params.set("moduleType", opts.moduleType);
       const res = await apiHttp.get<
         Array<{
           id: string;

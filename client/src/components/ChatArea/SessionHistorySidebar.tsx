@@ -289,6 +289,11 @@ function SessionHistorySidebar({
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
+  // N-66（2026-09-20）：当前**作用域模块** —— 与 `filteredSessions` 内的判定同源
+  // （`scopeModuleType ?? moduleContext.moduleType`），用于把搜索作用域下推给后端。
+  // 注意：`filteredSessions` 内部另有同名局部变量，此处刻意用不同命名避免遮蔽。
+  const searchScopeModuleType = scopeModuleType ?? moduleContext.moduleType;
+
   // §4.3-8（2026-09-20）：**正文命中**查询 —— 此前只有"标题/ID 本地过滤"，
   // 搜不到消息正文。现接入后端全文检索（`sessionService.searchMessages`，FTS5）。
   // 竞态防护沿用 GlobalSearchModal 的**请求序号**模式：仅采用最新一次查询的结果；
@@ -296,6 +301,10 @@ function SessionHistorySidebar({
   const [contentHitSessionIds, setContentHitSessionIds] = useState<Set<string>>(
     new Set(),
   );
+  // §4.3-8 增强②：正文命中片段（sessionId → 首个命中片段），用于在列表内展示上下文预览
+  const [contentHitSnippets, setContentHitSnippets] = useState<
+    Map<string, string>
+  >(() => new Map());
   const contentSearchSeqRef = useRef(0);
 
   useEffect(() => {
@@ -303,21 +312,31 @@ function SessionHistorySidebar({
     if (!q) {
       contentSearchSeqRef.current += 1; // 使在途请求全部失效
       setContentHitSessionIds(new Set());
+      setContentHitSnippets(new Map());
       return;
     }
     const seq = ++contentSearchSeqRef.current;
     let cancelled = false;
     void (async () => {
       try {
-        const hits = await sessionService.searchMessages(q, 50);
+        // N-66：下推当前模块作用域 —— 后端按该模块的会话集合在**截断前**过滤，
+        // 避免"本模块确有命中却被全局前 50 条挤出"（此前搜 `compaction` 显示无结果）
+        const hits = await sessionService.searchMessages(q, 50, {
+          moduleType: searchScopeModuleType,
+        });
         if (cancelled || seq !== contentSearchSeqRef.current) return; // 过期结果丢弃
-        setContentHitSessionIds(
-          new Set(
-            hits
-              .map((h) => h.sessionId)
-              .filter((id): id is string => typeof id === "string" && !!id),
-          ),
-        );
+        const ids = new Set<string>();
+        const snippets = new Map<string, string>();
+        for (const h of hits) {
+          if (typeof h.sessionId !== "string" || !h.sessionId) continue;
+          ids.add(h.sessionId);
+          // 同一会话可能多条命中：只保留首条（FTS 结果按相关度排序）
+          if (!snippets.has(h.sessionId) && h.snippet) {
+            snippets.set(h.sessionId, h.snippet);
+          }
+        }
+        setContentHitSessionIds(ids);
+        setContentHitSnippets(snippets);
       } catch (e) {
         if (cancelled || seq !== contentSearchSeqRef.current) return;
         handleClientError(e, {
@@ -325,12 +344,13 @@ function SessionHistorySidebar({
           action: "searchMessages",
         });
         setContentHitSessionIds(new Set()); // 降级：仅标题/ID 过滤
+        setContentHitSnippets(new Map());
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [debouncedQuery]);
+  }, [debouncedQuery, searchScopeModuleType]);
 
   const filteredSessions = useMemo(() => {
     let result = sessions;
@@ -960,6 +980,8 @@ function SessionHistorySidebar({
                     editTitle={editTitle}
                     pinned={isPinned(row.session.id)}
                     isDreamProcessed={dreamProcessedIds.has(row.session.id)}
+                    contentHit={contentHitSessionIds.has(row.session.id)}
+                    contentSnippet={contentHitSnippets.get(row.session.id)}
                     getSourceLabel={getSourceLabel}
                     onSwitch={handleSwitchSession}
                     onDoubleClick={handleDoubleClick}

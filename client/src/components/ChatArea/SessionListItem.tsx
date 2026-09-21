@@ -31,6 +31,10 @@ interface SessionListItemProps {
   editTitle: string;
   pinned: boolean;
   isDreamProcessed: boolean;
+  /** §4.3-8 增强①：该会话是**消息正文**命中（用于与"仅标题命中"区分） */
+  contentHit?: boolean;
+  /** §4.3-8 增强②：正文命中的首个片段（用于列表内上下文预览） */
+  contentSnippet?: string;
   getSourceLabel: (source?: string) => string;
   onSwitch: (id: string) => void;
   onDoubleClick: (id: string, title: string) => void;
@@ -48,6 +52,8 @@ function SessionListItem({
   editTitle,
   pinned: _pinned,
   isDreamProcessed,
+  contentHit = false,
+  contentSnippet,
   getSourceLabel,
   onSwitch,
   onDoubleClick,
@@ -144,6 +150,15 @@ function SessionListItem({
                   title="已被梦境凝练"
                 />
               )}
+              {/* §4.3-8 增强①：正文命中标记 —— 区分"标题命中"与"消息正文命中" */}
+              {contentHit && (
+                <span
+                  className="text-[10px] leading-4 px-1 rounded bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 flex-shrink-0"
+                  title={t("chat.contentMatch")}
+                >
+                  {t("chat.contentMatch")}
+                </span>
+              )}
               {/* 工作空间归属前缀
                   N-11：模块归属分支已移除 —— 会话列表按「当前模块」过滤
                   （SessionHistorySidebar 只保留 moduleType === 当前模块的行），
@@ -171,6 +186,15 @@ function SessionListItem({
                 0 &&
                 ` · ${session.roundCount ?? Math.ceil(session.messageCount / 2)} 轮对话`}
             </div>
+            {/* §4.3-8 增强②：正文命中片段预览（仅当搜索命中消息正文时出现） */}
+            {contentSnippet ? (
+              <div
+                className="text-xs text-gray-400 dark:text-gray-500 truncate italic mt-0.5"
+                title={contentSnippet}
+              >
+                {contentSnippet}
+              </div>
+            ) : null}
           </div>
         )}
       </button>

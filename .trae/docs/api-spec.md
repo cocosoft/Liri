@@ -730,7 +730,7 @@ data: {"type":"done","result":{...}}
 | | `get` | `GET /v1/sessions/{id}` | `get_session` | ❌ |
 | | `generateTitle` | `POST /v1/sessions/{id}/title` | `generate_session_title` | ❌ |
 | | `getMessages` | `GET /v1/sessions/{id}/messages` | `get_session_messages` | ❌ |
-| | `searchMessages` | `GET /v1/sessions/messages/search?q=&limit=` | — | ✅ (HTTP only, 2026-09-18 FTS5 全文搜索) |
+| | `searchMessages` | `GET /v1/sessions/messages/search?q=&limit=&moduleType=` | — | ✅ (HTTP only, 2026-09-18 FTS5 全文搜索；**2026-09-20 新增可选 `moduleType`** 作用域下推：仅返回该模块会话内的命中，谓词在引擎内生效早于 `limit` 截断；不传时保持全局语义 —— 见 N-66) |
 | | `clearAll` | `DELETE /v1/sessions` | `clear_all_sessions` | ❌ |
 | **toolService** | `list` | `GET /v1/tools` | `list_tools` | ✅ |
 | | `execute` | `POST /v1/tools/{name}/execute` | `execute_tool` | ✅ |

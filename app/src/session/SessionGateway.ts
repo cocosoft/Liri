@@ -1426,20 +1426,27 @@ export class SessionGateway {
    * @param query 搜索关键词
    * @param sessionId 按会话过滤（可选）
    * @param limit 最大结果数
+   * @param allowedSessionIds 作用域下推（N-66，可选）：仅返回这些会话内的命中
+   *   —— 由调用方按 `moduleType` 预先算好，谓词在**引擎内**生效（**早于 limit 截断**），
+   *   因此不会出现"本作用域确有命中，却被全局前 N 条挤出"的漏显。
+   *   优先级高于 `sessionId`；两者都不传时保持全局语义。
    * @returns 搜索结果列表
    */
   searchMessagesFTS(
     query: string,
     sessionId?: string,
-    limit?: number
+    limit?: number,
+    allowedSessionIds?: Set<string>
   ): FTSSearchResult[] {
     const engine = getFTS5SearchEngine();
-    return engine.search(
-      query,
-      'message',
-      limit,
-      sessionId ? (doc) => doc.metadata?.sessionId === sessionId : undefined
-    );
+    const predicate = allowedSessionIds
+      ? (doc: { metadata?: Record<string, unknown> }) =>
+          allowedSessionIds.has(String(doc.metadata?.sessionId ?? ''))
+      : sessionId
+        ? (doc: { metadata?: Record<string, unknown> }) =>
+            doc.metadata?.sessionId === sessionId
+        : undefined;
+    return engine.search(query, 'message', limit, predicate);
   }
 
   /**

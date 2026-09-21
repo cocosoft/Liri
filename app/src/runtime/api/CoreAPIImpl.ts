@@ -2370,7 +2370,8 @@ export class CoreAPIImpl implements CoreAPI {
    */
   async searchMessagesFTS(
     query: string,
-    limit?: number
+    limit?: number,
+    allowedSessionIds?: Set<string>
   ): Promise<
     Array<{
       id: string;
@@ -2383,7 +2384,14 @@ export class CoreAPIImpl implements CoreAPI {
     }>
   > {
     const gateway = this.chatManager.getSessionGateway();
-    const results = gateway.searchMessagesFTS(query, undefined, limit ?? 10);
+    // N-66：`allowedSessionIds` 由调用方（HTTP handler 按 moduleType 算好）下推，
+    // 谓词在 FTS 引擎内生效 ⇒ 见 SessionGateway.searchMessagesFTS 的说明
+    const results = gateway.searchMessagesFTS(
+      query,
+      undefined,
+      limit ?? 10,
+      allowedSessionIds
+    );
     return results.map((r) => ({
       id: r.document.id,
       sessionId: (r.document.metadata as Record<string, unknown> | undefined)

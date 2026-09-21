@@ -239,6 +239,8 @@ const en = {
     allSessions: "All Sessions",
     /** §4.3-9：group name for sessions without a project */
     ungroupedSessions: "Ungrouped",
+    /** §4.3-8: badge for search hits located in message body (not title) */
+    contentMatch: "Body",
     filterHistory: "History",
     filterPinned: "Pinned",
     today: "Today",

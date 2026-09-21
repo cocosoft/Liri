@@ -50,10 +50,22 @@ function createZip(sourceDir: string, outputFile: string): void {
 function main(): void {
   const args = process.argv.slice(2);
   let platform = 'win-x64';
+  /**
+   * `--update-only`：只产出**增量包**，跳过完整包与 `run.bat`。
+   *
+   * 为什么需要：`build:update:win` 走的是**轻量构建链**（仅 `build:bundle` + `build:deps`，
+   * **不含** `build:runtime` / `build:seed`）—— 此时 `dist/pkg/` 里没有 Bun 运行时与种子数据，
+   * 若照常压缩完整包，会产出一个**残缺的 full.zip**（且 `run.bat` 会指向不存在的 `runtime\bun.exe`）。
+   * 故该流程必须能只做增量部分。
+   */
+  let updateOnly = false;
 
   for (const arg of args) {
     if (arg.startsWith('--platform=')) {
       platform = arg.split('=')[1];
+    }
+    if (arg === '--update-only') {
+      updateOnly = true;
     }
   }
 
@@ -72,23 +84,28 @@ function main(): void {
     process.exit(1);
   }
 
-  // 生成启动脚本（每次打包时重新生成，确保内容与方案一致）
-  const runBatPath = path.join(pkgDir, 'run.bat');
-  const runBatContent = '@echo off\r\nsetlocal\r\nset "LIRI_PROJECT_DIR=%~dp0"\r\n"%~dp0runtime\\bun.exe" run "%~dp0liri.js" %*';
-  fs.writeFileSync(runBatPath, runBatContent, 'utf-8');
-  console.log(`[生成] run.bat`);
+  if (!updateOnly) {
+    // 生成启动脚本（每次打包时重新生成，确保内容与方案一致）
+    const runBatPath = path.join(pkgDir, 'run.bat');
+    const runBatContent =
+      '@echo off\r\nsetlocal\r\nset "LIRI_PROJECT_DIR=%~dp0"\r\n"%~dp0runtime\\bun.exe" run "%~dp0liri.js" %*';
+    fs.writeFileSync(runBatPath, runBatContent, 'utf-8');
+    console.log(`[生成] run.bat`);
 
-  // 完整包
-  const fullZipName = `liri-v${version}-${platform}-full.zip`;
-  const fullZipPath = path.join(distDir, fullZipName);
-  createZip(pkgDir, fullZipPath);
+    // 完整包
+    const fullZipName = `liri-v${version}-${platform}-full.zip`;
+    const fullZipPath = path.join(distDir, fullZipName);
+    createZip(pkgDir, fullZipPath);
 
-  const fullZipSize = fs.existsSync(fullZipPath)
-    ? `${(fs.statSync(fullZipPath).size / 1024 / 1024).toFixed(1)} MB`
-    : '未知';
+    const fullZipSize = fs.existsSync(fullZipPath)
+      ? `${(fs.statSync(fullZipPath).size / 1024 / 1024).toFixed(1)} MB`
+      : '未知';
 
-  console.log(`\n[完成] 完整包: ${fullZipName} (${fullZipSize})`);
-  console.log(`       路径: ${fullZipPath}`);
+    console.log(`\n[完成] 完整包: ${fullZipName} (${fullZipSize})`);
+    console.log(`       路径: ${fullZipPath}`);
+  } else {
+    console.log('[跳过] --update-only：不生成完整包与 run.bat');
+  }
 
   // 增量包（仅 liri.js + deps 中的变更文件）
   const updateDir = path.join(distDir, 'update-tmp');
@@ -157,3 +174,7 @@ function main(): void {
 }
 
 main();
+
+// 显式退出（台账 N-16 / N-49 约定）：入口脚本必须主动结束进程，
+// 避免将来经依赖引入长驻句柄后"命令卡住不返回"。
+process.exit(0);

@@ -6,7 +6,13 @@
  *   ① 3 读并发完成（end 时间接近，间隔远小于单工具延迟）
  *   ② 写独占（写工具 start 晚于全部读工具 end）
  *   ③ 结果顺序与调用顺序一致（onToolCall end 顺序 = 输入顺序）
- *   ④ 总耗时 ≤ 串行基线 60%
+ *   ④ 并发验证：**工具执行段**耗时 ≤ 串行基线 60%
+ *
+ * ⚠ 测量口径（2026-09-21 修，台账 N-37）：④ 只统计"首个工具 start → 最后一个工具 end"
+ * 的跨度，**不**把 `loop.run()` 的整体墙钟作为判定依据 —— 后者包含首次调用触发的
+ * 模块懒初始化（`OAuthService` / `attachments_sources` 建表 / `TaskComplexityClassifier`
+ * ≈ 300ms），由"哪个文件先触发初始化"决定，会在全量回归中偶发越界（实测 177/188/359/643ms
+ * vs 旧阈值 174ms）。整体墙钟仅保留一个**宽松的挂死兜底**（5s），不参与并发判定。
  */
 
 import { describe, it, expect } from 'bun:test';
@@ -171,10 +177,17 @@ describe('ReActToolLoop 读类并发（M3-T3.2）', () => {
       'writeTool:w1',
     ]);
 
-    // ④ 总耗时 ≤ 串行基线（4×60=240ms）的 60%（144ms）——并发约 2×60=120ms
+    // ④ 并发有效性：只测**工具执行段**（首个工具 start → 最后一个工具 end）
+    //    —— 不含冷启动/懒初始化，故与机器负载无关（N-37 修复点）
+    const toolSpanMs =
+      Math.max(...timeline.map((e) => e.t)) -
+      Math.min(...timeline.map((e) => e.t));
     const serialBaseline = 4 * TOOL_MS;
-    expect(elapsedMs).toBeLessThan(serialBaseline * 0.6 + 30);
-    expect(elapsedMs).toBeLessThan(serialBaseline); // 必小于串行
+    // 并发 ≈ 2×60=120ms；串行 = 240ms ⇒ 阈值 = 60% + 30ms 余量
+    expect(toolSpanMs).toBeLessThan(serialBaseline * 0.6 + 30);
+
+    // ⑤ 兜底（宽松）：整体 run 不挂死 —— 仅防"永久阻塞"类回归，不参与并发判定
+    expect(elapsedMs).toBeLessThan(5000);
   });
 
   it('② 全串行工具（无并发安全）保持严格顺序执行', async () => {

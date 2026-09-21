@@ -343,7 +343,13 @@ export { GrepTool } from './GrepTool/GrepTool';
 export { createWebSearchTool } from './WebSearchTool/WebSearchTool';
 export { createWebFetchTool } from './WebFetchTool/WebFetchTool';
 export { TimeTool } from './TimeTool/TimeTool';
-export { AgentTool } from './AgentTool/AgentTool';
+export {
+  AgentTool,
+  refreshAvailableSubagentTypeNames,
+} from './AgentTool/AgentTool';
+// T8（2026-09-21）：运行台账只读查询端点需要读磁盘台账 ⇒ 经模块出口暴露（避免子目录直连导入）
+export { AgentRunStore, getAgentRunStore } from './AgentTool/AgentRunStore';
+export type { AgentRunRow } from './AgentTool/AgentRunStore';
 export { CuratorScheduler } from './AgentTool/CuratorScheduler';
 export { SkillLifecycleManager } from './AgentTool/SkillLifecycleManager';
 export { notebookManager } from './notebook/NotebookManager';

@@ -3,16 +3,19 @@
  *
  * 覆盖：
  * - 并行 workers 全部执行（每个子任务产出独立结果）
- * - verifier 门禁：失败 worker 被标记 verified=false
+ * - verifier 门禁：失败 worker 被标记 `verify='failed'`
  * - synthesizer 合成全部结果
- * - worker 抛错降级：verified=false + allPassed=false，不阻断整体
- * - B-4 契约：`signal` 取消短路（批次间不再启动 + 跳过 verifier/synthesizer）
- * - B-4 契约：`enableVerify` / `enableSynthesize` 门控路径
- * - B-4 契约：`agentType` 透传（worker 取任务自身类型，verifier/synthesizer 固定类型）
+ * - worker 抛错降级：不阻断整体
+ * - B-4 契约：`signal` 取消短路、`enableVerify`/`enableSynthesize` 门控、`agentType` 透传
+ * - **O4（2026-09-21）**：executor 契约携带真实成败与超时；门禁 **fail-closed**；
+ *   `ok = success ∧ verify ≠ failed ∧ ¬timedOut` 正向合取；`allPassed = every(ok)`
  */
 import { describe, test, expect } from 'bun:test';
 import { AgentSwarm } from '../../../src/tasks/swarm/AgentSwarm';
-import type { AgentSwarmOptions } from '../../../src/tasks/swarm/AgentSwarm';
+import type {
+  AgentSwarmOptions,
+  SwarmExecutorResult,
+} from '../../../src/tasks/swarm/AgentSwarm';
 import type { AgentIsolation } from '@modules/agent';
 
 const swarm = new AgentSwarm();
@@ -22,24 +25,41 @@ const isolation = {
 } as unknown as AgentIsolation;
 
 /** 按 userPrompt 内容路由的 fake executor（worker / verifier / synthesizer） */
-function routedExecutor(options: { verifyPass?: boolean } = {}) {
+function routedExecutor(
+  options: {
+    verifyPass?: boolean;
+    /** verifier 返回的原始文本（用于构造"不可解析"场景） */
+    verifyRawText?: string;
+    workerOk?: boolean;
+    workerTimedOut?: boolean;
+  } = {}
+) {
   const calls: string[] = [];
   const executor: AgentSwarmOptions['executor'] = async ({ userPrompt }) => {
     calls.push(userPrompt.slice(0, 30));
     if (userPrompt.includes('你的子任务')) {
       const m = userPrompt.match(/你的子任务: (.+)/);
-      return `worker-output:${m?.[1]?.slice(0, 10) ?? '?'}`;
+      return {
+        output: `worker-output:${m?.[1]?.slice(0, 10) ?? '?'}`,
+        ok: options.workerOk ?? true,
+        timedOut: options.workerTimedOut ?? false,
+      };
     }
     if (userPrompt.includes('worker 输出')) {
-      return JSON.stringify({
-        pass: options.verifyPass ?? true,
-        feedback: options.verifyPass === false ? '不通过' : '通过',
-      });
+      return {
+        output:
+          options.verifyRawText ??
+          JSON.stringify({
+            pass: options.verifyPass ?? true,
+            feedback: options.verifyPass === false ? '不通过' : '通过',
+          }),
+        ok: true,
+      };
     }
     if (userPrompt.includes('worker 结果汇总')) {
-      return 'synthesized-final-report';
+      return { output: 'synthesized-final-report', ok: true };
     }
-    return 'unknown';
+    return { output: 'unknown', ok: true };
   };
   return { executor, calls };
 }
@@ -58,43 +78,46 @@ describe('AgentSwarm（P1-6）', () => {
     const { executor, calls } = routedExecutor();
     const r = await swarm.run({ ...baseOptions, executor, isolation });
     expect(r.workers.length).toBe(3);
-    // 每个 worker 都有独立输出
     expect(r.workers.every((w) => w.output.startsWith('worker-output:'))).toBe(
       true
     );
-    expect(r.workers.every((w) => w.verified)).toBe(true);
+    expect(r.workers.every((w) => w.verify === 'passed')).toBe(true);
+    expect(r.workers.every((w) => w.ok)).toBe(true);
     expect(r.synthesized).toBe('synthesized-final-report');
     expect(r.allPassed).toBe(true);
     // 3 worker + 3 verifier + 1 synthesizer = 7 次 executor 调用
     expect(calls.length).toBe(7);
   });
 
-  test('verifier 门禁：失败 worker 被标记 verified=false', async () => {
+  test('verifier 门禁：失败 worker 被标记 verify=failed', async () => {
     const { executor } = routedExecutor({ verifyPass: false });
     const r = await swarm.run({ ...baseOptions, executor, isolation });
-    expect(r.workers.every((w) => w.verified)).toBe(false);
+    expect(r.workers.every((w) => w.verify === 'failed')).toBe(true);
     expect(r.workers.every((w) => w.feedback === '不通过')).toBe(true);
+    expect(r.workers.every((w) => w.ok)).toBe(false);
     expect(r.allPassed).toBe(false);
   });
 
-  test('worker 抛错降级：verified=false 且不阻断整体', async () => {
+  test('worker 抛错降级：success=false 且不阻断整体', async () => {
     let count = 0;
     const executor: AgentSwarmOptions['executor'] = async ({ userPrompt }) => {
       if (userPrompt.includes('你的子任务') && ++count === 2) {
         throw new Error('worker crash');
       }
       if (userPrompt.includes('worker 输出')) {
-        return JSON.stringify({ pass: true });
+        return { output: JSON.stringify({ pass: true }), ok: true };
       }
       if (userPrompt.includes('worker 结果汇总')) {
-        return 'synthesized';
+        return { output: 'synthesized', ok: true };
       }
-      return 'ok';
+      return { output: 'ok', ok: true };
     };
     const r = await swarm.run({ ...baseOptions, executor, isolation });
     expect(r.workers.length).toBe(3);
-    // 崩溃的 worker（第二个）被标记未通过
-    expect(r.workers[1].verified).toBe(false);
+    // 崩溃的 worker（第二个）：未执行成功、未跑门禁、ok=false
+    expect(r.workers[1].success).toBe(false);
+    expect(r.workers[1].verify).toBe('skipped');
+    expect(r.workers[1].ok).toBe(false);
     expect(r.workers[1].feedback).toContain('执行失败');
     expect(r.allPassed).toBe(false);
     // synthesizer 仍执行（降级不阻断）
@@ -134,7 +157,8 @@ describe('AgentSwarm（P1-6）', () => {
     expect(seen.length).toBe(1);
     expect(r.workers.length).toBe(1);
     expect(r.workers[0].output.startsWith('worker-output:')).toBe(true);
-    // 取消后跳过 verifier（verified 保持初始 true）与 synthesizer
+    // 取消后跳过 verifier（verify 保持 skipped）与 synthesizer
+    expect(r.workers[0].verify).toBe('skipped');
     expect(r.synthesized).toBe('');
   });
 
@@ -151,8 +175,11 @@ describe('AgentSwarm（P1-6）', () => {
     // 3 次调用 = 仅 workers
     expect(calls.length).toBe(3);
     expect(r.synthesized).toBe('');
-    // 未启用门禁时 verified 保持 true（契约：未启用/降级为 true）
-    expect(r.workers.every((w) => w.verified)).toBe(true);
+    // O4：未启用门禁 ⇒ verify='skipped'（不再是"未启用也记为已通过"），
+    // 但 `ok` 不含门禁项 ⇒ 仍为 true（保持"未启用门禁不阻碍交付"）
+    expect(r.workers.every((w) => w.verify === 'skipped')).toBe(true);
+    expect(r.workers.every((w) => w.ok)).toBe(true);
+    expect(r.allPassed).toBe(true);
   });
 
   test('仅关闭 synthesize：verifier 仍逐 worker 执行', async () => {
@@ -176,10 +203,13 @@ describe('AgentSwarm（P1-6）', () => {
       agentType,
     }) => {
       seen.push(agentType);
-      if (userPrompt.includes('你的子任务')) return 'worker-output';
-      if (userPrompt.includes('worker 输出'))
-        return JSON.stringify({ pass: true });
-      return 'synthesized';
+      if (userPrompt.includes('你的子任务')) {
+        return { output: 'worker-output', ok: true };
+      }
+      if (userPrompt.includes('worker 输出')) {
+        return { output: JSON.stringify({ pass: true }), ok: true };
+      }
+      return { output: 'synthesized', ok: true };
     };
     const r = await swarm.run({
       ...baseOptions,
@@ -196,5 +226,81 @@ describe('AgentSwarm（P1-6）', () => {
     expect(seen[1]).toBeUndefined();
     expect(seen.slice(2, 4)).toEqual(['verification', 'verification']);
     expect(seen[4]).toBe('general');
+  });
+});
+
+describe('AgentSwarm：O4 门禁语义（fail-closed + 正向合取）', () => {
+  test('verifier 输出不可解析 ⇒ **判不过**（原实现 fail-open 为通过）', async () => {
+    const { executor } = routedExecutor({
+      verifyRawText: '我无法给出结论。', // 无 JSON 块
+    });
+    const r = await swarm.run({ ...baseOptions, executor, isolation });
+
+    expect(r.workers.every((w) => w.verify === 'failed')).toBe(true);
+    expect(r.workers[0].feedback).toContain('fail-closed');
+    expect(r.allPassed).toBe(false);
+  });
+
+  test('verifier 输出缺少布尔 pass ⇒ **判不过**（原实现缺失即视为通过）', async () => {
+    const { executor } = routedExecutor({
+      verifyRawText: JSON.stringify({ feedback: '看着还行' }),
+    });
+    const r = await swarm.run({ ...baseOptions, executor, isolation });
+
+    expect(r.workers.every((w) => w.verify === 'failed')).toBe(true);
+    expect(r.allPassed).toBe(false);
+  });
+
+  test('verifier 自身抛错 ⇒ 该 worker **判不过**（原实现保持已通过）', async () => {
+    const executor: AgentSwarmOptions['executor'] = async ({ userPrompt }) => {
+      if (userPrompt.includes('你的子任务')) {
+        return { output: 'worker-output', ok: true };
+      }
+      if (userPrompt.includes('worker 输出')) {
+        throw new Error('verifier crash');
+      }
+      return { output: 'synthesized', ok: true };
+    };
+    const r = await swarm.run({ ...baseOptions, executor, isolation });
+
+    expect(r.workers.every((w) => w.verify === 'failed')).toBe(true);
+    expect(r.workers[0].feedback).toContain('verifier 执行失败');
+    expect(r.allPassed).toBe(false);
+  });
+
+  test('worker 超时 ⇒ success=false（timedOut 为合取项）', async () => {
+    const { executor } = routedExecutor({ workerOk: false, workerTimedOut: true });
+    const r = await swarm.run({ ...baseOptions, executor, isolation });
+
+    expect(r.workers.every((w) => w.timedOut)).toBe(true);
+    expect(r.workers.every((w) => w.success)).toBe(false);
+    expect(r.workers.every((w) => w.ok)).toBe(false);
+    expect(r.allPassed).toBe(false);
+  });
+
+  test('worker 引擎未完成（ok=false）⇒ 不跑门禁且 `ok=false`（合取第一项即已否决）', async () => {
+    const { executor } = routedExecutor({ workerOk: false });
+    const r = await swarm.run({ ...baseOptions, executor, isolation });
+
+    // 门禁只作用于成功 worker ⇒ 未完成的 worker 保持 skipped
+    expect(r.workers.every((w) => w.verify === 'skipped')).toBe(true);
+    expect(r.workers.every((w) => w.success)).toBe(false);
+    expect(r.workers.every((w) => w.ok)).toBe(false);
+    expect(r.allPassed).toBe(false);
+  });
+});
+
+/** 契约守卫：executor 返回值形状（防止回退为"只回文本"） */
+describe('SwarmExecutor 契约（O4）', () => {
+  test('返回值必须是 { output, ok, timedOut? }', async () => {
+    const { executor } = routedExecutor();
+    const res: SwarmExecutorResult = await executor({
+      systemPrompt: 's',
+      userPrompt: '你的子任务: x',
+      tools: [],
+    });
+
+    expect(typeof res.output).toBe('string');
+    expect(typeof res.ok).toBe('boolean');
   });
 });

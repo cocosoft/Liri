@@ -1,4 +1,7 @@
 [test]
+# 台账 N-46：AgentTool 的单元测试会经 `getAgentRunStore()` 落盘到生产 DB
+# （`~/.pyapp/data/app.db`）⇒ 用 preload 把该单例重定向到临时库，隔离生产台账
+preload = ["./tests/setupIsolateAgentStore.ts"]
 pathIgnorePatterns = [
   "data/testing/**",
   "data/pyapp/knowledge/**",

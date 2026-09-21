@@ -338,20 +338,26 @@ async function handleAgentStatus(
   const agentTool = getAgentTool();
 
   if (agentTool) {
-    const status = agentTool.getAgentStatus(id);
+    const status = await agentTool.getAgentStatus(id);
     if (status.status !== 'not_found') {
       const icon =
         status.status === 'running'
           ? '🔄'
-          : status.status === 'completed'
-            ? '✅'
-            : '❌';
+          : status.status === 'cancel_requested'
+            ? '🕓'
+            : status.status === 'completed'
+              ? '✅'
+              : status.status === 'unknown'
+                ? '❔'
+                : '❌';
       const duration = status.duration
         ? formatDuration(status.duration)
         : 'unknown';
+      // O19：答案为磁盘台账时显式标注（内存归因窗口之外的 run 只有这一条路）
+      const sourceHint = status.source === 'store' ? ' [来源: 磁盘台账]' : '';
       return {
         success: true,
-        message: `${icon} Agent [${id}] status: ${status.status} (${duration})`,
+        message: `${icon} Agent [${id}] status: ${status.status} (${duration})${sourceHint}`,
       };
     }
   }
@@ -420,7 +426,8 @@ async function handleAgentStop(
   let stopped = false;
 
   if (agentTool) {
-    stopped = agentTool.stopAgent(id);
+    // O14：CLI 进程内特权调用（无会话上下文）须**显式**声明
+    stopped = agentTool.stopAgent(id, { privileged: true });
   }
 
   if (!stopped) {

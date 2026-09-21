@@ -15,6 +15,12 @@ import { AgentTool } from '../../../src/tools/AgentTool/AgentTool';
 import { ToolExecutionStatus } from '../../../src/tools/types/ToolResult';
 import { globalEventBus } from '../../../src/core/events/EventBus.js';
 import { OrchestrationEventType } from '@modules/agent';
+import { getAgentRunStore } from '../../../src/tools/AgentTool/AgentRunStore';
+import {
+  setSpawnPaused,
+  resetSpawnPause,
+  isSpawnPaused,
+} from '../../../src/tools/AgentTool/spawnPause';
 
 /** fake 引擎入参（只声明本测试用到的字段；实参多出的字段可安全忽略） */
 interface EngineStubParams {
@@ -26,7 +32,12 @@ interface EngineStubParams {
 /** 注入 fake 引擎（替换私有字段 `engine`，绕开真实子代理执行） */
 function installEngine(
   tool: AgentTool,
-  execute: (params: EngineStubParams) => Promise<{ output: string }>
+  execute: (params: EngineStubParams) => Promise<{
+    output: string;
+    /** O4：适配器按引擎**真实结果**判定 worker 成败（缺省视为成功，保持既有桩简洁） */
+    completed?: boolean;
+    timedOut?: boolean;
+  }>
 ): void {
   Reflect.set(tool, 'engine', { execute });
 }
@@ -64,6 +75,7 @@ describe('AgentTool.tasks[] 并行分支（B-4 护栏）', () => {
     const tool = new AgentTool();
     installEngine(tool, async (params) => ({
       output: workerOutput(userPromptOf(params)),
+      completed: true,
     }));
 
     const result = await tool.execute({
@@ -82,6 +94,16 @@ describe('AgentTool.tasks[] 并行分支（B-4 护栏）', () => {
     const meta = result.metadata as Record<string, unknown>;
     expect(meta['parallelTaskCount']).toBe(2);
     expect(meta['parallelSuccessCount']).toBe(2);
+
+    // O6⑥：批次内**逐任务**落盘 —— worker 行以 `batchId::taskKey` 为主键，逐个写回终态
+    const batchRows = (await getAgentRunStore().listRuns()).filter(
+      (r) => r.batchId === String(meta['agentId'])
+    );
+    expect(batchRows.map((r) => r.taskKey).sort()).toEqual([
+      'task-0',
+      'task-1',
+    ]);
+    expect(batchRows.every((r) => r.status === 'completed')).toBe(true);
   });
 
   test('worker 失败：FAIL 行逐字一致 + 成功计数只算成功项', async () => {
@@ -89,7 +111,7 @@ describe('AgentTool.tasks[] 并行分支（B-4 护栏）', () => {
     installEngine(tool, async (params) => {
       const prompt = userPromptOf(params);
       if (ownTask(prompt).startsWith('设计模块 B')) throw new Error('boom');
-      return { output: workerOutput(prompt) };
+      return { output: workerOutput(prompt), completed: true };
     });
 
     const result = await tool.execute({
@@ -128,6 +150,7 @@ describe('AgentTool.tasks[] 并行分支（B-4 护栏）', () => {
       const tool = new AgentTool();
       installEngine(tool, async (params) => ({
         output: workerOutput(userPromptOf(params)),
+        completed: true,
       }));
       await tool.execute({
         description: '并行执行 A/B',
@@ -149,9 +172,12 @@ describe('AgentTool.tasks[] 并行分支（B-4 护栏）', () => {
       const prompt = userPromptOf(params);
       // verifier 提示词含「worker 输出」→ 返回门禁结论
       if (prompt.includes('worker 输出')) {
-        return { output: JSON.stringify({ pass: true, feedback: '通过' }) };
+        return {
+          output: JSON.stringify({ pass: true, feedback: '通过' }),
+          completed: true,
+        };
       }
-      return { output: workerOutput(prompt) };
+      return { output: workerOutput(prompt), completed: true };
     });
 
     const result = await tool.execute({
@@ -167,5 +193,53 @@ describe('AgentTool.tasks[] 并行分支（B-4 护栏）', () => {
       '## Worker 结果（verified 1/1，allPassed: true）'
     );
     expect(result.output).toContain('[OK] task-0: out-a');
+  });
+
+  test('E2：spawn 暂停 ⇒ 新委派被拒（在途不受影响）', async () => {
+    setSpawnPaused(true, '测试刹车');
+    try {
+      const tool = new AgentTool();
+      installEngine(tool, async (params) => ({
+        output: workerOutput(userPromptOf(params)),
+        completed: true,
+      }));
+
+      const result = await tool.execute({
+        description: '并行执行 A',
+        prompt: '总任务',
+        tasks: [{ description: '分析需求 A', prompt: 'p1' }],
+      });
+
+      expect(result.status).toBe(ToolExecutionStatus.FAILURE);
+      expect(result.error).toContain('已暂停');
+      expect(result.error).toContain('测试刹车');
+      // 关键语义：只挡新增 —— 暂停期间不做任何取消/中止
+      expect(isSpawnPaused()).toBe(true);
+    } finally {
+      resetSpawnPause();
+    }
+    expect(isSpawnPaused()).toBe(false);
+  });
+
+  test('O4：引擎 `completed=false`（超时/截断）⇒ 计为 FAIL 且不计入成功数', async () => {
+    const tool = new AgentTool();
+    installEngine(tool, async (params) => ({
+      output: workerOutput(userPromptOf(params)),
+      completed: false,
+      timedOut: true,
+    }));
+
+    const result = await tool.execute({
+      description: '并行执行 A',
+      prompt: '总任务',
+      tasks: [{ description: '分析需求 A', prompt: 'p1' }],
+    });
+
+    expect(result.status).toBe(ToolExecutionStatus.SUCCESS);
+    // 原实现"未抛错即成功" ⇒ 超时/截断会被记成 `[OK]`；O4 后按引擎真实结果记 FAIL
+    expect(result.output).toContain('[FAIL] 分析需求 A:');
+    expect(result.output).not.toContain('[OK] 分析需求 A');
+    const meta = result.metadata as Record<string, unknown>;
+    expect(meta['parallelSuccessCount']).toBe(0);
   });
 });

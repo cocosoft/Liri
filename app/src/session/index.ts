@@ -49,6 +49,14 @@ export type {
 export * from './storage/StorageFactory.js';
 import './storage/MemoryUnifiedStorage.js';
 export { StorageAdapter, createStorageAdapter } from './StorageAdapter.js';
+// O10b（v7.1）：控制面 Tier1 血缘链（会话祖先判定；运行期链，fail-closed）
+export {
+  MAX_LINEAGE_HOPS,
+  isAncestorSession,
+  getSessionParent,
+  registerSessionLineage,
+  resetSessionLineage,
+} from './lineage/sessionLineage';
 export {
   TranscriptManager,
   createTranscriptManager,

@@ -161,6 +161,14 @@ export interface SubAgentResult {
   /** L4（2026-09-06）：终止语义细分（completed/max_turns/aborted/error/budget_exhausted/loop_detected）——
    *  由 SubAgentLoop 骨架 getTerminationReason() 派生，不再折叠为单一 error 文本 */
   terminationReason?: TerminationReason;
+  /**
+   * O4：是否因**整体超时**终止（由超时定时器首次触发时置位）。
+   *
+   * 与 `terminationReason === 'aborted'` 并存而不互相替代：`aborted` 无法区分
+   * "用户中止"与"超时"，故超时**单独成字段**，供上层做
+   * `ok = 执行成功 ∧ 门禁通过 ∧ 未超时` 的**正向合取**（避免按错误文本做字符串匹配）。
+   */
+  timedOut?: boolean;
   /** 执行时长（毫秒） */
   durationMs: number;
 }
@@ -181,6 +189,11 @@ export class SubAgentEngine {
     {
       abortController: AbortController;
       startTime: number;
+      /**
+       * 归属父会话（B1/O1-2）：yield 恢复的"仍应等待"判据需按会话取值——
+       * 全局计数会把其他会话的在途子代理算进来，导致本会话等待被永久阻塞。
+       */
+      sessionId?: string;
     }
   > = new Map();
 
@@ -212,7 +225,11 @@ export class SubAgentEngine {
     const abortController = new AbortController();
     const startTime = Date.now();
 
-    this.activeAgents.set(agentId, { abortController, startTime });
+    this.activeAgents.set(agentId, {
+      abortController,
+      startTime,
+      sessionId: request.toolContext?.sessionId,
+    });
 
     // BUG 15 修复（2026-08-27）：接入外部取消信号——调用方（如
     // ParallelOrchestrator 的 abortAll，该文件已随 B-4 删除）通过 request.signal 取消任务时，联动中止
@@ -248,9 +265,12 @@ export class SubAgentEngine {
     }
 
     // 整体超时保护：超时后自动 abort，防止子代理永久挂起
+    // O4：超时**单独置位**（`terminationReason` 只会是 'aborted'，无法与用户中止区分）
+    let timedOut = false;
     const timeoutMs = this.config.timeoutMs;
     const timeoutTimer = setTimeout(() => {
       if (!abortController.signal.aborted) {
+        timedOut = true;
         logger.warn('SubAgent 执行超时，自动中止', { agentId, timeoutMs });
         abortController.abort();
       }
@@ -455,6 +475,7 @@ export class SubAgentEngine {
           },
           durationMs,
           terminationReason: loopResult.terminationReason,
+          timedOut,
         };
       }
 
@@ -495,6 +516,7 @@ export class SubAgentEngine {
         },
         error: loopResult.error || '子代理执行未完成',
         terminationReason: loopResult.terminationReason,
+        timedOut,
       });
     } catch (error) {
       clearTimeout(timeoutTimer);
@@ -553,6 +575,8 @@ export class SubAgentEngine {
           totalTokens: totalPromptTokens + totalCompletionTokens,
         },
         error: errorMessage,
+        // O4：超时导致的异常路径同样要标记（否则上层无法做"未超时"的合取判定）
+        timedOut,
       });
     }
   }
@@ -581,6 +605,30 @@ export class SubAgentEngine {
       agentId,
       elapsedMs: now - agent.startTime,
     }));
+  }
+
+  /**
+   * 该会话是否仍有活跃子代理 run（B1/O1-2：yield 恢复的唯一"仍应等待"判据）。
+   *
+   * 判定取自引擎自身的 run 台账（`execute` 入口登记、完成/失败/中断三路注销），
+   * 不取工具侧展示用 Map —— 后者含 pending 清理与全表扫描，不构成 run 存续的事实来源。
+   */
+  hasActiveAgentForSession(sessionId: string): boolean {
+    for (const agent of this.activeAgents.values()) {
+      if (agent.sessionId === sessionId) return true;
+    }
+    return false;
+  }
+
+  /**
+   * 该 run 的**归属会话**（O14-2：控制面所有权原语，仅供授权校验使用）。
+   *
+   * 引擎侧归属来自 `request.toolContext.sessionId`（`execute` 入口登记）。
+   * 用于补上台账覆盖不到的路径 —— 并行批次的 worker 以 `swarm-<id>` 直接跑在引擎上，
+   * 不经 `AgentRunLedger.register`，其归属只能由引擎作答。
+   */
+  ownerSessionId(agentId: string): string | undefined {
+    return this.activeAgents.get(agentId)?.sessionId;
   }
 
   /**
@@ -710,6 +758,8 @@ export class SubAgentEngine {
       };
       error?: string;
       terminationReason?: TerminationReason;
+      /** O4：是否整体超时终止 */
+      timedOut?: boolean;
     }
   ): SubAgentResult {
     return {

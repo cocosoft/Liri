@@ -29,6 +29,10 @@ export interface AgentRoleRow {
   weight: number;
   /** System prompt 模板 */
   system_prompt: string;
+  /** 推荐模型（O11-2：可空 —— 空表示沿用调用方/任务分工的默认模型） */
+  model: string | null;
+  /** T9：能否再委派子代理（0/1；缺省 0 = 不可委派） */
+  can_delegate: number;
   /** 图标 emoji */
   icon: string;
   /** 排序序号 */
@@ -49,6 +53,16 @@ export interface AgentRoleConfig {
   expertise: string[];
   weight: number;
   systemPrompt: string;
+  /** 推荐模型（O11-2）：非空时子代理按此模型执行；空则沿用默认/任务分工 */
+  model?: string;
+  /**
+   * T9：该角色**能否再委派子代理**（策略位，由用户在「Agent 角色」页设置）。
+   *
+   * 语义：**缺省/false = 不可委派**（fail-closed）。即使为 true，仍受父侧
+   * `MAX_SUBAGENT_DEPTH` 深度上限约束（双判据）—— 模型**不能**通过 `subagent_type`
+   * 自选该授权（它只能选择用户已授权的角色）。
+   */
+  canDelegate?: boolean;
   icon: string;
   sortOrder: number;
   enabled: boolean;
@@ -65,6 +79,8 @@ function rowToConfig(row: AgentRoleRow): AgentRoleConfig {
     expertise: JSON.parse(row.expertise || '[]'),
     weight: row.weight,
     systemPrompt: row.system_prompt,
+    model: row.model ?? undefined,
+    canDelegate: row.can_delegate === 1,
     icon: row.icon,
     sortOrder: row.sort_order,
     enabled: row.enabled === 1,
@@ -75,21 +91,55 @@ function rowToConfig(row: AgentRoleRow): AgentRoleConfig {
  * Agent 角色配置存储库
  *
  * 基于 SQLite，遵循项目现有 CostRecordRepository 模式。
+ *
+ * **所有权（T1 复核修正）**：`agent_roles` 是 Liri **全局 Agent 角色的单一数据源**，
+ * 两个消费者共用同一份配置 ——
+ * ① 理事会辩论（`CouncilOrchestrator`，取启用集）；② 子代理描述符解析链
+ * （`AgentTool` 的 `subagent_type`，取单条并区分"被禁用 / 不存在"）。
+ * ⚠ 原文写"该表存储**理事会**所需的专家 Agent 角色配置"与事实不符（子代理链路已在生产中读它），
+ * 该表述是"命名/职责漂移"的源头（设计文档 A2/R1）。
+ *
+ * **`agent_id` 大小写契约（O16）**：写入（`insert` / `update`）与按 agentId 查询
+ * （`getByAgentId`）两侧统一 `trim().toLowerCase()` —— 表列 `agent_id` 为
+ * `TEXT NOT NULL UNIQUE`（**无** `COLLATE NOCASE`，SQLite 默认 BINARY 比较），
+ * 若不归一，用户在管理页填 `CodeReview`、模型传 `codereview` 会**必然查不到**
+ * （当前 5 个默认角色恰好全小写，掩盖了该洞）。
+ * 归一化**收敛在本类内** ⇒ 调用方（HTTP 层 / 解析链）无需自行处理大小写。
  */
 export class AgentRoleStore {
   private db: Database | null = null;
+
+  /** O16：`agent_id` 归一化 —— 写入与查询的**唯一入口** */
+  private static normalizeAgentId(agentId: string): string {
+    return agentId.trim().toLowerCase();
+  }
+
   private dbPath: string;
+  /** 进行中的初始化（O11：并发调用共享，避免重复打开连接） */
+  private initPromise: Promise<void> | null = null;
 
   constructor(dbPath: string = resolveDbPath()) {
     this.dbPath = dbPath;
   }
 
-  /** 初始化数据库连接和表结构 */
+  /**
+   * 初始化数据库连接和表结构。
+   *
+   * **幂等 + 并发安全**（O11）：`getAgentRoleStore()` 创建单例时会 fire-and-forget 调一次
+   * `init()`；子代理描述符解析链随后 `await init()` —— 二者并发时旧实现会**重复打开连接**。
+   * 现用单一 Promise 共享同一次初始化。
+   */
   async init(): Promise<void> {
     if (this.db) {
       return;
     }
+    if (!this.initPromise) {
+      this.initPromise = this.doInit();
+    }
+    await this.initPromise;
+  }
 
+  private async doInit(): Promise<void> {
     this.db = await new Promise<Database>((resolve, reject) => {
       const db = new Database(this.dbPath, (err: Error | null) => {
         if (err) {
@@ -101,6 +151,7 @@ export class AgentRoleStore {
     });
 
     await this.createTables();
+    await this.ensureColumns();
     await this.seedDefaults();
   }
 
@@ -120,6 +171,8 @@ export class AgentRoleStore {
           expertise   TEXT NOT NULL DEFAULT '[]',
           weight      REAL NOT NULL DEFAULT 1.0,
           system_prompt TEXT NOT NULL DEFAULT '',
+          model       TEXT,
+          can_delegate INTEGER NOT NULL DEFAULT 0,
           icon        TEXT NOT NULL DEFAULT '🤖',
           sort_order  INTEGER NOT NULL DEFAULT 0,
           enabled     INTEGER NOT NULL DEFAULT 1,
@@ -136,6 +189,71 @@ export class AgentRoleStore {
         }
       );
     });
+  }
+
+  /**
+   * 逐列补齐既有库的缺失列（O11-2，与 O6③ 同法：**幂等 DDL**）。
+   *
+   * 老库（本列新增前创建）不会因 `CREATE TABLE IF NOT EXISTS` 得到新列，
+   * 故以 `PRAGMA table_info` 探测后 `ALTER TABLE ADD COLUMN` 逐列补齐；
+   * 仅**新增字段**，不改动/删除任何既有结构。
+   */
+  private async ensureColumns(): Promise<void> {
+    if (!this.db) {
+      return;
+    }
+    const columns = await new Promise<string[]>((resolve, reject) => {
+      this.db!.all(
+        `PRAGMA table_info(${AGENT_ROLES_TABLE})`,
+        (err: Error | null, rows: Array<{ name: string }> | undefined) => {
+          if (err) {
+            reject(err);
+          } else {
+            resolve((rows || []).map((r) => r.name));
+          }
+        }
+      );
+    }).catch((err: unknown) => {
+      logger.error('AgentRoleStore 读取表结构失败', { error: String(err) });
+      return [] as string[];
+    });
+
+    if (columns.length > 0 && !columns.includes('model')) {
+      await new Promise<void>((resolve, reject) => {
+        this.db!.run(
+          `ALTER TABLE ${AGENT_ROLES_TABLE} ADD COLUMN model TEXT`,
+          (err: Error | null) => {
+            if (err) {
+              reject(err);
+            } else {
+              resolve();
+            }
+          }
+        );
+      });
+      logger.info('AgentRoleStore 已补齐 model 列', {
+        table: AGENT_ROLES_TABLE,
+      });
+    }
+
+    // T9：角色级"能否再委派子代理"策略位（默认 0 = 不可委派，fail-closed）
+    if (columns.length > 0 && !columns.includes('can_delegate')) {
+      await new Promise<void>((resolve, reject) => {
+        this.db!.run(
+          `ALTER TABLE ${AGENT_ROLES_TABLE} ADD COLUMN can_delegate INTEGER NOT NULL DEFAULT 0`,
+          (err: Error | null) => {
+            if (err) {
+              reject(err);
+            } else {
+              resolve();
+            }
+          }
+        );
+      });
+      logger.info('AgentRoleStore 已补齐 can_delegate 列', {
+        table: AGENT_ROLES_TABLE,
+      });
+    }
   }
 
   /** 首次初始化时写入默认 5 个专家角色 */
@@ -229,14 +347,21 @@ export class AgentRoleStore {
     logger.info('已写入默认 5 个专家 Agent 角色', { count: defaults.length });
   }
 
-  /** 查询已启用角色数量 */
+  /**
+   * 统计**表内全部**角色行数（O11-2：用于 `seedDefaults` 的"是否已播种"判定）。
+   *
+   * ⚠ 语义校正：原实现为 `WHERE enabled = 1` ⇒ 用户把 5 个默认角色**全部禁用**后重启，
+   * 计数归 0 ⇒ 重新播种 ⇒ 撞 `agent_id UNIQUE` 冲突（`INSERT` 报错被
+   * `getAgentRoleStore()` 的 `.catch()` 吞掉，仅表现为启动日志一条 error）。
+   * 播种的存在性判据应是"表是否为空"，与启用位无关。
+   */
   private async count(): Promise<number> {
     if (!this.db) {
       return 0;
     }
     return await new Promise<number>((resolve, reject) => {
       this.db!.get(
-        `SELECT COUNT(*) AS cnt FROM ${AGENT_ROLES_TABLE} WHERE enabled = 1`,
+        `SELECT COUNT(*) AS cnt FROM ${AGENT_ROLES_TABLE}`,
         (err: Error | null, row: { cnt: number } | undefined) => {
           if (err) {
             reject(err);
@@ -260,16 +385,20 @@ export class AgentRoleStore {
       this.db!.run(
         `
         INSERT INTO ${AGENT_ROLES_TABLE}
-          (id, agent_id, name, expertise, weight, system_prompt, icon, sort_order, enabled, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          (id, agent_id, name, expertise, weight, system_prompt, model, can_delegate, icon, sort_order, enabled, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `,
         [
           id,
-          config.agentId,
+          // O16：写入侧归一（查询侧同源，见 getByAgentId）
+          AgentRoleStore.normalizeAgentId(config.agentId),
           config.name,
           JSON.stringify(config.expertise),
           config.weight,
           config.systemPrompt,
+          config.model ?? null,
+          // T9：缺省 0 = 不可委派（fail-closed）
+          config.canDelegate ? 1 : 0,
           config.icon,
           config.sortOrder,
           config.enabled ? 1 : 0,
@@ -299,7 +428,8 @@ export class AgentRoleStore {
 
     if (config.agentId !== undefined) {
       sets.push('agent_id = ?');
-      params.push(config.agentId);
+      // O16：改 agentId 也是写入 ⇒ 同一归一化
+      params.push(AgentRoleStore.normalizeAgentId(config.agentId));
     }
     if (config.name !== undefined) {
       sets.push('name = ?');
@@ -316,6 +446,15 @@ export class AgentRoleStore {
     if (config.systemPrompt !== undefined) {
       sets.push('system_prompt = ?');
       params.push(config.systemPrompt);
+    }
+    if (config.model !== undefined) {
+      sets.push('model = ?');
+      params.push(config.model);
+    }
+    if (config.canDelegate !== undefined) {
+      // T9：策略位（显式提交才改；缺省保持原值）
+      sets.push('can_delegate = ?');
+      params.push(config.canDelegate ? 1 : 0);
     }
     if (config.icon !== undefined) {
       sets.push('icon = ?');
@@ -386,7 +525,16 @@ export class AgentRoleStore {
     });
   }
 
-  /** 查询已启用的 Agent 角色 */
+  /**
+   * 查询已启用的 Agent 角色。
+   *
+   * ⚠ 解析契约（O11-1）：`enabled = 0` 的角色**不出现**在本结果中，
+   * 且子代理描述符解析遇到 disabled 角色时**判为解析失败**（显式拒绝），
+   * **不得**回退默认提示词 —— "被禁用"与"不存在"必须让调用方能区分。
+   *
+   * （T7：启用判定的**单一实现**见 `resolveForDelegation()`；本方法在 SQL 侧过滤，
+   *  属同一规则的"集合形态"，两处语义须一致。）
+   */
   async listEnabled(): Promise<AgentRoleConfig[]> {
     if (!this.db) {
       return [];
@@ -405,7 +553,11 @@ export class AgentRoleStore {
     });
   }
 
-  /** 根据 agent_id 查询单条 */
+  /**
+   * 根据 agent_id 查询单条（O16：查询侧归一，与写入侧同源 ⇒ 大小写不敏感）
+   *
+   * ⚠ 解析链请用 [`resolveForDelegation`] —— 它把"启用判定"一并收敛，避免调用方自建第二份判定（T7）。
+   */
   async getByAgentId(agentId: string): Promise<AgentRoleConfig | null> {
     if (!this.db) {
       return null;
@@ -413,7 +565,7 @@ export class AgentRoleStore {
     return await new Promise<AgentRoleConfig | null>((resolve, reject) => {
       this.db!.get(
         `SELECT * FROM ${AGENT_ROLES_TABLE} WHERE agent_id = ?`,
-        [agentId],
+        [AgentRoleStore.normalizeAgentId(agentId)],
         (err: Error | null, row: AgentRoleRow | undefined) => {
           if (err) {
             reject(err);
@@ -423,6 +575,39 @@ export class AgentRoleStore {
         }
       );
     });
+  }
+
+  /**
+   * T7：**解析链专用取数（三态）** —— 让"启用判定"在存储层成为**单一实现**。
+   *
+   * 为何不返回"角色 + 让调用方读 `enabled`"：那样"什么算启用"的规则会出现两份
+   * （本类 `listEnabled()` 的 SQL 侧 + 解析链的内存侧），语义漂移时两边结论会不一致
+   * （设计文档 A6/T7：双消费者分叉）。
+   *
+   * 三态的必要性（O11-1）：`disabled` 与 `missing` 必须可分辨 —— 前者文案是"已被禁用"、
+   * 后者是"未知类型并给出可用名单"，且**都不得**静默回退默认提示词。
+   */
+  async resolveForDelegation(
+    agentId: string
+  ): Promise<
+    | { state: 'ok'; role: AgentRoleConfig }
+    | { state: 'disabled' }
+    | { state: 'missing' }
+  > {
+    const role = await this.getByAgentId(agentId);
+    if (!role) return { state: 'missing' };
+    if (!AgentRoleStore.isEnabled(role)) return { state: 'disabled' };
+    return { state: 'ok', role };
+  }
+
+  /**
+   * 单一启用判定（T7）。
+   *
+   * `listEnabled()` 的 `WHERE enabled = 1` 与解析链的三态判定**语义同源**（同一列、同一规则），
+   * 只是读法不同（集合 vs 单条）；此谓词是"内存侧"的唯一实现，SQL 侧须与它保持一致。
+   */
+  private static isEnabled(role: AgentRoleConfig): boolean {
+    return role.enabled;
   }
 
   /** 关闭数据库连接 */

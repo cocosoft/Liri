@@ -23,6 +23,16 @@
  *   - `isolation` 由必填改为**可选**：仅当 executor 真正消费隔离资源时才传。
  *     `createAgentIsolation()` 会同步创建 `~/.pyapp/workspaces/<id>` 且 `cleanup()` 默认不删目录，
  *     调用方仅为满足类型而传入会导致空目录随调用无界累积。
+ *
+ * 2026-09-21 契约修订（O12-2）：
+ *   - `SwarmExecutorParams.tools` 由**必填改为可选**，并明确语义为「工具**类别**清单」
+ *     （`toolCategories.ts` 的 `ToolCategory`，如 `search` / `file_read`；**不是**工具名）：
+ *     worker 调用携带 `['search','file_read']`（只读检索，与 worker 提示词的
+ *     "只读操作，不修改任何文件"一致）；verifier / synthesizer 调用**不携带**
+ *     （其产物是 JSON 结论/汇总报告，输入已由 worker 输出提供，注入工具只增加非确定性）。
+ *   - 修正原声明值 `['search','file']`：其中 `'file'` 是**写入**类别，与只读契约自相矛盾。
+ *   - 此前该字段**从未被适配器消费**（`AgentTool.buildSwarmExecutor` 恒传 `tools: []` 给引擎）
+ *     ⇒ worker 连只读检索都不可用；现按类别过滤后真正注入。
  */
 
 import { getLogger } from '@modules/monitoring';
@@ -38,16 +48,35 @@ export interface SwarmWorkerTask {
   agentType?: string;
 }
 
+/** verifier 门禁三态（O4） */
+export type SwarmVerifyState = 'passed' | 'failed' | 'skipped';
+
 /** 单个 worker 执行结果 */
 export interface SwarmWorkerResult {
   id: string;
   description: string;
   output: string;
-  /** 该 worker 是否执行成功（executor 未抛错即为 true；不看 verifier 结论） */
+  /** 该 worker 是否执行成功（**由 executor 的真实结果判定**，而非"有没有抛错"） */
   success: boolean;
-  /** verifier 门禁是否通过（未启用/降级时为 true） */
-  verified: boolean;
+  /** 是否因整体超时终止（O4：`ok` 的正向合取项） */
+  timedOut: boolean;
+  /**
+   * verifier 门禁结论（O4 三态）：
+   * - `passed`：verifier 明确判过；
+   * - `failed`：明确判不过，**或 verifier 无法给出可解析结论**（fail-closed），**或 verifier 自身抛错**；
+   * - `skipped`：未启用门禁（`enableVerify === false`）或该 worker 根本没跑起来。
+   *
+   * ⚠ 语义变更：原 `verified: boolean` 在"未启用/降级"时恒 `true`（fail-open）——
+   * 无法区分"验证通过"与"压根没验证"。
+   */
+  verify: SwarmVerifyState;
+  /** verifier 反馈（`failed` 时必带原因） */
   feedback?: string;
+  /**
+   * O4 正向合取：`success ∧ verify ≠ failed ∧ ¬timedOut`（在门禁阶段结束后统一计算）。
+   * `allPassed` 以此为准 —— 原实现只看 `verified`，worker 执行失败时仍可能给出 `allPassed: true`。
+   */
+  ok: boolean;
 }
 
 /** verifier 门禁结果 */
@@ -64,7 +93,14 @@ export interface SwarmVerifyResult {
 export interface SwarmExecutorParams {
   systemPrompt: string;
   userPrompt: string;
-  tools: string[];
+  /**
+   * 允许注入的工具**类别**清单（`toolCategories.ts` 的 `ToolCategory`，如 `search` /
+   * `file_read`；**不是**工具名 —— 工具名形如 `grep` / `file_read`，类别形如 `search`）。
+   *
+   * - **worker 调用**携带（当前 `['search','file_read']`：只读检索能力）；
+   * - **verifier / synthesizer 调用缺省** ⇒ 不注入工具（见文件头 O12-2 说明）。
+   */
+  tools?: string[];
   /**
    * 隔离环境（可选）。只有真正消费工作目录隔离的 executor 才需要它；
    * 缺省表示调用方不需要隔离 —— `createAgentIsolation()` 会同步创建
@@ -73,11 +109,28 @@ export interface SwarmExecutorParams {
   isolation?: AgentIsolation;
   /** 期望的子代理类型：worker 取任务自身类型；verifier/synthesizer 为固定类型 */
   agentType?: string;
+  /**
+   * O6⑥：该次调用的**子任务标识**（仅 worker 调用携带；verifier/synthesizer 为空）。
+   *
+   * 供 executor 适配器按"批次 + 子任务"逐条落盘运行台账 —— 并行批次中途崩溃时，
+   * 已完成的 worker 有真实记录，只有未完成的那几个是"未知"，而非**整批**未知。
+   */
+  taskKey?: string;
 }
 
-/** swarm executor（只读调用，返回文本） */
+/** swarm executor 的返回（O4：携带**真实成败**与超时标记，不再只回文本） */
+export interface SwarmExecutorResult {
+  /** worker 输出文本 */
+  output: string;
+  /** 执行是否成功（由底层引擎的真实结果判定） */
+  ok: boolean;
+  /** 是否因整体超时终止（`ok` 的正向合取项，缺省视为未超时） */
+  timedOut?: boolean;
+}
+
+/** swarm executor（只读调用，返回 `{ output, ok, timedOut? }`） */
 export interface SwarmExecutor {
-  (params: SwarmExecutorParams): Promise<string>;
+  (params: SwarmExecutorParams): Promise<SwarmExecutorResult>;
 }
 
 /** swarm 运行配置 */
@@ -111,18 +164,40 @@ export interface AgentSwarmResult {
   allPassed: boolean;
 }
 
-/** 解析 verifier 输出（容错：非 JSON 视为 pass） */
+/**
+ * 解析 verifier 输出（**fail-closed**，O4）
+ *
+ * 原实现为 **fail-open**：未找到 JSON 块 ⇒ `pass: true`；JSON 解析失败 ⇒ `pass: true`
+ * ⇒ verifier 拒答 / 被打断 / 输出被截断时门禁**静默放行**，形同虚设。
+ * 现改为"**无法确证通过 ⇒ 判不过**"，并写明原因（供上层展示与排障）。
+ */
 function parseVerifyOutput(text: string): SwarmVerifyResult {
   const match = text.match(/\{[\s\S]*\}/);
-  if (!match) return { pass: true };
+  if (!match) {
+    return {
+      pass: false,
+      feedback:
+        'verifier 未返回可解析的门禁结论（输出中未找到 JSON）⇒ 按 fail-closed 判不过',
+    };
+  }
   try {
     const parsed = JSON.parse(match[0]) as {
       pass?: boolean;
       feedback?: string;
     };
-    return { pass: parsed.pass !== false, feedback: parsed.feedback };
+    if (typeof parsed.pass !== 'boolean') {
+      return {
+        pass: false,
+        feedback:
+          'verifier 结论缺少布尔字段 pass ⇒ 按 fail-closed 判不过（原实现缺失即视为通过）',
+      };
+    }
+    return { pass: parsed.pass, feedback: parsed.feedback };
   } catch {
-    return { pass: true };
+    return {
+      pass: false,
+      feedback: 'verifier 输出的 JSON 无法解析 ⇒ 按 fail-closed 判不过',
+    };
   }
 }
 
@@ -173,20 +248,31 @@ export class AgentSwarm {
       concurrency,
       async (task) => {
         try {
-          const output = await executor({
+          const res = await executor({
             systemPrompt:
               '你是多代理 swarm 中的一个 worker。只负责完成分配的子任务。输出你的执行结果（可为文本/摘要/JSON）。只读操作，不修改任何文件。',
             userPrompt: `${blackboard}\n\n你的子任务: ${task.description}`,
-            tools: ['search', 'file'],
+            // O12-2：只读检索类别（原 `'file'` 属**写入**类别，与上方提示词的"只读操作"矛盾）
+            tools: ['search', 'file_read'],
             isolation,
             agentType: task.agentType,
+            // O6⑥：worker 调用携带子任务标识 ⇒ 适配器可逐任务落盘
+            taskKey: task.id,
           });
+          const timedOut = res.timedOut === true;
           workerResults.push({
             id: task.id,
             description: task.description,
-            output,
-            success: true,
-            verified: true,
+            output: res.output,
+            // O4：成败取自 executor 的**真实结果**（原实现"未抛错即成功" ⇒
+            // 引擎返回 completed=false（超时/截断/中止）也被记为成功）
+            success: res.ok && !timedOut,
+            timedOut,
+            verify: 'skipped', // 门禁阶段回填（未启用门禁则保持 skipped）
+            ok: false, // 门禁阶段结束后统一按正向合取计算
+            ...(res.ok
+              ? {}
+              : { feedback: '执行未成功（引擎真实结果为未完成）' }),
           });
         } catch (err) {
           workerErrors.push(`${task.id}: ${String(err)}`);
@@ -195,7 +281,9 @@ export class AgentSwarm {
             description: task.description,
             output: '',
             success: false,
-            verified: false,
+            timedOut: false,
+            verify: 'skipped',
+            ok: false,
             feedback: `执行失败: ${String(err)}`,
           });
         }
@@ -210,19 +298,22 @@ export class AgentSwarm {
         concurrency,
         async (r) => {
           try {
-            const text = await executor({
+            const verifyRes = await executor({
               systemPrompt:
                 '你是 swarm 的 verifier。审查 worker 输出是否完成其子任务。输出 JSON：{"pass":bool,"feedback":"说明"}。只读操作。',
               userPrompt: `子任务: ${r.description}\n\nworker 输出:\n${r.output}`,
-              tools: ['search', 'file'],
               isolation,
               agentType: 'verification',
             });
-            const v = parseVerifyOutput(text);
-            r.verified = v.pass;
+            const v = parseVerifyOutput(verifyRes.output);
+            r.verify = v.pass ? 'passed' : 'failed';
             r.feedback = v.feedback;
           } catch (err) {
-            logger.warn('swarm verifier 失败（跳过该 worker 门禁）', {
+            // O4 fail-closed：verifier 自身失败 ⇒ 该 worker **判不过**
+            // （原实现保持 verified=true 并记一条 warn，"跳过门禁"等价于放行）
+            r.verify = 'failed';
+            r.feedback = `verifier 执行失败（fail-closed 判不过）：${String(err)}`;
+            logger.warn('swarm verifier 失败 ⇒ fail-closed 判不过', {
               taskId: r.id,
               error: String(err),
             });
@@ -243,14 +334,15 @@ export class AgentSwarm {
         const summary = workerResults
           .map((r) => `[${r.id}] ${r.description}\n${r.output || '(无输出)'}`)
           .join('\n\n---\n\n');
-        synthesized = await executor({
-          systemPrompt:
-            '你是 swarm 的 synthesizer。汇总所有 worker 的结果，输出一份统一的最终报告（合并重复、标注冲突、给出结论）。只读操作。',
-          userPrompt: `${blackboard}\n\nworker 结果汇总:\n${summary}`,
-          tools: ['search', 'file'],
-          isolation,
-          agentType: 'general',
-        });
+        synthesized = (
+          await executor({
+            systemPrompt:
+              '你是 swarm 的 synthesizer。汇总所有 worker 的结果，输出一份统一的最终报告（合并重复、标注冲突、给出结论）。只读操作。',
+            userPrompt: `${blackboard}\n\nworker 结果汇总:\n${summary}`,
+            isolation,
+            agentType: 'general',
+          })
+        ).output;
       } catch (err) {
         logger.warn('swarm synthesizer 失败（跳过合成）', {
           error: String(err),
@@ -262,10 +354,18 @@ export class AgentSwarm {
       logger.warn('swarm worker 存在失败', { errors: workerErrors });
     }
 
+    // O4：正向合取（`ok = 执行成功 ∧ 门禁未判不过 ∧ 未超时`）——在门禁阶段结束后统一计算
+    for (const r of workerResults) {
+      r.ok = r.success && r.verify !== 'failed' && !r.timedOut;
+    }
+
     return {
       workers: workerResults,
       synthesized,
-      allPassed: workerResults.every((r) => r.verified),
+      // O4：`allPassed` 语义收紧为"每个 worker 都 `ok`" ——
+      // 原实现只看 `verified`，而失败 worker 的 `verified` 初值即为 true
+      // ⇒ 存在"worker 全失败却 allPassed: true"的假阳性
+      allPassed: workerResults.every((r) => r.ok),
     };
   }
 }

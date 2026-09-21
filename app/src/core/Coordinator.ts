@@ -170,7 +170,8 @@ export class Coordinator {
     }
 
     if (task.status === 'running') {
-      const success = this.agentTool.stopAgent(taskId);
+      // O14：进程内特权调用须**显式**声明（不再依赖"不传 requester 即特权"的隐式默认）
+      const success = this.agentTool.stopAgent(taskId, { privileged: true });
       if (success) {
         task.status = 'stopped';
         task.endTime = Date.now();

@@ -238,7 +238,12 @@ export class AgentRegistry {
   // ==================== 内部方法 ====================
 
   /**
-   * 使所有 session 的缓存失效
+   * 使所有 session 的缓存失效（`registerAgent` / `registerAgents` / `unregisterAgent` 内部调用）。
+   *
+   * O17：**收回为 private** —— O11-3 曾将其暴露给 `/v1/agent-roles` 的写路径，但该路径
+   * 清理的是 `discover()` 的会话缓存，与角色解析链（① DB 直查、② 直读 `agents` Map）
+   * **无交集** ⇒ 对目标路径零作用。该链现在改为刷新工具 schema 的可用清单快照
+   * （`refreshAvailableSubagentTypeNames()`），本方法回归"注册表自身操作后的内部失效"。
    */
   private invalidateCache(): void {
     this.sessionCaches.clear();

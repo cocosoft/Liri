@@ -42,7 +42,9 @@ import type {
   SessionsWebSocketCallbacks,
 } from './websocket/SessionsWebSocket.js';
 import { StorageFactory } from './storage/StorageFactory.js';
-import { EventLogStorage } from './storage/EventLogStorage.js';
+import { EventLogStorage } from './storage/EventLogStorage';
+// O10b（v7.1）：Tier1 血缘链（fork 时登记，供控制面祖先判定）
+import { registerSessionLineage } from './lineage/sessionLineage';
 import type { UnifiedSessionStorage } from './storage/UnifiedStorage.js';
 import type { StorageConfig } from './storage/UnifiedStorage.js';
 
@@ -738,6 +740,8 @@ export class SessionGateway {
         worktreeHash,
         sessionsRoot
       );
+      // O10b（v7.1）Tier1 血缘链：fork 即建立血缘 ⇒ 登记运行期链（供控制面祖先判定）
+      registerSessionLineage(child.id, sourceId);
       const copy = await sourceLog.copyPrefixTo(childLog, boundary);
       if (!copy.ok) {
         // H9 修复：复制失败时回滚已创建的子会话（deleteSession 软删除），

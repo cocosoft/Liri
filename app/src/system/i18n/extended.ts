@@ -4,9 +4,7 @@
  * 在现有 core/i18n/ 基础上扩展翻译注册和管理能力
  */
 
-import { configManager } from '@modules/config';
 import { BUILTIN_TRANSLATIONS } from './extended-translations';
-import { handleError } from '@modules/error';
 
 /**
  * 翻译键类型 — 从内置翻译数据自动推导，提供编译期类型检查
@@ -57,10 +55,17 @@ export type SupportedLocale = 'zh' | 'en' | 'ja' | 'ko';
  * @returns 检测到的 locale
  */
 export function detectSystemLocale(): SupportedLocale {
+  // 直接读 `process.env`，**不**经 `configManager.env()`。
+  //
+  // 理由：`configManager.env()` 的实现就是 `process.env[name] ?? defaultValue`（纯代理，
+  // 见 `config/ConfigManager.ts#env`），但 import `@modules/config` 会**连带拉起**
+  // DB 建表（attachments_sources）/ OAuthService / TaskComplexityClassifier 等重量级初始化
+  // —— 实测使 `i18n:check` 脚本启动耗时 **~9.4s**，其中绝大部分来自该 import 链；
+  // 为读 3 个 locale 环境变量付出这个代价不成比例（台账 N-53）。
+  //
+  // 若将来 `ConfigManager.env()` 引入审计 / 白名单 / 类型转换等**实质语义**，此处需重新评估。
   const envLocale =
-    configManager.env('LANG') ||
-    configManager.env('LC_ALL') ||
-    configManager.env('LC_MESSAGES');
+    process.env['LANG'] || process.env['LC_ALL'] || process.env['LC_MESSAGES'];
 
   if (envLocale) {
     const normalized = envLocale.toLowerCase();
@@ -77,9 +82,17 @@ export function detectSystemLocale(): SupportedLocale {
     if (intlLocale.startsWith('ja')) return 'ja';
     if (intlLocale.startsWith('ko')) return 'ko';
   } catch (err) {
-    // Intl API 不可用时静默降级
-
-    handleError(err, { module: 'system:i18n', action: 'detectLocale' });
+    // Intl API 不可用时静默降级 —— 用**惰性** import 上报错误。
+    //
+    // 理由：静态 `import { handleError } from '@modules/error'` 会**连带拉起**
+    // DB 建表（attachments_sources）/ OAuthService / TaskComplexityClassifier 等
+    // 重量级初始化 —— 实测 import 该模块耗时 **9.27s**（台账 N-53）。而本 catch
+    // 仅在 Intl API 不可用时触发（极罕见），不值得让**每一次** import
+    // `extended.ts`（如 `i18n:check` 脚本）都付出该代价。
+    // 惰性 import 为 fire-and-forget：不阻塞同步的 locale 检测流程。
+    void import('@modules/error').then(({ handleError }) =>
+      handleError(err, { module: 'system:i18n', action: 'detectLocale' })
+    );
   }
 
   return 'zh';

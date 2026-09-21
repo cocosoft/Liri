@@ -209,12 +209,29 @@ function handleOnline(): void {
 export const connectionMonitor = {
   /** 启动监测（幂等）：监听网络事件 + 周期健康检查 */
   start(): void {
-    if (started) return;
-    started = true;
-    window.addEventListener("offline", handleOffline);
-    window.addEventListener("online", handleOnline);
-    void tick();
-    timer = setInterval(() => void tick(), HEALTH_INTERVAL_MS);
+    // N-47 修复（2026-09-21）：幂等判定改以**实际资源**（timer / 事件监听）为准。
+    //
+    // 原实现只看 `started` 布尔做 early-return，而 `stop()` 会**同时**清 timer 并置
+    // `started=false` —— 一旦二者时序错乱，就会进入 `started === true && timer === null`
+    // 的**死状态**，此后所有 `start()` 都直接 return ⇒ **周期性健康检查永不运行**，
+    // 后端真掉线时状态机也永不转 `disconnected`（连带 N8-1/N8-2 的断连挂起-自动恢复
+    // 整条链路无从触发）。该时序在 React StrictMode 双调用 effect 下**实测出现**：
+    // E2E 对照实验 —— 裸 `start()` 35s 后仍 `connected`（history 为空）；
+    // 而 `stop()` + `start()` 强制复位后 35s 内正常转 `disconnected`。
+    //
+    // 现改为"缺什么补什么"：监听器与定时器各自的存续独立判定，任一缺失都会被补齐。
+    // （`addEventListener` 对同一函数引用重复添加本身幂等，故按 `started` 守卫即可。）
+    if (started && timer) return;
+
+    if (!started) {
+      started = true;
+      window.addEventListener("offline", handleOffline);
+      window.addEventListener("online", handleOnline);
+    }
+    if (!timer) {
+      void tick();
+      timer = setInterval(() => void tick(), HEALTH_INTERVAL_MS);
+    }
   },
 
   /** 停止监测 */

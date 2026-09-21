@@ -20,7 +20,7 @@ const logger = getLogger('media:tool:delete');
 
 export function createMediaDeleteTool(): Tool {
   return {
-    name: 'media:delete',
+    name: 'media_delete',
     description: 'Delete a media file (requires approval)',
     params: [
       {
@@ -30,7 +30,7 @@ export function createMediaDeleteTool(): Tool {
         required: true,
       },
     ],
-    aliases: ['media_delete', 'file_delete'],
+    aliases: ['file_delete'],
     searchTips: ['media', 'delete', 'remove'],
     isEnabled: () => true,
     isReadOnly: () => false,
@@ -55,7 +55,7 @@ export function createMediaDeleteTool(): Tool {
           progress: [],
           metadata: { errorCode: MediaErrorCode.PATH_INSECURE },
           executionId: `media_delete_${Date.now()}`,
-          toolName: 'media:delete',
+          toolName: 'media_delete',
           timestamp: Date.now(),
         };
       }
@@ -66,7 +66,7 @@ export function createMediaDeleteTool(): Tool {
         // 未批准返回 REQUIRES_APPROVAL 提交审批卡（原实现无条件返回，永远不删除）。
         if (
           context.sessionId &&
-          isToolCallApproved(context.sessionId, 'media:delete', input)
+          isToolCallApproved(context.sessionId, 'media_delete', input)
         ) {
           const deleted = mediaStore.delete(safe.path!);
           if (!deleted) {
@@ -79,7 +79,7 @@ export function createMediaDeleteTool(): Tool {
               progress: [],
               metadata: { errorCode: MediaErrorCode.FILE_NOT_FOUND },
               executionId: `media_delete_${Date.now()}`,
-              toolName: 'media:delete',
+              toolName: 'media_delete',
               timestamp: Date.now(),
             };
           }
@@ -92,7 +92,7 @@ export function createMediaDeleteTool(): Tool {
             progress: [],
             metadata: { filePath: safe.path, action: 'deleted' },
             executionId: `media_delete_${Date.now()}`,
-            toolName: 'media:delete',
+            toolName: 'media_delete',
             timestamp: Date.now(),
             content: `文件已删除: ${safe.path}`,
           };
@@ -109,7 +109,7 @@ export function createMediaDeleteTool(): Tool {
           progress: [],
           metadata: { filePath: safe.path, action: 'delete_pending_approval' },
           executionId: `media_delete_${Date.now()}`,
-          toolName: 'media:delete',
+          toolName: 'media_delete',
           timestamp: Date.now(),
           content: `文件删除等待审批: ${safe.path}`,
         };
@@ -128,7 +128,7 @@ export function createMediaDeleteTool(): Tool {
           progress: [],
           metadata: { errorCode: MediaErrorCode.PROCESS_FAILED },
           executionId: `media_delete_${Date.now()}`,
-          toolName: 'media:delete',
+          toolName: 'media_delete',
           timestamp: Date.now(),
         };
       }
@@ -136,7 +136,7 @@ export function createMediaDeleteTool(): Tool {
 
     getInfo(): ToolInfo {
       return {
-        name: 'media:delete',
+        name: 'media_delete',
         description: 'Delete a media file (requires approval)',
         params: [
           {
@@ -146,7 +146,7 @@ export function createMediaDeleteTool(): Tool {
             required: true,
           },
         ],
-        aliases: ['media_delete'],
+        aliases: [],
         searchTips: ['media', 'delete'],
         enabled: true,
         readOnly: false,

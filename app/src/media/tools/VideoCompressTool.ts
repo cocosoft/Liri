@@ -16,7 +16,7 @@ const logger = getLogger('media:tool:compress');
 
 export function createVideoCompressTool(): Tool {
   return {
-    name: 'media:video:compress',
+    name: 'media_video_compress',
     description: 'Compress video with quality and resolution options',
     params: [
       {
@@ -76,7 +76,7 @@ export function createVideoCompressTool(): Tool {
           progress: [],
           metadata: { errorCode: MediaErrorCode.PATH_INSECURE },
           executionId: `vid_compress_${Date.now()}`,
-          toolName: 'media:video:compress',
+          toolName: 'media_video_compress',
           timestamp: Date.now(),
         };
       }
@@ -91,7 +91,7 @@ export function createVideoCompressTool(): Tool {
           progress: [],
           metadata: { errorCode: MediaErrorCode.PATH_INSECURE },
           executionId: `vid_compress_${Date.now()}`,
-          toolName: 'media:video:compress',
+          toolName: 'media_video_compress',
           timestamp: Date.now(),
         };
       }
@@ -106,7 +106,7 @@ export function createVideoCompressTool(): Tool {
           progress: [],
           metadata: { errorCode: MediaErrorCode.FILE_NOT_FOUND },
           executionId: `vid_compress_${Date.now()}`,
-          toolName: 'media:video:compress',
+          toolName: 'media_video_compress',
           timestamp: Date.now(),
         };
       }
@@ -136,7 +136,7 @@ export function createVideoCompressTool(): Tool {
             progress: [],
             metadata: { errorCode: MediaErrorCode.FFMPEG_UNAVAILABLE },
             executionId: `vid_compress_${Date.now()}`,
-            toolName: 'media:video:compress',
+            toolName: 'media_video_compress',
             timestamp: Date.now(),
           };
         }
@@ -158,7 +158,7 @@ export function createVideoCompressTool(): Tool {
           outputPath: safeOutput.path,
           outputSize,
           executionId: `vid_compress_${Date.now()}`,
-          toolName: 'media:video:compress',
+          toolName: 'media_video_compress',
           timestamp: Date.now(),
           content: `视频已压缩: ${safeOutput.path}`,
         };
@@ -177,7 +177,7 @@ export function createVideoCompressTool(): Tool {
           progress: [],
           metadata: { errorCode: MediaErrorCode.PROCESS_FAILED },
           executionId: `vid_compress_${Date.now()}`,
-          toolName: 'media:video:compress',
+          toolName: 'media_video_compress',
           timestamp: Date.now(),
         };
       }
@@ -185,7 +185,7 @@ export function createVideoCompressTool(): Tool {
 
     getInfo(): ToolInfo {
       return {
-        name: 'media:video:compress',
+        name: 'media_video_compress',
         description: 'Compress video with quality and resolution options',
         params: [
           {

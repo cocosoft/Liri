@@ -16,7 +16,7 @@ const logger = getLogger('media:tool:qr-decode');
 
 export function createQRDecodeTool(): Tool {
   return {
-    name: 'media:qr:decode',
+    name: 'media_qr_decode',
     description: 'Decode a QR code from an image file',
     params: [
       {
@@ -51,7 +51,7 @@ export function createQRDecodeTool(): Tool {
           progress: [],
           metadata: { errorCode: MediaErrorCode.PATH_INSECURE },
           executionId: `qr_dec_${Date.now()}`,
-          toolName: 'media:qr:decode',
+          toolName: 'media_qr_decode',
           timestamp: Date.now(),
         };
       }
@@ -66,7 +66,7 @@ export function createQRDecodeTool(): Tool {
           progress: [],
           metadata: { errorCode: MediaErrorCode.FILE_NOT_FOUND },
           executionId: `qr_dec_${Date.now()}`,
-          toolName: 'media:qr:decode',
+          toolName: 'media_qr_decode',
           timestamp: Date.now(),
         };
       }
@@ -83,7 +83,7 @@ export function createQRDecodeTool(): Tool {
             progress: [],
             metadata: { errorCode: MediaErrorCode.PROCESS_FAILED },
             executionId: `qr_dec_${Date.now()}`,
-            toolName: 'media:qr:decode',
+            toolName: 'media_qr_decode',
             timestamp: Date.now(),
           };
         }
@@ -100,7 +100,7 @@ export function createQRDecodeTool(): Tool {
           metadata: { inputPath: safeInput.path },
           executionTime: Date.now() - startTime,
           executionId: `qr_dec_${Date.now()}`,
-          toolName: 'media:qr:decode',
+          toolName: 'media_qr_decode',
           timestamp: Date.now(),
           content: decoded,
         };
@@ -119,7 +119,7 @@ export function createQRDecodeTool(): Tool {
           progress: [],
           metadata: { errorCode: MediaErrorCode.PROCESS_FAILED },
           executionId: `qr_dec_${Date.now()}`,
-          toolName: 'media:qr:decode',
+          toolName: 'media_qr_decode',
           timestamp: Date.now(),
         };
       }
@@ -127,7 +127,7 @@ export function createQRDecodeTool(): Tool {
 
     getInfo(): ToolInfo {
       return {
-        name: 'media:qr:decode',
+        name: 'media_qr_decode',
         description: 'Decode a QR code from an image file',
         params: [
           {

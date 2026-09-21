@@ -16,7 +16,7 @@ const logger = getLogger('media:tool:extract-thumbnail');
 
 export function createVideoExtractThumbnailTool(): Tool {
   return {
-    name: 'media:video:extract-thumbnail',
+    name: 'media_video_extract_thumbnail',
     description: 'Extract a thumbnail image from video at specified time',
     params: [
       {
@@ -65,7 +65,7 @@ export function createVideoExtractThumbnailTool(): Tool {
           progress: [],
           metadata: { errorCode: MediaErrorCode.PATH_INSECURE },
           executionId: `vid_thumb_${Date.now()}`,
-          toolName: 'media:video:extract-thumbnail',
+          toolName: 'media_video_extract_thumbnail',
           timestamp: Date.now(),
         };
       }
@@ -80,7 +80,7 @@ export function createVideoExtractThumbnailTool(): Tool {
           progress: [],
           metadata: { errorCode: MediaErrorCode.PATH_INSECURE },
           executionId: `vid_thumb_${Date.now()}`,
-          toolName: 'media:video:extract-thumbnail',
+          toolName: 'media_video_extract_thumbnail',
           timestamp: Date.now(),
         };
       }
@@ -95,7 +95,7 @@ export function createVideoExtractThumbnailTool(): Tool {
           progress: [],
           metadata: { errorCode: MediaErrorCode.FILE_NOT_FOUND },
           executionId: `vid_thumb_${Date.now()}`,
-          toolName: 'media:video:extract-thumbnail',
+          toolName: 'media_video_extract_thumbnail',
           timestamp: Date.now(),
         };
       }
@@ -117,7 +117,7 @@ export function createVideoExtractThumbnailTool(): Tool {
             progress: [],
             metadata: { errorCode: MediaErrorCode.FFMPEG_UNAVAILABLE },
             executionId: `vid_thumb_${Date.now()}`,
-            toolName: 'media:video:extract-thumbnail',
+            toolName: 'media_video_extract_thumbnail',
             timestamp: Date.now(),
           };
         }
@@ -144,7 +144,7 @@ export function createVideoExtractThumbnailTool(): Tool {
           outputPath: safeOutput.path,
           outputSize,
           executionId: `vid_thumb_${Date.now()}`,
-          toolName: 'media:video:extract-thumbnail',
+          toolName: 'media_video_extract_thumbnail',
           timestamp: Date.now(),
           content: `缩略图已提取: ${safeOutput.path} (${captureTime}s)`,
         };
@@ -163,7 +163,7 @@ export function createVideoExtractThumbnailTool(): Tool {
           progress: [],
           metadata: { errorCode: MediaErrorCode.PROCESS_FAILED },
           executionId: `vid_thumb_${Date.now()}`,
-          toolName: 'media:video:extract-thumbnail',
+          toolName: 'media_video_extract_thumbnail',
           timestamp: Date.now(),
         };
       }
@@ -171,7 +171,7 @@ export function createVideoExtractThumbnailTool(): Tool {
 
     getInfo(): ToolInfo {
       return {
-        name: 'media:video:extract-thumbnail',
+        name: 'media_video_extract_thumbnail',
         description: 'Extract a thumbnail image from video at specified time',
         params: [
           {

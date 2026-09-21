@@ -15,7 +15,7 @@ const logger = getLogger('media:tool:rotate');
 
 export function createImageRotateTool(): Tool {
   return {
-    name: 'media:image:rotate',
+    name: 'media_image_rotate',
     description: 'Rotate image by specified degrees',
     params: [
       {
@@ -64,7 +64,7 @@ export function createImageRotateTool(): Tool {
           progress: [],
           metadata: { errorCode: MediaErrorCode.PATH_INSECURE },
           executionId: `img_rotate_${Date.now()}`,
-          toolName: 'media:image:rotate',
+          toolName: 'media_image_rotate',
           timestamp: Date.now(),
         };
       }
@@ -79,7 +79,7 @@ export function createImageRotateTool(): Tool {
           progress: [],
           metadata: { errorCode: MediaErrorCode.PATH_INSECURE },
           executionId: `img_rotate_${Date.now()}`,
-          toolName: 'media:image:rotate',
+          toolName: 'media_image_rotate',
           timestamp: Date.now(),
         };
       }
@@ -100,7 +100,7 @@ export function createImageRotateTool(): Tool {
             progress: [],
             metadata: { errorCode: MediaErrorCode.PROCESS_FAILED },
             executionId: `img_rotate_${Date.now()}`,
-            toolName: 'media:image:rotate',
+            toolName: 'media_image_rotate',
             timestamp: Date.now(),
           };
         }
@@ -125,7 +125,7 @@ export function createImageRotateTool(): Tool {
           outputPath: safeOutput.path,
           outputSize: result.processedSize,
           executionId: `img_rotate_${Date.now()}`,
-          toolName: 'media:image:rotate',
+          toolName: 'media_image_rotate',
           timestamp: Date.now(),
           content: `图片已旋转 ${degrees}°: ${safeOutput.path}`,
         };
@@ -144,7 +144,7 @@ export function createImageRotateTool(): Tool {
           progress: [],
           metadata: { errorCode: MediaErrorCode.PROCESS_FAILED },
           executionId: `img_rotate_${Date.now()}`,
-          toolName: 'media:image:rotate',
+          toolName: 'media_image_rotate',
           timestamp: Date.now(),
         };
       }
@@ -152,7 +152,7 @@ export function createImageRotateTool(): Tool {
 
     getInfo(): ToolInfo {
       return {
-        name: 'media:image:rotate',
+        name: 'media_image_rotate',
         description: 'Rotate image by specified degrees',
         params: [
           {

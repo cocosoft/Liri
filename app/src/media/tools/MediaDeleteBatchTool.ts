@@ -20,7 +20,7 @@ const logger = getLogger('media:tool:deleteBatch');
 
 export function createMediaDeleteBatchTool(): Tool {
   return {
-    name: 'media:deleteBatch',
+    name: 'media_deleteBatch',
     description: 'Batch delete multiple media files (requires approval)',
     params: [
       {
@@ -56,7 +56,7 @@ export function createMediaDeleteBatchTool(): Tool {
             progress: [],
             metadata: {},
             executionId: `media_delete_batch_${Date.now()}`,
-            toolName: 'media:deleteBatch',
+            toolName: 'media_deleteBatch',
             timestamp: Date.now(),
           };
         }
@@ -70,7 +70,7 @@ export function createMediaDeleteBatchTool(): Tool {
           progress: [],
           metadata: {},
           executionId: `media_delete_batch_${Date.now()}`,
-          toolName: 'media:deleteBatch',
+          toolName: 'media_deleteBatch',
           timestamp: Date.now(),
         };
       }
@@ -92,7 +92,7 @@ export function createMediaDeleteBatchTool(): Tool {
               rejectedPath: p,
             },
             executionId: `media_delete_batch_${Date.now()}`,
-            toolName: 'media:deleteBatch',
+            toolName: 'media_deleteBatch',
             timestamp: Date.now(),
           };
         }
@@ -104,7 +104,7 @@ export function createMediaDeleteBatchTool(): Tool {
         // 未批准返回 REQUIRES_APPROVAL 提交审批卡（原实现无条件返回，永远不删除）。
         if (
           context.sessionId &&
-          isToolCallApproved(context.sessionId, 'media:deleteBatch', input)
+          isToolCallApproved(context.sessionId, 'media_deleteBatch', input)
         ) {
           const results = mediaStore.deleteBatch(safePaths);
           const deletedCount = results.filter((r) => r.deleted).length;
@@ -125,7 +125,7 @@ export function createMediaDeleteBatchTool(): Tool {
               action: 'deleted_batch',
             },
             executionId: `media_delete_batch_${Date.now()}`,
-            toolName: 'media:deleteBatch',
+            toolName: 'media_deleteBatch',
             timestamp: Date.now(),
             content: `已批量删除 ${deletedCount}/${safePaths.length} 个文件`,
           };
@@ -146,7 +146,7 @@ export function createMediaDeleteBatchTool(): Tool {
             action: 'delete_batch_pending_approval',
           },
           executionId: `media_delete_batch_${Date.now()}`,
-          toolName: 'media:deleteBatch',
+          toolName: 'media_deleteBatch',
           timestamp: Date.now(),
           content: `批量删除等待审批: ${safePaths.length} 个文件`,
         };
@@ -165,7 +165,7 @@ export function createMediaDeleteBatchTool(): Tool {
           progress: [],
           metadata: { errorCode: MediaErrorCode.PROCESS_FAILED },
           executionId: `media_delete_batch_${Date.now()}`,
-          toolName: 'media:deleteBatch',
+          toolName: 'media_deleteBatch',
           timestamp: Date.now(),
         };
       }
@@ -173,7 +173,7 @@ export function createMediaDeleteBatchTool(): Tool {
 
     getInfo(): ToolInfo {
       return {
-        name: 'media:deleteBatch',
+        name: 'media_deleteBatch',
         description: 'Batch delete media files (requires approval)',
         params: [
           {

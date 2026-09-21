@@ -16,7 +16,7 @@ const logger = getLogger('media:tool:watermark');
 
 export function createImageWatermarkTool(): Tool {
   return {
-    name: 'media:image:watermark',
+    name: 'media_image_watermark',
     description: 'Add a text watermark to an image',
     params: [
       {
@@ -89,7 +89,7 @@ export function createImageWatermarkTool(): Tool {
           progress: [],
           metadata: { errorCode: MediaErrorCode.PATH_INSECURE },
           executionId: `img_watermark_${Date.now()}`,
-          toolName: 'media:image:watermark',
+          toolName: 'media_image_watermark',
           timestamp: Date.now(),
         };
       }
@@ -104,7 +104,7 @@ export function createImageWatermarkTool(): Tool {
           progress: [],
           metadata: { errorCode: MediaErrorCode.PATH_INSECURE },
           executionId: `img_watermark_${Date.now()}`,
-          toolName: 'media:image:watermark',
+          toolName: 'media_image_watermark',
           timestamp: Date.now(),
         };
       }
@@ -133,7 +133,7 @@ export function createImageWatermarkTool(): Tool {
             progress: [],
             metadata: { errorCode: MediaErrorCode.PROCESS_FAILED },
             executionId: `img_watermark_${Date.now()}`,
-            toolName: 'media:image:watermark',
+            toolName: 'media_image_watermark',
             timestamp: Date.now(),
           };
         }
@@ -158,7 +158,7 @@ export function createImageWatermarkTool(): Tool {
           outputPath: safeOutput.path,
           outputSize: result.processedSize,
           executionId: `img_watermark_${Date.now()}`,
-          toolName: 'media:image:watermark',
+          toolName: 'media_image_watermark',
           timestamp: Date.now(),
           content: `图片已添加水印: ${safeOutput.path}`,
         };
@@ -177,7 +177,7 @@ export function createImageWatermarkTool(): Tool {
           progress: [],
           metadata: { errorCode: MediaErrorCode.PROCESS_FAILED },
           executionId: `img_watermark_${Date.now()}`,
-          toolName: 'media:image:watermark',
+          toolName: 'media_image_watermark',
           timestamp: Date.now(),
         };
       }
@@ -185,7 +185,7 @@ export function createImageWatermarkTool(): Tool {
 
     getInfo(): ToolInfo {
       return {
-        name: 'media:image:watermark',
+        name: 'media_image_watermark',
         description: 'Add a text watermark to an image',
         params: [
           {

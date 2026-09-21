@@ -16,7 +16,7 @@ const logger = getLogger('media:tool:qr-generate');
 
 export function createQRGenerateTool(): Tool {
   return {
-    name: 'media:qr:generate',
+    name: 'media_qr_generate',
     description: 'Generate a QR code image from text',
     params: [
       {
@@ -69,7 +69,7 @@ export function createQRGenerateTool(): Tool {
           progress: [],
           metadata: { errorCode: MediaErrorCode.PROCESS_FAILED },
           executionId: `qr_gen_${Date.now()}`,
-          toolName: 'media:qr:generate',
+          toolName: 'media_qr_generate',
           timestamp: Date.now(),
         };
       }
@@ -85,7 +85,7 @@ export function createQRGenerateTool(): Tool {
           progress: [],
           metadata: { errorCode: MediaErrorCode.PATH_INSECURE },
           executionId: `qr_gen_${Date.now()}`,
-          toolName: 'media:qr:generate',
+          toolName: 'media_qr_generate',
           timestamp: Date.now(),
         };
       }
@@ -110,7 +110,7 @@ export function createQRGenerateTool(): Tool {
             progress: [],
             metadata: { errorCode: MediaErrorCode.PROCESS_FAILED },
             executionId: `qr_gen_${Date.now()}`,
-            toolName: 'media:qr:generate',
+            toolName: 'media_qr_generate',
             timestamp: Date.now(),
           };
         }
@@ -132,7 +132,7 @@ export function createQRGenerateTool(): Tool {
           outputPath: safeOutput.path,
           outputSize,
           executionId: `qr_gen_${Date.now()}`,
-          toolName: 'media:qr:generate',
+          toolName: 'media_qr_generate',
           timestamp: Date.now(),
           content: `QR 码已生成: ${safeOutput.path}`,
         };
@@ -151,7 +151,7 @@ export function createQRGenerateTool(): Tool {
           progress: [],
           metadata: { errorCode: MediaErrorCode.PROCESS_FAILED },
           executionId: `qr_gen_${Date.now()}`,
-          toolName: 'media:qr:generate',
+          toolName: 'media_qr_generate',
           timestamp: Date.now(),
         };
       }
@@ -159,7 +159,7 @@ export function createQRGenerateTool(): Tool {
 
     getInfo(): ToolInfo {
       return {
-        name: 'media:qr:generate',
+        name: 'media_qr_generate',
         description: 'Generate a QR code image from text',
         params: [
           {

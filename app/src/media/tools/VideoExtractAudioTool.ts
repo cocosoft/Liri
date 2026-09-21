@@ -16,7 +16,7 @@ const logger = getLogger('media:tool:extract-audio');
 
 export function createVideoExtractAudioTool(): Tool {
   return {
-    name: 'media:video:extract-audio',
+    name: 'media_video_extract_audio',
     description: 'Extract audio track from video file',
     params: [
       {
@@ -58,7 +58,7 @@ export function createVideoExtractAudioTool(): Tool {
           progress: [],
           metadata: { errorCode: MediaErrorCode.PATH_INSECURE },
           executionId: `vid_audio_${Date.now()}`,
-          toolName: 'media:video:extract-audio',
+          toolName: 'media_video_extract_audio',
           timestamp: Date.now(),
         };
       }
@@ -73,7 +73,7 @@ export function createVideoExtractAudioTool(): Tool {
           progress: [],
           metadata: { errorCode: MediaErrorCode.PATH_INSECURE },
           executionId: `vid_audio_${Date.now()}`,
-          toolName: 'media:video:extract-audio',
+          toolName: 'media_video_extract_audio',
           timestamp: Date.now(),
         };
       }
@@ -88,7 +88,7 @@ export function createVideoExtractAudioTool(): Tool {
           progress: [],
           metadata: { errorCode: MediaErrorCode.FILE_NOT_FOUND },
           executionId: `vid_audio_${Date.now()}`,
-          toolName: 'media:video:extract-audio',
+          toolName: 'media_video_extract_audio',
           timestamp: Date.now(),
         };
       }
@@ -109,7 +109,7 @@ export function createVideoExtractAudioTool(): Tool {
             progress: [],
             metadata: { errorCode: MediaErrorCode.FFMPEG_UNAVAILABLE },
             executionId: `vid_audio_${Date.now()}`,
-            toolName: 'media:video:extract-audio',
+            toolName: 'media_video_extract_audio',
             timestamp: Date.now(),
           };
         }
@@ -131,7 +131,7 @@ export function createVideoExtractAudioTool(): Tool {
           outputPath: safeOutput.path,
           outputSize,
           executionId: `vid_audio_${Date.now()}`,
-          toolName: 'media:video:extract-audio',
+          toolName: 'media_video_extract_audio',
           timestamp: Date.now(),
           content: `音频已提取: ${safeOutput.path}`,
         };
@@ -150,7 +150,7 @@ export function createVideoExtractAudioTool(): Tool {
           progress: [],
           metadata: { errorCode: MediaErrorCode.PROCESS_FAILED },
           executionId: `vid_audio_${Date.now()}`,
-          toolName: 'media:video:extract-audio',
+          toolName: 'media_video_extract_audio',
           timestamp: Date.now(),
         };
       }
@@ -158,7 +158,7 @@ export function createVideoExtractAudioTool(): Tool {
 
     getInfo(): ToolInfo {
       return {
-        name: 'media:video:extract-audio',
+        name: 'media_video_extract_audio',
         description: 'Extract audio track from video file',
         params: [
           {

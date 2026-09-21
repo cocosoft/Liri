@@ -16,7 +16,7 @@ const logger = getLogger('media:tool:convert');
 
 export function createImageConvertTool(): Tool {
   return {
-    name: 'media:image:convert',
+    name: 'media_image_convert',
     description: 'Convert image format (e.g. PNG to JPEG, WebP to PNG)',
     params: [
       {
@@ -65,7 +65,7 @@ export function createImageConvertTool(): Tool {
           progress: [],
           metadata: { errorCode: MediaErrorCode.PATH_INSECURE },
           executionId: `img_convert_${Date.now()}`,
-          toolName: 'media:image:convert',
+          toolName: 'media_image_convert',
           timestamp: Date.now(),
         };
       }
@@ -80,7 +80,7 @@ export function createImageConvertTool(): Tool {
           progress: [],
           metadata: { errorCode: MediaErrorCode.PATH_INSECURE },
           executionId: `img_convert_${Date.now()}`,
-          toolName: 'media:image:convert',
+          toolName: 'media_image_convert',
           timestamp: Date.now(),
         };
       }
@@ -101,7 +101,7 @@ export function createImageConvertTool(): Tool {
             progress: [],
             metadata: { errorCode: MediaErrorCode.PROCESS_FAILED },
             executionId: `img_convert_${Date.now()}`,
-            toolName: 'media:image:convert',
+            toolName: 'media_image_convert',
             timestamp: Date.now(),
           };
         }
@@ -126,7 +126,7 @@ export function createImageConvertTool(): Tool {
           outputPath: safeOutput.path,
           outputSize: result.processedSize,
           executionId: `img_convert_${Date.now()}`,
-          toolName: 'media:image:convert',
+          toolName: 'media_image_convert',
           timestamp: Date.now(),
           content: `图片已转换为 ${format}: ${safeOutput.path}`,
         };
@@ -145,7 +145,7 @@ export function createImageConvertTool(): Tool {
           progress: [],
           metadata: { errorCode: MediaErrorCode.PROCESS_FAILED },
           executionId: `img_convert_${Date.now()}`,
-          toolName: 'media:image:convert',
+          toolName: 'media_image_convert',
           timestamp: Date.now(),
         };
       }
@@ -153,7 +153,7 @@ export function createImageConvertTool(): Tool {
 
     getInfo(): ToolInfo {
       return {
-        name: 'media:image:convert',
+        name: 'media_image_convert',
         description: 'Convert image format',
         params: [
           {

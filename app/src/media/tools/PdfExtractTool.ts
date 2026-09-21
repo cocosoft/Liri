@@ -17,7 +17,7 @@ const logger = getLogger('media:tool:pdf-extract');
 
 export function createPdfExtractTool(): Tool {
   return {
-    name: 'media:pdf:extract',
+    name: 'media_pdf_extract',
     description: 'Extract pages from a PDF file as images',
     params: [
       {
@@ -76,7 +76,7 @@ export function createPdfExtractTool(): Tool {
           progress: [],
           metadata: { errorCode: MediaErrorCode.PATH_INSECURE },
           executionId: `pdf_extract_${Date.now()}`,
-          toolName: 'media:pdf:extract',
+          toolName: 'media_pdf_extract',
           timestamp: Date.now(),
         };
       }
@@ -91,7 +91,7 @@ export function createPdfExtractTool(): Tool {
           progress: [],
           metadata: { errorCode: MediaErrorCode.FILE_NOT_FOUND },
           executionId: `pdf_extract_${Date.now()}`,
-          toolName: 'media:pdf:extract',
+          toolName: 'media_pdf_extract',
           timestamp: Date.now(),
         };
       }
@@ -136,7 +136,7 @@ export function createPdfExtractTool(): Tool {
           outputPath: pages[0]?.imagePath,
           outputSize: totalSize,
           executionId: `pdf_extract_${Date.now()}`,
-          toolName: 'media:pdf:extract',
+          toolName: 'media_pdf_extract',
           timestamp: Date.now(),
           content: `PDF 已提取 ${pages.length} 页`,
         };
@@ -162,7 +162,7 @@ export function createPdfExtractTool(): Tool {
           progress: [],
           metadata: { errorCode },
           executionId: `pdf_extract_${Date.now()}`,
-          toolName: 'media:pdf:extract',
+          toolName: 'media_pdf_extract',
           timestamp: Date.now(),
         };
       }
@@ -170,7 +170,7 @@ export function createPdfExtractTool(): Tool {
 
     getInfo(): ToolInfo {
       return {
-        name: 'media:pdf:extract',
+        name: 'media_pdf_extract',
         description: 'Extract pages from a PDF file as images',
         params: [
           {

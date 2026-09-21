@@ -15,7 +15,7 @@ const logger = getLogger('media:tool:crop');
 
 export function createImageCropTool(): Tool {
   return {
-    name: 'media:image:crop',
+    name: 'media_image_crop',
     description: 'Crop image to a rectangular region',
     params: [
       {
@@ -81,7 +81,7 @@ export function createImageCropTool(): Tool {
           progress: [],
           metadata: { errorCode: MediaErrorCode.PATH_INSECURE },
           executionId: `img_crop_${Date.now()}`,
-          toolName: 'media:image:crop',
+          toolName: 'media_image_crop',
           timestamp: Date.now(),
         };
       }
@@ -96,7 +96,7 @@ export function createImageCropTool(): Tool {
           progress: [],
           metadata: { errorCode: MediaErrorCode.PATH_INSECURE },
           executionId: `img_crop_${Date.now()}`,
-          toolName: 'media:image:crop',
+          toolName: 'media_image_crop',
           timestamp: Date.now(),
         };
       }
@@ -124,7 +124,7 @@ export function createImageCropTool(): Tool {
             progress: [],
             metadata: { errorCode: MediaErrorCode.PROCESS_FAILED },
             executionId: `img_crop_${Date.now()}`,
-            toolName: 'media:image:crop',
+            toolName: 'media_image_crop',
             timestamp: Date.now(),
           };
         }
@@ -149,7 +149,7 @@ export function createImageCropTool(): Tool {
           outputPath: safeOutput.path,
           outputSize: result.processedSize,
           executionId: `img_crop_${Date.now()}`,
-          toolName: 'media:image:crop',
+          toolName: 'media_image_crop',
           timestamp: Date.now(),
           content: `图片已裁剪: ${safeOutput.path}`,
         };
@@ -168,7 +168,7 @@ export function createImageCropTool(): Tool {
           progress: [],
           metadata: { errorCode: MediaErrorCode.PROCESS_FAILED },
           executionId: `img_crop_${Date.now()}`,
-          toolName: 'media:image:crop',
+          toolName: 'media_image_crop',
           timestamp: Date.now(),
         };
       }
@@ -176,7 +176,7 @@ export function createImageCropTool(): Tool {
 
     getInfo(): ToolInfo {
       return {
-        name: 'media:image:crop',
+        name: 'media_image_crop',
         description: 'Crop image to a rectangular region',
         params: [
           {

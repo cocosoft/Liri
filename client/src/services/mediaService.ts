@@ -35,7 +35,7 @@ export interface MediaProcessResult {
 export const mediaService = {
   /** 获取媒体文件元数据 */
   async info(filePath: string): Promise<MediaInfoResult | null> {
-    const result = (await toolService.execute("media:info", {
+    const result = (await toolService.execute("media_info", {
       filePath,
     })) as ToolResult;
     if (result.status === "success" && result.metadata) {
@@ -50,7 +50,7 @@ export const mediaService = {
     output: string,
     format: string,
   ): Promise<MediaProcessResult> {
-    const result = await toolService.execute("media:image:convert", {
+    const result = await toolService.execute("media_image_convert", {
       input,
       output,
       format,
@@ -66,7 +66,7 @@ export const mediaService = {
     maxHeight?: number,
     quality?: number,
   ): Promise<MediaProcessResult> {
-    const result = await toolService.execute("media:image:resize", {
+    const result = await toolService.execute("media_image_resize", {
       input,
       output,
       maxWidth,
@@ -85,7 +85,7 @@ export const mediaService = {
     width: number,
     height: number,
   ): Promise<MediaProcessResult> {
-    const result = await toolService.execute("media:image:crop", {
+    const result = await toolService.execute("media_image_crop", {
       input,
       output,
       x,
@@ -102,7 +102,7 @@ export const mediaService = {
     output: string,
     degrees: number,
   ): Promise<MediaProcessResult> {
-    const result = await toolService.execute("media:image:rotate", {
+    const result = await toolService.execute("media_image_rotate", {
       input,
       output,
       degrees,
@@ -119,7 +119,7 @@ export const mediaService = {
     fontSize?: number,
     opacity?: number,
   ): Promise<MediaProcessResult> {
-    const result = await toolService.execute("media:image:watermark", {
+    const result = await toolService.execute("media_image_watermark", {
       input,
       output,
       text,
@@ -138,7 +138,7 @@ export const mediaService = {
     contrast?: number,
     saturation?: number,
   ): Promise<MediaProcessResult> {
-    const result = await toolService.execute("media:image:adjust", {
+    const result = await toolService.execute("media_image_adjust", {
       input,
       output,
       brightness,
@@ -154,7 +154,7 @@ export const mediaService = {
     output: string,
     quality?: number,
   ): Promise<MediaProcessResult> {
-    const result = await toolService.execute("media:video:compress", {
+    const result = await toolService.execute("media_video_compress", {
       input,
       output,
       quality,
@@ -167,7 +167,7 @@ export const mediaService = {
     input: string,
     output: string,
   ): Promise<MediaProcessResult> {
-    const result = await toolService.execute("media:video:extract-audio", {
+    const result = await toolService.execute("media_video_extract-audio", {
       input,
       output,
     });
@@ -180,7 +180,7 @@ export const mediaService = {
     output: string,
     time?: number,
   ): Promise<MediaProcessResult> {
-    const result = await toolService.execute("media:video:extract-thumbnail", {
+    const result = await toolService.execute("media_video_extract-thumbnail", {
       input,
       output,
       time,
@@ -194,7 +194,7 @@ export const mediaService = {
     output: string,
     size?: number,
   ): Promise<MediaProcessResult> {
-    const result = await toolService.execute("media:qr:generate", {
+    const result = await toolService.execute("media_qr_generate", {
       text,
       output,
       size,
@@ -204,7 +204,7 @@ export const mediaService = {
 
   /** 解码二维码 */
   async decodeQR(input: string): Promise<string | null> {
-    const result = (await toolService.execute("media:qr:decode", {
+    const result = (await toolService.execute("media_qr_decode", {
       input,
     })) as ToolResult;
     if (result.status === "success" && result.result) {
@@ -220,7 +220,7 @@ export const mediaService = {
     endPage?: number,
     dpi?: number,
   ): Promise<MediaProcessResult> {
-    const result = await toolService.execute("media:pdf:extract", {
+    const result = await toolService.execute("media_pdf_extract", {
       input,
       startPage,
       endPage,
@@ -231,14 +231,14 @@ export const mediaService = {
 
   /** 删除媒体文件（需审批） */
   async deleteFile(filePath: string): Promise<ToolResult> {
-    return toolService.execute("media:delete", {
+    return toolService.execute("media_delete", {
       filePath,
     }) as Promise<ToolResult>;
   },
 
   /** 批量删除媒体文件（需审批） */
   async deleteBatch(filePaths: string[]): Promise<ToolResult> {
-    return toolService.execute("media:deleteBatch", {
+    return toolService.execute("media_deleteBatch", {
       filePaths: JSON.stringify(filePaths),
     }) as Promise<ToolResult>;
   },

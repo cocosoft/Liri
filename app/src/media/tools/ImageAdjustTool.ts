@@ -15,7 +15,7 @@ const logger = getLogger('media:tool:adjust');
 
 export function createImageAdjustTool(): Tool {
   return {
-    name: 'media:image:adjust',
+    name: 'media_image_adjust',
     description: 'Adjust image brightness, contrast, saturation, and gamma',
     params: [
       {
@@ -81,7 +81,7 @@ export function createImageAdjustTool(): Tool {
           progress: [],
           metadata: { errorCode: MediaErrorCode.PATH_INSECURE },
           executionId: `img_adjust_${Date.now()}`,
-          toolName: 'media:image:adjust',
+          toolName: 'media_image_adjust',
           timestamp: Date.now(),
         };
       }
@@ -96,7 +96,7 @@ export function createImageAdjustTool(): Tool {
           progress: [],
           metadata: { errorCode: MediaErrorCode.PATH_INSECURE },
           executionId: `img_adjust_${Date.now()}`,
-          toolName: 'media:image:adjust',
+          toolName: 'media_image_adjust',
           timestamp: Date.now(),
         };
       }
@@ -125,7 +125,7 @@ export function createImageAdjustTool(): Tool {
             progress: [],
             metadata: { errorCode: MediaErrorCode.PROCESS_FAILED },
             executionId: `img_adjust_${Date.now()}`,
-            toolName: 'media:image:adjust',
+            toolName: 'media_image_adjust',
             timestamp: Date.now(),
           };
         }
@@ -150,7 +150,7 @@ export function createImageAdjustTool(): Tool {
           outputPath: safeOutput.path,
           outputSize: result.processedSize,
           executionId: `img_adjust_${Date.now()}`,
-          toolName: 'media:image:adjust',
+          toolName: 'media_image_adjust',
           timestamp: Date.now(),
           content: `图片已调整: ${safeOutput.path}`,
         };
@@ -169,7 +169,7 @@ export function createImageAdjustTool(): Tool {
           progress: [],
           metadata: { errorCode: MediaErrorCode.PROCESS_FAILED },
           executionId: `img_adjust_${Date.now()}`,
-          toolName: 'media:image:adjust',
+          toolName: 'media_image_adjust',
           timestamp: Date.now(),
         };
       }
@@ -177,7 +177,7 @@ export function createImageAdjustTool(): Tool {
 
     getInfo(): ToolInfo {
       return {
-        name: 'media:image:adjust',
+        name: 'media_image_adjust',
         description: 'Adjust image brightness, contrast, saturation, and gamma',
         params: [
           {

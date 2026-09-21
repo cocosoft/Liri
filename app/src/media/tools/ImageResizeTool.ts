@@ -15,7 +15,7 @@ const logger = getLogger('media:tool:resize');
 
 export function createImageResizeTool(): Tool {
   return {
-    name: 'media:image:resize',
+    name: 'media_image_resize',
     description: 'Resize image to specified dimensions',
     params: [
       {
@@ -87,7 +87,7 @@ export function createImageResizeTool(): Tool {
           progress: [],
           metadata: { errorCode: MediaErrorCode.PATH_INSECURE },
           executionId: `img_resize_${Date.now()}`,
-          toolName: 'media:image:resize',
+          toolName: 'media_image_resize',
           timestamp: Date.now(),
         };
       }
@@ -102,7 +102,7 @@ export function createImageResizeTool(): Tool {
           progress: [],
           metadata: { errorCode: MediaErrorCode.PATH_INSECURE },
           executionId: `img_resize_${Date.now()}`,
-          toolName: 'media:image:resize',
+          toolName: 'media_image_resize',
           timestamp: Date.now(),
         };
       }
@@ -130,7 +130,7 @@ export function createImageResizeTool(): Tool {
             progress: [],
             metadata: { errorCode: MediaErrorCode.PROCESS_FAILED },
             executionId: `img_resize_${Date.now()}`,
-            toolName: 'media:image:resize',
+            toolName: 'media_image_resize',
             timestamp: Date.now(),
           };
         }
@@ -155,7 +155,7 @@ export function createImageResizeTool(): Tool {
           outputPath: safeOutput.path,
           outputSize: result.processedSize,
           executionId: `img_resize_${Date.now()}`,
-          toolName: 'media:image:resize',
+          toolName: 'media_image_resize',
           timestamp: Date.now(),
           content: `图片已调整大小: ${safeOutput.path}`,
         };
@@ -174,7 +174,7 @@ export function createImageResizeTool(): Tool {
           progress: [],
           metadata: { errorCode: MediaErrorCode.PROCESS_FAILED },
           executionId: `img_resize_${Date.now()}`,
-          toolName: 'media:image:resize',
+          toolName: 'media_image_resize',
           timestamp: Date.now(),
         };
       }
@@ -182,7 +182,7 @@ export function createImageResizeTool(): Tool {
 
     getInfo(): ToolInfo {
       return {
-        name: 'media:image:resize',
+        name: 'media_image_resize',
         description: 'Resize image to specified dimensions',
         params: [
           {

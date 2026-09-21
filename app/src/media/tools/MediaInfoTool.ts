@@ -22,7 +22,7 @@ const logger = getLogger('media:tool:info');
 
 export function createMediaInfoTool(): Tool {
   return {
-    name: 'media:info',
+    name: 'media_info',
     description:
       'Get metadata of a media file (image/video/audio/pdf). Returns dimensions, format, duration, file size etc.',
     params: [
@@ -33,7 +33,7 @@ export function createMediaInfoTool(): Tool {
         required: true,
       },
     ],
-    aliases: ['media_info', 'file_info'],
+    aliases: ['file_info'],
     searchTips: ['media', 'info', 'metadata', 'dimensions', 'size'],
     isEnabled: () => true,
     isReadOnly: () => true,
@@ -59,7 +59,7 @@ export function createMediaInfoTool(): Tool {
           progress: [],
           metadata: { errorCode: MediaErrorCode.PATH_INSECURE },
           executionId: `media_info_${Date.now()}`,
-          toolName: 'media:info',
+          toolName: 'media_info',
           timestamp: Date.now(),
         };
       }
@@ -76,7 +76,7 @@ export function createMediaInfoTool(): Tool {
             progress: [],
             metadata: { errorCode: MediaErrorCode.FILE_NOT_FOUND },
             executionId: `media_info_${Date.now()}`,
-            toolName: 'media:info',
+            toolName: 'media_info',
             timestamp: Date.now(),
           };
         }
@@ -116,7 +116,7 @@ export function createMediaInfoTool(): Tool {
           executionTime: Date.now() - startTime,
           outputSize: info.size,
           executionId: `media_info_${Date.now()}`,
-          toolName: 'media:info',
+          toolName: 'media_info',
           timestamp: Date.now(),
           content: `文件信息: ${JSON.stringify(metadata)}`,
         };
@@ -135,7 +135,7 @@ export function createMediaInfoTool(): Tool {
           progress: [],
           metadata: { errorCode: MediaErrorCode.PROCESS_FAILED },
           executionId: `media_info_${Date.now()}`,
-          toolName: 'media:info',
+          toolName: 'media_info',
           timestamp: Date.now(),
         };
       }
@@ -143,7 +143,7 @@ export function createMediaInfoTool(): Tool {
 
     getInfo(): ToolInfo {
       return {
-        name: 'media:info',
+        name: 'media_info',
         description: 'Get metadata of a media file',
         params: [
           {
@@ -153,7 +153,7 @@ export function createMediaInfoTool(): Tool {
             required: true,
           },
         ],
-        aliases: ['media_info', 'file_info'],
+        aliases: ['file_info'],
         searchTips: ['media', 'info', 'metadata'],
         enabled: true,
         readOnly: true,

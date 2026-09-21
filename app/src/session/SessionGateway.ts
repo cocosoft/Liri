@@ -992,7 +992,12 @@ export class SessionGateway {
     // 避免迁移中间态（{id}/session.json 与 {id}.json 并存）产出重复 id。
     const resultMap = new Map<
       string,
-      { title?: string; status?: string; updatedAt?: string; temporary?: string | null }
+      {
+        title?: string;
+        status?: string;
+        updatedAt?: string;
+        temporary?: string | null;
+      }
     >();
 
     for (const entry of entries) {

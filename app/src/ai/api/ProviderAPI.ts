@@ -203,13 +203,10 @@ export async function handleDeleteProvider(
 
     // N-59（2026-09-20）：删除前取**强绑定**该供应商的模型清单（删除时会被级联停用），
     // 随响应返回，供调用方提示"已同时停用 N 个模型"。
-    const { modelPricingService } = await import(
-      '../models/ModelPricingService.js'
-    );
+    const { modelPricingService } =
+      await import('../models/ModelPricingService.js');
     await modelPricingService.initialize();
-    const disabledModels = (
-      await modelPricingService.getModelsByProviderId(id)
-    )
+    const disabledModels = (await modelPricingService.getModelsByProviderId(id))
       .filter((m) => m.enabled)
       .map((m) => m.displayName || m.modelId);
 

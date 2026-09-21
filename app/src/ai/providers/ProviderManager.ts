@@ -586,9 +586,8 @@ export class ProviderManager {
     // 原实现只删供应商行 ⇒ 模型记录残留且 enabled=1，切换引用它们的会话时
     // ModelRuntimeAPI 报 400「供应商未找到或未启用」。仅处理 UUID 强绑定；
     // provider_id 存 provider_type 的松绑定由 ProviderRegistry.getByType 解析，不在此处理。
-    const { modelPricingService } = await import(
-      '../models/ModelPricingService.js'
-    );
+    const { modelPricingService } =
+      await import('../models/ModelPricingService.js');
     await modelPricingService.initialize();
     const boundModels = await modelPricingService.getModelsByProviderId(id);
 

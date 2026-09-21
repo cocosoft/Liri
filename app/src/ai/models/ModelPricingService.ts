@@ -967,9 +967,7 @@ export class ModelPricingService {
    * 用于"删除供应商时级联停用"与影响面报备。注意 `provider_id` 存 provider_type
    * （如 `deepseek`）的**松绑定**由 `ProviderRegistry.getByType` 解析，不属本查询语义。
    */
-  async getModelsByProviderId(
-    providerId: string
-  ): Promise<
+  async getModelsByProviderId(providerId: string): Promise<
     Array<{
       id: string;
       modelId: string;

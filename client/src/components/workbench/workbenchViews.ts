@@ -43,7 +43,8 @@ export const WORKBENCH_VIEWS: Record<ContentView, WorkbenchViewSpec> = {
     component: lazy(() => import("../views/AgentPage")),
   },
   council: {
-    labelKey: "workspace.council",
+    // T1：正名为「Agent 角色」（与 navRegistry 的 `wb-council` 同键，避免两处叫法不一致）
+    labelKey: "workspace.agentRoles",
     component: lazy(() => import("../views/CouncilAgentRolesPage")),
   },
   intelligence: {

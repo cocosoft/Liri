@@ -1,14 +1,19 @@
 /**
- * 理事会 Agent 角色管理页面
+ * Agent 角色管理页（`/agent/roles`）—— Liri **全局 Agent 角色**的管理面（设计文档 T1 所有权归一）。
  *
- * 管理 Council 功能的 5 个专家 Agent 角色：
- * 架构师、安全专家、性能专家、前端专家、后端专家
- * 支持新增、编辑、删除、启用/禁用操作，数据持久化到数据库。
+ * 数据源：`agent_roles` 表（单一事实来源）。两个消费者共用同一份配置：
+ * ① 理事会辩论（`CouncilOrchestrator`）；② 子代理描述符解析链（`AgentTool` 的 `subagent_type`）。
+ *
+ * 能力：新增 / 编辑 / 删除 / 启用禁用；`model` = 该角色的**推荐模型**（留空 ⇒ 沿用任务分工默认模型）。
+ * 默认包含 5 个专家角色（架构师、安全专家、性能专家、前端专家、后端专家）。
  */
 
 import { useState, useEffect, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { useConfigStore } from "../../stores/configStore";
 import { httpLegacy as http } from "../../services/httpClient";
+import { modelService, type ModelInfo } from "../../services/modelService";
+import { AgentRuntimePanel } from "./agent-runtime/AgentRuntimePanel";
 
 // ========== 类型定义 ==========
 
@@ -19,6 +24,10 @@ interface AgentRole {
   expertise: string[];
   weight: number;
   systemPrompt: string;
+  /** T5：推荐模型（**模型名** = `ModelInfo.modelId`，下游 `getByModel()` 的口径；空 = 沿用任务分工默认模型） */
+  model?: string;
+  /** T9：该角色能否再委派子代理（策略位；缺省 = 不可委派） */
+  canDelegate?: boolean;
   icon: string;
   sortOrder: number;
   enabled: boolean;
@@ -30,6 +39,10 @@ interface FormData {
   expertise: string;
   weight: number;
   systemPrompt: string;
+  /** T5：空字符串 = 未指定（提交时原样发送 ⇒ 后端存空值 = 沿用默认） */
+  model: string;
+  /** T9：授权位（提交布尔值；后端仅在显式布尔时改写） */
+  canDelegate: boolean;
   icon: string;
   sortOrder: number;
   enabled: boolean;
@@ -43,20 +56,31 @@ const EMPTY_FORM: FormData = {
   expertise: "",
   weight: 1.0,
   systemPrompt: "",
+  model: "",
+  canDelegate: false,
   icon: "🤖",
   sortOrder: 0,
   enabled: true,
 };
 
+// 运行态面板（T8）已抽离至 `./agent-runtime/AgentRuntimePanel`
+// （该页因它由 624 行增至 906 行、突破 lint:size 的 800 行阈值，故拆分）
+
 // ========== 组件 ==========
 
 function CouncilAgentRolesPage() {
+  const { t } = useTranslation();
   const config = useConfigStore((s) => s.config);
   const isDark = config.theme === "dark";
 
   const [roles, setRoles] = useState<AgentRole[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  /** T5：可选模型（来自 `/v1/models`，与模型管理页同源；仅**启用的** chat 模型） */
+  const [models, setModels] = useState<ModelInfo[]>([]);
+
+  // 运行态（T8）相关状态已随面板抽离
 
   // 对话框状态
   const [showForm, setShowForm] = useState(false);
@@ -87,6 +111,20 @@ function CouncilAgentRolesPage() {
     loadRoles();
   }, [loadRoles]);
 
+  /** T5：加载模型选项（失败 ⇒ 下拉仅剩「沿用默认」项，不阻断角色管理） */
+  useEffect(() => {
+    modelService
+      .list()
+      .then((all) =>
+        // 只列**启用**的 chat 模型：与后端校验口径一致
+        // （`activeModelService.isModelAvailable()` 只认"存在且 enabled"的模型名）
+        setModels(all.filter((m) => m.type === "chat" && m.enabled !== false))
+      )
+      .catch(() => setModels([]));
+  }, []);
+
+  // 运行态加载逻辑已随面板抽离（`AgentRuntimePanel` 自行 fetch）
+
   /** 打开新增对话框 */
   const handleAdd = () => {
     setEditingId(null);
@@ -104,6 +142,8 @@ function CouncilAgentRolesPage() {
       expertise: role.expertise.join(", "),
       weight: role.weight,
       systemPrompt: role.systemPrompt,
+      model: role.model ?? "",
+      canDelegate: role.canDelegate === true,
       icon: role.icon,
       sortOrder: role.sortOrder,
       enabled: role.enabled,
@@ -138,6 +178,10 @@ function CouncilAgentRolesPage() {
         expertise: expertiseList,
         weight: form.weight,
         systemPrompt: form.systemPrompt,
+        // T5：空字符串 = 未指定（后端 `agent_roles.model` 可为空 ⇒ 解析链回落到任务分工默认模型）
+        model: form.model,
+        // T9：授权位（显式布尔值；模型无法自选，只能由用户在此设置）
+        canDelegate: form.canDelegate,
         icon: form.icon,
         sortOrder: form.sortOrder,
         enabled: form.enabled,
@@ -200,14 +244,12 @@ function CouncilAgentRolesPage() {
             <h2
               className={`text-2xl font-bold ${isDark ? "text-gray-100" : "text-gray-900"}`}
             >
-              理事会专家角色管理
+              {t("workspace.agentRoles")}
             </h2>
             <p
               className={`mt-1 text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}
             >
-              管理 Agent Council
-              辩论的专家角色，支持新增、编辑、删除和启用/禁用。 默认包含 5
-              个专家角色（架构师、安全专家、性能专家、前端专家、后端专家）。
+              {t("workspace.agentRolesDesc")}
             </p>
           </div>
           <button
@@ -284,6 +326,14 @@ function CouncilAgentRolesPage() {
                             已禁用
                           </span>
                         )}
+                        {role.canDelegate && (
+                          <span
+                            className="text-xs px-1.5 py-0.5 rounded bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300"
+                            title="该角色被授权再委派子代理（仍受父侧深度上限约束）"
+                          >
+                            可委派
+                          </span>
+                        )}
                       </div>
 
                       {/* 专业领域标签 */}
@@ -302,11 +352,15 @@ function CouncilAgentRolesPage() {
                         ))}
                       </div>
 
-                      {/* 权重 */}
+                      {/* 权重 / 排序 / 推荐模型（T5：后端已贯通，此处回显） */}
                       <div
                         className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}
                       >
-                        权重: {role.weight} | 排序: {role.sortOrder}
+                        权重: {role.weight} | 排序: {role.sortOrder} | 模型:{" "}
+                        {role.model
+                          ? (models.find((m) => m.modelId === role.model)?.name ??
+                            role.model)
+                          : "默认"}
                       </div>
                     </div>
                   </div>
@@ -384,6 +438,9 @@ function CouncilAgentRolesPage() {
             </div>
           </div>
         )}
+
+        {/* 运行态 / 最近运行（T8）：已抽离为独立组件（`./agent-runtime/AgentRuntimePanel`） */}
+        <AgentRuntimePanel isDark={isDark} />
 
         {/* 新增/编辑对话框 */}
         {showForm && (
@@ -500,6 +557,39 @@ function CouncilAgentRolesPage() {
                   />
                 </div>
 
+                {/* 推荐模型（T5：取值来自 /v1/models，与模型管理页同源） */}
+                <div>
+                  <label
+                    className={`block text-sm font-medium mb-1 ${isDark ? "text-gray-300" : "text-gray-700"}`}
+                  >
+                    推荐模型
+                  </label>
+                  <select
+                    value={form.model}
+                    onChange={(e) => setForm({ ...form, model: e.target.value })}
+                    className={`w-full px-3 py-2 text-sm rounded border ${
+                      isDark
+                        ? "bg-gray-700 border-gray-600 text-gray-200"
+                        : "bg-white border-gray-300 text-gray-900"
+                    }`}
+                  >
+                    <option value="">（沿用「任务分工」的对话模型）</option>
+                    {models.map((m) => (
+                      // ⚠ 值必须是**模型名**（`modelId`）：下游 `providerRegistry.getByModel()`
+                      // 按模型名解析，传 UUID（`id`）会解析不到、并把 UUID 当模型名发给上游
+                      // （表现为 400 "unsupported model" —— 与本项目台账 N-27 同类）
+                      <option key={m.id} value={m.modelId}>
+                        {m.name}
+                      </option>
+                    ))}
+                  </select>
+                  <p
+                    className={`text-xs mt-1 ${isDark ? "text-gray-500" : "text-gray-400"}`}
+                  >
+                    选定后，该角色被委派时使用此模型；未指定则用任务分工中的默认模型
+                  </p>
+                </div>
+
                 {/* 权重和排序 */}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
@@ -569,6 +659,35 @@ function CouncilAgentRolesPage() {
                   >
                     启用
                   </label>
+                </div>
+
+                {/* T9：授权位（能否再委派子代理） */}
+                <div
+                  className={`rounded border p-3 ${isDark ? "border-gray-700" : "border-gray-200"}`}
+                >
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="canDelegate"
+                      checked={form.canDelegate}
+                      onChange={(e) =>
+                        setForm({ ...form, canDelegate: e.target.checked })
+                      }
+                      className="rounded"
+                    />
+                    <label
+                      htmlFor="canDelegate"
+                      className={`text-sm ${isDark ? "text-gray-300" : "text-gray-700"}`}
+                    >
+                      允许该角色再委派子代理
+                    </label>
+                  </div>
+                  <p
+                    className={`text-xs mt-1 ${isDark ? "text-gray-500" : "text-gray-400"}`}
+                  >
+                    默认关闭。开启后，模型委派到该角色时可再次派发子代理；仍受嵌套深度上限
+                    （任务分工/环境变量）约束。授权只能在此设置，模型无法自行声明。
+                  </p>
                 </div>
 
                 {/* System Prompt */}

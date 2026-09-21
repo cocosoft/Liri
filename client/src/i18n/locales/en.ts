@@ -1403,7 +1403,11 @@ const en = {
     rules: "Rules",
     orchestration: "Orchestration",
     intelligence: "Intelligence",
-    council: "Council",
+    // T1 (2026-09-21): renamed from `council: "Council"` — the key only serves `/agent/roles`,
+    // which is the management surface for Liri's global agent roles (council is one consumer).
+    agentRoles: "Agent Roles",
+    agentRolesDesc:
+      "The single source of truth for Liri agent roles — shared by council debates and subagents (subagent_type).",
     cost: "Cost",
     workflow: "Workflow",
     templates: "Templates",

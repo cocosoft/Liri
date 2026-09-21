@@ -118,6 +118,45 @@ export enum ModelCapability {
 
 // 模型能力函数已迁移到 ModelConfigs.ts，请直接引用
 
+/**
+ * 由**能力集合**推导模型类型（`chat` / `image` / `video` / `voice` / `embedding` / `reranking`）。
+ *
+ * 收敛为单一实现（v7.1）：原先该映射内联在 `/v1/models` 的投影里（`ModelRuntimeAPI`），
+ * 而角色模型的"必须为对话模型"校验需要**同一口径** ⇒ 抽为共用函数，避免两处漂移。
+ *
+ * 覆盖边界（N-40 修复后）：生成类能力全部映射 —— `IMAGE_GENERATION` / `IMAGE_EDITING`
+ * ⇒ `image`，`VIDEO_GENERATION` / `TEXT_TO_VIDEO` / `IMAGE_TO_VIDEO` ⇒ `video`。
+ *
+ * 为什么必须补齐（不是"可选的精确化"）：消费侧 [MediaPage.tsx](file:///e:/PY/Documents/CODES/PY_APP/client/src/components/views/MediaPage.tsx)
+ * 以 `m.type === 'video'` / `'image'` 做**能力门控**（判断"是否已启用生视频/生图模型"），
+ * 漏映射会让"只带 `text_to_video` 的模型"被当成 `chat` ⇒ 媒体页误判"无可用视频模型"。
+ *
+ * **输入类能力不参与类型判定**（`IMAGE_INPUT` / `AUDIO_INPUT` / `VIDEO_INPUT` / `PDF_INPUT`
+ * 等属多模态输入，模型本身仍是对话模型）。
+ */
+export function deriveModelType(
+  capabilities: readonly string[]
+): 'image' | 'video' | 'reranking' | 'embedding' | 'voice' | 'chat' {
+  if (capabilities.includes(ModelCapability.IMAGE_GENERATION)) return 'image';
+  if (capabilities.includes(ModelCapability.IMAGE_EDITING)) return 'image';
+  if (capabilities.includes(ModelCapability.VIDEO_GENERATION)) return 'video';
+  if (
+    capabilities.includes(ModelCapability.TEXT_TO_VIDEO) ||
+    capabilities.includes(ModelCapability.IMAGE_TO_VIDEO)
+  ) {
+    return 'video';
+  }
+  if (capabilities.includes(ModelCapability.RERANKING)) return 'reranking';
+  if (capabilities.includes(ModelCapability.EMBEDDING)) return 'embedding';
+  if (
+    capabilities.includes(ModelCapability.TEXT_TO_SPEECH) ||
+    capabilities.includes(ModelCapability.SPEECH_RECOGNITION)
+  ) {
+    return 'voice';
+  }
+  return 'chat';
+}
+
 export enum AIMessageRole {
   USER = 'user',
   ASSISTANT = 'assistant',

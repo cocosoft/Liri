@@ -181,6 +181,39 @@ export async function dispatchAuthAccessRoutes(
     return true;
   }
 
+  // ---- Agent Control（O10a① Tier2 归属校验 + E2 暂停开关的用户入口）----
+  if (method === 'GET' && url === '/v1/agents/control') {
+    const { handleGetAgentControl } = await import('../agent-control-handlers');
+    await handleGetAgentControl(handlerCtx, req, res);
+    return true;
+  }
+  // T8：运行台账只读查询（`limit` 从 req.url 解析；故此处兼容带查询串的形态）
+  if (
+    method === 'GET' &&
+    (url === '/v1/agents/runs' || url.startsWith('/v1/agents/runs?'))
+  ) {
+    const { handleListAgentRuns } = await import('../agent-control-handlers');
+    await handleListAgentRuns(handlerCtx, req, res);
+    return true;
+  }
+  if (method === 'POST' && url === '/v1/agents/pause') {
+    const { handlePauseAgentSpawn } = await import('../agent-control-handlers');
+    await handlePauseAgentSpawn(handlerCtx, req, res);
+    return true;
+  }
+  if (method === 'POST' && url === '/v1/agents/resume') {
+    const { handleResumeAgentSpawn } =
+      await import('../agent-control-handlers');
+    await handleResumeAgentSpawn(handlerCtx, req, res);
+    return true;
+  }
+  if (method === 'POST' && url.match(/^\/v1\/agents\/([^/]+)\/stop$/)) {
+    const agentId = url.match(/^\/v1\/agents\/([^/]+)\/stop$/)![1];
+    const { handleStopAgent } = await import('../agent-control-handlers');
+    await handleStopAgent(handlerCtx, req, res, agentId);
+    return true;
+  }
+
   // ---- Health ----
   if (method === 'GET' && url === '/health') {
     let dream;

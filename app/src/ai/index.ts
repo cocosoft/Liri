@@ -39,6 +39,9 @@ export type {
   ParsedToolCall,
 } from './models/types';
 export { AIMessageRole } from './models/types';
+// v7.1：模型类型推导（能力 → chat/image/video/voice/embedding/reranking）收敛为单一实现，
+// 供 `/v1/models` 投影与"角色模型必须为对话模型"校验共用
+export { deriveModelType } from './models/types';
 export type {
   AIModelType,
   AIMessage,
@@ -46,6 +49,8 @@ export type {
   AIClient,
 } from './models/types';
 export { ModelRegistry } from './models/ModelRegistry';
+// T5（2026-09-21）：角色 `model` 校验需要"模型是否可用"的单一取数（启用集合 + 30s 缓存）
+export { activeModelService } from './models/ActiveModelService';
 export { ModelManager, modelManager } from './models/ModelManager';
 export type { APIProvider, ModelKey } from './models/ModelConfigs';
 export {

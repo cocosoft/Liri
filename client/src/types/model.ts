@@ -15,7 +15,10 @@ export interface ModelInfo {
   name: string;
   provider: string;
   providerId?: string;
-  type: "chat" | "embedding" | "image" | "video" | "voice";
+  // N-40 伴随修复（2026-09-21）：补 `reranking` —— 后端 `deriveModelType()` 会返回
+  // 该值（`model_registry` 中确有 reranker 模型，如 BAAI/bge-reranker-v2-m3），
+  // 原先此处联合缺它 ⇒ 前端类型契约与 `/v1/models` 实际返回值不符。
+  type: "chat" | "embedding" | "image" | "video" | "voice" | "reranking";
   context_length: number;
   enabled: boolean;
   requiresAuth?: boolean;

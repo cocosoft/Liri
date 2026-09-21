@@ -732,6 +732,16 @@ data: {"type":"done","result":{...}}
 | | `getMessages` | `GET /v1/sessions/{id}/messages` | `get_session_messages` | ❌ |
 | | `searchMessages` | `GET /v1/sessions/messages/search?q=&limit=&moduleType=` | — | ✅ (HTTP only, 2026-09-18 FTS5 全文搜索；**2026-09-20 新增可选 `moduleType`** 作用域下推：仅返回该模块会话内的命中，谓词在引擎内生效早于 `limit` 截断；不传时保持全局语义 —— 见 N-66) |
 | | `clearAll` | `DELETE /v1/sessions` | `clear_all_sessions` | ❌ |
+| **agentRoleService** | `list` | `GET /v1/agent-roles` | — | ✅ (HTTP only；**2026-09-21 补登**：端点自 O11 前即存在但未入清单) |
+| | `get` | `GET /v1/agent-roles/{agentId}` | — | ✅ (HTTP only) |
+| | `create` | `POST /v1/agent-roles` | — | ✅ (HTTP only；body 增 `model` 字段——O11-2 `agent_roles.model` 列；**2026-09-21 T5**：`model` 为**模型名**（`model_registry.modelId`）且必须 `activeModelService.isModelAvailable()` 认可（否则 400）；**T9**：body 增 `canDelegate`（布尔，缺省 false = 不可再委派）) |
+| | `update` | `PUT /v1/agent-roles/{agentId}` | — | ✅ (HTTP only；同上；~~落库后 `agentRegistry.invalidateCache()`——O11-3 消除 30s 窗口~~ **2026-09-21 更正**：该调用经复核为**空修复**（清的缓存与解析链读取路径无交集）⇒ O17 已删除，改为刷新工具 schema 的可用清单快照 `refreshAvailableSubagentTypeNames()`) |
+| | `remove` | `DELETE /v1/agent-roles/{agentId}` | — | ✅ (HTTP only；同上；**T9**：`canDelegate` 亦支持部分更新——仅显式布尔值才改写) |
+| **agentControlService** | `getControl` | `GET /v1/agents/control` | — | ✅ (HTTP only；**2026-09-21 新增**：spawn 暂停态 + 活跃代理只读投影（**不含 `sessionId`**，守 O10a②）) |
+| | `getRuns` | `GET /v1/agents/runs?limit=N` | — | ✅ (HTTP only；**2026-09-21 新增 T8**：最近运行台账只读查询（读 `agent_runs`，磁盘面）——返回 `status`/`agentType`/`descriptorSource`（O19 来源）/**不含 `sessionId`、`owner_pid`**；`limit` 1..200 默认 50，按 `started_at` 倒序) |
+| | `pauseSpawn` | `POST /v1/agents/pause` | — | ✅ (HTTP only；**新增**：E2 暂停开关——`{reason?}` ⇒ **阻断新 spawn、在途继续跑**) |
+| | `resumeSpawn` | `POST /v1/agents/resume` | — | ✅ (HTTP only；**新增**：恢复 spawn；进程内状态，重启即恢复未暂停) |
+| | `stop` | `POST /v1/agents/{id}/stop` | — | ✅ (HTTP only；**新增**：body 可带 `sessionId` ⇒ **O10a① Tier2 归属校验**，不一致则拒绝并返回 409) |
 | **toolService** | `list` | `GET /v1/tools` | `list_tools` | ✅ |
 | | `execute` | `POST /v1/tools/{name}/execute` | `execute_tool` | ✅ |
 | **configService** | `get` | `GET /v1/config/{key}` | `get_config` | ✅ |

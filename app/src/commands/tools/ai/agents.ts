@@ -311,7 +311,8 @@ async function handleDelete(
 
   const agentTool = getAgentTool();
   if (agentTool) {
-    const stopped = agentTool.stopAgent(name);
+    // O14：CLI 进程内特权调用（无会话上下文）须**显式**声明
+    const stopped = agentTool.stopAgent(name, { privileged: true });
     if (stopped) {
       return {
         success: true,

@@ -1417,7 +1417,11 @@ const zh = {
     rules: "规则",
     orchestration: "编排",
     intelligence: "智能分析",
-    council: "委员会",
+    // T1（2026-09-21）：原 `council: "委员会"` —— 该键只服务 `/agent/roles` 一个入口，
+    // 而该页是「Liri 全局 Agent 角色」的管理面（理事会只是消费者之一）⇒ 正名为 agentRoles
+    agentRoles: "Agent 角色",
+    agentRolesDesc:
+      "Liri 全局 Agent 角色单一数据源：理事会辩论与子代理（subagent_type）共用同一份配置。",
     cost: "费用",
     workflow: "工作流",
     templates: "模板",

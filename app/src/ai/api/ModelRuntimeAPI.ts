@@ -30,7 +30,7 @@ import type http from 'http';
 import { handleError } from '@modules/error';
 import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
 import { SpanStatusCode } from '@opentelemetry/api';
-import { ModelCapability } from '../models/types';
+import { deriveModelType } from '../models/types';
 import { trackUsage } from '@modules/ai';
 import {
   getModelCapabilities,
@@ -163,18 +163,8 @@ export async function handleListModels(
         pr.capabilities && pr.capabilities.length > 0
           ? pr.capabilities
           : getModelCapabilities(pr.modelId);
-      const modelType: string = caps.includes(ModelCapability.IMAGE_GENERATION)
-        ? 'image'
-        : caps.includes(ModelCapability.VIDEO_GENERATION)
-          ? 'video'
-          : caps.includes(ModelCapability.RERANKING)
-            ? 'reranking'
-            : caps.includes(ModelCapability.EMBEDDING)
-              ? 'embedding'
-              : caps.includes(ModelCapability.TEXT_TO_SPEECH) ||
-                  caps.includes(ModelCapability.SPEECH_RECOGNITION)
-                ? 'voice'
-                : 'chat';
+      // v7.1：类型推导收敛为共用函数（`deriveModelType`）—— 与角色模型校验同口径，避免两处漂移
+      const modelType: string = deriveModelType(caps);
 
       // 仅当定价记录有匹配的活跃供应商时才纳入模型列表
       // 避免 YAML 种子数据在不配置供应商时被当作可用模型展示

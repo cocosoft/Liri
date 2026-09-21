@@ -194,7 +194,8 @@ export const NAV_ENTRIES: NavEntry[] = [
   },
   {
     id: "wb-council",
-    labelKey: "workspace.council",
+    // T1：正名为「Agent 角色」（该页是全局 Agent 角色管理面，非仅理事会）
+    labelKey: "workspace.agentRoles",
     icon: CouncilIcon,
     path: "/agent/roles",
     surfaces: ["workbench"],

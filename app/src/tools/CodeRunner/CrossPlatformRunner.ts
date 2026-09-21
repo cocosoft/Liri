@@ -14,7 +14,7 @@
  * 仅进程隔离手段不同（landlock-run 包装）。
  */
 
-import { spawn, type ChildProcess } from 'child_process';
+import { spawn, execFileSync, type ChildProcess } from 'child_process';
 import { promises as fs } from 'fs';
 import { join, isAbsolute } from 'path';
 import { resolveTempDir } from '@modules/core/paths';
@@ -237,6 +237,10 @@ export async function runCodeRunner(
   const child = spawn(process.execPath, ['run', wrapperPath, 'user.ts'], {
     cwd: runDir,
     stdio: ['pipe', 'pipe', 'pipe'],
+    // O4（v7.1）"终止按进程组"：POSIX 下让子进程**自成进程组**（组长 pid == 子进程 pid），
+    // 使 `process.kill(-pid, sig)` 能一次终止整组（含用户脚本派生的孙进程）。
+    // Windows 不需要（`taskkill /T` 按父子树终止），且避免多开控制台窗口。
+    detached: process.platform !== 'win32',
   });
   return runRpcChildProcess(child, {
     bridge: opts.bridge,
@@ -244,31 +248,80 @@ export async function runCodeRunner(
   });
 }
 
-/** 两阶段终止（参考 StdioTransport.killProcess：SIGTERM → 2s → SIGKILL） */
-function twoPhaseKill(child: ChildProcess): void {
+/**
+ * 两阶段终止 —— **按进程组/进程树**（O4 v7.1；原实现只 `child.kill()` 直接子进程）。
+ *
+ * **为什么必须按组/树**：CodeRunner 执行的是**用户脚本**，它常再派生 shell/子进程；
+ * 只 kill 直接子进程会留下**孙进程**（孤儿）—— 继续占用 CPU、继续改写工作目录。
+ *
+ * 平台差异（先例：[cli-runner/index.ts:205-220](file:///e:/PY/Documents/CODES/PY_APP/app/src/agent/cli-runner/index.ts#L205-L220)）：
+ * - **Windows**：`taskkill /PID <pid> /T /F` 按**父子树**终止（不依赖进程组语义）。
+ *   Windows 无 POSIX 信号 ⇒ 没有"先 SIGTERM 再 SIGKILL"的余地（`child.kill()` 本身即强杀）。
+ * - **POSIX**：子进程以 `detached: true` 启动 ⇒ 自成进程组，用 `process.kill(-pid, sig)`
+ *   终止**整组**；先 `SIGTERM`，`KILL_GRACE_MS` 后 `SIGKILL`。
+ * - 组/树终止不可用（进程已退出、权限不足、未以 detached 启动等）⇒ **回退 `child.kill(sig)`**
+ *   ⇒ 任何情况下都**不弱于**旧行为。
+ *
+ * ⚠ 误杀边界：只作用于**该子进程自己的进程组/父子树**，不使用 `process.kill(0)` 这类全量信号。
+ *
+ * 导出供直接单测（本函数的正确性依赖真实进程行为，无法用纯桩覆盖）。
+ */
+export function twoPhaseKill(child: ChildProcess): void {
   if (child.exitCode !== null || child.killed) return;
-  try {
-    child.kill('SIGTERM');
-  } catch {
+
+  if (process.platform === 'win32') {
+    killWindowsProcessTree(child);
+    return;
+  }
+
+  const pid = child.pid;
+  const signalGroup = (signal: NodeJS.Signals): boolean => {
+    if (pid === undefined) return false;
     try {
-      child.kill();
+      process.kill(-pid, signal); // 负 pid = 进程组
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  if (!signalGroup('SIGTERM')) {
+    try {
+      child.kill('SIGTERM');
     } catch {
       /* already exited */
     }
-    return;
   }
+
   const sigkillTimer = setTimeout(() => {
-    try {
-      child.kill('SIGKILL');
-    } catch {
+    if (child.exitCode !== null) return;
+    if (!signalGroup('SIGKILL')) {
       try {
-        child.kill();
+        child.kill('SIGKILL');
       } catch {
         /* already exited */
       }
     }
   }, KILL_GRACE_MS);
   child.once('exit', () => clearTimeout(sigkillTimer));
+}
+
+/** Windows：`taskkill /T` 终止整棵父子树（同步执行 —— kill 语义要求"发出即生效"） */
+function killWindowsProcessTree(child: ChildProcess): void {
+  const pid = child.pid;
+  if (pid === undefined) return;
+  try {
+    execFileSync('taskkill', ['/PID', String(pid), '/T', '/F'], {
+      stdio: 'ignore',
+    });
+  } catch {
+    // 进程已退出 / taskkill 不可用 ⇒ 回退单进程强杀（与旧行为等价）
+    try {
+      child.kill();
+    } catch {
+      /* already exited */
+    }
+  }
 }
 
 /** 参数哈希（内部调用摘要，CM-5） */

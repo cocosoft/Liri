@@ -31,6 +31,8 @@ import {
 import { traceUsageListeners } from '../../trace-recording/AITracePlugin';
 // 订阅子 Agent token 消耗汇聚
 import { subAgentTokenListeners } from './SubAgentTokenBridge';
+// 模块级访问器已抽至 `./trackerRegistry`（本文件曾因它达 819 行、超出 lint:size 阈值）
+import { setUnifiedTokenTracker } from './trackerRegistry';
 
 const logger = getLogger('tokenBudget:unified');
 
@@ -147,6 +149,12 @@ interface StreamSessionState {
   checkInterval: NodeJS.Timeout | null;
 }
 
+// 访问器实现已移至 `./trackerRegistry`；re-export 保持既有导入路径可用
+export {
+  getUnifiedTokenTracker,
+  setUnifiedTokenTracker,
+} from './trackerRegistry';
+
 export class UnifiedTokenTracker {
   private readonly controller: TokenBudgetController;
   private readonly contextTracker: ContextTracker;
@@ -195,6 +203,19 @@ export class UnifiedTokenTracker {
   /** 获取当前校准因子（供调用方诊断/日志；C7 收敛后评估在内部闭环，无需外部同步） */
   getCalibrationFactor(): number {
     return this.calibrationFactor;
+  }
+
+  /**
+   * O9/G14：取某会话**当前上下文**的输入 token 估算（最后一次基线的值，非累计）。
+   * `baselineInputTokens` 按"本轮消息"覆盖而非累加 ⇒ 正是"父当前上下文大小"口径。
+   * 无该会话状态/基线未建立 ⇒ `undefined`（调用方退化，不臆测）；本方法只读、无副作用。
+   */
+  getCurrentInputTokens(sessionId?: string): number | undefined {
+    const state = sessionId
+      ? this.streamSessions.get(sessionId)
+      : (this.defaultSession ?? undefined);
+    if (!state || state.baselineInputTokens <= 0) return undefined;
+    return state.baselineInputTokens;
   }
 
   // ==========================================
@@ -767,6 +788,8 @@ export class UnifiedTokenTracker {
       budget.total
     );
     const tracker = new UnifiedTokenTracker(controller, contextTracker);
+    // O9/G14：会话恢复路径同样注册（供摘要预算等跨模块读取"父当前上下文大小"）
+    setUnifiedTokenTracker(tracker);
     if (session.metadata?.calibrationFactor) {
       tracker.calibrationFactor = session.metadata.calibrationFactor;
     }

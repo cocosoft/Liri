@@ -63,7 +63,10 @@ import {
   TokenBudgetStatus,
   getDefaultTokenBudget,
 } from '../core/tokenBudget/TokenBudgetController.js';
-import { UnifiedTokenTracker } from '../core/tokenBudget/UnifiedTokenTracker.js';
+import {
+  UnifiedTokenTracker,
+  setUnifiedTokenTracker,
+} from '../core/tokenBudget/UnifiedTokenTracker.js';
 import { ContextTracker } from './context/ContextTracker.js';
 import { getTokenCountFromUsage } from '../services/tokenManagement/TokenCounter.js';
 import type { TokenUsage } from '../services/tokenManagement/TokenCounter.js';
@@ -408,6 +411,9 @@ export class QueryEngine {
       this.tokenBudgetManager,
       new ContextTracker()
     );
+    // O9/G14：非流式 query 路径同样注册追踪器（供摘要预算读"父当前上下文"；
+    // 会话 ID 不在本实例状态中时 `getCurrentInputTokens` 返回 undefined ⇒ 调用方退化）
+    setUnifiedTokenTracker(this.unifiedTracker);
     this.stopHookManager = createStopHookManager();
   }
 

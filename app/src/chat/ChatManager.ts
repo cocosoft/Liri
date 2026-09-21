@@ -68,7 +68,7 @@ import { dedupeToolCallBlocks } from '@modules/chat/utils/chatBlocks';
 import { extractPendingToolCallsFromEvents } from './utils/pendingToolCalls.js';
 import type { LiriEvent } from '@modules/chat/types/events';
 import { feature as coreFeature } from '@modules/core';
-import { configureCodeRunner } from '@modules/tools';
+import { configureCodeRunner, getSubAgentEngine } from '@modules/tools';
 import {
   sanitizeApiMessages,
   compressToolHistory,
@@ -237,9 +237,17 @@ import {
 import type { StopHookReason } from '@modules/query';
 import { TAORLoop } from '@modules/query';
 import { createChatAgentLoop } from './createAgentLoop.js';
-import { getYieldRegistry } from '../session/yield';
+import { getYieldRegistry, setActiveSubagentRunProbe } from '../session/yield';
+// O9/G14：把本实例的 token 追踪器注册到模块级访问器（供摘要预算等跨模块读取"父当前上下文"）
+import { setUnifiedTokenTracker } from '@modules/core/tokenBudget/UnifiedTokenTracker';
 // 阶段 A（A1-e）：yield 恢复通路（子代理结算 → 恢复父会话）
-import { setYieldResumeHandler, installYieldResumer } from './yield';
+import {
+  setYieldResumeHandler,
+  installYieldResumer,
+  replayPendingSettlements,
+  // O8⑤（v7.1）：重放投递的续跑正文（模型可见标记）
+  buildYieldResumePrompt,
+} from './yield';
 // 阶段 A（N-26 修复）：SelfWake 唤醒执行器（fire 时真正唤醒会话）
 import { setSelfWakeResumeHandler } from '../tasks/selfwake/SelfWakeService';
 import {
@@ -2973,6 +2981,16 @@ export class ChatManagerImpl implements ChatManager {
    * 清理
    */
   cleanup(): void {
+    // B1/O1-1：卸载 yield 恢复器 + 清空两条续跑执行器与 run 探针。
+    // 未卸载时实例重建会把 listener 累积在模块级数组里，且旧 listener 的闭包
+    // 仍指向旧实例（结算信号唤醒的是旧实例）。
+    this._yieldResumerUninstall?.();
+    this._yieldResumerUninstall = null;
+    this._yieldResumerInstalled = false;
+    setYieldResumeHandler(null);
+    setSelfWakeResumeHandler(null);
+    setActiveSubagentRunProbe(null);
+
     taskOrchestrator
       .abortAll()
       .catch((e) =>
@@ -4404,6 +4422,14 @@ export class ChatManagerImpl implements ChatManager {
   private _yieldResumerInstalled = false;
 
   /**
+   * 阶段 A（A1-e）/ B1-O1-1：恢复器卸载函数。
+   *
+   * 必须接收并保存：否则实例重建后**旧 listener 闭包仍持有旧实例**
+   * （结算信号会唤醒旧实例），且监听器数组只增不减。
+   */
+  private _yieldResumerUninstall: (() => void) | null = null;
+
+  /**
    * 流式发送消息
    * @param content 消息内容
    * @param options 选项
@@ -4425,9 +4451,9 @@ export class ChatManagerImpl implements ChatManager {
    * - **内部消费**：不依赖 HTTP 请求/SSE 传输层——落盘与事件写入由 `streamMessage`
    *   内部完成（`_finalizeStreamMessage` 等），前端下次打开会话即可见完整续跑结果；
    * - 注入内容带 `metadata.systemResume = true`，供上层区分"系统续跑"与用户消息；
-   * - `hasActiveRuns` 恒 `false`：Liri 的**并行批次是子代理的原子单位**
-   *   （`AgentSwarm` 内 `Promise.allSettled` 全部收口后才 notify），通知到达时确无活跃 run；
-   *   该参数保留在契约中，以便未来接入更细粒度的 run 追踪。
+   * - `hasActiveRuns`（B1/O1-2）取**子代理引擎 run 台账的会话级**判据：原实现恒 `false`，
+   *   使得"同轮并发两批次"时第一批收口即恢复（第二批仍在跑）；改为 `true` 恒真又会把
+   *   其他会话的在途 run 算成本会话的 ⇒ 只有按会话取值才既不早恢复也不永久等待。
    */
   private _ensureYieldResumerInstalled(): void {
     if (this._yieldResumerInstalled) return;
@@ -4436,7 +4462,8 @@ export class ChatManagerImpl implements ChatManager {
     setYieldResumeHandler(({ sessionId, reason }) =>
       this._resumeSessionInternally(
         sessionId,
-        '子代理已全部完成。请基于它们的结果继续完成任务（系统自动续跑，无需用户确认）。',
+        // O8⑤（v7.1）：重放投递的续跑正文带**模型可见**标记（原来只进 metadata ⇒ 模型不可见）
+        buildYieldResumePrompt(reason),
         { systemResume: true, yieldReason: reason }
       )
     );
@@ -4451,9 +4478,27 @@ export class ChatManagerImpl implements ChatManager {
       )
     );
 
-    installYieldResumer({
-      hasActiveRuns: () => false,
+    const hasActiveRuns = (sessionId: string): boolean =>
+      getSubAgentEngine().hasActiveAgentForSession(sessionId);
+
+    // B1/O1-3（A10 修断链）：同一判据供 yield 登记守卫使用——无在途 run 时拒绝登记，
+    // 否则"模型无子代理却调 sessions_yield"会登记永久等待（结算通知永不触发）。
+    setActiveSubagentRunProbe(hasActiveRuns);
+    // O9/G14：注册 token 追踪器（本装配点每次 streamMessage/sendMessage 都会走到，幂等）
+    setUnifiedTokenTracker(this.unifiedTracker);
+
+    this._yieldResumerUninstall = installYieldResumer({
+      hasActiveRuns,
       latestTurn: (sid) => this.getStreamMaxTurn(sid),
+    });
+
+    // O8（B5）：装配后**回放**未确认送达的结算信号（崩溃点落在"已结算 → 已恢复"之间）
+    // 带 `restored: true` 重投；失败不影响装配本身
+    void replayPendingSettlements({
+      hasActiveRuns,
+      latestTurn: (sid) => this.getStreamMaxTurn(sid),
+    }).catch((err) => {
+      logger.warn('结算信号回放失败', { error: String(err) });
     });
   }
 

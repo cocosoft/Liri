@@ -25,7 +25,10 @@ import {
 } from '../../src/chat/yield';
 
 function makeDeps(
-  over: Partial<{ hasActiveRuns: () => boolean; latestTurn: () => number }> = {}
+  over: Partial<{
+    hasActiveRuns: (sessionId: string) => boolean;
+    latestTurn: () => number;
+  }> = {}
 ): YieldResumerDeps {
   return {
     hasActiveRuns: over.hasActiveRuns ?? (() => false),
@@ -157,6 +160,52 @@ describe('YieldResumer（A1-e 恢复判定与收敛）', () => {
       )
     ).toBe(false);
     expect(registry.isWaiting('s1')).toBe(true);
+  });
+
+  test('hasActiveRuns 按会话取值 —— 其他会话的在途 run 不阻塞本会话恢复', async () => {
+    const registry = getYieldRegistry();
+    registry.register({
+      sessionId: 's1',
+      turn: 5,
+      toolCallId: 'c1',
+      yieldedAt: 100,
+    });
+    setYieldResumeHandler(async () => ({ ok: true }));
+
+    const seen: string[] = [];
+    expect(
+      await handleYieldSettlement(
+        { sessionId: 's1', endedAt: 200 },
+        makeDeps({
+          hasActiveRuns: (sessionId) => {
+            seen.push(sessionId);
+            return sessionId !== 's1'; // 's2' 还有在途 run
+          },
+          latestTurn: () => 5,
+        })
+      )
+    ).toBe(true);
+    expect(seen).toEqual(['s1']);
+    expect(registry.isWaiting('s1')).toBe(false);
+  });
+
+  test('结算落在「登记 → 收尾回填」窗口内（turn 仍为 0）⇒ 不判取代，可恢复', async () => {
+    const registry = getYieldRegistry();
+    registry.register({
+      sessionId: 's1',
+      turn: 0, // 收尾点尚未 updateTurn
+      toolCallId: 'c1',
+      yieldedAt: 100,
+    });
+    setYieldResumeHandler(async () => ({ ok: true }));
+
+    expect(
+      await handleYieldSettlement(
+        { sessionId: 's1', endedAt: 200 },
+        makeDeps({ latestTurn: () => 1 })
+      )
+    ).toBe(true);
+    expect(registry.isWaiting('s1')).toBe(false);
   });
 
   test('恢复失败 ⇒ 等待被作废（不永久停留等待态）', async () => {

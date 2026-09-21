@@ -35,5 +35,12 @@ export type {
   YieldConvergeInput,
 } from './YieldRegistry';
 
-export { registerYieldFromResults } from './yieldTurnRegistration';
-export type { YieldCandidateResult } from './yieldTurnRegistration';
+export {
+  registerYieldFromResults,
+  setActiveSubagentRunProbe,
+  hasActiveSubagentRunProbe,
+} from './yieldTurnRegistration';
+export type {
+  YieldCandidateResult,
+  ActiveSubagentRunProbe,
+} from './yieldTurnRegistration';

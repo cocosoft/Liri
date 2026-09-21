@@ -106,10 +106,14 @@ export class YieldRegistry {
 
   /**
    * 判定①：登记是否已被后续轮次取代（本轮 turn 已推进 ⇒ 旧登记不得复用）。
+   *
+   * `turn === 0` 表示"登记后尚未被收尾点回填"（`updateTurn` 之前），
+   * 此时无轮次可比 ⇒ **不构成取代**（否则结算恰落在「登记 → 收尾」窗口内即被误判作废）。
    */
   isSuperseded(sessionId: string, latestTurn: number): boolean {
     const entry = this.get(sessionId);
     if (!entry) return false;
+    if (entry.turn === 0) return false;
     return latestTurn > entry.turn;
   }
 
@@ -118,14 +122,14 @@ export class YieldRegistry {
    * 1. 存在 waiting 条目；
    * 2. 无活跃子代理 run；
    * 3. 结算时间不早于登记时间（早于则视为迟到/旧事件，忽略）；
-   * 4. 本轮 turn 未被取代。
+   * 4. 本轮 turn 未被取代（`turn === 0` 视为未回填，不算取代）。
    */
   shouldResume(input: YieldConvergeInput): boolean {
     const entry = this.get(input.sessionId);
     if (!entry) return false;
     if (input.hasActiveRuns) return false;
     if (input.endedAt < entry.yieldedAt) return false;
-    if (input.latestTurn > entry.turn) return false;
+    if (entry.turn > 0 && input.latestTurn > entry.turn) return false;
     return true;
   }
 

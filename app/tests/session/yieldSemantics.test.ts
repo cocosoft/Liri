@@ -295,8 +295,9 @@ describe('YieldRegistry（等待登记与收敛）', () => {
       turn: 0,
       toolCallId: 'c1',
     });
-    // 登记时 turn 未知记 0 ⇒ 任何正数 latestTurn 都被判为已取代
-    expect(registry.isSuperseded('s1', 1)).toBe(true);
+    // 登记时 turn 未知记 0 ⇒ 尚未回填，不构成"已被后续轮次取代"
+    // （B1/O1-3 修正：旧语义把"登记 → 收尾回填"窗口内的结算误判作废）
+    expect(registry.isSuperseded('s1', 1)).toBe(false);
 
     expect(registry.updateTurn('s1', 7, entry)).toBe(true);
     expect(registry.get('s1')?.turn).toBe(7);

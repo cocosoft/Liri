@@ -11,6 +11,10 @@
 export {
   yieldSettlementListeners,
   notifyYieldSettled,
+  // O8⑤（v7.1）：重放投递的**模型可见**续跑正文 + reason 常量（单一来源）
+  buildYieldResumePrompt,
+  YIELD_RESUME_PROMPT,
+  YIELD_SETTLEMENT_RESTORED_REASON,
 } from './YieldSettlementBridge';
 export type {
   YieldSettlementSignal,
@@ -22,5 +26,6 @@ export {
   hasYieldResumeHandler,
   handleYieldSettlement,
   installYieldResumer,
+  replayPendingSettlements,
 } from './YieldResumer';
 export type { YieldResumeHandler, YieldResumerDeps } from './YieldResumer';

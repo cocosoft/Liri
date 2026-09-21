@@ -17,9 +17,11 @@ import { getLogger } from '@modules/monitoring';
 import { getYieldRegistry, YIELD_STATUS_RESUMED } from '../../session/yield';
 import {
   yieldSettlementListeners,
+  YIELD_SETTLEMENT_RESTORED_REASON,
   type YieldSettlementListener,
   type YieldSettlementSignal,
 } from './YieldSettlementBridge';
+import { getSettlementOutbox, type SettlementOutbox } from './SettlementOutbox';
 
 const logger = getLogger('chat:yield:resumer');
 
@@ -36,8 +38,13 @@ export type YieldResumeHandler = (params: {
 
 /** 恢复器依赖（装配处注入，避免直接依赖 chat/subagent 具体实现） */
 export interface YieldResumerDeps {
-  /** 是否仍有活跃子代理 run（true ⇒ 继续等待） */
-  hasActiveRuns: () => boolean;
+  /**
+   * 该会话是否仍有活跃子代理 run（true ⇒ 继续等待）。
+   *
+   * B1/O1-2：按**会话**取值 —— 全局计数会把其他会话的在途子代理算成本会话的，
+   * 使本会话的 yield 等待被永久阻塞（`YieldRegistry.shouldResume` 的判据②）。
+   */
+  hasActiveRuns: (sessionId: string) => boolean;
   /** 取该会话当前最新 turn 编号（用于"登记是否已被后续轮次取代"判定） */
   latestTurn: (sessionId: string) => Promise<number> | number;
 }
@@ -80,7 +87,7 @@ export async function handleYieldSettlement(
   const canResume = registry.shouldResume({
     sessionId: signal.sessionId,
     latestTurn,
-    hasActiveRuns: deps.hasActiveRuns(),
+    hasActiveRuns: deps.hasActiveRuns(signal.sessionId),
     endedAt: signal.endedAt,
   });
   if (!canResume) {
@@ -107,7 +114,10 @@ export async function handleYieldSettlement(
       sessionId: signal.sessionId,
       turn: entry.turn,
       toolCallId: entry.toolCallId,
-      reason: 'subagents_settled',
+      // O8⑤：重放投递带可见标记（`restored`）—— 恢复可能此前已发生过
+      reason: signal.restored
+        ? YIELD_SETTLEMENT_RESTORED_REASON
+        : 'subagents_settled',
     });
     if (result.ok) {
       registry.resolve(signal.sessionId, YIELD_STATUS_RESUMED, entry);
@@ -139,9 +149,8 @@ export async function handleYieldSettlement(
  * 返回卸载函数。
  */
 export function installYieldResumer(deps: YieldResumerDeps): () => void {
-  const listener: YieldSettlementListener = (signal) => {
-    void handleYieldSettlement(signal, deps);
-  };
+  const listener: YieldSettlementListener = (signal) =>
+    handleYieldSettlement(signal, deps);
   yieldSettlementListeners.push(listener);
   logger.info('yield 恢复器已装配', {
     listeners: yieldSettlementListeners.length,
@@ -150,4 +159,56 @@ export function installYieldResumer(deps: YieldResumerDeps): () => void {
     const index = yieldSettlementListeners.indexOf(listener);
     if (index >= 0) yieldSettlementListeners.splice(index, 1);
   };
+}
+
+/**
+ * O8：**启动回放** —— 把投递台账里"未确认送达"的结算信号重投一次。
+ *
+ * 场景：进程在"子代理已结算 → 父会话被恢复"之间崩溃 ⇒ 台账留下
+ * `pending`（从未发出）或 `attempting`（可能已发出）行。重启后本函数按
+ * `listReplayable()`（48h 内、`attempts < 8`）逐行重投：
+ * - `claim()` 领取（`attempts+1`，超上限自动转 `dropped`，不再回放）；
+ * - 带 **`restored: true`** 投递（恢复侧据此带可见标记，避免重复恢复被误认为首次）；
+ * - 收到 ack（`handleYieldSettlement` 返回 `true`）⇒ `delivered`；否则 `failed`（留待下次，直至超限）。
+ *
+ * @param outbox 可注入（测试用）；缺省取全局单例
+ * @returns 成功投递（收到 ack）的行数
+ */
+export async function replayPendingSettlements(
+  deps: YieldResumerDeps,
+  outbox: SettlementOutbox = getSettlementOutbox()
+): Promise<number> {
+  let delivered = 0;
+  let candidates: Awaited<ReturnType<SettlementOutbox['listReplayable']>> = [];
+  try {
+    candidates = await outbox.listReplayable();
+  } catch (err) {
+    logger.warn('结算回放：读取投递台账失败', { error: String(err) });
+    return 0;
+  }
+  if (candidates.length === 0) return 0;
+
+  for (const row of candidates) {
+    const claimed = await outbox.claim(row.id);
+    if (!claimed) continue; // 超上限 ⇒ 已被转 dropped
+    const ack = await handleYieldSettlement(
+      { sessionId: row.sessionId, endedAt: row.endedAt, restored: true },
+      deps
+    );
+    if (ack) {
+      await outbox.markDelivered(row.id);
+      delivered++;
+    } else {
+      await outbox.markFailed(
+        row.id,
+        '回放未获 ack（无等待登记或判定不可恢复）'
+      );
+    }
+  }
+
+  logger.info('结算回放完成', {
+    candidates: candidates.length,
+    delivered,
+  });
+  return delivered;
 }

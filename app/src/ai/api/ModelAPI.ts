@@ -30,6 +30,7 @@ import { handleError } from '@modules/error';
 import { getLogger } from '@modules/monitoring';
 import { modelPricingService } from '../models/ModelPricingService.js';
 import type { UpsertPricingParams } from '../models/ModelPricingService.js';
+import { collectOrphanModels } from '../models/orphanModels.js';
 import { parseBody, sendJson, sendError } from './utils.js';
 
 const logger = getLogger('ai:model-api');
@@ -247,7 +248,34 @@ export async function handleToggleModel(
 }
 
 /**
- * PUT /v1/models/:id — 更新模型信息（能力标签、显示名、定价等）
+ * N-59 后续（2026-09-20）：列出"供应商已被删除"的模型（孤儿）。
+ *
+ * 这类模型因**无匹配供应商**不会出现在 `GET /v1/models`（见 `handleListModels` 的
+ * `if (!matchingProvider) continue`），用户在 UI 上看不到、无法重绑 ⇒ 单独提供只读端点，
+ * 供模型管理页的「供应商缺失的模型」区块展示与重绑。
+ *
+ * 重绑使用**既有** `PUT /v1/models/:id { providerId }`（`handleUpdateModel` 已支持），
+ * 启用使用既有 `POST /v1/models/:id/toggle`。
+ */
+export async function handleListOrphanModels(
+  _req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const orphans = await collectOrphanModels();
+    sendJson(res, { data: orphans });
+  } catch (err) {
+    await handleError(err, {
+      module: 'ai:modelManagement',
+      action: 'listOrphanModels',
+    });
+    sendError(res, `获取供应商缺失的模型失败: ${(err as Error).message}`, 500);
+  }
+}
+
+/**
+ * PUT /v1/models/:id — 更新模型信息（能力标签、显示名、定价等）。
+ * 亦为"孤儿模型重绑"的入口：传 `providerId` 即可把模型重新绑定到现有供应商。
  */
 export async function handleUpdateModel(
   req: http.IncomingMessage,

@@ -85,7 +85,12 @@ export async function dispatchToolMediaRoutes(
     await handleImageMetadata(handlerCtx, req, res);
     return true;
   }
-  if (method === 'GET' && url.startsWith('/v1/images/static/')) {
+  // N-2 附带修复：HEAD 与 GET 同状态码、同响应头、无 body（同 videos/static 的问题，
+  // 原仅匹配 GET → HEAD 落到 route-table 兜底 404）。
+  if (
+    (method === 'GET' || method === 'HEAD') &&
+    url.startsWith('/v1/images/static/')
+  ) {
     const filePath = url.slice('/v1/images/static/'.length);
     await handleImageStatic(handlerCtx, req, res, decodeURIComponent(filePath));
     return true;
@@ -116,7 +121,13 @@ export async function dispatchToolMediaRoutes(
     await handleVideoThumbnail(handlerCtx, req, res);
     return true;
   }
-  if (method === 'GET' && url.startsWith('/v1/videos/static/')) {
+  // N-2 附带修复：HTTP 规范要求 GET 可用之处 HEAD 亦须可用（同状态码、同响应头、无 body）。
+  // 原实现只匹配 GET，HEAD 落到 route-table 兜底 → 直连 404（经 Vite 代理表现为 500）。
+  // Node 的 ServerResponse 对 HEAD 请求自动丢弃 body，故此处放行即可，无需改 handler。
+  if (
+    (method === 'GET' || method === 'HEAD') &&
+    url.startsWith('/v1/videos/static/')
+  ) {
     const filePath = url.slice('/v1/videos/static/'.length);
     await handleVideoStatic(handlerCtx, req, res, decodeURIComponent(filePath));
     return true;
@@ -131,7 +142,11 @@ export async function dispatchToolMediaRoutes(
   }
 
   // ---- Audio ----
-  if (method === 'GET' && url.startsWith('/v1/audio/static/')) {
+  // N-2 附带修复：HEAD 与 GET 同状态码、同响应头、无 body（同上）
+  if (
+    (method === 'GET' || method === 'HEAD') &&
+    url.startsWith('/v1/audio/static/')
+  ) {
     const filePath = url.slice('/v1/audio/static/'.length);
     await handleAudioStatic(handlerCtx, req, res, decodeURIComponent(filePath));
     return true;

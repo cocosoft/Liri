@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useChatStore } from "../../stores/chat";
 import { usePlanTaskStore } from "../../stores/planTaskStore";
@@ -175,30 +175,26 @@ export default function StatusFloatBar({ fluid = false }: { fluid?: boolean }) {
 
   const isActive = isSending || isStreaming || isUploading;
   const [fadingOut, setFadingOut] = useState(false);
-  const fadeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // isActive 从 true → false 时触发渐隐动画，2秒后真正隐藏
+  /**
+   * isActive 从 true → false 时渐隐：先 `opacity-0`（1s 过渡），2s 后置回 `fadingOut=false`
+   * 让末尾 `if (!isActive && !fadingOut) return null` 生效、组件真正卸载。
+   *
+   * N-49 根因修复（2026-09-20）：本 effect 原先依赖 `[isActive, fadingOut]` —— 进入渐隐
+   * （`fadingOut` 被置 true）会**重跑 effect**，而它的 cleanup 会把刚设好的 2 秒定时器清掉
+   * ⇒ `fadingOut` **永久为 true** ⇒ 组件**永不卸载**：以 `opacity-0` 常驻 DOM（仍订阅 store、
+   * 仍占位、仍可拦截指针事件，并曾让两次浏览器验证误判为"状态条仍在显示"）。
+   * 故改为**只依赖 `isActive`**：cleanup 只在活跃态切换时清定时器，不再自清。
+   */
   useEffect(() => {
-    if (!isActive && !fadingOut) {
-      setFadingOut(true);
-      fadeTimerRef.current = setTimeout(() => {
-        setFadingOut(false);
-      }, 2000);
-    } else if (isActive && fadingOut) {
-      // 活跃状态恢复时立即取消渐隐
+    if (isActive) {
       setFadingOut(false);
-      if (fadeTimerRef.current) {
-        clearTimeout(fadeTimerRef.current);
-        fadeTimerRef.current = null;
-      }
+      return;
     }
-    return () => {
-      if (fadeTimerRef.current) {
-        clearTimeout(fadeTimerRef.current);
-        fadeTimerRef.current = null;
-      }
-    };
-  }, [isActive, fadingOut]);
+    setFadingOut(true);
+    const timer = setTimeout(() => setFadingOut(false), 2000);
+    return () => clearTimeout(timer);
+  }, [isActive]);
 
   // BUG-9 修复（2026-08-23）：从 planTaskStore 订阅实时任务数据（SSE 驱动），
   // 与 TaskCard 组件同源；按消息中最后一个 planId 定位并优先取实时数据

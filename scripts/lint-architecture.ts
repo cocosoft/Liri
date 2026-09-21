@@ -315,7 +315,6 @@ class ArchitectureLinter {
                 'agent\\cli-runner\\index.ts', 'agent/cli-runner/index.ts',
                 'performance\\CodeOptimizer.ts', 'performance/CodeOptimizer.ts',
                 'mcp\\MCPCompatibilityTester.ts', 'mcp/MCPCompatibilityTester.ts',
-                'agent\\chains\\AgentChain.ts', 'agent/chains/AgentChain.ts',
                 'core\\node-host\\ExecPolicy.ts', 'core/node-host/ExecPolicy.ts',
                 'remote\\RemoteTaskScheduler.ts', 'remote/RemoteTaskScheduler.ts',
                 // 第三组：误报或领域重试，2026-Q3 前清理

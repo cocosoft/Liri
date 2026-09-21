@@ -237,6 +237,11 @@ import {
 import type { StopHookReason } from '@modules/query';
 import { TAORLoop } from '@modules/query';
 import { createChatAgentLoop } from './createAgentLoop.js';
+import { getYieldRegistry } from '../session/yield';
+// 阶段 A（A1-e）：yield 恢复通路（子代理结算 → 恢复父会话）
+import { setYieldResumeHandler, installYieldResumer } from './yield';
+// 阶段 A（N-26 修复）：SelfWake 唤醒执行器（fire 时真正唤醒会话）
+import { setSelfWakeResumeHandler } from '../tasks/selfwake/SelfWakeService';
 import {
   PlanDrivenLoop,
   classifyTaskComplexity,
@@ -2999,6 +3004,11 @@ export class ChatManagerImpl implements ChatManager {
     content: string,
     options?: SendMessageOptions
   ): Promise<Message> {
+    // 阶段 A（N-42 补正，2026-09-20）：**非流式入口同样懒装配 yield 恢复器**。
+    // 原装配只在 `streamMessage` 入口（见 `_ensureYieldResumerInstalled`）——非流式
+    // （`/v1/chat/completions`）不经该入口 ⇒ `yieldSettlementListeners` 为空 ⇒
+    // 子代理结算时 `notifyYieldSettled` **静默丢弃**（等待已登记却永不恢复，且无任何日志）。
+    this._ensureYieldResumerInstalled();
     return this.chatOrchestrator.sendMessage(content, options);
   }
   private async _sendMessageDowngradePath(
@@ -3718,6 +3728,14 @@ export class ChatManagerImpl implements ChatManager {
           persistedTurn > 0 ? persistedTurn : this.getToolRound(session.id) + 1;
         // Fix2（2026-09-05）：turn/end 单写者幂等——若该 turn 已被 streamMessageFlow
         // 或本 finalize 写过 end（appendStreamEvent 中央登记），跳过，杜绝双 end。
+        // 阶段 A（A1-d）：本轮若以 sessions_yield 让出（act 阶段已登记等待），
+        // turn/end 携带 yield 语义；并回填 turn 编号供恢复侧的"取代判定"使用。
+        // 注意：**不写 PAUSED**——会话对外状态保持 running（阶段A-恢复通路设计Spec §3-D2）。
+        const yieldRegistry = getYieldRegistry();
+        const yieldPending = yieldRegistry.get(session.id);
+        if (yieldPending) {
+          yieldRegistry.updateTurn(session.id, turn, yieldPending);
+        }
         if (!this.hasTurnEnded(session.id, turn)) {
           const ts = await this.getStreamTailSeq(session.id);
           await this.appendStreamEvent(session.id, {
@@ -3727,7 +3745,12 @@ export class ChatManagerImpl implements ChatManager {
             sessionId: session.id,
             data: {
               turn,
-              finishReason: hasFinalToolCalls ? 'tool_use' : 'stop',
+              finishReason: yieldPending
+                ? 'yielded'
+                : hasFinalToolCalls
+                  ? 'tool_use'
+                  : 'stop',
+              ...(yieldPending ? { yielded: true } : {}),
             },
           });
         }
@@ -4377,6 +4400,9 @@ export class ChatManagerImpl implements ChatManager {
     }
   }
 
+  /** 阶段 A（A1-e）：yield 恢复器是否已装配（懒装配幂等守卫） */
+  private _yieldResumerInstalled = false;
+
   /**
    * 流式发送消息
    * @param content 消息内容
@@ -4387,7 +4413,88 @@ export class ChatManagerImpl implements ChatManager {
     content: string,
     options?: StreamMessageOptions
   ): AsyncGenerator<string | ChatStreamChunk, Message, unknown> {
+    // 阶段 A（A1-e）：懒装配 yield 恢复器（子代理结算 → 恢复父会话）
+    this._ensureYieldResumerInstalled();
     return yield* this.chatOrchestrator.streamMessage(content, options);
+  }
+
+  /**
+   * 阶段 A（A1-e）：装配 yield 恢复器（幂等）。
+   *
+   * 恢复 = 「子代理全部结算 → 内部消费一次 `streamMessage`，让父会话继续」：
+   * - **内部消费**：不依赖 HTTP 请求/SSE 传输层——落盘与事件写入由 `streamMessage`
+   *   内部完成（`_finalizeStreamMessage` 等），前端下次打开会话即可见完整续跑结果；
+   * - 注入内容带 `metadata.systemResume = true`，供上层区分"系统续跑"与用户消息；
+   * - `hasActiveRuns` 恒 `false`：Liri 的**并行批次是子代理的原子单位**
+   *   （`AgentSwarm` 内 `Promise.allSettled` 全部收口后才 notify），通知到达时确无活跃 run；
+   *   该参数保留在契约中，以便未来接入更细粒度的 run 追踪。
+   */
+  private _ensureYieldResumerInstalled(): void {
+    if (this._yieldResumerInstalled) return;
+    this._yieldResumerInstalled = true;
+
+    setYieldResumeHandler(({ sessionId, reason }) =>
+      this._resumeSessionInternally(
+        sessionId,
+        '子代理已全部完成。请基于它们的结果继续完成任务（系统自动续跑，无需用户确认）。',
+        { systemResume: true, yieldReason: reason }
+      )
+    );
+
+    // 阶段 A（N-26 修复）：SelfWake 原为"空唤醒"（只 markFired、会话不继续），
+    // 现复用同一续跑实现 —— `sleep_for` / `wake_on` 到点后会话真正被唤醒。
+    setSelfWakeResumeHandler(({ sessionId, kind, reason }) =>
+      this._resumeSessionInternally(
+        sessionId,
+        '你此前挂起的等待条件已满足，请继续未完成的任务（系统自动唤醒，无需用户确认）。',
+        { systemResume: true, selfWakeKind: kind, selfWakeReason: reason }
+      )
+    );
+
+    installYieldResumer({
+      hasActiveRuns: () => false,
+      latestTurn: (sid) => this.getStreamMaxTurn(sid),
+    });
+  }
+
+  /**
+   * 阶段 A：系统续跑一次会话（内部消费 `streamMessage`，不依赖 HTTP/SSE；
+   * 落盘与事件写入由 `streamMessage` 内部完成）。
+   *
+   * 供两条通路共用：yield 恢复（`YieldResumer`）与 SelfWake 唤醒（`SelfWakeService.fire`）。
+   */
+  private async _resumeSessionInternally(
+    sessionId: string,
+    content: string,
+    metadata: Record<string, unknown>
+  ): Promise<{ ok: boolean; error?: string }> {
+    let result: { ok: boolean; error?: string };
+    try {
+      const generator = this.streamMessage(content, { sessionId, metadata });
+      for await (const chunk of generator) {
+        void chunk; // 丢弃：落盘与事件写入由 streamMessage 内部完成
+      }
+      result = { ok: true };
+    } catch (err) {
+      result = { ok: false, error: String(err) };
+    }
+
+    // 阶段 A（遗留项 2 · 前端实时可见性）：系统续跑内部消费 `streamMessage`，
+    // 不走 HTTP/SSE 传输层 —— 前端无从得知会话已在后台续跑。此处按
+    // `project:auto_created` 同款模式广播，前端命中当前打开会话时重拉消息，
+    // 用户无需操作即可见续跑结果；失败时同样广播（中途异常也可能已落盘部分内容）。
+    try {
+      const { broadcastEvent } = await import('@modules/infrastructure');
+      broadcastEvent('session:continued', { id: sessionId, ok: result.ok });
+      logger.info('系统续跑：SSE 广播完成', { sessionId, ok: result.ok });
+    } catch (e) {
+      // 广播失败不影响主流程，也不得违反本方法「不抛异常」的调用契约
+      logger.warn('系统续跑 SSE 广播失败', {
+        sessionId,
+        error: (e as Error)?.message ?? String(e),
+      });
+    }
+    return result;
   }
   async *resumeStream(
     sessionId: string,

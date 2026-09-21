@@ -31,15 +31,11 @@ export type {
 } from './ToolPolicy';
 export { allowResult, denyResult } from './ToolPolicy';
 
-export type { ProfileDefinition } from './ToolCatalog';
-export {
-  ToolCategory,
-  ToolClassifier,
-  PROFILE_DEFINITIONS,
-  filterToolsByProfile,
-} from './ToolCatalog';
-
+// N-29（2026-09-20）：移除零消费者的 profile 机制出口 ——
+// `ToolCatalog` / `ToolClassifier` / `PROFILE_DEFINITIONS` / `filterToolsByProfile`、
+// `RoleBasedToolPolicy`、`ProfileBasedToolPolicy` 三类声明经全仓检索**无任何消费者**
+// （含 `@modules/tools/policy` 别名形式），属"三套工具 profile 机制并存"中的第 ③ 套，
+// 已随文件删除一并摘除。工具可见性的**唯一生效路径**是
+// `tools/utils/ToolManagerUtils.ts#getBuiltinToolLoaders()`（显式 loader 清单）。
 export { DefaultToolPolicy } from './DefaultToolPolicy';
-export { RoleBasedToolPolicy } from './RoleBasedToolPolicy';
-export { ProfileBasedToolPolicy } from './ProfileBasedToolPolicy';
 export { ToolPolicyPipeline } from './ToolPolicyPipeline';

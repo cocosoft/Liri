@@ -42,9 +42,28 @@ async function getModelRouter() {
 }
 
 /**
+ * N-46（2026-09-20，用户决策㈠）：**显式配置优先**的 route 集合。
+ *
+ * 这五类 route 在 `SmartRouter.resolve` 中走 Judge/档位解析（见其 `:247-276` 注释），
+ * 因而「模型管理→任务分工」对它们的改动**原先不生效**（数出同源缺口）。现在：
+ * 若用户在任务分工里**显式保存过**（`ai_app_model_configs.source === 'user'`），
+ * 以任务分工为准；未显式配置的仍由 SmartRouter 档位决定。
+ */
+const EXPLICIT_CONFIG_PREFERRED_ROUTES: ReadonlySet<RouteKeyType> = new Set([
+  RouteKey.CHAT,
+  RouteKey.CODING,
+  RouteKey.TRANSLATION,
+  RouteKey.AGENT,
+  RouteKey.SCHEDULED,
+]);
+
+/**
  * 解析指定 route 对应的模型名
  *
- * 优先通过 SmartRouter 动态路由，不可用时回退 ModelRouter 静态路由。
+ * 优先级（N-46 后）：
+ *   1. **用户显式配置**（仅 chat 类 route）——「任务分工」`source='user'` 时以其为准；
+ *   2. SmartRouter 动态路由；
+ *   3. ModelRouter 静态路由（任务分工兜底 / 旧格式）。
  *
  * @param route - 路由键
  * @param options - 可选：message（chat 类需要）、sessionId
@@ -54,6 +73,26 @@ export async function resolveModelRoute(
   route: RouteKeyType,
   options?: { message?: string; sessionId?: string }
 ): Promise<string> {
+  // 层 1（N-46）：用户显式配置优先 —— 仅 chat 类 route，且仅当该任务被**用户**保存过。
+  // 未命中/解析不出模型名（UUID 未预载）时不返回 UUID，落到下方档位解析，避免下游
+  // `getByModel(UUID)` 匹配失败（与 ModelRouter.resolve 的口径一致）。
+  if (EXPLICIT_CONFIG_PREFERRED_ROUTES.has(route)) {
+    try {
+      const taskType = ROUTE_TO_TASK[route];
+      const { appModelConfigService } =
+        await import('../models/AppModelConfigService.js');
+      await appModelConfigService.initialize();
+      const cfg = await appModelConfigService.getConfig(taskType);
+      if (cfg?.source === 'user' && cfg.model) {
+        const mr = await getModelRouter();
+        const configured = mr.resolve(taskType);
+        if (configured) return configured;
+      }
+    } catch (err) {
+      handleError(err, { module: 'ai:router', action: 'explicitTaskConfig' });
+    }
+  }
+
   try {
     const { getCoreAPI } = await import('@modules/runtime/api/CoreAPIImpl.js');
     const coreAPI = getCoreAPI();

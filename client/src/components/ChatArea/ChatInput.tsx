@@ -446,7 +446,9 @@ function ChatInput({ fluid = false }: { fluid?: boolean }) {
         setTranslatingId(null);
       }
     },
-    [t],
+    // N-31（2026-09-20）：补 `setInput` —— 函数体内使用了它（`:439`），
+    // 原依赖数组只有 `[t]`（预存告警）。
+    [t, setInput],
   );
 
   /**
@@ -625,6 +627,18 @@ function ChatInput({ fluid = false }: { fluid?: boolean }) {
       }
     }
 
+    // §4.2-4（方案 B）：`/search [关键词]` → 打开全局搜索弹窗并预填关键词。
+    // 复用 App 层既有的 `open-global-search` 事件通道（不新建 store、不复制弹窗）。
+    if (trimmed === "/search" || trimmed.startsWith("/search ")) {
+      const query = trimmed.slice("/search".length).trim();
+      setInput("");
+      setShowCommands(false);
+      window.dispatchEvent(
+        new CustomEvent("open-global-search", { detail: { query } }),
+      );
+      return;
+    }
+
     const matched = SLASH_COMMANDS.find((cmd) => cmd.key === trimmed);
     if (matched) {
       // D7：翻译并入聊天——/translate 插入翻译提示词，用户补全文本后按普通消息发送
@@ -647,7 +661,16 @@ function ChatInput({ fluid = false }: { fluid?: boolean }) {
       } else if (matched.key === "/agent") {
         setActivePage("agent");
       } else if (matched.key === "/help") {
+        // N-32（2026-09-20）：`/help` 的语义是"显示可用命令列表"。**双重陷阱**：
+        // ① 原实现在 `setShowCommands(true)` 之后被紧随的**无条件** `setShowCommands(false)`
+        //    覆盖 ⇒ 菜单刚打开又关闭；故此处提前 `return`；
+        // ② 且**不能清空输入**——`SlashCommandMenu` 在 `input` 不以 `/` 开头时返回空列表、
+        //    进而 `return null`（`SlashCommandMenu.tsx:39-46`）⇒ 清空后菜单必然不渲染。
+        // 因此置为单独一个 `/`：菜单列出全部命令，用户继续输入即变为过滤。
+        setInput("/");
+        setCommandIndex(0);
         setShowCommands(true);
+        return;
       }
       setInput("");
       setShowCommands(false);
@@ -901,7 +924,18 @@ function ChatInput({ fluid = false }: { fluid?: boolean }) {
       }
       if (e.key === "Tab" || e.key === "Enter") {
         e.preventDefault();
-        setInput(filtered[Math.min(commandIndex, size - 1)].key + " ");
+        const cmd = filtered[Math.min(commandIndex, size - 1)];
+        // N-20（2026-09-20）**完全匹配即直接执行**：输入恰为当前选中命令名时
+        // （如 `/help`），Enter 直接交给 `handleSubmit()` 执行 —— 其斜杠分支本就是
+        // `SLASH_COMMANDS.find(cmd => cmd.key === trimmed)` 精确匹配，故零逻辑重复。
+        // 未完全匹配、或按 Tab 时，仍按原行为补全（并追加空格，便于带参命令续写）。
+        if (e.key === "Enter" && input.trim() === cmd.key) {
+          setCommandIndex(0);
+          setShowCommands(false);
+          handleSubmit();
+          return;
+        }
+        setInput(cmd.key + " ");
         setCommandIndex(0);
         setShowCommands(false);
         return;

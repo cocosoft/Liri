@@ -32,7 +32,15 @@ vi.mock("../services/httpClient", () => ({
   },
 }));
 vi.mock("../stores/chat", () => ({
-  useChatStore: { getState: () => ({ messages: [] }) },
+  // N-56：switchChatSession 现在会调 store 的 setHasOlder（分页完整性标记），
+  // 替身需同步补齐，否则切换流程在该调用处抛错中断（loadMessages 不再执行）。
+  useChatStore: {
+    getState: () => ({
+      messages: [],
+      setHasOlder: vi.fn(),
+      setOldestSeq: vi.fn(),
+    }),
+  },
   _getCachedMessages: vi.fn(),
 }));
 vi.mock("../stores/chat/chatCoordinator", () => ({

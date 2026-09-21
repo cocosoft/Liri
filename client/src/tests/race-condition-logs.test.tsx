@@ -21,6 +21,13 @@ vi.mock("../services/fileService", () => ({
 vi.mock("../services/knowledgeService", () => ({
   knowledgeService: { search: vi.fn() },
 }));
+// N-14（2026-09-20 定位并修复）：GlobalSearchModal 于 2026-09-18 接入了第 4 阶段
+// 「历史消息全文搜索」（`await sessionService.searchMessages(...)`，内部走 `apiHttp.get`），
+// 但本测试当时未同步 mock 该服务 ⇒ 真实 HTTP 调用在测试环境不返回，执行卡在该 await，
+// 导致其后的 `search:complete` 埋点永不打印（`:161` 断言失败）。此处补齐 mock。
+vi.mock("../services/sessionService", () => ({
+  sessionService: { searchMessages: vi.fn().mockResolvedValue([]) },
+}));
 import { fileService } from "../services/fileService";
 import { knowledgeService } from "../services/knowledgeService";
 import { useChatDraft } from "../components/ChatArea/useChatDraft";

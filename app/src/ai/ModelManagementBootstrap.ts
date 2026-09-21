@@ -278,6 +278,49 @@ async function ensureReferencedProviders(
 }
 
 /**
+ * N-59（2026-09-20）：存量收敛 —— 停用"强绑定已删除供应商"的模型。
+ *
+ * 背景：`deleteProvider` 原先只删 `ai_providers` 行，引用它的模型记录残留且
+ * `enabled=1` ⇒ 切换引用这些模型的会话时 `ModelRuntimeAPI` 报 400
+ * 「供应商未找到或未启用」。机制已在删除侧修复（见 `ProviderManager.deleteProvider`）；
+ * 本自检把**存量**同类数据收敛（**可逆**：仅改 `enabled`，不删数据行）。
+ *
+ * 判据（严格）：`provider_id` 形如 UUID **且** 不在 `ai_providers`。
+ * 松绑定（`provider_id` 存 provider_type，如 `deepseek`）由
+ * `ProviderRegistry.getByType` 解析，一律不处理。
+ * 幂等：仅对仍 `enabled` 的执行 UPDATE，重复启动无写放大。
+ */
+async function disableModelsWithMissingProvider(): Promise<number> {
+  try {
+    const { modelPricingService } = await import('@modules/ai');
+    await modelPricingService.initialize();
+    // 判据统一来源（N-59 后续）：与 `GET /v1/models/orphans` 共用同一收集函数，避免漂移
+    const { collectOrphanModels } = await import('./models/orphanModels.js');
+    const orphans = await collectOrphanModels();
+
+    const disabledNames: string[] = [];
+    for (const m of orphans) {
+      if (!m.enabled) continue; // 幂等
+      await modelPricingService.setModelEnabledById(m.id, false);
+      disabledNames.push(m.modelId);
+    }
+
+    if (disabledNames.length > 0) {
+      logger.warn(
+        `检测到 ${disabledNames.length} 个模型强绑定的供应商已不存在，已自动停用: [${disabledNames.join(', ')}]（可逆：在模型管理重新绑定供应商后重新启用）`
+      );
+    }
+    return disabledNames.length;
+  } catch (err) {
+    void handleError(err, {
+      module: 'ai:modelManagementBootstrap',
+      action: 'disableModelsWithMissingProvider',
+    });
+    return 0;
+  }
+}
+
+/**
  * 初始化所有模型管理新增服务
  *
  * 完整流程:
@@ -382,6 +425,8 @@ export async function initializeModelManagementServices(): Promise<void> {
     );
     seeded = await seedEnvProvidersToDB(dedupNames);
     referenced = await ensureReferencedProviders(dedupNames);
+    // N-59：存量收敛 —— 补录之后运行（先把能补的供应商补齐，再停用补不了的孤儿模型）
+    await disableModelsWithMissingProvider();
   } catch (err) {
     void handleError(err, {
       module: 'ai:modelManagementBootstrap',

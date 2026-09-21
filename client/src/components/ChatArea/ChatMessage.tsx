@@ -1226,6 +1226,9 @@ function AssistantMessage({
   // - H-FIX-2 兜底保留（兼容 finishReason 未落盘的存量消息 / thinking-only 中断）
   const isInterruptedFinish =
     message.finishReason === "canceled" || message.finishReason === "abort";
+  // N-45：让出轮次（持久标记 `finishReason === 'yielded'`）不得落进下方"生成中断"兜底；
+  // 对用户的可见提示由**会话级提示条**承担（`YieldNoticeBar`，读后端读时派生的 yieldState）
+  const isYieldFinish = message.finishReason === "yielded";
   if (!isStreaming && isInterruptedFinish) {
     blocks = [
       {
@@ -1239,7 +1242,14 @@ function AssistantMessage({
       },
       ...blocks,
     ];
-  } else if (!isStreaming && !hasTextBlock && hasThinkBlock && contentEmpty) {
+  } else if (
+    !isStreaming &&
+    // N-45：让出轮次（常见为"只思考后让出"）不得落进"生成中断"的兜底文案
+    !isYieldFinish &&
+    !hasTextBlock &&
+    hasThinkBlock &&
+    contentEmpty
+  ) {
     blocks = [
       {
         id: "fb_interrupted_hint_" + message.id,

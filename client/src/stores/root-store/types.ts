@@ -77,9 +77,6 @@ export interface Workspace {
   workItems: WorkItem[];
   executionPhase: ExecutionPhaseData | null;
 
-  /** 会话历史（该工作空间下的 session ID 列表） */
-  sessionIds: string[];
-
   /** 布局状态 */
   layout: WorkspaceLayout;
 
@@ -175,15 +172,16 @@ export interface FeatureModule {
   id: string;
   /** 模块类型，如 'chat'、'media'、'mcp'、'skill' */
   type: string;
-  name: string;
-  icon: string;
   enabled: boolean;
-  available: boolean;
-  hotkey?: string;
   pinned: boolean;
   /** 模块对应的 URL 路径（用于 auto-create session 映射） */
   paths?: string[];
-  /** 模块自带视图组件（动态渲染） */
+  /**
+   * 模块自带视图组件（供 ViewRouter 动态渲染）。
+   * 注：ViewRouter 当前**未被挂载**（页面由 `routes/index.tsx` 的 lazy 路由渲染），
+   * 该机制属**规划中**（见 `hooks/useAutoCreateSession.ts` 中"Phase 4 全部迁移后由
+   * ViewRouter 直接管理"的说明），故 Phase B **保留**本字段而非删除。
+   */
   component?: React.ComponentType<{ sessionId: string }>;
   /** 版本分层：base（默认）/ pro（Pro 专属）。license 就绪前由本地 tier 占位决定可见性 */
   tier?: "base" | "pro";

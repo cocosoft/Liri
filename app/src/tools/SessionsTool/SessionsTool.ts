@@ -1,8 +1,18 @@
 /**
  * SessionsTool
  * 统一会话管理工具
- * 聚合现有 SessionStatusTool / SessionsHistoryTool / SessionsYieldTool /
- * SessionsSpawnTool / SessionsSendTool 的功能为单一 Tool 接口
+ * 覆盖 列表 / 状态 / 历史 / 派生 / 发送 / 删除 六类会话操作。
+ *
+ * 注（2026-09-20 更正）：原注释称本工具"聚合 SessionStatusTool / SessionsHistoryTool /
+ * SessionsYieldTool / SessionsSpawnTool / SessionsSendTool 的功能"，但全文件并无这些 import，
+ * 属虚假注释。
+ *
+ * 另（2026-09-20 N-36 收敛）：原有 `yield` 动作与 `SessionsYieldTool` 构成**双轨 yield**——
+ * 两者共用 `buildYieldResult` 构造契约结果，但 yield 管线（`yieldDetection` 判定与
+ * `yieldTurnRegistration` 登记）**只认工具名 `sessions_yield`** ⇒ 本工具的 yield 分支
+ * 即便成功也永不登记等待，属**语义死路**；且实测模型会被本工具描述里的 "yield control"
+ * 吸引而**弃用** `sessions_yield` ⇒ yield 实际从不触发。故**移除本工具的 yield 动作**，
+ * yield 收敛为单一入口 `SessionsYieldTool`（实现唯一性）。
  */
 
 import * as crypto from 'crypto';
@@ -43,10 +53,8 @@ export interface SessionInfo {
  * 操作参数
  */
 export interface SessionsInput {
-  action: 'list' | 'status' | 'history' | 'yield' | 'spawn' | 'send' | 'delete';
+  action: 'list' | 'status' | 'history' | 'spawn' | 'send' | 'delete';
   sessionId?: string;
-  targetSessionId?: string;
-  reason?: string;
   message?: string;
   messageType?: 'text' | 'command' | 'result' | 'error' | 'system';
   name?: string;
@@ -55,7 +63,6 @@ export interface SessionsInput {
   offset?: number;
   since?: number;
   until?: number;
-  preserveState?: boolean;
   includeResourceUsage?: boolean;
   includeMetadata?: boolean;
 }
@@ -75,13 +82,6 @@ export interface SessionsOutput {
     timestamp: number;
     metadata?: Record<string, unknown>;
   }>;
-  yieldResult?: {
-    yieldId: string;
-    fromSessionId: string;
-    targetSessionId?: string;
-    reason: string;
-    statePreserved: boolean;
-  };
   total?: number;
   filtered?: number;
 }
@@ -181,32 +181,20 @@ export class SessionsTool extends BaseTool {
   }
 
   description =
-    'Unified session management tool. List, query status, view history, yield control, spawn, send messages, and delete sessions.';
+    'Unified session management tool. List, query status, view history, spawn, send messages, and delete sessions.';
 
   params: ToolParam[] = [
     {
       name: 'action',
       type: 'string',
-      enum: ['list', 'status', 'history', 'yield', 'spawn', 'send', 'delete'],
+      enum: ['list', 'status', 'history', 'spawn', 'send', 'delete'],
       description: 'Session operation to perform',
       required: true,
     },
     {
       name: 'sessionId',
       type: 'string',
-      description: 'Session ID for status/history/yield/delete operations',
-      required: false,
-    },
-    {
-      name: 'targetSessionId',
-      type: 'string',
-      description: 'Target session to yield to',
-      required: false,
-    },
-    {
-      name: 'reason',
-      type: 'string',
-      description: 'Reason for yielding or spawning',
+      description: 'Session ID for status/history/delete operations',
       required: false,
     },
     {
@@ -260,12 +248,6 @@ export class SessionsTool extends BaseTool {
       required: false,
     },
     {
-      name: 'preserveState',
-      type: 'boolean',
-      description: 'Preserve session state on yield',
-      required: false,
-    },
-    {
       name: 'includeResourceUsage',
       type: 'boolean',
       description: 'Include CPU/memory usage in status',
@@ -292,8 +274,6 @@ export class SessionsTool extends BaseTool {
           return await this.handleStatus(params);
         case 'history':
           return await this.handleHistory(params);
-        case 'yield':
-          return await this.handleYield(params);
         case 'spawn':
           return await this.handleSpawn(params);
         case 'send':
@@ -303,7 +283,7 @@ export class SessionsTool extends BaseTool {
         default:
           return {
             success: false,
-            error: `Unknown action: ${action}. Supported: list, status, history, yield, spawn, send, delete`,
+            error: `Unknown action: ${action}. Supported: list, status, history, spawn, send, delete`,
           };
       }
     } catch (error) {
@@ -415,46 +395,6 @@ export class SessionsTool extends BaseTool {
       success: true,
       data,
       output: `会话历史 (${entries.length} 条): 共查询到 ${data.total} 条记录`,
-    };
-  }
-
-  /**
-   * 交还会话控制权
-   */
-  private async handleYield(params: SessionsInput): Promise<ToolResult> {
-    if (!params.sessionId) {
-      return {
-        success: false,
-        error: `sessionId is required for yield action. ${SESSION_ID_REQUIRED_HINT}`,
-      };
-    }
-
-    const session = await this.gateway.getSession(params.sessionId);
-    if (!session) {
-      return {
-        success: false,
-        error: `Session not found: ${params.sessionId}`,
-      };
-    }
-
-    const yieldResult = {
-      yieldId: `yield_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`,
-      fromSessionId: params.sessionId,
-      targetSessionId: params.targetSessionId,
-      reason: params.reason || 'Yielding control',
-      statePreserved: params.preserveState ?? true,
-    };
-
-    const data: SessionsOutput = {
-      action: 'yield',
-      sessionId: yieldResult.fromSessionId,
-      yieldResult,
-    };
-
-    return {
-      success: true,
-      data,
-      output: `Control yielded from ${yieldResult.fromSessionId}${yieldResult.targetSessionId ? ` to ${yieldResult.targetSessionId}` : ''}`,
     };
   }
 

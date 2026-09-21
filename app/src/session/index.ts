@@ -199,3 +199,8 @@ export { MEMORY_TEMPLATE } from './memory/memoryTemplate.js';
 export { ReconcileService } from './reconcile/ReconcileService.js';
 export { SessionActivityTracker } from './activity/SessionActivityTracker.js';
 export { SessionStateHydrator } from './hydration/SessionStateHydrator.js';
+
+/**
+ * yield 语义（阶段 A：sessions_yield 真实实现）
+ */
+export * from './yield/index.js';

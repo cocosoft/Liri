@@ -26,6 +26,8 @@
 import type http from 'http';
 import { randomUUID } from 'crypto';
 import type { HandlerCtx } from './handler-utils';
+// N-45：会话级 yield 状态派生（同处 handlers 层，单向依赖，无环）
+import { deriveYieldState } from './session-handlers';
 import { getLogger } from '@modules/monitoring';
 import { handleError, AppError } from '@modules/error';
 import { getCoreAPI } from '@modules/runtime/api/CoreAPIImpl';
@@ -912,8 +914,18 @@ export async function handleSessionStreamingStatus(
     const coreAPI = getCoreAPI();
     const streaming =
       coreAPI.chatManager?.isSessionStreaming(sessionId) ?? false;
+    // N-45：会话级 yield 状态（读时派生）——
+    // `'waiting'` = 本轮已让出、仍在等子任务结算；`'unresolved'` = 已让出但未能自动恢复。
+    // 前端据此在会话级提示条上给出准确状态（消息级承载已被 store 丢弃，见台账 N-48）。
+    const yieldState = await deriveYieldState(sessionId);
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-    res.end(JSON.stringify({ sessionId, streaming }));
+    res.end(
+      JSON.stringify({
+        sessionId,
+        streaming,
+        ...(yieldState ? { yieldState } : {}),
+      })
+    );
   } catch (err) {
     await handleError(err, {
       module: 'infra:http',

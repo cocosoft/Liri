@@ -9,7 +9,8 @@
  *  └───────────┴─────────────────────────────────────┴───────────────────┘
  */
 import { useState, useMemo, useEffect, useRef } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { resolveSessionWorkspaceId } from "@/stores/selectors";
 import { useRootStore } from "@/stores/root-store";
 import { useChatStore } from "@/stores/chat";
 import { chatCoordinator } from "@/stores/chat/chatCoordinator";
@@ -212,10 +213,13 @@ function PdcaPhaseStepper({ phase }: { phase: string }) {
 export default function ProjectsPage() {
   // 模态框 & 选中状态
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
+  // N-62（2026-09-20）：支持 `/projects/:projectId` 深链 —— 路由参数优先级最高
+  const { projectId: routeProjectId } = useParams<{ projectId?: string }>();
   const openParam = searchParams.get("open");
   const [showCreate, setShowCreate] = useState(false);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(
-    openParam ?? null,
+    routeProjectId ?? openParam ?? null,
   );
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -239,7 +243,22 @@ export default function ProjectsPage() {
 
   // Root Store 订阅
   const worktrees = useRootStore((s) => s.worktrees);
-  const sessions = useRootStore((s) => s.sessions);
+  /**
+   * N-62 V2（2026-09-20）：`chatSessions` 是**与项目页侧栏同源**的会话列表
+   * （侧栏 `useSessionStore().sessions` 即 root store `chatSessions` 字段的镜像）。
+   * root store 另有 `sessions`（**Hub 记录 Map**，含本地幽灵记录，实测 1426 条 vs 列表 864 条），
+   * 那仅用于"进入项目时决定是否创建首个会话"的初始化逻辑（经 `getState()` 直接读取，不订阅）。
+   * ⇒ 凡"项目 ↔ 会话"的**展示类派生**一律走 `sessionsOfProject`，与侧栏同源同判据，
+   * 避免"卡片 N 个会话 / 侧栏 0 条"。
+   */
+  const chatSessions = useRootStore((s) => s.chatSessions);
+  const sessionsOfProject = (projectId: string) =>
+    chatSessions.filter(
+      (s) => resolveSessionWorkspaceId(s.workspaceId) === projectId,
+    );
+  /** `chatSessions`（会话列表）的 `updatedAt` 是 **ISO 字符串**（Hub 记录里是 number），需解析为毫秒 */
+  const sessionTs = (s: { updatedAt?: string }): number =>
+    s.updatedAt ? Date.parse(s.updatedAt) || 0 : 0;
   const switchWorkspace = useRootStore((s) => s.switchWorkspace);
   const createChatSession = useRootStore((s) => s.createChatSession);
   const switchChatSession = useRootStore((s) => s.switchChatSession);
@@ -290,13 +309,49 @@ export default function ProjectsPage() {
     if (mc.moduleType !== "project" || !mc.projectId) {
       enterModule({ moduleType: "project" });
     }
-    // S5a: URL ?open= 参数用于自动选中项目，选中后清除参数避免刷新重复选中
+    return () => leaveModule();
+  }, [enterModule, leaveModule]);
+
+  // S5a/A5: URL ?open= 参数用于选中项目，选中后清除参数避免刷新重复选中。
+  // 独立 effect 响应 openParam 变化（含侧边栏项目 flyout 点击时导航带 ?open= 的联动）
+  useEffect(() => {
     if (openParam && worktrees[openParam]) {
+      setSelectedProjectId(openParam);
       searchParams.delete("open");
       setSearchParams(searchParams, { replace: true });
     }
-    return () => leaveModule();
-  }, [enterModule, leaveModule]);
+  }, [openParam, worktrees, searchParams]);
+
+  /**
+   * N-62（2026-09-20）：`/projects/:projectId` 深链支持。
+   * 仅在 `worktrees` 已加载**且该 id 存在**时采纳路由参数（避免把已删除/拼错的 id 当作选中项）；
+   * 若 id 不存在则回退到项目列表（`replace` 不留历史）。
+   */
+  useEffect(() => {
+    if (!routeProjectId) return;
+    if (worktrees[routeProjectId]) {
+      if (routeProjectId !== selectedProjectId) {
+        inited.current = null;
+        setSelectedProjectId(routeProjectId);
+      }
+      return;
+    }
+    // worktrees 尚未加载完成时不判定"不存在"，避免误回退
+    if (Object.keys(worktrees).length > 0) {
+      navigate("/projects", { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [routeProjectId, worktrees]);
+
+  /**
+   * N-62：把选中项目**镜像到 URL**（URL 是状态的镜像，不作为唯一来源）。
+   * 仅在 id 不一致时写入，且用 `replace` 避免历史堆积。
+   */
+  useEffect(() => {
+    if (!selectedProjectId) return;
+    if (routeProjectId === selectedProjectId) return;
+    navigate(`/projects/${selectedProjectId}`, { replace: true });
+  }, [selectedProjectId, routeProjectId, navigate]);
 
   // 隐性引擎钩子：检测新 assistant 消息并触发分析
   useEffect(() => {
@@ -391,9 +446,7 @@ export default function ProjectsPage() {
         if (w.name.toLowerCase().includes(q)) return true;
         if (pinyinQ && toPinyinInitials(w.name).includes(q)) return true;
         // 检查项目内会话标题
-        const projSessions = Object.values(sessions).filter(
-          (s) => s.workspaceId === w.id,
-        );
+        const projSessions = sessionsOfProject(w.id);
         return projSessions.some((s) => {
           const title = (s.title || s.id?.slice(0, 8) || "").toLowerCase();
           if (title.includes(q)) return true;
@@ -405,25 +458,21 @@ export default function ProjectsPage() {
 
     // 按最近一次会话时间排序（有会话的排前面）
     list.sort((a, b) => {
-      const aSessions = Object.values(sessions).filter(
-        (s) => s.workspaceId === a.id,
-      );
-      const bSessions = Object.values(sessions).filter(
-        (s) => s.workspaceId === b.id,
-      );
+      const aSessions = sessionsOfProject(a.id);
+      const bSessions = sessionsOfProject(b.id);
       const aLatest =
         aSessions.length > 0
-          ? Math.max(...aSessions.map((s) => s.updatedAt || 0))
+          ? Math.max(...aSessions.map((s) => sessionTs(s)))
           : 0;
       const bLatest =
         bSessions.length > 0
-          ? Math.max(...bSessions.map((s) => s.updatedAt || 0))
+          ? Math.max(...bSessions.map((s) => sessionTs(s)))
           : 0;
       return bLatest - aLatest;
     });
 
     return list;
-  }, [worktrees, sessions, searchQuery]);
+  }, [worktrees, chatSessions, searchQuery]);
 
   /** 搜索结果高亮（含拼音匹配） */
   const highlightMatch = (text: string, query: string): React.ReactNode => {
@@ -653,9 +702,10 @@ export default function ProjectsPage() {
     setDeleting(true);
     try {
       await chatCoordinator.stopMessage();
+      // N-62 V2：与展示同源（`chatSessions`）—— 删除项目时清理的会话集合应与卡片/侧栏所见一致
       const state = useRootStore.getState();
-      const projSessions = Object.values(state.sessions).filter(
-        (s) => s.workspaceId === selectedProjectId,
+      const projSessions = state.chatSessions.filter(
+        (s) => resolveSessionWorkspaceId(s.workspaceId) === selectedProjectId,
       );
       for (const s of projSessions) {
         try {
@@ -683,16 +733,15 @@ export default function ProjectsPage() {
     }
   };
 
+  // N-62 V2：与项目页侧栏同源（`chatSessions`）同判据（`sessionsOfProject`）
   const getSessionCount = (workspaceId: string) =>
-    Object.values(sessions).filter((s) => s.workspaceId === workspaceId).length;
+    sessionsOfProject(workspaceId).length;
 
   /** 获取项目活跃度标记 */
   const getActivityBadge = (workspaceId: string) => {
-    const projSessions = Object.values(sessions).filter(
-      (s) => s.workspaceId === workspaceId,
-    );
+    const projSessions = sessionsOfProject(workspaceId);
     if (projSessions.length === 0) return null;
-    const latest = Math.max(...projSessions.map((s) => s.updatedAt || 0));
+    const latest = Math.max(...projSessions.map((s) => sessionTs(s)));
     const now = Date.now();
     const hours = (now - latest) / (1000 * 60 * 60);
     if (hours < 24) return { color: "text-green-500", label: "今天" };
@@ -718,14 +767,12 @@ export default function ProjectsPage() {
         continue;
       }
 
-      const projSessions = Object.values(sessions).filter(
-        (s) => s.workspaceId === p.id,
-      );
+      const projSessions = sessionsOfProject(p.id);
       if (projSessions.length === 0) {
         active.push(p); // 无会话的新项目默认在活跃区
         continue;
       }
-      const latest = Math.max(...projSessions.map((s) => s.updatedAt || 0));
+      const latest = Math.max(...projSessions.map((s) => sessionTs(s)));
       const days = (now - latest) / (1000 * 60 * 60 * 24);
       if (days <= 7) active.push(p);
       else if (days <= 30) dormant.push(p);
@@ -738,7 +785,7 @@ export default function ProjectsPage() {
       dormantProjects: dormant,
       archivedProjects: archived,
     };
-  }, [projects, sessions]);
+  }, [projects, chatSessions]);
 
   /** 渲染单个项目条目 */
   const renderProjectItem = (p: (typeof projects)[number]) => {

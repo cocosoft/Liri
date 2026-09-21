@@ -17,7 +17,7 @@ import {
   modelService,
   type CapabilityProbeResult,
 } from "../../services/modelService";
-import { toastError, toastInfo } from "../../stores/toastStore";
+import { toastError, toastInfo, toastWarning } from "../../stores/toastStore";
 import type {
   ProviderInfo,
   ProviderFormData,
@@ -120,6 +120,8 @@ function ProviderPage() {
   useEffect(() => {
     loadModels();
     store.loadProviders();
+    // N-59 后续：加载"供应商已被删除"的模型（孤儿），供列表上方区块展示与重绑
+    store.loadOrphans();
   }, []);
 
   // 本地服务（Ollama/llama.cpp）运行状态轮询
@@ -199,10 +201,57 @@ function ProviderPage() {
           t("settings.modelDeleteProviderConfirm").replace("{name}", name),
         )
       ) {
-        await store.deleteProvider(id);
+        const disabledModels = await store.deleteProvider(id);
+        // N-59：该供应商的强绑定模型已被级联停用，需明确告知 —— 否则用户会以为
+        // 模型"凭空消失"（供应商缺失的模型不会出现在模型列表中）。
+        if (disabledModels.length > 0) {
+          toastWarning(
+            t("settings.modelDeleteProviderDisabledModels")
+              .replace("{count}", String(disabledModels.length))
+              .replace("{models}", disabledModels.join("、")),
+          );
+        }
       }
     },
-    [store],
+    [store, t],
+  );
+
+  /** N-59 后续：把孤儿模型重绑到现有供应商（重绑后自动启用，见 store.rebindModel） */
+  const handleRebindOrphan = useCallback(
+    async (modelId: string, providerId: string, name: string) => {
+      const provider = store.providers.find((p) => p.id === providerId);
+      await store.rebindModel(modelId, providerId);
+      // 重绑后该模型回到**主列表**；主列表是本地 state（非 store 字段），
+      // 必须重新拉取才能就地可见（否则要刷新页面才出现 —— 实测缺陷）
+      await loadModels();
+      toastInfo(
+        t("settings.orphanModelsRebindSuccess")
+          .replace("{model}", name)
+          .replace("{provider}", provider?.name ?? providerId),
+      );
+    },
+    [store, t, loadModels],
+  );
+
+  /** N-59 后续：彻底删除孤儿模型 */
+  const handleDeleteOrphan = useCallback(
+    async (id: string, name: string) => {
+      if (
+        !window.confirm(
+          t("settings.orphanModelsDeleteConfirm").replace("{name}", name),
+        )
+      ) {
+        return;
+      }
+      try {
+        await modelService.remove(id);
+        await store.loadOrphans();
+        toastInfo(t("settings.orphanModelsDeleted").replace("{model}", name));
+      } catch (e) {
+        toastError(e);
+      }
+    },
+    [store, t],
   );
 
   const handleStartEditModel = useCallback((model: ModelInfo) => {
@@ -749,6 +798,82 @@ function ProviderPage() {
                 + 添加模型
               </button>
             </div>
+
+            {/* N-59 后续：供应商已被删除的模型（孤儿）—— 仅在有孤儿时渲染。
+                这些模型因无匹配供应商不会出现在下方主列表中，此处给出重绑/删除入口。 */}
+            {store.orphanModels.length > 0 && (
+              <div className="mb-4 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-4">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-amber-600 dark:text-amber-400">⚠</span>
+                  <h3 className="text-sm font-medium text-amber-800 dark:text-amber-300">
+                    {t("settings.orphanModelsTitle")}
+                  </h3>
+                </div>
+                <p className="text-xs text-amber-700 dark:text-amber-400/80 mb-3">
+                  {t("settings.orphanModelsHint")}
+                </p>
+                <div className="space-y-2">
+                  {store.orphanModels.map((om) => (
+                    <div
+                      key={om.id}
+                      className="flex flex-wrap items-center gap-2 bg-white dark:bg-gray-800 rounded border border-amber-200 dark:border-amber-800 px-3 py-2"
+                    >
+                      <span className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                        {om.displayName || om.modelId}
+                      </span>
+                      <span className="text-xs text-gray-400 dark:text-gray-500 truncate">
+                        {om.modelId}
+                      </span>
+                      <span
+                        className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400"
+                        title={om.providerId}
+                      >
+                        {t("settings.orphanModelsMissingProvider")}:{" "}
+                        {om.providerId.slice(0, 8)}…
+                      </span>
+                      <div className="ml-auto flex items-center gap-2">
+                        <select
+                          className="text-xs px-2 py-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200"
+                          value=""
+                          disabled={store.savingId === om.id}
+                          onChange={(e) => {
+                            const pid = e.target.value;
+                            if (pid) {
+                              void handleRebindOrphan(
+                                om.id,
+                                pid,
+                                om.displayName || om.modelId,
+                              );
+                            }
+                          }}
+                        >
+                          <option value="">
+                            {t("settings.orphanModelsRebindTo")}
+                          </option>
+                          {store.providers.map((p) => (
+                            <option key={p.id} value={p.id}>
+                              {p.name}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            void handleDeleteOrphan(
+                              om.id,
+                              om.displayName || om.modelId,
+                            )
+                          }
+                          className="text-xs px-2 py-1 rounded text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
+                        >
+                          {t("settings.modelDeleteModel")}
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {modelsLoading ? (
               <div className="space-y-3">

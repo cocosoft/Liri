@@ -582,9 +582,30 @@ export class ProviderManager {
       return false;
     }
 
+    // N-59（2026-09-20）：级联停用**强绑定**该供应商的模型（model_registry.provider_id = 本 UUID）。
+    // 原实现只删供应商行 ⇒ 模型记录残留且 enabled=1，切换引用它们的会话时
+    // ModelRuntimeAPI 报 400「供应商未找到或未启用」。仅处理 UUID 强绑定；
+    // provider_id 存 provider_type 的松绑定由 ProviderRegistry.getByType 解析，不在此处理。
+    const { modelPricingService } = await import(
+      '../models/ModelPricingService.js'
+    );
+    await modelPricingService.initialize();
+    const boundModels = await modelPricingService.getModelsByProviderId(id);
+
     await this.runAsync(`DELETE FROM ${PROVIDERS_TABLE} WHERE id = ?`, [id]);
 
-    logger.info(`供应商已删除: ${existing.name} (${id})`);
+    const disabledModelIds: string[] = [];
+    for (const m of boundModels) {
+      if (!m.enabled) continue; // 幂等：已停用不重复写
+      await modelPricingService.setModelEnabledById(m.id, false);
+      disabledModelIds.push(m.modelId);
+    }
+
+    logger.info(
+      disabledModelIds.length > 0
+        ? `供应商已删除: ${existing.name} (${id})；同时停用 ${disabledModelIds.length} 个强绑定模型: [${disabledModelIds.join(', ')}]`
+        : `供应商已删除: ${existing.name} (${id})`
+    );
     return true;
   }
 

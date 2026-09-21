@@ -45,6 +45,7 @@ import type { ChatResponse, ChatMessage } from '@modules/ai';
 import type { Message } from './types/message.js';
 import { getToolCallName } from './types/tool.js';
 import { getLogger } from '@modules/monitoring';
+import { registerYieldFromResults } from '../session/yield';
 import { prepareToolResultsForContext } from '@modules/tools';
 import {
   ensureThinkResponseTags,
@@ -1388,6 +1389,19 @@ export class ReActToolLoop extends ReActLoop<
         );
       }
 
+      // 阶段 A（A1-d）：成功 yield ⇒ 登记等待 + 标记让出本轮。
+      // 判定/登记逻辑与 batch 路径（TAORLoop）共用同一实现（见 N-28 修复）。
+      const yieldedEntry = registerYieldFromResults(
+        results,
+        this.ctx.session.id
+      );
+      if (yieldedEntry) {
+        logger.info('reactToolLoop:yielded', {
+          sessionId: this.ctx.session.id,
+          toolCallId: yieldedEntry.toolCallId,
+        });
+      }
+
       return {
         results,
         allSucceeded: results.every((r) => r.status === 'success'),
@@ -1396,6 +1410,8 @@ export class ReActToolLoop extends ReActLoop<
         anyAborted:
           !!this.ctx.abortSignal?.aborted ||
           results.some((r) => r.status === 'aborted' || r.status === 'timeout'),
+        // 注意：`registerYieldFromResults` 未命中时返回 **null**（非 undefined）
+        yielded: yieldedEntry !== null,
       };
     } finally {
       // B-2（2026-08-23）：工具调用未完成终态补发——已写 tool_call 事件

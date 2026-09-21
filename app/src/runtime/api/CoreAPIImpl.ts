@@ -60,6 +60,45 @@ import {
 } from '@modules/chat';
 import { MessageToEventMigrator } from '@modules/session';
 import { EventLogStorage } from '@modules/session';
+// N-50 墓碑（与 N-52 修复同批）：删除轮次后按 seq 区间过滤事件派生消息
+import {
+  addDeletedRange,
+  isSeqInDeletedRanges,
+} from '@modules/session/storage/deletedRanges';
+import { LRUCache } from '../../utils/cache';
+
+/**
+ * N-55（2026-09-20，长会话读性能）：事件派生结果的消息形状（供派生缓存复用）。
+ */
+type DerivedSessionMessages = Array<{
+  id: string;
+  role: string;
+  content: string;
+  timestamp: number;
+  startedAt?: number;
+  finishReason?: string;
+  tool_calls?: Array<Record<string, unknown>>;
+  toolCallId?: string;
+  blocks?: Array<Record<string, unknown>>;
+  metadata?: Record<string, unknown>;
+}>;
+
+/**
+ * N-55：派生结果缓存的**副本**。
+ *
+ * 消费方 `_attachPendingApprovalBlocks` 会往最后一条助手消息的 `blocks` 里追加审批卡片
+ *（直接改写入参）⇒ 命中缓存时必须返回副本，否则缓存被污染、后续读会带上别人的卡片。
+ */
+function cloneDerivedMessages(
+  messages: DerivedSessionMessages
+): DerivedSessionMessages {
+  return messages.map((m) => ({
+    ...m,
+    blocks: Array.isArray(m.blocks)
+      ? (m.blocks as Array<Record<string, unknown>>).map((b) => ({ ...b }))
+      : m.blocks,
+  }));
+}
 import { deriveMessagesFromEvents } from '@modules/session';
 // E-1 接入（2026-08-23）：工具完成自动记录交付物（复用 ExecutionPhaseTracker，此前无生产实例）
 import { ExecutionPhaseTracker } from '@modules/session';
@@ -1493,14 +1532,35 @@ export class CoreAPIImpl implements CoreAPI {
     // 投影做版本覆盖。事件派生返回 user/assistant 聚合消息（tool 信息嵌入 blocks），
     // 与前端渲染契约一致；投影（messages.jsonl）含独立 tool 消息（1601/1634）且
     // lastEventSeq 覆盖低，不宜作主源（方案 B 验证否决，2026-08-29）。
+    // N-55 分段计时（2026-09-20）：定位命中路径的残余成本（派生或投影读取 / 审批查询 / 分页）
+    const perfStart = Date.now();
     try {
       const derived = await this._deriveSessionMessagesFromEvents(sessionId);
       if (derived) {
+        const afterDerive = Date.now();
+        // N-50（2026-09-20）：过滤"已删除轮次"（元数据墓碑的 seq 区间）——派生路径生效后
+        // 仅删投影不足以移除该轮（agg 会按事件重新派生）⇒ 必须在此按 `lastEventSeq` 过滤；
+        // 下方 catch 的投影回退路径依赖投影条目已由 `deleteMessage` 整轮删除。
+        const visible = this._filterDeletedRanges(sessionId, derived);
         await this._attachPendingApprovalBlocks(
           sessionId,
-          derived as unknown as UnifiedMessage[]
+          visible as unknown as UnifiedMessage[]
         );
-        return this._paginateMessages(derived, query);
+        const afterApproval = Date.now();
+        const out = this._paginateMessages(visible, query);
+        // N-55 分段计时：日志级别为 DEBUG（2026-09-20 由 INFO 降级）—— 常规会话读
+        // 每次都打计时行属噪音，需要观测时把日志级别调到 DEBUG 即可。
+        logger.debug('[perf] getSessionMessages', {
+          path: 'derived',
+          sessionId,
+          deriveMs: afterDerive - perfStart,
+          approvalMs: afterApproval - afterDerive,
+          totalMs: Date.now() - perfStart,
+          messages: visible.length,
+          returned: out.messages.length,
+          hasMore: out.hasMore,
+        });
+        return out;
       }
     } catch {
       // @ignore-catch — 派生失败回退投影路径
@@ -1622,12 +1682,29 @@ export class CoreAPIImpl implements CoreAPI {
     const key = (m: T): number => m.lastEventSeq ?? m.timestamp ?? 0;
     let filtered = messages;
     if (query?.before != null) {
-      filtered = filtered.filter((m) => key(m) < (query.before as number));
+      // N-57（2026-09-20）：排序键 `lastEventSeq` **存在重复值**（同轮多条消息共享 seq，
+      // 实测会话开头有 `1,1 / 2,2 / 3,3`）⇒ 用 `<` 会把与边界同 seq 的消息漏掉
+      // （总条数落在 limit+1..limit+5 的会话会丢条）。改用 `<=` 保证不丢，
+      // 边界条目会重复返回，由前端 `loadOlderMessagesImpl` 按 id 去重消除。
+      filtered = filtered.filter((m) => key(m) <= (query.before as number));
     }
     const hasMore = filtered.length > limit;
-    const page = filtered.slice(filtered.length - limit);
+    // N-57（2026-09-20）：filtered.length <= limit 时必须返回全部 —— 原
+    // `filtered.slice(filtered.length - limit)` 在"剩余条数不足一页"时退化为负索引，
+    // 等价于 `slice(-|残余|)` 只取尾部若干条（实测 92 条只回 8 条）且 hasMore=false ⇒
+    // 最后一页丢失、中间消息永久不可达。
+    const page = hasMore ? filtered.slice(filtered.length - limit) : filtered;
     return { messages: page, hasMore };
   }
+
+  /**
+   * N-55（2026-09-20）：事件派生结果缓存（key=sessionId；命中要求指纹一致；命中返回副本）。
+   * 容量 32 会话（LRU 淘汰），无 TTL —— 正确性由指纹保证（tailSeq/投影/压缩区间任一变化即重算）。
+   */
+  private readonly _derivedMessagesCache = new LRUCache<{
+    fingerprint: string;
+    messages: DerivedSessionMessages;
+  }>(32);
 
   /**
    * P2-1（2026-08-23）：从 events 统一派生消息（事件聚合 + 投影覆盖，评审 G7/A1'）。
@@ -1648,8 +1725,57 @@ export class CoreAPIImpl implements CoreAPI {
     blocks?: Array<Record<string, unknown>>;
     metadata?: Record<string, unknown>;
   }> | null> {
-    const eventLog = new EventLogStorage(sessionId, 'default');
-    if (!eventLog.exists()) return null;
+    // N-52 修复（2026-09-20）：与 `getSessionEvents` 用**同一访问器**取事件日志 ——
+    // worktreeHash 走 `resolveWorktreeHash()` 单一真源（P2-5）并复用 ChatManager 的实例缓存。
+    // 原实现 `new EventLogStorage(sessionId, 'default')` 把 `'default'` 当 worktreeHash
+    // （真实分区为 worktree hash，如 `57971aa3`）⇒ `exists()` 恒 false ⇒ 本方法恒返回 null、
+    // 事件派生路径沦为死代码。详见 `.trae/specs/event-derivation-read-path-rootfix.md`。
+    const chatManager = this.chatManager as unknown as {
+      _getOrCreateEventLog?(sessionId: string): EventLogStorage;
+    };
+    const eventLog = chatManager._getOrCreateEventLog?.(sessionId);
+    if (!eventLog || !eventLog.exists()) return null;
+
+    const gateway = this.chatManager.getSessionGateway();
+    const projections: UnifiedMessage[] = gateway
+      ? await gateway.getMessages(sessionId)
+      : [];
+    // A-3（2026-08-23）：派生时传入会话 metadata 压缩区间表（trajectoryCompactions，优先于事件）
+    const sessionMeta = this.sessionManager.getSession(sessionId)?.metadata as
+      | Record<string, unknown>
+      | undefined;
+    const compactionRanges = sessionMeta?.trajectoryCompactions as
+      | Array<{
+          startSeq: number;
+          endSeq: number;
+          summaryMessageId?: string;
+        }>
+      | undefined;
+
+    // N-55（2026-09-20，长会话读性能）：**派生结果缓存**。
+    // 实测：3847 事件 / 192 消息的长会话，热读 ~34ms —— 其中"读 events"已被 EventLogStorage 的
+    // 事件快照缓存覆盖（P1-2），余下主要是**每次重算派生**（聚合 + 覆盖 + 块合并 + 去重）。
+    // 指纹 = tailSeq + 投影规模/末条 id + 压缩区间数：任一变化即失效重算（无 TTL，正确性靠指纹）。
+    const tailSeq = await eventLog.getTailSeq();
+    const lastProjection = projections[projections.length - 1];
+    const fingerprint = [
+      tailSeq,
+      projections.length,
+      lastProjection?.id ?? '',
+      compactionRanges?.length ?? 0,
+    ].join('|');
+    const cached = this._derivedMessagesCache.get(sessionId);
+    if (cached && cached.fingerprint === fingerprint) {
+      // 命中 ⇒ 返回**副本**（消费方 `_attachPendingApprovalBlocks` 会改写 blocks）
+      return cloneDerivedMessages(cached.messages);
+    }
+    logger.debug('deriveCache:未命中（重算派生）', {
+      sessionId,
+      tailSeq,
+      projections: projections.length,
+      hasCached: Boolean(cached),
+    });
+    const deriveStart = Date.now();
 
     // 循环拉取 events（G5：read limit≤10000 无分页，防静默截断）
     // KB-LONG-SESSION（2026-08-29）：排除 assistant/thinking 高频细节事件——
@@ -1672,22 +1798,6 @@ export class CoreAPIImpl implements CoreAPI {
       return typeof d.messageId === 'string';
     });
     if (!hasV1) return null;
-
-    const gateway = this.chatManager.getSessionGateway();
-    const projections: UnifiedMessage[] = gateway
-      ? await gateway.getMessages(sessionId)
-      : [];
-    // A-3（2026-08-23）：派生时传入会话 metadata 压缩区间表（trajectoryCompactions，优先于事件）
-    const sessionMeta = this.sessionManager.getSession(sessionId)?.metadata as
-      | Record<string, unknown>
-      | undefined;
-    const compactionRanges = sessionMeta?.trajectoryCompactions as
-      | Array<{
-          startSeq: number;
-          endSeq: number;
-          summaryMessageId?: string;
-        }>
-      | undefined;
     const derived = deriveMessagesFromEvents(
       events,
       projections.map((m) => ({
@@ -1724,7 +1834,20 @@ export class CoreAPIImpl implements CoreAPI {
       // B-2（2026-08-23）：透传排序键（事件派生序），前端 setMessages 据此排序
       lastEventSeq: m.lastEventSeq,
     }));
-    return dedupeMessagesToolCallBlocks(mapped);
+    const result = dedupeMessagesToolCallBlocks(mapped);
+    // N-55：诊断用（DEBUG）—— 长会话冷派生实测 ~1.2s（3847 事件），命中缓存后每次读不再重算
+    logger.debug('deriveCache:计算完成', {
+      sessionId,
+      deriveMs: Date.now() - deriveStart,
+      events: events.length,
+      messages: result.length,
+    });
+    // N-55：写入派生缓存（指纹与上面的命中判据一致）
+    this._derivedMessagesCache.set(sessionId, {
+      fingerprint,
+      messages: result as DerivedSessionMessages,
+    });
+    return result;
   }
 
   /**
@@ -1905,11 +2028,91 @@ export class CoreAPIImpl implements CoreAPI {
       throw err;
     }
 
-    // 软删除消息
-    await gateway.deleteMessage(sessionId, messageId);
+    // ── N-50（2026-09-20）修复：删除**整轮**（该提问 + 其助手/工具回复），避免遗留孤儿回复 ──
+    //
+    // 原实现只删该条 user 消息，其助手/工具回复仍留在投影（`messages.jsonl`）⇒ 界面上出现
+    // "没有提问的回复气泡"（实测证据见台账 N-50）。改为删除该轮全部条目：
+    // 从该 user 消息起，到下一个 user 消息之前止。
+    //
+    // 注（N-52，2026-09-20 实测修正）：当前**实际读源是投影** —— `_deriveSessionMessagesFromEvents`
+    // 内 `new EventLogStorage(sessionId, 'default')` 把 `'default'` 当 worktreeHash（真实分区为
+    // worktree hash，如 `57971aa3`）⇒ `exists()` 恒 false ⇒ 事件派生路径恒返回 null、由投影兜底。
+    // 故"删投影"即对读取生效，本修复**不需要**改动事件日志；若日后修复 N-52 使事件派生真正生效，
+    // 必须同时补"按轮次 seq 墓碑 + 读时过滤"，否则助手/工具消息会被事件重新派生出来（见台账 N-52）。
+    const targetIndex = messages.findIndex((m) => m.id === messageId);
+    let turnEndIndex = messages.length;
+    for (let i = targetIndex + 1; i < messages.length; i++) {
+      if (messages[i].role === 'user') {
+        turnEndIndex = i;
+        break;
+      }
+    }
+    const turnMessageIds = messages
+      .slice(targetIndex, turnEndIndex)
+      .map((m) => m.id);
+
+    // N-50 墓碑（与 N-52 修复同批）：记录该轮的**事件 seq 区间** —— 派生读路径生效后，仅删
+    // 投影不足以移除该轮（agg 会按事件重新派生）⇒ 读时按墓碑过滤（`_filterDeletedRanges`）。
+    // 区间边界取**派生结果**的 `lastEventSeq` —— 与读时过滤比较的是同一 seq 空间。
+    let startSeq: number | undefined;
+    let endSeq: number | null = null;
+    try {
+      const derived = (await this._deriveSessionMessagesFromEvents(
+        sessionId
+      )) as Array<{ id: string; role: string; lastEventSeq?: number }> | null;
+      const idx = derived?.findIndex((m) => m.id === messageId) ?? -1;
+      const from = idx >= 0 ? derived?.[idx]?.lastEventSeq : undefined;
+      if (idx >= 0 && typeof from === 'number' && Number.isFinite(from)) {
+        startSeq = from;
+        const nextUser = derived?.slice(idx + 1).find((m) => m.role === 'user');
+        const nextSeq = nextUser?.lastEventSeq;
+        endSeq =
+          typeof nextSeq === 'number' && Number.isFinite(nextSeq)
+            ? Math.max(nextSeq - 1, from)
+            : null;
+      }
+    } catch (err) {
+      await handleError(err, {
+        module: 'runtime:api',
+        action: 'deleteMessage:computeDeletedRange',
+        context: { sessionId, messageId },
+      });
+    }
+
+    if (startSeq === undefined) {
+      logger.warn(
+        'deleteMessage: 未能定位该轮的事件 seq 区间，墓碑未写入（投影侧仍已整轮删除）',
+        { sessionId, messageId, turnMessageIds }
+      );
+    } else {
+      const ranges = addDeletedRange(session?.metadata?.deletedMessageRanges, {
+        startSeq,
+        endSeq,
+      });
+      if (session?.metadata) {
+        session.metadata.deletedMessageRanges = ranges;
+        this.sessionManager.updateSession?.(session);
+      }
+      try {
+        const storedSession = await gateway.getSession(sessionId);
+        if (storedSession) {
+          storedSession.metadata.deletedMessageRanges = ranges;
+          await gateway.updateSession(storedSession);
+        }
+      } catch (err) {
+        await handleError(err, {
+          module: 'runtime:api',
+          action: 'deleteMessage:persistDeletedRange',
+          context: { sessionId, messageId, ranges },
+        });
+      }
+    }
+
+    // 投影侧：删除该轮全部条目（用户消息 + 其助手/工具回复）
+    await gateway.deleteMessages(sessionId, turnMessageIds);
 
     // 附件清理（引用计数归零时删除文件）
-    this.cleanupOrphanAttachments(sessionId, [messageId]).catch((err) => {
+    this.cleanupOrphanAttachments(sessionId, turnMessageIds).catch((err) => {
       logger.debug('附件清理失败（非关键）', { error: String(err) });
     });
 
@@ -1918,6 +2121,9 @@ export class CoreAPIImpl implements CoreAPI {
       module: 'audit:message',
       sessionId,
       messageId,
+      // N-50：记录整轮删除范围 + 事件 seq 墓碑，便于追溯"连带删了哪些回复"
+      deletedMessageIds: turnMessageIds,
+      deletedRange: startSeq === undefined ? null : { startSeq, endSeq },
       timestamp: new Date().toISOString(),
     });
 
@@ -1932,6 +2138,36 @@ export class CoreAPIImpl implements CoreAPI {
         timestamp: m.timestamp,
       })),
     };
+  }
+
+  /**
+   * N-50（2026-09-20）：按会话元数据的"删除墓碑"过滤**事件派生**消息。
+   *
+   * 无墓碑时零成本返回原数组（绝大多数会话）；过滤键为派生消息的 `lastEventSeq`
+   * （事件派生两条分支都会带上：`agg.maxChunkSeq`）。仅作用于事件派生路径 ——
+   * 投影回退路径依赖 `deleteMessage` 已整轮删除投影条目。
+   */
+  private _filterDeletedRanges<T>(sessionId: string, messages: T[]): T[] {
+    const ranges =
+      this.sessionManager.getSession(sessionId)?.metadata?.deletedMessageRanges;
+    if (!ranges || ranges.length === 0) return messages;
+    const kept = messages.filter(
+      (m) =>
+        !isSeqInDeletedRanges(
+          (m as { lastEventSeq?: unknown }).lastEventSeq,
+          ranges
+        )
+    );
+    if (kept.length !== messages.length) {
+      logger.info('已按删除墓碑过滤事件派生消息', {
+        module: 'runtime:api',
+        sessionId,
+        before: messages.length,
+        after: kept.length,
+        ranges,
+      });
+    }
+    return kept;
   }
 
   /**

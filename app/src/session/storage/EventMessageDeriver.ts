@@ -647,6 +647,11 @@ export function deriveMessagesFromEvents(
         : turnFinish === 'canceled' && !hasFullContent
           ? 'canceled'
           : undefined;
+    // 阶段 A（A1-f，历史回填）：本轮以 `sessions_yield` 让出（turn/end
+    // finishReason='yielded'）时，把该语义带到派生消息上——历史回放才能识别
+    // "已让出、等待子代理结算"，而不是看起来像一次普通结束。
+    // 与 canceled 的"中断提示"不同：yield 不是异常，仅作语义标记。
+    const yieldTurnFinish = turnFinish === 'yielded' ? 'yielded' : undefined;
     if (
       proj &&
       typeof proj.lastEventSeq === 'number' &&
@@ -664,7 +669,9 @@ export function deriveMessagesFromEvents(
         //（"AI 回复被混合进下一轮"）。内容用投影补齐，位置按事件序归位。
         lastEventSeq: agg.maxChunkSeq,
         // 2026-08-24 中断提示链路（3.5）：投影无 finishReason 时按所属 turn 补充
-        finishReason: proj.finishReason ?? interruptedTurnFinish,
+        // 阶段 A（A1-f）：yield 让出语义同样按 turn 补充
+        finishReason:
+          proj.finishReason ?? interruptedTurnFinish ?? yieldTurnFinish,
         // FIX(2026-08-23)：读时归一化——投影 blocks 可能按流式 chunk 碎片化
         //（每 token 一个 text block），合并相邻 text/thinking 防前端渲染卡死
         blocks: markOrphanToolBlocks(
@@ -680,7 +687,8 @@ export function deriveMessagesFromEvents(
         // B-2（2026-08-23）：统一排序键——事件聚合消息用最后 chunk seq
         lastEventSeq: agg.maxChunkSeq,
         // 2026-08-24 中断提示链路（3.5）：中断 turn 的消息补 finishReason
-        finishReason: interruptedTurnFinish,
+        // 阶段 A（A1-f）：yield 让出语义同样按 turn 补充
+        finishReason: interruptedTurnFinish ?? yieldTurnFinish,
         blocks: markOrphanToolBlocks(agg.blocks),
         tool_calls: agg.tool_calls.length > 0 ? agg.tool_calls : undefined,
       });

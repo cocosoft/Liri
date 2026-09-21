@@ -1,109 +1,53 @@
 /**
- * 模块注册 — 将现有页面组件注册到 FeatureSlice
+ * 模块元信息（emoji / 标签 i18n key / workspaceType）
  *
- * 新模块只需在此调用 registerModule()，无需修改 ViewRouter 或路由表。
+ * 内置模块的**定义**已收敛至 `@/config/builtinModules.ts`（N-8 / N-9），
+ * 本文件不再承担注册职责：原 `registerBuiltinModules()` 已删除 —— `featureSlice`
+ * 直接以 config 的 `BUILTIN_MODULES` 作为初始 state，无需再"注册 + 叠加 paths"。
  */
 
-import { useRootStore } from "@/stores/root-store";
-import { createLogger } from "@/utils/logger";
-
-const logger = createLogger("modules:register");
-
-/** 注册所有内置模块到 FeatureSlice */
-export function registerBuiltinModules(): void {
-  const store = useRootStore.getState();
-
-  store.registerModule({
-    id: "chat",
-    type: "chat",
-    name: "对话",
-    icon: "message-circle",
-    enabled: true,
-    available: true,
-    pinned: true,
-    tier: "base",
-    paths: ["/chat"],
-  });
-
-  store.registerModule({
-    id: "media",
-    type: "media",
-    name: "媒体",
-    icon: "image",
-    enabled: true,
-    available: true,
-    pinned: false,
-    tier: "base",
-    paths: ["/media", "/image", "/tts"],
-  });
-
-  store.registerModule({
-    id: "office",
-    type: "office",
-    name: "办公",
-    icon: "file-text",
-    enabled: true,
-    available: true,
-    pinned: false,
-    tier: "pro",
-    paths: ["/office"],
-  });
-
-  // D5：日历已并入办公（canonical /office?view=calendar），删除独立注册；
-  // MODULE_EMOJI_META 保留 calendar 键（存量会话 label 不退化，D-b①）。
-  // D7：翻译已并入聊天（斜杠命令 + 识图），删除独立注册；META 保留 translation 键。
-
-  store.registerModule({
-    id: "knowledge",
-    type: "knowledge",
-    name: "知识库",
-    icon: "book-open",
-    enabled: true,
-    available: true,
-    pinned: false,
-    tier: "base",
-    paths: ["/knowledge", "/files"],
-  });
-
-  store.registerModule({
-    id: "project",
-    type: "project",
-    name: "项目",
-    icon: "folder",
-    enabled: true,
-    available: true,
-    pinned: false,
-    tier: "base",
-    paths: ["/projects"],
-  });
-
-  logger.info("内置模块注册完成", { count: 5 });
-}
-
-// ─── 模块元信息（归一化入口：icon + label + workspaceType 唯一来源）───
+// ─── 模块元信息（归一化入口：emoji + labelKey + workspaceType 唯一来源）───
+//
+// Phase 2（§4.3-6 续，2026-09-19）：原 `label` 硬编码中文改为 `labelKey`，
+// 展示侧统一 `t(labelKey)`（否则英文 locale 下模块标签仍显示中文）。
+// 键复用导航注册表的 `nav.*`（同一功能一个名称）；calendar / translation 是
+// D5/D7（日历并入办公、翻译并入聊天）后为**存量会话标签**保留的键。
 
 const MODULE_EMOJI_META: Record<
   string,
-  { emoji: string; label: string; workspaceType: string }
+  { emoji: string; labelKey: string; workspaceType: string }
 > = {
-  chat: { emoji: "💬", label: "对话", workspaceType: "chat" },
-  project: { emoji: "📁", label: "项目", workspaceType: "chat" },
-  media: { emoji: "🎨", label: "媒体", workspaceType: "module" },
-  office: { emoji: "📄", label: "办公", workspaceType: "module" },
-  calendar: { emoji: "📅", label: "日历", workspaceType: "module" },
-  translation: { emoji: "🌐", label: "翻译", workspaceType: "module" },
-  knowledge: { emoji: "📚", label: "知识库", workspaceType: "module" },
+  chat: { emoji: "💬", labelKey: "nav.chat", workspaceType: "chat" },
+  project: { emoji: "📁", labelKey: "nav.projects", workspaceType: "chat" },
+  media: { emoji: "🎨", labelKey: "nav.media", workspaceType: "module" },
+  office: { emoji: "📄", labelKey: "nav.office", workspaceType: "module" },
+  calendar: { emoji: "📅", labelKey: "nav.calendar", workspaceType: "module" },
+  translation: {
+    emoji: "🌐",
+    labelKey: "translate.title",
+    workspaceType: "module",
+  },
+  knowledge: {
+    emoji: "📚",
+    labelKey: "nav.knowledge",
+    workspaceType: "module",
+  },
 };
 
-/** 获取模块的 emoji 图标和中文标签（会话列表、标题等场景使用） */
-export function getModuleMeta(type: string): { emoji: string; label: string } {
+/** 获取模块的 emoji 与**标签 i18n key**（会话列表、标题等场景使用，调用方自行 t()） */
+export function getModuleMeta(type: string): {
+  emoji: string;
+  labelKey: string;
+} {
   const m = MODULE_EMOJI_META[type];
-  return m ? { emoji: m.emoji, label: m.label } : { emoji: "📋", label: type };
+  return m
+    ? { emoji: m.emoji, labelKey: m.labelKey }
+    : { emoji: "📋", labelKey: type };
 }
 
-/** 获取模块中文标签（创建默认会话标题等场景使用） */
+/** 获取模块标签 i18n key（未知类型回落为 type 本身） */
 export function getModuleLabel(type: string): string {
-  return MODULE_EMOJI_META[type]?.label ?? type;
+  return MODULE_EMOJI_META[type]?.labelKey ?? type;
 }
 
 /** 获取模块的 workspaceType */

@@ -1,45 +1,65 @@
 /**
  * SessionsYieldTool
- * 对标CC SessionsYieldTool
- * 会话控制权交还工具
+ *
+ * 会话控制权交还工具（阶段 A：真实实现，取代原"成功但无副作用"的桩）。
+ *
+ * 语义（见 `.trae/documents/阶段A-yield真实实现Spec.md`）：
+ * 模型在等待子代理结算时调用本工具让出本轮 turn；**本轮是否真的以 yield 收尾**，
+ * 由收尾点（`ChatManager._finalizeStreamMessage`）依据本工具的结果 + 消息序列判定并登记等待
+ * （turn 编号只有收尾点可知，故此处只做校验与契约化返回，不登记）。
  */
 
 import { BaseTool } from '../BaseTool';
 import type { ToolResult, ToolUseContext, ToolParam } from '../types/index';
+import { YIELD_RESULT_STATUS, YIELD_TOOL_NAME } from '../../session/yield';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('tools:SessionsYieldTool:SessionsYieldTool');
 
 export interface YieldConfig {
-  targetSessionId?: string;
   reason?: string;
-  preserveState?: boolean;
-  timeout?: number;
-  resultData?: Record<string, unknown>;
+  message?: string;
 }
 
 export interface YieldResult {
-  yieldId: string;
-  fromSessionId: string;
-  targetSessionId?: string;
-  timestamp: number;
+  /** 契约状态：成功 yield 的唯一标识值（判定函数 isSuccessfulYieldResult 依此匹配） */
+  status: typeof YIELD_RESULT_STATUS;
+  /** 发起 yield 的会话（取自工具上下文，不再硬编码 'current'） */
+  sessionId: string;
   reason: string;
-  statePreserved: boolean;
+  message?: string;
+  timestamp: number;
+}
+
+/**
+ * 构造 yield 契约结果（**唯一构造点**）。纯函数、无副作用。
+ *
+ * 2026-09-20（N-36 双轨收敛）：原与 `SessionsTool.handleYield` 共用本构造点；但 yield 管线
+ * （`yieldDetection` 判定 + `yieldTurnRegistration` 登记）**只认工具名 `sessions_yield`**，
+ * 故 `sessions` 的 yield 动作已移除，本构造点现由本工具单独使用。
+ */
+export function buildYieldResult(params: {
+  sessionId: string;
+  reason?: string;
+  message?: string;
+  timestamp?: number;
+}): YieldResult {
+  return {
+    status: YIELD_RESULT_STATUS,
+    sessionId: params.sessionId,
+    reason: params.reason ?? 'yielding control to sub-agent results',
+    message: params.message,
+    timestamp: params.timestamp ?? Date.now(),
+  };
 }
 
 export class SessionsYieldTool extends BaseTool {
-  name = 'sessions_yield';
+  name = YIELD_TOOL_NAME;
 
   description =
-    'Yield execution control back to parent or specified session. Preserves session state for later resumption.';
+    'Yield the current turn back to the session while delegated sub-agents finish, so their results can be awaited; the turn resumes with those results. This is the ONLY tool that yields a turn — the `sessions` tool manages sessions and cannot yield.';
 
   params: ToolParam[] = [
-    {
-      name: 'targetSessionId',
-      type: 'string',
-      description: 'Specific session to yield to (defaults to parent)',
-      required: false,
-    },
     {
       name: 'reason',
       type: 'string',
@@ -47,53 +67,43 @@ export class SessionsYieldTool extends BaseTool {
       required: false,
     },
     {
-      name: 'preserveState',
-      type: 'boolean',
-      description: 'Preserve session state for resumption',
-      required: false,
-      default: true,
-    },
-    {
-      name: 'timeout',
-      type: 'number',
-      description: 'Auto-resume timeout in ms',
-      required: false,
-    },
-    {
-      name: 'resultData',
-      type: 'object',
-      description: 'Data to pass to the receiving session',
+      name: 'message',
+      type: 'string',
+      description: 'Optional message passed to the receiving session',
       required: false,
     },
   ];
 
-  async execute(input: any, _context: ToolUseContext): Promise<ToolResult> {
-    try {
-      const config = input as YieldConfig;
+  async execute(input: unknown, context?: ToolUseContext): Promise<ToolResult> {
+    const config = (input ?? {}) as YieldConfig;
+    const sessionId = context?.sessionId;
 
-      const result: YieldResult = {
-        yieldId: `yield_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-        fromSessionId: 'current',
-        targetSessionId: config.targetSessionId,
-        timestamp: Date.now(),
-        reason: config.reason ?? 'Yielding control',
-        statePreserved: config.preserveState ?? true,
-      };
-
-      return {
-        success: true,
-        data: result,
-        output: `Control yielded${config.targetSessionId ? ` to session ${config.targetSessionId}` : ' to parent session'}`,
-      };
-    } catch (error) {
+    if (!sessionId) {
+      // 无会话上下文即无法建立等待登记：显式失败，不再返回"成功但无副作用"
       return {
         success: false,
-        error: `Failed to yield: ${error instanceof Error ? error.message : String(error)}`,
+        error:
+          'sessions_yield requires a session context (context.sessionId is missing)',
       };
     }
-  }
-}
 
-export function createSessionsYieldTool(): SessionsYieldTool {
-  return new SessionsYieldTool();
+    const result = buildYieldResult({
+      sessionId,
+      reason: config.reason,
+      message: config.message,
+    });
+
+    logger.info('sessions_yield: yield intent accepted', {
+      sessionId,
+      reason: result.reason,
+      hasMessage:
+        typeof result.message === 'string' && result.message.length > 0,
+    });
+
+    return {
+      success: true,
+      data: result,
+      output: JSON.stringify(result),
+    };
+  }
 }

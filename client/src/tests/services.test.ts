@@ -2,7 +2,10 @@
 // 本文件使用 vitest 专属 API（vi.mock / vi.stubGlobal），bun test 的 vi 兼容不完整会报
 // "vi.stubGlobal is not a function"（client 测试唯一运行器为 vitest，见 client/package.json "test"）。
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { sessionService } from "../services/sessionService";
+import {
+  sessionService,
+  normalizeMessageList,
+} from "../services/sessionService";
 import { configService } from "../services/configService";
 import { toolService } from "../services/toolService";
 import { fileService } from "../services/fileService";
@@ -81,6 +84,45 @@ describe("SessionService (fallback)", () => {
   it("getCurrent returns null", async () => {
     const current = await sessionService.getCurrent();
     expect(current).toBeNull();
+  });
+});
+
+/**
+ * N-39（2026-09-20）：`GET /v1/sessions/:id/messages` 返回**对象包装** `{ messages: [...] }`，
+ * 而 `getMessages` 的对内契约是 `Message[]`。修复前直接 `return res.data`（类型断言掩盖）
+ * 把对象当数组传给上游 ⇒ 4 个消费者全部受损：`setMessages` 抛 "messages is not iterable"
+ * 并把聊天区清空、`importLegacyMessages` 的 `.map` 抛错、会话导出 `persisted.length > 0`
+ * 恒 false（静默降级为内存快照）。本组测试守护该契约。
+ */
+describe("SessionService.getMessages 响应形态归一化（N-39）", () => {
+  it("normalizeMessageList：对象包装 → 真数组", () => {
+    const msgs = [{ id: "m1" }, { id: "m2" }];
+    expect(normalizeMessageList({ messages: msgs })).toEqual(msgs);
+  });
+
+  it("normalizeMessageList：裸数组 → 原样返回", () => {
+    const msgs = [{ id: "m1" }];
+    expect(normalizeMessageList(msgs)).toEqual(msgs);
+  });
+
+  it("normalizeMessageList：异常形态 → 空数组且不抛错", () => {
+    expect(normalizeMessageList(null)).toEqual([]);
+    expect(normalizeMessageList(undefined)).toEqual([]);
+    expect(normalizeMessageList({})).toEqual([]);
+    expect(normalizeMessageList({ messages: "oops" })).toEqual([]);
+  });
+
+  it("getMessages：后端返回对象包装时，返回**可迭代的数组**（回归 N-39）", async () => {
+    const { http } = await import("../services/httpClient");
+    const msgs = [{ id: "m1", role: "user", content: "hi" }];
+    vi.mocked(http.get).mockResolvedValueOnce({
+      ok: true,
+      data: { messages: msgs },
+    });
+    const result = await sessionService.getMessages("s1");
+    expect(Array.isArray(result)).toBe(true);
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe("m1");
   });
 });
 

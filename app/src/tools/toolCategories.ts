@@ -38,7 +38,9 @@ export type ToolCategory =
   | 'calendar' // 日历
   | 'mail' // 邮件
   | 'knowledge' // 知识库（保存/搜索/写入/导入导出）
-  | 'misc'; // 未分类（保底保留）
+  | 'mcp' // MCP 三方工具（动态名 `${server}__${tool}`，无法预先登记）
+  | 'assist' // 通用协作助手（计划/剪贴板/画布 —— 任何对话都可用）
+  | 'misc'; // 未分类；⚠️ **不在任何任务白名单** ⇒ 会被裁剪（新增工具必须显式登记类别，见 N-44）
 
 /** 工具名 → 类别映射（覆盖运行时内置 + 模块注册工具） */
 export const TOOL_CATEGORIES: Record<string, ToolCategory> = {
@@ -119,6 +121,9 @@ export const TOOL_CATEGORIES: Record<string, ToolCategory> = {
   // ── session 会话 ──
   save_conversation: 'session',
   sessions: 'session',
+  // N-44（2026-09-20，用户决策）：yield 让出工具补登记 —— 原先未登记 ⇒ 落 misc ⇒
+  // 在任何任务下都被裁（实测 default 裁剪日志 removedNames 含 sessions_yield）。
+  sessions_yield: 'session',
 
   // ── agent 代理 ──
   Agent: 'agent',
@@ -130,6 +135,10 @@ export const TOOL_CATEGORIES: Record<string, ToolCategory> = {
   TraceRecordingTool: 'system',
   time: 'system',
   sleep: 'system',
+  // N-44 扩展（2026-09-20，用户决策）：自唤醒工具补登记 —— 与同族的阻塞式 `sleep`
+  // 保持同一类别口径（'system'，在各通用任务集内均保留），避免"注册了却永久不可见"。
+  sleep_for: 'system',
+  sleep_until: 'system',
   config: 'system',
   repl: 'system',
   notebook: 'system',
@@ -173,22 +182,38 @@ export const TOOL_CATEGORIES: Record<string, ToolCategory> = {
   knowledge_restore: 'knowledge',
   knowledge_snapshots: 'knowledge',
 
-  // ── misc 其他（有实质用途但不宜默认裁剪） ──
-  canvas: 'misc',
-  clipboard: 'misc',
+  // ── mcp 三方 MCP 工具 ──
+  // N-44：静态名归入 'mcp'；**动态名**（`McpToolWrapper` 的 `${server}__${tool}`）由
+  // `getToolCategory` 的双下划线判据兜住（见该函数注释）。
+  MCPTool: 'mcp',
+  mcp_resource: 'mcp',
+  ListMcpResources: 'mcp',
+  ReadMcpResource: 'mcp',
+
+  // ── assist 通用协作助手 ──
+  // N-44（2026-09-20，用户决策）：plan / clipboard / canvas 从 misc 迁出 ——
+  // 三者均为"任何对话都可能用到"的协作能力，此前因 misc 不被任何白名单收录而全程不可见。
+  plan: 'assist',
+  clipboard: 'assist',
+  canvas: 'assist',
+
+  // ── misc 其他（⚠️ 不会被任何任务白名单保留 —— 仅作"已知但不默认开放"的归档） ──
   browser: 'misc',
-  plan: 'misc',
   computer_use: 'misc',
-  MCPTool: 'misc',
-  mcp_resource: 'misc',
-  ListMcpResources: 'misc',
-  ReadMcpResource: 'misc',
 };
 
 /**
- * 获取工具类别；未命中（未登记的工具）→ 'misc'（保底保留）。
+ * 获取工具类别。
+ *
+ * N-44（2026-09-20）两处更正：
+ * 1. **未命中 → `'misc'`，而 `'misc'` 不在任何任务白名单 ⇒ 会被裁剪** ——
+ *    原注释写"保底保留"与实现相悖，已更正。⇒ **新增工具必须显式登记类别**，
+ *    否则即便已注册进 toolRegistry，对模型仍**永久不可见**（N-27 / N-37 / N-41 同族）。
+ * 2. **MCP 动态工具**：`McpToolWrapper` 将其命名为 `${server}__${tool}`，无法预先登记 ⇒
+ *    按双下划线判据归类为 `'mcp'`（实测现有内置工具名**均不含 `__`** ⇒ 判据无碰撞）。
  */
 export function getToolCategory(toolName: string): ToolCategory {
+  if (toolName.includes('__')) return 'mcp';
   return TOOL_CATEGORIES[toolName] ?? 'misc';
 }
 
@@ -203,6 +228,10 @@ export function getToolCategory(toolName: string): ToolCategory {
  */
 export const TASK_TOOL_CATEGORIES: Record<string, ToolCategory[]> = {
   // 日常对话：轻量只读为主（文件读、搜索、网络、交互、会话、知识库、系统）
+  // N-44（2026-09-20，用户决策）：补入 doc / channel / calendar / mail / mcp / assist ——
+  // 这四类此前不在任何白名单内 ⇒ 其工具（doc_generate / channel / broadcast /
+  // calendar:* / mail:send 等）对模型全程不可见；mcp 见 getToolCategory 判据；
+  // assist = plan / clipboard / canvas。
   chat: [
     'file',
     'file_read',
@@ -212,6 +241,12 @@ export const TASK_TOOL_CATEGORIES: Record<string, ToolCategory[]> = {
     'session',
     'knowledge',
     'system',
+    'doc',
+    'channel',
+    'calendar',
+    'mail',
+    'mcp',
+    'assist',
   ],
   // 通用兜底（与 chat 一致，避免裁剪后无工具）
   default: [
@@ -223,12 +258,20 @@ export const TASK_TOOL_CATEGORIES: Record<string, ToolCategory[]> = {
     'session',
     'knowledge',
     'system',
+    'doc',
+    'channel',
+    'calendar',
+    'mail',
+    'mcp',
+    'assist',
   ],
   // 简单问答/摘要：最轻量
   quick: ['search', 'network', 'system'],
   // 翻译润色：文件读 + 轻量
   translation: ['file', 'file_read', 'search', 'system'],
-  // 编码：文件 + 终端 + 代码 + 搜索 + 网络 + 知识库 + 任务 + 系统
+  // 编码：文件 + 终端 + 代码 + 搜索 + 网络 + 知识库 + 任务 + 系统 + MCP
+  // N-44 扩展（2026-09-20，用户决策）：补 'mcp' —— 项目/编码会话是 MCP（GitHub/DB 等）
+  // 最典型的使用场景，此前未加 ⇒ 该任务类型下 MCP 工具仍被裁。
   coding: [
     'file',
     'file_read',
@@ -239,8 +282,9 @@ export const TASK_TOOL_CATEGORIES: Record<string, ToolCategory[]> = {
     'knowledge',
     'task',
     'system',
+    'mcp',
   ],
-  // 自主代理：编码全集 + 代理 + 会话
+  // 自主代理：编码全集 + 代理 + 会话 + MCP
   agent: [
     'file',
     'file_read',
@@ -253,6 +297,7 @@ export const TASK_TOOL_CATEGORIES: Record<string, ToolCategory[]> = {
     'agent',
     'session',
     'system',
+    'mcp',
   ],
   // 定时任务：任务管理 + 通知 + 系统
   scheduled: ['task', 'notify', 'system'],
@@ -285,8 +330,19 @@ export const DEFAULT_TASK_KEY = 'default';
  * todo_write 类别为 'task'，而 chat/default 白名单不含 'task'
  * → 普通对话中 todo_write 被裁剪 → 模型永不调用 → TaskCard 永不出现。
  * 任务/进度卡是通用协作能力，任何对话都须可用，故列为 mandatory 恒保留。
+ *
+ * N-41（2026-09-20）：`Agent` 同理恒保留。实测 `taskType:"default"` 裁剪日志
+ * （`streamMessageFlow` 的「按任务裁剪工具集」，before:60 → after:26）中 `Agent`
+ * 与 `sessions_yield` 均在 `removedNames` 内 ⇒ 普通对话里模型**看不到** Agent，
+ * 只能靠"越清单直接调用"（provider 不校验工具名是否在清单内、后端按注册表解析）
+ * 侥幸可用 —— 表现即"时好时坏 / 模型自述该工具不可用"。并行子代理是通用协作能力，
+ * 故纳入 mandatory（模型当轮即可派发并拿到结果，不依赖 yield）。
+ *
+ * 注：`sessions_yield` **未**纳入（用户 2026-09-20 决策）—— 其唯一用途是"让出轮次
+ * 等子代理结算"，属长流程；若模型登记了却无人结算，会话会停在 running 等待态。
+ * 它仍留在全量注册表（`sessions_yield` 可被越清单调用，恢复通路已装配）。
  */
-const MANDATORY_TOOLS: ReadonlySet<string> = new Set(['todo_write']);
+const MANDATORY_TOOLS: ReadonlySet<string> = new Set(['todo_write', 'Agent']);
 
 /**
  * 获取任务的工具类别白名单；未配置的任务回退 default 保底集。

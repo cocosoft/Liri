@@ -39,8 +39,13 @@ import {
   buildChildMessage,
 } from './ForkSubagent';
 import { SubAgentEngine, getSubAgentEngine } from './SubAgentEngine';
-import { ParallelOrchestrator } from './ParallelOrchestrator';
-import { agentRegistry } from '@modules/agent';
+// B-4（2026-09-20）：并行执行统一走 AgentSwarm 单引擎（原 ParallelOrchestrator 已删除），
+// 并在此发布 PARALLEL_* 事件以保持前端 SSE 时间线不断供。
+import { AgentSwarm, type SwarmExecutor } from '../../tasks/swarm/AgentSwarm';
+import { globalEventBus } from '../../core/events/EventBus.js';
+// 阶段 A（A1-e）：并行批次结算 → yield 等待收敛桥
+import { notifyYieldSettled } from '../../chat/yield/YieldSettlementBridge.js';
+import { agentRegistry, OrchestrationEventType } from '@modules/agent';
 import { getTeammateManager } from '../../subagent/TeammateManager';
 import { taskRegistry } from '@modules/tasks';
 import { resolveModelRoute, RouteKey } from '@modules/ai';
@@ -136,6 +141,27 @@ const AGENT_PARAMS = [
     type: 'string' as const,
     description:
       'Comma-separated tool names the sub-agent is denied from using.',
+    required: false,
+  },
+  {
+    name: 'goal',
+    type: 'string' as const,
+    description:
+      'Overall goal for parallel execution (used by verifier/synthesizer). Defaults to description.',
+    required: false,
+  },
+  {
+    name: 'verify',
+    type: 'boolean' as const,
+    description:
+      'After parallel execution, run a verifier gate on each worker result (per-worker verified + allPassed). Default false.',
+    required: false,
+  },
+  {
+    name: 'synthesize',
+    type: 'boolean' as const,
+    description:
+      'After parallel execution, synthesize all worker results into a single report. Default false.',
     required: false,
   },
 ];
@@ -366,6 +392,20 @@ export class AgentTool implements Tool {
         result: false,
         message: 'description must be 100 characters or less',
       };
+    }
+
+    // B-4：并行门控/合成参数校验（此前 validateInput 只校验 description/prompt/长度）
+    if (input.goal !== undefined && typeof input.goal !== 'string') {
+      return { result: false, message: 'goal must be a string' };
+    }
+    if (input.verify !== undefined && typeof input.verify !== 'boolean') {
+      return { result: false, message: 'verify must be a boolean' };
+    }
+    if (
+      input.synthesize !== undefined &&
+      typeof input.synthesize !== 'boolean'
+    ) {
+      return { result: false, message: 'synthesize must be a boolean' };
     }
 
     return { result: true };
@@ -610,6 +650,36 @@ export class AgentTool implements Tool {
   }
 
   /**
+   * B-4：为 AgentSwarm 构造 executor 适配器 —— 把 swarm 的"裸 LLM 调用"映射到既有子代理执行器。
+   *
+   * 与 ParallelOrchestrator（B-4 已删除）的 executeSingle 同构：
+   * 空工具池 + maxTurns 20 + 外部 signal 透传，
+   * 因此 AgentSwarm 无需自建 LLM 通路，token 记账仍走同一子代理引擎链路。
+   *
+   * 注：底层 SubAgentEngine 入参当前不消费"子代理类型"（既有并行路径同样未使用
+   *     `tasks[].subagent_type`，见该实现的 executeSingle），故此处暂不透传 agentType；
+   *     该字段已在 AgentSwarm 契约中预留，待引擎支持后再接。
+   */
+  private buildSwarmExecutor(
+    signal: AbortSignal,
+    model?: string
+  ): SwarmExecutor {
+    return async ({ systemPrompt, userPrompt }) => {
+      const result = await this.engine.execute({
+        agentId: `swarm-${randomUUID().substring(0, 8)}`,
+        systemPrompt,
+        messages: [{ role: 'user' as const, content: userPrompt }],
+        tools: [],
+        toolInstances: new Map(),
+        maxTurns: 20,
+        model,
+        signal,
+      });
+      return result.output;
+    };
+  }
+
+  /**
    * 直接调用LLM（简单任务，不使用查询循环）
    */
   private async runDirectCall(
@@ -823,30 +893,87 @@ export class AgentTool implements Tool {
     let worktreeGit: WorkspaceGit | undefined;
 
     try {
-      // ========== 方案 7：并行执行 ==========
-      // 当 LLM 传入 tasks 数组时，路由到 ParallelOrchestrator 并行执行
+      // ========== 方案 7 / B-4：并行执行（单引擎 AgentSwarm）==========
+      // 当 LLM 传入 tasks 数组时，统一路由到 AgentSwarm：
+      //  - 未开 verify/synthesize → 与既有纯并行语义等价
+      //  - 开 verify / synthesize  → 追加 verifier 门禁 / synthesizer 合成
       if (agentInput.tasks && agentInput.tasks.length > 0) {
         logger.info('Parallel execution started', {
           agentId,
           taskCount: agentInput.tasks.length,
+          verify: agentInput.verify === true,
+          synthesize: agentInput.synthesize === true,
         });
 
-        const orchestrator = new ParallelOrchestrator();
-        const taskResults = await orchestrator.executeAll(
-          agentInput.tasks,
-          undefined,
-          agentInput.model
-        );
+        // PARALLEL_START（原由 ParallelOrchestrator 发布，B-4 已迁移至此以保持前端 SSE 时间线不断供）
+        globalEventBus.publish(OrchestrationEventType.PARALLEL_START, {
+          totalTasks: agentInput.tasks.length,
+          tasks: agentInput.tasks.map((t) => ({
+            description: t.description,
+            agentType: t.subagent_type,
+            name: t.name,
+          })),
+        });
+
+        const swarmAbort = new AbortController();
+        // SubTask.id 可选 → 统一补稳定兜底 id，供结果回填与汇总按 id 对齐
+        const swarmTasks = agentInput.tasks.map((t, idx) => ({
+          id: t.id ?? `task-${idx}`,
+          description: t.description,
+          agentType: t.subagent_type,
+        }));
+        const swarmResult = await new AgentSwarm().run({
+          tasks: swarmTasks,
+          goal: agentInput.goal || agentInput.description,
+          executor: this.buildSwarmExecutor(
+            swarmAbort.signal,
+            agentInput.model
+          ),
+          // 不传 isolation：本路径 executor 为只读子代理调用（适配器不透传隔离资源），
+          // 而 createAgentIsolation() 会同步落盘 `~/.pyapp/workspaces/<id>` 空目录且默认不清理。
+          enableVerify: agentInput.verify === true,
+          enableSynthesize: agentInput.synthesize === true,
+          signal: swarmAbort.signal,
+        });
+
+        const succeeded = swarmResult.workers.filter((w) => w.success).length;
+        globalEventBus.publish(OrchestrationEventType.PARALLEL_END, {
+          totalTasks: agentInput.tasks.length,
+          completedTasks: succeeded,
+          failedTasks: agentInput.tasks.length - succeeded,
+        });
 
         this.activeAgents.get(agentId)!.status = 'completed';
 
-        // 汇总结果为 JSON 字符串
-        const aggregatedOutput = taskResults
-          .map(
-            (r) =>
-              `[${r.success ? 'OK' : 'FAIL'}] ${r.name}: ${r.success ? r.output.substring(0, 500) : r.error}`
-          )
+        // 未开合成/门禁时，汇总格式与既有实现逐字一致：`[OK|FAIL] <name>: <output|error>`
+        const workerById = new Map(swarmResult.workers.map((w) => [w.id, w]));
+        const legacyAggregated = swarmTasks
+          .map((t, idx) => {
+            const w = workerById.get(t.id) ?? swarmResult.workers[idx];
+            const name = t.description;
+            if (!w) return `[FAIL] ${name}: 未返回结果`;
+            return w.success
+              ? `[OK] ${name}: ${w.output.substring(0, 500)}`
+              : `[FAIL] ${name}: ${w.feedback ?? '执行失败'}`;
+          })
           .join('\n---\n');
+
+        const gated =
+          agentInput.verify === true || agentInput.synthesize === true;
+        const aggregatedOutput = gated
+          ? [
+              swarmResult.synthesized
+                ? `## 合成结果\n${swarmResult.synthesized}`
+                : '',
+              `## Worker 结果（verified ${swarmResult.workers.filter((w) => w.verified).length}/${swarmResult.workers.length}，allPassed: ${swarmResult.allPassed}）`,
+              ...swarmResult.workers.map(
+                (w) =>
+                  `[${w.success ? 'OK' : 'FAIL'}${w.verified ? '' : ' 未过门禁'}] ${w.id}: ${(w.output || w.feedback || '').substring(0, 500)}`
+              ),
+            ]
+              .filter(Boolean)
+              .join('\n\n')
+          : legacyAggregated;
 
         onProgress?.({
           toolUseID: agentId,
@@ -854,11 +981,20 @@ export class AgentTool implements Tool {
             type: 'agent_tool',
             agentName: agentInput.name || agentId,
             action: 'complete',
-            message: `Parallel execution completed: ${taskResults.filter((r) => r.success).length}/${taskResults.length} tasks succeeded`,
+            message: `Parallel execution completed: ${succeeded}/${swarmResult.workers.length} tasks succeeded${gated ? `（allPassed: ${swarmResult.allPassed}）` : ''}`,
             isRunning: false,
             isComplete: true,
           },
         });
+
+        // 阶段 A（A1-e）：并行批次已全部结算（AgentSwarm 内 Promise.allSettled 收口）
+        // → 通知结算桥：等待中的父会话据此判定是否恢复。
+        if (context?.sessionId) {
+          notifyYieldSettled({
+            sessionId: context.sessionId,
+            endedAt: Date.now(),
+          });
+        }
 
         return {
           status: ToolExecutionStatus.SUCCESS,
@@ -872,8 +1008,8 @@ export class AgentTool implements Tool {
             agentId,
             agentType: effectiveType,
             completed: true,
-            parallelTaskCount: taskResults.length,
-            parallelSuccessCount: taskResults.filter((r) => r.success).length,
+            parallelTaskCount: swarmResult.workers.length,
+            parallelSuccessCount: succeeded,
           },
           executionId: agentId,
           toolName: this.name,

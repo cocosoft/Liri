@@ -4,6 +4,7 @@
  * 连接到 /v1/events，处理 notification:* 事件。
  * P0-5: 断线重连后增量补拉列表（游标）+ 指数退避。
  * P1-1: 监听 inbox:new/inbox:update，若属于当前打开的会话则刷新该会话消息（决策卡片实时出现）。
+ * 阶段A-遗留2: 监听 session:continued，系统续跑（yield 恢复 / SelfWake 唤醒）完成后刷新当前会话消息。
  */
 
 import { useEffect, useRef } from "react";
@@ -131,6 +132,18 @@ export function useNotificationSSE() {
         try {
           const data = JSON.parse(e.data);
           refreshSessionIfActive(data.sessionId);
+        } catch {
+          /* ignore parse errors */
+        }
+      });
+
+      // 阶段 A（遗留项 2）：系统续跑（yield 恢复 / SelfWake 唤醒）完成后端广播
+      // （ChatManager._resumeSessionInternally）→ 命中当前打开会话则重拉消息，
+      // 用户无需操作即可见续跑结果
+      es.addEventListener("session:continued", (e: MessageEvent) => {
+        try {
+          const data = JSON.parse(e.data);
+          refreshSessionIfActive(data.id);
         } catch {
           /* ignore parse errors */
         }

@@ -413,6 +413,11 @@ export interface CoreAPI {
       toSeq?: number;
       types?: Array<string>;
       limit?: number;
+      /**
+       * 尾优先窗口（N-45，2026-09-20）：未传 `fromSeq` 时取**最后 limit 条**，
+       * 供"只关心末轮标记"的读时派生使用（如 `turn/end` 的 finishReason）。
+       */
+      recent?: boolean;
     }
   ): Promise<{
     events: Array<LiriEvent>;

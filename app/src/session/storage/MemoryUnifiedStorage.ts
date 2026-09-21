@@ -1,5 +1,4 @@
 import { randomUUID } from 'crypto';
-import { registerStorage } from './StorageFactory';
 import { StorageType } from './UnifiedStorage';
 import type {
   UnifiedSessionStorage,
@@ -87,7 +86,14 @@ export class MemoryUnifiedStorage implements UnifiedSessionStorage {
 
   async addMessage(sessionId: string, message: UnifiedMessage): Promise<void> {
     const msgs = this.messages.get(sessionId) ?? [];
-    msgs.push({ ...message });
+    // N-51 写入侧（2026-09-20）：同 id 按"后写覆盖"替换，不重复入列表
+    //（与 FileSystemUnifiedStorage 保持同一不变式：内存消息列表 id 唯一）
+    const idx = msgs.findIndex((m) => m.id === message.id);
+    if (idx === -1) {
+      msgs.push({ ...message });
+    } else {
+      msgs[idx] = { ...message };
+    }
     this.messages.set(sessionId, msgs);
   }
 
@@ -171,8 +177,14 @@ export class MemoryUnifiedStorage implements UnifiedSessionStorage {
     messages: UnifiedMessage[]
   ): Promise<void> {
     const msgs = this.messages.get(sessionId) ?? [];
+    // N-51 写入侧（2026-09-20）：同 id 替换，不重复入列表
     for (const m of messages) {
-      msgs.push({ ...m });
+      const idx = msgs.findIndex((x) => x.id === m.id);
+      if (idx === -1) {
+        msgs.push({ ...m });
+      } else {
+        msgs[idx] = { ...m };
+      }
     }
     this.messages.set(sessionId, msgs);
   }
@@ -253,4 +265,5 @@ export class MemoryUnifiedStorage implements UnifiedSessionStorage {
   }
 }
 
-registerStorage(StorageType.MEMORY, MemoryUnifiedStorage);
+// 注（2026-09-20）：本模块**不再**在顶层调用 `registerStorage()` —— 注册已收敛到
+// `StorageFactory`（单一注册中枢），以消除"存储实现 ↔ 工厂"的循环导入（TDZ 根因）。

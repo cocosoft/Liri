@@ -97,6 +97,17 @@ export function getBuiltinToolLoaders(): ToolLoader[] {
 
     // 会话管理工具
     createToolLoader(ToolFactory.prototype.createSessionsTool),
+    // 阶段 A（2026-09-20，N-27 修复）：`sessions_yield` 此前只注册在
+    // `ToolFactory.getAllBaseTools()`（未被 ToolManager 使用的路径）⇒ 工具对模型不可见
+    // （实测模型工具池只有 `sessions`）。此处补齐后经
+    // `ToolManager.loadBuiltinTools()` → registry → 注入给模型。
+    createToolLoader(ToolFactory.prototype.createSessionsYieldTool),
+    // N-37（2026-09-20）：自唤醒工具（sleep_for / sleep_until）此前零注册（其
+    // SelfWakeTools.ts 只导出 schema + 执行器、全仓无引用）⇒ 调度 API 无生产者、
+    // N-26 修好的「fire → 会话续跑」无触发场景。此处登记 TIMER 类的两个；
+    // `wake_on_job` / `wake_on_event` 因无触发源**暂不注册**（CS04 禁止假能力）。
+    createToolLoader(ToolFactory.prototype.createSleepForTool),
+    createToolLoader(ToolFactory.prototype.createSleepUntilTool),
     createToolLoader(ToolFactory.prototype.createClipboardTool),
     createToolLoader(ToolFactory.prototype.createDocGenerateTool),
     createToolLoader(ToolFactory.prototype.createComputerUseTool),

@@ -13,7 +13,6 @@ import SessionTitle from "./SessionTitle";
 import { createLogger } from "@/utils/logger";
 import { formatRelativeTime } from "../../utils/format";
 import { useRootStore } from "../../stores/root-store";
-import { getModuleMeta } from "../../stores/root-store/moduleRegistry";
 
 const logger = createLogger("components:chat:sessionListItem");
 
@@ -26,7 +25,6 @@ interface SessionListItemProps {
     roundCount?: number;
     messageCount: number;
     workspaceId?: string | null;
-    moduleType?: string;
   };
   isActive: boolean;
   isEditing: boolean;
@@ -64,9 +62,6 @@ function SessionListItem({
   const worktrees = useRootStore((s) => s.worktrees);
   const workspaceName = session.workspaceId
     ? worktrees[session.workspaceId]?.name
-    : null;
-  const moduleMeta = session.moduleType
-    ? getModuleMeta(session.moduleType)
     : null;
 
   // R4 修复：单击延迟 250ms 执行切换，双击时第一次点击被取消——
@@ -149,11 +144,13 @@ function SessionListItem({
                   title="已被梦境凝练"
                 />
               )}
-              {/* 工作空间归属前缀 */}
-              {(workspaceName || moduleMeta) && (
+              {/* 工作空间归属前缀
+                  N-11：模块归属分支已移除 —— 会话列表按「当前模块」过滤
+                  （SessionHistorySidebar 只保留 moduleType === 当前模块的行），
+                  故每行模块归属必然相同、显示即冗余；跨模块归属在全局搜索中呈现。 */}
+              {workspaceName && (
                 <span className="text-[10px] text-gray-400 dark:text-gray-500 flex-shrink-0 mr-0.5">
-                  {moduleMeta?.emoji}
-                  {workspaceName ?? moduleMeta?.label}
+                  {workspaceName}
                   <span className="mx-0.5 opacity-50">/</span>
                 </span>
               )}

@@ -34,6 +34,10 @@ export class SessionMemoryManager {
     tokens: number,
     toolCalls: number
   ): void {
+    // A1 临时对话：temporary 会话不参与记忆提炼/索引（完整隐身）
+    if (this.chatSessions.get(sessionId)?.metadata?.temporary === true) {
+      return;
+    }
     const otel = getOTelTracing();
     const span = otel.startSpan('chat:sessionMemory:accumulate', {
       'session.id': sessionId,

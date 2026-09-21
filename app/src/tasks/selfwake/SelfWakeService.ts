@@ -12,6 +12,34 @@ import { WakeStore } from './WakeStore';
 import { cg3Log } from '../cg3Env';
 import { handleError } from '@modules/error';
 
+/**
+ * 阶段 A（N-26 修复）：会话唤醒执行器
+ *
+ * 由装配处注入（`ChatManager` 懒装配时注册），避免本模块直接依赖 chat 层造成循环依赖。
+ * `fire()` 在标记 fired 后调用它，让被唤醒的会话**真正继续执行**。
+ */
+export type SelfWakeResumeHandler = (params: {
+  sessionId: string;
+  wakeId: string;
+  kind: WakeKind;
+  taskId: string;
+  reason: string;
+}) => Promise<{ ok: boolean; error?: string }>;
+
+let selfWakeResumeHandler: SelfWakeResumeHandler | null = null;
+
+/** 注册唤醒执行器（装配处调用；传 null 可卸载） */
+export function setSelfWakeResumeHandler(
+  handler: SelfWakeResumeHandler | null
+): void {
+  selfWakeResumeHandler = handler;
+}
+
+/** 供测试与观测：当前是否已装配唤醒执行器 */
+export function hasSelfWakeResumeHandler(): boolean {
+  return selfWakeResumeHandler !== null;
+}
+
 export class SelfWakeService {
   private wakeStore: WakeStore;
   private tickIntervalMs: number;
@@ -135,7 +163,16 @@ export class SelfWakeService {
     return this.wakeStore.getDueWakes();
   }
 
-  /** 标记已触发 */
+  /**
+   * 标记已触发，并**真正唤醒会话**。
+   *
+   * 阶段 A（N-26 修复）：原实现只 `markFired`（"空唤醒"—— 对外表现为已唤醒，
+   * 实际会话不会继续，与 `sessions_yield` 旧桩同属"假能力"家族）。现改为：
+   * 解析条目 → 标记 fired → 调用装配的唤醒执行器（默认由 `ChatManager` 装配，
+   * 内部消费一次 `streamMessage` 让会话续跑）。
+   *
+   * 未装配执行器时保持 fired 并记 warn（可观测，不静默丢唤醒）。
+   */
   async fire(wakeId: string): Promise<void> {
     // 清理短时 timer
     const timer = this.shortTimers.get(wakeId);
@@ -143,8 +180,59 @@ export class SelfWakeService {
       clearTimeout(timer);
       this.shortTimers.delete(wakeId);
     }
+
+    const entry = await this._findEntry(wakeId);
     await this.wakeStore.markFired(wakeId);
     cg3Log('tasks:selfwake', 'info', 'fired', { wakeId });
+
+    if (!entry) {
+      cg3Log('tasks:selfwake', 'warn', 'fire:entry_not_found', { wakeId });
+      return;
+    }
+    if (!selfWakeResumeHandler) {
+      cg3Log('tasks:selfwake', 'warn', 'fire:resume_handler_absent', {
+        wakeId,
+        sessionId: entry.sessionId,
+        kind: entry.kind,
+      });
+      return;
+    }
+
+    try {
+      const res = await selfWakeResumeHandler({
+        sessionId: entry.sessionId,
+        wakeId,
+        kind: entry.kind,
+        taskId: entry.taskId,
+        reason: `selfwake:${entry.kind}`,
+      });
+      if (!res.ok) {
+        cg3Log('tasks:selfwake', 'warn', 'fire:resume_failed', {
+          wakeId,
+          sessionId: entry.sessionId,
+          error: res.error ?? 'unknown',
+        });
+      } else {
+        cg3Log('tasks:selfwake', 'info', 'fire:resumed', {
+          wakeId,
+          sessionId: entry.sessionId,
+          kind: entry.kind,
+        });
+      }
+    } catch (err) {
+      cg3Log('tasks:selfwake', 'error', 'fire:resume_threw', {
+        wakeId,
+        error: String(err),
+      });
+    }
+  }
+
+  /** 按 wakeId 反查条目（sessionId 由 WakeStore 的内存索引提供） */
+  private async _findEntry(wakeId: string): Promise<WakeEntry | null> {
+    const sessionId = this.wakeStore.getSessionFor(wakeId);
+    if (!sessionId) return null;
+    const entries = await this.wakeStore.load(sessionId);
+    return entries.find((e) => e.id === wakeId) ?? null;
   }
 
   /** 停止所有短时 timer（优雅关闭） */

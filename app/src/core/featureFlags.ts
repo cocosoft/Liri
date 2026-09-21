@@ -41,8 +41,6 @@ export const FEATURE_FLAGS = {
   // ───── AI/Agent 功能 ─────
   /** Agent 功能 */
   AGENT: true,
-  /** Agent 群组功能 */
-  AGENT_SWARMS: true,
   /** 定时任务触发器 */
   AGENT_TRIGGERS: true,
   /** 远程触发器 */

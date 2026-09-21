@@ -38,6 +38,12 @@ export interface SessionMetadata {
   title?: string;
   /** P2-7（2026-09-18）：总消息数（崩溃恢复时重算并回写，列表统计口径） */
   totalMessages?: number;
+  /**
+   * N-50（2026-09-20）：已删除轮次的事件 seq 墓碑（闭区间；`endSeq: null` = 到会话末尾）。
+   * 助手/工具消息由事件派生，仅删投影不足以移除它们；事件日志不可重写（会留 seq 空洞），
+   * 故读取时按派生消息的 `lastEventSeq` 过滤。写入方：`CoreAPIImpl.deleteMessage`。
+   */
+  deletedMessageRanges?: Array<{ startSeq: number; endSeq: number | null }>;
   tags?: string[];
   mode?: string;
   model?: string;
@@ -77,6 +83,8 @@ export interface SessionMetadata {
   channel?: string;
   /** M4（2026-09-17）：上次优雅关闭标记——恢复流程据此跳过崩溃恢复；重新激活时清除 */
   cleanShutdown?: boolean;
+  /** A1 临时对话：temporary 会话不入历史列表/记忆/FTS（持久化标记，CS02） */
+  temporary?: boolean;
 }
 
 /**

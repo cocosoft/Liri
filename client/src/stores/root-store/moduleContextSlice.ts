@@ -69,6 +69,35 @@ export function isProjectWorkspace(wtId: string): boolean {
   return wtId.startsWith("project-") || wtId === "projects";
 }
 
+/**
+ * N-63（2026-09-20）：判断某值是否为**模块作用域标识**（而非真实工作区 id）。
+ *
+ * `resolveWorkspaceId()` 对非 project 模块**返回模块名本身**（`chat`/`media`/`office`/…），
+ * 该值用于模块路由（写入 `currentWorkspaceId`）；但**不能**被当作会话的 `workspaceId` 落库
+ * —— 否则产生 `workspaceId='chat'/'office'` 这类**语义污染**（实测 23 条），
+ * 使一切"按工作区统计/过滤会话"的逻辑得到错误的归属。
+ */
+const MODULE_SCOPE_IDS: ReadonlySet<string> = new Set([
+  "chat",
+  "projects",
+  "media",
+  "office",
+  "calendar",
+  "translation",
+  "knowledge",
+  "coding",
+  "agent",
+  "scheduled",
+  "quick",
+  "current",
+]);
+
+export function isModuleScopeWorkspaceId(
+  value: string | null | undefined,
+): boolean {
+  return MODULE_SCOPE_IDS.has((value ?? "").trim());
+}
+
 /** 统一 workspaceId 解析（显式入参，不依赖 get() 隐式读取） */
 export function resolveWorkspaceId(
   moduleType: ModuleType,

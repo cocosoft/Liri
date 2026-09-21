@@ -9,6 +9,8 @@ import type { StateCreator } from "zustand";
 import type { FeatureModule } from "./types";
 import type { RootState } from "./index";
 import { createLogger } from "@/utils/logger";
+// N-8/N-9：内置模块定义已收敛至 config/builtinModules.ts（单一事实来源）
+import { BUILTIN_MODULES } from "@/config/builtinModules";
 
 const logger = createLogger("root-store:featureSlice");
 
@@ -37,63 +39,6 @@ export function getCurrentTier(): Tier {
   return "pro";
 }
 
-// ─── 内置模块 ──────────────────────────────────────────
-
-const BUILTIN_MODULES: FeatureModule[] = [
-  {
-    id: "chat",
-    type: "chat",
-    name: "对话",
-    icon: "message-circle",
-    enabled: true,
-    available: true,
-    pinned: true,
-    tier: "base",
-  },
-  {
-    id: "media",
-    type: "media",
-    name: "媒体",
-    icon: "image",
-    enabled: true,
-    available: true,
-    pinned: false,
-    tier: "base",
-  },
-  {
-    id: "office",
-    type: "office",
-    name: "办公",
-    icon: "file-text",
-    enabled: true,
-    available: true,
-    pinned: false,
-    tier: "pro",
-  },
-  // D5：日历并入办公；D7：翻译并入聊天。独立注册已删除（MODULE_EMOJI_META 保留键）。
-  {
-    id: "knowledge",
-    type: "knowledge",
-    name: "知识库",
-    icon: "book-open",
-    enabled: true,
-    available: true,
-    pinned: false,
-    tier: "base",
-  },
-  // 阶段一 4.2.2（2026-09-04）：project 模块实体（meta/label 归一；无独立导航消费）
-  {
-    id: "project",
-    type: "project",
-    name: "项目",
-    icon: "folder",
-    enabled: true,
-    available: true,
-    pinned: false,
-    tier: "base",
-  },
-];
-
 // ─── Slice 接口 ────────────────────────────────────────
 
 export interface FeatureSlice {
@@ -113,17 +58,13 @@ export interface FeatureSlice {
   getVisibleModules: () => FeatureModule[];
 
   // ─── 用户操作 ───
+  // 注：以下 4 个方法当前无外部调用方，但均有真实实现，且 `pinnedModuleIds` 已纳入
+  // 持久化白名单（`root-store/index.ts`），属"待接 UI 的能力"，故 Phase B **保留**。
 
   toggleModule: (id: string) => void;
   pinModule: (id: string) => void;
   unpinModule: (id: string) => void;
   reorderPinned: (fromIndex: number, toIndex: number) => void;
-
-  /** 注册模块需要跨 worktree 持久化的 UI 状态字段 */
-  registerPersistentState: (moduleId: string, keys: string[]) => void;
-
-  /** 检查后端能力就绪状态 */
-  refreshAvailability: () => Promise<void>;
 }
 
 // ─── Slice 实现 ────────────────────────────────────────
@@ -205,18 +146,5 @@ export const createFeatureSlice: StateCreator<
       ids.splice(toIndex, 0, moved);
       return { pinnedModuleIds: ids };
     });
-  },
-
-  // ─── UI 状态持久化注册 ───
-  registerPersistentState: (_moduleId, _keys) => {
-    // 注册的 keys 供 WorkspaceLayout.uiSnapshots 读写
-    // 实际存储逻辑在 workspaceSlice.updateWorkspaceLayout 中
-    logger.debug("UI 状态注册", { moduleId: _moduleId, keys: _keys });
-  },
-
-  // ─── 可用性检查 ───
-  refreshAvailability: async () => {
-    // 后续对接后端能力检查 API
-    logger.debug("模块可用性刷新");
   },
 });

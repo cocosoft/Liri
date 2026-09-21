@@ -3,7 +3,7 @@
  * 视频静态文件服务 + 视频列表 API + 视频删除 API
  *
  * 端点：
- *   GET    /v1/videos/static/*  — 提供视频文件（支持 Range 请求用于 seek）
+ *   GET|HEAD /v1/videos/static/*  — 提供视频文件（支持 Range 请求用于 seek）
  *   GET    /v1/videos/list       — 列出所有已生成的视频
  *   DELETE /v1/videos/delete     — 删除视频（按路径）
  *
@@ -194,7 +194,7 @@ function collectRegisteredVideos(): Array<{
 }
 
 /**
- * GET /v1/videos/static/*
+ * GET|HEAD /v1/videos/static/*
  * 提供视频静态文件服务（支持 HTTP Range 请求用于视频 seek）
  */
 export async function handleVideoStatic(

@@ -78,6 +78,16 @@ export interface AppModelConfig {
   fallbackProviderId?: string;
   /** 更新时间 */
   updatedAt: number;
+  /**
+   * 配置来源（N-46，2026-09-20）：
+   * - `'user'`：用户经「模型管理→任务分工」显式保存（`ModelRouter.setTasks`）⇒
+   *   `resolveModelRoute` 对 chat 类 route **以本配置为准**（优先于 SmartRouter 档位）；
+   * - `'seed'`：系统播种/自动清理（`ensureDefaultEntry` / `cleanNonChatModelEntries` /
+   *   历史迁移）⇒ 仅作兜底，不覆盖 SmartRouter。
+   *
+   * 历史行（本列引入前）一律回填 `'seed'`（保守）：见 `migrateAddSourceColumn` 注释。
+   */
+  source?: 'user' | 'seed';
 }
 
 /**
@@ -165,7 +175,8 @@ export class AppModelConfigService {
           provider_id TEXT,
           fallback_model TEXT,
           fallback_provider_id TEXT,
-          updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
+          updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+          source TEXT NOT NULL DEFAULT 'seed'
         )
       `,
         (err: Error | null) => {
@@ -175,7 +186,46 @@ export class AppModelConfigService {
       );
     });
 
+    await this.migrateAddSourceColumn();
+
     logger.info('ai_app_model_configs 表创建/验证完成');
+  }
+
+  /**
+   * N-46（2026-09-20）：为既有库补 `source` 列（仅新增字段，不删结构）。
+   *
+   * **历史行一律回填 `'seed'`（保守）** —— 本列引入前的行无法区分"用户显式设定"与
+   * "批量播种/一次性保存"（实测 18 行 `updated_at` 全部落在同一秒 `2026-09-19T04:20:14`）。
+   * 若把历史值当作"用户显式配置"，会**立刻**造成两类故障：`agent`/`local` 指向
+   * llama.cpp（供应商未注册）、`quick`/`translation` 指向 SiliconFlow 模型（账户余额不足 402）
+   * —— 这也反证这些行是**陈旧播种值**而非当前意图。用户重新保存一次即转为 `'user'` 生效。
+   */
+  private async migrateAddSourceColumn(): Promise<void> {
+    const cols = await new Promise<Array<{ name: string }>>(
+      (resolve, reject) => {
+        this.db!.all(
+          `PRAGMA table_info(${APP_CONFIG_TABLE})`,
+          (err: Error | null, rows: unknown) => {
+            if (err) reject(err);
+            else resolve((rows as Array<{ name: string }>) ?? []);
+          }
+        );
+      }
+    );
+    if (cols.some((c) => c.name === 'source')) return;
+
+    await new Promise<void>((resolve, reject) => {
+      this.db!.run(
+        `ALTER TABLE ${APP_CONFIG_TABLE} ADD COLUMN source TEXT NOT NULL DEFAULT 'seed'`,
+        (err: Error | null) => {
+          if (err) reject(err);
+          else resolve();
+        }
+      );
+    });
+    logger.info(
+      "ai_app_model_configs: 已补 source 列（历史行回填 'seed'，用户重新保存后转为 'user'）"
+    );
   }
 
   private async ensureDefaultEntry(): Promise<void> {
@@ -335,6 +385,10 @@ export class AppModelConfigService {
               fallbackModel: r.fallback_model as string | undefined,
               fallbackProviderId: r.fallback_provider_id as string | undefined,
               updatedAt: r.updated_at as number,
+              // N-46：未标记（旧行/异常）一律按 'seed' 处理（保守：不覆盖 SmartRouter 档位）
+              source: (r.source === 'user' ? 'user' : 'seed') as
+                | 'user'
+                | 'seed',
             };
             this.cache.set(appType, config);
             resolve(config);
@@ -370,6 +424,12 @@ export class AppModelConfigService {
       providerId?: string;
       fallbackModel?: string;
       fallbackProviderId?: string;
+      /**
+       * N-46：来源标记。默认 `'seed'`（保守 —— 系统播种/自动清理不应夺走路由决定权）；
+       * **用户保存路径**（`ModelRouter.setTasks` ← `PUT /v1/models/tasks`）传 `'user'`，
+       * 使其在 chat 类 route 上优先于 SmartRouter 档位。
+       */
+      source?: 'user' | 'seed';
     }
   ): Promise<AppModelConfig> {
     this.ensureInitialized();
@@ -381,7 +441,7 @@ export class AppModelConfigService {
       await new Promise<void>((resolve, reject) => {
         this.db!.run(
           `UPDATE ${APP_CONFIG_TABLE} SET
-           model = ?, provider_id = ?, fallback_model = ?, fallback_provider_id = ?, updated_at = ?
+           model = ?, provider_id = ?, fallback_model = ?, fallback_provider_id = ?, updated_at = ?, source = ?
            WHERE app_type = ?`,
           [
             params.model ?? existing.model,
@@ -389,6 +449,7 @@ export class AppModelConfigService {
             params.fallbackModel ?? existing.fallbackModel ?? null,
             params.fallbackProviderId ?? existing.fallbackProviderId ?? null,
             now,
+            params.source ?? existing.source ?? 'seed',
             appType,
           ],
           (err: Error | null) => {
@@ -401,8 +462,8 @@ export class AppModelConfigService {
       await new Promise<void>((resolve, reject) => {
         this.db!.run(
           `INSERT INTO ${APP_CONFIG_TABLE}
-           (app_type, model, provider_id, fallback_model, fallback_provider_id, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?)`,
+           (app_type, model, provider_id, fallback_model, fallback_provider_id, updated_at, source)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
           [
             appType,
             params.model || '',
@@ -410,6 +471,7 @@ export class AppModelConfigService {
             params.fallbackModel || null,
             params.fallbackProviderId || null,
             now,
+            params.source ?? 'seed',
           ],
           (err: Error | null) => {
             if (err) reject(err);

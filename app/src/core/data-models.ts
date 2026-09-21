@@ -227,6 +227,14 @@ export interface DataSessionMetadata {
   roundIndex?: Record<string, number>;
   /** 轮次计数器 */
   roundCounter?: number;
+  /**
+   * N-50（2026-09-20）：**已删除轮次的事件 seq 墓碑**（闭区间；`endSeq: null` = 到会话末尾）。
+   *
+   * 助手/工具消息由**事件派生**（`EventMessageDeriver`），仅删投影不足以移除它们 ⇒ 删提问后
+   * 回复会变成孤儿。事件日志不可重写（会留 seq 空洞），故记录被删轮次区间、读取时按派生消息的
+   * `lastEventSeq` 过滤。写入方：`CoreAPIImpl.deleteMessage`；前置：N-52 修复（派生读路径生效）。
+   */
+  deletedMessageRanges?: Array<{ startSeq: number; endSeq: number | null }>;
   /** 会话标题锁定标记（方案 A 2026-09-16）：终态(manual/final)置位后永不回退，占位/精化均不再改写 */
   titleLocked?: boolean;
   /** 标题原始值备份（方案 B 2026-09-16，P1-1）：首次改写前的 metadata.title，供回滚 */

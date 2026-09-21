@@ -700,11 +700,17 @@ export class ChatOrchestrator {
               toolCalls: response.tool_calls.length,
               toolNames: response.tool_calls.map((tc) => tc.name),
             });
-            // P0-1 修复（2026-08-20 渠道排查）：invokeLlm 的响应（含 tool_calls）此前
-            // 未写回 ctx.apiMessages，TAORLoop 拿到的上下文缺失"本轮已决定调用工具"的
-            // assistant 消息 → 重新调 LLM 时模型不再生成 tool_calls → turns:1 直接
-            // completed，工具从未执行（各渠道"只回一次+动作不执行"根因）。
-            // 修复：委托前补入第一响应，TAOR 从 ACT 阶段续跑而非重新开始。
+            // P0-1 修复（2026-08-20 渠道排查）：invokeLlm 的响应（含 tool_calls）未写回
+            // ctx.apiMessages 时，TAORLoop 拿到的上下文缺失"本轮已决定调用工具"的 assistant 消息。
+            //
+            // N-42 补正（2026-09-20，实测定位）：**仅补消息并不等于"从 ACT 续跑"** —— 骨架
+            // （`ReActLoop.run`）只有 REASON→ACT 单一入口，首轮仍会调 LLM，于是把"带未答
+            // tool_call 的历史"发给模型：`MessageProjector.repairToolResultPairing` 会为防
+            // provider 400 注入 `[result truncated]` 占位 ⇒ 模型据**伪结果**直接作答 ⇒
+            // `turns:1 completed`、**工具从未执行**（各渠道"只回一次 + 动作不执行"根因；
+            // `sessions_yield` 被占位后既不执行也不登记）。故此处**两件事都要做**：
+            // ① 补入 assistant 消息（供后续 tool 结果配对）；② 下方 `seedPendingToolCalls()`
+            // 把该批调用显式作为**首轮 ACT**，绕过首轮 REASON。
             const assistantTurnMessage: Record<string, unknown> = {
               role: 'assistant',
               content: response.content ?? '',
@@ -724,6 +730,14 @@ export class ChatOrchestrator {
                 await import('../../query/ChatManagerTAORAdapter');
               const taorLoop = this.host.getOrCreateTAORLoop(session.id) as {
                 reset(): void;
+                /** N-42：以外部已产生的工具调用作为首轮 ACT（跳过首轮 REASON） */
+                seedPendingToolCalls(
+                  calls: Array<{
+                    id: string;
+                    name: string;
+                    input: Record<string, unknown>;
+                  }>
+                ): void;
                 runCollect(input: {
                   messages: import('@modules/ai').ChatMessage[];
                   deps: unknown;
@@ -734,6 +748,22 @@ export class ChatOrchestrator {
                 }>;
               };
               taorLoop.reset();
+              // N-42：把首响应的工具调用交给 TAOR 作**首轮 ACT** 执行
+              // （`ParsedToolCall.arguments` 是 JSON 字符串，需转对象，与降级路径同法）
+              taorLoop.seedPendingToolCalls(
+                response.tool_calls.map((tc) => {
+                  let parsed: Record<string, unknown> = {};
+                  try {
+                    parsed =
+                      typeof tc.arguments === 'string'
+                        ? (JSON.parse(tc.arguments) as Record<string, unknown>)
+                        : ((tc.arguments ?? {}) as Record<string, unknown>);
+                  } catch {
+                    // @ignore-catch 非法 JSON 参数交工具自身校验报错，不阻断委托
+                  }
+                  return { id: tc.id, name: tc.name, input: parsed };
+                })
+              );
               const taorContext = this.host.buildTAORContext(
                 session.id,
                 ctx.toolDefinitions,

@@ -13,6 +13,8 @@ import { ErrorBoundary } from "../common/ErrorBoundary";
 import ChatMessageList from "./ChatMessageList";
 import RoundNavigator from "./RoundNavigator";
 import StatusFloatBar from "./StatusFloatBar";
+// N-45：会话级"已让出 / 等待结算"提示条（读会话运行态，不经消息管道）
+import YieldNoticeBar from "./YieldNoticeBar";
 import { usePdcaAutoAppend } from "./usePdcaAutoAppend";
 import ChatPdcaDrawer from "./ChatPdcaDrawer";
 import ChatInput from "./ChatInput";
@@ -42,6 +44,8 @@ function ChatArea({ fluid = false }: { fluid?: boolean }) {
   const abortPausedStream = useChatStore((s) => s.abortPausedStream);
   const currentSession = useSessionStore((s) => s.currentSession);
   const createSession = useSessionStore((s) => s.createSession);
+  // A1 临时对话：当前会话是否为 temporary（后端 metadata.temporary 持久化标记，CS02）
+  const isTemporarySession = currentSession?.metadata?.temporary === true;
   const backendRunning = useBackendStore((s) => s.status.running);
   const config = useConfigStore((s) => s.config);
   const isDark = config.theme === "dark";
@@ -245,6 +249,23 @@ function ChatArea({ fluid = false }: { fluid?: boolean }) {
   const handleCreateSession = () => {
     // W1 修复：失败已在 createChatSession 内 toast + 记录，这里仅防 unhandledRejection
     createSession(t("chat.newSession")).catch(() => {});
+  };
+
+  // A1 临时对话：切换开关 → 新建对应模式会话 + URL 表达状态（?temporary=1）
+  const handleToggleTemporary = (next: boolean) => {
+    if (next === isTemporarySession) return; // 已在目标模式，无需新建
+    // 关闭时回到普通会话（标题用"新建会话"），开启时用"临时对话"
+    const title = next ? t("chat.temporaryToggle") : t("chat.newSession");
+    void createSession(title, { temporary: next })
+      .then(() => {
+        const url = new URL(window.location.href);
+        if (next) url.searchParams.set("temporary", "1");
+        else url.searchParams.delete("temporary");
+        window.history.replaceState({}, "", url.pathname + url.search);
+      })
+      .catch(() => {
+        // 创建失败已由 createChatSession toast，URL 保持原样避免状态不一致
+      });
   };
 
   /** 点击入门提示卡片时发送预设消息 */
@@ -599,6 +620,8 @@ function ChatArea({ fluid = false }: { fluid?: boolean }) {
 
       {/* 底部区域：AI 状态栏 + 输入区（flex-col，StatusFloatBar 自然贴着输入区上方） */}
       <div className="shrink-0 flex flex-col bg-gray-50 dark:bg-gray-900">
+        {/* N-45：会话级"已让出 / 等待结算"提示（读时派生；会话切换与流结束即刷新） */}
+        <YieldNoticeBar fluid={fluid} />
         <StatusFloatBar fluid={fluid} />
         {/* P2/C3：普通会话就地展开完整编排面板（PdcaPipeline + OrchestrationLivePanel） */}
         <ChatPdcaDrawer fluid={fluid} />
@@ -625,6 +648,41 @@ function ChatArea({ fluid = false }: { fluid?: boolean }) {
 
         {/* R3（W3/W4）：深度思考等待提示 —— thinking 超 30s 无正文/工具事件时显示 */}
         <DeepThinkingHint />
+
+        {/* A1 临时对话：模式切换开关 + 隐身提示条（Composer 上方，对齐 Copilot Temporary） */}
+        <div className="px-4 pb-2 flex items-center justify-between gap-3">
+          <button
+            type="button"
+            onClick={() => handleToggleTemporary(!isTemporarySession)}
+            className={`flex items-center gap-2 text-xs font-medium rounded-lg px-2.5 py-1.5 transition-colors ${
+              isTemporarySession
+                ? "text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/30 hover:bg-amber-200 dark:hover:bg-amber-900/50"
+                : "text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-800"
+            }`}
+            aria-pressed={isTemporarySession}
+            title={t("chat.temporaryToggle")}
+          >
+            <span>{t("chat.temporaryToggle")}</span>
+            <span
+              className={`relative inline-flex w-7 h-4 rounded-full transition-colors ${
+                isTemporarySession
+                  ? "bg-amber-500"
+                  : "bg-gray-300 dark:bg-gray-600"
+              }`}
+            >
+              <span
+                className={`absolute top-0.5 h-3 w-3 rounded-full bg-white shadow transition-all ${
+                  isTemporarySession ? "left-3.5" : "left-0.5"
+                }`}
+              />
+            </span>
+          </button>
+          {isTemporarySession && (
+            <span className="text-xs text-amber-600 dark:text-amber-400 min-w-0 text-right">
+              {t("chat.temporaryHint")}
+            </span>
+          )}
+        </div>
 
         <ChatInput fluid={fluid} />
       </div>

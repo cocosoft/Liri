@@ -28,7 +28,7 @@ import type { Message } from '@modules/chat/types/message';
 import { MessageRole } from '@modules/chat/types/message';
 import { dedupeMessagesToolCallBlocks } from '@modules/chat/utils/chatBlocks';
 import type { LiriEventType } from '@modules/chat/types/events';
-import { deriveSessionStats } from '@modules/session';
+import { deriveSessionStats, getYieldRegistry } from '@modules/session';
 import {
   tryParseJson,
   sendBadRequest,
@@ -189,8 +189,15 @@ export async function handleCreateSession(
       sendBadRequest(res, 'invalid JSON body');
       return;
     }
-    const { title, model, workspaceId, workspace_path, moduleType, projectId } =
-      data;
+    const {
+      title,
+      model,
+      workspaceId,
+      workspace_path,
+      moduleType,
+      projectId,
+      temporary,
+    } = data;
     // L4-fix: title 类型校验 —— 原实现直接 `title as string | undefined` 硬断言，
     // 传入非 string（对象/数组/数字）会被静默写入，导致前端展示异常。
     if (title !== undefined && typeof title !== 'string') {
@@ -207,6 +214,8 @@ export async function handleCreateSession(
     if (workspace_path) metadata.workspacePath = workspace_path as string;
     if (moduleType) metadata.moduleType = moduleType as string;
     if (projectId) metadata.projectId = projectId as string;
+    // A1 临时对话：temporary=true 写入 metadata 持久化标记（CS02，禁止字符串匹配）
+    if (temporary === true) metadata.temporary = true;
 
     const session = await coreAPI.createSession({
       title: title as string | undefined,
@@ -276,6 +285,58 @@ export async function handleGetSession(
 }
 
 /**
+ * N-45（2026-09-20）：**会话级** yield 状态的读时派生（不新建表 —— 让出标记本已持久化）。
+ *
+ * 背景：yield 收尾时 `turn/end` 已写入 `finishReason:'yielded'`（`ChatManager`）；
+ * 真正缺的是"当前结算状态" —— 它是**进程内**的（`YieldRegistry`），重启即丢。
+ *
+ * 返回：`'waiting'` = 仍在等子代理结算（registry 有登记，权威且零成本）；
+ *      `'unresolved'` = 已让出但等待登记不存在（进程重启 / 结算丢失）；`undefined` = 无 yield 语义。
+ *
+ * **为何做成"会话级"而非标在某条消息上（两轮 UI 实测的结论）**：真实让出轮次的派生消息只有
+ * `[user, tool]`（该轮 `contentLength: 0`，助手只有 thinking + tool_call ⇒ 不产出助手条目），
+ * 而前端 store（`chat-message-set-messages.ts:95-114`）会把**无 assistant 可回填的 tool 消息整体丢弃**
+ * ⇒ 任何"挂在消息上"的状态都随消息一起消失（详见台账 N-48）。故状态与会话绑定、由会话级 UI 消费。
+ *
+ * **检测口径**：`waiting` 取内存 registry；`unresolved` 取**事件尾窗口内最后一条 `turn/end`
+ * 的 finishReason**（结构化事实，避免对工具结果做字符串匹配 —— tool 消息 metadata 实测无工具名）。
+ * 成本控制：仅当 registry 未 waiting 且会话非 streaming 时才读事件尾。
+ */
+export async function deriveYieldState(
+  sessionId: string
+): Promise<'waiting' | 'unresolved' | undefined> {
+  if (getYieldRegistry().isWaiting(sessionId)) return 'waiting';
+  if (getCoreAPI().chatManager?.isSessionStreaming(sessionId)) return undefined;
+  return (await lastTurnYielded(sessionId)) ? 'unresolved' : undefined;
+}
+
+/**
+ * 末轮是否以 `sessions_yield` 让出 —— 取事件尾窗口内**最后一条 `turn/end`** 的 finishReason。
+ *
+ * 窗口取 `recent + limit=200`（尾优先）：让出后若没有续跑轮，该 `turn/end` 必在窗口内；
+ * 窗口内取不到 `turn/end` 时判为"未让出"（**fail-safe**：宁可不提示，也不误报"未恢复"）。
+ */
+async function lastTurnYielded(sessionId: string): Promise<boolean> {
+  try {
+    const { events } = await getCoreAPI().getSessionEvents(sessionId, {
+      types: ['turn/end'],
+      limit: 200,
+      recent: true,
+    });
+    const lastTurnEnd = events[events.length - 1];
+    const reason = (lastTurnEnd?.data as { finishReason?: string } | undefined)
+      ?.finishReason;
+    return reason === 'yielded';
+  } catch (err) {
+    await handleError(err, {
+      module: 'infra:http',
+      action: 'deriveYieldState:lastTurnEnd',
+    });
+    return false;
+  }
+}
+
+/**
  * 处理获取会话消息列表请求
  */
 export async function handleGetSessionMessages(
@@ -315,7 +376,17 @@ export async function handleGetSessionMessages(
       };
     }
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify(payload));
+    // N-55 分段计时（2026-09-20）：响应序列化（映射/派生在 CoreAPI 内，这里测 stringify + 写入）
+    // 日志级别为 DEBUG（2026-09-20 由 INFO 降级）：常规会话读每次产生 2 行计时噪音，
+    // 需要观测时把日志级别调到 DEBUG 即可。
+    const serStart = Date.now();
+    const body = JSON.stringify(payload);
+    logger.debug('[perf] getSessionMessages.serialize', {
+      sessionId,
+      serializeMs: Date.now() - serStart,
+      bytes: body.length,
+    });
+    res.end(body);
   } catch (err) {
     await handleError(err, { module: 'infra:http', action: 'handler_error' });
     if (!res.headersSent) {

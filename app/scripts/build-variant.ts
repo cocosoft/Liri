@@ -34,7 +34,7 @@ const VARIANT_CONFIGS: Record<BuildVariant, {
       'WEB_FETCH', 'WEB_SEARCH', 'TASK', 'TODO', 'ASK',
     ],
     excludeFeatures: [
-      'AGENT', 'AGENT_SWARMS', 'AGENT_TRIGGERS', 'ENABLE_PLUGINS',
+      'AGENT', 'AGENT_TRIGGERS', 'ENABLE_PLUGINS',
       'ENABLE_SKILLS', 'MCP_SYSTEM', 'LSP', 'NOTEBOOK', 'BROWSER',
       'CODE_ANALYSIS', 'TEAM_CREATE', 'TEAM_DELETE', 'SEND_MESSAGE',
       'FILE_CONVERTER', 'CHRONOS', 'TUNGSTEN', 'PLAN', 'BRIEF',
@@ -47,14 +47,14 @@ const VARIANT_CONFIGS: Record<BuildVariant, {
       'FILE_CONVERTER', 'PLAN', 'BRIEF', 'CHRONOS', 'TUNGSTEN',
     ],
     excludeFeatures: [
-      'AGENT_SWARMS', 'AGENT_TRIGGERS', 'LSP', 'NOTEBOOK', 'BROWSER',
+      'AGENT_TRIGGERS', 'LSP', 'NOTEBOOK', 'BROWSER',
       'CODE_ANALYSIS', 'TEAM_CREATE', 'TEAM_DELETE',
     ],
   },
   coding: {
     description: '编码版 — Personal + LSP + Notebook + 代码分析',
     features: [
-      'AGENT_SWARMS', 'LSP', 'NOTEBOOK', 'CODE_ANALYSIS',
+      'LSP', 'NOTEBOOK', 'CODE_ANALYSIS',
       'BROWSER', 'TEAM_CREATE', 'TEAM_DELETE',
     ],
     excludeFeatures: [

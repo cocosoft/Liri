@@ -962,6 +962,62 @@ export class ModelPricingService {
     return { modelId: record.modelId, enabled: newEnabled === 1 };
   }
 
+  /**
+   * N-59（2026-09-20）：按 `provider_id` 查引用该供应商的模型（**强绑定**：UUID 形态）。
+   * 用于"删除供应商时级联停用"与影响面报备。注意 `provider_id` 存 provider_type
+   * （如 `deepseek`）的**松绑定**由 `ProviderRegistry.getByType` 解析，不属本查询语义。
+   */
+  async getModelsByProviderId(
+    providerId: string
+  ): Promise<
+    Array<{
+      id: string;
+      modelId: string;
+      displayName: string;
+      enabled: boolean;
+    }>
+  > {
+    this.ensureInitialized();
+
+    return new Promise((resolve, reject) => {
+      this.db!.all(
+        `SELECT id, model_id, display_name, enabled FROM ${REGISTRY_TABLE} WHERE provider_id = ?`,
+        [providerId],
+        (err: Error | null, rows: unknown[]) => {
+          if (err) reject(err);
+          else
+            resolve(
+              (rows as Array<Record<string, unknown>>).map((r) => ({
+                id: String(r.id),
+                modelId: String(r.model_id),
+                displayName: String(r.display_name ?? r.model_id),
+                enabled: Number(r.enabled) !== 0,
+              }))
+            );
+        }
+      );
+    });
+  }
+
+  /**
+   * N-59：**幂等**设置启用状态（按 UUID）。
+   * 与 `toggleModelById` 的翻转语义不同 —— 级联停用时若模型本已停用，翻转会把它误启用。
+   */
+  async setModelEnabledById(
+    id: string,
+    enabled: boolean
+  ): Promise<{ modelId: string; enabled: boolean } | null> {
+    this.ensureInitialized();
+    const record = await this.getPricingById(id);
+    if (!record) return null;
+
+    await this.runAsync(
+      `UPDATE ${REGISTRY_TABLE} SET enabled = ?, updated_at = ? WHERE id = ?`,
+      [enabled ? 1 : 0, Math.floor(Date.now() / 1000), id]
+    );
+    return { modelId: record.modelId, enabled };
+  }
+
   /** 按 UUID 删除模型 */
   async deleteModelById(id: string): Promise<boolean> {
     this.ensureInitialized();

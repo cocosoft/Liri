@@ -42,7 +42,6 @@ import { AgentConfigManager } from './managers/AgentConfigManager';
 import { AdvancedMemorySystem } from './memory/AdvancedMemorySystem';
 import { AgentUIManager } from './ui/AgentUIManager';
 
-import { AgentSwarmManager, SwarmCoordinator } from './swarms';
 import {
   RemoteAgentExecutorImpl,
   createRemoteAgentExecutor,
@@ -50,7 +49,6 @@ import {
   HttpProtocol,
 } from './remote';
 
-import { AgentRunner } from './AgentRunner';
 import { AgentColorManager, AGENT_COLORS } from './utils/AgentColorManager';
 import type { AgentColorName } from './utils/AgentColorManager';
 import {
@@ -71,7 +69,6 @@ import type {
 
 import { ToolPolicyManager } from './tool-policy';
 import type {
-  ToolProfileId as ToolPolicyProfileId,
   ToolPolicyConfig,
   ToolPolicyEvaluation,
   OwnerOnlyToolApprovalClass,
@@ -80,18 +77,15 @@ import {
   normalizeToolName,
   normalizeToolList,
   expandToolGroups,
-  resolveProfilePolicy,
+  // N-29：resolveProfilePolicy 已随 profile 门控收敛而移除（零消费者）
   resolveOwnerOnlyApprovalClass,
   isOwnerOnlyTool,
   TOOL_GROUPS,
 } from './tool-policy';
 
-import { ToolCatalog, createToolCatalog } from './tool-catalog';
-import type {
-  ToolProfileId as ToolCatalogProfileId,
-  ToolSection,
-  ToolCatalogItem,
-} from './tool-catalog';
+// N-29（2026-09-20）：移除 `./tool-catalog` 的导入 —— 该模块（工具目录 + profile 派生）
+// 经全仓检索**零消费者**（前端 0 命中；后端仅此 barrel 转发 + `tool-policy` 的
+// `warnProfileDrift` 死路径），属"三套工具 profile 机制并存"中的第 ① 套，已随文件删除。
 
 import { buildAgentTraceBase } from './trace-base';
 import type { AgentTraceBase } from './trace-base';
@@ -172,16 +166,11 @@ export {
   AgentConfigManager,
   AdvancedMemorySystem,
   AgentUIManager,
-  // Swarms
-  AgentSwarmManager,
-  SwarmCoordinator,
   // Remote
   RemoteAgentExecutorImpl,
   createRemoteAgentExecutor,
   WebSocketProtocol,
   HttpProtocol,
-  // Agent Runner
-  AgentRunner,
   // Agent Color
   AgentColorManager,
   AgentColorName,
@@ -200,23 +189,18 @@ export {
   BtwContextMessage,
   // Tool Policy
   ToolPolicyManager,
-  ToolPolicyProfileId,
   ToolPolicyConfig,
   ToolPolicyEvaluation,
   OwnerOnlyToolApprovalClass,
   normalizeToolName,
   normalizeToolList,
   expandToolGroups,
-  resolveProfilePolicy,
+  // N-29：resolveProfilePolicy 已随 profile 门控收敛而移除（零消费者）
   resolveOwnerOnlyApprovalClass,
   isOwnerOnlyTool,
   TOOL_GROUPS,
-  // Tool Catalog
-  ToolCatalog,
-  createToolCatalog,
-  ToolCatalogProfileId,
-  ToolSection,
-  ToolCatalogItem,
+  // N-29：Tool Catalog 相关导出（ToolCatalog / createToolCatalog /
+  // ToolCatalogProfileId / ToolSection / ToolCatalogItem）已随模块删除而移除
   // Trace Base
   AgentTraceBase,
   buildAgentTraceBase,

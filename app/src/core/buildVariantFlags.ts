@@ -15,7 +15,6 @@ export const BUILD_VARIANT_FLAGS = {
   TODO: true,
   ASK: true,
   AGENT: false,
-  AGENT_SWARMS: false,
   AGENT_TRIGGERS: false,
   ENABLE_PLUGINS: false,
   ENABLE_SKILLS: false,

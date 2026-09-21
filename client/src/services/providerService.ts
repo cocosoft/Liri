@@ -46,9 +46,17 @@ export const providerService = {
     return resp.data;
   },
 
-  /** 删除供应商 */
-  async remove(id: string): Promise<void> {
-    await http.delete(`/v1/providers/${encodeURIComponent(id)}`);
+  /**
+   * 删除供应商。
+   * N-59（2026-09-20）：后端会**级联停用**强绑定该供应商的模型，并回传被停用的模型名，
+   * 供调用方提示用户（避免"模型静默消失"）。
+   */
+  async remove(id: string): Promise<{ disabledModels: string[] }> {
+    const resp = await http.delete<{
+      success?: boolean;
+      disabledModels?: string[];
+    }>(`/v1/providers/${encodeURIComponent(id)}`);
+    return { disabledModels: resp?.disabledModels ?? [] };
   },
 
   /** 切换启用/停用 */

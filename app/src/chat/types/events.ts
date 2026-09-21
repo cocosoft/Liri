@@ -95,8 +95,20 @@ export interface LiriEventMap {
   /** 本轮结束（含错误信息） */
   'turn/end': {
     turn: number;
-    /** 结束原因 */
-    finishReason?: 'stop' | 'length' | 'tool_use' | 'error' | 'canceled';
+    /**
+     * 结束原因。
+     * 阶段 A（A1-d）增 `'yielded'`：本轮以 `sessions_yield` 让出 turn，
+     * 会话对外状态保持 running，待子代理结算后由恢复通路开启新 turn。
+     */
+    finishReason?:
+      | 'stop'
+      | 'length'
+      | 'tool_use'
+      | 'error'
+      | 'canceled'
+      | 'yielded';
+    /** 阶段 A：本轮是否为 yield 让出（与 finishReason='yielded' 同时写入） */
+    yielded?: boolean;
     /** 错误信息（finishReason=error 时） */
     error?: string;
   };

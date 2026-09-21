@@ -81,7 +81,9 @@ export function setMessagesImpl(
   try {
     // 缓存写入：仅当传入完整消息列表时（非空且非增量更新）
     // 使用第一条消息的 session_id 作为缓存 key
-    if (messages.length > 0 && messages[0].session_id) {
+    // N-56：仅完整会话结果入缓存——hasOlder=true 表示当前列表只是最近一页，
+    // 写缓存会让后续切换命中残缺列表并丢失"加载更早"入口。
+    if (messages.length > 0 && messages[0].session_id && !get().hasOlder) {
       const cacheKey = messages[0].session_id;
       setSessionCache(cacheKey, messages);
     }
@@ -91,6 +93,16 @@ export function setMessagesImpl(
     // 同时缓存全量结果到缓存，block 中只存截断摘要
     const toolResultsByCallId = new Map<string, string>();
     const filteredMessages: Message[] = [];
+    /**
+     * N-48（2026-09-20）：暂存 tool 消息引用。
+     *
+     * 本类消息默认不回列表（结果由 Phase 3 回填进 assistant 的 `tool_call` 块）；
+     * 但当**没有任何 assistant 消息引用该 toolCallId** 时（"孤儿" —— 实测 `sessions_yield`
+     * 让出轮次的派生结果只有 `[user, tool]`，无助手消息），Phase 3 的回填无处可落，
+     * 原实现会把它整体丢弃 ⇒ 用户在 UI 上**完全看不到该工具结果**。
+     * 故此处保留引用，待 Phase 3 后判定"未被消费"者放回列表（由 `ToolResultMessage` 渲染）。
+     */
+    const pendingToolMessages: Message[] = [];
 
     for (const msg of messages) {
       if (msg.role === "tool" && msg.toolCallId) {
@@ -98,6 +110,7 @@ export function setMessagesImpl(
         toolResultsByCallId.set(msg.toolCallId, rawContent);
         // 全量结果存入独立缓存（LRU 淘汰），不在 block 中内联
         cacheToolResult(msg.toolCallId, rawContent);
+        pendingToolMessages.push(msg);
       } else if (
         Array.isArray(msg.blocks) &&
         msg.blocks.some((b) => b.type === "progress")
@@ -282,6 +295,38 @@ export function setMessagesImpl(
       const newBlocks = rebuildBlocksFromContent(msg);
       return { ...msg, blocks: newBlocks, tool_calls: undefined };
     });
+
+    // N-48（2026-09-20）：把**未被任何 assistant 消息消费**的 tool 结果放回列表（孤儿可见性）。
+    // 消费判定覆盖三种引用形态（Phase 3 的两条分支都可能消费）：
+    //   ① 块内 `toolCall.id`（已归一化块）；② 块内 `toolCallId`（事件派生块）；
+    //   ③ 消息级 `tool_calls[].id`（`rebuildBlocksFromContent` 路径）。
+    const consumedToolCallIds = new Set<string>();
+    for (const msg of enhancedMessages) {
+      if (msg.role !== "assistant") continue;
+      for (const b of msg.blocks ?? []) {
+        const id = b.toolCall?.id ?? b.toolCallId;
+        if (id) consumedToolCallIds.add(id);
+      }
+      for (const tc of msg.tool_calls ?? []) {
+        const id = (tc as { id?: string }).id;
+        if (id) consumedToolCallIds.add(id);
+      }
+    }
+    // 同一 toolCallId 可能重复出现（投影重复写入，见台账 N-51）⇒ 保留最后一条，与 Phase 1.5 同策略
+    const orphanToolMessages = [
+      ...new Map(
+        pendingToolMessages
+          .filter((m) => m.toolCallId && !consumedToolCallIds.has(m.toolCallId))
+          .map((m) => [m.toolCallId as string, m]),
+      ).values(),
+    ];
+    if (orphanToolMessages.length > 0) {
+      logger.info("[setMessages:N-48] 保留未被消费的 tool 结果（孤儿）", {
+        count: orphanToolMessages.length,
+        toolCallIds: orphanToolMessages.map((m) => m.toolCallId),
+      });
+      enhancedMessages.push(...orphanToolMessages);
+    }
 
     // Phase 4: 从历史消息中的 tool_call 块中提取文件路径（仅同步收集，不做异步路径解析）
     const sessionFilesList: FilePreview[] = [];

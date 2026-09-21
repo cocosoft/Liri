@@ -21,9 +21,26 @@ export interface ProviderStatusInfo {
   detail?: { port?: number; model?: string };
 }
 
+/**
+ * 孤儿模型（供应商已被删除）—— 与后端 `ai/models/orphanModels.ts` 的 `OrphanModel` 对齐。
+ * 这类模型不出现在 `GET /v1/models` 中，需单独获取并在 UI 提供重绑入口。
+ */
+export interface OrphanModel {
+  /** `model_registry.id`（UUID） */
+  id: string;
+  modelId: string;
+  displayName: string;
+  /** 已不存在的供应商 id */
+  providerId: string;
+  enabled: boolean;
+  isCustom: boolean;
+}
+
 export interface UpdateModelParams {
   capabilities?: string[];
   displayName?: string;
+  /** 重绑供应商（N-59 后续：孤儿模型找回用；后端 `handleUpdateModel` 已支持） */
+  providerId?: string;
   inputCostPerMillion?: number;
   outputCostPerMillion?: number;
   cacheReadCostPerMillion?: number;
@@ -39,6 +56,21 @@ export const modelService = {
   async list(): Promise<ModelInfo[]> {
     const response = await http.get<{ object: string; data: ModelInfo[] }>(
       "/v1/models",
+    );
+    if (response && Array.isArray(response.data)) {
+      return response.data;
+    }
+    return [];
+  },
+
+  /**
+   * N-59 后续（2026-09-20）：列出"供应商已被删除"的模型（孤儿）。
+   * 这类模型不会出现在 `list()` 中（该端点要求有匹配供应商），单独取用于
+   * 模型管理页的「供应商缺失的模型」区块（展示 + 重绑）。
+   */
+  async listOrphanModels(): Promise<OrphanModel[]> {
+    const response = await http.get<{ data: OrphanModel[] }>(
+      "/v1/models/orphans",
     );
     if (response && Array.isArray(response.data)) {
       return response.data;

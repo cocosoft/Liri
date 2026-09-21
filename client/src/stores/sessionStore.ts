@@ -19,7 +19,10 @@ interface SessionStore {
   switching: boolean;
   error: string | null;
   loadSessions: () => Promise<void>;
-  createSession: (title: string) => Promise<Session>;
+  createSession: (
+    title: string,
+    opts?: { temporary?: boolean }
+  ) => Promise<Session>;
   switchSession: (id: string) => Promise<void>;
   deleteSession: (id: string) => Promise<void>;
   renameSession: (id: string, title: string) => Promise<void>;
@@ -40,10 +43,12 @@ function deriveState(root: ReturnType<typeof useRootStore.getState>): {
   error: string | null;
 } {
   const currentId = root.currentSessionId;
+  const temp = root.currentTempSession;
   return {
     sessions: root.chatSessions ?? [],
     currentSession: currentId
-      ? ((root.chatSessions ?? []).find((s) => s.id === currentId) ?? null)
+      ? ((root.chatSessions ?? []).find((s) => s.id === currentId) ??
+          (temp && temp.id === currentId ? temp : null))
       : null,
     isLoading: root.isLoading,
     switching: root.switching,
@@ -62,7 +67,8 @@ export const useSessionStore = create<SessionStore>()(() => ({
   ...deriveState(useRootStore.getState()),
 
   loadSessions: () => useRootStore.getState().loadChatSessions(),
-  createSession: (title) => useRootStore.getState().createChatSession(title),
+  createSession: (title, opts) =>
+    useRootStore.getState().createChatSession(title, opts),
   switchSession: (id) => useRootStore.getState().switchChatSession(id),
   deleteSession: (id) => useRootStore.getState().deleteChatSession(id),
   renameSession: (id, title) =>

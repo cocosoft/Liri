@@ -19,6 +19,8 @@ export interface LiteSessionMeta {
   title?: string;
   status?: string;
   updatedAt?: string;
+  /** A1 临时对话：temporary 会话不入历史列表 */
+  temporary?: string | null;
 }
 
 /**
@@ -63,6 +65,7 @@ export function readLiteSessionMeta(filePath: string): LiteSessionMeta | null {
     const title = extractJsonStringField(raw, 'title');
     const status = extractJsonStringField(raw, 'status');
     const updatedAt = extractJsonStringField(raw, 'updatedAt');
+    const temporary = extractJsonStringField(raw, 'temporary');
 
     // P2-31 修复：头部 64KB 未覆盖全部字段（messages 数组在前等布局）或字段为
     // 非字符串值（数字时间戳）时，回退全量 JSON.parse，防止列表元数据静默缺失。
@@ -80,6 +83,7 @@ export function readLiteSessionMeta(filePath: string): LiteSessionMeta | null {
         updatedAt:
           updatedAt ??
           (full['updatedAt'] != null ? String(full['updatedAt']) : undefined),
+        temporary,
       };
     }
 
@@ -87,6 +91,7 @@ export function readLiteSessionMeta(filePath: string): LiteSessionMeta | null {
       title: title || undefined,
       status: status || undefined,
       updatedAt: updatedAt || undefined,
+      temporary,
     };
   } catch {
     return null;

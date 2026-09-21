@@ -55,7 +55,7 @@ function resolveAudioPath(requestedPath: string): string | null {
 }
 
 /**
- * GET /v1/audio/static/*
+ * GET|HEAD /v1/audio/static/*
  * 提供音频静态文件服务（支持 HTTP Range 请求）
  */
 export async function handleAudioStatic(

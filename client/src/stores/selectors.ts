@@ -54,6 +54,24 @@ export const selectSessionsByCurrentWorkspaceAndType =
     );
   };
 
+/**
+ * N-62（2026-09-20）：会话归属工作区（项目）的**唯一解析口径**。
+ *
+ * 背景：会话的 `workspaceId` 可能为空串（实测 998/1043 条），而 `??` **对空串不兜底**
+ * ⇒ 若 Hub 记录与会话自身都为空，调用方会拿到 `""` 并用它与项目 id 比较而必然失败，
+ * 由此产生"项目卡片 2 个会话 / 项目页侧栏 0 条"这类不一致。
+ * 统一规则：**Hub 值优先，空串/纯空白回退到会话自身的值**。
+ *
+ * 消费方：`ProjectsPage.getSessionCount`、删除项目时的会话筛选、
+ * `SessionHistorySidebar` 的项目作用域过滤与分组键。
+ */
+export function resolveSessionWorkspaceId(
+  fromSession?: string,
+  fromHub?: string,
+): string {
+  return (fromHub ?? "").trim() || (fromSession ?? "").trim();
+}
+
 /** 当前 worktree 下所有 session */
 export const selectSessionsByCurrentWorkspace = (
   state: RootState,
@@ -77,11 +95,6 @@ export const selectSessionsByModule = (moduleType: string) => {
 /** 已启用的功能模块列表（按当前版本 tier 过滤，base 版不含 pro 模块） */
 export const selectEnabledModules = (state: RootState) => {
   return state.getVisibleModules().filter((m) => m.enabled);
-};
-
-/** 已固定的模块列表（按当前版本 tier 过滤） */
-export const selectPinnedModules = (state: RootState) => {
-  return state.getVisibleModules().filter((m) => m.pinned);
 };
 
 // ─── Transition Selectors ──────────────────────────────

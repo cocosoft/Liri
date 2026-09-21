@@ -129,9 +129,9 @@ export interface SubAgentRequest {
    */
   messageSource?: () => ChatMessage[];
   /**
-   * 外部取消信号（BUG 15 修复 2026-08-27）：调用方（如 ParallelOrchestrator.abortAll）
-   * 传入 AbortSignal，引擎在循环与工具调用间响应取消——原 ParallelOrchestrator
-   * 创建的 AbortController 无法传入 engine，abortAll() 形同虚设
+   * 外部取消信号（BUG 15 修复 2026-08-27）：调用方（如 ParallelOrchestrator 的 abortAll，
+   * 该文件已随 B-4 删除）传入 AbortSignal，引擎在循环与工具调用间响应取消——
+   * 原先调用方自建的 AbortController 无法传入 engine，abortAll() 形同虚设
    */
   signal?: AbortSignal;
 }
@@ -215,7 +215,7 @@ export class SubAgentEngine {
     this.activeAgents.set(agentId, { abortController, startTime });
 
     // BUG 15 修复（2026-08-27）：接入外部取消信号——调用方（如
-    // ParallelOrchestrator.abortAll）通过 request.signal 取消任务时，联动中止
+    // ParallelOrchestrator 的 abortAll，该文件已随 B-4 删除）通过 request.signal 取消任务时，联动中止
     // 内部 abortController，使循环检测与工具调用中断路径生效
     const externalSignal = request.signal;
     if (externalSignal) {
@@ -282,8 +282,17 @@ export class SubAgentEngine {
         ? providerRegistry.getByModel(agentModel)
         : undefined;
       if (!llmClient) {
+        // N-38（2026-09-20）可诊断性修复：原文案把原因单一归给「任务分工」，但 `agent` 属
+        // **chat 类 route** ⇒ `resolveModelRoute` 会**优先走 SmartRouter 档位解析**
+        // （`smartRouter.resolve(route)` → Judge/默认 tier → tierResolver），
+        // 只有 SmartRouter 关闭时才回退「任务分工」。实测：配置里 `agent` 一直指向
+        // llama.cpp（供应商未注册），而真正的失败原因是**档位默认模型**为未注册的
+        // `246676332` —— 原文案把排查方向带偏（详见台账 N-38 / N-40）。
+        // 故补上**实际解析到的模型名**，让"档位 vs 任务分工"两条链可被区分。
         throw new AppError(
-          `SubAgentEngine: 任务分工中"代理"模型未配置或对应供应商未注册。请在「模型管理→任务分工」中配置。`,
+          `SubAgentEngine: 子代理模型未解析到可用供应商（route=agent → 模型 "${agentModel ?? '(空)'}"）。` +
+            `注意该 route 优先走 SmartRouter 档位解析，SmartRouter 关闭时才回退「模型管理→任务分工」` +
+            `—— 请对照上述模型名检查对应来源（档位配置 / 任务分工）的模型是否已注册供应商。`,
           ErrorCategory.EXECUTION,
           ErrorSeverity.HIGH,
           '1000'
@@ -651,7 +660,7 @@ export class SubAgentEngine {
           ? JSON.parse(toolCall.arguments)
           : (toolCall.arguments as Record<string, unknown>);
       // BUG 5 修复（2026-08-27）：透传真实工具上下文（原伪造 { messages: [] }）
-      // N5 补充（2026-08-27）：调用方未传 toolContext（如 ParallelOrchestrator）时
+      // N5 补充（2026-08-27）：调用方未传 toolContext（如 ParallelOrchestrator，该文件已随 B-4 删除）时
       // 显式告警暴露，避免静默伪造导致依赖 sessionId 的工具行为失真
       const resolvedContext = toolContext ?? ({} as unknown as ToolUseContext);
       if (!toolContext) {

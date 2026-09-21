@@ -6,11 +6,9 @@ AI 代理功能模块，提供代理管理和执行能力。
 
 ## 职责
 
-- **AgentRunner** — 代理运行器
 - **agent** — 代理核心逻辑
 - **builtin/** — 内置代理类型
 - **remote/** — 远程代理支持
-- **swarms/** — 多代理协同（Swarm）
 - **models/** — 代理类型定义
 
 ## 功能特性
@@ -28,5 +26,5 @@ AI 代理功能模块，提供代理管理和执行能力。
 ## 使用
 
 ```typescript
-import { AgentRunner } from '@modules/agent';
+import { agentRegistry } from '@modules/agent';
 ```

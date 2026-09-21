@@ -210,7 +210,7 @@ function collectImageFiles(
 }
 
 /**
- * GET /v1/images/static/*
+ * GET|HEAD /v1/images/static/*
  * 提供图片静态文件服务
  *
  * URL 格式：/v1/images/static/YYYY-MM-DD/img_xxx.png

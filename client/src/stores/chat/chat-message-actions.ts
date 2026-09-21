@@ -607,10 +607,14 @@ export function resumeRecoveryImpl(
 /**
  * KB-LONG-SESSION（2026-08-29）：长会话分页——加载更早历史消息。
  * 首次载入会话时 limit=MESSAGE_PAGE_LIMIT（超过才分页，小会话等效全量）；
- * hasOlder=true 时用户点"加载更早消息"触发：before=最早消息 lastEventSeq，
+ * hasOlder=true 时用户点"加载更早消息"触发：before=**后端分页边界** `oldestSeq`，
  * 后端返回更早 limit 条 → 拼接到消息列表头部。
+ *
+ * 2026-09-20：由 100 调整为 **30** —— 首屏响应体是长会话打开体验的主成本
+ * （实测该长会话 100 条 = 380KB、全量 192 条 = 742KB），取 30 条可显著压缩首屏；
+ * 代价是更长的会话需要多次"加载更早"，属有意的取舍。改此一处即两条加载路径同步生效。
  */
-export const MESSAGE_PAGE_LIMIT = 100;
+export const MESSAGE_PAGE_LIMIT = 30;
 
 export async function loadOlderMessagesImpl(
   set: MessageSet,
@@ -619,7 +623,11 @@ export async function loadOlderMessagesImpl(
   const state = get();
   if (state.loadingOlder || !state.hasOlder) return;
   const sessionId = state.messages[0]?.session_id;
-  const before = state.messages[0]?.lastEventSeq;
+  // 游标必须取**后端分页边界**（oldestSeq），不能用 `store.messages[0].lastEventSeq` ——
+  // store 列表经过 tool 结果吸收（进 assistant 的 blocks）与连续 assistant 合并后，
+  // 首条已不是后端第一页的首条（实测游标偏后 ⇒ 请求回来的"更早一页"与当前页重叠
+  // 且 hasMore 恒为 true，更早历史永远取不到）。
+  const before = state.oldestSeq;
   if (!sessionId || before == null) return;
 
   set({ loadingOlder: true });
@@ -630,13 +638,19 @@ export async function loadOlderMessagesImpl(
     );
     if (older.length > 0) {
       // 更早历史在前，与当前消息拼接（后端已按 lastEventSeq 升序返回）
+      // N-57：后端 `before` 改 `<=` 以保证"排序键重复时不丢条" ⇒ 边界条目会重复返回，
+      // 此处按 id 去重（保留当前列表侧的那份）后再前插。
+      const existingIds = new Set(get().messages.map((m) => m.id));
+      const deduped = older.filter((m) => !existingIds.has(m.id));
       set({
-        messages: [...older, ...get().messages],
+        messages: [...deduped, ...get().messages],
         hasOlder: hasMore,
+        // 新游标 = 更早那一页的首条（后端分页边界），而非拼接后列表的首条
+        oldestSeq: older[0]?.lastEventSeq ?? state.oldestSeq,
         loadingOlder: false,
       });
     } else {
-      set({ hasOlder: false, loadingOlder: false });
+      set({ hasOlder: false, oldestSeq: null, loadingOlder: false });
     }
   } catch (e) {
     handleClientError(

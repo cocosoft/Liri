@@ -9,7 +9,11 @@
 import type { StateCreator } from "zustand";
 import type { SessionRecord, SessionContext } from "./types";
 import type { RootState } from "./index";
-import { isProjectWorkspace, type ModuleType } from "./moduleContextSlice";
+import {
+  isModuleScopeWorkspaceId,
+  isProjectWorkspace,
+  type ModuleType,
+} from "./moduleContextSlice";
 import type { Message, Session } from "@/types";
 import { createLogger } from "@/utils/logger";
 import { useModelSwitchStore } from "../modelSwitchStore";
@@ -129,6 +133,7 @@ async function restoreMessagesToCurrentSession(
         // 缓存为全量消息，无更早历史
         const { useChatStore } = await import("@/stores/chat");
         useChatStore.getState().setHasOlder(false);
+        useChatStore.getState().setOldestSeq(null);
       } else {
         // M2-3：优先从 events 派生，回退到 legacy messages
         // KB-LONG-SESSION（2026-08-29）：长会话分页——传 limit 触发后端分页，
@@ -143,11 +148,16 @@ async function restoreMessagesToCurrentSession(
         await chatCoordinator.loadMessages(messages);
         const { useChatStore } = await import("@/stores/chat");
         useChatStore.getState().setHasOlder(hasMore);
+        // 游标存后端分页边界（分页结果首条），供"加载更早"续拉
+        useChatStore
+          .getState()
+          .setOldestSeq(hasMore ? (messages[0]?.lastEventSeq ?? null) : null);
       }
     } else {
       await chatCoordinator.clearMessages().catch(() => {});
       const { useChatStore } = await import("@/stores/chat");
       useChatStore.getState().setHasOlder(false);
+      useChatStore.getState().setOldestSeq(null);
     }
   } catch {
     await chatCoordinator.clearMessages().catch(() => {});
@@ -163,6 +173,10 @@ export interface SessionSlice {
 
   /** 当前活跃会话 ID */
   currentSessionId: string | null;
+
+  /** A1 临时对话：当前临时会话对象（不入 chatSessions，单独持有以保证
+   *  currentSession 可解析；后端 listSessions 已排除 temporary 会话） */
+  currentTempSession: Session | null;
 
   /** 用户自定义的模块排序（模块 type 数组） */
   moduleOrder: string[];
@@ -202,7 +216,10 @@ export interface SessionSlice {
   /** 从后端加载会话列表 + 当前会话 */
   loadChatSessions: () => Promise<void>;
   /** 创建新会话（调用 sessionService.create，联动 chatStore） */
-  createChatSession: (title: string) => Promise<Session>;
+  createChatSession: (
+    title: string,
+    opts?: { temporary?: boolean },
+  ) => Promise<Session>;
   /** 切换会话（停止流、flush、加载消息、恢复模型、联动工作空间） */
   switchChatSession: (id: string) => Promise<void>;
   /** 删除会话 */
@@ -224,6 +241,7 @@ export const createSessionSlice: StateCreator<
   // ── 初始状态 ──
   sessions: {},
   currentSessionId: null,
+  currentTempSession: null,
   moduleOrder: [
     "chat",
     "media",
@@ -270,7 +288,10 @@ export const createSessionSlice: StateCreator<
     const session: SessionRecord = {
       id,
       moduleType,
-      workspaceId: wtId ?? "",
+      // N-63（2026-09-20）：`currentWorkspaceId` 对非 project 模块是**模块作用域标识**
+      // （`chat`/`office`/`media`…，见 `resolveWorkspaceId`），不能当作会话的工作区归属
+      // ⇒ 归一为空串（"无工作区"），避免 `workspaceId` 语义污染
+      workspaceId: isModuleScopeWorkspaceId(wtId) ? "" : (wtId ?? ""),
       title: title ?? `新${getNameByModuleType(moduleType)}`,
       createdAt: now,
       updatedAt: now,
@@ -374,7 +395,7 @@ export const createSessionSlice: StateCreator<
           hubType,
         });
       }
-      // N2 修复：当前会话无效（如项目页 `SessionSliceList` 同步 switchSession 把
+      // N2 修复：当前会话无效（如项目页同步 switchSession 把
       // currentSessionId 指向项目会话，或指向已删除会话）→ 回退到 chatSessions
       // 最近会话（loadChatSessions 已按 updatedAt 降序），而非 fallthrough 新建
       // 幽灵会话——原实现导致项目页回 /chat 时 header 空白 + 幽灵记录累积。
@@ -448,7 +469,28 @@ export const createSessionSlice: StateCreator<
       }
     }
 
-    // 用户项目 worktree（workspaceSource === "user"）：创建新会话（项目内多会话）
+    // 用户项目 worktree（workspaceSource === "user"）：**先复用，再创建**。
+    //
+    // N-64（2026-09-20）：本分支原为"直接新建"，而 `useAutoCreateSession` 挂在 App 级、
+    // 依赖 `[location.pathname, location.search]` ⇒ **每次导航到项目页都会触发一次**
+    // ⇒ 每次进入都凭空多一个空会话（id `sess-*`、标题 `新project`），且该分支**不落库**
+    // ⇒ 后端列表无此记录 ⇒ 与 N-63 的"Hub 以服务端为准"叠加后形成"建了就被清、再进再建"的循环。
+    // 现与上方系统 worktree 分支对称：同 worktree + 同 moduleType 已有会话则复用。
+    const existingProjectSession = Object.values(get().sessions)
+      .filter((s) => s.workspaceId === wtId && s.moduleType === moduleType)
+      .sort((a, b) => b.updatedAt - a.updatedAt)[0];
+    if (existingProjectSession) {
+      set({ currentSessionId: existingProjectSession.id });
+      logger.debug("getOrCreateSession:复用项目 worktree 会话", {
+        moduleType,
+        sessionId: existingProjectSession.id,
+        workspaceId: wtId,
+      });
+      return existingProjectSession.id;
+    }
+
+    // 项目下确无会话时才创建（正常路径下"首个会话"由 ProjectsPage.init() 经落库创建；
+    // 此处保留本地创建作为兜底，避免 UI 无会话可用）
     logger.debug("getOrCreateSession:创建新会话", {
       moduleType,
       workspaceId: wtId,
@@ -519,7 +561,11 @@ export const createSessionSlice: StateCreator<
       const { sessionService } = await import("@/services/sessionService");
       let sessions = await sessionService.list();
       sessions = sortSessionsForList(sessions);
-      const currentSession = await sessionService.getCurrent();
+      let currentSession = await sessionService.getCurrent();
+      // A1 临时对话：listSessions 已排除 temporary 会话，但后端当前会话
+      //（getCurrent）可能是临时会话 → 提取出来单独持有，不并入历史列表。
+      const tempSession =
+        currentSession?.metadata?.temporary === true ? currentSession : null;
 
       // Hub 同步：moduleType/projectId 判定收敛（阶段一 4.2.1）——由
       // metadata.projectId/moduleType + workspaceId（`project-` 前缀兜底）统一换算
@@ -566,7 +612,9 @@ export const createSessionSlice: StateCreator<
       if (
         !switching &&
         resolvedCurrentId &&
-        !sessions.some((s) => s.id === resolvedCurrentId)
+        !sessions.some((s) => s.id === resolvedCurrentId) &&
+        // A1 临时对话：当前为临时会话时不做幽灵回退（临时会话本就不在列表）
+        resolvedCurrentId !== (tempSession?.id ?? null)
       ) {
         logger.warn("loadChatSessions:current 返回幽灵会话，回退最近会话", {
           ghostId: resolvedCurrentId,
@@ -587,13 +635,30 @@ export const createSessionSlice: StateCreator<
           sessionCount: sessions.length,
         });
       }
+      // N-63（2026-09-20）：Hub 记录改为**以服务端列表为准**。
+      // 原实现是 merge（`{ ...get().sessions, ...hubSync }`）⇒ **只增不减**：
+      // 后端已删除的会话、以及本地乐观创建但未落库的会话会永久残留
+      // （实测 Hub 1426 条 vs 服务端 864 条，违反"数出同源"）。
+      // 宽限：保留**近期本地新建**（60s 内）且服务端尚未返回的会话，
+      // 避免"刚点新建 → 列表刷新瞬间消失"。
+      const RECENT_LOCAL_GRACE_MS = 60_000;
+      const nowMs = Date.now();
+      const keepRecentLocal: Record<string, SessionRecord> = {};
+      for (const [id, rec] of Object.entries(get().sessions)) {
+        if (hubSync[id]) continue;
+        if (nowMs - rec.createdAt < RECENT_LOCAL_GRACE_MS) {
+          keepRecentLocal[id] = rec;
+        }
+      }
       set({
         chatSessions: sessions,
         currentSessionId: switching
           ? get().currentSessionId
           : resolvedCurrentId,
+        // A1 临时对话：当前临时会话单独持有（列表已排除），否则清空
+        currentTempSession: tempSession,
         isLoading: false,
-        sessions: { ...get().sessions, ...hubSync },
+        sessions: { ...keepRecentLocal, ...hubSync },
       });
       loadStartedAt = 0; // BUG-6：加载完成复位超时计时
       // T-2/A2 修复：加载期间排队的刷新在此重跑（合并多次为一次）
@@ -643,15 +708,36 @@ export const createSessionSlice: StateCreator<
             // 原用 getMessages 直接读 messages.jsonl——历史会话的首条用户消息可能只存在于
             // events.jsonl（写前落盘失败场景），getMessages 返回缺失首条的消息导致前端不显示。
             // loadConversation 的 events 派生含完整首条用户消息，且 events 损坏时自动合并 legacy。
-            const messages =
-              cached ??
-              (await sessionService.loadConversation(currentId)).messages;
+            // N-58：本分支是"刷新页面后自动恢复当前会话"的主入口，原先不传 limit
+            // ⇒ 长会话刷新首屏仍全量（实测 192 条 / 742KB）。与切换路径统一取一页。
+            const { MESSAGE_PAGE_LIMIT } = await import(
+              "@/stores/chat/chat-message-actions"
+            );
+            let messages: Message[];
+            let hasMore = false;
+            let cursor: number | null = null;
+            if (cached) {
+              // 缓存仅存完整会话（N-56）⇒ 无更早历史
+              messages = cached as Message[];
+            } else {
+              const page = await sessionService.loadConversation(currentId, {
+                limit: MESSAGE_PAGE_LIMIT,
+              });
+              messages = page.messages;
+              hasMore = page.hasMore;
+              cursor = page.hasMore
+                ? (page.messages[0]?.lastEventSeq ?? null)
+                : null;
+            }
             // F-04 守卫：await 返回后仍是本次快照、且当前会话未变时才落消息，
             // 否则放弃（补拉已过期，避免跨会话覆盖）
             if (
               _switchSeq === seqSnapshot &&
               get().currentSessionId === currentId
             ) {
+              // 顺序要求（N-56）：hasOlder 必须在 loadMessages 之前写入
+              useChatStore.getState().setHasOlder(hasMore);
+              useChatStore.getState().setOldestSeq(cursor);
               await chatCoordinator.loadMessages(messages);
               logger.debug("loadChatSessions:补拉当前会话消息", {
                 sessionId: currentId,
@@ -696,7 +782,7 @@ export const createSessionSlice: StateCreator<
     }
   },
 
-  createChatSession: (title: string) => {
+  createChatSession: (title: string, opts?: { temporary?: boolean }) => {
     // G2 竞态修复：复用进行中的创建——快速双击"新建"时第二次调用返回同一 Promise，
     // 不并发创建两个会话（原实现无防护，接口 Promise<Session> 保持不变）。
     if (_pendingCreate) {
@@ -788,6 +874,8 @@ export const createSessionSlice: StateCreator<
           workspacePath,
           moduleType: ctx.moduleType,
           projectId: ctx.projectId,
+          // A1 临时对话：透传 temporary，后端标记 metadata.temporary
+          temporary: opts?.temporary,
         });
         const sessionWithTasks: Session = tasksOverride
           ? {
@@ -866,6 +954,8 @@ export const createSessionSlice: StateCreator<
         set({
           chatSessions: sessions,
           currentSessionId: sessionWithTasks.id,
+          // A1 临时对话：临时会话单独持有（后端 listSessions 已排除，不入历史列表）
+          currentTempSession: opts?.temporary ? sessionWithTasks : null,
           isLoading: false,
         });
         logger.info("createChatSession:⑤状态已更新", {
@@ -937,7 +1027,7 @@ export const createSessionSlice: StateCreator<
       t: 0,
     });
     if (import.meta.env.DEV)
-      console.info("[Diag:switch] ═══ 开始切换会话", {
+      logger.debug("[Diag:switch] ═══ 开始切换会话", {
         sessionId: id,
         prevId,
         t0,
@@ -949,7 +1039,7 @@ export const createSessionSlice: StateCreator<
       const t1 = performance.now();
       const msgs = await chatCoordinator.stopAndFlush();
       if (import.meta.env.DEV)
-        console.info("[Diag:switch] ① stopMessage + flushPendingSaves", {
+        logger.debug("[Diag:switch] ① stopMessage + flushPendingSaves", {
           ms: (performance.now() - t1).toFixed(1),
         });
 
@@ -974,7 +1064,7 @@ export const createSessionSlice: StateCreator<
         t: (performance.now() - t0).toFixed(0),
       });
       if (import.meta.env.DEV)
-        console.info("[Diag:switch] ② POST /v1/sessions/:id/switch", {
+        logger.debug("[Diag:switch] ② POST /v1/sessions/:id/switch", {
           ms: (performance.now() - t2).toFixed(1),
           title: session?.title,
           hasWorkspace: !!session?.workspaceId,
@@ -988,10 +1078,33 @@ export const createSessionSlice: StateCreator<
       let messages: Message[];
       if (fromCache) {
         messages = cached as Message[];
+        // N-56：缓存仅存完整会话（分页结果不写缓存），命中即代表没有更早历史
+        const { useChatStore } = await import("@/stores/chat");
+        useChatStore.getState().setHasOlder(false);
+        useChatStore.getState().setOldestSeq(null);
       } else {
         // A1：走 loadConversation（events 增量 → 纯函数派生），与流式渲染路径一致
-        const loaded = await sessionService.loadConversation(id);
+        // KB-LONG-SESSION 分页：与启动恢复路径（restoreMessagesToCurrentSession）
+        // 统一传 limit，长会话主链路只取最近一页，避免数百 KB 首屏响应体（N-55）。
+        const { MESSAGE_PAGE_LIMIT } =
+          await import("@/stores/chat/chat-message-actions");
+        const loaded = await sessionService.loadConversation(id, {
+          limit: MESSAGE_PAGE_LIMIT,
+        });
         messages = loaded.messages;
+        // hasOlder 必须在 loadMessages 之前写入：setMessages 依此判定"当前是否
+        // 完整会话"以决定是否写入会话缓存（N-56），顺序颠倒会读到旧会话的残留值。
+        // 游标存**后端分页边界**（loaded.messages[0].lastEventSeq），不能用 store
+        // 拼接后的首条 —— 见 chat-message.types.ts 的 oldestSeq 说明。
+        const { useChatStore } = await import("@/stores/chat");
+        useChatStore.getState().setHasOlder(loaded.hasMore);
+        useChatStore
+          .getState()
+          .setOldestSeq(
+            loaded.hasMore
+              ? (loaded.messages[0]?.lastEventSeq ?? null)
+              : null,
+          );
       }
       logger.info("switchChatSession:③消息已加载", {
         seq,
@@ -1002,7 +1115,7 @@ export const createSessionSlice: StateCreator<
         t: (performance.now() - t0).toFixed(0),
       });
       if (import.meta.env.DEV)
-        console.info("[Diag:switch] ③ getMessages", {
+        logger.debug("[Diag:switch] ③ getMessages", {
           ms: (performance.now() - t3).toFixed(1),
           count: messages.length,
           fromCache,
@@ -1016,7 +1129,7 @@ export const createSessionSlice: StateCreator<
         t: (performance.now() - t0).toFixed(0),
       });
       if (import.meta.env.DEV)
-        console.info("[Diag:switch] ④ setMessages 完成", {
+        logger.debug("[Diag:switch] ④ setMessages 完成", {
           ms: (performance.now() - t4).toFixed(1),
         });
 
@@ -1042,7 +1155,7 @@ export const createSessionSlice: StateCreator<
             await modelSwitchService.switch(session.modelId);
           }
           if (import.meta.env.DEV)
-            console.info("[Diag:switch] ⑥ 模型恢复", {
+            logger.debug("[Diag:switch] ⑥ 模型恢复", {
               ms: (performance.now() - t6).toFixed(1),
               modelId: session.modelId,
             });
@@ -1061,7 +1174,7 @@ export const createSessionSlice: StateCreator<
         }
       } else {
         if (import.meta.env.DEV)
-          console.info("[Diag:switch] ⑥ 模型恢复跳过（无 modelId）");
+          logger.debug("[Diag:switch] ⑥ 模型恢复跳过（无 modelId）");
       }
 
       // 刷新路由状态（异步 fire-and-forget、不阻塞会话切换）
@@ -1073,7 +1186,7 @@ export const createSessionSlice: StateCreator<
           /* 静默失败：路由刷新不影响会话切换 */
         });
       if (import.meta.env.DEV)
-        console.info("[Diag:switch] ⑦ 路由刷新", {
+        logger.debug("[Diag:switch] ⑦ 路由刷新", {
           ms: (performance.now() - t7).toFixed(1),
         });
 
@@ -1122,7 +1235,7 @@ export const createSessionSlice: StateCreator<
           latestSeq: _switchSeq,
         });
         if (import.meta.env.DEV)
-          console.info("[Diag:switch] ⏭ 过期切换被丢弃", {
+          logger.debug("[Diag:switch] ⏭ 过期切换被丢弃", {
             sessionId: id,
             seq,
             latestSeq: _switchSeq,
@@ -1146,7 +1259,7 @@ export const createSessionSlice: StateCreator<
         return;
       }
       const t5 = performance.now();
-      set({ currentSessionId: id });
+      set({ currentSessionId: id, currentTempSession: null });
       logger.info("switchChatSession:⑤状态已更新", {
         seq,
         sessionId: id,
@@ -1198,12 +1311,12 @@ export const createSessionSlice: StateCreator<
         };
       });
       if (import.meta.env.DEV)
-        console.info("[Diag:switch] ⑤ store 更新 + SessionHub 同步", {
+        logger.debug("[Diag:switch] ⑤ store 更新 + SessionHub 同步", {
           ms: (performance.now() - t5).toFixed(1),
         });
 
       if (import.meta.env.DEV)
-        console.info("[Diag:switch] ✅ 切换完成（数据就绪）", {
+        logger.debug("[Diag:switch] ✅ 切换完成（数据就绪）", {
           sessionId: id,
           totalMs: (performance.now() - t0).toFixed(1),
         });

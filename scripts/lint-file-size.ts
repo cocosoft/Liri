@@ -93,7 +93,12 @@ function countLines(filePath: string): number {
 // ============ 主流程 ============
 
 async function main(): Promise<void> {
-    const rootDir = process.cwd();
+    // 项目根解析：优先读 PYAPP_PROJECT_DIR（`app/package.json#lint:size` 传 `..`，相对 cwd），
+    // 其次回退 cwd（CI 以仓库根为 working-directory 直接调用本脚本时即为仓库根）。
+    // 范式与 lint-mock.ts / lint-session-regression.ts 一致。
+    const rootDir = process.env.PYAPP_PROJECT_DIR
+        ? join(process.cwd(), process.env.PYAPP_PROJECT_DIR)
+        : process.cwd();
     const fileSizeExceptions = loadFileSizeExceptions();
     const srcDirs = [
         join(rootDir, 'app', 'src'),

@@ -24,7 +24,20 @@ export class FileSystemStorage implements SessionStorage {
    * 存储根目录
    */
   private rootDir: string;
-  private writer: AtomicWriter;
+  /**
+   * N-54（2026-09-20）：**惰性**创建写盘器（不在构造期 `new AtomicWriter()`）。
+   *
+   * 原因：`SessionManager.ts:522` 在**模块求值期**执行 `new SessionManager()` → 本类构造函数 →
+   * 构造期读取 `AtomicWriter` 绑定；而 `AtomicWriter` 所在模块经 barrel 与本图存在回边，此时尚未
+   * 初始化 ⇒ `ReferenceError: Cannot access 'AtomicWriter' before initialization`（TDZ），
+   * 使任何"只导入 FS 存储/会话模块"的单文件测试崩溃。改为首次实际写盘时创建。
+   */
+  private writerInstance: AtomicWriter | null = null;
+
+  private get writer(): AtomicWriter {
+    if (!this.writerInstance) this.writerInstance = new AtomicWriter();
+    return this.writerInstance;
+  }
 
   /**
    * 构造函数
@@ -32,7 +45,6 @@ export class FileSystemStorage implements SessionStorage {
    */
   constructor(rootDir: string = resolveSessionsDir()) {
     this.rootDir = rootDir;
-    this.writer = new AtomicWriter();
   }
 
   /**

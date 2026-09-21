@@ -32,6 +32,36 @@ export const modelSwitchService = {
     return res.tasks;
   },
 
+  /**
+   * N-46（2026-09-20）：取任务分工配置**及其来源标记**。
+   *
+   * `sources[task] === "user"` ⇒ 该任务在 chat 类 route 上**显式生效**（优先于智能路由档位）；
+   * `"seed"` ⇒ 系统播种值，实际模型由档位决定。用于任务分工页展示"是否已显式生效"，
+   * 避免"UI 显示 A、运行时用 B"的数出同源缺口。
+   *
+   * N-47（2026-09-20）：同时透出 `modelNames`（UUID → 显示名）。任务分工页用它把
+   * "已配置但不在下拉选项中"的值（模型被禁用/删除）显示为真实名称 —— 否则受控 `select`
+   * 会静默回退显示首项"未设置"，用户看不到 DB 里的真实配置。
+   *
+   * 注：`sources` / `modelNames` 为后端新增字段，缺失时按空对象处理（旧后端仍可渲染，只是不显示标记/真实名）。
+   */
+  async getTasksWithSources(): Promise<{
+    tasks: TaskModelConfig;
+    sources: Record<string, "user" | "seed">;
+    modelNames: Record<string, string>;
+  }> {
+    const res = await http.get<{
+      tasks: TaskModelConfig;
+      sources?: Record<string, "user" | "seed">;
+      modelNames?: Record<string, string>;
+    }>("/v1/models/tasks");
+    return {
+      tasks: res.tasks ?? {},
+      sources: res.sources ?? {},
+      modelNames: res.modelNames ?? {},
+    };
+  },
+
   async saveTasks(tasks: TaskModelConfig): Promise<void> {
     const res = await http.put<{ success: boolean }>("/v1/models/tasks", tasks);
     if (!res.success) {

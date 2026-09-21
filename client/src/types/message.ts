@@ -46,6 +46,7 @@ export interface Message {
    * - stop/length/max_tokens/tool_calls/tool_use：正常结束
    * - canceled/abort：回复被中断（用户停止/幽灵块检测/后端静默中断）
    * - error：流异常（SSE 断开等，已有"连接已断开"提示块）
+   * - yielded（N-45，2026-09-20）：本轮以 `sessions_yield` 让出 turn，等待子任务结算后自动续跑
    */
   finishReason?:
     | "stop"
@@ -55,7 +56,8 @@ export interface Message {
     | "tool_use"
     | "canceled"
     | "abort"
-    | "error";
+    | "error"
+    | "yielded";
 }
 
 export interface QuestionOption {

@@ -19,11 +19,11 @@ import { useSessionStore } from "./stores/sessionStore";
 import { useNavigationStore } from "./stores/navigationStore";
 import type { AppPage } from "./stores/navigationStore";
 import { useRootStore } from "./stores/root-store";
-import { registerBuiltinModules } from "./stores/root-store/moduleRegistry";
 import { useKeyboard } from "./hooks/useKeyboard";
 import { useBuddyNotification } from "./hooks/useBuddyNotification";
 import { useNotificationSSE } from "./hooks/useNotificationSSE";
 import NotificationPanel from "./components/views/NotificationPanel";
+import SettingsPanel from "./components/settings/SettingsPanel";
 import { useInitApp } from "./hooks/useInitApp";
 import { useAutoUpdate } from "./hooks/useAutoUpdate";
 import { useAutoCreateSession } from "./hooks/useAutoCreateSession";
@@ -54,12 +54,20 @@ function App() {
 
   // H7/E-4：全局搜索（⌘K + Header 按钮）上提到应用层——应用级能力不寄生 UI 组件
   const [searchOpen, setSearchOpen] = useState(false);
+  // §4.2-4（方案 B）：`/search 关键词` 经同一事件通道携带关键词
+  const [searchInitialQuery, setSearchInitialQuery] = useState("");
   useEffect(() => {
-    const open = () => setSearchOpen(true);
+    const open = (e: Event) => {
+      const query =
+        (e as CustomEvent<{ query?: string }>).detail?.query ?? "";
+      setSearchInitialQuery(query);
+      setSearchOpen(true);
+    };
     window.addEventListener("open-global-search", open);
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === "k") {
         e.preventDefault();
+        setSearchInitialQuery("");
         setSearchOpen((prev) => !prev);
       }
     };
@@ -158,12 +166,9 @@ function App() {
       );
   }, [navigate]);
 
-  // Root Store: 首次启动时自动创建默认工作空间 + 注册模块
+  // Root Store: 首次启动时自动创建默认工作空间
   useEffect(() => {
     if (initState.phase !== "ready") return;
-
-    // 注册内置模块视图组件
-    registerBuiltinModules();
 
     if (rootCurrentWorkspaceId) return;
 
@@ -205,14 +210,19 @@ function App() {
         <OperationStatusBar />
         <ToastContainer />
         <NotificationPanel />
+        <SettingsPanel />
         <QuickNoteModal
           open={quickNoteOpen}
           onClose={() => setQuickNoteOpen(false)}
         />
         <GlobalSearchModal
           isOpen={searchOpen}
-          onClose={() => setSearchOpen(false)}
+          onClose={() => {
+            setSearchOpen(false);
+            setSearchInitialQuery("");
+          }}
           isDark={config.theme === "dark"}
+          initialQuery={searchInitialQuery}
         />
         <div className="flex flex-1 overflow-hidden">
           <div className="hidden lg:block">

@@ -219,6 +219,12 @@ export function reactEventsToChunks(
         } as ChatStreamChunk,
       ];
 
+    case 'yielded':
+      // 阶段 A（A1-d）：本轮以 sessions_yield 让出 turn。
+      // 不产出额外 chunk（语义由 turn/end 的 finishReason='yielded' 承载；
+      // 子代理结算后由恢复通路开启新 turn 继续）。
+      return [];
+
     default: {
       // v3：exhaustive check —— ReActEvent 新增类型而漏加 case 时编译报错，防静默丢事件回归
       const _exhaustive: never = event;

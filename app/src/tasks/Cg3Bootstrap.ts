@@ -38,6 +38,17 @@ async function _logAndHandle(
 /** 全局 CG3 实例 */
 let _cg3: Cg3BootstrapResult | null = null;
 
+/**
+ * 取全局 SelfWake 服务（未启动 CG3 时返回 null）。
+ *
+ * N-37（2026-09-20）：自唤醒工具（`sleep_for` / `sleep_until`）需要在**执行时**拿到
+ * 服务实例登记唤醒——工具装配与 CG3 启动的先后顺序不固定，故只暴露取值器、
+ * 由调用方惰性解析（不在装配期捕获实例）。
+ */
+export function getCg3SelfWakeService(): SelfWakeService | null {
+  return _cg3?.selfWakeService ?? null;
+}
+
 export interface Cg3BootstrapResult {
   selfWakeService: SelfWakeService;
   alwaysOnManager: AlwaysOnManager;

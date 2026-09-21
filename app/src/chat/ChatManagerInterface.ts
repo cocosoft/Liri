@@ -37,6 +37,17 @@ import { securityService } from './services/SecurityService.js';
 
 export interface ChatManager {
   /**
+   * P0-2: 每轮 Agent Loop（TAORLoop）完成后触发的回调，由 AlwaysOnManager
+   * 经 `tasks/Cg3Bootstrap.wireAlwaysOnToChat()` 注册，用于更新 agent_busy 状态。
+   *
+   * N-43（2026-09-20）：该 hook 原先**只声明在实现类 `ChatManagerImpl` 上、接口未声明**，
+   * 导致入口接线 `startCg3(coreAPI.getChatManager())` 触发 TS2559（接口类型与
+   * `{ onTurnEnd?: () => void }` 无共同属性）⇒ 只能靠强转绕过。此处补进契约
+   * （与 `ChatOrchestrator` 的 host 接口声明保持一致）。
+   */
+  onTurnEnd?: () => void;
+
+  /**
    * 发送消息
    * @param content 消息内容
    * @param options 选项

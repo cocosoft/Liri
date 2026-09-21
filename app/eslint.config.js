@@ -191,7 +191,6 @@ export default [
       'src/analytics/IntelligentAnalysisService.ts',
       'src/analytics/PerformanceMonitoringService.ts',
       'src/context/context.ts',
-      'src/agent/swarms/SwarmCoordinator.ts',
     ],
     rules: {
       'no-console': 'off'

@@ -10,6 +10,7 @@
 
 import { useEffect, useMemo } from "react";
 import { useLocation } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { useRootStore } from "@/stores/root-store";
 import { createLogger } from "@/utils/logger";
 
@@ -24,6 +25,7 @@ const logger = createLogger("hooks:useAutoCreateSession");
  */
 export function useAutoCreateSession(): void {
   const location = useLocation();
+  const { t } = useTranslation();
   const moduleContext = useRootStore((s) => s.moduleContext);
   const modules = useRootStore((s) => s.modules);
   const getOrCreateSession = useRootStore((s) => s.getOrCreateSession);
@@ -56,6 +58,26 @@ export function useAutoCreateSession(): void {
 
     if (!moduleType) return; // 首页等非模块页面跳过
 
+    // N-65（2026-09-20）：**会话列表尚未加载完成时不要触发自动创建/恢复**。
+    // `getOrCreateSession` 的 chat 复用分支（复用当前会话 → 回退最近的 chat 会话）**都依赖
+    // `chatSessions`**；列表未就绪时二者皆空 ⇒ fallthrough 到纯本地 `createSession`
+    // ⇒ 生成只存在于前端的幽灵会话（id `sess-*`、标题 `新对话`，实测后端 0 条）。
+    // 再叠加 `main.tsx:44` 的 `React.StrictMode`（dev 下 effect 双执行）
+    // ⇒ **一次导航就建 2 条**（与实测"恰好 2 条、年龄同步更新"完全吻合）。
+    if (useRootStore.getState().isLoading) {
+      logger.debug("useAutoCreateSession:会话列表加载中，跳过自动创建/恢复", {
+        moduleType,
+        path: location.pathname,
+      });
+      return;
+    }
+
+    // A1 临时对话：URL 携带 ?temporary=1 时，确保 chat 当前会话为 temporary 模式。
+    // 场景：刷新 /chat?temporary=1（后端 listSessions 已排除临时会话，store 中
+    // 无对应记录）→ 自动新建一个临时会话，满足"刷新保留临时状态"。
+    const wantsTemporary =
+      new URLSearchParams(location.search).get("temporary") === "1";
+
     // chat 模块：使用 enterModule 设置上下文，替代 switchWorkspace
     if (moduleType === "chat") {
       const state = useRootStore.getState();
@@ -63,7 +85,34 @@ export function useAutoCreateSession(): void {
         state.enterModule({ moduleType: "chat" });
         return;
       }
+      if (wantsTemporary) {
+        const current =
+          state.chatSessions.find((s) => s.id === state.currentSessionId) ??
+          (state.currentTempSession?.id === state.currentSessionId
+            ? state.currentTempSession
+            : null);
+        if (!current || current.metadata?.temporary !== true) {
+          logger.info("useAutoCreateSession:?temporary=1 当前会话非临时，新建临时会话", {
+            path: location.pathname + location.search,
+            currentSessionId: state.currentSessionId,
+          });
+          void state
+            .createChatSession(t("chat.temporaryToggle"), { temporary: true })
+            .catch((err) =>
+              logger.warn("useAutoCreateSession:创建临时会话失败", {
+                error: String(err),
+              }),
+            );
+          return;
+        }
+      }
     }
+
+    // N-64（2026-09-20）：project 模块**不在此处自动创建会话** ——
+    // 项目会话的创建/恢复由 `ProjectsPage.init()` 统一负责（走 `createChatSession` ⇒ 落库）。
+    // 本 hook 挂在 App 级且依赖 `pathname`/`search`，若在此创建，
+    // **每次导航到项目页都会凭空多出一个空会话**（且该路径不落库 ⇒ 刷新即被清 ⇒ 反复创建）。
+    if (moduleType === "project") return;
 
     const sessionId = getOrCreateSession(moduleType);
     logger.debug("Session 自动创建/恢复", {
@@ -71,5 +120,5 @@ export function useAutoCreateSession(): void {
       moduleType,
       sessionId,
     });
-  }, [location.pathname, moduleContext, pathToModule, getOrCreateSession]);
+  }, [location.pathname, location.search, moduleContext, pathToModule, getOrCreateSession, t]);
 }

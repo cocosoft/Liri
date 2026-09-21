@@ -5,27 +5,22 @@ import { useShallow } from "zustand/shallow";
 import { useBackendStore } from "../../stores/backendStore";
 import { useRootStore } from "../../stores/root-store";
 import { selectEnabledModules } from "../../stores/selectors";
-import {
-  ChatIcon,
-  KnowledgeIcon,
-  GaugeIcon,
-  DashboardIcon,
-  TaskIcon,
-  CronIcon,
-  FileIcon,
-  DevIcon,
-  SettingsIcon,
-  ImageIcon,
-  OfficeIcon,
-  DollarIcon,
-} from "../../assets/icons";
 import type { BaseIconProps } from "../../assets/icons";
+// §4.3-6：首页卡片元数据来自导航注册表（单一事实来源，门控在派生函数内部完成）
+import {
+  homeSections,
+  toEnabledModuleIds,
+  type NavEntry,
+} from "../../config/navRegistry";
+import { PreviewBadge } from "../common/PreviewBadge";
 
 interface NavCardProps {
   icon: React.ComponentType<BaseIconProps>;
   title: string;
   description: string;
   path: string;
+  /** 未完全成熟的新能力：true 时渲染 Preview 角标 */
+  preview?: boolean;
 }
 
 function NavCard({
@@ -33,6 +28,7 @@ function NavCard({
   title,
   description,
   path,
+  preview,
 }: NavCardProps) {
   const navigate = useNavigate();
 
@@ -44,115 +40,17 @@ function NavCard({
       <div className="w-12 h-12 mx-auto mb-4 rounded-xl bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center">
         <IconComponent size={28} className="text-blue-600 dark:text-blue-400" />
       </div>
-      <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
+      <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2 flex items-center justify-center gap-1">
         {title}
+        {preview && <PreviewBadge />}
       </h3>
       <p className="text-sm text-gray-500 dark:text-gray-400">{description}</p>
     </button>
   );
 }
 
-/**
- * 第一层：模块卡元信息（P1-7：注册表驱动）。
- * moduleId 与 moduleRegistry 一一对应；模块禁用/tier 不可见时卡片自动隐藏。
- */
-const MODULE_CARD_META: Record<
-  string,
-  {
-    icon: React.ComponentType<BaseIconProps>;
-    titleKey: string;
-    descKey: string;
-    path: string;
-    order: number;
-  }
-> = {
-  chat: {
-    icon: ChatIcon,
-    titleKey: "home.card.chat",
-    descKey: "home.card.chatDesc",
-    path: "/chat",
-    order: 10,
-  },
-  project: {
-    icon: DashboardIcon,
-    titleKey: "home.card.projects",
-    descKey: "home.card.projectsDesc",
-    path: "/projects",
-    order: 20,
-  },
-  office: {
-    icon: OfficeIcon,
-    titleKey: "home.card.office",
-    descKey: "home.card.officeDesc",
-    path: "/office",
-    order: 30,
-  },
-  media: {
-    icon: ImageIcon,
-    titleKey: "home.card.media",
-    descKey: "home.card.mediaDesc",
-    path: "/media",
-    order: 40,
-  },
-  knowledge: {
-    icon: KnowledgeIcon,
-    titleKey: "home.card.knowledge",
-    descKey: "home.card.knowledgeDesc",
-    path: "/knowledge",
-    order: 50,
-  },
-};
-
-/** 第二层：工具卡（非注册表路由的固定入口；N5：/monitor 死链已移除） */
-const TOOL_CARDS: Array<{
-  icon: React.ComponentType<BaseIconProps>;
-  titleKey: string;
-  descKey: string;
-  path: string;
-}> = [
-  {
-    icon: TaskIcon,
-    titleKey: "home.card.tasks",
-    descKey: "home.card.tasksDesc",
-    path: "/tasks",
-  },
-  {
-    icon: CronIcon,
-    titleKey: "home.card.cron",
-    descKey: "home.card.cronDesc",
-    path: "/cron",
-  },
-  {
-    icon: GaugeIcon,
-    titleKey: "home.card.dashboard",
-    descKey: "home.card.dashboardDesc",
-    path: "/dashboard",
-  },
-  {
-    icon: DollarIcon,
-    titleKey: "home.card.cost",
-    descKey: "home.card.costDesc",
-    path: "/usage?tab=cost",
-  },
-  {
-    icon: FileIcon,
-    titleKey: "home.card.files",
-    descKey: "home.card.filesDesc",
-    path: "/files",
-  },
-  {
-    icon: DevIcon,
-    titleKey: "home.card.terminal",
-    descKey: "home.card.terminalDesc",
-    path: "/terminal",
-  },
-  {
-    icon: SettingsIcon,
-    titleKey: "home.card.settings",
-    descKey: "home.card.settingsDesc",
-    path: "/settings",
-  },
-];
+// §4.3-6：首页两区卡片（功能模块 / 快捷工具）已收敛至 @/config/navRegistry，
+// 本组件只做「派生 + 渲染」（模块门控经 selectEnabledModules）。
 
 function HomePage() {
   const { t } = useTranslation();
@@ -160,14 +58,22 @@ function HomePage() {
   const navigate = useNavigate();
   const [actionLoading, setActionLoading] = useState(false);
 
-  // P1-7：模块卡由注册表派生（selectEnabledModules），禁用/tier 隐藏自动生效
+  // §4.3-6：首页两区卡片由 navRegistry 派生（模块门控集合由 selectEnabledModules 派生）
   const enabledModules = useRootStore(useShallow(selectEnabledModules));
-  const moduleCards = useMemo(() => {
-    return enabledModules
-      .map((m) => MODULE_CARD_META[m.id])
-      .filter((meta): meta is (typeof MODULE_CARD_META)[string] => !!meta)
-      .sort((a, b) => a.order - b.order);
-  }, [enabledModules]);
+  const enabledModuleIds = useMemo(
+    () => toEnabledModuleIds(enabledModules),
+    [enabledModules],
+  );
+  const sections = useMemo(() => {
+    return homeSections(enabledModuleIds).map((section) => ({
+      id: section.id,
+      titleKey: section.titleKey,
+      cards: section.items.filter(
+        (i): i is NavEntry & { path: string; descKey: string } =>
+          Boolean(i.path) && Boolean(i.descKey),
+      ),
+    }));
+  }, [enabledModuleIds]);
 
   const getStatusColor = () => {
     if (status.running) return "text-green-600 dark:text-green-400";
@@ -249,37 +155,26 @@ function HomePage() {
           )}
         </div>
 
-        {/* 第一层：功能模块（注册表驱动，模块禁用/降级时自动隐藏） */}
-        <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-6">
-          {t("home.modulesTitle")}
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-          {moduleCards.map((card) => (
-            <NavCard
-              key={card.path}
-              icon={card.icon}
-              title={t(card.titleKey)}
-              description={t(card.descKey)}
-              path={card.path}
-            />
-          ))}
-        </div>
-
-        {/* 第二层：快捷工具（非注册表路由的固定入口） */}
-        <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-6">
-          {t("home.toolsTitle")}
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-          {TOOL_CARDS.map((card) => (
-            <NavCard
-              key={card.path}
-              icon={card.icon}
-              title={t(card.titleKey)}
-              description={t(card.descKey)}
-              path={card.path}
-            />
-          ))}
-        </div>
+        {/* 功能模块 / 快捷工具：均由 navRegistry 派生（模块禁用/tier 不可见自动隐藏） */}
+        {sections.map((section) => (
+          <div key={section.id}>
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-6">
+              {t(section.titleKey)}
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+              {section.cards.map((card) => (
+                <NavCard
+                  key={card.id}
+                  icon={card.icon}
+                  title={t(card.labelKey)}
+                  description={t(card.descKey)}
+                  path={card.path}
+                  preview={card.preview}
+                />
+              ))}
+            </div>
+          </div>
+        ))}
 
         {/* 快捷提示 */}
         <div className="bg-blue-50 dark:bg-blue-900/30 rounded-lg p-6 border border-blue-200 dark:border-blue-800">

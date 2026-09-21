@@ -134,6 +134,7 @@ export const createMessageSlice: StateCreator<
   return {
     messages: [],
     hasOlder: false,
+    oldestSeq: null,
     loadingOlder: false,
     isSending: false,
     isInputBlocked: false,
@@ -305,6 +306,10 @@ export const createMessageSlice: StateCreator<
       set({ hasOlder });
     },
 
+    setOldestSeq: (seq: number | null) => {
+      set({ oldestSeq: seq });
+    },
+
     loadOlderMessages: async () => {
       await loadOlderMessagesImpl(messageSet, messageGet);
     },
@@ -362,6 +367,12 @@ export const createMessageSlice: StateCreator<
       delete nextControllers[sessionId];
       set({
         streamControllers: nextControllers,
+        // N-33（2026-09-20）根因修复：补 `isStreaming` 重算 —— 本 store 中它是
+        // `streamControllers` 的**派生值**（`Object.keys(...).length > 0`）。上方已把本
+        // 会话 controller 移出，若此处不重算，`isStreaming` 会保留挂起前的 `true`
+        // ⇒ UI 永久卡在「AI 正在生成回复」。此修复与上方注释"挂起流从全局 isStreaming
+        // 推导中排除"的**原意一致**（原实现漏写）。
+        isStreaming: Object.keys(nextControllers).length > 0,
         // N8-3：状态栏文案同步（避免与 Banner"已暂停"并存矛盾；恢复后由流式链路重置）
         streamingStatus: "后端连接已断开，回复已暂停",
         pausedStreams: {
@@ -382,6 +393,10 @@ export const createMessageSlice: StateCreator<
         : get().streamControllers;
       set({
         streamControllers: restored,
+        // N-33（2026-09-20）根因修复：补 `isStreaming` 重算（同为 `streamControllers` 的
+        // 派生值）—— controller 已归还全局表，故此处应为 `true`；否则挂起期间推导出的
+        // `false` 会残留，恢复后 UI 不显示生成中（与注释"全局 isStreaming 恢复"原意一致）。
+        isStreaming: Object.keys(restored).length > 0,
         pausedStreams: omitPausedKey(get().pausedStreams, sessionId),
       });
     },

@@ -34,6 +34,13 @@ export interface Session {
   /** 该会话所属的工作空间 ID（空表示不属于任何工作空间） */
   workspaceId?: string;
 
+  /**
+   * N-64（2026-09-20）：该会话所属**项目 ID** —— 项目归属的**权威事实面**
+   * （后端 `effectiveProjectId()` 即按 `metadata.projectId` 优先判定，legacy
+   * `workspaceId` 的 `project-` 前缀仅作兜底）。
+   */
+  projectId?: string;
+
   /** 该会话绑定的工作空间物理路径 */
   workspacePath?: string;
 
@@ -50,5 +57,7 @@ export interface Session {
     isStreaming?: boolean;
     roundIndex?: Record<string, number>;
     roundCounter?: number;
+    /** A1 临时对话：temporary 会话不入历史/记忆/FTS（持久化标记，CS02） */
+    temporary?: boolean;
   };
 }

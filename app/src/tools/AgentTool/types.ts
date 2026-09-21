@@ -69,8 +69,6 @@ export interface AgentInput {
   run_in_background?: boolean;
   /** Agent名称 */
   name?: string;
-  /** 团队名称 */
-  team_name?: string;
   /** 权限模式 */
   mode?: 'plan' | 'bypass';
   /** 工作目录 */
@@ -79,6 +77,12 @@ export interface AgentInput {
   isolation?: 'worktree';
   /** 并行子任务列表（非空时触发方案7并行执行） */
   tasks?: SubTask[];
+  /** B-4：并行执行的总目标（verifier/synthesizer 判定基准；缺省回退 description） */
+  goal?: string;
+  /** B-4：并行执行后开启质量门（verifier 逐 worker 验证；默认 false） */
+  verify?: boolean;
+  /** B-4：并行执行后开启合成（synthesizer 汇总为单一结果；默认 false） */
+  synthesize?: boolean;
   /** Phase 3: 允许的工具名称列表（白名单）。为空或未设置时允许全部工具。 */
   allowedTools?: string[];
   /** Phase 3: 禁用的工具名称列表（黑名单）。优先级低于 allowedTools。 */

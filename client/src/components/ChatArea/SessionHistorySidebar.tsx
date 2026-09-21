@@ -6,6 +6,7 @@ import { useRootStore } from "../../stores/root-store";
 import { sessionService } from "../../services/sessionService";
 import { getOTelTracing } from "../../monitoring/otel/OTelTracing";
 import { handleClientError } from "../../utils/handleError";
+import { resolveSessionWorkspaceId } from "@/stores/selectors";
 import { createLogger } from "@/utils/logger";
 import { inferModuleTypeFromWorkspaceId } from "@/stores/root-store/moduleContextSlice";
 
@@ -103,6 +104,12 @@ function SessionHistorySidebar({
   const rootSessions = useRootStore((s) => s.sessions);
   const moduleContext = useRootStore((s) => s.moduleContext);
   const contextReady = useRootStore((s) => s._contextReady);
+  /** §4.3-9（2026-09-20）：工作区（项目）名 —— 会话列表按 workspaceId 分组时作为组标题 */
+  const worktrees = useRootStore((s) => s.worktrees);
+  /** §4.3-9：分组折叠状态（仅内存，默认全部展开）；key 为 workspaceId 或 "__ungrouped__" */
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(
+    () => new Set(),
+  );
 
   // 已被梦境处理的会话 ID 集合
   const dreamProcessedIds = useDreamSessionIds();
@@ -282,6 +289,49 @@ function SessionHistorySidebar({
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
+  // §4.3-8（2026-09-20）：**正文命中**查询 —— 此前只有"标题/ID 本地过滤"，
+  // 搜不到消息正文。现接入后端全文检索（`sessionService.searchMessages`，FTS5）。
+  // 竞态防护沿用 GlobalSearchModal 的**请求序号**模式：仅采用最新一次查询的结果；
+  // 失败时降级为"仅标题过滤"（不阻断列表）。
+  const [contentHitSessionIds, setContentHitSessionIds] = useState<Set<string>>(
+    new Set(),
+  );
+  const contentSearchSeqRef = useRef(0);
+
+  useEffect(() => {
+    const q = debouncedQuery.trim();
+    if (!q) {
+      contentSearchSeqRef.current += 1; // 使在途请求全部失效
+      setContentHitSessionIds(new Set());
+      return;
+    }
+    const seq = ++contentSearchSeqRef.current;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const hits = await sessionService.searchMessages(q, 50);
+        if (cancelled || seq !== contentSearchSeqRef.current) return; // 过期结果丢弃
+        setContentHitSessionIds(
+          new Set(
+            hits
+              .map((h) => h.sessionId)
+              .filter((id): id is string => typeof id === "string" && !!id),
+          ),
+        );
+      } catch (e) {
+        if (cancelled || seq !== contentSearchSeqRef.current) return;
+        handleClientError(e, {
+          module: "components:chat:SessionHistorySidebar",
+          action: "searchMessages",
+        });
+        setContentHitSessionIds(new Set()); // 降级：仅标题/ID 过滤
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [debouncedQuery]);
+
   const filteredSessions = useMemo(() => {
     let result = sessions;
 
@@ -293,7 +343,10 @@ function SessionHistorySidebar({
       const hub = rootSessions[s.id];
       const moduleType =
         hub?.moduleType ?? inferModuleTypeFromWorkspaceId(s.workspaceId ?? "");
-      const workspaceId = hub?.workspaceId ?? s.workspaceId;
+      // N-62 V2（2026-09-20）：**只用会话自身的值**（不再取 Hub 覆盖）—— 与项目页卡片
+      // 同源（`chatSessions`）同判据，保证"项目页卡片数 = 项目页侧栏条数"。
+      // （Hub 记录的陈旧值/空串属数据侧问题，见 N-63）
+      const workspaceId = resolveSessionWorkspaceId(s.workspaceId);
 
       // 项目作用域：workspaceId 是会话归属的权威信号
       // （兼容 metadata.projectId / moduleType 缺失的历史会话）
@@ -310,13 +363,14 @@ function SessionHistorySidebar({
       result = result.filter((s) => s.pinned);
     }
 
-    // 2. 搜索过滤
+    // 2. 搜索过滤（§4.3-8：标题/ID 本地匹配 **或** 消息正文 FTS 命中）
     if (debouncedQuery.trim()) {
       const lower = debouncedQuery.toLowerCase();
       result = result.filter(
         (s) =>
           s.title.toLowerCase().includes(lower) ||
-          s.id.toLowerCase().includes(lower),
+          s.id.toLowerCase().includes(lower) ||
+          contentHitSessionIds.has(s.id),
       );
     }
 
@@ -330,6 +384,7 @@ function SessionHistorySidebar({
   }, [
     sessions,
     debouncedQuery,
+    contentHitSessionIds,
     filterTab,
     rootSessions,
     moduleContext,
@@ -337,28 +392,123 @@ function SessionHistorySidebar({
     scopeProjectId,
   ]);
 
+  /**
+   * §4.3-9（2026-09-20）：会话按**项目（= 工作区）**分组（对齐 Copilot 的 Projects 分组）。
+   *
+   * 设计约束（据现有实现推导，避免语义冲突）：
+   * - **项目作用域下不分组**：`scopeProjectId` 存在时 `filteredSessions` 已被过滤为单一项目，
+   *   分组只会得到一组 ⇒ 退化为平铺，保持原行为。
+   * - **取消跨组置顶**：`filteredSessions` 的跨组置顶（`:368-372`）会把不同项目的会话提到最前，
+   *   与分组冲突 ⇒ 分组时置顶降级为**组内置顶**。
+   * - 组排序按**组内最近活跃**降序；"未分组"始终最后。
+   * - 折叠的组**只产出组标题行**，其会话行不进入 `rows` ⇒ 虚拟滚动总高度自动正确。
+   */
+  const GROUP_UNASSIGNED = "__ungrouped__";
+  const rows = useMemo(() => {
+    type SessionItem = (typeof filteredSessions)[number];
+    type Row =
+      | {
+          kind: "group";
+          key: string;
+          wsId: string;
+          name: string;
+          count: number;
+        }
+      | { kind: "session"; key: string; session: SessionItem };
+
+    // 项目作用域下不分组（只有一组，分组无信息量）
+    if (scopeProjectId) {
+      return filteredSessions.map<Row>((s) => ({
+        kind: "session",
+        key: s.id,
+        session: s,
+      }));
+    }
+
+    const groups = new Map<string, SessionItem[]>();
+    const latestTs = new Map<string, number>();
+    for (const s of filteredSessions) {
+      // N-62 V2：与项目作用域过滤同源同判据（只用会话自身值，不取 Hub 覆盖）
+      const wsId = resolveSessionWorkspaceId(s.workspaceId) || GROUP_UNASSIGNED;
+      const key = wsId || GROUP_UNASSIGNED;
+      const list = groups.get(key);
+      if (list) list.push(s);
+      else groups.set(key, [s]);
+      // `updatedAt` 是 **ISO 字符串**（非时间戳）⇒ 解析为毫秒用于组排序；解析失败按 0（排最后）
+      const ts = s.updatedAt ? Date.parse(s.updatedAt) || 0 : 0;
+      if (ts > (latestTs.get(key) ?? 0)) latestTs.set(key, ts);
+    }
+
+    const orderedKeys = [...groups.keys()].sort((a, b) => {
+      if (a === GROUP_UNASSIGNED) return 1;
+      if (b === GROUP_UNASSIGNED) return -1;
+      return (latestTs.get(b) ?? 0) - (latestTs.get(a) ?? 0);
+    });
+
+    const out: Row[] = [];
+    for (const key of orderedKeys) {
+      const list = groups.get(key) ?? [];
+      const name =
+        key === GROUP_UNASSIGNED
+          ? t("chat.ungroupedSessions")
+          : (worktrees[key]?.name ?? key.slice(0, 8));
+      out.push({
+        kind: "group",
+        key: `group:${key}`,
+        wsId: key,
+        name,
+        count: list.length,
+      });
+      if (collapsedGroups.has(key)) continue;
+      // 组内：已固定优先（跨组置顶在分组语义下取消）
+      const pinned = list.filter((x) => x.pinned);
+      const normal = list.filter((x) => !x.pinned);
+      for (const s of [...pinned, ...normal]) {
+        out.push({ kind: "session", key: s.id, session: s });
+      }
+    }
+    return out;
+  }, [
+    filteredSessions,
+    rootSessions,
+    worktrees,
+    scopeProjectId,
+    collapsedGroups,
+    t,
+  ]);
+
+  /** §4.3-9：切换某分组的折叠状态 */
+  const toggleGroup = useCallback((wsId: string) => {
+    setCollapsedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(wsId)) next.delete(wsId);
+      else next.add(wsId);
+      return next;
+    });
+  }, []);
+
   // 虚拟列表计算：仅当会话数 > 50 时启用，减少小列表开销
   const VIRTUAL_SCROLL_THRESHOLD = 50;
-  const useVirtualScroll = filteredSessions.length > VIRTUAL_SCROLL_THRESHOLD;
+  // §4.3-9：虚拟化基于**分组后的行**（含组标题行），阈值取 rows.length
+  const useVirtualScroll = rows.length > VIRTUAL_SCROLL_THRESHOLD;
 
   const virtualList = useMemo(() => {
     if (!useVirtualScroll) {
       return {
-        total: filteredSessions.length,
-        visibleItems: filteredSessions,
+        total: rows.length,
+        visibleItems: rows,
         offsetY: 0,
         startIdx: 0,
         totalHeight: 0,
       };
     }
-    const total = filteredSessions.length;
+    const total = rows.length;
     const viewportHeight = listContainerRef.current?.clientHeight || 400;
     const overscan = 5;
 
-    // P3-5 修复：按会话 id 读取实测高度（过滤/删除后索引会错位，id 稳定）
+    // P3-5 修复：按**行 key** 读取实测高度（会话行 key=session.id；组标题行 key=`group:<wsId>`）
     const getHeight = (i: number): number =>
-      measuredHeights.current[filteredSessions[i]?.id ?? ""] ??
-      ESTIMATED_ITEM_HEIGHT;
+      measuredHeights.current[rows[i]?.key ?? ""] ?? ESTIMATED_ITEM_HEIGHT;
 
     // P10: 用实测高度计算 startIdx 和 offsetY，替代固定 ESTIMATED_ITEM_HEIGHT
     let cumulative = 0;
@@ -400,12 +550,18 @@ function SessionHistorySidebar({
 
     return {
       total,
-      visibleItems: filteredSessions.slice(startIdx, endIdx),
+      visibleItems: rows.slice(startIdx, endIdx),
       offsetY: cumulative,
       startIdx,
       totalHeight,
     };
-  }, [filteredSessions, scrollTop, measuredCount]);
+    // N-30：补 `useVirtualScroll`（`:387` 的局部布尔，非 hook）—— 它是 useMemo 内
+    // 的早退分支条件，缺失时虚拟滚动开关切换不会重算。
+    // `measuredCount` 是**刻意的额外依赖**：`measuredHeights` 是 ref，其变更经
+    // `setMeasuredCount` 触发本 useMemo 重算；eslint 静态分析看不到 ref→state 这条
+    // 链路，故误判为"多余依赖"——移除会导致实测高度更新后滚动位置不再重算（功能回归）。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows, scrollTop, measuredCount, useVirtualScroll]);
 
   useEffect(() => {
     loadSessions();
@@ -432,7 +588,7 @@ function SessionHistorySidebar({
 
     try {
       if (import.meta.env.DEV)
-        console.info("[SessionSwitch] 开始切换会话", {
+        logger.info("[SessionSwitch] 开始切换会话", {
           sessionId: id,
           prevSessionId: currentSession?.id ?? "none",
           timestamp: Date.now(),
@@ -441,7 +597,7 @@ function SessionHistorySidebar({
       await switchSession(id);
 
       if (import.meta.env.DEV)
-        console.info("[SessionSwitch] 会话切换成功", {
+        logger.info("[SessionSwitch] 会话切换成功", {
           sessionId: id,
           timestamp: Date.now(),
         });
@@ -727,9 +883,12 @@ function SessionHistorySidebar({
             </p>
           </div>
         ) : filteredSessions.length === 0 ? (
-          <p className="text-xs text-gray-400 text-center py-4">
-            {t("chat.noResults")}
-          </p>
+          <div className="px-3 py-4 text-center">
+            <p className="text-xs text-gray-400">{t("chat.noResults")}</p>
+            <p className="text-xs text-blue-500 dark:text-blue-400 mt-1">
+              {t("chat.searchSessionsHint")}
+            </p>
+          </div>
         ) : (
           <div
             style={
@@ -748,22 +907,59 @@ function SessionHistorySidebar({
                   : undefined
               }
             >
-              {virtualList.visibleItems.map((session) => (
+              {virtualList.visibleItems.map((row) =>
+                row.kind === "group" ? (
+                  <div
+                    key={row.key}
+                    ref={
+                      useVirtualScroll
+                        ? (el) => measureItem(row.key, el)
+                        : undefined
+                    }
+                  >
+                    {/* §4.3-9：项目分组标题（点击折叠/展开） */}
+                    <button
+                      type="button"
+                      onClick={() => toggleGroup(row.wsId)}
+                      aria-expanded={!collapsedGroups.has(row.wsId)}
+                      title={row.name}
+                      className="w-full flex items-center gap-1.5 px-2 py-1 mt-1 text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md transition-colors"
+                    >
+                      <svg
+                        className={`w-3 h-3 shrink-0 transition-transform ${collapsedGroups.has(row.wsId) ? "" : "rotate-90"}`}
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M9 5l7 7-7 7"
+                        />
+                      </svg>
+                      <span className="truncate">{row.name}</span>
+                      <span className="ml-auto text-[10px] text-gray-400 dark:text-gray-500">
+                        {row.count}
+                      </span>
+                    </button>
+                  </div>
+                ) : (
                 <div
-                  key={session.id}
+                  key={row.key}
                   ref={
                     useVirtualScroll
-                      ? (el) => measureItem(session.id, el)
+                      ? (el) => measureItem(row.key, el)
                       : undefined
                   }
                 >
                   <SessionListItem
-                    session={session}
-                    isActive={currentSession?.id === session.id}
-                    isEditing={editingId === session.id}
+                    session={row.session}
+                    isActive={currentSession?.id === row.session.id}
+                    isEditing={editingId === row.session.id}
                     editTitle={editTitle}
-                    pinned={isPinned(session.id)}
-                    isDreamProcessed={dreamProcessedIds.has(session.id)}
+                    pinned={isPinned(row.session.id)}
+                    isDreamProcessed={dreamProcessedIds.has(row.session.id)}
                     getSourceLabel={getSourceLabel}
                     onSwitch={handleSwitchSession}
                     onDoubleClick={handleDoubleClick}
@@ -774,7 +970,8 @@ function SessionHistorySidebar({
                     onContextMenu={handleContextMenu}
                   />
                 </div>
-              ))}
+                ),
+              )}
             </div>
           </div>
         )}

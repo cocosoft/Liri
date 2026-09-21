@@ -7,7 +7,6 @@ import { setSessionCache } from "../stores/chat/chat-history.slice";
 import { importLegacyMessages } from "../stores/chat/legacyMessageImporter";
 
 const logger = createLogger("sessionService");
-
 const isTauri =
   typeof window !== "undefined" &&
   ("__TAURI__" in window || "__TAURI_INTERNALS__" in window);
@@ -18,6 +17,50 @@ let _isUsingFallback = false;
 /** 获取当前是否处于降级模式 */
 export function isUsingFallback(): boolean {
   return _isUsingFallback;
+}
+
+/**
+ * N-45（2026-09-20）：取会话**运行态**（流式状态 + yield 状态）。
+ *
+ * `yieldState` 由后端**读时派生**：`'waiting'` = 本轮已让出、仍在等子任务结算；
+ * `'unresolved'` = 已让出但未能自动恢复（进程重启 / 结算丢失）。
+ *
+ * 走**会话级端点**而非消息字段：真实让出轮次的承载消息会被前端 store 丢弃
+ * （`chat-message-set-messages.ts` 只回填有 assistant 配对的 tool 消息，详见台账 N-48），
+ * 故会话级状态不受消息管道影响。
+ */
+export async function getSessionRuntimeStatus(sessionId: string): Promise<{
+  streaming: boolean;
+  yieldState?: "waiting" | "unresolved";
+}> {
+  const res = await apiHttp.get<{
+    streaming?: boolean;
+    yieldState?: "waiting" | "unresolved";
+  }>(`/v1/sessions/${sessionId}/streaming`);
+  return {
+    streaming: res.data?.streaming === true,
+    yieldState: res.data?.yieldState,
+  };
+}
+
+// ─── 消息列表规范化：收敛后端响应包装差异 ───
+/**
+ * normalizeMessageList — 把 `GET /v1/sessions/:id/messages` 的响应统一为 `Message[]`。
+ *
+ * 该端点 HTTP 路径返回**对象包装** `{ messages: [...] }`，Tauri 回退命令
+ * `get_session_messages` 返回裸数组。本模块对外的契约为 `Promise<Message[]>`，
+ * 此前 `getMessages` 直接 `return res.data` ⇒ **把对象当数组传出**（类型断言掩盖），
+ * 上游 4 个消费者全部受损：`setMessages` 抛 `messages is not iterable`（聊天区被清空）、
+ * `importLegacyMessages` 的 `messages.map` 抛错（`loadConversation` 兜底失效）、
+ * 会话导出 `persisted.length > 0` 恒 false（静默降级为内存快照）。
+ *
+ * @param data 原始响应（数组或 `{ messages }` 包装，亦可能是异常形态）
+ * @returns 消息数组（异常形态返回空数组）
+ */
+export function normalizeMessageList(data: unknown): Message[] {
+  if (Array.isArray(data)) return data as Message[];
+  const wrapped = (data as { messages?: unknown } | null | undefined)?.messages;
+  return Array.isArray(wrapped) ? (wrapped as Message[]) : [];
 }
 
 // ─── A2：events 回放规范化（防重复渲染的双保险防线） ───
@@ -234,6 +277,7 @@ function flattenSession<S extends Session | null>(session: S): S {
       workspaceId?: string;
       providerId?: string;
       workspacePath?: string;
+      projectId?: string;
       tasksOverride?: Record<string, string>;
       pinned?: boolean;
       workMode?: "plan" | "do";
@@ -253,6 +297,12 @@ function flattenSession<S extends Session | null>(session: S): S {
     tasksOverride:
       (raw.metadata?.tasksOverride as Record<string, string> | undefined) ||
       session.tasksOverride,
+    // N-64（2026-09-20）：项目归属的**权威事实面** —— 后端 `effectiveProjectId()`
+    // 即以 `metadata.projectId` 优先判定（legacy `workspaceId` 的 `project-` 前缀兜底），
+    // 此前 flatten 未提取该字段 ⇒ 前端消费点只能退而用 `workspaceId`（后端创建时不写）
+    // ⇒ "项目是否已有会话"恒判为否 ⇒ 反复创建。此处补齐提取。
+    projectId:
+      raw.metadata?.projectId || (session as { projectId?: string }).projectId,
   };
 }
 
@@ -332,6 +382,7 @@ export const sessionService = {
       workspacePath?: string;
       moduleType?: string;
       projectId?: string;
+      temporary?: boolean;
     },
   ): Promise<Session> => {
     return getOTelTracing().asyncWrap(
@@ -345,6 +396,8 @@ export const sessionService = {
             body.workspace_path = options.workspacePath;
           if (options?.moduleType) body.moduleType = options.moduleType;
           if (options?.projectId) body.projectId = options.projectId;
+          // A1 临时对话：temporary=true 透传（后端写入 metadata 持久化标记）
+          if (options?.temporary === true) body.temporary = true;
           const res = await apiHttp.post<Session>("/v1/sessions", body);
           if (res.ok) {
             _isUsingFallback = false;
@@ -622,12 +675,12 @@ export const sessionService = {
       "services:session:getMessages",
       async () => {
         try {
-          const res = await apiHttp.get<Message[]>(
+          const res = await apiHttp.get<Message[] | { messages?: Message[] }>(
             `/v1/sessions/${sessionId}/messages`,
           );
           if (res.ok) {
             _isUsingFallback = false;
-            return res.data ?? [];
+            return normalizeMessageList(res.data);
           }
           logger.warn("获取会话消息失败", { sessionId, error: res.error });
         } catch (e) {
@@ -692,7 +745,9 @@ export const sessionService = {
             const hasMore = !Array.isArray(data)
               ? data.hasMore === true
               : false;
-            if (messages.length > 0) {
+            // N-56：仅完整会话结果入缓存。分页结果（limit 非空）只有最近一页，
+            // 写入缓存会让"切走再切回"命中残缺列表且丢失"加载更早"入口。
+            if (messages.length > 0 && options?.limit == null) {
               setSessionCache(sessionId, messages);
             }
             logger.info("loadConversation: 消费后端派生结果", {

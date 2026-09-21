@@ -10,6 +10,13 @@ export interface MessageSlice {
   messages: Message[];
   /** KB-LONG-SESSION（2026-08-29）：长会话分页——是否还有更早历史消息（首次载入超阈值时） */
   hasOlder: boolean;
+  /**
+   * 分页游标：已加载内容中最早一条的**后端** `lastEventSeq`（下一页请求的 `before`）。
+   * 不能改用 `store.messages[0].lastEventSeq` —— store 列表经过 tool 结果吸收（进 blocks）
+   * 与连续 assistant 合并后，已与后端分页边界不一致（实测游标偏后 ⇒ 下一页与当前页重叠
+   * 且 `hasMore` 恒为 true，更早历史永远取不到）。
+   */
+  oldestSeq: number | null;
   /** 加载更早历史消息进行中（防重） */
   loadingOlder: boolean;
   isSending: boolean;
@@ -113,6 +120,8 @@ export interface MessageSlice {
   setMessages: (messages: Message[]) => void;
   /** KB-LONG-SESSION（2026-08-29）：设置"是否还有更早历史"标记（会话载入分页后） */
   setHasOlder: (hasOlder: boolean) => void;
+  /** 设置分页游标（会话载入 / 加载更早之后更新；无更早历史时为 null） */
+  setOldestSeq: (seq: number | null) => void;
   /** KB-LONG-SESSION（2026-08-29）：加载更早历史消息（before=最早消息 lastEventSeq），拼接到头部 */
   loadOlderMessages: () => Promise<void>;
   setReplyMessage: (message: Message | null) => void;

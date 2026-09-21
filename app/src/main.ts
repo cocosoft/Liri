@@ -1244,11 +1244,44 @@ async function launchTest(_options: LaunchOptions): Promise<void> {
 }
 
 /**
+ * N-40（2026-09-20）：按「任务分工」解析首选聊天模型（`chat` → `default`）。
+ *
+ * 背景：档位默认模型原取 `chatModels[0]`，而 `ModelPricingService.getAllPricing()` 是
+ * `SELECT * FROM model_registry ORDER BY model_id ASC` —— **modelId 以数字开头的模型会排到
+ * 最前**（实测首行为 `246676332` 的私有化模型）⇒ 与任务分工无关的模型被当成 simple/medium
+ * 档位默认 ⇒ 动态路由把该 modelId 原样发给其 provider（不认该名字）⇒ 400。
+ * 用户回合因前端显式带 model 可绕过，**后端发起的回合（系统续跑等）不指定 model 则必踩**。
+ *
+ * 配置表存的是 `model_registry.id`（UUID），此处映射回 modelId；同时兼容历史/手工写入的
+ * 模型名。取不到返回 null（调用方回退"首个聊天模型"启发式）。
+ */
+async function resolveTaskConfiguredChatModel<
+  T extends { id: string; modelId: string },
+>(allModels: T[]): Promise<T | null> {
+  try {
+    const { appModelConfigService } = await import('@modules/ai');
+    await appModelConfigService.initialize();
+    for (const appType of ['chat', 'default']) {
+      const configured = await appModelConfigService.getModel(appType);
+      if (!configured) continue;
+      const hit =
+        allModels.find((m) => m.id === configured) ??
+        allModels.find((m) => m.modelId === configured);
+      if (hit) return hit;
+    }
+  } catch {
+    // @ignore-catch 任务分工读取失败不阻断启动 → 调用方回退首行启发式
+  }
+  return null;
+}
+
+/**
  * 从 DB model_registry 查询已启用聊天模型，为 SmartRouter tiers 提供默认值。
  * 仅在用户未手动配置 tiers（config.models.router.tiers 为空）时起作用。
  *
  * 分类逻辑：
- * - simple / medium: 第一个启用的通用聊天模型
+ * - simple / medium: 「任务分工」配置的 chat（→ default）模型；取不到才回退"首个启用的通用聊天模型"
+ *   （N-40：原直接取首个，受 `ORDER BY model_id` 影响，数字开头的 modelId 会被误选）
  * - complex / reasoning: 优先选含 reasoning capability 或名称含 reasoner/pro 的模型
  * - 排除非聊天模型（image_generation, embedding, tts 等）
  * - DB 查询失败或无可选模型时返回空（SmartRouter 走 fallback 链）
@@ -1302,8 +1335,12 @@ async function resolveDefaultTiersFromDb(): Promise<
         /-pro$/i.test(m.modelId)
     );
 
-    const defaultModel = chatModels[0].modelId;
-    const providerHint = chatModels[0].providerId || '';
+    // N-40：优先按「任务分工」取默认档位模型（统一决策、数出同源）；
+    // 取不到才回退"首个聊天模型"启发式（该启发式受 ORDER BY model_id 影响，顺序不稳定）
+    const baseModel =
+      (await resolveTaskConfiguredChatModel(enabled)) ?? chatModels[0];
+    const defaultModel = baseModel.modelId;
+    const providerHint = baseModel.providerId || '';
     const reasoningModel =
       reasoningModels.length > 0 ? reasoningModels[0].modelId : defaultModel;
 
@@ -1818,6 +1855,22 @@ export async function launch(options: LaunchOptions): Promise<void> {
       const { connectionRegistry } =
         await import('./core/connections/ConnectionRegistry.js');
       connectionRegistry.verifyAll();
+    });
+
+    // CG3 自主执行闭环接线（N-43，2026-09-20）：`startCg3()` 此前**全仓零调用** ⇒
+    // `SelfWakeService` / `AlwaysOnManager` 从未实例化，导致：
+    //   ① `sleep_for` / `sleep_until`（N-37 已注册进模型工具清单）执行时必然失败
+    //      （实测返回"SelfWake 服务未初始化（CG3 未启动）"）；
+    //   ② N-26 修好的「SelfWake.fire() → 会话续跑」没有任何触发场景
+    //      （`CronScheduler.extraTick → getDueWakes()` 这条线也不存在）。
+    // 注：①`CronScheduler` 尚未启动时 `wireSelfWakeToCron` 会告警并返回 false ——
+    // 短时唤醒（`seconds×1000 < tickInterval`）走 setTimeout，不受影响；
+    // ②AlwaysOn 侧仅完成连线：其 runtimes 由 `registerProject()` 创建、当前无任何注册
+    // ⇒ `notifyUserActivity()` 遍历空集合，**不会产生自主行为**。
+    await wrapInit('Cg3', async () => {
+      const { startCg3 } = await import('@modules/tasks/Cg3Bootstrap');
+      const { getCoreAPI } = await import('@modules/runtime/api/CoreAPIImpl');
+      await startCg3(getCoreAPI().getChatManager());
     });
 
     // T2: 模式分发 + 后台延迟加载

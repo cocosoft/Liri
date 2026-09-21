@@ -569,8 +569,18 @@ export async function handleGetTasks(
     for (const m of allModels) {
       if (m.id) modelNames[m.id] = m.displayName || m.modelId;
     }
+    // N-46（2026-09-20）：透出每个任务的**配置来源**，便于前端/排查区分
+    // "用户显式配置（chat 类 route 上优先于 SmartRouter 档位）" vs "系统播种（不覆盖档位）"。
+    const { appModelConfigService } =
+      await import('../models/AppModelConfigService.js');
+    await appModelConfigService.initialize();
+    const sources: Record<string, 'user' | 'seed'> = {};
+    for (const taskType of Object.keys(tasks)) {
+      const cfg = await appModelConfigService.getConfig(taskType);
+      sources[taskType] = cfg?.source === 'user' ? 'user' : 'seed';
+    }
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-    res.end(JSON.stringify({ tasks, modelNames }));
+    res.end(JSON.stringify({ tasks, modelNames, sources }));
   } catch (err) {
     await handleError(err, {
       module: 'ai:modelManagement',

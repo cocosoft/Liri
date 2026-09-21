@@ -62,6 +62,7 @@ import {
   handleUpdateModel,
   handleDeleteModel,
   handleSyncOfficialPricing,
+  handleListOrphanModels,
 } from './api/ModelAPI.js';
 import {
   handleListModels,
@@ -238,6 +239,13 @@ const ROUTES: RouteEntry[] = [
     method: 'PUT',
     pattern: /^\/v1\/models\/default$/,
     handler: handleSetDefaultModel,
+  },
+  // N-59 后续：孤儿模型（供应商已删除）—— 必须在 `/v1/models/([^/]+)$` **之前**注册，
+  // 否则 `orphans` 会被当作 `:id` 劫持（同本文件末尾的通用路由约定）
+  {
+    method: 'GET',
+    pattern: /^\/v1\/models\/orphans$/,
+    handler: handleListOrphanModels,
   },
   { method: 'GET', pattern: /^\/v1\/models$/, handler: handleListModels },
   {

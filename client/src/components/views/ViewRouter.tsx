@@ -34,6 +34,13 @@ function WelcomeScreen(): React.ReactElement {
  *
  * 从 Root Store 中读取当前 session 和已注册的模块列表，
  * 根据 moduleType 动态查找对应视图组件渲染。
+ *
+ * ⚠️ 当前**未被任何组件渲染**（页面由 `routes/index.tsx` 的 lazy 路由承担）。
+ * 该机制属**规划中**：`hooks/useAutoCreateSession.ts` 注明"Phase 4 全部迁移后，
+ * 此钩子可移除（届时由 ViewRouter 直接管理）"。故 Phase B **保留**本组件而非删除。
+ *
+ * 启用前需注意：当前**没有任何 `registerModule` 调用设置 `component`**，
+ * 本组件的 `mod?.component` 恒为 undefined（会落到 WelcomeScreen）；启用时须同步补齐注册来源。
  */
 export function ViewRouter(): React.ReactElement {
   const currentSession = useRootStore(selectCurrentSession);

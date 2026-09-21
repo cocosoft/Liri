@@ -101,7 +101,9 @@ export interface ReActState {
     | 'truncated'
     // K1（2026-09-05）：预算耗尽使用专门 phase——骨架 budget 分支原置 'completed'
     // 会把"预算耗尽终止"误报为正常完成（消费 phase==='completed' 的上层无法区分）。
-    | 'budget_exhausted';
+    | 'budget_exhausted'
+    // 阶段 A（A1-d）：以 sessions_yield 让出 turn 的收尾相位（既非完成也非截断）
+    | 'yielded';
   pendingToolCalls: ToolCallEntry[];
   lastError?: string;
 }
@@ -127,6 +129,12 @@ export interface ActResult {
   results: ToolResultEntry[];
   allSucceeded: boolean;
   anyAborted: boolean;
+  /**
+   * 阶段 A（A1-d）：本轮是否以 `sessions_yield` 让出 turn。
+   * 为 true 时骨架不再进入下一轮，直接 finalize（对外会话状态保持 running，
+   * 等待子代理结算后由恢复通路开启新 turn；见 .trae/documents/阶段A-恢复通路设计Spec.md）。
+   */
+  yielded?: boolean;
 }
 
 /** 工具结果条目 */
@@ -168,7 +176,9 @@ export type ReActEvent =
   | { type: 'max_iterations'; maxIterations: number }
   // v3：交互工具提问（act generator 化后由 ReActToolLoop 产出，穿透 generator 挂起链路）
   | { type: 'question'; questionData: QuestionData }
-  | { type: 'question_waiting' };
+  | { type: 'question_waiting' }
+  // 阶段 A（A1-d）：本轮以 sessions_yield 让出 turn（骨架据此收尾，不再进入下一轮）
+  | { type: 'yielded' };
 
 /** 预算控制器最小接口（下沉自 TAORLoop TokenBudget 语义，2026-09-01；子类可选接入） */
 export interface BudgetControllerLike {
@@ -217,6 +227,12 @@ export abstract class ReActLoop<
   private _abortController: AbortController;
   protected state: ReActState;
   protected consecutiveInvalidTurns = 0;
+
+  /**
+   * N-42（2026-09-20）：外部已产生的工具调用 ⇒ 作为**首轮 ACT** 执行（消费一次即清空）。
+   * 见 `seedPendingToolCalls()`。
+   */
+  private seededToolCalls: ToolCallEntry[] | null = null;
 
   /** D 项（2026-08-30）：无进展熔断——最近 N 轮工具+状态签名窗口 */
   private recentRoundSignatures: string[] = [];
@@ -284,6 +300,23 @@ export abstract class ReActLoop<
   /** 运行时注入 steering 消息（下一轮 reason 前经 onSteering 生效） */
   queueSteering(message: string): void {
     this.steeringQueue.push(message);
+  }
+
+  /**
+   * N-42（2026-09-20）：以「外部已产生的工具调用」作为**首轮 ACT**（跳过首轮 REASON）。
+   *
+   * 用途：非流式路径（`ChatOrchestrator.sendMessage` → `invokeLlm`）的首个响应就含
+   * `tool_calls` 时，此前只把该 assistant 消息补进 `ctx.apiMessages` 就委托本循环——
+   * 但骨架**只有 REASON→ACT 单一入口**，首轮仍会调 LLM：于是把"带未答 tool_call 的历史"
+   * 发给模型，`MessageProjector` 为防 provider 400 会为它注入 `[result truncated]` 占位
+   * ⇒ 模型据**伪结果**直接作答 ⇒ `turns:1 completed`、**工具从未执行**
+   * （各渠道"只回一次 + 动作不执行"的根因；`sessions_yield` 亦因此从不登记 ⇒ 台账 N-42）。
+   *
+   * 语义：命中后本轮直接进入 ACT（工具在 `act()` 内真正执行，含 yield 登记/短路与
+   * 工具结果回填），之后照常进入下一轮 REASON。
+   */
+  seedPendingToolCalls(toolCalls: ToolCallEntry[]): void {
+    this.seededToolCalls = toolCalls.length > 0 ? [...toolCalls] : null;
   }
 
   // ==========================================
@@ -512,39 +545,61 @@ export abstract class ReActLoop<
           });
         }
 
-        // --- Compression check (before reasoning) ---
-        await this.beforeReasoning(input, context);
-
-        // ==== REASONING PHASE ====
-        this.state.phase = 'reasoning';
-        yield { type: 'reasoning_start' };
-
         let reasonResult: ReasonResult<TContext>;
-        try {
-          // M4（方案 A）：reason 为 generator —— 迭代消费即时事件（增量文本/thinking/phase），
-          // 收集 return 值作为 ReasonResult（主循环 await 期间不再吞掉增量输出）。
-          const reasonIter = this.reason(input, context);
-          let iterResult = await reasonIter.next();
-          while (!iterResult.done) {
-            yield iterResult.value;
-            iterResult = await reasonIter.next();
-          }
-          reasonResult = iterResult.value;
-          context = reasonResult.context ?? context;
+
+        if (this.seededToolCalls && this.seededToolCalls.length > 0) {
+          // ==== SEEDED ACTING PHASE（N-42）====
+          // 外部已产生工具调用 ⇒ 本轮**跳过 REASON 直接进入 ACT**，使工具在 act() 内真正执行
+          // （含 yield 登记/短路 + 工具结果回填）。详见 `seedPendingToolCalls()` 注释。
+          const seeded = this.seededToolCalls;
+          this.seededToolCalls = null;
+          reasonResult = {
+            text: '',
+            toolCalls: seeded,
+            finishReason: 'tool_calls',
+          };
+          logger.info('reActLoop:seeded_acting', {
+            toolCount: seeded.length,
+            toolNames: seeded.map((tc) => tc.name),
+          });
           yield { type: 'reasoning_end', result: reasonResult };
-        } catch (err) {
-          handleError(err, { module: 'query:reactLoop', action: 'reasoning' });
-          logger.warn('reActLoop:reasoning_error', { error: String(err) });
-          const recovered = await this.onReasoningError(err, input, context);
-          if (recovered) {
-            reasonResult = recovered;
+        } else {
+          // --- Compression check (before reasoning) ---
+          await this.beforeReasoning(input, context);
+
+          // ==== REASONING PHASE ====
+          this.state.phase = 'reasoning';
+          yield { type: 'reasoning_start' };
+
+          try {
+            // M4（方案 A）：reason 为 generator —— 迭代消费即时事件（增量文本/thinking/phase），
+            // 收集 return 值作为 ReasonResult（主循环 await 期间不再吞掉增量输出）。
+            const reasonIter = this.reason(input, context);
+            let iterResult = await reasonIter.next();
+            while (!iterResult.done) {
+              yield iterResult.value;
+              iterResult = await reasonIter.next();
+            }
+            reasonResult = iterResult.value;
             context = reasonResult.context ?? context;
             yield { type: 'reasoning_end', result: reasonResult };
-          } else {
-            this.state.phase = 'error';
-            this.state.lastError = String(err);
-            yield { type: 'error', message: String(err) };
-            return this.finalize(this.state, context);
+          } catch (err) {
+            handleError(err, {
+              module: 'query:reactLoop',
+              action: 'reasoning',
+            });
+            logger.warn('reActLoop:reasoning_error', { error: String(err) });
+            const recovered = await this.onReasoningError(err, input, context);
+            if (recovered) {
+              reasonResult = recovered;
+              context = reasonResult.context ?? context;
+              yield { type: 'reasoning_end', result: reasonResult };
+            } else {
+              this.state.phase = 'error';
+              this.state.lastError = String(err);
+              yield { type: 'error', message: String(err) };
+              return this.finalize(this.state, context);
+            }
           }
         }
 
@@ -623,6 +678,16 @@ export abstract class ReActLoop<
           };
         }
         yield { type: 'acting_end', result: actResult };
+
+        // --- 阶段 A（A1-d）：yield 短路 ---
+        // 本轮以 sessions_yield 让出 turn（act 已把等待登记写入 YieldRegistry）：
+        // 不再进入下一轮 reason（让出后模型不应继续执行），直接收尾。
+        // 会话对外状态保持 running；子代理全部结算后由恢复通路开启新 turn。
+        if (actResult.yielded) {
+          this.state.phase = 'yielded';
+          yield { type: 'yielded' };
+          return this.finalize(this.state, context);
+        }
 
         // --- D 项（2026-08-30）：无进展熔断 ---
         // 连续 maxRepeatedRounds 轮"工具名+状态"签名完全相同 → 视为死循环。

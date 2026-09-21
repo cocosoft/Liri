@@ -63,6 +63,8 @@ interface GlobalSearchModalProps {
   onClose: () => void;
   /** 是否为暗色主题（预留） */
   isDark?: boolean;
+  /** §4.2-4（方案 B）：打开时预填的关键词（经 `/search 关键词` 打开时携带）；缺省不预填 */
+  initialQuery?: string;
 }
 
 /**
@@ -76,6 +78,7 @@ export default function GlobalSearchModal({
   isOpen,
   onClose,
   isDark: _isDark,
+  initialQuery = "",
 }: GlobalSearchModalProps) {
   const { t } = useTranslation();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -107,14 +110,15 @@ export default function GlobalSearchModal({
   /** 聚焦输入框 */
   useEffect(() => {
     if (isOpen) {
-      setQuery("");
+      // §4.2-4（方案 B）：打开时可预填关键词（`/search 关键词`）；非预填场景传 ""
+      setQuery(initialQuery);
       setSessionResults([]);
       setFileResults([]);
       setKnowledgeResults([]);
       setMessageResults([]);
       setTimeout(() => inputRef.current?.focus(), 50);
     }
-  }, [isOpen]);
+  }, [isOpen, initialQuery]);
 
   /** 300ms 防抖搜索（M4：带请求序号，旧请求晚返回不覆盖新结果） */
   useEffect(() => {
@@ -214,7 +218,7 @@ export default function GlobalSearchModal({
       // /v1/sessions/messages/search 后可按消息正文检索历史记录。
       let msgRes: MessageSearchResult[] = [];
       try {
-        msgRes = await sessionService.searchMessages(q, 5);
+        msgRes = await sessionService.searchMessages(q, 20);
         if (seq !== searchSeqRef.current) {
           logger.info("search:staleDrop", {
             seq,
@@ -341,7 +345,11 @@ export default function GlobalSearchModal({
       if (ws) return { icon: "📁", name: ws.name, type: "workspace" };
     }
     // 默认为聊天模块
-    return { icon: getModuleMeta("chat").emoji, name: "聊天", type: "module" };
+    return {
+      icon: getModuleMeta("chat").emoji,
+      name: t("nav.chat"),
+      type: "module",
+    };
   };
 
   /** 点击文件结果：跳转文件页面 */
@@ -409,8 +417,13 @@ export default function GlobalSearchModal({
         onClick={onClose}
       />
 
-      {/* 搜索弹窗 */}
-      <div className="fixed inset-x-0 top-[15%] z-50 mx-auto max-w-xl">
+      {/* 搜索弹窗 —— §4.3-7：补无障碍语义（与 N-3 工作台抽屉同类，此前无 role/aria） */}
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={t("common.search")}
+        className="fixed inset-x-0 top-[15%] z-50 mx-auto max-w-xl"
+      >
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
           {/* 搜索输入 */}
           <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-200 dark:border-gray-700">

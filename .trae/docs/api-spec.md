@@ -111,14 +111,18 @@
 | 方法 | 路径 | 后端状态 | 前端调用方 |
 |------|------|----------|-----------|
 | GET | `/v1/models` | ✅ | `modelService.list`, `chatService.fetchModels` |
+| GET | `/v1/models/orphans` | ✅ **2026-09-20 新增** | `modelService.listOrphanModels`（**供应商已被删除的模型（孤儿）**：handler `handleListOrphanModels` → `collectOrphanModels()`，判据"`provider_id` 为 UUID 且不在 `ai_providers`"；这类模型因无匹配供应商**不会出现在 `GET /v1/models`** 中，本端点供模型管理页「供应商缺失的模型」区块展示与重绑；**重绑**用既有 `PUT /v1/models/{id}` 传 `providerId`，**启用**用既有 `POST /v1/models/{id}/toggle`；返回 `{ data: [{ id, modelId, displayName, providerId, enabled, isCustom }] }`） |
 | POST | `/v1/models/test` | ✅ | 无前端调用方 |
 | POST | `/v1/models/probe` | ✅ **2026-08-19 新增** | `modelService.probeCapabilities`（模型能力静态探测：body `{ modelId, persist? }`（modelId 为模型名，默认 persist=true 写回 `model_registry.capabilities`）；返回 `{ data: { modelId, providerType, method: static\|skipped\|failed, tool_use, vision, persisted } }`；仅本地可静态探测 Provider（ollama `/api/show`、llamacpp `/props`），云端返回 skipped） |
 | GET | `/v1/models/current` | ✅ | `modelSwitchService.getCurrent` |
 |  | 响应新增 `isNonChat: boolean` 字段（v2.3） |  | 非聊天模型标记，前端据此显示警告 |
 | POST | `/v1/models/switch` | ✅ | `modelSwitchService.switch` |
 |  | 响应 `{ data: { modelId, modelName } }` |  | modelId=UUID, modelName=模型名 |
-| GET | `/v1/models/tasks` | ✅ | `modelSwitchService.getTasks` |
+| GET | `/v1/models/tasks` | ✅ | `modelSwitchService.getTasks` / `getTasksWithSources` |
+|  | 响应含 `sources: Record<task, 'user' \| 'seed'>`（N-46，2026-09-20） |  | `'user'` = 用户在本页显式保存过 ⇒ 该任务在 chat 类 route（chat/coding/translation/agent/scheduled）上**优先于**智能路由档位；`'seed'` = 系统播种 ⇒ 实际模型由档位决定。任务分工页据此显示「显式/跟随档位」徽章 |
+|  | 响应含 `modelNames: Record<uuid, 显示名>`（N-47，2026-09-20） |  | 任务分工页据此把"已配置但不在下拉选项中的存量值"显示为真实名称（否则受控 select 静默回退显示"未设置"） |
 | PUT | `/v1/models/tasks` | ✅ | `modelSwitchService.saveTasks` |
+|  | 保存时对"有值键"写 `source='user'`、空串键 `deleteConfig`（N-46） |  | 空串 = 清除该任务配置（`default` 除外） |
 | PUT | `/v1/models/default` | ✅ | `modelSwitchService.setDefaultModel` |
 
 ### §3.3 模型供应商（子路由: ModelManagementAPI）
@@ -224,14 +228,17 @@
 | DELETE | `/v1/sessions/{id}` | ✅ | `sessionService.delete`（**M2-T2.2** 级联：会话删除 → 引擎中止 ✓ → 孤儿审批项关闭（pending/processing → dismissed，/v1/inbox 不残留可答复项）→ 检查点/事件日志/协商状态清理 ✓；通道为 bot 级长连接，无 per-session 订阅需退订） |
 | POST | `/v1/sessions/{id}/switch` | ✅ | `sessionService.switch` |
 | GET | `/v1/sessions/{id}/messages` | ✅ | `sessionService.getMessages` / `sessionService.loadConversation`（KB-LONG-SESSION：支持 `?limit&before` 分页——`limit>0` 取末尾 limit 条并返回 `{ messages, hasMore }`，`before` 为 lastEventSeq 游标加载更早；不传 limit 返回数组全量，兼容旧格式） |
+|  | **读源（N-52 修复，2026-09-20）** |  | 主源为**事件派生**（`事件派生(agg) + 投影覆盖`，按 `lastEventSeq` 排序；同一 messageId 自动去重）；取不到事件日志实例或派生为空时**降级为投影**（`messages.jsonl`）纯读。删除的轮次由会话元数据 `deletedMessageRanges` 墓碑在读时过滤（N-50） |
 | GET | `/v1/sessions/{id}/events` | ✅ M1-6 | `trajectoryService.getEvents`（M1-7；`?fromSeq&toSeq&types&limit&recent`，recent=1 时尾部优先取最后 limit 条——日志/轨迹面板显示最近事件） |
 | GET | `/v1/sessions/{id}/events/export` | ✅ P7 | `trajectoryService.exportEvents`（导出 jsonl/json，`?format=jsonl\|json`） |
 | GET | `/v1/sessions/{id}/stats` | ✅ D7 | `trajectoryService.getSessionStats`（事件投影统计：消息/工具/轮次/压缩，与 `/v1/usage` token 成本维度不同） |
 | POST | `/v1/sessions/{id}/fork` | ✅ D3 | 前端「另存为分支」`sessionService.forkSession`（body `{ boundary?, childTitle? }`；复制 `[1..boundary]` 前缀事件 + 血缘 `parentSessionId/seedLength`，boundary 缺省=tailSeq，open turn 拒绝 400） |
 | POST | `/v1/sessions/{id}/messages` | ✅ 写前持久化 | `chatService.addMessage`（断网 outbox 补发） |
+| DELETE | `/v1/sessions/{id}/messages/{mid}` | ✅ **2026-09-20 语义修正（N-50）** | 删除**整轮**：仅接受 `role='user'` 的消息（否则 400）；删除范围 = 该 user 消息起、到下一个 user 消息之前（**连同其助手/工具回复**），避免遗留"孤儿回复"；投影 `messages.jsonl` 即时重写（重启后仍生效）、附件按整轮清理、审计日志 `Message deleted` 带 `deletedMessageIds`；**不改动事件日志**（当前读源为投影兜底，见台账 N-52） |
 | POST | `/v1/sessions/{id}/title` | ✅ | `sessionService.generateTitle` |
 | PUT | `/api/session/{id}/message/{msgId}/blocks` | ✅ | `chatService.updateMessageBlocks` |
-| GET | `/v1/sessions/{id}/streaming` | ✅ P1-5 | `chat-message.slice.ts` ghostCheckTimer |
+| GET | `/v1/sessions/{id}/streaming` | ✅ P1-5 | `chat-message.slice.ts` ghostCheckTimer；`sessionService.getSessionRuntimeStatus` |
+|  | 响应含 `yieldState?: 'waiting' \| 'unresolved'`（N-45，2026-09-20） |  | **会话级** yield 状态（后端读时派生：`waiting` = 本轮已让出、仍在等子任务结算；`unresolved` = 已让出但未能自动恢复）。消费方：`YieldNoticeBar`（会话级提示条）—— 不走消息字段是因为让出轮次的承载消息会被前端 store 丢弃（台账 N-48） |
 | GET | `/v1/sessions/{id}/checkpoints/latest` | ✅ P2-1 | `chat-message.slice.ts` reconnect |
 | POST | `/v1/sessions/{id}/resume` | ✅ P2-1 | `chatService.streamMessageWithReconnect` |
 
@@ -713,7 +720,7 @@ data: {"type":"done","result":{...}}
 | | `fetchModels` | `GET /v1/models` | — | ✅ (HTTP only) |
 | | `updateMessageBlocks` | `PUT /api/session/{id}/message/{msgId}/blocks` | — | ✅ (HTTP only) |
 | **sessionService** | `list` | `GET /v1/sessions` | `list_sessions` | ✅ |
-| | `create` | `POST /v1/sessions` | `create_session` | ✅ |
+| | `create` | `POST /v1/sessions`（body 可选 `temporary: boolean`，A1 临时对话） | `create_session` | ✅ |
 | | `switch` | `POST /v1/sessions/{id}/switch` | `switch_session` | ✅ |
 | | `delete` | `DELETE /v1/sessions/{id}` | `delete_session` | ✅ |
 | | `rename` | `PUT /v1/sessions/{id}` | `rename_session` | ✅ |

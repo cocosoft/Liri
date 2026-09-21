@@ -2,8 +2,7 @@ import fs from 'fs/promises';
 import { Dirent, existsSync } from 'fs';
 import path from 'path';
 
-import { registerStorage } from './StorageFactory.js';
-import { StorageType } from './UnifiedStorage.js';
+import { StorageType } from './UnifiedStorage';
 import type {
   UnifiedSessionStorage,
   StorageConfig,
@@ -679,13 +678,36 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
     await this.ensureMessagesLoaded(sessionId);
     return this.enqueueWrite(sessionId, async () => {
       const msgs = this.messages.get(sessionId) ?? [];
-      msgs.push({ ...message });
+      // N-51 写入侧（2026-09-20）：**同 id 重复投递 ⇒ 按"后写覆盖"替换，不再 push**。
+      // 内存消息列表"id 唯一"是既有不变式（`loadMessages` 由 Map 保证）；写入侧原先不保证，
+      // 一旦上游重发/双写（前端 outbox 重发、双落盘路径等），同 id 会在**内存数组**中出现两项，
+      // 而 `ensureMessagesLoaded` 见内存已有该会话便不再重载 ⇒ 重复会一直外溢到接口与 UI
+      //（React key 冲突 / 渲染两次 —— 即 N-51 记录的症状）。
+      const idx = msgs.findIndex((m) => m.id === message.id);
+      const isDuplicate = idx !== -1;
+      const prevJson = isDuplicate ? JSON.stringify(msgs[idx]) : '';
+      if (isDuplicate) {
+        msgs[idx] = { ...message };
+      } else {
+        msgs.push({ ...message });
+      }
       this.messages.set(sessionId, msgs);
-      // H6：写路径增量更新消息计数
-      this.messageCounts.set(
-        sessionId,
-        (this.messageCounts.get(sessionId) ?? 0) + 1
-      );
+      // H6：写路径增量更新消息计数（重复投递不计入）
+      if (!isDuplicate) {
+        this.messageCounts.set(
+          sessionId,
+          (this.messageCounts.get(sessionId) ?? 0) + 1
+        );
+      }
+      // 同 id 且内容无变化 ⇒ 不追加（与 updateMessage 同一判据，避免写冗余行）
+      if (isDuplicate && prevJson === JSON.stringify(message)) {
+        logger.debug('addMessage: 同 id 且内容无变化，跳过追加（N-51）', {
+          sessionId,
+          messageId: message.id,
+          storedCount: msgs.length,
+        });
+        return;
+      }
       await this.persistMessageAppend(sessionId, message);
     });
   }
@@ -747,7 +769,22 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
         idx = msgs.findIndex((m) => m.id === message.id);
       }
       if (idx !== -1) {
+        // N-51 写入侧（2026-09-20）：**内容无变化 ⇒ 跳过追加**。
+        // 实测：同一 assistant 消息在 messages.jsonl 出现 4 行，其中**最后一行与前一行字节完全
+        // 一致**（blocks 未变的重复 updateMessage）⇒ 纯冗余写放大（长会话下被 compact 放大）。
+        // 语义不变：磁盘仍是"后写覆盖"，只是不再写无变化的行。
+        const prevJson = JSON.stringify(msgs[idx]);
         msgs[idx] = { ...message };
+        const nextJson = JSON.stringify(msgs[idx]);
+        if (prevJson === nextJson) {
+          logger.debug('updateMessage: 内容无变化，跳过追加（N-51）', {
+            sessionId,
+            messageId,
+            storedId: msgs[idx].id,
+            storedCount: msgs.length,
+          });
+          return;
+        }
         // 增量写入方案（2026-08-14）：O(1) 追加替代全量重写 O(n)——
         // 长会话下每轮 blocks 保存不再重写整个 messages.jsonl。
         // loadMessages 已反向去重（后写覆盖），同 id 多行读取安全。
@@ -760,7 +797,7 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
         const appendCount = (this.appendCounts.get(sessionId) ?? 0) + 1;
         const appendBytes =
           (this.appendBytes.get(sessionId) ?? 0) +
-          Buffer.byteLength(JSON.stringify(msgs[idx]), 'utf-8');
+          Buffer.byteLength(nextJson, 'utf-8');
         const interval =
           this.config.appendRewriteInterval ?? DEFAULT_APPEND_REWRITE_INTERVAL;
         const bytesThreshold =
@@ -855,17 +892,43 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
     await this.ensureMessagesLoaded(sessionId);
     return this.enqueueWrite(sessionId, async () => {
       const msgs = this.messages.get(sessionId) ?? [];
+      // N-51 写入侧（2026-09-20）：批量同样按 id 收敛 —— 同 id 按"后写覆盖"替换（不 push）、
+      // 内容无变化的条目不再写盘，避免冗余行（判据与 addMessage / updateMessage 一致）。
+      const toAppend: UnifiedMessage[] = [];
+      let addedCount = 0;
       for (const m of messages) {
-        msgs.push({ ...m });
+        const idx = msgs.findIndex((x) => x.id === m.id);
+        if (idx === -1) {
+          msgs.push({ ...m });
+          addedCount++;
+          toAppend.push(m);
+          continue;
+        }
+        const prevJson = JSON.stringify(msgs[idx]);
+        msgs[idx] = { ...m };
+        if (prevJson !== JSON.stringify(m)) toAppend.push(m);
       }
       this.messages.set(sessionId, msgs);
-      // H6：批量追加增量更新消息计数
-      this.messageCounts.set(
-        sessionId,
-        (this.messageCounts.get(sessionId) ?? 0) + messages.length
-      );
+      // H6：批量追加增量更新消息计数（仅新增消息计入）
+      if (addedCount > 0) {
+        this.messageCounts.set(
+          sessionId,
+          (this.messageCounts.get(sessionId) ?? 0) + addedCount
+        );
+      }
+      if (toAppend.length === 0) {
+        logger.debug(
+          'addMessages: 无可写内容（同 id 且无变化），跳过落盘（N-51）',
+          {
+            sessionId,
+            inputCount: messages.length,
+            storedCount: msgs.length,
+          }
+        );
+        return;
+      }
 
-      const data = messages.map((m) => JSON.stringify(m)).join('\n') + '\n';
+      const data = toAppend.map((m) => JSON.stringify(m)).join('\n') + '\n';
       const dir = sessionDir(this.basePath, sessionId);
       await fs.mkdir(dir, { recursive: true });
       await this.writer.append(
@@ -957,4 +1020,5 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
   }
 }
 
-registerStorage(StorageType.FILESYSTEM, FileSystemUnifiedStorage);
+// 注（2026-09-20）：本模块**不再**在顶层调用 `registerStorage()` —— 注册已收敛到
+// `StorageFactory`（单一注册中枢），以消除"存储实现 ↔ 工厂"的循环导入（TDZ 根因）。

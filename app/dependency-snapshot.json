@@ -1,7 +1,7 @@
 {
   "version": "1.0.0",
-  "generatedAt": "2026-05-27T02:37:22.001Z",
-  "description": "PY_APP 模块依赖关系基准快照 — 记录批准的基础架构",
+  "generatedAt": "2026-09-19T22:36:36.295Z",
+  "description": "Liri 模块依赖关系基准快照 — 记录批准的基础架构",
   "modules": {
     "core": {
       "id": "core",
@@ -713,11 +713,13 @@
       "id": "media",
       "name": "media",
       "category": "other",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "dependencies": [
         "core"
       ],
-      "optionalDependencies": []
+      "optionalDependencies": [
+        "monitoring"
+      ]
     },
     "flows": {
       "id": "flows",
@@ -728,6 +730,19 @@
         "core"
       ],
       "optionalDependencies": []
+    },
+    "workflow": {
+      "id": "workflow",
+      "name": "workflow",
+      "category": "other",
+      "version": "1.0.0",
+      "dependencies": [
+        "core",
+        "tasks"
+      ],
+      "optionalDependencies": [
+        "monitoring"
+      ]
     },
     "governance": {
       "id": "governance",
@@ -860,12 +875,103 @@
       "optionalDependencies": [
         "error"
       ]
+    },
+    "logger": {
+      "id": "logger",
+      "name": "logger",
+      "category": "core",
+      "version": "1.0.0",
+      "dependencies": [
+        "core"
+      ],
+      "optionalDependencies": []
+    },
+    "terminal": {
+      "id": "terminal",
+      "name": "terminal",
+      "category": "ui",
+      "version": "1.0.0",
+      "dependencies": [
+        "core",
+        "logger"
+      ],
+      "optionalDependencies": []
+    },
+    "ecosystem": {
+      "id": "ecosystem",
+      "name": "ecosystem",
+      "category": "core",
+      "version": "1.0.0",
+      "dependencies": [
+        "core",
+        "logger"
+      ],
+      "optionalDependencies": []
+    },
+    "sdk": {
+      "id": "sdk",
+      "name": "sdk",
+      "category": "core",
+      "version": "1.0.0",
+      "dependencies": [
+        "core",
+        "ecosystem"
+      ],
+      "optionalDependencies": []
+    },
+    "doc": {
+      "id": "doc",
+      "name": "doc",
+      "category": "office",
+      "version": "1.0.0",
+      "dependencies": [
+        "core",
+        "infrastructure",
+        "mcp",
+        "tools"
+      ],
+      "optionalDependencies": [
+        "monitoring"
+      ]
+    },
+    "mail": {
+      "id": "mail",
+      "name": "mail",
+      "category": "office",
+      "version": "1.0.0",
+      "dependencies": [
+        "core",
+        "infrastructure",
+        "tools"
+      ],
+      "optionalDependencies": [
+        "monitoring",
+        "mcp",
+        "doc"
+      ]
+    },
+    "calendar": {
+      "id": "calendar",
+      "name": "calendar",
+      "category": "office",
+      "version": "1.0.0",
+      "dependencies": [
+        "core",
+        "infrastructure",
+        "chronos"
+      ],
+      "optionalDependencies": [
+        "monitoring",
+        "doc",
+        "mail"
+      ]
     }
   },
   "initializationOrder": [
     "plugin-sdk",
     "core",
     "infrastructure",
+    "logger",
     "ai",
     "bootstrap",
     "config",
@@ -873,6 +979,8 @@
     "error",
     "performance",
     "hooks",
+    "ecosystem",
+    "sdk",
     "modules",
     "cache",
     "monitoring",
@@ -881,6 +989,8 @@
     "channels",
     "tools",
     "commands",
+    "mcp",
+    "doc",
     "session",
     "skills",
     "runtime",
@@ -894,9 +1004,9 @@
     "chronos",
     "cost",
     "lsp",
-    "mcp",
     "query",
     "knowledge",
+    "terminal",
     "ink",
     "ui",
     "cli",
@@ -925,7 +1035,9 @@
     "diagnostics",
     "extensions",
     "insights",
-    "wizard"
+    "wizard",
+    "mail",
+    "calendar"
   ],
-  "fingerprint": "50d69c1c1da7e2b8"
+  "fingerprint": "2724c4b93a0d89c3"
 }

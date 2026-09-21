@@ -13,6 +13,8 @@ import { getLogger } from '@modules/monitoring';
 import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error';
+// 阶段 A（N-28 修复）：yield 轮次登记（与 stream 路径 ReActToolLoop 共用同一实现）
+import { registerYieldFromResults } from '../session/yield';
 import { messageProjector } from '@modules/context';
 import {
   TokenBudgetController,
@@ -340,6 +342,14 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
   private stopReason: StopHookReason = 'completed';
   /** B1（2026-09-04）：prompt 兜底路径（空壳 deps）告警已输出标志（每 run 一次） */
   private _promptFallbackWarned: boolean = false;
+  /**
+   * N-42 补正（2026-09-20）：run 级初始化是否已执行。
+   * 抽出的原因：骨架的 **seeded 轮**（`ReActLoop.seedPendingToolCalls`）会跳过首轮 REASON，
+   * 而 run 级初始化原先内联在 `reason()` 的 `turnCount === 0` 块中 ⇒ seeded 轮会缺失
+   * `startTime`（致 `durationMs` 失真）/ `runId` / `start` trace / `verifier.reset()` /
+   * 起始 phase 事件。故改由 `run()` 入口据本标志初始化。
+   */
+  private _runInitialized: boolean = false;
   /** A1（2026-09-04）：上次入账的 token 估算基线——只按增量入账，compact 后回落 */
   private _lastBudgetedTokens: number = 0;
   /** A6（2026-09-04）：进行中的检查点落盘 Promise（finalize 同步触发，宿主退出可 await） */
@@ -625,35 +635,11 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
     _context?: unknown
   ): AsyncGenerator<ReActEvent, ReasonResult<unknown>> {
     // 首次调用：初始化 run 级状态（对齐旧 run() 初始化段）
-    if (this.turnCount === 0) {
-      this.startTime = Date.now();
-      this.stopped = false;
-      this.stopReason = 'completed';
-      this._promptFallbackWarned = false;
-      this.runId = RunLogger.generateRunId(this.taorConfig.sessionId);
-      void this.runLogger.recordTrace({
-        type: 'loop',
-        runId: this.runId,
-        sessionId: this.taorConfig.sessionId,
-        ts: new Date().toISOString(),
-        event: 'start',
-      });
-      if (this.verifier) {
-        const modelFn = this.taorConfig.verifierModel ?? null;
-        if (modelFn) {
-          this.verifier.setCallModel(
-            modelFn as (
-              messages: Array<{ role: string; content: string }>,
-              signal: AbortSignal
-            ) => AsyncGenerator<{ content?: string }>
-          );
-        }
-      }
-      this.verifier.reset();
-      logger.info('TAOR loop started', {
-        sessionId: this.taorConfig.sessionId,
-      });
-      this.emitPhase(TAORPhase.THINK, 0, 'Initial message received');
+    // N-42 补正（2026-09-20）：初始化已抽出为 `_initRunState()` 并由 `run()` 入口调用
+    // （seeded 轮会跳过本方法，若仍内联在此则 seeded 轮拿不到 startTime/runId/trace）。
+    // 此处保留兜底：`reason()` 被直接调用（不经 run()）的路径仍能初始化。
+    if (!this._runInitialized) {
+      this._initRunState();
     }
 
     // A 阶段一（2026-09-05）：run 级 ctxKind → checkpoint kind 标记（chat 缺省）。
@@ -1220,16 +1206,32 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
 
     // OBSERVE 收尾（工具轮完成后，对齐旧 while 公共尾部）
     await this._observeRound();
+    const results = rawResults.map((r, i) => ({
+      toolCallId: r?.toolCallId ?? calls[i]?.id ?? '',
+      name: calls[i]?.name ?? '',
+      status: r?.error ? ('error' as const) : ('success' as const),
+      output: typeof r?.result === 'string' ? r.result : undefined,
+      error: r?.error,
+    }));
+    // 阶段 A（N-28 修复）：成功 yield ⇒ 登记等待 + 标记让出本轮。
+    // 骨架 `ReActLoop.run()` 见 `yielded` 即短路收尾（短路点在骨架，两条路径共用）。
+    // 注：本路径（batch / 非流式）不写 turn/end 事件，故 yield 语义由
+    // 「等待登记 + 本轮短路」表达；stream 路径另有 turn/end 的 yielded 标记。
+    const yieldedEntry = registerYieldFromResults(
+      results,
+      this.taorConfig.sessionId
+    );
+    if (yieldedEntry) {
+      logger.info('taorLoop:yielded', {
+        sessionId: this.taorConfig.sessionId,
+        toolCallId: yieldedEntry.toolCallId,
+      });
+    }
     return {
-      results: rawResults.map((r, i) => ({
-        toolCallId: r?.toolCallId ?? calls[i]?.id ?? '',
-        name: calls[i]?.name ?? '',
-        status: r?.error ? ('error' as const) : ('success' as const),
-        output: typeof r?.result === 'string' ? r.result : undefined,
-        error: r?.error,
-      })),
+      results,
       allSucceeded: rawResults.every((r) => !r?.error),
       anyAborted: false,
+      yielded: yieldedEntry !== null,
     };
   }
 
@@ -1429,8 +1431,24 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
       this._forceContinueRound = false;
       return true;
     }
-    if (this.stopped) return false;
-    if (this.isTurnLimitReached()) return false;
+    if (this.stopped || this.isTurnLimitReached()) {
+      // N-42 诊断：**有工具调用却被判"不继续"** ⇒ 该批工具永远不会执行（静默丢弃）。
+      // 非流式路径的 seeded 轮（骨架跳过 REASON 直接 ACT 前亦经本判定）一旦命中此分支，
+      // 外部表现为「tool_call 被 MessageProjector 占位成 [result truncated]、
+      // `turns:1 completed`、工具从未执行」——原先无任何日志，故补 warn 便于定位。
+      if (result.toolCalls.length > 0) {
+        logger.warn('TAOR shouldContinue:有工具调用但被判不继续', {
+          sessionId: this.taorConfig.sessionId,
+          stopped: this.stopped,
+          turnLimitReached: this.isTurnLimitReached(),
+          turnCount: this.turnCount,
+          maxTurns: this.taorConfig.maxTurns,
+          toolCount: result.toolCalls.length,
+          toolNames: result.toolCalls.map((tc) => tc.name),
+        });
+      }
+      return false;
+    }
     return result.toolCalls.length > 0;
   }
 
@@ -1826,6 +1844,73 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
     return this.checkpointStorage.findBySessionId(this.taorConfig.sessionId);
   }
 
+  /**
+   * N-42（2026-09-20）：run 入口先注入 `messages`/`deps`/`_runKind`。
+   *
+   * 背景：原实现只在 `reason()` 内注入（其注释"每次 runCollect 注入 messages/deps"）。
+   * 一旦走骨架的 **seeded ACT**（跳过首轮 REASON —— 非流式路径把首个响应的 tool_calls
+   * 交给本循环作首轮 ACT 时使用），`act()` 拿到的就是**初始/上一轮的 deps**
+   * （构造期空壳 `executeTools: async () => []`）⇒ 工具被**静默跳过**：无执行日志、
+   * 无报错、返回空结果，外部表现为「tool_call 被 MessageProjector 占位、turns:1 completed」。
+   * 故把注入前移到 run() 入口；`reason()` 内保留同逻辑（幂等，重复赋值无副作用）。
+   */
+  override async *run(
+    input: TAORInput
+  ): AsyncGenerator<ReActEvent, TAORLoopResult> {
+    this._runKind = input.ctxKind ?? 'chat';
+    if (input.messages && input.deps) {
+      this.messages = input.messages;
+      this.deps = input.deps;
+    }
+    // N-42 补正（2026-09-20）：run 级初始化**在入口执行**——seeded 轮会跳过首轮 REASON，
+    // 不能依赖 `reason()` 内的 `turnCount === 0` 块（否则 startTime/runId/trace 缺失）。
+    if (!this._runInitialized) {
+      this._initRunState();
+    }
+    return yield* super.run(input);
+  }
+
+  /**
+   * run 级状态初始化（N-42 补正：从 `reason()` 首轮块抽出，改由 `run()` 入口调用）。
+   *
+   * 抽出原因：骨架的 **seeded 轮**（跳过首轮 REASON）下，初始化若仍留在 `reason()` 内，
+   * seeded 轮将缺失 `startTime`（⇒ `durationMs` 失真）、`runId`（trace 归属错乱）、
+   * `start` trace、`verifier.reset()` 与起始 phase 事件。
+   *
+   * 幂等：由 `_runInitialized` 守卫，`reset()` 会复位该标志。
+   */
+  private _initRunState(): void {
+    this._runInitialized = true;
+    this.startTime = Date.now();
+    this.stopped = false;
+    this.stopReason = 'completed';
+    this._promptFallbackWarned = false;
+    this.runId = RunLogger.generateRunId(this.taorConfig.sessionId);
+    void this.runLogger.recordTrace({
+      type: 'loop',
+      runId: this.runId,
+      sessionId: this.taorConfig.sessionId,
+      ts: new Date().toISOString(),
+      event: 'start',
+    });
+    if (this.verifier) {
+      const modelFn = this.taorConfig.verifierModel ?? null;
+      if (modelFn) {
+        this.verifier.setCallModel(
+          modelFn as (
+            messages: Array<{ role: string; content: string }>,
+            signal: AbortSignal
+          ) => AsyncGenerator<{ content?: string }>
+        );
+      }
+    }
+    this.verifier.reset();
+    logger.info('TAOR loop started', {
+      sessionId: this.taorConfig.sessionId,
+    });
+    this.emitPhase(TAORPhase.THINK, 0, 'Initial message received');
+  }
+
   /** E1①（2026-09-05，方案甲）：runCollect 返回结构补 terminationReason（A2 判别器） */
   override async runCollect(input: TAORInput): Promise<TAORLoopResult> {
     const result = await super.runCollect(input);
@@ -2054,6 +2139,8 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
     this.turnCount = 0;
     this.stopped = false;
     this.stopReason = 'completed';
+    // N-42 补正：run 级初始化标志一并复位（下次 `run()` 入口重新初始化）
+    this._runInitialized = false;
     this.tokenBudget.resetBudget();
     // A1：reset 同时复位入账基线——新 run 首轮按当前上下文全量入账一次。
     // 注：budget 与基线的"清/保留"语义与 P1-A2/A3 联动评审（字段级清单见方案文档）。

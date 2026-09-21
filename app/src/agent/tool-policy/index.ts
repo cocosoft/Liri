@@ -36,7 +36,8 @@ const logger = getLogger('agent:tool-policy:index');
 /**
  * 工具 Profile 类型
  */
-export type ToolProfileId = 'minimal' | 'coding' | 'messaging' | 'full';
+// N-29（2026-09-20）：原 `export type ToolProfileId`（'minimal' | 'coding' | 'messaging' | 'full'）
+// 已移除 —— profile 门控（`setProfile` / `PROFILE_TOOL_ALLOW_LISTS`）收敛后不再有引用。
 
 /**
  * Owner-only 工具的审批等级
@@ -69,7 +70,7 @@ export interface ToolPolicyEvaluation {
   /** 原因说明 */
   reason: string;
   /** 匹配的策略规则 */
-  matchedRule?: 'allow' | 'deny' | 'owner_only' | 'profile' | 'default';
+  matchedRule?: 'allow' | 'deny' | 'owner_only' | 'default';
 }
 
 /**
@@ -103,6 +104,10 @@ export const TOOL_GROUPS: Record<string, string[]> = {
     'sessions_history',
     'sessions_send',
     'sessions_spawn',
+    // 注意（2026-09-20，N-25）：本组与下方 `PROFILE_TOOL_ALLOW_LISTS` 的声明都以
+    // `setProfile()` 为前提，而该方法在全仓**零调用**（profile 恒为 null）⇒ 本文件
+    // 的 profile 门控**当前不生效**；工具真实可用性由
+    // `tools/utils/ToolManagerUtils.ts#getBuiltinToolLoaders()` 决定（无 profile 门控）。
     'sessions_yield',
     'session_status',
   ],
@@ -161,48 +166,9 @@ const OWNER_ONLY_TOOL_APPROVAL_CLASSES: Record<
   nodes: 'exec_capable',
 };
 
-/**
- * 各 Profile 允许的工具列表
- */
-const PROFILE_TOOL_ALLOW_LISTS: Record<ToolProfileId, string[]> = {
-  minimal: ['read', 'glob', 'grep', 'session_status'],
-  coding: [
-    'read',
-    'write',
-    'edit',
-    'apply_patch',
-    'glob',
-    'grep',
-    'exec',
-    'process',
-    'web_search',
-    'web_fetch',
-    'memory_search',
-    'memory_get',
-    'todo_write',
-    'sessions_list',
-    'sessions_history',
-    'sessions_send',
-    'sessions_spawn',
-    'sessions_yield',
-    'session_status',
-    'cron',
-    'update_plan',
-    'task',
-    'image',
-    'image_generate',
-  ],
-  messaging: [
-    'message',
-    'send_message',
-    'push_notification',
-    'sessions_list',
-    'sessions_history',
-    'sessions_send',
-    'session_status',
-  ],
-  full: [],
-};
+// N-29（2026-09-20）：原 `PROFILE_TOOL_ALLOW_LISTS`（各 profile 允许的工具列表）已移除 ——
+// 其唯一消费方 `setProfile()` 全仓**零调用**（profile 恒 null）⇒ 该门控**从不生效**；
+// 工具可见性由 `tools/utils/ToolManagerUtils.ts#getBuiltinToolLoaders()` 单一路径决定。
 
 /**
  * 规范化工具名称
@@ -240,29 +206,6 @@ export function expandToolGroups(list?: string[]): string[] {
 }
 
 /**
- * 获取指定 profile 的策略
- */
-export function resolveProfilePolicy(
-  profile?: string
-): ToolPolicyConfig | undefined {
-  if (!profile) {
-    return undefined;
-  }
-  const profileId = profile as ToolProfileId;
-  const allowList = PROFILE_TOOL_ALLOW_LISTS[profileId];
-  if (!allowList) {
-    return undefined;
-  }
-  if (profileId === 'full') {
-    return { enabled: true };
-  }
-  return {
-    allow: [...allowList],
-    enabled: true,
-  };
-}
-
-/**
  * 获取指定工具的 Owner-only 审批等级
  */
 export function resolveOwnerOnlyApprovalClass(
@@ -288,7 +231,6 @@ export class ToolPolicyManager {
   private ownerOnlyTools: Map<string, OwnerOnlyToolApprovalClass> = new Map(
     Object.entries(OWNER_ONLY_TOOL_APPROVAL_CLASSES)
   );
-  private profile: ToolProfileId | null = null;
   private senderIsOwner: boolean = false;
   private ownerOnlyAllowlist: Set<string> = new Set();
   private enabled: boolean = true;
@@ -309,44 +251,6 @@ export class ToolPolicyManager {
     const expanded = expandToolGroups(tools);
     this.globalDenyList = new Set(expanded);
     logger.info(`Tool deny list updated: ${expanded.length} tools`);
-  }
-
-  /**
-   * 设置当前使用的 Profile
-   */
-  setProfile(profile: ToolProfileId | null): void {
-    this.profile = profile;
-    logger.info(`Tool policy profile set to: ${profile ?? 'none'}`);
-    // E3：profile 名单漂移告警（零行为变更）——
-    // PROFILE_TOOL_ALLOW_LISTS（本文件，归一化名）与 tool-catalog（工具 id）独立维护，
-    // 此处检测 allow 条目在 catalog 中完全无法识别的情况，暴露漂移供排查。
-    if (profile && profile !== 'full') {
-      void this.warnProfileDrift(profile);
-    }
-  }
-
-  /**
-   * E3：profile 名单与工具目录的漂移告警（懒加载 catalog，避免循环依赖）
-   */
-  private async warnProfileDrift(profile: ToolProfileId): Promise<void> {
-    try {
-      const { createToolCatalog } = await import('../tool-catalog');
-      const catalog = createToolCatalog();
-      const allowList = PROFILE_TOOL_ALLOW_LISTS[profile] ?? [];
-      const unknown = allowList.filter((name) => !catalog.isKnownTool(name));
-      if (unknown.length > 0) {
-        logger.warn(
-          'tool-policy profile allow list 与 tool-catalog 存在漂移（条目在 catalog 中不可识别）',
-          {
-            profile,
-            unknownCount: unknown.length,
-            unknown: unknown.slice(0, 10),
-          }
-        );
-      }
-    } catch {
-      // @ignore-catch — catalog 不可用时跳过告警（不阻断 profile 设置）
-    }
   }
 
   /**
@@ -420,26 +324,9 @@ export class ToolPolicyManager {
       };
     }
 
-    // 4. 检查 Profile 限制
-    if (this.profile && this.profile !== 'full') {
-      const profileAllowList = PROFILE_TOOL_ALLOW_LISTS[this.profile];
-      if (profileAllowList && profileAllowList.length > 0) {
-        if (!profileAllowList.includes(name)) {
-          return {
-            toolName,
-            allowed: false,
-            reason: `Tool not allowed in profile: ${this.profile}`,
-            matchedRule: 'profile',
-          };
-        }
-        return {
-          toolName,
-          allowed: true,
-          reason: `Allowed by profile: ${this.profile}`,
-          matchedRule: 'profile',
-        };
-      }
-    }
+    // 4.（N-29，2026-09-20）Profile 限制检查**已移除** —— 其唯一开关
+    // `setProfile()` 全仓零调用（profile 恒 null）⇒ 该门控从不生效；
+    // 工具可见性由 `tools/utils/ToolManagerUtils.ts#getBuiltinToolLoaders()` 决定。
 
     // 5. 默认允许
     return {
@@ -503,7 +390,6 @@ export class ToolPolicyManager {
    */
   getState(): {
     enabled: boolean;
-    profile: ToolProfileId | null;
     senderIsOwner: boolean;
     allowListSize: number;
     denyListSize: number;
@@ -511,7 +397,6 @@ export class ToolPolicyManager {
   } {
     return {
       enabled: this.enabled,
-      profile: this.profile,
       senderIsOwner: this.senderIsOwner,
       allowListSize: this.globalAllowList.size,
       denyListSize: this.globalDenyList.size,
@@ -525,7 +410,6 @@ export class ToolPolicyManager {
   reset(): void {
     this.globalAllowList.clear();
     this.globalDenyList.clear();
-    this.profile = null;
     this.senderIsOwner = false;
     this.ownerOnlyAllowlist.clear();
     this.enabled = true;

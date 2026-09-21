@@ -5,6 +5,8 @@
 
 import { create } from "zustand";
 import { providerService } from "../services/providerService";
+import { modelService } from "../services/modelService";
+import type { OrphanModel } from "../services/modelService";
 import { sseService } from "../services/sseService";
 import type {
   ProviderInfo,
@@ -16,6 +18,8 @@ import { handleClientError } from "@/utils/handleError";
 
 interface ModelAdminState {
   providers: ProviderInfo[];
+  /** N-59 后续：供应商已被删除的模型（孤儿）—— 供模型管理页展示与重绑 */
+  orphanModels: OrphanModel[];
   isLoading: boolean;
   error: string | null;
   savingId: string | null;
@@ -26,7 +30,12 @@ interface ModelAdminState {
     id: string,
     data: Partial<ProviderFormData>,
   ) => Promise<void>;
-  deleteProvider: (id: string) => Promise<void>;
+  /** 删除供应商；返回被**级联停用**的强绑定模型名（N-59，无则空数组） */
+  deleteProvider: (id: string) => Promise<string[]>;
+  /** N-59 后续：加载"供应商已被删除"的模型（孤儿） */
+  loadOrphans: () => Promise<void>;
+  /** N-59 后续：把孤儿模型重绑到现有供应商，并自动启用（仅当原为停用） */
+  rebindModel: (id: string, providerId: string) => Promise<void>;
   toggleProvider: (id: string) => Promise<void>;
   testConnection: (
     id: string,
@@ -63,8 +72,9 @@ interface ModelAdminState {
   }) => Promise<void>;
 }
 
-export const useModelAdminStore = create<ModelAdminState>((set) => ({
+export const useModelAdminStore = create<ModelAdminState>((set, get) => ({
   providers: [],
+  orphanModels: [],
   isLoading: false,
   error: null,
   savingId: null,
@@ -125,9 +135,11 @@ export const useModelAdminStore = create<ModelAdminState>((set) => ({
   deleteProvider: async (id) => {
     set({ savingId: id, error: null });
     try {
-      await providerService.remove(id);
+      // N-59：后端级联停用该供应商的强绑定模型并回传清单，交由 UI 提示
+      const { disabledModels } = await providerService.remove(id);
       const providers = await providerService.list();
       set({ providers, savingId: null });
+      return disabledModels;
     } catch (e) {
       handleClientError(e, {
         module: "stores:modelAdmin",
@@ -135,6 +147,50 @@ export const useModelAdminStore = create<ModelAdminState>((set) => ({
       });
       set({
         error: e instanceof Error ? e.message : "删除 Provider 失败",
+        savingId: null,
+      });
+      return [];
+    }
+  },
+
+  /** N-59 后续：加载"供应商已被删除"的模型（孤儿） */
+  loadOrphans: async () => {
+    try {
+      const orphanModels = await modelService.listOrphanModels();
+      set({ orphanModels });
+    } catch (e) {
+      handleClientError(e, {
+        module: "stores:modelAdmin",
+        action: "loadOrphans",
+      });
+    }
+  },
+
+  /**
+   * N-59 后续：把孤儿模型重绑到现有供应商，并**自动启用**
+   * （仅当该模型原为停用时 toggle 一次，避免盲目翻转）。
+   * 成功后刷新孤儿列表与主列表 —— 模型随之回到模型列表。
+   */
+  rebindModel: async (id, providerId) => {
+    set({ savingId: id, error: null });
+    try {
+      const orphan = get().orphanModels.find((m) => m.id === id);
+      await modelService.update(id, { providerId });
+      if (orphan && !orphan.enabled) {
+        await modelService.toggle(id);
+      }
+      const [orphanModels, providers] = await Promise.all([
+        modelService.listOrphanModels(),
+        providerService.list(),
+      ]);
+      set({ orphanModels, providers, savingId: null });
+    } catch (e) {
+      handleClientError(e, {
+        module: "stores:modelAdmin",
+        action: "rebindModel",
+      });
+      set({
+        error: e instanceof Error ? e.message : "重绑供应商失败",
         savingId: null,
       });
     }

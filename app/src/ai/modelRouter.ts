@@ -1200,7 +1200,14 @@ export class ModelRouter {
 
     for (const [taskType, modelId] of entries) {
       if (modelId) {
-        await appModelConfigService.setConfig(taskType, { model: modelId });
+        // N-46（2026-09-20）：本方法**仅**由用户保存路径调用（`PUT /v1/models/tasks`
+        // → `handleSaveTasks` → `setTasks`）⇒ 标记 `source='user'`，使该任务在
+        // chat 类 route 上**优先于 SmartRouter 档位**（见 `resolveModelRoute` 的
+        // "显式配置优先"分支）。系统播种/自动清理走默认 `'seed'`，不夺走路由决定权。
+        await appModelConfigService.setConfig(taskType, {
+          model: modelId,
+          source: 'user',
+        });
         this._taskCache.set(taskType, modelId);
       } else if (modelId === '' && taskType !== 'default') {
         // Teamwork P3 收尾（2026-09-07，预存问题 K 补充 2-B）：空串值 = 清除该任务配置

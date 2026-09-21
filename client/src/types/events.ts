@@ -74,7 +74,11 @@ export interface LiriEventMap {
   "turn/start": { turn: number; userMessageSeq?: number };
   "turn/end": {
     turn: number;
-    finishReason?: "stop" | "length" | "tool_use" | "error" | "canceled";
+    /** `'yielded'`（N-45，2026-09-20）：本轮以 `sessions_yield` 让出，等待子任务结算后续跑 */
+    finishReason?:
+      "stop" | "length" | "tool_use" | "error" | "canceled" | "yielded";
+    /** 阶段 A（A1-d）：本轮是否为 yield 让出（与 `finishReason='yielded'` 同时写入） */
+    yielded?: boolean;
     error?: string;
   };
   "user/message": {

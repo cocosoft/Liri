@@ -116,7 +116,9 @@ const WorkbenchDirectoryPage = lazy(
   () => import("../components/workbench/WorkbenchDirectoryPage"),
 );
 
-/** 完整路由表——App.tsx（33 条）与 routes/index.tsx 原路由取并集，同名路由 App.tsx 优先（含 AuthGuard） */
+/** 完整路由表——**本文件是唯一路由表**：`App.tsx` 仅 `import routes` + `useRoutes(routes)`（App.tsx:15/95），
+ *  自身不再定义路由。（2026-09-19 更正：原注释称"App.tsx（33 条）…同名路由 App.tsx 优先（含 AuthGuard）"，
+ *  与代码不符——App.tsx 全文无 `path:` 路由定义、无 AuthGuard。） */
 export const routes: RouteObject[] = [
   // W7：登录页（供 AuthGuard requiredRole/requiredTrustLevel 校验失败时跳转）
   { path: "/login", element: <LoginPage /> },

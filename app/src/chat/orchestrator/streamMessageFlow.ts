@@ -1632,7 +1632,9 @@ export async function* runStreamMessage(
           | 'length'
           | 'tool_use'
           | 'error'
-          | 'canceled';
+          | 'canceled'
+          // 阶段 A（A1-d）：以 sessions_yield 让出 turn 的收尾
+          | 'yielded';
         await host.appendStreamEvent(session.id, {
           type: 'turn/end',
           seq: 0,

@@ -464,9 +464,10 @@ export class SessionGateway {
 
     if (this.eventBus) {
       this.eventBus.on('message:created', (event: SessionLifecycleEvent) => {
-        const { messageId, type, role, content, sessionKey } =
+        const { messageId, type, role, content, sessionKey, temporary } =
           event.metadata ?? {};
-        if (messageId && typeof content === 'string') {
+        // A1 临时对话：temporary 消息不写 FTS 倒排索引
+        if (!temporary && messageId && typeof content === 'string') {
           getFTS5SearchEngine().index({
             id: `msg_${messageId}`,
             title: '',
@@ -930,7 +931,9 @@ export class SessionGateway {
    * 列出会话（全量加载）
    */
   async listSessions(filter?: SessionFilter): Promise<UnifiedSession[]> {
-    return this.storage.listSessions(filter);
+    const sessions = await this.storage.listSessions(filter);
+    // A1 临时对话：temporary 会话不入历史列表（仍可按 id 加载/恢复）
+    return sessions.filter((s) => s.metadata?.temporary !== true);
   }
 
   /**
@@ -989,7 +992,7 @@ export class SessionGateway {
     // 避免迁移中间态（{id}/session.json 与 {id}.json 并存）产出重复 id。
     const resultMap = new Map<
       string,
-      { title?: string; status?: string; updatedAt?: string }
+      { title?: string; status?: string; updatedAt?: string; temporary?: string | null }
     >();
 
     for (const entry of entries) {
@@ -1055,10 +1058,12 @@ export class SessionGateway {
       }
     }
 
-    const results = [...resultMap.entries()].map(([id, meta]) => ({
-      id,
-      ...meta,
-    }));
+    const results = [...resultMap.entries()]
+      .filter(([, meta]) => meta.temporary !== 'true')
+      .map(([id, meta]) => ({
+        id,
+        ...meta,
+      }));
 
     logger.info('listLiteSessions:扫描完成', {
       sessionsDir,
@@ -1087,10 +1092,16 @@ export class SessionGateway {
     await this.storage.addMessage(sessionId, message);
     await this.transcriptManager.recordMessage(sessionId, message);
 
+    // A1 临时对话：temporary 会话不进入 FTS 全文索引（完整隐身）
+    const isTemporary =
+      (await this.getSession(sessionId))?.metadata?.temporary === true;
+
     // M5 修复：直接调 indexMessageToFTS（幂等，index() 是 Map.set）——
     // FTS 索引此前依赖 eventBus 上 'message:created' 装配时序，晚装配即永不进索引，
     // indexMessageToFTS 在 initialize 之外无调用点（死代码）。
-    this.indexMessageToFTS(sessionId, message);
+    if (!isTemporary) {
+      this.indexMessageToFTS(sessionId, message);
+    }
     // M2：直写 storage 追加消息后失效 SessionStore 消息缓存
     this.sessionStore?.invalidate(sessionId);
 
@@ -1102,6 +1113,7 @@ export class SessionGateway {
           type: message.type,
           role: message.role,
           content: message.content,
+          temporary: isTemporary,
         },
       })
     );

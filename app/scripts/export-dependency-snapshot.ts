@@ -83,3 +83,8 @@ function exportSnapshot(): void {
 }
 
 exportSnapshot();
+
+// §2.15 一次性脚本收尾约定：本脚本 import 了 `../src/modules/ModuleDefinitions`（会拉起
+// 模块图并留下不可枚举的持有句柄），工作完成后必须显式退出——否则进程永不退出
+// （2026-09-19 实测：写盘后挂起，需人工 StopCommand 终止）。
+process.exit(0);

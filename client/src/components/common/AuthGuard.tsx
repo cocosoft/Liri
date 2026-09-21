@@ -17,6 +17,11 @@ interface AuthGuardProps {
  * - requiredRole="user"：必须已登录且 role 为 admin/user
  * - requiredRole="guest"：无需登录（等同放行）
  * - requiredTrustLevel=N：必须已登录且 trustLevel >= N
+ *
+ * ⚠️ 现状（2026-09-19 核查）：**当前没有任何路由传 requiredRole / requiredTrustLevel**——
+ * routes/index.tsx 中的 `<AuthGuard>` 包裹点均为无 props（needsCheck=false → 一律放行），
+ * 即**当前不存在登录拦截**，未登录（无 token）用户可完整使用应用（本应用为本地单机定位）。
+ * 此处是预留能力：启用前需先做产品决策（是否引入登录门槛 + 未登录可用能力清单）。
  */
 function AuthGuard({
   children,

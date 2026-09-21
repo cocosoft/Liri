@@ -105,6 +105,12 @@ import { SessionsSendTool } from './SessionsSendTool/SessionsSendTool';
 import { SessionsSpawnTool } from './SessionsSpawnTool/SessionsSpawnTool';
 import { SessionStatusTool } from './SessionStatusTool/SessionStatusTool';
 import { SessionsYieldTool } from './SessionsYieldTool/SessionsYieldTool';
+// N-37（2026-09-20）：自唤醒工具（sleep_for / sleep_until）—— 此前仅有 JSON schema
+// 与执行器、无 BaseTool 包装与注册点 ⇒ 对模型不可达；见 SelfWakeTool.ts 头部说明。
+import {
+  createSleepForTool,
+  createSleepUntilTool,
+} from './SelfWakeTool/SelfWakeTool';
 import { SessionsHistoryTool } from './SessionsHistoryTool/SessionsHistoryTool';
 import { ChannelTool } from './ChannelTool/ChannelTool';
 import { ImageGenerateTool } from './ImageGenerateTool/ImageGenerateTool';
@@ -956,6 +962,38 @@ export class ToolFactory {
   }
 
   /**
+   * 创建会话让出工具（阶段 A：真实实现）
+   *
+   * 注（2026-09-20，N-27）：`getBuiltinToolLoaders()` 中的登记才是**真实生效路径**
+   * （`ToolManager.loadBuiltinTools()` → toolRegistry → 注入给模型）；
+   * `getAllBaseTools()` 内的同类注册属另一条未被 ToolManager 使用的路径。
+   */
+  createSessionsYieldTool(): Tool {
+    return new SessionsYieldTool();
+  }
+
+  /**
+   * 创建自唤醒工具 `sleep_for`（挂起 N 秒；≤5min setTimeout / 长时 CronScheduler tick）
+   *
+   * 注（2026-09-20，N-37）：与 `sessions_yield` 同一教训 —— 真正生效的是
+   * `getBuiltinToolLoaders()` 里的登记；仅有 schema 定义而无注册点 = 对模型不可达。
+   */
+  createSleepForTool(): Tool {
+    return createSleepForTool();
+  }
+
+  /**
+   * 创建自唤醒工具 `sleep_until`（挂起到指定 ISO 时间）
+   *
+   * 注：`wake_on_job` / `wake_on_event` **暂不注册** —— 其条目无 `triggerAt` 且全仓无
+   * "任务完成 / 事件到达" 的唤醒生产者，注册即"永不兑现的等待"（CS04），详见
+   * `SelfWakeTool.ts` 头部与台账 N-37。
+   */
+  createSleepUntilTool(): Tool {
+    return createSleepUntilTool();
+  }
+
+  /**
    * 创建剪贴板工具
    */
   createClipboardTool(): Tool {
@@ -1426,10 +1464,8 @@ export function getAllBaseTools(): Tool[] {
     tools.push(sessionStatusTool);
   }
 
-  const sessionsYieldTool = new SessionsYieldTool();
-  if (sessionsYieldTool) {
-    tools.push(sessionsYieldTool);
-  }
+  // 阶段 A：直接注册（原 `if (t)` 恒真，属冗余）
+  tools.push(new SessionsYieldTool());
 
   const sessionsHistoryTool = new SessionsHistoryTool();
   if (sessionsHistoryTool) {

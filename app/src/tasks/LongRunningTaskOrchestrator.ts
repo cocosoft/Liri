@@ -336,34 +336,28 @@ export class LongRunningTaskOrchestrator {
     this.executor =
       executor ??
       (async (params) => {
-        const { createAIService } = await import('@modules/ai');
+        // N-44 修复（2026-09-21）：`AIService` 接口（`ai/models/types.ts`）只有
+        // `generate` / `stream`，**并无 `chat`** —— 原 `(service as any).chat({ messages })`
+        // 的 `as any` 恰好掩盖了这个编译错误，运行期实测抛
+        // `TypeError: service.chat is not a function`（OTel `pdca.plan` span 取证，
+        // 异常堆栈正指向本行）。改用接口上真实存在的 `generate()`，并去掉 `any`。
+        const { createAIService, AIMessageRole } = await import('@modules/ai');
         const service = createAIService({
           defaultModel: '',
           apiKey: configManager.env('ANTHROPIC_API_KEY') || '',
         });
         const _trackStart = Date.now();
-        const response = await (service as any).chat({
-          messages: [
-            { role: 'system', content: params.systemPrompt },
-            { role: 'user', content: params.userPrompt },
-          ],
-        });
-        const trackPayload =
-          typeof response === 'string'
-            ? { content: response }
-            : (response as {
-                content?: string;
-                model?: string;
-                usage?: Record<string, unknown>;
-              });
-        trackUsage(trackPayload, {
-          model: trackPayload.model || 'unknown',
+        const response = await service.generate([
+          { role: AIMessageRole.SYSTEM, content: params.systemPrompt },
+          { role: AIMessageRole.USER, content: params.userPrompt },
+        ]);
+
+        trackUsage(response, {
+          model: response.model || 'unknown',
           providerId: 'default',
           latencyMs: Date.now() - _trackStart,
         });
-        return typeof response === 'string'
-          ? response
-          : (response?.content ?? '');
+        return response.content;
       });
   }
 

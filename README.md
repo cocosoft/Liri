@@ -13,7 +13,7 @@
 
 [![CI Status](https://github.com/cocosoft/Liri/actions/workflows/ci.yml/badge.svg)](https://github.com/cocosoft/Liri/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-![Version](https://img.shields.io/badge/version-0.4.46-blue)
+![Version](https://img.shields.io/badge/version-0.4.50-blue)
 
 [快速开始](#-快速开始) •
 [功能概览](#-功能概览) •
@@ -374,7 +374,7 @@ bun run build:enterprise  # 企业版（全功能）
 
 ## 📋 版本
 
-当前版本：**v0.4.46**
+当前版本：**v0.4.50**
 
 版本管理遵循 [语义化版本规范](.trae/rules/versioning.md)：
 - 修订号 — 按需升，每次发版 +1（Bug 修复、文档更新、小重构）
@@ -382,6 +382,19 @@ bun run build:enterprise  # 企业版（全功能）
 - 主版本 — 达到 v1.0.0 标准时一次性从 0.x.x 跳到 1.0.0
 
 ### 🚀 版本更新记录
+
+#### v0.4.50 (2026-09-21)
+
+**多 Agent 协作优化（B6/B7）、专项缺陷修复与工程护栏**
+- ✅ **AgentTool 台账与描述符解析链（B6）** - AgentRunLedger 改共享单例 + 显式状态机 `canTransition`（`running → cancel_requested`、`running|cancel_requested → completed|failed`）；AgentRunStore 持久化新增 `descriptor_source` 来源列与 PID 复用判定（比对 `owner_started_at`，容差 5s）；四级描述符解析链（DB 角色 → 运行时注册表 → 内置类型 → **fail-closed 拒绝**）
+- ✅ **委派授权与控制面归属** - `agent_roles.can_delegate` 双判据合取（角色策略 ∧ 父侧深度上限），模型不可自选；控制面归属校验 fail-closed（owner 缺失即拒绝）；新增 Tier1 血缘链 `sessionLineage`（fork 即登记，支持多跳祖先判定）
+- ✅ **Agent 统一管理界面与运行态 API（B7）** - 新增 `/v1/agents/control`、`/v1/agents/runs`（字段裁剪守隐私边界）、`pause`/`resume`/`stop` 路由；角色 HTTP 层补 model 三道判据校验；前端角色页模型下拉（按 `modelId` 口径）+ `canDelegate` 授权位 + 「运行态」面板；`CouncilAgentRolesPage` 超限拆分出 `AgentRuntimePanel`（969 → 735 行）
+- ✅ **嵌套委派真机实证** - 以真实 provider 驱动「顶层 → architect → security」两级嵌套，OTel 证据 `tools.count 59 / 58` 量化授权位生效（父被授权持 Agent、子未授权被剔）；修复**子代理工具池恒为空**（N-41，归一至唯一注册表 `getToolRegistry()`，真机 `tools.count` 0 → 59）
+- ✅ **media 工具名规范化（N-42）** - 15 个工具 `media:<域>:<动作>` → `media_<域>_<动作>`，修复其冒号违反 MCP 命名规范导致 DeepSeek 返回 400 并拒绝**整个 tools 数组**（子代理与顶层非流式路径均受影响）；顺带修复 `MediaDelete` 审批键与注册名不一致（审批永不命中）
+- ✅ **工程护栏** - 新增 `lint:exit`（入口脚本显式退出）与 `lint:refs`（引用可达性）两项 CI 检查，上线即查出 3 处引用断裂（`memory`、`bin.liri-memory`、`test:reporter`）；`build:update:win` 原指向从未存在的脚本，改用 `package.ts --update-only`
+- ✅ **启动性能** - `extended.ts` 惰性化重量级依赖，`i18n:check` **9.37s → 0.21s**（约 **44 倍**）；根因为静态 import `@modules/error` 连带拉起 DB 建表 / OAuthService / TaskComplexityClassifier
+- ✅ **稳定性修复** - 连接状态机 `start()` 幂等判定与真实资源脱钩致健康检查停摆（N-47，修复后后端真掉线可正常转 `disconnected`）；长任务编排误调 `AIService` 上不存在的 `chat()`（N-44）；代码执行器改用进程组终止消除孙进程残留（O4）；测试写入隔离避免污染生产台账（N-46）
+- ✅ **CI 全绿** - `bun run ci` 全链 EXIT=0 · 3029 tests / 0 fail · 双端 typecheck 绿 · client 244 passed
 
 #### v0.4.45 (2026-09-02)
 

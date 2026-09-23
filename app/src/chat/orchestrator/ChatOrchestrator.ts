@@ -197,9 +197,11 @@ export interface ChatOrchestratorHost {
     aiMsg: string,
     sessionId: string
   ): Promise<void>;
+  /** 用量记账（P2-2：`requestId` 可选透传，缺省 ⇒ 不写该字段） */
   recordChatResponseUsage(
     sessionId: string,
-    usage: Record<string, number> | null | undefined
+    usage: Record<string, number> | null | undefined,
+    requestId?: number
   ): void;
   sanitizeApiMessages(messages: Record<string, unknown>[]): void;
   truncateApiMessages(
@@ -293,6 +295,8 @@ export interface ChatOrchestratorHost {
       toolDefinitions: ToolDefinition[];
       accumulatedContent: string;
       finalResponse: unknown;
+      /** P2-2：本请求 requestId（= 同请求 `request/start` 的 seq）；缺省 ⇒ 用量条不带该字段 */
+      requestId?: number;
       assistantMessage?: Message;
     };
     registerImages(): Promise<void>;

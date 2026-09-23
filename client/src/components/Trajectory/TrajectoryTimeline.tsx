@@ -30,6 +30,8 @@ import {
   type TimelineView,
   type TrajectorySpanKind,
 } from "../../stores/chat/deriveTrajectoryTimeline";
+// P2-2（2026-09-23）：请求区间轨（`request/start` ↔ 请求级 `metric/timing`，按 requestId 配对）
+import { deriveRequestSpans } from "../../stores/chat/deriveRequestSpans";
 
 interface Props {
   events: LiriEvent[];
@@ -39,8 +41,8 @@ interface Props {
 
 /** marker 用的分类轨道（`laneOf` 只产出这 3 个） */
 type Lane = "conversation" | "tool" | "system";
-/** **绘制**用的轨道 id（含只画 span、不接收 marker 的 `model` 轨） */
-type LaneId = Lane | "model";
+/** **绘制**用的轨道 id（含只画 span、不接收 marker 的 `model` / `request` 轨） */
+type LaneId = Lane | "model" | "request";
 
 function laneOf(category: LiriEventCategory): Lane {
   if (category === "tool") return "tool";
@@ -59,6 +61,12 @@ const LANES: Array<{ id: LaneId; labelKey: string; bar: string }> = [
     id: "model",
     labelKey: "trajectory.timeline.laneModel",
     bar: "bg-emerald-400/80 dark:bg-emerald-500/80",
+  },
+  {
+    // P2-2（2026-09-23）：请求区间（`request/start` ↔ 请求级 `metric/timing`）
+    id: "request",
+    labelKey: "trajectory.timeline.laneRequest",
+    bar: "bg-orange-400/80 dark:bg-orange-500/80",
   },
   {
     id: "tool",
@@ -90,6 +98,8 @@ const ZOOM_OUT_FACTOR = 1.25;
 export function TrajectoryTimeline({ events, selectedSeq, onSelect }: Props) {
   const { t } = useTranslation();
   const model = useMemo(() => deriveTrajectoryTimeline(events), [events]);
+  // P2-2：请求区间与 turn/tool 跨度**并列**（不同粒度：一个 turn 可含多次请求）
+  const requestSpans = useMemo(() => deriveRequestSpans(events), [events]);
 
   const fullDomain: TimelineView | null = model?.domain ?? null;
   /** 视图窗口：`null` = 全时间域（未聚焦） */
@@ -427,6 +437,47 @@ export function TrajectoryTimeline({ events, selectedSeq, onSelect }: Props) {
                 selected
                   ? "bg-amber-500/90"
                   : "bg-emerald-400/80 dark:bg-emerald-500/80"
+              }`}
+              style={{
+                left: `${left}%`,
+                width: `${width}%`,
+                top: laneIndex * 14 + 3,
+              }}
+            />
+          );
+        })}
+
+        {/* 请求区间（P2-2：`request/start` ↔ 请求级 `metric/timing`，按 requestId 配对）。
+         **无完成事件（中断/重启）⇒ 不画区间** —— 区间必须两端齐全，缺失不造长度。 */}
+        {requestSpans.map((r) => {
+          if (r.end === undefined) return null;
+          const left = timeToPercent(r.start, domain);
+          const right = timeToPercent(r.end, domain);
+          if (right <= 0 || left >= 100) return null; // 完全在窗口外 ⇒ 不渲染
+          const width = Math.max(0.6, right - left);
+          const laneIndex = laneIndexById("request");
+          const selected = r.startSeq === selectedSeq;
+          return (
+            <div
+              key={`rq-${r.requestId}`}
+              role="button"
+              tabIndex={-1}
+              title={t("trajectory.timeline.requestSpanTitle", {
+                index: r.index,
+                duration:
+                  r.duration === undefined
+                    ? t("trajectory.timeline.requestNoDuration")
+                    : formatDuration(r.duration),
+                reason:
+                  r.reason === "compaction"
+                    ? t("trajectory.timeline.requestCompactionSuffix")
+                    : "",
+              })}
+              onClick={() => onSelect(selected ? null : r.startSeq)}
+              className={`absolute h-2 rounded-sm cursor-pointer ${
+                selected
+                  ? "bg-amber-500/90"
+                  : "bg-orange-400/80 dark:bg-orange-500/80"
               }`}
               style={{
                 left: `${left}%`,

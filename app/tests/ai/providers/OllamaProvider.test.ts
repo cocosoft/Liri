@@ -260,3 +260,66 @@ describe('OllamaProvider · 模型不支持工具调用降级', () => {
     expect(secondBody.tools).toBeUndefined();
   });
 });
+
+describe('OllamaProvider · 流式用量（TB-11）', () => {
+  it('流末 done 行的服务端用量映射为 ChatResponse.usage', async () => {
+    mockFetch(() =>
+      streamResponse([
+        {
+          model: 'qwen3.6-27b',
+          message: { role: 'assistant', content: '收到' },
+          done: false,
+        },
+        {
+          model: 'qwen3.6-27b',
+          message: { role: 'assistant', content: '' },
+          done: true,
+          prompt_eval_count: 14,
+          eval_count: 3,
+          prompt_eval_cached_count: 6,
+        },
+      ])
+    );
+
+    const provider = makeProvider();
+    const { result } = await collect(
+      provider.chatStream([{ role: 'user', content: 'hi' }], {
+        model: 'qwen3.6-27b',
+      })
+    );
+
+    // 字段名映射与非流式路径同口径；缓存字段仅在服务端给出时写入
+    expect((result as { usage?: unknown }).usage).toEqual({
+      prompt_tokens: 14,
+      completion_tokens: 3,
+      total_tokens: 17,
+      cache_read_input_tokens: 6,
+    });
+  });
+
+  it('done 行缺用量字段 ⇒ usage 为 undefined（不伪造 0）', async () => {
+    mockFetch(() =>
+      streamResponse([
+        {
+          model: 'qwen3.6-27b',
+          message: { role: 'assistant', content: '收到' },
+          done: false,
+        },
+        {
+          model: 'qwen3.6-27b',
+          message: { role: 'assistant', content: '' },
+          done: true,
+        },
+      ])
+    );
+
+    const provider = makeProvider();
+    const { result } = await collect(
+      provider.chatStream([{ role: 'user', content: 'hi' }], {
+        model: 'qwen3.6-27b',
+      })
+    );
+
+    expect((result as { usage?: unknown }).usage).toBeUndefined();
+  });
+});

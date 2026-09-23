@@ -48,6 +48,8 @@ import {
   flattenLayout,
 } from "../stores/chat/deriveTrajectoryLayout";
 import { deriveTrajectoryTimeline } from "../stores/chat/deriveTrajectoryTimeline";
+// P2-2（2026-09-23）：请求区间派生（request/start ↔ 请求级 metric/timing）
+import { deriveRequestSpans } from "../stores/chat/deriveRequestSpans";
 import { TrajectoryRow } from "../components/Trajectory/TrajectoryRow";
 import { TrajectoryDetail } from "../components/Trajectory/TrajectoryDetail";
 import type { LiriEvent } from "../types";
@@ -91,6 +93,39 @@ const SCENARIO: LiriEvent[] = [
   ev(10, "system/info", { message: "外部事件" }),
 ];
 
+/**
+ * 请求边界场景（P2-2）：三种**真实**形态各一，锁住快照形状。
+ *
+ * ① R#1 普通请求：延迟条 + 用量条**两条**完成事件 ⇒ 归并为一个区间（end 取最早，字段合并）；
+ * ② R#2 compaction 请求：完成事件只带 `duration`（provider 未返回 usage）⇒ tokens 缺省不造；
+ * ③ R#3 中断请求：只有 start ⇒ `end`/`duration` 如实缺省；
+ * ④ 陌生 requestId（无对应 start）⇒ 被忽略，不新增区间。
+ */
+const REQUEST_SCENARIO: LiriEvent[] = [
+  ev(1, "request/start", { turn: 1, model: "m-1", reason: "chat" }),
+  ev(2, "metric/timing", {
+    stage: "request",
+    ttfb: 120,
+    ttft: 150,
+    requestId: 1,
+  }),
+  ev(3, "metric/timing", {
+    stage: "request",
+    tokens: 800,
+    inputTokens: 700,
+    outputTokens: 100,
+    requestId: 1,
+  }),
+  ev(4, "request/start", { model: "m-1", reason: "compaction" }),
+  ev(5, "metric/timing", {
+    stage: "request",
+    duration: 1800,
+    requestId: 4,
+  }),
+  ev(6, "request/start", { model: "m-1", reason: "chat" }),
+  ev(7, "metric/timing", { stage: "request", tokens: 5, requestId: 999 }),
+];
+
 /** 时间文案归一化：`2026/9/23 12:34:56` → `DATE TIME`；`12:34:56` → `TIME` */
 function normalizeTime(root: HTMLElement): string {
   return root.innerHTML
@@ -105,6 +140,10 @@ describe("轨迹快照 — 派生结果（P2-4）", () => {
 
   it("deriveTrajectoryTimeline：域 / 跨度 / 模型区间 / 吞吐 / 标记数", () => {
     expect(deriveTrajectoryTimeline(SCENARIO)).toMatchSnapshot();
+  });
+
+  it("deriveRequestSpans：请求编号 / 多完成事件归并 / 缺完成缺省（P2-2）", () => {
+    expect(deriveRequestSpans(REQUEST_SCENARIO)).toMatchSnapshot();
   });
 
   it("flattenLayout：虚拟行结构指纹（turn 头与事件行交替）", () => {

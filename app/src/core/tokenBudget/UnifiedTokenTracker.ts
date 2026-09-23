@@ -27,8 +27,9 @@ import {
   persistCalibrationFactor,
 } from './CalibrationStore';
 
-// 订阅 Trace 引擎的真实 token 消耗数据
-import { traceUsageListeners } from '../../trace-recording/AITracePlugin';
+// D1（2026-09-23）：**不再**订阅 trace-recording 的 usage（`traces/` 已降级为观测层，
+// 不可作业务判据）。校准数据源收敛为 `metric/timing` 事件载荷，由调用方直接喂入
+// （见 `recordTimingUsage`）——复用既有"调用方直接喂入"通路，不新建总线/轮询。
 // 订阅子 Agent token 消耗汇聚
 import { subAgentTokenListeners } from './SubAgentTokenBridge';
 // 模块级访问器已抽至 `./trackerRegistry`（本文件曾因它达 819 行、超出 lint:size 阈值）
@@ -178,8 +179,16 @@ export class UnifiedTokenTracker {
   private readonly ANTI_FLAP_WINDOW = 3;
   private readonly ANTI_FLAP_MIN_SAVING = 0.1;
 
-  /** Trace 引擎 usage 订阅的取消函数 */
-  private _unsubscribeTrace: (() => void) | null = null;
+  /**
+   * D1 可观测计数：已应用的真实 usage 样本数（每次成功更新校准因子 +1）。
+   * 与下面两个"缺样本"计数共同构成"校准是否真的在跑"的证据；
+   * **缺样本一律保持既有因子，不用估算/默认值冒充**（Spec 裁决 D1 铁律）。
+   */
+  private calibrationAppliedSamples = 0;
+  /** D1 可观测计数：调用方喂入的样本**无有效 usage**（缺字段 / 全 0 / 格式未知）⇒ 不校准 */
+  private missingUsageSamples = 0;
+  /** D1 可观测计数：有真实 usage 但无估算基线（或修正后输入 ≤ 0）⇒ 无法计算比值，不校准 */
+  private missingBaselineSamples = 0;
 
   /** 子 Agent token 订阅的取消函数 */
   private _unsubscribeSubAgent: (() => void) | null = null;
@@ -194,8 +203,8 @@ export class UnifiedTokenTracker {
     this.overheadSystemPrompt = overhead?.systemPrompt ?? 0;
     this.overheadToolDefs = overhead?.toolDefs ?? 0;
 
-    // 订阅 Trace 引擎的真实 token 消耗数据，用于校准因子闭环
-    this._subscribeTraceUsage();
+    // D1（2026-09-23）：校准数据源不再订阅 trace（观测层），改由调用方喂入
+    // `metric/timing` 事件载荷（`recordTimingUsage`）。
     // 订阅子 Agent token 消耗汇聚
     this._subscribeSubAgentUsage();
   }
@@ -509,37 +518,133 @@ export class UnifiedTokenTracker {
   // 请求后记录
   // ==========================================
 
-  /** 请求后记录：复用 UsageExtractor 自动解析多种 API 格式 */
+  /**
+   * D1（2026-09-23）：**校准主通路** —— 喂入 `metric/timing` 事件的用量载荷。
+   *
+   * 入参是**结构类型**（不 import chat 模块，保持 core 的依赖方向）：
+   * `chat/services/timingEvent.ts#buildRequestTimingData` 的产物（`TimingEventData`）
+   * 即满足本签名 —— 该校验/构造点是"事件侧 usage"的**唯一实现**，本方法消费它。
+   *
+   * 缺 usage ⇒ 只计数（`missingUsageSamples`）并保持既有因子，**不用估算冒充**。
+   */
+  recordTimingUsage(
+    sample: { inputTokens?: number; outputTokens?: number },
+    model?: string
+  ): void {
+    try {
+      this._applyUsageSample(sample.inputTokens, sample.outputTokens, model);
+    } catch (err) {
+      logger.warn('unified:recordTimingUsage error', { error: String(err) });
+    }
+  }
+
+  /** D1 可观测计数（诊断/单测）：校准样本应用次数与两类缺样本计数 */
+  getCalibrationStats(): {
+    applied: number;
+    missingUsage: number;
+    missingBaseline: number;
+    factor: number;
+  } {
+    return {
+      applied: this.calibrationAppliedSamples,
+      missingUsage: this.missingUsageSamples,
+      missingBaseline: this.missingBaselineSamples,
+      factor: this.calibrationFactor,
+    };
+  }
+
+  /**
+   * 请求后记录：复用 UsageExtractor 自动解析多种 API 格式。
+   *
+   * 非 chat 路径（`QueryEngine`）的入口：其调用方拿到的是 provider 返回的
+   * **原始 usage 对象**（不是 `metric/timing` 载荷）。两条入口共用下面的
+   * `_applyUsageSample` 单一实现，**数据源都是真实 usage**，无第三方落盘源。
+   */
   recordPostRequest(apiBody: Record<string, unknown>): void {
     try {
       const usage = extractUsage(apiBody);
-      if (!usage) return;
-      this.controller.recordUsage(usage.inputTokens, usage.outputTokens);
-
-      // 更新校准因子（EMA 平滑 + overhead 修正）
-      const overhead = this.overheadSystemPrompt + this.overheadToolDefs;
-      const correctedInput = usage.inputTokens - overhead;
-      if (this.streamState().baselineInputTokens > 0 && correctedInput > 0) {
-        const raw = correctedInput / this.streamState().baselineInputTokens;
-        if (isFinite(raw) && raw > 0) {
-          const oldFactor = this.calibrationFactor;
-          this.calibrationFactor =
-            this.CALIBRATION_ALPHA * raw +
-            (1 - this.CALIBRATION_ALPHA) * this.calibrationFactor;
-          // 持久化校准因子（按模型，重启后直接恢复，无需重新学习）
-          persistCalibrationFactor(this.currentModel, this.calibrationFactor);
-          logger.info('unified:calibration updated', {
-            oldFactor: Math.round(oldFactor * 100) / 100,
-            newFactor: Math.round(this.calibrationFactor * 100) / 100,
-            raw,
-            inputTokens: usage.inputTokens,
-            outputTokens: usage.outputTokens,
-          });
-        }
+      if (!usage) {
+        this.missingUsageSamples++;
+        logger.debug('unified:recordPostRequest 无可解析 usage（不校准）', {
+          missingUsage: this.missingUsageSamples,
+        });
+        return;
       }
+      this._applyUsageSample(usage.inputTokens, usage.outputTokens);
     } catch (err) {
       logger.warn('unified:recordPostRequest error', { error: String(err) });
     }
+  }
+
+  /**
+   * D1：校准的唯一内部实现（两条入口共用）。
+   *
+   * 因子更新 = EMA（`CALIBRATION_ALPHA=0.3`）平滑 `真实 input / 估算 baseline`，
+   * 并扣掉固定 overhead（系统提示 + 工具定义）。任一步拿不到真实数据 ⇒
+   * **保持既有因子 + 计数**（不估算、不落默认值）。
+   */
+  private _applyUsageSample(
+    inputTokens: number | undefined,
+    outputTokens: number | undefined,
+    model?: string
+  ): void {
+    const input =
+      typeof inputTokens === 'number' && Number.isFinite(inputTokens)
+        ? inputTokens
+        : 0;
+    const output =
+      typeof outputTokens === 'number' && Number.isFinite(outputTokens)
+        ? outputTokens
+        : 0;
+    if (input <= 0 && output <= 0) {
+      this.missingUsageSamples++;
+      logger.debug('unified:usage 样本缺失（不校准，保持既有因子）', {
+        missingUsage: this.missingUsageSamples,
+      });
+      return;
+    }
+    // 记账（无论能否校准都记真实用量）
+    this.controller.recordUsage(input, output);
+
+    const overhead = this.overheadSystemPrompt + this.overheadToolDefs;
+    const baseline = this.streamState().baselineInputTokens;
+    const correctedInput = input - overhead;
+    if (baseline <= 0 || correctedInput <= 0) {
+      this.missingBaselineSamples++;
+      logger.debug('unified:无估算基线，无法校准（保持既有因子）', {
+        inputTokens: input,
+        baselineInputTokens: baseline,
+        correctedInput,
+        missingBaseline: this.missingBaselineSamples,
+      });
+      return;
+    }
+    const raw = correctedInput / baseline;
+    if (!isFinite(raw) || raw <= 0) {
+      this.missingBaselineSamples++;
+      return;
+    }
+    const oldFactor = this.calibrationFactor;
+    this.calibrationFactor =
+      this.CALIBRATION_ALPHA * raw +
+      (1 - this.CALIBRATION_ALPHA) * this.calibrationFactor;
+    this.calibrationAppliedSamples++;
+    // 持久化校准因子（按模型，重启后直接恢复，无需重新学习）
+    persistCalibrationFactor(
+      model || this.currentModel,
+      this.calibrationFactor
+    );
+    logger.info('unified:calibration updated', {
+      source: 'metric/timing',
+      oldFactor: Math.round(oldFactor * 100) / 100,
+      newFactor: Math.round(this.calibrationFactor * 100) / 100,
+      raw,
+      inputTokens: input,
+      outputTokens: output,
+      baselineInputTokens: baseline,
+      appliedSamples: this.calibrationAppliedSamples,
+      model: model || this.currentModel,
+    });
   }
 
   // ==========================================
@@ -623,72 +728,6 @@ export class UnifiedTokenTracker {
   // 生命周期
   // ==========================================
 
-  /** 订阅 Trace 引擎的真实 usage，用于校准因子闭环 */
-  private _subscribeTraceUsage(): void {
-    const self = this;
-    const callback = (usage: {
-      model: string;
-      inputTokens: number;
-      outputTokens: number;
-      cacheReadTokens: number;
-      cacheCreateTokens: number;
-      durationMs: number;
-      status: number;
-      timestamp: string;
-    }) => {
-      self._onTraceUsage(usage);
-    };
-    traceUsageListeners.push(callback);
-    this._unsubscribeTrace = () => {
-      const idx = traceUsageListeners.indexOf(callback);
-      if (idx >= 0) traceUsageListeners.splice(idx, 1);
-    };
-  }
-
-  /** 收到 Trace 引擎的真实 token 消耗时，更新校准因子并记录 budget */
-  private _onTraceUsage(usage: {
-    model: string;
-    inputTokens: number;
-    outputTokens: number;
-    cacheReadTokens: number;
-    cacheCreateTokens: number;
-    durationMs: number;
-    status: number;
-    timestamp: string;
-  }): void {
-    try {
-      // 记录到 TokenBudgetController
-      this.controller.recordUsage(usage.inputTokens, usage.outputTokens);
-
-      // 更新校准因子：真实 inputTokens / 估算 baselineInputTokens
-      const overhead = this.overheadSystemPrompt + this.overheadToolDefs;
-      const correctedInput = usage.inputTokens - overhead;
-      if (this.streamState().baselineInputTokens > 0 && correctedInput > 0) {
-        const raw = correctedInput / this.streamState().baselineInputTokens;
-        if (isFinite(raw) && raw > 0) {
-          const oldFactor = this.calibrationFactor;
-          this.calibrationFactor =
-            this.CALIBRATION_ALPHA * raw +
-            (1 - this.CALIBRATION_ALPHA) * this.calibrationFactor;
-          // 持久化校准因子（按模型，重启后直接恢复）
-          persistCalibrationFactor(usage.model, this.calibrationFactor);
-          logger.info('unified:calibration updated from trace', {
-            source: 'trace',
-            oldFactor: Math.round(oldFactor * 100) / 100,
-            newFactor: Math.round(this.calibrationFactor * 100) / 100,
-            raw,
-            traceInputTokens: usage.inputTokens,
-            traceOutputTokens: usage.outputTokens,
-            baselineInputTokens: this.streamState().baselineInputTokens,
-            model: usage.model,
-          });
-        }
-      }
-    } catch (err) {
-      logger.warn('unified:_onTraceUsage error', { error: String(err) });
-    }
-  }
-
   /** 订阅子 Agent token 消耗汇聚 */
   private _subscribeSubAgentUsage(): void {
     const self = this;
@@ -742,10 +781,6 @@ export class UnifiedTokenTracker {
       this.defaultSession.checkInterval = null;
     }
     this.compactionHistory = [];
-    if (this._unsubscribeTrace) {
-      this._unsubscribeTrace();
-      this._unsubscribeTrace = null;
-    }
     if (this._unsubscribeSubAgent) {
       this._unsubscribeSubAgent();
       this._unsubscribeSubAgent = null;

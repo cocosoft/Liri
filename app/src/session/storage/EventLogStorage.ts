@@ -289,7 +289,7 @@ export class EventLogStorage {
    * 超限（条数/字节）置 snapshotIneligible 防内存放大。
    */
   private eventsSnapshot: LiriEvent[] | null = null;
-  /** P1-2：快照不可建标记（超上限后置位——事件只会更多，永久禁用；trimEvents 后重置） */
+  /** P1-2：快照不可建标记（超上限后置位——事件只会更多，永久禁用；`clearSnapshotCache` 后重置） */
   private snapshotIneligible = false;
   /** P1-2：快照累计字节（buildSnapshot 按 line.length 累计；append 增量按 JSON.stringify 近似） */
   private snapshotBytes = 0;
@@ -1302,86 +1302,13 @@ export class EventLogStorage {
   }
 
   /**
-   * D-3（2026-08-23）：物理裁剪事件日志（保留 seq >= beforeSeq 的事件）
-   *
-   * 用于事件修剪（T-E）：清理旧事件的同时把 tailSeq 重置为剩余最大 seq，
-   * 避免 tailSeq 停在旧值导致新 append 的 duplicate-seq 误判。
-   *
-   * 注意：调用方（修剪消息时）须把裁剪区间 {startSeq, endSeq} 持久化到
-   * `session.metadata.trajectoryTrims`，供 T-D 对账排除合法 seq 缺口（评审 v0.3#3）。
-   *
-   * @param beforeSeq 保留区间的起始 seq（包含）
-   * @returns 新 tailSeq（失败返回当前值，不抛错）
-   */
-  async trimEvents(beforeSeq: number): Promise<{ newTailSeq: number }> {
-    if (!this.exists()) return { newTailSeq: 0 };
-    try {
-      // 流式过滤保留区间（避免大文件一次性加载 + read limit 截断）
-      const keptLines: string[] = [];
-      let maxSeq = 0;
-      const rl = this.createReadlineInterface();
-      for await (const line of rl) {
-        if (!line.trim()) continue;
-        try {
-          const event = JSON.parse(line) as LiriEvent;
-          if (typeof event.seq === 'number' && event.seq >= beforeSeq) {
-            keptLines.push(line);
-            if (event.seq > maxSeq) maxSeq = event.seq;
-          }
-        } catch {
-          // 损坏行：裁剪场景保守保留原样（避免数据丢失），不参与 maxSeq 计算
-          keptLines.push(line);
-        }
-      }
-      // 原子替换（临时文件 + rename，避免半写）
-      const tmpPath = `${this.filePath}.trim`;
-      await fs.writeFile(
-        tmpPath,
-        keptLines.join('\n') + (keptLines.length > 0 ? '\n' : ''),
-        'utf-8'
-      );
-      await fs.rename(tmpPath, this.filePath);
-      // 重置 tailSeq（内存 + 持久化同步）
-      this.tailSeq = maxSeq;
-      await this.writePersistedTailSeq(maxSeq);
-      // P1-2：物理裁剪后事件集合已变，快照失效（并允许重新评估快照资格）
-      this.clearSnapshotCache();
-      // P3-8（2026-09-02）：字节索引作废（F-1）——trim 物理重写文件，旧偏移
-      // 全部失效。idxLoaded 置 false 使下次 ensureIdxLoaded 重新对齐
-      // idxBytesTotal = trim 后文件实际大小（append-only 偏移累计自此处续）。
-      this.idxEntries = [];
-      this.idxTailSeq = 0;
-      this.idxBatchCount = 0;
-      this.idxBatchStartSeq = 0;
-      this.idxBatchStartOffset = 0;
-      this.idxBytesTotal = 0;
-      this.idxLoaded = false;
-      await fs.rm(this.idxFilePath, { force: true }).catch(() => {});
-      logger.info('event-log: 事件日志物理裁剪完成', {
-        sessionId: this.sessionId,
-        beforeSeq,
-        newTailSeq: maxSeq,
-        keptLines: keptLines.length,
-      });
-      return { newTailSeq: maxSeq };
-    } catch (e) {
-      await handleError(e, {
-        module: 'session:event-log',
-        action: 'trimEvents',
-        context: { sessionId: this.sessionId, beforeSeq },
-      }).catch(() => {});
-      return { newTailSeq: this.tailSeq };
-    }
-  }
-
-  /**
    * D3（2026-08-24）：事件级 fork——复制本会话 [1..boundary] 前缀事件到目标存储
    *
    * - 保留原始 seq（子会话继承祖先 seq 空间，不做重映射；当前无跨会话 seq 引用）
    * - 复制前先 ensureRepairChecked（复用 D4 崩溃修复，保证复制的是完整前缀）
    * - 流式读取源文件，直接写原始行（避免 JSON 重序列化导致的格式漂移）
    * - 目标必须为空（fork 目标 = 新建会话），已存在事件则拒绝 target-not-empty
-   * - 原子写入（tmp + rename，参照 trimEvents），同步更新目标 tailSeq + 持久化 meta
+   * - 原子写入（tmp + rename，避免半写），同步更新目标 tailSeq + 持久化 meta
    *
    * @param target 目标 EventLogStorage（子会话）
    * @param boundary fork 边界 seq（包含）；> 源 tailSeq 时复制全量
@@ -1671,7 +1598,7 @@ export class EventLogStorage {
    * - memoryTailSeq：本实例已确认落盘的日志末尾（append 同步更新）
    * persisted（events.tail meta）降级为日志参考，不再参与判定。
    *
-   * 失效场景：trimEvents / commitTornRepair / copyPrefixTo（目标）已显式清空；
+   * 失效场景：commitTornRepair / copyPrefixTo（目标）已显式清空；
    * 此处探测到 stale 时置冷却（P0-3），避免跨实例持续写期间反复全量重建。
    */
   private async getFreshSnapshot(): Promise<LiriEvent[] | null> {

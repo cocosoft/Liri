@@ -67,6 +67,8 @@ export type LiriEventType =
   | "session/start"
   | "session/end"
   | "session/title"
+  // P2-2（2026-09-23）：请求边界（turn × request 双边界；requestId = 本事件的 seq）
+  | "request/start"
   // ─── Code Mode（CM-5，2026-08-25） ───
   | "assistant/code_run";
 
@@ -153,6 +155,11 @@ export interface LiriEventMap {
     outputTokens?: number;
     cacheReadTokens?: number;
     cacheCreationTokens?: number;
+    /**
+     * P2-2（2026-09-23）：所属请求标识（= 同请求 `request/start` 的 seq）。
+     * **可选**：旧事件 / 拿不到 requestId 的写入路径缺省 ⇒ 读端如实视为"无可配对区间"。
+     */
+    requestId?: number;
   };
   /**
    * TR-12-B（2026-09-22）：模型输入快照 —— 与 app 侧同一契约
@@ -186,6 +193,19 @@ export interface LiriEventMap {
   "session/title": {
     title: string;
     source: "preliminary" | "final" | "manual";
+  };
+  /**
+   * 请求开始（P2-2，2026-09-23）—— 与 app 侧同一契约
+   * （见 `app/src/chat/types/events.ts` 的 `request/start`）。
+   *
+   * **配对键就是本事件的 `seq`**（= `requestId`）⇒ 载荷内不带 requestId。
+   */
+  "request/start": {
+    /** 所属回合（请求发出时 turn 尚未分配则缺省） */
+    turn?: number;
+    model?: string;
+    /** 请求来源：普通对话请求 / compaction 摘要请求（共用同一编号序列） */
+    reason?: "chat" | "compaction";
   };
   // ─── 富块事件载荷（M4-1-a 扩展） ───
   "assistant/status": {

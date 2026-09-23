@@ -295,6 +295,12 @@ test.describe("轨迹模块 E2E", () => {
     });
     await page.waitForTimeout(400);
     const before = await scroller.evaluate((el) => el.scrollTop);
+    // 两态收敛（TB-13 修复，2026-09-23）：当前会话轨迹**不足以滚动**时（`scrollHeight <= clientHeight`
+    // ⇒ 上面赋的 `scrollTop` 被钳制为 0），"中部"这一前置条件**无法构造** ⇒ 显式 skip。
+    // 此前是硬断言 ⇒ 把"数据不足"误报成用例失败（本地常见：自动选中的会话只有 4 条事件）。
+    if (before === 0) {
+      test.skip(true, "当前会话轨迹不足以滚动，无法构造「中部」前置条件（数据不足，非用例缺陷）");
+    }
     // 前提断言：必须真的滚到了中部，否则"scrollTop 不变"是平凡通过
     expect(before).toBeGreaterThan(0);
 
@@ -333,6 +339,10 @@ test.describe("轨迹模块 E2E", () => {
     });
     await page.waitForTimeout(400);
     const before = await scroller.evaluate((el) => el.scrollTop);
+    // 两态收敛（TB-13 修复，2026-09-23）：不可滚动 ⇒ 无法构造"中部"前置 ⇒ 显式 skip（非失败）
+    if (before === 0) {
+      test.skip(true, "当前会话轨迹不足以滚动，无法构造「中部」前置条件（数据不足，非用例缺陷）");
+    }
     expect(before).toBeGreaterThan(0); // 前提：确实处于中部
 
     // 找一个**完全落在可视区内**的事件行（Turn 头是 button，故过滤含 div 的行）
@@ -408,5 +418,55 @@ test.describe("轨迹模块 E2E", () => {
       .getByText(/输入 .* · 输出 .* · 合计/)
       .count();
     expect(latencyShown > 0 || tokensShown > 0).toBe(true);
+  });
+
+  /**
+   * P2-2（2026-09-23，`.trae/specs/request-boundary-events.md` v0.2）：
+   * **请求轨与 turn 轨并存**（不同粒度：一个 turn 可含多次请求）。
+   *
+   * 双态容错（同本 spec 既有策略）：
+   * - 图例是**静态装配**（5 条轨：对话 / 模型耗时 / 请求 / 工具 / 系统）⇒ 环境无关，必断言；
+   * - 区间条依赖真实数据（需 `turn/end` 或 `request/start`+完成）⇒ 空库/旧会话**显式 skip**，
+   *   不写成 `>= 0` 那种永真的假断言。
+   */
+  test("请求轨与 turn 轨并存渲染（双态容错，P2-2）", async ({ page }) => {
+    const inspector = await openTrajectoryTab(page);
+    await requireRows(inspector);
+
+    // 时间线不可用（事件不足 / 时间域退化）⇒ 显式跳过而非假绿
+    await expect
+      .poll(async () => (await inspector.getByText(/时间线/).count()) > 0, {
+        timeout: 15_000,
+      })
+      .toBe(true);
+    if ((await inspector.getByText(/时间线不可用/).count()) > 0) {
+      test.skip(true, "时间线不可用（事件不足或时间域退化）");
+    }
+
+    // 轨图例并存：请求轨（新增）与对话轨（turn 跨度所在轨）
+    await expect(inspector.getByText("请求", { exact: true })).toBeVisible();
+    await expect(inspector.getByText("对话", { exact: true })).toBeVisible();
+
+    const turnSpans = inspector.locator('[role="button"][title^="轮次"]');
+    const requestSpans = inspector.locator('[role="button"][title^="请求 R#"]');
+
+    // 数据已就绪（上面已等"时间线"标题）⇒ 直接判定是否有区间条：
+    // 一个会话完全可能**既无** `turn/end` **也无**完整的 `request/start` 区间（如实缺省）
+    // ⇒ 显式 skip，而不是把"无区间条"当成失败（也不写成 `>= 0` 那种永真的假断言）。
+    if ((await turnSpans.count()) + (await requestSpans.count()) === 0) {
+      test.skip(true, "无可配对区间（该会话无 turn/end，也无 request/start 的完整区间）");
+    }
+
+    // 两类区间各自独立渲染：请求条的 title 形如 `请求 R#1 · 1.2 s`（编号 + 真实耗时）
+    if ((await requestSpans.count()) > 0) {
+      await expect(requestSpans.first()).toHaveAttribute(
+        "title",
+        /^请求 R#\d+ · /,
+      );
+      // 与 turn 跨度**互不覆盖**：两类区间可同屏（选择器互不干扰）
+      if ((await turnSpans.count()) > 0) {
+        await expect(turnSpans.first()).toBeAttached();
+      }
+    }
   });
 });

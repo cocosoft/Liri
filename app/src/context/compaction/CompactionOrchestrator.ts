@@ -153,6 +153,36 @@ export interface CompactionOrchestratorOptions {
   tracker?: UnifiedTokenTracker;
   /** R1（2026-09-16）：可选注入 AI 服务，用于端到端测试驱动折叠循环；缺省经 getAiService() 动态 import */
   aiService?: { generate: Function };
+  /**
+   * P2-2（2026-09-23）：请求边界上报器（可选注入）。
+   *
+   * **为什么要注入**：compaction 的摘要调用**也是一次请求**，必须与普通请求共用同一套
+   * 请求边界事件（否则轨迹里的请求区间会"莫名断号"）。但本模块属 `context/`，**拿不到**
+   * 会话事件日志（`EventLogStorage` 由 `chat/` 持有）⇒ 由 ChatManager 注入两个回调，
+   * 复用 `chat/services/requestBoundary` 的唯一实现。
+   *
+   * **未注入 ⇒ 不产请求事件**（如无宿主直接调 `compactionOrchestrator.compact` 的场景），
+   * 如实缺省而**不伪造** requestId。
+   */
+  requestReporter?: CompactionRequestReporter;
+}
+
+/**
+ * P2-2：compaction 请求边界上报（由宿主 ChatManager 实现/注入）。
+ *
+ * - `start`：请求发出前调用，返回该请求标识（= `request/start` 事件的 seq）；失败 ⇒ `undefined`
+ * - `finish`：请求结束后调用（用量/延迟，**能拿才传**；两个字段都拿不到则宿主不产事件）
+ */
+export interface CompactionRequestReporter {
+  start(
+    sessionId: string,
+    info: { model?: string }
+  ): Promise<number | undefined>;
+  finish(
+    sessionId: string,
+    requestId: number | undefined,
+    info: { usage?: unknown; durationMs?: number }
+  ): Promise<void>;
 }
 
 /** 压缩执行结果（P1-2 扩展：success 时携带摘要调用信封供事件重建） */
@@ -167,15 +197,26 @@ export class CompactionOrchestrator {
   private tracker: UnifiedTokenTracker | null = null;
   /** R1（2026-09-16）：可注入 AI 服务（测试驱动折叠循环），null 时经 getAiService() 动态 import */
   private aiService: { generate: Function } | null = null;
+  /** P2-2（2026-09-23）：请求边界上报器；null ⇒ 不产请求事件（如实缺省，不伪造） */
+  private requestReporter: CompactionRequestReporter | null = null;
 
   constructor(options: CompactionOrchestratorOptions = {}) {
     this.tracker = options.tracker ?? null;
     this.aiService = options.aiService ?? null;
+    this.requestReporter = options.requestReporter ?? null;
   }
 
   /** 设置评估 tracker（C7 收敛：ChatManager 初始化时注入其 unifiedTracker 实例） */
   setTracker(tracker: UnifiedTokenTracker): void {
     this.tracker = tracker;
+  }
+
+  /**
+   * P2-2：注入请求边界上报器（ChatManager 初始化时注入；与 `setTracker` 同一收敛手法：
+   * 单例编排器的依赖统一由宿主注入，避免 context/ → chat/ 的模块倒挂 import）。
+   */
+  setRequestReporter(reporter: CompactionRequestReporter | null): void {
+    this.requestReporter = reporter;
   }
 
   /**
@@ -844,6 +885,21 @@ export class CompactionOrchestrator {
     ctx: CompactionContext,
     signal?: AbortSignal
   ): Promise<string | null> {
+    // P2-2（2026-09-23）：本批摘要调用**也是一次请求**：发出前落 `request/start`
+    // （reason='compaction'，与普通请求共用编号序列），结束后补请求级 `metric/timing`
+    // （用量/延迟能拿才写）⇒ 此前完全不产请求级事件、区间无边界。
+    const requestStartedAt = Date.now();
+    const requestId = await this._reportRequestStart(ctx);
+    let requestFinishReported = false;
+    /** 闭合本请求区间（**恰好一次**；用量能拿才写，拿不到只写真实墙钟耗时） */
+    const closeRequest = async (usage?: unknown): Promise<void> => {
+      if (requestFinishReported) return;
+      requestFinishReported = true;
+      await this._reportRequestFinish(ctx, requestId, {
+        usage,
+        durationMs: Date.now() - requestStartedAt,
+      });
+    };
     try {
       // R6（2026-09-21）：发请求前**兜底收敛配对** —— 保证任何切片都满足
       // "带 tool_calls 的 assistant 后面必须跟齐其 tool 结果"（含孤立 tool 消息），
@@ -862,6 +918,11 @@ export class CompactionOrchestrator {
         max_tokens: 2560,
         signal,
       });
+
+      // 完成侧：usage 取自 provider 原始返回（**能拿才写**；缺失/全 0 由宿主侧守卫处理）
+      await closeRequest(
+        (response as { usage?: unknown } | null | undefined)?.usage
+      );
 
       const raw = response.content?.trim();
       if (!raw) return null;
@@ -882,6 +943,8 @@ export class CompactionOrchestrator {
       });
       return `[Previous conversation summary]\n${raw}`;
     } catch (err) {
+      // 失败同样闭合区间（真实墙钟；用量未知 ⇒ 不写 tokens，不估不算）
+      await closeRequest();
       // 单批折叠失败不整体回退——调用方保留残余并停止折叠（暂不需 handleError 上报主链路）
       // @ignore-catch: Tier3 所有批都失败时 runFullCompaction 走 applied:false；此处避免
       //  汇总多次 handleError 刷 ErrorTracker。
@@ -889,6 +952,43 @@ export class CompactionOrchestrator {
         error: String(err),
       });
       return null;
+    }
+  }
+
+  /** P2-2：上报请求开始（未注入 reporter / 无 sessionId ⇒ no-op 返回 `undefined`；失败不阻断压缩） */
+  private async _reportRequestStart(
+    ctx: CompactionContext
+  ): Promise<number | undefined> {
+    if (!this.requestReporter || !ctx.sessionId) return undefined;
+    try {
+      return await this.requestReporter.start(ctx.sessionId, {
+        model: ctx.model || undefined,
+      });
+    } catch (err) {
+      // @ignore-catch — 观测失败不影响压缩主流程（CS03）
+      logger.debug('compaction:request_start_report_failed', {
+        sessionId: ctx.sessionId,
+        error: String(err),
+      });
+      return undefined;
+    }
+  }
+
+  /** P2-2：上报请求结束（用量/延迟，能拿才带；未注入 reporter / 无 sessionId ⇒ no-op） */
+  private async _reportRequestFinish(
+    ctx: CompactionContext,
+    requestId: number | undefined,
+    info: { usage?: unknown; durationMs?: number }
+  ): Promise<void> {
+    if (!this.requestReporter || !ctx.sessionId) return;
+    try {
+      await this.requestReporter.finish(ctx.sessionId, requestId, info);
+    } catch (err) {
+      // @ignore-catch — 观测失败不影响压缩主流程（CS03）
+      logger.debug('compaction:request_finish_report_failed', {
+        sessionId: ctx.sessionId,
+        error: String(err),
+      });
     }
   }
 }

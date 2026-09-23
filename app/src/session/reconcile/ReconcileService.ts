@@ -24,12 +24,16 @@
  *
  * 比对 events（事件日志）与 messages（投影）的一致性，产出漂移报告 + 修复计划。
  * 仲裁规则：
- * - 投影有、事件无（非 summary / 非修剪缺口）→ 反向补全候选（events 半写）
+ * - 投影有、事件无（非 summary）→ 反向补全候选（events 半写）
  * - 事件有、投影无 → projection-missing（events 为准）
  * - content 不一致 → 漂移（比对基准：事件 text 拼接 vs 投影 content）
  * - 压缩半状态：投影含压缩区间内消息 → 用 summary 替换候选（半状态自愈）
  *
  * 自动修复默认关闭（仅检测 + 告警 + 修复计划，评审 v0.2#3/#4 + v0.3#7）。
+ *
+ * D5（2026-09-23）：删除"修剪缺口排除"——`session.metadata.trajectoryTrims` 全仓
+ * **无生产写入点**，该排除分支恒 no-op（"看似有保护实际没有"）；缺口一律按真实语义
+ * 上报（`event-missing` + 反向补全候选）。
  */
 
 import { getLogger } from '@modules/monitoring/logs/Logger.js';
@@ -38,6 +42,8 @@ import { promises as fs } from 'fs';
 import type { LiriEvent } from '../../chat/types/events';
 import {
   deriveMessagesFromEvents,
+  extractCompactionRangesFromEvents,
+  resolveCompactionRanges,
   type CompactionRange,
   type DerivedMessage,
 } from '../storage/EventMessageDeriver';
@@ -81,12 +87,6 @@ export interface ReconcileDeps {
   getSessionMeta: (
     sessionId: string
   ) => Promise<Record<string, unknown> | undefined>;
-}
-
-/** 修剪区间（metadata.trajectoryTrims 条目） */
-interface TrimRange {
-  startSeq: number;
-  endSeq: number;
 }
 
 export class ReconcileService {
@@ -139,10 +139,12 @@ export class ReconcileService {
         });
       }
 
-      const compactionRanges =
-        (meta?.trajectoryCompactions as CompactionRange[] | undefined) ?? [];
-      const trimRanges =
-        (meta?.trajectoryTrims as TrimRange[] | undefined) ?? [];
+      // D4（2026-09-23）：压缩区间以 `context/compaction` 事件为唯一权威，
+      // metadata.trajectoryCompactions 仅作可重建缓存（冲突 ⇒ 事件胜 + warning）。
+      const compactionRanges = resolveCompactionRanges(
+        (meta?.trajectoryCompactions as CompactionRange[] | undefined) ?? [],
+        extractCompactionRangesFromEvents(events)
+      );
 
       // 事件侧消息 id 集合（用于反向补全判定）
       const eventMessageIds = new Set<string>();
@@ -151,7 +153,7 @@ export class ReconcileService {
         if (typeof mid === 'string') eventMessageIds.add(mid);
       }
 
-      // 事件派生消息（压缩区间由 metadata 提供，跳过 summary）
+      // 事件派生消息（压缩区间由事件权威/缓存命中解析，跳过 summary）
       const derived = deriveMessagesFromEvents(events, projections, {
         compactionRanges,
       });
@@ -167,14 +169,12 @@ export class ReconcileService {
         derivedById.set(d.id, d);
       }
 
-      // ① 投影侧检查：投影有、事件无 → 反向补全候选（排除 summary / 修剪缺口）
+      // ① 投影侧检查：投影有、事件无 → 反向补全候选（排除 summary）
       for (const p of projections) {
         // 增量对账（评审 v0.4#13）：只比对 lastEventSeq > sinceSeq 的新增投影
         if (sinceSeq !== undefined && (p.lastEventSeq ?? 0) <= sinceSeq)
           continue;
         if (summaryMessageIds.has(p.id)) continue;
-        // 修剪缺口排除（评审 v0.3#3）：投影 lastEventSeq 落在修剪区间 → 合法缺口
-        if (this.isInTrimRange(p.lastEventSeq, trimRanges)) continue;
 
         if (!eventMessageIds.has(p.id)) {
           // 坏行场景：事件流不可信 → 仅提示，不生成反向补全候选（以投影为准）
@@ -302,12 +302,6 @@ export class ReconcileService {
     }
   }
 
-  /** 判断 seq 是否落在修剪区间（合法缺口，T-D 不误报） */
-  private isInTrimRange(seq: number | undefined, trims: TrimRange[]): boolean {
-    if (typeof seq !== 'number') return false;
-    return trims.some((t) => seq >= t.startSeq && seq <= t.endSeq);
-  }
-
   /** 生成修复计划文本（自动修复默认关闭，仅产出计划） */
   private buildRepairPlan(
     backfillCandidates: BackfillCandidate[],
@@ -317,7 +311,7 @@ export class ReconcileService {
     const plan: string[] = [];
     if (backfillCandidates.length > 0) {
       plan.push(
-        `反向补全：对 ${backfillCandidates.length} 条投影消息用 MessageToEventMigrator.convertMessage 补写事件（复用 lastEventSeq=${backfillCandidates[0]?.lastEventSeq ?? 0}，幂等由 append seq 守卫保证，跳过已修剪区间）`
+        `反向补全：对 ${backfillCandidates.length} 条投影消息用 MessageToEventMigrator.convertMessage 补写事件（复用 lastEventSeq=${backfillCandidates[0]?.lastEventSeq ?? 0}，幂等由 append seq 守卫保证）`
       );
     }
     for (const range of compactionRanges) {

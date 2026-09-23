@@ -152,7 +152,15 @@ export interface ToolLoopContext {
   // 词元追踪（设计一 2026-08-26：方法带 sessionId 参数，多会话并发水位隔离）
   // C7 收敛：完整 UnifiedTokenTracker 类型——工具轮内压缩评估需 checkBeforeRequest
   unifiedTracker: UnifiedTokenTracker;
-  recordChatResponseUsage: (sessionId: string, usage: unknown) => void;
+  /**
+   * 用量记账。P2-2（2026-09-23）：`requestId` 为**可选透传**（= 同请求 `request/start`
+   * 的 seq）；工具轮当前**不产** request/start ⇒ 不传（读端视为无可配对区间，不硬凑）。
+   */
+  recordChatResponseUsage: (
+    sessionId: string,
+    usage: unknown,
+    requestId?: number
+  ) => void;
   /** AB-10 修复：工具轮次 LLM 用量上报（区别于 recordChatResponseUsage 的内部记账，此回调转发给 streamMessage 的 onUsage → 前端 usage 事件） */
   onToolUsage?: (usage: Record<string, unknown>) => void;
 

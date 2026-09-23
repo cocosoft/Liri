@@ -23,6 +23,7 @@ export type { InterceptorCallback, InterceptedEvent } from './FetchInterceptor';
 export {
   isAIApiUrl,
   sanitizeHeaders,
+  sanitizeUrl,
   filterHopByHopHeaders,
   extractModelName,
 } from './URLMatcher';

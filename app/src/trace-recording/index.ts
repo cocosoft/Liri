@@ -31,6 +31,14 @@
  * - 多格式导出：Markdown / JSON / HTML
  * - 监控集成：可选推送指标到 DashboardDataProvider，关联 SessionTracing span
  *
+ * ⚠️ **观测层，不可作业务判据**（2026-09-23，Spec
+ * `trajectory-single-source-convergence.md` v0.2 裁决 D1）：`traces/` 是并行副本，
+ * 模型可见输入/用量的唯一权威是 `events.jsonl` 事件（`metric/timing` / `context/compaction`）。
+ * **业务模块禁止 import 本模块**（仅观测/导出/查看层可引用，见
+ * `.trae/rules/architecture.md` §3.14）；落盘保留 **7 天**（唯一实现在
+ * `session/ArtifactRetention.ts#traceKeepDays`，按 mtime 判龄 + 5 分钟节拍），
+ * 落盘前剥离凭据（敏感头整值脱敏 + URL 查参脱敏）。
+ *
  * @module
  */
 

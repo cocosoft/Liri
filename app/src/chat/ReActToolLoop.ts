@@ -2467,8 +2467,9 @@ export class ReActToolLoop extends ReActLoop<
       .usage;
     // 成本 0/0 修复（2026-08-14 复检 #5）：provider 流式返回的 usage 缺失（undefined）
     // 时跳过空记录——原实现无条件 trackUsage，产生 "LLM call recorded: 0/0 tokens"
-    // + warn"成本累加" 空条，污染 LLMTracker 与成本统计。真实 usage 由 trace-recording
-    // 层独立记录并驱动校准因子，此处空记录不丢真实数据。
+    // + warn"成本累加" 空条，污染 LLMTracker 与成本统计。有 usage 时经
+    // recordChatResponseUsage → `metric/timing` 事件（D1：校准的唯一数据源）驱动校准，
+    // 此处空记录不丢真实数据。
     if (
       !usage ||
       (usage.prompt_tokens ?? 0) + (usage.completion_tokens ?? 0) === 0

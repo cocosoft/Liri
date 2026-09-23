@@ -8,7 +8,7 @@
  * 安装后所有 AI API 调用会被自动录制，业务代码零改动。
  */
 
-import { isAIApiUrl, sanitizeHeaders } from './URLMatcher';
+import { isAIApiUrl, sanitizeHeaders, sanitizeUrl } from './URLMatcher';
 import { SSEReassembler } from '../sse/SSEReassembler';
 import { TraceEngine } from '../engine/TraceEngine';
 import type { TraceRecord, SSERawEvent } from '../types';
@@ -490,11 +490,13 @@ export class FetchInterceptor {
       timestamp: new Date(startedAtMs).toISOString(),
       turn: this.turnCounter,
       durationMs,
-      upstreamBaseUrl: url,
+      // 2026-09-23（Spec v0.2 §6-4）：URL 先脱敏再落盘 —— 部分 provider
+      // （GoogleProvider）把 API Key 放 query（`?key=`），完整 URL 落盘即凭据泄漏
+      upstreamBaseUrl: sanitizeUrl(url),
       phase,
       request: {
         method,
-        path: url,
+        path: sanitizeUrl(url),
         headers: sanitizeHeaders(reqHeaders),
         body: reqBody || reqBodyText,
       },

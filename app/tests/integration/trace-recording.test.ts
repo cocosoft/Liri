@@ -6,6 +6,11 @@
 
 import { describe, it, expect, afterEach } from 'bun:test';
 import { AITracePlugin } from '../../src/trace-recording/AITracePlugin';
+import {
+  isAIApiUrl,
+  sanitizeHeaders,
+  sanitizeUrl,
+} from '../../src/trace-recording/interceptor/URLMatcher';
 import type { TraceConfig } from '../../src/trace-recording/types';
 import { existsSync, mkdirSync, rmSync, readFileSync } from 'fs';
 import { join } from 'path';
@@ -109,5 +114,39 @@ describe('AITracePlugin 集成测试', () => {
 
     await plugin.stop();
     expect(plugin.getStatus().running).toBe(false);
+  });
+});
+
+/**
+ * 观测层凭据剥离（2026-09-23，Spec v0.2 §6-4）。
+ *
+ * 注：`traces/` 的**保留策略不在此处测试** —— 唯一实现是
+ * `src/session/ArtifactRetention.ts`（`traceKeepDays=7`），其 16 例覆盖见
+ * `tests/session/artifactRetention.test.ts`（此处不重复实现/重复测，CS01 + §3.11）。
+ */
+describe('traces 观测层：凭据剥离', () => {
+  it('敏感头整值脱敏（不留前缀）', () => {
+    const headers = sanitizeHeaders({
+      authorization: 'Bearer sk-abcdefghijklmnop',
+      'x-api-key': 'sk-abcdefghijklmnop',
+      'content-type': 'application/json',
+    });
+    expect(headers.authorization).toBe('***');
+    expect(headers['x-api-key']).toBe('***');
+    expect(headers['content-type']).toBe('application/json');
+    // 关键回归：不得残留凭据前缀（改动前是"前 12 位 + ..."）
+    expect(JSON.stringify(headers)).not.toContain('sk-');
+  });
+
+  it('URL 查参凭据脱敏（GoogleProvider 的 ?key=）且保留其它参数', () => {
+    const url =
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse&key=AIzaSyFAKEKEY1234567890';
+    const safe = sanitizeUrl(url);
+
+    expect(safe).not.toContain('AIzaSyFAKEKEY1234567890');
+    expect(safe).toContain('key=***');
+    // 非凭据参数保留（避免破坏观测可读性）
+    expect(safe).toContain('alt=sse');
+    expect(isAIApiUrl(url)).toBe(true);
   });
 });

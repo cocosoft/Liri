@@ -32,7 +32,7 @@
  *  ③ projection-missing（事件有·投影无）—— events 为准
  *  ④ content-mismatch（事件 text 与投影 content 不一致）
  *  ⑤ compaction-half-state（压缩半状态）
- *  ⑥ 修剪缺口排除（落在 trajectoryTrims 区间内的缺口不报；对照无 trims 时上报）
+ *  ⑥ 缺口按真实语义上报（D5：`trajectoryTrims` 排除逻辑已删除，缺口不再被豁免）
  *  ⑦ sinceSeq 增量对账（只报该 seq 之后的漂移）
  *  ⑧ 无漂移 ⇒ ok=true 且 repairPlan 为空
  *  ①/⑧ 并锁定**默认只告警不写盘**（未调用任何写方法 + 原 events.jsonl 字节不变）
@@ -111,9 +111,6 @@ class InMemoryEventLog {
   }
   async appendBatch(): Promise<never> {
     return this.recordWrite('appendBatch');
-  }
-  async trimEvents(): Promise<never> {
-    return this.recordWrite('trimEvents');
   }
   async commitTornRepair(): Promise<never> {
     return this.recordWrite('commitTornRepair');
@@ -339,31 +336,45 @@ describe('ReconcileService 漂移检测（TB-10 仍开放项 1）', () => {
     expectNoWrite(log);
   });
 
-  it('⑥ 修剪缺口排除：落在 trajectoryTrims 区间的缺口不报（对照：无 trims 时上报）', async () => {
+  /**
+   * ⑥ 缺口按真实语义上报（D5 改写，2026-09-23）。
+   *
+   * 原用例锁的是"落在 `trajectoryTrims` 区间的缺口被排除"——该保护**实际不存在**
+   * （全仓无 `trajectoryTrims` 生产写入点，排除分支恒 no-op），已随 Spec
+   * `.trae/specs/trajectory-single-source-convergence.md` v0.2 **D5=删除** 一并移除。
+   *
+   * 现锁的语义：metadata 里**人为塞入** `trajectoryTrims`（旧字段）也**不影响判定**；
+   * 投影有、事件无 ⇒ 一律 `event-missing` + 反向补全候选（真实缺口不豁免）。
+   * 依据：Spec D5 + `coding-standards.md` CS02（状态判定不得靠"看似有"的旁路字段）。
+   */
+  it('⑥ 缺口按真实语义上报：trajectoryTrims 已删除，旧字段不再豁免缺口', async () => {
     const sessionId = 'rc-trim-gap';
     const rawPath = rawLogFile(sessionId, '');
     const log = new InMemoryEventLog(rawPath, []);
     const projections = [projMsg('m9', 9, 'trimmed-out')];
 
-    // 有 trims：[5,10] 覆盖 seq=9 ⇒ 合法缺口，不报
-    const withTrims = await new ReconcileService(
+    // 人为塞入旧字段 trajectoryTrims（[5,10] 覆盖 seq=9）——D5 后它**不再**是豁免依据
+    const withLegacyTrims = await new ReconcileService(
       makeDeps(log, projections, {
         trajectoryTrims: [{ startSeq: 5, endSeq: 10 }],
       })
     ).reconcileSession(sessionId);
-    expect(withTrims.ok).toBe(true);
-    expect(withTrims.drifts).toEqual([]);
-    expect(withTrims.backfillCandidates).toEqual([]);
-    expect(withTrims.repairPlan).toEqual([]);
+    expect(withLegacyTrims.ok).toBe(false);
+    expect(withLegacyTrims.drifts.length).toBe(1);
+    expect(withLegacyTrims.drifts[0].kind).toBe('event-missing');
+    expect(withLegacyTrims.drifts[0].messageId).toBe('m9');
+    expect(withLegacyTrims.backfillCandidates).toEqual([
+      { messageId: 'm9', lastEventSeq: 9 },
+    ]);
 
-    // 对照：同样输入、无 trims ⇒ 上报 event-missing + 反向补全候选
-    const withoutTrims = await new ReconcileService(
+    // 对照：无任何 metadata ⇒ 同样的真实语义（上报 event-missing + 反向补全候选）
+    const withoutMeta = await new ReconcileService(
       makeDeps(log, projections)
     ).reconcileSession(sessionId);
-    expect(withoutTrims.ok).toBe(false);
-    expect(withoutTrims.drifts.length).toBe(1);
-    expect(withoutTrims.drifts[0].kind).toBe('event-missing');
-    expect(withoutTrims.backfillCandidates).toEqual([
+    expect(withoutMeta.ok).toBe(false);
+    expect(withoutMeta.drifts.length).toBe(1);
+    expect(withoutMeta.drifts[0].kind).toBe('event-missing');
+    expect(withoutMeta.backfillCandidates).toEqual([
       { messageId: 'm9', lastEventSeq: 9 },
     ]);
     expectNoWrite(log);

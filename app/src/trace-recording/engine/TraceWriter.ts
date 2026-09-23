@@ -1,8 +1,21 @@
 /**
  * Trace 写入器
  *
- * JSONL 格式写入器，按日轮换文件。
+ * JSONL 格式写入器，按日轮换文件（`trace_YYYY-MM-DD.jsonl`）。
  * 使用异步文件追加，支持并发写入（锁机制）。
+ *
+ * ⚠️ **观测层**（2026-09-23，Spec `trajectory-single-source-convergence.md` v0.2 裁决 D1）：
+ * 本模块落盘的 `traces/` 数据**不可作为业务判据**——模型可见输入/用量的唯一权威是
+ * `events.jsonl`（用量 = `metric/timing`，压缩区间 = `context/compaction`）。
+ * 业务模块禁止 import `trace-recording`（详见 `.trae/rules/architecture.md` §3.14）。
+ *
+ * **保留策略**：**不在本文件实现**（避免第二套清理机制，CS01/§3.11 实现唯一性）——
+ * 统一由 [`session/ArtifactRetention.ts`](../session/ArtifactRetention.ts) 负责：
+ * `DEFAULT_ARTIFACT_RETENTION.traceKeepDays = 7`（按 mtime 判龄，匹配
+ * `trace_*.jsonl`，由 `SessionGateway.startPruneInterval` 的 5 分钟节拍驱动）。
+ * 本写入器只做"按日轮换"，删除动作一律由上面那个唯一入口执行。
+ *
+ * **凭据**：落盘前已由拦截层剥离（`sanitizeHeaders` 整值脱敏 + `sanitizeUrl` 查参脱敏）。
  *
  * 参考：claude-tap 的 TraceWriter (Python 实现)
  */

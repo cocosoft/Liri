@@ -29,13 +29,24 @@ const AI_API_DOMAIN_PATTERNS: RegExp[] = [
   /^https?:\/\/.+\/api\/(chat|generate|tags|embeddings)/i,
 ];
 
-/** 需要脱敏的请求头 */
+/** 需要脱敏的请求头（整值替换，不留前缀） */
 const SENSITIVE_HEADERS = new Set([
   'x-api-key',
   'authorization',
   'cookie',
   'set-cookie',
   'x-session-id',
+]);
+
+/** 需要脱敏的 URL 查询参数（凭据）：GoogleProvider 用 `?key=` 传 API Key */
+const SENSITIVE_QUERY_PARAMS = new Set([
+  'key',
+  'api_key',
+  'api-key',
+  'apikey',
+  'access_token',
+  'token',
+  'x-api-key',
 ]);
 
 /**
@@ -48,8 +59,12 @@ export function isAIApiUrl(url: string): boolean {
 }
 
 /**
- * 脱敏请求头
- * 将敏感头部的值替换为前N位+省略号
+ * 脱敏请求头（**整值替换**为 `***`）。
+ *
+ * 2026-09-23（Spec `trajectory-single-source-convergence.md` v0.2 §6-4）：原实现
+ * "保留前 12 位 + `...`" 仍把凭据前缀写进 `traces/` 落盘文件（`Bearer sk-xx…`），
+ * 属**部分凭据泄漏**；改为整值脱敏，敏感头**不保留任何字符**。
+ *
  * @param headers 原始请求头
  * @returns 脱敏后的请求头
  */
@@ -60,13 +75,45 @@ export function sanitizeHeaders(
   for (const [key, value] of Object.entries(headers)) {
     const lower = key.toLowerCase();
     if (SENSITIVE_HEADERS.has(lower)) {
-      out[key] = value.length > 12 ? value.slice(0, 12) + '...' : '***';
+      out[key] = '***';
     } else {
       out[key] = value;
     }
   }
   return out;
 }
+
+/**
+ * 脱敏 URL 中的凭据查询参数（保留参数名与其它参数，值替换为 `***`）。
+ *
+ * 依据：`GoogleProvider` 把 API Key 放在 query（`?key=${apiKey}`），而 trace 记录
+ * 会落 `upstreamBaseUrl` / `request.path` 的**完整 URL** ⇒ 不脱敏即"凭据落盘"。
+ * 非 URL / 解析失败 ⇒ 原样返回（不因脱敏影响录制）。
+ */
+export function sanitizeUrl(url: string): string {
+  const qIndex = url.indexOf('?');
+  if (qIndex < 0) return url;
+  try {
+    const parsed = new URL(url);
+    let changed = false;
+    for (const name of Array.from(parsed.searchParams.keys())) {
+      if (SENSITIVE_QUERY_PARAMS.has(name.toLowerCase())) {
+        parsed.searchParams.set(name, '***');
+        changed = true;
+      }
+    }
+    return changed ? parsed.toString() : url;
+  } catch {
+    // 非标准 URL（如相对路径）⇒ 用字符串兜底替换参数值（模式由同一张表派生，避免漂移）
+    return url.replace(SENSITIVE_QUERY_PARAM_PATTERN, '$1***');
+  }
+}
+
+/** 兜底替换用的参数模式（由 `SENSITIVE_QUERY_PARAMS` 派生） */
+const SENSITIVE_QUERY_PARAM_PATTERN = new RegExp(
+  `([?&](?:${Array.from(SENSITIVE_QUERY_PARAMS).join('|')})=)[^&#]*`,
+  'gi'
+);
 
 /**
  * 过滤跳转头

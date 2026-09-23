@@ -43,6 +43,8 @@ import {
   type ApiMetricsPercentiles,
 } from "../../stores/chat/deriveApiMetrics";
 import { formatDuration } from "../../stores/chat/deriveTrajectoryTimeline";
+// P2-2（2026-09-23）：请求边界 —— turn 头呈现该轮覆盖的请求编号 `R#n`
+import { deriveRequestSpans } from "../../stores/chat/deriveRequestSpans";
 import { formatTokens } from "../../utils/format";
 import type { LiriEvent } from "../../types";
 import { useCollapsedTurns } from "../../hooks/useCollapsedTurns";
@@ -327,6 +329,35 @@ function TrajectoryTabContentImpl() {
   // 此前折叠只在 LogTab 存在，轨迹 Tab 没有），过滤走纯函数 `filterCollapsedTurns`
   //（turn 头保留、被折叠 turn 的事件行跳过）。下游 `flatRows` 引用保持不变（最小改动）。
   const allRows = useMemo(() => flattenLayout(layout), [layout]);
+
+  /**
+   * P2-2（2026-09-23）：turn 头呈现的请求编号区间（`R#n`）。
+   *
+   * 归属判据：`request/start` 的 seq 落在该 turn 的 `[startSeq, endSeq]` 内（**用事件自身
+   * 的 seq 区间**，不靠标题/文案推断）⇒ 与列表同源（过滤后事件），不会与过滤视图串味。
+   * 无请求的 turn ⇒ 不显示（不占位）。compaction 请求标记为该轮"含压缩"。
+   */
+  const requestsByTurn = useMemo(() => {
+    const spans = deriveRequestSpans(filteredEvents);
+    const byTurn = new Map<
+      number,
+      { first: number; last: number; compaction: boolean }
+    >();
+    for (const turn of layout.turns) {
+      let first = 0;
+      let last = 0;
+      let compaction = false;
+      for (const r of spans) {
+        if (r.startSeq < turn.startSeq || r.startSeq > turn.endSeq) continue;
+        if (first === 0) first = r.index;
+        last = r.index;
+        if (r.reason === "compaction") compaction = true;
+      }
+      if (first > 0) byTurn.set(turn.turn, { first, last, compaction });
+    }
+    return byTurn;
+  }, [filteredEvents, layout.turns]);
+
   const flatRows = useMemo(
     () => filterCollapsedTurns(allRows, collapsedTurns),
     [allRows, collapsedTurns],
@@ -483,6 +514,11 @@ function TrajectoryTabContentImpl() {
             {rowVirtualizer.getVirtualItems().map((vi) => {
               const row = flatRows[vi.index];
               if (!row) return null;
+              // P2-2：本 turn 覆盖的请求编号（无请求 / 非 turn 头 ⇒ undefined，不占位）
+              const rq =
+                row.kind === "turn-header"
+                  ? requestsByTurn.get(row.turn.turn)
+                  : undefined;
               return (
                 <div
                   key={vi.key}
@@ -525,6 +561,20 @@ function TrajectoryTabContentImpl() {
                       ) : (
                         <span className="text-amber-500">
                           {t("trajectory.turn.running")}
+                        </span>
+                      )}
+                      {/* P2-2（2026-09-23）：本轮覆盖的请求编号（R#n；compaction 带标记） */}
+                      {rq && (
+                        <span className="text-orange-600 dark:text-orange-400">
+                          {t("trajectory.turn.requestRange", {
+                            range:
+                              rq.first === rq.last
+                                ? `R#${rq.first}`
+                                : `R#${rq.first}~R#${rq.last}`,
+                            compaction: rq.compaction
+                              ? t("trajectory.turn.requestCompaction")
+                              : "",
+                          })}
                         </span>
                       )}
                       <span className="ml-auto text-gray-400 dark:text-gray-500 shrink-0">

@@ -84,6 +84,26 @@ export class LlamaCppProvider extends OpenAIProvider {
   } | null = null;
 
   /**
+   * 流式请求**下发** `stream_options.include_usage`（TB-11，2026-09-23 复核后放开）。
+   *
+   * 依据（如实分两层）：
+   * 1. **静态证据（已取得）**：本仓随包下载的 `llama-server-impl.dll`（`LLAMA_VERSION = b10225`，
+   *    `~/.pyapp/data/models/llama/`）经**二进制字符串扫描**含 `stream_options` 与 `include_usage`
+   *    两个字面量 ⇒ 该构建的 OpenAI 兼容层**确实解析该参数**，此前"可能 400"的顾虑基本消除
+   *    （未知参数才会被忽略/拒绝；已实现解析则非未知）。
+   * 2. **端到端尚未在本机复核（如实标注）**：本机无任何 `.gguf` 模型，且 `llama-server.exe`
+   *    被执行策略阻止（"应用程序控制策略已阻止此文件"）⇒ 无法跑真实补全验证"流末是否回传 usage"。
+   *    待在有模型且允许执行的环境复跑一次（流式请求 ⇒ 预期流末带 `usage` 且落
+   *    `metric/timing` 用量事件）；若实测异常，把本方法改回 `false` 即回到保守行为。
+   *
+   * 注：放开只影响"是否请求用量"，不影响其它请求参数；若服务端忽略该参数，最坏结果是
+   * 仍无 usage（如实缺失），不会伪造数值。
+   */
+  protected override wantsStreamUsage(): boolean {
+    return true;
+  }
+
+  /**
    * @param options - 基础选项（providerId, displayName, defaultBaseUrl 等）
    * @param _extraConfig - 扩展配置（保留接口一致）
    */

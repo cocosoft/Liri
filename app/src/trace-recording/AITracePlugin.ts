@@ -7,6 +7,12 @@
  * 独立模式：不依赖监控系统，仅记录 trace 到 JSONL 文件
  * 集成模式：同时向 DashboardDataProvider 推送指标，
  *           关联 OpenTelemetry span，触发告警
+ *
+ * ⚠️ **观测层，不可作业务判据**（2026-09-23，Spec v0.2 裁决 D1）：
+ * 本插件产出的 `traces/` 数据**不是**业务事实源 —— 用量以 `metric/timing` 事件为准
+ * （token 校准的消费者是 `UnifiedTokenTracker.recordTimingUsage()`，**不再**订阅
+ * 下方的 `traceUsageListeners`）；业务模块禁止 import 本模块。
+ * 落盘保留策略见 `session/ArtifactRetention.ts`（唯一实现：`traceKeepDays = 7`）。
  */
 
 import { FetchInterceptor } from './interceptor/FetchInterceptor';
@@ -175,7 +181,10 @@ export class AITracePlugin {
 
     // pending 分支：跳过 usage listeners / metrics / alerts（completed 才走全链路）
     if (!isPending) {
-      // === 通知全局 usage 监听器（供 UnifiedTokenTracker 校准因子闭环） ===
+      // === 通知全局 usage 监听器（观测层的扩展点） ===
+      // 2026-09-23（Spec v0.2 D1）：**无业务订阅者** —— token 校准已改由
+      // `UnifiedTokenTracker.recordTimingUsage()` 消费 `metric/timing` 事件载荷；
+      // 业务模块禁止在此订阅（本数据源属观测层，不可作业务判据）。
       if (usage.inputTokens > 0 || usage.outputTokens > 0) {
         for (const listener of traceUsageListeners) {
           try {

@@ -1471,6 +1471,11 @@ const en = {
       modelMsSpan: "· model total {{duration}}",
       throughput: "· {{value}} tok/s",
       modelSpanTitle: "Model {{duration}}",
+      // P2-2 (2026-09-23): request span lane (`request/start` ↔ request-level `metric/timing`)
+      laneRequest: "Request",
+      requestSpanTitle: "Request R#{{index}} · {{duration}}{{reason}}",
+      requestNoDuration: "duration unknown",
+      requestCompactionSuffix: " · compaction",
       legendLead:
         "Only real spans are drawn (turn / tool-call pairing); {{count}} more events have a time position only,",
       legendNoDuration: "no duration data",
@@ -1511,6 +1516,9 @@ const en = {
       completed: "Completed",
       interrupted: "Interrupted",
       running: "Running",
+      // P2-2 (2026-09-23): request indices covered by this turn (R#n; compaction marked)
+      requestRange: "{{range}}{{compaction}}",
+      requestCompaction: " · incl. compaction",
       // P1-6 (2026-09-22): turn folding (same wording for both Log and Trajectory tabs)
       collapse: "Collapse ▾",
       expand: "Expand ▸",

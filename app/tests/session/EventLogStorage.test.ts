@@ -235,26 +235,6 @@ describe('EventLogStorage 事件快照缓存（P1-2）', () => {
     expect(st.eventsSnapshot).toBeNull(); // 未重建
   });
 
-  it('trimEvents 后失效并重建', async () => {
-    const { storage, dir } = makeStorage('s6');
-    writeEvents(dir, 's6', [
-      ev(1, 'user/message', { content: 'a', messageId: 'm1' }),
-      ev(2, 'assistant/text', { content: 'b', messageId: 'm2' }),
-      ev(3, 'user/message', { content: 'c', messageId: 'm3' }),
-    ]);
-    await storage.read();
-    const st = expose(storage);
-    expect(st.eventsSnapshot?.length).toBe(3);
-
-    await storage.trimEvents(3); // 保留 seq>=3
-    expect(st.eventsSnapshot).toBeNull();
-    expect(st.snapshotIneligible).toBe(false);
-
-    const all = await storage.read();
-    expect(all.map((e) => e.seq)).toEqual([3]);
-    expect(st.eventsSnapshot).not.toBeNull(); // 重建
-  });
-
   it('超限（条数）→ 滑动窗口保留最近，读盘路径补全全量（B0，替代 P1-B 永久 ineligible）', async () => {
     const { storage, dir } = makeStorage('s7', { maxEvents: 2 });
     writeEvents(dir, 's7', [
@@ -483,29 +463,6 @@ describe('EventLogStorage 事件快照缓存（P1-2）', () => {
       expect((paged[0].data as { content: string }).content).toBe(
         '重启消息200'
       );
-    });
-
-    it('trim 后索引作废，重新 append 偏移正确（F-1）', async () => {
-      const { storage } = makeStorage('s-p38-trim');
-      for (let i = 1; i <= 300; i++) {
-        await storage.append(
-          ev(0, 'user/message', { content: `t${i}`, messageId: `t${i}` })
-        );
-      }
-      await storage.trimEvents(200); // 保留 200-300
-      const afterTrim = await storage.read({ fromSeq: 200, limit: 10000 });
-      expect(afterTrim.length).toBe(101);
-      // trim 后继续 append，偏移从头累计正确（seq 继续）
-      await storage.append(
-        ev(0, 'user/message', {
-          content: 'trim后新消息',
-          messageId: 'post-trim',
-        })
-      );
-      const all = await storage.read({ limit: 10000 });
-      const last = all[all.length - 1];
-      expect(last.seq).toBe(301);
-      expect((last.data as { content: string }).content).toBe('trim后新消息');
     });
   });
 

@@ -104,6 +104,24 @@ const REQUEST_ONLY: LiriEvent[] = [
   ev(3, "turn/end", { turn: 1 }),
 ];
 
+/**
+ * P2-2（2026-09-23）请求边界场景：一次**完整**请求（延迟条 + 用量条归并）
+ * + 一次**无完成**请求（中断 ⇒ 不画区间，不造长度）。
+ */
+const REQUEST_SCENARIO: LiriEvent[] = [
+  ev(1, "turn/start", { turn: 1 }),
+  ev(2, "request/start", { turn: 1, model: "m-1", reason: "chat" }),
+  ev(3, "metric/timing", {
+    stage: "request",
+    ttfb: 100,
+    ttft: 120,
+    requestId: 2,
+  }),
+  ev(4, "metric/timing", { stage: "request", tokens: 300, requestId: 2 }),
+  ev(5, "request/start", { model: "m-1", reason: "compaction" }),
+  ev(6, "turn/end", { turn: 1 }),
+];
+
 // ─── 几何 stub ────────────────────────────────────────────────
 // 只 stub **轨道容器实例**（不污染 Element.prototype），afterEach 逆序还原。
 type RectPatch = { el: Element; orig: () => DOMRect };
@@ -219,6 +237,13 @@ function spanEls(container: HTMLElement): Element[] {
 function modelSpanEls(container: HTMLElement): Element[] {
   return Array.from(
     container.querySelectorAll('[role="button"][title^="模型耗时"]'),
+  );
+}
+
+/** 请求区间条（title 形如 `请求 R#1 · 2.0 s`；P2-2） */
+function requestSpanEls(container: HTMLElement): Element[] {
+  return Array.from(
+    container.querySelectorAll('[role="button"][title^="请求 R#"]'),
   );
 }
 
@@ -609,5 +634,50 @@ describe("TrajectoryTimeline — 模型耗时与吞吐条件分支", () => {
     renderTimeline(REQUEST_ONLY);
     expect(screen.queryByText(/模型合计/)).toBeNull();
     expect(screen.queryByText(/吞吐/)).toBeNull();
+  });
+});
+
+// ══════════════════════════════════════════════════════════════
+// 13. 请求区间轨（P2-2，2026-09-23）
+// ══════════════════════════════════════════════════════════════
+
+describe("TrajectoryTimeline — 请求区间轨（P2-2）", () => {
+  it("有 request/start + 完成事件 ⇒ 画请求条；无完成的那个**不画**（区间两端须齐全）", () => {
+    const { container } = renderTimeline(REQUEST_SCENARIO);
+
+    // 图例多出「请求」轨（既有 4 条轨不变）
+    expect(screen.getByText("请求")).toBeDefined();
+    expect(screen.getByText("模型耗时")).toBeDefined();
+
+    // 只有 R#1 有完成（R#2 是 compaction 中断请求）⇒ 只画 1 条
+    const bars = requestSpanEls(container);
+    expect(bars).toHaveLength(1);
+    expect(screen.queryByTitle(/请求 R#2/)).toBeNull();
+
+    // 区间 = [request/start.time, 最早完成事件 time] = 1000ms（真实墙钟差）
+    expect(screen.getByTitle(/请求 R#1 · 1\.0 s/)).toBeDefined();
+  });
+
+  it("请求条点击回调：传 request/start 的 seq，已选中则传 null", () => {
+    const onSelect = vi.fn();
+    const { rerender } = render(
+      <TrajectoryTimeline
+        events={REQUEST_SCENARIO}
+        selectedSeq={null}
+        onSelect={onSelect}
+      />,
+    );
+    fireEvent.click(screen.getByTitle(/请求 R#1/));
+    expect(onSelect).toHaveBeenLastCalledWith(2);
+
+    rerender(
+      <TrajectoryTimeline
+        events={REQUEST_SCENARIO}
+        selectedSeq={2}
+        onSelect={onSelect}
+      />,
+    );
+    fireEvent.click(screen.getByTitle(/请求 R#1/));
+    expect(onSelect).toHaveBeenLastCalledWith(null);
   });
 });

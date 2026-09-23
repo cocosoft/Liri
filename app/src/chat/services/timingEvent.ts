@@ -47,6 +47,8 @@ export interface TimingEventData {
   outputTokens?: number;
   cacheReadTokens?: number;
   cacheCreationTokens?: number;
+  /** P2-2（2026-09-23）：所属请求标识（= 同请求 `request/start` 的 seq；拿不到则不写） */
+  requestId?: number;
 }
 
 /**

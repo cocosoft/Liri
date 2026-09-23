@@ -77,6 +77,12 @@ import {
   buildAssistantTimingData,
   buildRequestTimingData,
 } from './services/timingEvent';
+// P2-2（2026-09-23）：请求边界事件（`request/start` + 请求级 `metric/timing.requestId`）
+import {
+  finishRequest,
+  startRequest,
+  type RequestEventAppender,
+} from './services/requestBoundary';
 import { feature as coreFeature } from '@modules/core';
 import { configureCodeRunner, getSubAgentEngine } from '@modules/tools';
 import {
@@ -840,6 +846,25 @@ export class ChatManagerImpl implements ChatManager {
     );
     // C7 收敛：压缩评估统一走 UnifiedTokenTracker（注入到单例编排器）
     compactionOrchestrator.setTracker(this.unifiedTracker);
+    // P2-2（2026-09-23）：compaction 的摘要请求**也是一次请求** ⇒ 同样落请求边界事件
+    // （与普通请求共用同一编号序列，带 reason='compaction'）。本模块持有会话事件日志，
+    // 故在此实现上报并注入单例编排器（避免 `context/` → `chat/` 的反向 import）。
+    // 用量/延迟**能拿才写**；未拿到 usage ⇒ 只写真实墙钟耗时（不估不算）。
+    const requestAppender: RequestEventAppender = (sid, event) =>
+      this.appendStreamEvent(sid, event);
+    compactionOrchestrator.setRequestReporter({
+      start: (sessionId, info) =>
+        startRequest(requestAppender, sessionId, {
+          model: info.model,
+          reason: 'compaction',
+        }),
+      finish: async (sessionId, requestId, info) => {
+        await finishRequest(requestAppender, sessionId, requestId, {
+          usage: info.usage as Record<string, unknown> | undefined,
+          durationMs: info.durationMs,
+        });
+      },
+    });
     // D 阶段（v5 P0-⑥）：session_summary 自定义类型注册——构造期即执行（早于任何
     // memory scanner/memdir 扫描与压缩触发；registerMemoryType 幂等，重复调用安全）
     registerSessionSummaryMemoryType();
@@ -1043,8 +1068,8 @@ export class ChatManagerImpl implements ChatManager {
         extractFilePathsFromText: (text) => this.extractFilePathsFromText(text),
         extractMemoryFromChat: (u, a, sid) =>
           this.extractMemoryFromChat(u, a, sid),
-        recordChatResponseUsage: (sid, usage) =>
-          this.recordChatResponseUsage(sid, usage),
+        recordChatResponseUsage: (sid, usage, requestId) =>
+          this.recordChatResponseUsage(sid, usage, requestId),
         sanitizeApiMessages: (msgs) => this._sanitizeApiMessages(msgs),
         truncateApiMessages: (msgs, max, sid, outputBudgetTokens) =>
           this._truncateApiMessages(msgs, max, sid, outputBudgetTokens),
@@ -3361,10 +3386,15 @@ export class ChatManagerImpl implements ChatManager {
 
   /**
    * 记录 LLM 响应的令牌用量
+   *
+   * @param requestId P2-2（2026-09-23）：所属请求标识（= 同请求 `request/start` 的 seq）。
+   *   **仅透传新增字段**，不改任何用量口径（TR-11 修复的 usage 语义/守卫原样）；
+   *   拿不到（工具轮 / 非流式路径 / start 落盘失败）⇒ 不写该字段。
    */
   private recordChatResponseUsage(
     sessionId: string,
-    usage: Record<string, number> | null | undefined
+    usage: Record<string, number> | null | undefined,
+    requestId?: number
   ): void {
     if (!usage) return;
     const inputTokens = usage.prompt_tokens ?? usage.inputTokens ?? 0;
@@ -3373,11 +3403,6 @@ export class ChatManagerImpl implements ChatManager {
 
     const totalTokens = inputTokens + outputTokens;
     this.tokenBudget.consumeTokens(totalTokens);
-    // Phase 1c: 同步校准因子到 UnifiedTokenTracker（C7 收敛：评估统一在
-    // UnifiedTokenTracker 内部闭环，不再同步到 AutoCompactionPolicy）
-    this.unifiedTracker.recordPostRequest({
-      usage: { inputTokens, outputTokens, totalTokens },
-    });
 
     // TR-12-A（2026-09-22）：请求级用量分桶落事件（含缓存命中/写入，供轨迹"用量"视图）。
     // 本方法是**同步**签名（由管线 ctx 注入调用），故不 await；`appendStreamEvent` 自带
@@ -3385,6 +3410,12 @@ export class ChatManagerImpl implements ChatManager {
     // 不能因其失败影响用量记账与主流程。
     const timingData = buildRequestTimingData(usage);
     if (timingData) {
+      // D1（2026-09-23）：**同一份载荷**先喂入校准闭环 —— 校准的数据源即
+      // `metric/timing` 事件的用量字段（唯一构造点 `buildRequestTimingData`），
+      // 不再依赖 `traces/` 落盘数据（已降级为观测层）。复用既有"调用方直接喂入"通路。
+      this.unifiedTracker.recordTimingUsage(timingData);
+      // P2-2：请求边界配对键（与延迟条共享同一 requestId ⇒ 读端归并为一个请求区间）
+      if (requestId !== undefined) timingData.requestId = requestId;
       void this.appendStreamEvent(sessionId, {
         type: 'metric/timing',
         seq: 0, // 由 append 在 mutex 内原子分配（P3-7a）
@@ -3896,8 +3927,12 @@ export class ChatManagerImpl implements ChatManager {
         .hookChainManager as unknown as PipelineContext['hookChainManager'],
       extractFilePathsFromText: this.extractFilePathsFromText.bind(this),
       addAndPersistMessage: (sid, msg) => this._addAndPersistMessage(sid, msg),
-      recordChatResponseUsage: (sid, usage) =>
-        this.recordChatResponseUsage(sid, usage as Record<string, number>),
+      recordChatResponseUsage: (sid, usage, requestId) =>
+        this.recordChatResponseUsage(
+          sid,
+          usage as Record<string, number>,
+          requestId
+        ),
       extractMemoryFromChat: (userMsg, aiMsg, sid) =>
         this.extractMemoryFromChat(userMsg, aiMsg, sid),
       messageService: this.messageService as PipelineContext['messageService'],
@@ -4992,8 +5027,11 @@ export class ChatManagerImpl implements ChatManager {
         },
         activeClient,
         unifiedTracker: this.unifiedTracker,
-        recordChatResponseUsage: (sid: string, usage: Record<string, number>) =>
-          this.recordChatResponseUsage(sid, usage),
+        recordChatResponseUsage: (
+          sid: string,
+          usage: Record<string, number>,
+          requestId?: number
+        ) => this.recordChatResponseUsage(sid, usage, requestId),
         toolResultRegistry,
         toolRegistry: this.getToolRegistry(),
         toolDefinitions,

@@ -1741,7 +1741,9 @@ export class CoreAPIImpl implements CoreAPI {
     const projections: UnifiedMessage[] = gateway
       ? await gateway.getMessages(sessionId)
       : [];
-    // A-3（2026-08-23）：派生时传入会话 metadata 压缩区间表（trajectoryCompactions，优先于事件）
+    // A-3（2026-08-23）/ D4（2026-09-23）：派生时传入会话 metadata 压缩区间表
+    // （trajectoryCompactions）作为**可重建缓存** —— 命中优先，但与 `context/compaction`
+    // 事件冲突时**以事件为准**（并在派生器内记 warning）；缓存缺失 ⇒ 仅凭事件重建。
     const sessionMeta = this.sessionManager.getSession(sessionId)?.metadata as
       | Record<string, unknown>
       | undefined;

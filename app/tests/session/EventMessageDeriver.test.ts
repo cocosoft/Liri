@@ -2,7 +2,7 @@
 // Copyright (c) 2026 190615273@qq.com
 // 派生器单元测试：事件聚合 + 投影覆盖 + 排序（Phase 2 P2-1/P2-4）
 
-import { describe, expect, it } from 'bun:test';
+import { describe, expect, it, spyOn } from 'bun:test';
 import { deriveMessagesFromEvents } from '../../src/session/storage/EventMessageDeriver';
 import type { LiriEvent } from '../../src/chat/types/events';
 import type { DerivedMessage } from '../../src/session/storage/EventMessageDeriver';
@@ -178,5 +178,79 @@ describe('deriveMessagesFromEvents', () => {
     expect(messages.find((m) => m.id === 'msg-a')?.content).toBe(
       '完整正文（投影侧更全）'
     );
+  });
+});
+
+/**
+ * D4（2026-09-23，Spec `trajectory-single-source-convergence.md` v0.2）：
+ * 压缩区间以 `context/compaction` 事件为**唯一权威**；`metadata.trajectoryCompactions`
+ * 降级为**可重建缓存**（命中优先，冲突 ⇒ 事件胜 + warning）。
+ */
+describe('D4 压缩区间：事件为权威、metadata 为可重建缓存', () => {
+  /** 一条压缩事件 + 三条被压缩范围内的消息 */
+  const baseEvents = (): LiriEvent[] => [
+    ev(1, 'user/message', { content: 'a', messageId: 'm1' }),
+    ev(2, 'assistant/text', { content: 'b', messageId: 'm2' }),
+    ev(3, 'user/message', { content: 'c', messageId: 'm3' }),
+  ];
+
+  it('删掉 metadata.trajectoryCompactions ⇒ 仍能由事件重建压缩区间', () => {
+    const events: LiriEvent[] = [
+      ...baseEvents(),
+      ev(4, 'context/compaction', {
+        compactedRange: { startSeq: 1, endSeq: 2 },
+        summary: '事件摘要',
+        summaryMessageId: 'sum-evt',
+      }),
+    ];
+
+    // 不传 compactionRanges（= 会话 metadata 被删除）
+    const messages = deriveMessagesFromEvents(events, []);
+
+    // 区间 [1,2] 由事件重建：m1/m2 不回放，summary 按 endSeq 合成
+    expect(messages.map((m) => m.id)).toEqual(['sum-evt', 'm3']);
+    expect(messages.find((m) => m.id === 'sum-evt')?.content).toBe('事件摘要');
+  });
+
+  it('缓存可用则用：事件侧无区间时沿用 metadata 缓存（历史会话兼容）', () => {
+    const messages = deriveMessagesFromEvents(baseEvents(), [], {
+      compactionRanges: [
+        { startSeq: 1, endSeq: 2, summary: '缓存摘要', summaryMessageId: 'sum-cache' },
+      ],
+    });
+
+    expect(messages.map((m) => m.id)).toEqual(['sum-cache', 'm3']);
+    expect(messages.find((m) => m.id === 'sum-cache')?.content).toBe('缓存摘要');
+  });
+
+  it('缓存与事件冲突 ⇒ 事件胜（区间以事件为准）并记 warning', () => {
+    const events: LiriEvent[] = [
+      ...baseEvents(),
+      ev(4, 'context/compaction', {
+        compactedRange: { startSeq: 1, endSeq: 3 },
+        summary: '事件摘要',
+        summaryMessageId: 'sum-evt',
+      }),
+    ];
+    const warnSpy = spyOn(console, 'warn').mockImplementation(() => {});
+
+    const messages = deriveMessagesFromEvents(events, [], {
+      // 同 startSeq=1，但 endSeq/summary/summaryMessageId 全不一致 ⇒ 冲突
+      compactionRanges: [
+        { startSeq: 1, endSeq: 2, summary: '缓存摘要', summaryMessageId: 'sum-cache' },
+      ],
+    });
+
+    // 事件胜：[1,3] 生效（m3 也被压缩掉），summaryMessageId/摘要取事件
+    expect(messages.map((m) => m.id)).toEqual(['sum-evt']);
+    expect(messages.find((m) => m.id === 'sum-evt')?.content).toBe('事件摘要');
+    expect(messages.some((m) => m.id === 'sum-cache')).toBe(false);
+
+    // 冲突有据可查（warning），不静默改判
+    const warned = warnSpy.mock.calls.some((c) =>
+      String(c[0]).includes('压缩区间缓存与事件冲突，以事件为准')
+    );
+    expect(warned).toBe(true);
+    warnSpy.mockRestore();
   });
 });

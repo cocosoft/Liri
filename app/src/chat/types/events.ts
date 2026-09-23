@@ -69,6 +69,9 @@ export type LiriEventType =
   | 'channel/connect'
   | 'channel/disconnect'
   | 'channel/message'
+  // P2-2（2026-09-23）：请求边界事件 —— turn × request 双边界
+  // （见 `.trae/specs/request-boundary-events.md` v0.2；requestId = 本事件的 seq）
+  | 'request/start'
   // ─── 生命周期 ───
   | 'session/start'
   | 'session/end'
@@ -345,6 +348,14 @@ export interface LiriEventMap {
     cacheReadTokens?: number;
     /** 缓存写入 tokens */
     cacheCreationTokens?: number;
+    // ── P2-2（2026-09-23）：请求边界配对键 ──
+    /**
+     * 所属请求标识 = 同请求 `request/start` 事件的 `seq`（见 `chat/services/requestBoundary.ts`）。
+     *
+     * **可选**（向后兼容）：旧事件 / 拿不到 requestId 的写入路径**不写**该字段 ⇒
+     * 读端如实视为"无可配对区间"，**不造值**（见 `client/src/stores/chat/deriveRequestSpans.ts`）。
+     */
+    requestId?: number;
   };
 
   /** 通道连接 */
@@ -365,6 +376,25 @@ export interface LiriEventMap {
     channelType: string;
     /** 原始消息（不同通道格式不同） */
     raw: unknown;
+  };
+
+  /**
+   * 请求开始（P2-2，2026-09-23）
+   *
+   * **配对键就在本事件上**：`requestId` = 本事件被分配的 `seq`（写入端 append 后回填，
+   * 见 `chat/services/requestBoundary.ts`）⇒ 载荷内**不带** requestId，避免自引用与两份真值。
+   *
+   * D2'（v0.2 裁决）：**不复用 `data.callSeq`** —— `callSeq` 归 `tool/result ↔ tool_call`
+   * 的配对使用（`EventLogStorage.append` 在调用方未指定时把它填成**事件自身的 seq**，
+   * 见 `session/storage/EventLogStorage.ts` 的 A1 闭环），语义不同、不可挪用。
+   */
+  'request/start': {
+    /** 所属回合（turn 编号）。请求发出时 turn 尚未分配（如首轮）⇒ 缺省，不猜。 */
+    turn?: number;
+    /** 模型标识（便于按模型分组读数） */
+    model?: string;
+    /** 请求来源：普通对话请求 / compaction 摘要请求（两者**共用同一编号序列**） */
+    reason?: 'chat' | 'compaction';
   };
 
   /** 会话开始 */

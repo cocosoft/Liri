@@ -68,6 +68,8 @@ const ALL_SESSION_EVENT_TYPES = [
   'channel/connect',
   'channel/disconnect',
   'channel/message',
+  // ─── 请求边界（P2-2，2026-09-23） ───
+  'request/start',
   // ─── 生命周期 ───
   'session/start',
   'session/end',

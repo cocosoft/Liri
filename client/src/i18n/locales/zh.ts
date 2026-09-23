@@ -1484,6 +1484,11 @@ const zh = {
       modelMsSpan: "· 模型合计 {{duration}}",
       throughput: "· 吞吐 {{value}} tok/s",
       modelSpanTitle: "模型耗时 {{duration}}",
+      // P2-2（2026-09-23）：请求区间轨（`request/start` ↔ 请求级 `metric/timing`）
+      laneRequest: "请求",
+      requestSpanTitle: "请求 R#{{index}} · {{duration}}{{reason}}",
+      requestNoDuration: "耗时未知",
+      requestCompactionSuffix: " · 压缩",
       legendLead:
         "仅绘制真实跨度（轮次 / 工具调用配对）；另有 {{count}} 个事件只有时间位置、",
       legendNoDuration: "无耗时数据",
@@ -1522,6 +1527,9 @@ const zh = {
       completed: "已完成",
       interrupted: "已中断",
       running: "进行中",
+      // P2-2（2026-09-23）：本轮覆盖的请求编号（R#n；compaction 带标记）
+      requestRange: "{{range}}{{compaction}}",
+      requestCompaction: " · 含压缩",
       // P1-6（2026-09-22）：Turn 折叠（日志 Tab 与轨迹 Tab 共用同一文案口径）
       collapse: "折叠 ▾",
       expand: "展开 ▸",

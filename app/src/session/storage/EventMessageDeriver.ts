@@ -419,11 +419,106 @@ export function mergeCompactionRanges(
 }
 
 /**
+ * D4（2026-09-23）：从事件流提取压缩区间（`context/compaction` 事件的 `compactedRange`）。
+ *
+ * 这是压缩区间的**唯一权威来源**——`session.metadata.trajectoryCompactions`
+ * 降级为可重建缓存（见 `resolveCompactionRanges`）。
+ */
+export function extractCompactionRangesFromEvents(
+  events: LiriEvent[]
+): CompactionRange[] {
+  const ranges: CompactionRange[] = [];
+  for (const ev of events) {
+    if (ev.type !== 'context/compaction') continue;
+    const d = ev.data as {
+      compactedRange?: { startSeq?: number; endSeq?: number };
+      summary?: string;
+      summaryMessageId?: string;
+    };
+    if (
+      d.compactedRange &&
+      typeof d.compactedRange.startSeq === 'number' &&
+      typeof d.compactedRange.endSeq === 'number'
+    ) {
+      ranges.push({
+        startSeq: d.compactedRange.startSeq,
+        endSeq: d.compactedRange.endSeq,
+        summary: d.summary,
+        summaryMessageId: d.summaryMessageId,
+      });
+    }
+  }
+  return ranges;
+}
+
+/**
+ * D4（2026-09-23）：缓存 + 事件两源解析压缩区间 —— **事件为唯一权威**。
+ *
+ * 语义（Spec 裁决 D4）：
+ * - 缓存优先命中：缓存独有区间（事件侧无同起点区间）原样保留（历史会话兼容）；
+ * - **冲突 ⇒ 事件胜 + warning**：同 `startSeq` 但 `endSeq`/`summary`/`summaryMessageId`
+ *   不一致时以事件为准，并记 warning（`session:event-deriver`）；
+ * - 事件独有区间一律采用（缓存缺失/被删时仍可**仅凭事件重建**）。
+ *
+ * @param cached `session.metadata.trajectoryCompactions`（可重建缓存）
+ * @param fromEvents `extractCompactionRangesFromEvents` 的结果（权威）
+ */
+export function resolveCompactionRanges(
+  cached: CompactionRange[],
+  fromEvents: CompactionRange[]
+): CompactionRange[] {
+  if (fromEvents.length === 0) return cached;
+  const byStart = new Map<number, CompactionRange>();
+  for (const r of fromEvents) byStart.set(r.startSeq, r);
+
+  const resolved: CompactionRange[] = [];
+  const claimed = new Set<number>();
+  for (const c of cached) {
+    const authoritative = byStart.get(c.startSeq);
+    if (!authoritative) {
+      resolved.push(c);
+      continue;
+    }
+    if (!sameCompactionRange(c, authoritative)) {
+      logger.warn('session:event-deriver 压缩区间缓存与事件冲突，以事件为准', {
+        cached: {
+          startSeq: c.startSeq,
+          endSeq: c.endSeq,
+          summaryMessageId: c.summaryMessageId,
+        },
+        event: {
+          startSeq: authoritative.startSeq,
+          endSeq: authoritative.endSeq,
+          summaryMessageId: authoritative.summaryMessageId,
+        },
+      });
+    }
+    resolved.push(authoritative);
+    claimed.add(c.startSeq);
+  }
+  for (const e of fromEvents) {
+    if (!claimed.has(e.startSeq)) resolved.push(e);
+  }
+  return mergeCompactionRanges(resolved);
+}
+
+/** 两区间在权威字段上是否等价（冲突判定用） */
+function sameCompactionRange(a: CompactionRange, b: CompactionRange): boolean {
+  return (
+    a.endSeq === b.endSeq &&
+    a.summary === b.summary &&
+    a.summaryMessageId === b.summaryMessageId
+  );
+}
+
+/**
  * 从事件流聚合 + 投影覆盖派生消息。
  *
  * @param events 全量事件（v1 事件带 messageId）
  * @param projections 投影消息（messages.jsonl，含 lastEventSeq）
- * @param opts.compactionRanges 会话 metadata.trajectoryCompactions（压缩区间表，优先于事件）
+ * @param opts.compactionRanges 会话 metadata.trajectoryCompactions（**可重建缓存**：
+ *   命中优先；与 `context/compaction` 事件冲突时**事件为准** + warning，见
+ *   `resolveCompactionRanges`）
  * @returns 派生消息（按首事件 seq 升序；纯投影消息按 lastEventSeq 插入；压缩 summary 按区间 endSeq 插入）
  */
 export function deriveMessagesFromEvents(
@@ -431,33 +526,11 @@ export function deriveMessagesFromEvents(
   projections: DerivedMessage[],
   opts?: { compactionRanges?: CompactionRange[] }
 ): DerivedMessage[] {
-  // A-3：压缩区间 = metadata（优先，修剪删压缩事件不丢）+ events 中 context/compaction 事件（补充）
-  const eventRanges: CompactionRange[] = [];
-  for (const ev of events) {
-    if (ev.type === 'context/compaction') {
-      const d = ev.data as {
-        compactedRange?: { startSeq?: number; endSeq?: number };
-        summary?: string;
-        summaryMessageId?: string;
-      };
-      if (
-        d.compactedRange &&
-        typeof d.compactedRange.startSeq === 'number' &&
-        typeof d.compactedRange.endSeq === 'number'
-      ) {
-        eventRanges.push({
-          startSeq: d.compactedRange.startSeq,
-          endSeq: d.compactedRange.endSeq,
-          summary: d.summary,
-          summaryMessageId: d.summaryMessageId,
-        });
-      }
-    }
-  }
-  const ranges = mergeCompactionRanges([
-    ...(opts?.compactionRanges ?? []),
-    ...eventRanges,
-  ]);
+  // D4：事件为唯一权威；metadata 仅作缓存（冲突 ⇒ 事件胜 + warning；缓存缺失 ⇒ 事件重建）
+  const ranges = resolveCompactionRanges(
+    opts?.compactionRanges ?? [],
+    extractCompactionRangesFromEvents(events)
+  );
   const isCompactedSeq = (seq: number): boolean =>
     ranges.some((r) => seq >= r.startSeq && seq <= r.endSeq);
 

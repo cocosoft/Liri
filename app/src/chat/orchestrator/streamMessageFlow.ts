@@ -81,6 +81,8 @@ import { getToolExecErrorMessage } from './toolErrorMessages.js';
 import { filterToolsByTask } from '@modules/tools';
 import type { ToolCategory } from '@modules/tools';
 import { isLocalLlmEndpoint } from '../services/ChatHelper.js';
+// P2-2（2026-09-23）：请求边界事件（request/start；requestId = 该事件的 seq）
+import { startRequest } from '../services/requestBoundary.js';
 import type { Message, StreamMessageOptions } from '../types/message.js';
 import type { ChatResponse } from '../types/message.js';
 import type { ChatSession } from '../types/session.js';
@@ -474,7 +476,8 @@ export async function* runStreamMessage(
               } catch {
                 // @ignore-catch — 记忆上卷失败不阻断流式主流程
               }
-              // 持久化压缩区间表到会话 metadata（派生器优先读 metadata，修剪删压缩事件不丢区间）
+              // 刷新会话 metadata 压缩区间表（D4：降级为**可重建缓存**——读侧以
+              // `context/compaction` 事件为权威，缓存仅用于优先命中，冲突时事件胜）
               const existing = (session.metadata as Record<string, unknown>)
                 .trajectoryCompactions as
                 | Array<{
@@ -951,6 +954,10 @@ export async function* runStreamMessage(
     // P0-fix-2（2026-08-23）：缓存本 turn 的编号（turn/start 从事件日志恢复后写入，
     // turn/end 复用同一编号，保证 start/end 一致且重启后不重复）
     let currentTurnNo = 0;
+    // P2-2（2026-09-23）：本轮（本请求尝试）的 `requestId` = `request/start` 的 seq。
+    // **声明在 while 外**：成功分支之后（`pipeline.recordUsage()`）仍需用它写用量条；
+    // 重试轮会整体覆盖为新一轮的 requestId。取不到 ⇒ undefined（完成侧不写该字段）。
+    let currentRequestId: number | undefined;
     // P2 修复（AB-1）：mutex 仅首轮获取（重试轮重复 acquire 会因 release 未执行而 30s 超时）
     // （mutexHeld 声明于 try 外，见函数头部 BUG-1 注释）
     while (true) {
@@ -1057,6 +1064,33 @@ export async function* runStreamMessage(
         const TTFB_MAX_WAIT_MS = Number(
           configManager.env('TTFB_MAX_WAIT_MS') ?? '300000'
         );
+        // P2-2（2026-09-23）：**请求发出前**落 `request/start`（D4：失败也保留），
+        // 取其被分配的 seq 作为本请求的 requestId，贯穿到本请求的完成侧写入
+        // （延迟条 / 用量条）。取不到 ⇒ 完成侧不写 requestId（缺省，不硬凑）。
+        //
+        // 位置说明：此处紧邻 `gen.next()`（下方）—— 请求真正发出即在其后；
+        // 本仓 `turn/start` 的落盘点在该行**之后**（现有排布），故首轮 `turn` 尚未分配 ⇒
+        // 载荷不带 turn（`turn` 为可选，不猜）；重试轮 currentTurnNo 已就绪则带上。
+        currentRequestId = await startRequest(
+          (sid, event) => host.appendStreamEvent(sid, event),
+          session.id,
+          {
+            turn: currentTurnNo > 0 ? currentTurnNo : undefined,
+            model: options?.model,
+            reason: 'chat',
+          }
+        );
+        if (currentRequestId === undefined) {
+          // 失败不阻断请求（CS03）；如实记录"本条完成事件将无可配对区间"
+          logger.debug(
+            'streamMessageFlow: request/start 追加失败（完成侧不带 requestId）',
+            {
+              sessionId: session.id,
+              model: options?.model ?? 'unknown',
+              retryCount: retryState.retryCount,
+            }
+          );
+        }
         requestStartAt = Date.now();
         let ttfbHeartbeatCount = 0;
         const firstNextPromise = gen.next();
@@ -1530,14 +1564,22 @@ export async function* runStreamMessage(
         // **只对成功请求落盘**：失败请求已有 `system/error` 事件（catch 块），且 catch 内
         // 存在 `continue`（上下文降级重试）等多条退出路径，避免重复埋点。
         // **纯 tool_call 响应可能无内容 chunk** ⇒ `ttft` 缺省不写（不拿 ttfb 冒充 ttft）。
+        //
+        // P2-2（2026-09-23）：携带本请求的 `requestId`（= 同请求 `request/start` 的 seq）
+        // ⇒ 与**用量条**（`ChatManager.recordChatResponseUsage`）归并到同一请求区间。
+        // 拿不到（start 落盘失败）⇒ 不写该字段，读端如实视为"无可配对区间"。
         if (firstChunkElapsedMs !== null) {
           const requestTiming: {
             stage: 'request';
             ttfb: number;
             ttft?: number;
+            requestId?: number;
           } = { stage: 'request', ttfb: firstChunkElapsedMs };
           if (firstContentChunkAt !== null) {
             requestTiming.ttft = firstContentChunkAt - requestStartAt;
+          }
+          if (currentRequestId !== undefined) {
+            requestTiming.requestId = currentRequestId;
           }
           const timingAppend = await host.appendStreamEvent(session.id, {
             type: 'metric/timing',
@@ -1802,8 +1844,19 @@ export async function* runStreamMessage(
     // 8.4④（2026-09-16）：真实 usage 记入每日 Token 预算（与发送前预检闭环）
     recordDailyUsage(finalResponse);
 
+    // TB-11 修复（2026-09-23）：把本轮最终响应接进管线 ctx。
+    // 该字段在 `ChatManager._createStreamPipeline` 里初始化为 `null` 后**全仓无赋值点**
+    // （grep `ctx.finalResponse` 命中的全是读取），故流式路径下 `StreamPipeline` 的三个
+    // 消费者恒读到 null：`recordUsage()`（用量事件不落盘）、`notifyUsage()`（前端 usage
+    // chunk 不发）、`createAssistantMessage()`（finishReason 恒 'stop'，AB-3 修复空转）。
+    // 非流式路径不经本管线（sendMessageFlow 直接调 `recordChatResponseUsage`），不受影响。
+    pipeline.ctx.finalResponse = finalResponse;
+
     // 管线 — 内容修复 + 输出（repairContent 从 ctx.accumulatedContent 读取，须先同步局部累积）
     pipeline.ctx.accumulatedContent = accumulatedContent;
+    // P2-2（2026-09-23）：把本请求的 requestId 接进管线 ctx（与上方 `finalResponse` 同一手法）
+    // ⇒ `recordUsage()` 写**用量条**时带上同一 requestId，与**延迟条**归并为一个请求区间。
+    pipeline.ctx.requestId = currentRequestId;
     const finalContent = pipeline.repairContent();
     options?.onStream?.(finalContent);
     // 管线 — 用量记录
@@ -1956,10 +2009,13 @@ export async function* runStreamMessage(
           streamingCheckpoint,
           activeClient,
           unifiedTracker: host.unifiedTracker,
+          // P2-2（2026-09-23）：`requestId` 可选透传 —— 工具轮是**另一次** LLM 请求，
+          // 当前未为其产 `request/start` ⇒ 调用方不传，用量条如实不带 requestId。
           recordChatResponseUsage: (
             sid: string,
-            usage: Record<string, number>
-          ) => host.recordChatResponseUsage(sid, usage),
+            usage: Record<string, number>,
+            requestId?: number
+          ) => host.recordChatResponseUsage(sid, usage, requestId),
           onToolUsage: (usage: Record<string, unknown>) => {
             const u = toUsageInfo(usage);
             if (u && options?.onUsage) options.onUsage(u);

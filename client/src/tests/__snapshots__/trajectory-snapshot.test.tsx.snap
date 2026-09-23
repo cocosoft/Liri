@@ -1,5 +1,57 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
+exports[`轨迹快照 — 派生结果（P2-4） > deriveRequestSpans：请求编号 / 多完成事件归并 / 缺完成缺省（P2-2） 1`] = `
+[
+  {
+    "cacheCreationTokens": undefined,
+    "cacheReadTokens": undefined,
+    "duration": 1000,
+    "end": 1700000002000,
+    "endSeq": 2,
+    "index": 1,
+    "inputTokens": 700,
+    "model": "m-1",
+    "outputTokens": 100,
+    "reason": "chat",
+    "requestId": 1,
+    "start": 1700000001000,
+    "startSeq": 1,
+    "tokens": 800,
+    "ttfb": 120,
+    "ttft": 150,
+    "turn": 1,
+  },
+  {
+    "cacheCreationTokens": undefined,
+    "cacheReadTokens": undefined,
+    "duration": 1800,
+    "end": 1700000005000,
+    "endSeq": 5,
+    "index": 2,
+    "inputTokens": undefined,
+    "model": "m-1",
+    "outputTokens": undefined,
+    "reason": "compaction",
+    "requestId": 4,
+    "start": 1700000004000,
+    "startSeq": 4,
+    "tokens": undefined,
+    "ttfb": undefined,
+    "ttft": undefined,
+    "turn": undefined,
+  },
+  {
+    "index": 3,
+    "model": "m-1",
+    "reason": "chat",
+    "requestId": 6,
+    "start": 1700000006000,
+    "startSeq": 6,
+    "turn": undefined,
+  },
+]
+`;
+
 exports[`轨迹快照 — 派生结果（P2-4） > deriveTrajectoryLayout：Turn/Step/Cell 分组 + 孤立事件 + 退化计数 1`] = `
 {
   "degradedAssocIds": 0,

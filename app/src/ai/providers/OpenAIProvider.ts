@@ -142,6 +142,20 @@ export class OpenAIProvider extends BaseAIProvider {
   }
 
   /**
+   * 流式请求是否要求服务端回传 usage（`stream_options.include_usage`，TB-11 修复）。
+   *
+   * 该字段属 OpenAI Chat Completions 规范，OpenAI / DeepSeek 等同规范云端端点支持；
+   * 开启后流末会补发一个仅含 `usage` 的 chunk，据此落盘请求级用量事件。
+   *
+   * 覆写为 `false` 的场景：端点实现不认该顶层参数时下发会 **400**（注意 Chat
+   * Completions 之外的接口形态，如本地推理服务的 OpenAI 兼容 shim）。此类端点应
+   * **保持现状**（拿不到就不写），**禁止**改用本地估算冒充服务端 usage。
+   */
+  protected wantsStreamUsage(): boolean {
+    return true;
+  }
+
+  /**
    * 初始化 OpenAI Provider。
    * 构造函数回退链：DB 持久化 > 环境变量。
    *
@@ -356,6 +370,16 @@ export class OpenAIProvider extends BaseAIProvider {
       maxTokens: options?.maxTokens || 4096,
       temperature: options?.temperature,
       stream: true,
+      // TB-11 修复（2026-09-23）：OpenAI 兼容端点在流式模式下**默认不回传 usage**
+      // （实测 deepseek-v4-flash：流式 SSE 无任何 usage 字段），需按 Chat Completions
+      // 规范显式请求 `stream_options.include_usage`，服务端才会在**流末补一个带 usage
+      // 的 chunk**（实测该 chunk 的 `choices[0].finish_reason==='stop'` 且携带 usage）。
+      // 缺此参数 ⇒ `finalResponse.usage` 缺失 ⇒ StreamPipeline.recordUsage 守卫跳过
+      // ⇒ 流式回合不落用量类 metric/timing 事件。
+      // 子类若已知其端点不接受该顶层参数（下发会 400），覆写 wantsStreamUsage() 关闭。
+      ...(this.wantsStreamUsage()
+        ? { extra: { stream_options: { include_usage: true } } }
+        : {}),
     });
 
     // 流式断连自动重试（2026-08-17）：Bun fetch 在流式读取中 socket 被对端关闭

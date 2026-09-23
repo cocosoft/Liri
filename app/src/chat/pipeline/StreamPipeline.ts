@@ -82,7 +82,16 @@ export interface PipelineContext {
   };
   extractFilePathsFromText: (text: string) => string[];
   addAndPersistMessage: (sessionId: string, message: Message) => void;
-  recordChatResponseUsage: (sessionId: string, usage: unknown) => void;
+  /**
+   * 用量记账（P2-2，2026-09-23：新增可选 `requestId` 透传，**不改用量字段口径**）。
+   * `requestId` = 同请求 `request/start` 的 seq ⇒ 用量条与延迟条可归并为同一请求区间；
+   * 缺省（工具轮 / 非流式路径等拿不到时）**不写**该字段。
+   */
+  recordChatResponseUsage: (
+    sessionId: string,
+    usage: unknown,
+    requestId?: number
+  ) => void;
   extractMemoryFromChat: (
     userMsg: string,
     aiMsg: string,
@@ -100,6 +109,12 @@ export interface PipelineContext {
   toolDefinitions: ToolDefinition[];
   accumulatedContent: string;
   finalResponse: ChatResponse | null;
+  /**
+   * 本次请求的 requestId（= 同请求 `request/start` 的 seq）。
+   * 由 `streamMessageFlow` 在 `recordUsage()` 前赋值（与 `finalResponse` 同一手法）；
+   * 缺省 ⇒ 用量条不带 requestId（旧行为，读端视为无可配对区间）。
+   */
+  requestId?: number;
   assistantMessage?: Message;
 }
 
@@ -468,7 +483,11 @@ export class StreamPipeline {
     ) {
       return;
     }
-    this.ctx.recordChatResponseUsage(session.id, finalResponse?.usage);
+    this.ctx.recordChatResponseUsage(
+      session.id,
+      finalResponse?.usage,
+      this.ctx.requestId
+    );
 
     trackUsage(finalResponse ?? {}, {
       model: options?.model || 'unknown',

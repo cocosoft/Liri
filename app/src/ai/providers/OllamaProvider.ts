@@ -25,6 +25,39 @@ const logger = getLogger('ai:ollama');
 
 const DEFAULT_BASE_URL = 'http://localhost:11434';
 
+/**
+ * Ollama 流末 `done` 行的服务端用量 → `ChatResponse.usage` 口径（等价字段映射）。
+ *
+ * 映射：`prompt_eval_count` → `prompt_tokens`、`eval_count` → `completion_tokens`、
+ * `prompt_eval_cached_count` → `cache_read_input_tokens`（Ollama 语义：命中 KV 缓存、
+ * 未重新评估的 prompt token 数）。与非流式路径 `OllamaTransport.normalizeResponse`
+ * 同口径（后者填 `inputTokens`/`outputTokens`，经 `toChatResponse` 转为同一组字段）。
+ *
+ * 缺失或非数值 ⇒ `undefined`（**不伪造 0**；下游"0/0 跳过"守卫据此不产事件）。
+ */
+function toOllamaStreamUsage(
+  chunk: Record<string, unknown>
+): ChatResponse['usage'] | undefined {
+  const promptTokens = chunk.prompt_eval_count;
+  const completionTokens = chunk.eval_count;
+  if (
+    typeof promptTokens !== 'number' ||
+    typeof completionTokens !== 'number'
+  ) {
+    return undefined;
+  }
+  const cached = chunk.prompt_eval_cached_count;
+  const usage: NonNullable<ChatResponse['usage']> = {
+    prompt_tokens: promptTokens,
+    completion_tokens: completionTokens,
+    total_tokens: promptTokens + completionTokens,
+  };
+  if (typeof cached === 'number') {
+    usage.cache_read_input_tokens = cached;
+  }
+  return usage;
+}
+
 export class OllamaProvider extends BaseAIProvider {
   private baseUrl: string;
   private cachedModels: string[] | null = null;
@@ -321,7 +354,15 @@ export class OllamaProvider extends BaseAIProvider {
 
           try {
             const parsed = JSON.parse(trimmed) as Record<string, unknown>;
-            if (parsed.done) break;
+            // TB-11 修复（2026-09-23）：Ollama 在**流末 `done:true` 行**回传服务端用量
+            // （prompt_eval_count / eval_count / prompt_eval_cached_count）。此前 `break`
+            // 先于提取 ⇒ `lastUsage` 永远 undefined ⇒ 流式回合不落用量事件。
+            // 字段映射与 **非流式** 路径（OllamaTransport.normalizeResponse → toChatResponse）
+            // 保持同一口径，故落盘事件字段语义不变（CS01 归一化）。
+            if (parsed.done) {
+              lastUsage = toOllamaStreamUsage(parsed);
+              break;
+            }
 
             const message = parsed.message as
               | Record<string, unknown>

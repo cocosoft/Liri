@@ -130,6 +130,8 @@ export default defineConfig({
         "src/stores/chat/deriveTrajectory*.ts",
         // API 指标展示（2026-09-23）：请求级聚合纯函数（`deriveTrajectory*` 命名不匹配 ⇒ 单独列出）
         "src/stores/chat/deriveApiMetrics.ts",
+        // P2-2（2026-09-23）：请求区间派生纯函数（同上，命名不匹配 ⇒ 单独列出）
+        "src/stores/chat/deriveRequestSpans.ts",
         "src/stores/chat/filterTrajectoryEvents.ts",
         "src/stores/chat/resolveModelInputSnapshot.ts",
         "src/stores/chat/trajectoryStore.ts",
@@ -154,6 +156,14 @@ export default defineConfig({
           statements: 100, // 实测 100
           functions: 100, // 实测 100
           branches: 100, // 实测 100
+        },
+        // P2-2（2026-09-23）：请求区间派生（新建纯函数）⇒ 棘轮，按实测留 1 点余量
+        // （未覆盖：空 starts 早退后的边界 107-108 与 180 的 `end` 差值兜底分支）
+        "src/stores/chat/deriveRequestSpans.ts": {
+          lines: 100, // 实测 100
+          statements: 97, // 实测 98
+          functions: 100, // 实测 100
+          branches: 92, // 实测 93.02
         },
         "src/stores/chat/deriveTrajectoryTimeline.ts": {
           lines: 100,

@@ -8,6 +8,8 @@
  * - OTLP HTTP 导出（可选，默认 console 导出）
  */
 
+/* eslint-disable no-console -- 本文件的 console 仅用于「避免循环依赖」的默认兜底 logger（可经 setOTelLogger 覆盖） */
+
 import { trace, Span, SpanStatusCode, context } from "@opentelemetry/api";
 import {
   WebTracerProvider,

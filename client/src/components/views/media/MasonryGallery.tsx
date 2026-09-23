@@ -124,7 +124,7 @@ export const MasonryGallery: React.FC<Props> = ({
               onMouseLeave={() => setHoveredId(null)}
               className="group relative mb-2 cursor-pointer overflow-hidden rounded-lg border-2 transition-all"
               style={{
-                breakInside: "avoid" as any,
+                breakInside: "avoid",
                 contentVisibility: "auto",
                 containIntrinsicSize: "auto 200px",
                 borderColor: selected

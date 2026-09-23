@@ -15,6 +15,8 @@
  *   - Zone.js Promise 链深度 < 50 层
  */
 
+/* eslint-disable no-console -- 手动基准脚本（DevTools 粘贴运行）：console 输出即测量结果本身 */
+
 import { getOTelTracing } from "../OTelTracing";
 import { instrumentStore } from "../instrumentStore";
 

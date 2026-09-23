@@ -284,7 +284,7 @@ export default function GlobalSearchModal({
 
       try {
         if (import.meta.env.DEV)
-          console.info("[SessionSwitch] 全局搜索切换会话", {
+          logger.debug("[SessionSwitch] 全局搜索切换会话", {
             sessionId: session.id,
             sessionTitle: session.title,
             workspaceId: session.workspaceId,
@@ -309,7 +309,7 @@ export default function GlobalSearchModal({
         });
 
         if (import.meta.env.DEV)
-          console.info("[SessionSwitch] 全局搜索切换会话成功", {
+          logger.debug("[SessionSwitch] 全局搜索切换会话成功", {
             sessionId: session.id,
             page,
             timestamp: Date.now(),

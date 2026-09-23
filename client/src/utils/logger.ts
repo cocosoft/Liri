@@ -5,6 +5,8 @@
  * 日志同时输出到 console 和 localStorage（持久化）。
  */
 
+/* eslint-disable no-console -- 全局日志入口本身：此处 console 是唯一的终端出口（不能自调 createLogger 造成递归） */
+
 import { logStore } from "./logStore";
 
 type LogLevel = "debug" | "info" | "warn" | "error";

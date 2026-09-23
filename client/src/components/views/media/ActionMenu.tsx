@@ -115,7 +115,7 @@ export const ActionMenu: React.FC<ActionMenuProps> = ({
       await imageService.deleteImage(itemUrl);
       removeGalleryItem(itemId);
       addToast("success", "图片已删除");
-    } catch (err) {
+    } catch {
       addToast("error", "删除失败，请重试");
     } finally {
       setDeleting(false);

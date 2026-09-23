@@ -9,6 +9,8 @@
  *   withStoreLogging(useChatStore, "chatStore", ["sendMessage"]);
  */
 
+/* eslint-disable no-console -- 本文件即调试日志工具实现：以 %c 样式直写 console（Dev-only），非业务日志 */
+
 import type { StoreApi } from "zustand";
 
 /**
@@ -18,7 +20,7 @@ import type { StoreApi } from "zustand";
  * @param name  - Store 名称，用于日志前缀
  * @param ignore - 忽略的 key 列表（高频变化字段，如 _navigate、loading 等）
  */
-export function withStoreLogging<T extends Record<string, any>>(
+export function withStoreLogging<T extends object>(
   store: StoreApi<T>,
   name: string,
   ignore: string[] = [],

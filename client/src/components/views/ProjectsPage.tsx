@@ -16,6 +16,7 @@ import { useChatStore } from "@/stores/chat";
 import { chatCoordinator } from "@/stores/chat/chatCoordinator";
 import { sessionService } from "@/services/sessionService";
 import { handleClientError } from "@/utils/handleError";
+import { createLogger } from "@/utils/logger";
 import {
   triggerEngineHook,
   deleteProject,
@@ -42,6 +43,8 @@ import {
 } from "@/assets/icons";
 
 /* ---------- 常量 ---------- */
+
+const logger = createLogger("components:projectsPage");
 
 interface CreationItem {
   id: string;
@@ -551,7 +554,7 @@ export default function ProjectsPage() {
         inited.current === selectedProjectId &&
         !isStreaming
       ) {
-        console.info(
+        logger.info(
           "[ProjectsPage] 流式状态变化，但当前项目已初始化，无需重试",
           {
             projectId: selectedProjectId,
@@ -573,7 +576,7 @@ export default function ProjectsPage() {
         .sort((a, b) => b.updatedAt - a.updatedAt);
       const currentId = state.currentSessionId;
 
-      console.info("[ProjectsPage] init 开始", {
+      logger.info("[ProjectsPage] init 开始", {
         projectId: wid,
         currentSessionId: currentId,
         projectSessionCount: projSessions.length,
@@ -584,7 +587,7 @@ export default function ProjectsPage() {
       // ===== 2. 无会话场景：创建首个会话（流式也允许，创建不中断现有流）=====
       if (projSessions.length === 0) {
         inited.current = wid;
-        console.info("[ProjectsPage] 项目无会话，创建首个会话", {
+        logger.info("[ProjectsPage] 项目无会话，创建首个会话", {
           projectId: wid,
         });
         // P0-4: 项目会话必须关联 projectId（createChatSession 从 moduleContext 读取）
@@ -595,7 +598,7 @@ export default function ProjectsPage() {
         });
         await switchWorkspace(wid);
         await createChatSession("对话 1");
-        console.info("[ProjectsPage] 首个会话创建完成", {
+        logger.info("[ProjectsPage] 首个会话创建完成", {
           projectId: wid,
         });
         return;
@@ -608,7 +611,7 @@ export default function ProjectsPage() {
       if (currentId === targetId) {
         // 当前会话已属于本项目，无需切换会话
         inited.current = wid;
-        console.info("[ProjectsPage] 当前会话已属于本项目，无需切换", {
+        logger.info("[ProjectsPage] 当前会话已属于本项目，无需切换", {
           projectId: wid,
           sessionId: currentId,
         });
@@ -629,7 +632,7 @@ export default function ProjectsPage() {
       // 保证无副作用残留，流式结束后 useEffect 重新触发时是干净状态。
       const realtimeStreaming = useChatStore.getState().isStreaming;
       if (realtimeStreaming) {
-        console.warn(
+        logger.warn(
           "[ProjectsPage] 当前有流式请求进行中，跳过自动切换（无副作用，流结束后自动重试）",
           {
             projectId: wid,
@@ -644,7 +647,7 @@ export default function ProjectsPage() {
 
       // ===== 5. 流式已结束，执行完整切换 =====
       inited.current = wid;
-      console.info("[ProjectsPage] 流式已结束，执行自动切换", {
+      logger.info("[ProjectsPage] 流式已结束，执行自动切换", {
         projectId: wid,
         fromSessionId: currentId,
         toSessionId: targetId,
@@ -660,7 +663,7 @@ export default function ProjectsPage() {
       // 先清空消息，避免项目页短暂显示对话模块残留的会话内容
       await chatCoordinator.clearMessages();
       await switchChatSession(targetId);
-      console.info("[ProjectsPage] 自动切换完成", {
+      logger.info("[ProjectsPage] 自动切换完成", {
         projectId: wid,
         sessionId: targetId,
       });

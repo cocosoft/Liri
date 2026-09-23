@@ -29,7 +29,13 @@ export const loggingMiddleware =
     return config(
       (partial, replace) => {
         const prev = get() as unknown as RootState;
-        set(partial, replace as any);
+        // zustand 的 setState 是重载类型：replace=true 才接受完整 state，
+        // 否则只接受 partial。显式分支替代原先的 `as any` 绕过。
+        if (replace) {
+          set(partial as T, true);
+        } else {
+          set(partial);
+        }
         const next = get() as unknown as RootState;
 
         if (prev.currentWorkspaceId !== next.currentWorkspaceId) {

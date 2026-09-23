@@ -7,6 +7,9 @@
 
 import type { Message } from "../types";
 import { getToolDisplayName, getToolHumanSummary } from "./toolHumanSummary";
+import { createLogger } from "./logger";
+
+const logger = createLogger("utils:messageText");
 
 /**
  * 从 block.content 剥离前缀的 UI 装饰符号（⚪/▶/▼/✅/❌/🔧/📋 等）
@@ -37,22 +40,16 @@ export function stripLeadingDecorators(content: string): string {
         stripped.length > 80
           ? `${stripped.slice(0, 80)}…(len=${stripped.length})`
           : stripped;
-      console.log(
-        `[stripDec][L${i}] ✂`,
-        JSON.stringify(before),
-        "→",
-        JSON.stringify(after),
+      logger.debug(
+        `[stripDec][L${i}] ✂ ${JSON.stringify(before)} → ${JSON.stringify(after)}`,
       );
     }
     if (debug && stripped) {
       const residual = stripped.match(RESIDUAL_RE);
       if (residual) {
         const cp = residual[1].codePointAt(0)?.toString(16) ?? "?";
-        console.warn(
-          `[stripDec][L${i}] ⚠ 残留符号 U+${cp} (${residual[1]}):`,
-          JSON.stringify(stripped.slice(0, 80)),
-          "原始行:",
-          JSON.stringify(line.slice(0, 80)),
+        logger.warn(
+          `[stripDec][L${i}] ⚠ 残留符号 U+${cp} (${residual[1]}): ${JSON.stringify(stripped.slice(0, 80))} 原始行: ${JSON.stringify(line.slice(0, 80))}`,
         );
       }
     }

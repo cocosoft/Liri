@@ -158,7 +158,13 @@ CJL_REF/
 
 # 项目规则文件
 .trae/
+# 例外：Specs 必须与代码同生命周期（见 .trae/rules/development-workflow.md 的 Spec-Driven 要求）
+# ⇒ 不能整目录忽略，否则新建 Spec 永远不会进版本控制（2026-09-23 实测：git ls-files .trae/specs = 0）。
+# 注：其余 `.trae/` 内容（如 rules 之外的本地状态）仍保持忽略。
+!.trae/specs/
+!.trae/specs/**
 # Exclude specific dev_docs
+# （dev_docs/ 保持忽略：2026-09-23 实测 1144 文件 / 87MB 本地分析产物，属有意排除）
 dev_docs/
 app/data/
 app/.test_exports/

@@ -57,7 +57,7 @@ export default function InboxBlock({ data, sessionId, onResolved }: Props) {
     setReplying(true);
 
     try {
-      const res = await http.post<any>(`/v1/inbox/${data.inboxId}/reply`, {
+      const res = await http.post<unknown>(`/v1/inbox/${data.inboxId}/reply`, {
         reply,
       });
       if (res.ok) {

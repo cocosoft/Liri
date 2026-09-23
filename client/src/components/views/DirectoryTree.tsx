@@ -150,7 +150,7 @@ function DirectoryTree({
         if (cancelled) return;
         setTreeData(treeMap);
         setTreeStatus("ready");
-      } catch (err) {
+      } catch {
         if (cancelled) return;
         setTreeStatus("error");
       }

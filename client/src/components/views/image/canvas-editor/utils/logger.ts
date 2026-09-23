@@ -1,5 +1,7 @@
 // canvas-editor/utils/logger.ts — CanvasLogger（debug/warn/error + performance 帧耗时追踪）
 
+/* eslint-disable no-console -- CanvasLogger 实现本身：console 输出 + 内存环形缓冲，非业务日志调用点 */
+
 type LogLevel = "debug" | "warn" | "error";
 
 interface LogEntry {

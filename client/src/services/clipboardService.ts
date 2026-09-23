@@ -11,6 +11,16 @@ import { getApiSecret } from "./backendUrl";
 
 const logger = createLogger("clipboardService");
 
+/** Tauri 运行时注入的全局桥接对象（非 Tauri 环境下为 undefined） */
+interface TauriInvokeBridge {
+  core?: {
+    invoke?: (
+      command: string,
+      args?: Record<string, unknown>,
+    ) => Promise<unknown>;
+  };
+}
+
 /** 图片读取结果 */
 export interface ClipboardImageResult {
   /** Base64 编码的图片数据 */
@@ -205,9 +215,14 @@ async function execCommand(cmd: string): Promise<string> {
   // 或使用 Tauri invoke
   try {
     // 使用 Tauri command invoke（如果在 Tauri 环境中）
-    if (typeof window !== "undefined" && (window as any).__TAURI__) {
-      const { invoke } = (window as any).__TAURI__.core;
-      return (await invoke("exec_command", { command: cmd })) as string;
+    if (typeof window !== "undefined") {
+      const tauri = (window as unknown as { __TAURI__?: TauriInvokeBridge })
+        .__TAURI__;
+      if (tauri?.core?.invoke) {
+        return (await tauri.core.invoke("exec_command", {
+          command: cmd,
+        })) as string;
+      }
     }
   } catch (e) {
     handleClientError(e, {

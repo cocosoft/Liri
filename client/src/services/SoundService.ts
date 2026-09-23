@@ -36,7 +36,10 @@ const COMPLETION_THROTTLE_MS = 3000;
 function getContext(): AudioContext | null {
   try {
     if (!audioCtx) {
-      const AC = window.AudioContext || (window as any).webkitAudioContext;
+      const AC =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext?: typeof AudioContext })
+          .webkitAudioContext;
       if (!AC) throw new Error("AudioContext not supported");
       audioCtx = new AC();
     }

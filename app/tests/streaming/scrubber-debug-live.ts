@@ -2,6 +2,8 @@
 // 模拟真实流式场景，验证 DEBUG_TOOL_SCRUBBER 日志输出
 // 用法: $env:DEBUG_TOOL_SCRUBBER='1'; bun run tests/streaming/scrubber-debug-live.ts
 
+/* eslint-disable no-console -- 调试脚本：有意直接打印到终端（非生产代码） */
+
 import { StreamingToolCallScrubber } from '../../src/streaming/scrubbers/StreamingToolCallScrubber.js';
 
 const RESET = '\x1b[0m';

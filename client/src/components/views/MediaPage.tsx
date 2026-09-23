@@ -623,7 +623,7 @@ function MediaPage() {
       selectedItem.url.replace(/^\/v1\/images\/static\//, ""),
     );
     http
-      .get<any>(`/v1/images/metadata?path=${encodedPath}`)
+      .get<ImageMetadata>(`/v1/images/metadata?path=${encodedPath}`)
       .then((resp) => {
         if (resp.ok && resp.data) {
           setImageMeta(resp.data);

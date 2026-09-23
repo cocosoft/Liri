@@ -41,8 +41,12 @@ vi.mock("react-i18next", () => ({
 // Node/jsdom does not provide the browser Canvas Path2D global.
 // Minimal implementation that supports moveTo/lineTo/closePath so tests
 // that instantiate Path2D won't throw ReferenceError.
-if (typeof (globalThis as any).Path2D === "undefined") {
-  (globalThis as any).Path2D = class Path2D {
+const canvasGlobals = globalThis as unknown as {
+  Path2D?: unknown;
+  ImageData?: unknown;
+};
+if (typeof canvasGlobals.Path2D === "undefined") {
+  canvasGlobals.Path2D = class Path2D {
     constructor() {
       /* no-op: minimal polyfill */
     }
@@ -102,13 +106,13 @@ if (typeof (globalThis as any).Path2D === "undefined") {
     roundRect(_x: number, _y: number, _w: number, _h: number, _radii?: number) {
       /* no-op */
     }
-  } as any;
+  };
 }
 
 // Polyfill ImageData for test environments
 // Needed by canvas editor tool tests that construct new ImageData(width, height).
-if (typeof (globalThis as any).ImageData === "undefined") {
-  (globalThis as any).ImageData = class ImageData {
+if (typeof canvasGlobals.ImageData === "undefined") {
+  canvasGlobals.ImageData = class ImageData {
     readonly data: Uint8ClampedArray;
     readonly width: number;
     readonly height: number;
@@ -119,5 +123,5 @@ if (typeof (globalThis as any).ImageData === "undefined") {
       this.data = new Uint8ClampedArray(width * height * 4);
       this.colorSpace = "srgb";
     }
-  } as any;
+  };
 }

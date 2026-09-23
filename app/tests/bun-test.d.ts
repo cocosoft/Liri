@@ -39,7 +39,7 @@ declare module 'bun:test' {
     function todo(name: string): void;
     function each(
       cases: ReadonlyArray<unknown>
-    ): (name: string, fn: (...args: any[]) => void | Promise<void>) => void;
+    ): (name: string, fn: (...args: never[]) => void | Promise<void>) => void;
   }
 
   export const it: typeof test;
@@ -52,7 +52,7 @@ declare module 'bun:test' {
     ): (name: string, fn: () => void) => void;
     function each(
       cases: ReadonlyArray<unknown>
-    ): (name: string, fn: (...args: any[]) => void | Promise<void>) => void;
+    ): (name: string, fn: (...args: never[]) => void | Promise<void>) => void;
   }
 
   // ── mock ──
@@ -66,8 +66,8 @@ declare module 'bun:test' {
     };
     mockReturnValue(value: T): Mock<T>;
     mockReturnValueOnce(value: T): Mock<T>;
-    mockImplementation(fn: (...args: any[]) => T): Mock<T>;
-    mockImplementationOnce(fn: (...args: any[]) => T): Mock<T>;
+    mockImplementation(fn: (...args: never[]) => T): Mock<T>;
+    mockImplementationOnce(fn: (...args: never[]) => T): Mock<T>;
     mockResolvedValue(value: unknown): Mock<Promise<unknown>>;
     mockRejectedValue(value: unknown): Mock<Promise<unknown>>;
     mockRestore(): void;
@@ -115,7 +115,7 @@ declare module 'bun:test' {
     toHaveBeenCalledWith(...args: unknown[]): void;
     toHaveBeenCalledOnce(): void;
     toHaveProperty(key: string, value?: unknown): void;
-    toBeInstanceOf(ctor: new (...args: any[]) => unknown): void;
+    toBeInstanceOf(ctor: new (...args: never[]) => unknown): void;
     not: Matchers<T>;
     rejects: Matchers<T>;
     resolves: Matchers<T>;

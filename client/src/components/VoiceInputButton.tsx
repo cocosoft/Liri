@@ -213,8 +213,7 @@ const VoiceInputButton = forwardRef<VoiceInputHandle, VoiceInputButtonProps>(
 
       try {
         const SpeechRecognitionAPI =
-          (window as any).SpeechRecognition ||
-          (window as any).webkitSpeechRecognition;
+          window.SpeechRecognition || window.webkitSpeechRecognition;
         const recognition = new SpeechRecognitionAPI() as SpeechRecognition;
         recognition.continuous = true;
         recognition.interimResults = true;

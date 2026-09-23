@@ -274,7 +274,7 @@ export const createWorkspaceSlice: StateCreator<
   /** @deprecated 使用 enterModule() 替代模块级操作。此方法仅保留工作空间级联动（gitStore/knowledge）。 */
   switchWorkspace: async (id) => {
     if (import.meta.env.DEV) {
-      console.warn(
+      logger.warn(
         "[Deprecated] switchWorkspace() 已标记废弃，模块级操作请用 enterModule()。workspace 级切换仍可用。",
       );
     }

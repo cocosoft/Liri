@@ -324,11 +324,11 @@ export function FileList() {
           </p>
         ) : (
           <div style={{ height: 300, width: "100%" }}>
-            <List
+            <List<Record<string, never>>
               rowCount={filteredFiles.length}
               rowHeight={ROW_HEIGHT}
-              rowComponent={Row as any}
-              rowProps={{} as any}
+              rowComponent={Row}
+              rowProps={{}}
             />
           </div>
         )}

@@ -103,7 +103,7 @@ function MarkdownRenderer({
           USE_PROFILES: { svg: true, svgFilters: true },
         });
         el.classList.add("rendered");
-      } catch (e) {
+      } catch {
         if (cancelled) return;
         // 语法错误等：降级为等宽文本展示原始代码，避免一直显示原文且无提示
         const fallback = document.createElement("pre");

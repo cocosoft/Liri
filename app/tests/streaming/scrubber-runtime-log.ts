@@ -1,6 +1,8 @@
 // MIT License
 // Copyright (c) 2026 190615273@qq.com
 
+/* eslint-disable no-console -- 调试脚本：有意直接打印到终端（非生产代码） */
+
 /**
  * 运行时日志验证脚本
  * 输出 scrubber 每次状态转换的详细信息

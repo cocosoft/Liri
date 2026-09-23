@@ -96,9 +96,9 @@ let onWakeWordDetectedCb:
     }) => void)
   | null = null;
 
-/** 唤醒 WS 连接断开回调 — 保留供后续使用 */
+/** 唤醒 WS 连接断开回调 — 保留供后续使用（有意占位：`_` 前缀对应 varsIgnorePattern） */
 // @ts-expect-error TS6133: reserved for future use
-let onWakeDisconnectCb: (() => void) | null = null;
+let _onWakeDisconnectCb: (() => void) | null = null;
 
 /** 唤醒 WS 是否已主动断开 */
 let wakeDisconnectRequested = false;
@@ -129,7 +129,7 @@ export function onWakeWordDetected(
  * 注册唤醒 WS 连接断开回调
  */
 export function onWakeDisconnect(cb: () => void): void {
-  onWakeDisconnectCb = cb;
+  _onWakeDisconnectCb = cb;
 }
 
 /**

@@ -132,6 +132,48 @@ export class SettlementOutbox {
       `CREATE INDEX IF NOT EXISTS idx_settlement_outbox_state
        ON ${SETTLEMENT_OUTBOX_TABLE} (state, created_at)`
     );
+    // 预存债务修复（2026-09-23）：把"同一 (session_id, ended_at) 至多一行**未终结**"
+    // 从**应用层的先查后插**下沉为 **DB 级不变式**（部分唯一索引）。
+    // 原缺陷：并发 `enqueue` 各自查到"无未终结行"并各自 INSERT（双行），且随后的
+    // `ORDER BY id DESC LIMIT 1` 回读可能让两个调用方拿到**同一** id（另一行成孤儿）。
+    await this._collapseDuplicateLiveRows();
+    try {
+      await this.run(
+        `CREATE UNIQUE INDEX IF NOT EXISTS idx_settlement_outbox_live
+         ON ${SETTLEMENT_OUTBOX_TABLE} (session_id, ended_at)
+         WHERE state NOT IN ('delivered', 'dropped')`
+      );
+    } catch (err) {
+      // 索引建不起来时**不得让结算台账不可用**（台账是投递前提，建索引失败就抛会让
+      // 整个 yield 结算停摆 —— 比它要防的"重复行"更严重）。
+      // 此时退回**应用层幂等**（`enqueue` 的预检查仍在）⇒ 并发缺口会重现，**必须留痕**（不静默降级）。
+      logger.warn('settlementOutbox:live_unique_index_unavailable', {
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
+  /**
+   * 预存债务修复（2026-09-23）：折叠**历史遗留**的重复"未终结"行（每组保留最新一条）。
+   *
+   * 只处理"同一 (session_id, ended_at) 存在多行未终结"这一**缺陷产物**（否则部分唯一
+   * 索引创建会失败）：较旧的重复行置 `dropped`（终态）并留痕 `last_error`，
+   * **审计可回溯、不物理删除**；无重复时为 no-op（一条 UPDATE 影响 0 行）。
+   */
+  private async _collapseDuplicateLiveRows(): Promise<void> {
+    await this.run(
+      `UPDATE ${SETTLEMENT_OUTBOX_TABLE}
+          SET state = 'dropped',
+              last_error = COALESCE(last_error, 'collapsed:duplicate_live_row'),
+              updated_at = ?
+        WHERE state NOT IN ('delivered', 'dropped')
+          AND id NOT IN (
+            SELECT MAX(id) FROM ${SETTLEMENT_OUTBOX_TABLE}
+             WHERE state NOT IN ('delivered', 'dropped')
+             GROUP BY session_id, ended_at
+          )`,
+      [Date.now()]
+    );
   }
 
   /**
@@ -150,34 +192,53 @@ export class SettlementOutbox {
     // 的旧行（丢的是"本次投递的独立身份"，即重放锚点与审计粒度）。现改为：
     // · 未终结（pending / attempting / failed）⇒ 复用（真幂等，同一事件不重复入队）；
     // · 已终结 ⇒ **插入新行**（历史行保留，审计可回溯）。
-    const existing = await this.get<{ id: number; state: DeliveryState }>(
-      `SELECT id, state FROM ${SETTLEMENT_OUTBOX_TABLE}
-       WHERE session_id = ? AND ended_at = ? ORDER BY id DESC LIMIT 1`,
+    const now = Date.now();
+    // 兼容路径（**非冗余**）：唯一索引若因故未能建立（见 `doInit` 的 warn），本预检查
+    // 仍提供应用层幂等；索引存在时它同时是**快路径**（命中 `idx_settlement_outbox_live`，
+    // 代价极低），并让"顺序重复入队"无需依赖异常分支。
+    const live = await this.get<{ id: number }>(
+      `SELECT id FROM ${SETTLEMENT_OUTBOX_TABLE}
+        WHERE session_id = ? AND ended_at = ?
+          AND state NOT IN ('delivered', 'dropped')
+        ORDER BY id DESC LIMIT 1`,
       [params.sessionId, params.endedAt]
     );
-    if (
-      existing &&
-      existing.state !== 'delivered' &&
-      existing.state !== 'dropped'
-    ) {
-      return existing.id;
+    if (live?.id) return live.id;
+
+    // 预存债务修复（2026-09-23）：**取消"先查后插"作为唯一防线**（并发下失效），改由
+    //   ① 单条 `INSERT ... RETURNING id` 直接拿到**本次插入**的 id（无回读竞态）；
+    //   ② DB 级部分唯一索引 `idx_settlement_outbox_live` 保证"同键至多一行未终结"；
+    //   ③ 并发第二个 INSERT 被唯一约束拒绝 ⇒ 走幂等回读（**真幂等**，不重复入队）。
+    // 语义与上面的 P1-4 说明一致：**只有未终结行参与幂等**；已终结时新行照插。
+    try {
+      const inserted = await this.get<{ id: number }>(
+        `INSERT INTO ${SETTLEMENT_OUTBOX_TABLE}
+          (session_id, ended_at, state, attempts, restored, created_at, updated_at)
+         VALUES (?, ?, 'pending', 0, ?, ?, ?)
+         RETURNING id`,
+        [params.sessionId, params.endedAt, params.restored ? 1 : 0, now, now]
+      );
+      if (inserted?.id) {
+        await this.prune();
+        return inserted.id;
+      }
+    } catch (err) {
+      // 唯一约束拒绝属**预期并发分支**（非异常）；其它错误**照抛**（不掩盖真实故障，CS03）
+      if (!/UNIQUE/i.test(String(err))) throw err;
+      logger.debug('settlementOutbox:enqueue_idempotent_hit', {
+        sessionId: params.sessionId,
+        endedAt: params.endedAt,
+      });
     }
 
-    const now = Date.now();
-    await this.run(
-      `INSERT INTO ${SETTLEMENT_OUTBOX_TABLE}
-        (session_id, ended_at, state, attempts, restored, created_at, updated_at)
-       VALUES (?, ?, 'pending', 0, ?, ?, ?)`,
-      [params.sessionId, params.endedAt, params.restored ? 1 : 0, now, now]
-    );
-    const row = await this.get<{ id: number }>(
+    const existing = await this.get<{ id: number }>(
       `SELECT id FROM ${SETTLEMENT_OUTBOX_TABLE}
-       WHERE session_id = ? AND ended_at = ? ORDER BY id DESC LIMIT 1`,
+        WHERE session_id = ? AND ended_at = ?
+          AND state NOT IN ('delivered', 'dropped')
+        ORDER BY id DESC LIMIT 1`,
       [params.sessionId, params.endedAt]
     );
-    const id = row?.id ?? 0;
-    await this.prune();
-    return id;
+    return existing?.id ?? 0;
   }
 
   /**

@@ -17,10 +17,19 @@ const dbPath = join(tmpdir(), `goal-metrics-test-${Date.now()}.db`);
 const svc = new GoalMetricsService(dbPath);
 
 afterAll(() => {
+  // 预存债务修复（2026-09-23）：**先关闭连接再删文件** —— 此前只 rmSync 而不 close，
+  // 句柄仍占用 ⇒ Windows 下静默 `EBUSY`，每轮残留 .db/-wal/-shm 三个文件。
   try {
-    rmSync(dbPath, { force: true });
+    svc.close();
   } catch {
-    /* 清理失败不阻断 */
+    /* @ignore-catch — 关闭失败不阻断清理 */
+  }
+  for (const f of [dbPath, `${dbPath}-wal`, `${dbPath}-shm`]) {
+    try {
+      rmSync(f, { force: true });
+    } catch {
+      /* @ignore-catch — 清理失败不阻断 */
+    }
   }
 });
 

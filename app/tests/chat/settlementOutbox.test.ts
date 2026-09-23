@@ -69,6 +69,23 @@ describe('SettlementOutbox：投递状态机（O8 ①②③）', () => {
     expect(await outbox.listAll()).toHaveLength(1);
   });
 
+  test('并发入队同一 (sessionId, endedAt) ⇒ 全部拿到同一 id 且只落一行（修复前：双行 + 身份错乱）', async () => {
+    const outbox = await makeOutbox();
+    // 8 路并发同键入队。**修复前**为"先查后插"两段式：并发下各自查到"无未终结行"
+    // ⇒ 各自 INSERT（多行）；且随后的 `ORDER BY id DESC LIMIT 1` 回读可能让多个调用方
+    // 拿到**同一** id（另一行成孤儿，重放锚点/审计粒度失真）。
+    // 现由 DB 级部分唯一索引 `idx_settlement_outbox_live` 保证不变式 ⇒ 第二个 INSERT
+    // 被拒 ⇒ 走幂等回读。
+    const ids = await Promise.all(
+      Array.from({ length: 8 }, () =>
+        outbox.enqueue({ sessionId: 's-conc', endedAt: 777 })
+      )
+    );
+
+    expect(new Set(ids).size).toBe(1); // 身份唯一：所有调用方拿到同一 id
+    expect(await outbox.listAll()).toHaveLength(1); // 不变式：只落一行未终结
+  });
+
   test('失败可再 claim 重试；超上限 ⇒ 转 `dropped` 且不再被回放', async () => {
     const outbox = await makeOutbox();
     const id = await outbox.enqueue({ sessionId: 's1', endedAt: 100 });

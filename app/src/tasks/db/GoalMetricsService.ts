@@ -158,6 +158,20 @@ export class GoalMetricsService {
     await this._migrateSchema();
   }
 
+  /**
+   * 释放数据库连接（**与 `TaskGoalStore.close()` / `AgentRunStore.close()` 对称**）。
+   *
+   * 预存债务修复（2026-09-23）：本类此前**没有** close ⇒ 连接句柄直到进程结束才释放；
+   * 测试用临时库时 `rmSync` 恒 `EBUSY` 且被静默 catch ⇒ **每轮残留 3 个文件**
+   *（`.db` / `-wal` / `-shm`，实测累计 774 个）。
+   */
+  close(): void {
+    if (this.db) {
+      this.db.close();
+      this.db = null;
+    }
+  }
+
   /** 幂等列迁移：goal_metrics 补充 row_type / stage_id */
   private async _migrateSchema(): Promise<void> {
     const db = this.db;

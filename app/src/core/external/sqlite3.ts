@@ -176,6 +176,35 @@ class Database {
   }
 
   /**
+   * 预存债务修复（2026-09-23）：`prepare()` 必须配对 `finalize()`。
+   *
+   * **此前缺陷**：`run` / `get` / `all` 直接 `this._db.prepare(sql).<op>(...)`，语句对象
+   * **从不释放** ⇒ ① 语句缓存与句柄随查询次数累积；② 在 Windows 上数据库文件持续被占用，
+   * 测试清理临时库时 `unlink` 报 `EBUSY`（实测遗留：settlementOutbox 1366 个、
+   * yieldWaitingPersistence 262 个、task-goals-* 870 个、goal-budget-* 290 个）。
+   *
+   * `finalize` 失败**不得覆盖主体结果**（查询本身已成功），但也不静默——留痕（不掩盖，CS03）。
+   */
+  private withStatement<T>(
+    sql: string,
+    fn: (stmt: ReturnType<InstanceType<typeof BunDB>['prepare']>) => T
+  ): T {
+    const stmt = this._db.prepare(sql);
+    try {
+      return fn(stmt);
+    } finally {
+      try {
+        stmt.finalize();
+      } catch (e) {
+        // @ignore-catch — finalize 失败不影响本次查询结果；仅留痕
+        logger.warn('sqlite3:statement_finalize_failed', {
+          error: e instanceof Error ? e.message : String(e),
+        });
+      }
+    }
+  }
+
+  /**
    * 展开参数：兼容 sqlite3 npm 包的两种传参方式
    * 1. db.run(sql, param1, param2, ..., callback) — 独立参数
    * 2. db.run(sql, [param1, param2, ...], callback) — 数组参数
@@ -237,7 +266,7 @@ class Database {
       const result = measure(
         'run',
         sql,
-        () => this._db.prepare(sql).run(...params),
+        () => this.withStatement(sql, (stmt) => stmt.run(...params)),
         params
       );
       if (callback) {
@@ -292,7 +321,7 @@ class Database {
       const row = measure(
         'get',
         sql,
-        () => this._db.prepare(sql).get(...params),
+        () => this.withStatement(sql, (stmt) => stmt.get(...params)),
         params
       );
       callback?.(null, row ?? undefined);
@@ -355,7 +384,7 @@ class Database {
       const rows = measure(
         'all',
         sql,
-        () => this._db.prepare(sql).all(...params),
+        () => this.withStatement(sql, (stmt) => stmt.all(...params)),
         params
       );
       callback?.(null, rows);
@@ -388,7 +417,7 @@ class Database {
       const rows = measure(
         'each',
         sql,
-        () => this._db.prepare(sql).all(...params),
+        () => this.withStatement(sql, (stmt) => stmt.all(...params)),
         params
       );
       for (const row of rows) {
@@ -445,14 +474,26 @@ class Database {
   }
 
   /**
-   * 关闭数据库连接
+   * 关闭数据库连接。
+   *
+   * 预存债务修复（2026-09-23）：此前 `catch (e) { callback?.(e) }` —— **无回调时错误被
+   * 静默吞掉**，调用方以为已关闭，实际句柄仍占用 ⇒ Windows 上 `unlink` 报 `EBUSY`（与
+   * `prepare` 不 finalize 叠加）。现改为：有回调 ⇒ 交给回调；无回调 ⇒ **留痕**（不静默）。
    */
   close(callback?: (err: Error | null) => void): void {
     try {
       this._db.close();
       callback?.(null);
     } catch (e) {
-      callback?.(e as Error);
+      if (callback) {
+        callback(e as Error);
+        return;
+      }
+      // @ignore-catch — 保持"close 不抛"的既有契约，但不再静默（否则 EBUSY 无从定位）
+      logger.warn('sqlite3:close_failed', {
+        path: this._path,
+        error: e instanceof Error ? e.message : String(e),
+      });
     }
   }
 }

@@ -23,7 +23,9 @@ afterAll(() => rmSync(sandbox, { recursive: true, force: true }));
 describe('GlobTool G1 — 花括号展开（不再静默返回 []）', () => {
   test('*.{ts,js} 展开匹配 a.ts/b.ts 与 b.js，排除 c.md', () => {
     const r = glob('*.{ts,js}', dir);
-    const names = r.filenames.map((f) => f.replace(/\\/g, '/').split('/').pop());
+    const names = r.filenames.map((f) =>
+      f.replace(/\\/g, '/').split('/').pop()
+    );
     expect(r.numFiles).toBe(3);
     expect(names).toContain('a.ts');
     expect(names).toContain('b.ts');
@@ -33,14 +35,18 @@ describe('GlobTool G1 — 花括号展开（不再静默返回 []）', () => {
 
   test('{a,b}.ts 展开匹配 a.ts 与 b.ts', () => {
     const r = glob('{a,b}.ts', dir);
-    const names = r.filenames.map((f) => f.replace(/\\/g, '/').split('/').pop());
+    const names = r.filenames.map((f) =>
+      f.replace(/\\/g, '/').split('/').pop()
+    );
     expect(names).toContain('a.ts');
     expect(names).toContain('b.ts');
   });
 
   test('花括号不在模式中时行为不变（普通 *.md 匹配）', () => {
     const r = glob('*.md', dir);
-    const names = r.filenames.map((f) => f.replace(/\\/g, '/').split('/').pop());
+    const names = r.filenames.map((f) =>
+      f.replace(/\\/g, '/').split('/').pop()
+    );
     expect(names).toContain('c.md');
   });
 });

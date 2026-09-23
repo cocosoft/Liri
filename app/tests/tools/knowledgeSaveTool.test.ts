@@ -63,7 +63,11 @@ describe('knowledge_save 核心工具', () => {
       {} as never
     );
     expect(r.status).toBe('success');
-    const result = r.result as { filePath: string; action: string; message: string };
+    const result = r.result as {
+      filePath: string;
+      action: string;
+      message: string;
+    };
     expect(result.action).toBe('created');
     // 完成性指引：created 时明确"已保存"，同一标题勿重复调用（组合任务可继续其他标题）
     expect(String(result.message)).toContain('已成功保存到知识库');
@@ -115,10 +119,7 @@ describe('skill_view 参数名容错（circuit_breaker 修复）', () => {
     // 无 name、仅 skillName → 应返回"需要参数"错误（registry 未就绪）而非直接通过？
     // 实际验证：参数读取逻辑兼容 skillName——传入 skillName 后 name 解析非空，
     // 进入 registry 查找（返回未找到而非"需要 name 参数"）。
-    const r = await viewTool.execute(
-      { skillName: 'zhihu' },
-      {} as never
-    );
+    const r = await viewTool.execute({ skillName: 'zhihu' }, {} as never);
     // 修复前：报"需要 name 参数"；修复后：走技能查找（未找到/找到）
     expect(String(r.error ?? '')).not.toContain('需要 name 参数');
   });

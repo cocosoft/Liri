@@ -49,12 +49,20 @@ function userMsg(content: string): ChatMessage {
 
 describe('R6：unpairedToolCallIds', () => {
   test('批尾悬空 ⇒ 报出未配对 id', () => {
-    const batch = [assistantWithCalls(['c1']), toolResult('c1'), assistantWithCalls(['c2'])];
+    const batch = [
+      assistantWithCalls(['c1']),
+      toolResult('c1'),
+      assistantWithCalls(['c2']),
+    ];
     expect([...unpairedToolCallIds(batch)]).toEqual(['c2']);
   });
 
   test('全部配对 ⇒ 空集', () => {
-    const batch = [assistantWithCalls(['c1', 'c2']), toolResult('c1'), toolResult('c2')];
+    const batch = [
+      assistantWithCalls(['c1', 'c2']),
+      toolResult('c1'),
+      toolResult('c2'),
+    ];
     expect(unpairedToolCallIds(batch).size).toBe(0);
   });
 
@@ -78,10 +86,10 @@ describe('R6：completeTrailingToolPairs（切批不吃断配对）', () => {
 
   test('遇到非配对消息即停（不跨越后续轮次）', () => {
     const assistant = assistantWithCalls(['c1']);
-    const out = completeTrailingToolPairs([assistant], [
-      userMsg('中间插了用户消息'),
-      toolResult('c1'),
-    ]);
+    const out = completeTrailingToolPairs(
+      [assistant],
+      [userMsg('中间插了用户消息'), toolResult('c1')]
+    );
 
     // 没吃进任何东西：宁可保留悬空（由 sanitize 兜底），也不吞无关消息
     expect(out.batch).toEqual([assistant]);

@@ -71,9 +71,9 @@ describe('TaskStateMachine — §十 阶段 C', () => {
     const m = new TaskStateMachine('t5');
     m.transition(TaskStatus.RUNNING, 'spawn');
     m.transition(TaskStatus.COMPLETED, 'done');
-    expect(() =>
-      m.transition(TaskStatus.PENDING, 'revert')
-    ).toThrow(IllegalTransitionError);
+    expect(() => m.transition(TaskStatus.PENDING, 'revert')).toThrow(
+      IllegalTransitionError
+    );
   });
 
   test('getTaskStateMachine 注册到 StateMachineRegistry（id=task:{id}）且缓存复用', () => {

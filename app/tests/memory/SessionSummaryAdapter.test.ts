@@ -112,15 +112,20 @@ describe('buildSessionSummaryMemoryInput 纯映射 + 幂等键', () => {
     const key = idempotencyKey(input);
     expect(key).toMatch(/^sess-abc#c[0-9a-f]{8}$/);
     // 同内容 → 同键；不同内容 → 不同键
-    const same = idempotencyKey(inputOf('sess-abc', '仅内容兜底键', {
-      compactedRange: undefined,
-      summarySeq: undefined,
-    }));
+    const same = idempotencyKey(
+      inputOf('sess-abc', '仅内容兜底键', {
+        compactedRange: undefined,
+        summarySeq: undefined,
+      })
+    );
     expect(same).toBe(key);
   });
 
   it('content 含前缀/来源行，metadata.sessionId 映射与全量字段', () => {
-    const input = inputOf('sess-abcdef12', '阶段一结论：完成 AI-AGENT 前沿动态调研并产出 HTML 日报');
+    const input = inputOf(
+      'sess-abcdef12',
+      '阶段一结论：完成 AI-AGENT 前沿动态调研并产出 HTML 日报'
+    );
     const built = buildSessionSummaryMemoryInput(input);
     expect(built).not.toBeNull();
     const b = built!;
@@ -144,9 +149,7 @@ describe('buildSessionSummaryMemoryInput 纯映射 + 幂等键', () => {
     expect(built.content.length).toBeGreaterThan(20);
     // 短/空内容 → 不入库（null）
     expect(buildSessionSummaryMemoryInput(inputOf('sess-x', ''))).toBeNull();
-    expect(
-      buildSessionSummaryMemoryInput(inputOf('sess-x', '  '))
-    ).toBeNull();
+    expect(buildSessionSummaryMemoryInput(inputOf('sess-x', '  '))).toBeNull();
   });
 
   it('sessionId 含不安全路径字符被 rollup 拒绝（v5 P2-1）', async () => {
@@ -162,11 +165,17 @@ describe('rollupSessionSummaryToLongTerm 幂等 + consolidator 存活', () => {
   it('同幂等键二次写入不新增（upsert 覆盖）', async () => {
     const dir = tmpDir();
     const mm = new MemoryManagerImpl(dir);
-    const input = inputOf('sess-1', '阶段 A：完成 AI-AGENT 前沿动态调研并产出 HTML 日报');
+    const input = inputOf(
+      'sess-1',
+      '阶段 A：完成 AI-AGENT 前沿动态调研并产出 HTML 日报'
+    );
     expect(await rollupSessionSummaryToLongTerm(input, mm)).toBe(true);
     const key = idempotencyKey(input);
     // 同键（内容微调）二次写入 → 覆盖不新增
-    const again = inputOf('sess-1', '阶段 A：完成 AI-AGENT 前沿动态调研并产出 HTML 日报（修订补充）');
+    const again = inputOf(
+      'sess-1',
+      '阶段 A：完成 AI-AGENT 前沿动态调研并产出 HTML 日报（修订补充）'
+    );
     expect(await rollupSessionSummaryToLongTerm(again, mm)).toBe(true);
     const all = (await mm.getAllMemories()).filter(
       (m) =>
@@ -180,14 +189,22 @@ describe('rollupSessionSummaryToLongTerm 幂等 + consolidator 存活', () => {
   it('不同幂等键但内容高相似（相邻阶段）两条都存活（skipConsolidation，v5 B 案）', async () => {
     const dir = tmpDir();
     const mm = new MemoryManagerImpl(dir);
-    const a = inputOf('sess-2', '阶段一：完成 AI-AGENT 前沿动态调研，产出 HTML 日报', {
-      compactedRange: { startSeq: 1, endSeq: 100 },
-      summarySeq: 101,
-    });
-    const b = inputOf('sess-2', '阶段二：继续 AI-AGENT 前沿动态调研，补充供应商与招标部分，最终完善 HTML 日报', {
-      compactedRange: { startSeq: 102, endSeq: 400 },
-      summarySeq: 401,
-    });
+    const a = inputOf(
+      'sess-2',
+      '阶段一：完成 AI-AGENT 前沿动态调研，产出 HTML 日报',
+      {
+        compactedRange: { startSeq: 1, endSeq: 100 },
+        summarySeq: 101,
+      }
+    );
+    const b = inputOf(
+      'sess-2',
+      '阶段二：继续 AI-AGENT 前沿动态调研，补充供应商与招标部分，最终完善 HTML 日报',
+      {
+        compactedRange: { startSeq: 102, endSeq: 400 },
+        summarySeq: 401,
+      }
+    );
     expect(await rollupSessionSummaryToLongTerm(a, mm)).toBe(true);
     expect(await rollupSessionSummaryToLongTerm(b, mm)).toBe(true);
     const summaries = (await mm.getAllMemories()).filter(
@@ -206,15 +223,25 @@ describe('rebuildForSession 全量对齐式重建（v5 P1-⑦）', () => {
   it('C−E 删除 / E−C 创建 / E∩C 覆盖', async () => {
     const dir = tmpDir();
     const mm = new MemoryManagerImpl(dir);
-    const r1 = inputOf('sess-r', '阶段一摘要：完成 AI-AGENT 调研与 HTML 日报初稿', { compactedRange: { startSeq: 1, endSeq: 50 } });
-    const r2 = inputOf('sess-r', '阶段二摘要：补充供应商评审与招标文件转换', { compactedRange: { startSeq: 51, endSeq: 100 } });
+    const r1 = inputOf(
+      'sess-r',
+      '阶段一摘要：完成 AI-AGENT 调研与 HTML 日报初稿',
+      { compactedRange: { startSeq: 1, endSeq: 50 } }
+    );
+    const r2 = inputOf('sess-r', '阶段二摘要：补充供应商评审与招标文件转换', {
+      compactedRange: { startSeq: 51, endSeq: 100 },
+    });
     expect(await rollupSessionSummaryToLongTerm(r1, mm)).toBe(true);
     expect(await rollupSessionSummaryToLongTerm(r2, mm)).toBe(true);
 
     // events 侧演进：阶段二已折叠进阶段三（r2 不在 events），新增 r3
-    const r3 = inputOf('sess-r', '阶段三摘要：完成 AI-AGENT 调研、供应商评审与招标转换并产出最终 HTML 日报', {
-      compactedRange: { startSeq: 51, endSeq: 200 },
-    });
+    const r3 = inputOf(
+      'sess-r',
+      '阶段三摘要：完成 AI-AGENT 调研、供应商评审与招标转换并产出最终 HTML 日报',
+      {
+        compactedRange: { startSeq: 51, endSeq: 200 },
+      }
+    );
     const res = await rebuildForSession('sess-r', [r1, r3], mm);
     expect(res.deleted).toBe(1); // r2（51-100）不再在期望集 → 删除
     expect(res.created).toBe(1); // r3 → 新建
@@ -264,8 +291,14 @@ describe('D-P1：清理命令与 stats 自定义类型计入', () => {
   it('clearSessionSummaries：按会话删 / 全库删', async () => {
     const dir = tmpDir();
     const mm = new MemoryManagerImpl(dir);
-    const a1 = inputOf('sess-a', '阶段一摘要：AI-AGENT 调研与日报生成完成', { compactedRange: { startSeq: 1, endSeq: 50 } });
-    const b1 = inputOf('sess-b', '阶段一摘要：供应商评审与招标文件转换并输出 HTML 报告', { compactedRange: { startSeq: 1, endSeq: 50 } });
+    const a1 = inputOf('sess-a', '阶段一摘要：AI-AGENT 调研与日报生成完成', {
+      compactedRange: { startSeq: 1, endSeq: 50 },
+    });
+    const b1 = inputOf(
+      'sess-b',
+      '阶段一摘要：供应商评审与招标文件转换并输出 HTML 报告',
+      { compactedRange: { startSeq: 1, endSeq: 50 } }
+    );
     expect(await rollupSessionSummaryToLongTerm(a1, mm)).toBe(true);
     expect(await rollupSessionSummaryToLongTerm(b1, mm)).toBe(true);
 
@@ -288,7 +321,16 @@ describe('D-P1：清理命令与 stats 自定义类型计入', () => {
   it('getMemoryStats.byType 计入自定义类型（D-P1 类型层放宽）', async () => {
     const dir = tmpDir();
     const mm = new MemoryManagerImpl(dir);
-    expect(await rollupSessionSummaryToLongTerm(inputOf('sess-s', '阶段摘要内容：完成 AI-AGENT 前沿动态调研与日报产出', {}), mm)).toBe(true);
+    expect(
+      await rollupSessionSummaryToLongTerm(
+        inputOf(
+          'sess-s',
+          '阶段摘要内容：完成 AI-AGENT 前沿动态调研与日报产出',
+          {}
+        ),
+        mm
+      )
+    ).toBe(true);
     // 确定性落盘：pendingBatch 由 getAllMemories 内 flush 落盘后再统计（全量高并发下
     // 避免定时 flush 与统计读盘交错导致计数缺失）
     await mm.getAllMemories();

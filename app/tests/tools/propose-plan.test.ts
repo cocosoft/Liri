@@ -23,7 +23,8 @@ const ctx: ToolUseContext = {
 
 const planInput = {
   header: '批量删除计划',
-  question: '计划：\n1. 扫描 downloads 目录\n2. 删除 30 天前的临时文件\n3. 清理空目录',
+  question:
+    '计划：\n1. 扫描 downloads 目录\n2. 删除 30 天前的临时文件\n3. 清理空目录',
   plan: [
     { step: '扫描 downloads 目录' },
     { step: '删除 30 天前的临时文件', detail: '跳过正在使用的文件' },

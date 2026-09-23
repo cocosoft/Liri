@@ -23,7 +23,12 @@ function makeFakeTool(name = 'fake_tool') {
     state,
     execute: async (_input: unknown, _context: ToolContext) => {
       state.calls += 1;
-      return { result: { calls: state.calls }, content: `ok-${state.calls}`, error: undefined, success: true };
+      return {
+        result: { calls: state.calls },
+        content: `ok-${state.calls}`,
+        error: undefined,
+        success: true,
+      };
     },
   };
 }
@@ -86,7 +91,12 @@ describe('DefaultToolExecutor 会话配额降级', () => {
   test('未超限时正常执行并计数', async () => {
     const tool = makeFakeTool();
     const executor = new DefaultToolExecutor({
-      registry: { getTool: () => tool, getAllTools: () => [tool], registerTool: () => {}, unregisterTool: () => true },
+      registry: {
+        getTool: () => tool,
+        getAllTools: () => [tool],
+        registerTool: () => {},
+        unregisterTool: () => true,
+      },
     });
     const result = await executor.executeTool(
       { name: 'fake_tool', input: {}, id: 't1' },
@@ -99,7 +109,12 @@ describe('DefaultToolExecutor 会话配额降级', () => {
   test('超限时返回降级提示而非抛错', async () => {
     const tool = makeFakeTool();
     const executor = new DefaultToolExecutor({
-      registry: { getTool: () => tool, getAllTools: () => [tool], registerTool: () => {}, unregisterTool: () => true },
+      registry: {
+        getTool: () => tool,
+        getAllTools: () => [tool],
+        registerTool: () => {},
+        unregisterTool: () => true,
+      },
     });
     // 打满全局单例配额（默认 150）
     while (!sessionToolQuota.isExceeded('quota-sess')) {
@@ -120,7 +135,12 @@ describe('DefaultToolExecutor 会话配额降级', () => {
   test('无 sessionId 时不做配额拦截', async () => {
     const tool = makeFakeTool();
     const executor = new DefaultToolExecutor({
-      registry: { getTool: () => tool, getAllTools: () => [tool], registerTool: () => {}, unregisterTool: () => true },
+      registry: {
+        getTool: () => tool,
+        getAllTools: () => [tool],
+        registerTool: () => {},
+        unregisterTool: () => true,
+      },
     });
     const result = await executor.executeTool(
       { name: 'fake_tool', input: {}, id: 't3' },

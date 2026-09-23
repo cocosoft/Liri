@@ -127,7 +127,9 @@ describe('D1：按工具轮裁剪（agentic 兜底）', () => {
       (m) => typeof m.content === 'string' && isSnipBoundaryMessage(m.content)
     );
     expect(boundary).toBeDefined();
-    expect(String(boundary?.content)).toContain('已裁剪中间的 20 个工具调用轮次');
+    expect(String(boundary?.content)).toContain(
+      '已裁剪中间的 20 个工具调用轮次'
+    );
   });
 
   test('工具轮不足（3 ≤ 2+8）⇒ 不臆造，如实 applied:false', () => {

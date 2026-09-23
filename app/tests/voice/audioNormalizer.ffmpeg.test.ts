@@ -106,7 +106,17 @@ describe('transcodeToPcm16（固定参数委托）', () => {
 
     expect(spawnCalls[spawnCalls.length - 1]).toEqual({
       cmd: 'ffmpeg',
-      args: ['-i', 'pipe:0', '-f', 's16le', '-ar', '16000', '-ac', '1', 'pipe:1'],
+      args: [
+        '-i',
+        'pipe:0',
+        '-f',
+        's16le',
+        '-ar',
+        '16000',
+        '-ac',
+        '1',
+        'pipe:1',
+      ],
     });
 
     const proc = procs[procs.length - 1];

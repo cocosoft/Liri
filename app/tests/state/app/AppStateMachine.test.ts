@@ -11,7 +11,6 @@ import { AppState } from '../../../src/state/app/types.js';
 import { IllegalTransitionError } from '../../../src/state/errors.js';
 
 describe('AppStateMachine', () => {
-
   let sm: AppStateMachine;
 
   beforeEach(() => {
@@ -23,7 +22,6 @@ describe('AppStateMachine', () => {
   // ============================================================
 
   describe('构造与初始状态', () => {
-
     it('初始状态应为 IDLE', () => {
       expect(sm.getState()).toBe(AppState.IDLE);
     });
@@ -38,7 +36,6 @@ describe('AppStateMachine', () => {
       expect(sm.isBusy()).toBe(false);
       expect(sm.hasError()).toBe(false);
     });
-
   });
 
   // ============================================================
@@ -46,7 +43,6 @@ describe('AppStateMachine', () => {
   // ============================================================
 
   describe('setBusy', () => {
-
     it('IDLE → BUSY 应成功', () => {
       const result = sm.setBusy('处理请求');
       expect(result).toBe(true);
@@ -61,7 +57,6 @@ describe('AppStateMachine', () => {
       sm.pause();
       expect(() => sm.setBusy()).toThrow(IllegalTransitionError);
     });
-
   });
 
   // ============================================================
@@ -69,7 +64,6 @@ describe('AppStateMachine', () => {
   // ============================================================
 
   describe('setIdle', () => {
-
     it('BUSY → IDLE 应成功', () => {
       sm.setBusy();
       const result = sm.setIdle('完成');
@@ -90,7 +84,6 @@ describe('AppStateMachine', () => {
       expect(result).toBe(true);
       expect(sm.getState()).toBe(AppState.IDLE);
     });
-
   });
 
   // ============================================================
@@ -98,7 +91,6 @@ describe('AppStateMachine', () => {
   // ============================================================
 
   describe('pause', () => {
-
     it('IDLE → PAUSED 应成功', () => {
       const result = sm.pause('系统休眠');
       expect(result).toBe(true);
@@ -123,7 +115,6 @@ describe('AppStateMachine', () => {
       const result = sm.pause();
       expect(result).toBe(true);
     });
-
   });
 
   // ============================================================
@@ -131,7 +122,6 @@ describe('AppStateMachine', () => {
   // ============================================================
 
   describe('setError', () => {
-
     it('BUSY → ERROR 应成功并携带错误信息', () => {
       sm.setBusy();
       const err = new Error('数据库连接失败');
@@ -149,9 +139,10 @@ describe('AppStateMachine', () => {
     });
 
     it('非 BUSY 状态 setError 应抛出', () => {
-      expect(() => sm.setError(new Error('test'))).toThrow(IllegalTransitionError);
+      expect(() => sm.setError(new Error('test'))).toThrow(
+        IllegalTransitionError
+      );
     });
-
   });
 
   // ============================================================
@@ -159,7 +150,6 @@ describe('AppStateMachine', () => {
   // ============================================================
 
   describe('完整生命周期', () => {
-
     it('正常路径：IDLE → BUSY → IDLE', () => {
       sm.setBusy('工作中');
       expect(sm.getState()).toBe(AppState.BUSY);
@@ -181,7 +171,5 @@ describe('AppStateMachine', () => {
       sm.setIdle('已修复');
       expect(sm.getState()).toBe(AppState.IDLE);
     });
-
   });
-
 });

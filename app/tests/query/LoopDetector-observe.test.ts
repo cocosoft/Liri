@@ -44,6 +44,9 @@ describe('D5: LOOP_OBSERVE_ONLY 旁路 critical 阻断', () => {
     for (let i = 0; i < 20; i++) detector.recordTurn(false);
     const result = detector.detectNoToolCallLoop();
     expect(result.stuck).toBe(true);
-    expect(result).toMatchObject({ level: 'critical', detector: 'no_tool_call' });
+    expect(result).toMatchObject({
+      level: 'critical',
+      detector: 'no_tool_call',
+    });
   });
 });

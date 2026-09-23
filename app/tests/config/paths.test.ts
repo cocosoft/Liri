@@ -29,7 +29,6 @@ import {
 } from '../../src/core/paths.js';
 
 describe('setUserDataDirOverride / getUserDataDirOverride', () => {
-
   afterEach(() => {
     setUserDataDirOverride(null);
   });
@@ -48,11 +47,9 @@ describe('setUserDataDirOverride / getUserDataDirOverride', () => {
     setUserDataDirOverride(null);
     expect(getUserDataDirOverride()).toBeNull();
   });
-
 });
 
 describe('resolvePyappHome', () => {
-
   it('should use override when set', () => {
     setUserDataDirOverride('/override/path');
     const result = resolvePyappHome({});
@@ -72,11 +69,9 @@ describe('resolvePyappHome', () => {
     expect(result).toBeTruthy();
     expect(typeof result).toBe('string');
   });
-
 });
 
 describe('resolveProjectRoot', () => {
-
   it('should use LIRI_PROJECT_DIR env var', () => {
     const result = resolveProjectRoot({ LIRI_PROJECT_DIR: '/project/path' });
     expect(result).toContain('project');
@@ -88,11 +83,9 @@ describe('resolveProjectRoot', () => {
     expect(result).toBeTruthy();
     expect(typeof result).toBe('string');
   });
-
 });
 
 describe('resolveDataDir', () => {
-
   it('should use LIRI_DATA_DIR env var', () => {
     const result = resolveDataDir({ LIRI_DATA_DIR: '/data/path' });
     expect(result).toContain('data');
@@ -106,11 +99,9 @@ describe('resolveDataDir', () => {
     expect(result).toContain('app');
     expect(result).toContain('data');
   });
-
 });
 
 describe('path resolvers', () => {
-
   const testEnv = { LIRI_PROJECT_DIR: '/test/project' };
 
   it('should resolve docs dir under project/app/docs', () => {
@@ -158,11 +149,9 @@ describe('path resolvers', () => {
     const result = resolveArtifactsDir(testEnv);
     expect(result).toContain('artifacts');
   });
-
 });
 
 describe('user path resolvers', () => {
-
   it('should resolve user config path', () => {
     const result = resolveUserConfigPath({ LIRI_HOME: '/home/user/.pyapp' });
     expect(result).toContain('pyapp');
@@ -182,11 +171,9 @@ describe('user path resolvers', () => {
     expect(result).toContain('pyapp');
     expect(result).toContain('SOUL.md');
   });
-
 });
 
 describe('convenience path constructors', () => {
-
   const testEnv = { LIRI_PROJECT_DIR: '/p' };
 
   it('resolveDataSubDir should join subdirectory', () => {
@@ -198,11 +185,9 @@ describe('convenience path constructors', () => {
     const result = resolveTranscriptFilePath('trans-456', '.json', testEnv);
     expect(result).toContain('trans-456.json');
   });
-
 });
 
 describe('ensureDir', () => {
-
   it('should create non-existent directory', () => {
     const tmpDir = join(tmpdir(), `test-ensure-dir-${Date.now()}`);
     try {
@@ -222,11 +207,9 @@ describe('ensureDir', () => {
       rmSync(tmpDir, { recursive: true, force: true });
     }
   });
-
 });
 
 describe('ensureDataDirectories', () => {
-
   it('should create all data directories without error', async () => {
     const tmpDir = join(tmpdir(), `test-data-dirs-${Date.now()}`);
     try {
@@ -240,11 +223,9 @@ describe('ensureDataDirectories', () => {
       rmSync(tmpDir, { recursive: true, force: true });
     }
   }, 30000);
-
 });
 
 describe('constants', () => {
-
   it('should export LIRI_HOME as a string', () => {
     expect(typeof LIRI_HOME).toBe('string');
     expect(LIRI_HOME.length).toBeGreaterThan(0);
@@ -254,5 +235,4 @@ describe('constants', () => {
     expect(typeof PROJECT_ROOT).toBe('string');
     expect(PROJECT_ROOT.length).toBeGreaterThan(0);
   });
-
 });

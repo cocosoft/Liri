@@ -55,8 +55,13 @@ function getOrCreate(host: CacheHost, sessionId: string): EventLogStorage {
 }
 
 /** 调用私有 `switchSession`（真实方法，内部再委托 sessionLifecycle） */
-async function switchSession(host: CacheHost, sessionId: string): Promise<void> {
-  await (Reflect.apply(proto('switchSession'), host, [sessionId]) as Promise<void>);
+async function switchSession(
+  host: CacheHost,
+  sessionId: string
+): Promise<void> {
+  await (Reflect.apply(proto('switchSession'), host, [
+    sessionId,
+  ]) as Promise<void>);
 }
 
 /** 给实例塞一份"存在快照"的痕迹（仅用于断言释放是否发生） */

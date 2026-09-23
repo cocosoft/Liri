@@ -46,7 +46,10 @@ function writeLock(
   return p;
 }
 
-function readLock(dir: string, sessionId: string): {
+function readLock(
+  dir: string,
+  sessionId: string
+): {
   holder: string;
   acquiredAt: number;
 } | null {

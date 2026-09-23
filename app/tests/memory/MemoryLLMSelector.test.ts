@@ -9,11 +9,36 @@ import {
 } from '../../src/memory/MemoryLLMSelector';
 
 const sampleMemories: MemoryItem[] = [
-  { id: 'm1', type: 'project_knowledge', content: '本项目使用 TypeScript + React，数据库为 SQLite', createdAt: 1000 },
-  { id: 'm2', type: 'user_preference', content: '用户偏好简洁的代码风格，不喜欢过度抽象', createdAt: 2000 },
-  { id: 'm3', type: 'decision', content: '决定使用 Zustand 作为状态管理方案', createdAt: 3000 },
-  { id: 'm4', type: 'code_pattern', content: '所有 API 路由必须以 /v1/ 为前缀', createdAt: 4000 },
-  { id: 'm5', type: 'user_fact', content: '用户名为张三，在腾讯工作', createdAt: 5000 },
+  {
+    id: 'm1',
+    type: 'project_knowledge',
+    content: '本项目使用 TypeScript + React，数据库为 SQLite',
+    createdAt: 1000,
+  },
+  {
+    id: 'm2',
+    type: 'user_preference',
+    content: '用户偏好简洁的代码风格，不喜欢过度抽象',
+    createdAt: 2000,
+  },
+  {
+    id: 'm3',
+    type: 'decision',
+    content: '决定使用 Zustand 作为状态管理方案',
+    createdAt: 3000,
+  },
+  {
+    id: 'm4',
+    type: 'code_pattern',
+    content: '所有 API 路由必须以 /v1/ 为前缀',
+    createdAt: 4000,
+  },
+  {
+    id: 'm5',
+    type: 'user_fact',
+    content: '用户名为张三，在腾讯工作',
+    createdAt: 5000,
+  },
 ];
 
 describe('MemoryLLMSelector', () => {
@@ -73,7 +98,9 @@ describe('MemoryLLMSelector', () => {
     });
 
     it('extracts IDs from natural language with brackets', () => {
-      const result = parseSelectionResult('Sure! Here are the IDs: [m1, m2, m3]');
+      const result = parseSelectionResult(
+        'Sure! Here are the IDs: [m1, m2, m3]'
+      );
       expect(result).toEqual(['m1', 'm2', 'm3']);
     });
   });
@@ -100,7 +127,11 @@ describe('MemoryLLMSelector', () => {
     });
 
     it('returns partial matches', () => {
-      const selected = applySelection(sampleMemories, ['m1', 'nonexistent', 'm3']);
+      const selected = applySelection(sampleMemories, [
+        'm1',
+        'nonexistent',
+        'm3',
+      ]);
 
       expect(selected).toHaveLength(2);
       expect(selected[0].id).toBe('m1');

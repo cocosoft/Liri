@@ -68,19 +68,53 @@ describe('ExitRecorder — 根因 C 退出信息记录', () => {
   });
 
   test('isAbnormalExit 判定：非零退出码为异常', () => {
-    expect(isAbnormalExit({ code: 1, reason: 'unknown', exitAt: '', pid: 0, uptimeMs: 0 })).toBe(true);
-    expect(isAbnormalExit({ code: 0, reason: 'normal', exitAt: '', pid: 0, uptimeMs: 0 })).toBe(false);
+    expect(
+      isAbnormalExit({
+        code: 1,
+        reason: 'unknown',
+        exitAt: '',
+        pid: 0,
+        uptimeMs: 0,
+      })
+    ).toBe(true);
+    expect(
+      isAbnormalExit({
+        code: 0,
+        reason: 'normal',
+        exitAt: '',
+        pid: 0,
+        uptimeMs: 0,
+      })
+    ).toBe(false);
   });
 
   test('isAbnormalExit 判定：uncaughtException / unhandledRejection 为异常，graceful 正常', () => {
     expect(
-      isAbnormalExit({ code: 0, reason: 'uncaughtException', exitAt: '', pid: 0, uptimeMs: 0 })
+      isAbnormalExit({
+        code: 0,
+        reason: 'uncaughtException',
+        exitAt: '',
+        pid: 0,
+        uptimeMs: 0,
+      })
     ).toBe(true);
     expect(
-      isAbnormalExit({ code: 0, reason: 'unhandledRejection', exitAt: '', pid: 0, uptimeMs: 0 })
+      isAbnormalExit({
+        code: 0,
+        reason: 'unhandledRejection',
+        exitAt: '',
+        pid: 0,
+        uptimeMs: 0,
+      })
     ).toBe(true);
     expect(
-      isAbnormalExit({ code: 0, reason: 'graceful', exitAt: '', pid: 0, uptimeMs: 0 })
+      isAbnormalExit({
+        code: 0,
+        reason: 'graceful',
+        exitAt: '',
+        pid: 0,
+        uptimeMs: 0,
+      })
     ).toBe(false);
   });
 

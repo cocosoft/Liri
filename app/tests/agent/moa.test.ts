@@ -6,8 +6,14 @@
 import { describe, it, expect, beforeEach } from 'bun:test';
 
 import { MoARouter } from '../../src/agent/moa/MoARouter.js';
-import { buildAggregatorPrompt, AGGREGATOR_PROMPT_TEMPLATE } from '../../src/agent/moa/AggregatorPrompt.js';
-import type { MoAModelAdapter, MoARequest } from '../../src/agent/moa/MoARouter.js';
+import {
+  buildAggregatorPrompt,
+  AGGREGATOR_PROMPT_TEMPLATE,
+} from '../../src/agent/moa/AggregatorPrompt.js';
+import type {
+  MoAModelAdapter,
+  MoARequest,
+} from '../../src/agent/moa/MoARouter.js';
 
 /**
  * 模拟模型适配器
@@ -24,7 +30,11 @@ function createMockAdapter(name: string, response: string): MoAModelAdapter {
 /**
  * 模拟模型适配器（带延迟）
  */
-function createDelayedAdapter(name: string, response: string, delayMs: number = 10): MoAModelAdapter {
+function createDelayedAdapter(
+  name: string,
+  response: string,
+  delayMs: number = 10
+): MoAModelAdapter {
   return {
     name,
     async query() {
@@ -46,12 +56,18 @@ describe('MoARouter', () => {
   });
 
   it('注册适配器', () => {
-    router.registerAdapter('model-a', createMockAdapter('model-a', 'response A'));
+    router.registerAdapter(
+      'model-a',
+      createMockAdapter('model-a', 'response A')
+    );
     expect(router.getRegisteredModels()).toContain('model-a');
   });
 
   it('移除适配器', () => {
-    router.registerAdapter('model-a', createMockAdapter('model-a', 'response A'));
+    router.registerAdapter(
+      'model-a',
+      createMockAdapter('model-a', 'response A')
+    );
     expect(router.getRegisteredModels().length).toBe(1);
 
     router.removeAdapter('model-a');
@@ -71,9 +87,18 @@ describe('MoARouter', () => {
   });
 
   it('并行查询多个模型并聚合', async () => {
-    router.registerAdapter('model-a', createMockAdapter('model-a', 'Response from A'));
-    router.registerAdapter('model-b', createMockAdapter('model-b', 'Response from B'));
-    router.registerAdapter('aggregator', createMockAdapter('aggregator', 'Aggregated result'));
+    router.registerAdapter(
+      'model-a',
+      createMockAdapter('model-a', 'Response from A')
+    );
+    router.registerAdapter(
+      'model-b',
+      createMockAdapter('model-b', 'Response from B')
+    );
+    router.registerAdapter(
+      'aggregator',
+      createMockAdapter('aggregator', 'Aggregated result')
+    );
 
     const request: MoARequest = {
       query: 'What is AI?',
@@ -90,7 +115,10 @@ describe('MoARouter', () => {
   });
 
   it('当模型无聚合器时使用第一个结果', async () => {
-    router.registerAdapter('model-a', createMockAdapter('model-a', 'Solo response'));
+    router.registerAdapter(
+      'model-a',
+      createMockAdapter('model-a', 'Solo response')
+    );
 
     const request: MoARequest = {
       query: 'test',
@@ -110,19 +138,27 @@ describe('MoARouter', () => {
     };
 
     const result = await router.route(request);
-    expect(result.aggregated).toBe('No models available to process the request.');
+    expect(result.aggregated).toBe(
+      'No models available to process the request.'
+    );
     expect(result.meta.modelsUsed).toBe(0);
   });
 
   it('某模型失败时不影响其他模型', async () => {
-    router.registerAdapter('model-a', createMockAdapter('model-a', 'Good response'));
+    router.registerAdapter(
+      'model-a',
+      createMockAdapter('model-a', 'Good response')
+    );
     router.registerAdapter('model-b', {
       name: 'model-b',
       async query() {
         throw new Error('Model B failure');
       },
     });
-    router.registerAdapter('aggregator', createMockAdapter('aggregator', 'Aggregated'));
+    router.registerAdapter(
+      'aggregator',
+      createMockAdapter('aggregator', 'Aggregated')
+    );
 
     const request: MoARequest = {
       query: 'test',
@@ -139,7 +175,10 @@ describe('MoARouter', () => {
   it('并行查询比串行更快', async () => {
     router.registerAdapter('slow-a', createDelayedAdapter('slow-a', 'A', 30));
     router.registerAdapter('slow-b', createDelayedAdapter('slow-b', 'B', 30));
-    router.registerAdapter('aggregator', createDelayedAdapter('aggregator', 'Aggregated', 10));
+    router.registerAdapter(
+      'aggregator',
+      createDelayedAdapter('aggregator', 'Aggregated', 10)
+    );
 
     const request: MoARequest = {
       query: 'test',
@@ -157,7 +196,10 @@ describe('MoARouter', () => {
 
   it('自定义 systemPrompt 和 maxTokens 传递给模型适配器', async () => {
     const modelCalls: Array<{ systemPrompt?: string; maxTokens?: number }> = [];
-    const aggregatorCalls: Array<{ systemPrompt?: string; maxTokens?: number }> = [];
+    const aggregatorCalls: Array<{
+      systemPrompt?: string;
+      maxTokens?: number;
+    }> = [];
 
     router.registerAdapter('test-model', {
       name: 'test-model',
@@ -195,14 +237,15 @@ describe('MoARouter', () => {
     expect(aggregatorCalls[0].systemPrompt).toBeUndefined();
     expect(aggregatorCalls[0].maxTokens).toBe(2048);
   });
-
 });
 
 describe('AggregatorPrompt', () => {
-
   it('buildAggregatorPrompt 包含原始查询', () => {
     const prompt = buildAggregatorPrompt('What is TypeScript?', [
-      { model: 'model-a', response: 'TypeScript is a typed superset of JavaScript.' },
+      {
+        model: 'model-a',
+        response: 'TypeScript is a typed superset of JavaScript.',
+      },
     ]);
 
     expect(prompt).toContain('What is TypeScript?');
@@ -238,5 +281,4 @@ describe('AggregatorPrompt', () => {
     expect(prompt).toContain('test');
     expect(prompt).not.toContain('--- Model:');
   });
-
 });

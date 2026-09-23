@@ -28,7 +28,11 @@ describe('PhaseVocabulary B6 — toPdcaPhase 隐式意图 → 意图阶段显式
 
 describe('PhaseVocabulary B4 — 编排族单一真源（pdcaCheckpointStatus / PDCA_TO_WORKITEM / PDCA_TERMINAL_PHASES）', () => {
   test('pdcaCheckpointStatus 派生 checkpoint.status', () => {
-    for (const phase of ['plan', 'plan_pending', 'stage_awaiting_approval'] as const) {
+    for (const phase of [
+      'plan',
+      'plan_pending',
+      'stage_awaiting_approval',
+    ] as const) {
       expect(pdcaCheckpointStatus(phase)).toBe('started');
     }
     for (const phase of ['execute', 'review', 'decide'] as const) {

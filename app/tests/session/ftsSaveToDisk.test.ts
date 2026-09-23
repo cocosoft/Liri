@@ -33,7 +33,10 @@ afterEach(() => {
   }
 });
 
-function doc(id: string, content: string): {
+function doc(
+  id: string,
+  content: string
+): {
   id: string;
   title: string;
   content: string;

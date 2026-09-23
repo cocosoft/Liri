@@ -543,7 +543,9 @@ function TrajectoryTabContentImpl() {
                         }
                         onClick={() =>
                           selectEvent(
-                            row.event.seq === selectedSeq ? null : row.event.seq,
+                            row.event.seq === selectedSeq
+                              ? null
+                              : row.event.seq,
                           )
                         }
                       />

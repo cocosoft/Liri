@@ -10,7 +10,10 @@ import {
   AlertLevel,
   createAlertManager,
 } from '../../src/monitoring/alerts/AlertManager.js';
-import type { AlertRule, AlertNotification } from '../../src/monitoring/alerts/AlertManager.js';
+import type {
+  AlertRule,
+  AlertNotification,
+} from '../../src/monitoring/alerts/AlertManager.js';
 
 describe('AlertManager', () => {
   let manager: AlertManager;
@@ -83,7 +86,9 @@ describe('AlertManager', () => {
 
   it('禁用规则后不触发告警', () => {
     const triggered: AlertNotification[] = [];
-    manager.on('alert', (n) => { triggered.push(n); });
+    manager.on('alert', (n) => {
+      triggered.push(n);
+    });
 
     manager.disableRule('memory-high');
 
@@ -98,7 +103,9 @@ describe('AlertManager', () => {
     const disabledManager = new AlertManager({ enabled: false });
 
     const triggered: AlertNotification[] = [];
-    disabledManager.on('alert', (n) => { triggered.push(n); });
+    disabledManager.on('alert', (n) => {
+      triggered.push(n);
+    });
 
     disabledManager.evaluateRules({
       'memory.heapUsed': [1024 * 1024 * 1024 + 1],
@@ -109,7 +116,9 @@ describe('AlertManager', () => {
 
   it('条件满足时触发告警', () => {
     const triggered: AlertNotification[] = [];
-    manager.on('alert', (n) => { triggered.push(n); });
+    manager.on('alert', (n) => {
+      triggered.push(n);
+    });
 
     manager.evaluateRules({
       'memory.heapUsed': [1024 * 1024 * 1024 + 1],
@@ -122,7 +131,9 @@ describe('AlertManager', () => {
 
   it('多个条件同时满足时触发多个告警', () => {
     const triggered: AlertNotification[] = [];
-    manager.on('alert', (n) => { triggered.push(n); });
+    manager.on('alert', (n) => {
+      triggered.push(n);
+    });
 
     manager.evaluateRules({
       'memory.heapUsed': [1024 * 1024 * 1024 + 1],
@@ -136,7 +147,9 @@ describe('AlertManager', () => {
 
   it('冷却期内不重复触发同一规则', () => {
     const triggered: AlertNotification[] = [];
-    manager.on('alert', (n) => { triggered.push(n); });
+    manager.on('alert', (n) => {
+      triggered.push(n);
+    });
 
     const metrics = { 'memory.heapUsed': [1024 * 1024 * 1024 + 1] };
 
@@ -149,7 +162,9 @@ describe('AlertManager', () => {
 
   it('冷却期过后可再次触发', async () => {
     const triggered: AlertNotification[] = [];
-    manager.on('alert', (n) => { triggered.push(n); });
+    manager.on('alert', (n) => {
+      triggered.push(n);
+    });
 
     // 注册一个自定义规则，cooldown 短于默认值
     manager.registerRule({
@@ -274,23 +289,27 @@ describe('AlertManager', () => {
       cooldown: 0,
     });
 
-    smallManager.evaluateRules({ 'test': [1] });
-    smallManager.evaluateRules({ 'test': [1] });
-    smallManager.evaluateRules({ 'test': [1] });
+    smallManager.evaluateRules({ test: [1] });
+    smallManager.evaluateRules({ test: [1] });
+    smallManager.evaluateRules({ test: [1] });
 
     expect(smallManager.getAlerts().length).toBe(2);
   });
 
   it('条件异常时不中断其他规则', () => {
     const triggered: AlertNotification[] = [];
-    manager.on('alert', (n) => { triggered.push(n); });
+    manager.on('alert', (n) => {
+      triggered.push(n);
+    });
 
     manager.registerRule({
       id: 'failing-rule',
       name: '会失败的规则',
       description: '',
       level: AlertLevel.INFO,
-      condition: () => { throw new Error('oops'); },
+      condition: () => {
+        throw new Error('oops');
+      },
       message: 'should not trigger',
       enabled: true,
       cooldown: 0,
@@ -303,5 +322,4 @@ describe('AlertManager', () => {
     expect(triggered.length).toBe(1);
     expect(triggered[0].ruleId).toBe('memory-high');
   });
-
 });

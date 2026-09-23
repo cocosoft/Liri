@@ -148,7 +148,9 @@ export function AgentRuntimePanel({ isDark }: AgentRuntimePanelProps) {
 
       {/* 最近运行（磁盘台账；`/v1/agents/runs`） */}
       {runs.length === 0 ? (
-        <div className={`text-xs ${isDark ? "text-gray-500" : "text-gray-400"}`}>
+        <div
+          className={`text-xs ${isDark ? "text-gray-500" : "text-gray-400"}`}
+        >
           暂无运行记录。
         </div>
       ) : (

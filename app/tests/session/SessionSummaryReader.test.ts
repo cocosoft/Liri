@@ -114,9 +114,7 @@ describe('SessionMemoryManager.session_summary — D 阶段记忆上卷持久化
     ]);
 
     const reloaded = mm.loadMemory('rollup-s1');
-    const item = reloaded.items.find(
-      (i) => i.type === 'session_summary'
-    );
+    const item = reloaded.items.find((i) => i.type === 'session_summary');
     expect(item).toBeDefined();
     expect(item?.content).toContain('AI-AGENT');
     // 记忆注入上下文文本同样包含该摘要（后续轮次可复用）

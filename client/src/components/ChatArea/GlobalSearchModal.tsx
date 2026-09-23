@@ -260,7 +260,10 @@ export default function GlobalSearchModal({
       })),
       ...fileResults.map((file) => ({ kind: "file" as const, file })),
       ...knowledgeResults.map((item) => ({ kind: "knowledge" as const, item })),
-      ...messageResults.map((message) => ({ kind: "message" as const, message })),
+      ...messageResults.map((message) => ({
+        kind: "message" as const,
+        message,
+      })),
     ],
     [sessionResults, fileResults, knowledgeResults, messageResults],
   );

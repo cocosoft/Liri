@@ -1,8 +1,10 @@
 import { describe, it, expect, beforeEach } from 'bun:test';
-import { ConfigSchema, configSchema } from '../../../src/config/schema/ConfigSchema.js';
+import {
+  ConfigSchema,
+  configSchema,
+} from '../../../src/config/schema/ConfigSchema.js';
 
 describe('ConfigSchema', () => {
-
   let schema: ConfigSchema;
 
   beforeEach(() => {
@@ -64,8 +66,18 @@ describe('ConfigSchema', () => {
   });
 
   it('should register multiple items in same category', () => {
-    schema.registerItem('general', { key: 'a', description: 'A', type: 'string', defaultValue: '1' });
-    schema.registerItem('general', { key: 'b', description: 'B', type: 'number', defaultValue: 2 });
+    schema.registerItem('general', {
+      key: 'a',
+      description: 'A',
+      type: 'string',
+      defaultValue: '1',
+    });
+    schema.registerItem('general', {
+      key: 'b',
+      description: 'B',
+      type: 'number',
+      defaultValue: 2,
+    });
 
     const cat = schema.getCategory('general');
     expect(cat!.items).toHaveLength(2);
@@ -74,16 +86,24 @@ describe('ConfigSchema', () => {
   });
 
   it('should register items in different categories', () => {
-    schema.registerItem('cat1', { key: 'k1', description: 'desc1', type: 'string', defaultValue: 'v1' });
-    schema.registerItem('cat2', { key: 'k2', description: 'desc2', type: 'number', defaultValue: 2 });
+    schema.registerItem('cat1', {
+      key: 'k1',
+      description: 'desc1',
+      type: 'string',
+      defaultValue: 'v1',
+    });
+    schema.registerItem('cat2', {
+      key: 'k2',
+      description: 'desc2',
+      type: 'number',
+      defaultValue: 2,
+    });
 
     expect(schema.getAllCategories()).toHaveLength(2);
   });
-
 });
 
 describe('ConfigSchema - registerCategory', () => {
-
   it('should register a full category with multiple items', () => {
     const schema = new ConfigSchema();
     schema.registerCategory({
@@ -110,20 +130,43 @@ describe('ConfigSchema - registerCategory', () => {
     expect(schema.getItem('autoSync')).toBeDefined();
     expect(schema.getCategory('features')!.items).toHaveLength(2);
   });
-
 });
 
 describe('ConfigSchema - validate', () => {
-
   let schema: ConfigSchema;
 
   beforeEach(() => {
     schema = new ConfigSchema();
-    schema.registerItem('test', { key: 'str', description: 's', type: 'string', defaultValue: '' });
-    schema.registerItem('test', { key: 'num', description: 'n', type: 'number', defaultValue: 0 });
-    schema.registerItem('test', { key: 'bool', description: 'b', type: 'boolean', defaultValue: false });
-    schema.registerItem('test', { key: 'arr', description: 'a', type: 'array', defaultValue: [] });
-    schema.registerItem('test', { key: 'obj', description: 'o', type: 'object', defaultValue: {} });
+    schema.registerItem('test', {
+      key: 'str',
+      description: 's',
+      type: 'string',
+      defaultValue: '',
+    });
+    schema.registerItem('test', {
+      key: 'num',
+      description: 'n',
+      type: 'number',
+      defaultValue: 0,
+    });
+    schema.registerItem('test', {
+      key: 'bool',
+      description: 'b',
+      type: 'boolean',
+      defaultValue: false,
+    });
+    schema.registerItem('test', {
+      key: 'arr',
+      description: 'a',
+      type: 'array',
+      defaultValue: [],
+    });
+    schema.registerItem('test', {
+      key: 'obj',
+      description: 'o',
+      type: 'object',
+      defaultValue: {},
+    });
   });
 
   it('should validate string type', () => {
@@ -196,11 +239,9 @@ describe('ConfigSchema - validate', () => {
   it('should return valid for unknown keys', () => {
     expect(schema.validate('unknown_key', 'anything').valid).toBe(true);
   });
-
 });
 
 describe('ConfigSchema - getDefault', () => {
-
   it('should return default value for registered key', () => {
     const schema = new ConfigSchema();
     schema.registerItem('test', {
@@ -217,15 +258,23 @@ describe('ConfigSchema - getDefault', () => {
     const schema = new ConfigSchema();
     expect(schema.getDefault('unknown')).toBeUndefined();
   });
-
 });
 
 describe('ConfigSchema - getAllDefaults', () => {
-
   it('should return all defaults as a flat record', () => {
     const schema = new ConfigSchema();
-    schema.registerItem('a', { key: 'k1', description: 'd1', type: 'string', defaultValue: 'v1' });
-    schema.registerItem('b', { key: 'k2', description: 'd2', type: 'number', defaultValue: 42 });
+    schema.registerItem('a', {
+      key: 'k1',
+      description: 'd1',
+      type: 'string',
+      defaultValue: 'v1',
+    });
+    schema.registerItem('b', {
+      key: 'k2',
+      description: 'd2',
+      type: 'number',
+      defaultValue: 42,
+    });
 
     const defaults = schema.getAllDefaults();
     expect(defaults).toEqual({ k1: 'v1', k2: 42 });
@@ -235,13 +284,10 @@ describe('ConfigSchema - getAllDefaults', () => {
     const schema = new ConfigSchema();
     expect(schema.getAllDefaults()).toEqual({});
   });
-
 });
 
 describe('configSchema singleton', () => {
-
   it('should be a ConfigSchema instance', () => {
     expect(configSchema).toBeInstanceOf(ConfigSchema);
   });
-
 });

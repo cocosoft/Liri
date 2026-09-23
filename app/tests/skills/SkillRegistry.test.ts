@@ -51,11 +51,23 @@ describe('SkillRegistry（enabled 单点过滤）', () => {
     expect(registry.getByCategory('x')).toEqual([]);
 
     // 管理视图
-    expect(registry.getAll({ includeDisabled: true }).map((s) => s.name).sort()).toEqual(['alpha', 'beta']);
-    expect(registry.get('alpha', { includeDisabled: true })?.name).toBe('alpha');
+    expect(
+      registry
+        .getAll({ includeDisabled: true })
+        .map((s) => s.name)
+        .sort()
+    ).toEqual(['alpha', 'beta']);
+    expect(registry.get('alpha', { includeDisabled: true })?.name).toBe(
+      'alpha'
+    );
     expect(registry.has('alpha', { includeDisabled: true })).toBe(true);
     expect(registry.search('alpha', { includeDisabled: true })).toHaveLength(1);
-    expect(registry.listAll().map((s) => s.name).sort()).toEqual(['alpha', 'beta']);
+    expect(
+      registry
+        .listAll()
+        .map((s) => s.name)
+        .sort()
+    ).toEqual(['alpha', 'beta']);
   });
 
   it('重新启用后运行时视图恢复可见', () => {

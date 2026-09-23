@@ -10,7 +10,10 @@
  */
 
 import { describe, it, expect } from 'bun:test';
-import { ModelRecommender, type ModelRecommendation } from '../../../src/ai/local/llama/ModelRecommender.js';
+import {
+  ModelRecommender,
+  type ModelRecommendation,
+} from '../../../src/ai/local/llama/ModelRecommender.js';
 import type { HardwareInfo } from '../../../src/ai/local/llama/HardwareDetector.js';
 
 function makeHw(overrides: Partial<HardwareInfo> = {}): HardwareInfo {
@@ -99,7 +102,10 @@ describe('ModelRecommender', () => {
 
   it('每条推荐字段完整', async () => {
     const hw = makeHw({ systemMemoryGB: 32 });
-    const list: ModelRecommendation[] = await recommender.recommend(hw, {} as never);
+    const list: ModelRecommendation[] = await recommender.recommend(
+      hw,
+      {} as never
+    );
     // 验证返回结构完整（即使 fileSizeGB 可能因展示四舍五入为 0，原始估算值已计算）
     for (const r of list) {
       expect(r.modelId).toBeTruthy();

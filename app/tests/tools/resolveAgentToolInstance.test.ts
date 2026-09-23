@@ -53,9 +53,9 @@ describe('R6：病根复现（包装器既非实例、也不代理契约方法�
     expect(typeof asRecord.stopAgent).toBe('undefined');
     expect(typeof asRecord.getActiveAgents).toBe('undefined');
     // ③ 解包后能力判定成立
-    expect(typeof (wrapper.unwrap() as unknown as Record<string, unknown>).stopAgent).toBe(
-      'function'
-    );
+    expect(
+      typeof (wrapper.unwrap() as unknown as Record<string, unknown>).stopAgent
+    ).toBe('function');
   });
 });
 
@@ -122,13 +122,17 @@ describe('R6：ToolLazyWrapper.unwrap / LazyModuleLoader.loadSync', () => {
 describe('R6：resolveAgentToolInstance（能力判定 + fail-closed）', () => {
   test('解析结果具备契约 ⇒ 认领', () => {
     const tool = agentToolLike('ok');
-    expect(resolveAgentToolInstance(() => tool)).toBe(tool as unknown as AgentTool);
+    expect(resolveAgentToolInstance(() => tool)).toBe(
+      tool as unknown as AgentTool
+    );
   });
 
   test('解析结果仍是包装器（无契约方法）⇒ null（不误认领）', () => {
     const wrapper = new ToolLazyWrapper(
       metadata('Agent'),
-      new LazyModuleLoader<Tool>(() => agentToolLike('wrapped') as unknown as Tool)
+      new LazyModuleLoader<Tool>(
+        () => agentToolLike('wrapped') as unknown as Tool
+      )
     );
     expect(resolveAgentToolInstance(() => wrapper)).toBeNull();
   });

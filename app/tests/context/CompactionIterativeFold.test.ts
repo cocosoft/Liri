@@ -48,7 +48,9 @@ describe('R1 Tier3 迭代折叠：extractEarliestBatch', () => {
     // 最早一批包含最早的原始对象
     expect(batch[0]).toBe(msgs[0]);
     // rest 首个 = 批之后的第一条，顺序保持
-    expect(rest[0]).toBe(batch[batch.length - 1] ? msgs[batch.length] : msgs[0]);
+    expect(rest[0]).toBe(
+      batch[batch.length - 1] ? msgs[batch.length] : msgs[0]
+    );
   });
 
   it('单条超大消息不被打散（自成一批）', () => {
@@ -89,20 +91,24 @@ describe('R1 Tier3 迭代折叠：extractEarliestBatch', () => {
 // 断言 afterTokens < beforeTokens——弥补此前"仅测 _foldBatchSummary"的端到端缺口。
 describe('R1 Tier3 迭代折叠：runFullCompaction 折叠循环端到端', () => {
   // 经类型桥访问私有 runFullCompaction（与现有测试访问私有成员同风格）
-  const runFull = (
-    orch: CompactionOrchestrator
-  ) =>
-    (orch as unknown as {
-      runFullCompaction: (
-        messages: ChatMessage[],
-        ctx: { model: string; sessionId?: string; configOverride?: number },
-        signal?: AbortSignal
-      ) => Promise<{
-        messages: ChatMessage[];
-        applied: boolean;
-        summaryEnvelope?: { model: string; maxTokens: number; structured: boolean };
-      }>;
-    }).runFullCompaction.bind(orch);
+  const runFull = (orch: CompactionOrchestrator) =>
+    (
+      orch as unknown as {
+        runFullCompaction: (
+          messages: ChatMessage[],
+          ctx: { model: string; sessionId?: string; configOverride?: number },
+          signal?: AbortSignal
+        ) => Promise<{
+          messages: ChatMessage[];
+          applied: boolean;
+          summaryEnvelope?: {
+            model: string;
+            maxTokens: number;
+            structured: boolean;
+          };
+        }>;
+      }
+    ).runFullCompaction.bind(orch);
 
   it('end-to-end：注入 mock generate + 真实 procs → 折叠后 tokens 下降且 applied:true', async () => {
     const head = { role: 'system' as const, content: '你是助手，保持中文。' };
@@ -115,10 +121,10 @@ describe('R1 Tier3 迭代折叠：runFullCompaction 折叠循环端到端', () =
     const orch = new CompactionOrchestrator({
       aiService: { generate: async () => ({ content: '短摘要' }) },
     });
-    const result = await runFull(orch)(
-      [head, ...history] as ChatMessage[],
-      { model: 'm', sessionId: 's' }
-    );
+    const result = await runFull(orch)([head, ...history] as ChatMessage[], {
+      model: 'm',
+      sessionId: 's',
+    });
     // 折叠真实生效
     expect(result.applied).toBe(true);
     const after = estimateMessagesTokens(result.messages);
@@ -148,7 +154,9 @@ describe('R1 Tier3 迭代折叠：_foldBatchSummary（单批折叠）', () => {
         ai: { generate: Function },
         procs: {
           COMPACTION_USER_PROMPT: string;
-          parseCompactionSummary: (raw: string) => Record<string, unknown> | null;
+          parseCompactionSummary: (
+            raw: string
+          ) => Record<string, unknown> | null;
           renderCompactionSummary: typeof renderCompactionSummary;
         },
         head: ChatMessage[],
@@ -311,7 +319,10 @@ describe('R6：Tier3 折叠请求配对完整性（严格 provider 回归）', (
     const orch = new CompactionOrchestrator({ aiService: provider });
     const before = estimateMessagesTokens(messages);
 
-    const result = await runFull(orch)(messages, { model: 'm', sessionId: 's' });
+    const result = await runFull(orch)(messages, {
+      model: 'm',
+      sessionId: 's',
+    });
 
     expect(provider.calls.length).toBeGreaterThan(0); // 确实打过上游
     expect(result.applied).toBe(true); // 修复前恒 false

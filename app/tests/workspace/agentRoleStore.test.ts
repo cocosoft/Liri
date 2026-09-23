@@ -174,9 +174,15 @@ describe('AgentRoleStore：agentId 大小写归一（O16）', () => {
 
     await store.insert(roleConfig('CodeReview'));
 
-    expect((await store.getByAgentId('codereview'))?.agentId).toBe('codereview');
-    expect((await store.getByAgentId('CodeReview'))?.agentId).toBe('codereview');
-    expect((await store.getByAgentId('CODEREVIEW'))?.agentId).toBe('codereview');
+    expect((await store.getByAgentId('codereview'))?.agentId).toBe(
+      'codereview'
+    );
+    expect((await store.getByAgentId('CodeReview'))?.agentId).toBe(
+      'codereview'
+    );
+    expect((await store.getByAgentId('CODEREVIEW'))?.agentId).toBe(
+      'codereview'
+    );
     // 入库值本身已归一（不依赖查询侧补救）
     const all = await store.listAll();
     expect(all.some((r) => r.agentId === 'codereview')).toBe(true);

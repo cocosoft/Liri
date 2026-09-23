@@ -37,8 +37,15 @@ function makeCtx(
       recordTurn: () => {},
     },
     messageService: {
-      createToolResultMessage: (result: unknown) => ({ id: 't', content: String(result) }),
-      createAssistantMessage: (content: string) => ({ id: 'a', content, role: 'assistant' }),
+      createToolResultMessage: (result: unknown) => ({
+        id: 't',
+        content: String(result),
+      }),
+      createAssistantMessage: (content: string) => ({
+        id: 'a',
+        content,
+        role: 'assistant',
+      }),
     },
     addAndPersistMessage: () => {},
     checkpointService: { saveCheckpointWithData: async () => undefined },
@@ -55,7 +62,10 @@ function makeCtx(
       sendMessage: async () => seq[Math.min(callNo++, seq.length - 1)](),
       getProviderId: () => 'mock',
     },
-    unifiedTracker: { resetStreamTokens: () => {}, updateBaselineForRound: () => {} },
+    unifiedTracker: {
+      resetStreamTokens: () => {},
+      updateBaselineForRound: () => {},
+    },
     recordChatResponseUsage: () => {},
     toolResultRegistry: {
       storeResult: () => {},
@@ -95,7 +105,12 @@ describe('ReActToolLoop M1 细化', () => {
           }) as ChatResponse,
       ],
       loopDetector: {
-        detect: () => ({ stuck: true, level: 'critical', detector: 'file_io', message: '重复读写' }),
+        detect: () => ({
+          stuck: true,
+          level: 'critical',
+          detector: 'file_io',
+          message: '重复读写',
+        }),
         recordToolCallOutcome: () => {},
         recordTurn: () => {},
       } as never,
@@ -174,9 +189,9 @@ describe('ReActToolLoop M1 细化', () => {
     entry!.resolve(['用户选择 A']);
     await runPromise;
     expect(executed[0]?.name).toBe('ask_user');
-    expect((executed[0]?.args as Record<string, unknown>)?._userAnswers).toEqual([
-      '用户选择 A',
-    ]);
+    expect(
+      (executed[0]?.args as Record<string, unknown>)?._userAnswers
+    ).toEqual(['用户选择 A']);
   });
 
   it('maxTurns：超过最大轮次后最终消息含提示', async () => {

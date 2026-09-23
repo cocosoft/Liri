@@ -13,15 +13,15 @@ function asst(partial: Partial<Message>): Message {
 describe('isEmptyAssistantWithoutToolCalls', () => {
   it('跳过空正文且无 tool_calls 的 assistant 消息', () => {
     expect(isEmptyAssistantWithoutToolCalls(asst({ content: '' }))).toBe(true);
-    expect(
-      isEmptyAssistantWithoutToolCalls(asst({ content: '   ' }))
-    ).toBe(true);
+    expect(isEmptyAssistantWithoutToolCalls(asst({ content: '   ' }))).toBe(
+      true
+    );
   });
 
   it('保留有正文的 assistant 消息', () => {
-    expect(
-      isEmptyAssistantWithoutToolCalls(asst({ content: '你好' }))
-    ).toBe(false);
+    expect(isEmptyAssistantWithoutToolCalls(asst({ content: '你好' }))).toBe(
+      false
+    );
   });
 
   it('保留空正文但有 metadata.tool_calls 的 assistant 消息（工具轮次）', () => {

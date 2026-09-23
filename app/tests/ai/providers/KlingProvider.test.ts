@@ -128,7 +128,10 @@ describe('submitVideoTask', () => {
 
     expect(taskId).toBe('task-123');
     expect(fetchMock.mock.calls).toHaveLength(1);
-    const [url, init] = fetchMock.mock.calls[0] as [string | URL, RequestInit | undefined];
+    const [url, init] = fetchMock.mock.calls[0] as [
+      string | URL,
+      RequestInit | undefined,
+    ];
     expect(String(url)).toBe(`${BASE_URL}/v1/videos/text2video`);
     expect(init?.method).toBe('POST');
     expect(JSON.parse(init?.body as string)).toEqual({
@@ -171,7 +174,10 @@ describe('submitVideoTask', () => {
       API_KEY
     );
 
-    const [url, init] = fetchMock.mock.calls[0] as [string | URL, RequestInit | undefined];
+    const [url, init] = fetchMock.mock.calls[0] as [
+      string | URL,
+      RequestInit | undefined,
+    ];
     expect(String(url)).toBe(`${BASE_URL}/v1/videos/image2video`);
     expect(JSON.parse(init?.body as string)).toEqual({
       prompt: '让图片动起来',
@@ -194,7 +200,10 @@ describe('submitVideoTask', () => {
       }
     ).submitVideoTask({ model: 'kling-v1-6', prompt: 'x' }, 'raw-token-abc');
 
-    const [, init] = fetchMock.mock.calls[0] as [string | URL, RequestInit | undefined];
+    const [, init] = fetchMock.mock.calls[0] as [
+      string | URL,
+      RequestInit | undefined,
+    ];
     expect(authOf(init)).toBe('Bearer raw-token-abc');
   });
 

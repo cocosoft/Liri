@@ -45,7 +45,7 @@ beforeAll(async () => {
   await fs.writeFile(
     grandchildScript,
     "const fs=require('fs');const hb=process.argv[2],pf=process.argv[3];" +
-      "try{fs.writeFileSync(pf,String(process.pid))}catch{};" +
+      'try{fs.writeFileSync(pf,String(process.pid))}catch{};' +
       "setInterval(()=>{try{fs.appendFileSync(hb,'.')}catch{}},150);"
   );
 

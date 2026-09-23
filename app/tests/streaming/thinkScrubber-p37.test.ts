@@ -53,7 +53,9 @@ describe('P3-7d stripThinkResponseTags 未闭合 think 块', () => {
   });
 
   it('配对 <think>...</think> 剥离内容保留正文（不回归）', () => {
-    const stripped = stripThinkResponseTags('正常正文<think>内部推理</think>保留内容');
+    const stripped = stripThinkResponseTags(
+      '正常正文<think>内部推理</think>保留内容'
+    );
     expect(stripped).toBe('正常正文保留内容');
   });
 

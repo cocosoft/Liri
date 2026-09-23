@@ -3,7 +3,10 @@
 // ConfigLayersService 单测（步骤 4：env 层解析 + home patch）
 
 import { afterEach, describe, expect, it } from 'bun:test';
-import { parseEnvLayer, loadHomePatch } from '../../src/config/layers/ConfigLayersService';
+import {
+  parseEnvLayer,
+  loadHomePatch,
+} from '../../src/config/layers/ConfigLayersService';
 
 // 清理 PYAPP_* 测试变量
 function setEnv(key: string, value: string | undefined) {
@@ -28,7 +31,10 @@ describe('parseEnvLayer（11.12 定案：__ 嵌套 + 敏感过滤）', () => {
     setEnv('PYAPP_SERVER__PORT', '8080');
     setEnv('PYAPP_FEATURES__ENABLED', 'true');
     const layer = parseEnvLayer();
-    expect(layer).toEqual({ server: { port: 8080 }, features: { enabled: true } });
+    expect(layer).toEqual({
+      server: { port: 8080 },
+      features: { enabled: true },
+    });
   });
 
   it('敏感 key（apiKey/token）跳过', () => {

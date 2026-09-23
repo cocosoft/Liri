@@ -118,7 +118,7 @@ function CouncilAgentRolesPage() {
       .then((all) =>
         // 只列**启用**的 chat 模型：与后端校验口径一致
         // （`activeModelService.isModelAvailable()` 只认"存在且 enabled"的模型名）
-        setModels(all.filter((m) => m.type === "chat" && m.enabled !== false))
+        setModels(all.filter((m) => m.type === "chat" && m.enabled !== false)),
       )
       .catch(() => setModels([]));
   }, []);
@@ -358,8 +358,8 @@ function CouncilAgentRolesPage() {
                       >
                         权重: {role.weight} | 排序: {role.sortOrder} | 模型:{" "}
                         {role.model
-                          ? (models.find((m) => m.modelId === role.model)?.name ??
-                            role.model)
+                          ? (models.find((m) => m.modelId === role.model)
+                              ?.name ?? role.model)
                           : "默认"}
                       </div>
                     </div>
@@ -566,7 +566,9 @@ function CouncilAgentRolesPage() {
                   </label>
                   <select
                     value={form.model}
-                    onChange={(e) => setForm({ ...form, model: e.target.value })}
+                    onChange={(e) =>
+                      setForm({ ...form, model: e.target.value })
+                    }
                     className={`w-full px-3 py-2 text-sm rounded border ${
                       isDark
                         ? "bg-gray-700 border-gray-600 text-gray-200"

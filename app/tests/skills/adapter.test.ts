@@ -4,7 +4,15 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
-import { mkdtempSync, rmSync, mkdirSync, existsSync, writeFileSync, readFileSync, readdirSync } from 'fs';
+import {
+  mkdtempSync,
+  rmSync,
+  mkdirSync,
+  existsSync,
+  writeFileSync,
+  readFileSync,
+  readdirSync,
+} from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
 
@@ -13,9 +21,7 @@ import type {
   InstalledThirdPartySkill,
   ThirdPartySkillMeta,
 } from '../../src/skills/loaders/adapter/types';
-import type {
-  ThirdPartySkillSearchResult,
-} from '../../src/skills/loaders/adapter/ThirdPartySkillAdapter';
+import type { ThirdPartySkillSearchResult } from '../../src/skills/loaders/adapter/ThirdPartySkillAdapter';
 import type { Skill } from '../../src/skills/types';
 import { SkillSource, SkillLoadMethod } from '../../src/skills/types';
 
@@ -64,7 +70,8 @@ class FakeAdapter extends BaseThirdPartyAdapter<InstalledThirdPartySkill> {
     targetPath?: string
   ): Promise<InstalledThirdPartySkill> {
     if (this.doInstallError) throw this.doInstallError;
-    const installPath = targetPath || this.localStore.getSkillInstallPath(skillId);
+    const installPath =
+      targetPath || this.localStore.getSkillInstallPath(skillId);
     mkdirSync(installPath, { recursive: true });
     writeFileSync(join(installPath, 'SKILL.md'), '# New Version', 'utf-8');
     const meta: ThirdPartySkillMeta = {
@@ -155,7 +162,13 @@ describe('BaseThirdPartyAdapter（阶段 1）', () => {
     await adapter.getLocalStore().addSkill(
       makeInstalled('local-1', {
         installPath: join(dir, 'local-1'),
-        meta: { id: 'local-1', name: 'local-one', version: '1.0.0', description: 'a', author: 't' },
+        meta: {
+          id: 'local-1',
+          name: 'local-one',
+          version: '1.0.0',
+          description: 'a',
+          author: 't',
+        },
       })
     );
 
@@ -180,9 +193,9 @@ describe('BaseThirdPartyAdapter（阶段 1）', () => {
   it('getSearchEngine 源管理：添加/列出/移除，且仅 https', () => {
     const engine = adapter.getSearchEngine();
 
-    expect(() => engine.addCustomSource('hub', 'http://insecure.example.com')).toThrow(
-      /https/
-    );
+    expect(() =>
+      engine.addCustomSource('hub', 'http://insecure.example.com')
+    ).toThrow(/https/);
     engine.addCustomSource('hub', 'https://hub.example.com');
     expect(engine.getSourceNames()).toContain('hub');
 
@@ -196,7 +209,10 @@ describe('BaseThirdPartyAdapter（阶段 1）', () => {
     mkdirSync(installPath, { recursive: true });
     writeFileSync(join(installPath, 'SKILL.md'), '# Old Version', 'utf-8');
     await adapter.getLocalStore().addSkill(
-      makeInstalled('real-skill', { installPath, sourceUrl: 'https://hub.example.com/real-skill' })
+      makeInstalled('real-skill', {
+        installPath,
+        sourceUrl: 'https://hub.example.com/real-skill',
+      })
     );
 
     const updated = await adapter.updateSkill('real-skill');
@@ -206,9 +222,13 @@ describe('BaseThirdPartyAdapter（阶段 1）', () => {
     const indexed = await adapter.getLocalStore().getSkill('real-skill');
     expect(indexed?.meta.version).toBe('2.0.0');
     // 正式目录内容为新版本
-    expect(readFileSync(join(installPath, 'SKILL.md'), 'utf-8')).toBe('# New Version');
+    expect(readFileSync(join(installPath, 'SKILL.md'), 'utf-8')).toBe(
+      '# New Version'
+    );
     // 无 .tmp/.bak 残留
-    const leftovers = readdirSync(dir).filter((f) => f.includes('.tmp') || f.includes('.bak'));
+    const leftovers = readdirSync(dir).filter(
+      (f) => f.includes('.tmp') || f.includes('.bak')
+    );
     expect(leftovers).toEqual([]);
   });
 
@@ -217,7 +237,10 @@ describe('BaseThirdPartyAdapter（阶段 1）', () => {
     mkdirSync(installPath, { recursive: true });
     writeFileSync(join(installPath, 'SKILL.md'), '# Old Version', 'utf-8');
     await adapter.getLocalStore().addSkill(
-      makeInstalled('real-skill', { installPath, sourceUrl: 'https://hub.example.com/real-skill' })
+      makeInstalled('real-skill', {
+        installPath,
+        sourceUrl: 'https://hub.example.com/real-skill',
+      })
     );
 
     adapter.doInstallError = new Error('下载失败');
@@ -226,7 +249,9 @@ describe('BaseThirdPartyAdapter（阶段 1）', () => {
 
     // 正式目录仍为旧内容
     expect(existsSync(installPath)).toBe(true);
-    expect(readFileSync(join(installPath, 'SKILL.md'), 'utf-8')).toBe('# Old Version');
+    expect(readFileSync(join(installPath, 'SKILL.md'), 'utf-8')).toBe(
+      '# Old Version'
+    );
   });
 
   it('4.3：getSkillInstallPath 将仓库形态 id 映射为安全目录名', () => {
@@ -246,9 +271,9 @@ describe('BaseThirdPartyAdapter（阶段 1）', () => {
   it('5.5：initialize 时正式目录缺失且 .bak 存在 → 自动还原，.tmp 残留被清理', async () => {
     const crashPath = join(dir, 'crash-skill');
     // 索引指向 crashPath（正式目录缺失 → 模拟 updateSkill 中断）
-    await adapter.getLocalStore().addSkill(
-      makeInstalled('crash-skill', { installPath: crashPath })
-    );
+    await adapter
+      .getLocalStore()
+      .addSkill(makeInstalled('crash-skill', { installPath: crashPath }));
 
     const bakDir = `${crashPath}.bak`;
     mkdirSync(bakDir, { recursive: true });

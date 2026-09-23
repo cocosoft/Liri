@@ -9,10 +9,7 @@ import { randomUUID } from 'crypto';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { unlinkSync } from 'fs';
-import {
-  getYieldRegistry,
-  resetYieldRegistry,
-} from '../../src/session/yield';
+import { getYieldRegistry, resetYieldRegistry } from '../../src/session/yield';
 import {
   setYieldResumeHandler,
   handleYieldSettlement,

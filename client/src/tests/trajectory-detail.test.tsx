@@ -162,7 +162,12 @@ describe("TrajectoryDetail 检查器增强（P1-3）", () => {
   it("data 含循环引用 ⇒ JSON.stringify 抛错时回退 String(data)，不崩溃", () => {
     const circular: Record<string, unknown> = { name: "loop" };
     circular.self = circular;
-    render(<TrajectoryDetail event={mkEvent("system/info", circular)} onClose={noop} />);
+    render(
+      <TrajectoryDetail
+        event={mkEvent("system/info", circular)}
+        onClose={noop}
+      />,
+    );
     // 头部仍渲染（未因序列化失败而崩溃）
     expect(screen.getByText("#7")).toBeDefined();
   });

@@ -21,7 +21,7 @@ interface SessionStore {
   loadSessions: () => Promise<void>;
   createSession: (
     title: string,
-    opts?: { temporary?: boolean }
+    opts?: { temporary?: boolean },
   ) => Promise<Session>;
   switchSession: (id: string) => Promise<void>;
   deleteSession: (id: string) => Promise<void>;
@@ -48,7 +48,7 @@ function deriveState(root: ReturnType<typeof useRootStore.getState>): {
     sessions: root.chatSessions ?? [],
     currentSession: currentId
       ? ((root.chatSessions ?? []).find((s) => s.id === currentId) ??
-          (temp && temp.id === currentId ? temp : null))
+        (temp && temp.id === currentId ? temp : null))
       : null,
     isLoading: root.isLoading,
     switching: root.switching,

@@ -16,7 +16,10 @@ import {
 } from '../../../src/infrastructure/http/handlers/agent-role-handlers';
 
 /** 造一个"对话模型"记录 */
-function chatModel(modelId: string, over: Partial<AgentRoleModelInfo> = {}): AgentRoleModelInfo {
+function chatModel(
+  modelId: string,
+  over: Partial<AgentRoleModelInfo> = {}
+): AgentRoleModelInfo {
   return {
     modelId,
     type: 'chat',
@@ -103,9 +106,7 @@ describe('validateAgentRoleModel（T5 / v7.1）', () => {
   });
 
   test('v7.1 归属判据：`providerId` 为空 ⇒ 拒绝（数据不完整）', async () => {
-    const lookup = lookupOnly([
-      chatModel('orphan-model', { providerId: '' }),
-    ]);
+    const lookup = lookupOnly([chatModel('orphan-model', { providerId: '' })]);
 
     const error = await validateAgentRoleModel('orphan-model', lookup);
     expect(error).toContain('缺少供应商归属');

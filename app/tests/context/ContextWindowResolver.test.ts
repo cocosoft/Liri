@@ -61,7 +61,7 @@ describe('P1-7: 渐进降级探测', () => {
 
     it('extracts OpenAI max limit', () => {
       const result = parseContextLimitFromError(
-        'This model\'s maximum context length is 128000 tokens. Your request used 150000 tokens'
+        "This model's maximum context length is 128000 tokens. Your request used 150000 tokens"
       );
       expect(result).toBe(128_000);
     });

@@ -5,8 +5,16 @@ const MAP: Record<
   BucketedRuleItem["constraintStrength"],
   { emoji: string; label: string; cls: string }
 > = {
-  mandatory: { emoji: "🔴", label: "必须", cls: "text-red-600 dark:text-red-400" },
-  should: { emoji: "🟡", label: "应", cls: "text-amber-600 dark:text-amber-400" },
+  mandatory: {
+    emoji: "🔴",
+    label: "必须",
+    cls: "text-red-600 dark:text-red-400",
+  },
+  should: {
+    emoji: "🟡",
+    label: "应",
+    cls: "text-amber-600 dark:text-amber-400",
+  },
   may: { emoji: "🔵", label: "可", cls: "text-blue-600 dark:text-blue-400" },
 };
 

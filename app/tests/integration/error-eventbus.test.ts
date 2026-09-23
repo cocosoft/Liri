@@ -20,7 +20,7 @@ describe('handleError EventBus 集成测试', () => {
       '测试 CRITICAL 错误',
       ErrorCategory.EXECUTION,
       ErrorSeverity.CRITICAL,
-      'TEST_CRITICAL',
+      'TEST_CRITICAL'
     );
 
     await handleError(criticalError, {
@@ -49,7 +49,7 @@ describe('handleError EventBus 集成测试', () => {
       '测试 HIGH 错误',
       ErrorCategory.OPERATION,
       ErrorSeverity.HIGH,
-      'TEST_HIGH',
+      'TEST_HIGH'
     );
 
     await handleError(highError, {
@@ -74,7 +74,7 @@ describe('handleError EventBus 集成测试', () => {
       '测试 MEDIUM 错误',
       ErrorCategory.VALIDATION,
       ErrorSeverity.MEDIUM,
-      'TEST_MEDIUM',
+      'TEST_MEDIUM'
     );
 
     await handleError(mediumError, {
@@ -91,11 +91,21 @@ describe('handleError EventBus 集成测试', () => {
   it('getErrorStats 返回正确的统计结构', async () => {
     // 触发几个错误以填充统计
     await handleError(
-      new AppError('错误1', ErrorCategory.EXECUTION, ErrorSeverity.CRITICAL, 'E001'),
+      new AppError(
+        '错误1',
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.CRITICAL,
+        'E001'
+      ),
       { module: 'test:a' }
     );
     await handleError(
-      new AppError('错误2', ErrorCategory.OPERATION, ErrorSeverity.HIGH, 'E002'),
+      new AppError(
+        '错误2',
+        ErrorCategory.OPERATION,
+        ErrorSeverity.HIGH,
+        'E002'
+      ),
       { module: 'test:b' }
     );
 

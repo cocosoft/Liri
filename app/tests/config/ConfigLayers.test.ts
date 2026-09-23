@@ -3,7 +3,10 @@
 // ConfigLayers 11 层合并单测（验收标准 7：优先级矩阵子集 + policy 保护 + locked）
 
 import { describe, expect, it } from 'bun:test';
-import { resolveConfigLayers, collectLeafPaths } from '../../src/config/layers/ConfigLayers';
+import {
+  resolveConfigLayers,
+  collectLeafPaths,
+} from '../../src/config/layers/ConfigLayers';
 import type { LayerProfile } from '../../src/config/layers/ProfileManager';
 import type { LayerBundle } from '../../src/config/layers/BundleManager';
 
@@ -25,8 +28,18 @@ const profile: LayerProfile = {
 };
 
 const bundles: LayerBundle[] = [
-  { name: 'core', config: { server: { host: '0.0.0.0' }, ai: { defaultModel: 'a' } }, variants: ['core'], source: 'builtin' },
-  { name: 'ai', config: { ai: { defaultModel: 'b', providerId: 'p1' } }, variants: ['coding', 'enterprise'], source: 'builtin' },
+  {
+    name: 'core',
+    config: { server: { host: '0.0.0.0' }, ai: { defaultModel: 'a' } },
+    variants: ['core'],
+    source: 'builtin',
+  },
+  {
+    name: 'ai',
+    config: { ai: { defaultModel: 'b', providerId: 'p1' } },
+    variants: ['coding', 'enterprise'],
+    source: 'builtin',
+  },
 ];
 
 const baseInput = {
@@ -46,7 +59,13 @@ describe('ConfigLayers 11 层合并', () => {
     expect(cfg(result.config).server.port).toBe(8080); // 默认值保留
     // 层序检查
     const names = result.layers.map((l) => l.name);
-    expect(names).toEqual(['default', 'bundle', 'profile-patch', 'user', 'cli-patch']);
+    expect(names).toEqual([
+      'default',
+      'bundle',
+      'profile-patch',
+      'user',
+      'cli-patch',
+    ]);
   });
 
   it('Bundle 后声明胜（ai 覆盖 core 的 ai.defaultModel）', () => {

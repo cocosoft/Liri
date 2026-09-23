@@ -3,7 +3,10 @@
 // EnvVarResolver ${ENV_VAR} 变量替换单测（11.4 / 验收标准 8）
 
 import { describe, expect, it } from 'bun:test';
-import { resolveEnvString, resolveEnvVars } from '../../src/config/layers/EnvVarResolver';
+import {
+  resolveEnvString,
+  resolveEnvVars,
+} from '../../src/config/layers/EnvVarResolver';
 
 const env = { API_KEY: 'sk-123', PORT: '8080' };
 
@@ -13,7 +16,9 @@ describe('resolveEnvString', () => {
   });
 
   it('默认值 ${VAR:-default}：变量缺失用默认值', () => {
-    expect(resolveEnvString('${MISSING:-fallback}', env, true)).toBe('fallback');
+    expect(resolveEnvString('${MISSING:-fallback}', env, true)).toBe(
+      'fallback'
+    );
   });
 
   it('默认值语法：变量存在用变量值', () => {
@@ -35,9 +40,9 @@ describe('resolveEnvString', () => {
   });
 
   it('混合文本与多个变量', () => {
-    expect(
-      resolveEnvString('host:${PORT}/key:${API_KEY}/', env, true)
-    ).toBe('host:8080/key:sk-123/');
+    expect(resolveEnvString('host:${PORT}/key:${API_KEY}/', env, true)).toBe(
+      'host:8080/key:sk-123/'
+    );
   });
 
   it('未闭合 ${ 字面保留', () => {

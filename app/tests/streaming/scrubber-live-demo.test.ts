@@ -39,9 +39,13 @@ describe('StreamingToolCallScrubber — 模拟流式验证', () => {
     const full = outputs.join('');
 
     console.log('=== 场景1：真实工具调用 ===');
-    chunks.forEach((c, i) => console.log(`  chunk${i}: 输入="${c.replace(/\n/g,'\\n')}"`));
-    outputs.forEach((o, i) => console.log(`  chunk${i}: 输出="${o.replace(/\n/g,'\\n')}"`));
-    console.log(`  完整输出: "${full.replace(/\n/g,'\\n')}"`);
+    chunks.forEach((c, i) =>
+      console.log(`  chunk${i}: 输入="${c.replace(/\n/g, '\\n')}"`)
+    );
+    outputs.forEach((o, i) =>
+      console.log(`  chunk${i}: 输出="${o.replace(/\n/g, '\\n')}"`)
+    );
+    console.log(`  完整输出: "${full.replace(/\n/g, '\\n')}"`);
     console.log();
 
     // 前导文本保留
@@ -71,9 +75,13 @@ describe('StreamingToolCallScrubber — 模拟流式验证', () => {
     const full = outputs.join('');
 
     console.log('=== 场景2：正文含代码示例（GLM 格式示例） ===');
-    chunks.forEach((c, i) => console.log(`  chunk${i}: 输入="${c.replace(/\n/g,'\\n')}"`));
-    outputs.forEach((o, i) => console.log(`  chunk${i}: 输出="${o.replace(/\n/g,'\\n')}"`));
-    console.log(`  完整输出: "${full.replace(/\n/g,'\\n')}"`);
+    chunks.forEach((c, i) =>
+      console.log(`  chunk${i}: 输入="${c.replace(/\n/g, '\\n')}"`)
+    );
+    outputs.forEach((o, i) =>
+      console.log(`  chunk${i}: 输出="${o.replace(/\n/g, '\\n')}"`)
+    );
+    console.log(`  完整输出: "${full.replace(/\n/g, '\\n')}"`);
     console.log();
 
     // ⚠️ GLM 格式示例实际会被擦除（因为含 <arg_key>），这是可接受的权衡
@@ -96,9 +104,13 @@ describe('StreamingToolCallScrubber — 模拟流式验证', () => {
     const full = outputs.join('');
 
     console.log('=== 场景3：正文普通说明文本 ===');
-    chunks.forEach((c, i) => console.log(`  chunk${i}: 输入="${c.replace(/\n/g,'\\n')}"`));
-    outputs.forEach((o, i) => console.log(`  chunk${i}: 输出="${o.replace(/\n/g,'\\n')}"`));
-    console.log(`  完整输出: "${full.replace(/\n/g,'\\n')}"`);
+    chunks.forEach((c, i) =>
+      console.log(`  chunk${i}: 输入="${c.replace(/\n/g, '\\n')}"`)
+    );
+    outputs.forEach((o, i) =>
+      console.log(`  chunk${i}: 输出="${o.replace(/\n/g, '\\n')}"`)
+    );
+    console.log(`  完整输出: "${full.replace(/\n/g, '\\n')}"`);
     console.log();
 
     // <tool_call> 后跟普通文本（空格+中文），不擦除
@@ -123,9 +135,13 @@ describe('StreamingToolCallScrubber — 模拟流式验证', () => {
     const full = outputs.join('');
 
     console.log('=== 场景4：裸 invoke vs 含 name= invoke ===');
-    chunks.forEach((c, i) => console.log(`  chunk${i}: 输入="${c.replace(/\n/g,'\\n')}"`));
-    outputs.forEach((o, i) => console.log(`  chunk${i}: 输出="${o.replace(/\n/g,'\\n')}"`));
-    console.log(`  完整输出: "${full.replace(/\n/g,'\\n')}"`);
+    chunks.forEach((c, i) =>
+      console.log(`  chunk${i}: 输入="${c.replace(/\n/g, '\\n')}"`)
+    );
+    outputs.forEach((o, i) =>
+      console.log(`  chunk${i}: 输出="${o.replace(/\n/g, '\\n')}"`)
+    );
+    console.log(`  完整输出: "${full.replace(/\n/g, '\\n')}"`);
     console.log();
 
     // 裸 <invoke>（无 name=）→ 不擦除

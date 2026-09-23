@@ -7,11 +7,7 @@
 
 import { create } from "zustand";
 
-export type SettingsPanelTab =
-  | "config"
-  | "router"
-  | "memory"
-  | "notifications";
+export type SettingsPanelTab = "config" | "router" | "memory" | "notifications";
 
 interface SettingsPanelState {
   panelOpen: boolean;

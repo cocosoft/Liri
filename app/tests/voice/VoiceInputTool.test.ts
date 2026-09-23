@@ -17,9 +17,8 @@ import { describe, it, expect, mock, afterAll, beforeEach } from 'bun:test';
 // Mock voiceService：模拟录音、识别、依赖检查
 // ============================================================
 const mockVoiceService = {
-  startRecording: mock(
-    (_onData: (chunk: Buffer) => void, _onEnd: () => void) =>
-      Promise.resolve(true)
+  startRecording: mock((_onData: (chunk: Buffer) => void, _onEnd: () => void) =>
+    Promise.resolve(true)
   ),
   stopRecording: mock(() => {}),
   recognize: mock((_audioData: Buffer) =>
@@ -58,17 +57,12 @@ mock.module('@modules/services/voice', () => ({
 }));
 
 // 动态导入
-const { VoiceInputTool } = await import(
-  '../../src/tools/VoiceInputTool/VoiceInputTool'
-);
-const { validateVoiceInputInput } = await import(
-  '../../src/tools/VoiceInputTool/schemas'
-);
-const {
-  VOICE_INPUT_TOOL_NAME,
-  VOICE_INPUT_DESCRIPTION,
-  VOICE_INPUT_ALIASES,
-} = await import('../../src/tools/VoiceInputTool/constants');
+const { VoiceInputTool } =
+  await import('../../src/tools/VoiceInputTool/VoiceInputTool');
+const { validateVoiceInputInput } =
+  await import('../../src/tools/VoiceInputTool/schemas');
+const { VOICE_INPUT_TOOL_NAME, VOICE_INPUT_DESCRIPTION, VOICE_INPUT_ALIASES } =
+  await import('../../src/tools/VoiceInputTool/constants');
 
 // 恢复
 afterAll(() => {

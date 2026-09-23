@@ -39,11 +39,15 @@ describe('MaxOutputRetryHandler', () => {
     });
 
     it('respects custom maxRetries', () => {
-      expect(shouldRetryMaxOutput('length', 1, 4096, { maxRetries: 1 })).toBe(false);
+      expect(shouldRetryMaxOutput('length', 1, 4096, { maxRetries: 1 })).toBe(
+        false
+      );
     });
 
     it('respects custom maxOutputLimit', () => {
-      expect(shouldRetryMaxOutput('length', 0, 32000, { maxOutputLimit: 32000 })).toBe(false);
+      expect(
+        shouldRetryMaxOutput('length', 0, 32000, { maxOutputLimit: 32000 })
+      ).toBe(false);
     });
   });
 

@@ -6,7 +6,11 @@
 import { describe, it, expect, beforeEach } from 'bun:test';
 
 import { VoiceSession } from '../../src/voice/VoiceSession.js';
-import type { VoiceConnection, VoiceClientEvent, VoiceServerEvent } from '../../src/voice/types.js';
+import type {
+  VoiceConnection,
+  VoiceClientEvent,
+  VoiceServerEvent,
+} from '../../src/voice/types.js';
 
 /**
  * 创建模拟 VoiceConnection
@@ -43,7 +47,6 @@ function createMockConnection(id: string = 'test-conn'): VoiceConnection {
 }
 
 describe('VoiceSession', () => {
-
   it('创建会话时状态为 idle', () => {
     const conn = createMockConnection('session-1');
     const session = new VoiceSession(conn as unknown as VoiceConnection);

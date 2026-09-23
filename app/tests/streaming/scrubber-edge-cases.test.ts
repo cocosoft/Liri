@@ -13,7 +13,10 @@ function simulate(chunks: string[], flush = true): string {
   const s = new StreamingToolCallScrubber();
   const parts: string[] = [];
   for (let i = 0; i < chunks.length; i++) {
-    const r = s.scrub({ content: chunks[i], isComplete: i === chunks.length - 1 });
+    const r = s.scrub({
+      content: chunks[i],
+      isComplete: i === chunks.length - 1,
+    });
     parts.push(r.content ?? '');
   }
   if (flush) parts.push(s.flush());
@@ -24,10 +27,13 @@ describe('StreamingToolCallScrubber — 边缘情况', () => {
   // ─── 1：真实工具调用未闭合（流中断） ──────
 
   it('工具调用开标签后流中断 — flush 恢复状态', () => {
-    const r1 = simulate([
-      '开始\n',
-      '<tool_call>{"name":"search","args":{"q":"', // 未闭合
-    ], false); // 不 flush，模拟中断
+    const r1 = simulate(
+      [
+        '开始\n',
+        '<tool_call>{"name":"search","args":{"q":"', // 未闭合
+      ],
+      false
+    ); // 不 flush，模拟中断
     // 中断时：已进入擦除模式，前导文本保留，工具调用内容隐藏
     expect(r1).toContain('开始');
     expect(r1).toContain('[调用工具');
@@ -39,10 +45,13 @@ describe('StreamingToolCallScrubber — 边缘情况', () => {
   });
 
   it('工具调用未闭合 + flush — 清空状态', () => {
-    const result = simulate([
-      '文本前\n',
-      '<tool_call>{"name":"incomplete"', // 永不闭合
-    ], true);
+    const result = simulate(
+      [
+        '文本前\n',
+        '<tool_call>{"name":"incomplete"', // 永不闭合
+      ],
+      true
+    );
     // flush 后：工具调用内容被隐藏但状态重置
     expect(result).toContain('文本前');
     expect(result).toContain('[调用工具');
@@ -217,7 +226,10 @@ describe('StreamingToolCallScrubber — 边缘情况', () => {
     s.flush();
     s.reset();
     // 第二次：real tool call
-    const r = s.scrub({ content: '<tool_call>{"name":"f"}</tool_call>', isComplete: true });
+    const r = s.scrub({
+      content: '<tool_call>{"name":"f"}</tool_call>',
+      isComplete: true,
+    });
     const flushed = s.flush();
     expect((r.content ?? '') + flushed).toContain('[调用工具');
     expect((r.content ?? '') + flushed).not.toContain('{"name"');

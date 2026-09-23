@@ -169,8 +169,10 @@ describe('NotificationPersistence 收件箱化断言', () => {
     };
     const ts = Math.floor(Date.now() / 1000);
     await new Promise<void>((resolve, reject) => {
-      db.run(`UPDATE notifications SET created_at = ?`, [ts], (err: Error | null) =>
-        err ? reject(err) : resolve()
+      db.run(
+        `UPDATE notifications SET created_at = ?`,
+        [ts],
+        (err: Error | null) => (err ? reject(err) : resolve())
       );
     });
 

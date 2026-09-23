@@ -710,9 +710,8 @@ export const createSessionSlice: StateCreator<
             // loadConversation 的 events 派生含完整首条用户消息，且 events 损坏时自动合并 legacy。
             // N-58：本分支是"刷新页面后自动恢复当前会话"的主入口，原先不传 limit
             // ⇒ 长会话刷新首屏仍全量（实测 192 条 / 742KB）。与切换路径统一取一页。
-            const { MESSAGE_PAGE_LIMIT } = await import(
-              "@/stores/chat/chat-message-actions"
-            );
+            const { MESSAGE_PAGE_LIMIT } =
+              await import("@/stores/chat/chat-message-actions");
             let messages: Message[];
             let hasMore = false;
             let cursor: number | null = null;
@@ -1101,9 +1100,7 @@ export const createSessionSlice: StateCreator<
         useChatStore
           .getState()
           .setOldestSeq(
-            loaded.hasMore
-              ? (loaded.messages[0]?.lastEventSeq ?? null)
-              : null,
+            loaded.hasMore ? (loaded.messages[0]?.lastEventSeq ?? null) : null,
           );
       }
       logger.info("switchChatSession:③消息已加载", {

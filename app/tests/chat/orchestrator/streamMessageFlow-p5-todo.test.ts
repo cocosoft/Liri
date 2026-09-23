@@ -39,9 +39,8 @@ mock.module('@modules/chat/createAgentLoop', () => ({
   createChatAgentLoop: () => fakeLoop,
 }));
 
-const { runStreamMessage } = await import(
-  '../../../src/chat/orchestrator/streamMessageFlow.js'
-);
+const { runStreamMessage } =
+  await import('../../../src/chat/orchestrator/streamMessageFlow.js');
 
 /** 收集 appendStreamEvent 写入的事件列表 */
 function collectEvents(

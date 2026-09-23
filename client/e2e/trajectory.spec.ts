@@ -99,7 +99,8 @@ test.describe("轨迹模块 E2E", () => {
       .poll(
         async () =>
           (await rows.count()) > 0 ||
-          (await inspector.getByText(/还没有选中会话|暂无|无匹配|条/).count()) > 0,
+          (await inspector.getByText(/还没有选中会话|暂无|无匹配|条/).count()) >
+            0,
         { timeout: 20_000 },
       )
       .toBe(true);
@@ -167,9 +168,8 @@ test.describe("轨迹模块 E2E", () => {
       .locator("[data-index]")
       .filter({ has: page.locator("div") });
 
-    const emptyState = inspector.getByText(
-      /暂无事件|无匹配事件|还没有选中会话。/,
-    );
+    const emptyState =
+      inspector.getByText(/暂无事件|无匹配事件|还没有选中会话。/);
 
     // 等**两态**之一出现：`loadEvents` 是异步的，直接 `count()` 会在事件到达前取到 0
     // ⇒ 造成"假 skip"；但**只等"有行"**会在空库（CI 全新环境）上必然 poll 超时**失败**
@@ -187,8 +187,12 @@ test.describe("轨迹模块 E2E", () => {
     // "真的没数据" 与 "数据没加载出来"。
     const headerCount = await inspector.getByText(/tailSeq=/).count();
     const headerText = headerCount
-      ? ((await inspector.getByText(/tailSeq=/).first().textContent()) ?? "")
-          .trim()
+      ? (
+          (await inspector
+            .getByText(/tailSeq=/)
+            .first()
+            .textContent()) ?? ""
+        ).trim()
       : "（无表头：未选中会话）";
     test.skip(rowCount === 0, `无轨迹事件行，表头：${headerText}`);
 
@@ -211,7 +215,9 @@ test.describe("轨迹模块 E2E", () => {
   // TC-1（2026-09-23）：`TrajectoryTimeline` 的**几何交互**只能在此覆盖 ——
   // jsdom 的 `getBoundingClientRect` 恒为 0，纯函数（视图数学）已在单测 100% 覆盖，
   // 缺的正是"真实指针 + 滚轮 → 像素↔时间换算 → setView"这条接线。
-  test("时间线交互：拖选聚焦 → 重置 → 滚轮缩放 → 右键平移", async ({ page }) => {
+  test("时间线交互：拖选聚焦 → 重置 → 滚轮缩放 → 右键平移", async ({
+    page,
+  }) => {
     const inspector = await openTrajectoryTab(page);
     // 先确保有行（无会话/空库 ⇒ 显式 skip，而非超时失败），再判定时间线是否可用
     await requireRows(inspector);
@@ -314,7 +320,9 @@ test.describe("轨迹模块 E2E", () => {
    * 注意：**必须点一个当前已在视口内的事件行** —— 若让 Playwright 自动滚入，
    * 滚动位置会被 `click()` 改变，断言就失去意义。
    */
-  test("点选行（打开详情）不再移动列表滚动位置（TB-6 回归）", async ({ page }) => {
+  test("点选行（打开详情）不再移动列表滚动位置（TB-6 回归）", async ({
+    page,
+  }) => {
     const inspector = await openTrajectoryTab(page);
     await requireRows(inspector);
 
@@ -356,7 +364,9 @@ test.describe("轨迹模块 E2E", () => {
     await page.waitForTimeout(300);
 
     const after = await scroller.evaluate((el) => el.scrollTop);
-    console.log(`[TB-6] scrollTop before=${before} after=${after} Δ=${after - before}`);
+    console.log(
+      `[TB-6] scrollTop before=${before} after=${after} Δ=${after - before}`,
+    );
     // ✅ TB-6 **方案 B（2026-09-23）后断言"完全不动"**：详情已移出滚动内容流（面板级绝对定位浮层），
     //    展开时滚动容器内容高度**零变化** ⇒ 不再触发"内容高度 +Δ ⇒ 浏览器内部把 scrollTop 同步 +Δ"
     //    （该内部行为已实测证明**无 JS 参与**、`overflow-anchor:none` 无效 ⇒ 只能消除触发条件）。

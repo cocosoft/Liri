@@ -68,7 +68,8 @@ describe('tool_search 技能检索增强', () => {
     getSkillRegistryLazy();
 
     // 注册一个用户技能（模拟 zhihu）
-    const { skillRegistry } = await import('@modules/constants/systemPromptSections');
+    const { skillRegistry } =
+      await import('@modules/constants/systemPromptSections');
     skillRegistry.register(
       makePromptSkill('zhihu', '使用知乎开放平台搜索知乎和全网内容、获取热榜')
     );

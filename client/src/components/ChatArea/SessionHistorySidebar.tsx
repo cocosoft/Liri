@@ -965,33 +965,33 @@ function SessionHistorySidebar({
                     </button>
                   </div>
                 ) : (
-                <div
-                  key={row.key}
-                  ref={
-                    useVirtualScroll
-                      ? (el) => measureItem(row.key, el)
-                      : undefined
-                  }
-                >
-                  <SessionListItem
-                    session={row.session}
-                    isActive={currentSession?.id === row.session.id}
-                    isEditing={editingId === row.session.id}
-                    editTitle={editTitle}
-                    pinned={isPinned(row.session.id)}
-                    isDreamProcessed={dreamProcessedIds.has(row.session.id)}
-                    contentHit={contentHitSessionIds.has(row.session.id)}
-                    contentSnippet={contentHitSnippets.get(row.session.id)}
-                    getSourceLabel={getSourceLabel}
-                    onSwitch={handleSwitchSession}
-                    onDoubleClick={handleDoubleClick}
-                    onEditTitleChange={setEditTitle}
-                    onEditBlur={handleRenameBlur}
-                    onEditKeyDown={handleRenameKeyDown}
-                    onDelete={handleDeleteSession}
-                    onContextMenu={handleContextMenu}
-                  />
-                </div>
+                  <div
+                    key={row.key}
+                    ref={
+                      useVirtualScroll
+                        ? (el) => measureItem(row.key, el)
+                        : undefined
+                    }
+                  >
+                    <SessionListItem
+                      session={row.session}
+                      isActive={currentSession?.id === row.session.id}
+                      isEditing={editingId === row.session.id}
+                      editTitle={editTitle}
+                      pinned={isPinned(row.session.id)}
+                      isDreamProcessed={dreamProcessedIds.has(row.session.id)}
+                      contentHit={contentHitSessionIds.has(row.session.id)}
+                      contentSnippet={contentHitSnippets.get(row.session.id)}
+                      getSourceLabel={getSourceLabel}
+                      onSwitch={handleSwitchSession}
+                      onDoubleClick={handleDoubleClick}
+                      onEditTitleChange={setEditTitle}
+                      onEditBlur={handleRenameBlur}
+                      onEditKeyDown={handleRenameKeyDown}
+                      onDelete={handleDeleteSession}
+                      onContextMenu={handleContextMenu}
+                    />
+                  </div>
                 ),
               )}
             </div>

@@ -59,11 +59,14 @@ afterAll(() => {
   fs.rmSync(tmpDir, { recursive: true, force: true });
 });
 
-const { handleStateAll } = await import(
-  '../../src/infrastructure/http/handlers/state-handlers'
-);
+const { handleStateAll } =
+  await import('../../src/infrastructure/http/handlers/state-handlers');
 
-function createRes(): { res: http.ServerResponse; body: string; status: number } {
+function createRes(): {
+  res: http.ServerResponse;
+  body: string;
+  status: number;
+} {
   const out = { body: '', status: 0 };
   const res = {
     writeHead: (code: number) => {

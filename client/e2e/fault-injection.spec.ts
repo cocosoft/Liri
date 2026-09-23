@@ -138,7 +138,9 @@ test.describe("连接故障注入 E2E（断网/后端重启/SSE 中断）", () =
       })
       .toBe("disconnected");
     expect(
-      (await monitorSnapshot(page)).history.some((h) => h.to === "disconnected"),
+      (await monitorSnapshot(page)).history.some(
+        (h) => h.to === "disconnected",
+      ),
     ).toBeTruthy();
 
     // 后端恢复：解除拦截 → 下一次 tick 成功 → connected
@@ -156,7 +158,9 @@ test.describe("连接故障注入 E2E（断网/后端重启/SSE 中断）", () =
   // 的单一事件源（并新增 `connection:open` 事件取代原先依赖的 `EventSource.onopen`）。
   // 只统计 **GET**：心跳是 HEAD（`sseService.ts:390-411`），且 Playwright 会把 HEAD 归类为
   // `requestfailed`，若不排除会污染计数。
-  test("SSE：首页仅 1 条 /v1/events 常驻连接（TB-5 回归门禁）", async ({ page }) => {
+  test("SSE：首页仅 1 条 /v1/events 常驻连接（TB-5 回归门禁）", async ({
+    page,
+  }) => {
     test.setTimeout(60_000);
 
     const open = new Set<unknown>();
@@ -169,9 +173,7 @@ test.describe("连接故障注入 E2E（断网/后端重启/SSE 中断）", () =
     page.on("requestfailed", (r) => open.delete(r));
 
     await page.goto("/");
-    await expect
-      .poll(() => open.size, { timeout: 15_000 })
-      .toBe(1);
+    await expect.poll(() => open.size, { timeout: 15_000 }).toBe(1);
 
     // 覆盖一个心跳周期（30s）+ 可能的抖动，确认**始终没有第二条**常驻
     await page.waitForTimeout(32_000);

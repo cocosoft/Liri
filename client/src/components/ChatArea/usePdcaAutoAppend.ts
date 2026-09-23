@@ -36,8 +36,11 @@ import { generateBlockId } from "@/stores/chat/chat-toolcall.slice";
 import { AUTO_LAUNCHED_TYPE, findLatestEvent } from "./PdcaActivityStrip";
 
 /** 从 auto_launched 载荷构建快照数据（镜像后端 _persistPdcaSnapshot 语义） */
-function snapshotFromEvent(data?: Record<string, unknown>): PdcaWorkflowProgressData {
-  const decision = (data?.decision as "pdl" | "stage-chain" | "research") ?? "stage-chain";
+function snapshotFromEvent(
+  data?: Record<string, unknown>,
+): PdcaWorkflowProgressData {
+  const decision =
+    (data?.decision as "pdl" | "stage-chain" | "research") ?? "stage-chain";
   const message = (data?.message as string | undefined) ?? "";
   return {
     decision,

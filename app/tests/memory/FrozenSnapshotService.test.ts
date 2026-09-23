@@ -24,7 +24,9 @@ describe('FrozenSnapshotService', () => {
 
     it('returns frozen content after freeze', () => {
       service.freeze('session-1', '<memory-context>test</memory-context>');
-      expect(service.getFrozen('session-1')).toBe('<memory-context>test</memory-context>');
+      expect(service.getFrozen('session-1')).toBe(
+        '<memory-context>test</memory-context>'
+      );
     });
 
     it('returns null for different session', () => {

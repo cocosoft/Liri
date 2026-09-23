@@ -4,16 +4,31 @@
  * 使用原始 net.Server 模拟 HTTP Server（避免 Node.js http.Server 对 WebSocket 升级的特殊处理）
  */
 
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'bun:test';
+import {
+  describe,
+  it,
+  expect,
+  beforeAll,
+  afterAll,
+  beforeEach,
+} from 'bun:test';
 import * as net from 'net';
 import type * as http from 'http';
-import { handleVoiceUpgrade, getActiveVoiceSessionCount, closeAllVoiceSessions } from '../../src/voice/VoiceGatewayBridge.js';
+import {
+  handleVoiceUpgrade,
+  getActiveVoiceSessionCount,
+  closeAllVoiceSessions,
+} from '../../src/voice/VoiceGatewayBridge.js';
 
 /**
  * 创建 HTTP 请求对象和响应对象的模拟
  * 用于直接调用 handleVoiceUpgrade
  */
-function createMockReqRes(path: string, upgradeHeader: string | undefined, wsKey: string | undefined) {
+function createMockReqRes(
+  path: string,
+  upgradeHeader: string | undefined,
+  wsKey: string | undefined
+) {
   const headers: Record<string, string | string[]> = {
     host: 'localhost',
     connection: upgradeHeader ? 'Upgrade' : 'close',
@@ -38,10 +53,20 @@ function createMockReqRes(path: string, upgradeHeader: string | undefined, wsKey
     end: (data?: string | Buffer) => {
       if (data) chunks.push(Buffer.from(data));
     },
-    get statusCode() { return statusCode; },
-    get responseHeaders() { return responseHeaders; },
-    get body() { return Buffer.concat(chunks).toString(); },
-  } as http.ServerResponse & { statusCode: number; responseHeaders: Record<string, string>; body: string };
+    get statusCode() {
+      return statusCode;
+    },
+    get responseHeaders() {
+      return responseHeaders;
+    },
+    get body() {
+      return Buffer.concat(chunks).toString();
+    },
+  } as http.ServerResponse & {
+    statusCode: number;
+    responseHeaders: Record<string, string>;
+    body: string;
+  };
 
   return { req, res };
 }
@@ -70,7 +95,9 @@ function createRawVoiceServer(): Promise<{ server: net.Server; port: number }> {
         for (let i = 1; i < lines.length; i++) {
           const idx = lines[i].indexOf(':');
           if (idx !== -1) {
-            headers[lines[i].slice(0, idx).trim().toLowerCase()] = lines[i].slice(idx + 1).trim();
+            headers[lines[i].slice(0, idx).trim().toLowerCase()] = lines[i]
+              .slice(idx + 1)
+              .trim();
           }
         }
 
@@ -98,7 +125,14 @@ function createRawVoiceServer(): Promise<{ server: net.Server; port: number }> {
             statusCode = code;
             if (h) Object.assign(resHeaders, h);
             headWritten = true;
-            const reason = code === 101 ? 'Switching Protocols' : code === 426 ? 'Upgrade Required' : code === 400 ? 'Bad Request' : 'OK';
+            const reason =
+              code === 101
+                ? 'Switching Protocols'
+                : code === 426
+                  ? 'Upgrade Required'
+                  : code === 400
+                    ? 'Bad Request'
+                    : 'OK';
             const headerLines = [`HTTP/1.1 ${code} ${reason}`];
             for (const [k, v] of Object.entries(resHeaders)) {
               headerLines.push(`${k}: ${v}`);
@@ -116,10 +150,17 @@ function createRawVoiceServer(): Promise<{ server: net.Server; port: number }> {
               socket.end();
             }
           },
-          get statusCode() { return statusCode; },
-          get responseHeaders() { return resHeaders; },
+          get statusCode() {
+            return statusCode;
+          },
+          get responseHeaders() {
+            return resHeaders;
+          },
           socket,
-        } as unknown as http.ServerResponse & { statusCode: number; responseHeaders: Record<string, string> };
+        } as unknown as http.ServerResponse & {
+          statusCode: number;
+          responseHeaders: Record<string, string>;
+        };
 
         if (url === '/voice') {
           const handled = handleVoiceUpgrade(req, res);
@@ -162,9 +203,13 @@ afterAll(() => {
 /**
  * 通过原始 TCP 连接发送 HTTP Upgrade 请求，返回响应头
  */
-function rawWsUpgrade(path: string): Promise<{ statusCode: number; headers: Record<string, string> }> {
+function rawWsUpgrade(
+  path: string
+): Promise<{ statusCode: number; headers: Record<string, string> }> {
   return new Promise((resolve, reject) => {
-    const key = Buffer.from(Math.random().toString(36).slice(2, 18)).toString('base64');
+    const key = Buffer.from(Math.random().toString(36).slice(2, 18)).toString(
+      'base64'
+    );
     const socket = new net.Socket();
 
     const timeout = setTimeout(() => {
@@ -177,12 +222,12 @@ function rawWsUpgrade(path: string): Promise<{ statusCode: number; headers: Reco
     socket.connect(rawPort, '127.0.0.1', () => {
       socket.write(
         `GET ${path} HTTP/1.1\r\n` +
-        `Host: localhost\r\n` +
-        `Upgrade: websocket\r\n` +
-        `Connection: Upgrade\r\n` +
-        `Sec-WebSocket-Key: ${key}\r\n` +
-        `Sec-WebSocket-Version: 13\r\n` +
-        `\r\n`
+          `Host: localhost\r\n` +
+          `Upgrade: websocket\r\n` +
+          `Connection: Upgrade\r\n` +
+          `Sec-WebSocket-Key: ${key}\r\n` +
+          `Sec-WebSocket-Version: 13\r\n` +
+          `\r\n`
       );
     });
 
@@ -312,11 +357,17 @@ describe('Voice E2E: Bun WebSocket 原生连接', () => {
     await Promise.all([
       new Promise<void>((resolve, reject) => {
         const t = setTimeout(() => reject(new Error('ws1 超时')), 3000);
-        ws1.onopen = () => { clearTimeout(t); resolve(); };
+        ws1.onopen = () => {
+          clearTimeout(t);
+          resolve();
+        };
       }),
       new Promise<void>((resolve, reject) => {
         const t = setTimeout(() => reject(new Error('ws2 超时')), 3000);
-        ws2.onopen = () => { clearTimeout(t); resolve(); };
+        ws2.onopen = () => {
+          clearTimeout(t);
+          resolve();
+        };
       }),
     ]);
 
@@ -329,7 +380,10 @@ describe('Voice E2E: Bun WebSocket 原生连接', () => {
   it('非 /voice 路径被拒', async () => {
     const ws = new WebSocket(`ws://127.0.0.1:${rawPort}/other`);
     const result = await new Promise<boolean>((resolve) => {
-      ws.onopen = () => { ws.close(); resolve(false); };
+      ws.onopen = () => {
+        ws.close();
+        resolve(false);
+      };
       ws.onerror = () => resolve(true);
     });
     expect(result).toBe(true);

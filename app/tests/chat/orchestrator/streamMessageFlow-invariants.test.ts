@@ -71,14 +71,11 @@ describe('不变量① 所见即所存', () => {
     });
     const events = collectEvents(host);
     let finalizeContent = '';
-    (host as { _finalizeStreamMessage: unknown })._finalizeStreamMessage = async (
-      _session: unknown,
-      _content: string,
-      accumulated: string
-    ) => {
-      finalizeContent = accumulated;
-      return { content: accumulated } as never;
-    };
+    (host as { _finalizeStreamMessage: unknown })._finalizeStreamMessage =
+      async (_session: unknown, _content: string, accumulated: string) => {
+        finalizeContent = accumulated;
+        return { content: accumulated } as never;
+      };
 
     const received: unknown[] = [];
     for await (const chunk of runStreamMessage(host, '测试', {})) {
@@ -95,7 +92,7 @@ describe('不变量① 所见即所存', () => {
     );
     expect(textEvents.length).toBeGreaterThan(0);
     const joined = textEvents
-      .map((e) => ((e.data as { content?: string }).content ?? ''))
+      .map((e) => (e.data as { content?: string }).content ?? '')
       .join('');
     expect(joined).toContain('你好');
     expect(joined).toContain('世界');
@@ -123,7 +120,7 @@ describe('不变量① 所见即所存', () => {
       (e) => e.type === 'assistant/text' || e.type === 'assistant/text-batch'
     );
     const joined = textEvents
-      .map((e) => ((e.data as { content?: string }).content ?? ''))
+      .map((e) => (e.data as { content?: string }).content ?? '')
       .join('');
     expect(joined).not.toContain('<think');
     // 已 yield 内容也不含半截标签
@@ -152,7 +149,7 @@ describe('不变量① 所见即所存', () => {
     expect(thinkingEvents.length).toBeGreaterThan(0);
     const joined = thinkingEvents
       .map((e) =>
-        JSON.stringify(((e.data as { content?: unknown })?.content) ?? '')
+        JSON.stringify((e.data as { content?: unknown })?.content ?? '')
       )
       .join('');
     expect(joined).toContain('深度思考中');
@@ -168,14 +165,11 @@ describe('不变量① 所见即所存', () => {
       },
     });
     let finalizeContent = '';
-    (host as { _finalizeStreamMessage: unknown })._finalizeStreamMessage = async (
-      _session: unknown,
-      _content: string,
-      accumulated: string
-    ) => {
-      finalizeContent = accumulated;
-      return { content: accumulated } as never;
-    };
+    (host as { _finalizeStreamMessage: unknown })._finalizeStreamMessage =
+      async (_session: unknown, _content: string, accumulated: string) => {
+        finalizeContent = accumulated;
+        return { content: accumulated } as never;
+      };
 
     const received: unknown[] = [];
     for await (const chunk of runStreamMessage(host, '测试', {})) {
@@ -212,7 +206,7 @@ describe('不变量① 所见即所存', () => {
     const batchEvents = events.filter((e) => e.type === 'assistant/text-batch');
     expect(batchEvents.length).toBe(2);
     const joined = batchEvents
-      .map((e) => ((e.data as { content?: string }).content ?? ''))
+      .map((e) => (e.data as { content?: string }).content ?? '')
       .join('');
     expect(joined).toBe(chunkA + chunkB + chunkC);
   });
@@ -231,7 +225,7 @@ describe('不变量① 所见即所存', () => {
     const batchEvents = events.filter((e) => e.type === 'assistant/text-batch');
     expect(batchEvents.length).toBe(1);
     const joined = batchEvents
-      .map((e) => ((e.data as { content?: string }).content ?? ''))
+      .map((e) => (e.data as { content?: string }).content ?? '')
       .join('');
     expect(joined).toBe('ABC');
     const textEvents = events.filter((e) => e.type === 'assistant/text');

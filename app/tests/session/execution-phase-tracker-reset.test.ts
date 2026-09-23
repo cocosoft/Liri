@@ -22,9 +22,9 @@ describe('ExecutionPhaseTracker B3 — 轮次间 reset 无条件清零', () => {
     // 上一轮：进入 implementing 并记录交付物
     tracker.enter('implementing', '上一轮');
     tracker.addArtifact({ type: 'code', summary: '写入文件', files: ['a.ts'] });
-    expect(
-      tracker.buildDeliverableData()?.files.length ?? 0
-    ).toBeGreaterThan(0);
+    expect(tracker.buildDeliverableData()?.files.length ?? 0).toBeGreaterThan(
+      0
+    );
 
     // 本轮结束（无论是否有交付物）统一走 reset()（B3 修复后的调用位置）
     tracker.reset();

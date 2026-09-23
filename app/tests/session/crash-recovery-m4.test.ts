@@ -59,18 +59,29 @@ describe('M4: cleanShutdown 优雅关闭标记', () => {
     const now = Date.now();
     const sessions = new Map<string, UnifiedSession>();
     // 1) 可中断：ACTIVE + 确有活动
-    sessions.set('active1', makeSession('active1', SessionStatus.ACTIVE, now - 1000, now - 2000));
+    sessions.set(
+      'active1',
+      makeSession('active1', SessionStatus.ACTIVE, now - 1000, now - 2000)
+    );
     // 2) RUNNING + 有活动 → 也可中断
-    sessions.set('running1', makeSession('running1', SessionStatus.RUNNING, now - 500, now - 2000));
+    sessions.set(
+      'running1',
+      makeSession('running1', SessionStatus.RUNNING, now - 500, now - 2000)
+    );
     // 3) 已 PAUSED → 不参与
-    sessions.set('paused1', makeSession('paused1', SessionStatus.PAUSED, now - 1000, now - 2000));
+    sessions.set(
+      'paused1',
+      makeSession('paused1', SessionStatus.PAUSED, now - 1000, now - 2000)
+    );
     // 4) ACTIVE 但空壳（lastActivityAt == createdAt）→ 跳过
     const shellCreated = now - 900;
     sessions.set(
       'shell1',
       makeSession('shell1', SessionStatus.ACTIVE, shellCreated, shellCreated)
     );
-    const mgr = new CrashRecoveryManager({ storage: createFakeStorage(sessions) });
+    const mgr = new CrashRecoveryManager({
+      storage: createFakeStorage(sessions),
+    });
 
     const marked = await mgr.markCleanShutdown();
 
@@ -96,8 +107,13 @@ describe('M4: cleanShutdown 优雅关闭标记', () => {
     cleaned.metadata = { ...cleaned.metadata, cleanShutdown: true };
     sessions.set('cleaned', cleaned);
     // 未标记的同状态会话 → 仍会被恢复（转 paused）
-    sessions.set('crashed', makeSession('crashed', SessionStatus.RUNNING, now - 1000, now - 2000));
-    const mgr = new CrashRecoveryManager({ storage: createFakeStorage(sessions) });
+    sessions.set(
+      'crashed',
+      makeSession('crashed', SessionStatus.RUNNING, now - 1000, now - 2000)
+    );
+    const mgr = new CrashRecoveryManager({
+      storage: createFakeStorage(sessions),
+    });
 
     const result = await mgr.recoverAfterCrash();
 
@@ -115,7 +131,9 @@ describe('M4: cleanShutdown 优雅关闭标记', () => {
     const s = makeSession('s', SessionStatus.PAUSED, now - 1000, now - 2000);
     s.metadata = { ...s.metadata, cleanShutdown: true };
     sessions.set('s', s);
-    const mgr = new CrashRecoveryManager({ storage: createFakeStorage(sessions) });
+    const mgr = new CrashRecoveryManager({
+      storage: createFakeStorage(sessions),
+    });
 
     await mgr.resumeSession('s');
 

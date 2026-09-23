@@ -114,13 +114,15 @@ export class MockLLMServer {
   /** 启动服务 */
   async start(port: number = 0): Promise<void> {
     this.port = port;
-    this.server = (Bun as unknown as {
-      serve(options: {
-        port: number;
-        hostname: string;
-        fetch: (req: Request) => Promise<Response> | Response;
-      }): BunServer;
-    }).serve({
+    this.server = (
+      Bun as unknown as {
+        serve(options: {
+          port: number;
+          hostname: string;
+          fetch: (req: Request) => Promise<Response> | Response;
+        }): BunServer;
+      }
+    ).serve({
       port: this.port,
       hostname: '127.0.0.1',
       fetch: (req: Request) => this.handleRequest(req),
@@ -143,10 +145,7 @@ export class MockLLMServer {
     const url = new URL(req.url);
 
     // POST /v1/chat/completions
-    if (
-      req.method === 'POST' &&
-      url.pathname === '/v1/chat/completions'
-    ) {
+    if (req.method === 'POST' && url.pathname === '/v1/chat/completions') {
       return this.handleChatCompletions(req);
     }
 
@@ -178,7 +177,9 @@ export class MockLLMServer {
     const error = this.getNextError();
     if (error) {
       return Response.json(
-        { error: { message: error.message, type: error.type || 'server_error' } },
+        {
+          error: { message: error.message, type: error.type || 'server_error' },
+        },
         { status: error.status }
       );
     }
@@ -235,7 +236,8 @@ export class MockLLMServer {
         role: 'assistant',
         content: toolCalls.length > 0 ? null : content,
       },
-      finish_reason: mr.finishReason || (toolCalls.length > 0 ? 'tool_calls' : 'stop'),
+      finish_reason:
+        mr.finishReason || (toolCalls.length > 0 ? 'tool_calls' : 'stop'),
     };
 
     if (toolCalls.length > 0) {
@@ -349,7 +351,8 @@ export class MockLLMServer {
         }
 
         // 结束
-        const finish = mr.finishReason || (toolCalls.length > 0 ? 'tool_calls' : 'stop');
+        const finish =
+          mr.finishReason || (toolCalls.length > 0 ? 'tool_calls' : 'stop');
         send(
           JSON.stringify({
             id: 'mock-stream',

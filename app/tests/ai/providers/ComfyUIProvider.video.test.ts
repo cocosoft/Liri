@@ -196,7 +196,11 @@ describe('ComfyUIProvider.generateVideo（图生视频）', () => {
       'providers',
       '.tmp-frame.png'
     );
-    await (Bun as unknown as { write: (path: string, data: string) => Promise<number> }).write(tmpFile, 'fake-png-bytes');
+    await (
+      Bun as unknown as {
+        write: (path: string, data: string) => Promise<number>;
+      }
+    ).write(tmpFile, 'fake-png-bytes');
     try {
       const calls = setupFetch([
         {

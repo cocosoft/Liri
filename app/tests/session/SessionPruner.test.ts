@@ -31,10 +31,7 @@ class MemoryPrunerStorage implements SessionStorage {
   private missing = new Set<string>();
 
   listSessions(): Promise<string[]> {
-    return Promise.resolve([
-      ...this.sessions.keys(),
-      ...this.missing,
-    ]);
+    return Promise.resolve([...this.sessions.keys(), ...this.missing]);
   }
   loadSession(sessionId: string): Promise<Session | null> {
     if (this.missing.has(sessionId)) return Promise.resolve(null);
@@ -77,7 +74,10 @@ describe('H7: count 剪枝基数 nonActive——活跃会话不被误删', () =>
     for (let i = 0; i < 5; i++) {
       storage.put(mockSession(`active-${i}`, now - 30 * 60 * 1000)); // 30min 前，缓冲区内
     }
-    const pruner = new SessionPruner(storage, { maxSessions: 2, maxAgeDays: 30 });
+    const pruner = new SessionPruner(storage, {
+      maxSessions: 2,
+      maxAgeDays: 30,
+    });
 
     // 预估与实际一致：countCandidates = 非活跃数 3 - maxSessions 2 = 1
     const estimate = await pruner.getPruneEstimate();
@@ -133,7 +133,10 @@ describe('H7: age 剪枝只删超龄会话', () => {
     storage.put(mockSession('old', now - 30 * DAY));
     storage.put(mockSession('recent', now - 10 * DAY));
     storage.put(mockSession('active', now - 5 * HOUR)); // 活跃（60min 缓冲区内）
-    const pruner = new SessionPruner(storage, { maxAgeDays: 15, maxSessions: 100 });
+    const pruner = new SessionPruner(storage, {
+      maxAgeDays: 15,
+      maxSessions: 100,
+    });
 
     const result = await pruner.prune();
 

@@ -45,7 +45,8 @@ const dreamStatsSpy = spyOn(dreamLogStore, 'getDreamStats').mockImplementation(
     }) as never
 );
 const dreamLogsSpy = spyOn(dreamLogStore, 'getDreamLogs').mockImplementation(
-  () => ({ logs: [{ ts: 1786370000000, phase: 'complete', note: 'ok' }] }) as never
+  () =>
+    ({ logs: [{ ts: 1786370000000, phase: 'complete', note: 'ok' }] }) as never
 );
 const growthSpy = spyOn(
   growthPersistence,
@@ -85,9 +86,8 @@ afterAll(() => {
 });
 
 // 动态加载被测 handler（静态 import 会被 ESM import 提升提前解析）
-const { handleGetBackgroundStatus } = await import(
-  '../../src/infrastructure/http/handlers/buddy-handlers'
-);
+const { handleGetBackgroundStatus } =
+  await import('../../src/infrastructure/http/handlers/buddy-handlers');
 
 function createRes(): {
   res: http.ServerResponse;

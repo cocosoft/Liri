@@ -173,7 +173,11 @@ describe('SkillProvider 契约（W2）', () => {
   it('L1 sortByRank：乱序传入时低 rank 胜出（与传入顺序无关）', async () => {
     const builtinSkill = makeSkill('dup', SkillSource.BUILTIN);
     const userSkill = makeSkill('dup', SkillSource.THIRD_PARTY);
-    const provider = (name: string, rank: number, skill: Skill): SkillProvider => ({
+    const provider = (
+      name: string,
+      rank: number,
+      skill: Skill
+    ): SkillProvider => ({
       name,
       list: async () => toCandidates([skill], rank),
       get: (c) => Promise.resolve(c.locator as Skill),
@@ -196,7 +200,11 @@ describe('SkillProvider 契约（W2）', () => {
   it('L1 sortByRank：默认关闭时保持传入顺序（零回归）', async () => {
     const builtinSkill = makeSkill('dup', SkillSource.BUILTIN);
     const userSkill = makeSkill('dup', SkillSource.THIRD_PARTY);
-    const provider = (name: string, rank: number, skill: Skill): SkillProvider => ({
+    const provider = (
+      name: string,
+      rank: number,
+      skill: Skill
+    ): SkillProvider => ({
       name,
       list: async () => toCandidates([skill], rank),
       get: (c) => Promise.resolve(c.locator as Skill),

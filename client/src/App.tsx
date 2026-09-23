@@ -58,8 +58,7 @@ function App() {
   const [searchInitialQuery, setSearchInitialQuery] = useState("");
   useEffect(() => {
     const open = (e: Event) => {
-      const query =
-        (e as CustomEvent<{ query?: string }>).detail?.query ?? "";
+      const query = (e as CustomEvent<{ query?: string }>).detail?.query ?? "";
       setSearchInitialQuery(query);
       setSearchOpen(true);
     };

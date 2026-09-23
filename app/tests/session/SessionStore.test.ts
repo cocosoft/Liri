@@ -36,7 +36,12 @@ function makeSession(id: string): Session {
 }
 
 function makeMessage(id: string, content: string): SessionMessage {
-  return new SessionMessage(id, 'user' as never, content, new Date(1700000000000));
+  return new SessionMessage(
+    id,
+    'user' as never,
+    content,
+    new Date(1700000000000)
+  );
 }
 
 function makeStore(): { store: SessionStore; storage: MemoryUnifiedStorage } {
@@ -73,7 +78,10 @@ describe('M2: load* 返回深拷贝副本——调用方污染不达缓存', () 
 
   it('loadMetadata 修改返回值后再次加载仍是原始值', async () => {
     const { store } = makeStore();
-    await store.saveMetadata('s1', new SessionMetadata('orig', ['t'], 'default'));
+    await store.saveMetadata(
+      's1',
+      new SessionMetadata('orig', ['t'], 'default')
+    );
 
     const a = await store.loadMetadata('s1');
     a!.title = 'polluted';

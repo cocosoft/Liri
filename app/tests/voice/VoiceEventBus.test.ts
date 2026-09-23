@@ -6,7 +6,10 @@
 import { describe, it, expect } from 'bun:test';
 
 import { VoiceEventBus } from '../../src/voice/VoiceEventBus.js';
-import type { VoiceClientEvent, VoiceServerEvent } from '../../src/voice/types.js';
+import type {
+  VoiceClientEvent,
+  VoiceServerEvent,
+} from '../../src/voice/types.js';
 
 function createClientEvent(type: string): VoiceClientEvent {
   return { type } as VoiceClientEvent;
@@ -17,7 +20,6 @@ function createServerEvent(type: string): VoiceServerEvent {
 }
 
 describe('VoiceEventBus', () => {
-
   it('初始状态为 idle', () => {
     const bus = new VoiceEventBus();
     expect(bus.currentState).toBe('idle');
@@ -98,7 +100,9 @@ describe('VoiceEventBus', () => {
     const bus = new VoiceEventBus();
     const errors: Error[] = [];
 
-    bus.onClientEvent(() => { throw new Error('handler error'); });
+    bus.onClientEvent(() => {
+      throw new Error('handler error');
+    });
     bus.onError((err) => errors.push(err));
     bus.emitToServer(createClientEvent('audio.append'));
 
@@ -110,7 +114,9 @@ describe('VoiceEventBus', () => {
     const bus = new VoiceEventBus();
     const errors: Error[] = [];
 
-    bus.onStateChange(() => { throw new Error('state error'); });
+    bus.onStateChange(() => {
+      throw new Error('state error');
+    });
     bus.onError((err) => errors.push(err));
     bus.setState('connected');
 
@@ -122,7 +128,9 @@ describe('VoiceEventBus', () => {
     const bus = new VoiceEventBus();
     let called = false;
 
-    bus.onClientEvent(() => { called = true; });
+    bus.onClientEvent(() => {
+      called = true;
+    });
     bus.setState('connected');
     bus.clear();
 
@@ -135,7 +143,9 @@ describe('VoiceEventBus', () => {
     const bus = new VoiceEventBus();
     const errors: Error[] = [];
 
-    bus.onError(() => { throw new Error('meta error'); });
+    bus.onError(() => {
+      throw new Error('meta error');
+    });
     bus.onError((err) => errors.push(err));
     bus.emitError(new Error('original error'));
 

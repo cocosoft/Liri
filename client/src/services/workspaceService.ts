@@ -203,10 +203,7 @@ export const workspaceService = {
   },
 
   /** 删除工作项（V-37） */
-  async deleteWorkItem(
-    workspaceId: string,
-    itemId: string,
-  ): Promise<boolean> {
+  async deleteWorkItem(workspaceId: string, itemId: string): Promise<boolean> {
     const res = await http.delete<{ deleted: boolean }>(
       `/v1/workspaces/${workspaceId}/items/${itemId}`,
     );

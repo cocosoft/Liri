@@ -92,10 +92,13 @@ export function useAutoCreateSession(): void {
             ? state.currentTempSession
             : null);
         if (!current || current.metadata?.temporary !== true) {
-          logger.info("useAutoCreateSession:?temporary=1 当前会话非临时，新建临时会话", {
-            path: location.pathname + location.search,
-            currentSessionId: state.currentSessionId,
-          });
+          logger.info(
+            "useAutoCreateSession:?temporary=1 当前会话非临时，新建临时会话",
+            {
+              path: location.pathname + location.search,
+              currentSessionId: state.currentSessionId,
+            },
+          );
           void state
             .createChatSession(t("chat.temporaryToggle"), { temporary: true })
             .catch((err) =>
@@ -120,5 +123,12 @@ export function useAutoCreateSession(): void {
       moduleType,
       sessionId,
     });
-  }, [location.pathname, location.search, moduleContext, pathToModule, getOrCreateSession, t]);
+  }, [
+    location.pathname,
+    location.search,
+    moduleContext,
+    pathToModule,
+    getOrCreateSession,
+    t,
+  ]);
 }

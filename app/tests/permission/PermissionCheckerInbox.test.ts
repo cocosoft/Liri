@@ -316,8 +316,7 @@ describe('RuleManager.addRule 幂等去重（P1-1）', () => {
     const matches = rm
       .getRules()
       .filter(
-        (r) =>
-          r.toolName === 'bash' && r.behavior === PermissionBehavior.ALLOW
+        (r) => r.toolName === 'bash' && r.behavior === PermissionBehavior.ALLOW
       );
     expect(matches).toHaveLength(1);
     expect(matches[0].id).toBe(rule.id);
@@ -430,8 +429,7 @@ describe('P2-5 规则文件外部修改自动重载（hash 校验）', () => {
     const matches = rm
       .getRules()
       .filter(
-        (r) =>
-          r.toolName === 'bash' && r.behavior === PermissionBehavior.ALLOW
+        (r) => r.toolName === 'bash' && r.behavior === PermissionBehavior.ALLOW
       );
     expect(matches).toHaveLength(1);
   });

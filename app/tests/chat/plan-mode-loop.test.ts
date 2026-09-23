@@ -89,8 +89,12 @@ function makeInput(overrides: Record<string, unknown> = {}) {
 
 describe('propose_plan 计划模式闭环（M3-T3.1）', () => {
   it('① 提交计划 → question 卡（计划内容落盘）→ 批准 → 工具返回 approved 继续执行', async () => {
-    const planText = '计划：\n1. 扫描 downloads 目录\n2. 删除 30 天前的临时文件';
-    const streamedEvents: Array<{ type: string; data?: Record<string, unknown> }> = [];
+    const planText =
+      '计划：\n1. 扫描 downloads 目录\n2. 删除 30 天前的临时文件';
+    const streamedEvents: Array<{
+      type: string;
+      data?: Record<string, unknown>;
+    }> = [];
     let round = 0;
     const llmResponse = (): ChatResponse => {
       round++;
@@ -124,10 +128,9 @@ describe('propose_plan 计划模式闭环（M3-T3.1）', () => {
         name: string;
         arguments: Record<string, unknown>;
       }) => {
-        const res = await planTool.execute(
-          tc.arguments,
-          { sessionId: 'sess-test' } as unknown as ToolUseContext
-        );
+        const res = await planTool.execute(tc.arguments, {
+          sessionId: 'sess-test',
+        } as unknown as ToolUseContext);
         if (String(res.data).includes('"approved"')) approvedSeen = true;
         return {
           toolCallId: tc.id,
@@ -140,7 +143,9 @@ describe('propose_plan 计划模式闭环（M3-T3.1）', () => {
         _sid: string,
         ev: { type: string; data?: unknown }
       ) => {
-        streamedEvents.push(ev as { type: string; data?: Record<string, unknown> });
+        streamedEvents.push(
+          ev as { type: string; data?: Record<string, unknown> }
+        );
       },
       getStreamTailSeq: async () => 0,
       activeClient: {
@@ -157,7 +162,12 @@ describe('propose_plan 计划模式闭环（M3-T3.1）', () => {
     const questionSeen: string[] = [];
     for await (const e of loop.run(makeInput())) {
       if (e.type === 'question') {
-        questionSeen.push(String((e as { questionData?: { question?: string } }).questionData?.question));
+        questionSeen.push(
+          String(
+            (e as { questionData?: { question?: string } }).questionData
+              ?.question
+          )
+        );
         // 模拟用户批准（在聊天卡上点击"批准"→ resolveInteraction）
         ctx.pendingInteractions.get('sess-test')?.resolve(['批准']);
       }
@@ -168,9 +178,13 @@ describe('propose_plan 计划模式闭环（M3-T3.1）', () => {
     expect(questionSeen[0]).toContain('删除 30 天前的临时文件');
 
     // ② 计划内容经 assistant/question 事件落盘（events.jsonl 可回放）
-    const questionEvent = streamedEvents.find((e) => e.type === 'assistant/question');
+    const questionEvent = streamedEvents.find(
+      (e) => e.type === 'assistant/question'
+    );
     expect(questionEvent).toBeTruthy();
-    expect(String(questionEvent?.data?.question)).toContain('删除 30 天前的临时文件');
+    expect(String(questionEvent?.data?.question)).toContain(
+      '删除 30 天前的临时文件'
+    );
 
     // ③ 批准后工具返回 approved，AI 进入第二轮（继续执行）
     expect(approvedSeen).toBe(true);

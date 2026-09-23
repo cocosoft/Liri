@@ -18,6 +18,9 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { useChatInspectorStore } from "../../stores/chatInspectorStore";
 import type { InspectorTab } from "../../stores/chatInspectorStore";
 import ContextTab from "./ContextTab";
+// FSZ-161（2026-09-23）：收起态标签条与「请求指标」分区抽至同目录独立文件
+import CollapsedBar from "./CollapsedBar";
+import ApiMetricsSection from "./ApiMetricsSection";
 import FilesTab from "./FilesTab";
 import SettingsTab from "./SettingsTab";
 import { useSessionStore } from "../../stores/sessionStore";
@@ -37,16 +40,10 @@ import {
   flattenLayout,
 } from "../../stores/chat/deriveTrajectoryLayout";
 import { filterTrajectoryEvents } from "../../stores/chat/filterTrajectoryEvents";
-// API 指标展示（2026-09-23，`.trae/specs/api-metrics-surface.md`）：请求级聚合分区
-import {
-  deriveApiMetrics,
-  type ApiMetricsPercentiles,
-} from "../../stores/chat/deriveApiMetrics";
-import { formatDuration } from "../../stores/chat/deriveTrajectoryTimeline";
+// FSZ-161（2026-09-23）：`deriveApiMetrics` / `ApiMetricsPercentiles` / `formatDuration`
+// 随 `ApiMetricsSection` 抽离而移出本文件（其导入现只在 `./ApiMetricsSection.tsx`）
 // P2-2（2026-09-23）：请求边界 —— turn 头呈现该轮覆盖的请求编号 `R#n`
 import { deriveRequestSpans } from "../../stores/chat/deriveRequestSpans";
-import { formatTokens } from "../../utils/format";
-import type { LiriEvent } from "../../types";
 import { useCollapsedTurns } from "../../hooks/useCollapsedTurns";
 
 // ─── 配置 ─────────────────────────────────────────
@@ -134,54 +131,8 @@ const TABS: { id: InspectorTab; icon: React.ReactNode; label: string }[] = [
 
 // ─── 子组件 ───────────────────────────────────────
 
-function CollapsedBarImpl({
-  onExpandAndSwitch,
-}: {
-  onExpandAndSwitch: (tab: InspectorTab) => void;
-}) {
-  const activeToolCount = useChatInspectorStore((s) => s.activeToolCount);
-  const newFileCount = useChatInspectorStore((s) => s.newFileCount);
-  const tokenWarning = useChatInspectorStore((s) => s.tokenWarning);
-
-  return (
-    <div className="w-12 flex flex-col items-center py-2 gap-2 bg-white dark:bg-gray-900 border-l border-gray-200 dark:border-gray-700">
-      {TABS.map((tab) => {
-        const badge =
-          tab.id === "trajectory" && activeToolCount > 0
-            ? `${activeToolCount}`
-            : tab.id === "files" && newFileCount > 0
-              ? `+${newFileCount}`
-              : tab.id === "context" && tokenWarning
-                ? "!"
-                : null;
-        return (
-          <button
-            key={tab.id}
-            onClick={() => onExpandAndSwitch(tab.id)}
-            className="relative p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
-            title={`展开到${tab.label} Tab`}
-          >
-            {tab.icon}
-            {badge && (
-              <span
-                className={`absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] flex items-center justify-center text-[10px] font-bold text-white rounded-full ${
-                  tab.id === "context"
-                    ? "bg-red-500"
-                    : tab.id === "trajectory"
-                      ? "bg-blue-500 animate-pulse"
-                      : "bg-green-500"
-                }`}
-              >
-                {badge}
-              </span>
-            )}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-const CollapsedBar = React.memo(CollapsedBarImpl);
+// （`CollapsedBar` 已于 FSZ-161（2026-09-23）抽至 `./CollapsedBar.tsx`；
+//   标签表仍以本文件的 `TABS` 为单一来源，经 `tabs` 入参传入）
 
 /** 内嵌版轨迹面板（放在 ChatInspector Tab 里的版本，不带外层独立抽屉壳） */
 function TrajectoryTabContentImpl() {
@@ -643,93 +594,8 @@ function TrajectoryTabContentImpl() {
 }
 const TrajectoryTabContent = React.memo(TrajectoryTabContentImpl);
 
-/**
- * 「请求指标」分区（API 指标展示，2026-09-23 —— 立项见 `.trae/specs/api-metrics-surface.md`）。
- *
- * 位置：轨迹 Tab 内、时间线**之下**、事件列表（滚动容器）**之上**。
- * 数据源：`metric/timing` 事件（与列表/时间线**同一份** `filteredEvents`，口径一致）。
- *
- * ## 双态（不拿假值充数）
- * - 无请求级事件 ⇒ 明确提示"暂无请求指标"（**不**显示 0 或 `-`）；
- * - 分位数样本 `n < 2` ⇒ 显示"样本不足"，不编造数值；
- * - 某项无数据（如无延迟类事件）⇒ **不渲染该项**（不留空壳）。
- *
- * ## 刻意不展示的指标（CS01 归一化，避免重复展示）
- * 吞吐 / 模型耗时合计已由上方 `TrajectoryTimeline` header 承担（`modelMs` / `throughputTps`）
- * ⇒ 本分区不重复产出，只做**请求级**（TTFT / TTFB 分位数、缺失计数、token 分桶）。
- */
-function ApiMetricsSection({ events }: { events: LiriEvent[] }) {
-  const { t } = useTranslation();
-  const m = useMemo(() => deriveApiMetrics(events), [events]);
-
-  if (m.requestCount === 0) {
-    return (
-      <div className="px-4 py-1.5 border-b border-gray-100 dark:border-gray-800 text-[10px] text-gray-500 dark:text-gray-400">
-        {t("trajectory.apiMetrics.empty")}
-      </div>
-    );
-  }
-
-  /** 分位数文案（复用既有 `formatDuration`，不新写格式化工具） */
-  const percentileText = (p: ApiMetricsPercentiles, label: string): string =>
-    t("trajectory.apiMetrics.percentile", {
-      label,
-      p50: formatDuration(p.p50),
-      p95: formatDuration(p.p95),
-      n: p.n,
-    });
-
-  /** 有延迟样本但不足 2 个 ⇒ 如实说"样本不足"；一个都没有 ⇒ 该项整条不渲染 */
-  const latencyItem = (
-    p: ApiMetricsPercentiles | null,
-    label: string,
-  ): React.ReactElement | null =>
-    p ? (
-      <span>{percentileText(p, label)}</span>
-    ) : m.latencyEventCount > 0 ? (
-      <span>{t("trajectory.apiMetrics.insufficientSample", { label })}</span>
-    ) : null;
-
-  const ttftLabel = t("trajectory.apiMetrics.ttftLabel");
-  const ttfbLabel = t("trajectory.apiMetrics.ttfbLabel");
-
-  return (
-    <div className="px-4 py-1.5 border-b border-gray-100 dark:border-gray-800 bg-white/50 dark:bg-gray-900/30 text-[10px] text-gray-500 dark:text-gray-400 flex flex-wrap items-center gap-x-3 gap-y-0.5">
-      <span className="font-semibold text-gray-600 dark:text-gray-300">
-        {t("trajectory.apiMetrics.title")}
-      </span>
-      <span>
-        {t("trajectory.apiMetrics.requestCount", { count: m.requestCount })}
-      </span>
-      {latencyItem(m.ttft, ttftLabel)}
-      {latencyItem(m.ttfb, ttfbLabel)}
-      {m.missingTtftCount > 0 && (
-        <span>
-          {t("trajectory.apiMetrics.missingTtft", {
-            count: m.missingTtftCount,
-          })}
-        </span>
-      )}
-      {m.tokens && (
-        <span>
-          {t("trajectory.apiMetrics.tokens", {
-            input: formatTokens(m.tokens.input),
-            output: formatTokens(m.tokens.output),
-            total: formatTokens(m.tokens.total),
-          })}
-        </span>
-      )}
-      {m.tokens && (m.tokens.cacheRead > 0 || m.tokens.cacheCreation > 0) && (
-        <span>
-          {t("trajectory.apiMetrics.cacheTokens", {
-            read: formatTokens(m.tokens.cacheRead),
-            write: formatTokens(m.tokens.cacheCreation),
-          })}
-        </span>
-      )}
-    </div>
-  );
-}
+// （`ApiMetricsSection` 已于 FSZ-161（2026-09-23）抽至 `./ApiMetricsSection.tsx`：
+//   位置/双态/刻意不展示的指标等说明随组件一并迁移；调用点不变）
 
 function TabContentImpl({ tabId }: { tabId: InspectorTab }) {
   switch (tabId) {
@@ -838,7 +704,9 @@ function ChatInspector() {
   );
 
   if (!isOpen)
-    return <CollapsedBar onExpandAndSwitch={handleExpandAndSwitch} />;
+    return (
+      <CollapsedBar tabs={TABS} onExpandAndSwitch={handleExpandAndSwitch} />
+    );
 
   return (
     <div

@@ -22,10 +22,17 @@ import {
   TokenBudgetController,
   UNIFIED_THRESHOLDS,
 } from './TokenBudgetController';
+import { getCalibrationFactor } from './CalibrationStore';
+// FSZ-162（2026-09-23）：校准与统计逻辑抽至 `./tokenCalibration`（状态仍由本类持有）
 import {
-  getCalibrationFactor,
-  persistCalibrationFactor,
-} from './CalibrationStore';
+  applyUsageSample,
+  calibrationStats,
+  createCalibrationState,
+} from './tokenCalibration';
+import type {
+  CalibrationHost,
+  CalibrationState,
+} from './tokenCalibration';
 
 // D1（2026-09-23）：**不再**订阅 trace-recording 的 usage（`traces/` 已降级为观测层，
 // 不可作业务判据）。校准数据源收敛为 `metric/timing` 事件载荷，由调用方直接喂入
@@ -159,7 +166,22 @@ export {
 export class UnifiedTokenTracker {
   private readonly controller: TokenBudgetController;
   private readonly contextTracker: ContextTracker;
-  private calibrationFactor: number = 1.0;
+  /**
+   * 校准状态（FSZ-162，2026-09-23：**逻辑**抽至 `./tokenCalibration`，**状态**仍由本类持有
+   * —— 因 `factor` 在本类另有 4 处外部触点：模型切换恢复、会话元数据恢复、状态快照、
+   * `streamState` 初值；把状态也搬走会连带改动这些触点及其不变量）。
+   */
+  private readonly calibration: CalibrationState = createCalibrationState();
+  /**
+   * 校准宿主（窄接口）：用闭包把本类 4 项能力暴露给 `./tokenCalibration`。
+   * 闭包体在**调用时**才求值 ⇒ 可安全引用构造函数中才赋值的 `controller`。
+   */
+  private readonly calibrationHost: CalibrationHost = {
+    recordUsage: (input, output) => this.controller.recordUsage(input, output),
+    baselineInputTokens: () => this.streamState().baselineInputTokens,
+    overheadTokens: () => this.overheadSystemPrompt + this.overheadToolDefs,
+    currentModel: () => this.currentModel,
+  };
   private compactionHistory: Array<CompactionRecord> = [];
   /** 默认会话流式状态（无 sessionId 调用兼容旧路径，惰性创建） */
   private defaultSession: StreamSessionState | null = null;
@@ -172,23 +194,9 @@ export class UnifiedTokenTracker {
   private readonly overheadSystemPrompt: number;
   private readonly overheadToolDefs: number;
 
-  /** EMA 平滑因子：新值权重 30% */
-  private readonly CALIBRATION_ALPHA = 0.3;
-
   /** 反抖动参数 */
   private readonly ANTI_FLAP_WINDOW = 3;
   private readonly ANTI_FLAP_MIN_SAVING = 0.1;
-
-  /**
-   * D1 可观测计数：已应用的真实 usage 样本数（每次成功更新校准因子 +1）。
-   * 与下面两个"缺样本"计数共同构成"校准是否真的在跑"的证据；
-   * **缺样本一律保持既有因子，不用估算/默认值冒充**（Spec 裁决 D1 铁律）。
-   */
-  private calibrationAppliedSamples = 0;
-  /** D1 可观测计数：调用方喂入的样本**无有效 usage**（缺字段 / 全 0 / 格式未知）⇒ 不校准 */
-  private missingUsageSamples = 0;
-  /** D1 可观测计数：有真实 usage 但无估算基线（或修正后输入 ≤ 0）⇒ 无法计算比值，不校准 */
-  private missingBaselineSamples = 0;
 
   /** 子 Agent token 订阅的取消函数 */
   private _unsubscribeSubAgent: (() => void) | null = null;
@@ -211,7 +219,7 @@ export class UnifiedTokenTracker {
 
   /** 获取当前校准因子（供调用方诊断/日志；C7 收敛后评估在内部闭环，无需外部同步） */
   getCalibrationFactor(): number {
-    return this.calibrationFactor;
+    return this.calibration.factor;
   }
 
   /**
@@ -300,7 +308,7 @@ export class UnifiedTokenTracker {
       const estimatedOutput = maxOutputTokens ?? 4096;
       const limit = resolveContextWindow(model).tokens;
       const effectiveFactor =
-        this.calibrationFactor > 0 ? this.calibrationFactor : 1.2;
+        this.calibration.factor > 0 ? this.calibration.factor : 1.2;
       const estimatedTotal = state.baselineInputTokens + estimatedOutput;
       // C7 收敛（自 AutoCompactionPolicy）：修正后 tokens + 决策快照（调用方显示水位用）
       const tokens = Math.round(estimatedTotal * effectiveFactor);
@@ -340,7 +348,7 @@ export class UnifiedTokenTracker {
         estimatedTotal,
         contextLimit: limit,
         model,
-        calibrationFactor: Math.round(this.calibrationFactor * 100) / 100,
+        calibrationFactor: Math.round(this.calibration.factor * 100) / 100,
         warnThreshold: thresholds.warn,
         compactThreshold: thresholds.compact,
         reason,
@@ -532,7 +540,13 @@ export class UnifiedTokenTracker {
     model?: string
   ): void {
     try {
-      this._applyUsageSample(sample.inputTokens, sample.outputTokens, model);
+      applyUsageSample(
+        this.calibration,
+        this.calibrationHost,
+        sample.inputTokens,
+        sample.outputTokens,
+        model
+      );
     } catch (err) {
       logger.warn('unified:recordTimingUsage error', { error: String(err) });
     }
@@ -546,10 +560,10 @@ export class UnifiedTokenTracker {
     factor: number;
   } {
     return {
-      applied: this.calibrationAppliedSamples,
-      missingUsage: this.missingUsageSamples,
-      missingBaseline: this.missingBaselineSamples,
-      factor: this.calibrationFactor,
+      applied: this.calibration.applied,
+      missingUsage: this.calibration.missingUsage,
+      missingBaseline: this.calibration.missingBaseline,
+      factor: this.calibration.factor,
     };
   }
 
@@ -558,94 +572,31 @@ export class UnifiedTokenTracker {
    *
    * 非 chat 路径（`QueryEngine`）的入口：其调用方拿到的是 provider 返回的
    * **原始 usage 对象**（不是 `metric/timing` 载荷）。两条入口共用下面的
-   * `_applyUsageSample` 单一实现，**数据源都是真实 usage**，无第三方落盘源。
+   * `applyUsageSample` 单一实现，**数据源都是真实 usage**，无第三方落盘源。
    */
   recordPostRequest(apiBody: Record<string, unknown>): void {
     try {
       const usage = extractUsage(apiBody);
       if (!usage) {
-        this.missingUsageSamples++;
+        this.calibration.missingUsage++;
         logger.debug('unified:recordPostRequest 无可解析 usage（不校准）', {
-          missingUsage: this.missingUsageSamples,
+          missingUsage: this.calibration.missingUsage,
         });
         return;
       }
-      this._applyUsageSample(usage.inputTokens, usage.outputTokens);
+      applyUsageSample(
+        this.calibration,
+        this.calibrationHost,
+        usage.inputTokens,
+        usage.outputTokens
+      );
     } catch (err) {
       logger.warn('unified:recordPostRequest error', { error: String(err) });
     }
   }
 
-  /**
-   * D1：校准的唯一内部实现（两条入口共用）。
-   *
-   * 因子更新 = EMA（`CALIBRATION_ALPHA=0.3`）平滑 `真实 input / 估算 baseline`，
-   * 并扣掉固定 overhead（系统提示 + 工具定义）。任一步拿不到真实数据 ⇒
-   * **保持既有因子 + 计数**（不估算、不落默认值）。
-   */
-  private _applyUsageSample(
-    inputTokens: number | undefined,
-    outputTokens: number | undefined,
-    model?: string
-  ): void {
-    const input =
-      typeof inputTokens === 'number' && Number.isFinite(inputTokens)
-        ? inputTokens
-        : 0;
-    const output =
-      typeof outputTokens === 'number' && Number.isFinite(outputTokens)
-        ? outputTokens
-        : 0;
-    if (input <= 0 && output <= 0) {
-      this.missingUsageSamples++;
-      logger.debug('unified:usage 样本缺失（不校准，保持既有因子）', {
-        missingUsage: this.missingUsageSamples,
-      });
-      return;
-    }
-    // 记账（无论能否校准都记真实用量）
-    this.controller.recordUsage(input, output);
-
-    const overhead = this.overheadSystemPrompt + this.overheadToolDefs;
-    const baseline = this.streamState().baselineInputTokens;
-    const correctedInput = input - overhead;
-    if (baseline <= 0 || correctedInput <= 0) {
-      this.missingBaselineSamples++;
-      logger.debug('unified:无估算基线，无法校准（保持既有因子）', {
-        inputTokens: input,
-        baselineInputTokens: baseline,
-        correctedInput,
-        missingBaseline: this.missingBaselineSamples,
-      });
-      return;
-    }
-    const raw = correctedInput / baseline;
-    if (!isFinite(raw) || raw <= 0) {
-      this.missingBaselineSamples++;
-      return;
-    }
-    const oldFactor = this.calibrationFactor;
-    this.calibrationFactor =
-      this.CALIBRATION_ALPHA * raw +
-      (1 - this.CALIBRATION_ALPHA) * this.calibrationFactor;
-    this.calibrationAppliedSamples++;
-    // 持久化校准因子（按模型，重启后直接恢复，无需重新学习）
-    persistCalibrationFactor(
-      model || this.currentModel,
-      this.calibrationFactor
-    );
-    logger.info('unified:calibration updated', {
-      source: 'metric/timing',
-      oldFactor: Math.round(oldFactor * 100) / 100,
-      newFactor: Math.round(this.calibrationFactor * 100) / 100,
-      raw,
-      inputTokens: input,
-      outputTokens: output,
-      baselineInputTokens: baseline,
-      appliedSamples: this.calibrationAppliedSamples,
-      model: model || this.currentModel,
-    });
-  }
+  // （`_applyUsageSample` 已于 FSZ-162（2026-09-23）抽至
+  //   `./tokenCalibration#applyUsageSample`；本类仅保留两条入口 + 状态）
 
   // ==========================================
   // 压缩记录
@@ -712,7 +663,7 @@ export class UnifiedTokenTracker {
     }
     // 加载该模型的持久化校准因子（重启后无需从默认重新学习；无记录则用默认 1.2）
     const persisted = getCalibrationFactor(newModel);
-    this.calibrationFactor = persisted ?? 1.2;
+    this.calibration.factor = persisted ?? 1.2;
     if (persisted) {
       logger.info('unified:calibration loaded from store', {
         model: newModel,
@@ -826,7 +777,7 @@ export class UnifiedTokenTracker {
     // O9/G14：会话恢复路径同样注册（供摘要预算等跨模块读取"父当前上下文大小"）
     setUnifiedTokenTracker(tracker);
     if (session.metadata?.calibrationFactor) {
-      tracker.calibrationFactor = session.metadata.calibrationFactor;
+      tracker.calibration.factor = session.metadata.calibrationFactor;
     }
     return tracker;
   }

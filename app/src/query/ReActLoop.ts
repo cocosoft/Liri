@@ -86,7 +86,10 @@ export type TerminationReason =
   | 'loop_detected'
   // A 档（2026-09-05）：对齐 StopHookReason 的 timeout——防未来置 timeout 时被
   // 折叠成 completed（方案 A 复查收口，见 error_repairs）。
-  | 'timeout';
+  | 'timeout'
+  // 三期 F3-2（2026-09-23 修复计划 §六）：上下文压缩失败 ⇒ 终止。此前该支不置相位，
+  // 收尾文案与"压缩失败"无任何关联（用户只看到一句通用兜底）。
+  | 'compaction_failed';
 
 /** 循环状态 */
 export interface ReActState {
@@ -105,6 +108,8 @@ export interface ReActState {
     // 二期 F2-2（2026-09-23 修复计划 §六）：会话级总时长上限触发。此前该支不置任何
     // 相位 ⇒ 经 getTerminationReason() 被判为 'completed'（伪装成"正常完成"）。
     | 'timeout'
+    // 三期 F3-2（2026-09-23）：上下文压缩失败/停滞 ⇒ 专门相位（收尾可见"为何停下"）。
+    | 'compaction_failed'
     // 阶段 A（A1-d）：以 sessions_yield 让出 turn 的收尾相位（既非完成也非截断）
     | 'yielded';
   pendingToolCalls: ToolCallEntry[];
@@ -421,6 +426,8 @@ export abstract class ReActLoop<
     // 二期 F2-2（2026-09-23）：超时**必须**在 completed 之前判别——否则经本判别器
     // 会被折叠为 'completed'（比"伪装完成"更彻底：连 phase 都不再是证据）。
     if (this.state.phase === 'timeout') return 'timeout';
+    // 三期 F3-2（2026-09-23）：压缩失败同理——必须在 completed 之前判别。
+    if (this.state.phase === 'compaction_failed') return 'compaction_failed';
     if (
       this.state.phase === 'truncated' ||
       this.state.iteration >= this.config.maxIterations
@@ -615,10 +622,13 @@ export abstract class ReActLoop<
             context = reasonResult.context ?? context;
             yield { type: 'reasoning_end', result: reasonResult };
           } catch (err) {
+            // 三期 F3-3（2026-09-23 修复计划 §六）：收口未 await/未 catch 的 handleError
+            //（D4）—— 同文件其它调用点均带 `.catch()`；裸调会在其内部 Promise 拒绝时
+            // 产生 unhandled rejection（本处位于 generator 的 catch 分支，不能因此中断收尾）。
             handleError(err, {
               module: 'query:reactLoop',
               action: 'reasoning',
-            });
+            }).catch(() => {});
             logger.warn('reActLoop:reasoning_error', { error: String(err) });
             const recovered = await this.onReasoningError(err, input, context);
             if (recovered) {

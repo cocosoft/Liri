@@ -273,6 +273,13 @@ export class ReActToolLoop extends ReActLoop<
    * ⇒ 守卫从"防御性"变为"必要性"（N1）。
    */
   private _terminalSettled = false;
+  /**
+   * 二期 F3-1（2026-09-23 修复计划 §六）：终止副作用（落 Goal）的 **pending promise**。
+   *
+   * 由 `settleTerminalState()` 记录、由 `flushTerminalSettlement()` 在轮次边界 await
+   * ⇒ 落盘失败可被观测/断言（治 N4：原为 fire-and-forget，调用方无法感知）。
+   */
+  private _terminalSettle: Promise<void> | null = null;
   /** 截断续接重试的 maxTokens 放大标记（2026-09-03）：onIncompleteTurn truncated 分支置位，
    *  下一轮 reason 的 LLM 调用把输出预算放大到 base×4（封顶 64K），避免"重试仍被截断"空转。 */
   private _boostNextReasonMaxTokens = false;
@@ -2113,7 +2120,13 @@ export class ReActToolLoop extends ReActLoop<
       // P1-4（B2-4，2026-09-23）：压缩停滞**落 Goal** —— 此前只"暂停本轮续接"，
       // 目标层看不到"为何停下"（缺口 X9）。连续 3 次 ⇒ 终态 `failed` ⇒ **续接有界**
       //（D7：否则"落 blocked → 续接 → 又压缩失败"会成死循环）。
-      this.settleGoalForTurnDetached('compaction_stalled');
+      // 三期 F3-1：本处（循环中途）仍**显式 detach**（不阻塞本轮回捞判定）；可 await 的
+      // 终止路径见 `settleTerminalState()` → `flushTerminalSettlement()`。
+      void this.settleGoalForTurnNow('compaction_stalled');
+      // 三期 F3-2（2026-09-23 修复计划 §六）：压缩失败**必须联动收尾** —— 置专门相位，
+      // 使判别器给出 `compaction_failed`（不再被折叠成 `completed` 后只落一句通用兜底），
+      // 用户可见"为何停下"。原实现只 `return false`，收尾文案与压缩无任何关联。
+      this.state.phase = 'compaction_failed';
       return false;
     }
     if (this._incompleteRetries[kind] >= 1) return false; // 每类最多重试 1 次
@@ -2178,6 +2191,7 @@ export class ReActToolLoop extends ReActLoop<
     this._incompleteRetries.truncated = 0;
     this.droppedToolCallsAtStop = 0;
     this._terminalSettled = false;
+    this._terminalSettle = null;
   }
 
   /** A2（2026-09-05）：循环检测终止由 loopState.loopDetected 判别（供骨架访问器） */
@@ -2186,25 +2200,27 @@ export class ReActToolLoop extends ReActLoop<
   }
 
   /**
-   * 轮级熔断 / 压缩停滞 ⇒ **落 Goal 状态**（P1-2 / P1-4，B2-4，2026-09-23）。
+   * 轮级熔断 / 压缩停滞 / 终止 ⇒ **落 Goal 状态**的执行体（P1-2 / P1-4 / N2，二期 F3-1 起可 await）。
    *
-   * - **非阻塞**：`finalize()` 是同步签名，且目标状态属"意图/观测面"（不是渲染依赖）
-   *   ⇒ 不 await、不拖慢收尾；
    * - **零回归**：该会话无未终结目标时 `settleGoalForTurn` 立即返回 `null`（不建行、不写库）；
-   * - **不掩盖失败**：catch 留痕（CS03），不影响已生成的最终消息。
+   * - **不掩盖失败**：catch 留痕（CS03）——目标状态属"意图/观测面"，落盘失败**不得抛出**给收尾路径；
+   * - **可观测**（二期 F3-1 / 治 N4）：改为返回 Promise，由调用方决定 await 还是显式 detach
+   *   —— 原实现为 fire-and-forget，调用方**无法感知、无法重试、无法断言**。
    */
-  private settleGoalForTurnDetached(reason: GoalTurnReason): void {
-    void settleGoalForTurn({
-      sessionId: this.ctx.session.id,
-      reason,
-    }).catch((err) => {
+  private async settleGoalForTurnNow(reason: GoalTurnReason): Promise<void> {
+    try {
+      await settleGoalForTurn({
+        sessionId: this.ctx.session.id,
+        reason,
+      });
+    } catch (err) {
       // @ignore-catch — 目标状态属观测/意图面，落盘失败不得影响本轮收尾（CS03）
       logger.warn('reactToolLoop:goal_turn_settle_failed', {
         sessionId: this.ctx.session.id,
         reason,
         error: err instanceof Error ? err.message : String(err),
       });
-    });
+    }
   }
 
   protected finalize(): Message {
@@ -2275,21 +2291,39 @@ export class ReActToolLoop extends ReActLoop<
     // - `loop_detected` ⇒ `turn_error`：既有语义 —— **推进** `no_progress_streak`，达阈值落终态；
     // - 其余非完成原因 ⇒ N2 新增的**只记录**原因码（不改状态、不计数、不触发 idle 续接）。
     const goalReason = this.mapTerminationToGoalReason(reason);
-    if (goalReason) {
-      this.settleGoalForTurnDetached(goalReason);
-    }
 
-    // 二期 F2-5（治 N3）：`max_turns` 与 `loop_detected` 同时命中时，循环检测信号此前被
-    // **整个吞掉**（既无提示也无 metadata）。此处留痕一次（提示文案已在投影侧并列上报）。
-    if (reason === 'max_turns' && this.loopState.loopDetected) {
-      logger.warn('reactToolLoop:loop_detected_shadowed_by_max_turns', {
-        sessionId: this.ctx.session.id,
-        detector: this.loopState.loopDetected.detector,
-        message: this.loopState.loopDetected.message,
-        iteration: this.state.iteration,
-        maxIterations: this.config.maxIterations,
-      });
-    }
+    // 三期 F3-1（治 N4，2026-09-23）：副作用**同步发起、边界 await** ——
+    // 骨架的 `finalize()` 保持同步签名（否则要改 10 处 `return this.finalize(...)`
+    // 与 3 个子类签名，收益相同而风险高得多）；此处记录 pending promise，
+    // 由 `flushTerminalSettlement()` 在轮次边界（拿到最终消息后）await ⇒ 失败可被观测/断言。
+    this._terminalSettle = (async () => {
+      if (goalReason) {
+        await this.settleGoalForTurnNow(goalReason);
+      }
+
+      // 二期 F2-5（治 N3）：`max_turns` 与 `loop_detected` 同时命中时，循环检测信号此前被
+      // **整个吞掉**（既无提示也无 metadata）。此处留痕一次（提示文案已在投影侧并列上报）。
+      if (reason === 'max_turns' && this.loopState.loopDetected) {
+        logger.warn('reactToolLoop:loop_detected_shadowed_by_max_turns', {
+          sessionId: this.ctx.session.id,
+          detector: this.loopState.loopDetected.detector,
+          message: this.loopState.loopDetected.message,
+          iteration: this.state.iteration,
+          maxIterations: this.config.maxIterations,
+        });
+      }
+    })();
+  }
+
+  /**
+   * 三期 F3-1（2026-09-23 修复计划 §六）：等待本轮终止副作用落定（**幂等**）。
+   *
+   * 由轮次边界（`streamMessageFlow` 取到最终消息之后）调用 ⇒ 落盘失败/耗时**可被 await
+   * 观测与断言**，而不是只留一条无人可等的 `warn`（治 N4 / D2）。
+   * 未发起过副作用（如正常完成无需落 Goal）⇒ 立即 resolve。
+   */
+  async flushTerminalSettlement(): Promise<void> {
+    await (this._terminalSettle ?? Promise.resolve());
   }
 
   /**
@@ -2315,6 +2349,10 @@ export class ReActToolLoop extends ReActLoop<
         return 'turn_interrupted';
       case 'aborted':
         return 'user_aborted';
+      // 三期 F3-2：压缩停滞**已由 `onIncompleteTurn` 直接落** `compaction_stalled`
+      //（判点在压缩停滞处）⇒ 此处返回 null，避免同一次终止落两次目标状态。
+      case 'compaction_failed':
+        return null;
       // 正常完成 / 其余子类专属 stop reason：不落目标
       case 'completed':
       case 'verifier_escalate':
@@ -2410,6 +2448,12 @@ export class ReActToolLoop extends ReActLoop<
             : '');
         break;
       }
+      // 三期 F3-2（2026-09-23）：上下文压缩失败/停滞 ⇒ 明确告知"为何停下"。
+      // 此前该路径只 `return false`，phase 落 `completed` ⇒ 收尾文案与压缩无任何关联
+      //（有正文时连兜底都不给，用户只看到"莫名其妙结束了"）。
+      case 'compaction_failed':
+        suffix = `\n\n⚠️ 上下文压缩未能生效（连续压不动且上下文已吃紧），本轮已停止继续执行。你可以重试、精简上下文，或新开一个会话继续。`;
+        break;
       // 无专属文案的原因（正常完成 / 其余子类专属 stop reason）：是否兜底取决于正文是否
       // 为空 —— 见下方统一兜底（一期 F1-1）。
       case 'completed':

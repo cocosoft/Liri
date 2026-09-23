@@ -2336,6 +2336,10 @@ export async function* runStreamMessage(
           } as ChatStreamChunk;
         }
         assistantMessage = loop.getAssistantMessage();
+        // 三期 F3-1（2026-09-23 修复计划 §六）：等待本轮**终止副作用**（落 Goal）落定。
+        // 原实现为 fire-and-forget ⇒ 落盘失败只留一条无人可等的 warn（N4：调用方无法
+        // 感知/重试/断言）。此处 await 使其在轮次边界可观测；无副作用时立即 resolve。
+        await loop.flushTerminalSettlement();
         // B1 补发（2026-09-01）：达上限/循环检测的终止提示由 finalize 生成在最终
         // 消息里，但不在 loop.run 事件流（reactEventsToChunks 不产出）→ 前端流式
         // 收不到（实测 fullContentLength 0，用户对任务中断无感知）。此处补发 text chunk。

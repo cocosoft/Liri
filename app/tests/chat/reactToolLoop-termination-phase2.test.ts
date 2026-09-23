@@ -186,14 +186,16 @@ describe('ReActToolLoop 终止原因（二期 F2-0/F2-1/F2-2/F2-4）', () => {
     const loop = new ReActToolLoop(ctx, makeInput(), { maxIterations: 3 });
 
     // 实例级替换（不改原型，避免跨用例泄漏）：统计副作用调用次数
+    // 三期 F3-1：执行体名由 `settleGoalForTurnDetached` 改为可 await 的 `settleGoalForTurnNow`
     const inst = loop as unknown as {
-      settleGoalForTurnDetached: (reason: string) => void;
+      settleGoalForTurnNow: (reason: string) => Promise<void>;
     };
-    const original = inst.settleGoalForTurnDetached.bind(loop);
     let settleCalls = 0;
-    inst.settleGoalForTurnDetached = (reason: string) => {
+    let settleFinished = false;
+    inst.settleGoalForTurnNow = async (_reason: string) => {
       settleCalls += 1;
-      return original(reason);
+      await new Promise((r) => setTimeout(r, 50));
+      settleFinished = true;
     };
 
     await drain(loop); // run() 的 return 值 ⇒ finalize #1
@@ -202,6 +204,33 @@ describe('ReActToolLoop 终止原因（二期 F2-0/F2-1/F2-2/F2-4）', () => {
 
     // 修复前：每次 finalize 都直接发副作用 ⇒ 3（且每次推进 no_progress_streak）
     expect(settleCalls).toBe(1);
+    // 三期 F3-1：副作用"已发起但尚未 await" ⇒ 仍未完成
+    //（原实现是 fire-and-forget：调用方**拿不到**这个进行中的 promise）
+    expect(settleFinished).toBe(false);
+    await loop.flushTerminalSettlement(); // 轮次边界 await ⇒ 落盘失败可被观测/断言
+    expect(settleFinished).toBe(true);
     expect(loop.getTerminationReason()).toBe('loop_detected');
+  });
+
+  it('F3-2：上下文压缩失败 ⇒ 专门终止原因 + 收尾明确告知（不再只落通用兜底）', async () => {
+    const { ctx } = makeCtx({
+      // 截断（max_tokens）+ 无正文 ⇒ kind='truncated'
+      llmSequence: [
+        () => ({ content: '', stop_reason: 'max_tokens' }) as ChatResponse,
+      ],
+    });
+    // maxIterations 取大值：避免触发"接近上限"的强制收尾 steering（那会先短路本路径）
+    const loop = new ReActToolLoop(ctx, makeInput(), { maxIterations: 20 });
+    // 实例级替身：模拟"压缩连续压不动且上下文吃紧"（真实判据依赖内部压缩状态）
+    (loop as unknown as { isCompactionStalled: () => boolean }).isCompactionStalled =
+      () => true;
+
+    await drain(loop);
+
+    // 修复前：phase 保持 'reasoning' ⇒ 被出口写成 'completed' ⇒ 判别器给 'completed'，提示为空
+    expect(loop.getTerminationReason()).toBe('compaction_failed');
+    expect(String(loop.getAssistantMessage().content)).toContain(
+      '上下文压缩未能生效'
+    );
   });
 });

@@ -59,7 +59,6 @@ import { calculateTotalCost } from '@modules/cost';
 import { compactionOrchestrator } from '@modules/context';
 import { resolveOutputDir } from '@modules/core/paths';
 import { agentTelemetry } from '@modules/agent';
-import { trajectoryRecorder } from '@modules/agent';
 import type { ToolAwareClient } from '@modules/ai';
 import type { ChatMessage, ToolDefinition, ParsedToolCall } from '@modules/ai';
 import type { Message, SendMessageOptions } from '../types/message.js';
@@ -517,20 +516,6 @@ export async function invokeLlm(
       }).catch(() => {});
     }
   }
-  if (host.ENABLE_TRAJECTORY) {
-    try {
-      trajectoryRecorder.recordStep(session.id, {
-        phase: 'thinking',
-        input: ctx.content.slice(0, 500),
-        modelName: options?.model,
-      });
-    } catch (err) {
-      logger.debug('Telemetry recording skipped', {
-        error: err instanceof Error ? err.message : String(err),
-      });
-    }
-  }
-
   logger.debug('准备调用 activeClient.sendMessage', {
     constructor: activeClient?.constructor?.name as string,
     providerId: activeClient?.getProviderId(),
@@ -679,25 +664,6 @@ export function notifyUsage(
         response.usage?.prompt_tokens ?? 0,
         response.usage?.completion_tokens ?? 0
       );
-    } catch (err) {
-      logger.debug('Telemetry recording skipped', {
-        error: err instanceof Error ? err.message : String(err),
-      });
-    }
-  }
-  if (host.ENABLE_TRAJECTORY) {
-    try {
-      trajectoryRecorder.recordStep(session.id, {
-        phase: 'response',
-        output:
-          typeof response.content === 'string'
-            ? response.content.slice(0, 500)
-            : '',
-        tokensUsed:
-          (response.usage?.prompt_tokens ?? 0) +
-          (response.usage?.completion_tokens ?? 0),
-        durationMs: llmDuration,
-      });
     } catch (err) {
       logger.debug('Telemetry recording skipped', {
         error: err instanceof Error ? err.message : String(err),

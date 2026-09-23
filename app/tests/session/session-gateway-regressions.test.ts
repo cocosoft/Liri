@@ -21,6 +21,11 @@ import { FileSystemUnifiedStorage } from '../../src/session/storage/FileSystemUn
 import { MemoryUnifiedStorage } from '../../src/session/storage/MemoryUnifiedStorage';
 import { StorageType } from '../../src/session/storage/UnifiedStorage';
 import {
+  getSessionParent,
+  isAncestorSession,
+  resetSessionLineage,
+} from '../../src/session/lineage/sessionLineage';
+import {
   getFTS5SearchEngine,
   resetFTS5SearchEngine,
 } from '../../src/session/FTS5SearchEngine';
@@ -99,22 +104,31 @@ describe('H3: initialize 失败后可重试', () => {
       throw new Error('simulated init failure');
     });
 
-    await expect(gateway.initialize()).rejects.toThrow('simulated init failure');
+    await expect(gateway.initialize()).rejects.toThrow(
+      'simulated init failure'
+    );
     expect(initSpy).toHaveBeenCalledTimes(1);
     // H3 核心：若 initialized 在首个 await 前置 true，重试会被 return 短路
-    expect(
-      (gateway as unknown as { initialized: boolean }).initialized
-    ).toBe(false);
+    expect((gateway as unknown as { initialized: boolean }).initialized).toBe(
+      false
+    );
 
     await gateway.initialize();
     expect(initSpy).toHaveBeenCalledTimes(2);
-    expect(
-      (gateway as unknown as { initialized: boolean }).initialized
-    ).toBe(true);
+    expect((gateway as unknown as { initialized: boolean }).initialized).toBe(
+      true
+    );
   });
 });
 
 describe('H9: forkSession 复制失败回滚子会话', () => {
+  // 本 describe 多处 `spyOn(EventLogStorage.prototype, 'copyPrefixTo')`；
+  // bun 的 spy 不会自动恢复 ⇒ 显式还原原型方法，避免 mock 泄漏到后续用例
+  const realCopyPrefixTo = EventLogStorage.prototype.copyPrefixTo;
+  afterEach(() => {
+    EventLogStorage.prototype.copyPrefixTo = realCopyPrefixTo;
+  });
+
   it('copyPrefixTo 失败 → 子会话被 deleteSession 回滚，无孤儿残留', async () => {
     const gateway = makeFsGateway();
     await gateway.initialize();
@@ -147,6 +161,70 @@ describe('H9: forkSession 复制失败回滚子会话', () => {
     expect(copySpy).toHaveBeenCalledTimes(1);
     // H9 核心：复制失败后子会话已被删除（getSession 返回 null）
     expect(await gateway.getSession(childId)).toBeNull();
+  });
+
+  /**
+   * M-2（2026-09-22）：血缘登记**后置到复制成功之后**。
+   *
+   * 修复前 `registerSessionLineage` 在 `copyPrefixTo` **之前**调用，而失败分支只
+   * `deleteSession`（软删会话）**不撤销血缘**（全仓亦无 `unregisterSessionLineage`）
+   * ⇒ 留下"子会话已删、血缘仍在"的**悬挂边**：控制面 Tier1 祖先判定会把它当成
+   * 合法祖先链的一环（对一个已不存在的会话授予同族控制权）。
+   */
+  it('复制失败 ⇒ **不建立血缘**（无悬挂边）', async () => {
+    const gateway = makeFsGateway();
+    await gateway.initialize();
+    resetSessionLineage();
+
+    const sourceId = 's-m2-source';
+    const childId = 's-m2-child';
+    await gateway.createSession({ id: sourceId, title: 'M2 source' });
+
+    const evDir = join(dataDir, 'sessions', WORKTREE_HASH, sourceId);
+    mkdirSync(evDir, { recursive: true });
+    writeFileSync(
+      join(evDir, 'events.jsonl'),
+      JSON.stringify(makeEvent(1, sourceId)) + '\n',
+      'utf-8'
+    );
+
+    const copySpy = spyOn(EventLogStorage.prototype, 'copyPrefixTo');
+    copySpy.mockImplementation(async () => ({
+      ok: false,
+      copied: 0,
+      reason: 'test-forced-failure',
+    }));
+
+    const result = await gateway.forkSession(sourceId, { childId });
+    expect(result.success).toBe(false);
+
+    // 修复前：此处为 sourceId（悬挂边）
+    expect(getSessionParent(childId)).toBeNull();
+    // 且不得据此把"已删子会话"接到祖先链上
+    expect(isAncestorSession(sourceId, childId)).toBe(false);
+  });
+
+  it('复制成功 ⇒ 建立血缘（成功路径不受影响）', async () => {
+    const gateway = makeFsGateway();
+    await gateway.initialize();
+    resetSessionLineage();
+
+    const sourceId = 's-m2-ok-source';
+    const childId = 's-m2-ok-child';
+    await gateway.createSession({ id: sourceId, title: 'M2 ok source' });
+
+    const evDir = join(dataDir, 'sessions', WORKTREE_HASH, sourceId);
+    mkdirSync(evDir, { recursive: true });
+    writeFileSync(
+      join(evDir, 'events.jsonl'),
+      JSON.stringify(makeEvent(1, sourceId)) + '\n',
+      'utf-8'
+    );
+
+    const result = await gateway.forkSession(sourceId, { childId });
+    expect(result.success).toBe(true);
+    expect(getSessionParent(childId)).toBe(sourceId);
+    expect(isAncestorSession(sourceId, childId)).toBe(true);
   });
 });
 

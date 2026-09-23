@@ -94,13 +94,6 @@ import { resolveFastModeState, normalizeFastMode } from './fast-mode';
 import type { FastModeState, FastModeConfig } from './fast-mode';
 
 import {
-  saveTrajectory,
-  messagesToTrajectory,
-  convertScratchpadToThink,
-  hasIncompleteScratchpad,
-} from './trajectory';
-
-import {
   resolveAgentIdentity,
   resolveAckReaction,
   resolveIdentityNamePrefix,
@@ -221,11 +214,6 @@ export {
   resolveResponsePrefix,
   resolveEffectiveMessagesConfig,
   resolveHumanDelayConfig,
-  // Trajectory
-  saveTrajectory,
-  messagesToTrajectory,
-  convertScratchpadToThink,
-  hasIncompleteScratchpad,
   // Strategy Selector
   StrategySelector,
   TaskComplexity,
@@ -239,7 +227,6 @@ export {
   getAgentRegistry,
   agentRegistry,
 };
-export type { TrajectoryEntry, ConversationMessage } from './trajectory';
 export type {
   ToolCallItem,
   ToolCallBatchResult,
@@ -258,8 +245,6 @@ export type {
 const agentService = createAgentService();
 export default agentService;
 
-export * from './trajectory.js';
-
 export * from './events';
 
 export * from './compact';
@@ -268,7 +253,6 @@ export * from './TitleGenerator.js';
 
 // 2026-08-29 R03-002 收敛：telemetry / trajectory / isolation 统一出口
 export { agentTelemetry } from './AgentTelemetry.js';
-export { trajectoryRecorder } from './trajectory/TrajectoryRecorder.js';
 export type { AgentIsolation } from './AgentIsolation.js';
 export {
   createAgentIsolation,

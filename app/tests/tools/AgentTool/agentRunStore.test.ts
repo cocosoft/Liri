@@ -192,7 +192,9 @@ describe('AgentRunStore：保留裁剪（⑤）', () => {
     expect(pruned).toBe(total - RETENTION_TERMINAL_MAX);
     // 最旧的被裁掉、最新的保留
     expect(await store.getRun('tc-000')).toBeNull();
-    expect(await store.getRun(`tc-${String(total - 1).padStart(3, '0')}`)).not.toBeNull();
+    expect(
+      await store.getRun(`tc-${String(total - 1).padStart(3, '0')}`)
+    ).not.toBeNull();
   });
 });
 
@@ -303,9 +305,9 @@ describe('AgentRunStore：PID 复用判定（O6② / v7.1）', () => {
     expect(start).not.toBeNull();
 
     const expected = Date.now() - Math.round(process.uptime() * 1000);
-    expect(
-      Math.abs((start ?? 0) - expected)
-    ).toBeLessThan(PROCESS_START_TOLERANCE_MS);
+    expect(Math.abs((start ?? 0) - expected)).toBeLessThan(
+      PROCESS_START_TOLERANCE_MS
+    );
   });
 
   test('readProcessStartTime：不存在的/非法 pid ⇒ null（调用方保持保守）', () => {
@@ -352,6 +354,112 @@ describe('AgentRunStore：PID 复用判定（O6② / v7.1）', () => {
 
     await store.markStaleRunsUnknown();
     expect((await store.getRun('tc-same-proc'))?.status).toBe('running');
+  });
+});
+
+/**
+ * 取消痕迹的状态序列（方案 §5.1 定性，2026-09-22）
+ *
+ * 背景：`markCancelRequested` 的守卫是 `WHERE status = 'running'`，
+ * 而 `markStaleRunsUnknown` 的 SELECT/UPDATE 又把 `cancel_requested` 算作"在途"，
+ * `settleRun` 的终态守卫是 `WHERE status NOT IN ('completed','failed')`。
+ * 三者组合的结论（本组用例锁定**现状**，不作"应然"判断）：
+ *
+ *   running --(stop 受理)--> cancel_requested --(重启且 owner 已死)--> unknown --(run 收敛)--> completed
+ *
+ * ⇒ **磁盘只留最后一格，取消痕迹被冲掉**；而"曾请求取消"这一事实**没有任何列承载**
+ *   （见表结构断言），故覆盖即丢失。修复方案（若采纳）见方案 §5.2「`cancelled` 终态入枚举」。
+ */
+describe('AgentRunStore：取消痕迹状态序列（§5.1 定性）', () => {
+  /** 让 `markCancelRequested` 产出 `cancel_requested` 行（守卫要求起点是 `running`） */
+  async function makeCancelRequestedRow(
+    store: AgentRunStore,
+    toolCallId: string,
+    owner: { ownerPid?: number; ownerStartedAt?: number } = {}
+  ): Promise<void> {
+    await store.startRun({
+      toolCallId,
+      agentId: toolCallId,
+      name: toolCallId,
+      agentType: 'general',
+      status: 'running',
+      ...owner,
+    });
+    expect(await store.markCancelRequested(toolCallId)).toBe(1);
+    expect((await store.getRun(toolCallId))?.status).toBe('cancel_requested');
+  }
+
+  test('第 1 段：stop 受理 ⇒ `running` → `cancel_requested`，且不可重复迁入', async () => {
+    const store = await makeStore();
+    await makeCancelRequestedRow(store, 'tc-seq-1');
+
+    // 幂等：`cancel_requested` 不是 `running` ⇒ 二次受理改 0 行（同一契约）
+    expect(await store.markCancelRequested('tc-seq-1')).toBe(0);
+    // 只受理、**不写 ended_at**（run 尚未终结）
+    expect((await store.getRun('tc-seq-1'))?.endedAt).toBeUndefined();
+  });
+
+  test('第 2 段：重启后（owner 已死）`cancel_requested` 被陈旧自愈判为 `unknown`', async () => {
+    const store = await makeStore();
+    // owner_pid=0 必不存在 ⇒ 等价于"进程重启后原 owner 已死"
+    await makeCancelRequestedRow(store, 'tc-seq-2', {
+      ownerPid: 0,
+      ownerStartedAt: 1,
+    });
+
+    expect(await store.markStaleRunsUnknown()).toBe(1);
+    expect((await store.getRun('tc-seq-2'))?.status).toBe('unknown');
+  });
+
+  test('第 3 段：`unknown` 后 run 收敛结算 ⇒ 终态覆盖（取消痕迹被冲掉）', async () => {
+    const store = await makeStore();
+    await makeCancelRequestedRow(store, 'tc-seq-3', {
+      ownerPid: 0,
+      ownerStartedAt: 1,
+    });
+    await store.markStaleRunsUnknown();
+
+    // `settleRun` 守卫只排除 (completed, failed) ⇒ `unknown`/`cancel_requested` **均可被覆盖**
+    expect(await store.settleRun('tc-seq-3', 'completed')).toBe(true);
+    const row = await store.getRun('tc-seq-3');
+    expect(row?.status).toBe('completed');
+    // 且未携带任何"曾被取消"的痕迹
+    expect(row?.error ?? null).toBeNull();
+    expect(row?.outputSummary ?? null).toBeNull();
+  });
+
+  test('不经重启的同进程路径：`cancel_requested` 同样被终态直接覆盖', async () => {
+    const store = await makeStore();
+    await makeCancelRequestedRow(store, 'tc-seq-4');
+
+    // 取消受理后，run 在安全边界自然收敛并结算 ⇒ 中间态被终态覆盖
+    expect(await store.settleRun('tc-seq-4', 'completed')).toBe(true);
+    expect((await store.getRun('tc-seq-4'))?.status).toBe('completed');
+  });
+
+  test('根因：表结构中**没有任何列**承载"曾请求取消"这一事实', async () => {
+    const path = makeDbPath();
+    const store = new AgentRunStore(path);
+    openedStores.push(store);
+    await store.init();
+
+    const db = await new Promise<Database>((resolve, reject) => {
+      const opened = new Database(path, (err: Error | null) =>
+        err ? reject(err) : resolve(opened)
+      );
+    });
+    const columns = await new Promise<string[]>((resolve, reject) => {
+      db.all(
+        `PRAGMA table_info(${AGENT_RUNS_TABLE})`,
+        (err: Error | null, rows: Array<{ name: string }>) =>
+          err ? reject(err) : resolve(rows.map((r) => r.name))
+      );
+    });
+    db.close();
+
+    expect(columns).toContain('status');
+    // 取消痕迹一旦被覆盖即无处可寻（内存台账的 `cancel_requested` 才是唯一活体证据）
+    expect(columns.filter((c) => /cancel/i.test(c))).toEqual([]);
   });
 });
 

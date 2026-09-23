@@ -41,9 +41,9 @@ describe('computeSummaryCharBudget（预算）', () => {
   });
 
   test('父上下文未知（缺 prompt tokens 或窗口）⇒ 退化下限，不臆测', () => {
-    expect(
-      computeSummaryCharBudget({ workerCount: 3 })
-    ).toBe(SUMMARY_MIN_CHARS);
+    expect(computeSummaryCharBudget({ workerCount: 3 })).toBe(
+      SUMMARY_MIN_CHARS
+    );
     expect(
       computeSummaryCharBudget({
         parentPromptTokens: 10_000,
@@ -74,7 +74,9 @@ describe('trimSummaryWithFooter（75/25 头尾）', () => {
     expect(r.text).toContain('已省略');
     expect(r.omittedChars).toBeGreaterThan(0);
     // head 占多数（75/25）：标记之前的头部长度 > 标记之后的尾段长度
-    const [headPart, tailPart] = r.text.split('\n\n… [已省略')[1].split('] …\n\n');
+    const [headPart, tailPart] = r.text
+      .split('\n\n… [已省略')[1]
+      .split('] …\n\n');
     expect(headPart.length).toBeGreaterThan(0);
     expect(tailPart.length).toBeGreaterThan(0);
   });

@@ -1064,7 +1064,6 @@ class ArchitectureLinter {
             'plugins/core/PluginLoader.ts',
             'plugins/core/PluginRegistry.ts',
             'plugins/managers/PluginManager.ts',
-            'agent/trajectory.ts',
             'analytics/InsightsEngine.ts',
             'ai/interfaces/QueryInterfaces.ts',
             'chat/tool/SmartToolIntegrator.ts',

@@ -10,6 +10,9 @@
 import { HealthChecker } from '@modules/monitoring/health/HealthChecker.js';
 import { systemHealthChecker } from '@modules/diagnostics/SystemHealthChecker.js';
 import { getLogger } from '@modules/monitoring/logs/Logger.js';
+// 2026-09-22：事件循环阻塞探针（P1 守株待兔 CPU profile + P2 阶段标签）挂载点。
+// 仅消费"已判定为真实阻塞"（非睡眠唤醒）的结论，不改变本监视器既有节拍与日志。
+import { onLoopLag } from './loopProbe/loopProbe.js';
 const logger = getLogger('diagnostics:infrastructure-diagnostics');
 
 /** 全局 HealthChecker 实例 */
@@ -92,6 +95,9 @@ class EventLoopLagMonitor {
           heapTotalMb: Math.round(mem.heapTotal / 1024 / 1024),
           externalMb: Math.round(mem.external / 1024 / 1024),
         });
+        // 2026-09-22：交给阻塞探针（P1 守株待兔 CPU profile + P2 阶段标签）。
+        // 只在**真实阻塞**（非睡眠唤醒）分支调用 —— 睡眠唤醒不参与归因。
+        onLoopLag(lag);
       }
     }, intervalMs);
 

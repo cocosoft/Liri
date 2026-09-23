@@ -227,12 +227,7 @@ describe('StageOrchestrator — 交付阶段（D6/M8）', () => {
   });
 
   it('未交付（未到 completed）调用 markDeliveryAccepted 抛错', async () => {
-    const orch = StageOrchestrator.create(
-      'd6-test-3',
-      'x',
-      's',
-      deps([])
-    );
+    const orch = StageOrchestrator.create('d6-test-3', 'x', 's', deps([]));
     await orch.run(); // 停在审批门，未交付
     await expect(orch.markDeliveryAccepted()).rejects.toThrow();
   });

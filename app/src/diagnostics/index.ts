@@ -27,3 +27,44 @@ export * from './DiagnosticsService';
 
 // 2026-08-30 R03-002 收敛：infrastructure-diagnostics 统一出口
 export { setupInfrastructureDiagnostics } from './infrastructure-diagnostics';
+
+// 2026-09-22：事件循环阻塞探针（取证方案 §3 P1/P2）统一出口
+export {
+  loopProbe,
+  onLoopLag,
+  resetLoopProbeForTest,
+  LoopProbe,
+  LOOP_PROBE_DIR_NAME,
+  renderSummaryMarkdown,
+} from './loopProbe/loopProbe';
+export type { LoopIncident, LoopProbeReport } from './loopProbe/loopProbe';
+export {
+  resolveProbeMode,
+  summarizeProfile,
+  initProbeState,
+  decideOnLag,
+  decideOnArmTimeout,
+  DEFAULT_PROBE_CONFIG,
+} from './loopProbe/loopProbeCore';
+export type {
+  ProbeMode,
+  ProbeState,
+  ProbeConfig,
+  ProbeAction,
+  ProfileSummary,
+  ProfileHotspot,
+  CpuProfileLike,
+} from './loopProbe/loopProbeCore';
+export {
+  enterPhase,
+  exitPhase,
+  withPhase,
+  withPhaseSync,
+  currentPhase,
+  recentPhases,
+  snapshotPhases,
+  resetPhaseStack,
+  setPhaseStackEnabled,
+  isPhaseStackEnabled,
+} from './loopProbe/phaseStack';
+export type { PhaseEntry, PhaseSnapshot } from './loopProbe/phaseStack';

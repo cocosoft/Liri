@@ -253,6 +253,26 @@ export class ToolManager extends EventEmitter {
   }
 
   /**
+   * R6（2026-09-22）：获取**真实工具实例**（穿透 `ToolLazyWrapper`）。
+   *
+   * 与 `getTool()` 的区别：`getTool()` 返回注册表里的对象（内置工具是懒加载包装器），
+   * 其 `instanceof 具体工具类` **恒为 false** —— 控制面/命令层按具体类型消费时会全部落空
+   * （AgentTool 的三处入口因此恒返回 null，`/v1/agents/*` 全量 503）。
+   *
+   * **不改 `getTool()` 语义**：列表/懒加载/元信息读取仍依赖包装器（避免加载全部工具）。
+   * 本方法只服务"确实需要真身"的调用方，拿不到真身时**回退返回包装器**
+   * （由调用方按能力判定，见各处入口的鸭子类型检查）。
+   */
+  getToolInstance<T extends Tool = Tool>(name: string): T | undefined {
+    const tool = this.getTool(name);
+    if (!tool) return undefined;
+    const unwrapped = (
+      tool as unknown as { unwrap?: () => Tool | null }
+    ).unwrap?.();
+    return (unwrapped ?? tool) as T;
+  }
+
+  /**
    * 获取所有工具
    * @returns 工具列表
    */

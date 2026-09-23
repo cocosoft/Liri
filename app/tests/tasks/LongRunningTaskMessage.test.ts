@@ -33,7 +33,10 @@ import { LongRunningTaskOrchestrator } from '../../src/tasks/LongRunningTaskOrch
 /** 通过对象访问私有成员（测试专用） */
 function makeOrchestrator() {
   const executor = async () => 'mock-result';
-  const o = new LongRunningTaskOrchestrator('t-test-1', executor) as unknown as {
+  const o = new LongRunningTaskOrchestrator(
+    't-test-1',
+    executor
+  ) as unknown as {
     _sessionId: string | null;
     _onTaskMessage?: (sessionId: string, msgs: unknown[]) => void;
     _emitTaskMessage: (msgs: unknown[]) => void;

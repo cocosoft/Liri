@@ -8,7 +8,6 @@ import {
 } from '../../src/utils/envUtils.js';
 
 describe('isEnvTruthy', () => {
-
   it('should return false for undefined', () => {
     expect(isEnvTruthy(undefined)).toBe(false);
   });
@@ -48,11 +47,9 @@ describe('isEnvTruthy', () => {
   it('should return false for "no"', () => {
     expect(isEnvTruthy('no')).toBe(false);
   });
-
 });
 
 describe('getEnv', () => {
-
   it('should return env value when set', () => {
     process.env.TEST_VAR = 'test_value';
     expect(getEnv('TEST_VAR')).toBe('test_value');
@@ -72,11 +69,9 @@ describe('getEnv', () => {
     expect(getEnv('TEST_EMPTY', 'fallback')).toBe('fallback');
     delete process.env.TEST_EMPTY;
   });
-
 });
 
 describe('isDevMode', () => {
-
   it('should return false when NODE_ENV is not set', () => {
     const original = process.env.NODE_ENV;
     delete process.env.NODE_ENV;
@@ -90,11 +85,9 @@ describe('isDevMode', () => {
     expect(isDevMode()).toBe(false);
     process.env.NODE_ENV = original;
   });
-
 });
 
 describe('isProdMode', () => {
-
   it('should return true when NODE_ENV is production', () => {
     const original = process.env.NODE_ENV;
     process.env.NODE_ENV = 'production';
@@ -108,11 +101,9 @@ describe('isProdMode', () => {
     expect(isProdMode()).toBe(true);
     process.env.NODE_ENV = original;
   });
-
 });
 
 describe('getConfigHomeDir', () => {
-
   it('should return path ending with pyapp', () => {
     // 锁定默认环境：其它 contract 测试（tests/http/pdca-*.contract 等）在模块顶层写入
     // process.env.LIRI_HOME 隔离数据目录，同 worker 复用会泄漏至此。本用例验证的是
@@ -133,5 +124,4 @@ describe('getConfigHomeDir', () => {
     expect(result).toBeTruthy();
     expect(typeof result).toBe('string');
   });
-
 });

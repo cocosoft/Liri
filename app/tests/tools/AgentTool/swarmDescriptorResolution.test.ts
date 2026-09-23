@@ -14,6 +14,9 @@
  */
 import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
 import { randomUUID } from 'crypto';
+import { tmpdir } from 'os';
+import { join } from 'path';
+import { unlinkSync } from 'fs';
 import {
   AgentTool,
   setAgentToolManager,
@@ -22,6 +25,15 @@ import { ToolExecutionStatus } from '../../../src/tools/types/ToolResult';
 import type { Tool } from '../../../src/tools/types/Tool';
 import { getAgentRunStore } from '../../../src/tools/AgentTool/AgentRunStore';
 import { getAgentRunLedger } from '../../../src/tools/AgentTool/AgentRunLedger';
+import {
+  TaskGoalStore,
+  setTaskGoalStoreForTest,
+} from '../../../src/tasks/goal/TaskGoalStore';
+import {
+  IDLE_CONTINUE_DELAY_SEC,
+  IDLE_CONTINUE_TASK_PREFIX,
+  setIdleContinuationSchedulerForTest,
+} from '../../../src/tasks/goal/goalIdleContinuation';
 
 /** fake 引擎的调用记录（只保留本测试断言用到的字段） */
 interface EngineCall {
@@ -48,7 +60,12 @@ interface EngineStubParams {
 /** 注入 fake 引擎并记录每次调用 */
 function installEngine(
   tool: AgentTool,
-  produce: (call: EngineCall) => { output: string; completed?: boolean }
+  produce: (call: EngineCall) => {
+    output: string;
+    completed?: boolean;
+    /** M-8 用例用：真实引擎的 token 用量聚合（未提供 ⇒ executor 记 0，不估算） */
+    tokenUsage?: { totalTokens: number };
+  }
 ): EngineCall[] {
   const calls: EngineCall[] = [];
   Reflect.set(tool, 'engine', {
@@ -67,6 +84,7 @@ function installEngine(
         output: res.output,
         completed: res.completed ?? true,
         timedOut: false,
+        tokenUsage: res.tokenUsage,
       };
     },
     abort: () => true,
@@ -111,7 +129,9 @@ function fakeTool(name: string): Tool {
 /** 取某批次的 worker 落盘行（`batchId` 仅 worker 行携带） */
 async function batchRows(
   metadata: Record<string, unknown>
-): Promise<Array<{ status: string; agentType: string; error?: string | null }>> {
+): Promise<
+  Array<{ status: string; agentType: string; error?: string | null }>
+> {
   const batchId = String(metadata['agentId']);
   const rows = await getAgentRunStore().listRuns();
   return rows
@@ -136,7 +156,10 @@ describe('swarm per-task 描述符解析（O12-1）', () => {
 
   test('指定 DB 角色：角色提示词前置 + 推荐模型 + 落盘真实类型', async () => {
     const tool = new AgentTool();
-    const calls = installEngine(tool, () => ({ output: 'out-a', completed: true }));
+    const calls = installEngine(tool, () => ({
+      output: 'out-a',
+      completed: true,
+    }));
     installResolver(tool, () => ({
       ok: true,
       source: 'role-store',
@@ -147,7 +170,9 @@ describe('swarm per-task 描述符解析（O12-1）', () => {
     const result = await tool.execute({
       description: '并行 A',
       prompt: '总任务',
-      tasks: [{ description: '分析需求 A', prompt: 'p1', subagent_type: 'architect' }],
+      tasks: [
+        { description: '分析需求 A', prompt: 'p1', subagent_type: 'architect' },
+      ],
     });
 
     expect(result.status).toBe(ToolExecutionStatus.SUCCESS);
@@ -165,7 +190,10 @@ describe('swarm per-task 描述符解析（O12-1）', () => {
 
   test('未知类型 ⇒ fail-closed：不执行引擎、落 failed、原因在汇总行可见', async () => {
     const tool = new AgentTool();
-    const calls = installEngine(tool, () => ({ output: 'never', completed: true }));
+    const calls = installEngine(tool, () => ({
+      output: 'never',
+      completed: true,
+    }));
     installResolver(tool, () => ({
       ok: false,
       error: '未知的 subagent_type "foo"。可用值：…',
@@ -174,7 +202,9 @@ describe('swarm per-task 描述符解析（O12-1）', () => {
     const result = await tool.execute({
       description: '并行 A',
       prompt: '总任务',
-      tasks: [{ description: '分析需求 A', prompt: 'p1', subagent_type: 'foo' }],
+      tasks: [
+        { description: '分析需求 A', prompt: 'p1', subagent_type: 'foo' },
+      ],
     });
 
     expect(result.output).toContain('[FAIL] 分析需求 A');
@@ -190,7 +220,10 @@ describe('swarm per-task 描述符解析（O12-1）', () => {
 
   test('未指定 subagent_type ⇒ 不解析（行为中性），沿用 AgentSwarm 提示词', async () => {
     const tool = new AgentTool();
-    const calls = installEngine(tool, () => ({ output: 'out-a', completed: true }));
+    const calls = installEngine(tool, () => ({
+      output: 'out-a',
+      completed: true,
+    }));
     const resolverSeen = installResolver(tool, () => ({
       ok: true,
       source: 'builtin',
@@ -210,7 +243,10 @@ describe('swarm per-task 描述符解析（O12-1）', () => {
 
   test('批次显式模型优先于角色推荐模型（与单代理路径同优先级）', async () => {
     const tool = new AgentTool();
-    const calls = installEngine(tool, () => ({ output: 'out-a', completed: true }));
+    const calls = installEngine(tool, () => ({
+      output: 'out-a',
+      completed: true,
+    }));
     installResolver(tool, () => ({
       ok: true,
       source: 'role-store',
@@ -222,7 +258,9 @@ describe('swarm per-task 描述符解析（O12-1）', () => {
       description: '并行 A',
       prompt: '总任务',
       model: 'batch-model',
-      tasks: [{ description: '分析需求 A', prompt: 'p1', subagent_type: 'architect' }],
+      tasks: [
+        { description: '分析需求 A', prompt: 'p1', subagent_type: 'architect' },
+      ],
     });
 
     expect(calls[0].model).toBe('batch-model');
@@ -242,7 +280,10 @@ describe('swarm 工具契约贯通（O12-2）', () => {
 
   test('worker：按类别注入只读检索工具（写工具与委派入口均不注入）', async () => {
     const tool = new AgentTool();
-    const calls = installEngine(tool, () => ({ output: 'out-a', completed: true }));
+    const calls = installEngine(tool, () => ({
+      output: 'out-a',
+      completed: true,
+    }));
 
     await tool.execute({
       description: '并行 A',
@@ -271,7 +312,10 @@ describe('swarm 工具契约贯通（O12-2）', () => {
     const tool = new AgentTool();
     const calls = installEngine(tool, (call) =>
       call.userPrompt.includes('worker 输出')
-        ? { output: JSON.stringify({ pass: true, feedback: '通过' }), completed: true }
+        ? {
+            output: JSON.stringify({ pass: true, feedback: '通过' }),
+            completed: true,
+          }
         : { output: 'out-a', completed: true }
     );
 
@@ -290,7 +334,7 @@ describe('swarm 工具契约贯通（O12-2）', () => {
     expect(result.output).toContain('allPassed: true');
 
     const worker = calls.find((c) => c.userPrompt.includes('你的子任务'));
-    expect((worker?.toolNames.length ?? 0)).toBeGreaterThan(0);
+    expect(worker?.toolNames.length ?? 0).toBeGreaterThan(0);
   });
 });
 
@@ -322,7 +366,9 @@ describe('可观测面（O19）：来源落盘 + 状态查询回退磁盘', () =
       ],
     });
 
-    const batchId = String((result.metadata as Record<string, unknown>)['agentId']);
+    const batchId = String(
+      (result.metadata as Record<string, unknown>)['agentId']
+    );
     const rows = (await getAgentRunStore().listRuns()).filter(
       (r) => r.batchId === batchId
     );
@@ -332,7 +378,10 @@ describe('可观测面（O19）：来源落盘 + 状态查询回退磁盘', () =
 
   test('单代理路径：解析成功 ⇒ 该 run 行记录来源', async () => {
     const tool = new AgentTool();
-    const calls = installEngine(tool, () => ({ output: 'ok', completed: true }));
+    const calls = installEngine(tool, () => ({
+      output: 'ok',
+      completed: true,
+    }));
     installResolver(tool, () => ({
       ok: true,
       source: 'builtin',
@@ -392,5 +441,304 @@ describe('可观测面（O19）：来源落盘 + 状态查询回退磁盘', () =
     );
     expect(status.status).toBe('not_found');
     expect(status.source).toBeUndefined();
+  });
+});
+
+/**
+ * M-5（P0-8，2026-09-22）：**结算即通知** —— 通知收敛为单一入口。
+ *
+ * 修复前 7 处 `settleRun` 调用点里只有 3 处手工补了通知：
+ * **单代理前台结算**（`execute()` 末尾）与 **descriptor fail-closed** 两条路径漏掉
+ * ⇒ 其上的 yield 等待永不收敛（"子代理结算"是该等待唯一的恢复触发源）。
+ * 修复后通知由 `settleRun()` 统一发出（`sessionId` 取自台账归属），并**删除**了
+ * 3 处手工调用（避免同一结算重复通知）。
+ *
+ * 说明：用例用实例级包装替换真实通知方法 —— 只验证"是否被调用 / 传入了什么"，
+ * **不触碰真实 `app.db` 的 outbox**（真实通知的端到端行为由 `tests/chat` 覆盖）。
+ */
+describe('M-5：结算通知收敛为单一入口', () => {
+  function captureNotifications(tool: AgentTool): Array<string | undefined> {
+    const notified: Array<string | undefined> = [];
+    Reflect.set(tool, 'notifyYieldSettlement', async (sessionId?: string) => {
+      notified.push(sessionId);
+    });
+    return notified;
+  }
+
+  test('单代理路径结算 ⇒ 发出通知且 `sessionId` 取自台账归属（修复前漏发）', async () => {
+    const tool = new AgentTool();
+    installEngine(tool, () => ({ output: 'ok', completed: true }));
+    installResolver(tool, () => ({
+      ok: true,
+      source: 'builtin',
+      systemPrompt: 'P',
+    }));
+    const notified = captureNotifications(tool);
+
+    await tool.execute(
+      { description: '单代理', prompt: '做点事', subagent_type: 'explore' },
+      { sessionId: 'sess-m5' } as unknown as Parameters<AgentTool['execute']>[1]
+    );
+
+    // 修复前单代理路径**没有任何通知调用** ⇒ 此处为空数组
+    expect(notified).toEqual(['sess-m5']);
+  });
+
+  test('并行批次路径 ⇒ 通知**恰好一次**（手工调用已删除，不重复）', async () => {
+    const tool = new AgentTool();
+    installEngine(tool, () => ({ output: 'out-a', completed: true }));
+    installResolver(tool, () => ({
+      ok: true,
+      source: 'builtin',
+      systemPrompt: 'P',
+    }));
+    const notified = captureNotifications(tool);
+
+    await tool.execute(
+      {
+        description: '并行 A',
+        prompt: '总任务',
+        tasks: [{ description: '子任务 A', prompt: 'p1' }],
+      },
+      { sessionId: 'sess-m5-batch' } as unknown as Parameters<
+        AgentTool['execute']
+      >[1]
+    );
+
+    expect(notified).toEqual(['sess-m5-batch']);
+  });
+});
+
+/**
+ * M-8（2026-09-22）：**预算触顶的收尾指令注入 LLM 输入**。
+ *
+ * 修复前：`settleGoalForRun` 产出的 `closingInstruction` **只记 warn 日志** ——
+ * 模型永远不知道"预算已耗尽、应停止新工作并盘点"（方案 §15.12 未做项 1）。
+ * 修复后：指令追加到批次 tool result 的 `result` 文本尾部 —— `TAORLoop` 会把
+ * `result` 序列化为 `role:'tool'` 消息（`TAORLoop.ts:1059-1074`）⇒ 模型下一轮必然读到。
+ * 通道**复用既有 tool result**，未触顶路径输出逐字不变。
+ *
+ * 注意：worker 工具池空集时 `AgentTool` 会 **fail-closed 不执行引擎**（`AgentTool.ts:1457`）
+ * ⇒ 不会产生 token 用量。故本组用例必须注入非空工具池（与 O12-1 组同法）。
+ */
+describe('M-8：预算触顶收尾指令注入 LLM 输入', () => {
+  let store: TaskGoalStore | undefined;
+  let dbPath = '';
+
+  beforeEach(() => {
+    setAgentToolManager(() =>
+      [...READ_TOOL_NAMES, ...WRITE_TOOL_NAMES].map(fakeTool)
+    );
+  });
+
+  afterEach(() => {
+    setAgentToolManager(() => []);
+    setTaskGoalStoreForTest(null);
+    store?.close();
+    store = undefined;
+    if (dbPath) {
+      try {
+        unlinkSync(dbPath);
+      } catch {
+        // @ignore-catch — 清理临时库失败不影响断言
+      }
+      dbPath = '';
+    }
+  });
+
+  /** 临时库注入（**不污染真实 `app.db`**） */
+  function installStore(): TaskGoalStore {
+    dbPath = join(tmpdir(), `agent-tool-goal-${randomUUID().slice(0, 8)}.db`);
+    store = new TaskGoalStore(dbPath);
+    setTaskGoalStoreForTest(store);
+    return store;
+  }
+
+  /** 跑一次真实的并行批次路径，返回 tool result 文本（= 模型下一轮读到的内容） */
+  async function runBatch(
+    produce: Parameters<typeof installEngine>[1],
+    sessionId: string
+  ): Promise<string> {
+    const tool = new AgentTool();
+    installEngine(tool, produce);
+    installResolver(tool, () => ({
+      ok: true,
+      source: 'builtin',
+      systemPrompt: 'P',
+    }));
+    const res = await tool.execute(
+      {
+        description: '并行 A',
+        prompt: '总任务',
+        tasks: [{ description: '子任务 A', prompt: 'p1' }],
+      },
+      { sessionId } as unknown as Parameters<AgentTool['execute']>[1]
+    );
+    return String(res.result ?? res.output ?? '');
+  }
+
+  const overBudget = (): {
+    output: string;
+    completed: boolean;
+    tokenUsage: { totalTokens: number };
+  } => ({
+    output: 'worker out',
+    completed: true,
+    tokenUsage: { totalTokens: 150 },
+  });
+
+  test('触顶 ⇒ tool result 携带收尾指令（修复前只有日志，用例必失败）', async () => {
+    const goalStore = installStore();
+    await goalStore.create({
+      objective: '长期目标',
+      sessionId: 'sess-m8-over',
+      tokenBudget: 100,
+    });
+
+    const text = await runBatch(overBudget, 'sess-m8-over');
+
+    expect(text).toContain('[SYSTEM]');
+    expect(text).toContain('(150/100)');
+    expect(text).toContain('Stop starting new work now');
+  });
+
+  test('未触顶 ⇒ 输出不含收尾指令（零回归）', async () => {
+    const goalStore = installStore();
+    await goalStore.create({
+      objective: '长期目标',
+      sessionId: 'sess-m8-under',
+      tokenBudget: 10000,
+    });
+
+    const text = await runBatch(overBudget, 'sess-m8-under');
+
+    expect(text).not.toContain('[SYSTEM]');
+  });
+
+  test('该会话无目标 ⇒ 输出不含收尾指令（不建行、不注入）', async () => {
+    const goalStore = installStore();
+
+    const text = await runBatch(overBudget, 'sess-m8-none');
+
+    expect(text).not.toContain('[SYSTEM]');
+    expect(await goalStore.listBySession('sess-m8-none')).toEqual([]);
+  });
+});
+
+/**
+ * M-7 接线（2026-09-22）：**`blocked` 结算 ⇒ 登记一次空闲续接**。
+ *
+ * 只测**接线**（是否登记 / `taskId` 与 `streak` 是否正确 / 是否只在 `blocked` 时登记）；
+ * 登记与可续性判定本身由 `tests/tasks/goal/goalIdleContinuation.test.ts` 覆盖。
+ *
+ * 必须经 `setIdleContinuationSchedulerForTest` 注入假调度器 —— 生产默认取 CG3 单例，
+ * 测试环境为 `null` ⇒ `enqueueIdleContinuation` 恒返回 false，**接线断了也会"看起来正常"**
+ *（正是今天在 route-table 注册线上踩过的同类漏挂坑）。
+ */
+describe('M-7：blocked 结算 ⇒ 登记空闲续接', () => {
+  let store: TaskGoalStore | undefined;
+  let dbPath = '';
+  const scheduled: Array<{
+    sessionId: string;
+    taskId: string;
+    seconds: number;
+  }> = [];
+
+  beforeEach(() => {
+    setAgentToolManager(() =>
+      [...READ_TOOL_NAMES, ...WRITE_TOOL_NAMES].map(fakeTool)
+    );
+    setIdleContinuationSchedulerForTest({
+      sleepFor: async (sessionId, taskId, seconds) => {
+        scheduled.push({ sessionId, taskId, seconds });
+        return { id: `wake-${scheduled.length}` };
+      },
+    });
+  });
+
+  afterEach(() => {
+    setAgentToolManager(() => []);
+    setIdleContinuationSchedulerForTest(undefined);
+    setTaskGoalStoreForTest(null);
+    scheduled.length = 0;
+    store?.close();
+    store = undefined;
+    if (dbPath) {
+      try {
+        unlinkSync(dbPath);
+      } catch {
+        // @ignore-catch — 清理临时库失败不影响断言
+      }
+      dbPath = '';
+    }
+  });
+
+  function installStore(): TaskGoalStore {
+    dbPath = join(tmpdir(), `agent-tool-idle-${randomUUID().slice(0, 8)}.db`);
+    store = new TaskGoalStore(dbPath);
+    setTaskGoalStoreForTest(store);
+    return store;
+  }
+
+  /** 跑 2 个任务的批次；`failSecond` ⇒ 第 2 个 worker 失败（得到"部分成功"= blocked） */
+  async function runTwoTaskBatch(
+    sessionId: string,
+    failSecond: boolean
+  ): Promise<void> {
+    const tool = new AgentTool();
+    let call = 0;
+    installEngine(tool, () => {
+      call += 1;
+      return { output: `out-${call}`, completed: !(failSecond && call === 2) };
+    });
+    installResolver(tool, () => ({
+      ok: true,
+      source: 'builtin',
+      systemPrompt: 'P',
+    }));
+
+    await tool.execute(
+      {
+        description: '并行',
+        prompt: '总任务',
+        tasks: [
+          { description: '子任务 A', prompt: 'p1' },
+          { description: '子任务 B', prompt: 'p2' },
+        ],
+      },
+      { sessionId } as unknown as Parameters<AgentTool['execute']>[1]
+    );
+  }
+
+  test('部分成功 ⇒ 落 blocked 且登记一次（taskId 编码 streak=1）', async () => {
+    const goalStore = installStore();
+    const goal = await goalStore.create({
+      objective: '慢目标',
+      sessionId: 'sess-idle-blocked',
+    });
+
+    await runTwoTaskBatch('sess-idle-blocked', true);
+
+    expect((await goalStore.get(goal.id))?.status).toBe('blocked');
+    expect(scheduled).toEqual([
+      {
+        sessionId: 'sess-idle-blocked',
+        taskId: `${IDLE_CONTINUE_TASK_PREFIX}${goal.id}:1`,
+        seconds: IDLE_CONTINUE_DELAY_SEC,
+      },
+    ]);
+  });
+
+  test('全部通过 ⇒ 落 completed 且**不登记**（只有 blocked 才登记）', async () => {
+    const goalStore = installStore();
+    const goal = await goalStore.create({
+      objective: '一次过',
+      sessionId: 'sess-idle-done',
+    });
+
+    await runTwoTaskBatch('sess-idle-done', false);
+
+    expect((await goalStore.get(goal.id))?.status).toBe('completed');
+    expect(scheduled).toEqual([]);
   });
 });

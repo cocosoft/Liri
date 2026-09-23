@@ -39,7 +39,6 @@ import type { ChatSession } from '../../../src/chat/types/session.js';
 import type { Message } from '../../../src/chat/types/message.js';
 import type { SimpleMutex } from '../../../src/core/SimpleMutex.js';
 import type {
-  ChatMessage,
   ChatResponse,
   ThinkingProviderChunk,
   ToolAwareClient,
@@ -168,7 +167,6 @@ export function createTestHost(
 
     // ── 开关 ──
     ENABLE_TELEMETRY: false,
-    ENABLE_TRAJECTORY: false,
     ENABLE_PLAN_DRIVEN_LOOP: true,
     MAX_TOOL_TURNS: 30,
 
@@ -178,7 +176,9 @@ export function createTestHost(
       createAssistantMessage: () => ({}) as Message,
     },
     sessionLifecycle: {} as ChatOrchestratorHost['sessionLifecycle'],
-    hookChainManager: { execute: async () => {} } as unknown as ChatOrchestratorHost['hookChainManager'],
+    hookChainManager: {
+      execute: async () => {},
+    } as unknown as ChatOrchestratorHost['hookChainManager'],
     unifiedTracker: {
       checkBeforeRequest: async () => ({
         decision: 'skip',
@@ -205,7 +205,11 @@ export function createTestHost(
     addAndPersistMessage: () => {},
     appendStreamEvent: async () => ({ ok: true, tailSeq: 0 }),
     // A-2①（2026-09-02）：缓冲/聚合语义对齐存储层默认端口（测试可经 appendStreamEvent 收集）
-    bufferStreamTextChunk: async (sid: string, _mid: string, content: string) => {
+    bufferStreamTextChunk: async (
+      sid: string,
+      _mid: string,
+      content: string
+    ) => {
       const arr = hostTextBuffers.get(sid) ?? [];
       arr.push(content);
       hostTextBuffers.set(sid, arr);

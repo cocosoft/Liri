@@ -1,17 +1,36 @@
 import "@testing-library/jest-dom";
 import { afterEach, vi } from "vitest";
+import { createTestT } from "./createTestT";
 
 // jsdom 环境下每个测试后自动清理
 afterEach(() => {
   document.body.innerHTML = "";
 });
 
-// Mock react-i18next 避免测试环境 NO_I18NEXT_INSTANCE 警告，保证 t() 返回原始 key
+/**
+ * TR-15 修复（2026-09-22）：`t` 由「返回裸 key」改为**读真实字典**（zh）。
+ *
+ * - **为何不 import 真实 i18n 实例**：会死锁（异步 `vi.mock` 工厂 + `i18n/index.ts` 对
+ *   `react-i18next` 的 import 形成循环等待，已实测挂起 >105s）—— 见 TR-15 附注。
+ * - **为何只读 `i18n/locales/zh.ts`**：它是**纯数据模块**（不 import react-i18next）⇒ 无环。
+ * - **为何经 `globalThis` 传递**：`vi.mock` 工厂会被提升到文件顶部，工厂内**不能**引用
+ *   setup 顶层的变量（会得到 undefined）；经 `globalThis` 在**调用时**读取即可绕开该限制，
+ *   且无需 async hoisted（避免重蹈 TR-15 的异步坑）。
+ * - **核心收益**：字典缺键/拼错/翻译写错会在 CI 中**暴露**（`createTestT` 缺键即抛错），
+ *   而不是静默渲染成裸 key。
+ */
+type TestT = (key: string, arg2?: unknown, arg3?: unknown) => string;
+const testTStore = globalThis as unknown as { __liriTestT?: TestT };
+testTStore.__liriTestT = createTestT() as TestT;
+
 // initReactI18next 必须有 type（i18next v26 use() 严格校验 module.type），
 // 否则 i18n/index.ts 的 i18n.use(initReactI18next) 抛 "You are passing a wrong module!"（L-3242）
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
-    t: (k: string) => k,
+    t: (key: string, arg2?: unknown, arg3?: unknown): string => {
+      const g = globalThis as unknown as { __liriTestT?: TestT };
+      return g.__liriTestT ? g.__liriTestT(key, arg2, arg3) : key; // 兜底：setup 未执行完时（不应发生）退回裸 key
+    },
     i18n: { changeLanguage: () => Promise.resolve(), language: "zh" },
   }),
   Trans: ({ children }: { children: React.ReactNode }) => children,

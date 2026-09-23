@@ -146,6 +146,12 @@ class SSEService {
     this.startHeartbeat();
     this.stopPolling();
 
+    // TB-5（2026-09-23）：广播"连接已建立/重建"。
+    // 用途：让原先**自建 EventSource** 的消费者（`useNotificationSSE` 靠 `EventSource.onopen`
+    // 做"重连后增量补拉列表 + 刷新计数"）能复用**单一事件源** ⇒ 消除同一端点两条常驻 SSE
+    // （dev 与 prod 构建产物实测均为 2），并顺带消除 `EventSource` 无法携带鉴权头的问题。
+    this.dispatch("connection:open", { wasReconnecting });
+
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;

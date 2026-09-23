@@ -14,6 +14,10 @@ import { handleError } from '@modules/error';
 import { providerRegistry, modelRouter } from '@modules/ai';
 import { ToolAwareClient } from '@modules/ai';
 import { resolvePyappHome } from '@modules/core';
+import {
+  enterPhase,
+  exitPhase,
+} from '@modules/diagnostics/loopProbe/phaseStack';
 import { join } from 'path';
 import {
   readdirSync,
@@ -233,187 +237,192 @@ export async function runMemoryDream(
   memoryManager: MemoryManagerImpl,
   opts?: { maxMemories?: number; skipKnowledgeSync?: boolean }
 ): Promise<DreamResult> {
-  let knowledgeSynced = 0;
-  const details: DreamResult['details'] = [];
+  enterPhase('dream:cycle');
+  try {
+    let knowledgeSynced = 0;
+    const details: DreamResult['details'] = [];
 
-  // Phase 1: 知识文件回写（AutoDream 产物 → 记忆系统）
-  if (!opts?.skipKnowledgeSync) {
-    knowledgeSynced = await syncKnowledgeFiles(memoryManager);
-    logger.info('知识文件同步完成', { count: knowledgeSynced });
-  }
-
-  // Phase 2: 内部 LLM 精炼
-  const maxMemories = opts?.maxMemories || MAX_MEMORIES_PER_DREAM;
-  const allMemories = await memoryManager.getAllMemories();
-
-  if (allMemories.length < 2) {
-    return {
-      groupsProcessed: 0,
-      originalCount: 0,
-      refinedCount: 0,
-      knowledgeSynced,
-      details: [],
-    };
-  }
-
-  const groups = new Map<string, typeof allMemories>();
-  for (const m of allMemories) {
-    const type = m.metadata?.type || 'unknown';
-    if (!groups.has(type)) groups.set(type, []);
-    groups.get(type)!.push(m);
-  }
-
-  // 精炼模型显式通过模型路由解析（DB 唯一事实来源），并匹配对应 provider，
-  // 避免回退默认 provider 的不可控默认模型（曾导致 Kimi-K2.6 调 SiliconFlow 端点 400）
-  const refineModel = await modelRouter.resolveAsync('quick');
-  const provider =
-    (refineModel && providerRegistry.getByModel(refineModel)) ||
-    providerRegistry.getDefaultProvider();
-  if (!provider) {
-    logger.warn('MemoryDream: 无可用 AI Provider');
-    return {
-      groupsProcessed: 0,
-      originalCount: 0,
-      refinedCount: 0,
-      knowledgeSynced,
-      details: [],
-    };
-  }
-
-  const client = new ToolAwareClient(provider, null, null);
-  let totalOriginal = 0;
-  let totalRefined = 0;
-
-  const typeNameMap: Record<string, string> = {
-    user_fact: '用户身份',
-    user_preference: '用户偏好',
-    project_knowledge: '项目上下文',
-    code_pattern: '系统指令',
-    decision: '知识库',
-  };
-
-  for (const [type, memories] of groups) {
-    if (memories.length < 2) continue;
-    const batch = memories.slice(0, maxMemories);
-    totalOriginal += batch.length;
-    const typeName = typeNameMap[type] || type;
-
-    try {
-      const response = await client.sendMessage(
-        [
-          {
-            role: 'user',
-            content: buildDreamPrompt(
-              typeName,
-              batch.map((m) => ({
-                id: m.id,
-                content: m.content,
-                tags: m.metadata?.tags || [],
-              }))
-            ),
-          },
-        ],
-        { model: refineModel, temperature: 0.3, maxTokens: 4096 }
-      );
-
-      const refined = extractRefineResult(response.content);
-      if (!refined) {
-        // LLM 输出格式漂移/截断（历史 error「JSON Parse error: Expected '}'」根因）：
-        // 降级保留原记忆，仅 warn，不再 handleError 刷屏
-        logger.warn('Dream精炼: LLM 输出无法解析为 JSON 数组，保留原记忆', {
-          typeName,
-          contentLength: response.content.length,
-        });
-        details.push({
-          type: typeName,
-          original: batch.length,
-          refined: batch.length,
-          mergedPairs: 0,
-        });
-        totalRefined += batch.length;
-        continue;
-      }
-      if (refined.length === 0) {
-        details.push({
-          type: typeName,
-          original: batch.length,
-          refined: batch.length,
-          mergedPairs: 0,
-        });
-        totalRefined += batch.length;
-        continue;
-      }
-
-      // KB-MEM-TXN（2026-08-29）：先建后删——原实现先 deleteMemory 全部旧记忆再
-      // createMemory，中途失败/进程中断 → 原记忆已删、新记忆未写（该组记忆永久丢失）。
-      // 改为全部新记忆创建成功后，才删除旧记忆；中途失败保留原记忆（宁可重复，不可丢失）。
-      let createdAll = true;
-      for (const item of refined) {
-        if (!item.content?.trim()) continue;
-        try {
-          await memoryManager.createMemory({
-            content: item.content.trim(),
-            metadata: createMemoryMetadata({
-              name: `精炼${typeName}`,
-              type,
-              tags: item.tags || [],
-              priority: 12,
-            }),
-          });
-        } catch (createErr) {
-          createdAll = false;
-          logger.warn('Dream精炼: 新记忆创建失败，保留原记忆避免丢失', {
-            typeName,
-            error:
-              createErr instanceof Error
-                ? createErr.message
-                : String(createErr),
-          });
-          break;
-        }
-      }
-      if (createdAll) {
-        for (const m of batch) {
-          await memoryManager.deleteMemory(m.id);
-        }
-      }
-
-      const mergedPairs = batch.length - refined.length;
-      details.push({
-        type: typeName,
-        original: batch.length,
-        refined: refined.length,
-        mergedPairs: Math.max(0, mergedPairs),
-      });
-      totalRefined += refined.length;
-
-      logger.info(`Dream精炼: ${typeName}`, {
-        original: batch.length,
-        refined: refined.length,
-      });
-    } catch (err) {
-      void handleError(err, {
-        module: 'memory:dream',
-        action: 'Dream 精炼失败',
-        context: { typeName },
-      });
-      details.push({
-        type: typeName,
-        original: batch.length,
-        refined: batch.length,
-        mergedPairs: 0,
-      });
-      totalRefined += batch.length;
+    // Phase 1: 知识文件回写（AutoDream 产物 → 记忆系统）
+    if (!opts?.skipKnowledgeSync) {
+      knowledgeSynced = await syncKnowledgeFiles(memoryManager);
+      logger.info('知识文件同步完成', { count: knowledgeSynced });
     }
+
+    // Phase 2: 内部 LLM 精炼
+    const maxMemories = opts?.maxMemories || MAX_MEMORIES_PER_DREAM;
+    const allMemories = await memoryManager.getAllMemories();
+
+    if (allMemories.length < 2) {
+      return {
+        groupsProcessed: 0,
+        originalCount: 0,
+        refinedCount: 0,
+        knowledgeSynced,
+        details: [],
+      };
+    }
+
+    const groups = new Map<string, typeof allMemories>();
+    for (const m of allMemories) {
+      const type = m.metadata?.type || 'unknown';
+      if (!groups.has(type)) groups.set(type, []);
+      groups.get(type)!.push(m);
+    }
+
+    // 精炼模型显式通过模型路由解析（DB 唯一事实来源），并匹配对应 provider，
+    // 避免回退默认 provider 的不可控默认模型（曾导致 Kimi-K2.6 调 SiliconFlow 端点 400）
+    const refineModel = await modelRouter.resolveAsync('quick');
+    const provider =
+      (refineModel && providerRegistry.getByModel(refineModel)) ||
+      providerRegistry.getDefaultProvider();
+    if (!provider) {
+      logger.warn('MemoryDream: 无可用 AI Provider');
+      return {
+        groupsProcessed: 0,
+        originalCount: 0,
+        refinedCount: 0,
+        knowledgeSynced,
+        details: [],
+      };
+    }
+
+    const client = new ToolAwareClient(provider, null, null);
+    let totalOriginal = 0;
+    let totalRefined = 0;
+
+    const typeNameMap: Record<string, string> = {
+      user_fact: '用户身份',
+      user_preference: '用户偏好',
+      project_knowledge: '项目上下文',
+      code_pattern: '系统指令',
+      decision: '知识库',
+    };
+
+    for (const [type, memories] of groups) {
+      if (memories.length < 2) continue;
+      const batch = memories.slice(0, maxMemories);
+      totalOriginal += batch.length;
+      const typeName = typeNameMap[type] || type;
+
+      try {
+        const response = await client.sendMessage(
+          [
+            {
+              role: 'user',
+              content: buildDreamPrompt(
+                typeName,
+                batch.map((m) => ({
+                  id: m.id,
+                  content: m.content,
+                  tags: m.metadata?.tags || [],
+                }))
+              ),
+            },
+          ],
+          { model: refineModel, temperature: 0.3, maxTokens: 4096 }
+        );
+
+        const refined = extractRefineResult(response.content);
+        if (!refined) {
+          // LLM 输出格式漂移/截断（历史 error「JSON Parse error: Expected '}'」根因）：
+          // 降级保留原记忆，仅 warn，不再 handleError 刷屏
+          logger.warn('Dream精炼: LLM 输出无法解析为 JSON 数组，保留原记忆', {
+            typeName,
+            contentLength: response.content.length,
+          });
+          details.push({
+            type: typeName,
+            original: batch.length,
+            refined: batch.length,
+            mergedPairs: 0,
+          });
+          totalRefined += batch.length;
+          continue;
+        }
+        if (refined.length === 0) {
+          details.push({
+            type: typeName,
+            original: batch.length,
+            refined: batch.length,
+            mergedPairs: 0,
+          });
+          totalRefined += batch.length;
+          continue;
+        }
+
+        // KB-MEM-TXN（2026-08-29）：先建后删——原实现先 deleteMemory 全部旧记忆再
+        // createMemory，中途失败/进程中断 → 原记忆已删、新记忆未写（该组记忆永久丢失）。
+        // 改为全部新记忆创建成功后，才删除旧记忆；中途失败保留原记忆（宁可重复，不可丢失）。
+        let createdAll = true;
+        for (const item of refined) {
+          if (!item.content?.trim()) continue;
+          try {
+            await memoryManager.createMemory({
+              content: item.content.trim(),
+              metadata: createMemoryMetadata({
+                name: `精炼${typeName}`,
+                type,
+                tags: item.tags || [],
+                priority: 12,
+              }),
+            });
+          } catch (createErr) {
+            createdAll = false;
+            logger.warn('Dream精炼: 新记忆创建失败，保留原记忆避免丢失', {
+              typeName,
+              error:
+                createErr instanceof Error
+                  ? createErr.message
+                  : String(createErr),
+            });
+            break;
+          }
+        }
+        if (createdAll) {
+          for (const m of batch) {
+            await memoryManager.deleteMemory(m.id);
+          }
+        }
+
+        const mergedPairs = batch.length - refined.length;
+        details.push({
+          type: typeName,
+          original: batch.length,
+          refined: refined.length,
+          mergedPairs: Math.max(0, mergedPairs),
+        });
+        totalRefined += refined.length;
+
+        logger.info(`Dream精炼: ${typeName}`, {
+          original: batch.length,
+          refined: refined.length,
+        });
+      } catch (err) {
+        void handleError(err, {
+          module: 'memory:dream',
+          action: 'Dream 精炼失败',
+          context: { typeName },
+        });
+        details.push({
+          type: typeName,
+          original: batch.length,
+          refined: batch.length,
+          mergedPairs: 0,
+        });
+        totalRefined += batch.length;
+      }
+    }
+
+    await memoryManager.buildMemoryIndex();
+
+    return {
+      groupsProcessed: details.length,
+      originalCount: totalOriginal,
+      refinedCount: totalRefined,
+      knowledgeSynced,
+      details,
+    };
+  } finally {
+    exitPhase('dream:cycle');
   }
-
-  await memoryManager.buildMemoryIndex();
-
-  return {
-    groupsProcessed: details.length,
-    originalCount: totalOriginal,
-    refinedCount: totalRefined,
-    knowledgeSynced,
-    details,
-  };
 }

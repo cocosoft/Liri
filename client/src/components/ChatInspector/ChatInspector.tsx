@@ -6,7 +6,14 @@
  */
 
 import React from "react";
-import { useCallback, useRef, useEffect, useMemo } from "react";
+import {
+  useCallback,
+  useRef,
+  useEffect,
+  useMemo,
+  useDeferredValue,
+} from "react";
+import { useTranslation } from "react-i18next";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useChatInspectorStore } from "../../stores/chatInspectorStore";
 import type { InspectorTab } from "../../stores/chatInspectorStore";
@@ -17,32 +24,33 @@ import { useSessionStore } from "../../stores/sessionStore";
 import { useTrajectoryStore } from "../../stores/chat/trajectoryStore";
 import { TrajectoryFilter } from "../Trajectory/TrajectoryFilter";
 import { TrajectoryRow } from "../Trajectory/TrajectoryRow";
-import { TrajectoryDetail } from "../Trajectory/TrajectoryDetail";
+import TrajectoryDetail from "../Trajectory/TrajectoryDetail";
+import { TrajectoryTimeline } from "../Trajectory/TrajectoryTimeline";
 import { TrajectoryPlayer } from "../Trajectory/TrajectoryPlayer";
 import LogTab from "./LogTab";
-import type { LiriEvent } from "../../types";
-import { categorizeEvent } from "../../types";
+// P1-5（2026-09-22）：`LiriEvent` / `categorizeEvent` 的导入随过滤逻辑抽取而移除
+//（现仅在 `stores/chat/filterTrajectoryEvents.ts` 中使用）
 import { trajectoryService } from "../../services/trajectoryService";
 import {
   deriveTrajectoryLayout,
+  filterCollapsedTurns,
   flattenLayout,
 } from "../../stores/chat/deriveTrajectoryLayout";
+import { filterTrajectoryEvents } from "../../stores/chat/filterTrajectoryEvents";
+// API 指标展示（2026-09-23，`.trae/specs/api-metrics-surface.md`）：请求级聚合分区
+import {
+  deriveApiMetrics,
+  type ApiMetricsPercentiles,
+} from "../../stores/chat/deriveApiMetrics";
+import { formatDuration } from "../../stores/chat/deriveTrajectoryTimeline";
+import { formatTokens } from "../../utils/format";
+import type { LiriEvent } from "../../types";
+import { useCollapsedTurns } from "../../hooks/useCollapsedTurns";
 
 // ─── 配置 ─────────────────────────────────────────
 
-// P7（2026-08-25）：来源维度派生映射（对标 DSH 按来源查看，复用 categorizeEvent 而非新加枚举）
-const CATEGORY_TO_SOURCE: Record<string, string> = {
-  conversation: "llm",
-  tool: "tool",
-  context: "system",
-  system: "system",
-  channel: "channel",
-  lifecycle: "system",
-};
-
-function categoryToSource(category: string): string {
-  return CATEGORY_TO_SOURCE[category] ?? "system";
-}
+// P1-5（2026-09-22）：来源维度派生映射（`categoryToSource`）与事件过滤逻辑统一移入
+// `stores/chat/filterTrajectoryEvents.ts`（纯函数，可单测），此处不再保留副本。
 
 const TABS: { id: InspectorTab; icon: React.ReactNode; label: string }[] = [
   {
@@ -175,6 +183,7 @@ const CollapsedBar = React.memo(CollapsedBarImpl);
 
 /** 内嵌版轨迹面板（放在 ChatInspector Tab 里的版本，不带外层独立抽屉壳） */
 function TrajectoryTabContentImpl() {
+  const { t } = useTranslation();
   const currentSession = useSessionStore((s) => s.currentSession);
   const sessionId = currentSession?.id ?? null;
 
@@ -187,7 +196,9 @@ function TrajectoryTabContentImpl() {
     filter,
     loadEvents,
     loadMore,
+    loadOlder,
     hasMore,
+    hasEarlier,
     selectEvent,
     setFilter,
     playing,
@@ -199,66 +210,110 @@ function TrajectoryTabContentImpl() {
     advancePlayback,
   } = useTrajectoryStore();
 
-  // 会话切换 → 重新加载该会话的事件流
+  // ── P1-1（2026-09-22）向前补页：滚动锚定 ──────────────────────────────
+  // 补页会**前插**一段更早记录 ⇒ 容器 scrollHeight 变大，若不动 scrollTop，用户视野会
+  // 被"推走"。故：发起前记录 (scrollHeight, scrollTop)，补页落地后按高度差补偿
+  // scrollTop，使用户仍停留在原来那条记录上（对齐 deepseek-harness 的 prepend 锚定）。
+  const olderAnchorRef = useRef<{
+    scrollHeight: number;
+    scrollTop: number;
+  } | null>(null);
+
+  const handleLoadOlder = useCallback(() => {
+    const el = flatParentRef.current;
+    if (!el || olderAnchorRef.current) return;
+    olderAnchorRef.current = {
+      scrollHeight: el.scrollHeight,
+      scrollTop: el.scrollTop,
+    };
+    void loadOlder();
+  }, [loadOlder]);
+
+  /** 顶部哨兵：滚动接近顶部（≤80px）时自动补页（受 hasEarlier / loading 双重守卫） */
+  const handleTrajectoryScroll = useCallback(() => {
+    const el = flatParentRef.current;
+    if (!el || !hasEarlier || loading) return;
+    if (el.scrollTop <= 80) handleLoadOlder();
+  }, [handleLoadOlder, hasEarlier, loading]);
+
+  // 补页落地后补偿滚动位置（等虚拟化器测量完成，避免用旧高度计算）
   useEffect(() => {
+    const anchor = olderAnchorRef.current;
+    if (!anchor) return;
+    const el = flatParentRef.current;
+    if (!el) {
+      olderAnchorRef.current = null;
+      return;
+    }
+    const raf = requestAnimationFrame(() => {
+      el.scrollTop = anchor.scrollTop + (el.scrollHeight - anchor.scrollHeight);
+      olderAnchorRef.current = null;
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [events.length]);
+
+  // P1-6（2026-09-22）：Turn 级折叠 —— **状态机制与日志 Tab 共用同一 hook**（归一化：
+  // 此前折叠只在 LogTab 存在，轨迹 Tab 没有）。声明位置需在下方会话切换 effect 之前
+  //（该 effect 会 clear，避免 TDZ）。
+  const {
+    collapsedTurns,
+    toggleTurn,
+    isCollapsed,
+    clear: clearCollapsedTurns,
+  } = useCollapsedTurns();
+
+  // 会话切换 → 重新加载该会话的事件流（并丢弃上一会话遗留的补页锚点与折叠态）
+  useEffect(() => {
+    olderAnchorRef.current = null;
+    clearCollapsedTurns(); // P1-6：turn 序号属会话内语义，跨会话沿用会错折叠
     if (sessionId) {
       loadEvents(sessionId);
     }
-  }, [sessionId, loadEvents]);
+  }, [sessionId, loadEvents, clearCollapsedTurns]);
 
-  // 过滤后的事件（按 category/type/关键字过滤）
-  const filteredEvents = useMemo(() => {
-    let result: LiriEvent[] = events;
-    if (filter.categories.length > 0) {
-      const set = new Set(filter.categories);
-      result = result.filter((e) => set.has(categorizeEvent(e.type)));
-    }
-    if (filter.types.length > 0) {
-      const set = new Set(filter.types);
-      result = result.filter((e) => set.has(e.type));
-    }
-    // P7（2026-08-25）：来源过滤（categorizeEvent → source 派生映射）
-    if (filter.sources.length > 0) {
-      const set = new Set(filter.sources);
-      result = result.filter((e) =>
-        set.has(categoryToSource(categorizeEvent(e.type))),
-      );
-    }
-    // P7（2026-08-25）：seq / 时间区间过滤
-    if (filter.minSeq !== undefined)
-      result = result.filter((e) => e.seq >= filter.minSeq!);
-    if (filter.maxSeq !== undefined)
-      result = result.filter((e) => e.seq <= filter.maxSeq!);
-    if (filter.fromTime !== undefined)
-      result = result.filter((e) => e.time >= filter.fromTime!);
-    if (filter.toTime !== undefined)
-      result = result.filter((e) => e.time <= filter.toTime!);
-    if (filter.keyword.trim()) {
-      const kw = filter.keyword.trim().toLowerCase();
-      result = result.filter((e) => {
-        const data = e.data as Record<string, unknown>;
-        const candidates = [
-          typeof data.content === "string" ? data.content : "",
-          typeof data.name === "string" ? data.name : "",
-          typeof data.error === "string" ? data.error : "",
-          typeof data.message === "string" ? data.message : "",
-          typeof data.result === "string" ? data.result : "",
-          typeof data.toolCallId === "string" ? data.toolCallId : "",
-          typeof data.turn === "number" || typeof data.turn === "string"
-            ? String(data.turn)
-            : "",
-          typeof data.model === "string" ? data.model : "",
-        ];
-        return candidates.some((c) => c.toLowerCase().includes(kw));
-      });
-    }
-    return result;
-  }, [events, filter]);
-
-  const selectedEvent = useMemo(() => {
-    if (selectedSeq === null) return null;
-    return events.find((e) => e.seq === selectedSeq) ?? null;
-  }, [events, selectedSeq]);
+  // 过滤后的事件（按 category/type/来源/seq/时间/关键字过滤）
+  //
+  // P1-5（2026-09-22）节流：**关键字用延迟值参与过滤** —— 输入框保持即时响应（`filter.keyword`
+  // 照常即时回显），而"过滤 → 布局派生 → 虚拟列表重建"这条随事件数线性变重的链路降为
+  // 低优先级渲染。
+  //
+  // 关键实现细节：**不能把整个 `filter` 对象作为依赖**，否则每次按键都会在紧急渲染里重算
+  // memo（拿到的还是旧的延迟关键字 ⇒ 纯属浪费且照样阻塞输入）。故此处**解构出离散维度**
+  //（点击类筛选，非逐键）作为依赖，只有 keyword 走 `deferredKeyword`。
+  const {
+    categories: filterCategories,
+    types: filterTypes,
+    sources: filterSources,
+    minSeq: filterMinSeq,
+    maxSeq: filterMaxSeq,
+    fromTime: filterFromTime,
+    toTime: filterToTime,
+  } = filter;
+  const deferredKeyword = useDeferredValue(filter.keyword);
+  const filteredEvents = useMemo(
+    () =>
+      filterTrajectoryEvents(events, {
+        categories: filterCategories,
+        types: filterTypes,
+        sources: filterSources,
+        minSeq: filterMinSeq,
+        maxSeq: filterMaxSeq,
+        fromTime: filterFromTime,
+        toTime: filterToTime,
+        keyword: deferredKeyword,
+      }),
+    [
+      events,
+      filterCategories,
+      filterTypes,
+      filterSources,
+      filterMinSeq,
+      filterMaxSeq,
+      filterFromTime,
+      filterToTime,
+      deferredKeyword,
+    ],
+  );
 
   // R-1（2026-08-23）：轨迹 Tab 按 Turn/Step 分组渲染（恢复规格书 E-2 交付物），
   // 孤立事件（session/start 等）单独列出
@@ -268,7 +323,25 @@ function TrajectoryTabContentImpl() {
   );
 
   // P1（2026-08-25）：轨迹 Tab 虚拟滚动——layout 拍平为行列表，Turn 头作为独立 virtual item
-  const flatRows = useMemo(() => flattenLayout(layout), [layout]);
+  // P1-6（2026-09-22）：Turn 级折叠 —— **状态机制与日志 Tab 共用同一 hook**（归一化：
+  // 此前折叠只在 LogTab 存在，轨迹 Tab 没有），过滤走纯函数 `filterCollapsedTurns`
+  //（turn 头保留、被折叠 turn 的事件行跳过）。下游 `flatRows` 引用保持不变（最小改动）。
+  const allRows = useMemo(() => flattenLayout(layout), [layout]);
+  const flatRows = useMemo(
+    () => filterCollapsedTurns(allRows, collapsedTurns),
+    [allRows, collapsedTurns],
+  );
+
+  // TB-6（2026-09-23，方案 B）：详情浮层的数据源 —— 由 `selectedSeq` 反查事件对象。
+  // 之所以要它：详情已移出"行内/滚动流"，改由面板级浮层渲染 ⇒ 需要独立拿到被选事件。
+  const selectedEvent = useMemo(
+    () =>
+      selectedSeq == null
+        ? null
+        : (events.find((e) => e.seq === selectedSeq) ?? null),
+    [events, selectedSeq],
+  );
+
   const flatParentRef = useRef<HTMLDivElement>(null);
   const rowVirtualizer = useVirtualizer({
     count: flatRows.length,
@@ -318,25 +391,29 @@ function TrajectoryTabContentImpl() {
   if (!sessionId) {
     return (
       <div className="p-6 text-sm text-gray-500 dark:text-gray-400 text-center">
-        还没有选中会话。
+        {t("trajectory.list.noSession")}
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
+    <div className="relative flex flex-col h-full overflow-hidden">
       <div className="px-4 py-2 text-xs text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/50 flex items-center justify-between">
         <span>
-          {filteredEvents.length}/{events.length} 条 · tailSeq={liveTailSeq}
+          {t("trajectory.header.count", {
+            shown: filteredEvents.length,
+            total: events.length,
+            tailSeq: liveTailSeq,
+          })}
         </span>
         {/* P7：导出事件（jsonl） */}
         <button
           onClick={() => sessionId && trajectoryService.exportEvents(sessionId)}
           disabled={!sessionId || events.length === 0}
           className="px-2 py-0.5 text-[10px] rounded border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed"
-          title="导出事件为 JSONL"
+          title={t("trajectory.header.exportTitle")}
         >
-          导出事件
+          {t("trajectory.header.export")}
         </button>
       </div>
       <TrajectoryPlayer
@@ -351,18 +428,49 @@ function TrajectoryTabContentImpl() {
         onNextTurn={() => jumpTurn(1)}
       />
       <TrajectoryFilter filter={filter} onChange={setFilter} />
-      <div ref={flatParentRef} className="flex-1 overflow-y-auto">
+      {/* P1-4（2026-09-22）只读时间线：与列表使用**同一份过滤后事件**（口径一致） */}
+      <TrajectoryTimeline
+        events={filteredEvents}
+        selectedSeq={selectedSeq}
+        onSelect={selectEvent}
+      />
+      {/* API 指标展示（2026-09-23）：请求级聚合分区 —— 时间线之下、事件列表之上，
+          与过滤后事件同源（口径与时间线/列表一致） */}
+      <ApiMetricsSection events={filteredEvents} />
+      <div
+        ref={flatParentRef}
+        className="flex-1 overflow-y-auto"
+        onScroll={handleTrajectoryScroll}
+      >
+        {/* P1-1（2026-09-22）：向前补页入口（仅当后端 hasEarlier 为真时出现；
+            滚动到顶部也会自动触发，见 handleTrajectoryScroll） */}
+        {hasEarlier && (
+          <div className="p-2 text-center">
+            <button
+              onClick={handleLoadOlder}
+              disabled={loading}
+              className="px-3 py-1.5 text-xs text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded disabled:opacity-40 disabled:cursor-not-allowed"
+              title={t("trajectory.list.loadOlderTitle")}
+            >
+              {loading
+                ? t("trajectory.list.loading")
+                : t("trajectory.list.loadOlder")}
+            </button>
+          </div>
+        )}
         {loading && events.length === 0 ? (
           <div className="p-4 text-sm text-gray-500 dark:text-gray-400">
-            加载中...
+            {t("trajectory.list.loading")}
           </div>
         ) : error ? (
           <div className="p-4 text-sm text-red-600 dark:text-red-400">
-            加载失败：{error}
+            {t("trajectory.list.loadError", { error })}
           </div>
         ) : filteredEvents.length === 0 ? (
           <div className="p-4 text-sm text-gray-500 dark:text-gray-400">
-            {events.length === 0 ? "暂无事件" : "无匹配事件"}
+            {events.length === 0
+              ? t("trajectory.list.noEvents")
+              : t("trajectory.list.noMatch")}
           </div>
         ) : (
           <div
@@ -389,38 +497,61 @@ function TrajectoryTabContentImpl() {
                   }}
                 >
                   {row.kind === "turn-header" ? (
-                    /* Turn 分组头（P1：独立 virtual item，不再使用 sticky） */
-                    <div className="px-3 py-1.5 text-[11px] flex items-center gap-2 bg-gray-50/80 dark:bg-gray-900/80 border-b border-gray-100 dark:border-gray-800">
+                    /* Turn 分组头（P1：独立 virtual item，不再使用 sticky）
+                       P1-6（2026-09-22）：整行作为折叠开关（点击折叠/展开该 turn 的事件行） */
+                    <button
+                      type="button"
+                      onClick={() => toggleTurn(row.turn.turn)}
+                      className="w-full px-3 py-1.5 text-[11px] flex items-center gap-2 text-left bg-gray-50/80 dark:bg-gray-900/80 border-b border-gray-100 dark:border-gray-800"
+                    >
                       <span className="font-semibold text-blue-600 dark:text-blue-400">
                         Turn {row.turn.turn}
                       </span>
                       <span className="text-gray-400">
-                        seq {row.turn.startSeq}-{row.turn.endSeq} ·{" "}
-                        {row.turn.eventCount} 事件
+                        {t("trajectory.turn.meta", {
+                          start: row.turn.startSeq,
+                          end: row.turn.endSeq,
+                          count: row.turn.eventCount,
+                        })}
                       </span>
                       {row.turn.completed ? (
                         <span className="text-green-600 dark:text-green-400">
-                          已完成
+                          {t("trajectory.turn.completed")}
                         </span>
                       ) : row.turn.interrupted ? (
-                        <span className="text-orange-500">已中断</span>
+                        <span className="text-orange-500">
+                          {t("trajectory.turn.interrupted")}
+                        </span>
                       ) : (
-                        <span className="text-amber-500">进行中</span>
+                        <span className="text-amber-500">
+                          {t("trajectory.turn.running")}
+                        </span>
                       )}
-                    </div>
+                      <span className="ml-auto text-gray-400 dark:text-gray-500 shrink-0">
+                        {isCollapsed(row.turn.turn)
+                          ? t("trajectory.turn.expand")
+                          : t("trajectory.turn.collapse")}
+                      </span>
+                    </button>
                   ) : (
-                    <TrajectoryRow
-                      event={row.event}
-                      selected={
-                        row.event.seq === selectedSeq ||
-                        vi.index === playbackIndex
-                      }
-                      onClick={() =>
-                        selectEvent(
-                          row.event.seq === selectedSeq ? null : row.event.seq,
-                        )
-                      }
-                    />
+                    <>
+                      <TrajectoryRow
+                        event={row.event}
+                        selected={
+                          row.event.seq === selectedSeq ||
+                          vi.index === playbackIndex
+                        }
+                        onClick={() =>
+                          selectEvent(
+                            row.event.seq === selectedSeq ? null : row.event.seq,
+                          )
+                        }
+                      />
+                      {/* TB-6（2026-09-23）：详情**不再行内展开**（见本组件末尾的浮层渲染）。
+                          行内展开会把详情高度并入"滚动内容高度"，实测展开时浏览器内部会把
+                          `scrollTop` 同步 +Δ（无任何 JS 参与，`overflow-anchor: none` 亦无效）
+                          ⇒ 列表整体下滚、被点行随之上移出视口。故改为移出滚动内容流。 */}
+                    </>
                   )}
                 </div>
               );
@@ -433,21 +564,120 @@ function TrajectoryTabContentImpl() {
               onClick={loadMore}
               className="px-3 py-1.5 text-xs text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded"
             >
-              加载更多
+              {t("trajectory.list.loadMore")}
             </button>
           </div>
         )}
       </div>
-      {selectedEvent && (
-        <TrajectoryDetail
-          event={selectedEvent}
-          onClose={() => selectEvent(null)}
-        />
-      )}
+      {/* TB-6（2026-09-23，方案 B 根治）：详情以**绝对定位浮层**覆盖在列表下沿 —— 移出滚动内容流。
+          为什么：实测（探针打桩 `scrollTop` setter + `scrollTo/scrollBy/scrollIntoView/focus` +
+          容器 `scroll`/`ResizeObserver`，真实鼠标点击）证明"展开详情 ⇒ 内容高度 +Δ ⇒ `scrollTop` 被
+          浏览器内部同步 +Δ"这条路**完全无 JS 参与**，且 `overflow-anchor: none` 无效。既然无法关掉
+          该内部行为，就消除触发条件：浮层不参与滚动内容高度 ⇒ 高度零变化 ⇒ 既不出现"展开即下滚"，也
+          不出现"详情挤压列表 ⇒ clientHeight 变小 ⇒ scrollTop 被钳制"（曾实测 −633px）。
+          外层 `pointer-events-none`：浮层空白区不挡住列表点击；详情自身已设 `pointer-events-auto`。
+          详情内部的 `max-h-[50%]` 仍生效 —— 其包含块是本浮层（`inset-0`，高度确定）⇒ 上限为面板高度一半。 */}
+      <div className="absolute inset-0 z-10 flex flex-col justify-end pointer-events-none">
+        {selectedEvent && (
+          <TrajectoryDetail
+            event={selectedEvent}
+            onClose={() => selectEvent(null)}
+            allEvents={events}
+          />
+        )}
+      </div>
     </div>
   );
 }
 const TrajectoryTabContent = React.memo(TrajectoryTabContentImpl);
+
+/**
+ * 「请求指标」分区（API 指标展示，2026-09-23 —— 立项见 `.trae/specs/api-metrics-surface.md`）。
+ *
+ * 位置：轨迹 Tab 内、时间线**之下**、事件列表（滚动容器）**之上**。
+ * 数据源：`metric/timing` 事件（与列表/时间线**同一份** `filteredEvents`，口径一致）。
+ *
+ * ## 双态（不拿假值充数）
+ * - 无请求级事件 ⇒ 明确提示"暂无请求指标"（**不**显示 0 或 `-`）；
+ * - 分位数样本 `n < 2` ⇒ 显示"样本不足"，不编造数值；
+ * - 某项无数据（如无延迟类事件）⇒ **不渲染该项**（不留空壳）。
+ *
+ * ## 刻意不展示的指标（CS01 归一化，避免重复展示）
+ * 吞吐 / 模型耗时合计已由上方 `TrajectoryTimeline` header 承担（`modelMs` / `throughputTps`）
+ * ⇒ 本分区不重复产出，只做**请求级**（TTFT / TTFB 分位数、缺失计数、token 分桶）。
+ */
+function ApiMetricsSection({ events }: { events: LiriEvent[] }) {
+  const { t } = useTranslation();
+  const m = useMemo(() => deriveApiMetrics(events), [events]);
+
+  if (m.requestCount === 0) {
+    return (
+      <div className="px-4 py-1.5 border-b border-gray-100 dark:border-gray-800 text-[10px] text-gray-500 dark:text-gray-400">
+        {t("trajectory.apiMetrics.empty")}
+      </div>
+    );
+  }
+
+  /** 分位数文案（复用既有 `formatDuration`，不新写格式化工具） */
+  const percentileText = (p: ApiMetricsPercentiles, label: string): string =>
+    t("trajectory.apiMetrics.percentile", {
+      label,
+      p50: formatDuration(p.p50),
+      p95: formatDuration(p.p95),
+      n: p.n,
+    });
+
+  /** 有延迟样本但不足 2 个 ⇒ 如实说"样本不足"；一个都没有 ⇒ 该项整条不渲染 */
+  const latencyItem = (
+    p: ApiMetricsPercentiles | null,
+    label: string,
+  ): React.ReactElement | null =>
+    p ? (
+      <span>{percentileText(p, label)}</span>
+    ) : m.latencyEventCount > 0 ? (
+      <span>{t("trajectory.apiMetrics.insufficientSample", { label })}</span>
+    ) : null;
+
+  const ttftLabel = t("trajectory.apiMetrics.ttftLabel");
+  const ttfbLabel = t("trajectory.apiMetrics.ttfbLabel");
+
+  return (
+    <div className="px-4 py-1.5 border-b border-gray-100 dark:border-gray-800 bg-white/50 dark:bg-gray-900/30 text-[10px] text-gray-500 dark:text-gray-400 flex flex-wrap items-center gap-x-3 gap-y-0.5">
+      <span className="font-semibold text-gray-600 dark:text-gray-300">
+        {t("trajectory.apiMetrics.title")}
+      </span>
+      <span>
+        {t("trajectory.apiMetrics.requestCount", { count: m.requestCount })}
+      </span>
+      {latencyItem(m.ttft, ttftLabel)}
+      {latencyItem(m.ttfb, ttfbLabel)}
+      {m.missingTtftCount > 0 && (
+        <span>
+          {t("trajectory.apiMetrics.missingTtft", {
+            count: m.missingTtftCount,
+          })}
+        </span>
+      )}
+      {m.tokens && (
+        <span>
+          {t("trajectory.apiMetrics.tokens", {
+            input: formatTokens(m.tokens.input),
+            output: formatTokens(m.tokens.output),
+            total: formatTokens(m.tokens.total),
+          })}
+        </span>
+      )}
+      {m.tokens && (m.tokens.cacheRead > 0 || m.tokens.cacheCreation > 0) && (
+        <span>
+          {t("trajectory.apiMetrics.cacheTokens", {
+            read: formatTokens(m.tokens.cacheRead),
+            write: formatTokens(m.tokens.cacheCreation),
+          })}
+        </span>
+      )}
+    </div>
+  );
+}
 
 function TabContentImpl({ tabId }: { tabId: InspectorTab }) {
   switch (tabId) {

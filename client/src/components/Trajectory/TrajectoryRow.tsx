@@ -25,8 +25,12 @@
  * 显示：seq · 图标 · 类型标签 · 时间 · 预览
  */
 
+import { useTranslation } from "react-i18next";
 import type { LiriEvent, LiriEventCategory } from "@/types";
 import { categorizeEvent } from "@/types";
+// P3-4（2026-09-22）：`metric/timing` 行内展示耗时 / tokens —— 复用既有格式化工具（CS01）
+import { formatTokens } from "../../utils/format";
+import { formatDuration } from "../../stores/chat/deriveTrajectoryTimeline";
 
 const CATEGORY_ICONS: Record<LiriEventCategory, string> = {
   conversation: "💬",
@@ -46,25 +50,25 @@ const CATEGORY_COLORS: Record<LiriEventCategory, string> = {
   lifecycle: "text-green-600 dark:text-green-400",
 };
 
-const TYPE_LABELS: Record<string, string> = {
-  "turn/start": "Turn 开始",
-  "turn/end": "Turn 结束",
-  "user/message": "用户消息",
-  "assistant/thinking": "思考",
-  "assistant/text": "回复",
-  "assistant/tool_call": "工具调用",
-  "tool/result": "工具结果",
-  "context/compaction": "上下文压缩",
-  "context/summary": "上下文摘要",
-  "system/error": "错误",
-  "system/warning": "警告",
-  "system/info": "信息",
-  "metric/timing": "性能指标",
-  "channel/connect": "通道连接",
-  "channel/disconnect": "通道断开",
-  "channel/message": "通道消息",
-  "session/start": "会话开始",
-  "session/end": "会话结束",
+const TYPE_LABEL_KEYS: Record<string, string> = {
+  "turn/start": "trajectory.type.turnStart",
+  "turn/end": "trajectory.type.turnEnd",
+  "user/message": "trajectory.type.userMessage",
+  "assistant/thinking": "trajectory.type.thinking",
+  "assistant/text": "trajectory.type.reply",
+  "assistant/tool_call": "trajectory.type.toolCall",
+  "tool/result": "trajectory.type.toolResult",
+  "context/compaction": "trajectory.type.contextCompaction",
+  "context/summary": "trajectory.type.contextSummary",
+  "system/error": "trajectory.type.error",
+  "system/warning": "trajectory.type.warning",
+  "system/info": "trajectory.type.info",
+  "metric/timing": "trajectory.type.metricTiming",
+  "channel/connect": "trajectory.type.channelConnect",
+  "channel/disconnect": "trajectory.type.channelDisconnect",
+  "channel/message": "trajectory.type.channelMessage",
+  "session/start": "trajectory.type.sessionStart",
+  "session/end": "trajectory.type.sessionEnd",
 };
 
 interface Props {
@@ -74,16 +78,21 @@ interface Props {
 }
 
 export function TrajectoryRow({ event, selected, onClick }: Props) {
+  const { t } = useTranslation();
   const category = categorizeEvent(event.type);
   const icon = CATEGORY_ICONS[category];
-  const label = TYPE_LABELS[event.type] ?? event.type;
+  const typeLabelKey = TYPE_LABEL_KEYS[event.type];
+  const label = typeLabelKey ? t(typeLabelKey) : event.type;
   const time = new Date(event.time).toLocaleTimeString("zh-CN", {
     hour12: false,
   });
   const preview = getEventPreview(event);
 
+  // P3-1（2026-09-22）：原为 `<li>`，但其父级是虚拟滚动 `<div>`（非 `<ul>`）⇒ **HTML 语义非法**。
+  // 改 `<div>` 而**不**补 `<ul>` / `role="list"`：该容器是**混合区**（含"向前补页"按钮、turn 头、
+  // 事件行），并非纯列表 —— 加 list/grid role 只会制造 ARIA 谎言。
   return (
-    <li
+    <div
       onClick={onClick}
       className={`flex items-start gap-2 px-3 py-2 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 ${
         selected ? "bg-blue-50 dark:bg-blue-900/30" : ""
@@ -110,12 +119,15 @@ export function TrajectoryRow({ event, selected, onClick }: Props) {
           </div>
         )}
       </div>
-    </li>
+    </div>
   );
 }
 
 function getEventPreview(event: LiriEvent): string {
   const data = event.data as Record<string, unknown>;
+  // P3-4（2026-09-22）：`metric/timing` 行内展示**该事件自带**的耗时 / tokens
+  // （回合级有 `duration`、请求级有 `tokens`；**不做跨事件拼接**，缺哪项就不显示哪项）
+  if (event.type === "metric/timing") return previewTiming(data);
   if (typeof data.content === "string") {
     return data.content.length > 80
       ? data.content.slice(0, 80) + "…"
@@ -138,4 +150,37 @@ function getEventPreview(event: LiriEvent): string {
       : data.summary;
   }
   return "";
+}
+
+/**
+ * `metric/timing` 的行内预览（P3-4）—— 只展示**真实存在**的字段：
+ * - 回合级（`stage='assistant'`）：`assistant · 1.2 s`
+ * - 请求级（`stage='request'`）：`request · 12.3K tok`
+ *
+ * 刻意不做"tokens ÷ duration"的瞬时吞吐：这两个字段**分属不同事件**
+ * （回合级无 tokens、请求级无 duration），拼出来的数不是真实测量值。
+ */
+function previewTiming(data: Record<string, unknown>): string {
+  const parts: string[] = [];
+  if (typeof data.stage === "string" && data.stage) parts.push(data.stage);
+  if (typeof data.duration === "number" && Number.isFinite(data.duration)) {
+    parts.push(formatDuration(data.duration));
+  }
+  // 请求延迟：优先 `ttft`（首个内容 token，更贴近用户感知）；缺失时回退 `ttfb`，
+  // 并**如实保留标签**（不把首块延迟冒充成首个 token 延迟）
+  const ttft = numberOr(data.ttft);
+  const ttfb = numberOr(data.ttfb);
+  if (ttft !== undefined) parts.push(`ttft ${formatDuration(ttft)}`);
+  else if (ttfb !== undefined) parts.push(`ttfb ${formatDuration(ttfb)}`);
+  if (typeof data.tokens === "number" && Number.isFinite(data.tokens)) {
+    parts.push(`${formatTokens(data.tokens)} tok`);
+  }
+  return parts.join(" · ");
+}
+
+/** 有限数值守卫（非 number / NaN / Infinity ⇒ undefined） */
+function numberOr(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value)
+    ? value
+    : undefined;
 }

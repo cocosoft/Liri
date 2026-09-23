@@ -115,6 +115,7 @@ import type { ToolManager } from '@modules/tools';
 import { globalToolManager } from '@modules/tools';
 import type { Coordinator } from '@modules/core';
 import { coordinator as defaultCoordinator } from '@modules/core';
+import { resolveWorktreeHash } from '@modules/core/paths';
 import { getLogger } from '@modules/monitoring';
 import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
 import { SpanStatusCode } from '@opentelemetry/api';
@@ -1933,6 +1934,11 @@ export class CoreAPIImpl implements CoreAPI {
     query?: {
       fromSeq?: number;
       toSeq?: number;
+      /**
+       * 向前补页（P1-1，2026-09-22）：只取 `seq < beforeSeq` 的事件，返回其中
+       * **紧邻该点之前**的一页（至多 `limit` 条）。与 `fromSeq` 互斥优先。
+       */
+      beforeSeq?: number;
       types?: Array<string>;
       limit?: number;
       recent?: boolean;
@@ -1940,6 +1946,8 @@ export class CoreAPIImpl implements CoreAPI {
   ): Promise<{
     events: Array<LiriEvent>;
     tailSeq: number;
+    /** 更早方向是否还有事件（向前补页用；与 `hasMore` 对称） */
+    hasEarlier: boolean;
     hasMore: boolean;
   }> {
     // 复用 ChatManager 的事件日志能力（ChatManager 持有 EventLogStorage 实例缓存）
@@ -1949,31 +1957,47 @@ export class CoreAPIImpl implements CoreAPI {
 
     const log = chatManager._getOrCreateEventLog?.(sessionId);
     if (!log) {
-      return { events: [], tailSeq: 0, hasMore: false };
+      return { events: [], tailSeq: 0, hasEarlier: false, hasMore: false };
     }
 
     // 首次访问时触发迁移（与 ChatManager._appendEventsForMessage 一致）
     if (!log.exists()) {
-      const migrator = new MessageToEventMigrator(log, sessionId, 'default');
+      // N-52 同族修复（2026-09-22）：迁移器同样需要正确的 worktreeHash 才能找到该会话
+      // 投影（`messages.jsonl`）所在分区 —— 传字面量 `'default'` 会查错目录、迁移恒不生效。
+      const migrator = new MessageToEventMigrator(
+        log,
+        sessionId,
+        resolveWorktreeHash()
+      );
       if (migrator.needsMigration()) {
         await migrator.migrate();
       }
     }
 
+    const limit = query?.limit ?? 1000;
+
     // recent=true 且未传 fromSeq：尾部优先窗口（最后 limit 条），
     // 覆盖长会话"只看到开头 1000 条"的展示缺口
     let effectiveFrom = query?.fromSeq;
+    let effectiveTo = query?.toSeq;
     if (query?.recent && effectiveFrom === undefined) {
       const realTail = await log.getTailSeq();
-      const limit = query?.limit ?? 1000;
       effectiveFrom = Math.max(1, realTail - limit + 1);
+    }
+    // 向前补页（P1-1，2026-09-22）：取 `[beforeSeq - limit, beforeSeq)` 这一页。
+    // 说明：`EventLogStorage.read` 的语义是"从 `fromSeq` 向后至多 `limit` 条"，故把
+    // `fromSeq` 预置到 `beforeSeq - limit`、`toSeq` 收到 `beforeSeq - 1` 即恰好命中该窗口
+    //（**无需在存储层新增反向读能力**）。到顶时 `fromSeq` 被钳到 1 ⇒ 自然返回不足一页。
+    if (query?.beforeSeq !== undefined) {
+      effectiveTo = query.beforeSeq - 1;
+      effectiveFrom = Math.max(1, query.beforeSeq - limit);
     }
 
     // types: string[] → LiriEventType[]（HTTP 入参为字符串，运行时已校验）
     const logQuery = query
       ? {
           fromSeq: effectiveFrom,
-          toSeq: query.toSeq,
+          toSeq: effectiveTo,
           types: query.types as Array<LiriEvent['type']> | undefined,
           limit: query.limit,
         }
@@ -1982,8 +2006,10 @@ export class CoreAPIImpl implements CoreAPI {
     const tailSeq = await log.getTailSeq();
     const hasMore =
       events.length > 0 && events[events.length - 1].seq < tailSeq;
+    // 更早方向是否还有：首条 seq > 1 即说明该侧存在更早事件（seq 自 1 起单调）
+    const hasEarlier = events.length > 0 && events[0].seq > 1;
 
-    return { events, tailSeq, hasMore };
+    return { events, tailSeq, hasEarlier, hasMore };
   }
 
   async updateMessageBlocks(
@@ -2034,11 +2060,11 @@ export class CoreAPIImpl implements CoreAPI {
     // "没有提问的回复气泡"（实测证据见台账 N-50）。改为删除该轮全部条目：
     // 从该 user 消息起，到下一个 user 消息之前止。
     //
-    // 注（N-52，2026-09-20 实测修正）：当前**实际读源是投影** —— `_deriveSessionMessagesFromEvents`
-    // 内 `new EventLogStorage(sessionId, 'default')` 把 `'default'` 当 worktreeHash（真实分区为
-    // worktree hash，如 `57971aa3`）⇒ `exists()` 恒 false ⇒ 事件派生路径恒返回 null、由投影兜底。
-    // 故"删投影"即对读取生效，本修复**不需要**改动事件日志；若日后修复 N-52 使事件派生真正生效，
-    // 必须同时补"按轮次 seq 墓碑 + 读时过滤"，否则助手/工具消息会被事件重新派生出来（见台账 N-52）。
+    // 注（N-52，2026-09-20 修复 / 2026-09-22 复核）：`_deriveSessionMessagesFromEvents` 已改走
+    // `_getOrCreateEventLog()`（`resolveWorktreeHash()` 单一真源 + LRU 缓存）⇒ **事件派生读路径已生效**
+    //（旧实现把 `'default'` 当 worktreeHash ⇒ `exists()` 恒 false ⇒ 当时实际读源确为投影）。
+    // 与之配套的"按轮次 seq 墓碑 + 读时过滤"（`_filterDeletedRanges`）已同批落地（见下方
+    // `startSeq`/`endSeq`）—— 否则被删轮次会被事件重新派生出来。
     const targetIndex = messages.findIndex((m) => m.id === messageId);
     let turnEndIndex = messages.length;
     for (let i = targetIndex + 1; i < messages.length; i++) {

@@ -8,7 +8,10 @@ describe('PitfallRegistry（Teamwork P2b）', () => {
 
   beforeEach(() => {
     reg = new PitfallRegistry(
-      join(tmpdir(), `pitfall-test-${Date.now()}-${Math.random().toString(36).slice(2, 6)}.jsonl`)
+      join(
+        tmpdir(),
+        `pitfall-test-${Date.now()}-${Math.random().toString(36).slice(2, 6)}.jsonl`
+      )
     );
   });
 
@@ -27,7 +30,11 @@ describe('PitfallRegistry（Teamwork P2b）', () => {
 
   test('验收 #5：同内容不重复写入（occurrenceCount 累计）', () => {
     reg.record({ description: '误用表格嵌套', error: 'err-a', source: 'pdl' });
-    reg.record({ description: ' 误用表格嵌套 ', error: 'err-b', source: 'pdl' });
+    reg.record({
+      description: ' 误用表格嵌套 ',
+      error: 'err-b',
+      source: 'pdl',
+    });
     expect(reg.count()).toBe(1);
     const hit = reg.queryRecent()[0];
     expect(hit?.occurrenceCount).toBe(2);

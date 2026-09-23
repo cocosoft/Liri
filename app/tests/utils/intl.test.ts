@@ -2,7 +2,6 @@ import { describe, it, expect } from 'bun:test';
 import { getGraphemeSegmenter } from '../../src/utils/intl.js';
 
 describe('getGraphemeSegmenter', () => {
-
   it('should return an object with a segment method', () => {
     const segmenter = getGraphemeSegmenter();
     expect(segmenter).toBeDefined();
@@ -39,5 +38,4 @@ describe('getGraphemeSegmenter', () => {
     expect(result[0].segment).toBe('a');
     expect(result[3].segment).toBe('b');
   });
-
 });

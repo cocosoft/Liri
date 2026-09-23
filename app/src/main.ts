@@ -1873,6 +1873,16 @@ export async function launch(options: LaunchOptions): Promise<void> {
       await startCg3(getCoreAPI().getChatManager());
     });
 
+    // B1-3 / B1-4（2026-09-22 / 方案 §11 第 1 步）：**启动期 yield 恢复装配**。
+    // 修复前装配只发生在 `streamMessage` / `sendMessage` 入口 ⇒ **无人发消息时
+    // `agent_settlement_outbox` 的 `pending` 行永不回放**（O8 台账只写不生效）；
+    // 且等待集不落盘 ⇒ 回放必然找不到等待者（逐次 markFailed ⇒ dropped）。
+    // 顺序固定：装配持久化端口 → **先重建等待集**（含 turn）→ 再装配恢复器（内含回放）。
+    await wrapInit('YieldRecovery', async () => {
+      const { getCoreAPI } = await import('@modules/runtime/api/CoreAPIImpl');
+      await getCoreAPI().getChatManager().bootstrapYieldRecovery();
+    });
+
     // T2: 模式分发 + 后台延迟加载
     profileCheckpoint('T2_dispatch_start');
     profilePhaseStart('T2_dispatch');

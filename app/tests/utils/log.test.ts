@@ -2,7 +2,6 @@ import { describe, it, expect, spyOn, afterEach } from 'bun:test';
 import { logger, LogLevel } from '../../src/utils/log.js';
 
 describe('logger', () => {
-
   afterEach(() => {
     spyOn(console, 'info').mockRestore();
     spyOn(console, 'error').mockRestore();
@@ -111,5 +110,4 @@ describe('logger', () => {
     expect(parsed.message).toBe('a');
     expect(parsed.meta).toBeUndefined();
   });
-
 });

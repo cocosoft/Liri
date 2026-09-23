@@ -154,6 +154,31 @@ export class ToolLazyWrapper implements Tool {
     return this.loader.isLoaded();
   }
 
+  /**
+   * R6（2026-09-22）：**解包为真实工具实例**。
+   *
+   * 背景：本类是 `implements Tool`（**非 extends**），因此
+   * `getToolManager().getTool('Agent') instanceof AgentTool` **恒为 false** ⇒
+   * 控制面/命令层三处入口全部落空（`GET /v1/agents/control`、
+   * `POST /v1/agents/:id/stop|pause` 恒 503），"批次停止"的修复代码一行都不会被执行。
+   *
+   * 语义：未加载时**同步加载**（工具 creator 是同步工厂，见 `ToolManager#registerBuiltinToolsFromLoaders`）；
+   * 加载失败 / factory 异步 / 异步加载进行中 ⇒ 返回 `null`（**明确信号**，不返回 `this` ——
+   * 那会让调用方误判"已解包"，正是本次要修的病根）。
+   *
+   * 注意：`null` 只代表"这一版拿不到真身"，调用方仍应做**能力判定**（鸭子类型）而非继承判定。
+   */
+  unwrap(): Tool | null {
+    try {
+      return this.loader.isLoaded()
+        ? this.loader.getSync()
+        : this.loader.loadSync();
+    } catch {
+      // @ignore-catch — 拿不到真身是预期分支（未加载/异步工厂/加载异常），由调用方判定
+      return null;
+    }
+  }
+
   reset(): void {
     this.loader.reset();
   }

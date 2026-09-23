@@ -69,6 +69,11 @@ export interface TrajectoryState {
   liveTailSeq: number;
   /** 是否还有更多（hasMore） */
   hasMore: boolean;
+  /**
+   * 更早方向是否还有事件（P1-1 向前补页；与 `hasMore` 对称）。
+   * 由后端 `hasEarlier` 驱动 —— 为 true 时 UI 才展示"加载更早"入口。
+   */
+  hasEarlier: boolean;
   /** 加载状态 */
   loading: boolean;
   /** 错误信息（仅失败时填充） */
@@ -90,6 +95,16 @@ export interface TrajectoryState {
   loadEvents: (sessionId: string) => Promise<void>;
   /** 增量加载（fromSeq = backendTailSeq + 1） */
   loadMore: () => Promise<void>;
+  /**
+   * 向前补页（P1-1，2026-09-22）：加载"紧邻当前窗口之前"的一页并**前插**。
+   *
+   * 语义要点（与 `loadMore` 相反，**勿混用**）：
+   * - **不触碰 `tailSeq`/`liveTailSeq`** —— 补页不改变"尾部"语义，否则会破坏
+   *   `loadMore`（从 `tailSeq+1` 续读）与 `setLiveEvents`（按 `liveTailSeq` 守卫）的判据；
+   * - 按 seq 去重后前插（与流式追加的交错重叠安全）；
+   * - `hasEarlier` 用后端返回值更新；`selectedSeq`/`filter`/`error` 一律不动（选择存活）。
+   */
+  loadOlder: () => Promise<void>;
   /**
    * A2：流式实时同步（不改变 UI 状态：filter/selectedSeq/loading/error）。
    * 条件：仅当 sessionId 匹配时才替换（否则用户在看别的会话，不打扰）。
@@ -124,6 +139,7 @@ export const useTrajectoryStore = create<TrajectoryState>((set, get) => ({
   tailSeq: 0,
   liveTailSeq: 0,
   hasMore: false,
+  hasEarlier: false,
   loading: false,
   error: null,
   selectedSeq: null,
@@ -139,7 +155,20 @@ export const useTrajectoryStore = create<TrajectoryState>((set, get) => ({
 
   loadEvents: async (sessionId: string) => {
     if (get().loading) return;
-    set({ loading: true, error: null, sessionId });
+    // P2-6（2026-09-23）：**会话维度隔离** —— 切换会话时，会话作用域的 UI 状态必须失效：
+    // 否则 `ChatInspector` 会用**新会话**的 `events` 去 `find(e.seq === selectedSeq)`，
+    // 而两侧 seq 都从 1 起 ⇒ 极易命中 ⇒ 详情面板展示一个**与用户选择无关**的事件。
+    // 同会话**重新加载**（刷新/重进同一会话）则保留选择，与 `loadOlder`/`setLiveEvents`
+    // 的"选择存活"口径一致（那两处显式不动 `selectedSeq`）。
+    const sessionChanged = get().sessionId !== sessionId;
+    set({
+      loading: true,
+      error: null,
+      sessionId,
+      ...(sessionChanged
+        ? { selectedSeq: null, playbackIndex: 0, playing: false }
+        : {}),
+    });
     try {
       // P8（2026-08-26）：recent 尾部优先——长会话不再只看到开头 1000 条，
       // 日志/轨迹面板显示最近事件（loadMore 仍按后端 tailSeq 分页）
@@ -152,12 +181,14 @@ export const useTrajectoryStore = create<TrajectoryState>((set, get) => ({
         tailSeq: result.tailSeq,
         liveTailSeq: result.tailSeq,
         hasMore: result.hasMore,
+        hasEarlier: result.hasEarlier,
         loading: false,
       });
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       logger.warn("loadEvents 失败", { sessionId, error: msg });
-      set({ loading: false, error: msg, events: [] });
+      // 失败时 events 清空 ⇒ 更早方向也无从可谈，一并归零（避免 UI 展示无效入口）
+      set({ loading: false, error: msg, events: [], hasEarlier: false });
     }
   },
 
@@ -180,12 +211,48 @@ export const useTrajectoryStore = create<TrajectoryState>((set, get) => ({
           tailSeq: result.tailSeq,
           liveTailSeq: result.tailSeq,
           hasMore: result.hasMore,
+          hasEarlier: result.hasEarlier,
           loading: false,
         };
       });
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       logger.warn("loadMore 失败", { sessionId, error: msg });
+      set({ loading: false, error: msg });
+    }
+  },
+
+  /**
+   * P1-1（2026-09-22）向前补页：取"紧邻当前窗口之前"的一页并前插。
+   *
+   * 与 `loadMore` 的关键差异：**不更新 `tailSeq`/`liveTailSeq`** —— 补页只改变窗口的
+   * 「更早边界」，尾部语义（`loadMore` 续读起点、`setLiveEvents` 守卫）必须保持不变。
+   */
+  loadOlder: async () => {
+    const { sessionId, events, loading, hasEarlier } = get();
+    if (!sessionId || loading || !hasEarlier) return;
+    const firstSeq = events[0]?.seq;
+    if (firstSeq === undefined) return;
+    set({ loading: true });
+    try {
+      const result = await trajectoryService.getEvents(sessionId, {
+        beforeSeq: firstSeq,
+        limit: 1000,
+      });
+      set((state) => {
+        // 去重（与流式追加/并发分页交错安全），只保留本次真正新增的更早段
+        const seen = new Set(state.events.map((e) => e.seq));
+        const older = result.events.filter((e) => !seen.has(e.seq));
+        return {
+          events: [...older, ...state.events],
+          hasEarlier: result.hasEarlier,
+          loading: false,
+          // 显式不动：tailSeq / liveTailSeq / selectedSeq / filter / error
+        };
+      });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      logger.warn("loadOlder 失败", { sessionId, error: msg });
       set({ loading: false, error: msg });
     }
   },
@@ -276,6 +343,7 @@ export const useTrajectoryStore = create<TrajectoryState>((set, get) => ({
       tailSeq: 0,
       liveTailSeq: 0,
       hasMore: false,
+      hasEarlier: false,
       loading: false,
       error: null,
       selectedSeq: null,

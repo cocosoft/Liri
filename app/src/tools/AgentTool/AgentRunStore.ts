@@ -463,6 +463,39 @@ export class AgentRunStore {
   }
 
   /**
+   * O10a③ 补链（P1-D，2026-09-21）：把内存台账的 `cancel_requested` **中间态落到磁盘**。
+   *
+   * 修复前：`cancel_requested` 在全仓**只有内存写入点**（`AgentRunLedger.requestCancel`），
+   * 本类虽在 `PersistedRunStatus` 声明了该态、且 `markStaleRunsUnknown` 的 SELECT/UPDATE
+   * 都在处理它 —— 但**没有任何代码写过它** ⇒ 死状态。后果：经 `/v1/agents/stop` 受理的
+   * 取消，磁盘台账仍是 `running`，重启后被陈旧自愈判成 `unknown`（"无法证明结果"），
+   * 而真相是"取消已受理、正在安全边界收敛"。内存里精心设计的中间态在持久层没有对应物。
+   *
+   * 幂等与守卫：
+   *  · `WHERE status = 'running'` —— 只从 `running` 迁入（与 `canTransition` 同语义：
+   *    `cancel_requested` 不可再迁入，终态不可改写）；
+   *  · **不写 `ended_at`** —— 取消只是受理，run 尚未终结（终态由执行路径经 `settleRun` 落定）。
+   *
+   * 匹配口径：单代理路径 `tool_call_id === agentId`（`beginRun` 用 agentId 起跑）；
+   * 并行批次的每一行是 `${batchId}::${taskKey}`，而控制面拿到的是 `batchId` ⇒
+   * 需同时匹配"精确 id"与"以 `<id>::` 开头的批次内逐任务行"。用 `instr()` 而非 `LIKE`
+   * —— agentId 含用户可控的 name 段（`createAgentId` 直接拼接 `agentInput.name`），
+   * `%`/`_` 会被 `LIKE` 当通配符误伤。
+   *
+   * @returns 实际改动的行数（0 ⇒ 无匹配的 `running` 行，非异常）
+   */
+  async markCancelRequested(agentId: string): Promise<number> {
+    await this.init();
+    return this.run(
+      `UPDATE ${AGENT_RUNS_TABLE}
+       SET status = 'cancel_requested'
+       WHERE status = 'running'
+         AND (tool_call_id = ? OR instr(tool_call_id, ? || '::') = 1)`,
+      [agentId, agentId]
+    );
+  }
+
+  /**
    * 查询（巡检/测试用）
    *
    * ⚠ 必须先 `await this.init()` —— 与 `startRun`/`settleRun` 等写方法同约定：

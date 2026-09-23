@@ -368,7 +368,8 @@ export function stopMessageImpl(set: MessageSet, get: MessageGet): void {
   // #7（2026-09-16）根因修复：不再依赖 messages[0] 反推会话——
   // 改用显式 activeStreamSessionId；若其已无活跃 controller（流已结束/被清空、
   // 或会话已切换），回退到当前 UI 会话首条消息。messages 被清空时仍可定位流。
-  let sessionId = state.activeStreamSessionId ?? state.messages[0]?.session_id ?? "";
+  let sessionId =
+    state.activeStreamSessionId ?? state.messages[0]?.session_id ?? "";
   if (sessionId && !state.streamControllers[sessionId]) {
     sessionId = state.messages[0]?.session_id ?? "";
   }

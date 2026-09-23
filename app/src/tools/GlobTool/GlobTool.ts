@@ -7,6 +7,7 @@ import * as path from 'path';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { yieldToEventLoop } from '@modules/ai';
+import { resolveSkipDirs } from '../utils/searchSkipDirs';
 const logger = getLogger('tools:GlobTool:GlobTool');
 
 export interface GlobResult {
@@ -55,7 +56,8 @@ export function glob(
         normalizedPattern,
         results,
         MAX_FILES,
-        normalizedSearchPath
+        normalizedSearchPath,
+        resolveSkipDirs(normalizedPattern)
       );
     } catch (err) {
       handleError(err, {
@@ -110,7 +112,8 @@ export async function globAsync(
         normalizedPattern,
         results,
         MAX_FILES,
-        normalizedSearchPath
+        normalizedSearchPath,
+        resolveSkipDirs(normalizedPattern)
       );
     } catch (err) {
       handleError(err, {
@@ -141,7 +144,8 @@ async function walkDirAsync(
   pattern: string,
   results: string[],
   limit: number,
-  rootDir?: string
+  rootDir?: string,
+  skipDirs: ReadonlySet<string> = new Set()
 ): Promise<void> {
   if (results.length >= limit) return;
 
@@ -163,7 +167,11 @@ async function walkDirAsync(
 
     const fullPath = path.join(dir, entry.name);
     if (entry.isDirectory()) {
-      await walkDirAsync(fullPath, pattern, results, limit, rootDir);
+      // 2026-09-22：跳过构建产物/依赖等"重目录"（与 grep 同一清单）。
+      // 修复前从项目根 `**/X.ts` 会递归 `node_modules`（本仓 6.5 万+ 文件），
+      // 实测单次 7960ms；模式显式点名该目录时不跳过（见 resolveSkipDirs）。
+      if (skipDirs.has(entry.name)) continue;
+      await walkDirAsync(fullPath, pattern, results, limit, rootDir, skipDirs);
     } else if (entry.isFile()) {
       const relativePath = rootDir
         ? path.relative(rootDir, fullPath).replace(/\\/g, '/')
@@ -197,7 +205,8 @@ function walkDir(
   pattern: string,
   results: string[],
   limit: number,
-  rootDir?: string
+  rootDir?: string,
+  skipDirs: ReadonlySet<string> = new Set()
 ): void {
   // 如果已收集的结果数量达到上限，则提前返回
   if (results.length >= limit) return;
@@ -221,8 +230,9 @@ function walkDir(
 
     const fullPath = path.join(dir, entry.name);
     if (entry.isDirectory()) {
-      // 如果是目录，则递归遍历
-      walkDir(fullPath, pattern, results, limit, rootDir);
+      // 如果是目录，则递归遍历（"重目录"跳过语义与 walkDirAsync 一致）
+      if (skipDirs.has(entry.name)) continue;
+      walkDir(fullPath, pattern, results, limit, rootDir, skipDirs);
     } else if (entry.isFile()) {
       // G2：仅按完整/相对路径（含分隔符）匹配，不再退化为 basename，使 `*` 不跨目录边界
       const relativePath = rootDir
@@ -241,6 +251,12 @@ function walkDir(
 /**
  * G2：将 glob 模式编译为正则；模式无法解析（如未闭合的 `[`、孤立 `\`）时返回 null。
  * 供 matchGlob 判定匹配，也供 glob()/globAsync() 前置校验以区分「空结果」与「模式无效」。
+ *
+ * 2026-09-22 性能取证（**结论：此处不是瓶颈，故未做缓存**）：曾假设"逐文件重复编译正则"
+ * 是主因并加过按模式缓存，实测无差异（4368ms vs 4415ms，噪声范围内）⇒ 已回退。
+ * 真实构成见 `globSkipDirs.test.ts` 同批取证：裸遍历 802ms（7967 目录 / 72781 文件），
+ * 同步 `glob()` 2961ms、异步 3270ms ⇒ 差额 ≈2.2s 花在**每文件的匹配回调**
+ * （`path.relative` + 2 次 `matchGlob`），而非正则编译；让出开销仅 4ms/1600 次。
  */
 function compileGlobPattern(pattern: string): RegExp | null {
   // G1（架构归一 B 系列同根因，2026-09-17）：花括号展开（单层 {a,b|c}）。

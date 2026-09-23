@@ -22,11 +22,13 @@ import {
   resetSessionLineage,
 } from '../../../src/session/lineage/sessionLineage';
 
-/** fake 引擎：仅声明本测试路径用到的三个方法 */
+/** fake 引擎：仅声明本测试路径用到的四个方法 */
 interface EngineStub {
   execute: () => Promise<{ output: string; completed?: boolean }>;
   abort: (agentId: string) => boolean;
   ownerSessionId: (agentId: string) => string | undefined;
+  /** P1-E：`stopAgent` 的批次→worker 扇出据此取"引擎侧活跃 run"快照 */
+  getActiveAgents: () => Array<{ agentId: string; elapsedMs: number }>;
 }
 
 /** 注入 fake 引擎并记录 `abort` 调用（用于断言"拒绝 ⇒ 绝不下发中止"） */
@@ -42,6 +44,9 @@ function installEngine(
       return true;
     },
     ownerSessionId: (agentId: string) => owners[agentId],
+    // 本文件断言的是 `abort` 的**下发**集合，扇出清单为空即可（其覆盖见
+    // `swarmCancelQuotaAndIds.test.ts` 的 P1-D/E 用例）
+    getActiveAgents: () => [],
   };
   Reflect.set(tool, 'engine', stub);
   return { aborted };
@@ -87,9 +92,9 @@ describe('AgentTool 控制面 Tier1 血缘链（O10b / v7.1）', () => {
     registerSessionLineage('sess-c', 'sess-b');
     registerSessionLineage('sess-b', 'sess-a');
 
-    expect(
-      tool.stopAgent('a-lineage2', { requesterSessionId: 'sess-a' })
-    ).toBe(true);
+    expect(tool.stopAgent('a-lineage2', { requesterSessionId: 'sess-a' })).toBe(
+      true
+    );
   });
 
   test('既非归属、也不在血缘链上 ⇒ 拒绝且不下发中止', () => {
@@ -110,9 +115,9 @@ describe('AgentTool 控制面 Tier1 血缘链（O10b / v7.1）', () => {
     registerRun('a-lineage4', 'sess-x');
 
     // 未登记任何血缘 ⇒ 祖先判定不可得 ⇒ 拒绝（不会误放行）
-    expect(
-      tool.stopAgent('a-lineage4', { requesterSessionId: 'sess-y' })
-    ).toBe(false);
+    expect(tool.stopAgent('a-lineage4', { requesterSessionId: 'sess-y' })).toBe(
+      false
+    );
     expect(engine.aborted).toEqual([]);
   });
 });

@@ -43,6 +43,14 @@ export const REPLAY_MAX_AGE_MS = 48 * 60 * 60 * 1000;
 /** ⑥ 台账保留上限：行数 + 年龄 */
 export const OUTBOX_MAX_ROWS = 500;
 export const OUTBOX_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+/**
+ * ⑧ 认领"陈旧窗口"（M-3 / P1-5）：`attempting` 行只有超过该时长才允许被**再次认领**。
+ *
+ * 作用：让 `claim()` 的并发语义成为**单胜者** ——
+ * - 同一进程内的并发认领：先到者把行置 `attempting`，后者因未超窗口而**认领失败**（不再双投）；
+ * - 崩溃后回放：`attempting` 行在窗口过后仍可被重投（否则该行永久卡死、无法自愈）。
+ */
+export const CLAIM_STALE_MS = 60_000;
 
 /**
  * 投递状态（四态）。
@@ -84,7 +92,16 @@ export class SettlementOutbox {
     if (!this.initPromise) {
       this.initPromise = this.doInit();
     }
-    await this.initPromise;
+    try {
+      await this.initPromise;
+    } catch (err) {
+      // P1-1（M-3）：失败后**必须**清空 `initPromise`。
+      // 原实现只在 `close()` 置 null ⇒ doInit 的 rejected promise 被**永久复用**：
+      // 一次瞬时 DB 故障（锁竞争 / 路径未就绪）会让结算台账此后**永远不可用**，
+      // 且每次调用都复现同一个陈旧错误（掩盖真实现场）。
+      this.initPromise = null;
+      throw err;
+    }
   }
 
   private async doInit(): Promise<void> {
@@ -125,12 +142,23 @@ export class SettlementOutbox {
     restored?: boolean;
   }): Promise<number> {
     await this.init();
-    const existing = await this.get<{ id: number }>(
-      `SELECT id FROM ${SETTLEMENT_OUTBOX_TABLE}
-       WHERE session_id = ? AND ended_at = ? LIMIT 1`,
+    // P1-4（M-3）：幂等键 = `(session_id, ended_at)`，但**只对未终结行**复用。
+    // 原实现不过滤 state ⇒ 同键的**新**结算事件会被静默合并进已 `delivered`/`dropped`
+    // 的旧行（丢的是"本次投递的独立身份"，即重放锚点与审计粒度）。现改为：
+    // · 未终结（pending / attempting / failed）⇒ 复用（真幂等，同一事件不重复入队）；
+    // · 已终结 ⇒ **插入新行**（历史行保留，审计可回溯）。
+    const existing = await this.get<{ id: number; state: DeliveryState }>(
+      `SELECT id, state FROM ${SETTLEMENT_OUTBOX_TABLE}
+       WHERE session_id = ? AND ended_at = ? ORDER BY id DESC LIMIT 1`,
       [params.sessionId, params.endedAt]
     );
-    if (existing) return existing.id;
+    if (
+      existing &&
+      existing.state !== 'delivered' &&
+      existing.state !== 'dropped'
+    ) {
+      return existing.id;
+    }
 
     const now = Date.now();
     await this.run(
@@ -152,56 +180,88 @@ export class SettlementOutbox {
   /**
    * ②③ claim：领取投递（`pending|failed|attempting → attempting`，`attempts+1`）。
    *
-   * `attempting → attempting` 也允许（崩溃后重放同一行），但会累加 attempts 直至上限。
+   * `attempting → attempting` **仅在超过 {@link CLAIM_STALE_MS} 陈旧窗口后**允许
+   * （崩溃后自愈重投）；窗口内重复认领一律失败 ⇒ 并发时**单胜者**。
    *
    * @returns 领取成功返回该行（调用方据此投递并在 ack 后落 `delivered`）
    */
   async claim(id: number): Promise<SettlementDeliveryRow | null> {
     await this.init();
-    const row = await this.getRow(id);
-    if (!row) return null;
-    if (row.attempts >= MAX_DELIVERY_ATTEMPTS) {
-      await this.markDropped(id, `超过重试上限 ${MAX_DELIVERY_ATTEMPTS}`);
+    const now = Date.now();
+    // P1-2 / P1-5（M-3）：**条件更新 + `changes` 判定**（原子认领）。
+    // 原实现是 `getRow()` → `UPDATE` 两段式：并发 claim 各自通过检查、各自 `attempts+1`
+    // ⇒ 上限被越过、同一行被**投递两次**（运行期投递与回放共用本方法）。
+    //
+    // 单胜者条件：
+    // · `state IN ('pending','failed')` ⇒ 首次认领；
+    // · `state = 'attempting' AND updated_at < 陈旧阈值` ⇒ 崩溃后**自愈重投**
+    //   （窗口内不再放行，避免与在飞的投递并发）。
+    // `attempts < MAX` 同时约束在 UPDATE 内 ⇒ 不再依赖先读后写。
+    const staleBefore = now - CLAIM_STALE_MS;
+    const changed = await this.run(
+      `UPDATE ${SETTLEMENT_OUTBOX_TABLE}
+         SET state = 'attempting', attempts = attempts + 1, updated_at = ?
+       WHERE id = ?
+         AND attempts < ?
+         AND (state IN ('pending', 'failed')
+              OR (state = 'attempting' AND updated_at < ?))`,
+      [now, id, MAX_DELIVERY_ATTEMPTS, staleBefore]
+    );
+    if (changed === 0) {
+      // 未获认领：区分"超重试上限"（转 dropped，终止重放）与
+      // "已被他人认领 / 仍在陈旧窗口内"（本调用方**不得**投递）
+      const row = await this.getRow(id);
+      if (row && row.attempts >= MAX_DELIVERY_ATTEMPTS) {
+        await this.markDropped(id, `超过重试上限 ${MAX_DELIVERY_ATTEMPTS}`);
+      }
       return null;
     }
-    const now = Date.now();
-    await this.run(
-      `UPDATE ${SETTLEMENT_OUTBOX_TABLE}
-       SET state = 'attempting', attempts = attempts + 1, updated_at = ?
-       WHERE id = ?`,
-      [now, id]
-    );
     return await this.getRow(id);
   }
 
-  /** ③ ack 成功 ⇒ `delivered`（可剪除；保留至保留期以留痕） */
-  async markDelivered(id: number): Promise<void> {
-    await this.init();
-    await this.run(
+  /**
+   * 状态写入的**统一入口** —— 带**终态守卫**（P1-9 / I4 单向状态机）。
+   *
+   * 修复前 `markDelivered/markFailed/markDropped` 都是无条件 `UPDATE`：
+   * `dropped` 可被改回 `delivered`（且重放与运行期共用）⇒ 状态机非单向、
+   * `attempting` 语义失效、审计结论随最后写入者漂移。
+   * 现统一为 `WHERE state NOT IN ('delivered','dropped')` —— 终态**不可改写**。
+   *
+   * @returns 是否真的发生迁移（`false` = 行不存在或已是终态）
+   */
+  private async writeState(
+    id: number,
+    state: 'delivered' | 'failed' | 'dropped',
+    lastError?: string
+  ): Promise<boolean> {
+    const changed = await this.run(
       `UPDATE ${SETTLEMENT_OUTBOX_TABLE}
-       SET state = 'delivered', updated_at = ? WHERE id = ?`,
-      [Date.now(), id]
+         SET state = ?, last_error = COALESCE(?, last_error), updated_at = ?
+       WHERE id = ? AND state NOT IN ('delivered', 'dropped')`,
+      [state, lastError ?? null, Date.now(), id]
     );
+    if (changed === 0) {
+      logger.debug('结算台账状态未迁移（已终态或行不存在）', { id, state });
+    }
+    return changed > 0;
+  }
+
+  /** ③ ack 成功 ⇒ `delivered`（可剪除；保留至保留期以留痕） */
+  async markDelivered(id: number): Promise<boolean> {
+    await this.init();
+    return this.writeState(id, 'delivered');
   }
 
   /** 投递失败 ⇒ `failed`（仍可再 claim 重试，直至超上限转 `dropped`） */
-  async markFailed(id: number, error: string): Promise<void> {
+  async markFailed(id: number, error: string): Promise<boolean> {
     await this.init();
-    await this.run(
-      `UPDATE ${SETTLEMENT_OUTBOX_TABLE}
-       SET state = 'failed', last_error = ?, updated_at = ? WHERE id = ?`,
-      [error, Date.now(), id]
-    );
+    return this.writeState(id, 'failed', error);
   }
 
   /** 放弃投递（超上限/不可恢复）⇒ `dropped`，重放不再拾取 */
-  async markDropped(id: number, reason: string): Promise<void> {
+  async markDropped(id: number, reason: string): Promise<boolean> {
     await this.init();
-    await this.run(
-      `UPDATE ${SETTLEMENT_OUTBOX_TABLE}
-       SET state = 'dropped', last_error = ?, updated_at = ? WHERE id = ?`,
-      [reason, Date.now(), id]
-    );
+    return this.writeState(id, 'dropped', reason);
   }
 
   /**

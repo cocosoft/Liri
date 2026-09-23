@@ -26,6 +26,7 @@ import { homedir } from 'node:os';
 
 import { configManager } from '@modules/config';
 import { getLogger, getOTelTracing } from '@modules/monitoring';
+import { pickMoreCompleteContent } from '@modules/utils/common';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { repairModelJson } from '@modules/utils/json';
 import { abortSessionPlans } from './planAbortRegistry.js';
@@ -50,6 +51,10 @@ import {
   isEmptyAssistantWithoutToolCalls,
 } from './services/ChatHelper';
 import {
+  RequestSnapshotService,
+  type ModelInputSnapshot,
+} from './services/RequestSnapshotService';
+import {
   EventLogStorage,
   MessageToEventMigrator,
   ReconcileService,
@@ -67,6 +72,11 @@ import {
 import { dedupeToolCallBlocks } from '@modules/chat/utils/chatBlocks';
 import { extractPendingToolCallsFromEvents } from './utils/pendingToolCalls.js';
 import type { LiriEvent } from '@modules/chat/types/events';
+// TR-14 / TR-12-A（2026-09-22）：`metric/timing` 事件载荷构造（纯函数，可单测）
+import {
+  buildAssistantTimingData,
+  buildRequestTimingData,
+} from './services/timingEvent';
 import { feature as coreFeature } from '@modules/core';
 import { configureCodeRunner, getSubAgentEngine } from '@modules/tools';
 import {
@@ -237,7 +247,12 @@ import {
 import type { StopHookReason } from '@modules/query';
 import { TAORLoop } from '@modules/query';
 import { createChatAgentLoop } from './createAgentLoop.js';
-import { getYieldRegistry, setActiveSubagentRunProbe } from '../session/yield';
+import {
+  getYieldRegistry,
+  getYieldWaitingStore,
+  rebuildYieldWaitingSet,
+  setActiveSubagentRunProbe,
+} from '../session/yield';
 // O9/G14：把本实例的 token 追踪器注册到模块级访问器（供摘要预算等跨模块读取"父当前上下文"）
 import { setUnifiedTokenTracker } from '@modules/core/tokenBudget/UnifiedTokenTracker';
 // 阶段 A（A1-e）：yield 恢复通路（子代理结算 → 恢复父会话）
@@ -250,6 +265,12 @@ import {
 } from './yield';
 // 阶段 A（N-26 修复）：SelfWake 唤醒执行器（fire 时真正唤醒会话）
 import { setSelfWakeResumeHandler } from '../tasks/selfwake/SelfWakeService';
+// M-7 idle 触发续接（2026-09-22）：目标停滞时的自动续跑（识别 + 可续性校验 + 文案）
+import {
+  isIdleContinuationTask,
+  resolveIdleContinuation,
+} from '../tasks/goal/goalIdleContinuation';
+import { renderGoalTemplate } from '../tasks/goal/goalTemplates';
 import {
   PlanDrivenLoop,
   classifyTaskComplexity,
@@ -268,8 +289,6 @@ import { LoopDetector } from '@modules/query';
 import { createChatManagerTAORDeps } from '@modules/query';
 import type { ChatManagerTAORContext } from '@modules/query';
 import { agentTelemetry } from '@modules/agent';
-import { trajectoryRecorder } from '@modules/agent';
-import { trajectoryRuntime } from '@modules/core';
 import { ErrorHandler } from '@modules/core';
 import { convergenceDetector } from './services/ConvergenceDetector.js';
 import {
@@ -527,8 +546,6 @@ export class ChatManagerImpl implements ChatManager {
    */
   private readonly ENABLE_TELEMETRY =
     configManager.env('ENABLE_AGENT_TELEMETRY') === 'true';
-  private readonly ENABLE_TRAJECTORY =
-    configManager.env('ENABLE_TRAJECTORY') === 'true';
   private readonly ENABLE_ERROR_HANDLER =
     configManager.env('ENABLE_ERROR_HANDLER') === 'true';
   /**
@@ -702,6 +719,15 @@ export class ChatManagerImpl implements ChatManager {
   private _eventLogCache: Map<string, EventLogStorage> = new Map();
 
   /**
+   * D2（2026-09-22）：`_eventLogCache` 的 LRU 上限（实例数）。
+   *
+   * 取值依据：每个实例可常驻 `eventsSnapshot`（预算 `min(10 000 事件, 200MB)`），
+   * 修复前**只增不减** ⇒ 触碰过的会话越多、常驻越高。8 覆盖"当前 + 少量并发会话"
+   * （如后台任务正在写的会话）的常见格局，超出者淘汰并释放快照（下次访问按需重建）。
+   */
+  private static readonly EVENT_LOG_CACHE_MAX = 8;
+
+  /**
    * M1 事件溯源：toolCallId → seq 映射
    *
    * 用于 tool/result 事件回填 callSeq。
@@ -712,6 +738,18 @@ export class ChatManagerImpl implements ChatManager {
   private _toolCallSeqMapRebuilt: Set<string> = new Set();
   /** A-7（2026-08-23）：待对账会话集合（Phase D T-D 对账服务消费） */
   private readonly _pendingReconcileSessions: Set<string> = new Set();
+
+  /**
+   * TB-10 修复（2026-09-23）：入队后延迟执行对账的**去抖窗口**（ms）。
+   *
+   * 语义：append 失败入队后，延迟这段时间再消费一次 —— 既给瞬时 IO 问题留自愈余地
+   * （避免"刚失败就去对账"产出误导性漂移报告），也把同一故障窗口内的**多次失败合并为一次**。
+   * 声明为 `static` 是为了**测试可覆写**（本仓 app 侧无 fake-timer 基建，见 TB-10 回归用例）。
+   */
+  static reconcileDrainDelayMs = 3_000;
+
+  /** 待对账去抖定时器（重复入队 ⇒ 重置，只保留最后一次） */
+  private _reconcileDrainTimer: ReturnType<typeof setTimeout> | null = null;
 
   /**
    * 会话子系统访问门面
@@ -879,6 +917,12 @@ export class ChatManagerImpl implements ChatManager {
       getSessionWorkspaceId: this.getSessionWorkspaceId.bind(this),
       isCommandApproved: this._isCommandApproved.bind(this),
       sessionLookup: (args) => this._sessionLookup(args),
+      // R3（2026-09-21）：向工具执行注入**会话级中断控制器**。
+      // 工具 context 原先没有 `abortController`（被内联类型断言掩盖）⇒ AgentTool 的
+      // 父级取消桥接恒空转。此 Map 即 `stopMessage()` 中止的对象（见 `_sessionAbortControllers`），
+      // 故"用户点停止"从此能传导到工具内部（并行批次短路未投递 worker）。
+      getSessionAbortController: (sessionId) =>
+        sessionId ? this._sessionAbortControllers.get(sessionId) : undefined,
     });
 
     // 会话生命周期门面：与会话状态共享 Map 引用 + currentSessionId 端口
@@ -965,7 +1009,6 @@ export class ChatManagerImpl implements ChatManager {
           }
         },
         ENABLE_TELEMETRY: this.ENABLE_TELEMETRY,
-        ENABLE_TRAJECTORY: this.ENABLE_TRAJECTORY,
         ENABLE_PLAN_DRIVEN_LOOP: true, // 阶段 3 退役（2026-09-01）：灰度开关删除，恒启用
         MAX_TOOL_TURNS: this.MAX_TOOL_TURNS,
         messageService: this.messageService,
@@ -982,6 +1025,8 @@ export class ChatManagerImpl implements ChatManager {
         getToolRegistry: () => this.toolRegistry,
         buildToolDefinitions: (schemas: unknown[]) =>
           this._buildToolDefinitions(schemas as ToolSchema[]),
+        recordToolsSnapshot: (sid, schemas) =>
+          this._recordToolsSnapshot(sid, schemas as ToolSchema[]),
         loopDetector: this
           ._loopDetector as import('@modules/query').LoopDetector,
         addAndPersistMessage: (sid, msg) =>
@@ -1038,20 +1083,6 @@ export class ChatManagerImpl implements ChatManager {
           if (this.ENABLE_TELEMETRY) {
             try {
               agentTelemetry.endTurn(sessionId, 'completed');
-            } catch (err) {
-              logger.debug('Telemetry recording skipped', {
-                error: err instanceof Error ? err.message : String(err),
-              });
-            }
-          }
-          if (this.ENABLE_TRAJECTORY) {
-            try {
-              trajectoryRecorder.recordStep(sessionId, {
-                phase: 'response',
-                output: content ? content.slice(0, 500) : '',
-              });
-              trajectoryRecorder.completeSession(sessionId);
-              trajectoryRuntime.completeSession(sessionId);
             } catch (err) {
               logger.debug('Telemetry recording skipped', {
                 error: err instanceof Error ? err.message : String(err),
@@ -1581,6 +1612,27 @@ export class ChatManagerImpl implements ChatManager {
         this._requestReconcile(sessionId, eventLog);
       }
     }
+
+    // TR-14-A（2026-09-22）：回合级耗时落事件（**真实墙钟** = 流式开始 → 完成）。
+    // 落点选在此处：`Message.startedAt` 的既有语义就是"流式开始时间（用于显示耗时）"，
+    // 与 `createdAt`（完成时间）成对；任一缺失则**不产事件**（不用 0 兜底 —— 那是伪造）。
+    const timingData = buildAssistantTimingData(message);
+    if (timingData) {
+      const timingResult = await eventLog.append({
+        type: 'metric/timing',
+        seq: 0, // 由 append 在 mutex 内原子分配（P3-7a）
+        time: Date.now(),
+        sessionId,
+        data: timingData,
+      });
+      if (!timingResult.ok && timingResult.reason !== 'duplicate-seq') {
+        logger.warn('metric/timing 事件追加失败（回合级耗时）', {
+          sessionId,
+          messageId: message.id,
+          reason: timingResult.reason,
+        });
+      }
+    }
   }
 
   /**
@@ -1601,13 +1653,41 @@ export class ChatManagerImpl implements ChatManager {
     logger.warn('chat:manager 会话已加入待对账队列（Phase D T-D 消费）', {
       sessionId,
     });
+    // TB-10 修复（2026-09-23）：入队后**接上消费者**。
+    // 修复前本方法只入队，而 `runPendingReconciles()` 全仓无任何调用点 ⇒ 队列只入不出、
+    // `ReconcileService`（5 类漂移检测 + 修复计划）运行时从不执行、`pendingRepair` 标记无消费方。
+    this._scheduleReconcileDrain();
+  }
+
+  /**
+   * TB-10 修复（2026-09-23）：为待对账队列调度一次消费（延迟去抖）。
+   *
+   * **为何是"入队后延迟"而不是"启动时/定时轮询"**：该队列 `_pendingReconcileSessions`
+   * **仅存在于内存**（进程重启即空）⇒ "启动时消费"恒为空操作；真正的触发点就是
+   * "刚发生过 append 失败"这一刻。去抖用于把同一故障窗口内的多次失败合并为一次对账。
+   */
+  private _scheduleReconcileDrain(): void {
+    if (this._reconcileDrainTimer) clearTimeout(this._reconcileDrainTimer);
+    const timer = setTimeout(() => {
+      this._reconcileDrainTimer = null;
+      // 逐会话的异常已在 runPendingReconciles 内部经 handleError 处理，这里只兜住"调用本身"的异常：
+      // 对账是诊断路径，任何失败都不得影响消息主路径（CS03）
+      // @ignore-catch — 见上，诊断路径失败无需上抛
+      void this.runPendingReconciles().catch(() => {});
+    }, ChatManagerImpl.reconcileDrainDelayMs);
+    // 不阻止进程退出（与"仅内存态队列"的事实一致）
+    (timer as unknown as { unref?: () => void }).unref?.();
+    this._reconcileDrainTimer = timer;
   }
 
   /**
    * D-1（2026-08-23）：执行待对账会话（消费 A-7 标记的 _pendingReconcileSessions）
    *
    * 对账默认只检测 + 告警 + 生成修复计划（自动修复关闭）。
-   * 调用时机：启动时 / 后台定时任务（由外部触发，本方法不阻塞消息主路径）。
+   *
+   * **触发时机（TB-10 修复后更正）**：由 `_requestReconcile` 入队后经 `_scheduleReconcileDrain()`
+   * **延迟去抖**调用。原文写"启动时 / 后台定时任务（由外部触发）"——经实测**不存在该外部触发方**，
+   * 且该队列**仅存在于内存**（重启即空）⇒ "启动时消费"恒为空操作，故改为入队后自调度。
    */
   async runPendingReconciles(): Promise<void> {
     if (this._pendingReconcileSessions.size === 0) return;
@@ -1648,24 +1728,99 @@ export class ChatManagerImpl implements ChatManager {
         }).catch(() => {});
       }
     }
-    this._pendingReconcileSessions.clear();
+    // TB-10 修复（2026-09-23）：**只删已处理项**，不再 `clear()` ——
+    // 上面的 await 循环期间可能又有新会话入队（同一次故障风暴），`clear()` 会把它们**静默丢弃**。
+    for (const sid of pending) this._pendingReconcileSessions.delete(sid);
   }
 
   /**
    * 获取或创建 per-session EventLogStorage 实例
    *
    * 同一会话复用同一实例，避免重复初始化 tailSeq。
+   *
+   * D2（2026-09-22）：改为 **LRU**（命中即移到队尾；超上限淘汰最久未用者并释放其快照）。
+   * 修复前只增不减（仅在会话删除时 `delete`）⇒ 每个触碰过的会话都常驻一份
+   * `eventsSnapshot`（预算 `min(10 000 事件, 200MB)`）。
    */
   private _getOrCreateEventLog(sessionId: string): EventLogStorage {
     // P2-5：hash 单一真源，缓存 key 带 hash 前缀（防不同分区同 sessionId 串实例）
     const hash = resolveWorktreeHash();
     const key = `${hash}:${sessionId}`;
-    let log = this._eventLogCache.get(key);
-    if (!log) {
-      log = new EventLogStorage(sessionId, hash);
-      this._eventLogCache.set(key, log);
+    const cached = this._eventLogCache.get(key);
+    if (cached) {
+      // LRU：Map 保序 ⇒ 删后再插即"移到最近使用端"
+      this._eventLogCache.delete(key);
+      this._eventLogCache.set(key, cached);
+      return cached;
     }
+    const log = new EventLogStorage(sessionId, hash);
+    this._eventLogCache.set(key, log);
+    this._evictOverflowEventLogs(key);
     return log;
+  }
+
+  /**
+   * D2：淘汰超出上限的**最久未用**实例（`protectedKey` = 刚刚使用的那一个，永不淘汰）。
+   *
+   * 淘汰动作分两步且**先摘牌再异步释放**：摘牌同步完成（上限即时生效），
+   * 释放（落盘缓冲正文 + 清快照）异步进行，失败只记日志——释放属"省内存"，
+   * 不承担正确性（实例被摘牌后仍是被引用对象，按其自身生命周期继续工作/被 GC）。
+   */
+  private _evictOverflowEventLogs(protectedKey: string): void {
+    while (this._eventLogCache.size > ChatManagerImpl.EVENT_LOG_CACHE_MAX) {
+      const oldestKey = this._eventLogCache.keys().next().value as
+        | string
+        | undefined;
+      if (oldestKey === undefined || oldestKey === protectedKey) break;
+      const evicted = this._eventLogCache.get(oldestKey);
+      this._eventLogCache.delete(oldestKey);
+      if (evicted) {
+        void this._releaseEventLogMemory(oldestKey, evicted, 'lru_evict');
+      }
+    }
+  }
+
+  /**
+   * D2：释放某个事件日志实例的常驻内存。
+   *
+   * 顺序不可颠倒：**先** `flushTextBuffer()` 把缓冲正文落盘（Write-Ahead：
+   * 正文缓冲不得因"省内存"而丢），**再** `releaseMemory()` 释放事件快照。
+   * 两处触发点：实例 LRU 淘汰（`lru_evict`）与会话切换（`session_switch`）。
+   */
+  private async _releaseEventLogMemory(
+    key: string,
+    log: EventLogStorage,
+    reason: 'lru_evict' | 'session_switch'
+  ): Promise<void> {
+    try {
+      await log.flushTextBuffer();
+      log.releaseMemory();
+      logger.debug('event-log: 已释放会话事件快照', { key, reason });
+    } catch (err) {
+      // @ignore-catch — 释放失败只影响内存占用，不影响会话数据正确性
+      logger.warn('event-log: 释放事件日志内存失败（不影响正确性）', {
+        key,
+        reason,
+        error: String(err),
+      });
+    }
+  }
+
+  /**
+   * D2：会话切换时释放**非当前会话**的事件快照（当前会话的快照仍按需复用）。
+   *
+   * 为什么放在切换点：这是"用户意图已转移"的最强信号，且是一次同步可枚举的窄路径
+   * （不引入定时器/后台扫描）。代价：被释放的会话若再次访问需重建快照
+   * （`read()` 的建快照分支，实测单会话毫秒~百毫秒级），属可接受换内存。
+   */
+  private async _releaseInactiveEventLogSnapshots(
+    activeSessionId: string
+  ): Promise<void> {
+    const activeKey = `${resolveWorktreeHash()}:${activeSessionId}`;
+    for (const [key, log] of this._eventLogCache) {
+      if (key === activeKey) continue;
+      await this._releaseEventLogMemory(key, log, 'session_switch');
+    }
   }
 
   /**
@@ -1697,10 +1852,14 @@ export class ChatManagerImpl implements ChatManager {
 
       // 首次使用时检测是否需要迁移旧数据
       if (!eventLog.exists()) {
+        // TR-16（2026-09-22，N-52 同族）：原为字面量 `'default'` ⇒ 迁移器按
+        // `<sessionsRoot>/default/<sid>/` 找投影，与真实分区（worktree hash）不符 ⇒
+        // 此处的"流式前迁移检测"恒判错。改传 `resolveWorktreeHash()`（单一真源，与
+        // 本文件 `_appendEventsForMessage` 内的用法一致）。
         const migrator = new MessageToEventMigrator(
           eventLog,
           sessionId,
-          'default'
+          resolveWorktreeHash()
         );
         if (migrator.needsMigration()) {
           logger.info('chat:manager 流式前自动触发事件日志迁移', {
@@ -1725,7 +1884,10 @@ export class ChatManagerImpl implements ChatManager {
       if (result.ok && event.type === 'assistant/tool_call') {
         const data = event.data as { toolCallId: string };
         if (data.toolCallId) {
-          this._toolCallSeqMap.set(data.toolCallId, event.seq);
+          // TR-19 修复（2026-09-22）：`append` **不写回** `event.seq`（调用方通常传 0 =
+          // 交由 mutex 原子分配）⇒ 必须取返回值。与 `_appendEventsForMessage` 中同一映射
+          // 的既有写法（`result.tailSeq`）对齐，消除两处口径不一致。
+          this._toolCallSeqMap.set(data.toolCallId, result.tailSeq);
         }
       }
       // Fix2（2026-09-05）：turn/end 幂等中央记录——任何写者（streamMessageFlow /
@@ -2183,7 +2345,13 @@ export class ChatManagerImpl implements ChatManager {
       .map((b) => b.content as string)
       .join('')
       .trim();
-    const content = rawContent.trim().length > 0 ? rawContent : blocksText;
+    // 2026-09-22 根因修复（真机实证：会话 `session_mub9t9o0h7x2i9ac6rj` 第 906 条 assistant
+    // 记录 `content`=**120 字符**、而 `blocks` 正文=**2758 字符**）：
+    // 原判据"**非空**即采用"只兜住"content 完全为空"的情形；当 content 是**流式前导短桩**
+    // （正文已落在 blocks.text）时，短桩会覆盖正文 ⇒ 读路径把该短桩当作该轮完整答复
+    // ⇒ 模型下一轮"不知道自己写过什么"⇒ **从头重写**（同一开场重复落盘、上下文膨胀、复读）。
+    // 规则单点实现见 `pickMoreCompleteContent`（`@modules/utils/common`），读路径同源。
+    const content = pickMoreCompleteContent(rawContent, blocksText);
     // P1-6（G8/N11）：投影版本戳 lastEventSeq = 写盘时刻的会话全局事件 seq。
     // 前提：getStreamTailSeq 缓存 tailSeq（O(1)）；字段随内存消息常驻（compact 序列化不丢）。
     let lastEventSeq: number | undefined;
@@ -2257,7 +2425,17 @@ export class ChatManagerImpl implements ChatManager {
       promptClient,
       this.imageContextService,
       (sessionId: string) =>
-        this.sessionAccess.getMemoryManager().getMemoryContext(sessionId)
+        this.sessionAccess.getMemoryManager().getMemoryContext(sessionId),
+      // TR-12-B（2026-09-22）：系统提示词逐段快照 → "模型当时看到的提示词"可重建（§1.6）
+      (sections, contents, mode) => {
+        void this._recordModelInputSnapshot(session.id, {
+          sections: sections.map((s, i) => ({
+            name: s.name,
+            content: contents[i] ?? null,
+          })),
+          mode,
+        });
+      }
     );
   }
 
@@ -2820,6 +2998,37 @@ export class ChatManagerImpl implements ChatManager {
   }
 
   /**
+   * TR-12-B（2026-09-22）：模型输入快照服务（惰性单例，绑定本实例的事件日志缓存）。
+   *
+   * 复用 `_getOrCreateEventLog` 的 per-session 实例（**禁止自建**，避免 tailSeq 分裂）。
+   */
+  private _requestSnapshot?: RequestSnapshotService;
+
+  private get requestSnapshot(): RequestSnapshotService {
+    this._requestSnapshot ??= new RequestSnapshotService((sid) =>
+      this._getOrCreateEventLog(sid)
+    );
+    return this._requestSnapshot;
+  }
+
+  /**
+   * TR-12-B：落一条模型输入快照（工具清单 / 系统提示词分段，引用式去重）。
+   *
+   * 失败不阻断主路径（服务内仅 warn）；调用方按需 await。
+   */
+  private _recordModelInputSnapshot(
+    sessionId: string,
+    input: ModelInputSnapshot
+  ): Promise<void> {
+    return this.requestSnapshot.record(sessionId, input);
+  }
+
+  /** TR-12-B：工具清单快照（3 个装配点的统一出口） */
+  private _recordToolsSnapshot(sessionId: string, schemas: ToolSchema[]): void {
+    void this._recordModelInputSnapshot(sessionId, { tools: schemas });
+  }
+
+  /**
    * 将 ToolSchema[] 转换为 OpenAI 兼容的 ToolDefinition[]
    */
   private _buildToolDefinitions(schemas: ToolSchema[]): ToolDefinition[] {
@@ -2990,6 +3199,10 @@ export class ChatManagerImpl implements ChatManager {
     setYieldResumeHandler(null);
     setSelfWakeResumeHandler(null);
     setActiveSubagentRunProbe(null);
+    // B1-6 / P0-6：**清空模块级单例的等待集**。卸载 listener 只切断"新信号"，
+    // 而 `YieldRegistry` 是**进程级单例**（`getYieldRegistry()`）⇒ 条目会跨实例残留，
+    // 新实例可能对**陈旧登记**发起恢复（修复前此处无 clear()，见 §2.5 P0-6）。
+    getYieldRegistry().clear();
 
     taskOrchestrator
       .abortAll()
@@ -3150,7 +3363,7 @@ export class ChatManagerImpl implements ChatManager {
    * 记录 LLM 响应的令牌用量
    */
   private recordChatResponseUsage(
-    _sessionId: string,
+    sessionId: string,
     usage: Record<string, number> | null | undefined
   ): void {
     if (!usage) return;
@@ -3165,6 +3378,21 @@ export class ChatManagerImpl implements ChatManager {
     this.unifiedTracker.recordPostRequest({
       usage: { inputTokens, outputTokens, totalTokens },
     });
+
+    // TR-12-A（2026-09-22）：请求级用量分桶落事件（含缓存命中/写入，供轨迹"用量"视图）。
+    // 本方法是**同步**签名（由管线 ctx 注入调用），故不 await；`appendStreamEvent` 自带
+    // try/catch 并返回 `{ok,reason}`，失败只记日志 —— 该事件是**可观测数据**，不是渲染依赖，
+    // 不能因其失败影响用量记账与主流程。
+    const timingData = buildRequestTimingData(usage);
+    if (timingData) {
+      void this.appendStreamEvent(sessionId, {
+        type: 'metric/timing',
+        seq: 0, // 由 append 在 mutex 内原子分配（P3-7a）
+        time: Date.now(),
+        sessionId,
+        data: timingData,
+      });
+    }
   }
 
   /**
@@ -3624,24 +3852,6 @@ export class ChatManagerImpl implements ChatManager {
       'session.id': session.id,
     });
 
-    // Phase 2: Trajectory 会话初始化
-    if (this.ENABLE_TRAJECTORY) {
-      try {
-        trajectoryRecorder.startSession(session.id, options?.model);
-      } catch (err) {
-        logger.debug('Telemetry recording skipped', {
-          error: err instanceof Error ? err.message : String(err),
-        });
-      }
-      try {
-        trajectoryRuntime.startSession(session.id, options?.model);
-      } catch (err) {
-        logger.debug('Telemetry recording skipped', {
-          error: err instanceof Error ? err.message : String(err),
-        });
-      }
-    }
-
     logger.info('streamMessage:会话准备完成', {
       sessionId: session.id,
       model: options?.model ?? null,
@@ -3987,24 +4197,6 @@ export class ChatManagerImpl implements ChatManager {
       this._summarizer!.summarize(session, assistantMessage).catch(() => {
         /* 摘要生成失败不阻塞 */
       });
-    }
-
-    if (this.ENABLE_TRAJECTORY) {
-      try {
-        trajectoryRecorder.recordStep(session.id, {
-          phase: 'response',
-          output:
-            typeof assistantMessage.content === 'string'
-              ? assistantMessage.content.slice(0, 500)
-              : '',
-        });
-        trajectoryRecorder.completeSession(session.id);
-        trajectoryRuntime.completeSession(session.id);
-      } catch (err) {
-        logger.debug('Telemetry recording skipped', {
-          error: err instanceof Error ? err.message : String(err),
-        });
-      }
     }
 
     // P4-fix: 等待所有未完成的持久化完成后再返回（WAP 规范）
@@ -4445,6 +4637,35 @@ export class ChatManagerImpl implements ChatManager {
   }
 
   /**
+   * B1-3 / B1-4（P0-2 / P0-4）：**启动期恢复装配** —— 不依赖任何用户活动。
+   *
+   * 顺序**不可交换**：
+   * ① 装配等待集持久化端口（`YieldRegistry.setPersistence`）；
+   * ② **先重建等待集**（`rebuildYieldWaitingSet`，含 `turn`）—— 否则回放时
+   *    `registry.get()` 必为 undefined ⇒ 逐行 `markFailed` ⇒ 8 次后 `dropped`；
+   * ③ 再装配恢复器（`_ensureYieldResumerInstalled` 内部触发 `replayPendingSettlements`）
+   *    —— 此时回放才可能真正命中等待者。
+   *
+   * 修复前：装配只在 `streamMessage` / `sendMessage` 入口 ⇒ **无人发消息时
+   * `pending` 行永不回放**（O8 台账实为"只写不生效"）。本方法由 `main.ts` 的启动
+   * 序列调用（`wrapInit('YieldRecovery', ...)`）。
+   */
+  async bootstrapYieldRecovery(): Promise<void> {
+    const store = getYieldWaitingStore();
+    getYieldRegistry().setPersistence(store);
+    try {
+      const restored = await rebuildYieldWaitingSet(store);
+      if (restored > 0) {
+        logger.info('yield 等待集已重建（启动期）', { restored });
+      }
+    } catch (err) {
+      // 重建失败不阻断启动：仅退化为"等待集为空"（与修复前一致）
+      logger.warn('yield 等待集重建失败（不阻断启动）', { error: String(err) });
+    }
+    this._ensureYieldResumerInstalled();
+  }
+
+  /**
    * 阶段 A（A1-e）：装配 yield 恢复器（幂等）。
    *
    * 恢复 = 「子代理全部结算 → 内部消费一次 `streamMessage`，让父会话继续」：
@@ -4470,13 +4691,54 @@ export class ChatManagerImpl implements ChatManager {
 
     // 阶段 A（N-26 修复）：SelfWake 原为"空唤醒"（只 markFired、会话不继续），
     // 现复用同一续跑实现 —— `sleep_for` / `wake_on` 到点后会话真正被唤醒。
-    setSelfWakeResumeHandler(({ sessionId, kind, reason }) =>
-      this._resumeSessionInternally(
+    setSelfWakeResumeHandler(async ({ sessionId, kind, taskId, reason }) => {
+      // M-7 idle 触发续接（2026-09-22）：目标停滞（`blocked`）时的自动续跑。
+      // 与"睡醒续跑"**共用同一执行器**，但提示词取 `goalTemplates.continue_goal`
+      //（M-7 单一来源），并多两道闸门：
+      // ① 目标**仍可续**（`resolveIdleContinuation`：仍 `blocked` 且 streak 未变）——
+      //    已完成 / 触顶 / 判停 / 期间又有新结算 ⇒ 该唤醒作废（no-op）；
+      // ② 会话**此刻确实空闲**（无在途子代理 run）—— 与 yield 登记守卫同源判据。
+      // 注：账户级串行由 `ChatOrchestrator` 的会话 mutex 保证（同会话 turn 不会交错）。
+      if (isIdleContinuationTask(taskId)) {
+        const target = await resolveIdleContinuation({ taskId });
+        if (!target) {
+          logger.info('目标空闲续接跳过：目标已不可续（终态 / 陈旧唤醒）', {
+            sessionId,
+            taskId,
+          });
+          return { ok: false, error: 'goal_not_continuable' };
+        }
+        if (hasActiveRuns(sessionId)) {
+          logger.info('目标空闲续接跳过：会话仍忙（有在途子代理 run）', {
+            sessionId,
+            goalId: target.goalId,
+          });
+          return { ok: false, error: 'session_busy' };
+        }
+        logger.info('目标空闲续接执行', {
+          sessionId,
+          goalId: target.goalId,
+          streak: target.streak,
+        });
+        return this._resumeSessionInternally(
+          sessionId,
+          renderGoalTemplate('continue_goal', {
+            objective: target.objective,
+            streak: target.streak,
+          }),
+          {
+            systemResume: true,
+            goalId: target.goalId,
+            idleContinuation: true,
+          }
+        );
+      }
+      return this._resumeSessionInternally(
         sessionId,
         '你此前挂起的等待条件已满足，请继续未完成的任务（系统自动唤醒，无需用户确认）。',
         { systemResume: true, selfWakeKind: kind, selfWakeReason: reason }
-      )
-    );
+      );
+    });
 
     const hasActiveRuns = (sessionId: string): boolean =>
       getSubAgentEngine().hasActiveAgentForSession(sessionId);
@@ -4653,6 +4915,13 @@ export class ChatManagerImpl implements ChatManager {
       const toolDefinitions: ToolDefinition[] = this.toolRegistry
         ? this._buildToolDefinitions(this.toolRegistry.getToolSchemas())
         : [];
+      // TR-12-B（2026-09-22）：本轮工具清单落事件（引用式去重）——§1.6 红线
+      if (this.toolRegistry && toolDefinitions.length > 0) {
+        this._recordToolsSnapshot(
+          sessionId,
+          this.toolRegistry.getToolSchemas()
+        );
+      }
 
       logger.info('resumeStream: 开始恢复执行', {
         sessionId,
@@ -5471,6 +5740,10 @@ export class ChatManagerImpl implements ChatManager {
   }
 
   async switchSession(sessionId: string): Promise<void> {
+    // D2（2026-09-22）：切换即"用户意图转移" ⇒ 释放**非当前会话**的事件快照常驻内存
+    // （先 flush 各会话的缓冲正文再释放，见 `_releaseEventLogMemory`）。
+    // 放在委托之前：切换后若原会话仍有后台追加，其写入路径不依赖快照（会回落磁盘路径）。
+    await this._releaseInactiveEventLogSnapshots(sessionId);
     return this.sessionLifecycle.switchSession(sessionId);
   }
 

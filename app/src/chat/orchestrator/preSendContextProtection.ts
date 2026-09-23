@@ -32,6 +32,10 @@
 
 import { getLogger } from '@modules/monitoring';
 import {
+  enterPhase,
+  exitPhase,
+} from '@modules/diagnostics/loopProbe/phaseStack';
+import {
   estimateMessagesTokens,
   estimateMessagesTokensCooperative,
 } from '@modules/ai';
@@ -106,124 +110,138 @@ export interface PreSendProtectionParams {
 export async function applyPreSendProtection(
   params: PreSendProtectionParams
 ): Promise<boolean> {
-  const { host, apiMessages, toolDefinitions, activeClient, options, session } =
-    params;
-  const sendCtxLimit = resolveMaxContextTokens(options?.model);
-  let toolsCleared = false;
-
-  // 1) 估算截断：以 resolveMaxContextTokens 为上限截断旧消息
-  if (sendCtxLimit > 0) {
-    await host.truncateApiMessages(
+  enterPhase('presend:build');
+  try {
+    const {
+      host,
       apiMessages,
-      sendCtxLimit,
-      session.id,
-      options?.maxTokens
-    );
-  }
+      toolDefinitions,
+      activeClient,
+      options,
+      session,
+    } = params;
+    const sendCtxLimit = resolveMaxContextTokens(options?.model);
+    let toolsCleared = false;
 
-  // 2) llama.cpp 精确截断：/tokenize 真实计数（估算低估根治）。
-  //    只要 baseUrl 存在即执行，truncateByPreciseTokens 内部先探测 /tokenize 端点，
-  //    远程 API 无该端点时自动跳过（一次探测请求，无副作用）。
-  const baseUrl = (
-    activeClient as unknown as { getBaseUrl?: () => string }
-  ).getBaseUrl?.();
-  logger.info('streamMessage:precise_truncate_check', {
-    sessionId: session.id,
-    model: options?.model ?? 'unknown',
-    providerId: activeClient.getProviderId(),
-    baseUrl: baseUrl ?? '',
-  });
-  if (baseUrl && sendCtxLimit > 0) {
-    await truncateByPreciseTokens(
-      apiMessages,
-      baseUrl,
-      Math.floor(sendCtxLimit * 0.6)
-    );
-  }
-
-  // 3) 工具定义 token 预算检查（根治 15903 > 8192 的最终一环）：
-  //    /tokenize 只统计 messages content，但发送请求还带 tools——llama.cpp 的 chat template
-  //    会把工具 schema 渲染进 prompt（实测占 ~12K tokens），小窗口下是 context 爆炸真正主因。
-  //    工具 JSON 用 /tokenize 精确计算（估算会低估，导致漏判不移除）。
-  const msgTokens = await estimateMessagesTokensCooperative(
-    apiMessages as { role?: string; content?: string | unknown }[]
-  );
-  // 8.4④（2026-09-16）：发送前上下文占用预警——对齐 AutoCompact 阈值提前量（85% 预警），
-  // 只预警不改变行为，前端日志面板按 streamMessage:token 过滤即可观测"发送前已逼近窗口"。
-  if (sendCtxLimit > 0) {
-    const ratio = msgTokens / sendCtxLimit;
-    if (ratio >= 0.85) {
-      logger.warn('streamMessage:token — 发送前上下文占用接近窗口（预警）', {
-        sessionId: session.id,
-        model: options?.model ?? 'unknown',
-        estimateTokens: msgTokens,
-        ctxLimit: sendCtxLimit,
-        ratioPct: Math.round(ratio * 100),
-      });
+    // 1) 估算截断：以 resolveMaxContextTokens 为上限截断旧消息
+    if (sendCtxLimit > 0) {
+      await host.truncateApiMessages(
+        apiMessages,
+        sendCtxLimit,
+        session.id,
+        options?.maxTokens
+      );
     }
-  }
-  // 8.4④（2026-09-16）：每日 Token 预算前置检查——用本轮估算预判是否将打穿预算，
-  // 接近/达到上限时追加降级提示（对齐 AutoCompact 阈值提前量语义），而非被动等成本打穿。
-  const dailyBudget = getDailyBudget();
-  const budgetMode = dailyBudget.getMode();
-  if (budgetMode.mode !== 'normal') {
-    const projected = budgetMode.todayUsed + msgTokens;
-    logger.warn('streamMessage:budget — 每日 Token 预算前置检查', {
+
+    // 2) llama.cpp 精确截断：/tokenize 真实计数（估算低估根治）。
+    //    只要 baseUrl 存在即执行，truncateByPreciseTokens 内部先探测 /tokenize 端点，
+    //    远程 API 无该端点时自动跳过（一次探测请求，无副作用）。
+    const baseUrl = (
+      activeClient as unknown as { getBaseUrl?: () => string }
+    ).getBaseUrl?.();
+    logger.info('streamMessage:precise_truncate_check', {
       sessionId: session.id,
       model: options?.model ?? 'unknown',
-      todayUsed: budgetMode.todayUsed,
-      dailyLimit: budgetMode.dailyLimit,
-      estimateThisRound: msgTokens,
-      projected,
-      ratioPct: Math.round(budgetMode.percentUsed * 100),
+      providerId: activeClient.getProviderId(),
+      baseUrl: baseUrl ?? '',
     });
-    if (budgetMode.mode === 'locked' || projected >= budgetMode.dailyLimit) {
-      apiMessages.push({
-        role: 'system',
-        content: `今日 Token 预算已耗尽（已用 ${budgetMode.todayUsed}/${budgetMode.dailyLimit}）。请立即停止调用工具，基于已有上下文直接给出最终答复。`,
-      });
+    if (baseUrl && sendCtxLimit > 0) {
+      await truncateByPreciseTokens(
+        apiMessages,
+        baseUrl,
+        Math.floor(sendCtxLimit * 0.6)
+      );
     }
-  }
-  if (toolDefinitions.length > 0) {
-    const toolsJson = JSON.stringify(toolDefinitions);
-    let toolsTokens = estimateMessagesTokens([
-      { role: 'system' as const, content: toolsJson },
-    ]);
-    const normBase = baseUrl?.replace(/\/v1\/?$/, '');
-    // /tokenize 仅本地 llama.cpp 服务提供；远程 API 发起会 401/404
-    // （R 修复 2026-08-13：对 api.deepseek.com 的探测产生 20+ 次 401 噪音）
-    if (normBase && isLocalLlmEndpoint(normBase)) {
-      try {
-        const res = await fetch(`${normBase}/tokenize`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ content: toolsJson }),
-          signal: AbortSignal.timeout(5000),
+
+    // 3) 工具定义 token 预算检查（根治 15903 > 8192 的最终一环）：
+    //    /tokenize 只统计 messages content，但发送请求还带 tools——llama.cpp 的 chat template
+    //    会把工具 schema 渲染进 prompt（实测占 ~12K tokens），小窗口下是 context 爆炸真正主因。
+    //    工具 JSON 用 /tokenize 精确计算（估算会低估，导致漏判不移除）。
+    const msgTokens = await estimateMessagesTokensCooperative(
+      apiMessages as { role?: string; content?: string | unknown }[]
+    );
+    // 8.4④（2026-09-16）：发送前上下文占用预警——对齐 AutoCompact 阈值提前量（85% 预警），
+    // 只预警不改变行为，前端日志面板按 streamMessage:token 过滤即可观测"发送前已逼近窗口"。
+    if (sendCtxLimit > 0) {
+      const ratio = msgTokens / sendCtxLimit;
+      if (ratio >= 0.85) {
+        logger.warn('streamMessage:token — 发送前上下文占用接近窗口（预警）', {
+          sessionId: session.id,
+          model: options?.model ?? 'unknown',
+          estimateTokens: msgTokens,
+          ctxLimit: sendCtxLimit,
+          ratioPct: Math.round(ratio * 100),
         });
-        if (res.ok) {
-          const data = (await res.json()) as { tokens?: unknown[] };
-          if (Array.isArray(data.tokens)) toolsTokens = data.tokens.length;
-        }
-      } catch {
-        // @ignore-catch: 精确计算失败保留估算值
       }
     }
-    const budget = Math.floor(sendCtxLimit * 0.6);
-    if (msgTokens + toolsTokens > budget) {
-      logger.warn('streamMessage:tools — 工具定义超出上下文预算，发送时移除', {
+    // 8.4④（2026-09-16）：每日 Token 预算前置检查——用本轮估算预判是否将打穿预算，
+    // 接近/达到上限时追加降级提示（对齐 AutoCompact 阈值提前量语义），而非被动等成本打穿。
+    const dailyBudget = getDailyBudget();
+    const budgetMode = dailyBudget.getMode();
+    if (budgetMode.mode !== 'normal') {
+      const projected = budgetMode.todayUsed + msgTokens;
+      logger.warn('streamMessage:budget — 每日 Token 预算前置检查', {
         sessionId: session.id,
         model: options?.model ?? 'unknown',
-        msgTokens,
-        toolsTokens,
-        budget,
-        toolCount: toolDefinitions.length,
+        todayUsed: budgetMode.todayUsed,
+        dailyLimit: budgetMode.dailyLimit,
+        estimateThisRound: msgTokens,
+        projected,
+        ratioPct: Math.round(budgetMode.percentUsed * 100),
       });
-      toolDefinitions.length = 0;
-      toolsCleared = true;
+      if (budgetMode.mode === 'locked' || projected >= budgetMode.dailyLimit) {
+        apiMessages.push({
+          role: 'system',
+          content: `今日 Token 预算已耗尽（已用 ${budgetMode.todayUsed}/${budgetMode.dailyLimit}）。请立即停止调用工具，基于已有上下文直接给出最终答复。`,
+        });
+      }
     }
-  }
+    if (toolDefinitions.length > 0) {
+      const toolsJson = JSON.stringify(toolDefinitions);
+      let toolsTokens = estimateMessagesTokens([
+        { role: 'system' as const, content: toolsJson },
+      ]);
+      const normBase = baseUrl?.replace(/\/v1\/?$/, '');
+      // /tokenize 仅本地 llama.cpp 服务提供；远程 API 发起会 401/404
+      // （R 修复 2026-08-13：对 api.deepseek.com 的探测产生 20+ 次 401 噪音）
+      if (normBase && isLocalLlmEndpoint(normBase)) {
+        try {
+          const res = await fetch(`${normBase}/tokenize`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ content: toolsJson }),
+            signal: AbortSignal.timeout(5000),
+          });
+          if (res.ok) {
+            const data = (await res.json()) as { tokens?: unknown[] };
+            if (Array.isArray(data.tokens)) toolsTokens = data.tokens.length;
+          }
+        } catch {
+          // @ignore-catch: 精确计算失败保留估算值
+        }
+      }
+      const budget = Math.floor(sendCtxLimit * 0.6);
+      if (msgTokens + toolsTokens > budget) {
+        logger.warn(
+          'streamMessage:tools — 工具定义超出上下文预算，发送时移除',
+          {
+            sessionId: session.id,
+            model: options?.model ?? 'unknown',
+            msgTokens,
+            toolsTokens,
+            budget,
+            toolCount: toolDefinitions.length,
+          }
+        );
+        toolDefinitions.length = 0;
+        toolsCleared = true;
+      }
+    }
 
-  return toolsCleared;
+    return toolsCleared;
+  } finally {
+    exitPhase('presend:build');
+  }
 }
 
 /**

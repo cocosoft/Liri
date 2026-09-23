@@ -20,6 +20,8 @@ import {
 } from '../../src/context/compaction/StructuredCompactionPrompt';
 // R1（2026-09-16）：捕获 tier3_fold_batch_error 日志，断言失败分支被真实执行
 import { addLogHandler } from '../../src/monitoring/logs/Logger.js';
+// R6（2026-09-21）：请求侧配对完整性（严格 provider 回归）
+import { unpairedToolCallIds } from '../../src/context/compaction/toolPairIntegrity';
 
 function user(content: string): ChatMessage {
   return { role: 'user', content };
@@ -206,4 +208,164 @@ describe('R1 Tier3 迭代折叠：_foldBatchSummary（单批折叠）', () => {
       off();
     }
   });
+});
+
+/* ===================================================================
+ * R6（2026-09-21）：**严格 provider 回归** —— 折叠请求不得含悬空 tool_calls
+ *
+ * 真机实证（`~/.pyapp/data/logs/app.log`，连续 13 次）：
+ *   compaction:tier3_fold_batch_error / OpenAI API error (400)
+ *   "An assistant message with 'tool_calls' must be followed by tool messages
+ *    responding to each 'tool_call_id'"
+ * ⇒ 所有批全失败、`tier3_no_fold`、`applied:false`、上下文只增不减。
+ *
+ * 复现方式：把 mock provider 做成**严格上游**（见到悬空 tool_calls 即抛同一 400），
+ * 再用"批边界必然切开配对"的布局驱动折叠 —— 修复前该用例必失败。
+ * =================================================================== */
+describe('R6：Tier3 折叠请求配对完整性（严格 provider 回归）', () => {
+  /** 严格上游：与 OpenAI/DeepSeek 的约束一致，违反即抛 400 */
+  function strictProvider(): {
+    calls: ChatMessage[][];
+    generate: (messages: ChatMessage[]) => Promise<{ content: string }>;
+  } {
+    const calls: ChatMessage[][] = [];
+    const generate = async (
+      messages: ChatMessage[]
+    ): Promise<{ content: string }> => {
+      calls.push(messages);
+      const dangling = unpairedToolCallIds(messages);
+      if (dangling.size > 0) {
+        throw new Error(
+          'OpenAI API error (400): ' +
+            "An assistant message with 'tool_calls' must be followed by tool " +
+            "messages responding to each 'tool_call_id'. " +
+            `(insufficient tool messages following tool_calls message: ${[
+              ...dangling,
+            ].join(',')})`
+        );
+      }
+      // ② 反向：孤立 tool 结果（无对应调用声明）同样非法
+      const declared = new Set<string>();
+      for (const m of messages) {
+        const tcs = (m as unknown as Record<string, unknown>).tool_calls as
+          | Array<{ id?: string }>
+          | undefined;
+        for (const tc of tcs ?? []) if (tc.id) declared.add(tc.id);
+      }
+      for (const m of messages) {
+        const rid = (m as unknown as Record<string, unknown>).tool_call_id as
+          | string
+          | undefined;
+        if (rid && !declared.has(rid)) {
+          throw new Error(
+            `OpenAI API error (400): orphan tool result '${rid}' without a preceding tool_calls`
+          );
+        }
+      }
+      return { content: '短摘要' };
+    };
+    return { calls, generate };
+  }
+
+  const runFull = (orch: CompactionOrchestrator) =>
+    (
+      orch as unknown as {
+        runFullCompaction: (
+          messages: ChatMessage[],
+          ctx: { model: string; sessionId?: string; configOverride?: number },
+          signal?: AbortSignal
+        ) => Promise<{ messages: ChatMessage[]; applied: boolean }>;
+      }
+    ).runFullCompaction.bind(orch);
+
+  /** assistant 带 tool_calls（用于制造"切点破配对"） */
+  const assistantCalls = (ids: string[]): ChatMessage =>
+    ({
+      role: 'assistant',
+      content: '',
+      tool_calls: ids.map((id) => ({
+        id,
+        type: 'function',
+        function: { name: 'file_read', arguments: '{}' },
+      })),
+    }) as unknown as ChatMessage;
+
+  const toolResult = (id: string, content: string): ChatMessage =>
+    ({ role: 'tool', tool_call_id: id, content }) as unknown as ChatMessage;
+
+  it('批边界切开配对 ⇒ 折叠仍成功（修复前必 400、applied:false）', async () => {
+    const head = { role: 'system' as const, content: '你是助手。' };
+    // 布局要点：`assistant(tool_calls)` 之后紧跟一条**超大** tool 结果 ——
+    // 它单独就超过 FOLD_BATCH_SOURCE_TOKENS(12K) ⇒ `extractEarliestBatch` 的切点
+    // 必然落在 assistant 与其结果之间（修复前该批请求悬空 → 上游 400）。
+    const messages = [
+      head,
+      assistantCalls(['c1']),
+      toolResult('c1', '你'.repeat(14_000)),
+      ...Array.from({ length: 4 }, (_, i) =>
+        user(`第 ${i + 1} 轮 ${'你'.repeat(8000)}`)
+      ),
+    ] as ChatMessage[];
+
+    const provider = strictProvider();
+    const orch = new CompactionOrchestrator({ aiService: provider });
+    const before = estimateMessagesTokens(messages);
+
+    const result = await runFull(orch)(messages, { model: 'm', sessionId: 's' });
+
+    expect(provider.calls.length).toBeGreaterThan(0); // 确实打过上游
+    expect(result.applied).toBe(true); // 修复前恒 false
+    expect(estimateMessagesTokens(result.messages)).toBeLessThan(before);
+  });
+
+  it('单批含悬空配对 ⇒ 发请求前被收敛（严格上游不再报错）', async () => {
+    const provider = strictProvider();
+    const orch = new CompactionOrchestrator({ aiService: provider });
+    // 直接构造"批尾悬空"的批：assistant 声明 c1，但其结果不在本批
+    const batch = [assistantCalls(['c1']), user('后续内容')];
+    const summary = await foldOf(orch)(
+      provider,
+      {
+        COMPACTION_USER_PROMPT,
+        parseCompactionSummary: (() => null) as typeof parseCompactionSummary,
+        renderCompactionSummary,
+      },
+      [],
+      batch,
+      { model: 'm', sessionId: 's' }
+    );
+
+    expect(summary).toBeTruthy(); // 修复前 strictProvider 抛 400 ⇒ null
+    // 且上游收到的请求里，悬空调用已被摘掉
+    expect(unpairedToolCallIds(provider.calls[0]).size).toBe(0);
+  });
+
+  it('严格 provider 自证有效：故意喂悬空数组会抛 400（防用例空转）', async () => {
+    const provider = strictProvider();
+    await expect(
+      provider.generate([assistantCalls(['missing']), user('指令')])
+    ).rejects.toThrow(/must be followed by tool messages/);
+  });
+
+  /** `_foldBatchSummary` 私有方法桥（同文件上方既有风格） */
+  function foldOf(orch: CompactionOrchestrator) {
+    return (
+      orch as unknown as {
+        _foldBatchSummary: (
+          ai: { generate: Function },
+          procs: {
+            COMPACTION_USER_PROMPT: string;
+            parseCompactionSummary: (
+              raw: string
+            ) => Record<string, unknown> | null;
+            renderCompactionSummary: typeof renderCompactionSummary;
+          },
+          head: ChatMessage[],
+          batch: ChatMessage[],
+          ctx: { model: string; sessionId?: string; configOverride?: number },
+          signal?: AbortSignal
+        ) => Promise<string | null>;
+      }
+    )._foldBatchSummary.bind(orch);
+  }
 });

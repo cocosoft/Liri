@@ -69,7 +69,10 @@ describe('deriveMessagesFromEvents', () => {
       ev(1, 'user/message', { content: 'hi', messageId: 'msg-1' }),
       ev(2, 'turn/start', { turn: 1 }),
       ev(3, 'assistant/text', { content: '第一段', messageId: 'msg-2' }),
-      ev(4, 'assistant/text-batch', { content: '第二段（聚合批）', messageId: 'msg-2' }),
+      ev(4, 'assistant/text-batch', {
+        content: '第二段（聚合批）',
+        messageId: 'msg-2',
+      }),
       ev(5, 'assistant/text-batch', { content: '第三段', messageId: 'msg-2' }),
     ];
     const messages = deriveMessagesFromEvents(events, []);
@@ -138,5 +141,42 @@ describe('deriveMessagesFromEvents', () => {
     const projections = [proj('msg-z', 'Z', 20)];
     const messages = deriveMessagesFromEvents(events, projections);
     expect(messages.map((m) => m.id)).toEqual(['msg-a', 'msg-b', 'msg-z']);
+  });
+
+  /**
+   * 2026-09-22 根因修复的守门用例（真机实证：`session_mub9t9o0h7x2i9ac6rj` 第 906 条
+   * assistant 记录 `content`=120 字符，而同条 `blocks` 正文=2758 字符）。
+   *
+   * 修复前 `content: proj.content || agg.content` 以"非空"为判据 ⇒ 流式前导短桩会覆盖
+   * 事件侧聚合出的完整正文 ⇒ 模型看到的该轮答复近乎空壳 ⇒ 下一轮从头重写（复读）。
+   */
+  it('投影正文是流式前导短桩时 ⇒ 取事件聚合的完整正文（不降级）', () => {
+    const events: LiriEvent[] = [
+      ev(1, 'user/message', { content: '继续', messageId: 'msg-u' }),
+      ev(2, 'assistant/text', { content: '## 复审结论\n', messageId: 'msg-a' }),
+      ev(3, 'assistant/text', {
+        content: '第一段完整正文……（后文略）',
+        messageId: 'msg-a',
+      }),
+    ];
+    // 投影侧只留了前导短桩，但 lastEventSeq 已覆盖该消息全部事件 ⇒ 闸门通过
+    const projections = [proj('msg-a', '## 复审结论\n', 3)];
+
+    const messages = deriveMessagesFromEvents(events, projections);
+    const a = messages.find((m) => m.id === 'msg-a');
+    expect(a?.content.length).toBeGreaterThan('## 复审结论\n'.length);
+    expect(a?.content).toContain('第一段完整正文');
+  });
+
+  it('投影正文更完整时保持投影优先（不误伤正常路径）', () => {
+    const events: LiriEvent[] = [
+      ev(2, 'assistant/text', { content: '短', messageId: 'msg-a' }),
+    ];
+    const projections = [proj('msg-a', '完整正文（投影侧更全）', 2)];
+
+    const messages = deriveMessagesFromEvents(events, projections);
+    expect(messages.find((m) => m.id === 'msg-a')?.content).toBe(
+      '完整正文（投影侧更全）'
+    );
   });
 });

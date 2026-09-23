@@ -53,6 +53,19 @@ export interface AssembleOptions {
    * 按层(L3→L2)结构性降级丢弃低价值段（extra 豁免、L0/L1 豁免），避免整串字节截断。
    * 缺省回退环境变量 PROMPT_DYNAMIC_BUDGET_TOKENS；两者都缺省 = 不裁剪（保持现状）。 */
   dynamicBudgetTokens?: number;
+  /**
+   * TR-12-B（2026-09-22）：逐段解析结果透出（可选）。
+   *
+   * 用于 `RequestSnapshotService` 落"模型输入快照" —— 让"模型当时看到的系统提示词"
+   * 可从事件重建（project_rules §1.6 红线）。`contents[i]` 对应 `sections[i]`，
+   * `null` = 该段本轮为空（不参与快照）。
+   *
+   * 用回调而非改返回类型：现有调用方零影响（CS03／PY_APP §3 外科手术式修改）。
+   */
+  onSectionsResolved?: (
+    sections: SystemPromptSection[],
+    contents: (string | null)[]
+  ) => void;
 }
 
 function filterSectionsByMode(
@@ -165,6 +178,15 @@ export async function assembleSystemPrompt(
   }
 
   const sectionResults = await resolveSystemPromptSections(allSections);
+
+  // TR-12-B（2026-09-22）：透出逐段解析结果，供 RequestSnapshotService 落"模型输入快照"
+  // （§1.6 红线）。**可选回调**：不改返回类型 ⇒ 现有调用方零影响（CS03／§3 外科手术式修改）。
+  // 被预算丢弃的段其 compute 已被替换为返回 null ⇒ 下游按"空段"跳过（不产引用占位）。
+  try {
+    options.onSectionsResolved?.(allSections, sectionResults);
+  } catch {
+    // @ignore-catch — 快照透出失败不影响提示词组装主流程
+  }
 
   // P1.5：本轮实测成本刷新缓存（被预丢段不刷新——保留旧值供下轮重新评估，
   // 避免段被"永久饿死"；预算放大或内容收敛后会重新纳入）

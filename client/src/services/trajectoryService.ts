@@ -40,6 +40,11 @@ const logger = createLogger("trajectoryService");
 export interface SessionEventsQuery {
   fromSeq?: number;
   toSeq?: number;
+  /**
+   * 向前补页（P1-1，2026-09-22）：只取 `seq < beforeSeq` 的**紧邻一页**（至多 limit 条）。
+   * 用于"加载更早的历史"；与 `fromSeq`/`recent` 同时传入时本参数优先。
+   */
+  beforeSeq?: number;
   types?: LiriEventType[];
   limit?: number;
   /** P8（2026-08-26）：尾部优先——未传 fromSeq 时返回最后 limit 条（日志/轨迹面板显示最近事件） */
@@ -49,6 +54,8 @@ export interface SessionEventsQuery {
 export interface SessionEventsResponse {
   events: LiriEvent[];
   tailSeq: number;
+  /** 更早方向是否还有事件（向前补页用；与 `hasMore` 对称，P1-1） */
+  hasEarlier: boolean;
   hasMore: boolean;
 }
 
@@ -84,6 +91,8 @@ export const trajectoryService = {
           if (query?.fromSeq !== undefined)
             params.fromSeq = String(query.fromSeq);
           if (query?.toSeq !== undefined) params.toSeq = String(query.toSeq);
+          if (query?.beforeSeq !== undefined)
+            params.beforeSeq = String(query.beforeSeq);
           if (query?.types && query.types.length > 0)
             params.types = query.types.join(",");
           if (query?.limit !== undefined) params.limit = String(query.limit);

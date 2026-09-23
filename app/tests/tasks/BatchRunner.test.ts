@@ -35,16 +35,13 @@ describe('BatchRunner — 批量并行处理', () => {
       let maxConcurrent = 0;
       const runner = new BatchRunner<number, number>({ concurrency: 2 });
 
-      await runner.run(
-        makeItems([1, 2, 3, 4]),
-        async (item) => {
-          concurrent++;
-          maxConcurrent = Math.max(maxConcurrent, concurrent);
-          await new Promise((r) => setTimeout(r, 10));
-          concurrent--;
-          return item.input;
-        }
-      );
+      await runner.run(makeItems([1, 2, 3, 4]), async (item) => {
+        concurrent++;
+        maxConcurrent = Math.max(maxConcurrent, concurrent);
+        await new Promise((r) => setTimeout(r, 10));
+        concurrent--;
+        return item.input;
+      });
 
       expect(maxConcurrent).toBeLessThanOrEqual(2);
     });
@@ -94,13 +91,10 @@ describe('BatchRunner — 批量并行处理', () => {
         timeoutMs: 50,
       });
 
-      const { results } = await runner.run(
-        makeItems([1, 2]),
-        async (item) => {
-          if (item.input === 1) await new Promise((r) => setTimeout(r, 500));
-          return item.input;
-        }
-      );
+      const { results } = await runner.run(makeItems([1, 2]), async (item) => {
+        if (item.input === 1) await new Promise((r) => setTimeout(r, 500));
+        return item.input;
+      });
 
       expect(results.length).toBeGreaterThanOrEqual(1);
     });

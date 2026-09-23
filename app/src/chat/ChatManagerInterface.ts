@@ -56,6 +56,17 @@ export interface ChatManager {
   sendMessage(content: string, options?: SendMessageOptions): Promise<Message>;
 
   /**
+   * B1-3 / B1-4（2026-09-22）：**启动期 yield 恢复装配**（不依赖用户活动）。
+   *
+   * 顺序：装配等待集持久化端口 → **先重建等待集** → 再装配恢复器（内含结算回放）。
+   * 修复前装配只在 `streamMessage`/`sendMessage` 入口 ⇒ 无人发消息时 `pending` 行
+   * 永不回放，且等待集不落盘 ⇒ 回放必然失败（逐次 `markFailed` ⇒ `dropped`）。
+   *
+   * 由 `main.ts` 启动序列调用（`wrapInit('YieldRecovery', ...)`）。
+   */
+  bootstrapYieldRecovery(): Promise<void>;
+
+  /**
    * 流式发送消息
    * @param content 消息内容
    * @param options 选项

@@ -30,6 +30,14 @@ export const YIELD_FINISH_REASON = 'yielded';
 /** YieldRegistry 条目状态：等待子代理结算 */
 export const YIELD_STATUS_WAITING = 'waiting';
 
+/**
+ * YieldRegistry 条目状态：**已认领（正在恢复中）** —— B1-1（P0-1）新增的中间态。
+ *
+ * 语义：某一条恢复路径已通过**同步 CAS** 独占该等待（`get()` 不再返回本条目），
+ * 其他并发结算路径必须放弃。落此态后由认领者收敛为 `resumed` / `abandoned`。
+ */
+export const YIELD_STATUS_CLAIMED = 'claimed';
+
 /** YieldRegistry 条目状态：已恢复（结算收敛后落此终态） */
 export const YIELD_STATUS_RESUMED = 'resumed';
 

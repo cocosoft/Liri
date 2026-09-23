@@ -146,8 +146,6 @@ app/.test*
 app/.tmp*
 
 app/my-project
-# Testing - frontend tests
-client/src/tests/
 
 # Config
 app/config.json

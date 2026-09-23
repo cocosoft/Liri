@@ -296,23 +296,6 @@ export function createTurnDurationMessage(durationMs: number): SystemMessage {
 }
 
 /**
- * 创建API指标消息
- * @param metrics 指标数据
- * @returns 系统消息对象
- */
-export function createApiMetricsMessage(metrics: {
-  promptTokens: number;
-  completionTokens: number;
-  totalTokens: number;
-  latencyMs: number;
-}): SystemMessage {
-  return createSystemMessage(
-    `API Metrics: Prompt=${metrics.promptTokens}, Completion=${metrics.completionTokens}, Total=${metrics.totalTokens}, Latency=${metrics.latencyMs}ms`,
-    'api_metrics'
-  );
-}
-
-/**
  * 创建助手API错误消息
  * @param error 错误信息
  * @returns 助手消息对象

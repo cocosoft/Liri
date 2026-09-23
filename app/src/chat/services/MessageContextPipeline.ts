@@ -880,7 +880,17 @@ export async function assembleContextualSystemPrompt(
   currentMessage: string | undefined,
   llmClient: { getProviderId(): string; getBaseUrl?(): string } | undefined,
   imageContextService: ImageContextService,
-  getMemoryContext?: (sessionId: string) => string
+  getMemoryContext?: (sessionId: string) => string,
+  /**
+   * TR-12-B（2026-09-22）：逐段解析结果透出（含实际 mode），供
+   * `RequestSnapshotService` 落"模型输入快照" —— 让"模型当时看到的系统提示词"
+   * 可从事件重建（project_rules §1.6 红线）。可选，缺省零影响。
+   */
+  onSectionsResolved?: (
+    sections: SystemPromptSection[],
+    contents: (string | null)[],
+    mode: string
+  ) => void
 ): Promise<string> {
   const providerId = llmClient?.getProviderId() || '';
   // 本地模型判定：baseUrl 指向 localhost/127.0.0.1 → 启用精简 system prompt
@@ -982,6 +992,15 @@ export async function assembleContextualSystemPrompt(
     sessionContext,
     mode: isLocal ? 'local' : 'conversation',
     extraDynamicSections,
+    // TR-12-B：把逐段内容与"实际 mode"一起透出（mode 在此处才最终确定）
+    onSectionsResolved: onSectionsResolved
+      ? (sections, contents) =>
+          onSectionsResolved(
+            sections,
+            contents,
+            isLocal ? 'local' : 'conversation'
+          )
+      : undefined,
   });
 
   if (isLocal) {

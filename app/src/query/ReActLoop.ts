@@ -243,6 +243,18 @@ export abstract class ReActLoop<
   /** P10（2026-09-01）：外部获取卡住时是否已给过"求助机会"（steering 注入
    *  ask_user_question 指引）。只给 1 次，防止无限循环。 */
   protected externalHelpRequested = false;
+  /**
+   * P2-3 配套（2026-09-22）：本轮已注入"同工具同参数重复调用"的**软纠偏**指令。
+   * 由子类 `ReActToolLoop._injectRepeatCallCorrection` 在注入置位。
+   *
+   * 修复的缺陷：软纠偏与硬熔断**在同一轮同时判定**，硬熔断抢先收尾 —— 实测
+   * `chat-export-1790038432335.md`（2026-09-21T23:23:37Z）中纠偏注入于 `.271`，
+   * 108ms 后 `no_progress_loop` 即熔断于 `.379` ⇒ 模型**从未有机会**看到纠偏指令，
+   * 软纠偏形同虚设，用户只收到空正文 + "工具循环无实质进展，任务已结束。"。
+   */
+  protected repeatCorrectionPending = false;
+  /** P2-3 配套：本条消息是否已为软纠偏让路过 1 次（防止无限让路） */
+  protected repeatCorrectionDeferred = false;
   /** P14（2026-09-01）：探索预算——累计探索类工具调用数（跨轮） */
   protected exploreCalls = 0;
   /** P14（2026-09-01）：探索疲劳窗口——最近 EXPLORE_FATIGUE_WINDOW 轮是否含探索工具 */
@@ -264,6 +276,8 @@ export abstract class ReActLoop<
   protected resetRunState(): void {
     this.recentRoundSignatures = [];
     this.externalHelpRequested = false;
+    this.repeatCorrectionPending = false;
+    this.repeatCorrectionDeferred = false;
     this.exploreCalls = 0;
     this.exploreRecentWindow = [];
     this.exploreBudgetPrompted = false;
@@ -773,6 +787,24 @@ export abstract class ReActLoop<
                 lastSignature: sig,
               });
               // 不熔断，继续循环（下一轮 reason 前 steering 注入）
+            } else if (
+              this.repeatCorrectionPending &&
+              !this.repeatCorrectionDeferred
+            ) {
+              // P2-3 配套（2026-09-22）：**软纠偏优先于硬熔断**。
+              // 纠偏指令已于本轮注入（`_injectRepeatCallCorrection`），必须让模型至少
+              // 跑一轮去响应它；否则纠偏与熔断在同一轮判定、硬熔断抢先收尾，纠偏永不生效
+              // （实测 chat-export-1790038432335.md：纠偏 23:23:37.271 / 熔断 .379）。
+              // 让路只给 1 次：模型无视纠偏再重复 ⇒ 下一轮正常熔断，不会无限循环。
+              this.repeatCorrectionDeferred = true;
+              this.repeatCorrectionPending = false;
+              this.recentRoundSignatures = []; // 重置窗口，给模型空间执行纠偏
+              logger.warn('reActLoop:no_progress_deferred_for_correction', {
+                iteration: this.state.iteration,
+                repeatedRounds: repeatedThreshold,
+                lastSignature: sig,
+              });
+              // 不熔断，继续循环（纠偏指令已在下一轮 reason 的消息队列中）
             } else {
               logger.warn('reActLoop:no_progress_loop', {
                 iteration: this.state.iteration,
@@ -786,15 +818,24 @@ export abstract class ReActLoop<
                   ? `已完成：${this.completedWork.join('；')}。`
                   : '';
               // P8（2026-09-01）：不 yield error 事件（前端弹异常），finalize 附加 lastError。
-              // P12（2026-09-01）：有已完成工作时不追加"工具循环无实质进展，任务已结束"
-              // 负面词——任务已部分/全部完成，正常收尾即可（用户要的是干净汇报，不是
-              // 熔断吓人提示）。仅完全无进展（无 completedWork）才保留结束说明。
+              // P12（2026-09-01）：有已完成工作时不追加负面词——任务已部分/全部完成，
+              // 正常收尾即可（用户要的是干净汇报，不是熔断吓人提示）。
+              // 仅完全无进展（无 completedWork）才给出结束说明（2026-09-22 起改为可操作文案）。
               if (blockedOnExternal) {
                 this.state.lastError = `${completedTip}您提供的网页链接因反爬/访问限制无法自动抓取。您可以提供文章正文，或更换可访问的链接，我将继续处理。`;
               } else if (this.completedWork.length > 0) {
                 this.state.lastError = `${completedTip}本次任务已处理完毕。如有其他需求，请继续告诉我。`;
               } else {
-                this.state.lastError = `${completedTip}工具循环无实质进展，任务已结束。`;
+                // 2026-09-22 可读化：原为"工具循环无实质进展，任务已结束。"——用户只看到
+                // 这句（且合并了空正文，实测用户回问"你挂了？"）。改为说明**重复了什么**、
+                // 为什么停下、以及可操作的下一步。
+                const repeatedTools =
+                  toolNames.length > 0
+                    ? [...new Set(toolNames)].join('、')
+                    : '相同工具';
+                this.state.lastError =
+                  `我连续 ${repeatedThreshold} 轮重复调用 ${repeatedTools} 且没有新进展，已停下以免继续空转。` +
+                  `可以：① 指出具体要查看的文件或位置；② 换一种问法；③ 让我改用其它方式排查。`;
               }
               return this.finalize(this.state, context);
             }

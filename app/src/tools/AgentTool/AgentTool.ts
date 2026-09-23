@@ -35,7 +35,11 @@ import type {
   AgentType,
   SubTask,
 } from './types';
-import { getAgentRunLedger, type AgentRunStatus } from './AgentRunLedger';
+import {
+  getAgentRunLedger,
+  type AgentRunReservation,
+  type AgentRunStatus,
+} from './AgentRunLedger';
 import {
   resolveAgentDescriptor as resolveDescriptorChain,
   renderSubagentTypeDescription,
@@ -74,7 +78,21 @@ import {
 import { SubAgentEngine, getSubAgentEngine } from './SubAgentEngine';
 // B-4（2026-09-20）：并行执行统一走 AgentSwarm 单引擎（原 ParallelOrchestrator 已删除），
 // 并在此发布 PARALLEL_* 事件以保持前端 SSE 时间线不断供。
-import { AgentSwarm, type SwarmExecutor } from '../../tasks/swarm/AgentSwarm';
+import {
+  AgentSwarm,
+  DEFAULT_SWARM_CONCURRENCY,
+  type SwarmExecutor,
+  type AgentSwarmResult,
+} from '../../tasks/swarm/AgentSwarm';
+// M-6/M-7 接线（2026-09-22）：批次收口 ⇒ 落定该会话未终结目标的状态
+import { settleGoalForRun } from '../../tasks/goal/goalRunBinding';
+import { enqueueIdleContinuation } from '../../tasks/goal/goalIdleContinuation';
+// R1 修正（2026-09-22）：批次取消注册表改为**进程内单例**（与 `getAgentRunLedger()` 同法）
+import {
+  registerBatchAbort,
+  getBatchAbort,
+  unregisterBatchAbort,
+} from './swarmBatchRegistry';
 import { globalEventBus } from '../../core/events/EventBus.js';
 // 阶段 A（A1-e）：并行批次结算 → yield 等待收敛桥
 import { notifyYieldSettled } from '../../chat/yield/YieldSettlementBridge.js';
@@ -177,8 +195,12 @@ const AGENT_PARAMS = [
   {
     name: 'subagent_type',
     type: 'string' as const,
-    description:
-      'The type of specialized agent to use: general, explore, plan, verification, code-guide, statusline-setup',
+    // F4（2026-09-21）：本字段**恒被 `params` getter 覆盖**（O18 按当前快照渲染
+    // "内置 + DB 启用角色 + 运行时注册"）。修复前这里硬编码 6 个内置名，与真实可用值
+    // 脱节（新增角色/注册项不会出现在此处）；若后来者直接消费该常量即拿到过期名单。
+    // 已核实：`AGENT_PARAMS` 为本模块私有 const，**无外部消费方**（仅 getter 与定义处）。
+    // ⇒ 改为中性占位，禁止在此再枚举具体名单（名单唯一来源 = `renderSubagentTypeDescription`）。
+    description: 'The type of specialized agent to use',
     required: false,
     default: 'general',
   },
@@ -304,7 +326,14 @@ export class AgentTool implements Tool {
             ...param,
             description: renderSubagentTypeDescription({
               builtinTypeNames: Object.keys(BUILTIN_AGENTS),
-              registeredNames: agentRegistry.listAll().map((a) => a.agentId),
+              // F1（2026-09-21）：**列全解析链真正认的名字**。
+              // 修复前只传 `agentId`，而 `resolveAgentDescriptor` 的 ② 分支
+              // （`:505-510`）是 `getAgent(key) ?? find(a => a.name === raw || a.role === raw)`
+              // ⇒ `name` / `role` 同样可解析成功，却不在描述里 ⇒ 模型"看得见的可用值"
+              // 少于"实际能用的值"（N9/R4 可见面与实现面不同步的残留）。
+              registeredNames: agentRegistry
+                .listAll()
+                .flatMap((a) => [a.agentId, a.name, a.role]),
             }),
           }
         : param
@@ -611,13 +640,6 @@ export class AgentTool implements Tool {
   }
 
   /**
-   * 检查是否超过最大并发数（O10a③：`cancel_requested` 仍占用槽位 —— 引擎尚未收敛）
-   */
-  private checkConcurrencyLimit(): boolean {
-    return this._ledger.liveCount() < this.config.maxConcurrentAgents;
-  }
-
-  /**
    * 失败结果构造（O5 seam：消除逐字复制的失败字面量）。
    *
    * 字段与原内联实现逐条一致：`status: FAILURE` / `result: null` / `executionTime: 0` /
@@ -662,6 +684,14 @@ export class AgentTool implements Tool {
         effectiveType: AgentType;
         isFork: boolean;
         isBackground: boolean;
+        /** R2（2026-09-21）：本批次准入时**预留**的并发槽位数（单代理恒为 1） */
+        plannedWeight: number;
+        /** 0b（2026-09-22）：准入时创建并**已登记**的 run id（`beginRun` 不再自建 id） */
+        agentId: string;
+        /** 0b：与预留条目**同源**的起跑时间（保证 `getAgentStatus` 时长口径一致） */
+        startTime: number;
+        /** 0b：额度预留句柄（RAII）—— 由 `execute` 的 `finally` 释放 */
+        reservation: AgentRunReservation;
       }
     | { ok: false; error: ToolResult<unknown> } {
     const validation = this.validateInput(input);
@@ -725,8 +755,53 @@ export class AgentTool implements Tool {
       return { ok: false, error: this.failureResult(toolsetError) };
     }
 
-    if (!this.checkConcurrencyLimit()) {
-      logger.warning('Agent execution rejected: concurrent limit reached');
+    // R2（2026-09-21）：**准入即预留**。
+    // 修复前本判定按 1 个槽位放行，随后才在 `runSwarmPath` 用 `setWeight(tasks.length)`
+    // 事后校准 ⇒ 是"事中校准"而非"准入预留"：上限仍可被突破最多 Σ(tasks)−1
+    //（多个并发批次各自以 1 通过准入后一起加权）。
+    //
+    // R2 修正（2026-09-22）：预留量取**批次真实并发占用** = `min(任务数, swarm 并发上限)`，
+    // 而非任务总数 —— `tasks` 在 `validateInput` 里**没有数量上限校验**，若按总数预留，
+    // `tasks.length > maxConcurrentAgents` 的合法批次会被准入**整体拒绝**（修复前它能跑）；
+    // 而 swarm 同时最多只投递 `DEFAULT_SWARM_CONCURRENCY` 个 worker ⇒ 这才是忠实的占位量。
+    // 缺陷 4 修复（2026-09-22，D-C 路线①）：再与**全局并发上限**取 `min`。
+    // 修复前预留量无视 `maxConcurrentAgents`：配置上限 2 时 `plannedWeight = 3`（任务数 3）
+    // ⇒ `0 + 3 <= 2` 为假，**合法批次被整批拒绝**；若只补 min 而不透传，失真会从准入层
+    // 挪到执行层（准入占 2、实际在飞 3 ⇒ 真实并发突破上限）。故本值同时作为
+    // `runSwarmPath` 的 `maxConcurrency` 传给 `AgentSwarm`（单一派生源，禁止下游自算）。
+    const plannedWeight = Math.max(
+      1,
+      Math.min(
+        agentInput.tasks?.length ?? 1,
+        DEFAULT_SWARM_CONCURRENCY,
+        this.config.maxConcurrentAgents
+      )
+    );
+    // 0b（2026-09-22，M-9）：**准入即预留** —— 判定与占位在**同一次同步调用**内完成
+    // （`tryReserve`），并把"释放义务"交给返回的 guard（`execute` 的 finally 释放）。
+    // 修复前此处只做纯判定（`checkConcurrencyLimit(): boolean`），与 `beginRun` 的
+    // `register()` 分离 ⇒ 两者之间任一提前 return / 抛错都会**泄漏并发槽位**。
+    const agentId = this.createAgentId(
+      isFork ? 'custom' : agentType,
+      agentInput.name
+    );
+    const startTime = Date.now();
+    const reservation = this._ledger.tryReserve({
+      id: agentId,
+      name: agentInput.name || agentId,
+      type: effectiveType,
+      startTime,
+      sessionId: context?.sessionId,
+      weight: plannedWeight,
+      // 上限由工具配置提供（台账不自持配置）；判定与登记同源 ⇒ 口径不会漂移
+      limit: this.config.maxConcurrentAgents,
+    });
+    if (!reservation) {
+      logger.warning('Agent execution rejected: concurrent limit reached', {
+        plannedWeight,
+        liveCount: this._ledger.liveCount(),
+        maxConcurrentAgents: this.config.maxConcurrentAgents,
+      });
       return {
         ok: false,
         error: this.failureResult('Maximum concurrent agents reached'),
@@ -740,6 +815,10 @@ export class AgentTool implements Tool {
       effectiveType,
       isFork,
       isBackground,
+      plannedWeight,
+      agentId,
+      startTime,
+      reservation,
     };
   }
 
@@ -778,7 +857,14 @@ export class AgentTool implements Tool {
     const result = validateToolsetRequest({
       allowedTools: allowed,
       deniedTools: denied,
-      contract: { parentToolNames: getAllTools().map((t) => t.name) },
+      // F3（2026-09-21）：父级工具池改为**与实际继承同源**（`getInheritableToolPool()`）。
+      // 修复前传 `getAllTools()` 全量：它包含 N-42 判定为非法名的工具
+      //（如 `media:image:*`，provider 命名约束 `^[a-zA-Z0-9_-]+$` 之外的冒号形式），
+      // 而 worker 实际拿到的池经 `getInheritableToolPool()` 过滤 ⇒ 校验说"父级有、可授予"，
+      // 执行侧池里却没有（"校验通过但工具缺失"）。同源后第①段即拒绝这类名字。
+      contract: {
+        parentToolNames: this.getInheritableToolPool().map((t) => t.name),
+      },
     });
     if (!result.ok) {
       return result.error;
@@ -1361,8 +1447,51 @@ export class AgentTool implements Tool {
             instances: new Map<string, Tool>(),
           };
 
+      // P0-B（2026-09-21）：worker 工具池**空集 fail-closed**。
+      // worker 池 = `类别池（类别由 AgentSwarm 硬编码）∩ allowedTools − deniedTools`，
+      // 而 O7 两段校验用的是 `getAllTools()`（**父级全量**）⇒ "校验通过 ≠ worker 池非空"。
+      // 例：`allowedTools: ['file_write','bash']` 校验通过，但
+      // `{grep,glob,file_read} ∩ {file_write,bash}` = 空集 ⇒ 修复前 worker 会在**无任何工具**
+      // 的情况下跑满 20 轮，无警告、无降级、无报错，最后照常落 `completed`
+      //（N-41 修掉的"静默空池"在 swarm 路径的同族复现）。
+      // 仅在 `isWorkerCall` 时检查：verifier / synthesizer 的 instances 本就为空，不可误伤。
+      if (isWorkerCall && toolset.instances.size === 0) {
+        const emptyPoolReason =
+          'worker 工具池为空：类别池与 allowedTools 无交集' +
+          `（declaredCategories=[${(declaredCategories ?? []).join(',')}]，` +
+          `allowedTools=${allowedTools ? `[${allowedTools.join(',')}]` : '未限制'}）`;
+        if (batchId && taskKey) {
+          await getAgentRunStore().settleRun(
+            `${batchId}::${taskKey}`,
+            'failed',
+            {
+              error: emptyPoolReason,
+            }
+          );
+        }
+        logger.warn('swarm worker 工具池为空（fail-closed，不执行）', {
+          batchId: batchId ?? null,
+          taskKey: taskKey ?? null,
+          declaredCategories: declaredCategories ?? null,
+          allowedTools: allowedTools ?? null,
+          deniedTools: deniedTools ?? null,
+        });
+        throw new Error(emptyPoolReason);
+      }
+
       const result = await this.engine.execute({
-        agentId: `swarm-${randomUUID().substring(0, 8)}`,
+        // P1-E（2026-09-21）：worker 的**引擎 id 与台账主键同源**（`batchId::taskKey`）。
+        // 修复前三处 id 断裂：磁盘/台账主键 = `batchId::taskKey`（`:1344`）、
+        // 引擎登记 = `swarm-<rand>`、控制面 `agentId` = `batchId`（`/v1/agents/runs`）。
+        // ⇒ 前端拿列表里的 `toolCallId` 去 `POST /v1/agents/:id/stop` 时
+        // `engine.ownerSessionId(id)` 必然 miss（fail-closed 拒绝）；即便放行，
+        // `engine.abort(id)` 也无对应登记 ⇒ **取消是空操作**。
+        // 统一后：引擎登记 = 磁盘主键 = 控制面可见 id，归属校验与 abort 同时命中。
+        // 非 worker 调用（verifier / synthesizer：无 `taskKey`，不落台账）保留随机 id 仅需唯一。
+        agentId:
+          batchId && taskKey
+            ? `${batchId}::${taskKey}`
+            : `swarm-${randomUUID().substring(0, 8)}`,
         // O12-1：角色提示词**前置**于 swarm 的 worker 框架（后者承载黑板/只读契约，不可丢）
         systemPrompt: resolved?.systemPrompt
           ? `${resolved.systemPrompt}\n\n${systemPrompt}`
@@ -1376,7 +1505,8 @@ export class AgentTool implements Tool {
         model: model ?? resolved?.model,
         signal,
         // O14-2：透传父级工具上下文 ⇒ 引擎侧登记该 worker 的**归属会话**，
-        // 使控制面能对 `swarm-<id>` 做归属校验（否则 owner 恒 undefined ⇒ 越权口子）；
+        // 使控制面能对 worker（P1-E 后 id = `${batchId}::${taskKey}`）做归属校验
+        //（否则 owner 恒 undefined ⇒ 越权口子）；
         // `subagentDepth` 递增与单代理路径（`runWithEngine`）同源，避免嵌套深度漏计
         toolContext: context
           ? { ...context, subagentDepth: (context.subagentDepth ?? 0) + 1 }
@@ -1396,6 +1526,9 @@ export class AgentTool implements Tool {
         output: result.output,
         ok: result.completed,
         timedOut: result.timedOut === true,
+        // M-8（2026-09-22）：透出 worker 真实用量（引擎已聚合 prompt+completion）
+        // ⇒ 批次汇总（`AgentSwarmResult.totalTokens`）⇒ 目标级记账
+        tokens: result.tokenUsage?.totalTokens ?? 0,
       };
     };
   }
@@ -1504,25 +1637,35 @@ export class AgentTool implements Tool {
     // O5 seam：校验 + 类型解析 + 两道守卫（行为中性迁移，判定顺序不变）
     const guard = this.executeGuard(input, context);
     if (!guard.ok) return guard.error;
-    const { agentInput, effectiveType, isFork, isBackground, agentType } =
-      guard;
-
-    // O5 seam `executeLifecycle`：登记（prologue）
-    const { agentId, startTime } = await this.beginRun({
+    const {
       agentInput,
-      agentType,
       effectiveType,
       isFork,
       isBackground,
-      context,
-      onProgress,
-    });
+      plannedWeight,
+      agentId,
+      startTime,
+      reservation,
+    } = guard;
 
     // G3 接线：worktree 隔离变量（try/finally 均需访问，声明在 try 之外——JS 块级作用域）
     let worktreeContext: ToolUseContext | undefined;
     let worktreeGit: WorkspaceGit | undefined;
 
     try {
+      // O5 seam `executeLifecycle`：登记（prologue）。
+      // 0b（M-9）：台账条目已由 `executeGuard.tryReserve()` 登记并占位 ⇒ 本调用只补
+      // 磁盘行/事件/日志；并**移入 try**，使其抛错同样被 finally 兜住（释放预留）。
+      await this.beginRun({
+        agentInput,
+        effectiveType,
+        isFork,
+        isBackground,
+        context,
+        onProgress,
+        agentId,
+        startTime,
+      });
       // O5 seam `executeDispatch`：并行批次路径（tasks 非空时统一路由到 AgentSwarm）
       if (agentInput.tasks && agentInput.tasks.length > 0) {
         return await this.runSwarmPath({
@@ -1533,6 +1676,9 @@ export class AgentTool implements Tool {
           startTime,
           context,
           onProgress,
+          // 缺陷 4（2026-09-22）：准入预留量同时作为**执行层并发上限** ——
+          // 只改准入不改执行会"准入占 2、实际在飞 3"，上限从准入层挪到执行层被突破。
+          maxConcurrency: plannedWeight,
         });
       }
 
@@ -1669,6 +1815,11 @@ export class AgentTool implements Tool {
         timestamp: Date.now(),
       };
     } finally {
+      // 0b（2026-09-22，M-9）：额度预留的**结构性释放** —— 任何提前 return / 抛错都被
+      // 这里兜住，不再依赖"每条路径都记得调 settleRun"。`release()` 委托
+      // `ledger.settle()`（终态幂等）：正常路径已按真实结果结算 ⇒ 此处 no-op；
+      // 异常/提前返回 ⇒ 收敛为 `failed`，杜绝"准入占位永不释放"。
+      reservation.release();
       // G3：清理程序化创建的 worktree（仅前台成功创建时）
       if (worktreeGit) {
         try {
@@ -1689,41 +1840,36 @@ export class AgentTool implements Tool {
   /**
    * 执行生命周期：登记（O5 seam `executeLifecycle` / prologue）。
    *
-   * 行为中性：id 生成条件、台账登记字段、启动日志字段与进度发射顺序逐一保留。
+   * 0b（2026-09-22，M-9）：**台账登记已上移到 `executeGuard` 的 `tryReserve()`**
+   *（准入判定与占位同一次同步调用 + RAII 释放义务）⇒ 本方法只保留
+   * 启动日志 / 进度发射 / 磁盘落盘的副作用，**不再 register、不再自建 id 与起跑时间**。
    */
   private async beginRun(params: {
     agentInput: AgentInput;
-    agentType: AgentType;
     effectiveType: AgentType;
     isFork: boolean;
     isBackground: boolean;
     context?: ToolUseContext;
     onProgress?: ToolCallProgress<AgentToolProgress>;
+    /** 0b：`executeGuard.tryReserve()` 已登记（含额度占位）的 run id */
+    agentId: string;
+    /** 0b：与预留条目**同源**的起跑时间 */
+    startTime: number;
   }): Promise<{ agentId: string; startTime: number }> {
     const {
       agentInput,
-      agentType,
       effectiveType,
       isFork,
       isBackground,
       context,
       onProgress,
+      agentId,
+      startTime,
     } = params;
 
-    const agentId = this.createAgentId(
-      isFork ? 'custom' : agentType,
-      agentInput.name
-    );
-    const startTime = Date.now();
-
-    this._ledger.register({
-      id: agentId,
-      name: agentInput.name || agentId,
-      type: effectiveType,
-      startTime,
-      sessionId: context?.sessionId,
-    });
-
+    // 0b（2026-09-22，M-9）：台账登记已由 `executeGuard` 的 `tryReserve()` 完成
+    //（**判定与占位同一次同步调用**）⇒ 本方法不再 `register()`、也不再自建 id/起跑时间，
+    // 只补**磁盘行 / 事件 / 日志**（保留原有副作用与执行顺序）。
     logger.info('Agent execution started', {
       agentId,
       agentType: effectiveType,
@@ -1784,11 +1930,20 @@ export class AgentTool implements Tool {
    * O13：**内存拒绝的写，磁盘不得写** —— 原实现丢弃 `settle()` 的返回值并**无条件**落盘，
    * 使内存侧的终态幂等保护（"已完成、收尾组装抛错"不被反向写失败）在磁盘上原样敞着
    * ⇒ 同一事实两个答案（内存 `completed` / 磁盘 `failed`）。
+   *
+   * §3.0 实施顺序约束（2026-09-22）：磁盘 `AgentRunStore.settleRun` 同样带终态幂等守卫
+   * （`WHERE status NOT IN ('completed','failed')`，命中失败时 `changed=0` 且**无日志**）
+   * ⇒ **必须在唯一写入点按真实结果派生终态**，不得"先落 completed、再由补偿写入改 failed"
+   * —— 反序时补偿会 100% 静默空转。
    */
   private async settleRun(
     agentId: string,
-    status: 'completed' | 'failed'
+    status: 'completed' | 'failed',
+    opts: { error?: string } = {}
   ): Promise<void> {
+    // M-5（P0-8）：结算**前**取归属会话 —— `settle()` 之后内存条目移入归因表，
+    // `ownerSessionId()` 这一"控制面归属原语"不再可得。
+    const ownerSessionId = this._ledger.ownerSessionId(agentId);
     const settled = this._ledger.settle(agentId, status);
     if (!settled) {
       // 幂等/不存在：内存已落终态或条目非本路径所有 ⇒ 磁盘沿用它，不覆盖
@@ -1799,7 +1954,21 @@ export class AgentTool implements Tool {
       return;
     }
     try {
-      await getAgentRunStore().settleRun(agentId, status);
+      // opts 透传（`error` 用于把"未通过原因"钉在磁盘行上；store 侧本就支持，无需新增方法）
+      // 返回值为 false = 磁盘**守卫未命中**（该行已是终态）⇒ 本次写被静默丢弃。
+      // §3.0 顺序约束的**运行时兜底**（2026-09-22）：反过来改错顺序时，日志会当场叫出来，
+      // 不必等用例兜（磁盘侧命中失败本无任何日志，故障静默）。
+      const persisted = await getAgentRunStore().settleRun(
+        agentId,
+        status,
+        opts
+      );
+      if (!persisted) {
+        logger.warn('终态落盘未命中：磁盘行已是终态，本次写被丢弃', {
+          agentId,
+          status,
+        });
+      }
     } catch (err) {
       logger.warn('子代理运行台账落盘失败（不影响内存终态）', {
         agentId,
@@ -1807,6 +1976,16 @@ export class AgentTool implements Tool {
         error: String(err),
       });
     }
+
+    // M-5（P0-8）：**结算即通知** —— 通知收敛到本方法这**唯一入口**，
+    // 从结构上消除"某条结算路径忘了调 `notifyYieldSettlement`"。
+    // 修复前 7 处 `settleRun` 调用点里只有 3 处手工补了通知，**单代理前台结算**与
+    // **descriptor fail-closed** 两条路径漏掉 ⇒ 其上的 yield 等待永不收敛
+    //（"子代理结算"是该等待唯一的恢复触发源）。
+    // 用 `await`：使"结算 → 落盘 → 通知（内含 outbox 落行）"成为**确定序列**，
+    // 而非 fire-and-forget 的竞态（P1-7 关注的正是该顺序，见 §2.5）。
+    // 归属缺失（无父会话可恢复）⇒ 内部静默跳过。
+    await this.notifyYieldSettlement(ownerSessionId);
   }
 
   /**
@@ -1988,6 +2167,13 @@ export class AgentTool implements Tool {
     startTime: number;
     context?: ToolUseContext;
     onProgress?: ToolCallProgress<AgentToolProgress>;
+    /**
+     * 批次并发上限（= 准入预留量 `plannedWeight`，单一派生源）。
+     *
+     * 缺陷 4（2026-09-22）：修复前不传 ⇒ `AgentSwarm` 恒用 `DEFAULT_SWARM_CONCURRENCY(3)`，
+     * 与 `maxConcurrentAgents` 脱钩（配置上限 2 时真实在飞 3）。
+     */
+    maxConcurrency: number;
   }): Promise<ToolResult<unknown>> {
     const {
       tasks,
@@ -1997,6 +2183,7 @@ export class AgentTool implements Tool {
       startTime,
       context,
       onProgress,
+      maxConcurrency,
     } = params;
 
     logger.info('Parallel execution started', {
@@ -2016,46 +2203,222 @@ export class AgentTool implements Tool {
       })),
     });
 
+    // P1-C + R2（2026-09-21）：批次按 **worker 数占位**并发额度。
+    // 占位本身在 **`executeGuard` 准入**时完成（`plannedWeight`，见
+    // `AgentRunLedger.tryReserve()` —— 0b 起"判定与占位同一次同步调用 + RAII 释放"），
+    // 本方法不再做"事后加权"——修复前先以 1 通过准入、再 `setWeight(N)` 校准，是可被
+    // 并发批次累加突破的上限缺口（R2）。
     const swarmAbort = new AbortController();
-    // SubTask.id 可选 → 统一补稳定兜底 id，供结果回填与汇总按 id 对齐
+    // 缺陷 2（2026-09-22）：注销所需的句柄 **`let` 外提**，注册点与全部可抛点**同处 try 内**。
+    // 修复前 `registerBatchAbort` 在 try 之外（原 `:2150`），而 `resolveSwarmTaskDescriptors`
+    // （跨 DB/角色库边界，可抛）同样在 try 之外 ⇒ 它抛出时 `finally` 根本不执行、
+    // 且**不存在任何 unregister 路径** ⇒ `batchAborts` 单调增长（**永久泄漏**）；
+    // 陈旧 controller 还会让**首次** `stopAgent` 报出"受理成功"的假阳性。
+    // 泄漏是根，假阳性只是其表征（第二次起即为 false）。
+    let parentSignal: AbortSignal | undefined;
+    let onParentAbort: (() => void) | undefined;
+    // 登记自身若抛错，不得去注销一个未写入的键
+    let registered = false;
+    let swarmResult: AgentSwarmResult;
+    // SubTask.id 可选 → 统一补稳定兜底 id，供结果回填与汇总按 id 对齐。
+    // 必须在 try 之外：`tasks.map` 不抛，且结算/汇总段（try 之后）仍需读取该清单。
     const swarmTasks = tasks.map((t, idx) => ({
       id: t.id ?? `task-${idx}`,
       description: t.description,
       agentType: t.subagent_type,
     }));
-    // O12-1：**per-task 描述符解析**（与单代理路径同源）—— 未知/禁用 ⇒ 该任务 fail-closed；
-    // 未指定 `subagent_type` 的任务不解析（沿用 AgentSwarm 的 worker 提示词，行为中性）
-    const taskDescriptors = await this.resolveSwarmTaskDescriptors(swarmTasks);
-    const swarmResult = await new AgentSwarm().run({
-      tasks: swarmTasks,
-      goal: agentInput.goal || agentInput.description,
-      executor: this.buildSwarmExecutor({
+    try {
+      // R1（2026-09-21）：把批次控制器登记到**可被控制面触达**的注册表。
+      // 修复前两条取消通路互不连通：A 的 `swarmAbort` 只由 `context.abortController` 驱动，
+      // 而 `stopAgent` 走台账 + `engine.abort` + 前缀扇出，**从不触碰 swarmAbort** ⇒
+      // 用户停批次时"在飞 worker 被中止、但 `runBatched` 的 `signal?.aborted` 短路仍为假"，
+      // 尚未投递的后续批次照常启动。此处让 `stopAgent` 能按 batchId 拿到同一个控制器。
+      // R1 修正（2026-09-22）：注册表是**进程内单例**（`swarmBatchRegistry`），
+      // 与 `_ledger` 同法 —— 否则"执行批次的实例"与"控制面取的实例"不同时查不到控制器。
+      registerBatchAbort(agentId, swarmAbort);
+      registered = true;
+      // P0-A（2026-09-21）：把**父级取消信号**桥接到批次 AbortController。
+      // 修复前 `swarmAbort` 只定义、**从不 abort** ⇒ `AgentSwarm.runBatched` 的
+      // `if (signal?.aborted)` 短路恒为假，且父会话中止（用户点停止 / 工具级 abort）
+      // 无法传导到批次 —— worker 只能靠引擎 `timeoutMs`（默认 600s）自然收敛。
+      // R3（2026-09-21）：该桥接的**上游**已补齐 —— 真实聊天路径原先注入的工具 context
+      // 没有 `abortController`（被内联类型断言掩盖），故此处 `parentSignal` 恒 undefined、
+      // 桥接形同空转；现由 `ToolExecutionService` 注入会话级控制器（用户点停止即 abort）。
+      parentSignal = context?.abortController?.signal;
+      onParentAbort = (): void => {
+        if (!swarmAbort.signal.aborted) swarmAbort.abort();
+      };
+      if (parentSignal) {
+        // 父级**已**中止 ⇒ 立即同步（不依赖事件回调时序）
+        if (parentSignal.aborted) onParentAbort();
+        else
+          parentSignal.addEventListener('abort', onParentAbort, { once: true });
+      }
+      // O12-1：**per-task 描述符解析**（与单代理路径同源）—— 未知/禁用 ⇒ 该任务 fail-closed；
+      // 未指定 `subagent_type` 的任务不解析（沿用 AgentSwarm 的 worker 提示词，行为中性）
+      const taskDescriptors =
+        await this.resolveSwarmTaskDescriptors(swarmTasks);
+      swarmResult = await new AgentSwarm().run({
+        tasks: swarmTasks,
+        goal: agentInput.goal || agentInput.description,
+        // 缺陷 4（2026-09-22）：透传准入预留量 ⇒ 真实在飞 worker ≤ `maxConcurrentAgents`。
+        // 该值同时驱动 worker 批次与 verifier 门禁批次（`AgentSwarm` 内共用同一 `concurrency`）。
+        maxConcurrency,
+        executor: this.buildSwarmExecutor({
+          signal: swarmAbort.signal,
+          model: agentInput.model,
+          // O6⑥：批次 id = 本工具调用 id ⇒ worker 行以 `batchId::taskKey` 为主键落盘
+          batchId: agentId,
+          // O14-2：父级上下文（含 sessionId）⇒ worker 在引擎侧具备归属
+          context,
+          // O12-2：父级工具集约束（O7 同源）⇒ worker 工具集与单代理路径一致地受父级白/黑名单管辖
+          allowedTools: agentInput.allowedTools,
+          deniedTools: agentInput.deniedTools,
+          taskDescriptors,
+        }),
+        // 不传 isolation：本路径 executor 为只读子代理调用（适配器不透传隔离资源），
+        // 而 createAgentIsolation() 会同步落盘 `~/.pyapp/workspaces/<id>` 空目录且默认不清理。
+        enableVerify: agentInput.verify === true,
+        enableSynthesize: agentInput.synthesize === true,
         signal: swarmAbort.signal,
-        model: agentInput.model,
-        // O6⑥：批次 id = 本工具调用 id ⇒ worker 行以 `batchId::taskKey` 为主键落盘
-        batchId: agentId,
-        // O14-2：父级上下文（含 sessionId）⇒ worker 在引擎侧具备归属
-        context,
-        // O12-2：父级工具集约束（O7 同源）⇒ worker 工具集与单代理路径一致地受父级白/黑名单管辖
-        allowedTools: agentInput.allowedTools,
-        deniedTools: agentInput.deniedTools,
-        taskDescriptors,
-      }),
-      // 不传 isolation：本路径 executor 为只读子代理调用（适配器不透传隔离资源），
-      // 而 createAgentIsolation() 会同步落盘 `~/.pyapp/workspaces/<id>` 空目录且默认不清理。
-      enableVerify: agentInput.verify === true,
-      enableSynthesize: agentInput.synthesize === true,
-      signal: swarmAbort.signal,
-    });
+      });
+    } finally {
+      // R1（2026-09-21）：注销批次控制器（`stopAgent` 的扇出按 batchId 查表，必须防泄漏）。
+      // 缺陷 2（2026-09-22）：该行原在 try 之外 ⇒ 解析链抛出时**永远不会执行**。
+      if (registered) unregisterBatchAbort(agentId);
+      // R4（2026-09-21）：解除父级监听放到 **finally** —— 修复前只在 `run()` 正常返回后
+      // 调用，抛出时留下的监听虽因 `{once:true}` 有界，但"异常路径不清理"本身是缺口。
+      if (parentSignal && onParentAbort)
+        parentSignal.removeEventListener('abort', onParentAbort);
+    }
 
-    const succeeded = swarmResult.workers.filter((w) => w.success).length;
+    // 缺陷 1（2026-09-22）：**单一派生源**。
+    // 修复前本路径的台账/metadata/汇总文案各自硬编码"成功"，与 worker 行的真实终态矛盾
+    // （N-38「静默成功」同族）。此处一次性派生出全部对外口径，禁止下游各处自算。
+    const workers = swarmResult.workers;
+    const okCount = workers.filter((w) => w.ok).length;
+    // O4 口径：`ok = success ∧ 门禁通过 ∧ ¬timedOut`（AgentSwarm 门禁阶段后统一计算）。
+    // 收敛（2026-09-22）：**直接取 `AgentSwarm.allPassed`**，不再在此重算同语义表达式 ——
+    // 原 `workers.length > 0 && okCount === workers.length` 是"单一派生源"注释下的第二份实现，
+    // 任一处 `ok` 定义变更即产生漂移。
+    const batchOk = swarmResult.allPassed;
+    const partialFailure = workers.length > 0 && okCount > 0 && !batchOk;
+    // 出口⑥：`runBatched` 在 `signal.aborted` 时直接 return（AgentSwarm.ts:225-232）⇒ 未投递的任务
+    // **既没跑也没失败**，不可计入 failed（修复前 `tasks.length - succeeded` 把它们全算成失败）。
+    // ⚠ 语义钉死：本值 = **投递缺口**（未投递数），**不等于取消事实**（见下 `cancelledFact`）。
+    const cancelledCount = Math.max(0, tasks.length - workers.length);
+    // 取消**事实**（取 `AgentSwarm` 的终态快照，不在此重读 `signal.aborted`）。
+    // 2026-09-22 修复（Liri v1.4 复审 D1/D2）：先前只派生 `cancelledCount` ⇒ 取消发生在
+    // **门禁/合成等收尾阶段**时任务已全部投递、缺口为 0 ⇒ 对外口径**完全看不到"批次被取消"**，
+    // 控制面无法区分"3/3 成功后被取消"与"3/3 成功正常结束"。二者必须并列派生、禁止互相替代。
+    const cancelledFact = swarmResult.cancelled === true;
+    const failedCount = workers.length - okCount;
+    // 出口⑤：门禁三态分列（`skipped` ≠ "已验证"）
+    const verifyPassed = workers.filter((w) => w.verify === 'passed').length;
+    const verifyFailed = workers.filter((w) => w.verify === 'failed').length;
+    const verifySkipped = workers.length - verifyPassed - verifyFailed;
+    // 门禁事实（由 `AgentSwarm` 暴露，不在此重算）：请求了门禁却有成功 worker 未获结论
+    const gateIncomplete = swarmResult.verifyIncomplete === true;
+    // 归因（2026-09-22 修正）：原为"取消优先"的嵌套三元 ⇒ 取消与失败同时存在时**丢掉失败原因**
+    // （典型：取消发生在门禁阶段 ⇒ `cancelledCount = 0`，文案变成"已取消（完成 3/5，未投递 0）"，
+    // 既自相矛盾、又抹掉了"2 个 worker 门禁未过"）。现改为**逐项罗列，互不遮蔽**。
+    const reasonParts: string[] = [];
+    if (failedCount > 0) {
+      reasonParts.push(`${failedCount}/${workers.length} 个 worker 未通过`);
+    }
+    if (cancelledCount > 0) {
+      reasonParts.push(`${cancelledCount} 个任务未投递（批次被取消）`);
+    } else if (cancelledFact) {
+      // 收尾阶段（门禁/合成）被取消：任务已全部投递 ⇒ 投递缺口为 0，但取消事实为真
+      // ⇒ 必须单独成句，否则"取消"在归因里彻底不可见（Liri v1.4 D2）
+      reasonParts.push('批次被取消（任务已全部投递，中止发生在收尾阶段）');
+    }
+    if (gateIncomplete) {
+      reasonParts.push(`门禁未完成（${verifySkipped} 个 worker 未获门禁结论）`);
+    }
+    const batchError = batchOk
+      ? undefined
+      : reasonParts.length > 0
+        ? reasonParts.join('；')
+        : `批次未通过（完成 ${okCount}/${tasks.length}）`;
+
     globalEventBus.publish(OrchestrationEventType.PARALLEL_END, {
       totalTasks: tasks.length,
-      completedTasks: succeeded,
-      failedTasks: tasks.length - succeeded,
+      completedTasks: okCount,
+      failedTasks: failedCount,
+      cancelledTasks: cancelledCount,
     });
 
-    await this.settleRun(agentId, 'completed');
+    await this.settleRun(
+      agentId,
+      batchOk ? 'completed' : 'failed',
+      batchOk ? {} : { error: batchError }
+    );
+
+    // M-6/M-7 接线（2026-09-22）：批次收口 ⇒ 把结果绑到该会话的**未终结目标**上。
+    // 零回归：该会话没有未终结目标时 `settleGoalForRun` 立即返回 null（不建行、不写库）。
+    // 状态映射见 `goalRunBinding.deriveGoalStatus`：
+    // 全通过 ⇒ `completed`、部分成功 ⇒ `blocked`、全失败 ⇒ `failed`、批次取消 ⇒ `cancelled`。
+    // M-8 / 停止条件接线（2026-09-22）：目标侧指令（预算收尾 / 停滞停止）
+    // —— 下文追加到批次输出 ⇒ 经 tool result 注入 LLM 输入（见 `finalOutput`）。
+    let goalInstruction: string | undefined;
+    try {
+      const settledGoal = await settleGoalForRun({
+        sessionId: context?.sessionId,
+        outcome: { allPassed: batchOk, okCount, cancelled: cancelledFact },
+        // M-8：批次 worker 真实用量（`AgentSwarm` 汇总；executor 未提供 ⇒ 0，不估算）
+        tokens: swarmResult.totalTokens,
+      });
+      if (settledGoal) {
+        logger.info('批次结果已绑定到目标', {
+          goalId: settledGoal.goalId,
+          status: settledGoal.status,
+          tokens: swarmResult.totalTokens,
+          noProgressStreak: settledGoal.noProgressStreak ?? null,
+        });
+        // 触顶收尾（M-8）与停滞停止（停止条件）**互斥**：触顶路径在记账处早返回，
+        // 不会同时产出两条指令 ⇒ 此处取其一即可，不拼接多段指令。
+        goalInstruction =
+          settledGoal.closingInstruction ?? settledGoal.stopInstruction;
+        if (goalInstruction) {
+          // 通道复用：tool result 的 `result` 字段会被 `TAORLoop` 序列化为
+          // `role:'tool'` 消息（`TAORLoop.ts:1059-1074`）⇒ 模型下一轮必然读到。
+          logger.warn('目标侧指令已注入批次输出', {
+            goalId: settledGoal.goalId,
+            status: settledGoal.status,
+            instruction: goalInstruction,
+          });
+        }
+
+        // M-7 idle 触发续接（2026-09-22）：目标落到 `blocked`（未达成但**非终态**）
+        // ⇒ 登记**一次**延迟唤醒，会话空闲时自动续跑（有界性/防陈旧见
+        // `goalIdleContinuation` 文件头；未启用 CG3 时静默降级为不登记）。
+        const streak = settledGoal.noProgressStreak;
+        if (settledGoal.status === 'blocked' && streak !== undefined) {
+          try {
+            const enqueued = await enqueueIdleContinuation({
+              sessionId: context?.sessionId,
+              goalId: settledGoal.goalId,
+              streak,
+            });
+            logger.info('目标空闲续接登记结果', {
+              goalId: settledGoal.goalId,
+              streak,
+              enqueued,
+            });
+          } catch (err) {
+            // @ignore-catch — 续接调度属"推进面"，登记失败不得影响批次结果返回
+            logger.warn('目标空闲续接登记失败（不影响批次结果）', {
+              goalId: settledGoal.goalId,
+              error: String(err),
+            });
+          }
+        }
+      }
+    } catch (err) {
+      // @ignore-catch — 目标绑定属"意图/观测面"，失败不得影响批次结果返回
+      logger.warn('目标状态落定失败（不影响批次结果）', { error: String(err) });
+    }
 
     // O9：摘要预算 —— **真实取数**（G14 口径）
     // ① 父**当前**上下文：`getCurrentInputTokens()` 读本轮基线（**非累计**）；
@@ -2118,10 +2481,15 @@ export class AgentTool implements Tool {
 
     const workerById = new Map(swarmResult.workers.map((w) => [w.id, w]));
     const legacyAggregated = swarmTasks
-      .map((t, idx) => {
-        const w = workerById.get(t.id) ?? swarmResult.workers[idx];
+      .map((t) => {
+        // M-13（2026-09-22）：**只按 id 取，禁止下标兜底**。
+        // 修复前 `?? swarmResult.workers[idx]` 把"完成顺序数组"当"task 顺序数组"用：
+        // 任一任务未产出 worker（最常见触发：批次取消 ⇒ `runBatched` 短路，
+        // 剩余任务从未投递）时，会把**别的** worker 结果挂到它名下（张冠李戴）。
+        const w = workerById.get(t.id);
         const name = t.description;
-        if (!w) return `[FAIL] ${name}: 未返回结果`;
+        // 未产出 worker ⇒ 如实标注（与"执行失败"区分开）
+        if (!w) return `[FAIL] ${name}: 未执行（批次取消或未投递）`;
         return w.success
           ? `[OK] ${name}: ${summaryTextByWorkerId.get(w.id) ?? ''}`
           : `[FAIL] ${name}: ${w.feedback ?? '执行失败'}`;
@@ -2134,7 +2502,7 @@ export class AgentTool implements Tool {
           swarmResult.synthesized
             ? `## 合成结果\n${swarmResult.synthesized}`
             : '',
-          `## Worker 结果（verified ${swarmResult.workers.filter((w) => w.verify !== 'failed').length}/${swarmResult.workers.length}，allPassed: ${swarmResult.allPassed}）`,
+          `## Worker 结果（门禁：passed ${verifyPassed} / failed ${verifyFailed} / skipped ${verifySkipped}；allPassed: ${swarmResult.allPassed}）`,
           ...swarmResult.workers.map(
             (w) =>
               `[${w.success ? 'OK' : 'FAIL'}${w.verify === 'failed' ? ' 未过门禁' : ''}] ${w.id}: ${summaryTextByWorkerId.get(w.id) ?? ''}`
@@ -2144,31 +2512,58 @@ export class AgentTool implements Tool {
           .join('\n\n')
       : legacyAggregated;
 
+    // M-8 / 停止条件接线（2026-09-22）：目标侧指令**注入 LLM 输入**——追加到 tool result 文本。
+    // 无指令（未触顶且未停滞）⇒ 输出**逐字不变**，既有格式断言零回归。
+    const finalOutput = goalInstruction
+      ? `${aggregatedOutput}\n\n[SYSTEM] ${goalInstruction}`
+      : aggregatedOutput;
+
     this.emitComplete(
       onProgress,
       agentId,
       agentInput.name || agentId,
-      `Parallel execution completed: ${succeeded}/${swarmResult.workers.length} tasks succeeded${gated ? `（allPassed: ${swarmResult.allPassed}）` : ''}`
+      `Parallel execution completed: ${okCount}/${workers.length} tasks succeeded` +
+        `${cancelledCount > 0 ? `（已取消：${cancelledCount} 个任务未投递）` : ''}` +
+        // 收尾阶段被取消（缺口为 0）也要如实说 —— 否则用户看到"全部成功"却不知批次已被中止
+        `${cancelledCount === 0 && cancelledFact ? '（批次被取消：任务已全部投递，收尾阶段中止）' : ''}` +
+        `${gated ? `（allPassed: ${swarmResult.allPassed}）` : ''}`
     );
 
-    // 阶段 A（A1-e）：并行批次已全部结算（AgentSwarm 内 Promise.allSettled 收口）
-    // → 通知结算桥：等待中的父会话据此判定是否恢复。
-    this.notifyYieldSettlement(context);
+    // 阶段 A（A1-e）/ M-5：并行批次已全部结算（`AgentSwarm` 内 `Promise.allSettled` 收口）
+    // ⇒ 结算通知由 `settleRun()`（**唯一入口**）统一发出，此处不再手工通知。
 
+    // 出口②（D-A 方案 A′ 三档，2026-09-22）：全 `ok` ⇒ SUCCESS；**部分失败 ⇒ SUCCESS**
+    // （保住部分结果，不被上游当"工具调用失败"丢弃，真实成败由 `metadata.completed` /
+    // `metadata.partialFailure` 表达）；**全失败 / 启动前取消 ⇒ FAILURE**（此时无结果可保）。
+    const resultStatus =
+      okCount > 0 ? ToolExecutionStatus.SUCCESS : ToolExecutionStatus.FAILURE;
+    // `error` 仅在 FAILURE 时携带 —— 成功路径保持既有契约（原先恒 `undefined`）逐字不变。
+    const resultError =
+      resultStatus === ToolExecutionStatus.FAILURE ? batchError : undefined;
     return {
-      status: ToolExecutionStatus.SUCCESS,
-      result: aggregatedOutput,
-      error: undefined,
+      status: resultStatus,
+      result: finalOutput,
+      error: resultError,
       executionTime: Date.now() - startTime,
-      output: aggregatedOutput,
-      errorOutput: '',
+      output: finalOutput,
+      errorOutput: resultError ?? '',
       progress: [],
       metadata: {
         agentId,
         agentType: effectiveType,
-        completed: true,
-        parallelTaskCount: swarmResult.workers.length,
-        parallelSuccessCount: succeeded,
+        // 出口③：与 `batchOk` 同源（修复前恒 `true`）
+        completed: batchOk,
+        parallelTaskCount: workers.length,
+        parallelSuccessCount: okCount,
+        // ⚠ 语义：**未投递**任务数（≠ 取消事实）—— 收尾阶段取消时该值为 0，须与下项并列判读
+        cancelledTaskCount: cancelledCount,
+        // 取消事实（与 `cancelledTaskCount` 互补）；补上后 `swarmResult.cancelled` 不再是无消费方的死字段
+        cancelled: cancelledFact,
+        ...(partialFailure
+          ? {
+              partialFailure: `${failedCount}/${workers.length} 个 worker 未通过`,
+            }
+          : {}),
       },
       executionId: agentId,
       toolName: this.name,
@@ -2265,9 +2660,7 @@ export class AgentTool implements Tool {
         await this.settleRun(agentId, taskCompleted ? 'completed' : 'failed');
         // 设计二：后台任务完成时才清理 teammate（保留整个后台窗口期的可寻址性）
         await this.unregisterTeammate(agentId);
-        // B1/O1-3：后台 run 的结算只能在此处通知（工具早已返回）——
-        // 漏掉即"后台委派 + sessions_yield"永不恢复
-        await this.notifyYieldSettlement(context);
+        // B1/O1-3 / M-5：后台 run 的结算同样经 `settleRun()` ⇒ 通知由其统一发出
         logger.info('Background agent completed', { agentId, taskId });
       })
       .catch(async (error) => {
@@ -2285,8 +2678,7 @@ export class AgentTool implements Tool {
         await this.settleRun(agentId, 'failed');
         // 设计二：失败也清理 teammate
         await this.unregisterTeammate(agentId);
-        // B1/O1-3：失败同样是一次结算——不通知则等待中的父会话永久挂起
-        await this.notifyYieldSettlement(context);
+        // B1/O1-3 / M-5：失败同属结算 ⇒ 通知同样由 `settleRun()` 统一发出
       });
 
     return {
@@ -2471,9 +2863,12 @@ export class AgentTool implements Tool {
    *
    * 遗漏任一路径 ⇒ 该路径上的 yield 等待永不收敛（结算通知是该等待唯一的恢复触发源）。
    * 无会话上下文（无父会话可恢复）时静默跳过。
+   *
+   * **M-5（2026-09-22）收敛**：本方法**不再由各结算点手工调用** —— 通知的唯一触发点是
+   * `settleRun()`（见其注释）。此处 `sessionId` 由 `settleRun` 从台账归属取得，
+   * 不再依赖调用方传 `ToolUseContext`（原先"谁记得传 context"决定了是否能通知）。
    */
-  private async notifyYieldSettlement(context?: ToolUseContext): Promise<void> {
-    const sessionId = context?.sessionId;
+  private async notifyYieldSettlement(sessionId?: string): Promise<void> {
     if (!sessionId) return;
     const endedAt = Date.now();
 
@@ -2533,7 +2928,16 @@ export class AgentTool implements Tool {
    *
    * 修复前只有内存一条路（归因表 CAP=200）⇒ 超出该窗口的 run 一律 `not_found`，
    * 而磁盘保留终态 50 条 / 7 天 ⇒ "内存答不出、磁盘答得出"（N14 的两个区间）。
-   * 返回 `source` 便于调用方区分答案来自哪一层。
+   *
+   * **M-0 尾项（2026-09-22）——回落口径的契约边界**：
+   * - 本方法是"内存 → 磁盘 → `not_found`"回落的**唯一实现**（全 `app/src` 仅此一处，
+   *   已 grep 核对）⇒ 新增查询需求必须复用本方法，禁止再写一处等价回落；
+   * - `source` **仅供可观测标注**（如 CLI 提示"来源: 磁盘台账"），
+   *   ❌ **禁止**以 `source` 作业务分支依据 —— 单一事实源收敛的目标是"答案一致"，
+   *   而不是让调用方按层选择行为（当前唯一消费点 `commands/tools/ai/agent.ts:351`
+   *   仅拼接展示文案，符合该边界）；
+   * - 内存仍是**一等事实源**（0a 后 worker 也进台账）⇒ 命中即返回；
+   *   磁盘只补"内存窗口之外的终态"，不参与活跃判定。
    *
    * 注：磁盘不可用时的错误**直接抛出**，不伪装成 `not_found`（避免把环境故障说成"查无此 run"）。
    *
@@ -2542,7 +2946,7 @@ export class AgentTool implements Tool {
   async getAgentStatus(agentId: string): Promise<{
     status: AgentRunStatus | 'unknown' | 'not_found';
     duration?: number;
-    /** 状态来源：`memory`（内存台账）/ `store`（磁盘台账） */
+    /** 状态来源：`memory`（内存台账）/ `store`（磁盘台账）——**仅作展示标注** */
     source?: 'memory' | 'store';
   }> {
     const agent = this._ledger.view(agentId);
@@ -2586,7 +2990,7 @@ export class AgentTool implements Tool {
     //  · `privileged` 是**显式**的进程内特权标志（Coordinator / CLI 等无会话上下文的调用方），
     //    替代原实现"不传 requester 即特权"的隐式默认（无法区分"忘了传"与"确有权限"）；
     //  · 带 requester 时必须**能证明**归属：台账（本工具注册的 run）或引擎（并行批次的
-    //    `swarm-<id>` worker）任一给出 owner 且与请求方一致才放行；
+    //    worker，P1-E 后引擎 id = `${batchId}::${taskKey}`）任一给出 owner 且与请求方一致才放行；
     //  · **owner 缺失即拒绝** —— 原实现 `if (owner && owner !== requester)` 在 owner 缺失时
     //    放行，配合"worker 不在台账"⇒ 任意会话拿到 id 即可中止它。
     const requester = opts?.requesterSessionId;
@@ -2624,8 +3028,64 @@ export class AgentTool implements Tool {
     }
 
     const accepted = this._ledger.requestCancel(agentId);
+    // 精确匹配 `agentId`：**单代理路径**的引擎登记 id 就是 `agentId`（本文件 `:1139`）
+    // ⇒ 这一行是单代理停止的**唯一命中路径**，**不可删**。
+    // 批次路径下它确实恒 miss（worker 登记为 `${batchId}::${taskKey}`，见 `:1462`），
+    // 而那正是下面 `:2907` 前缀扇出存在的理由 —— 两者**互补**，不是冗余。
+    // （2026-09-22 复核结论：曾有评审建议"删除该恒 miss 调用"，实为对"单代理登记 id"的误判。）
     const engineStopped = this.engine.abort(agentId);
-    return accepted || engineStopped;
+
+    // R1（2026-09-21）：**批次级取消** —— abort 该批次的 `swarmAbort`。
+    // 这是唯一能让 `AgentSwarm.runBatched` 的 `signal?.aborted` 短路生效的入口：
+    // 修复前停批次只中止"在飞 worker"，**尚未投递的后续批次照常启动**。
+    // 与父级桥接（A）共用同一个控制器 ⇒ 两条取消通路在此汇合。
+    const batchController = getBatchAbort(agentId);
+    const batchAborted =
+      batchController !== undefined && !batchController.signal.aborted;
+    if (batchAborted) {
+      batchController.abort();
+    }
+
+    // P1-E（2026-09-21）：**批次级取消扇出**。
+    // 控制面 `/v1/agents/control` 列的是台账条目（批次 = `batchId`），而 worker 在引擎上
+    // 以 `${batchId}::${taskKey}` 登记 ⇒ `engine.abort(batchId)` 精确匹配必然 miss：
+    // 修复前"停批次"只把台账置 `cancel_requested`（A 与 D 的链路修好后依然如此），
+    // **worker 一个都不会停**，要等引擎 `timeoutMs`（默认 600s）自然收敛 ——
+    // 用户点"停止"看到的成功是假的。此处按前缀补上批次 → worker 的扇出。
+    // 遍历用 `getActiveAgents()` 的快照数组（`abort()` 会改 `activeAgents` Map，边遍历边改不安全）。
+    let workersStopped = 0;
+    for (const { agentId: engineId } of this.engine.getActiveAgents()) {
+      if (engineId.startsWith(`${agentId}::`) && this.engine.abort(engineId)) {
+        workersStopped++;
+      }
+    }
+    if (workersStopped > 0) {
+      logger.info('批次取消扇出：已中止批次内 worker', {
+        batchId: agentId,
+        workersStopped,
+      });
+    }
+
+    // P1-D（2026-09-21）：把取消受理**同步到磁盘台账**。
+    // 修复前 `cancel_requested` 只有内存写入点（`AgentRunLedger.requestCancel`），
+    // `AgentRunStore` 从未写过该态 ⇒ 经本方法受理的取消在磁盘上仍是 `running`，
+    // 进程重启后被陈旧自愈判成 `unknown`（"无法证明结果"），而真相是
+    // "取消已受理、正在下一个安全边界收敛"（`unknown` 会让上层以为需要人工确认）。
+    // 与 `recordDescriptorSource` 同约定：落盘是**观测面**而非正确性前置 —— 本方法是
+    // 同步签名（全部调用方为 HTTP pause/stop、Coordinator、CLI），无法 await，
+    // 故 fire-and-forget + 失败只记日志；取消本身已受理，不因落盘失败而回退语义。
+    if (accepted || engineStopped || workersStopped > 0 || batchAborted) {
+      void getAgentRunStore()
+        .markCancelRequested(agentId)
+        .catch((err: unknown) =>
+          logger.warn('取消受理落盘失败（取消本身不受影响）', {
+            agentId,
+            error: String(err),
+          })
+        );
+    }
+
+    return accepted || engineStopped || workersStopped > 0 || batchAborted;
   }
 }
 

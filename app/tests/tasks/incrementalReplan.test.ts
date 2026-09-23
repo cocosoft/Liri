@@ -30,7 +30,10 @@ type OrchestratorWithPrivates = {
   planId: string | null;
   _lastEscalations: EscalationRecord[];
   decideStep: (stepId: string, decision: ReviewDecision) => Promise<void>;
-  executePlanPhase: (description: string, sessionId: string) => Promise<unknown>;
+  executePlanPhase: (
+    description: string,
+    sessionId: string
+  ) => Promise<unknown>;
 };
 
 describe('阶段回退增量 replan（D5/M6）', () => {

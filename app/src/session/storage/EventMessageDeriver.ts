@@ -32,6 +32,7 @@
 
 import type { LiriEvent, LiriEventType } from '../../chat/types/events.js';
 import { getLogger } from '@modules/monitoring';
+import { pickMoreCompleteContent } from '@modules/utils/common';
 import { KNOWN_SESSION_EVENT_TYPES } from '../../chat/types/knownEventTypes.js';
 
 const logger = getLogger('session:event-deriver');
@@ -662,7 +663,13 @@ export function deriveMessagesFromEvents(
       result.push({
         ...proj,
         role: proj.role ?? agg.role,
-        content: proj.content || agg.content,
+        // 2026-09-22 根因修复：原 `proj.content || agg.content` 以"**非空**"为判据 ⇒ 投影的
+        // **流式前导短桩**（真机实证：content=120 字符，而同条 `blocks` 正文=2758 字符）
+        // 会覆盖事件侧聚合出的完整正文 ⇒ 模型看到的该轮答复近乎空壳，下一轮"不知道自己
+        // 写过什么"⇒ **从头重写**（同一开场重复落盘、上下文膨胀、旧框架残留复读）。
+        // 改为"**取更完整者**" —— 与 `:670` 排序键"以事件真实序为准"同一原则：
+        // 投影只作**补齐**，不作**降级**。
+        content: pickMoreCompleteContent(proj.content ?? '', agg.content ?? ''),
         // 2026-08-24 根因修复：排序键以事件真实序（maxChunkSeq）为准，而非投影
         // lastEventSeq——投影版本戳可能错误指向后续事件（如损坏行/并发写入后
         // updateMessageBlocks 落盘的 seq 漂移），导致该消息被排到实际时序之后

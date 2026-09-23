@@ -84,6 +84,8 @@ export { PermissionManager } from './PermissionManager';
 
 // 审计
 export { SecurityAudit } from './SecurityAudit';
+// TR-12-B（2026-09-22）：内容 hash 经门面导出（安全模块禁止子路径导入）
+export { hashContent } from './services/HashUtils';
 export { runSecurityAudit } from './audit';
 export type { SecurityAuditReport } from './audit';
 

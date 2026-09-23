@@ -31,7 +31,7 @@ describe("ToolCallGroup 等待审批态（P2-2）", () => {
       pendingApproval: true,
     };
     render(<ToolCallGroup toolCall={toolCall} variant="card" />);
-    expect(screen.getByText(/chat\.pendingApproval/)).toBeTruthy();
+    expect(screen.getByText(/等待审批/)).toBeTruthy();
   });
 
   it("无 pendingApproval → 不渲染等待审批徽标", () => {
@@ -42,7 +42,7 @@ describe("ToolCallGroup 等待审批态（P2-2）", () => {
       status: "completed",
     };
     render(<ToolCallGroup toolCall={toolCall} variant="card" />);
-    expect(screen.queryByText(/chat\.pendingApproval/)).toBeNull();
+    expect(screen.queryByText(/等待审批/)).toBeNull();
   });
 });
 
@@ -70,7 +70,7 @@ describe("ToolExecutionGroup 分组等待审批态（J-2.2）", () => {
       pendingApproval: true,
     });
     render(<ToolExecutionGroup blocks={blocks} />);
-    expect(screen.getByText(/chat\.pendingApproval/)).toBeTruthy();
+    expect(screen.getByText(/等待审批/)).toBeTruthy();
   });
 
   it("分组内 tool_call 无 pendingApproval → 不渲染等待审批徽标", () => {
@@ -81,7 +81,7 @@ describe("ToolExecutionGroup 分组等待审批态（J-2.2）", () => {
       status: "completed",
     });
     render(<ToolExecutionGroup blocks={blocks} />);
-    expect(screen.queryByText(/chat\.pendingApproval/)).toBeNull();
+    expect(screen.queryByText(/等待审批/)).toBeNull();
   });
 });
 

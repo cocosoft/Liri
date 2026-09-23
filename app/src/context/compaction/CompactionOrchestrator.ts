@@ -26,12 +26,19 @@ import {
   collectToolResultIds,
   stripUnpairedToolResults,
   stripUnpairedToolCalls,
+  // R6（2026-09-21）：请求侧严格配对（Tier3 折叠批 400 的根因修复）
+  completeTrailingToolPairs,
+  sanitizeToolCallPairs,
 } from './toolPairIntegrity';
 import { hookRegistry } from '../hooks/CompactionHooks';
 import { compactionMetricsTracker } from './CompactionMetrics';
 import { compactionLockStore } from './CompactionLockStore';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
+import {
+  enterPhase,
+  exitPhase,
+} from '@modules/diagnostics/loopProbe/phaseStack';
 import type {
   parseCompactionSummary as ParseCompactionSummaryFn,
   renderCompactionSummary as RenderCompactionSummaryFn,
@@ -90,7 +97,13 @@ export function extractEarliestBatch(
   for (let i = 0; i < pool.length; i++) {
     const t = estimateMessagesTokens([pool[i]]);
     if (batch.length > 0 && batchTokens + t > budgetTokens) {
-      return { batch, rest: pool.slice(i) };
+      // R6（2026-09-21）：**切点不得落在 tool_call 与其结果之间**。
+      // 修复前直接 `return { batch, rest: pool.slice(i) }` ⇒ 批尾可能是带 `tool_calls`
+      // 的 assistant 而结果留在 rest ⇒ 折叠请求出现悬空 tool_calls ⇒ 上游 400 ⇒
+      // Tier3 全批失败、压缩 `applied:false`（真机连续 13 次）。
+      // 此处向前吃齐配对结果（宁可略超预算），保语义完整性。
+      const aligned = completeTrailingToolPairs(batch, pool.slice(i));
+      return { batch: aligned.batch, rest: aligned.rest };
     }
     batch.push(pool[i]);
     batchTokens += t;
@@ -223,111 +236,116 @@ export class CompactionOrchestrator {
       tracker?: UnifiedTokenTracker;
     }
   ): Promise<CompactionOutcome> {
-    // 防止双管线并发压缩同一会话（P2-5：内存 + 磁盘双层锁，崩溃残留锁自动清除）
-    let lockCompactionId: string | undefined;
-    if (ctx.sessionId) {
-      const acquired = compactionLockStore.tryAcquire(ctx.sessionId);
-      if (acquired === null) {
-        // 并发拒绝是异常路径（同会话已被另一压缩管线占用），提升为 warn 便于排查
-        logger.warn(
-          'compaction:already_in_progress — 压缩被并发锁拒绝，跳过本次压缩',
-          {
-            sessionId: ctx.sessionId,
-            model: ctx.model,
-            messageCount: messages.length,
-            estimatedTokens: options?.preEvaluated?.snapshot.tokens,
-          }
-        );
-        return { messages, applied: false };
-      }
-      lockCompactionId = acquired;
-      logger.info('compaction:lock_acquired — 编排器已获取压缩锁', {
-        sessionId: ctx.sessionId,
-        compactionId: acquired,
-        trigger: options?.preEvaluated?.decision ?? 'evaluate',
-      });
-    }
-
+    enterPhase('compaction:orchestrate');
     try {
-      const startTime = Date.now();
-      // 排查日志：压缩触发入口——记录触发条件（消息数/估算 tokens/模型/窗口配置），
-      // 与后续"决策/完成/未应用"日志串联，便于排查边界情况
-      // 传入 preEvaluated 时复用其 snapshot.tokens，避免对巨大历史再次同步估算（阻塞事件循环）
-      const entryTokens =
-        options?.preEvaluated?.snapshot.tokens ??
-        estimateMessagesTokens(messages);
-      logger.info('compaction:①触发评估', {
-        sessionId: ctx.sessionId,
-        model: ctx.model,
-        messageCount: messages.length,
-        estimatedTokens: entryTokens,
-        preEvaluated: !!options?.preEvaluated,
-        configOverride: ctx.configOverride,
-      });
-      // 决策汇总（skip/warn/trigger 三态 + 阈值快照）：
-      // 传入 preEvaluated（调用方协作式异步评估）时直接复用，跳过内部二次同步评估
-      const decision =
-        options?.preEvaluated ??
-        (await this.evaluateCompaction(messages, ctx, options?.tracker));
-      // 排查日志：决策汇总（skip/warn/trigger 三态 + 阈值快照）
-      logger.info('compaction:决策', {
-        decision: decision.decision,
-        ratio: Number(decision.snapshot.ratio.toFixed(3)),
-        tokens: decision.snapshot.tokens,
-        maxTokens: decision.snapshot.maxTokens,
-        reason: decision.reason ?? null,
-        sessionId: ctx.sessionId,
-      });
-
-      // Skip：无需压缩
-      if (decision.decision === 'skip') {
-        logger.debug('compaction:skip', {
-          ratio: Number(decision.snapshot.ratio.toFixed(3)),
-          reason: decision.reason ?? 'below warning threshold',
+      // 防止双管线并发压缩同一会话（P2-5：内存 + 磁盘双层锁，崩溃残留锁自动清除）
+      let lockCompactionId: string | undefined;
+      if (ctx.sessionId) {
+        const acquired = compactionLockStore.tryAcquire(ctx.sessionId);
+        if (acquired === null) {
+          // 并发拒绝是异常路径（同会话已被另一压缩管线占用），提升为 warn 便于排查
+          logger.warn(
+            'compaction:already_in_progress — 压缩被并发锁拒绝，跳过本次压缩',
+            {
+              sessionId: ctx.sessionId,
+              model: ctx.model,
+              messageCount: messages.length,
+              estimatedTokens: options?.preEvaluated?.snapshot.tokens,
+            }
+          );
+          return { messages, applied: false };
+        }
+        lockCompactionId = acquired;
+        logger.info('compaction:lock_acquired — 编排器已获取压缩锁', {
+          sessionId: ctx.sessionId,
+          compactionId: acquired,
+          trigger: options?.preEvaluated?.decision ?? 'evaluate',
         });
-        return { messages, applied: false };
       }
 
-      // 超时治理（2026-08-13 根治）：超时保护仅约束 Tier3（LLM 调用），Tier1/2
-      // 为同步毫秒级不受限——原实现 Promise.race 对"整个 _doCompact"超时，Tier2
-      // 已完成但 Tier3 未完成时整个结果被丢弃（Tier2 成果白费 + 返回未压缩），
-      // 且旧代码 signal 未透传导致 Tier3 僵尸请求继续跑。见 _runFullCompactionWithTimeout。
-      let result: CompactionOutcome;
       try {
-        result = await this._doCompact(
-          messages,
-          ctx,
-          decision,
-          startTime,
-          options
-        );
-      } catch (err) {
-        // 非超时错误：记录 + 返回 fallback，不抛向上层（上层可能没有 catch）
-        await handleError(err, {
-          module: 'context:compaction',
-          action: 'compact',
-        });
-        // 排查日志：异常未应用——与 Tier3 超时分支区分，调用方将走截断兜底
-        logger.warn('compaction:❌异常未应用（调用方将走截断兜底）', {
+        const startTime = Date.now();
+        // 排查日志：压缩触发入口——记录触发条件（消息数/估算 tokens/模型/窗口配置），
+        // 与后续"决策/完成/未应用"日志串联，便于排查边界情况
+        // 传入 preEvaluated 时复用其 snapshot.tokens，避免对巨大历史再次同步估算（阻塞事件循环）
+        const entryTokens =
+          options?.preEvaluated?.snapshot.tokens ??
+          estimateMessagesTokens(messages);
+        logger.info('compaction:①触发评估', {
           sessionId: ctx.sessionId,
-          error: err instanceof Error ? err.message : String(err),
+          model: ctx.model,
+          messageCount: messages.length,
+          estimatedTokens: entryTokens,
+          preEvaluated: !!options?.preEvaluated,
+          configOverride: ctx.configOverride,
+        });
+        // 决策汇总（skip/warn/trigger 三态 + 阈值快照）：
+        // 传入 preEvaluated（调用方协作式异步评估）时直接复用，跳过内部二次同步评估
+        const decision =
+          options?.preEvaluated ??
+          (await this.evaluateCompaction(messages, ctx, options?.tracker));
+        // 排查日志：决策汇总（skip/warn/trigger 三态 + 阈值快照）
+        logger.info('compaction:决策', {
+          decision: decision.decision,
+          ratio: Number(decision.snapshot.ratio.toFixed(3)),
+          tokens: decision.snapshot.tokens,
+          maxTokens: decision.snapshot.maxTokens,
+          reason: decision.reason ?? null,
+          sessionId: ctx.sessionId,
+        });
+
+        // Skip：无需压缩
+        if (decision.decision === 'skip') {
+          logger.debug('compaction:skip', {
+            ratio: Number(decision.snapshot.ratio.toFixed(3)),
+            reason: decision.reason ?? 'below warning threshold',
+          });
+          return { messages, applied: false };
+        }
+
+        // 超时治理（2026-08-13 根治）：超时保护仅约束 Tier3（LLM 调用），Tier1/2
+        // 为同步毫秒级不受限——原实现 Promise.race 对"整个 _doCompact"超时，Tier2
+        // 已完成但 Tier3 未完成时整个结果被丢弃（Tier2 成果白费 + 返回未压缩），
+        // 且旧代码 signal 未透传导致 Tier3 僵尸请求继续跑。见 _runFullCompactionWithTimeout。
+        let result: CompactionOutcome;
+        try {
+          result = await this._doCompact(
+            messages,
+            ctx,
+            decision,
+            startTime,
+            options
+          );
+        } catch (err) {
+          // 非超时错误：记录 + 返回 fallback，不抛向上层（上层可能没有 catch）
+          await handleError(err, {
+            module: 'context:compaction',
+            action: 'compact',
+          });
+          // 排查日志：异常未应用——与 Tier3 超时分支区分，调用方将走截断兜底
+          logger.warn('compaction:❌异常未应用（调用方将走截断兜底）', {
+            sessionId: ctx.sessionId,
+            error: err instanceof Error ? err.message : String(err),
+            elapsedMs: Date.now() - startTime,
+          });
+          return { messages, applied: false };
+        }
+        // 排查日志：压缩完成（applied + 压缩后 tokens + 耗时）
+        logger.info('compaction:②完成', {
+          sessionId: ctx.sessionId,
+          applied: result.applied,
+          beforeTokens: decision.snapshot.tokens,
+          afterTokens: estimateMessagesTokens(result.messages),
           elapsedMs: Date.now() - startTime,
         });
-        return { messages, applied: false };
+        return result;
+      } finally {
+        if (ctx.sessionId && lockCompactionId) {
+          compactionLockStore.release(ctx.sessionId, lockCompactionId);
+        }
       }
-      // 排查日志：压缩完成（applied + 压缩后 tokens + 耗时）
-      logger.info('compaction:②完成', {
-        sessionId: ctx.sessionId,
-        applied: result.applied,
-        beforeTokens: decision.snapshot.tokens,
-        afterTokens: estimateMessagesTokens(result.messages),
-        elapsedMs: Date.now() - startTime,
-      });
-      return result;
     } finally {
-      if (ctx.sessionId && lockCompactionId) {
-        compactionLockStore.release(ctx.sessionId, lockCompactionId);
-      }
+      exitPhase('compaction:orchestrate');
     }
   }
 
@@ -827,12 +845,15 @@ export class CompactionOrchestrator {
     signal?: AbortSignal
   ): Promise<string | null> {
     try {
-      const apiMessages: ChatMessage[] = [
+      // R6（2026-09-21）：发请求前**兜底收敛配对** —— 保证任何切片都满足
+      // "带 tool_calls 的 assistant 后面必须跟齐其 tool 结果"（含孤立 tool 消息），
+      // 否则上游整请求 400（真机实证的 `tier3_fold_batch_error`）。
+      const apiMessages: ChatMessage[] = sanitizeToolCallPairs([
         ...headMessages,
         ...batch,
         // 压缩指令收尾（作为最后 user 消息，与 deepseek-harness 的 COMPACTION_INSTRUCTION 一致）
         { role: 'user', content: procs.COMPACTION_USER_PROMPT } as ChatMessage,
-      ];
+      ]);
 
       const response = await aiService.generate(apiMessages, ctx.model || '', {
         // 超时治理：max_tokens 4096 → 2560——5 字段摘要上限共 ~1400 字（≈2000-2500 tokens），

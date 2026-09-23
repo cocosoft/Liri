@@ -14,6 +14,7 @@ export {
   YIELD_RESULT_STATUS,
   YIELD_FINISH_REASON,
   YIELD_STATUS_WAITING,
+  YIELD_STATUS_CLAIMED,
   YIELD_STATUS_RESUMED,
   YIELD_STATUS_ABANDONED,
 } from './constants';
@@ -28,12 +29,23 @@ export {
   YieldRegistry,
   getYieldRegistry,
   resetYieldRegistry,
+  rebuildYieldWaitingSet,
 } from './YieldRegistry';
 export type {
   YieldEntryStatus,
   YieldWaitingEntry,
   YieldConvergeInput,
 } from './YieldRegistry';
+
+export {
+  YieldWaitingStore,
+  getYieldWaitingStore,
+  YIELD_WAITING_TABLE,
+} from './YieldWaitingStore';
+export type {
+  YieldWaitingPersistence,
+  YieldWaitingRecord,
+} from './YieldWaitingStore';
 
 export {
   registerYieldFromResults,

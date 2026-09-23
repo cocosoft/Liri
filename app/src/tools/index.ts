@@ -350,6 +350,9 @@ export {
 // T8（2026-09-21）：运行台账只读查询端点需要读磁盘台账 ⇒ 经模块出口暴露（避免子目录直连导入）
 export { AgentRunStore, getAgentRunStore } from './AgentTool/AgentRunStore';
 export type { AgentRunRow } from './AgentTool/AgentRunStore';
+// R6（2026-09-22）：AgentTool 真身解析（穿透 ToolLazyWrapper + 能力判定）——
+// 控制面与命令层三处入口共用同一判据，避免"三份 instanceof 副本"再次漂移
+export { resolveAgentToolInstance } from './utils/resolveAgentToolInstance';
 export { CuratorScheduler } from './AgentTool/CuratorScheduler';
 export { SkillLifecycleManager } from './AgentTool/SkillLifecycleManager';
 export { notebookManager } from './notebook/NotebookManager';

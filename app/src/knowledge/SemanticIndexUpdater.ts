@@ -39,6 +39,10 @@ import type { IndexEntry } from '@modules/knowledge/semantic/store';
 import type { IVectorStore } from '@modules/knowledge/semantic/IVectorStore';
 import { createVectorStore } from '@modules/knowledge/semantic/VectorStoreFactory';
 import { JsonlVectorStore } from '@modules/knowledge/semantic/JsonlVectorStore';
+import {
+  enterPhase,
+  exitPhase,
+} from '@modules/diagnostics/loopProbe/phaseStack';
 
 const logger = new OTelAwareLogger({
   module: 'knowledge:semantic:updater',
@@ -172,73 +176,78 @@ export class SemanticIndexUpdater {
    * 对单个知识文件进行增量索引
    */
   async appendIndex(filePath: string): Promise<void> {
-    if (!this.initialized) {
-      await this.initialize();
-    }
-
+    enterPhase('semantic-index:update');
     try {
-      // BUG-08（2026-09-16）：事件源可能把目录本身（含 knowledge 根目录）当 filePath 下发，
-      // 原实现对目录 readFile 触发 EISDIR 报错。先 stat 判断，是目录则跳过。
-      const fileStat0 = await stat(filePath);
-      if (fileStat0.isDirectory()) {
-        logger.debug('跳过目录（非文件，不索引）', { filePath });
-        return;
+      if (!this.initialized) {
+        await this.initialize();
       }
-      const content = await readFile(filePath, 'utf-8');
-      const fileStat = await stat(filePath);
 
-      // 从绝对路径提取相对路径（相对于知识库根目录，与 builder 一致）
-      const relPath = this.toRelPath(filePath);
+      try {
+        // BUG-08（2026-09-16）：事件源可能把目录本身（含 knowledge 根目录）当 filePath 下发，
+        // 原实现对目录 readFile 触发 EISDIR 报错。先 stat 判断，是目录则跳过。
+        const fileStat0 = await stat(filePath);
+        if (fileStat0.isDirectory()) {
+          logger.debug('跳过目录（非文件，不索引）', { filePath });
+          return;
+        }
+        const content = await readFile(filePath, 'utf-8');
+        const fileStat = await stat(filePath);
 
-      // 分块（使用自适应策略：标题感知 → 行窗口 fallback）
-      const chunks = autoChunk(content, relPath, {
-        windowLines: this.options.windowLines,
-        overlap: this.options.overlap,
-      });
+        // 从绝对路径提取相对路径（相对于知识库根目录，与 builder 一致）
+        const relPath = this.toRelPath(filePath);
 
-      if (chunks.length === 0) return;
+        // 分块（使用自适应策略：标题感知 → 行窗口 fallback）
+        const chunks = autoChunk(content, relPath, {
+          windowLines: this.options.windowLines,
+          overlap: this.options.overlap,
+        });
 
-      // 嵌入
-      const entries: IndexEntry[] = [];
-      const mtimeMs = fileStat.mtimeMs;
+        if (chunks.length === 0) return;
 
-      for (const chunk of chunks) {
-        try {
-          const vec = await this.embeddingManager.embedOne(chunk.text);
-          if (vec && vec.length > 0) {
-            // B2（2026-09-08）：携带 chunker 的块链/上下文字段（pre/next/parent/
-            // contextHeader/page/section/tableId），供 KnowledgeRouter 富化 getById
-            entries.push({
-              ...chunk,
-              embedding: new Float32Array(vec),
-              mtimeMs,
+        // 嵌入
+        const entries: IndexEntry[] = [];
+        const mtimeMs = fileStat.mtimeMs;
+
+        for (const chunk of chunks) {
+          try {
+            const vec = await this.embeddingManager.embedOne(chunk.text);
+            if (vec && vec.length > 0) {
+              // B2（2026-09-08）：携带 chunker 的块链/上下文字段（pre/next/parent/
+              // contextHeader/page/section/tableId），供 KnowledgeRouter 富化 getById
+              entries.push({
+                ...chunk,
+                embedding: new Float32Array(vec),
+                mtimeMs,
+              });
+            }
+          } catch (err) {
+            logger.warn('分块嵌入失败，跳过', {
+              path: chunk.path,
+              error: String(err),
             });
           }
-        } catch (err) {
-          logger.warn('分块嵌入失败，跳过', {
-            path: chunk.path,
-            error: String(err),
+        }
+
+        if (entries.length > 0) {
+          // 先删除旧索引，再写入新索引
+          await this.store.deleteByPath(relPath);
+          await this.store.upsert(
+            entries.map((e) => ({
+              ...e,
+              id: `${e.path}#L${e.startLine}-L${e.endLine}`,
+            }))
+          );
+          logger.info('语义索引增量更新完成', {
+            filePath,
+            entriesAdded: entries.length,
           });
         }
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : String(error);
+        logger.error('语义索引增量更新失败', { filePath, error: msg });
       }
-
-      if (entries.length > 0) {
-        // 先删除旧索引，再写入新索引
-        await this.store.deleteByPath(relPath);
-        await this.store.upsert(
-          entries.map((e) => ({
-            ...e,
-            id: `${e.path}#L${e.startLine}-L${e.endLine}`,
-          }))
-        );
-        logger.info('语义索引增量更新完成', {
-          filePath,
-          entriesAdded: entries.length,
-        });
-      }
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
-      logger.error('语义索引增量更新失败', { filePath, error: msg });
+    } finally {
+      exitPhase('semantic-index:update');
     }
   }
 }

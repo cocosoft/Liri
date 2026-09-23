@@ -412,9 +412,9 @@ describe("P0 前端四项（F-01/F-04/F-05）", () => {
     // setPinned 失败（http.patch 抛错）
     mockHttp.patch.mockRejectedValue(new Error("后端不可用"));
 
-    await expect(
-      useTestStore.getState().togglePin("sess-A"),
-    ).rejects.toThrow("后端不可用");
+    await expect(useTestStore.getState().togglePin("sess-A")).rejects.toThrow(
+      "后端不可用",
+    );
 
     // 状态未被回写（pinned 仍为 false，未误标 true）
     const sA = useTestStore

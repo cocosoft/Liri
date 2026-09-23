@@ -109,6 +109,20 @@ export async function handleYieldSettlement(
     return false;
   }
 
+  // B1-1（P0-1 / I1）：**同步 CAS 认领**，且必须在**任何 await 之前**完成。
+  // 判定链（get → shouldResume）本身跨越了 `await deps.latestTurn`，两路并发结算会各自
+  // 通过判定 ⇒ 修复前 `resumeHandler` 被调用两次（父会话恢复两次、起两个并发 turn）。
+  // 此处认领是唯一的互斥闸门：`claim()` 无 await ⇒ 只有一路成功。
+  // 注：认领放在"未装配 handler"检查**之后** —— 否则未装配时会留下永久 claimed 条目。
+  if (!registry.claim(signal.sessionId, entry)) {
+    logger.warn('yield 等待已被其他路径认领，本路放弃', {
+      sessionId: signal.sessionId,
+      entryTurn: entry.turn,
+      endedAt: signal.endedAt,
+    });
+    return false;
+  }
+
   try {
     const result = await resumeHandler({
       sessionId: signal.sessionId,
@@ -120,7 +134,22 @@ export async function handleYieldSettlement(
         : 'subagents_settled',
     });
     if (result.ok) {
-      registry.resolve(signal.sessionId, YIELD_STATUS_RESUMED, entry);
+      // P0-3（M-3 配套修复）：`resolve()` 的返回值**必须判定**。
+      // 返回 false = 该登记已被新一轮 yield 取代（引用不等）或已不在表中 ⇒ **未真正记账**；
+      // 若此时仍 `return true`，调用方会 `markDelivered` ⇒ 重放不再兜底 + 日志撒谎。
+      const recorded = registry.resolve(
+        signal.sessionId,
+        YIELD_STATUS_RESUMED,
+        entry
+      );
+      if (!recorded) {
+        logger.warn('yield 恢复已触发但等待登记未被记账（已被取代或已移除）', {
+          sessionId: signal.sessionId,
+          entryTurn: entry.turn,
+          endedAt: signal.endedAt,
+        });
+        return false;
+      }
       logger.info('yield 等待已收敛：会话已恢复', {
         sessionId: signal.sessionId,
         turn: entry.turn,

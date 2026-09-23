@@ -74,8 +74,7 @@ import { savePlainTextCheckpoint } from './plainTextCheckpointSave.js';
 import { compactionOrchestrator } from '@modules/context';
 import { getModelThresholds } from '@modules/core/tokenBudget/UnifiedTokenTracker';
 import { getOTelTracing } from '@modules/monitoring';
-import { trajectoryRecorder } from '@modules/agent';
-import { trajectoryRuntime } from '@modules/core';
+import { getSessionTracing } from '@modules/monitoring';
 import { agentTelemetry } from '@modules/agent';
 import type { ChatOrchestratorHost } from './ChatOrchestrator.js';
 import { getToolExecErrorMessage } from './toolErrorMessages.js';
@@ -232,6 +231,20 @@ export async function* runStreamMessage(
   // 与 try Block 平行，看不到 try 块内声明的 let（此前 tsc 报 Cannot find name）。
   // 声明后供 try 内 acquire（置 true）与最外层 finally（释放）共享。
   let mutexHeld = false;
+
+  // TR-20 续（2026-09-22）：启用 **`interaction` 父 span** —— 使本轮内的 `llm_request`
+  // 嵌套在"一次用户交互"之下（`SessionTracing` 经 AsyncLocalStorage 传递父 span，
+  // 见 `SessionTracing.ts:196` 的 `enterWith` 与 `:244` 的 `getStore`）。
+  // 此前 `startInteractionSpan` / `endInteractionSpan` 与 `llm_request` 一样**全仓无调用方**。
+  //
+  // **未验证（诚实边界）**：`AsyncLocalStorage.enterWith` 与 async generator 的组合在
+  // `yield` 之后上下文是否持续有效，**未做运行时验证** —— OTel 未启用时 span 为 dummy，
+  // 单测无法断言嵌套关系。启用 exporter 后应实测确认 `llm_request` 的父 span 是否为
+  // `Liri.interaction`；若未嵌套，则改为在调度层（`ChatManager.streamMessage`）创建。
+  const interactionTracing = getSessionTracing();
+  // 用**原始用户输入**（`content` 参数），而非 `ctx.content`（`_prepareStreamSession` 处理后的
+  // 内容，可能含图片/附件标记与本地路径）—— span 属性会导出到 tracing 后端，不应带路径。
+  interactionTracing.startInteractionSpan(content);
 
   try {
     streamSpan.addEvent('streamMessage.start', {
@@ -711,6 +724,10 @@ export async function* runStreamMessage(
     const toolDefinitions: ToolDefinition[] = toolRegistry
       ? host.buildToolDefinitions(toolRegistry.getToolSchemas())
       : [];
+    // TR-12-B（2026-09-22）：本轮工具清单落事件（引用式去重）——「模型可见 ⇔ 已落盘」§1.6
+    if (toolRegistry && toolDefinitions.length > 0) {
+      host.recordToolsSnapshot(session.id, toolRegistry.getToolSchemas());
+    }
     if (toolDefinitions.length === 0) {
       // 诊断埋点：工具定义为空时明确记录，区分"注册表缺失" vs "注册表内无工具"，
       // 避免"模型想调工具却无工具可用 → think-only"被静默掩盖
@@ -882,20 +899,6 @@ export async function* runStreamMessage(
         });
       }
     }
-    if (host.ENABLE_TRAJECTORY) {
-      try {
-        trajectoryRecorder.recordStep(session.id, {
-          phase: 'thinking',
-          input: ctx.content.slice(0, 500),
-          modelName: options?.model,
-        });
-      } catch (err) {
-        logger.debug('Telemetry recording skipped', {
-          error: err instanceof Error ? err.message : String(err),
-        });
-      }
-    }
-
     // 缺陷 C 修复: 推理前容量预检
     if (options?.model) {
       const preCheck = await host.unifiedTracker.checkBeforeRequest(
@@ -999,15 +1002,66 @@ export async function* runStreamMessage(
       // Fix B（2026-08-20）：增加 TTFB 硬超时（默认 300s），防止 llama-server
       // 接受 TCP 但不返回响应头时无限等待（超时盲区：fetch→响应头阶段无超时保护）
       let result: Awaited<ReturnType<typeof gen.next>>;
+      // TTFT 接线（2026-09-22）：请求起点与首块延迟**提升到块外** —— chunk 循环在其外，
+      // 计算"首个 token 延迟"需与 TTFB 共用同一基准（语义不变：仍是开始等待的时刻）。
+      let requestStartAt = 0;
+      /** 本轮请求的端到端**首块（字节）**延迟；未等到首块 ⇒ 保持 null */
+      let firstChunkElapsedMs: number | null = null;
+      /** 本轮请求首个**内容 chunk** 时刻（正文擦洗后非空 / thinking 有内容）；无内容 ⇒ null */
+      let firstContentChunkAt: number | null = null;
+
+      // TR-20（2026-09-22）：启用 LLM 请求 OTel span。
+      // 背景：`SessionTracing.startLLMRequestSpan` / `endLLMRequestSpan` 此前**全仓无调用方**
+      // ⇒ `Liri.llm_request` 观测从未产生（详见 `.trae/specs/llm-request-otel-span.md`）。
+      // 说明：`SessionTracing` 内部复用 `getOTelTracing()` 单例（`SessionTracing.ts:96-98`）
+      // ⇒ 与既有 `ctx.streamSpan` **同一棵 trace 树**，不会产生第二套 trace。
+      const llmTracing = getSessionTracing();
+      const llmSpan = llmTracing.startLLMRequestSpan(
+        options?.model ?? 'unknown',
+        { querySource: 'chat:streamMessageFlow' }
+      );
+      /** 本轮请求是否失败（catch 内置 true 供 span 的 `success` 判定 —— `streamHadError` 在降级重试路径不置位） */
+      let llmRequestFailed = false;
+      let llmErrorMessage: string | undefined;
+      /** span 是否已结束（**幂等守卫**：多条退出路径各自调用，重复调用无害） */
+      let llmSpanEnded = false;
+      /**
+       * 结束本轮 `llm_request` span。
+       *
+       * **未**用 `try/finally` 包裹整个请求体：那会给既有数十行代码带来大范围缩进改动
+       * （违反"外科手术式修改"），故改用「幂等守卫 + 各退出路径显式调用」。
+       */
+      const endLlmRequestSpan = (): void => {
+        if (llmSpanEnded) return;
+        llmSpanEnded = true;
+        try {
+          llmTracing.endLLMRequestSpan(llmSpan, {
+            success: !llmRequestFailed,
+            error: llmErrorMessage,
+            // **真 TTFT**（首个内容 chunk）；无内容 chunk（纯 tool_call 响应）⇒ 不传，
+            // **不拿 TTFB 冒充**（TR-20 的教训：口径必须与字段名一致）
+            ttftMs:
+              firstContentChunkAt !== null
+                ? firstContentChunkAt - requestStartAt
+                : undefined,
+          });
+        } catch (e) {
+          // @ignore-catch — 观测失败不阻断对话主流程（CS03）
+          logger.debug('streamMessageFlow: llm_request span 结束失败', {
+            sessionId: session.id,
+            error: e instanceof Error ? e.message : String(e),
+          });
+        }
+      };
       {
         const TTFB_MAX_WAIT_MS = Number(
           configManager.env('TTFB_MAX_WAIT_MS') ?? '300000'
         );
-        const ttfbStart = Date.now();
+        requestStartAt = Date.now();
         let ttfbHeartbeatCount = 0;
         const firstNextPromise = gen.next();
         while (true) {
-          const elapsedMs = Date.now() - ttfbStart;
+          const elapsedMs = Date.now() - requestStartAt;
           if (elapsedMs > TTFB_MAX_WAIT_MS) {
             logger.error('compaction:ttfb_timeout', {
               sessionId: session.id,
@@ -1047,11 +1101,17 @@ export async function* runStreamMessage(
         }
         logger.info('compaction:ttfb_done', {
           sessionId: session.id,
-          elapsedMs: Date.now() - ttfbStart,
+          elapsedMs: Date.now() - requestStartAt,
           heartbeatCount: ttfbHeartbeatCount,
           model: options?.model ?? 'unknown',
           apiMessageCount: apiMessages.length,
         });
+
+        // 首块到达 ⇒ 记录端到端 TTFB。
+        // **事件推迟到本轮请求结束后统一落盘**（一条含 `ttfb` + `ttft?`，见下方 TTFT 接线）：
+        // 真 TTFT 需等首个「内容 chunk」（chunk 循环内），而纯 tool_call 响应可能没有内容
+        // chunk ⇒ 必须在循环后统一落，否则该请求的延迟指标会整体丢失。
+        firstChunkElapsedMs = Date.now() - requestStartAt;
       }
 
       // Phase 1c: 流式水位监测
@@ -1217,6 +1277,12 @@ export async function* runStreamMessage(
               isComplete: false,
             }).content;
             if (scrubbedContent) {
+              // TTFT 接线（2026-09-22）：首个**产出可见正文**的 chunk ⇒ 首个 token。
+              // 擦洗后为空（整块是 think 标签/思考内容）**不算** —— 模型未产出可见内容，
+              // 计入会低报 TTFT。
+              if (firstContentChunkAt === null) {
+                firstContentChunkAt = Date.now();
+              }
               accumulatedContent += scrubbedContent;
               host.unifiedTracker.onStreamChunk(chunk, session.id);
 
@@ -1245,6 +1311,11 @@ export async function* runStreamMessage(
           } else if (chunk?.type === 'thinking') {
             countStreamChunk(streamStats, true);
             if (chunk.content) {
+              // TTFT 接线（2026-09-22）：首个**有内容**的 thinking chunk 同样算首个 token
+              // （推理模型的可见输出自思考开始）
+              if (firstContentChunkAt === null) {
+                firstContentChunkAt = Date.now();
+              }
               host.unifiedTracker.onStreamChunk(
                 typeof chunk.content === 'string'
                   ? chunk.content
@@ -1328,6 +1399,11 @@ export async function* runStreamMessage(
           };
         }
       } catch (genErr) {
+        // TR-20：标记本轮失败（供 span 的 `success` 判定）；错误信息截断后写入 span
+        llmRequestFailed = true;
+        llmErrorMessage = (
+          genErr instanceof Error ? genErr.message : String(genErr)
+        ).slice(0, 200);
         // M1-INV①（2026-08-31）：中断时 scrubber 跨 chunk 缓冲的半截标签内容
         // 属"未 yield 给前端"的内容，按不变量①不落盘（所见即所存）；
         // 记录丢弃长度供排查"流末尾少一段"类反馈。
@@ -1399,6 +1475,7 @@ export async function* runStreamMessage(
             session.id,
             options?.maxTokens
           );
+          endLlmRequestSpan(); // TR-20：降级重试前结束本轮 span（下一轮会新建）
           continue;
         }
 
@@ -1434,11 +1511,51 @@ export async function* runStreamMessage(
           // 自动恢复（reconnect/resume/续写），避免字符串匹配（CS02）
           errorCode: 'STREAM_INTERRUPTED',
         } as ChatStreamChunk;
+        // TR-20：本轮以失败告终 ⇒ 结束 span（`success: false` + `error` 一并写入，
+        // 与 session 事件"仅记成功"的策略**刻意不同** —— span 是观测，失败同样有诊断价值）
+        endLlmRequestSpan();
       }
 
       if (!streamHadError) {
         finalResponse = result.value as unknown as ChatResponse;
         logFinalRawResponse(session.id, finalResponse);
+
+        // TTFT 接线（2026-09-22）：本轮请求的延迟指标**汇总为一条**事件落盘。
+        //
+        // **口径如实**：`ttfb` = 端到端**首块（字节）**延迟；`ttft` = 端到端**首个内容
+        // chunk**（正文擦洗后非空 / thinking 有内容）延迟。两者**均含准备阶段**
+        // （API 消息构建 / 压缩估算等），**不等于纯模型生成延迟** —— provider 侧的真值
+        // 见 TR-20（其 `llm_request.ttft_ms` 实为 TTFB，需另行修正）。
+        //
+        // **只对成功请求落盘**：失败请求已有 `system/error` 事件（catch 块），且 catch 内
+        // 存在 `continue`（上下文降级重试）等多条退出路径，避免重复埋点。
+        // **纯 tool_call 响应可能无内容 chunk** ⇒ `ttft` 缺省不写（不拿 ttfb 冒充 ttft）。
+        if (firstChunkElapsedMs !== null) {
+          const requestTiming: {
+            stage: 'request';
+            ttfb: number;
+            ttft?: number;
+          } = { stage: 'request', ttfb: firstChunkElapsedMs };
+          if (firstContentChunkAt !== null) {
+            requestTiming.ttft = firstContentChunkAt - requestStartAt;
+          }
+          const timingAppend = await host.appendStreamEvent(session.id, {
+            type: 'metric/timing',
+            seq: 0, // seq 由 append 原子分配
+            time: Date.now(),
+            sessionId: session.id,
+            data: requestTiming,
+          });
+          if (timingAppend.reason && timingAppend.reason !== 'duplicate-seq') {
+            logger.warn('metric/timing 事件追加失败（请求延迟）', {
+              sessionId: session.id,
+              reason: timingAppend.reason,
+            });
+          }
+        }
+
+        // TR-20：本轮成功 ⇒ 结束 span（含真 TTFT；无内容 chunk 时不带 ttftMs）
+        endLlmRequestSpan();
       } else {
         finalResponse = { finishReason: 'error' } as unknown as ChatResponse;
         break;
@@ -1707,26 +1824,6 @@ export async function* runStreamMessage(
         });
       }
     }
-    if (host.ENABLE_TRAJECTORY) {
-      try {
-        trajectoryRecorder.recordStep(session.id, {
-          phase: 'response',
-          output:
-            typeof accumulatedContent === 'string'
-              ? accumulatedContent.slice(0, 500)
-              : '',
-          tokensUsed:
-            (finalResponse?.usage?.inputTokens ?? 0) +
-            (finalResponse?.usage?.outputTokens ?? 0),
-          durationMs: streamLlmDuration,
-        });
-      } catch (err) {
-        logger.debug('Telemetry recording skipped', {
-          error: err instanceof Error ? err.message : String(err),
-        });
-      }
-    }
-
     // 通知外部：本次 LLM 响应的词元用量
     pipeline.notifyUsage();
 
@@ -2317,6 +2414,9 @@ export async function* runStreamMessage(
     if (mutexHeld) {
       mutex.release();
     }
+    // TR-20 续：结束 interaction span —— 与 mutex 同在**唯一释放点**，保证恰好一次
+    // （`endInteractionSpan` 自身有 `spanContext` 与 `ended` 双重守卫，重复调用无害）
+    interactionTracing.endInteractionSpan();
     // P2（08-09）：兜底检查点
     savePlainTextCheckpoint({
       checkpoint: plainTextCheckpoint,

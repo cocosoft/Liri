@@ -17,9 +17,11 @@ import { addLogHandler } from '../../src/monitoring/logs/Logger.js';
 
 // expect 的 stringContaining 类型被 src/ink/ink/global.d.ts 的旧 bun:test 声明
 // （expect(value: unknown): any）合并覆盖，运行时 bun 支持该匹配器，此处仅补类型
-const stringContaining = (expect as unknown as {
-  stringContaining: (str: string) => unknown;
-}).stringContaining;
+const stringContaining = (
+  expect as unknown as {
+    stringContaining: (str: string) => unknown;
+  }
+).stringContaining;
 
 function makeCtx(overrides: Partial<ToolLoopContext> = {}): ToolLoopContext {
   const session = { id: 'sess-test' };
@@ -40,7 +42,10 @@ function makeCtx(overrides: Partial<ToolLoopContext> = {}): ToolLoopContext {
       recordTurn: () => {},
     },
     messageService: {
-      createToolResultMessage: (result: unknown) => ({ id: 'tool-msg', content: String(result) }),
+      createToolResultMessage: (result: unknown) => ({
+        id: 'tool-msg',
+        content: String(result),
+      }),
       createAssistantMessage: (content: string) => ({
         id: 'assistant-msg',
         content,
@@ -60,10 +65,14 @@ function makeCtx(overrides: Partial<ToolLoopContext> = {}): ToolLoopContext {
         yield 'ok';
         return { content: '', stop_reason: 'stop' } as ChatResponse;
       },
-      sendMessage: async () => ({ content: '', stop_reason: 'stop' } as ChatResponse),
+      sendMessage: async () =>
+        ({ content: '', stop_reason: 'stop' }) as ChatResponse,
       getProviderId: () => 'mock',
     },
-    unifiedTracker: { resetStreamTokens: () => {}, updateBaselineForRound: () => {} },
+    unifiedTracker: {
+      resetStreamTokens: () => {},
+      updateBaselineForRound: () => {},
+    },
     recordChatResponseUsage: () => {},
     toolResultRegistry: {
       storeResult: () => {},
@@ -172,9 +181,9 @@ describe('ReActToolLoop (M1a)', () => {
     }
     expect(events.some((e) => e.type === 'tool_start')).toBe(true);
     const toolEnd = events.find((e) => e.type === 'tool_end');
-    expect(toolEnd && toolEnd.type === 'tool_end' ? toolEnd.result.status : '').toBe(
-      'success'
-    );
+    expect(
+      toolEnd && toolEnd.type === 'tool_end' ? toolEnd.result.status : ''
+    ).toBe('success');
     // P0-4：act() 执行工具前后同步触发 onToolCall（start 带完整参数对象 / end 带 ok/message/result）
     expect(toolCalls).toEqual([
       {
@@ -238,7 +247,8 @@ describe('ReActToolLoop (M1a)', () => {
   });
 
   it('pendingApproval 工具 → onToolCall 仅 start，不触发 end（遗漏 2）', async () => {
-    const toolCalls: Array<{ phase: string; toolName: string; id: string }> = [];
+    const toolCalls: Array<{ phase: string; toolName: string; id: string }> =
+      [];
     const ctx = makeCtx({
       activeClient: {
         sendMessage: async () =>
@@ -306,9 +316,9 @@ describe('ReActToolLoop (M1a)', () => {
       if (e.type === 'iteration_end') break;
     }
     const toolEnd = events.find((e) => e.type === 'tool_end');
-    expect(toolEnd && toolEnd.type === 'tool_end' ? toolEnd.result.status : '').toBe(
-      'error'
-    );
+    expect(
+      toolEnd && toolEnd.type === 'tool_end' ? toolEnd.result.status : ''
+    ).toBe('error');
   });
 
   it('P3-6 文件产出循环：连续 3 次写同骨架文件 → 注入 [STEERING] 强制收尾', async () => {
@@ -351,8 +361,7 @@ describe('ReActToolLoop (M1a)', () => {
           yield 'thinking';
           return makeResponse(messages);
         },
-        sendMessage: async (messages: ChatMessage[]) =>
-          makeResponse(messages),
+        sendMessage: async (messages: ChatMessage[]) => makeResponse(messages),
         getProviderId: () => 'mock',
       } as never,
       executeTool: async (tc: {
@@ -417,8 +426,7 @@ describe('ReActToolLoop (M1a)', () => {
           yield 'thinking';
           return makeResponse(messages);
         },
-        sendMessage: async (messages: ChatMessage[]) =>
-          makeResponse(messages),
+        sendMessage: async (messages: ChatMessage[]) => makeResponse(messages),
         getProviderId: () => 'mock',
       } as never,
       executeTool: async (tc: {
@@ -507,7 +515,9 @@ describe('ReActToolLoop (M1a)', () => {
   // ─── v3：交互链路（ask_user_question）───────────────────────────
 
   /** 交互工具 ctx：toolRegistry 返回 requiresUserInteraction 工具 + 捕获 executeTool 入参 */
-  function makeInteractionCtx(capture?: { executedArgs?: Record<string, unknown> }) {
+  function makeInteractionCtx(capture?: {
+    executedArgs?: Record<string, unknown>;
+  }) {
     return makeCtx({
       toolRegistry: {
         getTool: (name: string) =>
@@ -602,12 +612,8 @@ describe('ReActToolLoop (M1a)', () => {
     // ③ 工具执行收到真实答案数组（非 generator 对象）
     expect(capture.executedArgs?._userAnswers).toEqual(['是']);
     expect(received.some((e) => e.type === 'question')).toBe(true);
-    expect(
-      received.find((e) => e.type === 'tool_end')
-    ).toBeTruthy();
-    expect(
-      ctxWithLlm.pendingInteractions.has('sess-test')
-    ).toBe(false);
+    expect(received.find((e) => e.type === 'tool_end')).toBeTruthy();
+    expect(ctxWithLlm.pendingInteractions.has('sess-test')).toBe(false);
     expect(final).toBeTruthy();
   });
 
@@ -698,9 +704,7 @@ describe('ReActToolLoop (M1a)', () => {
       } as never,
     });
     // 预塞一个挂起交互（模拟同轮已有 pending）：防护分支应在提问前拦截 tc1
-    (
-      ctxWithLlm.pendingInteractions as Map<string, unknown>
-    ).set('sess-test', {
+    (ctxWithLlm.pendingInteractions as Map<string, unknown>).set('sess-test', {
       questionId: 'q_existing',
       promise: new Promise(() => {}),
       resolve: () => {},
@@ -720,14 +724,14 @@ describe('ReActToolLoop (M1a)', () => {
     const tc1End = received.find(
       (e) => e.type === 'tool_end' && e.result.toolCallId === 'tc1'
     );
-    expect(tc1End && tc1End.type === 'tool_end' ? tc1End.result.status : '').toBe(
-      'error'
-    );
+    expect(
+      tc1End && tc1End.type === 'tool_end' ? tc1End.result.status : ''
+    ).toBe('error');
     // 预塞的 entry 未被覆盖/误删
     expect(
-      (ctxWithLlm.pendingInteractions as Map<string, { questionId: string }>).get(
-        'sess-test'
-      )?.questionId
+      (
+        ctxWithLlm.pendingInteractions as Map<string, { questionId: string }>
+      ).get('sess-test')?.questionId
     ).toBe('q_existing');
   });
 });
@@ -757,8 +761,8 @@ describe('ReActToolLoop 孤儿补偿（M1-INV②）', () => {
                 arguments: { question: '请确认', header: '确认' },
               },
             ],
-          }) as ChatResponse
-        : ({ content: 'done', stop_reason: 'stop' }) as ChatResponse;
+          } as ChatResponse)
+        : ({ content: 'done', stop_reason: 'stop' } as ChatResponse);
     const ctx = makeCtx({
       appendStreamEvent: async (
         _sid: string,
@@ -850,8 +854,8 @@ describe('ReActToolLoop 孤儿补偿（M1-INV②）', () => {
                 arguments: { question: '请确认', header: '确认' },
               },
             ],
-          }) as ChatResponse
-        : ({ content: 'done', stop_reason: 'stop' }) as ChatResponse;
+          } as ChatResponse)
+        : ({ content: 'done', stop_reason: 'stop' } as ChatResponse);
     const ctx = makeCtx({
       toolCallSeqMap: new Map([
         ['tc-done', 10],
@@ -859,7 +863,11 @@ describe('ReActToolLoop 孤儿补偿（M1-INV②）', () => {
       ]),
       executeTool: async (tc: { id: string; name: string }) =>
         tc.id === 'tc-done'
-          ? { toolCallId: 'tc-done', toolName: tc.name, result: { output: 'ok' } }
+          ? {
+              toolCallId: 'tc-done',
+              toolName: tc.name,
+              result: { output: 'ok' },
+            }
           : {
               toolCallId: 'tc-pending',
               toolName: tc.name,
@@ -1019,5 +1027,113 @@ describe('R2 压缩稳态豁免（compact_steady_state_skip）', () => {
     } finally {
       off();
     }
+  });
+});
+
+/**
+ * **压缩失败暂停续接**（2026-09-22）。
+ *
+ * 缺口：`truncated`（`max_tokens` 截断）分支会**放大输出预算后重发续接**，
+ * 而 R4 只在"已注入强制收尾 steering（接近轮次上限）"时暂停它 ⇒
+ * **压缩连续压不动且上下文吃紧**时仍在按更大请求重发，属负收益正反馈
+ *（发送前虽有 `truncateApiMessages` 硬截断兜底，但那是丢旧消息，不是真压缩）。
+ *
+ * 判据（**两个条件缺一不可**）：`consecutiveCompactNoEffect ≥ 阈值` **且**
+ * `lastCompactRatio ≥ COMPACT_STEADY_RATIO`。第二个条件是必需的 ——
+ * 低占用会话里输出被 `max_tokens` 截断时**该照常续接**（上下文有余量），
+ * 而低占用下压缩被稳态跳过、计数同样 ≥ 阈值，只看计数会误停。
+ */
+describe('ReActToolLoop：压缩失败暂停续接', () => {
+  interface LoopInternals {
+    loopState: {
+      consecutiveCompactNoEffect: number;
+      lastCompactRatio?: number;
+      messages: Array<Record<string, unknown>>;
+    };
+    _boostNextReasonMaxTokens: boolean;
+    onIncompleteTurn: (result: {
+      text: string;
+      toolCalls: unknown[];
+      finishReason: string;
+    }) => Promise<boolean>;
+  }
+
+  function makeLoop(): ReActToolLoop {
+    return new ReActToolLoop(makeCtx(), makeInput(), { maxIterations: 5 });
+  }
+
+  /** 触发 `truncated` 分支（finishReason=max_tokens 且无 tool_calls） */
+  async function runTruncatedTurn(
+    loop: ReActToolLoop
+  ): Promise<{ continued: boolean; boosted: boolean; messageCount: number }> {
+    const internals = loop as unknown as LoopInternals;
+    const continued = await internals.onIncompleteTurn.call(loop, {
+      text: '已完成一部分，但输出被长度限制截断',
+      toolCalls: [],
+      finishReason: 'max_tokens',
+    });
+    return {
+      continued,
+      boosted: internals._boostNextReasonMaxTokens,
+      messageCount: internals.loopState.messages.length,
+    };
+  }
+
+  it('压缩停摆（压不动 + 吃紧）⇒ 不续接、不放大 maxTokens、不注入重试指令', async () => {
+    const loop = makeLoop();
+    const internals = loop as unknown as LoopInternals;
+    internals.loopState.consecutiveCompactNoEffect = 2;
+    internals.loopState.lastCompactRatio = 0.9;
+    const before = internals.loopState.messages.length;
+
+    const r = await runTruncatedTurn(loop);
+
+    // 修复前：恒为 true（照常放大 maxTokens 重发）
+    expect(r.continued).toBe(false);
+    expect(r.boosted).toBe(false);
+    expect(r.messageCount).toBe(before);
+  });
+
+  it('低占用会话（压不动但有余量）⇒ 照常续接（只看计数会误停）', async () => {
+    const loop = makeLoop();
+    const internals = loop as unknown as LoopInternals;
+    internals.loopState.consecutiveCompactNoEffect = 2;
+    internals.loopState.lastCompactRatio = 0.1;
+    const before = internals.loopState.messages.length;
+
+    const r = await runTruncatedTurn(loop);
+
+    expect(r.continued).toBe(true);
+    expect(r.boosted).toBe(true);
+    expect(r.messageCount).toBe(before + 1);
+  });
+
+  it('吃紧但压缩尚未连续失败 ⇒ 照常续接（只看占用比会误停）', async () => {
+    const loop = makeLoop();
+    const internals = loop as unknown as LoopInternals;
+    internals.loopState.consecutiveCompactNoEffect = 0;
+    internals.loopState.lastCompactRatio = 0.95;
+
+    const r = await runTruncatedTurn(loop);
+
+    expect(r.continued).toBe(true);
+    expect(r.boosted).toBe(true);
+  });
+
+  it('非截断类不完整回合（empty）不受压缩停摆影响', async () => {
+    const loop = makeLoop();
+    const internals = loop as unknown as LoopInternals;
+    internals.loopState.consecutiveCompactNoEffect = 5;
+    internals.loopState.lastCompactRatio = 0.99;
+
+    const continued = await internals.onIncompleteTurn.call(loop, {
+      text: '',
+      toolCalls: [],
+      finishReason: 'stop',
+    });
+
+    // `empty` 分支与压缩停摆无关：仍注入重试指令（该续接的是"没有可见产出"）
+    expect(continued).toBe(true);
+    expect(internals._boostNextReasonMaxTokens).toBe(false);
   });
 });

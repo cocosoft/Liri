@@ -6,6 +6,28 @@ export function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/**
+ * 取**更完整**的正文（2026-09-22 新增）。
+ *
+ * 背景（真机实证，会话 `session_mub9t9o0h7x2i9ac6rj`）：流式答复的 `content` 常只累积到
+ * **工具调用前的前导短桩**（实测 120 字符），而完整正文落在 `blocks[].content`（实测 2758 字符）
+ * 或事件聚合结果里。用"**非空**即采用"会把短桩当成该轮完整答复 ⇒ 模型在下一轮
+ * "不知道自己写过什么"⇒ **从头重写**（同一开场重复落盘、上下文膨胀、旧框架残留复读）。
+ *
+ * ⇒ 判据必须是**长度**，不是"是否非空"。同一规则在**写路径**与**读路径**各有一处调用，
+ * 故收敛到此处单点实现（CS01），避免两处口径漂移。
+ *
+ * @param primary 主来源（流式 content / 投影 content）
+ * @param fallback 备来源（blocks 正文 / 事件聚合 content）
+ */
+export function pickMoreCompleteContent(
+  primary: string,
+  fallback: string
+): string {
+  if (fallback.trim().length > primary.trim().length) return fallback;
+  return primary.trim().length > 0 ? primary : fallback;
+}
+
 export function deepClone<T>(value: T): T {
   if (value === null || typeof value !== 'object') return value;
   if (Array.isArray(value)) return value.map((item) => deepClone(item)) as T;

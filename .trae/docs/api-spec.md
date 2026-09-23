@@ -1,6 +1,6 @@
 # 前后端接口清单
 
-> **版本**: 2.3.0 | **更新**: 2026-08-01 | **状态**: 持续维护
+> **版本**: 2.3.1 | **更新**: 2026-09-22 | **状态**: 持续维护
 >
 > 本文档是前后端通信的**唯一事实来源**。涉及前后端通信的开发、测试、调试场景时，**必须先查阅本文档**，确认接口是否存在、参数是否对齐，再进行编码。
 
@@ -229,7 +229,7 @@
 | POST | `/v1/sessions/{id}/switch` | ✅ | `sessionService.switch` |
 | GET | `/v1/sessions/{id}/messages` | ✅ | `sessionService.getMessages` / `sessionService.loadConversation`（KB-LONG-SESSION：支持 `?limit&before` 分页——`limit>0` 取末尾 limit 条并返回 `{ messages, hasMore }`，`before` 为 lastEventSeq 游标加载更早；不传 limit 返回数组全量，兼容旧格式） |
 |  | **读源（N-52 修复，2026-09-20）** |  | 主源为**事件派生**（`事件派生(agg) + 投影覆盖`，按 `lastEventSeq` 排序；同一 messageId 自动去重）；取不到事件日志实例或派生为空时**降级为投影**（`messages.jsonl`）纯读。删除的轮次由会话元数据 `deletedMessageRanges` 墓碑在读时过滤（N-50） |
-| GET | `/v1/sessions/{id}/events` | ✅ M1-6 | `trajectoryService.getEvents`（M1-7；`?fromSeq&toSeq&types&limit&recent`，recent=1 时尾部优先取最后 limit 条——日志/轨迹面板显示最近事件） |
+| GET | `/v1/sessions/{id}/events` | ✅ M1-6 | `trajectoryService.getEvents`（M1-7；`?fromSeq&toSeq&beforeSeq&types&limit&recent`，recent=1 时尾部优先取最后 limit 条——日志/轨迹面板显示最近事件；**`beforeSeq`（P1-1，2026-09-22）：取 `seq < beforeSeq` 的紧邻一页，用于"加载更早"**）。响应含 **`hasEarlier`**（更早方向是否还有，与 `hasMore` 对称）与 `tailSeq` |
 | GET | `/v1/sessions/{id}/events/export` | ✅ P7 | `trajectoryService.exportEvents`（导出 jsonl/json，`?format=jsonl\|json`） |
 | GET | `/v1/sessions/{id}/stats` | ✅ D7 | `trajectoryService.getSessionStats`（事件投影统计：消息/工具/轮次/压缩，与 `/v1/usage` token 成本维度不同） |
 | POST | `/v1/sessions/{id}/fork` | ✅ D3 | 前端「另存为分支」`sessionService.forkSession`（body `{ boundary?, childTitle? }`；复制 `[1..boundary]` 前缀事件 + 血缘 `parentSessionId/seedLength`，boundary 缺省=tailSeq，open turn 拒绝 400） |
@@ -264,6 +264,32 @@
 | DELETE | `/v1/agents/tasks/{id}` | ❌ | `agentService.deleteTask` |
 | GET | `/v1/agents/tasks/{id}/logs` | ❌ | `agentService.getTaskLogs` |
 | GET | `/v1/agents/tasks/history` | ❌ | `agentService.listTaskHistory` |
+
+### §3.8.1 长程任务目标（Goal，2026-09-22 新增）
+
+实现：`app/src/infrastructure/http/handlers/routes/goal-routes.ts`（经 `route-table.ts` 统一注册）。
+存储：`task_goals` 表（唯一 `app.db`，`TaskGoalStore`）；状态 6 态 `active`/`blocked`/`completed`/`budget_limited`/`failed`/`cancelled`，**终态不可改写**。
+
+| 方法 | 路径 | 后端状态 | 前端调用方 |
+|------|------|----------|-----------|
+| POST | `/v1/goals` | ✅ | —（暂无前端消费者） |
+| GET | `/v1/goals?sessionId=<id>[&active=1]` | ✅ | —（暂无前端消费者） |
+
+**POST 契约**：body `{ objective: string（必填，trim 非空）, sessionId?: string（会话 id 白名单格式）, tokenBudget?: number（正有限数）, id?: string }`
+
+| 状态码 | 条件 |
+|---|---|
+| **201** | 创建成功 ⇒ `{ goal }`（新目标恒从 `status: 'active'`、`tokensUsed: 0`、`noProgressStreak: 0` 起步） |
+| **400** | `objective` 缺失/空白；`tokenBudget` 非正或非数；`sessionId` 格式非法；请求体非法 JSON |
+| **409** | 显式传入的 `id` 已存在（**不静默覆盖**既有目标） |
+
+**GET 契约**：`sessionId` ⇒ 该会话目标（加 `active=1` 只回未终结）；**不给 `sessionId` 时必须 `active=1`**（否则 **400**，避免无界全表扫描）。
+返回 `{ goals, count }`。
+
+**服务端状态迁移（非本 API 触发，此处备查）**：批次收口时由 `goalRunBinding.settleGoalForRun` 落定 ——
+全通过 ⇒ `completed`、部分成功 ⇒ `blocked`、全败 ⇒ `failed`、取消 ⇒ `cancelled`；**用量触顶 ⇒ `budget_limited`**；
+**连续 `blocked` 达 3 次（`NO_PROGRESS_STOP_THRESHOLD`）⇒ `failed`**（停止条件，经 `no_progress_streak` 计数）。
+`goal` 对象字段：`id` / `sessionId?` / `objective` / `status` / `tokenBudget?` / `tokensUsed` / `noProgressStreak` / `createdAt` / `updatedAt`。
 
 ### §3.9 语音
 
@@ -914,6 +940,8 @@ data: {"type":"done","result":{...}}
 
 | 版本 | 日期 | 变更 |
 |------|------|------|
+| 2.3.1 | 2026-09-22 | §3.8.1 补充 `goal.noProgressStreak` 字段与服务端状态迁移口径（含**停止条件**：连续 `blocked` ×3 ⇒ `failed`） |
+| 2.3.0 | 2026-09-22 | 新增 §3.8.1 长程任务目标 API（`POST /v1/goals` / `GET /v1/goals`）—— 承接 `TaskGoalStore`（M-6），为"批次收口落状态 + 任务级预算触顶"提供创建入口 |
 | 2.2.0 | 2026-07-26 | 新增 §3.15 Inbox API（4 个端点） + §3.16 Usage API；§4 新增 inboxService 映射 |
 | 2.0.0 | 2026-06-03 | 全量扫描：新增 11 个 HTTP 路由缺口标记（Agent 5个 + Channel 2个 + Skills 4个）；新增 §5.3 预留接口清单（10个模块）；新增 §5.4 非标准调用标记（4处）；完善 25 个 IPC 缺口计数；所有状态标记 ✅/❌ |
 | 1.0.0 | 2026-06-03 | 初始版本 |

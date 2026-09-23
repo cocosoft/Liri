@@ -2,7 +2,6 @@ import { describe, it, expect } from 'bun:test';
 import { jsonStringify, jsonParse } from '../../src/utils/json.js';
 
 describe('jsonStringify', () => {
-
   it('should stringify a basic object', () => {
     const result = jsonStringify({ a: 1, b: 2 });
     expect(result).toBe('{"a":1,"b":2}');
@@ -22,11 +21,9 @@ describe('jsonStringify', () => {
     const result = jsonStringify({ a: undefined });
     expect(result).toBe('{}');
   });
-
 });
 
 describe('jsonParse', () => {
-
   it('should parse valid JSON', () => {
     const result = jsonParse<{ a: number }>('{"a":1}');
     expect(result).toEqual({ a: 1 });
@@ -53,5 +50,4 @@ describe('jsonParse', () => {
     expect(jsonParse('true')).toBe(true);
     expect(jsonParse('null')).toBeNull();
   });
-
 });

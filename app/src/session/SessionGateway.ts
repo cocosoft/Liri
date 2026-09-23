@@ -9,8 +9,6 @@ import path from 'path';
 import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error';
-// E-4（2026-08-23，T-G）：会话删除时清理 PDCA 旁路轨迹文件
-import { TrajectoryTrailRecorder } from './trajectory/TrajectoryTrailRecorder';
 import {
   resolveSessionsDir,
   resolveDataDir,
@@ -96,6 +94,8 @@ import {
 import { SessionStore } from './SessionStore.js';
 import type { SessionStoreOptions } from './SessionStore.js';
 import { SessionPruner } from './SessionPruner.js';
+// D3（2026-09-22）：制品级保留（traces / checkpoints / rollback snapshots）
+import { runArtifactRetention } from './ArtifactRetention.js';
 import type { PrunerOptions, PruneResult } from './SessionPruner.js';
 import { SessionLock } from './SessionLock.js';
 import type { LockOptions, LockAcquireResult } from './SessionLock.js';
@@ -695,10 +695,14 @@ export class SessionGateway {
       }
 
       // 事件日志路径与存储层对齐：从 storageConfig.basePath（<root>/sessions/<hash>）
-      // 派生 sessionsRoot=<root>/sessions + worktreeHash=<hash>；未配置时走 EventLogStorage 默认路径
+      // 派生 sessionsRoot=<root>/sessions + worktreeHash=<hash>；未配置 basePath 时回退到
+      // **worktreeHash 单一真源**（N-52 同族修复，2026-09-22）—— 原为字面量 `'default'`，
+      // 会让 sourceLog 指向空分区 ⇒ `read()` 空、`tailSeq=0` ⇒ fork 恒被 `invalid boundary` 拒绝。
       const basePath = this.config.storageConfig?.basePath;
       const sessionsRoot = basePath ? path.dirname(basePath) : undefined;
-      const worktreeHash = basePath ? path.basename(basePath) : 'default';
+      const worktreeHash = basePath
+        ? path.basename(basePath)
+        : resolveWorktreeHash();
       const sourceLog = new EventLogStorage(
         sourceId,
         worktreeHash,
@@ -740,8 +744,6 @@ export class SessionGateway {
         worktreeHash,
         sessionsRoot
       );
-      // O10b（v7.1）Tier1 血缘链：fork 即建立血缘 ⇒ 登记运行期链（供控制面祖先判定）
-      registerSessionLineage(child.id, sourceId);
       const copy = await sourceLog.copyPrefixTo(childLog, boundary);
       if (!copy.ok) {
         // H9 修复：复制失败时回滚已创建的子会话（deleteSession 软删除），
@@ -763,6 +765,16 @@ export class SessionGateway {
           error: `copy prefix failed: ${copy.reason ?? 'unknown'}`,
         };
       }
+
+      // O10b / **M-2（2026-09-22）**：血缘登记**后置到复制成功之后**。
+      //
+      // 修复前登记在 `copyPrefixTo` **之前**（原 `:746`），而失败分支只 `deleteSession(child.id)`
+      // 回滚会话、**不撤销血缘**（全仓亦无 `unregisterSessionLineage`）⇒ 留下
+      // "子会话已软删、血缘仍指向它"的**悬挂边**：控制面 Tier1 祖先判定会据此把
+      // 一个已不存在的会话当成合法祖先链的一环。
+      //
+      // 现口径：**只有 fork 真正成功才建立血缘** ⇒ 失败即无血缘、无悬挂边。
+      registerSessionLineage(child.id, sourceId);
 
       logger.info('会话 fork 完成', {
         sourceId,
@@ -877,9 +889,6 @@ export class SessionGateway {
     });
     // M2：直写 storage 删除后失效 SessionStore 缓存对应 key
     this.sessionStore?.invalidate(sessionId);
-
-    // E-4（2026-08-23，T-G）：清理 PDCA 旁路轨迹文件（会话外诊断数据，随会话删除）
-    void TrajectoryTrailRecorder.cleanup(sessionId);
 
     await this.transcriptManager.deleteTranscript(sessionId);
     logger.debug('deleteSession:transcript 已删除', {
@@ -1260,14 +1269,16 @@ export class SessionGateway {
     const savePath = this.getFTSIndexPath();
 
     this.ftsSaveInterval = setInterval(() => {
-      try {
-        getFTS5SearchEngine().saveToDisk(savePath);
-      } catch (err) {
-        // KB-FTS-SAVE-LOG（2026-08-29）：定时持久化失败静默 → 索引丢失无任何痕迹
-        logger.warn('FTS 索引定期持久化失败', {
-          error: err instanceof Error ? err.message : String(err),
+      // R7（2026-09-21）：落盘已改为**异步**（分片让出 + 原子替换），定时器回调不 await；
+      // 失败仍按 KB-FTS-SAVE-LOG 记录（静默丢索引不可接受）。
+      void getFTS5SearchEngine()
+        .saveToDisk(savePath)
+        .catch((err: unknown) => {
+          // KB-FTS-SAVE-LOG（2026-08-29）：定时持久化失败静默 → 索引丢失无任何痕迹
+          logger.warn('FTS 索引定期持久化失败', {
+            error: err instanceof Error ? err.message : String(err),
+          });
         });
-      }
     }, SessionGateway.FTS_SAVE_INTERVAL_MS);
     // P1-14 修复：unref 避免进程被 FTS 定时器钉住（close() 仍会 clear）
     this.ftsSaveInterval.unref();
@@ -1617,6 +1628,10 @@ export class SessionGateway {
 
   /**
    * 内部：启动定时修剪
+   *
+   * D3（2026-09-22）：同一节拍一并驱动**制品保留**（traces / checkpoints / rollback snapshots）。
+   * 复用既有定时器与 `close()` 生命周期，不新造调度器；两者各自 try/catch ——
+   * 一方失败不跳过另一方。
    */
   private startPruneInterval(intervalMs: number = 300_000): void {
     this.stopPruneInterval();
@@ -1627,6 +1642,14 @@ export class SessionGateway {
         await handleError(err, {
           module: 'sessions:gateway',
           action: '定时修剪执行失败',
+        });
+      }
+      try {
+        await runArtifactRetention();
+      } catch (err) {
+        await handleError(err, {
+          module: 'sessions:gateway',
+          action: '制品保留执行失败',
         });
       }
     }, intervalMs);
@@ -1876,7 +1899,8 @@ export class SessionGateway {
     await this.lock?.releaseAll();
 
     try {
-      getFTS5SearchEngine().saveToDisk(this.getFTSIndexPath());
+      // R7（2026-09-21）：落盘改为异步 ⇒ 此处 await，保证关闭前索引真正写完
+      await getFTS5SearchEngine().saveToDisk(this.getFTSIndexPath());
     } catch (err) {
       // KB-FTS-CLOSE-LOG（2026-08-29）：关闭时 FTS 索引持久化失败静默 → 索引损坏无从排查
       logger.warn('FTS 索引关闭持久化失败', {

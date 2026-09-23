@@ -53,6 +53,8 @@ export type LiriEventType =
   | "assistant/diff"
   | "context/compaction"
   | "context/summary"
+  // TR-12-B（2026-09-22）：模型输入快照（工具清单 + 系统提示词分段，引用式去重）
+  | "context/model-input"
   // D-1（2026-09-02）：会话远期摘要事件（摘要也是轨迹）
   | "session/summary"
   | "system/error"
@@ -137,10 +139,39 @@ export interface LiriEventMap {
   "system/warning": { module: string; message: string };
   "system/info": { module: string; message: string };
   "metric/timing": {
+    /** 首块（字节）延迟 ms（= TTFB，含准备阶段）—— 详见后端 `app/src/chat/types/events.ts` 同字段说明 */
+    ttfb?: number;
+    /** 首个内容 token 延迟 ms（含准备与解析开销；纯 tool_call 响应缺省不写）—— 详见后端同字段说明 */
     ttft?: number;
     tokens?: number;
     duration?: number;
+    /** 阶段：`request` = 请求级用量；`assistant` = 回合级耗时 */
     stage?: string;
+    // TR-12-A（2026-09-22）：请求级用量分桶（与 app 侧同一契约，见
+    // `app/src/chat/types/events.ts` 的 `metric/timing`）
+    inputTokens?: number;
+    outputTokens?: number;
+    cacheReadTokens?: number;
+    cacheCreationTokens?: number;
+  };
+  /**
+   * TR-12-B（2026-09-22）：模型输入快照 —— 与 app 侧同一契约
+   * （见 `app/src/chat/types/events.ts` 的 `context/model-input`）。
+   *
+   * 引用式去重：未变化的单元只写 `refSeq`/`toolsRefSeq` 指向同会话内**含全量**的更早事件；
+   * 读端一跳即可还原（见 `stores/chat/resolveModelInputSnapshot.ts`）。
+   */
+  "context/model-input": {
+    tools?: { hash: string; count: number; schemas?: unknown[] };
+    toolsRefSeq?: number;
+    sections?: Array<{
+      name: string;
+      hash: string;
+      content?: string;
+      refSeq?: number;
+    }>;
+    mode?: string;
+    tokens?: { stable: number; dynamic: number };
   };
   "channel/connect": { channelType: string; channelId: string };
   "channel/disconnect": {

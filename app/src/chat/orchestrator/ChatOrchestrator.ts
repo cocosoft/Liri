@@ -69,7 +69,6 @@ import type { Span } from '@opentelemetry/api';
 import { securityService } from '../services/SecurityService.js';
 import { recursivelySanitizeUnicode } from '@modules/utils/sanitization.js';
 import { SensitiveErrorType } from '@modules/security';
-import { trajectoryRuntime } from '@modules/core';
 import type { SessionCheckpointService } from '../services/SessionCheckpointService.js';
 import type { ChatManagerTAORContext } from '@modules/query';
 import type { LoopDetector } from '@modules/query';
@@ -97,7 +96,6 @@ export interface ChatOrchestratorHost {
 
   // ── 只读配置/标志 ─────────────────────────────────────────
   readonly ENABLE_TELEMETRY: boolean;
-  readonly ENABLE_TRAJECTORY: boolean;
   readonly ENABLE_PLAN_DRIVEN_LOOP: boolean;
   readonly MAX_TOOL_TURNS: number;
 
@@ -119,6 +117,12 @@ export interface ChatOrchestratorHost {
   getClientForModel(model?: string): ToolAwareClient;
   getToolRegistry(): ToolRegistry | null;
   buildToolDefinitions(schemas: unknown[]): ToolDefinition[];
+  /**
+   * TR-12-B（2026-09-22）：把"本轮发给模型的工具清单"落成 `context/model-input` 事件
+   * （引用式去重），使"模型当时看到了哪些工具"可从事件重建（project_rules §1.6 红线）。
+   * 失败不阻断主路径（服务内仅 warn）。
+   */
+  recordToolsSnapshot(sessionId: string, schemas: unknown[]): void;
   addAndPersistMessage(sessionId: string, message: Message): void;
   /**
    * M1 事件溯源：流式过程中追加事件到 events.jsonl
@@ -537,25 +541,6 @@ export class ChatOrchestrator {
       let response: import('@modules/ai').ChatResponse;
       let assistantMessage: Message;
       try {
-        // telemetry 初始化
-        if (this.host.ENABLE_TRAJECTORY) {
-          const { trajectoryRecorder } = await import('@modules/agent');
-          try {
-            trajectoryRecorder.startSession(session.id, options?.model);
-          } catch (err) {
-            logger.debug('Telemetry recording skipped', {
-              error: err instanceof Error ? err.message : String(err),
-            });
-          }
-          try {
-            trajectoryRuntime.startSession(session.id, options?.model);
-          } catch (err) {
-            logger.debug('Telemetry recording skipped', {
-              error: err instanceof Error ? err.message : String(err),
-            });
-          }
-        }
-
         if (!this.host.getLLMClient()) {
           throw new Error('LLM client not initialized');
         }
@@ -591,6 +576,10 @@ export class ChatOrchestrator {
         ctx.toolDefinitions = registry
           ? this.host.buildToolDefinitions(registry.getToolSchemas())
           : [];
+        // TR-12-B（2026-09-22）：本轮工具清单落事件（引用式去重）——§1.6 红线
+        if (registry && ctx.toolDefinitions.length > 0) {
+          this.host.recordToolsSnapshot(session.id, registry.getToolSchemas());
+        }
 
         // 注入注册表查询工具（有工具历史 或 C 阶段切窗发生时）
         const { toolResultRegistry } =

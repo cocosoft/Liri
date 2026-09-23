@@ -296,6 +296,12 @@ export class SessionTracing {
       outputTokens?: number;
       success?: boolean;
       error?: string;
+      /**
+       * **首个 token 延迟** ms —— **必须由调用方提供真 TTFT**（首个产出可见内容的 chunk），
+       * **不得传 TTFB**（首块 / 首字节）：SSE 首 chunk 常只含 `role` / 空 delta，两者可差
+       * 数百毫秒，传错即写入错位指标（见 TR-20）。
+       * 当前唯一调用方：`chat/orchestrator/streamMessageFlow.ts`（取首个内容 chunk 时刻）。
+       */
       ttftMs?: number;
     }
   ): void {

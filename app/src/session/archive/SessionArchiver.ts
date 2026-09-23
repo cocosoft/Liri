@@ -1,5 +1,6 @@
 import { handleError } from '@modules/error';
 import { getLogger } from '@modules/monitoring';
+import { resolveWorktreeHash } from '@modules/core/paths';
 import { promises as fs } from 'fs';
 import { ArchiveStorage } from './ArchiveStorage';
 import type {
@@ -63,7 +64,11 @@ export class SessionArchiver {
       // 不写摘要事件，恢复后事件流完全一致；与 T-A 区间表 / T-D 对账无冲突）。
       let events: string | undefined;
       try {
-        const eventLog = new EventLogStorage(session.id);
+        // N-52 同族修复（2026-09-22）：**必须传 worktreeHash 单一真源**。省略该参会落到
+        // `<sessionsRoot>/default/<sessionId>/`，而真实分区为 `<worktreeHash>`（如 `57971aa3`）
+        // ⇒ `exists()` 恒 false ⇒ **D-2 的"打包完整 events.jsonl"从未生效**（且 `exists()` 为假时
+        // 不进 if 分支、不写任何日志 ⇒ 静默降级为"只归档消息投影"）。
+        const eventLog = new EventLogStorage(session.id, resolveWorktreeHash());
         if (eventLog.exists()) {
           events = await fs.readFile(eventLog.getFilePath(), 'utf-8');
         }

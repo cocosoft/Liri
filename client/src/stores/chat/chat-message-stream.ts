@@ -854,7 +854,8 @@ export async function streamMessageImpl(
       executionPhase: null,
       // #12 根因修复：活跃流会话结束、且该会话无其它活跃流 → 清空标记
       // （若不满足则保留：同会话新流已替换，activeStreamSessionId 仍指向它）
-      ...(get().activeStreamSessionId === sid && nextControllers[sid] === undefined
+      ...(get().activeStreamSessionId === sid &&
+      nextControllers[sid] === undefined
         ? { activeStreamSessionId: null }
         : {}),
     });

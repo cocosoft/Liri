@@ -27,6 +27,10 @@ import { promises as fs, existsSync, createReadStream } from 'fs';
 import { join, dirname } from 'path';
 import * as readline from 'readline';
 import { resolveLegacySessionsDir } from '@modules/core/paths';
+import {
+  enterPhase,
+  exitPhase,
+} from '@modules/diagnostics/loopProbe/phaseStack';
 import { getLogger } from '@modules/monitoring/logs/Logger.js';
 import {
   handleError,
@@ -55,6 +59,14 @@ const APPEND_ALERT_COOLDOWN_MS = 60_000;
 const APPEND_FAIL_THRESHOLD = 5;
 /** 熔断持续时长：暂停对账/重试 5 分钟，防风暴（方案 T-B#1，评审 v0.3#11） */
 const APPEND_CIRCUIT_DURATION_MS = 5 * 60_000;
+/**
+ * D4 修复类告警节流窗口（2026-09-23）：1 分钟合并同类修复告警。
+ *
+ * 与 `APPEND_ALERT_COOLDOWN_MS` **独立**——append 失败与撕裂修复是两条互不相干的
+ * 路径，复用同一时间戳会让一侧的告警压掉另一侧的（或反之）。修复告警原先**完全无
+ * 节流** ⇒ 同一份损坏被反复读取（每次 read 都触发 ensureRepairChecked）时刷屏。
+ */
+const REPAIR_ALERT_COOLDOWN_MS = 60_000;
 
 /**
  * P1-2（2026-08-30）：事件快照缓存默认上限。
@@ -253,6 +265,13 @@ export class EventLogStorage {
   private lastAlertAt = 0;
   /** A-5（2026-08-23）：熔断截止时间戳（0=未熔断） */
   private circuitOpenUntil = 0;
+  /**
+   * D4 修复告警（2026-09-23）：上次修复类告警时间戳（节流窗口用，0=未告警过）。
+   *
+   * 与 append 失败路径的 `lastAlertAt` / `circuitOpenUntil` **独立**：两条路径的
+   * 告警节奏互不干扰（append 失败风暴不应顺带压掉撕裂修复告警，反之亦然）。
+   */
+  private lastRepairAlertAt = 0;
 
   /** 当前 tailSeq（0 表示未初始化，需读盘） */
   private tailSeq: number = 0;
@@ -568,75 +587,83 @@ export class EventLogStorage {
    * @returns 实际 flush 的 chunk 数（含回退路径）
    */
   async flushTextBuffer(): Promise<number> {
-    if (this.textChunkBuffer.size === 0) return 0;
-    const pending = this.textChunkBuffer;
-    const bufferedBytes = this.textChunkBufferBytes; // 治理度量（external 归因）
-    this.textChunkBuffer = new Map();
-    this.textChunkBufferBytes = 0;
-    let flushed = 0;
-    let maxJoinedBytes = 0;
-    for (const [messageId, entry] of pending) {
-      const joined = entry.chunks.join('');
-      const joinedBytes = joined.length; // UTF-16 近似
-      if (joinedBytes > maxJoinedBytes) maxJoinedBytes = joinedBytes;
-      const joinedResult = await this.append({
-        type: 'assistant/text-batch',
-        schemaVersion: 1,
-        seq: 0,
-        time: Date.now(),
-        sessionId: this.sessionId,
-        data: { content: joined, messageId },
-      });
-      if (!joinedResult.ok) {
-        // A-1：单批失败 → 回退逐 chunk（避免"一次失败丢整批"）
-        logger.warn('event-log: text-batch 聚合落盘失败，回退逐 chunk（A-1）', {
+    enterPhase('eventlog:flushText');
+    try {
+      if (this.textChunkBuffer.size === 0) return 0;
+      const pending = this.textChunkBuffer;
+      const bufferedBytes = this.textChunkBufferBytes; // 治理度量（external 归因）
+      this.textChunkBuffer = new Map();
+      this.textChunkBufferBytes = 0;
+      let flushed = 0;
+      let maxJoinedBytes = 0;
+      for (const [messageId, entry] of pending) {
+        const joined = entry.chunks.join('');
+        const joinedBytes = joined.length; // UTF-16 近似
+        if (joinedBytes > maxJoinedBytes) maxJoinedBytes = joinedBytes;
+        const joinedResult = await this.append({
+          type: 'assistant/text-batch',
+          schemaVersion: 1,
+          seq: 0,
+          time: Date.now(),
           sessionId: this.sessionId,
-          messageId,
-          chunkCount: entry.chunks.length,
-          reason: joinedResult.reason,
+          data: { content: joined, messageId },
         });
-        for (const chunkContent of entry.chunks) {
-          const r = await this.append({
-            type: 'assistant/text',
-            schemaVersion: 1,
-            seq: 0,
-            time: Date.now(),
-            sessionId: this.sessionId,
-            data: { content: chunkContent, messageId },
-          });
-          if (!r.ok) {
-            logger.warn('event-log: assistant/text 回退落盘失败', {
+        if (!joinedResult.ok) {
+          // A-1：单批失败 → 回退逐 chunk（避免"一次失败丢整批"）
+          logger.warn(
+            'event-log: text-batch 聚合落盘失败，回退逐 chunk（A-1）',
+            {
               sessionId: this.sessionId,
               messageId,
-              contentLength: chunkContent.length,
-              reason: r.reason,
+              chunkCount: entry.chunks.length,
+              reason: joinedResult.reason,
+            }
+          );
+          for (const chunkContent of entry.chunks) {
+            const r = await this.append({
+              type: 'assistant/text',
+              schemaVersion: 1,
+              seq: 0,
+              time: Date.now(),
+              sessionId: this.sessionId,
+              data: { content: chunkContent, messageId },
             });
+            if (!r.ok) {
+              logger.warn('event-log: assistant/text 回退落盘失败', {
+                sessionId: this.sessionId,
+                messageId,
+                contentLength: chunkContent.length,
+                reason: r.reason,
+              });
+            }
           }
         }
+        flushed += entry.chunks.length;
       }
-      flushed += entry.chunks.length;
-    }
-    // 内存画像（MEM_PROFILE=1）：text-batch 聚合落盘完成（join 大字符串的驻留窗口）
-    memProfile('eventlog:flush-text', {
-      sessionId: this.sessionId,
-      flushed,
-      bufferedBytes, // 治理度量：本次 flush 前缓冲总字节（external 归因）
-      maxJoinedBytes, // 治理度量：单条聚合后最大字节（join 瞬态上限）
-    });
-    // external 治理（2026-09-02 选项②）：单条聚合 >1MB 属超常（常规 ≤64KB 触发/512KB
-    // 安全阈值）——告警供归因（若确认 join 瞬态是 external 尖峰主源，再做分段拆分）
-    if (maxJoinedBytes > 1024 * 1024) {
-      logger.warn('event-log: text-batch 单条聚合超常（>1MB）', {
+      // 内存画像（MEM_PROFILE=1）：text-batch 聚合落盘完成（join 大字符串的驻留窗口）
+      memProfile('eventlog:flush-text', {
         sessionId: this.sessionId,
-        maxJoinedBytes,
-        bufferedBytes,
-        pendingEntries: pending.size,
+        flushed,
+        bufferedBytes, // 治理度量：本次 flush 前缓冲总字节（external 归因）
+        maxJoinedBytes, // 治理度量：单条聚合后最大字节（join 瞬态上限）
       });
+      // external 治理（2026-09-02 选项②）：单条聚合 >1MB 属超常（常规 ≤64KB 触发/512KB
+      // 安全阈值）——告警供归因（若确认 join 瞬态是 external 尖峰主源，再做分段拆分）
+      if (maxJoinedBytes > 1024 * 1024) {
+        logger.warn('event-log: text-batch 单条聚合超常（>1MB）', {
+          sessionId: this.sessionId,
+          maxJoinedBytes,
+          bufferedBytes,
+          pendingEntries: pending.size,
+        });
+      }
+      // 内存水位 tick（2026-09-02 标定：flush-text 实测单步 +507MB/驻留 external 1.39GB，
+      // 是流式写路径主要瞬时分配点 → 落盘后立即做一次水位评估）
+      getMemoryPressureMonitor().tick();
+      return flushed;
+    } finally {
+      exitPhase('eventlog:flushText');
     }
-    // 内存水位 tick（2026-09-02 标定：flush-text 实测单步 +507MB/驻留 external 1.39GB，
-    // 是流式写路径主要瞬时分配点 → 落盘后立即做一次水位评估）
-    getMemoryPressureMonitor().tick();
-    return flushed;
   }
 
   /**
@@ -653,203 +680,211 @@ export class EventLogStorage {
    *   - 写入失败只记日志，调用方决定是否重试
    */
   async append(event: LiriEvent): Promise<EventLogAppendResult> {
-    // A-2①：直接 append 前先 flush 缓冲正文——保证 seq 顺序（缓冲正文先落盘，
-    // 后续 tool/status 等事件 seq 在其后，不破坏事件流单调与消息内顺序）
-    if (this.textChunkBufferBytes > 0) {
-      await this.flushTextBuffer();
-    }
-    // 串行化：所有 append 调用排队执行
-    return this.queueAppend(async () => {
-      // D1（2026-08-24）：落盘前单遍无损 JSON 校验 + 深冻结——
-      // ① 拒绝 BigInt/undefined/循环引用等非 JSON 值（不写盘，避免 JSON.stringify 静默丢字段）
-      // ② 冻结对象与落盘对象一致，杜绝内存/磁盘不一致（数出同源）
-      const sanitized = sanitizeEvent(event);
-      if (!sanitized.ok) {
-        logger.warn('event-log: 事件未通过无损 JSON 校验，拒绝写入', {
-          sessionId: this.sessionId,
-          eventSeq: event.seq,
-          eventType: event.type,
-          reason: sanitized.reason,
-        });
-        const tailSeq = await this.getTailSeq();
-        return { ok: false, reason: 'invalid-event', tailSeq };
+    enterPhase('eventlog:append');
+    try {
+      // A-2①：直接 append 前先 flush 缓冲正文——保证 seq 顺序（缓冲正文先落盘，
+      // 后续 tool/status 等事件 seq 在其后，不破坏事件流单调与消息内顺序）
+      if (this.textChunkBufferBytes > 0) {
+        await this.flushTextBuffer();
       }
-      const frozen = sanitized.event!;
+      // 串行化：所有 append 调用排队执行
+      return this.queueAppend(async () => {
+        // D1（2026-08-24）：落盘前单遍无损 JSON 校验 + 深冻结——
+        // ① 拒绝 BigInt/undefined/循环引用等非 JSON 值（不写盘，避免 JSON.stringify 静默丢字段）
+        // ② 冻结对象与落盘对象一致，杜绝内存/磁盘不一致（数出同源）
+        const sanitized = sanitizeEvent(event);
+        if (!sanitized.ok) {
+          logger.warn('event-log: 事件未通过无损 JSON 校验，拒绝写入', {
+            sessionId: this.sessionId,
+            eventSeq: event.seq,
+            eventType: event.type,
+            reason: sanitized.reason,
+          });
+          const tailSeq = await this.getTailSeq();
+          return { ok: false, reason: 'invalid-event', tailSeq };
+        }
+        const frozen = sanitized.event!;
 
-      // D2（2026-08-24）：写入端防御——运行时未知类型且非 ignorable 拒绝
-      // （TS 层已保证类型，此处防御运行时动态构造的事件）
-      const writable = assertEventWritable(frozen);
-      if (!writable.ok) {
-        logger.warn('event-log: 写入未知事件类型，拒绝写入', {
-          sessionId: this.sessionId,
-          eventSeq: frozen.seq,
-          eventType: frozen.type,
-          reason: writable.reason,
-        });
-        const tailSeq = await this.getTailSeq();
-        return { ok: false, reason: 'invalid-event', tailSeq };
-      }
+        // D2（2026-08-24）：写入端防御——运行时未知类型且非 ignorable 拒绝
+        // （TS 层已保证类型，此处防御运行时动态构造的事件）
+        const writable = assertEventWritable(frozen);
+        if (!writable.ok) {
+          logger.warn('event-log: 写入未知事件类型，拒绝写入', {
+            sessionId: this.sessionId,
+            eventSeq: frozen.seq,
+            eventType: frozen.type,
+            reason: writable.reason,
+          });
+          const tailSeq = await this.getTailSeq();
+          return { ok: false, reason: 'invalid-event', tailSeq };
+        }
 
-      // 跨实例 seq 对齐（2026-08-24 根因修复）：
-      // 写入前读磁盘 lastKnown（events.tail meta）——多进程/多实例各自持有
-      // per-session EventLogStorage（mutex 互不共享）时，内存 tailSeq 可能落后
-      // 于磁盘，直接写入会产生重复/乱序 seq。先对齐再走守卫。
-      // KB-EVENT-TAIL-INIT（2026-08-29）：meta 缺失/未初始化时（A-6 之前旧文件、
-      // meta 写失败、meta 被清理）append 不自我初始化——tailSeq=0 会绕过 seq
-      // 守卫写入与盘上重复的 seq。文件存在时先扫描真实最大 seq 再走守卫。
-      if (!this.tailSeqInitialized && this.exists()) {
-        await this.getTailSeq();
-      }
-      const persisted = await this.readPersistedTailSeq();
-      if (persisted > this.tailSeq) {
-        logger.warn('event-log: 内存 tailSeq 落后磁盘 lastKnown，对齐后写入', {
-          sessionId: this.sessionId,
-          memoryTailSeq: this.tailSeq,
-          persistedTailSeq: persisted,
-          eventSeq: frozen.seq,
-          eventType: frozen.type,
-        });
-        this.tailSeq = persisted;
-        this.tailSeqInitialized = true;
-      }
-      const tailSeq = this.tailSeq;
+        // 跨实例 seq 对齐（2026-08-24 根因修复）：
+        // 写入前读磁盘 lastKnown（events.tail meta）——多进程/多实例各自持有
+        // per-session EventLogStorage（mutex 互不共享）时，内存 tailSeq 可能落后
+        // 于磁盘，直接写入会产生重复/乱序 seq。先对齐再走守卫。
+        // KB-EVENT-TAIL-INIT（2026-08-29）：meta 缺失/未初始化时（A-6 之前旧文件、
+        // meta 写失败、meta 被清理）append 不自我初始化——tailSeq=0 会绕过 seq
+        // 守卫写入与盘上重复的 seq。文件存在时先扫描真实最大 seq 再走守卫。
+        if (!this.tailSeqInitialized && this.exists()) {
+          await this.getTailSeq();
+        }
+        const persisted = await this.readPersistedTailSeq();
+        if (persisted > this.tailSeq) {
+          logger.warn(
+            'event-log: 内存 tailSeq 落后磁盘 lastKnown，对齐后写入',
+            {
+              sessionId: this.sessionId,
+              memoryTailSeq: this.tailSeq,
+              persistedTailSeq: persisted,
+              eventSeq: frozen.seq,
+              eventType: frozen.type,
+            }
+          );
+          this.tailSeq = persisted;
+          this.tailSeqInitialized = true;
+        }
+        const tailSeq = this.tailSeq;
 
-      // P3-7a（2026-09-02）：seq<=0 → mutex 内原子分配。根治"getTailSeq + 1"两步
-      // 非原子竞争（多个生产者并发读到同一 tailSeq 分配相同 seq → duplicate-seq 纠正）。
-      // append 由 queueAppend 串行化，此处 tailSeq 是队列内最新值，分配 tailSeq+1 即唯一；
-      // data.callSeq 为 0/-1（未指定）时同步填分配值（A1 闭环：tool/result 与 tool_call
-      // 的 callSeq 必须等于事件 seq，前端按 callSeq 配对）。
-      // H11 修复：callSeq 重写逻辑提取为内联 helper，冲突纠正分支（guard 1）共用——
-      // 冲突分支此前只改 seq 不改 data.callSeq，破坏 A1 闭环、前端配对错位。
-      let toWrite = frozen;
-      // H11：记录是否发生 seq 纠正，成功返回时带出 correctedSeq
-      let correctedSeqOut: number | undefined;
-      if (frozen.seq <= 0) {
-        const allocated = tailSeq + 1;
-        const rawData = frozen.data as { callSeq?: number } | undefined;
-        const curCallSeq =
-          typeof rawData?.callSeq === 'number' ? rawData.callSeq : -1;
-        const finalCallSeq = curCallSeq > 0 ? curCallSeq : allocated;
-        toWrite =
-          finalCallSeq === curCallSeq
-            ? (Object.freeze({ ...frozen, seq: allocated }) as LiriEvent)
-            : (Object.freeze({
-                ...frozen,
-                seq: allocated,
-                data: Object.freeze({
-                  ...(frozen.data ?? {}),
-                  callSeq: finalCallSeq,
-                }),
-              }) as LiriEvent);
-      } else if (frozen.seq <= tailSeq) {
-        // 守卫 1：seq 冲突 → 自动纠正（跨实例并发下重分配，而非拒绝丢弃事件，
-        // 避免事件丢失导致投影兜底消息乱序置顶 / 事件溯源断层）
-        const correctedSeq = tailSeq + 1;
-        correctedSeqOut = correctedSeq;
-        // P1-2：seq 纠正新建对象需浅冻结（data 与 frozen 共享，已深冻结），
-        // 维持"落盘对象冻结"契约（D1），快照缓存可直接共享安全引用
-        // H11 修复：与 seq<=0 分支共用 callSeq 同步逻辑——data.callSeq 为 0/-1
-        // 或与旧 seq 一致时，改写为纠正后的 seq（A1 闭环：callSeq 恒等于事件 seq）。
-        const rawData = frozen.data as { callSeq?: number } | undefined;
-        const curCallSeq =
-          typeof rawData?.callSeq === 'number' ? rawData.callSeq : -1;
-        // H11 完整闭环：callSeq 为 0/-1（未指定）或与旧 seq 一致（随 seq 被纠正而失效）
-        // 时，一律改写为纠正后的 seq；仅显式指向其他事件的 callSeq 才保留。
-        const finalCallSeq =
-          curCallSeq > 0 && curCallSeq !== frozen.seq
-            ? curCallSeq
-            : correctedSeq;
-        toWrite =
-          finalCallSeq === curCallSeq
-            ? (Object.freeze({ ...frozen, seq: correctedSeq }) as LiriEvent)
-            : (Object.freeze({
-                ...frozen,
-                seq: correctedSeq,
-                data: Object.freeze({
-                  ...(frozen.data ?? {}),
-                  callSeq: finalCallSeq,
-                }),
-              }) as LiriEvent);
-        logger.warn('event-log: seq 冲突自动纠正', {
-          sessionId: this.sessionId,
-          fromSeq: frozen.seq,
-          toSeq: correctedSeq,
-          tailSeq,
-          type: frozen.type,
-          reason: frozen.seq === tailSeq ? 'duplicate-seq' : 'out-of-order',
-        });
-      }
+        // P3-7a（2026-09-02）：seq<=0 → mutex 内原子分配。根治"getTailSeq + 1"两步
+        // 非原子竞争（多个生产者并发读到同一 tailSeq 分配相同 seq → duplicate-seq 纠正）。
+        // append 由 queueAppend 串行化，此处 tailSeq 是队列内最新值，分配 tailSeq+1 即唯一；
+        // data.callSeq 为 0/-1（未指定）时同步填分配值（A1 闭环：tool/result 与 tool_call
+        // 的 callSeq 必须等于事件 seq，前端按 callSeq 配对）。
+        // H11 修复：callSeq 重写逻辑提取为内联 helper，冲突纠正分支（guard 1）共用——
+        // 冲突分支此前只改 seq 不改 data.callSeq，破坏 A1 闭环、前端配对错位。
+        let toWrite = frozen;
+        // H11：记录是否发生 seq 纠正，成功返回时带出 correctedSeq
+        let correctedSeqOut: number | undefined;
+        if (frozen.seq <= 0) {
+          const allocated = tailSeq + 1;
+          const rawData = frozen.data as { callSeq?: number } | undefined;
+          const curCallSeq =
+            typeof rawData?.callSeq === 'number' ? rawData.callSeq : -1;
+          const finalCallSeq = curCallSeq > 0 ? curCallSeq : allocated;
+          toWrite =
+            finalCallSeq === curCallSeq
+              ? (Object.freeze({ ...frozen, seq: allocated }) as LiriEvent)
+              : (Object.freeze({
+                  ...frozen,
+                  seq: allocated,
+                  data: Object.freeze({
+                    ...(frozen.data ?? {}),
+                    callSeq: finalCallSeq,
+                  }),
+                }) as LiriEvent);
+        } else if (frozen.seq <= tailSeq) {
+          // 守卫 1：seq 冲突 → 自动纠正（跨实例并发下重分配，而非拒绝丢弃事件，
+          // 避免事件丢失导致投影兜底消息乱序置顶 / 事件溯源断层）
+          const correctedSeq = tailSeq + 1;
+          correctedSeqOut = correctedSeq;
+          // P1-2：seq 纠正新建对象需浅冻结（data 与 frozen 共享，已深冻结），
+          // 维持"落盘对象冻结"契约（D1），快照缓存可直接共享安全引用
+          // H11 修复：与 seq<=0 分支共用 callSeq 同步逻辑——data.callSeq 为 0/-1
+          // 或与旧 seq 一致时，改写为纠正后的 seq（A1 闭环：callSeq 恒等于事件 seq）。
+          const rawData = frozen.data as { callSeq?: number } | undefined;
+          const curCallSeq =
+            typeof rawData?.callSeq === 'number' ? rawData.callSeq : -1;
+          // H11 完整闭环：callSeq 为 0/-1（未指定）或与旧 seq 一致（随 seq 被纠正而失效）
+          // 时，一律改写为纠正后的 seq；仅显式指向其他事件的 callSeq 才保留。
+          const finalCallSeq =
+            curCallSeq > 0 && curCallSeq !== frozen.seq
+              ? curCallSeq
+              : correctedSeq;
+          toWrite =
+            finalCallSeq === curCallSeq
+              ? (Object.freeze({ ...frozen, seq: correctedSeq }) as LiriEvent)
+              : (Object.freeze({
+                  ...frozen,
+                  seq: correctedSeq,
+                  data: Object.freeze({
+                    ...(frozen.data ?? {}),
+                    callSeq: finalCallSeq,
+                  }),
+                }) as LiriEvent);
+          logger.warn('event-log: seq 冲突自动纠正', {
+            sessionId: this.sessionId,
+            fromSeq: frozen.seq,
+            toSeq: correctedSeq,
+            tailSeq,
+            type: frozen.type,
+            reason: frozen.seq === tailSeq ? 'duplicate-seq' : 'out-of-order',
+          });
+        }
 
-      // 写入
-      try {
-        await this.ensureIdxLoaded();
-        await this.ensureSessionDir();
-        const line = JSON.stringify(toWrite) + '\n';
-        await fs.appendFile(this.filePath, line, 'utf-8');
-        this.tailSeq = toWrite.seq as number;
-        // A-6（2026-08-23）：持久化 lastKnown tailSeq（meta 写失败不影响本次写入）
-        await this.writePersistedTailSeq(toWrite.seq as number);
-        // A-5（2026-08-23）：写入成功 → 连续失败计数清零（熔断自动解除）
-        this.appendFailCount = 0;
-        // P1-2：快照增量扩展（toWrite 已冻结，与落盘对象一致，直接共享引用）
-        // B0（2026-09-02）：超限不再"清空 + ineligible"——改为滑动窗口裁剪
-        // （保留最近、丢弃更早），消除超限后的全量重建尖峰。line.length 已在此
-        // 序列化产物上可用（免二次序列化），成本入并行数组 snapshotCosts 备用。
-        if (this.eventsSnapshot) {
-          this.eventsSnapshot.push(toWrite);
-          const lineLen = line.length;
-          this.snapshotCosts.push(lineLen);
-          this.snapshotBytes += lineLen;
-          if (
-            this.eventsSnapshot.length > this.snapshotEventBudget() ||
-            this.snapshotBytes > this.maxSnapshotBytes
-          ) {
-            // B-3：冷却期节流——裁剪 O(窗口) 有成本，防"超限→裁剪→再超限"逐条反复；
-            // 冷却内先容忍越界增长，2× 硬上限兜底（极端巨事件流下仍受控）。
+        // 写入
+        try {
+          await this.ensureIdxLoaded();
+          await this.ensureSessionDir();
+          const line = JSON.stringify(toWrite) + '\n';
+          await fs.appendFile(this.filePath, line, 'utf-8');
+          this.tailSeq = toWrite.seq as number;
+          // A-6（2026-08-23）：持久化 lastKnown tailSeq（meta 写失败不影响本次写入）
+          await this.writePersistedTailSeq(toWrite.seq as number);
+          // A-5（2026-08-23）：写入成功 → 连续失败计数清零（熔断自动解除）
+          this.appendFailCount = 0;
+          // P1-2：快照增量扩展（toWrite 已冻结，与落盘对象一致，直接共享引用）
+          // B0（2026-09-02）：超限不再"清空 + ineligible"——改为滑动窗口裁剪
+          // （保留最近、丢弃更早），消除超限后的全量重建尖峰。line.length 已在此
+          // 序列化产物上可用（免二次序列化），成本入并行数组 snapshotCosts 备用。
+          if (this.eventsSnapshot) {
+            this.eventsSnapshot.push(toWrite);
+            const lineLen = line.length;
+            this.snapshotCosts.push(lineLen);
+            this.snapshotBytes += lineLen;
             if (
-              Date.now() >= this.snapshotCooldownUntil ||
-              this.eventsSnapshot.length > this.snapshotEventBudget() * 2 ||
-              this.snapshotBytes > this.maxSnapshotBytes * 2
+              this.eventsSnapshot.length > this.snapshotEventBudget() ||
+              this.snapshotBytes > this.maxSnapshotBytes
             ) {
-              this.trimSnapshotToFit();
+              // B-3：冷却期节流——裁剪 O(窗口) 有成本，防"超限→裁剪→再超限"逐条反复；
+              // 冷却内先容忍越界增长，2× 硬上限兜底（极端巨事件流下仍受控）。
+              if (
+                Date.now() >= this.snapshotCooldownUntil ||
+                this.eventsSnapshot.length > this.snapshotEventBudget() * 2 ||
+                this.snapshotBytes > this.maxSnapshotBytes * 2
+              ) {
+                this.trimSnapshotToFit();
+              }
             }
           }
+          // P3-8（2026-09-02）：事件字节索引——append 写路径增量维护区间。
+          // G-4：行字节用 Buffer.byteLength(line,'utf-8')——seek 偏移是 UTF-8 字节数，
+          // 不可复用 line.length（UTF-16 code unit，中文差 1.5~3 倍会系统性偏斜）。
+          // 每 IDX_BATCH_SIZE 个事件折叠一个区间条目落盘 .idx；区间起点偏移 =
+          // idxBytesTotal（本批开始前已索引字节，即本行在文件中的真实起始偏移）。
+          // 索引派生物：折叠/落盘失败不阻断主路径（CS03），读路径回退逐行扫描。
+          const lineBytes = Buffer.byteLength(line, 'utf-8');
+          if (this.idxBatchCount === 0) {
+            this.idxBatchStartSeq = toWrite.seq as number;
+            this.idxBatchStartOffset = this.idxBytesTotal;
+          }
+          this.idxBatchCount++;
+          this.idxBytesTotal += lineBytes;
+          if (this.idxBatchCount >= IDX_BATCH_SIZE) {
+            await this.persistIdxEntry({
+              fromSeq: this.idxBatchStartSeq,
+              toSeq: toWrite.seq as number,
+              byteOffset: this.idxBatchStartOffset,
+              count: this.idxBatchCount,
+            });
+            this.idxBatchCount = 0;
+          }
+          return {
+            ok: true,
+            tailSeq: this.tailSeq,
+            ...(correctedSeqOut !== undefined
+              ? { correctedSeq: correctedSeqOut }
+              : {}),
+          };
+        } catch (e) {
+          // A-5（2026-08-23）：append 失败 → 节流告警 + 熔断（结构化告警由 handleError 发布）
+          this.recordAppendFailure(frozen, e);
+          return { ok: false, reason: 'write-error', tailSeq: this.tailSeq };
         }
-        // P3-8（2026-09-02）：事件字节索引——append 写路径增量维护区间。
-        // G-4：行字节用 Buffer.byteLength(line,'utf-8')——seek 偏移是 UTF-8 字节数，
-        // 不可复用 line.length（UTF-16 code unit，中文差 1.5~3 倍会系统性偏斜）。
-        // 每 IDX_BATCH_SIZE 个事件折叠一个区间条目落盘 .idx；区间起点偏移 =
-        // idxBytesTotal（本批开始前已索引字节，即本行在文件中的真实起始偏移）。
-        // 索引派生物：折叠/落盘失败不阻断主路径（CS03），读路径回退逐行扫描。
-        const lineBytes = Buffer.byteLength(line, 'utf-8');
-        if (this.idxBatchCount === 0) {
-          this.idxBatchStartSeq = toWrite.seq as number;
-          this.idxBatchStartOffset = this.idxBytesTotal;
-        }
-        this.idxBatchCount++;
-        this.idxBytesTotal += lineBytes;
-        if (this.idxBatchCount >= IDX_BATCH_SIZE) {
-          await this.persistIdxEntry({
-            fromSeq: this.idxBatchStartSeq,
-            toSeq: toWrite.seq as number,
-            byteOffset: this.idxBatchStartOffset,
-            count: this.idxBatchCount,
-          });
-          this.idxBatchCount = 0;
-        }
-        return {
-          ok: true,
-          tailSeq: this.tailSeq,
-          ...(correctedSeqOut !== undefined
-            ? { correctedSeq: correctedSeqOut }
-            : {}),
-        };
-      } catch (e) {
-        // A-5（2026-08-23）：append 失败 → 节流告警 + 熔断（结构化告警由 handleError 发布）
-        this.recordAppendFailure(frozen, e);
-        return { ok: false, reason: 'write-error', tailSeq: this.tailSeq };
-      }
-    });
+      });
+    } finally {
+      exitPhase('eventlog:append');
+    }
   }
 
   // ─── P3-8 事件字节索引（2026-09-02，v4 方案 B-1/D7）─────────────────────
@@ -1554,6 +1589,21 @@ export class EventLogStorage {
   }
 
   /**
+   * D2（2026-09-22）：**释放可重建的大块常驻内存**（事件快照 + 成本数组）。
+   *
+   * 供 `ChatManager` 的「实例 LRU 淘汰」与「会话切换」两个释放点调用：
+   * 复用 `clearSnapshotCache()` 的既有不变量（快照与窗口元数据同时复位 + 允许重新评估资格），
+   * 不新增状态、不改正确性 —— 下次读取按需重建（`read()` 的建快照分支）。
+   *
+   * 为什么需要：实验测得单会话读取窗口内 RSS 3.9GB→4.5GB，而该会话全部事件
+   * 在磁盘上仅 4.07MB/5418 条；快照预算为 `min(10 000 事件, 200MB)`，
+   * 且原实现**只在物理变更时**才清空 ⇒ 触碰过的会话越多，常驻越高且无上限。
+   */
+  releaseMemory(): void {
+    this.clearSnapshotCache();
+  }
+
+  /**
    * B-2（2026-09-02，v4 §6.2 / D2 ①）：热层事件窗口预算 = min(配置上限, HOT=10K)。
    * 小会话（≤10K 事件）全量覆盖；大会话热窗口收敛至 ≤10K，更早历史走 events.idx。
    */
@@ -1931,6 +1981,41 @@ export class EventLogStorage {
   // ─── D4 torn-tail 崩溃修复（2026-08-24，对齐 deepseek-harness SessionLogScanner） ───
 
   /**
+   * D4 修复告警节流（2026-09-23）
+   *
+   * 修复告警原先无节流 ⇒ 同一份损坏被反复读取（同一进程内多次构造实例、多次 read
+   * 触发 ensureRepairChecked）时会刷屏。冷却窗口内**降级为 debug**（保留可观测性，
+   * 但不重复占用告警端），窗外输出原级别并推进 `lastRepairAlertAt`。
+   *
+   * 选择"降级 debug"而非"直接不输出"的理由：修复告警是损坏发生的唯一线索，
+   * 直接静默会让"冷却窗内究竟有没有发生修复"不可观测（CS03-002 不掩盖错误）。
+   *
+   * 与 append 失败告警（lastAlertAt / circuitOpenUntil）**独立**，互不干扰。
+   *
+   * @param level 窗外输出级别（撕裂/closers 用 warn；首次读取修复汇总是 info）
+   */
+  private emitRepairAlert(
+    message: string,
+    context: Record<string, unknown>,
+    level: 'warn' | 'info' = 'warn'
+  ): void {
+    const now = Date.now();
+    if (now - this.lastRepairAlertAt < REPAIR_ALERT_COOLDOWN_MS) {
+      logger.debug(`${message}（冷却窗内降级）`, {
+        ...context,
+        cooldownMs: REPAIR_ALERT_COOLDOWN_MS,
+      });
+      return;
+    }
+    this.lastRepairAlertAt = now;
+    if (level === 'info') {
+      logger.info(message, context);
+    } else {
+      logger.warn(message, context);
+    }
+  }
+
+  /**
    * D4-1：检测 events.jsonl 末尾是否存在半写行（torn tail）
    *
    * 应用崩溃时 fs.appendFile 可能中断，末尾残留半写 JSON 行。判定规则：
@@ -2047,7 +2132,8 @@ export class EventLogStorage {
       // P1-2：文件被截断，快照失效
       this.clearSnapshotCache();
       const realTail = await this.getTailSeq(true);
-      logger.warn('event-log: torn tail 已截断修复', {
+      // 2026-09-23：修复告警加独立节流（冷却窗内降级 debug）
+      this.emitRepairAlert('event-log: torn tail 已截断修复', {
         sessionId: this.sessionId,
         truncatedOffset: offset,
         newTailSeq: realTail,
@@ -2140,7 +2226,8 @@ export class EventLogStorage {
       if (result.ok) written++;
     }
     if (written > 0) {
-      logger.warn('event-log: 崩溃恢复合成 turn/end closers', {
+      // 2026-09-23：修复告警加独立节流（与撕裂告警共用窗口，冷却窗内降级 debug）
+      this.emitRepairAlert('event-log: 崩溃恢复合成 turn/end closers', {
         sessionId: this.sessionId,
         openTurns: closers.map((c) => (c.data as { turn: number }).turn),
         written,
@@ -2168,11 +2255,16 @@ export class EventLogStorage {
       const tornRepaired = await this.commitTornRepair();
       const closersWritten = await this.commitInterruptedRepair();
       if (tornRepaired || closersWritten > 0) {
-        logger.info('event-log: 首次读取触发崩溃修复', {
-          sessionId: this.sessionId,
-          tornRepaired,
-          closersWritten,
-        });
+        // 2026-09-23：修复告警加独立节流（本处原级别为 info；冷却窗内降级 debug）
+        this.emitRepairAlert(
+          'event-log: 首次读取触发崩溃修复',
+          {
+            sessionId: this.sessionId,
+            tornRepaired,
+            closersWritten,
+          },
+          'info'
+        );
       }
     } catch (e) {
       await handleError(e, {

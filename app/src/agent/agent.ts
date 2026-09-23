@@ -20,11 +20,6 @@ import { AIModelType, AIMessageRole } from '@modules/ai';
 import aiService from '@modules/ai';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('agent:agent');
-import {
-  saveTrajectory,
-  messagesToTrajectory,
-  type ConversationMessage,
-} from './trajectory';
 import { writeFileSync, readFileSync, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { resolveSessionsDir } from '@modules/core';
@@ -710,30 +705,6 @@ export class AIAgentImpl implements AIAgent {
 
     logger.info(`Agent state loaded`, { agentId: agent.id, path });
     return agent;
-  }
-
-  /**
-   * 保存对话轨迹
-   * @param messages 对话消息列表
-   * @param completed 是否正常完成
-   */
-  async saveTrajectory(
-    messages: ConversationMessage[],
-    completed: boolean
-  ): Promise<void> {
-    const trajectory = messagesToTrajectory(
-      messages,
-      this.config.model || 'unknown',
-      completed,
-      {
-        sessionId: this.id,
-        turnCount: 0,
-        totalTokens: 0,
-        durationMs: Date.now() - this.createdAt,
-      }
-    );
-
-    await saveTrajectory(trajectory);
   }
 }
 

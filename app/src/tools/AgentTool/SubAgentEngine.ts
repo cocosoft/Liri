@@ -41,6 +41,8 @@ import { AgentEventType } from '@modules/agent';
 import { getLogger } from '@modules/monitoring';
 import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
 import { SpanStatusCode } from '@opentelemetry/api';
+import { getAgentRunLedger } from './AgentRunLedger';
+
 const logger = getLogger('tools:AgentTool:SubAgentEngine');
 
 /**
@@ -97,6 +99,14 @@ export interface SubAgentEngineConfig {
   defaultModel: string;
   /** 超时时间（毫秒） */
   timeoutMs: number;
+  /**
+   * B1-9（可注入性前置，2026-09-22）：**LLM 客户端覆盖** —— 仅测试/嵌入场景使用。
+   *
+   * 设置后 `execute()` **跳过** `resolveModelRoute` + `providerRegistry` 解析
+   * （因此测试不再依赖"模型已注册供应商"这一运行时前提）。
+   * ❌ 生产路径不得设置：模型解析必须保持"走 registry"的单一事实源。
+   */
+  llmClientOverride?: AIProvider;
 }
 
 /**
@@ -182,20 +192,23 @@ export interface SubAgentResult {
  * - 进度事件通知
  * - 中断与超时控制
  */
+/** 引擎本地 run 句柄（0a 收敛后仅承载"中止能力"；存续/归属判据已归台账） */
+type EngineRunHandle = {
+  abortController: AbortController;
+  startTime: number;
+};
+
 export class SubAgentEngine {
   private config: SubAgentEngineConfig;
-  private activeAgents: Map<
-    string,
-    {
-      abortController: AbortController;
-      startTime: number;
-      /**
-       * 归属父会话（B1/O1-2）：yield 恢复的"仍应等待"判据需按会话取值——
-       * 全局计数会把其他会话的在途子代理算进来，导致本会话等待被永久阻塞。
-       */
-      sessionId?: string;
-    }
-  > = new Map();
+  /**
+   * 引擎本地**句柄表**（0a 收敛后不再是事实源）。
+   *
+   * 修复前本表同时承载"存续"（`hasActiveAgentForSession`）与"归属"
+   * （`ownerSessionId`）两类判据，与 `AgentRunLedger` 形成两套口径；且并行批次
+   * worker 只登记在此、台账看不见 ⇒ 同一 run 在两处可见性不一致（M-0 母根因）。
+   * 收敛后本表只保留**中止能力**所需的最小状态，判据一律问台账。
+   */
+  private activeAgents: Map<string, EngineRunHandle> = new Map();
 
   /**
    * @param config 引擎配置
@@ -206,6 +219,7 @@ export class SubAgentEngine {
       defaultMaxTurns: config?.defaultMaxTurns ?? DEFAULT_SUBAGENT_MAX_TURNS,
       defaultModel: config?.defaultModel ?? '',
       timeoutMs: config?.timeoutMs ?? 600000,
+      llmClientOverride: config?.llmClientOverride,
     };
   }
 
@@ -225,8 +239,18 @@ export class SubAgentEngine {
     const abortController = new AbortController();
     const startTime = Date.now();
 
-    this.activeAgents.set(agentId, {
-      abortController,
+    // B1-5（P0-5 / I3）：句柄**先捕获再登记** —— 结束路径据"引用相等"判断自己是否
+    // 仍是当前登记（同 id 重跑时，旧 run 不得注销新 run 的条目/句柄）。
+    const handle: EngineRunHandle = { abortController, startTime };
+    this.activeAgents.set(agentId, handle);
+    // 0a（2026-09-22 单一事实源收敛）：引擎入口**统一登记台账**（幂等）——
+    // · 单代理路径：`AgentTool.beginRun` 已登记（含准入预留的 `weight`）⇒ 此处只补 sessionId；
+    // · 并行批次 worker（id = `${batchId}::${taskKey}`）：此前**不经台账**（M-0 缺口）
+    //   ⇒ 以 `weight: 0` 登记（额度已由批次预留覆盖，禁止重复计入 `liveCount()`）。
+    getAgentRunLedger().ensureCoveredRun({
+      id: agentId,
+      name: agentId,
+      type: 'general',
       startTime,
       sessionId: request.toolContext?.sessionId,
     });
@@ -297,27 +321,9 @@ export class SubAgentEngine {
     });
 
     try {
-      const agentModel = await resolveModelRoute(RouteKey.AGENT);
-      const llmClient = agentModel
-        ? providerRegistry.getByModel(agentModel)
-        : undefined;
-      if (!llmClient) {
-        // N-38（2026-09-20）可诊断性修复：原文案把原因单一归给「任务分工」，但 `agent` 属
-        // **chat 类 route** ⇒ `resolveModelRoute` 会**优先走 SmartRouter 档位解析**
-        // （`smartRouter.resolve(route)` → Judge/默认 tier → tierResolver），
-        // 只有 SmartRouter 关闭时才回退「任务分工」。实测：配置里 `agent` 一直指向
-        // llama.cpp（供应商未注册），而真正的失败原因是**档位默认模型**为未注册的
-        // `246676332` —— 原文案把排查方向带偏（详见台账 N-38 / N-40）。
-        // 故补上**实际解析到的模型名**，让"档位 vs 任务分工"两条链可被区分。
-        throw new AppError(
-          `SubAgentEngine: 子代理模型未解析到可用供应商（route=agent → 模型 "${agentModel ?? '(空)'}"）。` +
-            `注意该 route 优先走 SmartRouter 档位解析，SmartRouter 关闭时才回退「模型管理→任务分工」` +
-            `—— 请对照上述模型名检查对应来源（档位配置 / 任务分工）的模型是否已注册供应商。`,
-          ErrorCategory.EXECUTION,
-          ErrorSeverity.HIGH,
-          '1000'
-        );
-      }
+      // B1-9：测试/嵌入场景可注入 LLM 客户端（跳过模型解析，见 `llmClientOverride` 注释）
+      const llmClient =
+        this.config.llmClientOverride ?? (await this.resolveAgentLlmClient());
 
       const messages: ChatMessage[] = [
         { role: 'system', content: request.systemPrompt },
@@ -428,7 +434,11 @@ export class SubAgentEngine {
       // 同步循环内工具计数到外壳（catch 异常路径的 EXECUTE_ERROR 展示用）
       toolCallCount = loopResult.toolCallCount;
 
-      this.activeAgents.delete(agentId);
+      this.endRun(
+        agentId,
+        loopResult.completed ? 'completed' : 'failed',
+        handle
+      );
       clearTimeout(timeoutTimer);
       const durationMs = Date.now() - startTime;
 
@@ -520,7 +530,7 @@ export class SubAgentEngine {
       });
     } catch (error) {
       clearTimeout(timeoutTimer);
-      this.activeAgents.delete(agentId);
+      this.endRun(agentId, 'failed', handle);
 
       // P2-13: 子代理失败 — 通知事件泵
       if (eventPumpStarted) {
@@ -591,8 +601,19 @@ export class SubAgentEngine {
     const agent = this.activeAgents.get(agentId);
     if (!agent) return false;
 
+    // M-1（P0-4，2026-09-22）：**先受理取消，不落终态** ——
+    // `requestCancel()` 落非终态 `cancel_requested`，该状态**仍占并发槽位**
+    // （`AgentRunLedger.isLive` 刻意包含它）。终态由被中止 run 自身的收敛路径落定
+    // （`execute()` 出口的 `endRun`，`cancel_requested → failed` 合法）。
+    //
+    // 修复前此处直接 `endRun(agentId,'failed')`：取消**受理即落终态** ⇒ 槽位提前释放
+    // ⇒ `liveCount()` 失真（Liri P0-4 指出的后果：取消中的 run 不再占额）。
+    const accepted = getAgentRunLedger().requestCancel(agentId);
+    if (!accepted) {
+      // 台账无该条目或已是终态：仍要中止控制器（句柄是执行侧事实），但不改台账状态
+      logger.warn('abort：台账未受理取消（条目缺失或已终态）', { agentId });
+    }
     agent.abortController.abort();
-    this.activeAgents.delete(agentId);
     return true;
   }
 
@@ -610,25 +631,75 @@ export class SubAgentEngine {
   /**
    * 该会话是否仍有活跃子代理 run（B1/O1-2：yield 恢复的唯一"仍应等待"判据）。
    *
-   * 判定取自引擎自身的 run 台账（`execute` 入口登记、完成/失败/中断三路注销），
-   * 不取工具侧展示用 Map —— 后者含 pending 清理与全表扫描，不构成 run 存续的事实来源。
+   * 0a（2026-09-22 单一事实源收敛）：**改为委托台账** `hasLiveRunsForSession()` ——
+   * 修复前按引擎自持 Map 作答，而 worker 只在该 Map、台账看不见 ⇒ 两套口径；
+   * 收敛后 worker 也进台账（`ensureCoveredRun`，weight 0），单一谓词给出一致答案。
    */
   hasActiveAgentForSession(sessionId: string): boolean {
-    for (const agent of this.activeAgents.values()) {
-      if (agent.sessionId === sessionId) return true;
-    }
-    return false;
+    return getAgentRunLedger().hasLiveRunsForSession(sessionId);
   }
 
   /**
    * 该 run 的**归属会话**（O14-2：控制面所有权原语，仅供授权校验使用）。
    *
-   * 引擎侧归属来自 `request.toolContext.sessionId`（`execute` 入口登记）。
-   * 用于补上台账覆盖不到的路径 —— 并行批次的 worker 以 `swarm-<id>` 直接跑在引擎上，
-   * 不经 `AgentRunLedger.register`，其归属只能由引擎作答。
+   * 0a：**委托台账**（`execute` 入口经 `ensureCoveredRun` 登记 `sessionId`）——
+   * 修复前 worker 的归属只有引擎能答、台账恒 miss，控制面须两处都问才不失配。
    */
   ownerSessionId(agentId: string): string | undefined {
-    return this.activeAgents.get(agentId)?.sessionId;
+    return getAgentRunLedger().ownerSessionId(agentId);
+  }
+
+  /**
+   * 0a/0b：run 结束的**唯一出口** —— 收敛台账终态 + 释放本地句柄。
+   *
+   * 修复前只删自持 Map（`this.activeAgents.delete`），台账条目**永不收敛**；
+   * 一旦 worker 进入台账，`hasLiveRunsForSession()` 会永久为真 ⇒ 父会话永不恢复。
+   * `settle()` 终态幂等（`canTransition` 拒绝改写）⇒ 重复调用安全。
+   *
+   * B1-5（P0-5 / I3 **引用相等校验**）：`handle` 存在时，只有它**仍是当前登记**
+   * 才允许收敛 —— 同 id 重跑场景下，旧 run 的结束**不得**把新 run 的句柄删掉
+   * （修复前的盲删会让新 run 失去中止能力，并把台账条目误收敛）。
+   */
+  private endRun(
+    agentId: string,
+    status: 'completed' | 'failed',
+    handle?: EngineRunHandle
+  ): void {
+    if (handle && this.activeAgents.get(agentId) !== handle) return;
+    getAgentRunLedger().settle(agentId, status);
+    this.activeAgents.delete(agentId);
+  }
+
+  /**
+   * 解析子代理使用的 LLM 客户端（`route=agent` → 供应商实例）。
+   *
+   * B1-9：从 `execute()` 内联块**原样抽出**（行为中性），使其可被
+   * `config.llmClientOverride` 短路 —— 测试不再依赖"模型已注册供应商"。
+   *
+   * N-38（2026-09-20）可诊断性修复（原文案保留）：`agent` 属 **chat 类 route**
+   * ⇒ `resolveModelRoute` 会**优先走 SmartRouter 档位解析**
+   *（`smartRouter.resolve(route)` → Judge/默认 tier → tierResolver），
+   * 只有 SmartRouter 关闭时才回退「任务分工」。实测：配置里 `agent` 一直指向
+   * llama.cpp（供应商未注册），而真正的失败原因是**档位默认模型**为未注册的
+   * `246676332` —— 原文案把排查方向带偏（详见台账 N-38 / N-40）。
+   * 故报错**带上实际解析到的模型名**，让"档位 vs 任务分工"两条链可被区分。
+   */
+  private async resolveAgentLlmClient(): Promise<AIProvider> {
+    const agentModel = await resolveModelRoute(RouteKey.AGENT);
+    const llmClient = agentModel
+      ? providerRegistry.getByModel(agentModel)
+      : undefined;
+    if (!llmClient) {
+      throw new AppError(
+        `SubAgentEngine: 子代理模型未解析到可用供应商（route=agent → 模型 "${agentModel ?? '(空)'}"）。` +
+          `注意该 route 优先走 SmartRouter 档位解析，SmartRouter 关闭时才回退「模型管理→任务分工」` +
+          `—— 请对照上述模型名检查对应来源（档位配置 / 任务分工）的模型是否已注册供应商。`,
+        ErrorCategory.EXECUTION,
+        ErrorSeverity.HIGH,
+        '1000'
+      );
+    }
+    return llmClient;
   }
 
   /**

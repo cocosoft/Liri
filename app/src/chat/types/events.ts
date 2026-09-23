@@ -56,6 +56,8 @@ export type LiriEventType =
   // ─── 上下文管理 ───
   | 'context/compaction'
   | 'context/summary'
+  // TR-12-B（2026-09-22）：模型输入快照（工具清单 + 系统提示词分段，引用式去重）
+  | 'context/model-input'
   // D-1（2026-09-02）：会话远期摘要事件化落盘（摘要也是轨迹，见 §8 设计）
   | 'session/summary'
   // ─── 系统与日志 ───
@@ -245,6 +247,44 @@ export interface LiriEventMap {
     sourceEventSeqs?: number[];
   };
 
+  /**
+   * TR-12-B（2026-09-22）：模型输入快照 —— 记录**本轮请求实际携带**的工具清单与
+   * 系统提示词分段，使"模型当时看到了什么"可从事件重建（§1.6 红线，v7.12.0）。
+   *
+   * 引用式去重：内容未变的单元只写 `refSeq`/`toolsRefSeq` 指向同会话内更早的
+   * 全量事件 —— 避免每轮重复落 ~53KB 工具清单 + ~7KB 提示词
+   * （见 `.trae/specs/model-input-snapshot-events.md`）。
+   *
+   * 注：引用语义与信封级 `sourceEventSeqs`（"由哪些事件**合成**"）不同，
+   * 故用**载荷内独立字段**表达"内容**相同**"，避免既有派生器误判（Spec D2）。
+   */
+  'context/model-input': {
+    /** 工具清单快照（内容未变时省略，用 toolsRefSeq 引用） */
+    tools?: {
+      /** 规范化 JSON 的 hashContent() */
+      hash: string;
+      /** 工具数量（读端校验/展示用） */
+      count: number;
+      /** 全量 schema（首次或内容变更时） */
+      schemas?: unknown[];
+    };
+    /** 指向同会话内 hash 相同的更早事件 seq（内容未变时） */
+    toolsRefSeq?: number;
+    /** 系统提示词逐段快照（粒度 = 既有 SystemPromptSection.name） */
+    sections?: Array<{
+      name: string;
+      hash: string;
+      /** 全量正文（首次或该段内容变更时） */
+      content?: string;
+      /** 指向同会话内该段内容相同的更早事件 seq */
+      refSeq?: number;
+    }>;
+    /** 组装模式（对齐 PromptMode） */
+    mode?: string;
+    /** 既有 SystemPromptReport 的聚合值（复用，不重算） */
+    tokens?: { stable: number; dynamic: number };
+  };
+
   /** 错误（含 module/action/errorCode） */
   'system/error': {
     /** 模块名（命名约定：<大模块>:<子模块>） */
@@ -273,14 +313,38 @@ export interface LiriEventMap {
 
   /** 性能指标（TTFT/throughput/tokens） */
   'metric/timing': {
-    /** 首 token 时延 ms */
+    /**
+     * **首块（字节）延迟** ms（端到端：本轮请求发起 → 收到第一个流块，**含准备阶段**）。
+     *
+     * 口径如实：这是 **TTFB**（Time To First Byte），**不等于**纯模型生成延迟。
+     * 生产者：`streamMessageFlow`（`if (!streamHadError)` 分支 ⇒ 每次**成功**的 API 调用一条）。
+     */
+    ttfb?: number;
+    /**
+     * **首个内容 token 延迟** ms（端到端：本轮请求发起 → 首个产出可见内容的 chunk，
+     * **含准备阶段与解析/擦洗开销**）。
+     *
+     * 判据：正文 chunk 经 `thinkScrubber` 擦洗后**非空**，或 thinking chunk **有内容**；
+     * **纯 tool_call 响应无内容 chunk ⇒ 该字段缺省不写**（不拿 `ttfb` 冒充）。
+     * 口径如实：**仍不等于** provider 侧的纯模型首 token 延迟（见 TR-20）。
+     */
     ttft?: number;
-    /** token 数 */
+    /** token 数（总） */
     tokens?: number;
     /** 持续时间 ms */
     duration?: number;
-    /** 阶段标识 */
+    /** 阶段标识（`request` = 请求级用量；`assistant` = 回合级耗时） */
     stage?: string;
+    // ── TR-12-A（2026-09-22）：请求级用量分桶 ──
+    // 数据来源：provider 返回的原始 usage（`ChatManager.recordChatResponseUsage` 的入参）
+    /** 输入 tokens（服务端报告值） */
+    inputTokens?: number;
+    /** 输出 tokens（服务端报告值） */
+    outputTokens?: number;
+    /** 缓存读命中的 tokens（三级回退提取，见 `UsageExtractor.extractCacheTokens`） */
+    cacheReadTokens?: number;
+    /** 缓存写入 tokens */
+    cacheCreationTokens?: number;
   };
 
   /** 通道连接 */

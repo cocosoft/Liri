@@ -229,8 +229,8 @@ export function useInitApp() {
     // M1 修复（2026-08-13）：SSE 断开轮询兜底——断开期间每 15s 轮询会话列表，
     // 保证会话变更在重连前可见。
     sseService.setPollHandler(refreshSessions);
-    // 连接/网络状态监测：记录后端掉线/恢复、网络断开/恢复事件
-    connectionMonitor.start();
+    // 注：`connectionMonitor` 的启停已拆到**独立 effect**（deps=[]，见下方），
+    // 不再与本 effect 共生命周期 —— 原因见该 effect 的注释（TB-4）。
     sseService.connect();
     logger.info("[init] SSE 常驻订阅已挂接（backend running）");
 
@@ -245,9 +245,38 @@ export function useInitApp() {
       // M1 修复：卸载/掉线时解除轮询回调，避免残留引用
       sseService.setPollHandler(null);
       sseService.disconnect();
-      connectionMonitor.stop();
     };
   }, [backendRunning, loadSessions, checkBackendStatus]);
+
+  // 连接/网络状态监测 —— **独立 effect，deps 为 `[]`**（2026-09-23 TB-4 修复）
+  //
+  // 为什么必须独立、且 deps 只能是 `[]`：
+  // 1. **循环依赖**：原先它挂在上面那个 effect 上（deps 含 `backendRunning`）—— 而
+  //    `backendRunning` 来自 `backendStore.checkStatus()`，其 **catch 分支会把 `running` 置 false**
+  //    （`backendStore.ts:72-76`），且它由**每个 SSE heartbeat** 触发（本文件 `onHeartbeat`）。
+  //    ⇒ 任何一次后端探测异常 ⇒ 依赖变化 ⇒ 上面 effect 的 cleanup 执行 `stop()`，
+  //    而 body 又因门控 `if (!backendRunning || …) return;` **早退**（不再 `start()`）
+  //    ⇒ 监测器**被停掉且不再恢复** ⇒ `failCount` 永远到不了 `FAIL_THRESHOLD=3`
+  //    ⇒ **后端掉线检测失效**（实测调用栈定位，台账 §TB-4）。
+  //    "用后端是否 running 来开关后端可用性检测"本身就是循环依赖 —— 监测器恰恰要在
+  //    后端不可用时仍在跑，故其生命周期只能绑**页面**。
+  // 2. **解耦副作用**：不再被上面 effect 的门控/依赖抖动（`loadSessions`/`checkBackendStatus` 身份变化）牵连。
+  useEffect(() => {
+    connectionMonitor.start();
+    // 可观测性（dev-only，TB-3）：把**本页应用自己用的那份**实例挂到 window。
+    // 必要性：E2E 里 `page.evaluate(() => import("...connectionMonitor.ts"))`（**无 query**）与
+    // 页面 bundle 使用的 `?t=<HMR 时间戳>` 是**两个 URL** ⇒ 可能读到**另一份实例**，据此得出
+    // "监测器未运行"的**假结论**（TB-3 实测踩过）。由 app 侧导出后，E2E 直接读句柄
+    // 即可观测真实实例，无需猜测模块身份。
+    if (import.meta.env.DEV) {
+      (window as unknown as { __liriConnMonitor?: typeof connectionMonitor })[
+        "__liriConnMonitor"
+      ] = connectionMonitor;
+    }
+    return () => {
+      connectionMonitor.stop();
+    };
+  }, []);
 
   // 阶段 3 收尾：仅加载会话列表并置 ready（W9：await 完成再 ready，避免"无会话"闪屏）
   useEffect(() => {

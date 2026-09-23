@@ -30,6 +30,8 @@ import {
   type LogEvent,
 } from "../../utils/sessionLog";
 import { ClampedBody } from "../common/ClampedBody";
+// P1-6（2026-09-22）：Turn 折叠状态与轨迹 Tab 共用同一实现（归一化）
+import { useCollapsedTurns } from "../../hooks/useCollapsedTurns";
 import {
   deriveTrajectoryLayout,
   type TrajectoryTurn,
@@ -391,16 +393,9 @@ function LogTab() {
   // P1-E：视图模式（分组默认 / 平铺兜底）
   const [viewMode, setViewMode] = useState<LogViewMode>("group");
   // P1-D：折叠的 Turn 集合（按 turn 序号），turn 头可一键折叠整个 turn
-  const [collapsedTurns, setCollapsedTurns] = useState<Set<number>>(new Set());
-
-  const toggleTurn = useCallback((turn: number) => {
-    setCollapsedTurns((prev) => {
-      const next = new Set(prev);
-      if (next.has(turn)) next.delete(turn);
-      else next.add(turn);
-      return next;
-    });
-  }, []);
+  // P1-6（2026-09-22）：状态机制改为与轨迹 Tab **共用同一 hook**（归一化；原为本地 Set 实现，
+  // 与 `ChatInspector` 的折叠逻辑重复）
+  const { collapsedTurns, toggleTurn } = useCollapsedTurns();
 
   // 过滤判定（平铺与分组共用，避免两份 switch 漂移）
   const passFilter = useCallback(

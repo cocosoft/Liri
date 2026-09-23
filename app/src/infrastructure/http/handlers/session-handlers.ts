@@ -1045,12 +1045,15 @@ export async function handleGetSessionEvents(
     );
     const fromSeqParam = url.searchParams.get('fromSeq');
     const toSeqParam = url.searchParams.get('toSeq');
+    // P1-1（2026-09-22）：向前补页 —— 取 `seq < beforeSeq` 的紧邻一页
+    const beforeSeqParam = url.searchParams.get('beforeSeq');
     const typesParam = url.searchParams.get('types');
     const limitParam = url.searchParams.get('limit');
     const recentParam = url.searchParams.get('recent');
 
     const fromSeq = fromSeqParam ? Number(fromSeqParam) : undefined;
     const toSeq = toSeqParam ? Number(toSeqParam) : undefined;
+    const beforeSeq = beforeSeqParam ? Number(beforeSeqParam) : undefined;
     const types = typesParam
       ? (typesParam.split(',').filter(Boolean) as LiriEventType[])
       : undefined;
@@ -1066,6 +1069,13 @@ export async function handleGetSessionEvents(
       sendBadRequest(res, 'toSeq must be a positive number');
       return;
     }
+    if (
+      beforeSeq !== undefined &&
+      (!Number.isFinite(beforeSeq) || beforeSeq < 1)
+    ) {
+      sendBadRequest(res, 'beforeSeq must be a positive number');
+      return;
+    }
     if (limit < 1) {
       sendBadRequest(res, 'limit must be a positive number');
       return;
@@ -1075,6 +1085,7 @@ export async function handleGetSessionEvents(
     const result = await coreAPI.getSessionEvents(sessionId, {
       fromSeq,
       toSeq,
+      beforeSeq,
       types,
       limit,
       recent,

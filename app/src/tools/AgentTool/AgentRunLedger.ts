@@ -47,6 +47,13 @@ export interface AgentRunEntry {
   status: AgentRunStatus;
   /** 归属父会话（O10a：控制面按会话校验归属用） */
   sessionId?: string;
+  /**
+   * P1-C（2026-09-21）：占用的**并发槽位数**。
+   *
+   * 单代理路径恒为 1；并行批次按 worker 数占位 —— 批次登记时 worker 数尚不可知，
+   * 故开工前由 `setWeight` 校准。修复前 N 个 worker 只按 1 计额度。
+   */
+  weight?: number;
 }
 
 /** 对外查询投影（**不含** `sessionId` 等专有字段；每次新建，调用方改写不影响台账） */
@@ -60,6 +67,19 @@ export interface AgentRunView {
 
 /** 默认归因保留上限 */
 export const DEFAULT_RECENT_CAP = 200;
+
+/**
+ * 0b（2026-09-22，M-9）：额度预留句柄（RAII）。
+ *
+ * 承载"**释放义务**"——`boolean` 形态的判定天生无法携带该义务（修复前
+ * `checkConcurrencyLimit()` 与 `register()` 是两次独立调用，中间抛错/提前 return
+ * 只能依赖后续 `settle()` 被调到 ⇒ 计数泄漏）。
+ */
+export interface AgentRunReservation {
+  id: string;
+  /** 释放预留：**委托 `settle()`**（终态幂等），禁止独立计数器（见 `tryReserve`） */
+  release(): void;
+}
 
 /** 终态集合（落定后**不可改写**，见 `canTransition`） */
 const TERMINAL_STATUSES: ReadonlySet<AgentRunStatus> = new Set([
@@ -121,6 +141,13 @@ export class AgentRunLedger {
     type: AgentType;
     startTime?: number;
     sessionId?: string;
+    /**
+     * R2（2026-09-21）：准入驻位数（默认 1；并行批次 = worker 数）。
+     *
+     * 由 `executeGuard` 在**准入判定**时算出并经 `beginRun` 传入 —— 即"准入即预留"。
+     * （修复前批次先以 1 通过准入、再靠 `setWeight` 事后校准，是可被并发批次累加突破的缺口。）
+     */
+    weight?: number;
   }): AgentRunEntry {
     const entry: AgentRunEntry = {
       id: params.id,
@@ -129,16 +156,129 @@ export class AgentRunLedger {
       startTime: params.startTime ?? Date.now(),
       status: 'running',
       sessionId: params.sessionId,
+      // 非法值（NaN / ≤0）一律折回 1，避免污染 `liveCount`
+      weight: AgentRunLedger.normalizeWeight(params.weight),
     };
     this.active.set(entry.id, entry);
     return entry;
   }
 
-  /** 当前占用运行槽位的条目数（并发上限判定用） */
+  /**
+   * 权重归一 —— 登记与预留**同源**（避免"判定按一个口径、占位按另一个口径"）。
+   * 非法值（`undefined` / NaN / ≤0）一律折回 1。
+   *
+   * 注：`Math.floor` 会把 (0,1) 区间的值折成 0（占位但 `liveCount` 加 0）——
+   * 现存调用方恒传整数（`plannedWeight = max(1, min(...))`）⇒ 当前不可达；
+   * 语义保留待 P2-1 一并处理。
+   */
+  private static normalizeWeight(value?: number): number {
+    return value !== undefined && Number.isFinite(value) && value > 0
+      ? Math.floor(value)
+      : 1;
+  }
+
+  /**
+   * 0b（2026-09-22，M-9）：**RAII 预留** —— 准入判定与占位在**同一次同步调用**内完成。
+   *
+   * 修复前 `checkConcurrencyLimit()` 返回 `boolean`（纯判定），与 `register()` 分离：
+   * 登记路径一旦抛错或提前 return，递减只能依赖后续 `settle()` 被调到 ⇒ **计数泄漏**。
+   * 返回的 guard 承载释放义务，且 `release()` **委托 `settle()`**（终态幂等）——
+   * 满足该前提时 M-9 与 M-1 **正交**（M-9 管 whether、M-1 管 when）；
+   * ❌ **禁止**把 `release()` 实现成独立计数器自减：那会在 `cancel_requested` 期间
+   * 提前释放槽位，正是 M-1 要消灭的行为（`isLive` 刻意把 `cancel_requested` 算作 live）。
+   *
+   * @returns 超限返回 `null`（调用方**不得**登记）；否则返回已登记的 guard
+   */
+  tryReserve(params: {
+    id: string;
+    name: string;
+    type: AgentType;
+    startTime?: number;
+    sessionId?: string;
+    weight: number;
+    /** 并发上限（由调用方配置提供 —— 台账不自持配置） */
+    limit: number;
+  }): AgentRunReservation | null {
+    const weight = AgentRunLedger.normalizeWeight(params.weight);
+    if (this.liveCount() + weight > params.limit) return null;
+    const entry = this.register({
+      id: params.id,
+      name: params.name,
+      type: params.type,
+      startTime: params.startTime,
+      sessionId: params.sessionId,
+      weight,
+    });
+    return {
+      id: entry.id,
+      release: (): void => {
+        // 委托 settle：条目仍非终态时才收敛 ⇒ 已由 `settleRun` 正常结算的路径为 no-op
+        this.settle(entry.id, 'failed');
+      },
+    };
+  }
+
+  /**
+   * 0a（2026-09-22 单一事实源收敛）：登记**已被预留覆盖**的 run —— 不额外占额度。
+   *
+   * 场景：并行批次在准入时已按 `plannedWeight`（≈ worker 数）一次性占位
+   * （`AgentTool.beginRun` 传 `weight`），故批内 worker **不得**再次计入
+   * `liveCount()`（否则同一批额度翻倍）。但"存续/归属"判据必须能看见 worker ——
+   * 修复前 worker 只登记在 `SubAgentEngine.activeAgents`，台账看不见 ⇒ 同一 run
+   * 在两层可见性不一致（M-0 母根因）。
+   *
+   * 幂等：`active` 已命中时**只补缺失的 `sessionId`**，不覆盖已有 `weight` / `status`
+   * （保证"准入即预留"的槽位数不被引擎侧登记冲掉）。
+   */
+  ensureCoveredRun(params: {
+    id: string;
+    name: string;
+    type: AgentType;
+    startTime?: number;
+    sessionId?: string;
+  }): AgentRunEntry {
+    const existing = this.active.get(params.id);
+    if (existing) {
+      if (!existing.sessionId && params.sessionId) {
+        existing.sessionId = params.sessionId;
+      }
+      return existing;
+    }
+    const entry: AgentRunEntry = {
+      id: params.id,
+      name: params.name,
+      type: params.type,
+      startTime: params.startTime ?? Date.now(),
+      status: 'running',
+      sessionId: params.sessionId,
+      // 0 = 由调用方的批次预留覆盖；`liveCount()` 按其累加 ⇒ 加 0，不重复计额度
+      weight: 0,
+    };
+    this.active.set(entry.id, entry);
+    return entry;
+  }
+
+  /**
+   * 0a：该会话是否仍有**非终态** run（**含并行批次 worker**）。
+   *
+   * 控制面"是否仍应等待"的**单一谓词** —— `SubAgentEngine.hasActiveAgentForSession`
+   * 与 `YieldResumer` 的 `hasActiveRuns` 共用本方法，禁止引擎自持第二套判据
+   * （修复前引擎按自持 Map 作答，且 worker 不在台账 ⇒ 两套口径）。
+   */
+  hasLiveRunsForSession(sessionId: string): boolean {
+    for (const agent of this.active.values()) {
+      if (agent.sessionId === sessionId && this.isLive(agent.status)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /** 当前占用的**总槽位数**（并发上限判定用；并行批次按 worker 数占位） */
   liveCount(): number {
     let count = 0;
     for (const agent of this.active.values()) {
-      if (this.isLive(agent.status)) count++;
+      if (this.isLive(agent.status)) count += agent.weight ?? 1;
     }
     return count;
   }

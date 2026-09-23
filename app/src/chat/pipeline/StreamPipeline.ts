@@ -44,6 +44,9 @@ import type {
 import type { ChatStreamChunk } from '@modules/runtime/api/CoreAPI.js';
 import type { ImageContextService } from '../services/ImageContextService.js';
 
+// 阶段标签（阻塞探针 P2 第二批，2026-09-22；依据 §8.9：`chat:pipeline` r=0.36）
+import { withPhase } from '@modules/diagnostics/loopProbe/phaseStack';
+
 const logger = getLogger('chat:pipeline');
 
 /* ===================================================================
@@ -185,6 +188,18 @@ export class StreamPipeline {
 
   /** 组装系统提示 */
   async assembleSystemPrompt(
+    getOrAssembleSystemPrompt: (
+      session: ChatSession,
+      content: string
+    ) => Promise<string>
+  ): Promise<void> {
+    // 阶段标签（2026-09-22）：每轮上下文组装的重段，属"阶段外"阻塞候选
+    return withPhase('pipeline:assembleSystemPrompt', () =>
+      this._assembleSystemPromptImpl(getOrAssembleSystemPrompt)
+    );
+  }
+
+  private async _assembleSystemPromptImpl(
     getOrAssembleSystemPrompt: (
       session: ChatSession,
       content: string
@@ -517,6 +532,13 @@ export class StreamPipeline {
 
   /** 记忆提取 + 路径校验 + post-stream hooks */
   async postProcess(userContent: string): Promise<void> {
+    // 阶段标签（2026-09-22）：流后处理（写盘/索引/记忆）—— 阻塞高发于"收尾"侧
+    return withPhase('pipeline:postProcess', () =>
+      this._postProcessImpl(userContent)
+    );
+  }
+
+  private async _postProcessImpl(userContent: string): Promise<void> {
     const otel = getOTelTracing();
     const span = otel.startSpan('chat:pipeline:postProcess', {
       'session.id': this.ctx.session.id,

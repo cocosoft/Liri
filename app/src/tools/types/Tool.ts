@@ -168,7 +168,6 @@ export interface ToolUseContext {
   setInProgressToolUseIDs: (f: (prev: Set<string>) => Set<string>) => void;
   setHasInterruptibleToolInProgress?: (v: boolean) => void;
   setResponseLength: (f: (prev: number) => number) => void;
-  pushApiMetricsEntry?: (ttftMs: number) => void;
   setStreamMode?: (mode: string) => void;
   onCompactProgress?: (event: CompactProgressEvent) => void;
   setSDKStatus?: (status: unknown) => void;

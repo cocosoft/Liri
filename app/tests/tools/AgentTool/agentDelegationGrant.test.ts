@@ -126,6 +126,8 @@ describe('T9：子代理委派授权（角色策略 × 深度）', () => {
     );
     // 未授权（含缺省）⇒ 恒拒绝
     expect(resolveGrant.call(tool, false, { subagentDepth: 0 })).toBe(false);
-    expect(resolveGrant.call(tool, undefined, { subagentDepth: 0 })).toBe(false);
+    expect(resolveGrant.call(tool, undefined, { subagentDepth: 0 })).toBe(
+      false
+    );
   });
 });

@@ -14,7 +14,7 @@
 
 import type { Command } from '@modules/commands';
 import { getToolManager } from '@modules/tools';
-import { AgentTool } from '@modules/tools';
+import { AgentTool, resolveAgentToolInstance } from '@modules/tools';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('commands:tools:ai:agents');
@@ -55,19 +55,13 @@ function formatDuration(ms: number): string {
 }
 
 /**
- * 从工具管理器获取 AgentTool 实例
+ * 从工具管理器获取 AgentTool 实例（R6，2026-09-22）
+ *
+ * 原 `tool instanceof AgentTool` 恒为 false（`getTool('Agent')` 返回 `ToolLazyWrapper`，
+ * `implements Tool` 非 extends）⇒ 命令层停批次静默失效。现统一走共享解析器。
  */
 function getAgentTool(): AgentTool | null {
-  try {
-    const toolManager = getToolManager();
-    const tool = toolManager.getTool('Agent');
-    if (tool instanceof AgentTool) {
-      return tool;
-    }
-    return null;
-  } catch {
-    return null;
-  }
+  return resolveAgentToolInstance();
 }
 
 /**

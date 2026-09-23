@@ -1,0 +1,290 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`轨迹快照 — 派生结果（P2-4） > deriveTrajectoryLayout：Turn/Step/Cell 分组 + 孤立事件 + 退化计数 1`] = `
+{
+  "degradedAssocIds": 0,
+  "orphanEvents": [
+    {
+      "data": {
+        "message": "外部事件",
+      },
+      "seq": 10,
+      "sessionId": "sid-snapshot",
+      "time": 1700000010000,
+      "type": "system/info",
+    },
+  ],
+  "tailSeq": 10,
+  "totalCount": 10,
+  "turns": [
+    {
+      "completed": true,
+      "endSeq": 9,
+      "eventCount": 7,
+      "interrupted": false,
+      "startSeq": 1,
+      "steps": [
+        {
+          "cells": [
+            {
+              "column": "left",
+              "event": {
+                "data": {
+                  "content": "帮我看看这个文件",
+                },
+                "seq": 2,
+                "sessionId": "sid-snapshot",
+                "time": 1700000002000,
+                "type": "user/message",
+              },
+            },
+          ],
+          "endTime": 1700000002000,
+          "startTime": 1700000002000,
+        },
+        {
+          "cells": [
+            {
+              "column": "right",
+              "event": {
+                "data": {
+                  "content": "先读文件再回答",
+                },
+                "seq": 3,
+                "sessionId": "sid-snapshot",
+                "time": 1700000003000,
+                "type": "assistant/thinking",
+              },
+            },
+          ],
+          "endTime": 1700000003000,
+          "startTime": 1700000003000,
+        },
+        {
+          "cells": [
+            {
+              "column": "right",
+              "event": {
+                "data": {
+                  "arguments": {
+                    "path": "src/app.ts",
+                  },
+                  "name": "FileReadTool",
+                  "toolCallId": "call-1",
+                },
+                "seq": 4,
+                "sessionId": "sid-snapshot",
+                "time": 1700000004000,
+                "type": "assistant/tool_call",
+              },
+            },
+            {
+              "column": "right",
+              "event": {
+                "data": {
+                  "result": {
+                    "ok": true,
+                  },
+                  "toolCallId": "call-1",
+                },
+                "seq": 5,
+                "sessionId": "sid-snapshot",
+                "time": 1700000005000,
+                "type": "tool/result",
+              },
+            },
+          ],
+          "endTime": 1700000005000,
+          "startTime": 1700000004000,
+        },
+        {
+          "cells": [
+            {
+              "column": "right",
+              "event": {
+                "data": {
+                  "content": "读完了，整体没问题",
+                },
+                "seq": 6,
+                "sessionId": "sid-snapshot",
+                "time": 1700000006000,
+                "type": "assistant/text",
+              },
+            },
+          ],
+          "endTime": 1700000006000,
+          "startTime": 1700000006000,
+        },
+        {
+          "cells": [
+            {
+              "column": "right",
+              "event": {
+                "data": {
+                  "duration": 2500,
+                  "stage": "assistant",
+                },
+                "seq": 7,
+                "sessionId": "sid-snapshot",
+                "time": 1700000007000,
+                "type": "metric/timing",
+              },
+            },
+          ],
+          "endTime": 1700000007000,
+          "startTime": 1700000007000,
+        },
+        {
+          "cells": [
+            {
+              "column": "right",
+              "event": {
+                "data": {
+                  "outputTokens": 500,
+                  "stage": "request",
+                },
+                "seq": 8,
+                "sessionId": "sid-snapshot",
+                "time": 1700000008000,
+                "type": "metric/timing",
+              },
+            },
+          ],
+          "endTime": 1700000008000,
+          "startTime": 1700000008000,
+        },
+      ],
+      "turn": 1,
+    },
+  ],
+}
+`;
+
+exports[`轨迹快照 — 派生结果（P2-4） > deriveTrajectoryTimeline：域 / 跨度 / 模型区间 / 吞吐 / 标记数 1`] = `
+{
+  "busyMs": 9000,
+  "domain": {
+    "end": 1700000010000,
+    "start": 1700000001000,
+  },
+  "markers": [
+    {
+      "lane": "lifecycle",
+      "seq": 1,
+      "time": 1700000001000,
+      "type": "turn/start",
+    },
+    {
+      "lane": "conversation",
+      "seq": 2,
+      "time": 1700000002000,
+      "type": "user/message",
+    },
+    {
+      "lane": "conversation",
+      "seq": 3,
+      "time": 1700000003000,
+      "type": "assistant/thinking",
+    },
+    {
+      "lane": "tool",
+      "seq": 4,
+      "time": 1700000004000,
+      "type": "assistant/tool_call",
+    },
+    {
+      "lane": "tool",
+      "seq": 5,
+      "time": 1700000005000,
+      "type": "tool/result",
+    },
+    {
+      "lane": "conversation",
+      "seq": 6,
+      "time": 1700000006000,
+      "type": "assistant/text",
+    },
+    {
+      "lane": "system",
+      "seq": 7,
+      "time": 1700000007000,
+      "type": "metric/timing",
+    },
+    {
+      "lane": "system",
+      "seq": 8,
+      "time": 1700000008000,
+      "type": "metric/timing",
+    },
+    {
+      "lane": "lifecycle",
+      "seq": 9,
+      "time": 1700000009000,
+      "type": "turn/end",
+    },
+    {
+      "lane": "system",
+      "seq": 10,
+      "time": 1700000010000,
+      "type": "system/info",
+    },
+  ],
+  "markersWithoutSpan": 6,
+  "modelMs": 2500,
+  "modelSpans": [
+    {
+      "duration": 2500,
+      "end": 1700000007000,
+      "seq": 7,
+      "start": 1700000004500,
+    },
+  ],
+  "outputTokens": 500,
+  "spans": [
+    {
+      "end": 1700000009000,
+      "endSeq": 9,
+      "id": "turn:1",
+      "isError": false,
+      "kind": "turn",
+      "start": 1700000001000,
+      "startSeq": 1,
+    },
+    {
+      "end": 1700000005000,
+      "endSeq": 5,
+      "id": "tool:call-1",
+      "isError": false,
+      "kind": "tool",
+      "start": 1700000004000,
+      "startSeq": 4,
+    },
+  ],
+  "throughputTps": 200,
+  "totalMs": 9000,
+}
+`;
+
+exports[`轨迹快照 — 派生结果（P2-4） > flattenLayout：虚拟行结构指纹（turn 头与事件行交替） 1`] = `
+[
+  "turn-header:1",
+  "event:2:user/message",
+  "event:3:assistant/thinking",
+  "event:4:assistant/tool_call",
+  "event:5:tool/result",
+  "event:6:assistant/text",
+  "event:7:metric/timing",
+  "event:8:metric/timing",
+  "event:10:system/info",
+]
+`;
+
+exports[`轨迹快照 — 组件渲染（P2-4） > TrajectoryDetail：工具事件（头部 + 参数/结果分区块 + JSON 展示） 1`] = `
+"<div class="pointer-events-auto border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 max-h-[50%] flex flex-col"><header class="flex items-center justify-between px-3 py-2 border-b border-gray-200 dark:border-gray-700"><div class="flex items-center gap-2 min-w-0"><span class="text-xs font-mono text-gray-500 dark:text-gray-400 shrink-0">#4</span><span class="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">assistant/tool_call</span></div><div class="flex items-center gap-1 shrink-0"><button class="px-2 py-0.5 text-xs rounded border transition-colors text-gray-600 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-200 dark:hover:bg-gray-700" aria-label="复制 JSON">复制 JSON</button><button class="px-2 py-0.5 text-xs text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 rounded" aria-label="关闭详情">✕</button></div></header><div class="flex-1 overflow-auto p-3 text-xs"><dl class="grid grid-cols-[80px_1fr] gap-x-2 gap-y-1 mb-3"><dt class="text-gray-500 dark:text-gray-400">seq</dt><dd class="font-mono text-gray-900 dark:text-gray-100">4</dd><dt class="text-gray-500 dark:text-gray-400">time</dt><dd class="font-mono text-gray-900 dark:text-gray-100">DATE TIME</dd><dt class="text-gray-500 dark:text-gray-400">sessionId</dt><dd class="font-mono text-gray-900 dark:text-gray-100 break-all">sid-snapshot</dd></dl><div class="space-y-2"><div><div class="text-gray-500 dark:text-gray-400 mb-0.5">arguments</div><div class="mt-1"><div class="relative overflow-hidden rounded bg-gray-50 dark:bg-gray-800 max-h-[200px]" style="max-height: 200px;"><pre class="text-[11px] leading-relaxed whitespace-pre-wrap break-all text-gray-600 dark:text-gray-300 p-1.5">{
+  "path": "src/app.ts"
+}</pre></div></div></div></div></div></div>"
+`;
+
+exports[`轨迹快照 — 组件渲染（P2-4） > TrajectoryRow：metric/timing 行（耗时预览 + 选中态） 1`] = `"<div class="flex items-start gap-2 px-3 py-2 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 bg-blue-50 dark:bg-blue-900/30"><span class="text-gray-400 dark:text-gray-500 text-xs font-mono w-10 shrink-0 pt-0.5">#7</span><span class="text-base shrink-0">⚙️</span><div class="flex-1 min-w-0"><div class="flex items-center gap-2"><span class="text-xs font-medium text-gray-600 dark:text-gray-400 shrink-0">性能指标</span><span class="text-xs text-gray-400 dark:text-gray-500">TIME</span></div><div class="text-xs text-gray-600 dark:text-gray-400 mt-0.5 truncate">assistant · 2.5 s</div></div></div>"`;
+
+exports[`轨迹快照 — 组件渲染（P2-4） > TrajectoryRow：普通行（标签 + 预览 + 未选中态） 1`] = `"<div class="flex items-start gap-2 px-3 py-2 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 "><span class="text-gray-400 dark:text-gray-500 text-xs font-mono w-10 shrink-0 pt-0.5">#3</span><span class="text-base shrink-0">💬</span><div class="flex-1 min-w-0"><div class="flex items-center gap-2"><span class="text-xs font-medium text-blue-600 dark:text-blue-400 shrink-0">思考</span><span class="text-xs text-gray-400 dark:text-gray-500">TIME</span></div><div class="text-xs text-gray-600 dark:text-gray-400 mt-0.5 truncate">先读文件再回答</div></div></div>"`;

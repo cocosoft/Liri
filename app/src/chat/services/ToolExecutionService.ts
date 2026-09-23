@@ -68,6 +68,17 @@ export interface ToolExecutionDeps {
     sessionId?: string
   ): Promise<boolean>;
   /**
+   * R3（2026-09-21）：会话级流式中断控制器（ChatManager 拥有，本服务仅读取）。
+   *
+   * 用于给工具执行 context 注入 `abortController` —— 修复前主聊天路径构造的 context
+   * **没有该字段**（被下方 `registry` 的内联类型断言掩盖）⇒ `tool.execute` 收到
+   * `context.abortController === undefined`，AgentTool 的"父级取消信号桥接"在真机**空转**：
+   * 用户点停止只能中止 LLM 流，无法传导到并行批次（未启动的 worker 照常投递）。
+   */
+  getSessionAbortController?: (
+    sessionId?: string
+  ) => AbortController | undefined;
+  /**
    * C 阶段（2026-09-02，P1）：session_lookup 取回执行回调（ChatManager 拥有事件日志
    * 与派生器，负责实现；本服务仅转发）。返回按页格式化原文与下一页起点。
    */
@@ -595,6 +606,10 @@ export class ToolExecutionService {
     // ── 工具执行 ──
     if (this.deps.getToolRegistry()) {
       try {
+        // R3（2026-09-21）：取本会话的流式中断控制器（见 `ToolExecutionDeps` 说明）
+        const sessionAbortController = this.deps.getSessionAbortController?.(
+          toolCall.sessionId
+        );
         const context = {
           toolUseId: normalizedToolCall.id,
           sessionId: toolCall.sessionId,
@@ -607,6 +622,15 @@ export class ToolExecutionService {
           },
           // B1：注入会话级文件状态缓存（FileReadTool 记录 / FileEditTool 校验新鲜度）
           readFileState: this.getReadFileStateCache(toolCall.sessionId),
+          // R3（2026-09-21）：注入**会话级**中断控制器 —— 用户点"停止"时
+          // `ChatManager._sessionAbortControllers.get(sid).abort()` 由此一路传导到
+          // 工具内部（AgentTool 并行批次据它短路未投递的 worker、中止在飞的 worker）。
+          // 取不到（无会话 / 非流式调用）时**不注入**：宁缺勿造假 controller ——
+          // `getEmptyToolUseContext()` 那种"new 一个没人 abort 的 controller"正是
+          // 桥接空转的成因，禁止在此复刻。
+          ...(sessionAbortController
+            ? { abortController: sessionAbortController }
+            : {}),
         };
 
         const registry = this.deps.getToolRegistry() as unknown as {

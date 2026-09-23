@@ -51,6 +51,14 @@ export interface SwarmWorkerTask {
 /** verifier 门禁三态（O4） */
 export type SwarmVerifyState = 'passed' | 'failed' | 'skipped';
 
+/**
+ * 默认并发上限（同时最多投递的 worker 数）。
+ *
+ * R2 修正（2026-09-22）：导出为**单一真源** —— `AgentTool` 的"准入即预留"需按
+ * **批次真实并发占用**（`min(任务数, 本并发上限)`）折算，不能在 AgentTool 里硬编码 3。
+ */
+export const DEFAULT_SWARM_CONCURRENCY = 3;
+
 /** 单个 worker 执行结果 */
 export interface SwarmWorkerResult {
   id: string;
@@ -126,6 +134,13 @@ export interface SwarmExecutorResult {
   ok: boolean;
   /** 是否因整体超时终止（`ok` 的正向合取项，缺省视为未超时） */
   timedOut?: boolean;
+  /**
+   * worker 的**真实 token 用量**（M-8 接线，2026-09-22）。
+   *
+   * 用途：把长程任务的用量喂给 `TaskGoalStore`（任务级预算）。
+   * 缺省/未提供 ⇒ 记 0（**不臆测**：宁可少记，不可编造用量）。
+   */
+  tokens?: number;
 }
 
 /** swarm executor（只读调用，返回 `{ output, ok, timedOut? }`） */
@@ -160,8 +175,31 @@ export interface AgentSwarmResult {
   workers: SwarmWorkerResult[];
   /** synthesizer 合成输出（未启用/降级时为空串） */
   synthesized: string;
-  /** 是否全部通过 verifier 门禁 */
+  /**
+   * 是否全部 worker 均 `ok`（O4 正向合取：`success ∧ verify ≠ failed ∧ ¬timedOut`）。
+   *
+   * **基数守卫**：空批次（`workers.length === 0`）返回 `false` —— `[].every(...) === true`
+   * 会让"一个 worker 都没跑"被判为全通过（出口⑥：signal 已中止时 `runBatched` 直接 return）。
+   */
   allPassed: boolean;
+  /** 批次是否因外部信号中止（`runBatched` 短路，未投递的任务既没跑也没失败） */
+  cancelled?: boolean;
+  /**
+   * **请求了门禁、却有成功 worker 未拿到门禁结论**（2026-09-22 新增）。
+   *
+   * 触发场景：worker 阶段全部跑完后用户点停止 ⇒ `:310` 的前置条件 `!signal?.aborted` 为假
+   * ⇒ 门禁**整批不启动** ⇒ 成功 worker 的 `verify` 停在初值 `'skipped'`。
+   * 该事实必须显式暴露：调用方据此判定"门禁未完成"，而不与"未请求门禁"混为一谈。
+   */
+  verifyIncomplete?: boolean;
+  /**
+   * **worker 真实 token 用量合计**（M-8 接线，2026-09-22）。
+   *
+   * 口径：只累计 worker 返回的 `tokens`（executor 未提供 ⇒ 记 0，**不估算**）；
+   * 不含 verifier / synthesizer（它们是门禁与汇总，不计入"任务工作量"）。
+   * 用途：喂给 `TaskGoalStore` 的任务级预算（触顶 ⇒ `budget_limited`）。
+   */
+  totalTokens: number;
 }
 
 /**
@@ -232,7 +270,7 @@ async function runBatched<T>(
 export class AgentSwarm {
   async run(options: AgentSwarmOptions): Promise<AgentSwarmResult> {
     const { tasks, goal, executor, isolation, signal } = options;
-    const concurrency = options.maxConcurrency ?? 3;
+    const concurrency = options.maxConcurrency ?? DEFAULT_SWARM_CONCURRENCY;
 
     // 黑板：总目标 + 子任务清单（注入每个 worker）
     const blackboard = [
@@ -240,13 +278,19 @@ export class AgentSwarm {
       `子任务清单:\n${tasks.map((t) => `- ${t.id}: ${t.description}`).join('\n')}`,
     ].join('\n');
 
-    const workerResults: SwarmWorkerResult[] = [];
+    // M-13（2026-09-22）：worker 结果**按 task 索引落位**（原为"完成顺序 push"）。
+    // 完成顺序与 `tasks` 顺序无关 ⇒ 任何"按下标取 worker"的调用方都会错配
+    //（`AgentTool.runSwarmPath` 原先正靠下标兜底）；改为索引落位后，顺序 = task 顺序，
+    // 未产出 worker 的任务（如批次取消）**不占位**（压实后缺位即缺席，可被识别）。
+    const slots: Array<SwarmWorkerResult | undefined> = new Array(tasks.length);
     const workerErrors: string[] = [];
+    /** M-8：worker 真实用量汇总（缺省 0，不臆测） */
+    let workerTokens = 0;
 
     await runBatched(
-      tasks,
+      tasks.map((task, idx) => ({ task, idx })),
       concurrency,
-      async (task) => {
+      async ({ task, idx }) => {
         try {
           const res = await executor({
             systemPrompt:
@@ -260,7 +304,12 @@ export class AgentSwarm {
             taskKey: task.id,
           });
           const timedOut = res.timedOut === true;
-          workerResults.push({
+          // M-8：累计 worker 真实用量（未提供 ⇒ 记 0；不做任何估算）
+          const tokensThisRun = res.tokens ?? 0;
+          if (Number.isFinite(tokensThisRun) && tokensThisRun > 0) {
+            workerTokens += tokensThisRun;
+          }
+          slots[idx] = {
             id: task.id,
             description: task.description,
             output: res.output,
@@ -273,10 +322,10 @@ export class AgentSwarm {
             ...(res.ok
               ? {}
               : { feedback: '执行未成功（引擎真实结果为未完成）' }),
-          });
+          };
         } catch (err) {
           workerErrors.push(`${task.id}: ${String(err)}`);
-          workerResults.push({
+          slots[idx] = {
             id: task.id,
             description: task.description,
             output: '',
@@ -285,10 +334,15 @@ export class AgentSwarm {
             verify: 'skipped',
             ok: false,
             feedback: `执行失败: ${String(err)}`,
-          });
+          };
         }
       },
       signal
+    );
+
+    // M-13：压实索引槽位 ⇒ `workerResults` 顺序 = **task 顺序**（未产出 worker 的任务缺席）
+    const workerResults: SwarmWorkerResult[] = slots.filter(
+      (r): r is SwarmWorkerResult => r !== undefined
     );
 
     // verifier 门禁：逐 worker 验证（仅对成功 worker）
@@ -354,9 +408,23 @@ export class AgentSwarm {
       logger.warn('swarm worker 存在失败', { errors: workerErrors });
     }
 
-    // O4：正向合取（`ok = 执行成功 ∧ 门禁未判不过 ∧ 未超时`）——在门禁阶段结束后统一计算
+    // O4：正向合取（`ok = 执行成功 ∧ 门禁通过 ∧ 未超时`）+ **门禁三态**（2026-09-22 修复）
+    //
+    // 修复的洞：门禁阶段前置条件为 `enableVerify !== false && !signal?.aborted`（本文件 :310），
+    // 若取消发生在「worker 全部跑完、门禁尚未开始」⇒ 门禁**整批不启动**，成功 worker 的
+    // `verify` 停在初值 `'skipped'`；而旧判据 `verify !== 'failed'` 让 `'skipped'` 直接通过
+    // ⇒ **调用方显式传了 `verify:true`，门禁一次都没跑，却被报成"全部通过"**。
+    // （`allPassed` 的基数守卫只挡住"空数组 `every()`"，挡不住"非空数组 + 门禁未执行"。）
+    //
+    // 现语义：**请求了门禁却没拿到结论 ⇒ 该 worker 不得判通过**（fail-closed，与 O4 同源）；
+    //         仅当调用方**未请求**门禁时，`'skipped'` 才视为通过（本就无门禁可跑）。
+    const verifyRequested = options.enableVerify !== false;
+    const verifyIncomplete =
+      verifyRequested &&
+      workerResults.some((r) => r.success && r.verify === 'skipped');
     for (const r of workerResults) {
-      r.ok = r.success && r.verify !== 'failed' && !r.timedOut;
+      const gateOk = !verifyRequested || r.verify === 'passed';
+      r.ok = r.success && gateOk && !r.timedOut;
     }
 
     return {
@@ -365,7 +433,14 @@ export class AgentSwarm {
       // O4：`allPassed` 语义收紧为"每个 worker 都 `ok`" ——
       // 原实现只看 `verified`，而失败 worker 的 `verified` 初值即为 true
       // ⇒ 存在"worker 全失败却 allPassed: true"的假阳性
-      allPassed: workerResults.every((r) => r.ok),
+      // 基数守卫：空批次不得判为全通过（`[].every(...) === true`）
+      allPassed: workerResults.length > 0 && workerResults.every((r) => r.ok),
+      // 出口⑥：批次中止时剩余任务从未投递，调用方需能与"全部执行失败"区分
+      cancelled: signal?.aborted === true,
+      // 门禁未完成的事实（调用方据此归因，不与"未请求门禁"混淆）
+      verifyIncomplete,
+      // M-8：worker 真实用量合计（未提供 ⇒ 0）
+      totalTokens: workerTokens,
     };
   }
 }

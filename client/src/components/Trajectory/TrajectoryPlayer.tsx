@@ -29,6 +29,8 @@
  * - 进度条按行定位（拖动 seek）
  */
 
+import { useTranslation } from "react-i18next";
+
 export interface TrajectoryPlayerProps {
   totalRows: number;
   playing: boolean;
@@ -55,6 +57,7 @@ export function TrajectoryPlayer({
   onPrevTurn,
   onNextTurn,
 }: TrajectoryPlayerProps) {
+  const { t } = useTranslation();
   const progress =
     totalRows > 0 ? Math.round((playbackIndex / totalRows) * 100) : 0;
 
@@ -68,8 +71,12 @@ export function TrajectoryPlayer({
             ? "text-gray-300 dark:text-gray-600 cursor-not-allowed"
             : "text-white bg-blue-600 hover:bg-blue-700"
         }`}
-        aria-label={playing ? "暂停" : "播放"}
-        title={playing ? "暂停" : "播放"}
+        aria-label={
+          playing ? t("trajectory.player.pause") : t("trajectory.player.play")
+        }
+        title={
+          playing ? t("trajectory.player.pause") : t("trajectory.player.play")
+        }
       >
         {playing ? "⏸" : "▶"}
       </button>
@@ -80,8 +87,8 @@ export function TrajectoryPlayer({
           onClick={onPrevTurn}
           disabled={totalRows === 0}
           className="shrink-0 w-6 h-6 rounded flex items-center justify-center text-xs text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-          aria-label="上一个 turn"
-          title="上一个 turn"
+          aria-label={t("trajectory.player.prevTurn")}
+          title={t("trajectory.player.prevTurn")}
         >
           ⏮
         </button>
@@ -89,8 +96,8 @@ export function TrajectoryPlayer({
           onClick={onNextTurn}
           disabled={totalRows === 0}
           className="shrink-0 w-6 h-6 rounded flex items-center justify-center text-xs text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-          aria-label="下一个 turn"
-          title="下一个 turn"
+          aria-label={t("trajectory.player.nextTurn")}
+          title={t("trajectory.player.nextTurn")}
         >
           ⏭
         </button>
@@ -120,7 +127,7 @@ export function TrajectoryPlayer({
           value={playbackIndex}
           onChange={(e) => onSeek(Number(e.target.value))}
           className="flex-1 accent-blue-600"
-          aria-label="回放进度"
+          aria-label={t("trajectory.player.progress")}
         />
         <span className="text-[10px] text-gray-400 dark:text-gray-500 shrink-0">
           {playbackIndex}/{totalRows} · {progress}%

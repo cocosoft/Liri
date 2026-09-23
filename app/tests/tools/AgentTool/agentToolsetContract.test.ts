@@ -16,7 +16,15 @@ import {
 } from '../../../src/tools/AgentTool/AgentToolsetContract';
 
 /** 父级可见工具（含阻断清单里的 Agent / sessions_yield） */
-const PARENT = ['Bash', 'Read', 'Write', 'WebFetch', 'Agent', 'Task', 'sessions_yield'];
+const PARENT = [
+  'Bash',
+  'Read',
+  'Write',
+  'WebFetch',
+  'Agent',
+  'Task',
+  'sessions_yield',
+];
 
 function contract(over: Partial<ToolsetContract> = {}): ToolsetContract {
   return { parentToolNames: PARENT, ...over };

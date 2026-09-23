@@ -5,33 +5,52 @@ import { test, expect, type Page } from "@playwright/test";
  *
  * 覆盖 3 个场景：断网 / 后端重启 / SSE 中断。
  *
- * 策略：
- * - 前端初始化阶段 React StrictMode 会双调用 effect，使 useInitApp 中
- *   connectionMonitor.start() 被 cleanup 的 stop() 抵消（开发模式监听未生效）。
- *   故测试手动调用 connectionMonitor.start()（幂等）后注入故障，
- *   等价于验证应用正常初始化后的连接状态机行为。
- * - 断网/后端重启通过断言状态机状态与转移历史；SSE 中断通过
- *   localStorage 持久化日志（pyapp_frontend_logs）断言重连调度。
+ * 观测方式（2026-09-23）：读 **app 侧 dev 句柄** `window.__liriConnMonitor`（`useInitApp.ts` 挂载）
+ * —— 它指向**页面自己那份**监测器实例 ⇒ 本文件**不手动 `start()`**，断言的就是真实初始化路径。
+ * ⚠️ 两条踩坑（台账 §TB-3 / §TB-4）：
+ * 1. **不能**用 `page.evaluate(() => import("...connectionMonitor.ts"))` 读状态：该 URL（**无 query**）
+ *    与页面 bundle 的 `?t=<HMR 时间戳>` 是**两份模块实例** ⇒ 会读到"没人启动过的"那份，导致假结论。
+ * 2. 监测器曾挂在"SSE/会话订阅"那个 effect 上（deps 含 `backendRunning`），被 cleanup `stop()`
+ *    掐断后**不再恢复** ⇒ `failCount` 到不了 3 ⇒ 掉线检测失效（§TB-4）；已改为**独立 effect
+ *    （deps=[]，随页面生命周期）**，本文件据此才能直接观测真实实例。
+ *
+ * - 断网/后端重启：断言状态机状态与转移历史；
+ * - SSE 中断：通过 localStorage 持久化日志（pyapp_frontend_logs）断言重连调度。
  *
  * 前置条件：后端 18990 + 前端 1420 已运行（reuseExistingServer）。
  */
 
-/** 在页面上下文中读取 connectionMonitor 快照 */
+/** dev 句柄形状（app 侧挂载；诊断字段见 `connectionMonitor.getDiagnostics`） */
+type ConnMonitorHandle = {
+  getState(): string;
+  getHistory(): Array<{ to: string }>;
+  getDiagnostics(): {
+    started: boolean;
+    hasTimer: boolean;
+    tickCount: number;
+    stopCount: number;
+    failCount: number;
+    state: string;
+  };
+};
+
+/** 读取**页面自身**监测器的状态与转移历史（经 dev 句柄；句柄缺失即抛错，避免静默失真） */
 async function monitorSnapshot(page: Page) {
-  return page.evaluate(async () => {
-    const mod = await import("/src/services/connectionMonitor.ts");
-    return {
-      state: mod.connectionMonitor.getState(),
-      history: mod.connectionMonitor.getHistory(),
-    };
+  return page.evaluate(() => {
+    const h = (window as unknown as { __liriConnMonitor?: ConnMonitorHandle })
+      .__liriConnMonitor;
+    if (!h) throw new Error("window.__liriConnMonitor 缺失（dev 句柄未挂载）");
+    return { state: h.getState(), history: h.getHistory() };
   });
 }
 
-/** 在页面上下文中启动 connectionMonitor（幂等） */
-async function ensureMonitorStarted(page: Page) {
-  await page.evaluate(async () => {
-    const mod = await import("/src/services/connectionMonitor.ts");
-    mod.connectionMonitor.start();
+/** 读取**页面自身**监测器的只读诊断（用于区分"定时器没跑"与"跑了但健康检查成功"） */
+async function monitorDiagnostics(page: Page) {
+  return page.evaluate(() => {
+    const h = (window as unknown as { __liriConnMonitor?: ConnMonitorHandle })
+      .__liriConnMonitor;
+    if (!h) throw new Error("window.__liriConnMonitor 缺失（dev 句柄未挂载）");
+    return h.getDiagnostics();
   });
 }
 
@@ -57,8 +76,8 @@ test.describe("连接故障注入 E2E（断网/后端重启/SSE 中断）", () =
   }) => {
     test.setTimeout(60_000);
     await page.goto("/");
+    // 不手动 start：断言的是**页面自身**监测器（经 dev 句柄观测）⇒ 覆盖真实初始化路径
     await page.waitForTimeout(3000);
-    await ensureMonitorStarted(page);
 
     // 初始应为 connected
     await expect
@@ -86,33 +105,77 @@ test.describe("连接故障注入 E2E（断网/后端重启/SSE 中断）", () =
       .toBe("connected");
   });
 
-  test("后端重启：健康检查连续失败判定 disconnected，恢复后回 connected", async ({
+  // 2026-09-23：**定时器驱动**（TB-2 排查结论：定时器与失败判定本身均正常 —— 探针采样显示
+  // `tickCount` 每 ~10s 稳定 +1、3 次连续失败后于 ~30s 转 `disconnected`）。
+  // 不手动 `start()`：监测器已改为**独立 effect（deps=[]）**，断言的是页面真实实例（TB-4 修复后成立）。
+  test("后端重启：周期性健康检查连续失败 ⇒ disconnected，恢复后回 connected", async ({
     page,
   }) => {
-    test.setTimeout(90_000);
+    test.setTimeout(120_000);
     await page.goto("/");
     await page.waitForTimeout(3000);
-    await ensureMonitorStarted(page);
 
-    // 注入故障：拦截 /health 返回 503（模拟后端不可达）
+    // 注入故障（监测器已在跑 ⇒ 首个 tick 可能已成功；不影响：需**连续** 3 次失败）
     await page.route("**/health", (route) =>
       route.fulfill({ status: 503, body: "unavailable" }),
     );
 
-    // 连续 3 次失败（10s 间隔）→ disconnected 关键状态
+    // 前提断言：定时器**真的在 tick**。仅看 state/history 无法区分"定时器没跑"与
+    // "跑了但健康检查成功"（TB-2 三次探针都栽在这里）⇒ 用只读诊断把这条前提钉死，
+    // 失败时报告里直接带出证据。
+    const before = await monitorDiagnostics(page);
+    await expect
+      .poll(async () => (await monitorDiagnostics(page)).tickCount, {
+        timeout: 25_000,
+        message: "监测器定时器未 tick —— 见 预存问题 §TB-2",
+      })
+      .toBeGreaterThan(before.tickCount);
+
+    // 连续 3 次失败（10s 间隔）→ disconnected（实测约 30s 达成）
     await expect
       .poll(async () => (await monitorSnapshot(page)).state, {
         timeout: 60_000,
       })
       .toBe("disconnected");
+    expect(
+      (await monitorSnapshot(page)).history.some((h) => h.to === "disconnected"),
+    ).toBeTruthy();
 
-    // 后端恢复：解除拦截 → 健康检查成功 → connected
+    // 后端恢复：解除拦截 → 下一次 tick 成功 → connected
     await page.unroute("**/health");
     await expect
       .poll(async () => (await monitorSnapshot(page)).state, {
         timeout: 30_000,
       })
       .toBe("connected");
+  });
+
+  // TB-5 回归门禁（2026-09-23）：首页只应建立 **1 条** `/v1/events` 常驻连接。
+  // 修复前为 2 条 —— `sseService` 的 fetch 流 + `useNotificationSSE` 自建的 EventSource
+  // **撞同一端点**（dev 与 prod 构建产物实测均为 2）。修复：通知中心改为订阅 `sseService`
+  // 的单一事件源（并新增 `connection:open` 事件取代原先依赖的 `EventSource.onopen`）。
+  // 只统计 **GET**：心跳是 HEAD（`sseService.ts:390-411`），且 Playwright 会把 HEAD 归类为
+  // `requestfailed`，若不排除会污染计数。
+  test("SSE：首页仅 1 条 /v1/events 常驻连接（TB-5 回归门禁）", async ({ page }) => {
+    test.setTimeout(60_000);
+
+    const open = new Set<unknown>();
+    const isSseGet = (r: { url(): string; method(): string }) =>
+      r.url().includes("/v1/events") && r.method() === "GET";
+    page.on("request", (r) => {
+      if (isSseGet(r)) open.add(r);
+    });
+    page.on("requestfinished", (r) => open.delete(r));
+    page.on("requestfailed", (r) => open.delete(r));
+
+    await page.goto("/");
+    await expect
+      .poll(() => open.size, { timeout: 15_000 })
+      .toBe(1);
+
+    // 覆盖一个心跳周期（30s）+ 可能的抖动，确认**始终没有第二条**常驻
+    await page.waitForTimeout(32_000);
+    expect(open.size).toBe(1);
   });
 
   // TODO: 2026-08-15 前端 useInitApp 初始化流程调整后此测试不稳定——

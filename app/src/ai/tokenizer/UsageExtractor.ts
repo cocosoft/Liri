@@ -19,7 +19,9 @@ export interface ExtractedUsage {
 }
 
 // [v1.2] 三级回退 cache 字段提取
-function extractCacheTokens(usage: Record<string, unknown>): {
+// TR-12-A（2026-09-22）：**导出**以复用为唯一实现 —— `metric/timing` 事件的用量分桶
+// 直接复用它，避免在 ChatManager 里再写一份 cache 字段回退逻辑（CS01 归一化）。
+export function extractCacheTokens(usage: Record<string, unknown>): {
   cacheReadTokens: number;
   cacheCreationTokens: number;
 } {

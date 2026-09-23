@@ -12,8 +12,7 @@
  */
 
 import type http from 'http';
-import { getLogger } from '@modules/monitoring';
-import { getToolManager, getAgentRunStore } from '@modules/tools';
+import { getAgentRunStore, resolveAgentToolInstance } from '@modules/tools';
 import type { HandlerCtx } from './handler-utils';
 import { AgentTool } from '../../../tools/AgentTool/AgentTool';
 import {
@@ -21,18 +20,16 @@ import {
   getSpawnPauseState,
 } from '../../../tools/AgentTool/spawnPause';
 
-const logger = getLogger('http:agentControl');
-
-/** 复用既有约定（`commands/tools/ai/agent.ts:91`）：从工具管理器取 AgentTool 实例 */
+/**
+ * 取 AgentTool 真身（R6，2026-09-22）。
+ *
+ * 修复前：`getToolManager().getTool('Agent') instanceof AgentTool` —— 而 `getTool()` 返回的是
+ * `ToolLazyWrapper`（`implements Tool`，**非 extends**）⇒ 恒 false ⇒ 本控制面全量 503，
+ * `AgentTool.stopAgent`（含批次级取消 R1）的修复代码**一行都不会被执行**。
+ * 现统一走 `resolveAgentToolInstance()`（解包 + 能力判定，见该模块注释；其内部自带 error 日志）。
+ */
 function getAgentTool(): AgentTool | null {
-  try {
-    const tool = getToolManager().getTool('Agent');
-    return tool instanceof AgentTool ? tool : null;
-  } catch (err) {
-    // @ignore-catch — 工具管理器未就绪时视为不可用（调用方按 503 处理）
-    logger.warn('获取 AgentTool 实例失败', { error: String(err) });
-    return null;
-  }
+  return resolveAgentToolInstance();
 }
 
 function sendJson(

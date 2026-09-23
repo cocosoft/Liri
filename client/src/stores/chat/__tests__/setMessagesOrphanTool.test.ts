@@ -76,7 +76,8 @@ describe("setMessagesImpl — 孤儿 tool 结果保留（N-48）", () => {
         role: "tool",
         toolCallId: "call_1",
         timestamp: 2000,
-        content: '[{"type":"tool_result","value":"{\\"status\\":\\"yielded\\"}"}]',
+        content:
+          '[{"type":"tool_result","value":"{\\"status\\":\\"yielded\\"}"}]',
       }),
     ]);
 

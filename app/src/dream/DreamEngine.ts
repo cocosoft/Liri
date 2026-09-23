@@ -48,6 +48,9 @@ import {
   getBackgroundTaskStateMachine,
 } from '../state/background/BackgroundTaskStateMachine';
 
+// 阶段标签（阻塞探针 P2 第二批，2026-09-22；依据 §8.9：`memory:dream` 相关 r=0.75 居首）
+import { withPhase } from '@modules/diagnostics/loopProbe/phaseStack';
+
 const logger = getLogger('dream:dreamEngine');
 
 export class DreamEngine {
@@ -125,6 +128,15 @@ export class DreamEngine {
    * 通过 UnifiedDreamCycle 统一编排 Gather → Analyze → Generate → Write → Index。
    */
   private async executeDreamCycle(source: DreamTriggerSource): Promise<void> {
+    // 阶段标签：整轮梦境是"周期后台任务"里最可能与阻塞共变的路径（§8.9）
+    return withPhase('dream:executeDreamCycle', () =>
+      this._executeDreamCycleImpl(source)
+    );
+  }
+
+  private async _executeDreamCycleImpl(
+    source: DreamTriggerSource
+  ): Promise<void> {
     // §十 阶段 C：以状态机表达后台任务运行态（替代手写 this.cycle.isRunning 布尔守卫）
     const sm = getBackgroundTaskStateMachine('dream');
     if (sm.getState() === BackgroundTaskState.RUNNING) {

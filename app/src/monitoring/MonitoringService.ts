@@ -25,6 +25,9 @@ import {
   getMemoryPressureMonitor,
 } from './memoryPressure/MemoryPressureMonitor.js';
 
+// 阶段标签（阻塞探针 P2 扩展，2026-09-22）：与既有 11 处插桩同源（`@modules/diagnostics/...`）
+import { withPhaseSync } from '@modules/diagnostics/loopProbe/phaseStack';
+
 const logger = getLogger('monitoring:service');
 
 /**
@@ -253,7 +256,9 @@ export class MonitoringService {
    */
   private startMetricsCollection(): void {
     this.metricsTimer = setInterval(() => {
-      this.collectMetrics();
+      // 阶段标签（2026-09-22）：阻塞探针"阶段外"占比 3/6 且本模块是阻塞前最高频前置模块
+      // ⇒ 给三个**周期性后台任务**加标签，直接检验"周期任务自身阻塞事件循环"的假设。
+      withPhaseSync('monitoring:collectMetrics', () => this.collectMetrics());
     }, this.config.metricsInterval);
   }
 
@@ -268,7 +273,9 @@ export class MonitoringService {
         ? 10_000
         : this.config.healthCheckInterval;
       this.healthCheckTimer = setTimeout(() => {
-        this.performHealthCheck();
+        withPhaseSync('monitoring:performHealthCheck', () =>
+          this.performHealthCheck()
+        );
         schedule();
       }, delay);
     };
@@ -280,7 +287,7 @@ export class MonitoringService {
    */
   private startLogRotation(): void {
     this.logRotationTimer = setInterval(() => {
-      this.rotateLogs();
+      withPhaseSync('monitoring:rotateLogs', () => this.rotateLogs());
     }, this.config.logRotationInterval);
   }
 

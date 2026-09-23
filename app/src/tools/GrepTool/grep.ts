@@ -7,6 +7,9 @@ import { handleError } from '@modules/error';
 import { yieldToEventLoop } from '@modules/ai';
 
 import { getLogger } from '@modules/monitoring';
+// 2026-09-22 归一化（CS01）：跳过清单纯量迁至 `tools/utils/searchSkipDirs`，
+// 与 glob 共用同一事实来源（原为本文件私有常量，glob 侧无任何跳过逻辑）。
+import { SKIP_DIRS } from '../utils/searchSkipDirs';
 const logger = getLogger('tools:GrepTool:grep');
 
 // 懒初始化 Rust 原生模块，用于自动检测文件编码
@@ -70,31 +73,9 @@ const VCS_DIRS = new Set(['.git', '.svn', '.hg', '.bzr']);
 const MAX_RESULTS = 500;
 
 /**
- * 全项目扫描时跳过的构建产物/备份/缓存目录（2026-09-01 P1）：
- * 模型常以 searchPath:"." 扫项目根，target（Rust 产物 .dll）、
- * _migration_backup（.db 备份）、dist 等目录文件多且多为二进制，
- * 此前单次 grep 可长达 17-83s，直接阻塞互斥锁与整个工具循环。
+ * 构建产物 / 备份 / 缓存目录的跳过清单已迁至 {@link SKIP_DIRS}
+ * （`tools/utils/searchSkipDirs.ts`，与 glob 共用）——见该文件注释。
  */
-const SKIP_DIRS = new Set([
-  'target',
-  'dist',
-  'build',
-  'out',
-  'coverage',
-  '_migration_backup',
-  'backup',
-  'backups',
-  '__pycache__',
-  '.venv',
-  'venv',
-  '.tox',
-  'cache',
-  '.cache',
-  'tmp',
-  'temp',
-  'logs',
-  'node_modules',
-]);
 
 /**
  * 构建 grep 正则。

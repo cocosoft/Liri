@@ -25,6 +25,10 @@ import { AtomicWriter } from '../persistence/AtomicWriter.js';
 import { handleError } from '@modules/error';
 
 import { getLogger } from '@modules/monitoring';
+import {
+  enterPhase,
+  exitPhase,
+} from '@modules/diagnostics/loopProbe/phaseStack';
 const logger = getLogger('session:storage:FileSystemUnifiedStorage');
 
 function matchesFilter(
@@ -757,90 +761,98 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
     messageId: string,
     message: UnifiedMessage
   ): Promise<void> {
-    // P1-3：按需加载
-    await this.ensureMessagesLoaded(sessionId);
-    return this.enqueueWrite(sessionId, async () => {
-      const msgs = this.messages.get(sessionId);
-      if (!msgs) return;
-      let idx = msgs.findIndex((m) => m.id === messageId);
-      // P1 加固（2026-08-14）：调用方可能传错 id（如前端 UUID vs 后端 msg-xxx），
-      // 原实现找不到时静默 return 导致 blocks 永不落盘。降级按消息自身 id 再查一次。
-      if (idx === -1 && message.id && message.id !== messageId) {
-        idx = msgs.findIndex((m) => m.id === message.id);
-      }
-      if (idx !== -1) {
-        // N-51 写入侧（2026-09-20）：**内容无变化 ⇒ 跳过追加**。
-        // 实测：同一 assistant 消息在 messages.jsonl 出现 4 行，其中**最后一行与前一行字节完全
-        // 一致**（blocks 未变的重复 updateMessage）⇒ 纯冗余写放大（长会话下被 compact 放大）。
-        // 语义不变：磁盘仍是"后写覆盖"，只是不再写无变化的行。
-        const prevJson = JSON.stringify(msgs[idx]);
-        msgs[idx] = { ...message };
-        const nextJson = JSON.stringify(msgs[idx]);
-        if (prevJson === nextJson) {
-          logger.debug('updateMessage: 内容无变化，跳过追加（N-51）', {
-            sessionId,
-            messageId,
-            storedId: msgs[idx].id,
-            storedCount: msgs.length,
-          });
-          return;
+    enterPhase('session:updateMessage');
+    try {
+      // P1-3：按需加载
+      await this.ensureMessagesLoaded(sessionId);
+      return this.enqueueWrite(sessionId, async () => {
+        const msgs = this.messages.get(sessionId);
+        if (!msgs) return;
+        let idx = msgs.findIndex((m) => m.id === messageId);
+        // P1 加固（2026-08-14）：调用方可能传错 id（如前端 UUID vs 后端 msg-xxx），
+        // 原实现找不到时静默 return 导致 blocks 永不落盘。降级按消息自身 id 再查一次。
+        if (idx === -1 && message.id && message.id !== messageId) {
+          idx = msgs.findIndex((m) => m.id === message.id);
         }
-        // 增量写入方案（2026-08-14）：O(1) 追加替代全量重写 O(n)——
-        // 长会话下每轮 blocks 保存不再重写整个 messages.jsonl。
-        // loadMessages 已反向去重（后写覆盖），同 id 多行读取安全。
-        const writeStart = Date.now();
-        await this.persistMessageAppend(sessionId, msgs[idx]);
-        const writeElapsedMs = Date.now() - writeStart;
-        // 定期 compact（第 6/7 条改造）：追加次数或累计体积达阈值即触发，异步化——
-        // fire-and-forget 入写队列后台重写（enqueueCompact），不再阻塞 updateMessage。
-        // P0-1：计数为 per-session（原全局计数会让活跃会话触发所有会话的 compact）。
-        const appendCount = (this.appendCounts.get(sessionId) ?? 0) + 1;
-        const appendBytes =
-          (this.appendBytes.get(sessionId) ?? 0) +
-          Buffer.byteLength(nextJson, 'utf-8');
-        const interval =
-          this.config.appendRewriteInterval ?? DEFAULT_APPEND_REWRITE_INTERVAL;
-        const bytesThreshold =
-          this.config.appendRewriteBytes ?? DEFAULT_APPEND_REWRITE_BYTES;
-        if (appendCount >= interval || appendBytes >= bytesThreshold) {
-          this.appendCounts.set(sessionId, 0);
-          this.appendBytes.set(sessionId, 0);
-          logger.info('updateMessage: compact 触发（异步入队）', {
+        if (idx !== -1) {
+          // N-51 写入侧（2026-09-20）：**内容无变化 ⇒ 跳过追加**。
+          // 实测：同一 assistant 消息在 messages.jsonl 出现 4 行，其中**最后一行与前一行字节完全
+          // 一致**（blocks 未变的重复 updateMessage）⇒ 纯冗余写放大（长会话下被 compact 放大）。
+          // 语义不变：磁盘仍是"后写覆盖"，只是不再写无变化的行。
+          const prevJson = JSON.stringify(msgs[idx]);
+          msgs[idx] = { ...message };
+          const nextJson = JSON.stringify(msgs[idx]);
+          if (prevJson === nextJson) {
+            logger.debug('updateMessage: 内容无变化，跳过追加（N-51）', {
+              sessionId,
+              messageId,
+              storedId: msgs[idx].id,
+              storedCount: msgs.length,
+            });
+            return;
+          }
+          // 增量写入方案（2026-08-14）：O(1) 追加替代全量重写 O(n)——
+          // 长会话下每轮 blocks 保存不再重写整个 messages.jsonl。
+          // loadMessages 已反向去重（后写覆盖），同 id 多行读取安全。
+          const writeStart = Date.now();
+          await this.persistMessageAppend(sessionId, msgs[idx]);
+          const writeElapsedMs = Date.now() - writeStart;
+          // 定期 compact（第 6/7 条改造）：追加次数或累计体积达阈值即触发，异步化——
+          // fire-and-forget 入写队列后台重写（enqueueCompact），不再阻塞 updateMessage。
+          // P0-1：计数为 per-session（原全局计数会让活跃会话触发所有会话的 compact）。
+          const appendCount = (this.appendCounts.get(sessionId) ?? 0) + 1;
+          const appendBytes =
+            (this.appendBytes.get(sessionId) ?? 0) +
+            Buffer.byteLength(nextJson, 'utf-8');
+          const interval =
+            this.config.appendRewriteInterval ??
+            DEFAULT_APPEND_REWRITE_INTERVAL;
+          const bytesThreshold =
+            this.config.appendRewriteBytes ?? DEFAULT_APPEND_REWRITE_BYTES;
+          if (appendCount >= interval || appendBytes >= bytesThreshold) {
+            this.appendCounts.set(sessionId, 0);
+            this.appendBytes.set(sessionId, 0);
+            logger.info('updateMessage: compact 触发（异步入队）', {
+              sessionId,
+              reason: 'append_count_or_bytes_reached',
+              appendCount,
+              appendBytes,
+              interval,
+              bytesThreshold,
+              hitPath:
+                msgs[idx].id === messageId
+                  ? 'direct'
+                  : 'fallback_by_message_id',
+              updatedMessageId: message.id,
+            });
+            this.enqueueCompact(sessionId);
+          } else {
+            this.appendCounts.set(sessionId, appendCount);
+            this.appendBytes.set(sessionId, appendBytes);
+          }
+          // 排查日志：storage 层增量落盘（直接命中 vs 降级按 message.id 命中）
+          logger.debug('updateMessage: blocks 增量落盘', {
             sessionId,
-            reason: 'append_count_or_bytes_reached',
-            appendCount,
-            appendBytes,
-            interval,
-            bytesThreshold,
             hitPath:
               msgs[idx].id === messageId ? 'direct' : 'fallback_by_message_id',
-            updatedMessageId: message.id,
+            storedId: msgs[idx].id,
+            requestedId: messageId,
+            writeElapsedMs,
+            storedCount: msgs.length,
           });
-          this.enqueueCompact(sessionId);
         } else {
-          this.appendCounts.set(sessionId, appendCount);
-          this.appendBytes.set(sessionId, appendBytes);
+          // 仍找不到：记录日志避免静默丢失（消息可能尚未在 storage 中创建）
+          logger.warn('updateMessage: 未找到目标消息，更新被丢弃', {
+            sessionId,
+            messageId,
+            fallbackId: message.id,
+            storedCount: msgs.length,
+          });
         }
-        // 排查日志：storage 层增量落盘（直接命中 vs 降级按 message.id 命中）
-        logger.debug('updateMessage: blocks 增量落盘', {
-          sessionId,
-          hitPath:
-            msgs[idx].id === messageId ? 'direct' : 'fallback_by_message_id',
-          storedId: msgs[idx].id,
-          requestedId: messageId,
-          writeElapsedMs,
-          storedCount: msgs.length,
-        });
-      } else {
-        // 仍找不到：记录日志避免静默丢失（消息可能尚未在 storage 中创建）
-        logger.warn('updateMessage: 未找到目标消息，更新被丢弃', {
-          sessionId,
-          messageId,
-          fallbackId: message.id,
-          storedCount: msgs.length,
-        });
-      }
-    });
+      });
+    } finally {
+      exitPhase('session:updateMessage');
+    }
   }
 
   async deleteMessage(sessionId: string, messageId: string): Promise<void> {

@@ -98,6 +98,22 @@ export function isAllowedConnectionTransition(
 let started = false;
 let timer: ReturnType<typeof setInterval> | null = null;
 let failCount = 0;
+/**
+ * `stop()` 被调用次数（只读诊断）。
+ *
+ * 存在理由（2026-09-23 TB-4）：实测监测器会在启动后不久被 `stop()` 掐断且不再恢复
+ * ⇒ `failCount` 到不了 `FAIL_THRESHOLD`，**后端掉线检测实际失效**。
+ * 仅看 `started` 无法区分"从未启动"与"启动后被停"，故计数。
+ */
+let stopCount = 0;
+/**
+ * 累计执行的 tick 次数（只读诊断，见 `getDiagnostics`）。
+ *
+ * 存在理由（2026-09-23 TB-2）：外部只能看到 `state` / `history`，而
+ * "**定时器没跑**"与"**跑了但健康检查返回成功**"两种故障**表现完全相同**（状态都不变）
+ * ⇒ 三组探针都无法定论。加一个 tick 计数即可把两者分开。
+ */
+let tickCount = 0;
 let currentState = ConnectionState.CONNECTED;
 let history: ConnectionTransition[] = [];
 
@@ -176,6 +192,7 @@ async function checkBackendHealth(): Promise<boolean> {
 }
 
 async function tick(): Promise<void> {
+  tickCount++;
   const healthy = await checkBackendHealth();
   if (healthy) {
     failCount = 0;
@@ -236,6 +253,7 @@ export const connectionMonitor = {
 
   /** 停止监测 */
   stop(): void {
+    stopCount++;
     if (!started) return;
     started = false;
     window.removeEventListener("offline", handleOffline);
@@ -268,6 +286,31 @@ export const connectionMonitor = {
   /** 状态转移历史（不可变快照） */
   getHistory(): ConnectionTransition[] {
     return [...history];
+  },
+
+  /**
+   * 只读诊断快照（2026-09-23，TB-2 排查用）：暴露"是否真的在跑"这类**内部事实**。
+   *
+   * 用途：区分"定时器没跑"与"跑了但健康检查成功"——两者都表现为状态不变，
+   * 仅看 `getState`/`getHistory` **无法区分**（这正是 TB-2 三次探针定不了论的原因）。
+   * 消费方：E2E（断言"定时器确实在 tick"这一前提）+ 排障。
+   */
+  getDiagnostics(): {
+    started: boolean;
+    hasTimer: boolean;
+    tickCount: number;
+    stopCount: number;
+    failCount: number;
+    state: ConnectionState;
+  } {
+    return {
+      started,
+      hasTimer: timer !== null,
+      tickCount,
+      stopCount,
+      failCount,
+      state: currentState,
+    };
   },
 
   /**

@@ -269,7 +269,10 @@ describe('AgentSwarm：O4 门禁语义（fail-closed + 正向合取）', () => {
   });
 
   test('worker 超时 ⇒ success=false（timedOut 为合取项）', async () => {
-    const { executor } = routedExecutor({ workerOk: false, workerTimedOut: true });
+    const { executor } = routedExecutor({
+      workerOk: false,
+      workerTimedOut: true,
+    });
     const r = await swarm.run({ ...baseOptions, executor, isolation });
 
     expect(r.workers.every((w) => w.timedOut)).toBe(true);
@@ -286,6 +289,140 @@ describe('AgentSwarm：O4 门禁语义（fail-closed + 正向合取）', () => {
     expect(r.workers.every((w) => w.verify === 'skipped')).toBe(true);
     expect(r.workers.every((w) => w.success)).toBe(false);
     expect(r.workers.every((w) => w.ok)).toBe(false);
+    expect(r.allPassed).toBe(false);
+  });
+});
+
+/**
+ * M-13（2026-09-22）：worker 结果**按 task 索引落位**。
+ *
+ * 修复前 `workerResults.push(...)` 在 `executor` 的 try 内 ⇒ 顺序 = **完成顺序**。
+ * 而 `AgentTool.runSwarmPath` 曾用 `workerById.get(t.id) ?? workers[idx]` 兜底，
+ * 把"完成顺序数组"当"task 顺序数组"用 ⇒ 任一任务未产出 worker 时**张冠李戴**。
+ */
+describe('AgentSwarm：M-13 结果按 task 顺序落位', () => {
+  const tasks = [
+    { id: 't1', description: 'A' },
+    { id: 't2', description: 'B' },
+    { id: 't3', description: 'C' },
+  ];
+
+  test('完成顺序与 task 顺序相反 ⇒ 结果仍按 task 顺序（修复前为完成顺序）', async () => {
+    // t1 最慢、t3 最快 ⇒ 完成顺序 t3,t2,t1；索引落位后应仍为 t1,t2,t3
+    const delayById: Record<string, number> = { t1: 60, t2: 30, t3: 0 };
+    const executor: AgentSwarmOptions['executor'] = async ({ userPrompt }) => {
+      const key = userPrompt.match(/你的子任务: (\S+)/)?.[1] ?? '';
+      await new Promise((resolve) => setTimeout(resolve, delayById[key] ?? 0));
+      return { output: `out-${key}`, ok: true };
+    };
+
+    const r = await swarm.run({
+      tasks,
+      goal: 'g',
+      executor,
+      isolation,
+      maxConcurrency: 3,
+      enableVerify: false,
+    });
+
+    expect(r.workers.map((w) => w.id)).toEqual(['t1', 't2', 't3']);
+    // 输出与 id 一一对应（无张冠李戴）—— 提示词里带的子任务文本是 `description`
+    expect(r.workers.map((w) => w.output)).toEqual(['out-A', 'out-B', 'out-C']);
+  });
+
+  test('取消后未投递的任务不产出 worker（缺位即缺席，不占位错配）', async () => {
+    const wideTasks = [
+      { id: 't1', description: 'A' },
+      { id: 't2', description: 'B' },
+      { id: 't3', description: 'C' },
+    ];
+    const ac = new AbortController();
+    const executor: AgentSwarmOptions['executor'] = async ({ userPrompt }) => {
+      const key = userPrompt.match(/你的子任务: (\S+)/)?.[1] ?? '';
+      // 首个 worker 完成时即取消批次（`runBatched` 下一次批次检查短路）
+      ac.abort();
+      return { output: `out-${key}`, ok: true };
+    };
+
+    const r = await swarm.run({
+      tasks: wideTasks,
+      goal: 'g',
+      executor,
+      isolation,
+      maxConcurrency: 1,
+      signal: ac.signal,
+      enableVerify: false,
+    });
+
+    expect(r.cancelled).toBe(true);
+    expect(r.workers.length).toBeLessThan(wideTasks.length);
+    // 已产出部分仍是 task 顺序的**子序列**（索引落位 ⇒ 不会错配）
+    const produced = r.workers.map((w) => w.id);
+    expect(produced).toEqual(
+      wideTasks.map((t) => t.id).filter((id) => produced.includes(id))
+    );
+    // 缺失的 id 可被调用方识别（⇒ `AgentTool` 侧标注"未执行"）
+    expect(produced).not.toContain('t3');
+  });
+});
+
+/**
+ * M-8（2026-09-22）：worker **真实用量汇总**（喂给任务级预算 / `TaskGoalStore`）。
+ */
+describe('AgentSwarm：M-8 worker 用量汇总', () => {
+  const tokensTasks = [
+    { id: 't1', description: 'A' },
+    { id: 't2', description: 'B' },
+  ];
+
+  test('executor 提供 tokens ⇒ 汇总到 totalTokens', async () => {
+    const executor: AgentSwarmOptions['executor'] = async () => ({
+      output: 'o',
+      ok: true,
+      tokens: 120,
+    });
+    const r = await swarm.run({
+      tasks: tokensTasks,
+      goal: 'g',
+      executor,
+      isolation,
+      maxConcurrency: 2,
+      enableVerify: false,
+    });
+    expect(r.totalTokens).toBe(240);
+  });
+
+  test('executor 未提供 tokens ⇒ 0（**不估算**）', async () => {
+    const executor: AgentSwarmOptions['executor'] = async () => ({
+      output: 'o',
+      ok: true,
+    });
+    const r = await swarm.run({
+      tasks: tokensTasks,
+      goal: 'g',
+      executor,
+      isolation,
+      maxConcurrency: 2,
+      enableVerify: false,
+    });
+    expect(r.totalTokens).toBe(0);
+  });
+
+  test('失败 worker 的用量同样计入（用了就是用了）', async () => {
+    const executor: AgentSwarmOptions['executor'] = async () => ({
+      output: '',
+      ok: false,
+      tokens: 40,
+    });
+    const r = await swarm.run({
+      tasks: tokensTasks,
+      goal: 'g',
+      executor,
+      isolation,
+      maxConcurrency: 2,
+      enableVerify: false,
+    });
+    expect(r.totalTokens).toBe(80);
     expect(r.allPassed).toBe(false);
   });
 });

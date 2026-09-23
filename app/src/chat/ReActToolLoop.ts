@@ -45,7 +45,13 @@ import type { ChatResponse, ChatMessage } from '@modules/ai';
 import type { Message } from './types/message.js';
 import { getToolCallName } from './types/tool.js';
 import { getLogger } from '@modules/monitoring';
+import {
+  enterPhase,
+  exitPhase,
+} from '@modules/diagnostics/loopProbe/phaseStack';
 import { registerYieldFromResults } from '../session/yield';
+// M-7（2026-09-22）：续接指令文案**单一来源**（原为本文件内 4 个硬编码常量，逐字迁移）
+import { CONTINUATION_TEMPLATES } from '../tasks/goal/goalTemplates';
 import { prepareToolResultsForContext } from '@modules/tools';
 import {
   ensureThinkResponseTags,
@@ -96,15 +102,11 @@ const TRUNCATED_TAG_RE =
 const LAYER_COMPACT_MIN_INTERVAL_MS = 30_000;
 
 /** 不完整回合重试指令（对标 openclaw incomplete-turn.ts:172-179，2026-09-01） */
-const EMPTY_RESPONSE_RETRY_INSTRUCTION =
-  'The previous attempt did not produce a user-visible answer. Continue from the current state and produce the visible answer now. Do not restart from scratch.';
-const REASONING_ONLY_RETRY_INSTRUCTION =
-  'The previous assistant turn recorded reasoning but did not produce a user-visible answer. Continue from that partial turn and produce the visible answer now. Do not restate the reasoning or restart from scratch.';
-const PLANNING_ONLY_RETRY_INSTRUCTION =
-  'The previous assistant turn only described the plan. Do not restate the plan. Act now: take the first concrete tool action you can. If a real blocker prevents action, reply with the exact blocker in one sentence.';
+const EMPTY_RESPONSE_RETRY_INSTRUCTION = CONTINUATION_TEMPLATES.empty;
+const REASONING_ONLY_RETRY_INSTRUCTION = CONTINUATION_TEMPLATES.reasoning;
+const PLANNING_ONLY_RETRY_INSTRUCTION = CONTINUATION_TEMPLATES.planning;
 /** 输出被 max_tokens 截断的续接指令（2026-09-03）：不再重复已输出内容/思考，直接续完被截断的部分 */
-const TRUNCATED_RESPONSE_RETRY_INSTRUCTION =
-  'Your previous output was cut off by the output length limit before it finished. Do NOT restate anything you already wrote and do NOT re-enter reasoning. Continue directly from where the output stopped: if you were about to call tools, emit the tool calls now; otherwise finish your visible answer concisely.';
+const TRUNCATED_RESPONSE_RETRY_INSTRUCTION = CONTINUATION_TEMPLATES.truncated;
 /** planning-only 启发式判定：纯计划陈述模式（保守，避免误判正常回答） */
 const PLANNING_ONLY_RE =
   /(?:以下(?:是)?(?:我(?:的)?)?(?:执行)?计划|我的计划(?:如下|是)|\bplan(?:\s*:|\s+is|\s+to)\b|步骤\s*[:：]|接下来(?:我)?(?:将|会))/i;
@@ -165,6 +167,13 @@ interface ReActToolLoopState {
   hasExternalFetchActivity?: boolean;
   /** R2（2026-09-16）：工具轮内压缩连续 no_effect 次数——达到阈值后在低用量时稳态跳过，避免每轮白跑重 token */
   consecutiveCompactNoEffect: number;
+  /**
+   * 最近一次实测的上下文占用比（2026-09-22，"压缩失败暂停续接"判据）。
+   *
+   * 事实来源：`unifiedTracker.checkBeforeRequest()` 的 `snapshot.ratio`（每轮发送前实测）。
+   * 与 `consecutiveCompactNoEffect` 组合可区分"压不动**且**吃紧"与"低占用会话"。
+   */
+  lastCompactRatio?: number;
 }
 
 /** M3-T3.2：并发批次项——isConcurrencySafe 工具执行延迟到 flush（Promise.all） */
@@ -498,6 +507,11 @@ export class ReActToolLoop extends ReActLoop<
         const evalResult = await this.ctx.unifiedTracker.checkBeforeRequest(
           this.loopState.messages as unknown as ChatMessage[],
           model
+        );
+        // 压缩失败暂停续接（2026-09-22）：记录本轮**实测**占用比 —— `onIncompleteTurn`
+        // 据此区分"压不动且吃紧"（该停续接）与"低占用会话里的输出截断"（该照常续接）。
+        this.loopState.lastCompactRatio = Number(
+          evalResult.snapshot?.ratio ?? 0
         );
         if (evalResult.decision !== 'skip') {
           const ratio = Number(evalResult.snapshot?.ratio ?? 0);
@@ -1476,37 +1490,42 @@ export class ReActToolLoop extends ReActLoop<
       result: ToolResult;
     }>
   ): AsyncGenerator<ReActEvent, void> {
-    if (batch.length === 0) return;
-    const items = batch.slice(); // 快照——batch.length=0 会清空原数组，items 必须独立引用
-    batch.length = 0;
-    logger.info('reactToolLoop:parallel_batch_execute', {
-      sessionId: this.ctx.session.id,
-      batchCount: items.length,
-      tools: items.map((i) => i.tc.name),
-    });
-    // 2026-09-01 P1：abort 时不再等待长工具（Promise.all 不可中断），
-    // 立即以"已中止"错误结果 fallback，释放生成器/互斥锁。
-    const toolResults = await this._raceToolAbort(
-      () => Promise.all(items.map((i) => i.run())),
-      () =>
-        items.map((i) => ({
-          toolCallId: i.tc.id,
-          toolName: i.tc.name,
-          error: '工具执行被中止（会话停止，abort signal）',
-        }))
-    );
-    for (let i = 0; i < items.length; i++) {
-      const out = yield* this._postProcessToolResult(
-        items[i].tc,
-        toolResults[i],
-        items[i].progressEvents,
-        items[i].remainingToolCalls
+    enterPhase('toolround:execute');
+    try {
+      if (batch.length === 0) return;
+      const items = batch.slice(); // 快照——batch.length=0 会清空原数组，items 必须独立引用
+      batch.length = 0;
+      logger.info('reactToolLoop:parallel_batch_execute', {
+        sessionId: this.ctx.session.id,
+        batchCount: items.length,
+        tools: items.map((i) => i.tc.name),
+      });
+      // 2026-09-01 P1：abort 时不再等待长工具（Promise.all 不可中断），
+      // 立即以"已中止"错误结果 fallback，释放生成器/互斥锁。
+      const toolResults = await this._raceToolAbort(
+        () => Promise.all(items.map((i) => i.run())),
+        () =>
+          items.map((i) => ({
+            toolCallId: i.tc.id,
+            toolName: i.tc.name,
+            error: '工具执行被中止（会话停止，abort signal）',
+          }))
       );
-      if (out) {
-        results.push(out.resultEntry);
-        if (out.todoData) this.loopState.pendingTodos.push(out.todoData);
-        processedResults.push(out.processedEntry);
+      for (let i = 0; i < items.length; i++) {
+        const out = yield* this._postProcessToolResult(
+          items[i].tc,
+          toolResults[i],
+          items[i].progressEvents,
+          items[i].remainingToolCalls
+        );
+        if (out) {
+          results.push(out.resultEntry);
+          if (out.todoData) this.loopState.pendingTodos.push(out.todoData);
+          processedResults.push(out.processedEntry);
+        }
       }
+    } finally {
+      exitPhase('toolround:execute');
     }
   }
 
@@ -1930,6 +1949,26 @@ export class ReActToolLoop extends ReActLoop<
     }
   }
 
+  /**
+   * 压缩是否处于"**压不动且吃紧**"（2026-09-22，"压缩失败暂停续接"判据）。
+   *
+   * - **压不动**：`consecutiveCompactNoEffect` 达 `COMPACT_NO_EFFECT_SKIP_THRESHOLD`
+   *   （与"低占用稳态跳过"共用同一计数 ⇒ 不引入第二套阈值，避免两处口径漂移）；
+   * - **且吃紧**：最近一次实测占用比 `lastCompactRatio ≥ COMPACT_STEADY_RATIO`。
+   *
+   * **两个条件缺一不可**：只看计数会误伤"低占用会话里输出被 `max_tokens` 截断"
+   * 这种**该照常续接**的情形 —— 低占用时压缩被稳态跳过（计数不再清零而保持 ≥ 阈值），
+   * 但此时上下文有余量，放大输出预算重发正是正确处置。
+   */
+  private isCompactionStalled(): boolean {
+    return (
+      (this.loopState.consecutiveCompactNoEffect ?? 0) >=
+        ReActToolLoop.COMPACT_NO_EFFECT_SKIP_THRESHOLD &&
+      (this.loopState.lastCompactRatio ?? 0) >=
+        ReActToolLoop.COMPACT_STEADY_RATIO
+    );
+  }
+
   /** 对标 openclaw（2026-09-01）：不完整回合检测——空回复 / 只思考无答案 / 只计划不行动，
    *  注入重试指令（每类最多 1 次，防死循环）让骨架再给一次机会。 */
   protected override async onIncompleteTurn(
@@ -1959,6 +1998,20 @@ export class ReActToolLoop extends ReActLoop<
     if (kind === 'truncated' && this.convergeSteeringPrompted) {
       logger.info('reactToolLoop:truncated_converge_no_continue', {
         sessionId: this.ctx.session.id,
+        textPreview: text.slice(0, 80),
+      });
+      return false;
+    }
+    // 压缩失败暂停续接（2026-09-22）：压缩已连续压不动 **且** 上下文确实吃紧 ⇒
+    // 续接会按「放大后的 maxTokens + 压不下来的上下文」重发，只会加剧膨胀与空转。
+    // 发送前虽有 `truncateApiMessages` 硬截断兜底（`MessageContextPipeline.ts:291`），
+    // 但那是"削足适履"（丢掉旧消息）而非真压缩 ⇒ 不宜以此为由继续续接。
+    // 处置与 R4 一致：直接取当前部分文本交付 —— "有残缺结论"优于"继续膨胀/空转"。
+    if (kind === 'truncated' && this.isCompactionStalled()) {
+      logger.warn('reactToolLoop:truncated_compaction_stalled_no_continue', {
+        sessionId: this.ctx.session.id,
+        consecutiveNoEffect: this.loopState.consecutiveCompactNoEffect,
+        lastCompactRatio: this.loopState.lastCompactRatio ?? null,
         textPreview: text.slice(0, 80),
       });
       return false;
@@ -2144,6 +2197,9 @@ export class ReActToolLoop extends ReActLoop<
       toolTurn: this.loopState.toolTurnCount,
       messageCount: this.loopState.messages.length,
     });
+    // P2-3 配套（2026-09-22）：登记"本轮已注入软纠偏" ⇒ 基类无进展熔断**让路一次**。
+    // 修复前纠偏与熔断在同一轮判定、硬熔断抢先收尾，模型永远看不到纠偏指令。
+    this.repeatCorrectionPending = true;
   }
 
   /** M1 事件溯源（2026-08-23）：工具轮 text/thinking chunk 写 events.jsonl。

@@ -23,6 +23,7 @@ import { dispatchAuthAccessRoutes } from './routes/auth-access-routes';
 import { dispatchLlamaRoutes } from './routes/llama-routes';
 import { dispatchSystemRoutes } from './routes/system-routes';
 import { dispatchTranslationRoutes } from './routes/translation-routes';
+import { dispatchGoalRoutes } from './routes/goal-routes';
 
 /**
  * 路由调度函数
@@ -123,6 +124,9 @@ export async function dispatchRoute(
   if (
     await dispatchTranslationRoutes(req, res, url, broadcastEvent, handlerCtx)
   )
+    return true;
+  // M-6 接线（2026-09-22）：长程任务目标入口（`/v1/goals`）
+  if (await dispatchGoalRoutes(req, res, url, broadcastEvent, handlerCtx))
     return true;
 
   return false;

@@ -199,7 +199,6 @@ export * from './platform/index.js';
 
 // 2026-08-29 R03-002 收敛：执行追踪 / 轨迹 / 记忆 / 对账 统一出口
 export { ExecutionPhaseTracker } from './ExecutionPhaseTracker.js';
-export { TrajectoryTrailRecorder } from './trajectory/TrajectoryTrailRecorder.js';
 export { SessionMemoryManager } from './memory/SessionMemoryManager.js';
 export { SessionMemoryExtractor } from './memory/SessionMemoryExtractor.js';
 export type { MemoryExtractionLLM } from './memory/SessionMemoryExtractor.js';

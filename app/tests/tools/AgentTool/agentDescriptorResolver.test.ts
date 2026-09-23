@@ -15,7 +15,9 @@ import {
 
 const BUILTINS = ['general', 'explore', 'plan', 'verification'];
 
-function makeDeps(over: Partial<AgentDescriptorDeps> = {}): AgentDescriptorDeps {
+function makeDeps(
+  over: Partial<AgentDescriptorDeps> = {}
+): AgentDescriptorDeps {
   return {
     getRole: async () => ({ state: 'missing' }),
     getRegistered: () => null,
@@ -144,7 +146,9 @@ describe('resolveAgentDescriptor：fail-closed（O11-1）', () => {
     });
 
     expect(result.ok).toBe(false);
-    expect(result.ok === false && result.error).toContain('未知的 subagent_type');
+    expect(result.ok === false && result.error).toContain(
+      '未知的 subagent_type'
+    );
     expect(result.ok === false && result.error).toContain('verification');
   });
 

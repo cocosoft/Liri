@@ -128,9 +128,21 @@ export function renderSubagentTypeDescription(params: {
   if (roles.length > 0) {
     sections.push(`${roles.join(', ')} (configured in Agent 管理页)`);
   }
-  const registered = (params.registeredNames ?? []).filter(
-    (name) => name.length > 0 && !params.builtinTypeNames.includes(name)
+  // F2（2026-09-21）：**大小写归一后去重**。
+  // 解析链用 `key = raw.toLowerCase()` 匹配（内置判定 `builtinTypeNames.includes(key)`、
+  // DB 角色 `getRole(key)`），而原实现用 `builtinTypeNames.includes(name)` 精确比较
+  // ⇒ 注册表里的 `Explore` 既被解析链判为内置 `explore`，又在描述里以
+  // "(runtime registered)" 再列一次 —— 同一可用值出现两次，模型对"到底哪个名字有效"产生歧义。
+  // 归一集合同时含已列出的 DB 角色：`roles` 与 `registered` 的重名同理（① 分支优先取角色）。
+  const taken = new Set(
+    [...params.builtinTypeNames, ...roles].map((n) => n.trim().toLowerCase())
   );
+  const registered = (params.registeredNames ?? []).filter((name) => {
+    const key = name.trim().toLowerCase();
+    if (key.length === 0 || taken.has(key)) return false;
+    taken.add(key); // 注册表内部的重名（如 agentId 与 name 同值）同样只列一次
+    return true;
+  });
   if (registered.length > 0) {
     sections.push(`${registered.join(', ')} (runtime registered)`);
   }

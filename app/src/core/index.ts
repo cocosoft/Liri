@@ -122,7 +122,6 @@ export {
   isEligibleForFastPath,
 } from './loop/PlanDrivenLoop';
 export type { PlanDrivenLoopResult } from './loop/PlanDrivenLoop';
-export { trajectoryRuntime } from './trajectory/TrajectoryRuntime';
 export { ErrorHandler } from './utils/ErrorHandler';
 export {
   getPerformanceProfiler,

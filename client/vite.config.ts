@@ -113,5 +113,114 @@ export default defineConfig({
     environment: "jsdom",
     setupFiles: ["./src/tests/setup.ts"],
     exclude: ["**/node_modules/**", "**/e2e/**"],
+    // 覆盖率门槛（P2-4 剩余子项，2026-09-23）
+    //
+    // 设计取舍：
+    // - `enabled: false` ⇒ 既有 `bun run test`（CI client-test 步骤）**不受影响、不降速**；
+    //   门槛由 `bun run test:coverage` 显式触发（CI 已加一步）。
+    // - 门槛**只设在实测已达标的文件上**（下设数值全部取自 2026-09-23 实测，不拍脑袋）：
+    //   派生 / 过滤 / 快照解析四个文件**行覆盖已 100%** ⇒ 锁 100% 防回归。
+    // - 组件区实测薄弱（`TrajectoryFilter` / `TrajectoryPlayer` 0%、`TrajectoryTimeline` ~40%）
+    //   ⇒ **刻意不设门槛**：设了就立即红，设 0 是假门槛。该缺口已登记到
+    //   `dev_docs/error_repairs/预存错误与待处理问题.md`（TC-1），不在此粉饰。
+    coverage: {
+      provider: "v8",
+      enabled: false,
+      include: [
+        "src/stores/chat/deriveTrajectory*.ts",
+        // API 指标展示（2026-09-23）：请求级聚合纯函数（`deriveTrajectory*` 命名不匹配 ⇒ 单独列出）
+        "src/stores/chat/deriveApiMetrics.ts",
+        "src/stores/chat/filterTrajectoryEvents.ts",
+        "src/stores/chat/resolveModelInputSnapshot.ts",
+        "src/stores/chat/trajectoryStore.ts",
+        "src/components/Trajectory/**",
+        "src/components/common/JsonTree.tsx",
+      ],
+      reporter: ["text"],
+      thresholds: {
+        // 以下**每个 glob 只匹配一个文件**（避免"逐文件 vs 聚合"的语义歧义），阈值取自
+        // 2026-09-23 实测值并留 1~2 点余量 ⇒ 作用有二：
+        // ① 已达 100% 的文件**锁死**（防回归）；② 尚未达标的文件作为**棘轮**（只许升不许降）。
+        // 待补齐组件测试后应逐步上调（见 `预存错误与待处理问题.md` §TC-1）。
+        "src/stores/chat/deriveTrajectoryLayout.ts": {
+          lines: 100,
+          statements: 100,
+          functions: 100,
+          branches: 98, // 实测 98.24
+        },
+        // API 指标展示（2026-09-23）：新建纯函数，单测已四项全满 ⇒ 锁 100%（棘轮只许升不许降）
+        "src/stores/chat/deriveApiMetrics.ts": {
+          lines: 100, // 实测 100
+          statements: 100, // 实测 100
+          functions: 100, // 实测 100
+          branches: 100, // 实测 100
+        },
+        "src/stores/chat/deriveTrajectoryTimeline.ts": {
+          lines: 100,
+          statements: 96, // 实测 96.72（`Uncovered: 227,232,259,293`）
+          functions: 100,
+          branches: 89, // 实测 89.71
+        },
+        "src/stores/chat/filterTrajectoryEvents.ts": {
+          lines: 100,
+          statements: 100,
+          functions: 100,
+          branches: 91, // 实测 91.66
+        },
+        "src/stores/chat/resolveModelInputSnapshot.ts": {
+          lines: 100,
+          statements: 100,
+          functions: 100,
+          branches: 95, // 实测 95.45
+        },
+        // TC-1 补测后：0% → 100%（本文件原为零覆盖）
+        "src/components/Trajectory/TrajectoryFilter.tsx": {
+          lines: 100,
+          statements: 100,
+          functions: 100,
+          branches: 92, // 实测 92.1
+        },
+        "src/components/Trajectory/TrajectoryPlayer.tsx": {
+          lines: 100,
+          statements: 100,
+          functions: 100,
+          branches: 100,
+        },
+        // 以下为**棘轮**（TC-1 补测后已上调；只许升不许降）
+        "src/components/Trajectory/TrajectoryDetail.tsx": {
+          lines: 100, // 实测 100（补测前 83.87）
+          statements: 96, // 实测 96.96
+          functions: 91, // 实测 91.66
+          branches: 77, // 实测 77.35
+        },
+        "src/components/Trajectory/TrajectoryRow.tsx": {
+          lines: 100, // 实测 100（补测前 72.97）
+          statements: 95, // 实测 95.45
+          functions: 100,
+          branches: 85, // 实测 86
+        },
+        // TC-1 补测（2026-09-23）：几何/指针路径已由 jsdom stub 覆盖 —— 测试内按实例
+        // stub `getBoundingClientRect`（非零宽度）并派发**原生** wheel/pointer 事件，
+        // 故缩放 / 拖拽选区 / 右键平移 / 视图过滤全部可断言。阈值按实测留 1~2 点余量。
+        "src/components/Trajectory/TrajectoryTimeline.tsx": {
+          lines: 99, // 实测 100（补测前 40.33）
+          statements: 95, // 实测 96.55
+          functions: 99, // 实测 100
+          branches: 91, // 实测 92.68
+        },
+        "src/components/common/JsonTree.tsx": {
+          lines: 95, // 实测 95.83
+          statements: 95, // 实测 96.29
+          functions: 100,
+          branches: 90, // 实测 96.29
+        },
+        "src/stores/chat/trajectoryStore.ts": {
+          lines: 82, // 实测 82.53（补测前 68.25）
+          statements: 80, // 实测 81.33
+          functions: 100,
+          branches: 68, // 实测 68.75
+        },
+      },
+    },
   },
 });

@@ -268,3 +268,81 @@ describe('YieldResumer（A1-e 恢复判定与收敛）', () => {
     expect(yieldSettlementListeners.length).toBe(listenerCount - 1);
   });
 });
+
+/**
+ * B1-1（P0-1 / I1）：并发结算的**单胜者**语义。
+ *
+ * 修复前 `handleYieldSettlement` 的判定→恢复临界区跨 2 个 `await`
+ * （`await latestTurn` + `await resumeHandler`），且无 in-flight 去重标记
+ * ⇒ 两路并行批次结算各自通过判定、各自调 `resumeHandler`：
+ * **父会话被恢复两次、起两个并发 turn**。
+ *
+ * 修复后：`YieldRegistry.claim()` 是**无 await 的同步 CAS**，只有一路能认领成功。
+ */
+describe('YieldResumer：B1-1 并发结算单胜者', () => {
+  beforeEach(() => {
+    resetYieldRegistry();
+    setYieldResumeHandler(null);
+  });
+
+  afterEach(() => {
+    resetYieldRegistry();
+    setYieldResumeHandler(null);
+    yieldSettlementListeners.length = 0;
+  });
+
+  test('两路并发结算 ⇒ resumeHandler 恰好调用 1 次', async () => {
+    const registry = getYieldRegistry();
+    registry.register({
+      sessionId: 's1',
+      turn: 5,
+      toolCallId: 'c1',
+      yieldedAt: 100,
+    });
+
+    let calls = 0;
+    setYieldResumeHandler(async () => {
+      calls += 1;
+      // 制造在飞行窗口：让第二路在认领已被占后仍能跑到判定
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      return { ok: true };
+    });
+
+    const [first, second] = await Promise.all([
+      handleYieldSettlement(
+        { sessionId: 's1', endedAt: 200 },
+        makeDeps({ latestTurn: () => 5 })
+      ),
+      handleYieldSettlement(
+        { sessionId: 's1', endedAt: 200 },
+        makeDeps({ latestTurn: () => 5 })
+      ),
+    ]);
+
+    expect(calls).toBe(1); // 修复前为 2
+    expect([first, second].filter(Boolean)).toHaveLength(1);
+    expect(registry.isWaiting('s1')).toBe(false);
+  });
+
+  test('认领失败一律不触发 handler（引用不等 / 非 waiting）', async () => {
+    const registry = getYieldRegistry();
+    const stale = registry.register({
+      sessionId: 's1',
+      turn: 5,
+      toolCallId: 'c-old',
+      yieldedAt: 100,
+    });
+    // 同会话被新一轮 yield 覆盖 ⇒ 旧引用的认领必须被拒
+    registry.register({
+      sessionId: 's1',
+      turn: 6,
+      toolCallId: 'c-new',
+      yieldedAt: 150,
+    });
+
+    expect(registry.claim('s1', stale)).toBe(false);
+    expect(registry.claim('s1')).toBe(true); // 新条目可被认领
+    expect(registry.get('s1')).toBeUndefined(); // 认领后不再可见（防二次认领）
+    expect(registry.claim('s1')).toBe(false);
+  });
+});

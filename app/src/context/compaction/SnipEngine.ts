@@ -10,6 +10,8 @@ import {
   ensureTrailingUserMessage,
   stripUnpairedToolCalls,
   stripUnpairedToolResults,
+  // D1（2026-09-21）：按工具轮裁剪会**跨段切断配对**，需要请求侧的严格收敛
+  sanitizeToolCallPairs,
 } from './toolPairIntegrity';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('context:compaction:snip');
@@ -18,18 +20,30 @@ export interface SnipEngineOptions {
   keepHeadTurns?: number;
   keepTailTurns?: number;
   enabled?: boolean;
+  /**
+   * D1（2026-09-21）：agentic 兜底 —— 用户轮次不足时改按**工具轮**裁剪，
+   * 保留首/尾各 N 个工具轮。
+   */
+  keepHeadToolRounds?: number;
+  keepTailToolRounds?: number;
 }
 
 export interface SnipResult {
   messages: ChatMessage[];
   applied: boolean;
   turnsSnipped: number;
+  /** D1：本次按工具轮裁掉的轮数（未走该路径时为 0） */
+  toolRoundsSnipped?: number;
 }
 
 const DEFAULT_OPTIONS: Required<SnipEngineOptions> = {
   keepHeadTurns: 2,
   keepTailTurns: 4,
   enabled: true,
+  // D1：首 2 轮（任务的"开场探查"）+ 尾 8 轮（当前进展/最近结论）——尾部权重更大，
+  // 因为 agentic 任务的**当前状态**几乎总在尾部（真机 75 工具轮的会话即如此）。
+  keepHeadToolRounds: 2,
+  keepTailToolRounds: 8,
 };
 
 /** 单条消息最大字符数：超过则截断（防单条巨大 tool_result/system 消息撑爆窗口，轮次裁剪无效场景） */
@@ -139,8 +153,115 @@ function groupByTurns(messages: ChatMessage[]): number[][] {
   return turns;
 }
 
+/* ===================================================================
+ * D1（2026-09-21）：按**工具轮**裁剪 —— agentic 会话的零成本降 token 通道
+ *
+ * 问题：`groupByTurns` 以 **user 消息**切轮，默认 `2 + 4 = 6` 轮才开始动刀；
+ * 而 agentic 会话的体量由**工具轮**贡献（真机实证：226 消息 / 75 工具轮 /
+ * user 轮次极少）⇒ 门禁恒成立 ⇒ `applied:false` ⇒ 每次压缩都升级 Tier3（一次 LLM 调用），
+ * 连下方"超长消息截断"也被同一道门禁挡在外面。
+ *
+ * 本节提供兜底：轮次不足时改按工具轮裁首/尾、丢中段，合成 `<snip-boundary>` 占位。
+ * 仅在"原实现直接放弃"的分支内生效 ⇒ 既有 user 轮裁剪行为完全不变。
+ * =================================================================== */
+
+/** 工具轮起点 = 带 `tool_calls` 的 assistant 消息（一次 LLM 决策 + 其工具结果） */
+function isToolRoundStart(msg: ChatMessage): boolean {
+  const toolCalls = (msg as unknown as Record<string, unknown>).tool_calls as
+    | Array<{ id?: string }>
+    | undefined;
+  return msg.role === 'assistant' && (toolCalls?.length ?? 0) > 0;
+}
+
+/**
+ * 按工具轮切段：`[0]` = **前导段**（system + 当前 user 指令 + 首个工具轮之前的消息，不裁），
+ * `[1..]` = 各工具轮（起点为带 tool_calls 的 assistant，延续到下一个起点之前）。
+ */
+function splitByToolRounds(messages: ChatMessage[]): ChatMessage[][] {
+  const segments: ChatMessage[][] = [];
+  let current: ChatMessage[] = [];
+  for (const msg of messages) {
+    if (isToolRoundStart(msg)) {
+      segments.push(current); // 前导段 / 上一轮收口
+      current = [msg];
+      continue;
+    }
+    current.push(msg);
+  }
+  segments.push(current); // 末段（含无工具轮时的"全量前导段"）
+  return segments;
+}
+
+/** 工具轮裁剪的边界占位（含"可重查"指引，降低信息损失） */
+function createToolRoundBoundary(
+  roundsSnipped: number,
+  opts: Required<SnipEngineOptions>
+): string {
+  return `<snip-boundary>
+  为控制上下文体积，已裁剪中间的 ${roundsSnipped} 个工具调用轮次（保留最早 ${opts.keepHeadToolRounds} 轮 + 最近 ${opts.keepTailToolRounds} 轮）。
+  被裁剪部分是已完成的工具调用与其结果；若当前任务需要其中的内容，请重新读取相关文件或重新检索，不要凭记忆臆测。
+</snip-boundary>`;
+}
+
+/**
+ * D1：按工具轮裁剪。工具轮数不足（≤ 首+尾）⇒ `applied:false`（不臆造、不制造"裁了但没省"）。
+ */
+function snipByToolRounds(
+  messages: ChatMessage[],
+  opts: Required<SnipEngineOptions>
+): SnipResult {
+  const segments = splitByToolRounds(messages);
+  const rounds = segments.length - 1;
+  if (rounds <= opts.keepHeadToolRounds + opts.keepTailToolRounds) {
+    return { messages, applied: false, turnsSnipped: 0, toolRoundsSnipped: 0 };
+  }
+
+  const headEnd = 1 + opts.keepHeadToolRounds; // segments[0] 为前导段
+  const tailStart = Math.max(
+    headEnd,
+    segments.length - opts.keepTailToolRounds
+  );
+  const snipped = rounds - opts.keepHeadToolRounds - opts.keepTailToolRounds;
+
+  let result: ChatMessage[] = [
+    ...segments.slice(0, headEnd).flat(),
+    {
+      role: 'user',
+      content: createToolRoundBoundary(snipped, opts),
+    } as unknown as ChatMessage,
+    ...segments.slice(tailStart).flat(),
+  ];
+  // 跨段裁剪会**切断配对**：尾部首条可能是被裁掉那条 assistant 的 tool 结果
+  // （孤立 tool 结果同样被上游 400）⇒ 用请求侧严格收敛兜底（与 R6 同一函数）。
+  result = sanitizeToolCallPairs(result);
+  result = truncateOverlongMessages(result);
+  result = ensureTrailingUserMessage(result);
+
+  logger.info('compaction:triggered', {
+    tier: 2,
+    reason: 'agentic_tool_rounds',
+    toolRoundsSnipped: snipped,
+    keepHeadToolRounds: opts.keepHeadToolRounds,
+    keepTailToolRounds: opts.keepTailToolRounds,
+    beforeCount: messages.length,
+    afterCount: result.length,
+  });
+
+  return {
+    messages: result,
+    applied: true,
+    turnsSnipped: 0,
+    toolRoundsSnipped: snipped,
+  };
+}
+
 /**
  * Tier 2 轮次裁剪：保留头部 + 尾部轮次，裁剪中间
+ *
+ * D1（2026-09-21）两处调整：
+ *  ① **超长截断提前到门禁之前** —— 它零 LLM、与轮次裁剪无关，原实现在门禁之后，
+ *    被 `turns.length <= 6` 一起挡掉（"单条巨大 tool_result"场景永不生效）；
+ *  ② 门禁失败时**不再直接放弃**，改走 `snipByToolRounds`（agentic 兜底）。
  */
 export function snipMessages(
   messages: ChatMessage[],
@@ -152,9 +273,23 @@ export function snipMessages(
     return { messages, applied: false, turnsSnipped: 0 };
   }
 
-  const turns = groupByTurns(messages);
+  // ① 超长消息截断（门禁之前）：逐条头尾截断，纯同步零 LLM。
+  // `applied` 语义 = "本次对本数组产生了改动" ⇒ 截断生效时也如实上报（调用方据此决定
+  // 是否写回会话，见 compactSessionInBackground 的 `if (!result.applied) return false`）。
+  const prepared = truncateOverlongMessages(messages);
+  const truncatedChanged = prepared.some((msg, idx) => msg !== messages[idx]);
+
+  const turns = groupByTurns(prepared);
   if (turns.length <= opts.keepHeadTurns + opts.keepTailTurns) {
-    return { messages, applied: false, turnsSnipped: 0 };
+    // ② agentic 兜底
+    const byToolRounds = snipByToolRounds(prepared, opts);
+    if (byToolRounds.applied) return byToolRounds;
+    return {
+      messages: prepared,
+      applied: truncatedChanged,
+      turnsSnipped: 0,
+      toolRoundsSnipped: 0,
+    };
   }
 
   // 收集保留的索引
@@ -185,9 +320,9 @@ export function snipMessages(
       : 0;
 
   const result: ChatMessage[] = [];
-  for (let i = 0; i < messages.length; i++) {
+  for (let i = 0; i < prepared.length; i++) {
     if (keepIndices.has(i)) {
-      result.push(messages[i]);
+      result.push(prepared[i]);
     }
     // 在 head 最后一条之后插入边界标记
     if (i === headLastIdx && turnsSnipped > 0) {
@@ -225,8 +360,7 @@ export function snipMessages(
 
   let cleaned = stripUnpairedToolCalls(result, pairedResultIds);
   cleaned = stripUnpairedToolResults(cleaned, pairedCallIds);
-  // 项2：单条超长消息截断（轮次裁剪后的补充，防单条巨大消息撑爆窗口）
-  cleaned = truncateOverlongMessages(cleaned);
+  // 项2 的超长截断已在进入本路径前统一做过（`prepared`）——此处不再重复扫描
   cleaned = ensureTrailingUserMessage(cleaned);
 
   logger.info('compaction:triggered', {

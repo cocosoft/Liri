@@ -5,6 +5,10 @@
  */
 import fs from 'fs';
 import path from 'path';
+import {
+  enterPhase,
+  exitPhase,
+} from '@modules/diagnostics/loopProbe/phaseStack';
 
 /**
  * 搜索文档
@@ -63,11 +67,26 @@ export class FTS5SearchEngine {
   private config: FTSConfig;
   /** 索引自上次落盘后是否有变更（P2-18 修复：无变更时跳过全量写盘） */
   private isDirty: boolean = false;
+  /**
+   * R7（2026-09-21）：变更代际计数 —— 与 `isDirty` 同时递增。
+   *
+   * 用途：落盘改为**异步**后，"序列化期间又发生变更"成为可能；写盘结束时按
+   * `dirtySeq` 是否变化决定能否清 `isDirty`，避免把写入期间的新变更一并抹掉。
+   */
+  private dirtySeq: number = 0;
+  /** R7：落盘重入保护（异步写盘未完成时跳过本 tick，`isDirty` 保持待下轮） */
+  private saving: boolean = false;
   /** L7：累计文档 content 长度（getStats 增量计数，消除 O(n) 遍历） */
   private totalLength: number = 0;
 
   constructor(config?: Partial<FTSConfig>) {
     this.config = { ...DEFAULT_CONFIG, ...config };
+  }
+
+  /** R7：标记索引已变更（`isDirty` + 代际递增的唯一入口） */
+  private touchDirty(): void {
+    this.isDirty = true;
+    this.dirtySeq++;
   }
 
   /**
@@ -93,7 +112,7 @@ export class FTS5SearchEngine {
       this.invertedIndex.get(token)!.add(doc.id);
     }
 
-    this.isDirty = true;
+    this.touchDirty();
   }
 
   /**
@@ -209,7 +228,7 @@ export class FTS5SearchEngine {
       docIds.delete(docId);
     }
 
-    this.isDirty = true;
+    this.touchDirty();
   }
 
   /**
@@ -262,7 +281,7 @@ export class FTS5SearchEngine {
     this.documents.clear();
     this.invertedIndex.clear();
     this.totalLength = 0;
-    this.isDirty = true;
+    this.touchDirty();
   }
 
   /**
@@ -331,37 +350,118 @@ export class FTS5SearchEngine {
   }
 
   /**
-   * 持久化索引到磁盘
-   * @param filePath 文件路径
+   * 持久化索引到磁盘（R7，2026-09-21：**异步 + 分片让出 + 原子替换**）
+   *
+   * **修复前**：`Array.from(...)` 全量物化 + **单次** `JSON.stringify`（该文件实测
+   * **260.8MB**）+ `fs.writeFileSync` —— 全程在主线程同步执行，由
+   * `SessionGateway.startFTSIndexPersistence()` 的 `setInterval(60_000)` 驱动。
+   * 真机证据：`Event Loop 滞后 37520ms / 28335ms / 39217ms`（13:20 / 14:07 / 14:32），
+   * 三次的 `memRssMb` 均 ≈5GB 而 `heapUsedMb` 仅 ≈1.2GB（差额即序列化中间体），
+   * 同秒前端上报 `Failed to fetch` / `请求超时 (30000ms)`。
+   *
+   * **修复后**：
+   *  ① 分片序列化 —— 逐词条产出，攒够 ~1MB 写一次并 `setImmediate` **让出事件循环**
+   *   （最大连续阻塞从"整个索引"降到"单片的字符串化"）；
+   *  ② `fs.promises` + 先写临时文件再 `rename` **原子替换**（不会留下半截索引）；
+   *  ③ 重入保护：上一次未写完 ⇒ 本次 tick 直接返回（`isDirty` 保持，下轮再试）；
+   *  ④ 代际保护：写入期间有新变更（`dirtySeq` 变化）⇒ **不清** `isDirty`。
+   *
+   * 一致性说明：分片期间索引可能被并发修改（异步让出所致），写出的文件可能"某词条
+   * 缺失 / 引用已被删除的文档"—— 前者只是该轮检索不到（下轮重写即恢复），后者由
+   * `search()` 的 `if (!doc) continue`（L135-136）安全跳过，故不会读到坏数据。
+   *
+   * @returns 是否真的写了盘（未变更 / 重入跳过 ⇒ false）
    */
-  saveToDisk(filePath?: string): void {
-    // P2-18 修复：索引无变更时跳过全量序列化写盘，避免每 60s 无条件写放大
-    if (!this.isDirty) return;
+  async saveToDisk(filePath?: string): Promise<boolean> {
+    enterPhase('fts:saveToDisk');
+    try {
+      // P2-18：索引无变更时跳过全量序列化写盘，避免每 60s 无条件写放大
+      if (!this.isDirty) return false;
+      if (this.saving) return false; // ③ 重入保护
 
-    const target = filePath ?? this.config.dbPath;
-    if (!target) {
-      throw new Error(
-        'FTS5SearchEngine.saveToDisk: 未提供 dbPath，索引持久化路径缺失'
-      );
+      const target = filePath ?? this.config.dbPath;
+      if (!target) {
+        throw new Error(
+          'FTS5SearchEngine.saveToDisk: 未提供 dbPath，索引持久化路径缺失'
+        );
+      }
+      const dir = path.dirname(target);
+      const seqAtStart = this.dirtySeq;
+      const tmpPath = `${target}.tmp-${process.pid}`;
+
+      this.saving = true;
+      try {
+        if (!fs.existsSync(dir)) {
+          fs.mkdirSync(dir, { recursive: true });
+        }
+        const handle = await fs.promises.open(tmpPath, 'w');
+        try {
+          let buffer = '';
+          let pieces = 0;
+          for await (const piece of this.serializeChunks()) {
+            buffer += piece;
+            pieces++;
+            // 攒满 ~1MB 或每 200 片写一次 → 让出事件循环（避免长同步块）
+            if (buffer.length >= 1 << 20 || pieces >= 200) {
+              await handle.write(buffer);
+              buffer = '';
+              pieces = 0;
+              await new Promise<void>((resolve) => setImmediate(resolve));
+            }
+          }
+          if (buffer.length > 0) {
+            await handle.write(buffer);
+          }
+        } finally {
+          await handle.close();
+        }
+        // ② 原子替换：loadFromDisk 只会看到"旧完整文件"或"新完整文件"
+        await fs.promises.rename(tmpPath, target);
+        // ④ 写入期间无新变更 ⇒ 才算"已落盘"；否则保留下轮写
+        if (this.dirtySeq === seqAtStart) {
+          this.isDirty = false;
+        }
+        return true;
+      } catch (err) {
+        // 清理半截临时文件（内存索引不受影响；下次 tick 会重试）
+        try {
+          await fs.promises.unlink(tmpPath);
+        } catch {
+          // @ignore-catch: 临时文件可能未创建（open 失败）或已被 rename
+        }
+        throw err;
+      } finally {
+        this.saving = false;
+      }
+    } finally {
+      exitPhase('fts:saveToDisk');
     }
-    const dir = path.dirname(target);
+  }
 
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
+  /**
+   * R7：分片序列化（与既有落盘格式**逐字节等价**：`{documents:[[id,doc]…],
+   * invertedIndex:[[term,[ids]…]…]}`，仅把"一次性拼装"改为逐条产出）。
+   *
+   * 逐条 `JSON.stringify` 单个词条 ⇒ 单次 CPU 时间与词条大小同阶（微秒级），
+   * 配合调用方的让出点，把 28–39s 的单次阻塞拆成大量可忽略的小块。
+   */
+  private async *serializeChunks(): AsyncGenerator<string> {
+    yield '{"documents":[';
+    let first = true;
+    for (const entry of this.documents.entries()) {
+      yield (first ? '' : ',') + JSON.stringify(entry);
+      first = false;
     }
-
-    const data = {
-      documents: Array.from(this.documents.entries()),
+    yield '],"invertedIndex":[';
+    first = true;
+    for (const [key, values] of this.invertedIndex.entries()) {
       // CS05（2026-09-18）：Set 不能直接 JSON.stringify（序列化为 {}），
       // 落盘前转数组，保证 loadFromDisk 可正确恢复（曾致索引文件损坏后
       // loadFromDisk 崩溃，中断 ensureSessionsLoaded 使历史会话不显示）。
-      invertedIndex: Array.from(this.invertedIndex.entries()).map(
-        ([key, values]) => [key, Array.from(values)]
-      ),
-    };
-
-    fs.writeFileSync(target, JSON.stringify(data), 'utf-8');
-    this.isDirty = false;
+      yield (first ? '' : ',') + JSON.stringify([key, Array.from(values)]);
+      first = false;
+    }
+    yield ']}';
   }
 
   /**
@@ -396,7 +496,7 @@ export class FTS5SearchEngine {
       // 旧版 saveToDisk 直接 stringify Set 所致）。跳过损坏词条并标记
       // dirty，循环后从 documents 全量重建索引，避免索引缺失。
       if (!Array.isArray(values)) {
-        this.isDirty = true;
+        this.touchDirty();
         continue;
       }
       this.invertedIndex.set(key, new Set(values));
@@ -412,7 +512,7 @@ export class FTS5SearchEngine {
       (this.documents.size > 0 && this.invertedIndex.size === 0)
     ) {
       this.rebuildIndexFromDocuments();
-      this.isDirty = true;
+      this.touchDirty();
     }
   }
 

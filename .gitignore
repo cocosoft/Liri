@@ -87,7 +87,8 @@ app/help/
 conversation-*.txt
 share-*.md
 test_write.txt
-dev_docs/
+# 用 `dev_docs/*`（子项式）而非 `dev_docs/`：父目录整体排除会让子目录的 `!` 反排除失效（2026-09-23 实测）
+dev_docs/*
 app/check-exports.js
 app/debug-*.ts
 app/debug_tools.*
@@ -165,8 +166,9 @@ CJL_REF/
 # 例外：文档（`api-spec.md` 等历史上已跟踪；保持新文档同样可见）
 !.trae/docs/
 # Exclude specific dev_docs
-# （dev_docs/ 保持忽略：2026-09-23 实测 1144 文件 / 87MB 本地分析产物，属有意排除）
-dev_docs/
+# （dev_docs/ 整体保持忽略：2026-09-23 实测 1144 文件 / 87MB 本地分析产物，属有意排除；
+#   仅放行 `error_repairs/` —— 规则指定的"发现即记录"目的地，见文件末尾的反排除）
+dev_docs/*
 app/data/
 app/.test_exports/
 app/output.txt
@@ -219,6 +221,10 @@ temp_url2.txt
 test.txt
 dev_docs/*
 REF/*
+# 例外（必须放在所有 `dev_docs/*` 规则之后，gitignore 以"最后匹配者胜"）：
+# `error_repairs/` 是 .trae/rules 指定的「发现即记录」目的地（预存错误与待处理问题.md），
+# 若不入库则该制度在版本层面不成立（2026-09-23）。其余 dev_docs 内容仍全部忽略。
+!dev_docs/error_repairs/
 
 # 临时会话去重备份与一次性脚本
 app/scripts/session-dedup-backup-*.jsonl

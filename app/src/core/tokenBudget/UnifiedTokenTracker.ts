@@ -29,10 +29,7 @@ import {
   calibrationStats,
   createCalibrationState,
 } from './tokenCalibration';
-import type {
-  CalibrationHost,
-  CalibrationState,
-} from './tokenCalibration';
+import type { CalibrationHost, CalibrationState } from './tokenCalibration';
 
 // D1（2026-09-23）：**不再**订阅 trace-recording 的 usage（`traces/` 已降级为观测层，
 // 不可作业务判据）。校准数据源收敛为 `metric/timing` 事件载荷，由调用方直接喂入

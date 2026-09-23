@@ -120,7 +120,8 @@ export function applyUsageSample(
     return;
   }
   const oldFactor = state.factor;
-  state.factor = CALIBRATION_ALPHA * raw + (1 - CALIBRATION_ALPHA) * state.factor;
+  state.factor =
+    CALIBRATION_ALPHA * raw + (1 - CALIBRATION_ALPHA) * state.factor;
   state.applied++;
   // 持久化校准因子（按模型，重启后直接恢复，无需重新学习）
   persistCalibrationFactor(model || host.currentModel(), state.factor);

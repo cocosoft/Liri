@@ -157,12 +157,13 @@ UI_REF/
 CJL_REF/
 
 # 项目规则文件
-.trae/
-# 例外：Specs 必须与代码同生命周期（见 .trae/rules/development-workflow.md 的 Spec-Driven 要求）
-# ⇒ 不能整目录忽略，否则新建 Spec 永远不会进版本控制（2026-09-23 实测：git ls-files .trae/specs = 0）。
-# 注：其余 `.trae/` 内容（如 rules 之外的本地状态）仍保持忽略。
+# ⚠️ 必须写 `.trae/*` 而非 `.trae/`：**父目录被整体排除时 git 不会进入该目录，子目录的 `!` 反排除会失效**
+#（2026-09-23 实测：写成 `.trae/` 时 `.trae/specs/` 仍被忽略 ⇒ Specs 永远进不了版本控制）
+.trae/*
+# 例外：Specs 必须与代码同生命周期（Spec-Driven 要求）
 !.trae/specs/
-!.trae/specs/**
+# 例外：文档（`api-spec.md` 等历史上已跟踪；保持新文档同样可见）
+!.trae/docs/
 # Exclude specific dev_docs
 # （dev_docs/ 保持忽略：2026-09-23 实测 1144 文件 / 87MB 本地分析产物，属有意排除）
 dev_docs/

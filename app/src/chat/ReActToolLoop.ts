@@ -2257,22 +2257,26 @@ export class ReActToolLoop extends ReActLoop<
    *
    * 把"哪些终止会落 Goal"从 `if` 分支的**物理位置**改为**从终止原因派生**（与 D5 同构的修法）。
    *
-   * ⚠️ 仍**仅** `loop_detected` 落 Goal（`GoalTurnReason` 语义为"这一轮为何没进展"，
-   * 会推进 `no_progress_streak`、达阈值把目标打成终态 `failed`）。把 `max_turns` /
-   * `budget_exhausted` / `error` / `aborted` 也映射进来会**混淆语义**（例如"用户主动停止"
-   * 不是"无进展"），属需单独裁决的范围 —— 详见修复计划 §六 F2-3 的待裁决说明。
+   * ⚠️ 落 Goal 的**语义边界**（二期 N2，2026-09-23）：
+   * - `loop_detected` ⇒ `turn_error`：**真·无进展**，推进 `no_progress_streak`（达阈值 ⇒ 终态 `failed`）；
+   * - `max_turns` / `timeout` / `budget_exhausted` / `error` / `aborted` ⇒ 走 N2 新增的
+   *   **只记录**原因码（`turn_limit` / `turn_timeout` / `turn_budget_exhausted` /
+   *   `turn_interrupted` / `user_aborted`）：**不改状态、不计无进展、不触发 idle 续接**
+   *   —— 它们都不是"无进展"，混入计数会把目标误判为失败，`user_aborted` 更会与用户意图相反。
    */
   private settleTerminalState(): void {
     if (this._terminalSettled) return;
     this._terminalSettled = true;
 
     const reason = this.getTerminationReason();
-    // P1-2（B2-4，2026-09-23）：轮级熔断（loopDetected / maxRepeatedRounds）**落 Goal**
-    // —— 此前只有批次级熔断会落目标状态（缺口 X10）⇒ 目标层看不到"这一轮为何停下"。
-    // 未达阈值落 `blocked`（可恢复）、连续 3 次 ⇒ 终态 `failed`（D7：阈值与批次级同源）。
-    // 注：触发条件与原实现一致（达 maxIterations 时**不**落 Goal —— 判别器优先级如此）。
-    if (reason === 'loop_detected') {
-      this.settleGoalForTurnDetached('turn_error');
+
+    // P1-2（B2-4，2026-09-23）+ 二期 N2：**把"哪些终止落 Goal"从 `if` 分支的物理位置改为
+    // 从终止原因派生**（与 D5 同构的修法）。
+    // - `loop_detected` ⇒ `turn_error`：既有语义 —— **推进** `no_progress_streak`，达阈值落终态；
+    // - 其余非完成原因 ⇒ N2 新增的**只记录**原因码（不改状态、不计数、不触发 idle 续接）。
+    const goalReason = this.mapTerminationToGoalReason(reason);
+    if (goalReason) {
+      this.settleGoalForTurnDetached(goalReason);
     }
 
     // 二期 F2-5（治 N3）：`max_turns` 与 `loop_detected` 同时命中时，循环检测信号此前被
@@ -2285,6 +2289,44 @@ export class ReActToolLoop extends ReActLoop<
         iteration: this.state.iteration,
         maxIterations: this.config.maxIterations,
       });
+    }
+  }
+
+  /**
+   * 二期 N2（2026-09-23 修复计划 §六）：终止原因 ⇒ 目标层原因码（`null` = 正常完成，无需落目标）。
+   *
+   * 映射原则：**语义等价才共用原因码**。`loop_detected` 表示"真·无进展"（推进
+   * `no_progress_streak`）；其余四类在语义上都不是"无进展" ⇒ 走"只记录"路径。
+   * `compaction_stalled` 不在此表 —— 它由 `onIncompleteTurn` 直接落（压缩停滞的判点在那里）。
+   */
+  private mapTerminationToGoalReason(
+    reason: TerminationReason
+  ): GoalTurnReason | null {
+    switch (reason) {
+      case 'loop_detected':
+        return 'turn_error';
+      case 'max_turns':
+        return 'turn_limit';
+      case 'timeout':
+        return 'turn_timeout';
+      case 'budget_exhausted':
+        return 'turn_budget_exhausted';
+      case 'error':
+        return 'turn_interrupted';
+      case 'aborted':
+        return 'user_aborted';
+      // 正常完成 / 其余子类专属 stop reason：不落目标
+      case 'completed':
+      case 'verifier_escalate':
+      case 'diminishing_returns':
+        return null;
+      default: {
+        // 穷尽断言：新增 TerminationReason 成员而未在此映射 ⇒ 编译失败
+        const exhaustive: never = reason;
+        throw new Error(
+          `reactToolLoop:unhandled goal turn reason (${String(exhaustive)})`
+        );
+      }
     }
   }
 

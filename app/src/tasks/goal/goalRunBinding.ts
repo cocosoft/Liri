@@ -243,8 +243,27 @@ export async function settleGoalForRun(params: {
   };
 }
 
-/** 轮级收口的原因码（P1-2 熔断 / P1-4 压缩停滞，Spec §5.6） */
-export type GoalTurnReason = 'turn_error' | 'compaction_stalled';
+/**
+ * 轮级收口的原因码（P1-2 熔断 / P1-4 压缩停滞，Spec §5.6）。
+ *
+ * 二期 N2（2026-09-23 修复计划 §六）扩展：新增五个**只记录、不计数**的原因码
+ * —— 它们在语义上都不是"无进展"，不得混入 `no_progress_streak`（详见 `settleGoalForTurn`）。
+ */
+export type GoalTurnReason =
+  | 'turn_error'
+  | 'compaction_stalled'
+  // 以下为"只记录、不推进无进展计数"类（二期 N2）
+  | 'turn_limit'
+  | 'turn_timeout'
+  | 'turn_budget_exhausted'
+  | 'turn_interrupted'
+  | 'user_aborted';
+
+/** 会推进 `no_progress_streak`（＝真·无进展）的轮级原因；其余走"只记录"路径（二期 N2） */
+const NO_PROGRESS_TURN_REASONS: ReadonlySet<GoalTurnReason> = new Set([
+  'turn_error',
+  'compaction_stalled',
+]);
 
 export interface GoalTurnSettlement {
   goalId: string;
@@ -289,6 +308,22 @@ export async function settleGoalForTurn(params: {
   const active = await store.listActive(sessionId);
   const goal = active[0];
   if (!goal) return null;
+
+  // 二期 N2（2026-09-23 修复计划 §六）：**非"无进展"类终止只记录原因** —— 不改状态、不计数、
+  // 不登记续接。理由：`max_turns` / 超时 / 预算耗尽 / 普通错误 / **用户主动停止** 都不是
+  // "无进展"；混入 `no_progress_streak` 会把目标误判为失败（3 次即终态），而 `user_aborted`
+  // 更会按与用户意图**相反**的方向触发 idle 续接。
+  // 此路径无状态迁移 ⇒ 返回 `null`（不谎报 `blocked`/`failed`），可见性由 `updated_reason` 承载。
+  if (!NO_PROGRESS_TURN_REASONS.has(reason)) {
+    const recorded = await store.recordTurnStopReason(goal.id, reason);
+    logger.info('轮级终止原因已记录（不计无进展、不改状态）', {
+      sessionId: goal.sessionId,
+      goalId: goal.id,
+      reason,
+      recorded,
+    });
+    return null;
+  }
 
   const streak = await store.bumpNoProgressStreak(goal.id);
   if (streak === null) return null; // 已被并发落终态 ⇒ 不谎报计数

@@ -70,6 +70,14 @@ export type TaskGoalUpdateReason =
   | 'stop_threshold'
   | 'turn_error'
   | 'compaction_stalled'
+  // 二期 N2（2026-09-23 修复计划 §六）：**只记录、不计数**的"这一轮为何停下"原因码。
+  // 语义上都不是"无进展" ⇒ 不得混入 `no_progress_streak`（`user_aborted` 更不得
+  // 按用户意图相反地触发 idle 续接）。
+  | 'turn_limit'
+  | 'turn_timeout'
+  | 'turn_budget_exhausted'
+  | 'turn_interrupted'
+  | 'user_aborted'
   | 'manual';
 
 /** 是否为终态 */
@@ -629,6 +637,37 @@ export class TaskGoalStore {
     );
     if (changed === 0) return null;
     return (await this.get(id))?.noProgressStreak ?? null;
+  }
+
+  /**
+   * 二期 N2（2026-09-23 修复计划 §六）：**只记录"这一轮为何停下"** —— 不改状态、不计数。
+   *
+   * 与 `markStatusChanged` 的分工：后者是"状态迁移 + 原因"（参与收口策略）；本方法只写
+   * `updated_reason`（"为何停下"的机器可读面，Spec §3.2），**不推进 `no_progress_streak`、
+   * 不改 status、不触发 idle 续接**。
+   *
+   * 为什么必须独立：`max_turns` / 超时 / 预算耗尽 / 普通错误 / **用户主动停止** 在语义上
+   * 都不是"无进展"；混入 `no_progress_streak` 会让目标被误判为失败（3 次即终态），
+   * `user_aborted` 更会按与用户意图**相反**的方向触发续接。
+   *
+   * 条件更新限定"未终结目标"（与 `bumpNoProgressStreak` 同口径）⇒ 终态目标不写、不谎报。
+   *
+   * @returns 是否真的写入（目标已终结 / 不存在 ⇒ false）
+   */
+  async recordTurnStopReason(
+    id: string,
+    reason: TaskGoalUpdateReason
+  ): Promise<boolean> {
+    await this.init();
+    const terminal = [...TASK_GOAL_TERMINAL_STATUSES];
+    const placeholders = terminal.map(() => '?').join(', ');
+    const changed = await this.run(
+      `UPDATE ${TASK_GOALS_TABLE}
+         SET updated_reason = ?, updated_at = ?
+       WHERE id = ? AND status NOT IN (${placeholders})`,
+      [reason, Date.now(), id, ...terminal]
+    );
+    return changed > 0;
   }
 
   /** 删除目标（物理删除；仅测试与显式清理使用，长程任务应走终态而非删除） */

@@ -672,6 +672,54 @@ describe('settleGoalForTurn：轮级收口与续接有界（V12 / P1-4 / D7）',
     expect(taskIds).toHaveLength(NO_PROGRESS_STOP_THRESHOLD - 1);
   });
 
+  test('二期 N2：只记录类原因（user_aborted）⇒ 不改状态、不计无进展、不登记续接，但原因可见', async () => {
+    const store = makeStore();
+    const taskIds = makeScheduler();
+    const goal = await store.create({
+      objective: '用户喊停',
+      sessionId: 'sess-n2-abort',
+    });
+
+    const r = await settleGoalForTurn({
+      sessionId: 'sess-n2-abort',
+      reason: 'user_aborted',
+      store,
+    });
+
+    // 无状态迁移 ⇒ 不返回 settlement（不谎报 `blocked`/`failed`）
+    expect(r).toBeNull();
+    const after = await store.get(goal.id);
+    expect(after?.status).toBe(goal.status); // 状态不变
+    expect(after?.noProgressStreak).toBe(0); // 不推进无进展计数
+    expect(after?.updatedReason).toBe('user_aborted'); // 可见性：原因已记录
+    // 关键：**用户主动停止不得触发 idle 续接**（否则与用户意图相反）
+    expect(taskIds).toHaveLength(0);
+  });
+
+  test('二期 N2：连续 3+ 次只记录类原因（超时）也不落终态（与无进展计数解耦）', async () => {
+    const store = makeStore();
+    const taskIds = makeScheduler();
+    const goal = await store.create({
+      objective: '反复超时',
+      sessionId: 'sess-n2-timeout',
+    });
+
+    for (let i = 0; i < NO_PROGRESS_STOP_THRESHOLD + 1; i++) {
+      const r = await settleGoalForTurn({
+        sessionId: 'sess-n2-timeout',
+        reason: 'turn_timeout',
+        store,
+      });
+      expect(r).toBeNull();
+    }
+
+    const after = await store.get(goal.id);
+    expect(after?.status).toBe(goal.status); // 仍非终态
+    expect(after?.noProgressStreak).toBe(0); // 无进展计数始终为 0
+    expect(after?.updatedReason).toBe('turn_timeout');
+    expect(taskIds).toHaveLength(0); // 不登记续接
+  });
+
   test('轮级熔断（turn_error）与批次级**共用同一连续计数**（阈值同源，D7）', async () => {
     const store = makeStore();
     const taskIds = makeScheduler();

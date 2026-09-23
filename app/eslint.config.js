@@ -43,7 +43,15 @@ export default [
       '@typescript-eslint/no-non-null-assertion': 'off',
       'no-console': 'error',
       'no-debugger': 'error',
-      'module-registry/no-direct-module-import': 'error',
+      'module-registry/no-direct-module-import': ['error', {
+        // B2-3（2026-09-23）：`tasks/goal/goalTemplates` 是**跨模块共享的纯常量模块**
+        // （零依赖、无实例/无生命周期、不需 ModuleRegistry 管理）⇒ 显式豁免直连。
+        // 动机：`query/TAORLoop` 与 `chat/ReActToolLoop` 的续接文案必须**同源**
+        //（CS01：禁止逐字重复副本），而"续接指令"是文案常量、无法经
+        // `moduleRegistry.resolve<T>()` 在模块初始化期同步取得。
+        // 见 `.trae/specs/goal-entity.md` §5.3.1 #1/#2。
+        allowedPaths: ['\\/goalTemplates$'],
+      }],
       'no-restricted-imports': ['warn', {
         paths: [
           {

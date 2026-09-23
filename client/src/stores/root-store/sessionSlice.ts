@@ -7,6 +7,10 @@
  */
 
 import type { StateCreator } from "zustand";
+// i18n：取 i18next **默认单例**（与 `i18n/index.ts` 同一个实例，启动时已 init）。
+// 刻意不 import `@/i18n`：该模块 import react-i18next，在测试环境与 setup 的
+// `vi.mock("react-i18next")` 工厂形成循环等待（TR-15 实测挂起 >105s）。
+import i18n from "i18next";
 import type { SessionRecord, SessionContext } from "./types";
 import type { RootState } from "./index";
 import {
@@ -194,6 +198,12 @@ export interface SessionSlice {
   /** 会话切换中（UI loading 指示器） */
   switching: boolean;
 
+  /**
+   * 方案 1（渐进 UI）：清空历史进行中的**目标会话数**（0 = 空闲）。
+   * 本地列表已提前清空、批删请求在后台继续 ⇒ 该计数驱动"正在删除 N 个会话…"提示。
+   */
+  clearingCount: number;
+
   // ─── SessionHub 动作 ───
   createSession: (
     moduleType: string,
@@ -254,6 +264,7 @@ export const createSessionSlice: StateCreator<
   isLoading: false,
   chatSessions: [],
   switching: false,
+  clearingCount: 0,
 
   // ─── SessionHub 动作 ────────────────────────────────
 
@@ -1576,70 +1587,92 @@ export const createSessionSlice: StateCreator<
       /* ignore */
     }
 
-    // switching 兜底：被过期的 switch 的 finally 不再重置 switching，此处清掉
-    set({ switching: false, isLoading: true, error: null });
-    try {
-      const { sessionService } = await import("@/services/sessionService");
-      // P2-2 修复：逐个删除 chat 会话，不再调用 clearAll（DELETE /v1/sessions）。
-      // 后端 clearAllSessions 会删除磁盘上所有会话（不限模块），项目会话也在磁盘上，
-      // 前端却只清 Hub 的 chat 记录 → 项目会话数据被误删，前端残留记录点击后
-      // 触发后端"幽灵复活"成空壳。逐个 delete 只影响目标 chat 会话，前后端作用域一致。
-      const targets = get().chatSessions.map((s) => s.id);
-      logger.info("clearAllChatSessions:开始逐个删除 chat 会话", {
-        targetCount: targets.length,
+    // 方案 1（渐进 UI，2026-09-23）：后端批删内部仍是**逐条删除**（实测 ≈0.52s/条，
+    // 734 条约需数分钟）。原实现要等 `batchDelete` 返回才 `set({ chatSessions: [] })`
+    // ⇒ 这几分钟内列表一像素不动，用户体感"点了没反应"。现改为：
+    // ① 先本地清空（列表 + Hub + 消息区）+ 置 `clearingCount` ⇒ 用户立刻看到列表清空；
+    // ② 批删请求交给**后台任务**继续（不阻塞 UI），期间 UI 显示"正在删除 N 个会话…"；
+    // ③ 请求结束：成功复位提示；部分失败如实告警；整体抛错则**回滚重拉**（不留假清空状态）。
+    // A′（2026-09-23）：**作用域 = 前端判定的 id 列表**（消除前后端口径不一致）。
+    // 方案 A（服务端按 `DELETE /v1/sessions?moduleType=chat` 过滤）真机失败：后端过滤键是
+    // `metadata.moduleType`，而存量会话普遍缺失该字段，前端却是自行推导模块类型 ⇒ 两侧口径
+    // 不一致（实测 734 条只删掉 2 条）。A′ 由前端**显式传 id 列表**，后端不做模块推断。
+    const targets = get().chatSessions.map((s) => s.id);
+    if (targets.length === 0) {
+      // 无目标会话：只复位本地状态，不发请求、不置进行中计数
+      logger.info("clearAllChatSessions:无 chat 会话，跳过批删请求", {
+        targetCount: 0,
       });
-      // 阶段2：清空会话前先放弃全部挂起流（stopMessage 只停当前 UI 会话，
-      // 非当前会话的挂起流需在此清理，防止等待者/控制器/ghostCheck 定时器泄漏）
-      await Promise.all(
-        targets.map((id) =>
-          chatCoordinator.abortPausedStream(id).catch(() => {}),
-        ),
-      );
-      await Promise.all(
-        targets.map((id) =>
-          sessionService.delete(id).catch(async (e) => {
-            logger.warn("clearAllChatSessions:删除单个会话失败", {
-              sessionId: id,
-              error: String(e),
-            });
-            const { handleClientError } = await import("@/utils/handleError");
-            handleClientError(
-              e,
-              {
-                module: "stores:sessionSlice",
-                action: "clearAllChatSessions:delete",
-              },
-              "warn",
-            );
-          }),
-        ),
-      );
-      try {
-        await chatCoordinator.clearMessages();
-      } catch {
-        /* ignore */
-      }
-      set({ chatSessions: [], currentSessionId: null, isLoading: false });
-      logger.info("clearAllChatSessions:清空完成", {
-        targetCount: targets.length,
-      });
-
-      // P1: 同步清除 SessionHub 中的 chat 会话（保留其他模块会话）
-      const nonChatSessions = Object.fromEntries(
-        Object.entries(get().sessions).filter(
-          ([, v]) => v.moduleType !== "chat",
-        ),
-      );
-      set({ sessions: nonChatSessions });
-    } catch (error) {
-      const { handleClientError } = await import("@/utils/handleError");
-      handleClientError(
-        error,
-        { module: "stores:sessionSlice", action: "clearAllChatSessions" },
-        "warn",
-      );
-      set({ error: String(error), isLoading: false });
+      set({ switching: false, isLoading: false, error: null });
+      return;
     }
+
+    // 阶段2：清空会话前先放弃全部挂起流（stopMessage 只停当前 UI 会话，
+    // 非当前会话的挂起流需在此清理，防止等待者/控制器/ghostCheck 定时器泄漏）
+    await Promise.all(
+      targets.map((id) =>
+        chatCoordinator.abortPausedStream(id).catch(() => {}),
+      ),
+    );
+
+    // ① 立即清空本地状态：列表 + SessionHub 的 chat 记录（保留其他模块）+ 消息区。
+    // 同时复位 switching（被过期的 switch 的 finally 不再重置 switching）。
+    const nonChatSessions = Object.fromEntries(
+      Object.entries(get().sessions).filter(([, v]) => v.moduleType !== "chat"),
+    );
+    set({
+      chatSessions: [],
+      currentSessionId: null,
+      sessions: nonChatSessions,
+      switching: false,
+      isLoading: false,
+      clearingCount: targets.length,
+      error: null,
+    });
+    try {
+      await chatCoordinator.clearMessages();
+    } catch {
+      /* ignore */
+    }
+    logger.info("clearAllChatSessions:本地已清空，后台继续批删", {
+      targetCount: targets.length,
+    });
+
+    // ② 后台任务：批删请求不阻塞 UI。失败即上抛到本任务的 catch
+    //（不保留"本地清空、磁盘残留"的假状态）
+    void (async () => {
+      try {
+        const { sessionService } = await import("@/services/sessionService");
+        const { deleted, failed } = await sessionService.batchDelete(targets);
+        if (failed > 0) {
+          // 如实记录实际失败数（不掩盖部分失败），并复用既有 toast 通道告知用户
+          logger.warn("clearAllChatSessions:部分会话删除失败", {
+            deleted,
+            failed,
+            targetCount: targets.length,
+          });
+          const { toastWarning } = await import("@/stores/toastStore");
+          toastWarning(i18n.t("chat.clearPartialFailed", { count: failed }));
+        } else {
+          logger.info("clearAllChatSessions:清空完成", {
+            deleted,
+            targetCount: targets.length,
+          });
+        }
+      } catch (error) {
+        const { handleClientError } = await import("@/utils/handleError");
+        handleClientError(
+          error,
+          { module: "stores:sessionSlice", action: "clearAllChatSessions" },
+          "warn",
+        );
+        // 诚实回滚：本地已提前清空，从后端重拉真实列表——若后端确实没删成，列表会重新出现
+        await get().loadChatSessions();
+        set({ error: i18n.t("chat.clearHistoryFailed") });
+      } finally {
+        set({ clearingCount: 0 });
+      }
+    })();
   },
 });
 

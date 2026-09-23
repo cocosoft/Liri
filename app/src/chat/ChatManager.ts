@@ -259,6 +259,8 @@ import {
   rebuildYieldWaitingSet,
   setActiveSubagentRunProbe,
 } from '../session/yield';
+// B1-4 验收缝：仅用于类型标注（启动钩子的可注入实例）
+import type { YieldRegistry, YieldWaitingStore } from '../session/yield';
 // O9/G14：把本实例的 token 追踪器注册到模块级访问器（供摘要预算等跨模块读取"父当前上下文"）
 import { setUnifiedTokenTracker } from '@modules/core/tokenBudget/UnifiedTokenTracker';
 // 阶段 A（A1-e）：yield 恢复通路（子代理结算 → 恢复父会话）
@@ -268,7 +270,11 @@ import {
   replayPendingSettlements,
   // O8⑤（v7.1）：重放投递的续跑正文（模型可见标记）
   buildYieldResumePrompt,
+  // B4-1（2026-09-23）：恢复审计（认领/恢复/放弃）的唯一写入实现
+  setYieldRecoveryAuditSink,
 } from './yield';
+// B1-4 验收缝：仅用于类型标注（启动钩子的可注入实例）
+import type { SettlementOutbox } from './yield/SettlementOutbox';
 // 阶段 A（N-26 修复）：SelfWake 唤醒执行器（fire 时真正唤醒会话）
 import { setSelfWakeResumeHandler } from '../tasks/selfwake/SelfWakeService';
 // M-7 idle 触发续接（2026-09-22）：目标停滞时的自动续跑（识别 + 可续性校验 + 文案）
@@ -276,7 +282,12 @@ import {
   isIdleContinuationTask,
   resolveIdleContinuation,
 } from '../tasks/goal/goalIdleContinuation';
-import { renderGoalTemplate } from '../tasks/goal/goalTemplates';
+import {
+  setGoalEventSink,
+  takeIdleContinuationInstruction,
+} from '../tasks/goal/GoalEvents';
+// X8（2026-09-23，Spec §5.5）：**主会话**用量入账到该会话的未终结目标
+import { chargeSessionGoalUsage } from '../tasks/goal/goalBudget';
 import {
   PlanDrivenLoop,
   classifyTaskComplexity,
@@ -865,6 +876,16 @@ export class ChatManagerImpl implements ChatManager {
         });
       },
     });
+    // B2-2（2026-09-23）：目标生命周期事件落盘 —— 本模块持有会话事件日志，故在此注入
+    // 唯一写入实现（与上方 requestReporter 同一手法；避免 `tasks/` → `chat/` 的反向依赖）。
+    // 目标状态迁移与"注入模型的目标指令"（`goal/injected`）都经此出口落 `events.jsonl`。
+    setGoalEventSink((sid, event) => this.appendStreamEvent(sid, event));
+    // B4-1（2026-09-23）：恢复通路审计落盘 —— 同上手法：本模块持有会话事件日志，
+    // 故在此注入 `YieldRecoveryAudit` 的唯一写入出口（认领/恢复/放弃三条记录）。
+    // 通道为**既有**会话事件日志（`events.jsonl`），不新建审计通道。
+    setYieldRecoveryAuditSink((sid, event) =>
+      this.appendStreamEvent(sid, event)
+    );
     // D 阶段（v5 P0-⑥）：session_summary 自定义类型注册——构造期即执行（早于任何
     // memory scanner/memdir 扫描与压缩触发；registerMemoryType 幂等，重复调用安全）
     registerSessionSummaryMemoryType();
@@ -3404,6 +3425,24 @@ export class ChatManagerImpl implements ChatManager {
     const totalTokens = inputTokens + outputTokens;
     this.tokenBudget.consumeTokens(totalTokens);
 
+    // X8（2026-09-23，Spec §5.5）：**主会话**用量入账到该会话的未终结目标。
+    // **记账与判定解耦**：此处只 fire-and-forget 写库（不 await ⇒ 不改本方法同步签名、
+    // 不阻塞响应）；"触顶 ⇒ 下一轮请求前 steering 收尾"的判定在既有闸门
+    // （`ReActToolLoop.beforeReasoning` 的 `checkBeforeRequest` 处）读库进行 ——
+    // 不在记账处主动发起/唤醒任何请求。
+    // 与 swarm 批次路径（`settleGoalForRun` 记 worker 汇总用量）**不同源、不重复计数**。
+    // 无目标会话 ⇒ `chargeSessionGoalUsage` 立即返回 null（不建行、不写库）。
+    void chargeSessionGoalUsage({
+      sessionId,
+      tokens: totalTokens,
+    }).catch((err) => {
+      // @ignore-catch — 目标用量入账属观测/意图面，失败不得影响用量记账与主流程（CS03）
+      logger.warn('目标用量入账失败（不影响用量记账与主流程）', {
+        sessionId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    });
+
     // TR-12-A（2026-09-22）：请求级用量分桶落事件（含缓存命中/写入，供轨迹"用量"视图）。
     // 本方法是**同步**签名（由管线 ctx 注入调用），故不 await；`appendStreamEvent` 自带
     // try/catch 并返回 `{ok,reason}`，失败只记日志 —— 该事件是**可观测数据**，不是渲染依赖，
@@ -4684,12 +4723,25 @@ export class ChatManagerImpl implements ChatManager {
    * 修复前：装配只在 `streamMessage` / `sendMessage` 入口 ⇒ **无人发消息时
    * `pending` 行永不回放**（O8 台账实为"只写不生效"）。本方法由 `main.ts` 的启动
    * 序列调用（`wrapInit('YieldRecovery', ...)`）。
+   *
+   * B1-4 验收缝（2026-09-22）：`options` 只用于**测试注入**（临时库 / 独立实例，
+   * 见 `tests/chat/bootstrapYieldRecovery.test.ts`）—— 回放链路读的是**进程级单例**，
+   * 共享进程的测试若走单例就会污染真实 `~/.pyapp/data/app.db`。
+   * **不传 `options` ⇒ 逐步退回原有全局单例取值，行为与装配前完全一致**
+   * （`main.ts` 的现网调用点无需改动）。
+   *
+   * @param options 可选注入：`registry` / `store` / `outbox`（缺省取全局单例）
    */
-  async bootstrapYieldRecovery(): Promise<void> {
-    const store = getYieldWaitingStore();
-    getYieldRegistry().setPersistence(store);
+  async bootstrapYieldRecovery(options?: {
+    registry?: YieldRegistry;
+    store?: YieldWaitingStore;
+    outbox?: SettlementOutbox;
+  }): Promise<void> {
+    const registry = options?.registry ?? getYieldRegistry();
+    const store = options?.store ?? getYieldWaitingStore();
+    registry.setPersistence(store);
     try {
-      const restored = await rebuildYieldWaitingSet(store);
+      const restored = await rebuildYieldWaitingSet(store, registry);
       if (restored > 0) {
         logger.info('yield 等待集已重建（启动期）', { restored });
       }
@@ -4697,7 +4749,7 @@ export class ChatManagerImpl implements ChatManager {
       // 重建失败不阻断启动：仅退化为"等待集为空"（与修复前一致）
       logger.warn('yield 等待集重建失败（不阻断启动）', { error: String(err) });
     }
-    this._ensureYieldResumerInstalled();
+    this._ensureYieldResumerInstalled(options?.outbox);
   }
 
   /**
@@ -4710,8 +4762,12 @@ export class ChatManagerImpl implements ChatManager {
    * - `hasActiveRuns`（B1/O1-2）取**子代理引擎 run 台账的会话级**判据：原实现恒 `false`，
    *   使得"同轮并发两批次"时第一批收口即恢复（第二批仍在跑）；改为 `true` 恒真又会把
    *   其他会话的在途 run 算成本会话的 ⇒ 只有按会话取值才既不早恢复也不永久等待。
+   *
+   * B1-4 验收缝（2026-09-22）：`outbox` 仅用于**参数透传**（测试注入临时台账，
+   * 避免回放落到真实 `~/.pyapp/data/app.db`）。不传 ⇒ `replayPendingSettlements`
+   * 走其自身默认值（全局单例），行为不变；置位逻辑（`_yieldResumerInstalled`）不变。
    */
-  private _ensureYieldResumerInstalled(): void {
+  private _ensureYieldResumerInstalled(outbox?: SettlementOutbox): void {
     if (this._yieldResumerInstalled) return;
     this._yieldResumerInstalled = true;
 
@@ -4755,18 +4811,24 @@ export class ChatManagerImpl implements ChatManager {
           goalId: target.goalId,
           streak: target.streak,
         });
-        return this._resumeSessionInternally(
+        // B2-2 / X2（2026-09-23）：续接指令是**模型可见输入**（下方作为 user 消息注入）
+        // ⇒ 渲染与落 `goal/injected{channel:'user_message'}` **成对**且**先落盘**，
+        // 返回的正文即注入正文（§1.6 红线：模型看到了什么必须可重建）。
+        // B2-2 / X4（2026-09-23）：`updated_reason === 'manual'`（目标被 PATCH 显式改过）
+        // ⇒ 续接改用 `objective_updated`（重新对齐新目标），而非 `continue_goal`。
+        // 判定只看**枚举原因码**，不看 objective 文案（CS02）。
+        const continuationText = await takeIdleContinuationInstruction({
           sessionId,
-          renderGoalTemplate('continue_goal', {
-            objective: target.objective,
-            streak: target.streak,
-          }),
-          {
-            systemResume: true,
-            goalId: target.goalId,
-            idleContinuation: true,
-          }
-        );
+          goalId: target.goalId,
+          objective: target.objective,
+          streak: target.streak,
+          realignToObjective: target.updatedReason === 'manual',
+        });
+        return this._resumeSessionInternally(sessionId, continuationText, {
+          systemResume: true,
+          goalId: target.goalId,
+          idleContinuation: true,
+        });
       }
       return this._resumeSessionInternally(
         sessionId,
@@ -4791,10 +4853,13 @@ export class ChatManagerImpl implements ChatManager {
 
     // O8（B5）：装配后**回放**未确认送达的结算信号（崩溃点落在"已结算 → 已恢复"之间）
     // 带 `restored: true` 重投；失败不影响装配本身
-    void replayPendingSettlements({
-      hasActiveRuns,
-      latestTurn: (sid) => this.getStreamMaxTurn(sid),
-    }).catch((err) => {
+    void replayPendingSettlements(
+      {
+        hasActiveRuns,
+        latestTurn: (sid) => this.getStreamMaxTurn(sid),
+      },
+      outbox
+    ).catch((err) => {
       logger.warn('结算信号回放失败', { error: String(err) });
     });
   }

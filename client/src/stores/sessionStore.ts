@@ -17,6 +17,8 @@ interface SessionStore {
   currentSession: Session | null;
   isLoading: boolean;
   switching: boolean;
+  /** 清空历史进行中的目标会话数（0 = 空闲） */
+  clearingCount: number;
   error: string | null;
   loadSessions: () => Promise<void>;
   createSession: (
@@ -40,6 +42,7 @@ function deriveState(root: ReturnType<typeof useRootStore.getState>): {
   currentSession: Session | null;
   isLoading: boolean;
   switching: boolean;
+  clearingCount: number;
   error: string | null;
 } {
   const currentId = root.currentSessionId;
@@ -52,6 +55,7 @@ function deriveState(root: ReturnType<typeof useRootStore.getState>): {
       : null,
     isLoading: root.isLoading,
     switching: root.switching,
+    clearingCount: root.clearingCount ?? 0,
     error: root.error,
   };
 }

@@ -71,10 +71,12 @@ vi.mock("../stores/modelSwitchStore", () => ({
   },
 }));
 
+import i18n from "i18next";
 import { http } from "../services/httpClient";
 import { chatCoordinator } from "../stores/chat/chatCoordinator";
 import { _getCachedMessages } from "../stores/chat";
 import { handleClientError } from "../utils/handleError";
+import { useToastStore } from "../stores/toastStore";
 
 const mockHttp = vi.mocked(http);
 const mockCoordinator = vi.mocked(chatCoordinator);
@@ -505,5 +507,207 @@ describe("project 判定收敛（阶段一 4.2.1）", () => {
     expect(hub?.moduleType).toBe("project");
     expect(hub?.projectId).toBe("proj_1786517089415_ksbi6c");
     expect(hub?.workspaceId).toBe("proj_1786517089415_ksbi6c");
+  });
+});
+
+/** Hub 记录（SessionRecord）最小构造 —— 用于断言"清 chat 记录、保留其它模块" */
+function makeHubRecord(id: string, moduleType: "chat" | "project") {
+  return {
+    id,
+    moduleType,
+    workspaceId: "",
+    title: `会话${id}`,
+    createdAt: 1,
+    updatedAt: 2,
+    context: { moduleType: "chat" as const },
+  };
+}
+
+/** 轮询等待（真实定时器）：后台批删任务跨多个微/宏任务，等状态收敛后再断言 */
+async function waitUntil(
+  predicate: () => boolean,
+  ticks = 50,
+): Promise<boolean> {
+  for (let i = 0; i < ticks; i++) {
+    if (predicate()) return true;
+    await new Promise((r) => setTimeout(r, 0));
+  }
+  return predicate();
+}
+
+describe("方案 1（渐进 UI）：clearAllChatSessions 立即清空 + 后台批删", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetCached.mockReturnValue(null);
+    mockHttp.get.mockResolvedValue({ ok: true, data: [] });
+    mockHttp.post.mockResolvedValue({ ok: true, data: makeSession("default") });
+    useToastStore.setState({ toasts: [] });
+    useTestStore.setState({
+      sessions: {},
+      currentSessionId: null,
+      chatSessions: [],
+      switching: false,
+      isLoading: false,
+      clearingCount: 0,
+      error: null,
+    });
+  });
+
+  it("① 立即清空：批删未返回时列表已为 []、clearingCount = 目标数（Hub 保留非 chat）", async () => {
+    // 批删请求挂起（deferred）——模拟后端的分钟级逐条删除
+    const batch = deferred<{
+      ok: boolean;
+      data: { success: boolean; deleted: number; failed: number };
+    }>();
+    mockHttp.post.mockImplementation((url: string) => {
+      if (url.includes("/v1/sessions/batch-delete")) return batch.promise;
+      return Promise.resolve({ ok: true, data: makeSession("default") });
+    });
+    useTestStore.setState({
+      chatSessions: [makeSession("sess-A"), makeSession("sess-B")],
+      currentSessionId: "sess-A",
+      sessions: {
+        "sess-A": makeHubRecord("sess-A", "chat"),
+        "sess-B": makeHubRecord("sess-B", "chat"),
+        "sess-proj": makeHubRecord("sess-proj", "project"),
+      },
+    });
+
+    await useTestStore.getState().clearAllChatSessions();
+
+    // 关键：批删尚未返回，界面数据已清空 + 进行中计数已置
+    const state = useTestStore.getState();
+    expect(state.chatSessions).toEqual([]);
+    expect(state.currentSessionId).toBeNull();
+    expect(state.clearingCount).toBe(2);
+    // SessionHub：chat 记录清掉，project 记录保留
+    expect(state.sessions["sess-A"]).toBeUndefined();
+    expect(state.sessions["sess-B"]).toBeUndefined();
+    expect(state.sessions["sess-proj"]).toBeDefined();
+
+    // 批删返回后 → 进行中计数复位
+    batch.resolve({
+      ok: true,
+      data: { success: true, deleted: 2, failed: 0 },
+    });
+    await waitUntil(() => useTestStore.getState().clearingCount === 0);
+    expect(useTestStore.getState().clearingCount).toBe(0);
+  });
+
+  it("② 完成后复位：clearingCount = 0 且 batchDelete 以完整 id 列表调用一次", async () => {
+    mockHttp.post.mockImplementation((url: string) =>
+      url.includes("/v1/sessions/batch-delete")
+        ? Promise.resolve({
+            ok: true,
+            data: { success: true, deleted: 2, failed: 0 },
+          })
+        : Promise.resolve({ ok: true, data: makeSession("default") }),
+    );
+    useTestStore.setState({
+      chatSessions: [makeSession("sess-A"), makeSession("sess-B")],
+    });
+
+    await useTestStore.getState().clearAllChatSessions();
+    await waitUntil(() => useTestStore.getState().clearingCount === 0);
+
+    // 1 个请求、完整 id 列表（不逐条）
+    expect(mockHttp.post).toHaveBeenCalledTimes(1);
+    expect(mockHttp.post).toHaveBeenCalledWith("/v1/sessions/batch-delete", {
+      ids: ["sess-A", "sess-B"],
+    });
+    const state = useTestStore.getState();
+    expect(state.clearingCount).toBe(0);
+    expect(state.chatSessions).toEqual([]);
+  });
+
+  it("③ 空列表：不发批删请求、不置进行中计数", async () => {
+    useTestStore.setState({ chatSessions: [] });
+
+    await useTestStore.getState().clearAllChatSessions();
+
+    expect(mockHttp.post).not.toHaveBeenCalled();
+    expect(mockCoordinator.abortPausedStream).not.toHaveBeenCalled();
+    expect(useTestStore.getState().clearingCount).toBe(0);
+  });
+
+  it("④ 批删整体抛错：回滚重拉列表 + error 可读文案 + clearingCount 复位", async () => {
+    // 后端非 ok ⇒ sessionService.batchDelete 抛错（真实模块行为）
+    mockHttp.post.mockImplementation((url: string) => {
+      if (url.includes("/v1/sessions/batch-delete"))
+        return Promise.resolve({
+          ok: false,
+          error: { code: 500, message: "批删失败" },
+        });
+      return Promise.resolve({ ok: true, data: makeSession("default") });
+    });
+    // 回滚时 loadChatSessions 从后端重拉 → 列表重新出现
+    mockHttp.get.mockImplementation((url: string) => {
+      if (url.includes("/sessions/current"))
+        return Promise.resolve({ ok: true, data: null });
+      return Promise.resolve({
+        ok: true,
+        data: [makeSession("sess-A"), makeSession("sess-B")],
+      });
+    });
+    useTestStore.setState({
+      chatSessions: [makeSession("sess-A"), makeSession("sess-B")],
+      currentSessionId: "sess-A",
+    });
+
+    await useTestStore.getState().clearAllChatSessions();
+    // 先本地清空（乐观）
+    expect(useTestStore.getState().chatSessions).toEqual([]);
+
+    await waitUntil(() => useTestStore.getState().clearingCount === 0);
+
+    const state = useTestStore.getState();
+    expect(state.clearingCount).toBe(0);
+    // 诚实回滚：后端确实没删成 ⇒ 列表重新出现（不留"假清空"）
+    expect(state.chatSessions.map((s) => s.id).sort()).toEqual([
+      "sess-A",
+      "sess-B",
+    ]);
+    expect(state.error).toBeTruthy();
+    expect(handleClientError).toHaveBeenCalled();
+  });
+
+  it("⑤ 部分失败（deleted:2 / failed:1）：既有 toast 告警通道反映失败数 + clearingCount 复位", async () => {
+    mockHttp.post.mockImplementation((url: string) =>
+      url.includes("/v1/sessions/batch-delete")
+        ? Promise.resolve({
+            ok: true,
+            data: { success: true, deleted: 2, failed: 1 },
+          })
+        : Promise.resolve({ ok: true, data: makeSession("default") }),
+    );
+    const tSpy = vi.spyOn(i18n, "t");
+    useTestStore.setState({
+      chatSessions: [
+        makeSession("sess-A"),
+        makeSession("sess-B"),
+        makeSession("sess-C"),
+      ],
+    });
+
+    try {
+      await useTestStore.getState().clearAllChatSessions();
+      await waitUntil(
+        () =>
+          useTestStore.getState().clearingCount === 0 &&
+          useToastStore.getState().toasts.length > 0,
+      );
+
+      const warned = useToastStore
+        .getState()
+        .toasts.find((x) => x.type === "warning");
+      expect(warned).toBeDefined();
+      // 告警文案带实际失败数（toast 通道对用户可见）
+      expect(tSpy).toHaveBeenCalledWith("chat.clearPartialFailed", {
+        count: 1,
+      });
+      expect(useTestStore.getState().clearingCount).toBe(0);
+    } finally {
+      tSpy.mockRestore();
+    }
   });
 });

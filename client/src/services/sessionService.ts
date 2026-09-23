@@ -803,6 +803,46 @@ export const sessionService = {
   },
 
   /**
+   * A′（2026-09-23）：按**显式 id 列表**批删会话（`POST /v1/sessions/batch-delete`）。
+   *
+   * 前端"清空历史"由此 1 个请求完成，替代 N 个逐条 `DELETE /v1/sessions/:id`
+   * —— 会话多时逐条会撞浏览器同源 6 连接上限，表现为"点了清不掉"。
+   * 作用域由调用方按 id 判定，后端不做模块推断（消除方案 A 前后端口径不一致）。
+   *
+   * @param ids 待删除会话 id 列表（后端要求：非空数组、元素 `/^[A-Za-z0-9_-]{1,128}$/`、≤5000）
+   * @returns `{ deleted, failed }` 实际删除/失败计数；后端非 ok 时 **抛错**（不静默成功）
+   */
+  batchDelete: async (
+    ids: string[],
+  ): Promise<{ deleted: number; failed: number }> => {
+    return getOTelTracing().asyncWrap(
+      "services:session:batchDelete",
+      async () => {
+        const res = await apiHttp.post<{
+          success?: boolean;
+          deleted?: number;
+          failed?: number;
+        }>("/v1/sessions/batch-delete", { ids });
+        if (!res.ok || res.data?.success !== true) {
+          const msg = (
+            res.data as { error?: { message?: string } } | null | undefined
+          )?.error?.message;
+          logger.warn("批量删除会话失败", {
+            count: ids.length,
+            error: res.error,
+          });
+          throw new Error(msg ?? "批量删除会话失败");
+        }
+        _isUsingFallback = false;
+        return {
+          deleted: res.data?.deleted ?? 0,
+          failed: res.data?.failed ?? 0,
+        };
+      },
+    );
+  },
+
+  /**
    * 删除单条消息
    */
   deleteMessage: async (

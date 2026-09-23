@@ -86,6 +86,12 @@ import {
 } from '../../tasks/swarm/AgentSwarm';
 // M-6/M-7 接线（2026-09-22）：批次收口 ⇒ 落定该会话未终结目标的状态
 import { settleGoalForRun } from '../../tasks/goal/goalRunBinding';
+import { takeBatchGoalInstruction } from '../../tasks/goal/GoalEvents';
+// B3-2（2026-09-23）：注入片段统一类型 —— 通道前缀由类型给出（唯一渲染入口 renderFragment）
+import {
+  renderFragment,
+  type ContextualFragment,
+} from '@modules/context/fragments/ContextualFragment';
 import { enqueueIdleContinuation } from '../../tasks/goal/goalIdleContinuation';
 // R1 修正（2026-09-22）：批次取消注册表改为**进程内单例**（与 `getAgentRunLedger()` 同法）
 import {
@@ -2361,13 +2367,18 @@ export class AgentTool implements Tool {
     // 全通过 ⇒ `completed`、部分成功 ⇒ `blocked`、全失败 ⇒ `failed`、批次取消 ⇒ `cancelled`。
     // M-8 / 停止条件接线（2026-09-22）：目标侧指令（预算收尾 / 停滞停止）
     // —— 下文追加到批次输出 ⇒ 经 tool result 注入 LLM 输入（见 `finalOutput`）。
-    let goalInstruction: string | undefined;
+    // B3-2（2026-09-23）：持有**类型化片段**（而非拼接好的字符串）—— 前缀由片段类型给出。
+    let goalInstruction: ContextualFragment | undefined;
     try {
       const settledGoal = await settleGoalForRun({
         sessionId: context?.sessionId,
         outcome: { allPassed: batchOk, okCount, cancelled: cancelledFact },
         // M-8：批次 worker 真实用量（`AgentSwarm` 汇总；executor 未提供 ⇒ 0，不估算）
         tokens: swarmResult.totalTokens,
+        // B2-4 / X6（2026-09-23）：批次在 `agent_runs` 中的**行 id** —— 本批次自身那行由
+        // `beginRun()` 以 `toolCallId: agentId` 写入（`AgentRunStore` 主键为 `tool_call_id`）
+        // ⇒ 此处传 `agentId` 即"可反查的归属批次行"（Spec §10.2 U4 已核实）。
+        runId: agentId,
       });
       if (settledGoal) {
         logger.info('批次结果已绑定到目标', {
@@ -2378,15 +2389,22 @@ export class AgentTool implements Tool {
         });
         // 触顶收尾（M-8）与停滞停止（停止条件）**互斥**：触顶路径在记账处早返回，
         // 不会同时产出两条指令 ⇒ 此处取其一即可，不拼接多段指令。
-        goalInstruction =
-          settledGoal.closingInstruction ?? settledGoal.stopInstruction;
-        if (goalInstruction) {
-          // 通道复用：tool result 的 `result` 字段会被 `TAORLoop` 序列化为
-          // `role:'tool'` 消息（`TAORLoop.ts:1059-1074`）⇒ 模型下一轮必然读到。
+        //
+        // B2-2 / X2（2026-09-23）：**注入即落盘**（`project_rules.md §1.6` 红线）——
+        // 该指令是模型可见输入（下方写入 tool result ⇒ `TAORLoop` 序列化为 `role:'tool'`），
+        // 故在此处（注入点）取指令并**成对**落 `goal/injected{channel:'tool_result'}`，
+        // 载荷 `text` = 实际注入的原文 ⇒ "模型当时看到了什么"可逐字重建。
+        const injection = await takeBatchGoalInstruction({
+          sessionId: context?.sessionId,
+          settlement: settledGoal,
+        });
+        goalInstruction = injection?.fragment;
+        if (injection) {
           logger.warn('目标侧指令已注入批次输出', {
             goalId: settledGoal.goalId,
             status: settledGoal.status,
-            instruction: goalInstruction,
+            templateKind: injection.templateKind,
+            instruction: injection.text,
           });
         }
 
@@ -2514,8 +2532,10 @@ export class AgentTool implements Tool {
 
     // M-8 / 停止条件接线（2026-09-22）：目标侧指令**注入 LLM 输入**——追加到 tool result 文本。
     // 无指令（未触顶且未停滞）⇒ 输出**逐字不变**，既有格式断言零回归。
+    // B3-2（2026-09-23）：片段类型化 —— 通道前缀 `[SYSTEM] ` 由 `kind:'goal_instruction'` 给出，
+    // 渲染唯一走 `renderFragment()`（拼接结果与迁移前**逐字一致**）。
     const finalOutput = goalInstruction
-      ? `${aggregatedOutput}\n\n[SYSTEM] ${goalInstruction}`
+      ? `${aggregatedOutput}\n\n${renderFragment(goalInstruction)}`
       : aggregatedOutput;
 
     this.emitComplete(

@@ -70,6 +70,13 @@ const ALL_SESSION_EVENT_TYPES = [
   'channel/message',
   // ─── 请求边界（P2-2，2026-09-23） ───
   'request/start',
+  // ─── 目标（Goal）生命周期（B2-2，2026-09-23） ───
+  'goal/created',
+  'goal/updated',
+  'goal/status_changed',
+  'goal/injected',
+  // ─── 子代理恢复通路审计（B4-1，2026-09-23） ───
+  'agent/recovery',
   // ─── 生命周期 ───
   'session/start',
   'session/end',

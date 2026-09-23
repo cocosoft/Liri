@@ -24,6 +24,11 @@ import {
   isValidSessionIdFormat,
 } from '../handler-utils';
 import { getTaskGoalStore } from '@modules/tasks/goal/TaskGoalStore';
+import { isTerminalGoalStatus } from '@modules/tasks/goal/TaskGoalStore';
+import {
+  emitGoalCreated,
+  emitGoalUpdated,
+} from '@modules/tasks/goal/GoalEvents';
 
 /** 解析并校验创建目标的请求体（返回 null 表示已写出错误响应） */
 function parseCreateBody(
@@ -98,6 +103,14 @@ async function handleCreateGoal(
     tokenBudget: parsed.tokenBudget,
     id: parsed.id,
   });
+  // B2-2（2026-09-23）：目标生命周期事件族的第一条 —— 创建成功后落 `goal/created`。
+  // 目标无归属会话（`sessionId` 缺省）⇒ **不产事件**（会话事件无处可落，不硬凑）。
+  await emitGoalCreated({
+    goalId: goal.id,
+    objective: goal.objective,
+    sessionId: goal.sessionId,
+    tokenBudget: goal.tokenBudget,
+  });
   json(res, 201, { goal });
 }
 
@@ -141,6 +154,106 @@ async function handleListGoals(
 }
 
 /**
+ * `PATCH /v1/goals/{id}`（B2-2 / X4，2026-09-23）
+ *
+ * 用途：给 `objective_updated` 模板（§5.3.2）与 `goal/updated` 事件（§4.1）提供**真实来源** ——
+ * 此前只有 POST/GET ⇒ "更新目标"无入口，`updated` 事件永远不会有生产者。
+ *
+ * 契约（`.trae/docs/api-spec.md` §3.8.1）：
+ * - body `{ objective?: string（trim 非空）, tokenBudget?: number（正有限数） }`，
+ *   至少一项 ⇒ 否则 **400**；
+ * - 目标不存在 ⇒ **404**；**已是终态 ⇒ 409**（终态不可改写，`project_rules.md §1.1` 同源口径）；
+ * - 成功 ⇒ **200** + `{ goal }`；**只列真实变更项**落 `goal/updated`，并写
+ *   `updated_reason = 'manual'`（下次 idle 续接据此改用 `objective_updated` 模板）；
+ * - 无实际变更（值与现状相同）⇒ 200 但**不写库、不产事件**（不谎报"更新了"）。
+ */
+async function handlePatchGoal(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  goalId: string
+): Promise<void> {
+  let body: Record<string, unknown>;
+  try {
+    body = JSON.parse((await readBody(req)) || '{}') as Record<string, unknown>;
+  } catch {
+    json(res, 400, { error: { message: '请求体不是合法 JSON' } });
+    return;
+  }
+
+  const hasObjective = body['objective'] !== undefined;
+  const hasBudget = body['tokenBudget'] !== undefined;
+  if (!hasObjective && !hasBudget) {
+    json(res, 400, {
+      error: { message: '至少需提供 objective 或 tokenBudget 之一' },
+    });
+    return;
+  }
+
+  let objective: string | undefined;
+  if (hasObjective) {
+    objective =
+      typeof body['objective'] === 'string' ? body['objective'].trim() : '';
+    if (!objective) {
+      json(res, 400, { error: { message: 'objective 不能为空' } });
+      return;
+    }
+  }
+  let tokenBudget: number | undefined;
+  if (hasBudget) {
+    const raw = body['tokenBudget'];
+    if (typeof raw !== 'number' || !Number.isFinite(raw) || raw <= 0) {
+      json(res, 400, { error: { message: 'tokenBudget 必须为正有限数' } });
+      return;
+    }
+    tokenBudget = raw;
+  }
+
+  const store = getTaskGoalStore();
+  const before = await store.get(goalId);
+  if (!before) {
+    json(res, 404, { error: { message: `目标 ${goalId} 不存在` } });
+    return;
+  }
+  if (isTerminalGoalStatus(before.status)) {
+    json(res, 409, {
+      error: {
+        message: `目标 ${goalId} 已是终态（${before.status}），不可改写`,
+      },
+    });
+    return;
+  }
+
+  // **只列真实变更项**（值未变 ⇒ 不算变更，不写库、不产事件）
+  const changes: { objective?: string; tokenBudget?: number } = {};
+  if (objective !== undefined && objective !== before.objective) {
+    changes.objective = objective;
+  }
+  if (tokenBudget !== undefined && tokenBudget !== before.tokenBudget) {
+    changes.tokenBudget = tokenBudget;
+  }
+  if (Object.keys(changes).length === 0) {
+    json(res, 200, { goal: before });
+    return;
+  }
+
+  const updated = await store.updateFields(goalId, changes, 'manual');
+  if (!updated) {
+    // 条件更新未命中（并发下落终态）⇒ 与"已是终态"同口径回 409，不谎报成功
+    json(res, 409, {
+      error: { message: `目标 ${goalId} 已不可改写（终态）` },
+    });
+    return;
+  }
+  await emitGoalUpdated({
+    sessionId: updated.sessionId,
+    goalId: updated.id,
+    changes,
+    reason: 'manual',
+  });
+  json(res, 200, { goal: updated });
+}
+
+/**
  * dispatchGoalRoutes — 目标领域路由分发
  * @returns true 表示已匹配并处理，false 表示未匹配
  */
@@ -154,15 +267,22 @@ export async function dispatchGoalRoutes(
   const method = req.method || 'GET';
   const [path] = url.split('?');
 
-  if (path !== '/v1/goals') return false;
-
   try {
-    if (method === 'POST') {
-      await handleCreateGoal(req, res);
-      return true;
+    if (path === '/v1/goals') {
+      if (method === 'POST') {
+        await handleCreateGoal(req, res);
+        return true;
+      }
+      if (method === 'GET') {
+        await handleListGoals(req, res);
+        return true;
+      }
+      return false;
     }
-    if (method === 'GET') {
-      await handleListGoals(req, res);
+    // `/v1/goals/{id}`（B2-2 / X4）：仅 PATCH（改写目标陈述 / 预算）
+    const match = /^\/v1\/goals\/([^/]+)$/.exec(path);
+    if (match && method === 'PATCH') {
+      await handlePatchGoal(req, res, decodeURIComponent(match[1]));
       return true;
     }
   } catch (err) {

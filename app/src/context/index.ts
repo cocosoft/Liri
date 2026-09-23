@@ -97,7 +97,19 @@ export {
   parseContextLimitFromError,
   calibrateContextWindow,
 } from './window/ContextWindowResolver';
-export type { CompactionContext } from './compaction/CompactionOrchestrator';
+export type {
+  CompactionContext,
+  CompactionFailure,
+  CompactionOutcome,
+} from './compaction/CompactionOrchestrator';
+
+// B3-2（2026-09-23）：注入型提示统一类型（前缀由类型给出，唯一渲染入口 renderFragment）
+export {
+  createFragment,
+  renderFragment,
+  type ContextualFragment,
+  type FragmentKind,
+} from './fragments/ContextualFragment';
 export { asyncContextStorage } from './AsyncContextStorage';
 
 // 2026-08-31 A1：发送前消息投影（对标 PilotDeck MessageProjector）

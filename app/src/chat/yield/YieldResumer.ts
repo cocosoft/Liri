@@ -14,6 +14,7 @@
  */
 
 import { getLogger } from '@modules/monitoring';
+import { withPhase } from '@modules/diagnostics/loopProbe/phaseStack';
 import { getYieldRegistry, YIELD_STATUS_RESUMED } from '../../session/yield';
 import {
   yieldSettlementListeners,
@@ -22,6 +23,7 @@ import {
   type YieldSettlementSignal,
 } from './YieldSettlementBridge';
 import { getSettlementOutbox, type SettlementOutbox } from './SettlementOutbox';
+import { recordYieldRecovery } from './YieldRecoveryAudit';
 
 const logger = getLogger('chat:yield:resumer');
 
@@ -100,7 +102,10 @@ export async function handleYieldSettlement(
     return false;
   }
 
-  if (!resumeHandler) {
+  // 取局部快照：模块级 `resumeHandler` 是可变绑定，进入闭包后 TS 的收窄会失效
+  // （B4-2 把调用包进 `withPhase` 的箭头函数后暴露）⇒ 显式捕获，语义与判定顺序不变。
+  const handler = resumeHandler;
+  if (!handler) {
     // 未装配：保持等待（不 resolve、不 abandon）——装配缺失应可观测而非静默
     logger.warn('yield 恢复未装配：等待保留', {
       sessionId: signal.sessionId,
@@ -114,6 +119,9 @@ export async function handleYieldSettlement(
   // 通过判定 ⇒ 修复前 `resumeHandler` 被调用两次（父会话恢复两次、起两个并发 turn）。
   // 此处认领是唯一的互斥闸门：`claim()` 无 await ⇒ 只有一路成功。
   // 注：认领放在"未装配 handler"检查**之后** —— 否则未装配时会留下永久 claimed 条目。
+  //
+  // B4-1：认领是恢复通路的**第一个可判定节点** ⇒ 落一条审计（`action:'claim'`）。
+  // 写入放在同步 CAS **之后**（载荷反映真实的认领结果，不是"打算认领"）。
   if (!registry.claim(signal.sessionId, entry)) {
     logger.warn('yield 等待已被其他路径认领，本路放弃', {
       sessionId: signal.sessionId,
@@ -122,17 +130,30 @@ export async function handleYieldSettlement(
     });
     return false;
   }
+  await recordYieldRecovery({
+    sessionId: signal.sessionId,
+    action: 'claim',
+    outcome: 'claimed',
+    turn: entry.turn,
+    toolCallId: entry.toolCallId,
+    restored: signal.restored === true,
+  });
 
   try {
-    const result = await resumeHandler({
-      sessionId: signal.sessionId,
-      turn: entry.turn,
-      toolCallId: entry.toolCallId,
-      // O8⑤：重放投递带可见标记（`restored`）—— 恢复可能此前已发生过
-      reason: signal.restored
-        ? YIELD_SETTLEMENT_RESTORED_REASON
-        : 'subagents_settled',
-    });
+    // B4-2（2026-09-23）：恢复执行器调用是恢复期的**主阻塞点**（内部消费一次
+    // `streamMessage`：模型调用 + 落盘）⇒ 包相位 `yield:resume`，
+    // 使"恢复期卡住"可归因（`loopProbe` 的 phase 列表与 `summary.md` 逐条输出）。
+    const result = await withPhase('yield:resume', () =>
+      handler({
+        sessionId: signal.sessionId,
+        turn: entry.turn,
+        toolCallId: entry.toolCallId,
+        // O8⑤：重放投递带可见标记（`restored`）—— 恢复可能此前已发生过
+        reason: signal.restored
+          ? YIELD_SETTLEMENT_RESTORED_REASON
+          : 'subagents_settled',
+      })
+    );
     if (result.ok) {
       // P0-3（M-3 配套修复）：`resolve()` 的返回值**必须判定**。
       // 返回 false = 该登记已被新一轮 yield 取代（引用不等）或已不在表中 ⇒ **未真正记账**；
@@ -148,8 +169,26 @@ export async function handleYieldSettlement(
           entryTurn: entry.turn,
           endedAt: signal.endedAt,
         });
+        // B4-1：动作已发生但**未达成目标** ⇒ 审计记 `failed` + 原因（结果可判定）
+        await recordYieldRecovery({
+          sessionId: signal.sessionId,
+          action: 'resume',
+          outcome: 'failed',
+          turn: entry.turn,
+          toolCallId: entry.toolCallId,
+          error: 'not_recorded',
+        });
         return false;
       }
+      // B4-1：恢复是**第二个可判定节点**（`resolved` 记账成功才算真的恢复）
+      await recordYieldRecovery({
+        sessionId: signal.sessionId,
+        action: 'resume',
+        outcome: 'resumed',
+        turn: entry.turn,
+        toolCallId: entry.toolCallId,
+        restored: signal.restored === true,
+      });
       logger.info('yield 等待已收敛：会话已恢复', {
         sessionId: signal.sessionId,
         turn: entry.turn,
@@ -158,6 +197,15 @@ export async function handleYieldSettlement(
     }
     // 恢复失败：作废登记（避免父会话永久停留等待态）
     registry.abandon(signal.sessionId, entry);
+    // B4-1：放弃是**第三个可判定节点** ⇒ 审计记 `abandoned` + 原因
+    await recordYieldRecovery({
+      sessionId: signal.sessionId,
+      action: 'abandon',
+      outcome: 'abandoned',
+      turn: entry.turn,
+      toolCallId: entry.toolCallId,
+      error: result.error ?? 'unknown',
+    });
     logger.warn('yield 恢复失败，等待已作废', {
       sessionId: signal.sessionId,
       error: result.error ?? 'unknown',
@@ -165,6 +213,15 @@ export async function handleYieldSettlement(
     return false;
   } catch (err) {
     registry.abandon(signal.sessionId, entry);
+    // B4-1：异常路径同样是"放弃" ⇒ 与失败分支同一条审计（原因取异常文本）
+    await recordYieldRecovery({
+      sessionId: signal.sessionId,
+      action: 'abandon',
+      outcome: 'abandoned',
+      turn: entry.turn,
+      toolCallId: entry.toolCallId,
+      error: String(err),
+    });
     logger.warn('yield 恢复抛错，等待已作废', {
       sessionId: signal.sessionId,
       error: String(err),
@@ -188,6 +245,55 @@ export function installYieldResumer(deps: YieldResumerDeps): () => void {
     const index = yieldSettlementListeners.indexOf(listener);
     if (index >= 0) yieldSettlementListeners.splice(index, 1);
   };
+}
+
+/**
+ * B4-3（2026-09-23）：**注入式崩溃点**的种类（方案 §5-B4-3 v2.2）。
+ *
+ * 位置都在"**结算写入 → `markDelivered`**"之间：
+ * - `after-persist`：结算已写入台账（行仍 `pending`）、**投递尚未发生**（`claim` 之前）；
+ * - `after-ack`：投递已返回（**恢复可能已发生**）、台账尚未确认（`markDelivered` 之前）。
+ *
+ * ⚠ 本环境**无法用 OS 信号精确死在指定点**（Windows 只有 `taskkill /F /PID`，
+ * 无法保证恰好死在某一语句之间）⇒ 崩溃点**由 hook 决定，非 OS 信号**：
+ * hook 抛错即模拟"进程在此刻断电"，抛出后该行不会被推进到 `delivered`，
+ * 盘上留下的状态就是重启后能看到的现场（用例据此断言）。
+ */
+export type SettlementCrashPoint = 'after-persist' | 'after-ack';
+
+/** 崩溃点上下文（供用例断言/记录） */
+export interface SettlementCrashInfo {
+  /** 台账行 id */
+  outboxId: number;
+  sessionId: string;
+  endedAt: number;
+}
+
+type SettlementCrashHook = (
+  point: SettlementCrashPoint,
+  info: SettlementCrashInfo
+) => void | Promise<void>;
+
+let crashHook: SettlementCrashHook | null = null;
+
+/**
+ * 装配/复位崩溃点 hook（**仅测试使用**；生产恒为 `null`）。
+ *
+ * 生产不调用本函数 ⇒ `runSettlementCrashPoint` 退化为一次布尔判定（零行为变化）。
+ */
+export function setSettlementCrashHookForTest(
+  hook: SettlementCrashHook | null
+): void {
+  crashHook = hook;
+}
+
+/** 到达崩溃点即调用 hook（未装配 ⇒ 直接返回；hook 抛错**不捕获** —— 那就是"断电"） */
+async function runSettlementCrashPoint(
+  point: SettlementCrashPoint,
+  info: SettlementCrashInfo
+): Promise<void> {
+  if (!crashHook) return;
+  await crashHook(point, info);
 }
 
 /**
@@ -218,21 +324,39 @@ export async function replayPendingSettlements(
   if (candidates.length === 0) return 0;
 
   for (const row of candidates) {
-    const claimed = await outbox.claim(row.id);
-    if (!claimed) continue; // 超上限 ⇒ 已被转 dropped
-    const ack = await handleYieldSettlement(
-      { sessionId: row.sessionId, endedAt: row.endedAt, restored: true },
-      deps
-    );
-    if (ack) {
-      await outbox.markDelivered(row.id);
-      delivered++;
-    } else {
-      await outbox.markFailed(
-        row.id,
-        '回放未获 ack（无等待登记或判定不可恢复）'
+    // B4-2（2026-09-23）：**单条回放**是一个可归因单元（认领 → 投递 → 落定）
+    // ⇒ 包相位 `yield:replay`；其内层还会有 `yield:claim`（台账认领）/
+    // `yield:resume`（恢复执行器）/ `yield:state`（台账落定），嵌套关系由活跃栈给出。
+    // 顺序与并发语义**不变**（仍未逐行串行 await；相位栈无 I/O）。
+    await withPhase('yield:replay', async () => {
+      // B4-3：崩溃点①（结算已落台账、投递尚未发生 ⇒ 行仍 `pending`）
+      await runSettlementCrashPoint('after-persist', {
+        outboxId: row.id,
+        sessionId: row.sessionId,
+        endedAt: row.endedAt,
+      });
+      const claimed = await outbox.claim(row.id);
+      if (!claimed) return; // 超上限 ⇒ 已被转 dropped
+      const ack = await handleYieldSettlement(
+        { sessionId: row.sessionId, endedAt: row.endedAt, restored: true },
+        deps
       );
-    }
+      // B4-3：崩溃点②（投递已返回、台账尚未确认 —— 恢复可能已发生）
+      await runSettlementCrashPoint('after-ack', {
+        outboxId: row.id,
+        sessionId: row.sessionId,
+        endedAt: row.endedAt,
+      });
+      if (ack) {
+        await outbox.markDelivered(row.id);
+        delivered++;
+      } else {
+        await outbox.markFailed(
+          row.id,
+          '回放未获 ack（无等待登记或判定不可恢复）'
+        );
+      }
+    });
   }
 
   logger.info('结算回放完成', {

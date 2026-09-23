@@ -39,6 +39,7 @@ import {
 } from '../chat-handlers';
 import {
   handleAddSessionMessage,
+  handleBatchDeleteSessions,
   handleClearAllSessions,
   handleCompactSession,
   handleCreateSession,
@@ -282,6 +283,15 @@ export async function dispatchChatSessionRoutes(
     const sid = requireSessionId(url, /^\/v1\/sessions\/(.+)\/compact$/, res);
     if (sid === null) return true;
     await handleCompactSession(handlerCtx, req, res, sid);
+    return true;
+  }
+  // A′（2026-09-23）：按显式 id 列表批删（前端"清空历史"用 1 个请求替代 N 个逐条 DELETE）。
+  // 注册位置与 `POST /v1/sessions/prune` 同级、且在**任何带 :id 的通配 POST 路由之前**：
+  // 本文件中所有 POST 通配均为「前缀 + 固定后缀」形式（/messages、/switch、/title、/compact、
+  // /fork 等），`/v1/sessions/batch-delete` 不会与它们中的任何一个匹配；此处的精确匹配
+  // `url === ...` 更是零歧义（route-table 中本分发器即首个消费者，无更早的通配截流）。
+  if (method === 'POST' && url === '/v1/sessions/batch-delete') {
+    await handleBatchDeleteSessions(handlerCtx, req, res);
     return true;
   }
   // P2-22 修复：后端 pruneNow 为全量修剪（无单会话实现），原路由带 :id 造成

@@ -19,21 +19,24 @@
  *（不抛错、不静默清空 —— 便于在日志里看出"哪个参数漏传"）。
  */
 
-/** 既有四条续接指令的变体（键与 `ReActToolLoop.onIncompleteTurn` 的 `kind` 一一对应） */
+/** 续接指令的变体（键与 `ReActToolLoop.onIncompleteTurn` 的 `kind` 一一对应） */
 export type ContinuationVariant =
   | 'empty'
   | 'reasoning'
   | 'planning'
-  | 'truncated';
+  | 'truncated'
+  | 'resume_agent';
 
 /**
  * 续接指令模板（**逐字迁移**自 `ReActToolLoop.ts:103-111`，不得在此擅自改文案）。
  *
- * 四条各自的语义边界：
+ * 各条各自的语义边界：
  * - `empty`：整轮没有任何可见产出；
  * - `reasoning`：只产出了推理、没有可见答案；
  * - `planning`：只描述了计划、没有行动；
- * - `truncated`：输出被 `max_tokens` 截断（最常见的"任务中断"伪装）。
+ * - `truncated`：输出被 `max_tokens` 截断（最常见的"任务中断"伪装）；
+ * - `resume_agent`（B2-3 收尾迁移，2026-09-23）：**恢复被暂停的子代理**时拼进系统提示的
+ *   续跑指示（原为 `AgentTool/ResumeAgent.reconstructSystemPrompt` 内的硬编码，Spec §5.3.1 #3）。
  */
 export const CONTINUATION_TEMPLATES: Record<ContinuationVariant, string> = {
   empty:
@@ -44,6 +47,8 @@ export const CONTINUATION_TEMPLATES: Record<ContinuationVariant, string> = {
     'The previous assistant turn only described the plan. Do not restate the plan. Act now: take the first concrete tool action you can. If a real blocker prevents action, reply with the exact blocker in one sentence.',
   truncated:
     'Your previous output was cut off by the output length limit before it finished. Do NOT restate anything you already wrote and do NOT re-enter reasoning. Continue directly from where the output stopped: if you were about to call tools, emit the tool calls now; otherwise finish your visible answer concisely.',
+  resume_agent:
+    'Continue from where you left off. You have access to the full conversation history above.',
 };
 
 /** 长程任务专用模板 */
@@ -51,7 +56,8 @@ export type GoalTemplateKind =
   | 'budget_limit'
   | 'objective_updated'
   | 'progress_stalled'
-  | 'continue_goal';
+  | 'continue_goal'
+  | 'tool_execution_errors';
 
 /**
  * 目标级策略模板（codex 对位：`budget_limit.md` / `objective_updated.md`）。
@@ -62,7 +68,11 @@ export type GoalTemplateKind =
  * - `progress_stalled`：**连续多批未达成**（停止条件成立）⇒ 停止推进并如实汇报阻塞，
  *   不静默把目标长期挂在 `blocked`（那会让它被反复选中续推而不收敛）；
  * - `continue_goal`：**idle 触发续接**（`continue_if_idle` 等价物）—— 目标仍未终结且
- *   会话已空闲 ⇒ 要求"从当前状态继续推进；若确有阻塞则一句话说明，不要另起新工作"。
+ *   会话已空闲 ⇒ 要求"从当前状态继续推进；若确有阻塞则一句话说明，不要另起新工作"；
+ * - `tool_execution_errors`（B2-3 收尾迁移，2026-09-23）：**批量工具执行阶段抛异常**时
+ *   注入的收尾指示（原为 `TAORLoop` 内的硬编码模板串，Spec §5.3.1 #2）。带 `{{count}}`
+ *   占位（异常的工具调用条数），**不含** `[SYSTEM] ` 前缀 —— 该前缀是注入通道标记，
+ *   由注入点拼装（与 `ReActToolLoop.onIncompleteTurn` 同口径，Spec §5.3.1 #4）。
  */
 export const GOAL_TEMPLATES: Record<GoalTemplateKind, string> = {
   budget_limit:
@@ -73,6 +83,8 @@ export const GOAL_TEMPLATES: Record<GoalTemplateKind, string> = {
     'This goal made no progress for {{streak}} consecutive batches (objective: "{{objective}}"). Stop attempting new work on it now. Reply with: (1) what was completed, (2) what specifically is blocking progress, (3) what the user must decide or provide. Do NOT start another batch.',
   continue_goal:
     'The unfinished goal is still open (objective: "{{objective}}"; no progress for {{streak}} consecutive batches). Continue working toward it from the current state: take the next concrete action now. Do NOT restart work that is already done. If a real blocker prevents progress, reply with the exact blocker in one sentence instead of starting new work.',
+  tool_execution_errors:
+    '上一轮 {{count}} 个工具调用在执行阶段发生异常，请告知用户遇到了什么问题，并根据当前已完成的部分给出总结或建议下一步操作。',
 };
 
 /** 可渲染的模板键（续接变体 ∪ 目标模板） */

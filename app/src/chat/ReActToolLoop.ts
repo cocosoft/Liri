@@ -23,6 +23,8 @@
  */
 
 import { ReActLoop, EXTERNAL_FETCH_TOOLS } from '@modules/query';
+// 二期 F2-1（2026-09-23 修复计划 §六）：终止原因类型（单一来源 = ReActLoop 判别器）
+import type { TerminationReason } from '@modules/query';
 import { createErrorRecoveryManager } from '@modules/query';
 import { createPathGuard } from '@modules/query';
 import type {
@@ -49,9 +51,22 @@ import {
   enterPhase,
   exitPhase,
 } from '@modules/diagnostics/loopProbe/phaseStack';
+// B3-2（2026-09-23）：注入片段统一类型 —— 通道前缀由类型给出（唯一渲染入口 renderFragment）
+import {
+  createFragment,
+  renderFragment,
+} from '@modules/context/fragments/ContextualFragment';
 import { registerYieldFromResults } from '../session/yield';
 // M-7（2026-09-22）：续接指令文案**单一来源**（原为本文件内 4 个硬编码常量，逐字迁移）
 import { CONTINUATION_TEMPLATES } from '../tasks/goal/goalTemplates';
+// P1-2 / P1-4（B2-4，2026-09-23）：轮级熔断 / 压缩停滞 ⇒ **落 Goal**（目标层可见"为何停下"）。
+// 注意：`tasks/` 不是 `chat/`，此处不构成"反向层依赖"（与 goalTemplates 同向）。
+import {
+  settleGoalForTurn,
+  type GoalTurnReason,
+} from '../tasks/goal/goalRunBinding';
+// X8（2026-09-23，Spec §5.5）：主会话预算触顶 ⇒ 下一轮请求前经 steering 注入收尾指令
+import { injectMainSessionBudgetWrapUp } from '../tasks/goal/goalBudget';
 import { prepareToolResultsForContext } from '@modules/tools';
 import {
   ensureThinkResponseTags,
@@ -113,6 +128,24 @@ const PLANNING_ONLY_RE =
 
 /** 延时工具（v3：交互心跳轮询用；文件此前无定义，直接使用会编译报错） */
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+
+/**
+ * 一期 F1-2（2026-09-23 修复计划）："provider 未报结束原因"的统一哨兵值。
+ *
+ * 此前同一事实在三个位置有不同取值（诊断日志 `?? 'unknown'`、助手消息落库
+ * `|| 'stop'`），噪声污染可观测性；现收敛为单一取值。取 `'unknown'` 而非 `'stop'`
+ * ——后者会把"未知"谎报为"正常结束"（与 AB-3 既有修复方向一致）。
+ */
+const UNKNOWN_FINISH_REASON = 'unknown';
+
+/**
+ * 一期 F1-1（2026-09-23 修复计划）："未返回任何可见信息即终止"的兜底文案。
+ *
+ * 系统生成的**事实性提示**（非模型产出，CS04）：只陈述"本轮无可见回复"这一事实，
+ * 不臆断具体成因（输出被截断 / 空回复重试耗尽 / 压缩失败均可能），并给出可操作建议。
+ */
+const EMPTY_OUTPUT_FALLBACK_TEXT =
+  '\n\n⚠️ 本次未能生成回复（模型本轮未产出可见内容，可能因输出被截断或空回复重试已达上限）。请重发消息或换个问法重试。';
 
 /**
  * 安全序列化（遗漏 3，2026-08-14 复查）：
@@ -224,6 +257,22 @@ export class ReActToolLoop extends ReActLoop<
     planning: 0,
     truncated: 0,
   };
+  /**
+   * 二期 F2-0/F2-2（2026-09-23 修复计划 §六）：本轮因**外部拦停**（超时）而未执行的
+   * tool_calls 数量（0 = 无）。
+   *
+   * 用途：把"这批调用已被丢弃"**显式告知**（结构化日志 + 收尾文案），修复
+   * "`shouldContinue` 说停、`onIncompleteTurn` 又因'有工具调用'拒收 ⇒ 无人认领、
+   * 静默消失"这一**两侧判据相反**的缺陷。
+   */
+  private droppedToolCallsAtStop = 0;
+  /**
+   * 二期 F2-3（2026-09-23 修复计划 §六）：终止副作用（落 Goal）**幂等守卫**。
+   *
+   * `finalize()` 每轮至少被调用 2 次（`run()` 的 return 值 + `getAssistantMessage()`）
+   * ⇒ 守卫从"防御性"变为"必要性"（N1）。
+   */
+  private _terminalSettled = false;
   /** 截断续接重试的 maxTokens 放大标记（2026-09-03）：onIncompleteTurn truncated 分支置位，
    *  下一轮 reason 的 LLM 调用把输出预算放大到 base×4（封顶 64K），避免"重试仍被截断"空转。 */
   private _boostNextReasonMaxTokens = false;
@@ -587,6 +636,26 @@ export class ReActToolLoop extends ReActLoop<
     } catch {
       // 压缩/截断失败不阻断工具循环（@ignore-catch，CS03）
     }
+
+    // X8（2026-09-23，Spec §5.5）：**主会话预算触顶 ⇒ 下一轮请求前经 steering 注入收尾指令**。
+    // 一个**独立的、幂等的检查**（与 compression / token 预算决策无关，不改其既有行为）：
+    // - **开销极小**：读库一次；该会话无"已触顶且尚未报告"的目标 ⇒ 立即返回；
+    // - **幂等**：认领走 `budget_limit_reported_at` 的单条条件 UPDATE（`changes` 判首次）
+    //   ⇒ 至多注入一次，跨进程/重启亦然（不用内存 flag）；
+    // - **形态 = steering**：正文进 `steeringQueue`，骨架在**下一轮 reason 前**注入
+    //   （`ReActLoop` 的 steering 消费点）⇒ 正是"下一轮请求前"，且**不主动发起新请求**（软停）。
+    try {
+      await injectMainSessionBudgetWrapUp({
+        sessionId: this.ctx.session.id,
+        steer: (text) => this.queueSteering(text),
+      });
+    } catch (err) {
+      // @ignore-catch — 收尾注入属"意图面"，读库/注入失败不得中断本轮推理（CS03）
+      logger.warn('reactToolLoop:budget_wrapup_inject_failed', {
+        sessionId: this.ctx.session.id,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
   }
 
   // ─── 抽象方法 ──────────────────────────────────────
@@ -787,7 +856,7 @@ export class ReActToolLoop extends ReActLoop<
         finishReason:
           (response as { finishReason?: string }).finishReason ??
           (response as { stop_reason?: string }).stop_reason ??
-          'unknown',
+          UNKNOWN_FINISH_REASON,
       });
     }
 
@@ -805,7 +874,7 @@ export class ReActToolLoop extends ReActLoop<
       const existingMsg = this.loopState.assistantMessage;
       existingMsg.content = repairedContent;
       existingMsg.finishReason =
-        resp.finishReason || resp.stop_reason || 'stop';
+        resp.finishReason || resp.stop_reason || UNKNOWN_FINISH_REASON;
       if (response.tool_calls?.length) {
         existingMsg.metadata = {
           ...existingMsg.metadata,
@@ -837,7 +906,7 @@ export class ReActToolLoop extends ReActLoop<
         }
       );
       assistantMsg.finishReason =
-        resp.finishReason || resp.stop_reason || 'stop';
+        resp.finishReason || resp.stop_reason || UNKNOWN_FINISH_REASON;
       if (response.tool_calls?.length) {
         assistantMsg.metadata = {
           ...assistantMsg.metadata,
@@ -867,12 +936,17 @@ export class ReActToolLoop extends ReActLoop<
       // 修复（2026-09-03）：保留真实终止原因而非无 tool_calls 一律改写 'stop'——
       // 输出被 max_tokens 截断时上层（onIncompleteTurn）依赖该信号决定"续接重试"，
       // 改写为 'stop' 会让"截断中断"伪装成"正常结束"，任务半途而废（用户感知"才提要求就中断"）。
+      // 一期 F1-2（2026-09-23）：**取消"有 tool_calls 就覆盖"的分支优先级**——那种覆盖
+      // 恰恰吃掉了上面这条修复要保住的截断信号（"被截断 + 只吐出半个 tool_calls"是最常见
+      // 形态）。现约定：provider 真实值优先（不覆盖）；"本轮是否有工具调用"由
+      // `toolCalls.length` 独立表达，无需借 finishReason 承载；原始值另存
+      // rawFinishReason，信息不销毁（不参与控制流）。
       finishReason:
-        toolCalls.length > 0
-          ? 'tool_calls'
-          : (((resp.finishReason ??
-              resp.stop_reason) as ReasonResult<ToolLoopContext>['finishReason']) ??
-            'stop'),
+        ((resp.finishReason ??
+          resp.stop_reason) as ReasonResult<ToolLoopContext>['finishReason']) ??
+        (toolCalls.length > 0 ? 'tool_calls' : 'stop'),
+      rawFinishReason:
+        resp.finishReason ?? resp.stop_reason ?? UNKNOWN_FINISH_REASON,
       context,
     };
   }
@@ -1888,10 +1962,19 @@ export class ReActToolLoop extends ReActLoop<
     // 观察点修复（2026-08-26）：会话级总时长上限——300 轮 × 每轮 LLM 可达数小时，
     // 防极端长任务资源占用。env REACT_LOOP_MAX_DURATION_MS 可覆盖，默认 3 小时。
     if (Date.now() - this.startedAt > ReActToolLoop.MAX_TOTAL_DURATION_MS) {
+      const durationMs = Date.now() - this.startedAt;
+      // 二期 F2-2（2026-09-23 修复计划 §六）：**超时必须显式终止**。此前该支只
+      // `return false` 且不置任何相位 ⇒ ① 经 getTerminationReason() 被折叠成
+      // 'completed'（伪装"正常完成"）；② 已产出的 tool_calls **被静默丢弃**
+      // （本支短路了下面 `toolCalls.length > 0` 判据，而救援入口 onIncompleteTurn
+      // 又因"有工具调用"拒收 ⇒ 两处判据相反、无人认领）。
+      this.state.phase = 'timeout';
+      this.droppedToolCallsAtStop = result.toolCalls.length;
       logger.warn('reactToolLoop:max_total_duration_reached', {
         sessionId: this.ctx.session.id,
-        durationMs: Date.now() - this.startedAt,
+        durationMs,
         maxMs: ReActToolLoop.MAX_TOTAL_DURATION_MS,
+        droppedToolCalls: this.droppedToolCallsAtStop,
       });
       return false;
     }
@@ -1975,7 +2058,20 @@ export class ReActToolLoop extends ReActLoop<
     result: ReasonResult<ToolLoopContext>,
     _context?: ToolLoopContext
   ): Promise<boolean> {
-    if (result.toolCalls.length > 0) return false; // 有工具调用，不属"不完整回合"
+    if (result.toolCalls.length > 0) {
+      // 二期 F2-0（2026-09-23 修复计划 §六）：**统一两处对立判据** —— 本轮已产出 tool_calls
+      // 通常不属"不完整回合"，不该由本钩子接管；但若本轮是**外部拦停**（超时），这批调用
+      // 已被丢弃 ⇒ 必须**显式留痕**（结构化日志 + 收尾文案），不得静默消失。
+      if (this.state.phase === 'timeout' && this.droppedToolCallsAtStop > 0) {
+        logger.warn('reactToolLoop:tool_calls_dropped_on_stop', {
+          sessionId: this.ctx.session.id,
+          reason: 'timeout',
+          droppedToolCalls: this.droppedToolCallsAtStop,
+          toolNames: result.toolCalls.map((tc) => tc.name),
+        });
+      }
+      return false;
+    }
     const text = (result.text ?? '').trim();
 
     let kind: 'empty' | 'reasoning' | 'planning' | 'truncated' | null = null;
@@ -2014,6 +2110,10 @@ export class ReActToolLoop extends ReActLoop<
         lastCompactRatio: this.loopState.lastCompactRatio ?? null,
         textPreview: text.slice(0, 80),
       });
+      // P1-4（B2-4，2026-09-23）：压缩停滞**落 Goal** —— 此前只"暂停本轮续接"，
+      // 目标层看不到"为何停下"（缺口 X9）。连续 3 次 ⇒ 终态 `failed` ⇒ **续接有界**
+      //（D7：否则"落 blocked → 续接 → 又压缩失败"会成死循环）。
+      this.settleGoalForTurnDetached('compaction_stalled');
       return false;
     }
     if (this._incompleteRetries[kind] >= 1) return false; // 每类最多重试 1 次
@@ -2046,9 +2146,11 @@ export class ReActToolLoop extends ReActLoop<
   /** 下沉自 TAORLoop（2026-09-01）：steering 消息注入到工具轮对话上下文，下一轮 reason 生效 */
   protected override async onSteering(messages: string[]): Promise<void> {
     for (const sm of messages) {
+      // B3-2（2026-09-23）：片段类型化 —— `[STEERING] ` 由 `kind:'steering'` 给出，
+      // 渲染唯一走 `renderFragment()`（拼接结果与迁移前**逐字一致**）。
       this.loopState.messages.push({
         role: 'user',
-        content: `[STEERING] ${sm}`,
+        content: renderFragment(createFragment({ kind: 'steering', text: sm })),
       } as Record<string, unknown>);
     }
     logger.info('reactToolLoop:steering_injected', {
@@ -2058,79 +2160,240 @@ export class ReActToolLoop extends ReActLoop<
     });
   }
 
+  /**
+   * 二期 F2-4（2026-09-23 修复计划 §六）：run 级复位"回合质量重试计数"。
+   *
+   * 对齐 `TAORLoop.reset()` 的**既有先例**（其注释原文：'回合质量重试计数随 run 归零
+   * （不跨 run 累积）'）。此前本类的 `_incompleteRetries` 只有初始化与累加、**全类无
+   * 任何清零** ⇒ 实为"任务级终身一次"：第二次空回复直接放行 → 空正文。
+   *
+   * 注：TAORLoop 的键集只有 2 个（`empty` / `planning`），本类有 4 个 ⇒ 全部纳入。
+   * `resetRunState()` 由宿主在每次 run 前调用（见 `ReActLoop.resetRunState` 注释）。
+   */
+  protected override resetRunState(): void {
+    super.resetRunState();
+    this._incompleteRetries.empty = 0;
+    this._incompleteRetries.reasoning = 0;
+    this._incompleteRetries.planning = 0;
+    this._incompleteRetries.truncated = 0;
+    this.droppedToolCallsAtStop = 0;
+    this._terminalSettled = false;
+  }
+
   /** A2（2026-09-05）：循环检测终止由 loopState.loopDetected 判别（供骨架访问器） */
   protected override isLoopDetectedReason(): boolean {
     return this.loopState.loopDetected != null;
   }
 
-  protected finalize(): Message {
-    // 6. maxTurns 提示文案：达 maxIterations 时附加。
-    // 对标 hermes（2026-09-01）：有 onMaxIterations 生成的总结则输出"已自动总结当前进度"，
-    // 无总结（请求失败/超时）回退为默认提示（CS03）。
-    // B1（2026-09-01）：不依赖 phase==='completed'——达上限后 phase 可能非 completed，
-    // 原条件导致提示被吞（实测达上限后最终消息仅 30 字符，用户无感知任务中断）。
-    if (this.state.iteration >= this.config.maxIterations) {
-      const base = this.loopState.assistantMessage?.content ?? '';
-      const tip = this.loopState.maxIterationsSummary
-        ? `\n\n⚠️ 已达到最大工具轮次限制 (${this.config.maxIterations})，已自动总结当前进度：\n${this.loopState.maxIterationsSummary}`
-        : `\n\n⚠️ 已达到最大工具轮次限制 (${this.config.maxIterations})，工具链提前终止。`;
-      const msg = this.ctx.messageService.createAssistantMessage(base + tip, {
+  /**
+   * 轮级熔断 / 压缩停滞 ⇒ **落 Goal 状态**（P1-2 / P1-4，B2-4，2026-09-23）。
+   *
+   * - **非阻塞**：`finalize()` 是同步签名，且目标状态属"意图/观测面"（不是渲染依赖）
+   *   ⇒ 不 await、不拖慢收尾；
+   * - **零回归**：该会话无未终结目标时 `settleGoalForTurn` 立即返回 `null`（不建行、不写库）；
+   * - **不掩盖失败**：catch 留痕（CS03），不影响已生成的最终消息。
+   */
+  private settleGoalForTurnDetached(reason: GoalTurnReason): void {
+    void settleGoalForTurn({
+      sessionId: this.ctx.session.id,
+      reason,
+    }).catch((err) => {
+      // @ignore-catch — 目标状态属观测/意图面，落盘失败不得影响本轮收尾（CS03）
+      logger.warn('reactToolLoop:goal_turn_settle_failed', {
         sessionId: this.ctx.session.id,
+        reason,
+        error: err instanceof Error ? err.message : String(err),
       });
-      // A3（2026-09-05）：截断消息 metadata 落 finishReason（自由 Record、JSON 落库无需 schema 扩展）
-      const withMeta = msg as { metadata?: Record<string, unknown> };
-      withMeta.metadata = { ...withMeta.metadata, finishReason: 'max_turns' };
-      return msg;
-    }
-    // 4. 循环检测提示
-    if (this.loopState.loopDetected) {
-      const tip = `\n\n⚠️ 检测到工具调用循环 [${this.loopState.loopDetected.detector}] ${this.loopState.loopDetected.message}，任务提前终止。`;
-      const msg = this.ctx.messageService.createAssistantMessage(
-        (this.loopState.assistantMessage?.content ?? '') + tip,
-        { sessionId: this.ctx.session.id }
-      );
-      // A3（2026-09-05）：循环终止消息 metadata 落 finishReason
-      const withMeta = msg as { metadata?: Record<string, unknown> };
-      withMeta.metadata = {
-        ...withMeta.metadata,
-        finishReason: 'loop_detected',
-      };
-      return msg;
-    }
-    // L1（2026-09-06）：骨架 budget_exhausted phase（流式预算耗尽）附加原因提示——
-    // 对齐 A3 截断/循环提示风格，避免用户看到"无正文直接中断"的困惑。
-    if (this.state.phase === 'budget_exhausted') {
-      const tip = `\n\n⚠️ 已达到本轮 token 预算上限，工具链提前终止。`;
-      const msg = this.ctx.messageService.createAssistantMessage(
-        (this.loopState.assistantMessage?.content ?? '') + tip,
-        { sessionId: this.ctx.session.id }
-      );
-      const withMeta = msg as { metadata?: Record<string, unknown> };
-      withMeta.metadata = {
-        ...withMeta.metadata,
-        finishReason: 'budget_exhausted',
-      };
-      return msg;
-    }
-    // P4（2026-09-01）：error 终止时附加 lastError——no_progress 熔断/电路熔断的
-    // 降级提示此前只 yield 了 error 事件、finalize 未附加（assistantMessage 空正文时
-    // 用户看不到任何原因，实测熔断后仅 24 字符）。此处统一附加。
-    // P8（2026-09-01）：不再加 ⚠️ 前缀——降级/部分完成是正常收尾（需用户提供信息的
-    // 协作请求），前端对 ⚠️ 开头的消息有警告样式，用户误以为系统异常。
-    if (this.state.phase === 'error' && this.state.lastError) {
-      const tip = `\n\n${this.state.lastError}`;
-      return this.ctx.messageService.createAssistantMessage(
-        (this.loopState.assistantMessage?.content ?? '') + tip,
-        { sessionId: this.ctx.session.id }
-      );
-    }
-    if (this.loopState.assistantMessage) {
+    });
+  }
+
+  protected finalize(): Message {
+    // 二期 F2-3（2026-09-23 修复计划 §六）：`finalize` = **纯投影**（可重入）+ **幂等**副作用。
+    // 背景（N1）：本方法每轮**至少被调用 2 次**（`run()` 的 return 值 + `streamMessageFlow`
+    // 的 `getAssistantMessage()`），而 `getAssistantMessage()` 只是转调本方法 ⇒ 它实际是
+    // "带写库副作用的 getter"（D3）；原实现在 loopDetected 分支内**直接**发副作用
+    // ⇒ 重复取消息会重复落 Goal、加速把目标打成 failed。
+    const msg = this.computeFinalMessage();
+    this.settleTerminalState();
+    return msg;
+  }
+
+  /**
+   * 二期 F2-3：最终消息的**纯投影**（无副作用、可重入）。
+   *
+   * 文案与 metadata.finishReason 由 `resolveTerminationOutput()` 单一来源提供
+   * （一期 F1-1：此前 `finalize` 与 `getTerminationTip` 各写一份同样的文案，两处一旦
+   * 漂移，"流里提示"与"落库提示"就会对不上）。
+   */
+  private computeFinalMessage(): Message {
+    const { suffix, finishReason } = this.resolveTerminationOutput();
+
+    // 无终止提示且已有消息（正文非空）⇒ 原样返回，零行为变更
+    if (!suffix && this.loopState.assistantMessage) {
       return this.loopState.assistantMessage;
     }
-    return this.ctx.messageService.createAssistantMessage(
-      this.state.lastError ?? '',
-      { sessionId: this.ctx.session.id }
-    );
+
+    const rawContent = this.loopState.assistantMessage?.content;
+    const base = typeof rawContent === 'string' ? rawContent : '';
+    const msg = this.ctx.messageService.createAssistantMessage(base + suffix, {
+      sessionId: this.ctx.session.id,
+      // 复用流式主路径已创建的消息 id（P0-fix 同源意图）：否则新消息换 id，前端流式 chunk
+      // （见 streamMessageFlow 的补发点）会挂到另一个气泡上，兜底文案反而"看不见"。
+      ...(this.loopState.assistantMessage
+        ? { id: this.loopState.assistantMessage.id }
+        : {}),
+    });
+    if (finishReason) {
+      // A3（2026-09-05）：截断/循环/预算终止消息 metadata 落 finishReason
+      //（自由 Record、JSON 落库无需 schema 扩展）
+      const withMeta = msg as { metadata?: Record<string, unknown> };
+      withMeta.metadata = { ...withMeta.metadata, finishReason };
+    }
+    return msg;
+  }
+
+  /**
+   * 二期 F2-3：终止**副作用**（当前为"落 Goal"）—— **幂等**，每轮至多执行一次。
+   *
+   * 把"哪些终止会落 Goal"从 `if` 分支的**物理位置**改为**从终止原因派生**（与 D5 同构的修法）。
+   *
+   * ⚠️ 仍**仅** `loop_detected` 落 Goal（`GoalTurnReason` 语义为"这一轮为何没进展"，
+   * 会推进 `no_progress_streak`、达阈值把目标打成终态 `failed`）。把 `max_turns` /
+   * `budget_exhausted` / `error` / `aborted` 也映射进来会**混淆语义**（例如"用户主动停止"
+   * 不是"无进展"），属需单独裁决的范围 —— 详见修复计划 §六 F2-3 的待裁决说明。
+   */
+  private settleTerminalState(): void {
+    if (this._terminalSettled) return;
+    this._terminalSettled = true;
+
+    const reason = this.getTerminationReason();
+    // P1-2（B2-4，2026-09-23）：轮级熔断（loopDetected / maxRepeatedRounds）**落 Goal**
+    // —— 此前只有批次级熔断会落目标状态（缺口 X10）⇒ 目标层看不到"这一轮为何停下"。
+    // 未达阈值落 `blocked`（可恢复）、连续 3 次 ⇒ 终态 `failed`（D7：阈值与批次级同源）。
+    // 注：触发条件与原实现一致（达 maxIterations 时**不**落 Goal —— 判别器优先级如此）。
+    if (reason === 'loop_detected') {
+      this.settleGoalForTurnDetached('turn_error');
+    }
+
+    // 二期 F2-5（治 N3）：`max_turns` 与 `loop_detected` 同时命中时，循环检测信号此前被
+    // **整个吞掉**（既无提示也无 metadata）。此处留痕一次（提示文案已在投影侧并列上报）。
+    if (reason === 'max_turns' && this.loopState.loopDetected) {
+      logger.warn('reactToolLoop:loop_detected_shadowed_by_max_turns', {
+        sessionId: this.ctx.session.id,
+        detector: this.loopState.loopDetected.detector,
+        message: this.loopState.loopDetected.message,
+        iteration: this.state.iteration,
+        maxIterations: this.config.maxIterations,
+      });
+    }
+  }
+
+  /**
+   * 二期 F2-1（2026-09-23 修复计划 §六）：终止输出**单一来源**，且判别**接线既有判别器**。
+   *
+   * 一期只做到"文案单点"（仍在本方法内自行重写判别条件）；二期改为：
+   *   1. 原因一律取自 `getTerminationReason()`（`ReActLoop.ts` —— TAORLoop / SubAgentEngine /
+   *      LongRunningTaskOrchestrator 三处生产路径已验证）⇒ 消除"同一事实两套判据"；
+   *   2. 文案由 `switch (reason)` **穷尽映射**，`default` 用 `never` 断言 ⇒ **新增
+   *      `TerminationReason` 成员而不补文案会编译失败**（对标事件类型三处同步的编译期约束）。
+   *
+   * 返回的 `reason` 供 `finalize()` 判定"是否需落 Goal"（副作用与判据同源）。
+   */
+  private resolveTerminationOutput(): {
+    suffix: string;
+    finishReason?: string;
+    reason: TerminationReason;
+  } {
+    const reason = this.getTerminationReason();
+    let suffix = '';
+    let finishReason: string | undefined;
+
+    switch (reason) {
+      // 6. maxTurns 提示文案：达 maxIterations 时附加。
+      // 对标 hermes（2026-09-01）：有 onMaxIterations 生成的总结则输出"已自动总结当前进度"，
+      // 无总结（请求失败/超时）回退为默认提示（CS03）。
+      // B1（2026-09-01）：不依赖 phase==='completed'——达上限后 phase 可能非 completed，
+      // 原条件导致提示被吞（实测达上限后最终消息仅 30 字符，用户无感知任务中断）。
+      case 'max_turns': {
+        // 判别器把 `phase === 'truncated'`（输出长度截断）也归为 max_turns，但"轮次上限
+        // 总结"只在真正达 maxIterations 时才有 ⇒ 文案以其为准（截断场景走下方统一兜底）。
+        if (this.state.iteration >= this.config.maxIterations) {
+          finishReason = 'max_turns';
+          suffix = this.loopState.maxIterationsSummary
+            ? `\n\n⚠️ 已达到最大工具轮次限制 (${this.config.maxIterations})，已自动总结当前进度：\n${this.loopState.maxIterationsSummary}`
+            : `\n\n⚠️ 已达到最大工具轮次限制 (${this.config.maxIterations})，工具链提前终止。`;
+        }
+        // 二期 F2-5（治 N3，2026-09-23）：判别器顺序使 `max_turns` **先于** `loop_detected`，
+        // 两者同时命中时（长任务里"既循环又到轮次上限"很常见）循环检测信息会被**整个吞掉**
+        // （既无提示也无 metadata）⇒ 此处**并列上报**（不改变既有优先级的排序语义）。
+        // 留痕（logger）在 settleTerminalState() 内，保证每轮只记一次（投影可重入）。
+        if (this.loopState.loopDetected) {
+          const ld = this.loopState.loopDetected;
+          suffix += `\n\n（同时检测到工具调用循环 [${ld.detector}] ${ld.message}）`;
+        }
+        break;
+      }
+      // 4. 循环检测提示
+      case 'loop_detected':
+        finishReason = 'loop_detected';
+        suffix = `\n\n⚠️ 检测到工具调用循环 [${this.loopState.loopDetected?.detector ?? 'unknown'}] ${this.loopState.loopDetected?.message ?? ''}，任务提前终止。`;
+        break;
+      // L1（2026-09-06）：骨架 budget_exhausted phase（流式预算耗尽）附加原因提示——
+      // 对齐 A3 截断/循环提示风格，避免用户看到"无正文直接中断"的困惑。
+      case 'budget_exhausted':
+        finishReason = 'budget_exhausted';
+        suffix = `\n\n⚠️ 已达到本轮 token 预算上限，工具链提前终止。`;
+        break;
+      // P4（2026-09-01）：error 终止时附加 lastError——no_progress 熔断/电路熔断的
+      // 降级提示此前只 yield 了 error 事件、finalize 未附加（assistantMessage 空正文时
+      // 用户看不到任何原因，实测熔断后仅 24 字符）。此处统一附加。
+      // P8（2026-09-01）：不再加 ⚠️ 前缀——降级/部分完成是正常收尾（需用户提供信息的
+      // 协作请求），前端对 ⚠️ 开头的消息有警告样式，用户误以为系统异常。
+      case 'error':
+        suffix = this.state.lastError ? `\n\n${this.state.lastError}` : '';
+        break;
+      // 一期 F1-3（2026-09-23）：用户主动停止——此前无对应分支，若此时尚无正文
+      // ⇒ 落盘空消息（用户点"停止"却拿到一片空白）。
+      case 'aborted':
+        suffix = `\n\n⏹ 已按你的请求停止本轮生成。`;
+        break;
+      // 二期 F2-2（2026-09-23）：会话级总时长上限——此前该支不置相位，被判别器误判为
+      // 'completed' ⇒ 用户看到"正常完成"却拿不到任何结论；并如实交代被丢弃的工具调用。
+      case 'timeout': {
+        const dropped = this.droppedToolCallsAtStop;
+        suffix =
+          `\n\n⚠️ 本轮已达会话总时长上限（${Math.round(ReActToolLoop.MAX_TOTAL_DURATION_MS / 60000)} 分钟），已停止继续执行。` +
+          (dropped > 0
+            ? `另有 ${dropped} 个已生成但未执行的工具调用随之作废。`
+            : '');
+        break;
+      }
+      // 无专属文案的原因（正常完成 / 其余子类专属 stop reason）：是否兜底取决于正文是否
+      // 为空 —— 见下方统一兜底（一期 F1-1）。
+      case 'completed':
+      case 'verifier_escalate':
+      case 'diminishing_returns':
+        break;
+      default: {
+        // 二期 F2-1：**穷尽断言** —— 新增 TerminationReason 成员而未在此补文案 ⇒ 编译失败
+        const exhaustive: never = reason;
+        throw new Error(
+          `reactToolLoop:unhandled termination reason (${String(exhaustive)})`
+        );
+      }
+    }
+
+    // 一期 F1-1：无提示且正文为空 ⇒ 兜底（"正常结束但零文本"此前是静默空白，即本 BUG 现象）。
+    if (!suffix) {
+      const rawContent = this.loopState.assistantMessage?.content;
+      // 结构化内容（ContentBlock[]）视为"已有内容"——不在此处改写，避免丢块
+      const hasVisibleText = Array.isArray(rawContent)
+        ? true
+        : (typeof rawContent === 'string' ? rawContent : '').trim().length > 0;
+      if (!hasVisibleText) suffix = EMPTY_OUTPUT_FALLBACK_TEXT;
+    }
+
+    return { suffix, finishReason, reason };
   }
 
   // ─── 私有辅助 ───────────────────────────────────────
@@ -2629,21 +2892,16 @@ export class ReActToolLoop extends ReActLoop<
   }
 
   /**
-   * 2026-09-01：终止提示（达上限 / 循环检测）。
+   * 2026-09-01：终止提示（达上限 / 循环检测 / 预算耗尽 / 推理错误 / 主动停止 / 空回复兜底）。
    * finalize 生成的终止提示只在最终消息里，不在 loop.run 事件流（reactEventsToChunks
    * 不产出）——调用点需补发 text chunk，否则前端流式收不到（实测 fullContentLength 0，
-   * 用户对任务中断无感知）。无终止场景返回空串。
+   * 用户对任务中断无感知）。
+   *
+   * 一期 F1-1（2026-09-23 修复计划）：改由 `resolveTerminationOutput()` **单一来源**提供，
+   * 与 finalize 落库正文逐字相等（此前本方法是第二份硬编码，且只覆盖 2/4 类终止）。
    */
   getTerminationTip(): string {
-    if (this.state.iteration >= this.config.maxIterations) {
-      return this.loopState.maxIterationsSummary
-        ? `\n\n⚠️ 已达到最大工具轮次限制 (${this.config.maxIterations})，已自动总结当前进度：\n${this.loopState.maxIterationsSummary}`
-        : `\n\n⚠️ 已达到最大工具轮次限制 (${this.config.maxIterations})，工具链提前终止。`;
-    }
-    if (this.loopState.loopDetected) {
-      return `\n\n⚠️ 检测到工具调用循环 [${this.loopState.loopDetected.detector}] ${this.loopState.loopDetected.message}，任务提前终止。`;
-    }
-    return '';
+    return this.resolveTerminationOutput().suffix;
   }
 
   /** 供转换层聚合心跳（M1c）：已完成工具名（去重）+ 执行总次数 */

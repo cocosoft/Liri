@@ -11,9 +11,9 @@ export {
 export type {
   LiriEvent,
   LiriEventType,
-  LiriEventMap,
   LiriEventCategory,
   LiriEventData,
   LiriEventOf,
 } from './events';
+export type { LiriEventMap } from './eventPayloads';
 export { isLiriEvent, categorizeEvent } from './events';

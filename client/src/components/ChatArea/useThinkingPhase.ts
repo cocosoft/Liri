@@ -1,20 +1,18 @@
 import { useEffect, useRef, useState } from "react";
-import { useTranslation } from "react-i18next";
 import { useChatStore } from "../../stores/chat";
 import type { Message } from "@/types";
 
 /**
- * R3（走查 W3/W4）：超长思考期提示。
+ * UI 期 UI-1（2026-09-23 修复计划 §十）：深度思考相位判定 + 已等待秒数（共享钩子）。
  *
- * 背景：SSE 流式中，推理模型（deepseek 等）先输出大量 thinking chunk，
- * 正文 text 可能在几十秒后才出现（实测首字节最高 76.8s）。
- * 若这段时间前端无任何"仍在工作"的反馈，用户会误判为"挂死"。
+ * 来源：原 `DeepThinkingHint` 组件（R3 走查 W3/W4）——判定逻辑**逐字迁移**，仅把
+ * "独立提示药丸"改为供浮动栏 `StatusFloatBar` 复用的钩子，消除输入框上方的独立占行
+ * （用户诉求：零碎信息统一到浮动栏显示，不要把输入区撑开）。
  *
- * 本组件判定"当前流式轮已开始收 thinking，但超过 N 秒仍无正文 text /
- * tool 事件"，在输入区上方显示轻提示；正文/工具事件到达或流结束即消失。
+ * 背景：SSE 流式中，推理模型先输出大量 thinking chunk，正文 text 可能几十秒后才出现
+ * （实测首字节最高 76.8s）。这段"仍在工作但无正文"的窗口若不给反馈，用户会误判为挂死。
  *
- * 数据源仅为现有 chatStore（messages + isStreaming），不改 store schema、
- * 不新增网络/状态通道：以组件内 useRef 记录首个 thinking chunk 到达时间。
+ * 数据源仅为现有 chatStore（messages + isStreaming）：不改 store schema、不新增通道。
  *
  * 阶段判定（纯函数，扫描最后一条 assistant 消息的 blocks）：
  *   - idle:     未在流式 / 无当前 assistant 消息
@@ -24,12 +22,13 @@ import type { Message } from "@/types";
  * 渲染链路（M4）：thinking/text/tool_call 均由聚合器按事件派生为 blocks，
  * 与 processChunk 副作用解耦，故从消息 blocks 判定是可靠信号。
  */
-type ThinkingPhase = "idle" | "pending" | "thinking" | "content";
+export type ThinkingPhase = "idle" | "pending" | "thinking" | "content";
 
-/** 超过该时长仍无正文/工具事件 → 显示"深度思考中"提示 */
-const DEEP_THINKING_THRESHOLD_SECONDS = 30;
+/** 超过该时长仍无正文/工具事件 → 视为「深度思考等待期」并需要向用户提示 */
+export const DEEP_THINKING_THRESHOLD_SECONDS = 30;
 
-function deriveThinkingPhase(
+/** 相位判定纯函数（可单测；不依赖 React） */
+export function deriveThinkingPhase(
   isStreaming: boolean,
   messages: readonly Message[],
 ): ThinkingPhase {
@@ -60,17 +59,23 @@ function deriveThinkingPhase(
   return hasThinking ? "thinking" : "pending";
 }
 
-function DeepThinkingHint() {
-  const { t } = useTranslation();
-  // 字符串选择器：仅阶段翻转时重渲染（每 chunk 刷新但返回同一字符串）
+/**
+ * 订阅当前深度思考相位与已等待秒数。
+ *
+ * - 字符串选择器：仅相位翻转时重渲染（每 chunk 刷新但返回同一字符串）；
+ * - 起始时间用 `useRef` 记录首个 thinking chunk 到达时刻，**不落 store**；
+ * - 离开 thinking（正文/工具到达/流结束）即清除并归零。
+ */
+export function useThinkingPhase(): {
+  phase: ThinkingPhase;
+  seconds: number;
+} {
   const phase = useChatStore((s) =>
     deriveThinkingPhase(s.isStreaming, s.messages),
   );
   const [seconds, setSeconds] = useState(0);
-  /** 本轮首个 thinking chunk 的到达时间（组件内记录，不落 store） */
   const thinkingStartRef = useRef<number | null>(null);
 
-  // 进入 thinking 期记下起始时间；离开（正文/工具到达/流结束）即清除
   useEffect(() => {
     if (phase === "thinking") {
       thinkingStartRef.current ??= Date.now();
@@ -79,7 +84,6 @@ function DeepThinkingHint() {
     }
   }, [phase]);
 
-  // thinking 等待期每秒刷新已等待秒数
   useEffect(() => {
     if (phase !== "thinking") {
       setSeconds(0);
@@ -95,20 +99,5 @@ function DeepThinkingHint() {
     return () => window.clearInterval(timer);
   }, [phase]);
 
-  if (phase !== "thinking" || seconds < DEEP_THINKING_THRESHOLD_SECONDS) {
-    return null;
-  }
-
-  return (
-    <div className="flex justify-center px-4 pb-1">
-      <div
-        role="status"
-        className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/80 dark:bg-gray-800/80 border border-gray-200/50 dark:border-gray-700/50 shadow-sm text-xs text-gray-600 dark:text-gray-300"
-      >
-        {t("chat.deepThinkingHint", { seconds })}
-      </div>
-    </div>
-  );
+  return { phase, seconds };
 }
-
-export default DeepThinkingHint;

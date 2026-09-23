@@ -31,6 +31,9 @@
 
 import { Database } from '@modules/core/external/sqlite3';
 import { getLogger } from '@modules/monitoring';
+// B4-2（2026-09-23）：恢复通路的相位标签（`yield:*`）—— 台账认领/状态写是恢复期的
+// 两个真实阻塞点（SQLite 同步写），包相位后可由 `loopProbe` 逐条归因。
+import { withPhase } from '@modules/diagnostics/loopProbe/phaseStack';
 
 const logger = getLogger('chat:yield:settlementOutbox');
 
@@ -186,6 +189,14 @@ export class SettlementOutbox {
    * @returns 领取成功返回该行（调用方据此投递并在 ack 后落 `delivered`）
    */
   async claim(id: number): Promise<SettlementDeliveryRow | null> {
+    // B4-2（2026-09-23）：认领是恢复期的**共用端口**（运行期投递与崩溃回放都走它）
+    // ⇒ 包相位 `yield:claim`，使"恢复期卡在认领"可归因。
+    // 相位栈是固定容量的轻量栈（O(1)、无 I/O）⇒ 不改变并发语义、不引入热路径开销。
+    return withPhase('yield:claim', () => this.claimImpl(id));
+  }
+
+  /** `claim` 的实现体（相位包装使公开签名保持不变 ⇒ 调用方零改动） */
+  private async claimImpl(id: number): Promise<SettlementDeliveryRow | null> {
     await this.init();
     const now = Date.now();
     // P1-2 / P1-5（M-3）：**条件更新 + `changes` 判定**（原子认领）。
@@ -230,6 +241,19 @@ export class SettlementOutbox {
    * @returns 是否真的发生迁移（`false` = 行不存在或已是终态）
    */
   private async writeState(
+    id: number,
+    state: 'delivered' | 'failed' | 'dropped',
+    lastError?: string
+  ): Promise<boolean> {
+    // B4-2（2026-09-23）：状态写是恢复期的**落定端口**（三个 `mark*` 的唯一入口）
+    // ⇒ 包相位 `yield:state`；与 `yield:claim` 成对，使"认领成功但落定慢"可分辨。
+    return withPhase('yield:state', () =>
+      this.writeStateImpl(id, state, lastError)
+    );
+  }
+
+  /** `writeState` 的实现体（相位包装使调用方零改动） */
+  private async writeStateImpl(
     id: number,
     state: 'delivered' | 'failed' | 'dropped',
     lastError?: string

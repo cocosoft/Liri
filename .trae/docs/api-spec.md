@@ -221,6 +221,7 @@
 | GET | `/v1/sessions` | ✅ | `sessionService.list` |
 | POST | `/v1/sessions` | ✅ | `sessionService.create` |
 | DELETE | `/v1/sessions` | ✅ | `sessionService.clearAll` |
+| POST | `/v1/sessions/batch-delete` | ✅ | `sessionService.batchDelete`（**A′，2026-09-23**：按显式 id 列表批删；`ids` 非空数组且元素 `/^[A-Za-z0-9_-]{1,128}$/`、≤5000，否则 400；单个失败不中断，返回 `{success,deleted,failed}`；全失败 ⇒ 500。前端"清空历史"由此 1 个请求完成，作用域由前端按 id 判定，消除前后端口径不一致） |
 | GET | `/v1/sessions/current` | ✅ | `sessionService.getCurrent` |
 | GET | `/v1/sessions/{id}` | ✅ | `sessionService.get` |
 | PUT | `/v1/sessions/{id}` | ✅ | `sessionService.rename` |
@@ -274,6 +275,7 @@
 |------|------|----------|-----------|
 | POST | `/v1/goals` | ✅ | —（暂无前端消费者） |
 | GET | `/v1/goals?sessionId=<id>[&active=1]` | ✅ | —（暂无前端消费者） |
+| PATCH | `/v1/goals/{id}` | ✅ | —（暂无前端消费者） |
 
 **POST 契约**：body `{ objective: string（必填，trim 非空）, sessionId?: string（会话 id 白名单格式）, tokenBudget?: number（正有限数）, id?: string }`
 
@@ -286,10 +288,22 @@
 **GET 契约**：`sessionId` ⇒ 该会话目标（加 `active=1` 只回未终结）；**不给 `sessionId` 时必须 `active=1`**（否则 **400**，避免无界全表扫描）。
 返回 `{ goals, count }`。
 
+**PATCH 契约（2026-09-23 新增，Spec `goal-entity.md` §4.2 / 缺口 X4）**：
+body `{ objective?: string（trim 非空）, tokenBudget?: number（正有限数） }` —— **至少一项**。
+用途：给 `objective_updated` 续接模板与 `goal/updated` 事件提供**真实来源**（此前只有 POST/GET ⇒ "更新目标"无入口）。
+
+| 状态码 | 条件 |
+|---|---|
+| **200** | 更新成功 ⇒ `{ goal }`；**只列真实变更项**落 `goal/updated{changes, reason:'manual'}`；同时写 `updated_reason='manual'` ⇒ **下次 idle 续接改用 `objective_updated` 模板**。值与现状相同 ⇒ 200 但**不写库、不产事件** |
+| **400** | 未提供任何可写字段；`objective` 空白；`tokenBudget` 非正或非数；请求体非法 JSON |
+| **404** | 目标 id 不存在 |
+| **409** | 目标**已是终态**（`completed`/`budget_limited`/`failed`/`cancelled`）⇒ 不可改写（条件更新未命中亦回 409） |
+
 **服务端状态迁移（非本 API 触发，此处备查）**：批次收口时由 `goalRunBinding.settleGoalForRun` 落定 ——
 全通过 ⇒ `completed`、部分成功 ⇒ `blocked`、全败 ⇒ `failed`、取消 ⇒ `cancelled`；**用量触顶 ⇒ `budget_limited`**；
-**连续 `blocked` 达 3 次（`NO_PROGRESS_STOP_THRESHOLD`）⇒ `failed`**（停止条件，经 `no_progress_streak` 计数）。
-`goal` 对象字段：`id` / `sessionId?` / `objective` / `status` / `tokenBudget?` / `tokensUsed` / `noProgressStreak` / `createdAt` / `updatedAt`。
+**连续 `blocked` 达 3 次（`NO_PROGRESS_STOP_THRESHOLD`）⇒ `failed`**（停止条件，经 `no_progress_streak` 计数）；
+**轮级熔断 / 压缩停滞**由 `settleGoalForTurn`（`ReActToolLoop` 调用）落定：未达阈值 ⇒ `blocked`（`updated_reason` = `turn_error` / `compaction_stalled`），连续 3 次 ⇒ `failed`（**续接有界**）。
+`goal` 对象字段：`id` / `sessionId?` / `objective` / `status` / `tokenBudget?` / `tokensUsed` / `noProgressStreak` / `runId?`（归属批次 `agent_runs.tool_call_id`）/ `updatedReason?`（最近一次迁移原因码）/ `createdAt` / `updatedAt`。
 
 ### §3.9 语音
 

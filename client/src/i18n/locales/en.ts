@@ -183,6 +183,12 @@ const en = {
     temporaryToggle: "Temporary chat",
     temporaryHint:
       "Temporary chats stay out of history, memory and search. Toggle off to start a regular chat",
+    // UI 期 UI-3（2026-09-23）：开启态行内只显示精简徽标，全文走 title
+    temporaryBadge: "Temporary · not saved",
+    // UI 期 UI-2（2026-09-23）：PDCA 编排入口徽标
+    pdcaBadge: "PDCA",
+    pdcaBadgeHint: "Expand / collapse the PDCA orchestration panel",
+    pdcaIdle: "PDCA orchestration in progress",
     inputPlaceholder: "Type a message...",
     send: "Send",
     sessionHistory: "History",
@@ -301,6 +307,7 @@ const en = {
     collapseDetail: "Collapse Detail",
     sessionSettings: "Session Settings",
     clearHistory: "Clear History",
+    clearingSessions: "Deleting {{count}} session(s)…",
     archive: "Archive",
     searchResults: "Search Results",
     noResults: "No results",
@@ -390,6 +397,8 @@ const en = {
     clearAllMessage:
       "Are you sure you want to clear all sessions? This action cannot be undone.",
     clearAll: "Clear All",
+    clearHistoryFailed: "Failed to clear sessions; the list has been restored",
+    clearPartialFailed: "Failed to delete {{count}} session(s)",
     confirmDeleteSession: "Are you sure you want to delete this session?",
     hasReplies: "Has replies",
     jumpToReply: "Jump to reply",

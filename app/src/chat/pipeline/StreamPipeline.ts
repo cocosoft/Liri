@@ -31,7 +31,10 @@ import { repairImageUrls } from '../services/ChatHelper';
 import { StreamingToolCallScrubber } from '../../streaming/scrubbers/StreamingToolCallScrubber';
 import { getModelPricing } from '@modules/cost';
 import { calculateTotalCost } from '@modules/cost';
-import { compactionOrchestrator } from '@modules/context';
+import {
+  compactionOrchestrator,
+  type CompactionOutcome,
+} from '@modules/context';
 import { validatePathsInOutput } from '../services/PathGuardService';
 import type { ChatSession } from '../types/session.js';
 import type { Message, StreamMessageOptions } from '../types/message.js';
@@ -256,8 +259,8 @@ export class StreamPipeline {
       skipTier3Sync: true,
     });
 
-    // 压缩结果（try 内赋值，供完成日志引用）
-    let compResult: { messages: ChatMessage[]; applied: boolean } | undefined;
+    // 压缩结果（try 内赋值，供完成日志引用）；B3-3：含可选 `failure` 归因
+    let compResult: CompactionOutcome | undefined;
 
     try {
       compResult = await compactionOrchestrator.compact(
@@ -292,15 +295,33 @@ export class StreamPipeline {
           await this._truncateApiMessages(postMaxCtx, session.id);
         }
       } else {
-        span.addEvent('compaction.skipped', {
-          reason: 'orchestrator_not_applied',
-        });
-        logger.info('compaction:skipped — 未压缩，转入截断策略', {
-          sessionId: session.id,
-          beforeTokens: beforeCompact,
-          afterTokens: estimateMessagesTokens(this.ctx.apiMessages),
-          reason: 'orchestrator_not_applied',
-        });
+        // B3-3（2026-09-23）：压缩**失败**（编排器已结构化归因，`CompactionOutcome.failure`）
+        // ⇒ 走本方法**既有**的失败通道（span 事件 `compaction.failed` + WARN，与下方 catch
+        // 分支同口径），**不再误报为 skipped**。兜底行为不变：照旧转入截断策略。
+        if (compResult.failure) {
+          span.addEvent('compaction.failed', {
+            reason: compResult.failure.reason,
+            error: compResult.failure.message,
+            probePhase: compResult.failure.probePhase ?? '',
+          });
+          logger.warn('compaction:failed — 降级到截断策略（结构化归因）', {
+            sessionId: session.id,
+            reason: compResult.failure.reason,
+            error: compResult.failure.message,
+            probePhase: compResult.failure.probePhase,
+            elapsedMs: compResult.failure.elapsedMs,
+          });
+        } else {
+          span.addEvent('compaction.skipped', {
+            reason: 'orchestrator_not_applied',
+          });
+          logger.info('compaction:skipped — 未压缩，转入截断策略', {
+            sessionId: session.id,
+            beforeTokens: beforeCompact,
+            afterTokens: estimateMessagesTokens(this.ctx.apiMessages),
+            reason: 'orchestrator_not_applied',
+          });
+        }
         const maxCtx = resolveMaxContextTokens(options?.model);
         const afterTokens = estimateMessagesTokens(this.ctx.apiMessages);
         // P1-4（2026-08-27）：context-overflow 强触发——常规评估未压缩但确认超窗口时，

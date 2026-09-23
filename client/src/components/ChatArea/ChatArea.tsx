@@ -1,4 +1,4 @@
-import { useMemo, useEffect, useRef } from "react";
+import { useMemo, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useChatStore } from "../../stores/chat";
 import { useSessionStore } from "../../stores/sessionStore";
@@ -18,7 +18,8 @@ import YieldNoticeBar from "./YieldNoticeBar";
 import { usePdcaAutoAppend } from "./usePdcaAutoAppend";
 import ChatPdcaDrawer from "./ChatPdcaDrawer";
 import ChatInput from "./ChatInput";
-import DeepThinkingHint from "./DeepThinkingHint";
+// UI 期 UI-2（2026-09-23 修复计划 §十）：PDCA 入口判据（浮动栏徽标 + 展开面板共用同一来源）
+import { usePdcaEntry } from "./usePdcaEntry";
 import { ContextWatermark } from "../chat/ContextWatermark";
 import VoiceSubtitleOverlay from "../VoiceSubtitleOverlay";
 import VoiceSessionIndicator from "../VoiceSessionIndicator";
@@ -44,8 +45,10 @@ function ChatArea({ fluid = false }: { fluid?: boolean }) {
   const abortPausedStream = useChatStore((s) => s.abortPausedStream);
   const currentSession = useSessionStore((s) => s.currentSession);
   const createSession = useSessionStore((s) => s.createSession);
-  // A1 临时对话：当前会话是否为 temporary（后端 metadata.temporary 持久化标记，CS02）
-  const isTemporarySession = currentSession?.metadata?.temporary === true;
+  // UI 期 UI-1/UI-2（2026-09-23 修复计划 §十）：零碎信息统一到浮动栏
+  // —— 入口徽标在 StatusFloatBar；展开态在此提升（供 ChatPdcaDrawer 使用）
+  const pdca = usePdcaEntry();
+  const [pdcaOpen, setPdcaOpen] = useState(false);
   const backendRunning = useBackendStore((s) => s.status.running);
   const config = useConfigStore((s) => s.config);
   const isDark = config.theme === "dark";
@@ -251,21 +254,14 @@ function ChatArea({ fluid = false }: { fluid?: boolean }) {
     createSession(t("chat.newSession")).catch(() => {});
   };
 
-  // A1 临时对话：切换开关 → 新建对应模式会话 + URL 表达状态（?temporary=1）
-  const handleToggleTemporary = (next: boolean) => {
-    if (next === isTemporarySession) return; // 已在目标模式，无需新建
-    // 关闭时回到普通会话（标题用"新建会话"），开启时用"临时对话"
-    const title = next ? t("chat.temporaryToggle") : t("chat.newSession");
-    void createSession(title, { temporary: next })
-      .then(() => {
-        const url = new URL(window.location.href);
-        if (next) url.searchParams.set("temporary", "1");
-        else url.searchParams.delete("temporary");
-        window.history.replaceState({}, "", url.pathname + url.search);
-      })
-      .catch(() => {
-        // 创建失败已由 createChatSession toast，URL 保持原样避免状态不一致
-      });
+  /** UI 期 UI-2（2026-09-23）：PDCA 面板展开/收起（入口徽标在浮动栏，状态提升到此处）。
+   *  保留原走查打点（原实现在折叠态入口的 onClick 内），供"一闪而过"时在日志留证。 */
+  const handleTogglePdca = () => {
+    const next = !pdcaOpen;
+    logger.info(next ? "PDCA 编排面板展开" : "PDCA 编排面板收起", {
+      sessionId: currentSession?.id,
+    });
+    setPdcaOpen(next);
   };
 
   /** 点击入门提示卡片时发送预设消息 */
@@ -622,9 +618,21 @@ function ChatArea({ fluid = false }: { fluid?: boolean }) {
       <div className="shrink-0 flex flex-col bg-gray-50 dark:bg-gray-900">
         {/* N-45：会话级"已让出 / 等待结算"提示（读时派生；会话切换与流结束即刷新） */}
         <YieldNoticeBar fluid={fluid} />
-        <StatusFloatBar fluid={fluid} />
+        {/* UI 期 UI-1/UI-2：浮动栏统一承载 运行状态 / 深度思考等待 / PDCA 入口 / 任务进度 */}
+        <StatusFloatBar
+          fluid={fluid}
+          pdca={{
+            visible: pdca.visible,
+            open: pdcaOpen,
+            onToggle: handleTogglePdca,
+          }}
+        />
         {/* P2/C3：普通会话就地展开完整编排面板（PdcaPipeline + OrchestrationLivePanel） */}
-        <ChatPdcaDrawer fluid={fluid} />
+        <ChatPdcaDrawer
+          fluid={fluid}
+          open={pdcaOpen}
+          onClose={() => setPdcaOpen(false)}
+        />
 
         {/* 语音会话状态指示器（录音/转录/播放） */}
         <div className="flex justify-center">
@@ -646,44 +654,9 @@ function ChatArea({ fluid = false }: { fluid?: boolean }) {
           position="bottom"
         />
 
-        {/* R3（W3/W4）：深度思考等待提示 —— thinking 超 30s 无正文/工具事件时显示 */}
-        <DeepThinkingHint />
-
-        {/* A1 临时对话：模式切换开关 + 隐身提示条（Composer 上方，对齐 Copilot Temporary） */}
-        <div className="px-4 pb-2 flex items-center justify-between gap-3">
-          <button
-            type="button"
-            onClick={() => handleToggleTemporary(!isTemporarySession)}
-            className={`flex items-center gap-2 text-xs font-medium rounded-lg px-2.5 py-1.5 transition-colors ${
-              isTemporarySession
-                ? "text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/30 hover:bg-amber-200 dark:hover:bg-amber-900/50"
-                : "text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-800"
-            }`}
-            aria-pressed={isTemporarySession}
-            title={t("chat.temporaryToggle")}
-          >
-            <span>{t("chat.temporaryToggle")}</span>
-            <span
-              className={`relative inline-flex w-7 h-4 rounded-full transition-colors ${
-                isTemporarySession
-                  ? "bg-amber-500"
-                  : "bg-gray-300 dark:bg-gray-600"
-              }`}
-            >
-              <span
-                className={`absolute top-0.5 h-3 w-3 rounded-full bg-white shadow transition-all ${
-                  isTemporarySession ? "left-3.5" : "left-0.5"
-                }`}
-              />
-            </span>
-          </button>
-          {isTemporarySession && (
-            <span className="text-xs text-amber-600 dark:text-amber-400 min-w-0 text-right">
-              {t("chat.temporaryHint")}
-            </span>
-          )}
-        </div>
-
+        {/* UI 期 UI-1/UI-3（2026-09-23 修复计划 §十）：原先各自独占一行的
+            「深度思考等待提示」与「临时对话开关」已分别并入
+            浮动栏（StatusFloatBar）与输入工具栏行（ChatInput 内的 TemporarySessionToggle）。 */}
         <ChatInput fluid={fluid} />
       </div>
     </div>

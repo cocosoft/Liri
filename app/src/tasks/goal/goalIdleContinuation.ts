@@ -28,7 +28,11 @@
  */
 
 import { getCg3SelfWakeService } from '@modules/tasks/Cg3Bootstrap';
-import { getTaskGoalStore, type TaskGoalStore } from './TaskGoalStore';
+import {
+  getTaskGoalStore,
+  type TaskGoalStore,
+  type TaskGoalUpdateReason,
+} from './TaskGoalStore';
 
 /** `taskId` 前缀（生产唯一识别"这是目标空闲续接"的依据） */
 export const IDLE_CONTINUE_TASK_PREFIX = 'goal-continue:';
@@ -136,6 +140,13 @@ export interface IdleContinuationTarget {
   goalId: string;
   objective: string;
   streak: number;
+  /**
+   * B2-2 / X4（2026-09-23）：目标最近一次变更的**原因码**。
+   *
+   * `'manual'`（= 经 `PATCH /v1/goals/{id}` 显式改目标）⇒ 装配处应改用
+   * `objective_updated` 模板续接（重新对齐新目标），而非 `continue_goal`（Spec §5.3.2）。
+   */
+  updatedReason?: TaskGoalUpdateReason;
 }
 
 /**
@@ -163,5 +174,6 @@ export async function resolveIdleContinuation(params: {
     goalId: goal.id,
     objective: goal.objective,
     streak: goal.noProgressStreak,
+    ...(goal.updatedReason ? { updatedReason: goal.updatedReason } : {}),
   };
 }

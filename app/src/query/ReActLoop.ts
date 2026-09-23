@@ -102,6 +102,9 @@ export interface ReActState {
     // K1（2026-09-05）：预算耗尽使用专门 phase——骨架 budget 分支原置 'completed'
     // 会把"预算耗尽终止"误报为正常完成（消费 phase==='completed' 的上层无法区分）。
     | 'budget_exhausted'
+    // 二期 F2-2（2026-09-23 修复计划 §六）：会话级总时长上限触发。此前该支不置任何
+    // 相位 ⇒ 经 getTerminationReason() 被判为 'completed'（伪装成"正常完成"）。
+    | 'timeout'
     // 阶段 A（A1-d）：以 sessions_yield 让出 turn 的收尾相位（既非完成也非截断）
     | 'yielded';
   pendingToolCalls: ToolCallEntry[];
@@ -120,6 +123,17 @@ export interface ReasonResult<TContext = unknown> {
   text: string;
   toolCalls: ToolCallEntry[];
   finishReason: 'stop' | 'tool_calls' | 'length' | 'max_tokens' | 'error';
+  /**
+   * 一期 F1-2（2026-09-23 修复计划）：provider 报出的**原始**结束原因（归一化前）。
+   *
+   * 背景：`ReActToolLoop.reason()` 曾用「有 tool_calls ⇒ `finishReason='tool_calls'`」
+   * 无条件覆盖真实值，而"被 max_tokens 截断且只吐出半个 tool_calls"正是最常见的截断
+   * 形态 ⇒ 截断信号被吃掉、下游 `onIncompleteTurn` 的 truncated 分支失效。
+   *
+   * 现约定：`finishReason` 如实反映 provider 判定（不覆盖）；本字段另存原始值，
+   * **信息不销毁**，供观测/排查使用（不参与控制流）。
+   */
+  rawFinishReason?: string;
   usage?: { inputTokens: number; outputTokens: number };
   context?: TContext;
 }
@@ -404,6 +418,9 @@ export abstract class ReActLoop<
     // truncated，否则纯骨架直连 + config.budget 时（迭代也达上限）会被 max_turns
     // 遮蔽；且不依赖子类 isBudgetExhaustedReason 钩子（默认 false 会漏判）。
     if (this.state.phase === 'budget_exhausted') return 'budget_exhausted';
+    // 二期 F2-2（2026-09-23）：超时**必须**在 completed 之前判别——否则经本判别器
+    // 会被折叠为 'completed'（比"伪装完成"更彻底：连 phase 都不再是证据）。
+    if (this.state.phase === 'timeout') return 'timeout';
     if (
       this.state.phase === 'truncated' ||
       this.state.iteration >= this.config.maxIterations
@@ -625,7 +642,17 @@ export abstract class ReActLoop<
           if (await this.onIncompleteTurn(reasonResult, context)) {
             continue;
           }
-          this.state.phase = 'completed';
+          // 二期 R5（2026-09-23 修复计划 §六，精化 1 的真病根）：**不再无条件写
+          // 'completed'** —— getTerminationReason() 的每一路判别都读 phase，此处提前
+          // 写死会把"超时/截断"等**更具体**的原因折叠成"正常完成"（上层无从据实收尾）。
+          // 仅在仍处"进行中"相位时才落 completed；子类在 shouldContinue 中置入的
+          // 更具体相位（如 'timeout'）必须原样保留。
+          if (
+            this.state.phase === 'reasoning' ||
+            this.state.phase === 'acting'
+          ) {
+            this.state.phase = 'completed';
+          }
           return this.finalize(this.state, context);
         }
 

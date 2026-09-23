@@ -2,6 +2,11 @@ import { useState, useMemo, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useChatStore } from "../../stores/chat";
 import { usePlanTaskStore } from "../../stores/planTaskStore";
+// UI 期 UI-1（2026-09-23 修复计划 §十）：深度思考等待期的共享判定（原 DeepThinkingHint 组件）
+import {
+  useThinkingPhase,
+  DEEP_THINKING_THRESHOLD_SECONDS,
+} from "./useThinkingPhase";
 import type { TaskCardData } from "../../types";
 
 const PHASE_LABELS: Record<string, string> = {
@@ -161,8 +166,18 @@ function TaskMiniPanel({
  * - 任务进度：从最后一条 assistant 消息的 todo 块中提取，显示完成数/总数
  * - 点击任务进度可展开 Mini 面板查看具体任务状态
  */
-export default function StatusFloatBar({ fluid = false }: { fluid?: boolean }) {
+export default function StatusFloatBar({
+  fluid = false,
+  pdca,
+}: {
+  fluid?: boolean;
+  /** UI-2（2026-09-23）：PDCA 编排徽标（可见性/展开态由 ChatArea 与 usePdcaEntry 提供） */
+  pdca?: { visible: boolean; open: boolean; onToggle: () => void };
+}) {
   const { t } = useTranslation();
+  // UI-1（2026-09-23）：深度思考等待期 —— 与"正在生成/阶段"在**同一处**呈现，
+  // 不再单独占输入框上方一行（用户诉求：零碎信息统一到浮动栏）
+  const { phase: thinkingPhase, seconds: thinkingSeconds } = useThinkingPhase();
   const isSending = useChatStore((s) => s.isSending);
   const isStreaming = useChatStore((s) => s.isStreaming);
   const isUploading = useChatStore((s) => s.isUploading);
@@ -204,13 +219,20 @@ export default function StatusFloatBar({ fluid = false }: { fluid?: boolean }) {
     [messages, planTasks],
   );
 
-  if (!isActive && !fadingOut) return null;
+  // UI-2（U2-a 裁决，2026-09-23）：有活跃 PDCA 事件时浮动栏**常驻** —— PDCA 任务可在
+  // 流结束后继续跑，原 ChatPdcaDrawer 的独立入口行正为此而常驻；并入浮动栏后
+  // 若仍只在 isActive 时渲染，会**丢失空闲态入口**（回归）。
+  if (!isActive && !fadingOut && !pdca?.visible) return null;
 
   /**
    * 根据当前状态生成显示文本
    * 优先级：executionPhase > streamingStatus > 默认状态
    */
   const getStatusText = (): string => {
+    // UI-2：空闲但仍有活跃 PDCA ⇒ 以"编排进行中"常驻；不得沿用"正在生成"（会谎报运行态）
+    if (!isActive) {
+      return pdca?.visible ? t("chat.pdcaIdle") : t("chat.streamingLabel");
+    }
     if (isUploading) return t("chat.uploading");
     if (isSending && !isStreaming) return t("chat.sending");
     if (executionPhase?.phase) {
@@ -219,6 +241,13 @@ export default function StatusFloatBar({ fluid = false }: { fluid?: boolean }) {
       return executionPhase.description
         ? `${phaseLabel} ${executionPhase.description}`
         : phaseLabel;
+    }
+    // UI-1（U1 裁决：executionPhase 优先，避免覆盖 PDCA 阶段）：深度思考等待期提示
+    if (
+      thinkingPhase === "thinking" &&
+      thinkingSeconds >= DEEP_THINKING_THRESHOLD_SECONDS
+    ) {
+      return t("chat.deepThinkingHint", { seconds: thinkingSeconds });
     }
     if (streamingStatus) {
       // 精简上下文水位显示：仅取百分比，其余信息在 ContextWatermark hover 中查看
@@ -240,10 +269,16 @@ export default function StatusFloatBar({ fluid = false }: { fluid?: boolean }) {
       >
         <div className={fluid ? "w-full" : "max-w-3xl mx-auto"}>
           <div className="flex items-center gap-2.5 px-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-200/50 dark:border-gray-700/50 rounded-xl shadow-md cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-            {/* 状态指示点：绿色脉冲 = 运行中 */}
+            {/* 状态指示点：绿色脉冲 = 运行中；空闲但 PDCA 常驻时用静态点（不谎报运行态） */}
             <span className="relative flex h-2.5 w-2.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500" />
+              {isActive && (
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+              )}
+              <span
+                className={`relative inline-flex rounded-full h-2.5 w-2.5 ${
+                  isActive ? "bg-green-500" : "bg-gray-400"
+                }`}
+              />
             </span>
 
             {/* 状态文本 + 任务进度 */}
@@ -253,6 +288,27 @@ export default function StatusFloatBar({ fluid = false }: { fluid?: boolean }) {
               </span>
               {taskCard && <TaskProgress data={taskCard} />}
             </div>
+
+            {/* UI-2：PDCA 编排徽标（点击展开/收起；stopPropagation 避免误触任务面板） */}
+            {pdca?.visible && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  pdca.onToggle();
+                }}
+                aria-expanded={pdca.open}
+                aria-label={t("chat.pdcaBadge")}
+                title={t("chat.pdcaBadgeHint")}
+                className={`shrink-0 flex items-center gap-1 px-2 py-0.5 text-xs rounded-md transition-colors ${
+                  pdca.open
+                    ? "bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-300"
+                    : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+                }`}
+              >
+                <span>📊</span>
+                <span>{t("chat.pdcaBadge")}</span>
+              </button>
+            )}
 
             {/* 任务进度展开指示 */}
             {taskCard && (

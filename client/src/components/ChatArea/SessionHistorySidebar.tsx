@@ -91,6 +91,7 @@ function SessionHistorySidebar({
     sessions,
     currentSession,
     switching,
+    clearingCount,
     loadSessions,
     createSession,
     switchSession,
@@ -998,6 +999,28 @@ function SessionHistorySidebar({
           </div>
         )}
       </div>
+
+      {/* 方案 1（渐进 UI）：本地列表已提前清空、批删请求仍在后台进行 ⇒ 显示进行中提示 */}
+      {clearingCount > 0 && (
+        <div className="px-3 py-2 border-t border-gray-200 dark:border-gray-700 flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
+          <svg
+            className="w-3.5 h-3.5 shrink-0 animate-spin text-blue-500 dark:text-blue-400"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M4 12a8 8 0 018-8"
+            />
+          </svg>
+          <span className="truncate">
+            {t("chat.clearingSessions", { count: clearingCount })}
+          </span>
+        </div>
+      )}
 
       {sessions.length > 0 && (
         <div className="p-2 border-t border-gray-200 dark:border-gray-700">

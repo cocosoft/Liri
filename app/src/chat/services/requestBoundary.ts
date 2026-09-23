@@ -43,7 +43,8 @@
  * **拿不到 requestId ⇒ 完成侧不写该字段**（不硬凑）—— 读端据此如实视为"无可配对区间"。
  */
 
-import type { LiriEvent, LiriEventMap } from '../types/events';
+import type { LiriEvent } from '../types/events';
+import type { LiriEventMap } from '../types/eventPayloads';
 import { buildRequestTimingData, type TimingEventData } from './timingEvent';
 
 /**

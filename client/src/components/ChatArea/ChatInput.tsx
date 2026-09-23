@@ -29,6 +29,8 @@ import type { FileAttachmentBarHandle } from "./FileAttachmentBar";
 import SlashCommandMenu, { SLASH_COMMANDS } from "./SlashCommandMenu";
 import MentionMenu, { type MentionItem } from "./MentionMenu";
 import { useChatDraft } from "./useChatDraft";
+// UI 期 UI-3（2026-09-23 修复计划 §十）：临时对话开关（并入工具栏行，替代原先独占一行）
+import TemporarySessionToggle from "./TemporarySessionToggle";
 import { readFileAsBase64 } from "../../utils/format";
 import { handleClientError } from "../../utils/handleError";
 import { toastError, toastWarning } from "../../stores/toastStore";
@@ -1428,6 +1430,8 @@ function ChatInput({ fluid = false }: { fluid?: boolean }) {
                   </svg>
                 </button>
               </div>
+              {/* UI 期 UI-3：临时对话开关并入本行（组件内 `ml-auto` 右对齐） */}
+              <TemporarySessionToggle />
             </div>
             {/* 输入框 + 按钮 — textarea 独占整行，按钮在下方右对齐 */}
             <div className="flex flex-col gap-1 bg-gray-100 dark:bg-gray-700 rounded-2xl p-1 ring-1 ring-transparent focus-within:ring-blue-500/40 dark:focus-within:ring-blue-400/30 focus-within:shadow-md transition-all duration-200">

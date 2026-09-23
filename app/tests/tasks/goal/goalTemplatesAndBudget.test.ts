@@ -109,6 +109,42 @@ describe('M-7：续接指令模板（逐字迁移 + 渲染）', () => {
     const partial = renderGoalTemplate('budget_limit', { tokensUsed: 5 });
     expect(partial).toContain('(5/{{tokenBudget}})');
   });
+
+  /**
+   * **B2-3 收尾迁移（2026-09-23，Spec §5.3.1 #2/#3）**：两条"残余硬编码"迁入模板源。
+   *
+   * 逐字锁定迁移结果 —— 迁移只改**存放位置**，注入正文不得变（V8 的反向保障：
+   * 若有人在此处改文案，本断言即翻红）。
+   */
+  test('resume_agent / tool_execution_errors：逐字迁移（文案不变）', () => {
+    expect(CONTINUATION_TEMPLATES.resume_agent).toBe(
+      'Continue from where you left off. You have access to the full conversation history above.'
+    );
+    expect(GOAL_TEMPLATES.tool_execution_errors).toBe(
+      '上一轮 {{count}} 个工具调用在执行阶段发生异常，请告知用户遇到了什么问题，并根据当前已完成的部分给出总结或建议下一步操作。'
+    );
+    // `[SYSTEM] ` 前缀是**注入通道标记**（协议），不属文案 ⇒ 模板内不得含它
+    expect(GOAL_TEMPLATES.tool_execution_errors.startsWith('[SYSTEM]')).toBe(
+      false
+    );
+
+    // 渲染：占位被替换（与 `TAORLoop` 注入点同口径：注入点才拼 `[SYSTEM] ` 前缀）
+    const rendered = renderGoalTemplate('tool_execution_errors', { count: 3 });
+    expect(rendered).toBe(
+      '上一轮 3 个工具调用在执行阶段发生异常，请告知用户遇到了什么问题，并根据当前已完成的部分给出总结或建议下一步操作。'
+    );
+    // 迁移前 TAORLoop 注入的正文（含前缀）也应能由"模板 + 注入点拼装"逐字复现
+    expect(`[SYSTEM] ${rendered}`).toBe(
+      '[SYSTEM] 上一轮 3 个工具调用在执行阶段发生异常，请告知用户遇到了什么问题，并根据当前已完成的部分给出总结或建议下一步操作。'
+    );
+    expect(rendered).not.toContain('{{');
+    expect(getGoalTemplate('resume_agent')).toBe(
+      CONTINUATION_TEMPLATES.resume_agent
+    );
+    expect(getGoalTemplate('tool_execution_errors')).toBe(
+      GOAL_TEMPLATES.tool_execution_errors
+    );
+  });
 });
 
 describe('M-8：任务级预算触顶收尾', () => {

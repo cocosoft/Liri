@@ -76,7 +76,9 @@ describe('B1-9：真引擎 execute 端到端（注入假供应商）', () => {
     // 修复前：worker 从不进台账 ⇒ 下面第一处断言必失败
     const view = ledger.view(workerId);
     expect(view).toBeDefined();
-    expect(view?.status).toBe(result.completed ? 'completed' : 'failed');
+    // 注入缝被**真正使用** ⇒ 假供应商路径成功收尾（去掉注入缝会走"模型未解析"错误路径 ⇒ completed=false）
+    expect(result.completed).toBe(true);
+    expect(view?.status).toBe('completed');
     // 无悬挂条目 + 引擎句柄表已清空
     expect(ledger.hasLiveRunsForSession(SID)).toBe(false);
     expect(engine.getActiveAgents()).toHaveLength(0);

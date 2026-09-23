@@ -306,4 +306,180 @@ describe('TaskGoalStore：连续无进展计数', () => {
     expect(goal?.noProgressStreak).toBe(0);
     expect(await store.bumpNoProgressStreak('goal-old')).toBe(1);
   });
+
+  /**
+   * **V1（B2-4 / B2-2 增量加列，2026-09-23）**：`run_id` / `updated_reason` 是**仅新增**的
+   * 可空列 —— 旧库经 ALTER 补列后读到 `undefined`（**不是** `NaN`，也不是字符串 "null"），
+   * 且新写入能被**跨实例**读到（证明真落盘）。
+   */
+  test('V1：跨实例 + 旧库加列读 undefined（run_id / updated_reason 不泄漏 NaN/"null"）', async () => {
+    const path = join(tmpdir(), `task-goals-s2-${randomUUID().slice(0, 8)}.db`);
+    createdPaths.push(path);
+
+    // 造"S2 之前"的库结构（**无** run_id / updated_reason）
+    const db = new Database(path);
+    await new Promise<void>((resolve, reject) => {
+      db.run(
+        `CREATE TABLE task_goals (
+           id                 TEXT PRIMARY KEY,
+           session_id         TEXT,
+           objective          TEXT NOT NULL,
+           status             TEXT NOT NULL,
+           token_budget       INTEGER,
+           tokens_used        INTEGER NOT NULL DEFAULT 0,
+           no_progress_streak INTEGER NOT NULL DEFAULT 0,
+           created_at         INTEGER NOT NULL,
+           updated_at         INTEGER NOT NULL
+         )`,
+        (err: Error | null) => (err ? reject(err) : resolve())
+      );
+    });
+    await new Promise<void>((resolve, reject) => {
+      db.run(
+        `INSERT INTO task_goals
+           (id, session_id, objective, status, token_budget, tokens_used,
+            no_progress_streak, created_at, updated_at)
+         VALUES ('goal-s2-old', NULL, 'S2 之前的行', 'active', NULL, 7, 0, 1, 1)`,
+        (err: Error | null) => (err ? reject(err) : resolve())
+      );
+    });
+    db.close();
+
+    const first = new TaskGoalStore(path);
+    opened.push(first);
+    const legacy = await first.get('goal-s2-old');
+    // 旧行（ALTER 前写入）⇒ 两列为 NULL ⇒ 映射为 undefined（**不误报为 0 / NaN**）
+    expect(legacy?.runId).toBeUndefined();
+    expect(legacy?.updatedReason).toBeUndefined();
+    expect(legacy?.tokensUsed).toBe(7);
+
+    // 新写入（run_id 关联 + 状态迁移原因码）
+    expect(await first.setRunId('goal-s2-old', 'run-abc')).toBe(true);
+    const created = await first.create({
+      objective: '新行',
+      sessionId: 's-s2',
+    });
+    expect(
+      await first.markStatusChanged(created.id, 'blocked', 'batch_blocked')
+    ).toBe(true);
+    first.close();
+
+    // **跨实例**（新 store 读同一 DB）⇒ 证明两列真的落盘
+    const second = new TaskGoalStore(path);
+    opened.push(second);
+    const reread = await second.get('goal-s2-old');
+    expect(reread?.runId).toBe('run-abc');
+    const rereadNew = await second.get(created.id);
+    expect(rereadNew?.updatedReason).toBe('batch_blocked');
+    expect(Number.isNaN(Number(rereadNew?.updatedReason))).toBe(true); // 明确不是数字
+  });
+
+  test('markStatusChanged：原因码与状态**同一条语句**落盘；终态后不覆盖既有原因码', async () => {
+    const store = makeStore();
+    const goal = await store.create({
+      objective: '原因码',
+      sessionId: 's-reason',
+    });
+
+    expect(
+      await store.markStatusChanged(goal.id, 'blocked', 'batch_blocked')
+    ).toBe(true);
+    let read = await store.get(goal.id);
+    expect(read?.status).toBe('blocked');
+    expect(read?.updatedReason).toBe('batch_blocked');
+
+    expect(
+      await store.markStatusChanged(goal.id, 'failed', 'stop_threshold')
+    ).toBe(true);
+    read = await store.get(goal.id);
+    expect(read?.status).toBe('failed');
+    expect(read?.updatedReason).toBe('stop_threshold');
+
+    // 终态不可改写 ⇒ 原因码同样不被覆盖（"同一事实两个答案"防线）
+    expect(
+      await store.markStatusChanged(goal.id, 'blocked', 'turn_error')
+    ).toBe(false);
+    read = await store.get(goal.id);
+    expect(read?.status).toBe('failed');
+    expect(read?.updatedReason).toBe('stop_threshold');
+  });
+});
+
+/**
+ * **B2-5 / D4ⓑ（2026-09-23）**：原子记账 + 触顶晋升。
+ *
+ * 关键性质（对齐 codex `state/src/runtime/goals.rs:547-569` 的"判定与写入同一次求值"）：
+ * - `promoted` **恰好一次**为 true（幂等：触顶后再记账恒 false）；
+ * - 触顶后**继续记账**（`tokensUsed` 仍增长）；
+ * - **终态优先级**：已触顶（`budget_limited`）不被后续 `blocked`/`active` 覆盖；
+ *   反之 `blocked` 目标触顶时**允许**晋升为 `budget_limited`（"预算受限"是更高优先的结论）。
+ */
+describe('TaskGoalStore：原子记账 + 触顶晋升（B2-5 / D4ⓑ）', () => {
+  test('promoted 恰好一次；触顶后继续记账；状态落 budget_limited', async () => {
+    const store = makeStore();
+    const goal = await store.create({
+      objective: '原子晋升',
+      tokenBudget: 100,
+    });
+
+    const first = await store.addUsageAndPromote(goal.id, 60);
+    expect(first?.tokensUsed).toBe(60);
+    expect(first?.promoted).toBe(false); // 未触顶
+
+    const second = await store.addUsageAndPromote(goal.id, 50);
+    expect(second?.tokensUsed).toBe(110);
+    expect(second?.promoted).toBe(true); // 首次晋升
+    expect(second?.from).toBe('active');
+    expect((await store.get(goal.id))?.status).toBe('budget_limited');
+    expect((await store.get(goal.id))?.updatedReason).toBe('budget_limit');
+
+    // 触顶后继续记账 ⇒ 用量如实增长，但**不再晋升**（幂等）
+    const third = await store.addUsageAndPromote(goal.id, 5);
+    expect(third?.tokensUsed).toBe(115);
+    expect(third?.promoted).toBe(false);
+
+    // 目标不存在 ⇒ null（不臆造）
+    expect(await store.addUsageAndPromote('goal-missing', 1)).toBeNull();
+  });
+
+  test('V6 终态优先级：budget_limited 后落 blocked/active 一律拒绝；blocked 触顶可晋升', async () => {
+    const store = makeStore();
+    const goal = await store.create({
+      objective: '终态优先',
+      tokenBudget: 50,
+      sessionId: 's-prio',
+    });
+
+    // ① 先触顶 ⇒ 后落 blocked/active ⇒ 状态不变（codex `blocking_budget_limited_goal_preserves_terminal_status` 对位）
+    const promoted = await store.addUsageAndPromote(goal.id, 60);
+    expect(promoted?.promoted).toBe(true);
+    expect(
+      await store.markStatusChanged(goal.id, 'blocked', 'batch_blocked')
+    ).toBe(false);
+    expect(await store.updateStatus(goal.id, 'active')).toBe(false);
+    expect((await store.get(goal.id))?.status).toBe('budget_limited');
+
+    // ② 先受阻（blocked，非终态）⇒ 触顶 ⇒ **允许**晋升为 budget_limited（预算受限优先）
+    const blocked = await store.create({
+      objective: '受阻后触顶',
+      tokenBudget: 50,
+      sessionId: 's-prio-2',
+    });
+    await store.markStatusChanged(blocked.id, 'blocked', 'batch_blocked');
+    const p2 = await store.addUsageAndPromote(blocked.id, 60);
+    expect(p2?.promoted).toBe(true);
+    expect(p2?.from).toBe('blocked');
+    expect((await store.get(blocked.id))?.status).toBe('budget_limited');
+  });
+
+  test('未设预算 ⇒ 永不晋升（语义为"不限"）；非法增量不改变用量', async () => {
+    const store = makeStore();
+    const goal = await store.create({ objective: '无预算' });
+    const r = await store.addUsageAndPromote(goal.id, 999_999);
+    expect(r?.promoted).toBe(false);
+    expect((await store.get(goal.id))?.status).toBe('active');
+
+    const again = await store.addUsageAndPromote(goal.id, Number.NaN);
+    expect(again?.tokensUsed).toBe(999_999); // NaN 不计账
+  });
 });

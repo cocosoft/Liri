@@ -655,6 +655,103 @@ export async function handleClearAllSessions(
 }
 
 /**
+ * 批删入参里的会话 id 白名单（与路由层 `isValidSessionIdFormat` 同口径的宽松版）：
+ * 仅允许字母/数字/下划线/连字符，长度 1-128 —— 拦截 `../`、绝对路径、空串等穿越载荷。
+ */
+const BATCH_DELETE_ID_RE = /^[A-Za-z0-9_-]{1,128}$/;
+
+/** 单次批删的 id 数量上限（防单请求放大为无界删除循环） */
+const BATCH_DELETE_MAX_IDS = 5000;
+
+/**
+ * 处理按显式 id 列表批删会话请求（A′，2026-09-23）
+ * POST /v1/sessions/batch-delete，body: { ids: string[] }
+ *
+ * 背景：前端"清空历史"原为逐条 `DELETE /v1/sessions/:id`，会话多时（实测 724 条）撞浏览器
+ * 同源 6 连接上限 ⇒ 表现为"点了清不掉"。方案 A（`DELETE /v1/sessions?moduleType=chat`）真机
+ * 实测失败：后端过滤键是 `metadata.moduleType`，而存量会话普遍缺失该字段（734 条仅删掉 2 条），
+ * 前端却是自行推导模块类型 ⇒ **两侧口径不一致**。A′ 改为**前端显式传 id 列表**：作用域完全由
+ * 前端判定，后端不做任何模块推断，从根上消除口径差异（1 个请求消灭 N 个请求的连接风暴）。
+ *
+ * 校验（任一不满足 ⇒ 400，且**不调用任何 delete**）：ids 为非空数组、元素全为字符串、
+ * 每个元素匹配 `BATCH_DELETE_ID_RE`、长度 ≤ `BATCH_DELETE_MAX_IDS`。
+ *
+ * 响应：200 `{ success, deleted, failed }`（全部成功或部分成功）；400 参数非法；
+ *      500 `{ error: { message: 'batch delete failed' } }`（全部失败）。
+ */
+export async function handleBatchDeleteSessions(
+  ctx: HandlerCtx,
+  req: http.IncomingMessage,
+  res: http.ServerResponse
+): Promise<void> {
+  try {
+    const body = await ctx.readRequestBody(req);
+    const data = tryParseJson(body);
+    if (!data) {
+      sendBadRequest(res, 'invalid JSON body');
+      return;
+    }
+    const ids = data.ids;
+    if (!Array.isArray(ids) || ids.length === 0) {
+      sendBadRequest(res, 'ids must be a non-empty array of strings');
+      return;
+    }
+    if (ids.length > BATCH_DELETE_MAX_IDS) {
+      sendBadRequest(
+        res,
+        `ids must not exceed ${BATCH_DELETE_MAX_IDS} entries`
+      );
+      return;
+    }
+    if (
+      !ids.every((id) => typeof id === 'string' && BATCH_DELETE_ID_RE.test(id))
+    ) {
+      sendBadRequest(res, 'invalid session id in ids');
+      return;
+    }
+
+    const coreAPI = getCoreAPI();
+    let deleted = 0;
+    let failed = 0;
+    // 逐个删除，**每个 id 单独 try/catch**：单个失败不中断其余（前端已按 id 判定作用域，
+    // 这里只如实计数，不因一条异常放弃整批）。
+    for (const id of ids as string[]) {
+      try {
+        await coreAPI.deleteSession(id);
+        deleted += 1;
+      } catch (e) {
+        failed += 1;
+        await handleError(e, { module: 'infra:http', action: 'batch-delete' });
+      }
+    }
+
+    if (deleted === 0) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: 'batch delete failed' } }));
+      return;
+    }
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ success: true, deleted, failed }));
+    ctx.broadcastEvent('session:cleared', {});
+  } catch (err) {
+    await handleError(err, { module: 'infra:http', action: 'handler_error' });
+    if (!res.headersSent) {
+      try {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({ error: { message: 'Internal server error' } })
+        );
+      } catch (err) {
+        handleError(err, {
+          module: 'infrastructure:http:handlers:session-handlers',
+          action: 'responseAlreadyEnded',
+        });
+      } /* res可能已结束, 忽略 */
+    }
+  }
+}
+
+/**
  * 处理获取当前会话请求
  */
 export async function handleGetCurrentSession(

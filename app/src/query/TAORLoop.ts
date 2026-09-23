@@ -13,6 +13,12 @@ import { getLogger } from '@modules/monitoring';
 import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { handleError } from '@modules/error';
+// B2-3（2026-09-23）：续接/重试指令的**唯一文案来源**（模板模块位于 `tasks/`，
+// 非 `chat/` ⇒ 不构成 query→chat 反向依赖；原"模块自持副本"已删除，见 `§5.3.1`）。
+import {
+  CONTINUATION_TEMPLATES,
+  renderGoalTemplate,
+} from '@modules/tasks/goal/goalTemplates';
 // 阶段 A（N-28 修复）：yield 轮次登记（与 stream 路径 ReActToolLoop 共用同一实现）
 import { registerYieldFromResults } from '../session/yield';
 import { messageProjector } from '@modules/context';
@@ -67,12 +73,13 @@ import type {
 
 const logger = getLogger('query:taorLoop');
 
-/** L3（2026-09-06）：回合质量重试指令——文案对齐 ReActToolLoop 同语义常量（模块自持，
- *  避免 query→chat 反向依赖）。batch 无 thinking/finishReason 可靠信号，仅 empty/planning 两类。 */
-const TAOR_EMPTY_RETRY_INSTRUCTION =
-  'The previous attempt did not produce a user-visible answer. Continue from the current state and produce the visible answer now. Do not restart from scratch.';
-const TAOR_PLANNING_ONLY_RETRY_INSTRUCTION =
-  'The previous assistant turn only described the plan. Do not restate the plan. Act now: take the first concrete tool action you can. If a real blocker prevents action, reply with the exact blocker in one sentence.';
+/** L3（2026-09-06）：回合质量重试指令 —— **B2-3 收尾迁移（2026-09-23）**：
+ *  文案唯一来源改为 `tasks/goal/goalTemplates`（原为"模块自持副本"，理由曾是避免
+ *  query→chat 反向依赖；但模板模块位于 `tasks/`（非 chat）⇒ 该理由已不成立，
+ *  且两份文案逐字重复属 CS01 违规 —— 见 `.trae/specs/goal-entity.md §5.3.1 #1`）。
+ *  batch 无 thinking/finishReason 可靠信号，仅 empty/planning 两类。 */
+const TAOR_EMPTY_RETRY_INSTRUCTION = CONTINUATION_TEMPLATES.empty;
+const TAOR_PLANNING_ONLY_RETRY_INSTRUCTION = CONTINUATION_TEMPLATES.planning;
 /** planning-only 启发式判定（与 ReActToolLoop.PLANNING_ONLY_RE 同源，保守避免误判正常回答） */
 const TAOR_PLANNING_ONLY_RE =
   /(?:以下(?:是)?(?:我(?:的)?)?(?:执行)?计划|我的计划(?:如下|是)|\bplan(?:\s*:|\s+is|\s+to)\b|步骤\s*[:：]|接下来(?:我)?(?:将|会))/i;
@@ -1012,7 +1019,11 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
       }));
       this.messages.push({
         role: 'user',
-        content: `[SYSTEM] 上一轮 ${calls.length} 个工具调用在执行阶段发生异常，请告知用户遇到了什么问题，并根据当前已完成的部分给出总结或建议下一步操作。`,
+        // B2-3（2026-09-23）：文案取自 `GOAL_TEMPLATES.tool_execution_errors`（`{{count}}` 占位）；
+        // `[SYSTEM] ` 是**注入通道标记**（协议，非文案）⇒ 由注入点拼装（§5.3.1 #2/#4）。
+        content: `[SYSTEM] ${renderGoalTemplate('tool_execution_errors', {
+          count: calls.length,
+        })}`,
       } as ChatMessage);
     }
 

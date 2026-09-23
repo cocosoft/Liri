@@ -38,6 +38,7 @@ import { handleError } from '@modules/error';
 import {
   enterPhase,
   exitPhase,
+  currentPhase,
 } from '@modules/diagnostics/loopProbe/phaseStack';
 import type {
   parseCompactionSummary as ParseCompactionSummaryFn,
@@ -185,11 +186,39 @@ export interface CompactionRequestReporter {
   ): Promise<void>;
 }
 
+/**
+ * B3-3（2026-09-23）：压缩**失败**的结构化归因。
+ *
+ * **为什么需要**：压缩失败（`_doCompact` 抛异常）此前只有一个 `applied:false` 返回值 ——
+ * 与"决策 skip / 压缩无效果"**无法区分** ⇒ 调用方（如 `StreamPipeline.compactContext`）
+ * 把失败记成 `compaction:skipped`，随后静默走截断兜底：**失败不可见、不可归因**
+ * （方案 §5 B3-3「今日实测本会话 2 次 `phase=failed` 后走截断」）。
+ *
+ * 本结构让失败**可被上层感知**（返回值）+ **可归因**（`probePhase` 与 loopProbe 的
+ * `compaction:orchestrate` 相位打通）；**兜底行为不变**（仍返回 `applied:false`，调用方
+ * 照旧走截断）。
+ */
+export interface CompactionFailure {
+  /** 失败原因码（机器可读枚举，禁止按文案判别 —— CS02） */
+  reason: 'exception';
+  /** 原始错误信息（诊断用） */
+  message: string;
+  /** loopProbe 阶段归因：失败发生时活跃的最内层阶段（正常必为 `compaction:orchestrate`；探针关闭时为 null） */
+  probePhase: string | null;
+  /** 失败前的耗时（ms） */
+  elapsedMs: number;
+}
+
 /** 压缩执行结果（P1-2 扩展：success 时携带摘要调用信封供事件重建） */
 export type CompactionOutcome = {
   messages: ChatMessage[];
   applied: boolean;
   summaryEnvelope?: CompactionSummaryEnvelope;
+  /**
+   * B3-3：失败归因（仅失败时存在）。**存在即表示"这次压缩尝试失败"**，
+   * 与"未触发/无效果"（`applied:false` 但无 `failure`）区分开。
+   */
+  failure?: CompactionFailure;
 };
 
 export class CompactionOrchestrator {
@@ -363,13 +392,26 @@ export class CompactionOrchestrator {
             module: 'context:compaction',
             action: 'compact',
           });
-          // 排查日志：异常未应用——与 Tier3 超时分支区分，调用方将走截断兜底
+          // B3-3（2026-09-23）：失败**结构化归因 + 可被上层感知**。
+          // `probePhase` 取 loopProbe 当前活跃阶段 —— 此处尚未 `exitPhase`，
+          // 故必为 `compaction:orchestrate`（与阻塞转储的归因口径打通）。
+          const failure: CompactionFailure = {
+            reason: 'exception',
+            message: err instanceof Error ? err.message : String(err),
+            probePhase: currentPhase(),
+            elapsedMs: Date.now() - startTime,
+          };
+          // 排查日志：异常未应用——结构化字段（含归因相位）而非仅一行文案，
+          // 调用方据 `failure` 走各自的可见化路径（不再误报为 skip）。
           logger.warn('compaction:❌异常未应用（调用方将走截断兜底）', {
             sessionId: ctx.sessionId,
-            error: err instanceof Error ? err.message : String(err),
-            elapsedMs: Date.now() - startTime,
+            model: ctx.model,
+            error: failure.message,
+            errorName: err instanceof Error ? err.name : typeof err,
+            probePhase: failure.probePhase,
+            elapsedMs: failure.elapsedMs,
           });
-          return { messages, applied: false };
+          return { messages, applied: false, failure };
         }
         // 排查日志：压缩完成（applied + 压缩后 tokens + 耗时）
         logger.info('compaction:②完成', {

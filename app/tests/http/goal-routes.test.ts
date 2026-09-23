@@ -13,11 +13,18 @@ import { randomUUID } from 'crypto';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { unlinkSync } from 'fs';
+import type { LiriEvent } from '../../src/chat/types/events';
+import type { LiriEventMap } from '../../src/chat/types/eventPayloads';
 import { dispatchGoalRoutes } from '../../src/infrastructure/http/handlers/routes/goal-routes';
 import {
   TaskGoalStore,
   setTaskGoalStoreForTest,
 } from '../../src/tasks/goal/TaskGoalStore';
+import { setGoalEventSink } from '../../src/tasks/goal/GoalEvents';
+import { takeIdleContinuationInstruction } from '../../src/tasks/goal/GoalEvents';
+import { renderGoalTemplate } from '../../src/tasks/goal/goalTemplates';
+import { resolveIdleContinuation } from '../../src/tasks/goal/goalIdleContinuation';
+import { parseIdleContinueTaskId } from '../../src/tasks/goal/goalIdleContinuation';
 import type { HandlerCtx } from '../../src/infrastructure/http/handlers/handler-utils';
 import { dispatchRoute } from '../../src/infrastructure/http/handlers/route-table';
 
@@ -35,6 +42,7 @@ function installStore(): TaskGoalStore {
 
 afterEach(() => {
   setTaskGoalStoreForTest(null);
+  setGoalEventSink(null);
   while (opened.length > 0) opened.pop()!.close();
   while (createdPaths.length > 0) {
     try {
@@ -44,6 +52,18 @@ afterEach(() => {
     }
   }
 });
+
+/** 内存追加器（只模拟 seq 分配；与 `goalEvents.test.ts` 同法） */
+function makeSink(): LiriEvent[] {
+  const written: LiriEvent[] = [];
+  let tail = 0;
+  setGoalEventSink(async (_sessionId, event) => {
+    tail += 1;
+    written.push({ ...event, seq: tail } as LiriEvent);
+    return { ok: true, tailSeq: tail };
+  });
+  return written;
+}
 
 /**
  * 最小 req：只满足 `readBody` 的 `data`/`end` 契约。
@@ -329,5 +349,169 @@ describe('/v1/goals：route-table 注册', () => {
     // 修复前：`url` 上无查询串 ⇒ 走到"无 sessionId 且无 active"分支 ⇒ 400
     const noParam = await viaRouteTable('GET', '/v1/goals');
     expect(noParam.status).toBe(400);
+  });
+});
+
+/**
+ * **PATCH `/v1/goals/{id}`（V11 / X4 / V9，2026-09-23）**
+ *
+ * 该端点给 `objective_updated` 模板与 `goal/updated` 事件提供**真实来源**：
+ * 「修复前必失败」= 修复前 `dispatchGoalRoutes` 对 `/v1/goals/{id}` 一律返回 `false`
+ *（未匹配）⇒ 用例 404/未匹配。
+ */
+describe('/v1/goals/{id}：更新（PATCH，X4）', () => {
+  test('200：更新 objective ⇒ 字段落库 + goal/updated 只列真实变更项 + 原因码 manual', async () => {
+    const store = installStore();
+    const events = makeSink();
+    const goal = await store.create({
+      objective: '旧目标',
+      sessionId: 'sess-patch-1',
+      tokenBudget: 100,
+    });
+
+    const r = await call('PATCH', `/v1/goals/${goal.id}`, {
+      objective: '新目标',
+    });
+    expect(r.matched).toBe(true);
+    expect(r.status).toBe(200);
+    expect((r.body['goal'] as Record<string, unknown>)['objective']).toBe(
+      '新目标'
+    );
+
+    const after = await store.get(goal.id);
+    expect(after?.objective).toBe('新目标');
+    expect(after?.updatedReason).toBe('manual'); // ← 下次续接改用 objective_updated 的判据
+
+    const updated = events.filter((e) => e.type === 'goal/updated');
+    expect(updated).toHaveLength(1);
+    const data = updated[0].data as LiriEventMap['goal/updated'];
+    expect(data.goalId).toBe(goal.id);
+    expect(data.changes).toEqual({ objective: '新目标' }); // 不含未变更的 tokenBudget
+    expect(data.reason).toBe('manual');
+  });
+
+  test('200：值未变 ⇒ 不写库、不产事件（不谎报"更新了"）', async () => {
+    const store = installStore();
+    const events = makeSink();
+    const goal = await store.create({
+      objective: '同值',
+      sessionId: 'sess-p2',
+    });
+
+    const r = await call('PATCH', `/v1/goals/${goal.id}`, {
+      objective: '同值',
+    });
+    expect(r.status).toBe(200);
+    expect(events.filter((e) => e.type === 'goal/updated')).toHaveLength(0);
+    expect((await store.get(goal.id))?.updatedReason).toBeUndefined();
+  });
+
+  test('400：无可写字段 / objective 空白 / tokenBudget 非正', async () => {
+    const store = installStore();
+    const goal = await store.create({
+      objective: '校验',
+      sessionId: 'sess-p3',
+    });
+    expect((await call('PATCH', `/v1/goals/${goal.id}`, {})).status).toBe(400);
+    expect(
+      (await call('PATCH', `/v1/goals/${goal.id}`, { objective: '   ' })).status
+    ).toBe(400);
+    expect(
+      (await call('PATCH', `/v1/goals/${goal.id}`, { tokenBudget: 0 })).status
+    ).toBe(400);
+  });
+
+  test('404：目标不存在', async () => {
+    installStore();
+    expect(
+      (await call('PATCH', '/v1/goals/goal-nope', { objective: 'x' })).status
+    ).toBe(404);
+  });
+
+  test('409：终态目标不可改写，且不产事件', async () => {
+    const store = installStore();
+    const events = makeSink();
+    const goal = await store.create({
+      objective: '终态',
+      sessionId: 'sess-p4',
+    });
+    await store.markStatusChanged(goal.id, 'failed', 'stop_threshold');
+
+    const r = await call('PATCH', `/v1/goals/${goal.id}`, {
+      objective: '改不动',
+    });
+    expect(r.status).toBe(409);
+    expect((await store.get(goal.id))?.objective).toBe('终态');
+    expect(events).toHaveLength(0);
+  });
+
+  test('V9：PATCH 后 idle 续接改用 objective_updated（逐字断言）', async () => {
+    const store = installStore();
+    const events = makeSink();
+    const goal = await store.create({
+      objective: '旧目标',
+      sessionId: 'sess-p5',
+    });
+    // 先让目标处于 blocked（续接闸门要求），再做 PATCH
+    await store.markStatusChanged(goal.id, 'blocked', 'batch_blocked');
+    const patched = await call('PATCH', `/v1/goals/${goal.id}`, {
+      objective: '改做 B 而非 A',
+    });
+    expect(patched.status).toBe(200);
+
+    const streak = (await store.get(goal.id))?.noProgressStreak ?? 0;
+    const target = await resolveIdleContinuation({
+      taskId: `goal-continue:${goal.id}:${streak}`,
+      store,
+    });
+    expect(target).not.toBeNull();
+    expect(target?.updatedReason).toBe('manual');
+    expect(
+      parseIdleContinueTaskId(`goal-continue:${goal.id}:${streak}`)
+    ).toEqual({
+      goalId: goal.id,
+      streak,
+    });
+
+    // 装配处的取用方式（`ChatManager` 同款）：manual ⇒ objective_updated
+    const text = await takeIdleContinuationInstruction({
+      sessionId: 'sess-p5',
+      goalId: goal.id,
+      objective: target!.objective,
+      streak: target!.streak,
+      realignToObjective: target!.updatedReason === 'manual',
+    });
+    expect(text).toBe(
+      renderGoalTemplate('objective_updated', { objective: '改做 B 而非 A' })
+    );
+    expect(text).not.toContain('{{');
+
+    // 注入即落盘（§1.6 红线）：templateKind 也须是 objective_updated
+    const injected = events.filter((e) => e.type === 'goal/injected');
+    expect(injected).toHaveLength(1);
+    expect(
+      (injected[0].data as LiriEventMap['goal/injected']).templateKind
+    ).toBe('objective_updated');
+    expect((injected[0].data as LiriEventMap['goal/injected']).text).toBe(text);
+  });
+
+  test('PATCH 经路由表命中（V11：注册线 + 非被更早路由吞掉）', async () => {
+    const store = installStore();
+    const goal = await store.create({
+      objective: '经表',
+      sessionId: 'sess-p6',
+    });
+
+    const { res, read } = createRes();
+    const matched = await dispatchRoute(
+      createReq('PATCH', `/v1/goals/${goal.id}`, { objective: '经表改' }),
+      res,
+      `/v1/goals/${goal.id}`,
+      noopBroadcast,
+      ctx
+    );
+    expect(matched).toBe(true);
+    expect(read().status).toBe(200);
+    expect((await store.get(goal.id))?.objective).toBe('经表改');
   });
 });

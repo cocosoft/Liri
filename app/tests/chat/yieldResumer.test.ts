@@ -346,3 +346,53 @@ describe('YieldResumer：B1-1 并发结算单胜者', () => {
     expect(registry.claim('s1')).toBe(false);
   });
 });
+
+/**
+ * B1-2（P0-3）：`registry.resolve()` 的返回值**必须判定**。
+ *
+ * 修复前：恢复 handler 返回 ok 即 `return true`（`resolve()` 返回值被丢弃）⇒ 调用方
+ * `markDelivered` ⇒ "重放不再兜底 + 日志撒谎"。本用例锁定"已触发但未真正记账 ⇒ 不得报成功"。
+ */
+describe('YieldResumer：B1-2 未记账不得报成功', () => {
+  beforeEach(() => {
+    resetYieldRegistry();
+    setYieldResumeHandler(null);
+  });
+
+  afterEach(() => {
+    resetYieldRegistry();
+    setYieldResumeHandler(null);
+    yieldSettlementListeners.length = 0;
+  });
+
+  test('恢复期间登记被新一轮 yield 取代 ⇒ 未记账 ⇒ 返回 false 且保留新等待', async () => {
+    const registry = getYieldRegistry();
+    registry.register({
+      sessionId: 's1',
+      turn: 5,
+      toolCallId: 'c-old',
+      yieldedAt: 100,
+    });
+
+    setYieldResumeHandler(async () => {
+      // 恢复在飞行期间，该会话发生新一轮 yield ⇒ 原登记引用失效（resolve 必被拒）
+      registry.register({
+        sessionId: 's1',
+        turn: 6,
+        toolCallId: 'c-new',
+        yieldedAt: 150,
+      });
+      return { ok: true };
+    });
+
+    const ok = await handleYieldSettlement(
+      { sessionId: 's1', endedAt: 200 },
+      makeDeps({ latestTurn: () => 5 })
+    );
+
+    // 修复前：`resolve()` 返回值被丢弃 ⇒ 此处为 true（虚报成功 ⇒ 调用方 markDelivered）
+    expect(ok).toBe(false);
+    // 未被记账 ≠ 静默丢弃：新登记仍在等待（交回放重投）
+    expect(registry.isWaiting('s1')).toBe(true);
+  });
+});

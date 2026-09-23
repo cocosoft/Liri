@@ -43,7 +43,8 @@
  */
 
 import type { EventLogStorage } from '@modules/session';
-import type { LiriEvent, LiriEventMap } from '../types/events';
+import type { LiriEvent } from '../types/events';
+import type { LiriEventMap } from '../types/eventPayloads';
 import { hashContent } from '@modules/security';
 import { getLogger } from '@modules/monitoring';
 

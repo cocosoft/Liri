@@ -47,6 +47,31 @@ export const TASK_GOAL_TERMINAL_STATUSES: ReadonlySet<TaskGoalStatus> = new Set(
   ['completed', 'budget_limited', 'failed', 'cancelled']
 );
 
+/**
+ * **状态迁移 / 字段变更的原因码**（B2-2，2026-09-23）。
+ *
+ * 用途：事件载荷 `goal/status_changed.reason` 与 `goal/updated.reason` 的**机器可读**面
+ * ——"为何停下"的唯一答案（`.trae/specs/goal-entity.md` §4.1）。
+ * 判定一律用本枚举，**禁止**按 `objective` 文案或用户可见字符串推断（CS02）。
+ *
+ * 取值说明（Spec §3.2 的枚举 + 本仓实际落定路径补齐的两条）：
+ * - `batch_completed` / `batch_blocked` / `budget_limit` / `stop_threshold`：Spec 原文；
+ * - `batch_failed` / `batch_cancelled`：**本仓补齐** —— 批次全败与批次取消也是真实落定路径，
+ *   Spec 枚举未列（若不补，这两条路径只能落 `null` 原因，与"唯一答案"目标相悖）；
+ * - `turn_error` / `compaction_stalled` / `manual`：属缺口 X9 / X10 / X4（本批未接，
+ *   先按 Spec 登记词表，待其落地后由对应策略层产出）。
+ */
+export type TaskGoalUpdateReason =
+  | 'batch_completed'
+  | 'batch_blocked'
+  | 'batch_failed'
+  | 'batch_cancelled'
+  | 'budget_limit'
+  | 'stop_threshold'
+  | 'turn_error'
+  | 'compaction_stalled'
+  | 'manual';
+
 /** 是否为终态 */
 export function isTerminalGoalStatus(status: TaskGoalStatus): boolean {
   return TASK_GOAL_TERMINAL_STATUSES.has(status);
@@ -101,6 +126,30 @@ export interface TaskGoal {
    *（"达阈值 ⇒ 停止"属策略层 `goalRunBinding`，见 spec §3 D4）。
    */
   noProgressStreak: number;
+  /**
+   * 最近一次归属批次的 `agent_runs` 行 id（`Goal ↔ agent_runs` 关联键，B2-4 / X6）。
+   *
+   * 口径：`agent_runs.tool_call_id`（该表主键，`AgentRunStore.ts:209`）；批次自身那行由
+   * `AgentTool.beginRun()` 以 `toolCallId = agentId` 写入 ⇒ 值为**批次 run id**。
+   * 未接（无批次 / 未提供）⇒ `undefined`。
+   */
+  runId?: string;
+  /**
+   * **最近一次状态迁移的原因码**（B2-2；"为何停下"的机器可读面，Spec §3.2）。
+   *
+   * 只由 `markStatusChanged`（经策略层）写入；旧库经增量加列后为 `NULL` ⇒ `undefined`
+   * （表示"该行落定于本次能力之前"，**不臆造**原因码）。
+   */
+  updatedReason?: TaskGoalUpdateReason;
+  /**
+   * **预算触顶收尾的"已报告"时间戳**（X8，2026-09-23，Spec §5.5④）。
+   *
+   * 语义：`null`/`undefined` ⇒ 该目标的 `budget_limit` 收尾指令**尚未注入模型**；
+   * 有值 ⇒ 已注入过一次（**跨进程/跨实例**都不得重复注入 —— 由
+   * `claimBudgetLimitWrapUp` 的条件 UPDATE 保证）。
+   * 对齐 codex `mark_budget_limit_reported_if_new`（`ext/goal/src/accounting.rs:484-491`）。
+   */
+  budgetLimitReportedAt?: number;
   createdAt: number;
   updatedAt: number;
 }
@@ -161,10 +210,35 @@ export class TaskGoalStore {
     } catch {
       // @ignore-catch — 列已存在（SQLite 不支持 ALTER TABLE ADD COLUMN IF NOT EXISTS）
     }
+    // **增量加列**（2026-09-23，B2-4 / B2-2，Spec §3.2 —— 仅新增、**不删改既有列**）：
+    // - `run_id`：归属批次（`agent_runs.tool_call_id`）关联键 ⇒ 目标可反查其批次行；
+    // - `updated_reason`：状态迁移原因码 ⇒ "为何停下"的机器可读面。
+    // 两者**可空**：旧行读到 `NULL` ⇒ 映射为 `undefined`（不得泄漏成 `NaN`/字符串 "null"）。
+    for (const ddl of [
+      `ALTER TABLE ${TASK_GOALS_TABLE} ADD COLUMN run_id TEXT`,
+      `ALTER TABLE ${TASK_GOALS_TABLE} ADD COLUMN updated_reason TEXT`,
+    ]) {
+      try {
+        await this.run(ddl);
+      } catch {
+        // @ignore-catch — 列已存在（SQLite 无 ADD COLUMN IF NOT EXISTS）
+      }
+    }
     await this.run(
       `CREATE INDEX IF NOT EXISTS idx_task_goals_status
        ON ${TASK_GOALS_TABLE} (status, created_at)`
     );
+    // **增量加列**（2026-09-23，X8 / Spec §3.2 —— 仅新增、**不删改既有列**）：
+    // `budget_limit_reported_at`：`budget_limit` 收尾指令的"已报告"时间戳 ⇒
+    // 收尾**只注入一次**（跨进程由该列判定，不用内存 flag）。
+    // 可空：旧行 / 未报告 ⇒ `NULL` ⇒ 映射为 `undefined`（不泄漏成 `NaN`）。
+    try {
+      await this.run(
+        `ALTER TABLE ${TASK_GOALS_TABLE} ADD COLUMN budget_limit_reported_at INTEGER`
+      );
+    } catch {
+      // @ignore-catch — 列已存在（SQLite 无 ADD COLUMN IF NOT EXISTS）
+    }
   }
 
   /** 创建目标（新目标恒从 `active` 起步；`tokensUsed` 从 0 开始） */
@@ -253,6 +327,25 @@ export class TaskGoalStore {
    * @returns 是否真的发生迁移（false = 目标不存在 / 非法迁移 / 已是终态）
    */
   async updateStatus(id: string, to: TaskGoalStatus): Promise<boolean> {
+    return this.markStatusChanged(id, to);
+  }
+
+  /**
+   * 迁移状态**并落原因码**（B2-2，2026-09-23；Spec §9.1 S2 的 `markStatusChanged`）。
+   *
+   * 与 `updateStatus` 同一守卫链（`canTransitionGoal` + 条件更新 + `changes` 判定），
+   * 差别只有一处：**同一条语句**写入 `updated_reason` —— 状态与"为何迁"不得分离落盘
+   *（否则读端可能读到"新状态 + 旧原因"，即同一事实两个答案）。
+   *
+   * `reason` 省略 ⇒ 不动 `updated_reason` 列（保留既有值；兼容旧调用方）。
+   *
+   * @returns 是否真的发生迁移
+   */
+  async markStatusChanged(
+    id: string,
+    to: TaskGoalStatus,
+    reason?: TaskGoalUpdateReason
+  ): Promise<boolean> {
     await this.init();
     const current = await this.get(id);
     if (!current) return false;
@@ -261,14 +354,23 @@ export class TaskGoalStore {
         id,
         from: current.status,
         to,
+        reason: reason ?? null,
       });
       return false;
     }
-    const changed = await this.run(
-      `UPDATE ${TASK_GOALS_TABLE} SET status = ?, updated_at = ?
-         WHERE id = ? AND status = ?`,
-      [to, Date.now(), id, current.status]
-    );
+    const now = Date.now();
+    const changed = reason
+      ? await this.run(
+          `UPDATE ${TASK_GOALS_TABLE}
+             SET status = ?, updated_reason = ?, updated_at = ?
+           WHERE id = ? AND status = ?`,
+          [to, reason, now, id, current.status]
+        )
+      : await this.run(
+          `UPDATE ${TASK_GOALS_TABLE} SET status = ?, updated_at = ?
+             WHERE id = ? AND status = ?`,
+          [to, now, id, current.status]
+        );
     if (changed === 0) {
       // 并发下被他人先迁移（条件更新未命中）⇒ 不覆盖
       logger.debug('目标状态未迁移：并发条件更新未命中', {
@@ -279,6 +381,68 @@ export class TaskGoalStore {
       return false;
     }
     return true;
+  }
+
+  /**
+   * 记录**归属批次**（`agent_runs.tool_call_id`，B2-4 / X6）。
+   *
+   * 无状态过滤：批次收口时目标可能已是非终态任一（`active`/`blocked`）——
+   * "最近一次归属批次"是**事实记录**，不参与状态机。
+   *
+   * @returns 是否写入（目标不存在 ⇒ false）
+   */
+  async setRunId(id: string, runId: string): Promise<boolean> {
+    await this.init();
+    const changed = await this.run(
+      `UPDATE ${TASK_GOALS_TABLE} SET run_id = ?, updated_at = ?
+         WHERE id = ?`,
+      [runId, Date.now(), id]
+    );
+    return changed > 0;
+  }
+
+  /**
+   * 更新**目标陈述 / 预算**（`PATCH /v1/goals/{id}` 的唯一写入口，B2-2 / X4）。
+   *
+   * **终态不可改写**：条件更新带 `status NOT IN (终态集合)` ⇒ 终态目标写不进去
+   *（返回 `null`，路由据此回 **409**）。状态判定取自终态集合常量，**不按文案推断**（CS02）。
+   *
+   * @returns 更新后的目标；目标不存在 / 已是终态 ⇒ `null`
+   */
+  async updateFields(
+    id: string,
+    changes: { objective?: string; tokenBudget?: number },
+    reason?: TaskGoalUpdateReason
+  ): Promise<TaskGoal | null> {
+    await this.init();
+    const sets: string[] = [];
+    const params: unknown[] = [];
+    if (changes.objective !== undefined) {
+      sets.push('objective = ?');
+      params.push(changes.objective);
+    }
+    if (changes.tokenBudget !== undefined) {
+      sets.push('token_budget = ?');
+      params.push(changes.tokenBudget);
+    }
+    if (sets.length === 0) return this.get(id); // 无可写字段 ⇒ 只回读（不写 updated_at）
+    if (reason !== undefined) {
+      // 与 `markStatusChanged` 同口径：变更与"为何变更"**同一条语句**落盘
+      //（`updated_reason = 'manual'` 是"下次续接改用 objective_updated"的判据，Spec §5.3.2）
+      sets.push('updated_reason = ?');
+      params.push(reason);
+    }
+
+    const terminal = [...TASK_GOAL_TERMINAL_STATUSES];
+    sets.push('updated_at = ?');
+    params.push(Date.now());
+    const changed = await this.run(
+      `UPDATE ${TASK_GOALS_TABLE} SET ${sets.join(', ')}
+         WHERE id = ? AND status NOT IN (${terminal.map(() => '?').join(', ')})`,
+      [...params, id, ...terminal]
+    );
+    if (changed === 0) return null;
+    return this.get(id);
   }
 
   /**
@@ -311,6 +475,137 @@ export class TaskGoalStore {
     const goal = await this.get(id);
     if (!goal || goal.tokenBudget === undefined) return false;
     return goal.tokensUsed >= goal.tokenBudget;
+  }
+
+  /**
+   * **原子记账 + 触顶晋升**（B2-5 / D4ⓑ，2026-09-23；对齐 codex `state/src/runtime/goals.rs:547-569`）。
+   *
+   * 相对旧"两步法"（`addUsage` → 策略层 `updateStatus`）的差别：
+   * - 旧：**触顶判定**（策略层读 `tokensUsed >= tokenBudget`）与**状态写入**分处两条语句、
+   *   两次读快照 ⇒ 两次之间任何并发写入（别的终态落定、并发记账）都能让两者**不一致**；
+   * - 新：晋升的**判定条件写在 UPDATE 的 `WHERE`**（等价于 codex 的 `status = CASE WHEN
+   *   <filter> AND token_budget IS NOT NULL AND tokens_used + <delta> >= token_budget THEN
+   *   'budget_limited' ELSE status END`）⇒ 判定与写入**同一次求值**，且 `changes > 0`
+   *   恰是"本次调用完成首次晋升"的**唯一判据**（并发下恰好一路命中）。
+   *
+   * **为什么不用字面 CASE 形式**（如实记录与 Spec §5.5① 的偏离）：
+   * ① 字面 CASE 必须把 `tokens_used = tokens_used + ?` 并进**同一条**语句，而
+   *    "触顶后仍记账"要求累加**无条件**发生 ⇒ 该语句的 `changes` 恒为 1，
+   *    **无法**回答"本次是否首次晋升"（V5 的幂等判据会失真）；
+   * ② 故实现为"无条件累加 + 带判定条件的守卫式晋升"，两条语句但**晋升本身是单条
+   *    条件 UPDATE**（判定与写入原子），语义与 codex 的 CASE 形式在"非终态目标"上等价。
+   *
+   * **触顶后继续记账**（codex `goals.rs:516-530` 的 `ActiveOnly` 对位）：累加语句
+   * **不带状态过滤** ⇒ `budget_limited` 之后 `tokensUsed` 仍如实增长。
+   *
+   * @returns `null` = 目标不存在 / 本次无可记账增量且目标已被删除；
+   *   `promoted` = 本次调用把目标**首次**晋升为 `budget_limited`（幂等：重复调用恒 false）
+   */
+  async addUsageAndPromote(
+    id: string,
+    tokens: number
+  ): Promise<{
+    tokensUsed: number;
+    tokenBudget?: number;
+    promoted: boolean;
+    /** 晋升发生时的**原状态**（仅 `promoted === true` 时有意义；由守卫式条件更新的观察值给出） */
+    from?: TaskGoalStatus;
+  } | null> {
+    await this.init();
+    const delta =
+      Number.isFinite(tokens) && tokens > 0 ? Math.floor(tokens) : 0;
+    // ① 无条件累加（含终态目标 —— "触顶后仍记账"）
+    if (delta > 0) {
+      await this.run(
+        `UPDATE ${TASK_GOALS_TABLE}
+           SET tokens_used = tokens_used + ?, updated_at = ?
+         WHERE id = ?`,
+        [delta, Date.now(), id]
+      );
+    }
+    const current = await this.get(id);
+    if (!current) return null;
+
+    const budget = current.tokenBudget;
+    if (
+      budget === undefined ||
+      current.tokensUsed < budget ||
+      isTerminalGoalStatus(current.status)
+    ) {
+      return {
+        tokensUsed: current.tokensUsed,
+        tokenBudget: budget,
+        promoted: false,
+      };
+    }
+
+    // ② 守卫式**原子晋升**：判定条件在 WHERE 内 ⇒ 与本条状态写入同一次求值；
+    //    条件为"**非终态**（`active`/`blocked`）且已触顶"—— 与 codex 的 `<filter>` 同义
+    //（`goals.rs` 的 `ActiveOnly ⇒ status IN ('active','budget_limited')` 用于**记账**；
+    //  晋升侧的 filter 即"可从之晋升的状态集"）。
+    //    为何不锁"观察到的那个状态"：并发下另一路可能恰好把 `active` 改成 `blocked`
+    //（`blocked` 同为非终态、且 `blocked → budget_limited` 合法）⇒ 锁死观察值会**丢掉晋升**
+    //    并把"预算触顶"这个更高优先的结论让位给 `blocked`（终态优先级应相反）。
+    //    `changes > 0` 恰是"本次调用完成首次晋升"的唯一判据（并发下恰好一路命中）。
+    const promoted =
+      (await this.run(
+        `UPDATE ${TASK_GOALS_TABLE}
+           SET status = 'budget_limited', updated_reason = 'budget_limit', updated_at = ?
+         WHERE id = ? AND status IN ('active', 'blocked')
+           AND token_budget IS NOT NULL AND tokens_used >= token_budget`,
+        [Date.now(), id]
+      )) > 0;
+    if (!promoted) {
+      // 并发下被他人先晋升 / 先落定终态 ⇒ 不覆盖（终态优先级），如实回读当前事实
+      const after = await this.get(id);
+      return {
+        tokensUsed: after?.tokensUsed ?? current.tokensUsed,
+        tokenBudget: after?.tokenBudget ?? budget,
+        promoted: false,
+      };
+    }
+    return {
+      tokensUsed: current.tokensUsed,
+      tokenBudget: budget,
+      promoted: true,
+      from: current.status,
+    };
+  }
+
+  /**
+   * **认领"预算触顶收尾"的唯一一次注入机会**（X8，2026-09-23；Spec §5.5④）。
+   *
+   * 对齐 codex `mark_budget_limit_reported_if_new`（`ext/goal/src/accounting.rs:484-491`）：
+   * **单条条件 UPDATE + `changes` 判首次** —— `budget_limit_reported_at IS NULL` 是唯一
+   * 前置条件，`changes > 0` 恰是"本次调用认领成功"（并发/跨进程下恰好一路命中）。
+   *
+   * **为什么不用 `listActive`**：`budget_limited` 是**终态**，被 `listActive` 按其定义
+   * （`status IN ('active','blocked')`）排除；此处要取的是"已触顶但**尚未收尾报告**"的目标
+   * ⇒ 在**同一 store** 内新增一条窄查询（复用本类 sqlite 封装，不另建查询模块，CS01）。
+   *
+   * @returns 认领成功 ⇒ 该目标（含记账/预算快照，供渲染收尾指令）；无待收尾目标
+   *   或已被并发认领 ⇒ `null`
+   */
+  async claimBudgetLimitWrapUp(sessionId: string): Promise<TaskGoal | null> {
+    await this.init();
+    const candidate = await this.get1<Record<string, unknown>>(
+      `SELECT id FROM ${TASK_GOALS_TABLE}
+         WHERE session_id = ? AND status = 'budget_limited'
+           AND budget_limit_reported_at IS NULL
+         ORDER BY created_at ASC LIMIT 1`,
+      [sessionId]
+    );
+    if (!candidate) return null;
+    const id = String(candidate['id']);
+    const now = Date.now();
+    const claimed = await this.run(
+      `UPDATE ${TASK_GOALS_TABLE}
+         SET budget_limit_reported_at = ?, updated_at = ?
+       WHERE id = ? AND budget_limit_reported_at IS NULL`,
+      [now, now, id]
+    );
+    if (claimed === 0) return null; // 并发下被他人先认领 ⇒ 不重复报告
+    return this.get(id);
   }
 
   /**
@@ -390,6 +685,9 @@ export class TaskGoalStore {
 
   private static toGoal(raw: Record<string, unknown>): TaskGoal {
     const budget = raw['token_budget'];
+    const runId = raw['run_id'];
+    const updatedReason = raw['updated_reason'];
+    const budgetLimitReportedAt = raw['budget_limit_reported_at'];
     return {
       id: String(raw['id']),
       sessionId:
@@ -403,6 +701,22 @@ export class TaskGoalStore {
       tokensUsed: Number(raw['tokens_used'] ?? 0),
       // 增量加列的库在 ALTER 前的老行 ⇒ 该列为 NULL，按 0 处理
       noProgressStreak: Number(raw['no_progress_streak'] ?? 0),
+      // 增量加列（2026-09-23）：旧行 / 未接 ⇒ NULL ⇒ `undefined`（不泄漏 "null" 字符串）
+      runId:
+        runId === null || runId === undefined || runId === ''
+          ? undefined
+          : String(runId),
+      updatedReason:
+        updatedReason === null ||
+        updatedReason === undefined ||
+        updatedReason === ''
+          ? undefined
+          : (String(updatedReason) as TaskGoalUpdateReason),
+      // 增量加列（2026-09-23，X8）：旧行 / 未报告 ⇒ NULL ⇒ `undefined`（不泄漏成 NaN）
+      budgetLimitReportedAt:
+        budgetLimitReportedAt === null || budgetLimitReportedAt === undefined
+          ? undefined
+          : Number(budgetLimitReportedAt),
       createdAt: Number(raw['created_at'] ?? 0),
       updatedAt: Number(raw['updated_at'] ?? 0),
     };

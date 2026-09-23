@@ -47,6 +47,8 @@ export interface Message {
    * - canceled/abort：回复被中断（用户停止/幽灵块检测/后端静默中断）
    * - error：流异常（SSE 断开等，已有"连接已断开"提示块）
    * - yielded（N-45，2026-09-20）：本轮以 `sessions_yield` 让出 turn，等待子任务结算后自动续跑
+   * - unknown（一期 F1-2，2026-09-23）：provider 未报结束原因——后端三个落盘点统一用该
+   *   哨兵值（此前落库用 'stop' 会把"未知"谎报为"正常结束"）
    */
   finishReason?:
     | "stop"
@@ -57,7 +59,8 @@ export interface Message {
     | "canceled"
     | "abort"
     | "error"
-    | "yielded";
+    | "yielded"
+    | "unknown";
 }
 
 export interface QuestionOption {

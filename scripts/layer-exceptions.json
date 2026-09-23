@@ -241,6 +241,26 @@
   ],
   "fileSizeExceptions": [
     {
+      "id": "FSZ-161",
+      "ruleId": "R04-001",
+      "file": "client/src/components/ChatInspector/ChatInspector.tsx",
+      "lines": 898,
+      "targetLines": 800,
+      "plan": "历史巨型（HEAD 基线即 898 行，2026-09-23 会话净增 0）：单文件承载 5 个 Tab + 虚拟列表 + 时间线 + 播放器；后续按 Tab 拆分子组件（上下文/轨迹/文件/日志/设置）",
+      "expiresAt": "2026-10-23",
+      "owner": "@arch-lead"
+    },
+    {
+      "id": "FSZ-162",
+      "ruleId": "R04-001",
+      "file": "app/src/core/tokenBudget/UnifiedTokenTracker.ts",
+      "lines": 834,
+      "targetLines": 800,
+      "plan": "历史巨型（HEAD 基线即 834 行，2026-09-23 会话净增 0）：含阈值表/基线估算/校准/统计四块；后续抽出「校准与统计」（recordTimingUsage / getCalibrationStats / _applyUsageSample）到独立模块",
+      "expiresAt": "2026-10-23",
+      "owner": "@arch-lead"
+    },
+    {
       "id": "FSZ-139",
       "ruleId": "R04-001",
       "file": "app/src/infrastructure/http/handlers/session-handlers.ts",

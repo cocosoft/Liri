@@ -27,5 +27,24 @@ export {
   handleYieldSettlement,
   installYieldResumer,
   replayPendingSettlements,
+  // B4-3（2026-09-23）：注入式崩溃点（仅测试装配；生产恒为未装配）
+  setSettlementCrashHookForTest,
 } from './YieldResumer';
-export type { YieldResumeHandler, YieldResumerDeps } from './YieldResumer';
+export type {
+  YieldResumeHandler,
+  YieldResumerDeps,
+  SettlementCrashPoint,
+  SettlementCrashInfo,
+} from './YieldResumer';
+
+// B4-1（2026-09-23）：恢复通路审计（认领/恢复/放弃）—— 写入方，通道为既有会话事件日志
+export {
+  setYieldRecoveryAuditSink,
+  hasYieldRecoveryAuditSink,
+  recordYieldRecovery,
+} from './YieldRecoveryAudit';
+export type {
+  YieldRecoveryAuditAction,
+  YieldRecoveryAuditOutcome,
+  YieldRecoveryAuditAppender,
+} from './YieldRecoveryAudit';

@@ -27,6 +27,7 @@ import { ReActLoop, EXTERNAL_FETCH_TOOLS } from '@modules/query';
 import type { TerminationReason } from '@modules/query';
 import { createErrorRecoveryManager } from '@modules/query';
 import { createPathGuard } from '@modules/query';
+import { configManager } from '@modules/config';
 import type {
   ReActLoopConfig,
   BudgetControllerLike,
@@ -486,8 +487,9 @@ export class ReActToolLoop extends ReActLoop<
       // 上下文/构建分配已很大。此处估算超 REACT_LAYER_WINDOW_TOKENS（默认 45K，
       // 设 0 关闭）时提前对旧轮做分层压缩（Tier2 snip + 既有后台摘要链兜底），
       // 把单请求封顶在 ~45K 附近，降低重复构建/分配对 RSS 与 GC STW 的压力。
+      // 经统一出入口（R05-012）
       const baseWindow = Number(
-        process.env.REACT_LAYER_WINDOW_TOKENS ?? '45000'
+        configManager.env('REACT_LAYER_WINDOW_TOKENS', '45000')
       );
       // 内存水位 tick（工具轮边界驱动；零日志除非级别变化）
       getMemoryPressureMonitor().tick();

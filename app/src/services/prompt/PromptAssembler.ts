@@ -6,6 +6,7 @@ import {
   localToolUseSection,
 } from '@modules/constants/systemPromptSections';
 import { buildSystemPrompt, type SystemPromptContext } from '@modules/ai';
+import { configManager } from '@modules/config';
 import { providerPromptRegistry } from './ProviderPromptPlugin';
 import { modelManager, providerRegistry, estimateTokens } from '@modules/ai';
 import { getLogger } from '@modules/monitoring';
@@ -450,7 +451,8 @@ function computeDynamicDrops(
  */
 function resolveDynamicBudgetTokens(explicit?: number): number | undefined {
   if (explicit !== undefined && explicit >= 0) return explicit;
-  const raw = process.env.PROMPT_DYNAMIC_BUDGET_TOKENS;
+  // 经统一出入口（R05-012）
+  const raw = configManager.env('PROMPT_DYNAMIC_BUDGET_TOKENS');
   if (!raw) return undefined;
   const n = Number(raw);
   return Number.isFinite(n) && n > 0 ? n : undefined;

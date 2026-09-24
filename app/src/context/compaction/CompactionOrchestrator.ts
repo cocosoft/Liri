@@ -13,6 +13,7 @@
  */
 import type { ChatMessage } from '@modules/ai';
 import { estimateMessagesTokens } from '@modules/ai';
+import { configManager } from '@modules/config';
 import {
   type CompactionDecision,
   type UnifiedTokenTracker,
@@ -81,7 +82,7 @@ const FOLD_BATCH_SOURCE_TOKENS = 12_000;
 const FOLD_MAX_ITERATIONS = 20;
 /** R1（2026-09-16）：Tier3 折叠目标窗口——剩余上下文低于该 token 即停（与 ReActToolLoop 层窗口同源） */
 const FOLD_TARGET_TOKENS =
-  Number(process.env.REACT_LAYER_WINDOW_TOKENS) || 45_000;
+  Number(configManager.env('REACT_LAYER_WINDOW_TOKENS')) || 45_000; // 经统一出入口（R05-012），保留 || 语义
 
 /**
  * R1（2026-09-16）：从旧→新的待折叠消息流取出**最早的一小批**——累积到接近 budgetTokens 即封批，

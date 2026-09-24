@@ -13,6 +13,7 @@
  * - LLM 响应用量记录（record chat response usage）
  */
 import { getLogger } from '@modules/monitoring';
+import { configManager } from '@modules/config';
 import type { ChatSession } from '../types/session.js';
 import { toolResultRegistry } from '../../tool/ToolResultRegistry.js';
 import {
@@ -511,7 +512,8 @@ async function fetchTokenizeCount(
  * 长文档/代码库类任务（完整通读全文语义 > 分页取回体验）可会话级置 off 关闭。
  */
 export function contextLayeringEnabled(): boolean {
-  return process.env.CONTEXT_LAYERING !== 'off';
+  // 经统一出入口（R05-012）
+  return configManager.env('CONTEXT_LAYERING') !== 'off';
 }
 
 /**

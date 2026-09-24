@@ -31,6 +31,7 @@
  */
 
 import { getLogger } from '@modules/monitoring';
+import { configManager } from '@modules/config';
 import {
   enterPhase,
   exitPhase,
@@ -66,7 +67,8 @@ const logger = getLogger('chat:streamFlow');
 let dailyBudgetSingleton: DailyBudgetManager | null = null;
 function getDailyBudget(): DailyBudgetManager {
   if (!dailyBudgetSingleton) {
-    const raw = process.env.LIRI_DAILY_BUDGET_TOKENS;
+    // 经统一出入口（R05-012）
+    const raw = configManager.env('LIRI_DAILY_BUDGET_TOKENS');
     const parsed = Number.parseInt(raw ?? '', 10);
     const dailyLimit =
       raw && Number.isInteger(parsed) && parsed > 0 ? parsed : 500_000;

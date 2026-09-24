@@ -14,6 +14,7 @@ import { join } from 'path';
 import { readFile } from 'fs/promises';
 import { existsSync, readFileSync } from 'fs';
 import { getLogger } from '@modules/monitoring';
+import { configManager } from '@modules/config';
 import { resolvePyappHome } from '@modules/core';
 
 const logger = getLogger('knowledge:config');
@@ -105,7 +106,8 @@ function envBool(key: string, fallback: boolean): boolean {
  * 优先级：env KNOWLEDGE_PDF_OCR > knowledge.json `ocrEnabled` > 默认 false。
  */
 export function isKnowledgeOcrEnabled(): boolean {
-  const env = process.env.KNOWLEDGE_PDF_OCR;
+  // 经统一出入口（R05-012）
+  const env = configManager.env('KNOWLEDGE_PDF_OCR');
   if (env !== undefined) {
     return env === '1' || env.toLowerCase() === 'true';
   }

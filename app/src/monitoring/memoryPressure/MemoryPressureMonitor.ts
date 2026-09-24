@@ -26,15 +26,19 @@
  */
 import { Logger } from '@modules/monitoring/logs/Logger.js';
 import { LogLevel } from '@modules/monitoring';
+import { configManager } from '@modules/config';
 
-const ENABLED = process.env.MEM_PRESSURE !== '0';
+// 以下 env 读取均经统一出入口（R05-012）
+const ENABLED = configManager.env('MEM_PRESSURE') !== '0';
 
-const SOFT1_MB = Number(process.env.MEM_PRESSURE_SOFT1_MB ?? 2400);
-const SOFT2_MB = Number(process.env.MEM_PRESSURE_SOFT2_MB ?? 3000);
-const HARD_MB = Number(process.env.MEM_PRESSURE_HARD_MB ?? 4000);
-const LAG_MS = Number(process.env.MEM_PRESSURE_LAG_MS ?? 2000);
-const COOLDOWN_MS = Number(process.env.MEM_PRESSURE_COOLDOWN_MS ?? 30_000);
-const RECOVER_MB = Number(process.env.MEM_PRESSURE_RECOVER_MB ?? 512);
+const SOFT1_MB = Number(configManager.env('MEM_PRESSURE_SOFT1_MB', '2400'));
+const SOFT2_MB = Number(configManager.env('MEM_PRESSURE_SOFT2_MB', '3000'));
+const HARD_MB = Number(configManager.env('MEM_PRESSURE_HARD_MB', '4000'));
+const LAG_MS = Number(configManager.env('MEM_PRESSURE_LAG_MS', '2000'));
+const COOLDOWN_MS = Number(
+  configManager.env('MEM_PRESSURE_COOLDOWN_MS', '30000')
+);
+const RECOVER_MB = Number(configManager.env('MEM_PRESSURE_RECOVER_MB', '512'));
 
 /** 分层窗口收紧量（L1 压力下把默认 45K 窗口收紧到 32K，缩小下一轮工作集） */
 export const PRESSURE_LAYER_WINDOW_OVERRIDE = 32_000;
@@ -44,7 +48,8 @@ const LAG_PROBE_MAX_INTERVAL_MS = 10_000; // 低负载下最长探测间隔
 const LAG_PROBE_REPORT_MIN_MS = 100; // 仅当实测滞后 ≥100ms 才回喂（过滤 jitter）
 
 /** 反向扩张（thrashing 防护）参数（2026-09-02 v1.1 复查 §3.2） */
-const RELAX_DISABLED = process.env.MEM_PRESSURE_RELAX === '0'; // kill-switch
+// 经统一出入口（R05-012）
+const RELAX_DISABLED = configManager.env('MEM_PRESSURE_RELAX') === '0'; // kill-switch
 const RELAX_WINDOW_MS = 60_000; // 放宽时长：60s 后若压力仍在则复收紧
 const RELAX_CONSECUTIVE = 2; // 60s 内连续反向信号 ≥2 次才触发放宽（防抖动）
 

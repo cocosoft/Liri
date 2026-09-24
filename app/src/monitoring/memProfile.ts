@@ -11,8 +11,10 @@
 import { Logger } from '@modules/monitoring/logs/Logger.js';
 import { LogLevel } from '@modules/monitoring';
 import { getMemoryPressureMonitor } from './memoryPressure/MemoryPressureMonitor.js';
+import { configManager } from '@modules/config';
 
-const ENABLED = process.env.MEM_PROFILE === '1';
+// 经统一出入口（R05-012）
+const ENABLED = configManager.env('MEM_PROFILE') === '1';
 
 const logger = new Logger({
   level: LogLevel.INFO,

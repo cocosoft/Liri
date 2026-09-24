@@ -8,13 +8,15 @@
  */
 
 import { getLogger } from '@modules/monitoring';
+import { configManager } from '@modules/config';
 const logger = getLogger('tools:sessionQuota');
 
 /** 默认会话级工具调用总上限（env SESSION_TOOL_QUOTA 可调） */
 const DEFAULT_MAX_TOOL_CALLS = 150;
 
 function resolveMaxCalls(): number {
-  const raw = process.env.SESSION_TOOL_QUOTA;
+  // 经统一出入口（R05-012）
+  const raw = configManager.env('SESSION_TOOL_QUOTA');
   if (raw) {
     const n = Number.parseInt(raw, 10);
     if (Number.isInteger(n) && n > 0) return n;

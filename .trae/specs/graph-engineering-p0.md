@@ -452,7 +452,7 @@ office:workflow → engine.execute + createRunRecordCollector
 | `app/src/tools/AgentTool/runAttribution.ts` | **新增** | 纯函数 `attributeAgentRun()`：建 run 图 + 一次上游回溯（复用 `findRootCauseCandidates`） |
 | `app/src/tools/AgentTool/SubAgentEngine.ts` | 修改 | ① `SubAgentRequest.assignedRole?`（被指派角色）；② 步骤事实收集（`onToolResult` 回调增加真实 `ok` 布尔）；③ **两条未完成路径**（循环未完成 / 异常）各回溯一次 → `SubAgentResult.attribution` |
 | `app/src/tools/AgentTool/AgentRunStore.ts` | 修改 | schema **v3**：新增 `attribution_json`（建表 + `ensureColumns` 补列，**只新增字段**）；`settleRun` 接受可选归因（COALESCE 语义）；回读解析（损坏不抛但记 warn） |
-| `app/src/tools/AgentTool/AgentTool.ts` | 修改 | 请求带 `assignedRole: input.subagent_type`；引擎包装层透出 `attribution`；主结算点把归因随 `settleRun` 落盘 |
+| `app/src/tools/AgentTool/AgentTool.ts` | 修改 | 请求带 `assignedRole: input.subagent_type`；引擎包装层透出 `attribution`；主结算点把归因随 `settleRun` 落盘；**同日补齐 swarm worker 路径**（见下） |
 | `app/src/infrastructure/http/handlers/agent-control-handlers.ts` | 修改 | `/v1/agents/runs` 列表透出 `attribution`（既有消费方，见下） |
 | `app/tests/tools/AgentTool/agentRunAttribution.test.ts` | 新增 | 9 例（7 纯函数 + 2 台账落盘回读） |
 
@@ -490,7 +490,30 @@ run:<runId> --dependsOn--> step:<tu₁> --dependsOn--> step:<tu₂> --> …
 
 **未做（诚实记录）**
 
-1. **只接了单代理前台路径**（`runForegroundPath` → `settleRun`）；`AgentTool` 的 **swarm worker 路径**（`buildSwarmExecutor`）与其余若干结算点未带归因 ⇒ 那些 run 失败时无 `attribution`（字段可空，不影响既有行为）。
-2. **前端未渲染**：接口已透出，面板是否加列未做。
-3. **agent 节点 id = `subagent_type` 原值**（未指定 ⇒ 不建分配边）；与 `AgentRegistry` 的角色 id 同空间但**不校验存在性**（不因未注册角色而丢事实）。
-4. **顺带发现一条预存缺陷（未修，已入台账）**：`SubAgentEngine.onToolResult` 发布 `TOOL_CALL_END` 时**硬编码** `status: 'completed'`，而循环结果按 `ok` 区分成功/失败 ⇒ 事件流里工具失败不可辨。本轮**只取用 `ok`**，不改事件载荷语义（`PY_APP.md §3`）。
+1. **归因覆盖 = 单代理前台路径 + swarm worker 路径**（见下）；其余结算点经逐点核对**不适用**，非遗漏。
+2. **接线层无专门测试**：图构建/归因（纯函数）与台账落盘回读均有单测，但"路径是否把字段接对"只由 `typecheck` + 全量回归保障 —— 仓内无 `setSubAgentEngine` / `setAgentRunStoreForTest` 之类的注入夹具（AgentTool 的私有 executor 无既有测试入口），为 4 行接线新建整套夹具不划算。
+3. **前端未渲染**：接口已透出，面板是否加列未做。
+4. **agent 节点 id = `subagent_type` / worker 声明的 `agentType` 原值**（未声明 ⇒ 不建分配边）；与 `AgentRegistry` 的角色 id 同空间但**不校验存在性**（不因未注册角色而丢事实）。
+5. **顺带发现一条预存缺陷（未修，已入台账）**：`SubAgentEngine.onToolResult` 发布 `TOOL_CALL_END` 时**硬编码** `status: 'completed'`，而循环结果按 `ok` 区分成功/失败 ⇒ 事件流里工具失败不可辨。本轮**只取用 `ok`**，不改事件载荷语义（`PY_APP.md §3`）。
+
+### 7.8 swarm worker 路径补齐（2026-09-24，同批）
+
+**改动（`AgentTool.ts` 的 `buildSwarmExecutor`，2 处）**
+
+| 位置 | 改动 |
+|---|---|
+| `engine.execute({...})` | 新增 `assignedRole: agentType`（worker 声明的类型；**未声明 ⇒ 不建分配边，不臆测为 `'general'`** —— 注意台账 `agentType` 落盘时确有 `?? 'general'` 兜底，那是**落盘口径**，归因不沿用该兜底） |
+| worker 结算 `getAgentRunStore().settleRun(...)` | 未完成时带 `attribution`（与前台路径同形） |
+
+**同源保证**：该路径的引擎 `agentId` = `${batchId}::${taskKey}`（P1-E 统一）⇒ 归因图的 run 节点 `run:${batchId}::${taskKey}` 与证据 `agent_run:${batchId}::${taskKey}` **与台账主键同源**，`/v1/agents/runs` 里的行与图可直接对上。
+
+**其余结算点核对结论（为何不接）**
+
+| 结算点 | 判定 |
+|---|---|
+| 描述符 fail-closed / 工具池空集 fail-closed | **执行前**拦截 ⇒ 引擎从未运行，无步骤事实（原因已由 `error` 文案承载） |
+| 前台 catch（`runForegroundPath` 抛出） | 引擎结果已丢失，无事实可归因 |
+| 批次聚合结算（`tasks[]` 收口） | 结算的是**批次自身**的 run id，其失败语义是门禁/取消聚合，非图上事实；**各 worker 行已在 executor 内逐一落归因** |
+| 后台路径结算 | 与前台同一 run id ⇒ 前台已带归因落盘（终态幂等 ⇒ 后写被丢弃） |
+
+**验证**：`bun run typecheck` 0 / `bun run lint:arch` **0 错 0 警** / 全量 `bun test` **3548 pass / 19 skip / 0 fail [73.63s]**（与接线前同数 ⇒ 引擎未给归因时该路径**行为中性**）。

@@ -1514,6 +1514,8 @@ export class AgentTool implements Tool {
         maxTurns: 20,
         // 批次显式模型优先；未指定 ⇒ 用角色推荐模型（与单代理路径同优先级）
         model: model ?? resolved?.model,
+        // 接线期③ ③-A：该 worker **被指派的类型**（未声明 ⇒ 无分配边，不臆测为 'general'）
+        assignedRole: agentType,
         signal,
         // O14-2：透传父级工具上下文 ⇒ 引擎侧登记该 worker 的**归属会话**，
         // 使控制面能对 worker（P1-E 后 id = `${batchId}::${taskKey}`）做归属校验
@@ -1526,9 +1528,13 @@ export class AgentTool implements Tool {
 
       if (batchId && taskKey) {
         // 逐任务写回终态：崩溃只丢"未完成的那几个"，而非整批状态未知
+        // 接线期③ ③-A：worker 未完成时把**失败归因**（图快照 + 根因候选）一并落盘
         await getAgentRunStore().settleRun(
           `${batchId}::${taskKey}`,
-          result.completed ? 'completed' : 'failed'
+          result.completed ? 'completed' : 'failed',
+          {
+            ...(result.attribution ? { attribution: result.attribution } : {}),
+          }
         );
       }
 

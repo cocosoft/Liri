@@ -15,7 +15,7 @@ import {
   disengageEstop,
   isEstopEngaged,
   getEstopState,
-} from '@modules/core/estop/estop.js';
+} from '@modules/core';
 
 /**
  * dispatchSystemRoutes — 系统领域路由分发

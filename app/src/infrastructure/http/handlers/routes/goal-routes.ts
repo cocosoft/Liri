@@ -23,12 +23,9 @@ import {
   sendError,
   isValidSessionIdFormat,
 } from '../handler-utils';
-import { getTaskGoalStore } from '@modules/tasks/goal/TaskGoalStore';
-import { isTerminalGoalStatus } from '@modules/tasks/goal/TaskGoalStore';
-import {
-  emitGoalCreated,
-  emitGoalUpdated,
-} from '@modules/tasks/goal/GoalEvents';
+import { getTaskGoalStore } from '@modules/tasks';
+import { isTerminalGoalStatus } from '@modules/tasks';
+import { emitGoalCreated, emitGoalUpdated } from '@modules/tasks';
 
 /** 解析并校验创建目标的请求体（返回 null 表示已写出错误响应） */
 function parseCreateBody(

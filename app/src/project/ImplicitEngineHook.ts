@@ -25,7 +25,7 @@ import { ProjectItemStore } from '../workspace/ProjectItemStore';
 const logger = getLogger('project:ImplicitEngine');
 
 /** 意图分类（架构归一 B1-B6：单一真源 re-export） */
-import { type ImplicitIntent } from '../core/phases/PhaseVocabulary.js';
+import { type ImplicitIntent } from '@modules/core';
 export type { ImplicitIntent };
 
 /** 规则匹配结果 */

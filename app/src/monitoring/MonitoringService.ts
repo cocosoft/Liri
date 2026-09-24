@@ -26,7 +26,7 @@ import {
 } from './memoryPressure/MemoryPressureMonitor.js';
 
 // 阶段标签（阻塞探针 P2 扩展，2026-09-22）：与既有 11 处插桩同源（`@modules/diagnostics/...`）
-import { withPhaseSync } from '@modules/diagnostics/loopProbe/phaseStack';
+import { withPhaseSync } from '@modules/diagnostics';
 
 const logger = getLogger('monitoring:service');
 

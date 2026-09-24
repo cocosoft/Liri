@@ -12,13 +12,14 @@
  */
 
 import type http from 'http';
-import { getAgentRunStore, resolveAgentToolInstance } from '@modules/tools';
-import type { HandlerCtx } from './handler-utils';
-import { AgentTool } from '../../../tools/AgentTool/AgentTool';
 import {
+  AgentTool,
+  getAgentRunStore,
+  resolveAgentToolInstance,
   setSpawnPaused,
   getSpawnPauseState,
-} from '../../../tools/AgentTool/spawnPause';
+} from '@modules/tools';
+import type { HandlerCtx } from './handler-utils';
 
 /**
  * 取 AgentTool 真身（R6，2026-09-22）。

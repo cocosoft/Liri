@@ -33,7 +33,7 @@ import {
   createFragment,
   renderFragment,
   type ContextualFragment,
-} from '@modules/context/fragments/ContextualFragment';
+} from '@modules/context';
 import { renderGoalTemplate, type GoalTemplateKind } from './goalTemplates';
 import type { GoalRunSettlement } from './goalRunBinding';
 import type { TaskGoalStatus, TaskGoalUpdateReason } from './TaskGoalStore';

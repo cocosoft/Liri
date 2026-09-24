@@ -50,7 +50,7 @@ const logger = getLogger('workspace:ProjectItemStore');
 export type ItemKind = 'context' | 'artifact';
 
 /** PDCA 阶段（意图族，架构归一 B1-B6：单一真源 re-export） */
-import { type PdcaIntent as PdcaPhase } from '../core/phases/PhaseVocabulary.js';
+import { type PdcaIntent as PdcaPhase } from '@modules/core';
 export type { PdcaPhase };
 
 /** 项目条目统一模型 */

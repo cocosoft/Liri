@@ -33,7 +33,7 @@ import { Database } from '@modules/core/external/sqlite3';
 import { getLogger } from '@modules/monitoring';
 // B4-2（2026-09-23）：恢复通路的相位标签（`yield:*`）—— 台账认领/状态写是恢复期的
 // 两个真实阻塞点（SQLite 同步写），包相位后可由 `loopProbe` 逐条归因。
-import { withPhase } from '@modules/diagnostics/loopProbe/phaseStack';
+import { withPhase } from '@modules/diagnostics';
 
 const logger = getLogger('chat:yield:settlementOutbox');
 

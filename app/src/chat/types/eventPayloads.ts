@@ -10,11 +10,8 @@
 
 import type { DataAttachment } from '@modules/core';
 // B2-2（2026-09-23）：目标事件载荷复用 Goal 域的既有词表（单一来源，不另立联合类型）
-import type {
-  TaskGoalStatus,
-  TaskGoalUpdateReason,
-} from '../../tasks/goal/TaskGoalStore';
-import type { GoalTemplateKind } from '../../tasks/goal/goalTemplates';
+import type { TaskGoalStatus, TaskGoalUpdateReason } from '@modules/tasks';
+import type { GoalTemplateKind } from '@modules/tasks';
 
 // ─── 事件载荷映射 ───────────────────────────────────────────────────────────
 

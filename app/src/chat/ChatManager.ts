@@ -68,7 +68,7 @@ import {
 import {
   registerSessionSummaryMemoryType,
   rollupSessionSummaryToLongTerm,
-} from '../memory/adapters/SessionSummaryAdapter';
+} from '@modules/memory';
 import { dedupeToolCallBlocks } from '@modules/chat/utils/chatBlocks';
 import { extractPendingToolCallsFromEvents } from './utils/pendingToolCalls.js';
 import type { LiriEvent } from '@modules/chat/types/events';
@@ -241,7 +241,7 @@ import { compactionOrchestrator, messageProjector } from '@modules/context';
 // 内存画像（2026-09-02 排查"会话中断/内存尖峰"用，MEM_PROFILE=1 才采样）
 import { memProfile } from '../monitoring/memProfile.js';
 // 内存水位（2026-09-02，OS kswapd 式；见 dev_docs/内存水位触发机制-详细设计）
-import { getMemoryPressureMonitor } from '../monitoring/memoryPressure/MemoryPressureMonitor.js';
+import { getMemoryPressureMonitor } from '@modules/monitoring';
 import { estimateMessagesTokens } from '@modules/ai';
 import { yieldToEventLoop } from '@modules/ai';
 import { FileCheckpointStorage } from '@modules/query';
@@ -276,18 +276,18 @@ import {
 // B1-4 验收缝：仅用于类型标注（启动钩子的可注入实例）
 import type { SettlementOutbox } from './yield/SettlementOutbox';
 // 阶段 A（N-26 修复）：SelfWake 唤醒执行器（fire 时真正唤醒会话）
-import { setSelfWakeResumeHandler } from '../tasks/selfwake/SelfWakeService';
+import { setSelfWakeResumeHandler } from '@modules/tasks';
 // M-7 idle 触发续接（2026-09-22）：目标停滞时的自动续跑（识别 + 可续性校验 + 文案）
 import {
   isIdleContinuationTask,
   resolveIdleContinuation,
-} from '../tasks/goal/goalIdleContinuation';
+} from '@modules/tasks';
 import {
   setGoalEventSink,
   takeIdleContinuationInstruction,
-} from '../tasks/goal/GoalEvents';
+} from '@modules/tasks';
 // X8（2026-09-23，Spec §5.5）：**主会话**用量入账到该会话的未终结目标
-import { chargeSessionGoalUsage } from '../tasks/goal/goalBudget';
+import { chargeSessionGoalUsage } from '@modules/tasks';
 import {
   PlanDrivenLoop,
   classifyTaskComplexity,

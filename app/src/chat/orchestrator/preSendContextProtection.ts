@@ -32,10 +32,7 @@
 
 import { getLogger } from '@modules/monitoring';
 import { configManager } from '@modules/config';
-import {
-  enterPhase,
-  exitPhase,
-} from '@modules/diagnostics/loopProbe/phaseStack';
+import { enterPhase, exitPhase } from '@modules/diagnostics';
 import {
   estimateMessagesTokens,
   estimateMessagesTokensCooperative,

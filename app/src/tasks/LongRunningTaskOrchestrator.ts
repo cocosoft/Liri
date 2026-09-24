@@ -61,8 +61,8 @@ import {
   writePdcaCheckpoint,
   readPdcaCheckpoint,
 } from './PdcaWorkItemBridge';
-import type { PdcaPhase } from '../core/phases/PhaseVocabulary.js';
-import { pdcaCheckpointStatus } from '../core/phases/PhaseVocabulary.js';
+import type { PdcaPhase } from '@modules/core';
+import { pdcaCheckpointStatus } from '@modules/core';
 import { globalToolManager } from '../tools/index.js';
 import type { ToolUseContext } from '../tools/types/Tool.js';
 

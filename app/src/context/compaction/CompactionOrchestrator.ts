@@ -36,11 +36,7 @@ import { compactionMetricsTracker } from './CompactionMetrics';
 import { compactionLockStore } from './CompactionLockStore';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-import {
-  enterPhase,
-  exitPhase,
-  currentPhase,
-} from '@modules/diagnostics/loopProbe/phaseStack';
+import { enterPhase, exitPhase, currentPhase } from '@modules/diagnostics';
 import type {
   parseCompactionSummary as ParseCompactionSummaryFn,
   renderCompactionSummary as RenderCompactionSummaryFn,

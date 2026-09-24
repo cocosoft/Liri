@@ -1522,6 +1522,12 @@ class ArchitectureLinter {
             'config/ConfigManager', 'context/DependencyRegistry', 'error/utils',
             'ai/tokenizer', 'ai/router', 'ai/providers', 'ai/models',
             'query/TAORLoop',
+            // 循环安全子入口（2026-09-24）：`tasks/goal/goalTemplates` 是**零跨模块 import 的叶子**，
+            // 而 `chat/ReActToolLoop` 在**模块顶层**读取 `CONTINUATION_TEMPLATES.*`；若改走
+            // `@modules/tasks` 桶，会形成 chat → tasks 桶 → tools 桶 → AgentTool → tasks 的求值闭环，
+            // 实测运行期 `ReferenceError: Cannot access 'CONTINUATION_TEMPLATES' before initialization`（TDZ）。
+            // 与既有 `ai/router`、`error/types` 同属"桶精确化打破 ESM 循环依赖"的规范子路径。
+            'tasks/goal',
         ]);
 
         // 目标模块无 index.ts（无统一出口）→ 子路径导入是唯一方式，非违规（2026-08-29）

@@ -49,7 +49,7 @@ import {
 } from '../state/background/BackgroundTaskStateMachine';
 
 // 阶段标签（阻塞探针 P2 第二批，2026-09-22；依据 §8.9：`memory:dream` 相关 r=0.75 居首）
-import { withPhase } from '@modules/diagnostics/loopProbe/phaseStack';
+import { withPhase } from '@modules/diagnostics';
 
 const logger = getLogger('dream:dreamEngine');
 

@@ -14,10 +14,7 @@ import { handleError } from '@modules/error';
 import { providerRegistry, modelRouter } from '@modules/ai';
 import { ToolAwareClient } from '@modules/ai';
 import { resolvePyappHome } from '@modules/core';
-import {
-  enterPhase,
-  exitPhase,
-} from '@modules/diagnostics/loopProbe/phaseStack';
+import { enterPhase, exitPhase } from '@modules/diagnostics';
 import { join } from 'path';
 import {
   readdirSync,

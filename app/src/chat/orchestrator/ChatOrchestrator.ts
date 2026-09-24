@@ -38,7 +38,7 @@ import type {
   QuestionData,
 } from '@modules/runtime/api/CoreAPI.js';
 import { compactionOrchestrator } from '@modules/context';
-import { isEstopEngaged } from '@modules/core/estop/estop.js';
+import { isEstopEngaged } from '@modules/core';
 import {
   TurnLivenessWatchdog,
   resolveLivenessTimeout,

@@ -21,10 +21,7 @@ import { OTelAwareLogger } from '@modules/monitoring/logs/OTelAwareLogger';
 import { LLMPerformanceMonitor } from '@modules/ai';
 import { handleError } from '@modules/error';
 import { LRUCache } from '@modules/utils/cache';
-import {
-  enterPhase,
-  exitPhase,
-} from '@modules/diagnostics/loopProbe/phaseStack';
+import { enterPhase, exitPhase } from '@modules/diagnostics';
 import type { AIService, AIMessage } from '@modules/ai';
 import { AIMessageRole } from '@modules/ai';
 import {
@@ -37,10 +34,7 @@ import { FileSource } from '@modules/services/file/types';
 import { IndexManager } from './IndexManager';
 import { WikiLinter, defaultRules } from './lint/WikiLinter';
 import { providerRegistry, modelRouter } from '@modules/ai';
-import {
-  createMaxOutputRetryState,
-  advanceMaxOutputRetry,
-} from '@modules/ai/MaxOutputRetryHandler';
+import { createMaxOutputRetryState, advanceMaxOutputRetry } from '@modules/ai';
 import { GraphExtractor } from './graph/GraphExtractor';
 import { KnowledgeGraph } from './graph/KnowledgeGraph';
 import { SchemaLoader } from './schema/SchemaLoader';
@@ -58,7 +52,7 @@ import {
   DOCUMENT_EXTRACT_EXTS,
 } from './ingestion/extractors/TextExtractor';
 // 内存水位（2026-09-02）：非关键后台任务在压力下暂停（OS kswapd 式分级回收）
-import { isMemoryUnderPressure } from '../monitoring/memoryPressure/MemoryPressureMonitor.js';
+import { isMemoryUnderPressure } from '@modules/monitoring';
 import {
   startCompileProgress,
   updateCompileProgress,

@@ -325,3 +325,9 @@ export type {
 } from './llm/LLMTracker.js';
 
 export * from './BackgroundTaskEvent.js';
+
+// 2026-09-24 R03-002 收敛：内存水位（memoryPressure）统一出口
+export {
+  getMemoryPressureMonitor,
+  isMemoryUnderPressure,
+} from './memoryPressure/MemoryPressureMonitor.js';

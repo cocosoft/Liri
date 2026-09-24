@@ -5,10 +5,7 @@
  */
 import fs from 'fs';
 import path from 'path';
-import {
-  enterPhase,
-  exitPhase,
-} from '@modules/diagnostics/loopProbe/phaseStack';
+import { enterPhase, exitPhase } from '@modules/diagnostics';
 
 /**
  * 搜索文档

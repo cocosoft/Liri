@@ -54,7 +54,7 @@ import {
 import { getToolCategory } from '../toolCategories';
 import { getAgentRunStore } from './AgentRunStore';
 import { isSpawnPaused, getSpawnPauseState } from './spawnPause';
-import { getSettlementOutbox } from '../../chat/yield/SettlementOutbox';
+import { getSettlementOutbox } from '@modules/chat';
 import {
   computeSummaryCharBudget,
   trimSummaryWithFooter,
@@ -83,16 +83,13 @@ import {
   DEFAULT_SWARM_CONCURRENCY,
   type SwarmExecutor,
   type AgentSwarmResult,
-} from '../../tasks/swarm/AgentSwarm';
+} from '@modules/tasks';
 // M-6/M-7 接线（2026-09-22）：批次收口 ⇒ 落定该会话未终结目标的状态
-import { settleGoalForRun } from '../../tasks/goal/goalRunBinding';
-import { takeBatchGoalInstruction } from '../../tasks/goal/GoalEvents';
+import { settleGoalForRun } from '@modules/tasks';
+import { takeBatchGoalInstruction } from '@modules/tasks';
 // B3-2（2026-09-23）：注入片段统一类型 —— 通道前缀由类型给出（唯一渲染入口 renderFragment）
-import {
-  renderFragment,
-  type ContextualFragment,
-} from '@modules/context/fragments/ContextualFragment';
-import { enqueueIdleContinuation } from '../../tasks/goal/goalIdleContinuation';
+import { renderFragment, type ContextualFragment } from '@modules/context';
+import { enqueueIdleContinuation } from '@modules/tasks';
 // R1 修正（2026-09-22）：批次取消注册表改为**进程内单例**（与 `getAgentRunLedger()` 同法）
 import {
   registerBatchAbort,
@@ -101,7 +98,7 @@ import {
 } from './swarmBatchRegistry';
 import { globalEventBus } from '../../core/events/EventBus.js';
 // 阶段 A（A1-e）：并行批次结算 → yield 等待收敛桥
-import { notifyYieldSettled } from '../../chat/yield/YieldSettlementBridge.js';
+import { notifyYieldSettled } from '@modules/chat';
 import { agentRegistry, OrchestrationEventType } from '@modules/agent';
 import { getTeammateManager } from '../../subagent/TeammateManager';
 import { taskRegistry } from '@modules/tasks';

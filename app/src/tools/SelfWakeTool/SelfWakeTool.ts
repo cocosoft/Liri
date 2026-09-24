@@ -22,8 +22,8 @@ import {
   SLEEP_FOR_TOOL,
   SLEEP_UNTIL_TOOL,
   createSelfWakeToolExecutors,
-} from '@modules/tasks/selfwake/SelfWakeTools';
-import { getCg3SelfWakeService } from '@modules/tasks/Cg3Bootstrap';
+} from '@modules/tasks';
+import { getCg3SelfWakeService } from '@modules/tasks';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('tools:SelfWakeTool');

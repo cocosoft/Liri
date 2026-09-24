@@ -48,26 +48,21 @@ import type { ChatResponse, ChatMessage } from '@modules/ai';
 import type { Message } from './types/message.js';
 import { getToolCallName } from './types/tool.js';
 import { getLogger } from '@modules/monitoring';
-import {
-  enterPhase,
-  exitPhase,
-} from '@modules/diagnostics/loopProbe/phaseStack';
+import { enterPhase, exitPhase } from '@modules/diagnostics';
 // B3-2（2026-09-23）：注入片段统一类型 —— 通道前缀由类型给出（唯一渲染入口 renderFragment）
-import {
-  createFragment,
-  renderFragment,
-} from '@modules/context/fragments/ContextualFragment';
+import { createFragment, renderFragment } from '@modules/context';
 import { registerYieldFromResults } from '../session/yield';
 // M-7（2026-09-22）：续接指令文案**单一来源**（原为本文件内 4 个硬编码常量，逐字迁移）
+// 保留子路径直连（不走 `@modules/tasks` 桶）：本文件在**模块顶层**读取
+// `CONTINUATION_TEMPLATES.*`（L121-125），桶求值期 tasks 桶可能仍在循环中未初始化
+// ⇒ 走桶会触发 `ReferenceError: Cannot access 'CONTINUATION_TEMPLATES' before initialization`
+// （2026-09-24 R03-002 收敛时实测复现）。goalTemplates 是无依赖叶子模块，子路径直连为循环安全入口。
 import { CONTINUATION_TEMPLATES } from '../tasks/goal/goalTemplates';
 // P1-2 / P1-4（B2-4，2026-09-23）：轮级熔断 / 压缩停滞 ⇒ **落 Goal**（目标层可见"为何停下"）。
 // 注意：`tasks/` 不是 `chat/`，此处不构成"反向层依赖"（与 goalTemplates 同向）。
-import {
-  settleGoalForTurn,
-  type GoalTurnReason,
-} from '../tasks/goal/goalRunBinding';
+import { settleGoalForTurn, type GoalTurnReason } from '@modules/tasks';
 // X8（2026-09-23，Spec §5.5）：主会话预算触顶 ⇒ 下一轮请求前经 steering 注入收尾指令
-import { injectMainSessionBudgetWrapUp } from '../tasks/goal/goalBudget';
+import { injectMainSessionBudgetWrapUp } from '@modules/tasks';
 import { prepareToolResultsForContext } from '@modules/tools';
 import {
   ensureThinkResponseTags,
@@ -103,7 +98,7 @@ import { compactionOrchestrator } from '@modules/context';
 // 内存画像（2026-09-02 排查"会话中断/内存尖峰"用，MEM_PROFILE=1 才采样）
 import { memProfile } from '../monitoring/memProfile.js';
 // 内存水位（2026-09-02，OS kswapd 式；见 dev_docs/内存水位触发机制-详细设计）
-import { getMemoryPressureMonitor } from '../monitoring/memoryPressure/MemoryPressureMonitor.js';
+import { getMemoryPressureMonitor } from '@modules/monitoring';
 
 const logger = getLogger('chat:reactToolLoop');
 

@@ -393,3 +393,12 @@ export type {
 
 // 2026-09-16 第八章①：会话级工具配额统一出口
 export { SessionToolQuota, sessionToolQuota } from './sessionToolQuota';
+
+// 2026-09-24 R03-002 收敛：AgentTool/spawnPause 统一出口
+export {
+  setSpawnPaused,
+  isSpawnPaused,
+  getSpawnPauseState,
+  resetSpawnPause,
+} from './AgentTool/spawnPause';
+export type { SpawnPauseState } from './AgentTool/spawnPause';

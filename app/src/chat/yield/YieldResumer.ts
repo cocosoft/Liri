@@ -14,7 +14,7 @@
  */
 
 import { getLogger } from '@modules/monitoring';
-import { withPhase } from '@modules/diagnostics/loopProbe/phaseStack';
+import { withPhase } from '@modules/diagnostics';
 import { getYieldRegistry, YIELD_STATUS_RESUMED } from '../../session/yield';
 import {
   yieldSettlementListeners,

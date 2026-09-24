@@ -236,3 +236,59 @@ export type { CrossProcessLockOptions } from './CrossProcessLock';
 export * from './cron';
 
 export * from './PdcaWorkItemBridge.js';
+
+// 2026-09-24 R03-002 收敛：goal / swarm / selfwake 子目录统一出口
+export {
+  getTaskGoalStore,
+  isTerminalGoalStatus,
+  canTransitionGoal,
+  TASK_GOALS_TABLE,
+  TASK_GOAL_TERMINAL_STATUSES,
+} from './goal/TaskGoalStore';
+export type {
+  TaskGoal,
+  TaskGoalStatus,
+  TaskGoalUpdateReason,
+} from './goal/TaskGoalStore';
+export { TaskGoalStore } from './goal/TaskGoalStore';
+export {
+  setGoalEventSink,
+  emitGoalCreated,
+  emitGoalUpdated,
+  emitGoalStatusChanged,
+  takeBatchGoalInstruction,
+  takeIdleContinuationInstruction,
+  takeMainSessionBudgetWrapUp,
+} from './goal/GoalEvents';
+export type { GoalEventAppender, GoalEventType } from './goal/GoalEvents';
+export {
+  isIdleContinuationTask,
+  resolveIdleContinuation,
+  enqueueIdleContinuation,
+  IDLE_CONTINUE_TASK_PREFIX,
+} from './goal/goalIdleContinuation';
+export {
+  CONTINUATION_TEMPLATES,
+  GOAL_TEMPLATES,
+  renderGoalTemplate,
+} from './goal/goalTemplates';
+export type {
+  GoalTemplateKind,
+  ContinuationVariant,
+} from './goal/goalTemplates';
+export { settleGoalForRun, settleGoalForTurn } from './goal/goalRunBinding';
+export type { GoalTurnReason } from './goal/goalRunBinding';
+export {
+  chargeGoalUsage,
+  chargeSessionGoalUsage,
+  injectMainSessionBudgetWrapUp,
+} from './goal/goalBudget';
+export { setSelfWakeResumeHandler } from './selfwake/SelfWakeService';
+export { getCg3SelfWakeService } from './Cg3Bootstrap';
+export {
+  SLEEP_FOR_TOOL,
+  SLEEP_UNTIL_TOOL,
+  createSelfWakeToolExecutors,
+} from './selfwake/SelfWakeTools';
+export { AgentSwarm, DEFAULT_SWARM_CONCURRENCY } from './swarm/AgentSwarm';
+export type { SwarmExecutor, AgentSwarmResult } from './swarm/AgentSwarm';

@@ -121,7 +121,10 @@ export {
   hasDangerousToolIntent,
   isEligibleForFastPath,
 } from './loop/PlanDrivenLoop';
-export type { PlanDrivenLoopResult } from './loop/PlanDrivenLoop';
+export type {
+  PlanDrivenLoopResult,
+  PlanDrivenLoopConfig,
+} from './loop/PlanDrivenLoop';
 export { ErrorHandler } from './utils/ErrorHandler';
 export {
   getPerformanceProfiler,
@@ -149,3 +152,28 @@ export type {
   ExitRecord,
   AbnormalExitRecord,
 } from './exit/ExitRecorder';
+
+// 2026-09-24 R03-002 收敛：phases / topoBatches / estop 统一出口
+export {
+  toPdcaPhase,
+  pdcaCheckpointStatus,
+  PDCA_TO_WORKITEM,
+  PDCA_TERMINAL_PHASES,
+} from './phases/PhaseVocabulary';
+export type {
+  PdcaIntent,
+  ImplicitIntent,
+  PdcaPhase,
+  WorkItemStatus,
+} from './phases/PhaseVocabulary';
+export { scheduleTopoBatches } from './loop/topoBatches';
+export type { TopoBatchTask } from './loop/topoBatches';
+export {
+  estopSentinelPath,
+  isEstopEngaged,
+  engageEstop,
+  disengageEstop,
+  getEstopState,
+  checkEstop,
+} from './estop/estop';
+export type { EstopState } from './estop/estop';

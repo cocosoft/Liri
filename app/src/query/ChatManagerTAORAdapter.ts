@@ -20,7 +20,7 @@ import type {
   QuestionData,
   QuestionOption,
 } from '@modules/runtime/api/CoreAPI.js';
-import { extractTodoData } from '../chat/services/ChatHelper.js';
+import { extractTodoData } from '@modules/chat';
 
 const logger = getLogger('query:chatManagerTAORAdapter');
 

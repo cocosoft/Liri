@@ -15,12 +15,9 @@ import {
 } from 'fs';
 import { resolveDataSubDir } from '@modules/core';
 import { getLogger } from '@modules/monitoring';
-import {
-  type PdcaPhase,
-  PDCA_TO_WORKITEM,
-} from '../core/phases/PhaseVocabulary.js';
+import { type PdcaPhase, PDCA_TO_WORKITEM } from '@modules/core';
 export type { PdcaPhase };
-export { PDCA_TERMINAL_PHASES } from '../core/phases/PhaseVocabulary.js';
+export { PDCA_TERMINAL_PHASES } from '@modules/core';
 
 const logger = getLogger('tasks:pdcaBridge');
 

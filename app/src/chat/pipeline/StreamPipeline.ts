@@ -48,7 +48,7 @@ import type { ChatStreamChunk } from '@modules/runtime/api/CoreAPI.js';
 import type { ImageContextService } from '../services/ImageContextService.js';
 
 // 阶段标签（阻塞探针 P2 第二批，2026-09-22；依据 §8.9：`chat:pipeline` r=0.36）
-import { withPhase } from '@modules/diagnostics/loopProbe/phaseStack';
+import { withPhase } from '@modules/diagnostics';
 
 const logger = getLogger('chat:pipeline');
 

@@ -82,7 +82,7 @@ export type TaskType =
   | 'knowledge_compile'; // 知识库编译（raw 文档 → many-to-many wiki 页面）
 
 /** PDCA 阶段上下文（S3 ModelPhaseRouter）、意图族阶段（架构归一 B1-B6：单一真源 re-export） */
-import { type PdcaIntent as PdcaPhase } from '../core/phases/PhaseVocabulary.js';
+import { type PdcaIntent as PdcaPhase } from '@modules/core';
 export type { PdcaPhase };
 
 export interface PhaseContext {

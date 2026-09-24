@@ -52,7 +52,7 @@ import type { AIProvider } from '../providers/AIProvider.js';
 import type { RouteDecision, RouterTier } from './types.js';
 import { TaskDecomposer } from './TaskDecomposer.js';
 import type { DecompositionResult, SubTask } from './TaskDecomposer.js';
-import { scheduleTopoBatches } from '../../core/loop/topoBatches.js';
+import { scheduleTopoBatches } from '@modules/core';
 import { getLogger } from '@modules/monitoring';
 import { trackUsage } from '@modules/ai';
 import { handleError } from '@modules/error';

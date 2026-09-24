@@ -35,10 +35,7 @@ import { readdir, stat, rm, rmdir } from 'fs/promises';
 import { join } from 'path';
 import { getLogger } from '@modules/monitoring';
 import { resolveDataSubDir, resolveSnapshotsDir } from '@modules/core/paths';
-import {
-  enterPhase,
-  exitPhase,
-} from '@modules/diagnostics/loopProbe/phaseStack';
+import { enterPhase, exitPhase } from '@modules/diagnostics';
 
 const logger = getLogger('session:artifact-retention');
 

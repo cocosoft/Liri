@@ -266,3 +266,11 @@ export { extractKeyPaths } from './compact/utils';
 
 // 2026-08-30 R03-002 收敛：events 子路径统一出口
 export { AgentEventType } from './events/types.js';
+
+// 2026-09-24 R03-002 收敛：MoA（多智能体并行调度）统一出口
+export { ParallelAgentScheduler } from './moa/ParallelAgentScheduler';
+export type {
+  ScheduledAgentTask,
+  ScheduledTaskResult,
+} from './moa/ParallelAgentScheduler';
+export { ResultAggregator, AggregationStrategy } from './moa/ResultAggregator';

@@ -414,3 +414,29 @@ office:workflow → engine.execute + createRunRecordCollector
 1. **本入口当前无生产调用方** —— 与第一刀的 `DocWorkflowProvider` 同类：`assignedTo` 边目前只在测试中产生。**接入点属产品决策**（哪个链路真的需要"任务失败 → 参与 agent"回溯？候选：`TaskSwarm`、`PlanDrivenLoop`、`CouncilOrchestrator`），未擅自接线。
 2. **`capabilities` 升级为"带约束描述"（P1-2）未做** —— spec §2.4 把二者写在同一行，但 P1-2 属下一优先级的范围，本轮只做 `assignedTo` 分配。
 3. 未把分配结果落盘 / 前端展示（当前仅返回内存图 + 分配结果）。
+
+### 7.6 接线期③「接入点」侦察结论：**当前生产链路中不存在条件驱动分配的落点**（2026-09-24）
+
+用户裁定"以**只记不改**方式接入既有真实链路"后，对三条候选链路逐条取证，结论与预期相反，**据此不实施接线**（避免制造装饰性结构）。
+
+| 候选链路 | 取证结果 | 判定 |
+|---|---|---|
+| `PlanDrivenLoop` | 全文件检索 `agent\|Agent\|expertise\|capabilit` **零命中** —— 它不涉及角色选择 | ✗ 不适用 |
+| `TaskSwarm` / `AgentSwarm` | 仅支持 per-worker **`subagent_type`**（`AgentSwarm.ts:18` 注释），无注册表查询 | ✗ 不由 `AgentRegistry` 决定 |
+| `CouncilOrchestrator` | 唯一持有 `discoverAgents()` 调用点（`:79` 空表检查 / `:314 loadAgents`），但**两者都不带 criteria**（"加载全部启用角色"）⇒ 选人不是条件驱动 | ✗ 与 `assignAgentsByGraph` 的选择语义不匹配 |
+| `MultiSourceAgentManager` | `selectAgent(pools, capability?)` 有 capability 形参，但**两个策略实现都忽略它**（`RoundRobinStrategy:68-86` / `LeastLoadedStrategy:90-116`）；且其 agent 是**池化运行时 AIAgent**，与 `AgentRegistry` 的 `agentId` 空间不同 | ✗ 空间不匹配 |
+| `agent/a2a/agentCard.ts` | 把 `expertise + capabilities` 发布为 A2A **tags**（对外发现用），仓内无按 tags 匹配选择 agent 的消费方 | ✗ 无本地选择点 |
+
+**推论（三条）**
+
+1. **`assignAgentsByGraph` 的选择半部在生产中零调用** —— 因为不存在"给一个需求 → 按条件挑角色"的生产点位。
+2. **"只记不改"若落到 Council，会得到装饰性结构**：Council 的分配事实**已经落盘**（`COUNCIL_START` 事件载荷含 `topic` + `agents[]`），再建一张只在局部变量里存在、无人消费的内存图，不增加任何可回溯性（`COUNCIL_START` 已可回答"谁参与了"）。
+3. **真正缺的不是"记录"，是"消费"**：P0 的图内核目前唯一的消费方是 **workflow 失败路径**（接线期② → ②b → 轨迹可见）。agent 侧要接入，必须同时给出**消费点**（例如子代理 run 失败时回溯"被指派的角色"），否则同属装饰。
+
+**因此提供的三个可选方向（均未实施，等裁定）**
+
+| 方向 | 内容 | 代价 |
+|---|---|---|
+| ③-A | **AgentTool 子代理分配落图 + 失败时回溯**：分配边（role → 子代理任务）+ 失败路径给出根因候选并随 run 记录落盘（复用 ②b 的事件/轨迹通道） | 唯一**有真实消费者**的方向；但改热路径（`AgentTool`）+ 需定"子代理 run 记录"的事件口径 |
+| ③-B | **Council 按议题 expertise 选参与者**：把"加载全部启用角色"改为"按 topic 相关领域选人"，`assignAgentsByGraph` 才有真实调用 | 行为变化（与"只记不改"相反）+ 需 `topic → expertise` 的映射来源设计 |
+| ③-C | **转 P1-2**（能力带约束描述）：先让能力语义（等级/成本/延迟/并发）有意义，"优化分配"才有比较维度的前置 | 不解决接入点，但避免在无语义的能力上建分配 |

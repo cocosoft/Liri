@@ -48,6 +48,11 @@ export type LiriEventType =
   | "assistant/todo"
   | "assistant/doc_workflow"
   | "assistant/pdca_workflow"
+  // P0-1 接入点第二刀 ②b（2026-09-24）：工作流 run 记录（run 级 2 + 成员级 2）
+  | "assistant/workflow_run_start"
+  | "assistant/workflow_step_start"
+  | "assistant/workflow_step_end"
+  | "assistant/workflow_run_end"
   | "assistant/truncation"
   | "assistant/deliverable"
   | "assistant/diff"
@@ -321,6 +326,48 @@ export interface LiriEventMap {
     message: string;
     projectId?: string;
     reasons?: string[];
+  };
+  // ─── 工作流 run 记录（P0-1 接入点第二刀 ②b，2026-09-24；后端镜像） ───
+  // 后端唯一权威：`app/src/chat/types/eventPayloads.ts`。两侧形状必须一致。
+  "assistant/workflow_run_start": {
+    runId: string;
+    workflow: string;
+    providerId: string;
+    steps: string[];
+    startedAt: number;
+  };
+  "assistant/workflow_run_end": {
+    runId: string;
+    workflow: string;
+    providerId: string;
+    stopReason: "completed" | "cancelled" | "error";
+    completedSteps: string[];
+    failedStep?: string;
+    error?: string;
+    durationMs: number;
+    rootCauseCandidates?: Array<{
+      nodeId: string;
+      score: number;
+      distance: number;
+      pathEvidenceRefs: string[];
+    }>;
+  };
+  "assistant/workflow_step_start": {
+    runId: string;
+    stepId: string;
+    tool: string;
+    description: string;
+    startedAt: number;
+  };
+  "assistant/workflow_step_end": {
+    runId: string;
+    stepId: string;
+    tool: string;
+    description: string;
+    outcome: "completed" | "failed" | "cancelled";
+    durationMs: number;
+    synthesized?: boolean;
+    error?: string;
   };
   "assistant/truncation": {
     reason: "length";

@@ -81,6 +81,11 @@ const KNOWN_EVENT_TYPES = new Set([
   "assistant/todo",
   "assistant/doc_workflow",
   "assistant/pdca_workflow",
+  // P0-1 接入点第二刀 ②b（2026-09-24）：工作流 run 记录（run 级 2 + 成员级 2）
+  "assistant/workflow_run_start",
+  "assistant/workflow_step_start",
+  "assistant/workflow_step_end",
+  "assistant/workflow_run_end",
   "assistant/truncation",
   "assistant/deliverable",
   "assistant/diff",
@@ -97,6 +102,68 @@ const KNOWN_EVENT_TYPES = new Set([
   "session/start",
   "session/end",
 ]);
+
+/**
+ * 工作流 run 记录 → status 块文案（P0-1 接入点第二刀 ②b，2026-09-24）。
+ *
+ * **与后端 `EventMessageDeriver.formatWorkflowRunEnd` 文案逐字同形**（前后端镜像拷贝，
+ * 保证流式视图与回放视图一致）；仅陈述事件里已有的字段，缺字段则省略片段（CS06）。
+ */
+function formatWorkflowEventLine(
+  type: string,
+  data: Record<string, unknown>,
+): string {
+  const workflow = typeof data.workflow === "string" ? data.workflow : "";
+  const durationSuffix =
+    typeof data.durationMs === "number" ? `，耗时 ${data.durationMs}ms` : "";
+  const done = Array.isArray(data.completedSteps)
+    ? `${data.completedSteps.length} 步`
+    : "未知步数";
+  const base = `工作流「${workflow}」`;
+
+  switch (type) {
+    case "assistant/workflow_run_start": {
+      const steps = Array.isArray(data.steps) ? data.steps.length : 0;
+      return `工作流「${workflow}」开始（计划 ${steps} 步）`;
+    }
+    case "assistant/workflow_step_start":
+      return `工作流步骤 ${String(data.tool)} 开始`;
+    case "assistant/workflow_step_end": {
+      const outcome =
+        data.synthesized === true ? "已强制结算" : String(data.outcome);
+      const reason = typeof data.error === "string" ? `：${data.error}` : "";
+      return `工作流步骤 ${String(data.tool)} ${outcome}（${String(data.durationMs)}ms）${reason}`;
+    }
+    default: {
+      if (data.stopReason === "completed") {
+        return `${base}完成（${done}已全部完成${durationSuffix}）`;
+      }
+      if (data.stopReason === "cancelled") {
+        return `${base}已取消（已完成 ${done}${durationSuffix}）`;
+      }
+      const failed =
+        typeof data.failedStep === "string"
+          ? `失败于步骤 ${data.failedStep}`
+          : "失败";
+      const reason = typeof data.error === "string" ? `：${data.error}` : "";
+      const upstream = rootCauseSummary(data.rootCauseCandidates);
+      return `${base}${failed}（已完成 ${done}${durationSuffix}）${reason}${upstream}`;
+    }
+  }
+}
+
+/** 上游根因候选摘要（P0-2）；与后端 `rootCauseSummary` 同形 */
+function rootCauseSummary(value: unknown): string {
+  if (!Array.isArray(value)) return "";
+  const nodeIds = value
+    .map((item) =>
+      typeof item === "object" && item !== null
+        ? (item as { nodeId?: unknown }).nodeId
+        : undefined,
+    )
+    .filter((nodeId): nodeId is string => typeof nodeId === "string");
+  return nodeIds.length > 0 ? `｜上游可疑：${nodeIds.join(" → ")}` : "";
+}
 
 interface DeriveContext {
   sessionId: string;
@@ -692,6 +759,25 @@ function handleEvent(
           blocks.push(newBlock);
         }
       }
+      break;
+    }
+
+    // ─── 工作流 run 记录（P0-1 接入点第二刀 ②b，2026-09-24）───────────────
+    // 复用既有 status 块与前端基线同形（零新增块类型、零新渲染组件）
+    case "assistant/workflow_run_start":
+    case "assistant/workflow_step_start":
+    case "assistant/workflow_step_end":
+    case "assistant/workflow_run_end": {
+      ensureCurrent(state, event, sessionId, assistantMessageId);
+      state.current!.blocks!.push({
+        id: generateBlockId(),
+        type: "status",
+        content: formatWorkflowEventLine(
+          event.type,
+          event.data as Record<string, unknown>,
+        ),
+        isStreaming: false,
+      });
       break;
     }
 

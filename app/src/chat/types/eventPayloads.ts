@@ -634,6 +634,76 @@ export interface LiriEventMap {
     reasons?: string[];
   };
 
+  // ─── 工作流 run 记录（P0-1 接入点第二刀 ②b，2026-09-24） ─────────────────
+  //
+  // 来源：workflow seam 的 `WorkflowRunObserver` 两级回调 → 工具 `metadata.workflowRun`
+  // （`modules/workflow/runRecordCollector.ts` 装配）→ `MessageToEventMigrator` 投影。
+  //
+  // **刻意内联字段而非跨包导入 seam 类型**：与既有 `assistant/doc_workflow` 同口径 ——
+  // 事件载荷是前后端共享的**自包含 schema**，导入实现域类型会让契约随实现漂移。
+  // 一致性由编译期承担：改名/改形状必须同时改 seam 的类型（两边都有穷尽检查）。
+
+  /** 工作流 run 开始（一次 run 一条，与 `assistant/workflow_run_end` 配对） */
+  'assistant/workflow_run_start': {
+    /** 运行标识（seam 生成，形如 `wf_<ts>_<seq>`） */
+    runId: string;
+    workflow: string;
+    providerId: string;
+    /** 计划执行的步骤 id（拓扑序） */
+    steps: string[];
+    startedAt: number;
+  };
+
+  /** 工作流 run 结束（该 run 的**最后一条**事件） */
+  'assistant/workflow_run_end': {
+    runId: string;
+    workflow: string;
+    providerId: string;
+    /** 与 seam 的 `WorkflowStopReason` 同源（不另立第二套停止语义） */
+    stopReason: 'completed' | 'cancelled' | 'error';
+    /** 已成功完成的步骤 id */
+    completedSteps: string[];
+    /** 首个未完成的步骤 id（仅 stopReason='error' 时给出） */
+    failedStep?: string;
+    error?: string;
+    durationMs: number;
+    /**
+     * 失败步骤的**上游根因候选**，按因果强度降序（P0-2）。
+     * 仅在 error 且能定位 `failedStep` 时给出；`pathEvidenceRefs` 形如
+     * `run:<runId>#step:<stepId>`，供独立复核。
+     */
+    rootCauseCandidates?: Array<{
+      nodeId: string;
+      score: number;
+      distance: number;
+      pathEvidenceRefs: string[];
+    }>;
+  };
+
+  /** 工作流步骤开始（成员级；配对不变式由 seam 账本保证） */
+  'assistant/workflow_step_start': {
+    runId: string;
+    stepId: string;
+    /** 实际调用的工具名 */
+    tool: string;
+    description: string;
+    startedAt: number;
+  };
+
+  /** 工作流步骤结束 */
+  'assistant/workflow_step_end': {
+    runId: string;
+    stepId: string;
+    tool: string;
+    description: string;
+    outcome: 'completed' | 'failed' | 'cancelled';
+    /** 耗时（ms，由 seam 账本按 start/end 计算） */
+    durationMs: number;
+    /** 由 seam **强制结算**（Provider 未上报结束，如取消宽限期到期） */
+    synthesized?: boolean;
+    error?: string;
+  };
+
   /**
    * 输出截断提示（finishReason='length' 时追加，与 assistant/text 同级渲染为 text block）
    */

@@ -85,6 +85,11 @@ const TYPE_OPTIONS: Array<{ value: LiriEventType; label: string }> = [
   { value: "assistant/todo", label: "todo" },
   { value: "assistant/question", label: "question" },
   { value: "assistant/doc_workflow", label: "doc_workflow" },
+  // P0-1 接入点第二刀 ②b（2026-09-24）：工作流 run 记录
+  { value: "assistant/workflow_run_start", label: "workflow_run_start" },
+  { value: "assistant/workflow_step_start", label: "workflow_step_start" },
+  { value: "assistant/workflow_step_end", label: "workflow_step_end" },
+  { value: "assistant/workflow_run_end", label: "workflow_run_end" },
   { value: "assistant/progress", label: "progress" },
   { value: "assistant/truncation", label: "truncation" },
   { value: "context/compaction", label: "compaction" },

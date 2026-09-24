@@ -46,6 +46,11 @@ const ALL_SESSION_EVENT_TYPES = [
   'assistant/todo',
   'assistant/doc_workflow',
   'assistant/pdca_workflow',
+  // P0-1 接入点第二刀 ②b（2026-09-24）：工作流 run 记录（run 级 2 + 成员级 2）
+  'assistant/workflow_run_start',
+  'assistant/workflow_step_start',
+  'assistant/workflow_step_end',
+  'assistant/workflow_run_end',
   'assistant/truncation',
   // ─── Code Mode（CM-5，2026-08-25） ───
   'assistant/code_run',

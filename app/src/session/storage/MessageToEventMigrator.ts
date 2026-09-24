@@ -31,6 +31,8 @@ import type { LiriEvent } from '@modules/chat/types/events';
 import type { Message } from '@modules/chat/types/message';
 import { MessageStatus } from '@modules/chat/types/message';
 import { EventLogStorage } from './EventLogStorage';
+// ②b（2026-09-24）：工作流 run 记录投影（自包含，从本文件拆出以控行长）
+import { projectWorkflowRunEvents } from './workflowRunProjection';
 
 const logger = getLogger('session:migrator');
 
@@ -333,6 +335,16 @@ export class MessageToEventMigrator {
       // T2.3（2026-08-23）：callSeq 直读 —— ReActToolLoop 在 toolResultMsg.metadata 携带
       // callSeq（= tool_call 事件 seq，A1③ 闭环）；无则 -1 占位由 _toolCallSeqMap 回填兜底。
       const callSeq = typeof meta.callSeq === 'number' ? meta.callSeq : -1;
+      // ②b（2026-09-24）：工作流 run 记录投影 —— 恒排在 `tool/result` **之前**，
+      // 保证同一 run 的事件在 seq 上先于承载它的工具结果（回放序 = 发生序）。
+      // 投影实现见 `./workflowRunProjection`（自包含，从本文件拆出）。
+      const workflowEvents = projectWorkflowRunEvents(meta, {
+        sessionId,
+        time,
+        startSeq: seq,
+      });
+      for (const workflowEvent of workflowEvents) events.push(workflowEvent);
+      seq += workflowEvents.length;
       events.push({
         type: 'tool/result',
         // KB-MIG-SCHEMA（2026-08-29）：原 `schemaVersion: parentMsgId ? 1 : undefined`

@@ -167,6 +167,11 @@ const RICH_BLOCK_TYPES = new Set<LiriEventType>([
   'assistant/todo',
   'assistant/doc_workflow',
   'assistant/pdca_workflow',
+  // P0-1 接入点第二刀 ②b（2026-09-24）：工作流 run 记录（run 级 2 + 成员级 2）
+  'assistant/workflow_run_start',
+  'assistant/workflow_step_start',
+  'assistant/workflow_step_end',
+  'assistant/workflow_run_end',
   'assistant/truncation',
   'assistant/deliverable',
   'assistant/diff',
@@ -176,6 +181,50 @@ const RICH_BLOCK_TYPES = new Set<LiriEventType>([
 
 function isRichBlockEvent(type: LiriEventType): boolean {
   return RICH_BLOCK_TYPES.has(type);
+}
+
+/**
+ * run 结束行文案（P0-1 接入点第二刀 ②b，2026-09-24）。
+ *
+ * 仅陈述事件载荷里**已有**的字段（CS06）：失败时附首个失败步骤、错误原因，以及
+ * （P0-2 提供的）上游根因候选，便于在回放里直接看出"为什么失败"。
+ * 缺字段时省略对应片段，不补默认值（如无 `durationMs` 就不显示耗时）。
+ */
+function formatWorkflowRunEnd(data: Record<string, unknown>): string {
+  const workflow = typeof data.workflow === 'string' ? data.workflow : '';
+  const durationMs =
+    typeof data.durationMs === 'number' ? `，耗时 ${data.durationMs}ms` : '';
+  const done = Array.isArray(data.completedSteps)
+    ? `${data.completedSteps.length} 步`
+    : '未知步数';
+  const base = `工作流「${workflow}」`;
+
+  if (data.stopReason === 'completed') {
+    return `${base}完成（${done}已全部完成${durationMs}）`;
+  }
+  if (data.stopReason === 'cancelled') {
+    return `${base}已取消（已完成 ${done}${durationMs}）`;
+  }
+  const failedStep =
+    typeof data.failedStep === 'string'
+      ? `失败于步骤 ${data.failedStep}`
+      : '失败';
+  const reason = typeof data.error === 'string' ? `：${data.error}` : '';
+  const upstream = rootCauseSummary(data.rootCauseCandidates);
+  return `${base}${failedStep}（已完成 ${done}${durationMs}）${reason}${upstream}`;
+}
+
+/** 上游根因候选摘要（P0-2）；无候选或形状不符时不给该片段 */
+function rootCauseSummary(value: unknown): string {
+  if (!Array.isArray(value)) return '';
+  const nodeIds = value
+    .map((item) =>
+      typeof item === 'object' && item !== null
+        ? (item as { nodeId?: unknown }).nodeId
+        : undefined
+    )
+    .filter((nodeId): nodeId is string => typeof nodeId === 'string');
+  return nodeIds.length > 0 ? `｜上游可疑：${nodeIds.join(' → ')}` : '';
 }
 
 // ─── D8 工具中断语义合成（2026-08-24，对齐 deepseek-harness repair.ts） ─────
@@ -345,6 +394,44 @@ function applyRichBlock(ev: LiriEvent, agg: Aggregated): void {
         type: 'pdca_workflow',
         content: (data.message as string) ?? '',
         pdcaWorkflowData: data,
+      });
+      break;
+    }
+    // ─── 工作流 run 记录（P0-1 接入点第二刀 ②b，2026-09-24）───────────────
+    // 复用既有 `status` 块：零新增块类型、零前端渲染改动（P1-3 §11 D12 口径）。
+    // 文本只陈述事件里的**事实**，无数据时不编造（CS06）。
+    case 'assistant/workflow_run_start': {
+      const steps = Array.isArray(data.steps) ? data.steps.length : 0;
+      blocks.push({
+        id: `blk_${ev.seq}`,
+        type: 'status',
+        content: `工作流「${data.workflow}」开始（计划 ${steps} 步）`,
+      });
+      break;
+    }
+    case 'assistant/workflow_step_start': {
+      blocks.push({
+        id: `blk_${ev.seq}`,
+        type: 'status',
+        content: `工作流步骤 ${data.tool} 开始`,
+      });
+      break;
+    }
+    case 'assistant/workflow_step_end': {
+      const outcome = data.synthesized === true ? '已强制结算' : data.outcome;
+      const reason = data.error ? `：${data.error}` : '';
+      blocks.push({
+        id: `blk_${ev.seq}`,
+        type: 'status',
+        content: `工作流步骤 ${data.tool} ${outcome}（${data.durationMs}ms）${reason}`,
+      });
+      break;
+    }
+    case 'assistant/workflow_run_end': {
+      blocks.push({
+        id: `blk_${ev.seq}`,
+        type: 'status',
+        content: formatWorkflowRunEnd(data),
       });
       break;
     }

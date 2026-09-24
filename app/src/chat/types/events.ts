@@ -52,6 +52,11 @@ export type LiriEventType =
   | 'assistant/doc_workflow'
   // P2-A（2026-09-17）：PDCA 自动启动快照富块（聊天正文内嵌卡片）
   | 'assistant/pdca_workflow'
+  // P0-1 接入点第二刀 ②b（2026-09-24）：工作流 run 记录（run 级 2 + 成员级 2）
+  | 'assistant/workflow_run_start'
+  | 'assistant/workflow_step_start'
+  | 'assistant/workflow_step_end'
+  | 'assistant/workflow_run_end'
   | 'assistant/truncation'
   // ─── 交付物/diff（E-1，2026-08-23：deliverable/diff 事件化，T-H.2） ───
   | 'assistant/deliverable'

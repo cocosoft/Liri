@@ -292,3 +292,65 @@ interface SystemEdge {
    - **是否触及 §1.6「模型可见 ⇔ 已落盘」红线**：**否**。已核实 `tool/result` 载荷仅 `{callSeq, toolCallId, result: string, isError?, messageId?}`（`chat/types/eventPayloads.ts:123-134`）**不含 metadata**，且模型可见的是工具 `output` 文本、非 metadata ⇒ 新增字段既不进事件流、也不进模型输入。
    - **待办**：②b 作为下一批次，必须与前端镜像同批交付（跨端守卫 `EventSchemaConsistency.test.ts` 会强制）。
 2. `DocWorkflowProvider`（第一刀）依裁定保留，仍无生产调用方（见 §7.2 N1）。
+
+### 7.4 ②b 实施记录：run 记录落盘投影（2026-09-24）
+
+**口径（用户裁定）**：**成员级 4 事件**；前端**复用既有 `status` 块**（不新增块类型/组件）。
+
+**改动清单（后端 5 改 1 增 + 前端 3 改）**
+
+| 文件 | 类型 | 内容 |
+|---|---|---|
+| `app/src/chat/types/eventPayloads.ts` | 修改 | 4 个载荷（run_start / step_start / step_end / run_end，含 `rootCauseCandidates`）。**内联字段、不跨包导入 seam 类型**（与 `assistant/doc_workflow` 同口径：事件载荷是自包含 schema） |
+| `app/src/chat/types/events.ts` | 修改 | `LiriEventType` 联合 +4 |
+| `app/src/chat/types/knownEventTypes.ts` | 修改 | `ALL_SESSION_EVENT_TYPES` +4（文件末穷尽断言强制） |
+| `app/src/session/storage/workflowRunProjection.ts` | **新增** | 投影实现（结构化读取 → 4 类事件） |
+| `app/src/session/storage/MessageToEventMigrator.ts` | 修改 | tool 分支调用投影，**恒排在 `tool/result` 之前** |
+| `app/src/session/storage/EventMessageDeriver.ts` | 修改 | 登记 `RICH_BLOCK_TYPES` + 4 个 case → `status` 块（run_end 附失败步骤/原因/上游可疑） |
+| `client/src/types/events.ts` | 修改 | 前端镜像：联合 + 载荷（4 类型） |
+| `client/src/stores/chat/deriveConversationBlocks.ts` | 修改 | `KNOWN_EVENT_TYPES` +4 与聚合 case；文案与后端**逐字同形**（保证"流式视图 = 回放视图"） |
+| `client/src/components/Trajectory/TrajectoryFilter.tsx` | 修改 | 轨迹筛选 +4 选项 |
+| `app/tests/session/workflowRunProjection.test.ts` | 新增 | 6 例（见下） |
+
+**链路（逐环核实，非推断）**
+
+```
+office:workflow → engine.execute + createRunRecordCollector
+  → ToolResult.metadata.workflowRun
+  → ReActToolLoop 两处构造点 `...toolResult.metadata` 展开（L1371 / L1907）
+  → 落盘消息 → ChatManager._appendEventsForMessage → convertMessage
+  → projectWorkflowRunEvents → 6 事件（run_start → step* → run_end）→ tool/result
+  → EventMessageDeriver → status 块
+```
+
+**关键判定**：`_appendEventsForMessage` 对带 `__streamedEventsWritten` 的消息只过滤 `assistant/text|text-batch|thinking|tool_call` **且仅当 `role==='assistant'`**（`ChatManager.ts:1591-1603`）⇒ 本投影位于 **tool** 消息且类型不在过滤集内，两条路径（流式 / 非流式）均会落盘。
+
+**设计要点**
+
+| # | 决策 | 理由 |
+|---|---|---|
+| E-a | 投影独立成文件 `workflowRunProjection.ts` | **实测纠偏**：初版内联进 `MessageToEventMigrator` ⇒ 该文件 **934 行 > 800** ⇒ `lint:size` **1 个错误（阻塞合并）**。抽出后 migrator 回落 **716 行（WARN）**、`lint:size` **0 错误** |
+| E-b | 投影返回事件数组、`seq` 由调用方推进 | `_appendEventsForMessage` 传 `startSeq=0`、真实 seq 由 append 的 mutex 原子分配（`ChatManager.ts:1565-1574`）⇒ 内部 seq 只用于**顺序**，故保持数组序即可 |
+| E-c | 结构化校验，缺字段**跳过 + 告警** | `metadata.workflowRun` 经 jsonl 往返 ⇒ 类型上不可信；不填默认值（CS06）。非法 `stopReason`/`outcome` 按缺失处理（不猜测为 `failed`） |
+| E-d | 复用 `status` 块、不设 `statusType` | 零前端渲染改动、零未知块类型风险；`statusType` 会触发既有按类型分支的样式，本场景无对应语义 |
+| E-e | 两端文案逐字同形 | 项目既有约束"流式视图 = 回放视图"；已用测试固化（含 `｜上游可疑：…` 段） |
+
+**验证（全部通过）**
+
+| 检查 | 结果 |
+|---|---|
+| `bun run typecheck`（app） | 0 error |
+| `client` `tsc --noEmit` | 0 error |
+| `bun run lint:arch` | R03-002 `0 处`；分层 `3665 文件 / 违规 0`；**错误 0 / 警告 0** |
+| `bun run lint:size` | **0 错误** / 322 警告（`MessageToEventMigrator` 716 行 = WARN） |
+| `bun test`（app 全量） | **3532 pass / 19 skip / 0 fail / Ran 3551 tests across 345 files [73.34s]**（较第二刀后 +6 = 本次新增用例） |
+| `bun run test`（client，**vitest**） | **40 文件全通过** |
+| `client` `bun run lint` | 0 error（我触碰的 3 文件已 `--fix` 至 0 警告） |
+| 用例覆盖 | 顺序与 seq 连续 · 恒在 `tool/result` 前 · 无元数据零额外事件 · 步骤成对 · 失败携带 `failedStep` + 根因候选 · **形状非法则跳过且不编造** · 派生 `status` 文案（含上游可疑）· D1 无损（`JSON.parse(JSON.stringify())` 深等） |
+
+> **验证中的一次环境误判（如实记录）**：先用 `bun test` 跑 client ⇒ 143 fail（`vi.unstubAllGlobals is not a function` / `document is not defined`）。根因是 client 用 **vitest + jsdom**（`client/package.json#L16`），`bun test` 无这些 API ⇒ 非本次改动引入。改用 `bun run test` 后 40 文件全通过。
+
+**未做（诚实记录）**
+
+1. **跨端一致性无自动守卫**：P1-3 spec（`workflow-run-record.md:154`）称存在守卫 `EventSchemaConsistency.test.ts`，但**本仓不存在该文件**（见台账）。当前两端一致性靠人工镜像 + 双端 `typecheck` 保障 ⇒ 存在静默漂移风险（P1-3 V-6 同型事故）。已在台账登记。
+2. **未做浏览器走查**：派生块复用既有 `status` 渲染，未在真实会话内实跑一次 `office:workflow` 观察落盘与回放（P1-3 曾做同类走查）。

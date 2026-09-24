@@ -8,18 +8,16 @@
  * 用法：MEM_PROFILE=1 时打日志（module=chat:mem-profile），否则零开销早退。
  *   MEM_PROFILE=1 bun run src/main.ts ...
  */
-import { Logger } from '@modules/monitoring/logs/Logger.js';
-import { LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { getMemoryPressureMonitor } from './memoryPressure/MemoryPressureMonitor.js';
 import { configManager } from '@modules/config';
 
 // 经统一出入口（R05-012）
 const ENABLED = configManager.env('MEM_PROFILE') === '1';
 
-const logger = new Logger({
-  level: LogLevel.INFO,
-  module: 'chat:mem-profile',
-});
+// R11-001（2026-09-24）：改用零样板门面 getLogger(module) —— 默认 INFO/json 形态，
+// 与原显式构造等价且复用单例；禁止直接构造 Logger 实例。
+const logger = getLogger('chat:mem-profile');
 
 /**
  * 采样激活：MEM_PROFILE=1（诊断跑批）**或**内存水位 ≥L0（2026-09-02 复查执行

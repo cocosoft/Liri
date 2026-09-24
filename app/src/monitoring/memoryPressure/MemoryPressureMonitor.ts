@@ -24,8 +24,7 @@
  *   MEM_PRESSURE_COOLDOWN_MS 同级别冷却（默认 30_000）
  *   MEM_PRESSURE_RECOVER_MB  回落判定缓冲（默认 512）
  */
-import { Logger } from '@modules/monitoring/logs/Logger.js';
-import { LogLevel } from '@modules/monitoring';
+import { getLogger } from '@modules/monitoring';
 import { configManager } from '@modules/config';
 
 // 以下 env 读取均经统一出入口（R05-012）
@@ -72,10 +71,9 @@ export interface PressureSnapshot {
   reason?: string;
 }
 
-const logger = new Logger({
-  level: LogLevel.INFO,
-  module: 'memory:pressure',
-});
+// R11-001（2026-09-24）：改用零样板门面 getLogger(module) —— 默认 INFO/json 形态，
+// 与原显式构造等价且复用单例；禁止直接构造 Logger 实例。
+const logger = getLogger('memory:pressure');
 
 class MemoryPressureMonitor {
   private baselineRssMb = 0;

@@ -83,6 +83,12 @@ export interface LiriEventMap {
       "stop" | "length" | "tool_use" | "error" | "canceled" | "yielded";
     /** 阶段 A（A1-d）：本轮是否为 yield 让出（与 `finishReason='yielded'` 同时写入） */
     yielded?: boolean;
+    /**
+     * TB-16（2026-09-24）：**主循环的终止判定**（后端 `getTerminationReason()` 口径）。
+     * 与 `finishReason` 语义不同（后者是 provider 末次响应，长程轮正常收尾常报 `tool_use`）；
+     * 仅工具循环路径写入，单次回复时省略。本字段为只读展示/审计用。
+     */
+    terminationReason?: string;
     error?: string;
   };
   "user/message": {

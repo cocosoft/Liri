@@ -324,7 +324,9 @@ export interface ChatOrchestratorHost {
     finalResponse: unknown,
     streamAbortController: AbortController,
     streamSpan: Span,
-    options?: StreamMessageOptions
+    options?: StreamMessageOptions,
+    /** TB-16（2026-09-24）：主循环终止判定（透传落 `turn/end.terminationReason`） */
+    terminationReason?: string
   ): Promise<Message>;
   /** 回滚轮次启动（streamMessage 工具循环） */
   startRollbackRound(sessionId: string, roundId: number): Promise<unknown>;

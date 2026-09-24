@@ -50,6 +50,15 @@ export interface LiriEventMap {
       | 'yielded';
     /** 阶段 A：本轮是否为 yield 让出（与 finishReason='yielded' 同时写入） */
     yielded?: boolean;
+    /**
+     * TB-16（2026-09-24）：**主循环的终止判定**（`getTerminationReason()` 口径）。
+     *
+     * 与 `finishReason` **语义不同**：后者描述"provider 最后一次响应"——长程轮正常收尾时
+     * 末次响应常带工具调用 ⇒ 报 `tool_use`，易被轨迹/审计误读为"被工具打断"。
+     * 仅**工具循环**路径写入；单次回复（无循环）时省略（该字段语义是"主循环为何停下"，不臆造）。
+     * 值域镜像 `@modules/query` 的 `TerminationReason`（此处不反向 import 查询层，避免分层倒挂）。
+     */
+    terminationReason?: string;
     /** 错误信息（finishReason=error 时） */
     error?: string;
   };

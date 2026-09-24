@@ -833,6 +833,14 @@ export async function* runStreamMessage(
     }
 
     let assistantMessage: Message | undefined;
+    /**
+     * TB-16（2026-09-24）：本轮**主循环的终止判定**（`getTerminationReason()` 口径）。
+     *
+     * 提升到此处是因为工具循环的 `loop` 实例只在更内层作用域可见，而 `turn/end` 在方法
+     * 出口统一写入（事件顺序要求，见文件末尾注释）。无工具调用（单次回复）时保持 `undefined`
+     * ⇒ `turn/end` 不含 `terminationReason`（该字段语义是"主循环为何停下"，不臆造）。
+     */
+    let toolLoopTermination: string | undefined;
     let accumulatedContent = '';
     let finalResponse: ChatResponse | null = null;
 
@@ -2340,6 +2348,8 @@ export async function* runStreamMessage(
         // 原实现为 fire-and-forget ⇒ 落盘失败只留一条无人可等的 warn（N4：调用方无法
         // 感知/重试/断言）。此处 await 使其在轮次边界可观测；无副作用时立即 resolve。
         await loop.flushTerminalSettlement();
+        // TB-16（2026-09-24）：取值供 `turn/end` 落 `terminationReason`（见上方变量注释）
+        toolLoopTermination = loop.getTerminationReason();
         // B1 补发（2026-09-01）：达上限/循环检测的终止提示由 finalize 生成在最终
         // 消息里，但不在 loop.run 事件流（reactEventsToChunks 不产出）→ 前端流式
         // 收不到（实测 fullContentLength 0，用户对任务中断无感知）。此处补发 text chunk。
@@ -2464,7 +2474,9 @@ export async function* runStreamMessage(
       finalResponse,
       streamAbortController,
       streamSpan,
-      options
+      options,
+      // TB-16（2026-09-24）：主循环终止判定（无工具调用时为 undefined）
+      toolLoopTermination
     );
   } finally {
     // P2 修复（AB-2）+ BUG-1/2 收敛：兜底释放会话互斥锁。

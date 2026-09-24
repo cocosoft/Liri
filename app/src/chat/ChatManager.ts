@@ -1165,7 +1165,8 @@ export class ChatManagerImpl implements ChatManager {
           fr,
           abortCtl,
           span,
-          options
+          options,
+          terminationReason
         ) =>
           this._finalizeStreamMessage(
             session,
@@ -1175,7 +1176,8 @@ export class ChatManagerImpl implements ChatManager {
             fr as ChatResponse,
             abortCtl,
             span as ReturnType<ReturnType<typeof getOTelTracing>['startSpan']>,
-            options
+            options,
+            terminationReason
           ),
         startRollbackRound: (sid, roundId) =>
           this._startRollbackRound(sid, roundId),
@@ -3996,7 +3998,9 @@ export class ChatManagerImpl implements ChatManager {
     finalResponse: ChatResponse | null,
     streamAbortController: AbortController,
     streamSpan: ReturnType<ReturnType<typeof getOTelTracing>['startSpan']>,
-    options?: StreamMessageOptions
+    options?: StreamMessageOptions,
+    /** TB-16（2026-09-24）：主循环终止判定（写入 `turn/end.terminationReason`） */
+    terminationReason?: string
   ): Promise<Message> {
     // P0-fix: 确保助手消息已持久化（非工具调用路径在此处落盘，工具调用路径已由 _buildToolRoundMessages 处理）
     const lastMsg = session.messages[session.messages.length - 1];
@@ -4052,6 +4056,8 @@ export class ChatManagerImpl implements ChatManager {
                 : hasFinalToolCalls
                   ? 'tool_use'
                   : 'stop',
+              // TB-16（2026-09-24）：主循环终止判定（与 finishReason 语义不同；无循环时省略）
+              ...(terminationReason ? { terminationReason } : {}),
               ...(yieldPending ? { yielded: true } : {}),
             },
           });

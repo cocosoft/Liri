@@ -59,6 +59,14 @@ export interface GrepOptions {
   multiline?: boolean;
 }
 
+/** 遍历规模统计（#5 耗时构成分解，2026-09-24）——**只计数**，不参与任何判定 */
+export interface GrepStats {
+  /** 遍历到的目录条目数（已排除 VCS / 点目录 / SKIP_DIRS） */
+  entries: number;
+  /** 实际进入内容匹配的文件数（调用 `searchFile` 的次数） */
+  files: number;
+}
+
 export interface GrepResult {
   matches: string[];
   matchCount: number;
@@ -67,6 +75,11 @@ export interface GrepResult {
   durationMs: number;
   /** 正则非法时降级原因（无非法则为 undefined）。用于让调用方把问题反馈给 agent 自纠。 */
   invalidRegex?: string;
+  /**
+   * 遍历规模（#5）：用于把"慢"分解为「遍历范围大」还是「单文件读取慢」。
+   * 仅异步路径（`grepAsync`）产出；同步 `grep()` 未插桩 ⇒ 缺省。
+   */
+  stats?: GrepStats;
 }
 
 const VCS_DIRS = new Set(['.git', '.svn', '.hg', '.bzr']);
@@ -132,14 +145,18 @@ export function grep(options: GrepOptions): GrepResult {
   const fileMatches: Map<string, string[]> = new Map();
   let totalMatches = 0;
 
+  // #5（2026-09-24）：遍历规模计数（只观测）
+  const stats: GrepStats = { entries: 0, files: 0 };
+
   // 判断 searchPath 是文件还是目录，自动降级为单文件搜索
   try {
     const stat = fs.statSync(searchPath);
     if (stat.isFile()) {
       // 单文件搜索：直接搜索该文件，跳过 include/type 过滤
+      stats.files++;
       searchFile(searchPath, regex, options, fileMatches, MAX_RESULTS);
     } else {
-      searchDir(searchPath, regex, options, fileMatches, MAX_RESULTS);
+      searchDir(searchPath, regex, options, fileMatches, MAX_RESULTS, stats);
     }
   } catch (err) {
     handleError(err, {
@@ -191,6 +208,7 @@ export function grep(options: GrepOptions): GrepResult {
     truncated: outputLines.length >= headLimit || totalMatches >= MAX_RESULTS,
     durationMs: Date.now() - startTime,
     invalidRegex,
+    stats,
   };
 }
 
@@ -220,10 +238,13 @@ export async function grepAsync(options: GrepOptions): Promise<GrepResult> {
 
   const fileMatches: Map<string, string[]> = new Map();
   let totalMatches = 0;
+  // #5（2026-09-24）：遍历规模计数（只观测）
+  const stats: GrepStats = { entries: 0, files: 0 };
 
   try {
     const stat = fs.statSync(searchPath);
     if (stat.isFile()) {
+      stats.files++;
       searchFile(searchPath, regex, options, fileMatches, MAX_RESULTS);
     } else {
       await searchDirAsync(
@@ -231,7 +252,8 @@ export async function grepAsync(options: GrepOptions): Promise<GrepResult> {
         regex,
         options,
         fileMatches,
-        MAX_RESULTS
+        MAX_RESULTS,
+        stats
       );
     }
   } catch (err) {
@@ -281,6 +303,7 @@ export async function grepAsync(options: GrepOptions): Promise<GrepResult> {
     truncated: outputLines.length >= headLimit || totalMatches >= MAX_RESULTS,
     durationMs: Date.now() - startTime,
     invalidRegex,
+    stats,
   };
 }
 
@@ -293,7 +316,8 @@ async function searchDirAsync(
   regex: RegExp,
   options: GrepOptions,
   results: Map<string, string[]>,
-  maxTotal: number
+  maxTotal: number,
+  stats: GrepStats
 ): Promise<void> {
   let entries: fs.Dirent[];
   try {
@@ -317,12 +341,14 @@ async function searchDirAsync(
     if (VCS_DIRS.has(entry.name)) continue;
     if (entry.name.startsWith('.') && entry.name !== '.') continue;
 
+    stats.entries++;
     const fullPath = path.join(dir, entry.name);
     if (entry.isDirectory()) {
       if (SKIP_DIRS.has(entry.name)) continue;
-      await searchDirAsync(fullPath, regex, options, results, maxTotal);
+      await searchDirAsync(fullPath, regex, options, results, maxTotal, stats);
     } else if (entry.isFile()) {
       if (options.include && !matchGlob(entry.name, options.include)) continue;
+      stats.files++;
       searchFile(fullPath, regex, options, results, maxTotal);
     }
 
@@ -346,7 +372,8 @@ function searchDir(
   regex: RegExp,
   options: GrepOptions,
   results: Map<string, string[]>,
-  maxTotal: number
+  maxTotal: number,
+  stats: GrepStats
 ): void {
   let entries: fs.Dirent[];
   try {
@@ -373,12 +400,14 @@ function searchDir(
     if (VCS_DIRS.has(entry.name)) continue;
     if (entry.name.startsWith('.') && entry.name !== '.') continue;
 
+    stats.entries++;
     const fullPath = path.join(dir, entry.name);
     if (entry.isDirectory()) {
       if (SKIP_DIRS.has(entry.name)) continue;
-      searchDir(fullPath, regex, options, results, maxTotal);
+      searchDir(fullPath, regex, options, results, maxTotal, stats);
     } else if (entry.isFile()) {
       if (options.include && !matchGlob(entry.name, options.include)) continue;
+      stats.files++;
       searchFile(fullPath, regex, options, results, maxTotal);
     }
   }

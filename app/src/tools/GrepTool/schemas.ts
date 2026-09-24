@@ -74,6 +74,14 @@ export const GrepOutputSchema = z.object({
   truncated: z.boolean().describe('是否被截断'),
   durationMs: z.number().int().nonnegative().describe('执行耗时（毫秒）'),
   invalidRegex: z.string().optional().describe('正则非法时的降级原因'),
+  // #5（2026-09-24）：遍历规模（只观测，供统一出口的耗时构成分解读取；不参与任何判定）
+  stats: z
+    .object({
+      entries: z.number().int().nonnegative().describe('遍历到的目录条目数'),
+      files: z.number().int().nonnegative().describe('进入内容匹配的文件数'),
+    })
+    .optional()
+    .describe('遍历规模统计（仅异步搜索路径产出）'),
   skipped: z
     .boolean()
     .optional()

@@ -271,6 +271,8 @@ export class GrepTool extends BaseTool {
         truncated: result.truncated,
         durationMs: result.durationMs,
         invalidRegex: result.invalidRegex,
+        // #5：遍历规模（只观测；供工具执行统一出口做耗时构成分解）
+        ...(result.stats ? { stats: result.stats } : {}),
         skipped: false,
       };
 

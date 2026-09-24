@@ -68,6 +68,115 @@ function readSlowToolWarnEnv(): string | undefined {
 }
 
 /* ===================================================================
+ *  #5（2026-09-24）耗时构成分解：把"慢"拆成可行动的线索（只观测）
+ *  ---------------------------------------------------------------
+ *  原 O3-2 只回答"多慢"；本组函数回答"**慢在哪**"：
+ *   · `summarizeToolScope`  ⇒ 作用范围（路径 / pattern / include…）→ 判断是否范围过大
+ *   · `summarizeToolScale`  ⇒ 结果规模 + **遍历规模**（工具自报）→ 区分"遍历太多"与"单文件慢"
+ *   · `resolveToolReportedMs`⇒ 工具内部耗时 → 与出口总耗时相减得**包装/排队开销**
+ *  全部只读真实存在的字段，工具未提供则**省略该字段**（不臆造，CS06）。
+ * =================================================================== */
+
+/** 入参中代表"作用范围"的白名单键（只取这些，避免把正文/敏感值写进日志） */
+const SCOPE_ARG_KEYS = [
+  'searchPath',
+  'path',
+  'dir',
+  'directory',
+  'file_path',
+  'filePath',
+  'glob',
+  'include',
+  'pattern',
+  'query',
+  'type',
+] as const;
+
+/** 单个范围值的最大字符数（超出则截断并标注原长） */
+const SCOPE_VALUE_MAX_CHARS = 120;
+
+/**
+ * #5：从工具入参提取「作用范围」线索。
+ * @returns 无任何白名单键 ⇒ `undefined`（调用方省略该字段）
+ */
+export function summarizeToolScope(
+  args: unknown
+): Record<string, string> | undefined {
+  if (typeof args !== 'object' || args === null) return undefined;
+  const source = args as Record<string, unknown>;
+  const scope: Record<string, string> = {};
+  for (const key of SCOPE_ARG_KEYS) {
+    const value = source[key];
+    if (value === undefined || value === null) continue;
+    if (typeof value !== 'string' && typeof value !== 'number') continue;
+    const text = String(value);
+    scope[key] =
+      text.length > SCOPE_VALUE_MAX_CHARS
+        ? `${text.slice(0, SCOPE_VALUE_MAX_CHARS)}…(共 ${text.length} 字)`
+        : text;
+  }
+  return Object.keys(scope).length > 0 ? scope : undefined;
+}
+
+/** 工具 `data` 中代表"规模"的白名单键（只读；缺失即不出现） */
+const SCALE_DATA_KEYS = [
+  'matchCount',
+  'fileCount',
+  'truncated',
+  'durationMs',
+  'skipped',
+  'totalItems',
+  'lineCount',
+] as const;
+
+/**
+ * #5：从**工具自报 payload** 提取「结果规模 / 遍历规模」。
+ *
+ * 入参是工具自报的数据对象本身 —— 在 chat 域它是 `ToolResult.result`
+ * （`_executeInternal` 的 `result: toolResult.data || toolResult.result`），
+ * 在 tools 域是 `ToolResult.data`，**二者同物**。故本函数不依赖任一侧的 `ToolResult` 类型。
+ *
+ * `entries`/`files` 摊平为 `scannedEntries`/`scannedFiles`（统一口径便于日志聚合）。
+ * 注：chat 域结果**不携带返回正文**，故不产出 `outputChars`（不臆造，CS06）。
+ */
+export function summarizeToolScale(
+  payload: unknown
+): Record<string, unknown> | undefined {
+  if (typeof payload !== 'object' || payload === null) return undefined;
+  const scale: Record<string, unknown> = {};
+  const source = payload as Record<string, unknown>;
+  for (const key of SCALE_DATA_KEYS) {
+    const value = source[key];
+    if (typeof value === 'number' || typeof value === 'boolean') {
+      scale[key] = value;
+    }
+  }
+  const stats = source['stats'];
+  if (typeof stats === 'object' && stats !== null) {
+    const nested = stats as Record<string, unknown>;
+    if (typeof nested['entries'] === 'number') {
+      scale['scannedEntries'] = nested['entries'];
+    }
+    if (typeof nested['files'] === 'number') {
+      scale['scannedFiles'] = nested['files'];
+    }
+  }
+  return Object.keys(scale).length > 0 ? scale : undefined;
+}
+
+/**
+ * #5：工具自报耗时（`data.durationMs`）。
+ * @returns 未提供或非有限数 ⇒ `undefined`（调用方不得据此臆测开销）
+ */
+export function resolveToolReportedMs(data: unknown): number | undefined {
+  if (typeof data !== 'object' || data === null) return undefined;
+  const value = (data as Record<string, unknown>)['durationMs'];
+  return typeof value === 'number' && Number.isFinite(value)
+    ? value
+    : undefined;
+}
+
+/* ===================================================================
  *  ToolExecutionDeps — 服务依赖接口
  * =================================================================== */
 
@@ -167,6 +276,8 @@ export class ToolExecutionService {
       'tool.name': toolCall.name,
     });
     const startedAt = Date.now();
+    // #5（2026-09-24）：留存本次结果，供 finally 的耗时构成分解读取（工具自报规模/耗时）
+    let latestResult: ToolResult | undefined;
     try {
       // Phase 2: ErrorHandler 双路径
       if (opts?.useErrorHandler && this.deps.enableErrorHandler) {
@@ -179,15 +290,18 @@ export class ToolExecutionService {
               ),
             { recoveryStrategy: 'retry', maxRetries: 2 }
           );
-          return handled.success && handled.result
-            ? handled.result
-            : {
-                toolCallId: toolCall.id ?? '',
-                toolName: toolCall.name,
-                error: handled.error
-                  ? String(handled.error)
-                  : 'Tool execution failed',
-              };
+          const resolved: ToolResult =
+            handled.success && handled.result
+              ? handled.result
+              : {
+                  toolCallId: toolCall.id ?? '',
+                  toolName: toolCall.name,
+                  error: handled.error
+                    ? String(handled.error)
+                    : 'Tool execution failed',
+                };
+          latestResult = resolved;
+          return resolved;
         } catch (err) {
           await handleError(err, {
             module: 'chat:toolExecution',
@@ -196,16 +310,18 @@ export class ToolExecutionService {
           logger.warn('ErrorHandler failed, falling back to direct execution', {
             error: err instanceof Error ? err.message : String(err),
           });
-          return withToolTimeout(
+          latestResult = await withToolTimeout(
             () => this._executeInternal(toolCall, opts?.onProgress),
             toolCall
           );
+          return latestResult;
         }
       }
       const result = await withToolTimeout(
         () => this._executeInternal(toolCall, opts?.onProgress),
         toolCall
       );
+      latestResult = result;
       // Phase 2: 收敛检测
       try {
         convergenceDetector.recordToolCall(
@@ -242,12 +358,27 @@ export class ToolExecutionService {
       toolSpan.setAttribute('tool.elapsed_ms', elapsedMs);
       const slowWarnMs = resolveSlowToolWarnMs();
       if (elapsedMs >= slowWarnMs) {
+        // #5（2026-09-24，本次追加）：把"慢"分解为可行动的构成 ——
+        //  · `scope`：作用范围（路径/pattern/include…）⇒ 判断是否范围过大
+        //  · `scale`：结果规模 + **遍历规模**（工具自报）⇒ 区分"遍历范围大"与"单文件读取慢"
+        //  · `toolReportedMs` / `overheadMs`：工具内部耗时 vs 出口总耗时 ⇒ 包装/排队开销
+        // 工具未提供对应数据时**省略该字段**（不臆造，CS06）。
+        const scope = summarizeToolScope(toolCall.arguments);
+        // chat 域 `ToolResult.result` 即工具自报 payload（见 `_executeInternal` 的
+        // `result: toolResult.data || toolResult.result`）
+        const scale = summarizeToolScale(latestResult?.result);
+        const toolReportedMs = resolveToolReportedMs(latestResult?.result);
         logger.warn('工具执行耗时超过告警阈值（O3-2 探针）', {
           toolName: toolCall.name,
           toolCallId: toolCall.id,
           sessionId: toolCall.sessionId ?? '',
           elapsedMs,
           thresholdMs: slowWarnMs,
+          ...(scope ? { scope } : {}),
+          ...(scale ? { scale } : {}),
+          ...(toolReportedMs !== undefined
+            ? { toolReportedMs, overheadMs: elapsedMs - toolReportedMs }
+            : {}),
         });
       }
       toolSpan.end();

@@ -195,7 +195,7 @@
 
 | __pyapp_type | 关键字段 | 含义 |
 |--------------|---------|------|
-| `text` | `choices[0].delta.content` | 流式文本增量 |
+| `text` | `choices[0].delta.content`, `__pyapp_text_replace` | 流式文本增量；`__pyapp_text_replace=true` = **正文取代**（见下方约定） |
 | `thinking` | `choices[0].delta.content` | 思考过程（前端 thinking 块） |
 | `status` | `__pyapp_status_type` | 状态提示（`ai_thinking`/`retry`/`task_all_done`/`resume`/**`tool_retry`**） |
 | `context_state` | `watermarkState` | 上下文水位（压缩/召回） |
@@ -213,6 +213,7 @@
 - 请求体可选字段 `assistant_message_id`（P0 根治，2026-08-14）：前端流式消息 id（`crypto.randomUUID`），后端 `createAssistantMessage` 复用它作消息 id，使 `PUT /v1/sessions/{id}/messages/{mid}/blocks`（updateMessageBlocks）直接命中落盘，刷新后 blocks 与流式一致；缺省时后端自动生成 `msg-{timestamp}-{suffix}`
 - 事件总线 `/v1/events`（`broadcastEvent` → 前端 `sseService.on`）与对话流内转发**并存**：长程任务等无活跃 chatStream 的场景走事件总线
 - `session:paused`（根因 C）：崩溃恢复把会话标记 PAUSED 后主动推送 `{ sessionId, reason: 'crash_recovery', crashedAt }`，前端展示"会话已暂停"提示（[chat store index.ts](client/src/stores/chat/index.ts)）
+- **正文取代（O2-4，2026-09-24）**：`text` 事件可带 `__pyapp_text_replace: true`，表示**该 delta 取代本消息此前已下发的正文**（续接/重试轮的首个 delta）。语义来源：后端每轮把 `assistantMessage.content` **整体替换**为本轮文本（[ReActToolLoop.ts](app/src/chat/ReActToolLoop.ts) `existingMsg.content = repairedContent`），前端派生层此前只 append ⇒ 出现重复段落且流内 ≠ 落盘（违反 `project_rules §1.6`「所见即所存」）。**双端契约（三处必须同批同步）**：① 后端发送 [reactEventsToChunks.ts](app/src/chat/reactEventsToChunks.ts) + resume 序列化 [chat-handlers.ts](app/src/infrastructure/http/handlers/chat-handlers.ts) `serializeResumeChunk`；② 前端**两处**解析 [chatService.ts](client/src/services/chatService.ts)（`parseSseChunk` 与主链路内联解析——历史上漏改一处曾致漂移，见 AB-9）；③ 派生层 [deriveConversationBlocks.ts](client/src/stores/chat/deriveConversationBlocks.ts) `resetTrailingTextBlock()`（清**尾部**正文块 + `content`）。持久化事件 `assistant/text` 同名字段（[eventPayloads.ts](app/src/chat/types/eventPayloads.ts)）保证刷新/轨迹回放与实时流一致。
 
 ### §3.6 会话
 

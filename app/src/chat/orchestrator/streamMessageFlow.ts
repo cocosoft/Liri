@@ -93,6 +93,55 @@ import type { ChatStreamChunk } from '@modules/runtime/api/CoreAPI.js';
 
 const logger = getLogger('chat:streamFlow');
 
+/**
+ * O2-4 探针判据（2026-09-24「会话暴露问题分析与优化方案」§五，纯函数，导出便于单测）。
+ *
+ * 返回 `true` 当且仅当：**流内下发的正文长度 > 落盘正文长度，且落盘正文是流内正文的一部分**。
+ *
+ * 语义：用户可见正文由流式 chunk 逐段下发（前端 append），而 `assistantMessage.content` 在
+ * **每次 reason 轮被整体替换**（`ReActToolLoop`：`existingMsg.content = repairedContent`）。
+ * 一轮内两者一致；但同一 assistant 消息内发生**多轮**（截断续接的回捞重试、超时后重试等）时，
+ * 前端累积 = Σ 各轮文本、落盘 = 最后一轮文本 ⇒ 前端多出重复段落，且违反「所见即所存」。
+ * 此时落盘正文必然"被包含"于流内正文中 —— 本判据即该特征。
+ *
+ * 实测证据：`chat-export-1790220958578.md`（首句重复 3 处、同一报告整段重复 2 处）。
+ */
+export function isStreamedContentSuperset(
+  streamedContent: string,
+  persistedContent: string
+): boolean {
+  if (!persistedContent) return false;
+  if (streamedContent.length <= persistedContent.length) return false;
+  return streamedContent.includes(persistedContent);
+}
+
+/**
+ * O3-1 归因判定（2026-09-24「会话暴露问题分析与优化方案」§五，纯函数，导出便于单测）。
+ *
+ * 压缩失败事件的 `reason` 与文案**单一来源**：有 `failure` ⇒ 压缩异常（取其结构化原因码，
+ * 不按文案判别，CS02）；无 ⇒ 压不动（Tier1/2/3 均无效果）。
+ */
+export function resolveCompactionFailureAttribution(
+  failure: { reason: 'exception'; message: string } | undefined
+): {
+  reason: 'exception' | 'no_effect';
+  failureMessage?: string;
+  message: string;
+} {
+  if (failure) {
+    return {
+      reason: failure.reason,
+      failureMessage: failure.message,
+      message: `压缩异常（${failure.reason}）：${failure.message}——上下文将走截断兜底`,
+    };
+  }
+  return {
+    reason: 'no_effect',
+    message:
+      '压缩触发（trigger）但未降体积（Tier1/2/3 均无效果），上下文将走截断兜底',
+  };
+}
+
 // R2（2026-09-06，走查 W2/W8）：思考过长被输出上限截断且无正文时的收敛重试指令。
 // 以 user 消息注入下一轮请求（仅请求上下文，不回写会话消息），配合更小 maxTokens，
 // 迫使模型收敛为简短结论/最必要的一次工具调用，而非再次以思考占满输出预算。
@@ -323,6 +372,13 @@ export async function* runStreamMessage(
       // 以事件可见"（对标 dsh compaction/end(error)）——压缩触发但未降体积/异常时
       // 可从事件溯源判定，而非仅 warn 日志。
       if (!preCompactResult.applied && preCompactEval.decision === 'trigger') {
+        // O3-1（2026-09-24「会话暴露问题分析与优化方案」§五）：**失败归因**。
+        // 原实现把两种成因合并成一句"未降体积或异常" ⇒ 事件溯源无法区分"压不动"与"压缩异常"。
+        // 归因与文案由 `resolveCompactionFailureAttribution()` **单一来源**给出
+        //（来源是 `CompactionOutcome.failure.reason` 结构化归因，机器可读，非文案判别）。
+        const attribution = resolveCompactionFailureAttribution(
+          preCompactResult.failure
+        );
         try {
           // P3-7a: seq 由 append 原子分配（seq: 0）
           await host.appendStreamEvent(session.id, {
@@ -333,12 +389,15 @@ export async function* runStreamMessage(
             sessionId: session.id,
             data: {
               phase: 'failed',
+              reason: attribution.reason,
+              ...(attribution.failureMessage
+                ? { failureMessage: attribution.failureMessage }
+                : {}),
               beforeTokens: preCompactEval.snapshot.tokens,
               afterTokens: estimateMessagesTokens(
                 session.messages as unknown as ChatMessage[]
               ),
-              message:
-                '压缩触发（trigger）但未应用——Tier1/2/3 未降体积或异常，上下文将走截断兜底',
+              message: attribution.message,
             },
           });
         } catch (err) {
@@ -2344,6 +2403,27 @@ export async function* runStreamMessage(
           } as ChatStreamChunk;
         }
         assistantMessage = loop.getAssistantMessage();
+        // O2-4 探针（2026-09-24「会话暴露问题分析与优化方案」§五）：**先取证，再改行为**。
+        // 判据见 `isStreamedContentSuperset`；命中即为"多轮替换导致前端多出重复段落 +
+        // 流内与落盘不同源"的实证（对应问题清单 W3）。本探针只观测（WARN），不改发流语义。
+        {
+          const persistedContent =
+            typeof assistantMessage.content === 'string'
+              ? assistantMessage.content
+              : '';
+          if (isStreamedContentSuperset(accumulatedContent, persistedContent)) {
+            logger.warn(
+              'streamMessage:流内正文包含落盘正文（O2-4 探针：多轮替换疑致重复）',
+              {
+                sessionId: session.id,
+                messageId: assistantMessage.id,
+                streamedLength: accumulatedContent.length,
+                persistedLength: persistedContent.length,
+                diff: accumulatedContent.length - persistedContent.length,
+              }
+            );
+          }
+        }
         // 三期 F3-1（2026-09-23 修复计划 §六）：等待本轮**终止副作用**（落 Goal）落定。
         // 原实现为 fire-and-forget ⇒ 落盘失败只留一条无人可等的 warn（N4：调用方无法
         // 感知/重试/断言）。此处 await 使其在轮次边界可观测；无副作用时立即 resolve。

@@ -124,9 +124,13 @@ function getMessageExportText(message: Message): string {
         const excerpt = truncated
           ? `${merged.slice(0, MAX_EXPORT_THINKING_CHARS)}…`
           : merged;
-        parts.push(
-          `💭 [思考中]\n${excerpt}${truncated ? `\n（思考过长，已截断，共 ${merged.length} 字）` : ""}`,
-        );
+        // O3-3（2026-09-24「会话暴露问题分析与优化方案」§五）：**截断必须无歧义**——
+        // 原标注只给"共 N 字"，读者无法判断"导出里保留了多少"。现同时给出**保留规模**
+        // 与"完整内容仍在会话内"的去处，使导出记录可被独立审计（不再需要猜测缺口）。
+        const truncationNote = truncated
+          ? `\n（思考过长，已截断：仅导出前 ${MAX_EXPORT_THINKING_CHARS} 字，原文共 ${merged.length} 字；完整思考见会话内）`
+          : "";
+        parts.push(`💭 [思考中]\n${excerpt}${truncationNote}`);
       }
     }
   }

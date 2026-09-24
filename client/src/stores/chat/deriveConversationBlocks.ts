@@ -345,7 +345,10 @@ function handleEvent(
     case "assistant/text-batch":
     case "assistant/text": {
       ensureCurrent(state, event, sessionId, assistantMessageId);
-      const data = event.data as { content: string };
+      const data = event.data as { content: string; replace?: boolean };
+      // O2-4：续接/重试轮 = 正文取代（清空后重建）——实时流与事件回放**同一处**处理，
+      // 保证刷新/轨迹视图与实时视图一致（双通道同源）
+      if (data.replace) resetTrailingTextBlock(state);
       // Think/response 标签兜底（2026-08-31）：后端擦洗上线前的存量事件日志中，
       // text delta 可能含 <think>/<response> 协议标签（截图文证：标签按正文渲染），
       // 且标签常跨 delta 分裂，逐 delta 正则删不干净。
@@ -926,6 +929,29 @@ function appendThinkingDelta(state: BuilderState, cleanDelta: string): void {
       groupId: state.currentGroupId,
     });
   }
+}
+
+/**
+ * O2-4（2026-09-24）**正文取代**：清空当前消息已累积的正文（续接/重试轮的首个 delta 触发）。
+ *
+ * 后端每轮把 `assistantMessage.content` **整体替换**为本轮文本，而派生层此前只做 append
+ * ⇒ 前端多出重复段落，且流内视图 ≠ 落盘内容（违反 `project_rules §1.6`「所见即所存」）。
+ *
+ * 只清"正文"：thinking / tool_call / progress 块不受影响（它们不参与"整轮替换"语义）。
+ * 被取代的正文必然是**尾部** text 块 —— 回捞重试只发生在"本轮无 tool_calls"的场景
+ *（`onIncompleteTurn` 首行即判 `toolCalls.length > 0` 直接放行），故其后不会夹工具卡片。
+ */
+function resetTrailingTextBlock(state: BuilderState): void {
+  if (!state.current) return;
+  const blocks = state.current.blocks;
+  if (blocks && blocks.length > 0) {
+    const last = blocks[blocks.length - 1];
+    if (last.type === "text") blocks.pop();
+  }
+  // content 字段是"完整正文"累积（供搜索/导出）——与后端"每轮整体替换"同源：一并清空
+  state.current.content = "";
+  // 跨 delta 标签状态机重置：避免上一轮的半截 <think>/<response> 与新正文错误拼接
+  state.thinkExtractor = null;
 }
 
 /**

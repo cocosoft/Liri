@@ -23,12 +23,17 @@
  * 查询模块主入口
  */
 
-export { ReActLoop, EXTERNAL_FETCH_TOOLS } from './ReActLoop.js';
+export {
+  ReActLoop,
+  EXTERNAL_FETCH_TOOLS,
+  SYSTEM_ABORT_REASON,
+} from './ReActLoop.js';
 export type {
   ReActState,
   ReActLoopConfig,
   BudgetControllerLike,
   TerminationReason,
+  AbortSource,
   ReActEvent,
   ToolCallEntry,
   ToolResultEntry,

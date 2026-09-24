@@ -257,7 +257,10 @@ export type GoalTurnReason =
   | 'turn_timeout'
   | 'turn_budget_exhausted'
   | 'turn_interrupted'
-  | 'user_aborted';
+  | 'user_aborted'
+  // 二期 O2-1（2026-09-24）：**系统中止**（`req.on('close')` 断线、会话删除时的清理性中止）
+  // 与"用户主动放弃"区分——此前一律记 `user_aborted`，与用户意图相反（问题清单 G5）。
+  | 'system_aborted';
 
 /** 会推进 `no_progress_streak`（＝真·无进展）的轮级原因；其余走"只记录"路径（二期 N2） */
 const NO_PROGRESS_TURN_REASONS: ReadonlySet<GoalTurnReason> = new Set([

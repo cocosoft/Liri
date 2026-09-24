@@ -123,6 +123,14 @@ export interface StreamChunk {
   todoData?: import("../types").TaskCardData;
   /** P1-7（2026-08-23）：text/thinking chunk 携带归属 assistant 消息 id（后端 SSE 透传） */
   messageId?: string;
+  /**
+   * O2-4（2026-09-24）：**正文取代标记**（仅 `type="text"`）。
+   *
+   * `true` = 本 delta 取代该消息此前已累积的正文（续接/重试轮的首个 delta）。
+   * 派生层（`deriveConversationBlocks`）据此清空后重建，使流内视图与落盘
+   * `assistantMessage.content`（后端每轮整体替换）同源（project_rules §1.6「所见即所存」）。
+   */
+  replace?: boolean;
   executionPhase?: {
     phase: string;
     progress: number;
@@ -345,6 +353,8 @@ function parseSseChunk(chunk: Record<string, unknown>): StreamChunk | null {
       type: "text",
       content: deltaContent,
       messageId: (chunk.__pyapp_message_id as string) || undefined,
+      // O2-4（2026-09-24）：resume 回放透传"正文取代"标记（与主链路对齐，防双通道漂移）
+      ...(chunk.__pyapp_text_replace ? { replace: true } : {}),
     };
   }
   return null;
@@ -601,6 +611,16 @@ async function addMessageRequest(
   }
 }
 
+/** 判定"会话已不存在"错误（HTTP 404）。
+ *
+ * TB-14（2026-09-24）：后端对**已被外部进程软删除**的会话在读/写接口统一返回 404，
+ * 此类失败是**终态**——重试永远不会成功。调用方据此丢弃 outbox 条目 / 不入队，
+ * 而非按"网络问题"无限保留（否则每次联网与启动都会重试并刷错）。
+ */
+export function isSessionGoneError(e: unknown): boolean {
+  return (e as { statusCode?: number } | undefined)?.statusCode === 404;
+}
+
 /** 网络恢复后补发 outbox 中所有消息；成功/幂等命中则移除 */
 export async function flushOutbox(): Promise<void> {
   const entries = readOutbox();
@@ -612,6 +632,15 @@ export async function flushOutbox(): Promise<void> {
       await addMessageRequest(entry.sessionId, entry.message);
       remaining = remaining.filter((en) => en.id !== entry.id);
     } catch (e) {
+      if (isSessionGoneError(e)) {
+        // TB-14：会话已被外部删除 ⇒ 该消息永远无法落盘，保留只会无限重试。终态丢弃并留痕。
+        logger.warn("flushOutbox:会话已不存在(404)，丢弃该条待补发消息", {
+          sessionId: entry.sessionId,
+          messageId: entry.message.id,
+        });
+        remaining = remaining.filter((en) => en.id !== entry.id);
+        continue;
+      }
       // 补发失败保留，等待下次连接恢复
       handleClientError(e, {
         module: "services:chat",
@@ -1042,6 +1071,8 @@ export const chatService = {
                 content: chunk.choices[0].delta.content,
                 // F1 修复（2026-08-24）：主链路透传 messageId（与 parseSseChunk 对齐）
                 messageId: (chunk.__pyapp_message_id as string) || undefined,
+                // O2-4（2026-09-24）：主链路同样透传"正文取代"标记（与 parseSseChunk 对齐）
+                ...(chunk.__pyapp_text_replace ? { replace: true } : {}),
               };
             }
           } catch (e) {

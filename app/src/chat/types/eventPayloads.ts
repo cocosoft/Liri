@@ -86,6 +86,15 @@ export interface LiriEventMap {
     content: string;
     /** 所属 assistant 消息 id（v1 起） */
     messageId?: string;
+    /**
+     * O2-4（2026-09-24「会话暴露问题分析与优化方案」§五）：**正文取代标记**。
+     *
+     * `true` = 本 delta 取代该消息此前已累积的正文（续接/重试轮的首个 delta）。派生层
+     * （`EventBasedStreamAggregator` → `deriveConversationBlocks`）据此清空后重建，使
+     * **回放/轨迹视图**与落盘 `assistantMessage.content`（后端每轮整体替换）一致 ——
+     * 若只修实时流而不落事件，刷新后重复段落会复发（双通道漂移）。
+     */
+    replace?: boolean;
   };
 
   /**
@@ -149,6 +158,16 @@ export interface LiriEventMap {
     afterTokens?: number;
     /** 阶段说明 */
     message?: string;
+    /**
+     * O3-1（2026-09-24「会话暴露问题分析与优化方案」§五）：`phase:'failed'` 的**归因（机器可读）**。
+     *
+     * 此前失败只有一个合并文案"Tier1/2/3 未降体积**或**异常" ⇒ 事件溯源无法区分
+     * "压不动"（`no_effect`）与"压缩异常"（`exception`，来自 `CompactionOutcome.failure.reason`
+     * 的结构化归因，禁止按文案判别 —— CS02）。
+     */
+    reason?: 'exception' | 'no_effect';
+    /** 异常路径的原始错误信息（诊断用；`reason==='exception'` 时存在） */
+    failureMessage?: string;
     /** T-A（2026-08-23）：被压缩消息的事件 seq 区间（startSeq → endSeq，含端点）。
      *  压缩语义 = 区间内全部消息替换为 summary；summary 消息不写 events（本事件即其事件表示）。 */
     compactedRange?: { startSeq: number; endSeq: number };

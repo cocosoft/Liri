@@ -133,7 +133,12 @@ export class EventBasedStreamAggregator {
           type: "assistant/text",
           // G12：透传 chunk.messageId（首轮=assistantMessageId，工具轮=工具轮消息 id），
           // 派生器按 messageId 归组，工具轮正文不再并入首轮消息
-          data: { content: chunk.content, messageId: chunk.messageId },
+          // O2-4：透传 replace（正文取代标记，续接/重试轮）——派生层据此从零重建正文
+          data: {
+            content: chunk.content,
+            messageId: chunk.messageId,
+            ...(chunk.replace ? { replace: true } : {}),
+          },
         });
         break;
       }

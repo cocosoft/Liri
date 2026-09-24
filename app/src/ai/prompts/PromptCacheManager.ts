@@ -25,6 +25,9 @@ export interface CacheStats {
   lastHitAt: number;
 }
 
+/** 消息在"缓存前缀"中的语义角色（O2-3：替代"用数组下标模拟语义"） */
+export type CacheMessageRole = 'system' | 'user' | 'assistant' | 'tool';
+
 /**
  * 缓存策略配置
  */
@@ -66,29 +69,44 @@ export class PromptCacheManager {
   }
 
   /**
-   * 判断是否应该在当前位置插入 cache_control breakpoint
+   * 判断是否应该在指定消息上插入 cache_control breakpoint。
+   *
+   * O2-3（2026-09-24「会话暴露问题分析与优化方案」§五）两处修正：
+   * 1. **纯函数**：原实现把"TTL 过期 ⇒ 写 `lastCacheTime`"混在判断里 —— 判断动作改变了
+   *    后续判断结果（同一入参连续两次调用结果不同）。现由调用方在**真正插入断点**后调
+   *    `noteBreakpointInserted()`；TTL 查询拆为只读的 `isTtlExpired()`。
+   * 2. **语义角色替代下标**：原实现用 `messageIndex === 0` 当"system prompt 末尾"、
+   *    `totalMessages - 1` 当"最后一个工具结果后" —— 消息序列一旦插入/裁剪就静默错位，
+   *    且无任何断言。现由调用方显式传入 `role` 与 `isPrefixEnd`（语义契约，不是下标推断，CS02）。
    */
-  shouldInsertBreakpoint(
-    sessionId: string,
-    messageIndex: number,
-    totalMessages: number
-  ): boolean {
+  shouldInsertBreakpoint(params: {
+    sessionId: string;
+    /** 该消息的语义角色 */
+    role: CacheMessageRole;
+    /** 该消息是否位于**稳定前缀**末尾（最后一个工具结果之后 / 前缀最后一条） */
+    isPrefixEnd: boolean;
+    /** 会话消息总数（用于 `minMessagesForCache` 门槛） */
+    totalMessages: number;
+  }): boolean {
+    const { sessionId, role, isPrefixEnd, totalMessages } = params;
     if (!this.config.enabled) return false;
     if (totalMessages < this.config.minMessagesForCache) return false;
 
-    // 在 system prompt 末尾和最后一个工具结果后断点
-    const isSystemPromptEnd = messageIndex === 0;
-    const isLastToolResult = messageIndex === totalMessages - 1;
+    // system 消息恒为前缀起点；显式标记的前缀末尾同理 —— 不再靠下标推断
+    if (role === 'system' || isPrefixEnd) return true;
 
-    // 检查 TTL 是否过期
+    return this.isTtlExpired(sessionId);
+  }
+
+  /** TTL 是否已过期（**只读**，不写状态 —— 与判断解耦，保证 `shouldInsertBreakpoint` 纯函数性） */
+  isTtlExpired(sessionId: string): boolean {
     const lastTime = this.lastCacheTime.get(sessionId) ?? 0;
-    const expired = Date.now() - lastTime > this.config.ttlMs;
+    return Date.now() - lastTime > this.config.ttlMs;
+  }
 
-    if (expired) {
-      this.lastCacheTime.set(sessionId, Date.now());
-    }
-
-    return isSystemPromptEnd || isLastToolResult || expired;
+  /** 记录"本次确实插入了断点"（副作用单独成方法，由调用方在写入后调用） */
+  noteBreakpointInserted(sessionId: string): void {
+    this.lastCacheTime.set(sessionId, Date.now());
   }
 
   /**

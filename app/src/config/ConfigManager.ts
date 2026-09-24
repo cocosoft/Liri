@@ -1422,6 +1422,24 @@ export class ConfigManager {
   }
 
   /**
+   * 获取**整份**环境变量快照（统一入口的"批量面"）。
+   *
+   * 与 `env()` 同属 env 统一出入口：需要"把整份 env 透传给子进程 / 注入工具执行上下文"
+   * 的调用方应使用本方法，而不是直接引用 `process.env`（架构规则 R05-012）。
+   *
+   * 返回**浅拷贝**（仅含 `string` 值，跳过 `undefined`）——调用方拿到的是快照，
+   * 无法经该引用改写进程环境（比直接透传 `process.env` 更安全，且消费方均为
+   * `{ ...parentEnv, ...options.env }` 的合并用法，语义等价）。
+   */
+  envSnapshot(): Record<string, string> {
+    const snapshot: Record<string, string> = {};
+    for (const [key, value] of Object.entries(process.env)) {
+      if (value !== undefined) snapshot[key] = value;
+    }
+    return snapshot;
+  }
+
+  /**
    * 清除配置缓存和运行时快照
    */
   clearCache(): void {

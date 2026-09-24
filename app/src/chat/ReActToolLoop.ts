@@ -191,6 +191,8 @@ interface ReActToolLoopState {
   totalCompletedToolCount: number;
   completedToolCallIds: string[];
   loopDetected: { detector: string; message: string } | null;
+  /** 一期 O1-2（2026-09-24）：PathGuard 拦截留痕（与"循环检测"分通道，供收尾文案如实交代） */
+  guardBlocked: { toolName: string; reason: string } | null;
   /** 工具结果携带的 todo 数据（供转换层产出 todo chunk，对齐旧类 extractTodoData） */
   pendingTodos: TodoBlockData[];
   /** 达上限收尾总结（对标 hermes 2026-09-01：onMaxIterations 不带 tools 总结请求的结果，finalize 使用） */
@@ -250,6 +252,14 @@ export class ReActToolLoop extends ReActLoop<
   private _lastLayerCompactAt = 0;
   /** 本轮 reason 是否产出 thinking（reasoning-only 检测，对标 openclaw 2026-09-01） */
   private _lastRoundHadThinking = false;
+  /**
+   * O2-4（2026-09-24）：下一轮 reason 的正文是否**取代**已下发正文（续接/重试轮）。
+   *
+   * 由 `onIncompleteTurn` 在注入回捞指令时置位（该路径只处理"无 tool_calls 的不完整回合"
+   * ⇒ 续接轮正文与前一轮处于**同一显示位置**，应取代而非追加）；在 `_streamLlm` 的首个
+   * 正文 delta 上消费并清零（一次性）。
+   */
+  private _supersedeNextRoundText = false;
   /** 不完整回合重试计数（每类上限 1 次，防死循环，对标 openclaw RETRY_LIMITS） */
   private readonly _incompleteRetries = {
     empty: 0,
@@ -374,6 +384,7 @@ export class ReActToolLoop extends ReActLoop<
       totalCompletedToolCount: 0,
       completedToolCallIds: [],
       loopDetected: null,
+      guardBlocked: null,
       pendingTodos: [],
       /** R2（2026-09-16）：工具轮内压缩连续 no_effect 次数——达到阈值后在低用量时稳态跳过，避免每轮白跑重 token */
       consecutiveCompactNoEffect: 0,
@@ -997,10 +1008,14 @@ export class ReActToolLoop extends ReActLoop<
       for (const tc of calls) {
         const pathCheck = this.pathGuard.checkToolCall(tc.name, tc.input);
         if (!pathCheck.allowed) {
-          // 复用 loopDetected 终止通道（detector 区分来源）→ reason 早退、finalize 带原因提示
-          this.loopState.loopDetected = {
-            detector: 'pathGuard',
-            message: `路径守卫拦截 ${tc.name}: ${pathCheck.reason ?? '未知原因'}`,
+          // 一期 O1-2（2026-09-24）：**不再复用 `loopDetected` 通道**。原实现（L1000 注释
+          // "复用 loopDetected 终止通道"）使收尾文案固定为"检测到工具调用循环 [pathGuard]"
+          // ⇒ 把**安全护栏拦截**说成"模型陷入循环"，语义误导（问题清单 G3）。
+          // 此处只**留痕**；终止判据与相位置位在 `shouldContinue`（判据返回 false 的同一处，
+          // 与 timeout 同款）——否则相位会被下一轮 reason 前的 `phase='reasoning'` 覆盖。
+          this.loopState.guardBlocked = {
+            toolName: tc.name,
+            reason: pathCheck.reason ?? '未知原因',
           };
           logger.warn('reactToolLoop:pathguard_blocked', {
             sessionId: this.ctx.session.id,
@@ -1966,6 +1981,13 @@ export class ReActToolLoop extends ReActLoop<
   ): boolean {
     // 4. 循环检测触发后停止
     if (this.loopState.loopDetected) return false;
+    // 一期 O1-2（2026-09-24）：PathGuard 拦截 ⇒ 显式终止。相位必须**在此处置位**
+    // （判据返回 false 的同一处，与下方 timeout 同款）——若只在 act() 里置位，会被下一轮
+    // reason 前的 `phase='reasoning'` 覆盖，判别器又只能退化为 'completed'。
+    if (this.loopState.guardBlocked) {
+      this.state.phase = 'guard_blocked';
+      return false;
+    }
     // 观察点修复（2026-08-26）：会话级总时长上限——300 轮 × 每轮 LLM 可达数小时，
     // 防极端长任务资源占用。env REACT_LOOP_MAX_DURATION_MS 可覆盖，默认 3 小时。
     if (Date.now() - this.startedAt > ReActToolLoop.MAX_TOTAL_DURATION_MS) {
@@ -2120,9 +2142,12 @@ export class ReActToolLoop extends ReActLoop<
       // P1-4（B2-4，2026-09-23）：压缩停滞**落 Goal** —— 此前只"暂停本轮续接"，
       // 目标层看不到"为何停下"（缺口 X9）。连续 3 次 ⇒ 终态 `failed` ⇒ **续接有界**
       //（D7：否则"落 blocked → 续接 → 又压缩失败"会成死循环）。
-      // 三期 F3-1：本处（循环中途）仍**显式 detach**（不阻塞本轮回捞判定）；可 await 的
-      // 终止路径见 `settleTerminalState()` → `flushTerminalSettlement()`。
-      void this.settleGoalForTurnNow('compaction_stalled');
+      // 三期 F3-1：本处（循环中途）**不再 `void` 显式 detach** —— 二期 O2-2（2026-09-24）
+      // 把它**登记进 `_terminalSettle`**：与 `settleTerminalState()` 同机制，由
+      // `flushTerminalSettlement()` 在轮次边界 await ⇒ 落盘失败/耗时**可被观测与断言**。
+      // （原实现 `void ...` 且未登记，而 `mapTerminationToGoalReason('compaction_failed')`
+      //   返回 null ⇒ 该次落盘既不被 await 也不并入链，治 N4 的目标在此路径未闭环。）
+      this._terminalSettle = this.settleGoalForTurnNow('compaction_stalled');
       // 三期 F3-2（2026-09-23 修复计划 §六）：压缩失败**必须联动收尾** —— 置专门相位，
       // 使判别器给出 `compaction_failed`（不再被折叠成 `completed` 后只落一句通用兜底），
       // 用户可见"为何停下"。原实现只 `return false`，收尾文案与压缩无任何关联。
@@ -2142,6 +2167,8 @@ export class ReActToolLoop extends ReActLoop<
     this._incompleteRetries[kind]++;
     // 截断续接：下一轮 reason 放大输出预算（截断是硬性预算不足，重试需更多额度）
     if (kind === 'truncated') this._boostNextReasonMaxTokens = true;
+    // O2-4：回捞轮正文**取代**前一轮已下发正文（前端据此从零重建，与落盘 content 同源）
+    this._supersedeNextRoundText = true;
     // 注入重试指令：下一轮 reason 的 LLM 输入会携带（对齐 openclaw 重试语义）
     this.loopState.messages.push({
       role: 'user',
@@ -2192,6 +2219,10 @@ export class ReActToolLoop extends ReActLoop<
     this.droppedToolCallsAtStop = 0;
     this._terminalSettled = false;
     this._terminalSettle = null;
+    // 一期 O1-2：PathGuard 留痕随 run 归零（与 _incompleteRetries 同批，防跨 run 误判"被拦截"）
+    this.loopState.guardBlocked = null;
+    // O2-4：正文取代标记随 run 归零（一次性语义，禁止跨 run 残留误清正文）
+    this._supersedeNextRoundText = false;
   }
 
   /** A2（2026-09-05）：循环检测终止由 loopState.loopDetected 判别（供骨架访问器） */
@@ -2242,7 +2273,8 @@ export class ReActToolLoop extends ReActLoop<
    * 漂移，"流里提示"与"落库提示"就会对不上）。
    */
   private computeFinalMessage(): Message {
-    const { suffix, finishReason } = this.resolveTerminationOutput();
+    const { suffix, finishReason, concurrentReasons } =
+      this.resolveTerminationOutput();
 
     // 无终止提示且已有消息（正文非空）⇒ 原样返回，零行为变更
     if (!suffix && this.loopState.assistantMessage) {
@@ -2259,11 +2291,17 @@ export class ReActToolLoop extends ReActLoop<
         ? { id: this.loopState.assistantMessage.id }
         : {}),
     });
-    if (finishReason) {
+    if (finishReason || concurrentReasons?.length) {
       // A3（2026-09-05）：截断/循环/预算终止消息 metadata 落 finishReason
       //（自由 Record、JSON 落库无需 schema 扩展）
+      // 一期 O1-1（2026-09-24）：并列上报的**并发终止原因**一并落 metadata —— 此前循环信号
+      // 只出现在文案里（metadata.finishReason 仍为 max_turns）⇒ 按 metadata 消费的下游丢事实。
       const withMeta = msg as { metadata?: Record<string, unknown> };
-      withMeta.metadata = { ...withMeta.metadata, finishReason };
+      withMeta.metadata = {
+        ...withMeta.metadata,
+        ...(finishReason ? { finishReason } : {}),
+        ...(concurrentReasons?.length ? { concurrentReasons } : {}),
+      };
     }
     return msg;
   }
@@ -2296,7 +2334,11 @@ export class ReActToolLoop extends ReActLoop<
     // 骨架的 `finalize()` 保持同步签名（否则要改 10 处 `return this.finalize(...)`
     // 与 3 个子类签名，收益相同而风险高得多）；此处记录 pending promise，
     // 由 `flushTerminalSettlement()` 在轮次边界（拿到最终消息后）await ⇒ 失败可被观测/断言。
+    // 二期 O2-2（2026-09-24）：**接续**此前已登记的中途落盘（如 `compaction_stalled`）——
+    // 直接覆盖赋值会让 `flushTerminalSettlement()` 只 await 到后者，先发的那次又变成"无人可等"。
+    const previousSettle = this._terminalSettle;
     this._terminalSettle = (async () => {
+      if (previousSettle) await previousSettle;
       if (goalReason) {
         await this.settleGoalForTurnNow(goalReason);
       }
@@ -2347,8 +2389,27 @@ export class ReActToolLoop extends ReActLoop<
         return 'turn_budget_exhausted';
       case 'error':
         return 'turn_interrupted';
+      // 二期 O2-1（2026-09-24）：**真·无进展**（轮签名重复熔断 / 连续全失败电路熔断）
+      // ⇒ 与 `loop_detected` 同语义，**推进** `no_progress_streak`。此前它们折叠进 `error`
+      // ⇒ 映射成 `turn_interrupted`（只记录、不计数），使"最该计数的无进展"失效（G1）。
+      case 'no_progress':
+      case 'circuit_breaker':
+        return 'turn_error';
+      // 二期 O2-1：其余细分成员都不是"无进展" ⇒ 只记录（见 N2 语义边界）
+      case 'reasoning_error':
+      case 'exploration_fatigue':
+      case 'internal_error':
+        return 'turn_interrupted';
       case 'aborted':
         return 'user_aborted';
+      // 二期 O2-1：系统中止 ≠ 用户主动放弃 ⇒ 独立原因码（只记录）
+      case 'system_aborted':
+        return 'system_aborted';
+      // 一期 O1-2（2026-09-24）：PathGuard 拦截**不是"无进展"** —— 模型没有陷入循环，
+      // 而是触碰了受限路径 ⇒ 走"只记录"路径，不推进 `no_progress_streak`
+      //（语义边界见 N2 注释：混入计数会把目标误判为 failed）。
+      case 'guard_blocked':
+        return 'turn_interrupted';
       // 三期 F3-2：压缩停滞**已由 `onIncompleteTurn` 直接落** `compaction_stalled`
       //（判点在压缩停滞处）⇒ 此处返回 null，避免同一次终止落两次目标状态。
       case 'compaction_failed':
@@ -2383,10 +2444,20 @@ export class ReActToolLoop extends ReActLoop<
     suffix: string;
     finishReason?: string;
     reason: TerminationReason;
+    /**
+     * 一期 O1-1（2026-09-24）：与主原因**同时命中**的其它终止原因（并列上报）。
+     *
+     * 唯一来源：判别器把 `max_turns` 排在 `loop_detected` **之前** ⇒ 长任务"既循环又到
+     * 轮次上限"时，循环信号此前只出现在**文案/日志**里，`metadata.finishReason` 仍是
+     * `max_turns` ⇒ 按 metadata 消费的下游（统计/前端归因/审计）看不到循环（问题清单 G2）。
+     * 本字段**不改判别器优先级语义**，只把已被识别的事实结构化（与 F2-5 文案并列同源）。
+     */
+    concurrentReasons?: TerminationReason[];
   } {
     const reason = this.getTerminationReason();
     let suffix = '';
     let finishReason: string | undefined;
+    let concurrentReasons: TerminationReason[] | undefined;
 
     switch (reason) {
       // 6. maxTurns 提示文案：达 maxIterations 时附加。
@@ -2410,6 +2481,8 @@ export class ReActToolLoop extends ReActLoop<
         if (this.loopState.loopDetected) {
           const ld = this.loopState.loopDetected;
           suffix += `\n\n（同时检测到工具调用循环 [${ld.detector}] ${ld.message}）`;
+          // 一期 O1-1：与文案并列上报到**结构化字段**（此前只进文案，metadata 丢失该事实）。
+          concurrentReasons = ['loop_detected'];
         }
         break;
       }
@@ -2430,7 +2503,22 @@ export class ReActToolLoop extends ReActLoop<
       // P8（2026-09-01）：不再加 ⚠️ 前缀——降级/部分完成是正常收尾（需用户提供信息的
       // 协作请求），前端对 ⚠️ 开头的消息有警告样式，用户误以为系统异常。
       case 'error':
+      // 二期 O2-1（2026-09-24）：`error` 细分后的 5 类**共用"透传 lastError"的正文策略**
+      // ——各产出点写入的 lastError 本身已是该场景的可操作文案（P1/P8/P12 已调优，不动文案）；
+      // 但 `finishReason` **各自如实落 metadata** ⇒ 下游（统计/前端归因/审计/目标层）可据
+      // metadata 区分"无进展熔断 / 探索疲劳 / 电路熔断 / 推理错误 / 内部异常"，不再只有 error。
+      case 'reasoning_error':
+      case 'no_progress':
+      case 'exploration_fatigue':
+      case 'circuit_breaker':
+      case 'internal_error':
+        finishReason = reason;
         suffix = this.state.lastError ? `\n\n${this.state.lastError}` : '';
+        break;
+      // 二期 O2-1：系统中止 ⇒ 明确"这不是你点的停止"（此前文案是"已按你的请求停止"）
+      case 'system_aborted':
+        finishReason = 'system_aborted';
+        suffix = `\n\n⏹ 本轮生成已中止（连接中断或会话被关闭）。如需继续，请重新发送消息。`;
         break;
       // 一期 F1-3（2026-09-23）：用户主动停止——此前无对应分支，若此时尚无正文
       // ⇒ 落盘空消息（用户点"停止"却拿到一片空白）。
@@ -2454,6 +2542,16 @@ export class ReActToolLoop extends ReActLoop<
       case 'compaction_failed':
         suffix = `\n\n⚠️ 上下文压缩未能生效（连续压不动且上下文已吃紧），本轮已停止继续执行。你可以重试、精简上下文，或新开一个会话继续。`;
         break;
+      // 一期 O1-2（2026-09-24）：PathGuard 拦截 ⇒ 如实交代"被安全护栏拦了哪个工具、为什么"。
+      // 此前复用了 `loop_detected` 的文案 ⇒ 用户被告知"检测到工具调用循环"（语义相反）。
+      case 'guard_blocked': {
+        const guard = this.loopState.guardBlocked;
+        finishReason = 'guard_blocked';
+        suffix = guard
+          ? `\n\n⚠️ 已拦截对受限路径的访问（${guard.toolName}：${guard.reason}），本轮提前结束。如需继续，请改用允许的路径。`
+          : `\n\n⚠️ 已拦截对受限路径的访问，本轮提前结束。如需继续，请改用允许的路径。`;
+        break;
+      }
       // 无专属文案的原因（正常完成 / 其余子类专属 stop reason）：是否兜底取决于正文是否
       // 为空 —— 见下方统一兜底（一期 F1-1）。
       case 'completed':
@@ -2479,7 +2577,7 @@ export class ReActToolLoop extends ReActLoop<
       if (!hasVisibleText) suffix = EMPTY_OUTPUT_FALLBACK_TEXT;
     }
 
-    return { suffix, finishReason, reason };
+    return { suffix, finishReason, reason, concurrentReasons };
   }
 
   // ─── 私有辅助 ───────────────────────────────────────
@@ -2590,9 +2688,22 @@ export class ReActToolLoop extends ReActLoop<
    * assistant/text-batch，F-2 语义等价），缺失时回退逐 chunk
    * assistant/text（旧行为，兼容其它调用方）。失败不抛错（CS03）。
    */
-  private async _writeToolRoundText(content: string): Promise<void> {
+  private async _writeToolRoundText(
+    content: string,
+    replace = false
+  ): Promise<void> {
     const buffer = this.ctx.bufferTextChunk;
     if (buffer) {
+      // O2-4：**取代语义要求顺序正确** —— 必须先把被取代的正文落定，再写取代标记；
+      // 否则回放顺序变成 [取代标记] → [被取代正文] → [新正文]，清空后又被旧正文追加回来。
+      if (replace) {
+        await this._flushToolRoundText();
+        await this._appendStreamEvent('assistant/text', {
+          content,
+          replace: true,
+        });
+        return;
+      }
       try {
         await buffer(
           this.ctx.session.id,
@@ -2604,7 +2715,11 @@ export class ReActToolLoop extends ReActLoop<
       }
       return;
     }
-    await this._appendStreamEvent('assistant/text', { content });
+    // O2-4：带上"正文取代"标记 ⇒ 回放/轨迹派生与实时流同源（否则刷新后重复段落复发）
+    await this._appendStreamEvent(
+      'assistant/text',
+      replace ? { content, replace: true } : { content }
+    );
   }
 
   /**
@@ -2685,6 +2800,11 @@ export class ReActToolLoop extends ReActLoop<
       }
     };
     let next = await gen.next();
+    // O2-4：本轮流式正文的"取代"标记（一次性，只挂在**首个**正文 delta 上）——
+    // 两个来源：① 回捞重试轮（`_supersedeNextRoundText`）；② 本轮内对 LLM 的再次调用
+    //（残缺工具调用重试 ⇒ `retried=true`，其文本取代本类前一次调用已下发的正文）。
+    let pendingReplace = this._supersedeNextRoundText || retried;
+    this._supersedeNextRoundText = false;
     while (!next.done) {
       const chunk = next.value;
       if (typeof chunk === 'string') {
@@ -2696,16 +2816,21 @@ export class ReActToolLoop extends ReActLoop<
         }).content;
         if (scrubbed) {
           textChunks.push(scrubbed);
+          const replace = pendingReplace;
+          pendingReplace = false;
           // 增量文本即时输出（对齐旧类 P0-C：工具轮 LLM 文本逐 chunk SSE）
           yield {
             type: 'reasoning_delta',
             text: scrubbed,
             messageId: this._activeToolRoundMessageId,
+            // O2-4：首 delta 携带"取代"标记 ⇒ 前端清空本消息已累积正文后重建（与落盘同源）
+            ...(replace ? { replace: true } : {}),
           };
           // M1 事件溯源：工具轮 text chunk 补写事件（A 缺口修复：优先聚合缓冲 →
           // flush 为 assistant/text-batch，消除逐 chunk 写放大；缺失能力时回退
           // 逐 chunk assistant/text，兼容其它调用方）
-          await this._writeToolRoundText(scrubbed);
+          // O2-4：取代标记同步落事件（回放/轨迹视图与实时流同源）
+          await this._writeToolRoundText(scrubbed, replace);
         }
       } else if (chunk?.type === 'thinking') {
         // 本轮产出 thinking 标记（reasoning-only 检测用，对标 openclaw 2026-09-01）

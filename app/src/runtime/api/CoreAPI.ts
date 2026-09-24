@@ -135,6 +135,15 @@ export interface ChatStreamChunk {
   status?: string;
   /** P1-7（2026-08-23）：text/thinking chunk 携带归属 assistant 消息 id（SSE 透传） */
   messageId?: string;
+  /**
+   * O2-4（2026-09-24「会话暴露问题分析与优化方案」§五）：**正文取代标记**（仅 `type='text'`）。
+   *
+   * `true` = 本 delta **取代**该消息此前已下发的正文（续接/重试轮的首个 delta）。
+   * 后端每轮把 `assistantMessage.content` 整体替换为本轮文本；前端此前只 append ⇒ 前端多出
+   * 重复段落且与落盘不同源（违反 `project_rules §1.6`「所见即所存」）。前端收到本标记须**清空
+   * 该消息已累积的正文块**再追加，使流内视图与落盘一致。
+   */
+  replace?: boolean;
   /** 仅当 type='status' 且为工具状态块时存在：关联的 toolCallId（前端按 toolCallId 去重，CS02） */
   toolCallId?: string;
   usage?: StreamUsageInfo;

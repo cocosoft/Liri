@@ -281,6 +281,14 @@ export class MessagesApiTransport extends BaseTransport {
     rawStopReason: string,
     hasToolCalls: boolean
   ): string {
+    // 一期 O1-4（2026-09-24「会话暴露问题分析与优化方案」§五）：**截断信号优先** ——
+    // `hasToolCalls` 不得覆盖 provider 的真实结束原因。原实现首行即
+    // `if (hasToolCalls) return 'tool_calls'`，按定义把 `max_tokens` 吃掉；而"被 max_tokens
+    // 截断且只吐出半个 tool_calls"正是最常见的截断形态（与主循环 E1 同族：主循环已在
+    // `ReActToolLoop.reason()` 修好，此处是该缺陷在传输层的残留）。
+    if (rawStopReason === 'max_tokens' || rawStopReason === 'length') {
+      return 'length';
+    }
     if (hasToolCalls) return 'tool_calls';
     switch (rawStopReason) {
       case 'end_turn':

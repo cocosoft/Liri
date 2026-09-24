@@ -99,10 +99,13 @@ async function drain(loop: RepeatingLoop): Promise<TestResult> {
 }
 
 describe('无进展熔断 × 软纠偏让路', () => {
+  // 二期 O2-1（2026-09-24「会话暴露问题分析与优化方案」§五）：`error` 大杂烩细分后，
+  // "轮签名重复熔断"不再置 `phase='error'`，而是专用相位 `'no_progress'`
+  //（语义等价于 loop_detected：真·无进展 ⇒ 目标层映射 turn_error 并推进计数）。
   test('未注入纠偏 ⇒ 第 3 轮照旧熔断（既有行为不变）', async () => {
     const result = await drain(new RepeatingLoop(false));
 
-    expect(result.phase).toBe('error');
+    expect(result.phase).toBe('no_progress');
     expect(result.reasonCount).toBe(3);
   });
 
@@ -111,13 +114,13 @@ describe('无进展熔断 × 软纠偏让路', () => {
 
     // 让路后窗口被重置 ⇒ 需再累积 3 轮同签名才再次熔断
     expect(result.reasonCount).toBeGreaterThan(3);
-    expect(result.phase).toBe('error');
+    expect(result.phase).toBe('no_progress');
   });
 
   test('让路只给 1 次 ⇒ 最终仍熔断，不构成无限循环', async () => {
     const result = await drain(new RepeatingLoop(true));
 
-    expect(result.phase).toBe('error');
+    expect(result.phase).toBe('no_progress');
     expect(result.reasonCount).toBeLessThan(20); // 未跑满 maxIterations
   });
 

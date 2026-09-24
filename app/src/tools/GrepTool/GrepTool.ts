@@ -66,6 +66,28 @@ function grepSearchKey(input: {
 }
 
 /**
+ * O3-3（2026-09-24「会话暴露问题分析与优化方案」§五）：**空结果的可执行诊断**（纯函数，导出便于单测）。
+ *
+ * 现象：导出记录中出现大量空结果后模型换关键词继续重试（空转轮次，见问题清单 P3）——
+ * 原返回体只说"匹配 0 处"，不给"搜了哪里 / 为什么可能搜不到 / 下一步怎么改"。
+ */
+export function buildEmptyResultDiagnostic(params: {
+  pattern: string;
+  searchPath: string;
+  include?: string;
+}): string {
+  return [
+    '',
+    `⚠️ 本次搜索（pattern: ${params.pattern}）无匹配。可执行诊断：`,
+    `  - 已搜索路径：${params.searchPath}`,
+    `  - include 筛选：${params.include ?? '(未限制)'}`,
+    '  - 递归搜索请用双星前缀（如 `**/*.ts`）；单星 `*.ts` 只匹配搜索目录的**根层**',
+    '  - 中文/Unicode 范围请用 `[\\u4e00-\\u9fa5]`（勿用 `{...}` 写法）',
+    '  - 建议：先用更短的唯一关键词定位文件，再逐步收紧 pattern；重复同一 pattern 会被去重短路',
+  ].join('\n');
+}
+
+/**
  * 代码/文件内容搜索工具
  */
 export class GrepTool extends BaseTool {
@@ -263,6 +285,14 @@ export class GrepTool extends BaseTool {
         `  - 匹配 ${result.matchCount} 处，分布在 ${result.fileCount} 个文件`,
         `  - 耗时 ${result.durationMs}ms`,
         result.truncated ? '  - (结果已截断，使用 headLimit 调整)' : '',
+        // O3-3：空结果附带可执行诊断（减少"换关键词空转"）
+        result.matchCount === 0
+          ? buildEmptyResultDiagnostic({
+              pattern: validated.pattern,
+              searchPath,
+              ...(validated.include ? { include: validated.include } : {}),
+            })
+          : '',
         '',
         ...result.matches.slice(0, 50),
       ]

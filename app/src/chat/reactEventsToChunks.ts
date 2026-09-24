@@ -40,6 +40,8 @@ export function reactEventsToChunks(
               content: event.text,
               sessionId,
               messageId: event.messageId,
+              // O2-4：透传"正文取代"标记（续接/重试轮 ⇒ 前端从零重建，与落盘同源）
+              ...(event.replace ? { replace: true } : {}),
             },
           ]
         : [];

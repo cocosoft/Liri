@@ -78,7 +78,19 @@ const PRODUCTIVE_TOOLS = new Set([
 export type TerminationReason =
   | 'completed'
   | 'error'
+  // 二期 O2-1（2026-09-24「会话暴露问题分析与优化方案」§五）：**`error` 大杂烩细分**。
+  // 此前 5 个语义迥异的产出点全部折叠为 `phase='error'` ⇒ ① 用户侧/上层无法据相位区分
+  // "无进展熔断 / 探索疲劳 / 电路熔断 / 推理错误 / 内部异常"；② 目标层把最该计数的"真·无进展"
+  // 映射成了不计数的 `turn_interrupted`（问题清单 G1）。
+  | 'reasoning_error'
+  | 'no_progress'
+  | 'exploration_fatigue'
+  | 'circuit_breaker'
+  | 'internal_error'
   | 'aborted'
+  // 二期 O2-1：**系统中止**与"用户主动放弃"区分。此前一律映射 `user_aborted` ⇒
+  // `req.on('close')`（页面关闭/断线）与"会话被删除时的清理性中止"都被记成用户意图（G5）。
+  | 'system_aborted'
   | 'max_turns'
   | 'budget_exhausted'
   | 'verifier_escalate'
@@ -89,7 +101,23 @@ export type TerminationReason =
   | 'timeout'
   // 三期 F3-2（2026-09-23 修复计划 §六）：上下文压缩失败 ⇒ 终止。此前该支不置相位，
   // 收尾文案与"压缩失败"无任何关联（用户只看到一句通用兜底）。
-  | 'compaction_failed';
+  | 'compaction_failed'
+  // 一期 O1-2（2026-09-24「会话暴露问题分析与优化方案」§五）：路径守卫（PathGuard）拦截。
+  // 此前该路径**复用 `loop_detected` 通道**收尾 ⇒ 用户可见文案是"检测到工具调用循环"
+  // ——把**安全护栏拦截**说成"模型陷入循环"，语义误导（G3）。
+  | 'guard_blocked';
+
+/** 中止来源（二期 O2-1）：`user` = 用户主动停止；`system` = 传输/生命周期等系统侧中止 */
+export type AbortSource = 'user' | 'system';
+
+/**
+ * 系统侧中止标记（二期 O2-1）。
+ *
+ * 调用方以 `controller.abort(SYSTEM_ABORT_REASON)` 声明"这是系统侧中止"（如
+ * `req.on('close')` 断线、会话删除时的清理性中止），骨架据此把终止原因记为
+ * `system_aborted` 而非 `aborted`（＝用户主动放弃）。用**显式标记**而非字符串推断（CS02）。
+ */
+export const SYSTEM_ABORT_REASON = 'liri:system-abort';
 
 /** 循环状态 */
 export interface ReActState {
@@ -100,6 +128,12 @@ export interface ReActState {
     | 'completed'
     | 'aborted'
     | 'error'
+    // 二期 O2-1（2026-09-24）：`error` 细分后的 5 个专门相位（各产出点只置自己那一个）
+    | 'reasoning_error'
+    | 'no_progress'
+    | 'exploration_fatigue'
+    | 'circuit_breaker'
+    | 'internal_error'
     // A1（2026-09-05）：达 maxIterations 截断使用专门 phase，避免被消费方当完成
     | 'truncated'
     // K1（2026-09-05）：预算耗尽使用专门 phase——骨架 budget 分支原置 'completed'
@@ -110,10 +144,17 @@ export interface ReActState {
     | 'timeout'
     // 三期 F3-2（2026-09-23）：上下文压缩失败/停滞 ⇒ 专门相位（收尾可见"为何停下"）。
     | 'compaction_failed'
+    // 一期 O1-2（2026-09-24）：PathGuard 拦截 ⇒ 专门相位（与"循环检测"区分，文案不误导）。
+    | 'guard_blocked'
     // 阶段 A（A1-d）：以 sessions_yield 让出 turn 的收尾相位（既非完成也非截断）
     | 'yielded';
   pendingToolCalls: ToolCallEntry[];
   lastError?: string;
+  /**
+   * 二期 O2-1（2026-09-24）：中止来源标记 —— 判别器据此区分 `aborted`（用户主动）
+   * 与 `system_aborted`（传输/生命周期中止）。缺省视为 `'user'`（既有语义不变）。
+   */
+  abortSource?: AbortSource;
 }
 
 /** 工具调用条目 */
@@ -168,7 +209,19 @@ export interface ToolResultEntry {
 /** ReAct 事件流 */
 export type ReActEvent =
   | { type: 'reasoning_start' }
-  | { type: 'reasoning_delta'; text: string; messageId?: string }
+  | {
+      type: 'reasoning_delta';
+      text: string;
+      messageId?: string;
+      /**
+       * O2-4（2026-09-24「会话暴露问题分析与优化方案」§五）：**正文取代**标记。
+       *
+       * `true` = 本轮文本**取代**此前已下发的正文（续接/重试轮）。后端每轮把
+       * `assistantMessage.content` 整体替换为本轮文本，前端此前只会 append ⇒ 前端多出
+       * 重复段落且与落盘不同源。本标记让前端同步"从零重建"，使**所见 == 所存**。
+       */
+      replace?: boolean;
+    }
   | { type: 'thinking_delta'; content: string; messageId?: string }
   | { type: 'phase'; phase: string; round: number; description?: string }
   | { type: 'reasoning_end'; result: ReasonResult }
@@ -311,20 +364,30 @@ export abstract class ReActLoop<
     // D6（2026-09-17）：骨架自带中止控制器——外部传入的 abortSignal 仅作联动监听，
     // config.abortSignal 恒指向本控制器（对齐 SubAgentEngine 外部信号→内部控制器模式）
     this._abortController = new AbortController();
+    // 二期 O2-1（2026-09-24）：state 提前建好——外部信号的中止来源标记需要写进 state
+    this.state = { iteration: 0, phase: 'reasoning', pendingToolCalls: [] };
     const externalSignal = config?.abortSignal;
     if (externalSignal) {
+      // 中止来源**在回调内读取** `reason`（构造期读会漏掉"稍后带 reason 中止"的情形）
+      const markAbortSource = (): void => {
+        this.state.abortSource =
+          externalSignal.reason === SYSTEM_ABORT_REASON ? 'system' : 'user';
+      };
       if (externalSignal.aborted) {
+        markAbortSource();
         this._abortController.abort();
       } else {
         externalSignal.addEventListener(
           'abort',
-          () => this._abortController.abort(),
+          () => {
+            markAbortSource();
+            this._abortController.abort();
+          },
           { once: true }
         );
       }
     }
     this.config.abortSignal = this._abortController.signal;
-    this.state = { iteration: 0, phase: 'reasoning', pendingToolCalls: [] };
     this.steeringQueue = config?.steeringMessages
       ? [...config.steeringMessages]
       : [];
@@ -416,9 +479,19 @@ export abstract class ReActLoop<
   /** 终止原因访问器：骨架统一判别截断/中止/错误，循环检测与预算由子类钩子补充 */
   getTerminationReason(): TerminationReason {
     if (this.config.abortSignal?.aborted || this.state.phase === 'aborted') {
-      return 'aborted';
+      // 二期 O2-1（2026-09-24）：按**来源标记**区分"用户主动放弃"与"系统中止"——
+      // 标记缺省为 `'user'`（既有语义不变），不做任何字符串推断（CS02）。
+      return this.state.abortSource === 'system' ? 'system_aborted' : 'aborted';
     }
     if (this.state.phase === 'error') return 'error';
+    // 二期 O2-1：`error` 细分后的 5 个专门相位。必须**先于 max_turns** 判别——它们都是
+    // "已决定不再继续"的终态原因，排在 max_turns 之后会被"恰好同时到上限"整体遮蔽。
+    if (this.state.phase === 'reasoning_error') return 'reasoning_error';
+    if (this.state.phase === 'no_progress') return 'no_progress';
+    if (this.state.phase === 'exploration_fatigue')
+      return 'exploration_fatigue';
+    if (this.state.phase === 'circuit_breaker') return 'circuit_breaker';
+    if (this.state.phase === 'internal_error') return 'internal_error';
     // K1 复查收口（2026-09-05）：预算耗尽 phase 显式判别——必须先于 max_turns/
     // truncated，否则纯骨架直连 + config.budget 时（迭代也达上限）会被 max_turns
     // 遮蔽；且不依赖子类 isBudgetExhaustedReason 钩子（默认 false 会漏判）。
@@ -428,6 +501,9 @@ export abstract class ReActLoop<
     if (this.state.phase === 'timeout') return 'timeout';
     // 三期 F3-2（2026-09-23）：压缩失败同理——必须在 completed 之前判别。
     if (this.state.phase === 'compaction_failed') return 'compaction_failed';
+    // 一期 O1-2（2026-09-24）：PathGuard 拦截——必须在 max_turns 之前判别，否则
+    // "拦截恰好发生在最后一轮"时会被 max_turns 遮蔽，用户看到的是"轮次用尽"而非"被拦截"。
+    if (this.state.phase === 'guard_blocked') return 'guard_blocked';
     if (
       this.state.phase === 'truncated' ||
       this.state.iteration >= this.config.maxIterations
@@ -636,7 +712,7 @@ export abstract class ReActLoop<
               context = reasonResult.context ?? context;
               yield { type: 'reasoning_end', result: reasonResult };
             } else {
-              this.state.phase = 'error';
+              this.state.phase = 'reasoning_error';
               this.state.lastError = String(err);
               yield { type: 'error', message: String(err) };
               return this.finalize(this.state, context);
@@ -848,7 +924,7 @@ export abstract class ReActLoop<
                 repeatedRounds: repeatedThreshold,
                 lastSignature: sig,
               });
-              this.state.phase = 'error';
+              this.state.phase = 'no_progress';
               // 2026-09-01 P1 降级提示：任务卡在外部内容获取时，给出可操作指引而非冰冷报错。
               const completedTip =
                 this.completedWork.length > 0
@@ -942,7 +1018,7 @@ export abstract class ReActLoop<
             fatigueRounds,
             exploreCalls: this.exploreCalls,
           });
-          this.state.phase = 'error';
+          this.state.phase = 'exploration_fatigue';
           const completedTip =
             this.completedWork.length > 0
               ? `已完成：${this.completedWork.join('；')}。`
@@ -957,7 +1033,7 @@ export abstract class ReActLoop<
 
         // --- Circuit breaker ---
         if (this.checkCircuitBreaker(actResult)) {
-          this.state.phase = 'error';
+          this.state.phase = 'circuit_breaker';
           this.state.lastError =
             'circuit_breaker: consecutive invalid turns exceeded';
           yield {
@@ -971,7 +1047,7 @@ export abstract class ReActLoop<
       }
     } catch (err) {
       handleError(err, { module: 'query:reactLoop', action: 'run' });
-      this.state.phase = 'error';
+      this.state.phase = 'internal_error';
       this.state.lastError = String(err);
       yield { type: 'error', message: String(err) };
       return this.finalize(this.state, context);
@@ -994,6 +1070,19 @@ export abstract class ReActLoop<
       r = await iter.next();
     }
     return r.value;
+  }
+
+  /**
+   * 声明中止来源（二期 O2-1）。
+   *
+   * 供**系统侧**中止的调用方在 `abort()` 前显式标记（如传输断线、会话清理）；
+   * 不标记 ⇒ 缺省 `'user'`（既有语义不变）。之所以不并入 `abort()` 签名：`TAORLoop`
+   * 已用 `abort(saveCheckpoint?: boolean)` 覆写该方法（落检查点语义），签名不可复用。
+   * 走外部 AbortSignal 的路径无需调用本方法 —— 直接 `controller.abort(SYSTEM_ABORT_REASON)`
+   * 即由构造函数透传来源。
+   */
+  markAbortSource(source: AbortSource): void {
+    this.state.abortSource = source;
   }
 
   /** 中止循环 */

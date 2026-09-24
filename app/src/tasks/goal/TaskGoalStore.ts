@@ -78,6 +78,8 @@ export type TaskGoalUpdateReason =
   | 'turn_budget_exhausted'
   | 'turn_interrupted'
   | 'user_aborted'
+  // 二期 O2-1（2026-09-24）：**系统中止**（断线 / 会话清理）与"用户主动放弃"区分
+  | 'system_aborted'
   | 'manual';
 
 /** 是否为终态 */

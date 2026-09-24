@@ -100,7 +100,16 @@ export interface LiriEventMap {
     replyToId?: string;
   };
   "assistant/thinking": { content: string; messageId?: string };
-  "assistant/text": { content: string; messageId?: string };
+  "assistant/text": {
+    content: string;
+    messageId?: string;
+    /**
+     * O2-4（2026-09-24）：**正文取代标记** —— 本 delta 取代该消息此前已累积的正文
+     * （续接/重试轮的首个 delta）。派生层据此清空已累积正文后重建，使流内视图与落盘
+     * `assistantMessage.content`（后端每轮整体替换）同源（project_rules §1.6「所见即所存」）。
+     */
+    replace?: boolean;
+  };
   "assistant/text-batch": { content: string; messageId?: string };
   "assistant/tool_call": {
     toolCallId: string;

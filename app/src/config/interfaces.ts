@@ -64,6 +64,12 @@ export interface IConfigManager {
    */
   env(name: string, defaultValue?: string): string | undefined;
 
+  /**
+   * 获取整份环境变量快照（浅拷贝）——"把整份 env 透传给子进程/工具上下文"这类
+   * 批量场景的统一出入口（R05-012）；调用方不应直接引用 `process.env`。
+   */
+  envSnapshot(): Record<string, string>;
+
   // ========== 多源配置 ==========
 
   /**

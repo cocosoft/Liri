@@ -25,6 +25,7 @@ import { eventNotificationService } from '../services/EventNotificationService.j
 import { toolResultRegistry } from '../../tool/ToolResultRegistry.js';
 import { resolveDataDir, resolveProjectRoot } from '@modules/core/paths';
 import { FILE_WRITE_TOOL_NAME, FILE_EDIT_TOOL_NAME } from '@modules/constants';
+import { configManager } from '@modules/config';
 import { withToolTimeout } from './ToolTimeoutWrapper.js';
 import {
   createFileStateCacheWithSizeLimit,
@@ -36,6 +37,35 @@ import type { ImageContextService } from '../services/ImageContextService.js';
 import type { RollbackIntegration, FileOperation } from '@modules/security';
 
 const logger = getLogger('chat:toolExecution');
+
+/** O3-2（2026-09-24「会话暴露问题分析与优化方案」§五）：工具单次执行耗时告警阈值默认值（ms） */
+export const DEFAULT_SLOW_TOOL_WARN_MS = 15_000;
+
+/**
+ * O3-2：工具耗时告警阈值（ms）。
+ *
+ * 事实来源：env `TOOL_SLOW_WARN_MS`，**经 `configManager.env()` 统一读取**（遵循架构规则
+ * R05-012「env 统一出入口」；与 [PathGuard.ts](file:///e:/PY/Documents/CODES/PY_APP/app/src/query/PathGuard.ts)
+ * 的既有做法一致）。缺失/非法 ⇒ 默认 15s；纯函数（入参可注入便于单测）。
+ */
+export function resolveSlowToolWarnMs(
+  raw: string | undefined = readSlowToolWarnEnv()
+): number {
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed > 0
+    ? parsed
+    : DEFAULT_SLOW_TOOL_WARN_MS;
+}
+
+/** 读取 env 统一出入口；配置层不可用（如单测未初始化）⇒ 返回 undefined 走默认值 */
+function readSlowToolWarnEnv(): string | undefined {
+  try {
+    return configManager.env('TOOL_SLOW_WARN_MS');
+  } catch {
+    // @ignore-catch — 配置层不可用等价于"未配置"，退化为默认阈值；不影响工具执行（CS03）
+    return undefined;
+  }
+}
 
 /* ===================================================================
  *  ToolExecutionDeps — 服务依赖接口
@@ -136,6 +166,7 @@ export class ToolExecutionService {
     const toolSpan = otel.startSpan(`chat.executeTool.${toolCall.name}`, {
       'tool.name': toolCall.name,
     });
+    const startedAt = Date.now();
     try {
       // Phase 2: ErrorHandler 双路径
       if (opts?.useErrorHandler && this.deps.enableErrorHandler) {
@@ -202,6 +233,23 @@ export class ToolExecutionService {
         error: err instanceof Error ? err.message : String(err),
       };
     } finally {
+      // O3-2（2026-09-24「会话暴露问题分析与优化方案」§五）：**工具耗时探针**。
+      // 现象来源：导出记录 §二 的实测读数（grep 56.3s / file_read 56.0s / glob·grep 30.4s×3），
+      // 与"静默终止"叠加放大"长时间无反馈"的观感（问题清单 P2）。此前**无统一耗时观测点**
+      //（各搜索工具自报的 `durationMs` 不覆盖全部工具，也无阈值告警）。
+      // 本处是工具执行的统一出口 ⇒ 一处插桩覆盖全部路径（只观测，不改行为）。
+      const elapsedMs = Date.now() - startedAt;
+      toolSpan.setAttribute('tool.elapsed_ms', elapsedMs);
+      const slowWarnMs = resolveSlowToolWarnMs();
+      if (elapsedMs >= slowWarnMs) {
+        logger.warn('工具执行耗时超过告警阈值（O3-2 探针）', {
+          toolName: toolCall.name,
+          toolCallId: toolCall.id,
+          sessionId: toolCall.sessionId ?? '',
+          elapsedMs,
+          thresholdMs: slowWarnMs,
+        });
+      }
       toolSpan.end();
     }
   }
@@ -618,7 +666,9 @@ export class ToolExecutionService {
               this.deps.getSessionWorkspacePath(toolCall.sessionId) ??
               resolveProjectRoot(),
             workspaceId: this.deps.getSessionWorkspaceId(toolCall.sessionId),
-            env: process.env as Record<string, string>,
+            // R05-012：整份 env 经统一出入口取快照（浅拷贝；消费方为 `{...process.env, ...options.env}`
+            // 合并用法，语义等价且不会被工具经该引用改写进程环境）
+            env: configManager.envSnapshot(),
           },
           // B1：注入会话级文件状态缓存（FileReadTool 记录 / FileEditTool 校验新鲜度）
           readFileState: this.getReadFileStateCache(toolCall.sessionId),

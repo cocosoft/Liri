@@ -8,7 +8,12 @@
  */
 
 import type { Tool } from '../types/Tool';
-import { createToolResult } from '../types/ToolResult';
+import {
+  createToolResult,
+  ErrorLevel,
+  ToolExecutionStatus,
+} from '../types/ToolResult';
+import type { ToolResult } from '../types/ToolResult';
 import type { ToolUseContext } from '../types/ToolUseContext';
 import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
@@ -61,6 +66,25 @@ function getStores() {
     _projectStore = createProjectStore(dataDir, _workItemStore);
   }
   return { projectStore: _projectStore };
+}
+
+/**
+ * 一期 O1-3（2026-09-24「会话暴露问题分析与优化方案」§五）：**失败必须可判定**。
+ *
+ * 此前本工具的**全部 6 条失败路径**都返回 `createToolResult(null, { newMessages })` ——
+ * 载荷 `null`，与"成功但空载荷"**不可区分**，失败原因只写在 `newMessages` 文案里。
+ * 会话实测（`chat-export-1790220958578.md` §S7）中模型据此得到"返回空对象"，
+ * **无法判定是否落盘成功**，最终绕道 `file_write` 写到应用输出目录（问题清单 W1）；
+ * 同时也违反项目既有约定「工具失败信息必须落 `error` 字段供前端展示」。
+ */
+function failResult(message: string, errorLevel: ErrorLevel): ToolResult<null> {
+  return createToolResult(null, {
+    success: false,
+    error: message,
+    errorLevel,
+    status: ToolExecutionStatus.FAILURE,
+    newMessages: [{ role: 'assistant' as const, content: message }],
+  });
 }
 
 export class WriteProjectFileTool {
@@ -127,26 +151,17 @@ export class WriteProjectFileTool {
 
           if (!projectId || !relativePath) {
             span.setStatus({ code: SpanStatusCode.OK });
-            return createToolResult(null, {
-              newMessages: [
-                {
-                  role: 'assistant' as const,
-                  content: '缺少 projectId 或 relativePath 参数',
-                },
-              ],
-            });
+            return failResult(
+              '缺少 projectId 或 relativePath 参数',
+              ErrorLevel.RECOVERABLE
+            );
           }
           if (!hasContent && !sourceFile) {
             span.setStatus({ code: SpanStatusCode.OK });
-            return createToolResult(null, {
-              newMessages: [
-                {
-                  role: 'assistant' as const,
-                  content:
-                    '缺少参数 content 或 source_file（内容在本地文件时必须优先使用 source_file，避免复述长内容导致 token 爆炸）',
-                },
-              ],
-            });
+            return failResult(
+              '缺少参数 content 或 source_file（内容在本地文件时必须优先使用 source_file，避免复述长内容导致 token 爆炸）',
+              ErrorLevel.RECOVERABLE
+            );
           }
 
           const { projectStore } = getStores();
@@ -154,24 +169,16 @@ export class WriteProjectFileTool {
           const project = projectStore.get(projectId);
           if (!project) {
             span.setStatus({ code: SpanStatusCode.OK });
-            return createToolResult(null, {
-              newMessages: [
-                {
-                  role: 'assistant' as const,
-                  content: `项目 ${projectId} 不存在`,
-                },
-              ],
-            });
+            return failResult(
+              `项目 ${projectId} 不存在`,
+              ErrorLevel.RECOVERABLE
+            );
           }
 
           const sandboxPath = project.sandboxPath;
           if (!sandboxPath) {
             span.setStatus({ code: SpanStatusCode.OK });
-            return createToolResult(null, {
-              newMessages: [
-                { role: 'assistant' as const, content: '项目未配置文件夹路径' },
-              ],
-            });
+            return failResult('项目未配置文件夹路径', ErrorLevel.RECOVERABLE);
           }
 
           // 方案二 2b：单段交付类文件（无目录前缀）自动落入 output/ 目录，
@@ -274,14 +281,10 @@ export class WriteProjectFileTool {
               );
             } catch (e) {
               span.setStatus({ code: SpanStatusCode.OK });
-              return createToolResult(null, {
-                newMessages: [
-                  {
-                    role: 'assistant' as const,
-                    content: `source_file 读取失败: ${src}（${e instanceof Error ? e.message : String(e)}）`,
-                  },
-                ],
-              });
+              return failResult(
+                `source_file 读取失败: ${src}（${e instanceof Error ? e.message : String(e)}）`,
+                ErrorLevel.RECOVERABLE
+              );
             }
           } else {
             effectiveContent = String(rawContent || '');
@@ -346,11 +349,7 @@ export class WriteProjectFileTool {
           });
           const msg = error instanceof Error ? error.message : '未知错误';
           logger.error('写入项目文件失败', { error: msg });
-          return createToolResult(null, {
-            newMessages: [
-              { role: 'assistant' as const, content: `写入文件失败: ${msg}` },
-            ],
-          });
+          return failResult(`写入文件失败: ${msg}`, ErrorLevel.FATAL);
         } finally {
           span.end();
         }

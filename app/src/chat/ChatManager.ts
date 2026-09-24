@@ -251,7 +251,7 @@ import {
   DEFAULT_STOP_HOOK_PRIORITIES,
 } from '@modules/query';
 import type { StopHookReason } from '@modules/query';
-import { TAORLoop } from '@modules/query';
+import { TAORLoop, SYSTEM_ABORT_REASON } from '@modules/query';
 import { createChatAgentLoop } from './createAgentLoop.js';
 import {
   getYieldRegistry,
@@ -400,7 +400,10 @@ export class ChatManagerImpl implements ChatManager {
     const controller = this._sessionAbortControllers.get(sessionId);
     if (controller) {
       logger.info('req.on(close) 触发 — 中止会话流', { sessionId });
-      controller.abort();
+      // 二期 O2-1（2026-09-24）：本路径由 **HTTP 连接关闭（页面刷新/断线/请求中止）** 触发，
+      // 属**系统侧**中止 —— 显式带 reason 声明来源，避免被记成"用户主动放弃"
+      //（并据此把 Goal 落成 `system_aborted` 而非 `user_aborted`）。
+      controller.abort(SYSTEM_ABORT_REASON);
       // P2 修复（AB-2）：中止后立即清理条目，防止 isSessionStreaming() 恒 true
       // （幽灵块永久误报）。正常路径由 _finalizeStreamMessage（L2342-2346）删除，
       // 此处兜底幂等；若内层生成器被遗弃、_finalizeStreamMessage 永不执行，
@@ -1643,7 +1646,12 @@ export class ChatManagerImpl implements ChatManager {
           this._toolCallSeqMap.set(data.toolCallId, result.tailSeq);
         }
       }
-      if (!result.ok && result.reason !== 'duplicate-seq') {
+      if (
+        !result.ok &&
+        result.reason !== 'duplicate-seq' &&
+        // TB-14/E1-a：会话已被外部进程删除 ⇒ 主动放弃落盘，非真实写失败（不告警/不触发对账）
+        result.reason !== 'session-dir-missing'
+      ) {
         // A-7（2026-08-23）：写事件失败 → 投影消息打 pendingRepair 标记 + 触发该会话对账。
         // 标记随 persistChatMessage 落盘到投影，T-D 对账（Phase D）据此修复事件/投影漂移。
         logger.warn('chat:manager 事件追加失败，标记投影消息 pendingRepair', {
@@ -1918,7 +1926,12 @@ export class ChatManagerImpl implements ChatManager {
       }
 
       const result = await eventLog.append(event);
-      if (!result.ok && result.reason !== 'duplicate-seq') {
+      if (
+        !result.ok &&
+        result.reason !== 'duplicate-seq' &&
+        // TB-14/E1-a：会话已被外部进程删除 ⇒ 主动放弃落盘，非真实写失败（不告警/不触发对账）
+        result.reason !== 'session-dir-missing'
+      ) {
         logger.warn('chat:manager 流式事件追加失败', {
           sessionId,
           seq: event.seq,

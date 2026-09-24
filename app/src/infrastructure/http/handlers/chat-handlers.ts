@@ -1004,6 +1004,9 @@ function serializeResumeChunk(chunk: string | ChatStreamChunk): string | null {
         ...base,
         __pyapp_type: 'text',
         ...(c.messageId ? { __pyapp_message_id: c.messageId } : {}),
+        // O2-4（2026-09-24）：**resume 必须透传"正文取代"标记**——否则重连后按 append 回放
+        // ⇒ 重复段落复发（历史上"两份解析实现漂移"已踩过一次，此处显式带上）。
+        ...(c.replace ? { __pyapp_text_replace: true } : {}),
         choices: [
           { index: 0, delta: { content: c.content }, finish_reason: null },
         ],

@@ -16,8 +16,15 @@ import { getLogger } from '@modules/monitoring';
 
 const logger = getLogger('skills:usage');
 
-/** 单技能使用记录 */
-export interface SkillUsageRecord {
+/**
+ * 技能使用**聚合统计**（每技能一行：查看/执行次数与时间戳）。
+ *
+ * R02-002（2026-09-24）：原名 `SkillUsageRecord`，与 `skills/persistence/types.ts`
+ * 及 `skills/SkillUsageTracker.ts` 的"单次使用记录"**同名但结构完全不同**
+ *（后者含 timestamp/durationMs/success/triggeredBy…）⇒ 极易误导入。
+ * 现更名以消除歧义；该类型仅本文件内部使用，无外部消费方。
+ */
+export interface SkillUsageStats {
   /** 技能名 */
   skillName: string;
   /** 查看次数（skill_view 实际加载成功） */
@@ -41,7 +48,7 @@ function usageFilePath(env: NodeJS.ProcessEnv = process.env): string {
  * 技能使用遥测（单例）
  */
 class SkillUsageTracker {
-  private records = new Map<string, SkillUsageRecord>();
+  private records = new Map<string, SkillUsageStats>();
   private loaded = false;
   private saveTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -51,7 +58,7 @@ class SkillUsageTracker {
     this.loaded = true;
     try {
       const raw = await readFile(usageFilePath(), 'utf-8');
-      const data = JSON.parse(raw) as Record<string, SkillUsageRecord>;
+      const data = JSON.parse(raw) as Record<string, SkillUsageStats>;
       for (const [name, rec] of Object.entries(data)) {
         if (rec && typeof rec.skillName === 'string') {
           this.records.set(name, rec);
@@ -95,7 +102,7 @@ class SkillUsageTracker {
   }
 
   /** 读取全部使用记录（按 skillName 排序） */
-  async getAll(): Promise<SkillUsageRecord[]> {
+  async getAll(): Promise<SkillUsageStats[]> {
     await this.ensureLoaded();
     return [...this.records.values()].sort((a, b) =>
       a.skillName.localeCompare(b.skillName)
@@ -103,7 +110,7 @@ class SkillUsageTracker {
   }
 
   /** 读取单技能记录（无则 undefined） */
-  async get(skillName: string): Promise<SkillUsageRecord | undefined> {
+  async get(skillName: string): Promise<SkillUsageStats | undefined> {
     await this.ensureLoaded();
     return this.records.get(skillName);
   }
@@ -126,7 +133,7 @@ class SkillUsageTracker {
     try {
       const file = usageFilePath();
       await mkdir(dirname(file), { recursive: true });
-      const data: Record<string, SkillUsageRecord> = {};
+      const data: Record<string, SkillUsageStats> = {};
       for (const [name, rec] of this.records) data[name] = rec;
       await writeFile(file, JSON.stringify(data, null, 2), 'utf-8');
     } catch (err) {

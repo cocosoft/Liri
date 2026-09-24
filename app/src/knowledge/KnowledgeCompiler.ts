@@ -20,6 +20,7 @@ import { LogLevel } from '@modules/monitoring';
 import { OTelAwareLogger } from '@modules/monitoring/logs/OTelAwareLogger';
 import { LLMPerformanceMonitor } from '@modules/ai';
 import { handleError } from '@modules/error';
+import { LRUCache } from '@modules/utils/cache';
 import {
   enterPhase,
   exitPhase,
@@ -176,8 +177,10 @@ export class KnowledgeCompiler {
   private static readonly GRAPH_EXTRACT_MAX_PAGES = 50;
   /** 单页内容上限：超过则跳过提取（提取 prompt 仅用前 8000 字符，读入超大页纯属浪费内存） */
   private static readonly GRAPH_EXTRACT_MAX_FILE_BYTES = 1024 * 1024;
-  /** 编译 max_tokens 预算缓存（key=模型名，避免逐文件查 DB；P0 长文截断修复） */
-  private maxTokensCache = new Map<string, number>();
+  /** 编译 max_tokens 预算缓存（key=模型名，避免逐文件查 DB；P0 长文截断修复）
+   *  R01-004（2026-09-24）：改用共享缓存设施 `utils/cache` 的 LRUCache（原为自建
+   *  `new Map`，无上限）；键空间=模型名（有限），故不设 TTL，仅以 maxSize 约束内存。 */
+  private maxTokensCache = new LRUCache<number>(64);
   /** K5 血缘：可选注入的 LineageStore（记录 doc→page 血缘） */
   private lineage?: LineageStore;
   /** K5.3 本次编译版本（runner 注入） */

@@ -120,6 +120,8 @@
       "@modules/daemon": ["daemon"],
       "@modules/daemon/*": ["daemon/*"],
       "@modules/doc": ["modules/doc"],
+      "@modules/workflow": ["modules/workflow"],
+      "@modules/workflow/*": ["modules/workflow/*"],
       "@modules/doc/*": ["modules/doc/*"],
       "@modules/mail": ["modules/mail"],
       "@modules/mail/*": ["modules/mail/*"],

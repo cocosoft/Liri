@@ -38,6 +38,12 @@ import { DocChannelHandler } from './channel/DocChannelHandler';
 import { DocOrchestrator } from './orchestration/DocOrchestrator';
 import { TemplateEngine } from './template/TemplateEngine';
 import { TemplateMarketplace } from './template/TemplateMarketplace';
+import { getWorkflowEngine } from '@modules/workflow';
+import {
+  DOC_PIPELINE_WORKFLOW,
+  DOC_PROVIDER_ID,
+  DocWorkflowProvider,
+} from './workflow/DocWorkflowProvider';
 
 const logger = getLogger('doc:lifecycle');
 
@@ -236,6 +242,19 @@ export class DocModule {
     logger.info('编排器已激活 — office:workflow 工具已注册', {
       workflows: DocOrchestrator.getAvailableWorkflows(),
     });
+
+    // P0-1 接入点（2026-09-24，第一刀）：把 doc 流水线注册为 workflow seam 的 Provider，
+    // 使 seam 的拓扑序 / 成员级账本 / 失败归因对该流水线生效。
+    // 边界：**不改** runDocWorkflow 及其调用方 —— 注册本身不改变任何既有行为；
+    // 幂等：seam 无 unregister，重复 register 会抛错，故先查已注册的 providerId。
+    const engine = getWorkflowEngine();
+    if (!engine.listWorkflows().some((w) => w.providerId === DOC_PROVIDER_ID)) {
+      engine.registerProvider(new DocWorkflowProvider());
+      logger.info('doc 工作流 Provider 已注册到 seam', {
+        providerId: DOC_PROVIDER_ID,
+        workflow: DOC_PIPELINE_WORKFLOW,
+      });
+    }
   }
 
   /**

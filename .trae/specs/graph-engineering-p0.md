@@ -16,6 +16,7 @@
 | E4 | **状态事件的权威落盘在 chat loop 层**（`WorkflowRunObserver` → `ToolResult.metadata.workflowRun` → `MessageToEventMigrator` 投影为持久事件）；seam 只通知不落盘 | `modules/workflow/types.ts` 注释 + `WorkflowRunRecord` |
 | E5 | **RunLogger 已存在但仅 TAORLoop 内接线**（JSONL 按日轮转 + 5 处 `recordTrace`），**跨 agent（Council/Verifier/Workflow）未贯通** ⇒ P0-2 的因果链是"**基础设施可复用、跨域需接线**"（原报告 §六 #5 结案） | `app/src/query/RunLogger.ts`、`TAORLoop.ts:366/474` + 5 处 `recordTrace` |
 | E6 | 三图**互不引用**（无对方的类型导入）：任务=workflow 模块，智能体=agent 模块，状态=chat/chronos 两侧 | 报告 §四 P0-1 证据 + 本轮复核 |
+| **E7** | **`modules/workflow` seam 当前零生产者 / 零消费者（2026-09-24 核实）**：全仓无任何 `WorkflowProvider` 注册（`registerProvider` 的命中均为 AI Provider / OAuth / embedding，与此 seam 无关），无 `WorkflowEngine.execute()` 调用，`@modules/workflow` 无业务方 import；`modules/doc/workflow/DocWorkflow.ts` **不实现** seam（无 `implements WorkflowProvider` / `providerId`）⇒ 领域编排与 seam 呈**双轨**。文件级 grep `WorkflowStepSpec/WorkflowDefinition` 的命中经逐条复核多为 `DocWorkflowProgressData` 等**同名误命中**。<br>**后果**：P0-1/P0-2 目前**没有真实数据流过**；②b 的"持久化投影"将**没有写入方**（`tool/result` 事件载荷也只存 `result: string`，不含 metadata 载体） | 本轮 grep + 逐条复核（`registerProvider` / `@modules/workflow` / `DocWorkflow.ts` 导入清单 / `eventPayloads.ts#tool/result`） |
 
 ---
 
@@ -141,3 +142,76 @@ interface SystemEdge {
 
 **未做（诚实记录）**：`state` 节点 / `producedBy` / `blockedBy` 边**未构造** —— 它们需要运行期事实
 （步骤产出物 id、被阻塞下游）与 ②b 的持久化一并落地；先造出来只会得到"没有消费方、也不可回溯"的装饰性结构。
+
+---
+
+## 七、接入点方案（2026-09-24 侦察；用户决定"先补接入点"）
+
+**目标**：让图内核与 workflow seam 有**真实数据流过**，②b 的落盘才有写入方（否则是给不存在的生产者建事件）。
+
+**真实编排在哪（行级证据）**
+
+| 位置 | 形态 | 与 seam 关系 |
+|---|---|---|
+| `modules/doc/DocModule.ts:235` | `globalToolManager.registerTool(this.createWorkflowTool())` ⇒ 工具 `office:workflow` 是**生产入口**（降级模式 L164 注销） | 未走 seam |
+| `modules/doc/orchestration/DocOrchestrator.ts:28 / 80` | `class DocOrchestrator` + `async execute()` + `setToolExecutor()`（一步一工具注入） | 未走 seam |
+| `modules/doc/workflow/DocWorkflow.ts:423` | `runDocWorkflow(options)`：`buildOutline → fillContent → generateImages → compose` **四阶段固定序列** + `DocWorkflowProgressEmitter` | 未走 seam |
+| `core/loop/PlanDrivenLoop.ts`、`tasks/PdcaWorkItemBridge.ts` | 计划驱动循环 / PDCA 相位 | 各自编排 |
+
+**试点选 doc**，理由：① `WorkflowModule.ts:25` 的项目自身设计意图即"具体能力由各领域模块（**如 doc**）以 Provider 形式注册"；
+② doc 已有测试基线（`tests/modules/doc/DocWorkflow.test.ts`、`PptRefiner.test.ts`）⇒ 改造有回归网。
+
+**拟分两刀（第一刀零行为变化）**
+
+1. **第一刀（零行为变化）**：新增 `modules/doc/workflow/DocWorkflowProvider.ts`（`implements WorkflowProvider`）——
+   把四阶段声明为 `WorkflowDefinition.steps`（id=阶段名，`dependsOn` 链式），`execute()` 逐阶段调用**既有函数**，
+   并在阶段边界上报 `stepReporter.onStepStart/onStepEnd`；`DocModule` 初始化时
+   `getWorkflowEngine().registerProvider(...)`（与同块的 `office:workflow` 工具注册同条件，见 §7.1 纠偏）。**不改** `runDocWorkflow` 的调用方 ⇒
+   现有链路行为不变，seam 侧开始产生 `run`/`step` 记录（由此可验证 ①的账本与 ②的归因）。
+2. **第二刀（收口，消除双轨）**：`office:workflow` 工具改为 `getWorkflowEngine().execute(...)`，
+   注入 `WorkflowRunObserver` 把 run 记录落 `ToolResult.metadata.workflowRun`，并把 seam 事件映射回
+   `DocWorkflowProgressEmitter`；同时 `runDocWorkflow` 是否保留为薄包装需二选一（**待定项**，第二刀设计时决定并补记录）。
+
+**风险**：doc 生成是在跑功能，阶段边界的上报与排序若改动，会影响前端 `doc_workflow` block 的进度时序。
+**验证**：以 `tests/modules/doc/*` 为基线；每刀独立提交 + 全量回归。
+
+### 7.1 第一刀实施记录（2026-09-24）
+
+**改动清单（5 文件）**
+
+| 文件 | 类型 | 内容 |
+|---|---|---|
+| `app/src/modules/doc/workflow/DocWorkflowProvider.ts` | 新增 | `implements WorkflowProvider`：`doc_pipeline` 四步链式 `dependsOn`（`outline → fill_content → images → compose`），`execute()` 逐阶段调用**既有函数**（`buildOutline / fillContent / generateImages / compose`，零复制实现），阶段边界配对上报 `onStepStart / onStepEnd`；params 缺项抛 `AppError(DOC_PIPELINE_PARAMS_MISSING)`，不静默降级；文件头含 `TODO: CS05-ROOTFIX`（第一刀期间与 `runDocWorkflow` 双轨，第二刀收口） |
+| `app/src/modules/doc/DocModule.ts` | 修改（+15） | `setupOrchestrator()` 末尾注册 Provider；seam 无 unregister，故先按 `providerId` 查重（幂等） |
+| `app/tests/modules/doc/DocPipelineProvider.test.ts` | 新增 | 6 例：拓扑序 + 成员级账本配对；成稿失败归因（`failedStep='compose'`，候选 `[images, fill_content, outline]`）；配图失败降级；用户取消大纲；参数缺失抛错；Provider 自述（`providerId` / `dependsOn` 成链） |
+| `app/tsconfig.json` | 修改（+2） | 补 `@modules/workflow` / `@modules/workflow/*` 路径别名（此前缺失 ⇒ `TS2307`） |
+| `.trae/specs/graph-engineering-p0.md` | 修改 | §七 接入点方案 + 本实施记录 |
+
+**注册位点的实际条件（纠偏 §七 分刀说明的表述）**
+
+方案原文写"降级模式不注册"，**实测不准确**，据此纠偏：
+
+- 注册位点 `setupOrchestrator()`（`DocModule.ts:224-258`）在 `onReady()` 中于 `DocModule.ts:147` 被调用，与同块的 `office:workflow` 工具注册（`:241`）**同条件**；
+- `onReady()` 只有**版本不兼容降级**（`:116` 提前 `return`）到不了该行；另一条降级路径"未检测到 CLI + 无 MCP + 直连失败"（`:138 initDegradedMode()` **无 return**）会继续落到 `:147` ⇒ **该路径下 Provider 仍会注册**，与同一块内的 `office:workflow` 注册行为一致。
+- 结论：语义是"**与编排入口同生共死**"，而非"降级一律不注册"。此纠偏不改代码 —— 注册本身是**惰性**的（见"行为影响"），加 `status === FULL` 守卫属为不存在消费者预置复杂度。
+
+**实测事实（易误判，据实记录）**
+
+- **配图失败是降级、不是失败**：`generateImages` 把失败节点收敛进 `FilledOutline.failedNodes` 并继续 ⇒ `images` 步账本仍记 `completed`，成稿照常完成。故**不能**用"配图失败 ⇒ `failedStep='images'`"做断言 —— 原设想的断言被实测推翻，已按事实改写用例并附依据注释（`DocPipelineProvider.test.ts:117-132`）。
+- **成稿失败才是可归因失败**：`compose` 抛错 ⇒ `WorkflowRunEndInfo.failedStep='compose'`，`rootCauseCandidates` 沿 `dependsOn` 入边回溯得 `[images, fill_content, outline]`；`pathEvidenceRefs[0]` 形如 `run:wf_<ts>_<n>#step:images` ⇒ 证据指回本 run 的具体步骤，可独立复核。
+
+**验证（全部通过）**
+
+| 检查 | 结果 |
+|---|---|
+| `bun run typecheck` | 0 error |
+| `bun run lint:arch` | R03-002 `0 处`；分层 `检查 3662 文件 / 违规 0 / 豁免 386`；**错误 0 / 警告 0** |
+| `bun test tests/modules/doc` | 56 pass / 0 fail |
+| `bun test`（全量） | **3518 pass / 0 fail / Ran 3537 tests across 342 files [75.30s]** |
+
+**行为影响：零。** Provider 注册不改变 `runDocWorkflow` 及其调用方（`office:workflow` 工具）—— seam 侧当前只有"注册"与"可被 `engine.execute()` 调用"两个出口，**尚无生产调用方**。
+
+**未做（诚实记录）**
+
+- `office:workflow` 工具**未**切到 `engine.execute()` ⇒ 线上文档生成仍走 `runDocWorkflow`，seam 的 `run` 记录目前只在测试中被产生。这使第二刀（收口）成为**必要**而非可选。
+- 双轨期间阶段序列在 `DocWorkflowProvider` 与 `runDocWorkflow` 各存一份（已用 `TODO: CS05-ROOTFIX` 标注，第二刀收口）。

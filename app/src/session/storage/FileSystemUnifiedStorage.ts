@@ -25,10 +25,7 @@ import { AtomicWriter } from '../persistence/AtomicWriter.js';
 import { handleError } from '@modules/error';
 
 import { getLogger } from '@modules/monitoring';
-import {
-  enterPhase,
-  exitPhase,
-} from '@modules/diagnostics/loopProbe/phaseStack';
+import { enterPhase, exitPhase } from '@modules/diagnostics';
 const logger = getLogger('session:storage:FileSystemUnifiedStorage');
 
 function matchesFilter(
@@ -425,6 +422,17 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
   }
 
   private async persistSession(session: UnifiedSession): Promise<void> {
+    // TB-14（2026-09-24）写侧拦截：外部进程已删除 ⇒ 拒绝落盘（否则 mkdir 会把目录重建）
+    if (this.isExternallyDeleted(session.id)) {
+      logger.warn(
+        'persistSession:会话已被外部进程删除,拒绝落盘并摘除内存条目',
+        {
+          sessionId: session.id,
+        }
+      );
+      this.forgetSession(session.id);
+      return;
+    }
     const dir = sessionDir(this.basePath, session.id);
     await fs.mkdir(dir, { recursive: true });
     await this.writer.writeJSON(
@@ -446,6 +454,18 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
       });
       return;
     }
+    // TB-14（2026-09-24）：外部进程已删除 ⇒ 同样拒绝落盘（防幽灵复活）
+    if (this.isExternallyDeleted(sessionId)) {
+      logger.warn(
+        'persistMessageAppend:会话已被外部进程删除,拒绝落盘并摘除内存条目',
+        {
+          sessionId,
+          messageId: message.id,
+        }
+      );
+      this.forgetSession(sessionId);
+      return;
+    }
     const dir = sessionDir(this.basePath, sessionId);
     await fs.mkdir(dir, { recursive: true });
     const line = JSON.stringify(message) + '\n';
@@ -462,6 +482,18 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
         sessionId,
         messageCount: messages.length,
       });
+      return;
+    }
+    // TB-14（2026-09-24）：外部进程已删除 ⇒ 同样拒绝落盘（防幽灵复活）
+    if (this.isExternallyDeleted(sessionId)) {
+      logger.warn(
+        'persistMessagesRewrite:会话已被外部进程删除,拒绝落盘并摘除内存条目',
+        {
+          sessionId,
+          messageCount: messages.length,
+        }
+      );
+      this.forgetSession(sessionId);
       return;
     }
     const dir = sessionDir(this.basePath, sessionId);
@@ -573,8 +605,8 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
   }
 
   async createSession(session: UnifiedSession): Promise<string> {
-    this.sessions.set(session.id, { ...session });
-    this.messages.set(session.id, []);
+    // TB-14（2026-09-24）：**先落盘、后入内存** —— 建立"内存 Map ⊆ 磁盘目录"不变式，
+    // 使 getSession/listSessions 新增的磁盘回查不会与创建过程竞争（§1.6 写前持久化）。
     await this.persistSession(session);
     // KB-SESSION-INIT（2026-08-29）：创建即建空 messages.jsonl——原懒创建（首条消息
     // append 才建文件）使"新建未发消息"的合法空会话无消息文件，被 K-6 误判为僵尸会话
@@ -587,12 +619,66 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
       });
       await fs.writeFile(msgPath, '', 'utf-8');
     }
+    this.sessions.set(session.id, { ...session });
+    this.messages.set(session.id, []);
     return session.id;
+  }
+
+  /**
+   * 会话目录是否仍存在于磁盘？（多分区：basePath 或任一历史分区命中即算存在）
+   *
+   * TB-14（2026-09-24）：内存 `sessions` Map 只与"本进程写操作"同步，对**跨进程/跨实例**
+   * 的软删除（rename 到 `.trash`）一无所知 ⇒ 会把幽灵会话当有效返回（实测 `current` /
+   * `list` / 详情三个端点同时中招）。故读取前必须回查磁盘目录。
+   */
+  private isSessionDirPresent(sessionId: string): boolean {
+    for (const root of [this.basePath, ...this.legacyRoots]) {
+      try {
+        if (existsSync(sessionDir(root, sessionId))) return true;
+      } catch {
+        // sessionDir 对路径越界 id 抛错 ⇒ 该 id 非法，视为不存在
+      }
+    }
+    return false;
+  }
+
+  /**
+   * 从内存摘除会话（含消息与计数）并记入 `deletedSessionIds` 拦截后续落盘——
+   * 磁盘目录已消失（跨进程软删除）时自愈用，防止后续写入 mkdir 出"幽灵复活"。
+   */
+  private forgetSession(sessionId: string): void {
+    this.sessions.delete(sessionId);
+    this.messages.delete(sessionId);
+    this.messageCounts.delete(sessionId);
+    this.deletedSessionIds.add(sessionId);
+  }
+
+  /**
+   * 会话是否已被**外部进程**删除？（内存 `sessions` 含该 id、但磁盘目录已不存在）
+   *
+   * TB-14（2026-09-24）：`deletedSessionIds` 只覆盖"**本进程**删除过的"会话，对跨进程/
+   * 跨实例的软删除一无所知 ⇒ 写路径的 `fs.mkdir(recursive)` 会把目录**重建**（幽灵复活，
+   * 实测：删除后 POST 一条消息即可复原 session.json/messages.jsonl）。本谓词用于写侧拦截。
+   * 对 `createSession` **天然放行**（其 id 尚未入内存——createSession 已改为先落盘后入内存）。
+   */
+  private isExternallyDeleted(sessionId: string): boolean {
+    return this.sessions.has(sessionId) && !this.isSessionDirPresent(sessionId);
   }
 
   async getSession(sessionId: string): Promise<UnifiedSession | null> {
     const session = this.sessions.get(sessionId);
-    return session ? { ...session } : null;
+    if (!session) return null;
+    if (!this.isSessionDirPresent(sessionId)) {
+      logger.info(
+        'getSession:内存命中但磁盘目录已不存在,摘除内存条目并按不存在返回',
+        {
+          sessionId,
+        }
+      );
+      this.forgetSession(sessionId);
+      return null;
+    }
+    return { ...session };
   }
 
   /**
@@ -604,6 +690,14 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
     if (this.deletedSessionIds.has(sessionId)) return false;
     const session = this.sessions.get(sessionId);
     if (!session) return false;
+    // TB-14（2026-09-24）：外部进程已删除 ⇒ 摘除内存条目并按"未命中"返回（调用方回退原路径）
+    if (this.isExternallyDeleted(sessionId)) {
+      logger.warn('touchSession:会话已被外部进程删除,摘除内存条目', {
+        sessionId,
+      });
+      this.forgetSession(sessionId);
+      return false;
+    }
     const now = Date.now();
     session.lastActivityAt = now;
     session.updatedAt = now;
@@ -659,22 +753,44 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
   }
 
   async listSessions(filter?: SessionFilter): Promise<UnifiedSession[]> {
-    let result = Array.from(this.sessions.values());
-    if (filter) {
-      result = result.filter((s) => matchesFilter(s, filter));
+    // TB-14（2026-09-24）：同 getSession——列表也必须回查磁盘目录，否则跨进程软删除的
+    // 会话仍会被列出（实测复验第 5 步：删除后 list 仍含该 id）。
+    const result: UnifiedSession[] = [];
+    for (const session of this.sessions.values()) {
+      if (!this.isSessionDirPresent(session.id)) {
+        logger.info('listSessions:磁盘目录已不存在,摘除内存条目', {
+          sessionId: session.id,
+        });
+        this.forgetSession(session.id);
+        continue;
+      }
+      if (filter && !matchesFilter(session, filter)) continue;
+      result.push({ ...session });
     }
-    return result.map((s) => ({ ...s }));
+    return result;
   }
 
   async searchSessions(query: string): Promise<UnifiedSession[]> {
     const q = query.toLowerCase();
-    return Array.from(this.sessions.values())
-      .filter(
-        (s) =>
-          (s.title && s.title.toLowerCase().includes(q)) ||
-          s.id.toLowerCase().includes(q)
-      )
-      .map((s) => ({ ...s }));
+    // TB-14（2026-09-24）：同 getSession/listSessions——搜索也必须回查磁盘目录，
+    // 否则跨进程/跨实例软删除的幽灵会话仍会出现在搜索结果里。
+    const result: UnifiedSession[] = [];
+    for (const session of this.sessions.values()) {
+      if (!this.isSessionDirPresent(session.id)) {
+        logger.info('searchSessions:磁盘目录已不存在,摘除内存条目', {
+          sessionId: session.id,
+        });
+        this.forgetSession(session.id);
+        continue;
+      }
+      if (
+        (session.title && session.title.toLowerCase().includes(q)) ||
+        session.id.toLowerCase().includes(q)
+      ) {
+        result.push({ ...session });
+      }
+    }
+    return result;
   }
 
   async addMessage(sessionId: string, message: UnifiedMessage): Promise<void> {
@@ -968,7 +1084,15 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
   async getSessionStats(sessionId?: string): Promise<SessionStats> {
     if (sessionId) {
       const session = this.sessions.get(sessionId);
-      if (!session) {
+      // TB-14（2026-09-24）：统计也须回查磁盘——否则已被外部进程软删除的会话仍被计入
+      //（幽灵）。与 getSession 同口径：失效则摘除内存条目。
+      if (session && this.isExternallyDeleted(sessionId)) {
+        logger.info('getSessionStats:磁盘目录已不存在,摘除内存条目', {
+          sessionId,
+        });
+        this.forgetSession(sessionId);
+      }
+      if (!session || this.deletedSessionIds.has(sessionId)) {
         return {
           totalSessions: 0,
           activeSessions: 0,
@@ -994,9 +1118,17 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
     // H6：统计接口零 IO——直接累加 per-session 计数，不再遍历 ensureMessagesLoaded
     let activeCount = 0;
     let archivedCount = 0;
-    for (const sessionId of this.sessions.keys()) {
-      totalMessages += this.messageCounts.get(sessionId) ?? 0;
-      const s = this.sessions.get(sessionId);
+    // TB-14（2026-09-24）：同 getSession/listSessions——全量统计前回查磁盘，跳过并摘除幽灵
+    for (const id of [...this.sessions.keys()]) {
+      if (this.isExternallyDeleted(id)) {
+        logger.info('getSessionStats:磁盘目录已不存在,摘除内存条目', {
+          sessionId: id,
+        });
+        this.forgetSession(id);
+        continue;
+      }
+      totalMessages += this.messageCounts.get(id) ?? 0;
+      const s = this.sessions.get(id);
       if (s?.status === SessionStatus.ACTIVE) activeCount++;
       else if (s?.status === SessionStatus.ARCHIVED) archivedCount++;
     }
@@ -1013,6 +1145,14 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
 
   async getSessionMessageCount(sessionId: string): Promise<number> {
     // H6：读 per-session 计数零 IO（不触发热加载）
+    // TB-14（2026-09-24）：同 getSession——磁盘目录已消失则摘除并返回 0（不再返回陈旧计数）
+    if (this.isExternallyDeleted(sessionId)) {
+      logger.info('getSessionMessageCount:磁盘目录已不存在,摘除内存条目', {
+        sessionId,
+      });
+      this.forgetSession(sessionId);
+      return 0;
+    }
     return this.messageCounts.get(sessionId) ?? 0;
   }
 

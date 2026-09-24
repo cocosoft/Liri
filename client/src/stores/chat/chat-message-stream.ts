@@ -17,6 +17,7 @@ import {
   enqueueOutbox,
   clearOutboxForSession,
   truncateMessages,
+  isSessionGoneError,
 } from "@/services/chatService";
 import { useFeatureFlagStore } from "@/stores/featureFlags";
 import { playCompletionSound } from "@/services/SoundService";
@@ -251,10 +252,19 @@ export async function streamMessageImpl(
   if (needCreateUserMessage && userMessage) {
     try {
       await chatService.addMessage(userMessage.session_id, userMessage);
-    } catch {
-      // 落盘失败（断网/后端不可达）→ 暂存 outbox，不阻塞发送流程
-      outboxed = true;
-      enqueueOutbox(userMessage, userMessage.session_id);
+    } catch (e) {
+      if (isSessionGoneError(e)) {
+        // TB-14（2026-09-24）：会话已被外部进程删除（后端 404）⇒ 不入 outbox
+        // （该消息永远无法投递，入队只会无限重试并误导用户）。
+        logger.warn("写前落盘失败：会话已不存在(404)，不入 outbox", {
+          sessionId: userMessage.session_id,
+          messageId: userMessage.id,
+        });
+      } else {
+        // 落盘失败（断网/后端不可达）→ 暂存 outbox，不阻塞发送流程
+        outboxed = true;
+        enqueueOutbox(userMessage, userMessage.session_id);
+      }
     }
   }
   // 复用场景：用户消息已落盘，无需写前

@@ -108,7 +108,12 @@ export async function recordYieldRecovery(params: {
       sessionId: params.sessionId,
       data,
     });
-    if (!result.ok && result.reason !== 'duplicate-seq') {
+    if (
+      !result.ok &&
+      result.reason !== 'duplicate-seq' &&
+      // TB-14/E1-a：会话已被外部进程删除 ⇒ 主动放弃落盘，非真实写失败
+      result.reason !== 'session-dir-missing'
+    ) {
       logger.warn('恢复审计事件追加失败', {
         sessionId: params.sessionId,
         action: params.action,

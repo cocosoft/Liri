@@ -24,13 +24,10 @@
  */
 
 import { promises as fs, existsSync, createReadStream } from 'fs';
-import { join, dirname } from 'path';
+import { join } from 'path';
 import * as readline from 'readline';
 import { resolveLegacySessionsDir } from '@modules/core/paths';
-import {
-  enterPhase,
-  exitPhase,
-} from '@modules/diagnostics/loopProbe/phaseStack';
+import { enterPhase, exitPhase } from '@modules/diagnostics';
 import { getLogger } from '@modules/monitoring/logs/Logger.js';
 import {
   handleError,
@@ -47,7 +44,7 @@ import {
 } from '@modules/chat/types/knownEventTypes';
 // 内存画像（2026-09-02 排查"会话中断/内存尖峰"用，MEM_PROFILE=1 才采样）
 import { memProfile } from '../../monitoring/memProfile.js';
-import { getMemoryPressureMonitor } from '../../monitoring/memoryPressure/MemoryPressureMonitor.js';
+import { getMemoryPressureMonitor } from '@modules/monitoring';
 
 const logger = getLogger('session:event-log');
 
@@ -138,7 +135,13 @@ export interface EventLogAppendResult {
   /** 是否成功 */
   ok: boolean;
   /** 失败原因 */
-  reason?: 'duplicate-seq' | 'out-of-order' | 'write-error' | 'invalid-event';
+  reason?:
+    | 'duplicate-seq'
+    | 'out-of-order'
+    | 'write-error'
+    | 'invalid-event'
+    /** TB-14/E1-a：会话目录已不存在（被外部进程软删除）⇒ 主动放弃落盘，非真实写失败 */
+    | 'session-dir-missing';
   /** 当前 tailSeq */
   tailSeq: number;
   /** H11：本次写入发生 seq 冲突纠正时的纠正后 seq（供调用方同步 data.callSeq 等派生字段） */
@@ -815,7 +818,14 @@ export class EventLogStorage {
         // 写入
         try {
           await this.ensureIdxLoaded();
-          await this.ensureSessionDir();
+          // TB-14/E1-a（2026-09-24）：会话目录已被外部进程删除 ⇒ 放弃本次写入（不重建目录）
+          if (!(await this.ensureSessionDir())) {
+            return {
+              ok: false,
+              reason: 'session-dir-missing',
+              tailSeq: this.tailSeq,
+            };
+          }
           const line = JSON.stringify(toWrite) + '\n';
           await fs.appendFile(this.filePath, line, 'utf-8');
           this.tailSeq = toWrite.seq as number;
@@ -956,7 +966,8 @@ export class EventLogStorage {
     this.idxEntries.push(entry);
     this.idxTailSeq = entry.toSeq;
     try {
-      await this.ensureSessionDir();
+      // TB-14/E1-a（2026-09-24）：会话目录已不存在 ⇒ 不写 .idx（不重建目录）
+      if (!(await this.ensureSessionDir())) return;
       await fs.appendFile(
         this.idxFilePath,
         JSON.stringify(entry) + '\n',
@@ -1356,8 +1367,13 @@ export class EventLogStorage {
       }
 
       // 原子写入目标（tmp + rename，避免半写文件）
-      // 基于 target.filePath 创建目录（而非 target.sessionDir），与写入位置保持一致
-      await fs.mkdir(dirname(target.filePath), { recursive: true });
+      // TB-14/E1-b'（2026-09-24）：**不再自建目标目录** —— 与 `ensureSessionDir()` 同契约
+      // （事件日志只"使用"会话目录、不创建它）。目标（子会话）目录由 `forkSession` 先
+      // `createSession` 落盘建立；若此处已不存在（被外部进程删除）⇒ **显式失败**，交由
+      // 调用方按 H9 回滚子会话，而不是把目录建回来留一个"只含事件文件"的半成品。
+      if (!(await target.ensureSessionDir())) {
+        return { ok: false, copied: 0, reason: 'session-dir-missing' };
+      }
       const tmpPath = `${target.filePath}.fork`;
       await fs.writeFile(tmpPath, lines.join('\n') + '\n', 'utf-8');
       await fs.rename(tmpPath, target.filePath);
@@ -1492,12 +1508,23 @@ export class EventLogStorage {
   }
 
   /**
-   * 确保 sessionDir 存在
+   * 会话目录是否已存在（存在 ⇒ 可继续写盘）。
    *
-   * recursive: true 模式下目录已存在不报错
+   * TB-14/E1-a（2026-09-24）：**不再自建目录** —— 原实现 `fs.mkdir(recursive: true)`
+   * 会在会话被**外部进程**软删除（目录 rename 到 `.trash`）后把目录凭空建回来
+   * （真机实测：`POST /v1/sessions/:id/title` ⇒ 目录复活，仅含 `events.jsonl`/`events.tail`），
+   * 使"内存有、盘上无"的幽灵重新变成"盘上也有"。会话目录由存储层 `createSession`
+   * 负责创建（现已"先落盘后入内存"），事件日志只应**使用**它、不应创建它。
+   *
+   * @returns 是否可继续写盘（false ⇒ 调用方应放弃本次写入）
    */
-  private async ensureSessionDir(): Promise<void> {
-    await fs.mkdir(this.sessionDir, { recursive: true });
+  private async ensureSessionDir(): Promise<boolean> {
+    if (existsSync(this.sessionDir)) return true;
+    logger.warn('event-log: 会话目录不存在，跳过落盘（不重建已删除会话）', {
+      sessionId: this.sessionId,
+      sessionDir: this.sessionDir,
+    });
+    return false;
   }
 
   /**

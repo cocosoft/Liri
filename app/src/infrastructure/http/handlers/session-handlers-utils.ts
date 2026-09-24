@@ -55,6 +55,16 @@ export function sendBadRequest(
 }
 
 /**
+ * 统一 404 Not Found 响应（TB-14，2026-09-24）——与 `handleGetSession` 的既有
+ * 响应体同构：会话已被**外部进程**软删除时，各读/写接口统一 404，避免自相矛盾
+ * （详情 404、消息却 200 返回陈旧内容）。
+ */
+export function sendNotFound(res: http.ServerResponse, message: string): void {
+  res.writeHead(404, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify({ error: { message, type: 'not_found' } }));
+}
+
+/**
  * 时间戳单位归一化（P2-23 修复）：< 1e12 视为 Unix 秒级（×1000 转毫秒），
  * 否则视为毫秒级原样返回。防止前端传秒级时间戳被 new Date() 解析成 1970 年。
  */

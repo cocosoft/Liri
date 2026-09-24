@@ -17,7 +17,7 @@
  * - 未装配追加器 ⇒ **如实不落**（不伪造、不抛错）。
  */
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { mkdtempSync, rmSync } from 'fs';
+import { mkdtempSync, mkdirSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
@@ -42,6 +42,9 @@ let roots: string[] = [];
 function makeLog(): { log: EventLogStorage; root: string } {
   const root = mkdtempSync(join(tmpdir(), 'yield-audit-'));
   roots.push(root);
+  // TB-14/E1-a（2026-09-24）契约变更：事件日志**不再自建会话目录**（防止把已被外部进程
+  // 软删除的会话目录凭空建回来）。真实链路由存储层 `createSession` 先建目录 ⇒ 夹具同样预建。
+  mkdirSync(join(root, WORKTREE, SESSION), { recursive: true });
   return { log: new EventLogStorage(SESSION, WORKTREE, root), root };
 }
 

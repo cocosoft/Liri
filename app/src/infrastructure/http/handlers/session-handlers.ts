@@ -26,12 +26,13 @@ import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import type { Message } from '@modules/chat/types/message';
 import { MessageRole } from '@modules/chat/types/message';
-import { dedupeMessagesToolCallBlocks } from '@modules/chat/utils/chatBlocks';
+import { dedupeMessagesToolCallBlocks } from '@modules/chat';
 import type { LiriEventType } from '@modules/chat/types/events';
 import { deriveSessionStats, getYieldRegistry } from '@modules/session';
 import {
   tryParseJson,
   sendBadRequest,
+  sendNotFound,
   normalizeTimestamp,
 } from './session-handlers-utils';
 
@@ -372,6 +373,12 @@ export async function handleGetSessionMessages(
     const coreAPI = getCoreAPI();
     // P1-21：启动后首个请求（前端最常见动作）若命中本 handler，确保会话已加载
     await coreAPI.ensureSessionsLoaded();
+    // TB-14（2026-09-24）：会话已被外部进程软删除 ⇒ 统一 404。否则下面的内存分支会
+    // 返回**陈旧投影消息**（实测：删除后仍返回被删会话的消息），与详情接口 404 自相矛盾。
+    if (!(await coreAPI.getSession(sessionId))) {
+      sendNotFound(res, 'Session not found');
+      return;
+    }
     // KB-LONG-SESSION（2026-08-29）：分页参数——limit 传 >0 时取末尾 limit 条，
     // before 为 lastEventSeq 游标（加载更早历史）。不传 limit 返回全量（行为不变）。
     const url = new URL(req.url ?? '', 'http://localhost');
@@ -474,6 +481,12 @@ export async function handleAddSessionMessage(
 
     const coreAPI = getCoreAPI();
     await coreAPI.ensureSessionsLoaded();
+    // TB-14（2026-09-24）：会话已被外部进程软删除 ⇒ 404（否则写盘会 mkdir 重建目录＝
+    // 幽灵复活；亦避免对"注定被丢弃的写入"回 success:true 误导调用方）
+    if (!(await coreAPI.getSession(sessionId))) {
+      sendNotFound(res, 'Session not found');
+      return;
+    }
 
     const chatManager = coreAPI.getChatManager();
     // 幂等：按消息 id 查重（内存优先；miss 时读盘兜底，覆盖后端重启后 outbox 补发场景）
@@ -1069,6 +1082,14 @@ export async function handleGetSessionMemory(
   sessionId: string
 ): Promise<void> {
   try {
+    const coreAPI = getCoreAPI();
+    await coreAPI.ensureSessionsLoaded();
+    // TB-14（2026-09-24）：会话已被外部进程软删除 ⇒ 404（与详情接口同口径，
+    // 否则会返回 200 空记忆，掩盖"会话已不存在"）
+    if (!(await coreAPI.getSession(sessionId))) {
+      sendNotFound(res, 'Session not found');
+      return;
+    }
     const { getSessionMemoryManager } =
       await import('../../../session/bootstrap/SessionSystemBootstrap');
     const mm = getSessionMemoryManager();
@@ -1228,6 +1249,12 @@ export async function handleGetSessionStats(
   try {
     const coreAPI = getCoreAPI();
     await coreAPI.ensureSessionsLoaded();
+    // TB-14（2026-09-24）：会话已被外部进程软删除 ⇒ 404（事件已随目录移走，
+    // 否则会返回 200 全零统计，掩盖"会话已不存在"）
+    if (!(await coreAPI.getSession(sessionId))) {
+      sendNotFound(res, 'Session not found');
+      return;
+    }
 
     // 读全量事件（无分页参数；首次访问自动触发迁移）
     const { events } = await coreAPI.getSessionEvents(sessionId, {

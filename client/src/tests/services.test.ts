@@ -12,7 +12,11 @@ import { fileService } from "../services/fileService";
 import { knowledgeService } from "../services/knowledgeService";
 import { agentService } from "../services/agentService";
 import { statsService } from "../services/statsService";
-import { buildStreamFailureMessage } from "../services/chatService";
+import {
+  buildStreamFailureMessage,
+  flushOutbox,
+  isSessionGoneError,
+} from "../services/chatService";
 
 /**
  * Mock httpLegacy 使其始终抛异常，
@@ -262,5 +266,56 @@ describe("buildStreamFailureMessage（§13.9 报错语义拆分）", () => {
     );
     expect(msg).toContain("已生成 123 字符内容");
     expect(msg).toContain("完成 1 次工具调用");
+  });
+});
+
+describe("outbox 404 终态化（TB-14：会话已被外部进程删除）", () => {
+  const OUTBOX_KEY = "liri-chat-outbox-v1";
+  const entry = {
+    id: "m-gone-1",
+    sessionId: "sess-gone",
+    message: {
+      id: "m-gone-1",
+      role: "user",
+      content: "hello",
+      timestamp: 1,
+      session_id: "sess-gone",
+    },
+    queuedAt: 1,
+  };
+
+  it("isSessionGoneError 只识别 404，不误吞网络错误", () => {
+    expect(isSessionGoneError({ statusCode: 404 })).toBe(true);
+    expect(isSessionGoneError(new Error("Request failed"))).toBe(false);
+    expect(isSessionGoneError(undefined)).toBe(false);
+  });
+
+  it("补发遇 404 ⇒ 丢弃该条；遇其他错误 ⇒ 保留待重试", async () => {
+    const prevFetch = globalThis.fetch;
+    try {
+      localStorage.setItem(OUTBOX_KEY, JSON.stringify([entry]));
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue({
+          ok: false,
+          status: 404,
+          json: async () => ({ message: "Session not found" }),
+        }),
+      );
+      await flushOutbox();
+      // 终态：不再保留（原实现按"网络问题"保留 ⇒ 每次联网/启动无限重试）
+      expect(localStorage.getItem(OUTBOX_KEY)).toBeNull();
+
+      localStorage.setItem(OUTBOX_KEY, JSON.stringify([entry]));
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockRejectedValue(new Error("network down")),
+      );
+      await flushOutbox();
+      expect(localStorage.getItem(OUTBOX_KEY)).not.toBeNull();
+    } finally {
+      vi.stubGlobal("fetch", prevFetch);
+      localStorage.removeItem(OUTBOX_KEY);
+    }
   });
 });

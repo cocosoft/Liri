@@ -11,6 +11,7 @@ import {
   writeFileSync,
   appendFileSync,
   rmSync,
+  existsSync,
 } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
@@ -52,6 +53,10 @@ function makeStorage(
 ): { storage: EventLogStorage; dir: string } {
   const dir = mkdtempSync(join(tmpdir(), 'evtlog-'));
   createdDirs.push(dir);
+  // TB-14/E1-a（2026-09-24）契约变更：事件日志**不再自建会话目录**（原 `mkdir(recursive)`
+  // 会把已被外部进程软删除的会话目录凭空建回来）。真实链路由存储层 `createSession`
+  // 先建目录、事件日志只"使用"它 ⇒ 夹具同样预建，保持与生产时序一致。
+  mkdirSync(sessionDir(dir, sessionId), { recursive: true });
   const storage = new EventLogStorage(
     sessionId,
     HASH,
@@ -553,5 +558,53 @@ describe('EventLogStorage 事件快照缓存（P1-2）', () => {
       expect(persisted[1].seq).toBe(2);
       expect((persisted[1].data as { callSeq?: number }).callSeq).toBe(2);
     });
+  });
+});
+
+/**
+ * TB-14/E1-b'（2026-09-24）：`copyPrefixTo` **不再自建目标目录**。
+ *
+ * 原实现 `fs.mkdir(dirname(target.filePath), {recursive: true})` 在目标（子会话）目录
+ * 已被外部进程软删除时会把目录建回来（留下"只含事件文件"的半成品）。现改为**先做存在性
+ * 检查**，不存在即返回 `ok:false, reason:'session-dir-missing'`，由调用方（`forkSession`）
+ * 按 H9 回滚子会话。
+ */
+describe("TB-14/E1-b'：copyPrefixTo 不自建目标目录", () => {
+  it('目标目录已被外部删除 ⇒ 显式失败，且不重建目录', async () => {
+    const { storage: source, dir: srcDir } = makeStorage('e1b-src');
+    writeEvents(srcDir, 'e1b-src', [
+      ev(1, 'user/message', { content: 'a', messageId: 'm1' }),
+    ]);
+    const { storage: target, dir: tgtDir } = makeStorage('e1b-dst');
+
+    // 模拟目标（子会话）目录被外部进程删除（fork 期间目录消失的极端时序）
+    const targetPath = sessionDir(tgtDir, 'e1b-dst');
+    rmSync(targetPath, { recursive: true, force: true });
+    expect(existsSync(targetPath)).toBe(false);
+
+    const res = await source.copyPrefixTo(target, 1);
+
+    expect(res.ok).toBe(false);
+    expect(res.reason).toBe('session-dir-missing');
+    expect(res.copied).toBe(0);
+    // 关键：不再自建目录（修复前 mkdir(recursive) 会把它建回来）
+    expect(existsSync(targetPath)).toBe(false);
+  });
+
+  it('目标目录存在 ⇒ 正常复制（快乐路径不受影响）', async () => {
+    const { storage: source, dir: srcDir } = makeStorage('e1b-src-ok');
+    writeEvents(srcDir, 'e1b-src-ok', [
+      ev(1, 'user/message', { content: 'a', messageId: 'm1' }),
+      ev(2, 'assistant/text', { content: 'b', messageId: 'm2' }),
+    ]);
+    const { storage: target, dir: tgtDir } = makeStorage('e1b-dst-ok');
+
+    const res = await source.copyPrefixTo(target, 1);
+
+    expect(res.ok).toBe(true);
+    expect(res.copied).toBe(1);
+    const targetPath = sessionDir(tgtDir, 'e1b-dst-ok');
+    expect(existsSync(join(targetPath, 'events.jsonl'))).toBe(true);
+    expect(await target.getTailSeq()).toBe(1);
   });
 });

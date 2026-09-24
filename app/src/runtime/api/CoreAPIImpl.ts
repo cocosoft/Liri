@@ -59,12 +59,13 @@ import {
   eventNotificationService,
 } from '@modules/chat';
 import { MessageToEventMigrator } from '@modules/session';
-import { EventLogStorage } from '@modules/session';
 // N-50 墓碑（与 N-52 修复同批）：删除轮次后按 seq 区间过滤事件派生消息
+// R03-002（2026-09-24）：墓碑 API 经模块桶出口导入（原为子路径直连）
 import {
+  EventLogStorage,
   addDeletedRange,
   isSeqInDeletedRanges,
-} from '@modules/session/storage/deletedRanges';
+} from '@modules/session';
 import { LRUCache } from '../../utils/cache';
 
 /**
@@ -1501,6 +1502,19 @@ export class CoreAPIImpl implements CoreAPI {
     if (!session) {
       return undefined;
     }
+    // TB-14（2026-09-24）：同 getCurrentSession——`sessionManager` 的 `chatSessions` 是
+    // **进程内存 Map**，对跨进程/跨实例的软删除一无所知，会把幽灵会话当有效返回
+    //（实测复验第 6 步：删除后 `GET /v1/sessions/:id` 仍 200）。故返回前校验持久层
+    // 是否仍存在（存储层已按磁盘目录回查，见 FileSystemUnifiedStorage.getSession）。
+    const persisted = await this.chatManager
+      .getSessionGateway()
+      .getSession(sessionId);
+    if (!persisted) {
+      logger.info('getSession:会话已不存在于持久层,按不存在返回', {
+        sessionId,
+      });
+      return undefined;
+    }
 
     return {
       id: session.id,
@@ -2354,7 +2368,20 @@ export class CoreAPIImpl implements CoreAPI {
   }
 
   async listSessions(): Promise<SessionInfo[]> {
-    const sessions = this.sessionManager.getSessions();
+    const all = this.sessionManager.getSessions();
+    // TB-14（2026-09-24）：同 getSession——列表侧也须过滤"磁盘目录已消失"的幽灵会话
+    //（跨进程/跨实例软删除，`chatSessions` 内存 Map 未同步；实测复验第 5 步删除后仍列出）。
+    const presence = await Promise.all(
+      all.map((s) => this.chatManager.getSessionGateway().getSession(s.id))
+    );
+    const sessions = all.filter((_, i) => presence[i] !== null);
+    const ghostCount = all.length - sessions.length;
+    if (ghostCount > 0) {
+      logger.info('listSessions:已过滤磁盘不存在的幽灵会话', {
+        ghostCount,
+        total: all.length,
+      });
+    }
 
     let filteredCount = 0;
     const result = sessions

@@ -9,6 +9,7 @@ import {
   chatService,
   enqueueOutbox,
   clearOutboxForSession,
+  isSessionGoneError,
 } from "@/services/chatService";
 import { useFeatureFlagStore } from "@/stores/featureFlags";
 import { ChronologicalBlockBuilder } from "./chat-toolcall.slice";
@@ -99,10 +100,19 @@ export async function sendMessageImpl(
   try {
     await chatService.addMessage(userMessage.session_id, userMessage);
     writeAheadOk = true;
-  } catch {
-    // 落盘失败（断网/后端不可达）→ 暂存 outbox，不阻塞发送流程
-    outboxed = true;
-    enqueueOutbox(userMessage, userMessage.session_id);
+  } catch (e) {
+    if (isSessionGoneError(e)) {
+      // TB-14（2026-09-24）：会话已被外部进程删除（后端 404）⇒ 入 outbox 只会制造
+      // 永不投递的条目（并误导用户"网络恢复后自动补发"）。放弃落盘并留痕。
+      logger.warn("写前落盘失败：会话已不存在(404)，不入 outbox", {
+        sessionId: userMessage.session_id,
+        messageId: userMessage.id,
+      });
+    } else {
+      // 落盘失败（断网/后端不可达）→ 暂存 outbox，不阻塞发送流程
+      outboxed = true;
+      enqueueOutbox(userMessage, userMessage.session_id);
+    }
   }
 
   try {

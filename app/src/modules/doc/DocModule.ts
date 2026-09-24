@@ -38,12 +38,16 @@ import { DocChannelHandler } from './channel/DocChannelHandler';
 import { DocOrchestrator } from './orchestration/DocOrchestrator';
 import { TemplateEngine } from './template/TemplateEngine';
 import { TemplateMarketplace } from './template/TemplateMarketplace';
-import { getWorkflowEngine } from '@modules/workflow';
+import { getWorkflowEngine, createRunRecordCollector } from '@modules/workflow';
 import {
   DOC_PIPELINE_WORKFLOW,
   DOC_PROVIDER_ID,
   DocWorkflowProvider,
 } from './workflow/DocWorkflowProvider';
+import {
+  DOC_ORCHESTRATOR_PROVIDER_ID,
+  DocOrchestratorProvider,
+} from './orchestration/DocOrchestratorProvider';
 
 const logger = getLogger('doc:lifecycle');
 
@@ -243,14 +247,23 @@ export class DocModule {
       workflows: DocOrchestrator.getAvailableWorkflows(),
     });
 
-    // P0-1 接入点（2026-09-24，第一刀）：把 doc 流水线注册为 workflow seam 的 Provider，
-    // 使 seam 的拓扑序 / 成员级账本 / 失败归因对该流水线生效。
-    // 边界：**不改** runDocWorkflow 及其调用方 —— 注册本身不改变任何既有行为；
-    // 幂等：seam 无 unregister，重复 register 会抛错，故先查已注册的 providerId。
+    // P0-1 接入点（2026-09-24）：把 doc 的两条编排链注册为 workflow seam 的 Provider，
+    // 使 seam 的拓扑序 / 成员级账本 / 失败归因对其生效。
+    // 幂等：seam 无隐式去重，重复 register 会抛 fatal，故先查已注册的 providerId。
     const engine = getWorkflowEngine();
-    if (!engine.listWorkflows().some((w) => w.providerId === DOC_PROVIDER_ID)) {
+    if (!engine.hasProvider(DOC_ORCHESTRATOR_PROVIDER_ID)) {
+      engine.registerProvider(new DocOrchestratorProvider(this.orchestrator));
+      logger.info(
+        'doc 编排 Provider 已注册到 seam（office:workflow 的执行路径）',
+        {
+          providerId: DOC_ORCHESTRATOR_PROVIDER_ID,
+          workflows: DocOrchestrator.getAvailableWorkflows(),
+        }
+      );
+    }
+    if (!engine.hasProvider(DOC_PROVIDER_ID)) {
       engine.registerProvider(new DocWorkflowProvider());
-      logger.info('doc 工作流 Provider 已注册到 seam', {
+      logger.info('doc 流水线 Provider 已注册到 seam', {
         providerId: DOC_PROVIDER_ID,
         workflow: DOC_PIPELINE_WORKFLOW,
       });
@@ -294,22 +307,43 @@ export class DocModule {
       async execute(input: Record<string, unknown>) {
         const workflow = input.workflow as string;
         const params = (input.params ?? {}) as Record<string, unknown>;
-        const result = await DocModule.getInstance().orchestrator.execute(
-          workflow,
-          params
-        );
-        const status = result.success
+        // P0-1 接入点第二刀：执行改走 workflow seam（拓扑序 + 成员级账本 + 失败归因），
+        // 并由 seam 侧的装配器把 run 记录随 ToolResult.metadata 带出。
+        const { observer, record: workflowRun } = createRunRecordCollector();
+        const runResult = await getWorkflowEngine().execute(workflow, params, {
+          observer,
+        });
+        const success = runResult.stopReason === 'completed';
+        const output =
+          typeof runResult.value === 'string' ? runResult.value : undefined;
+        // 保持既有 ToolResult 形状（result 为编排结果对象），仅执行入口由 seam 承担
+        const result = success
+          ? {
+              success: true,
+              completedSteps: runResult.completedSteps,
+              ...(output === undefined ? {} : { output }),
+            }
+          : {
+              success: false,
+              completedSteps: runResult.completedSteps,
+              error: runResult.error ?? `工作流 ${workflow} 执行失败`,
+            };
+        const status = success
           ? ToolExecutionStatus.SUCCESS
           : ToolExecutionStatus.FAILURE;
         return {
           status,
           result,
-          output: result.success
-            ? (result.output ?? `工作流 ${workflow} 执行完成`)
-            : (result.error ?? `工作流 ${workflow} 执行失败`),
-          errorOutput: result.success ? '' : (result.error ?? ''),
+          output: success
+            ? (output ?? `工作流 ${workflow} 执行完成`)
+            : (runResult.error ?? `工作流 ${workflow} 执行失败`),
+          errorOutput: success ? '' : (runResult.error ?? ''),
           progress: [],
-          metadata: { workflow, completedSteps: result.completedSteps },
+          metadata: {
+            workflow,
+            completedSteps: runResult.completedSteps,
+            workflowRun,
+          },
           executionTime: 0,
           executionId: `office_workflow_${Date.now()}`,
           toolName: 'office:workflow',

@@ -209,9 +209,86 @@ interface SystemEdge {
 | `bun test tests/modules/doc` | 56 pass / 0 fail |
 | `bun test`（全量） | **3518 pass / 0 fail / Ran 3537 tests across 342 files [75.30s]** |
 
-**行为影响：零。** Provider 注册不改变 `runDocWorkflow` 及其调用方（`office:workflow` 工具）—— seam 侧当前只有"注册"与"可被 `engine.execute()` 调用"两个出口，**尚无生产调用方**。
+**行为影响：零。** Provider 注册不改变任何既有链路 —— seam 侧当前只有"注册"与"可被 `engine.execute()` 调用"两个出口，**尚无生产调用方**。
 
 **未做（诚实记录）**
 
-- `office:workflow` 工具**未**切到 `engine.execute()` ⇒ 线上文档生成仍走 `runDocWorkflow`，seam 的 `run` 记录目前只在测试中被产生。这使第二刀（收口）成为**必要**而非可选。
-- 双轨期间阶段序列在 `DocWorkflowProvider` 与 `runDocWorkflow` 各存一份（已用 `TODO: CS05-ROOTFIX` 标注，第二刀收口）。
+- **`office:workflow` 与 doc 四阶段流水线是两条链**（第一刀后经核查修正，见 §7.2）：`office:workflow` 跑的是 `DocOrchestrator.workflows`（`send-report` / `reply-with-doc` / `meeting-to-all`），**不经** `runDocWorkflow`；故"切流"不发生在 `office:workflow` 上，第一刀的 Provider 也**不会**因它而产生生产 run 记录。
+- 双轨期间阶段序列在 `DocWorkflowProvider` 与 `runDocWorkflow` 各存一份（已用 `TODO: CS05-ROOTFIX` 标注）。
+
+### 7.2 第一刀之后的核查发现：第二刀的前提偏差（2026-09-24，**未实施**）
+
+第一刀提交后按原计划做第二刀侦察，实测推翻了 §七.2 的写法，须先纠偏再动代码。
+
+**三条推翻性事实**
+
+| # | 事实 | 证据 |
+|---|---|---|
+| N1 | `runDocWorkflow`（第一刀所接的四阶段流水线）**无任何调用方** | 排除 `node_modules` 全仓 grep `runDocWorkflow` 仅命中：定义 `DocWorkflow.ts:423`、桶 re-export `modules/doc/index.ts:117`、spec/注释 |
+| N2 | `office:workflow` 跑的是**另一条链**（`DocOrchestrator.workflows`，3 个跨模块工作流），且**直调** `orchestrator.execute()`、`metadata` 为 `{ workflow, completedSteps }`（无 run 记录） | `DocModule.ts:264 / 296-311`；`DocOrchestrator.ts:47-71` |
+| N3 | seam 内**没有任何** `WorkflowProvider` 实现（除第一刀新增的 `DocWorkflowProvider`）；`DocOrchestratorProvider` 在本仓 git 历史中**从未存在** | grep `implements WorkflowProvider`；`git log -- app/src/modules/doc/orchestration/DocOrchestratorProvider.ts` **空** |
+
+**连带发现（已登记 `dev_docs/error_repairs/预存错误与待处理问题.md`）**
+
+1. `runDocWorkflow` + `DocWorkflowProgressEmitter` + `assistant/doc_workflow` 事件 + 前端 `DocWorkflowProgress.tsx`：**全链无生产者**（后端无 append 该事件的代码）⇒ "半建成功能"，独缺"谁触发"。**故第一刀的 Provider 只能被测试调用。**
+2. `.trae/specs/workflow-{engine-seam,run-record,run-lifecycle,definition-externalization}.md` 四份 spec 声称 P1-1/P1-3 已完成（含 Provider / `metadata.workflowRun` 投影 / 4 类事件 / 前端 `WorkflowRunCard`），但**对应代码在本仓不存在**（非删除：`git log --all --diff-filter=D` 无记录；spec 由 `43cc2d28` 一并入库而实现未进本仓）⇒ **过期文档**。这解释了为何 §七 侦察会得出 E7「零生产者/零消费者」——E7 正确。
+
+**因此 §七.2 的"切流"需要重新定义**，候选方向（**尚未选定，未写任何代码**）：
+
+| 方向 | 内容 | 代价 |
+|---|---|---|
+| A | **新建 `DocOrchestratorProvider`** 把 `DocOrchestrator.workflows` 声明为 seam definition，再把 `office:workflow` 切到 `engine.execute()` + 注入 observer 落 `metadata.workflowRun` | 给 seam 拿到**真实生产调用方**（LLM 可触发）；但 `office:workflow` 是生产工具 ⇒ 有行为变化，且落 metadata 后仍需 ②b 投影才是完整链 |
+| B | **先给死链定性**（N1 的四阶段流水线：接线 or 清理）再动流水线 | 先消除"在死链上加接线"的风险；不动 seam |
+| C | **先做 ②b 持久化设计确认**（只读侦察，参照 P1-3 已验证结论：`MessageToEventMigrator` 是 `tool/result` 唯一生产者） | 零代码风险，但 seam 仍无消费者 |
+
+**另**：第一刀的 `DocWorkflowProvider` 去留亦需决定 —— 它零行为、有测试、是合法的 seam Provider，但**接在无触发入口的流水线上**（保留=为未来接线留位；撤销=避免"接死链"）。
+
+**用户裁定（2026-09-24）**：方向 **A**；`DocWorkflowProvider` **保留**。
+
+### 7.3 第二刀实施记录：方向 A（2026-09-24）
+
+**改动清单（8 文件）**
+
+| 文件 | 类型 | 内容 |
+|---|---|---|
+| `app/src/modules/doc/orchestration/DocOrchestratorProvider.ts` | 新增 | `implements WorkflowProvider`：把 `DocOrchestrator.workflows`（`send-report` / `reply-with-doc` / `meeting-to-all`）声明为 seam 定义，`execute()` **委托** `DocOrchestrator.execute()` 并桥接步骤上报、映射结果 |
+| `app/src/modules/workflow/runRecordCollector.ts` | 新增 | `createRunRecordCollector()`：observer → `WorkflowRunRecord` 的**唯一**装配点（seam 侧，避免各领域各抄一份） |
+| `app/src/modules/workflow/index.ts` | 修改 | 导出上述装配器 |
+| `app/src/modules/doc/orchestration/DocOrchestrator.ts` | 修改 | 新增可选 `DocStepHooks`（步骤边界观察）；循环内 3 个出口（工具返回失败 / 抛错 / 成功）各上报一次。**未注入时行为与既有实现完全一致** |
+| `app/src/modules/doc/DocModule.ts` | 修改 | ① `setupOrchestrator()` 注册两个 Provider（改用 `engine.hasProvider()` 幂等守卫）；② `office:workflow` 工具执行改走 `engine.execute()` + 装配器 → `metadata.workflowRun` |
+| `app/tests/modules/workflow/runRecordCollector.test.ts` | 新增 | 3 例：配对顺序 / 未配对 end 丢弃 / 二次 end 不覆盖 |
+| `app/tests/modules/doc/DocOrchestratorProvider.test.ts` | 新增 | 5 例：定义同源 + 链式依赖 / 成功路径（序 + 账本 + run 记录）/ 失败路径（归因）/ 未知工作流 / 未注入执行器 |
+| `.trae/specs/graph-engineering-p0.md` | 修改 | §7.2 纠偏 + 本实施记录 |
+
+**关键设计决策**
+
+| # | 决策 | 理由 |
+|---|---|---|
+| D-a | **Provider 不复制步骤循环**，只声明定义 + 桥接上报 + 映射结果 | 抄第二份循环即双实现（违反 CS01 / R02）：步骤间参数传递（`doc:create-docx` 产物注入 `mail:send` 附件）只在 `DocOrchestrator` 里实现一次 |
+| D-b | **步骤 `id` = 工具名** | 沿用 P1-3 §11.1 已验证结论；使 `WorkflowRunResult.completedSteps` 与既有 `metadata.completedSteps`（工具名数组）语义一致。代价：同一工作流内同一工具不得出现两次 —— 由 `validate()` **注册期**拦截（fail loud） |
+| D-c | **链式 `dependsOn`** | **实测纠偏**：初版未声明依赖 ⇒ 归因 `candidateCount: 0`（无边可回溯）。编排器顺序推进且前一步产物注入下一步 ⇒ 语义上后一步依赖前一步。声明为链**不改变执行序**（无依赖时 `orderSteps` 本就按声明序），只让归因有边可循 |
+| D-d | 装配器落在 **seam 侧**而非 DocModule 私有 | 装配逻辑零领域语义；放 seam 使可单测、且后续 mail/calendar 等消费方不必各抄一份。与 `WorkflowStepLedger` 分工明确：账本是**上报端**（不变式 + 强制结算），装配器是**消费端**（形状） |
+
+**行为变化（如实记录）**
+
+- `office:workflow` 的执行入口由直调 `orchestrator.execute()` 改为 `engine.execute()`；`ToolResult` 的 `status` / `result` / `output` / `errorOutput` **保持既有形状与文案**（`result` 按原形重建，成功且无输出文本时不带 `output` 键），`metadata` **纯增量**新增 `workflowRun`（原 `workflow` / `completedSteps` 不变）。
+- 新增可观测副作用：seam 侧产出 run/step 记录与失败归因日志（`workflow:engine` / `doc:orchestrator-provider`）。
+- **取消**：工具未注入 `signal`（无取消源）⇒ 取消由 seam 的宽限期强制结算兜底；Provider 的 `_signal` 参数当前未使用（已在代码注释说明）。
+
+**验证（全部通过）**
+
+| 检查 | 结果 |
+|---|---|
+| `bun run typecheck` | 0 error |
+| `bun run lint:arch` | R03-002 `0 处`；分层 `检查 3663 文件 / 违规 0 / 豁免 387`；**错误 0 / 警告 0** |
+| `bun test tests/modules/workflow tests/modules/doc` | **78 pass / 0 fail**（190 断言） |
+| `bun test`（全量） | **3526 pass / 19 skip / 0 fail / Ran 3545 tests across 344 files [74.20s]**（较第一刀后 +8 pass、+2 文件 = 本次新增用例） |
+| 单一执行路径核对 | 全仓 `orchestrator.execute(` 仅剩 Provider 一处调用 |
+
+**遗留缺口（关键，未做）**
+
+1. **②b 落盘投影未接线 ⇒ `metadata.workflowRun` 目前无消费者**。未新增事件类型、未改 `MessageToEventMigrator` 投影、未派生块、前端无卡片 ⇒ run 记录只随工具元数据带出，**刷新/重启后无法回答"哪些工作流跑过、哪步失败"**（正是 P1-3 §1 的问题陈述）。
+   - **性质**：P1-3 §6 明确要求"生产者与投影同批交付"，本刀**刻意分开**并将缺口显性化（不隐藏）。分开的理由：投影涉及**新事件类型 + 4 处登记 + 前端镜像**，且需先定"run 级 2 事件 vs 成员级 4 事件 / 专用卡片 vs 复用 `status` 块"两个设计口径，属独立批次。
+   - **是否触及 §1.6「模型可见 ⇔ 已落盘」红线**：**否**。已核实 `tool/result` 载荷仅 `{callSeq, toolCallId, result: string, isError?, messageId?}`（`chat/types/eventPayloads.ts:123-134`）**不含 metadata**，且模型可见的是工具 `output` 文本、非 metadata ⇒ 新增字段既不进事件流、也不进模型输入。
+   - **待办**：②b 作为下一批次，必须与前端镜像同批交付（跨端守卫 `EventSchemaConsistency.test.ts` 会强制）。
+2. `DocWorkflowProvider`（第一刀）依裁定保留，仍无生产调用方（见 §7.2 N1）。

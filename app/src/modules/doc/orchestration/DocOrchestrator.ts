@@ -21,6 +21,26 @@ interface WorkflowResult {
 }
 
 /**
+ * 步骤边界钩子（P0-1 接入点第二刀）。
+ *
+ * 编排循环是**唯一**的步骤序列实现，seam 的步骤级观察通过本钩子取得事实，
+ * 避免 Provider 再抄一份循环（CS01 归一化 / R02 实现唯一性）。
+ * 未注入时行为与既有实现完全一致。
+ */
+export interface DocStepHooks {
+  onStepStart?: (info: {
+    tool: string;
+    description: string;
+    startedAt: number;
+  }) => void;
+  onStepEnd?: (info: {
+    tool: string;
+    outcome: 'completed' | 'failed';
+    error?: string;
+  }) => void;
+}
+
+/**
  * 文档编排器
  * 保留 v2.2 设计，重命名为 DocOrchestrator
  * 依赖 doc（核心）+ mail（可选），mail 未安装时跳过邮件步骤
@@ -76,10 +96,13 @@ export class DocOrchestrator {
    * - doc:create-docx 成功后，其 data.filePath 自动注入后续 mail:send 的 attachments
    * - 前一步返回的 output 作为 lastOutput 合并到下一步参数
    * D-1 修复：未注入执行器时返回失败而非"假成功"；步骤失败即终止
+   *
+   * @param hooks 可选步骤边界钩子（第二刀新增）：仅供观察，不改变执行语义
    */
   async execute(
     workflowName: string,
-    params: Record<string, unknown>
+    params: Record<string, unknown>,
+    hooks?: DocStepHooks
   ): Promise<WorkflowResult> {
     const startedAt = Date.now();
     const steps = DocOrchestrator.workflows[workflowName];
@@ -120,6 +143,11 @@ export class DocOrchestrator {
 
     for (const step of steps) {
       const stepStartedAt = Date.now();
+      hooks?.onStepStart?.({
+        tool: step.tool,
+        description: step.description,
+        startedAt: stepStartedAt,
+      });
       logger.debug('执行工作流步骤', {
         workflow: workflowName,
         tool: step.tool,
@@ -141,6 +169,11 @@ export class DocOrchestrator {
             'failure'
         ) {
           const errMsg = (stepResult as { error?: string }).error ?? '未知错误';
+          hooks?.onStepEnd?.({
+            tool: step.tool,
+            outcome: 'failed',
+            error: errMsg,
+          });
           logger.warn('编排步骤失败（工具返回失败状态）', {
             workflow: workflowName,
             tool: step.tool,
@@ -195,6 +228,7 @@ export class DocOrchestrator {
         }
 
         completedSteps.push(step.tool);
+        hooks?.onStepEnd?.({ tool: step.tool, outcome: 'completed' });
         logger.info('编排步骤完成', {
           workflow: workflowName,
           tool: step.tool,
@@ -206,6 +240,11 @@ export class DocOrchestrator {
         });
       } catch (error) {
         const stepElapsed = Date.now() - stepStartedAt;
+        hooks?.onStepEnd?.({
+          tool: step.tool,
+          outcome: 'failed',
+          error: String(error),
+        });
         logger.warn('编排步骤执行抛错', {
           workflow: workflowName,
           tool: step.tool,

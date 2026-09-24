@@ -28,6 +28,8 @@ import { execFileSync } from 'child_process';
 import { getLogger } from '@modules/monitoring';
 import { resolveDbPath } from '@modules/core';
 
+import type { AgentRunAttribution } from './runAttribution';
+
 const logger = getLogger('tools:AgentTool:AgentRunStore');
 
 /** 表名（对外暴露以便测试与巡检） */
@@ -36,7 +38,8 @@ export const AGENT_RUNS_TABLE = 'agent_runs';
 export const AGENT_RUNS_META_TABLE = 'agent_runs_meta';
 /** 当前 schema 版本（③：升版时靠幂等 DDL/补列迁移，不删改既有结构） */
 // v2（2026-09-21，O19）：新增 `descriptor_source`（描述符来源：role-store / registry / builtin / default）
-export const AGENT_RUNS_SCHEMA_VERSION = 2;
+// v3（2026-09-24，接线期③ ③-A）：新增 `attribution_json`（未完成 run 的失败归因：图快照 + 根因候选）
+export const AGENT_RUNS_SCHEMA_VERSION = 3;
 
 /** 保留上限（⑤） */
 export const RETENTION_TERMINAL_MAX = 50;
@@ -73,6 +76,11 @@ export interface AgentRunRecord {
 export interface AgentRunRow extends AgentRunRecord {
   deliveryState: string;
   deliveryAttempts: number;
+  /**
+   * 接线期③ ③-A（2026-09-24）：**未完成 run** 的失败归因（系统图快照 + 根因候选）。
+   * 完成态 / 无可归因对象时为 `undefined`（不写空结论）。
+   */
+  attribution?: AgentRunAttribution;
 }
 
 /** 写入者身份（②）：进程内稳定，用于区分"本进程的 run"与"上一个进程留下的 run" */
@@ -217,6 +225,7 @@ export class AgentRunStore {
         task_key          TEXT,
         output_summary    TEXT,
         error             TEXT,
+        attribution_json  TEXT,
         owner_pid         INTEGER,
         owner_started_at  INTEGER,
         delivery_state    TEXT NOT NULL DEFAULT 'pending',
@@ -250,6 +259,8 @@ export class AgentRunStore {
       ['delivery_attempts', 'INTEGER NOT NULL DEFAULT 0'],
       // O19（v2）：描述符来源
       ['descriptor_source', 'TEXT'],
+      // 接线期③ ③-A（v3）：失败归因（图快照 + 根因候选）
+      ['attribution_json', 'TEXT'],
     ];
     for (const [column, ddl] of additions) {
       if (names.has(column)) continue;
@@ -424,7 +435,16 @@ export class AgentRunStore {
   async settleRun(
     toolCallId: string,
     status: Extract<PersistedRunStatus, 'completed' | 'failed' | 'unknown'>,
-    opts: { outputSummary?: string; error?: string; endedAt?: number } = {}
+    opts: {
+      outputSummary?: string;
+      error?: string;
+      endedAt?: number;
+      /**
+       * 接线期③ ③-A（2026-09-24）：**未完成 run** 的失败归因（图快照 + 根因候选）。
+       * 与 `outputSummary` 同 COALESCE 语义：未给出则保留既有值。
+       */
+      attribution?: AgentRunAttribution;
+    } = {}
   ): Promise<boolean> {
     await this.init();
     // O13：**终态幂等**（与内存台账 `AgentRunLedger.settle` 同一语义）——
@@ -434,13 +454,15 @@ export class AgentRunStore {
     const changed = await this.run(
       `UPDATE ${AGENT_RUNS_TABLE}
        SET status = ?, output_summary = COALESCE(?, output_summary),
-           error = COALESCE(?, error), ended_at = ?
+           error = COALESCE(?, error), ended_at = ?,
+           attribution_json = COALESCE(?, attribution_json)
        WHERE tool_call_id = ? AND status NOT IN ('completed', 'failed')`,
       [
         status,
         opts.outputSummary ?? null,
         opts.error ?? null,
         opts.endedAt ?? Date.now(),
+        opts.attribution ? JSON.stringify(opts.attribution) : null,
         toolCallId,
       ]
     );
@@ -588,9 +610,28 @@ export class AgentRunStore {
       endedAt: (raw['ended_at'] as number | null) ?? undefined,
       descriptorSource:
         (raw['descriptor_source'] as string | null) ?? undefined,
+      attribution: parseAttribution(raw['attribution_json']),
       deliveryState: String(raw['delivery_state'] ?? 'pending'),
       deliveryAttempts: Number(raw['delivery_attempts'] ?? 0),
     };
+  }
+}
+
+/**
+ * 解析落盘的归因 JSON（接线期③ ③-A）。
+ *
+ * 由 `JSON.stringify(AgentRunAttribution)` 写入；损坏时**不抛**（一行坏数据不应让整个
+ * run 列表接口失败），但**记 warn** —— 回退不得掩盖错误（CS03-002）。
+ */
+function parseAttribution(value: unknown): AgentRunAttribution | undefined {
+  if (typeof value !== 'string' || value.length === 0) return undefined;
+  try {
+    return JSON.parse(value) as AgentRunAttribution;
+  } catch (error) {
+    logger.warn('attribution_json 解析失败（该行按无归因处理）', {
+      error: String(error),
+    });
+    return undefined;
   }
 }
 

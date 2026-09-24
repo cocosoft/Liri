@@ -53,6 +53,8 @@ import {
 } from './AgentToolsetContract';
 import { getToolCategory } from '../toolCategories';
 import { getAgentRunStore } from './AgentRunStore';
+// 接线期③ ③-A（2026-09-24）：未完成 run 的失败归因类型（随台账落盘）
+import type { AgentRunAttribution } from './runAttribution';
 import { isSpawnPaused, getSpawnPauseState } from './spawnPause';
 import { getSettlementOutbox } from '@modules/chat';
 import {
@@ -1135,6 +1137,8 @@ export class AgentTool implements Tool {
     // 中断（abort）结果被上层无条件覆盖为 completed，被停止的任务显示"已完成"
     completed: boolean;
     error?: string;
+    /** 接线期③ ③-A：未完成时的失败归因（引擎产出，供上层随台账落盘） */
+    attribution?: AgentRunAttribution;
     tokenUsage?: {
       promptTokens: number;
       completionTokens: number;
@@ -1174,6 +1178,8 @@ export class AgentTool implements Tool {
       toolInstances: new Map(filteredPool.map((t) => [t.name, t])),
       maxTurns: 50,
       model: input.model,
+      // 接线期③ ③-A（2026-09-24）：显式指派的角色（未指定 ⇒ 无分配边，不臆测）
+      assignedRole: input.subagent_type,
       // BUG 5 修复（2026-08-27）：透传父级工具上下文（sessionId/权限域）给子代理内部工具调用
       // B3：克隆上下文并递增 subagentDepth（父代对象不被复用，避免共享引用污染）
       toolContext: toolContext
@@ -1223,6 +1229,8 @@ export class AgentTool implements Tool {
       result: result.output,
       completed: result.completed,
       error: result.error,
+      // 接线期③ ③-A：未完成时的失败归因透出（成功路径为 undefined）
+      ...(result.attribution ? { attribution: result.attribution } : {}),
       tokenUsage: result.tokenUsage,
     };
   }
@@ -1942,7 +1950,7 @@ export class AgentTool implements Tool {
   private async settleRun(
     agentId: string,
     status: 'completed' | 'failed',
-    opts: { error?: string } = {}
+    opts: { error?: string; attribution?: AgentRunAttribution } = {}
   ): Promise<void> {
     // M-5（P0-8）：结算**前**取归属会话 —— `settle()` 之后内存条目移入归因表，
     // `ownerSessionId()` 这一"控制面归属原语"不再可得。
@@ -2762,6 +2770,8 @@ export class AgentTool implements Tool {
       result: string;
       completed: boolean;
       error?: string;
+      /** 接线期③ ③-A：引擎路径透出的失败归因（直调路径无） */
+      attribution?: AgentRunAttribution;
       tokenUsage?: any;
     };
 
@@ -2823,7 +2833,10 @@ export class AgentTool implements Tool {
 
     // N1 修复（2026-08-27）：按 engine 真实结果置状态——原无条件置
     // 'completed'，被 stopAgent 中止的任务显示"已完成"
-    await this.settleRun(agentId, result.completed ? 'completed' : 'failed');
+    // 接线期③ ③-A：未完成时把**失败归因**（图快照 + 根因候选）一并落盘
+    await this.settleRun(agentId, result.completed ? 'completed' : 'failed', {
+      ...(result.attribution ? { attribution: result.attribution } : {}),
+    });
 
     if (result.completed) {
       this.emitComplete(

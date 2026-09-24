@@ -440,3 +440,57 @@ office:workflow → engine.execute + createRunRecordCollector
 | ③-A | **AgentTool 子代理分配落图 + 失败时回溯**：分配边（role → 子代理任务）+ 失败路径给出根因候选并随 run 记录落盘（复用 ②b 的事件/轨迹通道） | 唯一**有真实消费者**的方向；但改热路径（`AgentTool`）+ 需定"子代理 run 记录"的事件口径 |
 | ③-B | **Council 按议题 expertise 选参与者**：把"加载全部启用角色"改为"按 topic 相关领域选人"，`assignAgentsByGraph` 才有真实调用 | 行为变化（与"只记不改"相反）+ 需 `topic → expertise` 的映射来源设计 |
 | ③-C | **转 P1-2**（能力带约束描述）：先让能力语义（等级/成本/延迟/并发）有意义，"优化分配"才有比较维度的前置 | 不解决接入点，但避免在无语义的能力上建分配 |
+
+### 7.7 方向 ③-A 实施记录：子代理分配落图 + 失败归因（2026-09-24）
+
+**用户裁定**：③-A（唯一有真实消费者的方向）。
+
+**改动清单（5 改 1 增）**
+
+| 文件 | 类型 | 内容 |
+|---|---|---|
+| `app/src/tools/AgentTool/runAttribution.ts` | **新增** | 纯函数 `attributeAgentRun()`：建 run 图 + 一次上游回溯（复用 `findRootCauseCandidates`） |
+| `app/src/tools/AgentTool/SubAgentEngine.ts` | 修改 | ① `SubAgentRequest.assignedRole?`（被指派角色）；② 步骤事实收集（`onToolResult` 回调增加真实 `ok` 布尔）；③ **两条未完成路径**（循环未完成 / 异常）各回溯一次 → `SubAgentResult.attribution` |
+| `app/src/tools/AgentTool/AgentRunStore.ts` | 修改 | schema **v3**：新增 `attribution_json`（建表 + `ensureColumns` 补列，**只新增字段**）；`settleRun` 接受可选归因（COALESCE 语义）；回读解析（损坏不抛但记 warn） |
+| `app/src/tools/AgentTool/AgentTool.ts` | 修改 | 请求带 `assignedRole: input.subagent_type`；引擎包装层透出 `attribution`；主结算点把归因随 `settleRun` 落盘 |
+| `app/src/infrastructure/http/handlers/agent-control-handlers.ts` | 修改 | `/v1/agents/runs` 列表透出 `attribution`（既有消费方，见下） |
+| `app/tests/tools/AgentTool/agentRunAttribution.test.ts` | 新增 | 9 例（7 纯函数 + 2 台账落盘回读） |
+
+**图结构（方向遵循全局约定：`from` 因 → `to` 果）**
+
+```
+agent(执行者) --assignedTo--> run:<runId>(本次任务)
+run:<runId> --dependsOn--> step:<tu₁> --dependsOn--> step:<tu₂> --> …
+```
+
+**消费方（为什么不是装饰性结构）**：`agent_runs` 台账**已有读取方** ——
+`/v1/agents/runs`（`agent-control-handlers.ts:106` → `listRuns()`）⇒ 归因随 run 记录落盘后
+**立即可通过既有接口读取**，并可被面板/审计消费。**未新造任何事件类型**（避免再走一遍 4 处登记 + 前端镜像）。
+
+**关键决策**
+
+| # | 决策 | 理由 |
+|---|---|---|
+| G-a | 归因起点 = **最近一次失败的工具调用**（若有），否则 run 节点 | 不猜失败步骤（CS06）；`act()` 已知每次调用的成功/失败 |
+| G-b | `evidenceRef` **指向前提方** | **实测纠偏**：初版指向"依赖者"，与 `failureAttribution.ts:68` 的既有约定（"边的证据 = 指向前提步骤…"）不一致 ⇒ 改为前提方（分配边 = `agent_run:<runId>`，步骤边 = `tool_use:<前提步骤 id>`） |
+| G-c | **仅在未完成路径**建图 + 回溯 | 成功路径零开销、零图构建（与接线期② 同口径） |
+| G-d | 落盘**复用既有 `agent_runs`**（新增列）而非新事件类型 | 该台账正是"子代理 run 记录"的既有载体；`attribution_json` 符合"仅允许新增字段"的 DB 约束 |
+| G-e | 无可归因对象（无角色且无步骤）⇒ 不产出该字段 | 不写空结论（CS06） |
+
+**验证**
+
+| 检查 | 结果 |
+|---|---|
+| `bun run typecheck` | 0 error |
+| `bun run lint:arch` | R03-002 `0 处`；分层 `3666 文件 / 违规 0`；**错误 0 / 警告 0** |
+| `bun run lint:size` | **0 错误**（两处改动文件属既有 EXEMPT） |
+| `bun test tests/tools/AgentTool/agentRunAttribution.test.ts` | **9 pass / 0 fail** |
+| 用例覆盖 | 图结构与边方向 + 证据指向前提方 · 归因起点（指定失败步骤 / 缺省 run 节点 / 计划外回退）· 无对象 ⇒ `undefined` · `limit` · 纯函数不改入参 · **台账落盘回读深等** · 未给归因不抹既有值 · 完成态无归因 |
+| 全量 `bun test` | **3548 pass / 19 skip / 0 fail / Ran 3567 tests across 347 files [73.02s]**（较接线期③ 后 +9 = 本次新增用例）。首跑 2 例失败均为**我方期望写错**，已按内核/既有约定修正：`listNodes` 按 id 升序、`evidenceRef` 指向前提方 |
+
+**未做（诚实记录）**
+
+1. **只接了单代理前台路径**（`runForegroundPath` → `settleRun`）；`AgentTool` 的 **swarm worker 路径**（`buildSwarmExecutor`）与其余若干结算点未带归因 ⇒ 那些 run 失败时无 `attribution`（字段可空，不影响既有行为）。
+2. **前端未渲染**：接口已透出，面板是否加列未做。
+3. **agent 节点 id = `subagent_type` 原值**（未指定 ⇒ 不建分配边）；与 `AgentRegistry` 的角色 id 同空间但**不校验存在性**（不因未注册角色而丢事实）。
+4. **顺带发现一条预存缺陷（未修，已入台账）**：`SubAgentEngine.onToolResult` 发布 `TOOL_CALL_END` 时**硬编码** `status: 'completed'`，而循环结果按 `ok` 区分成功/失败 ⇒ 事件流里工具失败不可辨。本轮**只取用 `ok`**，不改事件载荷语义（`PY_APP.md §3`）。

@@ -37,6 +37,12 @@ import { withRetry } from '@modules/utils/withRetry';
 import { trackUsage } from '@modules/ai';
 import { globalEventBus } from '../../core/events/EventBus.js';
 import { AgentEventType } from '@modules/agent';
+// 接线期③ ③-A（2026-09-24）：子代理 run 的分配落图 + 失败归因
+import {
+  attributeAgentRun,
+  type AgentRunAttribution,
+  type AgentRunStepFact,
+} from './runAttribution.js';
 
 import { getLogger } from '@modules/monitoring';
 import { getOTelTracing } from '@modules/monitoring/otel/OTelTracing.js';
@@ -128,6 +134,13 @@ export interface SubAgentRequest {
   /** 模型覆盖 */
   model?: string;
   /**
+   * 接线期③ ③-A（2026-09-24）：本次执行**被指派的角色/类型**（如 `architect`）。
+   *
+   * 由调用方（`AgentTool`）填入其落盘用的同一值（`subagent_type || 归一类型`）；
+   * 仅用于失败归因时建图（agent 节点），不影响执行本身。缺省 ⇒ 不建分配边。
+   */
+  assignedRole?: string;
+  /**
    * 父级工具上下文透传（BUG 5 修复 2026-08-27）：子代理内部工具调用携带
    * 真实 sessionId/权限上下文——原恒传 { messages: [] }，依赖 context.sessionId
    * 的工具行为异常（send_message 的 sender 恒 'main'、权限拦截失准）
@@ -181,6 +194,13 @@ export interface SubAgentResult {
   timedOut?: boolean;
   /** 执行时长（毫秒） */
   durationMs: number;
+  /**
+   * 接线期③ ③-A（2026-09-24）：**未完成时**的根因候选（经系统图沿反向边回溯）。
+   *
+   * 仅在 `completed === false` 且能定位到步骤/执行者时给出；成功路径恒为 `undefined`。
+   * 由上层（`AgentTool`）随运行台账落盘（`agent_runs.attribution_json`），供面板/审计复核。
+   */
+  attribution?: AgentRunAttribution;
 }
 
 /**
@@ -304,6 +324,8 @@ export class SubAgentEngine {
     let toolCallCount = 0;
     let totalPromptTokens = 0;
     let totalCompletionTokens = 0;
+    // 接线期③ ③-A：本次 run 的执行步骤事实（仅失败时用于归因，成功路径零用途）
+    const stepFacts: AgentRunStepFact[] = [];
 
     const otel = getOTelTracing();
     const execSpan = otel.startSpan('subAgent.execute', {
@@ -378,7 +400,9 @@ export class SubAgentEngine {
             maxTurns,
           });
         },
-        onToolResult: (name, id, content, turn) => {
+        onToolResult: (name, id, content, turn, ok) => {
+          // 接线期③ ③-A：记录步骤事实（含成功/失败），供未完成时归因
+          stepFacts.push({ stepId: id, tool: name, ok });
           safePublish(AgentEventType.TOOL_CALL_DELTA, {
             agentId,
             toolName: name,
@@ -514,7 +538,8 @@ export class SubAgentEngine {
         error: loopResult.error || '子代理执行未完成',
       });
       otel.endSpan(execSpan, SpanStatusCode.ERROR, 'incomplete');
-      return this.buildResult(agentId, startTime, {
+      // 接线期③ ③-A：未完成 ⇒ 沿系统图回溯一次（成功路径不调用）
+      const incompleteResult = this.buildResult(agentId, startTime, {
         completed: false,
         output: loopResult.output || '子代理执行未完成',
         toolCallCount: loopResult.toolCallCount,
@@ -528,6 +553,14 @@ export class SubAgentEngine {
         terminationReason: loopResult.terminationReason,
         timedOut,
       });
+      const attribution = this.traceIncompleteRun(
+        agentId,
+        request.assignedRole,
+        stepFacts
+      );
+      return attribution
+        ? { ...incompleteResult, attribution }
+        : incompleteResult;
     } catch (error) {
       clearTimeout(timeoutTimer);
       this.endRun(agentId, 'failed', handle);
@@ -574,7 +607,7 @@ export class SubAgentEngine {
         message: errorMessage,
       });
 
-      return this.buildResult(agentId, startTime, {
+      const failedResult = this.buildResult(agentId, startTime, {
         completed: false,
         output: '',
         toolCallCount,
@@ -588,7 +621,34 @@ export class SubAgentEngine {
         // O4：超时导致的异常路径同样要标记（否则上层无法做"未超时"的合取判定）
         timedOut,
       });
+      // 接线期③ ③-A：异常路径同样回溯（步骤事实为异常前已记录的部分）
+      const attribution = this.traceIncompleteRun(
+        agentId,
+        request.assignedRole,
+        stepFacts
+      );
+      return attribution ? { ...failedResult, attribution } : failedResult;
     }
+  }
+
+  /**
+   * 接线期③ ③-A：**未完成时**做一次上游回溯（成功路径不调用 ⇒ 零开销）。
+   *
+   * 归因起点：最近一次**失败的工具调用**（若有）⇒ 否则本 run 节点（不猜失败步骤）。
+   * 图结构与证据引用见 `./runAttribution`。
+   */
+  private traceIncompleteRun(
+    runId: string,
+    assignedRole: string | undefined,
+    steps: readonly AgentRunStepFact[]
+  ): AgentRunAttribution | undefined {
+    const failedStep = [...steps].reverse().find((step) => !step.ok);
+    return attributeAgentRun({
+      runId,
+      ...(assignedRole ? { agentId: assignedRole } : {}),
+      steps,
+      ...(failedStep ? { failedStepId: failedStep.stepId } : {}),
+    });
   }
 
   /**
@@ -894,7 +954,8 @@ class SubAgentLoop extends ReActLoop<
         name: string,
         id: string,
         content: string,
-        turn: number
+        turn: number,
+        ok: boolean
       ) => void;
       onProgressThinking?: (turn: number, maxTurns: number) => void;
       onProgressTool?: (name: string, turn: number, maxTurns: number) => void;
@@ -1007,7 +1068,13 @@ class SubAgentLoop extends ReActLoop<
         content,
         tool_call_id: tc.id,
       });
-      this.opts.onToolResult?.(tc.name, tc.id, content, this.state.iteration);
+      this.opts.onToolResult?.(
+        tc.name,
+        tc.id,
+        content,
+        this.state.iteration,
+        ok
+      );
       results.push({
         toolCallId: tc.id,
         name: tc.name,

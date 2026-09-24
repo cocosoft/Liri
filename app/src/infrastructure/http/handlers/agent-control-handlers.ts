@@ -120,6 +120,8 @@ export async function handleListAgentRuns(
         startedAt: row.startedAt ?? null,
         endedAt: row.endedAt ?? null,
         error: row.error ?? null,
+        // 接线期③ ③-A（2026-09-24）：未完成 run 的失败归因（系统图快照 + 根因候选）
+        attribution: row.attribution ?? null,
       })),
     });
   } catch (err) {

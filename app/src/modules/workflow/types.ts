@@ -32,6 +32,9 @@
  * - `cancelled`：运行被取消（当前已定义但未产生，取消 API 属 P1-4）
  * - `error`：约定义非法以外的失败（步骤失败 / 未知工作流 / 未注册 Provider）
  */
+
+import type { RootCauseCandidate } from '@modules/core/systemgraph';
+
 export type WorkflowStopReason = 'completed' | 'cancelled' | 'error';
 
 /** 单个步骤的定义（声明式，可含依赖） */
@@ -119,6 +122,16 @@ export interface WorkflowRunEndInfo {
   error?: string;
   /** 总耗时（ms） */
   durationMs: number;
+  /**
+   * P0-2（接线期②）：失败步骤的**上游根因候选集**，按因果强度降序（`score`）。
+   *
+   * 仅在 `stopReason === 'error'`、能定位 `failedStep`、且该步骤在计划内时给出；
+   * 每条候选自带 `pathEvidenceRefs`（形如 `run:<runId>#step:<stepId>`）供独立复核。
+   *
+   * 局限（勿误读为"已落盘/已可回放"）：本期只产出**运行时结论**；把它带出到工具元数据与
+   * session 事件的**持久化投影尚未接线**（见 spec §一 与 §六）。
+   */
+  rootCauseCandidates?: RootCauseCandidate[];
 }
 
 // ─── 成员级（步骤）观察与记录（P1-3 待续） ────────────────────────────────

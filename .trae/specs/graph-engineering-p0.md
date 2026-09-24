@@ -54,7 +54,7 @@ interface SystemEdge {
 |---|---|---|
 | **基础期（本期已做）** | `core/systemgraph/` 图内核 + 只读投影（`projectTaskGraph` / `projectAgentGraph`）+ 单测 | **否**（零侵入：无人调用即无影响） |
 | **接线期①（P0-1）已实施** | `WorkflowEngine.orderSteps()` 改为"投影成图 → 图内核算序"（语义与既有实现逐条对齐，见 §六）；**未做** `WorkflowStepLedger` 的 state 节点/边（原因见 §六） | 是（已回归全量） |
-| 接线期②（P0-2） | 边填 `evidenceRef`（tool call / message id / checkpoint id）；步骤失败时调用 `findRootCauseCandidates()` 并把候选集写入 `WorkflowRunEndInfo` + 事件载荷 | 是（需新增事件字段，遵 §1.6 三处同步） |
+| **接线期②（P0-2）已实施（仅运行时结论）** | 依赖边填 `evidenceRef`、失败时回溯出根因候选并随 `onRunEnd` 下发；**持久化投影（②b）未接线** —— 见 §六 的"重要发现" | 是（引擎仅在失败路径多一次回溯） |
 | 接线期③（P0-1 跨域） | `AgentRegistry.discoverAgents()` 增加"按图分配"入口（`assignedTo` 边落图），`capabilities` 升级为带约束描述（P1-2） | 是（需 Spec 增补） |
 
 ---
@@ -113,3 +113,31 @@ interface SystemEdge {
 **未做（诚实记录）**：`WorkflowStepLedger` 的 `state` 节点与 `blockedBy`/`producedBy` 边**未动** ——
 本轮核实该文件是 start/end **配对账本**（无状态存储语义，见 §一 E3），要补 state 节点须先定"state 节点的
 来源与生命周期"（属接线期② 与运行期事实一起落），强行在账本内造节点会与"不编造数据"原则冲突。
+
+### 接线期②（2026-09-24，已实施 · 仅运行时结论）
+
+**改动**
+
+| 文件 | 改动 | 说明 |
+|---|---|---|
+| `core/systemgraph/SystemGraph.ts` | `projectTaskGraph(steps, opts?)` 增**可选** `evidence` 构建器 | 依赖边可带证据引用；不传时与既有行为完全一致 |
+| `modules/workflow/failureAttribution.ts` | **新增**（纯函数：`attributeFailure()` / `stepEvidenceRef()`） | 只投影 `dependsOn` **上游**边 ⇒ 检索方向即"谁在因果上先于失败点"；证据形态 `run:<runId>#step:<stepId>` |
+| `modules/workflow/types.ts` | `WorkflowRunEndInfo.rootCauseCandidates?`（按 `score` 降序，自带 `pathEvidenceRefs`） | 字段注释**显式标注"持久化未接线"**，避免被误读为已可回放 |
+| `modules/workflow/WorkflowEngine.ts` | 失败路径调用归因并随 `onRunEnd` 下发；新增 `失败归因完成` INFO（`candidateCount`/`topCandidate`）；**成功路径零额外计算** | 失败步骤不在计划内 ⇒ 不下发该字段（不编造结论） |
+| `tests/modules/workflow/failureAttribution.test.ts` | **新增** 7 例 | 链式/菱形/无上游/起点不在计划内/limit + **引擎端到端**（fake Provider：失败 ⇒ 下发候选；成功 ⇒ 不下发） |
+
+**重要发现（②b 必须解决，勿略过）**：`WorkflowRunEndInfo` / `WorkflowRunRecord` 的**持久化链路从未接线**——
+
+- `types.ts` 原注释称"随 `ToolResult.metadata.workflowRun` 传递，最终由 `MessageToEventMigrator` 投影为持久事件"；
+- 但全仓检索 `workflowRun` **只命中该注释本身**：**无生产者、无投影、无对应事件类型**（`LiriEventType` 中仅
+  `assistant/doc_workflow`、`assistant/pdca_workflow`，与本 seam 无关）。
+
+⇒ 本期产出的是**运行时结论**（仅在调用方注入观察者时可达），**不满足** §1.6「模型可见 ⇔ 已落盘」的可回放要求。
+②b 需同时落三件：① 新 session 事件类型（`LiriEventType` / `LiriEventMap` / `ALL_SESSION_EVENT_TYPES` 三处同步）
+② 生产者（工具层注入观察者 + 落 `metadata.workflowRun`）③ 投影（migrator）。**在那之前，根因候选不得作为模型可见输入使用。**
+
+**验证**：`typecheck` 0 error；`lint:arch` 错误 0 / 警告 0（R03-002 0、分层违规 0）；
+全量 `bun test` ⇒ **3512 pass / 0 fail**（较 ① 后 +7，均为本次新增用例）。
+
+**未做（诚实记录）**：`state` 节点 / `producedBy` / `blockedBy` 边**未构造** —— 它们需要运行期事实
+（步骤产出物 id、被阻塞下游）与 ②b 的持久化一并落地；先造出来只会得到"没有消费方、也不可回溯"的装饰性结构。

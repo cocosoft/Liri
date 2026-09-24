@@ -298,8 +298,16 @@ function collectEvidence(path: readonly SystemEdge[]): string[] {
  *
  * `TaskStepLike` 与 `modules/workflow` 的 `WorkflowStepSpec` 结构兼容 ⇒ 接线期①
  * 可直接把既有 `WorkflowDefinition.steps` 传入，无需 core 依赖业务模块。
+ *
+ * `opts.evidence`（可选，P0-2）：为每条依赖边生成**证据引用**（如 `run:<id>#step:<id>`），
+ * 供根因候选集给出可回溯依据；返回 `undefined` 则不带证据（默认）。
  */
-export function projectTaskGraph(steps: readonly TaskStepLike[]): SystemGraph {
+export function projectTaskGraph(
+  steps: readonly TaskStepLike[],
+  opts?: {
+    evidence?: (fromStepId: string, toStepId: string) => string | undefined;
+  }
+): SystemGraph {
   const graph = new SystemGraph();
   for (const step of steps) {
     graph.addNode({
@@ -319,7 +327,13 @@ export function projectTaskGraph(steps: readonly TaskStepLike[]): SystemGraph {
           'SYSTEM_GRAPH_DEPENDENCY_MISSING'
         );
       }
-      graph.addEdge({ from: dep, to: step.id, kind: 'dependsOn' });
+      const evidenceRef = opts?.evidence?.(dep, step.id);
+      graph.addEdge({
+        from: dep,
+        to: step.id,
+        kind: 'dependsOn',
+        ...(evidenceRef ? { evidenceRef } : {}),
+      });
     }
   }
   return graph;

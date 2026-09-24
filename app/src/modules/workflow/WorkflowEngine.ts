@@ -34,6 +34,7 @@ import { TaskDependencyService, TaskRegistry } from '@modules/tasks';
 
 import { WorkflowError } from './WorkflowError';
 import { WorkflowStepLedger } from './WorkflowStepLedger';
+import { attributeFailure } from './failureAttribution';
 import type {
   WorkflowDefinition,
   WorkflowExecuteOptions,
@@ -421,6 +422,19 @@ export class WorkflowEngine {
     // 先结算成员级账本（补齐未上报结束的步骤），再通知 run 结束——
     // 保证事件流中 run_end 恒为该 run 的最后一条
     stepLedger?.close(result.stopReason);
+    // P0-2（接线期②）：失败时做一次上游回溯，给出根因候选（成功路径不做任何额外计算）
+    const attribution = failedStep
+      ? attributeFailure({ runId, steps: ordered.steps, failedStep })
+      : undefined;
+    if (attribution) {
+      logger.info('失败归因完成', {
+        runId,
+        workflow: workflowName,
+        failedStep: attribution.failedStep,
+        candidateCount: attribution.candidates.length,
+        topCandidate: attribution.candidates[0]?.nodeId,
+      });
+    }
     this.notifyRunEnd(observer, {
       runId,
       workflow: workflowName,
@@ -429,6 +443,7 @@ export class WorkflowEngine {
       completedSteps: [...result.completedSteps],
       ...(failedStep ? { failedStep } : {}),
       ...(result.error ? { error: result.error } : {}),
+      ...(attribution ? { rootCauseCandidates: attribution.candidates } : {}),
       durationMs,
     });
 

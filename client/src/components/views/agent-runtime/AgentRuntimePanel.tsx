@@ -39,6 +39,25 @@ interface AgentRunItem {
   startedAt: number | null;
   endedAt: number | null;
   error: string | null;
+  /**
+   * 失败归因（接线期③ ③-A 落盘）：**仅未完成 run** 且有可归因对象时存在。
+   * 前端只消费 `failedNodeId` 与 `candidates`（`graph` 快照是审计用，不在面板渲染）。
+   */
+  attribution: AgentRunAttribution | null;
+}
+
+/** 归因载荷（与后端 `AgentRunAttribution` 的只读子集对齐） */
+interface AgentRunAttribution {
+  /** 归因起点（图中节点 id，如 `step:tu_1` / `run:...`） */
+  failedNodeId: string;
+  /** 根因候选（按因果强度降序） */
+  candidates: Array<{
+    nodeId: string;
+    kind: string;
+    distance: number;
+    score: number;
+    pathEvidenceRefs: string[];
+  }>;
 }
 
 /** 来源 → 中文标签（与解析链的四级回退同源） */
@@ -70,6 +89,34 @@ function statusIcon(status: string): string {
 /** 时间戳 → 本地时间（缺省显示占位符） */
 function formatTime(ts: number | null): string {
   return ts ? new Date(ts).toLocaleTimeString() : "—";
+}
+
+/**
+ * 归因行文案（接线期③ ③-A）：候选按因果强度降序列出 `nodeId(score)`。
+ *
+ * 无候选 ⇒ 显式写"无上游候选"（失败点没有已声明的上游），**不编造**结论（CS06）。
+ */
+function formatAttribution(attribution: AgentRunAttribution): string {
+  const list =
+    attribution.candidates.length === 0
+      ? "无上游候选"
+      : attribution.candidates
+          .map((c) => `${c.nodeId}(${c.score.toFixed(2)})`)
+          .join(" → ");
+  return `归因（起点 ${attribution.failedNodeId}）：${list}`;
+}
+
+/** 归因行悬浮明细：逐候选给出距离与证据引用，便于独立复核 */
+function attributionTooltip(attribution: AgentRunAttribution): string {
+  if (attribution.candidates.length === 0) {
+    return "失败点没有已声明的上游（无可归因对象）";
+  }
+  return attribution.candidates
+    .map(
+      (c) =>
+        `${c.nodeId}（${c.kind}，距失败点 ${c.distance}，证据 ${c.pathEvidenceRefs.join("、") || "—"}）`,
+    )
+    .join("\n");
 }
 
 interface AgentRuntimePanelProps {
@@ -162,45 +209,53 @@ export function AgentRuntimePanel({ isDark }: AgentRuntimePanelProps) {
           }`}
         >
           {runs.map((run) => (
-            <div
-              key={run.toolCallId}
-              className="flex items-center justify-between gap-3 px-3 py-2 text-xs"
-            >
-              <div className="flex items-center gap-2 min-w-0">
-                <span>{statusIcon(run.status)}</span>
-                <span
-                  className={`font-medium ${isDark ? "text-gray-200" : "text-gray-700"}`}
-                >
-                  {run.agentType}
-                </span>
-                <span
-                  className={`truncate ${isDark ? "text-gray-400" : "text-gray-500"}`}
-                >
-                  {run.name}
-                </span>
-                {run.batchId && (
+            <div key={run.toolCallId} className="px-3 py-2 text-xs">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span>{statusIcon(run.status)}</span>
                   <span
-                    className={`px-1.5 py-0.5 rounded ${
-                      isDark
-                        ? "bg-gray-700 text-gray-400"
-                        : "bg-gray-100 text-gray-500"
-                    }`}
+                    className={`font-medium ${isDark ? "text-gray-200" : "text-gray-700"}`}
                   >
-                    批次任务 {run.taskKey ?? "-"}
+                    {run.agentType}
                   </span>
-                )}
+                  <span
+                    className={`truncate ${isDark ? "text-gray-400" : "text-gray-500"}`}
+                  >
+                    {run.name}
+                  </span>
+                  {run.batchId && (
+                    <span
+                      className={`px-1.5 py-0.5 rounded ${
+                        isDark
+                          ? "bg-gray-700 text-gray-400"
+                          : "bg-gray-100 text-gray-500"
+                      }`}
+                    >
+                      批次任务 {run.taskKey ?? "-"}
+                    </span>
+                  )}
+                </div>
+                <div
+                  className={`flex items-center gap-3 flex-shrink-0 ${isDark ? "text-gray-400" : "text-gray-500"}`}
+                >
+                  <span title="描述符来源：Agent 配置 / 运行时注册 / 内置 / 默认">
+                    {run.descriptorSource
+                      ? (DESCRIPTOR_SOURCE_LABELS[run.descriptorSource] ??
+                        run.descriptorSource)
+                      : "—"}
+                  </span>
+                  <span>{formatTime(run.startedAt)}</span>
+                </div>
               </div>
-              <div
-                className={`flex items-center gap-3 flex-shrink-0 ${isDark ? "text-gray-400" : "text-gray-500"}`}
-              >
-                <span title="描述符来源：Agent 配置 / 运行时注册 / 内置 / 默认">
-                  {run.descriptorSource
-                    ? (DESCRIPTOR_SOURCE_LABELS[run.descriptorSource] ??
-                      run.descriptorSource)
-                    : "—"}
-                </span>
-                <span>{formatTime(run.startedAt)}</span>
-              </div>
+              {/* 失败归因（接线期③ ③-A）：仅未完成 run 且可归因时出现 */}
+              {run.attribution && (
+                <div
+                  className={`mt-1 truncate ${isDark ? "text-amber-300" : "text-amber-700"}`}
+                  title={attributionTooltip(run.attribution)}
+                >
+                  {formatAttribution(run.attribution)}
+                </div>
+              )}
             </div>
           ))}
         </div>

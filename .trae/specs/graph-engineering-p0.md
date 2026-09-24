@@ -517,3 +517,38 @@ run:<runId> --dependsOn--> step:<tu₁> --dependsOn--> step:<tu₂> --> …
 | 后台路径结算 | 与前台同一 run id ⇒ 前台已带归因落盘（终态幂等 ⇒ 后写被丢弃） |
 
 **验证**：`bun run typecheck` 0 / `bun run lint:arch` **0 错 0 警** / 全量 `bun test` **3548 pass / 19 skip / 0 fail [73.63s]**（与接线前同数 ⇒ 引擎未给归因时该路径**行为中性**）。
+
+### 7.9 前端渲染 attribution（2026-09-24）
+
+**消费方（早就存在）**：`client/src/components/views/agent-runtime/AgentRuntimePanel.tsx` ——
+「Agent 运行态面板」，读 `/v1/agents/control`（此刻谁在跑）+ `/v1/agents/runs`（刚跑完的结果与来源）。
+
+**改动（1 改 1 增）**
+
+| 文件 | 类型 | 内容 |
+|---|---|---|
+| `client/src/components/views/agent-runtime/AgentRuntimePanel.tsx` | 修改 | `AgentRunItem` 增 `attribution`（**只声明确实消费的字段**：`failedNodeId` + `candidates`，`graph` 快照不渲染）；新增 `formatAttribution` / `attributionTooltip`；行改为包裹层 + 条件归因行 |
+| `client/src/tests/agent-runtime-panel.test.tsx` | 新增 | 4 例渲染断言 |
+
+**渲染口径**
+
+- **仅在 `attribution` 存在时**多渲染一行（即"未完成且可归因"的 run），完成态**视觉完全不变**；
+- 文案：`归因（起点 step:tu_2）：step:tu_1(1.00) → architect(0.20)`（按 `score` 降序，两位小数）；
+- 悬浮明细：逐候选给出 `kind`、距失败点距离、证据引用（`tool_use:…` / `agent_run:…`），便于独立复核；
+- **候选为空** ⇒ 明示 `无上游候选`（失败点没有已声明的上游），**不编造**结论（CS06）；
+- 取色 `amber-700`（浅）/ `amber-300`（深），避开 10px 小字的对比度下限问题（P1-3 §12.4 的既有教训）。
+
+**验证**
+
+| 检查 | 结果 |
+|---|---|
+| client `tsc --noEmit` | 0 error |
+| `bunx vitest run src/tests/agent-runtime-panel.test.tsx` | **4 pass**（带归因渲染 / 完成态不渲染 / 空候选明示 / 多行仅命中带归因那行） |
+| `bun run test`（client 全量 vitest） | **41 文件全通过**（较前 +1 = 本文件） |
+| `eslint`（本批 2 文件） | 0 问题 |
+| app 侧 | **未改动** ⇒ 未重跑 app 全量 |
+
+**未做（诚实记录）**
+
+1. **未做浏览器走查**：该面板需「后端已起 + 通过鉴权 + `agent_runs` 内有失败行」，起整套环境的成本高于本次 1 处渲染改动的风险；改用 `vitest + jsdom` 的渲染断言覆盖（含布局分支：行包裹层在无归因时渲染结果不变）。若需实机走查可另行安排。
+2. `graph` 快照（节点/边全量）**不在面板渲染**（属审计用数据，面板只呈现结论）。

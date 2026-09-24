@@ -230,12 +230,22 @@ export class MessagesApiTransport extends BaseTransport {
       body.tools = tools;
     }
 
-    if (params.temperature !== undefined && params.temperature > 0) {
+    // N-55 修复（2026-09-24）：原条件为 `> 0` ⇒ `temperature: 0`（要求确定性输出）被**静默丢弃**、
+    // 实际按 API 默认 1.0 处理。改为仅判 `undefined`（不传 = 用 API 默认；传 0 = 真的是 0）。
+    if (params.temperature !== undefined) {
       body.temperature = params.temperature;
     }
 
     if (params.stopSequences?.length) {
       body.stop_sequences = params.stopSequences;
+    }
+
+    // N-55 修复（2026-09-24）：`stream` 此前**从未下发** ⇒ Messages API 默认 `stream:false`
+    // 返回**非流式 JSON**，而 AnthropicProvider.chatStreamInternal 按 **SSE** 逐行解析
+    // ⇒ 流式链路拿不到任何事件。同族 4 处实现早已消费该字段（BedrockTransport /
+    // ChatCompletionsTransport / OllamaTransport / TransportProviderAdapter），此处对齐。
+    if (params.stream) {
+      body.stream = true;
     }
 
     return body;

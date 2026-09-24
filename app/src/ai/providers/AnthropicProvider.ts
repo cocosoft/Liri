@@ -27,9 +27,13 @@ import { ALL_MODEL_CONFIGS, getModelsByProvider } from '../models/ModelConfigs';
 const logger = getLogger('ai:anthropic');
 
 const BETA_HEADERS = {
-  PROMPT_CACHING: 'prompt-caching-2024-07-24',
   STRUCTURED_OUTPUTS: 'structured-outputs-2024-08-01',
 } as const;
+// N-55（2026-09-24）：原 `PROMPT_CACHING: 'prompt-caching-2024-07-24'` 属**过时残留**——
+// 全仓零使用点（该 beta 头从未被发送），且其取值与官方 beta 头名（`prompt-caching-2024-07-31`）也不符。
+// 依据官方：prompt caching 自 **2024-12-17 起 Generally Available**，现行文档的启用方式只用
+// `cache_control`（自动或显式断点）、**不再需要 `anthropic-beta` 头** ⇒ 移除该常量，
+// 避免后人误以为"没发这个头所以缓存没生效"。
 
 export class AnthropicProvider extends BaseAIProvider {
   private config: LLMConfig;

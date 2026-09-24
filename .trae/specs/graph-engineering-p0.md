@@ -354,3 +354,63 @@ office:workflow → engine.execute + createRunRecordCollector
 
 1. **跨端一致性无自动守卫**：P1-3 spec（`workflow-run-record.md:154`）称存在守卫 `EventSchemaConsistency.test.ts`，但**本仓不存在该文件**（见台账）。当前两端一致性靠人工镜像 + 双端 `typecheck` 保障 ⇒ 存在静默漂移风险（P1-3 V-6 同型事故）。已在台账登记。
 2. **未做浏览器走查**：派生块复用既有 `status` 渲染，未在真实会话内实跑一次 `office:workflow` 观察落盘与回放（P1-3 曾做同类走查）。
+
+### 7.5 接线期③ 实施记录：按 `assignedTo` 边分配（2026-09-24）
+
+**改动清单（3 文件）**
+
+| 文件 | 类型 | 内容 |
+|---|---|---|
+| `app/src/agent/registry/AgentRegistry.ts` | 修改 | 新增 `AgentAssignmentTarget` / `AgentAssignment` / `AgentAssignmentResult` 三类型 + `assignAgentsByGraph(targets, sessionId?)` + 模块级 `buildAssignmentGraph()` / `toAgentLike()` |
+| `app/src/core/systemgraph/types.ts` | 修改 | **修正文档**：原文写 `AgentDefinition` "天然满足" `AgentLike`，实际字段名不同（`agentId` vs `id`）⇒ 已改为"需一次映射（见 `AgentRegistry.toAgentLike`）" |
+| `app/tests/agent/agentAssignment.test.ts` | 新增 | 7 例（见下） |
+
+**方向判定（依据既有契约，非自行发明）**
+
+`core/systemgraph/types.ts:11-18` 的全局方向约定：**所有边 `from` 是因 → `to` 是果**，其中
+`assignedTo`：`from` = **执行者(agent)**，`to` = **被指派的任务**。另 `EDGE_CAUSAL_WEIGHT.assignedTo = 0.2`
+的括注为"指派关系，弱因果（**执行者存在**不代表结论有误）"—— 二者一致指向同一方向。
+
+⇒ 于是对失败任务调 `graph.findRootCauseCandidates(taskId)` **恒能**把参与该任务的 agent 列为候选
+（这正是"按 `assignedTo` 边分配"的落地价值）。
+
+**设计决策**
+
+| # | 决策 | 理由 |
+|---|---|---|
+| F-a | 筛选/排序/缓存**全部复用 `discoverAgents()`** | CS01 归一化：不另建一套匹配实现；候选池与直接调用 `discoverAgents()` **逐条一致**（已用测试固化） |
+| F-b | 只把**被选中**的 agent 入图 | 未参与分配的 agent 入图只会产生与分配无关的孤立节点（噪声），对根因回溯无贡献 |
+| F-c | agent 节点形状复用 `projectAgentGraph` | 不抄第二份节点构造；core 保持领域无关 ⇒ 领域侧做一次 `agentId → id` 映射（`toAgentLike`） |
+| F-d | `evidenceRef = agent_registry:<agentId>` | 让"为什么把这条边算作证据"可独立复核：它由注册表里那条 agent 记录支撑 |
+| F-e | **零副作用**、不改既有调用方 | 不修改注册表状态；`discoverAgents()` 签名与行为未动 ⇒ `CouncilOrchestrator` 等既有消费方行为不变 |
+| F-f | 无候选 ⇒ `agentIds: []` 且不建边 | 不虚构占位 agent（CS06）；图里只有 task 节点 |
+
+**验证**
+
+| 检查 | 结果 |
+|---|---|
+| `bun run typecheck` | 0 error |
+| `bun run lint:arch` | R03-002 `0 处`；分层 `3665 文件 / 违规 0`；**错误 0 / 警告 0** |
+| `bun run lint:size` | **0 错误** |
+| `bun test tests/agent/agentAssignment.test.ts` | **7 pass / 0 fail** |
+| 用例覆盖 | 候选与 `discoverAgents` 逐条一致 · 优先级降序 + `limit` · `minPriority`/`capability` · 无候选不虚构 · **`assignedTo` 方向 + `findRootCauseCandidates` 回溯（`score=0.2`、`evidenceRef='agent_registry:arch'`）** · 同 agent 多目标任务节点唯一 · 空目标集 |
+| 全量 `bun test` | **3539 pass / 19 skip / 0 fail / Ran 3558 tests across 346 files [73.72s]** |
+| `bun test tests/agent tests/tools/AgentTool` | **168 pass / 0 fail**（同进程定向复现，见下） |
+
+**实施中发现：新增测试污染了全局单例（已修，并另立台账）**
+
+`AgentRegistry` 是**全局单例**，本文件注册的 fixture agent（`market` / `arch` / `legal`，其中 `role='tech_architect'`）
+在同进程内**泄漏**给后续测试文件 ⇒ 全量首次运行 **1 fail**：`tests/tools/AgentTool/subagentTypeSchema.test.ts:82`
+的 `expect(...).not.toContain('architect')` 命中了泄漏进来的 `tech_architect`。
+
+- **已修我方一侧**：新增测试补 `afterAll(() => AgentRegistry.resetInstance())`（含原因注释）。
+  定向复现 `bun test tests/agent tests/tools/AgentTool`（与全量同序）⇒ 168 pass / 0 fail。
+- **同时登记台账**：该断言**口径过宽**（作用于整段描述文本，而 `(runtime registered)` 段来自全局注册表），
+  且 `CouncilOrchestrator.DEFAULT_AGENTS[0].agentId = 'architect'` 是**独立于本次改动**的潜在触发源
+  ⇒ 属顺序敏感地雷（未擅自改该文件，理由见台账）。
+
+**未做（诚实记录）**
+
+1. **本入口当前无生产调用方** —— 与第一刀的 `DocWorkflowProvider` 同类：`assignedTo` 边目前只在测试中产生。**接入点属产品决策**（哪个链路真的需要"任务失败 → 参与 agent"回溯？候选：`TaskSwarm`、`PlanDrivenLoop`、`CouncilOrchestrator`），未擅自接线。
+2. **`capabilities` 升级为"带约束描述"（P1-2）未做** —— spec §2.4 把二者写在同一行，但 P1-2 属下一优先级的范围，本轮只做 `assignedTo` 分配。
+3. 未把分配结果落盘 / 前端展示（当前仅返回内存图 + 分配结果）。

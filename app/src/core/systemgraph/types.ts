@@ -80,7 +80,13 @@ export interface TaskStepLike {
   dependsOn?: readonly string[];
 }
 
-/** 智能体侧**结构化**入参（`AgentDefinition` 天然满足） */
+/**
+ * 智能体侧**结构化**入参。
+ *
+ * **注意**：`agent/registry` 的 `AgentDefinition` 用 `agentId` 而非 `id`，**不**直接
+ * 满足本接口 ⇒ 领域侧需一次 `agentId → id` 映射（见 `AgentRegistry.toAgentLike`）。
+ * core 保持领域无关，不迁就业务字段名。
+ */
 export interface AgentLike {
   id: string;
   role?: string;

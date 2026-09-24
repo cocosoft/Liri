@@ -5,7 +5,13 @@
  * （另含 tools 末个与 system 稳定块），而本仓自述 Anthropic 硬上限为 **4**
  * （`ai/clients/PromptCacheConfig.ts:9`："超限请求会被拒绝"）。
  *
- * 「修复前必失败」：20 条工具结果的历史 ⇒ 修复前断点数 = 22（> 4）；修复后恒 ≤ 3。
+ * **O2-3 接线后的语义（2026-09-24 晚，用户裁定"启用编排层"）**：位置与预算统一由
+ * `PromptCacheConfig.calculateBreakpoints()` 决定 —— **末尾锚定**（自最后一条消息往前每
+ * `breakpointInterval` 一条，至预算用尽）⇒ 默认配置（`system_and_3` / 3 / 4）下为
+ * `system + tools + 末尾 + 末尾-3` = **恒 ≤ 4**，且**短会话同样有末尾断点**（见用例 3）。
+ *
+ * 「修复前必失败」：20 条工具结果的历史 ⇒ 修复前断点数 = 22（> 4）；N-1 后恒 ≤ 3；
+ * 接线后恒 ≤ 4（末尾锚定 + 阶梯）。
  */
 
 import { describe, it, expect } from 'bun:test';
@@ -20,7 +26,11 @@ function countBreakpoints(body: Record<string, unknown>): number {
 }
 
 function toolMessage(index: number): Record<string, unknown> {
-  return { role: 'tool', content: `result-${index}`, tool_call_id: `tu_${index}` };
+  return {
+    role: 'tool',
+    content: `result-${index}`,
+    tool_call_id: `tu_${index}`,
+  };
 }
 
 function buildBody(
@@ -60,8 +70,8 @@ describe('N-1：cache_control 断点数恒 ≤ 4（不随历史增长）', () =>
     const count = countBreakpoints(body);
 
     expect(count).toBeLessThanOrEqual(4);
-    // system 稳定块 + tools 末个 + 最后一个 tool_result 各 1
-    expect(count).toBe(3);
+    // O2-3 接线后：system 稳定块 + tools 末个 + 末尾锚定的两个 message 断点（@末 与 @末-3）
+    expect(count).toBe(4);
   });
 
   it('只有最后一个 tool_result 带断点（前序工具结果不带）', () => {
@@ -73,7 +83,11 @@ describe('N-1：cache_control 断点数恒 ≤ 4（不随历史增长）', () =>
     ]);
     const messages = body.messages as Array<{
       role: string;
-      content: Array<{ type: string; tool_use_id?: string; cache_control?: unknown }>;
+      content: Array<{
+        type: string;
+        tool_use_id?: string;
+        cache_control?: unknown;
+      }>;
     }>;
 
     const toolBlocks = messages
@@ -92,9 +106,11 @@ describe('N-1：cache_control 断点数恒 ≤ 4（不随历史增长）', () =>
     ]);
   });
 
-  it('无工具结果 ⇒ 仅 system + tools 两个断点', () => {
+  it('无工具结果 ⇒ system + tools + **末尾 message** 三个断点', () => {
     const body = buildBody([SYSTEM, { role: 'user', content: '你好' }]);
-    expect(countBreakpoints(body)).toBe(2);
+    // O2-3 接线后：末尾锚定 ⇒ 即使没有任何 tool_result，末尾也必须有断点
+    // （原实现只看 `lastToolMessageIndex` ⇒ 此种请求 message 层零断点、末尾永不进缓存）
+    expect(countBreakpoints(body)).toBe(3);
   });
 
   it('关闭缓存（enableCaching=false）⇒ 零断点', () => {

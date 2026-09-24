@@ -10,6 +10,13 @@
 
 import { BaseTransport } from './BaseTransport';
 import { CACHE_BOUNDARY } from '@modules/constants/systemPromptSections';
+import {
+  DEFAULT_CACHE_CONFIG,
+  STRATEGY_SPEC,
+  assertBreakpointInvariants,
+  calculateBreakpoints,
+} from '../clients/PromptCacheConfig';
+import type { PromptCacheConfig } from '../clients/PromptCacheConfig';
 import type {
   NormalizedResponse,
   NormalizedToolCall,
@@ -80,19 +87,14 @@ export class MessagesApiTransport extends BaseTransport {
   ): MessagesAPIMessage[] {
     const result: MessagesAPIMessage[] = [];
 
-    // N-1 修复（2026-09-24）：`cache_control` **只加在最后一个 `tool_result`** 上。
+    // N-1 修复（2026-09-24）：`cache_control` **不得随会话历史线性增长**。
     //
     // 修复前每个 `tool_result` 块都注入断点 ⇒ 断点数 ≈ `#tool_result + 2`（另含 tools 末个与
-    // system 稳定块），**随会话历史线性增长**，超过本仓自述的 Anthropic 硬上限 4
-    // （`ai/clients/PromptCacheConfig.ts:9`："超限请求会被拒绝"）。
-    // Anthropic 的推荐是"断点放在缓存前缀的末尾" ⇒ 保留末尾一个即可，总数恒 ≤ 3。
-    let lastToolMessageIndex = -1;
-    for (let i = messages.length - 1; i >= 0; i--) {
-      if (messages[i]?.role === 'tool') {
-        lastToolMessageIndex = i;
-        break;
-      }
-    }
+    // system 稳定块），超过本仓自述的 Anthropic 硬上限 4（`ai/clients/PromptCacheConfig.ts:9`）。
+    //
+    // O2-3 接线（2026-09-24 晚，用户裁定"启用编排层"）：断点的**位置与预算不再由本文件决定**，
+    // 统一收敛到 `PromptCacheConfig.calculateBreakpoints()`（末尾锚定 + 预算 + 不变量断言）
+    // —— 见本类 `applyMessageBreakpoints()`。此处只负责按输入构造块。
 
     for (let i = 0; i < messages.length; i++) {
       const m = messages[i]!;
@@ -129,11 +131,6 @@ export class MessagesApiTransport extends BaseTransport {
           type: 'tool_result',
           tool_use_id: m.tool_call_id || '',
           content: m.content ?? '',
-          // 仅最后一个 tool_result 打断点（见 convertMessages 顶部注释）
-          cache_control:
-            this.enableCaching && i === lastToolMessageIndex
-              ? { type: 'ephemeral' }
-              : undefined,
         });
       }
 
@@ -144,7 +141,51 @@ export class MessagesApiTransport extends BaseTransport {
       }
     }
 
+    if (this.cachingEnabled) {
+      this.applyMessageBreakpoints(result);
+    }
+
     return result;
+  }
+
+  /**
+   * 编排配置（唯一事实来源 = `PromptCacheConfig`；transport 不再自行决定断点位置）。
+   * 与 `enableCaching` 同惯例设为可变字段，便于按部署 / 测试切换策略。
+   */
+  cacheConfig: PromptCacheConfig = DEFAULT_CACHE_CONFIG;
+
+  /** 缓存是否生效（总开关 `enableCaching` × 策略非 `none` 的双重门） */
+  private get cachingEnabled(): boolean {
+    return this.enableCaching && this.cacheConfig.strategy !== 'none';
+  }
+
+  /**
+   * 编排 message 层断点：**位置由 `calculateBreakpoints()` 决定**（末尾锚定 —— 自最后一条
+   * 消息往前每步长一条，至预算用尽），本方法只负责"落到该消息的哪个块"。
+   *
+   * 为什么必须末尾锚定：Anthropic 对多轮会话的推荐是断点覆盖**缓存前缀的末尾**；而原
+   * `calculateBreakpoints` 自 `i=0` 每 N 条放置，长会话下末尾无断点（实测转换后 61 条消息
+   * 时落在 `[2,5]`）⇒ 最后一段永不进缓存，比不接线更差。
+   *
+   * 块类型限制：只落在 `text` / `tool_result` 上 —— `tool_use` 块在本文件未声明
+   * `cache_control` 字段，且"`tool_use` 是否接受 `cache_control`"未经官方确认（不臆断）
+   * ⇒ 在该消息内自后往前找最近的可加块；找不到则跳过该断点（不静默改语义）。
+   */
+  private applyMessageBreakpoints(result: MessagesAPIMessage[]): void {
+    const breakpoints = calculateBreakpoints(result.length, this.cacheConfig);
+    assertBreakpointInvariants(breakpoints, this.cacheConfig.maxBreakpoints);
+    for (const bp of breakpoints) {
+      if (bp.type !== 'message') continue;
+      const blocks = result[bp.index]?.content;
+      if (!blocks) continue;
+      for (let i = blocks.length - 1; i >= 0; i--) {
+        const block = blocks[i]!;
+        if (block.type === 'text' || block.type === 'tool_result') {
+          block.cache_control = { type: 'ephemeral' };
+          break;
+        }
+      }
+    }
   }
 
   convertTools(
@@ -162,7 +203,9 @@ export class MessagesApiTransport extends BaseTransport {
         properties: (t.parameters.properties as Record<string, unknown>) || {},
         required: (t.parameters.required as string[]) || [],
       },
-      ...(this.enableCaching && i === tools.length - 1
+      ...(this.cachingEnabled &&
+      STRATEGY_SPEC[this.cacheConfig.strategy].placesToolsBreakpoint &&
+      i === tools.length - 1
         ? { cache_control: { type: 'ephemeral' as const } }
         : {}),
     }));
@@ -184,7 +227,7 @@ export class MessagesApiTransport extends BaseTransport {
       .filter((m) => m.role === 'system' && m.content)
       .flatMap((m) => {
         const text = m.content!;
-        const boundaryIdx = this.enableCaching
+        const boundaryIdx = this.cachingEnabled
           ? text.indexOf(CACHE_BOUNDARY)
           : -1;
         if (boundaryIdx < 0) {
@@ -192,7 +235,7 @@ export class MessagesApiTransport extends BaseTransport {
             {
               type: 'text',
               text,
-              ...(this.enableCaching
+              ...(this.cachingEnabled
                 ? { cache_control: { type: 'ephemeral' as const } }
                 : {}),
             },

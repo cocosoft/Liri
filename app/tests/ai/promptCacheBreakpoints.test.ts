@@ -6,6 +6,7 @@
  *  - 断点数：默认配置 + 大量消息原实现产出 5 个（tools 断点游离于预算之外）
  *  - 校验：非法配置原实现静默返回，不抛错
  *  - `system_and_6`：原实现与 `system_and_3` 行为完全等价（死逻辑）
+ *  - 末尾锚定（2026-09-24 晚接线）：断点须覆盖**缓存前缀末尾** ⇒ 自末尾往前按步长阶梯
  *  - 纯函数性：原实现同参连续两次调用返回 true→false（判断内写状态）
  *  - 语义角色：原实现签名只有下标，无法表达"role=system 即前缀起点"
  */
@@ -70,9 +71,12 @@ describe('提示缓存断点预算与校验（二期 O2-3）', () => {
     });
     const idx = (bps: typeof and3): number[] =>
       bps.filter((b) => b.type === 'message').map((b) => b.index);
-    // 修复前：两者 indentical（前者 %3、后者 %3∪%6 恒等价）⇒ 失败
-    expect(idx(and3)).toEqual([2, 5]);
-    expect(idx(and6)).toEqual([5, 11]);
+    // 修复前：两者 identical（前者 %3、后者 %3∪%6 恒等价）⇒ 失败
+    // O2-3 接线后（末尾锚定）：自 messageCount-1 起往前每步长一条，至额度用尽 ⇒
+    //   system_and_3（步长 3）⇒ [16, 19]；system_and_6（步长 6）⇒ [13, 19]
+    //   两者**末尾均为 19**（末尾必被覆盖），但阶梯不同 ⇒ 仍可区分
+    expect(idx(and3)).toEqual([16, 19]);
+    expect(idx(and6)).toEqual([13, 19]);
     expect(idx(and6)).not.toEqual(idx(and3));
   });
 

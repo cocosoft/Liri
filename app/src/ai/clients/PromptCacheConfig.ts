@@ -49,6 +49,32 @@ export const DEFAULT_CACHE_CONFIG: PromptCacheConfig = {
 };
 
 /**
+ * 策略规格。
+ *
+ * **漂移门**（对标 deepseek-harness `COMPLETIONS_COMPAT_GATE` 的
+ * `as const satisfies Record<keyof …, …>` 手法）：新增 `CacheStrategy` 成员时，
+ * 若不在此显式分类则**编译失败并指名该成员** —— 杜绝"枚举里有、实现里没有"的漂移
+ * （O2-3 要点 2 修的 `system_and_6` 正是这类漂移）。
+ */
+export interface CacheStrategySpec {
+  /** 是否放 `tools` 固定断点 */
+  placesToolsBreakpoint: boolean;
+  /** 是否放 message 断点 */
+  placesMessageBreakpoints: boolean;
+}
+
+/** 每个策略的实现分类（穷尽：缺失/多余成员一律 `tsc` 报错） */
+export const STRATEGY_SPEC = {
+  system_and_3: { placesToolsBreakpoint: true, placesMessageBreakpoints: true },
+  system_and_6: { placesToolsBreakpoint: true, placesMessageBreakpoints: true },
+  system_only: {
+    placesToolsBreakpoint: false,
+    placesMessageBreakpoints: false,
+  },
+  none: { placesToolsBreakpoint: false, placesMessageBreakpoints: false },
+} as const satisfies Record<CacheStrategy, CacheStrategySpec>;
+
+/**
  * 配置合法性校验（O2-3 要点 2）：非法配置**直接抛错**，不再静默走默认分支。
  *
  * 对标 deepseek-harness `validateToolOrder` 的"白名单 + 抛错"手法。
@@ -142,6 +168,13 @@ export function assertBreakpointInvariants(
  *     （策略名即间隔；`breakpointInterval` 仅作用于 `system_and_3`）。
  *  3. **配置校验 + 不变量断言**：非法配置抛错；返回前自检结构不变量。
  *
+ * O2-3 接线（2026-09-24 晚，用户裁定"启用编排层"）**语义修正 —— 末尾锚定**：
+ * 原实现自 `i=0` 每 N 条放一个断点，额度用尽即停 ⇒ **长会话的末尾没有断点**
+ * （实测：转换后 61 条消息时落在 `[2,5]`，末尾 @60 无断点）。
+ * 而 Anthropic 对多轮会话的推荐是"断点覆盖**缓存前缀的末尾**"（自动缓存即"最后一个可缓存块"）
+ * ⇒ 末尾无断点意味着**最后一段永远进不了缓存**，反而比不接线更差。
+ * 现改为**自末尾往前**每步长取一个，至额度用尽（返回前按升序排列，满足递增不变量）。
+ *
  * @param messageCount 消息总数
  * @param config 缓存配置
  * @returns 缓存断点位置数组（长度 ≤ `maxBreakpoints`）
@@ -156,24 +189,34 @@ export function calculateBreakpoints(
 
   assertValidCacheConfig(config);
 
+  const spec = STRATEGY_SPEC[config.strategy];
   const breakpoints: CacheBreakpoint[] = [{ type: 'system', index: 0 }];
 
-  if (config.strategy === 'system_only') {
+  if (!spec.placesToolsBreakpoint) {
+    assertBreakpointInvariants(breakpoints, config.maxBreakpoints);
     return breakpoints;
   }
 
   // 固定断点先占位（O2-3 要点 1）：tools 也计入预算
   breakpoints.push({ type: 'tools', index: 0 });
 
-  let remaining = config.maxBreakpoints - breakpoints.length;
-  // `system_and_6` 的间隔即其名字（6）；`system_and_3` 用配置项（默认 3）
-  const interval =
-    config.strategy === 'system_and_6' ? 6 : config.breakpointInterval;
+  if (spec.placesMessageBreakpoints) {
+    const remaining = config.maxBreakpoints - breakpoints.length;
+    // `system_and_6` 的间隔即其名字（6）；`system_and_3` 用配置项（默认 3）
+    const step =
+      config.strategy === 'system_and_6' ? 6 : config.breakpointInterval;
 
-  for (let i = 0; i < messageCount && remaining > 0; i++) {
-    if ((i + 1) % interval === 0) {
-      breakpoints.push({ type: 'message', index: i });
-      remaining--;
+    const messageIndexes: number[] = [];
+    for (
+      let idx = messageCount - 1;
+      idx >= 0 && messageIndexes.length < remaining;
+      idx -= step
+    ) {
+      messageIndexes.push(idx);
+    }
+    // 末尾锚定是"自后往前"取 ⇒ 反转成升序，满足 `assertBreakpointInvariants` 的递增要求
+    for (const idx of messageIndexes.reverse()) {
+      breakpoints.push({ type: 'message', index: idx });
     }
   }
 

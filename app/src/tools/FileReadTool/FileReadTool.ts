@@ -469,6 +469,7 @@ export class FileReadTool extends BaseTool {
 
       // 源头截断：限制转换结果进入上下文的体积，避免大文本 tokenize + 高内存 GC 停顿导致事件循环阻塞
       const markdown = truncateConvertOutput(fullMarkdown);
+      const totalLines = fullMarkdown.split('\n').length;
 
       return createToolResult(markdown, {
         success: true,
@@ -476,8 +477,13 @@ export class FileReadTool extends BaseTool {
         newMessages: [
           {
             role: 'system',
-            content: `文件 [${filePath}] 为二进制格式，已自动转换为 Markdown${
-              markdown !== result.markdown ? '（内容过长已截断）' : ''
+            // 2026-09-24：让实现兑现上方 truncateConvertOutput 注释的承诺 —— 被截断时
+            // 明确给出「共 N 行 + 可用 offset/limit 取回」，此前只写「（内容过长已截断）」、
+            // 无任何取回路径（同族缺口见台账 N-54：file_convert 因此让模型改用外部脚本绕行）。
+            content: `文件 [${filePath}] 为二进制格式，已自动转换为 Markdown（共 ${totalLines} 行）${
+              markdown !== fullMarkdown
+                ? '；内容过长已截断（仅保留头尾，中段丢弃），可用 offset/limit 分段读取完整内容'
+                : ''
             }`,
           },
         ],

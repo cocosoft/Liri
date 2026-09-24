@@ -13,10 +13,81 @@ import type {
 import { createToolResult } from '../types/ToolResult';
 import { getConverterEngine } from '../../tools/converter/engine/ConverterEngine';
 import { FileTypeDetector } from '../../tools/converter/engine/FileTypeDetector';
-import { truncateToolResult } from '@modules/query';
+import { truncateToolResult, MAX_TOOL_RESULT_CHARS } from '@modules/query';
 
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('tools:FileConvertTool:FileConvertTool');
+
+/**
+ * 整形 `file_convert`（target_format=md）的返回：分段取回 + 源头截断 + 面向模型的取回指引。
+ *
+ * 2026-09-24 修复（台账 N-54 缺口 G-A/G-B）：此前 md 结果一旦超过工具结果上限即被
+ * "头尾截断"，而 `newMessages` 只说"转换完成"、入参里也没有 offset/limit ⇒
+ * 模型虽能从正文中间的标记看到截断，却**无法取回中段**，只能自建外部脚本
+ * （python/pdfplumber）绕行（实机会话已验证）。
+ * 现与 `file_read` 的 offset/limit **行语义对齐**（CS01：复用既有语义，不新造分页协议）。
+ *
+ * 分段模式**按上限收敛到整行**（不是"先切后截"）：真实 PDF 各页长度差异极大（实测 64 页
+ * 用例中按平均行长推算的 limit 仍让 11 段里的 4 段超限），让模型猜一个安全 limit 只会白跑
+ * 一轮；这里直接返回"装得下的整行 + 下一段起点"，模型无需猜数。
+ */
+export function shapeMarkdownResult(
+  fullMarkdown: string,
+  filePath: string,
+  offset?: number,
+  limit?: number
+): { markdown: string; message: string } {
+  const lines = fullMarkdown.split('\n');
+  const totalLines = lines.length;
+
+  if (offset !== undefined || limit !== undefined) {
+    const startIdx = Math.max(0, (offset ?? 1) - 1);
+    const requested = limit ?? totalLines;
+    let endIdx = startIdx;
+    let chars = 0;
+    while (endIdx < totalLines && endIdx - startIdx < requested) {
+      const add = lines[endIdx].length + (endIdx > startIdx ? 1 : 0);
+      if (chars + add > MAX_TOOL_RESULT_CHARS) break;
+      chars += add;
+      endIdx++;
+    }
+    // 单行本身即超上限：至少返回该行（由 truncateToolResult 截断），否则原地空转
+    if (endIdx === startIdx && startIdx < totalLines) endIdx = startIdx + 1;
+
+    const raw = lines.slice(startIdx, endIdx).join('\n');
+    const markdown = truncateToolResult(raw);
+    const startLine = startIdx + 1;
+    const range =
+      startIdx >= totalLines
+        ? `，offset=${startLine} 超出范围（全文共 ${totalLines} 行，本次无内容返回）`
+        : `，当前返回第 ${startLine}-${endIdx} 行` +
+          (markdown !== raw ? '（单行超过上限，已截断）' : '') +
+          (endIdx < totalLines
+            ? `，可继续用 offset=${endIdx + 1} 读取后续段落`
+            : '');
+    return {
+      markdown,
+      message: `转换完成: ${filePath} → Markdown（共 ${totalLines} 行）${range}`,
+    };
+  }
+
+  const markdown = truncateToolResult(fullMarkdown);
+  if (markdown === fullMarkdown) {
+    return {
+      markdown,
+      message: `转换完成: ${filePath} → Markdown（共 ${totalLines} 行）`,
+    };
+  }
+
+  return {
+    markdown,
+    message:
+      `转换完成: ${filePath} → Markdown（共 ${totalLines} 行 / ${fullMarkdown.length} 字符）` +
+      `——内容过长，已截断（仅保留头尾，中段丢弃）。` +
+      `如需完整正文，请用 offset/limit 分段读取（如 offset=1），` +
+      `工具会按上限自动返回整行并给出下一段起点。`,
+  };
+}
 
 export class FileConvertTool extends BaseTool {
   override readonly name = 'file_convert';
@@ -48,6 +119,20 @@ export class FileConvertTool extends BaseTool {
         'Target format: md (default, returns Markdown text) or docx (converts locally to .docx file in output dir, no model tokens)',
       required: false,
       default: 'md',
+    },
+    {
+      name: 'offset',
+      type: 'number',
+      description:
+        'Start line number (1-based) for segmented Markdown output; only applies when target_format=md. Use it to retrieve the middle/rest of a result that was reported as truncated.',
+      required: false,
+    },
+    {
+      name: 'limit',
+      type: 'number',
+      description:
+        'Maximum number of lines to return for segmented Markdown output; only applies when target_format=md.',
+      required: false,
     },
   ];
   override readonly aliases = ['convert', 'md'];
@@ -134,10 +219,8 @@ export class FileConvertTool extends BaseTool {
         });
       }
 
-      // 源头截断：docx 等大文件转换结果可达 800KB+，直接进上下文/持久化
-      // 会推高内存峰值触发 GC 停摆（事件循环阻塞 70s → 任务中断）。
-      // 此处截断后，API 消息与 messages.jsonl 持久化均为小结果。
-      const markdown = truncateToolResult(result.markdown);
+      const offset = input.offset as number | undefined;
+      const limit = input.limit as number | undefined;
 
       if (onProgress) {
         onProgress({
@@ -151,12 +234,20 @@ export class FileConvertTool extends BaseTool {
         });
       }
 
+      // 源头截断 + 分段取回：docx 等大文件转换结果可达 800KB+，直接进上下文/持久化
+      // 会推高内存峰值触发 GC 停摆（事件循环阻塞 70s → 任务中断）。
+      // 整形（截断 / 分段 / 取回指引）见 shapeMarkdownResult。
+      const { markdown, message } = shapeMarkdownResult(
+        result.markdown,
+        filePath,
+        offset,
+        limit
+      );
+
       return createToolResult(markdown, {
         success: true,
         output: markdown,
-        newMessages: [
-          { role: 'system', content: `转换完成: ${filePath} → Markdown` },
-        ],
+        newMessages: [{ role: 'system', content: message }],
       });
     } catch (error) {
       const isUnsupported =

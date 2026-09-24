@@ -255,4 +255,7 @@ export type { SlowQueryRecord, SlowQueryReport } from './SlowQueryDetector.js';
 export { createErrorRecoveryManager } from './ErrorRecoveryManager.js';
 export { ContextTracker } from './context/ContextTracker.js';
 export { LoopDetector } from './LoopDetector.js';
-export { truncateToolResult } from './ToolResultTruncator.js';
+export {
+  truncateToolResult,
+  MAX_TOOL_RESULT_CHARS,
+} from './ToolResultTruncator.js';

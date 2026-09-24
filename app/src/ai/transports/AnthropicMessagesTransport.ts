@@ -80,6 +80,20 @@ export class MessagesApiTransport extends BaseTransport {
   ): MessagesAPIMessage[] {
     const result: MessagesAPIMessage[] = [];
 
+    // N-1 修复（2026-09-24）：`cache_control` **只加在最后一个 `tool_result`** 上。
+    //
+    // 修复前每个 `tool_result` 块都注入断点 ⇒ 断点数 ≈ `#tool_result + 2`（另含 tools 末个与
+    // system 稳定块），**随会话历史线性增长**，超过本仓自述的 Anthropic 硬上限 4
+    // （`ai/clients/PromptCacheConfig.ts:9`："超限请求会被拒绝"）。
+    // Anthropic 的推荐是"断点放在缓存前缀的末尾" ⇒ 保留末尾一个即可，总数恒 ≤ 3。
+    let lastToolMessageIndex = -1;
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i]?.role === 'tool') {
+        lastToolMessageIndex = i;
+        break;
+      }
+    }
+
     for (let i = 0; i < messages.length; i++) {
       const m = messages[i]!;
       const blocks: MessagesContentBlock[] = [];
@@ -115,7 +129,11 @@ export class MessagesApiTransport extends BaseTransport {
           type: 'tool_result',
           tool_use_id: m.tool_call_id || '',
           content: m.content ?? '',
-          cache_control: this.enableCaching ? { type: 'ephemeral' } : undefined,
+          // 仅最后一个 tool_result 打断点（见 convertMessages 顶部注释）
+          cache_control:
+            this.enableCaching && i === lastToolMessageIndex
+              ? { type: 'ephemeral' }
+              : undefined,
         });
       }
 

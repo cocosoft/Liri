@@ -24,11 +24,12 @@
  * 单一入口：各领域模块把自身编排能力实现为 `WorkflowProvider` 注册进来，
  * 调用方只依赖本 seam，不直接依赖具体实现（CS01 归一化 / R01 基础设施复用）。
  *
- * 依赖调度**复用** `TaskDependencyService`（其拓扑排序与环检测不依赖 TaskRegistry），
- * 本文件不新写拓扑排序或环检测。
+ * 依赖调度：**排序**复用 `core/systemgraph` 的图内核（P0-1 接线期①，投影成图后算拓扑序）；
+ * `validate()` 的三重静态校验仍复用 `TaskDependencyService`（其拓扑排序与环检测不依赖 TaskRegistry）。
  */
 
 import { getLogger } from '@modules/monitoring';
+import { projectTaskGraph } from '@modules/core/systemgraph';
 import { TaskDependencyService, TaskRegistry } from '@modules/tasks';
 
 import { WorkflowError } from './WorkflowError';
@@ -183,27 +184,36 @@ export class WorkflowEngine {
   }
 
   /**
-   * 按依赖拓扑序排列步骤（复用 TaskDependencyService.getTopologicalOrder）。
+   * 按依赖拓扑序排列步骤（P0-1 接线期①：**投影为系统图后由图内核算序**）。
    *
-   * 无依赖声明时返回原顺序，保证既有实现的执行序不变。
+   * 语义与既有实现保持一致（不改变任何执行序）：
+   * - 无依赖声明 ⇒ 保持原顺序（图内核以**插入序**打破并列，投影即声明序）
+   * - 图不可用（成环 / 依赖缺失 / 序不覆盖全部步骤）⇒ **回退原顺序**并告警
+   *   （`validate()` 已在入口拦截成环，此处仅为"排序失败不中断执行"的既有兜底，但留痕）
    */
   orderSteps(definition: WorkflowDefinition): WorkflowStepSpec[] {
-    const order = this.buildDependencyGraph(definition).getTopologicalOrder();
-    if (order.length === 0) {
+    try {
+      const ordered = projectTaskGraph(definition.steps).topologicalOrder(
+        'task'
+      );
+      const byId = new Map(definition.steps.map((step) => [step.id, step]));
+      const steps: WorkflowStepSpec[] = [];
+      for (const node of ordered) {
+        const step = byId.get(node.id);
+        if (step) steps.push(step);
+      }
+      // 拓扑序必须覆盖全部步骤；无法覆盖说明图不完整，回退原顺序（校验已拦截成环）
+      return steps.length === definition.steps.length
+        ? steps
+        : [...definition.steps];
+    } catch (error) {
+      logger.warn('步骤拓扑排序失败，回退声明顺序', {
+        workflow: definition.name,
+        code: (error as { code?: string }).code,
+        error: String(error),
+      });
       return [...definition.steps];
     }
-    const byId = new Map(definition.steps.map((step) => [step.id, step]));
-    const ordered: WorkflowStepSpec[] = [];
-    for (const id of order) {
-      const step = byId.get(id);
-      if (step) {
-        ordered.push(step);
-      }
-    }
-    // 拓扑序必须覆盖全部步骤；无法覆盖说明图不完整，回退原顺序（校验已拦截成环）
-    return ordered.length === definition.steps.length
-      ? ordered
-      : [...definition.steps];
   }
 
   /** 取消宽限期默认值（ms）：中止后超过该时长仍未结算 → 强制结算（P2-2） */

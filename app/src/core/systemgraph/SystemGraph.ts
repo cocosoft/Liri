@@ -154,12 +154,21 @@ export class SystemGraph {
    * 同类型节点间的**拓扑序**（前提在前）。
    *
    * 只考虑两端**同为 `kind`** 的边（跨类型边不参与该类型内部排序）。
+   * **并列打破规则：节点插入序**（投影时即"声明序"）——这样"无依赖声明的步骤保持原顺序"
+   * 与既有 `WorkflowEngine.orderSteps()` 语义一致；按 id 重排会让独立步骤无谓换序。
    * 拓扑序不能覆盖全部节点时**抛错**（与 `WorkflowEngine.orderSteps()` 的"回退原序"不同：
-   * 内核不做静默兜底，调用方若需回退请在接线期显式处理——避免"看起来成功"的错序）。
+   * 内核不做静默兜底，调用方若需回退请显式处理——避免"看起来成功"的错序）。
    */
   topologicalOrder(kind: SystemNodeKind = 'task'): SystemNode[] {
     const inScope = this.listNodes(kind);
     const ids = new Set(inScope.map((n) => n.id));
+    /** 插入序（Map 保持插入顺序）；仅用于并列打破，不参与正确性判定 */
+    const seq = new Map<string, number>();
+    let next = 0;
+    for (const id of this.nodes.keys()) seq.set(id, next++);
+    const bySeq = (a: string, b: string): number =>
+      (seq.get(a) ?? 0) - (seq.get(b) ?? 0);
+
     const indegree = new Map<string, number>();
     const out = new Map<string, string[]>();
     for (const id of ids) {
@@ -172,18 +181,18 @@ export class SystemGraph {
       out.get(e.from)!.push(e.to);
     }
 
-    // 确定性：按 id 升序取入度为 0 的节点
-    const ready = [...ids].filter((id) => indegree.get(id) === 0).sort();
+    // 稳定 Kahn：每次从"已就绪"中取插入序最靠前者
+    const ready = [...ids].filter((id) => indegree.get(id) === 0).sort(bySeq);
     const ordered: string[] = [];
     while (ready.length > 0) {
       const id = ready.shift()!;
       ordered.push(id);
-      for (const next of out.get(id)!.sort()) {
-        const left = (indegree.get(next) ?? 0) - 1;
-        indegree.set(next, left);
+      for (const downstream of out.get(id)!.sort(bySeq)) {
+        const left = (indegree.get(downstream) ?? 0) - 1;
+        indegree.set(downstream, left);
         if (left === 0) {
-          ready.push(next);
-          ready.sort();
+          ready.push(downstream);
+          ready.sort(bySeq);
         }
       }
     }

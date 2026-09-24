@@ -2925,6 +2925,22 @@ export class CoreAPIImpl implements CoreAPI {
     if (!session) {
       return undefined;
     }
+    // TB-14（2026-09-24）：当前会话指针是**进程内存**字段，删除只在"执行删除的那个进程"内
+    // 复位。因此当会话被**另一个进程/实例**（如 CLI 命令）删除后，本进程的指针仍指向它，
+    // 直接返回会把"幽灵 id"暴露给前端（前端据"id 不在会话列表中"告警并回退）。
+    // 故返回前校验持久层是否仍存在，失效则视为无当前会话——语义与 switchSession 的
+    // P2-3（切换不存在的会话抛 404，不静默重建）一致，复用既有 gateway 句柄，不新增依赖。
+    const gateway = this.chatManager.getSessionGateway();
+    const persisted = await gateway.getSession(session.id);
+    if (!persisted) {
+      logger.info(
+        'getCurrentSession:当前会话已不存在于持久层,按无当前会话返回',
+        {
+          sessionId: session.id,
+        }
+      );
+      return undefined;
+    }
     return {
       id: session.id,
       title: session.title,

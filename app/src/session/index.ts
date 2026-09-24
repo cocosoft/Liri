@@ -131,6 +131,11 @@ export {
   findSummaryByKeyword,
 } from './storage/SessionSummaryReader.js';
 export type { SessionSummaryRecord } from './storage/SessionSummaryReader.js';
+// R03-002（2026-09-24）：墓碑区间 API 经模块桶出口暴露（原 CoreAPIImpl 直接子路径导入）
+export {
+  addDeletedRange,
+  isSeqInDeletedRanges,
+} from './storage/deletedRanges.js';
 
 /**
  * 持久化原语（2026-08-29 R03-002 收敛：persistence 子目录统一出口）

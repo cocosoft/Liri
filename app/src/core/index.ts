@@ -168,6 +168,10 @@ export type {
 } from './phases/PhaseVocabulary';
 export { scheduleTopoBatches } from './loop/topoBatches';
 export type { TopoBatchTask } from './loop/topoBatches';
+// P0-1（2026-09-24，基础期）：运行时系统图内核（图结构 + 只读投影）
+// 设计见 .trae/specs/graph-engineering-p0.md（零侵入：本期无生产调用点）
+export * from './systemgraph/SystemGraph';
+export * from './systemgraph/types';
 export {
   estopSentinelPath,
   isEstopEngaged,

@@ -1348,23 +1348,35 @@ export class EventLogStorage {
    *
    * @param target 目标 EventLogStorage（子会话）
    * @param boundary fork 边界 seq（包含）；> 源 tailSeq 时复制全量
+   * @returns `maxCopiedSeq` = 实际复制到的**最大 seq**（P1-10：供 `forkSession` 回验
+   *          "声明边界 = 实际边界"；源 seq 有空洞/损坏行被跳过时可能 < `boundary`）
    */
   async copyPrefixTo(
     target: EventLogStorage,
     boundary: number
-  ): Promise<{ ok: boolean; copied: number; reason?: string }> {
+  ): Promise<{
+    ok: boolean;
+    copied: number;
+    maxCopiedSeq: number;
+    reason?: string;
+  }> {
     if (boundary <= 0) {
-      return { ok: true, copied: 0 };
+      return { ok: true, copied: 0, maxCopiedSeq: 0 };
     }
     // 先修复源（torn-tail 截断 + 未闭合 turn 合成），保证复制的是完整前缀
     await this.ensureRepairChecked();
     if (!this.exists()) {
-      return { ok: true, copied: 0 };
+      return { ok: true, copied: 0, maxCopiedSeq: 0 };
     }
     // fork 目标必须是新会话（空事件文件）
     const targetTail = await target.getTailSeq();
     if (targetTail > 0) {
-      return { ok: false, copied: 0, reason: 'target-not-empty' };
+      return {
+        ok: false,
+        copied: 0,
+        maxCopiedSeq: 0,
+        reason: 'target-not-empty',
+      };
     }
 
     try {
@@ -1388,7 +1400,7 @@ export class EventLogStorage {
         }
       }
       if (lines.length === 0) {
-        return { ok: true, copied: 0 };
+        return { ok: true, copied: 0, maxCopiedSeq: 0 };
       }
 
       // 原子写入目标（tmp + rename，避免半写文件）
@@ -1397,7 +1409,12 @@ export class EventLogStorage {
       // `createSession` 落盘建立；若此处已不存在（被外部进程删除）⇒ **显式失败**，交由
       // 调用方按 H9 回滚子会话，而不是把目录建回来留一个"只含事件文件"的半成品。
       if (!(await target.ensureSessionDir())) {
-        return { ok: false, copied: 0, reason: 'session-dir-missing' };
+        return {
+          ok: false,
+          copied: 0,
+          maxCopiedSeq: 0,
+          reason: 'session-dir-missing',
+        };
       }
       const tmpPath = `${target.filePath}.fork`;
       await fs.writeFile(tmpPath, lines.join('\n') + '\n', 'utf-8');
@@ -1416,7 +1433,7 @@ export class EventLogStorage {
         copied: lines.length,
         maxCopiedSeq,
       });
-      return { ok: true, copied: lines.length };
+      return { ok: true, copied: lines.length, maxCopiedSeq };
     } catch (e) {
       await handleError(e, {
         module: 'session:event-log',
@@ -1427,7 +1444,7 @@ export class EventLogStorage {
           boundary,
         },
       }).catch(() => {});
-      return { ok: false, copied: 0, reason: 'copy-error' };
+      return { ok: false, copied: 0, maxCopiedSeq: 0, reason: 'copy-error' };
     }
   }
 

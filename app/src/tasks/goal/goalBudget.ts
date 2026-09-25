@@ -24,6 +24,11 @@ import {
   takeMainSessionBudgetWrapUp,
 } from './GoalEvents';
 import { renderGoalTemplate } from './goalTemplates';
+// P2-10（2026-09-25）：任务级触顶判定收敛到**统一预算策略层**（纯计算、无 IO）
+import {
+  evaluateGoalBudget,
+  TokenBudgetStatus,
+} from '@modules/core/tokenBudget/BudgetPolicy';
 
 /** 一次记账的结果 */
 export interface GoalBudgetChargeResult {
@@ -70,7 +75,12 @@ export async function chargeGoalUsage(params: {
   if (!charged) return null;
   const { tokensUsed, tokenBudget: budget, promoted, from } = charged;
 
-  const exceeded = budget !== undefined && tokensUsed >= budget;
+  // P2-10：触顶判定经**统一策略层**（语义等价于原 `budget !== undefined && tokensUsed >= budget`）
+  // —— 策略为纯计算 ⇒ 阈值判定可独立单测，且"预算是多少、为何这个值"有了单一入口。
+  // 记账 / 落事件 / steering 注入（幂等与可重建语义）**保持不动**。
+  const exceeded =
+    evaluateGoalBudget({ tokensUsed, tokenBudget: budget }).status ===
+    TokenBudgetStatus.EXCEEDED;
   if (!exceeded) {
     return {
       goalId: before.id,

@@ -350,8 +350,49 @@ export interface ParallelEndData {
   totalTasks: number;
   /** 成功任务数 */
   completedTasks: number;
-  /** 失败任务数 */
+  /** 失败任务数（仅统计**已投递**的任务） */
   failedTasks: number;
+  /** **投递缺口**（未投递数 = `totalTasks - deliveredTasks`，下限 0）—— **不等于**取消事实 */
+  cancelledTasks: number;
+  /** **取消事实**（批次是否被取消，取引擎终态快照）—— 必须与 `cancelledTasks` **并列判读** */
+  cancelledFact: boolean;
+}
+
+/** {@link deriveParallelEndData} 的输入：批次**原始事实**（调用方不做二次派生） */
+export interface ParallelEndFacts {
+  /** 批次计划任务总数 */
+  totalTasks: number;
+  /** 成功任务数 */
+  succeededTasks: number;
+  /** **已投递**任务数（`AgentSwarm` 实际放行的 worker 数） */
+  deliveredTasks: number;
+  /** 取消**事实**（引擎终态快照；禁止在本函数内重读 `signal.aborted`） */
+  cancelledFact: boolean;
+}
+
+/**
+ * 由批次原始事实派生 `PARALLEL_END` 载荷（P1-11 / Liri v1.4 复审 D1-D2）。
+ *
+ * **两个取消量语义不同，必须并列派生、禁止互相替代**：
+ * - `cancelledTasks` = **投递缺口**（未投递数）：取消发生在**投递阶段**时 > 0；
+ * - `cancelledFact`  = **取消事实**：取消发生在**收尾阶段**（门禁/合成）时任务已全部投递
+ *   ⇒ `cancelledTasks = 0` 而 `cancelledFact = true`。
+ * 只发前者（修复前的实际行为）⇒ 控制面会把"3/3 成功后被取消"读成"正常结束"。
+ *
+ * 本函数是这两个量的**单一派生源**：事件载荷与面向用户的归因文案共用同一次派生，
+ * 避免两处独立计算后口径漂移。
+ */
+export function deriveParallelEndData(
+  facts: ParallelEndFacts
+): ParallelEndData {
+  const delivered = Math.max(0, facts.deliveredTasks);
+  return {
+    totalTasks: facts.totalTasks,
+    completedTasks: facts.succeededTasks,
+    failedTasks: Math.max(0, delivered - facts.succeededTasks),
+    cancelledTasks: Math.max(0, facts.totalTasks - delivered),
+    cancelledFact: facts.cancelledFact,
+  };
 }
 
 /** 上下文层加载数据 */

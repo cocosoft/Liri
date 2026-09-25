@@ -123,7 +123,50 @@ export function canTransition(
   return true; // → completed | failed
 }
 
-export class AgentRunLedger {
+/**
+ * P2-6（2026-09-25）：Agent run 台账的**判据面**契约。
+ *
+ * 所有"是否有在飞 run / 归属是谁 / 当前状态"的判定都必须经此面 —— P0-3 收敛后事实源已唯一
+ * （内存台账），本接口把该结论**由类型表达**（而非靠注释约定），使消费方可被桩化/替换。
+ */
+export interface AgentRunFactsPort {
+  isLive(status: AgentRunStatus): boolean;
+  hasLiveRunsForSession(sessionId: string): boolean;
+  liveCount(): number;
+  recentCount(): number;
+  view(agentId: string): AgentRunView | undefined;
+  viewActive(agentId: string): AgentRunView | undefined;
+  listActive(): AgentRunView[];
+  ownerSessionId(agentId: string): string | undefined;
+}
+
+/**
+ * P2-6：台账的**变更面**契约（注册 / 额度预留 / 取消受理 / 终态收敛）。
+ *
+ * **参数与返回值均引用实现签名**（`Parameters<…>` / `ReturnType<…>`）⇒ 契约与实现不可能漂移。
+ * （实施中发现：手写返回值会漏掉可空性，如 `tryReserve` 在额度不足时返回 `null`。）
+ */
+export interface AgentRunMutatePort {
+  register(
+    params: Parameters<AgentRunLedger['register']>[0]
+  ): ReturnType<AgentRunLedger['register']>;
+  tryReserve(
+    params: Parameters<AgentRunLedger['tryReserve']>[0]
+  ): ReturnType<AgentRunLedger['tryReserve']>;
+  ensureCoveredRun(
+    params: Parameters<AgentRunLedger['ensureCoveredRun']>[0]
+  ): ReturnType<AgentRunLedger['ensureCoveredRun']>;
+  requestCancel(agentId: string): ReturnType<AgentRunLedger['requestCancel']>;
+  settle(
+    agentId: string,
+    status: 'completed' | 'failed'
+  ): ReturnType<AgentRunLedger['settle']>;
+}
+
+/** P2-6：消费方统一依赖的台账契约（判据面 + 变更面） */
+export type AgentRunLedgerPort = AgentRunFactsPort & AgentRunMutatePort;
+
+export class AgentRunLedger implements AgentRunLedgerPort {
   private active = new Map<string, AgentRunEntry>();
   private recent = new Map<string, AgentRunEntry>();
 

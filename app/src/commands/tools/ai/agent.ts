@@ -324,16 +324,49 @@ async function handleAgentList(
 }
 
 /**
+ * P1-6（2026-09-25）：状态查询失败时的**降级出口文案**。
+ *
+ * 与"确实不存在"（`Agent or task not found`）**必须可区分** ——
+ * `AgentTool.getAgentStatus` 对磁盘故障是**明示抛出**（刻意不伪装成 `not_found`，
+ * 以免把环境故障说成"查无此 run"），故调用方捕获后不得把环境故障读成"没有这个 Agent"。
+ *
+ * 抽为**纯函数**以便单测：`mock.module` 是进程级替换、会跨测试文件泄漏
+ * （实测污染 73 例 AgentTool 相关用例），故此处不依赖模块 mock。
+ */
+export function describeStatusQueryFailure(id: string, error: string): string {
+  return (
+    `状态查询失败（磁盘台账不可用）：${error}\n\n` +
+    `当前已降级为内存/引擎视图，未在其中找到 [${id}]。\n` +
+    `请稍后重试；若持续失败，请检查 ~/.pyapp/data 下数据库是否可读写。`
+  );
+}
+
+/**
  * 检查Agent或后台任务状态
  */
 async function handleAgentStatus(
   id: string
 ): Promise<{ success: boolean; message?: string; error?: string }> {
   const agentTool = getAgentTool();
+  // P1-6（2026-09-25）：`getAgentStatus` 在**磁盘台账不可用**时按设计**直接抛出**
+  // （不伪装成 `not_found`，以免把环境故障说成"查无此 run"）⇒ 调用方必须自行降级。
+  // 修复前此处无 try/catch ⇒ `/subagent-run status` 遇磁盘故障**直接崩溃**。
+  // 现口径：查询失败 ⇒ warn 并**继续走下方引擎/后台任务视图**（降级可用）；
+  // 若各处均无该 run，则返回**明确区分**的"查询失败"错误（不谎报"未找到"）。
+  let queryError: string | null = null;
 
   if (agentTool) {
-    const status = await agentTool.getAgentStatus(id);
-    if (status.status !== 'not_found') {
+    let status: Awaited<ReturnType<AgentTool['getAgentStatus']>> | null = null;
+    try {
+      status = await agentTool.getAgentStatus(id);
+    } catch (err) {
+      queryError = err instanceof Error ? err.message : String(err);
+      logger.warn(
+        'Agent 状态查询失败（磁盘台账不可用），降级到引擎/后台任务视图',
+        { id, error: queryError }
+      );
+    }
+    if (status && status.status !== 'not_found') {
       const icon =
         status.status === 'running'
           ? '🔄'
@@ -402,6 +435,15 @@ async function handleAgentStatus(
     }
 
     return { success: true, message: lines.join('\n') };
+  }
+
+  // P1-6：查询过程出过错且各视图都没有该 run ⇒ 明确报"查询失败"，
+  // 与"确实不存在"（下方 not found 分支）**区分开**（避免把环境故障读成"没有这个 Agent"）
+  if (queryError) {
+    return {
+      success: false,
+      error: describeStatusQueryFailure(id, queryError),
+    };
   }
 
   return {

@@ -45,6 +45,16 @@ export function resetSessionLineage(): void {
 }
 
 /**
+ * 当前运行期血缘链**规模**（已登记的边数）。
+ *
+ * P2-7（2026-09-25）：供恢复编排层在汇总报告里如实描述 lineage 现状 ——
+ * 本模块**不重建**（重启后链为空，fail-closed），故规模只反映"本进程内观测到的 fork 数"。
+ */
+export function getLineageSize(): number {
+  return parentBySession.size;
+}
+
+/**
  * `requesterSessionId` 是否为 `ownerSessionId` 的**祖先**（含两者相等）。
  *
  * 从 owner 出发沿父链上溯，逐跳比对；带**访问集**防环（自环/互环都不会死循环）；
@@ -70,4 +80,49 @@ export function isAncestorSession(
     current = parent;
   }
   return false; // 超出最大跳数 ⇒ 不认
+}
+
+/**
+ * 新增血缘边 `childId → parentId` 是否**会成环**（P1-10 / C 判据）。
+ *
+ * 两种环（均须拒绝）：
+ * - **自环**：`childId === parentId`；
+ * - **祖先倒挂**：`childId` 已是 `parentId` 的祖先（`parentId` 在 `childId` 的后代链上）
+ *   ⇒ 新边会让两者**互为祖先**（权限面上互相授予控制权）。
+ *
+ * 为什么需要独立判定：`registerSessionLineage` 只防自环（`sessionId === parentSessionId`），
+ * **不防多跳环** —— 它只做 `Map.set`，既不校验链方向也不限制深度。
+ */
+export function wouldCreateLineageCycle(
+  childId: string,
+  parentId: string
+): boolean {
+  if (!childId || !parentId) return false;
+  if (childId === parentId) return true;
+  return isAncestorSession(childId, parentId);
+}
+
+/**
+ * `sessionId` 的血缘链深度（自身 = 0，每上溯一跳 +1；带环保护与最大跳数上限）。
+ *
+ * P1-10 / C 判据：供 fork 判断"新增一条边后是否超过 {@link MAX_LINEAGE_HOPS}"
+ * （超深链会被 `isAncestorSession` 判否 ⇒ 与其建一条"查不到"的边，不如建边时就拒绝）。
+ */
+export function getLineageDepth(
+  sessionId: string,
+  maxHops: number = MAX_LINEAGE_HOPS
+): number {
+  if (!sessionId) return 0;
+  const visited = new Set<string>([sessionId]);
+  let current = sessionId;
+  let depth = 0;
+
+  for (let hop = 0; hop < maxHops; hop++) {
+    const parent = parentBySession.get(current);
+    if (!parent || visited.has(parent)) break;
+    visited.add(parent);
+    current = parent;
+    depth++;
+  }
+  return depth;
 }

@@ -54,6 +54,7 @@ export {
   MAX_LINEAGE_HOPS,
   isAncestorSession,
   getSessionParent,
+  getLineageSize,
   registerSessionLineage,
   resetSessionLineage,
 } from './lineage/sessionLineage';
@@ -124,6 +125,12 @@ export {
   mergeCompactionRanges,
   deriveSessionStats,
   deriveMessagesFromEvents,
+  // P2-7/G4（2026-09-25）：派生一致性校验（纯函数，供 CoreAPI.verifySessionDerivation 复用）
+  diffDerivationMessages,
+} from './storage/EventMessageDeriver.js';
+export type {
+  DerivationDiff,
+  DerivedMessage,
 } from './storage/EventMessageDeriver.js';
 export {
   parseSessionSummaries,

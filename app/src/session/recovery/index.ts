@@ -25,3 +25,12 @@ export type {
   CrashRecoveryDetail,
   CrashRecoveryAction,
 } from './CrashRecoveryManager';
+
+// P2-7（2026-09-25）：恢复编排层（端口注入，零业务依赖）
+export { RecoveryOrchestrator } from './RecoveryOrchestrator';
+export type {
+  RecoveryPorts,
+  RecoveryReport,
+  SessionRebuildStats,
+  YieldRecoveryStats,
+} from './RecoveryOrchestrator';

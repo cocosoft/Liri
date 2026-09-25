@@ -1877,10 +1877,13 @@ export async function launch(options: LaunchOptions): Promise<void> {
     // 修复前装配只发生在 `streamMessage` / `sendMessage` 入口 ⇒ **无人发消息时
     // `agent_settlement_outbox` 的 `pending` 行永不回放**（O8 台账只写不生效）；
     // 且等待集不落盘 ⇒ 回放必然找不到等待者（逐次 markFailed ⇒ dropped）。
-    // 顺序固定：装配持久化端口 → **先重建等待集**（含 turn）→ 再装配恢复器（内含回放）。
-    await wrapInit('YieldRecovery', async () => {
+    //
+    // P2-7（2026-09-25）：改由**恢复编排入口**统一承担 —— 一个 `wrapInit('Recovery')` 内按
+    // `sessionCrash → [sessionState] → yieldRecovery → lineage` 顺序编排并输出**聚合报告**
+    // （`sessionState` 全量重建默认跳过，避免拖慢启动；设计见 `.trae/specs/recovery-orchestration.md`）。
+    await wrapInit('Recovery', async () => {
       const { getCoreAPI } = await import('@modules/runtime/api/CoreAPIImpl');
-      await getCoreAPI().getChatManager().bootstrapYieldRecovery();
+      await getCoreAPI().getChatManager().bootstrapRecovery();
     });
 
     // T2: 模式分发 + 后台延迟加载

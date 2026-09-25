@@ -29,6 +29,9 @@
  */
 
 export * from './paths';
+// P2-9（2026-09-25）：迁移注册表与版本中枢（`core/migration/` 内部用相对路径引 `../paths`，无环）
+export * from './migration/AppMigrationStore';
+export * from './migration/MigrationRegistry';
 export * from '@modules/system/state';
 export * from './seedSync';
 export type { Message, ToolCall, ToolResult, ToolContext } from './types';

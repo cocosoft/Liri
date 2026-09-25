@@ -7,63 +7,36 @@
  * 背景：worker 输出经 `substring(0, 500)` 硬编码截断进父上下文 —— **静默丢弃**且
  * 只留头部，**结尾的结论与改动清单**（最能代表"做成了什么"的部分）恰好被丢掉。
  *
- * 本模块提供两件纯逻辑（无 IO、可独立单测）：
- * 1. `computeSummaryCharBudget` —— 按父**当前**剩余上下文余量算预算（50% ÷ worker 数），
- *    硬顶 24000 / 下限 2000；**父上下文未知时退化为下限**（不臆测）。
- * 2. `trimSummaryWithFooter` —— 超限时 **head 75% + tail 25%**（行边界回退/前推），
- *    并写明被省略的字符数与"全文落盘指针"（由调用方给出）。
+ * **P2-10（2026-09-25）**：`computeSummaryCharBudget` 的**公式与常量已迁入统一预算策略层**
+ * （`core/tokenBudget/BudgetPolicy.ts` 的 `subagent.summary-chars`），本模块改为**委托**
+ * ⇒ **导出名 / 签名 / 返回值不变**、调用方零改动（设计见 `.trae/specs/budget-policy-layer.md`）。
+ * `trimSummaryWithFooter`（head 75% + tail 25% 裁剪）仍在本模块，逻辑未变。
  *
  * ⚠ G14（必须遵守的取数口径）：预算的输入必须是**最后一次 API 调用的 `prompt_tokens`**
  * （父**当前**上下文大小），**不得用累计 token** —— 后者在几百次调用后会超过任何窗口，
  * 导致所有摘要被压到下限（Hermes 因此把 1393 条摘要全塌到 2000 字符）。
  */
 
-/** 摘要硬顶（字符） */
-export const SUMMARY_HARD_MAX_CHARS = 24000;
-/** 摘要下限（字符）——父上下文未知时的退化值 */
-export const SUMMARY_MIN_CHARS = 2000;
-/** head 占比：head 75% / tail 25% */
-export const SUMMARY_HEAD_RATIO = 0.75;
+import {
+  SUMMARY_HARD_MAX_CHARS,
+  SUMMARY_MIN_CHARS,
+  SUMMARY_HEAD_RATIO,
+  evaluateSummaryCharBudget,
+} from '@modules/core/tokenBudget/BudgetPolicy';
+import type { SummaryBudgetInput } from '@modules/core/tokenBudget/BudgetPolicy';
 
-export interface SummaryBudgetInput {
-  /**
-   * 父**当前**上下文的 prompt tokens（最后一次 API 调用的取值）。
-   * `undefined` = 未知 ⇒ 退化为 {@link SUMMARY_MIN_CHARS}。
-   */
-  parentPromptTokens?: number;
-  /** 模型上下文窗口（tokens，来自 DB 的 `context_window`） */
-  contextWindow?: number;
-  /** 同批 worker 数（预算需按数量分摊） */
-  workerCount: number;
-  /** 每 token 约多少字符（缺省 3.5，仅用于字符预算换算） */
-  charsPerToken?: number;
-}
+// 常量与输入类型的**公共 API 保持不变**（实现迁入策略层后在此 re-export）
+export { SUMMARY_HARD_MAX_CHARS, SUMMARY_MIN_CHARS, SUMMARY_HEAD_RATIO };
+export type { SummaryBudgetInput };
 
 /**
  * 计算单个 worker 摘要的字符预算。
  *
- * 规则：`剩余 = 窗口 − 当前占用` ⇒ `预算 = 剩余 × 50% ÷ workerCount`（换算成字符），
- * 再夹到 [`SUMMARY_MIN_CHARS`, `SUMMARY_HARD_MAX_CHARS`]；**任一项未知则退化下限**。
+ * **委托**统一预算策略层（`subagent.summary-chars`）—— 规则与 G14 口径见
+ * `core/tokenBudget/BudgetPolicy.ts`（那里是这两个量的**单一实现**）。
  */
 export function computeSummaryCharBudget(input: SummaryBudgetInput): number {
-  const { parentPromptTokens, contextWindow, workerCount } = input;
-  const charsPerToken = input.charsPerToken ?? 3.5;
-
-  if (
-    typeof parentPromptTokens !== 'number' ||
-    typeof contextWindow !== 'number' ||
-    !Number.isFinite(parentPromptTokens) ||
-    !Number.isFinite(contextWindow) ||
-    workerCount <= 0
-  ) {
-    return SUMMARY_MIN_CHARS;
-  }
-
-  const remaining = Math.max(0, contextWindow - parentPromptTokens);
-  const perWorkerTokens = (remaining * 0.5) / workerCount;
-  const chars = Math.floor(perWorkerTokens * charsPerToken);
-
-  return Math.min(SUMMARY_HARD_MAX_CHARS, Math.max(SUMMARY_MIN_CHARS, chars));
+  return evaluateSummaryCharBudget(input);
 }
 
 export interface TrimmedSummary {

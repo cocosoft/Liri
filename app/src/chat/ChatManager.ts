@@ -60,7 +60,12 @@ import {
   ReconcileService,
   parseSessionSummaries,
   findSummaryByKeyword,
+  // P2-7（2026-09-25）：恢复编排（端口注入；`chat → session` 依赖方向合法，无环）
+  RecoveryOrchestrator,
+  getLineageSize,
   type SessionSummaryRecord,
+  type RecoveryReport,
+  type YieldRecoveryStats,
 } from '@modules/session';
 // D 阶段（2026-09-02，v5 P0-⑥）：跨会话记忆适配器——静态导入保证模块加载即触发
 // session_summary 类型注册（registerSessionSummaryMemoryType 由构造期显式调用，
@@ -4765,12 +4770,13 @@ export class ChatManagerImpl implements ChatManager {
     registry?: YieldRegistry;
     store?: YieldWaitingStore;
     outbox?: SettlementOutbox;
-  }): Promise<void> {
+  }): Promise<YieldRecoveryStats> {
     const registry = options?.registry ?? getYieldRegistry();
     const store = options?.store ?? getYieldWaitingStore();
     registry.setPersistence(store);
+    let restored = 0;
     try {
-      const restored = await rebuildYieldWaitingSet(store, registry);
+      restored = await rebuildYieldWaitingSet(store, registry);
       if (restored > 0) {
         logger.info('yield 等待集已重建（启动期）', { restored });
       }
@@ -4779,6 +4785,33 @@ export class ChatManagerImpl implements ChatManager {
       logger.warn('yield 等待集重建失败（不阻断启动）', { error: String(err) });
     }
     this._ensureYieldResumerInstalled(options?.outbox);
+    // P2-7（2026-09-25）：返回统计供恢复编排层汇总（原返回 `void`；既有调用方忽略返回值即可）
+    return { restored, resumerInstalled: this._yieldResumerInstalled };
+  }
+
+  /**
+   * P2-7（2026-09-25）：**恢复编排入口** —— 启动期用**一个入口**替代分散装配。
+   *
+   * 顺序与失败语义由 `RecoveryOrchestrator` 负责
+   * （`sessionCrash → [sessionState] → yieldRecovery → lineage`）；本方法只**组装端口**并输出报告。
+   *
+   * 修复前：yield 侧由 `main.ts` 单独装配、session 崩溃恢复内联在（**懒调用**的）
+   * `gateway.initialize()` 内、lineage 不重建 ⇒ 时机不对称，且没有一处能回答
+   * "本次启动重建了什么、失败了几项"。
+   *
+   * @param opts.rebuildState 是否执行会话派生状态全量重建（默认 `false`，避免拖慢启动）
+   */
+  async bootstrapRecovery(opts?: {
+    rebuildState?: boolean;
+  }): Promise<RecoveryReport> {
+    const gateway = this.getSessionGateway();
+    const orchestrator = new RecoveryOrchestrator({
+      sessionCrash: { recover: () => gateway.recoverAfterCrash() },
+      sessionState: { rebuild: (o) => gateway.rebuildDerivedState(o) },
+      yieldRecovery: { bootstrap: () => this.bootstrapYieldRecovery() },
+      lineage: { describe: () => ({ size: getLineageSize() }) },
+    });
+    return orchestrator.bootstrap(opts);
   }
 
   /**

@@ -28,6 +28,8 @@ import type { ConversionResult, FileInfo } from '@modules/tools';
 import type { TodoBlockData } from './todo-types';
 import type { DocWorkflowProgressData } from '@modules/doc/types/outline';
 import type { LiriEvent } from '@modules/chat/types/events';
+// P2-7 / G4（2026-09-25）：派生一致性校验结果
+import type { DerivationDiff } from '@modules/session';
 
 /** 进度事件，用于通知调用方当前 AI 处理阶段 */
 export interface ProgressEvent {
@@ -389,6 +391,18 @@ export interface CoreAPI {
 
   /** 获取会话信息 */
   getSession(sessionId: string): Promise<SessionInfo | undefined>;
+
+  /**
+   * P2-7 / G4（2026-09-25）：**派生一致性校验**（比对纯事件派生基线 vs 落盘投影）。
+   *
+   * **只报告事实、不改写**（自动修复会掩盖根因）。`available=false` 表示该会话
+   * 无事件日志或无 v1（`messageId`）事件 ⇒ **无法校验**（**不是**"一致"）。
+   */
+  verifySessionDerivation(sessionId: string): Promise<{
+    available: boolean;
+    diff?: DerivationDiff;
+    reason?: string;
+  }>;
 
   /** 获取会话消息列表
    * @param query.limit 分页大小（传 >0 时启用分页，取末尾 limit 条；不传返回全量，行为不变）

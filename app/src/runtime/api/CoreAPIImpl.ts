@@ -100,7 +100,12 @@ function cloneDerivedMessages(
       : m.blocks,
   }));
 }
-import { deriveMessagesFromEvents } from '@modules/session';
+import {
+  deriveMessagesFromEvents,
+  diffDerivationMessages,
+  type DerivationDiff,
+  type DerivedMessage,
+} from '@modules/session';
 // E-1 接入（2026-08-23）：工具完成自动记录交付物（复用 ExecutionPhaseTracker，此前无生产实例）
 import { ExecutionPhaseTracker } from '@modules/session';
 // E-1 diff（2026-08-23）：文件变更前后 unified diff 计算
@@ -1722,28 +1727,28 @@ export class CoreAPIImpl implements CoreAPI {
   }>(32);
 
   /**
-   * P2-1（2026-08-23）：从 events 统一派生消息（事件聚合 + 投影覆盖，评审 G7/A1'）。
-   * 仅当 events 含 v1（messageId）事件时返回派生结果，否则返回 null（回退投影路径，
-   * 存量 v0 会话安全兼容）。
+   * P2-7/G4（2026-09-25）：派生读路径的**取数头部**（**不含 events**）。
+   *
+   * 与 `_deriveSessionMessagesFromEvents` 共用，避免两处重复"分区解析 + 投影读取 + 压缩区间解析"；
+   * **不含 events** 是为保持既有缓存语义：派生缓存命中时**不应读事件**（N-55 的省算语义）。
+   *
+   * @returns `null` = 无事件日志（未落盘 / 已删除）⇒ 无法派生
    */
-  private async _deriveSessionMessagesFromEvents(
-    sessionId: string
-  ): Promise<Array<{
-    id: string;
-    role: string;
-    content: string;
-    timestamp: number;
-    startedAt?: number;
-    finishReason?: string;
-    tool_calls?: Array<Record<string, unknown>>;
-    toolCallId?: string;
-    blocks?: Array<Record<string, unknown>>;
-    metadata?: Record<string, unknown>;
-  }> | null> {
+  private async _loadDerivationHead(sessionId: string): Promise<{
+    eventLog: EventLogStorage;
+    tailSeq: number;
+    projections: UnifiedMessage[];
+    mappedProjections: DerivedMessage[];
+    compactionRanges?: Array<{
+      startSeq: number;
+      endSeq: number;
+      summaryMessageId?: string;
+    }>;
+  } | null> {
     // N-52 修复（2026-09-20）：与 `getSessionEvents` 用**同一访问器**取事件日志 ——
     // worktreeHash 走 `resolveWorktreeHash()` 单一真源（P2-5）并复用 ChatManager 的实例缓存。
     // 原实现 `new EventLogStorage(sessionId, 'default')` 把 `'default'` 当 worktreeHash
-    // （真实分区为 worktree hash，如 `57971aa3`）⇒ `exists()` 恒 false ⇒ 本方法恒返回 null、
+    // （真实分区为 worktree hash，如 `57971aa3`）⇒ `exists()` 恒 false ⇒ 派生恒返回 null、
     // 事件派生路径沦为死代码。详见 `.trae/specs/event-derivation-read-path-rootfix.md`。
     const chatManager = this.chatManager as unknown as {
       _getOrCreateEventLog?(sessionId: string): EventLogStorage;
@@ -1769,31 +1774,40 @@ export class CoreAPIImpl implements CoreAPI {
         }>
       | undefined;
 
-    // N-55（2026-09-20，长会话读性能）：**派生结果缓存**。
-    // 实测：3847 事件 / 192 消息的长会话，热读 ~34ms —— 其中"读 events"已被 EventLogStorage 的
-    // 事件快照缓存覆盖（P1-2），余下主要是**每次重算派生**（聚合 + 覆盖 + 块合并 + 去重）。
-    // 指纹 = tailSeq + 投影规模/末条 id + 压缩区间数：任一变化即失效重算（无 TTL，正确性靠指纹）。
     const tailSeq = await eventLog.getTailSeq();
-    const lastProjection = projections[projections.length - 1];
-    const fingerprint = [
-      tailSeq,
-      projections.length,
-      lastProjection?.id ?? '',
-      compactionRanges?.length ?? 0,
-    ].join('|');
-    const cached = this._derivedMessagesCache.get(sessionId);
-    if (cached && cached.fingerprint === fingerprint) {
-      // 命中 ⇒ 返回**副本**（消费方 `_attachPendingApprovalBlocks` 会改写 blocks）
-      return cloneDerivedMessages(cached.messages);
-    }
-    logger.debug('deriveCache:未命中（重算派生）', {
-      sessionId,
-      tailSeq,
-      projections: projections.length,
-      hasCached: Boolean(cached),
-    });
-    const deriveStart = Date.now();
+    const mappedProjections: DerivedMessage[] = projections.map((m) => ({
+      id: m.id,
+      role: m.role.toLowerCase(),
+      content: typeof m.content === 'string' ? m.content : '',
+      timestamp: m.timestamp,
+      startedAt: m.startedAt,
+      finishReason: m.finishReason,
+      tool_calls: m.metadata?.tool_calls as
+        | Array<Record<string, unknown>>
+        | undefined,
+      toolCallId: m.metadata?.toolCallId as string | undefined,
+      blocks: m.blocks as Array<Record<string, unknown>> | undefined,
+      metadata: m.metadata as Record<string, unknown> | undefined,
+      lastEventSeq: m.lastEventSeq,
+    }));
 
+    return {
+      eventLog,
+      tailSeq,
+      projections,
+      mappedProjections,
+      compactionRanges,
+    };
+  }
+
+  /**
+   * P2-7/G4（2026-09-25）：读取派生所需事件（**排除** `assistant/thinking`）。
+   *
+   * @returns `null` = 无 v1（`messageId`）事件 ⇒ 不可派生（与既有 `hasV1` 判据一致）
+   */
+  private async _loadDerivationEvents(
+    eventLog: EventLogStorage
+  ): Promise<LiriEvent[] | null> {
     // 循环拉取 events（G5：read limit≤10000 无分页，防静默截断）
     // KB-LONG-SESSION（2026-08-29）：排除 assistant/thinking 高频细节事件——
     // 长会话 events.jsonl 中 thinking 占 90%+，载入跳过可降事件处理量一个量级，
@@ -1814,26 +1828,70 @@ export class CoreAPIImpl implements CoreAPI {
       const d = e.data as { messageId?: string };
       return typeof d.messageId === 'string';
     });
-    if (!hasV1) return null;
-    const derived = deriveMessagesFromEvents(
-      events,
-      projections.map((m) => ({
-        id: m.id,
-        role: m.role.toLowerCase(),
-        content: typeof m.content === 'string' ? m.content : '',
-        timestamp: m.timestamp,
-        startedAt: m.startedAt,
-        finishReason: m.finishReason,
-        tool_calls: m.metadata?.tool_calls as
-          | Array<Record<string, unknown>>
-          | undefined,
-        toolCallId: m.metadata?.toolCallId as string | undefined,
-        blocks: m.blocks as Array<Record<string, unknown>> | undefined,
-        metadata: m.metadata as Record<string, unknown> | undefined,
-        lastEventSeq: m.lastEventSeq,
-      })),
-      { compactionRanges }
-    );
+    return hasV1 ? events : null;
+  }
+
+  /**
+   * P2-1（2026-08-23）：从 events 统一派生消息（事件聚合 + 投影覆盖，评审 G7/A1'）。
+   * 仅当 events 含 v1（messageId）事件时返回派生结果，否则返回 null（回退投影路径，
+   * 存量 v0 会话安全兼容）。
+   */
+  private async _deriveSessionMessagesFromEvents(
+    sessionId: string
+  ): Promise<Array<{
+    id: string;
+    role: string;
+    content: string;
+    timestamp: number;
+    startedAt?: number;
+    finishReason?: string;
+    tool_calls?: Array<Record<string, unknown>>;
+    toolCallId?: string;
+    blocks?: Array<Record<string, unknown>>;
+    metadata?: Record<string, unknown>;
+  }> | null> {
+    // P2-7/G4（2026-09-25）：取数拆到 `_loadDerivationHead` / `_loadDerivationEvents`，
+    // 与 `verifySessionDerivation` 共用（避免两处重复"分区解析 + 事件循环"）。
+    // ⚠️ 缓存命中路径**顺序不变**：head 不含 events ⇒ 命中时不会读事件（N-55 的省算语义保持）。
+    const head = await this._loadDerivationHead(sessionId);
+    if (!head) return null;
+    const {
+      eventLog,
+      tailSeq,
+      projections,
+      mappedProjections,
+      compactionRanges,
+    } = head;
+
+    // N-55（2026-09-20，长会话读性能）：**派生结果缓存**。
+    // 实测：3847 事件 / 192 消息的长会话，热读 ~34ms —— 其中"读 events"已被 EventLogStorage 的
+    // 事件快照缓存覆盖（P1-2），余下主要是**每次重算派生**（聚合 + 覆盖 + 块合并 + 去重）。
+    // 指纹 = tailSeq + 投影规模/末条 id + 压缩区间数：任一变化即失效重算（无 TTL，正确性靠指纹）。
+    const lastProjection = projections[projections.length - 1];
+    const fingerprint = [
+      tailSeq,
+      projections.length,
+      lastProjection?.id ?? '',
+      compactionRanges?.length ?? 0,
+    ].join('|');
+    const cached = this._derivedMessagesCache.get(sessionId);
+    if (cached && cached.fingerprint === fingerprint) {
+      // 命中 ⇒ 返回**副本**（消费方 `_attachPendingApprovalBlocks` 会改写 blocks）
+      return cloneDerivedMessages(cached.messages);
+    }
+    logger.debug('deriveCache:未命中（重算派生）', {
+      sessionId,
+      tailSeq,
+      projections: projections.length,
+      hasCached: Boolean(cached),
+    });
+    const deriveStart = Date.now();
+
+    const events = await this._loadDerivationEvents(eventLog);
+    if (!events) return null;
+    const derived = deriveMessagesFromEvents(events, mappedProjections, {
+      compactionRanges,
+    });
     // T1.3（2026-08-23）：派生结果返回前对 blocks 去重（合并同 toolCallId 的 tool_call 块，
     // 终态优先 + 保留首非空 arguments），消除 SSE 层重复发送在投影/内存中残留的污染块。
     const mapped = derived.map((m) => ({
@@ -1865,6 +1923,43 @@ export class CoreAPIImpl implements CoreAPI {
       messages: result as DerivedSessionMessages,
     });
     return result;
+  }
+
+  /**
+   * P2-7/G4（2026-09-25）：**派生一致性校验** —— 比对"纯事件派生基线"与"落盘投影"。
+   *
+   * **只报告、不改写**（自动修复会掩盖根因，CS05）。基线取法：
+   * `deriveMessagesFromEvents(events, [])`（`projections` 传空 ⇒ 不做投影覆盖）。
+   *
+   * ⚠️ 语义边界：基线与投影来自**两条写入路径**，不一致**未必**是缺陷
+   * （如压缩摘要只存在于事件侧）⇒ 返回的是**事实差异报告**，本方法不判错。
+   *
+   * @returns `available=false` ⇒ 无事件日志 / 无 v1 事件（**无法校验**，不是"一致"）
+   */
+  async verifySessionDerivation(sessionId: string): Promise<{
+    available: boolean;
+    diff?: DerivationDiff;
+    reason?: string;
+  }> {
+    const head = await this._loadDerivationHead(sessionId);
+    if (!head) {
+      return { available: false, reason: '无事件日志（未落盘或已删除）' };
+    }
+    const events = await this._loadDerivationEvents(head.eventLog);
+    if (!events) {
+      return {
+        available: false,
+        reason: '无 v1 事件（缺 messageId），不可派生',
+      };
+    }
+
+    const baseline = deriveMessagesFromEvents(events, [], {
+      compactionRanges: head.compactionRanges,
+    });
+    return {
+      available: true,
+      diff: diffDerivationMessages(baseline, head.projections),
+    };
   }
 
   /**

@@ -42,7 +42,12 @@ import type {
 import { StorageFactory } from './storage/StorageFactory.js';
 import { EventLogStorage } from './storage/EventLogStorage';
 // O10b（v7.1）：Tier1 血缘链（fork 时登记，供控制面祖先判定）
-import { registerSessionLineage } from './lineage/sessionLineage';
+import {
+  registerSessionLineage,
+  wouldCreateLineageCycle,
+  getLineageDepth,
+  MAX_LINEAGE_HOPS,
+} from './lineage/sessionLineage';
 import type { UnifiedSessionStorage } from './storage/UnifiedStorage.js';
 import type { StorageConfig } from './storage/UnifiedStorage.js';
 
@@ -54,6 +59,7 @@ import {
   CLEAN_SHUTDOWN_MARKER,
 } from './recovery/CrashRecoveryManager.js';
 import type { CrashRecoveryResult } from './recovery/CrashRecoveryManager.js';
+import type { SessionRebuildStats } from './recovery/RecoveryOrchestrator.js';
 
 import { SessionType, SessionStatus } from './types/Session.js';
 import type { LiriEvent } from '@modules/chat/types/events';
@@ -162,6 +168,46 @@ function findOpenTurn(
 }
 
 /**
+ * P1-10（B 判据）：前缀**逐条同构**校验。
+ *
+ * `copyPrefixTo` 走"原始行直拷"（不做 JSON 重序列化）⇒ 两侧解析出的对象应**严格相等**；
+ * 任何差异（缺条 / 多出 / seq 漂移 / 内容漂移）都判否。
+ *
+ * 为什么不能只看"上界一致"（A 判据）：seq 连续但**内容不同**（例如源被并发改写、
+ * 或复制中途落盘异常）在只看 `maxCopiedSeq` 时无法发现。
+ */
+function compareEventPrefix(
+  sourcePrefix: LiriEvent[],
+  childPrefix: LiriEvent[]
+): { ok: boolean; detail?: string } {
+  if (childPrefix.length !== sourcePrefix.length) {
+    return {
+      ok: false,
+      detail: `count ${childPrefix.length} != ${sourcePrefix.length}`,
+    };
+  }
+  for (let i = 0; i < sourcePrefix.length; i++) {
+    const a = sourcePrefix[i];
+    const b = childPrefix[i];
+    if (a.seq !== b.seq) {
+      return { ok: false, detail: `seq[${i}] ${b.seq} != ${a.seq}` };
+    }
+    if (a.type !== b.type) {
+      return { ok: false, detail: `type[${i}] ${b.type} != ${a.type}` };
+    }
+    if (JSON.stringify(a.data) !== JSON.stringify(b.data)) {
+      return { ok: false, detail: `data[${i}] mismatch (seq=${a.seq})` };
+    }
+  }
+  return { ok: true };
+}
+
+/** 统一的错误文本化（避免各处重复三元） */
+function errText(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
+
+/**
  * 会话网关
  */
 export class SessionGateway {
@@ -178,6 +224,11 @@ export class SessionGateway {
   private sessionRouter: SessionRouter | null = null;
   private eventBus: SessionLifecycleEventBus | null = null;
   private crashRecoveryManager: CrashRecoveryManager;
+  /**
+   * P2-7（2026-09-25）：崩溃恢复**结果缓存**（同时充当幂等标志）。
+   * 非 null ⇒ 已真正执行过一次；重复调用返回同一结果（不重复扫描，也不伪造空结果）。
+   */
+  private _crashRecoveryResult: CrashRecoveryResult | null = null;
   private initialized = false;
   private static readonly FTS_SAVE_INTERVAL_MS = 60_000;
   private ftsSaveInterval: ReturnType<typeof setInterval> | null = null;
@@ -447,16 +498,9 @@ export class SessionGateway {
 
     await this.storage.initialize();
     await this.transcriptManager.initialize();
-    await this.crashRecoveryManager.initialize();
-
-    const crashResult = await this.crashRecoveryManager.recoverAfterCrash();
-    if (crashResult.totalChecked > 0) {
-      logger.info('会话崩溃恢复完毕', {
-        totalChecked: crashResult.totalChecked,
-        paused: crashResult.pausedSessions,
-        failed: crashResult.failedSessions,
-      });
-    }
+    // P2-7（2026-09-25）：崩溃恢复抽为**幂等内部入口** —— `initialize()`（懒调用路径）
+    // 与 public `recoverAfterCrash()`（启动期编排路径）共用，保证"只真正执行一次"。
+    await this.runCrashRecoveryOnce();
 
     await this.rebuildFTSIndex();
     this.startFTSIndexPersistence();
@@ -728,6 +772,28 @@ export class SessionGateway {
         };
       }
 
+      // P1-10（C 判据，2026-09-25）：建边**前置**校验 —— 防血缘环与超深链。
+      // 环的两个来源：① 显式 `childId` 已是 source 的**祖先** ⇒ 新边让两者互为祖先
+      // （控制面 Tier1 会互相授予控制权）；② 自环（`childId === sourceId`）。
+      // 深链：新边后深度超过 `MAX_LINEAGE_HOPS` ⇒ `isAncestorSession` 会判否，
+      // 与其建一条"查不到"的边，不如建边即拒绝。
+      if (
+        options.childId &&
+        wouldCreateLineageCycle(options.childId, sourceId)
+      ) {
+        return {
+          success: false,
+          error: `fork would create lineage cycle: child=${options.childId} parent=${sourceId}`,
+        };
+      }
+      const sourceDepth = getLineageDepth(sourceId);
+      if (sourceDepth + 1 > MAX_LINEAGE_HOPS) {
+        return {
+          success: false,
+          error: `fork exceeds max lineage hops: ${sourceDepth} + 1 > ${MAX_LINEAGE_HOPS}`,
+        };
+      }
+
       // 创建子会话（血缘注入 metadata，复用 createSession 的落盘 + session:created 事件）
       const child = await this.createSession({
         id: options.childId,
@@ -748,21 +814,71 @@ export class SessionGateway {
       if (!copy.ok) {
         // H9 修复：复制失败时回滚已创建的子会话（deleteSession 软删除），
         // 避免孤儿子会话残留（无血缘事件、后续 fork 校验不一致）。
-        await this.deleteSession(child.id).catch((rollbackErr) => {
-          logger.warn('forkSession:回滚子会话失败', {
-            childId: child.id,
-            error:
-              rollbackErr instanceof Error
-                ? rollbackErr.message
-                : String(rollbackErr),
-          });
-        });
+        // 血缘此时**尚未登记**（M-2 后置）⇒ 不产生悬挂边。
+        await this.rollbackForkedChild(child.id, 'copy-failed');
         return {
           success: false,
           session: child,
           boundary,
           copied: copy.copied,
           error: `copy prefix failed: ${copy.reason ?? 'unknown'}`,
+        };
+      }
+
+      // P1-10（A 判据，2026-09-25）：**声明 = 事实** —— 实际复制上界必须等于请求边界。
+      // 严格口径（用户裁定）：不一致即回滚拒绝。触发场景：源存在 seq 空洞、
+      // 损坏行被 repair 跳过、或源在复制期间被截断 ⇒ 子会话的实际种子长度短于声明。
+      if (copy.maxCopiedSeq !== boundary) {
+        await this.rollbackForkedChild(child.id, 'boundary-mismatch');
+        return {
+          success: false,
+          session: child,
+          boundary,
+          copied: copy.copied,
+          error: `fork boundary mismatch: requested=${boundary} actual=${copy.maxCopiedSeq}`,
+        };
+      }
+
+      // P1-10（A-③④）：落盘血缘（`metadata`）必须与真实来源/边界一致 —— 在登记内存血缘
+      // **之前**校验。二者是两处独立写入（createSession 落盘 vs 本模块 Map 登记），
+      // 一旦漂移，内存血缘**无撤销 API** ⇒ 必须前置失败（fail-closed）。
+      const childMeta = child.metadata as
+        | { parentSessionId?: string; seedLength?: number }
+        | undefined;
+      if (
+        childMeta?.parentSessionId !== sourceId ||
+        childMeta?.seedLength !== copy.maxCopiedSeq
+      ) {
+        await this.rollbackForkedChild(child.id, 'metadata-mismatch');
+        return {
+          success: false,
+          session: child,
+          boundary,
+          copied: copy.copied,
+          error:
+            `fork metadata mismatch: parentSessionId=${childMeta?.parentSessionId ?? 'null'}` +
+            ` seedLength=${childMeta?.seedLength ?? 'null'}`,
+        };
+      }
+
+      // P1-10（B 判据）：前缀**逐条同构** —— 内容一致，而非仅"上界一致"。
+      // 两侧均**重读磁盘**（不复用入口的内存快照）：`copyPrefixTo` 内部先
+      // `ensureRepairChecked()` 修复源（torn-tail 截断），重读才与复制时的真实内容对齐。
+      const sourcePrefix = (await sourceLog.read()).filter(
+        (e) => e.seq <= boundary
+      );
+      const childPrefix = (await childLog.read()).filter(
+        (e) => e.seq <= boundary
+      );
+      const iso = compareEventPrefix(sourcePrefix, childPrefix);
+      if (!iso.ok) {
+        await this.rollbackForkedChild(child.id, 'prefix-not-isomorphic');
+        return {
+          success: false,
+          session: child,
+          boundary,
+          copied: copy.copied,
+          error: `fork prefix mismatch: ${iso.detail ?? 'unknown'}`,
         };
       }
 
@@ -808,6 +924,28 @@ export class SessionGateway {
         error: e instanceof Error ? e.message : String(e),
       };
     }
+  }
+
+  /**
+   * P1-10（2026-09-25）：fork 失败时回滚已创建的子会话 —— H9 语义的**单一实现**。
+   *
+   * 只在**登记血缘之前**的失败点调用：血缘后置登记（M-2）保证"失败即无血缘"，
+   * 故此处无需（也无 API）撤销血缘。
+   */
+  private async rollbackForkedChild(
+    childId: string,
+    reason: string
+  ): Promise<void> {
+    await this.deleteSession(childId).catch((rollbackErr) => {
+      logger.warn('forkSession:回滚子会话失败', {
+        childId,
+        reason,
+        error:
+          rollbackErr instanceof Error
+            ? rollbackErr.message
+            : String(rollbackErr),
+      });
+    });
   }
 
   /**
@@ -1191,9 +1329,101 @@ export class SessionGateway {
   }
 
   /**
+   * P2-7（2026-09-25）：**真正执行一次**崩溃恢复（幂等内部入口）。
+   *
+   * `initialize()`（懒调用路径）与 public {@link recoverAfterCrash}（启动期恢复编排路径）共用本方法
+   * ⇒ 两条路径**不会重复扫描**；结果被缓存，重复调用返回**同一份结果**（而非伪造"检查了 0 个会话"）。
+   */
+  private async runCrashRecoveryOnce(): Promise<CrashRecoveryResult> {
+    if (this._crashRecoveryResult) return this._crashRecoveryResult;
+
+    await this.crashRecoveryManager.initialize();
+    const crashResult = await this.crashRecoveryManager.recoverAfterCrash();
+    this._crashRecoveryResult = crashResult;
+    if (crashResult.totalChecked > 0) {
+      logger.info('会话崩溃恢复完毕', {
+        totalChecked: crashResult.totalChecked,
+        paused: crashResult.pausedSessions,
+        failed: crashResult.failedSessions,
+      });
+    }
+    return crashResult;
+  }
+
+  /**
+   * P2-7（2026-09-25）：崩溃恢复的**显式入口**（幂等），供启动期恢复编排层主动触发。
+   *
+   * 修复前该逻辑内联在 `initialize()` 中，而 `initialize()` 是**懒调用** ⇒ 用户若始终不触发
+   * 会话路径（只开控制面 / 只看项目页），崩溃会话**永不恢复**，而 yield 侧却已在启动期回放
+   * ⇒ 时机不对称。本方法先保证存储初始化，再执行（或复用缓存结果）。
+   */
+  async recoverAfterCrash(): Promise<CrashRecoveryResult> {
+    await this.initialize();
+    return this.runCrashRecoveryOnce();
+  }
+
+  /**
+   * P2-7（2026-09-25）：会话**派生状态**重建入口（全量 / 单会话）。
+   *
+   * 复用既有重建实现（`rebuildFTSIndex` / `migrateRoundCount` / `indexMessageToFTS`），
+   * **不新造重建算法**；单会话失败不中断整体（逐条记入 `failures`）。
+   */
+  async rebuildDerivedState(opts?: {
+    sessionId?: string;
+  }): Promise<SessionRebuildStats> {
+    await this.initialize();
+    const failures: Array<{ sessionId?: string; error: string }> = [];
+
+    if (!opts?.sessionId) {
+      // 全量：复用既有两个幂等实现
+      const sessions = await this.storage.listSessions();
+      let ftsIndexed = 0;
+      try {
+        ftsIndexed = await this.rebuildFTSIndex();
+      } catch (err) {
+        failures.push({ error: errText(err) });
+      }
+      const migrated = await this.migrateRoundCount();
+      if (migrated.error) failures.push({ error: migrated.error });
+      return {
+        scopes: sessions.length,
+        ftsDocs: ftsIndexed,
+        roundCountFixed: migrated.migrated,
+        failures,
+      };
+    }
+
+    // 单会话
+    const sessionId = opts.sessionId;
+    let ftsDocs = 0;
+    let roundCountFixed = 0;
+    try {
+      const messages = await this.storage.getMessages(sessionId);
+      for (const msg of messages) this.indexMessageToFTS(sessionId, msg);
+      ftsDocs = messages.length;
+
+      const session = await this.getSession(sessionId);
+      const userMsgCount = messages.filter((m) => m.role === 'user').length;
+      const current = (session?.metadata as Record<string, unknown> | undefined)
+        ?.roundCount;
+      if (session && current !== userMsgCount) {
+        session.metadata = {
+          ...session.metadata,
+          roundCount: userMsgCount,
+        } as SessionMetadata;
+        await this.storage.updateSession(session);
+        roundCountFixed = 1;
+      }
+    } catch (err) {
+      failures.push({ sessionId, error: errText(err) });
+    }
+    return { scopes: 1, ftsDocs, roundCountFixed, failures };
+  }
+
+  /**
    * 在启动时重建 FTS5 索引（从持久化文件加载，或从存储全量重建）
    */
-  private async rebuildFTSIndex(): Promise<void> {
+  private async rebuildFTSIndex(): Promise<number> {
     const engine = getFTS5SearchEngine();
 
     // H1 修复：显式传 getFTSIndexPath()（fts-index.json），与 saveToDisk 写路径对称，
@@ -1215,14 +1445,21 @@ export class SessionGateway {
       if (indexedCount > 0) {
         logger.info('FTS5 索引已从存储重建', { indexedCount });
       }
+      // P2-7（2026-09-25）：返回**本次重建写入的文档数**（供恢复编排层汇总；
+      // 索引已从磁盘加载时返回 0 —— 口径是"重建了多少"，不是"总共有多少"）
+      return indexedCount;
     }
+    return 0;
   }
 
   /**
    * 迁移：为已有 session 计算 roundCount（幂等）
    * 仅当 metadata.roundCount 不存在时计算
    */
-  private async migrateRoundCount(): Promise<void> {
+  private async migrateRoundCount(): Promise<{
+    migrated: number;
+    error?: string;
+  }> {
     try {
       const sessions = await this.storage.listSessions();
       let migratedCount = 0;
@@ -1248,10 +1485,12 @@ export class SessionGateway {
       if (migratedCount > 0) {
         logger.info('roundCount 迁移完成', { migratedCount });
       }
+      // P2-7（2026-09-25）：返回迁移计数 + 失败原因（供恢复编排层汇总；
+      // 既有调用方 `initialize()` 忽略返回值 ⇒ 行为不变）
+      return { migrated: migratedCount };
     } catch (err) {
-      logger.warn('roundCount 迁移失败（非致命）', {
-        error: err instanceof Error ? err.message : String(err),
-      });
+      logger.warn('roundCount 迁移失败（非致命）', { error: errText(err) });
+      return { migrated: 0, error: errText(err) };
     }
   }
 

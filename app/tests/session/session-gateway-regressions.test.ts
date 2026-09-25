@@ -23,6 +23,7 @@ import { StorageType } from '../../src/session/storage/UnifiedStorage';
 import {
   getSessionParent,
   isAncestorSession,
+  registerSessionLineage,
   resetSessionLineage,
 } from '../../src/session/lineage/sessionLineage';
 import {
@@ -151,6 +152,7 @@ describe('H9: forkSession 复制失败回滚子会话', () => {
     copySpy.mockImplementation(async () => ({
       ok: false,
       copied: 0,
+      maxCopiedSeq: 0,
       reason: 'target-not-empty',
     }));
 
@@ -192,6 +194,7 @@ describe('H9: forkSession 复制失败回滚子会话', () => {
     copySpy.mockImplementation(async () => ({
       ok: false,
       copied: 0,
+      maxCopiedSeq: 0,
       reason: 'test-forced-failure',
     }));
 
@@ -299,5 +302,139 @@ describe('M6: SessionManager 无 lock 字段', () => {
     const rec = manager as unknown as Record<string, unknown>;
     expect(rec['lock']).toBeUndefined();
     expect('lock' in manager).toBe(false);
+  });
+});
+
+/**
+ * P1-10（2026-09-25，用户裁定「D 全量 + 严格拒绝」）：fork 的**跨会话一致性校验**。
+ *
+ * 修复前只有两类校验 —— boundary 整数范围 + `findOpenTurn`（源自身 turn 闭合）
+ * ⇒ **完全不看复制结果**：实际复制上界短于请求边界、复制内容与源不同构、
+ * 血缘成环/超深链，一律放行。以下用例均为"修复前必失败"型。
+ */
+describe('P1-10: fork 跨会话一致性校验（A 声明=事实 / B 前缀同构 / C 防环深链）', () => {
+  const realCopyPrefixTo = EventLogStorage.prototype.copyPrefixTo;
+  afterEach(() => {
+    EventLogStorage.prototype.copyPrefixTo = realCopyPrefixTo;
+  });
+
+  /** 建源会话并写入 `count` 条事件（seq = 1..count） */
+  async function setupSource(
+    gateway: SessionGateway,
+    sourceId: string,
+    count: number
+  ): Promise<void> {
+    await gateway.createSession({ id: sourceId, title: sourceId });
+    const evDir = join(dataDir, 'sessions', WORKTREE_HASH, sourceId);
+    mkdirSync(evDir, { recursive: true });
+    const lines = Array.from({ length: count }, (_, i) =>
+      JSON.stringify(makeEvent(i + 1, sourceId))
+    ).join('\n');
+    writeFileSync(join(evDir, 'events.jsonl'), lines + '\n', 'utf-8');
+  }
+
+  it('A：实际复制上界 < 请求边界 ⇒ 拒绝 + 回滚 + 不建血缘（修复前：只看 ok ⇒ 放行）', async () => {
+    const gateway = makeFsGateway();
+    await gateway.initialize();
+    resetSessionLineage();
+
+    const sourceId = 'p110-a-source';
+    const childId = 'p110-a-child';
+    await setupSource(gateway, sourceId, 2); // tailSeq=2 ⇒ boundary=2
+
+    // 模拟"源第 2 条事件被 repair 跳过"：ok=true，但实际只复制到 seq=1
+    const copySpy = spyOn(EventLogStorage.prototype, 'copyPrefixTo');
+    copySpy.mockImplementation(async () => ({
+      ok: true,
+      copied: 1,
+      maxCopiedSeq: 1,
+    }));
+
+    const result = await gateway.forkSession(sourceId, { childId });
+
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('boundary mismatch');
+    expect(await gateway.getSession(childId)).toBeNull(); // 已回滚
+    expect(getSessionParent(childId)).toBeNull(); // 无悬挂边
+  });
+
+  it('B：复制"成功"但内容不同构（子会话为空）⇒ 拒绝回滚（修复前：只判 ok ⇒ 放行）', async () => {
+    const gateway = makeFsGateway();
+    await gateway.initialize();
+    resetSessionLineage();
+
+    const sourceId = 'p110-b-source';
+    const childId = 'p110-b-child';
+    await setupSource(gateway, sourceId, 2);
+
+    // 上界"看起来对"（maxCopiedSeq = boundary），但一行都没写 ⇒ 内容不同构
+    const copySpy = spyOn(EventLogStorage.prototype, 'copyPrefixTo');
+    copySpy.mockImplementation(async () => ({
+      ok: true,
+      copied: 2,
+      maxCopiedSeq: 2,
+    }));
+
+    const result = await gateway.forkSession(sourceId, { childId });
+
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('prefix mismatch');
+    expect(await gateway.getSession(childId)).toBeNull();
+    expect(getSessionParent(childId)).toBeNull();
+  });
+
+  it('C：childId 已是 source 的祖先 ⇒ 拒绝（修复前：放行 ⇒ 形成互环）', async () => {
+    const gateway = makeFsGateway();
+    await gateway.initialize();
+    resetSessionLineage();
+
+    // 既有血缘：B 的父是 A
+    registerSessionLineage('p110-c-b', 'p110-c-a');
+    await setupSource(gateway, 'p110-c-b', 1);
+
+    // fork(source=B, child=A) ⇒ 新边 A→B 与既有 B→A 构成互环
+    const result = await gateway.forkSession('p110-c-b', {
+      childId: 'p110-c-a',
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('lineage cycle');
+  });
+
+  it('C：新边后深度超 MAX_LINEAGE_HOPS ⇒ 拒绝（修复前：放行，但该边查不到）', async () => {
+    const gateway = makeFsGateway();
+    await gateway.initialize();
+    resetSessionLineage();
+
+    // 造 8 跳链 s9→s8→…→s1（s1 无父）⇒ depth(s9) = 8 ⇒ 新边后 = 9 > MAX_LINEAGE_HOPS(8)
+    for (let i = 9; i >= 2; i--) {
+      registerSessionLineage(`p110-d-s${i}`, `p110-d-s${i - 1}`);
+    }
+    await setupSource(gateway, 'p110-d-s9', 1);
+
+    const result = await gateway.forkSession('p110-d-s9', {
+      childId: 'p110-d-child',
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('max lineage hops');
+  });
+
+  it('零回归：真实复制（边界/内容/血缘三者一致）⇒ 仍成功且血缘建立', async () => {
+    const gateway = makeFsGateway();
+    await gateway.initialize();
+    resetSessionLineage();
+
+    const sourceId = 'p110-ok-source';
+    const childId = 'p110-ok-child';
+    await setupSource(gateway, sourceId, 2);
+
+    const result = await gateway.forkSession(sourceId, { childId });
+
+    expect(result.success).toBe(true);
+    expect(result.boundary).toBe(2);
+    expect(result.copied).toBe(2);
+    expect(getSessionParent(childId)).toBe(sourceId);
+    expect(isAncestorSession(sourceId, childId)).toBe(true);
   });
 });

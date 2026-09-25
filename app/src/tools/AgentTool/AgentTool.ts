@@ -37,6 +37,7 @@ import type {
 } from './types';
 import {
   getAgentRunLedger,
+  type AgentRunLedgerPort,
   type AgentRunReservation,
   type AgentRunStatus,
 } from './AgentRunLedger';
@@ -101,7 +102,11 @@ import {
 import { globalEventBus } from '../../core/events/EventBus.js';
 // 阶段 A（A1-e）：并行批次结算 → yield 等待收敛桥
 import { notifyYieldSettled } from '@modules/chat';
-import { agentRegistry, OrchestrationEventType } from '@modules/agent';
+import {
+  agentRegistry,
+  OrchestrationEventType,
+  deriveParallelEndData,
+} from '@modules/agent';
 import { getTeammateManager } from '../../subagent/TeammateManager';
 import { taskRegistry } from '@modules/tasks';
 import { resolveModelRoute, RouteKey } from '@modules/ai';
@@ -365,7 +370,9 @@ export class AgentTool implements Tool {
    * `Coordinator` / `getAllBaseTools()`），实例字段会让"能否再开一个"只按单实例计数，
    * 与 `SubAgentEngine`、`AgentRunStore` 的单例口径分裂。
    */
-  private _ledger = getAgentRunLedger();
+  // P2-6（2026-09-25）：字段类型收敛为**台账契约** —— 消费方依赖接口而非具体类，
+  // 使台账可被桩化/替换（"判据源"由类型表达，见 `.trae/specs/agent-run-ports.md`）。
+  private _ledger: AgentRunLedgerPort = getAgentRunLedger();
 
   /**
    * 活跃子 agent 的 teammate handle 映射（设计二 2026-08-26）：
@@ -2322,14 +2329,22 @@ export class AgentTool implements Tool {
     const partialFailure = workers.length > 0 && okCount > 0 && !batchOk;
     // 出口⑥：`runBatched` 在 `signal.aborted` 时直接 return（AgentSwarm.ts:225-232）⇒ 未投递的任务
     // **既没跑也没失败**，不可计入 failed（修复前 `tasks.length - succeeded` 把它们全算成失败）。
-    // ⚠ 语义钉死：本值 = **投递缺口**（未投递数），**不等于取消事实**（见下 `cancelledFact`）。
-    const cancelledCount = Math.max(0, tasks.length - workers.length);
-    // 取消**事实**（取 `AgentSwarm` 的终态快照，不在此重读 `signal.aborted`）。
+    // P1-11（2026-09-25）：三个量改由 `deriveParallelEndData` **单一派生** ——
+    // 事件载荷与下方归因文案共用同一次派生；修复前事件只发"投递缺口"、不发"取消事实"。
+    // ⚠ 语义钉死：`cancelledTasks` = **投递缺口**（未投递数），**不等于取消事实**（`cancelledFact`）。
+    const pe = deriveParallelEndData({
+      totalTasks: tasks.length,
+      succeededTasks: okCount,
+      deliveredTasks: workers.length,
+      // 取消**事实**（取 `AgentSwarm` 的终态快照，不在此重读 `signal.aborted`）。
+      cancelledFact: swarmResult.cancelled === true,
+    });
+    const cancelledCount = pe.cancelledTasks;
     // 2026-09-22 修复（Liri v1.4 复审 D1/D2）：先前只派生 `cancelledCount` ⇒ 取消发生在
     // **门禁/合成等收尾阶段**时任务已全部投递、缺口为 0 ⇒ 对外口径**完全看不到"批次被取消"**，
     // 控制面无法区分"3/3 成功后被取消"与"3/3 成功正常结束"。二者必须并列派生、禁止互相替代。
-    const cancelledFact = swarmResult.cancelled === true;
-    const failedCount = workers.length - okCount;
+    const cancelledFact = pe.cancelledFact;
+    const failedCount = pe.failedTasks;
     // 出口⑤：门禁三态分列（`skipped` ≠ "已验证"）
     const verifyPassed = workers.filter((w) => w.verify === 'passed').length;
     const verifyFailed = workers.filter((w) => w.verify === 'failed').length;
@@ -2359,12 +2374,9 @@ export class AgentTool implements Tool {
         ? reasonParts.join('；')
         : `批次未通过（完成 ${okCount}/${tasks.length}）`;
 
-    globalEventBus.publish(OrchestrationEventType.PARALLEL_END, {
-      totalTasks: tasks.length,
-      completedTasks: okCount,
-      failedTasks: failedCount,
-      cancelledTasks: cancelledCount,
-    });
+    // P1-11（2026-09-25）：载荷直接复用同一次派生（含 `cancelledFact`）——
+    // 修复前只发 `cancelledTasks`（投递缺口）⇒ 消费端读不到取消事实。
+    globalEventBus.publish(OrchestrationEventType.PARALLEL_END, pe);
 
     await this.settleRun(
       agentId,

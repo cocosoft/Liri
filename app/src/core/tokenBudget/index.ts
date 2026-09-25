@@ -28,6 +28,8 @@ export * from './providers';
 export * from './PriceManager';
 export * from './CacheAwareBudget';
 export * from './ContextStatsCollector';
+// P2-10（2026-09-25）：统一预算策略层（契约 + 注册表 + 三处登记）
+export * from './BudgetPolicy';
 export {
   TokenBudgetController,
   type CacheAwareTokenUsage,

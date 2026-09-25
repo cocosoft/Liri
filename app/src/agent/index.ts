@@ -260,7 +260,10 @@ export {
   registerIsolationToScope,
 } from './AgentIsolation.js';
 export type { BuiltInAgentDefinition } from './models/types.js';
-export { OrchestrationEventType } from './events/OrchestrationEvents.js';
+export {
+  OrchestrationEventType,
+  deriveParallelEndData,
+} from './events/OrchestrationEvents.js';
 export type * from './events/OrchestrationEvents.js';
 export { extractKeyPaths } from './compact/utils';
 

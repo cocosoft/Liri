@@ -346,7 +346,14 @@ export class SettlementOutbox {
   /** 放弃投递（超上限/不可恢复）⇒ `dropped`，重放不再拾取 */
   async markDropped(id: number, reason: string): Promise<boolean> {
     await this.init();
-    return this.writeState(id, 'dropped', reason);
+    const changed = await this.writeState(id, 'dropped', reason);
+    // P1-5（2026-09-25）：`dropped` 是**终态且重放不再拾取** ⇒ 必须可观测。
+    // 修复前该分支只写状态、**无日志也无计数** ⇒ 结算信号被静默丢弃，巡检无从发现。
+    // 现以 WARN 为观测出口（对齐 §1.8：WARN 级始终输出，不随检查点日志开关关闭）。
+    if (changed) {
+      logger.warn('结算信号投递超限被丢弃（重放不再拾取）', { id, reason });
+    }
+    return changed;
   }
 
   /**
@@ -383,7 +390,38 @@ export class SettlementOutbox {
          )`,
       [OUTBOX_MAX_ROWS]
     );
+    // P1-5（2026-09-25）：裁剪是**上限收敛**的唯一出口，修复前返回值无任何消费方
+    // ⇒ "保留上限是否在生效、裁掉多少"完全不可观测。现以 INFO 记录实际删除行数。
+    if (removed > 0) {
+      logger.info('结算台账已裁剪（超龄 / 超保留上限）', { removed });
+    }
     return removed;
+  }
+
+  /**
+   * 各状态行数（**巡检 / 指标**用）。
+   *
+   * P1-5（2026-09-25）：`dropped` 是"上限收敛"的终态信号（结算信号被永久放弃），
+   * 修复前它只存在于 DB 行里 —— 无日志、无计数、无消费方 ⇒ 外部无法采集
+   * "是否有信号被丢弃 / 丢弃了多少"。本方法给出可被巡检直接读取的口径。
+   */
+  async getStateCounts(): Promise<Record<DeliveryState, number>> {
+    await this.init();
+    const rows = await this.all<{ state: string; n: number }>(
+      `SELECT state, COUNT(*) AS n FROM ${SETTLEMENT_OUTBOX_TABLE} GROUP BY state`
+    );
+    const counts: Record<DeliveryState, number> = {
+      pending: 0,
+      attempting: 0,
+      delivered: 0,
+      failed: 0,
+      dropped: 0,
+    };
+    for (const row of rows) {
+      const key = row.state as DeliveryState;
+      if (key in counts) counts[key] = Number(row.n);
+    }
+    return counts;
   }
 
   /** 查询单行（巡检/测试用） */

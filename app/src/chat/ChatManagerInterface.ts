@@ -14,7 +14,12 @@ import type { LiriEvent } from './types/events.js';
 import type { ToolCall, ToolResult, ToolIntegration } from './types/tool.js';
 import type { MessageService } from './services/MessageService.js';
 import type { StreamService } from './services/StreamService.js';
-import type { SessionGateway } from '@modules/session';
+import type {
+  SessionGateway,
+  // P2-7（2026-09-25）：恢复编排（会话侧类型）
+  RecoveryReport,
+  YieldRecoveryStats,
+} from '@modules/session';
 import type { ToolAwareClient } from '@modules/ai';
 import type { ToolRegistry } from '@modules/tools';
 import type { IToolExecutor } from '@modules/ai';
@@ -62,9 +67,20 @@ export interface ChatManager {
    * 修复前装配只在 `streamMessage`/`sendMessage` 入口 ⇒ 无人发消息时 `pending` 行
    * 永不回放，且等待集不落盘 ⇒ 回放必然失败（逐次 `markFailed` ⇒ `dropped`）。
    *
-   * 由 `main.ts` 启动序列调用（`wrapInit('YieldRecovery', ...)`）。
+   * 由 `bootstrapRecovery()`（恢复编排入口）在启动期调用（`main.ts` 的 `wrapInit('Recovery', ...)`）。
    */
-  bootstrapYieldRecovery(): Promise<void>;
+  bootstrapYieldRecovery(): Promise<YieldRecoveryStats>;
+
+  /**
+   * P2-7（2026-09-25）：**恢复编排入口**（启动期用一个入口替代分散装配）。
+   *
+   * 顺序：`sessionCrash → [sessionState] → yieldRecovery → lineage`（失败逐步隔离、不阻断启动）；
+   * 返回**聚合报告**（本次重建了什么 / 跳过什么 / 失败什么）。由 `main.ts` 的
+   * `wrapInit('Recovery', ...)` 调用。
+   *
+   * @param opts.rebuildState 是否执行会话派生状态全量重建（默认 `false`，避免拖慢启动）
+   */
+  bootstrapRecovery(opts?: { rebuildState?: boolean }): Promise<RecoveryReport>;
 
   /**
    * 流式发送消息

@@ -954,6 +954,58 @@ export interface EventSessionStats {
   eventCount: number;
 }
 
+/** 派生一致性校验结果（P2-7 / G4） */
+export interface DerivationDiff {
+  /** 基线（**纯事件**派生，不做投影覆盖）的消息 id 数 */
+  derivedCount: number;
+  /** 落盘投影（`messages.jsonl`）的消息 id 数 */
+  projectedCount: number;
+  /** **事件有、投影无** ⇒ 候选"消息未落盘"信号 */
+  onlyInEvents: string[];
+  /** **投影有、事件无** ⇒ 候选"投影残留/孤儿"信号 */
+  onlyInProjections: string[];
+  lastDerivedSeq: number | null;
+  lastProjectedSeq: number | null;
+  /** 两侧 id 集合是否一致（**事实报告**，不自动判为缺陷） */
+  mismatch: boolean;
+}
+
+/**
+ * P2-7 / G4（2026-09-25）：比对**纯事件派生基线**与**落盘投影**，输出事实差异。
+ *
+ * ⚠️ **语义边界（重要，避免误读）**：基线与投影来自**两条写入路径**，二者不一致
+ * **未必**是缺陷（例如投影本身缺 v1 `messageId`、或压缩摘要只存在于事件侧）。
+ * 本函数**只报告事实**，不判断"是否 bug"，也**不改写**任何数据
+ * —— 自动修复会掩盖根因（CS05）。
+ *
+ * 取得基线的方式：`deriveMessagesFromEvents(events, [])`（`projections` 传空 ⇒ 不做投影覆盖）。
+ */
+export function diffDerivationMessages(
+  baseline: Array<{ id: string; lastEventSeq?: number }>,
+  projected: Array<{ id: string; lastEventSeq?: number }>
+): DerivationDiff {
+  const baselineIds = new Set(baseline.map((m) => m.id));
+  const projectedIds = new Set(projected.map((m) => m.id));
+  const onlyInEvents = [...baselineIds].filter((id) => !projectedIds.has(id));
+  const onlyInProjections = [...projectedIds].filter(
+    (id) => !baselineIds.has(id)
+  );
+  const maxSeq = (list: Array<{ lastEventSeq?: number }>): number | null =>
+    list.length === 0
+      ? null
+      : list.reduce((acc, m) => Math.max(acc, m.lastEventSeq ?? 0), 0);
+
+  return {
+    derivedCount: baselineIds.size,
+    projectedCount: projectedIds.size,
+    onlyInEvents,
+    onlyInProjections,
+    lastDerivedSeq: maxSeq(baseline),
+    lastProjectedSeq: maxSeq(projected),
+    mismatch: onlyInEvents.length > 0 || onlyInProjections.length > 0,
+  };
+}
+
 /** 从事件流投影会话统计（D7-1） */
 export function deriveSessionStats(events: LiriEvent[]): EventSessionStats {
   const stats: EventSessionStats = {

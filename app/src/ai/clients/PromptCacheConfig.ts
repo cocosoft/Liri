@@ -39,13 +39,18 @@ export interface PromptCacheConfig {
 }
 
 /**
- * 默认缓存配置 - system_and_3 策略
- * 系统提示末尾 + 每 3 条消息 + 工具定义末尾
+ * 默认缓存配置 - `system_and_3` 策略。
+ *
+ * `maxBreakpoints = 3`（用户裁定，2026-09-24）：`system` + `tools` 两个固定断点之外
+ * **只放末尾一个** message 断点 ⇒ 恰好覆盖"缓存前缀末尾"（Anthropic 对多轮的推荐）。
+ * 不再多放"末尾-3"阶梯：对**线性增长**的会话它没有命中增益（后续请求的末尾断点已覆盖同一前缀），
+ * 却要多付一次 cache write（1.25×）。需要阶梯时把该值调到 4 即可
+ * （硬上限 `MAX_BREAKPOINTS_HARD_LIMIT` 仍是 4）。
  */
 export const DEFAULT_CACHE_CONFIG: PromptCacheConfig = {
   strategy: 'system_and_3',
   breakpointInterval: 3,
-  maxBreakpoints: 4,
+  maxBreakpoints: 3,
 };
 
 /**

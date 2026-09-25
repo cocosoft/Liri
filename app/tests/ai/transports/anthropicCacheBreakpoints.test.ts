@@ -70,8 +70,8 @@ describe('N-1：cache_control 断点数恒 ≤ 4（不随历史增长）', () =>
     const count = countBreakpoints(body);
 
     expect(count).toBeLessThanOrEqual(4);
-    // O2-3 接线后：system 稳定块 + tools 末个 + 末尾锚定的两个 message 断点（@末 与 @末-3）
-    expect(count).toBe(4);
+    // O2-3 接线后（默认预算 3，2026-09-24 裁定）：system 稳定块 + tools 末个 + **末尾 1 个** message 断点
+    expect(count).toBe(3);
   });
 
   it('只有最后一个 tool_result 带断点（前序工具结果不带）', () => {

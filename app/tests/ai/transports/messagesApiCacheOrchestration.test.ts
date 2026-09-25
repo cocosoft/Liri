@@ -91,11 +91,23 @@ describe('O2-3 接线：断点由编排层统一决定', () => {
     }
   });
 
-  it('默认配置：末尾之外再有「末尾-3」阶梯（预算用尽为止）', () => {
+  it('默认配置（预算 3）⇒ 只放**末尾一个** message 断点', () => {
     const bp = breakpointsOf(build(new MessagesApiTransport(), 10));
-    expect(bp.messages).toEqual([17, 20]);
+    expect(bp.messages).toEqual([20]);
     expect(bp.system).toBe(1);
     expect(bp.tools).toBe(1);
+    expect(bp.system + bp.tools + bp.messages.length).toBe(3);
+  });
+
+  it('预算调到 4 ⇒ 出现「末尾-3」阶梯（能力仍在，默认不启用）', () => {
+    const t = new MessagesApiTransport();
+    t.cacheConfig = {
+      strategy: 'system_and_3',
+      breakpointInterval: 3,
+      maxBreakpoints: 4,
+    };
+    const bp = breakpointsOf(build(t, 10));
+    expect(bp.messages).toEqual([17, 20]);
   });
 
   it('零工具轮也有末尾断点（接线前的缺口：无 tool_result ⇒ message 层零断点）', () => {

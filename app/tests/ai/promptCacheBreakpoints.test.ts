@@ -26,10 +26,11 @@ describe('提示缓存断点预算与校验（二期 O2-3）', () => {
     const bps = calculateBreakpoints(100, DEFAULT_CACHE_CONFIG);
     expect(bps.length).toBeLessThanOrEqual(DEFAULT_CACHE_CONFIG.maxBreakpoints);
     // 修复前：1(system) + 3(message) + 1(tools) = 5 ⇒ 失败
-    expect(bps.length).toBe(4);
+    // 2026-09-24 裁定：默认 `maxBreakpoints = 3` ⇒ system + tools + **末尾 1 个**（预算用满）
+    expect(bps.length).toBe(3);
     expect(bps.filter((b) => b.type === 'tools').length).toBe(1);
     expect(bps.filter((b) => b.type === 'system').length).toBe(1);
-    expect(bps.filter((b) => b.type === 'message').length).toBe(2);
+    expect(bps.filter((b) => b.type === 'message').length).toBe(1);
   });
 
   it('maxBreakpoints=5 超过 Anthropic 硬上限 ⇒ 抛错（修复前静默产出 6 个断点）', () => {

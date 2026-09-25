@@ -714,7 +714,13 @@ export class AgentTool implements Tool {
       };
     }
 
-    const agentInput = input as unknown as AgentInput;
+    // N-70（2026-09-25）：工具入参在**部分路径下是只读的** —— 实测 `Attempted to assign to readonly property.`
+    // 仅在**传入字符串 `allowedTools`/`deniedTools`** 时爆发（即本函数下方 `executeToolsets` 对
+    // `agentInput.allowedTools/deniedTools` 的赋值处）：3 个并发调用全传字符串 ⇒ 3 次报错；
+    // 单次调用未传 ⇒ 0 次报错（精确对应）。
+    // **修复**：一律以**浅拷贝**承载本次执行的归一结果，**不再对调用方传入的对象赋值**
+    //（工具本就不应改写入参 ⇒ 同时消除"入参只读 ⇒ 整次工具调用失败"这一失败模式）。
+    const agentInput: AgentInput = { ...(input as unknown as AgentInput) };
     const agentType = this.getAgentType(agentInput.subagent_type);
 
     const isFork = !agentInput.subagent_type && isForkSubagentEnabled();

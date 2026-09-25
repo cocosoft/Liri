@@ -24,6 +24,8 @@ export interface SsrfBlockDetail {
 
 export type SsrfBlockType =
   | 'private_ip'
+  /** 代理 fake-IP 池（RFC 2544 `198.18.0.0/15`）：**环境侧代理行为**，与"真实内网目标"语义不同（见 `describeSsrfBlock`） */
+  | 'proxy_fake_ip'
   | 'loopback_ip'
   | 'link_local'
   | 'metadata_ip'
@@ -56,12 +58,22 @@ const PRIVATE_IP_RANGES = [
     end: '100.127.255.255',
     type: 'private_ip' as SsrfBlockType,
   },
-  // Benchmark / 代理测试段（RFC 2544）：OpenWrt 代理、本地基准设施常用
-  // （对标 Hermes url_safety.py 的 ip.is_reserved 分支）
+];
+
+/**
+ * 代理 fake-IP 池（RFC 2544 基准段，`198.18.0.0/15`）。
+ *
+ * **为何单列而不混入 `PRIVATE_IP_RANGES`（2026-09-25，方案 C）**：命中本段**判定相同（一律阻断）**，
+ * 但**语义与处置不同** —— 命中本段几乎总是**环境侧代理行为**（Clash / mihomo 的 `fake-ip-range` 默认池、
+ * 企业零信任客户端如深信服 aTrust 的 DNS 劫持），**并非内网目标**。混为一谈会让模型把"环境特性"
+ * 误判为"真实威胁"（实测：arxiv 系列域名在此段被拦，模型只能靠猜 —— 见台账 N-61）。
+ * 面向模型/用户的文案区分见 `describeSsrfBlock()`。
+ */
+const FAKE_IP_RANGES = [
   {
     start: '198.18.0.0',
     end: '198.19.255.255',
-    type: 'private_ip' as SsrfBlockType,
+    type: 'proxy_fake_ip' as SsrfBlockType,
   },
 ];
 
@@ -192,6 +204,16 @@ export async function checkSsrf(url: string): Promise<SsrfCheckResult> {
       };
     }
 
+    for (const range of FAKE_IP_RANGES) {
+      if (isIpInRange(hostname, range.start, range.end)) {
+        details.push({
+          type: range.type,
+          description: 'Proxy fake-IP range (RFC 2544)',
+          value: hostname,
+        });
+      }
+    }
+
     for (const range of LOOPBACK_RANGES) {
       if (isIpInRange(hostname, range.start, range.end)) {
         details.push({
@@ -263,6 +285,7 @@ export async function checkSsrf(url: string): Promise<SsrfCheckResult> {
 
       for (const ip of resolvedIps) {
         for (const range of [
+          ...FAKE_IP_RANGES,
           ...LOOPBACK_RANGES,
           ...PRIVATE_IP_RANGES,
           ...LINK_LOCAL_RANGES,
@@ -270,7 +293,7 @@ export async function checkSsrf(url: string): Promise<SsrfCheckResult> {
           if (isIpInRange(ip, range.start, range.end)) {
             details.push({
               type: range.type,
-              description: `DNS resolved to ${range.type.replace('_', ' ')}: ${ip}`,
+              description: `DNS resolved to ${range.type.replace(/_/g, ' ')}: ${ip}`,
               value: ip,
             });
             break;
@@ -305,6 +328,56 @@ export async function checkSsrf(url: string): Promise<SsrfCheckResult> {
   }
 
   return { safe: true, blocked: false, riskLevel: 'low', details };
+}
+
+/** 命中"内网 / 本机 / 链路本地 / 云元数据 / 内部域名"这一类（**真实威胁信号**）的 block 类型 */
+const INTERNAL_TARGET_TYPES: SsrfBlockType[] = [
+  'private_ip',
+  'loopback_ip',
+  'link_local',
+  'metadata_ip',
+  'internal_hostname',
+];
+
+/**
+ * 把拦截结果翻译成**模型与用户都能看懂**的说明（2026-09-25，方案 C；根因见台账 N-61）。
+ *
+ * 设计要点：
+ * - **两类分开说**：`proxy_fake_ip`（环境侧代理 fake-IP，**并非内网目标**，处置＝绕行）
+ *   vs 其它内网类（**疑似真实威胁**）。二者原本共用一个英文 reason，模型只能靠猜（只能自行绕道本地文件）。
+ * - **给替代路径**：模型/用户看到阻断后能立刻换路，而不是反复重试同一 URL。
+ * - **不丢诊断能力**：英文 `reason`、命中 IP、分段类型仍完整保留在 `details` 与日志中。
+ *
+ * @param result `checkSsrf()` 的返回值
+ * @param subject 主语（默认「该 URL」；图片下载等场景可传「该图片地址」）
+ */
+export function describeSsrfBlock(
+  result: SsrfCheckResult,
+  subject = '该 URL'
+): string {
+  const details = result.details ?? [];
+  const kinds = new Set<SsrfBlockType>(details.map((d) => d.type));
+  const prefix = `${subject}已被安全策略阻断（SSRF / DNS rebinding 防护）：`;
+
+  if (kinds.has('proxy_fake_ip')) {
+    const ip =
+      details.find((d) => d.type === 'proxy_fake_ip')?.value ?? '保留段地址';
+    return (
+      `${prefix}该域名在当前网络环境下被 DNS 解析到 ${ip}（属保留段 198.18.0.0/15，RFC 2544）。` +
+      '这是企业接入客户端或代理（如 Clash / mihomo 的 fake-IP、深信服 aTrust 等）的常见行为，**并非内网目标**。\n' +
+      '可改用：① 本地文件（file_read / file_convert）；② 请用户提供内容；③ 暂停该类代理后重试。'
+    );
+  }
+
+  if (INTERNAL_TARGET_TYPES.some((t) => kinds.has(t))) {
+    const target = details[0]?.value ?? '内部地址';
+    return (
+      `${prefix}该地址指向内网 / 本机 / 链路本地 / 云元数据服务（${target}）⇒ **疑似内网目标**（真实威胁信号），已阻断。\n` +
+      '可改用：① 本地文件（file_read / file_convert）；② 请用户提供内容。'
+    );
+  }
+
+  return `${prefix}${result.reason ?? '未知原因'}。`;
 }
 
 export function hasSsrfBypassPattern(url: string): boolean {

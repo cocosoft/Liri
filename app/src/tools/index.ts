@@ -325,7 +325,7 @@ export { createToolRegistry } from './ToolRegistry';
 export { ToolFilterManager } from './ToolFilterManager';
 export { filterToolsByTask } from './toolCategories';
 export type { ToolCategory } from './toolCategories';
-export { checkSsrf } from './WebFetchTool/ssrf';
+export { checkSsrf, describeSsrfBlock } from './WebFetchTool/ssrf';
 export { ImageUrlHelper } from './ImageUrlHelper';
 export { ParallelExecutor } from './executor/ParallelExecutor';
 export { ToolCallPartitioner } from './orchestration/Partitioner';

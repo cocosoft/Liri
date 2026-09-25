@@ -25,7 +25,7 @@ import { v4 as uuidv4 } from 'uuid';
 
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
-import { checkSsrf } from './ssrf.js';
+import { checkSsrf, describeSsrfBlock } from './ssrf.js';
 const logger = getLogger('tools:WebFetchTool:WebFetchTool');
 
 /** 手动重定向最多跳数（对标 RemoteSkillHubAdapter httpGetText 的 3 跳限制） */
@@ -217,17 +217,14 @@ export class WebFetchTool extends BaseTool {
             isComplete: true,
           },
         });
-        return createToolResult(
-          `该 URL 因安全策略被拦截（SSRF）：${ssrfResult.reason}`,
-          {
-            newMessages: [
-              {
-                role: 'system',
-                content: `Error: URL blocked by SSRF protection: ${ssrfResult.reason}`,
-              },
-            ],
-          }
-        );
+        return createToolResult(describeSsrfBlock(ssrfResult), {
+          newMessages: [
+            {
+              role: 'system',
+              content: `Error: URL blocked by SSRF protection: ${ssrfResult.reason}`,
+            },
+          ],
+        });
       }
 
       // 报告开始执行

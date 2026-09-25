@@ -9,7 +9,7 @@ import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 import { resolveCacheDir } from '@modules/core/paths';
 import { withRetry } from '@modules/utils/withRetry';
-import { checkSsrf } from '@modules/tools';
+import { checkSsrf, describeSsrfBlock } from '@modules/tools';
 import { imageFormatDetector } from '../../media/image/ImageFormatDetector';
 import * as crypto from 'crypto';
 import * as dns from 'dns';
@@ -206,9 +206,7 @@ export class ImageDownloader {
     const ssrfResult = await checkSsrf(url);
     if (ssrfResult.blocked) {
       logger.warn('SSRF 拦截', { traceId, url, reason: ssrfResult.reason });
-      throw new Error(
-        `该图片地址因安全策略被拦截（SSRF）：${ssrfResult.reason}`
-      );
+      throw new Error(describeSsrfBlock(ssrfResult, '该图片地址'));
     }
 
     // 2. DNS rebinding 防护：下载前解析

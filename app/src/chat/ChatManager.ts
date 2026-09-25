@@ -1587,8 +1587,18 @@ export class ChatManagerImpl implements ChatManager {
       (message.metadata as Record<string, unknown> | undefined)
         ?.__streamedEventsWritten
     );
+    // N-59 修复（2026-09-24）：上面那个标记是**传递值**，实测会在落盘路径上丢失 ——
+    // 落盘的 assistant 消息 metadata 为空（最小复现「只回复两个字：收到」⇒ 落盘
+    // `收到收到`：流式 `assistant/text-batch` + `convertMessage` 派生的 `assistant/text`
+    // 双写，派生/拼接时算两次）。按 CS02 改问**事件层事实**：该 messageId 是否已写过正文。
+    const streamedTextWritten =
+      message.role === 'assistant' &&
+      eventLog.hasStreamedTextForMessage(message.id);
     let filteredEvents = events;
-    if (hasStreamedMarker && message.role === 'assistant') {
+    if (
+      (hasStreamedMarker || streamedTextWritten) &&
+      message.role === 'assistant'
+    ) {
       const before = events.length;
       // P0-fix-4（2026-08-23）：流式路径已实时写入 tool_call 事件（工具循环内 tool_start 时），
       // 落盘时同样过滤 assistant/tool_call，避免与实时写入的事件重复（按 id 去重靠过滤实现）。

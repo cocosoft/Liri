@@ -554,6 +554,29 @@ export class EventLogStorage {
   }
 
   /**
+   * N-59 修复（2026-09-24）：本进程内**已写入过正文**的 messageId 集合（事实登记，非传递标记）。
+   *
+   * 为什么需要：正文有两条落盘通道 —— 流式 `assistant/text-batch`（缓冲聚合）与
+   * `ChatManager._appendEventsForMessage` 经 `convertMessage` 生成的 `assistant/text`
+   * （由完整正文派生）。去重此前**只认** `message.metadata.__streamedEventsWritten`
+   * 一个**传递标记**，而实测落盘的 assistant 消息**完全没有 metadata**（最小复现：
+   * 「只回复两个字：收到」⇒ 落盘 `收到收到`）⇒ 标记丢失时两条通道都落 ⇒ 回放/导出重复。
+   * 按 CS02（状态判断基于事实而非易失标记）改为**问事件层事实**。
+   *
+   * 进程内集合：重启后为空（此时不存在"流式刚写完正文"的并发窗口，不会双写）。
+   */
+  private readonly streamedTextMessageIds = new Set<string>();
+
+  /**
+   * 该 messageId 是否已写入过正文（`assistant/text` 或 `assistant/text-batch`）。
+   * 供落盘侧去重判据使用（N-59）：`_appendEventsForMessage` 据此过滤
+   * `convertMessage` 派生的完整正文，避免与流式正文双份写入。
+   */
+  hasStreamedTextForMessage(messageId: string): boolean {
+    return this.streamedTextMessageIds.has(messageId);
+  }
+
+  /**
    * A-2①（2026-09-02，v4 §5.2 选项①）：缓冲一条 text chunk（不落盘、不分配 seq）。
    *
    * 聚合/flush 策略（64KB/2s）由调用方（streamMessageFlow）驱动；本层保证
@@ -566,6 +589,8 @@ export class EventLogStorage {
     content: string
   ): Promise<{ ok: boolean }> {
     if (!content) return { ok: true };
+    // N-59：登记"该 messageId 的正文已进入流式通道"（事实）——供落盘侧去重判据
+    this.streamedTextMessageIds.add(messageId);
     let entry = this.textChunkBuffer.get(messageId);
     if (!entry) {
       entry = { chunks: [], bytes: 0 };

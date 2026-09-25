@@ -211,6 +211,10 @@ security-remediation-report.md
 知识库优化方案-AiDGAtlas对照.md
 
 # 根目录报告/计划类文档（本地保留，不入库：AI 产出与分析稿）
+# 2026-09-25 收口（用户裁定）：**根目录 md 一律不入库**，仅放行**项目自身文档**
+# （README / AGENTS / CONTRIBUTING）。下方具体条目已被通配规则涵盖，保留以便追溯。
+# 注意：`/*.md` 的 `/` 为**锚定根目录**（`*` 不跨 `/`）⇒ 仅匹配根目录，
+# `.trae/specs/*.md`、`app/docs/*.md`、`dev_docs/error_repairs/*.md` 等子目录文档不受影响。
 AI-Agent-前沿动态日报-2026-09-11.md
 Liri-代码X前沿趋势-差距分析报告-2026-09-11.md
 Liri-报告论文待下载清单-2026-09-11.md
@@ -218,6 +222,10 @@ Liri-报告论文下载失败说明与替代方案.md
 Liri-缺陷查补计划-2026-09-12.md
 # 2026-09-25：PDF 原始转储（975KB，内容以 %PDF 开头，非文本文档）——本地保留，不入库
 codemidas_extract.md
+/*.md
+!/README.md
+!/AGENTS.md
+!/CONTRIBUTING.md
 temp _url.txt
 temp_url2.txt
 test.txt

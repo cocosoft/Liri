@@ -39,6 +39,7 @@ import {
   showHintIfNeeded,
   HINT_SOUL_CUSTOMIZATION,
   HINT_CHANNEL_SETUP,
+  PDCA_EXPLICIT_ENTRY,
   resetAllHints,
   getHintStats,
 } from './OnboardHints';
@@ -1004,7 +1005,9 @@ const onboardCommand = {
       '4. 复杂任务（S4，2026-09-06）',
       '   • 直接说"帮我做个 XX，要能分步做完再检查"——我会建议按',
       '     计划→执行→检查→总结（PDCA）四阶段推进并自动验收',
-      '   • 也可用 /pdca start <描述> 显式启用分步执行',
+      // 文案单一来源（G1，2026-09-25）：命令名不得在此硬编码 —— 历史缺陷是写了
+      // 一个不存在的命令（pdca 前缀 + start，空投文案）。见 `.trae/specs/long-task-routing.md` 缺口 B。
+      `   • 也可用 ${PDCA_EXPLICIT_ENTRY} 显式启用分步执行`,
       '',
       '💡 首次使用请先运行 /onboard 完成配置。',
     ].join('\n');

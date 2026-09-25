@@ -99,14 +99,29 @@ export const HINT_CHANNEL_SETUP = `💡 提示（仅此一次）— Liri 支持�
     或在配置文件中手动编辑通道设置`;
 
 /**
+ * 显式启动分步执行的**唯一文案来源**（命令名只在此处出现一次）。
+ *
+ * ⚠️ 命令名事实来源：`/goal start <描述>`（`commands/builtin/command-registry.ts` 的
+ * `name: 'goal'` → `./goal/Goal.js` 的 start 子命令，与 `POST /v1/pdca/start` 同链）。
+ * 历史缺陷（`.trae/specs/long-task-routing.md` 缺口 B）：本文件与 `/help` 指南曾各自硬编码
+ * 一个**不存在**的命令名（pdca 前缀 + start）—— 属"空投文案"，用户照做必然失败。
+ * 任何新增文案**必须**引用本常量，不得再写命令字面量。
+ */
+export const PDCA_EXPLICIT_ENTRY = '/goal start <描述>';
+
+/** 分步执行能力的完整说明（hint 与 `/help` 指南共用同一句，避免第二处漂移） */
+export const PDCA_CAPABILITY_STATEMENT =
+  '复杂任务我可以按「计划 → 执行 → 检查 → 总结」四阶段（PDCA）分步推进并自动验收：' +
+  '直接说"帮我做个 XX"并允许我分步做即可自动启用，' +
+  `也可用 ${PDCA_EXPLICIT_ENTRY} 显式启动（/goal list 查看进行中的长程任务）。`;
+
+/**
  * 提示内容 — PDCA 方法论可用（S4，2026-09-06）
- * 触发方：检测到执行类长任务意图（isExecutionTaskIntent / 自动升级判定处），
- * 经 showHintIfNeeded(OnboardHintKey.METHODOLOGY_PDCA, HINT_METHODOLOGY_PDCA) 展示一次。
+ * 触发方：检测到执行类长任务意图（`isExecutionTaskIntent` 命中处，见 `.trae/specs/long-task-routing.md` G2），
+ * 经 `showHintIfNeeded(OnboardHintKey.METHODOLOGY_PDCA, HINT_METHODOLOGY_PDCA)` 展示一次。
  * CLI 场景 console 输出；UI 聊天场景由征询消息/前端 ActivityStrip 承担，此提示不重复。
  */
-export const HINT_METHODOLOGY_PDCA = `💡 提示（仅此一次）— 复杂任务我可以按「计划 → 执行 → 检查 → 总结」
-    四阶段（PDCA）分步推进并自动验收。直接说"帮我做个 XX"并允许我分步做即可自动启用，
-    也可用 /pdca start <描述> 显式启动。`;
+export const HINT_METHODOLOGY_PDCA = `💡 提示（仅此一次）— ${PDCA_CAPABILITY_STATEMENT}`;
 
 /**
  * 获取已读/未读提示统计

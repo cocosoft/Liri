@@ -187,6 +187,10 @@ const zh = {
     pdcaBadge: "PDCA 编排",
     pdcaBadgeHint: "展开 / 收起 PDCA 编排面板",
     pdcaIdle: "PDCA 编排进行中",
+    // 「用编排推进」入口（存在未完成 todo 且尚无进行中 PDCA 时展示）
+    pdcaSuggest: "任务较多？用编排分步推进",
+    pdcaSuggestHint: "为当前 {{count}} 个未完成任务启动 PDCA 分步编排",
+    pdcaStartFailed: "编排启动失败（后端未响应）",
     inputPlaceholder: "输入消息...",
     send: "发送",
     sessionHistory: "会话历史",

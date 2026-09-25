@@ -45,6 +45,7 @@ import {
 } from './loopTurnLimits.js';
 import type { ToolCall, ToolResult } from './types/tool.js';
 import type { ChatResponse, ChatMessage } from '@modules/ai';
+import type { ToolTurnBudget } from '@modules/core';
 import type { Message } from './types/message.js';
 import { getToolCallName } from './types/tool.js';
 import { getLogger } from '@modules/monitoring';
@@ -310,6 +311,13 @@ export class ReActToolLoop extends ReActLoop<
   private static readonly LAYER_COMPACT_BACKOFF_CAP_MS = 5 * 60 * 1000;
   /** R4（2026-09-16）：任务硬收敛窗口——距工具轮次上限还剩该轮数时，注入强制收尾 steering（软收敛非硬熔断） */
   private static readonly CONVERGE_WINDOW = 5;
+  /** 跨 run 预算的会话级任务键（无 goalId 的续跑：yield 恢复 / self-wake） */
+  private static readonly DEFAULT_BUDGET_TASK_KEY = 'session-task';
+  /**
+   * 长任务信号之一：未完成 todo 任务数阈值（G3，2026-09-25，`.trae/specs/long-task-routing.md`）。
+   * 与"已耗轮次 ≥ 一个基础档"取 **OR** —— 两者都是可观测状态量（CS02），非文案匹配。
+   */
+  private static readonly LONG_TASK_PENDING_TODO_THRESHOLD = 3;
   /** 观察点修复（2026-08-26）：会话级总时长上限（默认 3 小时，env 可覆盖） */
   private static readonly MAX_TOTAL_DURATION_MS =
     Number(process.env.REACT_LOOP_MAX_DURATION_MS) || 3 * 60 * 60 * 1000;
@@ -331,6 +339,30 @@ export class ReActToolLoop extends ReActLoop<
   /** 动态上限固定基础值（构造时确定，env MAX_TOOL_TURNS/MAX_TAOR_TURNS 覆盖），
    *  动态扩容基于此值而非已扩容值，避免每轮重复叠加 */
   private readonly baseMaxToolTurns: number;
+  /**
+   * 缺陷 C 修复（2026-09-25）：todo 扩容的**输入快照**（键 = planId ?? title，值为该计划最新一次快照）。
+   *
+   * 为什么需要独立快照：`pendingTodos` 的语义是"**待消费**队列"——`getPendingTodos()`
+   * 取走即清空，而流式主路径的消费侧（`streamMessageFlow`，tool_end 后与循环 flush 两处）
+   * 每轮都会取走它。扩容读的却是同一个数组 ⇒ 扩容执行时数组已被清空，todo 项恒为 0，
+   * 即"有 todo 清单的长任务拿不到 todo 扩容"。本快照与消费侧生命周期解耦：
+   * 消费侧清空 `pendingTodos` 不影响扩容读数（按计划覆盖为最新快照，天然去重）。
+   */
+  private todoExpansionSnapshot = new Map<string, TodoBlockData>();
+  /**
+   * 跨 run 预算基线（**同一任务累计已消耗**的工具轮次，2026-09-25）。
+   *
+   * 背景：`toolTurnCount` 是实例内计数，而生产路径每条消息新建 loop 实例 ⇒ 任务被切成
+   * 若干段（yield 恢复 / self-wake / goal 空闲续接）后每段重新从基础阈值起步。
+   * 基线由 `_initToolTurnBudget()` 在 `run()` 起始从 `session.metadata.toolTurnBudget` 回填
+   * （仅当本次 run 是**同任务续跑**），用于让续期公式以"任务累计消耗"为口径
+   * ⇒ **续段不回退续期斜坡**（spec §3.5 最小变体：本段仍可再至硬顶，长任务可持续推进）。
+   */
+  private budgetBaseline = 0;
+  /** 本段任务标识（`taskKey`）：`goalId ?? 'session-task'`（与持久值比对，防跨任务继承） */
+  private budgetTaskKey = ReActToolLoop.DEFAULT_BUDGET_TASK_KEY;
+  /** 本段是否系统续跑（`options.metadata.systemResume === true`），供日志与基线判定 */
+  private budgetIsContinuation = false;
   /** 实例级可配置（测试缩短心跳间隔用），默认取 static 常量 */
   private heartbeatMs: number;
   private maxWaitMs: number;
@@ -388,12 +420,17 @@ export class ReActToolLoop extends ReActLoop<
   }
 
   /** 8.4③（2026-09-16，治缺陷 2/3）：履约 resetRunState() 契约 + 恢复基础轮次上限。
-   * 复用实例（如 batch 缓存）时避免跨 run 状态污染与扩容值残留。 */
+   * 复用实例（如 batch 缓存）时避免跨 run 状态污染与扩容值残留。
+   *
+   * 2026-09-25（跨 run 预算，spec §3.5 最小变体）：起始额度由"**任务累计消耗**"推导 ——
+   * 续段**不回退续期斜坡**（拿 `base + renewal(累计)` 而非从 `base` 重来），
+   * 但本段仍可再至 `MAX_DYNAMIC_TOOL_TURNS_CAP` ⇒ 长任务可持续推进（不设任务级总量上限）。 */
   override async *run(
     input: ToolLoopInput
   ): AsyncGenerator<ReActEvent, Message> {
     this.resetRunState();
-    this.config.maxIterations = this.baseMaxToolTurns;
+    this._initToolTurnBudget();
+    this.config.maxIterations = this._resolveDynamicMaxIterations().max;
     return yield* super.run(input);
   }
 
@@ -409,16 +446,22 @@ export class ReActToolLoop extends ReActLoop<
 
     // 动态上限（2026-09-01）：任务越复杂（未完成 todo 越多），轮次上限越高，
     // 避免长程任务在基础阈值（默认 30 轮）被误杀截断。仅扩容不缩容，硬顶 500。
-    const dynamicMax = this._resolveDynamicMaxIterations();
+    // 缺陷 A/C 修复（2026-09-25）：续期速率与消耗 1:1、todo 项读扩容快照；
+    // 跨 run 预算（2026-09-25，spec §3.5 最小变体）：额度按**任务累计消耗**算 ⇒ 续段不回退
+    // 续期斜坡，但本段仍可再至硬顶（长任务可持续推进；无任务级总量上限）。
+    const { max: dynamicMax, breakdown } = this._resolveDynamicMaxIterations();
     if (dynamicMax > this.config.maxIterations) {
       logger.info('reactToolLoop:dynamic_max_turns_expanded', {
         sessionId: this.ctx.session.id,
         base: this.config.maxIterations,
         expanded: dynamicMax,
         toolTurn: this.loopState.toolTurnCount,
+        expansionBreakdown: breakdown,
       });
       this.config.maxIterations = dynamicMax;
     }
+    // 跨 run 预算：内存写（每轮，零 IO）—— 落盘节流见 `_publishToolTurnBudget` 注释
+    this._publishToolTurnBudget();
 
     // R4（2026-09-16）：任务硬收敛——工具轮次距上限还剩 CONVERGE_WINDOW 轮时，注入强制
     // 收尾 steering。软收敛（非硬熔断多轮）：提示模型停止新探索、基于已掌握信息产出最终
@@ -748,35 +791,188 @@ export class ReActToolLoop extends ReActLoop<
     }
   }
 
-  /** 动态扩容计算：基础阈值 + 未完成 todo 项数 × 每项轮次，封顶 500 */
-  private _resolveDynamicMaxIterations(): number {
-    // 按 planId（无则 title）去重：extractTodoData 每轮无条件 push，
-    const seen = new Set<string>();
-    let pendingTodoCount = 0;
-    for (const td of this.loopState.pendingTodos) {
-      const key = td.planId ?? td.title;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      pendingTodoCount += td.tasks.filter(
+  /** todo 登记（消费队列 + 扩容快照双写；见 `todoExpansionSnapshot` 注释） */
+  private _recordPendingTodo(todoData: TodoBlockData): void {
+    this.loopState.pendingTodos.push(todoData);
+    this.todoExpansionSnapshot.set(todoData.planId ?? todoData.title, todoData);
+  }
+
+  /** 会话 metadata（`ToolLoopContext.session` 即宿主实时 `ChatSession`；测试桩可能无 metadata） */
+  private _sessionMetadata(): Record<string, unknown> | undefined {
+    const session = this.ctx.session as unknown as {
+      metadata?: Record<string, unknown>;
+    };
+    return session?.metadata;
+  }
+
+  /**
+   * 跨 run 预算基线初始化（2026-09-25，见 `.trae/specs/tool-turn-budget-persistence.md`）。
+   *
+   * 规则：
+   * - **系统续跑**（`options.metadata.systemResume === true`）且 `taskKey` 相同 ⇒ 继承 `consumed`；
+   * - **用户消息**（无该标记）/ `taskKey` 不同 ⇒ 视为新任务：基线 0，并**清零**持久值（D5）。
+   *
+   * 判据是**布尔标记与标识符**，不是文案/字符串匹配（CS02）。
+   */
+  private _initToolTurnBudget(): void {
+    const metadata = this._sessionMetadata();
+    const optsMeta = (this.ctx.options?.metadata ?? {}) as Record<
+      string,
+      unknown
+    >;
+    this.budgetIsContinuation = optsMeta.systemResume === true;
+    this.budgetTaskKey =
+      typeof optsMeta.goalId === 'string' && optsMeta.goalId
+        ? optsMeta.goalId
+        : ReActToolLoop.DEFAULT_BUDGET_TASK_KEY;
+
+    const stored = metadata?.toolTurnBudget as ToolTurnBudget | undefined;
+    const inheritable =
+      this.budgetIsContinuation &&
+      stored?.taskKey === this.budgetTaskKey &&
+      Number.isFinite(stored?.consumed) &&
+      (stored?.consumed ?? 0) > 0;
+    this.budgetBaseline = inheritable ? Math.floor(stored!.consumed) : 0;
+
+    logger.info('reactToolLoop:tool_turn_budget_inherited', {
+      sessionId: this.ctx.session.id,
+      taskKey: this.budgetTaskKey,
+      systemResume: this.budgetIsContinuation,
+      baseline: this.budgetBaseline,
+      cap: MAX_DYNAMIC_TOOL_TURNS_CAP,
+    });
+
+    // 用户消息 ⇒ 清零旧任务计数（不留下一个任务的消耗被下一个任务继承）
+    if (metadata) {
+      metadata.toolTurnBudget = {
+        taskKey: this.budgetTaskKey,
+        consumed: this.budgetBaseline,
+        updatedAt: Date.now(),
+      };
+    }
+  }
+
+  /** 「任务累计已消耗」= 基线 + 本段已执行轮次（续期与额度判定的**唯一口径**） */
+  private _taskConsumedTurns(): number {
+    return this.budgetBaseline + this.loopState.toolTurnCount;
+  }
+
+  /**
+   * 内存写：更新 `session.metadata.toolTurnBudget`（每轮调用，**零 IO**）。
+   *
+   * 落盘节流（D6）：每 5 轮随既有 `saveCheckpointWithData`（其 metadata 形参即本对象）落检查点，
+   * 轮次结束由宿主 `persistSessionMetadata()` 写回会话存储。
+   */
+  private _publishToolTurnBudget(): void {
+    const metadata = this._sessionMetadata();
+    if (!metadata) return;
+    metadata.toolTurnBudget = {
+      taskKey: this.budgetTaskKey,
+      consumed: this._taskConsumedTurns(),
+      updatedAt: Date.now(),
+    };
+  }
+
+  /**
+   * 未完成 todo 任务数（`pending` / `in_progress`）—— **同一派生源**，供
+   * ① 动态扩容（`_resolveDynamicMaxIterations`）与 ② 长任务信号（`_isLongTaskSignal`）共用。
+   * 读的是**扩容快照**（消费侧取走 `pendingTodos` 不影响），详见 `todoExpansionSnapshot`。
+   */
+  private _pendingTodoCount(): number {
+    let count = 0;
+    for (const td of this.todoExpansionSnapshot.values()) {
+      count += td.tasks.filter(
         (t) => t.status === 'pending' || t.status === 'in_progress'
       ).length;
     }
+    return count;
+  }
+
+  /**
+   * 长任务信号（G3，2026-09-25，`.trae/specs/long-task-routing.md`）：**客观状态量**判定
+   * （未完成 todo 数 ≥ 阈值 **或** 已耗轮次 ≥ 一个基础档），**不做任何文案/字符串匹配**（CS02）。
+   *
+   * 用途：仅在**收尾**时给出"可改用编排继续"的可执行建议 —— 不做自动切换
+   *（既有自动升级通道在消息意图/目标层，已在产品中生效，见 spec §1.1）。
+   */
+  private _isLongTaskSignal(): boolean {
+    return (
+      this._pendingTodoCount() >=
+        ReActToolLoop.LONG_TASK_PENDING_TODO_THRESHOLD ||
+      this._taskConsumedTurns() >= this.baseMaxToolTurns
+    );
+  }
+
+  /**
+   * 长任务信号（公开读数，供宿主做**运行中分流**判定 —— D3，2026-09-25）。
+   *
+   * 纯读数、无副作用；宿主（`streamMessageFlow` → `ChatManager`）据此决定是否按**既有**升级
+   * 通道把任务接给 PDCA 编排（闸门见 `chat/longTaskEscalation.ts`）。
+   */
+  getLongTaskSignal(): {
+    isLongTask: boolean;
+    pendingTodoCount: number;
+    consumedTurns: number;
+  } {
+    return {
+      isLongTask: this._isLongTaskSignal(),
+      pendingTodoCount: this._pendingTodoCount(),
+      consumedTurns: this._taskConsumedTurns(),
+    };
+  }
+
+  /** 动态扩容计算：基础阈值 + 未完成 todo 项数 × 每项轮次 + 探索续期，封顶 500（口径 = 任务累计消耗） */
+  private _resolveDynamicMaxIterations(): {
+    max: number;
+    breakdown: {
+      pendingTodoCount: number;
+      todo: number;
+      fetch: number;
+      renewal: number;
+      /** 跨 run 基线（同任务已消耗） */
+      baseline: number;
+      /** 任务累计消耗 = 基线 + 本段轮次 */
+      taskConsumed: number;
+    };
+  } {
+    // 缺陷 C 修复（2026-09-25）：读**扩容快照**而非 `pendingTodos`（后者被消费侧取走即清空，
+    // 详见 `todoExpansionSnapshot`）。快照已按 planId/title 覆盖，天然去重 —— 旧实现
+    // 每次 `extractTodoData` 都无条件 push，故需要额外 Set 去重，这里由 Map 键承担。
+    const pendingTodoCount = this._pendingTodoCount();
     // P10（2026-09-01）：无 todo 但涉及外部获取/技能探索的任务同样扩容——
     // 此类任务需多轮尝试（抓取→失败→换源→查询→求助），基础 30 轮偏紧。
-    let expansion = pendingTodoCount * DYNAMIC_TURNS_PER_PENDING_TODO;
-    if (this.loopState.hasExternalFetchActivity) {
-      expansion += EXTERNAL_FETCH_EXPANSION_TURNS;
-    }
-    // 8.4②（2026-09-16，治缺陷 1）：探索型任务（无 todo、无外部抓取）结构性拿不到扩容——
-    // 纯检索（grep/glob 等）只要持续产出就会烧光基础阈值。改用客观可观测的"已执行轮次"
-    // 而非"产出物痕迹"反推复杂度：轮次过半后按已执行轮次线性扩容，探索任务自动获 ~2 倍基础余量。
-    if (this.loopState.toolTurnCount > this.baseMaxToolTurns / 2) {
-      expansion += Math.floor(this.loopState.toolTurnCount / 2);
-    }
-    return Math.min(
-      this.baseMaxToolTurns + expansion,
+    const todoExpansion = pendingTodoCount * DYNAMIC_TURNS_PER_PENDING_TODO;
+    const fetchExpansion = this.loopState.hasExternalFetchActivity
+      ? EXTERNAL_FETCH_EXPANSION_TURNS
+      : 0;
+    // 8.4②（2026-09-16，治缺陷 1）+ 缺陷 A 修复（2026-09-25，治结构性撞线）
+    // + 跨 run 预算（2026-09-25）：口径是**任务累计消耗**（`budgetBaseline + 本段轮次`），
+    // 使续跑段不回退续期斜坡（见 `.trae/specs/tool-turn-budget-persistence.md`）。
+    // 修复前是 `expansion += floor(toolTurnCount / 2)`：每消耗 1 轮只回收 0.5 轮，
+    // 净余量以 **0.5 轮/轮** 单调衰减 ⇒ 数学上必然撞线（base=30 时约第 59 轮），
+    // 且撞线远早于硬顶 ⇒ `MAX_DYNAMIC_TOOL_TURNS_CAP` 永远不可达（死代码）。
+    // 现改为**按 base 续期**：每消耗满 base 轮续期 base 轮（收支比 1:1）⇒ 剩余额度稳定在
+    // 约 [base, 2×base)，硬顶重新成为**真实止损点**；简单对话（消耗未过 base/2）不受影响。
+    const consumed = this._taskConsumedTurns();
+    const renewal =
+      consumed > this.baseMaxToolTurns / 2
+        ? this.baseMaxToolTurns * Math.ceil(consumed / this.baseMaxToolTurns)
+        : 0;
+    const max = Math.min(
+      this.baseMaxToolTurns + todoExpansion + fetchExpansion + renewal,
       MAX_DYNAMIC_TOOL_TURNS_CAP
     );
+    return {
+      max,
+      breakdown: {
+        pendingTodoCount,
+        todo: todoExpansion,
+        fetch: fetchExpansion,
+        renewal,
+        baseline: this.budgetBaseline,
+        taskConsumed: consumed,
+      },
+    };
   }
 
   protected async *reason(
@@ -1435,7 +1631,7 @@ export class ReActToolLoop extends ReActLoop<
         // todo chunk 数据：工具结果含 _todoData 时收集（对齐旧类 _executeToolRound extractTodoData）
         const todoData = extractTodoData(toolResult);
         if (todoData) {
-          this.loopState.pendingTodos.push(todoData);
+          this._recordPendingTodo(todoData);
         }
         processedResults.push({
           normalizedToolCall: {
@@ -1613,7 +1809,7 @@ export class ReActToolLoop extends ReActLoop<
         );
         if (out) {
           results.push(out.resultEntry);
-          if (out.todoData) this.loopState.pendingTodos.push(out.todoData);
+          if (out.todoData) this._recordPendingTodo(out.todoData);
           processedResults.push(out.processedEntry);
         }
       }
@@ -2218,6 +2414,14 @@ export class ReActToolLoop extends ReActLoop<
     this._terminalSettle = null;
     // 一期 O1-2：PathGuard 留痕随 run 归零（与 _incompleteRetries 同批，防跨 run 误判"被拦截"）
     this.loopState.guardBlocked = null;
+    // 缺陷 C（2026-09-25）：扩容快照随 run 归零 —— 新 run = 新任务，旧计划的未完成计数
+    // 不得继续为新任务扩容（`pendingTodos` 队列本身由消费侧自然清空，无需在此处理）
+    this.todoExpansionSnapshot.clear();
+    // 跨 run 预算基线随 run 归零（随后由 `_initToolTurnBudget()` 按本次 run 的语义重新回填：
+    // 系统续跑继承 / 用户消息清零）—— 防复用实例携带上一段基线
+    this.budgetBaseline = 0;
+    this.budgetTaskKey = ReActToolLoop.DEFAULT_BUDGET_TASK_KEY;
+    this.budgetIsContinuation = false;
     // O2-4：正文取代标记随 run 归零（一次性语义，禁止跨 run 残留误清正文）
     this._supersedeNextRoundText = false;
   }
@@ -2467,9 +2671,24 @@ export class ReActToolLoop extends ReActLoop<
         // 总结"只在真正达 maxIterations 时才有 ⇒ 文案以其为准（截断场景走下方统一兜底）。
         if (this.state.iteration >= this.config.maxIterations) {
           finishReason = 'max_turns';
+          // 跨 run 预算（spec §3.5 最小变体）：本段额度**就是**任务级 grant（可再至硬顶）
+          // ⇒ 文案直接展示该值（单段运行与修复前逐字一致，既有用例不受影响）。
           suffix = this.loopState.maxIterationsSummary
             ? `\n\n⚠️ 已达到最大工具轮次限制 (${this.config.maxIterations})，已自动总结当前进度：\n${this.loopState.maxIterationsSummary}`
             : `\n\n⚠️ 已达到最大工具轮次限制 (${this.config.maxIterations})，工具链提前终止。`;
+          // G3（2026-09-25，`.trae/specs/long-task-routing.md`）：**长任务**触顶时给出
+          // **可执行**的编排建议。载体选择（与 spec D2 的偏离，如实记录）：走**用户可见的
+          // 收尾提示**而非模型可见的 steering —— ① 既有 `goal/injected` 载荷要求
+          // `goalId` + 闭集 `templateKind`，非目标任务无法复用；② 新增事件类型与 spec N5 冲突；
+          // ③ 该提示随最终助手消息落盘 ⇒ 无需新增模型可见输入（§1.6 红线面为零）。
+          // 命令名事实来源：`/goal start`（command-registry 的 `goal` 命令，与
+          // `POST /v1/pdca/start` 同链）；`OnboardHints.PDCA_EXPLICIT_ENTRY` 与本文案
+          // 由用例断言保持一致（防第二处漂移）。
+          if (this._isLongTaskSignal()) {
+            suffix +=
+              '\n\n💡 该任务仍需多步推进？可改用编排分步执行：`/goal start <描述>`' +
+              '（也可在新消息里说明"请分步做并自检"，我会自动升级为 PDCA）。';
+          }
         }
         // 二期 F2-5（治 N3，2026-09-23）：判别器顺序使 `max_turns` **先于** `loop_detected`，
         // 两者同时命中时（长任务里"既循环又到轮次上限"很常见）循环检测信息会被**整个吞掉**

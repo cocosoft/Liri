@@ -20,6 +20,8 @@ import ChatPdcaDrawer from "./ChatPdcaDrawer";
 import ChatInput from "./ChatInput";
 // UI 期 UI-2（2026-09-23 修复计划 §十）：PDCA 入口判据（浮动栏徽标 + 展开面板共用同一来源）
 import { usePdcaEntry } from "./usePdcaEntry";
+// 「用编排推进（启动 PDCA）」入口：未完成 todo + 尚无进行中 PDCA 时的判据与动作
+import { usePdcaStartEntry } from "./usePdcaStartEntry";
 import { ContextWatermark } from "../chat/ContextWatermark";
 import VoiceSubtitleOverlay from "../VoiceSubtitleOverlay";
 import VoiceSessionIndicator from "../VoiceSessionIndicator";
@@ -49,6 +51,8 @@ function ChatArea({ fluid = false }: { fluid?: boolean }) {
   // —— 入口徽标在 StatusFloatBar；展开态在此提升（供 ChatPdcaDrawer 使用）
   const pdca = usePdcaEntry();
   const [pdcaOpen, setPdcaOpen] = useState(false);
+  // 「用编排推进」入口：未完成 todo 且尚无进行中 PDCA 时可见（点击调用 POST /v1/pdca/start）
+  const pdcaStart = usePdcaStartEntry();
   const backendRunning = useBackendStore((s) => s.status.running);
   const config = useConfigStore((s) => s.config);
   const isDark = config.theme === "dark";
@@ -625,6 +629,12 @@ function ChatArea({ fluid = false }: { fluid?: boolean }) {
             visible: pdca.visible,
             open: pdcaOpen,
             onToggle: handleTogglePdca,
+          }}
+          orchestrate={{
+            visible: pdcaStart.visible,
+            count: pdcaStart.count,
+            starting: pdcaStart.starting,
+            onStart: pdcaStart.start,
           }}
         />
         {/* P2/C3：普通会话就地展开完整编排面板（PdcaPipeline + OrchestrationLivePanel） */}

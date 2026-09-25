@@ -1777,18 +1777,28 @@ export class AgentTool implements Tool {
 
       // O5 seam `executeDispatch`：后台路径（run_in_background）
       if (isBackground) {
-        return await this.runBackgroundPath({
-          agentInput,
-          agentId,
-          effectiveType,
-          isFork,
-          systemPrompt,
-          teammateHandleId,
-          mailbox,
-          context,
-          canDelegate,
-          onProgress,
-        });
+        try {
+          return await this.runBackgroundPath({
+            agentInput,
+            agentId,
+            effectiveType,
+            isFork,
+            systemPrompt,
+            teammateHandleId,
+            mailbox,
+            context,
+            canDelegate,
+            onProgress,
+          });
+        } catch (err) {
+          // M-9c（2026-09-25）：后台**移交失败**兜底 —— 任务注册/调度在挂上 `.then/.catch`
+          // 结算回调**之前**抛错（如 `taskRegistry.register` 抛错）时，`runBackgroundPath`
+          // 的结算点永不执行，而 `finally` 的释放被 `isBackground` 守卫跳过
+          // （见 :1860 注释）⇒ 条目永久 `running`、并发槽位泄漏。
+          // `settleRun` 落终态即释放槽位；重复结算为幂等 no-op（claim 闸门）。
+          await this.settleRun(agentId, 'failed');
+          throw err;
+        }
       }
 
       // O5 seam `executeDispatch`：前台路径（directCall / engine 自适应）
@@ -1849,7 +1859,17 @@ export class AgentTool implements Tool {
       // 这里兜住，不再依赖"每条路径都记得调 settleRun"。`release()` 委托
       // `ledger.settle()`（终态幂等）：正常路径已按真实结果结算 ⇒ 此处 no-op；
       // 异常/提前返回 ⇒ 收敛为 `failed`，杜绝"准入占位永不释放"。
-      reservation.release();
+      //
+      // M-9b（2026-09-25）：**释放义务按路径归属** —— 后台路径（`run_in_background`）的工具
+      // 在 `runBackgroundPath` 返回时即交回，而 run 仍在 `.then/.catch` 里跑；此时释放等于
+      // ① 并发槽位提前回收（`liveCount()` 失真，真实在飞数可突破 `maxConcurrentAgents`）
+      // ② `release()` 委托的 `settle()` 会把条目**提前写成 `failed` 终态** ⇒ 后台回调按
+      // 真实结果结算时被终态幂等拒绝（磁盘行永久 `running`、yield 通知不发）。
+      // ⇒ 后台路径的槽位由 `runBackgroundPath` 的结算点（`settleRun`）释放；
+      // 该路径的所有退出分支（禁用后台的早返回 / 异常）都必经 `settleRun`，故不会泄漏。
+      if (!isBackground) {
+        reservation.release();
+      }
       // G3：清理程序化创建的 worktree（仅前台成功创建时）
       if (worktreeGit) {
         try {
@@ -1960,6 +1980,8 @@ export class AgentTool implements Tool {
    * O13：**内存拒绝的写，磁盘不得写** —— 原实现丢弃 `settle()` 的返回值并**无条件**落盘，
    * 使内存侧的终态幂等保护（"已完成、收尾组装抛错"不被反向写失败）在磁盘上原样敞着
    * ⇒ 同一事实两个答案（内存 `completed` / 磁盘 `failed`）。
+   * M-5b 口径：落盘取**台账的终态**（`claimTerminalSideEffects().status`）而非调用方请求值
+   * ⇒ 内存拒绝的改写同样到不了磁盘，O13 以更小的闸门宽度继续成立。
    *
    * §3.0 实施顺序约束（2026-09-22）：磁盘 `AgentRunStore.settleRun` 同样带终态幂等守卫
    * （`WHERE status NOT IN ('completed','failed')`，命中失败时 `changed=0` 且**无日志**）
@@ -1971,13 +1993,16 @@ export class AgentTool implements Tool {
     status: 'completed' | 'failed',
     opts: { error?: string; attribution?: AgentRunAttribution } = {}
   ): Promise<void> {
-    // M-5（P0-8）：结算**前**取归属会话 —— `settle()` 之后内存条目移入归因表，
-    // `ownerSessionId()` 这一"控制面归属原语"不再可得。
-    const ownerSessionId = this._ledger.ownerSessionId(agentId);
-    const settled = this._ledger.settle(agentId, status);
-    if (!settled) {
-      // 幂等/不存在：内存已落终态或条目非本路径所有 ⇒ 磁盘沿用它，不覆盖
-      logger.debug('终态落盘跳过：内存台账未接受该迁移', {
+    // M-5b（2026-09-25）：内存终态 + **副作用闸门**分两步 —— 步骤 1 落定/补读终态。
+    // 引擎在 `execute()` 出口已先行 `settle()`（`SubAgentEngine.endRun`）⇒ 此处的
+    // `settle()` 对引擎路径必然返回 `false`，**不可**拿它当"是否由本路径落定"的判据
+    //（修复前正是如此：本方法提前 return ⇒ 磁盘行永久 `running` + yield 通知永不发出）。
+    this._ledger.settle(agentId, status);
+    // 步骤 2：认领副作用（幂等，与 `settle()` 同源但**独立于其返回值**），
+    // 并取回**台账的**终态与归属会话 —— 同一次同步调用内完成，无交错窗口。
+    const claim = this._ledger.claimTerminalSideEffects(agentId);
+    if (!claim) {
+      logger.debug('终态副作用跳过：台账无该终态或已执行过', {
         agentId,
         status,
       });
@@ -1988,21 +2013,24 @@ export class AgentTool implements Tool {
       // 返回值为 false = 磁盘**守卫未命中**（该行已是终态）⇒ 本次写被静默丢弃。
       // §3.0 顺序约束的**运行时兜底**（2026-09-22）：反过来改错顺序时，日志会当场叫出来，
       // 不必等用例兜（磁盘侧命中失败本无任何日志，故障静默）。
+      // O13 口径（改写）：**磁盘按台账的终态落盘** —— 调用方请求的 status 被终态幂等拒绝时
+      //（例：引擎已落 `completed`、收尾组装随后抛错试图改写 `failed`），落盘取台账答案，
+      // ⇒ "内存拒绝的写"不会在磁盘上造出第二个答案。
       const persisted = await getAgentRunStore().settleRun(
         agentId,
-        status,
+        claim.status,
         opts
       );
       if (!persisted) {
         logger.warn('终态落盘未命中：磁盘行已是终态，本次写被丢弃', {
           agentId,
-          status,
+          status: claim.status,
         });
       }
     } catch (err) {
       logger.warn('子代理运行台账落盘失败（不影响内存终态）', {
         agentId,
-        status,
+        status: claim.status,
         error: String(err),
       });
     }
@@ -2015,7 +2043,7 @@ export class AgentTool implements Tool {
     // 用 `await`：使"结算 → 落盘 → 通知（内含 outbox 落行）"成为**确定序列**，
     // 而非 fire-and-forget 的竞态（P1-7 关注的正是该顺序，见 §2.5）。
     // 归属缺失（无父会话可恢复）⇒ 内部静默跳过。
-    await this.notifyYieldSettlement(ownerSessionId);
+    await this.notifyYieldSettlement(claim.sessionId);
   }
 
   /**

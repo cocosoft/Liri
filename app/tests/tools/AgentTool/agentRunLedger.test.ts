@@ -80,6 +80,31 @@ describe('AgentRunLedger：两段式台账与归因（O2-4）', () => {
     expect(ledger.view('b')?.status).toBe('completed');
     expect(ledger.view('c')?.status).toBe('completed');
   });
+
+  // R1 修复（2026-09-25）：归因表 CAP 淘汰与"终态副作用认领"解耦 ——
+  // 修复前认领只查 active ?? recent，条目被淘汰即返回 null ⇒
+  // 磁盘行永久 running + yield 结算通知静默跳过（与 M-5 同症候）。
+  test('R1：条目被归因表 CAP 淘汰后仍可认领终态副作用（不静默丢结算）', () => {
+    const ledger = makeLedger(1);
+    ledger.register({
+      id: 'a',
+      name: 'A',
+      type: 'general',
+      sessionId: 'sess-a',
+    });
+    ledger.settle('a', 'completed');
+    // 溢出淘汰：b 结算后最旧的 a 被移出归因表（CAP 语义保持不变）
+    ledger.register({ id: 'b', name: 'B', type: 'general' });
+    ledger.settle('b', 'completed');
+    expect(ledger.view('a')).toBeUndefined();
+
+    expect(ledger.claimTerminalSideEffects('a')).toEqual({
+      status: 'completed',
+      sessionId: 'sess-a',
+    });
+    // 幂等：已认领过（欠账表一条出口）⇒ 二次认领返回 null
+    expect(ledger.claimTerminalSideEffects('a')).toBeNull();
+  });
 });
 
 describe('AgentRunLedger：只读投影（O3/O10a②）', () => {

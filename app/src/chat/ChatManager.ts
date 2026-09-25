@@ -125,6 +125,8 @@ import {
   isStrongBuildIntent,
   hasResearchIntent,
 } from './taskIntent';
+// D3（2026-09-25）：运行中长任务信号 ⇒ 自动升级闸门（纯判定，见 `.trae/specs/long-task-routing.md` §3.6）
+import { shouldEscalateLongTask } from './longTaskEscalation';
 
 const logger = getLogger('chat:manager');
 
@@ -1103,6 +1105,12 @@ export class ChatManagerImpl implements ChatManager {
         truncateApiMessages: (msgs, max, sid, outputBudgetTokens) =>
           this._truncateApiMessages(msgs, max, sid, outputBudgetTokens),
         persistTurnSummary: (session) => this._persistTurnSummary(session),
+        // D3（2026-09-25）：运行中长任务信号 ⇒ 按既有升级通道接给 PDCA（闸门见 longTaskEscalation）
+        onLongTaskSignal: (session, fact) =>
+          this.onLongTaskSignal(session, fact),
+        // 跨 run 预算（2026-09-25）：轮次边界把 `metadata.toolTurnBudget` 写回会话存储
+        persistSessionMetadata: (session) =>
+          this.persistSessionMetadata(session),
         flushPendingPersists: () => this.flushPendingPersists(),
         shouldUseTAORLoop: (sid) => this._shouldUseTAORLoop(sid),
         getOrCreateTAORLoop: (sid) => this._getOrCreateTAORLoop(sid),
@@ -4139,13 +4147,7 @@ export class ChatManagerImpl implements ChatManager {
     // 消息会占住"最后一条 user"位置使任务原句被覆盖 → 判定聚合最近 3 条 user 文本。
     const bareUserMessages =
       session.messages?.filter((m) => m.role === 'user') ?? [];
-    const bareLastContent = bareUserMessages
-      .slice(-3)
-      .map((m) => {
-        const c = (m as unknown as Record<string, unknown>)?.content;
-        return typeof c === 'string' ? c : '';
-      })
-      .join('\n');
+    const bareLastContent = this._recentUserText(session, 3);
     const bareFirstContent =
       bareUserMessages.length > 0
         ? (((bareUserMessages[0] as unknown as Record<string, unknown>)
@@ -4162,24 +4164,11 @@ export class ChatManagerImpl implements ChatManager {
         sessionId: session.id,
         intent: bareLastContent.slice(0, 60),
       });
-      // 项目名取消息前 30 字符（goalSummary 占位；裸会话无 ImplicitEngine 结果可依赖）
-      const goalSummary = bareLastContent
-        .replace(/\s+/g, ' ')
-        .trim()
-        .slice(0, 30);
-      const projectId = await this._autoCreateProject(session, undefined, {
-        hasGoal: true,
-        deliverables: 1,
-        goalSummary,
+      await this._escalateToPdcaViaBareSession({
+        session,
+        assistantContent: assistantMessage.content as string,
+        lastUserContent: bareLastContent,
       });
-      if (projectId) {
-        this._maybeLaunchPdca(
-          session,
-          assistantMessage.content as string,
-          projectId,
-          bareLastContent
-        );
-      }
     }
 
     // S6/PDCA 门控修正（2026-09-06）：persist 分支不再要求 assistantMessage.content 非空——
@@ -4377,6 +4366,119 @@ export class ChatManagerImpl implements ChatManager {
     if (!workspaceId) return undefined;
     // 项目模块下 workspaceId === projectId（sessionSlice 约定），返回真实工作区 ID
     return workspaceId;
+  }
+
+  /**
+   * 最近 N 条 user 消息文本（换行拼接）—— 裸会话升级判定**共用**的取数口径。
+   *
+   * P0-1（2026-09-06）：任务轮内模型可能 `ask_user_question` 澄清，澄清答复会占住"最后一条
+   * user"位置使任务原句被覆盖 ⇒ 聚合最近 3 条（原实现内联于此，2026-09-25 抽出供
+   * "执行意图"与"运行中长任务信号"两个触发方共用 —— CS01）。
+   */
+  private _recentUserText(session: ChatSession, n = 3): string {
+    const userMessages =
+      session.messages?.filter((m) => m.role === 'user') ?? [];
+    return userMessages
+      .slice(-n)
+      .map((m) => {
+        const c = (m as unknown as Record<string, unknown>)?.content;
+        return typeof c === 'string' ? c : '';
+      })
+      .join('\n');
+  }
+
+  /** 最近一条 assistant 消息的文本（升级动作需要 content；无则空串 —— 工具型收尾常为空） */
+  private _lastAssistantText(session: ChatSession): string {
+    const messages = session.messages ?? [];
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const m = messages[i] as unknown as { role?: string; content?: unknown };
+      if (m?.role === 'assistant' && typeof m.content === 'string') {
+        return m.content;
+      }
+    }
+    return '';
+  }
+
+  /**
+   * 裸会话 ⇒ PDCA 编排升级（**单一动作入口**，两个触发方共用）：
+   * ① 既有：执行类长任务**意图**（调用方保留 `pdca:bare_session_intent_detected` 日志与轮次闸）；
+   * ② D3 新增（2026-09-25）：**运行中长任务信号**（`onLongTaskSignal`）。
+   *
+   * 动作与既有实现**逐字一致**：建项目（最近用户文本前 30 字作 `goalSummary` 占位，裸会话无
+   * ImplicitEngine 结果可依赖）→ `_maybeLaunchPdca`（内含会话级 launch 锁与决策 trace）。
+   */
+  private async _escalateToPdcaViaBareSession(params: {
+    session: ChatSession;
+    assistantContent: string;
+    lastUserContent: string;
+  }): Promise<void> {
+    const { session, assistantContent, lastUserContent } = params;
+    const goalSummary = lastUserContent
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 30);
+    const projectId = await this._autoCreateProject(session, undefined, {
+      hasGoal: true,
+      deliverables: 1,
+      goalSummary,
+    });
+    if (projectId) {
+      this._maybeLaunchPdca(
+        session,
+        assistantContent,
+        projectId,
+        lastUserContent
+      );
+    }
+  }
+
+  /**
+   * D3（2026-09-25，`.trae/specs/long-task-routing.md` §3.6）：**运行中长任务信号**触发的升级入口
+   * （由 `streamMessageFlow` 在回合收尾时经 `host.onLongTaskSignal` 调用）。
+   *
+   * 为什么需要：既有自动升级只看"**消息文本** + 轮次闸"，运行中才展开成长任务（多 todo / 多轮）
+   * 时无人接管，只能到轮次上限收尾。本入口把该信号接进**既有**升级通道（不新建第二套链路）。
+   *
+   * 闸门（纯判定 `shouldEscalateLongTask`，与既有裸会话分支同口径）：长任务信号 + 裸会话
+   * （无 projectId/workspaceId）+ **轮次闸 ≥2 轮** + 非 Code Mode（互斥，CM-6）。
+   * 不满足 ⇒ 只记 debug 日志（可观测"为何没升级"），不做任何动作。
+   */
+  async onLongTaskSignal(
+    session: ChatSession,
+    fact: { pendingTodoCount: number; consumedTurns: number }
+  ): Promise<void> {
+    const lastUserContent = this._recentUserText(session, 3);
+    const userMessageCount = (
+      session.messages?.filter((m) => m.role === 'user') ?? []
+    ).length;
+    const shouldEscalate = shouldEscalateLongTask({
+      longTask: true,
+      hasProjectContext: Boolean(
+        session.metadata?.projectId ?? session.metadata?.workspaceId
+      ),
+      codeMode: this._shouldUseCodeMode(lastUserContent),
+      userMessageCount,
+    });
+    if (!shouldEscalate) {
+      logger.debug('pdca:long_task_signal_skipped', {
+        sessionId: session.id,
+        pendingTodoCount: fact.pendingTodoCount,
+        consumedTurns: fact.consumedTurns,
+        userMessageCount,
+      });
+      return;
+    }
+    logger.info('pdca:long_task_signal_escalation', {
+      sessionId: session.id,
+      pendingTodoCount: fact.pendingTodoCount,
+      consumedTurns: fact.consumedTurns,
+      userMessageCount,
+    });
+    await this._escalateToPdcaViaBareSession({
+      session,
+      assistantContent: this._lastAssistantText(session),
+      lastUserContent,
+    });
   }
 
   /**

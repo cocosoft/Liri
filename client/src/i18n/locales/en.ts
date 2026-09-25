@@ -189,6 +189,11 @@ const en = {
     pdcaBadge: "PDCA",
     pdcaBadgeHint: "Expand / collapse the PDCA orchestration panel",
     pdcaIdle: "PDCA orchestration in progress",
+    // "Advance with orchestration" entry (shown when unfinished todos exist and no PDCA is running)
+    pdcaSuggest: "Many tasks? Advance with orchestration",
+    pdcaSuggestHint:
+      "Start PDCA stepwise orchestration for the {{count}} unfinished task(s)",
+    pdcaStartFailed: "Failed to start orchestration (backend not responding)",
     inputPlaceholder: "Type a message...",
     send: "Send",
     sessionHistory: "History",

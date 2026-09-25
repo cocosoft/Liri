@@ -600,6 +600,27 @@ export async function launchRepl(
 
         try {
           profileCheckpoint('repl_send_message_start');
+          // S4 补接线（G2，2026-09-25，`.trae/specs/long-task-routing.md`）：首次检测到
+          // **执行类长任务意图** ⇒ 一次性告知"可 PDCA 分步推进 / 显式入口"。
+          // 幂等由 `showHintIfNeeded` 自身保证（config 标记 onboarding.seen.*）；
+          // 仅在 CLI REPL 触发 ⇒ 天然满足该 hint 既有口径"UI 聊天场景不重复"。
+          try {
+            const { isExecutionTaskIntent } =
+              await import('../chat/taskIntent.js');
+            if (isExecutionTaskIntent(trimmedLine)) {
+              const {
+                showHintIfNeeded,
+                OnboardHintKey,
+                HINT_METHODOLOGY_PDCA,
+              } = await import('../commands/builtin/onboard/OnboardHints.js');
+              showHintIfNeeded(
+                OnboardHintKey.METHODOLOGY_PDCA,
+                HINT_METHODOLOGY_PDCA
+              );
+            }
+          } catch {
+            // @ignore-catch — 提示展示失败不影响消息发送（CS03）
+          }
           // 显示 AI 思考过程状态
           console.log(chalk.yellow('⚙️ System: 🤔 AI 正在思考...'));
 

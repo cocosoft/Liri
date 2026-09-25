@@ -2428,6 +2428,35 @@ export async function* runStreamMessage(
         // 原实现为 fire-and-forget ⇒ 落盘失败只留一条无人可等的 warn（N4：调用方无法
         // 感知/重试/断言）。此处 await 使其在轮次边界可观测；无副作用时立即 resolve。
         await loop.flushTerminalSettlement();
+        // 跨 run 预算（2026-09-25）：把内存 `metadata.toolTurnBudget`（ReActToolLoop 每轮更新）
+        // 合并持久化 —— 同一任务的下一次系统续跑（yield 恢复 / self-wake / goal 空闲续接）
+        // 才能读到累计消耗作为续期基线。失败不阻断（metadata 已在内存，下次仍有）——
+        // 属真实可能失败的外部 IO（CS03）。
+        try {
+          await host.persistSessionMetadata(session);
+        } catch (err) {
+          logger.warn('跨 run 轮次预算持久化失败（继续收尾）', {
+            sessionId: session.id,
+            error: err instanceof Error ? err.message : String(err),
+          });
+        }
+        // D3（2026-09-25，`.trae/specs/long-task-routing.md` §3.6）：**运行中长任务信号** ⇒ 交宿主
+        // 按**既有**升级通道处理（是否升级由 `chat/longTaskEscalation.ts` 的闸门判定：裸会话 +
+        // 轮次闸 ≥2 + 非 Code Mode）。宿主未实现该缝（测试桩）⇒ 不升级，行为不变。
+        try {
+          const longTask = loop.getLongTaskSignal();
+          if (longTask.isLongTask && host.onLongTaskSignal) {
+            await host.onLongTaskSignal(session, {
+              pendingTodoCount: longTask.pendingTodoCount,
+              consumedTurns: longTask.consumedTurns,
+            });
+          }
+        } catch (err) {
+          logger.warn('长任务信号分流失败（不影响本轮收尾）', {
+            sessionId: session.id,
+            error: err instanceof Error ? err.message : String(err),
+          });
+        }
         // TB-16（2026-09-24）：取值供 `turn/end` 落 `terminationReason`（见上方变量注释）
         toolLoopTermination = loop.getTerminationReason();
         // B1 补发（2026-09-01）：达上限/循环检测的终止提示由 finalize 生成在最终

@@ -211,6 +211,24 @@ export interface ChatOrchestratorHost {
     outputBudgetTokens?: number
   ): Promise<void>;
   persistTurnSummary(session: ChatSession): void;
+  /**
+   * **运行中长任务信号**（D3，2026-09-25）：`ReActToolLoop.getLongTaskSignal()` 命中的回合结束时，
+   * 由宿主决定是否按**既有**升级通道把该任务接给 PDCA 编排（闸门见 `chat/longTaskEscalation.ts`；
+   * 实现见 `ChatManager.onLongTaskSignal`）。
+   *
+   * 声明为**可选**：既有测试桩 host 未实现该缝时行为不变（不升级）。
+   */
+  onLongTaskSignal?(
+    session: ChatSession,
+    fact: { pendingTodoCount: number; consumedTurns: number }
+  ): Promise<void>;
+  /**
+   * 把内存会话 metadata 合并持久化到会话存储（实现见 `ChatManager.persistSessionMetadata`）。
+   *
+   * 2026-09-25（跨 run 预算）：`ReActToolLoop` 每轮在内存更新 `metadata.toolTurnBudget`，
+   * 由本方法在**轮次边界**写回磁盘 —— 使同一任务的下一次续跑（`systemResume`）能读到累计值。
+   */
+  persistSessionMetadata(session: ChatSession): Promise<void>;
   flushPendingPersists(): Promise<void>;
   shouldUseTAORLoop(sessionId: string): boolean;
   getOrCreateTAORLoop(sessionId: string): unknown;

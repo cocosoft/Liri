@@ -8,6 +8,8 @@ import {
   DEEP_THINKING_THRESHOLD_SECONDS,
 } from "./useThinkingPhase";
 import type { TaskCardData } from "../../types";
+// 2026-09-25：任务卡快照取数抽为**单一来源**（本组件与 usePdcaStartEntry 共用）
+import { findLatestTaskCard } from "./taskCardSnapshot";
 
 const PHASE_LABELS: Record<string, string> = {
   analyzing: "chat.phaseAnalyzing",
@@ -34,33 +36,6 @@ const STATUS_COLORS: Record<string, string> = {
   cancelled: "text-orange-500",
   blocked: "text-yellow-500",
 };
-
-/**
- * BUG-9 修复（2026-08-23）：优先从 planTaskStore 读取实时任务数据（SSE 驱动，
- * 与 TaskCard 组件同源，不再滞后于消息块静态快照）。按消息中最后一个
- * task_decomposition 块的 planId 定位；planTaskStore 缺失（plan:completed 已移除）
- * 时回退消息块快照。
- */
-function findLatestTaskCard(
-  messages: Array<{
-    blocks?: Array<{ taskCard?: TaskCardData; type?: string }>;
-  }>,
-  liveTasks: Record<string, TaskCardData>,
-): TaskCardData | null {
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const blocks = messages[i].blocks;
-    if (!blocks) continue;
-    for (let j = blocks.length - 1; j >= 0; j--) {
-      const block = blocks[j];
-      if (!block.taskCard) continue;
-      const planId = block.taskCard.planId;
-      // 优先实时数据（planTaskStore），缺失回退块快照
-      if (planId && liveTasks[planId]) return liveTasks[planId];
-      return block.taskCard as TaskCardData;
-    }
-  }
-  return null;
-}
 
 /**
  * 任务进度显示组件
@@ -169,10 +144,19 @@ function TaskMiniPanel({
 export default function StatusFloatBar({
   fluid = false,
   pdca,
+  orchestrate,
 }: {
   fluid?: boolean;
   /** UI-2（2026-09-23）：PDCA 编排徽标（可见性/展开态由 ChatArea 与 usePdcaEntry 提供） */
   pdca?: { visible: boolean; open: boolean; onToggle: () => void };
+  /** 「用编排推进（启动 PDCA）」入口（判据/动作由 ChatArea 与 usePdcaStartEntry 提供）：
+   *  仅"存在未完成 todo 且尚无进行中 PDCA"时可见，与徽标互斥 */
+  orchestrate?: {
+    visible: boolean;
+    count: number;
+    starting: boolean;
+    onStart: () => void;
+  };
 }) {
   const { t } = useTranslation();
   // UI-1（2026-09-23）：深度思考等待期 —— 与"正在生成/阶段"在**同一处**呈现，
@@ -222,7 +206,9 @@ export default function StatusFloatBar({
   // UI-2（U2-a 裁决，2026-09-23）：有活跃 PDCA 事件时浮动栏**常驻** —— PDCA 任务可在
   // 流结束后继续跑，原 ChatPdcaDrawer 的独立入口行正为此而常驻；并入浮动栏后
   // 若仍只在 isActive 时渲染，会**丢失空闲态入口**（回归）。
-  if (!isActive && !fadingOut && !pdca?.visible) return null;
+  // 「用编排推进」入口同理：空闲且仍有未完成 todo 时常驻（否则入口无处可点）。
+  if (!isActive && !fadingOut && !pdca?.visible && !orchestrate?.visible)
+    return null;
 
   /**
    * 根据当前状态生成显示文本
@@ -231,7 +217,11 @@ export default function StatusFloatBar({
   const getStatusText = (): string => {
     // UI-2：空闲但仍有活跃 PDCA ⇒ 以"编排进行中"常驻；不得沿用"正在生成"（会谎报运行态）
     if (!isActive) {
-      return pdca?.visible ? t("chat.pdcaIdle") : t("chat.streamingLabel");
+      if (pdca?.visible) return t("chat.pdcaIdle");
+      // 空闲且仅"用编排推进"入口常驻：左侧不谎报运行态也不与右侧入口文案重复，
+      // 未完成进度由 TaskProgress（已完成 x/y）承担
+      if (orchestrate?.visible) return "";
+      return t("chat.streamingLabel");
     }
     if (isUploading) return t("chat.uploading");
     if (isSending && !isStreaming) return t("chat.sending");
@@ -261,6 +251,8 @@ export default function StatusFloatBar({
     return t("chat.streamingLabel");
   };
 
+  const statusText = getStatusText();
+
   return (
     <div className="w-full relative">
       <div
@@ -283,11 +275,37 @@ export default function StatusFloatBar({
 
             {/* 状态文本 + 任务进度 */}
             <div className="flex items-center flex-1 min-w-0">
-              <span className="text-sm text-gray-600 dark:text-gray-300 truncate">
-                {getStatusText()}
-              </span>
+              {statusText && (
+                <span className="text-sm text-gray-600 dark:text-gray-300 truncate">
+                  {statusText}
+                </span>
+              )}
               {taskCard && <TaskProgress data={taskCard} />}
             </div>
+
+            {/* 「用编排推进」入口：存在未完成 todo 且尚无进行中 PDCA 时出现
+                （与徽标互斥；stopPropagation 避免误触任务面板） */}
+            {orchestrate?.visible && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  orchestrate.onStart();
+                }}
+                disabled={orchestrate.starting}
+                aria-label={t("chat.pdcaSuggest")}
+                title={t("chat.pdcaSuggestHint", { count: orchestrate.count })}
+                className={`shrink-0 flex items-center gap-1 px-2 py-0.5 text-xs rounded-md transition-colors ${
+                  orchestrate.starting
+                    ? "text-gray-400 dark:text-gray-500 cursor-default"
+                    : "text-blue-600 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/30"
+                }`}
+              >
+                <span>🧭</span>
+                <span className="truncate max-w-[12rem]">
+                  {t("chat.pdcaSuggest")}
+                </span>
+              </button>
+            )}
 
             {/* UI-2：PDCA 编排徽标（点击展开/收起；stopPropagation 避免误触任务面板） */}
             {pdca?.visible && (

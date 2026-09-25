@@ -54,6 +54,14 @@ export interface AgentRunEntry {
    * 故开工前由 `setWeight` 校准。修复前 N 个 worker 只按 1 计额度。
    */
   weight?: number;
+  /**
+   * M-5b（2026-09-25）：**终态副作用**（磁盘落盘 + yield 结算通知）的幂等标记。
+   *
+   * 与 `status` 分开的理由：终态可由**两个**层落定 —— 引擎在 `execute()` 出口先行
+   * `settle()`（`SubAgentEngine.endRun`），`AgentTool.settleRun()` 随后补副作用。
+   * 若副作用以"本次 `settle()` 是否发生迁移"为闸门，则引擎路径上落盘与通知会被静默跳过。
+   */
+  terminalSideEffectsDone?: boolean;
 }
 
 /** 对外查询投影（**不含** `sessionId` 等专有字段；每次新建，调用方改写不影响台账） */
@@ -88,7 +96,9 @@ const TERMINAL_STATUSES: ReadonlySet<AgentRunStatus> = new Set([
 ]);
 
 /** 是否终态（`completed` / `failed`；`running` / `cancel_requested` 为非终态） */
-export function isTerminalStatus(status: AgentRunStatus): boolean {
+export function isTerminalStatus(
+  status: AgentRunStatus
+): status is 'completed' | 'failed' {
   return TERMINAL_STATUSES.has(status);
 }
 
@@ -161,6 +171,9 @@ export interface AgentRunMutatePort {
     agentId: string,
     status: 'completed' | 'failed'
   ): ReturnType<AgentRunLedger['settle']>;
+  claimTerminalSideEffects(
+    agentId: string
+  ): ReturnType<AgentRunLedger['claimTerminalSideEffects']>;
 }
 
 /** P2-6：消费方统一依赖的台账契约（判据面 + 变更面） */
@@ -169,6 +182,23 @@ export type AgentRunLedgerPort = AgentRunFactsPort & AgentRunMutatePort;
 export class AgentRunLedger implements AgentRunLedgerPort {
   private active = new Map<string, AgentRunEntry>();
   private recent = new Map<string, AgentRunEntry>();
+  /**
+   * R1 修复（2026-09-25）：**终态副作用欠账表**（键 = agentId）——不随 `recent` CAP 淘汰。
+   *
+   * 为什么需要：`settle()` 落终态与 `AgentTool.settleRun()` 调 `claimTerminalSideEffects()`
+   * 之间隔着**调用方的 `await`**（teammate 注销 / token 汇聚 / 事件 emit）。修复前认领只查
+   * `active ?? recent`，一旦该窗口内 `recent` 溢出把条目整条淘汰，认领返回 `null`
+   * ⇒ **磁盘行永久 `running` + yield 结算通知静默跳过**（与 M-5 同症候的残余变体，
+   * 成因从"守卫短路"换成"归因表容量淘汰"）。
+   *
+   * 生命周期：终态首次落定时写入；**认领时删除**（一条出口）⇒ 正常路径下几乎即刻清空，
+   * 仅"结算已发生但从未被认领"的异常路径会留下残留（此类残留正是需要被修的东西，
+   * 不应因容量淘汰而被静默丢弃）。
+   */
+  private unclaimedSideEffects = new Map<
+    string,
+    { status: 'completed' | 'failed'; sessionId?: string }
+  >();
 
   constructor(private readonly recentCap: number = DEFAULT_RECENT_CAP) {}
 
@@ -365,12 +395,62 @@ export class AgentRunLedger implements AgentRunLedgerPort {
     agent.status = status;
     this.active.delete(agentId);
     this.recent.set(agentId, agent);
+    // R1 修复（2026-09-25）：终态**首次落定**即把"待认领的副作用事实"记入**不随归因表淘汰**的
+    // 欠账表（见 `unclaimedSideEffects`）。归因表 CAP 淘汰语义保持不变（仍按写入顺序淘汰最旧）。
+    this.unclaimedSideEffects.set(agentId, {
+      status,
+      sessionId: agent.sessionId,
+    });
     while (this.recent.size > this.recentCap) {
       const oldest = this.recent.keys().next().value;
       if (oldest === undefined) break;
       this.recent.delete(oldest);
     }
     return true;
+  }
+
+  /**
+   * M-5b（2026-09-25）：**认领**该 run 的终态副作用（磁盘落盘 + yield 结算通知）——
+   * 与 `settle()` **分离**的幂等闸门。
+   *
+   * 为什么必须分离：终态可由两层落定 —— 引擎先（`SubAgentEngine.endRun` → `settle()`），
+   * `AgentTool.settleRun()` 后（落盘 + 通知）。修复前 `settleRun` 以 `settle()` 的返回值为
+   * 闸门 ⇒ 引擎路径上 `settle()` 必然返回 `false`（条目已移入归因表），于是**落盘与通知
+   * 双双被静默跳过**：磁盘行永久停在 `running`、该会话的 yield 永不收敛（M-5 的"唯一入口"
+   * 在运行时被前置换态短路）。
+   *
+   * 同步临界区（无 `await`）⇒ 认领与读事实不可能被交错拆开。
+   *
+   * R1（2026-09-25）：条目已被归因表 CAP 淘汰时，改由**欠账表**（`unclaimedSideEffects`，
+   * 不随淘汰消失）作答 —— 见该字段注释。
+   *
+   * @returns **首次**认领时返回该 run 的终态事实；非终态（含同 id 在飞的新 run）/
+   * 条目已淘汰且无欠账 / 已认领过 ⇒ `null`
+   */
+  claimTerminalSideEffects(agentId: string): {
+    /** 台账落的终态（**唯一答案** —— 引擎可能已先行落定，且终态不可改写） */
+    status: 'completed' | 'failed';
+    /** 该 run 的归属会话（结算前取用，`settle()` 之后活跃表已无此条目） */
+    sessionId?: string;
+  } | null {
+    const agent = this.active.get(agentId) ?? this.recent.get(agentId);
+    // 已认领（条目仍在表内）⇒ 幂等返回 null
+    if (agent?.terminalSideEffectsDone) return null;
+    if (agent) {
+      // 同 id 存在**在飞的新 run**（active 且非终态）⇒ 本次调用不属于它，且欠账表里可能是
+      // 上一轮同 id run 的事实：一律不认领（否则会把新 run 的认领闸门误标为已完成 ⇒
+      // 新 run 的磁盘落盘与 yield 通知被跳过）
+      if (!isTerminalStatus(agent.status)) return null;
+      agent.terminalSideEffectsDone = true;
+      this.unclaimedSideEffects.delete(agentId);
+      return { status: agent.status, sessionId: agent.sessionId };
+    }
+    // R1 修复（2026-09-25）：条目已被归因表 CAP 淘汰 ⇒ 认领**欠账表**中的结算事实
+    // （修复前只查 `active ?? recent`，淘汰即静默丢失"磁盘落盘 + yield 通知"）
+    const owed = this.unclaimedSideEffects.get(agentId);
+    if (!owed) return null;
+    this.unclaimedSideEffects.delete(agentId);
+    return owed;
   }
 
   /** 活跃条目投影（无命中返回 undefined） */

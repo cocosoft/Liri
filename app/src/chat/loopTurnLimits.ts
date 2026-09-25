@@ -24,8 +24,8 @@
  *
  * 调用方分级语义（单一事实来源，供各循环引用，避免上限分散在各文件）：
  * - 主对话（chat）：基础阈值 30（env MAX_TAOR_TURNS / MAX_TOOL_TURNS 可覆盖）
- *   + 动态扩容（未完成 todo × DYNAMIC_TURNS_PER_PENDING_TODO，硬顶 MAX_DYNAMIC_TOOL_TURNS_CAP）
- *   ——动态计算在 ReActToolLoop 内部（chat 主循环路径）
+ *   + 动态扩容（未完成 todo × DYNAMIC_TURNS_PER_PENDING_TODO + 探索续期，
+ *   硬顶 MAX_DYNAMIC_TOOL_TURNS_CAP）——动态计算在 ReActToolLoop 内部（chat 主循环路径）
  * - 子代理（subagent）：默认 200（DEFAULT_SUBAGENT_MAX_TURNS，2026-09-01 决策 3 由 50 上调）
  * - 后台任务/压缩：各自定值（如压缩 =1，不在此管理）
  *
@@ -35,7 +35,8 @@
  *
  * 双路径上限意图说明（L9，2026-09-06 记录，勿误改）：
  * - 流式主路径（ReActToolLoop）：基础 30 + 动态扩容 ≤500（见本文件常量）——
- *   面向"单条消息 → 工具循环 → 交付"的交互粒度，低基数 + 按 todo/探索动态扩容；
+ *   面向"单条消息 → 工具循环 → 交付"的交互粒度，低基数 + 按 todo/**探索续期**动态扩容
+ *   （续期收支比 1:1：每消耗满基础轮次续期基础轮次，硬顶 500 为真实止损点）；
  * - batch（TAORLoop / PDCA 步骤 / PDL）：固定 300（TAORLoop.ts 默认 maxTurns，
  *   env MAX_TAOR_TURNS 覆盖）——面向"一步骤长跑/多步委托"的批处理粒度，预算更高且恒定；
  * - 子代理（SubAgentEngine）：200（本文件 DEFAULT_SUBAGENT_MAX_TURNS）。
@@ -51,7 +52,7 @@ export const DYNAMIC_TURNS_PER_PENDING_TODO = 5;
 /** P10（2026-09-01）：无 todo 但涉及外部获取/技能探索的任务额外扩容轮次——
  *  此类任务需要多轮尝试（抓取→失败→换源→查询→求助），基础 30 轮偏紧。 */
 export const EXTERNAL_FETCH_EXPANSION_TURNS = 20;
-/** 动态扩容硬顶（防失控兜底） */
+/** 动态扩容硬顶（防失控兜底；续期机制下为**真实止损点**，见 ReActToolLoop 续期说明） */
 export const MAX_DYNAMIC_TOOL_TURNS_CAP = 500;
 /** 子代理默认最大轮次（SubAgentEngine，调用方分级，对标 cc_code fork 子代理 200；2026-09-01 决策 3 落地 50→200） */
 export const DEFAULT_SUBAGENT_MAX_TURNS = 200;

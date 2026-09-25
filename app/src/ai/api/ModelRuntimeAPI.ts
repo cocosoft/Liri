@@ -582,6 +582,91 @@ export async function handleGetTasks(
 }
 
 /**
+ * N-72：校验所需的最小依赖面 —— 便于单测**注入桩**（避免读真实 DB、避免 `mock.module`）。
+ */
+export interface TaskRoutingValidationDeps {
+  getPricingById(
+    id: string
+  ): Promise<
+    { displayName: string; providerId: string; enabled: boolean } | undefined
+  >;
+  getPricing(
+    modelId: string
+  ): Promise<
+    { displayName: string; providerId: string; enabled: boolean } | undefined
+  >;
+  listProviders(): Promise<
+    Array<{ providerType: string; name: string; isActive: boolean }>
+  >;
+}
+
+/**
+ * N-72（2026-09-25）：校验任务分工里**每个非空**路由目标是否可用。
+ *
+ * 返回问题描述列表（空数组 ⇒ 通过）。**只读校验**：不改写入参、不自动改正、不静默回退。
+ */
+export async function validateTaskRoutingTargets(
+  body: Record<string, unknown>,
+  deps?: TaskRoutingValidationDeps
+): Promise<string[]> {
+  const problems: string[] = [];
+  const entries = Object.entries(body).filter(
+    ([, value]) => typeof value === 'string' && value.trim() !== ''
+  );
+  if (entries.length === 0) return problems;
+
+  const resolved: TaskRoutingValidationDeps = deps ?? {
+    getPricingById: (id) => modelPricingService.getPricingById(id),
+    getPricing: (modelId) => modelPricingService.getPricing(modelId),
+    listProviders: async () => {
+      const { providerManager } =
+        await import('../providers/ProviderManager.js');
+      return providerManager.listProviders();
+    },
+  };
+
+  const providers = await resolved.listProviders();
+
+  for (const [taskType, value] of entries) {
+    const target = String(value);
+    // 按 DB id（UI 传 uuid）优先，兼容传 modelId 的调用方
+    const record =
+      (await resolved.getPricingById(target)) ??
+      (await resolved.getPricing(target));
+
+    if (!record) {
+      problems.push(
+        `「${taskType}」指向的模型 ${target} 不存在（可能已被删除）`
+      );
+      continue;
+    }
+    if (!record.enabled) {
+      problems.push(
+        `「${taskType}」指向的模型「${record.displayName}」已禁用（enabled=0）`
+      );
+      continue;
+    }
+    // `model_registry.provider_id` 存的是 **provider_type**（如 deepseek / llamacpp），
+    // 而非 `ai_providers.id`（uuid）⇒ 按 providerType 匹配。
+    const provider = providers.find(
+      (p) => p.providerType === record.providerId
+    );
+    if (!provider) {
+      problems.push(
+        `「${taskType}」的模型「${record.displayName}」其供应商「${record.providerId}」未注册`
+      );
+      continue;
+    }
+    if (!provider.isActive) {
+      problems.push(
+        `「${taskType}」的模型「${record.displayName}」其供应商「${provider.name}」未激活（is_active=0）`
+      );
+    }
+  }
+  return problems;
+}
+
+/**
  * PUT /v1/models/tasks — 保存任务分工配置
  */
 export async function handleSaveTasks(
@@ -591,6 +676,29 @@ export async function handleSaveTasks(
 ): Promise<void> {
   try {
     const body = (await parseBody(req)) as Record<string, unknown>;
+
+    // N-72（2026-09-25）：保存前**校验每个路由目标的可用性**。
+    //
+    // 背景（实测暴露）：任务分工里 `agent` / `local` 曾指向一个 `enabled=0` 的模型
+    // （其 provider `llamacpp` 的 `is_active=0`）却被**成功存下**，直到子代理真正执行
+    // 才报"子代理模型未解析到可用供应商"—— 报错发生在 agent 侧，用户难以定位"是路由配错了"。
+    //
+    // 口径：① **只校验非空值**（空串/null ⇒ 允许，清空路由是合法操作）；
+    //      ② 目标须可解析到模型（按 DB id，兼容传 modelId）+ 模型 `enabled` +
+    //         其 provider 已注册且 `isActive`；
+    //      ③ 不通过 ⇒ **400 + 逐键列出原因**（不静默回退、不自动改写用户的选择）。
+    const routingProblems = await validateTaskRoutingTargets(body);
+    if (routingProblems.length > 0) {
+      res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(
+        JSON.stringify({
+          error: `任务分工未保存：${routingProblems.join('；')}`,
+          details: routingProblems,
+        })
+      );
+      return;
+    }
+
     const { modelRouter } = await import('../modelRouter.js');
     await modelRouter.setTasks(body);
     // KB-TASK-FIX（2026-08-28）：任务分工变更后刷新运行时缓存——

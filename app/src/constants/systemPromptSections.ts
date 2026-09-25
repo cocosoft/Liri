@@ -197,8 +197,8 @@ type ComputeFn = () => string | null | Promise<string | null>;
 /**
  * 系统提示词段落定义
  */
-export type SystemPromptSection = {
-  name: string;
+export type SystemPromptSection<N extends string = string> = {
+  name: N;
   compute: ComputeFn;
   cacheBreak: boolean;
 };
@@ -221,10 +221,10 @@ export const CACHE_BOUNDARY = '<!-- CACHE_BOUNDARY -->';
  * 创建缓存的系统提示词段落
  * 计算一次后缓存，直到/clear或/compact时清除
  */
-export function systemPromptSection(
-  name: string,
+export function systemPromptSection<N extends string>(
+  name: N,
   compute: ComputeFn
-): SystemPromptSection {
+): SystemPromptSection<N> {
   return { name, compute, cacheBreak: false };
 }
 
@@ -233,11 +233,11 @@ export function systemPromptSection(
  * 每轮重新计算，值变化时会破坏提示缓存
  * 需要提供原因说明为何需要破坏缓存
  */
-export function DANGEROUS_uncachedSystemPromptSection(
-  name: string,
+export function DANGEROUS_uncachedSystemPromptSection<N extends string>(
+  name: N,
   compute: ComputeFn,
   _reason: string
-): SystemPromptSection {
+): SystemPromptSection<N> {
   return { name, compute, cacheBreak: true };
 }
 
@@ -254,7 +254,9 @@ function hashString(s: string): string {
 let memoryContentHash = '';
 
 /** 默认注册的所有段落 */
-const DEFAULT_SECTIONS: SystemPromptSection[] = [
+// 注意：**不要**加 `: SystemPromptSection[]` 标注 —— 那会把各段 name 拓宽为 string，
+// 使 `StaticPromptSectionName` 推导失效（下方 §穷尽登记门禁 依赖字面量保留）。
+const DEFAULT_SECTIONS = [
   systemPromptSection('identity', () => {
     return `## 身份
 
@@ -840,7 +842,37 @@ const DEFAULT_SECTIONS: SystemPromptSection[] = [
       '- 系统负责写入、溯源（frontmatter）与索引联动，无需其他操作',
     ].join('\n');
   }),
+
+  // W2（2026-09-25，方案 A）：交付物落点口径 —— **全局段落**，与「有无项目上下文」解耦。
+  // 实机补验发现：挂在「项目上下文」段内时，无项目的会话（session.metadata.projectId 为空）
+  // 完全拿不到该说明，模型会为"找本项目"空转（见台账 N-60 补验记录）。
+  systemPromptSection('outputArtifactBoundary', () => {
+    return [
+      '## 交付物落点口径（重要）',
+      '',
+      '- 生成类工具（`doc_generate` / `pdf` / `file_write` / `file_convert`）的产物落在**全局输出目录**（`~/.pyapp/output/`），',
+      '  **不属于任何项目，也不会出现在「成果」面板** —— 它们适合临时/中间产物。',
+      '- 需要交付给用户、且应归入某项目的文件，用 `write_project_file`（传 projectId + 相对路径）写入该项目 `output/`，',
+      '  会自动登记为项目「成果」并在「成果」面板可见。',
+      '- **若当前会话没有项目上下文**（不知道 projectId）而用户要求把成果归入项目：**直接向用户询问项目**' +
+        '（或请用户到项目页发起会话）；**不要用 `grep`/`glob`/`read` 在工作区里搜寻项目**（会陷入无进展的探索），' +
+        '也不要用生成类工具顶替（产物不会登记为「成果」）。',
+    ].join('\n');
+  }),
 ];
+
+/**
+ * 静态段落名联合（由 `DEFAULT_SECTIONS` **推导**，非手工清单）。
+ *
+ * 用途：`services/prompt/promptSectionLayers.ts` 的 `SECTION_META` 以
+ * `satisfies Record<StaticPromptSectionName, PromptSectionMeta>` 做**穷尽登记校验** ——
+ * 新增静态段却不登记 ⇒ **编译失败**。
+ *
+ * 为什么需要这道门禁：未登记段 = 仅 full 模式可见（`isSectionVisibleIn` 的 `?? false`），
+ * 漏登记会**静默失效**（既不报错也不进提示词）。已实机踩过：`outputArtifactBoundary`
+ * 在 `mode=conversation` 下完全不注入，两次实机验证才暴露（台账 N-60）。
+ */
+export type StaticPromptSectionName = (typeof DEFAULT_SECTIONS)[number]['name'];
 
 /**
  * 本地模型专用工具使用段落（PromptAssembler local 模式替换 toolUse 使用）：

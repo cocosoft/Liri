@@ -131,7 +131,9 @@ export class FileWriteTool extends BaseTool {
     'Write content to a file. ' +
     'When the content already exists on disk (e.g. another tool produced a local file), ' +
     'you MUST pass source_file instead of reciting the full content as a string — ' +
-    'this avoids output token explosion, JSON truncation and memory blow-up.';
+    'this avoids output token explosion, JSON truncation and memory blow-up.' +
+    '注意：产物落在全局输出目录（~/.pyapp/output/），不属于任何项目、不会登记到「成果」面板；' +
+    '若该文件须归入某项目的交付物，请改用 write_project_file 写入该项目 output/。';
 
   override tags = [ToolTag.FILE, ToolTag.WRITE];
 

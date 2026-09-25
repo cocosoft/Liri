@@ -1261,7 +1261,9 @@ export class DocGenerateTool extends BaseTool {
     '传入 Markdown 格式的内容（标题 # ## ###、列表 -、段落、表格 |），自动生成格式化的文档。' +
     '内容已存在于本地文件时（如用户给的 html/md/txt 文档），必须优先传 content_file 路径而非复述长内容，' +
     '工具直接从文件读取，避免长内容截断与巨量 token 消耗。' +
-    'type 参数默认 docx；template 可选：weekly-report / meeting-minutes / tech-design / prd。';
+    'type 参数默认 docx；template 可选：weekly-report / meeting-minutes / tech-design / prd。' +
+    '注意：产物落在**全局输出目录**（~/.pyapp/output/），不属于任何项目、不会登记到「成果」面板；' +
+    '若该文档须归入某项目的交付物，请改用 write_project_file 写入该项目 output/。';
 
   params: ToolParam[] = [
     {

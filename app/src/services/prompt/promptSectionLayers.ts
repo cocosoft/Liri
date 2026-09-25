@@ -32,6 +32,7 @@
  */
 
 import type { PromptMode } from './types';
+import type { StaticPromptSectionName } from '../../constants/systemPromptSections';
 
 export type PromptLayer = 'L0' | 'L1' | 'L2' | 'L3';
 
@@ -45,7 +46,17 @@ export interface PromptSectionMeta {
 /** 未登记段的默认层（会话动态类占多数，默认 L2；可见性默认仅 full） */
 export const DEFAULT_SECTION_LAYER: PromptLayer = 'L2';
 
-const SECTION_META: Record<string, PromptSectionMeta> = {
+/**
+ * 段落登记表 —— **穷尽校验**：`DEFAULT_SECTIONS` 的每个段名都必须在此出现，否则**编译失败**
+ * （`Record<StaticPromptSectionName, …>` 缺键即 TS 报错；`Record<string, …>` 允许非静态段，
+ * 如 `localToolUse`（由过滤链在 local 模式替换注入，不入白名单））。
+ *
+ * 为何必须显式登记：**未登记 = 仅 full 可见**（`isSectionVisibleIn` 的 `?? false`），
+ * 漏登记会**静默失效** —— 不报错、不进提示词、无任何可观测信号。
+ * 实机踩过：`outputArtifactBoundary` 在 `mode=conversation` 下完全不注入，两次实机验证才暴露
+ * （台账 N-60）。新增段请在此二选一：`visibleIn` 声明可见模式，或不声明（仅 full）。
+ */
+const SECTION_META = {
   // 系统性约束（identity 属"最小存活前缀"，minimal 模式亦保留）
   identity: {
     layer: 'L0',
@@ -72,6 +83,13 @@ const SECTION_META: Record<string, PromptSectionMeta> = {
     layer: 'L0',
     visibleIn: ['full', 'conversation', 'minimal'],
   },
+  // W2（2026-09-25，方案 A）：交付物落点口径。**必须显式登记**，否则默认"仅 full 可见"
+  // （本文件注释即此约束）—— 实机补验已证实：漏登记时该段根本不进提示词。
+  // 全模式可见：它决定产物落点与「成果」可见性，本地模型同样会把产物写到 output 目录。
+  outputArtifactBoundary: {
+    layer: 'L0',
+    visibleIn: ['full', 'conversation', 'minimal', 'local'],
+  },
   taskNegotiation: {
     layer: 'L2',
     visibleIn: ['full', 'conversation'],
@@ -92,14 +110,43 @@ const SECTION_META: Record<string, PromptSectionMeta> = {
   knowledgeDigest: { layer: 'L3' },
   fewShotExamples: { layer: 'L3' },
   knowledgeSaveGuide: { layer: 'L3' },
-};
+
+  // ↓ 以下 6 段此前**漏登记**（⇒ 实际仅 full 可见，静默无信号）。本轮补登记以满足穷尽门禁：
+  //   **不声明 visibleIn ⇒ 行为与之前完全一致**（仍仅 full），只是把"隐式"变"显式"。
+  pdcaThinking: { layer: 'L0' },
+  projectRules: { layer: 'L2' },
+  toolsConvention: { layer: 'L2' },
+  projectMeta: { layer: 'L2' },
+  skills: { layer: 'L2' },
+  gitContext: { layer: 'L2' },
+} satisfies Record<StaticPromptSectionName, PromptSectionMeta> &
+  Record<string, PromptSectionMeta>;
+
+/**
+ * 字符串键查询视图。
+ *
+ * `SECTION_META` 保留**字面量键类型**（穷尽门禁需要），而 `getSectionMeta` /
+ * `getSectionLayer` / `isSectionVisibleIn` 的入参是运行时 `string` ⇒ 在此显式拓宽
+ * （含 `undefined`，使未登记段仍走 `?? 默认` 分支）。
+ */
+const META_LOOKUP: Record<string, PromptSectionMeta | undefined> = SECTION_META;
 
 export function getSectionMeta(name: string): PromptSectionMeta {
-  return SECTION_META[name] ?? { layer: DEFAULT_SECTION_LAYER };
+  return META_LOOKUP[name] ?? { layer: DEFAULT_SECTION_LAYER };
+}
+
+/**
+ * 该段名是否已在登记表**显式声明**。
+ *
+ * 供门禁用例（`tests/prompt/promptSectionLayersGate.test.ts`）与诊断使用：
+ * 未声明 = 仅 full 可见 ⇒ 新增段漏登记会**静默不进提示词**（详见文件头注释与台账 N-60）。
+ */
+export function isSectionDeclared(name: string): boolean {
+  return Object.prototype.hasOwnProperty.call(SECTION_META, name);
 }
 
 export function getSectionLayer(name: string): PromptLayer {
-  return SECTION_META[name]?.layer ?? DEFAULT_SECTION_LAYER;
+  return META_LOOKUP[name]?.layer ?? DEFAULT_SECTION_LAYER;
 }
 
 /**
@@ -111,5 +158,5 @@ export function getSectionLayer(name: string): PromptLayer {
 export function isSectionVisibleIn(name: string, mode: PromptMode): boolean {
   if (mode === 'full') return true;
   if (mode === 'none') return name === 'identity';
-  return SECTION_META[name]?.visibleIn?.includes(mode) ?? false;
+  return META_LOOKUP[name]?.visibleIn?.includes(mode) ?? false;
 }

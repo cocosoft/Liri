@@ -369,7 +369,9 @@ export class PDFTool extends BaseTool<Record<string, unknown>> {
     'When the source content already exists on disk (e.g. a markdown/html/text file), ' +
     'you MUST pass content_file instead of reciting the full content — ' +
     'avoids output token explosion and long-content JSON truncation.' +
-    'Also supports extract (read text from PDF) and info (get PDF metadata).';
+    'Also supports extract (read text from PDF) and info (get PDF metadata).' +
+    '注意：产物落在全局输出目录（~/.pyapp/output/），不属于任何项目、不会登记到「成果」面板；' +
+    '若该 PDF 须归入某项目的交付物，请改用 write_project_file 写入该项目 output/。';
   params: ToolParam[] = [
     {
       name: 'action',

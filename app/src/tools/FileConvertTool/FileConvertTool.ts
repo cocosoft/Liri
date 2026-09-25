@@ -94,7 +94,9 @@ export class FileConvertTool extends BaseTool {
   override readonly description =
     'Convert file to Markdown format, or convert locally to .docx (no LLM involved). ' +
     'For local file conversion requests (e.g. html/md → Word), prefer this over doc_generate ' +
-    'to avoid reciting long content through the model.';
+    'to avoid reciting long content through the model.' +
+    '注意：产物落在全局输出目录（~/.pyapp/output/），不属于任何项目、不会登记到「成果」面板；' +
+    '若该文件须归入某项目的交付物，请改用 write_project_file 写入该项目 output/。';
 
   override tags = [ToolTag.FILE];
 

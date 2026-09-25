@@ -14,6 +14,10 @@ import {
   ToolExecutionStatus,
 } from '../types/ToolResult';
 import type { ToolResult } from '../types/ToolResult';
+import {
+  failProjectTool,
+  projectIdMissingMessage,
+} from '../projectToolGuidance';
 import type { ToolUseContext } from '../types/ToolUseContext';
 import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
@@ -78,13 +82,7 @@ function getStores() {
  * 同时也违反项目既有约定「工具失败信息必须落 `error` 字段供前端展示」。
  */
 function failResult(message: string, errorLevel: ErrorLevel): ToolResult<null> {
-  return createToolResult(null, {
-    success: false,
-    error: message,
-    errorLevel,
-    status: ToolExecutionStatus.FAILURE,
-    newMessages: [{ role: 'assistant' as const, content: message }],
-  });
+  return failProjectTool(message, errorLevel);
 }
 
 export class WriteProjectFileTool {
@@ -151,8 +149,11 @@ export class WriteProjectFileTool {
 
           if (!projectId || !relativePath) {
             span.setStatus({ code: SpanStatusCode.OK });
+            // W2/Y（2026-09-25）：缺参时给出**可执行出路**。实机观测到模型在"找不到本项目"时
+            // 反复探索工作区（180s 内 112 次工具调用）而非向用户索取 ⇒ 在此显式禁止该路径，
+            // 并说明"生成类工具顶替"的后果（产物落全局输出目录、不登记「成果」）。
             return failResult(
-              '缺少 projectId 或 relativePath 参数',
+              projectIdMissingMessage(),
               ErrorLevel.RECOVERABLE
             );
           }

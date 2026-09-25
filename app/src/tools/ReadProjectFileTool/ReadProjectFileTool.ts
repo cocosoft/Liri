@@ -8,7 +8,12 @@
  */
 
 import type { Tool } from '../types/Tool';
-import { createToolResult } from '../types/ToolResult';
+import { createToolResult, ErrorLevel } from '../types/ToolResult';
+import {
+  failProjectTool,
+  projectIdMissingMessage,
+  projectNotFoundMessage,
+} from '../projectToolGuidance';
 import type { ToolUseContext } from '../types/ToolUseContext';
 import { getLogger, getOTelTracing } from '@modules/monitoring';
 import { SpanStatusCode } from '@opentelemetry/api';
@@ -73,14 +78,12 @@ export class ReadProjectFileTool {
 
           if (!projectId || !relativePath) {
             span.setStatus({ code: SpanStatusCode.OK });
-            return createToolResult(null, {
-              newMessages: [
-                {
-                  role: 'assistant' as const,
-                  content: '缺少 projectId 或 relativePath 参数',
-                },
-              ],
-            });
+            // W2/M1（2026-09-25）：缺参时**落 error 字段**（此前只写 newMessages ⇒ 与 O1-3 修的
+            // write 侧同型：失败不可判定）+ 给出可执行出路（禁止在工作区瞎搜、禁止顶替）。
+            return failProjectTool(
+              projectIdMissingMessage(),
+              ErrorLevel.RECOVERABLE
+            );
           }
 
           const { projectStore } = getStores();
@@ -88,14 +91,10 @@ export class ReadProjectFileTool {
           const project = projectStore.get(projectId);
           if (!project) {
             span.setStatus({ code: SpanStatusCode.OK });
-            return createToolResult(null, {
-              newMessages: [
-                {
-                  role: 'assistant' as const,
-                  content: `项目 ${projectId} 不存在`,
-                },
-              ],
-            });
+            return failProjectTool(
+              projectNotFoundMessage(projectId),
+              ErrorLevel.RECOVERABLE
+            );
           }
 
           const sandboxPath = project.sandboxPath;

@@ -32,6 +32,7 @@ const PORT_METHODS: ReadonlyArray<keyof AgentRunLedgerPort> = [
   'ensureCoveredRun',
   'requestCancel',
   'settle',
+  'claimTerminalSideEffects',
 ];
 
 /** 只依赖**判据面**的消费方示例（证明契约可用于替换实现） */

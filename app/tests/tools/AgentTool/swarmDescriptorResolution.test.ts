@@ -507,6 +507,127 @@ describe('M-5：结算通知收敛为单一入口', () => {
 
     expect(notified).toEqual(['sess-m5-batch']);
   });
+
+  /**
+   * M-5b（2026-09-25）：**真实引擎会先结算** —— 通知/落盘不得被 `settle()` 的返回值短路。
+   *
+   * 真实时序：`SubAgentEngine.execute()` 在返回**之前**调 `endRun()` → `ledger.settle()`
+   * （`SubAgentEngine.ts:461/729`），而 `AgentTool.settleRun()` 在 `runWithEngine()` 返回
+   * **之后**才执行 ⇒ 后者拿到的 `settle()` 恒为 `false`。修复前该分支 `return`，
+   * 于是磁盘行永久停在 `running`、yield 通知永不发出（"唯一入口"被运行时守卫短路）。
+   * 本用例的 stub 引擎**如实模拟**该先行结算顺序（修复前必失败）。
+   */
+  test('引擎先行 settle ⇒ 仍须落盘终态并发出通知（修复前被 `!settled` 短路）', async () => {
+    const tool = new AgentTool();
+    installEngine(tool, (call) => {
+      // 模拟真实引擎出口的 `endRun`：先于 `AgentTool.settleRun` 落内存终态
+      getAgentRunLedger().settle(call.engineAgentId, 'completed');
+      return { output: 'ok', completed: true };
+    });
+    installResolver(tool, () => ({
+      ok: true,
+      source: 'builtin',
+      systemPrompt: 'P',
+    }));
+    const notified = captureNotifications(tool);
+    const before = await getAgentRunStore().listRuns();
+
+    const result = await tool.execute(
+      { description: '单代理', prompt: '做点事', subagent_type: 'explore' },
+      { sessionId: 'sess-engine-settled' } as unknown as Parameters<
+        AgentTool['execute']
+      >[1]
+    );
+    expect(result.status).toBe(ToolExecutionStatus.SUCCESS);
+
+    // ① 通知必须发出（修复前为空数组 —— 提前 return 跳过了 `notifyYieldSettlement`）
+    expect(notified).toEqual(['sess-engine-settled']);
+
+    // ② 磁盘行必须落到终态（修复前永久 `running`；`AgentRunStore` 的终态守卫对
+    //    重复写安全，故本断言测的是"是否被写入"，不是"是否只写一次"）
+    const added = (await getAgentRunStore().listRuns()).filter(
+      (r) => !before.some((b) => b.toolCallId === r.toolCallId)
+    );
+    expect(added).toHaveLength(1);
+    expect(added[0].status).toBe('completed');
+  });
+
+  /**
+   * M-9b（2026-09-25）：**后台路径的额度预留不得提前释放**。
+   *
+   * 修复前 `execute()` 的 `finally` 无条件 `reservation.release()`：后台工具在
+   * `runBackgroundPath` 返回时即交回，而 run 仍在 `.then/.catch` 里跑 ⇒ ① 并发槽位提前
+   * 回收（`liveCount()` 失真）② `release()` 委托的 `settle()` 把条目**提前写成 `failed`**
+   * ⇒ 回调按真实结果结算时被终态幂等拒绝（磁盘停 `running`、通知不发）。
+   */
+  test('后台路径：run 运行期**真实占额**，终态与通知在回调中落定（修复前槽位已提前释放）', async () => {
+    const tool = new AgentTool();
+    let engineAgentId = '';
+    let signalStarted: () => void = () => {};
+    const engineStarted = new Promise<void>((r) => {
+      signalStarted = r;
+    });
+    let openEngineGate: () => void = () => {};
+    const engineGate = new Promise<void>((r) => {
+      openEngineGate = r;
+    });
+    // 通知即"回调已结算"的确定性信号（避免用 sleep 等竞态）
+    const notified: Array<string | undefined> = [];
+    let signalSettled: () => void = () => {};
+    const settlementNotified = new Promise<void>((r) => {
+      signalSettled = r;
+    });
+    Reflect.set(tool, 'notifyYieldSettlement', async (sessionId?: string) => {
+      notified.push(sessionId);
+      signalSettled();
+    });
+    Reflect.set(tool, 'engine', {
+      execute: async (params: { agentId?: string }) => {
+        engineAgentId = params.agentId ?? '';
+        signalStarted();
+        await engineGate;
+        return { output: 'bg-ok', completed: true, timedOut: false };
+      },
+    });
+    installResolver(tool, () => ({
+      ok: true,
+      source: 'builtin',
+      systemPrompt: 'P',
+    }));
+    const liveBefore = getAgentRunLedger().liveCount();
+    const before = await getAgentRunStore().listRuns();
+
+    const result = await tool.execute(
+      {
+        description: '后台',
+        prompt: '做点事',
+        subagent_type: 'explore',
+        run_in_background: true,
+      },
+      { sessionId: 'sess-bg' } as unknown as Parameters<AgentTool['execute']>[1]
+    );
+    // 工具已交回（后台语义），而 run 仍在引擎里跑
+    expect(result.status).toBe(ToolExecutionStatus.SUCCESS);
+    await engineStarted;
+
+    // ① 运行期仍占额且状态为 `running`（修复前此处已是 0 / `failed`）
+    expect(engineAgentId).not.toBe('');
+    expect(getAgentRunLedger().view(engineAgentId)?.status).toBe('running');
+    expect(getAgentRunLedger().liveCount()).toBe(liveBefore + 1);
+
+    openEngineGate();
+    await settlementNotified;
+
+    // ② 结算后：通知归属正确、槽位释放、终态正确
+    expect(notified).toEqual(['sess-bg']);
+    expect(getAgentRunLedger().liveCount()).toBe(liveBefore);
+    expect(getAgentRunLedger().view(engineAgentId)?.status).toBe('completed');
+    const added = (await getAgentRunStore().listRuns()).filter(
+      (r) => !before.some((b) => b.toolCallId === r.toolCallId)
+    );
+    expect(added).toHaveLength(1);
+    expect(added[0].status).toBe('completed');
+  });
 });
 
 /**

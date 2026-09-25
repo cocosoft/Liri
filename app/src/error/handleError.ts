@@ -20,6 +20,8 @@
 // SOFTWARE.
 
 import { AppError, ErrorCategory, ErrorSeverity } from './types';
+// 2026-09-25 §6.8：预期中断判据（已下沉到 error/，见该文件头注释）
+import { isAbortReason } from './abortReason.js';
 import { createLogger, LogLevel } from '@modules/monitoring/logs/Logger.js';
 import { getOTelTracing } from '../monitoring/otel/OTelTracing.js';
 
@@ -127,6 +129,37 @@ function recordError(
 // ---------------------------------------------------------------------------
 
 /**
+ * 错误 → **日志级别**映射（单一事实源；2026-09-25 附带发现 12）
+ *
+ * 设计链路：`ErrorCodes[k].level`（`CRITICAL/ERROR/WARN`）经
+ * [`AppError.fromCode`](file:///e:/PY/Documents/CODES/PY_APP/app/src/error/types.ts#L107-L118) 的
+ * `levelToSeverity` 折叠为 `severity`（`CRITICAL→CRITICAL`、`ERROR→HIGH`、`WARN→MEDIUM`、
+ * 其余 `→LOW`）⇒ **`severity` 是级别信息的唯一存活形态**。故日志级别由它反推：
+ * `CRITICAL/HIGH → error`，`MEDIUM/LOW → warn`。
+ *
+ * 为什么需要本函数：原 `handleError` 硬编码 `LogLevel.ERROR` ⇒ 声明为 `WARN` 的码
+ * （`ENTITY_NOT_FOUND`(1005) / `FILE_NOT_FOUND`(100) / `INVALID_INPUT`(1002) …）在日志里
+ * **永远以 error 级落盘**，与声明口径不一致（详见台账附带发现 12）。提为具名函数是为了让
+ * 该口径**可被单测直接证伪**（见 `app/tests/error/errorLogLevel.test.ts`）。
+ *
+ * **例外（关键，防"降噪掩盖真问题"）**：`UNHANDLED_ERROR`（由**非 AppError** 包装而来，
+ * 即"我们还不知道这是什么"）**保持 error 级**——它没有 `ErrorCodes` 声明可依据，若按
+ * `MEDIUM` 下调成 warn，会把未分类故障静默降级，与本项修复意图正好相反。
+ *
+ * @param severity 错误严重程度
+ * @param code 错误码（仅用于识别"未分类错误"这一例外）
+ */
+export function resolveErrorLogLevel(
+  severity: ErrorSeverity,
+  code?: string
+): LogLevel {
+  if (code === 'UNHANDLED_ERROR') return LogLevel.ERROR;
+  return severity === ErrorSeverity.CRITICAL || severity === ErrorSeverity.HIGH
+    ? LogLevel.ERROR
+    : LogLevel.WARN;
+}
+
+/**
  * 统一的错误处理入口函数
  *
  * 所有 catch 块的标准模式：转 AppError → 日志记录 → 内存追踪
@@ -143,6 +176,32 @@ export async function handleError(
   error: unknown,
   options: HandleErrorOptions
 ): Promise<AppError> {
+  // 0. 预期中断（中止）**不是"错误"**（2026-09-25 §6.8）—— 在此**统一收口**。
+  //    本函数是 §1.9 的唯一错误入口，因此这一处即可同时覆盖 provider / 循环 / API 各层，
+  //    避免"改完 provider 噪声又跑到 TAORLoop"。相比常规路径的差异：
+  //      · 只记 warn（不记 error 级）
+  //      · **不**进 recordError 统计
+  //      · **不** publish `error:occurred` ⇒ 不再触发告警（如 [ALERT] [P2]）
+  //      · 不写 OTel exception
+  //    `rethrow` 语义保留：调用方若依赖抛出，仍拿到同一个（LOW 级）AppError。
+  if (isAbortReason(error)) {
+    const abortError = new AppError(
+      (error as Error)?.message || String(error),
+      ErrorCategory.UNKNOWN,
+      ErrorSeverity.LOW,
+      'EXPECTED_ABORT',
+      { ...options.context, expectedInterrupt: true }
+    );
+    createLogger({ level: LogLevel.WARN, module: options.module }).warn(
+      options.action
+        ? `[${options.action}] 预期中断（不计入错误）`
+        : '预期中断（不计入错误）',
+      { reason: String(error), code: 'EXPECTED_ABORT' }
+    );
+    if (options.rethrow) throw abortError;
+    return abortError;
+  }
+
   // 1. 转为 AppError（非 AppError 包装为 UNHANDLED_ERROR）
   const appError =
     error instanceof AppError
@@ -155,23 +214,39 @@ export async function handleError(
           { ...options.context, originalType: typeof error }
         );
 
-  // 2. 日志记录
+  // 2. 日志记录 —— **级别由错误自身决定**（单一事实源；2026-09-25 附带发现 12 根因修复）
+  //
+  //    设计链条：`ErrorCodes[k].level`（CRITICAL/ERROR/WARN）经 `AppError.fromCode` 的
+  //    `levelToSeverity` **折叠为 `severity`**（CRITICAL/HIGH/MEDIUM/LOW），`level` 本身不落实例。
+  //    原实现此处**硬编码 `LogLevel.ERROR`** ⇒ 声明为 `WARN` 的码（`ENTITY_NOT_FOUND`(1005) /
+  //    `FILE_NOT_FOUND`(100) / `INVALID_INPUT`(1002) 等）在日志里**永远以 error 级落盘**，
+  //    与声明口径不一致，并让"error 级"这一信号被预期内条件稀释（与 ② 同族）。
+  //    现按 `severity` 反推：CRITICAL/HIGH → error；MEDIUM/LOW → warn。
+  //
+  //    影响面（刻意最小）：**只改日志级别**。`recordError` 统计 / OTel exception / `error:occurred`
+  //    发布（均按 `severity` 判定）与 `rethrow` 语义**一律不变**；且 WARN 与 ERROR 同属
+  //    "始终输出、不受 checkpoint 日志开关影响"的档位 ⇒ 不降低可见性。
+  const logLevel = resolveErrorLogLevel(appError.severity, appError.code);
+  const isErrorLevel = logLevel === LogLevel.ERROR;
   const logger = createLogger({
-    level: LogLevel.ERROR,
+    level: logLevel,
     module: options.module,
   });
-  logger.error(
-    options.action
-      ? `[${options.action}] ${appError.message}`
-      : appError.message,
-    {
-      category: appError.category,
-      severity: appError.severity,
-      code: appError.code,
-      context: appError.context,
-      errorId: appError.errorId,
-    }
-  );
+  const logMessage = options.action
+    ? `[${options.action}] ${appError.message}`
+    : appError.message;
+  const logMeta = {
+    category: appError.category,
+    severity: appError.severity,
+    code: appError.code,
+    context: appError.context,
+    errorId: appError.errorId,
+  };
+  if (isErrorLevel) {
+    logger.error(logMessage, logMeta);
+  } else {
+    logger.warn(logMessage, logMeta);
+  }
 
   // 3. 内存追踪（内联 ErrorTracker + ErrorMonitor）
   recordError(appError, {

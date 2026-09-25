@@ -49,6 +49,9 @@ jobs:
     - name: Run linter
       run: bun run lint
 
+    - name: "Run root scripts linter (待办 ⑨：scripts/** 原先不在 eslint 覆盖内)"
+      run: bun run lint:scripts
+
     - name: "Console usage gate (baseline: 2034)"
       shell: bash
       run: |

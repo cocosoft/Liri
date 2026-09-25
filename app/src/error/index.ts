@@ -26,6 +26,14 @@
 // 错误类型
 export * from './types';
 
+// 预期中断判据（2026-09-25 §6.8：判据**下沉**到 error/，供低层共用 —— 见该文件头注释）
+export {
+  SYSTEM_ABORT_REASON,
+  SYSTEM_ABORT_BRAND,
+  markAsExpectedAbort,
+  isAbortReason,
+} from './abortReason.js';
+
 // 标准错误码
 export { ErrorCodes } from './ErrorCodes';
 export type { ErrorCodeKey, ErrorCodeValue } from './ErrorCodes';
@@ -80,7 +88,7 @@ export type { SSLAnalysisResult } from './network/SSLErrorHandler';
 export * from './context';
 
 // 统一错误处理入口
-export { handleError } from './handleError';
+export { handleError, resolveErrorLogLevel } from './handleError';
 export type { HandleErrorOptions } from './handleError';
 
 import { getLogger } from '@modules/monitoring';

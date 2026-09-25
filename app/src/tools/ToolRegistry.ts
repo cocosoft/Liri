@@ -237,7 +237,12 @@ export class ToolRegistry {
             },
           },
         },
-        aliases: info.aliases,
+        // D1（2026-08-24）无损 JSON 校验会**整条拒绝**含 `undefined` 值的载荷，而本函数产物
+        // 正是 `context/model-input` 事件的 `tools.schemas`（修复前该事件每轮被拒 ⇒
+        // 「模型可见 ⇔ 已落盘」实际不成立，见 `.trae/specs/event-payload-undefined-rootfix.md`）。
+        // ⇒ 可选字段一律**有值才写键**（`.trae/specs` 既有约定）。
+        // 语义零变更：`undefined` 在 JSON 中与"键不存在"等价（JSON.stringify 本就丢弃）。
+        ...(info.aliases !== undefined ? { aliases: info.aliases } : {}),
         searchTips: info.searchHint ? [info.searchHint] : [],
       };
 
@@ -246,7 +251,9 @@ export class ToolRegistry {
           const paramSchema: Record<string, unknown> = {
             type: param.type,
             description: param.description,
-            default: param.default,
+            // 无默认值的参数（如各工具的 `cwd`）此前会留下 `default: undefined` ——
+            // 正是实测被 D1 校验拒绝的具体路径（`schemas[0]…cwd.default`）
+            ...(param.default !== undefined ? { default: param.default } : {}),
           };
 
           // 数组类型：透传 items 内部结构和长度约束

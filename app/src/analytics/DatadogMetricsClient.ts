@@ -169,6 +169,10 @@ export class DatadogMetricsClient {
     this.flushTimer = setInterval(() => {
       this.flush();
     }, this.config.flushInterval);
+    // R13-002（2026-09-25）：可放弃的周期性指标上报 —— unref 让 CLI/脚本进程正常退出，
+    // 定时器在进程存活期间**照常触发**。
+    const t = this.flushTimer as unknown as { unref?: () => void };
+    if (typeof t.unref === 'function') t.unref();
   }
 
   async flush(): Promise<void> {

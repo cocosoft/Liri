@@ -5,16 +5,21 @@
  */
 import { execSync } from 'node:child_process';
 
-const result = execSync('npx eslint src/ --no-ignore --format json --quiet 2>nul', {
-  cwd: 'e:\\PY\\CODES\\PY_APP\\app',
-  encoding: 'utf-8',
-});
+const result = execSync(
+  'npx eslint src/ --no-ignore --format json --quiet 2>nul',
+  {
+    cwd: 'e:\\PY\\CODES\\PY_APP\\app',
+    encoding: 'utf-8',
+  }
+);
 
 const data = JSON.parse(result);
 
 // 只统计 module-registry 规则
 const modRegistryWarnings = data.filter((f: any) =>
-  f.messages.some((m: any) => m.ruleId === 'module-registry/no-direct-module-import')
+  f.messages.some(
+    (m: any) => m.ruleId === 'module-registry/no-direct-module-import'
+  )
 );
 
 // 按模块统计
@@ -23,7 +28,9 @@ const fileModuleCounts: Record<string, Record<string, number>> = {};
 
 let warningCount = 0;
 for (const file of modRegistryWarnings) {
-  const msgs = file.messages.filter((m: any) => m.ruleId === 'module-registry/no-direct-module-import');
+  const msgs = file.messages.filter(
+    (m: any) => m.ruleId === 'module-registry/no-direct-module-import'
+  );
   warningCount += msgs.length;
   for (const m of msgs) {
     const match = m.message.match(/模块 "(\w+)"/);
@@ -31,8 +38,11 @@ for (const file of modRegistryWarnings) {
       const mod = match[1];
       moduleCounts[mod] = (moduleCounts[mod] || 0) + 1;
       if (!fileModuleCounts[mod]) fileModuleCounts[mod] = {};
-      const shortPath = file.filePath.replace(/\\/g, '/').replace(/^.*\/src\//, 'src/');
-      fileModuleCounts[mod][shortPath] = (fileModuleCounts[mod][shortPath] || 0) + 1;
+      const shortPath = file.filePath
+        .replace(/\\/g, '/')
+        .replace(/^.*\/src\//, 'src/');
+      fileModuleCounts[mod][shortPath] =
+        (fileModuleCounts[mod][shortPath] || 0) + 1;
     }
   }
 }

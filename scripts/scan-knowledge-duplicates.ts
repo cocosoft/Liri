@@ -39,7 +39,9 @@ function walk(dir: string): string[] {
 
 // ── 1. 内容 SHA-256 分组（raw/ 全树 + knowledge/ 编译产物） ──
 console.log(`\n=== 知识库扫描 ===`);
-console.log(`知识库根: ${KNOWLEDGE_DIR} (exists: ${existsSync(KNOWLEDGE_DIR)})`);
+console.log(
+  `知识库根: ${KNOWLEDGE_DIR} (exists: ${existsSync(KNOWLEDGE_DIR)})`
+);
 
 const files = walk(KNOWLEDGE_DIR).filter((f) =>
   /\.(md|txt|ipynb|json|markdown)$/i.test(f)
@@ -74,7 +76,11 @@ let dupFileCount = 0;
 // 位置分类统计
 const pos = (f: string) => {
   const rel = relative(KNOWLEDGE_DIR, f).split(/[\\/]/);
-  return rel[0] === 'raw' && rel[1] === 'inbound' ? 'inbound' : rel[0] === 'raw' ? 'raw顶层' : rel[0];
+  return rel[0] === 'raw' && rel[1] === 'inbound'
+    ? 'inbound'
+    : rel[0] === 'raw'
+      ? 'raw顶层'
+      : rel[0];
 };
 const catCount = new Map<string, number>();
 for (const g of dupGroups) {
@@ -117,7 +123,9 @@ if (existsSync(DB_PATH)) {
       }>;
       console.log(`\n[md5 ${d.md5} ×${d.cnt}]`);
       for (const r of rows)
-        console.log(`  id=${r.file_id} name=${r.original_name} path=${r.saved_path} ref=${r.ref_count}`);
+        console.log(
+          `  id=${r.file_id} name=${r.original_name} path=${r.saved_path} ref=${r.ref_count}`
+        );
     }
     // file_files 中已标记删除但物理仍存在的（软删未清理）
     const softDeleted = db
@@ -126,7 +134,9 @@ if (existsSync(DB_PATH)) {
     console.log(`\n软删记录(is_deleted=1): ${softDeleted.c} 条`);
     db.close();
   } catch (err) {
-    console.log(`file_files 查询失败: ${err instanceof Error ? err.message : String(err)}`);
+    console.log(
+      `file_files 查询失败: ${err instanceof Error ? err.message : String(err)}`
+    );
   }
 }
 

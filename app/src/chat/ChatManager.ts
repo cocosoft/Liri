@@ -258,7 +258,7 @@ import {
   DEFAULT_STOP_HOOK_PRIORITIES,
 } from '@modules/query';
 import type { StopHookReason } from '@modules/query';
-import { TAORLoop, SYSTEM_ABORT_REASON } from '@modules/query';
+import { TAORLoop, createSystemAbortReason } from '@modules/query';
 import { createChatAgentLoop } from './createAgentLoop.js';
 import {
   getYieldRegistry,
@@ -410,7 +410,10 @@ export class ChatManagerImpl implements ChatManager {
       // 二期 O2-1（2026-09-24）：本路径由 **HTTP 连接关闭（页面刷新/断线/请求中止）** 触发，
       // 属**系统侧**中止 —— 显式带 reason 声明来源，避免被记成"用户主动放弃"
       //（并据此把 Goal 落成 `system_aborted` 而非 `user_aborted`）。
-      controller.abort(SYSTEM_ABORT_REASON);
+      // ② 加固（2026-09-25，`.trae/specs/system-abort-reason-hardening.md`）：用**工厂**
+      // 传 Error 形态 reason（带真实栈）—— 该 reason 若在下游外泄，栈可定位遗漏的 catch；
+      // 每次新实例（禁止共享单例，否则栈全指向模块加载点）。
+      controller.abort(createSystemAbortReason());
       // P2 修复（AB-2）：中止后立即清理条目，防止 isSessionStreaming() 恒 true
       // （幽灵块永久误报）。正常路径由 _finalizeStreamMessage（L2342-2346）删除，
       // 此处兜底幂等；若内层生成器被遗弃、_finalizeStreamMessage 永不执行，
@@ -3417,6 +3420,16 @@ export class ChatManagerImpl implements ChatManager {
     await orchestrator.startCouncil(workspaceId, topic, context);
   }
 
+  /**
+   * D5-A（2026-09-25，`.trae/specs/memory-dedup-blocking-rootfix.md`）：会话 → 该会话
+   * 「对话记忆」的 memoryId。用于**按会话聚合**（原实现每轮新建一条 ⇒ 库随轮数线性增长，
+   * 本机实测已 576 条，全库去重成本 O(n²) 随之膨胀）。
+   */
+  private readonly _conversationMemoryIdBySession = new Map<string, string>();
+
+  /** D5-A：单条对话记忆的**内容上限**（按会话聚合后必须封顶，否则单条无界增长） */
+  private static readonly CONVERSATION_MEMORY_MAX_CHARS = 20_000;
+
   private async extractMemoryFromChat(
     userContent: string,
     assistantContent: string,
@@ -3425,18 +3438,62 @@ export class ChatManagerImpl implements ChatManager {
     try {
       const { MemoryManagerImpl } = await import('@modules/memory');
       const mm = new MemoryManagerImpl();
-      const memorableContent = `用户: ${userContent}\n助手: ${assistantContent}`;
-      await mm.createMemory({
-        content: memorableContent,
+      const turnText = `用户: ${userContent}\n助手: ${assistantContent}`;
+
+      /** 追加一轮对话并封顶（保留最近内容） */
+      const appendTurn = (prev: string): string => {
+        const joined = prev ? `${prev}\n\n${turnText}` : turnText;
+        const cap = ChatManagerImpl.CONVERSATION_MEMORY_MAX_CHARS;
+        return joined.length > cap ? joined.slice(joined.length - cap) : joined;
+      };
+
+      // `updateMemory` 是**合并语义**（metadata 浅合并、updatedAt 由它自设）⇒ 只传 content
+      const writeInto = async (
+        id: string,
+        prevContent: string
+      ): Promise<void> => {
+        await mm.updateMemory(id, { content: appendTurn(prevContent) });
+      };
+
+      // ① 快路径：进程内缓存命中 ⇒ 追加（不再新建）
+      const cachedId = this._conversationMemoryIdBySession.get(sessionId);
+      if (cachedId) {
+        const existing = await mm.getMemory(cachedId);
+        if (existing) {
+          await writeInto(cachedId, existing.content ?? '');
+          return;
+        }
+        // 该条已被删除（维护期去重/清理）⇒ 清缓存，走重建分支
+        this._conversationMemoryIdBySession.delete(sessionId);
+      }
+
+      // ② 慢路径：按会话标签查找既有条目（进程重启后仍能续写同一条，而非另起一条）
+      const all = await mm.getAllMemories();
+      const found = all.find(
+        (m) =>
+          m.metadata?.type === 'conversation' &&
+          Array.isArray(m.metadata?.tags) &&
+          m.metadata.tags.includes(sessionId)
+      );
+      if (found) {
+        this._conversationMemoryIdBySession.set(sessionId, found.id);
+        await writeInto(found.id, found.content ?? '');
+        return;
+      }
+
+      // ③ 首次：新建（此后每轮都追加到这一条）
+      const created = await mm.createMemory({
+        content: turnText,
         metadata: {
           name: `会话 ${sessionId.slice(0, 8)} 对话`,
-          description: '从对话中自动提取',
+          description: '从对话中自动提取（按会话聚合，逐轮追加）',
           type: 'conversation',
           tags: ['auto-extracted', sessionId],
           createdAt: new Date(),
           updatedAt: new Date(),
         },
       });
+      this._conversationMemoryIdBySession.set(sessionId, created.id);
     } catch (err) {
       // 记忆提取失败不影响主流程
       handleError(err, { module: 'chat:manager', action: 'extractMemory' });

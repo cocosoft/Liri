@@ -89,10 +89,13 @@ function hasFlag(flag: string): boolean {
 }
 
 const baselinePath = resolve(
-  getArg('--baseline', resolve(import.meta.dir, '../app/docs/performance-baseline.json')),
+  getArg(
+    '--baseline',
+    resolve(import.meta.dir, '../app/docs/performance-baseline.json')
+  )
 );
 const currentPath = resolve(
-  getArg('--current', resolve(import.meta.dir, '../app/perf-summary.json')),
+  getArg('--current', resolve(import.meta.dir, '../app/perf-summary.json'))
 );
 const totalThreshold = Number.parseFloat(getArg('--total-threshold', '110'));
 const memoryThreshold = Number.parseFloat(getArg('--memory-threshold', '115'));
@@ -119,7 +122,7 @@ function loadJson(path: string): PerformanceBaseline | null {
 
 function compare(
   baseline: PerformanceBaseline,
-  current: PerformanceBaseline,
+  current: PerformanceBaseline
 ): ComparisonResult {
   const checks: ComparisonResult['checks'] = [];
 
@@ -135,7 +138,8 @@ function compare(
   });
 
   // 2. RSS 内存增量比对
-  const rssRatio = (current.memory.rssDeltaMB / baseline.memory.rssDeltaMB) * 100;
+  const rssRatio =
+    (current.memory.rssDeltaMB / baseline.memory.rssDeltaMB) * 100;
   checks.push({
     name: 'RSS 内存增量',
     baseline: baseline.memory.rssDeltaMB,
@@ -146,7 +150,8 @@ function compare(
   });
 
   // 3. Heap 内存增量比对
-  const heapRatio = (current.memory.heapDeltaMB / baseline.memory.heapDeltaMB) * 100;
+  const heapRatio =
+    (current.memory.heapDeltaMB / baseline.memory.heapDeltaMB) * 100;
   checks.push({
     name: 'Heap 内存增量',
     baseline: baseline.memory.heapDeltaMB,
@@ -158,13 +163,12 @@ function compare(
 
   // 4. 各阶段耗时比对（取基线中存在的阶段）
   const baselinePhaseMap = new Map(
-    baseline.phases.map((p) => [p.phase, p.durationMs]),
+    baseline.phases.map((p) => [p.phase, p.durationMs])
   );
   for (const currentPhase of current.phases) {
     const baselineDuration = baselinePhaseMap.get(currentPhase.phase);
     if (baselineDuration && baselineDuration > 0) {
-      const phaseRatio =
-        (currentPhase.durationMs / baselineDuration) * 100;
+      const phaseRatio = (currentPhase.durationMs / baselineDuration) * 100;
       checks.push({
         name: `阶段耗时: ${currentPhase.phase}`,
         baseline: baselineDuration,
@@ -209,7 +213,7 @@ function formatResult(result: ComparisonResult): void {
         : `${check.current.toFixed(2)}`.padStart(8);
 
     console.log(
-      `  ${baselineStr}  ${thresholdStr}  ${currentStr}  ${ratioStr}  ${statusMark}  ${check.name}`,
+      `  ${baselineStr}  ${thresholdStr}  ${currentStr}  ${ratioStr}  ${statusMark}  ${check.name}`
     );
   }
 
@@ -225,7 +229,9 @@ async function main(): Promise<void> {
   // 加载基线数据
   const baseline = loadJson(baselinePath);
   if (!baseline) {
-    console.log('[perf-compare] 无基线文件可用，跳过比对（首次运行将建立基线）');
+    console.log(
+      '[perf-compare] 无基线文件可用，跳过比对（首次运行将建立基线）'
+    );
     process.exit(0);
   }
 
@@ -233,7 +239,7 @@ async function main(): Promise<void> {
   const current = loadJson(currentPath);
   if (!current) {
     console.error(
-      '[perf-compare] 当前性能数据不存在，请先运行 benchmark-startup.ts',
+      '[perf-compare] 当前性能数据不存在，请先运行 benchmark-startup.ts'
     );
     process.exit(1);
   }
@@ -241,14 +247,14 @@ async function main(): Promise<void> {
   // 版本/平台兼容性检查
   if (baseline.metadata.bootStrategy !== current.metadata.bootStrategy) {
     console.warn(
-      `[perf-compare] 警告: 启动策略不一致 (基线: ${baseline.metadata.bootStrategy}, 当前: ${current.metadata.bootStrategy})`,
+      `[perf-compare] 警告: 启动策略不一致 (基线: ${baseline.metadata.bootStrategy}, 当前: ${current.metadata.bootStrategy})`
     );
     console.warn('[perf-compare] 比对结果可能不准确');
   }
 
   if (baseline.metadata.platform !== current.metadata.platform) {
     console.warn(
-      `[perf-compare] 警告: 运行平台不一致 (基线: ${baseline.metadata.platform}, 当前: ${current.metadata.platform})`,
+      `[perf-compare] 警告: 运行平台不一致 (基线: ${baseline.metadata.platform}, 当前: ${current.metadata.platform})`
     );
     console.warn('[perf-compare] 跳过比对（跨平台不可比）');
     process.exit(0);
@@ -264,7 +270,7 @@ async function main(): Promise<void> {
     console.log('  劣化详情:');
     for (const c of failedChecks) {
       console.log(
-        `    - ${c.name}: 基线 ${c.baseline} → 当前 ${c.current} (${c.actualRatio}%, 阈值 ${c.threshold}%)`,
+        `    - ${c.name}: 基线 ${c.baseline} → 当前 ${c.current} (${c.actualRatio}%, 阈值 ${c.threshold}%)`
       );
     }
     console.log('');

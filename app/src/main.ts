@@ -96,6 +96,8 @@ let activeHttpService: LocalHTTPService | null = null;
 
 import { getLogger, Logger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
+// 「预期中断」判据（与循环侧 system_aborted 判定同源；见 `isAbortReason` 注释）
+import { isAbortReason } from '@modules/query';
 const logger = getLogger('main');
 
 /** 最大首次引导重试次数 */
@@ -1476,15 +1478,23 @@ export async function launch(options: LaunchOptions): Promise<void> {
       // 预期中断在 abort 风暴（多流 promise 同时 settle）时产生的孤儿 rejection，
       // 非缺陷（实测循环期间 05:34 一次）。降级 warn 记录，不报 ErrorTracker——
       // 避免"正常取消操作"被误报为错误污染告警；@ignore-catch 等价说明（预期路径）。
-      const isAbort =
-        (reason instanceof DOMException && reason.name === 'AbortError') ||
-        (reason instanceof Error &&
-          (reason.name === 'AbortError' ||
-            reason.message?.includes('aborted')));
-
-      if (isAbort) {
+      //
+      // 判据收敛（2026-09-25，据 `dev_docs/error_repairs/last-exit-20260925-0154Z.md` 溯源）：
+      // 原实现**内联**判据只认 `DOMException`/`Error` 形态 ⇒ **裸字符串**
+      // `SYSTEM_ABORT_REASON`（`abort(reason)` 传字符串时该字符串本体会作为 rejection
+      // reason 外泄）漏判，被误记为真异常（崩溃转储 + UNHANDLED_ERROR/medium）。
+      // 现统一走 `@modules/query` 的 `isAbortReason()`（单一事实源，与循环侧的
+      // `system_aborted` 判定同源），并保持"不放过任意含 abort 的字符串"的收窄口径。
+      if (isAbortReason(reason)) {
+        // ② 收口（2026-09-25，`.trae/specs/system-abort-reason-hardening.md` §6.5 缺口）：
+        // 该分支**不再写崩溃转储**（① 的意图），若只记 `String(reason)` 则**不含 stack** ⇒
+        // ② 让 reason 携带的栈在运行时**无处可见**。故此处补记 stack：`String(undefined)`
+        // 之外的唯一可定位出口，且仅在 reason 本身是 Error 时才有（字符串形态无栈）。
         logger.warn('unhandledRejection（AbortError 预期中断）', {
           reason: String(reason),
+          ...(reason instanceof Error && reason.stack
+            ? { stack: reason.stack }
+            : {}),
         });
         return;
       }

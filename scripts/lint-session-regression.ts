@@ -166,7 +166,11 @@ function findFunctionBody(content: string, funcName: string): string | null {
       }
       if (c === '/' && content[i + 1] === '*') {
         i += 2;
-        while (i < content.length && !(content[i] === '*' && content[i + 1] === '/')) i++;
+        while (
+          i < content.length &&
+          !(content[i] === '*' && content[i + 1] === '/')
+        )
+          i++;
         i++;
         continue;
       }
@@ -206,13 +210,13 @@ for (const check of CHECKS) {
   const where = check.funcName ?? '(文件级)';
   if (!body.includes(check.requiredPattern)) {
     failures.push(
-      `[FAIL] ${check.file} ${where} 缺少模式 "${check.requiredPattern}": ${check.description}`,
+      `[FAIL] ${check.file} ${where} 缺少模式 "${check.requiredPattern}": ${check.description}`
     );
     continue;
   }
   if (check.forbiddenPattern && body.includes(check.forbiddenPattern)) {
     failures.push(
-      `[FAIL] ${check.file} ${where} 禁止出现 "${check.forbiddenPattern}": ${check.description}`,
+      `[FAIL] ${check.file} ${where} 禁止出现 "${check.forbiddenPattern}": ${check.description}`
     );
     continue;
   }

@@ -12,6 +12,8 @@ import { ToolCallPartitioner } from '@modules/tools';
 import type { ToolUseBlock } from '../chat/types/ToolUseBlock.js';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
+// 2026-09-25 §6.8：预期中断品牌（判据已下沉到 error/；经模块 index 出口导入，守 R03-002）
+import { markAsExpectedAbort } from '@modules/error';
 import {
   CascadeAbortManager,
   classifyToolError,
@@ -276,14 +278,26 @@ export class ParallelToolExecutor {
     const start = Date.now();
 
     // Set up cascade-aware abort listener
+    //
+    // 2026-09-25 §6.8「级联中止判据」修复：级联中止是**预期中断**（系统侧主动动作，不是故障），
+    // 但原写法用**大写** `[CASCADE_ABORTED]`，而预期中断判据 `isAbortReason()` 对 Error 走的是
+    // **大小写敏感**的 `message.includes('aborted')` ⇒ **命中不了** ⇒ 该 rejection 落到下方
+    // `executeOne` 的 catch 后经 `handleError` 被记成 **ERROR 级 + 进错误统计**（若外泄到全局
+    // `unhandledRejection`，还会写崩溃转储、被误判为真异常）。
+    // 现改为**携带品牌位**（CS02：显式标记而非字符串推断），由 `handleError` 统一降噪；
+    // **消息文案保持不变**（`[CASCADE_ABORTED] …` 会作为工具错误文本对用户/模型可见）。
     const onAbort = new Promise<never>((_, reject) => {
       if (!abortSignal) return;
+      const cascadeAbort = (): Error =>
+        markAsExpectedAbort(
+          new Error(`[CASCADE_ABORTED] ${abortSignal.reason ?? ''}`)
+        );
       if (abortSignal.aborted) {
-        reject(new Error(`[CASCADE_ABORTED] ${abortSignal.reason ?? ''}`));
+        reject(cascadeAbort());
         return;
       }
       const handler = () => {
-        reject(new Error(`[CASCADE_ABORTED] ${abortSignal.reason ?? ''}`));
+        reject(cascadeAbort());
       };
       abortSignal.addEventListener('abort', handler, { once: true });
     });

@@ -18,6 +18,13 @@
 
 import { getLogger } from '@modules/monitoring/logs/Logger.js';
 import { handleError } from '@modules/error/handleError.js';
+// 2026-09-25 §6.8：预期中断判据（常量 / 品牌 / isAbortReason）已**下沉**到 `error/`，
+// 以供更低层共用（`handleError` 唯一错误入口、`ai/providers/*` 包装点、`core/exit/ExitRecorder`）。
+import {
+  SYSTEM_ABORT_REASON,
+  SYSTEM_ABORT_BRAND,
+  isAbortReason,
+} from '../error/abortReason.js';
 import type { QuestionData } from '@modules/runtime/api/CoreAPI.js';
 import { buildRoundSignature, isRepeatedLoop } from './loopGuard.js';
 
@@ -113,11 +120,76 @@ export type AbortSource = 'user' | 'system';
 /**
  * 系统侧中止标记（二期 O2-1）。
  *
- * 调用方以 `controller.abort(SYSTEM_ABORT_REASON)` 声明"这是系统侧中止"（如
+ * 调用方以 `controller.abort(createSystemAbortReason())` 声明"这是系统侧中止"（如
  * `req.on('close')` 断线、会话删除时的清理性中止），骨架据此把终止原因记为
  * `system_aborted` 而非 `aborted`（＝用户主动放弃）。用**显式标记**而非字符串推断（CS02）。
+ *
+ * **2026-09-25 §6.8**：`SYSTEM_ABORT_REASON`（标记值/消息锚点）与品牌键已**下沉**到
+ * `error/abortReason.ts` —— 因为需要该判据的层（`handleError` / providers / `ExitRecorder`）
+ * 都低于本模块。此处 import 后原样 **re-export** ⇒ `@modules/query` 对外出口逐字不变。
  */
-export const SYSTEM_ABORT_REASON = 'liri:system-abort';
+export { SYSTEM_ABORT_REASON, isAbortReason };
+
+/**
+ * 构造一次系统侧中止的 reason（② 加固，2026-09-25，
+ * `.trae/specs/system-abort-reason-hardening.md`）。
+ *
+ * `abort(createSystemAbortReason())` 后，`signal.reason`（以及外泄为 rejection 的 reason）都是
+ * **带真实抛出点栈的 Error** —— 修复前 marker 是裸字符串，外泄时**全链路无栈**（实测 crash dump
+ * 的 `stack` 只指向记录器自身），使"谁没 catch"无法定位（见
+ * `dev_docs/error_repairs/last-exit-20260925-0154Z.md`）。
+ *
+ * - `name = 'AbortError'` ⇒ 已被 `isAbortReason()` 判为**预期中断**（无需改该判据）
+ * - `message = SYSTEM_ABORT_REASON` ⇒ 所有取 `.message` 的派生文案（provider `AppError`、
+ *   `流式读取异常`、`last-exit.json.message`）**逐字不变**
+ * - **品牌属性**（`SYSTEM_ABORT_BRAND`，非枚举）⇒ 判定用**显式标记**而非字符串（CS02）
+ *
+ * **为什么不用"导出类 + 直接继承 Error"的子类写法（与原 spec §3.1 的偏差，如实）**：
+ * ① 架构门禁 R01-002（`lint-arch` 以正则扫描"导出类直接继承 Error"，**注释里的示例文本也会命中**）
+ *    要求错误类继承 `AppError`；② 但真正继承 `AppError` 会**改变既有行为** —— `OpenAIProvider` 有
+ *    `if (error instanceof AppError) throw error;` 分支，abort reason 会被**直接上抛**，
+ *    使 `OpenAI stream failed: …（Provider: …）` 文案与 `errorRecovery` 的 errorCategory 判定
+ *    一同改变。故改用"普通 `Error` + 品牌属性"：既不触规则，也不改变任何下游语义。
+ *
+ * ❌ 禁止改成共享单例/常量实例：那会让所有中止的栈都指向模块加载点，**等于没有栈**。
+ */
+export function createSystemAbortReason(): Error {
+  const reason = new Error(SYSTEM_ABORT_REASON);
+  reason.name = 'AbortError';
+  Object.defineProperty(reason, SYSTEM_ABORT_BRAND, {
+    value: true,
+    enumerable: false,
+  });
+  return reason;
+}
+
+/**
+ * 是否**系统侧**中止（狭义判据，**单一事实源**）。
+ *
+ * 与 `isAbortReason()`（**广义**：预期中断，含用户主动停止的 AbortError）**严格分工** ——
+ * 用户停止同样是 AbortError，若被本判据命中，Goal 会错落 `system_aborted`（把"系统中止"
+ * 说成"用户主动放弃"）。
+ *
+ * 兼容分支（`=== SYSTEM_ABORT_REASON` / `Error.message === 常量`）保留，供仍传字符串常量的
+ * 既有调用与跨边界还原场景使用（有意保留，非回退兜底 —— CS03）。
+ */
+export function isSystemAbortReason(reason: unknown): boolean {
+  if (
+    typeof reason === 'object' &&
+    reason !== null &&
+    (reason as { [SYSTEM_ABORT_BRAND]?: boolean })[SYSTEM_ABORT_BRAND] === true
+  ) {
+    return true;
+  }
+  if (reason === SYSTEM_ABORT_REASON) return true;
+  if (reason instanceof Error && reason.message === SYSTEM_ABORT_REASON) {
+    return true;
+  }
+  return false;
+}
+
+// `isAbortReason()`（广义「预期中断」判据，含裸字符串/品牌/AbortError 三形态）已**下沉**到
+// `error/abortReason.ts`（2026-09-25 §6.8），本文件 import 后在上面 re-export。
 
 /** 循环状态 */
 export interface ReActState {
@@ -370,8 +442,9 @@ export abstract class ReActLoop<
     if (externalSignal) {
       // 中止来源**在回调内读取** `reason`（构造期读会漏掉"稍后带 reason 中止"的情形）
       const markAbortSource = (): void => {
-        this.state.abortSource =
-          externalSignal.reason === SYSTEM_ABORT_REASON ? 'system' : 'user';
+        this.state.abortSource = isSystemAbortReason(externalSignal.reason)
+          ? 'system'
+          : 'user';
       };
       if (externalSignal.aborted) {
         markAbortSource();

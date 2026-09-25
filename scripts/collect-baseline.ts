@@ -7,7 +7,13 @@
  * 用法: bun run scripts/collect-baseline.ts
  */
 
-import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  unlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { join, resolve } from 'node:path';
 
 interface BaselineData {
@@ -47,7 +53,7 @@ interface BaselineData {
 }
 
 function formatMB(bytes: number): number {
-  return Math.round(bytes / 1024 / 1024 * 100) / 100;
+  return Math.round((bytes / 1024 / 1024) * 100) / 100;
 }
 
 async function main(): Promise<void> {
@@ -62,7 +68,9 @@ async function main(): Promise<void> {
     cpuCores: require('node:os').cpus().length,
     totalMemoryMB: formatMB(require('node:os').totalmem()),
   };
-  console.log(`Node: ${env.nodeVersion} | ${env.platform} ${env.arch} | ${env.cpuCores} cores | ${env.totalMemoryMB}MB RAM`);
+  console.log(
+    `Node: ${env.nodeVersion} | ${env.platform} ${env.arch} | ${env.cpuCores} cores | ${env.totalMemoryMB}MB RAM`
+  );
 
   // ── 启动耗时测量 ──
   console.log('\n--- 启动耗时测量 ---');
@@ -116,7 +124,7 @@ async function main(): Promise<void> {
 
   // ── 内存测量 ──
   // 等待 GC 稳定
-  await new Promise(resolve => setTimeout(resolve, 500));
+  await new Promise((resolve) => setTimeout(resolve, 500));
 
   const mem = process.memoryUsage();
 
@@ -184,7 +192,7 @@ async function main(): Promise<void> {
   console.log(`\n基线数据已保存到: ${outputPath}`);
 }
 
-main().catch(err => {
+main().catch((err) => {
   console.error('基线采集失败:', err);
   process.exit(1);
 });

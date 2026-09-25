@@ -54,7 +54,10 @@ function main(): void {
   const violations: Violation[] = [];
 
   for (const file of collectFiles(SCAN_DIR)) {
-    const rel = file.slice(PROJECT_ROOT.length + 1).split(sep).join('/');
+    const rel = file
+      .slice(PROJECT_ROOT.length + 1)
+      .split(sep)
+      .join('/');
     if (LEGAL_FILE_FRAGMENTS.some((f) => rel.includes(f))) continue;
 
     const lines = readFileSync(file, 'utf-8').split('\n');

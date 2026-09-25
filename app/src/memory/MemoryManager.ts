@@ -62,8 +62,7 @@ const logger = getLogger('memory:memoryManager');
 export interface MemoryManager {
   // 创建记忆
   createMemory(
-    memory: Omit<Memory, 'id' | 'createdAt' | 'updatedAt'>,
-    opts?: { skipConsolidation?: boolean }
+    memory: Omit<Memory, 'id' | 'createdAt' | 'updatedAt'>
   ): Promise<Memory>;
 
   // 获取记忆
@@ -326,8 +325,7 @@ export class MemoryManagerImpl {
    * @returns 创建的记忆
    */
   async createMemory(
-    memory: Omit<Memory, 'id' | 'createdAt' | 'updatedAt'>,
-    opts?: { skipConsolidation?: boolean }
+    memory: Omit<Memory, 'id' | 'createdAt' | 'updatedAt'>
   ): Promise<Memory> {
     // 如果清理任务正在执行，等待完成
     while (this.isCleaning) {
@@ -347,69 +345,43 @@ export class MemoryManagerImpl {
     // 持久化关联图
     await this.saveRelationGraph();
 
-    // 去重检测（v5 起支持 skipConsolidation）：高相似批次写入（session_summary）经
-    // adapter 幂等键收敛，跳过全库相似度去重，避免"相似即删"误删不同键相邻阶段
-    if (!opts?.skipConsolidation) {
-      // 去重检测：先用 contentHash 在缓存中做 O(1) 精确去重，避免全量 I/O
-      try {
-        const contentHash = createHash('sha256')
-          .update(newMemory.content)
-          .digest('hex');
-        let exactDuplicateFound = false;
-
-        // 先用最近摘要缓存做 O(1)/O(n) 快速检查
-        if (this.recentSummaryCache?.memories) {
-          for (const existing of this.recentSummaryCache.memories) {
-            if (existing.id === newMemory.id) continue;
-            const existingHash = createHash('sha256')
-              .update(existing.content)
-              .digest('hex');
-            if (existingHash === contentHash) {
-              exactDuplicateFound = true;
-              logger.info(
-                `contentHash 精确去重：发现与 ${existing.id} 完全相同的记忆，跳过全量去重`,
-                {
-                  newMemoryId: newMemory.id,
-                  existingMemoryId: existing.id,
-                }
-              );
-              // 删除刚创建的新记忆（保留已有记忆）
-              await this.store.deleteMemory(newMemory.id);
-              this.retriever.removeFromIndex(newMemory.id);
-              await this.retriever.saveIndex();
-              return existing;
-            }
-          }
-        }
-
-        // 如果缓存中未命中，执行全量去重
-        if (!exactDuplicateFound) {
-          const allMemories = await this.getAllMemories();
-          const dupCheck = this.consolidator.findDuplicates(
-            allMemories.map((m) => ({
-              id: m.id,
-              content: m.content,
-              createdAt: m.createdAt.getTime(),
-            }))
-          );
-          if (dupCheck.totalRemoved > 0) {
-            logger.info(`去重检测：发现 ${dupCheck.totalRemoved} 条重复记忆`, {
-              newMemoryId: newMemory.id,
-            });
-            // 删除重复记忆（保留每组第一条）
-            for (const group of dupCheck.duplicates) {
-              // group[0] 是保留的，group[1..] 是待删除的
-              for (let i = 1; i < group.length; i++) {
-                await this.store.deleteMemory(group[i]);
-                this.retriever.removeFromIndex(group[i]);
+    // D1（2026-09-25，`.trae/specs/memory-dedup-blocking-rootfix.md`）：写入热路径**不再跑
+    // 全库相似度去重**。原实现每轮对话都对全库做成对 Jaccard 比较（实测 576 条库 = **41.9 秒
+    // 同步阻塞** ⇒ 事件循环冻结、在飞的 HTTP 响应被推迟数十秒）。
+    // 全量去重已移到**空闲期维护** `runMaintenancePass()`（由 IdleScaleMonitor 驱动、分片让出）。
+    // 此处只保留 **O(1) 精确去重**（contentHash 命中缓存 ⇒ 删新建、返回既有），成本可忽略。
+    try {
+      const contentHash = createHash('sha256')
+        .update(newMemory.content)
+        .digest('hex');
+      const cached = this.recentSummaryCache?.memories;
+      if (cached) {
+        for (const existing of cached) {
+          if (existing.id === newMemory.id) continue;
+          const existingHash = createHash('sha256')
+            .update(existing.content)
+            .digest('hex');
+          if (existingHash === contentHash) {
+            logger.info(
+              `contentHash 精确去重：发现与 ${existing.id} 完全相同的记忆，跳过新建`,
+              {
+                newMemoryId: newMemory.id,
+                existingMemoryId: existing.id,
               }
-            }
+            );
+            // 删除刚创建的新记忆（保留已有记忆）
+            await this.store.deleteMemory(newMemory.id);
+            this.retriever.removeFromIndex(newMemory.id);
             await this.retriever.saveIndex();
+            return existing;
           }
         }
-      } catch (err) {
-        // 去重失败不阻塞主流程
       }
+    } catch (err) {
+      // 精确去重失败不阻塞主流程（但**不静默**：记 warn 便于排查，CS03-002）
+      logger.warn('contentHash 精确去重失败（忽略，不影响写入）', {
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
 
     // 摘要缓存失效并异步预热
@@ -418,6 +390,54 @@ export class MemoryManagerImpl {
     this.refreshSummaryCache().catch(() => {});
 
     return newMemory;
+  }
+
+  /**
+   * 空闲期维护：**全库相似度去重**（D1 的落点；不在写入热路径）。
+   *
+   * 依据（`.trae/specs/memory-dedup-blocking-rootfix.md`）：
+   * - 该工作原在 `createMemory` 内、每轮对话同步跑一次 ⇒ 实测 576 条库 **41.9 秒**阻塞主线程；
+   * - 现挪到空闲期，并用 `findDuplicatesChunked`（D2 分片让出，每 `chunkPairs` 次比较
+   *   `setImmediate` 让出）⇒ 单次同步块毫秒级，**不冻结事件循环**；
+   * - D2′ 预分词后全库一遍约 1 秒（原 41.9 秒），故不再需要"单轮比较数上限"。
+   *
+   * 调用方：`ChatOrchestrator` 的 `IdleScaleMonitor.onIdle`（复用既有空闲缝）。
+   */
+  async runMaintenancePass(opts?: {
+    chunkPairs?: number;
+  }): Promise<{ total: number; removed: number; elapsedMs: number }> {
+    const startedAt = Date.now();
+    const all = await this.getAllMemories();
+    const input = all.map((m) => ({
+      id: m.id,
+      content: m.content ?? '',
+      createdAt: m.createdAt.getTime(),
+    }));
+
+    const result = await this.consolidator.findDuplicatesChunked(
+      input,
+      opts?.chunkPairs
+    );
+
+    if (result.totalRemoved > 0) {
+      logger.info(`记忆维护：发现 ${result.totalRemoved} 条重复记忆`, {
+        total: input.length,
+      });
+      // 删除重复记忆（保留每组第一条）
+      for (const group of result.duplicates) {
+        for (let i = 1; i < group.length; i++) {
+          await this.store.deleteMemory(group[i]);
+          this.retriever.removeFromIndex(group[i]);
+        }
+      }
+      await this.retriever.saveIndex();
+    }
+
+    return {
+      total: input.length,
+      removed: result.totalRemoved,
+      elapsedMs: Date.now() - startedAt,
+    };
   }
 
   /**

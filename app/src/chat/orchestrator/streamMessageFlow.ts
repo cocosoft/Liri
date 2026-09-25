@@ -87,6 +87,7 @@ import type { Message, StreamMessageOptions } from '../types/message.js';
 import type { ChatResponse } from '../types/message.js';
 import type { ChatSession } from '../types/session.js';
 import type { ToolResult } from '../types/tool.js';
+import type { LiriEventMap } from '../types/eventPayloads.js';
 import type { ToolDefinition, ParsedToolCall } from '@modules/ai';
 import type { ChatMessage, ThinkingProviderChunk } from '@modules/ai';
 import type { ChatStreamChunk } from '@modules/runtime/api/CoreAPI.js';
@@ -139,6 +140,42 @@ export function resolveCompactionFailureAttribution(
     reason: 'no_effect',
     message:
       '压缩触发（trigger）但未降体积（Tier1/2/3 均无效果），上下文将走截断兜底',
+  };
+}
+
+/**
+ * `context/compaction`（`phase:'done'`）载荷构造 —— 纯函数，导出便于单测
+ * （`.trae/specs/event-payload-undefined-rootfix.md`）。
+ *
+ * **为什么必须"条件展开"**：落盘前的 **D1 无损 JSON 校验**会**整条拒绝**含 `undefined` 值的
+ * 载荷（`eventSanitize` → `EventLogStorage.append`）。此前 `summaryEnvelope` 无条件写入，
+ * 而 Tier2 / 异步 Tier3 路径下该字段为 `undefined` ⇒ 事件被拒 ⇒
+ * `compactionCommitted` 保持 `false`（**该次压缩不提交投影，压缩白做**，见实测日志
+ * `2026-09-25T10:32:34Z`）。**校验无过错**（`undefined` 在 JSON 往返中不可无损表达）
+ * ⇒ 修在**构造端**，不放宽校验（CS05）。
+ */
+export function buildCompactionDoneData(params: {
+  compactedRange: { startSeq: number; endSeq: number };
+  summary: string;
+  /** 投影 summary 消息 id —— 可能不存在（`undefined`）⇒ 有值才写键 */
+  summaryMessageId?: string;
+  beforeTokens: number;
+  afterTokens: number;
+  /** 摘要调用信封 —— 仅 Tier3 摘要路径产出 ⇒ 有值才写键 */
+  summaryEnvelope?: LiriEventMap['context/compaction']['summaryEnvelope'];
+}): LiriEventMap['context/compaction'] {
+  return {
+    phase: 'done',
+    compactedRange: params.compactedRange,
+    summary: params.summary,
+    ...(params.summaryMessageId !== undefined
+      ? { summaryMessageId: params.summaryMessageId }
+      : {}),
+    beforeTokens: params.beforeTokens,
+    afterTokens: params.afterTokens,
+    ...(params.summaryEnvelope !== undefined
+      ? { summaryEnvelope: params.summaryEnvelope }
+      : {}),
   };
 }
 
@@ -464,8 +501,10 @@ export async function* runStreamMessage(
                 // 源消息事件 seq（对齐 deepseek-harness replace 的 shadowed 节点引用），
                 // 派生器可据此精确重建"哪些历史被摘要替换"
                 sourceEventSeqs: compressedSeqs,
-                data: {
-                  phase: 'done',
+                // P1-2（2026-08-27）：摘要调用信封（model/usage/structured）使本次摘要请求
+                // 可从事件重建（对标 dsh compaction/summary）。可选字段一律**有值才写键** ——
+                // `undefined` 键会被 D1 校验整条拒绝（详见 `buildCompactionDoneData` 注释）。
+                data: buildCompactionDoneData({
                   compactedRange,
                   summary,
                   summaryMessageId,
@@ -473,10 +512,8 @@ export async function* runStreamMessage(
                   afterTokens: estimateMessagesTokens(
                     preCompactResult.messages as unknown as ChatMessage[]
                   ),
-                  // P1-2（2026-08-27）：摘要调用信封——model/usage/structured
-                  // 使本次摘要请求可从事件重建（对标 dsh compaction/summary）
                   summaryEnvelope: preCompactResult.summaryEnvelope,
-                },
+                }),
               });
               if (!appendResult.ok) {
                 throw new Error(

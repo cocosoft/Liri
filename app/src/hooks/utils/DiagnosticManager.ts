@@ -101,6 +101,15 @@ export class DiagnosticManager extends EventEmitter {
       this.flushBuffer();
       logger.debug('诊断缓冲区刷新完成', { bufferSize });
     }, 5000);
+    // 2026-09-25（`dev_docs/error_repairs/预存错误与待处理问题.md` → 附带发现 7）：
+    // **不阻止进程退出**（`unref`）。该定时器只是周期性刷诊断缓冲，属可放弃的观测/维护，
+    // 不应让 CLI/脚本进程因它挂住 —— 实测：凡构造过本单例的脚本在 `main()` 结束后**永不退出**。
+    // 与仓内既有惯例一致（`TurnLivenessWatchdog` / `ChannelSessionManager` / `rateLimiter` /
+    // `messageRouter` / `InboxManager` / `LongRunningTaskOrchestrator` 均显式 unref）。
+    const t = this.bufferFlushInterval as unknown as {
+      unref?: () => void;
+    };
+    if (typeof t.unref === 'function') t.unref();
   }
 
   /**

@@ -124,23 +124,17 @@ function main(): void {
     if (isInRoot && existsSync(oldPath)) {
       // 迁移目录
       if (existsSync(targetPath)) {
-        console.log(
-          `[migrate-skills-vendor] 跳过（vendor 已存在）: ${id}`
-        );
+        console.log(`[migrate-skills-vendor] 跳过（vendor 已存在）: ${id}`);
         skipped++;
       } else {
         renameSync(oldPath, targetPath);
         skill.installPath = targetPath;
         moved++;
-        console.log(
-          `[migrate-skills-vendor] 已迁移: ${id} -> ${targetPath}`
-        );
+        console.log(`[migrate-skills-vendor] 已迁移: ${id} -> ${targetPath}`);
       }
     } else if (isInRoot && !existsSync(oldPath)) {
       // 索引指向根目录但目录已不存在：视为已迁出/已删，更新索引路径指向 vendor 并计数
-      console.log(
-        `[migrate-skills-vendor] 目录不存在（视为已迁移）: ${id}`
-      );
+      console.log(`[migrate-skills-vendor] 目录不存在（视为已迁移）: ${id}`);
       skill.installPath = targetPath;
       moved++;
     } else {

@@ -306,11 +306,17 @@ export class PerformanceOptimizationService extends EventEmitter {
    * 标准 TTLCache 在访问时惰性清理，定时器仅用于发出清理事件。
    */
   private startCacheCleanup(): void {
-    setInterval(() => {
+    const timer = setInterval(() => {
       this.cleanupExpiredCache();
       // R08-002: 缓存清理循环记录
       logger.debug('性能缓存清理 tick', { size: this.cache.size() });
     }, 60000);
+    // 2026-09-25（`dev_docs/error_repairs/预存错误与待处理问题.md` → 附带发现 7）：
+    // **不阻止进程退出**（`unref`）。本定时器仅用于"发出清理事件"（真正的过期清理由标准
+    // TTLCache 在**访问时惰性**完成，见下方 `cleanupExpiredCache` 注释）⇒ 属可放弃的周期性
+    // 观测，不应让 CLI/脚本进程因它挂住。实测：它在未 unref 时会让脚本进程永不退出。
+    const t = timer as unknown as { unref?: () => void };
+    if (typeof t.unref === 'function') t.unref();
   }
 
   /**

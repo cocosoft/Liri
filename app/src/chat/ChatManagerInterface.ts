@@ -130,9 +130,15 @@ export interface ChatManager {
 
   /**
    * 切换会话
+   *
+   * **注意返回类型必须是 `Promise<void>`**（2026-09-25，附带发现 8 根因）：
+   * 原写法声明为 `void`，而实现（`ChatManager.switchSession`）是 `async` ⇒ **签名撒谎**，
+   * 调用方看不出需要 `await`/`catch` ⇒ 切到不存在会话时（[SessionLifecycleManager](file:///e:/PY/Documents/CODES/PY_APP/app/src/chat/services/SessionLifecycleManager.ts#L277-L284)
+   * 按 P2-3 设计**故意抛** `AppError(ENTITY_NOT_FOUND, 404)`）的 rejection 无人消费，
+   * 泄漏为全局 `unhandledRejection`（曾产生 **37 份**崩溃转储），且 404 语义在 HTTP 层失效。
    * @param sessionId 会话ID
    */
-  switchSession(sessionId: string): void;
+  switchSession(sessionId: string): Promise<void>;
 
   /**
    * 获取当前会话
@@ -486,7 +492,9 @@ export interface ChatManager {
   /**
    * 初始化
    */
-  initialize(): void;
+  // 2026-09-25（附带发现 8 同族审计）：实现为 `async initialize(): Promise<void>`（ChatManager.ts:2733），
+  // 原声明 `void` 同属"签名撒谎" ⇒ 改为 Promise，避免调用方看不出需要 await。
+  initialize(): Promise<void>;
 
   /**
    * 清理

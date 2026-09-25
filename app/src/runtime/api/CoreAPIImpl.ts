@@ -663,6 +663,13 @@ export class CoreAPIImpl implements CoreAPI {
       deletions: number;
     }> = [];
 
+    // 内层生成器声明**提升到 try 之外**（2026-09-25，spec §6.7）：
+    // `finally` 必须能关闭它（否则消费方提前 `.return()` 时内层被遗弃、互斥锁不释放），
+    // 而 try 块内的 `const` 在 catch / finally 中**不可见**（块级作用域）。
+    let generator:
+      | AsyncGenerator<string | ChatStreamChunk, Message, unknown>
+      | undefined;
+
     try {
       const pendingEvents: ChatStreamChunk[] = [];
 
@@ -707,7 +714,7 @@ export class CoreAPIImpl implements CoreAPI {
         assistantMessageId: request.assistantMessageId,
         hasAssistantId: !!request.assistantMessageId,
       });
-      const generator = this.chatManager.streamMessage(request.content, {
+      generator = this.chatManager.streamMessage(request.content, {
         sessionId: request.sessionId,
         messageId: request.messageId,
         // P0 根治（2026-08-14）：前端流式消息 id 透传 → createAssistantMessage 复用
@@ -1181,6 +1188,16 @@ export class CoreAPIImpl implements CoreAPI {
       }
     } finally {
       eventNotificationService.off('tool:completed', onToolCompletedFromCache);
+      // 内层生成器必须显式关闭（2026-09-25，spec §6.7「内层生成器未关闭风险」）：
+      // 本层用手工 `await generator.next()` 驱动，**不是** `yield*` ⇒ 消费方
+      // （chat-handlers）在我们身上调的 `.return()` **不会**自动向下传导到
+      // `ChatManager.streamMessage` → `ChatOrchestrator.streamMessage` → `runStreamMessage`
+      // ⇒ 后者被遗弃在挂起点，其 `finally`（**唯一** `mutex.release()` 点 +
+      // `endInteractionSpan` + 兜底检查点落盘 + `endSpan`）**永不执行**
+      //（实测：Bun 下遗弃的 async generator 即使 3× 强制 GC 也不补跑 finally）。
+      // 此处补齐这一跳，使 [chat-handlers 的 generator.return()] → 本层 → 内层 形成闭环。
+      // 挂 noop catch 防孤儿 rejection（KB-INTERRUPT-ORPHAN 同口径）；正常完成时为 no-op。
+      void generator?.return(undefined as never).catch(() => {});
     }
 
     // 从 finalMessage 提取实际的 finishReason，而非硬编码 'stop'
@@ -2605,7 +2622,13 @@ export class CoreAPIImpl implements CoreAPI {
   }
 
   async switchSession(sessionId: string): Promise<void> {
-    this.chatManager.switchSession(sessionId);
+    // 2026-09-25（附带发现 8 根因）：原写法 `this.chatManager.switchSession(sessionId);`
+    // **既不 await 也不 catch** ⇒ 两个后果：① 该 promise 的 rejection 无人消费，泄漏为全局
+    // `unhandledRejection`（曾产生 37 份崩溃转储）；② **`await coreAPI.switchSession()` 的调用方
+    // （如 `session-handlers.ts` 的 HTTP 处理器）立刻拿到 `undefined`**，导致"切到不存在会话"
+    // **返回成功而非设计中的 404**，前端 P2-3 的跳转/清空分支从未生效。
+    // 必须**传播**该 promise（`return`），让 404 语义与拒绝归属都回到调用方。
+    return this.chatManager.switchSession(sessionId);
   }
 
   /**

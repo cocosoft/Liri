@@ -68,6 +68,10 @@ export class FirstPartyEventLogger implements FirstPartyEventSink {
         this.flush();
       }
     }, this.flushInterval);
+    // R13-002（2026-09-25）：可放弃的周期性事件上报 —— unref 让 CLI/脚本进程正常退出，
+    // 定时器在进程存活期间**照常触发**（配对 `stopFlushTimer()` 见下）。
+    const t = this.flushTimer as unknown as { unref?: () => void };
+    if (typeof t.unref === 'function') t.unref();
   }
 
   stopFlushTimer(): void {

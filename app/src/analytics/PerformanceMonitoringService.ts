@@ -51,6 +51,10 @@ class PerformanceMonitoringService {
     this.intervalId = setInterval(() => {
       this.collectSystemMetrics();
     }, this.samplingInterval);
+    // R13-002（2026-09-25）：可放弃的周期性系统指标采集 —— unref 让 CLI/脚本进程正常退出，
+    // 定时器在进程存活期间**照常触发**。
+    const t = this.intervalId as unknown as { unref?: () => void };
+    if (typeof t.unref === 'function') t.unref();
 
     logger.info('性能监控已启动');
   }

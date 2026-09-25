@@ -45,7 +45,7 @@ import {
 } from './loopTurnLimits.js';
 import type { ToolCall, ToolResult } from './types/tool.js';
 import type { ChatResponse, ChatMessage } from '@modules/ai';
-import type { ToolTurnBudget } from '@modules/core';
+import type { TodoExpansionState, ToolTurnBudget } from '@modules/core';
 import type { Message } from './types/message.js';
 import { getToolCallName } from './types/tool.js';
 import { getLogger } from '@modules/monitoring';
@@ -340,15 +340,22 @@ export class ReActToolLoop extends ReActLoop<
    *  动态扩容基于此值而非已扩容值，避免每轮重复叠加 */
   private readonly baseMaxToolTurns: number;
   /**
-   * 缺陷 C 修复（2026-09-25）：todo 扩容的**输入快照**（键 = planId ?? title，值为该计划最新一次快照）。
+   * 缺陷 C 修复（2026-09-25）+ 跨 run 持久化（2026-09-25，`.trae/specs/todo-expansion-persistence.md`）：
+   * todo 扩容的**输入快照**（键 = planId ?? title，值 = 该计划**未完成任务数**）。
    *
    * 为什么需要独立快照：`pendingTodos` 的语义是"**待消费**队列"——`getPendingTodos()`
    * 取走即清空，而流式主路径的消费侧（`streamMessageFlow`，tool_end 后与循环 flush 两处）
    * 每轮都会取走它。扩容读的却是同一个数组 ⇒ 扩容执行时数组已被清空，todo 项恒为 0，
    * 即"有 todo 清单的长任务拿不到 todo 扩容"。本快照与消费侧生命周期解耦：
    * 消费侧清空 `pendingTodos` 不影响扩容读数（按计划覆盖为最新快照，天然去重）。
+   *
+   * 为什么只存**计数**：唯一消费方是 `_pendingTodoCount()`（动态扩容 + 长任务信号）
+   * ⇒ 与持久载具 `TodoExpansionState` 同形，回填时无需重构整棵 `TodoBlockData`。
+   *
+   * 跨 run：续跑段由 `_initTodoExpansion()` 从 `session.metadata.todoExpansion` 回填
+   * （判据与 `budgetBaseline` 同源）；用户消息 / 换任务则随 `resetRunState()` 清空。
    */
-  private todoExpansionSnapshot = new Map<string, TodoBlockData>();
+  private todoExpansionSnapshot = new Map<string, number>();
   /**
    * 跨 run 预算基线（**同一任务累计已消耗**的工具轮次，2026-09-25）。
    *
@@ -794,7 +801,75 @@ export class ReActToolLoop extends ReActLoop<
   /** todo 登记（消费队列 + 扩容快照双写；见 `todoExpansionSnapshot` 注释） */
   private _recordPendingTodo(todoData: TodoBlockData): void {
     this.loopState.pendingTodos.push(todoData);
-    this.todoExpansionSnapshot.set(todoData.planId ?? todoData.title, todoData);
+    this.todoExpansionSnapshot.set(
+      todoData.planId ?? todoData.title,
+      ReActToolLoop.countUnfinishedTodoTasks(todoData.tasks)
+    );
+    // 跨 run 持久化（spec §3.4-1）：快照变化即同步内存 metadata（零 IO）；
+    // 落盘复用既有「每 5 轮检查点 + 轮次边界 persistSessionMetadata」
+    this._publishTodoExpansion();
+  }
+
+  /** 「未完成」= `pending` / `in_progress`（口径与修复前逐字一致） */
+  private static countUnfinishedTodoTasks(
+    tasks: TodoBlockData['tasks']
+  ): number {
+    let count = 0;
+    for (const task of tasks) {
+      if (task.status === 'pending' || task.status === 'in_progress') count++;
+    }
+    return count;
+  }
+
+  /** 内存写：把快照投影为 `session.metadata.todoExpansion`（零 IO，metadata 缺失即跳过） */
+  private _publishTodoExpansion(): void {
+    const metadata = this._sessionMetadata();
+    if (!metadata) return;
+    metadata.todoExpansion = this._snapshotTodoExpansion();
+  }
+
+  /** 快照投影（内存 Map → 持久结构；与 `TodoExpansionState` 同形 ⇒ 回填零转换） */
+  private _snapshotTodoExpansion(): TodoExpansionState {
+    return {
+      taskKey: this.budgetTaskKey,
+      plans: Object.fromEntries(this.todoExpansionSnapshot),
+      updatedAt: Date.now(),
+    };
+  }
+
+  /**
+   * todo 扩容量初始化（`.trae/specs/todo-expansion-persistence.md` §3.3）。
+   *
+   * 与 `budgetBaseline` **同判据**（`systemResume` + `taskKey`）：
+   * - 续跑且同任务 ⇒ 回填持久 `plans`（未完成数）⇒ 续段仍拿得到 todo 扩容；
+   * - 用户消息 / 任务不同 ⇒ 保持 `resetRunState()` 的清空结果，并把持久值归零
+   *   （不把上一任务的未完成数带给新任务）。
+   */
+  private _initTodoExpansion(
+    metadata: Record<string, unknown> | undefined
+  ): void {
+    const stored = metadata?.todoExpansion as TodoExpansionState | undefined;
+    const inheritable =
+      this.budgetIsContinuation && stored?.taskKey === this.budgetTaskKey;
+    if (inheritable && stored) {
+      for (const [planKey, count] of Object.entries(stored.plans ?? {})) {
+        // 非法值不落地（与 `normalizeWeight` 同一取向：坏数据不得污染扩容）
+        if (Number.isFinite(count) && count > 0) {
+          this.todoExpansionSnapshot.set(planKey, Math.floor(count));
+        }
+      }
+    }
+    logger.info('reactToolLoop:todo_expansion_restored', {
+      sessionId: this.ctx.session.id,
+      taskKey: this.budgetTaskKey,
+      systemResume: this.budgetIsContinuation,
+      restored: inheritable,
+      planCount: this.todoExpansionSnapshot.size,
+      pendingTodoCount: this._pendingTodoCount(),
+    });
+    if (metadata) {
+      metadata.todoExpansion = this._snapshotTodoExpansion();
+    }
   }
 
   /** 会话 metadata（`ToolLoopContext.session` 即宿主实时 `ChatSession`；测试桩可能无 metadata） */
@@ -850,6 +925,11 @@ export class ReActToolLoop extends ReActLoop<
         updatedAt: Date.now(),
       };
     }
+
+    // todo 扩容量**同源同口径**（2026-09-25，`.trae/specs/todo-expansion-persistence.md`）：
+    // 预算基线跨段继承，则「未完成 todo 数」也必须跨段 —— 否则续段的 todo 扩容恒为 0
+    //（快照只活在实例内存，而生产路径每段新建实例）。
+    this._initTodoExpansion(metadata);
   }
 
   /** 「任务累计已消耗」= 基线 + 本段已执行轮次（续期与额度判定的**唯一口径**） */
@@ -880,10 +960,8 @@ export class ReActToolLoop extends ReActLoop<
    */
   private _pendingTodoCount(): number {
     let count = 0;
-    for (const td of this.todoExpansionSnapshot.values()) {
-      count += td.tasks.filter(
-        (t) => t.status === 'pending' || t.status === 'in_progress'
-      ).length;
+    for (const unfinished of this.todoExpansionSnapshot.values()) {
+      count += unfinished;
     }
     return count;
   }
@@ -2414,8 +2492,10 @@ export class ReActToolLoop extends ReActLoop<
     this._terminalSettle = null;
     // 一期 O1-2：PathGuard 留痕随 run 归零（与 _incompleteRetries 同批，防跨 run 误判"被拦截"）
     this.loopState.guardBlocked = null;
-    // 缺陷 C（2026-09-25）：扩容快照随 run 归零 —— 新 run = 新任务，旧计划的未完成计数
-    // 不得继续为新任务扩容（`pendingTodos` 队列本身由消费侧自然清空，无需在此处理）
+    // 缺陷 C（2026-09-25）：扩容快照随 run 归零（`pendingTodos` 队列本身由消费侧自然清空，
+    // 无需在此处理）。**归零不等于丢弃**：若本次 run 是**同任务续跑**，紧随其后的
+    // `_initTodoExpansion()` 会从 `session.metadata.todoExpansion` 回填（口径与预算基线同源）
+    // —— 否则续段（新实例）的 todo 扩容恒为 0。
     this.todoExpansionSnapshot.clear();
     // 跨 run 预算基线随 run 归零（随后由 `_initToolTurnBudget()` 按本次 run 的语义重新回填：
     // 系统续跑继承 / 用户消息清零）—— 防复用实例携带上一段基线

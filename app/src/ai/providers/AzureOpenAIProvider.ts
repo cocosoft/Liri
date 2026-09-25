@@ -2,7 +2,14 @@
  * Azure OpenAI 提供商
  * 扩展 OpenAI 兼容 API，覆盖 Azure 端点
  */
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import {
+  AppError,
+  ErrorCategory,
+  ErrorSeverity,
+  // 2026-09-25 §6.8：预期中断判据（已下沉到 error/）
+  isAbortReason,
+  markAsExpectedAbort,
+} from '@modules/error';
 import { configManager } from '@modules/config';
 import type {
   ChatMessage,
@@ -233,12 +240,15 @@ export class AzureOpenAIProvider extends BaseAIProvider {
       };
     } catch (error) {
       if (error instanceof AppError) throw error;
-      throw new AppError(
+      // 2026-09-25 §6.8：预期中止降噪（文案不变，仅 severity 降级 + 携带预期中断品牌）
+      const expectedAbort = isAbortReason(error);
+      const wrapped = new AppError(
         `Azure OpenAI stream failed: ${(error as Error).message}`,
         ErrorCategory.API,
-        ErrorSeverity.HIGH,
+        expectedAbort ? ErrorSeverity.LOW : ErrorSeverity.HIGH,
         'API_ERROR'
       );
+      throw expectedAbort ? markAsExpectedAbort(wrapped) : wrapped;
     }
   }
 

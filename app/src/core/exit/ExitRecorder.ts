@@ -32,6 +32,8 @@ import fs from 'fs';
 import path from 'path';
 import { resolveDataDir } from '@modules/core/paths';
 import { getLogger } from '@modules/monitoring';
+// 2026-09-25 §6.8：预期中断判据（已下沉到 error/，供 core/ 这类低层直接使用）
+import { isAbortReason } from '../../error/abortReason.js';
 const logger = getLogger('core:exit');
 
 export type ExitReason =
@@ -175,6 +177,12 @@ export function installExitRecorder(): void {
     recordExit('uncaughtException', 1, error?.message ?? String(error));
   });
   process.on('unhandledRejection', (reason: unknown) => {
+    // 2026-09-25 §6.8：**预期中断 ≠ 异常退出** —— abort（系统侧中止 / 用户主动停止）产生的
+    // rejection 此前被**无条件**记成 `reason:'unhandledRejection', code:1`，于是下次启动就报
+    // 「上次退出信息（异常退出）」（实测：一次"删除正在运行的会话"即可留下该痕迹，而进程当时
+    // 并未退出）。此处跳过记录即可；**不额外打日志** —— main.ts 的全局 handler 已对该 reason
+    // 记 warn，避免同一事件双记（CS03-002 的"不掩盖"由那处日志承担）。
+    if (isAbortReason(reason)) return;
     recordExit(
       'unhandledRejection',
       1,

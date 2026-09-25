@@ -102,7 +102,10 @@ Examples:
     }
 
     try {
-      chatManager.switchSession(sessionId);
+      // 2026-09-25（附带发现 8）：必须 `await` —— 本方法 async，切到不存在会话时会**抛**
+      // `AppError(ENTITY_NOT_FOUND, 404)`；原先不 await，下方的 try/catch 抓不到（同步 try 包
+      // 异步调用），错误会泄漏为 unhandledRejection，且用户看不到"会话不存在"。
+      await chatManager.switchSession(sessionId);
       const session = chatManager.getCurrentSession();
       return {
         type: 'text',

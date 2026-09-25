@@ -104,7 +104,9 @@ function main(): void {
     process.exit(1);
   }
 
-  console.log(`✅ 入口脚本显式退出检查通过（已检查 ${checked.size} 个入口脚本）`);
+  console.log(
+    `✅ 入口脚本显式退出检查通过（已检查 ${checked.size} 个入口脚本）`
+  );
   process.exit(0);
 }
 

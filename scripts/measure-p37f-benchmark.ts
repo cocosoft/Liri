@@ -77,24 +77,36 @@ function main(): void {
 
   console.log('=== P3-7f 上下文治理基准度量 ===');
   console.log(`events: ${eventsPath}`);
-  console.log(`  事件数: ${eventLines}  (判定 ≤1500 → ${verdict('events', eventLines, 1500)})`);
+  console.log(
+    `  事件数: ${eventLines}  (判定 ≤1500 → ${verdict('events', eventLines, 1500)})`
+  );
   console.log(`  字节数: ${bytes}`);
   console.log(`  events.idx 存在: ${idxExists}`);
   if (maxInput !== null) {
-    console.log(`inputTokens 单请求最大: ${maxInput}  (判定 ≤40000 → ${verdict('input', maxInput, 40000)})`);
+    console.log(
+      `inputTokens 单请求最大: ${maxInput}  (判定 ≤40000 → ${verdict('input', maxInput, 40000)})`
+    );
   } else {
-    console.log('inputTokens: 未提供 usage-log（或未匹配到 inputTokens/prompt_tokens），请在运行期收集请求 usage 后传入');
+    console.log(
+      'inputTokens: 未提供 usage-log（或未匹配到 inputTokens/prompt_tokens），请在运行期收集请求 usage 后传入'
+    );
   }
   if (rss !== undefined) {
-    console.log(`RSS 峰值: ${rss} MB  (判定 ≤1536 MB → ${verdict('rss', rss, 1536)})`);
+    console.log(
+      `RSS 峰值: ${rss} MB  (判定 ≤1536 MB → ${verdict('rss', rss, 1536)})`
+    );
   } else {
-    console.log('RSS: 未提供，请在任务峰值时经运行期监控记录后以 --rss <MB> 传入');
+    console.log(
+      'RSS: 未提供，请在任务峰值时经运行期监控记录后以 --rss <MB> 传入'
+    );
   }
 }
 
 try {
   main();
 } catch (err) {
-  console.error(`度量失败: ${err instanceof Error ? err.message : String(err)}`);
+  console.error(
+    `度量失败: ${err instanceof Error ? err.message : String(err)}`
+  );
   process.exit(1);
 }

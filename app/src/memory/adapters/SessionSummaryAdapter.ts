@@ -255,15 +255,14 @@ export async function rollupSessionSummaryToLongTerm(
       return true;
     }
 
-    // 未命中 → 新建（skipConsolidation=true：v5 B 案——本类型去重由幂等键收敛负责，
-    // 跳过全库相似度去重，避免"相似即删"误删不同键相邻阶段摘要）
-    const created = await mm.createMemory(
-      {
-        content: built.content,
-        metadata: built.metadata,
-      },
-      { skipConsolidation: true }
-    );
+    // 未命中 → 新建。本类型去重由**幂等键**收敛负责（v5 B 案）。
+    // 2026-09-25：`createMemory` 已**不再**做全库相似度去重（改为空闲期维护
+    // `runMaintenancePass()`，见 `.trae/specs/memory-dedup-blocking-rootfix.md`），
+    // 故原先为"避免相似即删"而传的 `skipConsolidation` 选项**已删除**。
+    const created = await mm.createMemory({
+      content: built.content,
+      metadata: built.metadata,
+    });
     // 存在性复查（v4 A' 兜底）：createMemory 异常时可能返回 dangling id
     const persisted = await mm.getMemory(created.id);
     if (!persisted) {
@@ -361,10 +360,11 @@ export async function rebuildForSession(
         });
         result.updated++;
       } else {
-        await mm.createMemory(
-          { content: built.content, metadata: built.metadata },
-          { skipConsolidation: true }
-        );
+        // 2026-09-25：`skipConsolidation` 选项已删除（createMemory 不再做全库去重）
+        await mm.createMemory({
+          content: built.content,
+          metadata: built.metadata,
+        });
         result.created++;
       }
     }

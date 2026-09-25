@@ -57,7 +57,10 @@ async function auditDIContainer(): Promise<void> {
     const content = readFileSync(fullPath, 'utf-8');
     const lines = content.split('\n');
     for (let i = 0; i < lines.length; i++) {
-      if (lines[i].includes('.register(') || lines[i].includes('.registerInstance(')) {
+      if (
+        lines[i].includes('.register(') ||
+        lines[i].includes('.registerInstance(')
+      ) {
         RESULTS.push({
           source: 'DIContainer',
           name: `(in ${relPath}:${i + 1})`,
@@ -68,7 +71,9 @@ async function auditDIContainer(): Promise<void> {
     }
   }
 
-  console.log(`  发现 ${RESULTS.filter(r => r.source === 'DIContainer').length} 条 DIContainer 注册线索`);
+  console.log(
+    `  发现 ${RESULTS.filter((r) => r.source === 'DIContainer').length} 条 DIContainer 注册线索`
+  );
 }
 
 // ──────────────────────────────────────────────
@@ -83,7 +88,9 @@ async function auditAppCore(): Promise<void> {
 
   // 从 AppCore.initializeCoreModules() 读取硬编码模块
   const appCoreContent = readFileSync(appCorePath, 'utf-8');
-  const coreModulesMatch = appCoreContent.match(/const coreModules: ModuleDefinition\[\] = \[([\s\S]*?)\];/);
+  const coreModulesMatch = appCoreContent.match(
+    /const coreModules: ModuleDefinition\[\] = \[([\s\S]*?)\];/
+  );
   if (coreModulesMatch) {
     const moduleBlock = coreModulesMatch[1];
     const moduleNames = moduleBlock.match(/name:\s*'([^']+)'/g);
@@ -103,7 +110,9 @@ async function auditAppCore(): Promise<void> {
   }
 
   // 从 AppCore.lazyModuleLoader 读取
-  const lazyLoaders = appCoreContent.match(/this\.lazy\w+\s*=\s*new\s+LazyModuleLoader/g);
+  const lazyLoaders = appCoreContent.match(
+    /this\.lazy\w+\s*=\s*new\s+LazyModuleLoader/g
+  );
   if (lazyLoaders) {
     console.log(`  LazyModuleLoader 数量: ${lazyLoaders.length}`);
   }
@@ -111,7 +120,9 @@ async function auditAppCore(): Promise<void> {
   // ModuleDependencyManager 中的所有注册（该文件已随 legacy 系统退役，存在性守卫）
   if (existsSync(mdMgrPath)) {
     const mdContent = readFileSync(mdMgrPath, 'utf-8');
-    const registerCalls = mdContent.match(/registerModule\(\{[\s\S]*?name:\s*'([^']+)'/g);
+    const registerCalls = mdContent.match(
+      /registerModule\(\{[\s\S]*?name:\s*'([^']+)'/g
+    );
     if (registerCalls) {
       for (const call of registerCalls) {
         const name = call.match(/name:\s*'([^']+)'/)?.[1];
@@ -127,7 +138,9 @@ async function auditAppCore(): Promise<void> {
     }
   }
 
-  console.log(`  发现 ${RESULTS.filter(r => r.source === 'AppCore').length} 条 AppCore 模块`);
+  console.log(
+    `  发现 ${RESULTS.filter((r) => r.source === 'AppCore').length} 条 AppCore 模块`
+  );
 }
 
 // ──────────────────────────────────────────────
@@ -144,7 +157,9 @@ async function auditModuleRegistry(): Promise<void> {
     const content = readFileSync(defsPath, 'utf-8');
     const moduleIds = content.match(/id:\s*'([^']+)'/g);
     if (moduleIds) {
-      const uniqueIds = new Set(moduleIds.map(m => m.match(/'([^']+)'/)?.[1] || ''));
+      const uniqueIds = new Set(
+        moduleIds.map((m) => m.match(/'([^']+)'/)?.[1] || '')
+      );
       for (const id of uniqueIds) {
         RESULTS.push({
           source: 'ModuleRegistry',
@@ -171,7 +186,9 @@ async function auditModuleRegistry(): Promise<void> {
     console.log('  (搜索 ModuleRegistry.register 失败)');
   }
 
-  console.log(`  发现 ${RESULTS.filter(r => r.source === 'ModuleRegistry').length} 条 ModuleRegistry 注册`);
+  console.log(
+    `  发现 ${RESULTS.filter((r) => r.source === 'ModuleRegistry').length} 条 ModuleRegistry 注册`
+  );
 }
 
 // ──────────────────────────────────────────────
@@ -192,9 +209,9 @@ async function main() {
   console.log('╚══════════════════════════════════════════╝');
 
   const bySource = {
-    'DIContainer': RESULTS.filter(r => r.source === 'DIContainer'),
-    'AppCore': RESULTS.filter(r => r.source === 'AppCore'),
-    'ModuleRegistry': RESULTS.filter(r => r.source === 'ModuleRegistry'),
+    DIContainer: RESULTS.filter((r) => r.source === 'DIContainer'),
+    AppCore: RESULTS.filter((r) => r.source === 'AppCore'),
+    ModuleRegistry: RESULTS.filter((r) => r.source === 'ModuleRegistry'),
   };
 
   console.log(`\nDIContainer:     ${bySource['DIContainer'].length} 条`);
@@ -202,40 +219,58 @@ async function main() {
   console.log(`ModuleRegistry:  ${bySource['ModuleRegistry'].length} 条`);
 
   // 输出重叠分析
-  const diNames = new Set(bySource['DIContainer'].map(r => r.name));
-  const appCoreNames = new Set(bySource['AppCore'].map(r => r.name));
-  const moduleRegNames = new Set(bySource['ModuleRegistry'].map(r => r.name));
+  const diNames = new Set(bySource['DIContainer'].map((r) => r.name));
+  const appCoreNames = new Set(bySource['AppCore'].map((r) => r.name));
+  const moduleRegNames = new Set(bySource['ModuleRegistry'].map((r) => r.name));
 
-  const overlapDI_AC = [...diNames].filter(n => appCoreNames.has(n));
-  const overlapDI_MR = [...diNames].filter(n => moduleRegNames.has(n));
-  const overlapAC_MR = [...appCoreNames].filter(n => moduleRegNames.has(n));
+  const overlapDI_AC = [...diNames].filter((n) => appCoreNames.has(n));
+  const overlapDI_MR = [...diNames].filter((n) => moduleRegNames.has(n));
+  const overlapAC_MR = [...appCoreNames].filter((n) => moduleRegNames.has(n));
 
-  console.log(`\n重叠: DIContainer ∩ AppCore:               ${overlapDI_AC.length} 项`);
-  console.log(`重叠: DIContainer ∩ ModuleRegistry:         ${overlapDI_MR.length} 项`);
-  console.log(`重叠: AppCore ∩ ModuleRegistry:             ${overlapAC_MR.length} 项`);
+  console.log(
+    `\n重叠: DIContainer ∩ AppCore:               ${overlapDI_AC.length} 项`
+  );
+  console.log(
+    `重叠: DIContainer ∩ ModuleRegistry:         ${overlapDI_MR.length} 项`
+  );
+  console.log(
+    `重叠: AppCore ∩ ModuleRegistry:             ${overlapAC_MR.length} 项`
+  );
 
   // 保存详细报告
-  const reportPath = resolve(import.meta.dirname, '..', 'dev_docs', 'registry-audit-report.json');
-  writeFileSync(reportPath, JSON.stringify({
-    collectedAt: new Date().toISOString(),
-    summary: {
-      diContainer: bySource['DIContainer'].length,
-      appCore: bySource['AppCore'].length,
-      moduleRegistry: bySource['ModuleRegistry'].length,
-      overlapDI_AC: overlapDI_AC.length,
-      overlapDI_MR: overlapDI_MR.length,
-      overlapAC_MR: overlapAC_MR.length,
-    },
-    details: RESULTS,
-    diNames: [...diNames],
-    appCoreNames: [...appCoreNames],
-    moduleRegNames: [...moduleRegNames],
-  }, null, 2));
+  const reportPath = resolve(
+    import.meta.dirname,
+    '..',
+    'dev_docs',
+    'registry-audit-report.json'
+  );
+  writeFileSync(
+    reportPath,
+    JSON.stringify(
+      {
+        collectedAt: new Date().toISOString(),
+        summary: {
+          diContainer: bySource['DIContainer'].length,
+          appCore: bySource['AppCore'].length,
+          moduleRegistry: bySource['ModuleRegistry'].length,
+          overlapDI_AC: overlapDI_AC.length,
+          overlapDI_MR: overlapDI_MR.length,
+          overlapAC_MR: overlapAC_MR.length,
+        },
+        details: RESULTS,
+        diNames: [...diNames],
+        appCoreNames: [...appCoreNames],
+        moduleRegNames: [...moduleRegNames],
+      },
+      null,
+      2
+    )
+  );
 
   console.log(`\n详细报告已保存: ${reportPath}`);
 }
 
-main().catch(err => {
+main().catch((err) => {
   console.error('审计失败:', err);
   process.exit(1);
 });

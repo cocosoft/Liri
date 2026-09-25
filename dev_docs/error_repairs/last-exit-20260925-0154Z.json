@@ -1,0 +1,8 @@
+{
+  "code": 1,
+  "reason": "unhandledRejection",
+  "exitAt": "2026-09-25T01:54:25.184Z",
+  "pid": 36744,
+  "uptimeMs": 236871,
+  "message": "liri:system-abort"
+}

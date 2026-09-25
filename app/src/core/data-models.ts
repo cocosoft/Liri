@@ -206,6 +206,31 @@ export interface ToolTurnBudget {
   updatedAt: number;
 }
 
+/**
+ * todo 扩容量（**未完成 todo 数**）的跨 run 载具（长程任务分段续跑用，2026-09-25）。
+ *
+ * 为什么需要：动态轮次扩容按「未完成 todo 数 × DYNAMIC_TURNS_PER_PENDING_TODO」计算，
+ * 而该事实修复前只活在 `ReActToolLoop` 实例内存（`todoExpansionSnapshot`），
+ * 生产路径每段**新建实例** ⇒ 续段的 todo 扩容恒为 0（见
+ * `.trae/specs/todo-expansion-persistence.md`）。
+ *
+ * 与 `ToolTurnBudget` **同源同口径**：同一 `taskKey`、同一 `systemResume` 判据
+ * （只新增字段，不改动/删除既有字段 —— §1.1）。
+ */
+export interface TodoExpansionState {
+  /** 任务标识：`goalId ?? 'session-task'`（与 `ToolTurnBudget.taskKey` 同规则） */
+  taskKey: string;
+  /**
+   * 计划键 → 该计划**未完成**（`pending` / `in_progress`）任务数。
+   *
+   * 计划键当前实现为 todo 标题（生产方带 `planId`，但 `extractTodoData` 未透传 ——
+   * 已作为预存观察记录，见 spec §1 末）。
+   */
+  plans: Record<string, number>;
+  /** 最近更新时刻（巡检用，**不做业务判定** —— CS02） */
+  updatedAt: number;
+}
+
 /** 会话元数据 */
 export interface DataSessionMetadata {
   /** 会话标题 */
@@ -271,6 +296,13 @@ export interface DataSessionMetadata {
    * 读取方：同一任务的下一次续跑（`systemResume`）⇒ 以 `consumed` 为续期基线。
    */
   toolTurnBudget?: ToolTurnBudget;
+  /**
+   * todo 扩容量（未完成 todo 数，长程任务分段续跑用，2026-09-25）；缺省 = 无在途任务。
+   *
+   * 写入方：`ReActToolLoop`（todo 快照变化即内存更新；每 5 轮随检查点落盘 +
+   * 轮次边界由宿主持久化）。读取方：同一任务的下一次续跑（`systemResume`）⇒ 回填 todo 扩容。
+   */
+  todoExpansion?: TodoExpansionState;
   /** 自定义扩展字段 */
   [key: string]: unknown;
 }

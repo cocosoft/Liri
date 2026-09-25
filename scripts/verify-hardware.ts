@@ -25,11 +25,16 @@ async function main() {
 
   // 验证
   const issues: string[] = [];
-  if (info.cpuCores !== 16) issues.push(`CPU 核心数不匹配: 预期 16, 实际 ${info.cpuCores}`);
-  if (info.systemMemoryGB < 60) issues.push(`内存检测过低: 预期 64GB, 实际 ${info.systemMemoryGB}GB`);
-  if (!info.gpu.name?.includes('Arc')) issues.push(`GPU 名称不匹配: 应包含 "Arc"`);
-  if (info.gpu.memoryGB < 16) issues.push(`GPU 显存检测过低: 预期 32GB, 实际 ${info.gpu.memoryGB}GB`);
-  if (info.llamaCppBackend !== 'vulkan') issues.push(`后端不正确: 预期 vulkan, 实际 ${info.llamaCppBackend}`);
+  if (info.cpuCores !== 16)
+    issues.push(`CPU 核心数不匹配: 预期 16, 实际 ${info.cpuCores}`);
+  if (info.systemMemoryGB < 60)
+    issues.push(`内存检测过低: 预期 64GB, 实际 ${info.systemMemoryGB}GB`);
+  if (!info.gpu.name?.includes('Arc'))
+    issues.push(`GPU 名称不匹配: 应包含 "Arc"`);
+  if (info.gpu.memoryGB < 16)
+    issues.push(`GPU 显存检测过低: 预期 32GB, 实际 ${info.gpu.memoryGB}GB`);
+  if (info.llamaCppBackend !== 'vulkan')
+    issues.push(`后端不正确: 预期 vulkan, 实际 ${info.llamaCppBackend}`);
 
   if (issues.length > 0) {
     console.log('\n❌ 检测异常:');

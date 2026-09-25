@@ -411,6 +411,30 @@ export class ChatOrchestrator {
       onIdle: (idleSeconds) => {
         logger.info('系统空闲触发降载（P3-5）', { idleSeconds });
         void cleanupStaleTempFiles();
+        // D4（2026-09-25，`.trae/specs/memory-dedup-blocking-rootfix.md`）：
+        // 记忆库**全库相似度去重**已从写入热路径移到空闲期 —— 原实现每轮对话同步跑一次
+        // （实测 576 条库 = **41.9 秒**事件循环冻结 ⇒ HTTP 响应被推迟、看门狗误判）。
+        // 此处用分片让出版本（`runMaintenancePass` → `findDuplicatesChunked`），
+        // 且 `IdleScaleMonitor.onIdle` 每次空闲只触发一次（`idleFired` 守卫）⇒ 无需重入保护。
+        void (async () => {
+          try {
+            const { MemoryManagerImpl } = await import('@modules/memory');
+            const mm = new MemoryManagerImpl();
+            const r = await mm.runMaintenancePass();
+            if (r.removed > 0) {
+              logger.info('记忆维护：空闲期全库去重完成', {
+                scanned: r.total,
+                removed: r.removed,
+                elapsedMs: r.elapsedMs,
+              });
+            }
+          } catch (err) {
+            await handleError(err, {
+              module: 'chat:orchestrator',
+              action: 'idleMemoryMaintenance',
+            });
+          }
+        })();
       },
     });
     monitor.start();
@@ -968,24 +992,43 @@ export class ChatOrchestrator {
 
     const gen = runStreamMessage(this.host, content, options);
     let started = false;
-    let next = await gen.next();
-    while (!next.done) {
-      if (!started) {
-        // 首个 chunk 携带 sessionId（status chunk 等），迟滞提取后启动采样
-        const chunk = next.value as { sessionId?: string };
-        const sessionId =
-          typeof chunk === 'object' && chunk !== null
-            ? chunk.sessionId
-            : undefined;
-        watchdog.start(sessionId);
-        started = true;
+    // turn 收尾保底（2026-09-25，P3-3「看门狗孤儿条目」修复）：
+    // 原先 `watchdog.stop()` 只在 `while` **正常走完**时执行，两条路径会跳过它 ——
+    //   ① `await gen.next()` 抛错（中止/异常从流中向上传播，实测见
+    //      `.trae/specs/system-abort-reason-hardening.md`：栈落 `ChatOrchestrator.ts:985`）；
+    //   ② 消费方提前终止（客户端断线 ⇒ 生成器被 `.return()`，其后代码不执行）。
+    // 跳过即定时器常驻 ⇒ `timeoutMs`（默认 10 分钟）后对**已结束的 turn** 触发
+    // onStall（"尝试中断"误报 + 定时器/闭包泄漏）。改 try/finally 让三条路径统一收尾。
+    try {
+      let next = await gen.next();
+      while (!next.done) {
+        if (!started) {
+          // 首个 chunk 携带 sessionId（status chunk 等），迟滞提取后启动采样
+          const chunk = next.value as { sessionId?: string };
+          const sessionId =
+            typeof chunk === 'object' && chunk !== null
+              ? chunk.sessionId
+              : undefined;
+          watchdog.start(sessionId);
+          started = true;
+        }
+        watchdog.touch();
+        yield next.value;
+        next = await gen.next();
       }
-      watchdog.touch();
-      yield next.value;
-      next = await gen.next();
+      return next.value;
+    } finally {
+      watchdog.stop();
+      // 内层生成器必须显式关闭（2026-09-25，spec §6.7「内层生成器未关闭风险」）：
+      // 消费方提前 `.return()` 或异常从 `await gen.next()` 抛出时，本层若只停看门狗而
+      // **不关内层**，`runStreamMessage` 会**被遗弃在挂起点** ⇒ 其 `finally`（**唯一**
+      // `mutex.release()` 点 + `endInteractionSpan` + 兜底检查点落盘 + `endSpan`）
+      // **永不执行**（实测：Bun 下遗弃的 async generator 即使 3× 强制 GC 也不补跑 finally）。
+      // 与上游 `CoreAPIImpl.chatStream` / `chat-handlers` 的 `generator.return()` 形成闭环。
+      // 挂 noop catch 防孤儿 rejection（KB-INTERRUPT-ORPHAN 同口径）；正常完成时 `.return()`
+      // 对已结束的生成器是 no-op。
+      void gen.return(undefined as never).catch(() => {});
     }
-    watchdog.stop();
-    return next.value;
   }
 
   /** P3-3：turn 卡死回调——日志 + 中止会话流（复用既有 abortSessionStream 路径） */

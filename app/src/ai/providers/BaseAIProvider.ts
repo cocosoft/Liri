@@ -1001,7 +1001,15 @@ export abstract class BaseAIProvider implements AIProvider {
     } catch (err) {
       // 挂起超时或读取异常：取消底层流后透出错误，交由上层 finally 释放会话锁
       try {
-        reader.cancel();
+        // KB-INTERRUPT-ORPHAN 的另一半（2026-09-25，③ 外泄链路定位结论）：
+        // `reader.cancel()` 返回 **Promise**，且流已被中止错误置错时，它会以**流的
+        // stored error**（即原始 abort reason）**reject**；而**外层 try/catch 只捕获
+        // 同步抛错、抓不到该 promise rejection**，又无人消费 ⇒ 全局 unhandledRejection
+        // （实测：删除运行中会话 → abort → 22ms 后外泄，reason 为原始对象；见
+        // `.trae/specs/system-abort-reason-hardening.md` §6.5）。
+        // 故显式挂 noop catch —— 与上方 `timeoutPromise.catch` / `readPromise.catch`
+        // 同一防护口径（预期中断不污染全局告警）。
+        void reader.cancel().catch(() => {});
       } catch (cancelErr) {
         logger.warn(`[${this.id}] 流式读取取消失败`, {
           error:

@@ -27,6 +27,9 @@ export {
   ReActLoop,
   EXTERNAL_FETCH_TOOLS,
   SYSTEM_ABORT_REASON,
+  createSystemAbortReason,
+  isAbortReason,
+  isSystemAbortReason,
 } from './ReActLoop.js';
 export type {
   ReActState,

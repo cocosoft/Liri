@@ -78,7 +78,9 @@ function main(): void {
   }
 
   if (violations.length > 0) {
-    console.error('❌ 以下 npm script 引用了**不存在的文件**（执行时必然失败）：');
+    console.error(
+      '❌ 以下 npm script 引用了**不存在的文件**（执行时必然失败）：'
+    );
     for (const v of violations) {
       console.error(`  - ${v}`);
     }

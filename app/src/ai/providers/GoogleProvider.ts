@@ -33,7 +33,14 @@ import type {
   ToolDefinition,
 } from '../models/types';
 import type { ProviderConfig, ProviderValidationResult } from './AIProvider';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import {
+  AppError,
+  ErrorCategory,
+  ErrorSeverity,
+  // 2026-09-25 §6.8：预期中断判据（已下沉到 error/，供 providers 这类低层直接使用）
+  isAbortReason,
+  markAsExpectedAbort,
+} from '@modules/error';
 import { getLogger } from '@modules/monitoring';
 import { configManager } from '@modules/config';
 import { GeminiTransport } from '../transports/GeminiTransport';
@@ -142,12 +149,15 @@ export class GoogleProvider extends BaseAIProvider {
       );
     } catch (error) {
       if (error instanceof AppError) throw error;
-      throw new AppError(
+      // 2026-09-25 §6.8：预期中止降噪（文案不变，仅 severity 降级 + 携带预期中断品牌）
+      const expectedAbort = isAbortReason(error);
+      const wrapped = new AppError(
         `Gemini chat failed: ${(error as Error).message}`,
         ErrorCategory.EXECUTION,
-        ErrorSeverity.HIGH,
+        expectedAbort ? ErrorSeverity.LOW : ErrorSeverity.HIGH,
         '1000'
       );
+      throw expectedAbort ? markAsExpectedAbort(wrapped) : wrapped;
     }
   }
 
@@ -270,12 +280,15 @@ export class GoogleProvider extends BaseAIProvider {
       };
     } catch (error) {
       if (error instanceof AppError) throw error;
-      throw new AppError(
+      // 2026-09-25 §6.8：预期中止降噪（文案不变，仅 severity 降级 + 携带预期中断品牌）
+      const expectedAbort = isAbortReason(error);
+      const wrapped = new AppError(
         `Gemini stream error: ${(error as Error).message}`,
         ErrorCategory.EXECUTION,
-        ErrorSeverity.HIGH,
+        expectedAbort ? ErrorSeverity.LOW : ErrorSeverity.HIGH,
         '1000'
       );
+      throw expectedAbort ? markAsExpectedAbort(wrapped) : wrapped;
     }
   }
 

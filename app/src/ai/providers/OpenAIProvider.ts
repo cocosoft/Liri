@@ -41,7 +41,14 @@ import type {
   VideoGenerationParams,
   VideoGenerationResult,
 } from './AIProvider';
-import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
+import {
+  AppError,
+  ErrorCategory,
+  ErrorSeverity,
+  // 2026-09-25 §6.8：预期中断判据（已下沉到 error/，供 providers 这类低层直接使用）
+  isAbortReason,
+  markAsExpectedAbort,
+} from '@modules/error';
 import { getLogger } from '@modules/monitoring';
 import { configManager } from '@modules/config';
 import { ChatCompletionsTransport } from '../transports/ChatCompletionsTransport';
@@ -325,12 +332,15 @@ export class OpenAIProvider extends BaseAIProvider {
       );
     } catch (error) {
       if (error instanceof AppError) throw error;
-      throw new AppError(
+      // 2026-09-25 §6.8：预期中止降噪（文案不变，仅 severity 降级 + 携带预期中断品牌）
+      const expectedAbort = isAbortReason(error);
+      const wrapped = new AppError(
         `OpenAI chat failed: ${(error as Error).message}`,
         ErrorCategory.EXECUTION,
-        ErrorSeverity.HIGH,
+        expectedAbort ? ErrorSeverity.LOW : ErrorSeverity.HIGH,
         '1000'
       );
+      throw expectedAbort ? markAsExpectedAbort(wrapped) : wrapped;
     }
   }
 
@@ -640,12 +650,17 @@ export class OpenAIProvider extends BaseAIProvider {
             `原始错误: ${errorMessage}`
           : diagnostic;
         // 诊断增强：错误消息附带 Provider 标识与端点 host，便于定位是哪个供应商/网关
-        throw new AppError(
+        // 2026-09-25 §6.8：预期中止**不是"流失败"** —— 文案逐字保留（用户可见诊断与
+        // errorRecovery 的 errorCategory 判定均不变），但 severity 降为 LOW 并携带
+        // 「预期中断」品牌，使 handleError（唯一错误入口）统一降噪（不告警 / 不计错误统计）。
+        const expectedAbort = isAbortReason(error);
+        const wrapped = new AppError(
           `OpenAI stream failed: ${userHint}（Provider: ${this.id} / ${this.endpointHost()}）`,
           ErrorCategory.EXECUTION,
-          ErrorSeverity.HIGH,
+          expectedAbort ? ErrorSeverity.LOW : ErrorSeverity.HIGH,
           '1000'
         );
+        throw expectedAbort ? markAsExpectedAbort(wrapped) : wrapped;
       }
     }
 

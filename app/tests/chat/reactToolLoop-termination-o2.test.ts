@@ -11,7 +11,10 @@
 import { describe, it, expect } from 'bun:test';
 import { ReActToolLoop } from '../../src/chat/ReActToolLoop.js';
 import type { ToolLoopContext } from '../../src/chat/ToolLoopRunner.js';
-import { SYSTEM_ABORT_REASON } from '../../src/query/ReActLoop.js';
+import {
+  SYSTEM_ABORT_REASON,
+  createSystemAbortReason,
+} from '../../src/query/ReActLoop.js';
 import type { ChatResponse, ChatMessage } from '@modules/ai';
 
 function makeCtx(
@@ -189,6 +192,30 @@ describe('ReActToolLoop 终止语义（二期 O2-1）', () => {
     expect(finalMeta(loop).finishReason).toBe('system_aborted');
   });
 
+  it('中止来源：**Error 形态**系统标记（② 加固）⇒ 仍为 system_aborted', () => {
+    const ac = new AbortController();
+    const { ctx } = makeCtx({ abortSignal: ac.signal });
+    const loop = new ReActToolLoop(ctx, makeInput(), { maxIterations: 5 });
+
+    // ② 加固后两处写入点（ChatManager / SessionLifecycleManager）改传 Error 形态（带真实栈）
+    // ⇒ 判定已收敛到 `isSystemAbortReason()`，结果必须仍是 system（否则 Goal 会错落 user_aborted）
+    ac.abort(createSystemAbortReason());
+
+    expect(loop.getTerminationReason()).toBe('system_aborted');
+    expect(finalMeta(loop).finishReason).toBe('system_aborted');
+  });
+
+  it('中止来源：**用户** AbortError（非系统标记）⇒ 仍为 aborted（狭义判据不得越界）', () => {
+    const ac = new AbortController();
+    const { ctx } = makeCtx({ abortSignal: ac.signal });
+    const loop = new ReActToolLoop(ctx, makeInput(), { maxIterations: 5 });
+
+    // 用户停止常为 DOMException AbortError：**广义**判据（预期中断）命中，但**狭义**判据必须不命中
+    ac.abort(new DOMException('user stopped', 'AbortError'));
+
+    expect(loop.getTerminationReason()).toBe('aborted');
+  });
+
   it('中止来源：用户主动 stop / 无标记的外部中止 ⇒ aborted（既有语义不变）', () => {
     // 用户主动停止（loop.abort()）
     const { ctx: ctx1 } = makeCtx();
@@ -216,8 +243,9 @@ describe('ReActToolLoop 终止语义（二期 O2-1）', () => {
     });
     // maxIterations 取大值：避免触发"接近上限"的强制收尾（那会先短路本路径）
     const loop = new ReActToolLoop(ctx, makeInput(), { maxIterations: 20 });
-    (loop as unknown as { isCompactionStalled: () => boolean }).isCompactionStalled =
-      () => true;
+    (
+      loop as unknown as { isCompactionStalled: () => boolean }
+    ).isCompactionStalled = () => true;
 
     const calls: string[] = [];
     let finished = false;

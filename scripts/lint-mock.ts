@@ -36,7 +36,7 @@ const LINE_WHITELIST = new Set<string>([]);
 /** 从内容中定位所有 useState，返回其初始值数组内容（无数组则 null） */
 function extractUseStateArrayBody(
   content: string,
-  start: number,
+  start: number
 ): { body: string; end: number } | null {
   let i = start + 'useState'.length;
   const skipWs = () => {
@@ -87,8 +87,7 @@ function extractUseStateArrayBody(
 }
 
 /** mock 命名常量（独立正则，仅业务层 mock/fake/sample 前缀） */
-const MOCK_NAMED_PATTERN =
-  /\b(?:mock|fake|sample)[A-Z]+\w*\s*[=:]\s*\[/i;
+const MOCK_NAMED_PATTERN = /\b(?:mock|fake|sample)[A-Z]+\w*\s*[=:]\s*\[/i;
 
 /** 是否为注释行 */
 function isCommentLine(line: string): boolean {

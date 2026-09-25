@@ -40,7 +40,7 @@ import { resolveChannelSourceOnce } from './channelSourceOnce.js';
 import { MessageService } from './MessageService.js';
 import { eventNotificationService } from './EventNotificationService.js';
 import { clearPathCheckCache } from './PathGuardService';
-import { SYSTEM_ABORT_REASON } from '@modules/query';
+import { createSystemAbortReason } from '@modules/query';
 import { getLocalSession, mapSessionStatusToState } from './ChatHelper';
 import type { ChatSession, CreateSessionParams } from '../types/session.js';
 import { DataSessionStatus } from '@modules/core';
@@ -552,7 +552,9 @@ export class SessionLifecycleManager {
     if (pendingAbort) {
       // 二期 O2-1（2026-09-24）：会话删除触发的**清理性中止**属系统侧 —— 带 reason 声明来源，
       // 避免被记成"用户主动放弃"（Goal 落 `system_aborted`）
-      pendingAbort.abort(SYSTEM_ABORT_REASON);
+      // ② 加固（2026-09-25，`.trae/specs/system-abort-reason-hardening.md`）：工厂传
+      // Error 形态 reason（带真实栈）⇒ 下游若外泄可定位遗漏的 catch；每次新实例。
+      pendingAbort.abort(createSystemAbortReason());
     }
     this.sessionAbortControllers.delete(sessionId);
     this.sessionMutexes.delete(sessionId);

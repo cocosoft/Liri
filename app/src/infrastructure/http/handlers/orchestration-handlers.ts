@@ -145,6 +145,12 @@ export async function handleOrchestrationStream(
       AgentEventType.TOOL_CALL_START,
       AgentEventType.TOOL_CALL_DELTA,
       AgentEventType.TOOL_CALL_END,
+
+      // N-70（2026-09-25）：子代理**心跳/状态**事件（由 `SubAgentEventPump` 发布）。
+      // 原实现**未列入本白名单** ⇒ 该事件此前从未经 SSE 透出（`setOnStatusChange` 亦无调用点）
+      // ⇒ P2-13 的推送能力**整体未落地**。现接入同一条编排流，供前端刷新既有
+      // `AgentRuntimePanel`（**复用既有面板与 API，不新建第二套展示**，CS01）。
+      'subagent_status',
     ];
     const subscriptions: EventSubscription[] = [];
 

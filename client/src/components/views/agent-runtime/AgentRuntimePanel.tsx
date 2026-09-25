@@ -158,6 +158,23 @@ export function AgentRuntimePanel({ isDark }: AgentRuntimePanelProps) {
     loadRuntime();
   }, [loadRuntime]);
 
+  /**
+   * N-70（2026-09-25）：面板打开期间**自动刷新**运行态。
+   *
+   * 后端已把 `subagent_status`（子代理心跳，由 `SubAgentEventPump` 发布）接入编排 SSE 流；
+   * 本面板用**轮询**消费（复用既有 HTTP 拉取 — 不为此新建前端 SSE 客户端，因为该通道
+   * 此前在前端整体未被消费，单独接一条连接成本高于收益）。有活跃子代理时 5s 一次，
+   * 无活跃时 15s（省请求）。
+   */
+  useEffect(() => {
+    const hasActive = (control?.agents?.length ?? 0) > 0;
+    const intervalMs = hasActive ? 5000 : 15000;
+    const timer = setInterval(() => {
+      void loadRuntime();
+    }, intervalMs);
+    return () => clearInterval(timer);
+  }, [loadRuntime, control?.agents?.length]);
+
   return (
     <div className="mt-6">
       <div className="flex items-center justify-between mb-2">

@@ -1,5 +1,9 @@
 # 工作流 Run 生命周期 Spec（P1-4）
 
+> ⚠️ **部分交付物不在本仓（2026-09-26 核实）**：本 spec 声称的"已完成"中**有若干交付物在本仓 git 历史中从未存在**（据台账逐项反证：`modules/doc/orchestration/DocOrchestratorProvider.ts`、`metadata.workflowRun` 投影、`assistant/workflow_run_*` 事件、前端 `WorkflowRunCard`、跨端守卫 `EventSchemaConsistency.test.ts`）。
+> ✅ 但 seam 的**通用构件确实在代码里**（`WorkflowEngine.ts` / `WorkflowStepLedger.ts` / `types.ts` / `WorkflowError.ts`）。
+> 📌 详见 `dev_docs/error_repairs/预存错误与待处理问题.md` → 「4 份 `workflow-*` Spec 声称"已完成"，但对应代码在本仓**不存在**」条。**读本 spec 时不要把"已完成"的声明当作能力已可用。**
+
 > 版本: 1.0 | 创建: 2026-09-13 | 状态: **首版已完成（2026-09-13）**
 > 关联: GR15 / R06-008（分层：取消信号由调用方提供）/ CS01 / CS03（回退最小化）/ PY_APP §2（不做投机性扩展）
 > 前置：`.trae/specs/workflow-engine-seam.md`（P1-1）/ `.trae/specs/workflow-run-record.md`（P1-3）

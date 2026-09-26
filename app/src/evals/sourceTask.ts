@@ -60,6 +60,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
+import { resolveProjectRoot } from '@modules/core/paths';
 import type {
   EvalTask,
   SourceCaseResult,
@@ -79,9 +80,11 @@ const execFileAsync = promisify(execFile);
 export function resolveEvalRepoRoot(
   env: NodeJS.ProcessEnv = process.env
 ): string {
-  const override = env.LIRI_PROJECT_DIR?.trim();
-  if (override) return resolve(override);
-  return resolve(import.meta.dir, '../../..');
+  // 2026-09-26（CI 根因修复）：**复用唯一事实源** `resolveProjectRoot()`，不再自行读环境变量。
+  // 原实现 `resolve(env.LIRI_PROJECT_DIR)` 无归一化 ⇒ 该变量被写成 `<root>/app` 时，
+  // 下游 `join(root,'app/src/…')` 拼出 `<root>/app/app/src/…` ⇒ CI 实测 ENOENT
+  // （本机因 shell 里该变量已是正确值而掩盖）。`resolveProjectRoot()` 现对覆盖值做同一归一化。
+  return resolveProjectRoot(env);
 }
 
 /** 默认扫描目录（方案 §2 A7：从 `chat/`、`query/`、`tools/` 的纯函数起步，避开 `evals` 自身以免自指） */

@@ -107,7 +107,7 @@ export function resolveProjectRoot(
   // 1. 环境变量优先（启动脚本设置）
   const override = env[ENV_LIRI_PROJECT_DIR]?.trim();
   if (override) {
-    return resolve(override);
+    return normalizeProjectRoot(resolve(override));
   }
 
   const cwd = process.cwd() || '';
@@ -140,25 +140,36 @@ export function resolveProjectRoot(
   //    且父级存在 app/package.json，说明当前是 app 子目录，
   //    应返回父级作为项目根目录，避免下游拼接 'app/' 前缀后出现双重路径
   const resolved = resolve(cwd);
-  const lastSegment = basename(resolved);
-  if (lastSegment === 'app') {
-    const parent = resolve(resolved, '..');
-    const parentAppPackage = join(parent, 'app', 'package.json');
-    if (existsSync(parentAppPackage)) {
-      // BUG05 修复：验证 package.json 内容，避免同名 app 目录误匹配
-      try {
-        const pkg = JSON.parse(readFileSync(parentAppPackage, 'utf-8'));
-        if (pkg.name && typeof pkg.name === 'string') {
-          return parent;
-        }
-      } catch {
-        // package.json 不可读时仍返回 parent（保持向后兼容）
-        return parent;
-      }
+  return normalizeProjectRoot(resolved);
+}
+
+/**
+ * 归一化"项目根"：传入 `<root>/app`（package.json 所在子目录）时返回 `<root>`。
+ *
+ * ⚠️ 2026-09-26（CI 实测根因）：`LIRI_PROJECT_DIR` 在**测试运行期**可能被写成 `<root>/app`
+ * （本仓多处会写该变量），而下游普遍按 `join(root, 'app/src/…')` 取值 ⇒ 拼出
+ * `<root>/app/app/src/…` 的**双 app** 路径。CI 实证：`evals/sourceTask.test.ts` 的
+ * `ENOENT …\app\app\src\chat\services\bareExplorationStripper.ts`（本地因 shell 里
+ * `LIRI_PROJECT_DIR` 已是正确值而**掩盖**，故 CI 才发现）。
+ *
+ * 与 cwd 分支采用**同一套口径**（末级为 `app` 且父级存在 `app/package.json` ⇒ 取父级），
+ * 且只改"读取侧"——不依赖谁写坏了该变量，凡读到 `…/app` 都按根处理。
+ */
+function normalizeProjectRoot(dir: string): string {
+  if (basename(dir) !== 'app') return dir;
+  const parent = resolve(dir, '..');
+  const parentAppPackage = join(parent, 'app', 'package.json');
+  if (existsSync(parentAppPackage)) {
+    // BUG05 修复（保留）：验证 package.json 内容，避免同名 app 目录误匹配
+    try {
+      const pkg = JSON.parse(readFileSync(parentAppPackage, 'utf-8'));
+      if (pkg.name && typeof pkg.name === 'string') return parent;
+    } catch {
+      // package.json 不可读时仍返回 parent（保持向后兼容）
+      return parent;
     }
   }
-
-  return resolved;
+  return dir;
 }
 
 /**

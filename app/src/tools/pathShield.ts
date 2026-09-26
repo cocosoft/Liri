@@ -45,8 +45,6 @@
  * - 环境变量未设置时**零行为**（普通用户运行完全不受影响）。
  * 需要更强隔离时应做真沙箱（挂载/容器），不在本模块职责内。
  */
-import { isAbsolute, resolve, sep } from 'node:path';
-
 /** §1.4 既有前缀 `PERMISSION_*`；值为 JSON 字符串数组，如 `["E:/repo/app/src/a.ts"]` */
 export const ENV_SHIELDED_PATHS = 'PERMISSION_SHIELDED_PATHS';
 
@@ -110,11 +108,27 @@ export function normalizeShieldPath(p: string): string {
 }
 
 /**
+ * 路径是否为绝对 —— **不依赖宿主 OS 的 `path.isAbsolute`**。
+ *
+ * 必须有这条跨平台判定：题源路径**恒为评测机上的 Windows 风格**（`E:\…`），而同一批用例
+ * 会在 Linux CI 上跑；`node:path` 在 POSIX 下把 `E:\…` 判为**非绝对**（反斜杠只是普通字符）
+ * ⇒ 相对仓库根 / 相对 `<repoRoot>/app` 两种针不再生成 ⇒ 屏蔽被"换个写法"绕过（2026-09-26 CI 实测红）。
+ */
+function isAbsoluteAnyOs(normalizedPath: string): boolean {
+  return /^[a-z]:\//.test(normalizedPath) || normalizedPath.startsWith('/');
+}
+
+/**
  * 为一个题源路径展开"比较针"。
  *
  * 同一文件在工具参数里可能有四种写法，**都要挡住**（只挡绝对路径的话，Agent 换个写法就绕过）：
  * ① 绝对路径；② 相对仓库根（评测沙箱 `cwd = <repoRoot>/app`，也常写 `app/src/...`）；
  * ③ 相对 `<repoRoot>/app`（如 `src/...`）；④ 其**直接父目录**（挡住 `grep`/`glob` 按目录批量读）。
+ *
+ * ⚠️ 比较与拼接**全程在规整形式（`/`、小写）上做纯字符串运算**，不调用 `node:path`
+ * （`resolve`/`sep`/`isAbsolute` 的语义随宿主 OS 变，会让 Windows 风格路径在 Linux 上失配）。
+ * 与原先 `resolve()` 的唯一行为差异：**不再折叠 `..` 段**（题源路径来自评测运行器的绝对路径，
+ * 不含 `..`；且"用 `..` 绕屏蔽"本就属本模块已声明的能力边界之外）。
  */
 export function buildShieldNeedles(
   shieldedPath: string,
@@ -128,21 +142,19 @@ export function buildShieldNeedles(
     }
   };
 
+  const normalized = normalizeShieldPath(shieldedPath);
   push(shieldedPath);
   // 直接父目录（仅当父目录不是空/根时）
-  const normalized = normalizeShieldPath(shieldedPath);
   const lastSlash = normalized.lastIndexOf('/');
   if (lastSlash > 0) push(normalized.slice(0, lastSlash));
 
   const root = repoRoot?.trim();
-  if (root && isAbsolute(shieldedPath)) {
-    const abs = resolve(shieldedPath);
-    const rootAbs = resolve(root);
-    const prefix = rootAbs.endsWith(sep) ? rootAbs : rootAbs + sep;
-    if (abs.startsWith(prefix)) {
-      const rel = abs.slice(prefix.length).replace(/\\/g, '/');
+  if (root && isAbsoluteAnyOs(normalized)) {
+    const rootNorm = normalizeShieldPath(root);
+    if (rootNorm && normalized.startsWith(rootNorm + '/')) {
+      const rel = normalized.slice(rootNorm.length + 1);
       push(rel); // 相对仓库根，如 app/src/chat/services/x.ts
-      if (rel.toLowerCase().startsWith('app/')) push(rel.slice(4)); // 相对 <repoRoot>/app
+      if (rel.startsWith('app/')) push(rel.slice(4)); // 相对 <repoRoot>/app
     }
   }
   return needles;

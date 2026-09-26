@@ -47,8 +47,27 @@ export interface ProfileSelection {
   source: 'cli' | 'env' | 'default';
 }
 
-/** 内置 profile 目录（随代码分发） */
+/**
+ * 内置 profile 目录（随代码分发）。
+ *
+ * ⚠️ 2026-09-26（CI 可移植性）：**优先按模块自身位置解析**
+ * （本文件在 `app/src/config/layers/` ⇒ `../../../config/layers/profiles`），
+ * 它与 `cwd` / `LIRI_PROJECT_DIR` **无关**；仅当该路径不存在时才回退到
+ * 「项目根 + `app/config/...`」（兼容打包/分发布局）。
+ * 此前只用后者 ⇒ 一旦项目根在某个环境解析偏离，内置 profile 会**整批丢失**
+ * （CI 实测 `Profile not found: production/test`，而同一代码在本机通过）。
+ */
 export function getBuiltinProfilesDir(): string {
+  const moduleRelative = join(
+    import.meta.dir,
+    '..',
+    '..',
+    '..',
+    'config',
+    'layers',
+    'profiles'
+  );
+  if (existsSync(moduleRelative)) return moduleRelative;
   return join(resolveProjectRoot(), 'app', 'config', 'layers', 'profiles');
 }
 
@@ -103,7 +122,10 @@ export function loadProfile(
       const def = parseProfileYaml(builtinPath, name);
       return { name, ...def, source: 'builtin', protected: true };
     }
-    throw new Error(`Profile not found (protected, builtin required): ${name}`);
+    throw new Error(
+      // 带上"已查找路径"：CI 只能看 check-run annotation，无路径则无法定位（2026-09-26 实证教训）
+      `Profile not found (protected, builtin required): ${name}（已查找内置: ${builtinPath}）`
+    );
   }
 
   // 高层优先：用户 > 项目 > 内置
@@ -135,7 +157,10 @@ export function loadProfile(
     };
   }
 
-  throw new Error(`Profile not found: ${name}`);
+  throw new Error(
+    // 同上：把搜索面暴露出来，便于在无日志权限的环境（CI）自证根因
+    `Profile not found: ${name}（已查找: ${builtinPath}；用户/项目目录: ${userDirs.join(', ')}）`
+  );
 }
 
 /**

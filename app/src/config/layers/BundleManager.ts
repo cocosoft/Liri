@@ -47,8 +47,24 @@ export interface LoadBundlesOptions {
   ignoreVariants?: boolean;
 }
 
-/** 内置 bundle 目录 */
+/**
+ * 内置 bundle 目录（随代码分发）。
+ *
+ * ⚠️ 2026-09-26（CI 可移植性）：与 `getBuiltinProfilesDir()` 同批 —— **优先按模块自身位置解析**
+ * （`app/src/config/layers/` ⇒ `../../../config/layers/bundles`），与 `cwd` / `LIRI_PROJECT_DIR`
+ * 无关；仅当该路径不存在时才回退到「项目根 + `app/config/...`」（兼容打包布局）。
+ */
 export function getBuiltinBundlesDir(): string {
+  const moduleRelative = join(
+    import.meta.dir,
+    '..',
+    '..',
+    '..',
+    'config',
+    'layers',
+    'bundles'
+  );
+  if (existsSync(moduleRelative)) return moduleRelative;
   return join(resolveProjectRoot(), 'app', 'config', 'layers', 'bundles');
 }
 

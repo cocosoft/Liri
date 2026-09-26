@@ -44,6 +44,7 @@ import {
   rmdirSync,
   rmSync,
   symlinkSync,
+  unlinkSync,
 } from 'node:fs';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
@@ -292,8 +293,15 @@ export function removeRepoSapshot(destRoot: string): void {
   //    （`rmSync(recursive:false)` 对 junction 报 `EFAULT`；`recursive:true` 有递归进目标的风险 ⇒ 都不用）
   //  - **物理拷贝**（POSIX）⇒ 是**真目录**，`rmdirSync` 会报 `ENOTEMPTY` ⇒ 必须递归删。
   if (existsSync(link)) {
-    if (lstatSync(link).isSymbolicLink()) rmdirSync(link);
-    else rmSync(link, { recursive: true, force: true });
+    if (lstatSync(link).isSymbolicLink()) {
+      // ⚠️ 跨平台（2026-09-26 CI 实测 ENOTDIR）：**POSIX 的 `rmdir` 对符号链接报 ENOTDIR**
+      // （它要求末段本身就是目录，符号链接不是）⇒ 必须用 `unlink` 删链接本体。
+      // Windows 的 junction **不能** `unlink`（它是目录形态），故仍用 `rmdir`。
+      if (process.platform === 'win32') rmdirSync(link);
+      else unlinkSync(link);
+    } else {
+      rmSync(link, { recursive: true, force: true });
+    }
   }
   rmSync(destRoot, { recursive: true, force: true });
 }

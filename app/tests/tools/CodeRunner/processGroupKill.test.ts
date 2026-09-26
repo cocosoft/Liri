@@ -49,12 +49,19 @@ beforeAll(async () => {
       "setInterval(()=>{try{fs.appendFileSync(hb,'.')}catch{}},150);"
   );
 
-  // 父进程：**detached 派生**孙进程（模拟"用户脚本后台起进程"），随后自身常驻
+  // 父进程：派生孙进程（模拟"用户脚本后台起进程"），随后自身常驻。
+  //
+  // ⚠️ 跨平台（2026-09-26 CI 实证）：孙进程的 `detached` **必须随平台区分** ——
+  //   - **Windows**：`detached:true` ⇒ 孙进程自成一体，需靠 `taskkill /T` 的**父子树**终止（本实现已支持）✓
+  //   - **POSIX**：`detached:true` 会让孙进程**另立进程组** ⇒ `process.kill(-pid)`（组信号）**原理上够不到它**
+  //     （这不是实现缺陷，是 POSIX 进程组语义；真要对脱离组的后代下手需 cgroups/树遍历，本模块
+  //     已在文档里把"按组终止"声明为契约边界）⇒ 故 POSIX 下改为**非 detached**（孙进程留在父的组内），
+  //     断言"组信号连孙进程一起终止"这一**本模块真正承诺**的行为。
   await fs.writeFile(
     parentScript,
     "const {spawn}=require('child_process');const hb=process.argv[2],pf=process.argv[3];" +
       "spawn(process.execPath,[require('path').join(__dirname,'grandchild.js'),hb,pf]," +
-      "{stdio:'ignore',detached:true});" +
+      "{stdio:'ignore',detached:process.platform==='win32'});" +
       'setInterval(()=>{},1000);'
   );
 });

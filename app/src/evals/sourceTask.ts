@@ -80,10 +80,18 @@ const execFileAsync = promisify(execFile);
 export function resolveEvalRepoRoot(
   env: NodeJS.ProcessEnv = process.env
 ): string {
-  // 2026-09-26（CI 根因修复）：**复用唯一事实源** `resolveProjectRoot()`，不再自行读环境变量。
-  // 原实现 `resolve(env.LIRI_PROJECT_DIR)` 无归一化 ⇒ 该变量被写成 `<root>/app` 时，
-  // 下游 `join(root,'app/src/…')` 拼出 `<root>/app/app/src/…` ⇒ CI 实测 ENOENT
-  // （本机因 shell 里该变量已是正确值而掩盖）。`resolveProjectRoot()` 现对覆盖值做同一归一化。
+  // 2026-09-26（CI 根因修复·第二版）：**模块相对优先**。
+  //
+  // 第一版只做了"环境变量归一化"（委托 `resolveProjectRoot`），CI 仍红 ⇒ 说明该变量在 CI 里
+  // 并不是固定的 `<root>/app`，而是**被别的用例指到别处后残留**（`LIRI_PROJECT_DIR` 是进程级
+  // 全局量；评测沙箱会把它指向沙箱/仓库，存在**跨用例污染**，且 CI 的用例顺序与本地不同）。
+  //
+  // 本文件位于 `<root>/app/src/evals/` ⇒ 上溯 3 层即仓库根，**与 env / cwd 无关**，
+  // 天然免疫该污染。同一手法已用于 `getBuiltinProfilesDir()` / `getBuiltinBundlesDir()`
+  // —— 那两处上线后 CI 的 `LayersIntegration` 失败**当即消失**，机制已被 CI 实证。
+  // 仅当该布局不成立（如打包后 `import.meta.dir` 为虚拟路径）才退回唯一事实源（含 env 归一化）。
+  const moduleRelative = resolve(import.meta.dir, '../../..');
+  if (existsSync(join(moduleRelative, 'app', 'src'))) return moduleRelative;
   return resolveProjectRoot(env);
 }
 

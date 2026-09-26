@@ -5,7 +5,11 @@
 
 import type { ToolUseBlock } from '@modules/chat/types/ToolUseBlock';
 import type { ToolCallPartition } from './types';
-import { isReadOnlyTool, isWriteTool, isConcurrencySafe } from './types';
+import {
+  isReadOnlyTool,
+  needsSerialExecution,
+  isConcurrencySafe,
+} from './types';
 
 /**
  * 工具调用分区器
@@ -34,7 +38,7 @@ export class ToolCallPartitioner {
     for (const block of toolUseMessages) {
       if (isReadOnlyTool(block.name)) {
         readTools.push(block);
-      } else if (isWriteTool(block.name)) {
+      } else if (needsSerialExecution(block.name)) {
         writeTools.push(block);
       } else {
         otherTools.push(block);

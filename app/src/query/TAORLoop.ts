@@ -18,7 +18,7 @@ import { handleError } from '@modules/error';
 import { CONTINUATION_TEMPLATES, renderGoalTemplate } from '@modules/tasks';
 // 阶段 A（N-28 修复）：yield 轮次登记（与 stream 路径 ReActToolLoop 共用同一实现）
 import { registerYieldFromResults } from '../session/yield';
-import { messageProjector } from '@modules/context';
+import { messageProjector, resolveContextWindow } from '@modules/context';
 import {
   TokenBudgetController,
   TokenBudgetStatus,
@@ -56,7 +56,6 @@ import { VerifierAgent, createVerifierAgent } from './VerifierAgent.js';
 import type { VerifierAgentConfig } from './VerifierAgent.js';
 import { FileTAORCheckpointStorage } from './FileTAORCheckpointStorage.js';
 import { DBTAORCheckpointStorage } from './DBTAORCheckpointStorage.js';
-import { estimateMessagesTokens } from '@modules/ai/tokenizer/TokenEstimator.js';
 import type { ChatMessage } from '@modules/ai/models/types.js';
 import { ReActLoop } from './ReActLoop.js';
 import type {
@@ -356,6 +355,14 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
   private _runInitialized: boolean = false;
   /** A1（2026-09-04）：上次入账的 token 估算基线——只按增量入账，compact 后回落 */
   private _lastBudgetedTokens: number = 0;
+
+  /**
+   * 单轮**真实**输入量（provider `usage.prompt_tokens`），由 `_collectCallModel` 从 callModel
+   * 的 chunk 中捕获（2026-09-26 修「预算量纲」的 batch 侧：此前用估算，实测与真实可差 6× 以上）。
+   *
+   * `0` = 本轮未拿到真实用量 ⇒ **不记账**（fail-open；与流式路径同口径，宁可少一道兜底也不误杀）。
+   */
+  private _lastRealPromptTokens: number = 0;
   /** A6（2026-09-04）：进行中的检查点落盘 Promise（finalize 同步触发，宿主退出可 await） */
   private _pendingCheckpointFlush: Promise<void> | null = null;
   /** 上一轮工具执行是否有错误/空结果 — 用于防止静默完成 */
@@ -427,6 +434,8 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
         config.maxTurns ??
         (parseInt(configManager.env('MAX_TAOR_TURNS') || '') || 300),
       maxConsecutiveInvalidTurns: 0,
+      // 可诊断性（2026-09-26）：预算相关日志需能对到会话
+      sessionId: config.sessionId,
       // 下沉（2026-09-01）：steering 队列由骨架统一管理（构造 + queueSteering + onSteering）
       steeringMessages: config.steeringMessages ?? [],
     });
@@ -451,16 +460,28 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
       steeringMessages: config.steeringMessages ?? [],
     };
     const model = this.taorConfig.budgetConfig.modelName || 'default';
+    // 2026-09-26 已修（与流式路径**同批**；两处口径缺一不可）：
+    //  ① 量纲：`_observeRound` 现记 provider **真实** `prompt_tokens`（原用 `_estimateTokens`
+    //     估算，实测可高估 6× ⇒ 92% 阈值必然误杀长任务）；
+    //  ② 窗口：total 原取**价格表**（`getDefaultTokenBudget`，实测 200,000），与
+    //     `UnifiedTokenTracker` 的 `resolveContextWindow`（实测 128,000）不一致 ⇒ 阈值线失准。
+    // ⚠️ 若将来只回退其一：**只改窗口**会让阈值线从 184k 降到 118k，在估算未修时只会放大误杀。
     const defaultBudget = getDefaultTokenBudget(model);
+    const windowTokens = resolveContextWindow(model).tokens;
+    // 用户显式配置优先（`budgetConfig.maxTokens`）；否则取与 unified **同源**的真实窗口。
+    const totalTokens =
+      this.taorConfig.budgetConfig.maxTokens ||
+      (Number.isFinite(windowTokens) && windowTokens > 0
+        ? windowTokens
+        : defaultBudget.total);
     this.tokenBudget = new TokenBudgetController(
       model,
       {
-        total: this.taorConfig.budgetConfig.maxTokens || defaultBudget.total,
-        remaining:
-          this.taorConfig.budgetConfig.maxTokens || defaultBudget.remaining,
+        total: totalTokens,
+        remaining: totalTokens,
         maxOutputTokens: this.taorConfig.budgetConfig.maxOutputTokens,
       },
-      this.taorConfig.budgetConfig.maxTokens || defaultBudget.total
+      totalTokens
     );
     this.stopHookManager = new StopHookManager();
     this.abortController = new AbortController();
@@ -941,9 +962,16 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
     }
     for (const tc of calls) {
       const args = tc.input as Record<string, unknown>;
-      const filePath = (args.path ?? args.filePath ?? args.directory) as
-        | string
-        | undefined;
+      // 2026-09-26（漂移家族第 ② 处的**调用链一半**）：原写法只认 `path` / `filePath` / `directory`，
+      // 而本仓真实入参键是 `file_path`（file_read/file_write/file_edit）、`notebook_path`（notebook）、
+      // `searchPath`（grep/file_search）⇒ 即便清单名已修正，`checkBeforeAccess()` 也**从未被调用**
+      // （fail-open：漏检不误检）。现按各工具 `params` 声明补齐。
+      const filePath = (args.file_path ??
+        args.notebook_path ??
+        args.path ??
+        args.searchPath ??
+        args.filePath ??
+        args.directory) as string | undefined;
       if (filePath) {
         const ioCheck = this.fileIOLoopDetector.checkBeforeAccess(
           tc.name,
@@ -1351,15 +1379,29 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
   private async _observeRound(): Promise<void> {
     if (this.messages.length === 0) return;
     // A1（2026-09-04）：增量记账——只对本轮新增 token 入账，替代"每轮全量 messages 入账"
-    // 的超线性膨胀（O(turns×context)）。基线随 messages 同步更新；compact 替换 messages
-    // 后估算回落 → 基线降至当前值，已压缩掉的 token 不再重复入账。
-    const estimatedTokens = this._estimateTokens(this.messages);
-    if (estimatedTokens > this._lastBudgetedTokens) {
-      this.tokenBudget.consumeTokens(
-        estimatedTokens - this._lastBudgetedTokens
-      );
+    // 的超线性膨胀（O(turns×context)）。基线随 messages 同步更新。
+    // 2026-09-26 修复（与 `createStreamBudget` 同源）：**对称记账** —— compact 替换 messages
+    // 后估算回落时**退款**该差额，使 `spent` = **当前占用**而非累计增长。
+    // 原口径"已压缩掉的 token 不再重复入账"虽避免了膨胀，但同时使累计量**单向**逼近
+    // `UNIFIED_THRESHOLDS.CRITICAL`(0.92) ⇒ 长任务必然被 `budget_exhausted` 硬停
+    // （实测流式路径 72/200 即触发），与 compaction"压缩后继续"的目的矛盾。
+    // 2026-09-26 修复（与流式路径**同批**）：改为**用 provider 真实输入量**记账 ——
+    // 原实现用 `_estimateTokens`（= `estimateMessagesTokens`），实测与真实值可差 6× 以上
+    // （同一轮：真实 29,143 vs 估算 185,195），据此判 92% 阈值**必然误杀长任务**。
+    // 无真实用量（`0`）⇒ **不记账**（fail-open）。窗口同批改为 `resolveContextWindow`（见构造处）。
+    const chargedTokens = this._lastRealPromptTokens;
+    if (chargedTokens > 0) {
+      if (chargedTokens > this._lastBudgetedTokens) {
+        this.tokenBudget.consumeTokens(
+          chargedTokens - this._lastBudgetedTokens
+        );
+      } else if (chargedTokens < this._lastBudgetedTokens) {
+        this.tokenBudget.releaseTokens(
+          this._lastBudgetedTokens - chargedTokens
+        );
+      }
+      this._lastBudgetedTokens = chargedTokens;
     }
-    this._lastBudgetedTokens = estimatedTokens;
     const currentBudgetState = this.tokenBudget.getCurrentBudgetState();
     if (
       currentBudgetState.status === TokenBudgetStatus.WARNING ||
@@ -1538,6 +1580,8 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
     Record<string, unknown>
   > {
     const chunks: Array<Record<string, unknown>> = [];
+    // 每轮重置：本轮若拿不到真实用量，就不应为预算记账（避免复用上一轮的值）
+    this._lastRealPromptTokens = 0;
     for await (const chunk of this.deps.callModel(
       this.messages,
       this.abortController.signal,
@@ -1547,6 +1591,19 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
         : undefined
     )) {
       chunks.push(chunk);
+      // 2026-09-26（预算量纲修复·batch 侧）：捕获**真实**输入量。
+      // 适配器把 `usage` 放在 `{type:'text'}` 块上，而**末块是 `{type:'done'}`（不带 usage）**
+      // ⇒ 下面只 `...lastChunk` 时 usage 会被丢掉，这正是此前预算只能退回用估算的原因。
+      const chunkUsage = (chunk as { usage?: { prompt_tokens?: number } })
+        .usage;
+      const promptTokens = chunkUsage?.prompt_tokens;
+      if (
+        typeof promptTokens === 'number' &&
+        Number.isFinite(promptTokens) &&
+        promptTokens > 0
+      ) {
+        this._lastRealPromptTokens = promptTokens;
+      }
       if (typeof chunk?.content === 'string' && chunk.content) {
         yield { type: 'reasoning_delta', text: chunk.content };
       }
@@ -1580,13 +1637,6 @@ export class TAORLoop extends ReActLoop<TAORInput, unknown, TAORLoopResult> {
       });
       this.messages = projected.messages;
     }
-  }
-
-  /**
-   * Token 估算：使用 estimateMessagesTokens（tiktoken + CJK + role overhead）
-   */
-  private _estimateTokens(messages: ChatMessage[]): number {
-    return estimateMessagesTokens(messages);
   }
 
   /**

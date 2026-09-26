@@ -63,6 +63,7 @@ import {
   // P2-7（2026-09-25）：恢复编排（端口注入；`chat → session` 依赖方向合法，无环）
   RecoveryOrchestrator,
   getLineageSize,
+  rebuildSessionLineage,
   type SessionSummaryRecord,
   type RecoveryReport,
   type YieldRecoveryStats,
@@ -76,7 +77,7 @@ import {
 } from '@modules/memory';
 import { dedupeToolCallBlocks } from '@modules/chat/utils/chatBlocks';
 import { extractPendingToolCallsFromEvents } from './utils/pendingToolCalls.js';
-import type { LiriEvent } from '@modules/chat/types/events';
+import type { LiriEvent, LiriEventData } from '@modules/chat/types/events';
 // TR-14 / TR-12-A（2026-09-22）：`metric/timing` 事件载荷构造（纯函数，可单测）
 import {
   buildAssistantTimingData,
@@ -351,6 +352,25 @@ import type { FileOperation, FileChange } from '@modules/security';
 import { FILE_WRITE_TOOL_NAME, FILE_EDIT_TOOL_NAME } from '@modules/constants';
 import { taskRegistry } from '@modules/tasks';
 import { taskOrchestrator } from '@modules/tasks';
+
+/**
+ * 崩溃恢复重算 `totalMessages` 是否应**落盘**？（纯判据，2026-09-26）
+ *
+ * 落盘目的是修正"崩溃前残留在 `metadata` 里的旧计数"。可修正的前提是**本次确实读到了消息**：
+ * 去重后为空时，无法区分"会话本就无消息"与"`messages.jsonl` 已丢失"，落盘只会把丢失
+ * 固化成 `totalMessages: 0` 并掩盖真相；而旧实现还会借 `persistSession` 的
+ * `mkdir(recursive)` 把**已被软删的会话目录重建**出来 ⇒ 与 K-6 自愈构成无终止循环
+ * （实测单会话被删 **533 次**、`.trash` 累积 **7002 项**）。
+ *
+ * @param previous 磁盘上残存的旧计数（可为 undefined）
+ * @param recalculated 本次去重后的真实条数
+ */
+export function shouldPersistRecalculatedTotal(
+  previous: number | undefined,
+  recalculated: number
+): boolean {
+  return recalculated > 0 && previous !== recalculated;
+}
 
 /**
  * 聊天管理器实现
@@ -2975,26 +2995,47 @@ export class ChatManagerImpl implements ChatManager {
           // 可能停留在崩溃前旧值（仅写内存则每次重启都重算）；与去重后实际消息数
           // 不一致时经 sessionGateway.updateSession 回写磁盘（注意：updateSession
           // 内部会把 updatedAt 置为当前时间，此为一次性数据修复的已知副作用）。
+          //
+          // ①-1b（2026-09-26，`.trash` 高速累积根因）：**重算结果为空时不再落盘**——
+          // 消息文件丢失时 dedupedMessages 恒为 []，落盘只会把"文件已丢失"固化成
+          // `totalMessages: 0` 并掩盖真相（旧实现还会借 mkdir 把已软删目录重建 ⇒ 与
+          // K-6 自愈构成无终止循环）。判据见纯函数 shouldPersistRecalculatedTotal。
           if (stored.metadata?.totalMessages !== dedupedMessages.length) {
-            try {
-              await this.sessionGateway.updateSession({
-                ...stored,
-                metadata: {
-                  ...stored.metadata,
-                  totalMessages: dedupedMessages.length,
-                },
-              });
-              logger.info('chat:manager 崩溃恢复重算 totalMessages 落盘', {
-                sessionId: stored.id,
-                before: stored.metadata?.totalMessages,
-                after: dedupedMessages.length,
-              });
-            } catch (err) {
+            if (
+              shouldPersistRecalculatedTotal(
+                stored.metadata?.totalMessages,
+                dedupedMessages.length
+              )
+            ) {
+              try {
+                await this.sessionGateway.updateSession({
+                  ...stored,
+                  metadata: {
+                    ...stored.metadata,
+                    totalMessages: dedupedMessages.length,
+                  },
+                });
+                logger.info('chat:manager 崩溃恢复重算 totalMessages 落盘', {
+                  sessionId: stored.id,
+                  before: stored.metadata?.totalMessages,
+                  after: dedupedMessages.length,
+                });
+              } catch (err) {
+                logger.warn(
+                  'chat:manager totalMessages 回写失败（不影响本次加载）',
+                  {
+                    sessionId: stored.id,
+                    error: err instanceof Error ? err.message : String(err),
+                  }
+                );
+              }
+            } else {
               logger.warn(
-                'chat:manager totalMessages 回写失败（不影响本次加载）',
+                'chat:manager 崩溃恢复重算结果为空,跳过落盘（疑消息文件丢失,避免固化为 0）',
                 {
                   sessionId: stored.id,
-                  error: err instanceof Error ? err.message : String(err),
+                  before: stored.metadata?.totalMessages,
+                  after: dedupedMessages.length,
                 }
               );
             }
@@ -4751,6 +4792,31 @@ export class ChatManagerImpl implements ChatManager {
   }
 
   /**
+   * P1-3（2026-09-26）：doc_pipeline 四阶段进度 → 聊天正文内嵌卡片。
+   *
+   * 把逐阶段进度以 assistant/doc_workflow 富块事件持久化，经 EventMessageDeriver
+   * 派生为当前 assistant 消息的 doc_workflow 块（前端 DocWorkflowProgress 渲染
+   * 三阶段进度条）。与 _persistPdcaSnapshot 同法：seq 由 tailSeq 分配、写入走
+   * **唯一入口** appendStreamEvent（不绕过事件写入链路与 seq 分配）。
+   *
+   * 调用方：office:doc-pipeline 工具在 seam 的 onProgress 回调中调用。
+   * 落盘失败不抛错（appendStreamEvent 内部已 try/catch，CS03）⇒ 不阻断流水线。
+   */
+  async persistDocWorkflowProgress(
+    sessionId: string,
+    data: LiriEventData<'assistant/doc_workflow'>
+  ): Promise<void> {
+    const ts = await this.getStreamTailSeq(sessionId);
+    await this.appendStreamEvent(sessionId, {
+      type: 'assistant/doc_workflow',
+      seq: ts + 1,
+      time: Date.now(),
+      sessionId,
+      data,
+    });
+  }
+
+  /**
    * P0: 自动建项目 — 检测到 goal + deliverables 时静默创建项目
    * P0-1（2026-09-06）：返回值由 void 改为 projectId（成功新建/关联）或 null（失败）——
    * 供调用方 await 后同轮串联 launch（消除"首轮只建不 launch"时序互斥）。
@@ -4968,7 +5034,23 @@ export class ChatManagerImpl implements ChatManager {
       sessionCrash: { recover: () => gateway.recoverAfterCrash() },
       sessionState: { rebuild: (o) => gateway.rebuildDerivedState(o) },
       yieldRecovery: { bootstrap: () => this.bootstrapYieldRecovery() },
-      lineage: { describe: () => ({ size: getLineageSize() }) },
+      lineage: {
+        describe: () => ({ size: getLineageSize() }),
+        // P3-1（2026-09-26，裁定 A）：**启动期从盘重建血缘** —— 数据源 = 会话 `metadata.parentSessionId`
+        //（由 fork 写入，已有持久化）。⚠️ 必须 `includeTemporary: true`：血缘判定与"是否显示在
+        //  历史列表"无关，漏掉 temporary 会让这些会话重启后失去祖先链（静默的部分失效）。
+        rebuild: async () => {
+          const sessions = await gateway.listSessions({
+            includeTemporary: true,
+          });
+          return rebuildSessionLineage(
+            sessions.map((session) => ({
+              id: session.id,
+              parentSessionId: session.metadata?.parentSessionId ?? null,
+            }))
+          );
+        },
+      },
     });
     return orchestrator.bootstrap(opts);
   }

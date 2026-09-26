@@ -201,18 +201,31 @@ export { IDLE_SUGGESTION_SPECULATION_STATE as IDLE_SPECULATION_STATE } from '@mo
 export const MAX_SPECULATION_TURNS = 20;
 export const MAX_SPECULATION_MESSAGES = 100;
 
-export const WRITE_TOOLS = new Set([
-  'Edit',
-  'Write',
-  'NotebookEdit',
-  'notebook',
-]);
+/**
+ * 推测执行**不得预跑**的写类工具（语义 = 推测执行的安全边界）。
+ *
+ * **取值共享**自 `query/tool-constants.ts`（本仓工具真实名的事实来源），本处不再写死字面量。
+ * 裁定①（2026-09-26 用户裁定）：本清单与 `tools/orchestration` 的"必须串行"、
+ * `query/tool-constants` 的"文件 IO 读写"**语义不同 ⇒ 不硬并**，但**共享取值 + 各自命名**。
+ *
+ * 历史（2026-09-26 修复 P3-2 顺查项③）：原清单为 CC 名 `Edit`/`Write`/`NotebookEdit` ⇒ 本仓恒不命中；
+ * 且本仓无 `NotebookEdit`，其真实对应是 `notebook`（已含于共享清单）。
+ */
+export { WRITE_TOOLS as SPECULATION_WRITE_TOOLS } from '@modules/query/tool-constants.js';
+
+/**
+ * 安全只读工具（同上修复）。
+ *
+ * 映射依据 = 真实名：`file_read` / `glob` / `grep` / `lsp` / `file_search` / `view_tasks` / `get_task_list`。
+ * ⚠️ 原清单里的 `ToolSearch` / `TaskGet` / `TaskList` **在本仓不存在**：分别取最接近的真实只读工具
+ * （`file_search`、`view_tasks`、`get_task_list`）；这是**语义近似**，已在台账注明。
+ */
 export const SAFE_READ_ONLY_TOOLS = new Set([
-  'Read',
-  'Glob',
-  'Grep',
-  'ToolSearch',
-  'LSP',
-  'TaskGet',
-  'TaskList',
+  'file_read',
+  'glob',
+  'grep',
+  'file_search',
+  'lsp',
+  'view_tasks',
+  'get_task_list',
 ]);

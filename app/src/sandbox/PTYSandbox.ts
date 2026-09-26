@@ -10,13 +10,17 @@ import type {
 } from './SandboxTypes';
 import { getLogger } from '@modules/monitoring';
 import { spawn, type ChildProcess } from 'child_process';
+import { appendWithinLimit, resolveOutputLimit } from './SandboxPolicy';
 
 const logger = getLogger('sandbox:pTYSandbox');
 
 export interface PTYSandboxConfig {
   shell: string;
   timeoutMs: number;
-  maxOutputBytes: number;
+  /**
+   * **软**输出上限。**不传**时取 `SandboxPolicy` 的**唯一来源**（B1：后端不另设默认值）。
+   */
+  maxOutputBytes?: number;
   cwd: string;
   env: Record<string, string>;
 }
@@ -24,7 +28,7 @@ export interface PTYSandboxConfig {
 const DEFAULT_PTY_CONFIG: PTYSandboxConfig = {
   shell: process.platform === 'win32' ? 'powershell.exe' : '/bin/bash',
   timeoutMs: 300000,
-  maxOutputBytes: 1024 * 1024,
+  // B1（2026-09-26）：删掉就地的 `maxOutputBytes: 1024*1024` —— 改由 resolveOutputLimit 取唯一来源
   cwd: process.cwd(),
   env: {},
 };
@@ -70,27 +74,38 @@ export class PTYSandbox {
         }, 5000);
       }, options.timeout || this.config.timeoutMs);
 
-      const maxBytes = this.config.maxOutputBytes;
+      // B1：软上限经**唯一来源**解析；同时统计被丢弃的字节数（供结果程序化上报）
+      const { soft: maxBytes } = resolveOutputLimit({
+        soft: this.config.maxOutputBytes,
+      });
+      let droppedBytes = 0;
 
+      // B1：逐块**按剩余量切片**（旧写法"未超限就整块追加"会突破上限且不可确定性判定）
       child.stdout?.on('data', (data: Buffer) => {
-        if (stdout.length < maxBytes) {
-          stdout += data.toString('utf-8');
-        }
+        const step = appendWithinLimit(
+          stdout,
+          data.toString('utf-8'),
+          maxBytes
+        );
+        stdout = step.text;
+        droppedBytes += step.droppedBytes;
       });
 
       child.stderr?.on('data', (data: Buffer) => {
-        if (stderr.length < maxBytes) {
-          stderr += data.toString('utf-8');
-        }
+        const step = appendWithinLimit(
+          stderr,
+          data.toString('utf-8'),
+          maxBytes
+        );
+        stderr = step.text;
+        droppedBytes += step.droppedBytes;
       });
 
       child.on('close', (code: number | null, signal: string | null) => {
         clearTimeout(timeout);
         this.processes.delete(procId);
 
-        const durationMs = Date.now() - startTime;
-        const truncated =
-          stdout.length >= maxBytes || stderr.length >= maxBytes;
+        const truncated = droppedBytes > 0;
 
         resolve({
           exitCode: code ?? (signal ? 1 : 0),
@@ -100,6 +115,9 @@ export class PTYSandbox {
           stderr: truncated ? stderr.slice(0, maxBytes) : stderr,
           executionTime: Date.now() - startTime,
           success: !timedOut && code === 0,
+          // B1（③）：此前 `truncated` 只写进 stdout 文案，调用方无法程序化判断
+          truncated,
+          truncatedBytes: droppedBytes,
         });
       });
 

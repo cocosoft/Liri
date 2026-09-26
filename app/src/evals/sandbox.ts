@@ -45,6 +45,7 @@ import { copyFileSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { ENV_SHIELDED_PATHS } from '../tools/pathShield';
 
 export interface EvalSandbox {
   /** 临时根（本次评测全部产物） */
@@ -61,6 +62,13 @@ export interface EvalSandbox {
   logFile: string;
   /** 是否带入了真实凭据文件（决定能否真正调用模型） */
   hasCredentials: boolean;
+  /**
+   * 实际注入沙箱的**路径屏蔽清单**（A7 防泄题）。
+   *
+   * 调用方应据此做 **fail-closed 校验**：任务声明了题源路径却没出现在这里 ⇒ 该次运行会泄题，
+   * 必须拒绝运行（见 `evals/shieldPlan.ts` 的 `verifyShieldApplied`）。
+   */
+  shieldedPaths: string[];
   stop: () => Promise<void>;
 }
 
@@ -179,6 +187,14 @@ export async function createSandbox(opts: {
    * 其"配置态"与用户真实行为不一致，验证结论会失真。
    */
   configOverrides?: Record<string, unknown>;
+  /**
+   * A7 防泄题：**题源路径屏蔽清单**（可选）。
+   *
+   * 为非空时，以 `PERMISSION_SHIELDED_PATHS`（JSON 字符串数组）注入 daemon 环境变量 ⇒
+   * `ToolRegistry.executeTool` 在分派前拒绝一切引用这些路径的工具调用（含其直接父目录）。
+   * 缺省 / 空数组 ⇒ **不设该环境变量**（零行为，普通运行不受影响）。
+   */
+  shieldedPaths?: string[];
 }): Promise<EvalSandbox> {
   const root = mkdtempSync(join(tmpdir(), 'liri-eval-'));
   const home = join(root, 'home');
@@ -244,6 +260,14 @@ export async function createSandbox(opts: {
   logStream.write(`[sandbox] runtime=${runtimeBin}\n`);
 
   const spawnErrorRef: { current?: Error } = {};
+  const shieldedPaths = (opts.shieldedPaths ?? []).filter(
+    (p) => p.trim().length > 0
+  );
+  if (shieldedPaths.length > 0) {
+    logStream.write(
+      `[sandbox] 路径屏蔽（防泄题）=${shieldedPaths.length} 条\n`
+    );
+  }
   const child = spawn(
     runtimeBin,
     ['run', 'src/main.ts', 'daemon', `--http-port=${port}`],
@@ -255,6 +279,10 @@ export async function createSandbox(opts: {
         LIRI_DATA_DIR: dataDir,
         LIRI_PROJECT_DIR: opts.repoRoot,
         PORT: String(port),
+        // A7 防泄题：仅在非空时注入（不改变未启用屏蔽时的行为）
+        ...(shieldedPaths.length > 0
+          ? { [ENV_SHIELDED_PATHS]: JSON.stringify(shieldedPaths) }
+          : {}),
       },
       stdio: ['ignore', 'pipe', 'pipe'],
     }
@@ -301,6 +329,7 @@ export async function createSandbox(opts: {
     baseUrl,
     logFile,
     hasCredentials,
+    shieldedPaths,
     stop,
   };
 }

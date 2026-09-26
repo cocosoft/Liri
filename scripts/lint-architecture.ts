@@ -840,7 +840,9 @@ class ArchitectureLinter {
       'PipelineContext',
       'RestoreResult',
       'SyncResult',
-      'WRITE_TOOLS',
+      // 'WRITE_TOOLS'（2026-09-26 移除本豁免）：原为**三处同名不同值**（`promptSuggestion` /
+      // `tools/orchestration` / `query/tool-constants`）而豁免；裁定①改为「共享取值 + 各自命名」
+      // 后仅剩 `query/tool-constants` 一处导出，同名冲突已不存在 ⇒ 豁免项删除。
       'VoiceState',
       'TaskQueue',
       'LanguagePack',
@@ -2069,6 +2071,12 @@ class ArchitectureLinter {
       // `modules/workflow/WorkflowEngine` 已依赖 `@modules/tasks`，若改走 core 桶将把整条
       // core 链路引入工作流路径、增加求值闭环风险。图内核是独立纯模块 ⇒ 子入口直连更精确。
       'core/systemgraph',
+      // 循环安全子入口（2026-09-26）：`query/tool-constants` 是**零跨模块 import 的叶子**
+      // （只导出工具名 `Set` 字面量），而 `promptSuggestion/types.ts` 与
+      // `tools/orchestration/types.ts` 需要其"文件读写工具真实名"取值（裁定①：共享取值 + 各自命名）。
+      // 若改走 `@modules/query` 桶，会把 TAORLoop / PathGuard / FileIOLoopDetector 整条 query 模块面
+      // 拉进推测执行与工具编排路径，徒增求值闭环（TDZ）风险 ⇒ 与 `tasks/goal`、`ai/router` 同理。
+      'query/tool-constants',
     ]);
 
     // 目标模块无 index.ts（无统一出口）→ 子路径导入是唯一方式，非违规（2026-08-29）

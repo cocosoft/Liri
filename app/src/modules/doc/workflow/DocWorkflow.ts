@@ -416,93 +416,18 @@ export interface RunDocWorkflowOptions {
   confirmOutline?: (outline: DocOutline) => Promise<boolean>;
 }
 
-/**
- * 全流程编排：大纲 → 内容填充+配图 → 成稿
- * 封装三阶段进度推送，调用方注入各阶段回调
- */
-export async function runDocWorkflow(
-  input: BuildOutlineInput,
-  llmNodes: DocOutlineNode[],
-  opts: RunDocWorkflowOptions
-): Promise<ComposeResult> {
-  const emitter = new DocWorkflowProgressEmitter(input.topic, input.format);
-
-  // 阶段①：大纲整理
-  emitter.setStage('outline', 'in_progress', '正在生成大纲');
-  emitter.emit(opts.onProgress);
-
-  const outline = buildOutline(input, llmNodes);
-
-  emitter.setStage('outline', 'awaiting_confirm', '大纲已生成，等待确认');
-  emitter.emit(opts.onProgress);
-
-  if (opts.confirmOutline) {
-    const confirmed = await opts.confirmOutline(outline);
-    if (!confirmed) {
-      emitter.setStage('outline', 'failed', '用户取消');
-      emitter.emit(opts.onProgress);
-      throw new Error('用户取消大纲');
-    }
-  }
-  emitter.setStage('outline', 'completed');
-  emitter.emit(opts.onProgress);
-
-  // 阶段②：内容填充
-  emitter.setStage('filling', 'in_progress', '正在填充内容');
-  emitter.setNodes(
-    'filling',
-    outline.nodes.map((n) => ({
-      id: n.id,
-      title: n.title,
-      status: 'pending' as const,
-      hasImage: !!n.imageHint,
-    }))
-  );
-  emitter.emit(opts.onProgress);
-
-  const totalNodes = outline.nodes.length;
-  let filledCount = 0;
-  const filled = await fillContent(
-    outline,
-    async (node) => {
-      const content = await opts.fillNode(node);
-      filledCount++;
-      emitter.setProgress(
-        'filling',
-        Math.round((filledCount / totalNodes) * 100)
-      );
-      emitter.emit(opts.onProgress);
-      return content;
-    },
-    { concurrency: opts.fillConcurrency }
-  );
-
-  // 阶段②辅助：图片生成
-  await generateImages(filled, {
-    generateImage: opts.generateImage,
-    concurrency: opts.imageConcurrency,
-  });
-
-  emitter.setStage('filling', 'completed', '内容填充完成');
-  emitter.emit(opts.onProgress);
-
-  // 阶段③：成稿
-  emitter.setStage('compose', 'in_progress', '正在生成文档');
-  emitter.emit(opts.onProgress);
-
-  try {
-    const result = await compose(filled, opts.generateDoc);
-    emitter.setOutputFile(result.filePath);
-    emitter.setStage('compose', 'completed', '文档生成完成');
-    emitter.emit(opts.onProgress);
-    return result;
-  } catch (err) {
-    emitter.setStage('compose', 'failed', '文档生成失败');
-    emitter.setError(String(err));
-    emitter.emit(opts.onProgress);
-    throw err;
-  }
-}
+// ─── 收口说明（方案 3 / 2026-09-26，原 TODO CS05-ROOTFIX 已结） ─────────────
+// 原 `runDocWorkflow(input, llmNodes, opts)` 已**删除**：它与 `DocWorkflowProvider`
+// 各自持有一份相同的四阶段序列（Provider 头注释所称的"临时双轨"）。收口后由
+// **Provider 独占序列**，进度亦由 Provider 复用本文件的 `DocWorkflowProgressEmitter`
+// 在阶段边界推进（**含节点清单 + 逐节点百分比，与删除前同等保真度**）。
+//
+// 对外调用路径：`office:doc-pipeline` 工具 → workflow seam
+// （`getWorkflowEngine().execute('doc_pipeline', params, ...)`）。
+// 保留 `RunDocWorkflowOptions`：它是 seam 参数 `DocPipelineParams` 的回调类型来源。
+//
+// 删除前已核实：全仓 `grep runDocWorkflow` 仅命中本文件定义、`modules/doc/index.ts`
+// 的 barrel 再导出（同批移除）与若干注释；`app/tests/**` **零命中**（无测试覆盖）。
 
 // ─── 增量更新（v0.4 §4.4） ────────────────────────────
 

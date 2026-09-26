@@ -19,6 +19,9 @@ import { DocModuleStatus as Status } from './types';
 import type { Tool } from '@modules/tools/types/Tool';
 import { ToolExecutionStatus } from '@modules/tools/types/ToolResult';
 
+// P1-3（2026-09-26）：office:doc-pipeline 接线（实现已拆至子目录，见 R04-001）
+import { createDocPipelineTool } from './pipeline/DocPipelineTool';
+
 import {
   detectOfficeCLI,
   buildOfficeCLIMcpConfig,
@@ -243,6 +246,8 @@ export class DocModule {
     });
 
     globalToolManager.registerTool(this.createWorkflowTool());
+    // P1-3（2026-09-26）：doc_pipeline 的生产调用方（此前全链无生产者）
+    globalToolManager.registerTool(this.createPipelineTool());
     logger.info('编排器已激活 — office:workflow 工具已注册', {
       workflows: DocOrchestrator.getAvailableWorkflows(),
     });
@@ -268,6 +273,16 @@ export class DocModule {
         workflow: DOC_PIPELINE_WORKFLOW,
       });
     }
+  }
+
+  /**
+   * 创建 `office:doc-pipeline` 工具（P1-3 接线）
+   *
+   * 实现已拆至 `./pipeline/DocPipelineTool.ts`（R04-001：本文件原因此超 1000 行上限）。
+   * 四个阶段与进度发射由 `DocWorkflowProvider` 独占（方案 3 收口"临时双轨"）。
+   */
+  private createPipelineTool(): Tool {
+    return createDocPipelineTool();
   }
 
   /**

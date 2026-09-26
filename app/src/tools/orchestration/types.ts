@@ -23,6 +23,7 @@
  */
 
 import type { ToolUseBlock } from '@modules/chat/types/ToolUseBlock';
+import { WRITE_TOOLS as SHARED_FILE_WRITE_TOOLS } from '@modules/query/tool-constants.js';
 
 /**
  * 工具调用分区
@@ -57,47 +58,40 @@ export type ContextModifier = {
 /**
  * 只读工具集合
  * 这些工具可以安全并发执行
+ *
+ * 2026-09-26（P3-2 顺查项③ 第 5 处，运行时判据坐实后修复）：
+ * 原清单沿用**外部（CC）命名**（`Read`/`Glob`/`Grep`/`ToolSearch`/`TaskGet`…），
+ * 而消费点 [Partitioner.ts:35](Partitioner.ts) 传入的 `block.name` 是**模型调用名** ——
+ * 本仓即**真实注册名**（`file_read`/`grep`/`glob`…）⇒ 原清单**永不命中**，
+ * `isReadOnlyTool()` 恒 false ⇒ 只读工具永不被判为"可并发"（并发分区实质失效）。
+ * 现改为真实注册名（判据来自各工具类的 `name`，并由
+ * `tests/tools/orchestration/toolCallPartitionerToolNames.test.ts` 守卫）。
  */
 export const READ_ONLY_TOOLS = new Set([
-  'Read',
-  'Glob',
-  'Grep',
-  'WebSearch',
-  'WebFetch',
-  'ListMcpResources',
-  'ReadMcpResource',
-  'ToolSearch',
-  'TaskGet',
-  'TaskList',
-  'Time',
+  'file_read',
+  'glob',
+  'grep',
+  'file_search',
+  'lsp',
+  'view_tasks',
+  'get_task_list',
 ]);
 
 /**
- * 写入工具集合
- * 这些工具必须串行执行
+ * 必须**串行执行**的工具集合（并发分区用：这些工具之间不得并行）。
+ *
+ * 取值 = **共享的文件写类清单** ∪ {`bash`}：`bash` 无"按文件读写"语义（故不在共享清单内），
+ * 但它会改动工作区状态 ⇒ 绝不能与其他调用并发。
+ *
+ * 裁定①（2026-09-26 用户裁定）：本集合与 `query/tool-constants` 的"文件 IO 写类"、
+ * `promptSuggestion` 的"推测执行写类"**语义不同 ⇒ 不硬并**，只**共享取值 + 各自命名**。
  */
-export const WRITE_TOOLS = new Set([
-  'Write',
-  'Edit',
-  'Bash',
-  'PowerShell',
-  'TaskCreate',
-  'TaskUpdate',
-  'TaskStop',
-  'Skill',
-  'Agent',
-  'TodoWrite',
-]);
+export const SERIALIZING_TOOLS = new Set([...SHARED_FILE_WRITE_TOOLS, 'bash']);
 
 /**
  * 搜索工具集合
  */
-export const SEARCH_TOOLS = new Set([
-  'Grep',
-  'Glob',
-  'WebSearch',
-  'ToolSearch',
-]);
+export const SEARCH_TOOLS = new Set(['grep', 'glob', 'file_search']);
 
 /**
  * 判断是否为只读工具
@@ -109,12 +103,15 @@ export function isReadOnlyTool(toolName: string): boolean {
 }
 
 /**
- * 判断是否为写入工具
+ * 判断该工具是否**必须串行执行**（即不得与其他工具调用并发）。
+ *
+ * 命名说明：原为 `isWriteTool`，但集合含 `bash`（并非文件写工具）⇒ 旧名与语义不符；
+ * 2026-09-26（裁定①）随集合改名一并更正为语义名。
  * @param toolName 工具名称
- * @returns 是否为写入工具
+ * @returns 是否需要串行（true = 不可并发）
  */
-export function isWriteTool(toolName: string): boolean {
-  return WRITE_TOOLS.has(toolName);
+export function needsSerialExecution(toolName: string): boolean {
+  return SERIALIZING_TOOLS.has(toolName);
 }
 
 /**

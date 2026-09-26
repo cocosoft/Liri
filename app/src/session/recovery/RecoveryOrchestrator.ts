@@ -2,9 +2,9 @@
  * 恢复编排层（P2-7 / 2026-09-25）
  *
  * 背景：本仓的"恢复/重建"曾是**三套彼此不知情**的机制 —— yield 回放由启动序列单独装配、
- * session 崩溃恢复内联在（**懒调用**的）`SessionGateway.initialize()` 内、lineage 完全不重建
- * ⇒ 时机不对称（用户不触发会话路径则崩溃会话永不恢复），且无人能回答"本次启动重建了什么、
- * 失败了几项"（`CrashRecoveryResult` 的结构化信息被各调用点丢成一行日志）。
+ * session 崩溃恢复内联在（**懒调用**的）`SessionGateway.initialize()` 内、lineage **当时完全不重建**
+ * （P3-1 后已改为**启动期从盘重建**，见 ④ 步骤）⇒ 时机不对称（用户不触发会话路径则崩溃会话永不恢复），
+ * 且无人能回答"本次启动重建了什么、失败了几项"（`CrashRecoveryResult` 的结构化信息被各调用点丢成一行日志）。
  *
  * 本层只做两件事：**固定顺序编排** + **聚合汇报**；不含任何策略 / 重试 / Schema。
  *
@@ -16,6 +16,10 @@
 
 import { getLogger } from '@modules/monitoring';
 import type { CrashRecoveryResult } from './CrashRecoveryManager';
+import type {
+  LineageRebuildDroppedEdge,
+  LineageRebuildStats,
+} from '../lineage/sessionLineage';
 
 const logger = getLogger('session:recovery:orchestrator');
 
@@ -52,8 +56,12 @@ export interface RecoveryPorts {
   };
   /** ③ yield 等待集重建 + 回放装配 */
   yieldRecovery: { bootstrap(): Promise<YieldRecoveryStats> };
-  /** ④ lineage 现状（本期只描述、不重建） */
-  lineage: { describe(): { size: number } };
+  /** ④ lineage：**启动期从盘重建**（P3-1 裁定 A）+ 现状描述 */
+  lineage: {
+    describe(): { size: number };
+    /** 从盘重建血缘链（幂等）；实现方负责取数（编排层不碰存储，维持 R06-008 无环） */
+    rebuild(): Promise<LineageRebuildStats>;
+  };
 }
 
 /** 编排报告 —— 本次启动"重建了什么 / 跳过什么 / 失败什么"的**聚合视图** */
@@ -69,14 +77,26 @@ export interface RecoveryReport {
   /** 未执行 ⇒ `null`（未执行原因见 `skipped`） */
   sessionState: SessionRebuildStats | null;
   yieldRecovery: YieldRecoveryStats | null;
-  lineage: { size: number; rebuilt: false; reason: string };
+  lineage: { size: number; rebuilt: boolean; reason: string };
   skipped: Array<{ step: string; reason: string }>;
   failures: Array<{ step: string; error: string }>;
 }
 
-/** 血缘不重建的原因（**设计声明**见 `session/lineage/sessionLineage.ts` 的失效边界注释） */
-const LINEAGE_NOT_REBUILT_REASON =
-  '进程内链，重启后 fail-closed（设计声明）：只覆盖本进程内观测到的 fork';
+/** ④ lineage **尚未执行**时的占位原因（执行后必被真实结果覆盖） */
+const LINEAGE_PENDING_REASON = '尚未执行血缘重建';
+
+/** 把净化丢弃的边压成"原因×条数"摘要（报告可读性；不逐一列出 id 以免报告膨胀） */
+function describeDropped(
+  dropped: readonly LineageRebuildDroppedEdge[]
+): string {
+  const byReason = new Map<string, number>();
+  for (const edge of dropped) {
+    byReason.set(edge.reason, (byReason.get(edge.reason) ?? 0) + 1);
+  }
+  return [...byReason.entries()]
+    .map(([reason, count]) => `${reason}×${count}`)
+    .join(', ');
+}
 
 function errText(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
@@ -112,7 +132,7 @@ export class RecoveryOrchestrator {
       sessionCrash: null,
       sessionState: null,
       yieldRecovery: null,
-      lineage: { size: 0, rebuilt: false, reason: LINEAGE_NOT_REBUILT_REASON },
+      lineage: { size: 0, rebuilt: false, reason: LINEAGE_PENDING_REASON },
       skipped: [],
       failures: [],
     };
@@ -153,19 +173,31 @@ export class RecoveryOrchestrator {
       report.failures.push({ step: 'yieldRecovery', error: errText(err) });
     }
 
-    // ④ lineage：只描述现状（本期不重建）
+    // ④ lineage：**从盘重建**（P3-1 裁定 A）
+    //    成功 ⇒ rebuilt=true 并带出"登记 N 条 / 丢弃 M 条（按原因计数）"；
+    //    失败 ⇒ **如实** rebuilt=false（行为回到"链为空 ⇒ 相关判定 fail-closed"），**不谎报已重建**。
     try {
-      const { size } = this.ports.lineage.describe();
+      const stats = await this.ports.lineage.rebuild();
+      report.lineage = {
+        size: stats.size,
+        rebuilt: true,
+        reason:
+          `已从盘重建：扫描 ${stats.scanned} 条会话 ⇒ 登记 ${stats.registered} 条边` +
+          (stats.dropped.length > 0
+            ? `；净化丢弃 ${stats.dropped.length} 条（${describeDropped(stats.dropped)}）`
+            : ''),
+      };
+    } catch (err) {
+      let size = 0;
+      try {
+        size = this.ports.lineage.describe().size;
+      } catch {
+        // @ignore-catch describe 仅用于报告规模；失败不掩盖主错误（主错误已记入 failures）
+      }
       report.lineage = {
         size,
         rebuilt: false,
-        reason: LINEAGE_NOT_REBUILT_REASON,
-      };
-    } catch (err) {
-      report.lineage = {
-        size: 0,
-        rebuilt: false,
-        reason: `describe 失败：${errText(err)}`,
+        reason: `重建失败：${errText(err)}（链为空 ⇒ 相关判定 fail-closed）`,
       };
       report.failures.push({ step: 'lineage', error: errText(err) });
     }
@@ -185,7 +217,7 @@ export class RecoveryOrchestrator {
           }
         : 'skipped',
       yieldRecovery: report.yieldRecovery,
-      lineage: { size: report.lineage.size, rebuilt: false },
+      lineage: { size: report.lineage.size, rebuilt: report.lineage.rebuilt },
     };
     if (report.failures.length > 0) {
       logger.warn('恢复编排部分失败', {

@@ -12,6 +12,7 @@ import type {
 } from '../SessionStorage';
 import { resolveSessionsDir } from '@modules/core';
 import { AtomicWriter } from '../persistence/AtomicWriter.js';
+import { renameToTrashWithRetry } from './trashRename';
 
 const logger = getLogger('session:storage');
 
@@ -347,7 +348,8 @@ export class FileSystemStorage implements SessionStorage {
         trashDir,
       });
       await fs.mkdir(dirname(trashDir), { recursive: true });
-      await fs.rename(sessionDir, trashDir);
+      // P2-3（2026-09-26）：与新链共用句柄竞争重试（Windows 上目录被在飞流占用时 rename 抛 EPERM）
+      await renameToTrashWithRetry(sessionDir, trashDir);
       logger.info('deleteSession:软删除完成', {
         sessionId,
         trashDir,

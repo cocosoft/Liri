@@ -128,7 +128,8 @@ describe('ReActToolLoop 终止语义（一期 O1-1 / O1-2）', () => {
     // 文案侧此前已有并列上报（F2-5）
     expect(String(final.content)).toContain('同时检测到工具调用循环');
     const meta =
-      (final as unknown as { metadata?: Record<string, unknown> }).metadata ?? {};
+      (final as unknown as { metadata?: Record<string, unknown> }).metadata ??
+      {};
     // 修复前：metadata 只有 finishReason='max_turns'，循环信号被吞 ⇒ 失败
     expect(meta.finishReason).toBe('max_turns');
     expect(meta.concurrentReasons).toEqual(['loop_detected']);
@@ -142,8 +143,14 @@ describe('ReActToolLoop 终止语义（一期 O1-1 / O1-2）', () => {
             content: '',
             stop_reason: 'tool_calls',
             // `.env` 命中 PathGuard 默认拒绝列表（**/.env）
+            // ⚠️ 必须用**真实注册名 + 真实参数名**（`file_read`/`file_path`）：原用例用漂移名
+            // `read_file`/`path`，与 PathGuard 的漂移清单"同频"⇒ 守卫实际已失效却仍绿灯（2026-09-26 修）。
             tool_calls: [
-              { id: 'tc1', name: 'read_file', arguments: { path: '.env' } },
+              {
+                id: 'tc1',
+                name: 'file_read',
+                arguments: { file_path: '.env' },
+              },
             ],
           }) as ChatResponse,
         () => ({ content: '（收尾）', stop_reason: 'stop' }) as ChatResponse,
@@ -162,7 +169,38 @@ describe('ReActToolLoop 终止语义（一期 O1-1 / O1-2）', () => {
     expect(content).not.toContain('工具调用循环');
 
     const meta =
-      (final as unknown as { metadata?: Record<string, unknown> }).metadata ?? {};
+      (final as unknown as { metadata?: Record<string, unknown> }).metadata ??
+      {};
     expect(meta.finishReason).toBe('guard_blocked');
+  });
+
+  it('⑤ PathGuard 写类判别：真实写工具走 checkWrite（锁文件只在**写**拒绝列表）', async () => {
+    const { ctx } = makeCtx({
+      llmSequence: [
+        () =>
+          ({
+            content: '',
+            stop_reason: 'tool_calls',
+            // `package-lock.json` 仅存在于 DEFAULT_DENY_WRITE_PATTERNS（**读**列表不含它）
+            // ⇒ 只有写类判定正确（走 checkWrite）才会被拦截。
+            tool_calls: [
+              {
+                id: 'tc1',
+                name: 'file_write',
+                arguments: { file_path: 'package-lock.json' },
+              },
+            ],
+          }) as ChatResponse,
+        () => ({ content: '（收尾）', stop_reason: 'stop' }) as ChatResponse,
+      ],
+    });
+    const loop = new ReActToolLoop(ctx, makeInput(), { maxIterations: 5 });
+    await drain(loop);
+
+    // 修复前：`file_write` 不在漂移清单里 ⇒ 取不到路径 + 判为非写 ⇒ 守卫放行 ⇒ 终止原因为 max_turns
+    expect(loop.getTerminationReason()).toBe('guard_blocked');
+    expect(String(loop.getAssistantMessage().content)).toContain(
+      '已拦截对受限路径的访问'
+    );
   });
 });

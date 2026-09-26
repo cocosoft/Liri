@@ -95,6 +95,8 @@ export async function runRpcChildProcess(
     let output: unknown;
     let structuredError: CodeRunResult['structuredError'];
     let killedByTimeout = false;
+    /** G1-A2：真实退出码（`exit` 事件带出；未退出即 settle 时为 null） */
+    let lastExitCode: number | null = null;
 
     const killTimer = setTimeout(() => {
       killedByTimeout = true;
@@ -114,6 +116,7 @@ export async function runRpcChildProcess(
         logs,
         toolCalls,
         durationMs: Date.now() - startedAt,
+        ...(lastExitCode !== null ? { exitCode: lastExitCode } : {}),
       });
     };
 
@@ -210,6 +213,8 @@ export async function runRpcChildProcess(
 
     // ─── 进程退出兜底 ───
     child.on('exit', (code) => {
+      // G1-A2：先记退出码 —— `settle` 会立即 resolve，必须在它之前落值
+      lastExitCode = code;
       if (settled) return;
       if (killedByTimeout) {
         settle('timeout', 'code runner timed out');

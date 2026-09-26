@@ -358,6 +358,26 @@ export class TokenBudgetController {
     this.budget.remaining = Math.max(0, this.budget.total - this.spent);
   }
 
+  /**
+   * 释放/退款已记账的 token（2026-09-26 新增）。
+   *
+   * 用途：供**按"当前占用"记账**的调用方在**上下文回落**（compaction 替换 messages）时退回差额，
+   * 使 `spent` 恒等于"当前占用量"，而不是"历史累计增长量"。
+   *
+   * **为什么需要**（否则长任务必然被硬停）：`total` 在流式路径就是**模型上下文窗口**
+   * （见 `createStreamBudget`），而 `checkBudget` 在 `spent ≥ 92% × total` 即判 `EXCEEDED`。
+   * 若记账只增不减，则累计增长**单向逼近**该阈值 ⇒ 与 compaction"压缩后让长会话继续"的
+   * 目的自相矛盾（实测：某次长会话在 `iteration 72 / maxIterations 200` 处被终止）。
+   *
+   * ⚠️ 与 `consumeTokens` 的**刻意差异**：本方法**不动** `totalTokensUsed` /
+   * `messagesProcessed` —— 那两个是"真实发生过的生命周期累计用量"，退款不得篡改审计口径。
+   */
+  releaseTokens(tokens: number): void {
+    if (!Number.isFinite(tokens) || tokens <= 0) return;
+    this.spent = Math.max(0, this.spent - tokens);
+    this.budget.remaining = Math.max(0, this.budget.total - this.spent);
+  }
+
   /** 输出 token 消耗 */
   consumeOutputTokens(tokens: number): void {
     this.totalOutputTokensUsed += tokens;

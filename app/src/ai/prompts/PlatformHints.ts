@@ -353,11 +353,13 @@ export function buildEnvironmentHints(): string {
   // === 文件路径约束（修复 BUG #9：AI 乱编文件路径）===
   hints.push('');
   hints.push('--- HARD CONSTRAINT: FILE PATHS ---');
+  // 2026-09-26 修复（P3-2 顺查项③）：工具名必须用**本仓真实注册名**——原写
+  // `read_file` / `write_file` / `list_directory` / `search_codebase` / `Read/Write/Glob/Edit`（CC 名，本仓不存在）。
   hints.push(
-    '1. Only use file paths that have been confirmed via tool calls (read_file, write_file, glob, list_directory).'
+    '1. Only use file paths that have been confirmed via tool calls (file_read, file_write, glob, file_search).'
   );
   hints.push(
-    '2. Do NOT invent, guess, or assume file paths. If you are unsure, use search_codebase or glob to find the correct path.'
+    '2. Do NOT invent, guess, or assume file paths. If you are unsure, use file_search or glob to find the correct path.'
   );
   hints.push(
     '3. All paths must be absolute paths. Use the OS-appropriate path separators (\\ for Windows, / for macOS/Linux).'
@@ -366,7 +368,7 @@ export function buildEnvironmentHints(): string {
     '4. If a tool call fails because a path does not exist, report the error to the user. Do not silently try alternative made-up paths.'
   );
   hints.push(
-    '5. Every file path referenced in your text response must have been confirmed to exist via Read/Write/Glob/Edit tool calls during this conversation. If you are recommending a new file location, explicitly mark it with "(new file)".'
+    '5. Every file path referenced in your text response must have been confirmed to exist via file_read/file_write/glob/file_edit tool calls during this conversation. If you are recommending a new file location, explicitly mark it with "(new file)".'
   );
   hints.push(
     '6. When working in a worktree environment, prefix path references with the worktree identifier (e.g., "in bridge-session123 app/src/file.ts") to avoid confusion with main repo files of the same name.'

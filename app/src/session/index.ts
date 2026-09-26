@@ -49,7 +49,7 @@ export type {
 export * from './storage/StorageFactory.js';
 import './storage/MemoryUnifiedStorage.js';
 export { StorageAdapter, createStorageAdapter } from './StorageAdapter.js';
-// O10b（v7.1）：控制面 Tier1 血缘链（会话祖先判定；运行期链，fail-closed）
+// O10b（v7.1）：控制面 Tier1 血缘链（会话祖先判定；P3-1 后**启动期从盘重建**，仍 fail-closed）
 export {
   MAX_LINEAGE_HOPS,
   isAncestorSession,
@@ -57,6 +57,10 @@ export {
   getLineageSize,
   registerSessionLineage,
   resetSessionLineage,
+  rebuildSessionLineage,
+  type LineageRebuildEntry,
+  type LineageRebuildStats,
+  type LineageRebuildDroppedEdge,
 } from './lineage/sessionLineage';
 export {
   TranscriptManager,

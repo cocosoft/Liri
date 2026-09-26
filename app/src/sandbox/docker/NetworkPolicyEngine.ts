@@ -1,141 +1,110 @@
 /**
- * 网络策略引擎
- * 对运行中的 Docker 容器执行端口/域名维度运行时网络策略
- * 端口白名单依赖容器内 iptables（需 NET_ADMIN 权限），域名黑名单通过 /etc/hosts 实现
+ * 网络策略**声明层**（B2，2026-09-26，《Liri 优化方案》）
+ *
+ * ⚠️ **B2 的结构性修复：策略执行者不得与被约束者同处一个权限域。**
+ *
+ * - **改前（假安全）**：本模块经 `docker exec … sh -c "iptables …"` 在**容器内**下发端口白名单
+ *   （依赖 `docker create --cap-add=NET_ADMIN`），域名黑名单则 `echo >> /etc/hosts` 写进容器
+ *   ⇒ 容器内进程**持有 CAP_NET_ADMIN**，一条 `iptables -F` 即可清空全部规则。
+ * - **改后**：本模块**只生成声明**（纯函数，**零 exec**）；实际执行交**宿主侧**
+ *   （方案建议：Windows = Docker 网络 + 宿主防火墙；Linux = nftables 作用于 veth，或 eBPF）。
+ *
+ * **本仓在宿主侧能落地、且无需任何 capability 的两项**：
+ * 1. `--network`（含默认 `none`）—— 由 `docker create` 参数承担；
+ * 2. `--add-host <domain>:0.0.0.0` —— 域名黑洞**在创建时由宿主侧下发**（替代原 `docker exec` 写 /etc/hosts）。
+ *
+ * **fail-closed（关键取舍，避免静默降级）**：若配置了端口白名单，而本仓**没有**宿主侧执行器，
+ * **不会**假装"端口已受限"，而是把网络模式**收窄为 `none`**（宁可全禁，也不给假象）并告警。
+ *
+ * 说明（分寸如实）：本项属**静态可断言的结构性修复** —— 改了"执行者与被约束者同域"这一形态，
+ * **没有**构造逃逸实验，故**不声称**"已修复某个可复现漏洞"。
  */
 
-import { execSync } from 'child_process';
-import { getLogger } from '@modules/monitoring';
-import { handleError } from '@modules/error/handleError';
 import type { DockerNetworkConfig } from './DockerNetworkPolicy';
 
-const logger = getLogger('sandbox:docker:networkPolicyEngine');
-
 /**
- * 网络策略应用结果
+ * 网络策略声明（供宿主侧执行层消费；本仓只下达能下达的部分）
  */
-export interface PolicyApplyResult {
-  domainBlocked: boolean;
-  portRestricted: boolean;
-  errors: string[];
-}
-
-/**
- * 判断给定网络配置是否需要 NET_ADMIN 权限
- */
-export function needsNetAdmin(config: DockerNetworkConfig): boolean {
-  if (config.mode === 'none') return false;
-  return !!(config.allowedPorts && config.allowedPorts.length > 0);
-}
-
-/**
- * 网络策略引擎
- * 提供静态方法集合，对运行中的 Docker 容器应用网络策略规则
- */
-export class NetworkPolicyEngine {
+export interface NetworkPolicyPlan {
+  /** 配置里请求的网络模式 */
+  sourceMode: DockerNetworkConfig['mode'];
+  /** 本仓**实际会用的**网络模式（可能被 fail-closed 收窄为 `none`） */
+  effectiveNetworkMode: DockerNetworkConfig['mode'];
+  /** 是否因 fail-closed 收窄 */
+  narrowedByFailClosed: boolean;
+  /** 实际会追加到 `docker create` 的参数（**全部为宿主侧参数**，绝不包含 `--cap-add`） */
+  dockerArgs: string[];
+  /** 域名黑名单（宿主侧还应另做强制；`--add-host` 只是软控制） */
+  blockedDomains: string[];
+  /** 端口白名单（本仓**不执行**，需宿主侧执行器） */
+  allowedPorts: number[];
+  /** 执行责任方：恒为 `host`（B2 的核心结论） */
+  enforcementOwner: 'host';
   /**
-   * 对指定容器应用网络策略
-   * 策略执行失败不影响沙箱主流程，仅记录警告日志
-   *
-   * @param containerName - 目标容器名称
-   * @param config        - 网络策略配置
+   * **本仓不执行**的限制项（显式列出，避免"以为已生效"）。
+   * 非空时 `DockerSandbox` 会打 WARN。
    */
-  static applyPolicy(
-    containerName: string,
-    config: DockerNetworkConfig
-  ): PolicyApplyResult {
-    const result: PolicyApplyResult = {
-      domainBlocked: false,
-      portRestricted: false,
-      errors: [],
-    };
-
-    if (config.mode === 'none') {
-      return result;
-    }
-
-    try {
-      applyDomainBlacklist(containerName, config.blockedDomains, result);
-    } catch (e) {
-      void handleError(e, {
-        module: 'sandbox:network',
-        action: 'applyDomainBlacklist',
-      });
-      const msg = `域名黑名单应用失败: ${(e as Error).message}`;
-      logger.warn(msg);
-      result.errors.push(msg);
-    }
-
-    try {
-      applyPortWhitelist(containerName, config.allowedPorts, result);
-    } catch (e) {
-      void handleError(e, {
-        module: 'sandbox:network',
-        action: 'applyPortWhitelist',
-      });
-      const msg = `端口白名单应用失败: ${(e as Error).message}`;
-      logger.warn(msg);
-      result.errors.push(msg);
-    }
-
-    return result;
-  }
+  unenforcedInThisRepo: string[];
 }
 
 /**
- * 通过 /etc/hosts 将黑名单域名指向 127.0.0.1
- * 此方法无需额外容器权限，所有镜像均支持
+ * 把网络配置编译为**声明**（纯函数：不 exec、不读写文件、不依赖 Docker 是否可用）。
  */
-function applyDomainBlacklist(
-  containerName: string,
-  blockedDomains: string[] | undefined,
-  result: PolicyApplyResult
-): void {
-  if (!blockedDomains || blockedDomains.length === 0) return;
+export function compileNetworkPolicy(
+  config: DockerNetworkConfig
+): NetworkPolicyPlan {
+  const blockedDomains = config.blockedDomains ?? [];
+  const allowedPorts = config.allowedPorts ?? [];
+  const unenforcedInThisRepo: string[] = [];
 
-  for (const domain of blockedDomains) {
-    execSync(
-      `docker exec ${containerName} sh -c "echo '127.0.0.1 ${domain}' >> /etc/hosts"`,
-      { stdio: 'pipe', timeout: 5000 }
+  let effectiveNetworkMode = config.mode;
+  let narrowedByFailClosed = false;
+
+  if (allowedPorts.length > 0) {
+    // 按端口强制出站**必须**在宿主侧（nftables/eBPF/宿主防火墙）；本仓不再用容器内 iptables
+    unenforcedInThisRepo.push(
+      'egress-port-whitelist（按端口强制出站需宿主侧执行器；本仓不再下发容器内 iptables）'
+    );
+    if (config.mode !== 'none') {
+      effectiveNetworkMode = 'none';
+      narrowedByFailClosed = true;
+    }
+  }
+
+  if (config.allowedDomains && config.allowedDomains.length > 0) {
+    unenforcedInThisRepo.push(
+      'domain-allowlist（按域名放行需宿主侧 DNS 层；本仓不实现）'
     );
   }
 
-  result.domainBlocked = true;
-  logger.info(`域名黑名单已应用: ${blockedDomains.join(', ')}`);
-}
-
-/**
- * 通过 iptables 设置出站端口白名单
- * 先放行指定端口 + 回环 + 已建立连接，再丢弃其余出站流量
- * 容器内需要安装 iptables（Alpine 镜像可通过 apk add iptables 安装）
- */
-function applyPortWhitelist(
-  containerName: string,
-  allowedPorts: number[] | undefined,
-  result: PolicyApplyResult
-): void {
-  if (!allowedPorts || allowedPorts.length === 0) return;
-
-  const cmds: string[] = [];
-
-  cmds.push('iptables -P OUTPUT DROP');
-  cmds.push('iptables -A OUTPUT -o lo -j ACCEPT');
-  cmds.push(
-    'iptables -A OUTPUT -m state --state ESTABLISHED,RELATED -j ACCEPT'
-  );
-
-  for (const port of allowedPorts) {
-    cmds.push(`iptables -A OUTPUT -p tcp --dport ${port} -j ACCEPT`);
-    cmds.push(`iptables -A OUTPUT -p udp --dport ${port} -j ACCEPT`);
+  if (blockedDomains.length > 0) {
+    unenforcedInThisRepo.push(
+      'domain-blacklist（本仓只做 `--add-host` 黑洞：容器内 root 仍可改 /etc/hosts，且不阻断 DNS 直查）'
+    );
   }
 
-  for (const cmd of cmds) {
-    execSync(`docker exec ${containerName} sh -c "${cmd}"`, {
-      stdio: 'pipe',
-      timeout: 5000,
-    });
+  // 全部为**宿主侧** docker create 参数（B2 后**永不**出现 --cap-add=NET_ADMIN）
+  const dockerArgs: string[] = [];
+  const networkArg =
+    effectiveNetworkMode === 'custom'
+      ? // 自定义网络必须给名字；缺名时 fail-closed 为 none（不再把字面量 "custom" 当网络名）
+        (config.customNetworkName ?? 'none')
+      : effectiveNetworkMode;
+  if (networkArg !== 'bridge') {
+    dockerArgs.push('--network', networkArg);
+  }
+  for (const domain of blockedDomains) {
+    dockerArgs.push('--add-host', `${domain}:0.0.0.0`);
   }
 
-  result.portRestricted = true;
-  logger.info(`端口白名单已应用: ${allowedPorts.join(', ')}`);
+  return {
+    sourceMode: config.mode,
+    effectiveNetworkMode,
+    narrowedByFailClosed,
+    dockerArgs,
+    blockedDomains,
+    allowedPorts,
+    enforcementOwner: 'host',
+    unenforcedInThisRepo,
+  };
 }

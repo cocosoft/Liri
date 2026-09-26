@@ -25,7 +25,7 @@
  */
 
 import { existsSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 
 /** 项目根目录（scripts/ 的父目录） */
 const PROJECT_ROOT = join(import.meta.dir, '..');
@@ -34,14 +34,27 @@ const PROJECT_ROOT = join(import.meta.dir, '..');
 const PACKAGE_FILES = ['app/package.json', 'package.json'];
 
 /**
- * 入口文件引用：`(^|&&|||;||) <bun run|bun|node|tsx> [flags] <path>.<ext>`
+ * 入口文件引用：`<bun run|bun|node|tsx> [flags] <path>.<ext>`，**锚定在命令段首**
+ * （命令段由 `&&` / `||` / `;` / `|` 切分，见 `SEGMENT_SEP`）。
  *
- * - 命令段以 `&&` / `||` / `;` / `|` / 行首分界，避免跨段误抓；
  * - `[flags]` 支持 `--flag` 与 `--flag=value` 两种写法（后者是 `--outfile=…` 的形态）；
  * - 路径 token 显式排除引号与 `=`（故 `--outfile=x` 的取值、`"…"` 内的字面量都不会命中）。
  */
-const ENTRY_REF =
-  /(?:^|&&|\|\||;|\|)\s*(?:bun\s+run|bun|node|tsx)\s+(?:run\s+)?(?:(?:--?[A-Za-z-]+(?:=[^\s"']+)?)\s+)*([^\s"'`|&;=]+\.(?:ts|tsx|js|mjs|cjs))(?![A-Za-z0-9])/g;
+const ENTRY_REF_IN_SEGMENT =
+  /^\s*(?:bun\s+run|bun|node|tsx)\s+(?:run\s+)?(?:(?:--?[A-Za-z-]+(?:=[^\s"']+)?)\s+)*([^\s"'`|&;=]+\.(?:ts|tsx|js|mjs|cjs))(?![A-Za-z0-9])/;
+
+/** 命令分段符（与上述锚定配合，取代原来的跨界 `(?:^|&&|…)` 写法） */
+const SEGMENT_SEP = /\s*(?:&&|\|\||;|\|)\s*/;
+
+/**
+ * `cd <dir>` 独立段 —— **会改变后续命令的 cwd** ⇒ 其后引用须按换后的基准解析。
+ *
+ * 2026-09-26 修**误报**：`app/package.json#lint:scripts` 写作
+ * `cd .. && bun app/node_modules/eslint/bin/eslint.js …`（`app/node_modules/…` 是**相对项目根**），
+ * 而本检查器一律按 `package.json` 所在目录（`app/`）解析 ⇒ 把**存在**的文件判为"缺失"、阻断 CI。
+ * 修法是**让检查器跟上 `cd`**（而非改脚本）—— 改脚本会让 eslint 的配置基准目录失配（实测 exit=2）。
+ */
+const CD_SEGMENT = /^cd\s+([^\s&;|]+)$/;
 
 function main(): void {
   const violations: string[] = [];
@@ -66,11 +79,21 @@ function main(): void {
     }
 
     for (const [name, cmd] of Object.entries(pkg.scripts ?? {})) {
-      for (const match of cmd.matchAll(ENTRY_REF)) {
+      // 逐段扫描并**跟踪 `cd`**：`cd <dir> && …` 之后，引用以换后的目录为基准
+      // （`../scripts/x.ts` → 项目根，`scripts/x.ts` → app/）
+      let base = pkgDir;
+      for (const rawSegment of cmd.split(SEGMENT_SEP)) {
+        const segment = rawSegment.trim();
+        const cd = segment.match(CD_SEGMENT);
+        if (cd) {
+          base = resolve(base, cd[1]);
+          continue;
+        }
+        const match = segment.match(ENTRY_REF_IN_SEGMENT);
+        if (!match) continue;
         const ref = match[1];
         checked++;
-        // 以 package.json 所在目录解析（`../scripts/x.ts` → 项目根，`scripts/x.ts` → app/）
-        if (!existsSync(join(pkgDir, ref))) {
+        if (!existsSync(join(base, ref))) {
           violations.push(`${pkgRel}#${name} → ${ref}`);
         }
       }

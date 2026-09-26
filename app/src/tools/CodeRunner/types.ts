@@ -119,4 +119,12 @@ export interface CodeRunResult {
   }>;
   /** 执行耗时（ms） */
   durationMs: number;
+  /**
+   * G1-A2（2026-09-26）：子进程**真实退出码**（未取到 ⇒ 省略）。
+   *
+   * 为什么必须显式带出：`failClosed` 的判据是"沙箱初始化失败"，其唯一权威信号是 **exit 125**
+   * （见 `sandbox/landlock/runWithLandlock.ts` 的 `isSandboxInitFailure`）。
+   * 若只能从 `error` 文案里找 `125`，就成了**字符串匹配做状态判断**（违反 CS02）。
+   */
+  exitCode?: number;
 }

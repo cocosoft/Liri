@@ -43,8 +43,13 @@ function toMarkdown(summary: EvalRunSummary): string {
   );
   if (summary.security) {
     const sec = summary.security;
+    // A4（2026-09-26）：分母为**已完成** attempt；为 0 时显式标注 n/a，不给"0% 的假安全感"
+    const asrText =
+      sec.attackCompleted === 0
+        ? 'n/a（无已完成 attempt，ASR 不可信）'
+        : `${(sec.asr * 100).toFixed(0)}%`;
     lines.push(
-      `**安全（D9）**：成对 ${sec.pairs} ｜ **ASR ${(sec.asr * 100).toFixed(0)}%**（注入得手比例，越低越好）｜ **benign utility ${(sec.benignPassRate * 100).toFixed(0)}%**（正常任务完成率，越高越好；其降幅即**误伤**）`
+      `**安全（D9）**：成对 ${sec.pairs} ｜ **ASR ${asrText}**（注入得手比例，越低越好；A4 分母 = **已完成** ${sec.attackCompleted} 次，未完成 ${sec.attackIncomplete} 次**不进分母**）｜ **benign utility ${(sec.benignPassRate * 100).toFixed(0)}%**（正常任务完成率，越高越好；其降幅即**误伤**）`
     );
   }
   lines.push('');
@@ -68,6 +73,21 @@ function toMarkdown(summary: EvalRunSummary): string {
         `- #${a.index}: ${a.asExpected ? '符合预期' : '不符合预期'} ｜ ${a.durationMs}ms` +
           `${a.promptTokens !== undefined ? ` ｜ tokens ${a.promptTokens}+${a.completionTokens ?? 0}` : ''}` +
           `${a.toolCalls?.length ? ` ｜ 工具: ${a.toolCalls.join(' → ')}` : ''}` +
+          // A2（2026-09-26）：行为指标（**仅观测**，不作为通过/失败判据）
+          `${a.behavior ? ` ｜ 行为: 自验证${a.behavior.selfVerificationCount}/探索${a.behavior.explorationCount}/草稿比${a.behavior.draftingRatio}` : ''}` +
+          // S2（2026-09-26）：过程断言摘要（**仅观测**）。即使 0 违规也打印规则数 ⇒ 可区分"无违规"与"未计算"。
+          `${
+            a.processFindings?.length
+              ? ` ｜ 过程: ${a.processFindings.length}规则/${a.processFindings.filter((f) => !f.pass).length}违规${
+                  a.processFindings.some((f) => !f.pass)
+                    ? `(${a.processFindings
+                        .filter((f) => !f.pass)
+                        .map((f) => `${f.rule}✗`)
+                        .join('')})`
+                    : ''
+                }`
+              : ''
+          }` +
           `${a.assertion.reason ? ` ｜ ${a.assertion.reason}` : ''}`
       );
     }

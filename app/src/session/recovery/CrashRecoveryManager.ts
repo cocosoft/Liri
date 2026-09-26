@@ -21,8 +21,14 @@ import type { UnifiedSessionStorage } from '../storage/UnifiedStorage';
 const logger = getLogger('session:crashRecovery');
 
 export const DEFAULT_STALE_THRESHOLD_MS = 30 * 60 * 1000;
-export const DEFAULT_RECOVERY_DELAY_MS = 5_000;
-export const MAX_RECOVERY_RETRIES = 3;
+
+// 2026-09-26 **删除**：原 `DEFAULT_RECOVERY_DELAY_MS`(5000) / `MAX_RECOVERY_RETRIES`(3)
+// 及其配置项（`recoveryDelayMs` / `maxRetries`）是**死配置** —— 全文件只有"声明 + 构造函数赋值"，
+// 而 `recoverAfterCrash` / `processSession` / `recoverSingleSession` **无一读取** ⇒ 配了它们的人
+// 会误以为"崩溃恢复会退避 5s 重试 3 次"，实际是**单次扫描、无退避、无重试**。
+// 处置取向：按 **CS03**（本地 SQLite / 文件操作失败概率极低，本就不该为它加退避回退）
+// **既不补实现、也不保留字段**，直接删除以消除"API 撒谎"。
+// 台账：`dev_docs/error_repairs/预存错误与待处理问题.md` → 「死配置」条。
 
 /** M4（2026-09-17）：优雅关闭标记 key——写 session.metadata.cleanShutdown=true，恢复流程据此跳过 */
 export const CLEAN_SHUTDOWN_MARKER = 'cleanShutdown';
@@ -53,23 +59,17 @@ export interface CrashRecoveryResult {
 export interface CrashRecoveryConfig {
   storage: UnifiedSessionStorage;
   staleThresholdMs?: number;
-  recoveryDelayMs?: number;
-  maxRetries?: number;
 }
 
 export class CrashRecoveryManager {
   private storage: UnifiedSessionStorage;
   private staleThresholdMs: number;
-  private recoveryDelayMs: number;
-  private maxRetries: number;
   private initialized = false;
 
   constructor(config: CrashRecoveryConfig) {
     this.storage = config.storage;
     this.staleThresholdMs =
       config.staleThresholdMs ?? DEFAULT_STALE_THRESHOLD_MS;
-    this.recoveryDelayMs = config.recoveryDelayMs ?? DEFAULT_RECOVERY_DELAY_MS;
-    this.maxRetries = config.maxRetries ?? MAX_RECOVERY_RETRIES;
   }
 
   async initialize(): Promise<void> {

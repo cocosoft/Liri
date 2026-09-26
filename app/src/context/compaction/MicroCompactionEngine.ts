@@ -9,21 +9,26 @@ import type { ChatMessage } from '@modules/ai';
 import { getLogger } from '@modules/monitoring';
 const logger = getLogger('context:compaction:micro');
 
-/** CC 源码 COMPACTABLE_TOOL_NAMES 对应项 */
-const COMPACTABLE_TOOL_NAMES = new Set([
-  'read_file',
-  'Read',
+/**
+ * 可微压缩的工具名（其结果可被占位符替换）。
+ *
+ * 2026-09-26 修复（P3-2 顺查项③）：原清单抄的是 **CC 源码**的名字
+ * （`read_file` / `Read` / `edit_file` / `write_file` / `Write` 等），而本仓**真实注册名**是
+ * `file_read` / `file_edit` / `file_write`（见 `tools/FileReadTool` 等的 `name = '...'`）⇒
+ * **文件类结果永不被微压缩**（上下文里最大的一类），只有同名偶合的 `bash`/`grep`/`glob`/`web_*` 生效。
+ * 现改为**真实注册名**（判据来自工具类的声明，见 `tests/tools/toolNameLists.test.ts` 的守卫用例）。
+ *
+ * 导出仅为**防漂移守卫**可在用例里直接断言（对齐本仓 `appendWithinLimit` 等"供离线断言"的做法）。
+ */
+export const COMPACTABLE_TOOL_NAMES = new Set([
+  'file_read',
+  'file_edit',
+  'file_write',
   'bash',
-  'Bash',
   'grep',
-  'Grep',
   'glob',
-  'Glob',
   'web_search',
   'web_fetch',
-  'edit_file',
-  'write_file',
-  'Write',
 ]);
 
 const MICROCOMPACT_CLEARED = '[Old tool result content cleared]';

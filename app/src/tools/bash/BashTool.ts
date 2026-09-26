@@ -30,6 +30,9 @@ import {
 import { exec, ExecOptions } from 'child_process';
 import { promisify } from 'util';
 import { analyzeBashCommandType, isSilentBashCommand } from './BashSemantics';
+// G1-A（2026-09-26）：bash 执行的唯一收敛入口 —— 配置显式开启时在 Landlock 域内执行
+// （G1-C 的顾问性提示已随之收敛到该入口的"普通路径"分支内）
+import { execBashCommand } from './bashLandlockExec';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { SandboxSecurityChecker } from '@modules/sandbox';
 import { completeSecuritySystem } from '@modules/security';
@@ -653,10 +656,8 @@ export class BashTool extends BaseTool {
         details: `BashTool execute: ${command.substring(0, 100)}`,
       });
 
-      // 对标CC：支持cwd和env参数
-      const execOptions: ExecOptions = {
-        timeout,
-      };
+      // 对标CC：支持 cwd 参数（env / timeout 由 execBashCommand 直接接收，不再经 execOptions）
+      const execOptions: ExecOptions = {};
 
       if (cwd) {
         execOptions.cwd = cwd;
@@ -671,19 +672,24 @@ export class BashTool extends BaseTool {
       if (this.isWindows) {
         mergedEnv['GIT_SSL_BACKEND'] = 'schannel';
       }
-      execOptions.env = mergedEnv;
 
       // K-5 P1 内存治理：硬 maxBuffer 防线（防止 child_process 内部无限制 buffer 暴涨）
       // 调用方显式传的 maxBuffer 优先（测试/特殊场景可调），否则默认 16MB
-      if (!Number.isFinite((execOptions as { maxBuffer?: number }).maxBuffer)) {
-        execOptions.maxBuffer = BASH_EXEC_MAX_BUFFER_BYTES;
-      }
+      const maxBuffer = Number.isFinite(
+        (execOptions as { maxBuffer?: number }).maxBuffer
+      )
+        ? (execOptions as { maxBuffer: number }).maxBuffer
+        : BASH_EXEC_MAX_BUFFER_BYTES;
 
-      // 执行命令
-      const { stdout: rawStdout, stderr: rawStderr } = await execAsync(
+      // 执行命令（G1-A：**唯一收敛入口**）——`sandbox.landlock.bashEnabled=true` 时在 Landlock
+      // 域内执行；默认关闭 ⇒ 行为与改造前的 `execAsync` 等价，且保留 G1-C 的顾问性提示。
+      const { stdout: rawStdout, stderr: rawStderr } = await execBashCommand({
         command,
-        execOptions
-      );
+        cwd: typeof execOptions.cwd === 'string' ? execOptions.cwd : undefined,
+        env: mergedEnv,
+        timeoutMs: timeout,
+        maxBufferChars: maxBuffer,
+      });
       // K-5 P1 二次软截断：即使 exec maxBuffer 没触发（Unicode 多字节/流式拆分），
       // 也在此按字节 slice 到 2MB + 末尾 20KB，避免 LLM 上下文和 ToolResultBudget 爆掉
       const stdout = applyBashOutputSoftTruncate(rawStdout as string, 'stdout');

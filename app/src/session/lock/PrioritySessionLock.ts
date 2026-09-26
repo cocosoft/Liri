@@ -371,7 +371,12 @@ export class PrioritySessionLock {
           requestId: request.id,
         });
       }, request.timeoutMs);
-      entry.timer.unref?.();
+      // ⚠️ 本定时器**不得 `unref()`**（2026-09-26 修复；原实现写成 `entry.timer.unref?.()`）。
+      // 它的唯一职责是**兑现排队 promise**；`unref` 会把定时器排除在"待办工作"之外
+      // ⇒ 在"其余无待办"的上下文（如单文件 `bun test`）该定时器**不触发** ⇒ promise 永不
+      // settle = 排队请求**悬挂**。实测：`tests/session/PrioritySessionLock.test.ts` 第 2 例
+      // （"排队超时后兑现失败结果"）单独运行即**挂死**、且 `--timeout` 亦不生效；恢复引用后
+      // 4 pass / 0 fail（A/B 单变量）。代价：最多让进程多存活 ≤ `timeoutMs`，到期即兑现结束。
     });
   }
 

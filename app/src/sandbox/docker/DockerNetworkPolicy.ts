@@ -57,11 +57,24 @@ export const ISOLATION_LEVELS: Record<string, IsolationLevel> = {
   },
 };
 
+/**
+ * 运行时合法网络模式白名单 —— **必须与类型 `DockerNetworkMode` 及声明层能力一致**：
+ * `none | bridge | host | custom`（`custom` 需配 `customNetworkName`）。
+ *
+ * B 组遗留修复（2026-09-26）：
+ * 1. **补上 `'custom'`**（此前缺失）⇒ 原 `mode === 'custom' && !customNetworkName` 分支**不可达（死代码）**，
+ *    且 `compileNetworkPolicy` 已实现的自定义网络支持（`--network <名字>`）**从未生效**；
+ * 2. **移除 `'container'`**（同批一致性收口）：它**不在类型里**（`DockerNetworkMode` 无此项），
+ *    声明层也没有"目标容器"参数 ⇒ 放行它只会产出 `--network container`（**docker 语法错误**），
+ *    在 `initialize()` 处表现为一句令人困惑的创建失败。移除后该配置会得到**清晰**的
+ *    "不支持的网络模式" 提示。若将来真要支持 `container:<name|id>`，需**新增目标容器配置键**
+ *    并在声明层拼出完整值（属新功能，不是本次的一致性修复）。
+ */
 const VALID_NETWORK_MODES: Set<string> = new Set([
   'none',
   'bridge',
   'host',
-  'container',
+  'custom',
 ]);
 
 /**

@@ -20,21 +20,31 @@ export interface MultiPhaseDreamResult {
   combinedThoughts: string[];
 }
 
-const READ_ONLY_TOOLS = new Set([
-  'read_file',
-  'search_code',
+/**
+ * 只读工具清单（2026-09-26 修复 P3-2 顺查项③）。
+ *
+ * 原清单是 CC 名（`read_file` / `search_code` / `list_files` / `get_file_info` / `memory_search` /
+ * `session_list` / `task_status` / `plan_list` 等），本仓**一个都不存在** ⇒ 判定恒为 false。
+ * 现按工具类声明的真实名映射；**本仓无对应工具者直接移除**（不臆造名字）：
+ * - `read_file`→`file_read`、`search_code`→`file_search`、`session_list`→`sessions`、
+ *   `session_history`→`sessions_history`、`task_list`→`get_task_list`、`task_status`→`view_tasks`、
+ *   `plan_list`→`view_plan`；
+ * - **移除**：`list_files`、`get_file_info`、`memory_search`（本仓无同名工具；不加"近义替代"以免误判）。
+ *
+ * 导出仅为**防漂移守卫**可在用例里直接断言。
+ */
+export const READ_ONLY_TOOLS = new Set([
+  'file_read',
+  'file_search',
   'glob',
   'grep',
-  'list_files',
-  'get_file_info',
   'web_search',
   'web_fetch',
-  'memory_search',
-  'session_list',
-  'session_history',
-  'task_list',
-  'task_status',
-  'plan_list',
+  'sessions',
+  'sessions_history',
+  'get_task_list',
+  'view_tasks',
+  'view_plan',
 ]);
 
 export function isToolReadOnly(toolName: string): boolean {

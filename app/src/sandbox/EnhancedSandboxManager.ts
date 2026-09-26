@@ -13,6 +13,7 @@ import {
 } from './SandboxTypes.js';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
+import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 
 const logger = getLogger('sandbox:enhancedSandboxManager');
 
@@ -656,12 +657,29 @@ export class EnhancedSandboxManager {
   }
 
   /**
-   * 注册沙箱到活跃集合
+   * 注册沙箱到活跃集合。
+   *
+   * B6（2026-09-26，《Liri 优化方案》§3）：**超限不再静默丢弃** —— 返回**可判定**结果，
+   * 并留下一条 WARN 日志（§1.8）。原先超限时既不入集合、也不给调用方任何信号 ⇒
+   * "注册失败"与"注册成功"在调用方看来完全一样（静默不一致）。
    */
-  registerSandbox(sandboxId: string): void {
-    if (this.activeSandboxIds.size < this.config.maxSandboxes) {
-      this.activeSandboxIds.add(sandboxId);
+  registerSandbox(
+    sandboxId: string
+  ):
+    | { ok: true; sandboxId: string }
+    | { ok: false; reason: string; limit: number; active: number } {
+    const limit = this.config.maxSandboxes;
+    // 幂等：已注册 ⇒ 成功（重复注册不应被算作超限）
+    if (this.activeSandboxIds.has(sandboxId)) return { ok: true, sandboxId };
+    if (this.activeSandboxIds.size >= limit) {
+      const reason =
+        `沙箱数量已达上限（${this.activeSandboxIds.size}/${limit}）⇒ 拒绝注册 ${sandboxId}；` +
+        '请先注销不再使用的沙箱（unregisterSandbox）或提高 maxSandboxes 配置';
+      logger.warning(`[沙箱注册超限] ${reason}`);
+      return { ok: false, reason, limit, active: this.activeSandboxIds.size };
     }
+    this.activeSandboxIds.add(sandboxId);
+    return { ok: true, sandboxId };
   }
 
   /**
@@ -869,8 +887,15 @@ export class EnhancedSandboxManager {
     performanceMetrics?: SandboxPerformanceMetrics;
     threats?: ThreatDetectionResult[];
   }> {
-    // 自动注册新的沙箱ID
-    this.registerSandbox(sandboxId);
+    // 自动注册新的沙箱ID（B6：超限 ⇒ **fail-closed 拒绝执行**，不再"未注册却照跑"）
+    const registration = this.registerSandbox(sandboxId);
+    if (!registration.ok) {
+      throw new AppError(
+        registration.reason,
+        ErrorCategory.RESOURCE,
+        ErrorSeverity.MEDIUM
+      );
+    }
 
     // 执行基础沙箱操作
     const result = await this.baseManager.execute(sandboxId, command, options);

@@ -40,14 +40,20 @@ export enum SandboxLevel {
 const HIGH_RISK_TOOLS = new Set(['bash', 'sh', 'shell', 'powershell', 'cmd']);
 
 /**
- * 文件写入工具名称列表
+ * 文件写入工具名称列表（命中 ⇒ `SandboxLevel.FILE_IO`）
+ *
+ * 2026-09-26（裁定①顺查 ④）：删去 `filewrite` / `fileedit` 两个**永不命中**的旧变体 ——
+ * 它们是 PascalCase 时代（`FileWrite` / `FileEdit`）经下方 `toLowerCase()` 的产物，
+ * 而本仓真实注册名是 `file_write` / `file_edit`（判据 = 各工具类的 `name` 声明）。
+ *
+ * ⚠️ 本清单**未**与 `query/tool-constants.ts`（文件 IO 写类事实源）共享取值，理由有三：
+ *  ① 语义不同：本处是「沙箱**风险分级**」，不是「文件 IO 读写配对」；
+ *  ② 方向上不合：`tools/sandbox` 反向依赖 `query`（查询引擎）不合理；
+ *  ③ 更关键 —— **本模块当前无任何消费方**（`ToolSandboxRouter` / `SandboxLevel` 全仓仅桶导出，无人调用），
+ *     收敛取值无收益。若将来复活本模块，应改为消费事实源，并**补齐覆盖缺口**：
+ *     `notebook`（写 `.ipynb`）现被判为 `NONE`、不进入文件 IO 沙箱。
  */
-const FILE_WRITE_TOOLS = new Set([
-  'file_write',
-  'file_edit',
-  'filewrite',
-  'fileedit',
-]);
+const FILE_WRITE_TOOLS = new Set(['file_write', 'file_edit']);
 
 /**
  * 工具沙箱路由

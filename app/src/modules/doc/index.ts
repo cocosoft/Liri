@@ -114,7 +114,7 @@ export {
   generateImages,
   compose,
   diffOutline,
-  runDocWorkflow,
+  // 方案 3 / 2026-09-26：`runDocWorkflow` 已收口删除（由 `DocWorkflowProvider` 独占序列）
   DocWorkflowProgressEmitter,
 } from './workflow/DocWorkflow';
 export type {

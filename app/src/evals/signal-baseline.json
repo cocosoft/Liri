@@ -1,0 +1,5 @@
+{
+  "note": "A5 信号基线（《Liri 优化方案》）—— **与回归门禁基线（baseline.json）分开维护**：本文件求「区分度」，baseline.json 求「不许退化」。⚠️ 本文件的 tasks 目前**故意为空**：expectedPassRange 必须由**真实多轮 rollout 数据**推导（多次运行同一模型，取 pass^1 的经验区间），凭空填写等于伪造数据（CS04/CS06）。在补齐之前，信号检查仍能只凭本次 run 发现『全过 = 无信号』『全挂 = 有缺陷』两类问题；如需区间判定，请按下列格式补条目。",
+  "requireJudgeSanity": true,
+  "tasks": {}
+}

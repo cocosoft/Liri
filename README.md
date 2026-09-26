@@ -13,7 +13,7 @@
 
 [![CI Status](https://github.com/cocosoft/Liri/actions/workflows/ci.yml/badge.svg)](https://github.com/cocosoft/Liri/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-![Version](https://img.shields.io/badge/version-0.4.50-blue)
+![Version](https://img.shields.io/badge/version-0.4.51-blue)
 
 [快速开始](#-快速开始) •
 [功能概览](#-功能概览) •
@@ -374,7 +374,7 @@ bun run build:enterprise  # 企业版（全功能）
 
 ## 📋 版本
 
-当前版本：**v0.4.50**
+当前版本：**v0.4.51**
 
 版本管理遵循 [语义化版本规范](.trae/rules/versioning.md)：
 - 修订号 — 按需升，每次发版 +1（Bug 修复、文档更新、小重构）
@@ -382,6 +382,17 @@ bun run build:enterprise  # 企业版（全功能）
 - 主版本 — 达到 v1.0.0 标准时一次性从 0.x.x 跳到 1.0.0
 
 ### 🚀 版本更新记录
+
+#### v0.4.51 (2026-09-26)
+
+**长任务被误杀（token 预算）根因修复 + 工具名漂移家族收口 + 可诊断性**
+
+- ✅ **长任务误杀根因（流式 + batch 双路径）** - `reActLoop:budget_exhausted` 在长任务中途反复出现（实测 `iteration 114 / maxIterations 190` 即被掐断）。根因是**预算记账量纲错**：用 `estimateMessagesTokens` 估算，实测与 provider 真实 `prompt_tokens` 相差 **6.4×**（真实 29,143 vs 记账 185,195 / 200,000 = 93%），且该值在长会话中**单调不降**（压缩期间零回落）⇒ 对称记账的"退款"分支永不触发。现两条路径均改用 provider **真实 `usage.prompt_tokens`**：流式取 `ChatResponse.usage`；batch（TAORLoop / PDCA / 子代理）从 `callModel` 块的 `usage` 捕获（此前被 `...lastChunk` 展开丢掉，这正是"只能退回用估算"的原因）。无 usage 时**不记账**（fail-open：宁可少一道兜底，也不误杀）。
+- ✅ **窗口口径统一** - 两条路径的 `total` 原取**价格表**（实测 200,000），与 `UnifiedTokenTracker` 的 `resolveContextWindow`（实测 128,000）不一致 ⇒ 阈值线失准。现统一为后者（用户显式 `budgetConfig.maxTokens` 仍优先）。⚠️ 单独回退窗口会**放大**误杀，务必与量纲同批评估。
+- ✅ **可诊断性** - `reActLoop:budget_exhausted` / `budget_grace_call` 补 `sessionId`（此前同级日志都带、唯它不带 ⇒ 只能靠时间戳反推会话）。
+- ✅ **工具名漂移家族收口** - `PathGuard`（路径守卫曾对真实工具名**完全不生效**）、`query/tool-constants`（含调用链入参键）、`tools/orchestration`、`promptSuggestion`、`tools/sandbox` 等处的工具名清单统一为真实注册名；三份同名 `WRITE_TOOLS` 按「共享取值 + 各自命名」收敛（`SPECULATION_WRITE_TOOLS` / `SERIALIZING_TOOLS`），并删除 lint 中随之失效的同名豁免。
+- ✅ **测试** - 新增回归守卫：单轮记账量纲、**长任务端到端不误杀**（loop 级，用生产同款预算）、batch 侧量纲、`FileIOLoopDetector` 生效断言、工具名清单防漂移（原 3 红转绿）；关键用例均做**突变验证**（还原旧实现即转红）。
+- ℹ️ 本次发布同时包含工作区内其他并行改动（`sandbox` / `evals` / `session` / `modules/doc` 等），明细以本版本 commit 为准。
 
 #### v0.4.50 (2026-09-21)
 

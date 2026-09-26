@@ -10,7 +10,7 @@ import type {
   ChatResponse,
 } from './types/message.js';
 import type { ChatSession, CreateSessionParams } from './types/session.js';
-import type { LiriEvent } from './types/events.js';
+import type { LiriEvent, LiriEventData } from './types/events.js';
 import type { ToolCall, ToolResult, ToolIntegration } from './types/tool.js';
 import type { MessageService } from './services/MessageService.js';
 import type { StreamService } from './services/StreamService.js';
@@ -104,6 +104,15 @@ export interface ChatManager {
 
   /** M1 事件溯源：获取会话当前 tailSeq（O(1) 缓存，事件 seq 分配用） */
   getStreamTailSeq(sessionId: string): Promise<number>;
+
+  /**
+   * P1-3（2026-09-26）：持久化 doc_pipeline 逐阶段进度为 assistant/doc_workflow 富块事件
+   * （供 office:doc-pipeline 工具在 seam onProgress 中调用；复用唯一事件写入入口）
+   */
+  persistDocWorkflowProgress(
+    sessionId: string,
+    data: LiriEventData<'assistant/doc_workflow'>
+  ): Promise<void>;
 
   /**
    * 执行工具

@@ -109,6 +109,8 @@ export {
   getAllowedTools,
   validateToolAccess,
   PRODUCTION_SANDBOX_POLICY,
+  // G1-A（2026-09-26）：bash 接入 Landlock 需复用 B1 的"逐块按剩余量切片"助手（截断口径单一来源）
+  appendWithinLimit,
 } from './SandboxPolicy';
 export type {
   SandboxToolPolicy,
@@ -134,5 +136,15 @@ export {
   buildLandlockArgv,
   runWithLandlock,
   isSandboxInitFailure,
+  // G1-A（2026-09-26）：bash 接入 Landlock 需读同一份配置（不另建配置面）
+  readLandlockConfig,
+  resolveLandlockConfig,
+  DEFAULT_LANDLOCK_CONFIG,
 } from './landlock';
-export type { LandlockPolicy } from './landlock';
+export type {
+  LandlockPolicy,
+  LandlockConfig,
+  LandlockCapability,
+  LandlockFsRule,
+  LandlockFsAccess,
+} from './landlock';

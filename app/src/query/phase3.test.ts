@@ -26,10 +26,13 @@ describe('ParallelToolExecutor', () => {
       return `result-${tc.name}`;
     };
 
+    // 2026-09-26：工具名改用**本仓真实注册名** —— 原写 `Read`/`Glob`/`Grep`（外部 CC 名，
+    // 本仓不存在）。改前本用例之所以绿，是因为**测试与 `READ_ONLY_TOOLS` 共用同一套错误词汇**
+    // （清单里恰好有 `Read`/`Glob`/`Grep`）⇒ 它锁的是**错契约**；清单改为真实注册名后即暴露。
     const toolCalls = [
-      { id: 't1', name: 'Read', arguments: { path: '/a.txt' } },
-      { id: 't2', name: 'Glob', arguments: { path: '/b.txt' } },
-      { id: 't3', name: 'Grep', arguments: { path: '/c.txt' } },
+      { id: 't1', name: 'file_read', arguments: { path: '/a.txt' } },
+      { id: 't2', name: 'glob', arguments: { path: '/b.txt' } },
+      { id: 't3', name: 'grep', arguments: { path: '/c.txt' } },
     ];
 
     const result = await executor.executeAll(toolCalls, toolExecute);

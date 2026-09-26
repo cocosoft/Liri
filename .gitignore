@@ -241,3 +241,14 @@ app/scripts/session-dedup-backup-*.jsonl
 liri_check.py
 liri_serve.py
 rand_pick.py
+
+# 运行时诊断件（本地保留，不入库；2026-09-25 用户裁定）
+# 判据：**每次事故生成一份的事件产物**（退出快照 / 崩溃归档清单）≠ 制度文档 ——
+# `error_repairs/` 的入库价值在"发现即记录"的**台账**与**分析报告**，而这些是机器写出的瞬时证据。
+# 注意：`crashes-archive-*.zip` 已被上方 Archives 段的 `*.zip` 覆盖，无需重复。
+# ⚠️ 副作用（如实）：`.trae/specs/system-abort-reason-hardening.md` 与台账中
+# 对 `last-exit-20260925-0154Z.md` / `crashes-manifest-20260925.md` 的引用，
+# 在他人克隆里**不可达**（仅本地保留）。
+# 位置要求：必须排在上方 `!dev_docs/error_repairs/` **之后** —— gitignore 以"最后匹配者胜"。
+/dev_docs/error_repairs/last-exit-*
+/dev_docs/error_repairs/crashes-manifest-*

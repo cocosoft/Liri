@@ -97,6 +97,13 @@ export interface SandboxExecuteResult {
   durationMs?: number;
   /** 是否超时 */
   timedOut?: boolean;
+  /**
+   * B1（2026-09-26，《Liri 优化方案》）：输出是否被**截断**（软上限命中）。
+   * 此前 PTY 内部算了 `truncated` 却只写进文案，调用方**无法程序化判断**。
+   */
+  truncated?: boolean;
+  /** 被丢弃的**字节数**（仅在 `truncated === true` 时有意义） */
+  truncatedBytes?: number;
   /** 错误信息 */
   error?: string;
 }

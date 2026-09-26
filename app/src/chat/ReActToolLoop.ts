@@ -392,6 +392,8 @@ export class ReActToolLoop extends ReActLoop<
     super({
       maxIterations: ctx.maxToolTurns,
       abortSignal: ctx.abortSignal,
+      // 可诊断性（2026-09-26）：预算相关日志（budget_exhausted / grace_call）需能对到会话
+      sessionId: ctx.session.id,
       ...config,
     });
     this.ctx = ctx;
@@ -2892,8 +2894,8 @@ export class ReActToolLoop extends ReActLoop<
       }
     );
     this._reportUsage(response);
-    // L1：每轮 LLM 响应后向骨架预算记账（delta，防上下文无界增长；无预算时 no-op）
-    this._chargeStreamBudget();
+    // 每轮 LLM 响应后向骨架预算记账（用 provider **真实** prompt_tokens；无预算时 no-op）
+    this._chargeStreamBudget(this._usageOf(response));
     return response;
   }
 
@@ -3187,8 +3189,8 @@ export class ReActToolLoop extends ReActLoop<
     onStream?.(cleanContent);
 
     this._reportUsage(final);
-    // L1：每轮 LLM 响应后向骨架预算记账（delta，防上下文无界增长；无预算时 no-op）
-    this._chargeStreamBudget();
+    // 每轮 LLM 响应后向骨架预算记账（用 provider **真实** prompt_tokens；无预算时 no-op）
+    this._chargeStreamBudget(this._usageOf(final));
 
     return {
       ...final,
@@ -3233,8 +3235,7 @@ export class ReActToolLoop extends ReActLoop<
 
   /** usage 上报（对齐旧类：recordChatResponseUsage + onToolUsage + trackUsage） */
   private _reportUsage(response: ChatResponse): void {
-    const usage = (response as unknown as { usage?: ChatResponse['usage'] })
-      .usage;
+    const usage = this._usageOf(response);
     // 成本 0/0 修复（2026-08-14 复检 #5）：provider 流式返回的 usage 缺失（undefined）
     // 时跳过空记录——原实现无条件 trackUsage，产生 "LLM call recorded: 0/0 tokens"
     // + warn"成本累加" 空条，污染 LLMTracker 与成本统计。有 usage 时经
@@ -3258,20 +3259,44 @@ export class ReActToolLoop extends ReActLoop<
   }
 
   /**
-   * L1（2026-09-06）：每轮 LLM 响应后向骨架预算记账——按当前上下文估算扣减（delta
-   * 语义由 createStreamBudget 维护，对齐 TAORLoop observe 增量扣减；compact 回落不退款）。
+   * 每轮 LLM 响应后向骨架预算记账。
+   *
+   * ⚠️ 2026-09-26 **根因修复（量纲）**：原实现记账
+   * `this.ctx.estimateMessagesTokens(this.loopState.messages)` —— 同一份运行日志实测该值与
+   * provider 真实用量相差 **6.4 倍**（真实 `prompt_tokens` 29,143 vs 记账 185,195/200,000 = 93%），
+   * 且它在真实会话里**单调不降**（0→…→185,195，压缩期间零回落）⇒ 对称记账的"退款"分支永不触发
+   * ⇒ 长任务在第 **114/190** 轮被**误杀**（本地 2026-09-26 23:06；证据见 `dev_docs/error_repairs`）。
+   *
+   * 现改为直接采用 **provider 返回的真实 `prompt_tokens`**（= 本轮请求的真实输入量，即
+   * "当前上下文占用"的 ground truth）—— 不引入任何估算，也就不存在两套口径打架的问题。
+   * 真实用量缺失（少数 provider 不返回 usage）时**不记账**（fail-open）：用已知高估 6× 的估算值
+   * 记账会复现误杀；宁可少一道兜底也不误杀（其余护栏仍在：压缩管线 / maxIterations / 循环检测）。
+   *
    * 仅当 config.budget 为工厂注入的可记账预算（含 chargeContextEstimate）时生效；
    * 显式传入的普通 BudgetControllerLike 不记账（由外部负责耗尽判定）。
    */
-  private _chargeStreamBudget(): void {
+  private _chargeStreamBudget(usage?: ChatResponse['usage']): void {
     const budget = this.config.budget as
       | (BudgetControllerLike & {
           chargeContextEstimate?: (estimatedTokens: number) => void;
         })
       | undefined;
-    budget?.chargeContextEstimate?.(
-      this.ctx.estimateMessagesTokens(this.loopState.messages)
-    );
+    if (!budget?.chargeContextEstimate) return;
+
+    const real = usage?.prompt_tokens;
+    if (typeof real === 'number' && Number.isFinite(real) && real > 0) {
+      budget.chargeContextEstimate(real);
+      return;
+    }
+    logger.debug('reactToolLoop:budget_charge_skipped_no_usage', {
+      sessionId: this.ctx.session.id,
+      iteration: this.state.iteration,
+    });
+  }
+
+  /** 提取响应 usage（与 `_reportUsage` 同源口径，避免两处各自写 `as` 断言） */
+  private _usageOf(response: ChatResponse): ChatResponse['usage'] | undefined {
+    return (response as unknown as { usage?: ChatResponse['usage'] }).usage;
   }
 
   /**

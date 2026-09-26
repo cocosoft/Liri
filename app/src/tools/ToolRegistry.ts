@@ -4,6 +4,7 @@
  */
 import { Tool, ToolInfo, ToolTag } from './types/Tool';
 import { ToolResult, createToolResult } from './types/ToolResult';
+import { guardShieldedToolCall } from './shieldGuard';
 import { ToolUseContext } from './types/ToolUseContext';
 import {
   isDeferredTool,
@@ -316,6 +317,14 @@ export class ToolRegistry {
       data: Record<string, unknown>;
     }) => void
   ): Promise<ToolResult> {
+    // A7 防泄题（2026-09-26）：**Agent 路径**的路径屏蔽收口（另一处是 `ToolManager.executeTool`，
+    // 见 `shieldGuard.ts` 对"两条收口"的说明）。命中 ⇒ fail-closed 拒绝，**工具不被执行**。
+    const shieldRejection = guardShieldedToolCall(
+      toolCall.toolName,
+      toolCall.input
+    );
+    if (shieldRejection) return shieldRejection;
+
     const tool = this.getTool(toolCall.toolName);
     if (!tool) {
       return createToolResult(null, {

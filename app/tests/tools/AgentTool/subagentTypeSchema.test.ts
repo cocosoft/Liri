@@ -98,8 +98,11 @@ describe('subagent_type 描述动态生成（O18）', () => {
 
     await refreshAvailableSubagentTypeNames();
 
-    expect([...getEnabledRoleNames()]).toEqual(
-      enabled.map((role) => role.agentId)
-    );
+    // ⚠️ **顺序无关**（2026-09-26 修）：这里比较的是**两次分别取到**的启用角色名集合 ——
+    // `listEnabled()` 的返回顺序会随写入时间/缓存状态变化（本用例曾因**运行顺序不同**而抖动），
+    // 而本用例锁定的是**集合等价**（快照 = DB 启用角色名），**不是**顺序契约 ⇒ 两侧排序后比较。
+    const actual = [...getEnabledRoleNames()].sort();
+    const expected = enabled.map((role) => role.agentId).sort();
+    expect(actual).toEqual(expected);
   });
 });

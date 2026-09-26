@@ -4,14 +4,20 @@
  * 锁定：① 一跳/多跳祖先命中；② 自身相等即命中（Tier2 之外的语义兼容）；
  * ③ **超过 `max_hops`（默认 8）不认**；④ 环保护（不死循环、不误判）；
  * ⑤ 链上无此会话 ⇒ 判否（fail-closed）。
+ *
+ * P3-1（2026-09-26）追加：**启动期从盘重建**（`rebuildSessionLineage`）——
+ * 顺序无关 / 净化（自环·环·超深）/ parent-unknown 视为链头 / 幂等 / **重建后 fork 守卫恢复**。
  */
 import { describe, test, expect, beforeEach } from 'bun:test';
 import {
   MAX_LINEAGE_HOPS,
   isAncestorSession,
   getSessionParent,
+  getLineageDepth,
+  wouldCreateLineageCycle,
   registerSessionLineage,
   resetSessionLineage,
+  rebuildSessionLineage,
 } from '../../src/session/lineage/sessionLineage';
 
 describe('会话血缘链 isAncestorSession（O10b / Tier1）', () => {

@@ -345,8 +345,23 @@ export interface ReActLoopConfig {
   maxRepeatedRounds?: number;
   /** 可选：初始 steering 消息（每轮 reason 前经 onSteering 注入，下沉自 TAORLoop 2026-09-01） */
   steeringMessages?: string[];
-  /** 可选：预算控制器（每轮检查，耗尽优雅收尾；ReActToolLoop 默认不启用，能力预留） */
+  /**
+   * 预算控制器（每轮检查，耗尽优雅收尾）。
+   *
+   * ⚠️ **不要以为"默认不启用"**（2026-09-26 更正）：该注释原文写"ReActToolLoop 默认不启用，
+   * 能力预留"，但**流式路径已由工厂默认注入** —— `createAgentLoop()` 会对 `mode:'stream'`
+   * 注入 `createStreamBudget(model)`（`chat/createAgentLoop.ts:115-124`），只有**调用方显式传
+   * `config.budget`** 时才让位。因此本分支在**生产 chat 路径上是活的**，且是"本轮 token 预算
+   * 上限，工具链提前终止"那句话的**唯一来源**（本文件 `:719-733`）。
+   */
   budget?: BudgetControllerLike;
+  /**
+   * 可选：会话标识 —— **仅用于日志可诊断性**（不影响任何判定）。
+   *
+   * 2026-09-26 补：`reActLoop:budget_exhausted` / `budget_grace_call` 此前**不带 `sessionId`**
+   * （同级日志都带），排查"某会话为何被提前终止"时无法把日志对到会话上 ⇒ 由子类传入。
+   */
+  sessionId?: string;
 }
 
 const DEFAULT_CONFIG: ReActLoopConfig = {
@@ -719,6 +734,7 @@ export abstract class ReActLoop<
         if (this.config.budget && !this.config.budget.canExecute()) {
           if (!this.config.budget.needsGraceCall?.()) {
             logger.info('reActLoop:budget_exhausted', {
+              sessionId: this.config.sessionId,
               maxIterations: this.config.maxIterations,
               iteration: this.state.iteration,
             });
@@ -728,6 +744,7 @@ export abstract class ReActLoop<
             return this.finalize(this.state, context);
           }
           logger.warn('reActLoop:budget_grace_call', {
+            sessionId: this.config.sessionId,
             iteration: this.state.iteration,
           });
         }

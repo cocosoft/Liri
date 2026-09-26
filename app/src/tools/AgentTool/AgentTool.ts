@@ -2159,7 +2159,10 @@ export class AgentTool implements Tool {
             systemPrompt +=
               '\n\nThis agent runs in an isolated git worktree.\n' +
               `Your working directory is: ${info.worktreePath}\n` +
-              'Relative file paths in read_file/write_file/edit_file resolve to this directory.\n' +
+              // 台账「隔离提示词工具名漂移」修复（2026-09-26）：真实注册名为
+              // file_read/file_write/file_edit（FileReadTool.ts:238 等），原写
+              // read_file/write_file/edit_file ⇒ 提示模型调用不存在的工具。
+              'Relative file paths in file_read/file_write/file_edit resolve to this directory.\n' +
               'All file modifications must be inside the worktree, never in the parent workspace.';
             logger.info('Worktree isolation: 已程序化创建 worktree', {
               agentId,

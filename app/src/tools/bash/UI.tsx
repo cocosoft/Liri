@@ -1,7 +1,12 @@
 /**
  * Bash 工具 UI 组件
+ *
+ * G1（2026-09-26）：本文件由旧副本 `tools/BashTool/UI.tsx` **合并**而来 —— 该副本是
+ * `ToolUIRegistry` 唯一引用的大写目录文件，且其导出比本目录旧版**更全**（多出
+ * `renderToolUseProgressMessage` / `renderToolUseErrorMessage` / `getToolUseSummary`，
+ * 三者都在 `ToolUIRenderer` 契约里）。合并后 `tools/BashTool/` 整目录已删除，
+ * 消除"哪份是真身靠目录名判断"的隐患（该隐患已造成三份文档的连锁误判）。
  */
-
 import React from 'react';
 import { Box, Text } from '@modules/ink';
 
@@ -19,7 +24,6 @@ export function renderToolUseMessage(
 ): React.ReactNode {
   const { command, description } = input;
   if (!command) return null;
-
   const label = description || command;
   const display = label.length > 100 ? label.slice(0, 97) + '...' : label;
   return <Text dimColor>{display}</Text>;
@@ -27,7 +31,7 @@ export function renderToolUseMessage(
 
 export function renderToolResultMessage(
   output: BashOutput,
-  _progressMessages: any[],
+  _progressMessages: unknown[],
   { verbose }: { verbose: boolean }
 ): React.ReactNode {
   const { exitCode, stdout, stderr } = output;
@@ -53,17 +57,34 @@ export function renderToolResultMessage(
       <Box flexDirection="column">
         <Text>{preview}</Text>
         {truncated ? (
-          <Box marginTop={1}>
-            <Text dimColor>... ({lines.length - 20} more lines)</Text>
-          </Box>
+          <Text dimColor>... ({lines.length - 20} more lines)</Text>
         ) : null}
       </Box>
     );
   }
 
-  if (stdout && stdout.length > 200) {
-    return <Text dimColor>{stdout.slice(0, 200)}...</Text>;
+  if (stdout) {
+    const firstLine = stdout.split('\n')[0] || '';
+    return <Text>{firstLine.slice(0, 200)}</Text>;
   }
 
-  return stdout ? <Text>{stdout}</Text> : null;
+  return <Text dimColor>Command completed</Text>;
+}
+
+export function renderToolUseProgressMessage(): React.ReactNode {
+  return <Text dimColor>Running...</Text>;
+}
+
+export function renderToolUseErrorMessage(
+  error: string,
+  _options: { verbose: boolean }
+): React.ReactNode {
+  return <Text color="red">命令执行失败: {error}</Text>;
+}
+
+export function getToolUseSummary(
+  input: Partial<{ command: string; description: string }> | undefined
+): string | null {
+  if (!input?.command) return null;
+  return input.description || input.command.slice(0, 80);
 }

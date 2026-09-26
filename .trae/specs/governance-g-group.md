@@ -1,0 +1,158 @@
+# Spec：治理项 G 组（《Liri 优化方案》§4 G1–G3）
+
+> **状态**：G1 ✅ **可执行部分 + 选项 C（探测+告警）+ 选项 A（bash 真接入 Landlock，默认关闭）+ G1-A2（`code_run` 接入 `sandbox.landlock` 配置）全部完成**；G2 ✅ 已办（方案自述）；G3 ✅ 已在排查计划 P3-2 处置
+> **来源方案**：[`Liri优化方案-20260925.md`](../../dev_docs/Liri优化方案-20260925.md) §4「G 组：治理项」
+> **最后更新**：2026-09-26
+
+---
+
+## 1. G1 同名双目录 `tools/BashTool/` 与 `tools/bash/`
+
+### 1.1 复核实证（含对方案的一处补强）
+
+| 事实 | 实测 |
+|---|---|
+| 两个目录**在本机并存**（非同一目录） | `Glob` 分别列出：`tools/BashTool/{BashTool.ts,schemas.ts,prompt.ts,UI.tsx}` 与 `tools/bash/{BashTool.ts,UI.tsx,types.ts,index.ts,BashSemantics.ts,semantics/*}` |
+| 活跃入口是小写 | `tools/index.ts:339`、`ToolFactory.ts:8` 均指向 `./bash/BashTool` |
+| 大写目录**唯一活引用** | `components/ui/ToolUIRegistry.ts:144` `require('../../tools/BashTool/UI')` —— **只用到 UI** |
+| ⚠️ **补强（方案未提）** | 两份 `UI.tsx` **不对称**：大写那份导出 **5 个**（含 `renderToolUseProgressMessage` / `renderToolUseErrorMessage` / `getToolUseSummary`，三者均在 `ToolUIRenderer` 契约内），小写那份只剩 **2 个** ⇒ **契约更全的 UI 反而住在"死"目录里**，正是 G1 所述风险的实物化 |
+
+### 1.2 已执行（本轮的"可执行部分"，按方案"先迁移引用、再删副本"）
+
+1. **合并**：把大写 `UI.tsx` 的内容并入活跃目录 [`tools/bash/UI.tsx`](../app/src/tools/bash/UI.tsx)（补齐 3 个缺失导出；补上 `import React from 'react'`，原副本靠全局命名空间）；
+2. **改引用**：[ToolUIRegistry.ts:144](../app/src/components/ui/ToolUIRegistry.ts#L143-L150) 改指 `../../tools/bash/UI`；
+3. **删副本**：`tools/BashTool/{BashTool.ts,schemas.ts,prompt.ts,UI.tsx}` 4 个文件已删除；
+4. **验证**：`typecheck` **0** · `lint` **0**；残留 `tools/BashTool` 命中**仅注释**（对 CC 上游 `cc_code/backend/tools/BashTool/...` 的出处标注）与新写的 G1 说明，**无任何代码引用**。
+
+### 1.3 Landlock 归属（方案 §1 #13 的收窄结论，本轮复核成立）
+
+- `code_run` 路径 ✅ **已生效**：`tools/CodeRunner/LinuxSandboxRunner.ts`（`LandlockDetector` 探测 → `buildLandlockArgv` → `runCodeRunnerSafely`）；
+- `bash` 路径 ❌ **未生效**：活跃 [`tools/bash/BashTool.ts`](../app/src/tools/bash/BashTool.ts) 的 `landlock` **0 命中**；其"沙箱"仅是 **`SandboxSecurityChecker.checkDangerousCommands()`** 的**事前静态检查**（`:624-638`），不是内核级强制；执行方式是 `child_process.exec(command, { maxBuffer: 16MB })`（`:30,:45-47`）；
+- 随本次删除，**旧副本里那份 bash+Landlock 集成代码（原 `:549-591`）一并移除** ⇒ "bash 无内核级约束"从此**显式化**，不再有"看起来有"的误导。
+
+### 1.4 bash 是否应接入 Landlock —— **评估结论（安全决策，待用户裁定；本轮不实施）**
+
+| 维度 | 结论 |
+|---|---|
+| 可行性 | 中。需把 `exec(shellString)` 换成经 `runWithLandlock` 包装的 `bash -c …`，并用 `LandlockPolicyBuilder` 声明路径策略（可读系统路径 + 可写工作区） |
+| 平台 | **仅 Linux**（Landlock 需内核 5.13+，且有 ABI 分档 `clampAccessByAbi`）⇒ Windows/macOS 不生效 ⇒ **三平台行为分叉** |
+| 主要风险 | **误伤**：策略若漏声明用户需要的路径，会**拦掉正常 bash 操作**；仓内**无 Linux CI 证据**；`sandbox/landlock/native/` 的 C11 helper 需先构建 |
+| 缺口性质（如实） | 属**实际安全缺口**（Linux 上 bash 无内核级约束），但**不属"名义契约谎报"** —— bash 从未声称有 Landlock，`SandboxSecurityChecker` 是明确的黑名单检查 |
+| 选项 A | **接入**：Linux 上让 bash 经 `runWithLandlock`；建议**默认关闭**（配置显式开启）以控误伤，需 Linux 验证 |
+| 选项 B | **显式记录缺口**（文档 + 台账 + 帮助文档），保持现状 |
+| 选项 C | **中间态**：只做"能力探测 + 告警"（Linux 上 Landlock 可用但 bash 未接入时提示），不改执行路径 |
+
+> **裁定与落地**：2026-09-26 用户选定 **选项 C**（探测 + 告警，不改执行路径）⇒ 实施见 §1.5；**选项 A（接入）仍未做**，保留为后续可选项（需 Linux 验证）。
+
+### 1.5 选项 C 已实施：能力探测 + 告警（**不改执行路径**）
+
+交付物：新增 [`tools/bash/bashLandlockGap.ts`](../app/src/tools/bash/bashLandlockGap.ts) + 在活跃 [`tools/bash/BashTool.ts`](../app/src/tools/bash/BashTool.ts#L658-L661) 的 `execute` 内、**即将真正执行**处调用一次。
+
+| 维度 | 落地 |
+|---|---|
+| 触发条件 | **Linux 且** `/sys/kernel/security/lsm` 含 `landlock` ⇒ 才提示（非 Linux / 未启用 ⇒ 无提示） |
+| 频次 | **全进程一次**（模块级标记）；已提示后**短路、零 IO** |
+| 行为影响 | **零** —— 返回值不参与控制流；该函数**吞掉自身全部失败**（`@ignore-catch`）⇒ 顾问性提示不得让 bash 执行失败 |
+| 可测试性 | 纯判据 `judgeBashLandlockGap()`（零 IO）+ 可注入 `platform` / `readLsm` / `warn` ⇒ 10 例**全离线**（不需要 Linux） |
+
+**⚠️ 关键设计取舍：刻意不复用 `LandlockDetector.detect()`（有实证理由，不是偏好）**
+
+`LandlockDetector` 的探测结果**全局缓存**，而真实安全路径 `LinuxSandboxRunner` 用**它自己的 `helperPath`** 调用 `detect({ helperPath })`。若告警路径用**默认 helper** 探测并写入缓存（如 `helper-missing`），真实 `code_run` 会读到该缓存 ⇒ **误判 Landlock 不可用**、进而**改变安全行为**（这才是真回归）。故本模块**只读 LSM 列表**（不 spawn、不写缓存）。
+
+**代价（如实）**：LSM 列表有盲区 —— `LandlockDetector` 自己的注释就指出"LSM 列表有盲区，需 probe 才能确证 enforce 能力"⇒ 本提示**只是线索**，**不得**当作"Landlock 已生效/未生效"的判据（代码注释同此声明）。
+
+**验收（离线）**：10 例覆盖 ① 平台门控 ② 读不到 LSM（**不臆断为可用**）③ LSM 无 `landlock` ④ LSM 含 `landlock` ⇒ 提示 ⑤ 已提示不再提示 ⑥ Windows 不读 LSM 不告警 ⑦ 告警**恰一次** + 二次调用短路零 IO ⑧ 未启用不告警 ⑨ 告警出口抛错 ⇒ 照常返回（原因如实 `probe-failed`，**不**混淆成"未启用"）⑩ 读 LSM 抛错 ⇒ 不抛给调用方。
+
+**A/B**：同时变异"去掉一次性标记 + 去掉兜底" ⇒ **恰 3 红**且可分归（一次性 1 例 / 兜底 2 例）。
+
+**仍未做（如实）**：**Linux 真机验证未做**（本机 Windows ⇒ 实际走 `not-linux` 分支，告警分支只在**注入依赖**下被覆盖）；**未接入执行路径**（这正是选项 C 的定义：只提示、不改行为）。
+
+### 1.6 选项 A 已实施：bash 接入 Landlock（**默认关闭**，2026-09-26 用户指令）
+
+> §1.5 的选项 C 只"提示"；本节按用户指令**真正接入**（A 与 C 并存：**未开启接入时**仍会提示）。
+
+**交付物**：新增 [`tools/bash/bashLandlockExec.ts`](../app/src/tools/bash/bashLandlockExec.ts)
+（`buildBashLandlockPolicy()` / `decideBashLandlockGate()` / `execBashCommand()` + 可注入的 `LandlockHelperRunner`）；
+[`BashTool.execute`](../app/src/tools/bash/BashTool.ts) 的执行步收敛到 `execBashCommand()`；
+配置面**复用**既有 [`sandbox/landlock/config.ts`](../app/src/sandbox/landlock/config.ts)（**新增** `sandbox.landlock.bashEnabled`，默认 **false**）；
+另把 `appendWithinLimit` / `readLandlockConfig` 等经 `@modules/sandbox` 桶导出（**不深路径 import、不另造**）。
+
+| 维度 | 落地 |
+|---|---|
+| 开关 | `sandbox.landlock.enabled`（总）× `sandbox.landlock.bashEnabled`（分项，默认 **false**） |
+| 真正受限 | `landlock-run <--ro/--rw…> -- /bin/sh -c <command>`（复用 `buildLandlockArgv`；命令是**单个 argv 元素**，不拼壳） |
+| **开启却无法受限** | **拒绝执行**（非 Linux / 能力不可用），错误信息给出两条可操作出路 ⇒ **不静默降级** |
+| helper 初始化失败（exit 125） | 由既有 `failClosed` 决定：`true` ⇒ 拒绝；`false` ⇒ 回退普通执行 + WARN（既有契约字面语义） |
+| 命令非 0 退出 | 抛**与 `exec` 同形**的错误（带 `stderr` / `code`），调用方归因方式不变 |
+| 输出上限 | 复用 B1 的 `appendWithinLimit` 逐块切片（16MB 硬上限防 OOM；口径同 PTY：**按字符**） |
+| 写权限（最小化） | 可写：cwd、`~/.pyapp/{output,downloads,temp}`、`/tmp`、`/var/tmp`、`~/.bun`、`~/.npm`、`~/.cache`、`/dev`（供 `2>/dev/null`）；只读：`/usr` `/bin` `/lib` `/etc` `/proc` … 以及 **`~/.pyapp` 整体**（bash 改不动配置与凭据） |
+| 网络 | **显式放行** `connect_tcp/udp` —— Landlock 缺省=全禁 TCP/UDP，照抄 `code_run` 的"无 net 规则"会让 curl/git/npm 全废（误伤） |
+
+**为什么"无法受限 ⇒ 拒绝"而不是回退**：B2 已确立"不假装已受限"。用户显式打开 enforcement 开关后再静默走不受限路径，等于把开关做成装饰；故拒绝执行，并把**出路写进错误信息**（关开关 / 装 helper）。
+
+**验收（离线，21 例）**：默认关闭 / 门控六分支 / 策略形状（cwd 可写、`~/.pyapp` 只读、`/dev` 可写、网络放行）/ argv 形状（`--ro`+`--rw` 声明、命令单元素）/ 开关关闭时不探测 / **两条拒绝且不调用普通执行器** / exit 0、exit 125（两种走向）、exit 7（带 `stderr`+`code`）、未取到退出码、helper 启动失败。
+
+**A/B（各自单变量）**：① 把"拒绝"改成静默回退 ⇒ **恰 2 红**（两条拒绝用例）；② 把命令二次拼壳（`"${command}"`）⇒ **恰 1 红**（argv 形状用例）。合计 3 红，可按用例名归属。
+
+**未做/未验（如实）**：① **真实 Linux 上的 enforce 行为未验证**（本机 Windows）；② `defaultLandlockHelperRunner` 的截断未单测（复用 B1 助手，其自身有单测）；③ 策略是"够用优先"的**固定清单、不可配置** —— 若用户需要额外可写路径会被**拦到正常命令**（这正是默认关闭的理由）；④ **未提供 UI 开关** —— 开启需手改 `~/.pyapp/config.json` 的 `sandbox.landlock.bashEnabled`；⑤ `enabled` / `failClosed` 原本无消费者的问题**已另批修复**（见 §1.7 的 G1-A2）。
+
+### 1.7 已修（G1-A2，2026-09-26 用户指令）：`code_run` **接入** `sandbox.landlock` 配置（原为"名义契约"）
+
+**实测的缺口（本轮先在 §1.7 记录、随后按用户指令修）**：`readLandlockConfig` / `resolveLandlockConfig` / `DEFAULT_LANDLOCK_CONFIG` 在 `sandbox/landlock/` 与其桶导出之外**零命中**；
+`tools/CodeRunner/LinuxSandboxRunner.ts` 原本是**直接** `LandlockDetector.detect()` + 不可用即降级，**不读配置** ⇒
+`sandbox.landlock.enabled=false` **拦不住** `code_run` 走 Landlock、`failClosed=true` **也不生效**（与 B1 同类的名义契约）。
+
+**改法（接入同一配置面，不新增键）**：
+
+| 情形 | 改后行为 |
+|---|---|
+| `enabled === false` | 直接走跨平台执行器（配置语义"关闭则完全走本地执行路径"）；**连探测都不做** |
+| 能力不可用 + `failClosed === false` | 降级跨平台（**既有行为不变**，仅补 debug 日志） |
+| 能力不可用 + `failClosed === true` | **拒绝**：返回 `status: 'security-rejected'` + 可操作信息（装 helper / 关开关），**不**降级到无约束执行 |
+| helper 初始化失败（**exit 125**）+ `failClosed === true` | **拒绝**（同上，换成 `security-rejected`，保留原日志便于排障） |
+| helper 初始化失败（exit 125）+ `failClosed === false` | **降级**跨平台 + WARN（配置的字面语义"初始化失败时拒绝而非回退"默认关闭） |
+| 非 Linux | 走跨平台（**设计内正常分支**，见下） |
+
+**两处关键判据（都可离线证伪）**：
+1. **exit 125 的判据是"真实退出码"，不是文案** ⇒ 为此给 `CodeRunResult` 增 `exitCode?: number`（`CrossPlatformRunner` 的 `exit` 事件带出）。若从 `error` 里找 `"125"`，就是**字符串匹配做状态判断**（CS02），且会**双向误判**（A/B 已实证，见下）。
+2. **非 Linux 判"跨平台"而非"拒绝"**：`failClosed` 的字面语义只管"初始化失败"，而跨平台执行器是**合法执行器**（文件头 P1-4：平台差异仅在隔离手段）。若因 `failClosed=true` 在非 Linux 上拒绝，会把 Windows/macOS 的 `code_run` 直接打死 —— 而该开关此前无消费者、从未有过这层语义。
+
+**验收（离线 13 例）**：门控六分支（含"非 Linux + failClosed=true ⇒ 仍 plain"）/ 默认配置不变 / 125 分流三态（keep / fallback / refuse）/ 拒绝结果形状（`security-rejected`、零耗时、空集合）/ **真实子进程**验证 `exitCode` 带出（`bun -e process.exit(125)` 与 `process.exit(0)`）。
+
+**A/B（各自单变量；实测 4 红，**比预估多 1**，如实记录）**：
+- ① 把 125 判定改成**文案匹配** ⇒ **恰 2 红**，且是**双向**误判：`exitCode=0/1/7` 因文案含 "125" 被**误判为初始化失败**；`exitCode=125` 但文案不含 "125" 时被**漏判**。
+- ② 去掉 `CrossPlatformRunner` 的退出码带出 ⇒ **恰 2 红**（两个真实子进程用例）。
+- 预估 3 红、实得 4 红：原因是①的共用夹具 `error` 文案本身含 "125"，使"非 125 ⇒ keep"用例也被翻转 ⇒ **该差异已核明，非未定性**。
+
+**未做/未验（如实）**：① `runCodeRunnerWithLandlock` 的**真实 spawn 路径未单测**（依赖真实 landlock-run + Linux）⇒ 判据与形状已用纯函数 + 真实子进程分片覆盖；② 真实 Linux 上"125 ⇒ 拒绝/降级"未端到端验证。
+
+---
+
+## 2. G2 / G3（状态）
+
+- **G2**（把报告失真记入预存台账）：方案自述**已办**（2026-09-25，N-73 等条目）；本轮在台账新增/更正的条目继续沿用该做法。
+- **G3**（隔离提示词工具名漂移）：已在**排查计划 P3-2** 处置 —— `AgentTool.ts:2162` 的 `read_file/write_file/edit_file` 改为真实注册名 `file_read/file_write/file_edit`。
+  ⚠️ 方案另建议"**加守卫**（从工具注册表取名的单一来源，而非在提示词里写字面量）"—— **未做**：该提示词是静态模板串，接注册表会引入运行时依赖；作为后续可选改进记录（§3-7）。
+
+---
+
+## 3. 未做 / 未验（如实）
+
+1. **Linux 真机验证未做（选项 A 与 C 的共同缺口）**：本机为 Windows ⇒ Landlock 的 **enforce 行为**与**告警分支**都**未在真实 Linux 上观察过**；离线用例覆盖的是门控判据、策略形状、argv 形状与成败分支（执行器/探测器可注入）。
+2. **bash 的 Landlock 策略是"够用优先"的固定清单、不可配置**：若用户需要清单外的可写路径（自定义工作目录之外的落点）会被**拦到正常命令** —— 这正是 `bashEnabled` 默认关闭的原因；"可配置可写路径"属后续增强（未做）。
+3. ~~**`sandbox.landlock.enabled` / `failClosed` 原先无消费者的问题未修**（§1.7）~~ ✅ **已修（G1-A2）**：`code_run` 现按 `enabled` / `failClosed` 分流（§1.7）。
+4. **选项 C 的告警信号强度有限（已知，非缺陷）**：只读 LSM 列表、不做功能 probe（理由见 §1.5），故可能有"LSM 列出但内核拒绝 enforce"的假阳性 ⇒ 提示只作线索。
+5. **G1 的"Windows 大小写不敏感"打包风险未验**：本机实测两目录**并存**（说明当前文件系统按大小写敏感处理），但**未验证** git 检出 / 打包 / tsc 大小写校验在 CI 与目标机上的行为差异。
+6. 未做"同名目录"防回归守卫（例如一个扫描脚本检测 `tools/` 下仅大小写不同的目录）。
+7. G3 的"守卫化"（提示词工具名取自注册表）未做。
+8. **`BashTool.safeExecute` / `BashTool.executeCommand` 无活调用点**（实测：`safeExecute` 全仓仅定义处 1 命中）⇒ 它们**绕过**本次接入的 Landlock 入口；本次**未**动（不删预存死代码，仅记录）。
+
+---
+
+## 4. 门禁（G1-A2 实施后）
+
+`typecheck` **0** · `eslint`（本轮改动 4 文件）**0** · `lint:arch` **0 错 0 警** · 新增用例 **13 pass**（`tests/tools/codeRunnerLandlockConfig.test.ts`；G1-A 的 21 例与 G1-C 的 10 例仍全绿）· 全量 **3936 pass / 19 skip / 0 fail / 3955 tests / 402 files**（套件自报 74.07s）。
+
+> 时点对照：G1-C = 3902 pass·3921 tests·400 files（72.87s）；G1-A = 3923 pass·3942 tests·401 files（74.51s）；G1-A2 = 3936 pass·3955 tests·402 files（74.07s）。
+> 过程说明（如实）：`eslint` 在**本轮改动**的文件上报 6 处 prettier 格式问题（非预存），已 `--fix` 后归零并**重跑**门禁。
+> 口径提醒：全量门禁**不要**经 PowerShell 管道（`| Select-Object -Last`）—— 该形态曾 ≥5 分钟未结束；改用**重定向到文件**后稳定在 72–75s（详见台账 2026-09-26 补充数据点）。

@@ -49,11 +49,16 @@ import {
   fillContent,
   generateImages,
 } from './DocWorkflow';
+import { DocWorkflowProgressEmitter } from './DocWorkflow';
 import type {
   BuildOutlineInput,
   ComposeResult,
   RunDocWorkflowOptions,
 } from './DocWorkflow';
+import type {
+  DocWorkflowStage,
+  DocWorkflowStageStatus,
+} from '../types/outline';
 
 const logger = getLogger('doc:workflow-provider');
 
@@ -75,6 +80,15 @@ export interface DocPipelineParams {
   fillConcurrency?: number;
   imageConcurrency?: number;
   confirmOutline?: RunDocWorkflowOptions['confirmOutline'];
+  /**
+   * 进度回调（方案 3 / 2026-09-26 新增）。
+   *
+   * 修复前本参数**不存在** ⇒ 经 seam 执行时**进度事件永不产生**（`runDocWorkflow` 内的
+   * 发射器不参与），前端 `DocWorkflowProgress` 永不亮。现由本 Provider 复用**共享的**
+   * `DocWorkflowProgressEmitter` 在阶段边界推进并 emit ⇒ seam 执行既得 run 记录、
+   * 又有 `assistant/doc_workflow` 进度事件。
+   */
+  onProgress?: RunDocWorkflowOptions['onProgress'];
 }
 
 /** 阶段 id（与 `runDocWorkflow` 的三阶段语义一一对应；配图是填充阶段的辅助动作，故独立成步） */
@@ -152,6 +166,23 @@ export class DocWorkflowProvider implements WorkflowProvider {
     );
     const completedSteps: string[] = [];
 
+    // ── 进度发射（方案 3）：与 seam 的 stepReporter **各司其职** ──
+    // stepReporter → seam 账本（run 记录/成员级账本）；emitter → 前端进度卡片
+    // （`assistant/doc_workflow` 富块事件）。二者互不替代，故并行推进。
+    const emitter = new DocWorkflowProgressEmitter(
+      p.input.topic,
+      p.input.format
+    );
+    /** 推进某阶段状态并立即 emit（`onProgress` 缺省时为空操作） */
+    const setStage = (
+      stage: DocWorkflowStage,
+      status: DocWorkflowStageStatus,
+      description?: string
+    ): void => {
+      emitter.setStage(stage, status, description);
+      emitter.emit(p.onProgress);
+    };
+
     /** 阶段边界上报（配对不变式由 seam 账本兜底，此处只报事实） */
     const beginStep = (stepId: string): void => {
       const step = planned.get(stepId);
@@ -189,19 +220,28 @@ export class DocWorkflowProvider implements WorkflowProvider {
 
     // 阶段①：大纲（本阶段失败直接抛——后续阶段无输入可依）
     beginStep(STEP_OUTLINE);
+    setStage(STEP_OUTLINE, 'in_progress', '正在生成大纲');
     try {
       outline = buildOutline(p.input, p.llmNodes);
-      if (p.confirmOutline && !(await p.confirmOutline(outline))) {
-        finishStep(STEP_OUTLINE, new Error('用户取消大纲'));
-        return {
-          stopReason: 'error',
-          completedSteps: [...completedSteps],
-          error: '用户取消大纲',
-        };
+      if (p.confirmOutline) {
+        setStage(STEP_OUTLINE, 'awaiting_confirm', '大纲已生成，等待确认');
+        if (!(await p.confirmOutline(outline))) {
+          finishStep(STEP_OUTLINE, new Error('用户取消大纲'));
+          emitter.setError('用户取消大纲');
+          setStage(STEP_OUTLINE, 'failed', '用户取消大纲');
+          return {
+            stopReason: 'error',
+            completedSteps: [...completedSteps],
+            error: '用户取消大纲',
+          };
+        }
       }
       finishStep(STEP_OUTLINE);
+      setStage(STEP_OUTLINE, 'completed');
     } catch (error) {
       finishStep(STEP_OUTLINE, error);
+      emitter.setError(String(error));
+      setStage(STEP_OUTLINE, 'failed', String(error));
       return {
         stopReason: 'error',
         completedSteps: [...completedSteps],
@@ -213,13 +253,42 @@ export class DocWorkflowProvider implements WorkflowProvider {
     const afterOutline = cancelled();
     if (afterOutline) return afterOutline;
     beginStep(STEP_FILL);
+    // `filling` 阶段覆盖 ②填充 + ③配图（配图是本阶段的辅助动作，见文件头 STEP_* 注释）
+    // 保真度：与收口前的 `runDocWorkflow` **同等**（节点清单 + 逐节点百分比）——
+    // 否则切到 seam 后前端进度卡会变粗（用户可见回退）。
+    setStage('filling', 'in_progress', '正在填充内容');
+    emitter.setNodes(
+      'filling',
+      outline.nodes.map((n) => ({
+        id: n.id,
+        title: n.title,
+        status: 'pending' as const,
+        hasImage: !!n.imageHint,
+      }))
+    );
+    emitter.emit(p.onProgress);
+    const totalNodes = outline.nodes.length;
+    let filledCount = 0;
     try {
-      filled = await fillContent(outline, p.fillNode, {
-        concurrency: p.fillConcurrency,
-      });
+      filled = await fillContent(
+        outline,
+        async (node) => {
+          const content = await p.fillNode(node);
+          filledCount += 1;
+          emitter.setProgress(
+            'filling',
+            Math.round((filledCount / totalNodes) * 100)
+          );
+          emitter.emit(p.onProgress);
+          return content;
+        },
+        { concurrency: p.fillConcurrency }
+      );
       finishStep(STEP_FILL);
     } catch (error) {
       finishStep(STEP_FILL, error);
+      emitter.setError(String(error));
+      setStage('filling', 'failed', String(error));
       return {
         stopReason: 'error',
         completedSteps: [...completedSteps],
@@ -237,8 +306,12 @@ export class DocWorkflowProvider implements WorkflowProvider {
         concurrency: p.imageConcurrency,
       });
       finishStep(STEP_IMAGES);
+      // 配图完成 ⇒ 整个 filling 阶段结束
+      setStage('filling', 'completed', '内容填充完成');
     } catch (error) {
       finishStep(STEP_IMAGES, error);
+      emitter.setError(String(error));
+      setStage('filling', 'failed', String(error));
       return {
         stopReason: 'error',
         completedSteps: [...completedSteps],
@@ -250,11 +323,16 @@ export class DocWorkflowProvider implements WorkflowProvider {
     const afterImages = cancelled();
     if (afterImages) return afterImages;
     beginStep(STEP_COMPOSE);
+    setStage('compose', 'in_progress', '正在生成文档');
     try {
       result = await compose(filled, p.generateDoc);
       finishStep(STEP_COMPOSE);
+      emitter.setOutputFile(result.filePath);
+      setStage('compose', 'completed', '文档生成完成');
     } catch (error) {
       finishStep(STEP_COMPOSE, error);
+      emitter.setError(String(error));
+      setStage('compose', 'failed', String(error));
       logger.warn('doc 流水线成稿阶段失败', {
         topic: p.input.topic,
         format: p.input.format,

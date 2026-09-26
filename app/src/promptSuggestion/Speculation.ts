@@ -10,7 +10,7 @@ import {
   IDLE_SPECULATION_STATE,
   type SpeculationState,
   type SpeculationResult,
-  WRITE_TOOLS,
+  SPECULATION_WRITE_TOOLS,
   SAFE_READ_ONLY_TOOLS,
   MAX_SPECULATION_TURNS,
   MAX_SPECULATION_MESSAGES,
@@ -55,7 +55,7 @@ export function isToolReadOnly(toolName: string): boolean {
  * 判断工具是否为写入操作
  */
 export function isToolWrite(toolName: string): boolean {
-  return WRITE_TOOLS.has(toolName);
+  return SPECULATION_WRITE_TOOLS.has(toolName);
 }
 
 /**

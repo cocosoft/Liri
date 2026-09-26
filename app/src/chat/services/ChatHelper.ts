@@ -158,6 +158,18 @@ export function extractTodoData(toolResult: ToolResult): TodoBlockData | null {
       tasks: raw.tasks as TodoBlockData['tasks'],
       phase: (raw.phase as TodoBlockData['phase']) || 'planning',
       createdAt: Date.now(),
+      // P2-1 修复（2026-09-26）：透传 planId。
+      // 生产方 `TodoWriteTool._buildTodoData()` 一直带它（TodoWriteTool.ts:646-660，注释
+      // 明写"供前端按 planId 查重区分多计划"），下游也一直**条件**消费它：
+      //   · ReActToolLoop.ts:805 的扩容键 `todoData.planId ?? todoData.title`
+      //   · streamMessageFlow.ts:2332 / :2418 与 ChatManagerTAORAdapter.ts:501 的 taskCard.planId
+      // 唯独此处把它丢了 ⇒ 下游三处的 planId 分支**恒不可达**（键实际恒为 title、
+      // taskCard.planId 永不出现）。类型早已具备（todo-types.ts:53）。
+      // ⚠️ 必须**条件展开**（不可写 `planId: raw.planId`）：`undefined` 会成为显式键，
+      // 而计划事件的载荷校验会据此判 `invalid-event`（见 streamMessageFlow.ts:2331 的注释）。
+      ...(typeof raw.planId === 'string' && raw.planId
+        ? { planId: raw.planId }
+        : {}),
     };
   }
   return null;

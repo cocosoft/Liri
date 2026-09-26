@@ -141,6 +141,13 @@ export interface SessionFilter {
   userId?: string;
   agentId?: string;
   searchQuery?: string;
+  /**
+   * P3-1（2026-09-26）：是否**包含** `temporary` 会话（默认 `false` —— 临时对话不入历史列表）。
+   *
+   * 用途：**启动期血缘重建**需要"全部会话"（血缘判定与"是否显示在历史列表"无关）
+   * ⇒ 由 `SessionGateway.listSessions({ includeTemporary: true })` 显式取全量。
+   */
+  includeTemporary?: boolean;
 }
 
 /**

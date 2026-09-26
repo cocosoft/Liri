@@ -261,6 +261,16 @@
       "owner": "@arch-lead"
     },
     {
+      "id": "FSZ-161",
+      "ruleId": "R04-001",
+      "file": "app/src/ai/api/ModelRuntimeAPI.ts",
+      "lines": 859,
+      "targetLines": 800,
+      "plan": "模型管理 API 收敛（模型注册 CRUD / 任务分工 / 运行时查询三域 handler 集中于一处）致 859 行；后续按「模型注册 CRUD」「任务分工」「运行时探测」三子域拆分（2026-09-26 台账已记其阻塞 lint:size 门禁）",
+      "expiresAt": "2026-11-30",
+      "owner": "@arch-lead"
+    },
+    {
       "id": "FSZ-106",
       "ruleId": "R04-001",
       "file": "app/src/infrastructure/http/handlers/skills-handlers.ts",

@@ -62,17 +62,22 @@ export const DEEPSEEK_GUIDANCE = `## DeepSeek 模型特定指引
 
 ### 工具调用规范
 - 本模型支持单轮多次工具调用，充分利用并行能力
-- 当需要读取多个文件时，一次性发出所有 Read 调用
+- 当需要读取多个文件时，一次性发出所有 file_read 调用
 - 确认操作正确后立即执行下一步，避免不必要的确认循环`;
 
 /**
  * Claude 模型特定指引
+ *
+ * 2026-09-26（P3-2 顺查项③ 收尾）：正文工具名统一为**本仓真实注册名** ——
+ * 原 `Read` 在本仓不存在（真名 `file_read`，见 `tools/FileReadTool` 的 `name`），
+ * 会让模型照提示调用不存在的工具；与 `PlatformHints.ts:356-357`、
+ * 本文件 `:154-159` 的同批修复口径对齐。
  */
 export const CLAUDE_GUIDANCE = `## Claude 模型特定指引
 
 ### 工具使用规范
 - 每次工具调用后认真分析返回结果，提取关键信息
-- 优先使用 Read 工具获取完整上下文，避免基于摘要做判断
+- 优先使用 file_read 工具获取完整上下文，避免基于摘要做判断
 - 对大文件的修改使用精确的行范围定位，避免不必要的全文重写
 
 ### 交互建议
@@ -101,7 +106,7 @@ export const GOOGLE_GUIDANCE = `## Google 模型特定指引
 
 ### 路径处理
 - **绝对路径：** 始终构建和使用绝对文件路径进行文件系统操作。将项目根目录与相对路径组合。
-- **验证先行：** 在执行修改前使用 read_file/search_files 检查文件内容和项目结构。永远不要猜测文件内容。
+- **验证先行：** 在执行修改前使用 file_read/file_search 检查文件内容和项目结构。永远不要猜测文件内容。
 
 ### 依赖检查
 - **永远不要假设库可用。** 在使用前检查 package.json、requirements.txt、Cargo.toml 等。
@@ -123,7 +128,7 @@ export const OLLAMA_GUIDANCE = `## 本地模型特定指引
 
 ### 资源优化
 - 响应速度受本地资源限制，尽量减少不必要的工具调用
-- 优先使用 Read 工具的精确行范围减少输出量
+- 优先使用 file_read 工具的精确行范围减少输出量
 - 单步目标尽量聚焦，避免过长的推理链
 
 ### 交互建议
@@ -151,12 +156,12 @@ export const GROK_GUIDANCE = `## Grok 模型特定指引
 - 代码执行: 数学和代码任务使用工具验证结果
 - 简洁回应: 直接回答问题，减少不必要的前言`;
 
-/** P2-14: Codex 模型特定指引 */
+/** P2-14: Codex 模型特定指引（2026-09-26 修复 P3-2 顺查项③：工具名改为本仓真实注册名） */
 export const CODEX_GUIDANCE = `## Codex 模型特定指引
-- 代码生成优先: 使用 write_file/edit_file 直接生成代码
-- 增量编辑: 使用 replace_in_file 进行精确的字符串替换
-- 预检操作: 修改前先用 read_file 读取文件内容
-- 验证循环: 修改后用 grep/read 验证结果`;
+- 代码生成优先: 使用 file_write/file_edit 直接生成代码
+- 增量编辑: 使用 file_edit 进行精确的字符串替换
+- 预检操作: 修改前先用 file_read 读取文件内容
+- 验证循环: 修改后用 grep/file_read 验证结果`;
 
 /** P2-14: Gemma 模型特定指引 */
 export const GEMMA_GUIDANCE = `## Gemma 模型特定指引

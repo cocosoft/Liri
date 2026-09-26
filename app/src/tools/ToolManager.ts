@@ -6,6 +6,7 @@
 import { EventEmitter } from 'events';
 import { AppError, ErrorCategory, ErrorSeverity } from '@modules/error';
 import { Tool, type ToolResult } from './types/Tool';
+import { guardShieldedToolCall } from './shieldGuard';
 import { ToolFactory } from './ToolFactory';
 import { setAgentToolManager } from './AgentTool/AgentTool';
 import { ToolRegistry, getToolRegistry } from './ToolRegistry';
@@ -336,6 +337,13 @@ export class ToolManager extends EventEmitter {
     context: any,
     onProgress?: any
   ): Promise<ToolResult> {
+    // A7 防泄题：**HTTP/CoreAPI 路径**的路径屏蔽收口（`CoreAPIImpl.executeTool` 走这里，
+    // 不经过 `ToolRegistry.executeTool`；两处收口的说明见 `shieldGuard.ts`）。
+    // 命中 ⇒ 直接返回拒绝结果、**不执行工具**；与下面的 policy 拒绝不同，这里不抛错，
+    // 以便 `CoreAPIImpl.executeTool` 按普通失败结果返回给调用方。
+    const shieldRejection = guardShieldedToolCall(name, input);
+    if (shieldRejection) return shieldRejection;
+
     this.ensureToolsLoaded();
     profileCheckpoint(`tool_execute_${name}_start`);
     const tool = this.getTool(name);

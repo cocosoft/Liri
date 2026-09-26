@@ -11,6 +11,7 @@ import type {
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error/handleError';
 import { spawn, type ChildProcess } from 'child_process';
+import { appendWithinLimit, resolveOutputLimit } from './SandboxPolicy';
 
 const logger = getLogger('sandbox:ssh');
 
@@ -24,7 +25,8 @@ export interface SSHSandboxConfig {
   privateKeyPath?: string;
   password?: string;
   timeoutMs: number;
-  maxOutputBytes: number;
+  /** **软**输出上限。**不传**时取 `SandboxPolicy` 的**唯一来源**（B1：后端不另设默认值）。 */
+  maxOutputBytes?: number;
   jumpHost?: string;
   jumpPort?: number;
   jumpUsername?: string;
@@ -36,7 +38,7 @@ const DEFAULT_CONFIG: SSHSandboxConfig = {
   port: 22,
   username: 'root',
   timeoutMs: 300000,
-  maxOutputBytes: 1024 * 1024,
+  // B1（2026-09-26）：删掉就地的 `maxOutputBytes: 1024*1024` —— 改由 resolveOutputLimit 取唯一来源
 };
 
 /**
@@ -162,9 +164,15 @@ export class SSHSandbox {
   /**
    * 执行命令返回结果
    */
-  private executeCommand(
-    cmd: string
-  ): Promise<{ exitCode: number; stdout: string; stderr: string }> {
+  private executeCommand(cmd: string): Promise<{
+    exitCode: number;
+    stdout: string;
+    stderr: string;
+    /** B1（③）：输出被截断（软上限命中） */
+    truncated: boolean;
+    /** B1（③）：被丢弃的字节数 */
+    truncatedBytes: number;
+  }> {
     return new Promise((resolve, reject) => {
       const args = this.buildSshArgs(cmd);
       const proc = spawn('ssh', args, {
@@ -175,6 +183,11 @@ export class SSHSandbox {
       let stdout = '';
       let stderr = '';
       let timedOut = false;
+      // B1：软上限经**唯一来源**解析（不再读就地的 `this.config.maxOutputBytes` 默认值）
+      const { soft: maxOutputBytes } = resolveOutputLimit({
+        soft: this.config.maxOutputBytes,
+      });
+      let droppedBytes = 0;
 
       const timer = setTimeout(() => {
         timedOut = true;
@@ -182,15 +195,23 @@ export class SSHSandbox {
       }, this.config.timeoutMs);
 
       proc.stdout?.on('data', (data: Buffer) => {
-        if (stdout.length < this.config.maxOutputBytes) {
-          stdout += data.toString('utf-8').trimEnd();
-        }
+        const step = appendWithinLimit(
+          stdout,
+          data.toString('utf-8').trimEnd(),
+          maxOutputBytes
+        );
+        stdout = step.text;
+        droppedBytes += step.droppedBytes;
       });
 
       proc.stderr?.on('data', (data: Buffer) => {
-        if (stderr.length < this.config.maxOutputBytes) {
-          stderr += data.toString('utf-8').trimEnd();
-        }
+        const step = appendWithinLimit(
+          stderr,
+          data.toString('utf-8').trimEnd(),
+          maxOutputBytes
+        );
+        stderr = step.text;
+        droppedBytes += step.droppedBytes;
       });
 
       proc.on('close', (code) => {
@@ -198,7 +219,13 @@ export class SSHSandbox {
         if (timedOut) {
           reject(new Error('SSH 命令执行超时'));
         } else {
-          resolve({ exitCode: code ?? -1, stdout, stderr });
+          resolve({
+            exitCode: code ?? -1,
+            stdout,
+            stderr,
+            truncated: droppedBytes > 0,
+            truncatedBytes: droppedBytes,
+          });
         }
       });
 
@@ -243,6 +270,9 @@ export class SSHSandbox {
         executionTime: Date.now() - startTime,
         durationMs: Date.now() - startTime,
         timedOut: false,
+        // B1（③）：把截断事实与丢弃字节数带到对外结果（此前调用方无法程序化判断）
+        truncated: result.truncated,
+        truncatedBytes: result.truncatedBytes,
       };
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);

@@ -20,6 +20,7 @@ import {
 import {
   registerSessionLineage,
   resetSessionLineage,
+  rebuildSessionLineage,
 } from '../../../src/session/lineage/sessionLineage';
 
 /** fake 引擎：仅声明本测试路径用到的四个方法 */
@@ -118,6 +119,41 @@ describe('AgentTool 控制面 Tier1 血缘链（O10b / v7.1）', () => {
     expect(tool.stopAgent('a-lineage4', { requesterSessionId: 'sess-y' })).toBe(
       false
     );
+    expect(engine.aborted).toEqual([]);
+  });
+
+  test('P3-1：**启动期从盘重建后**，祖先（含祖父）可正常中止', () => {
+    const tool = new AgentTool();
+    const engine = installEngine(tool);
+    registerRun('a-lineage5', 'sess-child');
+
+    // 模拟"重启后"的重建（数据源 = 各会话 metadata.parentSessionId）
+    rebuildSessionLineage([
+      { id: 'sess-child', parentSessionId: 'sess-parent' },
+      { id: 'sess-parent', parentSessionId: 'sess-root' },
+    ]);
+
+    // 直接父会话可中止
+    expect(
+      tool.stopAgent('a-lineage5', { requesterSessionId: 'sess-parent' })
+    ).toBe(true);
+    // 祖父（多跳祖先）亦可
+    expect(
+      tool.stopAgent('a-lineage5', { requesterSessionId: 'sess-root' })
+    ).toBe(true);
+    expect(engine.aborted).toEqual(['a-lineage5', 'a-lineage5']);
+  });
+
+  test('P3-1：重建**不等于放开** —— 链外会话仍 fail-closed 拒绝', () => {
+    const tool = new AgentTool();
+    const engine = installEngine(tool);
+    registerRun('a-lineage6', 'sess-child2');
+
+    rebuildSessionLineage([{ id: 'sess-child2', parentSessionId: 'sess-p2' }]);
+
+    expect(
+      tool.stopAgent('a-lineage6', { requesterSessionId: 'sess-unrelated' })
+    ).toBe(false);
     expect(engine.aborted).toEqual([]);
   });
 });

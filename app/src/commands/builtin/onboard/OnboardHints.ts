@@ -18,8 +18,6 @@ export enum OnboardHintKey {
   SOUL_CUSTOMIZATION = 'soul_customization',
   /** 提醒用户可配置消息通道 */
   CHANNEL_SETUP = 'channel_setup',
-  /** 工具首次长时间运行进度提示 */
-  TOOL_PROGRESS = 'tool_progress',
   /** 首次配置完成后快速入门指引 */
   FIRST_SETUP_COMPLETE = 'first_setup_complete',
   /** 首次检测到执行类长任务意图时，提示 PDCA 方法论可用（S4，2026-09-06） */

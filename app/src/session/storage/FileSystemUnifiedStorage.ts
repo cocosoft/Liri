@@ -1,5 +1,5 @@
 import fs from 'fs/promises';
-import { Dirent, existsSync } from 'fs';
+import { Dirent, existsSync, readdirSync } from 'fs';
 import path from 'path';
 
 import { StorageType } from './UnifiedStorage';
@@ -12,6 +12,7 @@ import type {
 // 路径函数直连 paths 子模块（避免拉入 @modules/core 大 barrel 造成循环 import TDZ）
 import {
   resolveSessionsDir,
+  resolveLegacySessionsDir,
   resolveLegacySessionPartitionRoots,
 } from '@modules/core/paths';
 import type {
@@ -26,7 +27,55 @@ import { handleError } from '@modules/error';
 
 import { getLogger } from '@modules/monitoring';
 import { enterPhase, exitPhase } from '@modules/diagnostics';
+import { renameToTrashWithRetry } from './trashRename';
 const logger = getLogger('session:storage:FileSystemUnifiedStorage');
+
+/**
+ * 清理**单个分区根**下 `.trash` 中超过 TTL 的条目（物理删除）。
+ *
+ * 2026-09-26：从 `purgeExpiredTrash()` 抽出 —— ① 使"逐分区清理"成为可组合的循环；
+ * ② **导出供离线断言**（真实 fs 行为，无需网络/Docker），对齐本仓"抽出来就能断言"的做法。
+ *
+ * @returns 实际物理删除的条目数（`.trash` 不存在/不可读 ⇒ 0，**不抛错**）
+ */
+export async function purgeExpiredTrashUnder(
+  partitionRoot: string,
+  ttlMs: number,
+  nowMs: number = Date.now()
+): Promise<number> {
+  const trashRoot = path.join(partitionRoot, '.trash');
+  let entries: Dirent[];
+  try {
+    entries = await fs.readdir(trashRoot, { withFileTypes: true });
+  } catch {
+    // @ignore-catch 分区没有 .trash（或不可读）⇒ 无可清理，属正常路径
+    return 0;
+  }
+
+  let removed = 0;
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+    const fullPath = path.join(trashRoot, entry.name);
+    try {
+      const stat = await fs.stat(fullPath);
+      if (nowMs - stat.mtimeMs > ttlMs) {
+        await fs.rm(fullPath, { recursive: true, force: true });
+        removed += 1;
+        logger.info('清理过期 .trash 项', {
+          path: fullPath,
+          ageDays: Number(((nowMs - stat.mtimeMs) / 86400000).toFixed(1)),
+        });
+      }
+    } catch (err) {
+      // @ignore-catch 单条清理失败不应中断整个分区的清理（下一条继续）
+      logger.warn('清理 .trash 项失败，跳过', {
+        path: fullPath,
+        error: String(err),
+      });
+    }
+  }
+  return removed;
+}
 
 function matchesFilter(
   session: UnifiedSession,
@@ -151,34 +200,39 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
   /** .trash 软删除保留时长（P1 修复：TTL 自动清理，防止回收站无限膨胀） */
   private static readonly TRASH_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
-  /** 清理过期 .trash 项（mtime 超过 TTL 的软删除目录物理删除） */
+  /**
+   * 清理过期 `.trash` 项（mtime 超过 TTL ⇒ 物理删除）。
+   *
+   * **2026-09-26 修根因**：原实现只扫 `this.basePath` 的 `.trash`，而分区结构是
+   * `sessions/<worktreeHash>/{<会话 id>, .trash}`（`resolveSessionsDir()` = **桶**）⇒
+   * 实际只清理"当前工作区桶"的回收站。实测后果：遗留 **7023 项 / 212.73MB**：
+   * - `sessions/57971aa3/.trash` 97.55MB（当前桶，1–7 天：部分未超期属**正常保留**）；
+   * - `sessions/default/.trash` 2.14MB（**其他分区桶**，11–14 天未清）；
+   * - `sessions/.trash` **113.04MB**（**旧布局顶层**，19 天未清）。
+   *
+   * ⇒ 作用域对齐为三层：**当前桶 + 各历史分区桶 + 旧布局顶层（`resolveLegacySessionsDir()`）**。
+   * 前两层与"读取范围"一致（`loadAllSessions` 用 `[basePath, ...legacyRoots]`）；第三层是旧布局
+   * 残留的回收站（读取已不涉及它），同样按 TTL 规则清理，否则该目录会**无限期**占用。
+   */
   private async purgeExpiredTrash(): Promise<void> {
-    const trashRoot = path.join(this.basePath, '.trash');
-    let entries: Dirent[];
-    try {
-      entries = await fs.readdir(trashRoot, { withFileTypes: true });
-    } catch {
-      return; // .trash 不存在或不可读，无需清理
+    const roots = [
+      this.basePath,
+      ...this.legacyRoots,
+      resolveLegacySessionsDir(),
+    ];
+    const uniqueRoots = [...new Set(roots)];
+    let removed = 0;
+    for (const root of uniqueRoots) {
+      removed += await purgeExpiredTrashUnder(
+        root,
+        FileSystemUnifiedStorage.TRASH_TTL_MS
+      );
     }
-    const now = Date.now();
-    for (const entry of entries) {
-      if (!entry.isDirectory()) continue;
-      const fullPath = path.join(trashRoot, entry.name);
-      try {
-        const stat = await fs.stat(fullPath);
-        if (now - stat.mtimeMs > FileSystemUnifiedStorage.TRASH_TTL_MS) {
-          await fs.rm(fullPath, { recursive: true, force: true });
-          logger.info('清理过期 .trash 项', {
-            path: fullPath,
-            ageDays: Number(((now - stat.mtimeMs) / 86400000).toFixed(1)),
-          });
-        }
-      } catch (err) {
-        logger.warn('清理 .trash 项失败，跳过', {
-          path: fullPath,
-          error: String(err),
-        });
-      }
+    if (removed > 0) {
+      logger.info('分区回收站清理完成', {
+        partitions: uniqueRoots.length,
+        removed,
+      });
     }
   }
 
@@ -311,7 +365,9 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
   }
 
   private async loadMessages(sessionId: string): Promise<void> {
-    const filePath = messagesFilePath(this.basePath, sessionId);
+    // A（2026-09-26）：读**实体所在分区**的消息文件（历史分区会话不再恒 ENOENT）
+    const root = this.rootFor(sessionId);
+    const filePath = messagesFilePath(root, sessionId);
     try {
       const data = await fs.readFile(filePath, 'utf-8');
       const lines = data.split('\n').filter((l) => l.trim().length > 0);
@@ -357,9 +413,25 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
       // → 磁盘会话目录部分文件丢失（messages.jsonl 被删但元数据还在），
       //   自动软删除会话，避免上层列表出现切不出消息的"僵尸 session"。
       if (code === 'ENOENT') {
-        const metaPath = sessionFilePath(this.basePath, sessionId);
+        // ②-1（2026-09-26）：本进程已软删过该会话 ⇒ 不再重复自愈。
+        // 每次自愈 = 一个 `.trash` 残骸；实测单会话被删到 533 次即由此而来。
+        if (this.deletedSessionIds.has(sessionId)) {
+          return;
+        }
+        const metaPath = sessionFilePath(root, sessionId);
         try {
           if (existsSync(metaPath)) {
+            // ②-2（2026-09-26）数据保护：目录内除 `session.json` 外还有其它产物
+            // （`events.jsonl` / `memory.md` 等）⇒ 不是"空壳僵尸"——删进 `.trash` 会丢真实
+            // 数据（事件日志可重建消息投影）⇒ 只告警，不自愈。
+            const artifacts = this.listArtifactsBeyondSessionJson(sessionId);
+            if (artifacts.length > 0) {
+              logger.warn(
+                'K-6 loadMessages: 会话目录含其它产物,跳过自愈（避免丢数据）',
+                { sessionId, artifacts }
+              );
+              return;
+            }
             logger.warn(
               'K-6 loadMessages: messages.jsonl 丢失但 session.json 存在，自动软删除僵尸会话',
               { sessionId, messagesPath: filePath, sessionMetaPath: metaPath }
@@ -421,6 +493,26 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
     };
   }
 
+  /**
+   * 列出会话目录内**除 `session.json` 之外**的产物（K-6 自愈的数据保护判据）。
+   *
+   * 读目录失败时**返回非空**（`['<unreadable>']`）⇒ 调用方不自愈 —— fail-closed：
+   * 宁可留住可能有真实数据的会话，也不因"读不到目录"把它删进 `.trash`。
+   */
+  private listArtifactsBeyondSessionJson(sessionId: string): string[] {
+    try {
+      return readdirSync(sessionDir(this.rootFor(sessionId), sessionId)).filter(
+        (name) => name !== 'session.json'
+      );
+    } catch (err) {
+      logger.warn('K-6 自愈:读取会话目录失败,跳过自愈（避免误删数据）', {
+        sessionId,
+        error: String(err),
+      });
+      return ['<unreadable>'];
+    }
+  }
+
   private async persistSession(session: UnifiedSession): Promise<void> {
     // TB-14（2026-09-24）写侧拦截：外部进程已删除 ⇒ 拒绝落盘（否则 mkdir 会把目录重建）
     if (this.isExternallyDeleted(session.id)) {
@@ -433,12 +525,11 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
       this.forgetSession(session.id);
       return;
     }
-    const dir = sessionDir(this.basePath, session.id);
+    // A（2026-09-26）：写到**实体所在分区**——历史分区会话就地更新，不在当前分区凭空造副本
+    const root = this.rootFor(session.id);
+    const dir = sessionDir(root, session.id);
     await fs.mkdir(dir, { recursive: true });
-    await this.writer.writeJSON(
-      sessionFilePath(this.basePath, session.id),
-      session
-    );
+    await this.writer.writeJSON(sessionFilePath(root, session.id), session);
   }
 
   private async persistMessageAppend(
@@ -466,10 +557,11 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
       this.forgetSession(sessionId);
       return;
     }
-    const dir = sessionDir(this.basePath, sessionId);
+    const root = this.rootFor(sessionId); // A：消息写与实体同分区
+    const dir = sessionDir(root, sessionId);
     await fs.mkdir(dir, { recursive: true });
     const line = JSON.stringify(message) + '\n';
-    await this.writer.append(messagesFilePath(this.basePath, sessionId), line);
+    await this.writer.append(messagesFilePath(root, sessionId), line);
   }
 
   private async persistMessagesRewrite(
@@ -496,10 +588,11 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
       this.forgetSession(sessionId);
       return;
     }
-    const dir = sessionDir(this.basePath, sessionId);
+    const root = this.rootFor(sessionId); // A：全量重写与实体同分区
+    const dir = sessionDir(root, sessionId);
     await fs.mkdir(dir, { recursive: true });
     const data = messages.map((m) => JSON.stringify(m)).join('\n') + '\n';
-    await this.writer.write(messagesFilePath(this.basePath, sessionId), data);
+    await this.writer.write(messagesFilePath(root, sessionId), data);
   }
 
   /**
@@ -569,7 +662,7 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
       } | null = null;
       try {
         const diskData = await fs.readFile(
-          messagesFilePath(this.basePath, sessionId),
+          messagesFilePath(this.rootFor(sessionId), sessionId), // A：校验同一分区
           'utf-8'
         );
         const diskLines = diskData
@@ -612,9 +705,10 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
     // append 才建文件）使"新建未发消息"的合法空会话无消息文件，被 K-6 误判为僵尸会话
     // 软删除（重启后用户新建的空会话消失）。与 Write-Ahead 一致：元数据与消息文件同时
     // 落盘；真正的僵尸（文件确实丢失）仍由 K-6 防护保留。
-    const msgPath = messagesFilePath(this.basePath, session.id);
+    const root = this.rootFor(session.id); // A：与 persistSession 同分区
+    const msgPath = messagesFilePath(root, session.id);
     if (!existsSync(msgPath)) {
-      await fs.mkdir(sessionDir(this.basePath, session.id), {
+      await fs.mkdir(sessionDir(root, session.id), {
         recursive: true,
       });
       await fs.writeFile(msgPath, '', 'utf-8');
@@ -622,6 +716,40 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
     this.sessions.set(session.id, { ...session });
     this.messages.set(session.id, []);
     return session.id;
+  }
+
+  /**
+   * 解析会话**实体实际所在的分区根**（A：分区路由，2026-09-26 治本修复）。
+   *
+   * 返回 `null` = 该会话在**任何分区都不存在**（未创建 / 已被软删）。
+   *
+   * **为什么必须有它（`.trash` 高速累积的真实根因）**：会话实体可能位于历史分区
+   * （如 `sessions/default/`），而原实现把 `session.json` / `messages.jsonl` 恒读写于
+   * `this.basePath` ⇒ ① 读消息**永远 ENOENT**（历史分区的消息读不到）⇒ 被判"僵尸"软删；
+   * ② 同时 `isSessionDirPresent` 因历史分区副本返回 true ⇒ 写盘放行，并在 basePath **新建
+   * "只有 `session.json`"的副本** ⇒ 副本下一轮又判僵尸 ⇒ **每次启动一个残骸、无终止条件**
+   * （实测单会话被删 **533 次**、`.trash` **7002 项**）。⇒ 读、写、删统一以"实体所在分区"为准。
+   */
+  private partitionRootOf(sessionId: string): string | null {
+    for (const root of [this.basePath, ...this.legacyRoots]) {
+      try {
+        if (existsSync(sessionDir(root, sessionId))) return root;
+      } catch {
+        // sessionDir 对路径越界 id 抛错 ⇒ 该 id 非法，视为不存在
+      }
+    }
+    return null;
+  }
+
+  /**
+   * 该会话的**读写根**：实体所在分区优先；尚不存在于任何分区时用当前分区
+   * （读 ⇒ 自然 ENOENT；创建 ⇒ 落在当前分区）。
+   *
+   * 与 `partitionRootOf` 的唯一区别是"不存在时的兜底"——`persistSession` / 消息写 /
+   * `deleteSession` 都需要它，以保证**同一会话的读、写、删落在同一分区**。
+   */
+  private rootFor(sessionId: string): string {
+    return this.partitionRootOf(sessionId) ?? this.basePath;
   }
 
   /**
@@ -729,20 +857,23 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
     // H6：软删除同步清理消息计数
     this.messageCounts.delete(sessionId);
 
-    const dir = sessionDir(this.basePath, sessionId);
+    // P2-3 修复（2026-09-26）：拦写标记**必须在 rename 之前**置位。
+    // 原实现放在 rename 成功之后 ⇒ rename 失败（Windows EPERM：在飞流仍持句柄）时拦写同时失效，
+    // 活跃流继续写回"已删"目录（`mkdir recursive`）⇒ 产出"只留 memory.md / messages.jsonl"的
+    // 第二类孤儿。会话此刻在内存与列表中均已删除，无论物理目录能否移入 `.trash`，
+    // 都不得让后续落盘把它重建出来。
+    this.deletedSessionIds.add(sessionId);
+
+    // A（2026-09-26）：从**实体所在分区**移入该分区自己的 `.trash`（读/写/删同分区）
+    const root = this.rootFor(sessionId);
+    const dir = sessionDir(root, sessionId);
     try {
       // P1 第10条：软删除——rename 到 .trash/（带时间戳避免同名冲突），
       // 误删可恢复，不再直接 fs.rm 物理删除（与 SessionPruner/Supervisor 的
       // "不物理删除"策略对齐）。TTL 自动清理 .trash 留待后续。
-      const trashDir = path.join(
-        this.basePath,
-        '.trash',
-        `${sessionId}_${Date.now()}`
-      );
+      const trashDir = path.join(root, '.trash', `${sessionId}_${Date.now()}`);
       await fs.mkdir(path.dirname(trashDir), { recursive: true });
-      await fs.rename(dir, trashDir);
-      // BUG-I 修复（2026-08-26）：软删除成功后标记该会话，拦截活跃流后续落盘
-      this.deletedSessionIds.add(sessionId);
+      await renameToTrashWithRetry(dir, trashDir);
     } catch (err) {
       // 目标不存在（会话目录可能已物理删除/损坏隔离）时忽略
       handleError(err, {
@@ -1057,12 +1188,10 @@ export class FileSystemUnifiedStorage implements UnifiedSessionStorage {
       }
 
       const data = toAppend.map((m) => JSON.stringify(m)).join('\n') + '\n';
-      const dir = sessionDir(this.basePath, sessionId);
+      const root = this.rootFor(sessionId); // A：批量追加与实体同分区
+      const dir = sessionDir(root, sessionId);
       await fs.mkdir(dir, { recursive: true });
-      await this.writer.append(
-        messagesFilePath(this.basePath, sessionId),
-        data
-      );
+      await this.writer.append(messagesFilePath(root, sessionId), data);
     });
   }
 

@@ -11,6 +11,7 @@ import {
   type RecoveryPorts,
 } from '../../src/session/recovery/RecoveryOrchestrator';
 import type { CrashRecoveryResult } from '../../src/session/recovery/CrashRecoveryManager';
+import type { LineageRebuildStats } from '../../src/session/lineage/sessionLineage';
 
 function crashResult(): CrashRecoveryResult {
   return {
@@ -21,6 +22,13 @@ function crashResult(): CrashRecoveryResult {
     skippedSessions: 0,
     details: [],
   };
+}
+
+/** 血缘重建统计（默认：扫描 9 条会话 ⇒ 登记 5 条边、无净化丢弃） */
+function lineageStats(
+  over?: Partial<LineageRebuildStats>
+): LineageRebuildStats {
+  return { scanned: 9, registered: 5, dropped: [], size: 5, ...over };
 }
 
 /** 造端口：每步被调用时把名字压入 `order`，便于断言顺序 */
@@ -48,9 +56,11 @@ function makePorts(
       },
     },
     lineage: {
-      describe: () => {
+      // ④ 现在**从盘重建**（P3-1）；`describe` 只在重建失败时兜底取规模 ⇒ 不参与顺序标记
+      describe: () => ({ size: 5 }),
+      rebuild: async () => {
         order.push('lineage');
-        return { size: 5 };
+        return lineageStats();
       },
     },
     ...over,
@@ -143,12 +153,58 @@ describe('RecoveryOrchestrator（P2-7 编排层）', () => {
     });
   });
 
-  test('报告如实声明 lineage 不重建（rebuilt=false + 原因）', async () => {
+  test('④ lineage 从盘重建成功 ⇒ rebuilt=true，reason 带出扫描/登记数', async () => {
     const report = await new RecoveryOrchestrator(makePorts([])).bootstrap();
 
+    expect(report.lineage.rebuilt).toBe(true);
     expect(report.lineage.size).toBe(5);
+    expect(report.lineage.reason).toContain('扫描 9');
+    expect(report.lineage.reason).toContain('登记 5');
+  });
+
+  test('④ 有边被净化丢弃 ⇒ reason 带出"原因×条数"摘要（不逐一列 id）', async () => {
+    const ports = makePorts([], {
+      lineage: {
+        describe: () => ({ size: 1 }),
+        rebuild: async () =>
+          lineageStats({
+            scanned: 3,
+            registered: 1,
+            size: 1,
+            dropped: [
+              { childId: 'c1', parentId: 'p1', reason: 'cycle' },
+              { childId: 'c2', parentId: 'p2', reason: 'too-deep' },
+              { childId: 'c3', parentId: 'p3', reason: 'cycle' },
+            ],
+          }),
+      },
+    });
+
+    const report = await new RecoveryOrchestrator(ports).bootstrap();
+
+    expect(report.lineage.reason).toContain('净化丢弃 3 条');
+    expect(report.lineage.reason).toContain('cycle×2');
+    expect(report.lineage.reason).toContain('too-deep×1');
+  });
+
+  test('④ 重建失败 ⇒ **如实** rebuilt=false（不谎报）、记入 failures、并用 describe 兜底规模', async () => {
+    const ports = makePorts([], {
+      lineage: {
+        describe: () => ({ size: 3 }),
+        rebuild: async () => {
+          throw new Error('会话目录不可读');
+        },
+      },
+    });
+
+    const report = await new RecoveryOrchestrator(ports).bootstrap();
+
     expect(report.lineage.rebuilt).toBe(false);
-    expect(report.lineage.reason).toContain('fail-closed');
+    expect(report.lineage.size).toBe(3);
+    expect(report.lineage.reason).toContain('会话目录不可读');
+    expect(report.failures).toEqual([
+      { step: 'lineage', error: '会话目录不可读' },
+    ]);
   });
 
   test('sessionCrash 的结构化结果被映射进报告', async () => {

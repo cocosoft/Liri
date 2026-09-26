@@ -223,8 +223,9 @@ export interface TodoExpansionState {
   /**
    * 计划键 → 该计划**未完成**（`pending` / `in_progress`）任务数。
    *
-   * 计划键当前实现为 todo 标题（生产方带 `planId`，但 `extractTodoData` 未透传 ——
-   * 已作为预存观察记录，见 spec §1 末）。
+   * P2-1 修复（2026-09-26）：键为 `planId ?? title` —— `extractTodoData` 此前**丢弃**
+   * `planId`，致 planId 分支恒不可达（键实际恒为 title）；现已透传
+   * （ChatHelper.ts `extractTodoData`，条件展开避免 `undefined` 显式键）。
    */
   plans: Record<string, number>;
   /** 最近更新时刻（巡检用，**不做业务判定** —— CS02） */

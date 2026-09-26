@@ -33,6 +33,11 @@
 import { configManager } from '@modules/config';
 import { getLogger } from '@modules/monitoring';
 import { isLoopObserveOnly } from './loop-config.js';
+import {
+  FILE_READ_TOOLS,
+  SEARCH_TOOLS as SHARED_SEARCH_TOOLS,
+  WRITE_TOOLS as SHARED_WRITE_TOOLS,
+} from './tool-constants.js';
 
 const logger = getLogger('query:pathGuard');
 
@@ -131,6 +136,50 @@ function getCachedRegex(pattern: string): RegExp {
   return cached;
 }
 
+/**
+ * 路径提取与读/写分级所用的工具名集合。
+ *
+ * **真实名来自 `./tool-constants.js`（与 `FileIOLoopDetector` 共享取值 —— 裁定①：不可硬并、共享取值）**；
+ * 本文件只在其上**扩展**一类成员：**工具别名** —— 模型可能按别名调用（`read` / `cat` / `write` /
+ * `echo` / `find` / …），而别名解析发生在守卫之后，故守卫必须一并容忍（别名取自各工具类的 `aliases` 声明）。
+ * `notebook`（写 `.ipynb`，入参键 `notebook_path`）已含于共享写集合，无需另列。
+ *
+ * ⚠️ 2026-09-26 修复（本仓「名字漂移」家族第 ⑤ 处）：本文件原有**自带内联清单**，且与
+ * `tool-constants` 同型地抄了 CC 名（`write_file` / `edit_file` / `replace_in_file` / …）⇒
+ * `_extractPath` 恒返回 null（`checkToolCall()` 走「无路径参数」分支**直接放行** ⇒ 守卫完全不生效）、
+ * `_isWriteTool` 恒 false（含锁文件的 `checkWrite()` 分支不可达）。
+ */
+
+/** 整文件读（入参键 `file_path`）+ 别名 */
+const READ_FILE_TOOL_NAMES = new Set([...FILE_READ_TOOLS, 'read', 'cat']);
+
+/** 搜索类读（入参键 `path` / `searchPath`）+ 别名 */
+const SEARCH_TOOL_NAMES = new Set([
+  ...SHARED_SEARCH_TOOLS,
+  'find',
+  'files',
+  'search',
+  'regex',
+  'find_text',
+  'search_files',
+  'find_files',
+]);
+
+/** 写类（入参键 `file_path` / `notebook_path`）+ 别名 */
+const WRITE_TOOL_NAMES = new Set([...SHARED_WRITE_TOOLS, 'write', 'echo']);
+
+/** 按候选顺序取第一个字符串型路径参数 */
+function pickPathArg(
+  args: Record<string, unknown>,
+  keys: string[]
+): string | null {
+  for (const key of keys) {
+    const value = args[key];
+    if (typeof value === 'string') return value;
+  }
+  return null;
+}
+
 export class PathGuard {
   private config: PathGuardConfig;
 
@@ -208,58 +257,47 @@ export class PathGuard {
 
   /**
    * 从工具调用 args 中提取路径参数
+   *
+   * 参数名判据 = 工具类的 `params` 声明（`file_read`/`file_write`/`file_edit` 均为 `file_path`；
+   * `notebook` 为 `notebook_path`；`glob` 为 `path`，`grep`/`file_search` 为 `searchPath`）。
+   * 旧名 `path`/`filePath` 保留为兜底。
    */
   private _extractPath(
     toolName: string,
     args: Record<string, unknown>
   ): string | null {
-    // 读文件类工具
-    if (['read_file', 'read', 'cat'].includes(toolName)) {
-      return typeof args.path === 'string'
-        ? args.path
-        : typeof args.filePath === 'string'
-          ? args.filePath
-          : null;
+    // 整文件读类工具
+    if (READ_FILE_TOOL_NAMES.has(toolName)) {
+      return pickPathArg(args, ['file_path', 'path', 'filePath']);
     }
     // 写文件类工具
-    if (
-      ['write_file', 'write', 'edit_file', 'replace_in_file'].includes(toolName)
-    ) {
-      return typeof args.path === 'string'
-        ? args.path
-        : typeof args.filePath === 'string'
-          ? args.filePath
-          : null;
+    if (WRITE_TOOL_NAMES.has(toolName)) {
+      return pickPathArg(args, [
+        'file_path',
+        'notebook_path',
+        'path',
+        'filePath',
+      ]);
     }
     // 搜索/glob 类
-    if (['glob', 'grep', 'search_files', 'search_content'].includes(toolName)) {
-      return typeof args.path === 'string'
-        ? args.path
-        : typeof args.directory === 'string'
-          ? args.directory
-          : typeof args.searchPath === 'string'
-            ? args.searchPath
-            : typeof args.target_directory === 'string'
-              ? args.target_directory
-              : null;
+    if (SEARCH_TOOL_NAMES.has(toolName)) {
+      return pickPathArg(args, [
+        'path',
+        'directory',
+        'searchPath',
+        'target_directory',
+      ]);
     }
     return null;
   }
 
   /**
    * 判断是否写操作工具
+   *
+   * 与 `_extractPath()` 的写分支共用 `WRITE_TOOL_NAMES`（其真实名来自 `./tool-constants.js`）。
    */
   private _isWriteTool(toolName: string): boolean {
-    const writeTools = [
-      'write_file',
-      'write',
-      'edit_file',
-      'replace_in_file',
-      'create_file',
-      'delete_file',
-      'delete_files',
-    ];
-    return writeTools.includes(toolName);
+    return WRITE_TOOL_NAMES.has(toolName);
   }
 }
 

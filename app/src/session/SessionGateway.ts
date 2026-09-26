@@ -229,6 +229,16 @@ export class SessionGateway {
    * 非 null ⇒ 已真正执行过一次；重复调用返回同一结果（不重复扫描，也不伪造空结果）。
    */
   private _crashRecoveryResult: CrashRecoveryResult | null = null;
+  /**
+   * P2-4（2026-09-26）：崩溃恢复的 **in-flight 去重** promise。
+   *
+   * 原实现是"检查 `_crashRecoveryResult` → 执行 → 赋值"的**非同步 check-then-act** ——
+   * 两个并发的 `initialize()` / `recoverAfterCrash()` 会同时通过检查 ⇒ **双扫**
+   * （重复 `markAppError` + 重复 `session:paused` SSE）。可达路径（代码面确认）：
+   * 同一批**并行工具调用**里 `SessionsTool` 与 `SessionsHistoryTool` 各自
+   * `gateway.initialize()`；`CombinedSessionGateway` 亦循环 await 各网关。
+   */
+  private crashRecoveryInFlight: Promise<CrashRecoveryResult> | null = null;
   private initialized = false;
   private static readonly FTS_SAVE_INTERVAL_MS = 60_000;
   private ftsSaveInterval: ReturnType<typeof setInterval> | null = null;
@@ -1084,6 +1094,9 @@ export class SessionGateway {
   async listSessions(filter?: SessionFilter): Promise<UnifiedSession[]> {
     const sessions = await this.storage.listSessions(filter);
     // A1 临时对话：temporary 会话不入历史列表（仍可按 id 加载/恢复）
+    // P3-1（2026-09-26）：显式 `includeTemporary: true` 时**不过滤** —— 启动期血缘重建需要全量会话。
+    // （`includeTemporary` 是本层语义，存储层不消费未知键 ⇒ 直接透传即可，存储实现只读它认识的字段。）
+    if (filter?.includeTemporary === true) return sessions;
     return sessions.filter((s) => s.metadata?.temporary !== true);
   }
 
@@ -1337,6 +1350,16 @@ export class SessionGateway {
   private async runCrashRecoveryOnce(): Promise<CrashRecoveryResult> {
     if (this._crashRecoveryResult) return this._crashRecoveryResult;
 
+    // P2-4 修复（2026-09-26）：先查 **in-flight** 再执行。
+    // 原实现直接执行 ⇒ 并发调用同时通过上面的缓存检查 ⇒ 双扫。
+    if (!this.crashRecoveryInFlight) {
+      this.crashRecoveryInFlight = this.doRunCrashRecovery();
+    }
+    return this.crashRecoveryInFlight;
+  }
+
+  /** 真正执行一次崩溃恢复（由 {@link runCrashRecoveryOnce} 保证并发下只执行一次） */
+  private async doRunCrashRecovery(): Promise<CrashRecoveryResult> {
     await this.crashRecoveryManager.initialize();
     const crashResult = await this.crashRecoveryManager.recoverAfterCrash();
     this._crashRecoveryResult = crashResult;
@@ -1505,6 +1528,9 @@ export class SessionGateway {
    * 启动 FTS5 索引定期磁盘持久化
    */
   private startFTSIndexPersistence(): void {
+    // P2-4（2026-09-26）：重入守卫 —— 并发的懒 `initialize()` 会重复调用本方法，而
+    // `ftsSaveInterval` 只保存**最后一个**句柄 ⇒ 前一个定时器永不被 clear（定时器泄漏）。
+    if (this.ftsSaveInterval) return;
     const savePath = this.getFTSIndexPath();
 
     this.ftsSaveInterval = setInterval(() => {

@@ -8,6 +8,7 @@
 //   M1（listLiteSessions 使用 storage.getStorageInfo().basePath）
 //   M5（sendMessage 直连 indexMessageToFTS，FTS 可搜索命中）
 //   M6（SessionManager 无 lock 字段）
+//   P2-4（并发 initialize 只执行一次崩溃恢复；FTS 持久化定时器不重复起）
 
 import { describe, expect, it, afterEach, beforeEach, spyOn } from 'bun:test';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'fs';
@@ -436,5 +437,37 @@ describe('P1-10: fork 跨会话一致性校验（A 声明=事实 / B 前缀同�
     expect(result.copied).toBe(2);
     expect(getSessionParent(childId)).toBe(sourceId);
     expect(isAncestorSession(sourceId, childId)).toBe(true);
+  });
+});
+
+describe('P2-4: 并发 initialize 的 in-flight 去重', () => {
+  it('三个并发 initialize() 只触发一次崩溃恢复（原实现会双扫）', async () => {
+    const gateway = makeFsGateway();
+    const manager = (
+      gateway as unknown as {
+        crashRecoveryManager: {
+          recoverAfterCrash: () => Promise<unknown>;
+        };
+      }
+    ).crashRecoveryManager;
+
+    let calls = 0;
+    const spy = spyOn(manager, 'recoverAfterCrash').mockImplementation(
+      async () => {
+        calls += 1;
+        // 放大窗口：确保另外两次调用落在"第一次尚未完成"的区间内
+        await new Promise((resolve) => setTimeout(resolve, 40));
+        return { totalChecked: 0, pausedSessions: 0, failedSessions: 0 };
+      }
+    );
+
+    await Promise.all([
+      gateway.initialize(),
+      gateway.initialize(),
+      gateway.initialize(),
+    ]);
+
+    expect(calls).toBe(1);
+    spy.mockRestore();
   });
 });

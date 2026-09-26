@@ -141,7 +141,9 @@ export function initDefaultToolUIRegistry(): void {
   }
 
   try {
-    const bashUI = require('../../tools/BashTool/UI');
+    // G1（2026-09-26）：原指向**无静态引用的大写副本** `tools/BashTool/UI`；因该副本的导出
+    // 反而更全（5 个，见 `tools/bash/UI.tsx` 头注释），已把其内容**合并**进活跃目录并删副本。
+    const bashUI = require('../../tools/bash/UI');
     registerToolUI('bash', bashUI);
   } catch (err) {
     void handleError(err, { module: 'components:ui', action: 'catch_error' });

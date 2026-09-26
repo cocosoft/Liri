@@ -29,7 +29,7 @@
  * 纯函数实现（不依赖沙箱/网络），以便被"判分器自身回归"用例直接覆盖。
  */
 
-import type { ToolCallRecord } from './types.js';
+import type { ToolCallDetail, ToolCallRecord } from './types.js';
 
 /** 解析工具参数：既接受对象，也接受 JSON 字符串（OpenAI 风格 function.arguments） */
 function parseArgs(raw: unknown): Record<string, unknown> | undefined {
@@ -116,4 +116,64 @@ export function extractToolCalls(body: unknown): ToolCallRecord[] {
 /** 工具名序列（断言与报告常用） */
 export function toolCallNames(calls: ToolCallRecord[]): string[] {
   return calls.map((c) => c.name);
+}
+
+/**
+ * A1（2026-09-26）：单个参数值的截断上限（字符）。
+ *
+ * 500 足够看清"读了哪个文件 / 写了什么命令 / 搜了什么模式"，又能避免把整份文件内容写进报告。
+ */
+export const TOOL_CALL_ARG_MAX_CHARS = 500;
+
+/**
+ * 逐值截断（A1）。
+ *
+ * - 原语（number / boolean / null / undefined）**原样保留** —— 截断它们没有意义；
+ * - 字符串超长 ⇒ 裁剪并附 `…[+N]`；
+ * - 对象 / 数组 ⇒ 先 `JSON.stringify`：不超长则**保留原结构**（保证"结构稳定"），
+ *   超长则降级为**字符串**（裁剪 + `…[+N]`）—— 避免报告体积与深层嵌套失控。
+ */
+function truncateArgValue(value: unknown, maxChars: number): unknown {
+  if (value === null || value === undefined) return value;
+  const kind = typeof value;
+  if (kind === 'number' || kind === 'boolean') return value;
+  if (kind === 'string') {
+    const s = value as string;
+    return s.length > maxChars
+      ? `${s.slice(0, maxChars)}…[+${s.length - maxChars}]`
+      : s;
+  }
+  let json: string | undefined;
+  try {
+    json = JSON.stringify(value);
+  } catch {
+    // 循环引用等不可序列化情形：保留可读标记而非抛错（报告不应因参数形状而失败）
+    return '[unserializable]';
+  }
+  if (json === undefined) return '[unserializable]';
+  return json.length > maxChars
+    ? `${json.slice(0, maxChars)}…[+${json.length - maxChars}]`
+    : value;
+}
+
+/**
+ * 工具调用明细（A1）：`{ name, args }` 序列，参数逐值截断。
+ *
+ * **为什么需要**：报告此前只落 [`toolCallNames()`]（`runner.ts:274`），断言期内存里本就有完整
+ * args（`runner.ts:249` 传 `ToolCallRecord[]`）却在落盘时丢掉 ⇒ 报告"不可离线重算"，
+ * 也无法支撑 A2 的行为指标。本函数与 `toolCallNames()` 共用同一输入，**互不影响**。
+ */
+export function buildToolCallsDetail(
+  calls: ToolCallRecord[]
+): ToolCallDetail[] {
+  return calls.map((c) => {
+    const entry: ToolCallDetail = { name: c.name };
+    if (!c.args) return entry;
+    const args: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(c.args)) {
+      args[key] = truncateArgValue(value, TOOL_CALL_ARG_MAX_CHARS);
+    }
+    entry.args = args;
+    return entry;
+  });
 }

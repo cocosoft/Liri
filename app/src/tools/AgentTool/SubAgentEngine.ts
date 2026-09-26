@@ -414,7 +414,13 @@ export class SubAgentEngine {
             agentId,
             toolName: name,
             toolUseId: id,
-            status: 'completed',
+            // 2026-09-25 修复：`status` 原**硬编码 `'completed'`** ⇒ 工具缺失 / 执行异常
+            //（`ok=false`，见 `:1055` 的 D3 注释"不再被上报为全成功"）在编排事件流与历史
+            // JSONL 里被记成"已完成"。同一回调内已两次按真实结果取值（`:405` 的
+            // `stepFacts:{ok}`、`:1081` 的 `results.status = ok ? 'success' : 'error'`）
+            // ⇒ 此处按真实结果给出 `completed` / `failed`
+            //（`completed | failed` 为全仓 tool_call 状态的既有词汇，见 project_rules §1.6）。
+            status: ok ? 'completed' : 'failed',
             turn,
           });
           onProgress?.({

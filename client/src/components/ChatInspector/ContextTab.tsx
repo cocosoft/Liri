@@ -20,8 +20,16 @@ import { useModelStore } from "../../stores/modelStore";
 /** 默认上下文窗口大小（模型未加载时使用，与后端 ContextWindowResolver 一致） */
 const DEFAULT_CONTEXT = 200_000;
 
-/** 文件写操作工具名集合 — 用于结构化统计文件数 (CS02) */
-const FILE_WRITE_TOOLS = new Set([
+/**
+ * "会产出文件"的工具名集合 — 用于结构化统计文件数 (CS02)。
+ *
+ * 语义说明（2026-09-26，与后端 `WRITE_TOOLS` 系列的命名对齐）：本集合**不是**后端那个
+ * "文件写类"（`file_write` / `file_edit`，语义 = 按文件读写配对 / 写类判定），而是**产物类** ——
+ * 凡会写出、生成、转换出文件的工具都算（含 `image_generate` / `pdf` / `tts` 等生成类）。
+ * 11 项均已核对为**本仓真实注册名**（`src/tools/**`，含 `utility-io-tools.ts` 的对象字面量声明）
+ * ⇒ 与后端同名集合**取值不同属预期**、非漂移；此处改名以消除"同名不同义"的误读。
+ */
+const FILE_PRODUCING_TOOLS = new Set([
   "file_write",
   "file_edit",
   "file_copy",
@@ -429,7 +437,7 @@ function ContextTab() {
           if (
             b.type === "tool_call" &&
             b.toolCall?.name &&
-            FILE_WRITE_TOOLS.has(b.toolCall.name)
+            FILE_PRODUCING_TOOLS.has(b.toolCall.name)
           )
             return true;
           return false;

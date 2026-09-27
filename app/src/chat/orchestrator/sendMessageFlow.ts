@@ -52,7 +52,7 @@ import {
 import { stripBareExploration } from '../services/bareExplorationStripper';
 import { StreamingToolCallScrubber } from '../../streaming/scrubbers/StreamingToolCallScrubber';
 import { validatePathsInOutput } from '../services/PathGuardService';
-import { trackUsage } from '@modules/ai';
+import { trackUsage, extractModelFromResponse } from '@modules/ai';
 import { getModelPricing } from '@modules/cost';
 
 import { calculateTotalCost } from '@modules/cost';
@@ -545,7 +545,9 @@ export async function invokeLlm(
 
     // 异步记录使用量
     trackUsage(response, {
-      model: options?.model || 'unknown',
+      // 2026-09-27 修 `LLM call recorded: unknown`（同 §三处记账点）：优先 provider 回显的
+      // 真实模型名，回落 options.model → 'unknown'。复用既有助手，不新增实现。
+      model: extractModelFromResponse(response, options?.model || 'unknown'),
       providerId: activeClient.getProviderId(),
       latencyMs: 0,
       isStreaming: false,

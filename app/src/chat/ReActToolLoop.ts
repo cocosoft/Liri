@@ -81,7 +81,7 @@ import type {
   QuestionData,
   QuestionOption,
 } from '@modules/runtime/api/CoreAPI.js';
-import { trackUsage } from '@modules/ai';
+import { trackUsage, extractModelFromResponse } from '@modules/ai';
 import {
   shouldAsk as decisionGateCheck,
   type GateTier,
@@ -3250,7 +3250,17 @@ export class ReActToolLoop extends ReActLoop<
     this.ctx.recordChatResponseUsage(this.ctx.session.id, usage);
     this.ctx.onToolUsage?.((usage as Record<string, unknown>) ?? {});
     trackUsage(response as unknown as Record<string, unknown>, {
-      model: (this.ctx.options?.model as string) || 'unknown',
+      // 2026-09-27 修 `LLM call recorded: unknown`：服务端自发轮次（系统续跑 / 自唤醒 /
+      // 目标空闲续接 / PDCA）**不带 `options.model`**，原写法 `options?.model || 'unknown'`
+      // 恒为 'unknown' ⇒ 归因丢失，且 `getModelPricing('unknown')` 回落**兜底价**
+      // （$3/M in、$15/M out）⇒ **金额也失真**（真机两次记录与兜底价公式精确相等）。
+      // 改用既有助手取 **provider 回显的真实模型名**（`ChatResponse.model`），
+      // 回落顺序：response.model → options.model → 'unknown'（复用 `extractModelFromResponse`，
+      // 与 `SessionSummarizer` 同源，不新增实现）。
+      model: extractModelFromResponse(
+        response,
+        (this.ctx.options?.model as string | undefined) || 'unknown'
+      ),
       providerId: this.ctx.activeClient.getProviderId(),
       latencyMs: 0,
       isStreaming: !this.input.nonStreaming,

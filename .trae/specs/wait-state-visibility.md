@@ -317,4 +317,6 @@ GET /v1/sessions/session_muj5asu8g825d0rgqt/streaming
 
 **成本（如实，用户需知情）**：本轮续跑共 **6 次真实模型调用，合计约 `$0.687`**（0.0747 + 0.1239 + 0.1088 + 0.1423 + 0.1230 + 0.1145）；会话与消息已删除，未在用户数据中留下验证痕迹。
 
-**附带观察（非本项缺陷，已登记台账）**：上述调用的 `LLMTracker` 记录 `model: "unknown"`（provider `db:3682dad9-…`），即**成本无法归因到具体模型名** —— 属日志/可观测性口径问题。
+**附带发现（已另行修复，2026-09-27）**：上述调用的 `LLMTracker` 记录 `model: "unknown"`（provider `db:3682dad9-…`）。
+⚠️ **更正**：本条初稿写"属日志/可观测性口径问题、金额正确"，经核算**是错的** —— `model='unknown'` 会使 `getModelPricing` 回落**兜底价**（$3/M in、$15/M out），**金额同样失真**（两次记录与兜底价公式精确相等）。
+已完成修复（三处记账点复用 `extractModelFromResponse` 取 provider 回显的真实模型名）并在真机复验：同 token 画像由 `unknown … $0.0747` → `deepseek-v4-flash … $0.0096`（**高估约 7.8×**）。详情见 `dev_docs/error_repairs/预存错误与待处理问题.md`（2026-09-27「已修：记 model: unknown」）。

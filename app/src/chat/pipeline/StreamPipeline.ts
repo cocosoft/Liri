@@ -18,7 +18,7 @@ import { resolveOutputDir } from '@modules/core/paths';
 import { getLogger } from '@modules/monitoring';
 import { handleError } from '@modules/error';
 import { getOTelTracing } from '@modules/monitoring/otel';
-import { trackUsage } from '@modules/ai';
+import { trackUsage, extractModelFromResponse } from '@modules/ai';
 import { estimateMessagesTokens } from '@modules/ai';
 import { resolveMaxContextTokens } from '../services/ChatHelper';
 import {
@@ -511,7 +511,13 @@ export class StreamPipeline {
     );
 
     trackUsage(finalResponse ?? {}, {
-      model: options?.model || 'unknown',
+      // 2026-09-27 修 `LLM call recorded: unknown`：服务端自发轮次不带 `options.model`，
+      // 原写法恒为 'unknown' ⇒ 归因丢失 + `getModelPricing` 回落兜底价（金额亦失真）。
+      // 复用既有助手取 provider 回显的真实模型名；回落 options.model → 'unknown'。
+      model: extractModelFromResponse(
+        finalResponse ?? {},
+        options?.model || 'unknown'
+      ),
       providerId: this.ctx.activeClient.getProviderId(),
       latencyMs: 0,
       isStreaming: true,

@@ -300,3 +300,21 @@ GET /v1/sessions/session_muj5asu8g825d0rgqt/streaming
 - 删除本次注入的 `pending` 条目 ⇒ 该文件回到原始 1 条（`fired`）；端点复核回到 `{"streaming":false}`（不再有 `pendingWake`）。浮动栏随之消失为**推定**（下一轮 4s 轮询取不到 `pendingWake` ⇒ `waiting=false` ⇒ 渐隐卸载；该轮询/停止路径已由 `useWaitState.test.ts` 覆盖），**未**为此再截一次图。
 - **刻意未触发续跑**：选 `sleep_for(1800)`（> CG3 tick 300s ⇒ 不创建 setTimeout），且该 daemon 的 `wireSelfWake: cron not started`（cron 未接线）⇒ 验证期间**不会**自动续跑，**不产生任何模型调用与费用**。
 - 副作用说明（如实）：为让新代码生效曾重启该后端 daemon（原进程亦为 AI 侧此前的后台任务，非用户手工启动）；浏览器步骤把当前会话切到了事故会话（用户可自行切回）。
+
+### 8.6 续跑闭环验证（2026-09-27，用户要求执行；**含真实模型调用与费用**）
+
+**目的**：验证"登记 → 到点触发 → 会话**真正续跑**"的完整闭环（§8.5 只验到"等待可见"，未触发续跑）。用**一次性会话**，验证后即删。
+
+| 环节 | 实测证据 |
+|---|---|
+| 一次性会话 | `POST /v1/sessions {title:'E2E 续跑闭环验证（临时，可删）'}` ⇒ `session_muj7mw1pc0djfc2t4f` |
+| 登记（真实工具） | `POST /v1/tools/sleep_for/execute {seconds:75}` ⇒ `{wakeId:'7dc20e5b-…', triggerAt:1790476837895, status:'pending'}`；`GET .../streaming` ⇒ `pendingWake` ✓ |
+| 走短定时器 | daemon 日志 `02:39:22.897 [tasks:selfwake] sleepFor {seconds:75, shortTimer:true}`（75s < tick 300s ⇒ setTimeout 精确触发） |
+| **到点触发** | `02:40:37.907 [tasks:selfwake] fired {wakeId:'7dc20e5b-…'}` ⇒ `firedAt` = `triggerAt` **+75.010s**（准点）；唤醒文件 `status:'fired'` ✓ |
+| **会话真的续跑** | `02:40:49.995 chat:reactToolLoop … {sessionId, systemResume}` ⇒ 启动新一轮工具循环；该会话 history 中出现续跑注入的 **user 消息**「你此前挂起的等待条件已满足…」⇒ 符合 §1.6 红线（模型可见输入已落盘）✓ |
+| 真实 agent 循环 | 迭代至 `iteration:5`，真实调用工具 `sessions`(history) / `glob`；**6 次真实模型调用**（input 11,784 → 33,353 tokens） |
+| 删除级联 | `02:41:19.920 deleteSession:开始删除` ⇒ 在途流收到 `liri:system-abort`（**引擎中止** ✓）⇒ 会话已删后 `event-log` / `FileSystemUnifiedStorage` **拒绝落盘**（"不重建已删除会话" ✓）⇒ `GET /v1/sessions/<id>` 复核 **404** ✓ |
+
+**成本（如实，用户需知情）**：本轮续跑共 **6 次真实模型调用，合计约 `$0.687`**（0.0747 + 0.1239 + 0.1088 + 0.1423 + 0.1230 + 0.1145）；会话与消息已删除，未在用户数据中留下验证痕迹。
+
+**附带观察（非本项缺陷，已登记台账）**：上述调用的 `LLMTracker` 记录 `model: "unknown"`（provider `db:3682dad9-…`），即**成本无法归因到具体模型名** —— 属日志/可观测性口径问题。

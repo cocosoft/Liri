@@ -112,7 +112,7 @@ export default function DiffBlock({
             </span>
           </div>
           <span className="text-xs text-gray-400 dark:text-gray-500">
-            已拒绝
+            已忽略
           </span>
         </div>
       </div>
@@ -188,16 +188,16 @@ export default function DiffBlock({
               : "bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/40"
           } disabled:opacity-70`}
         >
-          {copied ? "\u2713 已复制" : applying ? "复制中..." : "\u2713 接受"}
+          {copied ? "\u2713 已复制" : applying ? "复制中..." : "复制 diff"}
         </button>
         <button
           onClick={handleReject}
           className="px-3 py-1 text-xs font-medium rounded-md bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors"
         >
-          {"\u2717 拒绝"}
+          {"\u2717 忽略此改动"}
         </button>
         <span className="text-[10px] text-gray-400 dark:text-gray-500 ml-1">
-          接受将复制 diff 到剪贴板，可粘贴到编辑器中应用
+          复制 diff 后可粘贴到编辑器中应用（此处不会自动改动文件）
         </span>
       </div>
     </div>

@@ -10,6 +10,7 @@
  */
 
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { MessageBlock } from "../../types";
 import {
   getToolDisplayName,
@@ -22,6 +23,7 @@ interface ToolInlineTagsProps {
 }
 
 function ToolInlineTags({ blocks }: ToolInlineTagsProps) {
+  const { t } = useTranslation();
   const toolCalls = blocks.filter((b) => b.type === "tool_call" && b.toolCall);
   const statusBlocks = blocks.filter((b) => b.type === "status");
   // 当前展开的工具 block id（同一时间只展开一个，避免气泡被工具卡片撑爆）
@@ -50,7 +52,11 @@ function ToolInlineTags({ blocks }: ToolInlineTagsProps) {
             <button
               type="button"
               key={b.id}
-              title={isExpanded ? "点击收起详情" : (argsText ?? "点击查看详情")}
+              title={
+                isExpanded
+                  ? t("chat.clickCollapseDetail", "点击收起详情")
+                  : (argsText ?? t("chat.clickViewDetail", "点击查看详情"))
+              }
               onClick={() => toggleExpand(b.id)}
               className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] leading-none border cursor-pointer transition-colors ${
                 isFailed

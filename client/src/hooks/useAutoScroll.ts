@@ -4,13 +4,16 @@ import { createLogger } from "@/utils/logger";
 const logger = createLogger("hooks:useAutoScroll");
 
 /**
- * 聊天区域自动滚动 Hook
- * 仅在用户处于底部附近时自动跟随新消息，避免干扰用户阅读历史消息
+ * 聊天区域自动滚动 Hook（**只负责"跟随"与按钮态**）
  *
- * 统一管理滚动状态：isUserScrolledUp、distanceFromBottom、scrollToBottom
- * ChatArea 不再需要独立的 handleScroll 和 showScrollToBottom 状态
+ * 职责边界（P1-17，2026-09-27，D5=B 修订）：
+ *  - 本 hook 处理：用户是否上滑（`isUserScrolledUp`）、"回到底部"按钮显隐、消息增长/流式时的**跟随贴底**。
+ *  - 本 hook **不再**处理"会话切换后的位置恢复"：虚拟列表的 `scrollHeight` 只反映**已测量**项，
+ *    用像素偏移恢复会被 clamp 并提前判稳（实测：切回长会话停在 0 或旧布局上限 ~1500，2/2 复现；
+ *    整页重载也可能停在会话中部）。该职责已下沉到持有 virtualizer 的 `ChatMessageList`，
+ *    以**消息索引锚点**恢复（与轮次导航同一范式）。
  *
- * @param sessionId 当前会话 ID，用于恢复/保存滚动位置
+ * 数据源：仅 DOM 滚动容器（`containerRef` / `contentRef`），无 store 依赖。
  */
 export function useAutoScroll(deps: {
   messageCount: number;
@@ -21,8 +24,6 @@ export function useAutoScroll(deps: {
   const contentRef = useRef<HTMLDivElement | null>(null);
   const prevMessageCountRef = useRef(0);
   const isNearBottomRef = useRef(true);
-  /** AB-24：恢复滚动位置后抑制一次自动滚底，避免与"消息数增加滚底"竞态覆盖 */
-  const suppressAutoScrollRef = useRef(false);
 
   /** 用户是否上滑离开底部（控制"回到底部"按钮显隐） */
   const [isUserScrolledUp, setIsUserScrolledUp] = useState(false);
@@ -35,22 +36,9 @@ export function useAutoScroll(deps: {
   /** 上一次 showScrollButton 的值，用于跨过阈值才 setState */
   const prevShowButtonRef = useRef(false);
 
-  /** P2-9 修复：scrollPositionsRef 改 LRU（容量 50），防止长期运行内存泄漏 */
-  const scrollPositionsRef = useRef<Map<string, number>>(new Map());
-  const scrollPositionsMaxSize = 50;
-  const setScrollPosition = (id: string, pos: number) => {
-    const map = scrollPositionsRef.current;
-    // LRU：删除最老的 entry
-    if (map.size >= scrollPositionsMaxSize) {
-      const oldestKey = map.keys().next().value;
-      if (oldestKey) map.delete(oldestKey);
-    }
-    map.set(id, pos);
-  };
-  const getScrollPosition = (id: string): number | undefined => {
-    return scrollPositionsRef.current.get(id);
-  };
-  const prevSessionIdRef = useRef<string | undefined>(undefined);
+  /** 只读会话 id（仅用于日志；用 ref 避免 effect 依赖抖动） */
+  const sessionIdRef = useRef<string | undefined>(deps.sessionId);
+  sessionIdRef.current = deps.sessionId;
 
   /** 滚动到底部（behavior 参数：流式高频场景传 "auto" 避免 smooth 追帧抖动） */
   const scrollToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
@@ -59,29 +47,32 @@ export function useAutoScroll(deps: {
     container.scrollTo({ top: container.scrollHeight, behavior });
   }, []);
 
+  /** 按真实 distance 同步"上滑/回到底部按钮"状态 */
+  const syncScrollState = useCallback((distance: number) => {
+    isNearBottomRef.current = distance < 100;
+    setIsUserScrolledUp(distance >= 100);
+    const shouldShowButton = distance > 200;
+    if (shouldShowButton !== prevShowButtonRef.current) {
+      prevShowButtonRef.current = shouldShowButton;
+      setShowScrollButton(shouldShowButton);
+      // P0-5 日志：阈值跨越边界记录（排查 button 显隐抖动/丢失）
+      logger.debug("[P0-5:useAutoScroll] showScrollButton 跨越", {
+        shouldShowButton,
+        distance,
+        sessionId: sessionIdRef.current,
+      });
+    }
+  }, []);
+
   // 监听滚动事件，统一跟踪用户位置
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
 
     const handleScroll = () => {
-      const el = container;
-      const distance = el.scrollHeight - el.scrollTop - el.clientHeight;
-      const nearBottom = distance < 100;
-      isNearBottomRef.current = nearBottom;
-      setIsUserScrolledUp(!nearBottom);
-      // P0-5 修复：仅在跨越 200px 阈值时 setState，避免每次滚动都触发重渲染
-      const shouldShowButton = distance > 200;
-      if (shouldShowButton !== prevShowButtonRef.current) {
-        prevShowButtonRef.current = shouldShowButton;
-        setShowScrollButton(shouldShowButton);
-        // P0-5 日志：阈值跨越边界记录（排查 button 显隐抖动/丢失）
-        logger.debug("[P0-5:useAutoScroll] showScrollButton 跨越", {
-          shouldShowButton,
-          distance,
-          sessionId: deps.sessionId,
-        });
-      }
+      syncScrollState(
+        container.scrollHeight - container.scrollTop - container.clientHeight,
+      );
     };
 
     container.addEventListener("scroll", handleScroll, { passive: true });
@@ -92,77 +83,29 @@ export function useAutoScroll(deps: {
     return () => {
       container.removeEventListener("scroll", handleScroll);
     };
-  }, []);
-
-  // 会话切换时：保存旧位置 → 恢复新位置（若无 → 滚到底部）
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-
-    const prevId = prevSessionIdRef.current;
-    const currentId = deps.sessionId;
-
-    // 保存上一个会话的滚动位置
-    if (prevId && prevId !== currentId) {
-      setScrollPosition(prevId, container.scrollTop);
-    }
-
-    // 恢复当前会话的滚动位置
-    if (currentId && currentId !== prevId) {
-      const savedPosition = getScrollPosition(currentId);
-      if (savedPosition != null) {
-        // AB-24：抑制一次自动滚底，防止"消息数增加滚底" effect 覆盖恢复的位置
-        suppressAutoScrollRef.current = true;
-        // requestAnimationFrame 等待 DOM 渲染完成后再滚动
-        requestAnimationFrame(() => {
-          container.scrollTop = savedPosition;
-          // 同步更新底部判定，避免恢复中部位置后被误判为"在底部"而自动滚底
-          const distance =
-            container.scrollHeight -
-            container.scrollTop -
-            container.clientHeight;
-          isNearBottomRef.current = distance < 100;
-          // P0-5 修复：恢复位置后同步 showScrollButton 状态
-          const shouldShowButton = distance > 200;
-          if (shouldShowButton !== prevShowButtonRef.current) {
-            prevShowButtonRef.current = shouldShowButton;
-            setShowScrollButton(shouldShowButton);
-            // P0-5 日志：会话切换恢复位置时跨越记录
-            logger.debug(
-              "[P0-5:useAutoScroll] 恢复位置后 showScrollButton 跨越",
-              {
-                sessionId: currentId,
-                savedPosition,
-                distance,
-                shouldShowButton,
-              },
-            );
-          }
-        });
-      } else {
-        // 新会话：滚动到底部
-        scrollToBottom("auto");
-      }
-    }
-
-    prevSessionIdRef.current = currentId;
-  }, [deps.sessionId, scrollToBottom]);
+  }, [syncScrollState]);
 
   // 消息数量变化时自动滚动（仅在用户处于底部附近时）
   useEffect(() => {
     const prevCount = prevMessageCountRef.current;
     prevMessageCountRef.current = deps.messageCount;
 
-    // AB-24：suppressAutoScrollRef 在会话切换恢复位置时置位，跳过本次滚底防止竞态覆盖
-    if (
-      deps.messageCount > prevCount &&
-      isNearBottomRef.current &&
-      !suppressAutoScrollRef.current
-    ) {
-      scrollToBottom("auto");
+    if (deps.messageCount > prevCount) {
+      if (isNearBottomRef.current) {
+        scrollToBottom("auto");
+      } else {
+        // 消息增加但不跟随（用户在上方阅读）⇒ 同步按钮状态，保证"回到底部"入口出现
+        const container = containerRef.current;
+        if (container) {
+          syncScrollState(
+            container.scrollHeight -
+              container.scrollTop -
+              container.clientHeight,
+          );
+        }
+      }
     }
-    suppressAutoScrollRef.current = false;
-  }, [deps.messageCount, scrollToBottom]);
+  }, [deps.messageCount, scrollToBottom, syncScrollState]);
 
   // 流式输出期间：ResizeObserver 监听内容区尺寸变化（而非滚动容器），仅在用户在底部时滚动
   useEffect(() => {

@@ -30,7 +30,7 @@
  * 复用：STAGE_META / DECISION_META / FALLBACK_META / textOf / findLatestEvent /
  * PROGRESS_EVENT_TYPES（PdcaActivityStrip 导出，避免逻辑复制）。
  */
-import type { ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
 import { useOrchestrationStore } from "@/stores/orchestrationStore";
 import { useSessionStore } from "@/stores/sessionStore";
 import type { PdcaWorkflowProgressData } from "@/types/message";
@@ -69,7 +69,11 @@ function useLiveProgress(sessionId: string): {
 } {
   const timeline = useOrchestrationStore((s) => s.timeline);
   const latest = useOrchestrationStore((s) => s.latest);
-  const ev = findLatestEvent(timeline, latest, sessionId, PROGRESS_EVENT_TYPES);
+  // P2-4（2026-09-27 审计）：原在 hook 体内直调（每次渲染都算）⇒ useMemo 化
+  const ev = useMemo(
+    () => findLatestEvent(timeline, latest, sessionId, PROGRESS_EVENT_TYPES),
+    [timeline, latest, sessionId],
+  );
   return { ev: ev ?? undefined, hasLive: Boolean(ev) };
 }
 

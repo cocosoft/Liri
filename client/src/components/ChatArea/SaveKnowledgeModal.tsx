@@ -2,6 +2,7 @@
  * 保存到知识库弹窗组件
  */
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { createLogger } from "@/utils/logger";
 import { knowledgeService } from "../../services/knowledgeService";
 
@@ -20,6 +21,7 @@ function SaveKnowledgeModal({
   onClose,
   onSave,
 }: SaveKnowledgeModalProps) {
+  const { t } = useTranslation();
   const [saveTitle, setSaveTitle] = useState(initialTitle);
   const [saveBase, setSaveBase] = useState("default");
   const [saveStatus, setSaveStatus] = useState<
@@ -63,14 +65,14 @@ function SaveKnowledgeModal({
         <h3
           className={`text-sm font-semibold mb-4 ${isDark ? "text-gray-100" : "text-gray-900"}`}
         >
-          保存到知识库
+          {t("chat.saveToKnowledge", "保存到知识库")}
         </h3>
         <div className="space-y-3">
           <div>
             <label
               className={`block text-xs mb-1 ${isDark ? "text-gray-400" : "text-gray-500"}`}
             >
-              标题
+              {t("chat.knowledgeDocTitle", "标题")}
             </label>
             <input
               type="text"
@@ -78,7 +80,7 @@ function SaveKnowledgeModal({
               name="saveTitle"
               value={saveTitle}
               onChange={(e) => setSaveTitle(e.target.value)}
-              placeholder="文档标题"
+              placeholder={t("chat.knowledgeDocTitlePlaceholder", "文档标题")}
               className={`w-full px-3 py-2 border rounded-md text-sm ${inputBg} focus:outline-none focus:ring-2 focus:ring-blue-500`}
             />
           </div>
@@ -86,7 +88,7 @@ function SaveKnowledgeModal({
             <label
               className={`block text-xs mb-1 ${isDark ? "text-gray-400" : "text-gray-500"}`}
             >
-              知识库
+              {t("chat.knowledgeBaseLabel", "知识库")}
             </label>
             <input
               type="text"
@@ -95,7 +97,10 @@ function SaveKnowledgeModal({
               list="base-options"
               value={saveBase}
               onChange={(e) => setSaveBase(e.target.value)}
-              placeholder="选择或输入知识库名称"
+              placeholder={t(
+                "chat.knowledgeBasePlaceholder",
+                "选择或输入知识库名称",
+              )}
               className={`w-full px-3 py-2 border rounded-md text-sm ${inputBg} focus:outline-none focus:ring-2 focus:ring-blue-500`}
             />
             <datalist id="base-options">
@@ -105,10 +110,14 @@ function SaveKnowledgeModal({
             </datalist>
           </div>
           {saveStatus === "error" && (
-            <p className="text-xs text-red-500">保存失败，请重试</p>
+            <p className="text-xs text-red-500">
+              {t("chat.knowledgeSaveFailed", "保存失败，请重试")}
+            </p>
           )}
           {saveStatus === "saved" && (
-            <p className="text-xs text-emerald-500">保存成功</p>
+            <p className="text-xs text-emerald-500">
+              {t("chat.knowledgeSaveSuccess", "保存成功")}
+            </p>
           )}
         </div>
         <div className="flex items-center justify-end gap-2 mt-4">
@@ -116,14 +125,16 @@ function SaveKnowledgeModal({
             onClick={onClose}
             className="px-3 py-1.5 text-xs text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md"
           >
-            取消
+            {t("common.cancel")}
           </button>
           <button
             onClick={handleSave}
             disabled={saveStatus === "saving" || !saveTitle.trim()}
             className="px-4 py-1.5 text-xs bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-md"
           >
-            {saveStatus === "saving" ? "保存中..." : "保存"}
+            {saveStatus === "saving"
+              ? t("chat.knowledgeSaving", "保存中...")
+              : t("common.save")}
           </button>
         </div>
       </div>

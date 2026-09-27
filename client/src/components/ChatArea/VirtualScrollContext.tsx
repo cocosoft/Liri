@@ -5,7 +5,7 @@
  * 方案：通过 React Context 传递 virtualizer.scrollToIndex，替代 DOM 查询
  */
 
-import { createContext, useContext } from "react";
+import { createContext, useCallback, useContext, useMemo } from "react";
 import type { Virtualizer } from "@tanstack/react-virtual";
 
 export interface VirtualScrollContextValue {
@@ -31,22 +31,32 @@ export function VirtualScrollProvider({
   virtualizer: Virtualizer<HTMLDivElement, Element>;
   messages: Array<{ id: string }>;
 }) {
-  const scrollToIndex = (
-    index: number,
-    options?: { align?: "start" | "center" | "end" },
-  ) => {
-    virtualizer.scrollToIndex(index, options);
-  };
+  // P2-4（2026-09-27 审计）：函数与 value 原为每次 render 新建 ⇒ Provider 的**所有消费者**
+  // 每次父级 render 都被判"变化"而重渲染（Context 优化失效）⇒ useCallback + useMemo 收敛。
+  const scrollToIndex = useCallback(
+    (index: number, options?: { align?: "start" | "center" | "end" }) => {
+      virtualizer.scrollToIndex(index, options);
+    },
+    [virtualizer],
+  );
 
-  const scrollToMessageId = (messageId: string) => {
-    const index = messages.findIndex((m) => m.id === messageId);
-    if (index >= 0) {
-      virtualizer.scrollToIndex(index, { align: "center" });
-    }
-  };
+  const scrollToMessageId = useCallback(
+    (messageId: string) => {
+      const index = messages.findIndex((m) => m.id === messageId);
+      if (index >= 0) {
+        virtualizer.scrollToIndex(index, { align: "center" });
+      }
+    },
+    [messages, virtualizer],
+  );
+
+  const value = useMemo(
+    () => ({ scrollToIndex, scrollToMessageId }),
+    [scrollToIndex, scrollToMessageId],
+  );
 
   return (
-    <VirtualScrollContext.Provider value={{ scrollToIndex, scrollToMessageId }}>
+    <VirtualScrollContext.Provider value={value}>
       {children}
     </VirtualScrollContext.Provider>
   );

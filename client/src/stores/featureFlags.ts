@@ -8,8 +8,6 @@ import { create } from "zustand";
 
 /** 所有 Feature Flag 定义 */
 export interface FeatureFlags {
-  /** 工具调用扁平化（旧版 ToolCallBlock / 新版 ToolCallInline） */
-  toolcall_flat: boolean;
   /** 消息排队（一问一答 / 队列模式） */
   message_queue: boolean;
   /** 虚拟化（全量渲染 / 虚拟列表） */
@@ -19,7 +17,6 @@ export interface FeatureFlags {
 }
 
 const DEFAULT_FLAGS: FeatureFlags = {
-  toolcall_flat: true,
   message_queue: true,
   virtual_list: false,
   new_chat_input: false,
@@ -36,7 +33,7 @@ interface FeatureFlagStore {
  * Feature Flag 状态管理 Store
  *
  * 传选择器精细订阅：
- *   const flag = useFeatureFlagStore((s) => s.flags.toolcall_flat);
+ *   const flag = useFeatureFlagStore((s) => s.flags.message_queue);
  *
  * 使用 getState() 在非组件代码中读取：
  *   const enabled = useFeatureFlagStore.getState().flags.message_queue;

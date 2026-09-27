@@ -40,6 +40,10 @@ function ChatArea({ fluid = false }: { fluid?: boolean }) {
   const error = useChatStore((s) => s.error);
   const errorCode = useChatStore((s) => s.errorCode);
   const isStreaming = useChatStore((s) => s.isStreaming);
+  // P1-6a（D8 = 统一到总量 + 尾锚定）：轮次导航器需要分页状态与"加载更早"动作
+  // ——与 ChatMessageList 同源（CS01 不另立实现）
+  const hasOlder = useChatStore((s) => s.hasOlder);
+  const loadOlderMessages = useChatStore((s) => s.loadOlderMessages);
   const recoverySessionId = useChatStore((s) => s.recoverySessionId);
   const dismissRecovery = useChatStore((s) => s.dismissRecovery);
   const resumeRecovery = useChatStore((s) => s.resumeRecovery);
@@ -556,11 +560,14 @@ function ChatArea({ fluid = false }: { fluid?: boolean }) {
         </button>
       )}
 
-      {/* 轮次导航器 */}
+      {/* 轮次导航器 —— P1-6a：轮数取**后端总量**（与 header 同源），已加载部分按尾锚定编号 */}
       <RoundNavigator
         messages={messages}
         isStreaming={isStreaming}
         containerRef={containerRef}
+        totalRounds={currentSession?.roundCount ?? 0}
+        hasOlder={hasOlder}
+        onLoadOlder={() => void loadOlderMessages()}
       />
 
       {/* 错误提示 */}

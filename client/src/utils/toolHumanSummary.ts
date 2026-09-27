@@ -13,6 +13,47 @@
 
 import type { ToolCall } from "../types";
 
+/**
+ * 多媒体结果类工具名（P2-2 收敛：全仓单一定义处）
+ *
+ * 语义 A —— 结果应走 ImageToolResult 专用渲染，而非裸 JSON。
+ */
+const MEDIA_TOOL_NAMES: readonly string[] = [
+  "image_generate",
+  "image_svg_generate",
+  "image_analysis",
+  "image_display",
+  "video_display",
+  "audio_play",
+  "canvas",
+  "image",
+];
+
+/**
+ * 多媒体展示类工具名（P2-2 收敛：全仓单一定义处）
+ *
+ * 语义 B —— 内容是用户要看的结果（图片/视频/音频），
+ * 默认展开，且不被折叠进"工具执行"组。
+ */
+const MEDIA_DISPLAY_TOOL_NAMES: readonly string[] = [
+  "image_display",
+  "video_display",
+  "audio_play",
+];
+
+const MEDIA_TOOL_SET = new Set(MEDIA_TOOL_NAMES);
+const MEDIA_DISPLAY_TOOL_SET = new Set(MEDIA_DISPLAY_TOOL_NAMES);
+
+/** 是否多媒体结果类工具（决定工具结果用 ImageToolResult 渲染） */
+export function isMediaToolName(name: string | undefined): boolean {
+  return name != null && MEDIA_TOOL_SET.has(name);
+}
+
+/** 是否多媒体展示类工具（决定默认展开、跳过折叠分组） */
+export function isMediaDisplayToolName(name: string | undefined): boolean {
+  return name != null && MEDIA_DISPLAY_TOOL_SET.has(name);
+}
+
 /** 工具名 → 中文显示名 */
 const TOOL_NAME_MAP: Record<string, string> = {
   // ---- 搜索类 ----
@@ -108,6 +149,27 @@ export function getToolDisplayName(toolName: string): string {
  * 折叠态只显示这一行摘要，展开态才显示完整参数。
  */
 export function getToolHumanSummary(toolCall: ToolCall): string {
+  return applyStatusTense(buildToolHumanSummary(toolCall), toolCall.status);
+}
+
+/**
+ * P1-8 / P1-21（2026-09-27 真机 + 导出产物实证）：摘要时态随调用状态变化。
+ *
+ * 原实现恒用"正在…"，已完成的调用（状态图标 `✓`）旁配"正在写入：…"语义矛盾，
+ * 导出件里"已完成"的记录同样读起来像进行中。此处只在**终态**改为过去式，
+ * 进行中/待执行保持"正在…"（`正在` → `已`，其余动作短语不带时态、原样保留）。
+ */
+function applyStatusTense(
+  summary: string,
+  status?: ToolCall["status"],
+): string {
+  const isFinal = status === "completed" || status === "failed";
+  if (!isFinal || !summary.startsWith("正在")) return summary;
+  return `已${summary.slice(2)}`;
+}
+
+/** 摘要主体（不含时态） */
+function buildToolHumanSummary(toolCall: ToolCall): string {
   const args = (toolCall.arguments || {}) as Record<string, unknown>;
   const name = toolCall.name;
 

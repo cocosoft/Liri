@@ -44,6 +44,18 @@ const STATUS_ICON: Record<string, string> = {
   failed: "❌",
 };
 
+/**
+ * P2-1：阶段状态文案（原直接渲染英文枚举值）。
+ * 未登记的状态回退显示后端原值，不编造。
+ */
+const STATUS_LABEL_KEY: Record<string, string> = {
+  pending: "chat.taskPending",
+  in_progress: "chat.executing",
+  awaiting_confirm: "chat.docAwaitingConfirm",
+  completed: "chat.completed",
+  failed: "chat.failed",
+};
+
 const NODE_STATUS_ICON: Record<string, string> = {
   pending: "⏳",
   in_progress: "🔵",
@@ -74,13 +86,14 @@ export function DocWorkflowProgress({
 
   return (
     <div
-      className="rounded-lg border border-gray-700/50 bg-gray-800/30 overflow-hidden"
-      style={{ maxWidth: "600px" }}
+      // P2-8（2026-09-27 审计）：原写死 `style={{maxWidth:"600px"}}` ⇒ 窄容器下双重挤压；
+      // 改为响应式类（与气泡 max-w 协同，窄屏自动收缩）
+      className="rounded-lg border border-gray-200 dark:border-gray-700/50 bg-gray-50 dark:bg-gray-800/30 overflow-hidden max-w-xl w-full"
     >
       {/* 头部：标题 + 总进度 */}
       <button
         onClick={() => setExpanded(!expanded)}
-        className="flex items-center justify-between w-full px-4 py-2.5 hover:bg-gray-800/50 transition-colors"
+        className="flex items-center justify-between w-full px-4 py-2.5 hover:bg-gray-100 dark:hover:bg-gray-800/50 transition-colors"
       >
         <div className="flex items-center gap-2 min-w-0">
           <span className="text-sm flex-shrink-0">
@@ -92,7 +105,7 @@ export function DocWorkflowProgress({
                   ? currentStageConfig.icon
                   : "📄"}
           </span>
-          <span className="text-sm font-medium text-gray-200 truncate">
+          <span className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">
             📝 {data.title}
           </span>
           <span className="text-xs text-gray-500 flex-shrink-0">
@@ -192,14 +205,17 @@ export function DocWorkflowProgress({
             return (
               <div
                 key={stage}
-                className="rounded border border-gray-700/30 bg-gray-900/30 px-3 py-2"
+                className="rounded border border-gray-200 dark:border-gray-700/30 bg-gray-50 dark:bg-gray-900/30 px-3 py-2"
               >
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-medium text-gray-300">
+                  <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
                     {STAGE_CONFIG[stage].icon} {t(STAGE_CONFIG[stage].labelKey)}
                   </span>
                   <span className="text-xs text-gray-500">
-                    {STATUS_ICON[stageData.status]} {stageData.status}
+                    {STATUS_ICON[stageData.status]}{" "}
+                    {STATUS_LABEL_KEY[stageData.status]
+                      ? t(STATUS_LABEL_KEY[stageData.status])
+                      : stageData.status}
                   </span>
                 </div>
 

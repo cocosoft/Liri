@@ -5,6 +5,13 @@ import { useChatStore } from "../../stores/chat";
 import { sessionService } from "../../services/sessionService";
 import type { Message } from "../../types";
 import { getMessageSearchText } from "../../utils/messageText";
+import { decodeToolResultContent } from "../../utils/toolResultText";
+import {
+  balanceCodeFences,
+  exportMessageAsFormat,
+  triggerBlobDownload,
+} from "../../utils/exportMessage";
+import { handleClientError } from "../../utils/handleError";
 import { Tooltip, TooltipTrigger, TooltipContent } from "../ui/tooltip";
 import SessionTitle from "./SessionTitle";
 
@@ -20,28 +27,64 @@ function formatDateTime(dateStr: string): string {
   }
 }
 
-/** P3-7 修复：触发 blob 下载并延迟 revokeObjectURL——与 SessionHistorySidebar 的
- * triggerBlobDownload（M10 修复）一致：立即 revoke 在 Firefox 偶发下载失败；
- * 元素需先挂载到 DOM 再 click（原实现 a.click() 未挂载，Firefox 偶发失败）。 */
-function triggerBlobDownload(blob: Blob, filename: string): void {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+/** P2-6（2026-09-27 审计）：`triggerBlobDownload` 收敛到 `utils/exportMessage`（唯一实现） */
+
+/** 导出元信息（P1-3：导出件需自证来源） */
+interface ExportMeta {
+  id: string;
+  title: string;
+  exportedAt: string;
 }
 
-/** 导出为 Markdown（含思考、工具调用、blocks 标识） */
+/**
+ * 导出正文结构保护（P1-4，最小化）：正文里若出现与导出自身标记同形的
+ * 角色标题行（`### 👤/🤖/⚙️/🛠 …`），会被误读为新的消息节 ⇒ 行首 `#` 转义。
+ *
+ * **有意不做的**：不做全文 HTML 转义（会破坏正文里合法的 Markdown/HTML 代码示例，
+ * 降低导出件保真度）；`---` 分隔线歧义与渲染器层面的 HTML 执行风险见 Spec P1-4 备注。
+ */
+function protectExportStructure(text: string): string {
+  return text.replace(/^###\s+(👤|🤖|⚙️|🛠)\s/gm, "\\### $1 ");
+}
+
+/** Markdown 头部：会话元信息（P1-3） */
+function buildMarkdownHeader(messages: Message[], meta: ExportMeta): string {
+  const rounds = messages.filter((m) => m.role === "user").length;
+  return [
+    `# ${meta.title || "会话导出"}`,
+    "",
+    `- 会话 ID：\`${meta.id || "?"}\``,
+    `- 消息数：${messages.length}（轮数：${rounds}）`,
+    `- 导出时间：${meta.exportedAt}`,
+    "",
+    "---",
+    "",
+  ].join("\n");
+}
+
+/** JSON 块内容截断上限（与文案标注配套，P1-1/P1-2） */
+const MAX_EXPORT_BLOCK_CHARS = 5000;
+
+/**
+ * 块内容截断（P1-2）：**必须带标注**——原实现静默 `substring(0, 5000)`，
+ * 消费者无法判断内容缺口。此处复用 thinking 截断的无歧义口径（保留量 + 原文量 + 去处）。
+ */
+function truncateBlockContent(content: string): string {
+  if (content.length <= MAX_EXPORT_BLOCK_CHARS) return content;
+  return `${content.slice(0, MAX_EXPORT_BLOCK_CHARS)}\n\n（内容过长，已截断：仅导出前 ${MAX_EXPORT_BLOCK_CHARS} 字，原文共 ${content.length} 字；完整内容见会话内）`;
+}
+
+/** 导出为 Markdown（含思考、工具调用、blocks 标识 + 会话元信息）
+ *  @param opts.full D6（2026-09-27）= B：完整版——思考/工具结果不截断、工具调用附参数 */
 function exportAsMarkdown(
   messages: Message[],
   labels: Record<string, string>,
+  meta: ExportMeta,
+  opts?: { full?: boolean },
 ): string {
   // 跨消息归属去重：全局 seen 在整会话导出期间共享（2026-09-05）
   const seen = new Set<string>();
-  return messages
+  const body = messages
     .map((msg) => {
       const roleLabel =
         msg.role === "user"
@@ -62,29 +105,33 @@ function exportAsMarkdown(
           : "";
       const text = getMessageSearchText(
         dedupeCrossMessageToolBlocks(msg, seen),
-        { forExport: true },
+        { forExport: true, full: opts?.full === true },
       );
       const usageInfo = msg.usage
         ? `\n> 📊 Token: 输入 ${msg.usage.inputTokens ?? "?"} / 输出 ${msg.usage.outputTokens ?? "?"} / 缓存读 ${msg.usage.cacheReadTokens ?? "0"}`
         : "";
-      return `### ${roleLabel}  (${date}${timeInfo})\n\n${text}${usageInfo}\n`;
+      // 2026-09-27（真机产物实证）：先补齐**未闭合代码围栏**（否则本条会吞掉后续所有消息），
+      // 再做结构保护（见 utils/exportMessage#balanceCodeFences）
+      return `### ${roleLabel}  (${date}${timeInfo})\n\n${protectExportStructure(
+        balanceCodeFences(text),
+      )}${usageInfo}\n`;
     })
     .join("\n---\n");
+  return buildMarkdownHeader(messages, meta) + body;
 }
 
-/** 导出 JSON（含 blocks、usage、metadata 完整信息） */
-function exportAsJson(messages: Message[]): string {
+/** 导出 JSON（含 blocks 全字段、usage、metadata + 会话元信息） */
+function exportAsJson(messages: Message[], meta: ExportMeta): string {
   const cleaned = messages.map((msg) => {
+    // P1-1：透传块的全部结构化载荷（原实现只映射 6 个字段 ⇒ taskCard/questionData/
+    // deliverableData/diffData/*WorkflowData/块级 error 在导出中全部丢失）；
+    // P1-2：超长 content 走**带标注**截断，不再静默丢弃。
     const blocksDetail = (msg.blocks || []).map((b) => ({
-      type: b.type,
+      ...b,
       content:
         typeof b.content === "string"
-          ? b.content.substring(0, 5000)
+          ? truncateBlockContent(b.content)
           : b.content,
-      toolName: b.toolCall?.name,
-      toolCallId: b.toolCallId,
-      status: b.status,
-      isStreaming: b.isStreaming,
     }));
     return {
       id: msg.id,
@@ -92,7 +139,13 @@ function exportAsJson(messages: Message[]): string {
       timestamp: msg.timestamp,
       // 1.6：流式开始时间随 JSON 导出
       startedAt: msg.startedAt,
-      content: typeof msg.content === "string" ? msg.content : "",
+      content:
+        typeof msg.content === "string"
+          ? // P0-3：tool 角色 content 为"工具结果信封"JSON ⇒ 导出前解码（与 md 侧同源）
+            msg.role === "tool"
+            ? decodeToolResultContent(msg.content)
+            : msg.content
+          : "",
       blocks: blocksDetail,
       toolCalls: msg.tool_calls,
       usage: msg.usage,
@@ -102,7 +155,45 @@ function exportAsJson(messages: Message[]): string {
       metadata: msg.metadata,
     };
   });
-  return JSON.stringify(cleaned, null, 2);
+  // P1-3：导出件自证来源——顶层补会话元信息（原实现只输出消息数组，无法判断出处）
+  return JSON.stringify(
+    {
+      session: { id: meta.id || null, title: meta.title || null },
+      exportedAt: meta.exportedAt,
+      messageCount: cleaned.length,
+      messages: cleaned,
+    },
+    null,
+    2,
+  );
+}
+
+/**
+ * D7（2026-09-27，导出产物实证后定案）：导出时剔除**已被助手消息引用**的 `role:"tool"` 消息。
+ *
+ * 为什么：同一工具结果会以两种形态出现——① 所属助手消息内的 `🔧 名称 — 摘要`（已有）；
+ * ② 独立 `role:"tool"` 消息（content = 工具结果信封）。实测导出件 50 个角色节里
+ * 12+ 个是信封节 ⇒ 重复且噪声。
+ * **孤儿保留**：未被任何助手消息引用的 tool 结果（如 `sessions_yield`）仍导出，
+ * 与前端 N-48 的可见性策略一致（不丢信息）。
+ */
+function filterExportMessages(messages: Message[]): Message[] {
+  const consumed = new Set<string>();
+  for (const msg of messages) {
+    if (msg.role !== "assistant") continue;
+    for (const b of msg.blocks ?? []) {
+      const id = b.toolCall?.id ?? b.toolCallId;
+      if (id) consumed.add(id);
+    }
+    for (const tc of msg.tool_calls ?? []) {
+      const id = (tc as { id?: string }).id;
+      if (id) consumed.add(id);
+    }
+  }
+  const filtered = messages.filter(
+    (m) => m.role !== "tool" || !m.toolCallId || !consumed.has(m.toolCallId),
+  );
+  return filtered.length === messages.length ? messages : filtered;
 }
 
 /**
@@ -207,31 +298,73 @@ function SessionHeader() {
 
   /** 导出前统一从持久层拉取最新消息（P0 修复 1.7：两次导出内容一致，不依赖内存快照） */
   const resolveExportMessages = async (): Promise<Message[]> => {
-    if (!currentSession) return messages;
+    if (!currentSession) return filterExportMessages(messages);
     try {
       const persisted = await sessionService.getMessages(currentSession.id);
       // 持久层为空时回退内存（断网/未落盘兜底，避免导出空文件）
-      return persisted.length > 0 ? persisted : messages;
+      return filterExportMessages(persisted.length > 0 ? persisted : messages);
     } catch {
-      return messages;
+      return filterExportMessages(messages);
     }
   };
 
-  /** 导出 Markdown */
-  const handleExportMarkdown = async () => {
-    setExporting(true);
-    try {
-      const source = await resolveExportMessages();
-      const md = exportAsMarkdown(source, {
+  /** 导出元信息（P1-3）：文件名仍用时间戳，元信息写进导出内容本身 */
+  const buildExportMeta = (): ExportMeta => ({
+    id: currentSession?.id ?? "",
+    title: currentSession?.title ?? "",
+    exportedAt: new Date().toISOString(),
+  });
+
+  /** 组装会话 Markdown（md/html/word/完整版 共用，避免重复构造） */
+  const buildSessionMarkdown = async (full = false): Promise<string> => {
+    const source = await resolveExportMessages();
+    return exportAsMarkdown(
+      source,
+      {
         user: t("chat.user"),
         assistant: t("chat.assistant"),
         system: t("chat.system"),
         tool: t("chat.tool"),
-      });
+      },
+      buildExportMeta(),
+      { full },
+    );
+  };
+
+  /** 导出 Markdown（full=true 为 D6 完整版：思考/工具结果不截断、工具调用附参数） */
+  const handleExportMarkdown = async (full = false) => {
+    setExporting(true);
+    try {
+      const md = await buildSessionMarkdown(full);
       triggerBlobDownload(
         new Blob([md], { type: "text/markdown;charset=utf-8" }),
-        `chat-export-${Date.now()}.md`,
+        `chat-export-${Date.now()}${full ? "-full" : ""}.md`,
       );
+    } catch (e) {
+      handleClientError(e, {
+        module: "ui:session-header",
+        action: full ? "exportMarkdownFull" : "exportMarkdown",
+      });
+    } finally {
+      setExporting(false);
+    }
+    setExportOpen(false);
+  };
+
+  /**
+   * 导出 HTML / Word（D2 定案，2026-09-27）：会话级与单条导出对齐，复用既有
+   * `utils/exportMessage#exportMessageAsFormat`（md → HTML / Word 壳），**不另立实现**（CS01）。
+   */
+  const handleExportHtmlOrWord = async (format: "html" | "word") => {
+    setExporting(true);
+    try {
+      const md = await buildSessionMarkdown();
+      exportMessageAsFormat(md, format, `chat-export-${Date.now()}`);
+    } catch (e) {
+      handleClientError(e, {
+        module: "ui:session-header",
+        action: `export${format}`,
+      });
     } finally {
       setExporting(false);
     }
@@ -243,11 +376,16 @@ function SessionHeader() {
     setExporting(true);
     try {
       const source = await resolveExportMessages();
-      const json = exportAsJson(source);
+      const json = exportAsJson(source, buildExportMeta());
       triggerBlobDownload(
         new Blob([json], { type: "application/json;charset=utf-8" }),
         `chat-export-${Date.now()}.json`,
       );
+    } catch (e) {
+      handleClientError(e, {
+        module: "ui:session-header",
+        action: "exportJson",
+      });
     } finally {
       setExporting(false);
     }
@@ -366,8 +504,15 @@ function SessionHeader() {
           <div ref={exportRef} className="relative flex-shrink-0">
             <button
               onClick={() => setExportOpen((prev) => !prev)}
-              className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-              title={t("chat.exportSession")}
+              // P2-6（2026-09-27 审计）：空会话/导出中禁用并给出原因——原实现可点，
+              // 空会话会下载只含分隔符的空文件且无任何提示
+              disabled={exporting || messages.length === 0}
+              className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+              title={
+                messages.length === 0
+                  ? t("chat.exportEmptyHint", "当前会话暂无消息可导出")
+                  : t("chat.exportSession")
+              }
             >
               {exporting ? (
                 <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
@@ -389,18 +534,38 @@ function SessionHeader() {
             </button>
 
             {exportOpen && (
-              <div className="absolute right-0 top-full mt-1 w-40 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1 z-30">
+              <div className="absolute right-0 top-full mt-1 w-56 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1 z-30">
                 <button
-                  onClick={handleExportMarkdown}
+                  onClick={() => handleExportMarkdown(false)}
                   className="w-full px-3 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
                 >
-                  导出为 Markdown
+                  {t("chat.exportAsMarkdown")}
+                </button>
+                {/* D6（2026-09-27）= B：默认轻量 + 完整版（思考/工具结果不截断、工具调用附参数） */}
+                <button
+                  onClick={() => handleExportMarkdown(true)}
+                  className="w-full px-3 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                >
+                  {t("chat.exportAsMarkdownFull")}
                 </button>
                 <button
                   onClick={handleExportJson}
                   className="w-full px-3 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
                 >
                   {t("chat.exportAsJson")}
+                </button>
+                {/* D2（2026-09-27）：与会话级导出对齐，补 HTML / Word（复用单条导出渲染） */}
+                <button
+                  onClick={() => handleExportHtmlOrWord("html")}
+                  className="w-full px-3 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                >
+                  {t("chat.exportAsHtml")}
+                </button>
+                <button
+                  onClick={() => handleExportHtmlOrWord("word")}
+                  className="w-full px-3 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                >
+                  {t("chat.exportAsWord")}
                 </button>
               </div>
             )}

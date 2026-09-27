@@ -28,6 +28,8 @@ const STATUS_ICONS: Record<string, string> = {
   failed: "✗",
   cancelled: "⏹",
   blocked: "⊘",
+  // P2-8（2026-09-27 审计）：原缺 `skipped` ⇒ 被跳过任务在 Mini 面板显示 "?"
+  skipped: "⏭",
 };
 
 const STATUS_COLORS: Record<string, string> = {

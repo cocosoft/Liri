@@ -17,12 +17,13 @@ export default function OcrResult({ data }: Props) {
   return (
     <div className="space-y-1.5">
       <div className="flex items-center gap-2 text-[10px]">
-        <span className="font-medium text-gray-300">
+        {/* P1-12：暗色专用色补 light 基础色（原 light 模式下在浅底上不可读） */}
+        <span className="font-medium text-gray-600 dark:text-gray-300">
           {t("image.ocrResult")}
         </span>
         {language && <span className="text-gray-500">Lang: {language}</span>}
         <span
-          className={`ml-auto ${confidence > 0.8 ? "text-green-400" : confidence > 0.5 ? "text-yellow-400" : "text-red-400"}`}
+          className={`ml-auto ${confidence > 0.8 ? "text-green-600 dark:text-green-400" : confidence > 0.5 ? "text-yellow-600 dark:text-yellow-400" : "text-red-600 dark:text-red-400"}`}
         >
           {(confidence * 100).toFixed(1)}%
         </span>
@@ -33,7 +34,7 @@ export default function OcrResult({ data }: Props) {
           {blocks.map((block, i) => (
             <div
               key={i}
-              className="bg-white/5 rounded px-1.5 py-0.5 text-[10px] text-gray-300"
+              className="bg-gray-100 dark:bg-white/5 rounded px-1.5 py-0.5 text-[10px] text-gray-700 dark:text-gray-300"
             >
               {block.text as string}
               <span className="text-gray-500 ml-1">
@@ -43,7 +44,7 @@ export default function OcrResult({ data }: Props) {
           ))}
         </div>
       ) : (
-        <div className="text-[10px] text-gray-300 whitespace-pre-wrap">
+        <div className="text-[10px] text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
           {text}
         </div>
       )}

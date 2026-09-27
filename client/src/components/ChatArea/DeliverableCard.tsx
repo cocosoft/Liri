@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import type { DeliverableData } from "../../types";
 
 interface DeliverableCardProps {
@@ -43,6 +44,7 @@ export default function DeliverableCard({
   onEnterWorkMode,
   workModeReady,
 }: DeliverableCardProps) {
+  const { t } = useTranslation();
   const { files, summary, checks, actions } = data;
 
   const handleAction = (action: string, file?: string) => {
@@ -105,8 +107,8 @@ export default function DeliverableCard({
         </div>
       )}
 
-      {/* 操作按钮 */}
-      {actions && actions.length > 0 && (
+      {/* 操作按钮（P1-13：无 onAction 处理者时不渲染——原实现渲染出"点了没用"的死按钮） */}
+      {onAction && actions && actions.length > 0 && (
         <div className="px-3 py-2 border-t border-gray-100 dark:border-gray-700 flex flex-wrap gap-2">
           {actions.map((action, idx) => (
             <button
@@ -135,11 +137,13 @@ export default function DeliverableCard({
             }`}
             title={
               workModeReady === false
-                ? "工作界面暂未就绪"
-                : "进入工作界面查看文件变更详情"
+                ? t("chat.workModeNotReady", "工作界面暂未就绪")
+                : t("chat.enterWorkModeHint", "进入工作界面查看文件变更详情")
             }
           >
-            {workModeReady === false ? "工作界面暂未就绪" : "进入工作模式"}
+            {workModeReady === false
+              ? t("chat.workModeNotReady", "工作界面暂未就绪")
+              : t("chat.enterWorkMode", "进入工作模式")}
           </button>
         </div>
       )}

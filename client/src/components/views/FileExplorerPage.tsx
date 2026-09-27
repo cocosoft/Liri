@@ -928,7 +928,7 @@ function FilePreviewModal({
           copySuccess={copySuccess}
           showCopy={isTextContent}
         />
-        <div className="flex-1 overflow-auto p-4 prose dark:prose-invert max-w-none">
+        <div className="flex-1 overflow-auto p-4 max-w-none">
           <MarkdownRenderer content={preview.content} />
         </div>
       </ModalOverlay>
@@ -952,7 +952,7 @@ function FilePreviewModal({
           copySuccess={copySuccess}
           showCopy={isTextContent}
         />
-        <div className="flex-1 overflow-auto p-4 prose dark:prose-invert max-w-none">
+        <div className="flex-1 overflow-auto p-4 max-w-none">
           <MarkdownRenderer content={preview.content} />
         </div>
       </ModalOverlay>

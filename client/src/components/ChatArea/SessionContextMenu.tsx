@@ -7,6 +7,7 @@
  * - 压缩、查看详情
  */
 import { useRef, useState, useLayoutEffect } from "react";
+import { useTranslation } from "react-i18next";
 
 interface SessionContextMenuProps {
   x: number;
@@ -33,6 +34,7 @@ function SessionContextMenu({
   onCompact,
   onShowDetail,
 }: SessionContextMenuProps) {
+  const { t } = useTranslation();
   // P3-6 修复：菜单位置按实际尺寸钳制到视口内——原实现直接 style={{left:x,top:y}}，
   // 靠右/靠下右键时菜单被窗口裁切（部分按钮不可见/不可点）。
   const menuRef = useRef<HTMLDivElement>(null);
@@ -62,20 +64,20 @@ function SessionContextMenu({
         onClick={() => onRename(sessionId)}
         className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
       >
-        ✏️ 重命名
+        ✏️ {t("chat.renameSession", "重命名")}
       </button>
       <button
         onClick={() => onCopyId(sessionId)}
         className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
       >
-        📋 复制会话 ID
+        📋 {t("chat.copySessionId", "复制会话 ID")}
       </button>
       {onShowDetail && (
         <button
           onClick={() => onShowDetail(sessionId)}
           className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
         >
-          ℹ️ 查看详情
+          ℹ️ {t("chat.viewDetails", "查看详情")}
         </button>
       )}
       <div className="border-t border-gray-100 dark:border-gray-700 my-1" />
@@ -83,13 +85,13 @@ function SessionContextMenu({
         onClick={() => onExport(sessionId, "json")}
         className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
       >
-        📤 导出 JSON
+        📤 {t("chat.exportAsJson", "导出为 JSON")}
       </button>
       <button
         onClick={() => onExport(sessionId, "md")}
         className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
       >
-        📝 导出 Markdown
+        📝 {t("chat.exportAsMarkdown", "导出为 Markdown")}
       </button>
       <div className="border-t border-gray-100 dark:border-gray-700 my-1" />
       {onCompact && (
@@ -97,14 +99,17 @@ function SessionContextMenu({
           onClick={() => onCompact(sessionId)}
           className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
         >
-          🗜️ 压缩会话
+          🗜️ {t("chat.compactSession", "压缩会话")}
         </button>
       )}
       <button
         onClick={() => onTogglePin(sessionId)}
         className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
       >
-        {isPinned ? "📌 取消固定" : "📌 固定到顶部"}
+        📌{" "}
+        {isPinned
+          ? t("chat.unpin", "取消固定")
+          : t("chat.pinToTop", "固定到顶部")}
       </button>
     </div>
   );

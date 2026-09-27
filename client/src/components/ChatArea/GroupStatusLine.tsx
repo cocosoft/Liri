@@ -6,6 +6,10 @@ import { STYLES } from "../../styles/animations";
  * 在 ToolExecutionGroup 面板内显示单行状态文本，
  * 根据内容自动判断运行中 / 已完成 / 普通状态，不产生独立卡片边框。
  */
+/** 结构化状态取值（CS02：状态判定只认标记，禁止字符串匹配内容/模糊 includes） */
+const RUNNING_STATUSES = new Set(["tool_running"]);
+const COMPLETED_STATUSES = new Set(["tool_completed", "completed"]);
+
 function GroupStatusLine({
   content,
   isStreaming,
@@ -13,17 +17,14 @@ function GroupStatusLine({
 }: {
   content: string;
   isStreaming?: boolean;
-  /** L3（2026-08-23）：结构化状态标记（tool_running/tool_completed/tool_failed） */
+  /** L3（2026-08-23）：结构化状态标记（tool_running/tool_completed） */
   status?: string;
 }) {
-  // L3 修复（2026-08-23，CS02）：优先用结构化 statusType 标记判断，
-  // 回退字符串匹配仅用于兼容无标记的存量内容（历史事件）
-  const isRunning = status
-    ? status === "tool_running" || status.includes("running")
-    : content.includes("Running");
-  const isCompleted = status
-    ? status === "tool_completed" || status.includes("completed")
-    : content.includes("completed") || content.includes("\u{2705}");
+  // P1-16（2026-09-27 审计，CS02）：原实现对 `content` 做 `includes("Running")`、
+  // 对 `status` 做模糊 `includes(...)` ⇒ 属字符串匹配做状态判断（脆弱且违反 CS02）。
+  // 现只按**结构化 status 精确匹配**；缺标记时退化为"中性"（不再猜测内容语义）。
+  const isRunning = status !== undefined && RUNNING_STATUSES.has(status);
+  const isCompleted = status !== undefined && COMPLETED_STATUSES.has(status);
 
   const textColor = isRunning
     ? "text-amber-300"

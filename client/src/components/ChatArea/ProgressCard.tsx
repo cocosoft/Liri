@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import type { ProgressData } from "../../types";
 import { getToolDisplayName } from "../../utils/toolHumanSummary";
 
@@ -7,13 +8,13 @@ interface ProgressCardProps {
 
 const PHASE_LABELS: Record<
   ProgressData["phase"],
-  { icon: string; label: string }
+  { icon: string; labelKey: string }
 > = {
-  analyzing: { icon: "\u{1F50D}", label: "分析中" },
-  designing: { icon: "\u{1F3D7}\uFE0F", label: "设计中" },
-  implementing: { icon: "\u{1F527}", label: "实现中" },
-  verifying: { icon: "\u2705", label: "验证中" },
-  presenting: { icon: "\u{1F4CB}", label: "展示结果" },
+  analyzing: { icon: "\u{1F50D}", labelKey: "chat.phaseAnalyzing" },
+  designing: { icon: "\u{1F3D7}\uFE0F", labelKey: "chat.phaseDesigning" },
+  implementing: { icon: "\u{1F527}", labelKey: "chat.phaseImplementing" },
+  verifying: { icon: "\u2705", labelKey: "chat.phaseVerifying" },
+  presenting: { icon: "\u{1F4CB}", labelKey: "chat.phasePresenting" },
 };
 
 const STEP_STATUS_ICONS: Record<string, string> = {
@@ -43,6 +44,7 @@ const STEPS_MAX_HEIGHT = 176; // max-h-44
  * 因此步骤区设固定高度上限 + overflow-y 滚动。
  */
 export default function ProgressCard({ data }: ProgressCardProps) {
+  const { t } = useTranslation();
   const {
     phase,
     progress,
@@ -52,7 +54,10 @@ export default function ProgressCard({ data }: ProgressCardProps) {
     totalSteps,
     truncated,
   } = data;
-  const phaseInfo = PHASE_LABELS[phase] || { icon: "\u{1F4CC}", label: phase };
+  const phaseInfo = PHASE_LABELS[phase];
+  // 未识别阶段回退显示后端原始枚举值（不编造文案）
+  const phaseIcon = phaseInfo?.icon ?? "\u{1F4CC}";
+  const phaseLabel = phaseInfo ? t(phaseInfo.labelKey) : phase;
   // BUG-1 修复（2026-08-23）：后端 execution_phase.progress 语义为"累计完成工具数"
   // （无总计划数分母，无法换算 0-100 百分比），此处 clamp 兜底防溢出（>100% 撑破容器）
   // 与 NaN 污染。见 dev_docs/20260823/会话标题生成问题-排查报告-20260823.md BUG-1。
@@ -65,9 +70,9 @@ export default function ProgressCard({ data }: ProgressCardProps) {
       {/* 卡片标题栏 */}
       <div className="px-3 py-2 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
         <div className="flex items-center gap-1.5 min-w-0">
-          <span className="text-sm flex-shrink-0">{phaseInfo.icon}</span>
+          <span className="text-sm flex-shrink-0">{phaseIcon}</span>
           <span className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
-            {phaseInfo.label}
+            {phaseLabel}
           </span>
         </div>
         <span className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0 ml-2">
@@ -90,18 +95,27 @@ export default function ProgressCard({ data }: ProgressCardProps) {
         <div className="px-3 py-2">
           <div className="flex items-center justify-between mb-1">
             <span className="text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-wider">
-              已执行 {totalSteps ?? steps.length} 项
+              {t("chat.progressExecutedCount", {
+                count: totalSteps ?? steps.length,
+                defaultValue: "已执行 {{count}} 项",
+              })}
             </span>
             {truncated ? (
               <span
                 className="text-[10px] text-gray-400 dark:text-gray-500"
-                title="更早的记录已折叠，仅保留最近若干条以减少传输"
+                title={t(
+                  "chat.progressTruncatedHint",
+                  "更早的记录已折叠，仅保留最近若干条以减少传输",
+                )}
               >
-                仅展示最近 {steps.length} 条
+                {t("chat.progressOnlyRecent", {
+                  count: steps.length,
+                  defaultValue: "仅展示最近 {{count}} 条",
+                })}
               </span>
             ) : steps.length > 6 ? (
               <span className="text-[10px] text-gray-400 dark:text-gray-500">
-                可滚动查看
+                {t("chat.progressScrollable", "可滚动查看")}
               </span>
             ) : null}
           </div>

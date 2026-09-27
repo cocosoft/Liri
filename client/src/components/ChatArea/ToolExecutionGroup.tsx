@@ -8,9 +8,7 @@ import {
   getToolDisplayName,
   getToolHumanSummary,
 } from "../../utils/toolHumanSummary";
-import { useFeatureFlagStore } from "../../stores/featureFlags";
 import GroupStatusLine from "./GroupStatusLine";
-import BlockItem from "./BlockItem";
 import { createLogger } from "@/utils/logger";
 
 const logger = createLogger("components:toolExecutionGroup");
@@ -23,7 +21,6 @@ function ToolExecutionGroup({ blocks }: ToolExecutionGroupProps) {
   const { t } = useTranslation();
   // P0-5 修复：精准 selector 订阅，避免每个 chunk 触发工具卡片重渲染
   const readFileToPreview = useChatStore((s) => s.readFileToPreview);
-  const toolcallFlat = useFeatureFlagStore((s) => s.flags.toolcall_flat);
 
   /** P0-5 日志：流式状态切换边界（流式中工具卡片渲染频率监控，每 complete→streaming 边沿记录） */
   const isGroupStreaming = useMemo(
@@ -62,7 +59,7 @@ function ToolExecutionGroup({ blocks }: ToolExecutionGroupProps) {
       }
     }
     return t("chat.toolExecution");
-  }, [blocks]);
+  }, [blocks, t]);
 
   const status = useMemo(() => {
     // P2-2: 审批等待态优先（结构化标记，非字符串匹配）
@@ -183,7 +180,6 @@ function ToolExecutionGroup({ blocks }: ToolExecutionGroupProps) {
     }
 
     return {
-      label: `${total} 个工具调用`,
       total,
       completed,
       running,
@@ -245,8 +241,14 @@ function ToolExecutionGroup({ blocks }: ToolExecutionGroupProps) {
             <>
               {/* 凝练总结话语：如 "✅ 已执行 2 个工具调用" / "2 个工具调用 (1/2)" */}
               {aggregateStats.allDone && !aggregateStats.failed
-                ? `已执行 ${aggregateStats.total} 个工具调用`
-                : aggregateStats.label}
+                ? t("chat.toolCallsExecutedCount", {
+                    count: aggregateStats.total,
+                    defaultValue: "已执行 {{count}} 个工具调用",
+                  })
+                : t("chat.toolCallsCount", {
+                    count: aggregateStats.total,
+                    defaultValue: "{{count}} 个工具调用",
+                  })}
               <span className="font-normal text-xs text-gray-400 ml-1">
                 {aggregateStats.completed}/{aggregateStats.total}
                 {aggregateStats.failed > 0 && (
@@ -255,7 +257,9 @@ function ToolExecutionGroup({ blocks }: ToolExecutionGroupProps) {
                   </span>
                 )}
                 {!aggregateStats.allDone && (
-                  <span className="text-amber-400/80 ml-1">执行中</span>
+                  <span className="text-amber-400/80 ml-1">
+                    {t("chat.executing", "执行中")}
+                  </span>
                 )}
               </span>
             </>
@@ -299,111 +303,100 @@ function ToolExecutionGroup({ blocks }: ToolExecutionGroupProps) {
               onClick={() => setInnerCollapsed(false)}
               className="block w-full px-2.5 py-1 bg-transparent text-gray-400 text-xs cursor-pointer text-left"
             >
-              📋 {t("chat.expandDetail")} ({blocks.length} 项)
+              📋 {t("chat.expandDetail")} (
+              {t("chat.itemsCount", {
+                count: blocks.length,
+                defaultValue: "{{count}} 项",
+              })}
+              )
             </button>
           ) : (
             <div className="px-2 py-1 flex flex-col gap-0.5">
               {/* 时间线连接器：在左侧绘制垂直连接线 */}
-              {toolcallFlat
-                ? // 扁平化模式：ToolCallGroup inline 行内展示，带时间线连接
-                  filteredBlocks.map((block, idx) => {
-                    const isLast = idx === filteredBlocks.length - 1;
-                    const blockStatus =
-                      block.type === "tool_call" && block.toolCall?.status
-                        ? block.toolCall.status
-                        : null;
-                    const timelineColor =
-                      blockStatus === "running"
-                        ? "border-blue-400"
-                        : blockStatus === "failed"
-                          ? "border-red-400"
-                          : "border-gray-300 dark:border-gray-600";
-
-                    return (
-                      <div key={block.id} className="flex gap-1.5">
-                        {/* 时间线 */}
-                        <div className="flex flex-col items-center w-3 shrink-0 pt-1">
-                          <div
-                            className={`w-2 h-2 rounded-full border-2 ${timelineColor} ${blockStatus === "running" ? "bg-blue-400 animate-pulse" : blockStatus === "failed" ? "bg-red-400" : "bg-gray-300 dark:bg-gray-600"}`}
-                          />
-                          {!isLast && (
-                            <div
-                              className={`w-0.5 flex-1 min-h-[12px] ${timelineColor}`}
-                            />
-                          )}
-                        </div>
-                        {/* 内容 */}
-                        <div className="flex-1 min-w-0">
-                          {block.type === "tool_call" && block.toolCall ? (
-                            <ToolCallGroup
-                              key={block.id}
-                              toolCall={block.toolCall}
-                              isStreaming={block.isStreaming}
-                              variant="inline"
-                            />
-                          ) : block.type === "status" ? (
-                            <GroupStatusLine
-                              key={block.id}
-                              content={block.content}
-                              isStreaming={block.isStreaming}
-                              status={block.status}
-                            />
-                          ) : (
-                            <MarkdownRenderer
-                              key={block.id}
-                              content={block.content}
-                              isStreaming={block.isStreaming}
-                              onPreviewFile={readFileToPreview}
-                            />
-                          )}
-                        </div>
+              {filteredBlocks.map((block, idx) => {
+                // P1-5 修复：孤立 tool_call 结果块（无配对 tool_call 但有 content）
+                // 显示为独立结果卡片
+                // 注：MessageBlock 无 tool_result 类型，用 content 非空但 toolCall 缺失判断孤立结果
+                if (
+                  block.type === "tool_call" &&
+                  !block.toolCall &&
+                  block.content
+                ) {
+                  logger.warn("[P1-5] 孤立 tool_call 结果块（无配对调用）", {
+                    blockId: block.id,
+                    contentLength: block.content?.length ?? 0,
+                  });
+                  return (
+                    <div
+                      key={block.id}
+                      className="border border-amber-400/30 rounded-[8px] p-2 bg-amber-400/[0.05]"
+                    >
+                      <div className="text-[11px] text-amber-300 mb-1">
+                        ⚠️{" "}
+                        {t(
+                          "chat.orphanToolResult",
+                          "孤立工具结果（未配对调用）",
+                        )}
                       </div>
-                    );
-                  })
-                : // 旧版模式：BlockItem 嵌套卡片
-                  filteredBlocks.map((block) => {
-                    // P1-5 修复：孤立 tool_call 结果块（无配对 tool_call 但有 content）显示为独立结果卡片
-                    // 注：MessageBlock 无 tool_result 类型，用 content 非空但 toolCall 缺失判断孤立结果
-                    if (
-                      block.type === "tool_call" &&
-                      !block.toolCall &&
-                      block.content
-                    ) {
-                      logger.warn(
-                        "[P1-5] 孤立 tool_call 结果块（无配对调用）",
-                        {
-                          blockId: block.id,
-                          contentLength: block.content?.length ?? 0,
-                        },
-                      );
-                      return (
-                        <div
-                          key={block.id}
-                          className="border border-amber-400/30 rounded-[8px] p-2 bg-amber-400/[0.05]"
-                        >
-                          <div className="text-[11px] text-amber-300 mb-1">
-                            ⚠️{" "}
-                            {t(
-                              "chat.orphanToolResult",
-                              "孤立工具结果（未配对调用）",
-                            )}
-                          </div>
-                          <MarkdownRenderer
-                            content={block.content}
-                            isStreaming={block.isStreaming}
-                            onPreviewFile={readFileToPreview}
-                          />
-                        </div>
-                      );
-                    }
-                    return (
-                      <BlockItem
-                        key={block.id}
-                        block={block}
+                      <MarkdownRenderer
+                        content={block.content}
+                        isStreaming={block.isStreaming}
                         onPreviewFile={readFileToPreview}
                       />
-                    );
-                  })}
+                    </div>
+                  );
+                }
+
+                const isLast = idx === filteredBlocks.length - 1;
+                const blockStatus =
+                  block.type === "tool_call" && block.toolCall?.status
+                    ? block.toolCall.status
+                    : null;
+                const timelineColor =
+                  blockStatus === "running"
+                    ? "border-blue-400"
+                    : blockStatus === "failed"
+                      ? "border-red-400"
+                      : "border-gray-300 dark:border-gray-600";
+
+                return (
+                  <div key={block.id} className="flex gap-1.5">
+                    {/* 时间线 */}
+                    <div className="flex flex-col items-center w-3 shrink-0 pt-1">
+                      <div
+                        className={`w-2 h-2 rounded-full border-2 ${timelineColor} ${blockStatus === "running" ? "bg-blue-400 animate-pulse" : blockStatus === "failed" ? "bg-red-400" : "bg-gray-300 dark:bg-gray-600"}`}
+                      />
+                      {!isLast && (
+                        <div
+                          className={`w-0.5 flex-1 min-h-[12px] ${timelineColor}`}
+                        />
+                      )}
+                    </div>
+                    {/* 内容 */}
+                    <div className="flex-1 min-w-0">
+                      {block.type === "tool_call" && block.toolCall ? (
+                        <ToolCallGroup
+                          toolCall={block.toolCall}
+                          isStreaming={block.isStreaming}
+                          variant="inline"
+                        />
+                      ) : block.type === "status" ? (
+                        <GroupStatusLine
+                          content={block.content}
+                          isStreaming={block.isStreaming}
+                          status={block.status}
+                        />
+                      ) : (
+                        <MarkdownRenderer
+                          content={block.content}
+                          isStreaming={block.isStreaming}
+                          onPreviewFile={readFileToPreview}
+                        />
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>

@@ -33,15 +33,16 @@ function isEmpty(data: unknown): boolean {
 function LoadingSkeleton() {
   return (
     <div className="animate-pulse space-y-2 p-2">
-      <div className="h-4 bg-gray-700/30 rounded w-3/4" />
-      <div className="h-20 bg-gray-700/20 rounded" />
+      <div className="h-4 bg-gray-200 dark:bg-gray-700/30 rounded w-3/4" />
+      <div className="h-20 bg-gray-100 dark:bg-gray-700/20 rounded" />
     </div>
   );
 }
 
 function ErrorBanner({ error }: { error: string }) {
   return (
-    <div className="bg-red-900/20 border border-red-800/40 rounded px-3 py-2 text-red-300 text-xs">
+    // P1-12（2026-09-27 审计）：原为暗色专用调色板（light 模式下不可读）⇒ 补 light 基础色 + dark: 变体
+    <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/40 rounded px-3 py-2 text-red-700 dark:text-red-300 text-xs">
       {typeof error === "string" ? error : JSON.stringify(error)}
     </div>
   );
@@ -96,7 +97,7 @@ export default function ImageToolResult({ toolCall }: Props) {
       return <ImageEditResultView data={data as Record<string, unknown>} />;
     default:
       return (
-        <pre className="m-0 whitespace-pre-wrap break-words text-[10px] leading-relaxed text-[#a9b1d6] font-mono bg-black/15 p-1 rounded max-h-[200px] overflow-y-auto">
+        <pre className="m-0 whitespace-pre-wrap break-words text-[10px] leading-relaxed text-gray-800 dark:text-[#a9b1d6] font-mono bg-gray-100 dark:bg-black/15 p-1 rounded max-h-[200px] overflow-y-auto">
           {JSON.stringify(data, null, 2)}
         </pre>
       );

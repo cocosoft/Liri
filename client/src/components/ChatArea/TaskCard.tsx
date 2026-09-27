@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { TaskCardData, TaskCardTask } from "../../types";
 import { usePlanTaskStore } from "../../stores/planTaskStore";
 import DAGMiniMap from "./DAGMiniMap";
@@ -10,22 +11,30 @@ interface TaskCardProps {
 
 const STATUS_CONFIG: Record<
   TaskCardTask["status"],
-  { icon: string; color: string; label: string }
+  { icon: string; color: string; labelKey: string }
 > = {
-  pending: { icon: "○", color: "text-gray-400", label: "等待中" },
+  pending: { icon: "○", color: "text-gray-400", labelKey: "chat.taskPending" },
   in_progress: {
     icon: "⟳",
     color: "text-blue-500 animate-spin inline-block",
-    label: "执行中",
+    labelKey: "chat.executing",
   },
-  completed: { icon: "✓", color: "text-green-500", label: "已完成" },
-  failed: { icon: "✗", color: "text-red-500", label: "失败" },
+  completed: {
+    icon: "✓",
+    color: "text-green-500",
+    labelKey: "chat.completed",
+  },
+  failed: { icon: "✗", color: "text-red-500", labelKey: "chat.failed" },
   // S3 修复（2026-08-23）：cancelled 独立终态（用户中止），橙色区别于 failed
-  cancelled: { icon: "⏹", color: "text-orange-500", label: "已取消" },
-  blocked: { icon: "⏸", color: "text-orange-400", label: "等待依赖" },
+  cancelled: {
+    icon: "⏹",
+    color: "text-orange-500",
+    labelKey: "chat.taskCancelled",
+  },
+  blocked: { icon: "⏸", color: "text-orange-400", labelKey: "chat.taskBlocked" },
   // T5 修复：后端 todo-types.ts 存在 skipped 状态，此前无映射时
   // cfg 回退到 pending，被跳过的任务错误显示"○ 等待中"
-  skipped: { icon: "↷", color: "text-gray-400", label: "已跳过" },
+  skipped: { icon: "↷", color: "text-gray-400", labelKey: "chat.taskSkipped" },
 };
 
 function formatDuration(ms: number): string {
@@ -36,19 +45,19 @@ function formatDuration(ms: number): string {
   return `${minutes}m ${seconds}s`;
 }
 
-/** 从 dependsOn 构建 human-readable 的依赖标签 */
-function renderDepends(
+/** 从 dependsOn 构建可读的依赖名列表（仅名称，文案由调用方 t() 包装） */
+function resolveDepNames(
   dependsOn: string[],
   tasks: TaskCardTask[],
 ): string | null {
   if (dependsOn.length === 0) return null;
-  const names = dependsOn
+  return dependsOn
     .map((id) => tasks.find((t) => t.id === id)?.name || id)
     .join(", ");
-  return `等待: ${names}`;
 }
 
 export default function TaskCard({ data }: TaskCardProps) {
+  const { t } = useTranslation();
   // P2（08-09）：当有 planId 时，从 planTaskStore 读取实时数据
   const liveData = usePlanTaskStore((s) =>
     data.planId ? s.tasks[data.planId] : null,
@@ -92,23 +101,40 @@ export default function TaskCard({ data }: TaskCardProps) {
         <div className="flex items-center gap-1.5 min-w-0">
           <span className="text-sm flex-shrink-0">📋</span>
           <span className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
-            任务分解：{title}
+            {t("chat.taskBreakdown", {
+              title,
+              defaultValue: "任务分解：{{title}}",
+            })}
           </span>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
           {isAllCompleted && (
             <span className="text-xs px-2 py-0.5 bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-full">
-              全部完成
+              {t("chat.allCompleted", "全部完成")}
             </span>
           )}
           {status === "done" && !isAllCompleted && (
             <span className="text-xs px-2 py-0.5 bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 rounded-full">
-              已结束{failed > 0 ? `（${failed} 失败）` : ""}
+              {failed > 0
+                ? t("chat.taskEndedWithFailed", {
+                    count: failed,
+                    defaultValue: "已结束（{{count}} 失败）",
+                  })
+                : t("chat.taskEnded", "已结束")}
             </span>
           )}
           {isExecuting && (
             <span className="text-xs px-2 py-0.5 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded-full">
-              {completed}/{total} 完成{failed > 0 ? `, ${failed} 失败` : ""}
+              {t("chat.taskProgressCompleted", {
+                completed,
+                total,
+                defaultValue: "已完成 {{completed}}/{{total}}",
+              })}
+              {failed > 0 &&
+                `, ${t("chat.taskProgressFailed", {
+                  count: failed,
+                  defaultValue: "失败 {{count}}",
+                })}`}
             </span>
           )}
           <span
@@ -127,7 +153,7 @@ export default function TaskCard({ data }: TaskCardProps) {
           <div className="px-3 py-1.5 space-y-1">
             {tasks.map((task, index) => {
               const cfg = STATUS_CONFIG[task.status] || STATUS_CONFIG.pending;
-              const deps = renderDepends(task.dependsOn, tasks);
+              const deps = resolveDepNames(task.dependsOn, tasks);
 
               return (
                 <div
@@ -158,11 +184,14 @@ export default function TaskCard({ data }: TaskCardProps) {
                   {/* 状态标签或被阻塞的原因 */}
                   {task.status === "blocked" && deps ? (
                     <span className="text-xs text-orange-500 dark:text-orange-400 truncate flex-shrink-0 max-w-[160px]">
-                      {deps}
+                      {t("chat.taskWaitingDeps", {
+                        names: deps,
+                        defaultValue: "等待: {{names}}",
+                      })}
                     </span>
                   ) : task.status === "in_progress" ? (
                     <span className="text-xs text-blue-500 dark:text-blue-400 flex-shrink-0">
-                      {cfg.label}
+                      {t(cfg.labelKey)}
                     </span>
                   ) : task.durationMs !== undefined ? (
                     <span className="text-xs text-gray-400 dark:text-gray-500 flex-shrink-0">
@@ -170,7 +199,7 @@ export default function TaskCard({ data }: TaskCardProps) {
                     </span>
                   ) : (
                     <span className={`text-xs ${cfg.color} flex-shrink-0`}>
-                      {cfg.label}
+                      {t(cfg.labelKey)}
                     </span>
                   )}
 
@@ -194,9 +223,12 @@ export default function TaskCard({ data }: TaskCardProps) {
               >
                 <span>{showDAG ? "▲" : "▼"}</span>
                 <span>
-                  查看依赖关系图 (
-                  {tasks.filter((t) => t.dependsOn.length > 0).length} 个节点,{" "}
-                  {tasks.reduce((sum, t) => sum + t.dependsOn.length, 0)} 条边)
+                  {t("chat.taskViewGraph", {
+                    nodes: tasks.filter((t) => t.dependsOn.length > 0).length,
+                    edges: tasks.reduce((sum, t) => sum + t.dependsOn.length, 0),
+                    defaultValue:
+                      "查看依赖关系图（{{nodes}} 个节点, {{edges}} 条边）",
+                  })}
                 </span>
               </button>
               {showDAG && (

@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import {
   ReactFlow,
   Background,
@@ -115,6 +116,7 @@ export default function DAGMiniMap({
   height = 160,
   onExpand,
 }: DAGMiniMapProps) {
+  const { t } = useTranslation();
   const { nodes, edges } = useMemo(() => layoutNodes(tasks), [tasks]);
 
   return (
@@ -140,7 +142,7 @@ export default function DAGMiniMap({
           onClick={onExpand}
           className="absolute top-2 right-2 z-10 text-xs px-2 py-1 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
         >
-          📊 全屏查看
+          📊 {t("chat.dagViewFullscreen", "全屏查看")}
         </button>
       )}
     </div>

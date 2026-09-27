@@ -20,6 +20,7 @@ import WatermarkTag from "./WatermarkTag";
 import { useVirtualScroll } from "./VirtualScrollContext";
 import ToolResultMessage from "./ToolResultMessage";
 import BlockRenderer from "./BlockRenderer";
+import { isMediaDisplayToolName } from "../../utils/toolHumanSummary";
 import { knowledgeService } from "../../services/knowledgeService";
 import { useConfigStore } from "../../stores/configStore";
 import {
@@ -37,6 +38,7 @@ import { exportMessageAsFormat } from "../../utils/exportMessage";
 const SaveKnowledgeModal = React.lazy(() => import("./SaveKnowledgeModal"));
 
 // 2026-08-24 中断提示链路：中断提示文案常量（3.4）
+// P2-1（2026-09-27）：改为 i18n 键的**中文兜底默认值**，渲染处经 t() 取当前语言
 const INTERRUPTED_HINT_INTERRUPTED =
   "⚠️ **该回复已中断（任务被中止），未继续完成。** 下方为中断前已生成的内容。";
 const INTERRUPTED_HINT_GENERATION =
@@ -372,7 +374,8 @@ const ChatMessageMemo = memo(
         await saveArtifact({
           projectId,
           kind: "output",
-          title: content.slice(0, 80) || "未命名成果",
+          title:
+            content.slice(0, 80) || t("chat.untitledDeliverable", "未命名成果"),
           content,
           sessionId: message.session_id,
         });
@@ -1052,6 +1055,20 @@ const ChatMessageMemo = memo(
     // "有回复"（replyToId 指向它）时若自身 blocks/content 未变则跳过重渲染，
     // "被回复"标记不出现
     if (prevProps.hasReplies !== nextProps.hasReplies) return false;
+    // P1-7（2026-09-27 审计）：补齐会影响渲染的字段——这些字段单独变化时
+    // （流结束回填 `durationMs`/`finishReason`、错误置位 `error`、引用/Agent 标记）
+    // 原比较器会跳过重渲染 ⇒ 底部操作栏（依赖 `!message.error`）与耗时/中断提示不更新。
+    if (prevProps.message.error !== nextProps.message.error) return false;
+    if (prevProps.message.finishReason !== nextProps.message.finishReason)
+      return false;
+    if (prevProps.message.durationMs !== nextProps.message.durationMs)
+      return false;
+    if (prevProps.message.agentName !== nextProps.message.agentName)
+      return false;
+    if (prevProps.message.timestamp !== nextProps.message.timestamp)
+      return false;
+    if (prevProps.message.replyToId !== nextProps.message.replyToId)
+      return false;
     if (prevProps.message.content !== nextProps.message.content) return false;
     if (prevProps.message.role !== nextProps.message.role) return false;
     // blocks 长度变化说明有新 block 追加，引用变化说明 block 内部状态更新（如 isStreaming）
@@ -1235,8 +1252,8 @@ function AssistantMessage({
         id: "fb_interrupted_hint_" + message.id,
         type: "text",
         content: hasTextBlock
-          ? INTERRUPTED_HINT_INTERRUPTED
-          : INTERRUPTED_HINT_GENERATION,
+          ? t("chat.interruptedHintInterrupted", INTERRUPTED_HINT_INTERRUPTED)
+          : t("chat.interruptedHintGeneration", INTERRUPTED_HINT_GENERATION),
         isStreaming: false,
         groupId: "fb_interrupt_" + message.id,
       },
@@ -1254,7 +1271,10 @@ function AssistantMessage({
       {
         id: "fb_interrupted_hint_" + message.id,
         type: "text",
-        content: INTERRUPTED_HINT_GENERATION,
+        content: t(
+          "chat.interruptedHintGeneration",
+          INTERRUPTED_HINT_GENERATION,
+        ),
         isStreaming: false,
         groupId: "fb_interrupt_" + message.id,
       },
@@ -1290,13 +1310,16 @@ function AssistantMessage({
 
   return (
     <div className="text-sm break-words max-w-none space-y-1">
-      {/* DEBUG: blocks 调试信息（仅 dev 模式或 VITE_SHOW_DEBUG=true 时显示） */}
-      {(process.env.NODE_ENV === "development" ||
-        import.meta.env.VITE_SHOW_DEBUG === "true") && (
+      {/* DEBUG: blocks 调试信息（**显式 opt-in**：仅 VITE_SHOW_DEBUG=true 时显示）
+          2026-09-27 真机排查：原门控含 `NODE_ENV === "development"` ⇒ dev 下每轮消息顶部
+          都渲染红框「🐛 Debug: N blocks」（真机同屏 4 处），干扰真实观感；
+          改为显式开关（能力保留，默认整洁）。 */}
+      {import.meta.env.VITE_SHOW_DEBUG === "true" && (
         <DebugBlockInfo blocks={blocks} messageId={message.id} />
       )}
       {renderedContent}
-      {/* 流式脉冲光标：消息仍在生成中时，显示 3 个脉冲圆点 */}
+      {/* 流式光标：消息仍在生成中时，末尾显示闪烁指示器（单一实现见 src/index.css；
+          原注释写"3 个脉冲圆点"与生效样式不符，2026-09-27 已随 P1-10 一并更正） */}
       {isStreaming && (
         <span
           className="streaming-cursor"
@@ -1459,19 +1482,22 @@ function renderBlocksWithGroups(
     return b.groupId || b.toolCallId || b.toolCall?.id;
   };
 
+  /** P2-2 收敛：BlockRenderer 调用参数统一（原 3 处重复展开） */
+  const renderBlock = (block: MessageBlock): React.ReactNode => (
+    <BlockRenderer
+      key={block.id}
+      block={block}
+      sessionId={sessionId}
+      knownFilePaths={knownFilePaths}
+      onQuestionResponse={onQuestionResponse}
+    />
+  );
+
   while (i < blocks.length) {
     const block = blocks[i];
 
     if (!isToolRelatedBlock(block)) {
-      result.push(
-        <BlockRenderer
-          key={block.id}
-          block={block}
-          sessionId={sessionId}
-          knownFilePaths={knownFilePaths}
-          onQuestionResponse={onQuestionResponse}
-        />,
-      );
+      result.push(renderBlock(block));
       i++;
       continue;
     }
@@ -1514,15 +1540,7 @@ function renderBlocksWithGroups(
           );
           continue;
         }
-        result.push(
-          <BlockRenderer
-            key={tb.id}
-            block={tb}
-            sessionId={sessionId}
-            knownFilePaths={knownFilePaths}
-            onQuestionResponse={onQuestionResponse}
-          />,
-        );
+        result.push(renderBlock(tb));
       }
       continue;
     }
@@ -1530,23 +1548,11 @@ function renderBlocksWithGroups(
     // 多媒体展示类工具（图片/视频/音频）直接渲染，不包装为 "工具执行" 组
     // 用户需要直接看到内容，不应要求展开两层折叠
     const isMediaDisplay = toolBlocks.some(
-      (b) =>
-        b.type === "tool_call" &&
-        (b.toolCall?.name === "image_display" ||
-          b.toolCall?.name === "video_display" ||
-          b.toolCall?.name === "audio_play"),
+      (b) => b.type === "tool_call" && isMediaDisplayToolName(b.toolCall?.name),
     );
     if (isMediaDisplay) {
       for (const tb of toolBlocks) {
-        result.push(
-          <BlockRenderer
-            key={tb.id}
-            block={tb}
-            sessionId={sessionId}
-            knownFilePaths={knownFilePaths}
-            onQuestionResponse={onQuestionResponse}
-          />,
-        );
+        result.push(renderBlock(tb));
       }
       continue;
     }

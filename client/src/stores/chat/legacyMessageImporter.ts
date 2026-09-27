@@ -36,6 +36,7 @@ import {
   rebuildBlocksFromContent,
   ensureTextBlockFromContent,
   hasMeaningfulContentBlocks,
+  stripProtocolTagsInBlocks,
 } from "./chat-toolcall.slice";
 
 /**
@@ -64,9 +65,13 @@ export function importLegacyMessages(messages: Message[]): Message[] {
       }));
       return {
         ...msg,
-        blocks: ensureTextBlockFromContent(normalizedBlocks, {
-          content: msg.content,
-        }),
+        // 2026-09-27 真机排查：存量 blocks 可能残留 <think>/<response> 协议标签，
+        // "blocks 有效即透传"分支必须净化一次，否则标签按正文渲染。
+        blocks: stripProtocolTagsInBlocks(
+          ensureTextBlockFromContent(normalizedBlocks, {
+            content: msg.content,
+          }),
+        ),
       };
     }
 

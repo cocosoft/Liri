@@ -545,7 +545,7 @@ function HelpPage() {
                 <p className="text-sm text-gray-500">{t("common.loading")}</p>
               ) : (
                 <div
-                  className="prose prose-sm dark:prose-invert max-w-none"
+                  className="max-w-none"
                   dangerouslySetInnerHTML={{ __html: docContent.html }}
                 />
               )}

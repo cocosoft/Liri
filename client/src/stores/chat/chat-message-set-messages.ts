@@ -12,8 +12,10 @@ import {
   rebuildBlocksFromContent,
   hasMeaningfulContentBlocks,
   ensureTextBlockFromContent,
+  stripProtocolTagsInBlocks,
 } from "./chat-toolcall.slice";
 import { setSessionCache, enqueueSaveBlocks } from "./chat-history.slice";
+import { decodeToolResultContent } from "@/utils/toolResultText";
 import { restorePlanTasks } from "@/utils/planRestore";
 import { handleClientError } from "@/utils/handleError";
 import {
@@ -107,9 +109,14 @@ export function setMessagesImpl(
     for (const msg of messages) {
       if (msg.role === "tool" && msg.toolCallId) {
         const rawContent = typeof msg.content === "string" ? msg.content : "";
-        toolResultsByCallId.set(msg.toolCallId, rawContent);
+        // P0-2（2026-09-27 真机排查）：tool 消息 content 是"工具结果信封"JSON
+        // （`[{"type":"tool_result","value":"…"}]`）。此处是**唯一合并入口** ⇒ 统一
+        // 解包 + 迭代解码（单一实现 `utils/toolResultText`），否则信封原样进入
+        // `block.toolCall.result`，工具卡"结果"区显示出转义 JSON（真机实测）。
+        const decoded = decodeToolResultContent(rawContent);
+        toolResultsByCallId.set(msg.toolCallId, decoded);
         // 全量结果存入独立缓存（LRU 淘汰），不在 block 中内联
-        cacheToolResult(msg.toolCallId, rawContent);
+        cacheToolResult(msg.toolCallId, decoded);
         pendingToolMessages.push(msg);
       } else if (
         Array.isArray(msg.blocks) &&
@@ -296,6 +303,15 @@ export function setMessagesImpl(
       return { ...msg, blocks: newBlocks, tool_calls: undefined };
     });
 
+    // 2026-09-27 真机排查：存量 messages.jsonl 的 blocks 在写入路径擦洗上线前落盘，
+    // 可能残留 <think>/<response> 协议标签；Phase 3 的"blocks 有效即透传"分支不会净化
+    // ⇒ 标签按正文渲染。此处对全部 assistant 消息统一净化一次（与 rebuild 路径同口径）。
+    for (const msg of enhancedMessages) {
+      if (msg.role === "assistant" && msg.blocks) {
+        msg.blocks = stripProtocolTagsInBlocks(msg.blocks);
+      }
+    }
+
     // N-48（2026-09-20）：把**未被任何 assistant 消息消费**的 tool 结果放回列表（孤儿可见性）。
     // 消费判定覆盖三种引用形态（Phase 3 的两条分支都可能消费）：
     //   ① 块内 `toolCall.id`（已归一化块）；② 块内 `toolCallId`（事件派生块）；
@@ -368,11 +384,20 @@ export function setMessagesImpl(
     //    - events 派生 + legacy 修复合并后的时序错位（timestamp 同毫秒时 id 字典序与事件序无关）
     //    - 多轮合并后 user/assistant 交叉顺序异常
     const sortBefore = enhancedMessages.length;
+    // P2-9（2026-09-27 审计）：原主键 `lastEventSeq` 对**缺失**者按 0 兜底 ⇒ 缺失方被排到
+    // **最前**（无 seq 的消息可能被顶到会话开头，造成整表重排：真机实测
+    // `[setMessages:SORT] {total:14, movedCount:14}`）。现改为：**仅当全部消息都有 seq**
+    // 才用该主键，否则整体回退 timestamp 序——避免在同一比较器里混用两种键域。
+    const allHaveSeq = enhancedMessages.every(
+      (m) => typeof m.lastEventSeq === "number",
+    );
     const sortedMessages = [...enhancedMessages].sort((a, b) => {
-      // 主键：事件派生序（有 lastEventSeq 的按它，缺失排最前由 0 兜底）
-      const sa = typeof a.lastEventSeq === "number" ? a.lastEventSeq : 0;
-      const sb = typeof b.lastEventSeq === "number" ? b.lastEventSeq : 0;
-      if (sa !== sb) return sa - sb;
+      // 主键：事件派生序（仅当全体具备时启用）
+      if (allHaveSeq) {
+        const sa = a.lastEventSeq as number;
+        const sb = b.lastEventSeq as number;
+        if (sa !== sb) return sa - sb;
+      }
       // 次键：timestamp 升序（旧→新，从上到下）
       const ta =
         typeof a.timestamp === "number" && Number.isFinite(a.timestamp)
@@ -398,6 +423,8 @@ export function setMessagesImpl(
       logger.warn("[setMessages:SORT] 检测到顺序不一致，已归一化", {
         total: sortBefore,
         movedCount: sortedMovedCount,
+        // P2-9：标注本次用的主键域，便于判断"重排"是数据乱序还是键域混用
+        primaryKey: allHaveSeq ? "lastEventSeq" : "timestamp",
       });
     }
     set({

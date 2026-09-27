@@ -5,6 +5,7 @@ import {
   forwardRef,
   useImperativeHandle,
 } from "react";
+import { useTranslation } from "react-i18next";
 import { readFileAsBase64 } from "../../utils/format";
 import { handleClientError } from "../../utils/handleError";
 import { toastWarning } from "../../stores/toastStore";
@@ -45,6 +46,7 @@ const FileAttachmentBar = forwardRef<
   { attachments, onAttachmentsChange, disabled = false },
   ref,
 ) {
+  const { t } = useTranslation();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragOver, setIsDragOver] = useState(false);
 
@@ -78,7 +80,13 @@ const FileAttachmentBar = forwardRef<
       const newAttachments: FileAttachment[] = [];
       for (const file of Array.from(files)) {
         if (file.size > MAX_FILE_SIZE) {
-          toastWarning(`文件 "${file.name}" 超过 20MB 限制，已跳过`);
+          toastWarning(
+            t("chat.fileTooLargeSkipped", {
+              name: file.name,
+              max: "20MB",
+              defaultValue: '文件 "{{name}}" 超过 {{max}} 限制，已跳过',
+            }),
+          );
           continue;
         }
         try {
@@ -89,13 +97,18 @@ const FileAttachmentBar = forwardRef<
             module: "components:chat:FileAttachmentBar",
             action: "handleFileSelect",
           });
-          toastWarning(`读取文件 "${file.name}" 失败`);
+          toastWarning(
+            t("chat.fileReadFailed", {
+              name: file.name,
+              defaultValue: "读取文件 {{name}} 失败",
+            }),
+          );
         }
       }
       onAttachmentsChange([...attachments, ...newAttachments]);
       e.target.value = "";
     },
-    [attachments, onAttachmentsChange, disabled],
+    [attachments, onAttachmentsChange, disabled, t],
   );
 
   /**
@@ -123,7 +136,13 @@ const FileAttachmentBar = forwardRef<
         const newAttachments: FileAttachment[] = [];
         for (const file of files) {
           if (file.size > MAX_FILE_SIZE) {
-            toastWarning(`文件 "${file.name}" 超过 20MB 限制，已跳过`);
+            toastWarning(
+              t("chat.fileTooLargeSkipped", {
+                name: file.name,
+                max: "20MB",
+                defaultValue: '文件 "{{name}}" 超过 {{max}} 限制，已跳过',
+              }),
+            );
             continue;
           }
           try {
@@ -134,14 +153,19 @@ const FileAttachmentBar = forwardRef<
               module: "components:chat:FileAttachmentBar",
               action: "handleFileDrop",
             });
-            toastWarning(`读取文件 "${file.name}" 失败`);
+            toastWarning(
+              t("chat.fileReadFailed", {
+                name: file.name,
+                defaultValue: "读取文件 {{name}} 失败",
+              }),
+            );
           }
         }
         onAttachmentsChange([...attachments, ...newAttachments]);
       };
       processFiles();
     },
-    [attachments, onAttachmentsChange, disabled],
+    [attachments, onAttachmentsChange, disabled, t],
   );
 
   const handleDragOver = useCallback(
@@ -158,8 +182,11 @@ const FileAttachmentBar = forwardRef<
     setIsDragOver(false);
   }, []);
 
+  // P2-8（2026-09-27 审计）：补 `relative`——拖拽提示层为 `absolute inset-0`，
+  // 原缺定位祖先会以更外层（可能到 body）为基准，提示位置错误
   return (
     <div
+      className="relative"
       onDrop={handleFileDrop}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
@@ -193,7 +220,7 @@ const FileAttachmentBar = forwardRef<
               <button
                 onClick={() => handleRemoveFile(i)}
                 className="ml-1 p-0.5 hover:bg-blue-200 dark:hover:bg-blue-800 rounded transition-colors"
-                title="移除"
+                title={t("common.delete")}
               >
                 ✕
               </button>
@@ -206,7 +233,9 @@ const FileAttachmentBar = forwardRef<
       {isDragOver && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <div className="bg-white dark:bg-gray-800 border-2 border-dashed border-blue-400 px-6 py-3 rounded-xl shadow-lg">
-            <span className="text-blue-500 font-medium">放开放置文件</span>
+            <span className="text-blue-500 font-medium">
+              {t("chat.dropFileHere", "拖放文件到此处")}
+            </span>
           </div>
         </div>
       )}

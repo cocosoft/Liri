@@ -12,11 +12,16 @@ const ESCAPED_PIPE = "\u0000";
 
 /** 分割表格行为单元格：先占位 `\|` → 按 `|` 分割 → 还原转义竖线 */
 function splitCells(line: string): string[] {
-  return line
+  const cells = line
     .replace(/\\\|/g, ESCAPED_PIPE)
     .split("|")
-    .filter((cell) => cell.trim())
     .map((cell) => cell.replace(/\u0000/g, "|"));
+  // GFM：首尾管道可选 ⇒ 只剥掉**边界**上的空串；中间的空单元格必须保留
+  // （2026-09-27 修复 P0-5：原实现 `.filter(cell => cell.trim())` 丢弃所有空单元格，
+  //  导致 `| a |  | c |` 变成 2 格 ⇒ 表格列错位、内容串列）
+  if (cells.length > 0 && cells[0].trim() === "") cells.shift();
+  if (cells.length > 0 && cells[cells.length - 1].trim() === "") cells.pop();
+  return cells;
 }
 
 interface TableBlockProps {
@@ -56,7 +61,9 @@ function TableBlock({ content, renderText }: TableBlockProps) {
       </thead>
       <tbody>
         {dataRows.map((row, rowIdx) => {
-          const cells = splitCells(row);
+          const rawCells = splitCells(row);
+          // P0-5 配套：按表头列数补齐，保证各行栅格一致（空单元格保留后仍需对齐列宽）
+          const cells = headers.map((_, i) => rawCells[i] ?? "");
           return (
             <tr
               key={rowIdx}
@@ -70,7 +77,7 @@ function TableBlock({ content, renderText }: TableBlockProps) {
                 <td
                   key={cellIdx}
                   className="border border-gray-300 dark:border-gray-600 px-4 py-2"
-                  style={{ textAlign: alignments[cellIdx] }}
+                  style={{ textAlign: alignments[cellIdx] ?? "left" }}
                 >
                   <span>{renderText(cell.trim())}</span>
                 </td>

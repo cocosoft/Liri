@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { QuestionData } from "../../types";
 import { chatService } from "../../services/chatService";
 import { useChatStore } from "../../stores/chat";
@@ -55,6 +56,7 @@ function QuestionBlock({
   sessionId,
   onResponse,
 }: QuestionBlockProps) {
+  const { t } = useTranslation();
   // TDZ 修复（2026-08-27）：questionId 等字段必须在任何 useState 之前解构——
   // 原解构在函数体末尾（92 行），而 answeredFromHistory/pendingOutbox 的惰性
   // 初始化器（64/88 行）先访问 questionId → ReferenceError: Cannot access
@@ -234,7 +236,7 @@ function QuestionBlock({
         <div className="flex items-center gap-2">
           <span className="text-blue-600 dark:text-blue-400 text-sm">💬</span>
           <span className="text-sm font-medium text-blue-800 dark:text-blue-300">
-            {header || "请选择一个选项"}
+            {header || t("chat.questionDefaultHeader", "请选择一个选项")}
           </span>
         </div>
         <span className="text-blue-400 dark:text-blue-500 text-xs transition-transform duration-200">
@@ -254,7 +256,7 @@ function QuestionBlock({
           {submitted && answeredFromHistory && (
             <div className="text-xs text-gray-600 dark:text-gray-400 bg-blue-100/60 dark:bg-blue-900/30 rounded-md px-3 py-2">
               <span className="font-medium text-blue-700 dark:text-blue-300">
-                您已回答：
+                {t("chat.questionAnswered", "您已回答：")}
               </span>
               {answeredFromHistory}
             </div>
@@ -347,10 +349,10 @@ function QuestionBlock({
                           : "text-gray-800 dark:text-gray-200"
                       }`}
                     >
-                      其它
+                      {t("chat.questionOther", "其它")}
                     </span>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                      在下方输入您的具体内容
+                      {t("chat.questionOtherHint", "在下方输入您的具体内容")}
                     </p>
                   </div>
                 </div>
@@ -362,7 +364,10 @@ function QuestionBlock({
                   <textarea
                     value={otherText}
                     onChange={(e) => setOtherText(e.target.value)}
-                    placeholder="请输入您的具体选择（1-200 字）..."
+                    placeholder={t(
+                      "chat.questionOtherPlaceholder",
+                      "请输入您的具体选择（1-200 字）...",
+                    )}
                     maxLength={200}
                     rows={2}
                     className="w-full px-2.5 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400 resize-none"
@@ -373,7 +378,7 @@ function QuestionBlock({
                     </span>
                     {otherRequiresText && (
                       <span className="text-xs text-amber-600 dark:text-amber-400">
-                        选中"其它"时需填写内容
+                        {t("chat.questionOtherRequired", "选中“其它”时需填写内容")}
                       </span>
                     )}
                   </div>
@@ -383,7 +388,8 @@ function QuestionBlock({
               {/* 提交后展示"其他"的内容 */}
               {submitted && isOtherSelected && otherText && (
                 <div className="pl-7 pr-1 text-xs text-gray-600 dark:text-gray-400 italic">
-                  您的输入：{otherText.trim()}
+                  {t("chat.questionYourInput", "您的输入：")}
+                  {otherText.trim()}
                 </div>
               )}
             </div>
@@ -393,7 +399,10 @@ function QuestionBlock({
               <textarea
                 value={freeText}
                 onChange={(e) => setFreeText(e.target.value)}
-                placeholder="该问题未提供可选项，请在此直接输入您的回答（1-200 字）..."
+                placeholder={t(
+                  "chat.questionFreePlaceholder",
+                  "该问题未提供可选项，请在此直接输入您的回答（1-200 字）...",
+                )}
                 maxLength={200}
                 rows={3}
                 disabled={submitted}
@@ -409,7 +418,9 @@ function QuestionBlock({
                     disabled={!canSubmit || submitting}
                     className="px-4 py-1.5 text-xs bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-md transition-colors"
                   >
-                    {submitting ? "提交中..." : "提交回答"}
+                    {submitting
+                      ? t("chat.questionSubmitting", "提交中...")
+                      : t("chat.questionSubmit", "提交回答")}
                   </button>
                 )}
               </div>
@@ -425,13 +436,18 @@ function QuestionBlock({
                 className="px-4 py-1.5 text-xs bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-md transition-colors"
               >
                 {submitting
-                  ? "提交中..."
+                  ? t("chat.questionSubmitting", "提交中...")
                   : multiSelect
-                    ? `确认选择（${selectedLabels.length}项）`
-                    : "确认选择"}
+                    ? t("chat.questionConfirmCount", {
+                        count: selectedLabels.length,
+                        defaultValue: "确认选择（{{count}}项）",
+                      })
+                    : t("chat.questionConfirm", "确认选择")}
               </button>
               {multiSelect && (
-                <span className="text-xs text-gray-400">可多选</span>
+                <span className="text-xs text-gray-400">
+                  {t("chat.questionMultiSelect", "可多选")}
+                </span>
               )}
             </div>
           )}
@@ -440,13 +456,17 @@ function QuestionBlock({
               回答已保留，提供一键重试（不依赖当前 UI 选择状态） */}
           {pendingOutbox && !submitted && !interrupted && (
             <div className="flex items-center justify-between gap-2 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded px-2.5 py-2">
-              <span>⚠️ 上次提交未成功，您的回答已保留</span>
+              <span>
+                {t("chat.questionOutboxPending", "⚠️ 上次提交未成功，您的回答已保留")}
+              </span>
               <button
                 onClick={handleRetryOutbox}
                 disabled={submitting}
                 className="shrink-0 px-3 py-1 text-xs bg-amber-600 hover:bg-amber-700 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-md transition-colors"
               >
-                {submitting ? "提交中..." : "重试提交"}
+                {submitting
+                  ? t("chat.questionSubmitting", "提交中...")
+                  : t("chat.questionRetrySubmit", "重试提交")}
               </button>
             </div>
           )}
@@ -455,7 +475,12 @@ function QuestionBlock({
           {interrupted && (
             <div className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded px-2.5 py-2">
               <span>⚠️</span>
-              <span>会话已中断，该问题无法继续回答，请重新发起对话。</span>
+              <span>
+                {t(
+                  "chat.questionInterrupted",
+                  "会话已中断，该问题无法继续回答，请重新发起对话。",
+                )}
+              </span>
             </div>
           )}
 
@@ -464,9 +489,9 @@ function QuestionBlock({
             <div className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400">
               <span>✓</span>
               <span>
-                已选择：
+                {t("chat.questionSelected", "已选择：")}
                 {validOptions.length === 0
-                  ? freeText.trim() || "（空）"
+                  ? freeText.trim() || t("chat.questionEmpty", "（空）")
                   : isOtherSelected
                     ? otherText.trim() || OTHER_LABEL
                     : selectedLabels.join("、")}

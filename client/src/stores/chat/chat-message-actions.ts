@@ -629,7 +629,18 @@ export async function loadOlderMessagesImpl(
   // 首条已不是后端第一页的首条（实测游标偏后 ⇒ 请求回来的"更早一页"与当前页重叠
   // 且 hasMore 恒为 true，更早历史永远取不到）。
   const before = state.oldestSeq;
-  if (!sessionId || before == null) return;
+  // P1-6b（2026-09-27 真机取证）：游标缺失时原实现**静默 return** ⇒ 用户点"加载更早消息"
+  // 毫无反应（无日志、无提示），是"按钮点了没反应"的直接成因。此处补 warn 日志，
+  // 并由 UI 依据 `oldestSeq == null` 显示不可用态与原因（见 ChatMessageList）。
+  if (!sessionId || before == null) {
+    logger.warn("[loadOlderMessages] 分页游标缺失，跳过加载", {
+      sessionId: sessionId ?? null,
+      hasOlder: state.hasOlder,
+      oldestSeq: state.oldestSeq,
+      loadedCount: state.messages.length,
+    });
+    return;
+  }
 
   set({ loadingOlder: true });
   try {

@@ -16,21 +16,11 @@ import { getToolResultFull } from "../../stores/chat/chat-message.slice";
 import {
   getToolDisplayName,
   getToolHumanSummary,
+  isMediaDisplayToolName,
+  isMediaToolName,
 } from "../../utils/toolHumanSummary";
 import { formatKey } from "../../utils/formatKey";
 import { formatValue } from "../../utils/formatValue";
-
-/** 图片/视频/音频等多媒体工具名列表 */
-const MEDIA_TOOL_NAMES = [
-  "image_generate",
-  "image_svg_generate",
-  "image_analysis",
-  "image_display",
-  "video_display",
-  "audio_play",
-  "canvas",
-  "image",
-];
 
 interface ToolCallGroupProps {
   toolCall: ToolCall;
@@ -90,7 +80,10 @@ const MAX_RESULT_JSON_LENGTH = 50000;
  * 超长时截断，避免渲染巨大 JSON 字符串导致浏览器 OOM
  */
 function ToolResultJson({ result }: { result: unknown }) {
+  const { t } = useTranslation();
   const jsonStr = JSON.stringify(result, null, 2);
+  // P1-14（2026-09-27 审计）：截断后原本无出口（字符串结果有"展开完整结果"，对象结果没有）
+  const [copied, setCopied] = useState(false);
   if (jsonStr.length <= MAX_RESULT_JSON_LENGTH) {
     return (
       <pre className="m-0 whitespace-pre-wrap break-words text-[10px] leading-relaxed text-[#a9b1d6] font-mono bg-black/15 p-1 rounded max-h-[200px] overflow-y-auto">
@@ -101,13 +94,37 @@ function ToolResultJson({ result }: { result: unknown }) {
   return (
     <div className="text-[10px]">
       <div className="text-amber-400 mb-1">
-        ⚠️ 结果过大（{(jsonStr.length / 1024).toFixed(0)} KB），截断显示
+        {t("chat.resultTooLarge", {
+          kb: (jsonStr.length / 1024).toFixed(0),
+          defaultValue: "⚠️ 结果过大（{{kb}} KB），截断显示",
+        })}
       </div>
       <pre className="m-0 whitespace-pre-wrap break-words text-[10px] leading-relaxed text-[#a9b1d6] font-mono bg-black/15 p-1 rounded max-h-[200px] overflow-y-auto">
         {jsonStr.slice(0, 3000)}
       </pre>
-      <div className="text-amber-500 mt-1">
-        ... 剩余 {(jsonStr.length - 3000).toLocaleString()} 字符未显示 ...
+      <div className="text-amber-500 mt-1 flex items-center gap-2 flex-wrap">
+        <span>
+          {t("chat.remainingChars", {
+            count: (jsonStr.length - 3000).toLocaleString(),
+            defaultValue: "... 剩余 {{count}} 字符未显示 ...",
+          })}
+        </span>
+        <button
+          onClick={async () => {
+            try {
+              await navigator.clipboard.writeText(jsonStr);
+              setCopied(true);
+              setTimeout(() => setCopied(false), 2000);
+            } catch {
+              // @ignore-catch — 剪贴板不可用：保持提示
+            }
+          }}
+          className="px-2 py-0.5 rounded border border-amber-500/40 text-amber-400 hover:bg-amber-400/10 transition-colors"
+        >
+          {copied
+            ? t("chat.copiedFullResult", "✓ 已复制完整结果")
+            : t("chat.copyFullResult", "复制完整结果")}
+        </button>
       </div>
     </div>
   );
@@ -120,13 +137,10 @@ function ToolCallGroup({
   onExpand,
 }: ToolCallGroupProps) {
   const { t } = useTranslation();
-  const isMediaTool = MEDIA_TOOL_NAMES.includes(toolCall.name);
+  const isMediaTool = isMediaToolName(toolCall.name);
   // 多媒体展示工具（预览图片/视频/音频）默认展开，用户明确要求查看
-  const [expanded, setExpanded] = useState(
-    toolCall.name === "image_display" ||
-      toolCall.name === "video_display" ||
-      toolCall.name === "audio_play",
-  );
+  const isMediaDisplay = isMediaDisplayToolName(toolCall.name);
+  const [expanded, setExpanded] = useState(isMediaDisplay);
   const [showFullResult, setShowFullResult] = useState(false);
   const prevStreaming = useRef(isStreaming);
   const readFileToPreview = useChatStore((s) => s.readFileToPreview);
@@ -135,17 +149,10 @@ function ToolCallGroup({
     const wasStreaming = prevStreaming.current;
     prevStreaming.current = isStreaming;
     // 多媒体展示工具不自动折叠 — 图片/视频/音频结果是用户要看的，不应隐藏
-    if (
-      wasStreaming &&
-      !isStreaming &&
-      variant === "card" &&
-      toolCall.name !== "image_display" &&
-      toolCall.name !== "video_display" &&
-      toolCall.name !== "audio_play"
-    ) {
+    if (wasStreaming && !isStreaming && variant === "card" && !isMediaDisplay) {
       setExpanded(false);
     }
-  }, [isStreaming, variant, toolCall.name]);
+  }, [isStreaming, variant, isMediaDisplay]);
 
   const statusIcon = isStreaming
     ? "\u23F3"
@@ -200,14 +207,16 @@ function ToolCallGroup({
           ) : showFullResult && toolCall._hasFullResult ? (
             <div>
               <div className="text-[10px] text-amber-400 mb-1">
-                ✅ 已展开完整结果（
-                {typeof toolCall.result === "string"
-                  ? (
-                      toolCall.result.length +
-                      (getToolResultFull(toolCall.id)?.length ?? 0)
-                    ).toLocaleString()
-                  : "?"}{" "}
-                字符）
+                {t("chat.expandedFullResult", {
+                  count:
+                    typeof toolCall.result === "string"
+                      ? (
+                          toolCall.result.length +
+                          (getToolResultFull(toolCall.id)?.length ?? 0)
+                        ).toLocaleString()
+                      : "?",
+                  defaultValue: "✅ 已展开完整结果（{{count}} 字符）",
+                })}
               </div>
               <pre className="m-0 whitespace-pre-wrap break-words text-[10px] leading-relaxed text-[#a9b1d6] font-mono bg-black/15 p-2 rounded max-h-[400px] overflow-y-auto">
                 {typeof toolCall.result === "string"

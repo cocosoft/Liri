@@ -131,7 +131,10 @@ function CodeBlock({ code, language }: CodeBlockProps) {
         <span>{displayLang || "code"}</span>
         <button
           onClick={handleCopy}
-          className="opacity-0 group-hover:opacity-100 transition-opacity hover:text-gray-200"
+          // P2-5（2026-09-27 审计）：原仅 hover 可见 ⇒ 触摸/键盘用户不可达；补
+          // focus-visible 显示 + aria-label（复制失败的反馈仍由状态文案承担）
+          aria-label={copied ? "已复制代码" : "复制代码"}
+          className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity hover:text-gray-200"
         >
           {copied ? "已复制" : "复制"}
         </button>

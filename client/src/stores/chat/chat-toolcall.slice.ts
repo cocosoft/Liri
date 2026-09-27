@@ -875,6 +875,46 @@ export function stripStructuralTags(text: string): string {
 }
 
 /**
+ * 净化**已持久化 blocks** 中的 text 块内容：剥离 `<think>` / `<response>` 等协议标签
+ * （2026-09-27 真机排查，法证：会话 `你可以干嘛？` 正文渲染出 `<think>…</think>` 与裸 `<response>`）。
+ *
+ * 为什么需要：`blocks` 由写入时刻的流式结果落盘。写入路径擦洗上线**之前**落盘的存量
+ * `messages.jsonl` 里 blocks 已含协议标签；而 `importLegacyMessages` /
+ * `setMessagesImpl` 的"blocks 有效即透传"分支不做任何净化 ⇒ 标签按正文显示
+ * （`hasMeaningfulContentBlocks` 为真时连 `rebuildBlocksFromContent` 也不走）。
+ *
+ * 策略与 `rebuildBlocksFromContent` 同口径（CS01，不另立规则）：先**整段删除** think
+ * （含标签 + 内容，避免与既有 thinking 块重复显示），再 `stripStructuralTags` 去其余标签。
+ * 仅在确有变化时返回新数组、且此时才 `trim()`（不改动无标签文本的空白）。
+ * 整块只剩标签 ⇒ 丢弃该块，避免渲染空正文气泡。
+ */
+export function stripProtocolTagsInBlocks(
+  blocks: MessageBlock[],
+): MessageBlock[] {
+  let changed = false;
+  const next: MessageBlock[] = [];
+  for (const b of blocks) {
+    if (b.type === "text" && typeof b.content === "string" && b.content) {
+      const cleaned = stripStructuralTags(
+        b.content
+          .replace(/<think(?:ing)?>([\s\S]*?)<\/think(?:ing)?>/gi, "")
+          .replace(/<think(?:ing)?>[\s\S]*$/gi, "")
+          .replace(/^[\s\S]*?<\/think(?:ing)?>/gi, ""),
+      );
+      if (cleaned !== b.content) {
+        changed = true;
+        const trimmed = cleaned.trim();
+        if (!trimmed) continue;
+        next.push({ ...b, content: trimmed });
+        continue;
+      }
+    }
+    next.push(b);
+  }
+  return changed ? next : blocks;
+}
+
+/**
  * 查找消息中最后一个 tool_call 的 id
  */
 export function findLastToolCallId(

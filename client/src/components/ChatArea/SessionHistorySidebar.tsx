@@ -17,23 +17,12 @@ import SessionListItem from "./SessionListItem";
 import SessionTitle from "./SessionTitle";
 import { useDreamSessionIds } from "./useDreamSessionIds";
 
-/** M10 修复：文件名消毒——Windows 非法字符 \ / : * ? " < > | 会导致下载失败 */
-function sanitizeFilename(name: string): string {
-  return name.replace(/[\\/:*?"<>|]/g, "_").trim() || "session";
-}
-
-/** M10 修复：触发 blob 下载并延迟 revokeObjectURL——
- * 立即 revoke 在 Firefox 偶发下载失败；元素需先挂载到 DOM 再 click */
-function triggerBlobDownload(blob: Blob, filename: string): void {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
+// P2-6（2026-09-27 审计）：本文件的 `sanitizeFilename` / `triggerBlobDownload` 与
+// `utils/exportMessage.ts` 重复实现 ⇒ 收敛为唯一来源（改一处即全域生效）。
+import {
+  sanitizeFilename,
+  triggerBlobDownload,
+} from "../../utils/exportMessage";
 
 /**
  * 会话来源渠道 → 显示名称映射
@@ -240,6 +229,12 @@ function SessionHistorySidebar({
           `${exportedTitle}.json`,
         );
       }
+    } catch (e) {
+      // P2-6（2026-09-27）：原实现只有 try/finally、**无 catch** ⇒ 导出失败静默无感（违背 §1.9）
+      handleClientError(e, {
+        module: "ui:session-sidebar",
+        action: "exportSessionMeta",
+      });
     } finally {
       setContextMenu(null);
     }

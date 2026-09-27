@@ -11,6 +11,7 @@
  */
 
 import { useEffect, useState, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import mammoth from "mammoth";
 import * as XLSX from "xlsx";
 import DOMPurify from "dompurify";
@@ -27,6 +28,7 @@ const htmlCache = new Map<string, string>();
 const MAX_CACHE = 10;
 
 export default function OfficePreview({ file }: OfficePreviewProps) {
+  const { t } = useTranslation();
   const [html, setHtml] = useState<string | null>(
     () => htmlCache.get(file.path) ?? null,
   );
@@ -62,7 +64,7 @@ export default function OfficePreview({ file }: OfficePreviewProps) {
         if (blobRes?.ok === false) {
           throw new Error(
             (blobRes.error as unknown as { message?: string })?.message ||
-              "文件加载失败",
+              t("chat.fileLoadFailed", "文件加载失败"),
           );
         }
         const blob = blobRes.data as Blob;
@@ -109,7 +111,12 @@ export default function OfficePreview({ file }: OfficePreviewProps) {
             })
             .join("");
         } else {
-          throw new Error(`不支持的 Office 格式: ${file.type}`);
+          throw new Error(
+            t("chat.unsupportedOfficeFormat", {
+              type: file.type,
+              defaultValue: "不支持的 Office 格式: {{type}}",
+            }),
+          );
         }
 
         if (!cancelled) {
@@ -205,7 +212,7 @@ export default function OfficePreview({ file }: OfficePreviewProps) {
     return () => {
       cancelled = true;
     };
-  }, [file.path, file.type]);
+  }, [file.path, file.type, t]);
 
   // 加载态：骨架屏
   if (loading) {
@@ -226,7 +233,7 @@ export default function OfficePreview({ file }: OfficePreviewProps) {
       <div className="flex-1 flex items-center justify-center p-8">
         <div className="text-center">
           <p className="text-sm text-red-500 dark:text-red-400 mb-2">
-            预览渲染失败
+            {t("chat.previewRenderFailed", "预览渲染失败")}
           </p>
           <p className="text-xs text-gray-400 dark:text-gray-500">{error}</p>
         </div>
@@ -238,7 +245,7 @@ export default function OfficePreview({ file }: OfficePreviewProps) {
   return (
     <div
       className="flex-1 overflow-auto p-4 office-preview-content dark:invert-[0.9]"
-      dangerouslySetInnerHTML={{ __html: html! }}
+      dangerouslySetInnerHTML={{ __html: html ?? "" }}
     />
   );
 }

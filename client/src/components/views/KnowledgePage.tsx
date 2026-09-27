@@ -1050,7 +1050,7 @@ function KnowledgePage() {
                       />
                     )}
 
-                  <div className="prose prose-sm max-w-none dark:prose-invert">
+                  <div className="max-w-none">
                     {selectedFile.content ? (
                       <MarkdownRenderer content={selectedFile.content} />
                     ) : (

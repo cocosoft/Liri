@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import type { FilePreview } from "../../types";
 import MarkdownRenderer from "./MarkdownRenderer";
 import CodeBlock from "./CodeBlock";
@@ -43,6 +44,7 @@ interface FilePreviewContentProps {
  * - text: 纯文本
  */
 function FilePreviewContent({ file, onClose }: FilePreviewContentProps) {
+  const { t } = useTranslation();
   const [imageError, setImageError] = useState(false);
 
   const handleClose = useCallback(() => {
@@ -77,7 +79,7 @@ function FilePreviewContent({ file, onClose }: FilePreviewContentProps) {
           <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-1/3" />
           <div className="pt-3">
             <p className="text-xs text-gray-400 dark:text-gray-500 text-center">
-              加载中...
+              {t("common.loading")}
             </p>
           </div>
         </div>
@@ -115,7 +117,7 @@ function FilePreviewContent({ file, onClose }: FilePreviewContentProps) {
           <button
             onClick={handleClose}
             className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-            title="关闭预览"
+            title={t("chat.closePreview")}
           >
             <svg
               className="w-4 h-4"
@@ -163,7 +165,9 @@ function FilePreviewContent({ file, onClose }: FilePreviewContentProps) {
                 d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"
               />
             </svg>
-            <p className="text-sm">图片加载失败</p>
+            <p className="text-sm">
+              {t("chat.imageLoadFailed", "图片加载失败")}
+            </p>
           </div>
         </div>
       </div>
@@ -187,7 +191,8 @@ function FilePreviewContent({ file, onClose }: FilePreviewContentProps) {
     return (
       <div className="flex flex-col h-full">
         <FileHeader file={file} onClose={handleClose} />
-        <div className="flex-1 overflow-auto p-4 prose dark:prose-invert max-w-none">
+        {/* P1-9：`prose dark:prose-invert` 为失效类（未装 typography 插件）⇒ 清理 */}
+        <div className="flex-1 overflow-auto p-4 max-w-none">
           <MarkdownRenderer content={file.content} />
         </div>
       </div>
@@ -220,7 +225,7 @@ function FilePreviewContent({ file, onClose }: FilePreviewContentProps) {
               className="w-full"
               preload="metadata"
             >
-              <p>您的浏览器不支持音频播放</p>
+              <p>{t("chat.audioNotSupported", "您的浏览器不支持音频播放")}</p>
             </audio>
           </div>
         </div>
@@ -240,7 +245,7 @@ function FilePreviewContent({ file, onClose }: FilePreviewContentProps) {
             className="max-w-full max-h-full"
             preload="metadata"
           >
-            <p>您的浏览器不支持视频播放</p>
+            <p>{t("chat.videoNotSupported", "您的浏览器不支持视频播放")}</p>
           </video>
         </div>
       </div>
@@ -262,7 +267,8 @@ function FilePreviewContent({ file, onClose }: FilePreviewContentProps) {
     return (
       <div className="flex flex-col h-full">
         <FileHeader file={file} onClose={handleClose} />
-        <div className="flex-1 overflow-auto p-4 prose dark:prose-invert max-w-none">
+        {/* P1-9：`prose dark:prose-invert` 为失效类（未装 typography 插件）⇒ 清理 */}
+        <div className="flex-1 overflow-auto p-4 max-w-none">
           <MarkdownRenderer content={file.content} />
         </div>
       </div>
@@ -290,7 +296,7 @@ function FilePreviewContent({ file, onClose }: FilePreviewContentProps) {
               />
             </svg>
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">
-              暂不支持预览此格式
+              {t("chat.unsupportedPreview", "暂不支持预览此格式")}
             </p>
             <p className="text-xs text-gray-400 dark:text-gray-500">
               {file.name}
@@ -395,6 +401,7 @@ interface FileHeaderProps {
 }
 
 function FileHeader({ file, onClose }: FileHeaderProps) {
+  const { t } = useTranslation();
   return (
     <div className="flex items-center justify-between px-4 py-2 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
       <div className="flex items-center gap-2 min-w-0">
@@ -411,7 +418,7 @@ function FileHeader({ file, onClose }: FileHeaderProps) {
       <button
         onClick={onClose}
         className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-        title="关闭预览"
+        title={t("chat.closePreview")}
       >
         <svg
           className="w-4 h-4"

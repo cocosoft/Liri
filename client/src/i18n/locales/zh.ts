@@ -199,6 +199,9 @@ const zh = {
     assistant: "助手",
     user: "用户",
     system: "系统",
+    // 2026-09-27（P0-4）：导出/消息角色标题用（SessionHeader 的 `labels.tool`）
+    // 此前缺键 ⇒ 导出件标题渲染为键名本身「🛠 chat.tool」（真机产物实证）
+    tool: "工具",
     toolResult: "工具结果",
     parameters: "参数",
     result: "结果",
@@ -383,6 +386,8 @@ const zh = {
     nextMatch: "下一个",
     closeSearch: "关闭搜索",
     exportAsMarkdown: "导出为 Markdown",
+    // D6（2026-09-27）：完整版导出——思考/工具结果不截断、工具调用附参数（体积可能较大）
+    exportAsMarkdownFull: "导出为 Markdown（完整版）",
     exportAsJson: "导出为 JSON",
     exportAsHtml: "导出为 HTML",
     exportAsWord: "导出为 Word",
@@ -421,6 +426,17 @@ const zh = {
     reentryShowSummary: "显示会话摘要",
     // ---- P2 i18n 补全（StatusFloatBar / SessionHeader / ChatMessage）----
     roundCountWithCount: "{{count}} 轮",
+    // P1-6a（D8 = 统一到总量 + 尾锚定）：轮次导航器文案
+    roundNavExpand: "{{count}} 轮对话 · 点击展开导航",
+    roundNavExpandAria: "{{count}} 轮对话，点击展开轮次导航",
+    roundsUnloaded: "更早 {{count}} 轮未加载（点击加载）",
+    roundsUnloadedNoCount: "更早消息尚未加载（点击加载）",
+    // P1-6b（2026-09-27）：分页游标缺失时的可见反馈（避免"按钮点了没反应"）
+    loadOlder: "↑ 加载更早消息",
+    loadingOlder: "加载中…",
+    loadOlderUnavailableLabel: "↑ 更早消息暂不可加载",
+    loadOlderUnavailable:
+      "更早消息暂时无法加载（已记录该问题；可先用「导出会话」查看完整历史）",
     titleEditHint: "单击查看详情 · 双击编辑标题",
     copySessionId: "复制会话 ID",
     statusContextWatermark: "上下文水位：{{pct}}%",
@@ -435,6 +451,141 @@ const zh = {
     saveAsDeliverableHint: "将当前回复保存到项目成果区",
     saveAsDeliverableShort: "沉淀",
     toastDeliverableSaved: "已沉淀到成果区",
+    // ---- P2-1 i18n 全量迁移（2026-09-27）：QuestionBlock / SessionContextMenu / TaskCard / ProgressCard ----
+    // QuestionBlock（交互问答块）
+    questionDefaultHeader: "请选择一个选项",
+    questionAnswered: "您已回答：",
+    questionOther: "其它",
+    questionOtherHint: "在下方输入您的具体内容",
+    questionOtherPlaceholder: "请输入您的具体选择（1-200 字）...",
+    questionOtherRequired: "选中“其它”时需填写内容",
+    questionYourInput: "您的输入：",
+    questionFreePlaceholder:
+      "该问题未提供可选项，请在此直接输入您的回答（1-200 字）...",
+    questionSubmitting: "提交中...",
+    questionSubmit: "提交回答",
+    questionConfirmCount: "确认选择（{{count}}项）",
+    questionConfirm: "确认选择",
+    questionMultiSelect: "可多选",
+    questionOutboxPending: "⚠️ 上次提交未成功，您的回答已保留",
+    questionRetrySubmit: "重试提交",
+    questionInterrupted: "会话已中断，该问题无法继续回答，请重新发起对话。",
+    questionSelected: "已选择：",
+    questionEmpty: "（空）",
+    // SessionContextMenu（会话右键菜单）
+    viewDetails: "查看详情",
+    compactSession: "压缩会话",
+    pinToTop: "固定到顶部",
+    // TaskCard（任务分解卡）
+    taskBreakdown: "任务分解：{{title}}",
+    allCompleted: "全部完成",
+    taskEnded: "已结束",
+    taskEndedWithFailed: "已结束（{{count}} 失败）",
+    taskWaitingDeps: "等待: {{names}}",
+    taskViewGraph: "查看依赖关系图（{{nodes}} 个节点, {{edges}} 条边）",
+    taskPending: "等待中",
+    taskCancelled: "已取消",
+    taskBlocked: "等待依赖",
+    taskSkipped: "已跳过",
+    // ProgressCard（执行进度卡）
+    progressExecutedCount: "已执行 {{count}} 项",
+    progressOnlyRecent: "仅展示最近 {{count}} 条",
+    progressTruncatedHint: "更早的记录已折叠，仅保留最近若干条以减少传输",
+    progressScrollable: "可滚动查看",
+    // ---- P2-1 i18n 全量迁移 第2批（2026-09-27）----
+    // DeliverableCard（交付物卡）
+    workModeNotReady: "工作界面暂未就绪",
+    enterWorkModeHint: "进入工作界面查看文件变更详情",
+    enterWorkMode: "进入工作模式",
+    // CodeRunCard（代码执行卡）
+    codeRunTitle: "代码运行 #{{round}}",
+    codeRunCompileError: "编译错误",
+    codeRunSecurityRejected: "安全拒绝",
+    codeRunTimeout: "超时",
+    stackTrace: "堆栈",
+    innerToolCalls: "内部工具调用（{{count}}）",
+    logsCount: "日志（{{count}}）",
+    orchestrationCode: "编排代码",
+    // ToolCallGroup（工具调用渲染）
+    resultTooLarge: "⚠️ 结果过大（{{kb}} KB），截断显示",
+    remainingChars: "... 剩余 {{count}} 字符未显示 ...",
+    copiedFullResult: "✓ 已复制完整结果",
+    copyFullResult: "复制完整结果",
+    expandedFullResult: "✅ 已展开完整结果（{{count}} 字符）",
+    // ToolInlineTags（行内工具标签）
+    clickCollapseDetail: "点击收起详情",
+    clickViewDetail: "点击查看详情",
+    // ToolResultMessage（工具返回消息）
+    securityIntercepted: "安全拦截",
+    securityPolicyBlocked: "安全策略拦截",
+    toolReturn: "工具返回",
+    securityReasonPathSafety: "路径安全检查",
+    securityReasonDangerousCommand: "危险命令检测",
+    securityReasonDangerousPattern: "危险命令模式",
+    securityReasonAstAnalysis: "AST 安全分析",
+    securityReasonAnalyzerDeny: "安全策略拒绝",
+    securityReasonAnalyzerAsk: "需用户确认",
+    securityReasonCommandWhitelist: "命令白名单",
+    securityReasonSandboxChecker: "沙箱安全检查",
+    // ToolExecutionGroup（工具执行分组）
+    toolCallsExecutedCount: "已执行 {{count}} 个工具调用",
+    toolCallsCount: "{{count}} 个工具调用",
+    itemsCount: "{{count}} 项",
+    // ---- P2-1 i18n 全量迁移 第3批（2026-09-27）----
+    // DAGMiniMap / DAGFullScreen（任务依赖关系图）
+    dagViewFullscreen: "全屏查看",
+    dagTitle: "任务依赖关系图",
+    dagTitleWithName: "依赖关系图：{{title}}",
+    dagLegendPending: "等待",
+    // ImageViewer（图片查看器）
+    imageAlt: "图片预览",
+    imageZoomOut: "缩小",
+    imageZoomIn: "放大",
+    imageActualSize: "实际大小",
+    imageFitWindow: "适应窗口",
+    imageRotate90: "旋转 90°",
+    imageFlipHorizontal: "水平翻转",
+    imageFlipVertical: "垂直翻转",
+    imageFullscreen: "全屏",
+    imageDownload: "下载",
+    // SaveKnowledgeModal（保存到知识库）—— saveToKnowledge 复用上方既有键
+    knowledgeDocTitle: "标题",
+    knowledgeDocTitlePlaceholder: "文档标题",
+    knowledgeBaseLabel: "知识库",
+    knowledgeBasePlaceholder: "选择或输入知识库名称",
+    knowledgeSaveFailed: "保存失败，请重试",
+    knowledgeSaveSuccess: "保存成功",
+    knowledgeSaving: "保存中...",
+    // ---- P2-1 i18n 全量迁移 第4批（2026-09-27）----
+    // FileLink（文件链接）
+    fileNotAccessible: "文件不存在或无法访问: {{path}}",
+    clickToPreview: "点击预览: {{path}}",
+    fileNotExist: "(文件不存在)",
+    fileNotExistCannotOpen: "文件不存在，无法打开",
+    openInExplorer: "在系统资源管理器中打开",
+    // FileAttachmentBar（附件栏）
+    fileTooLargeSkipped: '文件 "{{name}}" 超过 {{max}} 限制，已跳过',
+    dropFileHere: "拖放文件到此处",
+    // FilePreviewContent（文件内容预览）
+    imageLoadFailed: "图片加载失败",
+    audioNotSupported: "您的浏览器不支持音频播放",
+    videoNotSupported: "您的浏览器不支持视频播放",
+    unsupportedPreview: "暂不支持预览此格式",
+    // OfficePreview（Office 文件预览）
+    fileLoadFailed: "文件加载失败",
+    unsupportedOfficeFormat: "不支持的 Office 格式: {{type}}",
+    previewRenderFailed: "预览渲染失败",
+    // DocWorkflowProgress（文档工作流进度）
+    docAwaitingConfirm: "等待确认",
+    // ---- P2-1 i18n 全量迁移 第5批（2026-09-27）----
+    // ChatMessage（中断提示 / 成果标题兜底）
+    interruptedHintInterrupted:
+      "⚠️ **该回复已中断（任务被中止），未继续完成。** 下方为中断前已生成的内容。",
+    interruptedHintGeneration:
+      "⚠️ **该回复生成中断，未完成最终输出。** 下方「💭 思考过程」标签中保留了模型当时的推理草稿，可点击展开查看。",
+    untitledDeliverable: "未命名成果",
+    // ChatMessageList（欢迎页官网）
+    welcomeOfficialSite: "官网: https://openliri.com",
   },
   settings: {
     title: "设置",

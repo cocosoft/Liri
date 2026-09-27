@@ -4,6 +4,7 @@
  * Phase 2 增强：旋转、翻转、实际大小、缩放滑块、全屏、快捷键
  */
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { handleClientError } from "../../../utils/handleError";
 
 /** 变换状态：统一管理缩放、旋转、翻转 */
@@ -28,6 +29,7 @@ export default function ImageViewer({
   onClose,
   onDelete,
 }: Props) {
+  const { t } = useTranslation();
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [transform, setTransform] = useState<TransformState>({
     scale: 1,
@@ -72,6 +74,27 @@ export default function ImageViewer({
       ...prev,
       scale: Math.max(0.25, Math.min(4, newScale)),
     }));
+  }, []);
+
+  /** 全屏切换 */
+  const toggleFullscreen = useCallback(async () => {
+    if (isFullscreenRef.current) {
+      await document.exitFullscreen().catch(() => {});
+      isFullscreenRef.current = false;
+      setIsFullscreen(false);
+    } else {
+      try {
+        await containerRef.current?.requestFullscreen();
+        isFullscreenRef.current = true;
+        setIsFullscreen(true);
+      } catch (e) {
+        handleClientError(e, {
+          module: "components:chat:ImageViewer",
+          action: "toggleFullscreen",
+        });
+        // 浏览器拒绝全屏（如 iframe 限制等），忽略
+      }
+    }
   }, []);
 
   // 快捷键
@@ -152,29 +175,8 @@ export default function ImageViewer({
     goToImage,
     resetTransform,
     onDelete,
-    isFullscreen,
+    toggleFullscreen,
   ]);
-
-  /** 全屏切换 */
-  const toggleFullscreen = useCallback(async () => {
-    if (isFullscreenRef.current) {
-      await document.exitFullscreen().catch(() => {});
-      isFullscreenRef.current = false;
-      setIsFullscreen(false);
-    } else {
-      try {
-        await containerRef.current?.requestFullscreen();
-        isFullscreenRef.current = true;
-        setIsFullscreen(true);
-      } catch (e) {
-        handleClientError(e, {
-          module: "components:chat:ImageViewer",
-          action: "toggleFullscreen",
-        });
-        // 浏览器拒绝全屏（如 iframe 限制等），忽略
-      }
-    }
-  }, []);
 
   // 监听原生全屏退出
   useEffect(() => {
@@ -296,7 +298,7 @@ export default function ImageViewer({
           <button
             onClick={() => setScale(transform.scale - 0.25)}
             className="text-white/70 hover:text-white text-sm px-1"
-            title="缩小 (-)"
+            title={`${t("chat.imageZoomOut", "缩小")} (-)`}
           >
             −
           </button>
@@ -317,7 +319,7 @@ export default function ImageViewer({
           <button
             onClick={() => setScale(transform.scale + 0.25)}
             className="text-white/70 hover:text-white text-sm px-1"
-            title="放大 (+)"
+            title={`${t("chat.imageZoomIn", "放大")} (+)`}
           >
             +
           </button>
@@ -338,7 +340,7 @@ export default function ImageViewer({
             setOffset({ x: 0, y: 0 });
           }}
           className={`text-white/70 hover:text-white text-sm px-2 ${transform.scale === 1 && !isTransformed ? "text-white" : ""}`}
-          title="实际大小 (0)"
+          title={`${t("chat.imageActualSize", "实际大小")} (0)`}
         >
           1:1
         </button>
@@ -347,7 +349,7 @@ export default function ImageViewer({
         <button
           onClick={resetTransform}
           className={`text-white/70 hover:text-white text-sm px-2 ${!isTransformed && transform.scale === 1 ? "text-white" : ""}`}
-          title="适应窗口 (Ctrl+0)"
+          title={`${t("chat.imageFitWindow", "适应窗口")} (Ctrl+0)`}
         >
           ⊡
         </button>
@@ -358,7 +360,7 @@ export default function ImageViewer({
             setTransform((prev) => ({ ...prev, rotation: prev.rotation + 90 }))
           }
           className={`text-white/70 hover:text-white text-sm px-2 ${transform.rotation !== 0 ? "text-white" : ""}`}
-          title="旋转90° (R)"
+          title={`${t("chat.imageRotate90", "旋转 90°")} (R)`}
         >
           ↻
         </button>
@@ -369,7 +371,7 @@ export default function ImageViewer({
             setTransform((prev) => ({ ...prev, flipX: !prev.flipX }))
           }
           className={`text-white/70 hover:text-white text-sm px-2 ${transform.flipX ? "text-white" : ""}`}
-          title="水平翻转 (H)"
+          title={`${t("chat.imageFlipHorizontal", "水平翻转")} (H)`}
         >
           ⇔
         </button>
@@ -380,7 +382,7 @@ export default function ImageViewer({
             setTransform((prev) => ({ ...prev, flipY: !prev.flipY }))
           }
           className={`text-white/70 hover:text-white text-sm px-2 ${transform.flipY ? "text-white" : ""}`}
-          title="垂直翻转 (V)"
+          title={`${t("chat.imageFlipVertical", "垂直翻转")} (V)`}
         >
           ⇕
         </button>
@@ -392,7 +394,7 @@ export default function ImageViewer({
         <button
           onClick={toggleFullscreen}
           className="text-white/70 hover:text-white text-sm px-2"
-          title="全屏 (F)"
+          title={`${t("chat.imageFullscreen", "全屏")} (F)`}
         >
           {isFullscreen ? "⤓" : "⤢"}
         </button>
@@ -401,7 +403,7 @@ export default function ImageViewer({
         <button
           onClick={handleDownload}
           className="text-white/70 hover:text-white text-sm px-2"
-          title="下载"
+          title={t("chat.imageDownload", "下载")}
         >
           ⬇
         </button>
@@ -414,7 +416,7 @@ export default function ImageViewer({
               onDelete();
             }}
             className="text-white/70 hover:text-red-400 text-sm px-2"
-            title="删除 (Delete)"
+            title={`${t("common.delete")} (Delete)`}
           >
             🗑
           </button>
@@ -448,7 +450,7 @@ export default function ImageViewer({
       {/* ──── 图片 ──── */}
       <img
         src={currentUrl}
-        alt="Preview"
+        alt={t("chat.imageAlt", "图片预览")}
         className="max-w-[90vw] max-h-[85vh] object-contain select-none"
         style={{
           transform: [
@@ -473,8 +475,8 @@ export default function ImageViewer({
       {isTransformed && (
         <div className="absolute top-12 left-1/2 -translate-x-1/2 rounded bg-black/50 px-2 py-0.5 text-white/60 text-xs">
           {transform.rotation !== 0 && `${transform.rotation % 360}° `}
-          {transform.flipX && "水平翻转 "}
-          {transform.flipY && "垂直翻转"}
+          {transform.flipX && `${t("chat.imageFlipHorizontal", "水平翻转")} `}
+          {transform.flipY && t("chat.imageFlipVertical", "垂直翻转")}
         </div>
       )}
     </div>

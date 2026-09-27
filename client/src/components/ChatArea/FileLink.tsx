@@ -1,4 +1,5 @@
 import React, { useCallback, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { createLogger } from "@/utils/logger";
 import { openLocalFile } from "../../services/fileOpenService";
 import { useSessionStore } from "../../stores/sessionStore";
@@ -12,6 +13,7 @@ interface FileLinkProps {
 }
 
 function FileLink({ filePath, onPreview }: FileLinkProps) {
+  const { t } = useTranslation();
   const [opening, setOpening] = useState(false);
   const [error, setError] = useState(false);
   const sessionId = useSessionStore((s) => s.currentSession?.id);
@@ -77,23 +79,30 @@ function FileLink({ filePath, onPreview }: FileLinkProps) {
   );
 
   return (
-    <span className="inline-flex items-center gap-1 group">
+    <span className="inline-flex max-w-full flex-wrap items-center gap-1 group">
       <a
         href="#"
         onClick={handleFileAction}
-        className={`file-link inline-flex items-center gap-1 underline cursor-pointer ${
+        className={`file-link inline-flex max-w-full min-w-0 items-center gap-1 underline cursor-pointer ${
           error
             ? "text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300 line-through decoration-red-400"
             : "text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
         }`}
         title={
-          error ? `文件不存在或无法访问: ${filePath}` : `点击预览: ${filePath}`
+          error
+            ? t("chat.fileNotAccessible", { path: filePath })
+            : t("chat.clickToPreview", { path: filePath })
         }
       >
         <FileIcon error={error} />
-        <span>{filePath}</span>
+        {/* 2026-09-27 真机排查：长路径（Windows 绝对路径等）无空格 ⇒ 默认不换行，
+            曾把消息气泡撑破并在对话区产生横向滚动条。break-all 允许任意字符处折行，
+            min-w-0 允许该 flex 子项收缩。 */}
+        <span className="min-w-0 break-all">{filePath}</span>
         {error && (
-          <span className="text-xs text-red-500 ml-1">(文件不存在)</span>
+          <span className="text-xs text-red-500 ml-1">
+            {t("chat.fileNotExist", "(文件不存在)")}
+          </span>
         )}
       </a>
       <button
@@ -103,7 +112,11 @@ function FileLink({ filePath, onPreview }: FileLinkProps) {
             ? "text-red-400 hover:text-red-600"
             : "text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
         }`}
-        title={error ? "文件不存在，无法打开" : "在系统资源管理器中打开"}
+        title={
+          error
+            ? t("chat.fileNotExistCannotOpen", "文件不存在，无法打开")
+            : t("chat.openInExplorer", "在系统资源管理器中打开")
+        }
         disabled={error}
       >
         <svg

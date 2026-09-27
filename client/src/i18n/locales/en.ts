@@ -202,6 +202,8 @@ const en = {
     assistant: "Assistant",
     user: "User",
     system: "System",
+    // 2026-09-27（P0-4）：与 zh 同步补 `tool` 键（导出/角色标题用）
+    tool: "Tool",
     toolResult: "Tool Result",
     parameters: "Parameters",
     result: "Result",
@@ -243,7 +245,8 @@ const en = {
     deepThinkingHint:
       "🧠 Model is thinking deeply… {{seconds}}s elapsed (reasoning models reason first, please wait)",
     // 等待态可见性（2026-09-27 Spec `wait-state-visibility.md` D7）
-    waitingSelfwakeCountdown: "⏳ Waiting — resuming automatically in ~{{seconds}}s",
+    waitingSelfwakeCountdown:
+      "⏳ Waiting — resuming automatically in ~{{seconds}}s",
     waitingSelfwake:
       "⏳ Waiting ({{seconds}}s elapsed) — will resume automatically",
     waitingYield: "⏳ Waiting for subtask settlement ({{seconds}}s elapsed)",
@@ -394,6 +397,8 @@ const en = {
     nextMatch: "Next",
     closeSearch: "Close Search",
     exportAsMarkdown: "Export as Markdown",
+    // D6（2026-09-27）：完整版导出（与 zh 同步）
+    exportAsMarkdownFull: "Export as Markdown (Full)",
     exportAsJson: "Export as JSON",
     exportAsHtml: "Export as HTML",
     exportAsWord: "Export as Word",
@@ -433,6 +438,17 @@ const en = {
     reentryShowSummary: "Show session summary",
     // ---- P2 i18n additions (StatusFloatBar / SessionHeader / ChatMessage) ----
     roundCountWithCount: "{{count}} rounds",
+    // P1-6a (D8 = total-rounds basis, tail-anchored): round navigator strings
+    roundNavExpand: "{{count}} rounds · click to expand navigation",
+    roundNavExpandAria: "{{count}} rounds, click to expand round navigation",
+    roundsUnloaded: "{{count}} earlier rounds not loaded (click to load)",
+    roundsUnloadedNoCount: "Earlier messages not loaded (click to load)",
+    // P1-6b (2026-09-27): visible feedback when the pagination cursor is missing
+    loadOlder: "↑ Load earlier messages",
+    loadingOlder: "Loading…",
+    loadOlderUnavailableLabel: "↑ Earlier messages unavailable",
+    loadOlderUnavailable:
+      "Earlier messages can't be loaded right now (issue logged; use Export session to see the full history)",
     titleEditHint: "Click for details · Double-click to edit",
     copySessionId: "Copy session ID",
     statusContextWatermark: "Context usage: {{pct}}%",
@@ -447,6 +463,145 @@ const en = {
     saveAsDeliverableHint: "Save this reply to project deliverables",
     saveAsDeliverableShort: "Save",
     toastDeliverableSaved: "Saved to deliverables",
+    // ---- P2-1 i18n migration (2026-09-27): QuestionBlock / SessionContextMenu / TaskCard / ProgressCard ----
+    // QuestionBlock
+    questionDefaultHeader: "Please select an option",
+    questionAnswered: "Your answer:",
+    questionOther: "Other",
+    questionOtherHint: "Enter your details below",
+    questionOtherPlaceholder: "Enter your choice (1-200 characters)...",
+    questionOtherRequired:
+      'Please fill in the content when "Other" is selected',
+    questionYourInput: "Your input:",
+    questionFreePlaceholder:
+      "No options were provided for this question; enter your answer here (1-200 characters)...",
+    questionSubmitting: "Submitting...",
+    questionSubmit: "Submit answer",
+    questionConfirmCount: "Confirm selection ({{count}})",
+    questionConfirm: "Confirm selection",
+    questionMultiSelect: "Multiple selection allowed",
+    questionOutboxPending:
+      "⚠️ Last submission failed; your answer has been kept",
+    questionRetrySubmit: "Retry submission",
+    questionInterrupted:
+      "The session was interrupted, so this question can no longer be answered. Please start a new conversation.",
+    questionSelected: "Selected:",
+    questionEmpty: "(empty)",
+    // SessionContextMenu
+    viewDetails: "View details",
+    compactSession: "Compact session",
+    pinToTop: "Pin to top",
+    // TaskCard
+    taskBreakdown: "Task breakdown: {{title}}",
+    allCompleted: "All completed",
+    taskEnded: "Ended",
+    taskEndedWithFailed: "Ended ({{count}} failed)",
+    taskWaitingDeps: "Waiting: {{names}}",
+    taskViewGraph: "View dependency graph ({{nodes}} nodes, {{edges}} edges)",
+    taskPending: "Pending",
+    taskCancelled: "Cancelled",
+    taskBlocked: "Blocked",
+    taskSkipped: "Skipped",
+    // ProgressCard
+    progressExecutedCount: "{{count}} executed",
+    progressOnlyRecent: "Showing only the most recent {{count}}",
+    progressTruncatedHint:
+      "Earlier records are collapsed; only recent entries are kept to reduce transfer",
+    progressScrollable: "Scroll to view",
+    // ---- P2-1 i18n migration batch 2 (2026-09-27) ----
+    // DeliverableCard
+    workModeNotReady: "Workbench is not ready yet",
+    enterWorkModeHint: "Open the workbench to view file change details",
+    enterWorkMode: "Enter work mode",
+    // CodeRunCard
+    codeRunTitle: "Code Run #{{round}}",
+    codeRunCompileError: "Compile error",
+    codeRunSecurityRejected: "Security rejected",
+    codeRunTimeout: "Timed out",
+    stackTrace: "Stack trace",
+    innerToolCalls: "Inner tool calls ({{count}})",
+    logsCount: "Logs ({{count}})",
+    orchestrationCode: "Orchestration code",
+    // ToolCallGroup
+    resultTooLarge: "⚠️ Result too large ({{kb}} KB); truncated",
+    remainingChars: "... {{count}} more characters not shown ...",
+    copiedFullResult: "✓ Full result copied",
+    copyFullResult: "Copy full result",
+    expandedFullResult: "✅ Full result expanded ({{count}} chars)",
+    // ToolInlineTags
+    clickCollapseDetail: "Click to collapse details",
+    clickViewDetail: "Click to view details",
+    // ToolResultMessage
+    securityIntercepted: "Security blocked",
+    securityPolicyBlocked: "Blocked by security policy",
+    toolReturn: "Tool return",
+    securityReasonPathSafety: "Path safety check",
+    securityReasonDangerousCommand: "Dangerous command detection",
+    securityReasonDangerousPattern: "Dangerous command pattern",
+    securityReasonAstAnalysis: "AST security analysis",
+    securityReasonAnalyzerDeny: "Denied by security policy",
+    securityReasonAnalyzerAsk: "Requires user confirmation",
+    securityReasonCommandWhitelist: "Command whitelist",
+    securityReasonSandboxChecker: "Sandbox safety check",
+    // ToolExecutionGroup
+    toolCallsExecutedCount: "{{count}} tool calls executed",
+    toolCallsCount: "{{count}} tool calls",
+    itemsCount: "{{count}} items",
+    // ---- P2-1 i18n migration batch 3 (2026-09-27) ----
+    // DAGMiniMap / DAGFullScreen (task dependency graph)
+    dagViewFullscreen: "View fullscreen",
+    dagTitle: "Task dependency graph",
+    dagTitleWithName: "Dependency graph: {{title}}",
+    dagLegendPending: "Pending",
+    // ImageViewer
+    imageAlt: "Image preview",
+    imageZoomOut: "Zoom out",
+    imageZoomIn: "Zoom in",
+    imageActualSize: "Actual size",
+    imageFitWindow: "Fit to window",
+    imageRotate90: "Rotate 90°",
+    imageFlipHorizontal: "Flip horizontally",
+    imageFlipVertical: "Flip vertically",
+    imageFullscreen: "Fullscreen",
+    imageDownload: "Download",
+    // SaveKnowledgeModal — saveToKnowledge reuses the existing key above
+    knowledgeDocTitle: "Title",
+    knowledgeDocTitlePlaceholder: "Document title",
+    knowledgeBaseLabel: "Knowledge Base",
+    knowledgeBasePlaceholder: "Select or type a knowledge base name",
+    knowledgeSaveFailed: "Save failed, please retry",
+    knowledgeSaveSuccess: "Saved successfully",
+    knowledgeSaving: "Saving...",
+    // ---- P2-1 i18n migration batch 4 (2026-09-27) ----
+    // FileLink
+    fileNotAccessible: "File does not exist or is inaccessible: {{path}}",
+    clickToPreview: "Click to preview: {{path}}",
+    fileNotExist: "(file not found)",
+    fileNotExistCannotOpen: "File does not exist, cannot open",
+    openInExplorer: "Open in system file explorer",
+    // FileAttachmentBar
+    fileTooLargeSkipped: 'File "{{name}}" exceeds the {{max}} limit, skipped',
+    dropFileHere: "Drop files here",
+    // FilePreviewContent
+    imageLoadFailed: "Failed to load image",
+    audioNotSupported: "Your browser does not support audio playback",
+    videoNotSupported: "Your browser does not support video playback",
+    unsupportedPreview: "Preview is not supported for this format",
+    // OfficePreview
+    fileLoadFailed: "Failed to load file",
+    unsupportedOfficeFormat: "Unsupported Office format: {{type}}",
+    previewRenderFailed: "Preview rendering failed",
+    // DocWorkflowProgress
+    docAwaitingConfirm: "Awaiting confirmation",
+    // ---- P2-1 i18n migration batch 5 (2026-09-27) ----
+    // ChatMessage (interruption hints / deliverable title fallback)
+    interruptedHintInterrupted:
+      "⚠️ **This reply was interrupted (task aborted) and did not finish.** The content generated before the interruption is shown below.",
+    interruptedHintGeneration:
+      "⚠️ **This reply's generation was interrupted and did not produce a final output.** The model's reasoning draft at the time is kept under the \"💭 Thinking process\" label below — click to expand.",
+    untitledDeliverable: "Untitled deliverable",
+    // ChatMessageList (welcome page official site)
+    welcomeOfficialSite: "Official site: https://openliri.com",
   },
   settings: {
     title: "Settings",

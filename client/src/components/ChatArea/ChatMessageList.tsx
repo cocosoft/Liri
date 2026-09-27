@@ -203,6 +203,28 @@ function SearchBar({
  * 在消息列表顶部叠加显示搜索输入框和结果导航
  */
 
+/**
+ * P1-17（2026-09-27，D5=B 二次修订）：**会话 → 距尾偏移锚点**（LRU 50）。
+ *
+ * 为什么不用"绝对消息 id"：长会话是**尾部分页**（"↑ 加载更早消息"，切换间已加载集合会变化，
+ * 实测 11↔22 条）⇒ 切回时锚点消息可能**尚未加载**，idx=-1 → 退化为贴底/落顶（第 5、6 轮实测）。
+ * 尾部消息集在这些场景下是稳定的参照，故改存 `offsetFromEnd = loadedCount − 1 − topVisibleIndex`：
+ *  - 分页前插更早消息时，该偏移不变（尾部对齐）；
+ *  - 切回后按 `targetIndex = loadedCount − 1 − offsetFromEnd` 定位（idx=0 时用 align "end" 贴底）。
+ */
+const SCROLL_ANCHORS = new Map<string, number>();
+const SCROLL_ANCHOR_MAX = 50;
+/** 恢复窗口：内容异步到达 + 惰性测高期内，**定时重应用**目标（毫秒）。
+ *  取 5s 以覆盖"HTTP 取消息 + 两阶段渲染"（整页加载实测内容在 1–2s 内陆续到达） */
+const RESTORE_WINDOW_MS = 5000;
+/** 重应用节拍：必须定时（而非只在消息数变化时），否则惰性测高期间位置会被 clamp 在中段 */
+const RESTORE_TICK_MS = 120;
+/** 判定"用户手动滚动"的宽限期：距上次程序滚动超过该值即视为用户操作。
+ *  取值需 > 程序滚动的 scroll 事件延迟（约 1 帧），又 < 重应用节拍（120ms）以便及时取消 */
+const USER_SCROLL_GRACE_MS = 80;
+/** 窗口起始静默期：此期间内的滚动事件多为布局/惰性测高引起（非用户操作），不据此取消恢复 */
+const RESTORE_INITIAL_GRACE_MS = 800;
+
 interface ChatMessageListProps {
   messages: Message[];
   isStreaming: boolean;
@@ -250,6 +272,8 @@ export default function ChatMessageList({
   const hasOlder = useChatStore((s) => s.hasOlder);
   const loadingOlder = useChatStore((s) => s.loadingOlder);
   const loadOlderMessages = useChatStore((s) => s.loadOlderMessages);
+  /** P1-6b：分页游标——为 null 时"加载更早"不可用（动作会静默失败），UI 需给出原因 */
+  const oldestSeq = useChatStore((s) => s.oldestSeq);
 
   // W3：虚拟滚动——仅渲染视口 ± overscan 内的消息，长会话不再全量挂载
   // （每条消息含 KaTeX/mermaid/代码高亮，几千条时全量渲染导致首屏/切换卡顿）
@@ -273,6 +297,155 @@ export default function ChatMessageList({
     }
     prevFirstIdRef.current = firstMessageId;
   }, [firstMessageId, virtualizer]);
+
+  // ── P1-17：位置记忆（消息索引锚点）与恢复 ─────────────────────────────
+  /** 最新 messages（供切换 effect 读取，避免把 messages 放进依赖导致流式期间反复重定位） */
+  const messagesRef = useRef(messages);
+  messagesRef.current = messages;
+  /** 恢复窗口（窗口期内随消息增长重应用目标） */
+  const restoreWindowRef = useRef<{
+    startAt: number;
+    until: number;
+    mode: "anchor" | "bottom";
+  } | null>(null);
+  /** 恢复窗口的定时器（用户手动滚动时需立即取消） */
+  const restoreTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  /** 最近一次**程序触发**滚动的时间戳（用于区分用户滚动） */
+  const lastProgrammaticScrollAtRef = useRef(0);
+
+  /** 保存锚点：滚动时记录"当前会话顶部可见消息"的距尾偏移 */
+  useEffect(() => {
+    const el = scrollRef?.current;
+    if (!el || !currentSessionId) return;
+    /** rAF 句柄：scroll 事件里逐个读几何会强制同步布局，连续滚动时按帧去抖 */
+    let rafId = 0;
+
+    /**
+     * 顶部**可见**消息索引（DOM 几何判定）。
+     *
+     * ⚠️ 不能用 `virtualizer.getVirtualItems()[0].index`（第 7 轮真机定位）：
+     *  ① 它是最小**已渲染**索引（含 overscan=10），比真实阅读位置靠前 10 条；
+     *  ② scroll 事件当拍 React 尚未按新 `scrollTop` 重渲染，读到的是**上一帧**范围
+     *     ——实测"从底部向上滚"被记成底部的 overscan 起点（锚点 10 而非 29），
+     *     切回后 `scrollToIndex(19)` 落点 `translateY(19)=76144`，偏 9 条。
+     * 故延后一帧、按"渲染顺序首条底边越过容器顶边"取索引（渲染顺序即索引顺序）。
+     */
+    const readTopVisibleIndex = (): number => {
+      const containerTop = el.getBoundingClientRect().top;
+      for (const node of el.querySelectorAll<HTMLElement>("[data-index]")) {
+        if (node.getBoundingClientRect().bottom > containerTop) {
+          return Number(node.dataset.index);
+        }
+      }
+      return -1;
+    };
+
+    const saveAnchor = () => {
+      // ③ 用户手动滚动 ⇒ 取消恢复窗口（否则窗口期的定时重应用会把位置抢回去）。
+      //    起始静默期内不据此取消：加载/测高期的 scroll 事件并非用户操作（否则会误取消，
+      //    实测表现为整页加载后确定性停在会话中段 distance≈66092）。
+      const win0 = restoreWindowRef.current;
+      const inInitialGrace =
+        win0 != null && Date.now() < win0.startAt + RESTORE_INITIAL_GRACE_MS;
+      if (
+        !inInitialGrace &&
+        Date.now() - lastProgrammaticScrollAtRef.current > USER_SCROLL_GRACE_MS
+      ) {
+        restoreWindowRef.current = null;
+        if (restoreTimerRef.current) {
+          clearInterval(restoreTimerRef.current);
+          restoreTimerRef.current = null;
+        }
+      }
+      // ① 恢复窗口内不记录：此时的滚动多由本组件程序触发（含跨会话瞬态的 scrollTop 归零），
+      //    记录会把锚点污染成"别的会话的首条消息"（实测切回后落到会话开头/底部即此因）
+      const win = restoreWindowRef.current;
+      if (win && Date.now() < win.until) return;
+      if (rafId) return;
+      rafId = requestAnimationFrame(() => {
+        rafId = 0;
+        // 延期期间窗口可能被开启/取消，二次确认后再记录
+        const w = restoreWindowRef.current;
+        if (w && Date.now() < w.until) return;
+        const topIndex = readTopVisibleIndex();
+        if (topIndex < 0) return;
+        const msg = messagesRef.current[topIndex];
+        // ② 只记录**属于当前会话**的消息（渲染层可能短暂持有旧会话消息）
+        if (!msg || msg.session_id !== currentSessionId) return;
+        if (
+          SCROLL_ANCHORS.size >= SCROLL_ANCHOR_MAX &&
+          !SCROLL_ANCHORS.has(currentSessionId)
+        ) {
+          const oldest = SCROLL_ANCHORS.keys().next().value;
+          if (oldest) SCROLL_ANCHORS.delete(oldest);
+        }
+        // 距尾偏移（0 = 顶部可见项即最后一条消息）
+        SCROLL_ANCHORS.set(
+          currentSessionId,
+          Math.max(0, messagesRef.current.length - 1 - topIndex),
+        );
+      });
+    };
+    el.addEventListener("scroll", saveAnchor, { passive: true });
+    return () => {
+      el.removeEventListener("scroll", saveAnchor);
+      if (rafId) cancelAnimationFrame(rafId);
+    };
+  }, [scrollRef, currentSessionId, virtualizer]);
+
+  /**
+   * 会话切换：有锚点 → 按索引恢复到该消息（align start）；无锚点 → 贴底。
+   * **定时重应用**至窗口结束：虚拟列表在窗口内持续惰性测高，若只应用一次/只在消息数变化时应用，
+   * 会被当时的（偏小的）`scrollHeight` clamp 在会话中段（实测 distance≈66092）。
+   *
+   * ⚠️ 关键（2026-09-27 第 5 轮真机）：**消息异步到达时不能 early-return** —— 早期实现在
+   * `messages.length === 0` 时直接返回 ⇒ 定时器从未启动 ⇒ 整页加载/切换后落在会话中段（确定性）。
+   * 现改为：窗口与定时器**无条件启动**，目标在每拍解析（消息到位后自然生效）。
+   */
+  useEffect(() => {
+    if (!currentSessionId) return;
+    const startAt = Date.now();
+    const deadline = startAt + RESTORE_WINDOW_MS;
+    restoreWindowRef.current = { startAt, until: deadline, mode: "bottom" };
+
+    const apply = () => {
+      const win = restoreWindowRef.current;
+      if (!win) return;
+      const cur = messagesRef.current;
+      if (cur.length === 0) return; // 消息未到达：等下一拍（窗口不因此取消）
+      lastProgrammaticScrollAtRef.current = Date.now();
+      const offsetFromEnd = SCROLL_ANCHORS.get(currentSessionId);
+      if (offsetFromEnd !== undefined) {
+        win.mode = "anchor";
+        // 距尾偏移 0 ⇒ 当时就在底部：直接对齐尾部；否则对齐该条消息顶部
+        if (offsetFromEnd <= 0) {
+          virtualizer.scrollToIndex(cur.length - 1, { align: "end" });
+        } else {
+          const idx = Math.max(0, cur.length - 1 - offsetFromEnd);
+          virtualizer.scrollToIndex(idx, { align: "start" });
+        }
+        return;
+      }
+      win.mode = "bottom";
+      virtualizer.scrollToIndex(cur.length - 1, { align: "end" });
+    };
+
+    apply();
+    const timer = setInterval(() => {
+      if (Date.now() > deadline) {
+        clearInterval(timer);
+        restoreTimerRef.current = null;
+        return;
+      }
+      apply();
+    }, RESTORE_TICK_MS);
+    restoreTimerRef.current = timer;
+
+    return () => {
+      clearInterval(timer);
+      restoreTimerRef.current = null;
+    };
+  }, [currentSessionId, virtualizer]);
 
   // P0-2 防御：消息区内容与当前会话一致性校验——渲染层兜底，不依赖 store 守卫。
   // 若 messages 首条 session_id 与 currentSessionId 不一致（切换竞态/数据错位），
@@ -471,7 +644,7 @@ export default function ChatMessageList({
             {t("chat.welcomeTitle")}
           </h2>
           <p className="text-gray-500 dark:text-gray-400">
-            官网: https://openliri.com
+            {t("chat.welcomeOfficialSite", "官网: https://openliri.com")}
           </p>
           <p className="text-gray-500 dark:text-gray-400 mt-1 mb-8">
             {t("chat.welcomeHint")}
@@ -601,16 +774,28 @@ export default function ChatMessageList({
           </div>
         )}
 
-        {/* KB-LONG-SESSION（2026-08-29）：长会话分页——还有更早历史时显示"加载更早消息" */}
+        {/* KB-LONG-SESSION（2026-08-29）：长会话分页——还有更早历史时显示"加载更早消息"。
+            P1-6b（2026-09-27）：游标缺失（`oldestSeq == null`，后端尾页未带 lastEventSeq）时
+            动作会静默失败 ⇒ 改为**不可用态 + 原因提示**，不再出现"点了没反应"。 */}
         {hasOlder && (
           <div className="flex justify-center py-2">
-            <button
-              onClick={() => void loadOlderMessages()}
-              disabled={loadingOlder}
-              className="text-xs px-3 py-1.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50 transition-colors"
-            >
-              {loadingOlder ? "加载中…" : "↑ 加载更早消息"}
-            </button>
+            {oldestSeq == null ? (
+              <span
+                className="text-xs px-3 py-1.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 cursor-not-allowed"
+                title={t("chat.loadOlderUnavailable")}
+              >
+                {t("chat.loadOlderUnavailableLabel")}
+              </span>
+            ) : (
+              <button
+                onClick={() => void loadOlderMessages()}
+                disabled={loadingOlder}
+                title={t("chat.loadOlder")}
+                className="text-xs px-3 py-1.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50 transition-colors"
+              >
+                {loadingOlder ? t("chat.loadingOlder") : t("chat.loadOlder")}
+              </button>
+            )}
           </div>
         )}
 

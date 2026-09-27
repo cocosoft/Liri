@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { CodeRunBlockData } from "../../types";
 
 interface CodeRunCardProps {
@@ -7,34 +8,38 @@ interface CodeRunCardProps {
 
 const STATUS_META: Record<
   CodeRunBlockData["status"],
-  { label: string; icon: string; color: string }
+  { labelKey: string; icon: string; color: string }
 > = {
   completed: {
-    label: "完成",
+    labelKey: "chat.completed",
     icon: "\u2705",
     color: "text-green-600 dark:text-green-400",
   },
   failed: {
-    label: "失败",
+    labelKey: "chat.failed",
     icon: "\u274C",
     color: "text-red-600 dark:text-red-400",
   },
   "compiled-error": {
-    label: "编译错误",
+    labelKey: "chat.codeRunCompileError",
     icon: "\u26A0\uFE0F",
     color: "text-amber-600 dark:text-amber-400",
   },
   "security-rejected": {
-    label: "安全拒绝",
+    labelKey: "chat.codeRunSecurityRejected",
     icon: "\uD83D\uDD12",
     color: "text-red-600 dark:text-red-400",
   },
   timeout: {
-    label: "超时",
+    labelKey: "chat.codeRunTimeout",
     icon: "\u23F0",
     color: "text-amber-600 dark:text-amber-400",
   },
-  canceled: { label: "已取消", icon: "\u2716\uFE0F", color: "text-gray-500" },
+  canceled: {
+    labelKey: "chat.taskCancelled",
+    icon: "\u2716\uFE0F",
+    color: "text-gray-500",
+  },
 };
 
 /**
@@ -43,6 +48,7 @@ const STATUS_META: Record<
  * CM-5 读侧（独立执行块，待确认③按独立块实施）
  */
 export default function CodeRunCard({ data }: CodeRunCardProps) {
+  const { t } = useTranslation();
   const {
     code,
     round,
@@ -54,11 +60,11 @@ export default function CodeRunCard({ data }: CodeRunCardProps) {
     logs,
     durationMs,
   } = data;
-  const meta = STATUS_META[status] || {
-    label: status,
-    icon: "\u2753",
-    color: "text-gray-500",
-  };
+  const meta = STATUS_META[status];
+  // 未识别状态回退显示后端原始值（不编造文案）
+  const metaIcon = meta?.icon ?? "\u2753";
+  const metaColor = meta?.color ?? "text-gray-500";
+  const metaLabel = meta ? t(meta.labelKey) : status;
 
   const [showCode, setShowCode] = useState(false);
   const [showLogs, setShowLogs] = useState(false);
@@ -79,12 +85,12 @@ export default function CodeRunCard({ data }: CodeRunCardProps) {
     <div className="my-2 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 overflow-hidden shadow-sm">
       {/* 标题栏 */}
       <div className="px-3 py-2 border-b border-gray-100 dark:border-gray-700 flex items-center gap-2">
-        <span className="text-sm flex-shrink-0">{meta.icon}</span>
+        <span className="text-sm flex-shrink-0">{metaIcon}</span>
         <span className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
-          Code Run #{round}
+          {t("chat.codeRunTitle", { round, defaultValue: "代码运行 #{{round}}" })}
         </span>
-        <span className={`text-xs flex-shrink-0 ${meta.color}`}>
-          {meta.label}
+        <span className={`text-xs flex-shrink-0 ${metaColor}`}>
+          {metaLabel}
         </span>
         {typeof durationMs === "number" && (
           <span className="text-xs text-gray-400 flex-shrink-0 ml-auto">
@@ -99,7 +105,9 @@ export default function CodeRunCard({ data }: CodeRunCardProps) {
           {errorText}
           {structuredError?.stack && (
             <details className="mt-1 text-red-400/80">
-              <summary className="cursor-pointer">堆栈</summary>
+              <summary className="cursor-pointer">
+                {t("chat.stackTrace", "堆栈")}
+              </summary>
               <pre className="mt-1 whitespace-pre-wrap break-all">
                 {structuredError.stack}
               </pre>
@@ -111,7 +119,9 @@ export default function CodeRunCard({ data }: CodeRunCardProps) {
       {/* 结构化输出 */}
       {outputText && (
         <div className="px-3 py-2 border-t border-gray-100 dark:border-gray-700">
-          <div className="text-xs text-gray-400 mb-1">结果</div>
+          <div className="text-xs text-gray-400 mb-1">
+            {t("chat.result", "结果")}
+          </div>
           <pre className="text-xs text-gray-700 dark:text-gray-300 font-mono whitespace-pre-wrap break-all max-h-40 overflow-y-auto">
             {outputText}
           </pre>
@@ -122,7 +132,10 @@ export default function CodeRunCard({ data }: CodeRunCardProps) {
       {toolCalls && toolCalls.length > 0 && (
         <div className="px-3 py-2 border-t border-gray-100 dark:border-gray-700 space-y-1">
           <div className="text-xs text-gray-400 mb-1">
-            内部工具调用（{toolCalls.length}）
+            {t("chat.innerToolCalls", {
+              count: toolCalls.length,
+              defaultValue: "内部工具调用（{{count}}）",
+            })}
           </div>
           {toolCalls.map((tc, idx) => (
             <div key={idx} className="flex items-center gap-2 text-xs">
@@ -150,11 +163,16 @@ export default function CodeRunCard({ data }: CodeRunCardProps) {
             onClick={() => setShowLogs((v) => !v)}
             className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
           >
-            {showLogs ? "\u25BC" : "\u25B6"} 日志（{logs.length}）
+            {showLogs ? "\u25BC" : "\u25B6"}{" "}
+            {t("chat.logsCount", {
+              count: logs.length,
+              defaultValue: "日志（{{count}}）",
+            })}
           </button>
           {showLogs && (
             <pre className="mt-1 text-xs text-gray-500 dark:text-gray-400 font-mono whitespace-pre-wrap break-all max-h-32 overflow-y-auto">
-              {logs.join("")}
+              {/* P2-8（2026-09-27 审计）：原 `join("")` 无分隔符 ⇒ 相邻日志被粘连成一行 */}
+              {logs.join("\n")}
             </pre>
           )}
         </div>
@@ -167,7 +185,8 @@ export default function CodeRunCard({ data }: CodeRunCardProps) {
           onClick={() => setShowCode((v) => !v)}
           className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
         >
-          {showCode ? "\u25BC" : "\u25B6"} 编排代码
+          {showCode ? "\u25BC" : "\u25B6"}{" "}
+          {t("chat.orchestrationCode", "编排代码")}
         </button>
         {showCode && (
           <pre className="mt-1 text-xs text-gray-700 dark:text-gray-300 font-mono whitespace-pre-wrap break-all max-h-48 overflow-y-auto bg-gray-50 dark:bg-gray-900 rounded-lg p-2">

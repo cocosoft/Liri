@@ -28,6 +28,7 @@
 import * as fs from 'fs';
 import { configManager } from '@modules/config';
 import type { CoreAPI } from './CoreAPI';
+import { withPaginationSeq } from './paginationSeq';
 import type {
   ChatRequest,
   ChatResponse,
@@ -1705,6 +1706,14 @@ export class CoreAPIImpl implements CoreAPI {
    * 取末尾 limit 条（最近的），hasMore 精确表示是否还有更早。排序键 lastEventSeq
    * 优先，回退 timestamp（投影/内存 fallback 路径无 lastEventSeq）。不传 limit 时
    * 返回全量（行为不变），小会话前端传大 limit 也等效全量。
+   *
+   * P1-6b（2026-09-27，Spec §10）：**分页键归一化**（`withPaginationSeq`）。
+   * 原键 `lastEventSeq ?? timestamp` 混比两种量纲（事件序号 ~1e3 vs epoch 毫秒 ~1.7e12）：
+   * 一旦 `before` 落在 timestamp 量纲，`key(m) <= before` 对所有条目恒真 ⇒ **过滤失效**、
+   * 每页恒返回同一批尾部消息（前端 id 去重后"点了没反应"、`hasMore` 恒 true）；
+   * 且前端游标只读 `messages[0].lastEventSeq` ⇒ 尾页首条缺该字段时游标为 null。
+   * 故**仅在分页启用时**（limit > 0）先回填单调键：量纲统一 + 每页首条恒有键。
+   * 不传 limit 的全量响应**保持原样**（不改动其他消费者可见字段）。
    */
   private _paginateMessages<
     T extends { lastEventSeq?: number; timestamp?: number },
@@ -1716,8 +1725,9 @@ export class CoreAPIImpl implements CoreAPI {
     if (limit == null || limit <= 0) {
       return { messages, hasMore: false };
     }
+    const normalized = withPaginationSeq(messages);
     const key = (m: T): number => m.lastEventSeq ?? m.timestamp ?? 0;
-    let filtered = messages;
+    let filtered = normalized;
     if (query?.before != null) {
       // N-57（2026-09-20）：排序键 `lastEventSeq` **存在重复值**（同轮多条消息共享 seq，
       // 实测会话开头有 `1,1 / 2,2 / 3,3`）⇒ 用 `<` 会把与边界同 seq 的消息漏掉

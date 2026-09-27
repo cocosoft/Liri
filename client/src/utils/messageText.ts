@@ -8,6 +8,7 @@
 import type { Message } from "../types";
 import { getToolDisplayName, getToolHumanSummary } from "./toolHumanSummary";
 import { createLogger } from "./logger";
+import { decodeToolResultContent } from "./toolResultText";
 
 const logger = createLogger("utils:messageText");
 
@@ -66,10 +67,10 @@ export function stripLeadingDecorators(content: string): string {
  */
 export function getMessageSearchText(
   message: Message,
-  opts?: { forExport?: boolean },
+  opts?: { forExport?: boolean; full?: boolean },
 ): string {
   return opts?.forExport
-    ? getMessageExportText(message)
+    ? getMessageExportText(message, opts.full === true)
     : getMessagePlainText(message);
 }
 
@@ -102,8 +103,10 @@ function getMessagePlainText(message: Message): string {
   return parts.join("\n");
 }
 
-/** 导出版：富文本提取（思考/工具/进度语义化前缀） */
-function getMessageExportText(message: Message): string {
+/** 导出版：富文本提取（思考/工具/进度语义化前缀）
+ *  @param full D6（2026-09-27）= B：「完整版导出」——思考与工具结果**不截断**、
+ *              工具调用附完整参数（体积可能很大，由用户在导出菜单显式选择） */
+function getMessageExportText(message: Message, full = false): string {
   const parts: string[] = [];
   // thinking 块前置输出，导出顺序符合"思考在前、正文在后"的阅读习惯
   // 相邻 thinking 块合并（防御流式 delta 碎片化导致重复 💭 标签）
@@ -120,7 +123,8 @@ function getMessageExportText(message: Message): string {
         // 全量导出造成"思考泄露"观感（chat-export 实证：单块 6-7 遍自我复述）。
         // 仅导出首段摘要 + 截断说明，完整思考保留在会话内。
         const MAX_EXPORT_THINKING_CHARS = 300;
-        const truncated = merged.length > MAX_EXPORT_THINKING_CHARS;
+        // D6：完整版导出不截断（默认仍为 300 字摘要 + 无歧义标注）
+        const truncated = !full && merged.length > MAX_EXPORT_THINKING_CHARS;
         const excerpt = truncated
           ? `${merged.slice(0, MAX_EXPORT_THINKING_CHARS)}…`
           : merged;
@@ -134,8 +138,15 @@ function getMessageExportText(message: Message): string {
       }
     }
   }
-  if (message.content)
-    parts.push(typeof message.content === "string" ? message.content : "");
+  if (message.content) {
+    const text = typeof message.content === "string" ? message.content : "";
+    // P0-3（2026-09-27 导出产物实证）：tool 角色 content 是"工具结果信封"JSON，
+    // 直接导出会出现 `[{"type":"tool_result","value":"…"}]` 及其转义噪声
+    // ⇒ 统一解包+解码（单一实现，与渲染侧同源）。
+    const rendered =
+      message.role === "tool" ? decodeToolResultContent(text) : text;
+    if (rendered.trim()) parts.push(rendered);
+  }
   if (message.blocks) {
     // 跟踪已导出的 toolCallId，避免同一工具多状态块（running→completed→result）重复罗列
     const seenToolIds = new Set<string>();
@@ -160,6 +171,17 @@ function getMessageExportText(message: Message): string {
         (/^Running tool:/i.test(content) ||
           /^Tool .+? completed/i.test(content) ||
           /^Tool .+? failed/i.test(content))
+      ) {
+        continue;
+      }
+
+      // P1-18（2026-09-27 导出产物实证）：通用进度占位（如
+      // 「任务执行中，正在等待模型/工具响应...」）属流式过程噪音，
+      // 已完成的历史会话里导出它只会干扰阅读 ⇒ 过滤。
+      if (
+        block.type === "progress" &&
+        /等待模型|正在等待|任务执行中/.test(content) &&
+        content.length < 60
       ) {
         continue;
       }
@@ -191,6 +213,13 @@ function getMessageExportText(message: Message): string {
           ? `${icon} ${displayName} — ${summary}`
           : `${icon} ${displayName}`;
         parts.push(line);
+        // D6 完整版导出：附完整调用参数（默认版只给人话摘要；参数可能很大，故仅显式选择时输出）。
+        // 用围栏包裹，避免参数内含 Markdown 结构；导出处另有 balanceCodeFences 兜底未闭合。
+        if (full && tc.arguments && Object.keys(tc.arguments).length > 0) {
+          parts.push(
+            `\`\`\`json\n${JSON.stringify(tc.arguments, null, 2)}\n\`\`\``,
+          );
+        }
         continue;
       }
 
@@ -212,9 +241,9 @@ function getMessageExportText(message: Message): string {
         const toolKey = block.toolCallId || block.toolCall?.id;
         if (toolKey && seenToolIds.has(toolKey)) continue;
         if (toolKey) seenToolIds.add(toolKey);
-        // 工具结果摘要（前 200 字符，避免完整 JSON 洪泛）
+        // 工具结果摘要（默认前 200 字符，避免完整 JSON 洪泛；D6 完整版导出不截断）
         const snippet =
-          content.length > 200 ? `${content.slice(0, 200)}…` : content;
+          !full && content.length > 200 ? `${content.slice(0, 200)}…` : content;
         if (!snippet.trim()) continue; // content 为空时无内容可导（同 id 已被 tool_call 覆盖）
         parts.push(`📋 ${snippet}`);
         continue;

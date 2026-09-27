@@ -44,7 +44,7 @@ export default function AnalysisResultCard({ data }: Props) {
 
   // 兜底
   return (
-    <pre className="m-0 whitespace-pre-wrap break-words text-[10px] text-[#a9b1d6] font-mono bg-black/15 p-1 rounded max-h-[200px] overflow-y-auto">
+    <pre className="m-0 whitespace-pre-wrap break-words text-[10px] text-gray-800 dark:text-[#a9b1d6] font-mono bg-gray-100 dark:bg-black/15 p-1 rounded max-h-[200px] overflow-y-auto">
       {JSON.stringify(data, null, 2)}
     </pre>
   );

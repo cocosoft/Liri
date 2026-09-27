@@ -198,8 +198,9 @@ function KnowledgeEditor({
     <div
       className={`flex-1 overflow-y-auto px-4 py-3 ${isDark ? "bg-gray-900" : "bg-white"}`}
     >
+      {/* P1-9（2026-09-27，D1=C）：原 `prose prose-sm dark:prose-invert` 为失效类（未装 typography 插件）⇒ 已清理 */}
       {content.trim() ? (
-        <div className="prose prose-sm max-w-none dark:prose-invert">
+        <div className="max-w-none">
           <MarkdownRenderer content={content} />
         </div>
       ) : (

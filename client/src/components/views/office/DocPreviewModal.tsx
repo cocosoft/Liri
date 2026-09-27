@@ -106,7 +106,7 @@ export default function DocPreviewModal({
           {!loading && !error && format !== "pptx" && html && (
             <div
               dangerouslySetInnerHTML={{ __html: html }}
-              className="prose prose-sm dark:prose-invert max-w-none"
+              className="max-w-none"
             />
           )}
         </div>

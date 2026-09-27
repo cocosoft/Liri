@@ -1,21 +1,23 @@
+import { useTranslation } from "react-i18next";
 import type { Message } from "../../types";
 import MarkdownRenderer from "./MarkdownRenderer";
 import { useChatStore } from "../../stores/chat";
+import { decodeToolResultContent } from "../../utils/toolResultText";
 
 interface ToolResultMessageProps {
   message: Message;
 }
 
-/** 安全拦截原因的中文映射 */
-const SECURITY_REASON_LABELS: Record<string, string> = {
-  path_safety: "路径安全检查",
-  dangerous_command: "危险命令检测",
-  dangerous_pattern: "危险命令模式",
-  ast_analysis: "AST安全分析",
-  security_analyzer_deny: "安全策略拒绝",
-  security_analyzer_ask: "需用户确认",
-  command_whitelist: "命令白名单",
-  sandbox_checker: "沙箱安全检查",
+/** 安全拦截原因 → i18n 键映射 */
+const SECURITY_REASON_KEYS: Record<string, string> = {
+  path_safety: "chat.securityReasonPathSafety",
+  dangerous_command: "chat.securityReasonDangerousCommand",
+  dangerous_pattern: "chat.securityReasonDangerousPattern",
+  ast_analysis: "chat.securityReasonAstAnalysis",
+  security_analyzer_deny: "chat.securityReasonAnalyzerDeny",
+  security_analyzer_ask: "chat.securityReasonAnalyzerAsk",
+  command_whitelist: "chat.securityReasonCommandWhitelist",
+  sandbox_checker: "chat.securityReasonSandboxChecker",
 };
 
 /**
@@ -23,6 +25,7 @@ const SECURITY_REASON_LABELS: Record<string, string> = {
  * 解析并显示工具执行的结果
  */
 function ToolResultMessage({ message }: ToolResultMessageProps) {
+  const { t } = useTranslation();
   // P0-5：精准 selector（避免整个 store 订阅）
   const readFileToPreview = useChatStore((s) => s.readFileToPreview);
 
@@ -39,14 +42,11 @@ function ToolResultMessage({ message }: ToolResultMessageProps) {
   };
 
   // 尝试解析 value 中的 JSON，格式化显示
-  const formatValue = (value: string): string => {
-    try {
-      const parsed = JSON.parse(value);
-      return JSON.stringify(parsed, null, 2);
-    } catch {
-      return value;
-    }
-  };
+  const formatValue = (value: string): string =>
+    // 2026-09-27（P0-2/X3）：解信封 + 迭代解码嵌套 JSON + pretty-print；
+    // 单一实现见 `utils/toolResultText.ts`（渲染与导出共用，CS01 不重复实现）。
+    // 空信封（无 value）⇒ 兜底为 "—"，避免渲染空卡片。
+    decodeToolResultContent(value).trim() || "—";
 
   return (
     <div className="text-sm break-words max-w-none">
@@ -56,12 +56,12 @@ function ToolResultMessage({ message }: ToolResultMessageProps) {
           <span className="text-base shrink-0 mt-0.5">&#x26A0;&#xFE0F;</span>
           <div className="flex-1 min-w-0">
             <div className="text-xs font-medium text-orange-700 dark:text-orange-400">
-              安全拦截
+              {t("chat.securityIntercepted", "安全拦截")}
             </div>
             <div className="text-xs text-orange-600 dark:text-orange-500 mt-0.5">
-              {SECURITY_REASON_LABELS[securityReason] ||
-                securityReason ||
-                "安全策略拦截"}
+              {SECURITY_REASON_KEYS[securityReason]
+                ? t(SECURITY_REASON_KEYS[securityReason])
+                : securityReason || t("chat.securityPolicyBlocked", "安全策略拦截")}
             </div>
           </div>
         </div>
@@ -69,7 +69,7 @@ function ToolResultMessage({ message }: ToolResultMessageProps) {
 
       <div className="flex items-center gap-2 mb-2">
         <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-emerald-100 text-emerald-800 rounded-full dark:bg-emerald-900/30 dark:text-emerald-400">
-          工具返回
+          {t("chat.toolReturn", "工具返回")}
         </span>
         {result.toolCallId && (
           <span className="text-xs text-gray-400 dark:text-gray-500">

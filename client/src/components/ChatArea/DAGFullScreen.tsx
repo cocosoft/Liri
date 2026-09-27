@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import {
   ReactFlow,
   Background,
@@ -120,6 +121,7 @@ export default function DAGFullScreen({
   title,
   onClose,
 }: DAGFullScreenProps) {
+  const { t } = useTranslation();
   const { nodes, edges } = useMemo(() => layoutNodes(tasks), [tasks]);
 
   return (
@@ -130,33 +132,35 @@ export default function DAGFullScreen({
           <div className="flex items-center gap-2">
             <span className="text-lg">📊</span>
             <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">
-              {title ? `依赖关系图：${title}` : "任务依赖关系图"}
+              {title
+                ? t("chat.dagTitleWithName", { title })
+                : t("chat.dagTitle", "任务依赖关系图")}
             </span>
           </div>
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400 mr-2">
               <span>
                 <span className="inline-block w-2.5 h-2.5 rounded-full bg-green-100 border border-green-500 mr-1" />
-                已完成
+                {t("chat.completed")}
               </span>
               <span>
                 <span className="inline-block w-2.5 h-2.5 rounded-full bg-blue-100 border border-blue-500 mr-1" />
-                执行中
+                {t("chat.executing")}
               </span>
               <span>
                 <span className="inline-block w-2.5 h-2.5 rounded-full bg-orange-100 border border-orange-500 mr-1" />
-                等待
+                {t("chat.dagLegendPending", "等待")}
               </span>
               <span>
                 <span className="inline-block w-2.5 h-2.5 rounded-full bg-red-100 border border-red-500 mr-1" />
-                失败
+                {t("chat.failed")}
               </span>
             </div>
             <button
               onClick={onClose}
               className="text-sm px-3 py-1 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg text-gray-700 dark:text-gray-300 transition-colors"
             >
-              关闭
+              {t("common.close")}
             </button>
           </div>
         </div>

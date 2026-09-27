@@ -1,4 +1,11 @@
-import React, { useEffect, useRef, useMemo, type JSX } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useRef,
+  useMemo,
+  useState,
+  type JSX,
+} from "react";
 import katex from "katex";
 import "katex/dist/katex.min.css";
 import mermaid from "mermaid";
@@ -79,6 +86,21 @@ function MarkdownRenderer({
     if (isTruncated) return [];
     return parseMarkdown(safeContent, blockIdRef);
   }, [safeContent, isTruncated]);
+
+  /**
+   * P1-14（2026-09-27 审计）：超长内容降级后原本**只提示、无出口**——用户拿不到后半段。
+   * 提供"复制全文"（剪贴板不受渲染上限约束），保证内容可达。
+   */
+  const [copiedFull, setCopiedFull] = useState(false);
+  const handleCopyFull = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(normalizedContent);
+      setCopiedFull(true);
+      setTimeout(() => setCopiedFull(false), 2000);
+    } catch {
+      // @ignore-catch — 剪贴板不可用（权限/非安全上下文）：保持提示，用户仍可导出会话
+    }
+  }, [normalizedContent]);
 
   useEffect(() => {
     // N6 修复：
@@ -436,7 +458,8 @@ function MarkdownRenderer({
 
   if (isTruncated) {
     return (
-      <div className="prose prose-sm max-w-none">
+      // P1-9（2026-09-27，D1=C）：原 `prose prose-sm` 为失效类（未装 typography 插件）⇒ 清理
+      <div className="max-w-none">
         <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg text-xs">
           <p className="text-amber-600 dark:text-amber-400 font-medium mb-1">
             ⚠️ 内容过长（{(normalizedContent.length / 1024).toFixed(0)}{" "}
@@ -445,17 +468,26 @@ function MarkdownRenderer({
           <pre className="mt-2 p-2 bg-gray-100 dark:bg-gray-800 rounded text-gray-700 dark:text-gray-300 overflow-auto max-h-96 whitespace-pre-wrap text-[11px] leading-relaxed">
             {safeContent}
           </pre>
-          <p className="mt-2 text-amber-500 dark:text-amber-400">
-            ... 剩余 {(normalizedContent.length - 5000).toLocaleString()}{" "}
-            字符未显示 ...
-          </p>
+          <div className="mt-2 flex items-center gap-2 flex-wrap">
+            <span className="text-amber-500 dark:text-amber-400">
+              ... 剩余 {(normalizedContent.length - 5000).toLocaleString()}{" "}
+              字符未显示 ...
+            </span>
+            <button
+              onClick={handleCopyFull}
+              className="px-2 py-0.5 rounded border border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors"
+            >
+              {copiedFull ? "\u2713 已复制全文" : "复制全文"}
+            </button>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div ref={containerRef} className="prose prose-sm max-w-none">
+    // P1-9（2026-09-27，D1=C）：清理失效的 prose 类
+    <div ref={containerRef} className="max-w-none">
       {blocks.map((block) => (
         <BlockContent
           key={block.id}

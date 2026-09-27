@@ -197,9 +197,23 @@
 >   - **范式**：JSX 用 `t("chat.x", "中文兜底")`；模块级文案映射表 `label: "中文"` → `labelKey: "chat.x"`，渲染处 `t(key)`；**未登记的枚举值回退显示后端原值**（不编造，CS06）；既有可复用键（`common.save/cancel/delete/close/loading`、`chat.executing/completed/failed/taskPending/closePreview/fileReadFailed`、`chat.saveToKnowledge`）一律复用不新增（CS01）。
 >   - **门禁**：`tsc --noEmit` 0；改动文件 eslint **0 warning**（含若干 prettier 自动修正，以及 `ImageViewer` 一处 `useCallback` 上移 + 依赖补全以消除既有 `react-hooks/exhaustive-deps` warning）；`vitest run` **49 文件 / 471 用例全通过**（与基线一致）。
 >   - **核验更正**：`ChatMessageList` 中「加载更早消息」等文案在迁移前**已是 `t()`**（全文件已无中文串字面量，仅欢迎页官网一处未迁移）；`DocWorkflowProgress` 的英文 status 改按 `STATUS_LABEL_KEY` 映射（未登记回退原值）。**未做真机复验**（纯文案改动，门禁 + 源码级核验覆盖）。
+>   - **口径更正 → 残留已收尾（2026-09-27，第 9 批）**：迁移范围 = 上述 14 个组件 + **第 9 批补扫**。第 8 批取证的三处（`StatusFloatBar` `停止 AI 回复`/`停止`、`InboxBlock` `紧急`/`分钟后过期`、`ImageDisplayResult` `引用到对话`/`复制引用`/`下载`/`共 n 张图片`）**已全部迁移**；第 9 批再深扫 ChatArea，另捕 8 处计划外漏网（`BlockRenderer` 兜底、`DiffBlock` 已忽略、`PdcaActivityStrip`/`PdcaWorkflowCard` 状态文案与决策标签、`SessionHeader` 导出件元信息/截断/耗时/Token 行、`SessionHistorySidebar` 渠道来源标签 + `会话加载失败`/`重试`、`SessionListItem` 轮数后缀、`ChatArea` `查看技术详情`、`ImageDisplayResult` `没有可显示的图片`/`全部引用`）。**扫描口径**：裸 JSX 文本行、JSX 属性字面量、非 `t()` 包裹的字符串字面量三种 grep 形态全目录覆盖；ChatArea 内已无裸用户可见中文（保留项见台账「第 9 批」）。ChatArea 之外（`media/TaskCard.tsx`、`views/ProjectsPage.tsx`）待核实清单同见台账。
 > - ✅ **P2-3 死代码（D4 = 直接删除）已执行（2026-09-27）**：删前逐个 grep 复核**全仓零代码引用**（含 `.trae` 文档命中除外）后删除 5 个仅自引用文件；`PdcaActivityStrip` 组件本体零引用 ⇒ 删组件 + 专属 `AutoLaunchedBanner`，**保留 4 处复用的具名导出**（`PdcaWorkflowCard` / `usePdcaEntry` / `usePdcaAutoAppend` / `ChatPdcaDrawer`）。详见台账「第 5 批」。
 > - ✅ **P2-6 剩余已收口**：D2 = 补齐 HTML/Word（复用 `exportMessageAsFormat`，菜单 5 项）、D3 = 维持浏览器 blob 下载；`triggerBlobDownload`/`sanitizeFilename` 归一、Windows 保留名/结尾点/超长、`handleExportSession` 补 catch、导出按钮禁用均已落地（台账「第 4 批」）。
-> - ⏳ **未执行（需单独一轮/决策）**：**P2-7** 后端导出流式写；**P2-5 剩余**（删除按钮/媒体悬浮/ImageViewer aria）；**P2-8 剩余**（`InboxBlock` 过期时间刷新、其余固定宽度）。
+> - ✅ **P2-5 可访问性剩余（2026-09-27）**：
+>   - hover-only 按钮补键盘可达：`SessionListItem` 删除、`ChatInput` 识图翻译/移除图片、`FileLink` 打开所在目录 ⇒ className 加 `focus-visible:opacity-100`；`ImageDisplayResult`/`ImageGenerateResult` 悬浮操作容器 ⇒ `group-focus-within:opacity-100`。
+>   - 补可访问名：`SessionListItem` 删除按钮、`ChatInput` 两处、`RoundNavigator` 折叠/轮次按钮（`aria-label`，`title` 同步走 i18n）。
+>   - `ChatMessage` "⋯" 菜单键盘：Esc 关闭并归还焦点、↑↓ 在菜单项间移动、关闭态 ↓ 打开并聚焦首项；**焦点离开判定改挂菜单容器**（`e.currentTarget.contains(e.relatedTarget)`）——原挂在触发按钮上的 `onBlur` 会在焦点移入菜单项时误关菜单。
+>   - dialog 语义：`DAGFullScreen` 与 `SaveKnowledgeModal` 补 `role="dialog"` + `aria-modal` + `aria-labelledby`/`aria-label` + Escape 关闭。
+>   - `StatusFloatBar` 展开指示：纯 `svg` → **真 `<button>`**（`aria-expanded` + `aria-label`）。**有意不给外层可点击 `div` 加 `role="button"`**——那会让 stop/PDCA 等嵌套按钮在 A11y 树中被判 presentational（回归）。
+>   - **核验更正**：`ImageViewer` **已有** Escape/方向键与 `alt`，工具栏按钮均带 `title`（可作可访问名）⇒ 未改动。
+>   - **门禁**：`tsc --noEmit` 0；改动文件 eslint 0 warning；`vitest run` **49 文件 / 471 用例全通过**。
+> - ✅ **P2-8 零散剩余（2026-09-27）**：`InboxBlock` 过期倒计时补 30s 心跳重算（原渲染期一次性快照）；`SessionHeader` 标题输入 `style width:200px` → `w-full max-w-[200px]`；回复引用内层 `truncate` 补 `title`（截断 500 字）；`DebugBlockInfo` 的 `title={b.content}` → `slice(0,500)`；`OfficePreview` docx 暗色由 `invert-[0.9]` 改 `invert + hue-rotate-180`，并在 `index.css` 对 `.office-preview-content img` 施加同一滤镜链（`invert(1) hue-rotate(180deg)` 两次叠加 ≈ 原色 ⇒ **图片不再被一起反色**）。
+>   ⚠️ **证据否定**：审计条目「`ToolCallGroup` 的 `title` 内嵌整份文件内容（~9.4k）」**无法复现**——`ToolCallGroup.tsx` 内 `title` 命中 0 处，`utils/toolHumanSummary.ts#getArgStr` 已 `>40 字`截断；全仓唯一无界 `title={b.content}` 位于 `ChatMessage.tsx` 的 DebugBlockInfo（已修）。
+> - ✅ **P2-7 导出性能/规模（2026-09-27）**：
+>   - 后端 `handleExportSessionEvents`（[session-handlers.ts](file:///e:/PY/Documents/CODES/PY_APP/app/src/infrastructure/http/handlers/session-handlers.ts)）：先 `writeHead` 再**边分页边 `res.write`**（jsonl 每行一条、json 手写 `{"events":[` … `],"count":N}`），并新增 `writeWithBackpressure()` 等 `drain` / 客户端 `close` 时停止导出；catch 补「头已发出 ⇒ 必须 `res.end()`」分支（否则客户端挂起）。
+>   - 前端 `SessionHeader.tsx`：`exportAsMarkdown`/`exportAsJson` 改 async，**逐条累加 + 每 20 条 `await` 让出事件循环**；JSON 侧改为逐条 `stringify` 后按 2 空格缩进拼装（产出与 `JSON.stringify(..., null, 2)` **逐字符一致**），避免整体 stringify 的长同步任务。**未采用 Worker**（需新增 worker 文件与消息协议，与收益不成比例）。
+>   - **门禁**：`app` `tsc --noEmit` 0 + eslint 0 + `bun test tests/runtime tests/session` **291 pass / 0 fail**；`client` `tsc --noEmit` 0 + eslint 0 + `vitest run` **49 文件 / 471 用例全通过**。
 
 | # | 主题 | 要点（证据见审计明细） |
 |---|---|---|
@@ -207,10 +221,10 @@
 | P2-2 | **重复渲染实现收敛**（✅ 已完成 2026-09-27，D10） | `BlockRenderer` vs `BlockItem`（status/tool_call/text/code_run 各一份）；`ToolExecutionGroup` 内部扁平/旧版两套；媒体工具名清单在 `ChatMessage.tsx:1535`（3 个）与 `ToolCallGroup.tsx:24-33`（8 个）**不一致** |
 | P2-3 | **死代码**（✅ 已完成 2026-09-27，D4 = 直接删除） | 未被引用：`AgentProgressBlock.tsx`、`CouncilPanel.tsx`、`OutlineConfirmCard.tsx`、`ImageCompareView.tsx`、`ClickableImageRef.tsx`；`PdcaActivityStrip.tsx` 仅具名导出存活、组件本体已死 ⇒ 建议**先确认再删**（需你决定） |
 | P2-4 | **性能** | `VirtualScrollContext.tsx:34-52` value 未 memo；`InlineCodeLink`×`pathCache` 每个 code token O(tokens×paths)；`PdcaWorkflowCard/PdcaActivityStrip` 在 render 内 `Object.values().filter().sort()`；`SessionListItem.tsx:85-115` 每次点击 logger.info + 250ms 延迟 |
-| P2-5 | **可访问性** | hover-only 按钮（`CodeBlock` 复制、`SessionListItem` 删除、媒体悬浮操作）触摸/键盘不可达；缺 `aria-label`（ImageViewer/DAG/RoundNavigator）；`ChatMessage` "⋯" 菜单无 Escape/方向键；`SaveKnowledgeModal` 无 dialog 语义；`StatusFloatBar` 主区域 `div onClick` |
+| P2-5 | **可访问性**（✅ 已完成 2026-09-27） | hover-only 按钮（`SessionListItem` 删除、媒体悬浮操作）⇒ `focus-visible:` / `group-focus-within:`；`aria-label`（`RoundNavigator`/删除/识图翻译）；`ChatMessage` "⋯" 菜单 Esc/方向键 + 焦点离开改挂容器；`DAGFullScreen`/`SaveKnowledgeModal` dialog 语义 + Esc；`StatusFloatBar` 展开指示改真按钮（`aria-expanded`） |
 | P2-6 | **导出工程化**（✅ 已完成 2026-09-27，D2/D3） | `triggerBlobDownload`×3、`sanitizeFilename`×2 重复实现 ⇒ 归一；文件名未处理 Windows 保留名/结尾点/长度；`SessionHistorySidebar.handleExportSession` **无 catch**（违背 §1.9）；导出按钮无 disabled（空会话/流式中无提示） |
-| P2-7 | **导出性能/规模** | 后端 `handleExportSessionEvents` 全量驻留 + `.map().join()` 非流式（改为 `res.write` 逐页）；前端大会话同步构造大字符串（Worker 或分段） |
-| P2-8 | **零散** | `InboxBlock.tsx:138` 过期时间渲染期一次性快照（不刷新）；`StatusFloatBar` 缺 `skipped` 图标；`ChatMessageList.tsx:645` `timestamp!` 非空断言；`ToolCallGroup` 的 `title` 内嵌整份文件内容（实测 ~9.4k 字符）；`OfficePreview.tsx:240` docx 暗色整体反色会连图片一起反色；`FileAttachmentBar.tsx:162` 缺 `relative`；固定宽度（`DocWorkflowProgress:78` 600px、`SessionHeader:275` 200px、`ImageCompareView:26` 600）；`CodeRunCard.tsx:157` `logs.join("")` 无分隔；回复引用截断无 `title` |
+| P2-7 | **导出性能/规模**（✅ 已完成 2026-09-27） | 后端 `handleExportSessionEvents` ⇒ 先 `writeHead` 再逐页 `res.write` + `writeWithBackpressure`（等 `drain`/客户端断开即停）+ catch 补「头已发出 ⇒ `res.end()`」；前端 `SessionHeader` 的 `exportAsMarkdown`/`exportAsJson` ⇒ async 逐条累加、每 20 条让出事件循环（JSON 逐条 stringify 后缩进拼装，产出与整体 `JSON.stringify(...,2)` 一致） |
+| P2-8 | **零散**（✅ 已完成 2026-09-27；1 项证据否定） | 已修：`InboxBlock:138` 过期快照 ⇒ 30s 心跳；`SessionHeader:275` 200px ⇒ `w-full max-w-[200px]`；`OfficePreview:240` docx 暗色 ⇒ `invert + hue-rotate-180` + CSS 对 img 施加同链（图片不被反色）；回复引用截断补 `title`；`ChatMessage` DebugBlockInfo `title` 截断 500 字。⚠️ 否定：`ToolCallGroup` 的 `title` 内嵌 ~9.4k **无法复现**（该文件 `title` 命中 0 处，`getArgStr` 已 40 字截断）。已随 P2-2/P2-6 完成：`StatusFloatBar` `skipped` 图标、`FileAttachmentBar` `relative`、`DocWorkflowProgress` 宽度；`ChatMessageList:645` `timestamp!` 经核验非缺陷 |
 | P2-9 | **会话切换时近乎全量重排消息**：`[setMessages:SORT] 检测到顺序不一致，已归一化 {total:14, movedCount:14}`（另两例 18/18、30/29）——`movedCount ≈ total` 说明每次切换几乎整表重排，可能带来无谓重建/闪烁 | 真机 console（**warn 级**，非 error）**[实测]** | 核查排序判定条件（是否每次都对同一批消息判为乱序）与重排开销 |
 
 ---
@@ -248,8 +262,9 @@
   P1-9/10/11 prose / streaming-cursor / markdown-theme 归属统一
 
 第 4 批（P2 分批）
-  i18n 批量迁移（✅ 已完成）→ 重复渲染收敛（✅ 已完成）→ 死代码（✅ 已完成，D4）→ 性能 → 可访问性 → 导出工程化（✅ 已完成，D2/D3）
-  剩余：P2-7 后端导出流式写、P2-5 剩余、P2-8 剩余
+  i18n 批量迁移（✅ 已完成）→ 重复渲染收敛（✅ 已完成）→ 死代码（✅ 已完成，D4）→ 导出工程化（✅ 已完成，D2/D3）
+  → 可访问性（✅ 已完成）→ 导出性能/规模（✅ 已完成）→ 零散（✅ 已完成；1 项证据否定）
+  剩余：P2-4 性能（未执行；抽查 `SessionListItem` 的 250ms 延迟 + logger.info 仍在）
 ```
 
 **通用门禁**：每批结束跑 `client` 的 `tsc --noEmit` + `eslint` + `vitest run`（必要时 `test:coverage`），并至少做一次真机复验；新增守卫测试需做**突变验证**（还原旧实现即转红）。

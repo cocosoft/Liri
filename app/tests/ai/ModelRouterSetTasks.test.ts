@@ -17,13 +17,13 @@ const router = ModelRouter.getInstance();
 
 /** 记录 service 调用 + 重置内存缓存 */
 function seed(opts: { tasks?: Record<string, string> }) {
-  const r = router as unknown as { _taskCache?: Map<string, string> };
-  // 2026-09-26（macOS CI 实测 `TypeError: undefined is not an object (evaluating
-  // 'r._taskCache.clear')`）：`_taskCache` 是**类字段带初值**（`modelRouter.ts:436`），
-  // 正常实例上不会 undefined ⇒ 它缺失只说明 `getInstance()` 拿到的**不是正常构造的真身**
-  // （跨用例污染 / ESM 半初始化 / 模块双实例 —— 与执行顺序相关，故只在 macOS 暴露）。
-  // 此处**不假设**它存在：缺失即按契约重建（断言仍只走**公开行为**：service spy + `resolveRole`）。
-  r._taskCache ??= new Map<string, string>();
+  const r = router as unknown as { _taskCache: Map<string, string> };
+  // 2026-09-27：此处**保持严格形态，不做兜底**。`_taskCache` 缺失只可能说明
+  // `getInstance()` 拿到的不是真身而是别的测试留下的 stub —— 该现象的真实成因是
+  // `resolveModelRoute.test.ts` 曾用 `mock.module('@modules/ai/modelRouter.js')`
+  // 替换整个模块并跨文件泄漏（macOS CI 实测 `TypeError: router.setTasks is not a
+  // function`）；该处已改为 `spyOn`（可还原、不外溢）。保留严格断言作为哨兵：
+  // 一旦同类泄漏再现，这里会立刻红，而不是被 `??=` 掩盖成假绿。
   r._taskCache.clear();
   for (const [k, v] of Object.entries(opts.tasks ?? {})) r._taskCache.set(k, v);
 }

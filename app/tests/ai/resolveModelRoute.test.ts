@@ -32,8 +32,18 @@
  * 本测试固化三层优先级与"解析不出模型名时不得返回空/UUID"的口径。
  */
 
-import { describe, expect, test, mock } from 'bun:test';
+import {
+  describe,
+  expect,
+  test,
+  spyOn,
+  beforeEach,
+  afterEach,
+} from 'bun:test';
 import { RouteKey } from '../../src/ai/router/routes';
+import { ModelRouter } from '../../src/ai/modelRouter.js';
+import { appModelConfigService } from '../../src/ai/models/AppModelConfigService.js';
+import * as coreAPIModule from '../../src/runtime/api/CoreAPIImpl.js';
 
 /** 可变测试状态（各用例前重置） */
 const state = {
@@ -46,34 +56,53 @@ const state = {
   smartCalled: false,
 };
 
-mock.module('@modules/ai/models/AppModelConfigService.js', () => ({
-  appModelConfigService: {
-    initialize: async () => {},
-    getConfig: async () => ({
+/**
+ * 2026-09-27：原实现用三处 `mock.module()` **替换整个模块**。bun 的模块 mock 是
+ * **进程级全局且不可撤销**（探针实测：`mock.restore()` 无效、`--isolate` 亦拦不住）⇒
+ * 被替换的 `modelRouter` / `CoreAPIImpl` / `AppModelConfigService` 会泄漏给**同进程
+ * 后续加载的所有测试文件**，制造随文件加载顺序变化的跨用例污染（macOS CI 实测：
+ * `ModelRouterSetTasks` 拿到的正是此处留下的 stub ⇒ `TypeError: router.setTasks is
+ * not a function`）。
+ *
+ * 改用 `spyOn`：只改写对象成员，用例结束即逐个 `mockRestore()` 还原（且
+ * `resolveModelRoute` 内部是调用时动态 import，spy 一定生效），作用域不再外溢。
+ */
+let restoreSpies: Array<() => void> = [];
+
+beforeEach(() => {
+  restoreSpies = [
+    spyOn(appModelConfigService, 'initialize').mockResolvedValue(undefined),
+    spyOn(appModelConfigService, 'getConfig').mockImplementation(async () => ({
       appType: 'agent',
       model: state.cfgModel,
       source: state.source,
       updatedAt: 0,
-    }),
-  },
-}));
+    })),
+    spyOn(coreAPIModule, 'getCoreAPI').mockImplementation(
+      () =>
+        ({
+          getSmartRouter: () => ({
+            resolve: async () => {
+              state.smartCalled = true;
+              return { model: state.smartModel };
+            },
+          }),
+        }) as unknown as ReturnType<typeof coreAPIModule.getCoreAPI>
+    ),
+    spyOn(ModelRouter, 'getInstance').mockImplementation(
+      () =>
+        ({
+          resolve: () => state.mrModel,
+          resolveAsync: async () => state.mrModel,
+        }) as unknown as ModelRouter
+    ),
+  ].map((s) => () => s.mockRestore());
+});
 
-mock.module('@modules/runtime/api/CoreAPIImpl.js', () => ({
-  getCoreAPI: () => ({
-    getSmartRouter: () => ({
-      resolve: async () => {
-        state.smartCalled = true;
-        return { model: state.smartModel };
-      },
-    }),
-  }),
-}));
-
-mock.module('@modules/ai/modelRouter.js', () => ({
-  ModelRouter: {
-    getInstance: () => ({ resolve: () => state.mrModel }),
-  },
-}));
+afterEach(() => {
+  for (const restore of restoreSpies) restore();
+  restoreSpies = [];
+});
 
 const { resolveModelRoute } =
   await import('../../src/ai/router/resolveModelRoute');

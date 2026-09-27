@@ -19,23 +19,42 @@ let tmpRoot: string;
 let projectDir: string;
 let bigDir: string;
 
-beforeAll(() => {
-  tmpRoot = mkdtempSync(join(tmpdir(), 'glob-async-'));
-  projectDir = join(tmpRoot, 'proj');
-  mkdirSync(join(projectDir, 'src', 'a', 'b'), { recursive: true });
-  mkdirSync(join(projectDir, 'docs'), { recursive: true });
-  writeFileSync(join(projectDir, 'src', 'a', 'b', 'x.ts'), 'x\n');
-  writeFileSync(join(projectDir, 'src', 'index.ts'), 'x\n');
-  writeFileSync(join(projectDir, 'docs', 'readme.md'), 'x\n');
-  writeFileSync(join(projectDir, 'README.md'), 'x\n');
+/**
+ * 2026-09-27：显式声明本 hook 的耗时预算（30s）。
+ *
+ * 真机 CI 实测（Windows runner，commit e27db21b3）：本 hook 在 bun **默认 5s** 下偶发超时
+ * （报 `(fail) (unnamed)` + `a beforeEach/afterEach hook timed out`，7.6s，该文件一条用例都没跑），
+ * 同 commit **重跑即绿** ⇒ 属**环境抖动**（在 `%TEMP%` 上创建 10 目录 + 300 文件，受 runner 磁盘/杀软影响），
+ * 与非确定性行为无关。这里把预算写成实测所需量级，避免把"fixture 创建慢"误报成挂起。
+ *
+ * 注：bun **运行时**支持 `beforeAll(fn, timeout)`（本文件实测通过），但当前 `bun-types` 未声明第二参
+ * （与 `mock.restore` 同类缺失）⇒ 局部收窄类型，不用 `@ts-ignore`/`any` 绕过类型检查。
+ */
+const beforeAllWithTimeout = beforeAll as unknown as (
+  fn: () => void,
+  timeout?: number
+) => void;
 
-  bigDir = join(tmpRoot, 'big');
-  mkdirSync(bigDir, { recursive: true });
-  for (let i = 0; i < 300; i++) {
-    mkdirSync(join(bigDir, `dir${i % 10}`), { recursive: true });
-    writeFileSync(join(bigDir, `dir${i % 10}`, `f${i}.txt`), `x\n`);
-  }
-});
+beforeAllWithTimeout(
+  () => {
+    tmpRoot = mkdtempSync(join(tmpdir(), 'glob-async-'));
+    projectDir = join(tmpRoot, 'proj');
+    mkdirSync(join(projectDir, 'src', 'a', 'b'), { recursive: true });
+    mkdirSync(join(projectDir, 'docs'), { recursive: true });
+    writeFileSync(join(projectDir, 'src', 'a', 'b', 'x.ts'), 'x\n');
+    writeFileSync(join(projectDir, 'src', 'index.ts'), 'x\n');
+    writeFileSync(join(projectDir, 'docs', 'readme.md'), 'x\n');
+    writeFileSync(join(projectDir, 'README.md'), 'x\n');
+
+    bigDir = join(tmpRoot, 'big');
+    mkdirSync(bigDir, { recursive: true });
+    for (let i = 0; i < 300; i++) {
+      mkdirSync(join(bigDir, `dir${i % 10}`), { recursive: true });
+      writeFileSync(join(bigDir, `dir${i % 10}`, `f${i}.txt`), `x\n`);
+    }
+  },
+  30_000
+);
 
 afterAll(() => {
   try {

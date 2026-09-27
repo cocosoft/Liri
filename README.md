@@ -13,7 +13,7 @@
 
 [![CI Status](https://github.com/cocosoft/Liri/actions/workflows/ci.yml/badge.svg)](https://github.com/cocosoft/Liri/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-![Version](https://img.shields.io/badge/version-0.4.51-blue)
+![Version](https://img.shields.io/badge/version-0.4.52-blue)
 
 [快速开始](#-快速开始) •
 [功能概览](#-功能概览) •
@@ -374,7 +374,7 @@ bun run build:enterprise  # 企业版（全功能）
 
 ## 📋 版本
 
-当前版本：**v0.4.51**
+当前版本：**v0.4.52**
 
 版本管理遵循 [语义化版本规范](.trae/rules/versioning.md)：
 - 修订号 — 按需升，每次发版 +1（Bug 修复、文档更新、小重构）
@@ -382,6 +382,17 @@ bun run build:enterprise  # 企业版（全功能）
 - 主版本 — 达到 v1.0.0 标准时一次性从 0.x.x 跳到 1.0.0
 
 ### 🚀 版本更新记录
+
+#### v0.4.52 (2026-09-27)
+
+**长等待期可见性（等待态）+ 自发轮次模型归属修复（记账 / 窗口 / 估价）**
+
+- ✅ **长等待期"仍在干活"可见性** - 后端 `/v1/sessions/:id/streaming` 增 `pendingWake`（自唤醒待触发项按会话过滤 / 排序）；前端新增 `useWaitState` 派生等待态，浮动栏第 4 态显示「⏳ 等待中，预计 N 秒后自动继续」（静态蓝点、倒计时实时递减），`YieldNoticeBar` 收敛为仅展示未决 yield；已真机端到端复现（真实工具 + 真实端点 + 真实浏览器）
+- ✅ **自唤醒丢唤醒修复** - 四处登记改为 load → 追加 → save 的**合并写**（原整文件覆盖会在并发登记时丢失唤醒）
+- ✅ **用量归因 `model=unknown`** - 三处记账点改取 provider 回显模型（复用既有 `extractModelFromResponse`，未新增实现）；修复前回落兜底价 `$3/M in · $15/M out` 使**金额高估约 7.8×**（真机 `unknown … $0.0747` → `deepseek-v4-flash … $0.0096`）
+- ✅ **发送前模型归属（窗口 / 压缩 / 估价）** - 新增只读 `resolveEffectiveTurnModel({ explicitModel, client, sessionId })`：取值链「显式 → provider 级默认模型 → 路由档位（`skipJudge`，不进 LLM Judge）」，**零额外模型调用**、不改实际请求路由；StreamPipeline 与 orchestrator 三路径（`sendMessageFlow` / `streamMessageFlow` / `preSendContextProtection`）的窗口 / 阈值 / 压缩 / 估价站点统一解析一次后复用 —— 自发轮次（续跑 / 自唤醒 / PDCA / 空闲续接）不再回落硬编码 128k，避免长会话过压 / 过截或保护不足
+- ✅ **回归守卫（含突变验证）** - 等待态派生、`resolveEffectiveTurnModel` 取值链、用量归因与**窗口 / 估价归属防漂移**（还原旧写法即转红）
+- ✅ **CI 修复** - ubuntu 的 `PYAPP_DATA_DIR` 跨用例污染（收尾恢复 env）；`globAsync` 的 `beforeAll` 显式 30s 预算（Windows runner 上偶发超出 hook 默认 5s）
 
 #### v0.4.51 (2026-09-26)
 
